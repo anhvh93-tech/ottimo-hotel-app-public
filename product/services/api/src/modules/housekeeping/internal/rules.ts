@@ -288,5 +288,17 @@ export function woAllowedActions(
 /** SR-PWA-05 / OpenAPI B-02: device time accepted in [now − 24 h, now + 5 min]. */
 export function performedAtInRange(performedAt: Date, now: Date): boolean {
   const t = performedAt.getTime();
-  return t >= now.getTime() - 24 * 3_600_000 && t <= now.getTime() + 5 * 60_000;
+  return t >= now.getTime() - 24 * 3_600_000 && t <= now.getTime() + CLOCK_SKEW_MS;
+}
+
+/** Clock difference accepted between two clocks (device ↔ server, device ↔ device) – the +5' above. */
+export const CLOCK_SKEW_MS = 5 * 60_000;
+
+/**
+ * ARC S4-01 / S4-05: `performedAt` (device time) comes before `mark` – the previous action on the room / the start
+ * of the task, in the clock of whoever did it – by more than the accepted clock skew → 422
+ * PERFORMED_AT_OUT_OF_RANGE. Never compared with the time the server RECEIVED an action.
+ */
+export function performedBefore(performedAt: Date, mark: Date): boolean {
+  return performedAt.getTime() < mark.getTime() - CLOCK_SKEW_MS;
 }

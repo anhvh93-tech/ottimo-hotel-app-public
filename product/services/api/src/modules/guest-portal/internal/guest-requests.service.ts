@@ -14,8 +14,11 @@
  * Staff side (S30): list (HK/MT only what is routed to them – US-110 AC3) and transition (acknowledge /
  * complete / decline – SM-15; decline FD+ only; `replyNote` V-09 + SEC B-15 digits rule).
  * Linked work (BE-C → GuestRequestStatusPort): started → in_progress, done → done.
- * `done` posts the accepted fee ONCE to the folio through FolioService.postLines (BE-B FolioPort – category
- * `cleaning`, source `guest_app`, charge code `adhoc_cleaning`).
+ * The accepted fee goes ONCE to the folio through FolioService.postLines (BE-B FolioPort – category `cleaning`,
+ * source `guest_app`, charge code `adhoc_cleaning`) when the WORK is done: the linked task's `done`; for a request
+ * without linked work, the `complete` that closes it (ARC S4-07 – GuestRequestLifecycle header).
+ * Lock order of the staff transitions (ARC 16.19 bổ sung 3): folio (L3, only when this command may post the fee) →
+ * hk_task (L4, `decline` through the work port) → guest_request (L4b), the state checked again under the last lock.
  * J10 `guest_request.sla` + "Cần chú ý" `guest_request_overdue`: requests still `new` after `ackDueAt` (US-110 AC2).
  * The note (C2, D23) never goes into a notification, push, SSE payload or log.
  */
@@ -41,6 +44,7 @@ import { ParameterService } from '../../platform/public/parameter.service';
 import { PropertyContextService } from '../../platform/public/property-context';
 import { guestRoomView } from '../../reservations/public/guest-room-view';
 import type { StayView } from '../../registration/public/registration.service';
+import type { HkTaskStatus } from '../../housekeeping/public/guest-request-work.port';
 import {
   GUEST_REQUEST_WORK_PORT,
   type GuestRequestWork,
@@ -49,7 +53,6 @@ import {
 import { guestRequestSlaJob } from '../public/guest-request-jobs';
 import { GuestRequestLifecycle, sseRoles } from './guest-request-lifecycle';
 import {
-  FULL_CLEAN_TASK_TYPES,
   GUEST_REQUESTS_PER_DAY,
   OPEN_PAID_REQUESTS_MAX,
   type RoutedTo,
@@ -172,9 +175,11 @@ export class GuestRequestsService implements OnModuleInit {
       ? cleaningFee({
           stayType: stay.stayType,
           feeVnd: await this.params.get<number>(tx, 'adhoc_cleaning_fee', c.today),
-          lastFullCleanTime: room?.roomId
-            ? await this.lastFullClean(tx, room.roomId, stay, c)
-            : null,
+          // A long stay pays every ad-hoc clean (BR-506): no need to look for today's clean.
+          lastFullCleanTime:
+            room?.roomId && stay.stayType === 'short'
+              ? await this.lastFullClean(tx, room.roomId, stay, c)
+              : null,
         })
       : { feeVnd: null, feeReason: null, lastFullCleanTime: null };
     const { rows } = await tx.query<{ n: number }>(
@@ -204,8 +209,10 @@ export class GuestRequestsService implements OnModuleInit {
 
   /**
    * BR-506 short stay: time of the last FULL clean of this stay done today (business day) in the room – the
-   * daily clean, a long-stay/ad-hoc clean, or an earlier `extra_cleaning` request's task (FULL_CLEAN_TASK_TYPES –
-   * v0.3.8: a priority clean preparing the room is NOT one). A clean before this guest checked in does not count.
+   * daily clean, a long-stay/ad-hoc clean (housekeeping's FULL_CLEAN_TASK_TYPES – v0.3.8: a priority clean
+   * preparing the room is NOT one), or the task of an earlier "Dọn thêm" (`extra_cleaning`) request of this stay.
+   * A clean before this guest checked in does not count. Read through housekeeping's port `lastFullCleanAt`
+   * (ARC FB-R2-ARC-BE-S4-09): guest-portal names its own requests, housekeeping decides on its tasks.
    */
   private async lastFullClean(
     tx: Tx,
@@ -218,15 +225,18 @@ export class GuestRequestsService implements OnModuleInit {
       stay.actualCheckinAt && stay.actualCheckinAt.getTime() > dayStart.getTime()
         ? stay.actualCheckinAt
         : dayStart;
-    const { rows } = await tx.query<{ done_at: Date }>(
-      `SELECT t.done_at FROM hk_task t
-         LEFT JOIN guest_request g ON g.id = t.guest_request_id
-        WHERE t.room_id = $1 AND t.status = 'done' AND t.done_at >= $2 AND t.done_at <= $3
-          AND (t.type = ANY($4::text[]) OR (t.type = 'guest_request' AND g.type = 'extra_cleaning'))
-        ORDER BY t.done_at DESC LIMIT 1`,
-      [roomId, since, c.now, FULL_CLEAN_TASK_TYPES],
+    const { rows } = await tx.query<{ id: string }>(
+      `SELECT id FROM guest_request
+        WHERE reservation_id = $1 AND room_id = $2 AND type = 'extra_cleaning' AND hk_task_id IS NOT NULL
+          AND status <> 'declined'`,
+      [stay.reservationId, roomId],
     );
-    const at = rows[0]?.done_at;
+    const at = await this.work.lastFullCleanAt(tx, {
+      roomId,
+      since,
+      until: c.now,
+      fullCleanRequestIds: rows.map((r) => r.id),
+    });
     return at ? toZonedIso(at, c.tz).slice(11, 16) : null;
   }
 
@@ -513,11 +523,34 @@ export class GuestRequestsService implements OnModuleInit {
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     const c = await this.ctx(tx);
-    const r = await this.row(tx, id, true);
+    // 16.19 bổ sung 3: read WITHOUT a lock first – what decides the locks never changes after creation
+    // (`routed_to`, `hk_task_id`, `work_order_id`, `fee_vnd_snapshot`) – then folio (L3) → task (L4) → request
+    // (L4b), and the state is checked again under the request's lock.
+    const pre = await this.row(tx, id);
     const scope = this.scope(actor.roles);
     // HK/MT: a request routed elsewhere does not exist for them (no existence leak).
-    if (scope && !scope.includes(r.routed_to)) throw problem('NOT_FOUND');
+    if (scope && !scope.includes(pre.routed_to)) throw problem('NOT_FOUND');
     const fd = scope === null;
+    const linked = !!(pre.hk_task_id || pre.work_order_id);
+    let taskStatus: HkTaskStatus | null = null;
+    if (action === 'complete') {
+      // FD+; HK/MT only while no task / work order carries the request (port not wired – EP14 4.4).
+      if (!fd && linked) throw problem('FORBIDDEN_ACTION');
+      // S4-07: only a request WITHOUT linked work is charged at `complete` – lock its folio first (L3).
+      if (!linked && this.lifecycle.feeDue(pre))
+        await this.lifecycle.lockFeeFolio(tx, pre.reservation_id);
+    } else if (action === 'decline') {
+      if (!fd) throw problem('FORBIDDEN_ACTION');
+      if (pre.hk_task_id) {
+        // L4: the open task is cancelled (BE-C port) and stays locked; its status lets an `in_progress` request
+        // whose task was cancelled be declined (S4-07). Rolled back with the rest when the decline is refused.
+        await this.work.cancelTask(tx, pre.hk_task_id, c.now);
+        if (this.work.taskStatus) taskStatus = await this.work.taskStatus(tx, pre.hk_task_id);
+      }
+    } else if (action !== 'acknowledge') {
+      throw problem('NOT_FOUND');
+    }
+    const r = await this.row(tx, id, true); // L4b
     const invalid = () => problem('INVALID_TRANSITION', { extras: { currentState: r.status } });
     let to: GuestRequestStatus;
     if (action === 'acknowledge') {
@@ -529,20 +562,23 @@ export class GuestRequestsService implements OnModuleInit {
         [id, c.now, actor.userId],
       );
     } else if (action === 'complete') {
-      // FD+; HK/MT only while no task / work order carries the request (port not wired – EP14 4.4).
-      if (!fd && (r.hk_task_id || r.work_order_id)) throw problem('FORBIDDEN_ACTION');
       if (r.status !== 'acknowledged' && r.status !== 'in_progress') throw invalid();
-      const reply = await this.replyNote(tx, body.replyNote, false);
+      const reply = await this.replyNote(tx, body.replyNote, false, c.today);
       to = 'done';
+      // S4-07 / BR-506: a linked task posts the fee when IT is done (GuestRequestLifecycle.linkedDone) – closing
+      // the request here charges nothing (task still open, or cancelled: the guest is not charged).
+      const line = linked
+        ? null
+        : await this.lifecycle.postFeeLine(tx, r, actor.userId, actor.requestId);
       await tx.query(
         `UPDATE guest_request SET status = 'done', reply_note = COALESCE($3, reply_note), closed_at = $2,
-                closed_by = $4, updated_at = $2, version = version + 1 WHERE id = $1`,
-        [id, c.now, reply, actor.userId],
+                closed_by = $4, fee_folio_line_id = COALESCE($5, fee_folio_line_id), updated_at = $2,
+                version = version + 1 WHERE id = $1`,
+        [id, c.now, reply, actor.userId, line],
       );
-      await this.lifecycle.postFee(tx, r, actor.userId, actor.requestId);
-    } else if (action === 'decline') {
-      if (!fd) throw problem('FORBIDDEN_ACTION');
-      if (r.status !== 'new' && r.status !== 'acknowledged') throw invalid();
+    } else {
+      const cancelledWork = r.status === 'in_progress' && taskStatus === 'cancelled';
+      if (r.status !== 'new' && r.status !== 'acknowledged' && !cancelledWork) throw invalid();
       const code = body.declinedReasonCode;
       if (code === undefined || code === null || code === '') {
         throw fieldError('declinedReasonCode', 'REQUIRED');
@@ -553,7 +589,7 @@ export class GuestRequestsService implements OnModuleInit {
       ) {
         throw fieldError('declinedReasonCode', 'NOT_IN_LIST');
       }
-      const reply = await this.replyNote(tx, body.replyNote, code === 'other');
+      const reply = await this.replyNote(tx, body.replyNote, code === 'other', c.today);
       to = 'declined';
       await tx.query(
         `UPDATE guest_request SET status = 'declined', declined_reason_code = $3,
@@ -561,9 +597,6 @@ export class GuestRequestsService implements OnModuleInit {
                 version = version + 1 WHERE id = $1`,
         [id, c.now, code, reply, actor.userId],
       );
-      if (r.hk_task_id) await this.work.cancelTask(tx, r.hk_task_id, c.now);
-    } else {
-      throw problem('NOT_FOUND');
     }
     await this.lifecycle.history(
       tx,
@@ -586,8 +619,13 @@ export class GuestRequestsService implements OnModuleInit {
     return this.staffDto(tx, rows[0] as GuestRequestRow, c);
   }
 
-  /** `replyNote` (B-15): ≤ 300, plain text, V-09 and the SEC digits rule; required for `other`. */
-  private async replyNote(tx: Tx, raw: unknown, required: boolean): Promise<string | null> {
+  /** `replyNote` (B-15): ≤ 300, plain text, V-09 and the SEC digits rule (V2 – C.6); required for `other`. */
+  private async replyNote(
+    tx: Tx,
+    raw: unknown,
+    required: boolean,
+    today: LocalDate,
+  ): Promise<string | null> {
     if (raw !== undefined && raw !== null && typeof raw !== 'string') {
       throw fieldError('replyNote', 'VALIDATION_FAILED');
     }
@@ -604,7 +642,7 @@ export class GuestRequestsService implements OnModuleInit {
       'SELECT phone_public FROM property WHERE id = $1',
       [tx.ctx.propertyId],
     );
-    if (hasSensitiveDigits(text, rows[0]?.phone_public ?? null)) {
+    if (hasSensitiveDigits(text, rows[0]?.phone_public ?? null, Number(today.slice(0, 4)))) {
       throw fieldError('replyNote', 'SENSITIVE_DATA_DETECTED');
     }
     return text;

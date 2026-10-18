@@ -50,7 +50,8 @@ export function LoginPage({
       } else if (isApiError(err) && err.status === 401) {
         setError(t('auth.login.error_generic'));
       } else {
-        setError(t('common.error_network_body'));
+        // P-28: the button here says "Đăng nhập", not "Thử lại".
+        setError(t('login.error_network'));
       }
     } finally {
       setBusy(false);
@@ -64,7 +65,8 @@ export function LoginPage({
           OTTIMO <span className="hk-brand-sub">Staff</span>
         </h1>
         <p className="li-s m-0">{t('staff.login_sub')}</p>
-        {expired ? (
+        {expired || pending ? (
+          // P-09: also after re-opening the app (not only when the session ended while working).
           <Alert tone="warn" title={t('hk.queue.relogin_title')}>
             {pending ? t('hk.queue.relogin_body', { n: pending }) : t('error.UNAUTHENTICATED')}
           </Alert>

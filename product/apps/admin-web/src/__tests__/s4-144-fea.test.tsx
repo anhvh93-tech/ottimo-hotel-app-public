@@ -86,7 +86,8 @@ describe('BUG-R2-144 – tủ đã đếm phải đếm lại (BR-703-02)', () =
     expect(
       await screen.findByText(tv('co.minibar_recount_title', { room: '201' })),
     ).toBeInTheDocument();
-    expect(screen.getByText(tv('co.minibar_recount_body'))).toBeInTheDocument();
+    // FE-S4-23: the sentence of `stay_continued` (extension after the count).
+    expect(screen.getByText(tv('co.minibar_recount_body_stay_continued'))).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(1));
     counts.stop();
@@ -351,7 +352,7 @@ describe('ARC 16.16 (ab) – lần đếm gửi kèm kỳ (`periodId`), 409 MINI
     const row = (
       await screen.findByRole('rowheader', { name: new RegExp(`^${coke.itemName}`) })
     ).closest('tr')!;
-    const used = () => within(row).getAllByRole('cell')[2]!.textContent;
+    const used = () => within(row).getAllByRole('cell')[1]!.textContent;
     await user.click(within(row).getByRole('button', { name: tv('rooms.dec') }));
     expect(used()).toBe('1');
     // Housekeeping restocks the cabinet while the desk is counting.
@@ -385,6 +386,33 @@ describe('ARC 16.16 (ab) – lần đếm gửi kèm kỳ (`periodId`), 409 MINI
       await screen.findByLabelText(new RegExp(tv('checkout.departure_time'))),
     ).toBeInTheDocument();
     expect(screen.queryByText(tv('co.minibar_period_changed_title'))).toBeNull();
+  });
+});
+
+describe('FE-S4-23 – câu "cần đếm lại" theo `reason`', () => {
+  it('`not_today` (đã đếm nhưng không trong ngày đi – K11-09) → câu riêng của UXD', async () => {
+    at('11:00');
+    const r = res('Phạm Huy');
+    const key = `${r.id}:${r.segments![0]!.roomId}`;
+    mockControl.stay.minibarChecks.set(r.id, countUsing(1));
+    mockControl.stay.minibarNotToday.add(key);
+    renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
+    expect(
+      await screen.findByText(tv('co.minibar_recount_title', { room: '201' })),
+    ).toBeInTheDocument();
+    expect(screen.getByText(tv('co.minibar_recount_body_not_today'))).toBeInTheDocument();
+    expect(screen.queryByText(tv('co.minibar_recount_body'))).toBeNull();
+  });
+
+  it('`stay_continued` (gia hạn sau khi đếm) → câu riêng, không phải câu chung', async () => {
+    at('11:00');
+    const r = res('Phạm Huy');
+    mockControl.stay.minibarChecks.set(r.id, countUsing(1));
+    mockControl.stay.minibarRecount.add(`${r.id}:${r.segments![0]!.roomId}`);
+    renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
+    expect(
+      await screen.findByText(tv('co.minibar_recount_body_stay_continued')),
+    ).toBeInTheDocument();
   });
 });
 
@@ -432,7 +460,7 @@ describe('K11-03 – lần đếm luôn định danh tủ; căn hiện tại = �
     const row = (
       await screen.findByRole('rowheader', { name: new RegExp(`^${coke.itemName}`) })
     ).closest('tr')!;
-    await waitFor(() => expect(within(row).getAllByRole('cell')[2]!.textContent).toBe('0'));
+    await waitFor(() => expect(within(row).getAllByRole('cell')[1]!.textContent).toBe('0'));
     await user.click(within(row).getByRole('button', { name: tv('rooms.dec') }));
     await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(1));

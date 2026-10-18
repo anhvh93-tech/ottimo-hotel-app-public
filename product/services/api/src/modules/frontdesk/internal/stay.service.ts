@@ -107,9 +107,11 @@ export class StayService {
     const defaults: NightPrice[] = [];
     let maxNights = 0;
     let consecutive = true;
+    // S4-36: the nights of the scan and the one after it, in one query.
+    const free = await this.s.occupancy.freeNights(tx, rm.id, from, limit + 1);
     for (let i = 0; i < limit; i += 1) {
       const date = addDays(from, i);
-      const available = await this.s.occupancy.isFree(tx, rm.id, date, addDays(date, 1));
+      const available = free[i] as boolean;
       if (!available) consecutive = false;
       if (available && consecutive) maxNights += 1;
       if (row.external_contract) {
@@ -134,10 +136,7 @@ export class StayService {
         ceilingVnd: d.ceilingVnd,
       });
     }
-    const beyond =
-      consecutive &&
-      maxNights === limit &&
-      (await this.s.occupancy.isFree(tx, rm.id, addDays(from, limit), addDays(from, limit + 1)));
+    const beyond = consecutive && maxNights === limit && free[limit] === true;
     const currentNights = nightsOf(row.arrival_date, from);
     const exceeds =
       !row.external_contract &&
@@ -374,6 +373,8 @@ export class StayService {
         [row.id, to, ctx.now],
       );
       await recordChange(tx, row.id, 'departure_date', from, to, ctx.now, 'B13');
+      // A7-01 (ARC 16.21): a manual long stay gets the lease nights of the added dates (never folio lines).
+      if (row.external_contract) await this.s.stay.syncLeaseNights(tx, ctx, row.id);
     }
     if (row.channel_group === 'ota') {
       await tx.query(
@@ -998,6 +999,8 @@ export class StayService {
         now: ctx.now,
         requestId: ctx.requestId,
       });
+      // A7-01 (ARC 16.21): a manual long stay's lease nights follow the new segments (never folio lines).
+      if (b.external_contract) await this.s.stay.syncLeaseNights(tx, ctx, b.id);
     }
     const children = plans.filter((p) => p.reservationId !== row.id);
     await this.audit.record(tx, {

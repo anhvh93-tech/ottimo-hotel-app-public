@@ -2,13 +2,36 @@
 # Static SPAs (admin-web, mobile PWA, guest-web) served by Caddy (ADR-004). Build context = product/
 # The Caddyfile is NOT baked in: compose mounts Caddyfile.dev (dev) or Caddyfile.prod (staging/production,
 # docker-compose.prod.yml) at /etc/caddy/Caddyfile (FB-R1-ARC-OPS-07).
+# Build args (UXR P-15, R2 Sprint 4):
+#   WEB_BUILD_PROFILE  dev (default: compose dev stack, CI E2E) | demo (infra/demo/demo-up.sh) | production (CI
+#                      publish-images – the image staging and production run)
+#   VITE_DESK_PHONE    public front desk number baked into the staff PWA ("Gọi lễ tân") and the guest web (expired
+#                      link page). Required for demo/production, optional for dev: infra/docker/check-web-build-config.sh
+#   docker build -f infra/docker/Dockerfile.web --build-arg WEB_BUILD_PROFILE=production --build-arg VITE_DESK_PHONE .
+
+# Settings check in its own small stage: BuildKit runs it in parallel with the dependency install below, so a
+# demo/production build without a usable desk phone stops within seconds, and the phone does not invalidate the
+# pnpm install layer.
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS web-config
+ARG WEB_BUILD_PROFILE=dev
+ARG VITE_DESK_PHONE=""
+COPY infra/docker/check-web-build-config.sh /usr/local/lib/check-web-build-config.sh
+RUN sh /usr/local/lib/check-web-build-config.sh && touch /web-config.ok
+
 FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS build
 RUN npm install -g pnpm@9.15.4
 WORKDIR /repo
 COPY . .
 # Lockfile is mandatory (ADR-012, FB-R1-SEC-OPS-05, SEC-R1-24): no lockfile or a stale one = build fails.
 RUN pnpm install --frozen-lockfile
+# The build waits for the settings check (and fails with it).
+COPY --from=web-config /web-config.ok /tmp/web-config.ok
+ARG VITE_DESK_PHONE=""
 RUN pnpm exec turbo run build --filter=./apps/*
+# Served files readable by the unprivileged Caddy user whatever the modes of the build context (UXR P-24): a source
+# copy extracted under umask 077 gave the copied public/ files (manifest.webmanifest, sw.js) mode 0600 in dist, and
+# Caddy answered index.html for them, so the PWA could not install. Files 0644, directories 0755, owner root.
+RUN chmod -R u=rwX,go=rX apps/admin-web/dist apps/mobile/dist apps/guest-web/dist
 
 FROM caddy:2-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f AS runtime
 # Run as an unprivileged user (FB-R1-SEC-OPS-07). The binary's cap_net_bind_service is removed (it would also
@@ -25,4 +48,8 @@ COPY --from=build /repo/apps/admin-web/dist /srv/admin-web
 COPY --from=build /repo/apps/mobile/dist /srv/mobile
 COPY --from=build /repo/apps/guest-web/dist /srv/guest-web
 USER 10001:10001
+# Guard (UXR P-24): every served file and directory must be readable by the user Caddy runs as – a failed build
+# here instead of a PWA that silently cannot install.
+RUN find /srv -type d | while IFS= read -r d; do [ -r "$d" ] && [ -x "$d" ] || { echo "not readable by uid 10001: $d" >&2; exit 1; }; done \
+    && find /srv -type f | while IFS= read -r f; do [ -r "$f" ] || { echo "not readable by uid 10001: $f" >&2; exit 1; }; done
 EXPOSE 8081 8082 8083

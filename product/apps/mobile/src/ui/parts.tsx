@@ -10,6 +10,7 @@ import type { Mode } from '../app/session';
 import { ddmm, hhmm } from '../app/time';
 import { useInbox } from '../app/notifications';
 import { useQueue } from '../queue/QueueProvider';
+import { waitingActions } from '../queue/queue';
 
 type ChipTone = 'ok' | 'warn' | 'bad' | 'oak' | 'ink' | 'neutral';
 
@@ -118,11 +119,14 @@ export function TopBar({
   sub,
   back,
   right,
+  ownOfflineNote,
 }: {
   title: ReactNode;
   sub?: ReactNode;
   back?: Route;
   right?: ReactNode;
+  /** The screen says itself what works offline (H21 report) – no second banner on top (UXR P-31). */
+  ownOfflineNote?: boolean;
 }) {
   const { t } = useI18n();
   return (
@@ -131,7 +135,7 @@ export function TopBar({
         {back ? (
           <button
             type="button"
-            className="icon-btn hk-back"
+            className="btn icon-btn hk-back"
             aria-label={t('common.back')}
             onClick={() => goBack(back)}
           >
@@ -145,7 +149,7 @@ export function TopBar({
         {right}
         <Bell />
       </header>
-      <NetworkBar />
+      <NetworkBar hideOffline={ownOfflineNote} />
     </>
   );
 }
@@ -158,7 +162,7 @@ function Bell() {
   const n = inbox.unread;
   return (
     <a
-      className="icon-btn hk-bell"
+      className="btn icon-btn hk-bell"
       href={href({ name: 'notifications' })}
       aria-label={n ? t('staff.notif.bell', { n }) : t('shell.notifications')}
     >
@@ -173,14 +177,14 @@ function Bell() {
 }
 
 /** Offline banner + "n thao tác đang chờ gửi" pill at the top of every screen (DS 6.18). */
-export function NetworkBar() {
+export function NetworkBar({ hideOffline }: { hideOffline?: boolean } = {}) {
   const { t } = useI18n();
-  const { online, waiting, rejected, paused } = useQueue();
-  // Items still in their 10-second undo window are shown by the toast, not by the pill.
-  const n = waiting.filter((i) => i.state !== 'held' && i.kind !== 'attachment').length;
+  const { online, items, rejected, paused } = useQueue();
+  // Same count as "Thao tác trên máy" (UXR P-07).
+  const n = waitingActions(items).length;
   return (
     <>
-      {!online ? (
+      {!online && !hideOffline ? (
         <div className="offline-bar" role="status">
           <Icon name="offline" />
           <span className="grow">{t('hk.offline_bar')}</span>
@@ -257,7 +261,8 @@ export function BottomNav({ mode, current }: { mode: Mode; current: Route['name'
           { route: { name: 'me' }, icon: 'user', label: t('nav.me'), match: ['me', 'queue'] },
         ]
       : [
-          { route: { name: 'tasks' }, icon: 'broom', label: t('nav.my_tasks'), match: ['tasks'] },
+          // P-27: short label – "Việc của tôi" broke into two lines at 360 px.
+          { route: { name: 'tasks' }, icon: 'broom', label: t('nav.tasks'), match: ['tasks'] },
           {
             route: { name: 'rooms' },
             icon: 'rack',

@@ -704,6 +704,67 @@ Lỗi (`reviews/s4-money-recheck5b.md` K11-03 (b)): Desk lấy `segments[0]` là
 
 ---
 
+## Phần FE-A – đợt 18: NÊN-ÔĐ – S4-45 (năm sinh trẻ em), BUG-R2-103, S4-50b (078, 087, 089, 101, 102) (18/10/2026, tuần Ổn định – Sản xuất)
+
+| Mã | Sửa | Tệp |
+|---|---|---|
+| **S4-45** năm sinh trẻ em | Theo BA (`EP02-reservations.md` mục 8 – bắt buộc khi `role = child`, khớp server): ô "Năm sinh" có dấu bắt buộc; trống → nút "Thêm" khóa, lý do cạnh nút `party.child_birth_year_required`; ngoài 2000 … năm của ngày nghiệp vụ → `field_error.value_out_of_range` ở ô; 422 `REQUIRED` của máy chủ hiện cùng câu BA. Không cần BE nới | `StayDialogs.tsx` (PartyDialog) |
+| **BUG-R2-103** 2 dòng "Còn phải thu" | Lỗi ở **drawer** đơn đang ở (sổ lỗi, không phải H16): khi có danh sách dòng folio, bảng đầu chỉ còn tiền phòng/cọc; "Đã thu" và "Còn phải thu" nói một lần, sau các dòng | `ReservationDrawer.tsx` |
+| **BUG-R2-101** giữ chỗ chưa cọc "Còn phải thu 0 đ" | Chưa có dòng và chưa thu → thay dòng 0 đ bằng `drawer.folio.nothing_posted`; số cần thu của đơn giữ chỗ vẫn ở dòng "Cọc cần thu" | `ReservationDrawer.tsx` |
+| **BUG-R2-102** đã hủy và đã hoàn | Thêm dòng "Đã hoàn +…" (Σ giao dịch `refund` đã chi trong `getFolio.payments`) ở cả hai bảng | `ReservationDrawer.tsx` |
+| **BUG-R2-087** H16 khung Folio | Thêm dòng dự tính cho phần máy chủ đã tính mà chưa có dòng folio: phụ thu trả muộn mới / tính lại (phần chênh) / đảo phụ thu đã ghi; ở đường BR-416-06 thêm dòng phụ thu bằng giá 1 đêm và dòng miễn/giảm. Các dòng nay cộng ra "Còn phải thu"; số vẫn là của máy chủ | `CheckOutPage.tsx` |
+| **BUG-R2-089** giấy tờ chỉ có ảnh | Tiến độ "Đã có giấy tờ x/y" theo `Registration.submittedCount` (cùng số với danh sách); dòng chưa nhập trường mang chip "Cần nhập thông tin" thay "Đã có". Mock đếm như server | `DocsPanel.tsx`, `mocks/stay.ts` |
+| **BUG-R2-078** cột danh sách | Desk đã đọc `ReservationSummary.balanceDueVnd`; BE-A đã thêm trường (`s4-be-a.md` mục 9) – thêm ca hồi quy | – |
+
+- **Chuỗi**: 8 khóa mới, nhóm "FE-A đợt 18" trong `gen_strings.py` – **chờ UXD duyệt**.
+- **Cần BE/ARC (ORC chuyển)**:
+  - BUG-R2-101: nghĩa `Reservation.balanceDueVnd` trước nhận phòng (hiện 0 khi chưa có dòng folio) – ARC chốt (ví dụ "tiền phòng còn phải thu" hoặc vắng trước khi có folio). Desk đã không hiện "0 đ" gây hiểu nhầm.
+  - BUG-R2-102: nên có `Folio.totals.refundedVnd` (BE-B/ARC) để Desk không phải cộng từ danh sách giao dịch.
+- **Bổ sung theo ARC 16.20** (api-client sinh lại): 101 – `Reservation.balanceDueVnd` **vắng** (đơn giữ chỗ chưa có dòng `posted`) → drawer hiện "Tiền phòng" + "Cọc cần thu" = `depositRequiredVnd − depositPaidVnd` (khi > 0), không "Đã thu"/"Còn phải thu"; folio 0 đ mà chưa có dòng `posted` → "Chưa có khoản nào trên folio"; bỏ cách đoán theo trạng thái. 102 – "Đã thu" = `paidVnd`, "Đã hoàn" = `Folio.totals.refundedVnd`; bỏ phần Desk tự cộng giao dịch hoàn. Mock: đơn `hold` không trả `balanceDueVnd` (chi tiết và danh sách), folio có `refundedVnd`. Sửa ca UXR #6 trong `s3-fix9.test.tsx` theo nghĩa mới; ca 101/102 trong `s4-50b-fea.test.tsx` kiểm số cọc còn thiếu, tiền phòng, `paidVnd`/`refundedVnd`. admin-web **363/363**, `tsc`, eslint, prettier xanh. Hai việc BE/ARC nêu ở trên nay thuộc BE-A (`reservation-dto.ts` vắng `balanceDueVnd`) và BE-B (`refundedVnd`) theo 16.20.
+- **Chưa làm (NÊN, không thuộc NÊN-ÔĐ)**: phần ngân hàng của S4-45 (BUG-R2-074, 099) – chờ INT có danh sách ngân hàng VietQR.
+- Kiểm thử: `s4-50b-fea.test.tsx` (mới, 7 ca – mỗi mã một ca, 078 là hồi quy). admin-web **363/363**, `tsc`, eslint, prettier xanh. Một lần chạy cả bộ, ca `booking.test.tsx` "direct booking" quá giờ 5 giây rồi tự xanh khi chạy lại (máy bận) – không liên quan thay đổi.
+
+---
+
+## Phần FE-A – đợt 18b: thẻ UXD `reviews/s4-UXD-brand.md` – FE-S4-22, FE-S4-23 (18/10/2026, trước cổng)
+
+- **FE-S4-22 (Major, BR-012 – S4-52)**: tờ phiếu thanh toán (H16 bước 3, drawer đơn đã trả phòng – cùng `BillDialog`) ghi `{khách} · {tên phòng} · ngày`, dùng `Bill.roomName` (số căn chỉ khi căn chưa có tên, DS 11.3), cả trên màn và bản in `.print-root`. Rà các bản in/chứng từ khác của Desk: chỉ có phiếu thanh toán in cho khách (các màn còn lại hiện số căn là màn nội bộ). Mock: `getBill` trả `roomName` và nhãn dòng (`room`, `from`, `to`) theo tên phòng như server (0.3.7 bổ sung D1). Ca test: phiếu và bản in có "The Mist", không có "201".
+- **FE-S4-23 (Minor)**: câu dưới "Tủ căn … cần đếm lại" theo `reason` – `stay_continued`, `new_fill`, `not_today` có câu riêng của UXD; giá trị lạ hoặc máy chủ chưa có `reason` → câu chung `co.minibar_recount_body`. Mock thêm đánh dấu `not_today` (K11-09) cho test. Ca test `not_today` và `stay_continued` trong `s4-144-fea.test.tsx`; sửa ca gia hạn cũ sang câu `stay_continued`.
+- `hifi.css` UXD vừa sửa (`h3` Be Vietnam Pro 600, `.btn.brand`): chạy lại toàn bộ – admin-web **366/366**, `@ottimo/ui` xanh; không ca nào hỏng. `tsc`, eslint, prettier xanh. Không thêm chuỗi (dùng chuỗi UXD đã sinh lại).
+
+---
+
+## Phần FE-A – đợt 19: SEC FB-R2-SEC-BE-73 / ARC 16.22 – giấy tờ không mặc định "của người đặt" (18/10/2026, trước cổng)
+
+- **H14 nhập tay giấy tờ** (`DocsPanel.tsx` `ManualDocDialog`, thêm mới): ô **"Người trong đoàn"** bắt buộc, không chọn sẵn; danh sách người trong đơn (người đặt có nhãn "Người đứng tên") + **"Người ở chưa có trong đơn"** (không gửi `partyMemberId` → server khớp/tạo hồ sơ "từ giấy tờ"). Chưa chọn → `reg.person_required` ở ô. Không còn điền sẵn tên người đặt; chọn người thì điền tên người đó vào ô tên khi ô trống. `isMain` thành ô **"Khách chính của khai báo lưu trú"** (mặc định bật cho giấy tờ đầu tiên), không quyết định giấy tờ của ai. Người đặt chỉ bị khóa khi đã có giấy tờ gắn với chính họ (bỏ luật "đã có giấy tờ chính = người đặt đã có giấy tờ", cả ở hộp "Gắn người").
+- **Đồng ý giữ ảnh giấy tờ** (`RegistrationPage.tsx`): gửi `partyMemberId` của người gắn với giấy tờ – bỏ dự phòng `doc.id`; giấy tờ chưa gắn người → hai lựa chọn khóa, câu `reg2.consent_needs_person`. Desk chưa có màn hỏi P05_CRM riêng; khi làm thì theo cùng quy tắc.
+- **Bổ sung theo BE-C (`s4-be-c.md` mục 15)**: người đặt trong `party[]` có id = **id đơn**; chọn người đặt thì Desk gửi `partyMemberId` = id đơn (đã đúng vì Desk gửi id lấy từ `listParty`), không còn thêm người đặt thành "người đi cùng". Mock: người đặt có id = id đơn như server. Ca test mới: chọn "· Người đứng tên" → thân lệnh `partyMemberId` = id đơn, danh sách đoàn không thừa người, đồng ý giữ ảnh gửi id đơn. admin-web **376/376**.
+- **Mock**: `addGuestDocument` nhận `partyMemberId` (ngoài đoàn → 422 `NOT_IN_LIST`, đã có giấy tờ → 409 `PARTY_DUPLICATE`); vắng → khớp tên trong đoàn, không khớp → tạo người đi cùng "từ giấy tờ". `consents` bắt buộc `partyMemberId` (vắng → 422 `REQUIRED`), chỉ ghi lên giấy tờ của đúng người – bỏ dự phòng "giấy tờ đầu tiên".
+- **Chuỗi**: 5 khóa, nhóm "FE-A đợt 19" – **chờ UXD duyệt**.
+- Kiểm thử: `s4-be73-fea.test.tsx` (mới, 2 ca: đặt hộ X cho Y – không chọn sẵn, bắt chọn người, "Người ở chưa có trong đơn" → giấy tờ thuộc người mới Y ≠ X, đồng ý gửi `partyMemberId` của Y; giấy tờ chưa gắn người không ghi được đồng ý). Cập nhật các ca nhập tay cũ chọn người (`checkin`, `s3-review`, `s3-fix9`, `s3-fe07`; dữ liệu mẫu giấy tờ chính của người đặt gắn `partyMemberId`). admin-web **368/368**, `tsc`, eslint, prettier xanh.
+
+---
+
+## Phần FE-A – đợt 20: UXR `s4-pwa-walkthrough.md` (P-17, P-18, P-19, P-23, P-26, P-32, P-34) + S4-13 hướng B (ARC 16.23) (18/10/2026)
+
+| Mã (mức) | Sửa | Tệp |
+|---|---|---|
+| **P-17** (2) | Dòng "Cơ sở phí hủy" chỉ hiện với đơn **đã xác nhận, không trả trước qua OTA** (không còn ở đơn OTA đã trả, khách đang ở, sau đó). "Còn phải thu" một dòng – đã sửa ở BUG-R2-103 (đợt 18). Câu "Mở được từ 23:00…" đặt cạnh nút "Đánh dấu không đến" ở chân khung, không ở đầu. Phần hướng dẫn KB5 thuộc UXR | `ReservationDrawer.tsx` |
+| **P-18** (2) | Bảng minibar bớt một cột: "Chuẩn" gộp vào ô "Còn lại / chuẩn" (nút tăng giảm + "/ 2"); món miễn phí cột tiền ghi 0 (tên món đã ghi "Miễn phí") → cột Tiền không còn bị cắt ở 1366×768. Chưa đo lại trên trình duyệt (jsdom không dàn trang) – nhờ UXR/QA xem lại ảnh 1366 | `CheckOutPage.tsx` |
+| **P-19** (2) | Cột Lý do của Nhật ký thao tác tiền hiện câu VI/EN: câu hệ thống tiếng Anh của máy chủ ("FOC on the current line…", "B12 – night sold again…", "checked out (B18)"…), mã hủy/đổi căn/FOC, mã hệ thống (`hold_expired`, `no_show`, `focCancelReason`…). Dòng "Gửi yêu cầu duyệt" hiện lý do lễ tân chọn (+ ghi chú). Lý do người dùng gõ giữ nguyên. Gộp BUG-R2-100 | `app/auditReason.ts` (mới), `MoneyPage.tsx` |
+| **P-23** (2) | Chờ đối soát: câu đầu trang nói đúng nội dung (chuyển khoản/VietQR đối chiếu sao kê + tiền mặt sale nộp quầy); "Đã khớp sao kê" mở hộp xác nhận ("Đã thấy {số} của {mã} trong sao kê?" – không hoàn tác được). Không có lệnh bỏ đối soát ở máy chủ nên không có nút hoàn tác | `MoneyPage.tsx` |
+| **P-26** (1) | Câu "…bật 'Khách nhận sớm' ở bước 4" → "…ở trên"; hộp xác nhận nhận phòng thêm dòng "Gửi kèm yêu cầu miễn {số} – chờ duyệt" khi có xin miễn phụ thu | `CheckInPage.tsx`, `gen_strings.py` |
+| **P-32** (1) | Một kiểu dấu trừ: số âm trên folio (miễn phí, đảo, phụ thu dự tính) in "−" (U+2212) như dòng Đã thu – hàm `signed()`; dùng ở H16, bill, Folio, drawer, dòng dịch vụ, H13 | `app/folio.ts` + các màn trên |
+| **P-34** (1) | `co.late_switch_hint`, `co.late_switch_hint_time`: "drawer đơn" → "khung chi tiết đơn" (EN "booking details") | `gen_strings.py` |
+| **S4-13 hướng B** | H09 không có ô tải ảnh cho khoản thu ban đầu (không cần bỏ). Thêm ô "Mã giao dịch / ghi chú" gửi `initialPayment.note` + gợi ý; câu nhắc gắn ảnh sau khi tạo đơn: FD+ "Giữ chỗ đến …" rồi xác nhận cọc kèm ảnh; SAL/CTV "Báo đã chuyển cọc". `BookingDialog.tsx` không thuộc vùng FE-B | `BookingDialog.tsx` |
+
+- **Chuỗi**: 25 khóa mới + sửa chữ 3 khóa (`ci.time_default_help`, `co.late_switch_hint`, `co.late_switch_hint_time`) – nhóm "FE-A đợt 20", **chờ UXD duyệt**.
+- **Cần BE (ORC chuyển)**: P-19 – máy chủ nên ghi **mã** lý do cho mọi bước hệ thống (hiện còn câu tiếng Anh trong `folio.service.ts` 2045/2373/2878/2905, `checkout`…); Desk đang ánh xạ theo câu, đổi câu là mất ánh xạ (rơi về hiện nguyên văn).
+- Không đụng màn FE-B đang sửa (H24, Cần duyệt, Tham số, Khai báo).
+- Kiểm thử: `s4-uxr-fea.test.tsx` (mới, 6 ca: P-19, P-23, P-18, P-32, P-34, S4-13); sửa ca "Cơ sở phí hủy" (`s4-38-fea`) sang đơn trực tiếp + ca P-17 (OTA trả trước, đang ở – không hiện); chỉ số ô minibar trong `s4-144-fea`. admin-web **375/375**, `tsc` xanh, eslint/prettier xanh trên mọi tệp FE-A. Cây hiện có 1 lỗi eslint (`components/AppShell.tsx:49` biến `session` không dùng) và 1 cảnh báo prettier (`app/approvalTarget.ts`) – tệp FE-B đang sửa, không phải của FE-A.
+
+---
+
 ## Phần FE-B (Desk – vận hành, thương hiệu) – đợt 1: mục 1–4 (17/10/2026)
 
 - Người làm: FE-B | Đầu vào: `sprint-4-plan.md` (ĐÓNG BĂNG D1) mục 4, 8.3 dòng FE-B, 11; DS **v0.4.1** mục 11 (B0–B6), `tokens.css`; Brand Guidelines (CLAUDE.md "Thương hiệu OTTIMO"); OpenAPI **0.3.7** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`, `checkOut.debt`, `createDepositNotice.attachmentId`, `uploadAttachment`, `getBill`); hi-fi H03, H24; spec EP01, EP03-05 4.4; dòng BE-D trong decision-log (luật lọc vai, đóng mục).
@@ -1031,3 +1092,125 @@ Hai chỗ cùng kiểu lỗi FE-A đã nêu ở đợt 8 nay dùng `listApproval
   - QR không vượt → không có ô, gửi `{}`.
 - **Kiểm:** admin-web vitest **337/337**; `tsc` 0 lỗi; eslint, prettier xanh. Chưa xem trên trình duyệt: Browser pane đang dùng chung với FE-LP.
 - **File:** `apps/admin-web/src/pages/reservations/ReservationDialogs.tsx` (chỉ `DepositDialog`), `apps/admin-web/src/__tests__/s4-feb-deposit-qr-over.test.tsx` (mới), `design/tools/gen_strings.py` và `design/copy/strings-{vi,en,ru}.json`, `design/tools/strings-tables.md`, `design/wireframes/assets/strings.js` (sinh lại).
+
+---
+
+## FE-B – UXR S4 (18/10/2026, tuần Ổn định – Phản hồi & sửa)
+
+Nguồn: `rounds/round-02/outputs/UXR/s4-pwa-walkthrough.md` (P-02, P-03, P-06 mức 3; P-20, P-22 mức 2; P-21 mức 1) và việc ORC giao thêm: luật B-15 cho `replyNote` (EP14 v0.3 mục 4.4, SEC C.6). Brand OTTIMO giữ nguyên: chỉ dùng token màu sẵn có (Ink, Oak, Ivory/Cream, màu chức năng đã ghi ngoại lệ), Lora / Be Vietnam Pro / JetBrains Mono (mã đơn), câu ngắn, không emoji.
+
+### 1. Đã sửa
+
+| Mục UXR | Mức | Đã làm |
+|---|---|---|
+| **P-02** Desk dưới 1024 px không có menu | 3 | Từ ≤ 860 px (đúng điểm `hifi.css` ẩn thanh bên) Desk dùng **thanh dưới theo hi-fi H24** (`.m-nav`): 4 mục theo vai + **"Thêm"**. Chủ đầu tư/quản lý: Tổng quan · Cần duyệt · Hôm nay · Phòng · Thêm. Lễ tân trưởng: Cần duyệt · Hôm nay · Phòng · Buồng phòng · Thêm. "Thêm" mở ngăn kéo có cơ sở, **mọi mục còn lại** (Nhật ký tiền, Tham số quy tắc, Danh mục căn…) và chip thiết bị. Mỗi lúc chỉ có một menu (thanh bên không dựng trên điện thoại). Trang không nằm trên thanh có nút **"Quay lại"** ở đầu trang: quay lại trang trước, hoặc về trang chủ của vai khi mở thẳng bằng đường dẫn. Mục "Thêm" sáng khi đang ở một trang trong đó. |
+| **P-03** Cần duyệt vỡ bố cục ở 390 px | 3 | Thẻ H17 dựng lại (`.appr-card`): chữ – chip trạng thái – khối 2 nút. Điện thoại: chip cạnh chữ, 2 nút xuống hàng riêng và chia đều; từ 861 px giữ một hàng như cũ. Hết cột chữ ~60 px, số tiền không còn bị chip che. **Thẻ ghi rõ khoản và căn**: "Giặt ủi · 2.5 kg · 402 · The Ember" (H17) và thêm lý do trên H24, ví dụ trong test: "Phụ thu nhận sớm (nhận lúc 09:15) · 402 · The Ember · Khách quen / VIP". `ApprovalRequest` chưa có căn/khoản nên Desk tự đọc: `listReservations?q=<mã đơn>` (căn) và folio của đơn (dòng được miễn qua `folioLineId` → `relatedLineId`). Mỗi đơn đọc một lần, tối đa 20 thẻ (H17) / 10 thẻ (H24); lỗi đọc thì thẻ vẫn hiện như cũ. Dòng tiêu đề `mã · loại · số tiền` giữ nguyên để không vỡ test của FE-A. |
+| **P-06** "Khai báo quá hạn" là ngõ cụt trên máy chưa cấp | 3 | `/registration` trên máy chưa cấp quyền không còn chỉ báo "Máy này chưa được cấp quyền". Trang giữ tiêu đề đó, kèm câu "Đây là danh sách đơn cần khai báo, không kèm giấy tờ…" và **danh sách**: căn · tên gọi, mã đơn (JetBrains Mono), trạng thái, "Giấy tờ n/N", hạn. Đơn quá hạn lên đầu, viền đỏ, có chữ "Đã quá hạn …". Dữ liệu lấy từ `listRegistrations`: không có C3, API không đòi máy được cấp. Các dòng không bấm được; chi tiết và giấy tờ vẫn chỉ mở trên máy được cấp. Trang con có "Quay lại" và thanh dưới (P-02). |
+| **P-20** H24 ở 390 px: tiêu đề bị bóp, ô Giao diện đè nhãn | 2 | ≤ 520 px: nút tài khoản chỉ hiện chữ cái đầu (vùng bấm 44 px). Tên và vai vẫn là tên đọc của nút cho trình đọc màn hình. Thanh đầu trang thu lề còn 12 px. Trong menu tài khoản, 3 lựa chọn Giao diện xuống dòng dưới nhãn ở mọi khổ: popover 280 px cũng không đủ chỗ cho nhãn và 3 lựa chọn trên một dòng. |
+| **P-21** "…hạn sớm nhất" bị lửng | 1 | Mục `registration_due` chưa có `dueAt` dùng câu mới `attn.registration_due_no_time` "Khai báo lưu trú hôm nay: {n} đơn". Có giờ thì giữ câu cũ. Sửa nhỏ nên làm luôn. |
+| **P-22** Tham số: hiệu lực từ, lịch sử | 2 | Dòng tham số có giá trị đã lưu cho ngày sau hiện chip "35% từ 19/10" dưới giá trị đang áp. Desk đọc thêm `listParameters?asOf=<10 năm sau>`; api-client có thêm tham số `asOf` (không đổi hợp đồng). Lịch sử trong hộp sửa có thêm cột **"Hiệu lực từ"**; dòng chưa tới ngày có chip "Chưa hiệu lực". |
+| **B-15 `replyNote`** (ORC giao thêm) | – | Mock MSW (`mocks/replyNote.ts`, dùng ở `mocks/ops.ts`) chép đúng luật BE-D `hasSensitiveDigits` và thứ tự kiểm của server: > 300 → `TOO_LONG`; số thẻ (Luhn, văn bản gốc) → 422 `CARD_NUMBER_DETECTED`; luật B-15 → `SENSITIVE_DATA_DETECTED`; ngoại lệ hotline công khai (`mockControl.ops.publicPhone`, seed không có). Kết quả: nhận `Phòng 202, 203, 204` và `Phòng 202; 203`; chặn `202,203,204`, `202 203 204`, `482,913`, `0912.345.000đ`. Ghi chú của khách (`note`) không qua luật. Câu nhắc dưới ô "Lời nhắn cho khách" dùng `req.desk.reply_help`: UXD đã viết lại theo E14-13 trong `gen_strings.py` và FE đã sinh lại JSON. Lỗi `SENSITIVE_DATA_DETECTED` dùng câu `field.SENSITIVE_DATA_DETECTED` của UXD, hiện dưới ô, nội dung đã gõ giữ nguyên. |
+
+### 2. Kiểm thử
+
+- `__tests__/s4-feb-uxr.test.tsx` (mới, 12 ca), giả lập điện thoại bằng `matchMedia('(max-width: 860px)')`:
+  - P-02: thanh dưới OWN và FDL, "Thêm" có Nhật ký tiền/Tham số, chuyển trang rồi "Quay lại"; mở thẳng bằng đường dẫn thì "Quay lại" về trang chủ; máy quầy rộng vẫn dùng thanh bên, không có thanh dưới;
+  - P-03: H17 hiện khoản + căn, chip nằm ngoài khối nút, khối nút `.appr-acts`; H24 hiện khoản · căn · lý do; quy tắc CSS xếp dọc;
+  - P-06: máy chưa cấp có câu thiết bị, danh sách xếp quá hạn trước, không có link/nút; máy được cấp vẫn ra bảng H14 đầy đủ;
+  - P-20: tên đọc của nút tài khoản, lớp `menu-row-wrap`, quy tắc CSS;
+  - P-21: câu không giờ / có giờ;
+  - P-22: lưu 35% từ ngày mai thì dòng vẫn "30%" kèm chip "35% từ dd/MM"; lịch sử có cột Hiệu lực từ và chip "Chưa hiệu lực".
+- `__tests__/s4-feb-b15-reply.test.tsx` (mới, 45 ca):
+  - toàn bộ bảng "Không bị chặn / Bị chặn" của EP14 v0.3 mục 4.4, gồm 5 ca SEC thêm ngày 18/10;
+  - số thẻ được kiểm trước;
+  - hotline công khai viết theo 3 cách vẫn qua, số khác bị chặn;
+  - trên H03: câu nhắc là mô tả của ô; `Phòng 202,203,204…` và `0912.345.000đ` bị từ chối, hiện lỗi dưới ô, giữ nội dung; `Phòng 202, 203, 204… 350.000 đ` và `Phòng 202; 203` đi qua; ghi chú khách có 10 chữ số liền vẫn đóng được yêu cầu.
+- **admin-web vitest 45 tệp / 433 ca xanh.** `tsc` admin-web và api-client 0 lỗi. Vitest api-client 30/30, ui 13/13. eslint xanh trên `apps/admin-web/src` và `packages/api-client/src`; prettier xanh.
+- **Chưa xem bằng mắt trên trình duyệt:**
+  - Browser pane không chạy MSW (không có service worker – UXR mục 1) và không mở được tệp HTML tạm;
+  - bố cục 390 px mới chỉ kiểm qua DOM (jsdom) và đọc lại CSS;
+  - đề nghị UXR/QA đi lại J6 trên stack `ottimo-uxr` sau khi dựng lại từ cây có thay đổi này.
+
+### 3. File đã tạo / sửa (chưa commit)
+
+- Mới:
+  - `product/apps/admin-web/src/hooks/useMedia.ts`;
+  - `product/apps/admin-web/src/app/approvalTarget.ts`;
+  - `product/apps/admin-web/src/pages/registration/RegistrationReadOnly.tsx`;
+  - `product/apps/admin-web/src/mocks/replyNote.ts`;
+  - `product/apps/admin-web/src/__tests__/s4-feb-uxr.test.tsx`;
+  - `product/apps/admin-web/src/__tests__/s4-feb-b15-reply.test.tsx`.
+- Sửa trong admin-web:
+  - `components/AppShell.tsx`: thanh dưới, "Thêm", "Quay lại";
+  - `components/UserMenu.tsx`: 2 lớp CSS;
+  - `session/nav.ts`: `short`, `mobileBar`, `itemOfPath`;
+  - `app/routes.tsx`: trang cho máy chưa cấp;
+  - `app/attention.ts`: chỉ nhánh `registration_due`;
+  - `pages/approvals/ApprovalsPage.tsx`: chỉ thẻ danh sách, `DecideDialog` không đổi;
+  - `pages/OverviewPage.tsx`: chỉ khối Cần duyệt;
+  - `pages/ParamsPage.tsx`, `pages/ParamDialog.tsx`;
+  - `mocks/handlers.ts`: `listParameters?asOf`;
+  - `mocks/ops.ts`: `replyNote`, `publicPhone`.
+- Sửa ngoài admin-web:
+  - `product/packages/api-client/src/endpoints.ts`: `listParameters(…, asOf?)`;
+  - `product/packages/ui/src/styles/app.css`: khối cuối P-02/P-20/P-03, mọi giá trị là token hoặc bội số 4 px.
+- Chuỗi và tài liệu:
+  - `product/design/tools/gen_strings.py`: nhóm mới "FE-B tuần Ổn định: sửa theo UXR S4", 5 chuỗi **chờ UXD duyệt**: `reg.untrusted_body`, `reg.untrusted_ids`, `attn.registration_due_no_time`, `params.pending`, `params.not_yet`;
+  - sinh lại `design/copy/strings-{vi,en,ru}.json`, `design/tools/strings-tables.md`, `design/wireframes/assets/strings.js` (gồm cả chuỗi đang chờ của vai khác trong `gen_strings.py`);
+  - `01-decisions/decision-log.md`: 1 dòng FE-B.
+- **Không đụng** CheckOutPage, DocsPanel, ReservationDrawer, StayDialogs (FE-A), RegistrationPage.tsx (đang có thay đổi của vai khác), `mocks/stay.ts`, `mocks/reservations.ts`.
+
+### 4. Giả định
+
+- **SEC đã đồng ý (18/10, `s4-SEC.md` C.11)** – trước đây là giả định chờ SEC: danh sách cần khai báo không có C3 (căn, mã đơn, tên gọi, hạn) được hiện trên máy chưa cấp. API cho phép, không đòi máy được cấp. EP06 mục 0 chỉ khóa đọc/ghi giấy tờ. SEC không đồng ý thì đổi về `DeviceBlocked` bằng cách bỏ 1 dòng trong `UNTRUSTED_PAGES` (`app/routes.tsx`).
+- Điểm gãy 860 px theo `hifi.css`. UXR ghi "dưới 1024 px" vì đã thử ở 768 và 390. Từ 861 đến 1023 px vẫn có thanh bên.
+- Thanh dưới theo hi-fi H24, "Nhật ký tiền" nằm trong "Thêm". UXR đề xuất đưa Nhật ký tiền lên thanh. UXD quyết nếu muốn đổi: chỉ cần đổi `BAR_ORDER` trong `session/nav.ts`.
+- P-22 chỉ hiện giá trị hẹn **xa nhất** của mỗi khóa (`asOf` xa). Hai lần hẹn liên tiếp cho cùng khóa thì lịch sử trong hộp sửa vẫn đủ.
+
+### 5. Cần vai khác
+
+- **UXD:**
+  - duyệt 5 chuỗi mới;
+  - xem thanh dưới, ngăn kéo "Thêm" và thẻ Cần duyệt xếp dọc. Bố cục dùng lại `.m-nav`, `.drawer`, `.task` của hi-fi; không thêm màu.
+- **ARC/BE (R3):** thêm vào `ApprovalRequest` các trường `roomNo`/`roomName` và nhãn khoản được miễn (`lineLabelKey` + `labelParams`). Khi có, Desk bỏ phần tự đọc ở `app/approvalTarget.ts` và bớt 1–3 lượt gọi mỗi đơn.
+- **SEC (đã xong):** đồng ý P-06 với 3 điều kiện (C.11). Mã đã kiểm: không có trường giấy tờ; dòng là `<li>` thường, không link/nút/tabindex/role/handler; dữ liệu chỉ ở bộ nhớ (`useResource`), không gọi storage. Test thêm trong `s4-feb-uxr.test.tsx`, nhóm "SEC C.11 conditions", 3 ca:
+  - (2) quét mọi phần tử của dòng; bấm vào dòng vẫn ở danh sách và không gọi `getRegistration`;
+  - (3) theo dõi `Storage.setItem` và `indexedDB.open`, cộng chặn mã nguồn trang không có lệnh storage;
+  - (1) API trả thêm trường giấy tờ thì trang không hiện.
+
+  Tổng tệp này còn 15 ca, xanh.
+- **QA/UXR:** đi lại J6 trên điện thoại 390 px (P-02, P-03, P-06, P-20) và ca E14-11 B-15 trên Desk.
+
+### 6. Danh sách R3 (FE-B)
+
+1. P-06: cột "người đang xử lý" của danh sách khai báo – API chưa có trường. Cần BE thêm vào `RegistrationSummary`.
+2. P-03: chuyển phần tự đọc căn/khoản sang trường của API (mục 5).
+3. P-22: nếu cần hiện mọi lần hẹn, không chỉ lần xa nhất: API trả `upcoming[]` trong `listParameters`.
+4. UXR J6 bước 4: truy nguồn KPI (bấm số công suất ra danh sách đơn) – UXR đã ghi R3.
+5. EP14 4.4 cho phép `replyNote` khi "Xong" (ví dụ trả muộn nêu giờ đã duyệt), nhưng Desk mới có ô lời nhắn ở "Không thực hiện được". Cần UXD vẽ ô cho "Xong".
+6. P-19, P-23 (FE + UXD: lý do hệ thống ở Nhật ký tiền, hoàn tác "Đã khớp sao kê") không nằm trong phần ORC giao FE-B lượt này.
+
+### 7. Thẻ UXD FE-S4-26, FE-S4-27 (`reviews/s4-UXD-brand.md` mục H và E) – 18/10
+
+- **FE-S4-26 – thanh dưới theo vai.** `session/nav.ts` có `barOrder(roles)`: vai đầu tiên theo `ROLE_ORDER` quyết thứ tự.
+  - OWN/MGR: **Tổng quan · Cần duyệt · Phòng · Nhật ký tiền · Thêm**. "Hôm nay" chuyển vào "Thêm".
+  - FDL, FD, sale/CTV: giữ thứ tự cũ.
+  - `mobileBar(items, roles)` dùng ở `AppShell` (thanh dưới và nút "Quay lại").
+- **FE-S4-27 – cuộn ngang ở 390 px.** Lỗi tái hiện đúng số UXD đo: Hôm nay +28 px, Đơn đặt phòng +106 px. Cách tái hiện:
+  - lấy DOM điện thoại do jsdom dựng;
+  - ghép CSS thật (tokens, hifi, `app.css`) và font tự host;
+  - đo `scrollWidth` bằng Chromium (Playwright của `product/tests`). Script nằm trong scratchpad, không đưa vào repo.
+- **Đã sửa:**
+  - **Hôm nay:** "Cần chú ý" trên điện thoại dùng mẫu H24, cả dòng là link có mũi tên (`AttentionBlock` dùng `useNarrow`). Máy quầy giữ nút "Mở". `.cols-2` ở ≤ 860 px thành `minmax(0, 1fr)`: `1fr` của hifi để bề rộng tối thiểu của thẻ kéo giãn trang. Dòng yêu cầu khách (`.req-row`) đưa 2 nút xuống dưới chữ ở ≤ 520 px.
+  - **Đơn đặt phòng:** `Topbar` bọc nút hành động vào `.topbar-acts`. Ở ≤ 520 px, khối có nút xuống dòng riêng và tự xuống dòng tiếp; chip người dùng ở lại dòng tiêu đề. Huy hiệu "Trực tiếp" của Tổng quan không phải nút nên vẫn cùng dòng tiêu đề.
+  - **Tìm thêm khi đo:**
+    - Tham số +211 px: `<span class="sr-only">` trong `th` có `position: absolute` nên thoát khỏi khung cuộn `.table-wrap`. Sửa bằng `.table-wrap { position: relative }`, áp cho mọi bảng.
+    - Sơ đồ phòng ở 360 px +12 px: chip dài, nay cho xuống dòng ở ≤ 520 px.
+- **Kết quả đo sau sửa:** 9 trang (Hôm nay, Đơn đặt phòng, Tổng quan, Cần duyệt, Nhật ký tiền, Buồng phòng, Sơ đồ phòng, Khai báo, Tham số) đều `scrollWidth = innerWidth` ở 360 và 390 px. Bảng dài vẫn cuộn trong khung riêng, UXD đã chấp nhận ở R2.
+- **Test:** `s4-feb-uxr.test.tsx` thêm 1 ca bảng thứ tự theo vai và 5 ca FE-S4-27. Ca chủ đầu tư đi trên điện thoại sửa theo thanh mới. Test liên kết thẳng đổi sang `/settings/parameters`, vì `/audit` nay nằm trên thanh. jsdom không đo được bề rộng, nên phần pixel dựa vào phép đo Chromium ở trên.
+- **Kiểm:** admin-web vitest 45 tệp / 442 ca xanh; `tsc` 0 lỗi; eslint, prettier xanh.
+- **File:**
+  - mã: `session/nav.ts`, `components/AppShell.tsx`, `pages/dashboard/parts.tsx` (chỉ `AttentionBlock`), `pages/ops/GuestRequests.tsx` (2 lớp CSS), `packages/ui/src/styles/app.css` (khối cuối);
+  - test: `__tests__/s4-feb-uxr.test.tsx`;
+  - phản hồi: `rounds/round-02/responses/s4-FE.md` (2 dòng Done).
+- **Đề xuất QA (R3):** thêm ca E2E đo `scrollWidth ≤ innerWidth` ở 360 và 390 px cho các trang trên thanh dưới, trên stack có API thật.

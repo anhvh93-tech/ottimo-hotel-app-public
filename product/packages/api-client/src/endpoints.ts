@@ -207,10 +207,12 @@ export function createEndpoints(api: ApiClient) {
       }),
 
     // parameters (S24)
-    listParameters: ({ propertyId }: P, local = false) =>
+    /** `asOf` (LocalDate): values in force on that day – a later day shows changes already scheduled. */
+    listParameters: ({ propertyId }: P, local = false, asOf?: string) =>
       r<{ data: Parameter[] }>('GET', '/v1/properties/{propertyId}/parameters', {
         path: { propertyId },
         local,
+        query: asOf ? { asOf } : undefined,
       }),
     getParameterHistory: ({ propertyId, key }: P & { key: string }) =>
       r<{ current: Parameter; history: Parameter[] }>(

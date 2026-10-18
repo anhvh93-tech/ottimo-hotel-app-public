@@ -171,7 +171,11 @@ function seed(): State {
     task(4, '101', 'stayover_clean', {
       source: 'guest_app',
       note: 'Thêm 2 khăn tắm',
-      refillItems: [{ itemName: 'bia', quantity: 2 }],
+      // Like the server (BE-B 18/10): item id + quantity + the item name stored with the task.
+      refillItems: [
+        { itemId: '0192a1b0-0000-7000-8000-00000000b001', itemName: 'Bia Đà Lạt', quantity: 2 },
+        { itemId: '0192a1b0-0000-7000-8000-00000000b002', itemName: 'Coca-Cola lon', quantity: 1 },
+      ],
     }),
     task(5, '201', 'checkout_clean', { notBeforeTime: '12:00' }),
     task(6, '203', 'checkout_clean', { status: 'done', doneAt: at(d, '09:40') }),
@@ -389,7 +393,8 @@ function entry(r: Room): S['RoomStatusEntry'] {
     floor: Number(r.no[0]),
     status: r.status,
     since: r.since,
-    // rbac D01: HK sees the guest's first name only for rooms with a task today.
+    // rbac D01 / BR-614: HK sees the guest's call name only for rooms with a task today. ARC 18/10 (0.3.7 bổ sung 4):
+    // the field holds the NAME ONLY – no room number; the PWA puts it next to `roomNo`.
     ...(r.guest && (!isHk || hasTask) ? { currentGuest: r.guest } : {}),
     ...(r.next ? { nextArrival: { date: r.next.date, etaTime: r.next.etaTime } } : {}),
     allowedEvents: user()?.roles.includes('maintenance' as never) ? [] : allowedEvents(r),
@@ -851,6 +856,11 @@ export const handlers = [
         wo.status = 'done';
         wo.doneAt = new Date().toISOString();
         wo.resultNote = body.resultNote;
+        // Like the server (0.3.7): after-repair photos join the same list (separate field asked – UXR P-11).
+        wo.photoAttachmentIds = [
+          ...(wo.photoAttachmentIds ?? []),
+          ...(body.photoAttachmentIds ?? []),
+        ];
         if (wo.roomBlock) {
           wo.roomBlock = {
             ...wo.roomBlock,

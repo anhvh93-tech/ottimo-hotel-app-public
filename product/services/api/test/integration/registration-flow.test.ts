@@ -1248,7 +1248,7 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
     ).not.toContain(reservationId);
   });
 
-  it('BUG-R2-033: person 2 without partyMemberId → the party port (BE-A, BR-951) gives the member; main guest never asks', async () => {
+  it('BUG-R2-033: person 2 without partyMemberId → the party port (BE-A, BR-951) gives the member; the main guest is looked up too (SEC-BE-73)', async () => {
     const { reservationId } = await seedStay(db, t, ids, {
       adults: 2,
       bookerName: 'Nguyễn Văn An',
@@ -1287,10 +1287,12 @@ describe.skipIf(!HAS_DB)('registration – documents, checks, declaration, purge
         fake.memberForDocument(tx, input as unknown as Record<string, unknown>),
       );
     try {
-      // Main guest: no lookup.
+      // Main guest without partyMemberId: looked up like anybody (SEC-BE-73, ARC 16.22 – `isMain` never means
+      // "the booker"); nothing matched here → no person.
       const main = await addDoc(reg.id, { ...an, isMain: true }, 1);
       expect(main.statusCode).toBe(201);
-      expect(calls).toHaveLength(0);
+      expect(calls).toHaveLength(1);
+      calls.length = 0;
       // Person 2: matched → linked to the member returned by the port.
       const second = await addDoc(
         reg.id,

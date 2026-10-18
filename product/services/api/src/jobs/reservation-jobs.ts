@@ -19,6 +19,7 @@ import type { JobDefinition } from './job-runner';
 
 export const HOLD_EXPIRY_JOB_KEY = 'hold.expire';
 export const ROOM_BLOCK_ACTIVATION_JOB_KEY = 'ooo.activate';
+export const LEASE_NIGHTS_JOB_KEY = 'lease.nights';
 
 export interface HoldExpirer {
   expireHolds(
@@ -31,6 +32,14 @@ export interface HoldExpirer {
 
 export interface BlockActivator {
   activateDue(tx: Tx, today: string, now: Date): Promise<number>;
+}
+
+export interface LeaseNightsBackfill {
+  backfillLeaseNights(
+    tx: Tx,
+    now: Date,
+    today: string,
+  ): Promise<{ bookings: number; nights: number }>;
 }
 
 async function today(
@@ -65,6 +74,26 @@ export function roomBlockActivationJob(
     async handler(tx, ctx) {
       const d = await today(params, tx, ctx.now, ctx.timezone, ctx.date);
       return { activated: await activator.activateDue(tx, d, ctx.now) };
+    },
+  };
+}
+
+/**
+ * `lease.nights` (A7-01, ARC `openapi-0.3.7.md` 16.21): the one-time back-fill of the lease nights of manual long
+ * stays made before they were generated (US-017 AC5a). Idempotent – a stay that has them is skipped, so the
+ * daily slot (catch-up: the first run after the release) does nothing afterwards.
+ */
+export function leaseNightsJob(
+  backfill: LeaseNightsBackfill,
+  params: ParameterService,
+): JobDefinition {
+  return {
+    key: LEASE_NIGHTS_JOB_KEY,
+    // Technical maintenance hour (as J16 `log.partitions`), not a business parameter.
+    schedule: { kind: 'daily', at: '03:10', catchUp: 'always' },
+    async handler(tx, ctx) {
+      const d = await today(params, tx, ctx.now, ctx.timezone, ctx.date);
+      return { ...(await backfill.backfillLeaseNights(tx, ctx.now, d)) };
     },
   };
 }

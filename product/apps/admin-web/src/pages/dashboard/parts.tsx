@@ -10,6 +10,7 @@ import { channelName } from '../../app/reservations';
 import { useStaffRoomLabel } from '../../app/rooms';
 import { useToast } from '../../app/toast';
 import { useDelayed } from '../../hooks/useDelayed';
+import { useNarrow } from '../../hooks/useMedia';
 import { useOnline } from '../../hooks/useOnline';
 import type { ResourceState } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
@@ -105,7 +106,8 @@ export function useAttentionLines(items: AttentionItem[] | undefined): Attention
  * "Cần chú ý" (US-012, BR-907): critical → warning → info (server order), one line per kind (AC4), each
  * opens the screen that handles it; `event` items have "Đã xử lý" / "Đã báo kênh" (resolveAttentionEvent).
  * Items new since the last read get "Mới" + a 2 s highlight and ONE polite announcement – no focus move.
- * `compact` = H24 phone list (whole row is the link); otherwise H03 task cards.
+ * `compact` = H24 phone list (whole row is the link); otherwise H03 task cards – on a phone (≤ 860 px) H03 uses
+ * the H24 rows as well (UXD FE-S4-27).
  */
 export function AttentionBlock({
   state,
@@ -122,6 +124,9 @@ export function AttentionBlock({
 }) {
   const { t } = useI18n();
   const { online } = useOnline();
+  // UXD FE-S4-27: on a phone H03 uses the H24 row too (DS 6.20) – a "Mở" button beside the text overflowed 390 px.
+  const narrow = useNarrow();
+  const rowLinks = compact || narrow;
   const lines = useAttentionLines(state.data);
   const { fresh, announce } = useNewKeys(lines?.map((l) => l.key));
   const [closing, setClosing] = useState<AttentionLine | null>(null);
@@ -182,7 +187,7 @@ export function AttentionBlock({
             </Button>
           ) : null;
           // H24 (phone): the whole row is the link; H03: card with "Mở" + "Đã xử lý" buttons.
-          return compact && l.to ? (
+          return rowLinks && l.to ? (
             <li key={l.key}>
               <Link className={`${cls} rowlink`} to={l.to}>
                 {ic}

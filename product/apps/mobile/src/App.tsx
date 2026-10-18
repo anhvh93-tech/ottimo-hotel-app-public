@@ -10,6 +10,7 @@ import {
   staffApi,
   type Me,
   type StaffRequest,
+  unreachable,
 } from './app/api';
 import { HkDataProvider } from './app/data';
 import { LiveProvider, type Connect } from './app/live';
@@ -41,6 +42,8 @@ type Auth =
 
 const HK_HOME: Route = { name: 'tasks' };
 const MT_HOME: Route = { name: 'wo' };
+/** Screens that are a tab of the bottom bar; the others keep the tab the person came from (UXR P-27). */
+const TABS: readonly Route['name'][] = ['tasks', 'rooms', 'report', 'me', 'wo', 'queue'];
 
 /** OTTIMO Staff – housekeeping / maintenance PWA (ADR-005). No C3, no money, VI/EN. */
 export function App({ store, connect }: { store: KvStore; connect?: Connect }) {
@@ -97,7 +100,8 @@ function Root({ store, connect }: { store: KvStore; connect?: Connect }) {
         if (!alive) return;
         // Offline at start-up (ADR-005 đọc offline): open with the profile cached at the last sign-in; the
         // session cookie is checked again before the first write (ensureCsrf).
-        const cached = isApiError(e) && e.isNetwork ? await cache.loadMe() : undefined;
+        // UXR P-09: a gateway answer (502/503/504 – api down, maintenance) is "no server" too, not a sign-out.
+        const cached = unreachable(e) ? await cache.loadMe() : undefined;
         if (cached) {
           await enter(cached, true);
           return;
@@ -190,8 +194,11 @@ function Root({ store, connect }: { store: KvStore; connect?: Connect }) {
 }
 
 function LoginGate({ expired, onSignedIn }: { expired: boolean; onSignedIn: (me: Me) => void }) {
-  const { waiting } = useQueue();
-  return <LoginPage expired={expired} pending={waiting.length} onSignedIn={onSignedIn} />;
+  const { items } = useQueue();
+  // P-09: the sign-in screen says how many actions are still on the phone – every one, also those in their
+  // undo window (nothing leaves the phone before sign-in).
+  const pending = items.filter((i) => i.kind !== 'attachment' && i.state !== 'rejected').length;
+  return <LoginPage expired={expired} pending={pending} onSignedIn={onSignedIn} />;
 }
 
 /** Screen readers hear one short sentence when a notification arrives (no focus change). */
@@ -217,8 +224,17 @@ function Shell({
   onLogout: () => Promise<void>;
 }) {
   const { t } = useI18n();
-  const route = useRoute(session.mode === 'mt' ? MT_HOME : HK_HOME);
+  const home = session.mode === 'mt' ? MT_HOME : HK_HOME;
+  const route = useRoute(home);
   const mainRef = useRef<HTMLElement>(null);
+  const [lastTab, setLastTab] = useState<Route['name']>(
+    TABS.includes(route.name) ? route.name : home.name,
+  );
+  useEffect(() => {
+    if (TABS.includes(route.name)) setLastTab(route.name);
+  }, [route.name]);
+  // A room opened from "Việc của tôi" keeps "Việc" lit, from "Các căn" keeps "Các căn".
+  const navCurrent = TABS.includes(route.name) ? route.name : lastTab;
   // a11y: a new screen puts focus on its heading (screen readers announce it); not on first load.
   // Compared with the last route (StrictMode runs mount effects twice in dev).
   const key = JSON.stringify(route);
@@ -288,7 +304,7 @@ function Shell({
         </main>
         <ToastDock />
         <NewNotificationAnnouncer />
-        <BottomNav mode={session.mode} current={route.name} />
+        <BottomNav mode={session.mode} current={navCurrent} />
       </div>
     </HkDataProvider>
   );

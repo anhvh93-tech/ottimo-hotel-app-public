@@ -17,7 +17,7 @@ import {
   taskTitle,
 } from '../app/tasks';
 import { hhmm, localDate } from '../app/time';
-import { rejectionText } from '../queue/messages';
+import { actionText, rejectionText } from '../queue/messages';
 import { useQueue } from '../queue/QueueProvider';
 import { QueuedChip, RoomStatusChip, TopBar } from '../ui/parts';
 
@@ -33,7 +33,7 @@ export function RoomPage({
 }) {
   const { t } = useI18n();
   const data = useHkData();
-  const { items, rejected } = useQueue();
+  const { items, rejected, queue, resend } = useQueue();
   const act = useHkActions(session);
   const today = localDate();
   const room = data.rooms?.data.find((r) => r.roomId === roomId);
@@ -73,6 +73,8 @@ export function RoomPage({
   const occupied = eff.value === 'OC' || eff.value === 'OD' || Boolean(room.currentGuest);
   const writable = canWriteRooms(session);
   const arrival = arrivalText(room, t, today);
+  const startedNote = eff.value === 'CL' && !eff.queued;
+  const finishHelp = events.includes('finish_cleaning');
   // Latest refusal for this room (409 from the queue) – shown on the spot as well as in "Cần xem lại".
   const refused = [...rejected].reverse().find((i) => i.roomId === roomId);
 
@@ -120,9 +122,26 @@ export function RoomPage({
             tone="bad"
             title={rejectionText(refused, t).title}
             actions={
-              <a className="btn" href={href({ name: 'queue' })}>
-                {t('hk.queue_title')}
-              </a>
+              <>
+                {queue.canResend(refused) ? (
+                  <button
+                    type="button"
+                    className="btn pri"
+                    onClick={() =>
+                      void resend(
+                        refused.id,
+                        t('hk.queue.resent_toast', { room: label, action: actionText(refused, t) }),
+                        t('hk.undone'),
+                      )
+                    }
+                  >
+                    {t('hk.queue.resend', { action: actionText(refused, t) })}
+                  </button>
+                ) : null}
+                <a className="btn" href={href({ name: 'queue' })}>
+                  {t('hk.queue_title')}
+                </a>
+              </>
             }
           >
             {rejectionText(refused, t).body}
@@ -145,17 +164,20 @@ export function RoomPage({
           ))
         )}
 
-        <div className="card hk-info">
-          {arrival ? <p className="m-0">{arrival}</p> : null}
-          {eff.value === 'CL' && !eff.queued ? (
-            <p className="m-0 li-s">{t('hk.started_at', { time: hhmm(room.since) })}</p>
-          ) : null}
-          {events.includes('finish_cleaning') ? (
-            <p className="m-0 li-s">
-              {occupied ? t('hk.finish_help_occupied') : t('hk.finish_help_vacant')}
-            </p>
-          ) : null}
-        </div>
+        {/* No empty bordered card when there is nothing to say (seen on room 101, S4 UXD screenshots). */}
+        {arrival || startedNote || finishHelp ? (
+          <div className="card hk-info">
+            {arrival ? <p className="m-0">{arrival}</p> : null}
+            {startedNote ? (
+              <p className="m-0 li-s">{t('hk.started_at', { time: hhmm(room.since) })}</p>
+            ) : null}
+            {finishHelp ? (
+              <p className="m-0 li-s">
+                {occupied ? t('hk.finish_help_occupied') : t('hk.finish_help_vacant')}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         <a className="btn xl block" href={href({ name: 'report', roomId })}>
           <Icon name="alert" />

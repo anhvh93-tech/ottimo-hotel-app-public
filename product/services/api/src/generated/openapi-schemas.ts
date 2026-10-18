@@ -1996,6 +1996,10 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
                 s: { k: 'ref', name: 'MoneyVnd' },
                 v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff'],
               },
+              refundedVnd: {
+                s: { k: 'ref', name: 'MoneyVnd' },
+                v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff'],
+              },
               paidViaOtaVnd: {
                 s: { k: 'ref', name: 'MoneyVnd' },
                 v: ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff'],

@@ -4,6 +4,8 @@ import { Alert, Button, Chip } from '@ottimo/ui';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../app/api';
+import { todayLocal } from '../app/dates';
+import { dayMonth } from '../app/reservations';
 import { Page, Topbar } from '../components/AppShell';
 import { ErrorBlock, LoadingBlock } from '../components/states';
 import { useResource } from '../hooks/useResource';
@@ -25,7 +27,10 @@ export function editorsOf(p: Parameter): Role[] {
   return p.key in SECURITY_BOUNDS ? ['owner'] : ['owner', 'manager'];
 }
 
-/** H05 – rule parameters by group; each save adds a new effective-dated value (US-005). */
+/**
+ * H05 – rule parameters by group; each save adds a new effective-dated value (US-005). A value scheduled for a
+ * later day shows as a chip under the value in force (UXR S4 P-22).
+ */
 export function ParamsPage() {
   const { t, date, dateTime } = useI18n();
   const propertyId = usePropertyId();
@@ -38,6 +43,23 @@ export function ParamsPage() {
     async () => (await api.listParameters({ propertyId })).data.data,
     [propertyId],
   );
+  // UXR S4 P-22: a value saved for a later day is not in force yet – the same list read far ahead shows it, so
+  // the row can say "35% từ 19/10" instead of looking unchanged.
+  const today = todayLocal(session.property?.timezone);
+  const farDay = `${Number(today.slice(0, 4)) + 10}-12-31`;
+  const scheduled = useResource(
+    async () =>
+      new Map(
+        (await api.listParameters({ propertyId }, true, farDay)).data.data.map((p) => [p.key, p]),
+      ),
+    [propertyId, farDay, state.status === 'ready' ? state.loadedAt : null],
+  );
+  const pendingOf = (p: Parameter): Parameter | undefined => {
+    const next = scheduled.state.data?.get(p.key);
+    return next && next.effectiveFrom > today && next.effectiveFrom > p.effectiveFrom
+      ? next
+      : undefined;
+  };
 
   const params = state.data ?? [];
   const groups = GROUP_ORDER.filter(
@@ -146,7 +168,19 @@ export function ParamsPage() {
                               </>
                             ) : null}
                           </td>
-                          <td className="r num">{formatParamValue(t, p)}</td>
+                          <td className="r num">
+                            {formatParamValue(t, p)}
+                            {pendingOf(p) ? (
+                              <div className="mt-4">
+                                <Chip tone="oak" icon="clock">
+                                  {t('params.pending', {
+                                    value: formatParamValue(t, pendingOf(p)!),
+                                    date: dayMonth(pendingOf(p)!.effectiveFrom),
+                                  })}
+                                </Chip>
+                              </div>
+                            ) : null}
+                          </td>
                           <td>{p.brRef ?? '–'}</td>
                           <td>{date(p.effectiveFrom)}</td>
                           <td className="li-s">

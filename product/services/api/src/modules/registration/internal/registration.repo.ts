@@ -41,6 +41,12 @@ export interface DocRow {
   registration_id: string;
   reservation_id: string;
   party_member_id: string | null;
+  /**
+   * SEC FB-R2-SEC-BE-73 / ARC 16.22 (0070): the BOOKER's profile when the document is the booker's – the booker is
+   * a party person (`party[]` id = the booking id) without a `reservation_guest` row. Never inferred from
+   * `is_main`; exclusive with `party_member_id`; at most one per declaration.
+   */
+  guest_id: string | null;
   person_index: number | null;
   doc_type: DocumentFields['docType'];
   is_main: boolean;
@@ -117,7 +123,7 @@ export const REG_COLUMNS = `id, reservation_id, status, kind, required_count, su
   blocks_door_code, images_purge_scheduled_at, images_purged_at, images_purge_reason, voided_at, stay_ended_at,
   version`;
 
-const DOC_COLUMNS = `id, registration_id, reservation_id, party_member_id, person_index, doc_type, is_main,
+const DOC_COLUMNS = `id, registration_id, reservation_id, party_member_id, guest_id, person_index, doc_type, is_main,
   is_foreigner, is_minor_data, full_name_on_doc, nationality_code, gender, doc_number_last4, doc_number_hmac,
   check_results, capture_method, data_key_id, fields_purge_after, purged_at, removed_at, possible_returning_guest,
   ${ENC_LIST.map(([, c]) => c).join(', ')}`;
@@ -241,10 +247,14 @@ export function latestConsent(
  * links it to a person still in the party (`updateGuestDocument` + `partyMemberId`).
  */
 export function isUnclaimed(
-  d: Pick<DocRow, 'party_member_id' | 'person_index' | 'fields_purge_after' | 'removed_at'>,
+  d: Pick<
+    DocRow,
+    'party_member_id' | 'guest_id' | 'person_index' | 'fields_purge_after' | 'removed_at'
+  >,
 ): boolean {
   return (
     d.party_member_id === null &&
+    d.guest_id === null &&
     d.person_index !== null &&
     d.person_index >= 2 &&
     d.fields_purge_after !== null &&

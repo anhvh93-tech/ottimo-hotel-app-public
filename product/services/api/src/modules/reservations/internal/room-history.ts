@@ -143,8 +143,25 @@ export async function stayRoomHistory(
   const history = await view(reservationId, 0);
   const root = primary ?? byId.get(reservationId);
   const originRoomId =
-    root?.origin_room_id ?? (root ? firstRoomOf(await historyOf(root.id)) : null);
+    root?.origin_room_id ??
+    (root
+      ? ((await upgradedFromRoom(tx, root.id)) ?? firstRoomOf(await historyOf(root.id)))
+      : null);
   return { history, originRoomId };
+}
+
+/**
+ * BUG-R2-133: the room an OTA conflict booking was booked in when OTTIMO settled it with an upgrade (B7a
+ * `upgraded`) – its origin (BR-424) when the booking stored none (rows before 0059). null = not such a booking.
+ */
+export async function upgradedFromRoom(tx: Tx, reservationId: string): Promise<string | null> {
+  const { rows } = await tx.query<{ room_id: string }>(
+    `SELECT requested_room_id AS room_id FROM overbooking_incident
+      WHERE reservation_id = $1 AND resolution = 'upgraded' AND requested_room_id IS NOT NULL
+      ORDER BY detected_at, id LIMIT 1`,
+    [reservationId],
+  );
+  return rows[0]?.room_id ?? null;
 }
 
 /** Protected base kept by OTTIMO moves since the last guest-requested move (null = none). */

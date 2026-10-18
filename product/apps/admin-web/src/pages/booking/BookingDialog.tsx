@@ -91,6 +91,8 @@ interface Form {
   ratesEdited: Record<string, boolean>;
   depositAmount: string;
   depositMethod: PaymentMethod;
+  /** ARC 16.23 (S4-13 B): the bank transaction reference goes with the payment – no receipt photo at B2. */
+  depositNote: string;
   internalNote: string;
   rateReason: string;
   minStayReason: string;
@@ -116,13 +118,21 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   const catalog = useCatalog(propertyId);
   const today = todayLocal();
   const lead = roles.some((r) => LEAD_PLUS.includes(r));
+  // ARC 16.23: who attaches a receipt photo after creating – the desk (deposit confirmation) or a sale ("Báo cọc").
+  const fdDesk = roles.some((r) =>
+    ['owner', 'manager', 'front_desk_lead', 'front_desk'].includes(r),
+  );
 
   const [form, setForm] = useState<Form>(() => {
     const draft = !prefill ? readDraft(DRAFT_KEY) : null;
     // A draft saved before `ratesEdited` existed: no box counts as edited.
     if (draft) {
       const saved = JSON.parse(draft) as Partial<Form>;
-      return { ...(saved as Form), ratesEdited: saved.ratesEdited ?? {} };
+      return {
+        ...(saved as Form),
+        ratesEdited: saved.ratesEdited ?? {},
+        depositNote: saved.depositNote ?? '',
+      };
     }
     const arrival = prefill?.arrivalDate ?? today;
     return {
@@ -144,6 +154,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       ratesEdited: {},
       depositAmount: '',
       depositMethod: 'vietqr',
+      depositNote: '',
       internalNote: '',
       rateReason: '',
       minStayReason: '',
@@ -443,6 +454,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
             type: 'deposit',
             method: form.depositMethod,
             amountVnd: parseVnd(form.depositAmount) ?? 0,
+            note: form.depositNote.trim() || undefined,
           }
         : undefined,
       internalNote: form.internalNote.trim() || undefined,
@@ -1271,6 +1283,22 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 )}
               </Field>
             </div>
+            {/* ARC 16.23 (S4-13 hướng B): B2 takes no receipt photo – the transaction reference is the proof here;
+                a photo goes with the booking afterwards (FD: confirm the deposit with it; SAL/CTV: "Báo cọc"). */}
+            <Field label={t('co.txn_ref')} help={t('bk.txn_ref_help')}>
+              {(p) => (
+                <input
+                  {...p}
+                  className="input"
+                  maxLength={300}
+                  value={form.depositNote}
+                  onChange={(e) => set({ depositNote: e.target.value })}
+                />
+              )}
+            </Field>
+            <p className="li-s">
+              {fdDesk ? t('bk.receipt_later_fd') : t('bk.receipt_later_sales')}
+            </p>
           </>
         ) : null}
       </form>

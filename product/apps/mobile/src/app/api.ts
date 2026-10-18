@@ -97,6 +97,11 @@ export interface StaffRequest {
 
 export type AppLanguage = 'vi' | 'en';
 
+/** No answer from the API itself: network down, or the gateway says the API is not there (502/503/504 – UXR P-09). */
+export function unreachable(e: unknown): boolean {
+  return isApiError(e) && (e.isNetwork || e.status === 502 || e.status === 503 || e.status === 504);
+}
+
 /** Raw request used by the offline queue (src/queue) – one queued item = one request. */
 export async function sendRequest<T>(req: StaffRequest): Promise<T> {
   const res = await client.request<T>(req.method, req.template, {

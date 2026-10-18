@@ -45,6 +45,13 @@ const VARIANT: Record<string, [param: string, key: string]> = {
  * `foc.r_*`. Without a known key: the room night from `serviceDate`, otherwise the server
  * `description` (technical – shown as is so a missing key is visible in QA).
  */
+/**
+ * UXR P-32: one minus sign for money on the desk – the typographic "−" (U+2212) the folio uses for paid amounts,
+ * never the hyphen `Intl` writes for a negative number (a FOC / reversal line).
+ */
+export const signed = (format: (n: number) => string, n: number): string =>
+  n < 0 ? `−${format(-n)}` : format(n);
+
 export function lineLabel(t: T, line: FolioLine): string {
   const l = line as Labeled;
   if (l.labelKey && hasKey(l.labelKey)) {

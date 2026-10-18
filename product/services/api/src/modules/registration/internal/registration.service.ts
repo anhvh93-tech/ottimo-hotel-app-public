@@ -91,6 +91,24 @@ import {
   readStays,
 } from './stay-reader';
 
+/**
+ * ARC 16.22 / SEC FB-R2-SEC-BE-73: the person of a document – a party member (`reservation_guest`) or the BOOKER
+ * (`guest_document.guest_id` = the booker's profile; the booker's `party[]` id is the booking id).
+ */
+interface DocPerson {
+  memberId: string | null;
+  bookerGuestId: string | null;
+}
+
+const samePerson = (d: Pick<DocRow, 'party_member_id' | 'guest_id'>, p: DocPerson): boolean =>
+  p.memberId ? d.party_member_id === p.memberId : d.guest_id !== null;
+
+/** The person a stored document is linked to (null: nobody yet – the desk links it). */
+const personOfDoc = (d: Pick<DocRow, 'party_member_id' | 'guest_id'>): DocPerson | null =>
+  d.party_member_id || d.guest_id
+    ? { memberId: d.party_member_id, bookerGuestId: d.party_member_id ? null : d.guest_id }
+    : null;
+
 /** A party member id that is not a person of this booking (FK 0053) → 422 NOT_IN_LIST, never 500. */
 async function partyMember<T>(write: Promise<T>): Promise<T> {
   try {
@@ -606,8 +624,9 @@ export class RegistrationService {
       });
     }
     if (same) throw problem('PARTY_DUPLICATE');
-    await this.assertLiveMember(tx, reg.reservation_id, input.partyMemberId);
-    if (input.partyMemberId && docs.some((d) => d.party_member_id === input.partyMemberId)) {
+    // ARC 16.22: the person the desk chose – a member, or the booker (its `party[]` id is the booking id).
+    let person = await this.personOf(tx, reg, input.partyMemberId);
+    if (person && docs.some((d) => samePerson(d, person as DocPerson))) {
       throw problem('PARTY_DUPLICATE');
     }
     const hasMain = docs.some((d) => d.is_main && isComplete(d));
@@ -633,13 +652,14 @@ export class RegistrationService {
         ).find((x) => x.code === 'name_match')?.result === 'pass');
     const docId = uuidv7();
     const minor = await this.isMinor(tx, input, stay.arrivalDate, c.today);
-    // 0.3.7 nhóm D mục A (S4-11, US-043 AC3, BR-951): another person without `partyMemberId` → the party port
-    // matches a member (document key / name + date of birth), a P05 profile, or creates a profile "from the
-    // document" – so a document the desk enters always has its person (a minor matched by nothing excepted).
+    // 0.3.7 nhóm D mục A (S4-11, US-043 AC3, BR-951) + SEC FB-R2-SEC-BE-73 / ARC 16.22: without `partyMemberId`
+    // the party port finds the person – the main guest's document INCLUDED (`isMain` never means "the booker"):
+    // a person of the booking (the booker or a member) by document key, then name + date of birth, a P05 profile,
+    // or a profile "from the document" + companion `unknown` – so a booking made for someone else ("đặt hộ") never
+    // puts the document, its key / last 4 or P05 on the booker's profile.
     const guestDocKey = this.guestDocKey(input);
-    let memberId = input.partyMemberId;
     let possibleReturningGuest = false;
-    if (!memberId && !isMain) {
+    if (!person) {
       const found = await this.party.memberForDocument(tx, {
         reservationId: reg.reservation_id,
         guestDocKey,
@@ -651,8 +671,9 @@ export class RegistrationService {
         isMinor: minor,
         actor: { userId: actor.principal.userId, requestId: actor.requestId },
       });
-      if (found && !docs.some((d) => d.party_member_id === found.memberId)) {
-        memberId = found.memberId;
+      const match = found ? await this.personOf(tx, reg, found.memberId) : null;
+      if (found && match && !docs.some((d) => samePerson(d, match))) {
+        person = match;
         possibleReturningGuest = found.possibleReturningGuest;
       }
     }
@@ -667,16 +688,16 @@ export class RegistrationService {
         `INSERT INTO guest_document (id, organization_id, property_id, registration_id, reservation_id,
          party_member_id, doc_type, is_main, is_foreigner, is_minor_data, full_name_on_doc, nationality_code,
          gender, doc_number_last4, doc_number_hmac, capture_method, data_key_id, created_at, created_by,
-         possible_returning_guest, updated_at, ${cols.join(', ')})
+         possible_returning_guest, updated_at, guest_id, ${cols.join(', ')})
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'manual', $16, $17, $18, $19, $17,
-         ${cols.map((_, i) => `$${20 + i}`).join(', ')})`,
+         $20, ${cols.map((_, i) => `$${21 + i}`).join(', ')})`,
         [
           docId,
           tx.ctx.organizationId,
           tx.ctx.propertyId,
           reg.id,
           reg.reservation_id,
-          memberId,
+          person?.memberId ?? null,
           input.docType,
           isMain,
           isForeigner(input.docType, input.nationalityCode),
@@ -690,12 +711,14 @@ export class RegistrationService {
           c.now,
           actor.principal.userId,
           possibleReturningGuest,
+          person?.bookerGuestId ?? null,
           ...cols.map((col) => enc[col]),
         ],
       ),
     );
-    // S4-11 (a) / S4-32: a person with P05 keeps the document key + last 4 of this stay (no-op without P05).
-    await this.keepDocKey(tx, reg.reservation_id, memberId, isMain, guestDocKey, input.docNumber);
+    // S4-11 (a) / S4-32: a person with P05 keeps the document key + last 4 of this stay (no-op without P05) – on
+    // the profile of THAT person only (SEC s3 7.3/F03, SEC-BE-73).
+    await this.keepDocKey(tx, reg.reservation_id, person, guestDocKey, input.docNumber);
     await this.storeImages(tx, reg, docId, images, 'desk', actor.principal.userId);
     await this.gate.record(tx, actor.principal, {
       subjectType: 'guest_document',
@@ -720,21 +743,48 @@ export class RegistrationService {
     )}`;
   }
 
-  /** The guest profile of a document's person: its party member's profile, or the booker for the main one. */
+  /**
+   * ARC 16.22 / SEC FB-R2-SEC-BE-73: the person a `partyMemberId` names – a member still in the party, or the
+   * BOOKER when it is the booking id (the booker's `party[]` id). Null for none; 422 `NOT_IN_LIST` for anyone else.
+   */
+  private async personOf(
+    tx: Tx,
+    reg: Pick<RegRow, 'reservation_id'>,
+    partyMemberId: string | null | undefined,
+  ): Promise<DocPerson | null> {
+    if (!partyMemberId) return null;
+    if (partyMemberId === reg.reservation_id) {
+      const booker = await this.bookerOf(tx, reg.reservation_id);
+      if (!booker) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'partyMemberId', code: 'NOT_IN_LIST' }],
+        });
+      }
+      return { memberId: null, bookerGuestId: booker };
+    }
+    await this.assertLiveMember(tx, reg.reservation_id, partyMemberId);
+    return { memberId: partyMemberId, bookerGuestId: null };
+  }
+
+  /**
+   * The guest profile of a document's person: its party member's profile, or the booker's when the document is
+   * the booker's (`guest_id`). Never "the main document = the booker" (SEC FB-R2-SEC-BE-73, ARC 16.22).
+   */
   private async guestOfPerson(
     tx: Tx,
     reservationId: string,
-    memberId: string | null,
-    isMain: boolean,
+    person: DocPerson | null,
   ): Promise<string | null> {
-    if (memberId) {
-      const { rows } = await tx.query<{ guest_id: string | null }>(
-        'SELECT guest_id FROM reservation_guest WHERE id = $1 AND reservation_id = $2',
-        [memberId, reservationId],
-      );
-      return rows[0]?.guest_id ?? null;
-    }
-    if (!isMain) return null;
+    if (person?.bookerGuestId) return person.bookerGuestId;
+    if (!person?.memberId) return null;
+    const { rows } = await tx.query<{ guest_id: string | null }>(
+      'SELECT guest_id FROM reservation_guest WHERE id = $1 AND reservation_id = $2',
+      [person.memberId, reservationId],
+    );
+    return rows[0]?.guest_id ?? null;
+  }
+
+  private async bookerOf(tx: Tx, reservationId: string): Promise<string | null> {
     const { rows } = await tx.query<{ booker_guest_id: string | null }>(
       'SELECT booker_guest_id FROM reservation WHERE id = $1',
       [reservationId],
@@ -746,13 +796,12 @@ export class RegistrationService {
   private async keepDocKey(
     tx: Tx,
     reservationId: string,
-    memberId: string | null,
-    isMain: boolean,
+    person: DocPerson | null,
     key: string,
     docNumber: string,
   ): Promise<void> {
     if (!this.profiles) return;
-    const guestId = await this.guestOfPerson(tx, reservationId, memberId, isMain);
+    const guestId = await this.guestOfPerson(tx, reservationId, person);
     if (guestId) await this.profiles.writeDocKey(tx, guestId, key, docNumber.slice(-4));
   }
 
@@ -838,11 +887,9 @@ export class RegistrationService {
     if (docs.some((d) => d.id !== doc.id && d.doc_number_hmac === hmac)) {
       throw problem('PARTY_DUPLICATE');
     }
-    await this.assertLiveMember(tx, reg.reservation_id, input.partyMemberId);
-    if (
-      input.partyMemberId &&
-      docs.some((d) => d.id !== doc.id && d.party_member_id === input.partyMemberId)
-    ) {
+    // ARC 16.22: a member or the booker (booking id); changing the person = full body.
+    const person = await this.personOf(tx, reg, input.partyMemberId);
+    if (person && docs.some((d) => d.id !== doc.id && samePerson(d, person))) {
       throw problem('PARTY_DUPLICATE');
     }
     const isMain = input.isMain ?? doc.is_main;
@@ -852,14 +899,16 @@ export class RegistrationService {
       });
     }
     const enc = await encryptFields(tx, this.crypto, doc.id, doc.data_key_id, input);
-    const set = encSetSql(12);
+    const set = encSetSql(14);
     const minor = await this.isMinor(tx, input, stay.arrivalDate, c.today);
     await partyMember(
       tx.query(
         `UPDATE guest_document SET doc_type = $2, is_main = $3, is_foreigner = $4, is_minor_data = $5,
               full_name_on_doc = $6, nationality_code = $7, gender = $8, doc_number_last4 = $9,
-              doc_number_hmac = $10, party_member_id = COALESCE($11, party_member_id), ${set.sql},
-              updated_at = $${12 + set.columns.length}
+              doc_number_hmac = $10,
+              party_member_id = CASE WHEN $11::boolean THEN $12::uuid ELSE party_member_id END,
+              guest_id = CASE WHEN $11::boolean THEN $13::uuid ELSE guest_id END, ${set.sql},
+              updated_at = $${14 + set.columns.length}
         WHERE id = $1`,
         [
           doc.id,
@@ -872,7 +921,9 @@ export class RegistrationService {
           input.gender,
           input.docNumber.slice(-4),
           hmac,
-          input.partyMemberId,
+          !!person,
+          person?.memberId ?? null,
+          person?.bookerGuestId ?? null,
           ...set.columns.map((col) => enc[col]),
           c.now,
         ],
@@ -915,22 +966,23 @@ export class RegistrationService {
     if (!doc || doc.purged_at) throw problem('NOT_FOUND');
     assertVersion(reg.version, expectedVersion);
     if (reg.status === 'void') throw problem('INVALID_TRANSITION');
-    if (doc.party_member_id !== null && doc.party_member_id !== partyMemberId) {
+    // ARC 16.22: the person is a member still in the party or the booker (its `party[]` id = the booking id).
+    const person = (await this.personOf(tx, reg, partyMemberId)) as DocPerson;
+    const current = personOfDoc(doc);
+    if (current && !samePerson(doc, person)) {
       throw problem('INVALID_TRANSITION', { detail: 'document already linked to another person' });
     }
-    await this.assertLiveMember(tx, reg.reservation_id, partyMemberId);
     const docs = await documentsOf(tx, reg.id);
-    if (docs.some((d) => d.id !== doc.id && d.party_member_id === partyMemberId)) {
+    if (docs.some((d) => d.id !== doc.id && samePerson(d, person))) {
       throw problem('PARTY_DUPLICATE');
     }
-    if (doc.party_member_id === partyMemberId) return reg; // already linked – nothing changes
+    if (current) return reg; // already linked to that person – nothing changes
     const c = await this.ctx(tx);
     await partyMember(
-      tx.query('UPDATE guest_document SET party_member_id = $2, updated_at = $3 WHERE id = $1', [
-        doc.id,
-        partyMemberId,
-        c.now,
-      ]),
+      tx.query(
+        'UPDATE guest_document SET party_member_id = $2, guest_id = $3, updated_at = $4 WHERE id = $1',
+        [doc.id, person.memberId, person.bookerGuestId, c.now],
+      ),
     );
     await this.gate.record(tx, actor.principal, {
       subjectType: 'guest_document',
@@ -1270,7 +1322,8 @@ export class RegistrationService {
 
   /**
    * P05_CRM at the desk (BR-955; OpenAPI 0.3.7 nhóm D mục A – S4-11, S4-32): the person of `doc` (its party
-   * member's profile, or the booker for the main document) decides for themselves. Granted → `crm_consent =
+   * member's profile, or the booker's when the document is linked to the booker – SEC BE-73, ARC 16.22) decides for
+   * themselves. Granted → `crm_consent =
    * granted` and the profile keeps the v1 document key + last 4 of this document (the number is decrypted in
    * memory only – no C3 view is logged, nothing is returned); refused / withdrawn → `refused`, key and last 4
    * gone in the same transaction (SEC F03). The decision is appended to `consent_record` (purpose P05_CRM).
@@ -1288,12 +1341,34 @@ export class RegistrationService {
     },
   ): Promise<RegRow> {
     if (!this.profiles) throw new Error('DocumentProfileService not available');
-    const guestId = await this.guestOfPerson(
-      tx,
-      reg.reservation_id,
-      doc.party_member_id,
-      doc.is_main,
-    );
+    // The document number (and its v1 key) in memory only – no C3 view is logged, nothing is returned.
+    let key: { key: string; last4: string } | null = null;
+    if (doc.enc.doc_number_enc && doc.nationality_code) {
+      const number = await this.crypto.decryptText(
+        tx,
+        doc.data_key_id,
+        aadOf(doc.id, 'doc_number_enc'),
+        doc.enc.doc_number_enc,
+      );
+      key = {
+        key: this.guestDocKey({
+          docType: doc.doc_type as DocumentFields['docType'],
+          nationalityCode: doc.nationality_code,
+          docNumber: number,
+        }),
+        last4: number.slice(-4),
+      };
+    }
+    // SEC BE-73 / ARC 16.22: the person of the document decides – its party member, or the booker when the document
+    // is linked to the booker. A document linked to nobody yet → 422 REQUIRED: the desk links it to the person
+    // first (GuestDocumentLink) – never the booker's profile by default, never from `is_main`.
+    const person = personOfDoc(doc);
+    if (!person) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'partyMemberId', code: 'REQUIRED' }],
+      });
+    }
+    const guestId = await this.guestOfPerson(tx, reg.reservation_id, person);
     if (!guestId) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'partyMemberId', code: 'NOT_IN_LIST' }],
@@ -1322,23 +1397,6 @@ export class RegistrationService {
       ],
     );
     if (input.decision === 'granted') {
-      let key: { key: string; last4: string } | null = null;
-      if (doc.enc.doc_number_enc && doc.nationality_code) {
-        const number = await this.crypto.decryptText(
-          tx,
-          doc.data_key_id,
-          aadOf(doc.id, 'doc_number_enc'),
-          doc.enc.doc_number_enc,
-        );
-        key = {
-          key: this.guestDocKey({
-            docType: doc.doc_type as DocumentFields['docType'],
-            nationalityCode: doc.nationality_code,
-            docNumber: number,
-          }),
-          last4: number.slice(-4),
-        };
-      }
       await this.profiles.grantCrmConsent(tx, guestId, key, now);
     } else {
       await this.profiles.withdrawCrmConsent(tx, guestId, now);
@@ -2205,7 +2263,12 @@ export class RegistrationService {
       const consent = d.is_minor_data ? null : latestConsent(consents, d);
       return {
         id: d.id,
-        ...(d.party_member_id ? { partyMemberId: d.party_member_id } : {}),
+        // ARC 16.22: the booker's document carries the booker's `party[]` id (the booking id).
+        ...(d.party_member_id
+          ? { partyMemberId: d.party_member_id }
+          : d.guest_id
+            ? { partyMemberId: reg.reservation_id }
+            : {}),
         docType: d.doc_type,
         isMain: d.is_main,
         ...(d.full_name_on_doc ? { fullNameOnDoc: d.full_name_on_doc } : {}),

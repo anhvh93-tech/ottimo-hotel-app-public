@@ -38,7 +38,8 @@ import { AuditService } from '../../audit/public/audit.service';
 import { EventsService } from '../../events/public/events.service';
 import { ChannelsService } from '../../platform/public/channels';
 import { DocNumberService } from '../../platform/public/doc-number.service';
-import { ParameterService } from '../../platform/public/parameter.service';
+import { divideRoundVnd } from '../../platform/public/money';
+import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
 import { applyPct } from '../../reservations/public/pricing';
 import type { FolioStaySync, VoidStayInput } from '../../reservations/public/folio-sync-port';
 import type { ConfirmedStay } from '../../reservations/public/sales-port';
@@ -293,7 +294,10 @@ export interface FolioTotals {
   otherVnd: number;
   focVnd: number;
   totalVnd: number;
+  /** Received – refunds NOT deducted (ARC 16.20). */
   paidVnd: number;
+  /** ARC 16.20 (BUG-R2-102): refunded, positive (succeeded refund rows) – moneyPosition.refundedVnd. */
+  refundedVnd: number;
   paidViaOtaVnd: number;
   depositHeldVnd: number;
   balanceDueVnd: number;
@@ -488,6 +492,7 @@ export function computeTotals(
     focVnd,
     totalVnd: m.totalVnd,
     paidVnd: m.paidVnd,
+    refundedVnd: m.refundedVnd,
     paidViaOtaVnd: m.paidOtaVnd,
     depositHeldVnd: m.depositHeldVnd,
     balanceDueVnd: m.balanceDueVnd,
@@ -1117,6 +1122,11 @@ export class FolioService implements FolioStaySync {
     // BUG-R2-148 (BR-416-06, DOM 18/10): the late fee charged as one night IS the night of the departure day – its
     // BR-433 basis is the charge itself (a MGR may waive it in full even above the last night stayed).
     if (line.charge_code === 'late_fee_as_night') return line.amount_vnd;
+    // ARC 16.21 (Minor): a long stay's night is its monthly rent ÷ long_stay_daily_divisor (BR-102/BR-413 – the
+    // same base as its early/late surcharge); a manual long stay (US-017 AC5a) has no room line to read, which
+    // sent every reduction on it to OWN instead of the manager (BR-433).
+    const longNight = await this.longStayNightOf(tx, line.reservation_id, line.folio_id);
+    if (longNight !== null) return longNight;
     const { rows: nights } = await tx.query<{ unit_price_vnd: number; service_date: string }>(
       `SELECT l.unit_price_vnd, l.service_date::text AS service_date FROM folio_line l
         WHERE l.folio_id = $1 AND l.category = 'room' AND l.line_state = 'posted'
@@ -1137,6 +1147,36 @@ export class FolioService implements FolioStaySync {
     if (same) return same.unit_price_vnd;
     const before = nights.filter((n) => n.service_date < d);
     return (before[before.length - 1] ?? first).unit_price_vnd;
+  }
+
+  /**
+   * Nightly equivalent of the long stay a line belongs to (its booking, else the folio's primary booking): monthly
+   * rent ÷ `long_stay_daily_divisor`, rounded to `rounding.night_rate` (BR-102, BR-413 – what the desk's
+   * `longStayNight` computes). Null for a short stay, a long stay without rent, or missing parameters.
+   */
+  private async longStayNightOf(
+    tx: Tx,
+    reservationId: string | null,
+    folioId: string,
+  ): Promise<number | null> {
+    const { rows } = await tx.query<{ stay_type: string; rent: string | number | null }>(
+      `SELECT r.stay_type, (r.manual_long_stay ->> 'monthly_rent_vnd') AS rent
+         FROM reservation r
+        WHERE r.id = COALESCE($1::uuid, (SELECT f.primary_reservation_id FROM folio f WHERE f.id = $2))`,
+      [reservationId, folioId],
+    );
+    const r = rows[0];
+    const rent = r?.rent === null || r?.rent === undefined ? null : Number(r.rent);
+    if (r?.stay_type !== 'long' || !rent || rent <= 0) return null;
+    const today = localDate(this.clock.now(), await this.timezone(tx));
+    try {
+      const divisor = await this.params.get<number>(tx, 'long_stay_daily_divisor', today);
+      const unit = await this.params.get<number>(tx, 'rounding.night_rate', today);
+      return divideRoundVnd(rent, divisor, unit);
+    } catch (err) {
+      if (err instanceof ParameterMissingError) return null;
+      throw err;
+    }
   }
 
   /**
@@ -2876,6 +2916,46 @@ export class FolioService implements FolioStaySync {
       [id],
     );
     return rows[0] ?? null;
+  }
+
+  /**
+   * ARC s3 thẻ 15 (reopened 18/10) – FolioPort for other modules: link a folio line WAITING for a decision
+   * (`line_state = 'pending_approval'` – a FOC / special-discount line, a damage line) to the approval request
+   * submitted for it (`approval_request.folio_line_id` = this line). The Folio DTO shows it as `approvalRequestId`
+   * and the decision hooks find the line through it. Only the folio module writes `folio_line` (BE-A's B16/B18 FOC
+   * in stay-support calls this instead of its own UPDATE).
+   * Lock order (ARC 16.19): the caller holds L1 (its booking) and usually L3 already (it posted the line with
+   * postLines); the folio is (re)locked here – L3, no wait when held – BEFORE anything is read; the approval row
+   * (L4) is only read. Idempotent for the same request; 404 NOT_FOUND unknown line (or not visible); 422
+   * NOT_IN_LIST when the request is not the one of this line; 409 INVALID_TRANSITION when the line is not pending
+   * any more or already carries another request.
+   */
+  async linkApprovalRequest(tx: Tx, folioLineId: string, approvalRequestId: string): Promise<void> {
+    const { rows: found } = await tx.query<{ folio_id: string }>(
+      'SELECT folio_id FROM folio_line WHERE id = $1',
+      [folioLineId],
+    );
+    if (!found[0]) throw problem('NOT_FOUND');
+    await this.lock(tx, found[0].folio_id);
+    const { rows } = await tx.query<{ line_state: string; approval_request_id: string | null }>(
+      'SELECT line_state, approval_request_id FROM folio_line WHERE id = $1',
+      [folioLineId],
+    );
+    const line = rows[0] as { line_state: string; approval_request_id: string | null };
+    if (line.approval_request_id === approvalRequestId) return;
+    const { rows: req } = await tx.query<{ folio_line_id: string | null }>(
+      'SELECT folio_line_id FROM approval_request WHERE id = $1',
+      [approvalRequestId],
+    );
+    if (!req[0] || req[0].folio_line_id !== folioLineId) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'approvalRequestId', code: 'NOT_IN_LIST' }],
+      });
+    }
+    if (line.line_state !== 'pending_approval' || line.approval_request_id !== null) {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: line.line_state } });
+    }
+    await this.linkLine(tx, folioLineId, approvalRequestId);
   }
 
   private async linkLine(tx: Tx, lineId: string, approvalId: string): Promise<void> {

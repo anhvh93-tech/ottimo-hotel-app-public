@@ -4,9 +4,11 @@ import { Alert, Button, Chip, Field, Modal, StateView } from '@ottimo/ui';
 import { useEffect, useState } from 'react';
 import { api } from '../../app/api';
 import { listApprovals } from '../../app/approvals';
+import { approvalFacts, useApprovalTargets } from '../../app/approvalTarget';
 import { APPROVAL_TYPE, FOC_REASON, methodText } from '../../app/folio';
 import { useLiveReload } from '../../app/live';
 import { timeHHmm } from '../../app/dates';
+import { useStaffRoomLabel } from '../../app/rooms';
 import { useToast } from '../../app/toast';
 import { Page, Topbar } from '../../components/AppShell';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
@@ -33,7 +35,8 @@ const STATUS_TONE = {
 /**
  * H17 17.2 Cần duyệt (S23, US-007, SM-10): pending/escalated requests with amount, reason, sender and
  * the approver's remaining monthly limit; approve / reject by re-entering the login password (R2 – PIN
- * from R3). Someone else deciding first → `approval.already_done` + reload.
+ * from R3). Someone else deciding first → `approval.already_done` + reload. Each card also says the waived
+ * charge and the room (UXR S4 P-03) and stacks on a phone (`.appr-card`).
  */
 export function ApprovalsPage() {
   const { t, vnd, dateTime } = useI18n();
@@ -47,6 +50,9 @@ export function ApprovalsPage() {
   useLiveReload(propertyId, reload);
   const [deciding, setDeciding] = useState<{ a: ApprovalRequest; approve: boolean } | null>(null);
   const rows = state.data ?? [];
+  // UXR S4 P-03: what is waived and in which room – the request itself only carries the booking code.
+  const target = useApprovalTargets(propertyId, state.data);
+  const room = useStaffRoomLabel(propertyId);
   // BUG-R2-106: after "Tải lại" (412) the old cards stay on screen while the queue is read again – a
   // decision opened from one of them would carry the OLD version. Deciding waits for the new read.
   const [rereading, setRereading] = useState(false);
@@ -76,14 +82,16 @@ export function ApprovalsPage() {
           </StateView>
         ) : (
           <ul className="list-none">
-            {rows.map((a) => (
-              <li key={a.id} className="card">
-                <div className="row wrap">
+            {rows.map((a) => {
+              const facts = approvalFacts(t, a, target(a), room);
+              return (
+                <li key={a.id} className="card appr-card">
                   <div className="grow">
                     <b>
                       {a.reservationCode} · {t(APPROVAL_TYPE[a.type] ?? 'nav.approvals')}
                       {a.amountVnd > 0 ? ` · ${vnd(a.amountVnd)}` : ''}
                     </b>
+                    {facts ? <div className="li-t">{facts}</div> : null}
                     <div className="li-s">
                       {FOC_REASON[a.reasonCode] ? t(FOC_REASON[a.reasonCode]!) : null}
                       {a.reasonNote ? ` · "${a.reasonNote}"` : ''} ·{' '}
@@ -101,22 +109,24 @@ export function ApprovalsPage() {
                     ) : null}
                   </div>
                   <Chip tone={STATUS_TONE[a.status]}>{t(`approval.status.${a.status}`)}</Chip>
-                  <Button
-                    disabled={!online || rereading}
-                    onClick={() => setDeciding({ a, approve: false })}
-                  >
-                    {t('approval.reject')}
-                  </Button>
-                  <Button
-                    variant="pri"
-                    disabled={!online || rereading}
-                    onClick={() => setDeciding({ a, approve: true })}
-                  >
-                    {t('approval.approve')}
-                  </Button>
-                </div>
-              </li>
-            ))}
+                  <div className="appr-acts">
+                    <Button
+                      disabled={!online || rereading}
+                      onClick={() => setDeciding({ a, approve: false })}
+                    >
+                      {t('approval.reject')}
+                    </Button>
+                    <Button
+                      variant="pri"
+                      disabled={!online || rereading}
+                      onClick={() => setDeciding({ a, approve: true })}
+                    >
+                      {t('approval.approve')}
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </Page>

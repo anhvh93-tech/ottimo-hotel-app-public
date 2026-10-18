@@ -29,6 +29,11 @@ const QuotesPage = lazy(() =>
 const RegistrationPage = lazy(() =>
   import('../pages/registration/RegistrationPage').then((m) => ({ default: m.RegistrationPage })),
 );
+const RegistrationReadOnly = lazy(() =>
+  import('../pages/registration/RegistrationReadOnly').then((m) => ({
+    default: m.RegistrationReadOnly,
+  })),
+);
 const ApprovalsPage = lazy(() =>
   import('../pages/approvals/ApprovalsPage').then((m) => ({ default: m.ApprovalsPage })),
 );
@@ -91,6 +96,15 @@ function Screen({ item, children }: { item: NavItem; children: ReactNode }) {
     return <NoAccessPage titleKey={item.label} />;
   }
   if (item.needsTrustedDevice && !session.deviceTrusted) {
+    // UXR S4 P-06: H24 "Khai báo quá hạn" on the owner's phone lists the bookings (no ID data) instead of a
+    // dead end; the IDs themselves still open only on a granted desk computer.
+    const readOnly = UNTRUSTED_PAGES[item.id];
+    if (readOnly)
+      return (
+        <div className="screen-root" data-screen={item.screen}>
+          <Suspense fallback={<Splash />}>{readOnly()}</Suspense>
+        </div>
+      );
     return (
       <>
         <Topbar title={t(item.label)} />
@@ -125,6 +139,11 @@ const PAGES: Record<string, () => ReactNode> = {
   registration: () => <RegistrationPage />,
   approvals: () => <ApprovalsPage />,
   moneylog: () => <MoneyPage />,
+};
+
+/** What a C3 screen shows on a device the owner has not granted, when it has a non-C3 view (else DeviceBlocked). */
+const UNTRUSTED_PAGES: Record<string, () => ReactNode> = {
+  registration: () => <RegistrationReadOnly />,
 };
 
 function Home() {

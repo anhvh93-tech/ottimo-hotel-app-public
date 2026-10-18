@@ -6,8 +6,9 @@
  * R5 (BR-805) and the OOO exits (R11) through the same service. B13 → OD also gives the room its stay-over clean
  * of the day (S4-31 – `stayContinues`).
  *
- * A room without a row yet has a derived status: OOO when an OOO block is active today, OC when a booking is
- * in house on it today, else VC (the rack rule of Sprint 2). An active OOO block always wins.
+ * A room without a row yet has a derived status: OOO when an OOO block is active today, OC when a stay is in
+ * the room today (stay-occupancy.ts – the departure day included until B18), else VC (the rack rule of
+ * Sprint 2). An active OOO block always wins.
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
@@ -18,6 +19,7 @@ import { EventsService } from '../../events/public/events.service';
 import { ParameterService } from '../../platform/public/parameter.service';
 import { linenChangeDue } from '../internal/rules';
 import { STAY_ARRIVAL_SQL } from './stay-arrival';
+import { inRoomOnSql } from './stay-occupancy';
 
 export type { RoomStatusCode };
 
@@ -44,8 +46,7 @@ export class RoomStatusService {
                               AND COALESCE(b.end_date_actual, b.end_date_planned) > $2::date) THEN 'OOO'
                 WHEN rs.status IS NOT NULL THEN rs.status
                 WHEN EXISTS (SELECT 1 FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
-                              WHERE s.room_id = rm.id AND s.active AND r.status = 'in_house'
-                                AND s.from_date <= $2::date AND s.to_date > $2::date) THEN 'OC'
+                              WHERE s.room_id = rm.id AND ${inRoomOnSql('$2::date')}) THEN 'OC'
                 ELSE 'VC'
               END AS status
          FROM room rm LEFT JOIN room_status rs ON rs.room_id = rm.id
@@ -126,13 +127,25 @@ export class RoomStatusService {
     return before;
   }
 
+  /**
+   * ARC FB-R2-ARC-BE-S4-01: time of the room's last SM-03 transition in the clock of whoever did it – the device
+   * time (`performed_at`) of an HK action (PWA offline queue), the server time of any other. Null without history.
+   */
+  async lastActionAt(tx: Tx, roomId: string): Promise<Date | null> {
+    const { rows } = await tx.query<{ at: Date }>(
+      `SELECT COALESCE(performed_at, occurred_at) AS at FROM state_transition
+        WHERE machine = 'SM-03' AND entity_id = $1 ORDER BY occurred_at DESC, id DESC LIMIT 1`,
+      [roomId],
+    );
+    return rows[0]?.at ?? null;
+  }
+
   /** The in-house stay of the room arrived on `today` (first arrival of the stay – stay-arrival.ts). */
   private async arrivedToday(tx: Tx, roomId: string, today: LocalDate): Promise<boolean> {
     const { rows } = await tx.query<{ arrival: string }>(
       `SELECT (${STAY_ARRIVAL_SQL})::text AS arrival
          FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
-        WHERE s.room_id = $1 AND s.active AND r.status = 'in_house' AND s.from_date <= $2::date
-          AND s.to_date > $2::date
+        WHERE s.room_id = $1 AND ${inRoomOnSql('$2::date')}
         ORDER BY s.from_date DESC LIMIT 1`,
       [roomId, today],
     );
@@ -152,8 +165,7 @@ export class RoomStatusService {
     const { rows: stay } = await tx.query<{ reservation_id: string; nights: number }>(
       `SELECT s.reservation_id, ($2::date - ${STAY_ARRIVAL_SQL}) AS nights
          FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
-        WHERE s.room_id = $1 AND s.active AND r.status = 'in_house' AND s.from_date <= $2::date
-          AND s.to_date > $2::date
+        WHERE s.room_id = $1 AND ${inRoomOnSql('$2::date')}
         ORDER BY s.from_date DESC LIMIT 1`,
       [roomId, input.today],
     );

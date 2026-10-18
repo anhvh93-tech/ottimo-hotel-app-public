@@ -20,6 +20,7 @@ import { attachEmailIfEmpty } from '../../guests/public/guest-contact';
 import { normalizeEmail } from '../../guests/public/normalize';
 import { DocNumberService } from '../../platform/public/doc-number.service';
 import { ParameterService } from '../../platform/public/parameter.service';
+import { divideRoundVnd } from '../../platform/public/money';
 import { PropertyContextService } from '../../platform/public/property-context';
 import { OccupancyService } from '../public/occupancy.service';
 import {
@@ -46,6 +47,7 @@ import type { NightSource } from '../public/added-night-price';
 import { type PriceResult, type PricingParams, PricingService } from '../public/pricing.service';
 import { type InitialPayment, ReservationHooks } from '../public/reservation-hooks';
 import type { ConfirmedStay } from '../public/sales-port';
+import { LEASE_RATE_SOURCE, syncLeaseNights } from './lease-nights';
 import { MoneyBridge } from './money-bridge';
 import { type BookingMovePlan, MovePlanner, moveCauseOf } from './move-planner';
 import { boughtRoomOf, protectedBaseOf, roomChangeHistory, stayRoomHistory } from './room-history';
@@ -414,7 +416,8 @@ export class ReservationsService {
     const registration = row.parent_reservation_id
       ? null
       : await this.hooks.registrationSummary(tx, row.id);
-    const balanceDueVnd = row.folio_id ? await this.money.balanceDue(tx, row) : undefined;
+    // BUG-R2-101 (ARC 16.20): left out while the folio has no posted line.
+    const balanceDueVnd = await this.money.balanceDueOnPosted(tx, row);
     return toReservationDto({
       row,
       segments,
@@ -806,7 +809,7 @@ export class ReservationsService {
         tx,
         { id, code, folio_id: folioId },
         initialPayment,
-        ctx.actor.userId,
+        ctx.actor,
         ctx.now,
         ctx.requestId,
       );
@@ -875,6 +878,8 @@ export class ReservationsService {
         ctx.actor.userId,
         ctx.requestId,
       );
+    // A7-01 (ARC 16.21): a manual long stay gets its lease nights (KPIs – never folio lines).
+    if (manual) await this.syncLeaseNights(tx, ctx, id);
     await this.hooks.emit(
       tx,
       this.event('created', row, null, conflict ? 'B7b' : 'B2', assignedRoomId),
@@ -1117,6 +1122,55 @@ export class ReservationsService {
   }
 
   /** Sold nights + snapshot extra-person fee for the folio postings (sales-port ConfirmedStay). */
+  /**
+   * A7-01 (ARC 16.21, US-017 AC5a): the lease nights of a manual long stay after a write of its dates / rooms –
+   * Q-10 allocation, never money (`lease-nights.ts`). Any other booking: nothing.
+   */
+  async syncLeaseNights(
+    tx: Tx,
+    at: { now: Date; today: LocalDate },
+    reservationId: string,
+  ): Promise<number> {
+    const { rows } = await tx.query<
+      Pick<
+        ReservationRow,
+        'id' | 'status' | 'external_contract' | 'manual_long_stay' | 'channel_id'
+      > & { arrival_date: string; departure_date: string }
+    >(
+      `SELECT id, status, external_contract, manual_long_stay, channel_id, arrival_date::text AS arrival_date,
+              departure_date::text AS departure_date
+         FROM reservation WHERE id = $1`,
+      [reservationId],
+    );
+    const row = rows[0];
+    if (!row?.external_contract) return 0;
+    const divisor = await this.params.get<number>(tx, 'long_stay_daily_divisor', at.today);
+    const unit = (await this.pricing.load(tx, at.today)).nightRateUnit;
+    return syncLeaseNights(tx, row, at.now, (rent) => divideRoundVnd(rent, divisor, unit));
+  }
+
+  /**
+   * A7-01 back-fill (one-time, idempotent – `lease.nights` job): every manual long stay confirmed / in house /
+   * checked out without a live lease night gets them (bookings made before this release).
+   */
+  async backfillLeaseNights(
+    tx: Tx,
+    now: Date,
+    today: LocalDate,
+  ): Promise<{ bookings: number; nights: number }> {
+    const { rows } = await tx.query<{ id: string }>(
+      `SELECT r.id FROM reservation r
+        WHERE r.external_contract AND r.status IN ('confirmed', 'in_house', 'checked_out')
+          AND NOT EXISTS (SELECT 1 FROM stay_night n
+                           WHERE n.reservation_id = r.id AND n.night_state <> 'void' AND n.rate_source = $1)
+        ORDER BY r.id FOR NO KEY UPDATE OF r SKIP LOCKED`,
+      [LEASE_RATE_SOURCE],
+    );
+    let nights = 0;
+    for (const r of rows) nights += await this.syncLeaseNights(tx, { now, today }, r.id);
+    return { bookings: rows.length, nights };
+  }
+
   async confirmedStay(tx: Tx, row: ReservationRow): Promise<ConfirmedStay> {
     const { rows } = await tx.query<{
       id: string;
@@ -1127,8 +1181,10 @@ export class ReservationsService {
     }>(
       `SELECT id, stay_date::text AS date, room_revenue_vnd AS amount, extra_person_fee_vnd AS extra,
               extra_person_count AS cnt
-         FROM stay_night WHERE reservation_id = $1 AND night_state = 'sold' ORDER BY stay_date`,
-      [row.id],
+         FROM stay_night WHERE reservation_id = $1 AND night_state = 'sold' AND rate_source <> $2
+        ORDER BY stay_date`,
+      // A7-01 (ARC 16.21): a lease night of a manual long stay never becomes a folio line.
+      [row.id, LEASE_RATE_SOURCE],
     );
     const snap = row.pricing_snapshot as {
       extraPersonFeePerNightVnd?: number;
@@ -1787,6 +1843,11 @@ export class ReservationsService {
     }
     const note = pf.text('note', 300);
     const posAuthCode = pf.text('posAuthCode', 12);
+    // FB-R2-ARC-BE-S4-13 / ARC 16.23 (B): B2 takes no receipt image – refused, never dropped silently. The image
+    // goes with the payment after the booking exists (FD+ `recordPayment`, SAL/CTV `createDepositNotice`).
+    if (o.attachmentId !== undefined && o.attachmentId !== null) {
+      pf.add('attachmentId', 'NOT_ALLOWED');
+    }
     for (const e of pf.errors) f.add(`initialPayment.${e.field}`, e.code);
     if (pf.errors.length) return undefined;
     return {
@@ -1796,7 +1857,6 @@ export class ReservationsService {
       ...(typeof o.receivedAt === 'string' ? { receivedAt: o.receivedAt } : {}),
       ...(posAuthCode ? { posAuthCode } : {}),
       ...(note ? { note } : {}),
-      ...(isUuid(o.attachmentId) ? { attachmentId: o.attachmentId } : {}),
     };
   }
 
@@ -2194,8 +2254,9 @@ export class ReservationsService {
       cnt: number | null;
     }>(
       `SELECT id, stay_date::text AS date, extra_person_fee_vnd AS fee, extra_person_count AS cnt
-         FROM stay_night WHERE reservation_id = $1 AND night_state <> 'void' ORDER BY stay_date`,
-      [row.id],
+         FROM stay_night WHERE reservation_id = $1 AND night_state <> 'void' AND rate_source <> $2
+        ORDER BY stay_date`,
+      [row.id, LEASE_RATE_SOURCE],
     );
     return rows.map((r) => ({
       id: r.id,
@@ -3129,7 +3190,12 @@ export class ReservationsService {
     }
     if (row.channel_group === 'ota' && (m.arrival || m.departure))
       f.add('arrivalDate', 'OTA_DATES_LOCKED');
-    if (row.conflict_state === 'open' && !m.resolution) f.add('overbookingResolution', 'REQUIRED');
+    // BUG-R2-123: the preview of a conflict booking (B7a through `move`) needs no `overbookingResolution` – it takes
+    // the only value the write accepts for the room chosen (same group as the room booked → reassigned_same_group,
+    // else upgraded – `assertResolution`); the write still requires it.
+    if (row.conflict_state === 'open' && !m.resolution && mode !== 'preview') {
+      f.add('overbookingResolution', 'REQUIRED');
+    }
     // A-19 rules: `overbooking` only for a flagged booking; `force_majeure` only as B8 (MGR+ below).
     if (
       m.reasonCode === 'overbooking' &&
@@ -3202,6 +3268,8 @@ export class ReservationsService {
     }
     await this.assertSellable(tx, rm, from, to);
     if (row.conflict_state === 'open') {
+      if (!m.resolution && mode === 'preview')
+        m.resolution = await this.expectedResolution(tx, row, rm);
       await this.assertResolution(tx, ctx, row, rm, m.resolution as string);
     }
     const roomChanges = targetRoomId !== seg.room_id;
@@ -3556,6 +3624,8 @@ export class ReservationsService {
       ctx.actor.userId,
       ctx.requestId,
     );
+    // A7-01 (ARC 16.21): a manual long stay's lease nights follow its room.
+    await this.syncLeaseNights(tx, ctx, after.id);
     await this.hooks.emit(
       tx,
       this.event('stay_changed', after, 'confirmed', postpone ? 'B8' : 'B7', targetRoomId),
@@ -3808,13 +3878,12 @@ export class ReservationsService {
   }
 
   /** BR-312 (4): a room of another group is an upgrade – FDL+ only, and must be declared as such. */
-  private async assertResolution(
+  /** The resolution a room settles an open overbooking with: same group as the room booked, or an upgrade. */
+  private async expectedResolution(
     tx: Tx,
-    ctx: BookingContext,
     row: ReservationRow,
     rm: RoomInfo,
-    resolution: string,
-  ): Promise<void> {
+  ): Promise<'reassigned_same_group' | 'upgraded'> {
     const { rows } = await tx.query<{ room_group_id: string | null }>(
       `SELECT rm.room_group_id FROM overbooking_incident i LEFT JOIN room rm ON rm.id = i.requested_room_id
         WHERE i.reservation_id = $1 AND i.status = 'open' ORDER BY i.detected_at DESC LIMIT 1`,
@@ -3822,7 +3891,17 @@ export class ReservationsService {
     );
     const requestedGroup = rows[0]?.room_group_id ?? null;
     const sameGroup = requestedGroup === null || requestedGroup === rm.room_group_id;
-    const expected = sameGroup ? 'reassigned_same_group' : 'upgraded';
+    return sameGroup ? 'reassigned_same_group' : 'upgraded';
+  }
+
+  private async assertResolution(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    rm: RoomInfo,
+    resolution: string,
+  ): Promise<void> {
+    const expected = await this.expectedResolution(tx, row, rm);
     if (resolution !== expected) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'resolution', code: 'NOT_IN_LIST' }],
@@ -4081,6 +4160,8 @@ export class ReservationsService {
         ctx.actor.userId,
         ctx.requestId,
       );
+      // A7-01 (ARC 16.21): lease nights of a manual long stay follow the swap (K12).
+      await this.syncLeaseNights(tx, ctx, after.id);
       await this.hooks.emit(tx, this.event('stay_changed', after, 'confirmed', 'B7', target.id));
       out.push(after);
     }
@@ -4370,6 +4451,8 @@ export class ReservationsService {
     // S438-CANCEL-03 (BE-B, BR-522 v0.3.8): the refund request the no-show created and "Cần chú ý"
     // closed_reservation_credit follow the money of the restored stay.
     await this.money.reopenStayCredit(tx, after, ctx.actor, ctx.requestId);
+    // A7-01 (ARC 16.21): revived lease nights in the room the stay is restored to.
+    await this.syncLeaseNights(tx, ctx, after.id);
     await this.hooks.emit(tx, this.event('transitioned', after, 'no_show', 'B12', roomId));
     return { row: after };
   }

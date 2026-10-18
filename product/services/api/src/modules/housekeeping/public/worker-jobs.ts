@@ -26,6 +26,7 @@ import { type RoomReturn, roomReturnsOn } from '../../reservations/public/room-r
 import { linenChangeDue } from '../internal/rules';
 import { RoomStatusService } from './room-status.service';
 import { STAY_ARRIVAL_SQL } from './stay-arrival';
+import { inRoomOnSql, stayoverNightSql } from './stay-occupancy';
 
 export const HK_DAILY_JOB_KEY = 'hk.daily';
 export const WO_SLA_JOB_KEY = 'work_order.sla';
@@ -112,8 +113,7 @@ export async function runHkDaily(
     `SELECT DISTINCT ON (s.room_id) s.room_id, r.id AS reservation_id,
             ($1::date - ${STAY_ARRIVAL_SQL}) AS nights
        FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
-      WHERE s.active AND r.status = 'in_house' AND r.stay_type = 'short'
-        AND s.from_date <= $1::date AND s.to_date > $1::date
+      WHERE ${stayoverNightSql('$1::date')} AND r.stay_type = 'short'
         -- BR-807-01 (DOM, v0.3.8): a stay-over guest is "arrival < business date < departure" – a guest arriving
         -- today keeps OC and gets no stay-over clean, even when J8 runs late (catch-up after the check-in).
         -- The arrival of the stay (stay-arrival.ts): an extension child counts its parent's, an OTA booking its
@@ -327,8 +327,7 @@ export async function runWorkOrderSla(
     ) {
       const occupied = await tx.query(
         `SELECT 1 FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
-          WHERE s.room_id = $1 AND s.active AND r.status = 'in_house' AND s.from_date <= $2::date
-            AND s.to_date >= $2::date LIMIT 1`,
+          WHERE s.room_id = $1 AND ${inRoomOnSql('$2::date')} LIMIT 1`,
         [w.room_id, today],
       );
       if (occupied.rows.length > 0) {

@@ -156,12 +156,28 @@ describe('H16 – số cần thu là số của máy chủ (S4-47, ARC 0.3.7 b�
 
 describe('Drawer – "cọc" chỉ đòi khi đơn giữ chỗ (ARC 0.3.7 bổ sung 4 #2, BR-309-11)', () => {
   it('đơn đã xác nhận: dòng là cơ sở phí hủy, không phải "cọc cần thu"', async () => {
-    const r = res('Sophie Martin');
+    const r = res('Gia đình anh Hưng'); // direct, confirmed
     r.depositRequiredVnd = 500_000;
     renderApp(`/reservations/${r.id}`, 'qa.fd');
-    const d = await screen.findByRole('dialog', { name: 'Sophie Martin' });
+    const d = await screen.findByRole('dialog', { name: 'Gia đình anh Hưng' });
     expect(await within(d).findByText(tv('drawer.deposit_fee_base'))).toBeInTheDocument();
     expect(within(d).queryByText(tv('booking.summary.deposit'))).not.toBeInTheDocument();
+  });
+
+  it('UXR P-17: đơn OTA đã trả trước hoặc khách đang ở – không có dòng "Cơ sở phí hủy"', async () => {
+    const ota = res('Sophie Martin'); // Booking.com, prepaid, confirmed
+    ota.depositRequiredVnd = 500_000;
+    const { unmount } = renderApp(`/reservations/${ota.id}`, 'qa.fd');
+    const d = await screen.findByRole('dialog', { name: 'Sophie Martin' });
+    await within(d).findByText(tv('drawer.folio.title'));
+    expect(within(d).queryByText(tv('drawer.deposit_fee_base'))).toBeNull();
+    unmount();
+    const stay = res('Phạm Huy'); // in house
+    stay.depositRequiredVnd = 500_000;
+    renderApp(`/reservations/${stay.id}`, 'qa.fd');
+    const d2 = await screen.findByRole('dialog', { name: 'Phạm Huy' });
+    await within(d2).findByText(tv('drawer.folio.title'));
+    expect(within(d2).queryByText(tv('drawer.deposit_fee_base'))).toBeNull();
   });
 });
 

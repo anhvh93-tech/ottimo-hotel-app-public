@@ -389,7 +389,7 @@ describe('portal data in Vietnamese (ORC 17/10, UXD s3 section 9)', () => {
 });
 
 describe('document numbers in staff notes (SEC FB-R2-SEC-BE-48)', () => {
-  it('six digits or more in a row, separators ignored → sensitive', () => {
+  it('six digits or more in a row, separators (space . , -) ignored, NFKC → sensitive (SEC BE-77)', () => {
     for (const note of [
       'CCCD 079123456789',
       '079 123 456 789',
@@ -397,6 +397,11 @@ describe('document numbers in staff notes (SEC FB-R2-SEC-BE-48)', () => {
       '079-123-456-789',
       'CCCD079123456789',
       'mã cửa 123 456',
+      // SEC FB-R2-SEC-BE-77 (C.6): commas are separators too, full-width digits are digits (NFKC).
+      '079,123,456,789',
+      'mã cửa 123,456',
+      '０７９１２３４５６７８９',
+      'SĐT ０９０５ １２３ ４５６',
     ]) {
       expect({ note, hit: hasLongDigitRun(note) }).toEqual({ note, hit: true });
     }
@@ -404,6 +409,7 @@ describe('document numbers in staff notes (SEC FB-R2-SEC-BE-48)', () => {
       'Người đi cùng, đã đối chiếu bản gốc',
       'Phòng 202, 2 khách',
       'Đến 22:30 ngày 20/10',
+      'Phòng ２０２, ２ khách',
     ]) {
       expect({ note, hit: hasLongDigitRun(note) }).toEqual({ note, hit: false });
     }

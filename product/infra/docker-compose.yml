@@ -171,6 +171,11 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/Dockerfile.web
+      # Front desk number baked into the staff PWA / guest web (UXR P-15). dev profile: optional, read from
+      # product/.env (placeholder in .env.example); demo and production builds require a real one.
+      args:
+        WEB_BUILD_PROFILE: dev
+        VITE_DESK_PHONE: ${VITE_DESK_PHONE:-}
     # The DEV Caddyfile is mounted, not baked into the image (FB-R1-ARC-OPS-07).
     volumes:
       - ./caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro

@@ -503,7 +503,19 @@ export const handlers = [
   // ---------- parameters (S24) ----------
   http.get(`${prop}/parameters`, ({ request }) => {
     const g = guard(request, ['owner', 'manager', 'front_desk_lead']);
-    return isResponse(g) ? g : HttpResponse.json({ data: db.params });
+    if (isResponse(g)) return g;
+    // `asOf` like the server: per key the latest value with effectiveFrom ≤ asOf (scheduled ones included).
+    const asOf = new URL(request.url).searchParams.get('asOf');
+    if (!asOf) return HttpResponse.json({ data: db.params });
+    const data = db.params.map((cur) => {
+      const all = db.history.get(cur.key) ?? [cur];
+      return (
+        [...all]
+          .filter((h) => h.effectiveFrom <= asOf)
+          .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0] ?? cur
+      );
+    });
+    return HttpResponse.json({ data });
   }),
   http.get(`${prop}/parameters/:key`, ({ request, params }) => {
     const g = guard(request, ['owner', 'manager', 'front_desk_lead']);

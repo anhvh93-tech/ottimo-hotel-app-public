@@ -1,6 +1,6 @@
 # Đặc tả mức trường – EP14 App khách mức 1 (guest-web, phần R2)
 
-- Tác giả: BA | Round 2 – Sprint 2 (đi trước Sprint 4 một sprint) | Ngày: 16/10/2026 | Phiên bản: **0.2** (17/10, Sprint 4: mục 3.3, 4.3, 4.4 theo OpenAPI 0.3.7 – mã lý do từ chối `declinedReasonCode` 5 mã + `replyNote`, câu trả lời tự động `guest.req.auto_reply` mới). Bản 0.1 (16/10)
+- Tác giả: BA | Round 2 – Sprint 2 (đi trước Sprint 4 một sprint) | Ngày: 16/10/2026 | Phiên bản: **0.3** (18/10, tuần Ổn định – Phản hồi & sửa: 4.4 thêm cạnh `in_progress → declined` khi việc HK liên kết đã hủy, luật B-15 của `replyNote` viết lại theo SEC C.6 phương án V2 + bổ sung 18/10 kèm ví dụ; **4.5 mới** – lúc ghi phí dọn theo yêu cầu BR-506). Bản 0.2 (17/10, Sprint 4: mục 3.3, 4.3, 4.4 theo OpenAPI 0.3.7 – mã lý do từ chối `declinedReasonCode` 5 mã + `replyNote`, câu trả lời tự động `guest.req.auto_reply` mới). Bản 0.1 (16/10)
 - Phạm vi (Must R2 theo R-C): US-106 (mở trang bằng link/QR), US-108 **trừ phần mã cửa của AC2** (P-R2-5), US-109 (gửi yêu cầu), US-110 (định tuyến + xử lý phía nhân viên), US-112 (tiếng Anh). Check-in online (US-107) và cấp/thu hồi link ở Desk đã đặc tả ở `specs/EP06-registration.md` mục 8 – tài liệu này không lặp lại.
 - **Dời R3 theo R-C** (không làm, không hiện chuỗi): US-111 folio/bill, US-128 + phần mã cửa của US-108 AC2, US-141 xác minh mức 2 (OTP/mã lễ tân), US-113 tự gia hạn/trả muộn, US-114 dài hạn xem HĐ, US-115 tiếng Nga, US-116 đánh giá.
 - Nguồn và quy ước: như `specs/EP00-platform.md` mục 0. Thứ tự ưu tiên khi lệch: `business-rules.md` **v0.3.1** → backlog (AC) → **điều kiện SEC ĐK-1…ĐK-6** (`rounds/round-02/outputs/SEC/w1-review.md` mục 4, `s1-decisions.md`) → `state-machines.md` SM-15 → `rbac-matrix.md` (S30, D23, cột GST1) → `api/openapi.yaml` **0.3.4-draft** → `design/copy/strings-*.json`. Không chép con số nghiệp vụ.
@@ -96,7 +96,7 @@
 | `type` | Bạn cần gì? (`guest.req.title`) | enum | B | Mục 3.1 | `NOT_IN_LIST`; `REQUEST_TYPE_NOT_AVAILABLE` |
 | `note` | `guest.req.note` | text | ĐK: **B** với `report_issue`, `transport_tour`, `other`; K với loại còn lại `[GIẢ ĐỊNH BA – bộ phận cần biết hỏng gì/đặt gì]` | Cắt khoảng trắng; 3–500 ký tự khi bắt buộc, ≤ 500 khi không; V-09 (dãy giống số thẻ → 422); câu nhắc dưới ô **(mới)** `guest.req.note_hint` "Không ghi số giấy tờ, số thẻ thanh toán hay thông tin sức khỏe." (SR-INP-05) | `REQUIRED` → **(mới)** `guest.req.note_required` "Mô tả ngắn giúp chúng tôi xử lý nhanh hơn."; `CARD_NUMBER_DETECTED` → **(mới)** `guest.req.card_detected` "Vui lòng không ghi số thẻ thanh toán." |
 
-- **Phí trước khi gửi** (không phải folio – ĐK-6 cho phép; ARC B-16 thay đề nghị E14-04 cũ): `feeVnd` của loại lấy từ `listGuestRequestOptions`; `feeVnd > 0` → hiện `guest.req.fee_notice` và ô đồng ý **(mới)** `guest.req.fee_accept` "Tôi đồng ý phí {amount}" (không tích sẵn) → gửi `feeAccepted = true`; thiếu → 422 mã trường `FEE_NOT_ACCEPTED`; server lưu `feeVndSnapshot`. Loại có phí (DOM D-15 B-16): `extra_cleaning` theo cách hiểu BR-506 của DOM D-13 b – **khách ngắn ngày**: dọn bù lần dọn hằng ngày bị bỏ (khách từ chối buổi sáng, chiều gọi) = **miễn phí**; **lần dọn đầy đủ thứ hai trong cùng ngày** = phí BR-506; **khách dài hạn**: mọi lần dọn lẻ ngoài gói = phí BR-506 `[GIẢ ĐỊNH – chờ INV xác nhận cách hiểu ngắn ngày, PO gom ESC cuối round]`; `amenities` (thay khăn, đồ dùng) = miễn phí; `transport_tour` giá báo riêng → `feeVnd = null`, lễ tân báo giá trong `replyNote`. Sửa câu `guest.req.fee_notice`: R2 không có hóa đơn trên app → "Dịch vụ này có phí {amount}, sẽ cộng vào khoản thanh toán khi trả phòng." (UXD – E14-06).
+- **Phí trước khi gửi** (không phải folio – ĐK-6 cho phép; ARC B-16 thay đề nghị E14-04 cũ): `feeVnd` của loại lấy từ `listGuestRequestOptions`; `feeVnd > 0` → hiện `guest.req.fee_notice` và ô đồng ý **(mới)** `guest.req.fee_accept` "Tôi đồng ý phí {amount}" (không tích sẵn) → gửi `feeAccepted = true`; thiếu → 422 mã trường `FEE_NOT_ACCEPTED`; server lưu `feeVndSnapshot` (lúc nào phí vào folio: mục 4.5). Loại có phí (DOM D-15 B-16): `extra_cleaning` theo cách hiểu BR-506 của DOM D-13 b – **khách ngắn ngày**: dọn bù lần dọn hằng ngày bị bỏ (khách từ chối buổi sáng, chiều gọi) = **miễn phí**; **lần dọn đầy đủ thứ hai trong cùng ngày** = phí BR-506; **khách dài hạn**: mọi lần dọn lẻ ngoài gói = phí BR-506 `[GIẢ ĐỊNH – chờ INV xác nhận cách hiểu ngắn ngày, PO gom ESC cuối round]`; `amenities` (thay khăn, đồ dùng) = miễn phí; `transport_tour` giá báo riêng → `feeVnd = null`, lễ tân báo giá trong `replyNote`. Sửa câu `guest.req.fee_notice`: R2 không có hóa đơn trên app → "Dịch vụ này có phí {amount}, sẽ cộng vào khoản thanh toán khi trả phòng." (UXD – E14-06).
 - Giới hạn: 20 yêu cầu/ngày/đơn (SR-RL-05) → `429 RATE_LIMITED` → **(mới)** `guest.req.too_many` "Bạn đã gửi nhiều yêu cầu hôm nay. Vui lòng gọi lễ tân {phone}."
 - Đơn đã trả phòng → `403 GUEST_STAY_ENDED`; check-in online không ảnh hưởng.
 - Mất mạng: nút gửi khóa + `guest.offline_banner` ("gửi yêu cầu khi có mạng lại") – **không** xếp hàng trên máy (ĐK-3). Nội dung đang gõ giữ trong bộ nhớ trang tới khi gửi được.
@@ -154,11 +154,17 @@ Lọc `status` (mặc định chưa kết thúc: `new`, `acknowledged`, `in_prog
 |---|---|---|---|---|---|
 | "Đã nhận" (`today.req_ack`) | `acknowledge` | `new` → `acknowledged` | Bộ phận định tuyến (HK/MT theo loại) hoặc FD+ | – | "Đã nhận"; dừng đo hạn BR-811 (`acknowledgedAt`) |
 | (tự động) | – | `new`/`acknowledged` → `in_progress` | SYS | – | "Đang xử lý" khi việc HK liên kết `in_progress` hoặc phiếu liên kết `in_progress` (W2). Bắt đầu việc/nhận phiếu khi yêu cầu còn `new` → SYS ghi luôn `acknowledgedAt` (coi như đã nhận) `[GIẢ ĐỊNH BA]` |
-| (tự động) | – | → `done` | SYS | – | "Hoàn thành" khi việc HK liên kết `done` hoặc phiếu liên kết `done` (W4) – AC2 |
-| "Xong" (yêu cầu lễ tân) | `complete` | `acknowledged`/`in_progress` → `done` | FD+ (HK/MT chỉ khi yêu cầu không có việc/phiếu liên kết) | `replyNote` K (SEC đã duyệt ĐK-2 16/10), ≤ 300 – câu trả lời hiện cho khách; kiểm như dòng dưới | "Hoàn thành" (+ câu trả lời) |
-| "Không thực hiện được" | `decline` | `new`/`acknowledged` → `declined` | FD+ (HK/MT không từ chối – báo lễ tân; gọi → 403) | `declinedReasonCode` **B** – enum **0.3.7** (bảng dưới); `replyNote` **B** khi `other`, K với mã khác | "Không thực hiện được" + nhãn lý do theo ngôn ngữ khách (AC2) + `replyNote` nếu có. Việc HK liên kết còn `open` → `cancelled` (lý do `other`, ghi chú "Yêu cầu khách bị từ chối"); phiếu liên kết **không** tự hủy (sự cố vẫn cần sửa) |
+| (tự động) | – | `new`/`acknowledged`/`in_progress` → `done` | SYS | – | "Hoàn thành" khi việc HK liên kết `done` hoặc phiếu liên kết `done` (W4) – AC2. Phí BR-506 (nếu có) ghi folio trong cùng giao dịch – mục 4.5 |
+| "Xong" (yêu cầu lễ tân) | `complete` | `acknowledged`/`in_progress` → `done` | FD+ (HK/MT chỉ khi yêu cầu không có việc/phiếu liên kết) | `replyNote` K (SEC đã duyệt ĐK-2 16/10), ≤ 300 – câu trả lời hiện cho khách; kiểm theo luật B-15 dưới bảng | "Hoàn thành" (+ câu trả lời). **v0.3:** yêu cầu có việc HK/phiếu liên kết → `complete` **không** ghi phí; yêu cầu không có việc liên kết → `complete` ghi phí (mục 4.5) |
+| "Không thực hiện được" | `decline` | `new`/`acknowledged` → `declined`; **v0.3:** `in_progress` → `declined` **chỉ khi** việc HK liên kết đã `cancelled` | FD+ (HK/MT không từ chối – báo lễ tân; gọi → 403) | `declinedReasonCode` **B** – enum **0.3.7** (bảng dưới); `replyNote` **B** khi `other`, K với mã khác | "Không thực hiện được" + nhãn lý do theo ngôn ngữ khách (AC2) + `replyNote` nếu có. Việc HK liên kết còn `open` → `cancelled` (lý do `other`, ghi chú "Yêu cầu khách bị từ chối"); phiếu liên kết **không** tự hủy (sự cố vẫn cần sửa). Không bao giờ ghi phí |
 
-Lỗi: chuyển không hợp lệ → 409 `INVALID_TRANSITION`; HK/MT thao tác yêu cầu không định tuyến tới mình → 404 `NOT_FOUND`; HK/MT gọi `decline` → 403 `FORBIDDEN_ACTION`.
+Lỗi: chuyển không hợp lệ → 409 `INVALID_TRANSITION` (gồm: `decline` yêu cầu `in_progress` khi việc HK liên kết **đang làm**, hoặc khi yêu cầu gắn **phiếu sửa** thay vì việc HK; `complete` yêu cầu đã `done` vì HK vừa dọn xong); HK/MT thao tác yêu cầu không định tuyến tới mình → 404 `NOT_FOUND`; HK/MT gọi `decline`, hoặc gọi `complete` yêu cầu có việc/phiếu liên kết → 403 `FORBIDDEN_ACTION`.
+
+**Cạnh `in_progress → declined` (v0.3 – ARC FB-R2-ARC-BE-S4-07, BE-D `s4-be-d.md` 7.1; ARC đang xác nhận giả định (s5))**
+- Điều kiện: yêu cầu đang `in_progress` **và** việc HK liên kết đã `cancelled`. Lễ tân dùng cạnh này để báo khách "không thực hiện được" sau khi việc bị hủy (ví dụ khối OOO), thay vì phải bấm "Xong" cho một việc không làm.
+- Server: trong cùng giao dịch, gọi hủy việc HK (không đổi gì nếu việc đã `cancelled` hoặc đang làm), đọc lại trạng thái việc; chỉ nhận khi trạng thái việc là `cancelled`. Việc đang `in_progress`/`done` → 409, giao dịch quay lui (việc không bị hủy).
+- Chỉ áp cho **việc HK** (`extra_cleaning`, `amenities`). Yêu cầu `report_issue` gắn phiếu sửa: phiếu không tự hủy, không có cạnh này.
+- Hiện nay SM-14 chỉ hủy việc từ `open` (khách từ chối dọn, khối OOO, đơn hủy) và yêu cầu chỉ sang `in_progress` khi việc đã bắt đầu, nên tình huống này **chưa** có đường sinh ra trong R2. Cạnh được cài sẵn cho đường hủy việc đang làm sau này (BE-D 7.1 ca (b)).
 
 **Mã lý do từ chối (`declinedReasonCode`, OpenAPI 0.3.7 – thay danh sách nháp 0.1)** – khách thấy nhãn theo ngôn ngữ phiên (chuỗi UXD duyệt 17/10):
 
@@ -171,12 +177,67 @@ Lỗi: chuyển không hợp lệ → 409 `INVALID_TRANSITION`; HK/MT thao tác 
 | `other` | Lý do khác – **bắt buộc** `replyNote` giải thích cho khách | "Lý do khác – xem lời nhắn của lễ tân" · "Other reason – see the front desk's message" | `guest.req.decline.other` |
 
 - Khóa nháp 0.1 **bỏ** (UXD đánh dấu "CŨ"): `guest.req.decline.fully_booked`, `guest.req.decline.out_of_hours`, `gw.req.decline.*`; mã `not_offered` **không** còn là lý do từ chối – chỉ là `unavailableReason` của `listGuestRequestOptions` (nút loại đó ẩn/khóa, khách không gửi được).
-- `replyNote` (server – `guest-requests.service.ts`): văn bản thuần, cắt khoảng trắng; `other` mà rỗng → 422 `REQUIRED`; > 300 ký tự → `TOO_LONG`; giống số thẻ (Luhn) → `CARD_NUMBER_DETECTED`; chuỗi ≥ 6 chữ số liền nhau (sau khi bỏ dấu cách/chấm/gạch) trừ hotline công khai của cơ sở → `SENSITIVE_DATA_DETECTED` (chặn mã cửa, số giấy tờ, SĐT khách – SEC B-15). Desk nhắc dưới ô: "Không ghi mã cửa, số giấy tờ, số điện thoại". Thiếu/sai mã → `declinedReasonCode` `REQUIRED` / `NOT_IN_LIST`.
+- `replyNote` (server – `guest-requests.service.ts`), kiểm theo thứ tự: không phải chuỗi → 422 `VALIDATION_FAILED`; bỏ ký tự điều khiển, cắt khoảng trắng; `other` mà rỗng → 422 `REQUIRED`; > 300 ký tự → `TOO_LONG`; giống số thẻ (Luhn, trên văn bản gốc) → `CARD_NUMBER_DETECTED`; rồi **luật B-15** (dưới đây) → `SENSITIVE_DATA_DETECTED`. Mọi lỗi là lỗi trường `replyNote`. Thiếu/sai mã → `declinedReasonCode` `REQUIRED` / `NOT_IN_LIST`.
 - Không vào thông báo đẩy/outbox; xóa theo T13 cùng `guest_request.note`.
 
-Việc liên kết bị **hủy** (ví dụ khách từ chối dọn) → yêu cầu **không** tự đổi; FD thấy chip **(mới)** `req.linked_cancelled` "Việc liên quan đã hủy – trả lời khách" và phải `complete` hoặc `decline`.
+**Luật B-15 cho `replyNote` (v0.3 – SEC `reviews/s4-SEC.md` C.6 phương án V2 + bổ sung 18/10; BE-D đã cài – FB-R2-SEC-BE-77)**
 
-Trả muộn (`late_checkout`): lễ tân xử lý bằng `setLateCheckout` (EP03-05 4.2 – phụ thu do lễ tân xác nhận, BR-414) rồi `complete` yêu cầu với `replyNote` nêu giờ trả đã duyệt. Phí dọn lẻ dài hạn (BR-506): khi việc HK liên kết `done` → SYS ghi dòng folio `adhoc_cleaning` (A30 SYS) (DOM D-13 d: ghi tự động vì khách đã đồng ý phí qua `feeAccepted`; ghi sai thì lễ tân đảo dòng có lý do – BR-008). Số tiền = `feeVndSnapshot` lúc khách gửi.
+Phạm vi: **chỉ** `replyNote` nhân viên viết khi `complete`/`decline` (ai có link của đơn cũng đọc được). Ghi chú khách tự viết (`note`, mục 3.2) chỉ kiểm số thẻ (V-09), **không** qua luật này – yêu cầu của khách không bao giờ bị chặn vì dãy số. Ghi chú khai báo nội bộ (`hasLongDigitRun`, EP06) có luật riêng, không dùng các ngoại lệ dưới đây.
+
+Câu luật: **`replyNote` không được chứa dãy từ 6 chữ số trở lên** (mã cửa, số giấy tờ, số điện thoại). **Được phép**: giá tiền VND **có đơn vị**, ngày **gần hiện tại**, danh sách số cách nhau bằng **dấu phẩy hoặc chấm phẩy kèm khoảng trắng**, và hotline công khai của cơ sở. **Bị chặn**: số dài không thuộc các trường hợp trên, kể cả khi chèn dấu cách, chấm, phẩy, gạch giữa các chữ số.
+
+Server kiểm theo 5 bước (bản chuẩn hóa chỉ dùng để kiểm; lưu và hiện nguyên văn lễ tân viết):
+1. Kiểm số thẻ (Luhn) trên văn bản gốc – như dòng trên.
+2. Chuẩn hóa NFKC (chữ số toàn khổ `４８２９１３` thành chữ số thường).
+3. Gỡ các đoạn được phép (thay bằng một ký tự ngắt, để hai số rời không nối vào nhau):
+   - **Ngày**: `ngày[./-]tháng[./-]năm 4 số`, cùng một dấu phân cách, là ngày có thật trên lịch, năm cách năm của ngày nghiệp vụ hiện tại (BR-010) không quá 1. Ngày xa hơn (ví dụ ngày sinh – C3) không được gỡ.
+   - **Tiền VND**: chữ số đầu từ 1 đến 9; nhóm nghìn bằng **một** loại dấu (`.`, `,` hoặc khoảng trắng) hoặc viết liền; tối đa 10 chữ số; **đơn vị ngay sau** (được một khoảng trắng): `đ`, `₫`, `VND`, `VNĐ`, `đồng`, không phân biệt hoa thường; từ 6 chữ số trở lên phải **tận cùng `000`**; phía trước không dính chữ cái, chữ số, hay chữ số + dấu nhóm (không phải phần đuôi của một số dài hơn).
+   - **Ranh giới danh sách**: dấu `,` hoặc `;` **có khoảng trắng phía sau**. (Dấu nhóm nghìn không bao giờ có khoảng trắng phía sau, nên không ảnh hưởng tiền.)
+4. Bỏ các dấu phân cách: khoảng trắng, `.`, `,`, `-`, `_`, `+`, `(`, `)` và các gạch Unicode. **Giữ** `/`.
+5. Còn dãy ≥ 6 chữ số → 422 `SENSITIVE_DATA_DETECTED`. Ngoại lệ: dãy trùng hotline công khai `property.phone_public` (so 9 chữ số cuối, nên `0263…`, `84263…`, `+84 263…` là cùng một số).
+
+| Không bị chặn | Bị chặn (`SENSITIVE_DATA_DETECTED`) – lý do |
+|---|---|
+| `Xe đón lúc 15:30, giá 350.000 đ` | `Mã cửa 482913`, `482 913`, `482-913`, `482.913` – số dài không đơn vị |
+| `350.000đ`, `350,000 VND`, `350 000 ₫`, `350000đ` | `482,913` – phẩy **không** có khoảng trắng phía sau, không phải danh sách |
+| `Tour 1.500.000 đồng/người`, `Tổng 12.000.000 VNĐ` | `482913đ`, `482.913 đ` – có đơn vị nhưng không tận cùng `000` |
+| `Xe 4 chỗ 350.000đ, 7 chỗ 450.000đ` | `Mã ４８２９１３` – chữ số toàn khổ |
+| `Ngày 18-10-2026 xe đón 15:30`, `Đón 18.10.2026 lúc 07:00`, `Đón 18/10/2026` | `0912.345.678`, `(+84) 912 345 678`, `Gọi 0912 345 678 giá 350.000đ` – số điện thoại |
+| `Phòng 202, 2 khách` | `0912345678đ`, `0912.345.000đ` – số bắt đầu bằng 0 / phần đuôi `345.000đ` dính vào số dài hơn (SEC giữ mức chặt hơn – s6) |
+| `Phòng 202, 203, 204`, `Phòng 202; 203` – danh sách (SEC nới 18/10 – s7) | `Phòng 202,203,204`, `Phòng 202 203 204` – danh sách không có khoảng trắng sau dấu phẩy, hoặc chỉ cách bằng khoảng trắng |
+| Hotline công khai của cơ sở | `CCCD 079123456789`, `079 123 456 789 đ`, `Hộ chiếu C1234567`, `C1234567đ` – số giấy tờ |
+| | `Ngày sinh 05-03-1990`, `05.03.1990` – ngày ngoài ±1 năm; `31-02-2026` – ngày không có thật; `Mã 18.10.26` – năm 2 số |
+| | `giá 350.000` – thiếu đơn vị; `12.345.678.901đ` – quá 10 chữ số |
+
+- **Chặn nhầm SEC chấp nhận** (lễ tân viết lại theo câu nhắc): `350.000 đến 450.000đ` (số đầu thiếu đơn vị), `350.000 dong`, `350.000d`, `VND 350.000` (đơn vị đứng trước), ngày ISO `2026-10-18`, giá lẻ không tròn nghìn từ 6 chữ số, ngày ngoài ±1 năm.
+- **Rủi ro SEC chấp nhận**: luật chống lộ **do vô ý**, không chống người cố ý (viết số bằng chữ, dùng `/`, mã đuôi `000` kèm "đ", mã viết kiểu danh sách `482, 913`). Hộ chiếu chữ–số không bị bắt ở `replyNote`. Dấu vết còn ở `closed_by` và lịch sử SM-15.
+- Desk – câu nhắc dưới ô `replyNote` phải nói đủ 3 ý: không ghi mã cửa, số giấy tờ, số điện thoại; **ghi giá kèm đ/VND** (ví dụ 350.000 đ); **nhiều căn thì cách nhau bằng dấu phẩy** (ví dụ 202, 203). Câu chữ do UXD viết (E14-13). Lỗi `SENSITIVE_DATA_DETECTED` hiện dưới ô, giữ nguyên nội dung đã gõ.
+
+Việc HK liên kết bị **hủy** (ví dụ khách từ chối dọn) → yêu cầu **không** tự đổi; FD thấy chip **(mới)** `req.linked_cancelled` "Việc liên quan đã hủy – trả lời khách" và chọn: `decline` (từ `new`/`acknowledged`, hoặc từ `in_progress` theo cạnh v0.3 ở trên) hoặc `complete`. Cả hai đường **không** ghi phí (mục 4.5).
+
+Trả muộn (`late_checkout`): lễ tân xử lý bằng `setLateCheckout` (EP03-05 4.2 – phụ thu do lễ tân xác nhận, BR-414) rồi `complete` yêu cầu với `replyNote` nêu giờ trả đã duyệt.
+
+### 4.5 Phí dọn theo yêu cầu – lúc ghi folio (BR-506 bản 18/10 – S4-07; v0.3)
+Áp cho yêu cầu có `feeVndSnapshot > 0` (khách đã đồng ý phí khi gửi – mục 3.2; loại có phí theo BR-506). Phí tính theo **việc HK đã làm xong**, không theo lúc lễ tân đóng yêu cầu. DOM đã xác nhận (s1), (s2) trong `business-rules.md` BR-506 (18/10).
+- **Yêu cầu có việc HK liên kết**: SYS ghi dòng folio `adhoc_cleaning` (A30 SYS) **một lần**, lúc việc HK `done`, kể cả khi lễ tân đã `complete` yêu cầu trước đó. `complete` của lễ tân **không bao giờ** ghi phí cho yêu cầu này.
+- **Việc HK bị hủy** → **không** thu, dù lễ tân đóng yêu cầu bằng `complete` hay `decline`.
+- **Yêu cầu bị `declined`** → không thu (việc HK còn `open` bị hủy cùng lúc – mục 4.4).
+- **Yêu cầu không có việc liên kết** (cổng việc HK chưa gắn, hoặc khách gửi khi đơn chưa có căn): phí ghi lúc `complete` (lễ tân; HK/MT được `complete` yêu cầu loại này – mục 4.4). `complete` nghĩa là lễ tân xác nhận đã dọn xong; không dọn thì `decline`.
+- Số tiền = `feeVndSnapshot` lúc khách gửi. Mỗi yêu cầu tối đa **một** dòng phí (`feeFolioLineId` chỉ ghi một lần).
+- Folio đã đóng (sau cửa sổ sau trả phòng) → không ghi được dòng; yêu cầu vẫn đóng; lễ tân thu tay (ghi nhật ký, không chứa dữ liệu khách).
+- Ghi sai hoặc khách khiếu nại → lễ tân đảo dòng có lý do (BR-008).
+
+| Tình huống (yêu cầu "Dọn thêm" có phí) | Phí ghi folio |
+|---|---|
+| HK dọn xong → yêu cầu tự `done` | 1 dòng, lúc việc `done` |
+| Lễ tân `complete` lúc 15:00 khi việc còn `open`; HK dọn xong 16:00 (ví dụ BR-506 S4-07) | 1 dòng, lúc **16:00** |
+| Lễ tân `complete` khi việc còn `open`; sau đó việc bị hủy | 0 |
+| Việc bị hủy (khách từ chối dọn); lễ tân `complete` hoặc `decline` | 0 |
+| HK dọn xong rồi lễ tân bấm `complete` | 409 `INVALID_TRANSITION` (yêu cầu đã `done`); vẫn 1 dòng |
+| Không có việc liên kết; lễ tân `complete` | 1 dòng, lúc `complete`; `complete` lần hai → 409 |
+| Lễ tân `decline` | 0 |
+
+Khóa ghi (ARC 16.19 bổ sung 3 – BE-D 7.2): đường nào ghi phí thì giữ folio trước rồi mới giữ việc HK và yêu cầu; `decline` và `complete` có việc liên kết không ghi phí nên không giữ folio. Chi tiết thuộc ARC.
 
 ---
 
@@ -206,7 +267,7 @@ Trả muộn (`late_checkout`): lễ tân xử lý bằng `setLateCheckout` (EP0
 | US-106 AC3 | **Dời R3** (US-141) – ĐK-1 |
 | US-108 AC1 | 2.1 |
 | US-108 AC2 (phần Wi-Fi) | 2.2; phần mã cửa **Dời R3** |
-| US-109 AC1–AC2 | 3, 4.4 |
+| US-109 AC1–AC2 | 3, 4.4, 4.5 (phí BR-506) |
 | US-110 AC1–AC3 | 4.1–4.3 |
 | US-112 AC1–AC3 | 5 |
 
@@ -226,7 +287,10 @@ Trả muộn (`late_checkout`): lễ tân xử lý bằng `setLateCheckout` (EP0
 | E14-09 | QA | Test ĐK-2 cho `GuestStay` và `GuestRequestForGuest` (danh sách khóa được phép); ca giờ trực 06:59/07:00/21:59/22:00 (BR-811); link đơn A không đọc đơn B; sau B18 gửi yêu cầu → 403; QR trang căn không lộ đơn (cùng phản hồi 202 cho mã đúng/sai) |
 | E14-03 | – | **Đã áp** (0.3.6 B-15, 0.3.7): enum `not_available_now`, `outside_service_hours`, `needs_front_desk`, `duplicate`, `other` + `replyNote` (SEC duyệt ĐK-2 16/10) – mục 4.4 |
 | E14-10 | PO/OWN (qua ORC) | Nhập `property.phone_public` (hotline công khai) trước khi chạy thật – thiếu thì câu trả lời tự động mất câu "gọi {phone}" và `replyNote` không ghi được hotline (4.3); UXD cân nhắc biến thể có câu thay thế ("nhắn Zalo OTTIMO") nếu OWN không muốn công khai số |
-| E14-11 | QA | Ca 4.4: từ chối `other` không `replyNote` → 422; `replyNote` có 6 chữ số liền (không phải hotline) → `SENSITIVE_DATA_DETECTED`; có hotline → nhận; khách VI/EN thấy đúng nhãn 5 mã; ca 4.3 cơ sở không có `phone_public` → câu trả lời 2 câu |
+| E14-11 | QA | Ca 4.4: từ chối `other` không `replyNote` → 422; **(sửa v0.3)** luật B-15: mọi ví dụ của bảng "Không bị chặn / Bị chặn" mục 4.4 (gồm 5 ca SEC thêm 18/10: `Phòng 202, 203, 204`, `Phòng 202; 203` nhận; `Phòng 202,203,204`, `Phòng 202 203 204`, `Mã cửa 482,913` chặn; và `0912.345.000đ` chặn) qua HTTP `complete` và `decline`; `note` của khách có 6 chữ số liền → **không** bị chặn; có hotline → nhận; khách VI/EN thấy đúng nhãn 5 mã; ca 4.3 cơ sở không có `phone_public` → câu trả lời 2 câu |
+| E14-12 | QA | **(mới v0.3)** Ca 4.5 phí BR-506: đủ 7 dòng bảng tình huống (số dòng `adhoc_cleaning` và thời điểm ghi); ca 4.4 `in_progress → declined`: việc HK đã hủy → 200, việc đang làm → 409 và việc **không** bị hủy, yêu cầu gắn phiếu sửa → 409. BE-D đã có ca tương ứng ở `guest-requests-s4-fix-bed.test.ts` – QA đưa vào bộ hồi quy E2E |
+| E14-13 | UXD | **(mới v0.3)** Câu nhắc Desk dưới ô `replyNote` đủ 3 ý (mục 4.4): không ghi mã cửa/số giấy tờ/số điện thoại; ghi giá kèm đ/VND, ví dụ 350.000 đ; nhiều căn thì cách nhau bằng dấu phẩy, ví dụ 202, 203. Kèm câu lỗi `SENSITIVE_DATA_DETECTED` gợi đúng cách viết. Giọng văn OTTIMO (brand guideline); FE-B đồng bộ mock `admin-web/src/mocks/ops.ts` |
+| E14-14 | ARC | **(mới v0.3)** (a) Xác nhận giả định (s5) cạnh `in_progress → declined` khi việc HK liên kết đã hủy (mục 4.4, SM-15) và chữ ký cổng `taskStatus` (s4); (b) cập nhật mô tả `transitionGuestRequest` và `replyNote` trong `openapi.yaml` (SEC C.6 nêu dòng 281, 7538) theo luật B-15 mục 4.4 và lúc ghi phí mục 4.5. ARC sửa khác thì BA sửa lại mục 4.4 |
 
 ## 9. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
@@ -234,3 +298,4 @@ Trả muộn (`late_checkout`): lễ tân xử lý bằng `setLateCheckout` (EP0
 | 16/10/2026 | 2 (Sprint 2) | Bản đầu: guest-web mức 1 R2 – mở trang (link/QR), thông tin lưu trú (Wi-Fi theo khung, không mã cửa), yêu cầu khách + định tuyến + xử lý phía nhân viên, tiếng Anh; áp ĐK-1…6; đề nghị E14-01…09 | BA |
 | 16/10/2026 | 2 (Sprint 2 – phản hồi) | Áp DOM D-13 (3 loại trước ngày đến; phí dọn thêm ngắn ngày – chờ INV; `report_issue` ngoài giờ báo ngay; phí ghi folio tự động), D-15 (loại có phí); ARC B-14, B-16 (`listGuestRequestOptions`, `feeAccepted`) – FB-R2-DOM-BA-01 | BA |
 | 17/10/2026 | 2 (Sprint 4 – theo UXD `s4-UXD.md` mục E "Ghi chú cho BA" và OpenAPI 0.3.7) | v0.2: **4.4** mã lý do từ chối theo enum 0.3.7 (`not_available_now`, `outside_service_hours`, `needs_front_desk`, `duplicate`, `other`) kèm câu khách thấy VI/EN, `replyNote` bắt buộc khi `other` và quy tắc kiểm server (`SENSITIVE_DATA_DETECTED`…), bỏ khóa nháp `fully_booked`/`out_of_hours`/`not_offered`; **4.3** câu trả lời tự động lấy theo `guest.req.auto_reply` mới (tham số `{time}`, `{open_time}`, `{phone}`; thiếu hotline → bỏ câu gọi); **3.3** `declinedReasonCode`, `replyNote`, `feeVnd` thay `declinedReason`. (UXD gọi "EP14 3.4 bảng hành động" – bảng hành động thực tế ở mục 4.4.) E14-03 đã áp; thêm E14-10, E14-11 | BA |
+| 18/10/2026 | 2 (tuần Ổn định – Phản hồi & sửa; theo `outputs/BE/s4-be-d.md` mục 7, `reviews/s4-SEC.md` C.6 + bổ sung 18/10, `business-rules.md` BR-506 18/10) | v0.3: **4.4** thêm cạnh `in_progress → declined` chỉ khi việc HK liên kết đã `cancelled` (ARC S4-07; giả định (s5) ARC đang xác nhận – E14-14), bổ sung lỗi 409/403 tương ứng, cạnh tự động `→ done` ghi rõ trạng thái nguồn; viết lại **luật B-15** của `replyNote` theo SEC V2: câu luật, 5 bước kiểm, bảng ví dụ chặn/không chặn, chặn nhầm và rủi ro SEC chấp nhận, gồm SEC bổ sung 18/10 (giữ chặn `0912.345.000đ` – s6; nới danh sách `Phòng 202, 203, 204` – s7); phạm vi chỉ `replyNote`, `note` của khách không qua luật; **4.5 mới** lúc ghi phí BR-506 theo việc HK đã xong (DOM xác nhận (s1), (s2) – không còn nhãn chờ); 3.2 trỏ 4.5; sửa E14-11, thêm E14-12…E14-14 | BA |

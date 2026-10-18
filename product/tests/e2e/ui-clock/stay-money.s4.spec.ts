@@ -59,7 +59,14 @@ import {
 } from '../support/s3.js';
 import { scan, settle } from '../ui/axe.js';
 import { UI, signIn, t } from '../ui/helpers.js';
-import { dialogs, recordWrites, trustedDesk, vnd, waitWrite } from '../ui/write-steps.js';
+import {
+  pickDocPerson,
+  dialogs,
+  recordWrites,
+  trustedDesk,
+  vnd,
+  waitWrite,
+} from '../ui/write-steps.js';
 
 type Json = Record<string, unknown>;
 const num = (x: unknown) => x as number;
@@ -752,6 +759,7 @@ test.describe(
         .first()
         .click();
       const manual = dialogs(page).filter({ hasText: t('ci.manual_title') });
+      await pickDocPerson(manual, A.name);
       await manual.getByLabel(t('checkin.docs.field.doc_no')).fill(number);
       await manual.getByLabel(t('checkin.docs.field.full_name')).fill(A.name.toUpperCase());
       // lễ tân nhập đủ trường bắt buộc (server kiểm trường trước khi kiểm trùng – thiếu ngày sinh → 422, QA rà 17/10)

@@ -2563,11 +2563,11 @@
         "contractMonthNights": 31,
         "perNightVnd": 359032,
         "reportMonthAllocationVnd": {
-          "2026-10": 6103548,
-          "2026-11": 5026452
+          "2026-10": 6103544,
+          "2026-11": 5026456
         }
       },
-      "note": "6.103.548 = làm tròn đồng của 11.130.000 × 17/31 (không phải 359.032 × 17 = 6.103.544). Tháng 11 = phần còn lại để tổng = tiền HĐ (QA suy từ 'tháng 11 nhận 14 đêm còn lại'). Công thức chi tiết: metrics-definitions Q-10"
+      "note": "Q-10 (DATA FB-R2-DATA-QA-A7-01, 18/10 – `outputs/DATA/s4-a7-reconciliation.md` 8.4): mỗi đêm lấy phần nguyên 359.032, phần dư 8 đ dồn vào đêm cuối tháng HĐ (14/11); Q-02: không chia lại theo tỷ lệ tháng báo cáo. Tháng 10 = 17 × 359.032 = 6.103.544; tháng 11 = 13 × 359.032 + 359.040 = 5.026.456; tổng 11.130.000. Sửa oracle cũ 6.103.548 / 5.026.452 (làm tròn 11.130.000 × 17/31 – sai Q-10). Mã BE-A (lease-nights, job `lease.nights`) ra đúng hai số này."
     },
     {
       "id": "BR-215-02",
@@ -5354,7 +5354,6 @@
       "case": "Đơn Trực tiếp 201 đến 20/10, khách tới 04:40 ngày 20/10 (B9a) → đơn thành 19/10–21/10 nhưng dữ liệu khai báo ghi ngày đến 20/10 (v0.3.4 – S3-5)",
       "origin": "example",
       "labels": ["NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-22",
       "calc": null,
       "input": {
         "channel": "direct",
@@ -5369,7 +5368,7 @@
         "registrationArrivalDate": "2026-10-20",
         "registrationDeadline": "2026-10-20T23:00:00+07:00"
       },
-      "note": "Code HEAD: hạn đúng; dữ liệu cổng ghi ngày đến 2026-10-19 · QA 18/10 (recheck4 điều kiện 8): GIỮ pendingFix – phần \"ngày đến trên khai báo = ngày nhận phòng thật\" có test BE-C (s3-BE-C (d), `frontdesk-s3-fixes`), phần hạn khai báo 23:00 cùng ngày chưa có ca đọc dòng này; QA thêm ca clock ở lượt 5 rồi gỡ"
+      "note": "Code HEAD: hạn đúng; dữ liệu cổng ghi ngày đến 2026-10-19 · QA 18/10 (recheck4 điều kiện 8): GIỮ pendingFix – phần \"ngày đến trên khai báo = ngày nhận phòng thật\" có test BE-C (s3-BE-C (d), `frontdesk-s3-fixes`), phần hạn khai báo 23:00 cùng ngày chưa có ca đọc dòng này; QA thêm ca clock ở lượt 5 rồi gỡ · 18/10 (trước cổng S4): QA bỏ pendingFix – TC-L3-086 (`e2e/clock/s4-33.s5.clock.spec.ts`) chạy thật khớp trên api-dist18 (HEAD 7ac11a4): hạn 23:00 ngày nhận phòng thật, ngày đến trên dữ liệu khai báo (portal data) = ngày nhận phòng thật; danh sách khai báo vẫn hiện ngày đến của đơn."
     },
     {
       "id": "BR-417-04",
@@ -9209,7 +9208,6 @@
       "case": "Khách VN của đơn đến 20/10 tới quầy 01:30 ngày 21/10 → hạn 23:00 21/10; dữ liệu khai báo ghi ngày đến 21/10 (v0.3.4)",
       "origin": "example",
       "labels": ["PHÁP LÝ", "NGÀNH"],
-      "pendingFix": "FB-R2-DOM-BE-22",
       "params": {
         "registration_deadline_vn": "23:00|08:00"
       },
@@ -9223,7 +9221,7 @@
         "deadline": "2026-10-21T23:00:00+07:00",
         "registrationArrivalDate": "2026-10-21"
       },
-      "note": "QA 18/10 (recheck4 điều kiện 8): GIỮ pendingFix – phần \"ngày đến trên khai báo = ngày nhận phòng thật\" có test BE-C (s3-BE-C (d), `frontdesk-s3-fixes`), phần hạn khai báo 23:00 cùng ngày chưa có ca đọc dòng này; QA thêm ca clock ở lượt 5 rồi gỡ"
+      "note": "QA 18/10 (recheck4 điều kiện 8): GIỮ pendingFix – phần \"ngày đến trên khai báo = ngày nhận phòng thật\" có test BE-C (s3-BE-C (d), `frontdesk-s3-fixes`), phần hạn khai báo 23:00 cùng ngày chưa có ca đọc dòng này; QA thêm ca clock ở lượt 5 rồi gỡ · 18/10 (trước cổng S4): QA bỏ pendingFix – TC-L3-086 (`e2e/clock/s4-33.s5.clock.spec.ts`) chạy thật khớp trên api-dist18 (HEAD 7ac11a4): hạn 23:00 ngày nhận phòng thật, ngày đến trên dữ liệu khai báo (portal data) = ngày nhận phòng thật; danh sách khai báo vẫn hiện ngày đến của đơn."
     },
     {
       "id": "BR-603-01",
@@ -9493,6 +9491,45 @@
         "blockDoorCode": false,
         "declareUntil": "2026-11-20"
       }
+    },
+    {
+      "id": "BR-614-01",
+      "br": "BR-614",
+      "case": "(18/10 – UXR P-33) Tên khách trên thẻ việc buồng phòng: chỉ tên gọi + số căn; khách VN = chữ cuối họ tên, khách NN = họ trên giấy tờ; đơn chưa có tên → chỉ số căn",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "cases": [
+          {
+            "key": "vn",
+            "roomNo": "101",
+            "fullName": "Phạm Gia Huy",
+            "nationality": "VNM"
+          },
+          {
+            "key": "kr",
+            "roomNo": "101",
+            "fullName": "KIM MIN JUN",
+            "nationality": "KOR"
+          },
+          {
+            "key": "ota_no_name",
+            "roomNo": "101",
+            "fullName": null,
+            "channel": "agoda"
+          }
+        ]
+      },
+      "expected": {
+        "taskCardLabel": {
+          "vn": "101 · Khách: Huy",
+          "kr": "Kim",
+          "ota_no_name": "101"
+        },
+        "hiddenOnHkScreens": ["họ tên đầy đủ", "ngày sinh", "quốc tịch", "SĐT"]
+      },
+      "note": "Nguồn: `business-rules.md` BR-614 (DOM 18/10, UXR P-33; rbac D01). Chưa có ca E2E đọc dòng này – QA thêm ca PWA H19 khi MOB cài (thẻ việc hiện tên gọi)."
     },
     {
       "id": "BR-702-01",

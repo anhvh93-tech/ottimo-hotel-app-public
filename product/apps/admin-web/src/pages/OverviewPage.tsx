@@ -2,9 +2,11 @@ import type { ApprovalRequest, ApprovalStatus, Role } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Icon } from '@ottimo/ui';
 import { Link } from 'react-router-dom';
+import { approvalFacts, useApprovalTargets } from '../app/approvalTarget';
 import { APPROVAL_TYPE } from '../app/folio';
 import { Code } from '../app/mono';
 import { dayMonth } from '../app/reservations';
+import { useStaffRoomLabel } from '../app/rooms';
 import { Page, Topbar } from '../components/AppShell';
 import type { ResourceState } from '../hooks/useResource';
 import { usePropertyId, useSession } from '../session/SessionProvider';
@@ -13,6 +15,8 @@ import { useDashboard } from './dashboard/useDashboard';
 import { Kpi } from './TodayPage';
 
 type Variant = 'mgmt' | 'lead' | 'desk';
+/** "Cần duyệt" cards looked up for their room / waived charge (the full queue is H17). */
+const OVERVIEW_TARGETS = 10;
 const STATUS_TONE = {
   pending: 'warn',
   escalated: 'warn',
@@ -88,7 +92,12 @@ export function OverviewPage() {
                   ? t('ov.my_requests_n', { n: rows?.length ?? 0 })
                   : t('ov.approvals_n', { n: waiting })}
               </h2>
-              <Approvals state={approvals} onRetry={d.reload.approvals} mine={variant === 'desk'} />
+              <Approvals
+                state={approvals}
+                onRetry={d.reload.approvals}
+                mine={variant === 'desk'}
+                propertyId={propertyId}
+              />
             </section>
             <section aria-labelledby="ov-attn">
               <h2 className="grp-h" id="ov-attn">
@@ -158,13 +167,18 @@ function Approvals({
   state,
   onRetry,
   mine,
+  propertyId,
 }: {
   state: ResourceState<ApprovalRequest[]>;
   onRetry: () => void;
   mine?: boolean;
+  propertyId: string;
 }) {
   const { t, money } = useI18n();
   const rows = state.data;
+  // UXR S4 P-03 (J6): the card says what is waived, in which room and why – not only the booking code.
+  const target = useApprovalTargets(propertyId, rows?.slice(0, OVERVIEW_TARGETS));
+  const room = useStaffRoomLabel(propertyId);
   if (!rows && state.status === 'error')
     return (
       <Alert
@@ -185,6 +199,7 @@ function Approvals({
   return (
     <ul className="list-none stack">
       {rows.map((a) => {
+        const facts = approvalFacts(t, a, target(a), room, { reason: true });
         const body = (
           <>
             <span className="ic">
@@ -197,6 +212,7 @@ function Approvals({
                   amount: money(a.amountVnd),
                 })}
               </div>
+              {facts ? <div className="li-s">{facts}</div> : null}
               <div className="li-s">
                 <Code>{a.reservationCode}</Code>
                 {mine ? '' : ` · ${a.requestedBy}`}

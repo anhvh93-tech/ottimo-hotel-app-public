@@ -8,7 +8,7 @@
  */
 import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { JobRegistry } from '../../jobs/job-runner';
-import { holdExpiryJob, roomBlockActivationJob } from '../../jobs/reservation-jobs';
+import { holdExpiryJob, leaseNightsJob, roomBlockActivationJob } from '../../jobs/reservation-jobs';
 import { defineAuditEntity } from '../audit/public/audit-fields';
 import { ApprovalService } from '../approvals/public/approval.service';
 import { ApprovalsModule } from '../approvals/approvals.module';
@@ -120,6 +120,7 @@ export class ReservationsModule implements OnModuleInit {
     for (const job of [
       holdExpiryJob(this.reservations, this.params),
       roomBlockActivationJob(this.blocks, this.params),
+      leaseNightsJob(this.reservations, this.params),
     ]) {
       if (!this.jobs.get(job.key)) this.jobs.register(job);
     }

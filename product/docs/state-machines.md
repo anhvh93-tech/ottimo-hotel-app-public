@@ -1,6 +1,6 @@
 # Sơ đồ trạng thái – OTTIMO Desk
 
-- Tác giả: BA | Round 2 – Đợt 0 | Ngày: 16/10/2026 | Phiên bản: **0.2.4** (17/10, R2 Sprint 4: **SM-18 mới** – yêu cầu đặt phòng từ website WR0–WR7, US-155, OpenAPI 0.3.7 bổ sung 2; mã sự kiện WR; mục 18–20 cũ dời thành 19–21). 0.2.3 (R2 Sprint 2: trả lời ARC Q-B1, Q-B2; R4 kiểm không đạt; SM-15 tự ghi đã nhận). 0.2.2 (R2: SM-16 G3/G4 theo rbac A23; SM-14 + B2 việc bộ đồ dùng thêm BR-812; B1 sức chứa ESC-014). Bản 0.2.1 (đã xử lý review DOM, ARC, SEC – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-001)
+- Tác giả: BA | Round 2 – Đợt 0 | Ngày: 16/10/2026 | Phiên bản: **0.2.5** (18/10, R2 tuần Ổn định: **SM-15** thêm cạnh `in_progress → declined` khi việc HK liên kết đã hủy, tách hai đường `→ done` (SYS / lễ tân), ghi lúc thu phí BR-506 theo việc HK đã xong). 0.2.4 (17/10, R2 Sprint 4: **SM-18 mới** – yêu cầu đặt phòng từ website WR0–WR7, US-155, OpenAPI 0.3.7 bổ sung 2; mã sự kiện WR; mục 18–20 cũ dời thành 19–21). 0.2.3 (R2 Sprint 2: trả lời ARC Q-B1, Q-B2; R4 kiểm không đạt; SM-15 tự ghi đã nhận). 0.2.2 (R2: SM-16 G3/G4 theo rbac A23; SM-14 + B2 việc bộ đồ dùng thêm BR-812; B1 sức chứa ESC-014). Bản 0.2.1 (đã xử lý review DOM, ARC, SEC – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-001)
 - Nguồn: `business-rules.md` (mã **BR-xxx** – nguồn sự thật duy nhất cho mọi con số), `round-0-baseline.md` (**BL**), `baseline-issues-triage.md`, `security/data-risk-assessment.md` (**SEC**), `PRD.md`, `03-backlog/backlog.md` (**US-xxx**), `rbac-matrix.md` (mã vai).
 - Tài liệu này **không chép con số nghiệp vụ**. Mọi mốc giờ, hạn, tỷ lệ, hạn mức đều là tham số trong `business-rules.md` mục 13, ghi bằng mã BR.
 - Đọc cùng: `rbac-matrix.md` (vai được phép), `business-processes.md` (quy trình), `use-cases.md` (UC-xx).
@@ -502,10 +502,17 @@ Thứ tự ưu tiên danh sách việc theo BR-807. Việc "Chuẩn bị bộ đ
 | [*] → `new` | Khách gửi (6 loại, BR-811) | GST |
 | `new` → `acknowledged` | Bộ phận được định tuyến bấm "Đã nhận" – đo thời hạn phản hồi BR-811; ngoài giờ trực → SYS trả lời tự động | FD+, HK, MT theo loại; SYS |
 | `acknowledged` → `in_progress` | Việc HK (SM-14) liên kết bắt đầu / phiếu sửa (SM-04) liên kết được nhận (W2); việc/phiếu được **sinh ngay lúc tạo yêu cầu** (BR-811). Bắt đầu việc/nhận phiếu khi yêu cầu còn `new` → SYS ghi luôn `acknowledgedAt` rồi chuyển `in_progress` `[GIẢ ĐỊNH BA – EP14 mục 4.4]` | SYS, người nhận |
-| `in_progress` → `done` | Việc/phiếu liên kết `done`, hoặc lễ tân trả lời xong | SYS, FD+ |
-| `new`/`acknowledged` → `declined` | Không thực hiện được, ghi lý do gửi khách | FD+ |
+| `new`/`acknowledged`/`in_progress` → `done` | Việc HK (SM-14) / phiếu sửa (W4) liên kết `done`. Phí dọn theo yêu cầu (BR-506) ghi folio **một lần** trong cùng giao dịch | SYS |
+| `acknowledged`/`in_progress` → `done` | Lễ tân bấm "Xong" (`complete`), kèm câu trả lời tùy chọn (luật B-15 – EP14 4.4). Yêu cầu **có** việc/phiếu liên kết: **không** ghi phí. Yêu cầu **không** có việc liên kết: ghi phí BR-506 lúc này | FD+; HK/MT chỉ với yêu cầu không có việc/phiếu liên kết |
+| `new`/`acknowledged` → `declined` | Không thực hiện được, ghi mã lý do gửi khách; việc HK liên kết còn `open` → `cancelled` (SM-14); phiếu sửa không tự hủy. Không ghi phí | FD+ |
+| `in_progress` → `declined` **(v0.2.5)** | Như dòng trên, **chỉ khi** việc HK liên kết đã `cancelled` (lễ tân trả lời khách sau khi việc bị hủy). Việc còn đang làm, hoặc yêu cầu gắn phiếu sửa → từ chối chuyển (409). Không ghi phí. ARC đang xác nhận (giả định (s5) – `rounds/round-02/outputs/BE/s4-be-d.md` 7.7) | FD+ |
 
 Khách thấy trạng thái theo nhãn thân thiện (VI/EN, RU từ R3): Đã gửi · Đã nhận · Đang xử lý · Hoàn thành · Không thực hiện được.
+
+**Phí dọn theo yêu cầu (BR-506, DOM 18/10 – S4-07)** – phí tính theo việc HK đã xong, không theo lúc lễ tân đóng yêu cầu:
+- Lễ tân đã `complete` (yêu cầu `done`) rồi việc HK liên kết mới `done` → trạng thái yêu cầu **không đổi**, SYS vẫn ghi phí **một lần** lúc việc `done` (ví dụ BR-506: đóng 15:00, HK xong 16:00 → ghi lúc 16:00).
+- Việc HK liên kết bị hủy → không ghi phí, dù yêu cầu đóng bằng `complete` hay `declined`. Yêu cầu `declined` không bao giờ ghi phí.
+- Chi tiết trường, lỗi, bảng tình huống: `specs/EP14-guest-app.md` mục 4.4, 4.5.
 
 ---
 
@@ -632,3 +639,4 @@ SM-18: `AllowedAction.action` (đoạn đường dẫn) = `claim`, `release`, `d
 | 16/10/2026 | 2 (Sprint 2) | Trả lời ARC Q-B1 (SM-12 `pending → succeeded` thêm SAL cọc đơn của mình) và Q-B2 (K6 khai báo `mixed` – `sent` khi mọi khối có mã); R4 ghi rõ kết quả kiểm không đạt; SM-15 việc/phiếu sinh lúc tạo yêu cầu + tự ghi "đã nhận" – theo specs EP07-08, EP14 | BA |
 | 17/10/2026 | 2 (Sprint 4 – luồng LP, US-155) | v0.2.4: **SM-18 mới** – yêu cầu đặt phòng từ website (phương án A – INV 17/10): 5 trạng thái, chuyển WR0–WR7 chốt theo đề xuất ARC (OpenAPI 0.3.7 bổ sung 2, erd 4.14) + WR0 lúc tạo, ai được chuyển (khớp rbac S35, A64–A68), ngoại lệ, hạn lưu theo thời gian (SEC C-2); mã sự kiện WR0–WR7. Mục 18 "Mã sự kiện" dời thành **19** (OpenAPI `AllowedAction` còn trỏ "mục 18" – báo ARC), 19 → 20, 20 → 21 | BA |
 | 17/10/2026 | 2 (Sprint 3 – Phản hồi & sửa) | B18: cửa sổ sau nửa đêm + "Trả phòng – tính thêm 1 đêm" (BR-416 v0.3.4, S3-9), chỉ yêu cầu tiền chặn (S3-10), số dư thừa (BR-522); B16 theo BR-428 v0.3.4; SM-10 A6: SYS hủy yêu cầu vận hành `superseded` | BA |
+| 18/10/2026 | 2 (tuần Ổn định – Phản hồi & sửa; theo `outputs/BE/s4-be-d.md` mục 7, ARC FB-R2-ARC-BE-S4-07, `business-rules.md` BR-506 18/10) | v0.2.5: **SM-15** thêm `in_progress → declined` **chỉ khi** việc HK liên kết đã `cancelled` (FD+; việc đang làm hoặc phiếu sửa → 409; ARC đang xác nhận giả định (s5)); tách `→ done` thành đường SYS (việc/phiếu liên kết xong, từ `new`/`acknowledged`/`in_progress`) và đường lễ tân `complete` (từ `acknowledged`/`in_progress`; HK/MT chỉ khi không có việc liên kết); ghi lúc thu phí BR-506 (một lần khi việc HK xong, kể cả sau khi lễ tân đã đóng; việc hủy hoặc yêu cầu `declined` → không phí; không có việc liên kết → thu lúc `complete`) – DOM đã xác nhận. Chi tiết ở EP14 v0.3 mục 4.4, 4.5 | BA |

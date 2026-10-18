@@ -45,6 +45,8 @@ export interface QueueApi {
   flush: () => Promise<FlushResult>;
   sendNow: () => Promise<FlushResult>;
   dismiss: (id: string) => Promise<void>;
+  /** "Gửi lại" a refused room / task action with the time of this tap (P-01, P-08) – 10 s undo as usual. */
+  resend: (id: string, text: string, undoneText: string) => Promise<void>;
   resume: () => void;
 }
 
@@ -92,8 +94,8 @@ export function QueueProvider({
   }, [queue]);
 
   // Wake up when the next item is due (undo window over, backoff over). Re-read on every queue change.
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- `version` = the queue changed in place
-  const wake = useMemo(() => queue.nextWakeAt(), [queue, version]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `version` = the queue changed in place; `online` = which items can wake it
+  const wake = useMemo(() => queue.nextWakeAt(), [queue, version, online]);
   useEffect(() => {
     if (wake === undefined) return;
     const ms = Math.max(0, Math.min(wake - queue.now(), 2_147_000_000));
@@ -192,6 +194,16 @@ export function QueueProvider({
     [queue],
   );
 
+  const resend = useCallback(
+    async (id: string, text: string, undoneText: string) => {
+      const fresh = await queue.resend(id, UNDO_MS);
+      if (fresh) {
+        setToast({ kind: 'undo', itemId: fresh.id, text, undoneText, until: fresh.sendAfter });
+      }
+    },
+    [queue],
+  );
+
   const value = useMemo<QueueApi>(
     () => ({
       queue,
@@ -216,6 +228,7 @@ export function QueueProvider({
         return res;
       },
       dismiss: (id: string) => queue.dismiss(id),
+      resend,
       resume: () => {
         queue.resume();
         void flush();
@@ -235,6 +248,7 @@ export function QueueProvider({
       freeze,
       release,
       flush,
+      resend,
     ],
   );
 

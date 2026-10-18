@@ -490,3 +490,38 @@ Trước khi #12 (`3bd4ac4`) commit, tôi soạn bản sửa trên bản sao ri�
 - `services/api/test/integration/minibar-m1.test.ts`
 - `product/tests/e2e/support/known-bugs.ts`
 - tài liệu này
+
+## 20. Thẻ Major 15 mở lại (ARC `reviews/s3-ARC.md`) + ARC 16.20 BUG-R2-102, 18/10
+
+| Việc | Cách cài | Kiểm chứng |
+|---|---|---|
+| **Thẻ 15** – `stay-support.ts:571` (BE-A) ghi thẳng `folio_line` | Cổng mới `folio/public/folio.service.ts`: **`FolioService.linkApprovalRequest(tx: Tx, folioLineId: string, approvalRequestId: string): Promise<void>`**. Hàm gắn một dòng **đang chờ duyệt** (`pending_approval`: dòng FOC, giảm giá đặc biệt, damage) với yêu cầu duyệt tạo cho nó; `approval_request.folio_line_id` phải là chính dòng này. Thứ tự 16.19: người gọi giữ L1 và thường cả L3 (vừa `postLines`); hàm khóa lại folio (L3, không phải chờ nếu đã giữ) **trước khi đọc**, chỉ đọc yêu cầu (L4). Gọi lại với cùng yêu cầu thì không làm gì. Lỗi: dòng không có / không thấy → 404 `NOT_FOUND`; yêu cầu không thuộc dòng → 422 `VALIDATION_FAILED` (`approvalRequestId` `NOT_IN_LIST`); dòng không còn chờ duyệt hoặc đã gắn yêu cầu khác → 409 `INVALID_TRANSITION`. BE-A thay câu `UPDATE folio_line SET approval_request_id …` (stay-support ~585) bằng `await this.folios.linkApprovalRequest(tx, focLineId, request.id)` | `minibar-m1` ca "ARC s3 thẻ 15": dòng FOC chờ duyệt (`postLines`) + yêu cầu (`ApprovalService.submit`) → gắn → Folio DTO có `approvalRequestId`; gọi lại không đổi gì; 404 / 422 / 409 như trên |
+| **ARC 16.20 – BUG-R2-102** | `Folio.totals.refundedVnd` = `moneyPosition.refundedVnd` (số dương, các dòng hoàn `succeeded`). `paidVnd` giữ nghĩa "đã thu", không trừ phần hoàn (generated do ARC sinh lại) | Unit `be-b-s2-units`: cọc 1.000.000, hoàn 200.000 (thêm một dòng hoàn `pending` không tính) → `paidVnd` 1.000.000, `refundedVnd` 200.000, dư 100.000. `approvals-refund-payout` K11-06: trước khi chi `refundedVnd` 0; chi đủ → `paidVnd` = `refundedVnd` = số cọc, dư 0. Cập nhật hai ca so khớp tuyệt đối `totals` (`be-b-s2-units`, `folio-payments`): thêm `refundedVnd: 0` |
+
+**Kiểm chứng** (18/10, DB mới, cây chung sau `7ac11a4` có phần đang làm của BE-A/BE-C/FE-A):
+- `@ottimo/api`: 4 ca đỏ ở lần chạy đầu.
+  - Hai ca là của tôi (so khớp tuyệt đối `totals`), đã sửa, nay xanh.
+  - `housekeeping-s4` BR-424-05 (J8 ngày quay về căn) và `s4-stab-be-a` (tệp mới của BE-A) thuộc phần BE-C/BE-A đang sửa. Hai tệp đó không gọi mã tôi đổi (folio totals, cổng mới).
+  - `reservations` US-016 (p95 sơ đồ < 200 ms) đỏ một lần vì máy đang tải, chạy lại xanh.
+- tsc 0 lỗi; eslint, prettier xanh trên tệp chạm.
+- Không commit.
+
+**Tệp:** `src/modules/folio/public/folio.service.ts`; `test/integration/{minibar-m1,approvals-refund-payout,folio-payments}.test.ts`; `test/be-b-s2-units.test.ts`; tài liệu này.
+
+## 21. ARC 16.21 (Minor) – cơ sở "giá 1 đêm" (BR-433) của đơn dài hạn, 18/10
+
+- **Sửa:** `FolioService.nightRateBasis`. Với dòng của đơn dài hạn có tiền thuê (đơn của dòng, không có thì đơn chính của folio), cơ sở = tiền thuê ÷ `long_stay_daily_divisor`, làm tròn theo `rounding.night_rate` (BR-102/BR-413). Cùng phép tính với `longStayNight` của Desk, viết bằng `divideRoundVnd` để module folio không phụ thuộc module frontdesk. Thiếu tham số thì trả `null` như cũ (an toàn: lên OWN).
+- **Trước đây:** đơn dài hạn nhập tay (US-017 AC5a) không có dòng `room` → cơ sở `null` → mọi khoản giảm phải lên OWN.
+- **Test** (`minibar-m1`, ca "ARC 16.21"): đơn dài hạn nhập tay 402, tiền thuê 11.130.000 (không có dòng `room`); dòng phí 300.000; cơ sở = **371.000** (÷ 30). Yêu cầu FOC 300.000 có `limit_basis_vnd` 371.000; vai duyệt FDL/MGR, không lên OWN.
+- **Kiểm chứng:** `@ottimo/api` **2.866/2.866 xanh** (92 tệp, 1 tệp bỏ qua) trên DB mới; tsc, eslint, prettier xanh. Không commit.
+- **Tệp:** `src/modules/folio/public/folio.service.ts`, `test/integration/minibar-m1.test.ts`.
+
+## 22. UXR P-04 – tên món trong việc bổ sung minibar (PWA HK chỉ hiện "1, 1"), 18/10
+
+- **Cách chọn:** lưu tên lúc ghi việc, không nối danh mục lúc đọc. Đường đọc HK (`housekeeping.service.ts` `taskDto`, BE-C) trả nguyên `refill_items`, nên không phải sửa module BE-C.
+- **Sửa:** `inventory/internal/refill-tasks.ts`. `reconcileRefillTasks` ghi `hk_task.refill_items` dạng `[{ itemId, quantity, itemName }]`, tên lấy từ `item.name` lúc tạo hoặc cập nhật việc. Việc đang mở mà ghi trước bản sửa (thiếu tên) cũng được thêm tên ở lần đối chiếu kế tiếp. Lần nạp (`onRefillDone`) và `refillItemsOf` của HK chỉ đọc `itemId`/`quantity`, không đổi.
+- **Test** (`minibar-m1` "UXR P-04"):
+  - Đếm tủ căn cũ dùng 2 bia + 1 coca → HK `GET /hk-tasks` thấy `refillItems` có `itemName` của từng món.
+  - Đếm lại chỉ 1 bia → `[{ bia, 1, itemName }]`.
+- **Kiểm chứng:** `@ottimo/api` **2.895/2.895 xanh** (96 tệp, 1 tệp bỏ qua) trên DB mới; `minibar-m1` 49/49; tsc, eslint, prettier xanh. Không commit.
+- **Tệp:** `src/modules/inventory/internal/refill-tasks.ts`, `test/integration/minibar-m1.test.ts`.

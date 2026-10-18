@@ -41,6 +41,7 @@ import { approvalsOf, farBooking } from '../support/s3-stay.js';
 import { go } from './axe.js';
 import { UI, signIn, t } from './helpers.js';
 import {
+  pickDocPerson,
   amountRe,
   deskAs,
   digits,
@@ -152,6 +153,7 @@ test.describe(
         .click();
       let dlg = page.getByRole('dialog', { name: t('ci.manual_title') });
       await expect(dlg).toBeVisible();
+      await pickDocPerson(dlg, 'booker');
       await dlg.getByLabel(t('checkin.docs.field.doc_no')).fill(n1);
       await dlg.getByLabel(t('checkin.docs.field.full_name')).fill(st.guestName.toUpperCase());
       await dlg.getByLabel(t('checkin.docs.field.dob')).fill('1990-03-12');
@@ -184,6 +186,7 @@ test.describe(
         .click();
       dlg = page.getByRole('dialog', { name: t('ci.manual_title') });
       await expect(dlg).toBeVisible();
+      await pickDocPerson(dlg, 'new');
       await dlg.getByLabel(t('checkin.docs.field.doc_no')).fill(n2);
       await dlg.getByLabel(t('checkin.docs.field.full_name')).fill('TRAN VAN BINH');
       await dlg.getByLabel(t('checkin.docs.field.dob')).fill('1988-07-21');
@@ -425,12 +428,29 @@ test.describe(
       await go(page, `/reservations/${hold.id}`);
       await expect(page.getByText(hold.code).first()).toBeVisible({ timeout: 10_000 });
       await expect(page.getByText(t('drawer.folio.title'), { exact: true })).toBeVisible();
-      await expect.poll(() => drawerBalance(page), { timeout: 10_000 }).not.toBeNull();
+      // ARC 16.20 / BUG-R2-101 (S4-50b): giữ chỗ chưa có khoản nào trên folio → "Chưa có khoản nào trên folio.",
+      // không có dòng "Còn phải thu 0 đ"; bản cũ: dòng "Còn phải thu" có số
+      await expect
+        .poll(
+          async () =>
+            (await drawerBalance(page)) !== null ||
+            (await page
+              .getByText(t('drawer.folio.nothing_posted'))
+              .first()
+              .isVisible()
+              .catch(() => false)),
+          { timeout: 10_000, message: 'khối Folio của giữ chỗ đã đọc xong' },
+        )
+        .toBe(true);
       // chưa thu thì "Đã thu" là 0 (đơn có folio: dòng hiện sau khi đọc folio) hoặc không hiện (chưa có folio) –
       // không bao giờ là tiền phòng
       if (hold.folioId) {
+        // ARC 16.20: "Đã thu" chỉ hiện khi đã thu > 0 – không có dòng = 0; không bao giờ là tiền phòng
         await expect
-          .poll(() => drawerPaid(page), { timeout: 10_000, message: 'giữ chỗ chưa cọc: "Đã thu"' })
+          .poll(async () => (await drawerPaid(page)) ?? 0, {
+            timeout: 10_000,
+            message: 'giữ chỗ chưa cọc: "Đã thu"',
+          })
           .toBe(holdPaid);
       } else {
         expect((await drawerPaid(page)) ?? 0, 'giữ chỗ chưa cọc: "Đã thu"').toBe(holdPaid);

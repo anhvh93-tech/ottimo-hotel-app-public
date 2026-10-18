@@ -99,7 +99,7 @@ function RequestRow({ r, onChanged }: { r: GuestRequest; onChanged: () => void }
     }
   };
   return (
-    <div className="li">
+    <div className="li req-row">
       <div>
         {r.roomNo ? (
           <div className="roomno">{r.roomNo}</div>
@@ -143,7 +143,7 @@ function RequestRow({ r, onChanged }: { r: GuestRequest; onChanged: () => void }
         {act.view()}
       </div>
       {online ? (
-        <div className="row wrap">
+        <div className="row wrap req-acts">
           {r.status === 'new' ? (
             <Button size="sm" variant="pri" busy={act.busy} onClick={() => void run('acknowledge')}>
               {t('today.req_ack')}

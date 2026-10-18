@@ -8,6 +8,7 @@
 #   - probes against REAL files bind-mounted into the bundle (so a 404 proves the Caddy rule, not a missing file):
 #     source map, dot-file, blob-volume-looking paths → 404, while a control .js/.txt next to them → 200 (SEC C2)
 #   - a declared body over 1 MB → 413 (ARC S3-18)
+#   - real image only: the staff PWA's manifest.webmanifest and sw.js are served as themselves (UXR P-24)
 #   - logs (access log, HTTP→HTTPS redirect on port 80, error log of a failed proxy) never contain a /g/ token, a
 #     query value or a request header value – the probe requests carry Cookie, Authorization, X-CSRF-Token,
 #     X-Test-Token and Referer with marker values (SR-LOG-02/03, SR-GST-03)
@@ -117,6 +118,19 @@ for spec in "desk.localhost desk" "staff.localhost staff" "g.localhost guest"; d
   expect_code "$host 1.1 MB declared body" 413 "$host" /v1/auth/login -X POST -H 'Content-Type: application/json' \
     --data-binary "@$probe_dir/big.json"
 done
+
+# Real image only: the PWA files are served as themselves, not the index.html fallback (UXR P-24 – files the Caddy
+# user cannot read fell through try_files to index.html, so the PWA could not install).
+if [ "$stub" -eq 0 ]; then
+  for spec in "/manifest.webmanifest application/manifest+json" "/sw.js text/javascript"; do
+    read -r path want <<<"$spec"
+    got=$(c staff.localhost "$path" -o /dev/null -w '%{http_code} %{content_type}')
+    case "$got" in
+      "200 $want"*) ok "staff.localhost $path 200 $want" ;;
+      *) bad "staff.localhost $path answered '$got' (expected 200 $want – unreadable file served as index.html?)" ;;
+    esac
+  done
+fi
 
 token="ciTOKEN$(openssl rand -hex 16)"
 qmark="qMARK$(openssl rand -hex 8)"

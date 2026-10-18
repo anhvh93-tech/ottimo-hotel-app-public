@@ -15,7 +15,7 @@ import {
   remaining,
   rsvErrorText,
 } from '../../app/reservations';
-import { lineLabel } from '../../app/folio';
+import { lineLabel, signed } from '../../app/folio';
 import { Code } from '../../app/mono';
 import { useRules } from '../../app/rules';
 import { LoadingBlock } from '../../components/states';
@@ -115,10 +115,29 @@ export function ReservationDrawer({
   // UXR #6: "Đã thu" comes from the folio (`totals.paidVnd`) for every role that sees the balance – it
   // is never "room total − balance" (wrong with a hold, extras, FOC or a refund).
   const [folio, setFolio] = useState<Folio | null>(null);
+  // ARC 16.20 (BUG-R2-101): `balanceDueVnd` absent = nothing posted on the folio yet (a hold) – FD+ still read the
+  // folio; other roles see money only where the server gives it.
   const folioId =
-    r && r.stayType !== 'long' && r.balanceDueVnd !== undefined && r.folioId ? r.folioId : null;
+    r && r.stayType !== 'long' && r.folioId && (r.balanceDueVnd !== undefined || fd)
+      ? r.folioId
+      : null;
   const folioLines = fd && !!r && ['in_house', 'checked_out'].includes(r.status);
-  const paidVnd = folio?.id === folioId ? folio?.totals.paidVnd : undefined;
+  const ownFolio = folio?.id === folioId ? folio : null;
+  const paidVnd = ownFolio?.totals.paidVnd;
+  // BUG-R2-102 / ARC 16.20: "Đã thu" = `paidVnd` (refunds not taken off), "Đã hoàn" = `refundedVnd` – the server's.
+  const refundedVnd = ownFolio?.totals.refundedVnd ?? 0;
+  // BUG-R2-103: with the folio lines listed below, "Còn phải thu" is said once – there, after the lines.
+  const linesShown = !!folio && folioLines;
+  // ARC 16.20: a folio at 0 with no posted line – "Chưa có khoản nào trên folio", never "Còn phải thu 0 đ".
+  const nothingPosted =
+    !!ownFolio &&
+    (ownFolio.totals.balanceDueVnd ?? 0) === 0 &&
+    ownFolio.lines.every((l) => l.lineState !== 'posted');
+  // A hold owes the deposit still missing (BR-305) – what the desk asks the guest for.
+  const depositDue =
+    r?.status === 'hold' && r.depositRequiredVnd !== undefined
+      ? Math.max(0, r.depositRequiredVnd - (r.depositPaidVnd ?? 0))
+      : undefined;
   const rVersion = r?.version;
   useEffect(() => {
     if (!folioId) return;
@@ -238,14 +257,20 @@ export function ReservationDrawer({
       {allowed.has('mark_no_show') ? (
         <Button onClick={() => setOpen('noshow')}>{t('drawer.action.no_show')}</Button>
       ) : r.noShowAvailableFrom ? (
-        // A-04: the server says when marking opens – never the client clock.
-        <Button
-          aria-disabled="true"
-          aria-describedby={`${drawerId}-noshow`}
-          onClick={() => undefined}
-        >
-          {t('drawer.action.no_show')}
-        </Button>
+        // A-04: the server says when marking opens – never the client clock. UXR P-17: the reason sits next to
+        // its button, not at the top of the panel.
+        <>
+          <span className="li-s" id={`${drawerId}-noshow`}>
+            {t('noshow.locked', { time: timeHHmm(new Date(r.noShowAvailableFrom)) })}
+          </span>
+          <Button
+            aria-disabled="true"
+            aria-describedby={`${drawerId}-noshow`}
+            onClick={() => undefined}
+          >
+            {t('drawer.action.no_show')}
+          </Button>
+        </>
       ) : null}
       {allowed.has('move') ? (
         <Button onClick={() => setOpen('move')}>{t('drawer.action.move')}</Button>
@@ -411,11 +436,6 @@ export function ReservationDrawer({
             </Alert>
           ) : null}
           {billError ? <Alert tone="bad">{rsvErrorText(t, billError)}</Alert> : null}
-          {r.noShowAvailableFrom && !allowed.has('mark_no_show') ? (
-            <p className="caption mb-8" id={`${drawerId}-noshow`}>
-              {t('noshow.locked', { time: timeHHmm(new Date(r.noShowAvailableFrom)) })}
-            </p>
-          ) : null}
           {allowed.has('check_in') && !deviceTrusted ? (
             <p className="caption mb-8" id={`${drawerId}-checkin`}>
               {t('device.blocked_title')}
@@ -547,32 +567,51 @@ export function ReservationDrawer({
                     <td>{t('drawer.folio.room', { n: r.nights ?? 0 })}</td>
                     <td className="r">{vnd(r.totalRoomVnd)}</td>
                   </tr>
-                  {r.depositRequiredVnd !== undefined ? (
-                    // ARC 0.3.7 bổ sung 4 #2 (BR-309-11): a deposit is asked only on a hold; from `confirmed`
-                    // on the same figure is the base of the cancellation fee – never a new deposit to collect.
+                  {r.status === 'hold' ? (
+                    // ARC 16.20 (BUG-R2-101): what a hold owes is the deposit still missing (BR-305).
+                    depositDue !== undefined && depositDue > 0 ? (
+                      <tr className="sub">
+                        <td>{t('booking.summary.deposit')}</td>
+                        <td className="r">{vnd(depositDue)}</td>
+                      </tr>
+                    ) : null
+                  ) : r.depositRequiredVnd !== undefined &&
+                    r.status === 'confirmed' &&
+                    r.paymentModel !== 'ota_prepaid' ? (
+                    // ARC 0.3.7 bổ sung 4 #2 (BR-309-11): from `confirmed` on the figure is the base of the
+                    // cancellation fee – never a new deposit to collect. UXR P-17: only while OTTIMO can still
+                    // charge it (a confirmed booking not prepaid to an OTA) – not in house, not after.
                     <tr className="sub">
-                      <td>
-                        {r.status === 'hold'
-                          ? t('booking.summary.deposit')
-                          : t('drawer.deposit_fee_base')}
-                      </td>
+                      <td>{t('drawer.deposit_fee_base')}</td>
                       <td className="r">{vnd(r.depositRequiredVnd)}</td>
                     </tr>
                   ) : null}
-                  {r.balanceDueVnd !== undefined ? (
+                  {!linesShown && (r.balanceDueVnd !== undefined || nothingPosted) ? (
                     <>
-                      {paidVnd !== undefined ? (
+                      {paidVnd !== undefined && paidVnd > 0 ? (
                         <tr className="sub">
                           <td>{t('drawer.folio.paid')}</td>
-                          <td className="r">{paidVnd > 0 ? `−${vnd(paidVnd)}` : vnd(0)}</td>
+                          <td className="r">−{vnd(paidVnd)}</td>
                         </tr>
                       ) : null}
-                      <tr className="total">
-                        <td>{t('drawer.folio.balance')}</td>
-                        <td className="r">
-                          {vnd(r.balanceDueVnd)} {t('common.vnd_unit')}
-                        </td>
-                      </tr>
+                      {refundedVnd > 0 ? (
+                        <tr className="sub">
+                          <td>{t('drawer.folio.refunded')}</td>
+                          <td className="r">+{vnd(refundedVnd)}</td>
+                        </tr>
+                      ) : null}
+                      {nothingPosted || r.balanceDueVnd === undefined ? (
+                        <tr className="sub">
+                          <td colSpan={2}>{t('drawer.folio.nothing_posted')}</td>
+                        </tr>
+                      ) : (
+                        <tr className="total">
+                          <td>{t('drawer.folio.balance')}</td>
+                          <td className="r">
+                            {vnd(r.balanceDueVnd)} {t('common.vnd_unit')}
+                          </td>
+                        </tr>
+                      )}
                     </>
                   ) : null}
                 </tbody>
@@ -609,9 +648,21 @@ export function ReservationDrawer({
                             </>
                           ) : null}
                         </td>
-                        <td className="r">{vnd(l.amountVnd)}</td>
+                        <td className="r">{signed(vnd, l.amountVnd)}</td>
                       </tr>
                     ))}
+                  {paidVnd !== undefined && paidVnd > 0 ? (
+                    <tr className="sub">
+                      <td>{t('drawer.folio.paid')}</td>
+                      <td className="r">−{vnd(paidVnd)}</td>
+                    </tr>
+                  ) : null}
+                  {refundedVnd > 0 ? (
+                    <tr className="sub">
+                      <td>{t('drawer.folio.refunded')}</td>
+                      <td className="r">+{vnd(refundedVnd)}</td>
+                    </tr>
+                  ) : null}
                   <tr className="total">
                     <td>{t('drawer.folio.balance')}</td>
                     <td className="r">

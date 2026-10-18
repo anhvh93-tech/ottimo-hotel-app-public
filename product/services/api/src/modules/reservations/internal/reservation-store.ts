@@ -246,7 +246,10 @@ export interface LiveNightRow {
   calendarVnd: number | null;
 }
 
-/** Live nights with their calendar price (A-22) – for BR-107 re-tiering on a change of nights. */
+/**
+ * Live nights with their calendar price (A-22) – for BR-107 re-tiering on a change of nights. Money nights only:
+ * the lease nights of a manual long stay (A7-01, `lease-nights.ts`) are left out.
+ */
 export async function liveNightRows(tx: Tx, reservationId: string): Promise<LiveNightRow[]> {
   const { rows } = await tx.query<{
     id: string;
@@ -257,7 +260,9 @@ export async function liveNightRows(tx: Tx, reservationId: string): Promise<Live
   }>(
     `SELECT id, stay_date::text AS date, room_revenue_gross_vnd AS gross, discount_vnd AS discount,
             calendar_rate_vnd AS calendar
-       FROM stay_night WHERE reservation_id = $1 AND night_state <> 'void' ORDER BY stay_date`,
+       FROM stay_night WHERE reservation_id = $1 AND night_state <> 'void'
+        AND rate_source <> 'lease_allocation'
+      ORDER BY stay_date`,
     [reservationId],
   );
   return rows.map((r) => ({
@@ -318,7 +323,9 @@ export async function liveNights(
   }>(
     `SELECT stay_date::text AS date, room_revenue_gross_vnd AS amount, calendar_rate_vnd AS calendar,
             night_state AS state
-       FROM stay_night WHERE reservation_id = $1 AND night_state <> 'void' ORDER BY stay_date`,
+       FROM stay_night WHERE reservation_id = $1 AND night_state <> 'void'
+        AND rate_source <> 'lease_allocation'
+      ORDER BY stay_date`,
     [reservationId],
   );
   return rows.map((r) => ({

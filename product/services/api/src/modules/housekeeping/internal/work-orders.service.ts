@@ -35,6 +35,7 @@ import { DocNumberService } from '../../platform/public/doc-number.service';
 import { ParameterService } from '../../platform/public/parameter.service';
 import { RoomBlockPort } from '../../reservations/public/room-block.port';
 import { RoomStatusService } from '../public/room-status.service';
+import { inRoomOnSql } from '../public/stay-occupancy';
 import { type HkCtx, HousekeepingService } from './housekeeping.service';
 import {
   FD_PLUS,
@@ -339,8 +340,7 @@ export class WorkOrdersService {
   ): Promise<'none' | 'short' | 'long'> {
     const { rows } = await tx.query<{ stay_type: string }>(
       `SELECT r.stay_type FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
-        WHERE s.room_id = $1 AND s.active AND r.status = 'in_house' AND s.from_date <= $2::date
-          AND s.to_date >= $2::date LIMIT 1`,
+        WHERE s.room_id = $1 AND ${inRoomOnSql('$2::date')} LIMIT 1`,
       [roomId, today],
     );
     const st = rows[0]?.stay_type;

@@ -130,3 +130,30 @@ export function photo(
 ): { name: string; mimeType: string; buffer: Buffer } {
   return { name, mimeType: 'image/png', buffer };
 }
+
+/**
+ * H13/H14 "Nhập tay": chọn người có tên trên giấy tờ (SEC BE-73, ARC 16.22 – FE-A: giấy tờ mới luôn gắn người, không
+ * mặc định người đặt). `booker` = người đặt, `new` = "Người ở chưa có trong đơn", chuỗi khác = tên người trong đoàn.
+ * Bản Desk chưa có ô chọn người thì bỏ qua.
+ */
+export async function pickDocPerson(dlg: Locator, who: 'booker' | 'new' | string): Promise<void> {
+  const sel = dlg.getByLabel(t('reg.link.member'));
+  if (!(await sel.isVisible({ timeout: 3_000 }).catch(() => false))) return;
+  // danh sách người tải sau khi hộp mở (listParty) – chờ có người đặt / đủ người trước khi chọn
+  if (who !== 'new')
+    await expect
+      .poll(async () => (await sel.locator('option').count()) > 2, {
+        timeout: 10_000,
+        message: 'danh sách người trong đoàn đã tải',
+      })
+      .toBe(true);
+  const labels = await sel.locator('option').allTextContents();
+  const label =
+    who === 'booker'
+      ? labels.find((l) => l.includes(t('rsv.booker')))
+      : who === 'new'
+        ? labels.find((l) => l === t('reg.person_not_in_party'))
+        : labels.find((l) => l.startsWith(who));
+  expect(label, `chọn người (${who}) trong: ${labels.join(' | ')}`).toBeTruthy();
+  await sel.selectOption({ label: label! });
+}

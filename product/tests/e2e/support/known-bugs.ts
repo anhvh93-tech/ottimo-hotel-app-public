@@ -11,7 +11,12 @@
 import { test } from '@playwright/test';
 
 /** Mã → mô tả ngắn (mục S4, vai sửa). Chỉ ghi mục ĐANG MỞ trên nhánh chính. */
-export const OPEN: Readonly<Record<string, string>> = {};
+export const OPEN: Readonly<Record<string, string>> = {
+  'BUG-R2-194':
+    'H13 trước 06:00 (B9a): Desk nêu "thêm đêm …: 0 đ" và bỏ ô "đã báo khách" – tiền đêm ở `priorNight.defaultRateVnd` (FE-A)',
+  'BUG-R2-179':
+    'H06 hồ sơ khách không hiện 4 ký tự cuối giấy tờ (`idDocLast4`) dù API trả – US-048 AC3 (FE)',
+};
 
 function fixedByEnv(): Set<string> {
   return new Set(

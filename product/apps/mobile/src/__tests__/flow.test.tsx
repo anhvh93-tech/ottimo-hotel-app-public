@@ -32,7 +32,7 @@ describe('sign-in by role (ADR-005)', () => {
       within(nav)
         .getAllByRole('link')
         .map((a) => a.textContent),
-    ).toEqual(['Việc của tôi', 'Các căn', 'Báo sự cố', 'Tôi']);
+    ).toEqual(['Việc', 'Các căn', 'Báo sự cố', 'Tôi']); // UXR P-27: short label, one line at 360 px
   });
 
   it('maintenance lands on "Phiếu sửa"', async () => {
@@ -61,7 +61,7 @@ describe('sign-in by role (ADR-005)', () => {
 describe('H19 – today’s tasks (US-052, US-054)', () => {
   it('groups by the hi-fi rules, shows "302 / The Ivory" and the x/y counter; never a status code', async () => {
     await start();
-    expect(await screen.findByText('Làm trước – có khách đến hôm nay')).toBeInTheDocument();
+    expect(await screen.findByText('Làm trước')).toBeInTheDocument(); // UXR P-12
     expect(screen.getByText('Khách đang ở')).toBeInTheDocument();
     expect(screen.getByText('Sau khi khách trả phòng')).toBeInTheDocument();
     expect(screen.getByText('1/6 xong')).toBeInTheDocument();
@@ -358,8 +358,8 @@ describe('sign out (SR-PWA-04)', () => {
     const { user } = await start();
     await user.click(await screen.findByRole('link', { name: 'Tôi' }));
     await user.click(await screen.findByRole('button', { name: 'English' }));
-    expect(await screen.findByRole('link', { name: 'My tasks' })).toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: 'My tasks' }));
-    expect(await screen.findByText('Do first – guests arriving today')).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Tasks' })).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: 'Tasks' }));
+    expect(await screen.findByText('Do first')).toBeInTheDocument();
   });
 });

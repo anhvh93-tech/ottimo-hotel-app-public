@@ -304,11 +304,15 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
     decision: 'granted' | 'refused',
     notice: NonNullable<Registration['consentNotice']>,
   ) => {
+    // SEC FB-R2-SEC-BE-73 / ARC 16.22: the decision is that person's – sent with THEIR `partyMemberId` (required),
+    // never guessed from the document (an ID not linked to anyone yet is linked first).
+    if (!doc.partyMemberId) return;
+    const partyMemberId = doc.partyMemberId;
     const out = await consent.submit((idem) =>
       api.recordImageConsent(
         G,
         {
-          partyMemberId: doc.partyMemberId ?? doc.id,
+          partyMemberId,
           purpose: 'P02B_ID_IMAGE_RETENTION',
           decision,
           // 0.3.6 add. 3: send back exactly the notice and days the guest was told.
@@ -447,7 +451,7 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
                       type="radio"
                       name={`consent-${d.id}`}
                       checked={d.imageConsent === 'granted'}
-                      disabled={!online || consent.busy}
+                      disabled={!online || consent.busy || !d.partyMemberId}
                       onChange={() => void recordConsent(d, 'granted', notice)}
                     />
                     {t('checkin.consent.yes')}
@@ -457,15 +461,17 @@ function RegistrationDetail({ registrationId }: { registrationId: string }) {
                       type="radio"
                       name={`consent-${d.id}`}
                       checked={d.imageConsent === 'refused'}
-                      disabled={!online || consent.busy}
+                      disabled={!online || consent.busy || !d.partyMemberId}
                       onChange={() => void recordConsent(d, 'refused', notice)}
                     />
                     {t('checkin.consent.no')}
                   </label>
                   <span className="li-s">
-                    {d.imageConsent === 'not_recorded'
-                      ? t('reg2.consent_not_recorded')
-                      : t('checkin.consent.help')}
+                    {!d.partyMemberId
+                      ? t('reg2.consent_needs_person')
+                      : d.imageConsent === 'not_recorded'
+                        ? t('reg2.consent_not_recorded')
+                        : t('checkin.consent.help')}
                   </span>
                 </fieldset>
               ) : null}

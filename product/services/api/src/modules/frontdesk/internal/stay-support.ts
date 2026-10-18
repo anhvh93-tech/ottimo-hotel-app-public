@@ -84,7 +84,18 @@ export interface AddedNightContext {
   side: 'before' | 'after';
   /** ARC 16.18: `anchorRoomId` a night typed now records (null = the origin room). */
   anchorRoomId: string | null;
+  /** S4-36: list prices and group of the rooms priced by this operation, read once (`directRate`). */
+  rooms: RoomPriceCache;
 }
+
+/** S4-36: per-operation cache of a room's list prices and group code (one read per room, not per night). */
+export type RoomPriceCache = Map<
+  string,
+  Promise<{
+    listPrices: Array<{ effectiveFrom: string; nightlyVnd: number }>;
+    groupCode: string | null;
+  }>
+>;
 
 @Injectable()
 export class StaySupport {
@@ -254,6 +265,7 @@ export class StaySupport {
       nights,
       side: pick === 'first' ? 'after' : 'before',
       anchorRoomId: boughtRoomId !== originRoomId ? boughtRoomId : null,
+      rooms: new Map(),
     };
   }
 
@@ -277,9 +289,9 @@ export class StaySupport {
     special: boolean;
     keepVnd: number | null;
   }> {
-    const night = await this.directRate(tx, ctx, c.roomId, date);
+    const night = await this.directRate(tx, ctx, c.roomId, date, c.rooms);
     const sameRoom = c.boughtRoomId === c.roomId;
-    const bought = sameRoom ? night : await this.directRate(tx, ctx, c.boughtRoomId, date);
+    const bought = sameRoom ? night : await this.directRate(tx, ctx, c.boughtRoomId, date, c.rooms);
     const special = (d: LocalDate) => isSpecialDate(d, ctx.params.calendar.specialDates);
     const p = addedNightPrice({
       bought,
@@ -311,15 +323,22 @@ export class StaySupport {
     ctx: BookingContext,
     roomId: string,
     date: LocalDate,
+    cache?: RoomPriceCache,
   ): Promise<{ rateVnd: number; floorVnd: number; ceilingVnd: number; special: boolean }> {
-    const list = PricingService.listPriceOn(
-      {
-        roomId,
-        baseOccupancy: 0,
-        listPrices: await this.listPrices(tx, roomId),
-      },
-      date,
-    );
+    const read = async () => {
+      const { rows } = await tx.query<{ code: string }>(
+        'SELECT rg.code FROM room rm JOIN room_group rg ON rg.id = rm.room_group_id WHERE rm.id = $1',
+        [roomId],
+      );
+      return { listPrices: await this.listPrices(tx, roomId), groupCode: rows[0]?.code ?? null };
+    };
+    let facts = cache?.get(roomId);
+    if (!facts) {
+      facts = read();
+      cache?.set(roomId, facts);
+    }
+    const { listPrices, groupCode } = await facts;
+    const list = PricingService.listPriceOn({ roomId, baseOccupancy: 0, listPrices }, date);
     if (list === null) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'roomId', code: 'NOT_IN_LIST' }],
@@ -328,11 +347,7 @@ export class StaySupport {
     }
     const p = ctx.params;
     const c = calendarRate(list, date, 'direct', p.calendar, p.nightRateUnit);
-    const { rows } = await tx.query<{ code: string }>(
-      'SELECT rg.code FROM room rm JOIN room_group rg ON rg.id = rm.room_group_id WHERE rm.id = $1',
-      [roomId],
-    );
-    const groupBase = rows[0] ? p.otaBaseRates[rows[0].code] : undefined;
+    const groupBase = groupCode !== null ? p.otaBaseRates[groupCode] : undefined;
     const b =
       groupBase !== undefined
         ? rateBounds(groupBase, p.rateFloorPct, p.rateCeilingPct, p.otaRateUnit)
@@ -568,10 +583,8 @@ export class StaySupport {
     });
     // Same links as the folio's requestFoc (BE-B): the pending line carries its request (Folio DTO
     // `approvalRequestId`, S4-18 sync), and a dated key (room / extra person) its date (0060, BR-434 S4-02).
-    await tx.query('UPDATE folio_line SET approval_request_id = $2 WHERE id = $1', [
-      focLineId,
-      request.id,
-    ]);
+    // Major 15 (ARC): through the folio's own port – it locks the folio first (16.19) and is idempotent.
+    await this.folios.linkApprovalRequest(tx, focLineId as string, request.id);
     if ((line.category === 'room' || line.category === 'extra_person') && line.serviceDate) {
       await this.approvals.setFocKeyDate(tx, request.id, line.serviceDate);
     }

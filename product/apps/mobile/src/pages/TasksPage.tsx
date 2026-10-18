@@ -5,7 +5,7 @@ import { useHkActions } from '../app/actions';
 import type { HkTask, RoomStatusEntry } from '../app/api';
 import { useHkData } from '../app/data';
 import { effectiveRoomStatus, effectiveTaskStatus, eventsFor } from '../app/overlay';
-import { asRoom } from '../app/rooms';
+import { asRoom, guestName } from '../app/rooms';
 import { href, navigate } from '../app/router';
 import type { StaffSession } from '../app/session';
 import {
@@ -15,15 +15,18 @@ import {
   isKit,
   sortByPriority,
   taskGroup,
+  refillText,
   taskTitle,
   type TaskGroup,
 } from '../app/tasks';
 import { hhmm, localDate } from '../app/time';
 import { useQueue } from '../queue/QueueProvider';
+import type { QueueItem } from '../queue/queue';
 import { CallDesk, Chip, QueuedChip, RoomNo, RoomStatusChip, TopBar, UpdatedAt } from '../ui/parts';
 
 const GROUPS: { id: TaskGroup; key: string }[] = [
-  { id: 'first', key: 'hk.grp.first' },
+  // UXR P-12: "first" also holds kits, urgent and timed tasks – the card says why (arrival, time), not the heading.
+  { id: 'first', key: 'hk.grp.do_first' },
   { id: 'stay', key: 'hk.grp.stay' },
   { id: 'later', key: 'hk.grp.later' },
 ];
@@ -41,23 +44,24 @@ export function TasksPage({ session }: { session: StaffSession }) {
     return m;
   }, [data.rooms]);
 
-  const view = useMemo(() => {
-    const tasks = sortByPriority((data.tasks?.data ?? []).filter((x) => x.status !== 'cancelled'));
-    return tasks
-      .map((task) => {
-        const st = effectiveTaskStatus(task, items);
-        const room = rooms.get(task.roomId);
-        const rs = room ? effectiveRoomStatus(room, items) : undefined;
-        return {
-          task,
-          status: st,
-          room,
-          roomStatus: rs,
-          group: taskGroup(task, st.value, rs?.value, room, today),
-        };
-      })
-      .filter((v) => v.status.value !== 'cancelled');
+  const all = useMemo(() => {
+    const tasks = sortByPriority(data.tasks?.data ?? []);
+    return tasks.map((task) => {
+      const st = effectiveTaskStatus(task, items);
+      const room = rooms.get(task.roomId);
+      const rs = room ? effectiveRoomStatus(room, items) : undefined;
+      return {
+        task,
+        status: st,
+        room,
+        roomStatus: rs,
+        group: taskGroup(task, st.value, rs?.value, room, today),
+      };
+    });
   }, [data.tasks, rooms, items, today]);
+  const view = all.filter((v) => v.status.value !== 'cancelled');
+  // UXR P-13: a task left out today ("Khách không muốn dọn", order changed…) stays visible with its reason.
+  const cancelled = all.filter((v) => v.status.value === 'cancelled');
 
   const done = view.filter((v) => v.group === 'done');
   const total = data.tasks?.summary.total ?? view.length;
@@ -137,13 +141,39 @@ export function TasksPage({ session }: { session: StaffSession }) {
                   >
                     <div className="hd">
                       <RoomNo no={v.task.roomNo} name={v.task.roomName} id={`done-${v.task.id}`} />
-                      {v.roomStatus ? <RoomStatusChip status={v.roomStatus.value} /> : null}
+                      {v.status.queued ? <QueuedChip /> : null}
+                    </div>
+                    {/* P-13: the TASK that is done ("Bổ sung minibar – xong 09:26"), not the room status –
+                        a refilled minibar in a room still to clean is not "the room is done". */}
+                    <p className="li-s mt-4 m-0">
+                      {v.task.doneAt
+                        ? t('hk.task_done_at', {
+                            task: taskTitle(v.task, t),
+                            time: hhmm(v.task.doneAt),
+                          })
+                        : taskTitle(v.task, t)}
+                    </p>
+                  </article>
+                ))}
+              </>
+            ) : null}
+            {cancelled.length ? (
+              <>
+                <h2 className="grp-h">{t('hk.grp.cancelled', { n: cancelled.length })}</h2>
+                {cancelled.map((v) => (
+                  <article
+                    key={v.task.id}
+                    className="hk-card done"
+                    aria-labelledby={`off-${v.task.id}`}
+                  >
+                    <div className="hd">
+                      <RoomNo no={v.task.roomNo} name={v.task.roomName} id={`off-${v.task.id}`} />
                       {v.status.queued ? <QueuedChip /> : null}
                     </div>
                     <p className="li-s mt-4 m-0">
-                      {v.task.doneAt
-                        ? t('hk.done_at', { time: hhmm(v.task.doneAt) })
-                        : taskTitle(v.task, t)}
+                      {[taskTitle(v.task, t), cancelReasonText(v.task, items, t)]
+                        .filter(Boolean)
+                        .join(' – ')}
                     </p>
                   </article>
                 ))}
@@ -263,8 +293,8 @@ function TaskCard({
             <span>{t('hk.window', { from: task.windowStart, to: task.windowEnd })}</span>
           ) : null}
           {task.linenChange ? <span>{t('hk.linen_change')}</span> : null}
-          {room?.currentGuest ? (
-            <span>{t('hk.guest_first_name', { name: room.currentGuest })}</span>
+          {room && guestName(room) ? (
+            <span>{t('hk.guest_first_name', { name: guestName(room) })}</span>
           ) : null}
         </div>
         {/* Guest's own words: online only, never cached (SR-PWA-01) – the cached copy has no `note`. */}
@@ -274,13 +304,7 @@ function TaskCard({
           </p>
         ) : null}
         {task.refillItems?.length ? (
-          <p className="mt-4 m-0 li-s">
-            {t('hk.refill', {
-              items: task.refillItems
-                .map((r) => `${r.quantity ?? ''} ${r.itemName ?? ''}`.trim())
-                .join(', '),
-            })}
-          </p>
+          <p className="mt-4 m-0 li-s">{refillText(task.refillItems, t)}</p>
         ) : null}
       </div>
       <div className={`acts${refuse ? ' two' : ''}`}>
@@ -293,4 +317,28 @@ function TaskCard({
       </div>
     </article>
   );
+}
+
+type Tr = (key: string, args?: Record<string, string | number>) => string;
+
+const CANCEL_KEY: Record<string, string> = {
+  dnd: 'hk.refuse.dnd',
+  guest_refused: 'hk.refuse.said_no',
+  other: 'hk.refuse.other',
+  reservation_changed: 'hk.cancel.reservation_changed',
+  room_blocked: 'hk.cancel.room_blocked',
+  day_ended: 'hk.cancel.day_ended',
+};
+
+/** Why a task left the list (P-13) – from the server, or from the action still waiting on the phone. */
+function cancelReasonText(task: HkTask, items: readonly QueueItem[], t: Tr): string {
+  const queued = [...items]
+    .reverse()
+    .find((i) => i.optimistic?.taskId === task.id && i.optimistic.taskStatus === 'cancelled');
+  const body = queued?.request.body as
+    { cancelReasonCode?: string; cancelNote?: string } | undefined;
+  const code = task.cancelReasonCode ?? body?.cancelReasonCode;
+  const note = task.cancelNote ?? body?.cancelNote;
+  if (code === 'other' && note) return note;
+  return code && CANCEL_KEY[code] ? t(CANCEL_KEY[code]) : '';
 }

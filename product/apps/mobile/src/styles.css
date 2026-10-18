@@ -40,6 +40,12 @@ body {
   bottom: 0;
   z-index: 5;
   padding-bottom: env(safe-area-inset-bottom);
+  /* UXR P-27: labels kept off the screen edge at 360 px. */
+  padding-inline: 4px;
+}
+.staff-app .m-nav a {
+  padding-inline: 4px;
+  text-align: center;
 }
 .staff-app .m-nav a:focus-visible,
 .staff-app h1:focus-visible {
@@ -87,7 +93,21 @@ body {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  /* Chips hug their text as in hi-fi H19 (inline chip), instead of stretching across the card. */
+  align-items: flex-start;
   gap: 4px;
+}
+/* FB-R2-UXD-MOB-S4-03: hifi.css `.chip` is nowrap (short Desk chips). PWA chips are plain sentences (HR-13,
+   "Khách đang ở – cần dọn") – wrap inside the chip background, never past it; icon stays on the first line
+   (line-height 1.6em, `.hk` icon 16 px). The card / row link is the touch target (≥ 48 px), not the chip. */
+.staff-app .chip {
+  white-space: normal;
+  max-width: 100%;
+  align-items: flex-start;
+  overflow-wrap: break-word;
+}
+.staff-app .chip > .ico {
+  margin-top: calc(0.8em - 8px);
 }
 .hk-list {
   list-style: none;

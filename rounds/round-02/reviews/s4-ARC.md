@@ -127,8 +127,8 @@
 - Vị trí: `reservations/internal/money-bridge.ts:85-101` (`recordInitialPayment` không chuyển `attachmentId`); B2 nhận `initialPayment.attachmentId` (`reservations.service.ts` ~1799, kiểu ở `reservation-hooks.ts:174`).
 - Vấn đề: ảnh biên nhận gửi kèm khoản thu lúc tạo đơn (B2 – SAL/CTV chuyển khoản) bị **bỏ im lặng**; khoản thu `pending` đối soát mà không có bằng chứng.
 - Vì sao quan trọng: BR-527 / A46a – đối soát tiền sale/CTV dựa vào ảnh biên nhận; mất bằng chứng tiền mà không báo lỗi.
-- Đề xuất sửa: chuyển `attachmentId` sang `PaymentService.recordManual` (kiểm `purpose = deposit_receipt`, cùng đơn – như `recordPayment`). Test: CTV tạo đơn kèm chuyển khoản + ảnh → `Payment.attachmentId` có giá trị.
-- Trạng thái: Open – **BE-A**
+- Đề xuất sửa: ~~chuyển `attachmentId` sang `recordManual`~~ – không làm được (ảnh `deposit_receipt` cần `reservationId`, đơn chưa có lúc B2; BE-A 18/10). **ARC chốt hướng (B)** (`outputs/ARC/openapi-0.3.7.md` 16.23): B2 trả 422 `NOT_ALLOWED` cho `initialPayment.attachmentId`; bằng chứng lúc tạo đơn = mã giao dịch trong `note`, ảnh gắn sau qua `createDepositNotice` (SAL/CTV) hoặc `recordPayment` (FD+). Test: B2 kèm `attachmentId` → 422 `NOT_ALLOWED`, không tạo đơn.
+- Trạng thái: Open – **BE-A** (đổi 422 + test; đóng khi xong)
 
 ### FB-R2-ARC-BE-S4-14
 - Mức độ: Minor (thiếu test đường tiền)

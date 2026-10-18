@@ -29,7 +29,7 @@ import { dayMonth } from '../../app/reservations';
 import { useRules } from '../../app/rules';
 import { timeHHmm, todayLocal } from '../../app/dates';
 import { useToast } from '../../app/toast';
-import { lineLabel } from '../../app/folio';
+import { lineLabel, signed } from '../../app/folio';
 import { Page, Topbar } from '../../components/AppShell';
 import { DeviceBlocked, ErrorBlock, LoadingBlock } from '../../components/states';
 import { OccupancyField, type Occupancy } from '../../components/OccupancyField';
@@ -543,7 +543,7 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
                     <ul className="list-plain li-s">
                       {extraLines.map((l) => (
                         <li key={l.id}>
-                          {lineLabel(t, l)} · {money(l.amountVnd)}
+                          {lineLabel(t, l)} · {signed(money, l.amountVnd)}
                         </li>
                       ))}
                     </ul>
@@ -1060,6 +1060,10 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
           ) : null}
           {needTold && toldGuest && !requestOnly ? (
             <p className="li-s">{t('ci.effect_fee', { amount: money(amount) })}</p>
+          ) : null}
+          {/* UXR P-26: the waiver asked with this check-in waits for approval – said in the box too. */}
+          {focAsked > 0 && !requestOnly ? (
+            <p className="li-s">{t('ci.effect_foc_pending', { amount: money(focAsked) })}</p>
           ) : null}
           {payLine ? <p className="li-s">{payLine}</p> : null}
           {act.view()}

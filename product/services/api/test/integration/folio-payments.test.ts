@@ -180,6 +180,7 @@ describe.skipIf(!HAS_DB)('folio + payments – deposits, folio view, FOC, commis
       focVnd: 0,
       totalVnd: 6_255_000,
       paidVnd: 1_600_000,
+      refundedVnd: 0,
       paidViaOtaVnd: 0,
       depositHeldVnd: 1_600_000,
       balanceDueVnd: 4_655_000, // BR-305-02 dueAtCheckinVnd

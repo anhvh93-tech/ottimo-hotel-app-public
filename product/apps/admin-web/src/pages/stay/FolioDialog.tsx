@@ -9,7 +9,7 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, Chip, ConfirmDialog, Field, Modal } from '@ottimo/ui';
 import { useState } from 'react';
 import { api } from '../../app/api';
-import { lineLabel } from '../../app/folio';
+import { lineLabel, signed } from '../../app/folio';
 import { parseVnd } from '../../app/money';
 import { useToast } from '../../app/toast';
 import { LoadingBlock } from '../../components/states';
@@ -159,7 +159,7 @@ export function FolioDialog({
                       ) : null}
                     </td>
                     {/* FE-S4-03: the column says "(đ)" – bare numbers in rows, the unit on the total. */}
-                    <td className="r num">{vnd(l.amountVnd)}</td>
+                    <td className="r num">{signed(vnd, l.amountVnd)}</td>
                     <td className="r">
                       {adjustable(l) ? (
                         <Button size="sm" variant="ghost" onClick={() => setAdjusting(l)}>

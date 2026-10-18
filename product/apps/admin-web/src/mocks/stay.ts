@@ -533,7 +533,8 @@ export function createStayMock(ctx: Ctx) {
       });
       party.set(r.id, [
         {
-          id: uid(83_000 + ++n),
+          // Like the server (BE-C, ARC 16.22): the booker's id in `party[]` is the reservation id.
+          id: r.id,
           role: 'booker',
           displayName: r.guestName,
           priceAgeBand: 'adult',
@@ -746,6 +747,8 @@ export function createStayMock(ctx: Ctx) {
        * open one by bumping `minibarPeriods`, clearing the count and adding the key here.
        */
       minibarNewFill: new Set<string>(),
+      /** ARC 16.19 K11-09 `not_today`: the room of today was counted, but not on the business day of B18 (tests). */
+      minibarNotToday: new Set<string>(),
       reminders: new Map<string, Array<Record<string, unknown>>>(),
       attachments: new Set<string>(),
       stepUpUntil: new Map<string, number>(),
@@ -914,6 +917,8 @@ export function createStayMock(ctx: Ctx) {
         totalVnd: r.paymentModel === 'ota_prepaid' ? tt.totalVnd - tt.paidViaOtaVnd : tt.totalVnd,
         paidVnd: r.paymentModel === 'ota_prepaid' ? tt.paidVnd - tt.paidViaOtaVnd : tt.paidVnd,
         paidViaOtaVnd: tt.paidViaOtaVnd,
+        // ARC 16.20 (BUG-R2-102): money handed back – `paidVnd` does not take it off.
+        refundedVnd: tt.refundedVnd,
         depositHeldVnd: r.depositPaidVnd,
         balanceDueVnd: tt.balanceDueVnd,
         creditVnd: tt.creditVnd,
@@ -1194,6 +1199,10 @@ export function createStayMock(ctx: Ctx) {
     return totals(r).balanceDueVnd;
   }
 
+  /** A room's name for what the guest reads (BR-012) – `undefined` when the room has none yet. */
+  const nameOfRoom = (roomNo: string | null | undefined) =>
+    ctx.db().rooms.find((x) => x.roomNo === roomNo)?.name || undefined;
+
   // ---------- minibar M-1 (0.3.7 add. 4): one cabinet per (stay, room) ----------
   // K11-03: the cabinet of the room the stay is in today (segments split by B14), never `segments[0]`.
   const currentCabinet = (r: MockReservation) => {
@@ -1229,12 +1238,18 @@ export function createStayMock(ctx: Ctx) {
           ? 'new_fill'
           : periodOf(r, roomId) > 0
             ? 'stay_continued'
-            : 'never_counted';
+            : st.minibarNotToday.has(cabKey(r, roomId))
+              ? 'not_today'
+              : 'never_counted';
     const out = (st.minibarOldRooms.get(r.id) ?? [])
       .filter((c) => !c.lines || st.minibarRecount.has(cabKey(r, c.roomId)))
       .map((c) => ({ roomId: c.roomId, roomNo: c.roomNo, reason: reason(c.roomId) }));
     const here = currentCabinet(r);
-    if (!st.minibarChecks.has(r.id) || st.minibarRecount.has(cabKey(r, here.roomId)))
+    if (
+      !st.minibarChecks.has(r.id) ||
+      st.minibarRecount.has(cabKey(r, here.roomId)) ||
+      st.minibarNotToday.has(cabKey(r, here.roomId))
+    )
       out.push({ ...here, reason: reason(here.roomId) });
     return out;
   }
@@ -1246,7 +1261,10 @@ export function createStayMock(ctx: Ctx) {
       current,
       period: periodOf(r, c.roomId),
       // Counted since the last mark → `latestCheck`; otherwise the last count of the period only informs.
-      counted: !!c.lines && !st.minibarRecount.has(cabKey(r, c.roomId)),
+      counted:
+        !!c.lines &&
+        !st.minibarRecount.has(cabKey(r, c.roomId)) &&
+        !st.minibarNotToday.has(cabKey(r, c.roomId)),
     });
     if (!roomId || roomId === here.roomId)
       return at({ ...here, lines: st.minibarChecks.get(r.id) }, true);
@@ -1413,7 +1431,8 @@ export function createStayMock(ctx: Ctx) {
       status: reg.status,
       requiredCount: r.adults + (r.children6to11 ?? 0) + (r.childrenUnder6 ?? 0),
       // BUG-R2-083: an unclaimed document never counts (BE countsForDeclaration).
-      submittedCount: reg.documents.filter((d) => !isUnclaimed(d)).length,
+      // Like the server (BUG-R2-089): IDs whose details are entered – photos only do not count.
+      submittedCount: reg.documents.filter((d) => !isUnclaimed(d) && !!d.fullNameOnDoc).length,
       deadlineAt,
       deadlineLabel: ['sent', 'confirmed', 'updated', 'void'].includes(reg.status)
         ? 'done'
@@ -2587,6 +2606,7 @@ export function createStayMock(ctx: Ctx) {
       });
       st.minibarRecount.delete(cabKey(r, cab.roomId));
       st.minibarNewFill.delete(cabKey(r, cab.roomId));
+      st.minibarNotToday.delete(cabKey(r, cab.roomId));
       if (cab.current) st.minibarChecks.set(r.id, body.lines);
       else {
         const old = (st.minibarOldRooms.get(r.id) ?? []).find((c) => c.roomId === cab.roomId);
@@ -3417,9 +3437,27 @@ export function createStayMock(ctx: Ctx) {
         },
         guestDisplayName: r.guestName,
         roomNo: currentSegment(r.segments, today())?.roomNo,
+        // 0.3.7 add. D1 (BR-012): the room NAME on the bill (and in the line labels), never the number.
+        roomName: nameOfRoom(currentSegment(r.segments, today())?.roomNo) ?? null,
         arrivalDate: r.arrivalDate,
         departureDate: r.departureDate,
-        lines: f.lines.filter((l) => l.lineState === 'posted'),
+        lines: f.lines
+          .filter((l) => l.lineState === 'posted')
+          .map((l) => {
+            const p = l.labelParams;
+            if (!p || !(['room', 'from', 'to'] as const).some((k) => k in p)) return l;
+            const named = (v: string | number | undefined) =>
+              v === undefined ? v : (nameOfRoom(String(v)) ?? v);
+            return {
+              ...l,
+              labelParams: {
+                ...p,
+                ...('room' in p ? { room: named(p.room)! } : {}),
+                ...('from' in p ? { from: named(p.from)! } : {}),
+                ...('to' in p ? { to: named(p.to)! } : {}),
+              },
+            };
+          }),
         totalVnd: tt.totalVnd,
         paidVnd: tt.paidVnd,
         balanceDueVnd: tt.balanceDueVnd,
@@ -3732,8 +3770,43 @@ export function createStayMock(ctx: Ctx) {
           personIndex: twin.personIndex,
         });
       if (twin) return problem(409, 'PARTY_DUPLICATE');
+      // SEC FB-R2-SEC-BE-73 / ARC 16.22: whose ID it is comes from `partyMemberId` – never "main ID = booker".
+      // Absent → a person of the party with the same name, else a new person "from the ID" (relationship unknown).
+      const members = st.party.get(r.id) ?? [];
+      let memberId = data.partyMemberId as string | undefined;
+      if (memberId !== undefined) {
+        if (!members.some((m) => m.id === memberId))
+          return validation([{ field: 'partyMemberId', code: 'NOT_IN_LIST' }]);
+        if (reg.documents.some((d) => d.partyMemberId === memberId))
+          return problem(409, 'PARTY_DUPLICATE');
+      } else {
+        const key = (v: string) =>
+          v
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/đ/gi, 'd')
+            .toLowerCase()
+            .trim();
+        const same = members.find(
+          (m) =>
+            key(m.displayName) === key(String(data.fullNameOnDoc)) &&
+            !reg.documents.some((d) => d.partyMemberId === m.id),
+        );
+        if (same) memberId = same.id;
+        else {
+          const created: MockMember = {
+            id: uid(83_500 + next()),
+            role: 'companion',
+            displayName: String(data.fullNameOnDoc).trim(),
+            priceAgeBand: 'adult',
+          };
+          st.party.set(r.id, [...members, created]);
+          memberId = created.id;
+        }
+      }
       const doc: MockDoc = {
         id: uid(93_000 + next()),
+        partyMemberId: memberId,
         docType: String(data.docType),
         isMain: data.isMain === true || !reg.documents.some((d) => d.isMain),
         fullNameOnDoc: String(data.fullNameOnDoc).trim(),
@@ -3799,10 +3872,9 @@ export function createStayMock(ctx: Ctx) {
         if (body.retentionDays !== st.consentNotice?.imageRetentionDays)
           return validation([{ field: 'retentionDays', code: 'NOT_IN_LIST' }]);
       }
-      const d =
-        reg.documents.find(
-          (z) => z.partyMemberId === body.partyMemberId || z.id === body.partyMemberId,
-        ) ?? reg.documents[0];
+      // ARC 16.22: the person who decides – required, and only THEIR document (no "first / main ID" guess).
+      if (!body.partyMemberId) return validation([{ field: 'partyMemberId', code: 'REQUIRED' }]);
+      const d = reg.documents.find((z) => z.partyMemberId === body.partyMemberId);
       if (!d) return validation([{ field: 'partyMemberId', code: 'NOT_IN_LIST' }]);
       if (d.imageConsent === 'refused' && body.decision === 'granted' && !d.imageIds.length)
         return problem(409, 'CONSENT_CHANGE_NOT_ALLOWED');

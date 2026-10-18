@@ -111,12 +111,31 @@ describe('folio totals (erd 4.6: computed, never stored)', () => {
       focVnd: 150_000,
       totalVnd: 713_000,
       paidVnd: 400_000,
+      refundedVnd: 0,
       paidViaOtaVnd: 100_000,
       depositHeldVnd: 300_000,
       balanceDueVnd: 313_000,
       creditVnd: 0,
       unhandledCreditVnd: 0,
       otaExcessVnd: 0,
+    });
+  });
+
+  it('ARC 16.20 (BUG-R2-102): refundedVnd = succeeded refunds (positive); paidVnd stays what was received', () => {
+    const t = computeTotals(
+      [{ category: 'room', revenue_group: 'room', amount_vnd: 700_000, line_state: 'posted' }],
+      [
+        { type: 'deposit', method: 'cash', amount_vnd: 1_000_000, status: 'succeeded' },
+        { type: 'refund', method: 'cash', amount_vnd: -200_000, status: 'succeeded' },
+        { type: 'refund', method: 'cash', amount_vnd: -50_000, status: 'pending' },
+      ],
+    );
+    expect(t).toMatchObject({
+      totalVnd: 700_000,
+      paidVnd: 1_000_000,
+      refundedVnd: 200_000,
+      balanceDueVnd: 0,
+      creditVnd: 100_000,
     });
   });
 

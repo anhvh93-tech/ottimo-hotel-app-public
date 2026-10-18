@@ -26,7 +26,11 @@ Token giả (xem `src/mocks/handlers.ts` → `MOCK_TOKENS`):
 Trạng thái giả nằm trong bộ nhớ: tải lại trang = mất phiên giả ("Liên kết đã hết hạn"); API thật giữ phiên bằng cookie.
 Trình duyệt nhúng không chạy được service worker của MSW → mở bằng Chrome/Safari.
 
-Biến tùy chọn: `VITE_DESK_PHONE` – số công khai hiện ở trang "Liên kết đã hết hạn" (khi chưa có phiên thì không biết SĐT cơ sở).
+Biến build `VITE_DESK_PHONE` – số công khai hiện ở trang "Liên kết đã hết hạn" (khi chưa có phiên thì không biết SĐT
+cơ sở; cùng biến với nút "Gọi lễ tân" của PWA). **Bắt buộc** khi build profile `demo` và `production` (OPS,
+`Dockerfile.web` `WEB_BUILD_PROFILE`, `infra/docker/check-web-build-config.sh`): thiếu biến, sai dạng hoặc còn số mẫu
+`0000 000 000` thì build dừng. Chỉ chữ số, dấu cách và một dấu `+` ở đầu (`^\+?[0-9 ]{6,20}$`), ví dụ `08 4444 0909`.
+`pnpm dev` không bắt buộc. Số thật đặt trong `product/.env` (không vào repo); mẫu ở `.env.example`.
 
 ## Cấu trúc
 

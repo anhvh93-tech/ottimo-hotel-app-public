@@ -5,7 +5,11 @@
  */
 import type { Clock } from '../../../clock';
 import type { JobDefinition } from '../../../jobs/job-runner';
-import { holdExpiryJob, roomBlockActivationJob } from '../../../jobs/reservation-jobs';
+import {
+  holdExpiryJob,
+  leaseNightsJob,
+  roomBlockActivationJob,
+} from '../../../jobs/reservation-jobs';
 import { ApprovalService } from '../../approvals/public/approval.service';
 import type { AuditService } from '../../audit/public/audit.service';
 import { FolioService } from '../../folio/public/folio.service';
@@ -52,5 +56,6 @@ export function reservationWorkerJobs(deps: {
   return [
     holdExpiryJob(reservations, deps.parameters),
     roomBlockActivationJob(new RoomBlocksService(occupancy, deps.audit), deps.parameters),
+    leaseNightsJob(reservations, deps.parameters),
   ];
 }

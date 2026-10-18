@@ -51,7 +51,8 @@ export function UserMenu() {
         <span className="avatar" aria-hidden="true">
           {name.charAt(0).toUpperCase()}
         </span>
-        <span>
+        {/* UXR S4 P-20: on a phone only the initial shows; the name stays the button's accessible name. */}
+        <span className="userchip-name">
           {name}
           {role ? ` · ${t(`role.${role}`)}` : ''}
         </span>
@@ -84,7 +85,8 @@ export function UserMenu() {
               ]}
             />
           </div>
-          <div className="rowlink" style={{ cursor: 'default' }}>
+          {/* UXR S4 P-20: three choices do not fit beside the label on a phone – they wrap under it. */}
+          <div className="rowlink menu-row-wrap" style={{ cursor: 'default' }}>
             <Icon name="sparkle" />
             <span className="grow" id={`${menuId}-theme`}>
               {t('shell.theme')}

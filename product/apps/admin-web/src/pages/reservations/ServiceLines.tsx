@@ -1,7 +1,7 @@
 import type { Folio, FolioLine, RetainLine } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Chip, Field } from '@ottimo/ui';
-import { lineLabel } from '../../app/folio';
+import { lineLabel, signed } from '../../app/folio';
 
 /** A service line the desk may keep on cancel / no-show (`CancellationQuote.serviceLines` shape). */
 export interface ServiceLine {
@@ -131,7 +131,7 @@ export function ServiceLinesPicker({
                   </Chip>
                 ) : null}
               </span>
-              <span className="amt num">{vnd(l.amountVnd)}</span>
+              <span className="amt num">{signed(vnd, l.amountVnd)}</span>
             </div>
             {k?.on ? (
               <Field

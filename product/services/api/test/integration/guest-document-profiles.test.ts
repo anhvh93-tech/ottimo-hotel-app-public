@@ -4,12 +4,15 @@
  * profile (SEC F03), the key brings the same person back on another booking, an unmatched adult gets a minimal
  * profile `source = document` (no contact, no date of birth), a name + date of birth match outside the booking
  * is only flagged (`possibleReturningGuest`), SAL/CTV never see a document profile without P05, the locked
- * fields of such a profile (422 NOT_ALLOWED), and J25 `guest.document_profile_anonymize` (T05).
+ * fields of such a profile (422 NOT_ALLOWED), J25 `guest.document_profile_anonymize` (T05), and SEC
+ * FB-R2-SEC-BE-73 / ARC 16.22: a booking made for someone else never puts that person's document, key, last 4 or
+ * P05 on the booker's profile (+ the DB CHECK of BE-78 (a)).
  */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Database } from '../../src/db/database';
 import { JobRegistry } from '../../src/jobs/job-runner';
 import { RegistrationService } from '../../src/modules/registration/internal/registration.service';
+import { RegistrationPartyLink } from '../../src/modules/registration/public/party-port';
 import { J25_KEY } from '../../src/modules/guests/public/worker-jobs';
 import { type FeatureApp, P, startFeatureApp } from '../helpers/feature-app';
 import { sampleJpeg, seedStay, staff } from '../helpers/registration-fixture';
@@ -139,17 +142,32 @@ describe.skipIf(!HAS_DB)(
     let stay2: string;
 
     it('P05_CRM granted at the desk keeps the v1 document key + last 4 on the profile; the key brings the person back on another booking; nothing matched → a profile "from the document"; a name + date of birth match outside the booking is only flagged', async () => {
-      // booking 1: Emma is the booker (profile `desk`, no P05 yet → no document key).
+      // booking 1: Emma is the booker (profile `desk`, no P05 yet → no document key). The desk chooses her
+      // (`partyMemberId` = the booker's `party[]` id, the booking id – ARC 16.22: never inferred from `isMain`).
       const s1 = await seedStay(db, t, ids, { adults: 1, bookerName: 'Emma Schmidt' });
       const reg1 = await registrationOf(s1.reservationId);
-      const main = await addDoc(reg1, emma);
+      const main = await addDoc(reg1, { ...emma, partyMemberId: s1.reservationId });
       expect(main.statusCode, main.body).toBe(201);
       const d1 = main.json().documents[0] as {
         id: string;
         isMain: boolean;
         possibleReturningGuest: boolean;
+        partyMemberId?: string;
       };
-      expect(d1).toMatchObject({ isMain: true, possibleReturningGuest: false });
+      expect(d1).toMatchObject({
+        isMain: true,
+        possibleReturningGuest: false,
+        partyMemberId: s1.reservationId,
+      });
+      // one document per person: a second one for the booker → 409 PARTY_DUPLICATE.
+      const again = await addDoc(reg1, {
+        ...emma,
+        docNumber: 'C01X00T48',
+        isMain: false,
+        partyMemberId: s1.reservationId,
+      });
+      expect(again.statusCode, again.body).toBe(409);
+      expect(again.json().code).toBe('PARTY_DUPLICATE');
       emmaGuest = (
         await q<{ booker_guest_id: string }>(
           'SELECT booker_guest_id FROM reservation WHERE id = $1',
@@ -158,7 +176,7 @@ describe.skipIf(!HAS_DB)(
       )[0]!.booker_guest_id;
       expect(await guestRow(emmaGuest)).toMatchObject({ id_doc_hmac: null, id_doc_last4: null });
 
-      const granted = await crm(reg1, d1.id, 'granted');
+      const granted = await crm(reg1, s1.reservationId, 'granted');
       expect(granted.statusCode, granted.body).toBe(201);
       expect(JSON.stringify(granted.json())).not.toContain('C01X00T47');
       const g = await guestRow(emmaGuest);
@@ -185,7 +203,9 @@ describe.skipIf(!HAS_DB)(
       });
       stay2 = s2.reservationId;
       const reg2 = await registrationOf(s2.reservationId);
-      expect((await addDoc(reg2, { ...binh, isMain: true })).statusCode).toBe(201);
+      expect(
+        (await addDoc(reg2, { ...binh, isMain: true, partyMemberId: s2.reservationId })).statusCode,
+      ).toBe(201);
       const back = await addDoc(reg2, { ...emma, isMain: false });
       expect(back.statusCode, back.body).toBe(201);
       const emmaDoc = (back.json().documents as Array<Record<string, unknown>>).find(
@@ -363,6 +383,122 @@ describe.skipIf(!HAS_DB)(
       for (const id of [recent, withP05, emmaGuest]) {
         expect((await guestRow(id)).anonymized_at).toBeNull();
       }
+    });
+
+    it('SEC FB-R2-SEC-BE-73 (ARC 16.22) – X books for Y ("đặt hộ"): (1) Y\'s main document never lands on X\'s profile, (2) Y refusing / granting P05 never changes X, (3) Y back on another booking is linked to Y, not X; P05 for a document linked to nobody → 422 REQUIRED; DB CHECK BE-78 (a)', async () => {
+      // X (the booker) already has P05 – the case where the old code wrote Y's key + last 4 on X.
+      const s3 = await seedStay(db, t, ids, {
+        adults: 1,
+        bookerName: 'Hoàng Văn Xuân',
+        roomNo: '102',
+        arrival: '2026-11-10',
+        departure: '2026-11-12',
+      });
+      const reg3 = await registrationOf(s3.reservationId);
+      const [x] = await q<{ booker_guest_id: string }>(
+        'SELECT booker_guest_id FROM reservation WHERE id = $1',
+        [s3.reservationId],
+      );
+      const xGuest = x!.booker_guest_id;
+      await q(`UPDATE guest SET crm_consent = 'granted' WHERE id = $1`, [xGuest]);
+      const yen = {
+        docType: 'cccd',
+        fullNameOnDoc: 'Đỗ Thị Yến',
+        docNumber: '079195004321',
+        dateOfBirth: '1995-07-08',
+        isMain: true,
+      };
+      // (1) Y's document as the main one, no partyMemberId → Y is matched / created, never X.
+      const res = await addDoc(reg3, yen);
+      expect(res.statusCode, res.body).toBe(201);
+      const docY = (res.json().documents as Array<Record<string, unknown>>).find(
+        (d) => d.docNumberLast4 === '4321',
+      )! as { id: string; isMain: boolean; partyMemberId?: string };
+      expect(docY.isMain).toBe(true);
+      expect(docY.partyMemberId).toBeDefined();
+      expect(docY.partyMemberId).not.toBe(s3.reservationId);
+      const [yMember] = await q<{ guest_id: string; role: string }>(
+        'SELECT guest_id, role FROM reservation_guest WHERE id = $1',
+        [docY.partyMemberId],
+      );
+      const yGuest = yMember!.guest_id;
+      expect(yGuest).not.toBe(xGuest);
+      expect(await guestRow(yGuest)).toMatchObject({ source: 'document', full_name: 'Đỗ Thị Yến' });
+      expect(await guestRow(xGuest)).toMatchObject({
+        crm_consent: 'granted',
+        id_doc_hmac: null,
+        id_doc_last4: null,
+      });
+      // (2) Y refuses, then grants P05 → only Y's profile changes; X stays granted without a document key.
+      expect((await crm(reg3, docY.partyMemberId!, 'refused')).statusCode).toBe(201);
+      expect(await guestRow(yGuest)).toMatchObject({ crm_consent: 'refused', id_doc_last4: null });
+      expect(await guestRow(xGuest)).toMatchObject({ crm_consent: 'granted', id_doc_last4: null });
+      expect((await crm(reg3, docY.id, 'granted')).statusCode).toBe(201);
+      const y = await guestRow(yGuest);
+      expect(y).toMatchObject({ crm_consent: 'granted', id_doc_last4: '4321' });
+      expect(y.id_doc_hmac).toMatch(KEY);
+      expect(await guestRow(xGuest)).toMatchObject({
+        crm_consent: 'granted',
+        id_doc_hmac: null,
+        id_doc_last4: null,
+      });
+      // The booker's id for a document that is not the booker's → no such person's document (422).
+      const wrong = await crm(reg3, s3.reservationId, 'granted');
+      expect(wrong.statusCode).toBe(422);
+      expect(wrong.json().errors).toEqual([{ field: 'partyMemberId', code: 'NOT_IN_LIST' }]);
+
+      // (3) Y comes back as a companion of another booker Z: her document key brings HER profile, never X's.
+      const s4 = await seedStay(db, t, ids, {
+        adults: 2,
+        bookerName: 'Lâm Văn Zũng',
+        roomNo: '201',
+        arrival: '2026-11-20',
+        departure: '2026-11-22',
+      });
+      const reg4 = await registrationOf(s4.reservationId);
+      const back = await addDoc(reg4, { ...yen, isMain: false });
+      expect(back.statusCode, back.body).toBe(201);
+      const backDoc = (back.json().documents as Array<Record<string, unknown>>).find(
+        (d) => d.docNumberLast4 === '4321',
+      )! as { partyMemberId: string };
+      const [backMember] = await q<{ guest_id: string }>(
+        'SELECT guest_id FROM reservation_guest WHERE id = $1',
+        [backDoc.partyMemberId],
+      );
+      expect(backMember!.guest_id).toBe(yGuest);
+
+      // A document linked to nobody (the party port found no one) → P05 needs the person first: 422 REQUIRED.
+      const link = fa.app.get(RegistrationPartyLink);
+      const spy = vi.spyOn(link, 'memberForDocument').mockResolvedValue(null);
+      let lone: { id: string; partyMemberId?: string };
+      try {
+        const r = await addDoc(reg4, {
+          docType: 'cccd',
+          fullNameOnDoc: 'Người Chưa Rõ',
+          docNumber: '079190007777',
+          dateOfBirth: '1990-01-01',
+          isMain: false,
+        });
+        expect(r.statusCode, r.body).toBe(201);
+        lone = (r.json().documents as Array<{ id: string; docNumberLast4: string }>).find(
+          (d) => d.docNumberLast4 === '7777',
+        )!;
+      } finally {
+        spy.mockRestore();
+      }
+      expect(lone.partyMemberId).toBeUndefined();
+      const noPerson = await crm(reg4, lone.id, 'granted');
+      expect(noPerson.statusCode).toBe(422);
+      expect(noPerson.json().errors).toEqual([{ field: 'partyMemberId', code: 'REQUIRED' }]);
+
+      // BE-78 (a): the database itself refuses a last 4 without the profile's own P05 (Z: not asked).
+      const [z] = await q<{ booker_guest_id: string }>(
+        'SELECT booker_guest_id FROM reservation WHERE id = $1',
+        [s4.reservationId],
+      );
+      await expect(
+        q(`UPDATE guest SET id_doc_last4 = '9999' WHERE id = $1`, [z!.booker_guest_id]),
+      ).rejects.toMatchObject({ code: '23514', constraint: 'guest_id_doc_last4_consent_check' });
     });
   },
 );

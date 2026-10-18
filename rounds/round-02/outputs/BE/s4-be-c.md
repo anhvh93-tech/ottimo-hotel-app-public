@@ -327,3 +327,161 @@
 - **Ghi chú cho BE-A (thấp, không sửa vì là tệp của BE-A):** `reservations/public/stay-view.ts` `activeRootBookings` lấy `ORDER BY id LIMIT 2000` rồi registration mới lọc "chưa có hồ sơ". Nếu một cơ sở có hơn 2.000 đơn đang mở, đơn mới nhất không được J16 tạo hồ sơ bù. Bình thường hồ sơ đã được hook `created` tạo, nên đây chỉ là lưới an toàn.
 - **Gợi ý cho ARC (không bắt buộc):** nếu muốn FE biết khi chạm `SCAN_MAX`, có thể thêm cờ `truncated` vào `PageInfo` của `listRegistrations`. Hiện chỉ có log máy chủ; với quy mô OTTIMO không thể chạm trần.
 - **Trên stack QA `ottimo-qa-s4`:** dựng lại api từ cây có bản sửa là đủ, không cần sửa DB. TC-L3-004/044/046 sẽ thấy khách mới vì `regRow` đã đọc mọi trang.
+
+## 13. Tuần Ổn định – S4-36 (ARC-BE-S3-30, NÊN-ÔĐ): N+1 trong `listRegistrations`
+- **N+1 đã hết từ trước, nay có test chặn quay lại.** Thẻ ARC chỉ vào bản Sprint 3 (`789ac90`): `list()` gọi `readRegistration` cho từng dòng. Với `limit=50` là khoảng 57 câu, `limit=100` khoảng 107 câu (đọc mã; bản đó đọc thẳng bảng `reservation` nên không chạy được trên cây hiện tại). Bản sửa Sprint 3 (`229db99`) đã đọc theo lô. BUG-R2-170 (mục 12, đã vào `723179b`) giữ cách đọc theo lô: mỗi trang 500 hồ sơ chỉ tốn 1 câu đọc hồ sơ và 1 câu đọc đơn qua stay-view.
+- **Số câu mỗi lần gọi (đo, `action_needed`):**
+  - Phần service: 1 múi giờ + 3 tham số hạn + 2 × số trang 500 ứng viên. Đo được 8 câu với cả `limit=1` và `limit=100`, nên số câu không tăng theo cỡ trang. Ứng viên tăng thì mỗi 500 thêm 2 câu.
+  - Cả lượt HTTP (xác thực + giao dịch + danh sách): 15 câu.
+- **Đo p95**, lượt HTTP trong tiến trình (Fastify inject), 40 lần `GET …/registrations?view=action_needed&limit=50`, PostgreSQL thật, DB `ottimo_test_bec_170`. Máy dùng chung với các agent khác đang chạy test, nên số dao động. Mỗi cấu hình chạy 3 lượt:
+
+| Cấu hình | Hồ sơ mở | Ứng viên sau lọc SQL | Câu service | Câu HTTP | p50 (ms) | p95 (ms) |
+|---|---|---|---|---|---|---|
+| Trước (`723179b^`, `LIMIT 1000` rồi lọc – sai kết quả, xem mục 12) | 1.215 | 1.000 (cắt) | 6 | 13 | 20–40 | 27–83 |
+| Sau – trộn như stack QA | 1.215 | 767 | 8 | 15 | 23–44 | 37–100 |
+| Sau – tồn đọng nhiều đã trả (719 ở + 4.478 đã trả) | 5.215 | 767 | 8 | 15 | 12 | 13–15 |
+| Sau – rất nhiều khách đang ở (2.719 ở) | 3.215 | 2.767 | 16 | 23 | 27–28 | 30–38 |
+| Sau – trong lượt chạy toàn bộ suite song song | 1.215 | 767 | 8 | 15 | 88 | 130 |
+
+  - Ngân sách p95 đọc < 300 ms: đạt ở mọi cấu hình.
+  - Trước và sau gần như nhau. Bản "trước" ít hơn 2 câu chỉ vì nó cắt ở 1.000 dòng và bỏ sót khách mới.
+  - Lọc sớm bằng `actual_checkout_at` giữ chi phí không đổi khi hồ sơ đã trả phòng tồn đọng: 5.215 hồ sơ vẫn chỉ 767 ứng viên.
+- **Chỉ mục:** không cần chỉ mục mới, **không dùng migration 0070**. EXPLAIN ở mục 12: `registration_property_status_idx` (Bitmap Index Scan), 0,23 ms cho một trang 500 dòng. Phần tốn nhất là câu stay-view của BE-A trên các ứng viên (LATERAL phòng hiện tại + đơn con), nhưng vẫn trong ngân sách.
+- **Test (chặn quay lại N+1):** thêm ca `S4-36 …` vào `test/integration/registration-open-cap.test.ts`, chạy trên bộ 1.215 hồ sơ của ca 170:
+  - số câu service với `limit=1` phải **bằng** với `limit=100`;
+  - số câu ≤ 6 + 2 × ⌈ứng viên/500⌉;
+  - số câu HTTP ≤ số câu service + 12.
+  - Thời gian chỉ đo, không kiểm, vì phụ thuộc máy và suite song song (lượt toàn bộ suite có max 326 ms). Đặt `BEC_PERF=<tệp>` thì ca ghi số đo vào tệp đó.
+- Vitest api toàn bộ, DB mới: **90 tệp đạt + 1 bỏ qua (`test/perf` của BE-A); 2851 đạt / 2 bỏ qua**. `tsc`, eslint, prettier tệp của BE-C: sạch. Không commit.
+- Tệp: `services/api/test/integration/registration-open-cap.test.ts`. Mã nguồn không đổi: bản đọc theo lô đã có trong `723179b`.
+- **Việc có thể làm sau (không cần cho ngân sách):** gộp 3 lần đọc tham số hạn thành 1 câu. Phần này thuộc `ParameterService` của platform, không phải module của BE-C.
+
+## 14. Tuần Ổn định – review ARC module housekeeping (`reviews/s4-ARC.md` S4-01/02/03, + 05, 06 một phần) và DATA A7-02/03, cổng S4-09 cho BE-D
+- **S4-01 (Major) – hàng đợi offline HK:**
+  - `performedAt` nay so với **lần thao tác cuối trên căn theo giờ của người làm**: `RoomStatusService.lastActionAt` = `COALESCE(performed_at, occurred_at)` của dòng SM-03 cuối. Không còn so với `since` (giờ server lúc nhận lệnh). `since` vẫn dùng để hiển thị.
+  - Cho lệch đồng hồ 5 phút (`CLOCK_SKEW_MS`, bằng biên +5' của `performedAtInRange`), giữa máy và server hay giữa hai máy.
+  - R5 tự ghi lúc đọc trạng thái (VI → VC) mang `performedAt` = thời điểm R5 tới hạn. Nhờ vậy một lệnh xếp hàng làm sau mốc đó vẫn được nhận.
+- **S4-05 (Minor, cùng hệ giờ):** `complete` có `performedAt` sớm hơn `started_at` quá 5 phút → 422 `PERFORMED_AT_OUT_OF_RANGE`.
+- **S4-02 (Major) – thứ tự khóa (16.19 bổ sung 3):**
+  - `transitionRoomStatus` và `recordInspection` khóa căn bằng `FOR KEY SHARE`, không còn `FOR UPDATE`. Hai HK trên cùng căn vẫn xếp hàng nhờ khóa advisory `hk-room:<id>`, lấy trước khi đọc và kiểm trạng thái.
+  - `taskId` chỉ nhận việc thuộc `CLEAN_TYPES`. Việc khác (ví dụ `minibar_refill`) → 422 `NOT_IN_LIST`.
+  - Việc có `guest_request_id` trên đường tới `done` (Dọn xong, `complete`) gọi `GuestRequestStatusPort.lockForFee` **trước** khi khóa `hk_task`. Việc chọn từ danh sách chưa khóa nay được khóa lại và kiểm lại trạng thái.
+  - BE-D đã cài `lockForFee` thật. Test dùng adapter thật ở cả hai phía.
+- **S4-03 (Major) – định nghĩa "khách đang ở căn":**
+  - Một định nghĩa duy nhất `housekeeping/public/stay-occupancy.ts` `inRoomOnSql`, cùng quy tắc với `currentRoomOfStay` của BE-B (BUG-R2-178):
+    - đoạn phủ ngày D;
+    - không có đoạn nào phủ D (ngày đi chưa trả, hoặc quá ngày đi) → đoạn bắt đầu muộn nhất của lượt (đơn + đơn con cùng gốc).
+  - Hệ quả: ngày đổi căn chỉ căn mới có khách; ngày đi căn vẫn có khách tới B18.
+  - Áp cho: trạng thái suy ra OC, nhánh B13 (`arrivedToday`, `stayContinues`), danh sách buồng (`inHouseByRoom`), `room_status_mismatch`, phiếu sửa (`occupancy`, gợi ý J11).
+  - J8 cố ý giữ câu hỏi khác: "đêm D có ở" (`stayoverNightSql`, BR-807-01). Đã ghi rõ trong tệp.
+  - Ngoại lệ BR-424-05 (ngày quay về, lễ tân chưa ghi nhận): căn khách rời vẫn tính có khách, ở cả `inHouseByRoom` và `room_status_mismatch` (theo `roomReturnsOn`).
+  - Phần chuyển sang cổng đọc của BE-A/BE-B: dời R3 nếu QC đồng ý (theo thẻ).
+- **DATA A7-02:** `work_order_high_open` mức `warning`, chuyển `critical` khi `isOverdue`. `work_order_overdue` chỉ còn phiếu TB/Thấp, mức `warning` (EP01 3.1). Phiếu Cao quá hạn nay đúng 1 dòng.
+- **DATA A7-03:** khách quá ngày đi chưa trả phòng vẫn "đang ở căn" (`inRoomOnSql`), nên 201 (OD) không còn bị báo lệch.
+  - Chạy lại loader DS-0 của DATA trên DB riêng `ottimo_test_bec_a7`: T0 5 dòng; T1, T2, T3 mỗi mốc 7 dòng, khớp số tay. Không còn `work_order_overdue` và `room_status_mismatch` thừa. Kết quả: `scratchpad/bec-170/a7/out.json`.
+- **S4-09 (cổng cho BE-D, phần tiền):**
+  - `GuestRequestWorkPort.lastFullCleanAt(tx, {roomId, since, until, fullCleanRequestIds?})` → `done_at` của lần dọn đầy đủ cuối, hoặc null.
+  - `FULL_CLEAN_TASK_TYPES` chuyển về `housekeeping/public/guest-request-work.port.ts`.
+  - Việc `guest_request` chỉ tính khi bên gọi nêu id yêu cầu "Dọn thêm" của mình, vì bảng `guest_request` thuộc guest-portal.
+  - Thêm `taskStatus` theo đề xuất của BE-D (S4-07).
+  - **Chữ ký cần ORC chốt với BE-D**; BE-D chuyển `lastFullClean` sang cổng.
+- **Test mới** `test/integration/housekeeping-s4-arc.test.ts`, 8 ca:
+  - S4-01: chuỗi offline 200/200/201 → VI, lịch sử giữ giờ máy; lệnh sớm 20' → 422, lệch 3' → nhận;
+  - S4-05;
+  - S4-02 (2): `minibar_refill` → 422;
+  - S4-02 (1): giữ `KEY SHARE` căn → HK đi qua ngay; giữ `FOR UPDATE` → HK chờ; hai HK → 200/409, 1 dòng CL;
+  - S4-02 (3): giữ folio → lệnh HK `complete` chờ mà **không** khóa việc (`NOWAIT` vào được), sau đó phí 100.000 đúng 1 lần, bằng chạy tuần tự;
+  - ca đua tiền: 4 vòng HK `complete` ‖ FD thêm dòng folio → 0 lỗi, phí 4 × 100.000, tổng = chạy tuần tự;
+  - S4-03 + A7-03: ngày đi, quá ngày đi, ngày đổi căn;
+  - S4-09: oracle BR-506-03 + `taskStatus`.
+- **Sửa test cũ** `housekeeping-s4.test.ts` ("Cần chú ý"): theo EP01, phiếu Cao `warning` → `critical`, không có `work_order_overdue`; thêm ca phiếu TB quá hạn → `work_order_overdue` `warning`.
+- **Đối chứng:** chạy 8 ca mới trên mã HEAD → 6 đỏ. Hai ca còn xanh là ca đua (cặp này vốn không tạo vòng khóa) và S4-09 (cổng mới, không thay ở HEAD). Bản sửa → 8/8.
+- Tệp:
+  - `housekeeping/internal/{housekeeping.service,rules,attention-sources,work-orders.service,guest-request-work.adapter}.ts`;
+  - `housekeeping/public/{room-status.service,worker-jobs,guest-request-work.port}.ts`;
+  - `housekeeping/public/stay-occupancy.ts` (mới);
+  - `test/integration/housekeeping-s4-arc.test.ts` (mới), `test/integration/housekeeping-s4.test.ts`.
+  - BE-D cũng đang sửa `guest-request-work.port.ts` (thêm `taskStatus?`): đã giữ nguyên phần của BE-D.
+- **Chưa làm:**
+  - S4-04 (Minor): J8 và R5 với `expectedFrom`;
+  - S4-06 phần "J8 chạy lại sau khi hủy `dnd`";
+  - đổi `room_status` của danh sách buồng ngày quay về BR-424-05 cho căn khách rời (đã hiện khách, nhưng chưa thêm ca riêng).
+
+## 15. Tuần Ổn định – SEC FB-R2-SEC-BE-73 (Major, chặn cổng) + BE-78 (a), theo ARC 16.22
+- **Gốc:** `guestOfPerson` coi giấy tờ chính không `partyMemberId` là của **người đặt**. Khi đặt hộ, khóa giấy tờ, 4 số cuối và P05 của người ở thật rơi vào hồ sơ người đặt.
+- **Sửa** (mô hình R2 giữ nguyên, ARC 16.22):
+  - **Không bao giờ suy người từ `isMain`.** Thiếu `partyMemberId` thì mọi giấy tờ, kể cả giấy tờ chính, đi cổng khớp người (`document-party.port.ts`):
+    1. người trong đơn **kể cả người đặt**: khóa giấy tờ của hồ sơ có P05, rồi tên + ngày sinh;
+    2. hồ sơ có P05 ngoài đơn theo khóa;
+    3. hồ sơ "từ giấy tờ" + người đi cùng `unknown`.
+    - Khớp người đặt → `memberId` = id đơn (id của người đặt trong `party[]`).
+  - **Người đặt là một người được chọn:** `partyMemberId` = id đơn được nhận ở `addGuestDocument`, `updateGuestDocument` (đủ thân) và `GuestDocumentLink`.
+    - Lưu ở `guest_document.guest_id` (cột có từ 0051, trước nay bỏ trống) = hồ sơ người đặt.
+    - Loại trừ với `party_member_id`; mỗi khai báo một giấy tờ người đặt. Trùng → 409 `PARTY_DUPLICATE`.
+    - DTO trả `partyMemberId` = id đơn cho giấy tờ người đặt.
+  - **Khóa, last4 và P05 chỉ ghi lên hồ sơ của đúng người đã gắn** (`keepDocKey`, `recordCrmConsent`):
+    - giấy tờ chưa gắn ai + P05 → 422 `REQUIRED` (`partyMemberId`), lễ tân gắn người trước;
+    - `partyMemberId` = id đơn mà giấy tờ không phải của người đặt → 422 `NOT_IN_LIST`.
+    - Desk đã bắt buộc `ConsentInput.partyMemberId` (422 `REQUIRED`). Endpoint nay nhận cả id đơn (người đặt).
+  - P05 theo `personIndex` (app khách): hiện **không có đường** nào ghi P05 từ app khách lên hồ sơ. Giấy tờ từ app vẫn chờ gắn người, nên tự động đúng điều 3 của ORC.
+- **Migration 0070** `0070_be73_guest_doc_person.sql` (+ `meta/0070_snapshot.json`, `_journal.json`; `drizzle-kit generate` → "No schema changes"):
+  - kiểm dữ liệu cũ trước, `RAISE` nếu lệch, không tự sửa;
+  - CHECK `guest_document_person_check` (`guest_id` loại trừ `party_member_id`) + unique `guest_document_booker_uk`;
+  - `GRANT UPDATE (guest_id)` cho app;
+  - **BE-78 (a):** CHECK `guest_id_doc_last4_consent_check` (`id_doc_last4 IS NULL OR crm_consent='granted'`).
+- **Script kiểm dữ liệu demo/test:** `services/api/scripts/sec-be73-check.sql`, chỉ đọc, chỉ in id/đếm. Trên DB thử: 0 hồ sơ người đặt mang last4 của giấy tờ chính chưa gắn ai, 0 P05 trên giấy tờ như vậy, 0 last4 không có P05.
+- **Test:**
+  - `guest-document-profiles.test.ts` ca mới SEC BE-73, đủ 3 bước của SEC: X (đã có P05) đặt hộ Y;
+    - (1) giấy tờ chính của Y → hồ sơ Y, X không có khóa/last4;
+    - (2) Y từ chối rồi đồng ý → chỉ Y đổi, X giữ nguyên;
+    - (3) Y quay lại làm người đi cùng của Z → gắn hồ sơ Y.
+    - Thêm: id đơn cho giấy tờ không phải người đặt → 422; giấy tờ chưa gắn ai + P05 → 422 `REQUIRED`; DB từ chối `id_doc_last4` không P05 (23514).
+  - Sửa 2 ca cũ theo hợp đồng mới:
+    - Emma và Bình là người đặt → Desk gửi `partyMemberId` = id đơn; thêm 409 khi người đặt có giấy tờ thứ hai;
+    - BUG-R2-033: giấy tờ chính nay cũng đi cổng khớp.
+- **Cần FE-A/FE-B (ARC 16.22) trước cổng:**
+  - Desk (`DocsPanel.tsx:646`) phải luôn chọn người, kể cả "người đặt" = id đơn trong `party[]`.
+  - Tới khi đổi: giấy tờ người đặt nhập không chọn người chỉ khớp được khi trùng khóa hoặc tên + ngày sinh. Không khớp thì server tạo hồ sơ "từ giấy tờ" + người đi cùng cho chính người đặt (trùng người, an toàn về dữ liệu nhưng sai danh sách đoàn).
+- **Rủi ro còn lại:**
+  - `updateGuestDocument` đổi người của giấy tờ không xóa khóa/last4 đã ghi lên hồ sơ người cũ. Có từ trước; chỉ xảy ra khi lễ tân sửa nhầm người. Đề xuất làm cùng BE-74/75 trước dữ liệu thật.
+  - Khi đặt hộ, `overCount` vẫn tính người đặt là người ở. Phần "người đặt không lưu trú" để R3 theo ARC.
+- Tệp:
+  - `registration/internal/{registration.service,registration.repo,registration.controller}.ts`, `registration/public/party-port.ts`;
+  - `frontdesk/internal/document-party.port.ts` (tệp BE-C viết ở S4-11);
+  - `db/schema/{registration,guests}.ts`, `db/migrations/0070_be73_guest_doc_person.sql`, `meta/0070_snapshot.json`, `meta/_journal.json`;
+  - `scripts/sec-be73-check.sql`;
+  - test `guest-document-profiles.test.ts`, `registration-flow.test.ts`.
+
+## 16. SEC FB-R2-SEC-BE-77 – phần `hasLongDigitRun` (registration, theo `s4-be-d.md` 7.5)
+- Thêm `,` vào tập dấu ngăn cách, kiểm trên dạng NFKC (chữ số toàn khổ). Ghi chú vẫn lưu như người dùng gõ. Không thêm ngoại lệ tiền/ngày (SEC C.6).
+- Test `registration-rules.test.ts`: `079,123,456,789`, `mã cửa 123,456`, số toàn khổ → chặn; `Phòng ２０２, ２ khách` → không chặn.
+- Tệp: `registration/internal/rules.ts`, `test/registration-rules.test.ts`.
+
+## 17. Kiểm tra chung (mục 14–16)
+- `tsc`, eslint, prettier các tệp của BE-C: sạch. `drizzle-kit generate` trên bản sao migrations: không lệch.
+- Vitest api toàn bộ, DB mới `ottimo_test_bec_170`: **94 tệp đạt / 2 hỏng / 1 bỏ qua; 2890 ca đạt / 2 hỏng**.
+  - 2 ca hỏng là ca SEC BE-77 của BE-D (`be-d-s4-units`, `guest-requests-s4-fix-bed`). Chúng hỏng vì BE-D đang sửa `guest-request-rules.ts` đúng lúc chạy; chạy lại riêng 2 tệp → 41/41 đạt.
+  - Không liên quan `hasLongDigitRun`: guest-portal không gọi hàm này.
+- Không commit, không chạy codegen.
+
+## 18. BR-614 (DOM 18/10, UXR P-33; rbac D01) – buồng phòng chỉ thấy tên gọi + số căn
+- **Đã sửa API của HK/MT** (`listRoomStatuses`):
+  - vai HK (trong phạm vi T) nhận **tên gọi**: `currentGuest` = "Huy" (theo ARC 18/10 chỉ có tên, client tự ghép với `roomNo`); `nextArrival.guestDisplayName` = "Mai";
+  - MT không có tên (như trước); FD+ giữ họ tên đầy đủ.
+  - Không đổi tên trường. ARC đã sửa mô tả trong `openapi.yaml`: chỉ có tên, không kèm số căn; FD+ nhận họ tên đầy đủ. Mã đã sửa theo, kể cả với FD+.
+- **Quy tắc tên gọi** (`registration/public/call-name.ts`):
+  - R2 chưa có trường tên gọi khách tự điền;
+  - khách NN = họ, tức chữ đầu trên **giấy tờ NN đã gắn cho người đặt** (`guest_id`, BE-73): "KIM MIN JUN" → "Kim";
+  - còn lại = chữ cuối của họ tên: "Phạm Gia Huy" → "Huy";
+  - không có tên → không trả trường, màn hình chỉ hiện số căn.
+  - Mỗi đơn chỉ một từ đi ra khỏi module registration.
+- **Đã rà:**
+  - danh sách việc, chi tiết việc (`taskDto`) và phiếu sửa: không có tên khách;
+  - SSE chỉ mang id;
+  - thông báo HK mang mã căn/mã phiếu;
+  - `listGuestRequests` (BE-D) không đọc tên khách.
+- **Test RBAC:** ca BR-614 trong `housekeeping-s4-arc.test.ts`. Trong thân phản hồi của HK không có họ tên đầy đủ; FD giữ họ tên; MT không có tên; có ca cho luật tên gọi. Ca US-052 cũ sửa theo: HK thấy "Khách", FD thấy "Lê Văn Khách" (không kèm số căn).
+- **Cần biết:**
+  - MOB/QA: E2E hay app HK nào đang so họ tên đầy đủ thì phải đổi sang tên gọi.
+  - Hợp đồng nên ghi rõ thêm: `guestDisplayName` của `nextArrival` với HK là tên gọi (ARC).
+- Kiểm tra: tsc, eslint, prettier sạch; `housekeeping-s4`, `housekeeping-s4-arc`, `module-boundaries`: 34/34 đạt. Không commit.

@@ -15,6 +15,8 @@ export interface NavItem {
   label: string;
   /** Label for sale/CTV (their menu talks about "my" items – H02 2.2). */
   labelOwn?: string;
+  /** Shorter label for the phone bottom bar (hi-fi H24 `.m-nav`: "Phòng" for the rack). */
+  short?: string;
   screen: string;
   section: Section;
   /** Only for these roles (hi-fi role cards). Menu AND route guard use it (BUG-R2-010); the API is the real check. */
@@ -67,6 +69,7 @@ export const NAV: NavItem[] = [
     icon: 'rack',
     label: 'nav.rack',
     labelOwn: 'nav.rooms_status',
+    short: 'nav.rooms_short',
     screen: 'S03',
     section: 'ops',
     // Sale/CTV see availability inside "Báo giá & giữ chỗ" (S15), not the rack (H02 2.2 role cards).
@@ -269,4 +272,45 @@ export function labelFor(item: NavItem, roles: Role[]): string {
 
 export function navItemByPath(path: string): NavItem | undefined {
   return NAV.find((n) => n.path === path);
+}
+
+/**
+ * Phone bottom bar (hi-fi H24 `.m-nav`, H02 2.2 "thanh dưới điện thoại ≤ 5 mục"; UXR S4 P-02): the first
+ * {@link BAR_SIZE} visible items of the order for the person's role, then "Thêm" with every other visible item.
+ * UXD FE-S4-26 (s4-UXD-brand H/E): owner/manager **Tổng quan · Cần duyệt · Phòng · Nhật ký tiền** ("Hôm nay"
+ * repeats Tổng quan for them and goes to "Thêm"; money is their daily check – BR-008, J6). Everyone else keeps
+ * the desk order: FDL Cần duyệt · Hôm nay · Phòng · Buồng phòng ("Việc" of H02 2.2); FD Hôm nay · Phòng ·
+ * Buồng phòng · Đơn đặt phòng; sale/CTV Báo giá · Đơn · Khách.
+ */
+const BAR_ORDER_DESK = [
+  'overview',
+  'approvals',
+  'today',
+  'rack',
+  'housekeeping',
+  'reservations',
+  'quotes',
+  'maintenance',
+  'guests',
+];
+const BAR_ORDER_MGMT = ['overview', 'approvals', 'rack', 'moneylog'];
+export const BAR_SIZE = 4;
+
+/** Bar order by role – the first role of {@link ROLE_ORDER} the person has decides (a manager who is also FDL → MGMT). */
+export function barOrder(roles: Role[]): string[] {
+  const role = primaryRole(roles);
+  return role === 'owner' || role === 'manager' ? BAR_ORDER_MGMT : BAR_ORDER_DESK;
+}
+
+export function mobileBar(items: NavItem[], roles: Role[]): { bar: NavItem[]; more: NavItem[] } {
+  const bar = barOrder(roles)
+    .map((id) => items.find((n) => n.id === id))
+    .filter((n): n is NavItem => !!n)
+    .slice(0, BAR_SIZE);
+  return { bar, more: items.filter((n) => !bar.includes(n)) };
+}
+
+/** Item whose page (or a sub-page of it) is `pathname`. */
+export function itemOfPath(items: NavItem[], pathname: string): NavItem | undefined {
+  return items.find((n) => pathname === n.path || pathname.startsWith(`${n.path}/`));
 }

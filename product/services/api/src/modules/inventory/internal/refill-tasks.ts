@@ -36,7 +36,7 @@ export const DUPLICATE_REFILL_NOTE = 'minibar_duplicate_refill';
 interface TaskRow {
   id: string;
   status: 'open' | 'in_progress' | 'done' | 'cancelled';
-  refill_items: Array<{ itemId: string; quantity: number }> | null;
+  refill_items: Array<{ itemId: string; quantity: number; itemName?: string }> | null;
   quantity: number;
 }
 
@@ -119,11 +119,16 @@ export async function reconcileRefillTasks(
     } else if (open.length > 0) {
       const keep = open[open.length - 1] as TaskRow;
       for (const t of open.slice(0, -1)) await cancelTask(tx, t, DUPLICATE_REFILL_NOTE, opts);
-      if (!sameItems(itemsOf(keep.refill_items), need) && (await lockOpenTask(tx, keep.id))) {
+      // UXR P-04: a task written before the item names were kept gets them at its next reconcile too.
+      const named = (keep.refill_items ?? []).every((r) => typeof r?.itemName === 'string');
+      if (
+        (!sameItems(itemsOf(keep.refill_items), need) || !named) &&
+        (await lockOpenTask(tx, keep.id))
+      ) {
         await tx.query(
           `UPDATE hk_task SET refill_items = $2, quantity = $3, updated_at = $4, version = version + 1
             WHERE id = $1`,
-          [keep.id, refillItemsJson(need), total(need), opts.now],
+          [keep.id, await refillItemsJson(tx, need), total(need), opts.now],
         );
         await publishEvent(tx, opts.events, 'hk_task.changed', keep.id);
       }
@@ -142,12 +147,25 @@ export async function reconcileRefillTasks(
 }
 
 const total = (m: Map<string, number>) => [...m.values()].reduce((a, b) => a + b, 0);
-const refillItemsJson = (m: Map<string, number>) =>
-  JSON.stringify(
-    [...m]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([itemId, quantity]) => ({ itemId, quantity })),
+/**
+ * `hk_task.refill_items` = what to refill, with the item's name as it is now (UXR P-04: the HK PWA showed "1, 1"
+ * without names – `HkTask.refillItems[].itemName` comes straight from this JSON). Sorted by item id.
+ */
+async function refillItemsJson(tx: Tx, m: Map<string, number>): Promise<string> {
+  const ids = [...m.keys()].sort();
+  const { rows } = await tx.query<{ id: string; name: string }>(
+    'SELECT id, name FROM item WHERE id = ANY($1::uuid[])',
+    [ids],
   );
+  const names = new Map(rows.map((r) => [r.id, r.name]));
+  return JSON.stringify(
+    ids.map((itemId) => ({
+      itemId,
+      quantity: m.get(itemId) as number,
+      ...(names.has(itemId) ? { itemName: names.get(itemId) } : {}),
+    })),
+  );
+}
 
 async function pointTo(
   tx: Tx,
@@ -229,7 +247,7 @@ async function insertTask(
       REFILL_RANK,
       opts.now,
       tx.ctx.userId ?? null,
-      refillItemsJson(need),
+      await refillItemsJson(tx, need),
     ],
   );
   await tx.query(

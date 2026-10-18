@@ -32,6 +32,8 @@ import {
   type MinibarRefillDonePort,
 } from '../public/minibar-refill-done.port';
 import { RoomStatusService } from '../public/room-status.service';
+import { inRoomOnSql } from '../public/stay-occupancy';
+import { bookerDocSurnames, callName } from '../../registration/public/call-name';
 import {
   type ChecklistItemDef,
   type ChecklistLocale,
@@ -56,6 +58,7 @@ import {
   isHkOnly,
   matchesFilter,
   performedAtInRange,
+  performedBefore,
   priorityRank,
   roomTarget,
 } from './rules';
@@ -106,6 +109,7 @@ export interface TaskRow {
   note: string | null;
   refill_items: unknown;
   done_at: Date | null;
+  started_at: Date | null;
   cancel_reason_code: string | null;
   cancel_note: string | null;
   linen_change: boolean;
@@ -120,7 +124,7 @@ const TASK_COLUMNS = `t.id, t.room_id, rm.room_no, rm.name AS room_name, t.reser
   to_char(COALESCE(t.not_before_time, CASE WHEN t.type = 'checkout_clean' THEN r.agreed_checkout_time END), 'HH24:MI')
     AS not_before_time,
   t.assigned_user_id, t.source, t.guest_request_id, t.note, t.refill_items, t.done_at, t.cancel_reason_code,
-  t.cancel_note, t.linen_change, t.carried_over, t.created_at, t.version`;
+  t.cancel_note, t.linen_change, t.carried_over, t.started_at, t.created_at, t.version`;
 const TASK_FROM = `hk_task t JOIN room rm ON rm.id = t.room_id LEFT JOIN reservation r ON r.id = t.reservation_id`;
 // S4-31 (US-029 AC4, EP07 3.1): a check-out clean shows "dọn sau <giờ trả>" – the checkout time agreed at B15 /
 // US-030 (read from the booking when B18 created the task without one).
@@ -208,6 +212,8 @@ export class HousekeepingService {
     const scope = hkOnly ? await this.scopeRooms(tx, c) : null;
     const desk = has(c.actor.roles, FD_PLUS);
     const named = (roomId: string) => desk || (hkOnly && !!scope?.has(roomId));
+    // BR-614 (rbac D01 "Tên + căn"): housekeeping gets the CALL name only – the desk keeps the full name.
+    const nameOf = (x: { name: string; callName: string | null }) => (desk ? x.name : x.callName);
     const inHouse = await this.inHouseByRoom(tx, c.today);
     const arrivals = await this.nextArrivals(tx, c.today);
     const failed = await this.failedRooms(tx);
@@ -233,13 +239,14 @@ export class HousekeepingService {
         status: st,
         statusLabel: STATUS_LABEL[st],
         since: c.iso(since),
-        ...(stay && named(r.id) ? { currentGuest: `${stay.name} · ${r.room_no}` } : {}),
+        // 0.3.7 bổ sung 4 (ARC 18/10): the name only – the client joins it with `roomNo`.
+        ...(stay && named(r.id) && nameOf(stay) ? { currentGuest: nameOf(stay) } : {}),
         ...(next
           ? {
               nextArrival: {
                 date: next.date,
                 ...(next.eta ? { etaTime: next.eta } : {}),
-                ...(named(r.id) ? { guestDisplayName: next.name } : {}),
+                ...(named(r.id) && nameOf(next) ? { guestDisplayName: nameOf(next) } : {}),
               },
             }
           : {}),
@@ -282,7 +289,11 @@ export class HousekeepingService {
     return rows;
   }
 
-  /** In-house bookings per room today (the guest is in the room until checked out). */
+  /**
+   * In-house stays per room today – stay-occupancy.ts (the guest is in the room until checked out). BR-424-05:
+   * until the desk records the move back, the room the guest leaves on the return day still holds the primary
+   * booking (roomReturnsOn – the same exception as `room_status_mismatch`).
+   */
   private async inHouseByRoom(
     tx: Tx,
     today: LocalDate,
@@ -292,27 +303,38 @@ export class HousekeepingService {
       {
         reservationId: string;
         name: string;
+        /** BR-614: the call name housekeeping sees (null: no name – room number only). */
+        callName: string | null;
         stayType: string;
         serviceNotes: string[];
         vip: boolean;
       }
     >
   > {
+    const leaving = (await roomReturnsOn(tx, today)).filter((x) => !x.recorded);
     const { rows } = await tx.query<{
       room_id: string;
       reservation_id: string;
+      root_id: string;
       full_name: string;
       stay_type: string;
       service_notes: string[] | null;
       tags: string[] | null;
     }>(
-      `SELECT DISTINCT ON (s.room_id) s.room_id, r.id AS reservation_id, g.full_name, r.stay_type,
+      `SELECT DISTINCT ON (s.room_id) s.room_id, r.id AS reservation_id,
+              COALESCE(r.parent_reservation_id, r.id) AS root_id, g.full_name, r.stay_type,
               g.service_notes, g.tags
          FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
          JOIN guest g ON g.id = r.booker_guest_id
-        WHERE s.active AND r.status = 'in_house' AND s.from_date <= $1::date AND s.to_date >= $1::date
-        ORDER BY s.room_id, s.to_date DESC`,
-      [today],
+        WHERE ${inRoomOnSql('$1::date')}
+           OR (s.active AND r.status = 'in_house'
+               AND (s.reservation_id, s.room_id) IN (SELECT * FROM unnest($2::uuid[], $3::uuid[])))
+        ORDER BY s.room_id, s.from_date DESC`,
+      [today, leaving.map((x) => x.parentReservationId), leaving.map((x) => x.movedRoomId)],
+    );
+    const surnames = await bookerDocSurnames(
+      tx,
+      rows.map((r) => r.root_id),
     );
     return new Map(
       rows.map((r) => [
@@ -320,6 +342,7 @@ export class HousekeepingService {
         {
           reservationId: r.reservation_id,
           name: r.full_name,
+          callName: callName(r.full_name, surnames.get(r.root_id)),
           stayType: r.stay_type,
           serviceNotes: r.service_notes ?? [],
           vip: (r.tags ?? []).some((t) => VIP.has(t.trim().toLowerCase())),
@@ -331,14 +354,18 @@ export class HousekeepingService {
   private async nextArrivals(
     tx: Tx,
     today: LocalDate,
-  ): Promise<Map<string, { date: string; eta: string | null; name: string }>> {
+  ): Promise<
+    Map<string, { date: string; eta: string | null; name: string; callName: string | null }>
+  > {
     const { rows } = await tx.query<{
       room_id: string;
+      root_id: string;
       from_date: string;
       eta: string | null;
       full_name: string;
     }>(
       `SELECT DISTINCT ON (s.room_id) s.room_id, s.from_date::text AS from_date,
+              COALESCE(r.parent_reservation_id, r.id) AS root_id,
               to_char(r.eta_time, 'HH24:MI') AS eta, g.full_name
          FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
          JOIN guest g ON g.id = r.booker_guest_id
@@ -346,8 +373,20 @@ export class HousekeepingService {
         ORDER BY s.room_id, s.from_date`,
       [today],
     );
+    const surnames = await bookerDocSurnames(
+      tx,
+      rows.map((r) => r.root_id),
+    );
     return new Map(
-      rows.map((r) => [r.room_id, { date: r.from_date, eta: r.eta, name: r.full_name }]),
+      rows.map((r) => [
+        r.room_id,
+        {
+          date: r.from_date,
+          eta: r.eta,
+          name: r.full_name,
+          callName: callName(r.full_name, surnames.get(r.root_id)),
+        },
+      ]),
     );
   }
 
@@ -391,11 +430,11 @@ export class HousekeepingService {
     if (!room) throw problem('NOT_FOUND');
     // EP07 2.3: scope T before anything else – a room outside it does not exist for that HK.
     if (!(await this.inScope(tx, c, roomId))) throw problem('NOT_FOUND');
-    await tx.query('SELECT 1 FROM room WHERE id = $1 FOR UPDATE', [roomId]);
+    await this.lockRoomForHk(tx, roomId);
     const current = await this.statusOf(tx, c, roomId);
     if (
       !performedAtInRange(body.performedAt, c.now) ||
-      body.performedAt.getTime() < current.since.getTime()
+      performedBefore(body.performedAt, current.actedAt)
     ) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'performedAt', code: 'PERFORMED_AT_OUT_OF_RANGE' }],
@@ -412,7 +451,9 @@ export class HousekeepingService {
     );
     let task: TaskRow | null = null;
     if (body.taskId) {
-      task = roomTasks.find((t) => t.id === body.taskId) ?? null;
+      // 16.19 bổ sung 3 (ARC S4-02 (2)): only a cleaning task of the room – never a minibar refill / kit task,
+      // whose completion takes other locks (onRefillDone).
+      task = roomTasks.find((t) => t.id === body.taskId && CLEAN_TYPES.includes(t.type)) ?? null;
       if (!task) {
         throw problem('VALIDATION_FAILED', { errors: [{ field: 'taskId', code: 'NOT_IN_LIST' }] });
       }
@@ -424,12 +465,17 @@ export class HousekeepingService {
       );
       task = ranked[0]?.row ?? null;
     }
+    // 16.19 bổ sung 3: the folio of a charged guest request (L3) before its task (L4).
+    if (body.event === 'finish_cleaning' && task) await this.lockFeeOf(tx, task);
     await this.rooms.set(tx, roomId, target.to, {
       today: c.today,
       now: c.now,
       event: target.code,
       performedAt: body.performedAt,
     });
+    // The task read above was not locked: lock it now and keep it only while still open / in progress (it may
+    // have been completed or cancelled from the task list meanwhile).
+    if (task) task = await this.lockedOpenTask(tx, task.id);
     if (body.event === 'start_cleaning') {
       // R1 without a task (nothing generated yet) → an ad-hoc one, so the work is visible on the desk.
       if (!task) {
@@ -482,23 +528,54 @@ export class HousekeepingService {
     tx: Tx,
     c: HkCtx,
     roomId: string,
-  ): Promise<{ status: RoomStatusCode; since: Date }> {
+  ): Promise<{ status: RoomStatusCode; since: Date; actedAt: Date }> {
     const [room] = await this.roomRows(tx, c, roomId);
     if (!room) throw problem('NOT_FOUND');
-    let status = await this.rooms.of(tx, roomId, c.today);
-    let since = room.since ?? room.created_at;
+    const status = await this.rooms.of(tx, roomId, c.today);
+    const since = room.since ?? room.created_at;
     const days = await this.r5(tx, c);
     if (
       status === 'VI' &&
       room.since &&
       room.since.getTime() + days * 86_400_000 <= c.now.getTime()
     ) {
-      // R5 not yet written by J11: materialise it before the next transition (VI → VC).
-      await this.rooms.set(tx, roomId, 'VC', { today: c.today, now: c.now, event: 'R5' });
-      status = 'VC';
-      since = c.now;
+      // R5 not yet written by J11: materialise it before the next transition (VI → VC), at the time it fell
+      // due – a queued action done after that time is still accepted (ARC S4-01).
+      const due = new Date(room.since.getTime() + days * 86_400_000);
+      await this.rooms.set(tx, roomId, 'VC', {
+        today: c.today,
+        now: c.now,
+        event: 'R5',
+        performedAt: due,
+      });
+      return { status: 'VC', since: c.now, actedAt: due };
     }
-    return { status, since };
+    // ARC S4-01: the last action on the room in the clock of whoever did it (device time of an HK action), not
+    // `since` (the server time the action was RECEIVED – an offline queue start 10:00 / finish 10:30 synced at
+    // 11:00 refused its second item).
+    return { status, since, actedAt: (await this.rooms.lastActionAt(tx, roomId)) ?? since };
+  }
+
+  /**
+   * 16.19 bổ sung 3 (ARC S4-02 (1)): the HK path holds the room with KEY SHARE (L2 like the counts – never FOR
+   * UPDATE, so it never waits for a task while holding the room exclusively). Two HK actions on one room still
+   * queue: a room-level advisory lock taken only here, BEFORE the status is read and checked.
+   */
+  private async lockRoomForHk(tx: Tx, roomId: string): Promise<void> {
+    await tx.query('SELECT 1 FROM room WHERE id = $1 FOR KEY SHARE', [roomId]);
+    await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`hk-room:${roomId}`]);
+  }
+
+  /** 16.19 bổ sung 3: a task of a guest request → the folio its BR-506 fee goes to (L3), before the task (L4). */
+  private async lockFeeOf(tx: Tx, t: Pick<TaskRow, 'guest_request_id'>): Promise<void> {
+    if (t.guest_request_id && this.guestRequests?.lockForFee) {
+      await this.guestRequests.lockForFee(tx, t.guest_request_id);
+    }
+  }
+
+  private async lockedOpenTask(tx: Tx, id: string): Promise<TaskRow | null> {
+    const t = await this.taskById(tx, id, true);
+    return t && (t.status === 'open' || t.status === 'in_progress') ? t : null;
   }
 
   private async roomEntry(tx: Tx, c: HkCtx, roomId: string): Promise<Record<string, unknown>> {
@@ -966,6 +1043,12 @@ export class HousekeepingService {
     performedAt: Date,
   ): Promise<Record<string, unknown>> {
     if (!['start', 'complete', 'cancel'].includes(action)) throw problem('NOT_FOUND');
+    // 16.19 bổ sung 3 (ARC S4-02 (3)): completing a charged guest-request task takes its folio (L3) BEFORE the
+    // task (L4) – read the task without a lock first.
+    if (action === 'complete') {
+      const peek = await this.taskById(tx, taskId);
+      if (peek) await this.lockFeeOf(tx, peek);
+    }
     const t = await this.taskById(tx, taskId, true);
     if (!t) throw problem('NOT_FOUND');
     const hkOnly = isHkOnly(c.actor.roles);
@@ -998,7 +1081,11 @@ export class HousekeepingService {
         cancel = { code: code as string, note: note && note.length > 0 ? note : null };
       }
     }
-    if (!performedAtInRange(performedAt, c.now)) {
+    if (
+      !performedAtInRange(performedAt, c.now) ||
+      // ARC S4-05: never done before it was started (same device clock as `started_at`).
+      (action === 'complete' && t.started_at && performedBefore(performedAt, t.started_at))
+    ) {
       errors.push({ field: 'performedAt', code: 'PERFORMED_AT_OUT_OF_RANGE' });
     }
     if (errors.length > 0) throw problem('VALIDATION_FAILED', { errors });
@@ -1110,11 +1197,14 @@ export class HousekeepingService {
       }
       if (!(await this.inScope(tx, c, roomId))) throw problem('NOT_FOUND');
     }
-    await tx.query('SELECT 1 FROM room WHERE id = $1 FOR UPDATE', [roomId]);
+    await this.lockRoomForHk(tx, roomId);
     const list = await this.checklist(tx, c, roomId);
     const current = await this.statusOf(tx, c, roomId);
     const errors: FieldError[] = [];
-    if (!performedAtInRange(body.performedAt, c.now) || body.performedAt < current.since) {
+    if (
+      !performedAtInRange(body.performedAt, c.now) ||
+      performedBefore(body.performedAt, current.actedAt)
+    ) {
       errors.push({ field: 'performedAt', code: 'PERFORMED_AT_OUT_OF_RANGE' });
     }
     const codes = new Set(list.items.map((i) => i.code));

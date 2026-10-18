@@ -188,6 +188,15 @@ export class ReservationStayPort {
     return this.reservations.boughtRoom(tx, reservationId);
   }
 
+  /** A7-01 (ARC 16.21): lease nights of a manual long stay after B13 / B14 (Q-10, never folio lines). */
+  syncLeaseNights(
+    tx: Tx,
+    at: { now: Date; today: string },
+    reservationId: string,
+  ): Promise<number> {
+    return this.reservations.syncLeaseNights(tx, at, reservationId);
+  }
+
   // BR-107 re-tiering of an in-house stay (B13, B9a) – ARC B-3 (d): night prices only through reservations.
   pricedNights(tx: Tx, row: ReservationRow): Promise<StayNightPrice[]> {
     return this.reservations.pricedNights(tx, row);

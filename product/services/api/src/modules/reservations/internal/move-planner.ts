@@ -53,6 +53,7 @@ import {
   protectedBaseOf,
   roomChangeHistory,
   stayRoomHistory,
+  upgradedFromRoom,
 } from './room-history';
 import type { ReservationRow } from './reservation-store';
 
@@ -309,6 +310,10 @@ export class MovePlanner {
     input: Pick<PlanInput, 'requested' | 'newRoom'>,
   ): Promise<{ id: string | null; storeOnMove: string | null }> {
     if (row.origin_room_id) return { id: row.origin_room_id, storeOnMove: null };
+    // BUG-R2-133 (S438R2-MOVE-02): a conflict booking OTTIMO upgraded (B7a `upgraded`) before 0059 stored no origin –
+    // its origin is the room the guest booked (BR-424 "căn trước nâng hạng"), not the first room of its history.
+    const upgraded = await upgradedFromRoom(tx, row.id);
+    if (upgraded) return { id: upgraded, storeOnMove: upgraded };
     // S438-REGR-02: moved before 0059 (or by a path that did not store it) – the room history knows the first room.
     const historic = firstRoomOf(await roomChangeHistory(tx, row.id));
     if (historic) return { id: historic, storeOnMove: historic };
@@ -352,7 +357,9 @@ export class MovePlanner {
               n.room_id, n.extra_person_fee_vnd AS fee, n.extra_person_count AS cnt,
               n.extra_person_base AS fee_base, rm.base_occupancy AS room_base
          FROM stay_night n LEFT JOIN room rm ON rm.id = n.room_id
-        WHERE n.reservation_id = $1 AND n.night_state <> 'void' ORDER BY n.stay_date`,
+        WHERE n.reservation_id = $1 AND n.night_state <> 'void'
+          AND n.rate_source <> 'lease_allocation'
+        ORDER BY n.stay_date`,
       [row.id],
     );
     const byDate = new Map(live.map((n) => [n.date, n]));

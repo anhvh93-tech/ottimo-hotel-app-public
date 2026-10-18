@@ -3,7 +3,7 @@ import { compareRoomNo, roomLabel, useI18n } from '@ottimo/i18n';
 import { useMemo, useState } from 'react';
 import { useHkData } from '../app/data';
 import { effectiveRoomStatus } from '../app/overlay';
-import { asRoom } from '../app/rooms';
+import { asRoom, guestName } from '../app/rooms';
 import { href } from '../app/router';
 import { arrivalText, inFilter, type RoomFilter } from '../app/tasks';
 import { localDate } from '../app/time';
@@ -113,8 +113,8 @@ export function RoomsPage() {
                           <RoomStatusChip status={eff.value} />
                           {eff.queued ? <QueuedChip /> : null}
                           <span className="meta">
-                            {room.currentGuest ? (
-                              <span>{t('hk.guest_first_name', { name: room.currentGuest })}</span>
+                            {guestName(room) ? (
+                              <span>{t('hk.guest_first_name', { name: guestName(room) })}</span>
                             ) : null}
                             {arrival ? <span>{arrival}</span> : null}
                           </span>

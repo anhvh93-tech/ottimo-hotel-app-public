@@ -198,7 +198,7 @@ describe.skipIf(!HAS_DB)('housekeeping + maintenance (nhóm H, 0.3.7)', () => {
     expect(r101).toMatchObject({
       status: 'OD',
       statusLabel: 'Có khách · cần dọn',
-      currentGuest: 'Lê Văn Khách · 101',
+      currentGuest: 'Lê Văn Khách',
       allowedEvents: ['start_cleaning'],
       inspectionFailed: false,
     });
@@ -212,7 +212,8 @@ describe.skipIf(!HAS_DB)('housekeeping + maintenance (nhóm H, 0.3.7)', () => {
     expect(hk101.allowedEvents).toEqual([]);
     const tId = await task('101', 'stayover_clean');
     hk101 = await entry('hk', '101');
-    expect(hk101.currentGuest).toBe('Lê Văn Khách · 101');
+    // BR-614: housekeeping sees the call name only (the desk above keeps the full name).
+    expect(hk101.currentGuest).toBe('Khách');
     expect(hk101.allowedEvents).toEqual(['start_cleaning']);
     expect(hk101.openTaskIds).toEqual([tId]);
     // A task assigned to another HK: the room is outside T for this HK.
@@ -931,6 +932,11 @@ describe.skipIf(!HAS_DB)('housekeeping + maintenance (nhóm H, 0.3.7)', () => {
     });
     expect(kinds(morning).has('ooo_ending_work_open')).toBe(false); // before 12:00
     expect(kinds(morning).has('work_order_overdue')).toBe(false); // ack in 15 min
+    // EP01 3.1: a high work order is `warning` until it is overdue.
+    expect(morning.find((i) => i.kind === 'work_order_high_open')).toMatchObject({
+      severity: 'warning',
+      refCode: high.json().code,
+    });
 
     await at(new Date(T0.getTime() + 210 * 60_000)); // 12:30 local
     const noon = await items();
@@ -943,12 +949,28 @@ describe.skipIf(!HAS_DB)('housekeeping + maintenance (nhóm H, 0.3.7)', () => {
     if (ATTENTION_PARAM_KEYS.ooo_ending_work_open) {
       expect(ending!.params).toEqual({ roomNo: '301', endDate: '2026-10-16' });
     }
-    expect(noon.find((i) => i.kind === 'work_order_overdue')).toMatchObject({
-      severity: 'critical',
-      refCode: high.json().code,
-      roomNos: ['302'],
-    });
-    expect(noon.find((i) => i.kind === 'work_order_high_open')?.refCode).toBe(high.json().code);
+    // DATA A7-02 (EP01 3.1, US-012 AC4): the overdue HIGH work order is ONE critical line, `work_order_high_open`
+    // – never also `work_order_overdue` (medium / low only, warning: the medium one past its deadline below).
+    expect(noon.filter((i) => i.refCode === high.json().code)).toEqual([
+      expect.objectContaining({
+        kind: 'work_order_high_open',
+        severity: 'critical',
+        roomNos: ['302'],
+      }),
+    ]);
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query('UPDATE work_order SET resolve_due_at = $2 WHERE id = $1', [
+        blocked.json().id,
+        new Date(T0.getTime() + 180 * 60_000),
+      ]),
+    );
+    expect((await items()).filter((i) => i.kind === 'work_order_overdue')).toEqual([
+      expect.objectContaining({
+        severity: 'warning',
+        refCode: blocked.json().code,
+        roomNos: ['301'],
+      }),
+    ]);
     // HK / MT do not get these lines (default audience FD+).
     for (const u of ['hk', 'mt']) {
       const r = await call(u, 'GET', '/attention');

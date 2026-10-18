@@ -6,7 +6,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
 import { PropertyContextService } from '../../platform/public/property-context';
-import type { GuestRequestWorkPort } from '../public/guest-request-work.port';
+import {
+  FULL_CLEAN_TASK_TYPES,
+  type GuestRequestWorkPort,
+  type HkTaskStatus,
+} from '../public/guest-request-work.port';
 import { type HkCtx, HousekeepingService } from './housekeeping.service';
 import { WorkOrdersService } from './work-orders.service';
 
@@ -75,5 +79,32 @@ export class GuestRequestWorkAdapter implements GuestRequestWorkPort {
     if (!rows[0]) throw problem('NOT_FOUND');
     if (rows[0].status !== 'open') return; // already being done (or closed): HK keeps it
     await this.hk.cancelBySystem(tx, c, hkTaskId, 'other', 'Yêu cầu khách bị từ chối');
+  }
+
+  /**
+   * Proposed by BE-D (ARC S4-07): status of the linked task, null when unknown. Read without a lock – guest-portal
+   * calls it right after `cancelTask`, which holds the task row in the same transaction.
+   */
+  async taskStatus(tx: Tx, hkTaskId: string): Promise<HkTaskStatus | null> {
+    const { rows } = await tx.query<{ status: HkTaskStatus }>(
+      'SELECT status FROM hk_task WHERE id = $1',
+      [hkTaskId],
+    );
+    return rows[0]?.status ?? null;
+  }
+
+  async lastFullCleanAt(
+    tx: Tx,
+    i: { roomId: string; since: Date; until: Date; fullCleanRequestIds?: readonly string[] },
+  ): Promise<Date | null> {
+    const { rows } = await tx.query<{ done_at: Date }>(
+      `SELECT t.done_at FROM hk_task t
+        WHERE t.room_id = $1 AND t.status = 'done' AND t.done_at >= $2 AND t.done_at <= $3
+          AND (t.type = ANY($4::text[])
+               OR (t.type = 'guest_request' AND t.guest_request_id = ANY($5::uuid[])))
+        ORDER BY t.done_at DESC LIMIT 1`,
+      [i.roomId, i.since, i.until, FULL_CLEAN_TASK_TYPES, i.fullCleanRequestIds ?? []],
+    );
+    return rows[0]?.done_at ?? null;
   }
 }

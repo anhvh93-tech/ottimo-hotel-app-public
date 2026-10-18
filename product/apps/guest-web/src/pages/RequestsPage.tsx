@@ -378,7 +378,7 @@ function NewRequest({
       <div className="gw-flow-head">
         <button
           type="button"
-          className="icon-btn gw-back"
+          className="btn icon-btn gw-back"
           aria-label={t('common.back')}
           onClick={onCancel}
         >

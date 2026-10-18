@@ -659,3 +659,154 @@ Người kiểm lại cần đổi kỳ vọng của 18 ca này.
 ### 18.5 Kiểm máy
 - Vitest api toàn bộ trên DB mới (cây chung sau `3bd4ac4`): **2837/2837** (89 tệp). tsc, eslint, prettier sạch.
 - Không tự sinh lại `openapi.yaml`/generated (ARC đang làm). Không commit.
+
+## 19. Tuần Ổn định – S4-36, BUG-R2-123, BUG-R2-133, S4-13, BUG-R2-101 (QC `qc/s4-gate-readiness.md` b2, b6, b7; ARC `reviews/s4-ARC.md` S4-13; ARC 16.20)
+
+### 19.1 S4-36 – p95 gia hạn 62 đêm (B13)
+- **Bộ đo:** `test/perf/extend-62.perf.test.ts`, chỉ chạy khi `PERF=1`; đo qua HTTP trong tiến trình trên PostgreSQL thật. Mỗi phép đo ghi p50, p95, max và số lượt truy vấn DB của request.
+- **Kịch bản đo:**
+  - đơn dài hạn nhập tay: `getExtensionOptions` quét 62 đêm; `extendStay` thêm 62 đêm;
+  - đơn ngắn ngày có giá thỏa thuận, đã bị OTTIMO dời căn: phụ lục 5A tính giá theo lịch của hai căn cho mỗi đêm; `getExtensionOptions` 7 đêm; `extendStay` thêm 7 đêm.
+- **Bảng đo:** cùng máy, chạy xen kẽ bản gốc / bản sửa, mỗi bên 2 lượt:
+
+  | Thao tác | Gốc p95 | Gốc truy vấn | Sửa p95 | Sửa truy vấn |
+  |---|---|---|---|---|
+  | options dài hạn (62 đêm) | 17–46 ms | 104 | 9–12 ms | 42 |
+  | extend dài hạn +62 | 36–63 ms | 154 | 32–35 ms | 92 |
+  | options ngắn ngày (7 đêm, 2 căn) | 13–183 ms | 82 | 9–10 ms | 51 |
+  | extend ngắn ngày +7 | 61–274 ms | 185 | 31–35 ms | 154 |
+
+- **So với ngân sách** (`architecture.md` 16: đọc < 300 ms, ghi < 500 ms): bản gốc đã trong ngân sách khi máy yên. Có lượt đo trùng lúc các bộ test khác chạy trên cùng PostgreSQL: max một lần lên 546–607 ms. Đề nghị QA đo lại bằng k6 trên staging (plan mục 6).
+- **Đã sửa theo ARC FB-R2-ARC-BE-S3-30**, giảm số lượt truy vấn trong lúc giữ khóa đơn:
+  - `OccupancyService.freeNights`: một truy vấn cho cả khoảng ngày, thay cho mỗi đêm một lần `isFree`;
+  - `StaySupport.directRate`: đọc giá niêm yết và nhóm của mỗi căn một lần cho cả thao tác (`RoomPriceCache` trong `AddedNightContext`).
+  - Hành vi không đổi.
+- BE-C làm phần N+1 của `listRegistrations`.
+
+### 19.2 BUG-R2-123 – `move-preview` của đơn OTA xung đột
+- **Sửa:** khi xem trước, không cần gửi `overbookingResolution`. Server tự lấy giá trị duy nhất mà lệnh ghi chấp nhận cho căn đã chọn (`expectedResolution`): cùng nhóm với căn khách đặt → `reassigned_same_group`; nhóm cao hơn → `upgraded`. Nâng hạng vẫn chỉ FDL+.
+- Lệnh ghi vẫn bắt buộc gửi trường này: thiếu → 422 `REQUIRED`.
+- **Không phải đổi hợp đồng.** Gợi ý ARC thêm một câu mô tả vào `previewMoveReservation`.
+- **Test:** xem trước cùng nhóm và nâng hạng đều 200; lệnh ghi dùng đúng số tiền đã xem trước.
+
+### 19.3 BUG-R2-133 – đơn chưa lưu căn gốc
+- **Sửa:**
+  - `MovePlanner.originRoom` và `stayRoomHistory`: đơn chưa lưu `origin_room_id` mà từng được giải xung đột bằng nâng hạng (`overbooking_incident.resolution = upgraded`) → căn gốc = căn khách đặt (`upgradedFromRoom`), không lấy căn đầu tiên trong lịch sử;
+  - lần đổi căn kế tiếp sẽ lưu căn gốc này.
+  - Mã hiện hành vốn đã lưu căn gốc khi gán B7a, nên chỉ dữ liệu trước 0059 mới rơi vào nhánh này.
+- **Test:** đơn 203 nâng lên 401, căn gốc giả lập NULL, khách xin 302 → chênh lệch tính từ 203 (125.000 × 2), bằng đơn đối chứng có căn gốc.
+- **Truy vấn đếm cho OPS/QA** (chạy trên DB dùng thử; kỳ vọng 0 ở cột thứ nhất):
+  ```sql
+  SELECT
+    count(*) FILTER (WHERE EXISTS (SELECT 1 FROM overbooking_incident i
+                                    WHERE i.reservation_id = r.id AND i.resolution = 'upgraded')) AS upgraded_without_origin,
+    count(*) FILTER (WHERE EXISTS (SELECT 1 FROM reservation_change c
+                                    WHERE c.reservation_id = r.id AND c.field = 'room')) AS moved_without_origin
+    FROM reservation r
+   WHERE r.origin_room_id IS NULL AND r.status IN ('hold', 'confirmed', 'in_house');
+  ```
+  Cột thứ hai là phạm vi rộng hơn: các đơn còn dựa vào nhánh lịch sử. Sau bản sửa, cột thứ nhất khác 0 cũng không còn sai tiền. BE-A không chạy truy vấn trên stack demo/dùng thử.
+
+### 19.4 S4-13 – ảnh biên nhận của khoản thu B2 (ARC Major)
+- **Phát hiện:** theo hợp đồng hiện tại, `initialPayment.attachmentId` không bao giờ dùng được.
+  - `uploadAttachment purpose=deposit_receipt` bắt buộc có `reservationId`; CHECK `attachment_reservation_check` cũng bắt buộc như vậy.
+  - Lúc B2 thì đơn chưa có, nên không thể có ảnh hợp lệ cho đơn mới.
+  - Trước đây B2 bỏ id này mà không báo gì.
+- **Đã sửa:**
+  - B2 không còn bỏ im lặng: id sai dạng, ảnh của đơn khác, sai `purpose` hoặc đã gắn khoản thu khác → 422 `NOT_IN_LIST` trên `initialPayment.attachmentId`, không tạo gì.
+  - `PaymentService.recordManual` có tùy chọn `receipt` (tệp của BE-B, nhờ BE-B xem): kiểm ảnh như `recordPayment`, gắn ảnh vào khoản thu, mốc lưu ảnh tính từ lúc ghi khi không cần đối soát. Đường này sẵn dùng nếu ARC cho phép tải ảnh trước khi có đơn.
+- **Cần ARC chốt** (cùng BE-C, SEC):
+  - (A) cho phép SAL/CTV/FD tải `deposit_receipt` khi chưa có đơn; ảnh chỉ người tải thấy, B2 gắn ảnh vào đơn mới tạo;
+  - hoặc (B) bỏ `initialPayment.attachmentId` khỏi hợp đồng; ảnh đi theo `recordPayment` sau B2.
+- **Test:**
+  - các trường hợp 422 nói trên, không tạo đơn;
+  - đường đang dùng được: `recordPayment` kèm ảnh của đơn thì giữ ảnh.
+
+### 19.5 BUG-R2-101 (ARC 16.20)
+- `Reservation.balanceDueVnd` không trả khi folio chưa có dòng `posted` (đơn `hold`), qua `MoneyBridge.balanceDueOnPosted`. Chú thích trường ở `reservation-dto.ts`.
+- **Test:** hold → không có trường; đơn đã xác nhận → bằng `Folio.totals.balanceDueVnd`.
+
+### 19.6 Đang chờ
+- Major 15 (`stay-support.ts` ghi thẳng `folio_line`): **đã xong** – xem mục 20.2.
+- S4-50b: chưa có phần BE từ FE-A.
+- Kiểm lại tiền lần 6 (`wt13`): chưa có lỗi giao cho BE-A.
+
+### 19.7 Kiểm máy
+- **Vitest api toàn bộ, DB mới:** 2853/2858; 2 ca bỏ qua (bộ đo hiệu năng).
+- **3 ca đỏ, đều ở phần các luồng khác đang sửa:**
+  - `be-b-s2-units` và `folio-payments`: totals có thêm `refundedVnd` (BE-B BUG-R2-102), test chưa cập nhật;
+  - `housekeeping-s4` BR-424-05: BE-C đang sửa housekeeping.
+- Ca của BE-A đều xanh.
+- tsc, eslint sạch. Prettier sạch ở tệp BE-A; còn 3 tệp housekeeping của BE-C chưa định dạng.
+- Không commit.
+
+## 20. A7-01 – đêm của đơn dài hạn nhập tay (P1, chặn cổng; ARC 16.21) và Major 15
+
+### 20.1 A7-01 (US-017 AC5a, DATA Q-10 / BR-215 / BR-209 / BR-210)
+- **Lỗi:** đơn dài hạn nhập tay (`external_contract`) không có `stay_night`, nên K-02/K-03 (công suất phòng) không tính căn này.
+- **Một nơi ghi** (`reservations/internal/lease-nights.ts`):
+  - `leaseNightAmounts` phân bổ Q-10:
+    - tháng hợp đồng k = [ngày đến + (k−1) tháng, ngày đến + k tháng), luôn tính từ ngày đến, không cộng nối tiếp (BR-209: 31/01 → 28/02 → 31/03);
+    - chia đều theo số đêm của tháng hợp đồng, lấy phần nguyên đồng, phần dư dồn đêm cuối tháng, nên Σ tháng = tiền thuê;
+    - đêm sau tháng hợp đồng trọn cuối cùng là ngày lẻ, tính theo giá đêm quy đổi (BR-210: tiền thuê ÷ `long_stay_daily_divisor`).
+  - `syncLeaseNights` (idempotent) thêm đêm thiếu (`sold`), sửa số tiền / căn / đoạn theo segment, void đêm nằm ngoài khoảng ngày (`date_change`).
+  - Thuộc tính mỗi đêm: `stay_type = long`, `rate_source = lease_allocation`, `calendar_rate_vnd` NULL, `discount_vnd` 0.
+- **Gọi sau các lệnh:**
+  - B2 (tạo đơn), B7/B8, K12, B12, B13, B14;
+  - B16, hủy và no-show void đêm như mọi đơn khác;
+  - B16 không phân bổ lại các đêm đã ở (Q-10 BR-313: chỉ bỏ các đêm sau ngày trả).
+- **Bất biến "không phải tiền":** mọi chỗ đọc `stay_night` để tính tiền trong module đều bỏ `lease_allocation`:
+  - `confirmedStay` – nguồn duy nhất cho đồng bộ folio, nên không bao giờ sinh dòng `room`;
+  - `liveNightRows` (B16, `pricedNights`, …), `liveNights`, `nightFees`, truy vấn của MovePlanner.
+  - Đơn dài hạn nhập tay vì vậy đi đúng các đường tiền như trước (B16 không sinh phí trả sớm, B14 chênh 0).
+- **Bù dữ liệu:** job `lease.nights` (đăng ký ở api và worker), lịch hằng ngày 03:10, có catch-up nên chạy ngay ở lần đầu sau phát hành.
+  - Đơn dài hạn nhập tay `confirmed`/`in_house`/`checked_out` chưa có đêm sống thì gọi chung `syncLeaseNights`.
+  - Chạy lần hai không ghi gì.
+  - Không đổi DDL.
+- **Truy vấn kiểm cho DATA/OPS:**
+  ```sql
+  -- (1) = 0: đơn dài hạn nhập tay chưa hủy mà không có đêm sống
+  SELECT count(*) FROM reservation r
+   WHERE r.external_contract AND r.status <> 'cancelled'
+     AND NOT EXISTS (SELECT 1 FROM stay_night n WHERE n.reservation_id = r.id AND n.night_state <> 'void');
+  -- (2) mỗi tháng hợp đồng trọn: Σ room_revenue_vnd = monthly_rent_vnd (theo `contractMonthTotals`; ví dụ tháng đầu)
+  SELECT r.code, SUM(n.room_revenue_vnd) AS first_month, (r.manual_long_stay->>'monthly_rent_vnd')::bigint AS rent
+    FROM reservation r JOIN stay_night n ON n.reservation_id = r.id AND n.night_state <> 'void'
+   WHERE r.external_contract AND n.stay_date < (r.arrival_date + interval '1 month')::date
+   GROUP BY r.code, r.manual_long_stay;
+  ```
+- **Test:**
+  - `test/integration/a7-lease-nights.test.ts`:
+    - phân bổ thuần: BR-215-01, BR-215-02 + BR-210-01 (ngày lẻ 371.000 × 5), BR-209 (tháng cuối);
+    - HTTP: tạo đơn → B13 +10 (ngày lẻ 300.000) → B14 (đêm theo căn mới, chênh 0) → B16 (void đêm bỏ, không sinh dòng); folio không bao giờ có dòng `room`/`extra_person`;
+    - hủy → void hết; job bù 1 đơn rồi lần hai ghi 0; truy vấn (1) = 0; K-02 đếm căn của đơn dài hạn.
+  - `reservations.test.ts` (US-017 AC5a): sửa có chủ đích từ "0 đêm" thành "181 đêm `lease_allocation`, 0 dòng `room`".
+- **Chạy lại test DS-0 của DATA** (bản sao trong scratch của BE-A, DB riêng):
+  - T0/T1/T2 = **6/9 = 66,7 %**, T3 = **7/9 = 77,8 %**, khớp kỳ vọng.
+  - Ca "biến thể B" (chèn tay đêm `lease_allocation` để chẩn đoán) nay đụng chỉ mục duy nhất vì đêm đã có sẵn. Đây là bằng chứng của bản sửa; DATA có thể bỏ ca này.
+- **Lưu ý cho DATA (oracle):** BR-215-01 `reportMonthAllocationVnd` (10/2026 = 6.103.548; 11/2026 = 5.026.452) chia theo tỷ lệ số thực. Nếu chia theo từng đêm theo đúng quy tắc Q-10 (phần nguyên mỗi đêm, phần dư dồn đêm cuối tháng hợp đồng) thì ra 6.103.544 / 5.026.456 (lệch 4 đ), tổng tháng hợp đồng vẫn đúng 11.130.000. `perNightVnd` 359.032 khớp. Đề nghị DATA chốt cách tính số theo tháng báo cáo.
+
+### 20.2 Major 15 (ARC mở lại)
+- `StaySupport.requestFoc` không còn ghi thẳng `folio_line`. Nay gọi `FolioService.linkApprovalRequest(tx, focLineId, request.id)` của BE-B; hàm này khóa folio trước theo 16.19 và gọi lại không làm gì thêm.
+- Các test FOC liên quan (`foc*`, `s438*`, frontdesk, check-in/out, `s4-stab-be-a`, `br417`) xanh: 226/226.
+
+### 20.3 Kiểm máy
+- **Vitest api toàn bộ, DB mới:** 2887/2889; 2 ca bỏ qua (bộ đo hiệu năng). Ca đỏ duy nhất là US-017 AC5a ở trên, đã sửa test; chạy lại tệp xanh 18/18.
+- tsc sạch, trừ `guest-requests-s4-bed.test.ts` (BE-D/BE-C đang sửa cổng). eslint sạch.
+- Prettier còn 4 tệp chưa định dạng của BE-C/BE-D (guest-portal, registration, 2 test BE-D); tệp BE-A sạch.
+- Không commit.
+
+### 20.4 S4-13 – ARC chốt hướng (B) (`openapi-0.3.7.md` 16.23)
+- B2 không nhận `initialPayment.attachmentId` nữa: client gửi trường này (kể cả là ảnh biên nhận hợp lệ) → 422 `NOT_ALLOWED` trên `initialPayment.attachmentId`, không tạo đơn.
+- Ảnh đi kèm khoản thu sau khi đơn đã có: FD+ dùng `recordPayment`, SAL/CTV dùng `createDepositNotice`.
+- Đã bỏ đoạn gắn ảnh viết cho B2 (`recordManual.receipt`, `money-bridge`); `payment.service.ts` trở lại như bản đã commit.
+- Test `s4-stab-be-a` (S4-13) đổi theo; tệp này cùng `reservations`, `payments-s3`, `folio-payments` xanh 82/82.
+
+### 20.5 DOM chốt D-A7-1, D-A7-2 (BR-102, BR-215)
+- **D-A7-1:** `leaseNightAmounts` nay coi ngày đi = ngày bắt đầu + n tháng − 1 ngày là đủ n tháng hợp đồng; tháng cuối chia theo số đêm thật của nó.
+  - Ví dụ OTM-0108: 29 đêm = 324.482 × 28 + 324.504; tổng 28.230.000.
+  - Ngày đi lệch kiểu khác: phần sau mốc tháng cuối tính ngày lẻ (BR-210).
+  - Test: hợp đồng 01/04–30/06/2027, tiền thuê 9.410.000; thêm ca thiếu 2 ngày → 28 ngày lẻ.
+- **D-A7-2:** mã đã làm tròn đúng – `divideRoundVnd`/`applyPct` làm tròn nửa lên tới đơn vị tham số (`rounding.night_rate` và `rounding.fee` = 1.000). Áp cho ngày lẻ, phụ thu nhận sớm/trả muộn (BR-411/412/413) và hoàn trả sớm (BR-428). Test: 9.410.000 ÷ 30 → 314.000.
+- **Oracle:** `br-examples.json` không có số nào đổi. Không tìm thấy 27.926.000 trong fixture của QA/DATA; nếu DATA có oracle OTM-0108 ngoài repo thì số đúng là 28.230.000.
+

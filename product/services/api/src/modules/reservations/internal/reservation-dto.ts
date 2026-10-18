@@ -70,6 +70,7 @@ export interface DtoInput {
   /** US-022 AC1: persons recorded on the booking (booker + party members). */
   partyPresentCount?: number;
   /** 0.3.6 (BUG-R2-031): what the folio still owes (FD+/SAL – x-visible-to). */
+  /** BUG-R2-101 (ARC 16.20): owed on the folio's posted lines – absent while the folio has none (a hold). */
   balanceDueVnd?: number;
   /** 0.3.6 (BUG-R2-031): the booking's registration (registration module, through ReservationHooks). */
   registration?: { id: string; status: string; deadlineAt: Date | null } | null;

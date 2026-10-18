@@ -19,6 +19,7 @@ import type {
 import { http, HttpResponse, type DefaultBodyType, type StrictRequest } from 'msw';
 import { todayLocal } from '../app/dates';
 import { addDays, nightsBetween, type ReservationMockState } from './reservations';
+import { replyNoteErrors } from './replyNote';
 import type { MockUser } from './seed';
 import { MINIBAR } from './stay';
 
@@ -295,6 +296,8 @@ function makeState(rooms: Room[], rsv: ReservationMockState) {
     idempotency: new Map<string, { status: number; body: unknown }>(),
     next: 100,
     nextWo: 36,
+    /** `property.phone_public` – the only long number a `replyNote` may carry (B-15 step 5); none in the seed. */
+    publicPhone: null as string | null,
   };
 }
 
@@ -546,25 +549,17 @@ export function createOpsMock(ctx: Ctx) {
   }
 
   // ---------- guest requests (SM-15, BR-811) ----------
-  const luhn = (digits: string) => {
-    let sum = 0;
-    for (let i = 0; i < digits.length; i++) {
-      let d = Number(digits[digits.length - 1 - i]);
-      if (i % 2) {
-        d *= 2;
-        if (d > 9) d -= 9;
-      }
-      sum += d;
-    }
-    return sum % 10 === 0;
-  };
+  /** `replyNote` like the server (EP14 v0.3 4.4): ≤ 300, card number (V-09), then luật B-15 (`./replyNote`). */
   function replyErrors(note: string) {
-    const compact = note.replace(/[\s.-]/g, '');
-    const runs = compact.match(/\d{6,}/g) ?? [];
-    if (runs.some((r) => r.length >= 13 && r.length <= 19 && luhn(r)))
-      return [{ field: 'replyNote', code: 'CARD_NUMBER_DETECTED' }];
-    if (runs.length) return [{ field: 'replyNote', code: 'SENSITIVE_DATA_DETECTED' }];
-    return [];
+    if (note.length > 300) return validation([{ field: 'replyNote', code: 'TOO_LONG' }]);
+    const errs = replyNoteErrors(note, {
+      publicPhone: st.publicPhone,
+      currentYear: Number(T().slice(0, 4)),
+    });
+    if (!errs.length) return null;
+    return errs[0]!.code === 'CARD_NUMBER_DETECTED'
+      ? problem(422, 'CARD_NUMBER_DETECTED', { errors: errs })
+      : validation(errs);
   }
 
   // ---------- minibar catalogue ----------
@@ -1082,10 +1077,9 @@ export function createOpsMock(ctx: Ctx) {
       if (!open.includes(r.status))
         return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
       const reply = String(b.replyNote ?? '').trim();
-      if (reply) {
-        const errs = replyErrors(reply);
-        if (errs.length) return validation(errs);
-      }
+      // Luật B-15 is for the staff reply only – the guest's own `note` is never checked here.
+      const bad = reply ? replyErrors(reply) : null;
+      if (bad) return bad;
       if (action === 'acknowledge') {
         if (r.status !== 'new')
           return problem(409, 'INVALID_TRANSITION', { currentState: r.status });

@@ -998,7 +998,6 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
   const act = useSubmit({ bound: ['guestId', 'childName', 'childBirthYear'] });
   const del = useSubmit();
   const reduceAct = useSubmit({ bound: ['partyChangeSource', 'otaModificationRef'] });
-  const ready = kind === 'child' ? name.trim().length >= 2 : !!companion;
   const inHouse = r.status === 'in_house';
   // CI 39010774166 suspect (a): a person joins "from tonight" = the API's business day (`BookingRules.
   // businessDate`, the same `ctx.today` the API checks `effectiveFrom` against), read when the dialog opens –
@@ -1012,6 +1011,28 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
   const day: string | undefined = !inHouse
     ? undefined
     : (businessDay.state.data ?? (businessDay.state.status === 'error' ? todayLocal() : undefined));
+  // S4-45 (BA EP02 mục 8, khớp server): a child's year of birth is required – it alone gives the BR-110 age
+  // band, the capacity (ESC-014), BR-612 and the stay declaration. 2000 … the year of the business day.
+  const maxYear = Number((day ?? todayLocal()).slice(0, 4));
+  const yearText = year.trim();
+  const yearNum = /^\d{4}$/.test(yearText) ? Number(yearText) : NaN;
+  const yearProblem =
+    kind !== 'child'
+      ? null
+      : !yearText
+        ? t('party.child_birth_year_required')
+        : !(yearNum >= 2000 && yearNum <= maxYear)
+          ? t('field_error.value_out_of_range', { min: 2000, max: maxYear })
+          : null;
+  const ready = kind === 'child' ? name.trim().length >= 2 && !yearProblem : !!companion;
+  // The server's REQUIRED on the year says what to do (BA), not a bare "Bắt buộc".
+  const yearServerError = isApiError(act.error)
+    ? act.error.fieldErrors.some(
+        (f) => f.field.replace(/^body\./, '') === 'childBirthYear' && f.code === 'REQUIRED',
+      )
+      ? t('party.child_birth_year_required')
+      : act.fields.childBirthYear
+    : undefined;
   const member = (decision: { apply: boolean; expected?: number }, dryRun = false) => {
     const common = {
       effectiveFrom: day,
@@ -1108,6 +1129,10 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
         ? surchargeFocMissing(t, partyFoc)
         : null;
   const helpId = `${ids}-sur`;
+  // S4-45: an empty year locks "Thêm" with its reason next to the button (the UXD "… để bật nút" pattern).
+  const lockReason =
+    blockedReason ??
+    (kind === 'child' && name.trim().length >= 2 && !yearText ? yearProblem : null);
 
   // Shown for the person it was about only (picking someone else clears it).
   const [surchargeProblem, setSurchargeProblem] = useState<{
@@ -1351,8 +1376,13 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
               {kind === 'child' ? (
                 <Field
                   label={t('party.child_birth_year')}
+                  required
                   help={t('rsv.child_note')}
-                  error={act.fields.childBirthYear}
+                  error={
+                    yearServerError ??
+                    // a typed year outside the range – said at the box; an empty box is said next to "Thêm"
+                    (yearText ? (yearProblem ?? undefined) : undefined)
+                  }
                 >
                   {(fp) => (
                     <input
@@ -1423,14 +1453,14 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
             <Button
               busy={act.busy}
               disabled={!ready || waiting || previewError !== undefined || !!blockedReason}
-              aria-describedby={blockedReason ? helpId : undefined}
+              aria-describedby={lockReason ? helpId : undefined}
               onClick={() => void add()}
             >
               {t('rsv.add_submit')}
             </Button>
-            {blockedReason ? (
+            {lockReason ? (
               <p className="li-s" id={helpId}>
-                {blockedReason}
+                {lockReason}
               </p>
             ) : null}
           </fieldset>

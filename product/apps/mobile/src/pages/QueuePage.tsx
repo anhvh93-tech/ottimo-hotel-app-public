@@ -1,10 +1,11 @@
 import { Alert, StateView } from '@ottimo/ui';
-import { useI18n } from '@ottimo/i18n';
+import { roomLabel, useI18n } from '@ottimo/i18n';
 import { useState } from 'react';
+import { asRoom } from '../app/rooms';
 import { hhmm } from '../app/time';
 import { actionText, rejectionText } from '../queue/messages';
 import { useQueue } from '../queue/QueueProvider';
-import type { QueueItem } from '../queue/queue';
+import { waitingActions, type QueueItem } from '../queue/queue';
 import { TopBar } from '../ui/parts';
 
 const BUSY = new Set([
@@ -17,11 +18,11 @@ const BUSY = new Set([
 /** H21 21.3 – "Thao tác trên máy": waiting to send / needs review (US-058, ADR-005). Never drops silently. */
 export function QueuePage() {
   const { t } = useI18n();
-  const { waiting, rejected, online, sendNow, dismiss, paused } = useQueue();
+  const { queue, items, waiting, rejected, online, sendNow, dismiss, resend, paused } = useQueue();
   const [sending, setSending] = useState(false);
   const [sentInfo, setSentInfo] = useState<string | null>(null);
-  // The work order of a report is shown once ("Báo sự cố + n ảnh"); its photos are part of it.
-  const pending = waiting.filter((i) => i.kind !== 'attachment');
+  // Same count as the pill (P-07). The work order of a report is shown once ("Báo sự cố + n ảnh").
+  const pending = waitingActions(items);
   const retrying = waiting.find((i) => i.nextAttemptAt && i.lastError);
 
   const send = async () => {
@@ -34,10 +35,13 @@ export function QueuePage() {
     }
   };
 
-  const status = (i: QueueItem) => {
-    if (i.state === 'held') return t('hk.queue.tapped_at', { time: hhmm(i.tappedAt) });
+  // One state per row (P-07): the tap time is already the first part of the line.
+  const status = (i: QueueItem, index: number) => {
+    if (!online) return t('hk.queue.waiting');
     if (i.lastError && BUSY.has(i.lastError)) return t('hk.queue.busy_retry');
-    return online ? t('hk.queue.sending', { n: 1, total: pending.length }) : t('hk.queue.waiting');
+    return index === 0
+      ? t('hk.queue.sending', { n: 1, total: pending.length })
+      : t('hk.queue.in_line');
   };
 
   return (
@@ -76,7 +80,7 @@ export function QueuePage() {
               {t('hk.queue.pending', { n: pending.length })}
             </h2>
             <ul className="hk-list">
-              {pending.map((i) => (
+              {pending.map((i, index) => (
                 <li key={i.id} className="hk-card">
                   <div className="hd">
                     <span className="room">{i.roomNo}</span>
@@ -84,7 +88,7 @@ export function QueuePage() {
                   </div>
                   <div className="meta">
                     <span>{t('hk.queue.tapped_at', { time: hhmm(i.tappedAt) })}</span>
-                    <span>{status(i)}</span>
+                    <span>{status(i, index)}</span>
                   </div>
                 </li>
               ))}
@@ -110,18 +114,42 @@ export function QueuePage() {
             </h2>
             {rejected.map((i) => {
               const msg = rejectionText(i, t);
+              const room = roomLabel(asRoom(i), 'staff');
+              const action = actionText(i, t);
               return (
                 <Alert
                   key={i.id}
                   tone="bad"
                   title={msg.title}
                   actions={
-                    <button type="button" className="btn" onClick={() => void dismiss(i.id)}>
-                      {t('hk.queue.ack')}
-                    </button>
+                    <>
+                      {queue.canResend(i) ? (
+                        <button
+                          type="button"
+                          className="btn pri"
+                          onClick={() =>
+                            void resend(
+                              i.id,
+                              t('hk.queue.resent_toast', { room, action }),
+                              t('hk.undone'),
+                            )
+                          }
+                        >
+                          {t('hk.queue.resend', { action })}
+                        </button>
+                      ) : null}
+                      <button type="button" className="btn" onClick={() => void dismiss(i.id)}>
+                        {t('hk.queue.ack')}
+                      </button>
+                    </>
                   }
                 >
                   {msg.body}
+                  {msg.reference ? (
+                    <span className="d-block li-s mt-4">
+                      {t('hk.queue.ref_code', { code: msg.reference })}
+                    </span>
+                  ) : null}
                 </Alert>
               );
             })}

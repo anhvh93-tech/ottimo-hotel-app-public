@@ -20,7 +20,11 @@ pnpm --filter @ottimo/mobile build
 Tài khoản giả (chỉ có trong mock, `src/mocks/handlers.ts` → `MOCK_USERS`, mật khẩu `MOCK_PASSWORD`):
 `hk.lan` (buồng phòng), `mt.tung` (bảo trì), `fdl.hanh` (lễ tân trưởng), `sale.minh` (không có quyền).
 Kịch bản: `window.__ottimoStaffMock.control` (`failNext`, `dropNext`, `latencyMs`, `setRoom`).
-Biến tùy chọn: `VITE_DESK_PHONE` – số lễ tân cho nút "Gọi lễ tân" (không có thì không hiện nút).
+Biến build `VITE_DESK_PHONE` – số lễ tân cho nút "Gọi lễ tân" (cùng biến với guest-web). **Bắt buộc** khi build
+profile `demo` và `production` (OPS, `Dockerfile.web` `WEB_BUILD_PROFILE`, `infra/docker/check-web-build-config.sh`):
+thiếu biến, sai dạng hoặc còn số mẫu `0000 000 000` thì build dừng. Chỉ chữ số, dấu cách và một dấu `+` ở đầu
+(`^\+?[0-9 ]{6,20}$`), ví dụ `08 4444 0909`; viết có dấu chấm hoặc gạch ngang thì app ẩn nút gọi. `pnpm dev` (profile
+dev) không bắt buộc: thiếu số thì không hiện nút. Số thật đặt trong `product/.env` (không vào repo); mẫu ở `.env.example`.
 
 ## Cách làm chính
 

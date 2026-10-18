@@ -223,7 +223,10 @@ jobs:
           shellcheck --version | head -2
           shellcheck -x -S warning product/infra/server/bootstrap-vps.sh product/infra/server/bin/dc \
             product/infra/server/bin/*.sh product/infra/postgres/init/02-roles.sh product/infra/ci/*.sh \
-            product/infra/caddy/*.sh product/infra/demo/*.sh
+            product/infra/caddy/*.sh product/infra/demo/*.sh product/infra/docker/*.sh
+      # UXR P-15: demo/production web builds refuse a missing, malformed or placeholder desk phone; dev only warns.
+      - name: Web build config guard (VITE_DESK_PHONE)
+        run: bash product/infra/ci/test-web-build-config.sh
       # Independent of build-test (blocker verification 17/10: a red lint must not skip these guards).
       - name: Compose rules (blob volume only in api/worker, web without blob/secrets, prod hardening)
         run: bash product/infra/ci/check-compose.sh
@@ -647,6 +650,9 @@ jobs:
   #                         `staging` environment) – the key only runs infra/server/bin/deploy-from-ci.sh on the VPS
   # Only pushes to main; packages: write exists in publish-images only (FB-R1-SEC-OPS-04). The T9 nightly (schedule)
   # and manual runs (workflow_dispatch) never match `github.event_name == 'push'`: they never publish nor deploy.
+  #   VITE_DESK_PHONE       repository VARIABLE (not a secret – public front desk number): baked into the web image
+  #                         (staff PWA "Gọi lễ tân", guest web). Missing/malformed = publish-images fails before any
+  #                         build (UXR P-15, infra/docker/check-web-build-config.sh, format in product/.env.example)
   publish-images:
     name: publish images (GHCR)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'
@@ -664,13 +670,19 @@ jobs:
           persist-credentials: false
       - name: Build (api production + api -test variant for staging + web)
         id: build
+        env:
+          # Public number, passed by name to docker build (value from the environment, not the command line).
+          VITE_DESK_PHONE: ${{ vars.VITE_DESK_PHONE }}
         run: |
+          # Fail in seconds, before the api builds, when the desk phone is missing or malformed (UXR P-15).
+          WEB_BUILD_PROFILE=production sh product/infra/docker/check-web-build-config.sh
           owner=$(tr '[:upper:]' '[:lower:]' <<<"$GITHUB_REPOSITORY_OWNER")
           tag="sha-${GITHUB_SHA::12}"
           api="ghcr.io/$owner/ottimo-api"; web="ghcr.io/$owner/ottimo-web"
           docker build -f product/infra/docker/Dockerfile.api -t "$api:$tag" product
           docker build -f product/infra/docker/Dockerfile.api --build-arg INCLUDE_TEST_SUPPORT=1 -t "$api:$tag-test" product
-          docker build -f product/infra/docker/Dockerfile.web -t "$web:$tag" product
+          docker build -f product/infra/docker/Dockerfile.web --build-arg WEB_BUILD_PROFILE=production \
+            --build-arg VITE_DESK_PHONE -t "$web:$tag" product
           # The production tag must not contain test endpoints (BUG-R1-SEC-08) – same guard as docker-build.
           rm -rf "$RUNNER_TEMP/b" && mkdir -p "$RUNNER_TEMP/b"
           cid=$(docker create "$api:$tag"); docker cp "$cid:/app/dist" "$RUNNER_TEMP/b/dist"; docker rm "$cid" >/dev/null

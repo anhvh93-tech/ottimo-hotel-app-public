@@ -3083,6 +3083,8 @@ export interface paths {
      *     (`Guest.source = document`, chỉ tên trên giấy tờ + quốc tịch) qua cổng `guests/public` và thêm người đi cùng quan hệ `unknown` – vượt số khách vẫn gắn + cảnh báo. **Không** tự gắn
      *     hồ sơ ngoài đơn theo tên + ngày sinh (chỉ theo khóa giấy tờ `id_doc_hmac` của hồ sơ đã có P05); khớp tên + ngày sinh → `GuestDocumentMasked.possibleReturningGuest = true` để lễ tân
      *     xác nhận. Trẻ em không có hồ sơ. Vì vậy giấy tờ lễ tân nhập **luôn** có `partyMemberId`.
+     *     **0.3.7 bổ sung 4 (SEC FB-R2-SEC-BE-73, ARC 16.22)**: `isMain` **không** suy ra người đặt – giấy tờ chính không có `partyMemberId` đi đúng đường khớp ở trên (đặt hộ: người ở thật thành
+     *     người đi cùng `unknown`/hồ sơ "từ giấy tờ"). Khóa giấy tờ và P05 chỉ ghi lên hồ sơ của **chính người trên giấy tờ** (s3-SEC 7.3/F03). Desk luôn gửi `partyMemberId`.
      */
     post: operations['addGuestDocument'];
     delete?: never;
@@ -3860,7 +3862,12 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Đã nhận / xong / không thực hiện được (SM-15) – trạng thái phản ánh sang trang khách (US-109 AC2) */
+    /**
+     * Đã nhận / xong / không thực hiện được (SM-15) – trạng thái phản ánh sang trang khách (US-109 AC2)
+     * @description **0.3.7 bổ sung 4 (ARC 16.24, BE-D S4-07/08)**: `decline` nhận `new`/`acknowledged`, và **`in_progress` khi việc HK/phiếu liên kết đã `cancelled`** (SM-15 thêm cạnh
+     *     `in_progress → declined`); khác → 409 `INVALID_TRANSITION`. Yêu cầu có việc liên kết: phí BR-506 chỉ ghi khi **việc** `done` – `complete` của lễ tân không ghi phí; yêu cầu
+     *     không có việc liên kết mà có phí: `complete` ghi phí một lần. Thứ tự khóa theo 16.19 bổ sung 3 (`hk_task` → `guest_request`; ghi phí thì folio trước).
+     */
     post: operations['transitionGuestRequest'];
     delete?: never;
     options?: never;
@@ -5622,6 +5629,11 @@ export interface components {
       depositRequiredVnd?: components['schemas']['MoneyVnd'];
       nightlyRates?: components['schemas']['NightRate'][];
       totalRoomVnd?: components['schemas']['MoneyVnd'];
+      /**
+       * @description 0.3.7 bổ sung 4 (BUG-R2-101, ARC 18/10): = `Folio.totals.balanceDueVnd` – còn phải thu **trên các dòng đã ghi folio** (Σ dòng `posted` − đã thu ròng, tối thiểu 0); không phải
+       *     số dự kiến của đơn. **Vắng** khi folio của đơn chưa có dòng `posted` nào (đơn `hold` – dòng tiền phòng chỉ ghi khi xác nhận; đơn hủy/hết hạn trước khi xác nhận): Desk **không**
+       *     hiện "Còn phải thu" mà hiện "Cọc cần thu" = `depositRequiredVnd − depositPaidVnd` (khi > 0) và "Tiền phòng" `totalRoomVnd`. Có số (kể cả 0) = đã có dòng folio
+       */
       balanceDueVnd?: components['schemas']['MoneyVnd'];
       conflictState: components['schemas']['ConflictState'];
       registrationId?: components['schemas']['Uuid'];
@@ -5810,6 +5822,11 @@ export interface components {
        */
       guestEmail?: string;
       etaTime?: components['schemas']['LocalTime'];
+      /**
+       * @description 0.3.7 bổ sung 4 (S4-13, ARC 16.23 – hướng (B)): **không** nhận `attachmentId` – ảnh `deposit_receipt` cần `reservationId`, đơn chưa tồn tại lúc B2 → gửi kèm: 422 `NOT_ALLOWED`
+       *     (`field` = `initialPayment.attachmentId`). Bằng chứng chuyển khoản lúc tạo đơn: mã giao dịch ngân hàng trong `note` (BR-527 "ảnh **hoặc** mã giao dịch"). Cần ảnh: sau khi tạo
+       *     đơn – SAL/CTV dùng `createDepositNotice` (ảnh của đơn); FD+ ghi khoản bằng `recordPayment` kèm `attachmentId` thay cho `initialPayment`.
+       */
       initialPayment?: components['schemas']['PaymentCreate'];
       internalNote?: string;
       manualLongStay?: components['schemas']['ManualLongStayInput'];
@@ -6677,9 +6694,13 @@ export interface components {
         otherVnd?: components['schemas']['MoneyVnd'];
         focVnd?: components['schemas']['MoneyVnd'];
         totalVnd?: components['schemas']['MoneyVnd'];
+        /** @description Đã thu (giao dịch `succeeded` không phải dòng đảo, gồm cọc và `ota_collect`, không gồm `security_deposit`) – **không** trừ khoản hoàn (0.3.7 bổ sung 4, BUG-R2-102: Desk hiện "Đã thu" = số này, "Đã hoàn" = `refundedVnd`) */
         paidVnd?: components['schemas']['MoneyVnd'];
+        /** @description 0.3.7 bổ sung 4 (BUG-R2-102, ARC 18/10): tổng đã hoàn cho khách (giao dịch `type = refund` `succeeded`, không phải dòng đảo), số dương – cùng số server đã dùng để tính `balanceDueVnd`/`creditVnd`. Desk không tự cộng giao dịch hoàn */
+        refundedVnd?: components['schemas']['MoneyVnd'];
         paidViaOtaVnd?: components['schemas']['MoneyVnd'];
         depositHeldVnd?: components['schemas']['MoneyVnd'];
+        /** @description = max(0, tổng dòng `posted` sau phần OTA trả − (đã thu của khách sạn − đã hoàn)). Chỉ tính dòng **đã ghi**: folio chưa có dòng nào (đơn `hold`) → 0, Desk hiện "Chưa có khoản nào trên folio" thay vì "Còn phải thu 0" (0.3.7 bổ sung 4, BUG-R2-101; `Reservation.balanceDueVnd` vắng trong trường hợp này) */
         balanceDueVnd?: components['schemas']['MoneyVnd'];
         /** @description Đã thu (gồm `pending` đối soát) − tổng − đã hoàn, khi > 0; ngược lại 0. `balanceDueVnd` và `creditVnd` không cùng > 0 (0.3.6, A-34). 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): không gồm phần dư sinh từ `ota_collect` (xem `otaExcessVnd`) */
         creditVnd?: components['schemas']['MoneyVnd'];
@@ -7141,9 +7162,10 @@ export interface components {
       }[];
     };
     GuestDocumentInput: {
-      /** @description Bỏ trống → server khớp theo tên + ngày sinh hoặc tạo người mới quan hệ "Chưa rõ" (US-043 AC3) */
+      /** @description Bỏ trống → server khớp theo tên + ngày sinh hoặc tạo người mới quan hệ "Chưa rõ" (US-043 AC3). **0.3.7 bổ sung 4 (SEC FB-R2-SEC-BE-73, ARC 16.22)**: người của giấy tờ **không bao giờ** suy ra từ `isMain` – không có "giấy tờ chính = người đặt". Desk **luôn gửi** `partyMemberId` (chọn người đặt chỉ khi đúng là người đặt; người ở chưa có trong đơn → để server tạo). Vắng → khớp theo mô tả `addGuestDocument` (khóa giấy tờ của hồ sơ có P05; tên + ngày sinh của người **trong đơn**, kể cả người đặt) → không khớp → hồ sơ "từ giấy tờ" + người đi cùng `unknown`. Khóa giấy tờ (`id_doc_hmac`, `id_doc_last4`) chỉ ghi lên hồ sơ của đúng người đó, khi người đó có P05 */
       partyMemberId?: components['schemas']['Uuid'];
       docType: components['schemas']['DocType'];
+      /** @description 0.3.7 bổ sung 4 (SEC-BE-73): chỉ đánh dấu khách chính **của khai báo lưu trú** (người đứng tên trên cổng khai báo); không quyết định giấy tờ thuộc hồ sơ nào – đặt hộ thì khách chính có thể không phải người đặt */
       isMain?: boolean;
       fullNameOnDoc: string;
       docNumber: string;
@@ -7201,8 +7223,9 @@ export interface components {
       address?: string;
     };
     ConsentInput: {
+      /** @description 0.3.7 bổ sung 4 (SEC-BE-73, ARC 16.22): người quyết định. Desk **bắt buộc** gửi (thiếu → 422 `REQUIRED`); quyết định chỉ ghi lên hồ sơ của đúng người này – không bao giờ suy ra người đặt từ giấy tờ chính. Người chưa có hồ sơ (trẻ em dưới ngưỡng) → 422 `NOT_IN_LIST` */
       partyMemberId?: components['schemas']['Uuid'];
-      /** @description Dùng ở app khách */
+      /** @description Dùng ở app khách. 0.3.7 bổ sung 4 (SEC-BE-73): quyết định P05/P06/P07 theo `personIndex` chỉ áp lên hồ sơ **sau khi** giấy tờ của người đó được gắn vào người trong đơn (khớp theo `addGuestDocument` hoặc `GuestDocumentLink` của lễ tân); tới lúc đó lưu ở cấp khai báo, không ghi lên hồ sơ người đặt */
       personIndex?: number;
       /** @enum {string} */
       purpose: 'P02B_ID_IMAGE_RETENTION' | 'P05_CRM' | 'P06_MARKETING' | 'P07_REVIEW';
@@ -7252,11 +7275,12 @@ export interface components {
       /** @example Trống · cần dọn */
       statusLabel?: string;
       since: components['schemas']['Instant'];
-      /** @description Tên gọi + căn, chỉ trong phạm vi T với HK (rbac D01) */
+      /** @description Tên khách đang ở căn – **chỉ tên, không kèm số căn** (client ghép với `roomNo`, BR-614 "không lặp số căn trong cùng thẻ"; 0.3.7 bổ sung 4, ARC 18/10). Theo vai (BR-614, rbac D01): **HK** (trong phạm vi T) = **tên gọi** – khách VN chữ cuối của họ tên ("Phạm Gia Huy" → "Huy"), khách nước ngoài họ trên giấy tờ ("KIM MIN JUN" → "Kim"); **MT** không nhận trường này; **FD trở lên** = họ tên đầy đủ. Chưa có tên → vắng (màn hình chỉ hiện số căn) */
       currentGuest?: string;
       nextArrival?: {
         date?: components['schemas']['LocalDate'];
         etaTime?: components['schemas']['LocalTime'];
+        /** @description 0.3.7 bổ sung 4 (BR-614): **HK** = tên gọi (cùng quy tắc `currentGuest`), **MT** không nhận, **FD trở lên** = họ tên đầy đủ; chỉ tên, không kèm số căn; chưa có tên → vắng */
         guestDisplayName?: string;
       };
       /** @description "Lưu ý phục vụ" từ danh mục (rbac D12) */
@@ -16085,9 +16109,12 @@ export interface operations {
             | 'duplicate'
             | 'other';
           /**
-           * @description 0.3.6 (B-15). Lời nhắn **hiện cho khách ở mức 1** (ai có link cũng đọc được). Văn bản thuần; Luhn → `CARD_NUMBER_DETECTED`; chuỗi ≥ 6 chữ số liền nhau
-           *     (sau khi bỏ dấu cách/chấm/gạch) trừ hotline công khai của cơ sở → `SENSITIVE_DATA_DETECTED`. Không vào push/outbox; xóa theo T13 cùng `guest_request.note`.
-           *     Bắt buộc khi `declinedReasonCode=other`. FE nhắc "Không ghi mã cửa, số giấy tờ, số điện thoại".
+           * @description 0.3.6 (B-15). Lời nhắn **hiện cho khách ở mức 1** (ai có link cũng đọc được). Văn bản thuần; Luhn (trên văn bản gốc) → `CARD_NUMBER_DETECTED`; rồi luật B-15
+           *     **phương án V2** (SEC C.6, 0.3.7 bổ sung 4 – thay luật cũ): kiểm trên bản `NFKC`; thay bằng ký tự ngăn các token **ngày** `d{1,2}[./-]d{1,2}[./-]yyyy` (cùng một dấu, ngày hợp lệ,
+           *     năm trong ±1 năm của cơ sở) và **tiền VND** (chữ số đầu 1–9, nhóm nghìn cùng một dấu `.`/`,`/khoảng trắng hoặc viết liền, ≤ 10 chữ số, đơn vị ngay sau: `đ`, `₫`, `VND`, `VNĐ`,
+           *     `đồng`; trước token không dính chữ/số; từ 6 chữ số trở lên phải tận cùng `000`); bỏ dấu phân cách `[\s.,\-_+()]` và gạch Unicode (không bỏ `/`); còn `\p{Nd}{6,}` →
+           *     `SENSITIVE_DATA_DETECTED` (trừ hotline công khai). Không vào push/outbox; xóa theo T13 cùng `guest_request.note`. Bắt buộc khi `declinedReasonCode=other`.
+           *     FE nhắc "Không ghi mã cửa, số giấy tờ, số điện thoại. Ghi giá kèm đ/VND, ví dụ 350.000 đ" (SEC C.6). Ghi chú nội bộ (`hasLongDigitRun`) **không** có ngoại lệ ngày/tiền.
            */
           replyNote?: string;
         };

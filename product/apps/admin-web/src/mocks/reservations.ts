@@ -826,6 +826,9 @@ export function createReservationMock(ctx: Ctx) {
           status: r.status === 'hold' ? 'open' : 'handled',
           ...(has(roles, FD_PLUS) ? { note: n.note ?? null, createdByName: n.createdByName } : {}),
         }));
+    // ARC 16.20 (BUG-R2-101): a hold has no posted folio line yet (the room is posted on confirmation) – no
+    // `balanceDueVnd`; the desk shows the deposit still due and the room total instead.
+    if (r.status === 'hold') delete out.balanceDueVnd;
     if (roles.includes('collaborator') && !has(roles, FD_PLUS)) {
       delete out.nightlyRates;
       delete out.balanceDueVnd;
@@ -1117,7 +1120,7 @@ export function createReservationMock(ctx: Ctx) {
           etaTime: r.etaTime,
           holdExpiresAt: r.hold?.expiresAt,
           conflictState: r.conflictState,
-          balanceDueVnd: has(g.roles, FD_PLUS) ? r.balanceDueVnd : undefined,
+          balanceDueVnd: has(g.roles, FD_PLUS) && r.status !== 'hold' ? r.balanceDueVnd : undefined,
         }));
       return json({ data, page: { hasMore: false } });
     }),

@@ -199,7 +199,8 @@ export function ReportPage({ session, roomId }: { session: StaffSession; roomId?
         <div className="m-body hk-stack">
           {result.kind === 'sent' ? (
             <Alert tone="ok" title={t('hk.wo.sent_title', { code: result.wo.code })}>
-              {result.wo.severity === 'high' ? t('hk.wo.sent_body_high') : t('hk.wo.sent_body')}
+              {/* P-16: "sent to maintenance" – not "maintenance has seen it" (nobody has opened it yet). */}
+              {result.wo.severity === 'high' ? t('hk.wo.sent_body_high') : t('hk.wo.sent_to_mt')}
             </Alert>
           ) : (
             <Alert tone="warn" icon="hourglass" title={t('hk.wo.queued_title')}>
@@ -228,7 +229,8 @@ export function ReportPage({ session, roomId }: { session: StaffSession; roomId?
   const roomText = selected ? roomLabel(asRoom(selected), 'staff') : '';
   return (
     <>
-      <TopBar title={title} />
+      {/* P-31: the form's own offline note says what still works – no second, general banner above it. */}
+      <TopBar title={title} ownOfflineNote />
       <div className="m-body hk-stack">
         {!online ? (
           <Alert tone="warn">{block ? t('hk.need_network') : t('hk.wo.offline')}</Alert>

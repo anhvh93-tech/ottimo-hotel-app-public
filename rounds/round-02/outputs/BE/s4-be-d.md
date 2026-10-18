@@ -269,3 +269,151 @@ Phát bằng `EventsService.openAttention(tx, { kind: 'closed_reservation_credit
 - US-012 còn thiếu nguồn của vai khác: `work_order_high_open` (AC4) và `work_order_overdue`/`ooo_ending_work_open`/`room_status_mismatch` (BE-C, cần bảng `work_order`); `channel_sync_error` (AC7) cần J18 `outbox.dispatch` – **chưa có người làm** (ORC xếp sau, 17/10); `guest_request_overdue` – đã làm (mục 1.6).
 - J4 "báo đỏ" bằng thông báo đẩy (BR-425 12:00/12:31) không làm – S4-31 BE-D chỉ phần thẻ (trạng thái `overdue` + xếp đầu); hợp đồng chưa có loại thông báo "quá giờ trả phòng" (chỉ `checkout_call_needed`).
 - Hiệu năng: mỗi dòng danh sách gọi `FolioService.balance` (3 truy vấn) – với 10 căn ≈ 30–60 truy vấn/lần đọc, nằm trong p95 300 ms ở DS-E; R3 cần gộp nếu quy mô lớn.
+
+---
+
+## 7. Tuần Ổn định 18/10 – Phản hồi & sửa trước cổng QC Sprint 4 (ARC S4-07/08/09, A7-01 KPI, SEC BE-77)
+
+- Vai: BE-D | Bước: **Phản hồi & sửa** | Đầu vào: `reviews/s4-ARC.md` (FB-R2-ARC-BE-S4-07, -08, -09; -11 phần test), `outputs/ARC/openapi-0.3.7.md` 16.19 (+ bổ sung 3), 16.21; `business-rules.md` BR-506; `outputs/DATA/s4-a7-reconciliation.md`; `reviews/s4-SEC.md` C.6 + FB-R2-SEC-BE-77. **Không commit, không chạy codegen.** Chỉ sửa module `guest-portal` (tệp EP14) + test; một khai báo interface tùy chọn ở `housekeeping/public` (ORC cho phép).
+- DB riêng: `ottimo_test_bed_s4fix` (test của mục này), `ottimo_test_bed_s4full` (toàn bộ suite) – tạo bằng script có chặn tên `ottimo_test_bed_*` (scratchpad `bed-s4fix/newdb.sh`, env sinh từ env ORC bằng `sed`, không in giá trị).
+
+### 7.1 S4-07 (Major, chạm tiền) – không thu phí BR-506 cho việc chưa làm
+- **Quy tắc mới** (`guest-request-lifecycle.ts` đầu tệp):
+  - Yêu cầu **có việc HK / phiếu liên kết**: phí chỉ ghi folio khi **việc đó `done`** (`linkedDone`). `complete` của lễ tân **không bao giờ** ghi phí, dù việc còn `open` hay đã `cancelled`.
+  - Lễ tân đóng yêu cầu trước rồi HK mới dọn xong → phí vẫn ghi **một lần** lúc việc `done` (`linkedDone` nay ghi phí cả khi yêu cầu đã `done`, trừ khi `declined`).
+  - Yêu cầu **không có việc liên kết** (cổng chưa gắn, khách gửi lúc chưa có căn): `complete` ghi phí như cũ (ARC "giữ ghi phí ở complete chỉ khi không có việc liên kết").
+  - `decline` nhận thêm `in_progress` **khi việc liên kết đã `cancelled`**. Trạng thái việc đọc qua cổng `taskStatus` – BE-D đề xuất (khai `taskStatus?` tùy chọn ở `housekeeping/public/guest-request-work.port.ts`), **BE-C đã cài trong adapter** (cây làm việc 18/10, chưa commit). Cổng nào thiếu `taskStatus` thì yêu cầu đó chỉ `complete` được, **không phí** – an toàn tiền (có ca test riêng).
+  - Không thêm mã lỗi mới (không đổi hợp đồng): lễ tân `complete` sau khi HK xong → 409 `INVALID_TRANSITION` như cũ.
+- Ghi chú: hôm nay **không đường nào** hủy việc `guest_request` đang `in_progress` (hủy tay chỉ từ `open`; J8 `day_ended` và OOO bỏ qua loại `guest_request`). Ca (b) dựng trạng thái này bằng SQL để phủ đường tương lai (ARC nêu "khối OOO").
+
+### 7.2 S4-08 (Major) – thứ tự khóa theo 16.19 bổ sung 3
+| Lệnh | Trước | Sau |
+|---|---|---|
+| FD `decline` | `guest_request` → `hk_task` (ngược chiều HK → 40P01) | đọc không khóa → `cancelTask` (L4 `hk_task`) → `guest_request` (L4b) → kiểm lại trạng thái |
+| FD `complete`, có việc liên kết | `guest_request` → folio | chỉ `guest_request` (L4b) – không ghi phí nên không cần L3 |
+| FD/HK `complete`, không việc liên kết, có phí | `guest_request` → folio | folio (L3, `lockFeeFolio`) → `guest_request` (L4b) → ghi dòng |
+| HK xong việc có phí (BE-C) | `hk_task` → `guest_request` → folio | BE-C gọi `GuestRequestStatusPort.lockForFee` (**BE-D đã cài**) trước khi khóa việc → folio → `hk_task` → `guest_request` |
+- `lockForFee`: đọc yêu cầu **không khóa** (`fee_vnd_snapshot` bất biến; `fee_folio_line_id`, `declined` chỉ đi một chiều) → còn phí phải ghi thì `FolioService.lock` folio của đơn; không phí / đã ghi / đã từ chối / id lạ → không khóa gì.
+- Dòng yêu cầu chỉ **UPDATE một lần** mỗi giao dịch (trạng thái + `fee_folio_line_id` cùng câu; `postFee` đổi thành `postFeeLine` trả id dòng). Lý do: chạy bản cũ trên ca đua ép xen, log PostgreSQL cho thấy deadlock tại câu UPDATE lần hai của chính dòng đang có phiên khác chờ.
+- **Lệch nhỏ so với chữ của 16.19 bổ sung 3 (ARC xem):** `decline` **không** lấy folio. `decline` không ghi tiền, nên không cần L3. Nếu lấy folio trước `hk_task` thì còn deadlock với đường HK chưa gọi `lockForFee`. Thứ tự L3 → L4 → L4b vẫn giữ: lệnh nào lấy folio thì lấy trước.
+
+### 7.3 S4-09 (Major, phần tiền) – phí "dọn đầy đủ lần hai" đọc qua cổng
+- `GuestRequestsService.lastFullClean` gọi `GUEST_REQUEST_WORK_PORT.lastFullCleanAt(tx, {roomId, since, until, fullCleanRequestIds})`. Chữ ký này BE-C đã thêm trong cùng tuần (cây làm việc, chưa commit). BE-D truyền id các yêu cầu `extra_cleaning` của **chính đơn** trong căn đó. Housekeeping quyết theo loại việc (`FULL_CLEAN_TASK_TYPES` chuyển sang `housekeeping/public`). guest-portal không còn đọc `hk_task`.
+- Đơn dài hạn không gọi cổng nữa: đơn dài hạn luôn tính phí, không cần biết lần dọn trước.
+- `SELECT code FROM reservation` (mã đơn cho audit tiền) đổi sang `reservations/public/read-port.readStayInfo`.
+- Test ranh giới mới `test/guest-portal-boundaries.test.ts`:
+  - guest-portal không `FROM`/`JOIN` bảng `hk_task`, `reservation*`, `stay_night`, `folio*`, `payment`;
+  - không ghi bảng của module khác;
+  - mọi bảng đọc thẳng còn lại phải nằm trong danh sách. Còn `room` và `property`, để R3 Sprint 1 như ARC cho phép.
+- Viết riêng tệp, không sửa khối `module-boundaries.test.ts`, để tránh đụng BE-C đang sửa song song.
+
+### 7.4 A7-01 – ca KPI dùng đơn AC5a (ORC giao thêm, ARC 16.21)
+- `test/integration/kpi-ac5a-s4-bed.test.ts`: dựng bố cục DS-0 theo căn qua API thật:
+  - 301, 102 là đơn dài hạn nhập tay `manualLongStay`, đã nhận phòng;
+  - 101, 402 đang ở; 103, 302 đến 15/10; 202 đến 16/10;
+  - 401 OOO [15/10, 17/10).
+- Oracle: đêm 15/10 **6/9 = 66,7 %**, cả lúc 08:00 và 02:00 ngày 16/10 (BR-010); đêm 16/10 **7/9 = 77,8 %**. Thêm ca tiền đề: mỗi đơn AC5a có đêm `sold` 15/10 và 16/10 đúng căn.
+- **Công thức K-02/K-03 không đổi.**
+- Đã kiểm hai phía:
+  - trên **HEAD `7ac11a4`** (xuất `git archive`): ca **đỏ** đúng như DATA (4 căn, 44,4 %; không có đêm cho 301/102);
+  - trên **cây làm việc** (có bản sửa A7-01 chưa commit của BE-A): **xanh**.
+- Đầu tệp ghi rõ: "đỏ cho tới khi BE-A gộp; không sửa số kỳ vọng hay công thức".
+
+### 7.5 SEC FB-R2-SEC-BE-77 (Minor) – luật B-15 phương án V2 (C.6)
+- `hasSensitiveDigits(text, publicPhone, currentYear)` cài đúng C.6:
+  - Luhn trước, như cũ;
+  - kiểm trên chuỗi đã NFKC;
+  - thay bằng `|` các token **ngày** hợp lệ trong ±1 năm của năm cơ sở, và **tiền VND có đơn vị** (chữ số đầu 1–9, cùng một dấu nhóm, ≤ 10 chữ số, từ 6 chữ số phải tận cùng `000`);
+  - bỏ dấu phân cách `[\s.,\-_+()]` và gạch Unicode, giữ `/`;
+  - chặn `\p{Nd}{6,}`; ngoại lệ hotline giữ như cũ.
+- **Siết thêm** so với C.6 (chỉ chặn nhiều hơn): token tiền hoặc ngày không được là đuôi của một số nhóm dài hơn. Ví dụ `0912.345.000đ` vẫn bị chặn.
+- Năm cơ sở lấy từ ngày nghiệp vụ.
+- Có đủ ca bắt buộc của C.6: 13 ca không chặn, 22 ca chặn, 7 ca chặn nhầm SEC chấp nhận, cộng ca cửa sổ năm (`be-d-s4-units`). Thêm ca HTTP (từ chối/hoàn tất có `replyNote`).
+- **Chưa làm phần `hasLongDigitRun`** (`registration/internal/rules.ts:550`: thêm `,` + NFKC). Tệp này thuộc module registration của BE-C, ORC dặn chỉ sửa module của mình. Cần ORC giao BE-C, hoặc cho phép BE-D sửa 2 dòng.
+- Đồng bộ cùng PR theo C.6 (việc của vai khác):
+  - FE-B: mock `admin-web/src/mocks/ops.ts:557-566`;
+  - ARC: mô tả `openapi.yaml:281, :7538` và api-client;
+  - BA: EP14 4.4 và E14-11;
+  - UXD: câu nhắc "Ghi giá kèm đ/VND, ví dụ 350.000 đ".
+
+### 7.5b SEC bổ sung 18/10 (C.6, s6/s7) – ORC giao
+- **(s6) Giữ nguyên.** Đuôi của số nhóm dài hơn không được coi là tiền hay ngày, nên `0912.345.000đ` vẫn bị chặn.
+- **(s7) Đã nới hẹp.** Sau bước thay token, dấu phẩy hoặc chấm phẩy **có khoảng trắng phía sau** (`/[,;]\s+/gu`) được thay bằng `|`, tức ranh giới danh sách.
+  - Không chặn: `Phòng 202, 203, 204`, `Phòng 202; 203`.
+  - Vẫn chặn: `Phòng 202,203,204`, `Phòng 202 203 204`, `Mã cửa 482,913`.
+- **Phạm vi:** B-15 chỉ áp cho `replyNote` của nhân viên. Ca HTTP xác nhận ghi chú khách tự gõ có chuỗi số dài vẫn nhận (201), vì chỉ kiểm Luhn.
+- `hasLongDigitRun` **không** nới (BE-C làm phần `,` và NFKC).
+- Test: 5 ca SEC trong `be-d-s4-units`, cộng ca HTTP ở `guest-requests-s4-fix-bed`. 56/56 xanh; `tsc`, eslint sạch.
+
+### 7.6 Test
+- `test/integration/guest-requests-s4-fix-bed.test.ts` (13 ca, mới). Dùng **cổng BE-C thật** (`GuestRequestWorkAdapter` → `HousekeepingService`) và `GuestRequestStatusPort` thật; ứng với ARC S4-11 cho thẻ 07/08.
+  - S4-09: dọn gấp chuẩn bị căn và việc khăn tắm (`amenities`) không tính; việc "Dọn thêm" HK làm xong lúc 10:00 thì tính → lần dọn sau 100.000, mốc `10:00`.
+  - S4-07:
+    - (a) lễ tân hủy việc → `complete` không phí;
+    - `complete` khi việc còn `open` → không phí, việc bị hủy sau đó → vẫn không;
+    - lễ tân đóng trước, HK dọn xong sau → đúng 1 dòng;
+    - (c) HK xong → 1 dòng, lễ tân `complete` → 409, vẫn 1 dòng;
+    - (b) `in_progress` + việc đã hủy: có `taskStatus` → `decline` 200; không có → 409 và `complete` không phí; việc đang làm thật → `decline` 409;
+    - yêu cầu không có việc liên kết → `complete` ghi 1 dòng, `complete` lần hai 409.
+  - S4-08, ba cặp, mỗi cặp **2 đối chứng tuần tự + 2 lượt ép xen** (một phiên giữ dòng yêu cầu; lệnh thứ nhất xếp hàng trên dòng đó, lệnh thứ hai xếp sau lệnh thứ nhất; kiểm `pg_blocking_pids` = [1, 2], không lệnh nào trả lời khi còn bị giữ):
+    - `decline ‖ HK complete` (có phí);
+    - `decline ‖ HK start`;
+    - `FD complete ‖ HK complete` (có phí).
+    - Oracle: mã trả lời giống hệt chạy tuần tự, trạng thái yêu cầu/việc, số dòng `adhoc_cleaning` (mỗi yêu cầu đúng 1 dòng 100.000 khi việc xong, 0 khi bị từ chối/hủy). Không có `409 CONCURRENT_UPDATE` (40P01 / lock timeout).
+  - `lockForFee`: khóa folio khi còn phí (phiên khác `FOR UPDATE NOWAIT` → 55P03). Không khóa khi yêu cầu miễn phí, đã ghi phí, đã từ chối, hoặc id lạ.
+  - BE-77 qua HTTP: `replyNote` có ngày sinh / mã cửa kèm `đ` / SĐT / chữ số toàn khổ → 422 `SENSITIVE_DATA_DETECTED`; giá kèm đơn vị và ngày gần → 200, khách đọc được.
+- **Bằng chứng ca test bắt được lỗi cũ.** Cùng tệp test chạy trên bản sao cây làm việc, thay 5 tệp guest-portal bằng HEAD: **8/12 ca đỏ**, gồm:
+  - ép xen `decline ‖ HK start` và `FD complete ‖ HK complete` → `409 CONCURRENT_UPDATE`; log PostgreSQL ghi `deadlock detected` (`guest_request FOR UPDATE` ↔ `hk_task FOR UPDATE`);
+  - các ca tiền S4-07 → ghi phí khi việc đã hủy hoặc còn `open`.
+- `test/integration/kpi-ac5a-s4-bed.test.ts` (3), `test/guest-portal-boundaries.test.ts` (3).
+- Sửa test:
+  - `be-d-s4-units` (B-15 V2; BR-506-03 đọc `FULL_CLEAN_TASK_TYPES` từ housekeeping);
+  - `guest-requests-s4-bed` (cổng giả chuyển `lastFullCleanAt` sang adapter thật).
+- Chạy lặp 3 lần nhóm test EP14: xanh cả 3.
+- `tsc --noEmit` sạch; eslint và prettier sạch trên các tệp của mục 7.
+- **Toàn bộ suite api** trên DB mới `ottimo_test_bed_s4full` (cây làm việc 18/10 ~09:40): 97 tệp, **2880 đạt / 11 đỏ / 2 bỏ qua**.
+  - 11 ca đỏ nằm ở 4 tệp, **không thuộc EP14**: `schema-parity` (CHECK `guest_id_doc_last4_consent_check`, `guest_document_booker_uk` thiếu trong SQL), `guest-document-profiles`, `registration-flow`, `registration-party-removal`.
+  - Nguyên nhân: cùng lúc đó migration `0070_be73_guest_doc_person.sql` chưa xong (BE-73, nhóm D) và module registration đang được sửa song song. Mọi tệp của BE-D đều xanh.
+
+### 7.7 Giả định cần DOM / ARC xác nhận
+- **(s1) DOM – BR-506:** phí theo **việc HK đã làm**, không theo lúc lễ tân đóng yêu cầu.
+  - Lễ tân đóng yêu cầu khi việc còn `open`, sau đó HK dọn xong → vẫn thu (khách đã đồng ý phí).
+  - Việc bị hủy → không thu, dù yêu cầu đóng bằng `complete` hay `decline`.
+  - BR-506 chỉ ghi "ghi folio tự động khi việc `done`", chưa nói tới hai trường hợp này.
+- **(s2) DOM:** yêu cầu có phí **không có việc liên kết** (cổng chưa gắn / gửi lúc chưa có căn) thì thu lúc lễ tân/HK bấm `complete`. Đây là cách cũ, ARC đã đồng ý giữ.
+- **(s3) ARC:** `decline` không lấy folio (lệch chữ 16.19 bổ sung 3, lý do ở 7.2). `complete` có việc liên kết chỉ lấy L4b.
+- **(s4) ARC/BE-C:** chữ ký đề xuất `taskStatus?(tx, hkTaskId): Promise<string | null>` trên `GuestRequestWorkPort` (BE-C cài trong adapter; gọi sau `cancelTask`, khi việc đang bị giữ khóa). Khi có, `decline` từ `in_progress` nhận trong trường hợp việc đã hủy.
+- **(s5) ARC/BA:** SM-15 và EP14 4.4 thêm cạnh `in_progress → declined` khi việc liên kết đã hủy (ARC đề xuất trong thẻ 07).
+- **(s6), (s7) SEC:** đã chốt và đã cài – xem 7.5b.
+
+### 7.8 Việc cho vai khác
+- **BE-C:**
+  - `taskStatus` trong `GuestRequestWorkAdapter` và việc bỏ lớp `FeeLockingStatusPort` trong `housekeeping-s4-arc.test.ts`: **BE-C đã làm** trên cây làm việc (kiểm 09:45; `housekeeping-s4-arc` xanh cùng mã BE-D);
+  - `hasLongDigitRun` (BE-77 phần registration), nếu ORC giao.
+- **FE-B / ARC / BA / UXD:** đồng bộ B-15 V2 như 7.5.
+- **QA:** chạy lại A7 sau khi BE-A gộp. Ca đua EP14 có trong `guest-requests-s4-fix-bed`.
+
+### 7.9 Phản hồi thẻ
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R2-ARC-BE-S4-07 | Done | 7.1; giả định s1, s2 chờ DOM; `decline` từ `in_progress` dùng `taskStatus` – BE-C đã cài (cây làm việc), ARC xác nhận chữ ký (s4) |
+| FB-R2-ARC-BE-S4-08 | Done (phần BE-D) | 7.2; `lockForFee` đã cài, BE-C đã gọi (cây làm việc); lệch s3 chờ ARC |
+| FB-R2-ARC-BE-S4-09 | Done (phần tiền) | 7.3; `room`/`property` đọc thẳng dời R3 Sprint 1 như ARC cho phép |
+| FB-R2-ARC-BE-S4-11 | Done một phần | Thẻ 07/08 chạy trên adapter thật; tệp cũ giữ cổng giả cho ca "cổng chưa gắn" |
+| FB-R2-SEC-BE-77 | Done (phần `replyNote`) | 7.5; `hasLongDigitRun` chờ ORC giao (module BE-C) |
+| A7-01 (DATA) – phần BE-D | Done | 7.4; ca đỏ ở HEAD, xanh khi có bản sửa BE-A |
+
+### 7.10 Tệp tạo / sửa (mục 7)
+- Sửa:
+  - `services/api/src/modules/guest-portal/internal/guest-requests.service.ts`
+  - `services/api/src/modules/guest-portal/internal/guest-request-lifecycle.ts`
+  - `services/api/src/modules/guest-portal/internal/guest-request-rules.ts`
+  - `services/api/src/modules/guest-portal/public/guest-request-ports.ts`
+  - `services/api/src/modules/guest-portal/public/guest-request-status.port.ts`
+  - `services/api/src/modules/housekeeping/public/guest-request-work.port.ts` (chỉ thêm `taskStatus?`)
+  - `services/api/test/be-d-s4-units.test.ts`
+  - `services/api/test/integration/guest-requests-s4-bed.test.ts`
+- Tạo:
+  - `services/api/test/integration/guest-requests-s4-fix-bed.test.ts`
+  - `services/api/test/integration/kpi-ac5a-s4-bed.test.ts`
+  - `services/api/test/guest-portal-boundaries.test.ts`

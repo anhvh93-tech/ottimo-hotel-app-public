@@ -25,6 +25,7 @@ import {
   smallint,
   text,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { auditColumns, bytea, instant } from './common';
@@ -169,6 +170,11 @@ export const guestDocument = pgTable(
     partyMemberId: uuid('party_member_id'),
     /** guest-web person number (1…requiredPeople) of an uploaded document (US-107). */
     personIndex: smallint('person_index'),
+    /**
+     * 0070 (SEC FB-R2-SEC-BE-73, ARC 16.22): the BOOKER's profile when the document is the booker's – the booker is a
+     * party person (`party[]` id = the booking id) without a reservation_guest row. Never inferred from `is_main`;
+     * exclusive with `party_member_id`; one per declaration.
+     */
     guestId: uuid('guest_id'),
     docType: text('doc_type').notNull(),
     isMain: boolean('is_main').notNull().default(false),
@@ -250,6 +256,10 @@ export const guestDocument = pgTable(
       'guest_document_person_index_check',
       sql`${t.personIndex} IS NULL OR ${t.personIndex} >= 1`,
     ),
+    check('guest_document_person_check', sql`${t.guestId} IS NULL OR ${t.partyMemberId} IS NULL`),
+    uniqueIndex('guest_document_booker_uk')
+      .on(t.registrationId)
+      .where(sql`${t.guestId} IS NOT NULL AND ${t.removedAt} IS NULL`),
     index('guest_document_registration_idx').on(t.registrationId),
     index('guest_document_visa_alert_idx')
       .on(t.propertyId, t.visaAlertOn)

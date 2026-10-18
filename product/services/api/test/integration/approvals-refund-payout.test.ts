@@ -417,5 +417,12 @@ describe.skipIf(!HAS_DB)('approvals – refund pay-out queue for the desk (UXR #
     ).rows;
     // fully paid out = "refunded" (refunded_vnd = amount; the row stays approved – SM-10)
     expect(row).toMatchObject({ status: 'approved', refunded_vnd: deposit });
+    // ARC 16.20 (BUG-R2-102): Folio.totals.refundedVnd = what was refunded; paidVnd keeps "received" (not net).
+    expect((await folioOf()).totals).toMatchObject({
+      paidVnd: deposit,
+      refundedVnd: deposit,
+      creditVnd: 0,
+    });
+    expect(before).toMatchObject({ paidVnd: deposit, refundedVnd: 0 });
   });
 });

@@ -55,7 +55,7 @@ export function PhotoPicker({
             <span className="tag">{t('hk.photo_n', { n: i + 1 })}</span>
             <button
               type="button"
-              className="icon-btn photo-x"
+              className="btn icon-btn photo-x"
               aria-label={t('hk.photo_remove', { n: i + 1 })}
               onClick={() => onChange(photos.filter((__, j) => j !== i))}
             >

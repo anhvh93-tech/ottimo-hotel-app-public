@@ -544,11 +544,12 @@ export function docNumberCandidates(note: string, last4s: ReadonlySet<string>): 
 
 /**
  * B-15 rule applied to staff notes that may be shown widely (check notes, portal rejection reason – SEC
- * BE-48): six or more digits in a row once spaces, dots and dashes are removed → SENSITIVE_DATA_DETECTED
- * (document numbers, door codes, phone numbers never belong in a note).
+ * BE-48): six or more digits in a row once spaces, dots, commas and dashes are removed → SENSITIVE_DATA_DETECTED
+ * (document numbers, door codes, phone numbers never belong in a note). SEC C.6 / FB-R2-SEC-BE-77: checked on the
+ * NFKC form (full-width digits ０-９ count – the note itself is stored as typed); no money / date exception here.
  */
 export function hasLongDigitRun(text: string): boolean {
-  return /\d{6,}/.test(text.replace(/[\s.-]+/g, ''));
+  return /\d{6,}/.test(text.normalize('NFKC').replace(/[\s.,-]+/g, ''));
 }
 
 /** BR-605 visa reminder: validUntil − visa_expiry_warning_days.<stay type>. */

@@ -49,7 +49,7 @@ import {
 import { settle } from '../ui/axe.js';
 import { desk, openCheckOut, pwaCleanInspect } from '../ui/flows.js';
 import { UI, t } from '../ui/helpers.js';
-import { dialogs, recordWrites, vnd, waitWrite } from '../ui/write-steps.js';
+import { pickDocPerson, dialogs, recordWrites, vnd, waitWrite } from '../ui/write-steps.js';
 
 type Json = Record<string, unknown>;
 const num = (x: unknown) => x as number;
@@ -214,6 +214,7 @@ test.describe(
         .first()
         .click();
       const man = fd2.getByRole('dialog', { name: t('ci.manual_title') });
+      await pickDocPerson(man, 'booker');
       await man.getByLabel(t('checkin.docs.field.doc_no')).fill(docNo);
       await man.getByLabel(t('checkin.docs.field.full_name')).fill(guest.fullName.toUpperCase());
       await man.getByLabel(t('checkin.docs.field.dob')).fill('1991-05-20');

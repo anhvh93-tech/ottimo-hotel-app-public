@@ -278,7 +278,7 @@ info:
     | RETURN_CODE_INVALID | Mã khách quay lại không hợp lệ/hết hạn (BR-111) (0.3.5) | `calculateQuote`, `saveQuote` |
     | REFUND_EXCEEDS_APPROVED | Số hoàn > số duyệt còn lại của yêu cầu, hoặc > đã thu − đã hoàn của folio (server tính – F8) – 0.3.6 A-33 | `executeRefund` |
     | OVERPAYMENT_HANDLING_REQUIRED | Folio trả thừa (`creditVnd > 0`) mà thiếu `overpaymentHandling` – 0.3.6 A-34 | `checkOut` |
-    | SENSITIVE_DATA_DETECTED | Chuỗi ≥ 6 chữ số liền nhau (sau khi bỏ dấu cách/chấm/gạch), trừ số hotline công khai của cơ sở – chặn mã cửa, số giấy tờ, SĐT khách trong văn bản hiện ở mức 1 (SEC B-15) – 0.3.6 | `transitionGuestRequest.replyNote` |
+    | SENSITIVE_DATA_DETECTED | Chuỗi ≥ 6 chữ số liền nhau (sau khi bỏ dấu cách/chấm/gạch), trừ số hotline công khai của cơ sở – chặn mã cửa, số giấy tờ, SĐT khách trong văn bản hiện ở mức 1 (SEC B-15) – 0.3.6. **0.3.7 bổ sung 4 (SEC C.6 phương án V2, chỉ `replyNote`)**: kiểm trên bản NFKC; ngày `d/m/yyyy` (`.`/`-`/`/`, ngày hợp lệ, năm ±1) và tiền VND có đơn vị ngay sau (`đ`, `₫`, `VND`, `VNĐ`, `đồng`; chữ số đầu 1–9, từ 6 chữ số phải tận cùng `000`) được bỏ qua; dấu phân cách gồm cả `,`, `_`, `+`, `()` và gạch Unicode (không gồm `/`) | `transitionGuestRequest.replyNote` |
     | FEE_NOT_ACCEPTED | Loại yêu cầu có phí (`feeVnd > 0`) mà `feeAccepted` ≠ `true` (B-16) – 0.3.6 | `createGuestRequest` |
     | REQUEST_TYPE_NOT_AVAILABLE | Loại yêu cầu không dùng được lúc này (`available=false` ở `listGuestRequestOptions`; loại có phí khi đơn chưa `in_house`; đã có 3 yêu cầu có phí đang mở) (B-14/B-16) – 0.3.6 | `createGuestRequest` |
     | PERFORMED_AT_OUT_OF_RANGE | `performedAt` ngoài [giờ server − 24 giờ, giờ server + 5 phút] (SR-PWA-05) hoặc trước mốc `since` của trạng thái hiện tại – lệnh từ hàng đợi offline quá cũ; PWA đưa mục vào "Không áp dụng được" (0.3.7, B-02/BA E07-02) | `transitionRoomStatus`, `transitionHkTask`, `recordInspection`, `recordMinibarCheck` |
@@ -381,7 +381,7 @@ info:
     `MinibarCheckInput.roomId`, `getMinibarStandard?roomId=`, `CheckoutSummary.minibarUncheckedRooms` (tùy chọn); BUG-R2-139 đêm thêm chỉ tính khi còn trống; BUG-R2-134 giá thỏa thuận sau B14.
     Khớp DOM chốt 18/10 (BR v0.3.8 bổ sung): mốc tủ = mức lúc nhận phòng (BR-702-02); số folio sửa có lý do thắng lần đếm cũ → `MinibarStandard.items[]` thêm `folioLineId`, `folioUsedQty`,
     `folioAmountVnd`, `lastCheckUsedQty`, `adjustedAfterLastCheck`; BR-416-06 → `CheckoutSummary.lateFeeAsNightVnd`, `checkOut.lateFeeInsteadOfNight` (quản lý xác nhận tại quầy),
-    `createVietQr.lateFeeAsNight`, `lateFeeInsteadOfNight.requestFoc`, kỳ nạp minibar + quay lại tủ đã đếm (BUG-R2-144; `minibarUncheckedRooms[].reason`, `FolioLine.chargeCode`), HK đếm tủ căn cũ (BUG-R2-152), idempotency trước xác nhận lại (BUG-R2-150), `periodId` + 409 `MINIBAR_PERIOD_CHANGED`; vòng sửa 5: giá đêm thêm trỏ BR-417 phụ lục 5A (AN-xx), nguồn đêm theo thao tác (`priorNightRateVnd`/`extraNight.rateVnd` tùy chọn, `NightRate.edited`), `extraNightFloorVnd`/`CeilingVnd`, khuôn body B18; vòng sửa 5b (ARC 16.19 sau #12 `3bd4ac4`): thứ tự khóa toàn hệ thống, `MinibarStandard.roomId`, `MinibarCheckInput.roomId`/`periodId` bắt buộc, 409/422 K11-03, `reason` `not_today` (K11-09), `addFolioLine` 409 đơn đã đóng (K11-06) (FocRequestInput, người xác nhận tự áp); SEC ARC-24: `checkOut` khai 401/403/429, `approveRequest`/`rejectRequest` khai 429; xác nhận QR vượt bắt buộc `note` (422 `REASON_REQUIRED`) + `Payment.qrPurpose`, `Payment.amountDueNowVnd`; `currentBookingRateVnd` sau OTTIMO đổi căn = min. `changeRoom.expectedDeltaVnd` đã gửi thì phải khớp kể cả chênh 0 (DOM MOVE-06, BR-424-07).
+    `createVietQr.lateFeeAsNight`, `lateFeeInsteadOfNight.requestFoc`, kỳ nạp minibar + quay lại tủ đã đếm (BUG-R2-144; `minibarUncheckedRooms[].reason`, `FolioLine.chargeCode`), HK đếm tủ căn cũ (BUG-R2-152), idempotency trước xác nhận lại (BUG-R2-150), `periodId` + 409 `MINIBAR_PERIOD_CHANGED`; vòng sửa 5: giá đêm thêm trỏ BR-417 phụ lục 5A (AN-xx), nguồn đêm theo thao tác (`priorNightRateVnd`/`extraNight.rateVnd` tùy chọn, `NightRate.edited`), `extraNightFloorVnd`/`CeilingVnd`, khuôn body B18; vòng sửa 5b (ARC 16.19 sau #12 `3bd4ac4`): thứ tự khóa toàn hệ thống, `MinibarStandard.roomId`, `MinibarCheckInput.roomId`/`periodId` bắt buộc, 409/422 K11-03, `reason` `not_today` (K11-09), `addFolioLine` 409 đơn đã đóng (K11-06); BUG-R2-101 nghĩa `balanceDueVnd` trước khi có dòng folio, BUG-R2-102 `Folio.totals.refundedVnd`; SEC-BE-73 giấy tờ chính không suy ra người đặt, `ConsentInput.partyMemberId` bắt buộc ở Desk; S4-13 B2 `initialPayment.attachmentId` → 422 `NOT_ALLOWED`; B-15 phương án V2 (`replyNote`), `transitionGuestRequest` `in_progress → declined` khi việc liên kết đã hủy (FocRequestInput, người xác nhận tự áp); SEC ARC-24: `checkOut` khai 401/403/429, `approveRequest`/`rejectRequest` khai 429; xác nhận QR vượt bắt buộc `note` (422 `REASON_REQUIRED`) + `Payment.qrPurpose`, `Payment.amountDueNowVnd`; `currentBookingRateVnd` sau OTTIMO đổi căn = min. `changeRoom.expectedDeltaVnd` đã gửi thì phải khớp kể cả chênh 0 (DOM MOVE-06, BR-424-07).
 
     ## Thay đổi phiên bản 0.3.6-draft (R2 Sprint 3 – nhận/lưu trú/trả phòng, folio, thu tiền, giấy tờ, guest-web; chi tiết `rounds/round-02/outputs/ARC/s3-contract.md`)
     **Thêm operation**: `getAttachment` (B-01, SEC I1–I5), `setRefundDestination`, `getRefundDestination`, `executeRefund` (A-33, SEC F8, rbac A43/A47),
@@ -6059,6 +6059,8 @@ paths:
         (`Guest.source = document`, chỉ tên trên giấy tờ + quốc tịch) qua cổng `guests/public` và thêm người đi cùng quan hệ `unknown` – vượt số khách vẫn gắn + cảnh báo. **Không** tự gắn
         hồ sơ ngoài đơn theo tên + ngày sinh (chỉ theo khóa giấy tờ `id_doc_hmac` của hồ sơ đã có P05); khớp tên + ngày sinh → `GuestDocumentMasked.possibleReturningGuest = true` để lễ tân
         xác nhận. Trẻ em không có hồ sơ. Vì vậy giấy tờ lễ tân nhập **luôn** có `partyMemberId`.
+        **0.3.7 bổ sung 4 (SEC FB-R2-SEC-BE-73, ARC 16.22)**: `isMain` **không** suy ra người đặt – giấy tờ chính không có `partyMemberId` đi đúng đường khớp ở trên (đặt hộ: người ở thật thành
+        người đi cùng `unknown`/hồ sơ "từ giấy tờ"). Khóa giấy tờ và P05 chỉ ghi lên hồ sơ của **chính người trên giấy tờ** (s3-SEC 7.3/F03). Desk luôn gửi `partyMemberId`.
       x-roles: [owner, manager, front_desk_lead, front_desk]
       x-rbac: [A70]
       x-classification: C3
@@ -7512,6 +7514,10 @@ paths:
       tags: [guest-requests]
       operationId: transitionGuestRequest
       summary: Đã nhận / xong / không thực hiện được (SM-15) – trạng thái phản ánh sang trang khách (US-109 AC2)
+      description: |
+        **0.3.7 bổ sung 4 (ARC 16.24, BE-D S4-07/08)**: `decline` nhận `new`/`acknowledged`, và **`in_progress` khi việc HK/phiếu liên kết đã `cancelled`** (SM-15 thêm cạnh
+        `in_progress → declined`); khác → 409 `INVALID_TRANSITION`. Yêu cầu có việc liên kết: phí BR-506 chỉ ghi khi **việc** `done` – `complete` của lễ tân không ghi phí; yêu cầu
+        không có việc liên kết mà có phí: `complete` ghi phí một lần. Thứ tự khóa theo 16.19 bổ sung 3 (`hk_task` → `guest_request`; ghi phí thì folio trước).
       x-roles: [owner, manager, front_desk_lead, front_desk, housekeeping, maintenance]
       x-scope: { housekeeping: routed_to_me, maintenance: routed_to_me }
       x-stories: [US-109, US-110]
@@ -7534,9 +7540,12 @@ paths:
                   x-rbac-field: D23
                   x-sec-review: approved-DK2 (SEC 16/10/2026)
                   description: |
-                    0.3.6 (B-15). Lời nhắn **hiện cho khách ở mức 1** (ai có link cũng đọc được). Văn bản thuần; Luhn → `CARD_NUMBER_DETECTED`; chuỗi ≥ 6 chữ số liền nhau
-                    (sau khi bỏ dấu cách/chấm/gạch) trừ hotline công khai của cơ sở → `SENSITIVE_DATA_DETECTED`. Không vào push/outbox; xóa theo T13 cùng `guest_request.note`.
-                    Bắt buộc khi `declinedReasonCode=other`. FE nhắc "Không ghi mã cửa, số giấy tờ, số điện thoại".
+                    0.3.6 (B-15). Lời nhắn **hiện cho khách ở mức 1** (ai có link cũng đọc được). Văn bản thuần; Luhn (trên văn bản gốc) → `CARD_NUMBER_DETECTED`; rồi luật B-15
+                    **phương án V2** (SEC C.6, 0.3.7 bổ sung 4 – thay luật cũ): kiểm trên bản `NFKC`; thay bằng ký tự ngăn các token **ngày** `d{1,2}[./-]d{1,2}[./-]yyyy` (cùng một dấu, ngày hợp lệ,
+                    năm trong ±1 năm của cơ sở) và **tiền VND** (chữ số đầu 1–9, nhóm nghìn cùng một dấu `.`/`,`/khoảng trắng hoặc viết liền, ≤ 10 chữ số, đơn vị ngay sau: `đ`, `₫`, `VND`, `VNĐ`,
+                    `đồng`; trước token không dính chữ/số; từ 6 chữ số trở lên phải tận cùng `000`); bỏ dấu phân cách `[\s.,\-_+()]` và gạch Unicode (không bỏ `/`); còn `\p{Nd}{6,}` →
+                    `SENSITIVE_DATA_DETECTED` (trừ hotline công khai). Không vào push/outbox; xóa theo T13 cùng `guest_request.note`. Bắt buộc khi `declinedReasonCode=other`.
+                    FE nhắc "Không ghi mã cửa, số giấy tờ, số điện thoại. Ghi giá kèm đ/VND, ví dụ 350.000 đ" (SEC C.6). Ghi chú nội bộ (`hasLongDigitRun`) **không** có ngoại lệ ngày/tiền.
       responses:
         '200':
           description: OK
@@ -9977,6 +9986,10 @@ components:
         balanceDueVnd:
           $ref: '#/components/schemas/MoneyVnd'
           x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff]
+          description: |
+            0.3.7 bổ sung 4 (BUG-R2-101, ARC 18/10): = `Folio.totals.balanceDueVnd` – còn phải thu **trên các dòng đã ghi folio** (Σ dòng `posted` − đã thu ròng, tối thiểu 0); không phải
+            số dự kiến của đơn. **Vắng** khi folio của đơn chưa có dòng `posted` nào (đơn `hold` – dòng tiền phòng chỉ ghi khi xác nhận; đơn hủy/hết hạn trước khi xác nhận): Desk **không**
+            hiện "Còn phải thu" mà hiện "Cọc cần thu" = `depositRequiredVnd − depositPaidVnd` (khi > 0) và "Tiền phòng" `totalRoomVnd`. Có số (kể cả 0) = đã có dòng folio
         conflictState: { $ref: '#/components/schemas/ConflictState' }
         registrationId: { $ref: '#/components/schemas/Uuid' }
         registrationStatus: { $ref: '#/components/schemas/RegistrationStatus' }
@@ -10187,7 +10200,12 @@ components:
           format: email
           description: '`booker.email` – ô email **không bắt buộc** ở form đặt phòng mới (phân xử ORC 15/10, SR-GST-14) để gửi OTP mức 2; lưu vào hồ sơ khách người đứng tên. Trống → UI nhãn "Đơn chưa có email – khách cần mã xác minh từ lễ tân"'
         etaTime: { $ref: '#/components/schemas/LocalTime' }
-        initialPayment: { $ref: '#/components/schemas/PaymentCreate' }
+        initialPayment:
+          $ref: '#/components/schemas/PaymentCreate'
+          description: |
+            0.3.7 bổ sung 4 (S4-13, ARC 16.23 – hướng (B)): **không** nhận `attachmentId` – ảnh `deposit_receipt` cần `reservationId`, đơn chưa tồn tại lúc B2 → gửi kèm: 422 `NOT_ALLOWED`
+            (`field` = `initialPayment.attachmentId`). Bằng chứng chuyển khoản lúc tạo đơn: mã giao dịch ngân hàng trong `note` (BR-527 "ảnh **hoặc** mã giao dịch"). Cần ảnh: sau khi tạo
+            đơn – SAL/CTV dùng `createDepositNotice` (ảnh của đơn); FD+ ghi khoản bằng `recordPayment` kèm `attachmentId` thay cho `initialPayment`.
         internalNote: { type: string, maxLength: 1000, x-rbac-field: D12c }
         manualLongStay: { $ref: '#/components/schemas/ManualLongStayInput' }
     ManualLongStayInput:
@@ -11091,10 +11109,11 @@ components:
             otherVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff] }
             focVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff] }
             totalVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff] }
-            paidVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff] }
+            paidVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff], description: 'Đã thu (giao dịch `succeeded` không phải dòng đảo, gồm cọc và `ota_collect`, không gồm `security_deposit`) – **không** trừ khoản hoàn (0.3.7 bổ sung 4, BUG-R2-102: Desk hiện "Đã thu" = số này, "Đã hoàn" = `refundedVnd`)' }
+            refundedVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff], description: '0.3.7 bổ sung 4 (BUG-R2-102, ARC 18/10): tổng đã hoàn cho khách (giao dịch `type = refund` `succeeded`, không phải dòng đảo), số dương – cùng số server đã dùng để tính `balanceDueVnd`/`creditVnd`. Desk không tự cộng giao dịch hoàn' }
             paidViaOtaVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff] }
             depositHeldVnd: { $ref: '#/components/schemas/MoneyVnd' }
-            balanceDueVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff] }
+            balanceDueVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk, sales_staff], description: '= max(0, tổng dòng `posted` sau phần OTA trả − (đã thu của khách sạn − đã hoàn)). Chỉ tính dòng **đã ghi**: folio chưa có dòng nào (đơn `hold`) → 0, Desk hiện "Chưa có khoản nào trên folio" thay vì "Còn phải thu 0" (0.3.7 bổ sung 4, BUG-R2-101; `Reservation.balanceDueVnd` vắng trong trường hợp này)' }
             creditVnd:
               $ref: '#/components/schemas/MoneyVnd'
               x-visible-to: [owner, manager, front_desk_lead, front_desk]
@@ -11567,9 +11586,9 @@ components:
       type: object
       required: [docType, fullNameOnDoc, docNumber]
       properties:
-        partyMemberId: { $ref: '#/components/schemas/Uuid', description: 'Bỏ trống → server khớp theo tên + ngày sinh hoặc tạo người mới quan hệ "Chưa rõ" (US-043 AC3)' }
+        partyMemberId: { $ref: '#/components/schemas/Uuid', description: 'Bỏ trống → server khớp theo tên + ngày sinh hoặc tạo người mới quan hệ "Chưa rõ" (US-043 AC3). **0.3.7 bổ sung 4 (SEC FB-R2-SEC-BE-73, ARC 16.22)**: người của giấy tờ **không bao giờ** suy ra từ `isMain` – không có "giấy tờ chính = người đặt". Desk **luôn gửi** `partyMemberId` (chọn người đặt chỉ khi đúng là người đặt; người ở chưa có trong đơn → để server tạo). Vắng → khớp theo mô tả `addGuestDocument` (khóa giấy tờ của hồ sơ có P05; tên + ngày sinh của người **trong đơn**, kể cả người đặt) → không khớp → hồ sơ "từ giấy tờ" + người đi cùng `unknown`. Khóa giấy tờ (`id_doc_hmac`, `id_doc_last4`) chỉ ghi lên hồ sơ của đúng người đó, khi người đó có P05' }
         docType: { $ref: '#/components/schemas/DocType' }
-        isMain: { type: boolean }
+        isMain: { type: boolean, description: '0.3.7 bổ sung 4 (SEC-BE-73): chỉ đánh dấu khách chính **của khai báo lưu trú** (người đứng tên trên cổng khai báo); không quyết định giấy tờ thuộc hồ sơ nào – đặt hộ thì khách chính có thể không phải người đặt' }
         fullNameOnDoc: { type: string, x-rbac-field: D01 }
         docNumber: { type: string, writeOnly: true, x-classification: C3, x-rbac-field: D03 }
         dateOfBirth: { $ref: '#/components/schemas/LocalDate', writeOnly: true, x-classification: C3, x-rbac-field: D01 }
@@ -11630,8 +11649,8 @@ components:
       type: object
       required: [purpose, decision, noticeVersion, locale]
       properties:
-        partyMemberId: { $ref: '#/components/schemas/Uuid' }
-        personIndex: { type: integer, minimum: 1, description: 'Dùng ở app khách' }
+        partyMemberId: { $ref: '#/components/schemas/Uuid', description: '0.3.7 bổ sung 4 (SEC-BE-73, ARC 16.22): người quyết định. Desk **bắt buộc** gửi (thiếu → 422 `REQUIRED`); quyết định chỉ ghi lên hồ sơ của đúng người này – không bao giờ suy ra người đặt từ giấy tờ chính. Người chưa có hồ sơ (trẻ em dưới ngưỡng) → 422 `NOT_IN_LIST`' }
+        personIndex: { type: integer, minimum: 1, description: 'Dùng ở app khách. 0.3.7 bổ sung 4 (SEC-BE-73): quyết định P05/P06/P07 theo `personIndex` chỉ áp lên hồ sơ **sau khi** giấy tờ của người đó được gắn vào người trong đơn (khớp theo `addGuestDocument` hoặc `GuestDocumentLink` của lễ tân); tới lúc đó lưu ở cấp khai báo, không ghi lên hồ sơ người đặt' }
         purpose: { type: string, enum: [P02B_ID_IMAGE_RETENTION, P05_CRM, P06_MARKETING, P07_REVIEW] }
         decision: { type: string, enum: [granted, refused] }
         noticeVersion: { type: string }
@@ -11696,13 +11715,13 @@ components:
         status: { $ref: '#/components/schemas/RoomStatusCode' }
         statusLabel: { type: string, example: Trống · cần dọn }
         since: { $ref: '#/components/schemas/Instant' }
-        currentGuest: { type: string, description: 'Tên gọi + căn, chỉ trong phạm vi T với HK (rbac D01)' }
+        currentGuest: { type: string, description: 'Tên khách đang ở căn – **chỉ tên, không kèm số căn** (client ghép với `roomNo`, BR-614 "không lặp số căn trong cùng thẻ"; 0.3.7 bổ sung 4, ARC 18/10). Theo vai (BR-614, rbac D01): **HK** (trong phạm vi T) = **tên gọi** – khách VN chữ cuối của họ tên ("Phạm Gia Huy" → "Huy"), khách nước ngoài họ trên giấy tờ ("KIM MIN JUN" → "Kim"); **MT** không nhận trường này; **FD trở lên** = họ tên đầy đủ. Chưa có tên → vắng (màn hình chỉ hiện số căn)' }
         nextArrival:
           type: object
           properties:
             date: { $ref: '#/components/schemas/LocalDate' }
             etaTime: { $ref: '#/components/schemas/LocalTime' }
-            guestDisplayName: { type: string, x-rbac-field: D01 }
+            guestDisplayName: { type: string, x-rbac-field: D01, description: '0.3.7 bổ sung 4 (BR-614): **HK** = tên gọi (cùng quy tắc `currentGuest`), **MT** không nhận, **FD trở lên** = họ tên đầy đủ; chỉ tên, không kèm số căn; chưa có tên → vắng' }
         serviceNotes: { type: array, items: { type: string }, description: '"Lưu ý phục vụ" từ danh mục (rbac D12)', x-rbac-field: D12a }
         allowedEvents: { type: array, items: { type: string, enum: [start_cleaning, finish_cleaning, needs_cleaning, inspect] } }
         openTaskIds: { type: array, items: { $ref: '#/components/schemas/Uuid' } }

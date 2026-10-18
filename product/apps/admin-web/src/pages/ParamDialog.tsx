@@ -52,7 +52,7 @@ export function ParamDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { t, dateTime } = useI18n();
+  const { t, date, dateTime } = useI18n();
   const propertyId = usePropertyId();
   const { property } = useSession();
   const toast = useToast();
@@ -287,6 +287,7 @@ export function ParamDialog({
               <thead>
                 <tr>
                   <th scope="col">{t('params.h_when')}</th>
+                  <th scope="col">{t('config.effective_from')}</th>
                   <th scope="col">{t('params.h_who')}</th>
                   <th scope="col" className="r">
                     {t('params.h_old')}
@@ -300,7 +301,18 @@ export function ParamDialog({
               <tbody>
                 {rows.map((h, i) => (
                   <tr key={`${h.effectiveFrom}-${h.changedAt ?? i}`}>
-                    <td>{dateTime(h.changedAt) || h.effectiveFrom}</td>
+                    <td>{dateTime(h.changedAt) || '–'}</td>
+                    <td>
+                      {date(h.effectiveFrom)}
+                      {h.effectiveFrom > today ? (
+                        <>
+                          {' '}
+                          <Chip tone="oak" icon="clock">
+                            {t('params.not_yet')}
+                          </Chip>
+                        </>
+                      ) : null}
+                    </td>
                     <td>{h.changedBy ?? '–'}</td>
                     <td className="r">{rows[i + 1] ? formatParamValue(t, rows[i + 1]!) : '–'}</td>
                     <td className="r">{formatParamValue(t, h)}</td>

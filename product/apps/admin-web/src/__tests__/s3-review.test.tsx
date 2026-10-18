@@ -88,6 +88,11 @@ describe('FE-S3-02 – manual passport entry keeps "no entry record" (BR-613 c)'
       (await screen.findAllByRole('button', { name: tv('checkin.docs.manual') }))[0]!,
     );
     const dlg = await screen.findByRole('dialog', { name: tv('ci.manual_title') });
+    // ARC 16.22 (SEC BE-73): a new ID always names its person – here the booker.
+    await user.selectOptions(
+      within(dlg).getByLabelText(new RegExp(`^${tv('reg.link.member')}`)),
+      await within(dlg).findByRole('option', { name: new RegExp(` · ${tv('rsv.booker')}$`) }),
+    );
     await user.selectOptions(
       within(dlg).getByLabelText(new RegExp(`^${tv('checkin.docs.field.doc_type')}`)),
       'passport',
@@ -490,6 +495,8 @@ describe('0.3.6 add. 3 – H14 consent from Registration.consentNotice; OTA savi
     reg.status = 'review';
     reg.documents.push({
       id: 'doc-consent-1',
+      // ARC 16.22: the ID is linked to its person – the consent goes to that person.
+      partyMemberId: mockControl.stay.party.get(r.id)![0]!.id,
       docType: 'cccd',
       isMain: true,
       fullNameOnDoc: 'Nguyễn Văn Hưng',
@@ -523,6 +530,7 @@ describe('0.3.6 add. 3 – H14 consent from Registration.consentNotice; OTA savi
     await user.click(within(group).getByRole('radio', { name: tv('checkin.consent.yes') }));
     await waitFor(() => expect(sent).toHaveLength(1));
     expect(sent[0]).toMatchObject({
+      partyMemberId: reg.documents.at(-1)!.partyMemberId,
       purpose: 'P02B_ID_IMAGE_RETENTION',
       decision: 'granted',
       noticeVersion: 'privacy-2026-11-v2',

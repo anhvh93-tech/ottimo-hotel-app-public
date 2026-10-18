@@ -41,6 +41,7 @@ import {
 import {
   EP3,
   PRIVACY_NOTICE,
+  bookerMemberId,
   portalDate,
   IMAGE_RETENTION_DAYS,
   addDocument,
@@ -248,7 +249,12 @@ test.describe(
               // hồ sơ KH có sẵn G: lần ở trước đã khai giấy tờ số N (người đứng tên)
               const prev = await farStay(request, c, fd, today, { adults: 1, doc: false });
               const known = vnDoc(prev.guestName);
-              const kd = await addDocument(request, fd, prev.regId, known);
+              // 0.3.7 bổ sung 4 (SEC BE-73): giấy tờ và P05 gửi kèm người (`partyMemberId` của người đặt)
+              const bookerId = await bookerMemberId(request, fd, prev.res.id);
+              const kd = await addDocument(request, fd, prev.regId, {
+                ...known,
+                partyMemberId: bookerId,
+              });
               expect(kd.status, JSON.stringify(kd.body)).toBe(201);
               // người đứng tên đồng ý P05_CRM tại quầy (BR-955) → hồ sơ G giữ khóa giấy tờ v1 + 4 số cuối
               const p05 = await call(
@@ -259,7 +265,7 @@ test.describe(
                   session: fd,
                   idempotencyKey: true,
                   body: {
-                    partyMemberId: mainDoc(kd.body).id,
+                    partyMemberId: bookerId,
                     purpose: 'P05_CRM',
                     decision: 'granted',
                     noticeVersion: PRIVACY_NOTICE,

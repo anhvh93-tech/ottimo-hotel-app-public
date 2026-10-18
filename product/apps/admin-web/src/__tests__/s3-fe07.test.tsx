@@ -58,6 +58,8 @@ function setupRemoved() {
     {
       ...base,
       id: 'doc-main',
+      // ARC 16.22: whose ID it is is the link, not "main" – the booker's own ID is linked to the booker.
+      partyMemberId: 'm-booker',
       docType: 'cccd',
       isMain: true,
       fullNameOnDoc: 'Nguyễn Văn Hưng',
@@ -237,6 +239,11 @@ describe('FB-R2-SEC-FE-07 – documents waiting to be linked after a person left
     await screen.findAllByText(tv('reg.link.pending_chip', { time: due() }));
     await user.click(screen.getAllByRole('button', { name: tv('checkin.docs.manual') })[0]!);
     const dlg = await screen.findByRole('dialog', { name: tv('ci.manual_title') });
+    // ARC 16.22 (SEC BE-73): a new ID always names its person – here someone not in the party yet.
+    await user.selectOptions(
+      within(dlg).getByLabelText(new RegExp(`^${tv('reg.link.member')}`)),
+      await within(dlg).findByRole('option', { name: tv('reg.person_not_in_party') }),
+    );
     // The number of "Khách 3" (doc-k3) – before 0.3.7 the box went to the FIRST waiting one (doc-k2).
     await user.type(
       within(dlg).getByLabelText(fieldRe('checkin.docs.field.doc_no')),
@@ -270,6 +277,11 @@ describe('FB-R2-SEC-FE-07 – documents waiting to be linked after a person left
     await screen.findAllByText(tv('reg.link.pending_chip', { time: due() }));
     await user.click(screen.getAllByRole('button', { name: tv('checkin.docs.manual') })[0]!);
     const dlg = await screen.findByRole('dialog', { name: tv('ci.manual_title') });
+    // ARC 16.22 (SEC BE-73): a new ID always names its person – here someone not in the party yet.
+    await user.selectOptions(
+      within(dlg).getByLabelText(new RegExp(`^${tv('reg.link.member')}`)),
+      await within(dlg).findByRole('option', { name: tv('reg.person_not_in_party') }),
+    );
     await user.type(
       within(dlg).getByLabelText(fieldRe('checkin.docs.field.doc_no')),
       '079287654321',

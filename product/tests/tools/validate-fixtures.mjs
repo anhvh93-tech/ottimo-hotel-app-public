@@ -344,19 +344,18 @@ const CALC = {
     const byMonth = {};
     for (const n of nightsBetween(leaseStart, end))
       byMonth[n.slice(0, 7)] = (byMonth[n.slice(0, 7)] ?? 0) + 1;
+    // Q-10 (DATA A7-01, 18/10): mỗi đêm lấy phần nguyên, phần dư dồn vào đêm cuối tháng HĐ; Q-02: không chia lại
+    // theo tỷ lệ tháng báo cáo → tháng báo cáo = số đêm × giá đêm, tháng chứa đêm cuối nhận thêm phần dư.
+    const perNight = Math.floor(monthlyRentVnd / total);
+    const rest = monthlyRentVnd - perNight * total;
     const keys = Object.keys(byMonth);
     const alloc = {};
-    let used = 0;
     keys.forEach((k, i) => {
-      alloc[k] =
-        i === keys.length - 1
-          ? monthlyRentVnd - used
-          : roundDiv(monthlyRentVnd * byMonth[k], total);
-      used += alloc[k];
+      alloc[k] = byMonth[k] * perNight + (i === keys.length - 1 ? rest : 0);
     });
     return {
       contractMonthNights: total,
-      perNightVnd: roundDiv(monthlyRentVnd, total),
+      perNightVnd: perNight,
       reportMonthAllocationVnd: alloc,
     };
   },

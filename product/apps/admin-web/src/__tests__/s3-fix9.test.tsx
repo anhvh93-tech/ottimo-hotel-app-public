@@ -125,6 +125,11 @@ describe('UXR #3 – nhập tay giấy tờ: phần "data" là chuỗi, không p
       (await screen.findAllByRole('button', { name: tv('checkin.docs.manual') }))[0]!,
     );
     const dlg = await screen.findByRole('dialog', { name: tv('ci.manual_title') });
+    // ARC 16.22 (SEC BE-73): a new ID always names its person – here the booker.
+    await user.selectOptions(
+      within(dlg).getByLabelText(new RegExp(`^${tv('reg.link.member')}`)),
+      await within(dlg).findByRole('option', { name: new RegExp(` · ${tv('rsv.booker')}$`) }),
+    );
     await user.type(within(dlg).getByLabelText(/^Số giấy tờ/), '079123456789');
     await user.upload(within(dlg).getByLabelText(label('checkin.docs.scan')), photo());
     await user.click(within(dlg).getByRole('button', { name: tv('ci.manual_save') }));
@@ -170,12 +175,14 @@ describe('UXR #6 – "Đã thu" trên chi tiết đơn là số tiền thật đ
   const paidRow = (d: HTMLElement) =>
     within(d).getByText(tv('drawer.folio.paid')).closest('tr') as HTMLElement;
 
-  it('hold without a deposit → 0, never "room − balance"', async () => {
+  it('hold without a deposit → never "room − balance"; ARC 16.20: no "Đã thu"/"Còn phải thu" before a posted line, the deposit due instead', async () => {
     const r = res('Lê Minh');
     const { user } = renderApp(`/reservations/${r.id}`, 'qa.fd');
     void user;
     const d = await screen.findByRole('dialog', { name: 'Lê Minh' });
-    await waitFor(() => expect(paidRow(d)).toHaveTextContent(/^Đã thu0$/));
+    await within(d).findByText(tv('booking.summary.deposit'));
+    expect(within(d).queryByText(tv('drawer.folio.paid'))).toBeNull();
+    expect(within(d).queryByText(tv('drawer.folio.balance'))).toBeNull();
   });
 
   it('in house with an extra line and a payment → the folio paid amount (1.000.000)', async () => {

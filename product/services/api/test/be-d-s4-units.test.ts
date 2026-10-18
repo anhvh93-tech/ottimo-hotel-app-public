@@ -29,7 +29,6 @@ import {
 import {
   ackDueOf,
   cleaningFee,
-  countsAsFullClean,
   deskHoursOf,
   hasSensitiveDigits,
   needsInHouse,
@@ -38,6 +37,7 @@ import {
   renderAutoReply,
   routeOf,
 } from '../src/modules/guest-portal/internal/guest-request-rules';
+import { FULL_CLEAN_TASK_TYPES } from '../src/modules/housekeeping/public/guest-request-work.port';
 import { isAllowedMapUrl } from '../src/modules/platform/internal/parameter-rules';
 import {
   focCountAlert,
@@ -457,15 +457,85 @@ describe('EP14 guest requests – rules (BR-811, BR-506, SEC B-15, E14-08)', () 
     );
   });
 
-  it('SEC B-15 replyNote digits: ≥ 6 digits blocked unless it is the public hotline', () => {
+  it('SEC B-15 replyNote digits (V2 – s4-SEC.md C.6, FB-R2-SEC-BE-77): price with unit and a date near today pass; codes, phones, IDs, birth dates blocked; the public hotline passes', () => {
     const hotline = '0263 3 822 822';
-    expect(hasSensitiveDigits('Mã cửa 482913', hotline)).toBe(true);
-    expect(hasSensitiveDigits('Gọi khách 0912.345.678', hotline)).toBe(true);
-    expect(hasSensitiveDigits('Cần gấp gọi 0263-3822-822', hotline)).toBe(false);
-    expect(hasSensitiveDigits('Hotline +84 263 3822 822', hotline)).toBe(false);
-    expect(hasSensitiveDigits('Xe đón lúc 15:30, giá 350.000', hotline)).toBe(true);
-    expect(hasSensitiveDigits('Xe đón lúc 15:30, phòng 202', hotline)).toBe(false);
-    expect(hasSensitiveDigits('12345', null)).toBe(false);
+    const year = 2026;
+    const blocked = (text: string) => hasSensitiveDigits(text, hotline, year);
+    // C.6 – must NOT block (EP14 3.2: price and day of a car / tour).
+    for (const ok of [
+      'Xe đón lúc 15:30, giá 350.000 đ',
+      '350.000đ',
+      '350,000 VND',
+      '350 000 ₫',
+      '350000đ',
+      'Tour 1.500.000 đồng/người',
+      'Tổng 12.000.000 VNĐ',
+      'Xe 4 chỗ 350.000đ, 7 chỗ 450.000đ',
+      'Ngày 18-10-2026 xe đón 15:30',
+      'Đón 18.10.2026 lúc 07:00',
+      'Đón 18/10/2026',
+      'Phòng 202, 2 khách',
+      'Cần gấp gọi 0263-3822-822',
+      'Hotline +84 263 3822 822',
+      'Xe đón lúc 15:30, phòng 202',
+      'Giá 50.000 đ/người, xe 2.500.000 vnd',
+      'Đón 01-01-2027 và 31.12.2025', // ±1 year
+      '12345',
+      // SEC s7 (C.6 bổ sung 18/10): a comma / semicolon followed by a space is a list boundary.
+      'Phòng 202, 203, 204',
+      'Phòng 202; 203',
+    ]) {
+      expect(blocked(ok), ok).toBe(false);
+    }
+    // C.6 – must block.
+    for (const bad of [
+      'Mã cửa 482913',
+      '482 913',
+      '482-913',
+      '482.913',
+      '482,913',
+      '482913đ',
+      '482.913 đ',
+      'Mã ４８２９１３',
+      '0912.345.678',
+      'Gọi khách 0912.345.678',
+      'Gọi 0912 345 678 giá 350.000đ',
+      '0912345678đ',
+      '(+84) 912 345 678',
+      'CCCD 079123456789',
+      '079 123 456 789 đ',
+      'Hộ chiếu C1234567',
+      'C1234567đ',
+      'Ngày sinh 05-03-1990',
+      '05.03.1990',
+      '31-02-2026',
+      'Mã 18.10.26',
+      'Xe đón lúc 15:30, giá 350.000', // no unit (kept from Sprint 4)
+      '12.345.678.901đ',
+      'Mã cửa 482913 – gọi 0912–345–678', // Unicode dashes
+      '0912.345.000đ', // stricter than C.6: the tail of a grouped number is not money (SEC s6: kept)
+      // SEC s7: no space after the comma, or spaces only → still one number.
+      'Phòng 202,203,204',
+      'Phòng 202 203 204',
+      'Mã cửa 482,913',
+    ]) {
+      expect(blocked(bad), bad).toBe(true);
+    }
+    // Blocked by design – SEC accepts (Desk hint "Ghi giá kèm đ/VND, ví dụ 350.000 đ").
+    for (const accepted of [
+      '350.000 đến 450.000đ',
+      '350.000 dong',
+      '350.000d',
+      'Ngày 2026-10-18',
+      'Giá 350.500đ',
+      'Đón 18-10-2028',
+      'VND 350.000',
+    ]) {
+      expect(blocked(accepted), accepted).toBe(true);
+    }
+    // The year window follows the property's current year.
+    expect(hasSensitiveDigits('Đón 18-10-2028', hotline, 2027)).toBe(false);
+    expect(hasSensitiveDigits('Mã cửa 482913', null, year)).toBe(true);
   });
 
   it('US-112 auto reply (UXD guest.req.auto_reply VI/EN/RU): with the public phone; without it the call sentence goes', () => {
@@ -583,6 +653,8 @@ describe('BR v0.3.8 oracles (DOM-S4-08, DOM-S4-09, DOM-S4-10)', () => {
   });
 
   it('BR-506-03: a priority clean preparing the room is not a full clean → the evening clean is free', () => {
+    // ARC S4-09: the list belongs to housekeeping (its task types); the DB read is in guest-requests-s4-fix-bed.
+    const countsAsFullClean = (type: string) => FULL_CLEAN_TASK_TYPES.includes(type);
     const o = oracle('BR-506-03');
     const e = o.expected as { feeVnd: number; countsAsFullClean: Record<string, boolean> };
     for (const [type, counts] of Object.entries(e.countsAsFullClean)) {

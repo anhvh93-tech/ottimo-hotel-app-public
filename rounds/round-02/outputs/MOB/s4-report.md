@@ -109,3 +109,145 @@
 - US-061 AC1 muốn thấy "mở bán lại từ …" **trước khi lưu**; hợp đồng giữ `ooo_reopen_buffer_days` ở server (MT/FD không đọc) nên PWA, như Desk (FE-B), hiện câu "hệ thống tính – hiện ngay khi lưu" rồi ngày thật sau khi lưu. Nếu PO muốn thấy trước: ARC thêm ngày tính thử (vd. `dryRun` hoặc trả buffer trong `BookingRules`) – đề nghị, không chặn.
 - Minibar H20.4: chờ ORC báo BE-D giao US-066 (hợp đồng `getMinibarStandard`/`recordMinibarCheck` đã có; ghi vào hàng đợi theo ADR-005).
 - Nối API thật: chờ ORC báo BE-C (module buồng phòng) và BE-D (yêu cầu khách, thông báo, SSE) gộp – `pnpm dev:server`.
+
+## 7. Phản hồi & sửa trước cổng QC Sprint 4 – review thương hiệu UXD (18/10/2026)
+
+Đầu vào: `reviews/s4-UXD-brand.md` (FB-R2-UXD-MOB-S4-02 Major – chặn ký G8.3; FB-R2-UXD-MOB-S4-03 Minor); tin ORC 18/10 (UXD đổi `hifi.css`: `h3` sang Be Vietnam Pro 600, thêm `.btn.brand` – chụp thêm 1 màn PWA có `h3`, chạy lại test). Trả lời thẻ ở `responses/s4-MOB.md`. Không commit.
+
+### 7.1 Đã sửa
+| Thẻ | Sửa | Đo trên bản chạy (localhost, MSW mock) |
+|---|---|---|
+| **MOB-S4-02** (Major) | Thêm `btn` cho 3 nút `icon-btn`: Quay lại của PWA (`ui/parts.tsx:134`, mọi màn con H20–H22, Thông báo, Thao tác trên máy), bỏ ảnh của PWA (`ui/PhotoPicker.tsx:58`, H20 kiểm phòng / H21 / H22), Quay lại ở guest-web H23 (`pages/RequestsPage.tsx:381`) | Trước: nền `rgb(239,239,239)` + viền đen (tối: `rgb(107,107,107)` + viền trắng). Sau: nền `--surface`, viền 1px `--line-strong` – sáng #FBF9F4 / #857E71, tối #24221F / #857F75; 48×48 px (PWA), 44×44 px (guest). Quét mọi `button`/`a.icon-btn` đang hiện ở 8 màn chụp (PWA căn 101, Thao tác trên máy, Báo sự cố có ảnh, Các căn – sáng + tối; guest H23, Lưu trú, Thông tin): **0** nút còn vỏ mặc định |
+| Rà `icon-btn` khác | CheckinFlow H18 đã đúng (`btn icon-btn gw-back`). Chuông PWA `<a class="icon-btn hk-bell">`: thẻ liên kết, không có vỏ nút của trình duyệt (nền trong suốt, icon Ink) – **giữ nguyên** | Câu hỏi cho UXD (không chặn): chuông có cần khung như nút Quay lại / chuông Desk (`btn icon-btn`) không? Sửa 1 dòng nếu cần |
+| **MOB-S4-03** (Minor) | `styles.css` của PWA: `.staff-app .chip` cho xuống dòng trong nền (`white-space: normal; max-width: 100%; overflow-wrap: break-word`), icon canh dòng đầu (`align-items: flex-start`, `margin-top: calc(0.8em - 8px)` = nửa của line-height 1.6em trừ icon 16 px). Cột chữ thẻ "Các căn" `align-items: flex-start` để chip ôm chữ như hi-fi H19 – trước đó cột flex kéo chip hết bề ngang, chữ `nowrap` tràn qua mép nền. Không đụng `hifi.css` | Chip có chữ tràn nền: 390 px VI **6/10 → 0/10**; 360 px VI 10/10 → 0/10; 390 px EN 9/10 → 0/10; 360 px EN 9/10 → 0/10 (chip dài nhất 3 dòng, cao 87 px). Vùng chạm = cả thẻ `a.hk-card.rowlink` (thấp nhất 99 px ≥ 44 px); chip không phải phần tử bấm |
+| Tự phát hiện khi chụp | Màn căn 101 có một **thẻ trống có viền** (`.card.hk-info` render cả khi không có câu nào: không có khách đến, không đang dọn, chưa có "Dọn xong"). `pages/RoomPage.tsx`: chỉ render thẻ khi có nội dung | Ảnh "sau" căn 101 không còn khối trống; căn 103 vẫn hiện "Có khách đến hôm nay 14:00" |
+| `h3` (tin ORC) | Không phải sửa mã. PWA dùng `h3` qua `StateView` (`@ottimo/ui`) | Màn "Thao tác trên máy" trạng thái rỗng: `h3` "Đã gửi hết" = Be Vietnam Pro 600 (đo `getComputedStyle`), sáng + tối |
+
+### 7.2 Kiểm thử
+- Ca mới, mỗi chỗ sửa một ca (đã thử đảo ngược bản sửa – bỏ `btn`, chip `nowrap`, thẻ `.hk-info` luôn render: 5/7 ca PWA và 2/2 ca guest-web chuyển đỏ; 2 ca PWA còn xanh là luật cột chữ `align-items` (không đảo trong lần thử) và ca cấu trúc thẻ):
+  - `apps/mobile/src/__tests__/s4-brand.test.tsx` (7 ca): Quay lại căn 101 có `btn icon-btn`; "Bỏ ảnh 1" có `btn icon-btn` và vẫn bỏ được ảnh; quét mã nguồn – không `<button>` nào có `icon-btn` mà thiếu `btn` (chỉ chuông là `<a>`); luật CSS chip (xuống dòng, `max-width`, icon dòng đầu); cột chữ thẻ không kéo giãn chip; chip nằm trong thẻ liên kết, không có phần tử bấm lồng bên trong; căn 101 không có thẻ trống, căn 103 có dòng khách đến.
+  - `apps/guest-web/src/__tests__/s4-brand.test.tsx` (2 ca): Quay lại H23 có `btn icon-btn gw-back`, bấm vẫn về danh sách; quét mã nguồn – mọi `icon-btn` có `btn`.
+- Chạy lại sau khi UXD đổi `hifi.css`: PWA **78/78** (8 tệp, gồm quét bundle production – ngân sách lần tải đầu), guest-web **65/65** (8 tệp). `tsc` mobile, guest-web 0 lỗi. ESLint 0 lỗi (2 cảnh báo cũ "unused eslint-disable" trong `public/mockServiceWorker.js` do MSW sinh, không phải mã MOB). Prettier sạch.
+- jsdom không tính bố cục, nên ca CSS chỉ khóa luật. Phép đo tràn chữ thật (Chromium, 360/390 px) nằm trong script chụp ảnh ở scratchpad. QA có thể đưa phép đo này vào bộ e2e UI (a13) nếu muốn khóa bằng trình duyệt.
+
+### 7.3 Ảnh trước / sau cho UXD ký (390 px, Chromium headless, `deviceScaleFactor` 2)
+Thư mục: `/private/tmp/claude-501/-Users-anhvh-Library-Application-Support-Claude-scratch-workspaces-00554cf2-3678-4864-82b0-830aaeaa97bd-4c0caebe-be05-49c5-a5a2-5bf357fddc6a-scratch-2026-10-15-c4f0d4/36df3adc-c586-471c-a039-340d2b696728/scratchpad/shots/` – hai thư mục con `before/` và `after/`, cùng tên tệp:
+- `pwa-room101-back-390-{light,dark}.png` – PWA H20 căn 101, nút Quay lại (MOB-S4-02)
+- `gw-h23-back-390-{light,dark}.png` – guest-web H23 form yêu cầu, nút Quay lại (trang khách luôn sáng, ảnh `dark` = máy đặt tối)
+- `pwa-queue-h3-back-390-{light,dark}.png` – PWA "Thao tác trên máy": `h3` Be Vietnam Pro 600 + nút Quay lại (tin ORC)
+- `pwa-report-photo-x-390-{light,dark}.png` – PWA H21 có 1 ảnh, nút bỏ ảnh
+- `pwa-rooms-chips-390-{light,dark}.png`, `pwa-rooms-chips-360-vi-light.png`, `pwa-rooms-chips-{390,360}-en-light.png` – PWA "Các căn", chip (MOB-S4-03), chụp cả trang
+- `measure.json` – số đo màu nền/viền từng nút, quét vỏ nút mặc định, đo tràn chữ từng chip. Script: `../shoot.mjs` (cổng 5274/5275 – dev server mock, không dùng stack demo)
+
+### 7.4 File đã sửa / tạo
+**Sửa:** `product/apps/mobile/src/ui/parts.tsx`, `src/ui/PhotoPicker.tsx`, `src/styles.css`, `src/pages/RoomPage.tsx`; `product/apps/guest-web/src/pages/RequestsPage.tsx`; `rounds/round-02/responses/s4-MOB.md`; báo cáo này.
+**Tạo:** `product/apps/mobile/src/__tests__/s4-brand.test.tsx`, `product/apps/guest-web/src/__tests__/s4-brand.test.tsx`.
+
+### 7.5 Giả định / còn mở
+- [GIẢ ĐỊNH MOB] Chip nhiều dòng giữ dạng viên thuốc (`--r-pill`) như UXD đề xuất. Chữ vẫn nằm trong nền ở mọi ảnh. Nếu UXD muốn chip nhiều dòng bo góc nhỏ hơn hoặc nằm một dòng riêng dưới số căn thì báo MOB.
+- Chuông PWA giữ không khung (xem 7.1) – chờ UXD trả lời, không chặn G8.3.
+- Không ESC mới.
+
+## 8. Phản hồi & sửa theo UXR đi thử PWA (18/10/2026)
+
+Đầu vào: `outputs/UXR/s4-pwa-walkthrough.md` (34 vấn đề), tin ORC 18/10 (phần MOB: mức 3 P-05, P-04; mức 2/1 P-07, 08, 09, 10, 11, 12, 13, 16, 27, 28, 31, 33; P-01 phía PWA = câu báo lỗi theo P-08), thẻ UXD mới **FB-R2-UXD-MOB-S4-04** (chuông có khung). Không commit.
+
+### 8.1 Đã sửa
+| Mục | Gốc lỗi | Sửa |
+|---|---|---|
+| **P-05** (mức 3) – ảnh báo sự cố offline rơi khỏi phiếu | **Tái hiện được bằng test đơn vị.** Lúc đăng nhập lại, `enter()` gọi `queue.load()` để đọc lại hàng đợi. Đúng lúc đó, lượt gửi do đồng hồ hoặc sự kiện `online` đang tải ảnh. `load()` thay danh sách bằng đối tượng mới, nên mã ảnh được ghi vào phiếu **mới**. Lượt gửi cũ vẫn cầm phiếu **cũ** còn `@att:`, và `toRequest` lọc bỏ chỗ giữ chỗ đó, nên phiếu đi với `photoAttachmentIds: []`. Khớp với network UXR thấy: `attachments` 201 rồi `work-orders` 201 với `[]` | `queue.ts`: `load()` chờ lượt gửi đang chạy xong rồi mới đọc lại; vòng gửi luôn lấy mục **sống** theo id, không dùng bản chụp |
+| **P-04** (mức 3) – minibar "1, 1" | **API chưa trả tên món.** Hợp đồng 0.3.7 có `refillItems[].itemName` (không bắt buộc), nhưng server chỉ lưu `{itemId, quantity}` (`inventory/internal/refill-tasks.ts` `refillItemsJson`; `housekeeping.service.ts:740` trả nguyên). **Cần BE (BE-C/BE-D) điền `itemName`** theo ngôn ngữ phiên | PWA: đủ tên thì hiện "Bổ sung minibar: 1 Bia Larue lon, 1 Coca-Cola lon". Thiếu tên thì hiện "Bổ sung minibar: 2 món – xem tủ hoặc hỏi lễ tân tên món" (khóa mới `hk.refill_unnamed`), không còn "1, 1". Hàm `refillText` ở `app/tasks.ts` |
+| **P-07** – bộ đếm lệch, dòng lặp "Bấm lúc" | Gốc thật: khi mất mạng, đồng hồ hàng đợi chỉ thức theo mục **đã đến hạn**. Lượt gửi dừng ở "offline" mà không đổi gì, nên không đặt đồng hồ mới, và thao tác thứ hai kẹt ở "trong 10 giây hoàn tác" mãi. Nút tròn bỏ qua mục đó, còn danh sách thì đếm nó, nên lệch số | `nextWakeAt()`: khi offline chỉ thức để kết thúc 10 giây hoàn tác. `wake` tính lại khi `online` đổi. Thêm một hàm đếm `waitingActions()` dùng chung cho nút tròn và "Thao tác trên máy". Mỗi dòng ghi giờ bấm 1 lần + 1 trạng thái: "Đang gửi 1/n…", "Chờ lượt" (mới) hoặc "Chờ mạng" |
+| **P-08** + **P-01** phía PWA | 422 của server là `VALIDATION_FAILED` + `errors[performedAt] = PERFORMED_AT_OUT_OF_RANGE`. Hàng đợi chỉ giữ mã ngoài cùng, và câu thì in nguyên mã | Hàng đợi giữ mã của trường. "Cần xem lại" hiện câu thường theo từng lý do (giờ bấm không khớp, 403, 404, ảnh, khác); mã chỉ là dòng nhỏ "Mã tham chiếu: …". Với trạng thái buồng/việc bị từ chối vì giờ: nút **"Gửi lại 'Dọn xong'"** (ở "Thao tác trên máy" và ngay trên màn căn) tạo thao tác mới với giờ lúc bấm, có Hoàn tác 10 giây. Phần server của P-01 vẫn do BE-C sửa (thẻ ARC S4-01); nút này là đường gỡ cho người dùng, kể cả với lệnh quá 24 giờ |
+| **P-09** | Lúc mở app, chỉ lỗi mạng thật mới vào chế độ đọc offline | 502/503/504 lúc khởi động cũng tính là không có máy chủ (`unreachable()` ở `app/api.ts`), nên app mở bằng hồ sơ đã lưu. Màn đăng nhập luôn ghi "n thao tác vẫn còn trên máy và sẽ gửi sau khi bạn đăng nhập", không chỉ khi phiên hết hạn |
+| **P-10** | `InspectionPage` bắt tick mọi mục; mục "Ảnh phòng" với FDL+ (`photoRequired: false`) thành ô tick | Chỉ mục `required` khóa "Kiểm đạt". Mục có `photoRequired` (cả `false`) là bước chụp ảnh: bắt buộc khi `true`, tùy chọn khi `false`. Mục không bắt buộc chưa tick thì không gửi (gửi "chưa đạt" sẽ cần ghi chú). Khớp server: chỉ mục bắt buộc không phải ảnh quyết định đạt (`housekeeping.service.ts` `failedItems`) |
+| **P-11** (phần MOB) | `resultNote` có trong API nhưng PWA không hiện. **API gộp ảnh lúc báo và ảnh sau sửa** vào `photoAttachmentIds` (`work-orders.service.ts:243`), không có trường riêng | Hiện "Kết quả: …". Khi phiếu đã có `doneAt`, tiêu đề khối ảnh là "Ảnh lúc báo và sau khi sửa" (mới). **Tách 2 khối cần ARC/BE-C** thêm trường ảnh sau sửa vào hợp đồng (DB đã tách `done_photo_attachment_ids`). Mock làm giống server |
+| **P-12** | Nhóm "Làm trước – có khách đến hôm nay" còn chứa bộ đồ dùng thêm, việc gấp, việc có hạn giờ | Tiêu đề nhóm là "Làm trước" (khóa mới `hk.grp.do_first`); lý do nằm trên từng thẻ (giờ khách đến, hạn) |
+| **P-13** | Việc đã bỏ biến mất; toast không ghi căn; thẻ "Đã xong" hiện trạng thái căn | Thêm nhóm "Đã bỏ (n)", mỗi thẻ có lý do (lý do từ server, hoặc từ thao tác còn chờ gửi; thêm 3 câu cho mã hệ thống). Toast "Căn 102 · The Fern: đã bỏ việc dọn hôm nay". Thẻ "Đã xong" ghi "Dọn trả phòng – xong 09:40", không còn chip trạng thái căn |
+| **P-16** | "Bảo trì đã thấy phiếu" là câu sai sự thật | "Đã gửi tới bảo trì. Bạn không cần làm gì thêm." (khóa mới `hk.wo.sent_to_mt`; phiếu Gấp giữ câu cũ của UXD) |
+| **P-27** (mức 1) | Nhãn dài, sát mép; khi vào căn thì thanh dưới chuyển sang "Các căn" | Nhãn "Việc" (khóa có sẵn `nav.tasks`), lề 4 px. Màn con giữ tab người dùng đi từ đó (`App.tsx` `lastTab`). Đo 360 px: 4 tab một dòng, cao 64 px, tab đầu cách mép 4 px |
+| **P-28** (mức 1) | Câu lỗi mạng chung bảo bấm "Thử lại" | "Chưa kết nối được tới máy chủ. Kiểm tra mạng rồi bấm Đăng nhập lần nữa." (khóa mới `login.error_network`) |
+| **P-31** (mức 1) | Hai banner mất mạng chồng nhau ở Báo sự cố | `TopBar ownOfflineNote`: màn Báo sự cố chỉ giữ câu riêng của form; các màn khác vẫn có banner chung |
+| **P-33** (mức 1, phần MOB) | Hợp đồng ghi `currentGuest` = "tên gọi + căn", nên thẻ lặp số căn | `guestName()` bỏ phần " · <căn>". Còn câu hỏi **họ tên đầy đủ hay tên gọi** (server dùng `stay.name`) thì cần DOM/SEC xác nhận, BE sửa nếu cần |
+| **MOB-S4-04** (UXD) | Chuông không có khung | `btn icon-btn hk-bell`. Ca quét nguồn đòi `btn` cho mọi `icon-btn` |
+
+### 8.2 Chuyển vai khác / R3 (MOB không sửa được một mình)
+- **BE (gấp, mức 3) – P-04:** điền `refillItems[].itemName` (VI/EN theo phiên) ở `listHkTasks`. PWA đã sẵn: có tên là hiện ngay, không phải sửa thêm.
+- **ARC + BE-C – P-11:** tách ảnh sau sửa ra trường riêng trong `WorkOrder` (vd. `donePhotoAttachmentIds`). Khi có trường, MOB tách 2 khối (sửa 1 chỗ).
+- **BE-C – P-01:** sửa phía server (thẻ ARC S4-01). PWA đã có câu thường và nút "Gửi lại".
+- **DOM/SEC (+ BE) – P-33:** buồng phòng thấy họ tên hay tên gọi.
+- **UXD + SEC – P-14** (xem trước ảnh), **OPS – P-15** (`VITE_DESK_PHONE`; OPS đã ghi decision-log), **INV – P-25** (logo cho icon PWA): ngoài phần MOB, giữ theo ORC.
+- Danh sách R3 của MOB: không còn mục MOB nào chưa làm trong phần ORC giao. Các mục trên chỉ chờ vai khác.
+
+### 8.3 Câu chữ – chờ UXD duyệt
+`product/design/tools/gen_strings.py`: nhóm mới "R2 Sprint 4 – MOB sửa theo UXR đi thử PWA … (chờ UXD duyệt)", 20 khóa VI/EN, đã sinh lại `copy/strings-*.json`, `strings-tables.md`, `wireframes/assets/strings.js`:
+- hàng đợi: `hk.queue.in_line`, `hk.queue.r.{time,photo,forbidden,not_found,other}`, `hk.queue.ref_code`, `hk.queue.resend`, `hk.queue.resent_toast`;
+- đăng nhập: `login.error_network`;
+- báo sự cố và phiếu sửa: `hk.wo.sent_to_mt`, `wo.photos_report_and_after`;
+- việc của tôi: `hk.grp.do_first`, `hk.grp.cancelled`, `hk.task_done_at`, `hk.toast.refused`, `hk.cancel.{reservation_changed,room_blocked,day_ended}`, `hk.refill_unnamed`.
+
+Khóa cũ không còn dùng trong PWA: `hk.grp.first`, `hk.wo.sent_body`, `hk.queue.rejected_other`. UXD quyết có giữ cho Desk hay bỏ.
+
+### 8.4 Kiểm thử
+- Ca mới:
+  - `apps/mobile/src/__tests__/s4-uxr-queue.test.ts` (4 ca, node): P-05 đọc lại hàng đợi trong lúc tải ảnh; ca này **đỏ khi bỏ bản sửa**. Thêm ca đóng app khi offline rồi mở lại, ca giữ mã 422 của trường, ca "Gửi lại" (khóa mới, giờ mới) và ca không có "Gửi lại" với 409.
+  - `apps/mobile/src/__tests__/s4-uxr.test.tsx` (18 ca), mỗi mục ít nhất một ca:
+    - P-05: báo sự cố + ảnh khi offline, đóng app, mở lại có mạng, phiếu có ảnh;
+    - P-04: có tên / không tên;
+    - P-07: nút tròn = tiêu đề danh sách (1 rồi 2); mỗi dòng 1 "Bấm lúc" + "Chờ mạng";
+    - P-08/P-01: câu thường, không lộ mã; "Gửi lại" gửi với giờ mới; 403 có mã tham chiếu nhỏ, không có "Gửi lại";
+    - P-09: 502 lúc mở app; ghi số thao tác chờ ở màn đăng nhập;
+    - P-28;
+    - P-10: FDL, mục không bắt buộc và ảnh tùy chọn không khóa nút, không gửi mục chưa tick;
+    - P-11, P-12;
+    - P-13: Đã bỏ + lý do + toast có căn; thẻ Đã xong;
+    - P-33, P-16, P-31;
+    - P-27: tab giữ đúng chỗ đi.
+  - `s4-brand.test.tsx`: thêm MOB-S4-04.
+  - Sửa ca cũ cho đúng chữ mới: `flow.test.tsx` ("Việc", "Làm trước", "Tasks", "Do first"), `s4b.test.tsx` ("Làm trước").
+- Kết quả: PWA **100/100** (10 tệp, gồm quét bundle production), guest-web **65/65**. `tsc` mobile và guest-web 0 lỗi. ESLint 0 lỗi (2 cảnh báo cũ trong `public/mockServiceWorker.js` do MSW sinh). Prettier sạch.
+- Ảnh kiểm nhanh 360 px (thanh dưới "Việc", chuông có khung, "Làm trước", thẻ "Đã xong"): `/private/tmp/claude-501/-Users-anhvh-Library-Application-Support-Claude-scratch-workspaces-00554cf2-3678-4864-82b0-830aaeaa97bd-4c0caebe-be05-49c5-a5a2-5bf357fddc6a-scratch-2026-10-15-c4f0d4/36df3adc-c586-471c-a039-340d2b696728/scratchpad/shots/uxr/pwa-tasks-360-{light,dark}.png`.
+- **Chưa đi lại trên stack `ottimo-uxr`** (API thật bản `7ac11a4`; stack không có mã sửa của MOB, muốn thử phải dựng lại image web). Mọi kiểm thử chạy trên mock MSW. Đề nghị UXR/QA đi lại T6, T7, T9, T10, T13, T14 sau khi gộp mã MOB và BE-C (như UXR mục 1 đã ghi).
+
+### 8.5 File đã sửa / tạo
+**Sửa (PWA):**
+- `product/apps/mobile/src/queue/{queue.ts,QueueProvider.tsx,messages.ts}`;
+- `src/App.tsx`;
+- `src/app/{api.ts,actions.ts,rooms.ts,tasks.ts}`;
+- `src/pages/{TasksPage,RoomPage,RoomsPage,QueuePage,LoginPage,InspectionPage,ReportPage,WorkOrderPage}.tsx`;
+- `src/ui/parts.tsx`, `src/styles.css`;
+- `src/mocks/handlers.ts` (`currentGuest` "tên · căn", ảnh sau sửa gộp như server);
+- `src/__tests__/{flow,s4b,s4-brand}.test.tsx`.
+
+**Tạo:** `src/__tests__/s4-uxr.test.tsx`, `src/__tests__/s4-uxr-queue.test.ts`.
+
+**Khác:**
+- `product/design/tools/gen_strings.py` và các tệp sinh lại;
+- `01-decisions/decision-log.md` (1 dòng MOB);
+- `rounds/round-02/responses/s4-MOB.md` (MOB-S4-04).
+
+- README theo OPS P-15 (tin ORC): `product/apps/mobile/README.md`, `product/apps/guest-web/README.md`. `VITE_DESK_PHONE` nay **bắt buộc** khi build profile demo/production. Ghi rõ dạng chỉ chữ số + dấu cách (vd. `08 4444 0909`, cùng regex với `app/config.ts`), số mẫu bị chặn, `pnpm dev` không bắt buộc.
+
+Mã guest-web không phải sửa trong đợt này.
+
+### 8.6 Bổ sung cùng đợt (tin ORC 18/10)
+- **BR-614 (DOM chốt P-33):**
+  - Thẻ việc và thẻ căn hiện số căn ở đầu thẻ, rồi "Khách: <tên gọi>" ("101 · Khách: Huy"). Số căn không lặp lại. Đơn chưa có tên thì chỉ hiện "101", không có dòng "Khách:".
+  - `guestName()` (`app/rooms.ts`) lấy nguyên giá trị server trả: bỏ phần "· <căn>"; nếu chỉ còn số căn thì không hiện. PWA **không tự tách** tên gọi từ họ tên, vì quy tắc khách VN / khách nước ngoài là của server (BE-C đang sửa).
+  - Test: 3 ca trong `s4-uxr.test.tsx` (thẻ việc 101 chỉ có một "101"; đơn chưa có tên; bảng giá trị `guestName`).
+- **Chuỗi UXD đã duyệt (8 câu sửa):**
+  - Ca test không còn so chữ VI viết cứng với các câu mới. Thêm `tv(key, args)` vào `__tests__/helpers.tsx` (như admin-web).
+  - `s4-uxr.test.tsx` đọc mọi câu mới qua khóa; câu có `{time}` so theo mẫu (`withTime`).
+- **Chạy lại:** PWA **103/103** (10 tệp), guest-web **65/65**, `tsc` 0 lỗi, ESLint 0 lỗi (2 cảnh báo cũ của MSW), Prettier sạch. Không commit.
+- **BR-614 sau quyết định ARC (18/10):**
+  - `currentGuest` và `nextArrival.guestDisplayName` **chỉ chứa tên**. PWA tự ghép "101 · Khách: Huy" từ `roomNo` + `hk.guest_first_name`; PWA không hiện `guestDisplayName`.
+  - Mock trả tên không kèm số căn, như hợp đồng.
+  - `guestName()` vẫn bỏ " · 101" nếu server chưa cập nhật gửi kiểu cũ. Có ca giao diện "Huy · 101" → thẻ hiện "Khách: Huy", số 101 chỉ một lần.
+  - **Chưa kiểm với server thật:** không stack nào đang chạy có mã BE-C mới (`ottimo-api:qa-s4` dựng 17/10 19:00, `ottimo-uxr` = `7ac11a4`). Kiểm bằng dạng phản hồi của ca tích hợp BE-C (`housekeeping-s4-arc.test.ts` BR-614) và mock.
+  - PWA **104/104**, `tsc`, ESLint, Prettier sạch.
+- **P-04 sau khi BE-B điền `itemName`** (`s4-be-b.md` mục 22):
+  - Thẻ việc hiện "Bổ sung minibar: Bia Đà Lạt × 2, Coca-Cola lon × 1".
+  - Món nào chưa có tên (việc ghi trước bản sửa, chưa đối chiếu lại) thì vẫn giữ câu tạm "… {n} món – xem tủ hoặc hỏi lễ tân tên món".
+  - Mock trả `{ itemId, itemName, quantity }` như server.
+  - Test: ca giao diện có tên / không tên, và ca `refillText()` (cả trường hợp thiếu tên một món).
+  - PWA **105/105**, `tsc`, ESLint 0 lỗi, Prettier sạch.

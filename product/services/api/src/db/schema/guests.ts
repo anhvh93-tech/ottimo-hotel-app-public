@@ -114,6 +114,11 @@ export const guest = pgTable(
       'guest_id_doc_hmac_consent_check',
       sql`${t.idDocHmac} IS NULL OR ${t.crmConsent} = 'granted'`,
     ),
+    // 0070 (SEC FB-R2-SEC-BE-78 (a), with BE-73): the last 4 digits of the ID likewise only with the P05 consent.
+    check(
+      'guest_id_doc_last4_consent_check',
+      sql`${t.idDocLast4} IS NULL OR ${t.crmConsent} = 'granted'`,
+    ),
     // CHECK 3 (last safety net, SEC 7.1): a `document` profile without P05 holds no extra personal data.
     check(
       'guest_document_minimal_check',

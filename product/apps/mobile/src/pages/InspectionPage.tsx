@@ -9,6 +9,7 @@ import {
   sendRequest,
   staffApi,
   type Checklist,
+  type InspectionInput,
 } from '../app/api';
 import { asRoom } from '../app/rooms';
 import { goBack, navigate } from '../app/router';
@@ -78,16 +79,18 @@ export function InspectionPage({
 
   const checklist = load.kind === 'ready' ? load.checklist : undefined;
   const items = useMemo(() => checklist?.items ?? [], [checklist]);
-  const photoItem = items.find((i) => i.photoRequired);
-  const tickItems = items.filter((i) => !i.photoRequired);
-  // BR-808: the whole checklist is the condition for VC → VI – every item ticked (optional ones too,
-  // otherwise they would go out as "not passed" without the note the server requires).
-  const requiredLeft = tickItems.filter((i) => !ticked.has(i.code)).length;
-  const photoOk = !photoItem || photos.length > 0;
+  // The "Ảnh phòng" item carries `photoRequired` (true = HK self-inspection, false = FDL+): it is a photo
+  // step, never a tick box (UXR P-10). The server leaves it out of pass/fail (BR-808, DOM D-12 e).
+  const photoItem = items.find((i) => i.photoRequired !== undefined);
+  const photoMandatory = photoItem?.photoRequired === true;
+  const tickItems = items.filter((i) => i !== photoItem);
+  // BR-808: "Kiểm đạt" needs every REQUIRED item (P-10: optional ones do not lock the button).
+  const requiredLeft = tickItems.filter((i) => i.required && !ticked.has(i.code)).length;
+  const photoOk = !photoMandatory || photos.length > 0;
   const doneCount =
-    tickItems.filter((i) => ticked.has(i.code)).length + (photoItem && photoOk ? 1 : 0);
+    tickItems.filter((i) => ticked.has(i.code)).length + (photoItem && photos.length ? 1 : 0);
   // SR-PWA-01: inspection photos are not on the offline allow-list (SEC E07-12) → photo step needs a connection.
-  const needsNetwork = Boolean(photoItem) && !online;
+  const needsNetwork = !online && (photoMandatory || photos.length > 0);
   const canPass = requiredLeft === 0 && photoOk && !needsNetwork && !busy;
   const label = room ? roomLabel(asRoom(room), 'staff') : '';
 
@@ -119,9 +122,13 @@ export function InspectionPage({
         room,
         {
           checklistVersion: checklist.version,
-          items: items.map((i) => {
-            const ok = i.photoRequired ? photoOk : ticked.has(i.code);
-            return ok ? { code: i.code, passed: true } : { code: i.code, passed: false, note };
+          // Not ticked + optional → left out (a "not passed" item needs a note – OpenAPI B-07); on "Chưa đạt"
+          // every unticked item goes with the note.
+          items: items.flatMap((i): InspectionInput['items'] => {
+            const ok = i === photoItem ? photos.length > 0 : ticked.has(i.code);
+            if (ok) return [{ code: i.code, passed: true }];
+            const optional = i === photoItem ? !photoMandatory : !i.required;
+            return passed && optional ? [] : [{ code: i.code, passed: false, note }];
           }),
           ...(photoIds.length ? { photoAttachmentIds: photoIds } : {}),
           performedAt: new Date().toISOString(),
@@ -194,7 +201,7 @@ export function InspectionPage({
                 photos={photos}
                 onChange={setPhotos}
                 max={3}
-                label={`${photoItem.label} *`}
+                label={photoMandatory ? `${photoItem.label} *` : photoItem.label}
               />
             ) : null}
             {needsNetwork ? <Alert tone="warn">{t('hk.need_network')}</Alert> : null}

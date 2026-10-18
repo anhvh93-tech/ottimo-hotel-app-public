@@ -136,7 +136,7 @@ Kết luận: **chưa cho qua cổng QC Sprint 3** tới khi 2 Blocker được 
 - Vấn đề: Guard chỉ hoãn quyết định vai cho UnitOfWork (để trả lại phản hồi đã lưu – ADR-009). Đường dryRun chạy `read()` nên không bao giờ qua `uow.run` → không bao giờ `enforce()`. Kịch bản: SAL gửi `POST …/actions/late-checkout {"checkoutTime":"17:00","dryRun":true}` cho một đơn `in_house` do chính SAL tạo, kèm `Idempotency-Key` = **bất kỳ** khóa SAL đã hoàn thành trước đó (ví dụ khóa của một lần `createHold`) → 200 thay vì 403. Phản hồi có `arrivalSameDay.guestDisplayName` + `etaTime` của **khách đơn khác** (`frontdesk/internal/stay.service.ts:489-496`; D01 không bị serializer chặn cho SAL), phụ thu, bậc giá. `changeRoom`/`addPartyMember` dryRun cũng chạy được với vai không có quyền. Test RBAC dùng khóa ngẫu nhiên nên không bắt được (`rbac-sprint3-bea.test.ts:233`). HK/MT bị phạm vi `own` chặn (404) nên phạm vi ảnh hưởng thực tế là SAL/CTV.
 - Vì sao quan trọng: OWASP A01 – kiểm quyền "mở khi lỗi" (fail-open), đi ngược nguyên tắc "cổng vai trước tiên" (BUG-R2-005); lộ C2 ngoài phạm vi (giống SEC-BE-25). Mọi handler sau này có `Idempotency-Key` mà không đi qua `uow.run` sẽ mắc cùng lỗi.
 - Đề xuất sửa: (1) Guard: khi `operation.dryRun && body.dryRun === true` thì `enforce()` ngay (dryRun không ghi khóa nên không có gì để phát lại). (2) `hasCompletedKey` khớp thêm `method` + `path` của request. (3) Lưới an toàn: interceptor toàn cục sau handler, nếu `ottimoAuth.enforced === false && !allowed` thì ném 403 + log lỗi lập trình. Hoặc cho `read()` của mọi controller gọi `guard.enforce(req)`. (4) Test trong `role-gate-first.test.ts`: vai bị cấm + khóa đã `completed` của operation khác + `dryRun:true` → 403 + `access.denied`, cho cả 4 operation có cờ dryRun. Thêm ca `memberId`/`approvalRequestId` của đơn khác → 404 (A1).
-- Trạng thái: Open
+- Trạng thái: **Verified 18/10 (`7ac11a4`)** có ghi chú (mục 10.2)
 
 ### FB-R2-SEC-BE-34
 - Mức độ: Major
@@ -144,7 +144,7 @@ Kết luận: **chưa cho qua cổng QC Sprint 3** tới khi 2 Blocker được 
 - Vấn đề: SR-DEV-04 / D1 [CHẶN] yêu cầu "phiên PWA không bao giờ `device_trusted`" và test "cùng tài khoản FD từ origin PWA → 403". Hiện điều này chỉ đạt nhờ cookie `__Host-` tách theo host ở staging/production. Ở dev (admin-web và PWA cùng `localhost`, khác cổng, nên chung cookie), một phiên `staff_pwa` mang cookie thiết bị vẫn qua. Không có test nào cho ca này. Khi R3 có PWA nhân viên và nếu có ai cấu hình chung host/đường dẫn, lớp bảo vệ duy nhất sẽ mất.
 - Vì sao quan trọng: Thiết bị được cấp là lớp chính bảo vệ C3 (TM-42/46). Điện thoại cá nhân chạy PWA không được thấy giấy tờ, mã cửa, tài khoản hoàn.
 - Đề xuất sửa: Trong `checkTrustedDevice`: `if (p.session.clientOrigin !== 'admin') → DEVICE_NOT_TRUSTED` + audit; nếu có header `Origin` thì phải thuộc `allowedOrigins.admin`. Test: đăng nhập FD từ origin PWA (phiên `staff_pwa`) + cookie thiết bị hợp lệ → `checkIn`, `getGuestDocumentSensitive`, `getRefundDestination` đều 403 `DEVICE_NOT_TRUSTED`.
-- Trạng thái: Open
+- Trạng thái: **Verified 18/10 (`7ac11a4`)** có ghi chú (mục 10.2)
 
 ### FB-R2-SEC-BE-35
 - Mức độ: Major
@@ -152,7 +152,7 @@ Kết luận: **chưa cho qua cổng QC Sprint 3** tới khi 2 Blocker được 
 - Vấn đề: s3-checklist H1 (chuyển từ Sprint 2, hạn "trước cổng QC Sprint 3"): 600 request/phút/người, 429 + `Retry-After`, tính cả SSE. Chưa làm. Sprint 3 thêm nhiều endpoint nặng (bill, preview, SSE mỗi tab 1 kết nối LISTEN dùng chung nhưng không giới hạn số luồng mỗi người).
 - Vì sao quan trọng: TM-50 (DoS trên 1 VPS); một tài khoản CTV bị lộ hoặc một script lỗi có thể làm quầy đứng.
 - Đề xuất sửa: Hook Fastify `onRequest` sau khi xác thực (hoặc trong guard sau `authenticate`): đếm `RateLimiter` theo `userId`, cửa sổ 60 s, 600 lần → 429 `RATE_LIMITED` + `Retry-After`, audit `security rate_limited` lần đầu mỗi cửa sổ. SSE: tối đa 5 luồng mở/người. Test: 601 request → 429; người khác không bị ảnh hưởng.
-- Trạng thái: Open
+- Trạng thái: **Verified 18/10 (`7ac11a4`)** có ghi chú (mục 10.2)
 
 ### FB-R2-SEC-BE-36
 - Mức độ: Major
@@ -160,7 +160,7 @@ Kết luận: **chưa cho qua cổng QC Sprint 3** tới khi 2 Blocker được 
 - Vấn đề: Sau khi đảo một khoản cọc X, `depositPaid` không tính dòng gốc (`reversed`) nhưng vẫn cộng dòng đảo (−X), nên kết quả là −X thay vì 0. Hệ quả: trần VietQR của đơn giữ chỗ thành `cọc yêu cầu + X` (`payments.service.ts:669-673`, F1 [CHẶN]); trần `AMOUNT_TOO_HIGH` của SAL trong `confirmDeposit` bị nới (`deposits.service.ts:148-151`); cơ sở hoàn cọc BR-309 khi hủy và các kiểm `> 0` ở `reservations.service.ts:243, 921, 1975, 2647, 2910` nhận số âm.
 - Vì sao quan trọng: Sai tiền (mức Blocker theo protocol nếu xảy ra trên dữ liệu thật). Xếp Major vì chỉ xảy ra sau thao tác đảo cọc (MGR+) và chưa có dữ liệu thật. Nó làm hỏng điều kiện F1 "≤ còn phải thu".
 - Đề xuất sửa: Thêm `AND reversal_of_id IS NULL` (giống `computeTotals`), hoặc tính qua `computeTotals` cho một nguồn sự thật. Test: cọc 1.600.000 → đảo → `depositPaid = 0`; `createVietQr` trên đơn giữ chỗ trần = cọc yêu cầu; hủy đơn sau đảo → cơ sở hoàn 0. DOM/QA thêm oracle.
-- Trạng thái: Open
+- Trạng thái: **Verified 18/10 (`7ac11a4`)** (mục 10.2)
 
 ### FB-R2-SEC-BE-37
 - Mức độ: Major
@@ -168,7 +168,7 @@ Kết luận: **chưa cho qua cổng QC Sprint 3** tới khi 2 Blocker được 
 - Vấn đề: Cột `refund_destination_set_by` được lưu nhưng không kiểm ở đâu. Kịch bản: FD tạo yêu cầu hoàn thật cho khách. MGR (cũng là FD+) đổi nơi nhận sang tài khoản của mình khi yêu cầu còn `pending` (không bị duyệt lại, vì chỉ đổi **sau** khi duyệt mới về `pending`), tự duyệt (MGR không phải người tạo), rồi tự chi chuyển khoản (`executeRefund` chỉ cấm người tạo). Một người hoàn tất việc chuyển tiền khách vào tài khoản riêng. Người duyệt cũng không chắc đã thấy nơi nhận mới nhất, vì không có kiểm phiên bản.
 - Vì sao quan trọng: TM-06/TM-32 (gian lận nội bộ về tiền). F3/F8 coi "tráo số tài khoản" là điểm gian lận số một. Đối soát sau đó chỉ phát hiện được, không ngăn được.
 - Đề xuất sửa: (1) Người duyệt ≠ `refund_destination_set_by` (mã + CHECK DB như `approval_request_refund_no_self_approval`). (2) Chuyển khoản: người chi (`executeRefund`) ≠ người duyệt **và** ≠ người đặt nơi nhận. Ở cơ sở chỉ có 1 MGR thì OWN chi hoặc OWN duyệt (ghi rõ trong BR-522, cần DOM/PO xác nhận vì đổi quy trình; nếu PO thấy vượt quyền thì báo SEC để cân nhắc phương án "OWN nhận push và phải bấm xác nhận"). (3) `approveRequest` của loại `refund` nhận `If-Match` (version của yêu cầu); đổi nơi nhận làm tăng version. (4) Mọi lần đặt/đổi nơi nhận → push `refund_destination_changed` tới người tạo yêu cầu + mọi OWN (chỉ mã đơn, không số). Test: MGR đặt nơi nhận rồi duyệt → 403; người duyệt chi chuyển khoản → 403; đổi nơi nhận khi `pending` → version tăng, approve với version cũ → 412.
-- Trạng thái: Open
+- Trạng thái: **Verified 18/10 (`7ac11a4`)** có ghi chú (mục 10.2)
 
 ### FB-R2-SEC-BE-38
 - Mức độ: Major
@@ -176,7 +176,7 @@ Kết luận: **chưa cho qua cổng QC Sprint 3** tới khi 2 Blocker được 
 - Vấn đề: SEC I5 yêu cầu mọi đính kèm có hạn lưu. Tệp tải lên nhưng không bao giờ gắn vào bản ghi (lễ tân/SAL chụp biên nhận rồi đóng hộp thoại, hoặc tải lại ảnh khác) thì không có mốc, nên giữ mãi. Biên nhận chuyển khoản là C2 (tên + số tài khoản người chuyển). `work_order`, `inspection`, `meter` đã nhận tải lên từ Sprint 3 nhưng module dùng chúng là Sprint 4, nên cũng không có mốc.
 - Vì sao quan trọng: Hạn lưu là nghĩa vụ (SR-RET, NĐ 13): dữ liệu không còn mục đích phải xóa.
 - Đề xuất sửa: (1) J16: tệp chưa gắn (`bound_ref_id IS NULL`) quá 7 ngày từ `uploaded_at` → xóa (`purge_reason='unbound'`, thêm vào CHECK). (2) Tới khi module Sprint 4 có mặt: hoặc từ chối `work_order`/`inspection`/`meter` ở `uploadAttachment` (422 `NOT_IN_LIST`), hoặc đặt mốc mặc định = `uploaded_at`. (3) `refund_proof` đang dùng chung `deposit_receipt_retention_days`: giữ như giả định I5, chờ câu trả lời kế toán/luật sư về T08 (ESC-001). Test: tải biên nhận, không dùng, ngày 8 → `purged_at`, DEK hủy.
-- Trạng thái: Open
+- Trạng thái: **Mở lại một phần 18/10** – điểm (1) và (3) Verified; điểm (2) hồi quy ở Sprint 4, theo dõi bằng **FB-R2-SEC-BE-65** (Major, `reviews/s4-SEC.md` C.8) (mục 10.2)
 
 ### FB-R2-SEC-FE-06
 - Mức độ: Major
@@ -184,7 +184,7 @@ Kết luận: **chưa cho qua cổng QC Sprint 3** tới khi 2 Blocker được 
 - Vấn đề: SR-C3-11(4) yêu cầu: số đầy đủ tự ẩn sau 60 giây; clipboard tự ghi đè rỗng sau 60 giây; ẩn/xóa **ngay** khi rời màn, đóng hộp, đăng xuất, hết phiên hoặc tab bị ẩn. Hiện dữ liệu cổng ẩn sau 120 giây, clipboard giữ số hộ chiếu/CCCD tới khi người khác dán, và số tài khoản hoàn (C3) không tự ẩn. `DocsPanel` làm đúng (60 giây + `visibilitychange`), nên chỉ cần dùng lại cách đó.
 - Vì sao quan trọng: Máy quầy dùng chung; clipboard là đường rò C3 phổ biến nhất (TM-18) – dán nhầm vào Zalo/tìm kiếm.
 - Đề xuất sửa: Một hook `useC3Reveal({ ttlMs: 60_000 })` dùng chung cho DocsPanel, dữ liệu cổng, tài khoản hoàn: hẹn giờ 60 giây; xóa khi `visibilitychange` (hidden), unmount, đăng xuất (`onClientDataClear`). Clipboard: sau mỗi lần sao chép hẹn 60 giây ghi `''` và cũng ghi `''` khi ẩn tab/rời màn (best-effort, giữ nút "Xóa bộ nhớ tạm"). Test E2E/RTL: ẩn tab → số biến mất + `clipboard.writeText('')` được gọi; 60 giây → ẩn.
-- Trạng thái: Open
+- Trạng thái: **Verified 18/10 (`7ac11a4`)** có ghi chú (mục 10.2)
 
 ### FB-R2-SEC-MOB-01
 - Mức độ: Major
@@ -192,7 +192,7 @@ Kết luận: **chưa cho qua cổng QC Sprint 3** tới khi 2 Blocker được 
 - Vấn đề: Test quét bundle (G8/ĐK-6: không có khóa cấm, không đường dẫn OTP/folio, không `mockServiceWorker.js`) **luôn bị bỏ qua trong CI**, vì lúc chạy test chưa có `dist`. Bộ lọc chuỗi ở `vite.config.ts:29-48` hỏng thì chuỗi cấm vẫn lọt ra bản phát hành mà CI vẫn xanh. Ngoài ra, tiền tố lọc `'error.'`, `'gw.'` quá rộng nên bundle còn chứa chuỗi không dùng tới (ví dụ `error.GUEST_STAY_ENDED` "…only shows your bill", `guest.req.fee_notice`, mọi `error.*` của nhân viên).
 - Vì sao quan trọng: Một kiểm soát [ĐK-6] không thể đỏ thì không phải kiểm soát. Chuỗi hứa hẹn tính năng mức 2 (bill, mã cửa) xuất hiện trên app khách đi ngược s1-decisions.
 - Đề xuất sửa: (1) CI build guest-web trước khi chạy test này (bước riêng `pnpm --filter @ottimo/guest-web build && vitest run guard.test.ts`), và khi `process.env.CI` thì test **fail** (không skip) nếu thiếu `dist`. (2) Lọc chuỗi theo danh sách khóa thực sự dùng (thu từ mã nguồn, như `units.test.ts` đang làm) thay cho tiền tố.
-- Trạng thái: Open
+- Trạng thái: **Verified 18/10 (`7ac11a4`)** (mục 10.2)
 
 ### FB-R2-SEC-BE-39
 - Mức độ: Minor
@@ -473,7 +473,7 @@ Mỗi ca: đơn seed, thành viên chèn vào `reservation_guest`, khách tải 
   - FE + UXD: Desk gắn giấy tờ khách tải qua link vào người còn ở, hiện hạn chờ trên từng giấy tờ và mục "Cần chú ý" → **FB-R2-SEC-FE-07** (Major). Chưa có phần này thì người còn ở vẫn mất giấy tờ sau 24 giờ;
   - phương án chính (đề xuất 2–5: `guestUploadPersonIndex` + hộp chọn ô + dồn số ô) – dời trước cổng QC Sprint 4 (S4-39).
 - **Kiểm lại 17/10 (`fe4b166`, vòng 9c):** FB-R2-SEC-FE-07 **Verified** đầu–cuối trên Desk bấm thật (mục 9.6). Phương án dự phòng (BE + FE) dùng được: SEC-G1 (a) đạt.
-- Trạng thái: Open – phương án dự phòng Verified đầu–cuối 17/10 (`ea29582` BE, `fe4b166` FE). Chỉ còn phương án chính (đề xuất 2–5, S4-39 / SEC-G1 b), hạn cổng QC Sprint 4
+- Trạng thái: **Verified 18/10 (`7ac11a4`) – Closed** (mục 10.1). Phương án dự phòng Verified 17/10 (`ea29582` BE, `fe4b166` FE); phương án chính (S4-39 / SEC-G1 b) Verified 18/10
 
 ### 9.4 Kết luận của SEC (quyền chặn – protocol mục 1)
 
@@ -595,7 +595,7 @@ Không lộ dữ liệu mới: mục "Cần chú ý" chỉ có mã, số đếm,
 - Vì sao quan trọng: `legal_hold` là cam kết không hủy gì; lễ tân hiểu nhầm hạn.
 - Đề xuất sửa: dưới hold, `onPartyMemberRemoved` không hủy trường/DEK, chỉ đặt hạn (giống J16), xử lý khi gỡ hold. Mục "Cần chú ý" lọc `NOT legal_hold` hoặc gắn cờ "đang giữ pháp lý".
 - Hạn: trước cổng QC Sprint 4.
-- Trạng thái: Open (S4-39). Bổ sung 17/10 (mục 9.6 d): `retireUnclaimed` ghi log C3 `delete` cả khi đơn đang `legal_hold` và chưa xóa gì – sửa cùng thẻ này
+- Trạng thái: **Verified 18/10 (`7ac11a4`) – Closed** (mục 10.1). Bổ sung 17/10 (mục 9.6 d) về `retireUnclaimed` cũng đạt
 
 ### FB-R2-SEC-BE-58
 - Mức độ: Suggestion
@@ -604,7 +604,7 @@ Không lộ dữ liệu mới: mục "Cần chú ý" chỉ có mã, số đếm,
 - Vì sao quan trọng: cảnh báo sai; tăng phạm vi phải gắn lại trong 24 giờ.
 - Đề xuất sửa: (1) thêm điều kiện loại giấy tờ chờ vào truy vấn visa; (2) cân nhắc cùng phương án chính (`guestUploadPersonIndex` sẽ thay cách đoán này).
 - Hạn: cùng S4-39.
-- Trạng thái: (1) **Verified 17/10 (`e6d1a7d`)**; (2) Open – cùng S4-39
+- Trạng thái: (1) **Verified 17/10 (`e6d1a7d`)**; (2) **Verified 18/10 (`7ac11a4`)** (mục 10.1) – Closed
 
 **e) Kết luận của SEC**
 
@@ -705,3 +705,75 @@ Test repo 34/34 xanh (12 + 22) trên DB mới.
 6. **SEC-G4** (demo dựng từ `fe4b166`, xem `~/.ottimo-demo/built-from`): ORC thay dòng cảnh báo ở `demo-1-limits.md` mục C bằng câu mới ở mục 9.4. Dòng KB4 "chưa mở được ảnh" cũng đã cũ, vì từ `fe4b166` ảnh đã mở được; UXR/ORC rà lại.
 
 Không có ESC mới: mức rủi ro và yêu cầu kỹ thuật thuộc quyền SEC.
+
+## 10. Kiểm lại trước cổng QC Sprint 4 – S4-39 (SEC-G1 b) và SEC-G3 (SEC, 18/10/2026)
+
+- Yêu cầu: ORC 18/10, bảng sẵn sàng `qc/s4-gate-readiness.md` G2.1 (M3, T3, ĐK-S3-11) và G2.2 (SEC-G3, M5).
+- Mã kiểm: HEAD **`7ac11a4`**, cây làm việc sạch (`git status` chỉ có `qc/s4-gate-readiness.md` chưa theo dõi), nên kiểm trên cây cũng là kiểm trên commit.
+- Trong lúc review:
+  - HEAD lên `2b134fb`. Commit này chỉ đổi CI, tài liệu và review, không đổi mã sản phẩm.
+  - Phiên SEC bị ngắt một lần (giới hạn sử dụng) rồi mở lại.
+  - Cây có **nhiều thay đổi chưa commit** của vai khác: `admin-web` (gồm `DocsPanel.tsx`, `StayDialogs.tsx`), `services/api` (housekeeping, guest-portal, frontdesk, reservations, folio, payments), `openapi.yaml`, api-client, `design/copy`, `.github/workflows/ci.yml`.
+
+  SEC **không** tính các thay đổi đó. Test của G2.2 chạy trên bản trích `git archive 7ac11a4`. Tệp đang bị sửa dở thì đọc bằng `git show 7ac11a4:<tệp>`. Riêng diff của `DocsPanel.tsx`/`StayDialogs.tsx`: SEC đã đọc, đó là BUG-R2-089 và S4-45, không chạm luồng S4-39. Kết luận dưới đây áp cho **`7ac11a4`**.
+- Test API chạy trên DB PostgreSQL **mới, riêng** (`ottimo_test_sec_g21`, `ottimo_test_sec_g22`), migrate từ đầu qua globalSetup, Node 22.23.3. Không chạm stack demo hay stack của vai khác. Dữ liệu giả.
+- E2E UI: SEC **không** dựng lại stack lần này. Bằng chứng UI là TC-L3-080 (a)(b) trong CI 39042881071 (QA, `qa/bug-list.md` dòng BUG-R2-085, 1409–1410, 1459), cộng đọc mã FE.
+
+### 10.1 S4-39 – phương án chính (SEC-G1 b, BUG-R2-085): **Verified 18/10 (`7ac11a4`)**
+
+| Điểm (thẻ BE-53 đề xuất 2–5, BE-57, BE-58 (2), mục 9.5 e) 4, 9.6 e)) | Kết quả | Bằng chứng |
+|---|---|---|
+| Không bao giờ hủy theo vị trí ô | Đạt | `registration.service.ts` `onPartyMemberRemoved` (2378–2442) hủy đúng `own` (giấy tờ gắn người bị bỏ) cộng `chosen` (ô lễ tân chọn). Không còn nhánh `person_index > persons` |
+| `removePartyMember.guestUploadPersonIndex` bắt buộc khi cần; 422 chỉ kèm số ô | Đạt | `REQUIRED` + `personIndexes[]` (chỉ số, không ảnh, không tên – `guestUploadProblem` 125–140). Chọn số khi không cần → `NOT_ALLOWED` (BE-58 (2)). Số không phải ô mở → `NOT_IN_LIST`. `none` luôn nhận. Lựa chọn được audit (`registration.unclaimed_choice`, chỉ số ô hoặc `none`). Cả lệnh bỏ người rollback khi 422. Controller `frontdesk.controller.ts:57-66, 528-532` chỉ nhận 2…20 hoặc `none` |
+| Hủy đúng giấy tờ được chọn, cùng giao dịch, đủ C5 | Đạt | `removeDocument`: DEK + tệp (sau COMMIT) của từng ảnh, trường NULL + `purge_journal`, `removed_at`, c3 `delete` |
+| Dồn số ô 1..k; đồng ý P02b và "bổ sung tại quầy" đi theo người | Đạt | `UPDATE … person_index - 1 … person_index > n` + `shiftDeferredPeople`. Test "S4-39 – four slots" |
+| `required_count` theo số người của đơn | Đạt | `onPartyMemberRemoved` 2431–2437 |
+| BE-57 `legal_hold`: không hủy, không ghi c3 `delete`, mục "Cần chú ý" lọc hold | Đạt | `retireUnderHold` chỉ đặt `removed_at` + hạn; J16 `purgeRetiredDocuments` hủy và ghi log sau khi gỡ hold. `retireUnclaimed` không ghi c3 `delete` khi hold (1006–1010). `unclaimedDocumentStays` có `NOT x.legal_hold`. Test "SEC-BE-57", "SEC-BE-55/57" |
+| BE-58 (2) | Đạt | Người bị bỏ đã có giấy tờ gắn → không cần chọn ô, gửi số → 422 `NOT_ALLOWED`. Test R5 |
+| `GuestDocumentLink` (PATCH chỉ `partyMemberId`), không đọc C3 để gắn người (mục 9.6 e) 2) | Đạt | `DocsPanel.tsx` `LinkDocDialog` (374–486) gửi **chỉ** `partyMemberId`, không step-up đọc trường. Danh sách người không chọn sẵn, người đã có giấy tờ bị khóa. Test API "S4-39 – GuestDocumentLink …": một c3 `update`, hết hạn chờ |
+| 409 `DOCUMENT_UNCLAIMED_EXISTS` kèm id (mục 9.6 e) 1) | Đạt | `registration.service.ts:604`, DTO có `personIndex` + `unclaimedUntil`. Desk mở **đúng** giấy tờ đó (`DocsPanel.tsx:150, 569, 736`) |
+| Giấy tờ lễ tân tự nhập chưa gắn người | Đạt | `addGuestDocument` (636–657): giấy tờ không phải người chính luôn được gắn người qua `memberForDocument` (khớp khóa / tên + ngày sinh / hồ sơ P05 / tạo hồ sơ "từ giấy tờ"), nên bỏ người là hủy theo `own`. Ngoại lệ duy nhất: giấy tờ trẻ em không khớp ai – nằm trong "Cần chú ý" theo BR-601 v0.3.8 (DOM-S4-16 b), không có hạn trước khi khai báo, đã được DOM chốt |
+| Hộp chọn ô trên Desk | Đạt (mã + CI) | `StayDialogs.tsx` 1186–1237, 1448–1473: radio "Khách n" + "Không có", **không chọn sẵn**, thiếu lựa chọn thì không gửi; đọc `personIndexes` từ 422. E2E TC-L3-080 (a)(b) (`ui-clock/stay-money.s4.spec.ts:615`) xanh ở CI 39042881071 |
+| Phương án dự phòng 24 giờ chỉ còn cho đường không có lựa chọn (giả định ARC (c)) | **SEC xác nhận** | `markUnclaimed` chỉ được gọi từ `onPartyChanged` (cắt số người qua `updateReservation`/sửa đơn OTA), không từ `removePartyMember`. Test "R6 + 24 h (fallback)" |
+
+- **Test SEC chạy:** `registration-party-removal.test.ts` + `registration-flow.test.ts` + `upload-gate-socket.test.ts` trên `ottimo_test_sec_g21` → **3 tệp, 50/50 xanh**. Trong đó có R1–R6, "S4-39 – four slots", "S4-39 – GuestDocumentLink", SEC-BE-54/55/56/57/58 (1).
+- **Kết luận:**
+  - **SEC-G1 (b): ĐẠT.**
+  - FB-R2-SEC-BE-53, BE-57, BE-58 (2): **Verified 18/10 (`7ac11a4`) – Closed**.
+  - BUG-R2-085: SEC đồng ý đóng (QA đã ghi Closed).
+  - ĐK-S3-11 / M3 / T3 (tình huống KHÔNG ĐẠT số 3): **gỡ**.
+
+### 10.2 SEC-G3 – kiểm lại 8 Major (G2.2): **7 Verified, BE-38 mở lại một phần**
+
+SEC phụ chạy test trên bản trích `git archive 7ac11a4`; SEC chính đọc lại bằng chứng của BE-38. Test:
+- API (DB `ottimo_test_sec_g22`): `guard-s3`, `rbac-sprint3-bea`, `config.test`, `approvals-refund-payout`, `files-attachments` 263/263; `payments-s3` + 3 tệp (verbose) 64/64; `housekeeping-s4` 17/17;
+- admin-web: `c3-exception`, `refund`, `s3-review` 26/26;
+- guest-web: `bundle.test`, `guard.test` với `CI=true` và **không có `dist`** 6/6; đột biến (tắt bộ lọc ĐK-6 + thêm `'guest.bill.title'`) làm `bundle.test` đỏ đúng như mong đợi.
+
+| Thẻ | Kết quả | Bằng chứng | Ghi chú (không mở thẻ) |
+|---|---|---|---|
+| BE-33 | **Verified** có ghi chú | `auth.guard.ts:312-321` (op có cờ dryRun + `dryRun:true` → `enforce()` ngay), `:326-351` (`hasCompletedKey` khớp thêm method + path), lưới an toàn `serialize.interceptor.ts:37-40`, lớp hai `read()` ở frontdesk/reservations/dashboard. Test guard-s3 "SEC-BE-33…" và rbac-sprint3-bea 15 ca dry run | 4 op dryRun khác (`cancelReservation`, `allocateGroupDeposit`, `cancelReservationGroupMember`, `cancelReservationGroup`) chạy chung nhánh guard nhưng chưa có test riêng; `read()` trả 403 không ghi `access.denied` (chỉ là lưới dự phòng) |
+| BE-34 | **Verified** có ghi chú | `auth.guard.ts:496-505`: phiên `staff_pwa` không bao giờ là thiết bị tin cậy; có `Origin` thì phải thuộc `allowedOrigins.admin`; staging/production bắt buộc `ADMIN_BASE_URL` (`config.ts:55-76`). Test guard-s3 "SEC-BE-34…" có audit | Test mới chạy trên `getRegistrationPortalData`. `Me.deviceTrusted` còn lệch → BE-69 (s4-SEC) |
+| BE-35 | **Verified** có ghi chú | `auth.guard.ts:180-205`: 600 lần/người/60 giây, 429 + `Retry-After`, audit một lần mỗi cửa sổ; staging/production ≤ 600 (`config.ts:310-323`); mở SSE được đếm; SSE tối đa 5 luồng/người (`sse-hub.ts:31-32, 84-91`). Test guard-s3, config.test | Chưa có test luồng SSE thứ 6. Bộ đếm RAM theo process; khi > 1 bản chạy (R3) phải chuyển sang PG |
+| BE-36 | **Verified** | `folio.service.ts:792-810` bỏ dòng đảo; `computeTotals` cùng quy tắc; mọi chỗ dùng đều qua `depositPaid`. Test payments-s3 "SEC-BE-36 / ARC-BE-S3-02" | – |
+| BE-37 | **Verified** có ghi chú | Người duyệt ≠ người đặt nơi nhận (mã + CHECK); người chi ≠ người tạo ≠ người duyệt ≠ người đặt nơi nhận, trừ OWN theo BR-522 (PO 17/10); OWN tự chi phải step-up; `expectedVersion` bắt buộc khi duyệt hoàn (0.3.7 B-6); đổi nơi nhận tăng version, sau duyệt thì về `pending`; push `refund_destination_changed` không có số. Test payments-s3, approvals-refund-payout | `executeRefund` không có `expectedVersion`. Rủi ro thấp vì đổi nơi nhận sau duyệt đã đưa yêu cầu về `pending`; ARC/PO xác nhận bước chi có cần không |
+| BE-38 | **Mở lại một phần** | (1) đạt: tệp chưa gắn xóa sau `attachment_unbound_days` (`attachment.service.ts:301-313`, test "SEC BE-38 … day 8"). (3) giữ giả định I5. **(2) hồi quy từ `0b605f3`:** `work_order`/`inspection` được nhận lại (`:81-87`) và gắn vào phiếu **không có mốc hạn lưu**; probe: T0 + 40 tháng → `purged: 0` | Theo dõi bằng **FB-R2-SEC-BE-65** (Major, rủi ro Medium – `reviews/s4-SEC.md` C.8), gộp cả ảnh `penalty_evidence` gắn **sau** trả phòng (BR-427 c) – đọc mã, chưa probe |
+| FE-06 | **Verified** có ghi chú | `app/c3.ts:13-39` `useC3Reveal` (60 giây, tab ẩn, unmount, đăng xuất), `:61-112` `useC3Clipboard` (ghi `''` sau 60 giây, khi ẩn tab, rời màn, đăng xuất); áp ở `RegistrationPage.tsx` (bỏ 120 giây), `MoneyPage.tsx` (số tài khoản hoàn), `DocsPanel` qua `docImages.ts`. Test s3-review, c3-exception, refund | Chưa có test "hết 60 giây" cho `useC3Reveal` và tự ẩn ở MoneyPage. `showPortal` không bỏ kết quả về muộn khi tab đã ẩn (khác `docImages`), nên dữ liệu có thể hiện tối đa 60 giây lúc tab ẩn – gợi ý FE dùng biến đếm như `docImages` |
+| MOB-01 | **Verified** | `guest-web/__tests__/bundle.test.ts:39-84` tự build production vào thư mục tạm rồi quét (không còn `skipIf`, không phụ thuộc `dist`); lọc chuỗi theo khóa thật dùng (`build/used-keys.ts`, `vite.config.ts:37-50`), có test khóa danh sách | Cache turbo không coi `design/copy` là input → **FB-R2-SEC-OPS-04** (Minor) |
+
+### FB-R2-SEC-OPS-04
+- Mức độ: Minor (rủi ro Low) | Người sửa: OPS (FE, MOB xác nhận)
+- Vị trí: `product/turbo.json` (task `test` không có input ngoài gói); thiếu `turbo.json` riêng cho `apps/guest-web`, `apps/admin-web`, `packages/i18n`; `apps/guest-web/src/app/i18n.tsx:6-8`, `packages/i18n/src/translate.ts:5,15` đọc `design/copy/strings-*.json`; `.github/workflows/ci.yml:83-88` khôi phục cache `.turbo` giữa các commit.
+- Vấn đề: commit chỉ sửa `design/copy` không đổi hash task test của guest-web, admin-web, i18n, nên turbo phát lại kết quả cũ và `bundle.test`/`guard.test` không chạy lại.
+- Vì sao quan trọng: kiểm soát chuỗi ĐK-6 / G8 và test đủ khóa VI/EN không chạy khi chính tệp chuỗi đổi. Mức thấp vì bộ lọc dựa trên tên khóa trong mã.
+- Đề xuất sửa: thêm `"inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/design/copy/*.json"]` cho `test` và `build` của 3 gói (hoặc `globalDependencies`); kiểm bằng `turbo run test --filter=@ottimo/guest-web --dry=json` (hash phải đổi khi sửa strings).
+- Trạng thái: Open
+
+### 10.3 Kết luận mục 10
+- **G2.1 / M3 / T3 / ĐK-S3-11 (S4-39, SEC-G1 b): ĐẠT – Verified.**
+- **G2.2 / SEC-G3:**
+  - 7/8 Major Verified: BE-33…37, FE-06, MOB-01.
+  - BE-38 mở lại một phần (điểm 2) và theo dõi bằng BE-65 (Major, Medium). Đây **không** phải Critical/High.
+  - BE-65 phải xử lý trong round (G3.2), muộn nhất trước dữ liệu thật.
+  - Theo SEC, **ĐK-S3-5 phần SEC đạt**, vì 8/8 thẻ Sprint 3 đã có dòng kiểm lại; phần còn mở đã chuyển sang thẻ Sprint 4 có chủ.
+- Không có ESC mới.

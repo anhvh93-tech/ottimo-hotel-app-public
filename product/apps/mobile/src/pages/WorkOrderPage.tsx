@@ -371,10 +371,16 @@ export function WorkOrderPage({ session, id }: { session: StaffSession; id: stri
         ) : null}
         {notice ? <Alert tone="ok">{notice}</Alert> : null}
         {error ? <Alert tone="bad">{error}</Alert> : null}
+        {/* UXR P-11: what the technician did ("Đã làm gì?" at "Sửa xong"). */}
+        {wo.resultNote ? (
+          <p className="m-0 gw-pre">{t('wo.result_info', { note: wo.resultNote })}</p>
+        ) : null}
+        {/* 0.3.7 returns the report photos and the after-repair photos in one list (BE-C/ARC: separate field
+            asked, P-11) – once repaired, the block is not called "Ảnh lúc báo". */}
         <AttachmentPhotos
           propertyId={session.propertyId}
           ids={wo.photoAttachmentIds ?? []}
-          title={t('wo.photos_reported')}
+          title={wo.doneAt ? t('wo.photos_report_and_after') : t('wo.photos_reported')}
           online={online}
         />
         {wo.history?.length ? (

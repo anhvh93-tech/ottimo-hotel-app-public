@@ -18,7 +18,10 @@ import { Client as PgClient } from 'pg';
 import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '../../src/db/database';
+import type { LocalDate } from '../../src/shared/time';
+import { ApprovalService } from '../../src/modules/approvals/public/approval.service';
 import { FolioService } from '../../src/modules/folio/public/folio.service';
+import { ParameterService } from '../../src/modules/platform/public/parameter.service';
 import { resyncMinibarFocOnce } from '../../src/modules/folio/public/minibar-foc-resync';
 import {
   NoGuestAccessPort,
@@ -2284,6 +2287,155 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     expect(co.status, co.body).toBe(200);
     expect((await mb(b)).gross).toBe(105_000);
     expect(await invariants()).toEqual({ k1: 0, k2: 0, k3: 0, k4: 0 });
+  });
+
+  it('ARC s3 thẻ 15 (FolioPort): FolioService.linkApprovalRequest – the pending FOC line another module posted gets its request (Folio DTO approvalRequestId); idempotent; 404 unknown line, 422 a request of another line, 409 a line not pending', async () => {
+    const { b } = await inHouse('401', '2031-04-07', '2031-04-08');
+    const folios = fa.app.get(FolioService);
+    const approvals = fa.app.get(ApprovalService);
+    const roomLine = (await liveLines(b)).find((l) => l.category === 'room')!;
+    const fd = t.users.fd!;
+    const ctx = { ...t.ctx(), userId: fd.id, actorType: 'user' as const };
+    const actor = { userId: fd.id, roles: fd.roles };
+    const submit = (tx: Parameters<FolioService['lock']>[0], lineId: string) =>
+      approvals.submit(tx, actor, {
+        type: 'foc',
+        amountVnd: 100_000,
+        reasonCode: 'service_recovery',
+        targetType: 'reservation',
+        targetId: b.id,
+        targetCode: b.code,
+        folioLineId: lineId,
+        lineCategory: 'room',
+      });
+    const { focLineId, requestId } = await db.withContext(ctx, async (tx) => {
+      const [lineId] = await folios.postLines(
+        tx,
+        b.folioId,
+        [
+          {
+            reservationId: b.id,
+            category: 'foc',
+            revenueGroup: 'other',
+            description: 'foc',
+            quantity: 1,
+            unitPriceVnd: -100_000,
+            amountVnd: -100_000,
+            source: 'manual',
+            lineState: 'pending_approval',
+            relatedLineId: roomLine.id,
+          },
+        ],
+        { userId: fd.id, reservationCode: b.code },
+      );
+      const r = await submit(tx, lineId as string);
+      await folios.linkApprovalRequest(tx, lineId as string, r.id);
+      await folios.linkApprovalRequest(tx, lineId as string, r.id); // idempotent
+      return { focLineId: lineId as string, requestId: r.id };
+    });
+    const dto = ((await folio(b)).lines as Array<Line & { approvalRequestId?: string }>).find(
+      (l) => l.id === focLineId,
+    );
+    expect(dto).toMatchObject({ lineState: 'pending_approval', approvalRequestId: requestId });
+    const code = async (fn: (tx: Parameters<FolioService['lock']>[0]) => Promise<unknown>) => {
+      try {
+        await db.withContext(ctx, fn);
+        return 'ok';
+      } catch (e) {
+        return (e as { code?: string }).code;
+      }
+    };
+    expect(await code((tx) => folios.linkApprovalRequest(tx, uuidv7(), requestId))).toBe(
+      'NOT_FOUND',
+    );
+    expect(await code((tx) => folios.linkApprovalRequest(tx, roomLine.id, requestId))).toBe(
+      'VALIDATION_FAILED',
+    );
+    expect(
+      await code(async (tx) => {
+        const r2 = await submit(tx, roomLine.id);
+        await folios.linkApprovalRequest(tx, roomLine.id, r2.id);
+      }),
+    ).toBe('INVALID_TRANSITION');
+  });
+
+  it('ARC 16.21 (Minor, BR-433): a FOC on a manual long stay (no room line) has its night basis = monthly rent ÷ long_stay_daily_divisor (BR-413) – 11.130.000 ÷ 30 = 371.000 – so a 300.000 FOC is decided under the night limit, not sent to OWN', async () => {
+    const res = await c.fd!.send('POST', url('/reservations'), {
+      roomId: ids.rooms['402'],
+      channelId: ids.channels.direct,
+      directSource: 'zalo_phone',
+      arrivalDate: '2031-05-01',
+      departureDate: '2031-06-01',
+      adults: 1,
+      bookerGuestId: guest,
+      paymentModel: 'direct',
+      manualLongStay: { monthlyRentVnd: 11_130_000 },
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    const b = res.json() as Booking;
+    expect(((await folio(b)).lines as Line[]).filter((l) => l.category === 'room')).toEqual([]);
+    await at('2031-05-10T10:00:00+07:00');
+    const f0 = await c.fd!.get(url(`/folios/${b.folioId}`));
+    const added = await c.fd!.send(
+      'POST',
+      url(`/folios/${b.folioId}/lines`),
+      { category: 'service_fee', description: 'Giặt rèm', quantity: 1, unitPriceVnd: 300_000 },
+      { 'if-match': f0.headers.etag as string },
+    );
+    expect(added.statusCode, added.body).toBe(201);
+    const line = (added.json().lines as Line[]).find((l) => l.category === 'service_fee')!;
+    const { basis, divisor } = await db.withContext(t.ctx(), async (tx) => ({
+      basis: await fa.app.get(FolioService).nightRateBasis(tx, line.id),
+      divisor: await fa.app
+        .get(ParameterService)
+        .get<number>(tx, 'long_stay_daily_divisor', '2031-05-01' as LocalDate),
+    }));
+    expect(divisor).toBe(30);
+    expect(basis).toBe(371_000);
+    const r = await c.fd!.send('POST', url(`/folios/${b.folioId}/lines/${line.id}/foc`), {
+      kind: 'foc',
+      amountVnd: 300_000,
+      reasonCode: 'service_recovery',
+    });
+    expect(r.statusCode, r.body).toBe(201);
+    const [req] = await q<{ required_role: string; limit_basis_vnd: string | number }>(
+      'SELECT required_role, limit_basis_vnd FROM approval_request WHERE id = $1',
+      [r.json().id],
+    );
+    expect(Number(req!.limit_basis_vnd)).toBe(basis);
+    // decided within the desk/manager limits (≤ one night), no longer sent up to OWN for want of a basis
+    expect(['front_desk_lead', 'manager']).toContain(req!.required_role);
+  });
+
+  it('UXR P-04: HK sees what to refill WITH the item names – HkTask.refillItems[].itemName on the task raised by the old-fridge count, kept when a re-count changes the numbers', async () => {
+    const b = await leftAndCounted('2031-05-12', '2031-05-13', '2031-05-15', { bia: 2, coca: 1 });
+    const [bia] = await q<{ name: string }>('SELECT name FROM item WHERE id = $1', [items.bia]);
+    const [coca] = await q<{ name: string }>('SELECT name FROM item WHERE id = $1', [items.coca]);
+    const [task] = await q<{ id: string }>(
+      `SELECT id FROM hk_task WHERE reservation_id = $1 AND type = 'minibar_refill' AND status = 'open'`,
+      [b.id],
+    );
+    const hkTask = async () => {
+      const r = await c.hk!.get(url('/hk-tasks?date=2031-05-13'));
+      expect(r.statusCode, r.body).toBe(200);
+      return (
+        r.json().data as Array<{
+          id: string;
+          refillItems?: Array<{ itemId: string; quantity: number; itemName?: string }>;
+        }>
+      ).find((x) => x.id === task!.id);
+    };
+    expect((await hkTask())?.refillItems).toEqual(
+      expect.arrayContaining([
+        { itemId: items.bia, quantity: 2, itemName: bia!.name },
+        { itemId: items.coca, quantity: 1, itemName: coca!.name },
+      ]),
+    );
+    await at('2031-05-13T11:00:00+07:00');
+    await count(b, { bia: 1 }, ids.rooms['202']); // re-count: coca not used after all
+    expect((await hkTask())?.refillItems).toEqual([
+      { itemId: items.bia, quantity: 1, itemName: bia!.name },
+    ]);
   });
 
   it('ARC 16.14: FolioLine.chargeCode – a minibar line carries the item code, the adjustFolioLine replacement keeps it; B13 after a count → minibarUncheckedRooms reason stay_continued', async () => {

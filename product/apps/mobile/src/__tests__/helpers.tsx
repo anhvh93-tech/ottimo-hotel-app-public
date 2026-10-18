@@ -1,4 +1,5 @@
 // Shared test helpers: sign in through the real App (StrictMode, like main.tsx) against the MSW mock.
+import { translate } from '@ottimo/i18n';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StrictMode } from 'react';
@@ -7,6 +8,10 @@ import { App } from '../App';
 import type { Connect, EventSourceLike } from '../app/live';
 import { MemoryStore } from '../data/store';
 import { mockControl, MOCK_PASSWORD } from '../mocks/handlers';
+
+/** UXD string in Vietnamese – read from the string files, so a wording change by UXD does not break tests. */
+export const tv = (key: string, args?: Record<string, string | number>) =>
+  translate('vi', key, args);
 
 export function setOnline(v: boolean) {
   Object.defineProperty(window.navigator, 'onLine', { value: v, configurable: true });

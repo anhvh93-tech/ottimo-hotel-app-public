@@ -18,6 +18,8 @@
 
 Câu báo sẵn sàng: `XONG – demo từ commit <sha>:` kèm 3 địa chỉ và đường dẫn tệp tài khoản. Cần: OrbStack (Docker) đang chạy, Node 22, git.
 
+**Từ 18/10 (UXR P-15, P-24 – `s4-pwa-build-fixes.md`):** lệnh có build (`demo-up.sh`, `--smoke`, `--ref`) cần dòng `VITE_DESK_PHONE=<số lễ tân>` trong `product/.env` của máy này (chỉ chữ số và dấu cách, không dấu chấm; tệp `.env` không bao giờ commit). Thiếu dòng này thì script dừng ngay, trước khi build, và nói cách thêm. `--no-build` và `demo-reset.sh` không cần. Bản dựng lại sau ngày này phục vụ đúng `manifest.webmanifest`/`sw.js` (trước đó Caddy trả `index.html`), nên PWA ở 8182 có service worker; gợi ý "Cài ứng dụng" trên Android còn chờ icon (P-25).
+
 ## 2. Địa chỉ (chỉ trên máy này)
 
 | Ứng dụng | Địa chỉ | Ghi chú |

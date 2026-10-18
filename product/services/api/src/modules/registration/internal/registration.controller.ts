@@ -410,12 +410,15 @@ export class RegistrationController {
       async (tx) => {
         const reg = await lockRegistration(tx, rid);
         if (!reg) throw problem('NOT_FOUND');
-        // The person = a document of this registration: by party member, or the document id itself
-        // (documents not linked to a party member yet – BE-A party table lands in Sprint 3).
+        // The person = a document of this registration: by party member, by the booker's `party[]` id (the
+        // booking id – the document linked to the booker, ARC 16.22), or the document id itself (a document not
+        // linked to anybody yet: image consent only – P05 then answers 422 REQUIRED, SEC-BE-73).
         const { rows } = await tx.query<{ id: string }>(
           `SELECT id FROM guest_document WHERE registration_id = $1 AND removed_at IS NULL
-              AND (party_member_id = $2 OR id = $2) ORDER BY created_at LIMIT 1`,
-          [reg.id, person],
+              AND (party_member_id = $2 OR id = $2
+                   OR ($2 = $3 AND guest_id IS NOT NULL AND party_member_id IS NULL))
+            ORDER BY created_at LIMIT 1`,
+          [reg.id, person, reg.reservation_id],
         );
         const doc = rows[0] ? await documentById(tx, reg.id, rows[0].id) : null;
         if (!doc) {

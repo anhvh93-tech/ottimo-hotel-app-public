@@ -1,10 +1,12 @@
 /**
  * BUG-R2-033 / OpenAPI 0.3.7 nhóm D mục A (S4-11 – BE-C, BE-A reviews; US-043 AC3, EP06 2.2, BR-951, SEC s3
- * mục 7): the person a document of a NON-main guest belongs to, when the desk did not choose `partyMemberId`.
- * Implements the registration consumer port (registration/public/party-port.ts), bound by FrontdeskModule;
- * called in the addGuestDocument transaction. Order:
- * 1. a member of the booking whose profile carries the document key (`guest.id_doc_hmac`, P05 profiles only) or
- *    the same normalised name + date of birth → that member;
+ * mục 7): the person a document belongs to, when the desk did not choose `partyMemberId` – the main guest's
+ * document included (SEC FB-R2-SEC-BE-73, ARC 16.22: `isMain` never means "the booker"). Implements the
+ * registration consumer port (registration/public/party-port.ts), bound by FrontdeskModule; called in the
+ * addGuestDocument transaction. Order:
+ * 1. a person of the booking – the booker or a member – whose profile carries the document key
+ *    (`guest.id_doc_hmac`, P05 profiles only), then the same normalised name + date of birth → that person (the
+ *    booker: `memberId` = the booking id, its `party[]` id);
  * 2. a profile OUTSIDE the booking with that document key (P05) → added as companion `unknown`;
  * 3. an adult matched by nothing → a minimal profile "from the document" (guests/public/document-profile:
  *    `source = document`, name as printed + nationality) added as companion `unknown`;
@@ -74,6 +76,16 @@ export class DocumentPartyPort implements RegistrationPartyPort {
     );
     const row = res[0];
     if (!row || !['hold', 'confirmed', 'in_house'].includes(row.status)) return null;
+    // The booker as a person of the booking (ARC 16.22): same document key / name + date of birth rules.
+    const { rows: bookerRows } = row.booker_guest_id
+      ? await tx.query<Omit<MemberRow, 'price_age_band'>>(
+          `SELECT $1::uuid AS id, g.id AS guest_id, g.id_doc_hmac, g.name_search,
+                  g.date_of_birth::text AS date_of_birth
+             FROM guest g WHERE g.id = $2`,
+          [row.id, row.booker_guest_id],
+        )
+      : { rows: [] };
+    const booker = bookerRows[0] ? { ...bookerRows[0], price_age_band: 'adult' as Band } : null;
     const { rows: members } = await tx.query<MemberRow>(
       `SELECT m.id, m.guest_id, m.price_age_band, g.id_doc_hmac, g.name_search,
               g.date_of_birth::text AS date_of_birth
@@ -97,17 +109,27 @@ export class DocumentPartyPort implements RegistrationPartyPort {
         overCount: false,
         possibleReturningGuest,
       }));
-    // 1. a member of the booking – document key (P05 profiles) first, then name + date of birth.
-    const byKey = members.filter(
+    // 1. a person of the booking (the booker, then the members) – document key (P05 profiles) first, then
+    //    name + date of birth.
+    const people = booker ? [booker, ...members] : members;
+    const via = (m: MemberRow, key: boolean): DocumentPersonMatch['via'] =>
+      m === booker
+        ? key
+          ? 'booker_key'
+          : 'booker_name_dob'
+        : key
+          ? 'member_key'
+          : 'member_name_dob';
+    const byKey = people.filter(
       (m) => m.id_doc_hmac !== null && m.id_doc_hmac === input.guestDocKey,
     );
-    if (byKey.length === 1) return found(byKey[0] as MemberRow, 'member_key');
+    if (byKey.length === 1) return found(byKey[0] as MemberRow, via(byKey[0] as MemberRow, true));
     const name = nameSearchKey(input.fullNameOnDoc);
     const byName = input.dateOfBirth
-      ? members.filter((m) => m.name_search === name && m.date_of_birth === input.dateOfBirth)
+      ? people.filter((m) => m.name_search === name && m.date_of_birth === input.dateOfBirth)
       : [];
     if (byKey.length === 0 && byName.length === 1)
-      return found(byName[0] as MemberRow, 'member_name_dob');
+      return found(byName[0] as MemberRow, via(byName[0] as MemberRow, false));
     if (byKey.length > 1 || byName.length > 1) return null; // ambiguous: the desk picks
     // 2. a P05 profile outside the booking with this document key.
     const profiles = await this.profiles.profilesByDocKey(tx, input.guestDocKey);

@@ -23,7 +23,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
 import { timeHHmm, todayLocal } from '../../app/dates';
-import { hasLineKey, lineLabel } from '../../app/folio';
+import { hasLineKey, lineLabel, signed } from '../../app/folio';
 import { currentSegment } from '../../app/reservations';
 import { Code, monoArgs } from '../../app/mono';
 import { useRules } from '../../app/rules';
@@ -357,6 +357,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const lateOld = s?.lateSurchargeRecalc?.oldVnd ?? 0;
   const lateRaise = lateNew > lateOld;
   const lateDelta = lateNew - lateOld;
+  const lateTier = s?.lateSurchargeRecalc?.newTierPct ?? s?.lateCheckoutSurcharge?.tierPct ?? 0;
   // 0.3.6 add. 2: only credit not yet covered by a refund request needs a decision.
   const credit0 = s?.unhandledCreditVnd ?? s?.creditVnd ?? 0;
   // S4-47 / ARC 0.3.7 bổ sung 4: what B18 leaves due at this time is the SERVER's figure (late charge
@@ -673,7 +674,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                     </>
                   ) : null}
                 </td>
-                <td className="r num">{vnd(l.amountVnd)}</td>
+                <td className="r num">{signed(vnd, l.amountVnd)}</td>
               </tr>
             ))}
             {extraNightVnd > 0 ? (
@@ -690,6 +691,32 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                   {` · ${t('rate.pre_tier_short')}`}
                 </td>
                 <td className="r num">{vnd(extraNightVnd)}</td>
+              </tr>
+            ) : null}
+            {/* BUG-R2-087: what the server's "Còn phải thu" already counts but no folio line shows yet – the late
+                surcharge at this time (written by B18 or on the way to the bill) and the one-night late fee. */}
+            {lateDelta !== 0 ? (
+              <tr>
+                <td>
+                  {lateOld === 0
+                    ? t('co.late_row_new', { time: s.checkoutTime ?? time, pct: lateTier })
+                    : lateNew > 0
+                      ? t('co.late_row_change', { time: s.checkoutTime ?? time, pct: lateTier })
+                      : t('co.late_row_reversed')}
+                </td>
+                <td className="r num">{signed(vnd, lateDelta)}</td>
+              </tr>
+            ) : null}
+            {lateFeeMode ? (
+              <tr>
+                <td>{t('co.late_fee_row')}</td>
+                <td className="r num">{vnd(lateFeeAsNight ?? 0)}</td>
+              </tr>
+            ) : null}
+            {lateFeeMode && lfFocShown > 0 ? (
+              <tr className="sub">
+                <td>{t('co.late_fee_sum_foc')}</td>
+                <td className="r num">−{vnd(lfFocShown)}</td>
               </tr>
             ) : null}
             {s.paidVnd > 0 ? (
@@ -751,6 +778,16 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       cabinets.find((c) => c.roomId === countingRoomId)?.roomNo ??
       room;
     const due = toCount.find((c) => c.roomId === countingRoomId);
+    // FE-S4-23 (UXD): why it is counted again, by `reason`; the general sentence for an unknown value / an older
+    // server without `reason`.
+    const recountBodyKey =
+      (
+        {
+          stay_continued: 'co.minibar_recount_body_stay_continued',
+          new_fill: 'co.minibar_recount_body_new_fill',
+          not_today: 'co.minibar_recount_body_not_today',
+        } as Record<string, string>
+      )[due?.reason ?? ''] ?? 'co.minibar_recount_body';
     const recount = !due
       ? false
       : due.reason !== undefined
@@ -788,7 +825,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         {recount ? (
           // BUG-R2-144 (BR-703-02): a cabinet counted before is due again – a new count of this period.
           <Alert tone="warn" title={t('co.minibar_recount_title', { room: countingRoomNo })}>
-            {t('co.minibar_recount_body')}
+            {t(recountBodyKey)}
           </Alert>
         ) : null}
         {adjusted.length ? (
@@ -834,11 +871,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 <thead>
                   <tr>
                     <th scope="col">{t('co.item')}</th>
+                    {/* UXR P-18 (1366×768): the standard sits next to "left" – one column less, the amount
+                        column is never cut. */}
                     <th scope="col" className="c">
-                      {t('co.std')}
-                    </th>
-                    <th scope="col" className="c">
-                      {t('checkout.minibar.left')}
+                      {t('checkout.minibar.left_of_std')}
                     </th>
                     <th scope="col" className="c">
                       {t('checkout.minibar.used')}
@@ -860,23 +896,24 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                             ? ` · ${t('checkout.minibar.free')}`
                             : ` · ${vnd(i.unitPriceVnd ?? 0)}`}
                         </th>
-                        <td className="c num">{i.standardQty}</td>
                         <td className="c">
-                          <Stepper
-                            value={rem}
-                            min={0}
-                            max={i.standardQty}
-                            onChange={(v) => setLeft((x) => ({ ...x, [i.itemId]: v }))}
-                            labelledBy={`${ids}-i${idx}`}
-                            decLabel={t('rooms.dec')}
-                            incLabel={t('rooms.inc')}
-                          />
+                          <span className="row tight">
+                            <Stepper
+                              value={rem}
+                              min={0}
+                              max={i.standardQty}
+                              onChange={(v) => setLeft((x) => ({ ...x, [i.itemId]: v }))}
+                              labelledBy={`${ids}-i${idx}`}
+                              decLabel={t('rooms.dec')}
+                              incLabel={t('rooms.inc')}
+                            />
+                            <span className="li-s num">/ {i.standardQty}</span>
+                          </span>
                         </td>
                         <td className="c num">{used}</td>
+                        {/* a free item says so in its name – the amount column only carries figures */}
                         <td className="r num">
-                          {i.isFree
-                            ? t('checkout.minibar.free')
-                            : vnd(used * (i.unitPriceVnd ?? 0))}
+                          {i.isFree ? vnd(0) : vnd(used * (i.unitPriceVnd ?? 0))}
                         </td>
                       </tr>
                     );
@@ -1580,7 +1617,9 @@ export function BillDialog({
       </div>
       <h2>{L('bill.title')}</h2>
       <p>
-        {bill.guestDisplayName} · {bill.roomNo} · {date(bill.arrivalDate)} →{' '}
+        {/* FE-S4-22 (BR-012, 0.3.7 add. D1): the bill is what the guest reads – the room's NAME, never its number
+            (`roomNo` only when the room has no name yet, DS 11.3). */}
+        {bill.guestDisplayName} · {bill.roomName ?? bill.roomNo} · {date(bill.arrivalDate)} →{' '}
         {date(bill.departureDate)}
       </p>
       <table>
@@ -1610,7 +1649,7 @@ export function BillDialog({
                   </span>
                 ) : null}
               </td>
-              <td className="r">{vnd(l.amountVnd)}</td>
+              <td className="r">{signed(vnd, l.amountVnd)}</td>
             </tr>
           ))}
           <tr className="total">
@@ -1631,7 +1670,7 @@ export function BillDialog({
                   method: t(x.method === 'cash' ? 'pay.cash' : 'pay.bank_transfer'),
                 })}
               </td>
-              <td className="r">{vnd(x.amountVnd)}</td>
+              <td className="r">{signed(vnd, x.amountVnd)}</td>
             </tr>
           ))}
           <tr className="total">

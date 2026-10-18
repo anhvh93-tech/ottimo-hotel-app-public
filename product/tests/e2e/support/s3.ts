@@ -529,6 +529,24 @@ export async function addDocument(
   });
 }
 
+/** `party[]` id của người đặt (role `booker`) – `GuestDocumentInput.partyMemberId` / `ConsentInput.partyMemberId`. */
+export async function bookerMemberId(
+  ctx: APIRequestContext,
+  s: StaffSession,
+  reservationId: string,
+): Promise<string> {
+  const r = await call<{ members?: Array<{ id: string; role: string }> }>(
+    ctx,
+    'GET',
+    p3(EP3.listParty, s, { reservationId }),
+    { session: s },
+  );
+  expect(r.status, `listParty: ${JSON.stringify(r.body).slice(0, 200)}`).toBe(200);
+  const b = (r.body.members ?? []).find((m) => m.role === 'booker');
+  expect(b, 'người đặt trong danh sách người').toBeTruthy();
+  return b!.id;
+}
+
 /**
  * Registration id of a booking (SM-05 K1: created with the booking). OpenAPI 0.3.6 puts it on
  * Reservation.registrationId; the build does not return it yet (BUG-R2-031) → fall back to listRegistrations
@@ -1008,7 +1026,11 @@ export async function makeStay(
       i.doc === 'foreign'
         ? foreignDoc(name, addDays(i.arrival, nights), {}, await stackBusinessDate(ctx))
         : vnDoc(name);
-    const d = await addDocument(ctx, s, regId, data);
+    // 0.3.7 bổ sung 4 (SEC BE-73, ARC 16.22): Desk luôn gửi `partyMemberId` – giấy tờ của chính người đặt
+    const d = await addDocument(ctx, s, regId, {
+      ...data,
+      partyMemberId: await bookerMemberId(ctx, s, r.body.id),
+    });
     expect(d.status, `addGuestDocument: ${JSON.stringify(d.body)}`).toBe(201);
   }
   const fresh = await getReservation(ctx, s, r.body.id);
@@ -1274,13 +1296,34 @@ export function stackSql(sql: string): string {
 export const CAN_CLEAN_ROOMS = COMPOSE_CONTROL;
 
 /**
+ * Stays an EARLIER case (or a real-clock project) left in house: since ARC FB-R2-ARC-BE-S4-03
+ * (`housekeeping/public/stay-occupancy.ts` inRoomOnSql) a stay past its dates keeps its room ("in the room until
+ * B18"), so on every later virtual day the room reads OC and a check-in there gets 409 room_ready / ROOM_NOT_READY
+ * (QA 18/10 – 44 clock cases red on a fresh DB). A booking group (root + B13/B9a/S4-09 children) is "left" when none
+ * of its in-house members departs on or after the business date of the stack clock (dev_clock, rollover 06:00,
+ * Asia/Ho_Chi_Minh): those are closed as checked out – status only, nothing else is touched. The stays of the
+ * running case (departure ≥ today) are kept, so a case may call cleanRooms() again later in its own flow.
+ */
+const LEFT_IN_HOUSE_SQL = `
+WITH c AS (SELECT COALESCE((SELECT COALESCE(frozen_at, now() + offset_ms * interval '1 millisecond')
+                              FROM dev_clock WHERE id = 1), now()) AS t),
+     d AS (SELECT ((t AT TIME ZONE 'Asia/Ho_Chi_Minh') - interval '6 hours')::date AS day, t FROM c)
+UPDATE reservation r SET status = 'checked_out', actual_checkout_at = COALESCE(r.actual_checkout_at, d.t)
+  FROM d
+ WHERE r.status = 'in_house'
+   AND NOT EXISTS (SELECT 1 FROM reservation x
+                    WHERE COALESCE(x.parent_reservation_id, x.id) = COALESCE(r.parent_reservation_id, r.id)
+                      AND x.status = 'in_house' AND x.departure_date >= d.day);`;
+
+/**
  * "Buồng phòng đã dọn" for every room: housekeeping transitions (SM-03 R1–R5, transitionRoomStatus) are Sprint 4,
- * so on the disposable stack the stored room_status rows are removed → derived status VC (room-status.service).
- * Returns false (nothing done) on a stack without compose control.
+ * so on the disposable stack the stored room_status rows are removed → derived status VC (room-status.service), and
+ * the stays earlier cases left in house are closed (LEFT_IN_HOUSE_SQL – S4-03). Returns false (nothing done) on a
+ * stack without compose control.
  */
 export function cleanRooms(): boolean {
   if (!COMPOSE_CONTROL) return false;
-  stackSql('DELETE FROM room_status;');
+  stackSql(`${LEFT_IN_HOUSE_SQL}\nDELETE FROM room_status;`);
   return true;
 }
 

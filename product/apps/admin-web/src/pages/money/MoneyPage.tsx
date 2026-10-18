@@ -7,9 +7,10 @@ import {
   type RefundDestination,
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Alert, Button, Chip, Field, Modal, Seg, StateView } from '@ottimo/ui';
+import { Alert, Button, Chip, ConfirmDialog, Field, Modal, Seg, StateView } from '@ottimo/ui';
 import { useId, useState } from 'react';
 import { api } from '../../app/api';
+import { auditReasonText } from '../../app/auditReason';
 import { listApprovals } from '../../app/approvals';
 import { todayLocal } from '../../app/dates';
 import { useLiveReload } from '../../app/live';
@@ -273,7 +274,8 @@ function MoneyLog() {
                   <td className="num">
                     {amountOfEvent(e.before)} → {amountOfEvent(e.after)}
                   </td>
-                  <td>{e.reason ?? '—'}</td>
+                  {/* UXR P-19 / BUG-R2-100: the reason in words – never a code or a developer's sentence. */}
+                  <td>{auditReasonText(t, e)}</td>
                 </tr>
               ))}
             </tbody>
@@ -298,6 +300,8 @@ function Reconcile() {
   useLiveReload(propertyId, reload);
   const act = useSubmit();
   const [disputing, setDisputing] = useState<PaymentListItem | null>(null);
+  // UXR P-23: "Đã khớp sao kê" cannot be undone (no un-reconcile) – asked once before it is written.
+  const [matching, setMatching] = useState<PaymentListItem | null>(null);
   const [note, setNote] = useState('');
   const rows = state.data ?? [];
 
@@ -331,6 +335,7 @@ function Reconcile() {
     );
     if (out) {
       setDisputing(null);
+      setMatching(null);
       setNote('');
       toast(t(result === 'reconciled' ? 'co.recon_ok' : 'co.recon_missing'));
       reload();
@@ -339,8 +344,10 @@ function Reconcile() {
 
   return (
     <div className="stack">
+      {/* UXR P-23: the list is mostly transfers / VietQR to match with the bank statement; cash a sale took is
+          handed in at the desk – the intro says both. */}
       <p className="li-s">
-        {t('pay.cash_hand_in')} {t('recon.commission_note')}
+        {t('recon.intro')} {t('recon.commission_note')}
       </p>
       {act.fields.receivedAmountVnd || act.fields.receivedVnd ? (
         // 422 AMOUNT_INVALID: the cash counted differs from what the sale recorded – report to the manager.
@@ -423,7 +430,7 @@ function Reconcile() {
                         <Button
                           size="sm"
                           disabled={!online || act.busy}
-                          onClick={() => void reconcile(p, 'reconciled')}
+                          onClick={() => setMatching(p)}
                         >
                           {t('co.recon_ok')}
                         </Button>
@@ -448,6 +455,24 @@ function Reconcile() {
           </table>
         </div>
       )}
+      {matching ? (
+        <ConfirmDialog
+          danger={false}
+          title={t('recon.confirm_title', {
+            amount: money(matching.amountVnd),
+            code: matching.reservationCode ?? '',
+          })}
+          body={t('recon.confirm_body')}
+          keepLabel={t('common.cancel')}
+          confirmLabel={t('co.recon_ok')}
+          busy={act.busy}
+          busyLabel={act.busyLabel}
+          onKeep={() => setMatching(null)}
+          onConfirm={() => void reconcile(matching, 'reconciled')}
+        >
+          {act.view()}
+        </ConfirmDialog>
+      ) : null}
       {disputing ? (
         <Modal
           open

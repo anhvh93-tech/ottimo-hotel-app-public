@@ -29,6 +29,11 @@ describe('H13 Nhận phòng (US-025, US-043, US-119; B9)', () => {
     ).toBeInTheDocument();
     await user.click(screen.getAllByRole('button', { name: tv('checkin.docs.manual') })[0]!);
     const dlg = await screen.findByRole('dialog', { name: tv('ci.manual_title') });
+    // ARC 16.22 (SEC BE-73): a new ID always names its person – here the booker.
+    await user.selectOptions(
+      within(dlg).getByLabelText(new RegExp(`^${tv('reg.link.member')}`)),
+      await within(dlg).findByRole('option', { name: new RegExp(` · ${tv('rsv.booker')}$`) }),
+    );
     await user.type(within(dlg).getByLabelText(/^Số giấy tờ/), '079123456789');
     expect(within(dlg).getByLabelText(/^Họ tên \(như trên giấy tờ\)/)).toHaveValue(
       'Gia đình anh Hưng',
@@ -102,6 +107,11 @@ describe('H13 Nhận phòng (US-025, US-043, US-119; B9)', () => {
       (await screen.findAllByRole('button', { name: tv('checkin.docs.manual') }))[0]!,
     );
     const dlg = await screen.findByRole('dialog', { name: tv('ci.manual_title') });
+    // ARC 16.22 (SEC BE-73): a new ID always names its person – here the booker.
+    await user.selectOptions(
+      within(dlg).getByLabelText(new RegExp(`^${tv('reg.link.member')}`)),
+      await within(dlg).findByRole('option', { name: new RegExp(` · ${tv('rsv.booker')}$`) }),
+    );
     await user.selectOptions(within(dlg).getByLabelText(/^Loại giấy tờ/), 'passport');
     await user.type(within(dlg).getByLabelText(/^Số giấy tờ/), 'X1234567');
     await user.type(within(dlg).getByLabelText(/^Quốc tịch/), 'FRA');

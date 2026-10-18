@@ -110,7 +110,9 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
       to = '/maintenance';
       break;
     case 'registration_due':
-      args = { n, time };
+      // UXR S4 P-21: before any guest has checked in there is no deadline yet – no dangling "hạn sớm nhất".
+      if (!time) key = 'attn.registration_due_no_time';
+      args = time ? { n, time } : { n };
       sub = rooms.join(', ') || undefined;
       to = '/registration';
       break;

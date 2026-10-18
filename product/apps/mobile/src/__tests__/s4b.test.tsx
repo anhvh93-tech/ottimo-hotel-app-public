@@ -52,7 +52,7 @@ describe('in-app inbox (ADR-005 mục 4) – kind + reference only (SR-PWA-06)',
 
   it('SSE room.status_changed / hk_task.changed re-read the lists; while the stream is open nothing polls', async () => {
     await start('hk.lan', fakeConnect);
-    await screen.findByText('Làm trước – có khách đến hôm nay');
+    await screen.findByText('Làm trước');
     await wait(500);
     const before = calls('listRoomStatuses');
     mockControl.setRoom('202', 'CL');

@@ -124,3 +124,17 @@ export const FILTERS: Record<Exclude<RoomFilter, 'all'>, readonly RoomStatusCode
 export function inFilter(status: RoomStatusCode, f: RoomFilter): boolean {
   return f === 'all' || FILTERS[f].includes(status);
 }
+
+/**
+ * "Bổ sung minibar: Bia Đà Lạt × 2, Coca-Cola lon × 1" (UXR P-04). `refillItems[].itemName` = the item name the
+ * server stored with the task (BE-B 18/10). A task written before that has no names until the next reconcile –
+ * then never "1, 1": how many items, and where to look.
+ */
+export function refillText(items: NonNullable<HkTask['refillItems']>, t: T): string {
+  if (items.every((r) => r.itemName?.trim())) {
+    return t('hk.refill', {
+      items: items.map((r) => `${r.itemName!.trim()} × ${r.quantity ?? 1}`).join(', '),
+    });
+  }
+  return t('hk.refill_unnamed', { n: items.reduce((sum, r) => sum + (r.quantity ?? 1), 0) });
+}

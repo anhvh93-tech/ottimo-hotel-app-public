@@ -8,7 +8,7 @@
 // the order; a refusal (409/422/403/404) moves the item to "Cần xem lại" with the reason – never dropped
 // silently; 409 INVALID_TRANSITION whose `currentState` is what the action wanted = already applied by
 // someone else (dropped without error); 401 pauses everything until the same user signs in again.
-import { isApiError } from '@ottimo/api-client';
+import { isApiError, newIdempotencyKey } from '@ottimo/api-client';
 import type { StaffRequest } from '../app/api';
 import type { KvStore } from '../data/store';
 
@@ -95,6 +95,15 @@ const RETRY_CODES = new Set([
 
 export const ATT_REF = '@att:';
 
+/**
+ * Actions shown as "đang chờ gửi": one count for the pill, the "Thao tác trên máy" list and the sign-in
+ * screen (UXR P-07). Photos travel with their report; items inside their 10-second undo window are on the
+ * toast, not here (no pill jumping in and out on every tap).
+ */
+export function waitingActions(items: readonly QueueItem[]): QueueItem[] {
+  return items.filter((i) => i.state === 'pending' && i.kind !== 'attachment');
+}
+
 type Outcome =
   | { kind: 'done'; data: unknown }
   | { kind: 'applied' }
@@ -116,8 +125,24 @@ export function classify(e: unknown, item: Pick<QueueItem, 'targets'>): Outcome 
   if (e.code === 'INVALID_TRANSITION' && current && item.targets?.includes(current)) {
     return { kind: 'applied' };
   }
-  return { kind: 'rejected', code: e.code, currentState: current, status: e.status };
+  return { kind: 'rejected', code: refusalCode(e), currentState: current, status: e.status };
 }
+
+/**
+ * 422 VALIDATION_FAILED carries the reason per field (`errors[].code`) – e.g. `performedAt` →
+ * `PERFORMED_AT_OUT_OF_RANGE` (OpenAPI 0.3.7 B-02). The queue keeps that code so "Cần xem lại" can say what
+ * happened in plain words (UXR P-08) instead of the generic top-level code.
+ */
+function refusalCode(e: { code: string; problem: { errors?: unknown } }): string {
+  if (e.code !== 'VALIDATION_FAILED' || !Array.isArray(e.problem.errors)) return e.code;
+  const codes = (e.problem.errors as { code?: unknown }[])
+    .map((x) => (typeof x?.code === 'string' ? x.code : undefined))
+    .filter((c): c is string => Boolean(c));
+  return codes.includes('PERFORMED_AT_OUT_OF_RANGE') ? 'PERFORMED_AT_OUT_OF_RANGE' : e.code;
+}
+
+/** Refusals the person can fix by tapping again now (P-01/P-08: "Gửi lại" with the time of the new tap). */
+const RESENDABLE: ReadonlySet<QueueKind> = new Set(['room_status', 'hk_task']);
 
 /** Blob → bytes (older WebKit has no `Blob.arrayBuffer`). */
 function toBytes(blob: Blob): Promise<ArrayBuffer> {
@@ -150,6 +175,16 @@ export class OfflineQueue {
   }
 
   async load(): Promise<void> {
+    // UXR P-05: sign-in re-reads the queue while a timer / `online` flush may be uploading a photo. Swapping the
+    // list mid-run left the run holding the old work order object (still `@att:`) – it went out without the
+    // photo id. Wait for the run; its changes are persisted item by item.
+    while (this.running) {
+      try {
+        await this.running;
+      } catch {
+        /* a failed run is retried by the next flush */
+      }
+    }
     const all = await this.deps.store.all<QueueItem>('queue');
     this.list = all.sort((a, b) => a.seq - b.seq);
     this.seq = this.list.reduce((m, i) => Math.max(m, i.seq), 0);
@@ -265,6 +300,48 @@ export class OfflineQueue {
     this.emit();
   }
 
+  /** A refused room / task action the person may send again with the time of a new tap (P-01, P-08). */
+  canResend(item: Pick<QueueItem, 'kind' | 'state' | 'rejection'>): boolean {
+    return (
+      item.state === 'rejected' &&
+      RESENDABLE.has(item.kind) &&
+      item.rejection?.code === 'PERFORMED_AT_OUT_OF_RANGE'
+    );
+  }
+
+  /**
+   * "Gửi lại": the same request as a NEW action – new Idempotency-Key, `performedAt` = now – then the refused
+   * entry goes. `undoMs` as for a normal tap (10 s "Hoàn tác").
+   */
+  async resend(id: string, undoMs: number): Promise<QueueItem | undefined> {
+    const old = this.list.find((i) => i.id === id);
+    if (!old || !this.canResend(old)) return undefined;
+    const now = this.now();
+    const body =
+      old.request.body && typeof old.request.body === 'object'
+        ? { ...(old.request.body as object), performedAt: new Date(now).toISOString() }
+        : old.request.body;
+    const fresh = await this.enqueue(
+      {
+        id: newIdempotencyKey(),
+        tappedAt: now,
+        kind: old.kind,
+        request: { ...old.request, body },
+        roomId: old.roomId,
+        roomNo: old.roomNo,
+        roomName: old.roomName,
+        actionKey: old.actionKey,
+        actionArgs: old.actionArgs,
+        targets: old.targets,
+        optimistic: old.optimistic,
+      },
+      undoMs,
+    );
+    await this.remove(old);
+    this.emit();
+    return fresh;
+  }
+
   /** "Gửi ngay": forget the backoff of waiting items, then send. */
   async sendNow(): Promise<FlushResult> {
     for (const i of this.list) {
@@ -279,9 +356,14 @@ export class OfflineQueue {
 
   /** Earliest time something becomes due (for the timer). */
   nextWakeAt(): number | undefined {
+    // Offline nothing can be sent: wake only to end undo windows (held → pending); `online` sends the rest.
+    // Before (UXR P-07): a waiting item already due kept the wake time in the past, the timer fired once,
+    // the run stopped "offline" without a change, and a later action stayed "held" – not counted, not sent.
+    const offline = !this.isOnline();
     let at: number | undefined;
     for (const i of this.list) {
       if (i.state === 'rejected' || i.sendAfter === Number.MAX_SAFE_INTEGER) continue;
+      if (offline && i.state !== 'held') continue;
       const t = Math.max(i.sendAfter, i.nextAttemptAt ?? 0);
       at = at === undefined ? t : Math.min(at, t);
     }
@@ -317,8 +399,10 @@ export class OfflineQueue {
     if (this.paused) return { ...res, stopped: 'auth' };
     if (!this.isOnline()) return { ...res, stopped: 'offline' };
 
-    for (const item of [...this.list].sort((a, b) => a.seq - b.seq)) {
-      if (item.state === 'rejected') continue;
+    for (const snap of [...this.list].sort((a, b) => a.seq - b.seq)) {
+      // The live object: `resolveAttachment` writes the photo id into the item in `this.list`.
+      const item = this.list.find((i) => i.id === snap.id);
+      if (!item || item.state === 'rejected') continue;
       // FIFO: something not due yet (undo window, backoff) holds the items after it.
       if (item.state === 'held' || !isDue(item, this.now())) break;
       const outcome = await this.sendOne(item);

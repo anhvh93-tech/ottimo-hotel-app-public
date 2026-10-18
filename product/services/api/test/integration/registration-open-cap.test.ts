@@ -8,8 +8,10 @@
  * The 1,214 old records are inserted directly (FAKE data); the new guest goes through the check-in port.
  */
 import { v7 as uuidv7 } from 'uuid';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import type { Database } from '../../src/db/database';
+import { appendFileSync } from 'node:fs';
+import type { PoolClient } from 'pg';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import type { Database, Tx } from '../../src/db/database';
 import { JobRegistry } from '../../src/jobs/job-runner';
 import { RegistrationService } from '../../src/modules/registration/internal/registration.service';
 import { RegistrationPortService } from '../../src/modules/registration/public/registration.port';
@@ -318,6 +320,89 @@ describe.skipIf(!HAS_DB)('BUG-R2-170 – open lists filter before any cap', () =
     );
     expect(open.map((o) => o.stay.reservationId)).toContain(fresh.reservationId);
     fa.clock.set(T0);
+  });
+
+  it('S4-36 (ARC-BE-S3-30): listRegistrations reads in batches – the queries per call do not grow with the page size or the rows (no N+1)', async () => {
+    const regs = fa.app.get(RegistrationService);
+    /** Statements the service sends for one list call (its own transaction excluded). */
+    const queriesOf = async (view: 'action_needed' | 'needs_update', limit: number) => {
+      let n = 0;
+      await db.withContext(
+        t.ctx(),
+        (tx) =>
+          regs.list(
+            {
+              ...tx,
+              query: ((text: string, params?: readonly unknown[]) => {
+                n++;
+                return tx.query(text, params);
+              }) as Tx['query'],
+            },
+            view,
+            null,
+            limit,
+          ),
+        { readOnly: true },
+      );
+      return n;
+    };
+    const one = await queriesOf('action_needed', 1);
+    const hundred = await queriesOf('action_needed', 100);
+
+    // End to end (auth + list) – statements on the pool and wall time of the first page the desk opens.
+    const pool = db.pool as unknown as { connect: () => Promise<PoolClient> };
+    const connect = pool.connect.bind(pool);
+    let statements = 0;
+    const spy = vi.spyOn(pool, 'connect').mockImplementation(async () => {
+      const client = await connect();
+      return new Proxy(client, {
+        get(target, prop) {
+          const v = Reflect.get(target, prop, target) as unknown;
+          if (prop === 'query') {
+            return (...args: unknown[]) => {
+              statements++;
+              return (v as (...a: unknown[]) => unknown).apply(target, args);
+            };
+          }
+          return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(target) : v;
+        },
+      });
+    });
+    const times: number[] = [];
+    let perCall = 0;
+    try {
+      await touchSessions(db, t, fa.clock.now());
+      const url = `${P(t)}/registrations?view=action_needed&limit=50`;
+      for (let i = 0; i < 40; i++) {
+        statements = 0;
+        const start = performance.now();
+        const res = await staff(fa, tok('fd'), device, 'GET', url);
+        times.push(performance.now() - start);
+        expect(res.statusCode).toBe(200);
+        perCall = statements;
+      }
+    } finally {
+      spy.mockRestore();
+    }
+    times.sort((a, b) => a - b);
+    const p = (q: number) => times[Math.min(times.length - 1, Math.ceil(q * times.length) - 1)]!;
+    // Measurement for the S4-36 report: BEC_PERF=<file> appends the numbers (nothing printed otherwise).
+    if (process.env.BEC_PERF) {
+      appendFileSync(
+        process.env.BEC_PERF,
+        `S4-36 open=${OLD_TOTAL + 1} serviceQueries(limit1/100)=${one}/${hundred} ` +
+          `httpStatements=${perCall} p50=${p(0.5).toFixed(1)}ms p95=${p(0.95).toFixed(1)}ms ` +
+          `max=${times.at(-1)!.toFixed(1)}ms\n`,
+      );
+    }
+    // Candidates of action_needed (not checked out per the record): in house, checked out without the hook,
+    // cancelled, the confirmed one, the new guest. Per call: property time zone + 3 parameters + per page of
+    // SCAN_PAGE (500) one registration read and one stay-view read. One read per row would be hundreds.
+    const candidates = OLD_IN_HOUSE + OLD_CHECKED_OUT_NO_HOOK + OLD_CANCELLED + 2;
+    expect(hundred).toBe(one);
+    expect(hundred).toBeLessThanOrEqual(6 + 2 * Math.ceil(candidates / 500));
+    expect(perCall).toBeLessThanOrEqual(hundred + 12);
+    // Wall time is measured (BEC_PERF), not asserted: it depends on the machine and the parallel suite.
   });
 
   it('needs_update: the newest record is listed behind 1,214 others', async () => {

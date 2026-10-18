@@ -98,7 +98,12 @@ export function DocsList({
         </Alert>
       ) : null}
       <p className="li-s" role="status">
-        {t('checkin.docs.progress', { have: docs.length, need: required })}
+        {/* BUG-R2-089: the server's count (IDs with the details the declaration needs) – the same as the list,
+            never every document (an ID sent as photos only is not "collected" yet). */}
+        {t('checkin.docs.progress', {
+          have: registration.submittedCount ?? docs.length,
+          need: required,
+        })}
       </p>
       {docs.length === 0 ? <p className="muted">{t('checkin.docs.empty')}</p> : null}
       <ul className="list-none">
@@ -135,7 +140,6 @@ export function DocsList({
       {adding ? (
         <ManualDocDialog
           registration={registration}
-          bookerName={reservation.booker?.displayName}
           first={docs.length === 0}
           onOpenPending={
             firstPending
@@ -283,6 +287,9 @@ function DocRow({
             ? t('reg.link.pending_chip', { time: dateTime(deadline) })
             : t('reg.link.pending_chip_soon')}
         </Chip>
+      ) : !doc.fullNameOnDoc ? (
+        // BUG-R2-089: photos only, details not typed yet – not "Đã có".
+        <Chip tone="warn">{t('reg.chip.needs_details')}</Chip>
       ) : (
         <Chip tone="ok">{t('guest.chip.doc_ok')}</Chip>
       )}
@@ -347,6 +354,8 @@ function DocRow({
 
 type PartyMember = NonNullable<Party['members']>[number];
 const memberName = (m: PartyMember) => m.guest?.displayName ?? m.childDisplayName ?? '';
+/** ARC 16.22: "Người ở chưa có trong đơn" – no `partyMemberId`, the server makes a profile from the ID. */
+const NEW_PERSON = '__new__';
 
 /** Every field the manual-entry box has an input for (BUG-R2-091 – the head counts them). */
 const DOC_FIELDS = [
@@ -400,10 +409,9 @@ function LinkDocDialog({
     [propertyId, registration.reservationId],
   );
   const members = party.state.data?.members ?? [];
-  const otherMain = registration.documents.some((d) => d.id !== doc.id && d.isMain);
+  // ARC 16.22: the booker is a person like any other – taken only when an ID is linked to them.
   const taken = (m: PartyMember) =>
-    registration.documents.some((d) => d.id !== doc.id && d.partyMemberId === m.id) ||
-    (m.role === 'booker' && otherMain);
+    registration.documents.some((d) => d.id !== doc.id && d.partyMemberId === m.id);
   const free = members.filter((m) => !taken(m));
   const [memberId, setMemberId] = useState('');
   const [touched, setTouched] = useState(false);
@@ -545,7 +553,6 @@ function LinkDocDialog({
  */
 export function ManualDocDialog({
   registration,
-  bookerName,
   first,
   initial,
   doc,
@@ -556,7 +563,6 @@ export function ManualDocDialog({
   onSaved,
 }: {
   registration: Registration;
-  bookerName?: string;
   first: boolean;
   /** Full values (after step-up) → edit mode. */
   initial?: GuestDocumentSensitive;
@@ -580,26 +586,31 @@ export function ManualDocDialog({
   const ids = useId();
   // ── "Người trong đoàn" (FB-R2-SEC-FE-07) ──
   const linkable = !!initial && !!doc && isGuestUploadUnlinked(doc);
+  // SEC FB-R2-SEC-BE-73 / ARC 16.22: a new ID always names its person – the desk picks who is on it (never "the
+  // first / main ID = the booker"); someone not in the party yet → the server makes a profile from the ID.
+  const adding = !initial;
   const party = useResource(
     async () =>
-      linkable
+      linkable || adding
         ? (await api.listParty({ propertyId, reservationId: registration.reservationId })).data
         : null,
-    [linkable, propertyId, registration.reservationId],
+    [linkable, adding, propertyId, registration.reservationId],
   );
   const members = party.state.data?.members ?? [];
   const otherMain = registration.documents.some((d) => d.id !== doc?.id && d.isMain);
   /** A person who already has another document cannot take this one (409 PARTY_DUPLICATE). */
   const taken = (m: PartyMember) =>
-    registration.documents.some((d) => d.id !== doc?.id && d.partyMemberId === m.id) ||
-    (m.role === 'booker' && otherMain);
+    registration.documents.some((d) => d.id !== doc?.id && d.partyMemberId === m.id);
   const free = members.filter((m) => !taken(m));
   const [memberId, setMemberId] = useState('');
+  // "Khách chính của khai báo" only – it does not say whose ID it is (ARC 16.22).
+  const [isMain, setIsMain] = useState(first && !otherMain);
   const deadline = doc && deadlineOf(doc) ? dateTime(deadlineOf(doc)!) : null;
   const [docType, setDocType] = useState<DocType>(initial?.docType ?? 'cccd');
   const [form, setForm] = useState({
     docNumber: initial?.docNumber ?? '',
-    fullNameOnDoc: initial?.fullNameOnDoc ?? (first ? (bookerName ?? '') : ''),
+    // ARC 16.22: no booker's name by default – the name of the person picked, or typed from the ID.
+    fullNameOnDoc: initial?.fullNameOnDoc ?? '',
     dateOfBirth: initial?.dateOfBirth ?? '',
     nationalityCode: initial?.nationalityCode ?? '',
     passportIssueDate: initial?.passportIssueDate ?? '',
@@ -638,12 +649,16 @@ export function ManualDocDialog({
     // Waiting to be linked → the person is required, unless nobody in the party can take it (said below).
     if (linkable && pending && free.length > 0 && !memberId)
       req.partyMemberId = t('common.required');
+    // A new ID: whose it is, always (a person of the party, or "not in the party yet").
+    if (adding && !memberId) req.partyMemberId = t('reg.person_required');
     setMissing(req);
     if (Object.keys(req).length) return;
     const data: GuestDocumentInput = {
-      ...(linkable && memberId ? { partyMemberId: memberId } : {}),
+      ...((linkable || adding) && memberId && memberId !== NEW_PERSON
+        ? { partyMemberId: memberId }
+        : {}),
       docType,
-      isMain: initial ? undefined : first,
+      isMain: initial ? undefined : isMain,
       fullNameOnDoc: form.fullNameOnDoc.trim(),
       docNumber: form.docNumber.replace(/\s/g, '').toUpperCase(),
       dateOfBirth: opt(form.dateOfBirth),
@@ -670,7 +685,7 @@ export function ManualDocDialog({
     );
     if (out) {
       setImages([]);
-      const linked = members.find((m) => m.id === memberId);
+      const linked = linkable ? members.find((m) => m.id === memberId) : undefined;
       toast(linked ? t('reg.link.linked_toast', { name: memberName(linked) }) : t('common.saved'));
       onSaved(out.data);
     } else if (linkable) {
@@ -760,6 +775,63 @@ export function ManualDocDialog({
       ) : (
         act.view()
       )}
+      {adding ? (
+        party.state.status === 'error' && !party.state.data ? (
+          <Alert
+            tone="bad"
+            actions={
+              <Button size="sm" onClick={party.reload}>
+                {t('common.retry')}
+              </Button>
+            }
+          >
+            {t('reg.link.party_error')}
+          </Alert>
+        ) : (
+          <>
+            <Field
+              label={t('reg.link.member')}
+              required
+              error={f.partyMemberId}
+              help={t('reg.person_help')}
+            >
+              {(p) => (
+                <select
+                  {...p}
+                  className="input"
+                  value={memberId}
+                  disabled={!party.state.data}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setMemberId(v);
+                    // The name of the person picked fills an empty name box (the desk checks it on the ID).
+                    const m = members.find((x) => x.id === v);
+                    if (m && !form.fullNameOnDoc.trim())
+                      setForm((x) => ({ ...x, fullNameOnDoc: memberName(m) }));
+                  }}
+                >
+                  <option value="">{t('reg.link.member_placeholder')}</option>
+                  {members.map((m) => (
+                    <option key={m.id} value={m.id} disabled={taken(m)}>
+                      {taken(m)
+                        ? t('reg.link.has_doc', { name: memberName(m) })
+                        : m.role === 'booker'
+                          ? `${memberName(m)} · ${t('rsv.booker')}`
+                          : memberName(m)}
+                    </option>
+                  ))}
+                  <option value={NEW_PERSON}>{t('reg.person_not_in_party')}</option>
+                </select>
+              )}
+            </Field>
+            {otherMain ? null : (
+              <Checkbox checked={isMain} onChange={setIsMain}>
+                {t('reg.doc_is_main')}
+              </Checkbox>
+            )}
+          </>
+        )
+      ) : null}
       {linkable ? (
         party.state.status === 'error' && !party.state.data ? (
           <Alert

@@ -64,21 +64,8 @@ export function ackDueOf(
   return { ackDueAt: new Date(opensAt.getTime() + minutes * 60_000), inHours: false, opensAt };
 }
 
-/**
- * BR-506 v0.3.8 (DOM-S4-09, oracle BR-506-03): hk_task types that are a "full clean" FOR THE GUEST STAYING (the
- * second one of the business day is charged to a short stay). NOT counted: `checkout_clean`, `priority_clean`
- * (urgent room preparation at check-in – BR-402 (1) exception: preparing the room, not a clean for the guest),
- * `after_repair_clean`, towels/amenities, minibar. The task of an earlier "Dọn thêm" request also counts (read
- * with its request type).
- */
-export const FULL_CLEAN_TASK_TYPES: readonly string[] = [
-  'stayover_clean',
-  'long_stay_clean',
-  'adhoc_clean',
-];
-
-export const countsAsFullClean = (taskType: string): boolean =>
-  FULL_CLEAN_TASK_TYPES.includes(taskType);
+// BR-506 "lần dọn đầy đủ" task types (FULL_CLEAN_TASK_TYPES) moved to housekeeping/public/guest-request-work.port.ts
+// with the read `lastFullCleanAt` (ARC FB-R2-ARC-BE-S4-09 – housekeeping owns its task types).
 
 /**
  * BR-811 v0.3.8 (DOM-S4-10, oracle BR-811-04): who is told that a guest request is still unanswered after its
@@ -106,13 +93,52 @@ export function renderAutoReply(
 }
 
 /**
- * SEC B-15 (`replyNote`, shown to anyone holding the link): a run of ≥ 6 digits once spaces, dots and dashes are
- * removed blocks door codes, ID numbers and guests' phone numbers – except the property's PUBLIC hotline
- * (compared on its last 9 digits, so 0263…, 84263…, +84 263… are the same number).
+ * SEC B-15 (`replyNote`, shown to anyone holding the link) – SEC decision V2 (reviews/s4-SEC.md C.6, FB-R2-SEC-BE-77):
+ * a run of ≥ 6 digits blocks door codes, ID numbers and guests' phone numbers, but a PRICE WITH ITS UNIT and a DATE
+ * NEAR TODAY may be written (EP14 3.2: the desk tells the guest the price and day of a car or tour):
+ * 1. (Luhn is checked on the original text before – `containsCardNumber`.)
+ * 2. Checked on `text.normalize('NFKC')` (full-width digits → ASCII; only for the check, never stored).
+ * 3. Tokens replaced by `|` (never by a space – two separate numbers must not join):
+ *    - a date `d{1,2}[./-]d{1,2}[./-]yyyy` (one separator), a real calendar day, year within ±1 of the property's
+ *      current year (a birth date – C3 – stays blocked);
+ *    - VND money: first digit 1–9, thousands grouped by ONE of `.` `,` space or not grouped, ≤ 10 digits, the unit
+ *      right after (`đ`, `₫`, `VND`, `VNĐ`, `đồng`, any case), no letter/digit glued before; ≥ 6 digits must end in
+ *      `000` (`Mã cửa 482913đ` stays blocked; Vietnamese phone/ID numbers start with 0 – never money).
+ * 3b. (SEC s7, 18/10) a comma / semicolon FOLLOWED BY WHITESPACE is a list boundary → `|` (`Phòng 202, 203, 204`
+ *    passes; `202,203,204`, `202 203 204`, `482,913` stay blocked). Thousands separators never have a space after.
+ * 4. Separators `[\s.,\-_+()]` and Unicode dashes removed (`/` kept). 5. Any `\p{Nd}{6,}` blocks – except the
+ *    property's PUBLIC hotline (compared on its last 9 digits, so 0263…, 84263…, +84 263… are the same number).
+ * Staff `replyNote` only: the guest's own `note` is checked for card numbers (Luhn), never by this rule.
+ * Accepted by SEC as blocked: `350.000 đến 450.000đ`, `350.000 dong`, `350.000d`, ISO `2026-10-18`, a price not in
+ * whole thousands, a date beyond ±1 year, `VND 350.000` (the Desk hint says "Ghi giá kèm đ/VND, ví dụ 350.000 đ").
  */
-export function hasSensitiveDigits(text: string, publicPhone: string | null): boolean {
-  const compact = text.replace(/[\s.-]/g, '');
-  const runs = compact.match(/\d{6,}/g) ?? [];
+// `(?<!\p{Nd}[.,…])`: not the tail of a longer grouped number (`0912.345.000đ`) – stricter than C.6, never looser.
+const B15_DATE = /(?<!\p{Nd}|\p{Nd}[./-])(\d{1,2})([./-])(\d{1,2})\2(\d{4})(?!\p{Nd})/gu;
+const B15_MONEY =
+  /(?<![\p{L}\p{Nd}]|\p{Nd}[.,])([1-9]\d{0,2}(?:([.,\s])\d{3}(?:\2\d{3})*)?|[1-9]\d{3,9})\s?(?:đồng|vnđ|vnd|đ|₫)(?![\p{L}\p{Nd}])/giu;
+
+function isNearDate(day: number, month: number, year: number, currentYear: number): boolean {
+  if (Math.abs(year - currentYear) > 1 || month < 1 || month > 12 || day < 1) return false;
+  return day <= new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+export function hasSensitiveDigits(
+  text: string,
+  publicPhone: string | null,
+  currentYear: number,
+): boolean {
+  const checked = text
+    .normalize('NFKC')
+    .replace(B15_DATE, (all, d: string, _sep: string, m: string, y: string) =>
+      isNearDate(Number(d), Number(m), Number(y), currentYear) ? '|' : all,
+    )
+    .replace(B15_MONEY, (all, amount: string) => {
+      const digits = amount.replace(/\D/g, '');
+      return digits.length <= 10 && (digits.length < 6 || digits.endsWith('000')) ? '|' : all;
+    })
+    .replace(/[,;]\s+/gu, '|');
+  const compact = checked.replace(/[\s.,\-_+()\p{Pd}]/gu, '');
+  const runs = compact.match(/\p{Nd}{6,}/gu) ?? [];
   const hotline = (publicPhone ?? '').replace(/\D/g, '');
   const tail = (s: string) => s.slice(-9);
   return runs.some(

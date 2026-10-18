@@ -71,6 +71,22 @@ export class MoneyBridge {
     return (await this.folios.balance(tx, row.folio_id)).balanceDueVnd;
   }
 
+  /**
+   * BUG-R2-101 (ARC 16.20): `Reservation.balanceDueVnd` – what the folio still owes on its POSTED lines; undefined
+   * (the field is left out) while the folio has none (a hold: the room lines are posted at confirmation), so the
+   * Desk shows the deposit to collect instead of "0 still due".
+   */
+  async balanceDueOnPosted(
+    tx: Tx,
+    row: Pick<ReservationRow, 'folio_id'>,
+  ): Promise<number | undefined> {
+    if (!row.folio_id) return undefined;
+    const posted = (await this.folios.lines(tx, row.folio_id)).some(
+      (l) => l.line_state === 'posted',
+    );
+    return posted ? (await this.folios.balance(tx, row.folio_id)).balanceDueVnd : undefined;
+  }
+
   /** A-34 / G-14: money the guest paid above what the folio now charges (refund basis – BE-12). */
   async credit(tx: Tx, row: Pick<ReservationRow, 'folio_id'>): Promise<number> {
     if (!row.folio_id) throw new Error('booking without folio (folio_id NOT NULL)');
@@ -81,10 +97,11 @@ export class MoneyBridge {
     tx: Tx,
     row: Pick<ReservationRow, 'id' | 'code' | 'folio_id'>,
     payment: InitialPayment,
-    userId: string,
+    actor: { userId: string; roles: readonly string[] },
     now: Date,
     requestId?: string,
   ): Promise<void> {
+    const userId = actor.userId;
     if (!row.folio_id) throw new Error('booking without folio (folio_id NOT NULL)');
     await this.payments.recordManual(tx, {
       folioId: row.folio_id,

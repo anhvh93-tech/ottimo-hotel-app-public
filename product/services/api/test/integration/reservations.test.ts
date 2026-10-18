@@ -467,11 +467,19 @@ describe.skipIf(!HAS_DB)('reservations – EP02 / EP11 R2 / US-139 (BE-A Sprint 
       manualLongStay: { monthlyRentVnd: 9_500_000, externalContractRef: 'HĐ-2026-031' },
     });
     expect(r.nightlyRates).toBeUndefined();
-    const nights = await q<{ n: number }>(
-      `SELECT count(*)::int AS n FROM stay_night WHERE reservation_id = $1`,
+    // A7-01 (ARC 16.21, changed on purpose): the nights exist for the KPIs (`lease_allocation`, `long`, Q-10) –
+    // still no nightly price on the booking and never a room line on the folio.
+    const nights = await q<{ n: number; src: string[] }>(
+      `SELECT count(*)::int AS n, array_agg(DISTINCT rate_source) AS src
+         FROM stay_night WHERE reservation_id = $1 AND night_state = 'sold'`,
       [r.id],
     );
-    expect(nights[0]!.n).toBe(0);
+    expect(nights[0]).toMatchObject({ n: 181, src: ['lease_allocation'] });
+    const lines = await q<{ n: number }>(
+      `SELECT count(*)::int AS n FROM folio_line WHERE folio_id = $1 AND category IN ('room', 'extra_person')`,
+      [r.folioId],
+    );
+    expect(lines[0]!.n).toBe(0);
     const rack = (await c.fd!.get(url('/rack?from=2026-11-01&days=7'))).json();
     const room = rack.rooms.find((x: { roomNo: string }) => x.roomNo === '302');
     expect(room.bars).toContainEqual(

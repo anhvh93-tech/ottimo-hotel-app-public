@@ -21,8 +21,12 @@ import type {
   GuestRequestTaskInput,
   GuestRequestWork,
   GuestRequestWorkOrderInput,
+  LastFullCleanInput,
 } from '../../src/modules/guest-portal/public/guest-request-ports';
-import { UnwiredGuestRequestWorkPort } from '../../src/modules/guest-portal/public/guest-request-ports';
+import {
+  GUEST_REQUEST_WORK_PORT,
+  UnwiredGuestRequestWorkPort,
+} from '../../src/modules/guest-portal/public/guest-request-ports';
 import { GuestRequestStatusPort } from '../../src/modules/guest-portal/public/guest-request-status.port';
 import { RATE_LIMITER, type RateLimiter } from '../../src/modules/identity/public/rate-limiter';
 import { type FeatureApp, P, cookieValue, startFeatureApp } from '../helpers/feature-app';
@@ -38,8 +42,12 @@ import { HAS_DB, type TestTenant, appDatabase, createTenant } from '../helpers/t
 
 const HOTLINE = '0263 3 822 822';
 
-/** BE-C's port, faked: a real hk_task row per task (the FK guest_request.hk_task_id must hold). */
+/**
+ * BE-C's port, faked: a real hk_task row per task (the FK guest_request.hk_task_id must hold). The BR-506 read
+ * `lastFullCleanAt` goes to BE-C's real adapter (ARC S4-09 – the real paths: guest-requests-s4-fix-bed.test.ts).
+ */
 class FakeWorkPort implements GuestRequestWork {
+  real: GuestRequestWork | null = null;
   tasks: GuestRequestTaskInput[] = [];
   workOrders: GuestRequestWorkOrderInput[] = [];
   cancelled: string[] = [];
@@ -67,6 +75,9 @@ class FakeWorkPort implements GuestRequestWork {
   async createWorkOrder(_tx: Tx, i: GuestRequestWorkOrderInput): Promise<null> {
     this.workOrders.push(i);
     return null; // work_order table is BE-C's (not migrated yet)
+  }
+  lastFullCleanAt(tx: Tx, i: LastFullCleanInput): Promise<Date | null> {
+    return (this.real as GuestRequestWork).lastFullCleanAt(tx, i);
   }
   async cancelTask(tx: Tx, hkTaskId: string, now: Date): Promise<void> {
     this.cancelled.push(hkTaskId);
@@ -116,6 +127,7 @@ describe.skipIf(!HAS_DB)('EP14 guest requests + stay info (BE-D Sprint 4)', () =
     });
     fa = await startFeatureApp(db, { guestOrigins: [GUEST_TEST_ORIGIN] });
     // Bind the fake BE-C port (the module takes GUEST_REQUEST_WORK_PORT as optional).
+    work.real = fa.app.get<GuestRequestWork>(GUEST_REQUEST_WORK_PORT);
     (fa.app.get(GuestRequestsService) as unknown as { work: GuestRequestWork }).work = work;
   });
   afterAll(async () => {

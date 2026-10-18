@@ -316,6 +316,30 @@ export class OccupancyService {
   }
 
   /**
+   * S4-36 (ARC FB-R2-ARC-BE-S3-30): per night of [from, from + nights) – is the room free that night – in ONE
+   * query (the extension options scan up to 62 nights; one `isFree` per night was 62 round trips). Same rule as
+   * `isFree`: an active row overlapping the night (an open bound = unbounded).
+   */
+  async freeNights(
+    tx: Tx,
+    roomId: string,
+    from: LocalDate,
+    nights: number,
+    excludeSegmentIds: readonly string[] = [],
+  ): Promise<boolean[]> {
+    const { rows } = await tx.query<{ lo: string | null; hi: string | null }>(
+      `SELECT lower(stay_range)::text AS lo, upper(stay_range)::text AS hi FROM room_occupancy
+        WHERE room_id = $1 AND active AND stay_range && $2::daterange
+          AND (reservation_segment_id IS NULL OR NOT (reservation_segment_id = ANY($3::uuid[])))`,
+      [roomId, rangeLiteral(from, addDays(from, nights)), [...excludeSegmentIds]],
+    );
+    return Array.from({ length: nights }, (_, i) => {
+      const d = addDays(from, i);
+      return !rows.some((r) => (r.lo === null || r.lo <= d) && (r.hi === null || d < r.hi));
+    });
+  }
+
+  /**
    * Free rooms for [from, to) (BR-316): same group first – fewest orphan nights left, then room number –,
    * then other groups by room_group.sort_order marked `upgrade` (suggestion only, never auto-assigned).
    */

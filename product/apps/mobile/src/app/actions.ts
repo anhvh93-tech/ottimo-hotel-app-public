@@ -142,7 +142,8 @@ export function useHkActions(session: StaffSession) {
           targets: ['cancelled'],
           optimistic: { taskId: task.id, taskStatus: 'cancelled' },
         },
-        t('hk.refuse_save'),
+        // UXR P-13: the toast names the room.
+        t('hk.toast.refused', { room: roomLabel(asRoom(task), 'staff') }),
         t('hk.undone'),
       );
     },

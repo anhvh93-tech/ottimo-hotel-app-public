@@ -2,8 +2,9 @@
  * "Cần chú ý" sources of the housekeeping / maintenance tables (US-012, BR-907; OpenAPI 0.3.7 B-12; BE-D's
  * list s4-be-d.md 2.3) – computed when the list is read, FD+ only (default audience), ids / codes / room
  * numbers only (SEC J):
- * - `work_order_high_open` (US-012 AC4, BR-809): one item per open high work order;
- * - `work_order_overdue`: one item per open work order past a running deadline (or past its parts date);
+ * - `work_order_high_open` (US-012 AC4, BR-809): one item per open high work order – warning, critical once overdue;
+ * - `work_order_overdue`: one item per open MEDIUM / LOW work order past a running deadline (or past its parts
+ *   date) – warning (EP01 3.1; a high one is only `work_order_high_open` – DATA A7-02);
  * - `ooo_ending_work_open` (DOM D-12 h, EP07 6.6): from 12:00 of the last blocked day (`endDatePlanned − 1`) an
  *   active block whose work order is not done – extend it before the room re-opens for sale;
  * - `room_status_mismatch` (BR-806): OC/OD without a guest in house, or a guest in house in a VC/VD/VI room –
@@ -20,6 +21,7 @@ import {
   type AttentionKind,
   type AttentionSource,
 } from '../../events/public/events.service';
+import { inRoomOnSql } from '../public/stay-occupancy';
 import { isOverdue } from './work-orders.service';
 
 function allowedParams(
@@ -71,32 +73,36 @@ export function housekeepingAttentionSources(): AttentionSource[] {
     return rows;
   };
 
+  // EP01 3.1: one line per high work order – `warning`, `critical` once it is overdue (a high work order is
+  // never also a `work_order_overdue` line – DATA A7-02, US-012 AC4 "mỗi loại một dòng").
   const highOpen: AttentionSource = async (tx, ctx) =>
     (await openWorkOrders(tx, ctx.now, ctx.today))
       .filter((w) => w.severity === 'high')
       .map((w): AttentionItem => ({
         kind: 'work_order_high_open',
         source: 'computed',
-        severity: 'critical',
+        severity: isOverdue(w, ctx.now) ? 'critical' : 'warning',
         roomNos: [w.room_no],
         refCode: w.code,
         ...(w.resolve_due_at ? { dueAt: ctx.iso(w.resolve_due_at) } : {}),
         link: `/work-orders/${w.id}`,
       }));
 
+  // EP01 3.1 (E01-04): medium / low work orders past their deadline or their parts date – `warning`.
   const overdue: AttentionSource = async (tx, ctx) =>
     (await openWorkOrders(tx, ctx.now, ctx.today))
       .filter(
         (w) =>
-          isOverdue(w, ctx.now) ||
-          (w.status === 'waiting_parts' &&
-            !!w.parts_expected_date &&
-            w.parts_expected_date < ctx.today),
+          w.severity !== 'high' &&
+          (isOverdue(w, ctx.now) ||
+            (w.status === 'waiting_parts' &&
+              !!w.parts_expected_date &&
+              w.parts_expected_date < ctx.today)),
       )
       .map((w): AttentionItem => ({
         kind: 'work_order_overdue',
         source: 'computed',
-        severity: w.severity === 'high' ? 'critical' : 'warning',
+        severity: 'warning',
         roomNos: [w.room_no],
         refCode: w.code,
         link: `/work-orders/${w.id}`,
@@ -136,22 +142,24 @@ export function housekeepingAttentionSources(): AttentionSource[] {
   };
 
   const mismatch: AttentionSource = async (tx, ctx) => {
-    // BR-424-05: on the return day the room the guest comes back to is empty until the desk records the move
-    // back – not a mismatch that day; still unrecorded the next morning → reported (the stay is in house).
-    const waiting = (await roomReturnsOn(tx, ctx.today))
-      .filter((r) => !r.recorded)
-      .map((r) => r.returnRoomId);
+    // BR-424-05: on the return day, until the desk records the move back, the guest is still in the room they
+    // leave (`movedRoomId` – occupied although the stay's segment of today is the other room, stay-occupancy.ts)
+    // and the room they come back to is empty – neither is a mismatch that day; still unrecorded the next morning
+    // → reported.
+    const unrecorded = (await roomReturnsOn(tx, ctx.today)).filter((r) => !r.recorded);
+    const waiting = unrecorded.map((r) => r.returnRoomId);
+    const leaving = unrecorded.map((r) => r.movedRoomId);
     const { rows } = await tx.query<{ room_no: string }>(
       `WITH stay AS (
          SELECT DISTINCT s.room_id FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
-          WHERE s.active AND r.status = 'in_house' AND s.from_date <= $1::date AND s.to_date >= $1::date)
+          WHERE ${inRoomOnSql('$1::date')})
        SELECT rm.room_no FROM room_status rs JOIN room rm ON rm.id = rs.room_id
          LEFT JOIN stay ON stay.room_id = rs.room_id
-        WHERE (rs.status IN ('OC', 'OD') AND stay.room_id IS NULL)
+        WHERE (rs.status IN ('OC', 'OD') AND stay.room_id IS NULL AND NOT (rs.room_id = ANY($3::uuid[])))
            OR (rs.status IN ('VC', 'VD', 'VI') AND stay.room_id IS NOT NULL
                AND NOT (rs.room_id = ANY($2::uuid[])))
         ORDER BY rm.room_no`,
-      [ctx.today, waiting],
+      [ctx.today, waiting, leaving],
     );
     if (rows.length === 0) return [];
     return [
