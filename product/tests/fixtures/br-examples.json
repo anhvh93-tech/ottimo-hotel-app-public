@@ -6595,7 +6595,8 @@
             "2030-05-24": 650000
           },
           "folioDeltaVnd": 0,
-          "nightSource": "agreed"
+          "source": "default",
+          "agreedRateVnd": 650000
         },
         "b13NightVnd": 650000,
         "notCalendarVnd": 911000,
@@ -6606,7 +6607,7 @@
           "deskRangeVnd": [530000, 2630000]
         }
       },
-      "note": "Nguồn: `business-rules.md` phụ lục 5A AN-50 và ghi chú 12 (DOM 18/10, G-5 của `reviews/s4-money-recheck7.md`; probe 202 thỏa thuận dời 20–22/05/2030 → 23–25/05, B13 thứ Bảy 911.000). Mã 316b9ac ghi đêm dời nguồn `default` → B13 ra lịch. Gỡ pendingFix khi BE-A sửa (đêm MovePlanner kế thừa thỏa thuận) và ca TC-L4-158 đạt. · 18/10 ~15:15 (QA): gỡ pendingFix – BE-A đã cài G-5 trên cây chung (đêm kế thừa thỏa thuận); TC-L4-158 đạt trên api-dist25: đêm dời 650.000 × 2, B13 650.000."
+      "note": "Nguồn: `business-rules.md` phụ lục 5A AN-50 và ghi chú 12 (DOM 18/10, G-5 của `reviews/s4-money-recheck7.md`; probe 202 thỏa thuận dời 20–22/05/2030 → 23–25/05, B13 thứ Bảy 911.000). Mã 316b9ac ghi đêm dời nguồn `default` → B13 ra lịch. Gỡ pendingFix khi BE-A sửa (đêm MovePlanner kế thừa thỏa thuận) và ca TC-L4-158 đạt. · 18/10 ~15:15 (QA): gỡ pendingFix – BE-A đã cài G-5 trên cây chung (đêm kế thừa thỏa thuận); TC-L4-158 đạt trên api-dist25: đêm dời 650.000 × 2, B13 650.000. · 18/10 (QA, kiểm lại tiền lần 8 N-14, ARC 16.30.2): đêm dời giữ `source` = `default` và mang `agreedRateVnd` 650.000 (không có nguồn `agreed` riêng) – bỏ `nightSource: agreed`. TC-L4-158 so số đêm (650.000) và B13, không đọc trường nguồn."
     },
     {
       "id": "BR-421-01",
@@ -7947,6 +7948,82 @@
       "note": "Code HEAD: không có audit folio.*, yêu cầu vẫn approved, monthlyApprovedBy vẫn cộng (s3-round8 R1c, N2)"
     },
     {
+      "id": "BR-433-04",
+      "br": "BR-433",
+      "case": "(18/10, [R3] – chống chia nhỏ (b), SEC BE-83) FOC thường cộng dồn theo khóa: khoản bồi thường hư hỏng 3.000.000 trên lượt căn 101, cơ sở dòng 667.000 – quản lý FOC 600.000 → tự áp; thêm 600.000 cùng khóa → Σ 1.200.000 > 667.000 → chờ OWN (mã R2: 5 × 600.000 tự áp hết 3.000.000)",
+      "origin": "example",
+      "labels": ["INV-007", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "101",
+        "line": {
+          "category": "damage",
+          "amountVnd": 3000000
+        },
+        "basisVnd": 667000,
+        "focs": [
+          {
+            "by": "manager",
+            "amountVnd": 600000
+          },
+          {
+            "by": "manager",
+            "amountVnd": 600000
+          }
+        ]
+      },
+      "expected": {
+        "first": "approved",
+        "second": {
+          "sumVnd": 1200000,
+          "status": "pending",
+          "requiredRole": "owner"
+        },
+        "r2CodeSelfAppliedVnd": 3000000
+      },
+      "pendingFix": "R3-SEC-BE-83",
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+    },
+    {
+      "id": "BR-433-05",
+      "br": "BR-433",
+      "case": "(18/10, [R3] – chống chia nhỏ (b), SEC BE-83) Một khóa – món bia: khách uống 6 lon × 35.000 = 210.000; lễ tân tự miễn 100.000 (Σ 100.000); xin thêm 100.000 → Σ 200.000 > 100.000 (hạn mức lễ tân) → chuyển lễ tân trưởng (mã R2: tự áp cả hai, chỉ hạn mức tháng 500.000 chặn)",
+      "origin": "example",
+      "labels": ["INV-007", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "line": {
+          "category": "minibar",
+          "item": "bia",
+          "quantity": 6,
+          "unitPriceVnd": 35000,
+          "amountVnd": 210000
+        },
+        "frontDeskLimitVnd": 100000,
+        "focs": [
+          {
+            "by": "front_desk",
+            "amountVnd": 100000
+          },
+          {
+            "by": "front_desk",
+            "amountVnd": 100000
+          }
+        ]
+      },
+      "expected": {
+        "first": "approved",
+        "second": {
+          "sumVnd": 200000,
+          "status": "pending",
+          "requiredRole": "front_desk_lead"
+        },
+        "r2CodeBothSelfApplied": true
+      },
+      "pendingFix": "R3-SEC-BE-83",
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+    },
+    {
       "id": "BR-434-01",
       "br": "BR-434",
       "case": "Bill ghi dòng phát sinh + dòng FOC âm",
@@ -9249,12 +9326,16 @@
           "debtAddedVnd": 70000,
           "debtOpenVnd": 170000,
           "folioStatus": "closed",
-          "debtDueDate": "2026-11-20"
+          "debtDueDate": "2026-11-19",
+          "debtRecordedVnd": 170000,
+          "debtAuditsVnd": [100000, 70000],
+          "notifiedAgain": ["owner", "manager"]
         },
         "invariant": "Σ công nợ đang mở + khoản phát sinh sau trả phòng còn trong 24 giờ = còn phải thu của folio",
         "formula": "max(0, còn phải thu sau đảo) − max(0, còn phải thu trước đảo) = 170.000 − 70.000"
       },
-      "note": "Nguồn: `business-rules.md` BR-525 (18/10 – G-4, ARC 16.25 (i)–(iii), DOM chốt; nhãn [GIẢ ĐỊNH – chờ INV xác nhận]; G-4: NGÀNH), `outputs/ARC/openapi-0.3.7.md` 16.25. Năm 2026 theo quy ước (ví dụ BR không ghi năm). Gỡ pendingFix khi BE-A/BE-B xác nhận ra đúng số và CI xanh. · 18/10 ~13:05 (QA): gỡ pendingFix – E2E `clock/debt-collect.s5` + `ui-clock/debt-collect.s5` (TC-L4-146…148, TC-X-081) và tích hợp BE (`reversal-debt-g4`, `s4-recheck6-be-a`: 241/241 trên CSDL riêng) đạt trên cây chung trước gộp #17. · 18/10 (R7LOCK-01, ARC 16.27, DOM BR-427 (d)): mốc 24 giờ tính từ lúc trả phòng – sửa \"15:00 hôm sau\" thành 17/11 10:00; J15 đóng folio, công nợ theo còn phải thu, hạn 20/11."
+      "note": "Nguồn: `business-rules.md` BR-525 (18/10 – G-4, ARC 16.25 (i)–(iii), DOM chốt; nhãn [GIẢ ĐỊNH – chờ INV xác nhận]; G-4: NGÀNH), `outputs/ARC/openapi-0.3.7.md` 16.25. Năm 2026 theo quy ước (ví dụ BR không ghi năm). Gỡ pendingFix khi BE-A/BE-B xác nhận ra đúng số và CI xanh. · 18/10 ~13:05 (QA): gỡ pendingFix – E2E `clock/debt-collect.s5` + `ui-clock/debt-collect.s5` (TC-L4-146…148, TC-X-081) và tích hợp BE (`reversal-debt-g4`, `s4-recheck6-be-a`: 241/241 trên CSDL riêng) đạt trên cây chung trước gộp #17. · 18/10 (R7LOCK-01, ARC 16.27, DOM BR-427 (d)): mốc 24 giờ tính từ lúc trả phòng – sửa \"15:00 hôm sau\" thành 17/11 10:00; J15 đóng folio, công nợ theo còn phải thu, hạn 20/11. · 18/10 (QA, DOM chốt 209 – BR-525 \"một công nợ một hạn\"): J15 ghi thêm vào công nợ đang mở > 0 thì **giữ hạn cũ 19/11** (trước ghi 20/11); phần tăng 70.000 ghi như một lần ghi nợ: nhật ký `reservation.debt_on_checkout` [100.000, 70.000] (người thực hiện = hệ thống), báo OWN + MGR lần hai, `debt_recorded_vnd` 170.000. Mã f6803d0/d527f9c: tiền 170.000 và hạn cũ đúng, thiếu nhật ký/thông báo/`debt_recorded_vnd` cho phần tăng (R8DEBT-03, R8ALL-01) → pendingFix BUG-R2-209.",
+      "pendingFix": "BUG-R2-209"
     },
     {
       "id": "BR-525-03",
@@ -9674,7 +9755,7 @@
         "invoiceUnchanged": true,
         "focReportCode": "debt_write_off"
       },
-      "note": "Nguồn: `business-rules.md` BR-427 (d) và BR-525 (18/10 – R7LOCK-01/R7LOCK-02, DOM), `outputs/ARC/openapi-0.3.7.md` 16.27, `openapi.yaml` `requestFoc` (0.3.7 bổ sung 4 – xóa công nợ). Năm 2026 theo quy ước."
+      "note": "Nguồn: `business-rules.md` BR-427 (d) và BR-525 (18/10 – R7LOCK-01/R7LOCK-02, DOM), `outputs/ARC/openapi-0.3.7.md` 16.27, `openapi.yaml` `requestFoc` (0.3.7 bổ sung 4 – xóa công nợ). Năm 2026 theo quy ước. · 18/10 (QA, DOM sửa cơ sở BR-525): cơ sở xóa nợ theo BR-433 (a) = giá đêm CAO NHẤT của lượt (820.000 = đêm 7 đêm −10% cao nhất), không phải trung bình 743.571 – áp ở R3 (BR-525-24). Mã R2 f6803d0 `FolioService.nightRateBasis` lấy giá đêm của chính dòng/ngày dịch vụ (BUG-R2-046), không phải trung bình cũng không phải đêm cao nhất → giữ `nightRateBasisVnd` cũ (không test nào đọc trường này); kết quả không đổi."
     },
     {
       "id": "BR-525-15",
@@ -9726,7 +9807,7 @@
           "code": "FOLIO_LOCKED"
         }
       },
-      "note": "Nguồn: `business-rules.md` BR-427 (d) và BR-525 (18/10 – R7LOCK-01/R7LOCK-02, DOM), `outputs/ARC/openapi-0.3.7.md` 16.27, `openapi.yaml` `requestFoc` (0.3.7 bổ sung 4 – xóa công nợ). Năm 2026 theo quy ước. 743.571 = 5.205.000 / 7 (giá 1 đêm của đơn ví dụ – BR-433 `nightRateBasis`)."
+      "note": "Nguồn: `business-rules.md` BR-427 (d) và BR-525 (18/10 – R7LOCK-01/R7LOCK-02, DOM), `outputs/ARC/openapi-0.3.7.md` 16.27, `openapi.yaml` `requestFoc` (0.3.7 bổ sung 4 – xóa công nợ). Năm 2026 theo quy ước. 743.571 = 5.205.000 / 7 (giá 1 đêm của đơn ví dụ – BR-433 `nightRateBasis`). · 18/10 (QA, DOM sửa cơ sở BR-525): cơ sở xóa nợ theo BR-433 (a) = giá đêm CAO NHẤT của lượt (820.000 = đêm 7 đêm −10% cao nhất), không phải trung bình 743.571 – áp ở R3 (BR-525-24). Mã R2 f6803d0 `FolioService.nightRateBasis` lấy giá đêm của chính dòng/ngày dịch vụ (BUG-R2-046), không phải trung bình cũng không phải đêm cao nhất → giữ `nightRateBasisVnd` cũ (không test nào đọc trường này); kết quả không đổi."
     },
     {
       "id": "BR-525-16",
@@ -9759,7 +9840,10 @@
             "by": "manager",
             "newUnitPriceVnd": 120000
           }
-        ]
+        ],
+        "checkoutAt": "A+1 10:00 (B18 MGR ghi công nợ 100.000)",
+        "attemptsAt": "A+2 09:00 – trong cửa sổ 24 giờ",
+        "afterWindowAt": "A+2 10:01 – trả phòng + 24 giờ 1 phút"
       },
       "expected": {
         "reduceOrVoid": {
@@ -9769,10 +9853,20 @@
         },
         "increase": {
           "status": 201,
-          "debtOpenVnd": 120000
+          "amountDueVnd": 120000,
+          "inWindow": {
+            "debtOpenVnd": 100000,
+            "windowVnd": 20000,
+            "writeOffCapVnd": 100000
+          },
+          "afterWindow": {
+            "debtOpenVnd": 120000,
+            "writeOffCapVnd": 120000,
+            "note": "hết cửa sổ: phần tăng thành công nợ (J15 gộp; nhật ký phần tăng theo 209)"
+          }
         }
       },
-      "note": "Nguồn: `reviews/s4-SEC.md` C.12 (FB-R2-SEC-BE-80/81), `reviews/s4-money-recheck7.md` N-6/N-7, ARC 16.27 mục 2, 16.29; `business-rules.md` BR-525 (N-7 – DOM 18/10). Năm 2026 theo quy ước."
+      "note": "Nguồn: `reviews/s4-SEC.md` C.12 (FB-R2-SEC-BE-80/81), `reviews/s4-money-recheck7.md` N-6/N-7, ARC 16.27 mục 2, 16.29; `business-rules.md` BR-525 (N-7 – DOM 18/10). Năm 2026 theo quy ước. · 18/10 (QA, DOM khối lần 8 – \"công nợ đang mở luôn theo số\" (ii)): tách `increase` theo thời điểm. Trong cửa sổ, A32 tăng 100.000 → 120.000 trên folio `settled` là **khoản trong cửa sổ**: công nợ đang mở giữ **100.000**, còn phải thu 120.000; hết cửa sổ (trả phòng + 24 giờ) phần tăng mới thành công nợ → **120.000**. Bản trước ghi `debtOpenVnd` 120.000 không nêu thời điểm: dữ liệu TC-L4-153 cũ làm mọi bước lúc A+2 10:00 = đúng trả phòng + 24 giờ, đã hết cửa sổ, nên mã đọc công nợ đang mở = còn phải thu = 120.000 (chạy trên d527f9c: trần `debt_write_off` 422 `max` 120.000) – số đúng với dữ liệu đó, nhưng không kiểm được quy tắc (ii). TC-L4-153 nay làm các bước lúc A+2 09:00 (trong cửa sổ: trần 100.000) rồi A+2 10:01 (trần 120.000). Mã f6803d0 + 207 (d527f9c): `openDebtVnd` = ghi nợ 100.000 − (thu 0 + xóa 0 − gốc 0) = 100.000 trong cửa sổ; hết cửa sổ = còn phải thu. Không có FOC nên 207 không đổi số. Phần void/giảm (409) không đổi sau 208: phần giảm > khoản trong cửa sổ 0."
     },
     {
       "id": "BR-525-17",
@@ -9922,6 +10016,697 @@
         }
       },
       "note": "Nguồn: `reviews/s4-SEC.md` C.12 (FB-R2-SEC-BE-80/81), `reviews/s4-money-recheck7.md` N-6/N-7, ARC 16.27 mục 2, 16.29; `business-rules.md` BR-525 (N-7 – DOM 18/10). Năm 2026 theo quy ước. · 18/10 vòng sửa 8 (QA): BE-B sửa BUG-R2-206 (`s4-be-b.md` mục 25, 0077) – gỡ pendingFix sau khi TC-L4-155…157 đạt trên cây chung."
+    },
+    {
+      "id": "BR-525-21",
+      "br": "BR-525",
+      "case": "(18/10, [R3] – chống chia nhỏ xóa nợ, SEC BE-83) \"Lần\" = tổng xóa nợ của cả folio (đã áp + đang chờ + số xin mới) so với cơ sở: cơ sở 667.000, công nợ 5.000.000 trên một dòng, quản lý gửi 11 × 450.000 → lần 1 tự áp, lần 2–11 chờ OWN, lần 12 → 422 `max` 50.000; quản lý một mình xóa được 450.000",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "basisVnd": 667000,
+        "debtVnd": 5000000,
+        "requests": {
+          "by": "manager",
+          "kind": "foc",
+          "reasonCode": "debt_write_off",
+          "amountVnd": 450000,
+          "count": 12
+        }
+      },
+      "expected": {
+        "request1": {
+          "status": "approved",
+          "sumVnd": 450000,
+          "debtOpenVnd": 4550000
+        },
+        "requests2to11": {
+          "status": "pending",
+          "requiredRole": "owner",
+          "sumFromVnd": 900000,
+          "sumToVnd": 4950000,
+          "pendingTotalVnd": 4500000
+        },
+        "request12": {
+          "status": 422,
+          "fieldCode": "AMOUNT_EXCEEDS_BALANCE",
+          "maxVnd": 50000
+        },
+        "managerAloneWrittenOffVnd": 450000,
+        "r2CodeManagerAloneVnd": 4950000
+      },
+      "pendingFix": "R3-SEC-BE-83",
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+    },
+    {
+      "id": "BR-525-22",
+      "br": "BR-525",
+      "case": "(18/10, [R3] – chống chia nhỏ xóa nợ, SEC BE-83) Biên cơ sở: OWN từ chối 10 yêu cầu chờ của BR-525-21 → quản lý xin 217.000 → Σ 667.000 = cơ sở → tự áp; xin thêm 1.000 → Σ 668.000 → chờ OWN",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "basisVnd": 667000,
+        "appliedVnd": 450000,
+        "pendingRejectedByOwner": 10,
+        "then": [
+          {
+            "by": "manager",
+            "kind": "foc",
+            "reasonCode": "debt_write_off",
+            "amountVnd": 217000
+          },
+          {
+            "by": "manager",
+            "kind": "foc",
+            "reasonCode": "debt_write_off",
+            "amountVnd": 1000
+          }
+        ]
+      },
+      "expected": {
+        "first": {
+          "sumVnd": 667000,
+          "status": "approved"
+        },
+        "second": {
+          "sumVnd": 668000,
+          "status": "pending",
+          "requiredRole": "owner"
+        }
+      },
+      "pendingFix": "R3-SEC-BE-83",
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+    },
+    {
+      "id": "BR-525-23",
+      "br": "BR-525",
+      "case": "(18/10, [R3] – chống chia nhỏ xóa nợ, SEC BE-83) Yêu cầu đang chờ và số OWN đã duyệt đều tính vào tổng: quản lý xin 2.000.000 (chờ OWN) rồi xin 100.000 → Σ 2.100.000 → chờ OWN; OWN đã duyệt xóa 3.000.000 trên folio → quản lý xin thêm 100.000 → Σ 3.100.000 → chờ OWN",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "basisVnd": 667000,
+        "caseA": {
+          "pendingVnd": 2000000,
+          "then": {
+            "by": "manager",
+            "kind": "foc",
+            "reasonCode": "debt_write_off",
+            "amountVnd": 100000
+          }
+        },
+        "caseB": {
+          "ownerApprovedVnd": 3000000,
+          "then": {
+            "by": "manager",
+            "kind": "foc",
+            "reasonCode": "debt_write_off",
+            "amountVnd": 100000
+          }
+        }
+      },
+      "expected": {
+        "caseA": {
+          "sumVnd": 2100000,
+          "status": "pending",
+          "requiredRole": "owner"
+        },
+        "caseB": {
+          "sumVnd": 3100000,
+          "status": "pending",
+          "requiredRole": "owner"
+        }
+      },
+      "pendingFix": "R3-SEC-BE-83",
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+    },
+    {
+      "id": "BR-525-24",
+      "br": "BR-525",
+      "case": "(18/10, [R3] – chống chia nhỏ xóa nợ, SEC BE-83) Cơ sở theo FOLIO = giá đêm cao nhất của lượt, không theo dòng chọn: đơn 101, 18–21/11/2026 (thứ Tư, thứ Năm 667.000; thứ Sáu 767.000), công nợ 1.000.000 → cơ sở 767.000; xóa 400.000 trên đêm 18/11 rồi 367.000 trên đêm 19/11 → tự áp cả hai (Σ 767.000); thêm 1.000 → chờ OWN; đổi thứ tự dòng → cùng kết quả",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "101",
+        "nights": {
+          "2026-11-18": 667000,
+          "2026-11-19": 667000,
+          "2026-11-20": 767000
+        },
+        "debtVnd": 1000000,
+        "writeOffs": [
+          {
+            "by": "manager",
+            "kind": "foc",
+            "reasonCode": "debt_write_off",
+            "amountVnd": 400000,
+            "onNight": "2026-11-18"
+          },
+          {
+            "by": "manager",
+            "kind": "foc",
+            "reasonCode": "debt_write_off",
+            "amountVnd": 367000,
+            "onNight": "2026-11-19"
+          },
+          {
+            "by": "manager",
+            "kind": "foc",
+            "reasonCode": "debt_write_off",
+            "amountVnd": 1000
+          }
+        ]
+      },
+      "expected": {
+        "basisVnd": 767000,
+        "first": "approved",
+        "second": {
+          "status": "approved",
+          "sumVnd": 767000
+        },
+        "third": {
+          "status": "pending",
+          "requiredRole": "owner",
+          "sumVnd": 768000
+        },
+        "lineOrderIndependent": true
+      },
+      "pendingFix": "R3-SEC-BE-83",
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+    },
+    {
+      "id": "BR-525-25",
+      "br": "BR-525",
+      "case": "(18/10, [R3] – chống chia nhỏ xóa nợ, SEC BE-83) Hai chu kỳ công nợ trên một folio cộng dồn: đơn 101, 23–26/11/2026 (3 × 667.000 → cơ sở 667.000); B18 công nợ 1.000.000, quản lý xóa 600.000 (tự áp), khách trả 400.000 → công nợ đóng; minibar 70.000 trong cửa sổ 24 giờ không thu → J15 mở công nợ mới 70.000; quản lý xóa 70.000 → Σ 670.000 > 667.000 → chờ OWN (không tính theo từng chu kỳ)",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "101",
+        "nights": ["2026-11-23", "2026-11-24", "2026-11-25"],
+        "nightVnd": 667000,
+        "cycle1": {
+          "debtVnd": 1000000,
+          "writeOff": {
+            "by": "manager",
+            "kind": "foc",
+            "reasonCode": "debt_write_off",
+            "amountVnd": 600000
+          },
+          "guestPaysVnd": 400000
+        },
+        "cycle2": {
+          "postCheckoutMinibarVnd": 70000,
+          "j15DebtVnd": 70000,
+          "writeOff": {
+            "by": "manager",
+            "kind": "foc",
+            "reasonCode": "debt_write_off",
+            "amountVnd": 70000
+          }
+        }
+      },
+      "expected": {
+        "basisVnd": 667000,
+        "cycle1WriteOff": "approved",
+        "cycle2WriteOff": {
+          "sumVnd": 670000,
+          "status": "pending",
+          "requiredRole": "owner"
+        },
+        "perCycleNotUsed": true
+      },
+      "pendingFix": "R3-SEC-BE-83",
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+    },
+    {
+      "id": "BR-525-26",
+      "br": "BR-525",
+      "case": "(18/10, [R3] – chống chia nhỏ xóa nợ, SEC BE-83) Yêu cầu tự hủy `debt_cleared` không tính vào tổng: yêu cầu chờ 5.000.000 tự hủy vì khách trả đủ → Σ xóa nợ của folio 0",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "basisVnd": 667000,
+        "pendingVnd": 5000000,
+        "guestPaysInFull": true,
+        "autoCancelReason": "debt_cleared"
+      },
+      "expected": {
+        "sumAfterAutoCancelVnd": 0
+      },
+      "pendingFix": "R3-SEC-BE-83",
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+    },
+    {
+      "id": "BR-525-27",
+      "br": "BR-525",
+      "case": "(18/10, [R3] – chống chia nhỏ xóa nợ, SEC BE-83) Đua: hai yêu cầu 450.000 gửi cùng lúc (cơ sở 667.000) → đúng một tự áp, một chờ OWN (tổng đọc dưới khóa folio)",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "basisVnd": 667000,
+        "debtVnd": 5000000,
+        "concurrent": [
+          {
+            "by": "manager",
+            "kind": "foc",
+            "reasonCode": "debt_write_off",
+            "amountVnd": 450000
+          },
+          {
+            "by": "manager",
+            "kind": "foc",
+            "reasonCode": "debt_write_off",
+            "amountVnd": 450000
+          }
+        ]
+      },
+      "expected": {
+        "outcomes": ["approved", "pending"],
+        "exactlyOneSelfApplied": true,
+        "pendingRequiredRole": "owner"
+      },
+      "pendingFix": "R3-SEC-BE-83",
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+    },
+    {
+      "id": "BR-525-28",
+      "br": "BR-525",
+      "case": "(18/10 – kiểm lại tiền lần 8, BUG-R2-207: R8DEBT-01 + R8VER-01) \"Đã xóa\" trong công nợ đang mở chỉ đếm dòng FOC `debt_write_off` còn sống (posted, không phải dòng đảo, chưa bị đảo): A32 tăng dòng mang FOC làm FOC đăng lại (đảo + dòng mới) không được đếm hai lần → trần gửi, số áp khi OWN duyệt, tự hủy `debt_cleared` đúng số",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "debtVnd": 5000000,
+        "debtSource": "G-4 đảo trong cửa sổ",
+        "line": "fnb",
+        "submit": {
+          "selfAppliedVnd": 749000,
+          "a32PlusVnd": 10000,
+          "by": "manager",
+          "askVnd": 4251000
+        },
+        "approval": {
+          "selfAppliedVnd": 707000,
+          "pendingVnd": 4293000,
+          "a32PlusVnd": 10000,
+          "paidWhileWaitingVnd": 0,
+          "approvedBy": "owner"
+        },
+        "autoCancel": {
+          "selfAppliedVnd": [791000, 791000, 791000, 791000],
+          "pendingVnd": 1836000,
+          "a32PlusVnd": 10000,
+          "approvedBy": "owner"
+        },
+        "cumulative": {
+          "debtVnd": 100000,
+          "writeOffVnd": 30000,
+          "a32PlusVnd": [50000, 20000],
+          "variants": ["fnb", "room", "quantity"]
+        }
+      },
+      "expected": {
+        "submit": {
+          "openDebtVnd": 4251000,
+          "amountDueVnd": 4261000,
+          "status": 201,
+          "requestStatus": "pending"
+        },
+        "approval": {
+          "status": 200,
+          "requestStatus": "approved",
+          "effectiveAmountVnd": 4293000,
+          "appliedCappedAudit": false,
+          "amountDueVnd": 10000
+        },
+        "autoCancel": {
+          "requestStatus": "approved",
+          "effectiveAmountVnd": 1836000,
+          "autoCancelled": false,
+          "amountDueVnd": 10000
+        },
+        "cumulative": {
+          "openDebtVnd": 70000,
+          "liveWriteOffVnd": 30000
+        },
+        "afterWindow": "công nợ đang mở = còn phải thu",
+        "creditVnd": 0,
+        "invariant": "Σ công nợ đang mở + khoản trong cửa sổ = còn phải thu (BR-525 (ii)) ở mọi bước"
+      },
+      "note": "Nguồn: `reviews/s4-money-recheck8.md` bảng \"Sửa trước cổng\" (số đúng cho test), BR-525 (ii) và khối lần 8; ARC 16.30.3/16.30.6. Oracle độc lập: đã xóa = −Σ dòng FOC `debt_write_off` posted, `reversal_of_id` null, không có dòng đảo trỏ tới. Mã f6803d0 (lỗi): submit 422 `max` 3.502.000 (749.000 đếm hai lần); duyệt áp thiếu kèm `applied_capped` lý do `debt_collected_before_approval`; yêu cầu tự hủy `debt_cleared` dù khách còn nợ; cộng dồn open 20.000 thay 70.000. Test: `services/api/test/integration/s438-r8/` (R8DEBT-01 × 3, R8VER-01 C1–C3, C6, C7). Gỡ pendingFix khi chạy lại bộ tái hiện trên commit có sửa (d527f9c) và DB mới đạt. · 18/10 ~17:55 (QA, điều kiện 1 recheck8): gỡ pendingFix – BE-A sửa ở gộp #20 `d527f9c`. Bộ tái hiện chạy một lần trên DB mới `ottimo_test_s438_qa207` (cây cố định wt20): 10 tệp, 88/88 đạt – `r8debt/debt-paths` 13/13, `r8debt/debt-races` 9/9, `r8ver/opendebt-probe` 6/6, `r8ver/n6-paths` 5/5, `v8-r8debt-0-*` 11/11, `v8-r8ver-0-*` 13/13, `reversal-debt-g4` 27/27, `s4-recheck8-be-a` 4/4 (đúng số 4.251.000 pending; 4.293.000 không `applied_capped`, due 10.000; 1.836.000 không tự hủy; cộng dồn 70.000). Số áp phụ thuộc giá đêm của ngày ảo: R8DEBT-01 ra s = 666.000/749.000, đều đúng công thức (open = X − n·s, approved eff = số xin, due 10.000)."
+    },
+    {
+      "id": "BR-525-29",
+      "br": "BR-525",
+      "case": "(18/10 – lần 8, BUG-R2-208 N-7 theo số, DOM) Công nợ đã thu hết, chỉ còn khoản trong cửa sổ: MGR void minibar 70.000 ghi nhầm → 201, còn phải thu 0, công nợ đóng; ghi minibar sau khi đảo → cùng kết quả",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "checkoutAt": "2026-11-16T10:00:00+07:00",
+        "amountDueAfterB18Vnd": 0,
+        "postCheckoutLine": {
+          "at": "2026-11-16T15:00:00+07:00",
+          "category": "minibar",
+          "amountVnd": 70000
+        },
+        "reversal": {
+          "at": "2026-11-16T17:00:00+07:00",
+          "by": "manager",
+          "paymentVnd": 100000
+        },
+        "collect": {
+          "by": "front_desk",
+          "amountVnd": 100000
+        },
+        "void": {
+          "by": "manager",
+          "line": "minibar",
+          "amountVnd": 70000
+        },
+        "variantOrder": "minibar ghi sau khi đảo"
+      },
+      "expected": {
+        "afterReversal": {
+          "amountDueVnd": 170000,
+          "debtOpenVnd": 100000,
+          "windowVnd": 70000
+        },
+        "afterCollect": {
+          "amountDueVnd": 70000,
+          "debtOpenVnd": 0,
+          "windowVnd": 70000
+        },
+        "void": {
+          "status": 201,
+          "amountDueVnd": 0,
+          "debtClosed": true
+        },
+        "variantOrderSame": true
+      },
+      "pendingFix": "BUG-R2-208",
+      "note": "Nguồn: `business-rules.md` BR-525 khối \"(18/10 – kiểm lại tiền lần 8: BUG-R2-208, BUG-R2-209, G-6, DOM chốt)\" và cột ví dụ (208)/(209)/(G-6)/(N-13); `reviews/s4-money-recheck8.md` bảng Minor/Note. Năm 2026 theo quy ước. Mã f6803d0/d527f9c: N-7 chặn khi `openDebt(...) !== null` (chu kỳ chưa đóng) → void 409 `FOLIO_LOCKED`, `debt_write_off` 422 `max` 0 → ngõ cụt (R8DEBT-02). Chỉ cài sau 207 và 210, có SEC review. Gỡ pendingFix khi BE-B cài và ca tích hợp/E2E đạt."
+    },
+    {
+      "id": "BR-525-30",
+      "br": "BR-525",
+      "case": "(18/10 – lần 8, BUG-R2-208, DOM) Còn nợ thật: FD chỉ thu 50.000 → công nợ 50.000, cửa sổ 70.000; void minibar 70.000 → 201 (còn phải thu 50.000 = công nợ); sau đó giảm thêm bất kỳ → 409; ngay từ đầu giảm dòng phòng 80.000 (> 70.000) → 409",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "checkoutAt": "2026-11-16T10:00:00+07:00",
+        "amountDueAfterB18Vnd": 0,
+        "postCheckoutLine": {
+          "at": "2026-11-16T15:00:00+07:00",
+          "category": "minibar",
+          "amountVnd": 70000
+        },
+        "reversal": {
+          "at": "2026-11-16T17:00:00+07:00",
+          "by": "manager",
+          "paymentVnd": 100000
+        },
+        "collect": {
+          "by": "front_desk",
+          "amountVnd": 50000
+        },
+        "void": {
+          "by": "manager",
+          "line": "minibar",
+          "amountVnd": 70000
+        },
+        "thenReduce": {
+          "by": "manager",
+          "line": "room",
+          "reduceVnd": 1
+        },
+        "altFromStart": {
+          "by": "manager",
+          "line": "room",
+          "reduceVnd": 80000
+        }
+      },
+      "expected": {
+        "afterCollect": {
+          "amountDueVnd": 120000,
+          "debtOpenVnd": 50000,
+          "windowVnd": 70000
+        },
+        "void": {
+          "status": 201,
+          "amountDueVnd": 50000,
+          "debtOpenVnd": 50000
+        },
+        "thenReduce": {
+          "status": 409,
+          "code": "FOLIO_LOCKED",
+          "amountDueVnd": 50000
+        },
+        "altFromStart": {
+          "status": 409,
+          "code": "FOLIO_LOCKED",
+          "amountDueVnd": 120000
+        },
+        "rule": "A32 giảm được khi phần giảm ≤ còn phải thu − công nợ đang mở; vượt → 409, phần nợ chỉ giảm qua `debt_write_off` (BR-433 (a))"
+      },
+      "pendingFix": "BUG-R2-208",
+      "note": "Nguồn: `business-rules.md` BR-525 khối \"(18/10 – kiểm lại tiền lần 8: BUG-R2-208, BUG-R2-209, G-6, DOM chốt)\" và cột ví dụ (208)/(209)/(G-6)/(N-13); `reviews/s4-money-recheck8.md` bảng Minor/Note. Năm 2026 theo quy ước. Mã f6803d0/d527f9c: void minibar 409 (chặn theo chu kỳ, không theo số). 409 của hai bước sau đã đúng hôm nay – giữ để chặn hồi quy khi sửa 208."
+    },
+    {
+      "id": "BR-525-31",
+      "br": "BR-525",
+      "case": "(18/10 – lần 8, BUG-R2-208, ca SEC) Công nợ 5.000.000, không có khoản cửa sổ: MGR tự xóa nợ 600.000 (trong hạn mức) → 4.400.000; A32 tăng 10.000 × 9 trên dòng mang FOC → còn phải thu 4.490.000, công nợ vẫn 4.400.000; void dòng nợ hoặc giảm 90.001 → 409; giảm 90.000 → 201",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "debtVnd": 5000000,
+        "windowVnd": 0,
+        "writeOff": {
+          "by": "manager",
+          "reasonCode": "debt_write_off",
+          "amountVnd": 600000,
+          "nightBasisAtLeastVnd": 600000
+        },
+        "a32": {
+          "by": "manager",
+          "plusVnd": 10000,
+          "times": 9,
+          "line": "dòng mang FOC xóa nợ"
+        },
+        "attempts": [
+          {
+            "voidLine": true
+          },
+          {
+            "reduceVnd": 90001
+          },
+          {
+            "reduceVnd": 90000
+          }
+        ]
+      },
+      "expected": {
+        "afterWriteOff": {
+          "debtOpenVnd": 4400000,
+          "requestStatus": "approved"
+        },
+        "afterA32": {
+          "amountDueVnd": 4490000,
+          "debtOpenVnd": 4400000,
+          "windowVnd": 90000
+        },
+        "voidLine": {
+          "status": 409,
+          "code": "FOLIO_LOCKED"
+        },
+        "reduce90001": {
+          "status": 409,
+          "code": "FOLIO_LOCKED"
+        },
+        "reduce90000": {
+          "status": 201,
+          "amountDueVnd": 4400000,
+          "debtOpenVnd": 4400000
+        }
+      },
+      "pendingFix": "BUG-R2-208",
+      "note": "Nguồn: `business-rules.md` BR-525 khối \"(18/10 – kiểm lại tiền lần 8: BUG-R2-208, BUG-R2-209, G-6, DOM chốt)\" và cột ví dụ (208)/(209)/(G-6)/(N-13); `reviews/s4-money-recheck8.md` bảng Minor/Note. Năm 2026 theo quy ước. Cảnh báo SEC (recheck8): khi 207 còn, mỗi lần A32 đăng lại FOC làm công nợ đang mở tụt 600.000 → về 0 sau vài lần → N-7 theo số mở đường void nợ không qua OWN. Ca này cần 207 đã sửa và điều kiện 210. Mã d527f9c: giảm 90.000 vẫn 409 (chặn theo chu kỳ)."
+    },
+    {
+      "id": "BR-525-32",
+      "br": "BR-525",
+      "case": "(18/10 – lần 8, BUG-R2-208, biến thể RE) Đảo 100.000 → công nợ 100.000; A32 tăng 10.000 → cửa sổ 10.000; FD thu 100.000 → công nợ 0, cửa sổ 10.000; MGR giảm 10.000 → 201, còn phải thu 0",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "reversalVnd": 100000,
+        "a32PlusVnd": 10000,
+        "collectVnd": 100000,
+        "reduceVnd": 10000
+      },
+      "expected": {
+        "afterA32": {
+          "amountDueVnd": 110000,
+          "debtOpenVnd": 100000,
+          "windowVnd": 10000
+        },
+        "afterCollect": {
+          "amountDueVnd": 10000,
+          "debtOpenVnd": 0,
+          "windowVnd": 10000
+        },
+        "reduce": {
+          "status": 201,
+          "amountDueVnd": 0,
+          "debtClosed": true
+        },
+        "sameStateSameResult": true
+      },
+      "pendingFix": "BUG-R2-208",
+      "note": "Nguồn: `business-rules.md` BR-525 khối \"(18/10 – kiểm lại tiền lần 8: BUG-R2-208, BUG-R2-209, G-6, DOM chốt)\" và cột ví dụ (208)/(209)/(G-6)/(N-13); `reviews/s4-money-recheck8.md` bảng Minor/Note. Năm 2026 theo quy ước. Cùng trạng thái tiền cho cùng kết quả, không phụ thuộc thứ tự (đua RE của recheck8). Mã d527f9c: 409."
+    },
+    {
+      "id": "BR-525-33",
+      "br": "BR-525",
+      "case": "(18/10 – lần 8, BUG-R2-209, DOM) J15 trên folio đang có công nợ: phần chênh ghi thêm vào công nợ như một lần ghi nợ, GIỮ HẠN CŨ kể cả hạn quản lý đã sửa (khách công ty 200.000 hạn 30/11 + minibar 70.000 → 270.000 hạn 30/11); công nợ đang mở = 0 trước J15 → công nợ mới, hạn J15 + 3 ngày",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "corporate": {
+          "checkoutAt": "2026-11-16T10:00:00+07:00",
+          "b18DebtVnd": 200000,
+          "by": "manager",
+          "dueDateEditedTo": "2026-11-30",
+          "postCheckoutLine": {
+            "at": "2026-11-16T15:00:00+07:00",
+            "category": "minibar",
+            "amountVnd": 70000,
+            "paid": false
+          },
+          "j15At": "2026-11-17T10:00:00+07:00"
+        },
+        "paidBeforeJ15": {
+          "checkoutAt": "2026-11-16T10:00:00+07:00",
+          "amountDueAfterB18Vnd": 0,
+          "postCheckoutLine": {
+            "at": "2026-11-16T15:00:00+07:00",
+            "category": "minibar",
+            "amountVnd": 70000
+          },
+          "reversal": {
+            "at": "2026-11-16T17:00:00+07:00",
+            "by": "manager",
+            "paymentVnd": 100000
+          },
+          "collect": {
+            "by": "front_desk",
+            "amountVnd": 100000,
+            "at": "2026-11-16T18:00:00+07:00"
+          },
+          "j15At": "2026-11-17T10:00:00+07:00"
+        }
+      },
+      "expected": {
+        "corporate": {
+          "debtOpenVnd": 270000,
+          "debtDueDate": "2026-11-30",
+          "debtAuditsVnd": [200000, 70000],
+          "debtRecordedVnd": 270000,
+          "notifiedAgain": ["owner", "manager"],
+          "folioStatus": "closed"
+        },
+        "paidBeforeJ15": {
+          "debtOpenBeforeJ15Vnd": 0,
+          "debtOpenVnd": 70000,
+          "debtDueDate": "2026-11-20",
+          "newDebt": true,
+          "folioStatus": "closed"
+        },
+        "oneDebtOneDueDate": "ghi thêm vào công nợ đang mở > 0 (J15, đảo G-4 kể cả trên `closed`) → giữ hạn cũ"
+      },
+      "pendingFix": "BUG-R2-209",
+      "note": "Nguồn: `business-rules.md` BR-525 khối \"(18/10 – kiểm lại tiền lần 8: BUG-R2-208, BUG-R2-209, G-6, DOM chốt)\" và cột ví dụ (208)/(209)/(G-6)/(N-13); `reviews/s4-money-recheck8.md` bảng Minor/Note. Năm 2026 theo quy ước. Ví dụ (ii) chính (đảo 100.000 + minibar 70.000 → [100.000, 70.000], 170.000, hạn 19/11) ở BR-525-02. Mã f6803d0/d527f9c (recheck8 ca B): tiền gộp đúng và giữ hạn cũ, nhưng không nhật ký `reservation.debt_on_checkout`, không báo `debt_recorded`, không cộng `debt_recorded_vnd` cho phần tăng. Phần `paidBeforeJ15` chưa chạy riêng (có thể đã đạt) – kiểm cùng lúc gỡ pendingFix."
+    },
+    {
+      "id": "BR-525-34",
+      "br": "BR-525",
+      "case": "(18/10 – lần 8, G-6, DOM) Phân bổ khoản thu: khoản thu trên folio có công nợ đang mở trả công nợ trước (khoản cũ nhất trước), phần dư mới trả khoản cửa sổ, không theo mục đích link – công nợ G-4 1.000.000 + minibar 300.000, khách trả 300.000 qua link → công nợ 700.000, còn phải thu 1.000.000; J15 → 1.000.000",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "debtVnd": 1000000,
+        "debtSource": "G-4",
+        "postCheckoutLine": {
+          "category": "minibar",
+          "amountVnd": 300000,
+          "paymentLinkSent": true
+        },
+        "guestPaysViaLinkVnd": 300000
+      },
+      "expected": {
+        "beforePay": {
+          "amountDueVnd": 1300000,
+          "debtOpenVnd": 1000000,
+          "windowVnd": 300000
+        },
+        "afterPay": {
+          "amountDueVnd": 1000000,
+          "debtOpenVnd": 700000,
+          "windowVnd": 300000
+        },
+        "desk": {
+          "shownAmountDueVnd": 1000000,
+          "showsUnpaidPostCheckoutNotice": false
+        },
+        "afterJ15": {
+          "debtOpenVnd": 1000000,
+          "folioStatus": "closed"
+        },
+        "rejectedAlternative": "trả khoản cửa sổ trước → ca thu 100.000 của BR-525-29 thành công nợ 30.000, void minibar 409 (ngõ cụt 208 quay lại)"
+      },
+      "note": "Nguồn: `business-rules.md` BR-525 khối \"(18/10 – kiểm lại tiền lần 8: BUG-R2-208, BUG-R2-209, G-6, DOM chốt)\" và cột ví dụ (208)/(209)/(G-6)/(N-13); `reviews/s4-money-recheck8.md` bảng Minor/Note. Năm 2026 theo quy ước. Đây là quy tắc mã đang chạy (recheck8 G-6: open 700.000) – DOM ghi vào BR-525, không cần sửa tiền. Nhật ký/thông báo cho phần J15 gộp thêm thuộc 209 (BR-525-33). Phần Desk (một số còn phải thu, không báo \"khoản phát sinh chưa thu\") chưa có ca kiểm."
+    },
+    {
+      "id": "BR-525-35",
+      "br": "BR-525",
+      "case": "(18/10 – lần 8, N-13, DOM) Folio `closed` vẫn đảo được khoản thu (G-4): đóng 17/11 10:00, còn phải thu 0; 18/11 ngân hàng hoàn chuyển khoản 500.000 → MGR đảo → công nợ 500.000, hạn 21/11, folio giữ `closed`, hóa đơn không đổi",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "folioClosedAt": "2026-11-17T10:00:00+07:00",
+        "amountDueAtCloseVnd": 0,
+        "reversal": {
+          "at": "2026-11-18T10:00:00+07:00",
+          "by": "manager",
+          "paymentVnd": 500000,
+          "method": "bank_transfer",
+          "reason": "Ngân hàng hoàn chuyển khoản"
+        }
+      },
+      "expected": {
+        "reversalStatus": 200,
+        "debtOpenVnd": 500000,
+        "debtDueDate": "2026-11-21",
+        "newDebt": true,
+        "folioStatus": "closed",
+        "invoiceUnchanged": true,
+        "notified": ["owner", "manager"],
+        "audit": "reservation.debt_on_checkout",
+        "allowedOnClosed": ["thu công nợ", "xóa nợ `debt_write_off`", "đảo khoản thu (G-4)"]
+      },
+      "note": "Nguồn: `business-rules.md` BR-525 khối \"(18/10 – kiểm lại tiền lần 8: BUG-R2-208, BUG-R2-209, G-6, DOM chốt)\" và cột ví dụ (208)/(209)/(G-6)/(N-13); `reviews/s4-money-recheck8.md` bảng Minor/Note. Năm 2026 theo quy ước. Mã f6803d0 đã làm (recheck8 N-13, r8ver M3: 200, mở chu kỳ mới, có nhật ký); DOM sửa câu \"chỉ còn hai việc\" thành ba. Chưa có trong ma trận đua (RD trên `closed`)."
     },
     {
       "id": "BR-526-01",

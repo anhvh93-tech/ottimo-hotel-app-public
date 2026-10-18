@@ -10,7 +10,8 @@
 // - TC-L4-151: xóa công nợ bằng FOC `debt_write_off` – vai, ghi chú, trần, `kind`, MGR vượt giá 1 đêm chờ OWN (BR-525-15).
 // - TC-L4-152: folio đang thừa 30.000 (yêu cầu hoàn mở) → đảo 100.000 → công nợ 70.000 = phần tăng, yêu cầu hoàn tự hủy
 //   `superseded`; thu 70.000 → hết nợ (BR-525-03, recheck7 R7ALL-02).
-// - TC-L4-153: N-7 / SEC BE-81 – còn công nợ thì MGR, OWN void/giảm dòng → 409; tăng dòng vẫn được (BR-525-16).
+// - TC-L4-153: N-7 / SEC BE-81 – còn công nợ thì MGR, OWN void/giảm dòng → 409; tăng dòng vẫn được, phần tăng là khoản
+//   trong cửa sổ – công nợ đang mở giữ 100.000 (BR-525-16, DOM khối lần 8).
 // - TC-L4-154: N-6 – A32 trên version cũ sau lần thu nợ → 412; đọc lại → 201 (BR-525-17).
 // - TC-L4-155…157: SEC BE-80 (BUG-R2-206, BE-B vòng sửa 8) – yêu cầu xóa nợ chờ OWN mà khách đã trả / hai yêu cầu /
 //   đua duyệt ‖ thu: không bao giờ dư thừa vì xóa nợ (BR-525-18…20).
@@ -584,7 +585,8 @@ test.describe(
       const { A, st, lineId } = await precondition('đơn 1 đêm, B18 MGR ghi công nợ 100.000', () =>
         debtStay(request, 'checkout'),
       );
-      await at(request, addDays(A, 2), '10:00');
+      // Trả phòng A+1 10:00 → cửa sổ 24 giờ tới A+2 10:00; làm mọi bước trong cửa sổ (BR-525 (ii)).
+      await at(request, addDays(A, 2), '09:00');
       const fd = await sessionOrSkip(request, 'qa.fd');
       for (const who of ['qa.mgr', 'qa.owner']) {
         const s = await sessionOrSkip(request, who);
@@ -610,8 +612,28 @@ test.describe(
         reason: 'Tinh thieu mon',
       });
       expect(up.status, `tăng dòng: ${JSON.stringify(up.body).slice(0, 200)}`).toBe(201);
-      expect((await getFolio(request, fd, st.res.folioId!)).totals.balanceDueVnd).toBe(
-        Number((exp.increase as Json).debtOpenVnd),
+      // BR-525 (ii), DOM khối lần 8: phần A32 tăng là khoản trong cửa sổ – còn phải thu 120.000, công nợ đang mở giữ 100.000;
+      // hết cửa sổ (trả phòng + 24 giờ) mới thành công nợ 120.000.
+      const inc = exp.increase as Json;
+      const inWin = inc.inWindow as Json;
+      const afterWin = inc.afterWindow as Json;
+      const after = await getFolio(request, fd, st.res.folioId!);
+      expect(after.totals.balanceDueVnd, 'còn phải thu').toBe(Number(inc.amountDueVnd));
+      // Công nợ đang mở đọc qua trần `debt_write_off` (min(dòng, công nợ đang mở − đang chờ)); 422 không tạo yêu cầu.
+      const live = liveLines(after, 'fnb').at(-1)!;
+      const cap = await writeOffRequest(request, st, live.id, 99_000_000);
+      expect(cap.status, `trần xóa nợ: ${JSON.stringify(cap.body).slice(0, 200)}`).toBe(422);
+      expect(
+        Number(cap.body.max),
+        'trong cửa sổ: trần = công nợ đang mở, không gồm phần tăng',
+      ).toBe(Number(inWin.writeOffCapVnd));
+      await at(request, addDays(A, 2), '10:01');
+      const capLate = await writeOffRequest(request, st, live.id, 99_000_000);
+      expect(capLate.status, `trần xóa nợ: ${JSON.stringify(capLate.body).slice(0, 200)}`).toBe(
+        422,
+      );
+      expect(Number(capLate.body.max), 'hết cửa sổ: phần tăng thành công nợ').toBe(
+        Number(afterWin.writeOffCapVnd),
       );
     });
 

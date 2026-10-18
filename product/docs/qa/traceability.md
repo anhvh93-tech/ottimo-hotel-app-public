@@ -14,7 +14,7 @@
 | AC có ≥ 1 TC | **254/254** (100.0%) |
 | AC có ≥ 1 TC **chạy được ở R2 với kỳ vọng xác định** (TC không mang nhãn `[BLOCKED]`/`[UNDECIDED]`) | **254/254** (100.0%) |
 | TC mang nhãn `[BLOCKED]`/`[UNDECIDED]` · `[GIẢ ĐỊNH QA]` | 7 · 5 (danh sách mục 5.7) |
-| Chuyển trạng thái (18 máy, `state-machines.md`) có ≥ 1 TC | **104/132** (78.8%) – chi tiết mục 7 |
+| Chuyển trạng thái (18 máy, `state-machines.md`) có ≥ 1 TC | **105/133** (78.9%) – chi tiết mục 7 |
 | Tham chiếu chuyển trạng thái trong TC không có trong `state-machines.md` | 0 |
 | Kiểm tĩnh quyền (nguồn chuẩn: rbac-matrix.json (A-xx) + rbac-matrix.md (S-xx, Dxx)): operation lệch `x-roles`/`x-scope` · thuộc tính lệch `x-visible-to` | 0 · 0 – chi tiết mục 8 |
 | Story Must R2 không có AC ở mục 4 | 0  |
@@ -323,6 +323,7 @@ Nguồn: bảng chuyển của `state-machines.md`. Máy có cột "#" dùng mã
 | SM-10 | A4 | `pending` → `escalated` | Giá trị vượt hạn mức người duyệt hiện tại | `approveRequest` | TC-NT-029, TC-NT-034 |
 | SM-10 | A5 | `pending`/`escalated` → `rejected` | Lý do từ chối | `rejectRequest` | TC-NT-033, TC-NT-034, TC-NT-050 |
 | SM-10 | A6 | `pending` → `cancelled` | – | `cancelRequest` | TC-NT-035, TC-NT-049 |
+| SM-10 | A7 | `pending`/`escalated` → `cancelled` – tự hủy lý do **`debt_cleared`** (v0.2.7) | Chỉ yêu cầu FOC `reasonCode = debt_write_off`. Người duyệt h | `approveRequest` | TC-L4-155, TC-X-083 |
 | SM-11 | – | [*] → `projected` | Đơn/HĐ có người chốt SAL/CTV được xác nhận (B4) | – | TC-L5-031 |
 | SM-11 | – | `projected` → `earned` | Ngắn ngày: đơn `checked_out` và thu đủ (BR-903). Dài hạn: ch | – | TC-L4-053, TC-L5-038 |
 | SM-11 | – | `earned` → `payable` | Kỳ chi gộp theo tháng lịch (DOM SQ-4): job ngày 1 chuyển mọi | – | **TRỐNG** |
@@ -369,7 +370,7 @@ Nguồn: bảng chuyển của `state-machines.md`. Máy có cột "#" dùng mã
 | SM-18 | WR6 | `new`, `in_progress` → `converted` | Chuyển thành giữ chỗ/đơn | – | **TRỐNG** |
 | SM-18 | WR7 | `new`, `in_progress` → `declined` | Tự đóng vì không hoạt động (job `web_request.stale`, 06:05) | – | **TRỐNG** |
 
-Tóm tắt theo máy: SM-01 22/22 · SM-02 5/5 · SM-03 11/11 · SM-04 6/6 · SM-05 13/13 · SM-06 2/9 · SM-07 2/3 · SM-08 5/5 · SM-09 7/7 · SM-10 6/6 · SM-11 3/5 · SM-12 9/9 · SM-13 2/2 · SM-14 4/4 · SM-15 7/7 · SM-16 0/5 · SM-17 0/5 · SM-18 0/8
+Tóm tắt theo máy: SM-01 22/22 · SM-02 5/5 · SM-03 11/11 · SM-04 6/6 · SM-05 13/13 · SM-06 2/9 · SM-07 2/3 · SM-08 5/5 · SM-09 7/7 · SM-10 7/7 · SM-11 3/5 · SM-12 9/9 · SM-13 2/2 · SM-14 4/4 · SM-15 7/7 · SM-16 0/5 · SM-17 0/5 · SM-18 0/8
 
 ## 8. Kiểm tĩnh quyền – rbac-matrix (nguồn chuẩn) ↔ OpenAPI
 

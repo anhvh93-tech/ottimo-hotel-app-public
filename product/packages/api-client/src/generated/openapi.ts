@@ -2237,12 +2237,19 @@ export interface paths {
      *     Dòng đêm chỉ nhận `newUnitPriceVnd` (`newQuantity`/`voidLine` → 422 `NOT_ALLOWED` – bỏ đêm đi B7/B8/B16); giá ngoài sàn–trần BR-105 của nhóm căn → 422 `RATE_OUT_OF_RANGE`
      *     (thấp hơn sàn đi giảm giá đặc biệt có duyệt). Folio `settled`: bút toán sau chốt (MGR+, A32) không gọi cổng. Audit `folio_line.adjusted` (đã có).
      *     **0.3.7 bổ sung 4 (BUG-R2-201, ARC 16.28 – DOM đồng ý 18/10, SM-13 v0.2.6)**: folio **`closed`** (hết cửa sổ 24 giờ, phiếu đã cấp, mọi khoản còn nợ đã thành công nợ – BR-427 (d)) **không** điều chỉnh
-     *     dòng → 409 `FOLIO_LOCKED` cho mọi vai. Sau khi đóng chỉ còn: thu công nợ (`recordPayment`, 16.26) và xóa nợ (`requestFoc` `reasonCode = debt_write_off`). Điều chỉnh sau đóng
-     *     (kèm hóa đơn điều chỉnh) để R3 cùng hóa đơn điện tử. Folio `settled` trong cửa sổ: giữ như trên (MGR+, A32).
-     *     **0.3.7 bổ sung 4 (N-7 – DOM + SEC 18/10, BR-525, FB-R2-SEC-BE-81; ARC 16.30)**: folio `settled` mà đơn còn **công nợ mở** – mọi điều chỉnh **giảm** (`voidLine`, giảm `newQuantity`,
-     *     giảm `newUnitPriceVnd`) → 409 `FOLIO_LOCKED` (kèm `detail`) cho **mọi vai, kể cả OWN**, không ghi gì; giảm số nợ chỉ qua `requestFoc` `reasonCode = debt_write_off` (hạn mức BR-433,
-     *     báo cáo FOC). Điều chỉnh **tăng** vẫn 201 (công nợ theo còn phải thu). Folio `settled` không có công nợ mở: A32 như trên. Desk: 409 này trên folio `settled` có công nợ → chỉ sang
-     *     "Xóa công nợ". Thứ tự khóa (ARC 16.19, 16.30): L1 **mọi đơn của folio** `FOR NO KEY UPDATE` theo `id` → L3 folio, lấy **trước** cổng `setNightRate` của dòng đêm; công nợ đọc dưới L3.
+     *     dòng → 409 `FOLIO_LOCKED` cho mọi vai. Sau khi đóng chỉ còn: thu công nợ (`recordPayment`, 16.26), xóa nợ (`requestFoc` `reasonCode = debt_write_off`) và đảo khoản thu
+     *     (`reversePayment` G-4 – ARC 16.31, N-13). Điều chỉnh sau đóng (kèm hóa đơn điều chỉnh) để R3 cùng hóa đơn điện tử. Folio `settled` trong cửa sổ: giữ như trên (MGR+, A32).
+     *     **N-15 (ARC 16.31; cài cùng BUG-R2-208)**: folio `settled` đã quá `post_checkout_window_until` (J15 chạy mỗi giờ, chưa kịp đóng) được coi như `closed` → 409 `FOLIO_LOCKED`.
+     *     **0.3.7 bổ sung 4 (N-7 – DOM + SEC 18/10, BR-525, FB-R2-SEC-BE-81; ARC 16.30; điều kiện theo số – BUG-R2-208, ARC 16.31)**: folio `settled` trong cửa sổ, `openDebtVnd` = **công nợ
+     *     đang mở theo số** (BR-525 (ii): số đã ghi nợ của chu kỳ − phần đã thu/xóa từ lúc mở, kẹp [0, còn phải thu]); khoản trong cửa sổ = còn phải thu − `openDebtVnd`. Điều chỉnh **giảm**
+     *     (`voidLine`, giảm `newQuantity`, giảm `newUnitPriceVnd`; phần giảm = tiền dòng trước − sau) được khi **phần giảm ≤ còn phải thu − `openDebtVnd`** (chỉ chạm khoản trong cửa sổ,
+     *     sau khi giảm còn phải thu vẫn ≥ công nợ đang mở); vượt → 409 `FOLIO_LOCKED` (kèm `detail`) cho **mọi vai, kể cả OWN**, không ghi gì – phần nợ chỉ giảm qua `requestFoc`
+     *     `reasonCode = debt_write_off` (hạn mức BR-433, báo cáo FOC). `openDebtVnd` = 0 → như đơn không công nợ (A32 như trên; giảm sinh dư thừa → hoàn tiền có duyệt BR-522). Điều chỉnh
+     *     **tăng** vẫn 201 (thành khoản trong cửa sổ, J15 mới chuyển thành công nợ). Cùng trạng thái tiền cho cùng kết quả, không phụ thuộc thứ tự thao tác. Ví dụ (BR-525 lần 8): đảo 100.000,
+     *     minibar 70.000, FD thu 100.000 → void minibar **201**; FD chỉ thu 50.000 → void minibar 70.000 **201**, giảm thêm bất kỳ → **409**; công nợ 4.400.000, A32 tăng 10.000 × 9 → giảm 90.000
+     *     **201**, giảm 90.001 → **409**. **Cài đặt**: mã R2 hiện chặn mọi giảm khi chu kỳ công nợ chưa đóng (kể cả khi `openDebtVnd` = 0); điều kiện theo số cài **sau** BUG-R2-207 và BUG-R2-210
+     *     (hoặc điều kiện OPS của 210), có SEC review. Desk: 409 này → chỉ sang "Xóa công nợ". Thứ tự khóa (ARC 16.19, 16.30): L1 **mọi đơn của folio** `FOR NO KEY UPDATE` theo `id`
+     *     → L3 folio, lấy **trước** cổng `setNightRate` của dòng đêm; công nợ và giờ cửa sổ đọc dưới L3.
      */
     post: operations['adjustFolioLine'];
     delete?: never;
@@ -2282,6 +2289,9 @@ export interface paths {
      *     nợ). Công nợ đang mở = phần nợ đã ghi (B18, đảo khoản thu G-4, J15) chưa thu/xóa; khoản phát sinh còn trong cửa sổ 24 giờ **không** phải công nợ nên không xóa được; hết cửa sổ
      *     (folio `closed`) = toàn bộ còn phải thu. Lúc duyệt (`approveRequest`): chỉ áp min(số đã duyệt, công nợ đang mở lúc duyệt), số này giữ **cố định** cho mọi lần đồng bộ sau;
      *     công nợ đã về 0 → yêu cầu tự hủy `autoCancelReason = debt_cleared` (không ghi dòng FOC). Folio không bao giờ có dư thừa vì xóa nợ.
+     *     **ARC 16.31 (BR-525 lần 8 – "công nợ đang mở luôn theo số")**: "đơn có công nợ mở" ở ngoại lệ trên = `openDebtVnd` > 0, không phải "chu kỳ công nợ chưa đóng". `openDebtVnd` = 0 (đã
+     *     thu/xóa hết, chỉ còn khoản trong cửa sổ) → 409 `FOLIO_LOCKED` như folio không công nợ; mã R2 hiện trả 422 `AMOUNT_EXCEEDS_BALANCE` `max` 0 – đổi cùng đợt BUG-R2-208 (một hàm công nợ).
+     *     Khoản thu trên folio có công nợ trả **công nợ trước** (G-6), nên khách trả qua link cho khoản trong cửa sổ cũng làm `openDebtVnd` giảm.
      */
     post: operations['requestFoc'];
     delete?: never;
@@ -2309,6 +2319,9 @@ export interface paths {
      *     `max`); folio **giữ** `settled`/`closed`, hóa đơn đã xuất không đổi, audit `money` `payment.recorded` kèm `debtCollection: true`. Thứ tự khóa (16.19): mọi đơn của folio
      *     `NO KEY UPDATE` → folio → giao dịch. Thu đủ (còn phải thu = 0) trong cùng giao dịch → công nợ đóng (mục "Cần chú ý" `checkout_debt` tự hết) và gọi cổng hoa hồng "đã thu đủ".
      *     Thu một phần → công nợ còn mở với số còn lại. `type` khác `charge` trên folio đã khóa → 409 `FOLIO_LOCKED` như cũ.
+     *     **ARC 16.31 (BR-525 lần 8)**: "công nợ mở" = `openDebtVnd` > 0 (theo số; folio `closed` = còn phải thu; công nợ ghi lúc B18, G-4 hoặc J15). Khoản thu trả **công nợ trước** (G-6) rồi
+     *     mới tới khoản trong cửa sổ; Desk hiện một số còn phải thu. Trong cửa sổ, khoản thu cho khoản phát sinh sau trả phòng nhận như BR-427 (c) dù không có công nợ. Folio `settled` đã quá cửa sổ
+     *     mà J15 (mỗi giờ) chưa chạy và chưa có công nợ → 409 `FOLIO_LOCKED` tới lần chạy J15 kế tiếp (N-15 – chấp nhận ở R2, khoảng hở ≤ 1 giờ).
      */
     post: operations['recordPayment'];
     delete?: never;
@@ -2603,7 +2616,12 @@ export interface paths {
      *     Folio `settled` (đơn chính `checked_out`) mà việc đảo làm **tăng** còn phải thu và số sau > 0 → **trong cùng giao dịch**: tự ghi công nợ của khách (cùng cấu trúc công nợ lúc trả phòng –
      *     `checkOut.debt`; lý do = `reason`; hạn = tham số `debt_default_due_days`), audit `reservation.debt_on_checkout`, thông báo `debt_recorded` (OWN + MGR), mục "Cần chú ý" `checkout_debt`.
      *     Không ghi dòng phí; folio giữ `settled`, hóa đơn đã xuất không đổi. Sau **mọi** lần đảo: chạy lại kế hoạch hoàn (BR-522) – yêu cầu hoàn mở vượt dư thừa tự hủy (`autoCancelReason`
-     *     = `superseded`). Hoa hồng đã "đạt" không tính lại [chờ DOM].
+     *     = `superseded`). ~~Hoa hồng đã "đạt" không tính lại [chờ DOM].~~
+     *     **ARC 16.31 (DOM 18/10 BR-525 (ii), (iii), lần 8; thay các câu tương ứng ở trên)**: số ghi nợ = **phần tăng** do việc đảo = max(0, còn phải thu sau) − max(0, còn phải thu trước).
+     *     Folio `settled` **hoặc `closed`** (N-13 – ví dụ chuyển khoản bị ngân hàng hoàn sau 24 giờ; folio giữ `closed`, hóa đơn không đổi). Nối hay mở công nợ theo **số**: công nợ đang mở
+     *     (`openDebtVnd` của chu kỳ) > 0 → ghi thêm vào công nợ đó, **giữ hạn và lý do cũ** (kể cả hạn quản lý đã sửa); = 0 → công nợ mới, hạn = ngày ghi + `debt_default_due_days` (3), lý do
+     *     = `reason`. Hoa hồng `earned`/`payable` của đơn về `projected` (audit), đạt lại khi thu xong công nợ; `paid` không tự trừ ở R2 (BR-525 (iii)). Ví dụ: folio `closed` 17/11 10:00,
+     *     còn phải thu 0; 18/11 đảo 500.000 → công nợ **500.000**, hạn **21/11**.
      */
     post: operations['reversePayment'];
     delete?: never;
@@ -7055,7 +7073,7 @@ export interface components {
        *     `reservation.room_change_repriced`, `reservation.closer_changed`, `commission.projected`, `commission.earned`, `commission.voided`,
        *     `channel_fee.recorded`, `channel_fee.updated`, `overbooking.relocation_cost`, `approval.requested`, `approval.self_applied`, `approval.approved`,
        *     `approval.rejected`, `approval.escalated`, `approval.reopened`, `approval.cancelled` (yêu cầu loại tiền), `approval.applied_capped`, `config.changed` (chỉ khóa `payment_receiving_account`).
-       *     **0.3.7 bổ sung 4 (FB-R2-SEC-BE-80, BR-525 – BE-B; ARC duyệt ở lượt kiểm 8)**: `approval.applied_capped` – FOC `debt_write_off` được duyệt nhưng chỉ áp tới công nợ đang mở lúc duyệt (`before.amountVnd` = số xin, `after.appliedVnd` = số áp, `after.openDebtVnd`, `after.reasonCode` = `debt_write_off`; `reason` = mã `debt_collected_before_approval`). Yêu cầu tự hủy vì hết nợ: `approval.cancelled` với `reason` = `auto: debt_cleared`.
+       *     **0.3.7 bổ sung 4 (FB-R2-SEC-BE-80, BR-525 – BE-B; ARC duyệt ở lượt kiểm 8)**: `approval.applied_capped` – FOC `debt_write_off` được duyệt nhưng chỉ áp tới công nợ đang mở lúc duyệt (`before.amountVnd` = số xin, `after.appliedVnd` = số áp, `after.openDebtVnd`, `after.reasonCode` = `debt_write_off`; `reason` = mã `debt_collected_before_approval`). Yêu cầu tự hủy vì hết nợ: `approval.cancelled` với `reason` = `auto: debt_cleared`. **ARC 16.31**: nghĩa của mã lý do theo **điều kiện** – công nợ đang mở lúc duyệt < số đã duyệt – không khẳng định nguyên nhân; ở R2 (sau BUG-R2-207, điều kiện OPS của BUG-R2-210) nguyên nhân duy nhất còn lại là khoản thu trong lúc chờ (khoản thu trả công nợ trước – BR-525 G-6). Đường mới làm giảm công nợ đang mở phải thêm mã lý do riêng; Desk gặp mã lạ hiện câu chung.
        *     `payment.recorded`: phân biệt sale/CTV bằng `after.recordedByRole`; phương thức ở `after.method`, chờ đối soát ở `after.reconciliation`.
        *     **0.3.7 bổ sung D1 (BR-433, BR-434 v0.3.5, BR-315 (g) – S4-02/S4-18/S4-22)**: `folio.foc_cancelled` – FOC đã duyệt hủy theo quy tắc, trả hạn mức (`after`: `approvalRequestId`,
        *     `serviceDate`, `amountVnd` = số đã duyệt trả lại, `reason` = `focCancelReason`); `folio.foc_dormant` – dòng của khóa về 0, dòng FOC đảo, yêu cầu vẫn `approved`;
