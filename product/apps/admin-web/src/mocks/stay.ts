@@ -3113,6 +3113,12 @@ export function createStayMock(ctx: Ctx) {
       const qty = body.newQuantity !== undefined ? Number(body.newQuantity) : l.quantity;
       const unit =
         body.newUnitPriceVnd !== undefined ? Number(body.newUnitPriceVnd) : l.unitPriceVnd;
+      // N-7 (FB-R2-SEC-BE-81): a settled folio of a booking that still owes takes no cut – every role.
+      const after = body.voidLine === true ? 0 : round1000(unit * qty);
+      if (f.status === 'settled' && totals(r).balanceDueVnd > 0 && after < l.amountVnd)
+        return problem(409, 'FOLIO_LOCKED', {
+          detail: 'open debt – reduce what is owed through a FOC debt_write_off (BR-525)',
+        });
       if (night && l.category === 'room') {
         const list = roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000;
         if (unit < list * 0.5 || unit > list * 2)
@@ -3188,7 +3194,16 @@ export function createStayMock(ctx: Ctx) {
               !reversed.has(l.id),
           )
           .reduce((a, l) => a + Math.abs(l.amountVnd), 0);
-        const max = Math.max(0, Math.min(line.amountVnd - used, due));
+        // BE-80 (a): what pending write-offs of this folio already ask is not asked twice.
+        const waiting = st.approvals
+          .filter(
+            (a) =>
+              a.folioId === f.id &&
+              a.reasonCode === 'debt_write_off' &&
+              ['pending', 'escalated'].includes(a.status),
+          )
+          .reduce((a, x) => a + x.amountVnd, 0);
+        const max = Math.max(0, Math.min(line.amountVnd - used, due - waiting));
         const amount = Number(body.amountVnd);
         if (!(amount > 0)) return validation([{ field: 'amountVnd', code: 'AMOUNT_NOT_POSITIVE' }]);
         if (amount > max)
@@ -3213,7 +3228,12 @@ export function createStayMock(ctx: Ctx) {
           requestedByUserId: g.user.id,
           requestedAt: nowIso(),
           ...(applied
-            ? { approverName: g.user.displayName, approverUserId: g.user.id, decidedAt: nowIso() }
+            ? {
+                approverName: g.user.displayName,
+                approverUserId: g.user.id,
+                decidedAt: nowIso(),
+                effectiveAmountVnd: amount,
+              }
             : {}),
         };
         st.approvals.push(a);
@@ -3261,16 +3281,8 @@ export function createStayMock(ctx: Ctx) {
       }
       const p = recordPay(r, body, g);
       bump(r);
-      // SEC BE-80: the debt is collected in full → a write-off still waiting is closed by the server.
-      if (f.status === 'settled' && totals(r).balanceDueVnd <= 0)
-        st.approvals
-          .filter(
-            (a) =>
-              a.folioId === f.id &&
-              a.reasonCode === 'debt_write_off' &&
-              ['pending', 'escalated'].includes(a.status),
-          )
-          .forEach((a) => autoCancel(a, 'debt_cleared'));
+      // R2 (ARC 16.30.3, SM-10 A7): collecting the debt in full does NOT close a write-off still waiting – it is
+      // closed (`debt_cleared`) when someone approves it; closing at once is BE-S4-17, moved to R3.
       return rsv().remember(key, 201, p);
     }),
     http.post(`${prop}/folios/:folioId/vietqr`, async ({ request, params }) => {

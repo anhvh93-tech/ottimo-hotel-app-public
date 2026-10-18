@@ -1,4 +1,9 @@
-import type { FolioLine, PaymentMethod, Reservation } from '@ottimo/api-client';
+import {
+  isApiError,
+  type FolioLine,
+  type PaymentMethod,
+  type Reservation,
+} from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Field, Modal, Seg } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
@@ -215,10 +220,25 @@ export function DebtWriteOffDialog({
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const line = lines.find((l) => l.id === lineId);
-  const max = line && f ? Math.min(focHeadroom(f.lines, line), due) : 0;
+  // FB-R2-ARC-FE-S4-02: the server's cap = min(line, open debt − pending write-offs of the folio). The box only
+  // knows the line and what is still due; a 422 AMOUNT_EXCEEDS_BALANCE brings the real `max` (0 when pending
+  // requests already cover the debt) – it caps the box until another charge is picked.
+  const [serverMax, setServerMax] = useState<number | null>(null);
+  useEffect(() => {
+    const e = act.error;
+    if (
+      isApiError(e) &&
+      e.fieldErrors.some((x) => x.code === 'AMOUNT_EXCEEDS_BALANCE') &&
+      typeof e.problem.max === 'number'
+    )
+      setServerMax(e.problem.max);
+  }, [act.error]);
+  useEffect(() => setServerMax(null), [lineId]);
+  const ownMax = line && f ? Math.min(focHeadroom(f.lines, line), due) : 0;
+  const max = serverMax === null ? ownMax : Math.min(ownMax, serverMax);
   useEffect(() => {
     if (max > 0) setAmount(vnd(max));
-    // the default follows the line picked
+    // the default follows the line picked (and the server's cap)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lineId, max]);
   const value = amountOf(amount);
@@ -236,10 +256,14 @@ export function DebtWriteOffDialog({
       ),
     );
     if (out) {
+      // Applied: what the server really wrote off (`effectiveAmountVnd`), not the figure typed.
       toast(
         out.data.status === 'pending'
           ? t('debt.write_off_pending', { amount: money(value), code: r.code })
-          : t('debt.write_off_done', { amount: money(value), code: r.code }),
+          : t('debt.write_off_done', {
+              amount: money(out.data.effectiveAmountVnd ?? value),
+              code: r.code,
+            }),
       );
       onDone();
     }
@@ -275,6 +299,12 @@ export function DebtWriteOffDialog({
           {roles.includes('owner') ? null : <p className="li-s">{t('debt.write_off_limit')}</p>}
           {act.code === 'VERSION_CONFLICT' ? (
             <Alert tone="warn">{t('folio.changed_reload')}</Alert>
+          ) : serverMax !== null ? (
+            <Alert tone="warn">
+              {serverMax > 0
+                ? t('debt.write_off_server_max', { amount: money(serverMax) })
+                : t('debt.write_off_none_left')}
+            </Alert>
           ) : (
             act.view({ max })
           )}
@@ -302,7 +332,9 @@ export function DebtWriteOffDialog({
               error={
                 over
                   ? t('field_error.value_out_of_range', { min: money(1), max: money(max) })
-                  : act.fields.amountVnd
+                  : serverMax === null
+                    ? act.fields.amountVnd
+                    : undefined
               }
             />
           ) : null}

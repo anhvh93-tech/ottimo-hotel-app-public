@@ -17,6 +17,7 @@ import { useOnline } from '../../hooks/useOnline';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId } from '../../session/SessionProvider';
 import { useSubmit } from '../stay/common';
+import { SentRequests } from './SentRequests';
 
 /** FE-S3-10: title/body suffix per request type (FOC and special discount keep the generic texts). */
 const TYPE_SUFFIX: Record<string, string> = {
@@ -130,6 +131,7 @@ export function ApprovalsPage() {
             })}
           </ul>
         )}
+        <SentRequests />
       </Page>
       {deciding ? (
         <DecideDialog

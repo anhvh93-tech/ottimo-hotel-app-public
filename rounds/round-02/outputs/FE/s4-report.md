@@ -832,6 +832,44 @@ Lỗi (`reviews/s4-money-recheck5b.md` K11-03 (b)): Desk lấy `segments[0]` là
 
 ---
 
+## Phần FE-A – đợt 26: FB-R2-ARC-FE-S4-01, FB-R2-ARC-FE-S4-02 (ARC 16.30), ghi chú QA 11.33, mock tự đóng theo R2 (18/10/2026, sau gộp #19 `f6803d0`)
+
+- **FE-S4-01 – N-7** (`pages/stay/FolioDialog.tsx`) – **bản cuối sau bổ sung ORC**: Desk **không chặn trước**.
+  - Hộp điều chỉnh không khóa ô "Hủy dòng", không tắt nút Lưu theo điều kiện phía client.
+  - Folio đã chốt hiện câu "đã chốt" như cũ.
+  - Máy chủ trả 409 `FOLIO_LOCKED` trên folio đã chốt (đơn có công nợ mở, kể cả lúc đua) → hộp vẫn mở, hiện `folio.adjust_debt_locked` kèm nút "Xóa công nợ" cho MGR/OWN (đóng hộp điều chỉnh, mở `DebtWriteOffDialog`; xóa xong đọc lại folio và drawer). Vai khác hiện câu `folio.debt_fd`, không nút. Không hiện câu chung "Phiếu thanh toán đã khóa…".
+- **Bổ sung (ORC, sửa giả định 1)**: bản đầu chặn trước theo `settled && balanceDueVnd > 0`, nay đã bỏ.
+  - Lý do: trong cửa sổ 24 giờ sau trả phòng (BR-427 (d)), folio đã chốt vẫn có thể còn phải thu mà đơn **chưa** có công nợ mở. Khi đó máy chủ cho MGR+ giảm hoặc hủy dòng để sửa sai. Chặn sớm làm MGR kẹt: chưa có nợ nên cũng không xóa nợ được.
+  - **Đề xuất R3 cho ARC**: thêm trường `openDebt` (hoặc `openDebtVnd`) vào `Reservation` hoặc `Folio` để Desk báo trước "chỉ tăng được" và chỉ sang "Xóa công nợ" trước khi người dùng gõ.
+  - Mock vẫn trả 409 khi giảm trên folio đã chốt còn phải thu (xấp xỉ "có công nợ mở"), đủ cho test.
+- **FE-S4-02** (`pages/stay/DebtCollectDialog.tsx` – `DebtWriteOffDialog`):
+  - (a) 422 `AMOUNT_EXCEEDS_BALANCE` có `max` → trần của máy chủ thay trần tự tính, tới khi chọn khoản khác. `max > 0` → "Lúc này chỉ xóa được tối đa {amount}…", điền sẵn số đó, gợi ý "Tối đa" theo số mới. `max = 0` → "Lúc này không xóa thêm được. Thường là do phần nợ còn lại đã có yêu cầu xóa công nợ đang chờ duyệt.", nút gửi tắt.
+  - (b) Thông báo "Đã xóa công nợ …" dùng `effectiveAmountVnd` của phản hồi (không dùng số gõ).
+  - (c) **Không thêm** `mlog.a_approval_applied_capped`: nhật ký tiền đã hiện câu riêng `approval.applied_capped` cho action này (đợt 25), không còn `mlog.a_other`.
+- **Ghi chú QA 11.33 – câu áp một phần cho người xin (MGR/OWN)**: H17 thêm khối "Yêu cầu bạn đã gửi ({n})" ngay dưới hàng chờ (`pages/approvals/SentRequests.tsx`, một dòng trong `ApprovalsPage.tsx` – vùng FE-B, theo lệnh ORC). Không tạo màn mới, dùng lại chuỗi H24 `ov.my_requests_n`.
+  - Nội dung: 5 yêu cầu gần nhất **của chính người xem** đã xong (`approved/rejected/cancelled`, trang đầu mỗi trạng thái, lọc ở máy chủ). Mỗi thẻ có chip theo `approvalStatusText`; dòng `approval.applied_capped` khi áp một phần; dòng `approval.auto_cancel.*` khi hệ thống tự đóng.
+  - Không có yêu cầu nào → không hiện khối. Live reload như hàng chờ.
+- **Mock khớp R2** (ORC; ARC 16.30.3, SM-10 A7): bỏ việc tự đóng yêu cầu `debt_write_off` ngay khi thu đủ nợ (đó là BE-S4-17, dời R3). Yêu cầu vẫn `pending`; duyệt → 200 `cancelled` + `debt_cleared` (đã có từ đợt 24). Dòng "thu công nợ về 0 → … tự đóng" ở đợt 24 **không còn đúng**.
+  - Thêm khác: `adjustFolioLine` trên folio đã chốt còn nợ, giảm → 409 `FOLIO_LOCKED` (N-7, mọi vai); trần `requestFoc` `debt_write_off` trừ các yêu cầu xóa nợ đang chờ của folio (422 `max` có thể 0); tự áp có `effectiveAmountVnd`.
+- **Chuỗi mới – chờ UXD duyệt** (nhóm "FE-A đợt 26" trong `gen_strings.py`, 2887 chuỗi): `folio.adjust_debt_locked`, `folio.debt_fd`, `debt.write_off_server_max`, `debt.write_off_none_left`.
+- **Kiểm thử**: `s4-fea26.test.tsx` (mới, 7 ca):
+  - MGR: câu + nút ở folio và hộp, khóa hủy/giảm, tăng vẫn được, nút mở hộp xóa nợ;
+  - 409 lúc đua hiện cùng câu; FD chỉ có câu, không nút;
+  - 422 `max` 100.000 → báo, điền sẵn, gửi lại được; `max` 0 → giải thích và nút gửi tắt;
+  - thông báo theo `effectiveAmountVnd`; H17 "Yêu cầu bạn đã gửi" của MGR (áp một phần + tự đóng).
+- **Sửa test theo hành vi mới**:
+  - `s4-205-fea` (thu đủ → vẫn chờ → duyệt → tự đóng → nhật ký);
+  - `s4-money` BUG-R2-107: mọi lần đọc vẫn lọc trạng thái ở máy chủ, hàng chờ đọc đủ trang; khối "đã gửi" chỉ đọc trang đầu của trạng thái đã xong;
+  - `s4-money` A32: trả hết nợ trước, để giữ ca folio đã chốt không nợ.
+- Test sau bổ sung: `s4-fea26.test.tsx` 8 ca, thay hai ca chặn trước bằng:
+  - MGR giảm dòng trên folio còn phải thu: không câu khóa trước, yêu cầu được gửi (`newQuantity: 2`); 409 → câu + nút → mở hộp xóa nợ;
+  - không công nợ mở: hủy dòng ghi bình thường (A32);
+  - FD thấy câu "đã chốt" như cũ, không câu công nợ đoán trước.
+  - Bỏ phần trả hết nợ đã thêm vào ca A32 của `s4-money`, vì không còn cần.
+- Kết quả: admin-web **466/466**, i18n 19/19; `tsc`, eslint, prettier xanh. Một lần chạy cả bộ gặp `booking.test` quá giờ khi máy tải cao (load ~27); chạy lại đạt, chạy riêng đạt. Không đụng `services/api`. Không commit.
+
+---
+
 ## Phần FE-B (Desk – vận hành, thương hiệu) – đợt 1: mục 1–4 (17/10/2026)
 
 - Người làm: FE-B | Đầu vào: `sprint-4-plan.md` (ĐÓNG BĂNG D1) mục 4, 8.3 dòng FE-B, 11; DS **v0.4.1** mục 11 (B0–B6), `tokens.css`; Brand Guidelines (CLAUDE.md "Thương hiệu OTTIMO"); OpenAPI **0.3.7** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`, `checkOut.debt`, `createDepositNotice.attachmentId`, `uploadAttachment`, `getBill`); hi-fi H03, H24; spec EP01, EP03-05 4.4; dòng BE-D trong decision-log (luật lọc vai, đóng mục).

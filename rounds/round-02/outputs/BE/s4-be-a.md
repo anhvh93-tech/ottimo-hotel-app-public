@@ -978,3 +978,28 @@ Người kiểm lại cần đổi kỳ vọng của 18 ca này.
   - BE-B cần cấp quyền (hoặc đổi câu lệnh) rồi chạy lại.
 - tsc, eslint sạch trên các tệp BE-A; prettier sạch.
 - Không commit.
+
+## 23. Vòng sửa 9 – BUG-R2-207 và N-12 (`reviews/s4-money-recheck8.md`; ngoại lệ hẹp cho đóng băng mã tiền)
+
+### 23.1 BUG-R2-207 – `openDebtVnd` đếm hai lần dòng xóa nợ (P2, chặn cổng)
+- **Gốc lỗi:** khi A32 tăng một dòng đang có FOC `debt_write_off`, `syncReductions` đảo dòng FOC cũ rồi đăng dòng mới. Dòng cũ vẫn `posted`, nên `debtReductionsVnd` cộng cả hai dòng. Công nợ mở bị hạ thêm một lần xóa cho mỗi lần đăng lại.
+- **Sửa** (một điều kiện SQL trong `checkout.service.ts` `debtReductionsVnd`): vế xóa nợ thêm `AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)`, cùng mẫu `afterWriteOff` của `foc.service.ts`.
+  - Sửa chú thích: việc giữ dòng gốc đã đảo chỉ áp cho **khoản thu**, vì lần đảo khoản thu tự ghi phần tăng của nó.
+  - Không đổi đường ghi, không migration, không sửa gì khác trong `src`.
+- **Test** `test/integration/s4-recheck8-be-a.test.ts`, 4 ca, số theo bảng "Sửa trước cổng". Oracle độc lập là −Σ dòng FOC `debt_write_off` còn sống, cộng bất biến BR-525 (ii):
+  - **Gửi yêu cầu:** G-4 5.000.000 trong cửa sổ; MGR tự áp 749.000 trên dòng fnb; A32 +10.000 → công nợ mở 4.251.000, phải thu 4.261.000; xin xóa 4.251.000 → 201 `pending`. Đối chứng không A32: tự áp 666.000 → 4.334.000.
+  - **Duyệt:** tự áp 707.000; chờ duyệt 4.293.000; A32 +10.000; không ai trả → OWN duyệt 200 `approved`, số áp 4.293.000, không có audit `applied_capped`, còn phải thu 10.000.
+  - **Tự hủy:** tự áp 4 × 791.000; chờ duyệt 1.836.000; A32 +10.000 → OWN duyệt `approved`, số áp 1.836.000 (không bị hủy `debt_cleared`), còn phải thu 10.000.
+  - **Cộng dồn:** nợ 100.000, xóa 30.000, A32 +50.000 rồi +20.000 → công nợ mở giữ 70.000. Hết cửa sổ → công nợ mở = phải thu 140.000.
+- **Đột biến** (bỏ điều kiện mới, chạy trên bản sao): cả 4 ca đỏ.
+
+### 23.2 N-12 – chỉ sửa test (`s438r4-money` "ARC 16.16 bổ sung 2")
+- Theo mục Test cũ (e): khoản thu 10.000 (và 20.000 lúc B18) gửi kèm `note`. Nếu khoản thu chạy trước dòng, folio lúc đó không còn phải thu; khoản thu vượt số phải thu cần ghi chú (DOM G-15), nên trước đây trả 422 `REASON_REQUIRED` – lỗi do thứ tự chạy, không phải do khóa.
+- Thêm oracle tiền: dù chạy theo thứ tự nào, 6 vòng đúng 6 dòng 100.000 và 60.000 tiền thu.
+- Sửa chú thích: dòng và khoản thu xếp tuần tự ở khóa L3 (folio).
+- Chạy riêng 3 lần, đều xanh.
+
+### 23.3 Kiểm máy
+- **Vitest api toàn bộ, DB mới `ottimo_test_bea_r8b`:** 2952/2954 xanh, 101/102 tệp; 2 ca bỏ qua là bộ đo hiệu năng.
+- tsc, eslint, prettier sạch trên các tệp đã sửa.
+- Không commit.

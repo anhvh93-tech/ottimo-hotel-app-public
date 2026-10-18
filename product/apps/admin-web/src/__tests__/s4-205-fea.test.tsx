@@ -230,7 +230,7 @@ describe('SEC BE-80 – yêu cầu xóa công nợ tự đóng khi nợ đã thu
     expect(wo()).toMatchObject({ status: 'cancelled', autoCancelReason: 'debt_cleared' });
   });
 
-  it('thu đủ công nợ khi yêu cầu xóa nợ đang chờ → yêu cầu tự đóng; nhật ký tiền ghi câu riêng (không "auto: debt_cleared")', async () => {
+  it('R2: thu đủ công nợ khi yêu cầu xóa nợ đang chờ → yêu cầu VẪN chờ; duyệt → tự đóng; nhật ký tiền ghi câu riêng (không "auto: debt_cleared")', async () => {
     const { r } = pendingWriteOff(300_000);
     const { user, unmount } = renderApp(`/reservations/${r.id}`, 'qa.fd');
     const d = await screen.findByRole('dialog', { name: 'Ngọc Anh' });
@@ -242,9 +242,27 @@ describe('SEC BE-80 – yêu cầu xóa công nợ tự đóng khi nợ đã thu
       `^${esc(tv('debt.collect_submit', { amount: '§' })).replace('§', '.+')}$`,
     );
     await user.click(await within(box).findByRole('button', { name: submit }));
-    await waitFor(() => expect(wo().status).toBe('cancelled'));
-    expect(wo().autoCancelReason).toBe('debt_cleared');
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: tv('debt.collect_title', { code: r.code }) }),
+      ).toBeNull(),
+    );
+    // ARC 16.30.3 / SM-10 A7: R2 closes it only when someone approves it (closing at once = BE-S4-17, R3).
+    expect(wo().status).toBe('pending');
     unmount();
+    const appr = renderApp('/approvals', 'qa.mgr');
+    const card = (
+      await screen.findByText(
+        (_, el) => el?.tagName === 'B' && !!el.textContent?.startsWith(`${r.code} · `),
+      )
+    ).closest('li')!;
+    await appr.user.click(within(card).getByRole('button', { name: tv('approval.approve') }));
+    const dlg = await screen.findByRole('dialog', { name: new RegExp(esc(r.code)) });
+    await appr.user.type(within(dlg).getByLabelText(/^Mật khẩu đăng nhập/), MOCK_PASSWORD);
+    await appr.user.click(within(dlg).getByRole('button', { name: tv('approval.approve') }));
+    expect(await screen.findByText(tv('approval.auto_cancel.debt_cleared'))).toBeInTheDocument();
+    expect(wo()).toMatchObject({ status: 'cancelled', autoCancelReason: 'debt_cleared' });
+    appr.unmount();
     renderApp('/audit', 'qa.mgr');
     const why = await screen.findByText(tv('approval.auto_cancel.debt_cleared'));
     expect(screen.queryByText(/auto: debt_cleared/)).toBeNull();

@@ -258,6 +258,57 @@ Cũng sửa `folio.void_minibar_foc` (N-1): câu cũ 46 từ trong một câu. N
   - chip "Đã tự đóng" tách khỏi "Đã rút";
   - hộp ghi tiền gặp 412 thì tự tải lại và giữ hộp mở, không bắt lễ tân đóng hộp rồi làm lại.
 
+### C.6 – duyệt chữ FE-A đợt 26 (FB-R2-ARC-FE-S4-01 N-7, FB-R2-ARC-FE-S4-02, QA 11.33) – 18/10
+
+- Bước: **Review** chữ.
+- Đầu vào:
+  - `outputs/FE/s4-report.md` "Phần FE-A – đợt 26", gồm phần bổ sung bỏ chặn trước;
+  - nhóm "FE-A đợt 26" trong `gen_strings.py`;
+  - mã: `FolioDialog.tsx` (`lockedNow`, `canWriteOff`), `DebtCollectDialog.tsx` (`serverMax`), `approvals/SentRequests.tsx`, `OverviewPage.tsx`;
+  - máy chủ `folio-lines.service.ts` `adjustFolioLine`, để biết khi nào trả 409 / 403.
+- Chuỗi chỉ hiện trên Desk. Áp cùng chuẩn như C.5: content-guide 1, brand guideline (ngắn, điềm tĩnh, không emoji, không "!").
+- Kết quả: **duyệt 4 khóa, sửa cả 4** (VI và EN). **Không dùng lại `ov.my_requests_n` ở H17**; thêm 1 khóa tiêu đề.
+
+| Khóa                            | Câu cũ (VI / EN)                                                                                                                                                                                                       | Câu duyệt (VI / EN)                                                                                                                                                                                                                                                                           | Lý do                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `folio.adjust_debt_locked`      | Đơn còn công nợ nên dòng chỉ tăng được, không giảm hay hủy. Muốn giảm số phải thu, dùng Xóa công nợ. / This booking has an open debt, so a line can only go up – not down or void. To reduce what is owed, use Write off debt. | **Chưa ghi điều chỉnh. Đơn còn công nợ nên chỉ ghi được điều chỉnh tăng, không giảm hay bỏ dòng. Muốn giảm số phải thu, dùng Xóa công nợ.** / **Adjustment not recorded. This booking has an open debt, so a line can only be increased – not lowered or cancelled. To reduce what is owed, use Write off debt.** | Sau bản bỏ chặn trước, câu chỉ hiện **sau khi** bấm "Ghi điều chỉnh" và nhận 409. Vì vậy câu mở đầu bằng kết quả, "Chưa ghi điều chỉnh", khớp `folio.adjusted_toast` "Đã ghi điều chỉnh" (như `folio.changed_reload` ở C.5). Trong hộp, ô hủy dòng tên là "Bỏ cả dòng" / "Cancel the whole line" (`folio.adjust_void`), nên dùng "bỏ dòng" / "cancelled" thay "hủy" / "void". EN "go up / down" đổi thành "increased / lowered". Giữ "dùng Xóa công nợ" vì khớp đúng nút kèm theo (`debt.write_off`) |
+| `folio.debt_fd`                 | Đơn còn công nợ. Muốn giảm số phải thu, nhờ quản lý hoặc chủ đầu tư dùng Xóa công nợ. / This booking has an open debt. To reduce what is owed, ask a manager or the owner to use Write off debt.                                | **Chưa ghi điều chỉnh. Đơn còn công nợ nên không giảm hay bỏ dòng được. Muốn giảm số phải thu, nhờ quản lý hoặc chủ đầu tư dùng Xóa công nợ.** / **Adjustment not recorded. This booking has an open debt, so a line can't be lowered or cancelled. To reduce what is owed, ask a manager or the owner to use Write off debt.** | Cùng cấu trúc với câu cho MGR/OWN: nói kết quả, lý do, việc tiếp theo. **Ghi chú cho FE-A:** câu này hiện chỉ là phòng hờ. Máy chủ trả **403 `FORBIDDEN_ACTION`** cho vai dưới MGR trên folio đã chốt (`folio-lines.service.ts:450`), trước bước kiểm công nợ. Desk cũng chỉ mở hộp điều chỉnh folio đã chốt cho MGR/OWN (`canAdjust`). Giữ khóa là đúng; khi máy chủ có trả 409 này thì "đơn còn công nợ" luôn đúng                                                    |
+| `debt.write_off_server_max`     | Lúc này chỉ xóa được tối đa {amount}. Đã điền sẵn số này – kiểm tra rồi gửi lại. / Up to {amount} can be written off right now. It is filled in – check it, then send again.                                                   | **Chưa xóa công nợ. Lúc này chỉ xóa được tới {amount} – số này đã được điền sẵn. Kiểm tra rồi bấm Xóa công nợ lần nữa.** / **Nothing was written off. Up to {amount} can be written off right now – it has been filled in. Check it, then select Write off again.**                                    | Câu nói rõ chưa xóa (422, tiền chưa đổi). Nút trong hộp là "Xóa công nợ {amount}" / "Write off {amount}" (`debt.write_off_submit`), không phải "Gửi", nên gọi đúng tên nút. Với OWN, bấm nút là áp ngay, không "gửi". Bỏ "chỉ … tối đa" vì lặp nghĩa. "lần nữa" theo C.5                                                                                                                                                                                                   |
+| `debt.write_off_none_left`      | Lúc này không xóa thêm được. Thường là do phần nợ còn lại đã có yêu cầu xóa công nợ đang chờ duyệt. / Nothing more can be written off right now. Usually the rest of the debt already has a write-off request awaiting approval. | **Lúc này không xóa thêm được. Thường là do phần công nợ còn lại đã có yêu cầu xóa công nợ đang chờ duyệt. Xem ở Cần duyệt.** / **Nothing more can be written off right now. Usually the rest of the debt already has a write-off request awaiting approval. See Approvals.**                    | Đổi "phần nợ" thành "phần công nợ" (thống nhất từ đợt 23). "Thường là do" đúng: `max = 0` còn có thể do công nợ vừa được thu hết. Thêm chỗ xem tiếp (content-guide 5.1 – nói làm gì tiếp): chỉ MGR/OWN mở được hộp này, và hai vai này thấy mọi yêu cầu đang chờ ở Cần duyệt (máy chủ không lọc theo người gửi với MGR/OWN – `approval.service.ts` `list`), gồm cả yêu cầu MGR đã gửi chủ đầu tư |
+| `approval.sent_recent` (**mới**) | – (FE-A dùng lại `ov.my_requests_n` "Yêu cầu bạn đã gửi ({n})" / "Requests you sent ({n})")                                                                                                                           | **Yêu cầu bạn đã gửi – kết quả gần đây** / **Requests you sent – recent results**                                                                                                                                                                                                            | Xem dưới bảng                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+
+**Khối "Yêu cầu bạn đã gửi" ở H17 – không hợp với `ov.my_requests_n`:**
+
+- Ở H24 (lễ tân), `ov.my_requests_n` đếm các yêu cầu của chính người xem.
+- Ở H17, khối `SentRequests` của MGR/OWN khác hẳn:
+  - chỉ có yêu cầu **đã có kết quả** (duyệt, từ chối, tự đóng);
+  - tối đa **5** dòng (`SENT_SHOWN`), chỉ đọc trang đầu mỗi trạng thái.
+- Vì vậy "Yêu cầu bạn đã gửi (5)" đọc như **tổng số** đã gửi, trong khi số thật có thể lớn hơn.
+- Yêu cầu còn chờ (ví dụ MGR xin vượt giá 1 đêm, chờ chủ đầu tư) nằm ở hàng chờ phía trên, không nằm trong khối này. Tiêu đề cần nói khối này chỉ có **kết quả**, để MGR không tìm yêu cầu đang chờ ở đây.
+- Tiêu đề mới **`approval.sent_recent`** – "Yêu cầu bạn đã gửi – kết quả gần đây" / "Requests you sent – recent results":
+  - không có số đếm;
+  - nói rõ khối chỉ chứa kết quả gần đây;
+  - giữ "bạn" như H24 (`ov.my_requests_*` đã duyệt).
+- `ov.my_requests_n` giữ nguyên cho H24.
+- **Cần FE-A** (không đổi logic):
+  - `SentRequests.tsx:39`: `t('ov.my_requests_n', { n: rows.length })` → `t('approval.sent_recent')`;
+  - `s4-fea26.test.tsx:273` so tiêu đề theo `ov.my_requests_n` → đổi sang `tv('approval.sent_recent')`.
+  - Sau khi đổi, `s4-feb-dashboard.test.tsx:232` (H24) không bị ảnh hưởng.
+
+**Kiểm sau khi sửa:**
+
+- Sinh lại bằng `gen_strings.py`: **2888 chuỗi + 8 mẫu**.
+  - So JSON trước/sau: chỉ đổi 4 khóa đợt 26 và thêm `approval.sent_recent`.
+  - `strings-ru.json` không đổi: các khóa này chừa chỗ RU, hiện EN.
+- Tham số VI ↔ EN ↔ RU lệch 0. Không emoji, không "!". Câu dài nhất 18 từ.
+- `check_hifi.py` 25/25. Prettier `strings-{vi,en,ru}.json` đạt.
+- `admin-web` vitest **49 tệp, 466/466 đạt** (`node_modules/.bin/vitest run`). Test FE-A so theo khóa, nên không ca nào đỏ sau khi đổi câu. Chỉ cần sửa `s4-fea26.test.tsx:273` khi FE-A đổi tiêu đề H17 như trên.
+- Không có thẻ mới; một việc FE-A nêu ở trên.
+- Việc UXD tự làm sau (mục F, mục 6): `error.FOLIO_LOCKED` "Phiếu thanh toán đã khóa sau khi trả phòng. Chỉ quản lý ghi được bút toán điều chỉnh." có hai chỗ sai:
+  - dùng "Phiếu thanh toán" cho folio (content-guide 3.1: chỉ là chứng từ đưa khách);
+  - nói "Chỉ quản lý ghi được", trong khi mã này nay chỉ trả cho folio đã đóng (không ai ghi được) và cho N-7.
+  - Đợt 26 không hiện câu này ở hộp điều chỉnh nữa, nên không gấp.
+
 ---
 
 ## D. Câu lỗi 409 của Desk
@@ -518,6 +569,7 @@ Không có thẻ mới cho FE ở mục D.
    - giá trị sáng cố định của `.print-root` cho phiếu in.
 4. Dán lại bảng chuỗi vào `content-guide.md` mục 8.
 5. Duyệt chuỗi FE-A thêm sau vào nhóm đợt 18, nếu có.
+6. Viết lại `error.FOLIO_LOCKED` (C.6): "Folio" thay "Phiếu thanh toán"; câu đúng cho cả folio đã đóng và N-7 (đơn còn công nợ).
 
 ## Điểm làm tốt (nên giữ)
 

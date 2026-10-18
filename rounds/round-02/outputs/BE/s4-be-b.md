@@ -669,3 +669,5 @@ Mỗi dòng xử lý tay theo ARC 16.17 mục 3 bổ sung (đảo dòng folio c�
 - `src/modules/payments/{internal/payments.service.ts,internal/refunds.service.ts,public/payment.service.ts}`
 - `docs/api/openapi.yaml` (enum `autoCancelReason`), `packages/api-client/src/generated/openapi.ts` (sinh lại)
 - `test/folio-version-touch.test.ts` (mới), `test/integration/reversal-debt-g4.test.ts`
+
+**Bổ sung (FB-R2-ARC-BE-S4-20, Suggestion – sau gộp #19 `f6803d0`, mã tiền đóng băng nên chỉ sửa test):** `test/folio-version-touch.test.ts` nay bỏ chú thích trước khi dò lệnh ghi và `touch(`. Ngoại lệ tính theo **từng câu lệnh** (`file#hàm` + mẫu câu SQL + lý do), không theo cả hàm; mẫu dấu `no-money-write` trong `src` không dùng vì lượt này không được sửa `src`. Có ca tự kiểm: `touch(` nằm trong chú thích → báo thiếu; thêm lệnh ghi thứ hai vào hàm được miễn → báo thiếu; SQL trong chú thích → không tính là lệnh ghi. Test 3/3, tsc, eslint, prettier sạch. Không commit.

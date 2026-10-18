@@ -500,7 +500,7 @@ Ca thử `SEC-R7`:
      - cặp đua "OWN duyệt ‖ FD thu nợ" hai thứ tự, kết quả bằng chạy tuần tự;
      - BR-525-15 giữ nguyên.
 - Hạn: **trước gộp #18 / trước khi QA đóng BUG-R2-203**. Đường mới này chưa đạt "trần ≤ công nợ".
-- Trạng thái: Open
+- Trạng thái: **Closed – Verified 18/10 trên `f6803d0`** (mục C.13)
 
 ### FB-R2-SEC-BE-81 – N-7: chặn A32 giảm dòng khi đơn có công nợ mở – **quyết định SEC**
 - Mức độ: Major (rủi ro Medium – kiểm soát nội bộ) | Người sửa: BE-B (folio `adjustFolioLine`); BE-A (cổng `openDebt`); DOM chốt câu nghiệp vụ; BA sửa SM-13
@@ -521,7 +521,7 @@ Ca thử `SEC-R7`:
   - tăng dòng → 201, công nợ tăng;
   - đơn không nợ trong cửa sổ: A32 như cũ.
 - Hạn: sửa trong round (Major), cùng PR với BE-80 nếu kịp; muộn nhất trước dữ liệu thật.
-- Trạng thái: Open
+- Trạng thái: **Closed – Verified 18/10 trên `f6803d0`** (mục C.13; test BE-B "N-7 …")
 
 ### FB-R2-SEC-BE-82
 - Mức độ: Suggestion | Người sửa: BE-B; ARC
@@ -538,6 +538,56 @@ Ca thử `SEC-R7`:
 - Đường `debt_write_off` **chưa đạt** vì Blocker BE-80 (sai tiền khi duyệt muộn). Phải sửa trước gộp #18 và trước khi đóng BUG-R2-203.
 - N-7: **SEC quyết chặn A32 giảm dòng khi có công nợ mở** (BE-81, Major).
 - Không có lỗ hổng xác thực mới. Không có ESC mới.
+
+### C.13 Kiểm lại BE-80, BE-81 trên gộp #19 = `f6803d0` (SEC, 18/10)
+
+- Mã kiểm: **`f6803d0`**, bản trích `git archive` riêng của SEC trong scratchpad. `node_modules` liên kết từ repo. `dist` của `packages/contracts` và `integrations` chép từ cây chính (không có trong git).
+- Không đụng cây chính, ngoài tệp review này. DB mới `ottimo_test_sec_r8`. Nguồn: `s4-be-b.md` mục 25, ARC 16.30.
+- Test repo trên bản trích: `reversal-debt-g4`, `foc-debt-write-off-s4-bed`, cộng tệp ca SEC → **3 tệp, 59/59 xanh**. Hai dòng log ERROR "test: failure after the debt was written" là lỗi cố ý của ca rollback trong test, không phải lỗi mã.
+
+| Ca SEC (giữ nguyên như C.12) | Trên `316b9ac` | Trên `f6803d0` |
+|---|---|---|
+| A: chờ OWN 5.000.000 → khách trả đủ → OWN duyệt | Áp đủ → dư thừa 5.000.000 trên folio `closed` | Duyệt → yêu cầu **tự hủy `debt_cleared`**, áp 0, không có dòng FOC. Folio `closed`, còn phải thu 0, **dư thừa 0**, công nợ đóng |
+| B: công nợ 5.000.000, xin 5.000.000 (chờ) rồi xin thêm 3.000.000 | Cả hai qua trần → dư thừa 3.000.000 | Yêu cầu thứ hai → **422 `max` 0** (trần lúc gửi trừ yêu cầu đang chờ). OWN duyệt yêu cầu đầu → áp 5.000.000. **Dư thừa 0** |
+| Đua "OWN duyệt yêu cầu chờ" ‖ "FD thu đủ nợ", chạy đồng thời 6 lần (3 lần mỗi thứ tự) | – | Cả 6 lần: một bên thu 201, bên duyệt ra `cancelled`. Folio `closed`, còn phải thu 0, **dư thừa 0**, công nợ đóng một lần. Không 500, không deadlock |
+| N-7: A32 giảm dòng khi có công nợ mở | MGR 201, không duyệt | Test BE-B "N-7 (DOM 18/10, BR-525) …" xanh: void/giảm giá → 409 `FOLIO_LOCKED`; phần nợ chỉ giảm qua `debt_write_off`. SEC thử thêm trên folio `closed`: MGR tăng/giảm và OWN void → đều 409 (đúng ARC 16.28) |
+
+- Đọc mã:
+  - `approval.service.ts` `setAppliedCap`: `applied_cap_vnd` cố định lúc duyệt; audit money `approval.applied_capped` (mã lý do, không có tên);
+  - `cancelApproved`: tự hủy `debt_cleared`, không tính vào hạn mức người duyệt, báo người xin;
+  - quyết định chạy dưới preLock L1 → L3.
+- **Kết luận:** FB-R2-SEC-BE-80 **Closed**, FB-R2-SEC-BE-81 **Closed** (Verified trên `f6803d0`).
+
+**Rà các cách lách hạn mức BR-433 còn lại:**
+
+| Cách | Kết quả |
+|---|---|
+| MGR duyệt yêu cầu chờ OWN (của mình hoặc MGR khác) | Bị chặn: 403 `APPROVAL_LIMIT_EXCEEDED` (đã thử) |
+| FD xóa nợ | Bị chặn: 403 (test BE-B) |
+| A32 tăng rồi xóa nợ | Không tạo đường mới. Folio `closed` → A32 409 cả tăng lẫn giảm. Trong cửa sổ 24 giờ, tăng dòng thì công nợ tăng bằng đúng số đó, xóa nợ vẫn bị trần công nợ. Không ra tiền |
+| Nhiều yêu cầu chờ cộng vượt nợ | Bị chặn (ca B) |
+| **Chia nhỏ yêu cầu dưới giá 1 đêm** | **Lách được** (FB-R2-SEC-BE-83) |
+
+### FB-R2-SEC-BE-83
+- Mức độ: Major (rủi ro Medium – kiểm soát nội bộ) | Người sửa: BE-B (folio/approvals); DOM chốt câu "một lần" cho xóa nợ; PO ghi BR-433
+- Vị trí:
+  - `approvals/public/approval.service.ts` `selfApplication` (a): `within(input.amountVnd, limit.perTime)` xét **từng yêu cầu**;
+  - BR-433: "Quản lý: ≤ giá 1 đêm phòng/lần, không giới hạn tháng".
+- Vấn đề: ca thử trên `f6803d0`: công nợ 5.000.000 trên một dòng, giá 1 đêm (cơ sở hạn mức) 667.000. MGR gửi 11 yêu cầu `debt_write_off` 450.000 → cả 11 **tự áp** (`approved`, vai `manager`), xóa 4.950.000 mà OWN không duyệt. Yêu cầu thứ 12 chỉ bị chặn vì chạm trần công nợ (422). Quy tắc "MGR xóa vượt giá 1 đêm thì chờ OWN" (ARC 16.27 mục 2, DOM 18/10) mất tác dụng khi chia nhỏ. Không có hạn mức tháng cho MGR nên không có gì chặn.
+- Vì sao quan trọng:
+  - xóa nợ là tha tiền sau khi đã chốt bill, đường dễ gian lận nhất (TM-06, TM-32);
+  - một quản lý một mình tha toàn bộ công nợ lớn chỉ bằng nhiều lần bấm;
+  - báo cáo FOC có ghi từng lần nhưng không ai bị chặn hay được báo.
+- Đề xuất sửa:
+  - với `reasonCode = debt_write_off`, hạn mức "mỗi lần" của MGR tính trên **tổng xóa nợ của cùng công nợ**: Σ số đã áp/đã duyệt của các yêu cầu `debt_write_off` trên folio kể từ khi công nợ mở, cộng yêu cầu này, ≤ giá 1 đêm;
+  - vượt thì chờ OWN, kể cả khi từng mảnh nhỏ hơn giá 1 đêm. Đọc dưới L1 → L3 như trần hiện tại;
+  - test: 11 × 450.000 → yêu cầu thứ 2 (tổng 900.000 > 667.000) `pending` OWN; OWN tự áp không đổi;
+  - DOM xác nhận "một lần = một công nợ" cho xóa nợ, PO ghi vào BR-433.
+- Ghi chú phạm vi:
+  - FOC thường trên folio đang mở cũng chia nhỏ được, vì hạn mức của MGR là "mỗi lần, không giới hạn tháng". Đây là quy tắc kinh doanh INV đã chọn (ESC-007 A), nên SEC **không** tự đổi.
+  - Đề nghị DOM/PO xem ở R3: hạn mức theo khóa FOC hoặc theo lượt ở, hoặc báo OWN khi một người áp nhiều FOC trên cùng lượt. Nếu cần đổi thì gom ESC cuối round.
+- Hạn: sửa trong round nếu kịp (cùng PR BE-80); muộn nhất **trước dữ liệu thật**. Không chặn cổng S4: không sai tiền, mọi lần đều có audit, báo cáo FOC tách mã `debt_write_off`.
+- Trạng thái: Open
 
 ## D. Điểm làm tốt (nên giữ)
 1. PWA offline chép từng trường theo danh sách cho phép, có test dump IndexedDB thật; service worker không cache API; đăng xuất xóa sạch; `guard.test` chặn gọi endpoint C3.

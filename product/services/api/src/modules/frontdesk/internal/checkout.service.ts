@@ -446,9 +446,12 @@ export class CheckoutService {
   }
 
   /**
-   * Σ of what reduces a debt on the folio: own receipts (charge / deposit, not OTA, not refunds; the original rows,
-   * kept even when reversed later – the reversal records its own increase through debtAfterReversal) + posted FOC
-   * lines `debt_write_off`. Read under L3.
+   * Σ of what reduces a debt on the folio, read under L3:
+   * - own receipts (charge / deposit, not OTA, not refunds) – the original rows, kept even when reversed later: ONLY
+   *   for receipts, whose reversal records its own increase through debtAfterReversal;
+   * - FOC lines `debt_write_off` posted and still live – a line reversed (BUG-R2-207: A32 raises the line it
+   *   reduces → syncReductions reverses the FOC line and posts it again) no longer counts, its re-post does; same
+   *   rule as FolioFocService.afterWriteOff.
    */
   private async debtReductionsVnd(tx: Tx, folioId: string): Promise<number> {
     const { rows } = await tx.query<{ paid: string; off: string }>(
@@ -459,7 +462,8 @@ export class CheckoutService {
          (SELECT COALESCE(-sum(l.amount_vnd), 0) FROM folio_line l
             JOIN approval_request a ON a.id = l.approval_request_id
            WHERE l.folio_id = $1 AND l.category = 'foc' AND l.line_state = 'posted'
-             AND l.reversal_of_id IS NULL AND a.reason_code = 'debt_write_off')::text AS off`,
+             AND l.reversal_of_id IS NULL AND a.reason_code = 'debt_write_off'
+             AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id))::text AS off`,
       [folioId],
     );
     return Number(rows[0]?.paid ?? 0) + Number(rows[0]?.off ?? 0);

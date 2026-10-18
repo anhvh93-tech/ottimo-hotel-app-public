@@ -1106,17 +1106,33 @@ describe.skipIf(!HAS_DB)('S4-38 re-verification round 4 – money fixes (BE-A)',
           unitPriceVnd: 100_000,
           serviceDate: '2030-07-09',
         }),
+        // N-12 (recheck 8, DOM G-15): the receipt carries a note – run before the line it may find nothing owed, and
+        // a desk receipt above what is owed needs one (else 422 REASON_REQUIRED – an order artefact, not a lock).
         c.fd!.send('POST', url(`/folios/${b.folioId}/payments`), {
           type: 'charge',
           method: 'cash',
           amountVnd: 10_000,
+          note: 'Khách trả trước tiền bữa tối',
         }),
       ]);
       statuses.push(ext.statusCode, line.statusCode, pay.statusCode);
       // Before the fix the booking lock (FOR UPDATE) deadlocked with the folio commands ~10 times in these 6
-      // rounds (40P01 → 409 CONCURRENT_UPDATE); now they simply wait for each other.
+      // rounds (40P01 → 409 CONCURRENT_UPDATE); now they simply wait for each other – the line and the receipt
+      // are serialised on the folio (L3), the extension on the booking then the folio (ARC 16.19).
       for (const r of [ext, line, pay]) expect([200, 201], r.body).toContain(r.statusCode);
     }
+    // Money oracle (N-12): whatever the order, each round posted its line and its receipt exactly once.
+    const [m0] = await q<{ lines: number; paid: string }>(
+      `SELECT (SELECT count(*)::int FROM folio_line WHERE folio_id = $1 AND category = 'fnb'
+                  AND amount_vnd = 100000 AND reversal_of_id IS NULL) AS lines,
+              (SELECT COALESCE(sum(amount_vnd), 0)::text FROM payment WHERE folio_id = $1 AND amount_vnd = 10000
+                  AND status = 'succeeded' AND reversal_of_id IS NULL) AS paid`,
+      [b.folioId],
+    );
+    expect({ lines: Number(m0!.lines), paid: Number(m0!.paid) }).toEqual({
+      lines: 6,
+      paid: 60_000,
+    });
     // B18 at the (extended) departure racing a payment and a line.
     const dep = (await get(b.id)).departureDate as string;
     await at(`${dep}T10:00:00+07:00`);
@@ -1137,6 +1153,7 @@ describe.skipIf(!HAS_DB)('S4-38 re-verification round 4 – money fixes (BE-A)',
         type: 'charge',
         method: 'cash',
         amountVnd: 20_000,
+        note: 'Khách trả tiền nước',
       }),
     ]);
     for (const r of [out, line, pay]) {

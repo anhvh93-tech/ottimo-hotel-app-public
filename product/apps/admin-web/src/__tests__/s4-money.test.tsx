@@ -853,8 +853,17 @@ describe('#6 expectedVersion khi duyệt / từ chối hoàn tiền (0.3.7 B-6 �
     ).toBeInTheDocument();
     server.events.removeListener('request:start', on);
     const qs = urls.map((u) => new URL(u).searchParams);
-    // Filtered on the server (pending, escalated) – never "all statuses, filter here".
-    expect(qs.every((q) => ['pending', 'escalated'].includes(q.get('status') ?? ''))).toBe(true);
+    // Filtered on the server – never "all statuses, filter here". The queue reads pending/escalated; the decided
+    // statuses are only the first page for "Yêu cầu bạn đã gửi" under it (FE-A đợt 26, QA 11.33).
+    expect(qs.every((q) => !!q.get('status'))).toBe(true);
+    expect(
+      qs
+        .filter((q) => !['pending', 'escalated'].includes(q.get('status') ?? ''))
+        .every(
+          (q) =>
+            ['approved', 'rejected', 'cancelled'].includes(q.get('status')!) && !q.get('cursor'),
+        ),
+    ).toBe(true);
     expect(qs.some((q) => q.get('status') === 'pending' && q.get('cursor') === '100')).toBe(true);
     // Decided requests are not in the queue.
     expect(

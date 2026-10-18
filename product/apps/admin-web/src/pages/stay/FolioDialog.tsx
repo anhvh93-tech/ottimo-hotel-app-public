@@ -16,6 +16,7 @@ import { LoadingBlock } from '../../components/states';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { MoneyField, useSubmit } from './common';
+import { DebtWriteOffDialog } from './DebtCollectDialog';
 import { FOC_CATEGORIES, FocRequestDialog, FocStateChip, canAskFoc } from './foc';
 
 const OWN_MGR = ['owner', 'manager'];
@@ -63,6 +64,8 @@ export function FolioDialog({
   const [adjusting, setAdjusting] = useState<FolioLine | null>(null);
   const [reversing, setReversing] = useState<Payment | null>(null);
   const [asking, setAsking] = useState<FolioLine | null>(null);
+  // FB-R2-ARC-FE-S4-01 (N-7): "Xóa công nợ" opened from the adjust box after the server refused a cut.
+  const [writingOff, setWritingOff] = useState(false);
 
   const live = (f?.lines ?? []).filter((l) => l.lineState !== 'rejected');
   const reversedLines = new Set(live.map((l) => l.reversalOfId).filter(Boolean));
@@ -236,6 +239,21 @@ export function FolioDialog({
             done(next);
           }}
           onStale={() => folio.reload()}
+          canWriteOff={mgr}
+          onWriteOff={() => {
+            setAdjusting(null);
+            setWritingOff(true);
+          }}
+        />
+      ) : null}
+      {writingOff ? (
+        <DebtWriteOffDialog
+          reservationId={r.id}
+          onClose={() => setWritingOff(false)}
+          onDone={() => {
+            setWritingOff(false);
+            done();
+          }}
         />
       ) : null}
       {asking && f ? (
@@ -272,6 +290,8 @@ function AdjustLineDialog({
   onClose,
   onDone,
   onStale,
+  canWriteOff,
+  onWriteOff,
 }: {
   folio: Folio;
   line: FolioLine;
@@ -280,6 +300,10 @@ function AdjustLineDialog({
   onClose: () => void;
   onDone: (next: Folio) => void;
   onStale: () => void;
+  /** OWN/MGR – may open "Xóa công nợ" (BR-525). */
+  canWriteOff: boolean;
+  /** Close this box and open "Xóa công nợ". */
+  onWriteOff: () => void;
 }) {
   const { t, vnd, money } = useI18n();
   const propertyId = usePropertyId();
@@ -333,6 +357,11 @@ function AdjustLineDialog({
           .reduce((a, x) => a + Math.abs(x.amountVnd), 0)
       : 0;
   const focAtRisk = changed && focOnItem > 0 && newAmount < focOnItem;
+  // N-7 (ORC đợt 26): only the server knows whether the booking has an OPEN debt – within 24 h of check-out
+  // (BR-427 (d)) a settled folio may still be owed without one, and a manager may then cut a line to fix a
+  // mistake. So nothing is blocked here; a 409 FOLIO_LOCKED on a settled folio says why and points to
+  // "Xóa công nợ". (A field telling the desk beforehand – `openDebt` – is proposed to ARC for R3.)
+  const lockedNow = act.code === 'FOLIO_LOCKED' && f.status === 'settled';
 
   const save = async () => {
     setTouched(true);
@@ -393,8 +422,25 @@ function AdjustLineDialog({
         </>
       }
     >
-      {stale ? <Alert tone="warn">{t('folio.changed_reload')}</Alert> : act.view()}
-      {f.status !== 'open' ? <p className="li-s">{t('folio.settled_mgr')}</p> : null}
+      {stale ? (
+        <Alert tone="warn">{t('folio.changed_reload')}</Alert>
+      ) : lockedNow ? (
+        <Alert
+          tone="warn"
+          actions={
+            canWriteOff ? (
+              <Button size="sm" onClick={onWriteOff}>
+                {t('debt.write_off')}
+              </Button>
+            ) : undefined
+          }
+        >
+          {canWriteOff ? t('folio.adjust_debt_locked') : t('folio.debt_fd')}
+        </Alert>
+      ) : (
+        act.view()
+      )}
+      {f.status !== 'open' && !lockedNow ? <p className="li-s">{t('folio.settled_mgr')}</p> : null}
       {!night ? (
         <Field
           label={t('folio.adjust_qty')}
