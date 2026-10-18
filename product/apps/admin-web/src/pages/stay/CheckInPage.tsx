@@ -224,7 +224,11 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
     (l) => l.category === 'extra_person' && l.lineState === 'posted',
   );
   const sur = p?.earlyCheckinSurcharge;
-  const amount = sur?.amountVnd ?? 0;
+  // BUG-R2-194: before the day rollover (B9a) the money is the NIGHT – `priorNight.defaultRateVnd` (the surcharge
+  // itself is 0); it is what the desk tells the guest and sends as `expectedSurchargeVnd` (ARC 16.18).
+  const amount = sur?.addsPreviousNight
+    ? (p?.priorNight?.defaultRateVnd ?? sur.amountVnd ?? 0)
+    : (sur?.amountVnd ?? 0);
   // BUG-R2-127 (P1): B9a only when the night before is free (`priorNight.available`, BR-906). Taken → no prior
   // night is offered, sent or collected; before the day rollover the guest cannot be checked in (BR-417).
   const priorTaken = !!sur?.addsPreviousNight && p?.priorNight?.available === false;

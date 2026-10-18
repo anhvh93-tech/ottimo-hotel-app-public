@@ -180,6 +180,10 @@ Cũng sửa `folio.void_minibar_foc` (N-1): câu cũ 46 từ trong một câu. N
   - `params.not_yet` EN → "Not yet effective", khớp "Effective from".
   - Giữ: `reg.untrusted_ids`, `attn.registration_due_no_time` (EN "Guest registrations" như `attn.registration_due`), `params.pending`.
   - Sau lượt này `gen_strings.py` không còn nhóm "chờ UXD duyệt"; `check_hifi.py` 25/25.
+- **FE-A đợt 21 – H06 4 số cuối giấy tờ (BUG-R2-179)** (2 khóa): duyệt.
+  - Giữ `crm.f_id_doc`.
+  - Sửa `crm.f_id_doc_help`: gọi tên màn theo menu "Giấy tờ & khai báo" (`nav.registration`) và thêm "trên máy quầy đã cấp" – số đầy đủ chỉ mở trên máy được cấp (US-142).
+  - Sinh lại 2856 chuỗi + 8 mẫu; `check_hifi.py` 25/25.
 
 ---
 

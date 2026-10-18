@@ -3250,6 +3250,13 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `params.pending` | {value} từ {date} | {value} from {date} | ⟨chừa chỗ⟩ | UXR S4 P-22: H05 – chip dưới giá trị đang áp khi đã lưu giá trị mới cho ngày sau, ví dụ "35% từ 19/10" (listParameters asOf xa) |
 | `params.not_yet` | Chưa hiệu lực | Not yet effective | ⟨chừa chỗ⟩ | UXR S4 P-22: H05 lịch sử – dòng có Hiệu lực từ sau hôm nay. UXD 18/10: EN khớp "Effective from" của H05 |
 
+#### R2 Sprint 4 – FE-A đợt 21: H06 4 số cuối giấy tờ (BUG-R2-179) (UXD duyệt 18/10 – s4-UXD-brand, sửa 1)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `crm.f_id_doc` | Giấy tờ (4 số cuối) | ID (last 4 digits) | ⟨chừa chỗ⟩ | H06 hồ sơ khách – idDocLast4 chỉ khi khách đồng ý ghi nhớ (P05), US-048 AC3, BR-610 |
+| `crm.f_id_doc_help` | Chỉ hiện khi khách đồng ý để OTTIMO ghi nhớ. Số đầy đủ chỉ xem ở màn Giấy tờ & khai báo, trên máy quầy đã cấp. | Shown only if the guest agreed to be remembered. The full number is only on the IDs & registration screen, on an approved desk computer. | ⟨chừa chỗ⟩ | Gợi ý dưới dòng 4 số cuối. UXD 18/10: tên màn theo nav.registration, thêm điều kiện máy quầy đã cấp (US-142) |
+
 #### R2 Sprint 4 – MOB sửa theo UXR đi thử PWA (s4-pwa-walkthrough P-01/04/07/08/09/10/11/12/13/16/28) (UXD duyệt 18/10 – s4-UXD-brand, sửa 8)
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |

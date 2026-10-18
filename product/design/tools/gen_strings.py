@@ -3160,6 +3160,11 @@ g("R2 Sprint 4 – FE-B tuần Ổn định: sửa theo UXR S4 (P-06 khai báo t
     ("params.not_yet", "Chưa hiệu lực", "Not yet effective", None, "UXR S4 P-22: H05 lịch sử – dòng có Hiệu lực từ sau hôm nay. UXD 18/10: EN khớp \"Effective from\" của H05"),
 ])
 
+g("R2 Sprint 4 – FE-A đợt 21: H06 4 số cuối giấy tờ (BUG-R2-179) (UXD duyệt 18/10 – s4-UXD-brand, sửa 1)", [
+    ("crm.f_id_doc", "Giấy tờ (4 số cuối)", "ID (last 4 digits)", None, "H06 hồ sơ khách – idDocLast4 chỉ khi khách đồng ý ghi nhớ (P05), US-048 AC3, BR-610"),
+    ("crm.f_id_doc_help", "Chỉ hiện khi khách đồng ý để OTTIMO ghi nhớ. Số đầy đủ chỉ xem ở màn Giấy tờ & khai báo, trên máy quầy đã cấp.", "Shown only if the guest agreed to be remembered. The full number is only on the IDs & registration screen, on an approved desk computer.", None, "Gợi ý dưới dòng 4 số cuối. UXD 18/10: tên màn theo nav.registration, thêm điều kiện máy quầy đã cấp (US-142)"),
+])
+
 TEMPLATES = [
     ("msg.booking_confirmed", "Xác nhận đặt phòng",
      "Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights} đêm). Nhận phòng từ 14:00, trả phòng trước 12:00. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link}",

@@ -37,7 +37,7 @@ import {
   vnDoc,
 } from '../support/s3.js';
 import { farStay } from '../support/s3-checkin.js';
-import { knownBug, precondition } from '../support/known-bugs.js';
+import { precondition } from '../support/known-bugs.js';
 import { scan } from './axe.js';
 import { staffApp, pastUndo } from './flows.js';
 import {
@@ -348,7 +348,6 @@ test.describe(
       page,
       request,
     }) => {
-      knownBug('BUG-R2-179');
       const { st, last4 } = await precondition('khách có CCCD + P05 (API)', async () => {
         const fd = await session(request, 'qa.fd');
         const c = await s2Context(request);

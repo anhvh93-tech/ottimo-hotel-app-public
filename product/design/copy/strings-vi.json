@@ -2840,6 +2840,8 @@
   "attn.registration_due_no_time": "Khai báo lưu trú hôm nay: {n} đơn",
   "params.pending": "{value} từ {date}",
   "params.not_yet": "Chưa hiệu lực",
+  "crm.f_id_doc": "Giấy tờ (4 số cuối)",
+  "crm.f_id_doc_help": "Chỉ hiện khi khách đồng ý để OTTIMO ghi nhớ. Số đầy đủ chỉ xem ở màn Giấy tờ & khai báo, trên máy quầy đã cấp.",
   "hk.queue.in_line": "Chờ lượt",
   "hk.queue.r.time": "Chưa ghi được vì giờ bấm ({time}) lệch quá xa giờ hiện tại. Nếu việc đã xong, bấm \"Gửi lại\" để ghi theo giờ bây giờ.",
   "hk.queue.r.photo": "Ảnh này không gửi được. Phiếu vẫn được gửi, không kèm ảnh này.",

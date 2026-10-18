@@ -38,7 +38,6 @@ import {
   virtualDay,
   type Stay,
 } from '../support/s3.js';
-import { knownBug } from '../support/known-bugs.js';
 import { scan } from '../ui/axe.js';
 import { desk, openCheckOut } from '../ui/flows.js';
 import { UI, t } from '../ui/helpers.js';
@@ -896,7 +895,6 @@ test.describe(
       browser,
       request,
     }) => {
-      knownBug('BUG-R2-194');
       test.slow();
       needClock('TC-L3-085');
       const D = virtualDay(realToday, 3);
@@ -935,7 +933,7 @@ test.describe(
         expect(due, 'thu tiền đêm trước trong B9').toBeGreaterThan(0);
         const prior = page.getByText(new RegExp(`^${esc(stem('checkin.prior_night'))}`));
         await expect(prior, 'H13 báo thêm đêm trước').toBeVisible({ timeout: 15_000 });
-        // BUG-R2-194: tiền đêm B9a nằm ở `priorNight.defaultRateVnd`; Desk lấy `earlyCheckinSurcharge.amountVnd` (0)
+        // hồi quy BUG-R2-194 (FE-A 18/10): tiền đêm B9a = `priorNight.defaultRateVnd`, không phải `earlyCheckinSurcharge` (0)
         await expect(prior, 'H13 nêu đúng tiền đêm trước (không "0 đ")').toContainText(
           `${due.toLocaleString('vi-VN')} đ`,
         );

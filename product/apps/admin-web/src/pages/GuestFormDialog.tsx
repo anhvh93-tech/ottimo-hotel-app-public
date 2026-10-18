@@ -492,6 +492,19 @@ export function GuestFormDialog({
               </select>
             )}
           </Field>
+          {/* BUG-R2-179 (US-048 AC3, BR-610): the last 4 of the ID, only when the server gives them (the guest agreed
+              to be remembered – P05); the full number lives in the stay declaration only. */}
+          {guest?.idDocLast4 ? (
+            <div className="field">
+              <span className="label-h" id={`${ids}-iddoc`}>
+                {t('crm.f_id_doc')}
+              </span>
+              <p className="mono" aria-labelledby={`${ids}-iddoc`}>
+                …{guest.idDocLast4}
+              </p>
+              <span className="help">{t('crm.f_id_doc_help')}</span>
+            </div>
+          ) : null}
           <Field label={t('crm.f_lang')}>
             {(p) => (
               <select

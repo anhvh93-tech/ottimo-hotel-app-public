@@ -765,6 +765,16 @@ Lỗi (`reviews/s4-money-recheck5b.md` K11-03 (b)): Desk lấy `segments[0]` là
 
 ---
 
+## Phần FE-A – đợt 21: BUG-R2-194, BUG-R2-179 (P2 – QA) (18/10/2026, sau gộp #15 `8073a3d`)
+
+- **BUG-R2-194** (`CheckInPage.tsx`): trước 06:00 (B9a) số tiền Desk nêu và gửi là **tiền đêm** `priorNight.defaultRateVnd` (phụ thu `earlyCheckinSurcharge.amountVnd` = 0 ở đường này) → câu "Khách nhận trước 06:00 – thêm đêm …" hiện đúng số, ô "Đã báo khách" hiện lại, `expectedSurchargeVnd` = tiền đêm (khớp kiểm `SURCHARGE_CHANGED` của máy chủ). Mock làm như máy chủ: B9a phụ thu 0, tiền đêm ở `priorNight.defaultRateVnd`, B9 ghi dòng đêm (`prior_night`), thiếu/lệch `expectedSurchargeVnd` → 422/409.
+- **BUG-R2-179** (`GuestFormDialog.tsx`, H06 – không thuộc màn FE-B đang sửa): hồ sơ khách hiện **"Giấy tờ (4 số cuối)" `…7890`** khi API trả `idDocLast4` (chỉ khi khách đã đồng ý P05), kèm câu gợi ý số đầy đủ chỉ ở màn khai báo.
+- Gỡ cả hai mã khỏi `OPEN` (`tests/e2e/support/known-bugs.ts`) – TC-L3-085, TC-RB-008 phải đạt.
+- Chuỗi: `crm.f_id_doc`, `crm.f_id_doc_help` – nhóm "FE-A đợt 21", chờ UXD duyệt.
+- Kiểm thử: `s4-p2-fea.test.tsx` (mới, 2 ca; ca 194 đỏ khi bỏ bản sửa). admin-web **444/444**, `tsc` (admin-web, tests), eslint, prettier xanh.
+
+---
+
 ## Phần FE-B (Desk – vận hành, thương hiệu) – đợt 1: mục 1–4 (17/10/2026)
 
 - Người làm: FE-B | Đầu vào: `sprint-4-plan.md` (ĐÓNG BĂNG D1) mục 4, 8.3 dòng FE-B, 11; DS **v0.4.1** mục 11 (B0–B6), `tokens.css`; Brand Guidelines (CLAUDE.md "Thương hiệu OTTIMO"); OpenAPI **0.3.7** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`, `checkOut.debt`, `createDepositNotice.attachmentId`, `uploadAttachment`, `getBill`); hi-fi H03, H24; spec EP01, EP03-05 4.4; dòng BE-D trong decision-log (luật lọc vai, đóng mục).

@@ -2840,6 +2840,8 @@
   "attn.registration_due_no_time": "Guest registrations due today: {n}",
   "params.pending": "{value} from {date}",
   "params.not_yet": "Not yet effective",
+  "crm.f_id_doc": "ID (last 4 digits)",
+  "crm.f_id_doc_help": "Shown only if the guest agreed to be remembered. The full number is only on the IDs & registration screen, on an approved desk computer.",
   "hk.queue.in_line": "Waiting in line",
   "hk.queue.r.time": "Not recorded: the time you tapped ({time}) is too far from the current time. If the work is done, tap \"Send again\" to record it now.",
   "hk.queue.r.photo": "This photo couldn't be sent. The report was sent without it.",

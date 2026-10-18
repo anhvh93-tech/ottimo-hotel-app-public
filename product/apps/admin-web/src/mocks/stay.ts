@@ -842,7 +842,7 @@ export function createStayMock(ctx: Ctx) {
   }
   function dueAtCheckin(r: MockReservation, time: string, priorNight = false) {
     const sur = earlySurcharge(r, time);
-    const posted = sur.addsPreviousNight && !priorNight ? 0 : sur.amountVnd;
+    const posted = sur.addsPreviousNight ? (priorNight ? sur.baseNightVnd : 0) : sur.amountVnd;
     const tt = totals(r);
     // A VietQR confirmed before B9 leaves a temporary credit that the posted charge then uses up.
     return Math.max(0, tt.balanceDueVnd - tt.creditVnd + posted);
@@ -951,11 +951,13 @@ export function createStayMock(ctx: Ctx) {
         : (r.nightlyRates?.[0]?.amountVnd ?? 800_000);
     if (time >= '14:00')
       return { tierPct: 0, baseNightVnd: base, amountVnd: 0, addsPreviousNight: false };
+    // Like the server: before the rollover the check-in adds the night before (B9a) – a room night at
+    // `priorNight.defaultRateVnd`, not a surcharge (`amountVnd` 0 – BUG-R2-194).
     if (time < '06:00')
       return {
         tierPct: 100,
         baseNightVnd: base,
-        amountVnd: base,
+        amountVnd: 0,
         addsPreviousNight: true,
         ruleRef: 'BR-417',
       };
@@ -1649,7 +1651,7 @@ export function createStayMock(ctx: Ctx) {
             ? {
                 date: addDays(r.arrivalDate, -1),
                 available: !priorTaken(r),
-                defaultRateVnd: earlySurcharge(r, time).amountVnd,
+                defaultRateVnd: earlySurcharge(r, time).baseNightVnd,
               }
             : undefined,
         registrationDeadlinePreview: foreign
@@ -1709,7 +1711,13 @@ export function createStayMock(ctx: Ctx) {
           : [];
         if (payErrs.length) return validation(payErrs);
         const inTime = String(body.checkinTime ?? '14:00');
-        const posting = body.applyEarlySurcharge ? earlySurcharge(r, inTime).amountVnd : 0;
+        const early0 = earlySurcharge(r, inTime);
+        // B9a: the night before at the typed rate or the suggested one (ARC 16.18).
+        const priorRate =
+          body.addPriorNight && early0.addsPreviousNight
+            ? Number(body.priorNightRateVnd ?? early0.baseNightVnd)
+            : 0;
+        const posting = (body.applyEarlySurcharge ? early0.amountVnd : 0) + priorRate;
         const focAsked = body.requestFocForSurcharge ? posting : 0;
         const ttNow = totals(r);
         const dueNow = Math.max(0, ttNow.balanceDueVnd - ttNow.creditVnd + posting - focAsked);
@@ -1756,8 +1764,19 @@ export function createStayMock(ctx: Ctx) {
           return validation([
             { field: 'applyEarlySurcharge', code: 'SURCHARGE_DECISION_REQUIRED' },
           ]);
-        if (body.applyEarlySurcharge && Number(body.expectedSurchargeVnd) !== sur.amountVnd)
+        if (
+          body.applyEarlySurcharge &&
+          sur.amountVnd > 0 &&
+          Number(body.expectedSurchargeVnd) !== sur.amountVnd
+        )
           return problem(409, 'SURCHARGE_CHANGED', { surchargeVnd: sur.amountVnd });
+        // B9a: the amount shown is the night's (BUG-R2-194) – required, and it must be the one written.
+        if (priorRate > 0) {
+          if (body.expectedSurchargeVnd === undefined)
+            return validation([{ field: 'expectedSurchargeVnd', code: 'REQUIRED' }]);
+          if (Number(body.expectedSurchargeVnd) !== priorRate)
+            return problem(409, 'SURCHARGE_CHANGED', { surchargeVnd: priorRate });
+        }
         if (
           ro &&
           !lead &&
@@ -1789,6 +1808,18 @@ export function createStayMock(ctx: Ctx) {
           : `${today()}T23:00:00+07:00`;
         const room = roomOf(r);
         if (room) st.roomStatus[room.roomNo] = ro ? 'OD' : 'OC';
+        if (priorRate > 0)
+          addLine(
+            r,
+            {
+              category: 'room',
+              amountVnd: priorRate,
+              description: 'room_night',
+              chargeCode: 'prior_night',
+              serviceDate: addDays(r.arrivalDate, -1),
+            },
+            g.user.displayName,
+          );
         if (body.applyEarlySurcharge && sur.amountVnd > 0)
           addLine(
             r,

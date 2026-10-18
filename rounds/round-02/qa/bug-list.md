@@ -9,9 +9,9 @@
 |---|---|---|---|---|---|
 | P0 | 10 | 0 | 0 | 0 | 10 |
 | P1 | 63 | 3 | 9 | 0 | 51 |
-| P2 | 67 | 12 | 8 | 1 | 46 |
+| P2 | 67 | 10 | 10 | 1 | 46 |
 | P3 | 54 | 18 | 5 | 0 | 31 |
-| **Tổng** | **194** | **33** | **22** | **1** | **138** |
+| **Tổng** | **194** | **31** | **24** | **1** | **138** |
 
 **Sprint 4 D1 (QA, 17/10 ~17:00–19:40, mục 11):**
 - **Ca tự động cho 7 lỗi tiền 055…061 đã có trong repo**, cùng ca cho S4-21, S4-04, S4-23, S4-35, B-6 (`expectedVersion`), BR-402-01 và tập đóng `AuditEvent.action`:
@@ -213,7 +213,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | BUG-R2-176 | P3 | (K11-06) Đơn `cancelled`/`no_show` vẫn nhận dòng phí tay; dư thừa giảm dưới yêu cầu hoàn đã tạo, yêu cầu kẹt `approved` | BE-B (folio) / BE-A (`refundPlan`) | Open – DOM đã chốt (BR-522 18/10), oracle BR-522-06 |
 | BUG-R2-177 | P3 | (K11-07) Ca "deadlock class" của BE-A chỉ kiểm khác 500; chú thích `record()` nói B18 khóa folio trước khi chốt | BE-A (test), BE-B (chú thích) | Open – sửa cùng 171 |
 | BUG-R2-178 | P2 | (số QA đề xuất – ORC xác nhận) K11-09: lượt có đơn gốc đổi tạm S4-09 (`until_parent_departure`) và đơn con B13 – ngày đi tủ **căn tạm đã rời** bị coi là "căn đang ở" (`stayIsInRoom` lấy đoạn cuối của MỌI đơn `in_house` trong lượt) → `minibarUncheckedRooms` thêm căn tạm lý do `not_today`, B18 409 `MINIBAR_NOT_CHECKED` tới khi đếm lại tủ căn đã rời | BE-B | **Closed** 18/10 – TC-L4-124 ✓ trên CI `2b134fb` (gộp #14 `7ac11a4` đã vào) |
-| BUG-R2-179 | P2 | H06 hồ sơ khách không hiện 4 ký tự cuối giấy tờ (`idDocLast4`) dù API trả khi có P05 – US-048 AC3 (PO U6) | FE-A / FE-B (H06) | Open – TC-RB-008 (E) `knownBug` |
+| BUG-R2-179 | P2 | H06 hồ sơ khách không hiện 4 ký tự cuối giấy tờ (`idDocLast4`) dù API trả khi có P05 – US-048 AC3 (PO U6) | FE-A / FE-B (H06) | **Fixed** (18/10 ~11:50 – FE-A `GuestFormDialog.tsx`, cây chưa gộp; TC-RB-008 (E) đạt không `knownBug` trên ottimo-qa-s4 / `ottimo_qa20`, mục 11.26) – Closed khi CI #16 xanh |
 | BUG-R2-180 | P2 | SEC FB-R2-SEC-BE-73 / ARC 16.22: đặt hộ – giấy tờ chính không chọn người bị ghi lên hồ sơ **người đặt** (khóa giấy tờ, 4 số cuối, P05 của người ở) | BE-C (+ FE-A H14) | **Fixed** trên cây chung (0070, SEC Verified) – QA kiểm đạt TC-RB-028/029 trên api-dist19; đóng khi CI của commit gộp xanh |
 | **BUG-R2-181** | **P1** | DATA FB-R2-DATA-QA-A7-01: đơn dài hạn AC5a không có đêm `lease_allocation` → K-02 `occupiedRooms`, K-03 `occupancyPct` thiếu căn | BE-A | **Fixed** trên cây chung (`lease-nights.ts`, job `lease.nights`) – DATA 114/114; chờ gộp + CI |
 | BUG-R2-182 | P3 | DATA A7-02: "Cần chú ý" `work_order_overdue` trùng phiếu Cao (đã có `work_order_high_open`) | BE-C | **Fixed** trên cây chung – chờ gộp + CI |
@@ -228,7 +228,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | BUG-R2-191 | P2 | UXD FE-S4-22: Phiếu thanh toán in số căn (BR-012 – khách thấy tên phòng, không thấy số) | FE-A | **Fixed** – chờ gộp + CI |
 | BUG-R2-192 | P2 | UXD MOB-S4-02: nút "Quay lại" PWA dùng vỏ nút mặc định của trình duyệt (màu ngoài bảng) | MOB | **Fixed** (UXD Verified 18/10) – chờ gộp + CI |
 | BUG-R2-193 | P3 | H23 guest-web 390×844: hàng nút "Quay lại" / "Gửi yêu cầu" của form yêu cầu nằm dưới thanh tab đáy tới khi khách cuộn (axe `target-size` serious ở vị trí đầu; cuộn xuống thì hết) | MOB | Open |
-| BUG-R2-194 | P2 | H13 trước 06:00 (B9a): Desk nêu "Khách nhận trước 06:00 – thêm đêm …: **0 đ**" và bỏ ô "đã báo khách" – Desk lấy `earlyCheckinSurcharge.amountVnd` (0), tiền đêm ở `priorNight.defaultRateVnd`; số cần thu (708.000) đúng | FE-A | Open – TC-L3-085 `knownBug` |
+| BUG-R2-194 | P2 | H13 trước 06:00 (B9a): Desk nêu "Khách nhận trước 06:00 – thêm đêm …: **0 đ**" và bỏ ô "đã báo khách" – Desk lấy `earlyCheckinSurcharge.amountVnd` (0), tiền đêm ở `priorNight.defaultRateVnd`; số cần thu (708.000) đúng | FE-A | **Fixed** (18/10 ~11:50 – FE-A `CheckInPage.tsx`, cây chưa gộp; TC-L3-085 đạt không `knownBug`, H13 nêu 708.000 đ, mục 11.26) – Closed khi CI #16 xanh |
 
 ## 2. Chi tiết
 
@@ -1711,4 +1711,13 @@ Việc ORC giao: (1) ĐK-S3-12 – chấm lại BUG-R2-083 theo `s3-SEC.md` 9.6,
   - 194: H13 vẫn ghi "thêm đêm …: 0 đ" thay vì 708.000 đ.
   - Cả hai vẫn mở, giữ trong `OPEN`.
 - **Ghi chú:** 4 ca hỏng trên stack QA cũ (TC-L2-104/105, TC-L7-010, TC-NT-049) đạt trên CSDL mới, xác nhận chỉ do môi trường. Không có mã lỗi mới.
+
+### 11.26 Kiểm lại BUG-R2-179 và BUG-R2-194 trước gộp #16 (QA, 18/10 ~11:49–11:55)
+
+- FE-A sửa `GuestFormDialog.tsx` (179) và `CheckInPage.tsx` (194), gỡ hai mã khỏi `OPEN` (nay rỗng). QA dựng lại admin-web trên `ottimo-qa-s4` (CSDL `ottimo_qa20`, api-dist20), có ghi `clock-lock.txt`.
+- Chạy cả tệp `e2e/ui/gate-s4.spec.ts` (desk-chromium): 8/8 đạt. Chạy cả tệp `e2e/ui-clock/gate-s4.spec.ts` (desk-clock): 7/7 đạt.
+- Gỡ `knownBug` khỏi TC-RB-008 (E) và TC-L3-085, chạy lại riêng hai ca: đạt.
+  - TC-RB-008 (E): H06 hiện 4 số cuối.
+  - TC-L3-085: H13 nêu đúng 708.000 đ cho đêm trước.
+- 179 và 194 → **Fixed**. Đóng khi CI của #16 xanh.
 
