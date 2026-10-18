@@ -493,3 +493,16 @@
   - sớm 3' → nhận;
   - sau đó `complete`/`cancel` đúng giờ → 200.
 - Vitest api toàn bộ, DB mới: **96 tệp đạt / 1 bỏ qua; 2896 ca đạt / 2 bỏ qua**. `tsc`, eslint, prettier sạch. Không commit.
+
+## 20. BUG-R2-205 (P2, ARC 16.29) – `Registration.partyOverCount`
+- Mọi phản hồi `Registration` (gồm `addGuestDocument`, `getRegistration`) có `partyOverCount` khi số người của đoàn **vượt** số khách của đơn.
+  - Số người của đoàn = người đặt + người đi cùng còn trong đoàn, đúng con số panel đoàn đang hiện.
+  - Vắng trường = không vượt.
+  - Chỉ là cảnh báo: không ghi phụ thu lúc nhập giấy tờ.
+- Trường hợp chính: giấy tờ không có `partyMemberId` không khớp ai trong đơn, nên server thêm người đi cùng `unknown` (16.22).
+- Test (`guest-document-profiles.test.ts`):
+  - ca QA của ARC: người đặt thiếu ngày sinh, giấy tờ không `partyMemberId` → 201 có `partyOverCount` 1, folio không có dòng; gỡ người thừa → hết cảnh báo;
+  - ca đặt hộ của BE-73 → 1 (cả khi đọc lại);
+  - người đặt được chọn → không có trường.
+- BUG-R2-199: ARC chấp nhận dung sai 5 phút, giữ nguyên mã.
+- Vitest api toàn bộ, DB mới: **99 tệp đạt / 1 bỏ qua; 2938 ca đạt / 2 bỏ qua**. `tsc`, eslint, prettier sạch. Không commit.

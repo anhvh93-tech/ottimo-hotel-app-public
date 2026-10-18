@@ -98,6 +98,12 @@ export interface PlanNight {
    * BR-417 appendix 5A function (OTTIMO operation – AN-46).
    */
   priceSource: 'kept' | 'calendar' | 'default';
+  /**
+   * G-5 (AN-50): an added night priced from an agreed reference night carries that agreement (GKM before clamp/min)
+   * bound to the room bought (`anchorRoomId`, null = the origin room) – it becomes a reference for later operations.
+   */
+  agreedRateVnd?: number | null;
+  anchorRoomId?: string | null;
   suggestedRateVnd?: number;
   /** BR-110 fee + count before and after; `feeBase` = stay_night.extra_person_base to store (null = room's). */
   oldFeeVnd: number;
@@ -344,12 +350,18 @@ export class MovePlanner {
     const snapEntries = (
       (
         row.pricing_snapshot as {
-          nights?: Array<{ date: string; source?: string; anchorRoomId?: string | null }>;
+          nights?: Array<{
+            date: string;
+            source?: string;
+            anchorRoomId?: string | null;
+            agreedRateVnd?: number | null;
+          }>;
         }
       ).nights ?? []
     ).map((n) => [n.date, n] as const);
     const snapNights = new Map(snapEntries.map(([d, n]) => [d, n.source]));
     const snapAnchor = new Map(snapEntries.map(([d, n]) => [d, n.anchorRoomId ?? null]));
+    const snapAgreed = new Map(snapEntries.map(([d, n]) => [d, n.agreedRateVnd ?? null]));
     const snap = row.pricing_snapshot as {
       extraPersonFeePerNightVnd?: number;
       extraCount?: number;
@@ -457,6 +469,7 @@ export class MovePlanner {
       calendarVnd: n.calendar ?? n.gross,
       source: (snapNights.get(n.date) ?? 'calendar') as SourcedNight['source'],
       anchorRoomId: snapAnchor.get(n.date) ?? null,
+      agreedRateVnd: snapAgreed.get(n.date) ?? null,
     }));
     const special = (d: LocalDate) => isSpecialDate(d, ctx.params.calendar.specialDates);
 
@@ -473,6 +486,7 @@ export class MovePlanner {
       let manual = n ? snapNights.get(date) === 'manual' : false;
       let manualRepriced = false;
       let priceSource: PlanNight['priceSource'] = 'kept';
+      let inherited: { agreedRateVnd: number; anchorRoomId: string | null } | null = null;
       let suggestedRateVnd: number | undefined;
       let newGross = n?.gross ?? 0;
       if (tiered) {
@@ -504,7 +518,7 @@ export class MovePlanner {
                     rateVnd: await this.calendar(tx, ctx, cache, bought, date, group),
                     ...(await this.bounds(tx, ctx, cache, bought, date)),
                   };
-            fresh = addedNightPrice({
+            const priced = addedNightPrice({
               bought: boughtRate,
               night: nightRate,
               sameRoom: bought === target,
@@ -521,8 +535,16 @@ export class MovePlanner {
                     special,
                   )
                 : null,
-            }).rateVnd;
+            });
+            fresh = priced.rateVnd;
             priceSource = 'default';
+            // G-5 (AN-50): the agreement goes with the night, bound to the room bought (null = the origin room).
+            if (priced.agreedVnd !== null) {
+              inherited = {
+                agreedRateVnd: priced.agreedVnd,
+                anchorRoomId: bought !== rooms?.originRoomId ? bought : null,
+              };
+            }
           }
           if (repriceToNewRoom && n && oldRoom) {
             // BR-429 (g): a night whose price is not the old room's current calendar (typed/agreed price, or an
@@ -604,6 +626,7 @@ export class MovePlanner {
         manual,
         manualRepriced,
         priceSource,
+        ...(inherited ?? {}),
         ...(suggestedRateVnd !== undefined ? { suggestedRateVnd } : {}),
         oldFeeVnd: oldFee,
         feeVnd,

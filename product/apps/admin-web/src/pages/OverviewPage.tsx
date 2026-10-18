@@ -3,6 +3,7 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Icon } from '@ottimo/ui';
 import { Link } from 'react-router-dom';
 import { approvalFacts, useApprovalTargets } from '../app/approvalTarget';
+import { appliedCappedText, approvalStatusText, autoCancelText } from '../app/auditReason';
 import { APPROVAL_TYPE } from '../app/folio';
 import { Code } from '../app/mono';
 import { dayMonth } from '../app/reservations';
@@ -220,8 +221,14 @@ function Approvals({
               </div>
               {mine ? (
                 <div className="mt-4">
-                  <Chip tone={STATUS_TONE[a.status]}>{t(`approval.status.${a.status}`)}</Chip>
+                  <Chip tone={STATUS_TONE[a.status]}>{approvalStatusText(t, a)}</Chip>
                 </div>
+              ) : null}
+              {mine && a.status === 'cancelled' && a.autoCancelReason ? (
+                <div className="li-s">{autoCancelText(t, a.autoCancelReason)}</div>
+              ) : null}
+              {mine && appliedCappedText(t, money, a) ? (
+                <div className="li-s">{appliedCappedText(t, money, a)}</div>
               ) : null}
             </div>
           </>

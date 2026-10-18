@@ -257,6 +257,7 @@ export class StaySupport {
           calendarVnd: n.calendarVnd,
           source: n.source ?? (n.manual ? 'manual' : 'calendar'),
           anchorRoomId: n.anchorRoomId ?? null,
+          agreedRateVnd: n.agreedRateVnd ?? null,
         }))
       : [];
     return {
@@ -289,6 +290,8 @@ export class StaySupport {
     ceilingVnd: number;
     special: boolean;
     keepVnd: number | null;
+    /** G-5 (AN-50): the agreement the night inherits (null = none) – stored with `anchorRoomId` of the context. */
+    agreedVnd: number | null;
   }> {
     const night = await this.directRate(tx, ctx, c.roomId, date, c.rooms);
     const sameRoom = c.boughtRoomId === c.roomId;
@@ -315,6 +318,7 @@ export class StaySupport {
       ceilingVnd: p.ceilingVnd,
       special: night.special,
       keepVnd: p.keep ? p.rateVnd : null,
+      agreedVnd: p.agreedVnd,
     };
   }
 

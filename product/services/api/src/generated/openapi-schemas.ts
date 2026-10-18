@@ -2364,6 +2364,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         deadlineAt: { s: { k: 'ref', name: 'Instant' } },
         deadlineLabel: { s: { k: 'scalar' } },
         isOverdue: { s: { k: 'scalar' } },
+        partyOverCount: { s: { k: 'scalar' } },
         portalReference: { s: { k: 'scalar' } },
         sentAt: { s: { k: 'ref', name: 'Instant' } },
         confirmedAt: { s: { k: 'ref', name: 'Instant' } },

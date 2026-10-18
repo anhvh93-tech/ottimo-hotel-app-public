@@ -1198,6 +1198,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                   lateFeeAsNight: lateFeeMode || undefined,
                 }}
                 onPaid={reload}
+                onStale={reload}
               />
             ) : (
               <p className="li-s">{t('rsv.need_online')}</p>

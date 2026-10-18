@@ -18,7 +18,7 @@ import {
   type StaffSession,
 } from '../support/api.js';
 import { needClock, resetClock, runJob, runJobIfAny } from '../support/clock.js';
-import { knownBug, precondition } from '../support/known-bugs.js';
+import { precondition } from '../support/known-bugs.js';
 import {
   EP,
   action,
@@ -2706,15 +2706,15 @@ test.describe(
           ],
         },
         async ({ request }) => {
-          knownBug('BUG-R2-201');
           // Tiền điều kiện: Folio F1 settled ⏱ 15/10 11:40, còn phải thu 0; folio F2 settled, còn phải thu
           //   50.000, không ghi công nợ
           // Bước: ⏱ ngay trước và ngay sau hết thời hạn phát sinh BR-427 ▶ job đóng folio; qa.fd thêm dòng vào
           //   F1; qa.mgr điều chỉnh F1 có lý do
           // Kỳ vọng: Trước hạn: F1 settled, FD ghi phát sinh sau trả phòng nhanh được; sau hạn: F1 closed, FD
-          //   thêm dòng → 409 FOLIO_LOCKED, MGR điều chỉnh có lý do được (SM-13); F2 closed, 50.000 thành công nợ,
-          //   vào "Cần chú ý" `checkout_debt` (R7LOCK-01 – thay "F2 không tự closed")
-          // Quy tắc: SM-13 settled→closed, BR-427
+          //   thêm dòng → 409 FOLIO_LOCKED; F2 closed, 50.000 thành công nợ, vào "Cần chú ý" `checkout_debt`
+          //   (R7LOCK-01 – thay "F2 không tự closed"). Folio `closed` là chốt cuối (ARC 16.28 (b), SM-13 sửa –
+          //   BUG-R2-201): MGR điều chỉnh dòng → 409 FOLIO_LOCKED; sửa sau khi đóng = FOC `debt_write_off` hoặc thu nợ
+          // Quy tắc: SM-13 settled→closed, BR-427, BR-525 (thu nợ, xóa nợ – ARC 16.26, 16.27)
           needClock('TC-L4-068');
           await requireEndpoints(request, 'TC-L4-068', [
             EP3.checkOut,
@@ -2791,12 +2791,46 @@ test.describe(
               return { mgr, target: liveLines(f1, 'fnb')[0]! };
             },
           );
-          // SM-13: folio `closed` – "chỉ MGR+ điều chỉnh, có lý do" (BUG-R2-201: mã trả 409 FOLIO_LOCKED)
+          // ARC 16.28 (b): folio `closed` là chốt cuối – không điều chỉnh dòng, với mọi vai (kể cả MGR)
           const adj = await adjustLine(request, mgr, s1.res.folioId!, target.id, {
             newUnitPriceVnd: 30000,
             reason: 'Giam gia mon an theo khieu nai',
           });
-          expect(adj.status, JSON.stringify(adj.body)).toBe(201);
+          expectProblem(adj, 409, 'FOLIO_LOCKED');
+          // "sửa sau khi đóng" của F2 (còn công nợ 50.000): MGR xóa 10.000 bằng FOC `debt_write_off` (tự áp, ≤ giá 1
+          // đêm), lễ tân thu nốt 40.000 → hết nợ, folio giữ `closed`
+          const f2 = await getFolio(request, mgr, s2.res.folioId!);
+          const f2Line = liveLines(f2, 'fnb').at(-1)!;
+          const wo = await call<Record<string, unknown> & ProblemFields>(
+            request,
+            'POST',
+            p3(EP3.requestFoc, mgr, { folioId: s2.res.folioId!, lineId: f2Line.id }),
+            {
+              session: mgr,
+              idempotencyKey: true,
+              body: {
+                kind: 'foc',
+                reasonCode: 'debt_write_off',
+                amountVnd: 10000,
+                note: 'Khach khieu nai mon an',
+              },
+            },
+          );
+          expect(wo.status, `xóa nợ một phần: ${JSON.stringify(wo.body).slice(0, 300)}`).toBe(201);
+          expect(wo.body.status).toBe('approved');
+          fd = await fresh(request, 'qa.fd');
+          expect((await getFolio(request, fd, s2.res.folioId!)).totals.balanceDueVnd).toBe(40000);
+          const paid = await recordPayment(request, fd, s2.res.folioId!, {
+            type: 'charge',
+            method: 'cash',
+            amountVnd: 40000,
+          });
+          expect(paid.status, `thu nốt công nợ: ${JSON.stringify(paid.body).slice(0, 300)}`).toBe(
+            201,
+          );
+          const f2end = await getFolio(request, fd, s2.res.folioId!);
+          expect(f2end.totals.balanceDueVnd, 'hết nợ').toBe(0);
+          expect(f2end.status, 'folio giữ closed').toBe('closed');
         },
       );
       test(

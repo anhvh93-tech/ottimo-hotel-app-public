@@ -7,7 +7,7 @@ import {
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, Chip, ConfirmDialog, Field, Modal } from '@ottimo/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../../app/api';
 import { lineLabel, signed } from '../../app/folio';
 import { parseVnd } from '../../app/money';
@@ -363,6 +363,13 @@ function AdjustLineDialog({
     }
   };
   const stale = act.code === 'VERSION_CONFLICT' || act.code === 'PRECONDITION_REQUIRED';
+  // N-6 (ARC 16.29): `Folio.version` moves with every money change – a 412 reloads the folio at once and keeps the
+  // box open with what was typed; saving again goes with the new version.
+  useEffect(() => {
+    if (stale) onStale();
+    // once per failed save
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [act.error]);
   return (
     <Modal
       open
@@ -386,26 +393,7 @@ function AdjustLineDialog({
         </>
       }
     >
-      {stale ? (
-        <Alert
-          tone="warn"
-          actions={
-            <Button
-              size="sm"
-              onClick={() => {
-                onStale();
-                onClose();
-              }}
-            >
-              {t('common.reload')}
-            </Button>
-          }
-        >
-          {act.text()}
-        </Alert>
-      ) : (
-        act.view()
-      )}
+      {stale ? <Alert tone="warn">{t('folio.changed_reload')}</Alert> : act.view()}
       {f.status !== 'open' ? <p className="li-s">{t('folio.settled_mgr')}</p> : null}
       {!night ? (
         <Field

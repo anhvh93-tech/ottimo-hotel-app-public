@@ -2225,7 +2225,7 @@ export interface paths {
     put?: never;
     /**
      * Sửa một dòng = bút toán đảo + dòng mới, lý do bắt buộc (BR-008). Folio `settled` chỉ MGR+ (A32, US-038 AC2).
-     * @description **0.3.6 bổ sung (review S3, ARC 17/10)**: `If-Match` = `Folio.version` (ETag của `getFolio`/`addFolioLine`; mọi thay đổi dòng của folio tăng version – BE-B decision 16/10).
+     * @description **0.3.6 bổ sung (review S3, ARC 17/10)**: `If-Match` = `Folio.version` (ETag của `getFolio`/`addFolioLine`; mọi thay đổi dòng của folio tăng version – BE-B decision 16/10; **0.3.7 bổ sung 4 (N-6)**: và mọi thay đổi giao dịch thu/hoàn – xem `Folio.version`).
      *     Dòng **sinh từ đêm lưu trú** (`room`, `extra_person`) sửa giá phải ghi lại giá đêm ở đơn (cùng giao dịch) để lần đồng bộ đêm sau (gia hạn, đổi phòng, đổi số người)
      *     **giữ** giá đã sửa và các dòng FOC/giảm giá đi kèm – không bao giờ tự đảo giá đã sửa (thẻ FB-R2-ARC-BE-S3-14).
      *     **0.3.7 bổ sung D1 – cách cài S4-35 (CỔNG; ARC chốt, thay "Done (tạm)" của ARC-BE-S3-14)**: bỏ chặn tạm 422 `NOT_ALLOWED` cho dòng `room`/`extra_person` của đơn
@@ -2236,6 +2236,13 @@ export interface paths {
      *     OTTIMO, bậc BR-107, sửa số khách) **giữ** giá đã sửa; B7/B14 khách tự xin đổi căn lấy lịch giá căn mới (BR-429 (a), (g) – `MovePreview.warnings` `MANUAL_RATE_REPRICED`, NÊN).
      *     Dòng đêm chỉ nhận `newUnitPriceVnd` (`newQuantity`/`voidLine` → 422 `NOT_ALLOWED` – bỏ đêm đi B7/B8/B16); giá ngoài sàn–trần BR-105 của nhóm căn → 422 `RATE_OUT_OF_RANGE`
      *     (thấp hơn sàn đi giảm giá đặc biệt có duyệt). Folio `settled`: bút toán sau chốt (MGR+, A32) không gọi cổng. Audit `folio_line.adjusted` (đã có).
+     *     **0.3.7 bổ sung 4 (BUG-R2-201, ARC 16.28 – DOM đồng ý 18/10, SM-13 v0.2.6)**: folio **`closed`** (hết cửa sổ 24 giờ, phiếu đã cấp, mọi khoản còn nợ đã thành công nợ – BR-427 (d)) **không** điều chỉnh
+     *     dòng → 409 `FOLIO_LOCKED` cho mọi vai. Sau khi đóng chỉ còn: thu công nợ (`recordPayment`, 16.26) và xóa nợ (`requestFoc` `reasonCode = debt_write_off`). Điều chỉnh sau đóng
+     *     (kèm hóa đơn điều chỉnh) để R3 cùng hóa đơn điện tử. Folio `settled` trong cửa sổ: giữ như trên (MGR+, A32).
+     *     **0.3.7 bổ sung 4 (N-7 – DOM + SEC 18/10, BR-525, FB-R2-SEC-BE-81; ARC 16.30)**: folio `settled` mà đơn còn **công nợ mở** – mọi điều chỉnh **giảm** (`voidLine`, giảm `newQuantity`,
+     *     giảm `newUnitPriceVnd`) → 409 `FOLIO_LOCKED` (kèm `detail`) cho **mọi vai, kể cả OWN**, không ghi gì; giảm số nợ chỉ qua `requestFoc` `reasonCode = debt_write_off` (hạn mức BR-433,
+     *     báo cáo FOC). Điều chỉnh **tăng** vẫn 201 (công nợ theo còn phải thu). Folio `settled` không có công nợ mở: A32 như trên. Desk: 409 này trên folio `settled` có công nợ → chỉ sang
+     *     "Xóa công nợ". Thứ tự khóa (ARC 16.19, 16.30): L1 **mọi đơn của folio** `FOR NO KEY UPDATE` theo `id` → L3 folio, lấy **trước** cổng `setNightRate` của dòng đêm; công nợ đọc dưới L3.
      */
     post: operations['adjustFolioLine'];
     delete?: never;
@@ -2270,6 +2277,11 @@ export interface paths {
      *     (`nightRateBasis`), vượt → yêu cầu chờ **OWN** duyệt (luồng duyệt thường). Dòng FOC ghi là bút toán sau chốt (folio và hóa đơn đã xuất giữ nguyên). Áp xong còn phải thu về 0 → công nợ
      *     đóng (`debt_settled_at`, lý do `written_off`), "Cần chú ý" `checkout_debt` tự hết. Báo cáo FOC tách riêng mã `debt_write_off`. Hoa hồng (BR-903): FOC `debt_write_off` trên dòng
      *     **tiền phòng** trừ vào cơ sở hoa hồng, "đạt" lúc xóa nợ (CTV 8 %, xóa 100.000 → 408.400 thay 416.400); trên minibar/hư hỏng/phụ thu không đổi cơ sở. Thứ tự khóa như FOC (16.19).
+     *     **Vòng sửa 8 (FB-R2-SEC-BE-80 Blocker, DOM 18/10 BR-525; ARC 16.30) – trần thay câu "còn phải thu" ở trên**: lúc gửi, số ≤ min(giá trị còn lại của dòng, **công nợ đang mở**
+     *     − Σ `amountVnd` của các yêu cầu `debt_write_off` đang `pending`/`escalated` trên folio) – vượt → 422 `AMOUNT_EXCEEDS_BALANCE` kèm `max` (có thể **0** khi các yêu cầu đang chờ đã phủ hết
+     *     nợ). Công nợ đang mở = phần nợ đã ghi (B18, đảo khoản thu G-4, J15) chưa thu/xóa; khoản phát sinh còn trong cửa sổ 24 giờ **không** phải công nợ nên không xóa được; hết cửa sổ
+     *     (folio `closed`) = toàn bộ còn phải thu. Lúc duyệt (`approveRequest`): chỉ áp min(số đã duyệt, công nợ đang mở lúc duyệt), số này giữ **cố định** cho mọi lần đồng bộ sau;
+     *     công nợ đã về 0 → yêu cầu tự hủy `autoCancelReason = debt_cleared` (không ghi dòng FOC). Folio không bao giờ có dư thừa vì xóa nợ.
      */
     post: operations['requestFoc'];
     delete?: never;
@@ -2860,6 +2872,10 @@ export interface paths {
      *     **0.3.7 (B-6, CỔNG – BE-B + FE-A cùng PR)**: `expectedVersion` = `ApprovalRequest.version` người duyệt đang xem – **bắt buộc với `type = refund`** (thiếu → 422 `REQUIRED`), lệch → 412
      *     `VERSION_CONFLICT` (`currentVersion`): người duyệt không duyệt một nơi nhận/số tiền đã đổi sau khi mở. Loại khác: tùy chọn (có thì vẫn so). Không dùng header `If-Match`
      *     vì guard dùng chung bật `If-Match` cho **cả** operation theo hợp đồng (mọi loại sẽ bắt buộc, vỡ luồng FOC).
+     *     **0.3.7 bổ sung 4 (FB-R2-SEC-BE-80, BR-525; ARC 16.30)**: yêu cầu FOC `reasonCode = debt_write_off` chỉ áp min(`amountVnd`, công nợ đang mở **lúc duyệt**) – phản hồi `status = approved`,
+     *     `amountVnd` giữ số xin (SM-10), `effectiveAmountVnd` = số thực áp (giữ cố định về sau). Công nợ đã về 0 (khách trả đủ trong lúc chờ) → vẫn **200**: lệnh duyệt thành công, hệ thống
+     *     đóng yêu cầu trong cùng giao dịch – phản hồi `status = cancelled`, `autoCancelReason = debt_cleared`, `effectiveAmountVnd = 0`; không ghi dòng FOC, không tính hạn mức người duyệt, báo
+     *     người gửi (`approval_cancelled`). Client đọc `status` của phản hồi, không mặc định "đã duyệt". Gửi lại cùng `Idempotency-Key` → cùng phản hồi.
      */
     post: operations['approveRequest'];
     delete?: never;
@@ -6746,6 +6762,7 @@ export interface components {
       };
       pendingApprovals?: number;
       invoiceRequest?: components['schemas']['InvoiceRequest'];
+      /** @description 0.3.7 bổ sung 4 (N-6, ARC 16.29): tăng **mỗi lần** folio đổi tiền – ghi/đảo/sửa dòng (gồm dòng đêm do B7/B9a/B13/B14/B16 đồng bộ, dòng FOC, phí) và ghi/đổi trạng thái/đảo giao dịch (`recordPayment`, thu nợ, `createVietQr`, `confirmPaymentReceived`, đối soát, `reversePayment`, chi hoàn, đồng bộ `ota_collect`), cùng `settled`/`closed`. Không tăng khi chỉ gắn dòng với yêu cầu duyệt và khi QR chờ hết hạn (J24) – không đổi tiền (ARC 16.30). Một lệnh có thể tăng nhiều bậc; client chỉ so bằng. `If-Match` của `adjustFolioLine` dựa trên số này → quyết định trên số cũ nhận 412 */
       version: number;
     };
     InvoiceRequest: {
@@ -6923,6 +6940,8 @@ export interface components {
        * @description 0.3.7 bổ sung D1 (BR-434 v0.3.5, S4-02/S4-18): chỉ `type` ∈ `foc`, `special_discount`. `pending`: số **sẽ áp nếu duyệt lúc này** = min(`amountVnd`, giá trị dòng hiện tại của khóa)
        *     – câu "khi duyệt sẽ áp X" (0 khi dòng đang về 0 – duyệt xong FOC ngủ); `approved`: số **đang áp** (dòng FOC sống; 0 khi `focState` ≠ `applied`); folio đã chốt: số thực áp.
        *     Báo cáo FOC tháng và cảnh báo BR-435 cộng trường này; hạn mức người duyệt (BR-433) cộng `amountVnd` của yêu cầu còn sống (`focState` ∈ `applied`, `dormant`).
+       *     **0.3.7 bổ sung 4 (FB-R2-SEC-BE-80; ARC 16.30) – `reasonCode = debt_write_off`**: `pending`/`escalated` = min(`amountVnd`, giá trị dòng, công nợ đang mở lúc đọc) – số thực áp do
+       *     lúc duyệt quyết; `approved` = số đang áp, không vượt trần cố định lúc duyệt (min(số đã duyệt, công nợ đang mở lúc đó)); `cancelled` (`debt_cleared`) = 0.
        */
       effectiveAmountVnd?: components['schemas']['MoneyVnd'];
       /**
@@ -6969,6 +6988,10 @@ export interface components {
       } | null;
       /**
        * @description 0.3.7 bổ sung D1 (BR-434, BR-315 (g)): có khi `status = cancelled` do **hệ thống** (không phải `rejected`) – không còn dòng tương ứng · đơn hủy · đơn no-show · bị yêu cầu mới thay.
+       *     **0.3.7 bổ sung 4 (FB-R2-SEC-BE-80, BR-525 – BE-B, migration 0077; ARC duyệt tên ở lượt kiểm 8)**: `debt_cleared` – FOC `debt_write_off` được duyệt khi công nợ đã về 0 / đã đóng
+       *     (khách trả đủ trong lúc chờ) → hệ thống hủy, không ghi dòng FOC, báo người xin; phản hồi `approveRequest` trả chính yêu cầu với `status = cancelled`, `autoCancelReason = debt_cleared`,
+       *     `effectiveAmountVnd = 0`. Duyệt khi công nợ còn ít hơn số xin → `status = approved`, `effectiveAmountVnd` = số thực áp (= min(số xin, công nợ đang mở lúc duyệt) – giữ cố định về sau),
+       *     `amountVnd` giữ số xin (SM-10).
        *     **0.3.7 bổ sung 4 (S4-38, BE-B giả định (j))**: thêm `no_show_restored` – B12 khôi phục no-show tự hủy yêu cầu hoàn đã sinh do no-show (S438-CANCEL-03); trước đây ghi `superseded`
        *     (sai nghĩa – không có yêu cầu mới thay). BE-B dùng giá trị mới khi mở rộng CHECK `approval_request.auto_cancel_reason` (migration số ORC cấp); tới đó vẫn `superseded`. Client gặp giá trị lạ → câu chung.
        *     Không tính hạn mức; báo người gửi và người đã nhận `approval_requested` (`StaffNotification.kind = approval_cancelled`)
@@ -6979,7 +7002,8 @@ export interface components {
         | 'reservation_cancelled'
         | 'reservation_no_show'
         | 'superseded'
-        | 'no_show_restored';
+        | 'no_show_restored'
+        | 'debt_cleared';
       reasonCode: string;
       reasonNote?: string;
       requestedBy: string;
@@ -7030,7 +7054,8 @@ export interface components {
        *     `reservation.extended`, `reservation.prior_night_added`, `reservation.extra_night_on_checkout`, `reservation.late_fee_instead_of_night`, `reservation.priced`, `reservation.repriced`,
        *     `reservation.room_change_repriced`, `reservation.closer_changed`, `commission.projected`, `commission.earned`, `commission.voided`,
        *     `channel_fee.recorded`, `channel_fee.updated`, `overbooking.relocation_cost`, `approval.requested`, `approval.self_applied`, `approval.approved`,
-       *     `approval.rejected`, `approval.escalated`, `approval.reopened`, `approval.cancelled` (yêu cầu loại tiền), `config.changed` (chỉ khóa `payment_receiving_account`).
+       *     `approval.rejected`, `approval.escalated`, `approval.reopened`, `approval.cancelled` (yêu cầu loại tiền), `approval.applied_capped`, `config.changed` (chỉ khóa `payment_receiving_account`).
+       *     **0.3.7 bổ sung 4 (FB-R2-SEC-BE-80, BR-525 – BE-B; ARC duyệt ở lượt kiểm 8)**: `approval.applied_capped` – FOC `debt_write_off` được duyệt nhưng chỉ áp tới công nợ đang mở lúc duyệt (`before.amountVnd` = số xin, `after.appliedVnd` = số áp, `after.openDebtVnd`, `after.reasonCode` = `debt_write_off`; `reason` = mã `debt_collected_before_approval`). Yêu cầu tự hủy vì hết nợ: `approval.cancelled` với `reason` = `auto: debt_cleared`.
        *     `payment.recorded`: phân biệt sale/CTV bằng `after.recordedByRole`; phương thức ở `after.method`, chờ đối soát ở `after.reconciliation`.
        *     **0.3.7 bổ sung D1 (BR-433, BR-434 v0.3.5, BR-315 (g) – S4-02/S4-18/S4-22)**: `folio.foc_cancelled` – FOC đã duyệt hủy theo quy tắc, trả hạn mức (`after`: `approvalRequestId`,
        *     `serviceDate`, `amountVnd` = số đã duyệt trả lại, `reason` = `focCancelReason`); `folio.foc_dormant` – dòng của khóa về 0, dòng FOC đảo, yêu cầu vẫn `approved`;
@@ -7095,6 +7120,12 @@ export interface components {
       isOverdue?: boolean;
     };
     Registration: components['schemas']['RegistrationSummary'] & {
+      /**
+       * @description 0.3.7 bổ sung 4 (BUG-R2-205, ARC 16.29): số người trong đoàn **vượt** số khách của đơn (người tính định mức BR-110) – thường do server tự thêm người đi cùng `unknown` khi giấy tờ
+       *     gửi không có `partyMemberId` mà không khớp ai trong đơn (16.22). Vắng = không vượt. Desk (H14) hiện cảnh báo "Số người khai nhiều hơn số khách của đơn – kiểm tra người vừa thêm"
+       *     ngay sau khi lưu giấy tờ và ở panel đoàn; gỡ người thừa (`removePartyMember`) hoặc gắn lại giấy tờ đúng người. Không tự tính phụ thu lúc nhập giấy tờ
+       */
+      partyOverCount?: number;
       portalReference?: string;
       sentAt?: components['schemas']['Instant'];
       confirmedAt?: components['schemas']['Instant'];
@@ -14094,7 +14125,7 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Đã duyệt – folio có dòng gốc + dòng FOC âm cùng giá trị */
+      /** @description Đã xử lý – yêu cầu như sau lệnh duyệt. Thường `approved` (folio có dòng gốc + dòng FOC âm); `debt_write_off` có thể `approved` với `effectiveAmountVnd` < `amountVnd`, hoặc `cancelled` (`autoCancelReason = debt_cleared`) */
       200: {
         headers: {
           [name: string]: unknown;

@@ -150,6 +150,11 @@ export const reservation = pgTable(
     debtReason: text('debt_reason'),
     // 0074 (ARC 16.26, BR-525 G-4): the open debt was paid in full (NULL = open / no debt).
     debtSettledAt: instant('debt_settled_at'),
+    // 0076 (DOM 18/10, BR-525): the open debt cycle – when it opened and Σ debt recorded in it (openDebtVnd).
+    debtOpenedAt: instant('debt_opened_at'),
+    debtRecordedVnd: bigint('debt_recorded_vnd', { mode: 'number' }).notNull().default(0),
+    // Σ collected + written off on the folio when the cycle opened (openDebtVnd counts what came after).
+    debtBaseVnd: bigint('debt_base_vnd', { mode: 'number' }).notNull().default(0),
     earlyDepartureNoticeAt: instant('early_departure_notice_at'),
     // B15 conflict sent for approval (late_checkout_conflict): applied as agreed_checkout_time when approved.
     lateCheckoutRequestedTime: time('late_checkout_requested_time'),
@@ -252,6 +257,10 @@ export const reservation = pgTable(
     check(
       'reservation_debt_settled_check',
       sql`${t.debtSettledAt} IS NULL OR ${t.checkoutMode} = 'debt'`,
+    ),
+    check(
+      'reservation_debt_recorded_check',
+      sql`${t.debtRecordedVnd} >= 0 AND (${t.debtOpenedAt} IS NULL OR ${t.checkoutMode} = 'debt')`,
     ),
     check(
       'reservation_room_status_before_check',

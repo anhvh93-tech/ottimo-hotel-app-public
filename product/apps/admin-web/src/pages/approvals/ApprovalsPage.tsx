@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../app/api';
 import { listApprovals } from '../../app/approvals';
 import { approvalFacts, useApprovalTargets } from '../../app/approvalTarget';
+import { appliedCappedText, autoCancelText } from '../../app/auditReason';
 import { APPROVAL_TYPE, FOC_REASON, methodText } from '../../app/folio';
 import { useLiveReload } from '../../app/live';
 import { timeHHmm } from '../../app/dates';
@@ -191,13 +192,24 @@ function DecideDialog({
     );
     setSecret('');
     if (out) {
-      toast(t(`approval.status.${out.data.status}`));
+      // SEC BE-80: approving a debt write-off when the debt was collected meanwhile – the server closes it.
+      // … or collected in part: only what was still owed is written off (`effectiveAmountVnd`).
+      toast(
+        out.data.status === 'cancelled' && out.data.autoCancelReason
+          ? autoCancelText(t, out.data.autoCancelReason)
+          : (appliedCappedText(t, money, out.data) ?? t(`approval.status.${out.data.status}`)),
+      );
       onDone();
     }
   };
   const e = act.error;
-  const already =
+  const closed =
     isApiError(e) && e.code === 'INVALID_TRANSITION'
+      ? (e.problem as Record<string, unknown>).autoCancelReason
+      : undefined;
+  const already = closed
+    ? autoCancelText(t, String(closed))
+    : isApiError(e) && e.code === 'INVALID_TRANSITION'
       ? t('approval.already_done', {
           who: String((e.problem as Record<string, unknown>).approverName ?? ''),
           time: dateTime(String((e.problem as Record<string, unknown>).decidedAt ?? '')),

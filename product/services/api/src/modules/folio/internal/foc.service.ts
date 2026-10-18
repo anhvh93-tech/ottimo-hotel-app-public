@@ -80,10 +80,11 @@ export class FolioFocService {
     // ARC 16.27 (2): `debt_write_off` is the one exception to a settled / closed folio – with an open debt of the
     // stay (front desk, read under L1 → L3), `kind = foc`, OWN/MGR, a note, at most what is still owed.
     const writeOff = input.reasonCode === DEBT_WRITE_OFF;
+    let openDebtVnd = 0;
     if (folio.status !== 'open') {
-      if (!writeOff || (await this.hooks.openDebt(tx, folio.id)) === null) {
-        throw problem('FOLIO_LOCKED');
-      }
+      const debt = writeOff ? await this.hooks.openDebt(tx, folio.id) : null;
+      if (!debt) throw problem('FOLIO_LOCKED');
+      openDebtVnd = debt.openDebtVnd;
       if (!actor.roles.some((r) => WRITE_OFF_ROLES.includes(r))) throw problem('FORBIDDEN_ACTION');
       if (input.kind !== 'foc') {
         throw problem('VALIDATION_FAILED', { errors: [{ field: 'kind', code: 'NOT_ALLOWED' }] });
@@ -138,8 +139,18 @@ export class FolioFocService {
     // rule as the desk's requestFocForSurcharge, S4-25).
     const remaining = await this.folios.reductionHeadroomVnd(tx, line.id);
     if (writeOff) {
-      // Never a write-off that leaves an overpayment: min(what the line still allows, what is owed).
-      const max = Math.min(remaining, (await this.folios.balance(tx, folio.id)).balanceDueVnd);
+      // DOM 18/10 (BR-525, ARC 16.28) + FB-R2-SEC-BE-80 (a): min(what the line still allows, the OPEN DEBT –
+      // `OpenDebt.openDebtVnd` of the front desk, the one source of the amount – minus what the write-offs still
+      // pending on this folio ask) – never an overpayment on a folio that is or will be closed, never a charge still
+      // inside its post-checkout window (not a debt yet).
+      const { rows: asked } = await tx.query<{ total: string | number }>(
+        `SELECT COALESCE(sum(a.amount_vnd), 0) AS total FROM approval_request a
+           JOIN folio_line f ON f.id = a.folio_line_id
+          WHERE f.folio_id = $1 AND a.type = 'foc' AND a.reason_code = $2
+            AND a.status IN ('pending', 'escalated')`,
+        [folio.id, DEBT_WRITE_OFF],
+      );
+      const max = Math.max(0, Math.min(remaining, openDebtVnd - Number(asked[0]?.total ?? 0)));
       if (input.amountVnd > max) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
@@ -306,6 +317,20 @@ export class FolioFocService {
     if (!request.folio_line_id) return;
     const first = await this.line(tx, request.folio_line_id);
     if (!first) return;
+    if (request.status === 'approved' && request.reason_code === DEBT_WRITE_OFF) {
+      // FB-R2-SEC-BE-80 (b), BR-525: applied up to the open debt NOW (preLock holds L1 → L3; the debt may have been
+      // paid while the request waited): nothing left → cancelled `debt_cleared`, no FOC line; less → capped.
+      const open = await this.hooks.openDebt(tx, first.folio_id);
+      const capVnd = Math.min(Number(request.amount_vnd), Math.max(0, open?.openDebtVnd ?? 0));
+      if (capVnd <= 0) {
+        await this.approvals.cancelApproved(tx, request.id, 'debt_cleared');
+        await this.rejectPendingLines(tx, request, first.folio_id);
+        return;
+      }
+      await this.approvals.setAppliedCap(tx, request.id, capVnd, {
+        openDebtVnd: open?.openDebtVnd ?? 0,
+      });
+    }
     if (request.status === 'approved') {
       // S4-18 / S4-23: the decision re-reads the current line of the key in this transaction (the folio is
       // locked before the request – ApprovalService.onBeforeDecide) and applies what the key allows.
@@ -324,12 +349,17 @@ export class FolioFocService {
       return;
     }
     if (request.status !== 'rejected' && request.status !== 'cancelled') return;
-    // Every "chờ duyệt" line of the request (it may have followed re-posted lines – S4-18).
+    await this.rejectPendingLines(tx, request, first.folio_id);
+  }
+
+  /** Every "chờ duyệt" line of the request (it may have followed re-posted lines – S4-18) → `rejected`. */
+  private async rejectPendingLines(tx: Tx, request: ApprovalRow, folioId: string): Promise<void> {
     const { rows: pending } = await tx.query<{ id: string; amount_vnd: number }>(
       `SELECT id, amount_vnd FROM folio_line
         WHERE (approval_request_id = $1 OR id = $2) AND line_state = 'pending_approval'`,
       [request.id, request.folio_line_id],
     );
+    if (pending.length > 0) await this.folios.touch(tx, folioId);
     for (const l of pending) {
       await tx.query(`UPDATE folio_line SET line_state = 'rejected' WHERE id = $1`, [l.id]);
       await this.audit.recordMoney(tx, {

@@ -1,19 +1,23 @@
 // "Thu công nợ" trên Desk (ARC 16.26, BR-525 thu công nợ (a)–(b); FE-A `DebtCollectDialog`) với API thật, ngày ảo
-// (project desk-clock). Oracle BR-525-07, BR-525-08; "Xóa công nợ" (R7LOCK-02, ARC 16.27, FE-A `DebtWriteOffDialog`) – BR-525-15.
+// (project desk-clock). Oracle BR-525-07, BR-525-08; H17/H24 câu áp một phần và tự đóng của yêu cầu xóa nợ (SEC BE-80 –
+// BR-525-18, BR-525-19); "Xóa công nợ" (R7LOCK-02, ARC 16.27, FE-A `DebtWriteOffDialog`) – BR-525-15.
 // Phần API: `e2e/clock/debt-collect.s5.clock.spec.ts`.
 import { expect, test, type APIRequestContext } from '@playwright/test';
-import { needSeedPassword, sessionOrSkip, stackToday } from '../support/api.js';
+import { call, needSeedPassword, sessionOrSkip, stackToday } from '../support/api.js';
 import { needClock, resetClock, setClock } from '../support/clock.js';
 import { SEED_PASSWORD, WEB_URL } from '../support/env.js';
 import { precondition } from '../support/known-bugs.js';
 import { addDays, cleanupTracked, oracle, s2Context, vnTime } from '../support/s2.js';
 import {
+  EP3,
   addLine,
   cleanRooms,
   getFolio,
   inHouse,
   liveLines,
+  p3,
   readyRooms,
+  recordPayment,
   useVirtualDevice,
   virtualDay,
   type Stay,
@@ -22,10 +26,12 @@ import { checkOut, minibarCheck } from '../support/s3-stay.js';
 import { scan } from '../ui/axe.js';
 import { desk } from '../ui/flows.js';
 import { UI, t } from '../ui/helpers.js';
-import { recordWrites, waitWrite } from '../ui/write-steps.js';
+import { dialogs, recordWrites, vnd, waitWrite } from '../ui/write-steps.js';
 
 type Json = Record<string, unknown>;
 const DEBT = 100_000;
+const tf = (key: string, vars: Record<string, string | number>): string =>
+  t(key).replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? `{${k}}`));
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const stem = (key: string) => t(key).split('{')[0]!.trim();
 
@@ -45,6 +51,7 @@ async function at(request: APIRequestContext, date: string, hhmm: string): Promi
 /** Đơn 1 đêm (đến A, đi A+1): dòng F&B 100.000 chưa thu, B18 A+1 MGR ghi công nợ hạn A+4. */
 async function debtStay(
   request: APIRequestContext,
+  amountVnd = DEBT,
 ): Promise<{ A: string; st: Stay; lineId: string }> {
   const A = virtualDay(realToday, 6);
   await at(request, A, '14:00');
@@ -58,7 +65,7 @@ async function debtStay(
     category: 'fnb',
     description: 'Tiec nho',
     quantity: 1,
-    unitPriceVnd: DEBT,
+    unitPriceVnd: amountVnd,
     serviceDate: A,
   });
   expect(line.status, JSON.stringify(line.body).slice(0, 200)).toBe(201);
@@ -225,6 +232,108 @@ test.describe(
       } finally {
         await page.context().close();
       }
+    });
+
+    test('TC-X-083 (E) BR-525-18, BR-525-19 / SEC BE-80 (BUG-R2-206) FE-A: H17 chủ đầu tư duyệt yêu cầu xóa nợ – (a) khách đã trả bớt → câu "Đã xóa công nợ 3.000.000 đ (yêu cầu 5.000.000 đ)…", (b) khách đã trả đủ → câu "Công nợ đã thu đủ nên yêu cầu xóa công nợ tự đóng…" + axe', async ({
+      browser,
+      request,
+    }) => {
+      test.slow();
+      needClock('TC-X-083');
+      const money = (n: number): string => tf('common.currency_vnd', { amount: vnd(n) });
+      const wo = async (st: Stay, lineId: string, amountVnd: number) => {
+        const mgr = await sessionOrSkip(request, 'qa.mgr');
+        const r = await call<Json>(
+          request,
+          'POST',
+          p3(EP3.requestFoc, mgr, { folioId: st.res.folioId!, lineId }),
+          {
+            session: mgr,
+            idempotencyKey: true,
+            body: { kind: 'foc', reasonCode: 'debt_write_off', amountVnd, note: 'No kho doi' },
+          },
+        );
+        expect(r.status, JSON.stringify(r.body).slice(0, 200)).toBe(201);
+        expect(r.body.status).toBe('pending');
+      };
+      const pay = async (st: Stay, amountVnd: number) => {
+        const fd = await sessionOrSkip(request, 'qa.fd');
+        const r = await recordPayment(request, fd, st.res.folioId!, {
+          type: 'charge',
+          method: 'cash',
+          amountVnd,
+        });
+        expect(r.status, JSON.stringify(r.body).slice(0, 200)).toBe(201);
+      };
+      // (a) nợ 8.000.000 → thu 3.000.000 → xin xóa 5.000.000 → thu thêm 2.000.000 (còn 3.000.000)
+      const a = await precondition(
+        '(a) nợ còn 3.000.000, yêu cầu xóa 5.000.000 chờ OWN',
+        async () => {
+          const { A, st, lineId } = await debtStay(request, 8_000_000);
+          await at(request, addDays(A, 2), '10:00');
+          await pay(st, 3_000_000);
+          await wo(st, lineId, 5_000_000);
+          await pay(st, 2_000_000);
+          return st;
+        },
+      );
+      // (b) nợ 5.000.000 → xin xóa 5.000.000 → khách trả đủ
+      const { B, b } = await precondition(
+        '(b) yêu cầu xóa 5.000.000 chờ OWN, khách trả đủ',
+        async () => {
+          const { A, st, lineId } = await debtStay(request, 5_000_000);
+          await at(request, addDays(A, 2), '10:00');
+          await wo(st, lineId, 5_000_000);
+          await pay(st, 5_000_000);
+          return { B: addDays(A, 2), b: st };
+        },
+      );
+      const capped = tf('approval.applied_capped', {
+        amount: money(3_000_000),
+        requested: money(5_000_000),
+      });
+      const own = await desk(browser, 'qa.owner', vnTime(B, '10:05'));
+      try {
+        const decisions = recordWrites(
+          own,
+          'POST',
+          /\/approval-requests\/[^/]+\/actions\/approve$/,
+        );
+        await own.goto(`${WEB_URL}/approvals`);
+        for (const [st, expected] of [
+          [a, capped],
+          [b, t('approval.auto_cancel.debt_cleared')],
+        ] as const) {
+          const n0 = decisions.length;
+          const card = own.getByRole('listitem').filter({ hasText: st.res.code });
+          await expect(card, `thẻ yêu cầu ${st.res.code}`).toBeVisible({ timeout: 15_000 });
+          await card.getByRole('button', { name: t('approval.approve'), exact: true }).click();
+          const dlg = dialogs(own).filter({ has: own.getByLabel(t('approval.pin_label')) });
+          await dlg.getByLabel(t('approval.pin_label')).fill(SEED_PASSWORD!);
+          await dlg.getByRole('button', { name: t('approval.approve'), exact: true }).click();
+          await expect
+            .poll(() => decisions.length, {
+              timeout: 15_000,
+              message: `approveRequest ${st.res.code}`,
+            })
+            .toBeGreaterThan(n0);
+          expect(decisions.at(-1)!.status, `approveRequest ${st.res.code}`).toBe(200);
+          await expect(own.getByText(expected, { exact: true }).first(), expected).toBeVisible({
+            timeout: 15_000,
+          });
+        }
+        await scan(own, test.info(), 'H17-debt-write-off-capped');
+      } finally {
+        await own.context().close();
+      }
+      const fd = await sessionOrSkip(request, 'qa.fd');
+      for (const st of [a, b]) {
+        const f = await getFolio(request, fd, st.res.folioId!);
+        expect(f.totals.balanceDueVnd, `${st.res.code} hết nợ`).toBe(0);
+        expect(f.totals.creditVnd ?? 0, `${st.res.code} không dư thừa`).toBe(0);
+      }
+      // H24 "Yêu cầu của tôi" chỉ có ở Tổng quan của lễ tân; yêu cầu xóa nợ chỉ MGR/OWN gửi nên câu áp một phần ở H24
+      // không có người xem – QA ghi Note cho FE-A/UXD (18/10), không kiểm ở đây.
     });
   },
 );

@@ -11,10 +11,7 @@
 import { test } from '@playwright/test';
 
 /** Mã → mô tả ngắn (mục S4, vai sửa). Chỉ ghi mục ĐANG MỞ trên nhánh chính. */
-export const OPEN: Readonly<Record<string, string>> = {
-  'BUG-R2-201':
-    'SM-13: MGR điều chỉnh dòng trên folio `closed` (sau J15) → 409 FOLIO_LOCKED – BE-B / ARC (số QA đề xuất, ORC xác nhận)',
-};
+export const OPEN: Readonly<Record<string, string>> = {};
 
 function fixedByEnv(): Set<string> {
   return new Set(

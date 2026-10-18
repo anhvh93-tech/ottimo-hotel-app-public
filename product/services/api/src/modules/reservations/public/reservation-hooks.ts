@@ -168,6 +168,12 @@ export interface OpenDebt {
   dueDate: LocalDate;
   /** "Còn phải thu" of the folio – the cap of a debt receipt (422 AMOUNT_EXCEEDS_BALANCE + `max`). */
   balanceDueVnd: number;
+  /**
+   * DOM 18/10 (BR-525): the OPEN debt – from the debt records of the open cycle (B18 = what was owed, G-4 = each
+   * increase, J15 = everything owed) minus what was collected or written off since; capped by `balanceDueVnd`.
+   * After the post-checkout window everything owed is debt (= `balanceDueVnd`). The cap of a `debt_write_off` FOC.
+   */
+  openDebtVnd: number;
 }
 export type OpenDebtReader = (tx: Tx, folioId: string) => Promise<OpenDebt | null>;
 

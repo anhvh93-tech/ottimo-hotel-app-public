@@ -22,8 +22,23 @@ export interface SourcedNight {
   /** The typed price before the BR-107 tier (`calendarVnd` of the night). */
   calendarVnd: number;
   source: NightSource;
-  /** Room bought when the price was typed (`manual` only); null/absent = the stay's origin room. */
+  /**
+   * Room bought when the price was typed (`manual`) or when the agreement was inherited (`agreedRateVnd`);
+   * null/absent = the stay's origin room.
+   */
   anchorRoomId?: string | null;
+  /**
+   * DOM 18/10 (G-5, AN-50): a night written by B9a/B13/B18/MovePlanner whose price came from an agreed reference
+   * night CARRIES that agreement – the agreed price before clamp/min (GKM). Such a night is a reference night like
+   * a typed one and is read at THIS price, not at its written one. Absent/null = no inherited agreement.
+   */
+  agreedRateVnd?: number | null;
+}
+
+/** G-5: the agreed price a night offers as a reference – typed → its price; inherited → the agreement; else null. */
+export function agreementOf(n: SourcedNight): number | null {
+  if (n.source === 'manual') return n.calendarVnd;
+  return n.agreedRateVnd ?? null;
 }
 
 /**
@@ -83,11 +98,11 @@ export function referenceNightRate(
 ): number | null {
   const candidates = nights
     .filter((n) => (side === 'before' ? n.date < addedDate : n.date > addedDate))
-    .filter((n) => n.source === 'manual' && !isSpecial(n.date))
+    .filter((n) => agreementOf(n) !== null && !isSpecial(n.date))
     .filter((n) => (n.anchorRoomId ?? originRoomId) === boughtRoomId)
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   const n = side === 'before' ? candidates[candidates.length - 1] : candidates[0];
-  return n ? n.calendarVnd : null;
+  return n ? agreementOf(n) : null;
 }
 
 /**
@@ -108,9 +123,17 @@ export function addedNightPrice(i: {
   special: boolean;
   /** The reference night's price of an agreed stay (null = none, or not an agreed stay). */
   referenceVnd: number | null;
-}): { rateVnd: number; floorVnd: number; ceilingVnd: number; keep: boolean } {
+}): {
+  rateVnd: number;
+  floorVnd: number;
+  ceilingVnd: number;
+  keep: boolean;
+  /** G-5 (AN-50): the agreement the night inherits (GKM from the reference night, before clamp/min) – null = none. */
+  agreedVnd: number | null;
+} {
   const fromReference = !i.special && i.referenceVnd !== null;
   const boughtVnd = fromReference ? (i.referenceVnd as number) : i.bought.rateVnd;
+  const agreedVnd = fromReference ? (i.referenceVnd as number) : null;
   const clamp = (v: number, b: RoomRateOn) => Math.min(b.ceilingVnd, Math.max(b.floorVnd, v));
   if (i.sameRoom) {
     return {
@@ -118,6 +141,7 @@ export function addedNightPrice(i: {
       floorVnd: i.night.floorVnd,
       ceilingVnd: i.night.ceilingVnd,
       keep: fromReference,
+      agreedVnd,
     };
   }
   return {
@@ -125,5 +149,6 @@ export function addedNightPrice(i: {
     floorVnd: Math.min(i.bought.floorVnd, i.night.floorVnd),
     ceilingVnd: Math.max(i.bought.ceilingVnd, i.night.ceilingVnd),
     keep: true,
+    agreedVnd,
   };
 }

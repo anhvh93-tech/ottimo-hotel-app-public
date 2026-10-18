@@ -120,6 +120,9 @@ export const approvalRequest = pgTable(
     lineChange: jsonb('line_change'),
     // Why the server cancelled a pending request by itself (only on status = cancelled).
     autoCancelReason: text('auto_cancel_reason'),
+    // 0077 (FB-R2-SEC-BE-80, BR-525): the most a `debt_write_off` FOC may ever apply – fixed when it is applied
+    // (min(approved, open debt then)); NULL = the request's amount.
+    appliedCapVnd: bigint('applied_cap_vnd', { mode: 'number' }),
     // 0060 (BE-B S4-02/S4-18): current service date of the FOC KEY of a request on a room / extra-person line
     // (BR-434 (1)–(3): moves with the nights, also while dormant/pending). NULL for other lines.
     focServiceDate: date('foc_service_date', { mode: 'string' }),
@@ -230,7 +233,12 @@ export const approvalRequest = pgTable(
     check(
       'approval_request_auto_cancel_reason_check',
       // 0063 (0.3.7 bổ sung 4, S438-CANCEL-03): + no_show_restored – B12 auto-cancels the refund of the no-show.
-      sql`${t.autoCancelReason} IS NULL OR (${t.autoCancelReason} IN ('line_removed', 'reservation_cancelled', 'reservation_no_show', 'superseded', 'no_show_restored') AND ${t.status} = 'cancelled')`,
+      // 0077 (FB-R2-SEC-BE-80): + debt_cleared – a `debt_write_off` approved when no debt is left is cancelled.
+      sql`${t.autoCancelReason} IS NULL OR (${t.autoCancelReason} IN ('line_removed', 'reservation_cancelled', 'reservation_no_show', 'superseded', 'no_show_restored', 'debt_cleared') AND ${t.status} = 'cancelled')`,
+    ),
+    check(
+      'approval_request_applied_cap_check',
+      sql`${t.appliedCapVnd} IS NULL OR (${t.appliedCapVnd} >= 0 AND ${t.type} = 'foc')`,
     ),
     // 0060 (BE-B S4-02): the key date exists only on foc / special_discount requests.
     check(

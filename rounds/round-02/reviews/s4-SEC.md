@@ -450,6 +450,95 @@ Nguồn: `outputs/FE/s4-report.md`, mục "FE-B – UXR S4", dòng P-06 và gi�
   - dòng không bấm được; không lưu vào Web Storage/IndexedDB (giữ quy tắc `app/storage.ts`).
 - Nhắc lại SR-DEV-09: máy cá nhân của nhân viên không bao giờ được cấp quyền. Việc trang này mở được trên máy chưa cấp không đổi quy định dùng thiết bị của cơ sở.
 
+### C.12 Vòng sửa 7 (gộp #18 = `316b9ac`) – đường `debt_write_off` và N-7 (SEC, 18/10)
+
+Nguồn: `reviews/s4-money-recheck7.md` (mục "Phân loại bảo mật", BUG-R2-203, N-7), ARC 16.27 mục 2 và 16.28, BE-B `foc.service.ts`.
+
+Mã kiểm:
+- `316b9ac`, cộng phần BE-B chưa commit ở `foc.service.ts`: trần lấy `OpenDebt.openDebtVnd`, không lấy số dư. Phần sửa này không chạm chỗ lỗi dưới đây.
+- Ca thử của SEC nằm ngoài repo: bản sao `reversal-debt-g4.test.ts` cộng một ca `SEC-R7`, chạy trên DB mới `ottimo_test_sec_r7`.
+
+**Kết quả `debt_write_off`:**
+
+| Điểm kiểm | Kết quả | Bằng chứng |
+|---|---|---|
+| Vai: chỉ OWN, MGR | Đạt | `foc.service.ts` `WRITE_OFF_ROLES = ['owner','manager']`, FD → 403. Test "R7LOCK-02 rules" |
+| `kind = foc`, ghi chú bắt buộc, chỉ khi có công nợ mở, folio đang mở → 422 | Đạt | Cùng test |
+| Hạn mức BR-433 (MGR tới giá 1 đêm, vượt → chờ OWN) | Đạt | `approvals.submit` với `limitBasisVnd = nightRateBasis`; test 5.000.000 → `pending`, `requiredRole: owner` |
+| **Trần ≤ công nợ đang mở** | **Không đạt** | Chỉ kiểm lúc **gửi**. Lúc **duyệt** không kiểm lại, và lúc gửi không trừ các yêu cầu xóa nợ đang chờ (FB-R2-SEC-BE-80) |
+| Audit, báo cáo | Đạt | Audit money `folio.foc_requested` (ghi chú = lý do), dòng duyệt, audit hoa hồng `commission.projected`; báo cáo FOC tách mã `debt_write_off`, không vào cảnh báo BR-435 (`reporting/internal/attention-sources.ts`) |
+| Đua với thu nợ (MGR tự áp ‖ FD thu) | Đạt | L1 → L3 ở cả hai lệnh; test cặp đua "R7LOCK-02 … one 201, the other 409" ở cả hai thứ tự |
+| **Đua "yêu cầu chờ OWN" ‖ thu nợ** | **Không đạt** | FB-R2-SEC-BE-80 |
+
+Ca thử `SEC-R7`:
+- (A) Công nợ 5.000.000. MGR xin xóa 5.000.000 → `pending`. Khách trả đủ 5.000.000 → 201. OWN duyệt → 200 `approved`. Kết quả: folio `closed`, còn phải thu 0, **dư thừa 5.000.000**.
+- (B) Công nợ 8.000.000, thu 3.000.000, còn 5.000.000. Hai yêu cầu xóa 5.000.000 và 3.000.000 đều qua trần lúc gửi, đều `pending`. OWN duyệt cả hai → **dư thừa 3.000.000** trên folio `closed`.
+
+### FB-R2-SEC-BE-80
+- Mức độ: **Blocker** (sai tiền – protocol mục 6; rủi ro SEC: Medium) | Người sửa: BE-B (folio, approvals); BE-A (cổng `openDebt`/`debtSettled`); QA cấp mã lỗi
+- Vị trí:
+  - `folio/internal/foc.service.ts` `request` (trần `min(headroom, nợ)` chỉ lúc gửi, không trừ yêu cầu xóa nợ đang chờ);
+  - `onDecided` → `syncReductions` → `afterWriteOff` (lúc duyệt không đối chiếu công nợ hiện tại).
+- Vấn đề: yêu cầu `debt_write_off` vượt hạn mức MGR phải chờ OWN. Trong lúc chờ:
+  - khách trả nợ, hoặc có yêu cầu xóa nợ khác;
+  - OWN duyệt sau đó, FOC vẫn được áp đủ số đã xin;
+  - kết quả là dư thừa trên folio `closed` (5.000.000 ở ca A, 3.000.000 ở ca B).
+  
+  Folio `closed` không chi hoàn được (`FOLIO_LOCKED`), nên số này treo trên sổ: báo cáo tiền sai, khách "được nợ lại" khoản đã trả.
+- Vì sao quan trọng:
+  - sai tiền trong luồng thường (khách chuyển khoản trả nợ sau khi quản lý đã xin xóa);
+  - mở đường gian lận nội bộ: xin xóa, cho người quen trả, rồi chờ đường hoàn ở R3;
+  - trái ARC 16.27 mục 2 ("không để xóa nợ sinh dư thừa").
+- Đề xuất sửa:
+  1. Lúc gửi: trần = min(dư địa của dòng, công nợ mở − Σ yêu cầu `debt_write_off` đang chờ của folio). Chạy dưới L1 → L3 như hiện tại.
+  2. Lúc duyệt: preLock đã giữ L1 → L3. Với `debt_write_off`, áp **min(số đã duyệt, công nợ mở lúc duyệt)**.
+     - Công nợ đã đóng hoặc bằng 0 → yêu cầu tự hủy (`superseded`, lý do "công nợ đã thu/xóa"), không ghi FOC, báo người xin.
+     - Phần áp được nhỏ hơn số xin → ghi rõ trong audit và trong phản hồi duyệt.
+     - Không bao giờ để `creditVnd > 0` vì xóa nợ.
+  3. Test:
+     - ca A và B ở trên → dư thừa 0, công nợ đóng một lần;
+     - cặp đua "OWN duyệt ‖ FD thu nợ" hai thứ tự, kết quả bằng chạy tuần tự;
+     - BR-525-15 giữ nguyên.
+- Hạn: **trước gộp #18 / trước khi QA đóng BUG-R2-203**. Đường mới này chưa đạt "trần ≤ công nợ".
+- Trạng thái: Open
+
+### FB-R2-SEC-BE-81 – N-7: chặn A32 giảm dòng khi đơn có công nợ mở – **quyết định SEC**
+- Mức độ: Major (rủi ro Medium – kiểm soát nội bộ) | Người sửa: BE-B (folio `adjustFolioLine`); BE-A (cổng `openDebt`); DOM chốt câu nghiệp vụ; BA sửa SM-13
+- Vị trí: `adjustFolioLine` (A32: `voidLine`, giảm `newQuantity`/`newUnitPriceVnd`) trên folio `settled` có công nợ mở.
+- Vấn đề: theo QA (2/2 tái hiện), MGR một mình void 1.500.000 và 1.200.000 trên folio `settled` đang nợ → 201. Không có yêu cầu duyệt, không vào báo cáo FOC/xóa nợ, `debt_settled_at` vẫn null. Cùng số đó qua `debt_write_off` thì phải chờ OWN (BR-433).
+  - Ca SEC thử thêm không đi tới đó: thiếu `If-Match` → 428. SEC dùng kết quả của QA.
+- Vì sao quan trọng: hai đường cho cùng một việc là tha tiền khách đang nợ. Đường không hạn mức, không vào báo cáo, sẽ thành đường chính để vượt BR-433. Audit có ghi nhưng không ai đọc nếu không có báo cáo.
+- **Quyết định SEC (kiểm soát nội bộ):**
+  - Khi đơn có công nợ mở, A32 **giảm** dòng (void, giảm số lượng/đơn giá) → **409** cho **mọi vai, kể cả OWN**. ARC chọn mã, dùng mã có sẵn, ví dụ `FOLIO_LOCKED` kèm `detail`.
+  - Desk chỉ sang "Xóa nợ" (`debt_write_off`). OWN dùng chính đường đó: tự áp không giới hạn nhưng vẫn vào báo cáo và đóng công nợ đúng cách.
+  - A32 **tăng** dòng trên folio `settled` vẫn được (công nợ đi theo số còn phải thu).
+  - Folio không có công nợ: giữ A32 như hiện nay (sửa sai trong cửa sổ 24 giờ).
+- DOM đang chốt câu nghiệp vụ. Nếu DOM chọn "A32 là sửa sai có audit" thì SEC **không đồng ý** giữ nguyên. Cách thay tối thiểu:
+  - A32 giảm trên đơn có công nợ phải qua hạn mức BR-433 như FOC;
+  - và vào báo cáo xóa nợ.
+- Test:
+  - đơn có công nợ: MGR và OWN void/giảm → 409, folio và công nợ không đổi;
+  - tăng dòng → 201, công nợ tăng;
+  - đơn không nợ trong cửa sổ: A32 như cũ.
+- Hạn: sửa trong round (Major), cùng PR với BE-80 nếu kịp; muộn nhất trước dữ liệu thật.
+- Trạng thái: Open
+
+### FB-R2-SEC-BE-82
+- Mức độ: Suggestion | Người sửa: BE-B; ARC
+- Vấn đề:
+  - (a) 403 theo trường trong handler (FD gửi `debt_write_off`, FD gửi `debt` ở B18) không ghi `access.denied`. Chỉ guard theo operation mới ghi (SR-AZ-01).
+  - (b) MGR tự áp `debt_write_off` trong hạn mức không bắt nhập lại mật khẩu. Đây là tha tiền sau khi đã chốt bill, nên SEC đề nghị nhập lại mật khẩu như khi duyệt (`approveRequest`).
+- Đề xuất sửa:
+  - (a) helper chung ghi `access.denied` cho 403 trong handler;
+  - (b) `requestFoc` với `reasonCode = debt_write_off` bắt buộc `authMethod`/`secret` của người gọi (`PasswordReauth.verify`, bộ đếm SR-RL-02).
+- Hạn: R3, hoặc cùng BE-80 nếu tiện.
+- Trạng thái: Open
+
+**Kết luận C.12:**
+- Đường `debt_write_off` **chưa đạt** vì Blocker BE-80 (sai tiền khi duyệt muộn). Phải sửa trước gộp #18 và trước khi đóng BUG-R2-203.
+- N-7: **SEC quyết chặn A32 giảm dòng khi có công nợ mở** (BE-81, Major).
+- Không có lỗ hổng xác thực mới. Không có ESC mới.
+
 ## D. Điểm làm tốt (nên giữ)
 1. PWA offline chép từng trường theo danh sách cho phép, có test dump IndexedDB thật; service worker không cache API; đăng xuất xóa sạch; `guard.test` chặn gọi endpoint C3.
 2. SSE có mức sàn theo loại sự kiện, hub đóng an toàn, payload chỉ id; phiên và vai kiểm lại theo heartbeat.

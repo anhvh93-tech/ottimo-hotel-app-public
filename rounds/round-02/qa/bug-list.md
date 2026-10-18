@@ -8,10 +8,10 @@
 | Mức | Số lỗi | Open | Fixed | Deferred | Closed |
 |---|---|---|---|---|---|
 | P0 | 10 | 0 | 0 | 0 | 10 |
-| P1 | 64 | 0 | 3 | 0 | 61 |
-| P2 | 72 | 9 | 12 | 1 | 50 |
+| P1 | 66 | 0 | 4 | 0 | 62 |
+| P2 | 75 | 8 | 11 | 1 | 55 |
 | P3 | 55 | 16 | 3 | 0 | 36 |
-| **Tổng** | **201** | **25** | **18** | **1** | **157** |
+| **Tổng** | **206** | **24** | **18** | **1** | **163** |
 
 **Sprint 4 D1 (QA, 17/10 ~17:00–19:40, mục 11):**
 - **Ca tự động cho 7 lỗi tiền 055…061 đã có trong repo**, cùng ca cho S4-21, S4-04, S4-23, S4-35, B-6 (`expectedVersion`), BR-402-01 và tập đóng `AuditEvent.action`:
@@ -229,13 +229,18 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | BUG-R2-192 | P2 | UXD MOB-S4-02: nút "Quay lại" PWA dùng vỏ nút mặc định của trình duyệt (màu ngoài bảng) | MOB | **Fixed** (UXD Verified 18/10) – chờ gộp + CI |
 | BUG-R2-193 | P3 | H23 guest-web 390×844: hàng nút "Quay lại" / "Gửi yêu cầu" của form yêu cầu nằm dưới thanh tab đáy tới khi khách cuộn (axe `target-size` serious ở vị trí đầu; cuộn xuống thì hết) | MOB | Open |
 | BUG-R2-194 | P2 | H13 trước 06:00 (B9a): Desk nêu "Khách nhận trước 06:00 – thêm đêm …: **0 đ**" và bỏ ô "đã báo khách" – Desk lấy `earlyCheckinSurcharge.amountVnd` (0), tiền đêm ở `priorNight.defaultRateVnd`; số cần thu (708.000) đúng | FE-A | **Fixed** (18/10 ~11:50 – FE-A `CheckInPage.tsx`, cây chưa gộp; TC-L3-085 đạt không `knownBug`, H13 nêu 708.000 đ, mục 11.26) – Closed khi CI #16 xanh |
-| **BUG-R2-195** | **P1** | Kiểm lại lần 6 – R6RATE-01 + R6RATE-02 (gộp): MovePlanner (B7) bỏ qua đêm tham chiếu của đơn **thỏa thuận chưa từng đổi căn** (`origin_room_id` NULL, truyền `?? null`) → đêm thêm lấy lịch căn khách mua: 202 thỏa thuận 650.000 → 792.000 (thừa 142.000/đêm), 102 900.000 → 750.000 (thiếu 150.000); ghi thật vào folio. Trái phụ lục 5A AN-46, AN-47 (b), AN-48 | BE-A (+ DOM/ARC câu chữ, QA oracle) | **Fixed** 18/10 ~13:05 trên cây chưa gộp (BE-A `move-planner.ts` dùng `stayRooms` như B13 + `referenceSide` AN-48): `br417-an-table` (BR-417-21 A–F, BR-417-22) và `move-pricing` xanh; E2E trước gộp #17 trên cây chung (api-dist23, CSDL mới `ottimo_qa23`, migration tới 0074) + tích hợp BE 9 tệp 241/241 trên CSDL riêng `ottimo_test_qa_r17`. Lộ một kỳ vọng E2E sai: TC-L2-103 dựng đơn BR-429-12 bằng giá gõ (thành đơn thỏa thuận) – QA sửa thành đơn lịch giá, đạt. Closed khi CI #17 xanh và lượt kiểm lại 7 (fuzz `r6rate`) xanh |
-| BUG-R2-196 | P2 | Kiểm lại lần 6 – R6MISC-01: `recordMinibarCheck` vẫn nhận lần đếm thiếu `periodId` (hoặc thiếu cả `roomId`) → 201, mở lại đường thu thừa của 168 (kỳ `carry`: [35.000, 35.000], B18 thu 70.000, đúng 35.000). Trái `openapi.yaml` `required: [mode, lines, roomId, periodId]`, ARC 16.19 K11-08. Bắt buộc trước cổng | BE-B (+ ARC xóa câu K11-03 "vắng cả hai"; QA đổi ca) | **Fixed** 18/10 ~12:04 trên cây chưa gộp (BE-B `minibar.controller.ts`/`minibar.service.ts`; ca K11-05 "client cũ" của `minibar-m1` BE-B đã đổi sang 422): TC-L4-145 đạt trên api-dist21 (FD/HK vắng cả hai, chỉ `roomId` → 422 `REQUIRED`, 0 lần đếm). Closed khi CI của lần gộp xanh và lượt kiểm lại 7 chạy `r6misc/k1103` xanh |
-| BUG-R2-197 | P2 | Kiểm lại lần 6 – R6FIX-01: 0067 bỏ sót tủ đã bị 164 làm hỏng trên dữ liệu ce90d19/f04052d: không RAISE, K1 ≠ 0, B18 thu minibar hai lần (140.000 thay 70.000). Trái ARC 16.17 mục 3, chính sách 0067 (b). Bắt buộc trước cổng (sửa hoặc OPS/DATA chứng nhận K1–K4 = 0) | BE-B (migration mới) + ARC + OPS/DATA | **Fixed** 18/10 ~13:05 trên cây chưa gộp (0071 `minibar_double_count_check`): `minibar-m1` "BUG-R2-197 (0071)" xanh; E2E trước gộp #17 trên cây chung (api-dist23, CSDL mới `ottimo_qa23`, migration tới 0074) + tích hợp BE 9 tệp 241/241 trên CSDL riêng `ottimo_test_qa_r17`. Closed khi CI #17 xanh và lượt 7 chạy `r6fix/mig` 3 pha |
-| BUG-R2-198 | P2 | Kiểm lại lần 6 – R6LOCK-01: duyệt/từ chối/hủy yêu cầu `late_checkout_conflict` khóa `approval_request` (L4) trước đơn (L1); song song với B18/B13 → 40P01, 409 `CONCURRENT_UPDATE`. Không lệch tiền. Trái ARC 16.19 | BE-A (frontdesk preLock) + BE-B (`ApprovalService`) + ARC | **Fixed** 18/10 ~13:05 trên cây chưa gộp (preLock theo loại – `ApprovalService.decisionHooks`): `s4-recheck6-be-a` 6 ca 198 + `reversal-debt-g4` cấu trúc/refund xanh; E2E trước gộp #17 trên cây chung (api-dist23, CSDL mới `ottimo_qa23`, migration tới 0074) + tích hợp BE 9 tệp 241/241 trên CSDL riêng `ottimo_test_qa_r17`. Closed khi CI #17 xanh và lượt 7 chạy `r6lock/approval-order` |
-| BUG-R2-199 | P3 | Kiểm lại lần 6 – R6MISC-02 (phần BE-C của 163): HK `start`/`complete` nhận `performedAt` sớm hơn lúc việc được tạo → 200 (đúng 422 `PERFORMED_AT_OUT_OF_RANGE`, ARC 16.17 mục 2). Không ảnh hưởng tiền | BE-C | **Fixed** 18/10 ~13:05 trên cây chưa gộp: `housekeeping-s4-arc` "BUG-R2-199" xanh (422 `performedAt` trước lúc tạo việc); E2E trước gộp #17 trên cây chung (api-dist23, CSDL mới `ottimo_qa23`, migration tới 0074) + tích hợp BE 9 tệp 241/241 trên CSDL riêng `ottimo_test_qa_r17`. Closed khi CI #17 xanh |
-| BUG-R2-200 | P2 | Kiểm lại lần 6 – GAP-DOM G-4, BR-525 (DOM 18/10): MGR đảo khoản thu sau B18 (folio `settled`) làm còn phải thu > 0 → không ghi công nợ, không báo OWN/MGR, không "Cần chú ý" (folio `settled` còn nợ 100.000, `checkout_mode = desk`). **Có lệch tiền** (khoản nợ không được theo dõi) | BE-B (folio/`reversePayment`) + BE-A (công nợ) | **Fixed** 18/10 ~13:05 trên cây chưa gộp (BE-B `reversePayment` + nhánh thu nợ `recordPayment`, BE-A 0073/0074 `debt_default_due_days` = 3, `openDebt`/`debtSettled`, FE-A "Thu công nợ"): TC-L4-146…148, TC-X-081 đạt; `reversal-debt-g4`, `s4-recheck6-be-a` xanh; gỡ `pendingFix` BR-525-02, 04…12 (còn BR-525-03 – chưa có ca chạy thật cho folio đang thừa). Closed khi CI #17 xanh |
-| BUG-R2-201 | P2 | (số QA đề xuất – ORC xác nhận) SM-13 lệch mã: folio `closed` "chỉ MGR+ điều chỉnh, có lý do", nhưng `adjustFolioLine` trả 409 `FOLIO_LOCKED` cho mọi vai khi folio `closed` (`folio-lines.service.ts`, có từ Sprint 3). Trước R7 folio không bao giờ `closed` nên chưa lộ; nay J15 đóng folio sau 24 giờ → quản lý không sửa được dòng tính sai sau khi đóng (chỉ còn FOC `debt_write_off` khi có công nợ) | BE-B (+ ARC/BA chốt SM-13) | Open – TC-L4-068 `knownBug` (E2E trước gộp #18) |
+| **BUG-R2-195** | **P1** | Kiểm lại lần 6 – R6RATE-01 + R6RATE-02 (gộp): MovePlanner (B7) bỏ qua đêm tham chiếu của đơn **thỏa thuận chưa từng đổi căn** (`origin_room_id` NULL, truyền `?? null`) → đêm thêm lấy lịch căn khách mua: 202 thỏa thuận 650.000 → 792.000 (thừa 142.000/đêm), 102 900.000 → 750.000 (thiếu 150.000); ghi thật vào folio. Trái phụ lục 5A AN-46, AN-47 (b), AN-48 | BE-A (+ DOM/ARC câu chữ, QA oracle) | **Closed** 18/10 – kiểm lại lần 7 (`reviews/s4-money-recheck7.md`, cc02fba): ĐÃ SỬA có số (MP-1/2/3 650.000/650.000/900.000; fuzz 1.040 chuỗi 0 lệch) |
+| BUG-R2-196 | P2 | Kiểm lại lần 6 – R6MISC-01: `recordMinibarCheck` vẫn nhận lần đếm thiếu `periodId` (hoặc thiếu cả `roomId`) → 201, mở lại đường thu thừa của 168 (kỳ `carry`: [35.000, 35.000], B18 thu 70.000, đúng 35.000). Trái `openapi.yaml` `required: [mode, lines, roomId, periodId]`, ARC 16.19 K11-08. Bắt buộc trước cổng | BE-B (+ ARC xóa câu K11-03 "vắng cả hai"; QA đổi ca) | **Closed** 18/10 – kiểm lại lần 7 (`reviews/s4-money-recheck7.md`, cc02fba): ĐÃ SỬA có số (thiếu `roomId`/`periodId` → 422, 0 lần đếm) |
+| BUG-R2-197 | P2 | Kiểm lại lần 6 – R6FIX-01: 0067 bỏ sót tủ đã bị 164 làm hỏng trên dữ liệu ce90d19/f04052d: không RAISE, K1 ≠ 0, B18 thu minibar hai lần (140.000 thay 70.000). Trái ARC 16.17 mục 3, chính sách 0067 (b). Bắt buộc trước cổng (sửa hoặc OPS/DATA chứng nhận K1–K4 = 0) | BE-B (migration mới) + ARC + OPS/DATA | **Closed** 18/10 – kiểm lại lần 7 (`reviews/s4-money-recheck7.md`, cc02fba): ĐÃ SỬA có số (0071 RAISE đúng tủ; dữ liệu sạch qua; phần chặn thừa tách thành BUG-R2-204) |
+| BUG-R2-198 | P2 | Kiểm lại lần 6 – R6LOCK-01: duyệt/từ chối/hủy yêu cầu `late_checkout_conflict` khóa `approval_request` (L4) trước đơn (L1); song song với B18/B13 → 40P01, 409 `CONCURRENT_UPDATE`. Không lệch tiền. Trái ARC 16.19 | BE-A (frontdesk preLock) + BE-B (`ApprovalService`) + ARC | **Closed** 18/10 – kiểm lại lần 7 (`reviews/s4-money-recheck7.md`, cc02fba): ĐÃ SỬA có số (ma trận 29/29, deadlocks +0) |
+| BUG-R2-199 | P3 | Kiểm lại lần 6 – R6MISC-02 (phần BE-C của 163): HK `start`/`complete` nhận `performedAt` sớm hơn lúc việc được tạo → 200 (đúng 422 `PERFORMED_AT_OUT_OF_RANGE`, ARC 16.17 mục 2). Không ảnh hưởng tiền | BE-C | **Fixed** 18/10 – ARC chấp nhận dung sai 5 phút (16.17 mục 2, 16.29; hằng `CLOCK_SKEW_MS`). QA đổi kỳ vọng 6 ca (`r6misc/k1109-hk163` ca 163; `w-r6misc-1-0` ×2; `w-r6misc-1-1` ×3 – bản ở `scratchpad/s438/wt17`): −1 s, −5 phút, 09:55/10:00 → 200; −5 phút 01 s, −10 phút → 422; tiền 140.000 – 11/11 đạt trên cc02fba (CSDL riêng). Ca BE `housekeeping-s4-arc` "BUG-R2-199" đã theo dung sai. Closed khi lượt kiểm lại 8 xanh |
+| BUG-R2-200 | P2 | Kiểm lại lần 6 – GAP-DOM G-4, BR-525 (DOM 18/10): MGR đảo khoản thu sau B18 (folio `settled`) làm còn phải thu > 0 → không ghi công nợ, không báo OWN/MGR, không "Cần chú ý" (folio `settled` còn nợ 100.000, `checkout_mode = desk`). **Có lệch tiền** (khoản nợ không được theo dõi) | BE-B (folio/`reversePayment`) + BE-A (công nợ) | **Closed** 18/10 – kiểm lại lần 7 (`reviews/s4-money-recheck7.md`, cc02fba): ĐÃ SỬA có số (BR-525-01 100.000; BR-525-03 70.000, yêu cầu hoàn `superseded`; thu đủ → đóng). `pendingFix` BR-525-03 gỡ sau ca chính thức TC-L4-152 |
+| BUG-R2-201 | P2 | (số QA đề xuất – ORC xác nhận) SM-13 lệch mã: folio `closed` "chỉ MGR+ điều chỉnh, có lý do", nhưng `adjustFolioLine` trả 409 `FOLIO_LOCKED` cho mọi vai khi folio `closed` (`folio-lines.service.ts`, có từ Sprint 3). Trước R7 folio không bao giờ `closed` nên chưa lộ; nay J15 đóng folio sau 24 giờ → quản lý không sửa được dòng tính sai sau khi đóng (chỉ còn FOC `debt_write_off` khi có công nợ) | BE-B (+ ARC/BA chốt SM-13) | **Closed – theo thiết kế (SM-13 sửa)** 18/10 – ARC 16.28 phương án (b): folio `closed` là chốt cuối, `adjustFolioLine` 409 `FOLIO_LOCKED` với mọi vai; sửa sau khi đóng = FOC `debt_write_off` (MGR/OWN) hoặc thu nợ. **Điều kiện: DOM xác nhận** (chưa có thì mở lại). TC-L4-068 đổi kỳ vọng, gỡ `knownBug`; `stay-checkout.s3` 41 đạt / 1 bỏ qua trên api-dist24 |
+| **BUG-R2-202** | **P1** | Kiểm lại lần 7 – R7LOCK-01 (nâng từ P2): khoản phát sinh sau trả phòng chưa trả quá 24 giờ không thành công nợ, không báo quản lý, sau đó không thu được (409 `FOLIO_LOCKED`) – mất nợ. Gốc: thiếu job J15 `folio.close`. Trái BR-427 (d), BR-525 | BE-B (J15) + BE-A (`debtOnCheckout`) + ARC 16.27 mục 1 | **Fixed** ở gộp #18 `316b9ac` – TC-L4-149, TC-L4-150, TC-L4-068 (R7) đạt trên cây trước gộp #18; Closed khi lượt kiểm lại 8 xanh |
+| BUG-R2-203 | P2 | Kiểm lại lần 7 – R7LOCK-02: không có đường xóa nợ cho công nợ sau trả phòng (MGR FOC trên folio `settled` luôn 409). DOM 18/10: xóa nợ ở R2 bằng FOC `debt_write_off`, hạn mức BR-433 | BE-B + BE-A + FE-A + DATA | **Fixed** ở gộp #18 `316b9ac` – TC-L4-151, TC-X-082 đạt; oracle BR-525-14/15 · 206 đã sửa (vòng sửa 8) → **sẵn sàng đóng ở lượt kiểm lại 8** |
+| BUG-R2-204 | P2 | Kiểm lại lần 7 – R7MIG-01: 0067 (a) bỏ sót tủ có kỳ `carry` mở sau lần đếm 365486f → 0071 RAISE chặn migrate trên dữ liệu không thu trùng (do vòng sửa 6) | BE-B (0075 + sửa thân 0071) + ARC 16.17/16.27 mục 3 + OPS | **Fixed** ở gộp #18 `316b9ac` – 0071 chỉ kiểm K1b′, 0075 bù kỳ; `minibar-m1` xanh (84/84 ở mục 11.29); ORC/OPS ghi decision-log việc sửa thân 0071 |
+| BUG-R2-205 | P2 | Kiểm lại lần 7 – R7ALL-01: giấy tờ chính của người đặt (thiếu ngày sinh) gửi không có `partyMemberId` → server thêm người đi cùng `unknown`/người lớn **không cảnh báo**; lần đổi người sau tính phụ thu cho người này hoặc chặn trẻ thật. Tiền đúng hợp đồng (ARC 16.22 bỏ nhánh `isMain`), phần lệch là thiếu cảnh báo vượt số khách. Trước bản dùng thử | BE-C (`overCount`) + FE-A (cảnh báo Desk) + ARC (trường cảnh báo, ví dụ `partyOverCount`) (+ BE-A xem `PartyService.add`) | **Fixed** 18/10 trên cây chưa gộp (trước gộp #19): BE-C `partyOverCount` + FE-A cảnh báo H14 (`checkin.docs.over_party`, "Bỏ người thừa", "Gắn lại giấy tờ"). TC-L3-087 (A) và (E – Desk H14, axe) đạt trên api-dist27 (CSDL mới `ottimo_qa27`). Closed khi CI #19 xanh |
+| **BUG-R2-206** | **P1** | SEC FB-R2-SEC-BE-80 (Blocker sai tiền, `reviews/s4-SEC.md` C.12): trần xóa nợ `debt_write_off` chỉ kiểm lúc GỬI, không trừ yêu cầu xóa nợ đang chờ, lúc DUYỆT không đối chiếu công nợ hiện tại → (A) yêu cầu 5.000.000 chờ OWN, khách trả đủ, OWN duyệt → dư thừa 5.000.000 trên folio `closed`; (B) hai yêu cầu 5.000.000 + 3.000.000 cùng chờ trên nợ 5.000.000 → dư thừa 3.000.000. Folio `closed` không chi hoàn được – tiền treo, mở đường gian lận nội bộ | BE-B (folio `foc.service`, approvals `onDecided`) + BE-A (`openDebt`/`debtSettled`) | **Fixed** 18/10 vòng sửa 8 trên cây chưa gộp (BE-B `s4-be-b.md` mục 25, 0077 `approval_request.applied_cap_vnd`): gửi vượt trần (trừ yêu cầu đang chờ) → 422 `max` (có thể 0); duyệt áp min(số xin, nợ mở lúc duyệt), `effectiveAmountVnd` cố định; nợ về 0 → 200 `cancelled` `debt_cleared`, không FOC. TC-L4-155…157 đạt không `knownBug` trên api-dist26 (CSDL mới); gỡ `pendingFix` BR-525-18…20 |
 
 ## 2. Chi tiết
 
@@ -1814,4 +1819,61 @@ Căn cứ: `reviews/s4-money-recheck6.md` (723179b), mục "Trạng thái mã", 
   - desk-clock: 42/42.
   - Chạy lại TC-L4-068 và TC-L4-149: đạt (068 đỏ đúng chỗ khi `E2E_FIXED_BUGS=BUG-R2-201`).
 - `OPEN` = {BUG-R2-201}.
+- **18/10 ~15:10 (ORC, ARC 16.28 (b); DOM đang xác nhận):** BUG-R2-201 → Closed – theo thiết kế (SM-13 sửa), có điều kiện DOM đồng ý.
+  - TC-L4-068 nay kỳ vọng MGR điều chỉnh dòng trên folio `closed` → 409 `FOLIO_LOCKED`.
+  - "Sửa sau khi đóng" của F2: MGR xóa 10.000 bằng FOC `debt_write_off` (201 `approved`), lễ tân thu nốt 40.000 → hết nợ, folio giữ `closed`.
+  - Đã gỡ `knownBug`; `OPEN` = {}. Chạy lại `clock/stay-checkout.s3.clock.spec.ts`: 41 đạt, 1 bỏ qua (điều kiện cũ).
+
+### 11.30 Kiểm lại tiền lần 7 – cấp số, đóng mã, R7ALL-02 (QA, 18/10 ~15:20)
+
+Căn cứ: `reviews/s4-money-recheck7.md` (cc02fba), ORC 18/10.
+- **Cấp số:**
+  - 202 (P1, R7LOCK-01 J15), 203 (P2, R7LOCK-02 xóa nợ), 204 (P2, R7MIG-01 0071/0075): **Fixed** ở gộp #18 `316b9ac`.
+  - 205 (P2, R7ALL-01 – thiếu cảnh báo vượt số khách khi giấy tờ người đặt không có `partyMemberId`; BE-C + FE-A + ARC): **Open**.
+- **Đóng** 195, 196, 197, 198, 200 theo báo cáo lần 7.
+- **199 để mở**: sửa một phần, chờ ARC chốt dung sai 5 phút.
+- **R7ALL-02:** ca BR-525-03 vào test chính thức – TC-L4-152 (`e2e/clock/debt-collect.s5.clock.spec.ts`). Đạt trên api-dist24 (cây #18): sau B18 `creditVnd` 30.000; đảo 100.000 → công nợ 70.000 (phần tăng); yêu cầu hoàn `cancelled` `superseded`; thu 70.000 → hết nợ, mục chú ý hết. Đã gỡ `pendingFix` BR-525-03; trong `br-examples.json` nay chỉ còn BR-309-18 (R3).
+- **Note – chờ chốt, không cấp số:**
+  - **N-6 (ARC; BE-B):** `Folio.version` chỉ tăng ở `adjustFolioLine`, không tăng khi B7/B9a/B13 ghi dòng đêm hay khi `recordPayment`. Câu openapi `adjustFolioLine` rộng hơn decision-log 16/10. Hệ quả quan sát: A32 ‖ thu nợ với If-Match đọc trước → [201, 201], dư 100.000 (không mất tiền, phải hoàn). ARC sửa câu chữ, cân nhắc tăng version khi `recordPayment` trên folio đã khóa.
+  - **N-7 (SEC; DOM):** MGR một mình giảm dòng bằng A32 (`voidLine`/`adjustFolioLine`) trên folio `settled` đang nợ → 201, không qua duyệt, không vào báo cáo FOC, `debt_settled_at` null – vượt hạn mức BR-433 so với `debt_write_off`. Chờ DOM chốt: khi có công nợ mở, giảm dòng phải đi `debt_write_off`, hay chấp nhận A32 là sửa sai có audit. (Từ ARC 16.28 (b), folio `closed` không còn A32 – BUG-R2-201.)
+
+### 11.31 Quyết định sau kiểm lại lần 7 + SEC C.12 (QA, 18/10 ~15:00–15:20)
+
+- **199 → Fixed**: ARC nhận dung sai 5 phút (16.29). QA đổi 6 ca trong `scratchpad/s438/wt17/.../test/s438/`: `r6misc/k1109-hk163` (ca 163), `w-r6misc-1-0` (lượt ×3, biên), `w-r6misc-1-1` (lượt ×3, biên, `start`). Bản cũ ở `scratchpad/qa-s4/r7-199-backup/`. Chạy trên cc02fba (CSDL riêng): 11/11 đạt.
+- **BUG-R2-206 (P1, mới – SEC BE-80)**: trần xóa nợ chỉ kiểm lúc gửi. Ca A: dư thừa 5.000.000; ca B: dư thừa 3.000.000 trên folio `closed`. Vẫn tái hiện trên cây chung có 0076/0077 (api-dist25). E2E TC-L4-155…157 gắn `knownBug`; `OPEN` = {BUG-R2-206}; oracle BR-525-18…20 `pendingFix`. **203 không đóng** tới khi 206 sửa xong.
+- **Đạt trên cây chung chưa commit (api-dist25):**
+  - N-7 (TC-L4-153): MGR, OWN void/giảm → 409.
+  - N-6 (TC-L4-154): A32 cũ → 412.
+  - AN-50 (TC-L4-158): B13 650.000. BE-A đã cài G-5 nên gỡ `pendingFix` BR-417-24.
+  - 205 phần API (TC-L3-087).
+- **Kết quả chạy:** `clock/debt-collect.s5` 13/13 (3 ca 206 đỏ đúng chỗ khi `E2E_FIXED_BUGS=BUG-R2-206`: dư thừa 5.000.000 / 3.000.000 / 5.000.000); `api/r7-decisions.s5` 1/1.
+
+### 11.32 Vòng sửa 8 – BUG-R2-206 (SEC BE-80), Kiểm thử (QA, 18/10 ~15:20–15:45)
+
+- **Bản sửa của BE-B** (`s4-be-b.md` mục 25, migration 0077):
+  - gửi vượt trần (đã trừ yêu cầu đang chờ) → 422 `max`;
+  - duyệt áp min(số xin, nợ mở), có `effectiveAmountVnd`;
+  - nợ đã về 0 → 200 `cancelled` `debt_cleared`.
+- **E2E trên cây chung chưa commit** (api-dist26, CSDL mới `ottimo_qa26`): `clock/debt-collect.s5` 13/13 đạt, không `knownBug`.
+  - Ca B đã đổi kỳ vọng: yêu cầu thứ hai 422 `max` 0; khách trả thêm 2.000.000 rồi OWN duyệt 5.000.000 → chỉ áp 3.000.000.
+  - Ca A: dòng FOC chờ duyệt chuyển `rejected`, không ghi dòng FOC nào.
+  - Đua: duyệt luôn 200; thu được 201 hoặc 409.
+- **Oracle:** gỡ `pendingFix` BR-525-18…20. `OPEN` = {}.
+- **Trạng thái:** 206 → **Fixed**. 203 sẵn sàng đóng ở lượt kiểm lại 8.
+- **API toàn bộ** (QA tự chạy trên CSDL mới riêng `ottimo_test_qa_full`): 100 tệp đạt, 1 tệp bỏ qua; **2.946 đạt**, 2 bỏ qua.
+- **Chưa chạy E2E trước gộp:** chờ ORC báo khi FE-A xong phần hiển thị áp một phần.
+
+### 11.33 E2E trước gộp #19 (QA, 18/10 ~15:35–15:50)
+
+- **Stack:** dựng lại từ cây chung (BE-A mục 22, BE-B mục 25 + audit `approval.applied_capped`, BE-C mục 20, FE-A đợt 24–25, UXD C.5; migration tới 0077) trên CSDL mới `ottimo_qa27`, `ottimo-qa-s4` (cổng 43000/48081–48083). Không đụng stack demo (8181–8183, 3100).
+- **E2E (retries 0):**
+  - api + rbac + desk-chromium (axe): 1.746 đạt, 61 bỏ qua (4 api có điều kiện; 55 rbac có điều kiện; 2 `fixme` được phép TC-L2-020 (E), TC-L2-076 (E)), 0 đỏ. 13 ca axe TC-X-040 đạt.
+  - clock: 158 đạt, 1 bỏ qua, 0 đỏ.
+  - desk-clock: 43/43.
+  - **Tổng 1.947 đạt, 0 đỏ.** `OPEN` = {}.
+- **Ca mới:**
+  - TC-L3-087 (E): Desk H14 cảnh báo "Đoàn đang thừa 1 người…" kèm nút "Bỏ người thừa", "Gắn lại giấy tờ", có axe.
+  - TC-X-083: H17 chủ đầu tư duyệt yêu cầu xóa nợ – câu áp một phần "Đã xóa công nợ 3.000.000 đ (yêu cầu 5.000.000 đ)…" và câu tự đóng "Công nợ đã thu đủ…", có axe.
+  - Cả hai đạt. **BUG-R2-205 → Fixed.**
+- **Note cho FE-A/UXD (không cấp số):** câu áp một phần ở H24 nằm trong mục "Yêu cầu của tôi" của Tổng quan, mục này chỉ có ở biến thể của lễ tân. Yêu cầu `debt_write_off` chỉ MGR/OWN gửi, mà Tổng quan của MGR hiện "Cần duyệt", nên người xin không thấy câu này ở H24. Câu vẫn có ở H17 (toast lúc duyệt) và nhật ký tiền (audit `approval.applied_capped`).
 

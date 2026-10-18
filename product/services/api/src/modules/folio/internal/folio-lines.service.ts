@@ -29,6 +29,7 @@ import { ATTACHMENT_USAGE, type AttachmentUsage } from '../../payments/public/at
 import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
 import { publishEvent } from '../../platform/public/staff-notify';
 import { applyPct } from '../../reservations/public/pricing';
+import { ReservationHooks } from '../../reservations/public/reservation-hooks';
 import { StayNightPricingPort } from '../../reservations/public/stay-night-pricing';
 import { FolioService } from '../public/folio.service';
 
@@ -77,6 +78,7 @@ export class FolioLinesService {
     // S4-35 part B (BE-B; part A BE-A): the ONE way to change the price of a stay night from the folio (required:
     // a wiring mistake fails at start-up, never as a 404 on a night line).
     @Inject(StayNightPricingPort) private readonly nightPricing: StayNightPricingPort,
+    @Inject(ReservationHooks) private readonly hooks: ReservationHooks,
     @Optional() @Inject(EventsService) private readonly events?: EventsService,
   ) {}
 
@@ -261,7 +263,7 @@ export class FolioLinesService {
     if (evidenceRequired && evidence.length === 0 && (note ?? '').length < 3) {
       errors.push({ field: 'evidenceAttachmentIds', code: 'EVIDENCE_REQUIRED' });
     }
-    const { today, now } = await this.today(tx);
+    const { today } = await this.today(tx);
     const serviceDate = (input.serviceDate ?? today) as LocalDate;
     if (serviceDate < stay.arrivalDate || serviceDate > stay.departureDate) {
       errors.push({ field: 'serviceDate', code: 'DATE_INVALID' });
@@ -324,7 +326,7 @@ export class FolioLinesService {
         row.id,
       ]);
     }
-    await this.bump(tx, folioId, now);
+    await this.folios.touch(tx, folioId);
     await publishEvent(tx, this.events, 'reservation.changed', stay.reservationId);
   }
 
@@ -338,11 +340,13 @@ export class FolioLinesService {
           ? 'rejected'
           : null;
     if (!next) return;
-    const { rowCount } = await tx.query(
-      `UPDATE folio_line SET line_state = $2 WHERE id = $1 AND line_state = 'pending_approval'`,
+    const { rows: changed } = await tx.query<{ folio_id: string }>(
+      `UPDATE folio_line SET line_state = $2 WHERE id = $1 AND line_state = 'pending_approval'
+       RETURNING folio_id`,
       [request.folio_line_id, next],
     );
-    if (!rowCount) return;
+    if (!changed[0]) return;
+    await this.folios.touch(tx, changed[0].folio_id);
     await this.audit.recordMoney(tx, {
       action: next === 'posted' ? 'folio.damage_posted' : 'folio.damage_rejected',
       entityType: 'folio_line',
@@ -395,6 +399,10 @@ export class FolioLinesService {
       [lineId],
     );
     const target = pre[0];
+    // 16.19 (FB-R2-ARC-BE-S4-16): L1 – every booking of the folio, id order – BEFORE the night branch, so that
+    // `setNightRate` only re-locks a booking already held (a child booking's night never locks the child before the
+    // primary); L3 below (`lockStay` re-takes L1 without waiting).
+    if (target && target.folio_id === folioId) await this.folios.lockStayBookings(tx, folioId);
     let night: { amountVnd: number } | null = null;
     if (
       target &&
@@ -429,7 +437,9 @@ export class FolioLinesService {
         night = { amountVnd: r.lineAmountVnd };
       }
     }
-    const folio = await this.folios.lock(tx, folioId);
+    // 16.19: L1 every booking of the folio (`NO KEY UPDATE`, id order) → L3 the folio – the open debt of a settled
+    // folio is read under these locks (BR-525 N-7 below).
+    const folio = await this.folios.lockStay(tx, folioId);
     if (!folio) throw problem('NOT_FOUND');
     if (folio.version !== version) {
       throw problem('VERSION_CONFLICT', { extras: { currentVersion: folio.version } });
@@ -474,6 +484,18 @@ export class FolioLinesService {
     }
     const qty = input.newQuantity ?? Number(line.quantity);
     const price = input.newUnitPriceVnd ?? line.unit_price_vnd;
+    // BR-525 N-7 (DOM 18/10): while the checked-out stay has an OPEN debt, no correction may REDUCE a line of the
+    // settled folio – owed money only goes down through a FOC `debt_write_off` (BR-433 limits, OWN above them, FOC
+    // report). An increase, or a folio without an open debt, keeps A32.
+    if (folio.status === 'settled') {
+      const before = Math.round(Number(line.quantity) * line.unit_price_vnd);
+      const after = input.voidLine ? 0 : night ? night.amountVnd : Math.round(qty * price);
+      if (after < before && (await this.hooks.openDebt(tx, folio.id)) !== null) {
+        throw problem('FOLIO_LOCKED', {
+          detail: 'open debt – reduce what is owed through a FOC debt_write_off (BR-525)',
+        });
+      }
+    }
     if (input.newUnitPriceVnd !== undefined && !managers && !night) {
       if (line.category === 'room') {
         // A31: FD/FDL change a night price only inside BR-105 floor–ceiling (of the line's price).
@@ -558,16 +580,8 @@ export class FolioLinesService {
       userId: actor.userId,
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });
-    await this.bump(tx, folio.id, this.clock.now());
+    await this.folios.touch(tx, folio.id);
     if (line.reservation_id)
       await publishEvent(tx, this.events, 'reservation.changed', line.reservation_id);
-  }
-
-  /** Folio ETag moves with every money change of its lines (If-Match of adjustFolioLine). */
-  private async bump(tx: Tx, folioId: string, now: Date): Promise<void> {
-    await tx.query('UPDATE folio SET version = version + 1, updated_at = $2 WHERE id = $1', [
-      folioId,
-      now,
-    ]);
   }
 }

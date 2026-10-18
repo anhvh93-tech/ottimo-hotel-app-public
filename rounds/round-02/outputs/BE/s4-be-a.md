@@ -930,3 +930,51 @@ Người kiểm lại cần đổi kỳ vọng của 18 ca này.
 - `drizzle-kit generate` báo "No schema changes"; `schema-parity` xanh.
 - tsc, eslint sạch. Prettier sạch trên các tệp BE-A sửa.
 - Không commit.
+
+## 22. Vòng sửa 8 – `openDebtVnd`, migration 0076, G-5 kế thừa giá thỏa thuận (AN-50)
+
+### 22.1 `OpenDebt.openDebtVnd` – công nợ đang mở, một nguồn số (DOM 18/10, BR-525)
+- `ReservationHooks.openDebt(tx, folioId)` trả thêm `openDebtVnd`. BE-B dùng số này làm trần của FOC `debt_write_off`.
+- **Cách tính**, trên chu kỳ nợ đang mở:
+  - `openDebtVnd` = `debt_recorded_vnd` − (Σ đã thu + đã xóa trên folio lúc này − `debt_base_vnd`), kẹp trong [0, `balanceDueVnd`].
+  - `debt_recorded_vnd` cộng dồn mỗi lần ghi nợ: B18 ghi toàn bộ số còn nợ; G-4 chỉ ghi phần tăng do việc đảo; J15 ghi toàn bộ.
+  - `debt_base_vnd` = Σ đã thu + đã xóa tại lúc mở chu kỳ.
+  - "Đã thu" = khoản thu `charge`/`deposit` của chính khách, không tính OTA và hoàn tiền; tính cả khoản sau đó bị đảo, vì lần đảo tự ghi phần tăng của nó. "Đã xóa" = dòng FOC `debt_write_off` đã ghi sổ.
+  - Không so thời điểm, nên khoản thu ghi cùng lúc với việc mở nợ (ví dụ thanh toán cuối ở B18) không bị tính sai.
+- Hết cửa sổ 24 giờ (folio `closed` hoặc đã qua `post_checkout_window_until`): mọi khoản còn nợ là công nợ, nên `openDebtVnd` = `balanceDueVnd` (ARC 16.27). Nợ ghi trước 0076 (chưa có chu kỳ) cũng tính như vậy.
+- **Test:** đảo 100.000 khi đang có minibar 70.000 trong cửa sổ → phải thu 170.000, công nợ mở 100.000. Thu 30.000 → còn 70.000. Hết cửa sổ → 140.000.
+  - Ca 16.26 (thu một phần rồi thu đủ) và ca 16.27 (J15 rồi xóa nợ một phần) cũng kiểm thêm `openDebtVnd`.
+
+### 22.2 Migration mới 0076, không sửa 0074
+- 0074 đã gộp và push (#17 `cc02fba`). DB nào đã chạy 0074 sẽ không chạy lại, nên cột thêm vào 0074 sẽ không bao giờ có trên DB đó; code lỗi lúc chạy, kể cả khi dựng lại stack demo.
+- Vì vậy đã hoàn nguyên `0074_debt_settled_at.sql`, `meta/0074_snapshot.json`, `meta/0075_snapshot.json` về HEAD.
+- **`0076_debt_open_cycle.sql`** (số do ORC cấp):
+  - cột `debt_opened_at`, `debt_recorded_vnd` (mặc định 0), `debt_base_vnd` (mặc định 0);
+  - CHECK `reservation_debt_recorded_check`: `debt_recorded_vnd` ≥ 0, và chỉ đơn `checkout_mode = debt` mới có `debt_opened_at`;
+  - kèm `0076_snapshot.json` (= 0075 + cột + CHECK, đã chạy prettier) và journal theo đúng thứ tự, `when` tăng.
+- Không bù dữ liệu: nợ chưa có chu kỳ dùng `balanceDueVnd` như trên.
+- `drizzle-kit generate` báo "No schema changes"; `schema-parity` xanh. Số 0077 để dành cho BE-B.
+
+### 22.3 G-5 – đêm thêm kế thừa giá thỏa thuận (phụ lục 5A bước 3, AN-50)
+- Đêm do B9a, B13, B18 hoặc MovePlanner ghi, có giá lấy từ một đêm tham chiếu thỏa thuận, sẽ lưu thêm trong `pricing_snapshot.nights[]`:
+  - `agreedRateVnd` = giá thỏa thuận gốc (GKM, trước kẹp/min);
+  - `anchorRoomId` = căn khách mua (bỏ trống khi trùng căn gốc).
+  - Nguồn của đêm vẫn là `default`. ARC xem lại cách lưu này.
+- `referenceNightRate` nhận cả đêm nhập tay (giá gõ) lẫn đêm kế thừa (đọc `agreedRateVnd`, không đọc giá ghi).
+  - `addedNightPrice` trả thêm `agreedVnd`; các chỗ ghi đêm (B13, B9a, B18, MovePlanner, đơn con) lưu số này.
+  - Đổi giá tay S4-35 thì giá gõ thay cho thỏa thuận kế thừa.
+- **AN-50** (`br417-an-table.test.ts`; số lấy từ dòng AN-50 vì QA chưa có oracle):
+  - 202 thỏa thuận 650.000 × 2, dời hẳn 20–22/05 → 23–25/05: mỗi đêm 650.000, chênh 0. B13 thứ Bảy 25/05 → 650.000 (không phải lịch 911.000), khoảng 530.000–1.900.000.
+  - Dời hẳn kèm OTTIMO sang 401: 650.000 × 2, chênh 0. B13 → 650.000, khoảng 530.000–2.630.000, `currentBookingRateVnd` 650.000.
+  - Bỏ phần kế thừa trong `referenceNightRate` thì AN-50 đỏ (911.000).
+  - AN-22, AN-33, AN-35, AN-43 không đổi số; bảng AN xanh 54/54.
+- Test 0068 trong bảng AN mô phỏng dữ liệu cũ, nên nay bỏ thêm hai trường mới trên đêm giả lập. Dữ liệu cũ thật không có hai trường này, nên cách 0068 phân loại không đổi.
+- Không cần migration bù cho G-5: đêm ghi trước bản sửa không có thỏa thuận kế thừa, và không suy ngược được từ số đã ghi (nguồn ghi theo thao tác).
+
+### 22.4 Kiểm máy
+- **Vitest toàn bộ, DB mới `ottimo_test_bea_r6q`:** 2938/2948 xanh, 2 ca bỏ qua (đo hiệu năng), 8 ca đỏ.
+  - Cả 8 ca đỏ cùng một nguyên nhân: đường xóa nợ của BE-B đang sửa dở (`ApprovalService.setAppliedCap`) gặp lỗi 42501 "permission denied for table approval_request", do role app thiếu quyền UPDATE.
+  - Gồm 7 ca trong `reversal-debt-g4` và ca 16.27 của BE-A (gọi `requestFoc` thật).
+  - BE-B cần cấp quyền (hoặc đổi câu lệnh) rồi chạy lại.
+- tsc, eslint sạch trên các tệp BE-A; prettier sạch.
+- Không commit.

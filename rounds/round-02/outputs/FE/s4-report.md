@@ -797,6 +797,41 @@ Lỗi (`reviews/s4-money-recheck5b.md` K11-03 (b)): Desk lấy `segments[0]` là
 
 ---
 
+## Phần FE-A – đợt 24: BUG-R2-205, N-6 (ARC 16.29) + yêu cầu xóa nợ tự đóng `debt_cleared` (SEC BE-80) (18/10/2026)
+
+- **BUG-R2-205 – H14 vượt số khách** (`pages/registration/DocsPanel.tsx`): phản hồi có `Registration.partyOverCount > 0` → cảnh báo "Đoàn đang nhiều hơn số khách của đơn n người" kèm hai lối sửa: **Gỡ người thừa** (mở hộp "Thành viên đoàn" của đơn, đóng xong đọc lại hồ sơ) và **Gắn lại giấy tờ** (đưa tới giấy tờ đầu danh sách). Hộp sửa giấy tờ nay có ô "Người trong đoàn" khi giấy tờ đã gắn (`relinking`): hiện người đang gắn, đổi người thì gửi `partyMemberId` mới (không có "Người mới", không đổi giấy tờ chính). Mock `regView` trả `partyOverCount`.
+- **N-6 – 412 ở hộp ghi tiền** (`Folio.version` tăng ở mọi thay đổi tiền): hộp Điều chỉnh dòng (`FolioDialog`), Thu tiền ở H16 (`PaymentPanel` – prop `onStale`, `CheckOutPage` truyền `reload`), Thu công nợ và Xóa công nợ (`DebtCollectDialog.tsx`) gặp `VERSION_CONFLICT` thì **tự tải lại folio/đơn**, **giữ hộp và ô đang nhập**, báo `folio.changed_reload` thay cho lỗi; bấm lưu lại dùng version mới. Bỏ nút "Tải lại" đóng hộp cũ ở hộp điều chỉnh.
+- **SEC BE-80 – `autoCancelReason = debt_cleared`**: `app/auditReason.ts` thêm `autoCancelText` (câu riêng cho `debt_cleared`, giá trị lạ → câu chung "Yêu cầu đã tự đóng") và `approvalStatusText` (chip "Đã tự đóng" thay "Đã rút" khi hệ thống đóng). Dùng ở: H17 Cần duyệt – duyệt mà máy chủ trả `cancelled + debt_cleared` → thông báo câu riêng (không "Đã rút"); 409 `INVALID_TRANSITION` có `autoCancelReason` → câu riêng thay "đã được … xử lý"; H24 "Yêu cầu của tôi" – chip + dòng lý do; Nhật ký tiền – lý do `auto: <mã>` (BE ghi ở `approval.cancelled`) hiện bằng lời, không còn chuỗi `auto: …`. **Phần "áp một phần"**: BE-B chưa có mục trong `s4-be-b.md` → chưa làm; chờ hình dạng phản hồi.
+  - Ghi chú ranh giới: sửa nhỏ trong `ApprovalsPage.tsx` và `OverviewPage.tsx` (vùng FE-B) theo lệnh ORC – chỉ dòng thông báo/chip, đọc lại trước khi sửa.
+- **Mock**: `approve` một `debt_write_off` khi nợ đã hết → `cancelled` + `autoCancelReason: debt_cleared`, dòng FOC → `rejected`, audit `approval.cancelled` lý do `auto: debt_cleared`; thu công nợ về 0 → yêu cầu xóa nợ đang chờ tự đóng như trên.
+- **Chuỗi**: 8 khóa nhóm "FE-A đợt 24" (`checkin.docs.over_party`, `reg.over_party_remove`, `reg.over_party_relink`, `reg.relink_help`, `folio.changed_reload`, `approval.auto_cancel.debt_cleared`, `approval.auto_cancel.other`, `approval.status.auto_closed`) – chờ UXD duyệt theo brand guideline.
+- Kiểm thử: `s4-205-fea.test.tsx` (6 ca: cảnh báo + mở hộp đoàn; gắn lại giấy tờ gửi `partyMemberId`; 412 ở hộp điều chỉnh giữ hộp, đọc lại folio, lưu lại thành công; duyệt xóa nợ khi nợ đã hết; thu đủ nợ → yêu cầu tự đóng + nhật ký; lý do tự đóng chưa có câu → câu chung). admin-web **455/455**, i18n 19/19, `tsc`, eslint, prettier xanh. Không commit.
+
+---
+
+## Phần FE-A – đợt 25: xóa công nợ áp một phần (`approval.applied_capped`) + FB-R2-UXD-FE-S4-28 (18/10/2026, Phản hồi & sửa)
+
+Đầu vào: UXD `reviews/s4-UXD-brand.md` C.5 (chữ đợt 24 đã duyệt, khóa mới `approval.applied_capped`) và thẻ FE-S4-28; BE-B `outputs/BE/s4-be-b.md` mục 25 (hình dạng phản hồi `approveRequest` cho `debt_write_off`).
+
+- **Áp một phần** (`status = approved`, `reasonCode = debt_write_off`, `effectiveAmountVnd < amountVnd`): helper `appliedCappedText` (`app/auditReason.ts`) → câu `approval.applied_capped` với `{amount}` = `effectiveAmountVnd`, `{requested}` = `amountVnd`, định dạng `common.currency_vnd`. Nối ở:
+  - **H17** `ApprovalsPage.tsx` – thông báo sau khi duyệt thay "Đã duyệt". Tự hủy `debt_cleared` (200, `cancelled`) vẫn báo `approval.auto_cancel.debt_cleared` (đợt 24).
+  - **H24** `OverviewPage.tsx` "Yêu cầu của tôi" – giữ chip "Đã duyệt", thêm dòng `li-s` bằng câu này.
+  - **Nhật ký tiền** `MoneyPage.tsx` – `ACTION_KEY` có `approval.applied_capped`; cột Thao tác hiện câu (từ `before.amountVnd` / `after.appliedVnd`), cột Trước → Sau đọc `appliedVnd`, cột Lý do đổi câu máy chủ "debt write-off applied up to the open debt (BR-525)" thành "Xóa công nợ" (`foc.r_debt_write_off`).
+- **FE-S4-28** (không chuỗi mới):
+  - Nhật ký tiền: `approval.cancelled` có lý do `auto: <mã>` → cột Thao tác "Đã tự đóng" (`approval.status.auto_closed`), không còn "Rút yêu cầu". Người gửi tự rút vẫn ghi "Rút yêu cầu".
+  - Chip tab Hoàn tiền dùng `approvalStatusText` (tự đóng ≠ "Đã rút"). Hàng chờ hoàn hiện đọc `pending/escalated/approved` nên ca này chỉ xảy ra khi hàng chờ mở rộng; đã test qua helper.
+- **Mock**: duyệt `debt_write_off` khi nợ còn ít hơn số xin → `approved`, `effectiveAmountVnd` = số còn nợ, dòng FOC theo số đó, audit `approval.applied_capped`.
+- **Lưu ý cho BE-B / ORC**: ở `approval.service.ts` audit `approval.applied_capped` ghi `category: 'state'`, trong khi nhật ký tiền đọc `category = money`. Như vậy sự kiện này **chưa hiện** ở nhật ký tiền thật (mock ghi `money`). Đề xuất BE-B dùng `MONEY_CATEGORY(type)` như `approval.cancelled`, và ghi lý do bằng mã thay câu tiếng Anh (P-19).
+- Kiểm thử `s4-205-fea.test.tsx` (+3 ca, tổng 9):
+  - Xin 5.000.000, khách trả 2.000.000, duyệt → câu có "3.000.000 đ" và "5.000.000 đ"; nhật ký tiền đúng câu và lý do.
+  - H24: tự đóng → chip "Đã tự đóng" + câu chung; áp một phần → chip "Đã duyệt" + câu số.
+  - Chip/nhật ký: tự đóng ≠ "Đã rút"; rút tay vẫn "Rút yêu cầu".
+  - Ca `debt_cleared` kiểm thêm: dòng nhật ký không chứa `mlog.a_approval_cancelled`.
+- **Bổ sung (sau khi BE-B sửa)**: BE-B đã đổi audit `approval.applied_capped` sang `category = money`, lý do là mã `debt_collected_before_approval`. Mã này đã vào `CODE_KEYS` → "Xóa công nợ" (`foc.r_debt_write_off`, chuỗi có sẵn); câu tiếng Anh cũ vẫn ánh xạ cho dữ liệu cũ. Mock và test đã khớp máy chủ; lưu ý `category: 'state'` ở trên đã xử lý xong.
+- Kết quả: admin-web **458/458**; `tsc`, eslint, prettier xanh. Không sửa tay `strings-*.json`. Không commit.
+
+---
+
 ## Phần FE-B (Desk – vận hành, thương hiệu) – đợt 1: mục 1–4 (17/10/2026)
 
 - Người làm: FE-B | Đầu vào: `sprint-4-plan.md` (ĐÓNG BĂNG D1) mục 4, 8.3 dòng FE-B, 11; DS **v0.4.1** mục 11 (B0–B6), `tokens.css`; Brand Guidelines (CLAUDE.md "Thương hiệu OTTIMO"); OpenAPI **0.3.7** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`, `checkOut.debt`, `createDepositNotice.attachmentId`, `uploadAttachment`, `getBill`); hi-fi H03, H24; spec EP01, EP03-05 4.4; dòng BE-D trong decision-log (luật lọc vai, đóng mục).

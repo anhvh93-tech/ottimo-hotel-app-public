@@ -10,7 +10,7 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, ConfirmDialog, Field, Modal, Seg, StateView } from '@ottimo/ui';
 import { useId, useState } from 'react';
 import { api } from '../../app/api';
-import { auditReasonText } from '../../app/auditReason';
+import { approvalStatusText, auditReasonText, autoCancelCode } from '../../app/auditReason';
 import { listApprovals } from '../../app/approvals';
 import { todayLocal } from '../../app/dates';
 import { useLiveReload } from '../../app/live';
@@ -134,6 +134,8 @@ const ACTION_KEY: Record<string, string> = {
   'approval.escalated': 'mlog.a_approval_escalated',
   'approval.reopened': 'mlog.a_approval_reopened',
   'approval.cancelled': 'mlog.a_approval_cancelled',
+  // SEC BE-80: words with amounts – drawn in `AuditAction`.
+  'approval.applied_capped': 'approval.applied_capped',
   'config.changed': 'mlog.a_receiving_account_changed',
 };
 
@@ -183,6 +185,18 @@ function AuditAction({ e }: { e: AuditEvent }) {
       </>
     );
   }
+  // FE-S4-28: the server closing a request by itself is not "withdrawn" by its sender.
+  if (e.action === 'approval.cancelled' && autoCancelCode(e.reason))
+    return <>{t('approval.status.auto_closed')}</>;
+  if (e.action === 'approval.applied_capped')
+    return (
+      <>
+        {t('approval.applied_capped', {
+          amount: money(Number(after.appliedVnd ?? 0)),
+          requested: money(Number(before.amountVnd ?? 0)),
+        })}
+      </>
+    );
   const key = ACTION_KEY[e.action];
   if (key) return <>{t(key)}</>;
   return (
@@ -206,7 +220,9 @@ function MoneyLog() {
   );
   const rows = state.data ?? [];
   const amountOfEvent = (o: unknown) => {
-    const v = (o as Record<string, unknown> | undefined)?.amountVnd;
+    const x = o as Record<string, unknown> | undefined;
+    // `approval.applied_capped`: asked (before.amountVnd) → applied (after.appliedVnd).
+    const v = x?.amountVnd ?? x?.appliedVnd;
     return typeof v === 'number' ? vnd(v) : '—';
   };
   return (
@@ -574,7 +590,7 @@ function Refunds() {
                     </div>
                   </div>
                   <Chip tone={a.status === 'approved' ? 'ok' : 'warn'}>
-                    {t(`approval.status.${a.status}`)}
+                    {approvalStatusText(t, a)}
                   </Chip>
                   {left > 0 && online ? (
                     <>

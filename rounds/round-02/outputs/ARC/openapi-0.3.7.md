@@ -904,7 +904,7 @@ export async function reconcileRefillTasks(
 
 `lockFridge` trả `FridgeLock`; hàm nhận `FridgeLock` nên không gọi được khi chưa khóa (kiểm ở compile time). `createRefillTasks` cũ bị xóa.
 
-**2. Hệ giờ** (thay câu (x) của 16.16 bổ sung): mọi so sánh thứ tự giữa lần đếm, lần nạp và việc HK dùng **giờ xử lý** của server: lần đếm = `minibar_check.created_at`; lần nạp = `minibar_fill.created_at`; việc xong = `state_transition.occurred_at` của bước `complete` của việc đó (không dùng `hk_task.done_at`/`performedAt`, `filled_at`, `checked_at` – các cột này chỉ để hiển thị/truy vết giờ làm thật). "Việc xong sau lần đếm" ⇔ `occurred_at(complete) > minibar_check.created_at` của lần đếm sống. Mở kỳ khi lượt ở tiếp (`openNextPeriod`): mốc mỗi món = còn lại của lần đếm sống + Σ số của **việc sống** của kỳ xong sau lần đếm (giờ xử lý); Σ > 0 → `refill`, = 0 → `carry`. BE-C (P3, kèm): `transitionHkTask` từ chối `performedAt` < `hk_task.created_at`.
+**2. Hệ giờ** (thay câu (x) của 16.16 bổ sung): mọi so sánh thứ tự giữa lần đếm, lần nạp và việc HK dùng **giờ xử lý** của server: lần đếm = `minibar_check.created_at`; lần nạp = `minibar_fill.created_at`; việc xong = `state_transition.occurred_at` của bước `complete` của việc đó (không dùng `hk_task.done_at`/`performedAt`, `filled_at`, `checked_at` – các cột này chỉ để hiển thị/truy vết giờ làm thật). "Việc xong sau lần đếm" ⇔ `occurred_at(complete) > minibar_check.created_at` của lần đếm sống. Mở kỳ khi lượt ở tiếp (`openNextPeriod`): mốc mỗi món = còn lại của lần đếm sống + Σ số của **việc sống** của kỳ xong sau lần đếm (giờ xử lý); Σ > 0 → `refill`, = 0 → `carry`. BE-C (P3, kèm): `transitionHkTask` từ chối `performedAt` sớm hơn `hk_task.created_at` **quá `CLOCK_SKEW_MS` (5 phút)** → 422 `PERFORMED_AT_OUT_OF_RANGE` (sửa 18/10 – BUG-R2-199: chấp nhận dung sai lệch đồng hồ máy, một hằng chung với S4-01/S4-05; thứ tự kỳ dùng giờ xử lý nên tiền không đổi).
 
 **3. 0067** (số ORC cấp; 0066 đã gộp) – một giao dịch, như mẫu 0065/0066 (tắt RLS cho owner trong lúc bù):
 - (a) Tủ của lượt `in_house` có lần đếm `checkout` mà **chưa có** `minibar_fill`: tạo `minibar_fill` `source = backfill`, `filled_at` = `created_at` = lần đếm đầu − 1 ms, dòng = `standard_qty` và `unit_price_vnd_snapshot`/`unit_cost_vnd_snapshot` của lần đếm đầu; gán `fill_id` cho mọi lần đếm `fill_id` NULL của tủ đó.
@@ -940,7 +940,7 @@ SELECT t.id FROM hk_task t
 
 | Phần | Nội dung |
 |---|---|
-| `pricing_snapshot.nights[]` | `source` thêm giá trị **`default`** = giá gợi ý được ghi mà người không sửa (B9a/B13/B18, MovePlanner, đêm ra từ min). `manual` = người gõ (lúc đặt, S4-35, gõ ở B9a/B13/B18 – kể cả gõ đúng số gợi ý hay số lịch). `calendar` = hệ thống lấy lịch khi không có gợi ý riêng (đặt theo lịch, khách xin đổi căn định giá lại). Thêm **`anchorRoomId`** (chỉ với `manual`): CKM của lượt **lúc gõ** (bước 1); `null` = đơn chưa có căn lúc gõ → hiểu là căn gốc. OTTIMO dời đêm: giữ `source` và `anchorRoomId`; khách xin đổi căn: đêm được định giá lại thành `calendar`, đêm không dời giữ nguyên |
+| `pricing_snapshot.nights[]` | `source` thêm giá trị **`default`** = giá gợi ý được ghi mà người không sửa (B9a/B13/B18, MovePlanner, đêm ra từ min). `manual` = người gõ (lúc đặt, S4-35, gõ ở B9a/B13/B18 – kể cả gõ đúng số gợi ý hay số lịch). `calendar` = hệ thống lấy lịch khi không có gợi ý riêng (đặt theo lịch, khách xin đổi căn định giá lại). Thêm **`anchorRoomId`** (~~chỉ với `manual`~~ – **sửa 16.30**: với `manual`, hoặc với `agreedRateVnd`): CKM của lượt **lúc gõ** (bước 1); `null` = đơn chưa có căn lúc gõ → hiểu là căn gốc. **16.30 (G-5/AN-50)**: `agreedRateVnd` chỉ đi với `source = default` – giá thỏa thuận GKM đêm kế thừa từ đêm tham chiếu (B9a/B13/B18/MovePlanner); đêm này là đêm tham chiếu như đêm gõ; S4-35 gõ giá thì xóa. OTTIMO dời đêm: giữ `source` và `anchorRoomId`; khách xin đổi căn: đêm được định giá lại thành `calendar`, đêm không dời giữ nguyên |
 | Đọc | `pricedNights` trả `{ source, anchorRoomId }`; đêm tham chiếu = `source = manual` ∧ không phải ngày đặc biệt ∧ `(anchorRoomId ?? origin_room_id) = CKM hiện tại`. Không còn so số với lịch ở bất kỳ đâu |
 | Hợp đồng (bổ sung, đã ghi `openapi.yaml`) | B13 `nightlyRates`: đêm **có** phần tử = `manual`, **không** có = `default`. B9a `priorNightRateVnd` và B18 `extraNight.rateVnd` thành **tùy chọn**: vắng = `default`, có = `manual`. FE-A chỉ gửi giá khi lễ tân **sửa ô** (cờ "đã sửa" của ô, không so số). Thêm `CheckoutSummary.extraNightFloorVnd`/`extraNightCeilingVnd` (khoảng Desk B18) |
 | 0068 (dữ liệu, như 0064) | Với đơn chưa chốt: đêm `manual` thiếu `anchorRoomId` → gán theo audit lúc gõ (`reservation.priced` lúc đặt → `null`; `stay_night.rate_set`/B9a/B13/B18 có giá gõ → CKM tại thời điểm audit theo lịch sử đổi căn); đêm B9a/B13/B18 không có audit giá gõ → `default`. Không đổi số tiền. Truy vấn kiểm cho DATA: đêm `manual` của lượt chưa chốt mà thiếu `anchorRoomId` sau bù = 0 (trừ đêm gõ khi chưa có căn) |
@@ -988,8 +988,8 @@ Mục này **thay** mọi câu thứ tự khóa ở 16.15, 16.16 bổ sung, 16.1
 | `recordMinibarCheck` (`record()`) | L1 đơn của folio KEY SHARE (`lockStayBookings`) → **L2 căn của tủ KEY SHARE** (tách khỏi `lockFridge`, lấy **trước** folio – K11-04) → L3 `lockForPosting` → đọc lại lượt, căn hiện tại, tủ (K11-05) → L4 việc mở của tủ FOR UPDATE → L5 tủ → `registerFridge`, kỳ, `reconcileRefillTasks` | `lockFridge` chỉ còn L5 (advisory); phần `KEY SHARE` đơn/căn chuyển lên đầu |
 | `onRefillDone` (HK xong việc) | L4 việc (đã giữ) → L1/L2 KEY SHARE → L5 | E2 |
 | `onStayContinued`, `onCheckedOut` | gọi bên trong B13/B14/B18 sau L3 → L5 → L4 NOWAIT | E1 |
-| `addFolioLine`, `adjustFolioLine` (dòng không phải đêm) | L1 đơn của folio KEY SHARE → L3 | |
-| `adjustFolioLine` dòng đêm (S4-35, `setNightRate`) | L1 NO KEY UPDATE → L2 (khi định giá theo căn) → L3 | |
+| `addFolioLine` | L1 đơn của folio KEY SHARE → L3 | |
+| `adjustFolioLine` – mọi dòng (**sửa 16.30**, N-7 vòng sửa 8; thay hai dòng cũ "dòng không phải đêm" KEY SHARE và "dòng đêm") | L1 **mọi đơn của folio** `NO KEY UPDATE` theo id → (dòng đêm S4-35: `setNightRate` – chỉ khóa lại đơn **đã giữ**, không khóa căn) → L3 folio; công nợ mở (N-7) và trạng thái folio đọc dưới L3 | L1 phải lấy **trước** `setNightRate` (FB-R2-ARC-BE-S4-16) |
 | FOC: `requestFoc`, `approveRequest`, `rejectRequest`, `cancelRequest`, `syncReductions`; duyệt giá dòng damage | L1 qua `FolioService.lockStay` = **`FOR NO KEY UPDATE`** (sửa theo BE-B (aj): giữ tuần tự L1 với lệnh hủy đơn/đêm đang giữ `stay_night`, tránh lại deadlock S4-13) → **L3 folio → L4 `approval_request`** | Rà: đường duyệt khóa yêu cầu trước folio thì đổi lại (B18 hủy `superseded` sau L3); damage đã khóa folio trước (BE-B 5b) |
 | Thanh toán: `recordPayment`, `createVietQr`, `confirmPaymentReceived`, `executeRefund`/`executeCashRefund` | L1 KEY SHARE (khi cần đơn) → **L3 folio → L4 payment** | `confirmPaymentReceived` hiện khóa đơn → folio → giao dịch: đúng chiều; rà `reversePayment`/chi hoàn nếu khóa giao dịch trước folio |
 | `reversePayment` (MGR+, A34; BR-525 G-4) | L1 **mọi đơn của folio** `FOR NO KEY UPDATE` theo id (`FolioService.lockStay` – công nợ ghi lên các đơn này) → L3 folio → L4 giao dịch → L4 yêu cầu hoàn (kế hoạch hoàn BR-522) | Sửa 18/10 (ARC 16.25); số còn phải thu trước/sau đọc dưới L3 |
@@ -1125,4 +1125,154 @@ Job idempotent (folio đã `closed` → bỏ qua); một folio lỗi không ch�
 - **Sửa câu (a) ở 16.17 mục 3**: bù **mọi** lần đếm `checkout` có `fill_id` NULL (sống hoặc đã bị thay, mọi trạng thái lượt), **không** chỉ tủ "chưa có `minibar_fill`": với mỗi tủ có lần đếm NULL, tạo lần nạp `backfill` có `created_at` = lần đếm NULL sớm nhất − 1 ms (dòng = `standard_qty`, giá = giá chụp của lần đếm đó) **nếu** chưa có lần nạp nào trước thời điểm đó; rồi gán `fill_id` theo quy tắc **(sửa 18/10 sau BE-B `s4-be-b.md` mục 24 (a))**: lần nạp `check_in` **luôn là kỳ đầu** của tủ, không xét thời điểm (nó là mức lúc vào căn – có trước mọi lần đếm của tủ, kể cả khi `registerFridge`/copy-on-write ghi nó muộn hơn lần đếm `365486f`); kỳ của lần đếm NULL = lần nạp `carry`/`refill`/`backfill` gần nhất có `created_at` ≤ `created_at` của lần đếm; không có thì kỳ `check_in` của tủ; không có `check_in` thì lần nạp `backfill` vừa tạo. Lần nạp `carry`/`refill` sinh sau giữ nguyên thứ tự (16.16 (x)). Nhờ vậy dạng BUG-R2-197 (lần đếm `365486f` + lần đếm lại vào kỳ `check_in` do `registerFridge` của `ce90d19` ghi muộn) rơi vào **cùng** kỳ `check_in` → K1b′ bắt; dạng R7MIG-01 (lần đếm `365486f` rồi B13 mở `carry`, không `check_in`) → kỳ `backfill` riêng → không báo. Thay vế "`check_in` theo `filled_at`" của BE-B: cùng kết quả ở dữ liệu `ce90d19`, nhưng không phụ thuộc giá trị `filled_at` (copy-on-write ghi `filled_at` = lúc sửa danh mục, có thể sau lần đếm → vế `filled_at` sẽ bỏ lọt).
 - **K1b sửa (K1b′)**: không đếm theo tủ mà theo **kỳ sau khi gán**: tủ có > 1 lần đếm sống trong **cùng** kỳ (tính bằng thời điểm, trước khi `UPDATE`) – mới là đếm trùng thật; lần đếm NULL đứng trước một kỳ khác **không** bị báo.
 - **Migration 0075 (BE-B)**: (1) tính kỳ đích của mọi lần đếm NULL vào bảng tạm; (2) K1b′ trên bảng tạm ≠ 0 → `RAISE` kèm danh sách (quy trình tay 16.17 mục 3 bổ sung chỉ cho dạng này); (3) tạo lần nạp `backfill`, gán `fill_id`; (4) K1 (lần đếm sống `fill_id` NULL) phải = 0, ≠ 0 → `RAISE`. **0071** chỉ có câu kiểm, không đổi lược đồ: sửa thân 0071 thành chỉ kiểm K1b′ theo thời điểm (không dùng `fill_id`) để không chặn migrate trước 0075 – DB đã chạy 0071 thành công không chạy lại; ORC/OPS ghi decision-log việc sửa migration chỉ-kiểm này. Dạng "chỉ K1" (không thu trùng) **tự hết** sau 0075 – không cần xử lý tay. Test: ca 3 pha `365486f` → B13 trên `ce90d19`/`f04052d` (kỳ `carry`) → bản mới: migrate thành công, K1 = K1b′ = 0, B18 thu đúng một lần.
+
+### 16.28 BUG-R2-201 – điều chỉnh dòng trên folio `closed` (ARC 18/10; chờ DOM xác nhận)
+
+**ARC chọn (b)**: folio `closed` là **chốt cuối** – không điều chỉnh dòng (`adjustFolioLine` → 409 `FOLIO_LOCKED`, mọi vai; đã ghi mô tả `openapi.yaml`). Sau khi đóng chỉ có hai đường tiền: **thu công nợ** (`recordPayment`, 16.26) và **xóa nợ** (FOC `debt_write_off`, 16.27). Lý do: (1) khớp DOM 18/10 (BR-427 (d), BR-525): hết cửa sổ 24 giờ → folio `closed`, phiếu đã cấp, mọi khoản còn nợ thành **một** công nợ – cho điều chỉnh tiếp thì công nợ, phiếu và báo cáo kỳ đã chốt phải đổi theo; (2) điều chỉnh **giảm** tạo dư thừa trên folio `closed` mà chi hoàn bị chặn (`FOLIO_LOCKED`, BE-B s4-be-b 24 (b)) – (a) buộc mở thêm đường hoàn cho folio đóng ngay trước cổng; (3) điều chỉnh sau đóng đúng nghĩa cần **hóa đơn điều chỉnh** – để R3 cùng hóa đơn điện tử. Trong cửa sổ (folio `settled`) MGR+ vẫn điều chỉnh như A32. Phương án (a) chỉ nên chọn nếu DOM thấy cần sửa giá sau 24 giờ ở R2 – khi đó phải kèm đường hoàn cho folio `closed` và quy tắc công nợ theo số còn phải thu.
+
+**Việc**: **DOM** – xác nhận (b) (quy tắc nghiệp vụ: "sau khi đóng folio chỉ thu nợ hoặc xóa nợ"); **BA** – sửa SM-13: bỏ cạnh "MGR+ điều chỉnh dòng khi `closed`", ghi "chỉ thu công nợ / FOC `debt_write_off`"; **BE-B** – giữ 409 `FOLIO_LOCKED` cho `adjustFolioLine` trên folio `closed` (đúng (b)), thêm test; **QA** – TC-L4-068 đổi kỳ vọng sang 409 và chuyển ca "sửa sau đóng" thành ca FOC `debt_write_off`/thu nợ, gỡ `knownBug`.
+
+### 16.29 Kiểm lại tiền lần 7 – 199, 205, N-6 (ARC 18/10)
+- **BUG-R2-199 – chấp nhận dung sai 5 phút**: `performedAt` sớm hơn `hk_task.created_at` tới `CLOCK_SKEW_MS` (5 phút) vẫn nhận; sớm hơn nữa → 422 (đã sửa 16.17 mục 2). Lý do: máy HK lệch đồng hồ vài phút là bình thường; mọi so sánh thứ tự kỳ/tiền dùng giờ xử lý của server (16.17 mục 2) nên dung sai không đổi số tiền. Một hằng `CLOCK_SKEW_MS` dùng chung (S4-01, S4-05, 199). **QA** đổi kỳ vọng 6 ca (−1 s, −5 phút → 200; −5 phút 1 s, −10 phút → 422).
+- **BUG-R2-205 – cảnh báo vượt số khách**: `Registration.partyOverCount` (tùy chọn, ≥ 1; vắng = không vượt) trong phản hồi `addGuestDocument` và mọi phản hồi `Registration` (đã ghi `openapi.yaml`, generated đã sinh lại). Tiền giữ theo hợp đồng (BR-110 tính trên đoàn server giữ, xem trước = ghi; không phụ thu lúc nhập giấy tờ). **BE-C** trả trường (từ `overCount` của `document-party.port.ts`); **FE-A** hiện cảnh báo trên H14 sau khi lưu và ở panel đoàn (chuỗi UXD `checkin.docs.over_party`), kèm lối sửa (gỡ người thừa / gắn lại giấy tờ); **BE-A** rà `PartyService.add` không tự tính phụ thu cho người do server thêm tới khi lễ tân xác nhận; **QA** ca "người đặt thiếu ngày sinh, không `partyMemberId`" → 201 có cảnh báo. "Người đặt không lưu trú" vẫn R3 (16.22).
+- **N-6 – chọn tăng `version` ở mọi thay đổi tiền của folio** (không thu hẹp câu chữ): mọi lệnh ghi/đảo/sửa dòng (gồm dòng đêm do đồng bộ B7/B9a/B13/B14/B16, FOC, phí) và ghi/đổi trạng thái/đảo giao dịch (thu, thu nợ, xác nhận VietQR, đảo, chi hoàn) tăng `folio.version` **trong cùng giao dịch, dưới L3** (một hàm `FolioService.touch(tx, folioId)` gọi ở mọi đường ghi; test kiến trúc dò đường ghi `folio_line`/`payment` không gọi `touch`). Hệ quả: `adjustFolioLine` (A32) dựa trên số cũ → 412 thay vì [201, 201] dư 100.000; Desk tải lại khi 412 như mọi lệnh có `If-Match`. Đã ghi mô tả `Folio.version`. **BE-B** cài `touch` + test đua A32 ‖ thu nợ cùng `If-Match` → đúng một 201, một 412; **BE-A** gọi `touch` ở đường đồng bộ dòng đêm nếu không đi qua hàm của BE-B; **FE-A** xử lý 412 ở màn folio (tải lại, giữ ô đang nhập).
+
+### 16.30 Vòng sửa 8 – duyệt (ARC 18/10, trước gộp #19)
+
+Phạm vi: cây làm việc chưa commit trên HEAD `316b9ac` (`git diff HEAD` + tệp mới 0076, 0077, `folio-version-touch.test.ts`); BE-A `s4-be-a.md` mục 22, BE-B `s4-be-b.md` mục 25 (cả phần bổ sung `approval.applied_capped`), BE-C `s4-be-c.md` mục 20, FE-A đợt 24, SEC C.12, kiểm lại tiền lần 7, decision-log 18/10.
+
+**Kết luận: đồng ý gộp #19 sau khi sửa một thẻ Major (FB-R2-ARC-BE-S4-16 – đổi chỗ một lệnh khóa).** Các thẻ còn lại là Minor/Suggestion, không chặn gộp. Đóng FB-R2-SEC-BE-80 do SEC kiểm lại (ARC đồng ý thiết kế).
+
+#### 16.30.1 Kiểm tra đã chạy (18/10, cây làm việc, sau phần sửa hợp đồng ở 16.30.6)
+| Kiểm | Kết quả |
+|---|---|
+| Redocly 1.34 `lint openapi.yaml` | hợp lệ, 0 lỗi (4 cảnh báo cũ `operation-4xx-response` của webhook) |
+| `openapi-spec-validator` (openapi.yaml) | đạt |
+| `gen_traceability.py --strict`, `gen_rbac_cases.py --check` | đạt (rbac mismatch rỗng; ma trận ca vai không đổi) |
+| `api-client` `gen` | sinh lại (chỉ chú thích mô tả); vitest api-client 30/30 |
+| `gen-openapi-meta.mjs --check` | khớp (`openapi-meta.ts`, `openapi-schemas.ts`) |
+| api vitest không DB: `contract`, `module-boundaries` (tập mã nhật ký tiền = hợp đồng), `folio-version-touch`, `migrations-journal` | 21/21 |
+| Chuỗi migration (đọc tay) | journal idx 50–54, `when` tăng nghiêm ngặt; snapshot 0074 → 0075 → 0076 → 0077 nối `prevId` liền; snapshot đầu = `0077_snapshot.json` (tiền tố lớn nhất – 4.2a 2b); 0074/0075 SQL và snapshot **không** đổi so với HEAD |
+| Không chạy | bộ tích hợp có DB (BE-B báo 2.946/2.946 trên DB mới sau khi thêm GRANT 0077 – 8 ca đỏ của BE-A mục 22.4 là do thiếu GRANT đó) |
+
+#### 16.30.2 (1) G-5 / AN-50 – `agreedRateVnd` + `anchorRoomId` trong `pricing_snapshot.nights[]` – **ĐỒNG Ý**
+- Đúng mô hình 16.18: nguồn giá của đêm đã nằm ở snapshot đêm (`source`, `anchorRoomId`), ghi theo thao tác, không suy ngược từ số. Thỏa thuận kế thừa là thuộc tính của **thao tác** ghi đêm đó (như `anchorRoomId`), không phải cột của `stay_night` → khóa json, không DDL, không migration bù (đêm cũ không suy ngược được – đúng như BE-A nói). `pricing_snapshot` không lộ qua API (không có trong `openapi.yaml`) nên không đổi hợp đồng.
+- Giữ `source = default` (không thêm giá trị `agreed`): `source` trả lời "ai quyết giá" (người gõ / hệ thống gợi ý / lịch), `agreedRateVnd` trả lời "đêm mang thỏa thuận nào". Thêm giá trị nguồn mới sẽ chạm 0068, báo cáo và mọi chỗ so `source`.
+- Chuỗi kế thừa giữ **GKM gốc** (`agreementOf` đọc `agreedRateVnd`, không đọc giá ghi sau min) – đúng DOM. Khách xin đổi căn định giá lại thành `calendar` thì mất thỏa thuận (như đêm `manual`); sửa giá tay S4-35 xóa `agreedRateVnd` (giá gõ thay thỏa thuận). Đã rà B9a, B13, B18, MovePlanner, đơn con, `pricedNights`.
+- **Bất biến** (ghi vào 16.18 và erd 4.5): `agreedRateVnd` chỉ đi với `source = default`; `anchorRoomId` đi với `manual` **hoặc** với `agreedRateVnd` (câu "chỉ với `manual`" của 16.18 bỏ). Đã sửa erd 4.5 (`pricing_snapshot.nights[]`).
+
+#### 16.30.3 (2) Migration 0076, 0077; `debt_cleared`; phản hồi duyệt – **ĐỒNG Ý**
+- **4.2a**: SQL viết tay là nguồn; snapshot đầu đi cùng PR (`0077_snapshot.json`, `prevId` = id 0076); journal nối cuối, `when` tăng; 0074 đã gộp **không** sửa (quy tắc 5 – migration đã gộp bất biến; BE-A đã hoàn nguyên đúng). Câu "drizzle-kit draft" ở đầu 0077 hợp lệ (4.2a 2c chỉ cấm ghi SQL/journal sinh tự động thẳng vào repo – ở đây SQL đã rà tay).
+- **0076**: `reservation` có `GRANT UPDATE` cả bảng (0014) nên ba cột mới không cần GRANT; RLS theo dòng không đổi. CHECK `reservation_debt_recorded_check` khớp mã: mọi chỗ mở chu kỳ (`writeDebt` của G-4/J15, B18 `debt`) đều đặt `checkout_mode = 'debt'`. Không bù dữ liệu: nợ chưa có chu kỳ dùng còn phải thu – chấp nhận.
+- **0077**: `approval_request` cấp quyền theo cột từ 0042 → `GRANT UPDATE (applied_cap_vnd)` là đủ và đúng mẫu 0055/0060; mọi cột `cancelApproved` ghi (`status`, `auto_cancel_reason`, `foc_state`, `foc_cancel_reason`, `decision_note`, `updated_at`, `version`) đã có quyền từ 0042/0055. CHECK `applied_cap_vnd IS NULL OR (≥ 0 AND type = 'foc')` đúng. Mở rộng CHECK `auto_cancel_reason` bằng DROP/ADD trong cùng migration – đúng.
+- **Tên `debt_cleared` – đồng ý.** Cùng kiểu với các giá trị đã có (nêu nguyên nhân: `line_removed`, `no_show_restored`); không dùng `superseded` như đề xuất của SEC vì không có yêu cầu mới thay (cùng lý do đã tách `no_show_restored`). Không dùng `debt_settled`: yêu cầu tự hủy khi **công nợ đang mở** = 0, có thể trước khi `debt_settled_at` được ghi (folio còn khoản phát sinh trong cửa sổ, chưa là công nợ).
+- **Hợp đồng `effectiveAmountVnd` – đồng ý**: áp một phần → `approved`, `amountVnd` giữ số xin (SM-10), `effectiveAmountVnd` = số thực áp, cố định (`applied_cap_vnd`). Tự hủy → `effectiveAmountVnd = 0` (**có mặt**, không "vắng" – chốt một cách cho FE).
+- **Tự hủy trả HTTP 200 với `status = cancelled` – đồng ý.** Lý do: (i) lệnh duyệt **thành công** – người duyệt đã xác thực và quyết, hệ thống áp phần hợp lệ (0); phản hồi là trạng thái tài nguyên sau lệnh; (ii) mã 4xx nghĩa là "không có gì thay đổi, có thể gửi lại", trong khi ở đây yêu cầu đã đóng; UoW hủy mọi ghi khi lỗi nên không thể vừa ghi hủy vừa trả 409; (iii) gửi lại cùng `Idempotency-Key` → cùng phản hồi. Bên trong giao dịch yêu cầu đi `approved` rồi `cancelled` (audit `approval.approved` rồi `approval.cancelled` `before.status = approved`) – chấp nhận vì không ai thấy trạng thái giữa (cùng giao dịch, `pushDecision` bỏ qua, hạn mức chỉ tính yêu cầu `approved` còn sống). **SM-10 phải có cạnh mới** (thẻ FB-R2-ARC-BA-S4-01): SYS `pending`/`escalated` → `cancelled` (`debt_cleared`) lúc người duyệt xác nhận FOC `debt_write_off` khi công nợ đang mở = 0. Bất biến kèm theo: yêu cầu `self_applied` không bao giờ rơi vào nhánh này (trần lúc gửi đã ≤ công nợ đang mở trong cùng khóa) – nên CHECK `self_applied ⇒ approved` không bị chạm.
+- **Đường còn thiếu (Minor, FB-R2-ARC-BE-S4-17)**: thu nợ về 0 hoặc xóa nợ đóng công nợ mà còn yêu cầu `debt_write_off` đang chờ → hiện yêu cầu vẫn nằm ở hàng "Cần duyệt" tới khi OWN bấm duyệt mới tự hủy. Mock Desk của FE-A đã tự hủy ngay lúc thu đủ – mã và mock lệch. Chọn: **BE làm như mock** – `debtSettled` (thu đủ / xóa nợ) hủy mọi yêu cầu `debt_write_off` `pending`/`escalated` của folio bằng `autoCancel(…, 'debt_cleared')` trong cùng giao dịch (thứ tự L1 → L3 → L4 `approval_request` – đúng 16.19, như `superseded`); nhánh lúc duyệt giữ làm lưới an toàn cho trường hợp thu một phần.
+- **Bổ sung ORC (BE-B mục 25 bổ sung) – `approval.applied_capped` trong nhật ký tiền – ĐỒNG Ý**:
+  - Hạng `money` (`MONEY_CATEGORY(type)`) đúng: sự kiện đổi số tiền sẽ áp; cùng hạng với `approval.cancelled` của yêu cầu loại tiền; màn nhật ký tiền chỉ đọc `money`.
+  - Thêm vào tập đóng `MONEY_AUDIT_ACTIONS` và danh sách `AuditEvent.action` của `openapi.yaml` = đổi hợp đồng **thêm**, không phá client: Desk gặp mã lạ hiện câu chung `mlog.a_other`. `module-boundaries` giữ tập mã = hợp đồng (đã chạy, đạt); generated khớp.
+  - `reason` = mã `debt_collected_before_approval` – **đồng ý tên và dạng**. Tên đúng nguyên nhân: với trần lúc gửi đã trừ yêu cầu đang chờ và N-7 chặn giảm dòng, công nợ đang mở chỉ còn tụt dưới số đã duyệt khi khách trả trong lúc chờ. Dạng mã snake_case trần như các lý do hệ thống khác (`post_checkout_unpaid`, `never_counted`, `refund_destination_changed`); tiền tố `auto: <mã>` chỉ dành cho `approval.cancelled` do hệ thống hủy (Desk đã tách theo tiền tố này). `before.amountVnd`, `after.appliedVnd`, `after.openDebtVnd`, `after.reasonCode` – chỉ số tiền, không dữ liệu khách (đã khai `defineAuditEntity`).
+  - FE-A: thêm câu `mlog.a_approval_applied_capped` (UXD duyệt) – nằm trong FB-R2-ARC-FE-S4-02.
+
+#### 16.30.4 (3) N-7 – `FOLIO_LOCKED` + `detail`; thứ tự khóa `adjustFolioLine` – **ĐỒNG Ý mã; thứ tự khóa sai ở nhánh dòng đêm (Major)**
+- **Mã**: dùng `FOLIO_LOCKED` có sẵn – đúng nghĩa "folio khóa với thao tác này" (cùng mã với folio `closed`); không thêm mã/enum, client cũ đã xử lý 409 này. `detail` chỉ để nhật ký/hỗ trợ; Desk chọn câu theo ngữ cảnh đã có trên màn (folio `settled` + đơn có công nợ mở) → chỉ sang "Xóa công nợ" (FB-R2-ARC-FE-S4-01). Đã ghi mô tả `adjustFolioLine`.
+- **Logic** (`folio-lines.service.ts`): so tiền dòng trước/sau (void → 0, đổi số lượng/đơn giá), chỉ chặn khi **giảm** và `openDebt` ≠ null, dưới L3; tăng → 201; folio không công nợ → A32 như cũ; `closed` → 409 trước đó. Đúng quyết định SEC/DOM.
+- **Nhánh dòng không phải đêm**: L1 mọi đơn của folio `NO KEY UPDATE` theo id (`lockStay`) → L3 – **đúng** dòng "thu nợ / J15 / `reversePayment`" của 16.19, mạnh hơn dòng cũ "L1 KEY SHARE" (cần để đọc công nợ dưới khóa, tuần tự với B18/G-4/thu nợ). Không tạo vòng chờ: mọi đường giữ L1 `NO KEY UPDATE`/`UPDATE` (B7, B13, B14, B18, FOC `lockStay`, `reversePayment`, thu nợ, J15) đều lấy L1 trước L3 theo cùng chiều; các đường `KEY SHARE` (`addFolioLine`, `record()`, `recordPayment` folio mở, kiểm FK) không xung đột với `NO KEY UPDATE`. Giá phải trả: A32 trên folio đang ở phải chờ B13/B14/B18 cùng lượt ở L1 (vài mili giây) – chấp nhận. **Đã sửa bảng 16.19**: gộp hai dòng `adjustFolioLine` thành một.
+- **Nhánh dòng đêm (S4-35) – vi phạm 16.19 (thẻ FB-R2-ARC-BE-S4-16, Major)**: `setNightRate` khóa đơn **của dòng** (`FOR NO KEY UPDATE`) **trước**, rồi `lockStay` mới khóa mọi đơn của folio theo id. Khi dòng đêm thuộc **đơn con** (đêm sớm B9a, gia hạn OTA – id lớn hơn đơn chính vì uuidv7 sinh sau), lệnh khóa đơn con rồi mới khóa đơn chính → ngược thứ tự id trong L1. Vòng chờ: A32 sửa giá đêm đơn con (giữ con, chờ chính) ‖ `requestFoc`/`reversePayment`/thu nợ/B18 cùng folio (giữ chính, chờ con) → 40P01 → 409 `CONCURRENT_UPDATE`. Không sai tiền (giao dịch hủy, gửi lại được) nhưng là hồi quy do vòng 8 đưa vào (trước đây nhánh này chỉ lấy L3, không có vòng), và trái tiêu chí QA "deadlock +0". Sửa: lấy L1 (mọi đơn theo id) **trước** nhánh dòng đêm, rồi `setNightRate` (chỉ khóa lại đơn đã giữ – không chờ), rồi L3.
+- **Trước đó, không do vòng 8 (Minor, FB-R2-ARC-BE-S4-19)**: `CheckoutService.children()` khóa đơn con theo `departure_date`, `syncChildrenParty` theo `arrival_date, id` – 16.19 nói "nhiều dòng cùng mức → theo id". Với uuidv7, đơn chính luôn khóa trước và thứ tự ngày của đơn con trùng thứ tự tạo trong mọi luồng hiện có, nên chưa thấy vòng; khóa theo id rồi sắp lại trong bộ nhớ để bỏ giả định này.
+
+#### 16.30.5 (4) N-6 `FolioService.touch` – **ĐỒNG Ý phạm vi và ba ngoại lệ**
+- Độ phủ: test kiến trúc dò mọi hàm trong `src/modules` có `INSERT INTO`/`UPDATE` `folio_line`/`payment` (7 tệp); ngoài `src/modules` chỉ có migration. Đã rà từng chỗ gọi `touch` nằm **dưới L3** (người gọi đã giữ folio): `recordInTx` (`lock`/`lockForPosting`), `confirmPaymentReceived` và đối soát (`lockPayment`: đơn → folio → giao dịch), `createVietQr`, `executeRefund`, `reversePayment`, đồng bộ dòng đêm/`ota_collect` (dưới khóa folio của sync), FOC/damage (preLock L1 → L3). `touch` = `UPDATE folio` nên lấy khóa dòng folio – gọi ở đường chưa giữ L3 sẽ thành L4 → L3; hiện không có đường nào như vậy. `settle`/`close` cũng tăng version. Một lệnh tăng nhiều bậc – chấp nhận (ETag mờ, client chỉ so bằng).
+- Ba ngoại lệ hợp lý: (a) `linkLine` – chỉ gắn dòng với yêu cầu; (b) `foc.service#request` – chỉ cột `approval_request_id`, dòng FOC ghi qua `insertLine` (có `touch`); (c) J24 `expirePendingPayments` – QR chờ không tính vào tiền, **và** job hàng loạt không giữ L1/L3: nếu `touch` ở đây sẽ lấy khóa folio sau khóa giao dịch (L4 → L3). Bất đối xứng "tạo QR có `touch`, QR hết hạn không" chấp nhận (tạo QR đã nằm dưới L3, tăng thừa vô hại).
+- Điểm yếu của test (Suggestion, FB-R2-ARC-BE-S4-20): khớp `touch(` cả trong chú thích và ở nhánh khác của hàm; ngoại lệ tính theo cả hàm nên một lệnh ghi tiền mới thêm vào `request` sẽ lọt. Đề xuất: bỏ dòng chú thích trước khi khớp; ngoại lệ theo từng câu lệnh bằng dấu `/* no-money-write: <lý do> */`.
+- Hợp đồng `Folio.version` đã chỉnh cho khớp mã (thêm `createVietQr`, đối soát, đồng bộ `ota_collect`, `settled`/`closed`; ghi rõ hai trường hợp không tăng).
+
+#### 16.30.6 (5) Hợp đồng – trước lượt này còn thiếu; ARC đã ghi (chỉ mô tả, không đổi hình dạng), sinh lại generated
+Đã có trước: enum `autoCancelReason` + `debt_cleared` (BE-B), `Registration.partyOverCount` (BE-C), `Folio.version` (N-6), `approval.applied_capped` trong `AuditEvent.action` (BE-B bổ sung); generated khớp. Thiếu – ARC đã thêm vào `openapi.yaml`:
+- `adjustFolioLine`: đoạn N-7 (409 `FOLIO_LOCKED` khi giảm dòng trên folio `settled` còn công nợ, mọi vai kể cả OWN; tăng 201; thứ tự khóa); bỏ nhãn "chờ DOM xác nhận" ở đoạn BUG-R2-201 (DOM đã đồng ý, SM-13 v0.2.6).
+- `requestFoc`: trần mới (công nợ đang mở − Σ xóa nợ đang chờ, `max` có thể 0; khoản trong cửa sổ không phải công nợ), trần lúc duyệt cố định, tự hủy `debt_cleared`.
+- `approveRequest`: phản hồi 200 có thể `approved` áp một phần hoặc `cancelled` (`debt_cleared`); client đọc `status`.
+- `ApprovalRequest.effectiveAmountVnd`: quy tắc cho `debt_write_off` (chờ duyệt: min(số xin, dòng, công nợ đang mở lúc đọc) – BE-B cài, FB-R2-ARC-BE-S4-18; đã duyệt ≤ trần; tự hủy = 0).
+- `Folio.version` (như 16.30.5); dòng thay đổi phiên bản ở `info`.
+- erd: 4.5 `reservation.debt_*` (0074 ghi bù, 0076), `pricing_snapshot.nights[]`; 4.6 `approval_request.applied_cap_vnd`, `auto_cancel_reason` + `debt_cleared`; lịch sử thay đổi.
+`api-client` sinh lại (chỉ chú thích); `openapi-meta`/`openapi-schemas` không đổi.
+
+#### 16.30.7 Thẻ feedback
+
+### FB-R2-ARC-BE-S4-16
+- Mức độ: **Major** – sửa **trước gộp #19** | Người sửa: BE-B (folio)
+- Vị trí: `services/api/src/modules/folio/internal/folio-lines.service.ts` `adjustFolioLine` – nhánh dòng đêm gọi `nightPricing.setNightRate` (khóa đơn của dòng) trước `this.folios.lockStay(tx, folioId)`.
+- Vấn đề: dòng đêm của **đơn con** → khóa đơn con rồi mới khóa đơn chính (id nhỏ hơn) – ngược thứ tự id ở L1 (16.19). Đua với `requestFoc`/`reversePayment`/thu nợ/B18 cùng folio (khóa đơn chính trước) → 40P01. Trước vòng 8, nhánh này chỉ lấy L3 nên không có vòng chờ – đây là hồi quy.
+- Vì sao quan trọng: vi phạm quy tắc khóa một nguồn; lễ tân nhận 409 "đang có thao tác khác" khi sửa giá đêm sớm/đêm gia hạn trong lúc quản lý thao tác trên cùng folio; QA đo deadlock +0.
+- Đề xuất sửa: tách phần L1 của `lockStay` (khóa mọi đơn của folio theo id, `NO KEY UPDATE`) và gọi **trước** khối `if (target … statusOf)`; sau `setNightRate` gọi `this.folios.lock(tx, folioId)` (L3). Hoặc đơn giản: chuyển `lockStay` lên trước khối dòng đêm (khi đó L3 giữ trước `setNightRate`; `setNightRate` chỉ khóa lại đơn đã giữ và ghi `stay_night`/`reservation` – vẫn đúng chiều L1 → L3). Test đua: sửa giá đêm của đơn con (B9a) ‖ `requestFoc` trên dòng khác cùng folio, hai thứ tự, 20 lần – `pg_stat_database.deadlocks` +0, kết quả = chạy tuần tự.
+- Trạng thái: Open
+
+### FB-R2-ARC-BE-S4-17
+- Mức độ: Minor (trong round, trước cổng QC; không chặn gộp #19) | Người sửa: BE-A (cổng `debtSettled`) + BE-B (approvals/FOC)
+- Vị trí: `ReservationHooks.debtSettled` (thu đủ – `payments.service.ts` recordPayment; xóa nợ – `foc.service.ts` `afterWriteOff`); mock `apps/admin-web/src/mocks/stay.ts` (đã tự hủy).
+- Vấn đề: công nợ đóng khi còn yêu cầu `debt_write_off` `pending`/`escalated` → yêu cầu vẫn ở hàng "Cần duyệt" tới khi OWN bấm duyệt. Mock của Desk tự hủy ngay → test FE xanh trên hành vi mã thật không có.
+- Vì sao quan trọng: hàng duyệt có việc rác; OWN mở yêu cầu đã vô nghĩa; mock lệch mã.
+- Đề xuất sửa: trong cùng giao dịch đóng công nợ (đã giữ L1 → L3), khóa và hủy mọi yêu cầu `debt_write_off` chờ của folio bằng `ApprovalService.autoCancel(…, 'debt_cleared')` (L4 sau L3 – đúng 16.19), dòng chờ duyệt → `rejected`, báo người gửi `approval_cancelled`. Test: ca SEC A biến thể – khách trả đủ → yêu cầu `cancelled`/`debt_cleared` ngay, OWN duyệt sau → 409 `INVALID_TRANSITION` kèm `autoCancelReason` (Desk đã có câu).
+- Trạng thái: Open
+
+### FB-R2-ARC-BE-S4-18
+- Mức độ: Minor (R2 sau gộp #19) | Người sửa: BE-A (cổng đọc không khóa) + BE-B (`focViews`)
+- Vị trí: `FolioService.focViews` – `effectiveAmountVnd` của yêu cầu `debt_write_off` chờ duyệt.
+- Vấn đề: số "khi duyệt sẽ áp X" chỉ min(số xin, dòng), không trừ công nợ đang mở → OWN thấy "sẽ áp 5.000.000" trong khi khách đã trả đủ (áp thật 0) – trái mô tả hợp đồng đã ghi (16.30.6).
+- Vì sao quan trọng: người duyệt quyết trên số hiển thị sai (tiền vẫn đúng nhờ trần lúc duyệt).
+- Đề xuất sửa: BE-A thêm biến thể chỉ đọc của `openDebt` (không `FOR NO KEY UPDATE` – màn danh sách không được lấy khóa dòng); `focViews` áp min(…, `openDebtVnd`) cho yêu cầu chờ `debt_write_off`. Test: ca SEC A – trước khi OWN duyệt, `effectiveAmountVnd` = 0.
+- Trạng thái: Open
+
+### FB-R2-ARC-BE-S4-19
+- Mức độ: Minor (R3 được) | Người sửa: BE-A
+- Vị trí: `frontdesk/internal/checkout.service.ts` `children()` (`ORDER BY departure_date … FOR NO KEY UPDATE`); `reservations/internal/reservations.service.ts` `syncChildrenParty` (`ORDER BY arrival_date, id … FOR NO KEY UPDATE`).
+- Vấn đề: khóa đơn con không theo id như 16.19; hiện an toàn nhờ uuidv7 và thứ tự tạo đơn con trùng thứ tự ngày, nhưng là giả định ngầm.
+- Vì sao quan trọng: mọi đường `lockStay` khóa theo id – nếu một luồng sau này tạo đơn con "ngày sớm hơn nhưng sinh sau" sẽ có vòng chờ với B18/B13.
+- Đề xuất sửa: khóa bằng `ORDER BY id`, sắp theo ngày trong bộ nhớ khi cần xử lý tuần tự.
+- Trạng thái: Open
+
+### FB-R2-ARC-BE-S4-20
+- Mức độ: Suggestion | Người sửa: BE-B
+- Vị trí: `services/api/test/folio-version-touch.test.ts`
+- Vấn đề / Đề xuất: như 16.30.5 (bỏ chú thích trước khi khớp `touch(`; ngoại lệ theo câu lệnh bằng dấu `no-money-write`).
+- Trạng thái: Open
+
+### FB-R2-ARC-FE-S4-01
+- Mức độ: Minor (trước cổng QC) | Người sửa: FE-A (+ UXD chuỗi, theo brand guideline OTTIMO)
+- Vị trí: `apps/admin-web/src/pages/stay/FolioDialog.tsx` `AdjustLineDialog`
+- Vấn đề: N-7 trả 409 `FOLIO_LOCKED` khi giảm dòng trên folio `settled` còn công nợ; Desk hiện câu chung "folio đã khóa", không chỉ đường "Xóa công nợ" như SEC/DOM yêu cầu.
+- Vì sao quan trọng: quản lý không biết đường đúng để giảm nợ; dễ hiểu nhầm là lỗi.
+- Đề xuất sửa: folio `settled` + đơn có công nợ mở → trong hộp điều chỉnh khóa trước lựa chọn void/giảm (chỉ cho tăng) kèm câu chỉ sang "Xóa công nợ" (mở `DebtCollectDialog` chế độ xóa nợ); vẫn bắt 409 `FOLIO_LOCKED` ở trường hợp đua và hiện cùng câu.
+- Trạng thái: Open
+
+### FB-R2-ARC-FE-S4-02
+- Mức độ: Minor (trước cổng QC) | Người sửa: FE-A
+- Vị trí: `pages/stay/DebtCollectDialog.tsx` (xóa nợ), H17/H24, nhật ký tiền
+- Vấn đề: (a) hộp xóa nợ tự tính trần = min(dòng, còn phải thu); trần thật của server = min(dòng, công nợ đang mở − xóa nợ đang chờ) – khác khi còn khoản trong cửa sổ hoặc đã có yêu cầu chờ; khi server trả 422 `AMOUNT_EXCEEDS_BALANCE` kèm `max` (có thể 0), hộp vẫn hiện `max` tự tính; (b) thông báo sau khi tự áp dùng số gõ, không dùng `effectiveAmountVnd` của phản hồi; (c) nhật ký tiền chưa có câu `mlog.a_approval_applied_capped` (đang hiện `mlog.a_other`); câu "áp một phần" `approval.applied_capped` đang nối – hoàn tất.
+- Đề xuất sửa: đọc `max` của 422 để hiện và điền sẵn ("Tối đa có thể xóa lúc này: {max}"; `max` = 0 → giải thích đã có yêu cầu chờ phủ hết nợ); dùng `effectiveAmountVnd` trong thông báo; thêm chuỗi qua UXD.
+- Trạng thái: Open
+
+### FB-R2-ARC-BA-S4-01
+- Mức độ: Minor (trước cổng QC) | Người sửa: BA (DOM xem)
+- Vị trí: `product/docs/state-machines.md` SM-10
+- Vấn đề: chưa có cạnh cho hai hành vi đã cài: (a) SYS `pending`/`escalated` → `cancelled` (`debt_cleared`) khi người duyệt xác nhận FOC `debt_write_off` mà công nợ đang mở = 0 (phản hồi 200); (b) SYS hủy yêu cầu `debt_write_off` chờ khi công nợ đóng (sau FB-R2-ARC-BE-S4-17). Và câu "áp một phần": `approved` với số áp = min(số đã duyệt, công nợ đang mở lúc duyệt), `amountVnd` giữ số xin, không tính hạn mức phần không áp.
+- Đề xuất sửa: thêm cạnh A7 (hoặc mở rộng A6 với lý do `debt_cleared`), ghi rõ không tính hạn mức, báo người gửi; nhật ký `approval.applied_capped` (money, lý do `debt_collected_before_approval`).
+- Trạng thái: Open
+
+#### 16.30.8 Việc theo vai
+| Vai | Việc | Hạn |
+|---|---|---|
+| BE-B | FB-R2-ARC-BE-S4-16 + test đua | **trước gộp #19** |
+| BE-B, BE-A | FB-R2-ARC-BE-S4-17 (hủy yêu cầu chờ khi công nợ đóng), S4-18 (số "sẽ áp"), S4-20 | trước cổng QC / Suggestion |
+| BE-A | FB-R2-ARC-BE-S4-19 | R3 được |
+| FE-A (+UXD) | FB-R2-ARC-FE-S4-01, -02 – chuỗi theo brand guideline OTTIMO (giọng điềm tĩnh, ngắn, không emoji) | trước cổng QC |
+| BA | FB-R2-ARC-BA-S4-01 (SM-10) | trước cổng QC |
+| SEC | Kiểm lại đóng FB-R2-SEC-BE-80 trên mã vòng 8 (ca A, B, đua duyệt ‖ thu nợ); BE-81 theo N-7 | trước khi QA đóng BUG-R2-203 |
+| QA | Ca đua S4-16 (deadlock +0); N-7 MGR/OWN giảm → 409, tăng → 201; duyệt `debt_write_off` khi đã trả đủ → 200 `cancelled`; áp một phần → `effectiveAmountVnd` < `amountVnd`; AN-50 vào bảng AN (oracle DOM); sửa TC theo mô tả hợp đồng 16.30.6 | theo lịch ORC |
+
+#### 16.30.9 Giả định
+- Id dùng uuidv7 (sinh theo thời gian) → đơn con có id lớn hơn đơn chính; dùng khi phân tích thứ tự khóa (16.30.4).
+- Deadlock được chuyển thành 409 `CONCURRENT_UPDATE` + `Retry-After` (`shared/problem.ts`), không sai tiền – lý do để FB-R2-ARC-BE-S4-16 là Major, không Blocker.
+- ARC sửa mô tả `openapi.yaml`/erd và sinh lại `api-client` generated trong lượt duyệt (tài liệu hợp đồng thuộc ARC; chỉ chú thích, không đổi hình dạng); không sửa mã nguồn dịch vụ/FE; không commit.
 

@@ -620,3 +620,52 @@ Mỗi dòng xử lý tay theo ARC 16.17 mục 3 bổ sung (đảo dòng folio c�
 - `src/modules/approvals/public/approval.service.ts`
 - `src/modules/payments/internal/payments.service.ts`
 - `test/integration/{reversal-debt-g4,minibar-m1}.test.ts`
+
+**24 bổ sung (ARC 16.28 – BUG-R2-201; DOM 18/10 BR-525):**
+- **Folio `closed` là chốt cuối:** `adjustFolioLine` đã trả 409 `FOLIO_LOCKED` cho mọi vai (`folio-lines.service.ts`), nên không phải sửa mã. Đã thêm test trong `reversal-debt-g4`:
+  - folio `settled` còn trong cửa sổ: MGR hủy dòng phát sinh sau trả phòng → 201;
+  - J15 đóng folio; sau đó MGR và OWN sửa giá dòng tiền phòng → đều 409 `FOLIO_LOCKED`; số dư không đổi.
+- **Trần xóa nợ = công nợ đang mở:**
+  - Cách tính: `FolioService.openDebtVnd` = còn phải thu − các dòng phát sinh sau trả phòng còn trong cửa sổ 24 giờ (chưa thành công nợ cho tới khi J15 đóng folio). Hết cửa sổ thì toàn bộ số còn phải thu là công nợ.
+  - Trần của FOC `debt_write_off` = min(phần còn lại của dòng, `openDebtVnd`); vượt → 422 `AMOUNT_EXCEEDS_BALANCE` + `max`.
+  - Vì sao không lấy số từ `openDebt`: cổng `ReservationHooks.openDebt` (BE-A) chỉ cho biết **có** công nợ mở, không trả số tiền (công nợ G-4 chỉ ghi phần tăng). Nếu BE-A thêm `debtVnd` vào `OpenDebt` thì nên dùng chung cùng nghĩa này.
+  - Test: trong cửa sổ có phát sinh 70.000 và đảo 100.000 → còn phải thu 170.000. Xóa 170.000 → 422 `max` 100.000. Xóa 100.000 → được áp, còn nợ 70.000. Xóa thêm → `max` 0. J15 đóng folio → 70.000 thành công nợ → xóa 70.000 → công nợ đóng.
+- **Kiểm chứng:** `@ottimo/api` **2.936/2.936 xanh** (99 tệp, 1 tệp bỏ qua) trên DB mới. Không commit.
+
+## 25. Vòng sửa 8 – N-6, N-7, trần xóa nợ theo `openDebtVnd`, FB-R2-SEC-BE-80/81 (ARC 16.28/16.29; DOM 18/10 BR-525; SEC `s4-SEC.md` C.12), 18/10
+
+| Việc | Cách cài | Kiểm chứng (`reversal-debt-g4`, `folio-version-touch`) |
+|---|---|---|
+| **Trần xóa nợ = `openDebtVnd` của BE-A** | Bỏ hàm tự tính ở mục 24 bổ sung. Trần = min(dư địa dòng, `OpenDebt.openDebtVnd` − Σ yêu cầu `debt_write_off` đang chờ của folio) – vế trừ là của FB-R2-SEC-BE-80 (a). `OpenDebt` do BE-A trả và là nguồn số duy nhất | Trong cửa sổ: 170.000 → 422 `max` 100.000; xóa 100.000 → áp được; xóa tiếp → `max` 0; J15 → xóa 70.000 → công nợ đóng |
+| **N-7 / FB-R2-SEC-BE-81** | `adjustFolioLine` trên folio `settled` mà đơn còn công nợ mở (`openDebt`): mọi điều chỉnh **giảm** (hủy dòng, giảm số lượng, giảm đơn giá) → 409 `FOLIO_LOCKED` cho **mọi vai, kể cả OWN**, kèm `detail` chỉ sang `debt_write_off`. Điều chỉnh **tăng** vẫn 201; đơn không còn nợ giữ A32 như cũ. Thứ tự khóa của `adjust` sửa thành L1 mọi đơn của folio (`lockStay`) → L3, để đọc công nợ dưới khóa. Dùng mã có sẵn `FOLIO_LOCKED`, không cần mã mới (ARC xem) | Hủy 1.500.000 → 409 (MGR và OWN); giảm giá → 409; giảm số lượng (OWN) → 409; `debt_write_off` 1.500.000 > giá 1 đêm → `pending`, OWN duyệt → còn nợ 100.000; tăng giá dòng tiền phòng → 201 |
+| **N-6 (ARC 16.29)** | Thêm `FolioService.touch(tx, folioId)`: `version + 1` trong cùng giao dịch, dưới L3. Gọi ở mọi chỗ ghi tiền: `insertLine`, đảo dòng, đổi trạng thái dòng (FOC áp hoặc từ chối, damage), đồng bộ thu OTA, mọi khoản thu (`recordManual`: B2, B4, B9, B18, `recordPayment`, thu nợ), xác nhận VietQR, tạo QR, đối soát, đảo, chi hoàn. Dòng đêm do BE-A đồng bộ đi qua `insertLine`/đảo dòng nên đã tự `touch` | Test kiến trúc `test/folio-version-touch.test.ts`: mọi hàm ghi `folio_line`/`payment` phải gọi `touch(`, trừ ba hàm có lý do (chỉ gắn dòng với yêu cầu; J24 hết hạn QR chờ). Ca đua A32 (hủy dòng 100.000 bằng `If-Match` đã đọc) ‖ thu nợ 200.000: thu trước → A32 **412**; hủy trước → 409 (N-7). Hai thứ tự đều bằng chạy tuần tự, dư thừa 0 |
+| **FB-R2-SEC-BE-80 (Blocker)** | (a) Trần lúc gửi như dòng đầu bảng. (b) Lúc duyệt (`onDecided`; preLock đã giữ L1 → L3): áp min(số đã duyệt, `openDebtVnd` lúc duyệt) và **ghi cố định** vào cột mới `approval_request.applied_cap_vnd` – mọi lần đồng bộ FOC sau đều tính theo min(số xin, cap). Công nợ đã về 0 → yêu cầu tự hủy (`status = cancelled`, `auto_cancel_reason = debt_cleared`, `foc_state` NULL), dòng chờ duyệt → `rejected`, không ghi FOC, người xin và người được hỏi duyệt nhận `approval_cancelled`, không tính vào hạn mức của người duyệt. Áp ít hơn số xin → audit trạng thái `approval.applied_capped` (`before.amountVnd`, `after.appliedVnd`, `openDebtVnd`). `approve()` đọc lại yêu cầu sau các hook. (c) Migration **0077** `debt_write_off_cap` (bản nháp drizzle-kit, quy tắc 4.2a): cột `applied_cap_vnd` + CHECK (NULL hoặc ≥ 0 và `type = foc`), CHECK `auto_cancel_reason` thêm `debt_cleared` (`no_show_restored` đã có từ 0063), `GRANT UPDATE (applied_cap_vnd)` cho vai app. Snapshot 0077 đã chạy prettier, `drizzle-kit generate` báo "No schema changes". `openapi.yaml` thêm `debt_cleared` vào enum `autoCancelReason`, đã sinh lại generated | Ca SEC A: nợ 5.000.000, MGR xin 5.000.000 → chờ OWN; khách trả đủ; OWN duyệt → 200, yêu cầu `cancelled`/`debt_cleared`, `effectiveAmountVnd` 0, không có dòng FOC, MGR được báo, dư 0. Ca SEC B: đang chờ 5.000.000 thì yêu cầu thứ hai → 422 `max` 0; khách trả 2.000.000; OWN duyệt 5.000.000 → chỉ áp **3.000.000**, công nợ đóng, dư 0; `syncReductions` chạy lại vẫn dư 0. Ca đua "OWN duyệt ‖ FD thu nợ" hai thứ tự = chạy tuần tự, dư 0 |
+| **BE-82** | Để R3 (theo ORC) | – |
+
+**Hình dạng phản hồi `approveRequest` cho FE-A (yêu cầu `debt_write_off`):**
+- **Áp đủ:** `status: "approved"`, `amountVnd` = số xin, `effectiveAmountVnd` = số xin.
+- **Áp một phần:** `status: "approved"`, `amountVnd` = số xin (SM-10, không đổi), `effectiveAmountVnd` = số thực áp. Số này = min(số xin, công nợ đang mở lúc duyệt) và giữ cố định về sau.
+  - Gợi ý câu: "Đã áp {effectiveAmountVnd} – phần còn lại khách đã trả".
+- **Tự hủy:** HTTP 200 (lệnh duyệt vẫn thành công), `status: "cancelled"`, `autoCancelReason: "debt_cleared"`, `effectiveAmountVnd` 0 hoặc vắng. Người xin nhận `approval_cancelled`.
+  - Gợi ý câu: "Công nợ đã được thanh toán – yêu cầu xóa nợ tự hủy".
+- **Gửi yêu cầu vượt trần:** 422 `AMOUNT_EXCEEDS_BALANCE` kèm `max` (có thể là 0 khi đã có yêu cầu khác đang chờ hết phần nợ).
+
+**Bổ sung (FE-A, 18/10):** audit `approval.applied_capped` nay ghi `category` `money` (`MONEY_CATEGORY(type)`, giống `approval.cancelled`), `reason` = mã `debt_collected_before_approval`, `after.reasonCode` = `debt_write_off`. Mã này đã thêm vào tập đóng `MONEY_AUDIT_ACTIONS` và danh sách `AuditEvent.action` trong `openapi.yaml`, generated đã sinh lại; ARC duyệt ở lượt kiểm 8. FE-A cần thêm chuỗi `mlog.a_approval_applied_capped` – trước khi có chuỗi, dòng này hiện câu chung `mlog.a_other`. Audit tự hủy `approval.cancelled` (`reason` `auto: debt_cleared`) đã ở `money`. Test ca SEC A và B kiểm cả hai.
+
+**Bổ sung (FB-R2-ARC-BE-S4-16, Major – chặn gộp #19, ARC 16.30 / bảng 16.19 sửa):** nhánh sửa giá đêm của `adjustFolioLine` nay lấy L1 **trước**: mọi đơn của folio `NO KEY UPDATE` theo id, qua hàm mới `FolioService.lockStayBookings` (là phần L1 tách từ `lockStay`). Sau đó mới gọi `setNightRate`, hàm này chỉ khóa lại đơn đã giữ nên không phải chờ; cuối cùng `lockStay` lấy L3 (L1 đã có, không chờ). Trước đây `setNightRate` khóa đơn **con** trước, rồi `lockStay` mới khóa đơn chính, tức ngược thứ tự id.
+- Test `reversal-debt-g4` "FB-R2-ARC-BE-S4-16": đơn OTA trả trước nhận phòng 04:30 có đêm sớm (B9a → đơn con). Hai thao tác chạy đua: A32 sửa giá đêm của đơn con (với `If-Match` đã đọc) ‖ `requestFoc` của MGR trên dòng fnb cùng folio.
+  - Mỗi thứ tự chạy 3 lượt ép thứ tự: lượt 1–2 xếp hàng sau khóa folio, lượt 3 xếp hàng sau khóa đơn con – đây là thứ tự từng gây deadlock.
+  - Thêm 3 lượt chạy đồng thời tự do.
+  - Kết quả mỗi lượt bằng chạy tuần tự cùng thứ tự: FOC trước thì A32 ra 412 (N-6); không lượt nào ra 409 hay 500; bộ đếm `pg_stat_database.deadlocks` không tăng.
+  - Thử bỏ lệnh khóa L1 mới trên cây: test đỏ với 409 `CONCURRENT_UPDATE` (deadlock), trả lại thì xanh.
+- Kiểm chứng: `@ottimo/api` **2.947/2.947 xanh** (100 tệp, 1 tệp bỏ qua) trên DB mới; tsc, eslint, prettier sạch; drizzle báo "No schema changes". Không commit. Các thẻ Minor S4-17…20 không làm trong lượt này.
+
+**Kiểm chứng**: `@ottimo/api` **2.946/2.946 xanh** (100 tệp, 1 tệp bỏ qua) trên DB mới. tsc toàn dự án 0 lỗi, eslint và prettier sạch trên `src` + `test`, drizzle báo "No schema changes". Không commit.
+
+**Tệp mục 25:**
+- `src/db/schema/approvals.ts`, `src/db/migrations/0077_debt_write_off_cap.sql`, `meta/0077_snapshot.json`, `meta/_journal.json` (idx 54)
+- `src/modules/approvals/public/approval.service.ts`
+- `src/modules/folio/{folio.module.ts,public/folio.service.ts,internal/foc.service.ts,internal/folio-lines.service.ts}`
+- `src/modules/payments/{internal/payments.service.ts,internal/refunds.service.ts,public/payment.service.ts}`
+- `docs/api/openapi.yaml` (enum `autoCancelReason`), `packages/api-client/src/generated/openapi.ts` (sinh lại)
+- `test/folio-version-touch.test.ts` (mới), `test/integration/reversal-debt-g4.test.ts`

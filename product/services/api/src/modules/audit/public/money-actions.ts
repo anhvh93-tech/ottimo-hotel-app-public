@@ -59,6 +59,8 @@ export const MONEY_AUDIT_ACTIONS = [
   'approval.escalated',
   'approval.reopened',
   'approval.cancelled',
+  // FB-R2-SEC-BE-80 (BR-525): a debt write-off applied only up to the open debt left at the decision.
+  'approval.applied_capped',
   'config.changed',
 ] as const;
 

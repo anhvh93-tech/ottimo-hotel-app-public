@@ -132,6 +132,8 @@ export interface ApprovalRow {
   foc_cancel_reason?: string | null;
   line_change?: Record<string, unknown> | null;
   auto_cancel_reason?: string | null;
+  /** 0077 (FB-R2-SEC-BE-80): the most a `debt_write_off` FOC applies, fixed when it was applied. */
+  applied_cap_vnd?: number | string | null;
   // 0060 (BE-B S4-02): current service date of the FOC key (room / extra-person line).
   foc_service_date?: string | null;
 }
@@ -145,7 +147,9 @@ export type AutoCancelReason =
   | 'reservation_no_show'
   | 'superseded'
   // 0.3.7 bổ sung 4 (migration 0063): B12 cancels the refund request the no-show created (S438-CANCEL-03).
-  | 'no_show_restored';
+  | 'no_show_restored'
+  // 0077 (FB-R2-SEC-BE-80, BR-525): a `debt_write_off` FOC approved when no debt is left any more.
+  | 'debt_cleared';
 
 /** OpenAPI ApprovalRequest.lineChangedNote (BR-434 v0.3.5, S4-18). */
 export interface LineChange {
@@ -634,8 +638,104 @@ export class ApprovalService {
       ...(input.requestId ? { requestId: input.requestId } : {}),
     });
     await this.runHooks(tx, approved);
-    await this.pushDecision(tx, approved);
-    return { row: approved };
+    // FB-R2-SEC-BE-80: a hook may have capped the request (`applied_cap_vnd`) or cancelled it (`debt_cleared`) –
+    // the answer is the request as it is now; a cancelled one was told to its requester by cancelApproved.
+    const { rows: now2 } = await tx.query<ApprovalRow>(
+      'SELECT * FROM approval_request WHERE id = $1',
+      [row.id],
+    );
+    const final = (now2[0] ?? approved) as ApprovalRow;
+    if (final.status === 'approved') await this.pushDecision(tx, final);
+    return { row: final };
+  }
+
+  /**
+   * FB-R2-SEC-BE-80 (BR-525): the money of an approved `debt_write_off` FOC is applied only up to the open debt at
+   * that moment (the owner of the folio – FolioFocService – decides in its onDecided hook, under L1 → L3):
+   * - `setAppliedCap`: the most it applies, now and at every later re-sync (`applied_cap_vnd`, SM-10 keeps
+   *   `amount_vnd`); money audit `approval.applied_capped` when it is less than asked (reason code
+   *   `debt_collected_before_approval`);
+   * - `cancelApproved`: no debt left → the request is cancelled by the system (`debt_cleared`), nothing applied,
+   *   the requester and the approvers asked are told (`approval_cancelled`), the approver's limit is not used.
+   */
+  async setAppliedCap(
+    tx: Tx,
+    approvalId: string,
+    capVnd: number,
+    ctx: { openDebtVnd: number; requestId?: string },
+  ): Promise<void> {
+    const { rows } = await tx.query<ApprovalRow>(
+      `UPDATE approval_request SET applied_cap_vnd = $2 WHERE id = $1 AND type = 'foc' RETURNING *`,
+      [approvalId, capVnd],
+    );
+    const row = rows[0];
+    if (!row || capVnd >= Number(row.amount_vnd)) return;
+    // The money log of the Desk reads `money` only (FE-A); the reason is a CODE the Desk looks up.
+    await this.audit.record(tx, {
+      category: MONEY_CATEGORY(row.type),
+      action: 'approval.applied_capped',
+      entityType: 'approval_request',
+      entityId: row.id,
+      ...(row.target_code ? { entityCode: row.target_code } : {}),
+      before: { amountVnd: Number(row.amount_vnd) },
+      after: { appliedVnd: capVnd, openDebtVnd: ctx.openDebtVnd, reasonCode: row.reason_code },
+      reason: 'debt_collected_before_approval',
+      ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+    });
+  }
+
+  async cancelApproved(
+    tx: Tx,
+    approvalId: string,
+    reason: Extract<AutoCancelReason, 'debt_cleared'>,
+    requestId?: string,
+  ): Promise<ApprovalRow | null> {
+    const { now } = await this.context(tx);
+    const { rows } = await tx.query<ApprovalRow>(
+      `UPDATE approval_request SET status = 'cancelled', auto_cancel_reason = $2, foc_state = NULL,
+          foc_cancel_reason = NULL, decision_note = $3, updated_at = $4, version = version + 1
+        WHERE id = $1 AND status = 'approved' RETURNING *`,
+      [approvalId, reason, `auto: ${reason}`, now],
+    );
+    const cancelled = rows[0];
+    if (!cancelled) return null;
+    await this.audit.record(tx, {
+      category: MONEY_CATEGORY(cancelled.type),
+      action: 'approval.cancelled',
+      entityType: 'approval_request',
+      entityId: cancelled.id,
+      ...(cancelled.target_code ? { entityCode: cancelled.target_code } : {}),
+      before: { status: 'approved' },
+      after: { status: 'cancelled', type: cancelled.type, amountVnd: cancelled.amount_vnd },
+      reason: `auto: ${reason}`,
+      ...(requestId ? { requestId } : {}),
+    });
+    const { rows: asked } = await tx.query<{ user_id: string }>(
+      `SELECT DISTINCT user_id FROM staff_notification
+        WHERE kind = 'approval_requested' AND ref_type = 'approval_request' AND ref_id = $1`,
+      [cancelled.id],
+    );
+    const userIds = [...new Set([cancelled.requested_by, ...asked.map((a) => a.user_id)])];
+    await this.outbox(tx, cancelled, `approval_cancelled:${cancelled.id}`, {
+      kind: 'approval_cancelled',
+      reason,
+      userIds,
+    });
+    if (this.events) {
+      await this.events.notify(
+        tx,
+        {
+          kind: 'approval_cancelled',
+          userIds,
+          refType: 'approval_request',
+          refId: cancelled.id,
+          ...(cancelled.target_code ? { refCode: cancelled.target_code } : {}),
+        },
+        now,
+        { push: false },
+      );
+    }
+    return cancelled;
   }
 
   // ───────────────────────── A5 / A6 ─────────────────────────

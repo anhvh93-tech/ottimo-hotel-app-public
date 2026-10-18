@@ -553,6 +553,7 @@ export class PaymentsService {
         WHERE id = $1`,
       [p.id, at, now, actor.userId, note, input.attachmentId],
     );
+    await this.folios.touch(tx, folioId); // ARC 16.29 (N-6)
     if (input.attachmentId) {
       await this.attachments.bindTo(tx, input.attachmentId, { type: 'payment', id: p.id });
     }
@@ -713,6 +714,7 @@ export class PaymentsService {
         primaryRole(actor.roles),
       ],
     );
+    await this.folios.touch(tx, p.folio_id); // ARC 16.29 (N-6): payable credit moves
     const code = p.reservation_id
       ? (await this.port().ownership(tx, p.reservation_id))?.code
       : undefined;
@@ -823,6 +825,7 @@ export class PaymentsService {
       `UPDATE payment SET status = 'reversed', updated_at = $2, version = version + 1 WHERE id = $1`,
       [p.id, now],
     );
+    await this.folios.touch(tx, p.folio_id); // ARC 16.29 (N-6)
     // SEC I5: a disputed receipt is kept until it is dealt with (the reversal) + the retention period.
     if (p.reconciliation === 'disputed')
       await anchorPaymentAttachment(this.attachments, tx, p, now);
@@ -1024,6 +1027,7 @@ export class PaymentsService {
         stayPurpose ? JSON.stringify(qrContextOf(stay)) : null,
       ],
     );
+    await this.folios.touch(tx, folio.id); // ARC 16.29 (N-6): a QR written (and an older one expired)
     await this.audit.recordMoney(tx, {
       action: 'payment.qr_created',
       entityType: 'payment',

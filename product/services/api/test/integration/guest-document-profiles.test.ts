@@ -159,6 +159,8 @@ describe.skipIf(!HAS_DB)(
         possibleReturningGuest: false,
         partyMemberId: s1.reservationId,
       });
+      // BUG-R2-205: the booker chosen – the party is not beyond the booking (field absent).
+      expect(main.json()).not.toHaveProperty('partyOverCount');
       // one document per person: a second one for the booker → 409 PARTY_DUPLICATE.
       const again = await addDoc(reg1, {
         ...emma,
@@ -385,6 +387,40 @@ describe.skipIf(!HAS_DB)(
       }
     });
 
+    it('BUG-R2-205 (ARC 16.29): the booker without a date of birth, the document sent without partyMemberId → 201 with partyOverCount 1 (a companion "from the document" beyond the booking), no fee line; removing that person clears it', async () => {
+      const st = await seedStay(db, t, ids, {
+        adults: 1,
+        bookerName: 'Ngô Văn Tâm',
+        roomNo: '202',
+        arrival: '2026-11-25',
+        departure: '2026-11-27',
+      });
+      const regId = await registrationOf(st.reservationId);
+      const res = await addDoc(regId, {
+        docType: 'cccd',
+        fullNameOnDoc: 'Ngô Văn Tâm',
+        docNumber: '079180002468',
+        dateOfBirth: '1980-02-04',
+        isMain: true,
+      });
+      expect(res.statusCode, res.body).toBe(201);
+      expect(res.json().partyOverCount).toBe(1);
+      const [f] = await q<{ n: number }>(
+        `SELECT count(*)::int AS n FROM folio_line l JOIN reservation r ON r.folio_id = l.folio_id
+          WHERE r.id = $1`,
+        [st.reservationId],
+      );
+      expect(f?.n).toBe(0);
+      // The desk removes the extra person (here: marks it removed) → the warning goes.
+      const docId = (res.json().documents as Array<{ id: string; partyMemberId?: string }>)[0]!;
+      await q('UPDATE reservation_guest SET removed_at = $2 WHERE id = $1', [
+        docId.partyMemberId,
+        T0,
+      ]);
+      const after = await staff(fa, tok('fd'), device, 'GET', `${P(t)}/registrations/${regId}`);
+      expect(after.json()).not.toHaveProperty('partyOverCount');
+    });
+
     it('SEC FB-R2-SEC-BE-73 (ARC 16.22) – X books for Y ("đặt hộ"): (1) Y\'s main document never lands on X\'s profile, (2) Y refusing / granting P05 never changes X, (3) Y back on another booking is linked to Y, not X; P05 for a document linked to nobody → 422 REQUIRED; DB CHECK BE-78 (a)', async () => {
       // X (the booker) already has P05 – the case where the old code wrote Y's key + last 4 on X.
       const s3 = await seedStay(db, t, ids, {
@@ -411,6 +447,10 @@ describe.skipIf(!HAS_DB)(
       // (1) Y's document as the main one, no partyMemberId → Y is matched / created, never X.
       const res = await addDoc(reg3, yen);
       expect(res.statusCode, res.body).toBe(201);
+      // BUG-R2-205 (ARC 16.29): Y was added as a companion beyond the 1 person booked → warning, no fee.
+      expect(res.json().partyOverCount).toBe(1);
+      const reread = await staff(fa, tok('fd'), device, 'GET', `${P(t)}/registrations/${reg3}`);
+      expect(reread.json().partyOverCount).toBe(1);
       const docY = (res.json().documents as Array<Record<string, unknown>>).find(
         (d) => d.docNumberLast4 === '4321',
       )! as { id: string; isMain: boolean; partyMemberId?: string };

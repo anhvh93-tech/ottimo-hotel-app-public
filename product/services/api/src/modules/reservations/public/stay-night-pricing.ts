@@ -194,6 +194,8 @@ export class StayNightPricingPort {
       if (n.date !== input.serviceDate) return n;
       const rest: Record<string, unknown> & { date: string } = { ...n };
       delete rest.anchorRoomId;
+      // G-5: a typed price replaces an inherited agreement (the typed price is the agreement now).
+      delete rest.agreedRateVnd;
       return {
         ...rest,
         amountVnd: gross,

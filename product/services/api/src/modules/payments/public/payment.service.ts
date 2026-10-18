@@ -256,6 +256,8 @@ export class PaymentService {
         p.attachmentId ?? null,
       ],
     );
+    // ARC 16.29 (N-6): every receipt moves the folio's version (B2/B4/B9/B18 callers and recordPayment).
+    await this.need(this.folios, 'FolioService').touch(tx, p.folioId);
     await this.audit.recordMoney(tx, {
       action: 'payment.recorded',
       entityType: 'payment',

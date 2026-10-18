@@ -78,6 +78,8 @@ interface Evaluation {
     createsChildReservation: boolean;
     /** ARC 16.18: the room bought now – anchor of a B9a price the desk types (null = the origin room). */
     anchorRoomId: string | null;
+    /** G-5 (AN-50): the agreement the default night inherits (null = none). */
+    agreedRateVnd: number | null;
   } | null;
   conditions: Condition[];
   warnings: Array<{ code: string }>;
@@ -304,6 +306,7 @@ export class CheckinService {
         ceilingVnd: direct.ceilingVnd,
         createsChildReservation: row.channel_group === 'ota' || row.external_contract,
         anchorRoomId: nc.anchorRoomId,
+        agreedRateVnd: row.stay_type === 'long' ? null : r.agreedVnd,
       };
     }
 
@@ -930,6 +933,10 @@ export class CheckinService {
     const sourced = {
       source,
       ...(source === 'manual' ? { anchorRoomId: prior.anchorRoomId } : {}),
+      // G-5 (AN-50): the default night priced from an agreed reference carries the agreement.
+      ...(source === 'default' && prior.agreedRateVnd !== null
+        ? { agreedRateVnd: prior.agreedRateVnd, anchorRoomId: prior.anchorRoomId }
+        : {}),
     } as const;
     if (row.channel_group === 'ota' || row.external_contract) {
       await this.s.stay.createChildStay(tx, ctx, row, {

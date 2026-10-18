@@ -157,6 +157,10 @@ export interface MockApproval {
   refundedVnd?: number;
   /** 0.3.7 B-6: `ApprovalRequest.version` – bumped on every change the approver must see. */
   version?: number;
+  /** 0.3.7 D1 / SEC BE-80: set when the server closed the request by itself (`status = cancelled`). */
+  autoCancelReason?: string;
+  /** SEC BE-80: what a debt write-off really applied (≤ `amountVnd`, fixed at approval). */
+  effectiveAmountVnd?: number;
   /** BR-436: FD/FDL waived a minibar line within their own limit (re-auth). */
   selfApplied?: boolean;
 }
@@ -1432,6 +1436,14 @@ export function createStayMock(ctx: Ctx) {
       kind: isForeign(r) ? 'foreigner_temp_residence' : 'vn_citizen_stay',
       status: reg.status,
       requiredCount: r.adults + (r.children6to11 ?? 0) + (r.childrenUnder6 ?? 0),
+      // BUG-R2-205 (ARC 16.29): people in the party beyond the booking's guests (e.g. added from an ID that matched
+      // nobody) – absent when not over.
+      partyOverCount: (() => {
+        const over =
+          (st.party.get(r.id) ?? []).length -
+          (r.adults + (r.children6to11 ?? 0) + (r.childrenUnder6 ?? 0));
+        return over > 0 ? over : undefined;
+      })(),
       // BUG-R2-083: an unclaimed document never counts (BE countsForDeclaration).
       // Like the server (BUG-R2-089): IDs whose details are entered – photos only do not count.
       submittedCount: reg.documents.filter((d) => !isUnclaimed(d) && !!d.fullNameOnDoc).length,
@@ -3249,6 +3261,16 @@ export function createStayMock(ctx: Ctx) {
       }
       const p = recordPay(r, body, g);
       bump(r);
+      // SEC BE-80: the debt is collected in full → a write-off still waiting is closed by the server.
+      if (f.status === 'settled' && totals(r).balanceDueVnd <= 0)
+        st.approvals
+          .filter(
+            (a) =>
+              a.folioId === f.id &&
+              a.reasonCode === 'debt_write_off' &&
+              ['pending', 'escalated'].includes(a.status),
+          )
+          .forEach((a) => autoCancel(a, 'debt_cleared'));
       return rsv().remember(key, 201, p);
     }),
     http.post(`${prop}/folios/:folioId/vietqr`, async ({ request, params }) => {
@@ -3652,6 +3674,36 @@ export function createStayMock(ctx: Ctx) {
           });
         const stale = versionCheck(a, body, 'stale');
         if (stale) return stale;
+        // SEC BE-80: a debt write-off approved after the debt was collected – closed by the server instead.
+        if (a.reasonCode === 'debt_write_off') {
+          const f0 = a.folioId ? st.folios.get(a.folioId) : undefined;
+          const r0 = f0 && rsv().state.reservations.find((x) => x.id === f0.reservationId);
+          if (r0 && totals(r0).balanceDueVnd <= 0) {
+            autoCancel(a, 'debt_cleared');
+            return json(approvalView(a));
+          }
+          // Part of the debt paid meanwhile: only what is still owed is written off.
+          const owed = r0 ? totals(r0).balanceDueVnd : a.amountVnd;
+          a.effectiveAmountVnd = Math.min(a.amountVnd, owed);
+          if (a.effectiveAmountVnd < a.amountVnd) {
+            const l0 = f0?.lines.find((l) => l.approvalRequestId === a.id);
+            if (l0) {
+              l0.amountVnd = -a.effectiveAmountVnd;
+              l0.unitPriceVnd = -a.effectiveAmountVnd;
+            }
+            st.audit.unshift({
+              occurredAt: nowIso(),
+              actorType: 'system',
+              category: 'money',
+              action: 'approval.applied_capped',
+              entityType: 'approval_request',
+              entityCode: a.reservationCode,
+              before: { amountVnd: a.amountVnd },
+              after: { appliedVnd: a.effectiveAmountVnd, openDebtVnd: owed },
+              reason: 'debt_collected_before_approval',
+            });
+          }
+        }
         a.version = (a.version ?? 1) + 1;
         a.status = 'approved';
         a.approverName = g.user.displayName;
@@ -4268,6 +4320,27 @@ export function createStayMock(ctx: Ctx) {
       ? problem(412, 'VERSION_CONFLICT', { currentVersion: a.version ?? 1 })
       : null;
   }
+  /** 0.3.7 D1: the server cancels a request by itself – `cancelled` + reason, its FOC line → rejected. */
+  function autoCancel(a: MockApproval, reason: string) {
+    a.version = (a.version ?? 1) + 1;
+    a.status = 'cancelled';
+    a.autoCancelReason = reason;
+    const f = a.folioId ? st.folios.get(a.folioId) : undefined;
+    const line = f?.lines.find((l) => l.approvalRequestId === a.id);
+    if (line) line.lineState = 'rejected';
+    st.audit.unshift({
+      occurredAt: nowIso(),
+      actorType: 'system',
+      category: 'money',
+      action: 'approval.cancelled',
+      entityType: 'approval_request',
+      entityCode: a.reservationCode,
+      before: { status: 'pending' },
+      after: { status: 'cancelled', type: a.type, amountVnd: a.amountVnd },
+      reason: `auto: ${reason}`,
+    });
+  }
+
   function approvalView(a: MockApproval) {
     const out: Record<string, unknown> = { ...a, version: a.version ?? 1 };
     delete out.requestedByUserId;

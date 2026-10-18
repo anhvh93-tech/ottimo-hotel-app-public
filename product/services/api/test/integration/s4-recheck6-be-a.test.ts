@@ -943,8 +943,10 @@ describe.skipIf(!HAS_DB)('kiểm lại tiền lần 6 – BE-A', () => {
       reservationIds: [b.id],
       dueDate: day(d1, days),
       balanceDueVnd: 100_000,
+      openDebtVnd: 100_000,
     });
-    // A part paid: the debt stays open with the rest.
+    // A part paid (later than the reversal): the debt stays open with the rest.
+    await at(`${d1}T10:30:00+07:00`);
     const part = await payCash(50_000);
     expect(await settled(part)).toEqual({
       settled: false,
@@ -952,12 +954,12 @@ describe.skipIf(!HAS_DB)('kiểm lại tiền lần 6 – BE-A', () => {
       balanceDueVnd: 50_000,
       outcome: null,
     });
-    expect(await openDebt()).toMatchObject({ balanceDueVnd: 50_000 });
+    expect(await openDebt()).toMatchObject({ balanceDueVnd: 50_000, openDebtVnd: 50_000 });
     expect(await settledAt()).toBeNull();
     expect((await debtItem('mgr'))?.reservationIds ?? []).toContain(b.id);
     // The rest paid: payments (BE-B `recordPayment`, debt branch) calls debtSettled in its transaction → closed.
     const rest = await payCash(50_000);
-    expect(await settledAt()).toEqual(new Date(`${d1}T10:00:00+07:00`));
+    expect(await settledAt()).toEqual(new Date(`${d1}T10:30:00+07:00`));
     const [audit] = await q<{ n: number }>(
       `SELECT count(*)::int AS n FROM audit_event
         WHERE action = 'reservation.debt_settled' AND category = 'state' AND entity_id = $1`,
@@ -976,7 +978,11 @@ describe.skipIf(!HAS_DB)('kiểm lại tiền lần 6 – BE-A', () => {
     // A new reversal (the 50.000 transfer) re-opens the debt; its first due date stays.
     await reverse(transferIds[1]!);
     expect(await settledAt()).toBeNull();
-    expect(await openDebt()).toMatchObject({ dueDate: day(d1, days), balanceDueVnd: 50_000 });
+    expect(await openDebt()).toMatchObject({
+      dueDate: day(d1, days),
+      balanceDueVnd: 50_000,
+      openDebtVnd: 50_000,
+    });
     expect((await debtItem('mgr'))?.reservationIds ?? []).toContain(b.id);
   }, 120_000);
   it('ARC 16.27 (R7LOCK-01 + R7LOCK-02): J15 – window over with 70.000 owed (minibar found after check-out) and no debt → debtOnCheckout records ONE debt of 70.000 due +3 (out 16/11 → 17/11 → due 20/11), audit, OWN + MGR told, checkout_debt; a second call records nothing; MGR writes it off through requestFoc `debt_write_off`: a part → openDebt 40.000, still open; to 0 → openDebt null, the debt closed as written_off', async () => {
@@ -1069,6 +1075,7 @@ describe.skipIf(!HAS_DB)('kiểm lại tiền lần 6 – BE-A', () => {
     expect(await openDebt()).toMatchObject({
       reservationId: b.id,
       balanceDueVnd: 40_000,
+      openDebtVnd: 40_000,
       dueDate: '2032-11-20',
     });
     expect(await settledAt()).toBeNull();
@@ -1095,5 +1102,40 @@ describe.skipIf(!HAS_DB)('kiểm lại tiền lần 6 – BE-A', () => {
     expect((await debtItem('mgr'))?.reservationIds ?? []).not.toContain(b.id);
     // Nothing owed any more: J15 records nothing.
     expect(await close()).toMatchObject({ recorded: false, balanceDueVnd: 0 });
+  }, 120_000);
+  it('DOM 18/10 (BR-525) openDebtVnd – the open debt from the debt records, one source: a 100.000 receipt reversed while a 70.000 minibar line is still in its window → owed 170.000, open debt 100.000; 30.000 collected → 70.000; the window over → everything owed (140.000) is the debt', async () => {
+    const d0 = '2032-12-06';
+    const d1 = day(d0, 1);
+    const { b, transferIds } = await paidByTransfer(d0);
+    const openDebt = () =>
+      db.withContext(t.ctx(), async (tx) => {
+        await fa.app.get(FolioService).lockStay(tx, b.folioId);
+        return fa.app.get(ReservationHooks).openDebt(tx, b.folioId);
+      });
+    await at(`${d1}T11:00:00+07:00`);
+    const late = await c.fd!.send('POST', url(`/folios/${b.folioId}/lines`), {
+      category: 'fnb',
+      description: 'Minibar phát sinh sau trả phòng',
+      quantity: 1,
+      unitPriceVnd: 70_000,
+      serviceDate: d1,
+    });
+    expect(late.statusCode, late.body).toBe(201);
+    expect(await openDebt()).toBeNull();
+    await at(`${d1}T12:00:00+07:00`);
+    await reverse(transferIds[0]!);
+    expect(await openDebt()).toMatchObject({ balanceDueVnd: 170_000, openDebtVnd: 100_000 });
+    await at(`${d1}T13:00:00+07:00`);
+    const pay = await c.fd!.send('POST', url(`/folios/${b.folioId}/payments`), {
+      type: 'charge',
+      method: 'cash',
+      amountVnd: 30_000,
+      note: 'Khách trả một phần công nợ',
+    });
+    expect(pay.statusCode, pay.body).toBe(201);
+    expect(await openDebt()).toMatchObject({ balanceDueVnd: 140_000, openDebtVnd: 70_000 });
+    // The window (24 hours from the check-out at d1 10:00) is over: everything owed is the debt.
+    await at(`${day(d1, 1)}T10:01:00+07:00`);
+    expect(await openDebt()).toMatchObject({ balanceDueVnd: 140_000, openDebtVnd: 140_000 });
   }, 120_000);
 });

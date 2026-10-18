@@ -2214,6 +2214,14 @@ export class RegistrationService {
     const stay = await readStay(tx, reg.reservation_id, SYSTEM_ACTOR);
     const deadline = await this.deadlineParams(tx, c.today).catch(() => null);
     const docs = await documentsOf(tx, reg.id);
+    // BUG-R2-205 (ARC 16.29): people of the party (the booker + members still in it – the head count the party
+    // panel shows) beyond the persons of the booking, typically a companion `unknown` the server added for a
+    // document matched by nobody (16.22). Warning only – no fee is computed when a document is entered.
+    const { rows: party } = await tx.query<{ n: number }>(
+      'SELECT count(*)::int AS n FROM reservation_guest WHERE reservation_id = $1 AND removed_at IS NULL',
+      [reg.reservation_id],
+    );
+    const over = stay ? 1 + (party[0]?.n ?? 0) - stay.personsTotal : 0;
     const images = await imagesOf(tx, reg.id);
     const consents = await consentsOf(tx, reg.id);
     const iso = (d: Date | null) => (d ? toZonedIso(d, c.tz) : undefined);
@@ -2327,6 +2335,7 @@ export class RegistrationService {
             deferredPeople: o.deferredPeople,
           }
         : null,
+      ...(over >= 1 ? { partyOverCount: over } : {}),
       allowedActions: allowedActions(reg.status),
       version: reg.version,
     };

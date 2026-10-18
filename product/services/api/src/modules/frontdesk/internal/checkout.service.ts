@@ -16,6 +16,7 @@
  * are cancelled as superseded; the overpayment handled is the part not yet routed to a refund request.
  */
 import { Inject, Injectable } from '@nestjs/common';
+import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
 import {
@@ -90,6 +91,8 @@ interface ExtraNight {
   available: boolean;
   /** ARC 16.18: the room bought now – anchor of a price the desk types (null = the origin room). */
   anchorRoomId: string | null;
+  /** G-5 (AN-50): the agreement the default night inherits (null = none). */
+  agreedRateVnd: number | null;
 }
 
 interface Departure {
@@ -157,6 +160,7 @@ function lateTierOf(d: Departure): number {
 @Injectable()
 export class CheckoutService {
   constructor(
+    @Inject(CLOCK) private readonly clock: Clock,
     @Inject(StaySupport) private readonly s: StaySupport,
     @Inject(StayService) private readonly stays: StayService,
     @Inject(AuditService) private readonly audit: AuditService,
@@ -214,6 +218,7 @@ export class CheckoutService {
       primary.debt_due_date ??
       addDays(ctx.today, await this.s.param<number>(tx, ctx, 'debt_default_due_days'));
     return this.writeDebt(tx, ctx, rows, primary, {
+      folioId: input.folioId,
       dueDate,
       keep: true,
       reason: input.reason,
@@ -258,6 +263,7 @@ export class CheckoutService {
     );
     const days = input.dueDays ?? (await this.s.param<number>(tx, ctx, 'debt_default_due_days'));
     return this.writeDebt(tx, ctx, rows, primary, {
+      folioId: input.folioId,
       dueDate: addDays(ctx.today, days),
       keep: false,
       reason: input.reason,
@@ -280,6 +286,7 @@ export class CheckoutService {
     rows: ReadonlyArray<{ id: string; code: string; status: string; checkout_mode: string | null }>,
     primary: { id: string; code: string; checkout_mode: string | null },
     d: {
+      folioId: string;
       dueDate: LocalDate;
       keep: boolean;
       reason: string;
@@ -292,15 +299,29 @@ export class CheckoutService {
     const reason = d.reason.slice(0, 500);
     const out = rows.filter((r) => r.status === 'checked_out');
     await tx.query(
-      d.keep
-        ? `UPDATE reservation SET checkout_mode = 'debt', debt_due_date = COALESCE(debt_due_date, $2::date),
-                  debt_reason = COALESCE(debt_reason, $3), debt_settled_at = NULL, updated_at = $4,
-                  version = version + 1
-            WHERE id = ANY($1::uuid[])`
-        : `UPDATE reservation SET checkout_mode = 'debt', debt_due_date = $2::date, debt_reason = $3,
-                  debt_settled_at = NULL, updated_at = $4, version = version + 1
-            WHERE id = ANY($1::uuid[])`,
-      [out.map((r) => r.id), d.dueDate, reason, ctx.now],
+      // 0076 (DOM 18/10): an open cycle grows by what this record adds; otherwise a new cycle opens now with it.
+      `UPDATE reservation SET checkout_mode = 'debt',
+              debt_due_date = ${d.keep ? 'COALESCE(debt_due_date, $2::date)' : '$2::date'},
+              debt_reason = ${d.keep ? 'COALESCE(debt_reason, $3)' : '$3'},
+              debt_recorded_vnd = CASE WHEN checkout_mode = 'debt' AND debt_settled_at IS NULL
+                                       AND debt_opened_at IS NOT NULL
+                                  THEN debt_recorded_vnd + $5::bigint ELSE $5::bigint END,
+              debt_opened_at = CASE WHEN checkout_mode = 'debt' AND debt_settled_at IS NULL
+                                     AND debt_opened_at IS NOT NULL
+                                THEN debt_opened_at ELSE $4 END,
+              debt_base_vnd = CASE WHEN checkout_mode = 'debt' AND debt_settled_at IS NULL
+                                    AND debt_opened_at IS NOT NULL
+                               THEN debt_base_vnd ELSE $6::bigint END,
+              debt_settled_at = NULL, updated_at = $4, version = version + 1
+        WHERE id = ANY($1::uuid[])`,
+      [
+        out.map((r) => r.id),
+        d.dueDate,
+        reason,
+        ctx.now,
+        d.debtVnd,
+        await this.debtReductionsVnd(tx, d.folioId),
+      ],
     );
     const { rows: after } = await tx.query<{ due: LocalDate }>(
       'SELECT debt_due_date::text AS due FROM reservation WHERE id = $1',
@@ -359,9 +380,12 @@ export class CheckoutService {
       checkout_mode: string | null;
       debt_due_date: LocalDate | null;
       debt_settled_at: Date | null;
+      debt_opened_at: Date | null;
+      debt_recorded_vnd: string | number;
+      debt_base_vnd: string | number;
     }>(
       `SELECT id, code, status, parent_reservation_id, checkout_mode, debt_due_date::text AS debt_due_date,
-              debt_settled_at
+              debt_settled_at, debt_opened_at, debt_recorded_vnd, debt_base_vnd
          FROM reservation WHERE folio_id = $1 ORDER BY id FOR NO KEY UPDATE`,
       [folioId],
     );
@@ -385,7 +409,60 @@ export class CheckoutService {
         .map((r) => r.id),
       dueDate: primary.debt_due_date,
       balanceDueVnd: balance.balanceDueVnd,
+      openDebtVnd: await this.openDebtVnd(tx, folioId, primary, balance.balanceDueVnd),
     };
+  }
+
+  /**
+   * DOM 18/10 (BR-525 – a write-off never exceeds the OPEN debt): the open debt counted from the debt records of the
+   * open cycle – `debt_recorded_vnd` (B18 = what was owed, G-4 = each increase, J15 = everything owed) – minus what
+   * was collected or written off since it opened: Σ now − `debt_base_vnd` (Σ when it opened – `debtReductionsVnd`;
+   * no clock comparison, so a receipt of the same instant is never miscounted); capped by what the folio owes,
+   * never below 0. Once the post-checkout window is over (folio `closed`, or past `post_checkout_window_until`)
+   * everything still owed IS the debt (ARC 16.27 – J15 "mọi khoản còn nợ thành một công nợ"): `openDebtVnd` = what
+   * the folio owes. A B18 debt written before 0076 (no cycle) – the same.
+   */
+  private async openDebtVnd(
+    tx: Tx,
+    folioId: string,
+    primary: {
+      debt_opened_at: Date | null;
+      debt_recorded_vnd: string | number;
+      debt_base_vnd: string | number;
+    },
+    balanceDueVnd: number,
+  ): Promise<number> {
+    const folio = await this.s.folios.get(tx, folioId);
+    const window = folio?.post_checkout_window_until ?? null;
+    const windowOver =
+      !folio ||
+      folio.status === 'closed' ||
+      window === null ||
+      this.clock.now().getTime() >= window.getTime();
+    if (windowOver || primary.debt_opened_at === null) return balanceDueVnd;
+    const since = (await this.debtReductionsVnd(tx, folioId)) - Number(primary.debt_base_vnd);
+    const open = Number(primary.debt_recorded_vnd) - since;
+    return Math.max(0, Math.min(open, balanceDueVnd));
+  }
+
+  /**
+   * Σ of what reduces a debt on the folio: own receipts (charge / deposit, not OTA, not refunds; the original rows,
+   * kept even when reversed later – the reversal records its own increase through debtAfterReversal) + posted FOC
+   * lines `debt_write_off`. Read under L3.
+   */
+  private async debtReductionsVnd(tx: Tx, folioId: string): Promise<number> {
+    const { rows } = await tx.query<{ paid: string; off: string }>(
+      `SELECT
+         (SELECT COALESCE(sum(p.amount_vnd), 0) FROM payment p
+           WHERE p.folio_id = $1 AND p.reversal_of_id IS NULL AND p.status IN ('succeeded', 'reversed')
+             AND p.type NOT IN ('refund', 'security_deposit') AND p.method <> 'ota_collect')::text AS paid,
+         (SELECT COALESCE(-sum(l.amount_vnd), 0) FROM folio_line l
+            JOIN approval_request a ON a.id = l.approval_request_id
+           WHERE l.folio_id = $1 AND l.category = 'foc' AND l.line_state = 'posted'
+             AND l.reversal_of_id IS NULL AND a.reason_code = 'debt_write_off')::text AS off`,
+      [folioId],
+    );
+    return Number(rows[0]?.paid ?? 0) + Number(rows[0]?.off ?? 0);
   }
 
   /**
@@ -515,6 +592,7 @@ export class CheckoutService {
         ceilingVnd: r.ceilingVnd,
         available: await this.s.occupancy.isFree(tx, rm.id, dep, addDays(dep, 1)),
         anchorRoomId: nc.anchorRoomId,
+        agreedRateVnd: r.agreedVnd,
       };
     }
     return { time, rm, quote, stay, postMidnight, extraNight, rollover };
@@ -1067,9 +1145,21 @@ export class CheckoutService {
     // ── state ──
     await tx.query(
       `UPDATE reservation SET status = 'checked_out', actual_checkout_at = $2, checkout_mode = $3,
-              debt_due_date = $4, debt_reason = $5, updated_at = $2, version = version + 1
+              debt_due_date = $4, debt_reason = $5, updated_at = $2, version = version + 1,
+              -- 0076 (DOM 18/10): a B18 debt opens the cycle with what is owed (openDebtVnd).
+              debt_opened_at = CASE WHEN $3 = 'debt' THEN $2::timestamptz END,
+              debt_recorded_vnd = CASE WHEN $3 = 'debt' THEN $6::bigint ELSE 0 END,
+              debt_base_vnd = CASE WHEN $3 = 'debt' THEN $7::bigint ELSE 0 END
         WHERE id = ANY($1::uuid[])`,
-      [all, ctx.now, debt ? 'debt' : 'desk', debt?.dueDate ?? null, debt?.reason ?? null],
+      [
+        all,
+        ctx.now,
+        debt ? 'debt' : 'desk',
+        debt?.dueDate ?? null,
+        debt?.reason ?? null,
+        debt ? balance.balanceDueVnd : 0,
+        debt ? await this.debtReductionsVnd(tx, folioId) : 0,
+      ],
     );
     // S4-11/32 (BE-C, T05): the last check-out of every guest of the stay (bookers + present members) – the
     // retention of a profile "from the document" counts from it (J25 also catches up; this is the exact time).
@@ -1223,6 +1313,10 @@ export class CheckoutService {
     const sourced = {
       source,
       ...(source === 'manual' ? { anchorRoomId: x.anchorRoomId } : {}),
+      // G-5 (AN-50): the default night priced from an agreed reference carries the agreement.
+      ...(source === 'default' && x.agreedRateVnd !== null
+        ? { agreedRateVnd: x.agreedRateVnd, anchorRoomId: x.anchorRoomId }
+        : {}),
     } as const;
     if (row.channel_group === 'ota' || row.external_contract) {
       await this.s.stay.createChildStay(tx, ctx, row, {

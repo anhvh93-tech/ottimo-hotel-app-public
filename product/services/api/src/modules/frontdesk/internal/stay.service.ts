@@ -127,6 +127,10 @@ export class StayService {
         amountVnd: d.rateVnd,
         manual: false,
         source: 'default',
+        // G-5 (AN-50): priced from an agreed reference → the night carries the agreement (a later reference).
+        ...(d.agreedVnd !== null
+          ? { agreedRateVnd: d.agreedVnd, anchorRoomId: (nc as AddedNightContext).anchorRoomId }
+          : {}),
       });
       nights.push({
         date,
@@ -310,6 +314,9 @@ export class StayService {
             amountVnd: typed,
             manual: false,
             source: 'default',
+            ...(d.agreedRateVnd != null
+              ? { agreedRateVnd: d.agreedRateVnd, anchorRoomId: d.anchorRoomId ?? null }
+              : {}),
           });
         } else if (typed !== undefined) {
           added.push({
@@ -339,6 +346,7 @@ export class StayService {
           calendarVnd: x.calendarVnd,
           ...(x.source ? { source: x.source } : {}),
           anchorRoomId: x.anchorRoomId ?? null,
+          ...(x.agreedRateVnd != null ? { agreedRateVnd: x.agreedRateVnd } : {}),
         })),
         rateSource: 'extension',
         transition: 'B13',

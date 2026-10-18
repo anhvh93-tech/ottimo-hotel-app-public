@@ -23,6 +23,7 @@ export function PaymentPanel({
   purpose = 'balance',
   checkout,
   onPaid,
+  onStale,
 }: {
   reservation: Reservation;
   balanceVnd: number;
@@ -33,6 +34,8 @@ export function PaymentPanel({
    */
   checkout?: { checkoutAt?: string; extraNightRateVnd?: number; lateFeeAsNight?: boolean };
   onPaid: (p: Payment) => void;
+  /** N-6 (ARC 16.29): the folio changed meanwhile (412) – the caller reads it again; the panel keeps its input. */
+  onStale?: () => void;
 }) {
   const { t, vnd, money } = useI18n();
   const propertyId = usePropertyId();
@@ -47,6 +50,15 @@ export function PaymentPanel({
   const [qr, setQr] = useState<VietQrResult | null>(null);
   const qrAct = useSubmit();
   const payAct = useSubmit();
+  // N-6 (ARC 16.29): 412 – the folio moved on; the caller reloads it, the panel keeps the amount typed.
+  const stale = payAct.code === 'VERSION_CONFLICT';
+  useEffect(() => {
+    if (stale) onStale?.();
+    // once per failed save
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payAct.error]);
+  const payView = () =>
+    stale ? <Alert tone="warn">{t('folio.changed_reload')}</Alert> : payAct.view();
   const value = amountOf(amount);
   const change = method === 'cash' ? amountOf(cash) - value : 0;
 
@@ -189,7 +201,7 @@ export function PaymentPanel({
               )}
             </Field>
             <p className="li-s">{t('pay.error_not_received')}</p>
-            {over !== null ? null : payAct.view()}
+            {over !== null ? null : payView()}
             <Button
               variant="pri"
               busy={payAct.busy}
@@ -270,7 +282,7 @@ export function PaymentPanel({
               </p>
             </>
           ) : null}
-          {payAct.view()}
+          {payView()}
           <Button
             variant="pri"
             busy={payAct.busy}

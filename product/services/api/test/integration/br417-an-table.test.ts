@@ -6,7 +6,8 @@
  * B14, B7, B7a, B12, K12, S4-35, S4-09). A row the R2 commands cannot reach (AN-14: a guest request into the lane;
  * AN-36: the generic "no reference night") runs on the shared functions themselves.
  * Recheck 6 (18/10): BUG-R2-195 (BR-417-21 A–F), AN-48 (BR-417-22, G-2: the side of the reference night follows the
- * position of the added night) and AN-49 (BR-417-23, G-3) – their own oracles, read the same way.
+ * position of the added night) and AN-49 (BR-417-23, G-3) – their own oracles, read the same way; AN-50 (G-5, agreed
+ * price inherited by the nights an operation prices from an agreed reference) from the appendix row until QA adds it.
  * ARC 16.18: night sources by the operation (`default` / `manual` + `anchorRoomId`), `NightRate.edited`.
  * Fake clock and FAKE data only.
  */
@@ -111,7 +112,7 @@ const day = (from: string, n: number) => {
   return d.toISOString().slice(0, 10);
 };
 
-describe.skipIf(!HAS_DB)('BR-417 appendix 5A – the added-night decision table AN-01…AN-49', () => {
+describe.skipIf(!HAS_DB)('BR-417 appendix 5A – the added-night decision table AN-01…AN-50', () => {
   let db: Database;
   let fa: FeatureApp;
 
@@ -1490,6 +1491,64 @@ describe.skipIf(!HAS_DB)('BR-417 appendix 5A – the added-night decision table 
     }
   }, 240_000);
 
+  it('AN-50 (G-5, DOM 18/10 – appendix 5A step 3 "kế thừa thỏa thuận"): 202 agreed 650.000 × 2 (20–22/05/2030) moved whole to 23–25/05 keeping 202 → 650.000 × 2, delta 0, the moved nights carry the agreement; B13 Saturday 25/05 → 650.000 (not the calendar 911.000); the same with OTTIMO → 401 → min(650.000; 401) = 650.000 each, B13 min(650.000; 1.198.000) = 650.000', async () => {
+    // Numbers: business-rules.md appendix 5A row AN-50 (QA adds the br-examples oracle).
+    const mon = '2030-05-20';
+    const agreedOf = async (w: W, b: Booking, date: string) =>
+      (
+        await w.q<{ agreed: string | null; source: string | null }>(
+          `SELECT x->>'agreedRateVnd' AS agreed, x->>'source' AS source
+             FROM reservation r, jsonb_array_elements(r.pricing_snapshot->'nights') x
+            WHERE r.id = $1 AND x->>'date' = $2`,
+          [b.id, date],
+        )
+      )[0];
+    // (1) Guest request, keeps 202.
+    const w1 = await world();
+    const a = await agreedPair(w1, '202', mon, 650_000);
+    const pa = await w1.move(a.b, {
+      arrivalDate: '2030-05-23',
+      departureDate: '2030-05-25',
+      reasonCode: 'guest_request',
+    });
+    expect([planned(pa, '2030-05-23').newRateVnd, planned(pa, '2030-05-24').newRateVnd]).toEqual([
+      650_000, 650_000,
+    ]);
+    expect(pa.folioDeltaVnd).toBe(0);
+    expect(await agreedOf(w1, a.b, '2030-05-24')).toEqual({ agreed: '650000', source: 'default' });
+    await w1.stayIn(a.b, '202', '2030-05-23');
+    const o1 = await w1.options(a.b, '2030-05-24');
+    expect(o1.nights[0].date).toBe('2030-05-25');
+    expect(o1.nights[0].defaultRateVnd).toBe(650_000);
+    expect([o1.nights[0].floorVnd, o1.nights[0].ceilingVnd]).toEqual([530_000, 1_900_000]);
+    await w1.extend(a.b, 1);
+    expect(await w1.grossOn(a.b, '2030-05-25')).toBe(650_000);
+    // (2) OTTIMO moves the whole stay into 401 (force majeure postpone, MGR – as AN-46).
+    const w2 = await world();
+    const c2 = await agreedPair(w2, '202', mon, 650_000);
+    const p2 = await w2.move(
+      c2.b,
+      {
+        roomId: w2.ids.rooms['401'] as string,
+        arrivalDate: '2030-05-23',
+        departureDate: '2030-05-25',
+        mode: 'postpone_instead_of_cancel',
+        reasonCode: 'force_majeure',
+        note: 'Đèo Prenn đóng – ảnh thông báo',
+      },
+      'mgr',
+    );
+    expect([planned(p2, '2030-05-23').newRateVnd, planned(p2, '2030-05-24').newRateVnd]).toEqual([
+      650_000, 650_000,
+    ]);
+    expect(p2.folioDeltaVnd).toBe(0);
+    await w2.stayIn(c2.b, '401', '2030-05-23');
+    const o2 = await w2.options(c2.b, '2030-05-24');
+    expect(o2.nights[0].defaultRateVnd).toBe(650_000);
+    expect([o2.nights[0].floorVnd, o2.nights[0].ceilingVnd]).toEqual([530_000, 2_630_000]);
+    expect(o2.currentBookingRateVnd).toBe(650_000);
+  }, 240_000);
+
   it('0068 (ARC 16.18): an open stay written before the sources – the S4-35 night typed after a guest move gets the room bought then, the B13 default written `manual` becomes `default`, the booking nights stay typed; B18 then takes the typed 800.000', async () => {
     expect(BACKFILL_0068).toBeDefined();
     const w = await world();
@@ -1500,11 +1559,14 @@ describe.skipIf(!HAS_DB)('BR-417 appendix 5A – the added-night decision table 
     await w.typeNight(b, day(mon, 2), 800_000);
     await w.options(b, day(mon, 2));
     await w.extend(b, 1);
-    // As the old code left it: no anchor, the B13 default (≠ calendar) written `manual`.
+    // As the old code left it: no anchor, the B13 default (≠ calendar) written `manual` – without the agreement
+    // (G-5) the code of today records on it.
     await w.q(
       `UPDATE reservation SET pricing_snapshot = jsonb_set(pricing_snapshot, '{nights}', (
          SELECT jsonb_agg(CASE WHEN x->>'date' = $2 THEN x - 'anchorRoomId'
-                               WHEN x->>'date' = $3 THEN x || '{"source":"manual"}'::jsonb ELSE x END ORDER BY o)
+                               WHEN x->>'date' = $3
+                               THEN (x - 'agreedRateVnd' - 'anchorRoomId') || '{"source":"manual"}'::jsonb
+                               ELSE x END ORDER BY o)
            FROM jsonb_array_elements(pricing_snapshot->'nights') WITH ORDINALITY AS t(x, o)))
         WHERE id = $1`,
       [b.id, day(mon, 2), day(mon, 3)],

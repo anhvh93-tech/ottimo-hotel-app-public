@@ -691,6 +691,20 @@ export class FolioService implements FolioStaySync {
     return id;
   }
 
+  /**
+   * ARC 16.29 (N-6): `folio.version` goes up with EVERY money change of the folio – a line written, reversed or
+   * changing state (night sync, FOC, fee, adjustment), a payment written or changing status (receipt, debt
+   * collection, VietQR confirmed, reversal, refund pay-out, OTA receipt resync) – in the same transaction, under
+   * L3 (the caller holds the folio). A request sent with an `If-Match` read before it gets 412 instead of acting on
+   * stale numbers. Test `folio-version-touch` lists every writer of `folio_line` / `payment` that must call it.
+   */
+  async touch(tx: Tx, folioId: string): Promise<void> {
+    await tx.query('UPDATE folio SET version = version + 1, updated_at = $2 WHERE id = $1', [
+      folioId,
+      this.clock.now(),
+    ]);
+  }
+
   /** `SELECT … FOR UPDATE` (lock order: reservation → room → folio). Null when not visible. */
   async lock(tx: Tx, folioId: string): Promise<FolioRow | null> {
     const { rows } = await tx.query<FolioRow>(
@@ -710,6 +724,16 @@ export class FolioService implements FolioStaySync {
    * of a line / payment written by a transaction that holds the folio – the booking key never changes.
    */
   async lockStay(tx: Tx, folioId: string): Promise<FolioRow | null> {
+    await this.lockStayBookings(tx, folioId);
+    return this.lock(tx, folioId);
+  }
+
+  /**
+   * L1 of 16.19 alone: every booking of the folio `FOR NO KEY UPDATE`, id order (the primary booking is the oldest
+   * – uuidv7 – so it comes first). For a use case that must hold L1 before a step of another module that re-locks
+   * one of those bookings (adjustFolioLine → `setNightRate`, FB-R2-ARC-BE-S4-16), then takes L3 with `lockStay`.
+   */
+  async lockStayBookings(tx: Tx, folioId: string): Promise<void> {
     await tx.query(
       `SELECT r.id FROM reservation r
         WHERE r.folio_id = $1
@@ -717,7 +741,6 @@ export class FolioService implements FolioStaySync {
         ORDER BY r.id FOR NO KEY UPDATE OF r`,
       [folioId],
     );
-    return this.lock(tx, folioId);
   }
 
   private qrDueNowReader: QrDueNowReader | null = null;
@@ -1737,6 +1760,7 @@ export class FolioService implements FolioStaySync {
         ],
       );
     }
+    await this.touch(tx, folioId);
     await this.audit.recordMoney(tx, {
       action: live.length ? 'payment.ota_collect_adjusted' : 'payment.ota_collected',
       entityType: 'payment',
@@ -1963,6 +1987,7 @@ export class FolioService implements FolioStaySync {
       status: 'pending' | 'escalated' | 'approved';
       foc_state: 'applied' | 'dormant' | 'suspended' | null;
       amount_vnd: number;
+      applied_cap_vnd: number | string | null;
       decided_at: Date | null;
       requested_at: Date;
       reason_code: string;
@@ -1975,7 +2000,8 @@ export class FolioService implements FolioStaySync {
       origin_date: string | null;
       origin_charge_code: string | null;
     }>(
-      `SELECT a.id, a.type, a.status, a.foc_state, a.amount_vnd, a.decided_at, a.requested_at, a.reason_code,
+      `SELECT a.id, a.type, a.status, a.foc_state, a.amount_vnd, a.applied_cap_vnd, a.decided_at, a.requested_at,
+              a.reason_code,
               a.target_code, a.folio_line_id, a.line_change, a.foc_service_date::text AS foc_service_date,
               c.id AS origin_line_id, c.category AS origin_category, c.service_date::text AS origin_date,
               c.charge_code AS origin_charge_code
@@ -1997,7 +2023,11 @@ export class FolioService implements FolioStaySync {
         type: r.type,
         status: r.status === 'approved' ? 'approved' : r.status,
         focState: r.status === 'approved' ? (r.foc_state ?? 'applied') : null,
-        amountVnd: Number(r.amount_vnd),
+        // FB-R2-SEC-BE-80: a debt write-off never applies more than its cap fixed when it was applied (BR-525).
+        amountVnd:
+          r.applied_cap_vnd === null
+            ? Number(r.amount_vnd)
+            : Math.min(Number(r.amount_vnd), Number(r.applied_cap_vnd)),
         decidedAt: r.decided_at,
         requestedAt: r.requested_at,
         reasonCode: r.reason_code,
@@ -2130,6 +2160,7 @@ export class FolioService implements FolioStaySync {
             `UPDATE folio_line SET line_state = 'posted', approval_request_id = $2 WHERE id = $1`,
             [p.id, r.id],
           );
+          await this.touch(tx, p.folio_id);
           id = p.id;
         } else {
           id = await this.insertFocLine(tx, r, line, -vnd, 'posted', opts, now);
@@ -3123,7 +3154,11 @@ export class FolioService implements FolioStaySync {
   }
 
   private async setLineState(tx: Tx, lineId: string, state: 'posted' | 'rejected'): Promise<void> {
-    await tx.query('UPDATE folio_line SET line_state = $2 WHERE id = $1', [lineId, state]);
+    const { rows } = await tx.query<{ folio_id: string }>(
+      'UPDATE folio_line SET line_state = $2 WHERE id = $1 RETURNING folio_id',
+      [lineId, state],
+    );
+    if (rows[0]) await this.touch(tx, rows[0].folio_id);
   }
 
   /**
@@ -3196,7 +3231,13 @@ export class FolioService implements FolioStaySync {
           AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = $1)`,
       [l.id, id, now, by, reason ? 'manual' : 'system', reason],
     );
-    return rowCount ? l.amount_vnd : 0;
+    if (!rowCount) return 0;
+    const { rows } = await tx.query<{ folio_id: string }>(
+      'SELECT folio_id FROM folio_line WHERE id = $1',
+      [l.id],
+    );
+    if (rows[0]) await this.touch(tx, rows[0].folio_id);
+    return l.amount_vnd;
   }
 
   private async voidCommissions(
@@ -3294,6 +3335,7 @@ export class FolioService implements FolioStaySync {
         l.labelParams ? JSON.stringify(l.labelParams) : null,
       ],
     );
+    await this.touch(tx, l.folioId);
     return id;
   }
 

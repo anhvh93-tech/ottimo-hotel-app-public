@@ -72,6 +72,9 @@ defineAuditEntity('approval_request', [
   'serviceDate',
   'reason',
   'from',
+  // FB-R2-SEC-BE-80 (approval.applied_capped): a debt write-off applied up to the open debt.
+  'appliedVnd',
+  'openDebtVnd',
 ]);
 // 0.3.6 B-29 (payments.confirmDeposit): short deposit accepted by MGR+.
 defineAuditEntity('reservation', ['shortfallVnd', 'depositRequiredVnd', 'depositPaidVnd']);

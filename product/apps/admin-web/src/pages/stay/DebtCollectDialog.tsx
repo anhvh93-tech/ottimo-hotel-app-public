@@ -1,6 +1,6 @@
 import type { FolioLine, PaymentMethod, Reservation } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Button, Field, Modal, Seg } from '@ottimo/ui';
+import { Alert, Button, Field, Modal, Seg } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
 import { api } from '../../app/api';
 import { lineLabel } from '../../app/folio';
@@ -44,6 +44,14 @@ export function DebtCollectDialog({
   );
   const due = folio.state.data?.totals.balanceDueVnd ?? r?.balanceDueVnd ?? 0;
   const act = useSubmit();
+  // N-6 (ARC 16.29): the folio changed meanwhile (412) – read it again, keep the box and what was typed.
+  useEffect(() => {
+    if (act.code !== 'VERSION_CONFLICT') return;
+    rsv.reload();
+    folio.reload();
+    // once per failed save
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [act.error]);
   const [method, setMethod] = useState<Method>('cash');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
@@ -111,7 +119,11 @@ export function DebtCollectDialog({
       ) : (
         <div className="stack">
           <p>{t('debt.collect_help', { amount: money(due) })}</p>
-          {act.view({ max: due })}
+          {act.code === 'VERSION_CONFLICT' ? (
+            <Alert tone="warn">{t('folio.changed_reload')}</Alert>
+          ) : (
+            act.view({ max: due })
+          )}
           <span className="label-h" id={`${ids}-m`}>
             {t('pay.method')}
           </span>
@@ -191,6 +203,14 @@ export function DebtWriteOffDialog({
   const due = f?.totals.balanceDueVnd ?? r?.balanceDueVnd ?? 0;
   const lines: FolioLine[] = f ? f.lines.filter((l) => canAskFoc(f.lines, l)) : [];
   const act = useSubmit();
+  // N-6 (ARC 16.29): the folio changed meanwhile (412) – read it again, keep the box and what was typed.
+  useEffect(() => {
+    if (act.code !== 'VERSION_CONFLICT') return;
+    rsv.reload();
+    folio.reload();
+    // once per failed save
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [act.error]);
   const [lineId, setLineId] = useState('');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
@@ -253,7 +273,11 @@ export function DebtWriteOffDialog({
         <div className="stack">
           <p>{t('debt.write_off_help', { amount: money(due) })}</p>
           {roles.includes('owner') ? null : <p className="li-s">{t('debt.write_off_limit')}</p>}
-          {act.view({ max })}
+          {act.code === 'VERSION_CONFLICT' ? (
+            <Alert tone="warn">{t('folio.changed_reload')}</Alert>
+          ) : (
+            act.view({ max })
+          )}
           <fieldset className="fieldset-plain">
             <legend className="label-h">{t('debt.write_off_line')}</legend>
             {lines.map((l) => (

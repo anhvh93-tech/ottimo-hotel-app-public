@@ -6564,6 +6564,51 @@
       "note": "Nguồn: `business-rules.md` phụ lục 5A AN-49 và bước 1 \"Ngoại lệ (18/10 – G-3)\"; recheck6 G-3 ghi mã 723179b đã ra đúng hai số này → không pendingFix. AN-13 không đổi."
     },
     {
+      "id": "BR-417-24",
+      "br": "BR-417",
+      "case": "(v0.3.8, phụ lục 5A AN-50 – DOM 18/10, G-5 recheck7) MovePlanner – khách xin DỜI HẲN ngày (không chồng ngày cũ), giữ căn, đơn thỏa thuận: đêm dời kế thừa giá thỏa thuận (nguồn thỏa thuận, không `default`) → B13 sau đó lấy đêm tham chiếu 650.000, không lịch 911.000",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "see": "BR-417-16 input (lịch, sàn, trần từng căn)",
+        "roomNo": "202",
+        "agreedNightVnd": 650000,
+        "nights": ["2030-05-20", "2030-05-21"],
+        "moveTo": {
+          "arrival": "2030-05-23",
+          "departure": "2030-05-25",
+          "reasonCode": "guest_request"
+        },
+        "b13": {
+          "nights": 1,
+          "night": "2030-05-25"
+        },
+        "variantOttimo": {
+          "toRoomNo": "401"
+        }
+      },
+      "expected": {
+        "moved": {
+          "nightsVnd": {
+            "2030-05-23": 650000,
+            "2030-05-24": 650000
+          },
+          "folioDeltaVnd": 0,
+          "nightSource": "agreed"
+        },
+        "b13NightVnd": 650000,
+        "notCalendarVnd": 911000,
+        "deskRangeVnd": [530000, 1900000],
+        "variantOttimo": {
+          "nightsVnd": [650000, 650000],
+          "b13SaturdayVnd": 650000,
+          "deskRangeVnd": [530000, 2630000]
+        }
+      },
+      "note": "Nguồn: `business-rules.md` phụ lục 5A AN-50 và ghi chú 12 (DOM 18/10, G-5 của `reviews/s4-money-recheck7.md`; probe 202 thỏa thuận dời 20–22/05/2030 → 23–25/05, B13 thứ Bảy 911.000). Mã 316b9ac ghi đêm dời nguồn `default` → B13 ra lịch. Gỡ pendingFix khi BE-A sửa (đêm MovePlanner kế thừa thỏa thuận) và ca TC-L4-158 đạt. · 18/10 ~15:15 (QA): gỡ pendingFix – BE-A đã cài G-5 trên cây chung (đêm kế thừa thỏa thuận); TC-L4-158 đạt trên api-dist25: đêm dời 650.000 × 2, B13 650.000."
+    },
+    {
       "id": "BR-421-01",
       "br": "BR-421",
       "case": "Đơn trực tiếp 201 giá 700.000 thêm 2 đêm",
@@ -9218,7 +9263,6 @@
       "origin": "example",
       "labels": ["GIẢ ĐỊNH", "NGÀNH"],
       "calc": null,
-      "pendingFix": "BUG-R2-200",
       "input": {
         "folioStatus": "settled",
         "balanceBeforeVnd": -30000,
@@ -9233,7 +9277,7 @@
         "formula": "max(0, 70.000) − max(0, −30.000) = 70.000",
         "debtDueDays": 3
       },
-      "note": "Nguồn: `business-rules.md` BR-525 (18/10 – G-4, ARC 16.25 (i)–(iii), DOM chốt; nhãn [GIẢ ĐỊNH – chờ INV xác nhận]; G-4: NGÀNH), `outputs/ARC/openapi-0.3.7.md` 16.25. Năm 2026 theo quy ước (ví dụ BR không ghi năm). Gỡ pendingFix khi BE-A/BE-B xác nhận ra đúng số và CI xanh. · 18/10 ~13:05 (QA): giữ pendingFix – chưa có ca chạy thật cho folio đang thừa (công thức \"phần tăng\" đã có ca đảo lần hai của BE-A); thêm ca rồi gỡ."
+      "note": "Nguồn: `business-rules.md` BR-525 (18/10 – G-4, ARC 16.25 (i)–(iii), DOM chốt; nhãn [GIẢ ĐỊNH – chờ INV xác nhận]; G-4: NGÀNH), `outputs/ARC/openapi-0.3.7.md` 16.25. Năm 2026 theo quy ước (ví dụ BR không ghi năm). Gỡ pendingFix khi BE-A/BE-B xác nhận ra đúng số và CI xanh. · 18/10 (QA, recheck7 R7ALL-02): gỡ pendingFix – ca chính thức TC-L4-146…152 (`e2e/clock/debt-collect.s5.clock.spec.ts`, TC-L4-152) đạt trên cây #18: công nợ 70.000, yêu cầu hoàn 30.000 `superseded`, thu 70.000 → hết nợ."
     },
     {
       "id": "BR-525-04",
@@ -9685,6 +9729,201 @@
       "note": "Nguồn: `business-rules.md` BR-427 (d) và BR-525 (18/10 – R7LOCK-01/R7LOCK-02, DOM), `outputs/ARC/openapi-0.3.7.md` 16.27, `openapi.yaml` `requestFoc` (0.3.7 bổ sung 4 – xóa công nợ). Năm 2026 theo quy ước. 743.571 = 5.205.000 / 7 (giá 1 đêm của đơn ví dụ – BR-433 `nightRateBasis`)."
     },
     {
+      "id": "BR-525-16",
+      "br": "BR-525",
+      "case": "(18/10 – N-7, SEC BE-81) Đơn còn công nợ mở: MỌI vai (MGR, kể cả OWN) void hoặc giảm dòng trên folio `settled` (A32) → 409 `FOLIO_LOCKED`, công nợ giữ nguyên; giảm nợ chỉ qua FOC `debt_write_off`. Tăng dòng vẫn được (A32); folio không công nợ thì A32 giảm như cũ",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "debtVnd": 100000,
+        "folioStatus": "settled",
+        "attempts": [
+          {
+            "by": "manager",
+            "voidLine": true
+          },
+          {
+            "by": "manager",
+            "newUnitPriceVnd": 60000
+          },
+          {
+            "by": "owner",
+            "voidLine": true
+          },
+          {
+            "by": "owner",
+            "newUnitPriceVnd": 60000
+          },
+          {
+            "by": "manager",
+            "newUnitPriceVnd": 120000
+          }
+        ]
+      },
+      "expected": {
+        "reduceOrVoid": {
+          "status": 409,
+          "code": "FOLIO_LOCKED",
+          "debtOpenVnd": 100000
+        },
+        "increase": {
+          "status": 201,
+          "debtOpenVnd": 120000
+        }
+      },
+      "note": "Nguồn: `reviews/s4-SEC.md` C.12 (FB-R2-SEC-BE-80/81), `reviews/s4-money-recheck7.md` N-6/N-7, ARC 16.27 mục 2, 16.29; `business-rules.md` BR-525 (N-7 – DOM 18/10). Năm 2026 theo quy ước."
+    },
+    {
+      "id": "BR-525-17",
+      "br": "BR-525",
+      "case": "(18/10 – N-6, ARC 16.29) `Folio.version` tăng ở MỌI thay đổi tiền (gồm thu nợ): MGR soạn A32 trên số cũ (If-Match đọc trước), FD thu nợ trước → A32 412 `VERSION_CONFLICT`; đọc lại version → 201. A32 ‖ thu nợ cùng If-Match: một 201, một 412",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "debtVnd": 100000,
+        "collect": {
+          "by": "front_desk",
+          "amountVnd": 50000
+        },
+        "a32": {
+          "by": "manager",
+          "newUnitPriceVnd": 120000,
+          "ifMatch": "version đọc trước lần thu"
+        }
+      },
+      "expected": {
+        "collectStatus": 201,
+        "staleA32": {
+          "status": 412,
+          "code": "VERSION_CONFLICT"
+        },
+        "freshA32": {
+          "status": 201
+        },
+        "versionIncreasesOnCollect": true
+      },
+      "note": "Nguồn: `reviews/s4-SEC.md` C.12 (FB-R2-SEC-BE-80/81), `reviews/s4-money-recheck7.md` N-6/N-7, ARC 16.27 mục 2, 16.29; `business-rules.md` BR-525 (N-7 – DOM 18/10). Năm 2026 theo quy ước."
+    },
+    {
+      "id": "BR-525-18",
+      "br": "BR-525",
+      "case": "(18/10 – SEC BE-80 ca A) Công nợ 5.000.000; MGR xin xóa 5.000.000 (vượt giá 1 đêm → chờ OWN); khách trả đủ 5.000.000 → 201; OWN duyệt sau đó → yêu cầu tự hủy `auto_cancel_reason = debt_cleared`, không ghi FOC, dư thừa 0",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "debtVnd": 5000000,
+        "writeOffRequest": {
+          "by": "manager",
+          "amountVnd": 5000000,
+          "status": "pending",
+          "requiredRole": "owner"
+        },
+        "guestPays": {
+          "by": "front_desk",
+          "amountVnd": 5000000
+        },
+        "ownerDecision": "approve"
+      },
+      "expected": {
+        "afterGuestPays": {
+          "debtOpenVnd": 0
+        },
+        "approveStatus": 200,
+        "request": {
+          "status": "cancelled",
+          "autoCancelReason": "debt_cleared",
+          "effectiveAmountVnd": 0
+        },
+        "focLinesWritten": 0,
+        "creditVnd": 0,
+        "folioStatus": "closed"
+      },
+      "note": "Nguồn: `reviews/s4-SEC.md` C.12 (FB-R2-SEC-BE-80/81), `reviews/s4-money-recheck7.md` N-6/N-7, ARC 16.27 mục 2, 16.29; `business-rules.md` BR-525 (N-7 – DOM 18/10). Năm 2026 theo quy ước. Lý do tự hủy `debt_cleared` (enum `autoCancelReason`, openapi). · 18/10 vòng sửa 8 (QA): BE-B sửa BUG-R2-206 (`s4-be-b.md` mục 25, 0077) – gỡ pendingFix sau khi TC-L4-155…157 đạt trên cây chung."
+    },
+    {
+      "id": "BR-525-19",
+      "br": "BR-525",
+      "case": "(18/10 – SEC BE-80 ca B, vòng sửa 8) Công nợ còn 5.000.000: yêu cầu xóa 5.000.000 chờ OWN; yêu cầu thứ hai 3.000.000 → 422 `AMOUNT_EXCEEDS_BALANCE` `max` 0 (trần trừ yêu cầu đang chờ); khách trả thêm 2.000.000 rồi OWN duyệt 5.000.000 → chỉ áp 3.000.000 (`effectiveAmountVnd`, cố định), dư thừa 0, công nợ đóng một lần",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "debtVnd": 8000000,
+        "paidVnd": 3000000,
+        "debtOpenVnd": 5000000,
+        "requests": [
+          {
+            "by": "manager",
+            "amountVnd": 5000000
+          },
+          {
+            "by": "manager",
+            "amountVnd": 3000000
+          }
+        ],
+        "thenGuestPaysVnd": 2000000,
+        "ownerApproves": "first"
+      },
+      "expected": {
+        "secondRequest": {
+          "status": 422,
+          "fieldCode": "AMOUNT_EXCEEDS_BALANCE",
+          "maxVnd": 0
+        },
+        "approve": {
+          "status": 200,
+          "requestStatus": "approved",
+          "amountVnd": 5000000,
+          "effectiveAmountVnd": 3000000
+        },
+        "creditVnd": 0,
+        "debtOpenVnd": 0,
+        "debtClosedOnce": true
+      },
+      "note": "Nguồn: `reviews/s4-SEC.md` C.12 (FB-R2-SEC-BE-80/81), `reviews/s4-money-recheck7.md` N-6/N-7, ARC 16.27 mục 2, 16.29; `business-rules.md` BR-525 (N-7 – DOM 18/10). Năm 2026 theo quy ước. · 18/10 vòng sửa 8 (QA): BE-B sửa BUG-R2-206 (`s4-be-b.md` mục 25, 0077) – gỡ pendingFix sau khi TC-L4-155…157 đạt trên cây chung."
+    },
+    {
+      "id": "BR-525-20",
+      "br": "BR-525",
+      "case": "(18/10 – SEC BE-80) Đua OWN duyệt yêu cầu xóa nợ ‖ FD thu nợ, hai thứ tự: kết quả bằng chạy tuần tự – không bao giờ dư thừa vì xóa nợ",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "debtVnd": 5000000,
+        "writeOffRequest": {
+          "by": "manager",
+          "amountVnd": 5000000,
+          "status": "pending"
+        },
+        "collect": {
+          "by": "front_desk",
+          "amountVnd": 5000000
+        },
+        "orders": ["approve_first", "collect_first"]
+      },
+      "expected": {
+        "approve_first": {
+          "approve": 200,
+          "requestStatus": "approved",
+          "collect": 409,
+          "collectCode": "FOLIO_LOCKED",
+          "creditVnd": 0
+        },
+        "collect_first": {
+          "collect": 201,
+          "approve": 200,
+          "requestStatus": "cancelled",
+          "autoCancelReason": "debt_cleared",
+          "creditVnd": 0
+        }
+      },
+      "note": "Nguồn: `reviews/s4-SEC.md` C.12 (FB-R2-SEC-BE-80/81), `reviews/s4-money-recheck7.md` N-6/N-7, ARC 16.27 mục 2, 16.29; `business-rules.md` BR-525 (N-7 – DOM 18/10). Năm 2026 theo quy ước. · 18/10 vòng sửa 8 (QA): BE-B sửa BUG-R2-206 (`s4-be-b.md` mục 25, 0077) – gỡ pendingFix sau khi TC-L4-155…157 đạt trên cây chung."
+    },
+    {
       "id": "BR-526-01",
       "br": "BR-526",
       "case": "Ca 14:00–22:00: hệ thống 3.491.000, đếm 3.441.000",
@@ -9888,6 +10127,32 @@
       "expected": {
         "registrationStatus": "partial"
       }
+    },
+    {
+      "id": "BR-601-02",
+      "br": "BR-601",
+      "case": "(18/10 – BUG-R2-205, ARC 16.29, R7ALL-01) Hồ sơ người đặt thiếu ngày sinh, giấy tờ chính gửi không `partyMemberId` → server không khớp người đặt (không khớp chỉ bằng tên) và thêm người đi cùng: 201 kèm cảnh báo `partyOverCount` khi số người có mặt vượt số khách của đơn; tiền giữ theo hợp đồng (không phụ thu lúc nhập giấy tờ)",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "adults": 1,
+        "bookerProfileDateOfBirth": null,
+        "document": {
+          "docType": "cccd",
+          "isMain": true,
+          "hasDateOfBirth": true,
+          "partyMemberId": null
+        }
+      },
+      "expected": {
+        "status": 201,
+        "presentCount": 2,
+        "requiredCount": 1,
+        "partyOverCount": 1,
+        "extraPersonLinesWritten": 0
+      },
+      "note": "Nguồn: `outputs/ARC/openapi-0.3.7.md` 16.29 (BUG-R2-205), `openapi.yaml` `Registration.partyOverCount`, `reviews/s4-money-recheck7.md` R7ALL-01 (S302: 3 > 2). ARC 16.22: không khớp người đặt chỉ bằng tên (SEC-BE-73)."
     },
     {
       "id": "BR-602-01",

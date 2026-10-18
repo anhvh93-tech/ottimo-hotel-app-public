@@ -213,8 +213,24 @@ export interface StayNightPrice {
    * written untouched; absent = `manual` ? 'manual' : 'calendar'.
    */
   source?: NightSource;
-  /** `manual` only: the room bought when typed (null/absent = the stay's origin room). */
+  /** `manual`, or a night carrying an agreement: the room bought then (null/absent = the stay's origin room). */
   anchorRoomId?: string | null;
+  /** G-5 (AN-50): the agreement a non-typed night inherited from its reference night (null/absent = none). */
+  agreedRateVnd?: number | null;
+}
+
+/** G-5: snapshot fields of a night's agreement – typed (`manual` + anchor) or inherited (`agreedRateVnd` + anchor). */
+function agreementFields(
+  source: string,
+  n: { anchorRoomId?: string | null; agreedRateVnd?: number | null } | undefined,
+): { anchorRoomId?: string; agreedRateVnd?: number } {
+  if (!n) return {};
+  if (source === 'manual') return n.anchorRoomId ? { anchorRoomId: n.anchorRoomId } : {};
+  if (n.agreedRateVnd === null || n.agreedRateVnd === undefined) return {};
+  return {
+    agreedRateVnd: n.agreedRateVnd,
+    ...(n.anchorRoomId ? { anchorRoomId: n.anchorRoomId } : {}),
+  };
 }
 
 /**
@@ -223,25 +239,38 @@ export interface StayNightPrice {
  */
 function plannedSource(
   row: ReservationRow,
-  planned: ReadonlyMap<string, { priceSource: 'kept' | 'calendar' | 'default' }>,
-): (date: string) => { source: string; anchorRoomId?: string } {
+  planned: ReadonlyMap<
+    string,
+    {
+      priceSource: 'kept' | 'calendar' | 'default';
+      agreedRateVnd?: number | null;
+      anchorRoomId?: string | null;
+    }
+  >,
+): (date: string) => { source: string; anchorRoomId?: string; agreedRateVnd?: number } {
   const prior = new Map(
     (
       (
         row.pricing_snapshot as {
-          nights?: Array<{ date: string; source?: string; anchorRoomId?: string | null }>;
+          nights?: Array<{
+            date: string;
+            source?: string;
+            anchorRoomId?: string | null;
+            agreedRateVnd?: number | null;
+          }>;
         }
       ).nights ?? []
     ).map((n) => [n.date, n]),
   );
   return (date) => {
     const n = planned.get(date);
-    if (n && n.priceSource !== 'kept') return { source: n.priceSource };
+    // G-5 (AN-50): an added night priced from an agreed reference carries the agreement.
+    if (n && n.priceSource !== 'kept') {
+      return { source: n.priceSource, ...agreementFields(n.priceSource, n) };
+    }
     const p = prior.get(date);
     const source = p?.source ?? 'calendar';
-    return source === 'manual' && p?.anchorRoomId
-      ? { source, anchorRoomId: p.anchorRoomId }
-      : { source };
+    return { source, ...agreementFields(source, p) };
   };
 }
 
@@ -253,7 +282,7 @@ function snapshotNight(x: StayNightPrice) {
     amountVnd: x.amountVnd,
     calendarVnd: x.calendarVnd,
     source,
-    ...(source === 'manual' && x.anchorRoomId ? { anchorRoomId: x.anchorRoomId } : {}),
+    ...agreementFields(source, x),
   };
 }
 
@@ -2032,6 +2061,8 @@ export class ReservationsService {
         /** ARC 16.18: recorded by the operation (absent = `manual`, as before). */
         source?: NightSource;
         anchorRoomId?: string | null;
+        /** G-5: the agreement a `default` night inherited. */
+        agreedRateVnd?: number | null;
       }>;
       rateSource: 'extra_night_early_late' | 'extension';
       transition: 'B9a' | 'B13';
@@ -2085,9 +2116,7 @@ export class ReservationsService {
         date: n.date,
         amountVnd: n.amountVnd,
         source: n.source ?? 'manual',
-        ...((n.source ?? 'manual') === 'manual' && n.anchorRoomId
-          ? { anchorRoomId: n.anchorRoomId }
-          : {}),
+        ...agreementFields(n.source ?? 'manual', n),
         ...(n.calendarVnd !== undefined ? { calendarVnd: n.calendarVnd } : {}),
       })),
     };
@@ -2558,7 +2587,12 @@ export class ReservationsService {
       (
         (
           row.pricing_snapshot as {
-            nights?: Array<{ date: string; source?: string; anchorRoomId?: string | null }>;
+            nights?: Array<{
+              date: string;
+              source?: string;
+              anchorRoomId?: string | null;
+              agreedRateVnd?: number | null;
+            }>;
           }
         ).nights ?? []
       ).map((n) => [n.date, n]),
@@ -2573,6 +2607,10 @@ export class ReservationsService {
         manual: source === 'manual',
         source,
         ...(source === 'manual' ? { anchorRoomId: s?.anchorRoomId ?? null } : {}),
+        // G-5 (AN-50): an inherited agreement (and the room bought it is bound to).
+        ...(source !== 'manual' && s?.agreedRateVnd != null
+          ? { agreedRateVnd: s.agreedRateVnd, anchorRoomId: s.anchorRoomId ?? null }
+          : {}),
       };
     });
   }

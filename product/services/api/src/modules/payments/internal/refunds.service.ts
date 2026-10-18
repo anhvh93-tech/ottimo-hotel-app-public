@@ -593,6 +593,7 @@ export class RefundsService {
         now,
       ],
     );
+    await this.folios.touch(tx, folio.id); // ARC 16.29 (N-6): refund paid out
     if (input.attachmentId) {
       await this.attachments.bindTo(tx, input.attachmentId, { type: 'payment', id });
       // SEC I5: a cash pay-out is final at once; a transfer waits for its reconciliation.
