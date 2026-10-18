@@ -26,6 +26,18 @@
 
 ---
 
+## Đối chiếu tại HEAD `7ac11a4` (ĐK-S3-5 – ARC 18/10, tuần Ổn định, trước cổng QC Sprint 4)
+
+ARC đối chiếu lại **21 thẻ Blocker/Major** với mã ở HEAD `7ac11a4` (ba lượt đọc song song, ARC tự mở mã kiểm từng thẻ Blocker và mọi thẻ còn mở/dời). Trạng thái ghi ngay trong từng thẻ dưới đây.
+
+| Trạng thái | Thẻ |
+|---|---|
+| **Verified** (19) | Blocker 01, 02, 03; Major 04–14, 17–21 |
+| **Mở lại** (1) | Major 15 – một điểm: `stay-support.ts:571` ghi thẳng `folio_line` (BE-A gọi cổng mới của BE-B, tuần Ổn định); phần đọc chéo chỉ-đọc còn lại dời R3 |
+| **Dời R3** (1) | Major 16 – `ModuleRef` còn 2 tệp, không chạm tiền, đã có test khóa danh sách |
+
+Thẻ mới phát sinh khi đối chiếu ghi ở `reviews/s4-ARC.md` mục C: FB-R2-ARC-BE-S4-13 (Major, BE-A – B2 bỏ ảnh biên nhận), -14 (Minor, BE-A – test S3-05), -15 (Minor, BE-B – test S3-12c). Thẻ Minor/Suggestion 22–32 không thuộc ĐK-S3-5, giữ nguyên trạng thái.
+
 ## A. Thẻ feedback
 
 ### FB-R2-ARC-BE-S3-01
@@ -38,7 +50,7 @@
   Lần `resyncStay` kế tiếp (gia hạn, đổi phòng, trả sớm, B9a, sửa số khách) so dòng đó với `perNight` của snapshot, thấy không khớp và **đảo** nó mà không ghi lý do.
 - Vì sao quan trọng: mất doanh thu phụ thu (BR-110) và không ai biết. Bill in ra thiếu tiền. Đây đúng loại lỗi "sai tiền".
 - Đề xuất sửa: theo DOM S3-13 (a) (phụ thu người tính theo từng đêm, áp từ `effectiveFrom`), thay đổi số người giữa kỳ phải đi qua **đường định giá của reservations**. Cách làm: cập nhật snapshot theo đêm (người thêm tính từ `effectiveFrom`), rồi để `syncStay` sinh dòng theo từng đêm. Không post dòng gộp từ frontdesk. Nếu chưa kịp làm vậy: cho dòng giữa kỳ một `charge_code` riêng mà `syncStay` không quản, và kèm test. Test: thêm trẻ có phụ thu → gia hạn 1 đêm → phụ thu vẫn còn và đêm mới có phụ thu đúng.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – phụ thu người tính theo đêm: `party.service.ts:313-331`, `:450-481` (`peopleFromNight` → `resyncStay`), `folio.service.ts` `syncStay` một dòng/đêm từ `stay_night.extra_person_fee_vnd`; test `frontdesk-s3-fixes.test.ts:222` (ARC-01), khối `:701` (thêm trẻ có phụ thu → gia hạn).
 
 ### FB-R2-ARC-BE-S3-02
 - Mức độ: **Blocker**
@@ -52,7 +64,7 @@
   `computeTotals` thì đã loại dòng đảo, nên hai chỗ tính lệch nhau.
 - Vì sao quan trọng: sai tiền cọc và có thể hủy nhầm đơn đã trả cọc.
 - Đề xuất sửa: `AND reversal_of_id IS NULL`, hoặc lấy từ `computeTotals().depositHeldVnd` (một nguồn). Test: đảo cọc → ghi lại → `confirmDeposit` thành `confirmed`; chạy J1 không hủy.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – `folio.service.ts:792-810` `depositPaid` có `reversal_of_id IS NULL`, kẹp theo tiền còn giữ; test `payments-s3.test.ts:1696` (SEC-BE-36 / ARC-BE-S3-02), `:2602` (J1 không hủy giữ chỗ đã nộp lại).
 
 ### FB-R2-ARC-BE-S3-03
 - Mức độ: **Blocker**
@@ -72,7 +84,7 @@
   3. Test hồi quy: multipart 1 MB tới `completeOnlineCheckin` và `checkIn` → 415, tiến trình không tăng bộ nhớ.
   
   SEC xem cùng.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – `http.ts:70-74`, `:162-190` – multipart chỉ ở 3 route upload, route khác 415→422 trước khi đọc thân, cap 42 MB, phiên thật, slot upload; `unit-of-work.ts:107-117` `requestHash` từ chối thân nhị phân (cả `guest-unit-of-work.ts:60`); test `files-attachments.test.ts:319`, `:349`, `:457`, `upload-gate-socket.test.ts`.
 
 ### FB-R2-ARC-BE-S3-04
 - Mức độ: Major
@@ -87,7 +99,7 @@
   - `hasCompletedKey` thêm điều kiện `method` + `path` khớp bản ghi khóa.
   - `read()` của frontdesk gọi `guard.enforce(req)` như một lớp phòng thủ thứ hai.
   - Test: SAL có khóa đã xong gọi `setLateCheckout {dryRun:true}` → 403.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – `auth.guard.ts:312-321` (dryRun → quyết vai ngay), `:326-351` (`hasCompletedKey` khớp method + path), `read()` từ chối khi `allowed=false`; test `rbac-sprint3-bea.test.ts:201-210`, `guard-s3.test.ts:56`.
 
 ### FB-R2-ARC-BE-S3-05
 - Mức độ: Major
@@ -101,7 +113,7 @@
   - Một hàm `effectiveStay(row)` → `{departureDate, lastSegmentRoom, folioLines}` gộp đơn cha + con. `departureTime`, `departure`, `liveLateLines`, `lateQuote` đều dùng hàm này.
   - B15 chỉ nhận trên đơn chính (đơn con → 409 `INVALID_TRANSITION`, `detail` chỉ đơn chính).
   - Test: OTA 2 đêm + gia hạn 1 đêm (đơn con) → `checkOut {checkoutAt: ngày đi mới 13:00}` → 200 và phụ thu đúng 1 dòng.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – `stay-support.ts:586-605` `effectiveStay` (đơn chính + đơn con) dùng ở checkout/B13/B15/B16, đơn con → 409; test `frontdesk-s3-fixes.test.ts:535` (ARC-05). Còn thiếu test phần "phụ thu trả muộn đúng 1 dòng" → thẻ mới `s4-ARC.md` FB-R2-ARC-BE-S4-14 (Minor, BE-A).
 
 ### FB-R2-ARC-BE-S3-06
 - Mức độ: Major
@@ -115,7 +127,7 @@
   - Hoặc 409 `INVALID_TRANSITION` khi đã có phụ thu sống mà không gửi cờ thay thế.
   - Cùng chỗ: gia hạn (B13) phải hủy giờ trả muộn đã hẹn và đảo phụ thu trả muộn của ngày đi cũ (DOM S3-13 d).
   - Test: hẹn 15:00 rồi 17:00 → còn đúng 1 dòng sống 50 %.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – `stay-support.ts:659-717` `replaceLateCharge` (đảo dòng sống + ghi dòng mới cùng giao dịch) dùng ở B15, B13, B18; test `frontdesk-s3-fixes.test.ts:299` (ARC-06), `:457` (gia hạn hủy giờ trả muộn).
 
 ### FB-R2-ARC-BE-S3-07
 - Mức độ: Major
@@ -128,7 +140,7 @@
   - Khi `priorNightWindow = true`, giờ nhận phòng **luôn** lấy từ đồng hồ server, và bắt buộc `addPriorNight` (hoặc FDL+ ghi đè có lý do, có audit).
   - Kiểm `expectedSurchargeVnd` với giá đêm trước như hợp đồng.
   - Test: 04:40 gửi `checkinTime 14:00` → 409/422, không nhận phòng.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – `checkin.service.ts:246-253` (cửa sổ B9a luôn giờ server), `:555-561` (thiếu `addPriorNight` → 409), `:621-643` (`expectedSurchargeVnd` bắt buộc, khớp giá đêm trước); test `frontdesk-stay.test.ts:185`/`:204`.
 
 ### FB-R2-ARC-BE-S3-08
 - Mức độ: Major
@@ -138,7 +150,7 @@
   - Căn cũ chuyển VD, có việc dọn, mã/thẻ bị coi là chưa giao, trong khi khách chưa chuyển.
 - Vì sao quan trọng: trạng thái buồng sai làm buồng phòng dọn nhầm căn khách đang ở. Lễ tân đọc rack sai.
 - Đề xuất sửa: **ARC đã chốt trong hợp đồng** (0.3.6 bổ sung, trùng DOM S3-13 e): R2 chỉ nhận `effectiveDate` = ngày nghiệp vụ hôm nay, khác → 422 `DATE_INVALID` (`field` = `effectiveDate`). FE hiện đã chỉ gửi hôm nay. Đổi phòng hẹn ngày sau dời R3, khi đó sẽ có job áp hiệu ứng vào đúng ngày. BE-A thêm kiểm + test.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – `stay.service.ts:746-754` – `effectiveDate` ≠ ngày nghiệp vụ → 422 `DATE_INVALID` trước mọi hiệu ứng; test `frontdesk-s3-fixes.test.ts:287-296`.
 
 ### FB-R2-ARC-BE-S3-09
 - Mức độ: Major
@@ -152,7 +164,7 @@
   - Bắt `error` và `end`: thử nối lại với backoff (1 s → 30 s) khi còn subscriber.
   - Thất bại quá N lần → đóng mọi luồng (client tự nối lại). Bật `keepAlive` cho client LISTEN.
   - Test: `pg_terminate_backend` kết nối LISTEN → sự kiện kế tiếp vẫn tới client đang mở (hoặc client nhận đóng luồng).
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – `sse-hub.ts:152-201` – `keepAlive`, bắt `error`/`end`, nối lại backoff 1 s → 30 s, quá 5 lần đóng mọi luồng; test `frontdesk-s3-fixes.test.ts:1334` (`pg_terminate_backend`).
 
 ### FB-R2-ARC-BE-S3-10
 - Mức độ: Major
@@ -170,7 +182,7 @@
   - Migration mới `0042_…_be_b.sql`: `NO FORCE` + `DISABLE` → UPDATE → `ENABLE` + `FORCE`, theo mẫu 0016.
   - Thêm `CHECK (recorded_by IS NULL OR recorded_by_role IS NOT NULL)`.
   - OPS: smoke staging đếm `payment` có `recorded_by` mà thiếu vai = 0.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – `0042_money_review_s3_be_b.sql:29-65` (NO FORCE/DISABLE → backfill → ENABLE/FORCE), CHECK `payment_recorded_by_role_required_check` (`:69-70`, thêm có kiểm tra nên migration hỏng nếu sót dòng); test `payments-s3.test.ts:2208` (23514).
 
 ### FB-R2-ARC-BE-S3-11
 - Mức độ: Major
@@ -183,7 +195,7 @@
   - `recordManual` bắt buộc `recordedByRole`. SAL/CTV → ép `reconciliation = 'pending'`, `status` như `recordInTx`.
   - Gọn hơn: B2 đi qua `recordInTx` (một đường ghi tiền).
   - Test: CTV tạo đơn kèm 500.000 tiền mặt → khoản `pending`, có trong `listPayments` của FD.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – `payment.service.ts:224-231` – vai người ghi luôn có (truyền vào hoặc `roleOf`), SAL/CTV → `reconciliation = pending`; đường B2 qua `money-bridge.ts` → `recordManual`; test `payments-s3.test.ts:1963`. (Khi đối chiếu thấy B2 bỏ `attachmentId` → thẻ mới FB-R2-ARC-BE-S4-13, Major, BE-A.)
 
 ### FB-R2-ARC-BE-S3-12
 - Mức độ: Major
@@ -204,7 +216,7 @@
   - `refund_account_check` đòi `refund_method` khi có `enc`.
   - `approval_request` chuyển sang GRANT UPDATE theo cột (trạng thái, quyết định, `refund_*`, `refunded_vnd`).
   - Test vi phạm từng CHECK → 23514.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – 0042: (a) `reconciled_by_role` + `payment_self_reconciled_fact_check` + `payment_self_reconcile_owner_check` (`:22-26`, `:73-83`); (b) `COALESCE(recorded_by_role,'')` (`:86-90`); (c) `approval_request_refund_account_check` không còn lỗ NULL (`:108-112`); (d) REVOKE UPDATE bảng + GRANT UPDATE theo cột (`:125-130`, cột sau thêm ở 0055/0060). Test `payments-s3.test.ts:2208` (23514 / 42501). Assert (c) có thể không chạy → thẻ mới FB-R2-ARC-BE-S4-15 (Minor, BE-B).
 
 ### FB-R2-ARC-BE-S3-13
 - Mức độ: Major
@@ -217,7 +229,7 @@
   - Giữ `paidVnd` hiển thị như cũ nhưng thêm `disputedVnd` nội bộ.
   - Khớp DOM S3-16 (a): khoản thừa chỉ được **chi** khi các khoản thu tạo ra nó đã đối soát hoặc là tiền mặt/POS.
   - Test: tiền mặt SAL 1.000.000, FD xác nhận `short` 700.000 → chi hoàn tối đa theo 700.000.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – `folio.service.ts:426-447` (`pending` = 0, `disputed` = min(số, `received_amount_vnd`), `payableCreditVnd`), `refunds.service.ts:497-513` chặn trên mức đã đối soát → 409 `REFUND_SOURCE_NOT_RECONCILED`; test `payments-s3.test.ts:1866`, `be-b-s3-units.test.ts:244`.
 
 ### FB-R2-ARC-BE-S3-14
 - Mức độ: Major
@@ -228,7 +240,7 @@
   - Cùng gốc với thẻ 01: dòng **suy ra từ đêm lưu trú** bị sửa ở folio mà nguồn (`stay_night`) không biết.
 - Vì sao quan trọng: giá lễ tân đã thỏa thuận với khách mất sau một lần gia hạn hoặc đổi phòng.
 - Đề xuất sửa: hợp đồng đã ghi rõ (0.3.6 bổ sung ở `adjustFolioLine`). Sửa giá dòng suy ra từ đêm phải ghi lại giá đêm ở đơn qua cổng của reservations, ví dụ `StayNightPricingPort.setNightRate(tx, stayNightId, gross, reason, actor)`, trong cùng giao dịch, rồi để `syncStay` giữ. Đến khi có cổng đó: 422 `NOT_ALLOWED` cho `room` / `extra_person` của đơn còn `in_house` / `confirmed`. Test: sửa giá đêm → gia hạn → giá sửa còn.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – S4-35: `folio-lines.service.ts:381-427` → `StayNightPricingPort.setNightRate` cùng giao dịch, `syncStay` giữ giá đã sửa; test `payments-s3.test.ts:2280`, `s438-money.test.ts:446` (BR-107-05), `move-pricing.test.ts:1224` (BR-429-14).
 
 ### FB-R2-ARC-BE-S3-15
 - Mức độ: Major
@@ -257,7 +269,7 @@
   - **g**: frontdesk cấp `partyMissingCount` qua hook.
 
   Nhóm đọc dữ liệu tham chiếu (`app_user`, `property`, `room`, `config_parameter`, `guest`) giữ như S2. Dời R3 thành cổng identity/platform.
-- Trạng thái: Open
+- Trạng thái: **Mở lại một điểm** (ARC 18/10, HEAD `7ac11a4`). Verified: (a) J24 qua `payments/public/payment-expiry.ts` (test `frontdesk-stay.test.ts:532`); (b) nguồn `reconcile_overdue` do payments đăng ký (`payments.module.ts:66-67`); (c) `FolioService.hasLiveLinesSince` (`checkin.service.ts:1049-1050`); (d) `ApprovalService.reopenForRedecision`/`addRefunded`, payments chỉ ghi cột `refund_*` (B-4); (f) guest-portal ↔ registration qua cổng; (g) `hooks.partyCount`. **Mở lại**: ghi mới vào bảng tiền của vùng khác ở Sprint 4 – `frontdesk/internal/stay-support.ts:571` `UPDATE folio_line SET approval_request_id` (BE-A ghi bảng của BE-B). Việc: **BE-B** công khai `FolioService.linkApprovalRequest(tx, lineId, approvalId)` (hiện là `linkLine` private, `folio.service.ts:2881`), **BE-A** gọi hàm đó; làm trong tuần Ổn định. **Dời R3** (chỉ đọc, không tiền): (e) còn đọc `reservation_guest`/`reservation.booker_guest_id` ở `registration.service.ts:732`, `:739`, `registration.repo.ts:293` (BE-C, cổng đọc R3); đọc chéo mới của Sprint 4 ở housekeeping và guest-portal đã có thẻ riêng `s4-ARC.md` FB-R2-ARC-BE-S4-03, -09; test kiến trúc dò SQL bảng ngoài vùng – ARC giao cùng các thẻ đó.
 
 ### FB-R2-ARC-BE-S3-16
 - Mức độ: Major
@@ -274,7 +286,7 @@
   - AttachmentService tiêm port này ở constructor. PaymentService tiêm `ATTACHMENT_USAGE` ở constructor. Bỏ cả hai ModuleRef.
   - Chuyển token `ATTACHMENT_USAGE` sang `files/public`.
   - Thêm test kiến trúc: cấm `ModuleRef` trong `src/modules/**` (trừ danh sách cho phép có lý do).
-- Trạng thái: Open
+- Trạng thái: **Dời R3** (ARC 18/10, HEAD `7ac11a4`) – còn `ModuleRef` ở `payments/public/payment.service.ts:195`, `:206-213` (tra một lần, lỗi thì đóng) và `files/public/attachment.service.ts:119`, `:135-141` (`catch { return undefined }` nuốt lỗi nối dây → 404 im lặng); `ReservationReadPort` đã có (`reservations/public/read-port.ts`) nhưng chưa ai dùng; `ATTACHMENT_USAGE` vẫn ở `payments/public`. Lý do dời: **không chạm tiền** (vòng DI đã đóng an toàn, lỗi nối dây không ghi sai số liệu), test `module-boundaries.test.ts:59-75` khóa danh sách cho phép đúng hai tệp nên nợ không lớn thêm. Việc R3 Sprint 1: **BE-C** tiêm `ReservationReadPort` qua constructor và bỏ `catch {}`; **BE-B** tiêm `ATTACHMENT_USAGE` qua constructor, chuyển token sang `files/public`; rồi xóa danh sách cho phép.
 
 ### FB-R2-ARC-BE-S3-17
 - Mức độ: Major
@@ -288,7 +300,7 @@
   - Trong giao dịch chỉ hủy DEK (đủ để crypto-shred) và ghi `purge_journal`. Đồng thời ghi khóa blob vào hàng đợi chờ xóa (`blob_pending_delete`).
   - Xóa tệp **sau commit**: hook sau commit + J16 quét hàng đợi.
   - Test: hủy đơn với hook ném lỗi sau `purge` → ảnh vẫn đọc được.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – `encrypted-blob.service.ts:100-160` – `purge` chỉ hủy DEK + ghi `blob_pending_delete`; xóa tệp ở `sweepPending` sau COMMIT và J16; test `files-attachments.test.ts:291` (purge rollback giữ tệp và DEK), `registration-flow.test.ts:960`.
 
 ### FB-R2-ARC-BE-S3-18
 - Mức độ: Major
@@ -308,7 +320,7 @@
   - `sharp.cache(false)`, `sequentialRead: true`, `failOn: 'warning'`.
   - **OPS**: Caddy `request_body max_size 42MB` chỉ cho 3 đường upload, 1 MB cho phần còn lại.
   - SEC xem cùng.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – giới hạn thân theo route (`http.ts:55`, `:162-190`; route khác giữ 1 MiB mặc định), `requestTimeout` 60 s (`:330`), trần upload 4/tiến trình, 2/phiên, 3/IP (`upload-gate.ts:20-22`, 503 + `Retry-After`), kiểm rẻ trước giải mã (`guest.controller.ts:208-226`), `sharp.cache(false)`, `failOn:'warning'`, `sequentialRead` (`image-pipeline.ts:61`, `:99-112`), Caddy 42 MB upload / 1 MB còn lại (`infra/caddy/Caddyfile.prod:88-100`); test `be-c-s3-units.test.ts:78`, `upload-gate-socket.test.ts:315`, `files-attachments.test.ts:376`, `guest-portal.test.ts:533`. (SR-FILE-02 còn ghi "25 MB" – SEC sửa chữ.)
 
 ### FB-R2-ARC-BE-S3-19
 - Mức độ: Major
@@ -321,7 +333,7 @@
 - Đề xuất sửa:
   - Băm `canonicalJson({ data, images: [sha256 từng ảnh đã chuẩn hóa…] })` như `guest.controller.ts`.
   - Test: hai lần gửi cùng khóa với boundary khác → lần 2 trả lại kết quả lần 1.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – `registration.controller.ts:223-229` băm `{dataDigest, sha256 từng ảnh}`; test `registration-flow.test.ts:1035`.
 
 ### FB-R2-ARC-BE-S3-20
 - Mức độ: Major
@@ -337,7 +349,7 @@
   - INT bỏ phần dựng trường trong `guest-registration/manual.ts`, chỉ giữ kiểu dữ liệu, regex mã hồ sơ cổng và cấu hình URL.
   - Hợp đồng đã ghi ở `PortalData.fields[].value` (0.3.6 bổ sung) kèm `[GIẢ ĐỊNH – DOM/lễ tân đối chiếu cổng thật]`.
   - Test: một bộ ca BR-605 dùng chung.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – một cài đặt `registration/internal/rules.ts:600-615` (ngày theo `portal_date_format`, mặc định `dd/MM/yyyy`), URL cổng từ cấu hình (`portal-config.ts:33-39`, `.env.example`); INT `manual.ts` chỉ còn adapter/regex/`assertPortalUrl`; test `registration-rules.test.ts:283`, `registration-flow.test.ts:1062`, `integrations/guest-registration/manual.test.ts:38`. Quốc tịch mặc định `alpha3` theo ESC-018 (khác đề xuất cũ của thẻ, đúng quyết định).
 
 ### FB-R2-ARC-BE-S3-21
 - Mức độ: Major
@@ -351,7 +363,7 @@
   - **BE-A** thêm `test/integration/schema-parity.test.ts`. Sau `migrate`, test đọc `pg_catalog`: bảng; cột (kiểu, NOT NULL); tên và thân chuẩn hóa của CHECK; tên FK/UK/chỉ mục. Rồi so với snapshot đầu.
   - Danh sách ngoại lệ 4.2a-2e đặt cứng trong test, kèm lý do.
   - **OPS**: không cần bước CI mới, test chạy trong job tích hợp sẵn có.
-- Trạng thái: Open
+- Trạng thái: **Verified** (ARC 18/10, HEAD `7ac11a4`) – `test/integration/schema-parity.test.ts` (bảng `:198`, cột/kiểu/NOT NULL `:202`, CHECK chuẩn hóa `:231`, tên PK/FK/UK/chỉ mục `:276`, ngoại lệ có lý do `:21-60`, chặn ngoại lệ cũ `:145`), chạy trong CI.
 
 ### FB-R2-ARC-BE-S3-22
 - Mức độ: Minor

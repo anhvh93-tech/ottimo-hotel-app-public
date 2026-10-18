@@ -3,26 +3,44 @@
 # images by digest; Dependabot (github-actions, docker) bumps both. Checkouts never keep the token.
 # Images + staging deploy: jobs publish-images / deploy-staging at the end (push to main only, opt-in by repository
 # variables); packages: write exists on publish-images only.
+# T9 nightly (sprint-4-plan T9/G5, qa/s4-test-plan 3.2): the `schedule` below (and a manual run with t9 = true) runs
+# this whole workflow on main – Vitest (turbo may replay a commit already green) + the full E2E incl. every UI case
+# and axe outside WRITES, always run fresh – plus the T9 steps of docker-build (retry guard, reports kept).
+# publish-images / deploy-staging stay push-only, so T9 never publishes or deploys.
+# "Is this a T9 run" = github.event_name == 'schedule' || inputs.t9 == true (concurrency, job name, env T9).
 name: CI
 
 on:
   pull_request:
   push:
     branches: [main, master]
+  schedule:
+    # 19:17 UTC = 02:17 Asia/Ho_Chi_Minh (UTC+7, no DST): low traffic at the hotel and in the team; off the full hour,
+    # where GitHub delays or drops scheduled runs. Runs on the default branch (main) only.
+    - cron: '17 19 * * *'
   workflow_dispatch:
+    inputs:
+      t9:
+        description: 'T9 nightly run (retry guard, JSON report, reports uploaded even when green). Untick = plain CI.'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
+# T9 runs get their own group and are never cancelled by a push to main (or the reverse); pushes keep cancelling
+# their own older run on the same ref.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ (github.event_name == 'schedule' || inputs.t9 == true) && 't9-' || '' }}${{ github.ref }}
+  cancel-in-progress: ${{ !(github.event_name == 'schedule' || inputs.t9 == true) }}
 
 jobs:
   build-test:
     name: format · lint · audit · test · build
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # 15 → 25 (18/10, run 39085982603 on 7ac11a4 cancelled at 15 min: Vitest 714 s on the 2-vCPU runner, then build).
+    # Typical job 11–15 min; splitting the api tests is proposed in rounds/round-02/outputs/OPS/s4-nightly.md.
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: product
@@ -194,6 +212,8 @@ jobs:
     # Server scripts run as root/deploy user on the VPS (infra/server): a quoting bug there is an outage.
     name: infra scripts (shellcheck)
     runs-on: ubuntu-24.04
+    # Usually < 1 min; without a cap a hung docker run in check-caddy-prod.sh would hold the runner for 6 h.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -279,12 +299,16 @@ jobs:
             detect --source=/repo --config=/repo/.github/gitleaks.toml --redact --verbose --exit-code 1
 
   docker-build:
-    name: docker images build · E2E smoke
+    # Push/PR keep the exact name (branch protection); T9 runs say so in the job list.
+    name: docker images build · E2E smoke${{ (github.event_name == 'schedule' || inputs.t9 == true) && ' · T9 nightly' || '' }}
     runs-on: ubuntu-24.04
+    # 14.5–16.3 min on 17–18/10 (E2E ≈ 12.5 min): about half of the cap, kept at 30.
     timeout-minutes: 30
     needs: build-test
     env:
       TURBO_TELEMETRY_DISABLED: '1'
+      # 'true' on the nightly schedule and on a manual run with t9 ticked; 'false' on push / pull_request.
+      T9: ${{ github.event_name == 'schedule' || inputs.t9 == true }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -455,7 +479,15 @@ jobs:
           E2E_GUEST_ORIGIN: http://localhost:8083
           E2E_COMPOSE_CONTROL: '1'
           E2E_UI: '1'
-        run: pnpm test:e2e
+        # T9 = the same suite and configured reporters plus a JSON report (every attempt with its retry index and
+        # annotations) for the retry guard below. Push / pull_request run exactly `pnpm test:e2e` as before.
+        run: |
+          if [ "$T9" = true ]; then
+            PLAYWRIGHT_JSON_OUTPUT_FILE="$PWD/tests/e2e/test-results/t9-report.json" \
+              pnpm --filter @ottimo/tests run test:e2e --add-reporter=json
+          else
+            pnpm test:e2e
+          fi
       # The origin-list cases must really run on this stack (Sprint 1 carry-over: TC-SEC-024 used to skip).
       - name: Origin checks ran (TC-SEC-024 not skipped)
         working-directory: product
@@ -500,6 +532,83 @@ jobs:
               sys.exit(f'::error::axe H01–H12: only {len(axe)} case(s) ran, expected 9')
           print(f'UI: {len(ui)} case(s), {len(skipped)} allowed skip(s), axe {len(axe)} case(s) ran')
           PY
+      # T9 only (qa/s4-test-plan 3.2 point 3, BUG-R2-064 point 2): a retry must not hide a known-bug case, so red when
+      # a case annotated `bug` (knownBug) needed a retry, and red on any attempt annotated `precondition-failed`, even
+      # if the retry passed. Other flaky cases are warnings for QA's morning log. The table goes to the run summary.
+      # Runs after a red E2E too, so the summary always lists what failed.
+      - name: T9 retry guard + summary (bug-annotated retries, precondition-failed)
+        if: ${{ !cancelled() && env.T9 == 'true' }}
+        working-directory: product
+        run: |
+          python3 - tests/e2e/test-results/t9-report.json <<'PY'
+          import collections, json, os, sys
+          path = sys.argv[1]
+          if not os.path.isfile(path):
+              sys.exit(f'::error::{path} missing – E2E did not reach the end of the run')
+          report = json.load(open(path, encoding='utf-8'))
+          rows = []
+          def walk(suite):
+              for spec in suite.get('specs') or []:
+                  for t in spec.get('tests') or []:
+                      results = t.get('results') or []
+                      notes = list(t.get('annotations') or [])
+                      for r in results:
+                          notes += r.get('annotations') or []
+                      kinds = {n.get('type') for n in notes}
+                      rows.append({
+                          'project': t.get('projectName') or '?',
+                          'case': f"{spec.get('file')}:{spec.get('line')} {spec.get('title')}",
+                          'status': t.get('status'),
+                          'retries': max([r.get('retry') or 0 for r in results] or [0]),
+                          'bug': 'bug' in kinds,
+                          'pre': 'precondition-failed' in kinds,
+                      })
+              for child in suite.get('suites') or []:
+                  walk(child)
+          for s in report.get('suites') or []:
+              walk(s)
+          per = collections.defaultdict(collections.Counter)
+          for r in rows:
+              per[r['project']][r['status']] += 1
+          masked = [r for r in rows if r['bug'] and r['retries'] > 0]
+          pre = [r for r in rows if r['pre']]
+          failed = [r for r in rows if r['status'] == 'unexpected']
+          flaky = [r for r in rows if r['status'] == 'flaky' and not (r['bug'] or r['pre'])]
+          errors = [((e.get('message') or 'error').splitlines() or ['error'])[0] for e in report.get('errors') or []]
+          sha, event = os.environ.get('GITHUB_SHA', '')[:7], os.environ.get('GITHUB_EVENT_NAME', '')
+          out = ['## T9 nightly – E2E', '', f'Commit `{sha}`, event `{event}`.', '',
+                 '| Project | expected | unexpected | flaky | skipped |', '|---|---|---|---|---|']
+          for p in sorted(per):
+              c = per[p]
+              out.append(f"| {p} | {c['expected']} | {c['unexpected']} | {c['flaky']} | {c['skipped']} |")
+          for p in ('mobile-webkit', 'android-chromium'):
+              if p not in per:
+                  out.append(f'| {p} | 0 | 0 | 0 | 0 |')
+                  print(f'::notice::T9: project {p} has no test yet (flows/*.mobile.spec.ts)')
+          def section(title, items):
+              if items:
+                  out.extend(['', f'### {title} ({len(items)})'])
+                  out.extend(f"- [{r['project']}] {r['case']} (retry {r['retries']})" for r in items)
+          section('RED – known-bug case needed a retry', masked)
+          section('RED – precondition-failed', pre)
+          section('Failed (unexpected)', failed)
+          section('Flaky, passed on retry – QA logs these', flaky)
+          if errors:
+              out.extend(['', f'### Run errors ({len(errors)})', *[f'- {e}' for e in errors]])
+          summary = os.environ.get('GITHUB_STEP_SUMMARY')
+          if summary:
+              with open(summary, 'a', encoding='utf-8') as f:
+                  f.write('\n'.join(out) + '\n')
+          print('\n'.join(out))
+          for r in flaky:
+              print(f"::warning::T9 flaky: [{r['project']}] {r['case']}")
+          bad = [f"[{r['project']}] {r['case']}" for r in masked + pre]
+          if bad:
+              sys.exit('::error::T9 retry guard: ' + '; '.join(bad))
+          if failed or errors:
+              sys.exit(f'::error::T9: {len(failed)} failed case(s), {len(errors)} run error(s) – see the summary')
+          print(f'T9: {len(rows)} case(s), {len(flaky)} flaky, 0 masked by retry')
+          PY
       - name: Compose logs (on failure)
         if: failure()
         working-directory: product
@@ -512,15 +621,17 @@ jobs:
             echo "::endgroup::"
           done
       # Test data is fake (test-strategy section 4); reports hold no secrets (passwords are masked/not logged).
-      - name: Upload Playwright report (on failure)
-        if: failure()
+      # T9 keeps the report (junit.xml, t9-report.json, HTML) on every run, green or red, for 14 days: QA logs the
+      # night's failures the next morning (qa/s4-test-plan 3.2 points 2 and 4).
+      - name: Upload Playwright report (on failure; every T9 run)
+        if: ${{ failure() || (!cancelled() && env.T9 == 'true') }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: playwright-report
+          name: ${{ env.T9 == 'true' && 't9-playwright-report' || 'playwright-report' }}
           path: |
             product/tests/e2e/playwright-report
             product/tests/e2e/test-results
-          retention-days: 7
+          retention-days: ${{ env.T9 == 'true' && 14 || 7 }}
           if-no-files-found: ignore
       - name: Stop compose stack
         if: always()
@@ -534,7 +645,8 @@ jobs:
   #   PUBLISH_IMAGES=true   push images to GHCR (private packages of this repository owner)
   #   STAGING_DEPLOY=true   + STAGING_SSH_HOST (variable), STAGING_SSH_KEY / STAGING_SSH_KNOWN_HOSTS (secrets of the
   #                         `staging` environment) – the key only runs infra/server/bin/deploy-from-ci.sh on the VPS
-  # Only pushes to main; packages: write exists in publish-images only (FB-R1-SEC-OPS-04).
+  # Only pushes to main; packages: write exists in publish-images only (FB-R1-SEC-OPS-04). The T9 nightly (schedule)
+  # and manual runs (workflow_dispatch) never match `github.event_name == 'push'`: they never publish nor deploy.
   publish-images:
     name: publish images (GHCR)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'

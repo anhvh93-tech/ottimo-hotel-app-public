@@ -65,7 +65,7 @@
 - Vấn đề: Đơn OTA **khách đã trả cho OTA** (Airbnb, Agoda trả trước, Booking "Payments by Booking") vẫn có dòng tiền phòng trên folio nhưng không có khoản "Đã thu qua OTA". Kết quả: (1) trả phòng bị chặn `BALANCE_DUE` = toàn bộ tiền phòng (ca 17: 1.870.000 thay vì 70.000); (2) bill in dòng "Đã thu qua Agoda 1.800.000" ngay trên dòng "Còn phải thu 1.870.000"; (3) spec 2.2 nói "không có nút ghi thu tiền phòng" cho đơn này nên lễ tân không có đường hợp lệ để qua; đường tắt duy nhất là ghi tay `ota_collect` hoặc… thu tiền khách lần nữa. Kèm theo: sau B16 của đơn OTA, nếu đã có `ota_collect` thì phần đêm bỏ thành `creditVnd` và B18 bắt "hoàn" khoản tiền OTTIMO không giữ.
 - Vì sao quan trọng: Đơn OTA trả trước là phần lớn khách của căn hộ dịch vụ ở Đà Lạt. Luồng A1 (mục tiêu Sprint 3) không chạy được với khách OTA; tệ hơn, lễ tân lúc đông khách thấy màn hình đỏ "Còn phải thu 1.870.000" sẽ đòi khách trả lại tiền phòng đã trả cho OTA – khách khiếu nại, đánh giá xấu ngay trên chính OTA đó.
 - Đề xuất sửa: (a) Đơn `ota_prepaid` khi xác nhận (B2 OTA / nhập tay) sinh **một giao dịch hệ thống `ota_collect`** = tiền phòng OTA của các đêm (BR-307 "folio ghi Đã thu qua OTA"), `reconciliation` theo đối soát kỳ trả tiền của OTA (R3); tự điều chỉnh khi đêm của đơn OTA đổi (B16, đổi ngày = hủy + tạo lại D-5); (b) phần dư sinh từ `ota_collect` **không** vào blocker `credit_balance` và không vào luồng hoàn của OTTIMO (OTA hoàn cho khách theo chính sách OTA); (c) bill `ota_prepaid`: tổng và "còn phải thu" chỉ tính khoản phát sinh tại quầy; (d) test: Agoda 302, 2 đêm 1.800.000 + minibar 70.000 → `balanceDueVnd` 70.000, B18 chỉ cần thu 70.000; (e) FE bỏ việc tự trừ trong mock để mock và API cùng một quy tắc (đề nghị ARC ghi vào contract `FolioTotals`).
-- Trạng thái: Open
+- Trạng thái: Verified (DOM 18/10, HEAD `7ac11a4`) – khoản thu hệ thống `ota_collect` (`syncOtaCollect`/`resyncOtaCollect`, chỉ của chính đơn, theo mọi lần đảo/sửa dòng và duyệt FOC; 0043 bù dữ liệu); "Đã thu qua OTA" không vào `credit_balance`; test `ota-prepaid-flow` (B13 đơn con, B9a + E05-11, BR-307-03/04). Kiểm lại tiền S4-38 lượt 1–5 không còn lỗi vùng OTA trả trước
 
 ### FB-R2-DOM-BE-14
 - Mức độ: **Blocker**
@@ -73,7 +73,7 @@
 - Vấn đề: (1) **Hoàn trùng**: ca 10 – khách báo trả sớm (B16 tạo yêu cầu hoàn 700.000), sáng hôm sau trả phòng khi quản lý chưa duyệt/chưa chi → `creditVnd` vẫn 700.000 → B18 bắt chọn cách xử lý → lễ tân chọn "Đề nghị hoàn" → **yêu cầu thứ hai 700.000** cho cùng khoản tiền. Chi lần hai vẫn qua trần (đã thu − đã hoàn = 2.100.000 ≥ 700.000) → hoàn 1.400.000, folio đã `settled` thành nợ 700.000. (2) Trần chi không theo số dư thừa: phát sinh sau trả phòng (minibar, BR-427 c) làm số dư thừa giảm nhưng yêu cầu hoàn đã duyệt vẫn chi đủ. (3) **Khoản thừa dựa trên tiền chưa đối soát**: khách đưa ảnh chuyển khoản 3.000.000 cho bill 2.000.000 → `creditVnd` 1.000.000 → xin hoàn tiền mặt → lễ tân ca khác chi → sao kê không có tiền: mất 3.000.000 (kiểu lừa "chuyển dư rồi xin lại tiền mặt" – rất hay gặp).
 - Vì sao quan trọng: Tiền mặt đã ra khỏi quầy thì không lấy lại được; hai yêu cầu cùng số tiền, khác mã lý do (`early_departure` và `overpayment`) – quản lý duyệt từ điện thoại rất dễ duyệt cả hai.
 - Đề xuất sửa: (a) Định nghĩa **"số dư thừa chưa xử lý"** = `creditVnd` − Σ(yêu cầu hoàn đang mở: `pending`/`escalated`/`approved` chưa chi đủ); blocker `credit_balance` và `overpaymentHandling` chỉ dùng số này (B16 rồi B18 → 0 → không bắt chọn); (b) mọi lần chi (`executeCashRefund`/`executeRefund`) chặn thêm **≤ `creditVnd` hiện tại** của folio; (c) khoản thừa chỉ được **chi** khi các khoản thu tạo ra nó đã `reconciled` hoặc là `cash`/`card_pos` (`not_required`); còn `pending` → yêu cầu hoàn vẫn tạo được nhưng nút chi khóa với chú thích "Chờ đối soát khoản thu {PT-…}"; (d) test: B16 → B18 khi chưa chi → đúng 1 yêu cầu; phát sinh 70.000 sau khi duyệt → chi tối đa 630.000; khoản thừa từ chuyển khoản `pending` → chi bị chặn.
-- Trạng thái: Open
+- Trạng thái: Verified (DOM 18/10, HEAD `7ac11a4`) – (a) `unhandledCreditVnd` = credit − yêu cầu hoàn đang mở, B16 → B18 đúng một yêu cầu (test `ota-prepaid-flow` "DOM BE-14 (d)", `frontdesk-s3-fixes`); (b) chi ≤ `rawCreditVnd` hiện tại (`REFUND_EXCEEDS_APPROVED`); (c) chi chỉ phần có tiền đã đối soát (`REFUND_SOURCE_NOT_RECONCILED`, test `payments-s3`). Đơn đã đóng không nhận dòng phí tay (K11-06, gộp #11) – không còn đường làm dư thừa < yêu cầu
 
 ### FB-R2-DOM-BE-15
 - Mức độ: Major
@@ -81,7 +81,7 @@
 - Vấn đề: (1) Hoa hồng của sale/CTV thành `earned` **ngay khi** khoản cọc họ ghi được đối soát – có thể trước kỳ ở hàng tháng (ca 16: xác nhận 20/10 cho đơn tháng 11); đơn bị hủy sau kỳ chi 1/11 → đã chi hoa hồng cho doanh thu không có. (2) Ngược lại, **B18 không chuyển** `projected → earned` (SM-11 "ngắn ngày: đơn checked_out và thu đủ") → mọi đơn mà lễ tân thu hết tiền thì hoa hồng **không bao giờ** đạt. (3) `listCommissions` cộng `earned` cho sale/CTV xem – họ thấy "đã đạt" số tiền của đơn chưa ở. Nguồn gây nhầm một phần là oracle BR-527-05 của DOM (ghi "thành đạt") – DOM nhận lỗi, sửa ở bước Phản hồi & sửa.
 - Vì sao quan trọng: Hoa hồng là tiền chi ra hằng tháng (BR-212 ngày 10); sai trạng thái thì chi sớm, chi cho đơn hủy, hoặc nợ CTV – mất lòng CTV, nguồn khách trực tiếp quan trọng của OTTIMO.
 - Đề xuất sửa: theo quyết định **S3-3**: một hàm `tryEarnCommission(reservationId)` gọi ở B18 (sau `settle`), ở đối soát/xác nhận tiền mặt nộp quầy, và khi thu nợ sau trả phòng; điều kiện = đơn `checked_out` ∧ folio còn phải thu = 0 ∧ không còn khoản thu `pending`/`disputed` do chính người nhận hoa hồng ghi. Test: (a) sale ghi cọc 1.600.000 tiền mặt, lễ tân xác nhận 20/10 → vẫn `projected`; B18 9/11 thu đủ → `earned` 156.150; (b) lễ tân thu hết → B18 → `earned`; (c) B18 trước khi đối soát khoản của sale → `projected`, đối soát xong → `earned`.
-- Trạng thái: Open
+- Trạng thái: Verified (DOM 18/10, HEAD `7ac11a4`) – `FolioService.tryEarnCommissions` (S3-3: `checked_out` ∧ còn phải thu 0 ∧ người nhận không còn khoản `pending`/`disputed`), gọi ở B18, đối soát/nộp quầy, thu nợ sau trả phòng; bỏ "earned khi đối soát cọc"; test `payments-s3` BR-527-05 / A46a. Ghi chú: phủ hoa hồng CTV của S4-03 là việc G5 riêng, không thuộc thẻ này
 
 ### FB-R2-DOM-BE-16
 - Mức độ: Major
@@ -89,7 +89,7 @@
 - Vấn đề: phụ thu người (BR-110) là **một con số cho cả kỳ ở**, trong khi số người và căn có thể đổi giữa kỳ: (1) lễ tân sửa số khách đơn đang ở bằng `updateReservation` (đúng chỉ dẫn EP03-05 0.1 dòng 3) → tính phụ thu cho **cả các đêm đã qua** (ca 12: 600.000 thay vì 300.000); bớt người thì hoàn luôn các đêm đã ở; (2) thêm người qua `addPartyMember` ghi đúng 300.000, nhưng **bất kỳ** `resyncStay` sau đó (gia hạn B13, đổi phòng B14, trả sớm B16, B9a) đảo mất dòng này (ca 13: còn 0); (3) B14 `guest_request` sang căn định mức lớn hơn vẫn giữ phụ thu (ca 14: thừa 300.000), sang căn nhỏ hơn thì không thu; (4) mức phụ thu khi thêm giữa kỳ theo người vừa thêm, trái "người vượt tính mức thấp hơn" (ca 15); (5) tuổi trẻ chỉ có năm sinh (S3-7); (6) đơn OTA tăng số khách qua `updateReservation` → `repriceExtraPersons` đặt phụ thu = 0 (`charged` chỉ direct/agent) dù số người thực tế vượt số khách trên đơn OTA – BR-110 "chỉ thu khi số người thực tế vượt số khách trên đơn" (đường `addPartyMember` thì có thu – hai đường cho hai kết quả).
 - Vì sao quan trọng: Sai tiền cả hai chiều trong tình huống rất thường gặp ở OTTIMO (gia đình, bạn đến sau, đổi sang căn rộng hơn); thu thừa là khiếu nại, thu thiếu là mất doanh thu không ai thấy (dòng bị đảo "tự động").
 - Đề xuất sửa: theo **S3-13**: phụ thu người tính **theo từng `stay_night`** (người có mặt đêm đó × định mức căn đêm đó; lưu số người theo đêm hoặc theo khoảng `effectiveFrom`); `updateReservation` khi `in_house` nhận `effectiveFrom` (mặc định đêm nay) hoặc chuyển hẳn sang `addPartyMember`/`removePartyMember`; `syncStay` sinh dòng `extra_person` theo đêm từ dữ liệu này (không còn dòng khối giữa kỳ bị đảo); B14 `property_fault` lấy min(mức cũ, mức mới); tuổi khi chỉ có năm sinh = năm đến − năm sinh − 1. Test: ca 12, 13, 14, 15 ở mục B.
-- Trạng thái: Open
+- Trạng thái: Verified (DOM 18/10, HEAD `7ac11a4`) – phụ thu người theo từng đêm (`nights[].extraPersonVnd`, `effectiveFrom` khi `in_house`), `syncStay` không còn đảo dòng giữa kỳ; OTA thu phần vượt `bookedParty`; B14 khách xin theo định mức căn mới, OTTIMO lấy min; người vượt tính mức thấp hơn; tuổi theo S3-7; test `frontdesk-s3-fixes` ARC-01/DOM-16, `room-capacity`, oracle BR-110/BR-429 (b2)
 
 ### FB-R2-DOM-BE-17
 - Mức độ: Major
@@ -97,7 +97,7 @@
 - Vấn đề: ca 7 – khách quen được FOC trả muộn 17:00 (354.000, quản lý duyệt), thực tế trả 13:00 → server "tự đảo vì có lợi cho khách" nhưng làm mất FOC → khách nợ 212.000 cho khoản đã được miễn. Nhánh "tăng" cũng vậy: FOC cũ mất khi ghi lại.
 - Vì sao quan trọng: Khách VIP/khách quen bị đòi tiền đã được miễn, ngay lúc trả phòng – đúng loại trải nghiệm làm mất khách quen; lễ tân phải gọi quản lý duyệt lại lúc đông khách.
 - Đề xuất sửa: theo **S3-11**: so sánh theo **giá trị ròng** (dòng − FOC/giảm giá đã duyệt); khi ghi lại dòng mới, nếu dòng cũ có FOC `approved` thì ghi FOC mới = min(FOC cũ, phụ thu mới), cùng `approvedBy`, nhãn "Chuyển từ FOC {mã yêu cầu}"; FOC `pending` → giữ blocker như hiện tại. Test: ca 7 → ròng 0; FOC một phần 200.000 trên 354.000, trả 13:00 → FOC 200.000 trên 212.000, ròng 12.000.
-- Trạng thái: Open
+- Trạng thái: Verified (DOM 18/10, HEAD `7ac11a4`) – so theo giá trị ròng; FOC đã duyệt đi theo dòng mới = min(FOC, phụ thu mới), không duyệt lại (BR-434 v0.3.4, S4-38 S438-FOC-02); test `frontdesk-s3-fixes` ARC-06/DOM-17/DOM-18. Vùng FOC sạch từ kiểm lại lượt 3 tới lượt 5
 
 ### FB-R2-DOM-BE-18
 - Mức độ: Major
@@ -105,7 +105,7 @@
 - Vấn đề: Khi phụ thu theo giờ đã nhập > 0, lễ tân chỉ cần **không tích** là khách được miễn, không lý do, không người duyệt, không vào báo cáo FOC/cảnh báo thất thoát (BR-435). Thêm: lúc 10:00 bấm nhận phòng nhưng nhập giờ vào căn 14:00 (tương lai) vẫn được; trả phòng 14:35 nhập 12:00 cũng được – mất phụ thu mà nhật ký chỉ thấy "12:00".
 - Vì sao quan trọng: Trái US-026 AC4 ("muốn miễn phụ thu → luồng duyệt US-007") và BR-432/433. Chủ đầu tư ở xa, quản lý theo số liệu: đây là đường thất thoát tiền mặt kinh điển (thu tiền khách, nhập giờ chuẩn).
 - Đề xuất sửa: theo **S3-12**: phụ thu > 0 → `applySurcharge` phải `true` (có thể kèm `requestFoc`), thiếu → 422 mã trường `SURCHARGE_DECISION_REQUIRED` (ARC đặt tên); `checkinTime` không được muộn hơn giờ thao tác quá `manual_time_tolerance_minutes`; `checkoutTime` sớm hơn giờ thao tác quá ngưỡng → bắt buộc `timeNote`, ghi cả giờ nhập và giờ hệ thống vào nhật ký, hiện trong danh sách đóng ca. DOM thêm tham số `manual_time_tolerance_minutes` (30) vào BR mục 13 ở v0.3.4.
-- Trạng thái: Open
+- Trạng thái: Verified (DOM 18/10, HEAD `7ac11a4`) – 422 `SURCHARGE_DECISION_REQUIRED` (checkIn, setLateCheckout, checkOut, addPartyMember); giờ nhập tay muộn hơn giờ server > `manual_time_tolerance_minutes` → 422 `TIME_AFTER_ACTION`, sớm hơn → bắt buộc ghi chú (`TIME_NOTE_REQUIRED`), nhật ký có cả hai giờ; test `frontdesk-s3-fixes`
 
 ### FB-R2-DOM-BE-19
 - Mức độ: Major
@@ -113,7 +113,7 @@
 - Vấn đề: Khách trả **sau 18:00** (BR-412-07: 19:00) hoặc **sau nửa đêm** (01:00, G-16): B18 báo phải gia hạn; gia hạn xong ngày đi = ngày nghiệp vụ + 1 nên B18 bị chặn "chỉ trả phòng đúng ngày đi" tới 06:00 sáng hôm sau; dùng B16 rời "hôm nay" thì lại rơi về giờ > 18:00 → vòng lặp. Lễ tân không trả phòng, không in bill, không đổi buồng `VD` được khi khách đã đi. Lỗi gốc ở hướng dẫn G-16 của DOM (thiếu bước này).
 - Vì sao quan trọng: Khách bay chuyến tối hoặc xe đêm về Sài Gòn là chuyện thường ở Đà Lạt; khách đứng chờ bill mà lễ tân không làm được, buồng phòng không nhận việc dọn, rack báo sai tới sáng.
 - Đề xuất sửa: theo **S3-9**: (a) B18 nhận tùy chọn `addLateNight: true` (khi giờ trả > mốc cuối): trong cùng giao dịch thêm đêm D (giá BR-421, xác nhận số tiền như BR-414) rồi trả phòng, không ghi phụ thu trả muộn; (b) cửa sổ sau nửa đêm cho B18/B16 như B9a: ngày nghiệp vụ = ngày đi − 1 và ngày lịch = ngày đi trước 06:00 → hợp lệ, phụ thu 0; (c) `checkoutAt` (E05-09) là nguồn giờ chuẩn cho các ca này. Test: 19:00 ngày 23/10 → bill có đêm 23/10, đơn `checked_out` 19:00, buồng `VD`; 01:00 ngày 24/10 (đơn đã gia hạn tới 24/10) → trả phòng được, phụ thu 0.
-- Trạng thái: Open
+- Trạng thái: Verified (DOM 18/10, HEAD `7ac11a4`) – (a) `checkOut.extraNight` (thêm đêm ngày đi, không phụ thu trả muộn, cùng giao dịch; giá theo bảng BR-417 phụ lục 5A) và đường BR-416-06 khi đêm không bán được; (b) cửa sổ sau nửa đêm `postMidnightWindow` (ngày nghiệp vụ = ngày đi − 1, phụ thu 0); test `frontdesk-s3-fixes` "DOM-19 (b) / DOM-25" (01:00), E05-11; B16 không cần cửa sổ riêng (ngày đi mới = ngày lịch rời vẫn ≥ ngày nghiệp vụ)
 
 ### FB-R2-DOM-BE-20
 - Mức độ: Major
@@ -121,7 +121,7 @@
 - Vấn đề: Lễ tân ca sáng xin "nhận khi buồng chưa sẵn sàng" lúc 13:30, 13:45 buồng phòng dọn xong → nhận phòng bình thường; yêu cầu cũ còn `pending`. Ba ngày sau lúc 12:00, B18 báo `PENDING_APPROVALS` – lễ tân ca trưa không phải người gửi nên không hủy được, phải gọi quản lý. Tương tự yêu cầu trả muộn khách đổi ý không dùng.
 - Vì sao quan trọng: Kẹt đúng giờ cao điểm trả phòng (11:00–12:30) vì một yêu cầu không còn ý nghĩa; spec 5.5 / US-038 AC4 chỉ chặn bởi FOC/giảm giá.
 - Đề xuất sửa: theo **S3-10**: blocker chỉ đếm `foc`, `special_discount`, `damage_pricing`; khi B9 thành công → hủy mọi `checkin_room_not_ready` mở của đơn (lý do `superseded`); khi B18/B13 → hủy `late_checkout_conflict` mở. Test: hai ca trên → B18 thành công, yêu cầu cũ `cancelled` có lý do.
-- Trạng thái: Open
+- Trạng thái: Verified (DOM 18/10, HEAD `7ac11a4`) – blocker B18 chỉ `foc`, `special_discount`, `damage_pricing` (`BLOCKING_APPROVALS`); B9/B9a hủy `checkin_room_not_ready`, B13/B18 hủy `late_checkout_conflict` với lý do `superseded` (`ApprovalService.cancelSuperseded`, báo người gửi); test `frontdesk-s3-fixes` DOM-20
 
 ### FB-R2-DOM-BE-21
 - Mức độ: Major
@@ -129,7 +129,7 @@
 - Vấn đề: Bill đưa khách (US-037) và bảng tóm tắt ở quầy in **mã kỹ thuật tiếng Anh** ("room_night", "retain_with_guest_consent", "late_checkout 13:00 30%"), không có ngày đêm, không song ngữ; khi khách được hoàn (credit) bill không có dòng "Hoàn lại khách {x}" (spec 5.4).
 - Vì sao quan trọng: Bill là giấy tờ khách mang về, gửi công ty thanh toán; in mã máy là không dùng được và làm khách nghi ngờ khoản tiền (nhất là "retain_with_guest_consent").
 - Đề xuất sửa: server trả cho mỗi dòng `labelKey` + `labelParams` (ARC đặt tên) theo nội dung DOM chốt: `room` → "Tiền phòng đêm {dd/mm} – căn {room}" (`bill.night_line`); `early_checkin` → "Phụ thu nhận sớm {hh:mm} ({pct}%)"; `late_checkout` → "Phụ thu trả muộn {hh:mm} ({pct}%)"; `extra_person` → "Phụ thu thêm người · {n} người · đêm {dd/mm}"; `early_departure_fee` → "Phí trả phòng sớm – giữ {pct}% tiền {n} đêm không ở"; `deposit_forfeit` → "Khách để lại tiền thừa (không hoàn)"; `room_change_difference` → "Chênh lệch đổi phòng {old} → {new}"; `minibar` → "{tên món} × {sl}"; `cancellation_fee`/`no_show_fee` theo BR-309/311; bill thêm `creditVnd` để in "Hoàn lại khách". FE dịch theo `labelKey` (thẻ FE-03). `description` chỉ còn cho nhật ký.
-- Trạng thái: Open
+- Trạng thái: Verified (DOM 18/10, HEAD `7ac11a4`) – mỗi dòng folio/bill có `labelKey` (`bill.line.*`) + `labelParams` (cột `folio_line.label_params`, 0042), bill có `creditVnd` ("Hoàn lại khách"); Desk `CheckOutPage` dịch theo `labelKey`, `description` chỉ còn dự phòng/nhật ký. Phần chữ FE theo dõi ở FB-R2-DOM-FE-03 (Minor)
 
 ### FB-R2-DOM-BE-22
 - Mức độ: Major
@@ -137,7 +137,7 @@
 - Vấn đề: (1) "Ngày đến" trên dữ liệu cổng = ngày đến **của đơn**: B9a đơn Trực tiếp (khách tới 04:40 ngày 20/10) ra **19/10** (ca 18); khách đến 01:30 ngày 21/10 cho đơn 20/10 ra **20/10** – trái BR-602 ("ngày lịch của giờ đến thực tế") và BR-417 (4). (2) Ngày dán vào cổng dạng `2026-10-20`, quốc tịch `KOR` – chưa chắc cổng nhận (S3-5). (3) Dữ liệu khách VN thiếu ô "lý do lưu trú"; khách NN thiếu SĐT (BR-606 liệt kê) – **PHÁP LÝ – cần xác nhận** (theo DOM hiểu, nội dung thông báo lưu trú gồm lý do và thời gian lưu trú – Thông tư 55/2021/TT-BCA Điều 15; chờ ESC-018 + luật sư ESC-001).
 - Vì sao quan trọng: Khai sai ngày đến là sai dữ liệu nộp cơ quan công an; ca xe giường nằm tới 4–5 giờ sáng là ca phổ biến của OTTIMO. Dán sai định dạng làm lễ tân sửa tay từng ô, dễ trễ hạn 12 giờ với khách NN.
 - Đề xuất sửa: (a) `arrivalDate` dữ liệu cổng = ngày lịch (giờ VN) của `actualCheckinAt` (chưa nhận phòng → ngày đến đơn); (b) **một** nơi dựng dữ liệu cổng (ARC chọn BE-C `rules.ts` hoặc adapter INT), định dạng ngày và cách ghi quốc tịch là tham số, mặc định `dd/MM/yyyy` và "Tên nước tiếng Việt (KOR)" (tên lấy từ CLDR – `Intl.DisplayNames('vi', {type: 'region'})` sau khi đổi alpha-3 → alpha-2); (c) thêm `stayReason` (mặc định "Du lịch", lễ tân đổi được) cho khối VN và SĐT cho khối NN – trường để trống được cho tới khi ESC-018 trả lời; (d) test: B9a 04:40 ngày 20/10 → "Ngày đến 20/10/2026".
-- Trạng thái: Open
+- Trạng thái: Verified (DOM 18/10, HEAD `7ac11a4`) – (a) "Ngày đến" dữ liệu cổng = ngày lịch của `actual_checkin_at` (BE-A `actualArrivalDate`, BE-C); (b) một nơi dựng (`registration/internal/rules.ts`), định dạng là tham số, mặc định theo **ESC-018 INV đã quyết 17/10**: `dd/MM/yyyy`, quốc tịch mã 3 chữ in hoa (KOR); (d) test BE-C `frontdesk-s3-fixes`. Phần (c) (lý do lưu trú khách VN, SĐT khách NN) không chạm tiền, là câu hỏi pháp lý → **tách sang R3** cùng rà soát luật sư ESC-001; oracle BR-417-03 còn `pendingFix` cho ca đồng hồ hạn 23:00 (việc QA)
 
 ### FB-R2-DOM-BE-23
 - Mức độ: Minor
@@ -253,3 +253,9 @@
 1. **Quy tắc thuần + trục ngày nghiệp vụ** (`stay-rules.ts`): bậc nhận sớm/trả muộn, ân hạn, khung miễn dài hạn, BR-417 – tách khỏi I/O, mọi số từ tham số; mọi ca đơn lẻ của BR-411/412/413/415/107/428/511/702 ở mục B khớp từng đồng (10/20 ca), kể cả làm tròn lợi khách ở BR-428 – các ca sai đều là ca **kết hợp** nhiều thao tác (đổi người + gia hạn, FOC + giờ thực tế, B16 + B18, OTA trả trước).
 2. **Tách nhiệm tiền bằng CHECK ở DB** (BE-B 0040: người đối soát ≠ người ghi, người chi ≠ người tạo yêu cầu, không tự duyệt hoàn) và luồng hoàn 4 bước đúng BR-522 – đây là nền kiểm soát mà chủ đầu tư ở xa cần.
 3. **G-10, G-12, G-13 làm đúng ý**: tự đảo khi giảm/bắt xác nhận khi tăng, bill bỏ cặp dòng đảo, VietQR nội dung = mã đơn/số bill, `dryRun` chỉ đọc – lễ tân xem trước số tiền trước khi ghi.
+
+## E. Kiểm lại trước cổng QC Sprint 4 (18/10, HEAD `7ac11a4` – ĐK-S3-5 / M5)
+
+- Cách làm: đối chiếu từng thẻ Blocker/Major với mã HEAD `7ac11a4`, test tích hợp đã có, BR v0.3.8 (gồm quy tắc FOC B12 và FOC chờ duyệt v0.3.5, phụ lục 5A BR-417) và kết quả kiểm lại tiền S4-38 lượt 1–5. DOM không chạy test (dựa vào CI và các lượt kiểm lại).
+- Kết quả: **10/10 Verified** – Blocker FB-R2-DOM-BE-13, 14; Major FB-R2-DOM-BE-15…22. Mở lại 0. Dời R3 0 thẻ; riêng phần (c) của BE-22 (ô lý do lưu trú, SĐT – pháp lý, không chạm tiền) tách sang R3 cùng ESC-001.
+- Các thẻ Minor/Suggestion (BE-23…31, BA-02, FE-03, INT-01) không thuộc điều kiện cổng; giữ Open để rà ở R3.
