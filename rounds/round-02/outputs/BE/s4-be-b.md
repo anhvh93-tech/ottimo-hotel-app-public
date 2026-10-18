@@ -471,3 +471,22 @@ Trước khi #12 (`3bd4ac4`) commit, tôi soạn bản sửa trên bản sao ri�
 - Sửa – module khác (chỉ những dòng ghi ở đây):
   - `src/modules/inventory/internal/items.service.ts` (BE-D, L0 `FOR NO KEY UPDATE`)
   - `src/modules/frontdesk/public/ports.ts`, `src/modules/frontdesk/internal/checkout.service.ts` (BE-A, kiểu `reason` thêm `not_today`)
+
+## 19. Vòng sửa 6 – BUG-R2-178 (QA `bug-list.md` 11.22), 18/10, sau gộp #13 `723179b`
+
+| Việc | Cách sửa | Kiểm chứng |
+|---|---|---|
+| **Gốc** | `stayIsInRoom` lấy "đoạn cuối tới hôm nay" của **mọi** đơn `in_house` trong lượt. Đơn gốc đã qua ngày đi của nó (đổi tạm theo S4-09 sang 302) vẫn `in_house`, nên đoạn 302 của nó bị coi là căn đang ở. Vì vậy ở ngày đi, `minibarUncheckedRooms` còn tủ 302 (lý do `not_today`) và B18 trả 409 | – |
+| **Sửa** | Thêm hàm `fridge.ts` `currentRoomOfStay(tx, đơn chính, ngày nghiệp vụ)`, cùng nghĩa `currentSegment` của Desk. Hàm xét các đoạn hiệu lực của những đơn `in_house` trong lượt: lấy đoạn có `from_date ≤ hôm nay < to_date`; không có đoạn nào (ngày đi hoặc sau đó) thì lấy đoạn bắt đầu muộn nhất, tức đơn còn ở cuối lượt. `stayIsInRoom` gọi hàm này. Vì vậy `onRefillDone`, `checkoutStatus` / `not_today` / `minibarUncheckedRooms` và `standard().latestCheck` dùng chung một định nghĩa. Cờ `create` trong `record()` (K11-05) cũng xét theo căn của lượt, đọc dưới L3. Thứ tự khóa 16.19 không đổi (chỉ đọc) | `minibar-m1` ca BUG-R2-178 (dưới đây). Trên bản sao riêng, trả `stayIsInRoom` về cách cũ thì ca này đỏ: `minibarUncheckedRooms` có 2 tủ (203 và 302) |
+| **Ca tích hợp** | Booking.com 203, 10–13/03/2031. B13 thêm 2 đêm (đơn con). S4-09 đổi 302 `until_parent_departure`. Đếm tủ cũ 203: 2 bia, T1. HK xong T1 khi khách ở 302. Đếm 302: dùng 0. Ghi nhận quay về 203 (đơn con). Ngày đi 15/03 | Tóm tắt của **cả** đơn con và đơn gốc chỉ đòi tủ 203. Đếm 203 hôm nay (1 bia) → kỳ `refill` mốc 2 → +35.000. B18 trên đơn gốc → 200. Minibar **105.000**. K1–K4 = 0 |
+| **E2E** | Gỡ `BUG-R2-178` khỏi `OPEN` trong `product/tests/e2e/support/known-bugs.ts` (nay `OPEN = {}`), để TC-L4-124 phải đạt | tsc của `tests/` xanh. Chưa chạy E2E (không đụng stack nào) |
+
+**Kiểm chứng** (18/10, DB mới `ottimo_test_beb_s4r`): `@ottimo/api` **2.850/2.850 xanh, 90/90 tệp**; `minibar-m1` 46/46; tsc 0 lỗi; eslint, prettier xanh trên tệp chạm. Không commit.
+
+**Ghi chú**: `fridgeOf` khi vắng `roomId` vẫn lấy căn của **đơn** trong URL. Từ #13 Desk luôn gửi `roomId` (K11-08), nên nhánh này chỉ còn cho client cũ. Tôi không đổi trong vòng này.
+
+**Tệp vòng 6**:
+- `services/api/src/modules/inventory/internal/{fridge,minibar.service}.ts`
+- `services/api/test/integration/minibar-m1.test.ts`
+- `product/tests/e2e/support/known-bugs.ts`
+- tài liệu này

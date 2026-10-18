@@ -31,6 +31,7 @@ import {
 } from '../../reservations/public/sales-port';
 import {
   type FridgeItem,
+  currentRoomOfStay,
   fridgeItems,
   isCurrentPeriod,
   lockFridge,
@@ -390,7 +391,8 @@ export class MinibarService {
     if (fresh?.status !== 'in_house')
       throw problem('INVALID_TRANSITION', { extras: { currentState: fresh?.status ?? s.status } });
     if (!input.roomId && fresh.roomId !== fr.roomId) throw problem('MINIBAR_PERIOD_CHANGED');
-    const currentRoomId = fresh.roomId;
+    // BUG-R2-178: the room the STAY is in (a B13 / S4-09 child included), read under L3.
+    const currentRoomId = (await currentRoomOfStay(tx, fr.primaryId, today)) ?? fresh.roomId;
     const lock = await lockFridge(tx, fr.primaryId, fr.roomId, { refillTasks: true });
     await assertPeriod();
     // Every count belongs to a period (ARC R1): a fridge never filled yet gets its `check_in` fill now.

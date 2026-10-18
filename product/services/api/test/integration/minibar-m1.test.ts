@@ -2190,6 +2190,102 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     expect((await get(b.id)).status).toBe('in_house');
   });
 
+  it('BUG-R2-178: Booking.com 203 + B13 child; S4-09 move to 302 until the OTA departure, then the room return – on the stay\'s departure day the 302 fridge (left) is not "the room the stay is in": B18 asks for 203 only; 203 counted today (1 beer) → B18 200, minibar 70.000 + 35.000', async () => {
+    await at('2031-03-01T10:00:00+07:00');
+    await vacant('203');
+    const res = await c.fd!.send('POST', url('/reservations'), {
+      roomId: ids.rooms['203'],
+      channelId: ids.channels.booking,
+      adults: 2,
+      bookerGuestId: guest,
+      paymentModel: 'ota_prepaid',
+      otaRef: `BK${randomBytes(4).toString('hex')}`,
+      otaRoomAmountVnd: 2_400_000,
+      arrivalDate: '2031-03-10',
+      departureDate: '2031-03-13',
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    const b = res.json() as Booking;
+    await vacant('302');
+    const blockBody = {
+      roomId: ids.rooms['302'],
+      channelId: ids.channels.direct,
+      directSource: 'zalo_phone',
+      adults: 2,
+      bookerGuestId: guest,
+      paymentModel: 'direct',
+      arrivalDate: '2031-03-13',
+      departureDate: '2031-03-15',
+    };
+    let next = await c.fd!.send('POST', url('/reservations'), {
+      ...blockBody,
+      initialPayment: { type: 'deposit', method: 'cash', amountVnd: 700_000 },
+    });
+    if (next.statusCode === 422 && next.json().code === 'DEPOSIT_INSUFFICIENT') {
+      next = await c.fd!.send('POST', url('/reservations'), {
+        ...blockBody,
+        initialPayment: {
+          type: 'deposit',
+          method: 'cash',
+          amountVnd: next.json().depositRequiredVnd,
+        },
+      });
+    }
+    expect(next.statusCode, next.body).toBe(201);
+    await at('2031-03-10T15:00:00+07:00');
+    const ci = await act(b.id, 'check-in', {
+      cardsIssued: 1,
+      houseRulesSent: true,
+      checkinTime: '15:00',
+    });
+    expect(ci.statusCode, ci.body).toBe(200);
+    await at('2031-03-11T09:00:00+07:00');
+    const ext = await act(b.id, 'extend', { nights: 2 });
+    expect(ext.statusCode, ext.body).toBe(200);
+    const childId = ext.json().childReservation.id as string;
+    const child = { ...b, id: childId } as Booking;
+    const body = {
+      newRoomId: ids.rooms['302'],
+      effectiveDate: '2031-03-11',
+      cause: 'property_fault',
+      reason: 'Hỏng điều hòa',
+      stayScope: 'until_parent_departure',
+    };
+    const dry = await act(b.id, 'change-room', { ...body, dryRun: true });
+    expect(dry.statusCode, dry.body).toBe(200);
+    const mv = await act(b.id, 'change-room', {
+      ...body,
+      expectedDeltaVnd: dry.json().folioDeltaVnd,
+    });
+    expect(mv.statusCode, mv.body).toBe(200);
+    await at('2031-03-11T10:00:00+07:00');
+    await count(b, { bia: 2 }, ids.rooms['203']); // the fridge left
+    await refillDone(b, '203', '2031-03-11T14:00:00+07:00'); // refilled while the stay is in 302
+    await at('2031-03-13T10:30:00+07:00');
+    await count(b, {}, ids.rooms['302']); // the temporary room, before the return
+    await vacant('203');
+    const back = await c.fd!.send(
+      'PATCH',
+      url(`/reservations/${childId}`),
+      { roomReturnRecorded: true },
+      { 'if-match': `"${(await get(childId)).version}"` },
+    );
+    expect(back.statusCode, back.body).toBe(200);
+    await at('2031-03-15T09:00:00+07:00');
+    for (const who of [child, b]) {
+      expect((await blockers(who)).minibarUncheckedRooms ?? [], who.id).toEqual([
+        expect.objectContaining({ roomId: ids.rooms['203'] }),
+      ]);
+    }
+    await count(child, { bia: 1 }, ids.rooms['203']);
+    expect((await blockers(child)).blockers ?? []).not.toContain('minibar_not_checked');
+    await at('2031-03-15T11:00:00+07:00');
+    const co = await checkout(b, '11:00'); // B18 on the primary booking (children share its folio)
+    expect(co.status, co.body).toBe(200);
+    expect((await mb(b)).gross).toBe(105_000);
+    expect(await invariants()).toEqual({ k1: 0, k2: 0, k3: 0, k4: 0 });
+  });
+
   it('ARC 16.14: FolioLine.chargeCode – a minibar line carries the item code, the adjustFolioLine replacement keeps it; B13 after a count → minibarUncheckedRooms reason stay_continued', async () => {
     const { b } = await inHouse('401', '2029-06-04', '2029-06-05');
     await at('2029-06-05T09:00:00+07:00');

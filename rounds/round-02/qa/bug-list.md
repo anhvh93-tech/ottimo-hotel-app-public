@@ -9,9 +9,9 @@
 |---|---|---|---|---|---|
 | P0 | 10 | 0 | 0 | 0 | 10 |
 | P1 | 61 | 3 | 7 | 0 | 51 |
-| P2 | 56 | 14 | 2 | 1 | 39 |
+| P2 | 56 | 13 | 3 | 1 | 39 |
 | P3 | 51 | 21 | 4 | 0 | 26 |
-| **Tổng** | **178** | **38** | **13** | **1** | **126** |
+| **Tổng** | **178** | **37** | **14** | **1** | **126** |
 
 **Sprint 4 D1 (QA, 17/10 ~17:00–19:40, mục 11):**
 - **Ca tự động cho 7 lỗi tiền 055…061 đã có trong repo**, cùng ca cho S4-21, S4-04, S4-23, S4-35, B-6 (`expectedVersion`), BR-402-01 và tập đóng `AuditEvent.action`:
@@ -212,7 +212,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | BUG-R2-175 | P2 | (K11-05) `record()` xác định tủ và `s.roomId` trước khi khóa, không đọc lại sau khóa → mất việc bổ sung hoặc sinh việc sớm khi B14 chen vào | BE-B (+ ARC) | Open – sửa cùng vòng 5 |
 | BUG-R2-176 | P3 | (K11-06) Đơn `cancelled`/`no_show` vẫn nhận dòng phí tay; dư thừa giảm dưới yêu cầu hoàn đã tạo, yêu cầu kẹt `approved` | BE-B (folio) / BE-A (`refundPlan`) | Open – DOM đã chốt (BR-522 18/10), oracle BR-522-06 |
 | BUG-R2-177 | P3 | (K11-07) Ca "deadlock class" của BE-A chỉ kiểm khác 500; chú thích `record()` nói B18 khóa folio trước khi chốt | BE-A (test), BE-B (chú thích) | Open – sửa cùng 171 |
-| BUG-R2-178 | P2 | (số QA đề xuất – ORC xác nhận) K11-09: lượt có đơn gốc đổi tạm S4-09 (`until_parent_departure`) và đơn con B13 – ngày đi tủ **căn tạm đã rời** bị coi là "căn đang ở" (`stayIsInRoom` lấy đoạn cuối của MỌI đơn `in_house` trong lượt) → `minibarUncheckedRooms` thêm căn tạm lý do `not_today`, B18 409 `MINIBAR_NOT_CHECKED` tới khi đếm lại tủ căn đã rời | BE-B | Open – E2E TC-L4-124 `knownBug` |
+| BUG-R2-178 | P2 | (số QA đề xuất – ORC xác nhận) K11-09: lượt có đơn gốc đổi tạm S4-09 (`until_parent_departure`) và đơn con B13 – ngày đi tủ **căn tạm đã rời** bị coi là "căn đang ở" (`stayIsInRoom` lấy đoạn cuối của MỌI đơn `in_house` trong lượt) → `minibarUncheckedRooms` thêm căn tạm lý do `not_today`, B18 409 `MINIBAR_NOT_CHECKED` tới khi đếm lại tủ căn đã rời | BE-B | **Fixed** trên cây chung `723179b` + `currentRoomOfStay` (BE-B mục 19), QA kiểm đạt api-dist17 – chờ gộp #14 |
 
 ## 2. Chi tiết
 
@@ -1644,3 +1644,11 @@ Việc ORC giao: (1) ĐK-S3-12 – chấm lại BUG-R2-083 theo `s3-SEC.md` 9.6,
   - `validate-fixtures` 0 lỗi; `gen_traceability --strict` mã 0 (519 TC).
 - **Lượt cuối (sau khi sửa ca):** clock **137 đạt** (gồm TC-L4-124 hỏng đúng chỗ của BUG-R2-178, có `knownBug`), 2 bỏ qua; desk-clock **32/32**; tệp API mới đạt 2/2, chạy 2 lần; desk-chromium 51 đạt (lượt đầu, không đổi ca).
 - **Bảng tổng sau cập nhật:** 178 lỗi; Open 38, Fixed 13, Deferred 1, Closed 126. BUG-R2-170, 173 (phần Desk + API), 176 kiểm đạt E2E trên cây chung, chờ gộp #13 để chuyển Fixed.
+
+### 11.23 Kiểm thử trước gộp #14 – BUG-R2-178 (QA, 18/10 ~08:14–08:20)
+- Stack dựng lại từ cây chung `723179b` + bản sửa `currentRoomOfStay` của BE-B (mục 19), api-dist17. `OPEN` rỗng.
+- Đã bỏ `knownBug('BUG-R2-178')` ở TC-L4-124. Kết quả:
+  - TC-L4-124 đạt **2 lần**. Ngày đi chỉ đòi đếm lại tủ căn gốc (`not_today`); tủ căn tạm đã rời không phải đếm. B18 200, minibar 105.000.
+  - `minibar-matrix` toàn bộ + `round5b.s5.clock`: **28/28**.
+  - desk-clock `b14-fridges` + `minibar-recount` + `checkout.h16`: **8/8**.
+- **BUG-R2-178 → Fixed**, đóng khi CI của gộp #14 xanh. Bảng tổng: 178 lỗi; Open 37, Fixed 14, Deferred 1, Closed 126.

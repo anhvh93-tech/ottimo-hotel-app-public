@@ -241,8 +241,34 @@ export async function latestFill(
 }
 
 /**
- * BR-703-02 note 2 (ARC 16.16): the stay of `primaryId` is in house (its primary booking `in_house`) and is in
- * `roomId` now – the room of the latest active segment up to `today` of one of its bookings in house.
+ * The room the STAY of `primaryId` is in on business day `today` (BUG-R2-178; same meaning as Desk's
+ * `currentSegment`, ARC 16.19 K11-03): among the active segments of its bookings in house, the one with
+ * `from_date ≤ today < to_date`; none (the departure day, or later) → the segment that starts last – the booking
+ * still in house at the end of the stay (a B13 / S4-09 child), never the stale last segment of the primary booking
+ * whose own dates are over. Null when the primary booking is not in house or the stay has not started.
+ */
+export async function currentRoomOfStay(
+  tx: Tx,
+  primaryId: string,
+  today: LocalDate,
+): Promise<string | null> {
+  const { rows } = await tx.query<{ room_id: string }>(
+    `SELECT s.room_id
+       FROM reservation p
+       JOIN folio f ON f.primary_reservation_id = p.id
+       JOIN reservation r ON r.folio_id = f.id AND r.status = 'in_house'
+       JOIN reservation_segment s ON s.reservation_id = r.id AND s.active AND s.room_id IS NOT NULL
+      WHERE p.id = $1 AND p.status = 'in_house' AND s.from_date <= $2
+      ORDER BY (s.to_date > $2) DESC, s.from_date DESC, s.to_date DESC, s.id DESC
+      LIMIT 1`,
+    [primaryId, today],
+  );
+  return rows[0]?.room_id ?? null;
+}
+
+/**
+ * BR-703-02 note 2 (ARC 16.16), K11-09: the stay of `primaryId` is in house and is in `roomId` on `today`
+ * (currentRoomOfStay – one definition for onRefillDone, the B18 blocker / `not_today` and `latestCheck`).
  */
 export async function stayIsInRoom(
   tx: Tx,
@@ -250,19 +276,7 @@ export async function stayIsInRoom(
   roomId: string,
   today: LocalDate,
 ): Promise<boolean> {
-  const { rows } = await tx.query<{ found: boolean }>(
-    `SELECT EXISTS (
-       SELECT 1 FROM reservation p
-         JOIN folio f ON f.primary_reservation_id = p.id
-         JOIN reservation r ON r.folio_id = f.id AND r.status = 'in_house'
-         CROSS JOIN LATERAL (
-           SELECT s.room_id FROM reservation_segment s
-            WHERE s.reservation_id = r.id AND s.active AND s.room_id IS NOT NULL AND s.from_date <= $3
-            ORDER BY s.from_date DESC LIMIT 1) cur
-        WHERE p.id = $1 AND p.status = 'in_house' AND cur.room_id = $2) AS found`,
-    [primaryId, roomId, today],
-  );
-  return !!rows[0]?.found;
+  return (await currentRoomOfStay(tx, primaryId, today)) === roomId;
 }
 
 /**

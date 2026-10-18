@@ -1165,7 +1165,6 @@ test.describe(
     test('TC-L4-124 (A) BUG-R2-144 / BR-703-02 `s409Agoda`: đơn Agoda có đơn con gia hạn; khách xin đổi tạm (B14 `until_parent_departure`) → tủ căn gốc đếm 2 bia → HK xong việc bổ sung → ghi khách về căn gốc (`roomReturnRecorded`) mở kỳ mới → B18 đòi đếm lại tủ căn gốc; kỳ sau 1 bia → minibar 105.000, dòng 70.000 giữ; xem trước B18 = lệnh ghi; ngày đi tủ căn gốc phải đếm lại trong ngày (BR-703 ghi chú 7), tủ căn tạm đã rời thì không', async ({
       request,
     }) => {
-      knownBug('BUG-R2-178');
       needClock('TC-L4-124');
       const { D, st, child, origin, temp } = await precondition(
         'Agoda 2 đêm căn gốc + 1 đêm con (B13), đang ở',
