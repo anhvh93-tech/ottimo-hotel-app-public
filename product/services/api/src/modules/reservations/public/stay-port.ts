@@ -177,9 +177,15 @@ export class ReservationStayPort {
     return this.reservations.feesForNewNights(tx, ctx, row, dates);
   }
 
-  /** BUG-R2-134: the room the guest bought (null = never moved) – BR-417-07, BR-429 (b1). */
-  boughtRoomId(tx: Tx, row: ReservationRow): Promise<string | null> {
-    return this.reservations.boughtRoomId(tx, row);
+  /**
+   * BR-417 appendix 5A step 1 (BUG-R2-160): the room the guest bought as the booking holding the night next to an
+   * added one sees the whole stay (null = no room known), and the stay's origin room.
+   */
+  boughtRoom(
+    tx: Tx,
+    reservationId: string,
+  ): Promise<{ boughtRoomId: string | null; originRoomId: string | null }> {
+    return this.reservations.boughtRoom(tx, reservationId);
   }
 
   // BR-107 re-tiering of an in-house stay (B13, B9a) – ARC B-3 (d): night prices only through reservations.

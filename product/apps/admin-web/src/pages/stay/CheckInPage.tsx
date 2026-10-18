@@ -350,7 +350,8 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
       houseRulesSent: true,
       doorAccessHandedOver: door,
       addPriorNight: priorNight || undefined,
-      priorNightRateVnd: priorNight ? amount : undefined,
+      // ARC 16.18 (vòng sửa 5): H13 has no box to change the B9a night's rate – the suggested one is never sent
+      // (absent = the server's default night; a rate sent would be recorded as typed by the desk).
       payment:
         payInline && payCheck.ok
           ? {
@@ -843,7 +844,6 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
               qrInput={{
                 checkinTime: early && time ? time : undefined,
                 addPriorNight: priorNight || undefined,
-                priorNightRateVnd: priorNight ? amount : undefined,
               }}
               pay={pay}
               onPay={setPay}

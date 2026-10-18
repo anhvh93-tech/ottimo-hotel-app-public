@@ -363,3 +363,67 @@ ARC chốt: (aa) đúng; nhánh `room_entered` chỉ ghi log (giữ nguyên). (a
 - `src/modules/folio/public/folio.service.ts` (`lockStay`)
 - `test/integration/minibar-m1.test.ts` (4 ca mới + kiểm HK)
 - tài liệu này; `01-decisions/decision-log.md`
+
+## 17. Vòng sửa 5 – kiểm lại tiền lần 5 (`reviews/s4-money-recheck5.md`; ARC `openapi-0.3.7.md` 16.3, 16.4 ca 21–28, 16.17; DOM 18/10), 18/10
+
+| Mã | Cách sửa | Kiểm chứng (`minibar-m1.test.ts`) |
+|---|---|---|
+| **BUG-R2-158** (A1, ca 28) | Đã sửa ở #11 (`f04052d`): `record()` lấy khóa tủ trước `registerFridge`/`fridgeItems`. Vòng này chỉ thêm test chính thức | Lễ tân ‖ HK đếm tủ chưa nạp, ép **cả hai thứ tự** bằng khóa tủ: hai lệnh 201, **1** lần nạp `check_in`, **1** lần đếm sống, **70.000** = `latestCheck.totalVnd` = B18, 1 việc `{bia: 2}` |
+| **BUG-R2-164** (ca 27) – migration **0067** `0067_minibar_fill_backfill_unfilled.sql` (chỉ dữ liệu; snapshot = 0066 đổi id/prevId, journal idx 44; `drizzle-kit generate` báo "No schema changes") | (b) `RAISE EXCEPTION` kèm danh sách nếu một tủ có hơn 1 lần đếm sống mà `fill_id` NULL; không tự sửa tiền. (a) Tủ của lượt `in_house` có lần đếm `checkout` mà chưa có lần nạp → lần nạp `backfill`: `filled_at` = `created_at` = lần đếm đầu − 1 ms; dòng = `standard_qty` và giá/giá vốn chụp của lần đếm đầu. Sau đó mọi lần đếm `fill_id` NULL nhận lần nạp hiệu lực lúc đếm (luật 0066), có chặn trùng lần đếm sống. (c) Hủy việc `minibar_refill` hệ thống đang mở của lượt `in_house` mà không lần đếm sống nào trỏ tới (`reservation_changed`, ghi chú `minibar_duplicate_refill_0067`) | **Hai pha**: dữ liệu dạng 365486f (lần đếm không có lần nạp) → câu bù của 0066 (`fill_id` vẫn NULL) → các câu dữ liệu của 0067 chạy dưới quyền `ottimo_owner` với RLS theo cơ sở → K1–K3 = 0. Lễ tân xác nhận lại cùng số → **không thêm dòng** (70.000, 1 lần đếm sống). Đếm 1 → đảo, ghi 35.000. B18 = phòng + 35.000. Test A2 của người kiểm, có thêm bước chạy 0067, xanh trên DB mới |
+| **BUG-R2-159** (ca 21–25) – ARC 16.17 I1–I4 | Tệp mới `inventory/internal/refill-tasks.ts`: `reconcileRefillTasks(tx, lock: FridgeLock, { create, now, today, events })` là **chỗ duy nhất** ghi việc `minibar_refill` hệ thống và `minibar_check.refill_task_id`. `FridgeLock` chỉ có được từ `lockFridge`, nên không gọi được hàm khi chưa khóa tủ (kiểm lúc biên dịch). Đã **xóa** `createRefillTasks`. Hàm làm theo từng kỳ có lần đếm sống: need = đã dùng − Σ việc đã xong (tính theo món); need rỗng → hủy việc đang mở (`minibar_recount_zero`); có việc mở → giữ việc mới nhất, cập nhật số, hủy việc thừa (`minibar_duplicate_refill`), chuyển trỏ sang lần đếm sống; không có việc mở mà `create` → tạo việc. Mỗi lần hủy ghi `state_transition` SM-14 (DOM 3). Nơi gọi: `record()` (`create` = tủ căn cũ hoặc `prev` đã có việc); `onCheckedOut` (`create: true`, vẫn trả id việc do chính lệnh tạo – hợp đồng `createdTaskIds` của BE-A); `onStayContinued` (`extended` → `true`, `room_entered` → `false` kèm log), gọi **trước** `openNextPeriod`. `onRefillDone` chỉ đọc: bỏ qua việc không sống (I2). **409 `MINIBAR_PERIOD_CHANGED`** khi đếm lại kỳ mà việc sống đã xong. `detail` gợi ý sửa dòng folio có lý do (BR-702/BR-008), không đếm lại – DOM 1 | Ca 21 (D1): HK đếm lại cùng số → T1 chuyển sang lần đếm mới, 1 việc `{bia: 2}`; về 202, HK xong trong căn → mốc bia 2; uống 1 → **105.000**. Ca 22 (D2): sửa 2 → 1 → 35.000, T1 `{bia: 1}`. Ca 23 (A4): HK + lễ tân cùng 2 bia → 1 việc, mốc 2, **70.000**. Ca 24: đếm lại 0 → đảo, T1 hủy (`reservation_changed`, `minibar_recount_zero`). Ca 25: (a) T1 đã xong → **409**, giữ 35.000; (b) đếm lại 2 trước khi xong → T1 `{bia: 2}`, 70.000, 1 việc. K1–K3 = 0 sau ca 21, 22, 24, 27 |
+| **BUG-R2-163** (ca 26) – ARC 16.17 mục 2 | So thứ tự theo **giờ xử lý**: việc xong = `state_transition.occurred_at` của bước `complete` (`completedAt()`), so với `minibar_check.created_at`. Không dùng `done_at`/`performedAt`/`filled_at`. `openNextPeriod`: mốc = còn lại của lần đếm sống + số của **việc sống** đã xong sau lần đếm; > 0 → kỳ `refill` (giá danh mục hiện hành, món đã rời danh mục giữ giá kỳ), = 0 → kỳ `carry`. `filled_at` = `done_at`, chỉ để hiển thị | Ca 26 (Z2): HK offline đếm lúc 16:30 và xong T1 lúc 16:45, cả hai đồng bộ lúc 18:00/18:05 → về 301: kỳ `refill`, mốc bia 2; uống 1 → **105.000** (không phải 70.000) |
+| **Thứ tự khóa** (test đua tìm ra) | `record()`: đơn (`FOR NO KEY UPDATE`, như BE-A) → folio → việc bổ sung đang mở của tủ (`FOR UPDATE`, lấy trong `lockFridge(…, { refillTasks: true })`) → tủ. Đường HK: việc → tủ. Các đường đặt phòng (B13/B14/B18) không khóa trước việc, vì chúng giữ căn `FOR UPDATE`. Khi cần ghi vào việc, `reconcileRefillTasks` khóa `NOWAIT`: việc đang bận → 409 `CONCURRENT_UPDATE`, client thử lại, không phải chờ khóa. `lockStayBookingsShared` đổi tên thành `lockStayBookings` (NO KEY UPDATE) | Các ca đua cũ (mục 15–16) xanh. Ca "đếm → nạp" từng ra 40P01 trước khi khóa việc trước tủ |
+
+**Hàm và tệp phụ**:
+- `fridge.ts`: `lockFridge` trả `FridgeLock`; thêm `refillFillItems` (mốc và giá cho lần nạp `refill`, dùng chung cho `onRefillDone` và `openNextPeriod`).
+- `housekeeping.service.ts` (BE-C) không đổi trong vòng này.
+- BE-C (P3) vẫn còn việc: `transitionHkTask` từ chối `performedAt` < `hk_task.created_at`.
+
+**Test người kiểm** (chép vào bản sao riêng của cây chung, DB `ottimo_test_beb_s4c`, không ghi vào cây chung):
+- `r5mini-attack`: A1, A3, A3c, A4, A4b, A4c, A5–A7, K1 xanh. A2 xanh khi thêm bước chạy 0067 (bản gốc chỉ chạy 0066).
+- `y-r4mini-1-0`: MAIN, C1, C2 xanh.
+- `mb-r5` R5-D1…D3 xanh.
+- Các ca chuyển sang đỏ đúng như dự kiến, vì chúng khẳng định lỗi cũ:
+  - Z1 "finding as written" (kỳ `carry`, 70.000);
+  - Z2b (còn việc T2 trùng);
+  - V4 (mốc 4).
+- Các ca đánh dấu việc "xong" bằng `UPDATE hk_task` trực tiếp, không có bước `complete`: `mb-r5` ca 12, 13/14; `r4mini` B3, B6; `y-fridge-return` Y1b, Y3. Theo 16.17 mục 2, những việc này không tính là "xong sau lần đếm". Khi thêm dòng `state_transition` `complete` thì cả 56 ca xanh.
+- **QA đổi kỳ vọng cho các ca trên**: hoàn tất việc qua API hoặc ghi kèm `state_transition`.
+- `minibar-m1.test.ts` của tôi đã đổi `refillDone` sang gọi API.
+
+**Truy vấn kiểm cho OPS/DATA** (chạy sau 0067; mỗi truy vấn phải trả 0 dòng – ARC 16.17 mục 3):
+```sql
+-- K1: lần đếm sống fill_id NULL của lượt đang ở
+SELECT c.id FROM minibar_check c JOIN reservation r ON r.id = c.reservation_id
+ WHERE r.status = 'in_house' AND c.mode = 'checkout'
+   AND (c.replaced_by_check_id IS NULL OR c.replaced_by_check_id = c.id) AND c.fill_id IS NULL;
+-- K2 (I1): kỳ có > 1 việc minibar_refill mở
+SELECT c.reservation_id, c.room_id, c.fill_id, count(DISTINCT t.id) AS open_tasks
+  FROM minibar_check c JOIN hk_task t ON t.id = c.refill_task_id
+ WHERE t.type = 'minibar_refill' AND t.status IN ('open', 'in_progress')
+ GROUP BY 1, 2, 3 HAVING count(DISTINCT t.id) > 1;
+-- K3 (I2): việc minibar_refill do hệ thống sinh, đang mở (có đơn), không gắn lần đếm sống
+SELECT t.id FROM hk_task t
+ WHERE t.type = 'minibar_refill' AND t.source = 'system' AND t.status IN ('open', 'in_progress')
+   AND t.reservation_id IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM minibar_check c WHERE c.refill_task_id = t.id
+                    AND (c.replaced_by_check_id IS NULL OR c.replaced_by_check_id = c.id));
+```
+K3 và bước (c) của 0067 chỉ xét việc `source = 'system'` (ARC đồng ý (ag), 16.17 bổ sung), nên việc HK tạo tay không bị đếm hay hủy.
+
+**Kiểm chứng** (18/10, DB mới `ottimo_test_beb_s4r`, cây chung có cả phần đang làm của BE-A/FE-A):
+- `@ottimo/api` **2.782/2.785**. 3 ca đỏ đều là của BE-A: `s438r4-money` BUG-R2-145 (giá đêm thêm/phí trả muộn). `reservations.service.ts`/`checkout.service.ts` đang sửa dở và còn lỗi tsc `NightSource`. Không liên quan minibar.
+- `minibar-m1` 39/39; `payments-s3` xanh.
+- tsc 0 lỗi trên tệp của tôi; eslint, prettier xanh trên tệp chạm.
+- Không commit.
+
+**Giả định**:
+- (ad) `reconcileRefillTasks` nhận thêm `today` (hạn của việc tạo mới) và `events` (SSE) trong `opts`, ngoài `create`, `now` mà ARC nêu.
+- (ae) `onCheckedOut` vẫn trả id việc **do chính lệnh tạo**, không phải "việc sống của kỳ hiện tại", để giữ nghĩa `createdTaskIds` của B18. Gọi lại B18 thì trả null.
+- (af) Phần ghi vào việc trên đường B13/B14/B18 dùng `NOWAIT`. Hiếm khi bận (HK đang bấm xong đúng việc đó); khi bận thì trả 409 để thử lại, thay vì chờ 1 giây rồi gặp 40P01.
+- (ag) Bước (c) của 0067 và K3 chỉ xét việc do hệ thống sinh (`source = 'system'`).
+- ARC đồng ý (ad), (ae), (af), (ag) và thứ tự khóa mới (16.16, 16.17 bổ sung).
+
+**Tệp vòng 5**:
+- Tạo: `src/modules/inventory/internal/refill-tasks.ts`, `src/db/migrations/0067_minibar_fill_backfill_unfilled.sql`, `src/db/migrations/meta/0067_snapshot.json`.
+- Sửa: `src/db/migrations/meta/_journal.json`, `src/modules/inventory/internal/{fridge,minibar.service}.ts`, `src/modules/inventory/public/minibar-checkout.port.ts`, `test/integration/minibar-m1.test.ts` (ca 21–28, K1–K3, `refillDone` qua API); tài liệu này; `01-decisions/decision-log.md`.

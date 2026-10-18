@@ -33,7 +33,7 @@ import { useDebounced } from '../../hooks/useDebounced';
 import { useOnline } from '../../hooks/useOnline';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
-import { MoneyField, amountOf, useSubmit } from './common';
+import { MoneyField, STAY_WRITE_RETRY, amountOf, useSubmit } from './common';
 import { PaymentPanel } from './PaymentPanel';
 import { AddChargeDialog } from './StayDialogs';
 import {
@@ -132,7 +132,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const [done, setDone] = useState<{ billNo: string } | null>(null);
   const minibarAct = useSubmit();
   const invAct = useSubmit();
-  const act = useSubmit();
+  // ARC 16.17 bổ sung (af): B18 resends a CONCURRENT_UPDATE once with the same key.
+  const act = useSubmit(undefined, STAY_WRITE_RETRY);
   const lateAct = useSubmit();
   /** B18 answered TIME_NOTE_REQUIRED: the note field stays on step 2 (and takes the focus once). */
   const [noteAsked, setNoteAsked] = useState(false);
@@ -320,6 +321,20 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const extraUnavailable = extraNightNeeded && s?.extraNightAvailable === false;
   // E05-11: the extra night is posted inside the check-out transaction, so the summary does not
   // include it yet – balance/credit shown here are what B18 will see after that night.
+  // ARC 16.18 (vòng sửa 5): the rate goes to the server only when the desk changed the box (manual night, even
+  // at the suggested figure); left alone → not sent (the server's default night). A flag of the box, no number test.
+  const extraEdited = extraRate !== '';
+  const extraFloor = s?.extraNightFloorVnd;
+  const extraCeiling = s?.extraNightCeilingVnd;
+  const extraRangeError =
+    extraNightNeeded &&
+    !extraUnavailable &&
+    extraEdited &&
+    extraFloor !== undefined &&
+    extraCeiling !== undefined &&
+    (amountOf(extraRate) < extraFloor || amountOf(extraRate) > extraCeiling)
+      ? t('field_error.value_out_of_range', { min: money(extraFloor), max: money(extraCeiling) })
+      : undefined;
   const extraNightVnd =
     extraNightNeeded && !extraUnavailable
       ? amountOf(extraRate) || (s?.extraNightDefaultRateVnd ?? 0)
@@ -478,7 +493,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       applyLateSurcharge: lateRaise && lateTold,
       expectedSurchargeVnd: lateRaise && lateTold ? lateNew : undefined,
       // E05-11: after the last late tier the check-out itself adds one night at this rate.
-      extraNight: extraNightNeeded && !extraUnavailable ? { rateVnd: extraNightVnd } : undefined,
+      extraNight:
+        extraNightNeeded && !extraUnavailable
+          ? { rateVnd: extraEdited ? amountOf(extraRate) : undefined }
+          : undefined,
       lateFeeInsteadOfNight: lateFeeMode
         ? {
             amountVnd: lateFeeAsNight ?? 0,
@@ -528,13 +546,15 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // KB7 (1): a higher late surcharge is written to the folio (B15 at the actual time, the amount the desk saw
   // and told the guest – BR-414) before the bill step, so step 3 collects it with everything else.
   // S4-48 / BUG-R2-088: the reason says what to do (tick the box), not the box's own label.
-  const lateWhy = dueComputing
-    ? t('checkout.due_computing')
-    : lateRaise && !lateTold
-      ? t('co.go_bill_needs_told')
-      : lateRaise
-        ? surchargeFocMissing(t, lateFoc)
-        : null;
+  const lateWhy = extraRangeError
+    ? extraRangeError
+    : dueComputing
+      ? t('checkout.due_computing')
+      : lateRaise && !lateTold
+        ? t('co.go_bill_needs_told')
+        : lateRaise
+          ? surchargeFocMissing(t, lateFoc)
+          : null;
   const goBill = async () => {
     if (toBill || lateAct.busy) return;
     if (!priced) {
@@ -934,11 +954,21 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
               </Alert>
               <MoneyField
                 label={t('checkout.extra_night_rate_label')}
-                help={t('checkout.extra_night_rate_help_tier')}
+                help={
+                  extraFloor !== undefined && extraCeiling !== undefined
+                    ? `${t('checkout.extra_night_rate_help_tier')} ${t(
+                        'checkout.extra_night_range',
+                        {
+                          min: money(extraFloor),
+                          max: money(extraCeiling),
+                        },
+                      )}`
+                    : t('checkout.extra_night_rate_help_tier')
+                }
                 required
                 value={extraRate || vnd(s?.extraNightDefaultRateVnd ?? 0)}
                 onChange={setExtraRate}
-                error={act.fields['extraNight.rateVnd'] ?? act.fields.extraNight}
+                error={extraRangeError ?? act.fields['extraNight.rateVnd'] ?? act.fields.extraNight}
               />
               {dueComputing ? (
                 <p className="li-s" role="status">
@@ -1111,8 +1141,11 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                   checkoutAt: /^\d{2}:\d{2}$/.test(time)
                     ? `${r.departureDate}T${time}:00+07:00`
                     : undefined,
+                  // ARC 16.18: the same rule as B18 – only a rate the desk changed.
                   extraNightRateVnd:
-                    extraNightNeeded && !extraUnavailable && rateTyped ? typedRate : undefined,
+                    extraNightNeeded && !extraUnavailable && extraEdited
+                      ? amountOf(extraRate)
+                      : undefined,
                   lateFeeAsNight: lateFeeMode || undefined,
                 }}
                 onPaid={reload}

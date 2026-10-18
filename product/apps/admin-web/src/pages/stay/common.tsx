@@ -7,7 +7,13 @@ import { notifyChanged } from '../../app/live';
 import { parseVnd } from '../../app/money';
 import { fieldErrors } from '../../app/problem';
 import { rsvErrorText } from '../../app/reservations';
-import { isRetryable, useWrite } from '../../app/useWrite';
+import { isRetryable, useWrite, type WriteOptions } from '../../app/useWrite';
+
+/** ARC 16.17 bổ sung (af): B13, B14, B18 resend a CONCURRENT_UPDATE once (same key), after `Retry-After` or ~1 s. */
+export const STAY_WRITE_RETRY: WriteOptions = {
+  retries: { CONCURRENT_UPDATE: 1 },
+  defaultDelaySeconds: 1,
+};
 
 /**
  * One write button on the stay screens: DS 6.21 auto-retry (`useWrite`), field errors of a 422,
@@ -20,9 +26,9 @@ export interface SubmitFieldMap {
   labels?: Record<string, string>;
 }
 
-export function useSubmit(map?: SubmitFieldMap) {
+export function useSubmit(map?: SubmitFieldMap, writeOptions?: WriteOptions) {
   const { t, locale } = useI18n();
-  const write = useWrite();
+  const write = useWrite(writeOptions);
   const [error, setError] = useState<unknown>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
 

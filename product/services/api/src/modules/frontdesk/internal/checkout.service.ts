@@ -30,7 +30,11 @@ import { folioLineDto } from '../../folio/public/folio-view';
 import { roomNamesOf, snapshotSettledRoomNames } from '../../folio/public/room-names';
 import type { FolioLineRow } from '../../folio/public/folio.service';
 import { DocumentProfileService } from '../../guests/public/document-profile.service';
-import { PaymentService, type PaymentCreateInput } from '../../payments/public/payment.service';
+import {
+  PaymentService,
+  type PaymentCreateInput,
+  checkPaymentShape,
+} from '../../payments/public/payment.service';
 import {
   type BookingContext,
   Fields,
@@ -64,6 +68,8 @@ interface ExtraNight {
   floorVnd: number;
   ceilingVnd: number;
   available: boolean;
+  /** ARC 16.18: the room bought now – anchor of a price the desk types (null = the origin room). */
+  anchorRoomId: string | null;
 }
 
 interface Departure {
@@ -85,6 +91,28 @@ export interface LateFeeApprover {
   roles: string[];
   /** The caller confirmed with their own password (OWN/MGR doing B18). */
   self: boolean;
+}
+
+/** `lateFeeInsteadOfNight` without its credentials (the controller checks those). */
+interface LateFeeInput {
+  amountVnd: number;
+  reason: string;
+  requestFoc: { amountVnd: number; reasonCode: string; note: string | null } | null;
+}
+
+/** The B18 body once read (`readInput`) – one reader for B18 and its precheck (BUG-R2-165). */
+interface CheckoutInput {
+  checkoutTime: LocalTime | undefined;
+  checkoutAt: Date | undefined;
+  timeNote: string | undefined;
+  /** `extraNight` sent (E05-11); `rateVnd` absent = the default price (ARC 16.18: `default`, else `manual`). */
+  extraNight: { rateVnd: number | undefined } | null;
+  lateFee: LateFeeInput | null;
+  applyLate: boolean;
+  expected: number | undefined;
+  over: { mode: 'refund_request' | 'retain_with_guest_consent'; reason: string } | null;
+  debt: { dueDate: LocalDate; reason: string } | null;
+  finalPayment: PaymentCreateInput | null;
 }
 
 /** The departure-day night is required and can be sold (BR-416). */
@@ -177,15 +205,10 @@ export class CheckoutService {
       : await this.stays.lateQuote(tx, ctx, stay.last, rm, time);
     let extraNight: ExtraNight | null = null;
     if (quote.r.treatAsExtension) {
-      // BR-416 v0.3.8 (BR-416-02), BUG-R2-134 (BR-417-07): the agreed price typed in this room, else the direct
-      // calendar of that night; after an OTTIMO move min(what the guest bought, this room's calendar); always
-      // within BR-105 – the default is a rate B18 accepts (preview = write).
-      const r = await this.s.addedNightRate(
-        tx,
-        ctx,
-        await this.s.addedNightContext(tx, ctx, row, 'last', rm.id),
-        dep,
-      );
+      // BR-416 v0.3.8 (BR-416-02), BR-417 appendix 5A (AN-43, AN-44): the night of the departure day priced by the
+      // one function of every added night – the default is a rate B18 accepts (preview = QR cap = write).
+      const nc = await this.s.addedNightContext(tx, ctx, row, 'last', rm.id);
+      const r = await this.s.addedNightRate(tx, ctx, nc, dep);
       extraNight = {
         date: dep,
         defaultRateVnd: r.rateVnd,
@@ -193,6 +216,7 @@ export class CheckoutService {
         floorVnd: r.floorVnd,
         ceilingVnd: r.ceilingVnd,
         available: await this.s.occupancy.isFree(tx, rm.id, dep, addDays(dep, 1)),
+        anchorRoomId: nc.anchorRoomId,
       };
     }
     return { time, rm, quote, stay, postMidnight, extraNight, rollover };
@@ -345,56 +369,29 @@ export class CheckoutService {
   }
 
   /**
-   * SEC BE-64 (BR-416-06): the read-only business checks of `lateFeeInsteadOfNight` BEFORE the approver's
-   * password is tried – the same answers as B18 (409 / 422), nothing written. A body B18 would refuse for its
-   * own fields (time format…) passes here and is refused by B18 itself.
+   * SEC BE-64 (BR-416-06, BUG-R2-149/165): what B18 refuses without writing, BEFORE the approver's password is tried
+   * – the same answers as B18, nothing written: every body field (`readInput`, 422), If-Match (412), the state and
+   * the day (409), the amount shown (409), the field data (422) and the FOC headroom (422) – `decide`, the step B18
+   * itself runs. After the password (B18 only): the caller's role (403), the approver's limit (403) and the
+   * blockers (minibar, pending approvals, balance – 409). Returns the reservation code (notification reference).
    */
   async lateFeePrecheck(
     tx: Tx,
     ctx: BookingContext,
     id: string,
+    expectedVersion: number,
     body: Record<string, unknown>,
-  ): Promise<void> {
-    // BUG-R2-149 (SEC BE-64): every check B18 makes before writing, in B18's order and with B18's answers – the
-    // body (422), the state and the day (409), the night that cannot be sold (422) and the amount shown (409).
+  ): Promise<{ code: string }> {
     const f = new Fields(body);
-    const checkoutTime = f.time('checkoutTime');
-    if (body.checkoutTime === undefined || body.checkoutTime === null) {
-      f.add('checkoutTime', 'REQUIRED');
-    }
-    let checkoutAt: Date | undefined;
-    if (body.checkoutAt !== undefined && body.checkoutAt !== null) {
-      if (typeof body.checkoutAt !== 'string' || Number.isNaN(Date.parse(body.checkoutAt))) {
-        f.add('checkoutAt', 'DATE_INVALID');
-      } else {
-        checkoutAt = new Date(body.checkoutAt);
-      }
-    }
-    const extraNightRate = this.extraNightInput(f, body);
-    const lateFee = this.lateFeeInput(f, body);
+    const inp = this.readInput(f, body, ctx.today);
     f.done();
     const row = await loadReservation(tx, id, ctx.actor);
+    this.s.stay.assertVersion(row, expectedVersion);
     if (row.status !== 'in_house') throw this.s.stay.invalid(row);
     this.primaryFor(row);
     if (!row.folio_id) throw problem('NOT_FOUND');
-    const d = await this.departure(tx, ctx, row, checkoutTime, checkoutAt);
-    const nowWindow = this.postMidnight(ctx, d.rollover, d.stay.departureDate, ctx.now);
-    if (d.stay.departureDate !== ctx.today && !nowWindow) {
-      throw problem('INVALID_TRANSITION', {
-        extras: { currentState: row.status },
-        detail: 'check-out on the departure business day (early departure first – B16)',
-      });
-    }
-    const unsellable = !!d.extraNight && !d.extraNight.available;
-    if (unsellable && lateFee && lateFee.amountVnd !== lateChargeOf(d)) {
-      throw problem('SURCHARGE_CHANGED', {
-        extras: { surchargeVnd: lateChargeOf(d), tierPct: 100 },
-      });
-    }
-    const g = new Fields({});
-    if (!unsellable) g.add('lateFeeInsteadOfNight', 'NOT_ALLOWED');
-    if (extraNightRate) g.add('extraNight', 'NOT_ALLOWED');
-    g.done();
+    await this.decide(tx, ctx, row, row.folio_id, inp, f);
+    return { code: row.code };
   }
 
   /**
@@ -501,6 +498,9 @@ export class CheckoutService {
       ...(d.extraNight
         ? {
             extraNightDefaultRateVnd: d.extraNight.defaultRateVnd,
+            // 0.3.7 vòng sửa 5 (ARC 16.18): the desk's range for `extraNight.rateVnd` (appendix 5A step 4).
+            extraNightFloorVnd: d.extraNight.floorVnd,
+            extraNightCeilingVnd: d.extraNight.ceilingVnd,
             extraNightAvailable: d.extraNight.available,
             ...(d.extraNight.available ? {} : { lateFeeAsNightVnd: d.extraNight.defaultRateVnd }),
           }
@@ -522,27 +522,9 @@ export class CheckoutService {
     opts: { approver?: LateFeeApprover | null } = {},
   ): Promise<{ row: ReservationRow; billNo: string; createdTaskIds: string[] }> {
     const f = new Fields(body);
-    const checkoutTime = f.time('checkoutTime');
-    if (body.checkoutTime === undefined || body.checkoutTime === null) {
-      f.add('checkoutTime', 'REQUIRED');
-    }
-    let checkoutAt: Date | undefined;
-    if (body.checkoutAt !== undefined && body.checkoutAt !== null) {
-      if (typeof body.checkoutAt !== 'string' || Number.isNaN(Date.parse(body.checkoutAt))) {
-        f.add('checkoutAt', 'DATE_INVALID');
-      } else {
-        checkoutAt = new Date(body.checkoutAt);
-      }
-    }
-    const timeNote = f.text('checkoutTimeNote', 300, { min: 3 });
-    const extraNightRate = this.extraNightInput(f, body);
-    const lateFee = this.lateFeeInput(f, body);
-    const applyLate = f.bool('applyLateSurcharge') ?? false;
-    const expected = f.money('expectedSurchargeVnd', { required: false, positive: false });
-    const over = this.overpayment(f, body);
-    const debt = this.debt(f, body, ctx.today);
-    const finalPayment = this.paymentInput(f, body);
+    const inp = this.readInput(f, body, ctx.today);
     f.done();
+    const { lateFee, extraNight, timeNote, applyLate, over, debt, finalPayment } = inp;
     const mgr = hasAny(ctx.actor.roles, MGR_PLUS);
     if (debt && !mgr) throw problem('FORBIDDEN_ACTION', { detail: 'debt is OWN/MGR (A19)' });
     if (over?.mode === 'retain_with_guest_consent' && !mgr) {
@@ -563,74 +545,22 @@ export class CheckoutService {
     await this.children(tx, row); // lock the children before reading the stay
     if (!row.folio_id) throw problem('NOT_FOUND');
     const folioId = row.folio_id;
-    const d = await this.departure(tx, ctx, row, checkoutTime, checkoutAt);
-    const nowWindow = this.postMidnight(ctx, d.rollover, d.stay.departureDate, ctx.now);
-    if (d.stay.departureDate !== ctx.today && !nowWindow) {
-      throw problem('INVALID_TRANSITION', {
-        extras: { currentState: row.status },
-        detail: 'check-out on the departure business day (early departure first – B16)',
-      });
-    }
-    const late: LateCheckoutResult = d.quote.r;
-    // BR-416-06 (BUG-R2-139): the night of the departure day is not sellable → no extra night, a late charge of
-    // one night instead (`lateFeeInsteadOfNight`, OWN/MGR confirms at the desk); a sellable night is sold.
-    const unsellable = !!d.extraNight && !d.extraNight.available;
-    const decided = lateFee !== null && unsellable;
-    const surcharge = decided ? lateChargeOf(d) : d.extraNight ? 0 : late.amountVnd;
-    const old = await this.s.liveSurchargeLines(tx, folioId, d.stay.ids, 'late_checkout');
-    // 409 SURCHARGE_CHANGED before the field checks (contract order): the amount the desk showed.
-    if (decided && lateFee.amountVnd !== surcharge) {
-      throw problem('SURCHARGE_CHANGED', { extras: { surchargeVnd: surcharge, tierPct: 100 } });
-    }
-    if (
-      !decided &&
-      applyLate &&
-      surcharge > old.grossVnd &&
-      expected !== undefined &&
-      expected !== surcharge
-    ) {
-      throw problem('SURCHARGE_CHANGED', {
-        extras: { surchargeVnd: surcharge, tierPct: late.tierPct },
-      });
-    }
-
-    // ── field data (422) ──
-    // E03-07: the typed departure vs the server clock (checkoutAt = an instant, else the business-day axis).
-    let typed: { systemTime: LocalTime; noted: boolean };
-    if (checkoutAt) {
-      const tolerance = await this.s.param<number>(tx, ctx, 'manual_time_tolerance_minutes');
-      const diff = checkoutAt.getTime() - ctx.now.getTime();
-      if (diff > tolerance * 60_000) f.add('checkoutAt', 'TIME_AFTER_ACTION');
-      typed = { systemTime: this.s.localTime(ctx), noted: -diff > tolerance * 60_000 };
-      if (typed.noted && !timeNote) f.add('checkoutTimeNote', 'TIME_NOTE_REQUIRED');
-    } else {
-      typed = await this.s.checkTypedTime(tx, ctx, f, {
-        field: 'checkoutTime',
-        time: d.time,
-        noteField: 'checkoutTimeNote',
-        note: timeNote,
-        rollover: d.rollover,
-      });
-    }
-    if (lateFee && !unsellable) f.add('lateFeeInsteadOfNight', 'NOT_ALLOWED');
-    if (lateFee && extraNightRate) f.add('extraNight', 'NOT_ALLOWED');
-    if (d.extraNight && !extraNightRate && !lateFee) {
-      f.add(unsellable ? 'lateFeeInsteadOfNight' : 'extraNight', 'LATE_CHECKOUT_AFTER_LIMIT');
-    }
-    if (!d.extraNight && extraNightRate) f.add('extraNight', 'NOT_ALLOWED');
-    const raise = surcharge > old.grossVnd;
-    if (raise && !applyLate && !decided) {
-      f.add('applyLateSurcharge', 'SURCHARGE_DECISION_REQUIRED');
-    }
-    if (raise && applyLate && expected === undefined && !decided) {
-      f.add('expectedSurchargeVnd', 'REQUIRED');
-    }
-    f.done();
+    const { d, typed, decided, surcharge, old, raise } = await this.decide(
+      tx,
+      ctx,
+      row,
+      folioId,
+      inp,
+      f,
+    );
+    const fee = decided ? lateFee : null;
     await this.s.occupancy.lockRooms(tx, [d.rm.id]);
 
     // ── E05-11: "check out – charge one more night" (BR-416 v0.3.4, DOM S3-9) ──
-    if (d.extraNight && extraNightRate !== null) {
+    if (d.extraNight && extraNight !== null) {
       const x = d.extraNight;
+      // ARC 16.18: no `rateVnd` = the default price (`default`); a typed one is `manual`, even at that number.
+      const extraNightRate = extraNight.rateVnd ?? x.defaultRateVnd;
       if (extraNightRate < x.floorVnd || extraNightRate > x.ceilingVnd) {
         throw problem('RATE_OUT_OF_RANGE', {
           errors: [{ field: 'extraNight.rateVnd', code: 'RATE_OUT_OF_RANGE' }],
@@ -644,7 +574,15 @@ export class CheckoutService {
           { withNames: true },
         );
       }
-      await this.addExtraNight(tx, ctx, row, d, x, extraNightRate);
+      await this.addExtraNight(
+        tx,
+        ctx,
+        row,
+        d,
+        x,
+        extraNightRate,
+        extraNight.rateVnd === undefined ? 'default' : 'manual',
+      );
     }
 
     // ── G-10: late surcharge at the ACTUAL departure time (one live charge, FOC carried – S3-11) ──
@@ -658,8 +596,8 @@ export class CheckoutService {
         time: d.time,
         tierPct: lateTierOf(d),
         amountVnd: surcharge,
-        reason: decided
-          ? `BR-416-06 late checkout ${d.time} instead of an unsellable night: ${lateFee.reason}`
+        reason: fee
+          ? `BR-416-06 late checkout ${d.time} instead of an unsellable night: ${fee.reason}`
           : d.extraNight
             ? `extra night on checkout ${d.time}`
             : `G-10 actual departure ${d.time}`,
@@ -668,16 +606,16 @@ export class CheckoutService {
       });
       lateLineId = posted.lineId;
     }
-    if (decided && approver) {
+    if (fee && approver) {
       // FOC asked with it: approved in this transaction by the approver, within their BR-433 limit (ARC 16.6 (d)).
-      if (lateFee.requestFoc && lateLineId) {
+      if (fee.requestFoc && lateLineId) {
         const asked = await this.s.requestFoc(
           tx,
           ctx,
           row,
           folioId,
           { id: lateLineId, amountVnd: surcharge, category: 'late_checkout' },
-          lateFee.requestFoc,
+          fee.requestFoc,
           // BUG-R2-153 (BR-416-07): decided by the APPROVER (their identity, role, limit, `auth_method = password`),
           // never self-applied by the caller – also when a manager confirms their own B18.
           { field: 'lateFeeInsteadOfNight.requestFoc', noSelfApply: true },
@@ -689,7 +627,7 @@ export class CheckoutService {
             asked.id,
             {
               authMethod: 'password',
-              note: lateFee.requestFoc.note,
+              note: fee.requestFoc.note,
               ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
             },
           );
@@ -715,25 +653,14 @@ export class CheckoutService {
           authMethod: 'password',
           // BUG-R2-154 (SEC BE-62): the role the approver confirmed with.
           approverRole: approver.roles.includes('owner') ? 'owner' : 'manager',
-          ...(lateFee.requestFoc ? { focVnd: lateFee.requestFoc.amountVnd } : {}),
+          ...(fee.requestFoc ? { focVnd: fee.requestFoc.amountVnd } : {}),
         },
-        reason: lateFee.reason,
+        reason: fee.reason,
         ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
       });
-      // SEC BE-62: the approver learns their credentials were used at the desk.
-      if (!approver.self) {
-        await this.s.events.notify(
-          tx,
-          {
-            kind: 'account_security_change',
-            userIds: [approver.userId],
-            refType: 'reservation',
-            refId: row.id,
-            refCode: row.code,
-          },
-          ctx.now,
-        );
-      }
+      // BUG-R2-167 (SEC 12.3 (2)): the approver's `account_security_change` is sent once, by the re-auth itself
+      // (`verifyApprover` → `onSucceeded`, its own transaction) – also when B18 fails after it. Joined to this audit
+      // by `requestId`.
     }
 
     // ── final payment in the same transaction (spec 5.4) – 0.3.7 (S4-47): capped at what the folio owes AFTER
@@ -986,14 +913,19 @@ export class CheckoutService {
     d: Departure,
     x: ExtraNight,
     rateVnd: number,
+    source: 'default' | 'manual',
   ): Promise<void> {
     const to = addDays(x.date, 1);
+    const sourced = {
+      source,
+      ...(source === 'manual' ? { anchorRoomId: x.anchorRoomId } : {}),
+    } as const;
     if (row.channel_group === 'ota' || row.external_contract) {
       await this.s.stay.createChildStay(tx, ctx, row, {
         roomId: d.rm.id,
         from: x.date,
         to,
-        nights: [{ date: x.date, amountVnd: rateVnd, calendarVnd: x.calendarVnd }],
+        nights: [{ date: x.date, amountVnd: rateVnd, calendarVnd: x.calendarVnd, ...sourced }],
         rateSource: 'extra_night_early_late',
         transition: 'B13',
         actualCheckinAt: row.actual_checkin_at ?? ctx.now,
@@ -1016,7 +948,13 @@ export class CheckoutService {
       const kept = await this.s.stay.pricedNights(tx, row);
       const r = this.s.stay.retierStay(ctx, row, kept, [
         // BR-107 v0.3.8 (S4-38, BR-416-04): the typed rate is the night's calendar price – tiered like B13.
-        { date: x.date, calendarVnd: rateVnd, amountVnd: rateVnd, manual: true },
+        {
+          date: x.date,
+          calendarVnd: rateVnd,
+          amountVnd: rateVnd,
+          manual: source === 'manual',
+          ...sourced,
+        },
       ]);
       await this.s.stay.writeRepricedNights(tx, ctx, row, {
         segmentId: seg.id,
@@ -1066,6 +1004,124 @@ export class CheckoutService {
       'reservation.extra_night_on_checkout',
     );
     await this.s.ports.registration.onDepartureChanged(tx, row.id, to);
+  }
+
+  /**
+   * BUG-R2-165 (SEC 12.1): the read-only decisions of B18 on its loaded in-house primary, shared by B18 and the
+   * `lateFeeInsteadOfNight` precheck (before the password) so both answer the same, in this order: the departure
+   * and its business day (409 INVALID_TRANSITION), the amount shown (409 SURCHARGE_CHANGED), the field data (422
+   * on `f`) and the headroom of `lateFeeInsteadOfNight.requestFoc` (422 VALUE_OUT_OF_RANGE). Writes nothing.
+   */
+  private async decide(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    folioId: string,
+    inp: CheckoutInput,
+    f: Fields,
+  ): Promise<{
+    d: Departure;
+    typed: { systemTime: LocalTime; noted: boolean };
+    unsellable: boolean;
+    decided: boolean;
+    surcharge: number;
+    old: Awaited<ReturnType<StaySupport['liveSurchargeLines']>>;
+    raise: boolean;
+  }> {
+    const { lateFee, extraNight, timeNote, applyLate, expected, checkoutAt } = inp;
+    const d = await this.departure(tx, ctx, row, inp.checkoutTime, checkoutAt);
+    const nowWindow = this.postMidnight(ctx, d.rollover, d.stay.departureDate, ctx.now);
+    if (d.stay.departureDate !== ctx.today && !nowWindow) {
+      throw problem('INVALID_TRANSITION', {
+        extras: { currentState: row.status },
+        detail: 'check-out on the departure business day (early departure first – B16)',
+      });
+    }
+    const late: LateCheckoutResult = d.quote.r;
+    // BR-416-06 (BUG-R2-139): the night of the departure day is not sellable → no extra night, a late charge of
+    // one night instead (`lateFeeInsteadOfNight`, OWN/MGR confirms at the desk); a sellable night is sold.
+    const unsellable = !!d.extraNight && !d.extraNight.available;
+    const decided = lateFee !== null && unsellable;
+    const surcharge = decided ? lateChargeOf(d) : d.extraNight ? 0 : late.amountVnd;
+    const old = await this.s.liveSurchargeLines(tx, folioId, d.stay.ids, 'late_checkout');
+    // 409 SURCHARGE_CHANGED before the field checks (contract order): the amount the desk showed.
+    if (decided && lateFee.amountVnd !== surcharge) {
+      throw problem('SURCHARGE_CHANGED', { extras: { surchargeVnd: surcharge, tierPct: 100 } });
+    }
+    if (
+      !decided &&
+      applyLate &&
+      surcharge > old.grossVnd &&
+      expected !== undefined &&
+      expected !== surcharge
+    ) {
+      throw problem('SURCHARGE_CHANGED', {
+        extras: { surchargeVnd: surcharge, tierPct: late.tierPct },
+      });
+    }
+
+    // ── field data (422) ──
+    // E03-07: the typed departure vs the server clock (checkoutAt = an instant, else the business-day axis).
+    let typed: { systemTime: LocalTime; noted: boolean };
+    if (checkoutAt) {
+      const tolerance = await this.s.param<number>(tx, ctx, 'manual_time_tolerance_minutes');
+      const diff = checkoutAt.getTime() - ctx.now.getTime();
+      if (diff > tolerance * 60_000) f.add('checkoutAt', 'TIME_AFTER_ACTION');
+      typed = { systemTime: this.s.localTime(ctx), noted: -diff > tolerance * 60_000 };
+      if (typed.noted && !timeNote) f.add('checkoutTimeNote', 'TIME_NOTE_REQUIRED');
+    } else {
+      typed = await this.s.checkTypedTime(tx, ctx, f, {
+        field: 'checkoutTime',
+        time: d.time,
+        noteField: 'checkoutTimeNote',
+        note: timeNote,
+        rollover: d.rollover,
+      });
+    }
+    if (lateFee && !unsellable) f.add('lateFeeInsteadOfNight', 'NOT_ALLOWED');
+    if (lateFee && extraNight) f.add('extraNight', 'NOT_ALLOWED');
+    if (d.extraNight && !extraNight && !lateFee) {
+      f.add(unsellable ? 'lateFeeInsteadOfNight' : 'extraNight', 'LATE_CHECKOUT_AFTER_LIMIT');
+    }
+    if (!d.extraNight && extraNight) f.add('extraNight', 'NOT_ALLOWED');
+    const raise = surcharge > old.grossVnd;
+    if (raise && !applyLate && !decided) {
+      f.add('applyLateSurcharge', 'SURCHARGE_DECISION_REQUIRED');
+    }
+    if (raise && applyLate && expected === undefined && !decided) {
+      f.add('expectedSurchargeVnd', 'REQUIRED');
+    }
+    f.done();
+    // BUG-R2-165 (SEC 12.1 (2), BR-434): a FOC asked with the late charge of one night takes at most what the
+    // late-check-out key leaves once the charge is `surcharge` – the same number the precheck answered.
+    if (decided && lateFee.requestFoc) {
+      const max = await this.lateFocHeadroom(tx, folioId, surcharge);
+      if (lateFee.requestFoc.amountVnd > max) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [
+            { field: 'lateFeeInsteadOfNight.requestFoc.amountVnd', code: 'VALUE_OUT_OF_RANGE' },
+          ],
+          extras: { max },
+        });
+      }
+    }
+    return { d, typed, unsellable, decided, surcharge, old, raise };
+  }
+
+  /**
+   * BR-434 v0.3.6 (one late-check-out key per stay): what a NEW FOC may still ask on the key once its live charge
+   * is `chargeVnd` – the charge − (approved FOC as it follows the charge: min(approved, charge) – the same rule as
+   * `dueAtCheckout` and the folio's key sync) − (what open requests ask). Read-only.
+   */
+  private async lateFocHeadroom(tx: Tx, folioId: string, chargeVnd: number): Promise<number> {
+    const open = (await this.s.folios.reductionRequests(tx, folioId, { lock: false }))
+      .filter(
+        (r) =>
+          r.category === 'late_checkout' && (r.status === 'pending' || r.status === 'escalated'),
+      )
+      .reduce((a, r) => a + r.amountVnd, 0);
+    const approved = Math.min(await this.approvedOn(tx, folioId, 'late_checkout'), chargeVnd);
+    return Math.max(0, chargeVnd - approved - open);
   }
 
   /** Σ approved (alive) FOC / discounts on a stay key of the folio (early check-in / late check-out – BR-412). */
@@ -1125,8 +1181,51 @@ export class CheckoutService {
     return after - before + fee - focDelta;
   }
 
-  /** `extraNight {rateVnd}` (E05-11). */
-  private extraNightInput(f: Fields, body: Record<string, unknown>): number | null {
+  /**
+   * BUG-R2-165 (SEC 12.1 (1)): THE reader of the B18 body – every field, its shape only (422 on `f`, the caller
+   * reports them with `f.done()`). B18 and the `lateFeeInsteadOfNight` precheck both read through it, so a body
+   * B18 refuses is refused before the approver's password too.
+   */
+  private readInput(f: Fields, body: Record<string, unknown>, today: LocalDate): CheckoutInput {
+    const checkoutTime = f.time('checkoutTime');
+    if (body.checkoutTime === undefined || body.checkoutTime === null) {
+      f.add('checkoutTime', 'REQUIRED');
+    }
+    let checkoutAt: Date | undefined;
+    if (body.checkoutAt !== undefined && body.checkoutAt !== null) {
+      if (typeof body.checkoutAt !== 'string' || Number.isNaN(Date.parse(body.checkoutAt))) {
+        f.add('checkoutAt', 'DATE_INVALID');
+      } else {
+        checkoutAt = new Date(body.checkoutAt);
+      }
+    }
+    const timeNote = f.text('checkoutTimeNote', 300, { min: 3 });
+    const extraNight = this.extraNightInput(f, body);
+    const lateFee = this.lateFeeInput(f, body);
+    const applyLate = f.bool('applyLateSurcharge') ?? false;
+    const expected = f.money('expectedSurchargeVnd', { required: false, positive: false });
+    const over = this.overpayment(f, body);
+    const debt = this.debt(f, body, today);
+    const finalPayment = this.paymentInput(f, body);
+    return {
+      checkoutTime,
+      checkoutAt,
+      timeNote,
+      extraNight,
+      lateFee,
+      applyLate,
+      expected,
+      over,
+      debt,
+      finalPayment,
+    };
+  }
+
+  /** `extraNight {rateVnd?}` (E05-11; ARC 16.18: `rateVnd` optional – absent = the default price). */
+  private extraNightInput(
+    f: Fields,
+    body: Record<string, unknown>,
+  ): { rateVnd: number | undefined } | null {
     const v = body.extraNight;
     if (v === undefined || v === null) return null;
     if (typeof v !== 'object' || Array.isArray(v)) {
@@ -1134,23 +1233,16 @@ export class CheckoutService {
       return null;
     }
     const sub = new Fields(v as Record<string, unknown>);
-    const rate = sub.money('rateVnd', { required: true, positive: true });
+    const rate = sub.money('rateVnd', { required: false, positive: true });
     for (const e of sub.errors) f.add(`extraNight.${e.field}`, e.code);
-    return rate ?? null;
+    return sub.errors.length > 0 ? null : { rateVnd: rate };
   }
 
   /**
    * BR-416-06 (BUG-R2-139, ARC 16.6 (d)): `lateFeeInsteadOfNight { amountVnd, reason, approverUsername?, authMethod,
    * secret, requestFoc? }` – the credentials are checked by the controller (here: the money part only).
    */
-  private lateFeeInput(
-    f: Fields,
-    body: Record<string, unknown>,
-  ): {
-    amountVnd: number;
-    reason: string;
-    requestFoc: { amountVnd: number; reasonCode: string; note: string | null } | null;
-  } | null {
+  private lateFeeInput(f: Fields, body: Record<string, unknown>): LateFeeInput | null {
     const v = body.lateFeeInsteadOfNight;
     if (v === undefined || v === null) return null;
     if (typeof v !== 'object' || Array.isArray(v)) {
@@ -1237,7 +1329,7 @@ export class CheckoutService {
     }
     const p = v as Record<string, unknown>;
     const str = (k: string) => (typeof p[k] === 'string' ? (p[k] as string) : null);
-    return {
+    const input: PaymentCreateInput = {
       type: str('type') ?? '',
       method: str('method') ?? '',
       amountVnd: typeof p.amountVnd === 'number' ? p.amountVnd : Number.NaN,
@@ -1246,5 +1338,10 @@ export class CheckoutService {
       note: str('note'),
       attachmentId: str('attachmentId'),
     };
+    // BUG-R2-165: the receipt's own body checks (PaymentPort, the same function `recordInTx` runs at write) with
+    // the rest of the body; the method's channel (`ota_collect`) needs the booking – checked at write.
+    const shape = checkPaymentShape(input, { fieldPrefix: 'finalPayment.' });
+    for (const e of shape.errors) f.add(e.field, e.code);
+    return input;
   }
 }

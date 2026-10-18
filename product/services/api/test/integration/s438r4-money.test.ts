@@ -905,12 +905,14 @@ describe.skipIf(!HAS_DB)('S4-38 re-verification round 4 – money fixes (BE-A)',
     await stayIn(b, '301', '2030-03-05');
     await at('2030-03-07T19:00:00+07:00');
     const fee = (await summary(b)).lateFeeAsNightVnd as number;
+    // BUG-R2-165 (SEC 12.1 (3)): If-Match is checked before the password – the current version.
+    const ifMatch = `"${(await get(b.id)).version}"`;
     const wrongTry = () =>
       c.fd4!.send(
         'POST',
         url(`/reservations/${b.id}/actions/check-out`),
         lateFeeBody(fee, { approverUsername: t.users.mgr2!.username, secret: 'Sai-mat-khau-5' }),
-        { 'if-match': '"0"' },
+        { 'if-match': ifMatch },
       );
     for (let i = 0; i < 5; i += 1) {
       const r = await wrongTry();

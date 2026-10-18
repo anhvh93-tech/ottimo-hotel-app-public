@@ -666,6 +666,33 @@ Lý do (ARC): lần đếm soạn trên kỳ cũ có thể bị áp vào kỳ m�
 
 ---
 
+## Phần FE-A – đợt 16: chỉ gửi giá đêm khi lễ tân sửa ô (ARC 16.18, BR-417 phụ lục 5A – vòng sửa 5, P1 162) (18/10/2026)
+
+Từ vòng sửa 5 máy chủ suy nguồn đêm từ việc Desk **có gửi** giá: có = nhập tay (`manual`), vắng = mặc định (`default`). Desk dùng cờ "đã sửa ô", không so số (gõ lại đúng số gợi ý/số lịch vẫn là nhập tay – AN-22).
+
+| Màn | Trước | Nay |
+|---|---|---|
+| H16 B18 đêm thêm (`CheckOutPage.tsx`) | luôn gửi `extraNight.rateVnd` (cả khi để gợi ý) | gửi `rateVnd` chỉ khi ô đã sửa; QR `check_out` gửi `extraNightRateVnd` theo cùng quy tắc. Khoảng nhập lấy `extraNightFloorVnd`–`extraNightCeilingVnd` (câu `checkout.extra_night_range` nối sau gợi ý); ngoài khoảng → lỗi ở ô và khóa "Tiếp tục: Bill & thu tiền" kèm lý do |
+| H13 B9a (`CheckInPage.tsx`) | luôn gửi `priorNightRateVnd` = số gợi ý (lệnh và QR) | không gửi – H13 **không có ô** sửa giá đêm trước, nên đêm luôn là mặc định |
+| H15 B13 (`StayDialogs.tsx` ExtendDialog) | nút "Giữ giá đơn" gửi `nightlyRates` mọi đêm = `currentBookingRateVnd` | bỏ nút: gợi ý `nights[].defaultRateVnd` của máy chủ đã theo giá thỏa thuận/min (AN-45), và gửi giá sẽ thành "nhập tay" dù lễ tân không gõ. H15 không có ô giá từng đêm → không gửi `nightlyRates` |
+| S4-35 sửa giá đêm ở Folio (`FolioDialog.tsx`) | chỉ lưu được khi số khác giá lịch | cờ "đã sửa ô": gõ lại đúng giá lịch vẫn lưu được và gửi `newUnitPriceVnd` (nhập tay); chưa đụng ô → nút lưu khóa. Dòng không phải đêm giữ cách cũ |
+| H09 đặt phòng (`BookingDialog.tsx`) | gửi đủ mọi đêm khi đã sửa một ô | **giữ nguyên**: lệnh B1 của máy chủ đòi đủ mọi đêm khi có `nightlyRates` (`pricing.service.ts` → 422 `REQUIRED` nếu thiếu đêm), nên không gửi được từng đêm. Nếu DOM cần nguồn từng đêm ở B1 thì ARC phải cho B1 nhận danh sách một phần |
+
+- **Mock** (`mocks/stay.ts`): tóm tắt có `extraNightFloorVnd`/`extraNightCeilingVnd` (50 %–200 % giá niêm yết); B18 vắng `rateVnd` = đêm mặc định, có `rateVnd` thì kiểm khoảng (422 `RATE_OUT_OF_RANGE` + `min`/`max`); B13 nhận danh sách một phần (đã có).
+- **Chuỗi**: `checkout.extra_night_range` – nhóm "FE-A đợt 16" trong `gen_strings.py`, **chờ UXD duyệt**. `extend.keep_rate`, `extend.keep_rate_help` không còn dùng (UXD quyết giữ hay bỏ).
+- Kiểm thử: `s4-418-fea.test.tsx` (mới, 5 ca: B18 không sửa → `extraNight` không có giá, folio 708.000; sửa và gõ lại đúng số → có `rateVnd` + QR có `extraNightRateVnd`; khoảng theo hai trường mới, ngoài khoảng khóa bước; B9a QR có `addPriorNight`, không có giá; S4-35 gõ lại đúng giá lịch → gửi `newUnitPriceVnd`). Sửa ca "Giữ giá đơn" trong `s3-review.test.tsx` (nay: không có nút, lệnh không có `nightlyRates`) và ca gợi ý ô đêm thêm trong `s4-38-fea.test.tsx`. admin-web **349/349**, `tsc`, eslint, prettier xanh. E2E chờ BE-A.
+
+---
+
+## Phần FE-A – đợt 16 (bổ sung): `NightRate.edited` (ARC 16.18 bổ sung) + tự gửi lại 409 CONCURRENT_UPDATE (ARC 16.17 bổ sung (af)) (18/10/2026)
+
+- **H09 (B1)** (`BookingDialog.tsx`): vẫn gửi đủ mọi đêm, mỗi đêm kèm `edited` theo cờ "đã sửa" của ô (`form.ratesEdited`; gõ lại đúng giá lịch vẫn là sửa). Danh sách được gửi khi có số khác giá lịch **hoặc** có ô đã sửa. Máy chủ định giá lại (đổi căn/ngày/khách) → ô về giá máy chủ, cờ xóa. Bản nháp cũ chưa có cờ → coi như chưa sửa ô nào.
+- **B13**: H15 vẫn không gửi `nightlyRates` (không có ô giá); nếu sau này có ô thì gửi kèm `edited` từng đêm. **B9a/B18**: giữ cách đợt 16 (vắng = mặc định).
+- **409 CONCURRENT_UPDATE ở B13, B14, B18** (`useWrite.tsx` thêm `WriteOptions` theo từng thao tác; `STAY_WRITE_RETRY` trong `stay/common.tsx`; dùng ở ExtendDialog, ChangeRoomForm, CheckOutPage): tự gửi lại **một** lần, **cùng** Idempotency-Key, sau `Retry-After` (vắng → 1 giây); vẫn lỗi mới hiện thông báo. Các thao tác khác giữ mặc định cũ (2 lần, chờ 2 giây). Không áp cho 409 `MINIBAR_PERIOD_CHANGED` (vẫn tải lại, khóa mới – đợt 15).
+- Kiểm thử: `s4-418-fea.test.tsx` thêm 4 ca (H09 gõ lại đúng giá đêm giữa → chỉ đêm giữa `edited: true`; B18 409 không header → gửi lại sau ~1 giây cùng khóa, trả phòng xong; B14 409 rồi thành công → 2 lần gửi cùng khóa; B13 409 hai lần → đúng 2 yêu cầu rồi hiện lỗi). admin-web **353/353**, `tsc`, eslint, prettier xanh.
+
+---
+
 ## Phần FE-B (Desk – vận hành, thương hiệu) – đợt 1: mục 1–4 (17/10/2026)
 
 - Người làm: FE-B | Đầu vào: `sprint-4-plan.md` (ĐÓNG BĂNG D1) mục 4, 8.3 dòng FE-B, 11; DS **v0.4.1** mục 11 (B0–B6), `tokens.css`; Brand Guidelines (CLAUDE.md "Thương hiệu OTTIMO"); OpenAPI **0.3.7** (`getTonightKpi`, `getArrivalsDepartures`, `listAttentionItems`, `resolveAttentionEvent`, `streamEvents`, `checkOut.debt`, `createDepositNotice.attachmentId`, `uploadAttachment`, `getBill`); hi-fi H03, H24; spec EP01, EP03-05 4.4; dòng BE-D trong decision-log (luật lọc vai, đóng mục).

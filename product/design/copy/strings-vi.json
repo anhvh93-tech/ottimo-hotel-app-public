@@ -2790,6 +2790,7 @@
   "folio.void_minibar_foc": "Món này đang có miễn/giảm {amount}. Hủy hoặc giảm dòng thì phần miễn/giảm vượt số còn lại tạm ngưng, và bị hủy khi chốt folio nếu không ghi lại dòng hoặc đếm lại minibar với số mới.",
   "co.minibar_period_changed_title": "Tủ vừa được bổ sung",
   "co.minibar_period_changed_body": "Số vừa nhập theo lượt nạp trước nên chưa được lưu. Vui lòng đếm lại tủ.",
+  "checkout.extra_night_range": "Trong khoảng {min} – {max}.",
   "msg.booking_confirmed": "Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights} đêm). Nhận phòng từ 14:00, trả phòng trước 12:00. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link}",
   "msg.deposit_received": "Chào {name}, OTTIMO đã nhận cọc {deposit} cho đơn {code} (căn {room}, {from} → {to}). Còn {balance} thanh toán khi nhận phòng. Chính sách hủy: {cancel_policy_short}",
   "msg.checkin_link": "Chào {name}, để nhận phòng nhanh, vui lòng gửi giấy tờ và giờ đến tại: {link} (khoảng 2 phút).",

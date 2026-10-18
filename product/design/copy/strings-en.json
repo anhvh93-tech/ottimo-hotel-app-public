@@ -2790,6 +2790,7 @@
   "folio.void_minibar_foc": "This item has a waiver of {amount}. Voiding or reducing the line pauses the part of the waiver above what is left; that part is cancelled at settlement unless the line is posted again or the minibar is recounted with a new number.",
   "co.minibar_period_changed_title": "The minibar was just restocked",
   "co.minibar_period_changed_body": "The figures entered were for the previous stock and were not saved. Please count again.",
+  "checkout.extra_night_range": "Within {min} – {max}.",
   "msg.booking_confirmed": "Hi {name}, OTTIMO confirms booking {code}: room {room}, {from} → {to} ({nights} nights). Check-in from 14:00, check-out by 12:00. Deposit paid {deposit}, {balance} due at check-in. Cancellation: {cancel_policy_short}. Check in online for a faster arrival: {link}",
   "msg.deposit_received": "Hi {name}, OTTIMO has received your deposit of {deposit} for booking {code} (room {room}, {from} → {to}). {balance} is due at check-in. Cancellation: {cancel_policy_short}",
   "msg.checkin_link": "Hi {name}, to speed up your check-in, please send your IDs and arrival time here: {link} (about 2 minutes).",

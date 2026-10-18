@@ -87,6 +87,8 @@ interface Form {
   email: string;
   eta: string;
   rates: Record<string, string>;
+  /** ARC 16.18 (vòng sửa 5): nights whose rate box the desk changed – `NightRate.edited` (no number test). */
+  ratesEdited: Record<string, boolean>;
   depositAmount: string;
   depositMethod: PaymentMethod;
   internalNote: string;
@@ -117,7 +119,11 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
 
   const [form, setForm] = useState<Form>(() => {
     const draft = !prefill ? readDraft(DRAFT_KEY) : null;
-    if (draft) return JSON.parse(draft) as Form;
+    // A draft saved before `ratesEdited` existed: no box counts as edited.
+    if (draft) {
+      const saved = JSON.parse(draft) as Partial<Form>;
+      return { ...(saved as Form), ratesEdited: saved.ratesEdited ?? {} };
+    }
     const arrival = prefill?.arrivalDate ?? today;
     return {
       roomId: prefill?.roomId ?? '',
@@ -135,6 +141,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       email: '',
       eta: '',
       rates: {},
+      ratesEdited: {},
       depositAmount: '',
       depositMethod: 'vietqr',
       internalNote: '',
@@ -288,6 +295,8 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 vnd(n.calendarRateVnd ?? n.amountVnd),
               ]),
             ),
+            // The server priced the stay again (room, dates, guests): the boxes hold its rates, none edited.
+            ratesEdited: {},
             depositAmount: f.depositAmount || (r.data.depositVnd ? vnd(r.data.depositVnd) : ''),
           }));
         },
@@ -393,13 +402,21 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   }
 
   function body(allowUnassigned = false, roomId = form.roomId): ReservationCreate {
+    // ARC 16.18 bổ sung: B1 takes every night; each says whether the desk changed its box (`edited`) – typing the
+    // calendar figure again is still an edit. A night left alone is not a typed rate.
+    const night = (r: { date: string; raw: string }) => ({
+      date: r.date,
+      amountVnd: parseVnd(r.raw) ?? 0,
+      edited: !!form.ratesEdited[r.date],
+    });
+    const anyEdited = rateList.some((r) => form.ratesEdited[r.date]);
     const nightly =
       form.group === 'ota' || form.group === 'internal'
         ? rateList.every((r) => r.raw)
-          ? rateList.map((r) => ({ date: r.date, amountVnd: parseVnd(r.raw) ?? 0 }))
+          ? rateList.map(night)
           : undefined
-        : ratesTouched
-          ? rateList.map((r) => ({ date: r.date, amountVnd: parseVnd(r.raw) ?? 0 }))
+        : ratesTouched || anyEdited
+          ? rateList.map(night)
           : undefined;
     return {
       roomId,
@@ -1110,7 +1127,10 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                             readOnly={ratesLocked || undefined}
                             value={r.raw}
                             onChange={(e) =>
-                              set({ rates: { ...form.rates, [r.date]: e.target.value } })
+                              set({
+                                rates: { ...form.rates, [r.date]: e.target.value },
+                                ratesEdited: { ...form.ratesEdited, [r.date]: true },
+                              })
                             }
                           />
                           {err ? <div className="err">{err}</div> : null}

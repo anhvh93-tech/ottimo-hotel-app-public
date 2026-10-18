@@ -117,6 +117,70 @@ export function parseInstant(field: string, raw: string | null | undefined): Dat
   return new Date(t);
 }
 
+/**
+ * The body checks of one receipt (EP03-05 2.2) – no database, the same answers `recordInTx` gives before it locks
+ * the folio: type / method / amount / receivedAt format / POS code (a card number → 422 CARD_NUMBER_DETECTED,
+ * thrown) / billing period / attachment id, then the note (thrown, only when the rest is clean). `channelGroup`
+ * undefined = the booking is not known yet (the method's channel is checked by `recordInTx`); null = no OTA.
+ * BE-A B18 (`checkOut.finalPayment`, BUG-R2-165 / SEC BE-64) reads it with the rest of its body before the approver's
+ * password; `recordInTx` runs it again at write.
+ */
+export function checkPaymentShape(
+  raw: PaymentCreateInput,
+  opts: { fieldPrefix?: string; channelGroup?: string | null },
+): {
+  errors: FieldError[];
+  receivedAt: Date | null;
+  posAuthCode: string | null;
+  note: string | null;
+} {
+  const f = (name: string) => `${opts.fieldPrefix ?? ''}${name}`;
+  const errors: FieldError[] = [];
+  if (!(R2_TYPES as readonly string[]).includes(raw.type)) {
+    errors.push({ field: f('type'), code: 'NOT_IN_LIST' });
+  }
+  if (!(R2_METHODS as readonly string[]).includes(raw.method)) {
+    errors.push({ field: f('method'), code: 'NOT_IN_LIST' });
+  }
+  if (
+    raw.method === 'ota_collect' &&
+    opts.channelGroup !== undefined &&
+    opts.channelGroup !== 'ota'
+  ) {
+    errors.push({ field: f('method'), code: 'NOT_IN_LIST' });
+  }
+  if (!Number.isSafeInteger(raw.amountVnd) || raw.amountVnd <= 0) {
+    errors.push({ field: f('amountVnd'), code: 'AMOUNT_NOT_POSITIVE' });
+  }
+  let receivedAt: Date | null = null;
+  try {
+    receivedAt = parseInstant(f('receivedAt'), raw.receivedAt);
+  } catch {
+    errors.push({ field: f('receivedAt'), code: 'DATE_INVALID' });
+  }
+  const auth = typeof raw.posAuthCode === 'string' ? raw.posAuthCode.trim() || null : null;
+  if (raw.method === 'card_pos' && !auth)
+    errors.push({ field: f('posAuthCode'), code: 'REQUIRED' });
+  // V-09 / R-PAY-01 first (BUG-R2-043): a card number in the POS approval code → CARD_NUMBER_DETECTED.
+  assertNoCardNumber(f('posAuthCode'), auth);
+  if (auth && !/^[A-Za-z0-9]{1,12}$/.test(auth)) {
+    errors.push({
+      field: f('posAuthCode'),
+      code: auth.length > 12 ? 'TOO_LONG' : 'VALIDATION_FAILED',
+    });
+  }
+  if (raw.billingPeriodId !== undefined && raw.billingPeriodId !== null) {
+    // Long-stay billing periods (US-119 AC5) are R3.
+    errors.push({ field: f('billingPeriodId'), code: 'NOT_IN_LIST' });
+  }
+  if (raw.attachmentId !== undefined && raw.attachmentId !== null && !UUID.test(raw.attachmentId)) {
+    errors.push({ field: f('attachmentId'), code: 'NOT_IN_LIST' });
+  }
+  if (errors.length) return { errors, receivedAt: null, posAuthCode: null, note: null };
+  const note = optionalText(f('note'), raw.note, 300);
+  return { errors, receivedAt, posAuthCode: auth, note };
+}
+
 @Injectable()
 export class PaymentService {
   constructor(
@@ -242,50 +306,13 @@ export class PaymentService {
     const folios = this.need(this.folios, 'FolioService');
     const params = this.need(this.params, 'ParameterService');
     const f = (name: string) => `${ctx.fieldPrefix ?? ''}${name}`;
-    const errors: FieldError[] = [];
     const desk = isDesk(actor.roles);
-    if (!(R2_TYPES as readonly string[]).includes(raw.type)) {
-      errors.push({ field: f('type'), code: 'NOT_IN_LIST' });
-    }
-    if (!(R2_METHODS as readonly string[]).includes(raw.method)) {
-      errors.push({ field: f('method'), code: 'NOT_IN_LIST' });
-    }
-    if (raw.method === 'ota_collect' && ctx.channelGroup !== 'ota') {
-      errors.push({ field: f('method'), code: 'NOT_IN_LIST' });
-    }
-    if (!Number.isSafeInteger(raw.amountVnd) || raw.amountVnd <= 0) {
-      errors.push({ field: f('amountVnd'), code: 'AMOUNT_NOT_POSITIVE' });
-    }
-    let receivedAt: Date | null = null;
-    try {
-      receivedAt = parseInstant(f('receivedAt'), raw.receivedAt);
-    } catch {
-      errors.push({ field: f('receivedAt'), code: 'DATE_INVALID' });
-    }
-    const auth = typeof raw.posAuthCode === 'string' ? raw.posAuthCode.trim() || null : null;
-    if (raw.method === 'card_pos' && !auth)
-      errors.push({ field: f('posAuthCode'), code: 'REQUIRED' });
-    // V-09 / R-PAY-01 first (BUG-R2-043): a card number in the POS approval code → CARD_NUMBER_DETECTED.
-    assertNoCardNumber(f('posAuthCode'), auth);
-    if (auth && !/^[A-Za-z0-9]{1,12}$/.test(auth)) {
-      errors.push({
-        field: f('posAuthCode'),
-        code: auth.length > 12 ? 'TOO_LONG' : 'VALIDATION_FAILED',
-      });
-    }
-    if (raw.billingPeriodId !== undefined && raw.billingPeriodId !== null) {
-      // Long-stay billing periods (US-119 AC5) are R3.
-      errors.push({ field: f('billingPeriodId'), code: 'NOT_IN_LIST' });
-    }
-    if (
-      raw.attachmentId !== undefined &&
-      raw.attachmentId !== null &&
-      !UUID.test(raw.attachmentId)
-    ) {
-      errors.push({ field: f('attachmentId'), code: 'NOT_IN_LIST' });
-    }
-    if (errors.length) throw problem('VALIDATION_FAILED', { errors });
-    const note = optionalText(f('note'), raw.note, 300);
+    const shape = checkPaymentShape(raw, {
+      fieldPrefix: ctx.fieldPrefix,
+      channelGroup: ctx.channelGroup ?? null,
+    });
+    if (shape.errors.length) throw problem('VALIDATION_FAILED', { errors: shape.errors });
+    const { receivedAt, posAuthCode: auth, note } = shape;
     // A47 / US-119 AC4: a sale records deposits of their own bookings only (scope own_deposit_only).
     if (!desk && raw.type !== 'deposit') throw problem('FORBIDDEN_ACTION');
 

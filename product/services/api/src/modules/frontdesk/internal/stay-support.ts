@@ -14,12 +14,12 @@ import { EventsService } from '../../events/public/events.service';
 import { FolioService } from '../../folio/public/folio.service';
 import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
 import { OccupancyService } from '../../reservations/public/occupancy.service';
+import { calendarRate, isSpecialDate, rateBounds } from '../../reservations/public/pricing';
 import {
-  type SpecialDate,
-  calendarRate,
-  isSpecialDate,
-  rateBounds,
-} from '../../reservations/public/pricing';
+  type SourcedNight,
+  addedNightPrice,
+  referenceNightRate,
+} from '../../reservations/public/added-night-price';
 import { PricingService } from '../../reservations/public/pricing.service';
 import {
   type Actor,
@@ -71,14 +71,19 @@ export interface FocRequestInput {
   note: string | null;
 }
 
-/** BUG-R2-134: per-stay inputs of `addedNightRate`. */
+/** BR-417 appendix 5A: per-stay inputs of `addedNightRate` (one per operation – AN-42). */
 export interface AddedNightContext {
-  /** The room the added night goes to. */
+  /** Step 2: the room the added night goes to (CĐT). */
   roomId: string;
-  /** The agreed price next to the added night in that room (null = none). */
-  agreedVnd: number | null;
-  /** The room the guest bought (null = never moved / not a direct-agent booking). */
-  boughtRoomId: string | null;
+  /** Step 1: the room the guest bought (CKM) – the night's room when unknown or not applicable. */
+  boughtRoomId: string;
+  /** The stay's origin room (anchor of nights typed before any room). */
+  originRoomId: string;
+  /** Step 3: the typed nights of an AGREED stay (empty otherwise) and which side of the added night to search. */
+  nights: SourcedNight[];
+  side: 'before' | 'after';
+  /** ARC 16.18: `anchorRoomId` a night typed now records (null = the origin room). */
+  anchorRoomId: string | null;
 }
 
 @Injectable()
@@ -199,56 +204,17 @@ export class StaySupport {
     return rows.map((r) => ({ effectiveFrom: r.effective_from, nightlyVnd: r.nightly }));
   }
 
-  /** Direct-channel calendar rate of `roomId` on `date` (BR-104) with its BR-105 bounds. */
   /**
-   * BR-417 (2) / BR-421 / BR-416 v0.3.8 (CI 72fa486, oracle BR-411-07, BR-416-02, BR-421-01): a direct/agent
-   * booking with an AGREED price (nights typed at the desk – snapshot source `manual`) suggests that price for an
-   * added night (B9a: its first typed night, B13/B18: its last) – the typed CALENDAR price, before the tier; a
-   * special date always takes its own calendar (caller). null = a calendar-priced booking (S438-DOM-01: the
-   * direct calendar of the added night itself).
-   *
-   * BUG-R2-134 (BR-417-07 v0.3.8 bổ sung 18/10): the agreed price belongs to the room where it was typed – it is
-   * offered only when the night NEXT TO the added one (the booking's first night for B9a, its last for B13/B18) is
-   * a typed night (at booking or S4-35) in the room the added night goes to (`at.roomId`; a guest-requested move
-   * re-prices the moved nights to the new room's calendar, an OTTIMO move keeps them). Callers go through
-   * `addedNightRate` (min after an OTTIMO move, BR-105 clamp).
+   * BR-417 appendix 5A steps 1–3 (DOM 18/10, vòng sửa 5 – BUG-R2-160/161/162; ARC 16.6 (a), 16.18): what
+   * `addedNightRate` needs once per operation – `pick` = the side of the stay the night is added to (B9a `first`,
+   * B13/B18 `last`), `roomId` = the room of that night (CĐT).
+   * - The room bought over the whole stay as the booking holding the neighbour night sees it (B13/B18: the last
+   *   booking of the stay – an OTA child after S4-09 keeps the room bought before the temporary move).
+   * - The min applies to direct/agent bookings and the direct child nights of an OTA booking (r3-1), not to a
+   *   manual long stay / internal use.
+   * - The reference nights: only an AGREED stay (typed at booking – `bookingRateSource`, BUG-R2-126) has them;
+   *   S4-35 / B13 typed prices of a calendar booking never make it agreed (AN-20, AN-21).
    */
-  async agreedRate(
-    tx: Tx,
-    row: ReservationRow,
-    pick: 'first' | 'last',
-    at: {
-      roomId: string;
-      floorVnd?: number;
-      ceilingVnd?: number;
-      /** BR-417-12 (T15): nights on a special date are skipped when looking for the night next to the added one. */
-      specialDates?: readonly SpecialDate[];
-    },
-  ): Promise<number | null> {
-    if (row.channel_group !== 'direct' && row.channel_group !== 'agent') return null;
-    if (row.external_contract || row.stay_type !== 'short') return null;
-    // BUG-R2-126: only a booking PRICED BY HAND AT BOOKING is an agreed one (`bookingRateSource`, written for every
-    // booking; 0064 back-filled the older ones from their creation) – nights typed later (S4-35, B9a, B13, B18)
-    // never make a calendar booking agreed.
-    const flag = (row.pricing_snapshot as { bookingRateSource?: string }).bookingRateSource;
-    if (flag !== 'manual_agreed') return null;
-    const nights = await this.stay.pricedNights(tx, row);
-    const ordered = pick === 'first' ? nights : [...nights].reverse();
-    // BR-417-12 v0.3.8 (DOM 18/10, T15): a special-date night (always its own calendar) is not "the night next to
-    // it" – the agreed price of the night before it holds.
-    const n = ordered.find((x) => !at.specialDates || !isSpecialDate(x.date, at.specialDates));
-    if (!n || !n.manual) return null;
-    const { rows } = await tx.query<{ room_id: string | null }>(
-      `SELECT room_id FROM stay_night WHERE reservation_id = $1 AND stay_date = $2 AND night_state <> 'void'`,
-      [row.id, n.date],
-    );
-    if (rows[0]?.room_id !== at.roomId) return null;
-    if (at.floorVnd !== undefined && n.calendarVnd < at.floorVnd) return null;
-    if (at.ceilingVnd !== undefined && n.calendarVnd > at.ceilingVnd) return null;
-    return n.calendarVnd;
-  }
-
-  /** What `addedNightRate` needs once per stay (the agreed price next to the added nights, the room bought). */
   async addedNightContext(
     tx: Tx,
     ctx: BookingContext,
@@ -256,36 +222,47 @@ export class StaySupport {
     pick: 'first' | 'last',
     roomId: string,
   ): Promise<AddedNightContext> {
-    // BR-417 v0.3.8 (DOM 18/10, r3-1 sửa phạm vi): the OTTIMO min applies to the direct child nights of an OTA
-    // booking too (B9a, B13, B18 – like the protected base of BR-110); not to a manual long stay / internal use.
     const minApplies =
       (row.channel_group === 'direct' ||
         row.channel_group === 'agent' ||
         row.channel_group === 'ota') &&
       !row.external_contract;
+    const holder = pick === 'last' ? (await this.effectiveStay(tx, ctx, row)).last : row;
+    const view = minApplies
+      ? await this.stay.boughtRoom(tx, holder.id)
+      : { boughtRoomId: null, originRoomId: null };
+    const originRoomId = view.originRoomId ?? roomId;
+    const boughtRoomId = view.boughtRoomId ?? originRoomId;
+    const agreed =
+      (row.channel_group === 'direct' || row.channel_group === 'agent') &&
+      !row.external_contract &&
+      row.stay_type === 'short' &&
+      (row.pricing_snapshot as { bookingRateSource?: string }).bookingRateSource ===
+        'manual_agreed';
+    const nights: SourcedNight[] = agreed
+      ? (await this.stay.pricedNights(tx, row)).map((n) => ({
+          date: n.date,
+          calendarVnd: n.calendarVnd,
+          source: n.source ?? (n.manual ? 'manual' : 'calendar'),
+          anchorRoomId: n.anchorRoomId ?? null,
+        }))
+      : [];
     return {
       roomId,
-      agreedVnd: await this.agreedRate(tx, row, pick, {
-        roomId,
-        specialDates: ctx.params.calendar.specialDates,
-      }),
-      boughtRoomId: minApplies ? await this.stay.boughtRoomId(tx, row) : null,
+      boughtRoomId,
+      originRoomId,
+      nights,
+      side: pick === 'first' ? 'after' : 'before',
+      anchorRoomId: boughtRoomId !== originRoomId ? boughtRoomId : null,
     };
   }
 
   /**
-   * BR-417 (2)/(7), BR-421, BR-416 v0.3.8 (bổ sung 18/10 – BUG-R2-134): default price of a night added next to the
-   * stay (B9a `first`, B13/B18 `last`) in the context's room on `date`:
-   * - the agreed price of the night next to it when that night is typed in this room (`agreedRate`), else the
-   *   direct calendar of this room (a special date always a calendar – BR-421);
-   * - the booking is in a room OTTIMO chose (room bought ≠ this room – fault, swap, B7a, no-show restore):
-   *   min(what the guest bought – the agreed price, else the bought room's calendar of that night – this room's
-   *   calendar) – BR-429 (b1);
-   * - always within the BR-105 floor–ceiling of this room, or after an OTTIMO move of the room bought (BR-417-13);
-   *   the bounds returned are those (the desk types within them, B13/B18 check them).
-   * `typed` = the default is not this room's calendar (B13 writes it as a typed night). `keepVnd` =
-   * `ExtensionOptions.currentBookingRateVnd` (ARC 16.6 (a)): the agreed price (rule 1, min/clamped), or the OTTIMO
-   * min (rule 3, calendar bookings too); null = this room's calendar (no agreed price here, or a guest move).
+   * BR-417 appendix 5A steps 3–5 – THE default price of a night added on `date` (B9a, B13, B18's extra night,
+   * `lateFeeAsNightVnd`, `extraNightDefaultRateVnd`, `currentBookingRateVnd`): `addedNightPrice` on the calendars of
+   * the room bought and of the night's room (special date included) with the reference night of an agreed stay.
+   * `floorVnd`/`ceilingVnd` = the desk's range (both rooms when the min applies). `keepVnd` =
+   * `currentBookingRateVnd` (AN-45 – by source: agreed reference or min; null = the night room's calendar).
    */
   async addedNightRate(
     tx: Tx,
@@ -298,44 +275,37 @@ export class StaySupport {
     floorVnd: number;
     ceilingVnd: number;
     special: boolean;
-    typed: boolean;
     keepVnd: number | null;
   }> {
-    const direct = await this.directRate(tx, ctx, c.roomId, date);
-    const moved = c.boughtRoomId !== null && c.boughtRoomId !== c.roomId;
-    const bought = moved ? await this.directRate(tx, ctx, c.boughtRoomId as string, date) : null;
-    // BR-417-13 v0.3.8 (DOM 18/10, T19, T1/T2): after an OTTIMO move what the guest bought is kept within the
-    // BR-105 bounds of the room BOUGHT, then the min with this room's calendar – never lifted to the floor of the
-    // room OTTIMO chose (nor to the bought room's floor: the min stays a min). The bounds given to the desk span
-    // both rooms, so the default is always a rate B13/B18 accept.
-    const own = bought ?? direct;
-    const clampOwn = (v: number) => Math.min(own.ceilingVnd, Math.max(own.floorVnd, v));
-    const bounds = bought
-      ? {
-          floorVnd: Math.min(bought.floorVnd, direct.floorVnd),
-          ceilingVnd: Math.max(bought.ceilingVnd, direct.ceilingVnd),
-        }
-      : direct;
-    const agreedVnd =
-      c.agreedVnd === null
-        ? null
-        : moved
-          ? Math.min(clampOwn(c.agreedVnd), direct.rateVnd)
-          : clampOwn(c.agreedVnd);
-    let rate = direct.rateVnd;
-    if (agreedVnd !== null && !direct.special) rate = agreedVnd;
-    else if (bought) rate = Math.min(clampOwn(bought.rateVnd), direct.rateVnd);
+    const night = await this.directRate(tx, ctx, c.roomId, date);
+    const sameRoom = c.boughtRoomId === c.roomId;
+    const bought = sameRoom ? night : await this.directRate(tx, ctx, c.boughtRoomId, date);
+    const special = (d: LocalDate) => isSpecialDate(d, ctx.params.calendar.specialDates);
+    const p = addedNightPrice({
+      bought,
+      night,
+      sameRoom,
+      special: night.special,
+      referenceVnd: referenceNightRate(
+        c.nights,
+        date,
+        c.side,
+        c.boughtRoomId,
+        c.originRoomId,
+        special,
+      ),
+    });
     return {
-      rateVnd: rate,
-      calendarVnd: direct.rateVnd,
-      floorVnd: bounds.floorVnd,
-      ceilingVnd: bounds.ceilingVnd,
-      special: direct.special,
-      typed: rate !== direct.rateVnd,
-      keepVnd: agreedVnd ?? (moved ? rate : null),
+      rateVnd: p.rateVnd,
+      calendarVnd: night.rateVnd,
+      floorVnd: p.floorVnd,
+      ceilingVnd: p.ceilingVnd,
+      special: night.special,
+      keepVnd: p.keep ? p.rateVnd : null,
     };
   }
 
+  /** Direct-channel calendar rate of `roomId` on `date` (BR-104) with its BR-105 bounds. */
   async directRate(
     tx: Tx,
     ctx: BookingContext,

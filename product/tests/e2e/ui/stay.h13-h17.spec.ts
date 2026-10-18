@@ -21,6 +21,7 @@ import {
   deviceToken,
   getRegistration,
   makeStay,
+  readyRooms,
   stackBusinessDate,
   type Stay,
   serverLocalTime,
@@ -49,11 +50,18 @@ async function arrivalToday(request: Page['request'], doc = true): Promise<Stay>
   // ngày nghiệp vụ (đổi lúc 06:00 – BR-010), không phải ngày lịch: chạy lúc 00:00–05:59 vẫn đúng "đến hôm nay"
   const today = await stackBusinessDate(request);
   const nights = minStayFor(today);
-  const rm = await freeRoom(request, fd, c.rooms, today, addDays(today, nights));
+  // Nhận phòng cần buồng sẵn sàng (VC/VI): stack dùng lại có căn đang `OC` vì đơn ở ngày ảo xa (project clock) –
+  // ưu tiên căn sẵn sàng, các căn còn lại để sau (stack mới của CI: mọi căn đều sẵn sàng).
+  const ready = new Set((await readyRooms(request, fd, c.rooms)).map((r) => r.id));
+  const rooms = [
+    ...c.rooms.filter((r) => ready.has(r.id)),
+    ...c.rooms.filter((r) => !ready.has(r.id)),
+  ];
+  const rm = await freeRoom(request, fd, rooms, today, addDays(today, nights));
   // song song: căn vừa kiểm trống có thể bị ca khác lấy → thử các căn còn lại (makeStay alternatives)
   return makeStay(request, c, fd, {
     room: rm,
-    alternatives: c.rooms,
+    alternatives: rooms,
     arrival: today,
     nights,
     doc: doc ? 'vn' : false,

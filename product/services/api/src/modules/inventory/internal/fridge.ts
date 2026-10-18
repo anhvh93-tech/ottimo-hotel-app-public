@@ -11,6 +11,7 @@
 import { v7 as uuidv7 } from 'uuid';
 import type { Tx } from '../../../db/database';
 import type { LocalDate } from '../../../shared/time';
+import type { FridgeLock } from './refill-tasks';
 
 export interface FridgeItem {
   itemId: string;
@@ -32,30 +33,50 @@ export interface FridgeFill {
 /**
  * ARC 16.16 bổ sung (race record ‖ onRefillDone): ONE lock per fridge (stay × room) – a transaction-level advisory
  * lock (no UPDATE right needed, HK included). Every path that changes a fridge (record, onRefillDone,
- * onStayContinued, onCheckedOut) takes it, then reads the latest fill and the latest count. Order: folio → fridge
- * (desk and counts), HK task → fridge (refill done); nothing locks a folio or a HK task after a fridge.
+ * onStayContinued, onCheckedOut) takes it, then reads the latest fill and the latest count. Order: booking → folio →
+ * refill tasks → fridge (counts, desk), HK task → fridge (refill done); nothing locks a booking, a folio or a HK
+ * task after a fridge, except reconcileRefillTasks writing a task with NOWAIT (16.17 – 409 retry, never a wait).
  * The FK parents a fridge write references (the primary booking, the room) are taken `FOR KEY SHARE` FIRST: a
- * booking change (B13/B14/B18) holds them `FOR UPDATE` and then waits for this fridge, while a writer holding
- * the fridge would wait on its FK check of `minibar_fill` / `minibar_check` – 40P01 found by the race test.
- * Callers that already hold them (the booking changes) do not wait. Re-entrant in the same transaction.
+ * booking change (B13/B14/B18) holds them and then waits for this fridge, while a writer holding the fridge would
+ * wait on its FK check of `minibar_fill` / `minibar_check` – 40P01 found by the race test. Callers that already
+ * hold them (the booking changes) do not wait. `refillTasks` (record() only – it holds no room lock): the open
+ * refill tasks of the fridge `FOR UPDATE` too, before the fridge – HK holds its task, then waits for the fridge
+ * (16.17 race test, 40P01). Re-entrant in the same transaction.
  */
-export async function lockFridge(tx: Tx, primaryId: string, roomId: string): Promise<void> {
+export async function lockFridge(
+  tx: Tx,
+  primaryId: string,
+  roomId: string,
+  opts: { refillTasks?: boolean } = {},
+): Promise<FridgeLock> {
   await tx.query('SELECT id FROM reservation WHERE id = $1 FOR KEY SHARE', [primaryId]);
   await tx.query('SELECT id FROM room WHERE id = $1 FOR KEY SHARE', [roomId]);
+  if (opts.refillTasks) {
+    await tx.query(
+      `SELECT id FROM hk_task
+        WHERE reservation_id = $1 AND room_id = $2 AND type = 'minibar_refill'
+          AND status IN ('open', 'in_progress')
+        ORDER BY id FOR UPDATE`,
+      [primaryId, roomId],
+    );
+  }
   await tx.query(
     `SELECT pg_advisory_xact_lock(hashtextextended('minibar:' || $1 || ':' || $2, 0))`,
     [primaryId, roomId],
   );
+  // ARC 16.17 1b: the proof the lock is held – reconcileRefillTasks only takes this.
+  return { primaryId, roomId } as FridgeLock;
 }
 
 /**
  * S4-13 order (reservation → folio) for a count, which is not a booking use case: the bookings of the folio
- * `FOR KEY SHARE` in id order, before the folio. A booking change holding its booking `FOR UPDATE` and waiting for
- * the folio (B13 resyncs the stay) otherwise deadlocked with a count holding the folio and waiting on the FK check
- * of its minibar line (40P01, race test). KEY SHARE does not block plain updates of the booking nor other FK checks.
+ * `FOR NO KEY UPDATE` in id order, before the folio – the lock the booking changes take (BE-A, ARC 16.16 bổ sung 2):
+ * a count and a B13/B14/B18 of the stay are serialised at the booking, before any folio, room or fridge lock
+ * (a count holding the folio, then waiting on its FK check of the room held by B13, which waits for the folio,
+ * was a 40P01). It never blocks an FK check (KEY SHARE) nor a plain read.
  */
-export async function lockStayBookingsShared(tx: Tx, folioId: string): Promise<void> {
-  await tx.query('SELECT id FROM reservation WHERE folio_id = $1 ORDER BY id FOR KEY SHARE', [
+export async function lockStayBookings(tx: Tx, folioId: string): Promise<void> {
+  await tx.query('SELECT id FROM reservation WHERE folio_id = $1 ORDER BY id FOR NO KEY UPDATE', [
     folioId,
   ]);
 }
@@ -250,6 +271,100 @@ export async function isCurrentPeriod(
     [primaryId, roomId],
   );
   return (rows[0]?.n ?? 0) === 1;
+}
+
+/**
+ * The items of a `refill` fill opening a new period (DOM BR-703-02 note 2, ARC 16.17 mục 2): mark per item = what
+ * the system knows is left – the lines of `baseCountId` (an item without a line → the period's own mark), or the
+ * period's mark when null – + `refill`; items at 0 dropped; price/cost = the catalogue now, an item off the
+ * catalogue keeps the period's, an item of `refill` in neither takes its goods row as it is now (16.16 (z)).
+ */
+export async function refillFillItems(
+  tx: Tx,
+  fillId: string | null,
+  baseCountId: string | null,
+  refill: ReadonlyMap<string, number>,
+): Promise<FridgeItem[]> {
+  const num = (v: string | number | null) => (v === null ? null : Number(v));
+  // The period's own lines (a `carry` keeps its zeros) – the mark when nothing was counted in it.
+  const { rows: period } = fillId
+    ? await tx.query<{
+        item_id: string;
+        code: string;
+        name: string;
+        qty: number;
+        unit_price_vnd_snapshot: string | number | null;
+        unit_cost_vnd_snapshot: string | number | null;
+      }>(
+        `SELECT l.item_id, i.code, i.name, l.qty, l.unit_price_vnd_snapshot, l.unit_cost_vnd_snapshot
+           FROM minibar_fill_line l JOIN item i ON i.id = l.item_id
+          WHERE l.fill_id = $1`,
+        [fillId],
+      )
+    : { rows: [] };
+  const left = new Map<string, number>();
+  if (baseCountId) {
+    const { rows } = await tx.query<{ item_id: string; remaining_qty: number }>(
+      'SELECT item_id, remaining_qty FROM minibar_check_line WHERE check_id = $1',
+      [baseCountId],
+    );
+    for (const r of rows) left.set(r.item_id, Number(r.remaining_qty));
+  }
+  const catalogue = new Map((await catalogueFridge(tx)).map((i) => [i.itemId, i]));
+  const kept = new Map<string, FridgeItem>(
+    period.map((r) => [
+      r.item_id,
+      {
+        itemId: r.item_id,
+        code: r.code,
+        name: r.name,
+        mark: Number(r.qty),
+        priceVnd: (num(r.unit_price_vnd_snapshot) ?? 0) > 0 ? num(r.unit_price_vnd_snapshot) : null,
+        costVnd: num(r.unit_cost_vnd_snapshot),
+      },
+    ]),
+  );
+  const missing = [...refill.keys()].filter((id) => !kept.has(id) && !catalogue.has(id));
+  if (missing.length > 0) {
+    const { rows } = await tx.query<{
+      id: string;
+      code: string;
+      name: string;
+      sale_price_vnd: string | number | null;
+      cost_price_vnd: string | number | null;
+    }>(
+      `SELECT id, code, name, sale_price_vnd, cost_price_vnd FROM item WHERE id = ANY($1::uuid[])`,
+      [missing],
+    );
+    for (const r of rows) {
+      kept.set(r.id, {
+        itemId: r.id,
+        code: r.code,
+        name: r.name,
+        mark: 0,
+        priceVnd: (num(r.sale_price_vnd) ?? 0) > 0 ? num(r.sale_price_vnd) : null,
+        costVnd: num(r.cost_price_vnd),
+      });
+    }
+  }
+  const items: FridgeItem[] = [];
+  for (const id of new Set([...kept.keys(), ...refill.keys()])) {
+    const base = kept.get(id) ?? catalogue.get(id);
+    if (!base) continue;
+    const before = baseCountId
+      ? (left.get(id) ?? kept.get(id)?.mark ?? 0)
+      : (kept.get(id)?.mark ?? 0);
+    const mark = before + (refill.get(id) ?? 0);
+    if (mark <= 0) continue;
+    const cat = catalogue.get(id);
+    items.push({
+      ...base,
+      mark,
+      priceVnd: cat ? cat.priceVnd : base.priceVnd,
+      costVnd: cat ? cat.costVnd : base.costVnd,
+    });
+  }
+  return items.sort((a, b) => a.code.localeCompare(b.code));
 }
 
 /** The catalogue's standard fridge now (active minibar items with a standard quantity). */

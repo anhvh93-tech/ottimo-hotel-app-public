@@ -29,7 +29,14 @@ import { useDebounced } from '../../hooks/useDebounced';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { GuestPicker } from '../../components/GuestPicker';
-import { FilePicker, MoneyField, amountOf, useSubmit, useUnsavedLabels } from './common';
+import {
+  FilePicker,
+  MoneyField,
+  STAY_WRITE_RETRY,
+  amountOf,
+  useSubmit,
+  useUnsavedLabels,
+} from './common';
 import { PartySourceField, needsPartySource, usePartySource } from './PartySource';
 import { unclaimedSlots } from '../registration/partyDocs';
 import {
@@ -63,19 +70,16 @@ export function ExtendDialog({ reservation: r, onClose, onDone }: StayDialogProp
   const o: ExtensionOptions | undefined = opts.state.data;
   const [n, setN] = useState(1);
   const [visaReason, setVisaReason] = useState('');
-  // E04-07 "Giữ giá đơn": the booking has an agreed rate (≠ calendar) → reuse it for the new nights.
-  const bookingRate = o?.currentBookingRateVnd ?? null;
-  const [keep, setKeep] = useState(false);
-  const act = useSubmit();
+  // ARC 16.18 / BR-417 phụ lục 5A (vòng sửa 5): `nights[].defaultRateVnd` already is the agreed / min rate when the
+  // booking has one (AN-45 – what "Giữ giá đơn" used to fill in), and a rate sent is recorded as typed by the desk.
+  // H15 has no box to change a night's rate, so no `nightlyRates` are sent: every new night is the server's default.
+  const act = useSubmit(undefined, STAY_WRITE_RETRY);
   const nights = o?.nights.slice(0, n) ?? [];
-  const rateOf = (x: { defaultRateVnd?: number }) =>
-    keep && bookingRate !== null ? bookingRate : (x.defaultRateVnd ?? 0);
+  const rateOf = (x: { defaultRateVnd?: number }) => x.defaultRateVnd ?? 0;
   const total = nights.reduce((a, x) => a + rateOf(x), 0);
   // FE-S3-03: `repricing[].nights` = nights ADDED; the button shows what the guest pays extra
   // (`deltaVnd`), `repricedTotalVnd` is the room total of the whole booking after the extension.
-  // `repricing` is computed on calendar prices – with the kept rate the button shows the kept
-  // nights (the server re-applies BR-107 on save).
-  const reprice = keep ? undefined : o?.repricing?.find((x) => x.nights === n);
+  const reprice = o?.repricing?.find((x) => x.nights === n);
   const extra = reprice?.deltaVnd ?? total;
   const visaAsked =
     act.fields.visaWarningAckReason !== undefined ||
@@ -87,10 +91,6 @@ export function ExtendDialog({ reservation: r, onClose, onDone }: StayDialogProp
         R,
         {
           nights: n,
-          nightlyRates:
-            keep && bookingRate !== null
-              ? nights.map((x) => ({ date: x.date, amountVnd: bookingRate }))
-              : undefined,
           visaWarningAckReason: visaReason.trim() || undefined,
         },
         r.version,
@@ -153,14 +153,6 @@ export function ExtendDialog({ reservation: r, onClose, onDone }: StayDialogProp
               </label>
             ))}
           </fieldset>
-          {bookingRate !== null ? (
-            <div className="stack">
-              <Button size="sm" aria-pressed={keep} onClick={() => setKeep((k) => !k)}>
-                {t('extend.keep_rate', { amount: money(bookingRate) })}
-              </Button>
-              <p className="li-s">{t('extend.keep_rate_help')}</p>
-            </div>
-          ) : null}
           <p className="li-s">{t('extend.max_hint', { max: o.maxNights })}</p>
           {o.createsChildReservation ? (
             <p className="li-s">
@@ -452,7 +444,7 @@ function ChangeRoomForm({
   const [reason, setReason] = useState('');
   const [roomId, setRoomId] = useState('');
   const [preview, setPreview] = useState<ChangeRoomPreview | null>(null);
-  const act = useSubmit();
+  const act = useSubmit(undefined, STAY_WRITE_RETRY);
   const avail = useResource(
     async () =>
       (

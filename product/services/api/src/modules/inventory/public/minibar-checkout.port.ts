@@ -14,31 +14,27 @@
  * opens a `refill` period (onRefillDone).
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { v7 as uuidv7 } from 'uuid';
 import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
-import { businessDate, localDate } from '../../../shared/time';
+import { type LocalDate, businessDate, localDate } from '../../../shared/time';
 import { EventsService } from '../../events/public/events.service';
 import type { FrontdeskMinibarPort, MinibarCheckoutStatus } from '../../frontdesk/public/ports';
 import type { MinibarRefillDonePort } from '../../housekeeping/public/minibar-refill-done.port';
 import { ParameterService } from '../../platform/public/parameter.service';
-import { publishEvent } from '../../platform/public/staff-notify';
 import {
   type FridgeItem,
-  catalogueFridge,
   fridgeItems,
   latestFill,
   lockFridge,
   lockStayFolio,
   primaryOf,
+  refillFillItems,
   registerFridge,
   stayIsInRoom,
   stayRooms,
   writeFill,
 } from '../internal/fridge';
-
-/** Low priority: refill after the checkout clean (desk TASK_RANK.low). */
-const REFILL_RANK = 7;
+import { type FridgeLock, completedAt, reconcileRefillTasks } from '../internal/refill-tasks';
 
 @Injectable()
 export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillDonePort {
@@ -94,34 +90,54 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
     const primaryId = (await primaryOf(tx, reservationId)) ?? reservationId;
     // ARC 16.16 bổ sung: folio → fridge (B13 posts to the folio only after this port), then read under the lock.
     await lockStayFolio(tx, primaryId);
-    await lockFridge(tx, primaryId, roomId);
-    await this.openNextPeriod(tx, primaryId, roomId);
-    // After the period is settled: a count made stale above is not live – it gets no task (its replacement will).
-    if (reason === 'extended') {
-      await this.createRefillTasks(tx, primaryId, roomId);
-      return;
-    }
-    // (y) room_entered: the stay left this room through B14 / the room return, whose onCheckedOut gave every live
-    // count with use its task – one without a task here breaks that invariant: logged (ids only), no task (ORC).
-    const { rows: orphans } = await tx.query<{ id: string }>(
-      `SELECT c.id FROM minibar_check c
-        WHERE c.reservation_id = $1 AND c.room_id = $2 AND c.mode = 'checkout'
-          AND c.replaced_by_check_id IS NULL AND c.refill_task_id IS NULL
-          AND EXISTS (SELECT 1 FROM minibar_check_line l WHERE l.check_id = c.id AND l.used_qty > 0)`,
-      [primaryId, roomId],
-    );
-    if (orphans.length > 0) {
-      this.log.warn(
-        `minibar room_entered: ${orphans.length} live count(s) with use and no refill task – reservation ` +
-          `${primaryId}, room ${roomId}, counts ${orphans.map((o) => o.id).join(',')}`,
+    const lock = await lockFridge(tx, primaryId, roomId);
+    // ARC 16.17 1b: the tasks first (B13 → the live count with use gets its task now, as B18), then the period.
+    const now = this.clock.now();
+    await reconcileRefillTasks(tx, lock, {
+      create: reason === 'extended',
+      now,
+      today: await this.today(tx, now),
+      events: this.events,
+    });
+    if (reason === 'room_entered') {
+      // (y) the stay left this room through B14 / the room return, whose onCheckedOut gave every live count with
+      // use its task – one without a task here breaks that invariant: logged (ids only), no task (ORC, ARC 16.16
+      // bổ sung 2).
+      const { rows: orphans } = await tx.query<{ id: string }>(
+        `SELECT c.id FROM minibar_check c
+          WHERE c.reservation_id = $1 AND c.room_id = $2 AND c.mode = 'checkout'
+            AND (c.replaced_by_check_id IS NULL OR c.replaced_by_check_id = c.id)
+            AND c.refill_task_id IS NULL
+            AND EXISTS (SELECT 1 FROM minibar_check_line l WHERE l.check_id = c.id AND l.used_qty > 0)`,
+        [primaryId, roomId],
       );
+      if (orphans.length > 0) {
+        this.log.warn(
+          `minibar room_entered: ${orphans.length} live count(s) with use and no refill task – reservation ` +
+            `${primaryId}, room ${roomId}, counts ${orphans.map((o) => o.id).join(',')}`,
+        );
+      }
     }
+    await this.openNextPeriod(tx, lock, now);
   }
 
-  private async openNextPeriod(tx: Tx, primaryId: string, roomId: string): Promise<void> {
+  /**
+   * ARC R9 / 16.17 mục 2: a new period when the live count of the current period is charged ((t)): mark per item =
+   * left after that count + Σ items of its LIVE task when that task was completed after the count – both in
+   * processing time (`state_transition.occurred_at` of `complete` vs `minibar_check.created_at`); Σ > 0 → `refill`
+   * (price = the catalogue now, off-catalogue items keep the period's), Σ = 0 → `carry` (mark = what was left, 0
+   * kept, price of the period). A count without money → no new period; it is made stale (16.15 (v)).
+   */
+  private async openNextPeriod(tx: Tx, lock: FridgeLock, now: Date): Promise<void> {
+    const { primaryId, roomId } = lock;
     const fill = await latestFill(tx, primaryId, roomId);
-    const { rows: counts } = await tx.query<{ id: string; created_at: Date; charged: boolean }>(
-      `SELECT c.id, c.created_at,
+    const { rows: counts } = await tx.query<{
+      id: string;
+      created_at: Date;
+      refill_task_id: string | null;
+      charged: boolean;
+    }>(
+      `SELECT c.id, c.created_at, c.refill_task_id,
               EXISTS (SELECT 1 FROM minibar_check_line l
                        WHERE l.check_id = c.id AND l.used_qty > 0
                          AND COALESCE((SELECT fl.unit_price_vnd_snapshot FROM minibar_fill_line fl
@@ -135,7 +151,6 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
     );
     const count = counts[0];
     if (!count) return; // nothing counted in this period – B18 asks for a count anyway
-    const now = this.clock.now();
     const userId = tx.ctx.userId ?? null;
     if (!count.charged) {
       // A count of nothing chargeable used: the period goes on, the count must be taken again (it replaces this
@@ -145,25 +160,40 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
       ]);
       return;
     }
-    const { rows: done } = await tx.query<{ id: string; done_at: Date }>(
-      `SELECT id, done_at FROM hk_task
-        WHERE room_id = $1 AND reservation_id = $2 AND type = 'minibar_refill' AND status = 'done'
-          AND done_at > $3
-        ORDER BY done_at DESC LIMIT 1`,
-      [roomId, primaryId, count.created_at],
-    );
-    if (done[0]) {
-      // ARC 16.15 (s): the fill is dated when HK finished; mark and price are the catalogue now (until R3).
-      await writeFill(tx, {
-        primaryId,
-        roomId,
-        at: done[0].done_at,
-        now,
-        userId,
-        items: await catalogueFridge(tx),
-        source: 'refill',
-      });
-      return;
+    // The live task of the period (I2), completed after the count in processing time (BUG-R2-163).
+    const refill = new Map<string, number>();
+    let doneAt: Date | null = null;
+    if (count.refill_task_id) {
+      const { rows } = await tx.query<{
+        status: string;
+        done_at: Date | null;
+        refill_items: Array<{ itemId: string; quantity: number }> | null;
+      }>(`SELECT status, done_at, refill_items FROM hk_task WHERE id = $1`, [count.refill_task_id]);
+      const t = rows[0];
+      const completed = t?.status === 'done' ? await completedAt(tx, count.refill_task_id) : null;
+      if (t && completed && completed.getTime() > count.created_at.getTime()) {
+        for (const r of Array.isArray(t.refill_items) ? t.refill_items : []) {
+          const q = Number(r.quantity);
+          if (q > 0) refill.set(r.itemId, (refill.get(r.itemId) ?? 0) + q);
+        }
+        doneAt = t.done_at;
+      }
+    }
+    if (refill.size > 0) {
+      const items = await refillFillItems(tx, fill?.id ?? null, count.id, refill);
+      if (items.length > 0) {
+        await writeFill(tx, {
+          primaryId,
+          roomId,
+          // filled_at = when HK did it (display only – 16.17 mục 2); the order of periods is created_at.
+          at: doneAt ?? now,
+          now,
+          userId,
+          items,
+          source: 'refill',
+        });
+        return;
+      }
     }
     // Not refilled: the period carries on from that count – mark = what was left, same prices.
     const { items } = await fridgeItems(tx, primaryId, roomId);
@@ -207,28 +237,20 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
     const primaryId = (await primaryOf(tx, task.reservationId)) ?? task.reservationId;
     // ARC 16.16 bổ sung: HK task (locked by setTaskStatus) → fridge; the fill and the latest count are read after.
     await lockFridge(tx, primaryId, task.roomId);
-    const { tz, rollover } = await this.dayOf(tx, at.now);
-    if (!(await stayIsInRoom(tx, primaryId, task.roomId, businessDate(at.now, tz, rollover))))
-      return;
+    // ARC 16.17 I2: only the LIVE task of a period (a live count – a stale one included – points to it) refills;
+    // a task left on a replaced count adds nothing to a mark (BUG-R2-159).
+    const { rows: liveRows } = await tx.query<{ live: boolean }>(
+      `SELECT EXISTS (SELECT 1 FROM minibar_check c
+                       WHERE c.refill_task_id = $1 AND c.mode = 'checkout'
+                         AND (c.replaced_by_check_id IS NULL OR c.replaced_by_check_id = c.id)) AS live`,
+      [task.id],
+    );
+    if (!liveRows[0]?.live) return;
+    const today = await this.today(tx, at.now);
+    if (!(await stayIsInRoom(tx, primaryId, task.roomId, today))) return;
     const userId = tx.ctx.userId ?? null;
     await registerFridge(tx, { primaryId, roomId: task.roomId, now: at.now, userId });
     const fill = await latestFill(tx, primaryId, task.roomId);
-    // The period's own lines (a `carry` keeps its zeros) – the mark when nothing was counted in it.
-    const { rows: period } = fill
-      ? await tx.query<{
-          item_id: string;
-          code: string;
-          name: string;
-          qty: number;
-          unit_price_vnd_snapshot: string | number | null;
-          unit_cost_vnd_snapshot: string | number | null;
-        }>(
-          `SELECT l.item_id, i.code, i.name, l.qty, l.unit_price_vnd_snapshot, l.unit_cost_vnd_snapshot
-             FROM minibar_fill_line l JOIN item i ON i.id = l.item_id
-            WHERE l.fill_id = $1`,
-          [fill.id],
-        )
-      : { rows: [] };
     const { rows: lastRows } = await tx.query<{ id: string; stale: boolean }>(
       `SELECT id, replaced_by_check_id = id AS stale FROM minibar_check
         WHERE reservation_id = $1 AND room_id = $2 AND mode = 'checkout'
@@ -238,74 +260,10 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
       [primaryId, task.roomId, fill?.id ?? null],
     );
     const last = lastRows[0];
-    const left = new Map<string, number>();
-    if (last) {
-      const { rows } = await tx.query<{ item_id: string; remaining_qty: number }>(
-        'SELECT item_id, remaining_qty FROM minibar_check_line WHERE check_id = $1',
-        [last.id],
-      );
-      for (const r of rows) left.set(r.item_id, Number(r.remaining_qty));
-    }
     const refill = new Map<string, number>();
     for (const r of task.refillItems) refill.set(r.itemId, (refill.get(r.itemId) ?? 0) + r.qty);
-    const catalogue = new Map((await catalogueFridge(tx)).map((i) => [i.itemId, i]));
-    const num = (v: string | number | null) => (v === null ? null : Number(v));
-    const kept = new Map<string, FridgeItem>(
-      period.map((r) => [
-        r.item_id,
-        {
-          itemId: r.item_id,
-          code: r.code,
-          name: r.name,
-          mark: Number(r.qty),
-          priceVnd:
-            (num(r.unit_price_vnd_snapshot) ?? 0) > 0 ? num(r.unit_price_vnd_snapshot) : null,
-          costVnd: num(r.unit_cost_vnd_snapshot),
-        },
-      ]),
-    );
-    // An item of the task that is not in the period (not expected – the task comes from a count of the stay):
-    // the catalogue, else the goods row as it is now.
-    const missing = [...refill.keys()].filter((id) => !kept.has(id) && !catalogue.has(id));
-    if (missing.length > 0) {
-      const { rows } = await tx.query<{
-        id: string;
-        code: string;
-        name: string;
-        sale_price_vnd: string | number | null;
-        cost_price_vnd: string | number | null;
-      }>(
-        `SELECT id, code, name, sale_price_vnd, cost_price_vnd FROM item WHERE id = ANY($1::uuid[])`,
-        [missing],
-      );
-      for (const r of rows) {
-        kept.set(r.id, {
-          itemId: r.id,
-          code: r.code,
-          name: r.name,
-          mark: 0,
-          priceVnd: (num(r.sale_price_vnd) ?? 0) > 0 ? num(r.sale_price_vnd) : null,
-          costVnd: num(r.cost_price_vnd),
-        });
-      }
-    }
-    const items: FridgeItem[] = [];
-    for (const id of new Set([...kept.keys(), ...refill.keys()])) {
-      const base = kept.get(id) ?? catalogue.get(id);
-      if (!base) continue;
-      const before = last ? (left.get(id) ?? kept.get(id)?.mark ?? 0) : (kept.get(id)?.mark ?? 0);
-      const mark = before + (refill.get(id) ?? 0);
-      if (mark <= 0) continue;
-      const cat = catalogue.get(id);
-      items.push({
-        ...base,
-        mark,
-        priceVnd: cat ? cat.priceVnd : base.priceVnd,
-        costVnd: cat ? cat.costVnd : base.costVnd,
-      });
-    }
+    const items = await refillFillItems(tx, fill?.id ?? null, last?.id ?? null, refill);
     if (items.length === 0) return;
-    items.sort((a, b) => a.code.localeCompare(b.code));
     await writeFill(tx, {
       primaryId,
       roomId: task.roomId,
@@ -369,16 +327,33 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
     const primaryId = (await primaryOf(tx, reservationId)) ?? reservationId;
     // ARC 16.16 bổ sung: folio (held by B18 / B14 / record already) → fridge.
     await lockStayFolio(tx, primaryId);
-    await lockFridge(tx, primaryId, roomId);
+    const lock = await lockFridge(tx, primaryId, roomId);
+    const now = this.clock.now();
     // R1/R9: the fridge of the room left (B14) stays a fridge of the stay (count it later with `roomId`).
-    await registerFridge(tx, {
-      primaryId,
-      roomId,
-      now: this.clock.now(),
-      userId: tx.ctx.userId ?? null,
+    await registerFridge(tx, { primaryId, roomId, now, userId: tx.ctx.userId ?? null });
+    // ARC 16.17 I3: the fridge is closed for the stay – every period's live count with use has its live task.
+    const before = new Set(await this.openRefillTaskIds(tx, lock));
+    await reconcileRefillTasks(tx, lock, {
+      create: true,
+      now,
+      today: await this.today(tx, now),
+      events: this.events,
     });
-    const ids = await this.createRefillTasks(tx, primaryId, roomId);
-    return ids[ids.length - 1] ?? null;
+    // The port's contract (BE-A, `createdTaskIds` of B18): the task created by THIS call – a retried B18 or a
+    // fridge whose task already exists gives null.
+    const created = (await this.openRefillTaskIds(tx, lock)).filter((id) => !before.has(id));
+    return created[created.length - 1] ?? null;
+  }
+
+  private async openRefillTaskIds(tx: Tx, lock: FridgeLock): Promise<string[]> {
+    const { rows } = await tx.query<{ id: string }>(
+      `SELECT id FROM hk_task
+        WHERE reservation_id = $1 AND room_id = $2 AND type = 'minibar_refill'
+          AND status IN ('open', 'in_progress')
+        ORDER BY created_at, id`,
+      [lock.primaryId, lock.roomId],
+    );
+    return rows.map((r) => r.id);
   }
 
   private async dayOf(tx: Tx, now: Date): Promise<{ tz: string; rollover: string }> {
@@ -391,72 +366,8 @@ export class MinibarCheckoutPort implements FrontdeskMinibarPort, MinibarRefillD
     return { tz, rollover };
   }
 
-  /**
-   * DOM BR-703-02 note 4 (ARC R9 invariant): one `minibar_refill` task per live count of the fridge that used
-   * something (every period – a count of an earlier period included), oldest first; a count already linked is
-   * skipped (a retried B18 / B13 never doubles it). A stale count (`replaced_by_check_id = id`) is not live: the
-   * count replacing it carries the use. Returns the ids created.
-   */
-  private async createRefillTasks(tx: Tx, primaryId: string, roomId: string): Promise<string[]> {
-    const { rows: counts } = await tx.query<{ id: string; used: number }>(
-      `SELECT c.id, COALESCE(SUM(l.used_qty), 0)::int AS used
-         FROM minibar_check c JOIN minibar_check_line l ON l.check_id = c.id
-        WHERE c.reservation_id = $1 AND c.room_id = $2 AND c.mode = 'checkout'
-          AND c.replaced_by_check_id IS NULL AND c.refill_task_id IS NULL
-        GROUP BY c.id
-       HAVING COALESCE(SUM(l.used_qty), 0) > 0
-        ORDER BY max(c.created_at), c.id`,
-      [primaryId, roomId],
-    );
-    if (counts.length === 0) return [];
-    const now = this.clock.now();
+  private async today(tx: Tx, now: Date): Promise<LocalDate> {
     const { tz, rollover } = await this.dayOf(tx, now);
-    const out: string[] = [];
-    for (const check of counts) {
-      const { rows: items } = await tx.query<{ item_id: string; used_qty: number }>(
-        `SELECT item_id, used_qty FROM minibar_check_line WHERE check_id = $1 AND used_qty > 0 ORDER BY item_id`,
-        [check.id],
-      );
-      const id = uuidv7();
-      const { rows: created } = await tx.query<{ id: string }>(
-        `INSERT INTO hk_task (id, organization_id, property_id, room_id, reservation_id, type, quantity, status,
-           due_date, priority_rank, source, refill_items, created_at, created_by, updated_at)
-         VALUES ($1, $2, $3, $4, $5, 'minibar_refill', $6, 'open', $7, $8, 'system', $11, $9, $10, $9)
-         ON CONFLICT DO NOTHING RETURNING id`,
-        [
-          id,
-          tx.ctx.organizationId,
-          tx.ctx.propertyId,
-          roomId,
-          primaryId,
-          check.used,
-          businessDate(now, tz, rollover),
-          REFILL_RANK,
-          now,
-          tx.ctx.userId ?? null,
-          JSON.stringify(items.map((i) => ({ itemId: i.item_id, quantity: i.used_qty }))),
-        ],
-      );
-      const taskId = created[0]?.id ?? null;
-      if (!taskId) continue;
-      await tx.query('UPDATE minibar_check SET refill_task_id = $2 WHERE id = $1', [
-        check.id,
-        taskId,
-      ]);
-      await tx.query(
-        `INSERT INTO outbox_message (id, organization_id, property_id, topic, payload, dedupe_key)
-         VALUES ($1, $2, $3, 'hk_task.changed', $4, $5)`,
-        [
-          uuidv7(),
-          tx.ctx.organizationId,
-          tx.ctx.propertyId,
-          JSON.stringify({ taskId, reservationId: primaryId }),
-          `hk_task.changed:${taskId}:${uuidv7()}`,
-        ],
-      );
-      await publishEvent(tx, this.events, 'hk_task.changed', taskId);
-      out.push(taskId);
-    }
-    return out;
+    return businessDate(now, tz, rollover);
   }
 }

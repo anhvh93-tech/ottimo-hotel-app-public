@@ -8,7 +8,7 @@
 
 **Tổng: 0 Blocker · 6 Major · 4 Minor (10 thẻ; thêm 1 gợi ý nằm trong BE-61)**
 
-**Cập nhật 18/10 (vòng sửa 4):** BE-59 … BE-64 **Verified**, điều kiện server của D5 đã đủ (mục 11). **Cập nhật sau kiểm lại lần 5:** BE-62 và BE-64 mở lại một phần vì BUG-R2-167 và BUG-R2-165 (SỬA, vòng 5); BUG-R2-166 chấp nhận (mục 12). Cả ba là P3, không chặn cổng QC. Còn mở: ARC-25 (Major, chuyển sang US-164 R3 + ESC-024), ARC-24, ARC-26, FE-08 (Minor).
+**Cập nhật 18/10 (vòng sửa 4):** BE-59 … BE-64 **Verified**, điều kiện server của D5 đã đủ (mục 11). **Cập nhật sau kiểm lại lần 5:** BE-62 và BE-64 mở lại một phần vì BUG-R2-167 và BUG-R2-165 (SỬA, vòng 5); BUG-R2-166 chấp nhận (mục 12). Cả ba là P3, không chặn cổng QC. **Vòng 5 (mục 13): BE-62, BE-64 Verified lại; BE-59 … BE-64 đều đạt.** Còn mở: ARC-25 (Major, chuyển sang US-164 R3 + ESC-024), ARC-24, ARC-26, FE-08 (Minor).
 
 ## 1. Kết luận: ĐỒNG Ý CÓ ĐIỀU KIỆN
 
@@ -105,7 +105,7 @@ Kết luận phần so sánh: D5 **rộng hơn hẳn** BR-436 về bề mặt t�
   - Dòng `approval_request` của `requestFoc`: người quyết = người xác nhận, vai lúc quyết của người xác nhận, `auth_method`, snapshot có `confirmedOnSessionOf: <người gọi>`.
   - Khi người xác nhận ≠ người gọi: gửi `EventsService.notify` tới **chính người xác nhận** (dùng loại có sẵn `account_security_change`, `refType=reservation`, `refCode` = mã đơn, không có số tiền hay dữ liệu khách), để họ biết mỗi lần tài khoản được dùng tại quầy. Khi người xác nhận bị khóa do thử sai: `security_alert` tới người đó và OWN.
   - Test: 200 → 1 audit `money` đủ trường + 1 thông báo cho người xác nhận. Tự xác nhận → không có thông báo.
-- Trạng thái: Verified 18/10 (mục 11, BUG-R2-153/154) – **mở lại một phần** sau kiểm lại lần 5: BUG-R2-167 (`reauth_succeeded` + thông báo khi B18 lỗi sau mật khẩu đúng, mục 12.3)
+- Trạng thái: **Verified 18/10 (vòng 5, mục 13)** – BUG-R2-153/154 (mục 11) và BUG-R2-167 (`reauth_succeeded` + thông báo, mục 12.3) đều đạt
 
 ### FB-R2-SEC-BE-63
 - Mức độ: Major
@@ -131,7 +131,7 @@ Kết luận phần so sánh: D5 **rộng hơn hẳn** BR-436 về bề mặt t�
   3. Kiểm người xác nhận (BE-59/60).
   4. `uow.run` nhận key, kiểm lại toàn bộ rồi ghi.
   - Test: gửi `lateFeeInsteadOfNight` trên đơn còn bán được đêm, kèm mật khẩu sai → 422 `NOT_ALLOWED`, bộ đếm không tăng. Thêm các biến thể của BUG-R2-149 (thiếu `checkoutTime`, `checkoutAt` hỏng, thiếu `amountVnd`, `requestFoc` sai khuôn, chưa tới ngày đi): mật khẩu sai và mật khẩu đúng phải trả **cùng** mã lỗi, bộ đếm 0/0.
-- Trạng thái: Verified 18/10 (mục 11, BUG-R2-149/150) – **mở lại một phần** sau kiểm lại lần 5: BUG-R2-165 (khuôn mọi trường B18 + headroom `requestFoc`, mục 12.1); BUG-R2-166 chấp nhận (mục 12.2)
+- Trạng thái: **Verified 18/10 (vòng 5, mục 13)** – BUG-R2-149/150 (mục 11), BUG-R2-165 (mục 12.1) đạt; BUG-R2-166 chấp nhận, có ca đồng thời (mục 12.2); giả định r5-2 SEC chấp nhận (mục 13)
 
 ### FB-R2-SEC-ARC-24
 - Mức độ: Minor
@@ -402,3 +402,52 @@ R3, gợi ý cho SR-LOG-06: cảnh báo OWN khi có `reauth_succeeded` mà khôn
 Dòng "ĐK 2" ở 11.3 **thay bằng**: "**Đạt một phần, SEC chấp nhận (mục 12.2).** Chỉ phủ dòng `in_progress` đã commit (có test dòng chèn tay). Key đang chạy thật trong giao dịch chưa commit thì bước 0 không thấy (BUG-R2-166). Đánh giá 'Đạt theo mã' trước đây sai trong trường hợp đồng thời thật."
 
 Sau vòng 5, SEC sẽ kiểm lại BE-64 (165), BE-62 (167) và ca đồng thời (166).
+
+## 13. Kiểm lại vòng sửa 5 – BUG-R2-165 / 166 / 167 (SEC, 18/10, HEAD `8819c2d` + cây chung chưa commit)
+
+**Kết quả: ĐẠT.** BE-62 và BE-64 **Verified** lại. Sáu thẻ server BE-59 … BE-64 đều đạt. Giả định r5-2 của BE-A: **SEC chấp nhận**.
+
+### 13.1 Test SEC tự chạy
+
+DB riêng mới tạo `ottimo_test_sec_r5`, migrate từ đầu, Node 22.23.3. Lệnh: `vitest run s438r5-money s438r4-money s438r3-money redact` → **4 tệp, 38/38 xanh**. DB cũ `ottimo_test_sec_r4fix` đã xóa.
+
+### 13.2 Theo mã
+
+| Mã / thẻ | Kết quả | Bằng chứng |
+|---|---|---|
+| **BUG-R2-165 / BE-64** | Đạt | `lateFeePrecheck` gọi đúng `readInput` (mọi trường B18, gồm `finalPayment` qua `checkPaymentShape` dùng chung với `recordInTx`) và đúng `decide` (ngày đi 409 → số tiền 409 → dữ liệu trường 422 → headroom `lateFocHeadroom` 422 + `max`) như B18. Thêm `assertVersion` (412) trước mật khẩu. Không còn bộ kiểm thứ hai. Ca r5 "165": `bitcoin`, −1, `"x"`, `keep`, `"yes"`, FOC 792.001, `If-Match` cũ → mật khẩu sai và đúng cùng mã, cùng `errors`, bộ đếm 0/0, **không thêm audit security** (chứng tỏ mật khẩu không được kiểm), 0 thông báo. Headroom khi đã có FOC 100.000 được duyệt: 692.001 → 422 `max` 692.000 trước mật khẩu; 692.000 → 200 |
+| **BUG-R2-167 / BE-62** | Đạt | Xem 13.3 cho phần mã. Ca r5 "167": mật khẩu đúng rồi bị từ chối (409 `BALANCE_DUE`, 403 `debt` do FD, 422 `AMOUNT_EXCEEDS_BALANCE`, 412 do phiên bản đổi sau bước mật khẩu) → mỗi ca +1 `reauth_succeeded` (`confirmingFor` = FD; lần đầu `failedCountCleared = 2`) và +1 thông báo. MGR tự xác nhận: 0. B18 thành công: đúng 1 thông báo + 1 `reauth_succeeded` + 1 audit `money`, cùng `requestId` |
+| **BUG-R2-166** (chấp nhận) | Đạt (ca test) | Ca r5 "166": B18 đầu giữ key trong giao dịch. Gửi lại với mật khẩu sai → 401, đếm +1/+1 (đúng hành vi đã chấp nhận). Mật khẩu đúng → 409 `IDEMPOTENCY_IN_PROGRESS` hoặc 200 replay, 0/0. B18 đầu → 200, folio 2.376.000, đúng 1 dòng `late_fee_as_night`, 1 audit `money` |
+
+### 13.3 Đọc `password-reauth.ts` (giao dịch riêng)
+
+- **Không lộ gì.**
+  - `reauth_succeeded` chỉ có `authMethod`, `confirmingFor` (id người gọi), `failedCountCleared` (số, chỉ khi > 0), `requestId`. Không có mật khẩu, không có tên đăng nhập. Allowlist `app_user` thêm đúng `failedCountCleared`.
+  - Thông báo (`onSucceeded` ở controller) chỉ tới **người xác nhận** (`userIds: [approverId]`), `refType = reservation`, `refId`/`refCode` = đơn, không có số tiền.
+  - Người gọi không nhận gì mới.
+- **Giữ khi B18 lỗi.** Audit, thông báo và việc xóa bộ đếm nằm chung giao dịch `withContext` riêng của `verifyApprover`, commit trước `uow.run`.
+- **Fail-closed.** Nếu `onSucceeded` lỗi, cả giao dịch (kể cả việc xóa bộ đếm) rollback và B18 không chạy. Không có B18 nào thành công mà thiếu dấu vết.
+- **Không ghi trùng.** `checkout.service.ts` đã bỏ thông báo ở nhánh thành công (còn đúng 1 chỗ gửi: `frontdesk.controller.ts` `onSucceeded`). Gửi lại qua bước 0 không gọi `verifyApprover` nên không thêm gì.
+- **Chấp nhận:** gửi lại **đồng thời** với mật khẩu đúng (BUG-R2-166) tạo thêm 1 `reauth_succeeded` + 1 thông báo. Đó là một lần dùng mật khẩu thật, nên đây là dấu vết đúng, không phải trùng.
+- **Ghi nhận, không phải lỗi.** `failedCountCleared` lấy từ `approval_pin_failed_count`. Ngay sau một lần khóa, bộ đếm đã về 0 (lần khóa nằm ở `approval_pin_locked_until` và có audit `reauth_locked` riêng), nên một lần đúng sau khi hết khóa sẽ không có `failedCountCleared`. Dấu vết của lần khóa vẫn đủ.
+- **Tự xác nhận:** không audit, không thông báo (người gọi = người xác nhận), đúng 12.3 (4).
+
+### 13.4 Giả định r5-2 – SEC CHẤP NHẬN
+
+Các từ chối sau vẫn đứng sau bước mật khẩu:
+- 403 theo vai **người gọi** (`debt`, `retain_with_guest_consent` do FD/FDL gửi);
+- 422 `AMOUNT_EXCEEDS_BALANCE` (trần `finalPayment` sau phụ thu và FOC);
+- 403 hạn mức người xác nhận và 409 `MINIBAR_NOT_CHECKED` / `PENDING_APPROVALS` / `BALANCE_DUE`, như 12.1.
+
+Lý do chấp nhận:
+- Precheck vẫn đòi đúng ca thật (đúng ngày đi, đêm không bán được, đúng số tiền, đúng phiên bản), nên không mở đường dò mới.
+- Từ khi sửa 167, mật khẩu đúng mà bị từ chối luôn để lại `reauth_succeeded` + thông báo cho quản lý. Mật khẩu sai thì bị đếm và audit. Không còn "kiểm im lặng".
+- `AMOUNT_EXCEEDS_BALANCE` cần tính số còn phải thu sau FOC. Đưa lên trước sẽ nhân đôi phép tính tiền nặng nhất, dễ lệch giữa hai nơi.
+
+Gợi ý R3, không chặn: 403 theo vai người gọi chỉ phụ thuộc principal và trường body, nên có thể đưa lên `readInput`/precheck với chi phí gần như 0.
+
+### 13.5 Còn mở
+
+Ở thẻ của SEC: ARC-24, ARC-26, FE-08 (Minor, trước GL); ARC-25 (US-164 R3 + ESC-024). Không còn việc server nào của SEC trên đường D5 / SR-AUTH-11.
+
+DB `ottimo_test_sec_r5` còn để lại để kiểm lại nếu cần.

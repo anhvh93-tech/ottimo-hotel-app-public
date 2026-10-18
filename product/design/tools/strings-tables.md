@@ -3175,6 +3175,12 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `co.minibar_period_changed_title` | Tủ vừa được bổ sung | The minibar was just restocked | ⟨chừa chỗ⟩ | H16 bước 1: 409 MINIBAR_PERIOD_CHANGED – không ghi gì, đã tải lại mốc tủ |
 | `co.minibar_period_changed_body` | Số vừa nhập theo lượt nạp trước nên chưa được lưu. Vui lòng đếm lại tủ. | The figures entered were for the previous stock and were not saved. Please count again. | ⟨chừa chỗ⟩ | Giữ lễ tân ở bước đếm; số điền sẵn theo kỳ mới |
 
+#### R2 Sprint 4 – FE-A đợt 16: khoảng nhập giá đêm thêm B18 (ARC 16.18, vòng sửa 5) (chờ UXD duyệt)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `checkout.extra_night_range` | Trong khoảng {min} – {max}. | Within {min} – {max}. | ⟨chừa chỗ⟩ | H16 bước 2: CheckoutSummary.extraNightFloorVnd–extraNightCeilingVnd; nối sau checkout.extra_night_rate_help_tier |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |

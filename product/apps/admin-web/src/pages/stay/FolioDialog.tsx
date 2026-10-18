@@ -291,6 +291,9 @@ function AdjustLineDialog({
   const basePrice = night && calendarRateVnd !== undefined ? calendarRateVnd : l.unitPriceVnd;
   const stepped = night && calendarRateVnd !== undefined && calendarRateVnd !== l.amountVnd;
   const [price, setPrice] = useState(vnd(basePrice));
+  // ARC 16.18 (vòng sửa 5): a night's new rate is the desk's typed rate (manual) whenever the box was changed –
+  // even back to the same figure; a flag of the box, no number test.
+  const [priceEdited, setPriceEdited] = useState(false);
   const [voidLine, setVoidLine] = useState(false);
   const [reason, setReason] = useState('');
   const [touched, setTouched] = useState(false);
@@ -299,7 +302,9 @@ function AdjustLineDialog({
   const qtyOk = night || voidLine || (Number.isFinite(q) && q >= 0);
   const priceOk = voidLine || (p !== null && p >= 0);
   const newAmount = voidLine ? 0 : Math.round(((night ? 1 : q) * (p ?? 0)) / 1000) * 1000;
-  const changed = voidLine || (p !== null && p !== basePrice) || (!night && q !== l.quantity);
+  const changed = night
+    ? priceEdited && p !== null
+    : voidLine || (p !== null && p !== basePrice) || q !== l.quantity;
   const reasonError =
     touched && reason.trim().length < 3 ? t('field_error.reason_required') : act.fields.reason;
   // N-1 (BR-702 v0.3.8, NÊN): a minibar waiver is keyed on the item (BR-434-15) – voiding or cutting the line below
@@ -338,7 +343,13 @@ function AdjustLineDialog({
         l.id,
         {
           newQuantity: night || voidLine || q === l.quantity ? undefined : q,
-          newUnitPriceVnd: voidLine || p === l.unitPriceVnd ? undefined : (p ?? undefined),
+          newUnitPriceVnd: night
+            ? priceEdited
+              ? (p ?? undefined)
+              : undefined
+            : voidLine || p === l.unitPriceVnd
+              ? undefined
+              : (p ?? undefined),
           voidLine: voidLine || undefined,
           reason: reason.trim(),
         },
@@ -425,7 +436,10 @@ function AdjustLineDialog({
             : undefined
         }
         value={price}
-        onChange={setPrice}
+        onChange={(v) => {
+          setPrice(v);
+          setPriceEdited(true);
+        }}
         error={!priceOk ? t('field_error.amount_not_positive') : act.fields.newUnitPriceVnd}
       />
       {!night ? (

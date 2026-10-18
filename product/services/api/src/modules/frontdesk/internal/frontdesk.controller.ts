@@ -131,8 +131,12 @@ export class FrontdeskController {
     const mgr = p.roles.includes('owner') || p.roles.includes('manager');
     if (!username && !mgr) errors.push({ field: `${field}.approverUsername`, code: 'REQUIRED' });
     if (errors.length > 0) throw problem('VALIDATION_FAILED', { errors });
-    // SEC BE-64: the read-only business checks (night unsellable, amount shown) before any password is tried.
-    await this.read(req, (tx, ctx) => this.checkout.lateFeePrecheck(tx, ctx, id, body));
+    // SEC BE-64 (BUG-R2-149/165): every body field, If-Match and the read-only business checks of B18 before any
+    // password is tried.
+    const version = expectedVersion(req);
+    const { code } = await this.read(req, (tx, ctx) =>
+      this.checkout.lateFeePrecheck(tx, ctx, id, version, body),
+    );
     return this.reauth.verifyApprover(
       tenantOf(p),
       { username, password: secret as string },
@@ -153,6 +157,21 @@ export class FrontdeskController {
               roles: ['owner'],
               refType: 'user',
               refId: userIds[0] as string,
+            },
+            this.clock.now(),
+          );
+        },
+        // BUG-R2-167 (SEC 12.3, BE-62): the approver learns their password was used on this booking – once per
+        // use, also when B18 is refused afterwards (no amount in it).
+        onSucceeded: async (tx, approverId) => {
+          await this.s.events.notify(
+            tx,
+            {
+              kind: 'account_security_change',
+              userIds: [approverId],
+              refType: 'reservation',
+              refId: id,
+              refCode: code,
             },
             this.clock.now(),
           );

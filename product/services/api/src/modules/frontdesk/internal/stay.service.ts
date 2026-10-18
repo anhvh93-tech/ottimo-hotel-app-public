@@ -118,8 +118,14 @@ export class StayService {
       }
       const d = await this.s.addedNightRate(tx, ctx, nc as AddedNightContext, date);
       if (i === 0) keepRate = d.keepVnd;
-      // BUG-R2-134: a default that is not this room's calendar (agreed price, OTTIMO min) is written as typed.
-      defaults.push({ date, calendarVnd: d.rateVnd, amountVnd: d.rateVnd, manual: d.typed });
+      // ARC 16.18: a night written at its suggested price is `default` (never a reference night – AN-22).
+      defaults.push({
+        date,
+        calendarVnd: d.rateVnd,
+        amountVnd: d.rateVnd,
+        manual: false,
+        source: 'default',
+      });
       nights.push({
         date,
         available,
@@ -180,6 +186,7 @@ export class StayService {
       ids: eff.ids,
       kept,
       defaults,
+      anchorRoomId: nc?.anchorRoomId ?? null,
       maxNights,
       limit,
       dto: {
@@ -245,6 +252,7 @@ export class StayService {
     }
     // Rates: default (BR-421) or typed by the desk within BR-105 (one row per added night).
     const byDate = new Map<string, number>();
+    const untouched = new Set<string>();
     for (const r of rates) {
       const date = r.date;
       const amount = r.amountVnd;
@@ -253,7 +261,8 @@ export class StayService {
         !dates.includes(date) ||
         byDate.has(date) ||
         typeof amount !== 'number' ||
-        !Number.isSafeInteger(amount)
+        !Number.isSafeInteger(amount) ||
+        (r.edited !== undefined && r.edited !== null && typeof r.edited !== 'boolean')
       ) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'nightlyRates', code: 'VALIDATION_FAILED' }],
@@ -265,6 +274,8 @@ export class StayService {
         });
       }
       byDate.set(date, amount);
+      // ARC 16.18 bổ sung: `edited = false` = the suggested price sent back untouched (`default`, amount as sent).
+      if (r.edited === false) untouched.add(date);
     }
     const added: NightPrice[] = [];
     if (!row.external_contract) {
@@ -282,8 +293,7 @@ export class StayService {
         );
         const floor = Number(bounds?.floorVnd ?? 0);
         const ceiling = Number(bounds?.ceilingVnd ?? Number.MAX_SAFE_INTEGER);
-        // BUG-R2-134 (BR-105, BR-107 v0.3.8): the default is checked like a typed rate, and typing the default
-        // is leaving it (same night, same source).
+        // BUG-R2-134 (BR-105, BR-107 v0.3.8): the default is checked like a typed rate.
         const rate = typed ?? d.calendarVnd;
         if (rate < floor || rate > ceiling) {
           throw problem('RATE_OUT_OF_RANGE', {
@@ -291,8 +301,26 @@ export class StayService {
             extras: { date, min: floor, max: ceiling },
           });
         }
-        if (typed !== undefined && typed !== d.calendarVnd) {
-          added.push({ date, calendarVnd: typed, amountVnd: typed, manual: true });
+        // ARC 16.18 (BR-417 appendix 5A step 3 (i)): a night with an element in `nightlyRates` is typed (`manual`)
+        // even at the suggested or calendar number, bound to the room bought now (`edited = false`: `default`);
+        // none = `default`.
+        if (typed !== undefined && untouched.has(date)) {
+          added.push({
+            date,
+            calendarVnd: typed,
+            amountVnd: typed,
+            manual: false,
+            source: 'default',
+          });
+        } else if (typed !== undefined) {
+          added.push({
+            date,
+            calendarVnd: typed,
+            amountVnd: typed,
+            manual: true,
+            source: 'manual',
+            anchorRoomId: o.anchorRoomId,
+          });
         } else {
           added.push({ ...d });
         }
@@ -310,6 +338,8 @@ export class StayService {
           date: x.date,
           amountVnd: x.amountVnd,
           calendarVnd: x.calendarVnd,
+          ...(x.source ? { source: x.source } : {}),
+          anchorRoomId: x.anchorRoomId ?? null,
         })),
         rateSource: 'extension',
         transition: 'B13',

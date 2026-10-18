@@ -130,7 +130,12 @@ describe('H16 – số cần thu là số của máy chủ (S4-47, ARC 0.3.7 b�
     const rate = await screen.findByLabelText(
       new RegExp(`^${tv('checkout.extra_night_rate_label')}`),
     );
-    expect(rate).toHaveAccessibleDescription(tv('checkout.extra_night_rate_help_tier'));
+    // ARC 16.18: the help also gives the Desk range (`extraNightFloorVnd`–`extraNightCeilingVnd`).
+    expect(rate).toHaveAccessibleDescription(
+      new RegExp(
+        `^${tv('checkout.extra_night_rate_help_tier').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
+      ),
+    );
     const balanceRow = () =>
       screen.getByRole('row', { name: new RegExp(`^${tv('checkout.summary.balance')}`) });
     await waitFor(() => expect(num(balanceRow().textContent ?? '')).toBeGreaterThan(0));

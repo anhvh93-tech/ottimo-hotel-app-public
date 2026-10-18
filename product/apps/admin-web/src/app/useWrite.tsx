@@ -32,12 +32,24 @@ export interface RetryState {
  * rejects with the final error; while the countdown runs the button stays busy with the countdown
  * label. Leaving the screen / closing the dialog cancels the timer.
  */
-export function useWrite() {
+/**
+ * Per-action override of the automatic resend (ARC 16.17 bổ sung (af): B13, B14 and B18 resend a
+ * CONCURRENT_UPDATE once, after `Retry-After` or ~1 s without the header).
+ */
+export interface WriteOptions {
+  retries?: Partial<Record<RetryState['code'], number>>;
+  /** Wait when the answer has no `Retry-After` (default: `retryDelaySeconds`, 2 s). */
+  defaultDelaySeconds?: number;
+}
+
+export function useWrite(opts: WriteOptions = {}) {
   const { t } = useI18n();
   const key = useRef(newIdempotencyKey());
   const [busy, setBusy] = useState(false);
   const [retry, setRetry] = useState<RetryState | null>(null);
   const wake = useRef<((go: boolean) => void) | null>(null);
+  const optsRef = useRef(opts);
+  optsRef.current = opts;
   const alive = useRef(true);
 
   useEffect(() => {
@@ -83,13 +95,18 @@ export function useWrite() {
             throw e;
           }
           const code = e.code as RetryState['code'];
-          if (attempts >= (AUTO_RETRIES[code] ?? 0)) {
+          if (attempts >= (optsRef.current.retries?.[code] ?? AUTO_RETRIES[code] ?? 0)) {
             if (alive.current)
               setRetry({ code, phase: 'gave_up', left: 0, requestId: e.requestId });
             throw e;
           }
           attempts += 1;
-          const go = await sleep(retryDelaySeconds(e), code);
+          const go = await sleep(
+            e.retryAfterSeconds === undefined && optsRef.current.defaultDelaySeconds !== undefined
+              ? optsRef.current.defaultDelaySeconds
+              : retryDelaySeconds(e),
+            code,
+          );
           if (!go) {
             if (alive.current)
               setRetry({ code, phase: 'gave_up', left: 0, requestId: e.requestId });

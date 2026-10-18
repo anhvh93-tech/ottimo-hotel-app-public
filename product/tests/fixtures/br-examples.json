@@ -6,7 +6,7 @@
     "version": "0.3.8",
     "date": "2026-10-17"
   },
-  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9)",
+  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101",
   "updated": "2026-10-18",
   "conventions": {
     "money": "Số nguyên VND, khóa kết thúc bằng 'Vnd' (ADR-002, BR-004)",
@@ -5734,11 +5734,11 @@
           "stay401": 740000
         },
         "wrongVnd": {
-          "downTo101": 740000
+          "downTo101": 690000
         },
         "deskRangeSpansBothRooms": true
       },
-      "note": "BE-A đã có test cho 101 → 401 (667.000) và ở yên 401 (sàn 740.000) – không gắn pendingFix. DOM chốt 18/10 (`business-rules.md` BR-417, BR-309 – giả định BE-A r4-1…r4-3, `s4-be-a.md` 15.3). · Sửa 18/10 (recheck5 R5RATE-04 – không phải lỗi): 302 → 101 → 401, đêm thêm ở 401 = 1.000.000 (giá khách mua trong sàn–trần 302 là 1.000.000, min với lịch 401 1.042.000), không phải 667.000."
+      "note": "BE-A đã có test cho 101 → 401 (667.000) và ở yên 401 (sàn 740.000) – không gắn pendingFix. DOM chốt 18/10 (`business-rules.md` BR-417, BR-309 – giả định BE-A r4-1…r4-3, `s4-be-a.md` 15.3). · Sửa 18/10 (recheck5 R5RATE-04 – không phải lỗi): 302 → 101 → 401, đêm thêm ở 401 = 1.000.000 (giá khách mua trong sàn–trần 302 là 1.000.000, min với lịch 401 1.042.000), không phải 667.000. · Sửa 18/10 (DOM đính chính): `wrongVnd.downTo101` = 690.000 (kẹp lên sàn 302 – cách sai), không phải 740.000. Xem phụ lục 5A AN-38."
     },
     {
       "id": "BR-417-15",
@@ -5780,6 +5780,569 @@
         }
       },
       "note": "Đi cùng BR-417-14 (r4-1). DOM chốt 18/10 (`business-rules.md` BR-417, BR-309 – giả định BE-A r4-1…r4-3, `s4-be-a.md` 15.3)."
+    },
+    {
+      "id": "BR-417-16",
+      "br": "BR-417",
+      "case": "(v0.3.8, phụ lục 5A) Bảng quyết định giá đêm thêm – các dòng AN không thuộc lỗi đang mở (A, B, C, D, E)",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "calendarWeekdayVnd": {
+          "101": 667000,
+          "202": 792000,
+          "203": 792000,
+          "302": 917000,
+          "401": 1042000
+        },
+        "calendarFriSatVnd": {
+          "101": 767000,
+          "202": 911000,
+          "203": 911000,
+          "302": 1055000,
+          "401": 1198000
+        },
+        "calendarSpecialDayVnd": {
+          "101": 867000,
+          "202": 1030000,
+          "203": 1030000,
+          "302": 1192000,
+          "401": 1355000
+        },
+        "floorVnd": {
+          "101": 530000,
+          "2xx": 530000,
+          "302": 690000,
+          "401": 740000
+        },
+        "ceilingVnd": {
+          "101": 1900000,
+          "2xx": 1900000,
+          "302": 2450000,
+          "401": 2630000
+        },
+        "specialDay": "2027-04-16"
+      },
+      "expected": {
+        "cases": [
+          {
+            "an": "AN-01",
+            "condition": "Không đổi căn · lịch giá 202 · gia hạn Chủ nhật sau đêm thứ Bảy",
+            "ckmToCdt": "202 → 202",
+            "referenceOrGkm": "– / lịch 202 CN 792.000",
+            "priceVnd": 792000,
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "BR-421 (v0.3.4)"
+          },
+          {
+            "an": "AN-02",
+            "condition": "Không đổi căn · thỏa thuận 201 700.000 · gia hạn thứ Năm 04/03/2027",
+            "ckmToCdt": "201 → 201",
+            "referenceOrGkm": "đêm cuối 700.000",
+            "priceVnd": 700000,
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "BR-417-07 noMove"
+          },
+          {
+            "an": "AN-03",
+            "condition": "Khách xin (B14) 201 → 401 ngày 02/03/2027 · thỏa thuận 700.000 · thứ Năm",
+            "ckmToCdt": "401 → 401",
+            "referenceOrGkm": "đêm 700.000 gắn 201 → không có / lịch 401",
+            "priceVnd": 1042000,
+            "deskRangeVnd": [740000, 2630000],
+            "settledCase": "BR-417-07 guestRequest",
+            "currentBookingRateIsNull": true
+          },
+          {
+            "an": "AN-04",
+            "condition": "Khách xin hai lần 202 → 302 → 401 · lịch giá · thứ Tư",
+            "ckmToCdt": "401 → 401",
+            "referenceOrGkm": "– / lịch 401",
+            "priceVnd": 1042000,
+            "deskRangeVnd": [740000, 2630000],
+            "settledCase": "mới"
+          },
+          {
+            "an": "AN-05",
+            "condition": "OTTIMO một lần (sự cố) 201 → 401 · thỏa thuận 700.000 · thứ Năm",
+            "ckmToCdt": "201 → 401",
+            "referenceOrGkm": "700.000",
+            "priceVnd": 700000,
+            "deskRangeVnd": [530000, 2630000],
+            "settledCase": "BR-417-07 propertyFault"
+          },
+          {
+            "an": "AN-06",
+            "condition": "OTTIMO nhiều lần 302 → 101 → 401 · thỏa thuận 1.000.000 · thứ Năm",
+            "ckmToCdt": "302 → 401",
+            "referenceOrGkm": "1.000.000 (gắn 302)",
+            "priceVnd": 1000000,
+            "deskRangeVnd": [690000, 2630000],
+            "settledCase": "BR-417-14 then401 (sửa 667.000 → 1.000.000, R5RATE-04)"
+          },
+          {
+            "an": "AN-07",
+            "condition": "OTTIMO 202 → 401, sau đó khách xin 302 · thỏa thuận 202 650.000 · thứ Năm",
+            "ckmToCdt": "302 → 302",
+            "referenceOrGkm": "đêm 650.000 gắn 202 → không có / lịch 302",
+            "priceVnd": 917000,
+            "deskRangeVnd": [690000, 2450000],
+            "settledCase": "mới"
+          },
+          {
+            "an": "AN-08",
+            "condition": "Khách xin 202 → 302, sau đó OTTIMO 302 → 401 · lịch giá · thứ Năm / thứ Sáu",
+            "ckmToCdt": "302 → 401",
+            "referenceOrGkm": "– / lịch 302",
+            "priceVnd": 917000,
+            "deskRangeVnd": [690000, 2630000],
+            "settledCase": "mới",
+            "fridayPriceVnd": 1055000
+          },
+          {
+            "an": "AN-09",
+            "condition": "S4-09: Agoda 202 03–05/07/2028 + 2 đêm con; 04/07 khách xin 101 tạm, 05/07 ghi về 202 · đêm thứ Sáu 07/07",
+            "ckmToCdt": "202 → 202",
+            "referenceOrGkm": "– / lịch 202",
+            "priceVnd": 911000,
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "BR-417-11, BUG-R2-145",
+            "totalVnd": 4095000,
+            "currentBookingRateIsNull": true,
+            "tempRoom302PriceVnd": 911000
+          },
+          {
+            "an": "AN-13",
+            "condition": "Agoda 203 (căn gốc) bị đưa về làn chưa gán (xung đột), B7a gán 401 · thứ Tư",
+            "ckmToCdt": "203 → 401",
+            "referenceOrGkm": "– / lịch 203",
+            "priceVnd": 792000,
+            "deskRangeVnd": [530000, 2630000],
+            "settledCase": "BR-417-10 (dạng làn)"
+          },
+          {
+            "an": "AN-14",
+            "condition": "Khách xin đổi, lễ tân đưa về làn rồi gán 401 · lịch giá · thứ Tư",
+            "ckmToCdt": "401 → 401",
+            "referenceOrGkm": "– / lịch 401",
+            "priceVnd": 1042000,
+            "deskRangeVnd": [740000, 2630000],
+            "settledCase": "mới"
+          },
+          {
+            "an": "AN-15",
+            "condition": "B12 khôi phục no-show: (a) cùng căn 203; (b) 203 đã bán lại → làn → gán 401 (BR-315 (c)) · lịch giá · thứ Tư",
+            "ckmToCdt": "203 → 203 / 401",
+            "referenceOrGkm": "– / lịch 203",
+            "priceVnd": 792000,
+            "settledCase": "mới",
+            "variantBPriceVnd": 792000,
+            "deskRangeAVnd": [530000, 1900000],
+            "deskRangeBVnd": [530000, 2630000]
+          },
+          {
+            "an": "AN-16",
+            "condition": "Ghi lại cùng căn 302 (B7 dời ngày giữ căn; S4-35 ở 302)",
+            "ckmToCdt": "302 → 302",
+            "referenceOrGkm": "như không đổi căn",
+            "price": "thỏa thuận/lịch 302",
+            "deskRangeVnd": [690000, 2450000],
+            "settledCase": "BR-417-15"
+          },
+          {
+            "an": "AN-17",
+            "condition": "OTA về làn chưa gán lúc đặt, B7a gán lần đầu 203",
+            "ckmToCdt": "203 → 203",
+            "referenceOrGkm": "– / lịch 203",
+            "priceVnd": 792000,
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "BR-424 (căn gốc)"
+          },
+          {
+            "an": "AN-18",
+            "condition": "OTTIMO 202 → 401 rồi OTTIMO đưa về 202 · thỏa thuận 650.000 / lịch giá · thứ Sáu",
+            "ckmToCdt": "202 → 202",
+            "referenceOrGkm": "650.000 / lịch 202",
+            "priceVnd": 650000,
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "mới",
+            "calendarBookingPriceVnd": 911000
+          },
+          {
+            "an": "AN-19",
+            "condition": "Đổi chéo K12 (OTTIMO) 202 ↔ 101 · lịch giá 202 · thứ Tư",
+            "ckmToCdt": "202 → 101",
+            "referenceOrGkm": "– / lịch 202",
+            "priceVnd": 667000,
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "mới"
+          },
+          {
+            "an": "AN-20",
+            "condition": "Lịch giá có đêm sửa S4-35 (kể cả mọi đêm), không đổi căn: B9a 203 / B13 201 / B18 101",
+            "ckmToCdt": "không đổi → không đổi",
+            "referenceOrGkm": "– / lịch của chính đêm d",
+            "settledCase": "BR-417-09",
+            "b9aPriceVnd": 792000,
+            "b13PriceVnd": 708000,
+            "b18PriceVnd": 667000
+          },
+          {
+            "an": "AN-21",
+            "condition": "Lịch giá có S4-35, sau OTTIMO 101 → 401 · thứ Năm",
+            "ckmToCdt": "101 → 401",
+            "referenceOrGkm": "S4-35 không thành thỏa thuận / lịch 101",
+            "priceVnd": 667000,
+            "deskRangeVnd": [530000, 2630000],
+            "settledCase": "mới (khớp BR-417-09)"
+          },
+          {
+            "an": "AN-23",
+            "condition": "Thỏa thuận 202 792.000; ở B13 lễ tân gõ 750.000 (thỏa thuận lại); B18 sau đó",
+            "ckmToCdt": "202 → 202",
+            "referenceOrGkm": "đêm gõ ở B13 750.000",
+            "priceVnd": 750000,
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "mới (BR-417 (2))"
+          },
+          {
+            "an": "AN-24",
+            "condition": "Thỏa thuận 202 650.000; S4-35 sửa đêm cuối thành 600.000",
+            "ckmToCdt": "202 → 202",
+            "referenceOrGkm": "600.000",
+            "priceVnd": 600000,
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "BR-417 (2)"
+          },
+          {
+            "an": "AN-25",
+            "condition": "Thỏa thuận 202 650.000; OTTIMO → 401; S4-35 ở 401 sửa đêm thành 700.000 · thứ Năm",
+            "ckmToCdt": "202 → 401",
+            "referenceOrGkm": "700.000 (gõ khi CKM = 202)",
+            "priceVnd": 700000,
+            "deskRangeVnd": [530000, 2630000],
+            "settledCase": "r3-2 (16.11)"
+          },
+          {
+            "an": "AN-26",
+            "condition": "Thỏa thuận 202 650.000; khách xin 302; lễ tân S4-35 các đêm 302 = 800.000 (BR-429 (g))",
+            "ckmToCdt": "302 → 302",
+            "referenceOrGkm": "800.000 (gõ khi CKM = 302)",
+            "priceVnd": 800000,
+            "deskRangeVnd": [690000, 2450000],
+            "settledCase": "BR-429 (g)"
+          },
+          {
+            "an": "AN-27",
+            "condition": "OTA, không đổi căn: Booking 401 gia hạn (đơn con Trực tiếp) thứ Tư / thứ Bảy",
+            "ckmToCdt": "401 → 401",
+            "referenceOrGkm": "– / lịch 401",
+            "priceVnd": 1042000,
+            "deskRangeVnd": [740000, 2630000],
+            "settledCase": "BR-421, BR-422",
+            "saturdayPriceVnd": 1198000
+          },
+          {
+            "an": "AN-28",
+            "condition": "OTA, OTTIMO dời: Agoda 203 → 401 (sự cố), gia hạn thứ Tư; khách tự xin 401 thì lịch 401",
+            "ckmToCdt": "203 → 401",
+            "referenceOrGkm": "– / lịch 203",
+            "priceVnd": 792000,
+            "deskRangeVnd": [530000, 2630000],
+            "settledCase": "BR-417-10",
+            "guestRequestPriceVnd": 1042000
+          },
+          {
+            "an": "AN-29",
+            "condition": "Đêm thêm là ngày đặc biệt, không đổi căn (kể cả đơn thỏa thuận): 202, 16/04/2027",
+            "ckmToCdt": "202 → 202",
+            "referenceOrGkm": "– / lịch đặc biệt 202",
+            "priceVnd": 1030000,
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "BR-421, BR-417-12 bước 1"
+          },
+          {
+            "an": "AN-30",
+            "condition": "Đêm thêm ngày đặc biệt sau OTTIMO 202 → 401",
+            "ckmToCdt": "202 → 401",
+            "referenceOrGkm": "– / lịch đặc biệt 202",
+            "priceVnd": 1030000,
+            "deskRangeVnd": [530000, 2630000],
+            "settledCase": "r3-1 (ngày đặc biệt)"
+          },
+          {
+            "an": "AN-31",
+            "condition": "Đặc biệt ở cuối: thỏa thuận 202 650.000 (đêm 14, 15/04/2027); B13 16/04 (Giỗ Tổ) 1.030.000; B18 thứ Bảy 17/04",
+            "ckmToCdt": "202 → 202",
+            "referenceOrGkm": "bỏ 16/04 → 15/04 650.000",
+            "priceVnd": 650000,
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "BR-417-12, BUG-R2-155",
+            "totalVnd": 2980000
+          },
+          {
+            "an": "AN-32",
+            "condition": "Đặc biệt ở đầu (B9a): 201 thỏa thuận 650.000 gõ cho đêm 16/04 (Giỗ Tổ) và 17/04/2027; B9a 04:30 ngày 16/04 → đêm 15/04",
+            "ckmToCdt": "201 → 201",
+            "referenceOrGkm": "sớm nhất sau 15/04, bỏ 16/04 → 17/04 650.000",
+            "priceVnd": 650000,
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "R5-04"
+          },
+          {
+            "an": "AN-33",
+            "condition": "Đặc biệt ở giữa + đêm mặc định: 202 thỏa thuận 650.000 đêm 14, 15/04; B13 16/04 (lịch); B13 17/04 mặc định 650.000; B18 Chủ nhật 18/04",
+            "ckmToCdt": "202 → 202",
+            "referenceOrGkm": "bỏ 17/04 (mặc định), 16/04 (đặc biệt) → 15/04 650.000",
+            "priceVnd": 650000,
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "mới"
+          },
+          {
+            "an": "AN-36",
+            "condition": "Không có đêm tham chiếu (đêm nhập tay đều gắn CKM khác, hoặc đều là đặc biệt/mặc định)",
+            "ckmToCdt": "theo bước 1 → theo bước 1",
+            "referenceOrGkm": "– / lịch CKM",
+            "price": "lịch CKM (min nếu áp)",
+            "settledCase": "mới"
+          },
+          {
+            "an": "AN-37",
+            "condition": "Không đổi căn, thỏa thuận dưới sàn hiện hành: 401 thỏa thuận 700.000 lúc sàn còn 690.000, nay sàn 740.000",
+            "ckmToCdt": "401 → 401",
+            "referenceOrGkm": "700.000",
+            "priceVnd": 740000,
+            "deskRangeVnd": [740000, 2630000],
+            "settledCase": "BR-417-14 stay401"
+          },
+          {
+            "an": "AN-38",
+            "condition": "OTTIMO dời xuống căn rẻ hơn: 302 thỏa thuận 1.000.000 → 101 · thứ Năm / thứ Sáu",
+            "ckmToCdt": "302 → 101",
+            "referenceOrGkm": "1.000.000",
+            "priceVnd": 667000,
+            "deskRangeVnd": [530000, 2450000],
+            "settledCase": "BR-417-14 downTo101",
+            "fridayPriceVnd": 767000,
+            "notClampedToFloorVnd": 690000
+          },
+          {
+            "an": "AN-39",
+            "condition": "OTTIMO dời lên căn đắt hơn, lịch giá: 101 → 401 · thứ Năm",
+            "ckmToCdt": "101 → 401",
+            "referenceOrGkm": "– / lịch 101",
+            "priceVnd": 667000,
+            "deskRangeVnd": [530000, 2630000],
+            "settledCase": "BR-417-13, BUG-R2-156",
+            "notClampedToFloorVnd": 740000
+          },
+          {
+            "an": "AN-40",
+            "condition": "Kẹp trước min: 302 thỏa thuận 650.000 lúc sàn cũ, nay sàn 302 = 690.000; OTTIMO → 401 · thứ Năm",
+            "ckmToCdt": "302 → 401",
+            "referenceOrGkm": "650.000 → kẹp 690.000",
+            "priceVnd": 690000,
+            "deskRangeVnd": [690000, 2630000],
+            "settledCase": "mới (r4-1)"
+          },
+          {
+            "an": "AN-41",
+            "condition": "B9a đơn lịch giá 101, 22–28/11/2026, đến 04:30 → đêm thứ Bảy 21/11",
+            "ckmToCdt": "101 → 101",
+            "referenceOrGkm": "– / lịch 101 thứ Bảy",
+            "priceVnd": 767000,
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "BR-417-04",
+            "totalVnd": 4380000,
+            "amountDueAtCheckinVnd": 3180000
+          },
+          {
+            "an": "AN-42",
+            "condition": "B13 nhiều đêm một lệnh: thỏa thuận 202 650.000 kết thúc 15/04/2027, gia hạn 2 đêm 15/04 và 16/04 (Giỗ Tổ)",
+            "ckmToCdt": "202 → 202",
+            "referenceOrGkm": "đêm cuối hiện có 14/04 650.000; đêm thêm trong cùng lệnh không làm tham chiếu",
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "BR-421",
+            "nightsVnd": {
+              "2027-04-15": 650000,
+              "2027-04-16": 1030000
+            }
+          },
+          {
+            "an": "AN-44",
+            "condition": "lateFeeAsNightVnd (đêm ngày đi không bán được): giá bước 4 của đêm ngày đi, không tính lại bậc",
+            "ckmToCdt": "– → –",
+            "referenceOrGkm": "–",
+            "settledCase": "BR-416-06, BR-417-11",
+            "lateFeeAsNightVnd": {
+              "203": 792000,
+              "AN-10 401 bán từ thứ Sáu": 911000,
+              "AN-09 202 bán từ thứ Sáu": 911000
+            }
+          },
+          {
+            "an": "AN-45",
+            "condition": "currentBookingRateVnd – xét theo nguồn (thỏa thuận hoặc min → giá; lịch CĐT → null)",
+            "ckmToCdt": "– → –",
+            "referenceOrGkm": "–",
+            "settledCase": "16.6 (a)",
+            "currentBookingRateVnd": {
+              "AN-34": 650000,
+              "AN-10": 911000,
+              "AN-22": 792000
+            },
+            "currentBookingRateNullFor": ["AN-09", "AN-03", "R5-03c (khách xin 302)"]
+          },
+          {
+            "an": "AN-46",
+            "condition": "MovePlanner – OTTIMO đổi căn kèm dời/thêm đêm (BR-429 (b1')): force_majeure 101 → 401 rồi B13",
+            "ckmToCdt": "101 → 401",
+            "referenceOrGkm": "– / lịch 101",
+            "priceVnd": 667000,
+            "deskRangeVnd": [530000, 2630000],
+            "settledCase": "BR-417-13, T19",
+            "moveThreeNightsVnd": [667000, 667000, 667000],
+            "movePlannerEqualsB13": true
+          },
+          {
+            "an": "AN-47",
+            "condition": "MovePlanner – khách xin đổi căn/đổi ngày (BR-429 (a), (g))",
+            "ckmToCdt": "– → –",
+            "referenceOrGkm": "–",
+            "price": "ngoài bảng: lịch hiện hành căn mới từng đêm, không mang thỏa thuận; dời ngày giữ căn: đêm giữ giữ giá, đêm thêm lấy giá hiện hành",
+            "settledCase": "BR-429 (a)"
+          }
+        ]
+      },
+      "note": "Dòng 'mới' chưa có test BE trước vòng sửa 5 – nếu mã hiện tại lệch, BE-A sửa theo bảng (bảng thắng câu chữ BR-417 (1)–(3), BR-421, BR-429 (b1)/(b1'), ARC 16.6 (a)). Nguồn: `business-rules.md` phụ lục 5A của BR-417 (DOM 18/10, vòng sửa 5) – bảng là nguồn duy nhất cho giá gợi ý đêm thêm; BE-A viết test riêng cho từng dòng AN."
+    },
+    {
+      "id": "BR-417-17",
+      "br": "BR-417",
+      "case": "(v0.3.8, phụ lục 5A – BUG-R2-160) S4-09 về rồi OTTIMO đổi căn / OTTIMO rồi S4-09: căn khách mua khôi phục như trước lần xin tạm",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "see": "BR-417-16 input (lịch, sàn–trần)"
+      },
+      "expected": {
+        "cases": [
+          {
+            "an": "AN-10",
+            "condition": "S4-09 về rồi OTTIMO: Agoda 202 02–04/07/2029 + 2 đêm con; 03/07 xin 101 tạm; 04/07 về 202; 05/07 OTTIMO 202 → 401 · đêm thứ Sáu 06/07",
+            "ckmToCdt": "202 → 401",
+            "referenceOrGkm": "– / lịch 202",
+            "priceVnd": 911000,
+            "deskRangeVnd": [530000, 2630000],
+            "settledCase": "BUG-R2-160 (R5-01)",
+            "totalVnd": 4095000,
+            "currentBookingRateVnd": 911000,
+            "tempRoom302PriceVnd": 911000,
+            "tempRoom302FolioVnd": 4220000
+          },
+          {
+            "an": "AN-11",
+            "condition": "OTTIMO 202 → 401, rồi S4-09 khách xin 302 tạm, về 401 · Agoda · thứ Sáu",
+            "ckmToCdt": "202 → 401",
+            "referenceOrGkm": "– / lịch 202",
+            "priceVnd": 911000,
+            "deskRangeVnd": [530000, 2630000],
+            "settledCase": "mới (CKM khôi phục như trước lần xin tạm)"
+          },
+          {
+            "an": "AN-12",
+            "condition": "S4-09 chưa ghi về: B13 thêm đêm sau đơn con (đêm ở căn cũ 202)",
+            "ckmToCdt": "202 → 202",
+            "referenceOrGkm": "– / lịch 202",
+            "price": "như AN-09 (911.000 đêm thứ Sáu)",
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "mới"
+          }
+        ]
+      },
+      "note": "AN-10, AN-11, AN-12. Nguồn: `business-rules.md` phụ lục 5A của BR-417 (DOM 18/10, vòng sửa 5) – bảng là nguồn duy nhất cho giá gợi ý đêm thêm; BE-A viết test riêng cho từng dòng AN."
+    },
+    {
+      "id": "BR-417-18",
+      "br": "BR-417",
+      "case": "(v0.3.8, phụ lục 5A – BUG-R2-161) OTTIMO đổi căn đúng đêm ngày đặc biệt: đêm tham chiếu bỏ đêm đặc biệt, không đòi đêm đó ở căn hiện tại",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "see": "BR-417-16 input"
+      },
+      "expected": {
+        "cases": [
+          {
+            "an": "AN-34",
+            "condition": "OTTIMO đổi đúng đêm đặc biệt: 202 thỏa thuận 650.000 × 2 (14–16/04/2027); B13 16/04 (Giỗ Tổ) 1.030.000; OTTIMO B14 hiệu lực 16/04 → 401, chênh 0; B18 thứ Bảy 17/04",
+            "ckmToCdt": "202 → 401",
+            "referenceOrGkm": "bỏ 16/04 → 15/04 650.000 (gắn 202)",
+            "priceVnd": 650000,
+            "deskRangeVnd": [530000, 2630000],
+            "settledCase": "BUG-R2-161 (R5-03)",
+            "totalVnd": 2980000,
+            "currentBookingRateVnd": 650000,
+            "variant103to101PriceVnd": 650000
+          }
+        ]
+      },
+      "note": "AN-34. Nguồn: `business-rules.md` phụ lục 5A của BR-417 (DOM 18/10, vòng sửa 5) – bảng là nguồn duy nhất cho giá gợi ý đêm thêm; BE-A viết test riêng cho từng dòng AN."
+    },
+    {
+      "id": "BR-417-19",
+      "br": "BR-417",
+      "case": "(v0.3.8, phụ lục 5A – BUG-R2-162) Đêm mặc định (giá gợi ý, lễ tân không sửa) không làm đêm tham chiếu; nguồn đêm theo thao tác, không so số với lịch",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "see": "BR-417-16 input"
+      },
+      "expected": {
+        "cases": [
+          {
+            "an": "AN-22",
+            "condition": "Thỏa thuận 202 792.000 × 2 (07–09/08/2029); thứ Tư B13 +1 mặc định; B18 thứ Sáu 10/08 19:00",
+            "ckmToCdt": "202 → 202",
+            "referenceOrGkm": "bỏ đêm mặc định 09/08 → 08/08 792.000",
+            "priceVnd": 792000,
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "BUG-R2-162 (R5-05)",
+            "totalVnd": 3168000,
+            "typedSameAtB13PriceVnd": 792000,
+            "reverse": {
+              "case": "đồng giá 911.000 thứ Năm–thứ Sáu, B13 thứ Bảy, B18 Chủ nhật",
+              "priceVnd": 911000,
+              "totalVnd": 3644000
+            }
+          },
+          {
+            "an": "AN-43",
+            "condition": "B18 thêm đêm (rời sau 18:00, BR-416): cùng hàm, d = đêm ngày đi – như AN-22",
+            "ckmToCdt": "202 → 202",
+            "referenceOrGkm": "như AN-22",
+            "priceVnd": 792000,
+            "deskRangeVnd": [530000, 1900000],
+            "settledCase": "BUG-R2-162",
+            "extraNightDefaultEqualsQrCapEqualsWrite": true
+          },
+          {
+            "an": "AN-35",
+            "condition": "B13 ở căn trung gian rồi OTTIMO đổi tiếp: 302 thỏa thuận 1.000.000 (09–11/07/2029); OTTIMO → 101 từ 10/07; B13 +1 ở 101 (đêm 11/07 mặc định min(1.000.000; 667.000) = 667.000); OTTIMO → 401 từ 11/07; B13/B18 đêm thứ Năm 12/07",
+            "ckmToCdt": "302 → 401",
+            "referenceOrGkm": "bỏ đêm mặc định 11/07 → 10/07 1.000.000 (gắn 302)",
+            "priceVnd": 1000000,
+            "deskRangeVnd": [690000, 2630000],
+            "settledCase": "R5-02 – ca B, DOM chốt (BUG-R2-161 + 162)",
+            "totalVnd": 3667000
+          }
+        ]
+      },
+      "note": "AN-22, AN-43; AN-35 = R5-02 (ca B, DOM chốt): 1.000.000, tổng 3.667.000 – cần cả 161 và 162. Nguồn: `business-rules.md` phụ lục 5A của BR-417 (DOM 18/10, vòng sửa 5) – bảng là nguồn duy nhất cho giá gợi ý đêm thêm; BE-A viết test riêng cho từng dòng AN."
     },
     {
       "id": "BR-421-01",

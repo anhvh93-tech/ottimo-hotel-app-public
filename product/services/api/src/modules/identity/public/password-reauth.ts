@@ -15,8 +15,9 @@ import { defineAuditEntity } from '../../audit/public/audit-fields';
 import { AuditService } from '../../audit/public/audit.service';
 import { verifyPassword } from './passwords';
 
-// verifyApprover (BR-416-06): a failed confirmation names the desk user it was typed for.
-defineAuditEntity('app_user', ['confirmingFor']);
+// verifyApprover (BR-416-06): a confirmation names the desk user it was typed for; a success records the failures
+// it cleared (BUG-R2-167, SEC 12.3).
+defineAuditEntity('app_user', ['confirmingFor', 'failedCountCleared']);
 
 export const REAUTH_MAX_FAILURES = 5;
 export const REAUTH_LOCK_MS = 15 * 60_000;
@@ -105,6 +106,10 @@ export class PasswordReauth {
    *   own transaction – counted although the request fails); a success clears the approver's only.
    * - Security audit per counter moved, never with the typed name; `onLocked` runs in the same transaction for a
    *   user just locked (the caller sends `security_alert`).
+   * - BUG-R2-167 (SEC 12.3, BE-62 / SR-AUTH-11 (6)): a success for ANOTHER user than the caller leaves its trace in
+   *   this own transaction – kept when the request fails afterwards: security audit `${purpose}.reauth_succeeded`
+   *   on the approver (`confirmingFor` = the caller, `failedCountCleared` = the failures the success cleared, if any)
+   *   and `onSucceeded` (the caller sends `account_security_change`). A user confirming their own request: neither.
    * Runs BEFORE the unit of work, like `verify`.
    */
   async verifyApprover(
@@ -116,6 +121,8 @@ export class PasswordReauth {
       roles: readonly string[];
       requestId?: string;
       onLocked?: (tx: Tx, userIds: string[]) => Promise<void>;
+      /** BUG-R2-167: the approver (≠ caller) confirmed – same transaction as the `reauth_succeeded` audit. */
+      onSucceeded?: (tx: Tx, approverId: string) => Promise<void>;
     },
   ): Promise<{ userId: string; username: string; roles: string[]; self: boolean }> {
     const callerId = ctx.userId;
@@ -179,6 +186,23 @@ export class PasswordReauth {
             `UPDATE app_user SET approval_pin_failed_count = 0, approval_pin_locked_until = NULL WHERE id = $1`,
             [approver.id],
           );
+        }
+        if (approver.id !== callerId) {
+          await this.audit.record(tx, {
+            category: 'security',
+            action: `${opts.purpose}.reauth_succeeded`,
+            entityType: 'app_user',
+            entityId: approver.id,
+            after: {
+              authMethod: 'password',
+              confirmingFor: callerId,
+              ...(approver.approval_pin_failed_count > 0
+                ? { failedCountCleared: approver.approval_pin_failed_count }
+                : {}),
+            },
+            ...(opts.requestId ? { requestId: opts.requestId } : {}),
+          });
+          if (opts.onSucceeded) await opts.onSucceeded(tx, approver.id);
         }
         return {
           kind: 'ok' as const,

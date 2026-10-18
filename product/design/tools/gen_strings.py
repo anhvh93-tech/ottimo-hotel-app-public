@@ -3095,6 +3095,10 @@ g("R2 Sprint 4 – FE-A đợt 15: tủ minibar đổi kỳ trong lúc đếm (A
     ("co.minibar_period_changed_body", "Số vừa nhập theo lượt nạp trước nên chưa được lưu. Vui lòng đếm lại tủ.", "The figures entered were for the previous stock and were not saved. Please count again.", None, "Giữ lễ tân ở bước đếm; số điền sẵn theo kỳ mới"),
 ])
 
+g("R2 Sprint 4 – FE-A đợt 16: khoảng nhập giá đêm thêm B18 (ARC 16.18, vòng sửa 5) (chờ UXD duyệt)", [
+    ("checkout.extra_night_range", "Trong khoảng {min} – {max}.", "Within {min} – {max}.", None, "H16 bước 2: CheckoutSummary.extraNightFloorVnd–extraNightCeilingVnd; nối sau checkout.extra_night_rate_help_tier"),
+])
+
 TEMPLATES = [
     ("msg.booking_confirmed", "Xác nhận đặt phòng",
      "Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights} đêm). Nhận phòng từ 14:00, trả phòng trước 12:00. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link}",

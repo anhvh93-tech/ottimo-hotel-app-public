@@ -29,17 +29,17 @@ import {
   RESERVATION_SALES_PORT,
   type ReservationSalesPort,
 } from '../../reservations/public/sales-port';
-import { MinibarCheckoutPort } from '../public/minibar-checkout.port';
 import {
   type FridgeItem,
   fridgeItems,
   isCurrentPeriod,
   lockFridge,
-  lockStayBookingsShared,
+  lockStayBookings,
   primaryOf,
   registerFridge,
   stayRooms,
 } from './fridge';
+import { reconcileRefillTasks } from './refill-tasks';
 
 interface CheckRow {
   id: string;
@@ -80,7 +80,6 @@ export class MinibarService {
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(FolioService) private readonly folios: FolioService,
     @Inject(ParameterService) private readonly params: ParameterService,
-    @Inject(MinibarCheckoutPort) private readonly refills: MinibarCheckoutPort,
     @Optional() @Inject(EventsService) private readonly events?: EventsService,
     @Optional()
     @Inject(RESERVATION_SALES_PORT)
@@ -363,9 +362,9 @@ export class MinibarService {
 
     // ARC-BE-S3-25: lock first, then check the state. The folio lock serialises with B18 (check-out locks
     // the folio before settling); the booking lock of lockForDeposit is not used – it applies the desk scope
-    // and HK counts minibars outside it. S4-13 order (reservation → folio): the bookings of the folio first, KEY
-    // SHARE (lockStayBookingsShared – ARC 16.16 bổ sung, 40P01 found by the race test with B13).
-    await lockStayBookingsShared(tx, s.folioId);
+    // and HK counts minibars outside it. S4-13 order (reservation → folio): the bookings of the folio first, NO KEY
+    // UPDATE like the booking changes (lockStayBookings – ARC 16.16 bổ sung 2, 40P01 found by the race tests).
+    await lockStayBookings(tx, s.folioId);
     await this.folios.lockForPosting(tx, s.folioId);
     const fresh = await this.port().stayInfo(tx, s.id);
     if (fresh?.status !== 'in_house')
@@ -374,7 +373,7 @@ export class MinibarService {
     // fridge lock – a refill done (onRefillDone) or a stay going on (onStayContinued) committed meanwhile closed
     // the period read above: the count is checked against the period in force, as if the two ran one after the
     // other.
-    await lockFridge(tx, fr.primaryId, fr.roomId);
+    const lock = await lockFridge(tx, fr.primaryId, fr.roomId, { refillTasks: true });
     await assertPeriod();
     // Every count belongs to a period (ARC R1): a fridge never filled yet gets its `check_in` fill now.
     await registerFridge(tx, {
@@ -392,6 +391,22 @@ export class MinibarService {
     // R1: this count replaces the latest count of the SAME period only (live, or made stale when the stay went
     // on); counts of earlier periods – and their folio lines – stay as they are (R7, BR-703-02).
     const prev = await this.periodCount(tx, fr.primaryId, fr.roomId, fillId, { lock: true });
+    // ARC 16.17 1b: the period's live task is done (processed) → the fridge was refilled after that count: no
+    // re-count of a refilled period (it would count against the old mark) – 409, nothing written.
+    if (prev?.refill_task_id) {
+      const { rows: t } = await tx.query<{ status: string }>(
+        'SELECT status FROM hk_task WHERE id = $1',
+        [prev.refill_task_id],
+      );
+      // DOM 18/10 (16.17): the hint of the 409 – fix the folio line with a reason, never re-count a refilled period.
+      if (t[0]?.status === 'done') {
+        throw problem('MINIBAR_PERIOD_CHANGED', {
+          detail:
+            'The fridge was refilled after this count – correct the minibar line on the folio with a reason ' +
+            '(BR-702, BR-008) instead of counting it again',
+        });
+      }
+    }
     const hist = await this.history(tx, s.folioId, prev);
     if (prev) {
       await tx.query('UPDATE minibar_check SET replaced_by_check_id = $2 WHERE id = $1', [
@@ -529,8 +544,15 @@ export class MinibarService {
         ],
       );
     }
-    // R9 (BR-703-01): the fridge of a room the stay has left is counted like a check-out – refill task now.
-    if (fr.roomId !== s.roomId) await this.refills.onCheckedOut(tx, fr.primaryId, fr.roomId);
+    // ARC 16.17 1b (BUG-R2-159): the refill tasks of the fridge follow the count – a re-count in the period moves
+    // the open task to this count (need = used − done), used 0 cancels it; a new task only for the fridge of a
+    // room the stay has left (R9, BR-703-01 – counted like a check-out) or when the replaced count had one.
+    await reconcileRefillTasks(tx, lock, {
+      create: fr.roomId !== s.roomId || !!prev?.refill_task_id,
+      now,
+      today,
+      events: this.events,
+    });
     await publishEvent(tx, this.events, 'reservation.changed', s.id);
     const { rows } = await tx.query<CheckRow>(
       `SELECT id, mode, checked_at, created_at, total_vnd, refill_task_id, replaces_check_id

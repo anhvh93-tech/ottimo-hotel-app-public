@@ -14,6 +14,7 @@
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { Client as PgClient } from 'pg';
 import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '../../src/db/database';
@@ -924,13 +925,18 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     });
     expect(mv.statusCode, mv.body).toBe(200);
   };
-  /** HK finishes the refill task(s) of a room (the done time = the fake clock). */
-  const refillDone = async (b: Booking, room: string, iso: string) =>
-    q(
-      `UPDATE hk_task SET status = 'done', done_at = $3 WHERE reservation_id = $1 AND room_id = $2
-         AND type = 'minibar_refill' AND status IN ('open', 'in_progress')`,
-      [b.id, ids.rooms[room], new Date(iso)],
+  /**
+   * HK finishes the open refill task(s) of a room through the API at `iso` (ARC 16.17 mục 2: "done" = the
+   * processed `complete` – state_transition – never a bare hk_task row).
+   */
+  const refillDone = async (b: Booking, room: string, iso: string) => {
+    const open = await q<{ id: string }>(
+      `SELECT id FROM hk_task WHERE reservation_id = $1 AND room_id = $2 AND type = 'minibar_refill'
+          AND status IN ('open', 'in_progress') ORDER BY created_at, id`,
+      [b.id, ids.rooms[room]],
     );
+    for (const t of open) await hkComplete(t.id, iso);
+  };
   const blockers = async (b: Booking) =>
     (await c.fd!.get(url(`/reservations/${b.id}/checkout-summary?checkoutTime=11:00`))).json() as {
       blockers?: string[];
@@ -1541,6 +1547,329 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     expect(await minibarAmounts(two.b)).toEqual([35_000, 35_000]);
     // the refill took the count as its base: bia 0 + 1
     expect((await lastFill(two.b, '302')).marks).toMatchObject({ bia: 1 });
+  });
+
+  // ───────────── recheck 5: BUG-R2-158 (A1), BUG-R2-164 (0067) ─────────────
+
+  const liveCountRows = async (b: Booking) =>
+    (
+      await q<{ n: number }>(
+        `SELECT count(*)::int AS n FROM minibar_check
+          WHERE reservation_id = $1 AND mode = 'checkout' AND replaced_by_check_id IS NULL`,
+        [b.id],
+      )
+    )[0]!.n;
+  const fillsOf = async (b: Booking) =>
+    (
+      await q<{ source: string }>(
+        'SELECT source FROM minibar_fill WHERE reservation_id = $1 ORDER BY created_at, id',
+        [b.id],
+      )
+    ).map((r) => r.source);
+
+  it('BUG-R2-158 (A1): desk ‖ HK count a never-filled fridge at the same time (2 beers, departure day), both orders → one `check_in` fill, one live count, 70.000; latestCheck = B18 = 70.000; one task {bia: 2}', async () => {
+    const cases = [
+      { room: '102', from: '2030-01-02', to: '2030-01-03', first: 'fd' },
+      { room: '401', from: '2030-01-09', to: '2030-01-10', first: 'hk' },
+    ] as const;
+    for (const k of cases) {
+      const { b } = await inHouse(k.room, k.from, k.to);
+      await at(`${k.to}T09:00:00+07:00`);
+      expect((await standard(b)).periodId).toBeNull();
+      const lines = await linesNow(b, { bia: 2 });
+      const send = (who: 'fd' | 'hk') => () =>
+        c[who]!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
+          mode: 'checkout',
+          lines,
+        });
+      const res = await interleaved(
+        fridgeKey(b, k.room),
+        k.first === 'fd' ? [send('fd'), send('hk')] : [send('hk'), send('fd')],
+      );
+      expect(
+        res.map((r) => r.statusCode),
+        res.map((r) => r.body).join(' | '),
+      ).toEqual([201, 201]);
+      expect(await fillsOf(b), k.room).toEqual(['check_in']);
+      expect(await liveCountRows(b), k.room).toBe(1);
+      expect((await mb(b)).gross, k.room).toBe(70_000);
+      expect((await standard(b)).latestCheck?.totalVnd, k.room).toBe(70_000);
+      await at(`${k.to}T11:00:00+07:00`);
+      const co = await checkout(b, '11:00');
+      expect(co.status, co.body).toBe(200);
+      expect((await mb(b)).gross, k.room).toBe(70_000);
+      expect((await refills(b, k.room)).map((t) => [t.status, t.items])).toEqual([
+        ['open', { bia: 2 }],
+      ]);
+    }
+  });
+
+  /** Statements run as ottimo_owner (FORCE RLS: the tenant's property only), like the migrator would. */
+  const asOwner = async (statements: Array<{ sql: string; params?: unknown[] }>) => {
+    const pg = new PgClient({ connectionString: process.env.MIGRATION_DATABASE_URL });
+    await pg.connect();
+    try {
+      await pg.query('SET ROLE ottimo_owner');
+      await pg.query('BEGIN');
+      await pg.query(
+        `SELECT set_config('app.organization_id', $1, true), set_config('app.property_id', $2, true)`,
+        [t.organizationId, t.propertyIds[0]],
+      );
+      for (const st of statements) await pg.query(st.sql, st.params ?? []);
+      await pg.query('COMMIT');
+    } catch (e) {
+      await pg.query('ROLLBACK').catch(() => undefined);
+      throw e;
+    } finally {
+      await pg.end();
+    }
+  };
+  /** The data statements of a migration as shipped (its ALTER TABLE … RLS toggles left out – RLS stays on). */
+  const migrationData = (file: string) =>
+    readFileSync(join(__dirname, '../../src/db/migrations', file), 'utf8')
+      .split('--> statement-breakpoint')
+      .map((x) => x.replace(/^\s*--.*$/gm, '').trim())
+      .filter((x) => x.length > 0 && !/^ALTER TABLE/i.test(x))
+      .map((sql) => ({ sql }));
+
+  it('BUG-R2-164 (0067, two phases): a 365486f count (no fill) → 0066 leaves fill_id NULL → 0067 back-fills the fill and the period → the desk re-confirms the same count: no new line (70.000, one live count); 1 → 35.000; B18 = room + 35.000', async () => {
+    const { b, roomTotal } = await inHouse('402', '2030-02-04', '2030-02-05');
+    await at('2030-02-05T09:00:00+07:00');
+    await count(b, { bia: 2 });
+    // phase 1 – the shape 365486f left: its record() wrote no fill for a fridge never filled
+    await asOwner([
+      { sql: 'UPDATE minibar_check SET fill_id = NULL WHERE reservation_id = $1', params: [b.id] },
+      {
+        sql: `DELETE FROM minibar_fill_line WHERE fill_id IN (SELECT id FROM minibar_fill WHERE reservation_id = $1)`,
+        params: [b.id],
+      },
+      { sql: 'DELETE FROM minibar_fill WHERE reservation_id = $1', params: [b.id] },
+    ]);
+    // 0066 as shipped: no fill in force → fill_id stays NULL
+    await asOwner(
+      migrationData('0066_minibar_period.sql').filter((x) =>
+        x.sql.includes('UPDATE minibar_check c'),
+      ),
+    );
+    const periodOf = async () =>
+      (
+        await q<{ fill_id: string | null }>(
+          'SELECT fill_id FROM minibar_check WHERE reservation_id = $1',
+          [b.id],
+        )
+      ).map((r) => r.fill_id);
+    expect(await periodOf()).toEqual([null]);
+    // phase 2 – 0067
+    const data67 = migrationData('0067_minibar_fill_backfill_unfilled.sql');
+    expect(data67).toHaveLength(4);
+    await asOwner(data67);
+    expect(await invariants()).toEqual({ k1: 0, k2: 0, k3: 0 });
+    expect(await fillsOf(b)).toEqual(['backfill']);
+    const [fill] = await q<{ id: string; filled_at: Date }>(
+      'SELECT id, filled_at FROM minibar_fill WHERE reservation_id = $1',
+      [b.id],
+    );
+    expect(await periodOf()).toEqual([fill!.id]);
+    expect((await lastFill(b, '402')).marks).toMatchObject({ bia: 2, snack: 1 });
+    // the desk re-confirms the previous count (H16 step 1) → R6 keeps the line
+    await count(b, { bia: 2 });
+    expect(await minibarAmounts(b)).toEqual([70_000]);
+    expect(await liveCountRows(b)).toBe(1);
+    expect(await fillsOf(b)).toEqual(['backfill']);
+    // a real new count of the same period → reversed and ONE line (R7)
+    await count(b, { bia: 1 });
+    expect(await minibarAmounts(b)).toEqual([35_000]);
+    await at('2030-02-05T11:00:00+07:00');
+    const co = await checkout(b, '11:00');
+    expect(co.status, co.body).toBe(200);
+    expect((await totals(b)).totalVnd).toBe(roomTotal + 35_000);
+  });
+
+  // ───────────── ARC 16.17 (BUG-R2-159/163): one live refill task per period – 16.4 cases 21–26 ─────────────
+
+  /** The refill tasks of a fridge with their cancel note (16.17: transfer / cancel / duplicate). */
+  const tasksOf = async (b: Booking, room: string) =>
+    (
+      await q<{
+        status: string;
+        refill_items: Array<{ itemId: string; quantity: number }> | null;
+        cancel_note: string | null;
+      }>(
+        `SELECT status, refill_items, cancel_note FROM hk_task
+          WHERE reservation_id = $1 AND room_id = $2 AND type = 'minibar_refill' ORDER BY created_at, id`,
+        [b.id, ids.rooms[room]],
+      )
+    ).map((t) => ({
+      status: t.status,
+      items: Object.fromEntries((t.refill_items ?? []).map((i) => [codeOf[i.itemId], i.quantity])),
+      ...(t.cancel_note ? { note: t.cancel_note } : {}),
+    }));
+  /** ARC 16.17 mục 3 – K1, K2, K3 (each must be empty), on the tenant's rows (RLS). */
+  const invariants = async () => ({
+    k1: (
+      await q(
+        `SELECT c.id FROM minibar_check c JOIN reservation r ON r.id = c.reservation_id
+          WHERE r.status = 'in_house' AND c.mode = 'checkout'
+            AND (c.replaced_by_check_id IS NULL OR c.replaced_by_check_id = c.id) AND c.fill_id IS NULL`,
+      )
+    ).length,
+    k2: (
+      await q(
+        `SELECT c.reservation_id, c.room_id, c.fill_id, count(DISTINCT t.id) AS open_tasks
+           FROM minibar_check c JOIN hk_task t ON t.id = c.refill_task_id
+          WHERE t.type = 'minibar_refill' AND t.status IN ('open', 'in_progress')
+          GROUP BY 1, 2, 3 HAVING count(DISTINCT t.id) > 1`,
+      )
+    ).length,
+    k3: (
+      await q(
+        `SELECT t.id FROM hk_task t
+          WHERE t.type = 'minibar_refill' AND t.source = 'system' AND t.status IN ('open', 'in_progress')
+            AND t.reservation_id IS NOT NULL
+            AND NOT EXISTS (SELECT 1 FROM minibar_check c WHERE c.refill_task_id = t.id
+                             AND (c.replaced_by_check_id IS NULL OR c.replaced_by_check_id = c.id))`,
+      )
+    ).length,
+  });
+  /** HK counts a fridge (the old room of the stay – its B14 clean is HK's "today" scope). */
+  const hkCount = async (
+    b: Booking,
+    used: Record<string, number>,
+    roomId: string,
+    performedAt?: string,
+  ) => {
+    const std = await c.hk!.get(url(`/reservations/${b.id}/minibar-standard?roomId=${roomId}`));
+    expect(std.statusCode, std.body).toBe(200);
+    const r = await c.hk!.send('POST', url(`/reservations/${b.id}/minibar-checks`), {
+      mode: 'checkout',
+      roomId,
+      lines: (std.json().items as Array<{ itemId: string; standardQty: number }>).map((i) => ({
+        itemId: i.itemId,
+        remainingQty: i.standardQty - (used[codeOf[i.itemId] ?? ''] ?? 0),
+      })),
+      ...(performedAt ? { performedAt: new Date(performedAt).toISOString() } : {}),
+    });
+    expect(r.statusCode, r.body).toBe(201);
+  };
+  /** 202 → 203 at `day` 10:00 (property fault); 10:30 the desk counts the 202 fridge: `used`. */
+  const leftAndCounted = async (
+    from: string,
+    day: string,
+    to: string,
+    used: Record<string, number>,
+  ) => {
+    const { b } = await inHouse('202', from, to);
+    await at(`${day}T10:00:00+07:00`);
+    await b14(b, '203', day);
+    await at(`${day}T10:30:00+07:00`);
+    await count(b, used, ids.rooms['202']);
+    return b;
+  };
+
+  it('case 21 / BUG-R2-159 D1: HK re-counts the old fridge with the same numbers → 201, 70.000 kept, T1 MOVED to the new count (1 open task {bia: 2}); back in 202, HK finishes T1 in the room → mark bia 0 + 2 = 2; 1 drunk → 105.000', async () => {
+    const b = await leftAndCounted('2029-06-11', '2029-06-12', '2029-06-14', { bia: 2 });
+    await at('2029-06-12T11:00:00+07:00');
+    await hkCount(b, { bia: 2 }, ids.rooms['202']!);
+    expect(await minibarAmounts(b)).toEqual([70_000]);
+    expect(await tasksOf(b, '202')).toEqual([{ status: 'open', items: { bia: 2 } }]);
+    await count(b, {}); // 203
+    await b14(b, '202', '2029-06-12');
+    expect((await lastFill(b, '202')).source).toBe('carry');
+    await refillDone(b, '202', '2029-06-12T14:00:00+07:00');
+    expect((await lastFill(b, '202')).marks).toMatchObject({ bia: 2 });
+    await at('2029-06-13T09:00:00+07:00');
+    await count(b, { bia: 1 });
+    expect((await mb(b)).gross).toBe(105_000);
+    expect(await invariants()).toEqual({ k1: 0, k2: 0, k3: 0 });
+  });
+
+  it('case 22 / BUG-R2-159 D2: the re-count corrects 2 → 1 → 70.000 reversed, 35.000 posted; T1 updated {bia: 1} – one task', async () => {
+    const b = await leftAndCounted('2029-06-18', '2029-06-19', '2029-06-21', { bia: 2 });
+    await at('2029-06-19T11:00:00+07:00');
+    await count(b, { bia: 1 }, ids.rooms['202']);
+    expect(await minibarAmounts(b)).toEqual([35_000]);
+    expect(await tasksOf(b, '202')).toEqual([{ status: 'open', items: { bia: 1 } }]);
+    expect(await invariants()).toEqual({ k1: 0, k2: 0, k3: 0 });
+  });
+
+  it('case 23 / BUG-R2-159 A4: HK 11:00 + desk 12:00 count the old fridge (2 beers); back in 302, HK finishes the task in the room; nothing more → one task {bia: 2}, mark bia 2, 70.000 (not 140.000)', async () => {
+    const { b } = await inHouse('302', '2030-04-08', '2030-04-11');
+    await at('2030-04-09T10:00:00+07:00');
+    await b14(b, '401', '2030-04-09');
+    await at('2030-04-09T11:00:00+07:00');
+    await hkCount(b, { bia: 2 }, ids.rooms['302']!);
+    await at('2030-04-09T12:00:00+07:00');
+    await count(b, { bia: 2 }, ids.rooms['302']);
+    expect(await tasksOf(b, '302')).toEqual([{ status: 'open', items: { bia: 2 } }]);
+    await count(b, {}); // 401
+    await b14(b, '302', '2030-04-09');
+    await refillDone(b, '302', '2030-04-09T15:00:00+07:00');
+    expect((await lastFill(b, '302')).marks).toMatchObject({ bia: 2 });
+    await at('2030-04-11T09:00:00+07:00');
+    await count(b, {});
+    expect((await mb(b)).gross).toBe(70_000);
+    expect(await tasksOf(b, '302')).toEqual([{ status: 'done', items: { bia: 2 } }]);
+  });
+
+  it('case 24 / BUG-R2-159: the re-count uses 0 → 70.000 reversed, T1 cancelled (reservation_changed, minibar_recount_zero), no open task', async () => {
+    const b = await leftAndCounted('2029-06-25', '2029-06-26', '2029-06-28', { bia: 2 });
+    await at('2029-06-26T11:00:00+07:00');
+    await count(b, {}, ids.rooms['202']);
+    expect(await minibarAmounts(b)).toEqual([]);
+    expect(await tasksOf(b, '202')).toEqual([
+      { status: 'cancelled', items: { bia: 2 }, note: 'minibar_recount_zero' },
+    ]);
+    const [t] = await q<{ cancel_reason_code: string }>(
+      `SELECT cancel_reason_code FROM hk_task WHERE reservation_id = $1 AND type = 'minibar_refill'`,
+      [b.id],
+    );
+    expect(t!.cancel_reason_code).toBe('reservation_changed');
+    expect(await invariants()).toEqual({ k1: 0, k2: 0, k3: 0 });
+  });
+
+  it('case 25 / 16.17 1b: (a) HK finished T1 {bia: 1} (processed 10:05), the desk re-counts at 10:30 → 409 MINIBAR_PERIOD_CHANGED, 35.000 kept; (b) re-count 2 BEFORE the completion is processed → T1 {bia: 2}, 70.000, one task', async () => {
+    const a = await leftAndCounted('2029-07-02', '2029-07-03', '2029-07-05', { bia: 1 });
+    await refillDone(a, '202', '2029-07-03T10:35:00+07:00');
+    await at('2029-07-03T10:40:00+07:00');
+    const r = await countRaw(a, { bia: 2 }, ids.rooms['202']);
+    expect(r.statusCode, r.body).toBe(409);
+    expect(r.json().code).toBe('MINIBAR_PERIOD_CHANGED');
+    expect(await minibarAmounts(a)).toEqual([35_000]);
+    const b = await leftAndCounted('2029-07-09', '2029-07-10', '2029-07-12', { bia: 1 });
+    await at('2029-07-10T10:40:00+07:00');
+    await count(b, { bia: 2 }, ids.rooms['202']);
+    expect(await tasksOf(b, '202')).toEqual([{ status: 'open', items: { bia: 2 } }]);
+    await refillDone(b, '202', '2029-07-10T10:45:00+07:00');
+    expect(await minibarAmounts(b)).toEqual([70_000]);
+    expect(await tasksOf(b, '202')).toEqual([{ status: 'done', items: { bia: 2 } }]);
+  });
+
+  it('case 26 / BUG-R2-163 Z2 (HK offline): desk counts the old fridge 10:20 (T1); HK re-counts at 10:30 and finishes T1 at 10:45 offline, synced 12:00 / 12:05 → in processing time T1 was finished after the live count → back in 301: `refill` period, mark bia 2; 1 drunk → 105.000 (not 70.000)', async () => {
+    const { b } = await inHouse('301', '2030-05-04', '2030-05-07');
+    await at('2030-05-04T16:00:00+07:00');
+    await b14(b, '302', '2030-05-04');
+    await at('2030-05-04T16:20:00+07:00');
+    await count(b, { bia: 2 }, ids.rooms['301']);
+    const [t1] = await q<{ id: string }>(
+      `SELECT id FROM hk_task WHERE reservation_id = $1 AND room_id = $2 AND type = 'minibar_refill'`,
+      [b.id, ids.rooms['301']],
+    );
+    await at('2030-05-04T18:00:00+07:00'); // HK's queue synced: the count of 16:30, then T1 done at 16:45
+    await hkCount(b, { bia: 2 }, ids.rooms['301']!, '2030-05-04T16:30:00+07:00');
+    await at('2030-05-04T18:05:00+07:00');
+    const done = await c.hk!.send('POST', url(`/hk-tasks/${t1!.id}/actions/complete`), {
+      performedAt: new Date('2030-05-04T16:45:00+07:00').toISOString(),
+    });
+    expect(done.statusCode, done.body).toBe(200);
+    await at('2030-05-06T10:00:00+07:00');
+    await count(b, {}); // 302
+    await b14(b, '301', '2030-05-06');
+    const f = await lastFill(b, '301');
+    expect(f.source).toBe('refill');
+    expect(f.marks).toMatchObject({ bia: 2 });
+    await at('2030-05-07T09:00:00+07:00');
+    await count(b, { bia: 1 });
+    expect((await mb(b)).gross).toBe(105_000);
   });
 
   it('ARC 16.14: FolioLine.chargeCode – a minibar line carries the item code, the adjustFolioLine replacement keeps it; B13 after a count → minibarUncheckedRooms reason stay_continued', async () => {

@@ -382,7 +382,7 @@ describe.skipIf(!HAS_DB)('S4-38 re-verification round 3 – money fixes (BE-A)',
 
   // ───────────────────────────── BUG-R2-134 – BR-417-07: the agreed price belongs to its room ─────────────────────────────
 
-  it('BUG-R2-134 / BR-417-07: agreed 201 at 700.000, the guest asks 401 from 02/03 – B13 suggests and writes 1.042.000 (typing it = leaving it), "Giữ giá đơn" null; B18 Friday = 401 Friday, preview = QR cap = write', async () => {
+  it('BUG-R2-134 / BR-417-07: agreed 201 at 700.000, the guest asks 401 from 02/03 – B13 suggests and writes 1.042.000 (left untouched: `default`, ARC 16.18), "Giữ giá đơn" null; B18 Friday = 401 Friday, preview = QR cap = write', async () => {
     const o = oracle('BR-417-07');
     const want = o.expected.suggestedExtendNightVnd as Record<string, number>;
     await at('2026-10-20T10:00:00+07:00');
@@ -402,9 +402,13 @@ describe.skipIf(!HAS_DB)('S4-38 re-verification round 3 – money fixes (BE-A)',
     expect(opt.nights[0].defaultRateVnd).toBeGreaterThanOrEqual(opt.nights[0].floorVnd);
     const friday = opt.nights[1].defaultRateVnd as number;
     expect(friday).toBe(1_198_000); // 401 Friday: 1.042.000 × 1,15 (BR-104)
+    // ARC 16.18 (vòng sửa 5): the Desk sends a price only when the cell was edited – a typed night (even at the
+    // suggested number) would be the reference of the next added night (BR-417 appendix 5A, AN-23).
     const ext = await act(b.id, 'extend', {
       nights: 1,
-      nightlyRates: [{ date: o.input.extendNight, amountVnd: opt.nights[0].defaultRateVnd }],
+      nightlyRates: [
+        { date: o.input.extendNight, amountVnd: opt.nights[0].defaultRateVnd, edited: false },
+      ],
     });
     expect(ext.statusCode, ext.body).toBe(200);
     expect(await grossOn(b, o.input.extendNight)).toBe(want.guestRequest);

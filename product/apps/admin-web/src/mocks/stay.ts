@@ -2604,6 +2604,10 @@ export function createStayMock(ctx: Ctx) {
         },
         extraNightRequired: s.treatAsExtension === true,
         extraNightDefaultRateVnd: s.treatAsExtension ? extraRate : undefined,
+        // ARC 16.18 (vòng sửa 5): the Desk range of the extra night (mock: 50 %–200 % of the list price).
+        extraNightFloorVnd:
+          s.treatAsExtension && !arrivalSameDay(r) ? Math.round(extraRate * 0.5) : undefined,
+        extraNightCeilingVnd: s.treatAsExtension && !arrivalSameDay(r) ? extraRate * 2 : undefined,
         extraNightAvailable: s.treatAsExtension ? !arrivalSameDay(r) : undefined,
         lateFeeAsNightVnd: lateFeeAsNight(r, time),
         minibarUncheckedRooms: unchecked.length ? unchecked : undefined,
@@ -2722,8 +2726,22 @@ export function createStayMock(ctx: Ctx) {
           )
             return problem(403, 'APPROVAL_LIMIT_EXCEEDED', { limitVnd: LATE_FEE_FOC_LIMIT_MGR });
         }
-        if (s.treatAsExtension && extraNight && !(Number(extraNight.rateVnd) > 0))
-          return validation([{ field: 'extraNight.rateVnd', code: 'RATE_OUT_OF_RANGE' }]);
+        // ARC 16.18: `rateVnd` absent = the default night (source `default`); sent = typed (`manual`), in range.
+        const listRate = roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000;
+        const extraNightVnd =
+          extraNight?.rateVnd === undefined ? listRate : Number(extraNight.rateVnd);
+        if (s.treatAsExtension && extraNight && extraNight.rateVnd !== undefined) {
+          if (!(extraNightVnd > 0))
+            return validation([{ field: 'extraNight.rateVnd', code: 'RATE_OUT_OF_RANGE' }]);
+          const min = Math.round(listRate * 0.5);
+          const max = listRate * 2;
+          if (extraNightVnd < min || extraNightVnd > max)
+            return problem(422, 'VALIDATION_FAILED', {
+              errors: [{ field: 'extraNight.rateVnd', code: 'RATE_OUT_OF_RANGE' }],
+              min,
+              max,
+            });
+        }
         // The room is sold tonight (a same-day arrival) → no extra night (0.3.6 add. 2).
         if (s.treatAsExtension && extraNight && arrivalSameDay(r))
           return problem(409, 'ROOM_UNAVAILABLE', { roomNo: roomOf(r)?.roomNo });
@@ -2780,7 +2798,7 @@ export function createStayMock(ctx: Ctx) {
             r,
             {
               category: 'room',
-              amountVnd: Number(extraNight.rateVnd),
+              amountVnd: extraNightVnd,
               description: 'extra_night',
               chargeCode: 'extra_night',
               serviceDate: r.departureDate,
@@ -2888,7 +2906,8 @@ export function createStayMock(ctx: Ctx) {
         }
         if (s.treatAsExtension && extraNight)
           audit(g, 'reservation.extra_night_on_checkout', r.code, {
-            amountVnd: Number(extraNight.rateVnd),
+            amountVnd: extraNightVnd,
+            source: extraNight.rateVnd === undefined ? 'default' : 'manual',
           });
         if (debt && tt.balanceDueVnd > 0)
           audit(g, 'reservation.debt_on_checkout', r.code, {

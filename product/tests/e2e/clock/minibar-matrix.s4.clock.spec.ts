@@ -1214,6 +1214,9 @@ test.describe(
         { roomId: origin.id },
         'kỳ 1: đếm tủ căn gốc',
       );
+      // ARC 16.17 mục 2: "xong sau lần đếm" xét theo giờ xử lý (`occurred_at` của `complete`) – đồng hồ ảo
+      // đang đứng ở 10:00, nên dời tới 10:30 trước khi HK bấm để lần xong chắc chắn sau lần đếm.
+      k = await moveTo(request, d1, '10:30');
       const hk = await sessionOrSkip(request, 'qa.hk');
       const tasks = await call<{ data: Json[] }>(request, 'GET', p3(EP3.listHkTasks, hk), {
         session: hk,
@@ -1226,8 +1229,8 @@ test.describe(
       );
       expect(refill, 'việc bổ sung tủ căn gốc').toBeTruthy();
       for (const [action, at] of [
-        ['start', '10:01'],
-        ['complete', '10:02'],
+        ['start', '10:30'],
+        ['complete', '10:31'],
       ] as const) {
         const r = await call<Json & ProblemFields>(
           request,

@@ -76,6 +76,8 @@ interface Evaluation {
     floorVnd: number;
     ceilingVnd: number;
     createsChildReservation: boolean;
+    /** ARC 16.18: the room bought now – anchor of a B9a price the desk types (null = the origin room). */
+    anchorRoomId: string | null;
   } | null;
   conditions: Condition[];
   warnings: Array<{ code: string }>;
@@ -288,12 +290,8 @@ export class CheckinService {
       // (a Saturday is a Saturday), never the first night of the booking; a long stay keeps its nightly basis.
       // CI 72fa486 / BR-411-07, BUG-R2-134 (BR-417-07): an agreed price typed in this room is suggested; after an
       // OTTIMO move min(what the guest bought, this room's calendar); always within BR-105.
-      const r = await this.s.addedNightRate(
-        tx,
-        ctx,
-        await this.s.addedNightContext(tx, ctx, row, 'first', room.id),
-        date,
-      );
+      const nc = await this.s.addedNightContext(tx, ctx, row, 'first', room.id);
+      const r = await this.s.addedNightRate(tx, ctx, nc, date);
       const direct = { rateVnd: r.calendarVnd, floorVnd: r.floorVnd, ceilingVnd: r.ceilingVnd };
       const own = row.stay_type === 'long' ? early.baseNightVnd : r.rateVnd;
       priorNight = {
@@ -305,6 +303,7 @@ export class CheckinService {
         floorVnd: direct.floorVnd,
         ceilingVnd: direct.ceilingVnd,
         createsChildReservation: row.channel_group === 'ota' || row.external_contract,
+        anchorRoomId: nc.anchorRoomId,
       };
     }
 
@@ -617,9 +616,12 @@ export class CheckinService {
         extras: { surchargeVnd: surcharge, tierPct: e.early.tierPct },
       });
     }
-    if (addPriorNight && e.early.addsPreviousNight && priorRate !== undefined) {
-      if (expected !== undefined && expected !== priorRate) {
-        throw problem('SURCHARGE_CHANGED', { extras: { surchargeVnd: priorRate } });
+    // ARC 16.18 (0.3.7 vòng sửa 5): `priorNightRateVnd` is optional – absent = the suggested price, written `default`;
+    // present = typed (`manual`). The amount shown (`expectedSurchargeVnd`) is checked against the price written.
+    const priorUsed = priorRate ?? e.priorNight?.defaultRateVnd;
+    if (addPriorNight && e.early.addsPreviousNight && priorUsed !== undefined) {
+      if (expected !== undefined && expected !== priorUsed) {
+        throw problem('SURCHARGE_CHANGED', { extras: { surchargeVnd: priorUsed } });
       }
     }
 
@@ -636,9 +638,6 @@ export class CheckinService {
     }
     if (e.early.addsPreviousNight) {
       if (!addPriorNight) f.add('addPriorNight', 'REQUIRED');
-      if (addPriorNight && priorRate === undefined && !f.has('priorNightRateVnd')) {
-        f.add('priorNightRateVnd', 'REQUIRED');
-      }
       if (addPriorNight && expected === undefined && !f.has('expectedSurchargeVnd')) {
         f.add('expectedSurchargeVnd', 'REQUIRED');
       }
@@ -654,7 +653,7 @@ export class CheckinService {
       f.add('requestFocForSurcharge', 'NOT_ALLOWED');
     }
     f.done();
-    if (addPriorNight && e.priorNight && priorRate !== undefined) {
+    if (addPriorNight && e.priorNight && priorUsed !== undefined) {
       if (!e.priorNight.available) {
         const view = { withNames: true };
         throw await this.s.occupancy.unavailable(
@@ -668,7 +667,7 @@ export class CheckinService {
           view,
         );
       }
-      if (priorRate < e.priorNight.floorVnd || priorRate > e.priorNight.ceilingVnd) {
+      if (priorUsed < e.priorNight.floorVnd || priorUsed > e.priorNight.ceilingVnd) {
         throw problem('RATE_OUT_OF_RANGE', {
           errors: [{ field: 'priorNightRateVnd', code: 'RATE_OUT_OF_RANGE' }],
           extras: { min: e.priorNight.floorVnd, max: e.priorNight.ceilingVnd },
@@ -694,8 +693,16 @@ export class CheckinService {
     // ── writes ──
     await this.s.occupancy.lockRooms(tx, [room.id]);
     let arrival = row.arrival_date;
-    if (addPriorNight && e.priorNight && priorRate !== undefined) {
-      arrival = await this.addPriorNight(tx, ctx, row, room, e.priorNight, priorRate);
+    if (addPriorNight && e.priorNight && priorUsed !== undefined) {
+      arrival = await this.addPriorNight(
+        tx,
+        ctx,
+        row,
+        room,
+        e.priorNight,
+        priorUsed,
+        priorRate === undefined ? 'default' : 'manual',
+      );
     }
     // BR-411/413/415 surcharge confirmed by the desk (BR-414) + optional FOC request.
     if (applyEarly && surcharge > 0 && row.folio_id) {
@@ -914,14 +921,19 @@ export class CheckinService {
     room: RoomInfo,
     prior: NonNullable<Evaluation['priorNight']>,
     rateVnd: number,
+    source: 'default' | 'manual',
   ): Promise<LocalDate> {
     const date = prior.date;
+    const sourced = {
+      source,
+      ...(source === 'manual' ? { anchorRoomId: prior.anchorRoomId } : {}),
+    } as const;
     if (row.channel_group === 'ota' || row.external_contract) {
       await this.s.stay.createChildStay(tx, ctx, row, {
         roomId: room.id,
         from: date,
         to: row.arrival_date,
-        nights: [{ date, amountVnd: rateVnd, calendarVnd: prior.calendarVnd }],
+        nights: [{ date, amountVnd: rateVnd, calendarVnd: prior.calendarVnd, ...sourced }],
         rateSource: 'extra_night_early_late',
         transition: 'B9a',
         actualCheckinAt: ctx.now,
@@ -944,7 +956,7 @@ export class CheckinService {
     const kept = await this.s.stay.pricedNights(tx, row);
     const r = this.s.stay.retierStay(ctx, row, kept, [
       // BR-107 v0.3.8 (S4-38): the typed rate is the night's calendar price – the tier of the stay applies on it.
-      { date, calendarVnd: rateVnd, amountVnd: rateVnd, manual: true },
+      { date, calendarVnd: rateVnd, amountVnd: rateVnd, manual: source === 'manual', ...sourced },
     ]);
     await this.s.stay.writeRepricedNights(tx, ctx, row, {
       segmentId: seg.id,

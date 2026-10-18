@@ -1473,6 +1473,9 @@ export interface paths {
      *     - **0.3.7 bổ sung 4 (BUG-R2-150, ARC + SEC)** – thứ tự trên đường `lateFeeInsteadOfNight`: **bước 0** tra `Idempotency-Key` đã hoàn tất (cùng người gọi, method, path; băm body
      *       **không** gồm `secret` – `SECRET_BODY_FIELDS`) **trước** mọi kiểm nghiệp vụ và `verifyApprover`: khớp → 200 đã lưu + `Idempotent-Replayed: true`, không kiểm mật khẩu, không đếm,
      *       không thông báo; băm lệch → 422 `IDEMPOTENCY_KEY_REUSED`; đang chạy → 409 như mọi lệnh. Rồi BE-64: khuôn body → kiểm nghiệp vụ chỉ đọc → người xác nhận → `uow.run`.
+     *       **Khuôn body = mọi trường của thân B18** (SEC, BUG-R2-165): `checkoutTime`, `checkoutAt`, `checkoutTimeNote`, `extraNight`, `applyLateSurcharge`, `expectedSurchargeVnd`,
+     *       `finalPayment`, `overpaymentHandling`, `debt`, `lateFeeInsteadOfNight` (gồm `requestFoc` và hạn `requestFoc.amountVnd` ≤ `lateFeeAsNightVnd` − FOC trả muộn đã duyệt/đang xin) – dùng
+     *       chung hàm đọc input của `checkOut`; mọi lỗi 422/409 của các trường này trả **trước** khi thử mật khẩu, không đếm.
      *       Rủi ro đã ghi (SEC): gửi lại cùng khóa với mật khẩu **sai** nhận 200 đã lưu mà không ghi gì – chấp nhận vì không có tác dụng mới, khóa gắn người gọi, phản hồi lưu không
      *       phụ thuộc mật khẩu nên không thành kênh dò.
      */
@@ -2736,6 +2739,8 @@ export interface paths {
      *       mới chỉ thay lần đếm **cùng kỳ**; dòng kỳ trước **không** đảo. B18 "Trả phòng – tính thêm 1 đêm" không tính là gia hạn (đếm ở bước 1 của chính lần trả phòng).
      *       Việc bổ sung **không** bị hủy khi lượt ở tiếp; gia hạn B13 sau lần đếm có tính tiền chưa có việc → sinh việc ngay. HK xong việc bổ sung khi lượt **đang ở** căn đó → mở kỳ
      *       `refill` lúc xử lý (mốc = còn lại của lần đếm gần nhất + số nạp; giá = danh mục lúc đó). "Có tính tiền" = có món có giá với số đã dùng > 0 (theo số lượng – FOC 100 % vẫn tính).
+     *     - **Việc bổ sung theo kỳ (ARC 16.17, BUG-R2-159/163)**: đếm lại trong cùng kỳ **chuyển** việc bổ sung đang mở sang lần đếm mới (số = phần còn phải nạp), dùng 0 → hủy việc; không bao giờ có
+     *       hai việc mở cho một kỳ. Việc của kỳ đã xong sau lần đếm sống (giờ xử lý) → 409 `MINIBAR_PERIOD_CHANGED` (kỳ đã nạp, không đếm lại).
      *     - **Khóa theo tủ + kỳ đổi giữa lúc soạn và lúc ghi (ARC 16.16 (ab))**: mọi đường đổi tủ lấy khóa theo tủ; `periodId` gửi kèm khác kỳ hiện tại → 409 `MINIBAR_PERIOD_CHANGED`
      *       (không ghi; tải lại và đếm lại). Không gửi `periodId` thì lần đếm áp vào kỳ hiện tại – các lỗi 422 (`MINIBAR_ITEMS_INCOMPLETE`, `NOT_IN_LIST`, `MINIBAR_QTY_OVER_STANDARD`) chỉ bắt được
      *       khi danh sách món/mốc khác.
@@ -5430,6 +5435,13 @@ export interface components {
       date: components['schemas']['LocalDate'];
       amountVnd: components['schemas']['MoneyVnd'];
       /**
+       * @description 0.3.7 bổ sung 4 (vòng sửa 5, ARC 16.18 – nguồn đêm theo thao tác, BR-417 phụ lục 5A): lễ tân **đã sửa ô** giá của đêm này (cờ "đã sửa" của ô, không so số).
+       *     `true` → nguồn `manual` (kể cả gõ đúng số lịch/gợi ý). `false` → không phải nhập tay: B1 `createReservation` ghi `calendar`, B13 `extendStay` ghi `default`; server ghi
+       *     `amountVnd` như gửi (xem trước = lệnh ghi). **Vắng** → quy tắc cũ của lệnh (tương thích ngược): B1 so với giá lịch như hiện nay, B13 có phần tử = `manual`.
+       *     Đơn B1 có ít nhất một đêm `edited = true` (Trực tiếp/CTV ngắn ngày) → `bookingRateSource = manual_agreed`. Desk (H09, B13) **luôn gửi** cờ này cho mọi đêm
+       */
+      edited?: boolean;
+      /**
        * @description Chỉ trong phản hồi: giá lịch của đêm (BR-104, hoặc giá lễ tân sửa tay) **trước** bậc giảm số đêm BR-107/mã quay lại BR-111 (erd `stay_night.calendar_rate_vnd`).
        *     Đổi số đêm → server áp lại bậc giảm theo **tổng số đêm cuối cùng** trên giá này cho mọi đêm còn hiệu lực (DOM D-8, BR-106); cọc đã thu không đổi. 0.3.5 (A-22)
        */
@@ -5938,8 +5950,11 @@ export interface components {
         date?: components['schemas']['LocalDate'];
         /** @description Căn trống đêm trước và không có OOO (BR-906) */
         available?: boolean;
+        /** @description Vòng sửa 5: giá bước 4 của BR-417 phụ lục 5A cho đêm B9a (đêm tham chiếu = đêm nhập tay sớm nhất sau `date`, AN-32) */
         defaultRateVnd?: components['schemas']['MoneyVnd'];
+        /** @description Vòng sửa 5 – khoảng Desk bước 4 phụ lục 5A (min áp → sàn thấp hơn của hai căn) */
         floorVnd?: components['schemas']['MoneyVnd'];
+        /** @description Vòng sửa 5 – khoảng Desk bước 4 phụ lục 5A (min áp → trần cao hơn của hai căn) */
         ceilingVnd?: components['schemas']['MoneyVnd'];
         /** @description Đơn OTA → đơn con kênh Trực tiếp (BR-422) */
         createsChildReservation?: boolean;
@@ -5999,17 +6014,11 @@ export interface components {
       /**
        * @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E04-07, DOM S3-6, FB-R2-DOM-BE-31): giá một đêm cùng loại ngày gần nhất của đơn khi đơn có giá thỏa thuận (nhập tay/khác lịch giá);
        *     client hiện nút "Giữ giá đơn" điền giá này vào `nightlyRates` (vẫn kiểm sàn–trần BR-105; ngày đặc biệt luôn giá ngày đó). `null` = đơn theo lịch giá.
-       *     **0.3.7 bổ sung 4 (BUG-R2-132 – sửa chữ "giá ròng")**: là **giá thỏa thuận của đêm = giá lịch** (trước bậc BR-107/BR-111 – cùng nghĩa giá gõ tay BR-107 v0.3.8), không phải giá sau bậc.
-       *     Có giá trị **chỉ** với đơn giá thỏa thuận, xác định bằng **cờ nguồn giá của đơn** (BE-A ghi cho mọi đơn – migration `0064`, bù cờ cho đơn cũ theo các đêm lúc đặt); **`null`** với đơn
-       *     theo lịch giá, **kể cả** khi đơn có đêm sửa giá tay S4-35, đêm B9a/B13/B18 gõ tay – các thao tác đó không đổi nguồn giá của đơn.
-       *     **BUG-R2-134 (bổ sung 4, BR-417 v0.3.8 – DOM 18/10 (a))**: giá thỏa thuận **chỉ gắn căn nơi nó được nhập** (lúc đặt hoặc S4-35). Một hàm "giá gợi ý đêm kề" (đêm cuối cho B13/B18,
-       *     đêm đầu cho B9a) dùng chung cho trường này, `CheckoutSummary.extraNightDefaultRateVnd`, giá mặc định B9a, theo **thứ tự** (DOM chốt 18/10, BR-417 v0.3.8):
-       *     (1) **OTTIMO đã đổi căn** (sự cố, swap, B7a – căn hiện tại ≠ căn khách mua = căn của lần khách xin đổi cuối, không có thì căn gốc) → **min**(giá khách mua, lịch Trực tiếp căn
-       *     hiện tại); giá khách mua = giá nhập tay của đêm kề (thỏa thuận lúc đặt, hoặc S4-35 – **kể cả sửa sau khi đổi căn**, vẫn qua min), không có thì lịch của căn khách mua; ngày đặc
-       *     biệt: min giữa lịch ngày đặc biệt của hai căn. Áp cả đơn lịch giá và **đêm con Trực tiếp của đơn OTA** (B9a, gia hạn, B18) – sự cố 201 → 401: **700.000**; Agoda 203 → 401
-       *     (OTTIMO dời), gia hạn thứ Tư: **792.000**. (2) Không có (1): đêm kề ở **căn hiện tại** có giá nhập tay → giá đó. (3) Khách xin đổi căn (B7/B14 `guest_request`) và không có (1), (2)
-       *     → `null` = lịch Trực tiếp căn hiện tại (201 → 401: B13 04/03 = **1.042.000**). Luôn **kẹp sàn–trần** BR-105 của căn hiện tại (BR-417-07) – gõ đúng số gợi ý luôn ghi được.
-       *     Trường này `null` khi gợi ý chính là lịch Trực tiếp căn hiện tại. Xem trước B9a/B13/B18 = lệnh ghi.
+       *     **0.3.7 bổ sung 4 (BUG-R2-132)**: giá trước bậc BR-107/BR-111 (giá lịch của đêm), không phải giá sau bậc.
+       *     **Vòng sửa 5 – thay các đoạn BUG-R2-132/134 trước đây (BR-417 phụ lục 5A, bảng AN-01…AN-47 là nguồn duy nhất; câu chữ lệch thì bảng thắng)**:
+       *     = giá bước 4 của đêm thêm kế tiếp khi giá đến từ **thỏa thuận hoặc min**; `null` khi giá là lịch của căn đêm thêm (không đổi căn, hoặc khách xin) – xét theo **nguồn**, không so số
+       *     (AN-45; ví dụ AN-34 650.000, AN-10 911.000, AN-22 792.000, AN-09/AN-03 `null`). Gợi ý `nights[].defaultRateVnd` và khoảng `floorVnd`–`ceilingVnd` theo bước 4 (AN-01…AN-42).
+       *     Xem trước B9a/B13/B18 = trần QR = lệnh ghi.
        */
       currentBookingRateVnd?: components['schemas']['MoneyVnd'] | null;
       /**
@@ -6032,8 +6041,11 @@ export interface components {
       nights: {
         date: components['schemas']['LocalDate'];
         available: boolean;
+        /** @description Vòng sửa 5: giá bước 4 của BR-417 phụ lục 5A (giá trước bậc) */
         defaultRateVnd?: components['schemas']['MoneyVnd'];
+        /** @description Vòng sửa 5 – khoảng Desk theo bước 4 phụ lục 5A: sàn–trần căn đêm thêm; khi quy tắc min áp = sàn thấp hơn của hai căn */
         floorVnd?: components['schemas']['MoneyVnd'];
+        /** @description Vòng sửa 5 – trần căn đêm thêm; khi quy tắc min áp = trần cao hơn của hai căn (bước 4 phụ lục 5A) */
         ceilingVnd?: components['schemas']['MoneyVnd'];
       }[];
     };
@@ -6100,11 +6112,15 @@ export interface components {
       unhandledCreditVnd?: components['schemas']['MoneyVnd'];
       /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E05-11): giờ trả (`checkoutTime`/`checkoutAt`) sau mốc cuối BR-412 → `checkOut` phải gửi `extraNight` */
       extraNightRequired?: boolean;
-      /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): lịch giá Trực tiếp đêm ngày đi (BR-421); có khi `extraNightRequired`. **0.3.7 bổ sung 4 (BUG-R2-134, BR-417 v0.3.8)**: = giá gợi ý đêm kề như `ExtensionOptions.currentBookingRateVnd` (thỏa thuận chỉ khi đêm cuối ở căn hiện tại; sau OTTIMO đổi căn = min; kẹp sàn–trần căn hiện tại), vắng giá đó thì lịch giá Trực tiếp căn hiện tại */
+      /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10); có khi `extraNightRequired`. **Vòng sửa 5**: giá bước 4 của BR-417 phụ lục 5A cho đêm ngày đi (AN-43) – thay các câu BUG-R2-134 trước đây */
       extraNightDefaultRateVnd?: components['schemas']['MoneyVnd'];
+      /** @description 0.3.7 bổ sung 4 (vòng sửa 5): khoảng Desk cho `extraNight.rateVnd` theo bước 4 phụ lục 5A – sàn căn đêm thêm; min áp → sàn thấp hơn của hai căn. Có khi `extraNightRequired` */
+      extraNightFloorVnd?: components['schemas']['MoneyVnd'];
+      /** @description 0.3.7 bổ sung 4 (vòng sửa 5): trần tương ứng (min áp → trần cao hơn của hai căn) */
+      extraNightCeilingVnd?: components['schemas']['MoneyVnd'];
       /**
        * @description 0.3.7 bổ sung 4 (BUG-R2-139, BR-416-06 – DOM 18/10): **phụ thu trả muộn bằng giá 1 đêm** – có khi `extraNightRequired = true` **và** `extraNightAvailable = false` (đêm ngày đi không
-       *     bán được). = `extraNightDefaultRateVnd` (giá 1 đêm của đêm ngày đi; không thêm đêm nên không tính lại bậc BR-107 các đêm). Ghi bằng `checkOut.lateFeeInsteadOfNight` (quản lý xác nhận).
+       *     bán được). = giá bước 4 phụ lục 5A của đêm ngày đi (= `extraNightDefaultRateVnd`; AN-44; không thêm đêm nên không tính lại bậc BR-107 các đêm). Ghi bằng `checkOut.lateFeeInsteadOfNight` (quản lý xác nhận).
        *     Ví dụ 203, 16–18/04/2030, đã thu đủ, căn có khách đến 18/04, rời 19:00 → **792.000**
        */
       lateFeeAsNightVnd?: components['schemas']['MoneyVnd'];
@@ -10767,7 +10783,7 @@ export interface operations {
            * @default false
            */
           addPriorNight?: boolean;
-          /** @description Bắt buộc khi `addPriorNight=true`; mặc định từ `CheckInPreview.priorNight.defaultRateVnd`; trong sàn–trần BR-105 */
+          /** @description Mặc định từ `CheckInPreview.priorNight.defaultRateVnd`; trong sàn–trần BR-105. **Vòng sửa 5 (ARC 16.18 – nguồn đêm theo thao tác)**: không còn bắt buộc – **vắng** = giá mặc định (nguồn `default`); **có** = lễ tân nhập tay (nguồn `manual`, kể cả bằng số gợi ý). Client chỉ gửi khi lễ tân sửa ô */
           priorNightRateVnd?: components['schemas']['MoneyVnd'];
           /** @description 0.3.7 (BUG-R2-038): khoản thu ở bước nhận phòng H13 (`type = charge`) – thứ tự trong giao dịch và trần `amountDueAtCheckinVnd` xem mô tả operation */
           payment?: components['schemas']['PaymentCreate'];
@@ -10884,7 +10900,7 @@ export interface operations {
         'application/json': {
           /** @description ≤ `ExtensionOptions.maxNights` → vượt: 422 mã trường `EXTENSION_LIMIT_EXCEEDED` (0.3.3). Đơn `externalContract=true` không bị giới hạn BR-421 */
           nights: number;
-          /** @description Bỏ trống = giá mặc định BR-421; sửa được trong sàn–trần BR-105. Đơn `externalContract=true` (dài hạn nhập tay) **không** sinh dòng `room` → gửi trường này: 422 `NIGHTLY_RATES_NOT_ALLOWED` (0.3.3, E04-01) */
+          /** @description Bỏ trống = giá mặc định BR-421; sửa được trong sàn–trần BR-105. Đơn `externalContract=true` (dài hạn nhập tay) **không** sinh dòng `room` → gửi trường này: 422 `NIGHTLY_RATES_NOT_ALLOWED` (0.3.3, E04-01). **Vòng sửa 5 (BR-417 phụ lục 5A mục 3/9 – nguồn đêm theo thao tác, ARC 16.18)**: đêm **có** phần tử = lễ tân **nhập tay** (nguồn `manual`, kể cả gõ đúng số gợi ý/số lịch); đêm **không** có phần tử = **mặc định** (nguồn `default`). Server không so số với lịch. Client chỉ gửi đêm lễ tân đã sửa ô */
           nightlyRates?: components['schemas']['NightRate'][];
           /** @description Lý do vẫn gia hạn khi hạn thị thực/tạm trú của khách NN < ngày đi mới. Thiếu → 422 mã trường cảnh báo `VISA_EXPIRES_BEFORE_DEPARTURE` (client hiện hộp cảnh báo rồi gửi lại). Ngày đi **khai báo** vẫn không vượt hạn thị thực (BR-605, US-050 AC2; 0.3.3, E04-01) */
           visaWarningAckReason?: string;
@@ -11413,9 +11429,11 @@ export interface operations {
           /**
            * @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E05-11, BR-416 v0.3.4, DOM S3-9): "Trả phòng – tính thêm 1 đêm" – bắt buộc khi `CheckoutSummary.extraNightRequired=true`.
            *     Mặc định `CheckoutSummary.extraNightDefaultRateVnd` (lịch giá Trực tiếp đêm đó, BR-421); giá ngoài sàn–trần BR-105 → `RATE_OUT_OF_RANGE`.
+           *     **Vòng sửa 5 (ARC 16.18)**: `rateVnd` không còn bắt buộc – vắng = giá mặc định (nguồn `default`); có = lễ tân nhập tay (nguồn `manual`, kể cả bằng số gợi ý);
+           *     khoảng nhập `CheckoutSummary.extraNightFloorVnd`–`extraNightCeilingVnd`.
            */
           extraNight?: {
-            rateVnd: components['schemas']['MoneyVnd'];
+            rateVnd?: components['schemas']['MoneyVnd'];
           };
           /**
            * @description 0.3.7 bổ sung 4 (BUG-R2-139, BR-416-06): "Trả phòng – phụ thu trả muộn bằng giá 1 đêm" khi đêm ngày đi không bán được – **quản lý trở lên xác nhận tại quầy** (ARC 18/10):

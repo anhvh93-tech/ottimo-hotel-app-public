@@ -74,8 +74,13 @@ export interface PriceInput {
   arrival: LocalDate;
   departure: LocalDate;
   party: { adults: number; children6to11: number; childrenUnder6: number };
-  /** Explicit nightly rates (form override / OTA). */
-  nightlyRates?: ReadonlyArray<{ date: LocalDate; amountVnd: number }> | undefined;
+  /**
+   * Explicit nightly rates (form override / OTA). ARC 16.18 bổ sung: `edited` (the desk changed the cell) – true =
+   * typed (`manual`, also at the calendar number), false = the calendar sent back untouched (`calendar`, the amount
+   * as sent); absent = the old rule (`manual`).
+   */
+  nightlyRates?:
+    ReadonlyArray<{ date: LocalDate; amountVnd: number; edited?: boolean }> | undefined;
   otaRoomAmountVnd?: number | undefined;
 }
 
@@ -83,7 +88,7 @@ export interface PricedNight {
   date: LocalDate;
   /** Final price of the night (after calendar and length-of-stay discount) – stay_night gross. */
   amountVnd: number;
-  source: 'calendar' | 'manual' | 'ota_amount' | 'complimentary';
+  source: 'calendar' | 'manual' | 'default' | 'ota_amount' | 'complimentary';
   /** Calendar price BEFORE the length-of-stay discount (BR-104) – kept in the snapshot so a change of the
    * number of nights re-tiers BR-107 on the agreed calendar prices (DOM D-8). */
   calendarVnd?: number;
@@ -253,6 +258,7 @@ export class PricingService {
     const explicit = input.nightlyRates;
     if (explicit && explicit.length > 0) {
       const byDate = new Map<string, number>();
+      const untouched = new Set<string>();
       for (const r of explicit) {
         if (byDate.has(r.date) || !dates.includes(r.date)) {
           throw problem('VALIDATION_FAILED', {
@@ -260,6 +266,7 @@ export class PricingService {
           });
         }
         byDate.set(r.date, r.amountVnd);
+        if (r.edited === false) untouched.add(r.date);
       }
       if (byDate.size !== dates.length) {
         throw problem('VALIDATION_FAILED', {
@@ -280,7 +287,7 @@ export class PricingService {
           amountVnd: amount,
           // DOM D-8: a price typed at the desk is the agreed calendar price of a direct/agent night.
           ...(group === 'direct' || group === 'agent' ? { calendarVnd: amount } : {}),
-          source: amount === 0 ? 'complimentary' : 'manual',
+          source: amount === 0 ? 'complimentary' : untouched.has(date) ? 'calendar' : 'manual',
           ...(b ?? {}),
         };
       });
@@ -290,7 +297,7 @@ export class PricingService {
         losPct = losDiscountPct(dates.length, p.losTiers);
         if (losPct > 0) {
           nights = nights.map((n) =>
-            n.source === 'manual'
+            n.source === 'manual' || n.source === 'calendar'
               ? {
                   ...n,
                   amountVnd: applyNightDiscount(
@@ -406,7 +413,11 @@ export class PricingService {
       depositRequiredVnd,
       hasPeakNight: peak,
       outOfRange,
-      ...(explicit && explicit.length > 0 && (group === 'direct' || group === 'agent')
+      // ARC 16.18 bổ sung: agreed = at least one night typed (`edited = true`, or sent without the flag).
+      ...(explicit &&
+      explicit.length > 0 &&
+      (group === 'direct' || group === 'agent') &&
+      nights.some((n) => n.source === 'manual')
         ? { agreedRate: true }
         : {}),
     };

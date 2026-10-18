@@ -510,3 +510,115 @@ Người kiểm lại cần đổi kỳ vọng của 18 ca này.
   - Lượt chạy trước có 1 ca chập chờn `architecture.test` "dev_clock has a row", đã gặp ở mục 12.4; lượt chạy lại xanh.
   - tsc, eslint, prettier sạch.
 - **Ngoài module BE-A, nhờ chủ xem:** các lệnh folio và thanh toán của BE-B (`folio.*`, `payments.*`) còn chỗ khóa `reservation ... FOR UPDATE` thì nên đổi theo cùng quy tắc. BE-A không sửa các tệp đó.
+
+## 17. Vòng sửa 5 (kiểm lại lần 5 – `reviews/s4-money-recheck5.md`; SEC `s4-SEC-lateFee-reauth.md` mục 12; DOM BR-417 phụ lục 5A; ARC `openapi-0.3.7.md` 16.18 và bổ sung)
+
+### 17.1 BUG-R2-165 – BE-64 còn sót (SEC 12.1: sửa)
+- **Một hàm đọc thân B18** (`CheckoutService.readInput`): đọc mọi trường gồm `checkoutTime`, `checkoutAt`, `checkoutTimeNote`, `applyLateSurcharge`, `expectedSurchargeVnd`, `extraNight`, `lateFeeInsteadOfNight` (cả `requestFoc`), `finalPayment`, `overpaymentHandling`, `debt`. `lateFeePrecheck` và `checkOut` cùng gọi hàm này. Không còn hai bộ kiểm khuôn.
+- **Một bước quyết định chỉ đọc** (`decide`), B18 và precheck cùng gọi, theo thứ tự:
+  1. ngày đi (409 `INVALID_TRANSITION`);
+  2. số tiền đã hiện (409 `SURCHARGE_CHANGED`);
+  3. dữ liệu trường (422, gồm kiểm giờ gõ);
+  4. headroom FOC `lateFeeInsteadOfNight.requestFoc` (422 `VALUE_OUT_OF_RANGE`, `max`).
+- **Headroom tính bằng `lateFocHeadroom`** = phụ thu − min(FOC đã duyệt, phụ thu) − FOC đang xin. Precheck và B18 cùng gọi hàm này, đặt trước `verifyApprover`.
+- **`If-Match` lệch → 412 trước mật khẩu.** Precheck đọc `version` trong giao dịch chỉ đọc.
+- **Khuôn `finalPayment`:** tách `checkPaymentShape` trong `payments/public/payment.service.ts`, gồm loại, phương thức, số tiền, `receivedAt`, mã POS, đợt thu, tệp, ghi chú. `recordInTx` gọi chính hàm này, nên câu trả lời không đổi. Kiểm phương thức theo kênh (`ota_collect`) vẫn để lúc ghi.
+  - **Tệp của BE-B, nhờ BE-B xem.**
+- **Vẫn đứng sau mật khẩu** (giữ thứ tự SEC đã chấp nhận; từ 167 đều để dấu vết):
+  - 403 vai người gọi (`debt`, `retain_with_guest_consent`);
+  - 403 hạn mức người xác nhận;
+  - 422 `AMOUNT_EXCEEDS_BALANCE`;
+  - 409 `MINIBAR_NOT_CHECKED` / `PENDING_APPROVALS` / `BALANCE_DUE`.
+- **Hệ quả:** lỗi khuôn `finalPayment` giờ báo cùng các lỗi khuôn khác, ở `f.done()` đầu B18, trước 403/412/409.
+- Đã sửa chú thích tự mâu thuẫn ở đầu `lateFeePrecheck`.
+- **Test** (`test/integration/s438r5-money.test.ts`):
+  - 6 ca của critic + `If-Match` cũ: mật khẩu sai và đúng ra cùng 422/412; bộ đếm 0/0; không audit, không thông báo.
+  - Đã có FOC 100.000 được duyệt (B15 15:00): 692.001 → 422 `max` 692.000 trước mật khẩu; 692.000 → 200, còn nợ 0.
+  - `s438r4-money` ca 154 đổi sang `If-Match` đúng phiên bản, vì giờ 412 đứng trước mật khẩu.
+
+### 17.2 BUG-R2-167 – mật khẩu đúng phải để dấu vết (SEC 12.3: sửa)
+- Trong `PasswordReauth.verifyApprover`, khi mật khẩu đúng và người xác nhận ≠ người gọi, ghi **trong giao dịch riêng** của hàm (còn lại kể cả khi B18 lỗi sau đó):
+  - audit `security` `late_fee_as_night.reauth_succeeded`: `entity` = người xác nhận; `after = {authMethod, confirmingFor, failedCountCleared?}` (`failedCountCleared` chỉ có khi > 0); kèm `requestId`; không có tên đăng nhập;
+  - callback `onSucceeded(tx, approverId)`. Controller gửi `account_security_change` (`refType = reservation`, `refId`, `refCode`, không có số tiền).
+- Bỏ thông báo trùng ở `checkout.service.ts`. Mỗi lần dùng mật khẩu có đúng 1 thông báo; audit `money` giữ nguyên; hai bản ghi nối nhau qua `requestId`.
+- Vẫn xóa bộ đếm về 0 khi đúng. Allowlist `app_user` thêm `failedCountCleared`.
+- Tự xác nhận (OWN/MGR không gõ tên): không audit, không thông báo.
+- **Test:**
+  - 4 ca mật khẩu đúng rồi bị từ chối: 409 `BALANCE_DUE`; 403 nợ do FD; 422 `AMOUNT_EXCEEDS_BALANCE`; 412 sau mật khẩu (giao dịch khác đổi `version` trong lúc B18 chờ khóa đơn). Mỗi ca → +1 `reauth_succeeded` (đúng `confirmingFor`; lần đầu `failedCountCleared = 2`) và +1 thông báo.
+  - Tự xác nhận: 0.
+  - B18 thành công: đúng 1 thông báo + 1 `reauth_succeeded` + 1 audit `money`, cùng `requestId`.
+
+### 17.3 BUG-R2-166 – chấp nhận (SEC 12.2): chỉ thêm test
+- Ca đồng thời thật: B18 đầu giữ key trong giao dịch, đang chờ khóa đơn.
+  - Gửi lại cùng key, mật khẩu **sai** → 401, đếm +1/+1. Đây là hành vi được chấp nhận và ghi rõ trong tên ca.
+  - Gửi lại cùng key, mật khẩu **đúng** → 409 `IDEMPOTENCY_IN_PROGRESS` hoặc 200 replay; đếm 0/0.
+  - B18 đầu → 200; folio 2.376.000; 1 dòng `late_fee_as_night`; 1 audit `money`.
+
+### 17.4 BUG-R2-160, 161, 162 và R5-02 – BR-417 phụ lục 5A (bảng AN-01…AN-47)
+- **Một hàm 5 bước:**
+  - `reservations/public/added-night-price.ts`:
+    - `referenceNightRate`: đêm tham chiếu (bước 3);
+    - `addedNightPrice`: kẹp trước, min sau; khoảng Desk; `keep` theo nguồn (bước 3–5);
+    - kiểu `NightSource`.
+  - `room-history.ts`:
+    - `boughtRoomOf` viết lại theo bước 1: khách xin → căn mới; về làn → căn gán kế tiếp; OTTIMO không đổi; lần gán đầu từ làn là căn gốc;
+    - `stayRoomHistory`: lịch sử cả lượt. Đơn con nhận lịch sử của đơn liền trước tới lúc nó được tạo, cộng thay đổi của chính nó. S4-09 chỉ ghi trên đơn gốc nên các đêm từ ngày về giữ căn khách mua trước lần xin tạm (AN-09…12).
+  - Dùng chung cho:
+    - `StaySupport.addedNightContext/addedNightRate` (bỏ `agreedRate`): B9a, B13, B18 thêm đêm, `lateFeeAsNightVnd`, `extraNightDefaultRateVnd`, `currentBookingRateVnd`;
+    - MovePlanner: đêm thêm của thao tác OTTIMO (AN-46).
+  - Đêm thêm khi khách xin (B7) = lịch hiện hành căn của đêm (AN-47; trước đây là min).
+- **Nguồn đêm theo thao tác (ARC 16.18 và bổ sung).** `pricing_snapshot.nights[]` có `source` = `manual` / `default` / `calendar`, cộng `anchorRoomId` (CKM lúc gõ, chỉ ghi khi khác căn gốc):
+  - B1 `NightRate.edited`: `false` → `calendar`; có ít nhất 1 `true` (hoặc không có cờ) → `manual`, `bookingRateSource = manual_agreed`;
+  - B13: đêm có phần tử trong `nightlyRates` = `manual` (`edited = false` → `default`), không có = `default`;
+  - B9a `priorNightRateVnd` và B18 `extraNight.rateVnd` tùy chọn: vắng = `default`, có = `manual`;
+  - S4-35 → `manual` + `anchorRoomId`;
+  - OTTIMO dời đêm: giữ `source` và `anchorRoomId`;
+  - khách xin đổi định giá lại: `calendar`;
+  - đêm do MovePlanner (OTTIMO) thêm: `default`.
+- **Trường mới:** `CheckoutSummary.extraNightFloorVnd` và `extraNightCeilingVnd`.
+- **S4-35 sau OTTIMO đổi căn** (AN-25 gõ 700.000 ở 401): khoảng nhận = sàn thấp – trần cao của căn đêm và căn khách mua, như r4-1. Trước đây là 422 theo sàn 401 (740.000). Xem giả định r5-3.
+- **Migration 0068** (`0068_night_source_backfill.sql`, chỉ dữ liệu, không đổi tiền; snapshot `0068` = `0067`; journal):
+  - Bù nguồn đêm của lượt chưa chốt (đơn gốc) theo audit:
+    - gõ lúc đặt → giữ, không anchor;
+    - S4-35 / B13 có gõ → giữ, anchor = căn của lần khách xin gần nhất trước audit;
+    - `manual` còn lại → `default`.
+  - Có test chạy đúng câu lệnh của tệp trên dữ liệu kiểu cũ.
+  - **Truy vấn kiểm cho DATA** sau khi chạy (kỳ vọng chỉ còn đêm gõ lúc đặt):
+    ```sql
+    SELECT r.code, x->>'date' FROM reservation r, jsonb_array_elements(r.pricing_snapshot->'nights') x
+     WHERE r.status IN ('hold','confirmed','in_house') AND r.parent_reservation_id IS NULL
+       AND x->>'source' = 'manual' AND NOT x ? 'anchorRoomId'
+       AND EXISTS (SELECT 1 FROM reservation_change c WHERE c.reservation_id = r.id
+                    AND c.field = 'room' AND c.reason = 'guest_request');
+    ```
+- **Số đúng bảng:**
+  - 160 (AN-10) **911.000** / 4.095.000; căn tạm 302: folio 4.220.000;
+  - 161 (AN-34) **650.000** / 2.980.000; `currentBookingRateVnd` 650.000; biến thể 103 → 101 cũng 650.000;
+  - 162 (AN-22/43) **792.000** / 3.168.000; chiều ngược 911.000 / 3.644.000;
+  - R5-02 (AN-35) **1.000.000** / 3.667.000.
+  - Các ca BR-417-04/07/09…15, 145, 155, 156 giữ số (toàn bộ suite xanh). Dùng sàn 302 = **690.000**.
+- **Test bảng** `test/integration/br417-an-table.test.ts`:
+  - đọc thẳng BR-417-16…19 từ `br-examples.json`; mỗi AN một ca, tên ca có mã dòng; thêm ca đếm "đủ 47 dòng, mỗi dòng có ca";
+  - mỗi dòng một tenant, dùng ngày của bảng; đi qua HTTP như Desk (xem trước = trần QR = ghi);
+  - AN-14 (khách xin về làn – R2 không có lệnh) và AN-36 (dòng tổng quát) chạy trên chính hàm dùng chung;
+  - thêm ca `NightRate.edited` của B1/B13 và ca 0068.
+- **Đối chứng:** chạy cùng test trên mã HEAD `8819c2d` → đỏ AN-10, AN-11 (160), AN-34 (161), AN-22, AN-43, AN-35 (162) cùng các dòng phụ thuộc hợp đồng mới, cả 3 ca 165/167. Mã mới xanh.
+- **Đã gỡ `pendingFix`** ở BR-417-17, 18, 19 (xóa đúng 1 dòng mỗi mục).
+- **`s438r3-money` ca BR-417-07 `guestRequest`:** B13 giờ gửi `edited: false`. Theo ARC 16.18, gõ tay (kể cả đúng số gợi ý) là đêm tham chiếu.
+
+### 17.5 Kiểm máy
+- **Vitest api toàn bộ, DB mới: 2835/2835** (89 tệp).
+- tsc, eslint (`src`, `test`), prettier sạch.
+- **Không commit.**
+
+### 17.6 Giả định (ghi `01-decisions/decision-log.md`)
+- **r5-1** – `checkPaymentShape` tách từ `recordInTx` (BE-B): chỉ tái cấu trúc, cùng câu trả lời.
+- **r5-2** – Vẫn đứng sau mật khẩu: 403 vai người gọi và 422 `AMOUNT_EXCEEDS_BALANCE` (theo thứ tự SEC đã chấp nhận). Từ 167 đều để dấu vết.
+- **r5-3** – S4-35 sau OTTIMO đổi căn nhận khoảng của hai căn (AN-25 cần 700.000 ở 401). **ARC/DOM xác nhận.**
+- **r5-4** – 0068 bù gần đúng:
+  - anchor = căn của lần khách xin gần nhất trước audit gõ;
+  - không tính lại "về làn" và S4-09;
+  - đêm B9a/B18 `manual` cũ → `default`, vì không biết lễ tân có sửa hay không;
+  - đêm của đơn con không đổi (đơn OTA không có đêm tham chiếu).
+- **r5-5** – AN-47: khách xin dời ngày (B7) ở căn OTTIMO xếp → đêm thêm lấy lịch căn đang ở, không min nữa. Khác oracle T7 cũ của critic (r4rate).
+- **r5-6** – Đơn liền trước của một đơn con: đơn có ngày đi = ngày đến của đơn con (B13), không có thì đơn có ngày đến = ngày đi của đơn con (B9a), không có nữa thì đơn gốc. Chỉ nhận các thay đổi trước lúc đơn con được tạo.

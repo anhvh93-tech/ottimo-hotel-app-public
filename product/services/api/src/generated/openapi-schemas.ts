@@ -703,6 +703,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
       props: {
         date: { s: { k: 'ref', name: 'LocalDate' } },
         amountVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+        edited: { s: { k: 'scalar' }, w: true },
         calendarRateVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
       },
       open: false,
@@ -1299,6 +1300,8 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         unhandledCreditVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         extraNightRequired: { s: { k: 'scalar' } },
         extraNightDefaultRateVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+        extraNightFloorVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+        extraNightCeilingVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         lateFeeAsNightVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
         extraNightAvailable: { s: { k: 'scalar' } },
         minibarUncheckedRooms: {

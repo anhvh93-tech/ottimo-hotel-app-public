@@ -190,8 +190,8 @@ describe('FE-S3-03 – extension shows what the guest pays extra (BR-107 reprici
   });
 });
 
-describe('E04-07 – "Giữ giá đơn" (currentBookingRateVnd, UXD s3 E.1)', () => {
-  it('the booking rate replaces the calendar rate for the new nights and is sent as nightlyRates', async () => {
+describe('E04-07 → ARC 16.18 (vòng sửa 5): gia hạn không gửi giá đêm lễ tân không sửa', () => {
+  it('đơn có giá thỏa thuận: gợi ý của máy chủ đã theo giá đó (AN-45) – không còn nút "Giữ giá đơn", lệnh B13 không có nightlyRates', async () => {
     const kim = res('Kim Seo-yeon');
     const dep = kim.departureDate;
     const sent: Array<Record<string, unknown>> = [];
@@ -202,12 +202,12 @@ describe('E04-07 – "Giữ giá đơn" (currentBookingRateVnd, UXD s3 E.1)', ()
           createsChildReservation: false,
           currentBookingRateVnd: 700_000,
           nights: [
-            { date: addDays(dep, 0), available: true, defaultRateVnd: 620_000 },
-            { date: addDays(dep, 1), available: true, defaultRateVnd: 620_000 },
+            { date: addDays(dep, 0), available: true, defaultRateVnd: 700_000 },
+            { date: addDays(dep, 1), available: true, defaultRateVnd: 700_000 },
           ],
           repricing: [
-            { nights: 1, repricedTotalVnd: 3_720_000, deltaVnd: 620_000, losDiscountPct: 0 },
-            { nights: 2, repricedTotalVnd: 4_340_000, deltaVnd: 1_240_000, losDiscountPct: 0 },
+            { nights: 1, repricedTotalVnd: 3_800_000, deltaVnd: 700_000, losDiscountPct: 0 },
+            { nights: 2, repricedTotalVnd: 4_500_000, deltaVnd: 1_400_000, losDiscountPct: 0 },
           ],
         }),
       ),
@@ -223,25 +223,22 @@ describe('E04-07 – "Giữ giá đơn" (currentBookingRateVnd, UXD s3 E.1)', ()
       name: tv('extend.title', { room: '402', guest: 'Kim Seo-yeon' }),
     });
     await user.click((await within(dlg).findAllByRole('checkbox'))[1]!);
-    const keep = within(dlg).getByRole('button', {
-      name: tv('extend.keep_rate', { amount: tv('common.currency_vnd', { amount: '700.000' }) }),
-    });
-    expect(keep).toHaveAttribute('aria-pressed', 'false');
-    expect(within(dlg).getByText(tv('extend.keep_rate_help'))).toBeInTheDocument();
-    await user.click(keep);
-    expect(keep).toHaveAttribute('aria-pressed', 'true');
-    const submit = within(dlg).getByRole('button', {
-      name: tv('extend.submit', {
-        n: 2,
-        amount: tv('common.currency_vnd', { amount: '1.400.000' }),
+    expect(
+      within(dlg).queryByRole('button', {
+        name: tv('extend.keep_rate', { amount: tv('common.currency_vnd', { amount: '700.000' }) }),
       }),
-    });
-    await user.click(submit);
+    ).toBeNull();
+    await user.click(
+      within(dlg).getByRole('button', {
+        name: tv('extend.submit', {
+          n: 2,
+          amount: tv('common.currency_vnd', { amount: '1.400.000' }),
+        }),
+      }),
+    );
     await waitFor(() => expect(sent).toHaveLength(1));
-    expect(sent[0]!.nightlyRates).toEqual([
-      { date: addDays(dep, 0), amountVnd: 700_000 },
-      { date: addDays(dep, 1), amountVnd: 700_000 },
-    ]);
+    expect(sent[0]).toMatchObject({ nights: 2 });
+    expect(sent[0]).not.toHaveProperty('nightlyRates');
   });
 });
 

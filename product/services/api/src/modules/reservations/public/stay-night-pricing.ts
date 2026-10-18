@@ -20,6 +20,7 @@ import { problem } from '../../../shared/problem';
 import type { LocalDate } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { PropertyContextService } from '../../platform/public/property-context';
+import { boughtRoomOf, stayRoomHistory } from '../internal/room-history';
 import { discountedNight, rateBounds, requiredDepositAfterChange, returnGuestOf } from './pricing';
 import { PricingService } from './pricing.service';
 
@@ -136,22 +137,38 @@ export class StayNightPricingPort {
     const p = await this.pricing.load(tx, (await this.property.now(tx)).today);
     const tiered =
       (row.channel_group === 'direct' || row.channel_group === 'agent') && !row.external_contract;
+    // ARC 16.18 / BR-417 appendix 5A step 1: the room the guest bought (also the anchor of the typed price below).
+    const view = await stayRoomHistory(tx, row.id);
+    const bought = boughtRoomOf(view.history, view.originRoomId);
     if (night.room_id && row.channel_group !== 'internal') {
-      const { rows: rm } = await tx.query<{ code: string; nightly: number | null }>(
-        `SELECT rg.code,
-                (SELECT lp.nightly_list_price_vnd FROM room_list_price lp
-                  WHERE lp.room_id = rm.id AND lp.effective_from <= $2
-                  ORDER BY lp.effective_from DESC LIMIT 1) AS nightly
-           FROM room rm JOIN room_group rg ON rg.id = rm.room_group_id WHERE rm.id = $1`,
-        [night.room_id, input.serviceDate],
-      );
-      const groupBase = rm[0] ? p.otaBaseRates[rm[0].code] : undefined;
-      const b =
-        groupBase !== undefined
+      const boundsOf = async (roomId: string) => {
+        const { rows: rm } = await tx.query<{ code: string; nightly: number | null }>(
+          `SELECT rg.code,
+                  (SELECT lp.nightly_list_price_vnd FROM room_list_price lp
+                    WHERE lp.room_id = rm.id AND lp.effective_from <= $2
+                    ORDER BY lp.effective_from DESC LIMIT 1) AS nightly
+             FROM room rm JOIN room_group rg ON rg.id = rm.room_group_id WHERE rm.id = $1`,
+          [roomId, input.serviceDate],
+        );
+        const groupBase = rm[0] ? p.otaBaseRates[rm[0].code] : undefined;
+        return groupBase !== undefined
           ? rateBounds(groupBase, p.rateFloorPct, p.rateCeilingPct, p.otaRateUnit)
           : rm[0]?.nightly
             ? rateBounds(Number(rm[0].nightly), p.rateFloorPct, p.rateCeilingPct, p.nightRateUnit)
             : null;
+      };
+      let b = await boundsOf(night.room_id);
+      // BR-417 appendix 5A step 4 (AN-25 – DOM 18/10 vòng sửa 5): a night in a room OTTIMO chose takes a price
+      // within both rooms (lower floor – higher ceiling), like the desk's range of an added night (r4-1).
+      if (b && tiered && bought && bought !== night.room_id) {
+        const own = await boundsOf(bought);
+        if (own) {
+          b = {
+            floorVnd: Math.min(b.floorVnd, own.floorVnd),
+            ceilingVnd: Math.max(b.ceilingVnd, own.ceilingVnd),
+          };
+        }
+      }
       if (b && (price < b.floorVnd || price > b.ceilingVnd)) {
         throw problem('RATE_OUT_OF_RANGE', {
           errors: [{ field: 'newUnitPriceVnd', code: 'RATE_OUT_OF_RANGE' }],
@@ -170,17 +187,27 @@ export class StayNightPricingPort {
         WHERE id = $1`,
       [night.id, tiered ? price : night.calendar, gross, now],
     );
-    // The snapshot remembers the typed price: later syncs keep it (BR-429 (g)).
-    const nightsSnap = (snap.nights ?? []).map((n) =>
-      n.date === input.serviceDate
-        ? { ...n, amountVnd: gross, source: 'manual', ...(tiered ? { calendarVnd: price } : {}) }
-        : n,
-    );
+    // The snapshot remembers the typed price: later syncs keep it (BR-429 (g)). ARC 16.18 (BR-417 appendix 5A step 3
+    // (iii)): with the room the guest bought when it was typed (`anchorRoomId`; the origin room needs none).
+    const anchor = bought && bought !== view.originRoomId ? { anchorRoomId: bought } : {};
+    const nightsSnap = (snap.nights ?? []).map((n) => {
+      if (n.date !== input.serviceDate) return n;
+      const rest: Record<string, unknown> & { date: string } = { ...n };
+      delete rest.anchorRoomId;
+      return {
+        ...rest,
+        amountVnd: gross,
+        source: 'manual',
+        ...anchor,
+        ...(tiered ? { calendarVnd: price } : {}),
+      };
+    });
     if (!nightsSnap.some((n) => n.date === input.serviceDate)) {
       nightsSnap.push({
         date: input.serviceDate,
         amountVnd: gross,
         source: 'manual',
+        ...anchor,
         ...(tiered ? { calendarVnd: price } : {}),
       });
     }

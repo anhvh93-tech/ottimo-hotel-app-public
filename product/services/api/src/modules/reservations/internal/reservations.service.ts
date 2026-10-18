@@ -42,12 +42,13 @@ import {
   noticeDays,
   requiredDepositAfterChange,
 } from '../public/pricing';
+import type { NightSource } from '../public/added-night-price';
 import { type PriceResult, type PricingParams, PricingService } from '../public/pricing.service';
 import { type InitialPayment, ReservationHooks } from '../public/reservation-hooks';
 import type { ConfirmedStay } from '../public/sales-port';
 import { MoneyBridge } from './money-bridge';
 import { type BookingMovePlan, MovePlanner, moveCauseOf } from './move-planner';
-import { boughtRoomOf, protectedBaseOf, roomChangeHistory } from './room-history';
+import { boughtRoomOf, protectedBaseOf, roomChangeHistory, stayRoomHistory } from './room-history';
 import { FDL_PLUS, FD_PLUS, MGR_PLUS, allowedActions, hasAny } from './allowed-actions';
 import { type BookingContext, bookingContext } from './booking-context';
 import { syncExtraGuestKit } from './extra-guest-kit';
@@ -203,8 +204,55 @@ export interface StayNightPrice {
   date: LocalDate;
   calendarVnd: number;
   amountVnd: number;
-  /** typed by the desk (or quoted) – never re-tiered */
+  /** typed by a person (snapshot `source: manual`) */
   manual: boolean;
+  /**
+   * ARC 16.18 (BR-417 appendix 5A step 3): the source recorded by the operation – `default` = the suggested price
+   * written untouched; absent = `manual` ? 'manual' : 'calendar'.
+   */
+  source?: NightSource;
+  /** `manual` only: the room bought when typed (null/absent = the stay's origin room). */
+  anchorRoomId?: string | null;
+}
+
+/**
+ * ARC 16.18: snapshot source (+ anchor of a typed night) of each night after a move plan – `kept` nights keep what
+ * the snapshot had, re-priced / added ones take the source the planner gave them.
+ */
+function plannedSource(
+  row: ReservationRow,
+  planned: ReadonlyMap<string, { priceSource: 'kept' | 'calendar' | 'default' }>,
+): (date: string) => { source: string; anchorRoomId?: string } {
+  const prior = new Map(
+    (
+      (
+        row.pricing_snapshot as {
+          nights?: Array<{ date: string; source?: string; anchorRoomId?: string | null }>;
+        }
+      ).nights ?? []
+    ).map((n) => [n.date, n]),
+  );
+  return (date) => {
+    const n = planned.get(date);
+    if (n && n.priceSource !== 'kept') return { source: n.priceSource };
+    const p = prior.get(date);
+    const source = p?.source ?? 'calendar';
+    return source === 'manual' && p?.anchorRoomId
+      ? { source, anchorRoomId: p.anchorRoomId }
+      : { source };
+  };
+}
+
+/** Snapshot entry of a night (`pricing_snapshot.nights[]`). */
+function snapshotNight(x: StayNightPrice) {
+  const source: NightSource = x.source ?? (x.manual ? 'manual' : 'calendar');
+  return {
+    date: x.date,
+    amountVnd: x.amountVnd,
+    calendarVnd: x.calendarVnd,
+    source,
+    ...(source === 'manual' && x.anchorRoomId ? { anchorRoomId: x.anchorRoomId } : {}),
+  };
 }
 
 export interface CreateHoldInput {
@@ -811,7 +859,7 @@ export class ReservationsService {
         depositRequiredVnd: depositRequired,
         extraPersonFeeVnd: priced?.extraPersonFeeVnd ?? 0,
         nightlyRates: priced?.nights.map((n) => ({ date: n.date, amountVnd: n.amountVnd })) ?? [],
-        rateSource: nightlyRates ? 'manual' : 'calendar',
+        rateSource: nightlyRates?.some((r) => r.edited !== false) ? 'manual' : 'calendar',
         ...(manual ? { monthlyRentVnd: manual.monthly_rent_vnd } : {}),
       },
       ...(rateOverrideReason ? { reason: rateOverrideReason } : {}),
@@ -1698,20 +1746,26 @@ export class ReservationsService {
       f.add('nightlyRates', 'VALIDATION_FAILED');
       return undefined;
     }
-    const out: Array<{ date: LocalDate; amountVnd: number }> = [];
+    const out: Array<{ date: LocalDate; amountVnd: number; edited?: boolean }> = [];
     for (const r of raw) {
-      const o = r as { date?: unknown; amountVnd?: unknown };
+      const o = r as { date?: unknown; amountVnd?: unknown; edited?: unknown };
       if (
         !o ||
         typeof o.date !== 'string' ||
         !/^\d{4}-\d{2}-\d{2}$/.test(o.date) ||
         typeof o.amountVnd !== 'number' ||
-        !Number.isSafeInteger(o.amountVnd)
+        !Number.isSafeInteger(o.amountVnd) ||
+        (o.edited !== undefined && o.edited !== null && typeof o.edited !== 'boolean')
       ) {
         f.add('nightlyRates', 'VALIDATION_FAILED');
         return undefined;
       }
-      out.push({ date: o.date, amountVnd: o.amountVnd });
+      // ARC 16.18 bổ sung: `NightRate.edited` – in the command only (the night's source), never returned.
+      out.push({
+        date: o.date,
+        amountVnd: o.amountVnd,
+        ...(typeof o.edited === 'boolean' ? { edited: o.edited } : {}),
+      });
     }
     return out.length ? out : undefined;
   }
@@ -1911,7 +1965,14 @@ export class ReservationsService {
       roomId: string;
       from: LocalDate;
       to: LocalDate;
-      nights: ReadonlyArray<{ date: LocalDate; amountVnd: number; calendarVnd?: number }>;
+      nights: ReadonlyArray<{
+        date: LocalDate;
+        amountVnd: number;
+        calendarVnd?: number;
+        /** ARC 16.18: recorded by the operation (absent = `manual`, as before). */
+        source?: NightSource;
+        anchorRoomId?: string | null;
+      }>;
       rateSource: 'extra_night_early_late' | 'extension';
       transition: 'B9a' | 'B13';
       actualCheckinAt: Date;
@@ -1963,7 +2024,10 @@ export class ReservationsService {
       nights: input.nights.map((n) => ({
         date: n.date,
         amountVnd: n.amountVnd,
-        source: 'manual',
+        source: n.source ?? 'manual',
+        ...((n.source ?? 'manual') === 'manual' && n.anchorRoomId
+          ? { anchorRoomId: n.anchorRoomId }
+          : {}),
         ...(n.calendarVnd !== undefined ? { calendarVnd: n.calendarVnd } : {}),
       })),
     };
@@ -2174,8 +2238,21 @@ export class ReservationsService {
    * the origin room) – null when the booking never changed room. A booking whose current room differs was put
    * there by OTTIMO: an added night costs min(what the guest bought, the current room's calendar).
    */
-  async boughtRoomId(tx: Tx, row: ReservationRow): Promise<string | null> {
-    return boughtRoomOf(await roomChangeHistory(tx, row.id), row.origin_room_id);
+  async boughtRoomId(tx: Tx, row: Pick<ReservationRow, 'id'>): Promise<string | null> {
+    return (await this.boughtRoom(tx, row.id)).boughtRoomId;
+  }
+
+  /**
+   * BR-417 appendix 5A step 1 (BUG-R2-160): the room the guest bought as the booking `reservationId` (the one holding
+   * the night next to the added one) sees the whole stay, and the stay's origin room (anchor of nights typed before
+   * any room – ARC 16.18).
+   */
+  async boughtRoom(
+    tx: Tx,
+    reservationId: string,
+  ): Promise<{ boughtRoomId: string | null; originRoomId: string | null }> {
+    const h = await stayRoomHistory(tx, reservationId);
+    return { boughtRoomId: boughtRoomOf(h.history, h.originRoomId), originRoomId: h.originRoomId };
   }
 
   async nightBases(tx: Tx, reservationId: string): Promise<Map<LocalDate, number>> {
@@ -2418,15 +2495,25 @@ export class ReservationsService {
   async pricedNights(tx: Tx, row: ReservationRow): Promise<StayNightPrice[]> {
     const snap = new Map(
       (
-        (row.pricing_snapshot as { nights?: Array<{ date: string; source?: string }> }).nights ?? []
-      ).map((n) => [n.date, n.source]),
+        (
+          row.pricing_snapshot as {
+            nights?: Array<{ date: string; source?: string; anchorRoomId?: string | null }>;
+          }
+        ).nights ?? []
+      ).map((n) => [n.date, n]),
     );
-    return (await liveNightRows(tx, row.id)).map((n) => ({
-      date: n.date,
-      calendarVnd: n.calendarVnd ?? n.grossVnd,
-      amountVnd: n.grossVnd,
-      manual: snap.get(n.date) === 'manual',
-    }));
+    return (await liveNightRows(tx, row.id)).map((n) => {
+      const s = snap.get(n.date);
+      const source = (s?.source ?? 'calendar') as NightSource;
+      return {
+        date: n.date,
+        calendarVnd: n.calendarVnd ?? n.grossVnd,
+        amountVnd: n.grossVnd,
+        manual: source === 'manual',
+        source,
+        ...(source === 'manual' ? { anchorRoomId: s?.anchorRoomId ?? null } : {}),
+      };
+    });
   }
 
   /** D-8: every live non-manual night of a direct/agent booking re-tiered for the new number of nights. */
@@ -2499,7 +2586,7 @@ export class ReservationsService {
         date: x.date,
         amountVnd: x.amountVnd,
         calendarVnd: x.calendarVnd,
-        source: x.manual ? 'manual' : 'calendar',
+        source: snapshotNight(x).source,
       })),
     );
     const addedDates = input.added.map((x) => x.date);
@@ -2526,12 +2613,7 @@ export class ReservationsService {
                 ],
               }
             : {}),
-          nights: all.map((x) => ({
-            date: x.date,
-            amountVnd: x.amountVnd,
-            calendarVnd: x.calendarVnd,
-            source: x.manual ? 'manual' : 'calendar',
-          })),
+          nights: all.map(snapshotNight),
         }),
       ],
     );
@@ -3584,20 +3666,10 @@ export class ReservationsService {
     );
     const hasPeakNight =
       nowPeak || (oldPeak && row.folio_id !== null && (await this.money.depositPaid(tx, row)) > 0);
-    const prior = new Map(
-      (
-        (row.pricing_snapshot as { nights?: Array<{ date: string; source?: string }> }).nights ?? []
-      ).map((n) => [n.date, n.source]),
-    );
     const planned = new Map(plan.nights.map((n) => [n.date, n]));
-    // Source of each night: typed price kept → manual; re-priced from a calendar → calendar; else as booked.
-    const sourceOf = (date: string): string => {
-      const n = planned.get(date);
-      if (!n) return prior.get(date) ?? 'calendar';
-      if (n.manual) return 'manual';
-      if (n.added || prior.get(date) === 'manual') return 'calendar';
-      return prior.get(date) ?? 'calendar';
-    };
+    // ARC 16.18: the source the operation gives each night – kept (a typed night keeps `manual` and its anchor),
+    // re-priced to a calendar, or an added night priced by the appendix 5A function (`default`).
+    const sourceOf = plannedSource(row, planned);
     await tx.query(
       `UPDATE reservation SET pricing_snapshot = pricing_snapshot || $2::jsonb WHERE id = $1`,
       [
@@ -3608,7 +3680,7 @@ export class ReservationsService {
           nights: live.map((n) => ({
             date: n.date,
             amountVnd: n.grossVnd,
-            source: sourceOf(n.date),
+            ...sourceOf(n.date),
             ...(n.calendarVnd !== null ? { calendarVnd: n.calendarVnd } : {}),
           })),
         }),
@@ -3668,16 +3740,11 @@ export class ReservationsService {
     );
     // BUG-R2-134: a guest-requested move re-prices typed nights to the new room's calendar – the snapshot forgets
     // that they were typed even when the room money happens not to change.
-    const repriced = plan.nights.some((x) => x.manualRepriced);
+    const repriced = plan.nights.some((x) => x.priceSource !== 'kept');
     if ((roomDelta !== 0 || repriced) && !row.external_contract) {
-      const manual = new Set(plan.nights.filter((x) => x.manual).map((x) => x.date));
-      const prior = new Map(
-        (
-          (row.pricing_snapshot as { nights?: Array<{ date: string; source?: string }> }).nights ??
-          []
-        ).map((x) => [x.date, x.source]),
-      );
-      const moved = new Set(plan.nights.map((x) => x.date));
+      // ARC 16.18: an OTTIMO move keeps each night's source and anchor; a guest move re-prices the moved nights to
+      // the new room's calendar (`calendar`).
+      const sourceOf = plannedSource(row, new Map(plan.nights.map((x) => [x.date, x])));
       const live = await liveNightRows(tx, row.id);
       await tx.query(
         `UPDATE reservation SET pricing_snapshot = pricing_snapshot || $2::jsonb WHERE id = $1`,
@@ -3687,11 +3754,7 @@ export class ReservationsService {
             nights: live.map((x) => ({
               date: x.date,
               amountVnd: x.grossVnd,
-              source: manual.has(x.date)
-                ? 'manual'
-                : moved.has(x.date)
-                  ? 'calendar'
-                  : (prior.get(x.date) ?? 'calendar'),
+              ...sourceOf(x.date),
               ...(x.calendarVnd !== null ? { calendarVnd: x.calendarVnd } : {}),
             })),
           }),

@@ -34,6 +34,7 @@ import {
   calendarRate,
   discountedNight,
   effectiveDiscountPct,
+  isSpecialDate,
   losDiscountPct,
   nightDates,
   rateBounds,
@@ -41,7 +42,18 @@ import {
 } from '../public/pricing';
 import { PricingService } from '../public/pricing.service';
 import type { BookingContext } from './booking-context';
-import { boughtRoomOf, firstRoomOf, protectedBaseOf, roomChangeHistory } from './room-history';
+import {
+  addedNightPrice,
+  referenceNightRate,
+  type SourcedNight,
+} from '../public/added-night-price';
+import {
+  boughtRoomOf,
+  firstRoomOf,
+  protectedBaseOf,
+  roomChangeHistory,
+  stayRoomHistory,
+} from './room-history';
 import type { ReservationRow } from './reservation-store';
 
 /** Who made the room move (BR-429 (a)/(b)): only `guest_request` is the guest's. */
@@ -77,6 +89,12 @@ export interface PlanNight {
   manual: boolean;
   /** BR-429 (g): a typed/agreed price replaced by the new room's calendar (`MANUAL_RATE_REPRICED`). */
   manualRepriced: boolean;
+  /**
+   * ARC 16.18 – the snapshot source the write records: `kept` = as before (a typed night keeps `manual` and its
+   * anchor), `calendar` = re-priced to a calendar (guest request), `default` = an added night priced by the
+   * BR-417 appendix 5A function (OTTIMO operation – AN-46).
+   */
+  priceSource: 'kept' | 'calendar' | 'default';
   suggestedRateVnd?: number;
   /** BR-110 fee + count before and after; `feeBase` = stay_night.extra_person_base to store (null = room's). */
   oldFeeVnd: number;
@@ -316,11 +334,15 @@ export class MovePlanner {
     const unit =
       (row.pricing_snapshot as { nightRateUnit?: number }).nightRateUnit ??
       ctx.params.nightRateUnit;
-    const snapNights = new Map(
+    const snapEntries = (
       (
-        (row.pricing_snapshot as { nights?: Array<{ date: string; source?: string }> }).nights ?? []
-      ).map((n) => [n.date, n.source]),
-    );
+        row.pricing_snapshot as {
+          nights?: Array<{ date: string; source?: string; anchorRoomId?: string | null }>;
+        }
+      ).nights ?? []
+    ).map((n) => [n.date, n] as const);
+    const snapNights = new Map(snapEntries.map(([d, n]) => [d, n.source]));
+    const snapAnchor = new Map(snapEntries.map(([d, n]) => [d, n.anchorRoomId ?? null]));
     const snap = row.pricing_snapshot as {
       extraPersonFeePerNightVnd?: number;
       extraCount?: number;
@@ -402,11 +424,21 @@ export class MovePlanner {
     }
     const repostDiff = ota && basis === 'new_room_rate';
     const origin = await this.originRoom(tx, row, input);
-    // BR-429 (b1) v0.3.8 bổ sung 18/10 (BUG-R2-134): the room the guest bought before this change (null = never
-    // moved) – an added night in a room OTTIMO chose costs at most what the guest bought.
-    const boughtBefore = tiered
-      ? boughtRoomOf(await roomChangeHistory(tx, row.id), row.origin_room_id)
-      : null;
+    // BR-417 appendix 5A step 1 (AN-46, BR-429 (b1') – DOM 18/10 vòng sửa 5): the room the guest bought before this
+    // change, over the whole stay; an OTTIMO operation never changes it (null = never moved: the room now).
+    const stayView = tiered ? await stayRoomHistory(tx, row.id) : null;
+    const boughtBefore = stayView ? boughtRoomOf(stayView.history, stayView.originRoomId) : null;
+    // Step 3: an agreed stay (typed at booking) prices from its reference night – the typed nights with their source.
+    const agreed =
+      (row.pricing_snapshot as { bookingRateSource?: string }).bookingRateSource ===
+        'manual_agreed' && row.stay_type === 'short';
+    const sourced: SourcedNight[] = live.map((n) => ({
+      date: n.date,
+      calendarVnd: n.calendar ?? n.gross,
+      source: (snapNights.get(n.date) ?? 'calendar') as SourcedNight['source'],
+      anchorRoomId: snapAnchor.get(n.date) ?? null,
+    }));
+    const special = (d: LocalDate) => isSpecialDate(d, ctx.params.calendar.specialDates);
 
     const nights: PlanNight[] = [];
     for (const date of inScope) {
@@ -420,6 +452,7 @@ export class MovePlanner {
       let calendarVnd: number | null = n?.calendar ?? null;
       let manual = n ? snapNights.get(date) === 'manual' : false;
       let manualRepriced = false;
+      let priceSource: PlanNight['priceSource'] = 'kept';
       let suggestedRateVnd: number | undefined;
       let newGross = n?.gross ?? 0;
       if (tiered) {
@@ -432,18 +465,40 @@ export class MovePlanner {
           const target = roomId ?? oldRoom;
           if (!target) throw new Error(`night ${date} of ${row.code} has no room to price`);
           let fresh = await this.calendar(tx, ctx, cache, target, date, group);
-          if (!repriceToNewRoom) {
-            const bought =
-              input.cause === 'guest' && roomChanged
-                ? null
-                : (boughtBefore ?? (input.cause === 'ottimo' && roomChanged ? oldRoom : null));
-            if (bought && bought !== target) {
-              // BR-417-13 (DOM 18/10, T19): the bought room's calendar (inside its own BR-105 bounds) – never lifted
-              // to the floor of the room OTTIMO chose; the same rule as B13/B18 (StaySupport.addedNightRate).
-              const b = await this.bounds(tx, ctx, cache, bought, date);
-              const boughtCal = await this.calendar(tx, ctx, cache, bought, date, group);
-              fresh = Math.min(fresh, Math.min(b.ceilingVnd, Math.max(b.floorVnd, boughtCal)));
-            }
+          priceSource = 'calendar';
+          if (!repriceToNewRoom && input.cause === 'ottimo') {
+            // BR-417 appendix 5A (AN-46, BR-429 (b1')): a night an OTTIMO operation adds is priced like B13 – what the
+            // guest bought (reference night of an agreed stay, else the bought room's calendar), min with the
+            // night's room when OTTIMO chose another one. A guest request takes the current calendar (AN-47).
+            const bought = boughtBefore ?? oldRoom ?? target;
+            const nightRate = {
+              rateVnd: fresh,
+              ...(await this.bounds(tx, ctx, cache, target, date)),
+            };
+            const boughtRate =
+              bought === target
+                ? nightRate
+                : {
+                    rateVnd: await this.calendar(tx, ctx, cache, bought, date, group),
+                    ...(await this.bounds(tx, ctx, cache, bought, date)),
+                  };
+            fresh = addedNightPrice({
+              bought: boughtRate,
+              night: nightRate,
+              sameRoom: bought === target,
+              special: special(date),
+              referenceVnd: agreed
+                ? referenceNightRate(
+                    sourced,
+                    date,
+                    'before',
+                    bought,
+                    stayView?.originRoomId ?? null,
+                    special,
+                  )
+                : null,
+            }).rateVnd;
+            priceSource = 'default';
           }
           if (repriceToNewRoom && n && oldRoom) {
             // BR-429 (g): a night whose price is not the old room's current calendar (typed/agreed price, or an
@@ -524,6 +579,7 @@ export class MovePlanner {
         calendarVnd,
         manual,
         manualRepriced,
+        priceSource,
         ...(suggestedRateVnd !== undefined ? { suggestedRateVnd } : {}),
         oldFeeVnd: oldFee,
         feeVnd,
