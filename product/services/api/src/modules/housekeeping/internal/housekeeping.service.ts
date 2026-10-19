@@ -1308,6 +1308,8 @@ export class HousekeepingService {
         { type: 'inspection', id },
         {
           field: `photoAttachmentIds[${i}]`,
+          // SEC BE-65 (ARC s4 E.1 a4): retention starts at the inspection (`inspected_at`).
+          retentionAnchorAt: body.performedAt,
         },
       );
     }

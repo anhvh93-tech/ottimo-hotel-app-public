@@ -21,3 +21,18 @@ Chi tiết sửa và test: `outputs/BE/s4-be-c.md` mục 14–17. Chưa commit.
 Điểm cần ORC/ARC biết:
 - **BE-73:** tới khi Desk gửi `partyMemberId` cho giấy tờ của người đặt, giấy tờ người đặt không khớp khóa hoặc tên + ngày sinh sẽ thành một người đi cùng "từ giấy tờ". Dữ liệu vẫn an toàn nhưng danh sách đoàn bị thừa người.
 - Rủi ro còn lại: `updateGuestDocument` đổi người không gỡ khóa/last4 đã ghi lên hồ sơ người cũ (có từ trước). Đề xuất làm cùng BE-74/75 trước dữ liệu thật.
+
+## Sau cổng QC Sprint 4 – K1 (19/10/2026)
+
+Nguồn thẻ: `reviews/s4-SEC.md` C.8 (BE-65), `reviews/s3-SEC.md` 10.2 (BE-38 điểm 2), `reviews/s4-ARC.md` E.1 (cách sửa BE-65, ORC duyệt) và C.K7 (S4-21, S4-22). Chi tiết: `outputs/BE/s4-be-c.md` mục 21. Chưa commit. Không chạm mã tiền đóng băng.
+
+| Thẻ | Mức | Trạng thái | Trả lời |
+|---|---|---|---|
+| FB-R2-SEC-BE-65 | Major | Done – chờ SEC kiểm | Theo ARC E.1. (a) Phiếu sửa `complete`/`cancel` → mốc = giờ đóng cho mọi ảnh của phiếu (`setRetentionAnchorForRef`); `reopen` → xóa mốc, đóng lại → mốc mới. Kiểm phòng → mốc = `performedAt`. (b1) Upload `penalty_evidence` khi đơn đã `checked_out`/`cancelled`/`no_show` → mốc = giờ tải lên. Thêm: tải lên **trước** khi hủy/no-show → mốc đặt lúc hủy/no-show (`onReservationVoided`, module registration). (b2) J16 đếm ảnh đã gắn mà thiếu mốc (`anchorMissing`, `retention_run` `anchor_missing`), không xóa. (b3) Migration 0078 bù dữ liệu cũ. Test `sec-be65-retention.test.ts` 9/9, gồm ca P1 của SEC (phiếu `done` + J16 sau hạn + 1 ngày → `purged_at`, DEK hủy) |
+| FB-R2-SEC-BE-38 (điểm 2) | Major | Done cùng BE-65 | Đóng BE-65 thì đóng luôn điểm này, theo thẻ |
+| FB-R2-ARC-BE-S4-21 | Major | Done – chờ ARC kiểm | Một định nghĩa "không gắn ai" (`isLinkedToNobody` / `LINKED_TO_NOBODY_SQL` / `UNCLAIMED_DOC_SQL`) cho `isOpenGuestSlot`, `isUnclaimed` và 4 câu SQL (J16 0b, "Cần chú ý", nhắc thị thực, `uploadedPeople`). 2 ca mới ở `registration-party-removal.test.ts` (hỏng trên HEAD, đạt sau sửa): ô người đặt không bị hỏi/hủy khi bỏ người; cắt số người không đặt hạn 24 giờ, J16 sau 25 giờ giữ ảnh; guest-web đếm ô đó |
+| FB-R2-ARC-BE-S4-22 | Minor | Done phần 0078 + quy tắc; phần chạy script trên demo → OPS | 0078 tắt/bật RLS như 0075. Ca (6b): nguyên tệp chạy bằng owner không ngữ cảnh → bù đúng dòng; đối chứng RLS bật → 0 dòng. Quy tắc ghi ở `product/docs/coding-standards.md` mục 6 (repo không có `CONTRIBUTING.md`). `scripts/sec-be73-check.sql` trên DB demo: BE-C không được đụng demo, chuyển OPS. 0070 đã gộp, không sửa |
+
+Điểm cần SEC/ORC quyết:
+- **`anchor_missing` thành mục "Cần chú ý"**: chưa làm, vì phải đổi hợp đồng (`data_quality.params.check` là danh sách đóng, cần ARC + UXD + FE) và chọn người nhận. Hiện SEC/OPS đọc được qua `retention_run`. Đề xuất R3 Sprint 1 cho OWN/MGR, hoặc OPS cảnh báo.
+- Rủi ro nhỏ còn lại: bằng chứng tải lên đúng lúc giao dịch trả phòng/hủy chưa commit vẫn có thể thiếu mốc. Trường hợp này (b2) đếm được.

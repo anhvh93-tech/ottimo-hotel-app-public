@@ -86,6 +86,9 @@ export const PURPOSES_ACCEPTED_NOW: readonly AttachmentPurpose[] = [
   'inspection',
 ];
 
+/** Booking states after which no checkout will anchor a new file (SEC BE-65 b1). */
+const STAY_ENDED: readonly string[] = ['checked_out', 'cancelled', 'no_show'];
+
 /** SEC I7 – technical limit (counts every purpose). */
 export const ATTACHMENTS_PER_USER_PER_DAY = 50;
 
@@ -158,7 +161,16 @@ export class AttachmentService {
     if ((rows[0]?.n ?? 0) >= ATTACHMENTS_PER_USER_PER_DAY) {
       throw problem('RATE_LIMITED', { headers: { 'Retry-After': '3600' } });
     }
-    if (input.reservationId) await this.assertReservationVisible(tx, actor, input.reservationId);
+    const status = input.reservationId
+      ? await this.assertReservationVisible(tx, actor, input.reservationId)
+      : null;
+    // SEC BE-65 (b1, ARC s4 E.1): penalty evidence added after the stay ended (BR-427 c) – the checkout already
+    // anchored the earlier files of the booking, so this one starts its retention now (≥ the checkout: kept
+    // longer, never shorter). Before the end the checkout anchors it (registration, by reservation id).
+    const anchor =
+      input.purpose === 'penalty_evidence' && status !== null && STAY_ENDED.includes(status)
+        ? now
+        : null;
     const id = uuidv7();
     const stored = await this.blobs.put(
       tx,
@@ -167,8 +179,9 @@ export class AttachmentService {
     );
     await tx.query(
       `INSERT INTO attachment (id, organization_id, property_id, purpose, reservation_id, blob_key, mime,
-         size_bytes, ciphertext_sha256, data_key_id, uploaded_by, uploaded_by_role, uploaded_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+         size_bytes, ciphertext_sha256, data_key_id, uploaded_by, uploaded_by_role, uploaded_at,
+         retention_anchor_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
       [
         id,
         tx.ctx.organizationId,
@@ -183,6 +196,7 @@ export class AttachmentService {
         actor.userId,
         primaryRole(actor.roles, UPLOAD_ROLES[input.purpose]),
         now,
+        anchor,
       ],
     );
     return { id, purpose: input.purpose, sizeBytes: stored.sizeBytes };
@@ -279,6 +293,25 @@ export class AttachmentService {
   }
 
   /**
+   * SEC BE-65 (ARC s4 E.1 a1): retention anchor of EVERY live file bound to one record – a work order closed
+   * (`complete`/`cancel` → the closing time) or reopened (`null` → no anchor until it closes again). Overwrites
+   * (not "only later" like `setRetentionAnchor`): a reopen must clear it. Scoped to one record, never to a
+   * purpose (ARC FB-S3-31 (2)). Called inside the transaction that holds the record's lock.
+   */
+  async setRetentionAnchorForRef(
+    tx: Tx,
+    ref: { type: 'work_order' | 'inspection'; id: string },
+    at: Date | null,
+  ): Promise<number> {
+    const r = await tx.query(
+      `UPDATE attachment SET retention_anchor_at = $3
+        WHERE bound_ref_type = $1 AND bound_ref_id = $2 AND purged_at IS NULL`,
+      [ref.type, ref.id, at],
+    );
+    return r.rowCount ?? 0;
+  }
+
+  /**
    * J16 (SEC I5, SEC BE-38): purge attachments whose anchor + retention has passed, and uploads never bound
    * to a record within `attachment_unbound_days`. Each file in its own SAVEPOINT (one bad row does not stop
    * the run). Returns purged count + failures.
@@ -287,7 +320,7 @@ export class AttachmentService {
     tx: Tx,
     now: Date,
     timezone: string,
-  ): Promise<{ purged: number; failed: number; errors: string[] }> {
+  ): Promise<{ purged: number; failed: number; errors: string[]; anchorMissing: number }> {
     const today = localDate(now, timezone);
     const days = await this.params.get<number>(tx, 'deposit_receipt_retention_days', today);
     const months = await this.params.get<number>(tx, 'attachment_ops_retention_months', today);
@@ -312,6 +345,16 @@ export class AttachmentService {
         ORDER BY id LIMIT 500 FOR UPDATE SKIP LOCKED`,
       [now, days, months, unboundDays],
     );
+    // SEC BE-65 (b2) – safety net, count only (never purge: a long stay may still be in house): a file bound to
+    // a record that should have anchored it, still without an anchor after the ops retention since upload.
+    const missing = await tx.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM attachment
+        WHERE purged_at IS NULL AND bound_ref_id IS NOT NULL AND retention_anchor_at IS NULL
+          AND purpose IN ('work_order', 'inspection', 'penalty_evidence')
+          AND uploaded_at + make_interval(months => $2) <= $1`,
+      [now, months],
+    );
+    const anchorMissing = missing.rows[0]?.n ?? 0;
     let purged = 0;
     const errors: string[] = [];
     for (const row of rows) {
@@ -335,7 +378,7 @@ export class AttachmentService {
       if (err) errors.push(`attachment ${row.id}: ${err.name}`);
       else purged++;
     }
-    return { purged, failed: errors.length, errors };
+    return { purged, failed: errors.length, errors, anchorMissing };
   }
 
   private async visibleRow(
@@ -367,7 +410,7 @@ export class AttachmentService {
     tx: Tx,
     actor: AttachmentActor,
     reservationId: string,
-  ): Promise<void> {
+  ): Promise<string> {
     // Through the reservations port (no read of another zone's table – ARC 4.3).
     const own = this.sales ? await this.sales.ownership(tx, reservationId) : null;
     if (!own) throw problem('NOT_FOUND');
@@ -375,6 +418,7 @@ export class AttachmentService {
     if (!staffWide && own.createdBy !== actor.userId && own.closerUserId !== actor.userId) {
       throw problem('NOT_FOUND');
     }
+    return own.status;
   }
 
   private async ownsReservation(

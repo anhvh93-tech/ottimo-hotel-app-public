@@ -45,6 +45,8 @@ import {
   isComplete,
   isLiveMemberOf,
   isOpenGuestSlot,
+  LINKED_TO_NOBODY_SQL,
+  UNCLAIMED_DOC_SQL,
   isUnclaimed,
   latestConsent,
   lockRegistration,
@@ -2619,8 +2621,8 @@ export class RegistrationService {
     const out = { removed: 0, errors: [] as string[] };
     const { rows } = await tx.query<{ registration_id: string }>(
       `SELECT DISTINCT d.registration_id FROM guest_document d JOIN registration x ON x.id = d.registration_id
-        WHERE d.removed_at IS NULL AND d.party_member_id IS NULL AND d.person_index >= 2
-          AND d.fields_purge_after IS NOT NULL AND d.fields_purge_after <= $1 AND NOT x.legal_hold
+        WHERE d.removed_at IS NULL AND ${UNCLAIMED_DOC_SQL}
+          AND d.fields_purge_after <= $1 AND NOT x.legal_hold
         ORDER BY d.registration_id LIMIT $2`,
       [now, opts.max ?? 200],
     );
@@ -2708,8 +2710,8 @@ export class RegistrationService {
     const { rows } = await tx.query<{ reservation_id: string; due: Date | null }>(
       `SELECT x.reservation_id, min(d.fields_purge_after) AS due
          FROM guest_document d JOIN registration x ON x.id = d.registration_id
-        WHERE d.removed_at IS NULL AND d.party_member_id IS NULL AND x.status <> 'void' AND NOT x.legal_hold
-          AND ((d.person_index >= 2 AND d.fields_purge_after IS NOT NULL)
+        WHERE d.removed_at IS NULL AND ${LINKED_TO_NOBODY_SQL} AND x.status <> 'void' AND NOT x.legal_hold
+          AND (${UNCLAIMED_DOC_SQL}
                OR (d.is_minor_data AND NOT d.is_main AND x.status NOT IN ('confirmed', 'updated')))
         GROUP BY x.reservation_id ORDER BY min(d.fields_purge_after) NULLS LAST LIMIT $1`,
       [OPEN_CAP],
@@ -2752,6 +2754,14 @@ export class RegistrationService {
   /** K11 + BR-609 (b): cancelled / no-show before the declaration → void, images destroyed now. */
   async onReservationVoided(tx: Tx, reservationId: string): Promise<void> {
     const reg = await lockRegistrationOfReservation(tx, reservationId);
+    // SEC BE-65 (ORC K1 3): penalty evidence uploaded BEFORE a cancellation / no-show starts its retention now
+    // (no checkout will anchor it). Same order as onCheckedOut (registration, then attachment); only later
+    // (`setRetentionAnchor`), so a restored no-show is raised again at its real checkout.
+    await this.attachments?.setRetentionAnchor(
+      tx,
+      { reservationId, purpose: 'penalty_evidence' },
+      this.clock.now(),
+    );
     if (!reg) return;
     await tx.query('UPDATE guest_document SET visa_alert_on = NULL WHERE registration_id = $1', [
       reg.id,
@@ -2980,8 +2990,7 @@ export class RegistrationService {
         AND EXISTS (SELECT 1 FROM guest_document d
                      WHERE d.registration_id = x.id AND d.is_foreigner AND d.removed_at IS NULL
                        AND d.purged_at IS NULL
-                       AND NOT (d.party_member_id IS NULL AND d.person_index >= 2
-                                AND d.fields_purge_after IS NOT NULL)
+                       AND NOT ${UNCLAIMED_DOC_SQL}
                        AND d.visa_alert_on IS NOT NULL AND d.visa_alert_on <= $3::date
                        AND d.check_results @> '[{"code":"visa_valid_through_departure","result":"fail"}]'::jsonb)`,
       [c.today],
@@ -3021,7 +3030,7 @@ export class RegistrationService {
       `SELECT DISTINCT d.person_index FROM guest_document d
         WHERE d.registration_id = $1 AND d.removed_at IS NULL AND d.person_index IS NOT NULL
           AND EXISTS (SELECT 1 FROM document_image i WHERE i.guest_document_id = d.id AND i.deleted_at IS NULL)
-          AND NOT (d.party_member_id IS NULL AND d.person_index >= 2 AND d.fields_purge_after IS NOT NULL)
+          AND NOT ${UNCLAIMED_DOC_SQL}
         ORDER BY d.person_index`,
       [reg.id],
     );

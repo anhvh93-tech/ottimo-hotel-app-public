@@ -625,3 +625,20 @@ Trễ mốc D3/D5/D7 thì ORC tự chạy tới bước 4 (dừng FE-LP) và chu
 
 ### 16.4 Việc ghi decision-log (ORC ghi khi commit)
 - ORC duyệt 16.1–16.3 (dòng PO "Thay đổi sau đóng băng Sprint 4 – landing" trong báo cáo PO gửi ORC 17/10).
+
+### 16.5 Ngoại lệ "sang R3" cho hai phần Must R2 chưa làm (K9 cổng QC Sprint 4) – đề xuất của PO, 19/10
+
+Căn cứ: `qc/s4-qc-gate.md` mục 5 K9 đường (ii); `outputs/PO/s4-acceptance.md` P-S4-14, P-S4-15 (18/10); backlog mục 5.5 R3-Q12, R3-Q13. Mục này là **ngoại lệ** so với 12.3 bước 7 (bước 7 chỉ cho chuyển sang Ổn định, không sang R3). Không đổi cổng QC, không đổi danh sách "không bao giờ cắt", không đụng tiền hay bảo mật.
+
+| Phần Must R2 | Đề xuất | Lý do | Tác động R2 và vận hành tạm | Đích R3 |
+|---|---|---|---|---|
+| **US-012 AC7 – dòng "Đồng bộ kênh lỗi"** (`channel_sync_error`, critical, hướng dẫn đóng bán thủ công trên extranet) | Sang R3, làm cùng US-096 (nối channel manager) và job J18 `outbox.dispatch` (retry, trạng thái `dead`). Phần "khách quen/VIP đến hôm nay" của AC7 giữ R2 (đã Đạt) | R2 **không có kênh OTA/channel manager thật**: lệnh đồng bộ chỉ được ghi lại, adapter là Mock, J18 chưa có trong worker (US-094 Should R2 đã cắt ở 12.3 bước 1). Làm ở Ổn định nghĩa là dựng J18 + retry + `dead` (≈ 1–1,5 ngày BE-D/INT) chỉ để chạy bằng lỗi giả | Bản R2 và bản dùng thử trên dữ liệu giả không mất gì; lễ tân đóng bán thủ công trên extranet như hiện nay. TC-L8-012 chỉ kiểm phần VIP (QA ghi chú) | **R3-Q12** – Must R3, Sprint 2, **trước RC**, cùng lúc nối channel manager. Vai: INT, BE-D, FE-B, QA |
+| **US-031 AC1 – thông báo chủ động J4** "quá giờ trả phòng" cho FD + MGR (12:00 nếu căn có khách đến hôm nay, 12:31 nếu không – BR-425) | Sang R3, làm cùng nhắc trả phòng tự động (US-034, US-161). Phần "báo đỏ" trên **Hôm nay** (thẻ chuyển "Quá giờ trả phòng", xếp đầu, SSE) giữ R2 | **Push ở R2 là Mock** (`s4-be-d.md` 2.4): thông báo J4 chỉ vào hộp thư trên Desk, cùng chỗ với thẻ đỏ đã có; hợp đồng 0.3.7 chưa có loại thông báo này (thêm sau đóng băng phải qua ARC); J4 chưa có job | Quản lý vắng mặt không nhận báo chủ động ở R2. Vận hành tạm: lễ tân gọi quản lý khi thẻ đỏ có khách đến cùng căn (trả muộn khi có khách đến vốn cần quản lý duyệt – BR-416) | **R3-Q13** – Must R3, **Sprint 1**, trước RC. Vai: ARC (loại thông báo), BE-D, FE-B, QA |
+
+- Không đổi số story, MoSCoW, số AC (AC giữ, phần dời gắn **[Dời R3]** trong backlog như P-S4-14, P-S4-15). Must R2 vẫn 71.
+- Không cần ESC: không bỏ phân hệ, không dời mốc RC/bản dùng thử, không đổi chính sách hay chi phí. ORC báo INV một dòng ở tổng kết Round 2 (QC mục 9 ý 5).
+- Theo K9, khi ORC duyệt mục này thì G6.1 chấm "Đạt có ĐK" (1 dòng mềm).
+- **Logo S4-49:** INV chưa gửi SVG → theo 12.3 bước 7, logo chuyển sang **Ổn định** (NÊN-ÔĐ, không sang R3): UXD, FE-B, MOB gắn logo **khi anh/chị gửi SVG (KAD)**, trước QC Round 2; tới lúc đó giữ chữ "OTTIMO" bằng Lora theo Brand Guidelines.
+
+**ORC duyệt (19/10):** ☑ Duyệt (ii) cho hai phần trên · ☐ Không duyệt. Lý do: R2 không có kênh OTA/channel manager thật và push là Mock, nên làm trong tuần Ổn định không kiểm được thật. Báo INV ở tổng kết Round 2. Logo S4-49: chuyển Ổn định theo 12.3 bước 7, gắn khi INV gửi SVG.  
+Người duyệt: ORC · Ngày: ____ · Dòng decision-log: ____

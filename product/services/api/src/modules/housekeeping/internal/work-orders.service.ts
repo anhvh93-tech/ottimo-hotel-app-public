@@ -920,6 +920,13 @@ export class WorkOrdersService {
         },
       );
     }
+    // SEC BE-65 (ARC s4 E.1 a2/a3): every photo of the order (reported + repaired) starts its retention when the
+    // order closes (= `done_at` for complete); a reopen clears it until the order closes again.
+    if (action === 'complete' || action === 'cancel') {
+      await this.attachments.setRetentionAnchorForRef(tx, { type: 'work_order', id }, c.now);
+    } else if (action === 'reopen') {
+      await this.attachments.setRetentionAnchorForRef(tx, { type: 'work_order', id }, null);
+    }
     await this.transitionLog(
       tx,
       c,

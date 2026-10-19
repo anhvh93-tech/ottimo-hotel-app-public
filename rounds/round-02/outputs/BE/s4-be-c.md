@@ -506,3 +506,77 @@
   - người đặt được chọn → không có trường.
 - BUG-R2-199: ARC chấp nhận dung sai 5 phút, giữ nguyên mã.
 - Vitest api toàn bộ, DB mới: **99 tệp đạt / 1 bỏ qua; 2938 ca đạt / 2 bỏ qua**. `tsc`, eslint, prettier sạch. Không commit.
+
+## 21. Sau cổng QC Sprint 4 KHÔNG ĐẠT – K1: FB-R2-SEC-BE-65 (Major, hạn lưu ảnh), theo ARC `s4-ARC.md` E.1 (ORC duyệt 19/10)
+
+### 21.1 BE-65 (a1–a6, b1–b3)
+- Ngày 19/10/2026. Không commit. **Không chạm mã tiền đóng băng:** không sửa `folio/**`, `payments/**`, `folio-lines.service.ts`, `foc`, checkout tiền, `stay.service.ts`, `attachment-usage.ts`, chữ ký `bindTo`. Không đụng stack demo.
+- **(a1) `AttachmentService.setRetentionAnchorForRef(tx, {type: 'work_order'|'inspection', id}, at|null)`** (`files/public/attachment.service.ts`). `UPDATE attachment SET retention_anchor_at = $3 WHERE bound_ref_type/bound_ref_id khớp AND purged_at IS NULL`. Ghi đè, `null` = xóa mốc. Chỉ theo một bản ghi, không theo mục đích (giữ ARC FB-S3-31 (2)). `setRetentionAnchor` cũ không đổi.
+- **(a2)(a3) Phiếu sửa** (`housekeeping/internal/work-orders.service.ts`, sau `UPDATE work_order` và sau vòng `bindTo` ảnh sửa xong):
+  - `complete`/`cancel` → mốc = `c.now` (cùng giá trị `done_at` khi `complete`) cho **mọi** ảnh của phiếu: ảnh lúc báo + ảnh sửa xong;
+  - `reopen` → mốc NULL; đóng lại → mốc mới.
+  - Cùng giao dịch đang giữ khóa phiếu (`FOR UPDATE` + `If-Match`); `attachment` đứng sau `work_order` như `bindTo` hiện có, không thêm cặp khóa.
+- **(a4) Kiểm phòng** (`housekeeping.service.ts`): `bindTo` truyền `retentionAnchorAt: body.performedAt` (= `inspected_at`).
+- **(b1) Upload `penalty_evidence` sau khi lượt ở đã xong** (`attachment.service.ts` `upload`): đơn `checked_out`/`cancelled`/`no_show` → `retention_anchor_at` = giờ tải lên ngay lúc INSERT. Đơn còn ở → NULL, việc trả phòng đặt mốc như cũ (`registration.service.ts` `onCheckedOut` → `setRetentionAnchor` theo `reservationId`). `bindTo` sau đó giữ mốc (`COALESCE`).
+  - Lệch nhỏ so với chữ ARC: trạng thái đơn đọc từ `ReservationSalesPort.ownership()` (cùng cổng, cùng dòng `reservation`, đã gọi sẵn để kiểm quyền, có trường `status`) thay vì gọi thêm `stayInfo()`. Kết quả như nhau, bớt một truy vấn. `assertReservationVisible` nay trả `status`.
+- **(b2) Lưới an toàn J16** (`purgeDue`): đếm ảnh đã gắn (`bound_ref_id IS NOT NULL`), chưa xóa, `retention_anchor_at IS NULL`, `purpose IN ('work_order','inspection','penalty_evidence')`, `uploaded_at + attachment_ops_retention_months ≤ now`. Kết quả trả thêm `anchorMissing`. **Không xóa.** `RetentionService` (J16 giờ) ghi `stats.attachmentAnchorMissing` và một dòng `retention_run` `policy_key = 'anchor_missing'` (chỉ số đếm, `done`) khi > 0. SEC quyết có đẩy lên "Cần chú ý" ở R3 hay không.
+- **(b3)/(a5) Migration 0078 `0078_attachment_retention_anchor_backfill.sql`** (chỉ dữ liệu, không RAISE):
+  - tắt/bật RLS cho `attachment`, `work_order`, `inspection`, `reservation` (mẫu 0075);
+  - (i) ảnh `work_order`: `done` → `done_at`; `cancelled` → `updated_at`;
+  - (ii) ảnh `inspection` → `inspected_at`;
+  - (iii) `penalty_evidence` đã gắn, đơn `checked_out`/`cancelled`/`no_show` → `COALESCE(actual_checkout_at, uploaded_at)`;
+  - mọi câu chỉ sửa dòng `retention_anchor_at IS NULL AND purged_at IS NULL`; chạy lại không đổi gì.
+  - Luật 4.2a: `_journal.json` thêm idx 55, `when` = 0077 + 1000; `meta/0078_snapshot.json` = bảng của 0077, `id` mới, `prevId` = id 0077 (2b: tên snapshot đầu = tiền tố lớn nhất); `drizzle-kit generate` trên bản sao migrations → "No schema changes, nothing to migrate"; prettier sạch.
+- **Test mới `test/integration/sec-be65-retention.test.ts` – 9/9 đạt** (7 ca ARC a6 + (5b), (6b) ở 21.2):
+  1. phiếu `done` có ảnh lúc báo + ảnh sửa xong: mốc = `done_at`; `purgeDue` tại hạn − 1 ngày còn, + 1 ngày → `purged_at`, `purge_reason='retention'`, DEK hủy, GET 404 (đúng ca P1 của SEC);
+  2. `done` → `reopen` → mốc NULL, J16 sau hạn không xóa; đóng lại → mốc mới;
+  3. phiếu `cancelled` như (1);
+  4. kiểm phòng gửi `performedAt` sớm hơn giờ nhận 2 giờ → mốc = `performedAt`, J16 theo đó;
+  5. `penalty_evidence` tải lên sau `checked_out`/`cancelled`/`no_show` → mốc = giờ tải lên, giữ sau `bindTo`; tải lên khi `in_house` → NULL tới lúc trả phòng đặt mốc; `deposit_receipt` không bị đặt mốc lúc tải lên;
+  6. migration 0078 trên dữ liệu kiểu cũ (mốc NULL): đúng `done_at` / `updated_at` / `inspected_at` / `actual_checkout_at` / `uploaded_at` (no_show); phiếu đang mở, ảnh đơn đang ở, ảnh chưa gắn, mốc đã có: không đổi; chạy lại không đổi;
+  7. `anchorMissing`: phiếu đang mở + bằng chứng đơn đang ở, sau hạn → 2, không xóa; J16 ghi `retention_run` `anchor_missing` 2; đóng phiếu → còn 1.
+- **Giả định:**
+  - Mốc của bằng chứng tải sau trả phòng trong mã = giờ tải lên (giữ lâu hơn), trong migration = `actual_checkout_at` (đúng chữ ARC/ORC). Hai cách cùng nằm trong ý SEC "`actual_checkout_at` hoặc muộn hơn". Đơn hủy / no-show trong migration: `cancelled_at` / `no_show_marked_at`, thiếu thì giờ tải lên (21.2 (4)).
+  - Phiếu `cancelled` cũ dùng `updated_at` (≥ giờ hủy) – giữ lâu hơn chứ không ngắn hơn.
+- **Rủi ro / việc còn lại (không thuộc K1):**
+  - `onCheckedOut` thoát sớm khi đơn không có `registration` (`if (!reg) return`), nên bằng chứng phạt của đơn như vậy không được đặt mốc lúc trả phòng. Hiện J16 bước 0 tạo `registration` cho mọi đơn trong 1 phút nên khó xảy ra. Nếu xảy ra, (b2) đếm được. Ghi để SEC biết, không sửa trong K1.
+  - Ảnh tải lên đúng lúc giao dịch trả phòng chưa commit (đọc trạng thái `in_house`) vẫn NULL → (b2) báo, như ARC đã nêu.
+- Tệp (mục 21.1):
+  - `product/services/api/src/modules/files/public/attachment.service.ts`
+  - `product/services/api/src/modules/housekeeping/internal/work-orders.service.ts`
+  - `product/services/api/src/modules/housekeeping/internal/housekeeping.service.ts`
+  - `product/services/api/src/modules/registration/internal/retention.service.ts`
+  - `product/services/api/src/db/migrations/0078_attachment_retention_anchor_backfill.sql`, `meta/0078_snapshot.json`, `meta/_journal.json`
+  - `product/services/api/test/integration/sec-be65-retention.test.ts`
+
+### 21.2 Phần ORC giao thêm trong lượt K1 (ARC C.K7, E.1)
+1. **FB-R2-ARC-BE-S4-21 (Major) – giấy tờ ô "Khách n" (n ≥ 2) đã gắn người đặt bị coi là ô trống.**
+   - Một định nghĩa dùng chung ở `registration.repo.ts`: `isLinkedToNobody(d)` (`party_member_id` và `guest_id` đều NULL), bản SQL `LINKED_TO_NOBODY_SQL`, và `UNCLAIMED_DOC_SQL` (bản SQL của `isUnclaimed`, trừ `removed_at`).
+   - `isOpenGuestSlot` và `isUnclaimed` dùng `isLinkedToNobody` (thêm `guest_id` vào `Pick`).
+   - 4 câu SQL ở `registration.service.ts` dùng hằng chung: J16 `purgeUnclaimedDocuments`, "Cần chú ý" `unclaimedDocumentStays` (nhánh trẻ em cũng thêm `guest_id IS NULL`), nhắc thị thực, `uploadedPeople` của guest-web.
+   - Test (`registration-party-removal.test.ts`, 2 ca mới, cả hai **hỏng trên mã HEAD**, đạt sau sửa):
+     - (1) ô 3 gắn người đặt (`GuestDocumentLink`, `partyMemberId` = id đơn) → bỏ A chưa có giấy tờ: 422 `REQUIRED` `personIndexes` = [2]; chọn 3 → 422 `NOT_IN_LIST`, giấy tờ người đặt nguyên vẹn, 0 c3 `delete`; chọn 2 → chỉ hủy ô 2;
+     - (2)(3) cắt số người không chọn ô → ô 3 của người đặt không có `fields_purge_after`/`delete_after`; J16 sau 25 giờ hủy ô 2, ảnh ô 3 còn (DEK, tệp); `uploadedPeople` = [1, 3]; "Cần chú ý" hết sau khi ô 2 bị xóa.
+   - Không cần migration.
+2. **S4-22 – 0078 tắt RLS khi bù dữ liệu.** 0078 đã theo mẫu 0075 từ đầu (NO FORCE + DISABLE cho `attachment`, `work_order`, `inspection`, `reservation`, bật lại cuối tệp). Thêm ca **(6b)** trong `sec-be65-retention.test.ts`:
+   - chạy **nguyên tệp** bằng `ottimo_owner` **không** có ngữ cảnh `set_config` (như migrator), trong giao dịch rồi ROLLBACK (DB test dùng chung không đổi);
+   - đối chứng: cùng 3 câu UPDATE khi RLS còn bật → `rowCount` [0, 0, 0], owner không đọc được dòng nào;
+   - tệp thật → bù ≥ 2 ảnh phiếu sửa và ≥ 1 bằng chứng phạt, đúng mốc của tenant test;
+   - khóa 4 bảng `ACCESS EXCLUSIVE NOWAIT` có thử lại, nên ca này không bao giờ chờ khóa khi đang giữ khóa (không gây deadlock cho tệp test khác chạy song song).
+   - Quy tắc ghi vào **`product/docs/coding-standards.md` mục 6**, dòng "Migration dữ liệu và RLS" + dòng lịch sử. Repo **không có `CONTRIBUTING.md`**; mục 6 là nơi các quy tắc migration đang ở (`drizzle.config.ts` trỏ tới "coding-standards 6"). Nếu ORC/OPS vẫn muốn tệp `CONTRIBUTING.md` riêng thì OPS tạo và trỏ về mục này.
+   - Phần còn lại của S4-22 (chạy `scripts/sec-be73-check.sql` bằng owner, tắt RLS, trên DB demo): **chưa làm** vì BE-C không được đụng stack demo. OPS chạy trước khi nâng demo.
+3. **Hai điểm SEC sẽ xét:**
+   - (a) **`anchor_missing` thành mục "Cần chú ý": chưa làm, có lý do.** Không nhẹ vì phải đổi hợp đồng: `data_quality.params.check` là danh sách đóng trong `openapi.yaml` 0.3.7 (B-21: khóa lạ → lỗi lúc sinh mục), cần ARC thêm giá trị mới, UXD viết câu (`attn.dq_*`), FE thêm nhánh ở `admin-web/src/app/attention.ts`. Ngoài ra phải chọn người nhận (OWN/MGR, không phải FD vì đây là việc tuân thủ chứ không phải việc quầy). Hiện có: số đếm trong kết quả J16 (`anchorMissing`, `stats.attachmentAnchorMissing`) và dòng `retention_run` `anchor_missing` mà OPS/SEC truy vấn được. Đề xuất: R3 Sprint 1, ARC thêm `check = attachment_retention_anchor_missing` cho OWN/MGR, hoặc OPS cảnh báo từ `retention_run`. SEC quyết.
+   - (b) **Bằng chứng phạt tải lên TRƯỚC khi đơn bị hủy / no-show: ĐÃ LÀM trong module registration** (không chạm folio/payments). `RegistrationService.onReservationVoided` – được hook `transitioned` của registration gọi khi đơn sang `cancelled`/`no_show` – nay gọi `setRetentionAnchor({reservationId, purpose: 'penalty_evidence'}, now)` **trước** khi xét có `registration` hay không. Thứ tự khóa như `onCheckedOut`: registration rồi attachment. Hàm "chỉ tăng" nên no-show được khôi phục rồi trả phòng sẽ có mốc mới, muộn hơn. Migration 0078 (iii) bù dữ liệu cũ theo `cancelled_at` / `no_show_marked_at`, thiếu thì giờ tải lên. Ca **(5b)** trong `sec-be65-retention.test.ts`.
+- **Kiểm tra cuối (mục 21.1 + 21.2):**
+  - `tsc --noEmit` sạch; eslint + prettier sạch cho mọi tệp mã/test đã sửa. `coding-standards.md` vốn chưa theo prettier ở HEAD, không định dạng lại cả tệp;
+  - `drizzle-kit generate` trên bản sao migrations: "No schema changes, nothing to migrate";
+  - `sec-be65-retention` 9/9, `registration-party-removal` 18/18;
+  - **toàn bộ vitest api trên DB mới `ottimo_test_bec_k1full2`: 104 tệp đạt / 1 bỏ qua; 2971 ca đạt / 2 bỏ qua; 0 hỏng.**
+  - DB test (`ottimo_test_bec_k1*` trên `ottimo-dev-postgres-1`) tạo bằng script trong scratchpad, chặn mọi tên không bắt đầu bằng `ottimo_test_bec_`. Env sinh từ `product/.env` bằng `sed`, không in giá trị.
+- Tệp thêm ở 21.2:
+  - `product/services/api/src/modules/registration/internal/registration.repo.ts`
+  - `product/services/api/src/modules/registration/internal/registration.service.ts`
+  - `product/services/api/test/integration/registration-party-removal.test.ts`
+  - `product/docs/coding-standards.md`
+  - (đã kể ở 21.1, sửa thêm) `0078_attachment_retention_anchor_backfill.sql`, `sec-be65-retention.test.ts`

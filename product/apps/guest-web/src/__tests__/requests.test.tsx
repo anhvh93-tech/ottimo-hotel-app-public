@@ -65,6 +65,23 @@ describe('tab "Yêu cầu" (US-109, SM-15)', () => {
     await waitFor(() => expect(mockControl.state.requestBodies).toEqual([{ type: 'amenities' }]));
   });
 
+  it('BUG-R2-193: the action bar is outside the scrolling body, stacked right above the tab bar (WCAG 2.4.11)', async () => {
+    const { user } = await openRequests();
+    await user.click(await screen.findByRole('button', { name: 'Gửi yêu cầu mới' }));
+    await user.click(await screen.findByRole('button', { name: /Khăn, đồ dùng/ }));
+    const send = screen.getByRole('button', { name: 'Gửi yêu cầu' });
+    const foot = send.closest('.wiz-foot');
+    const main = document.getElementById('main');
+    expect(foot).not.toBeNull();
+    // not inside the scroll container: it can never scroll under the tab bar
+    expect(send.closest('.m-body')).toBeNull();
+    // main = [scrolling body, action bar]; the tab bar follows main
+    expect(foot!.parentElement).toBe(main);
+    expect(main!.lastElementChild).toBe(foot);
+    expect(foot!.previousElementSibling).toHaveClass('m-body');
+    expect(main!.nextElementSibling).toHaveClass('m-nav');
+  });
+
   it('the fee changed while the page was open (FEE_NOT_ACCEPTED) → options reloaded, tick asked again', async () => {
     const { user } = await openRequests();
     await user.click(await screen.findByRole('button', { name: 'Gửi yêu cầu mới' }));

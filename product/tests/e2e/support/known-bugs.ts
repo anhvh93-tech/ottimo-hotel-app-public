@@ -11,6 +11,7 @@
 import { test } from '@playwright/test';
 
 /** Mã → mô tả ngắn (mục S4, vai sửa). Chỉ ghi mục ĐANG MỞ trên nhánh chính. */
+// BUG-R2-193 đóng 19/10 (MOB: thanh nút H23 ra ngoài vùng cuộn, nằm trên thanh tab – TC-X-087 xanh).
 export const OPEN: Readonly<Record<string, string>> = {};
 
 function fixedByEnv(): Set<string> {

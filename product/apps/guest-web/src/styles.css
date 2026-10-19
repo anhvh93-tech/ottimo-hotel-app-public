@@ -5,6 +5,8 @@ body,
   height: 100%;
 }
 body {
+  /* FB-R2-UXD-MOB-S4-05 (a): no browser tap colour outside the OTTIMO palette */
+  -webkit-tap-highlight-color: transparent;
   margin: 0;
   background: var(--bg);
 }
@@ -223,8 +225,12 @@ body {
   gap: 8px;
 }
 .guest-app .wiz-foot.gw-foot {
-  /* In the flow, not pinned: the tab bar stays pinned at the bottom of the request page. */
+  /*
+   * BUG-R2-193: a sibling of the scrolling `.m-body`, stacked between it and the tab bar (hi-fi H23 23.2) – never
+   * scrolled under the tab bar. The tab bar below carries the safe-area inset, so the bar keeps 12 px.
+   */
   position: static;
+  padding-bottom: 12px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;

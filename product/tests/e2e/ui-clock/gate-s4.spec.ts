@@ -421,8 +421,8 @@ test.describe(
         await g.getByRole('button', { name: t('gw.req.new') }).click();
         await g.getByRole('button', { name: new RegExp(esc(t('guest.req.towels'))) }).click();
         await g.getByLabel(t('guest.req.note')).fill(towelsNote);
-        // nút gửi nằm dưới thanh tab dưới cùng tới khi cuộn (ghi ở bug-list 11.24) – quét như khách đã cuộn
-        await g.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+        // K8 (cổng QC S4): quét form ở VỊ TRÍ ĐẦU như khách vừa mở – không cuộn trước khi quét. Nút "Gửi yêu cầu" bị
+        // thanh tab đáy che (BUG-R2-193) được kiểm riêng ở TC-X-087 (ui-clock/axe-k8.s4.spec.ts).
         await scan(g, test.info(), 'H23-request-form');
         await g.getByRole('button', { name: t('guest.req.send'), exact: true }).click();
         const w1 = await waitWrite(sends, 'khách gửi khăn', 201);

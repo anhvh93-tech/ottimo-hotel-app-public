@@ -27,7 +27,7 @@
 | Chuỗi chờ duyệt                                 | 53 chuỗi FE đã duyệt, sửa 17; UXD thêm 4; bỏ 2 khóa `extend.keep_rate*`                                                                                                                                                                                                                                                                                                      | Mục C. Không còn nhóm "chờ UXD duyệt"                                                                                                                                                                                                                                                                                 |
 | Câu 409 của Desk                                | `MINIBAR_PERIOD_CHANGED`: UXD đã sửa câu (không cần FE). `CONCURRENT_UPDATE`: luồng đúng; chữ có một điểm Minor, UXD tự sửa sau cổng                                                                                                                                                                                                                                         | Mục D. Không có thẻ FE                                                                                                                                                                                                                                                                                                |
 
-**Thẻ mới: 2 Major · 5 Minor** – FE-S4-22 Major (ORC chuyển FE-A), MOB-S4-02 Major (**Verified**), MOB-S4-03 Minor (**Verified**), MOB-S4-04 Minor (MOB – khung chuông PWA, thêm 18/10), FE-S4-23 Minor (FE-A), FE-S4-24 Minor R3 (FE-A, FE-B), FE-S4-25 Minor R3 (FE-A), FE-S4-28 Minor (FE-A – nhật ký tiền khi hệ thống tự đóng yêu cầu, thêm 18/10 ở lượt duyệt chữ đợt 24, mục C.5).
+**Thẻ mới: 2 Major · 6 Minor** – FE-S4-22 Major (**Verified** 19/10 trên `50db5cd`), MOB-S4-02 Major (**Verified**), MOB-S4-03 Minor (**Verified**), MOB-S4-04 Minor (MOB – khung chuông PWA, thêm 18/10), FE-S4-23 Minor (FE-A), FE-S4-24 Minor R3 (FE-A, FE-B), FE-S4-25 Minor R3 (FE-A), FE-S4-28 Minor (FE-A – nhật ký tiền khi hệ thống tự đóng yêu cầu, thêm 18/10 ở lượt duyệt chữ đợt 24, mục C.5). MOB-S4-05 Minor (MOB – màu khi chạm, thêm 19/10, mục G.2).
 
 ---
 
@@ -371,7 +371,7 @@ Không có thẻ mới cho FE ở mục D.
   - Tờ phiếu dùng `bill.roomName ?? bill.roomNo` (giữ nguyên tiếng Anh, không dịch). Nếu lễ tân cần số căn, đặt ở tiêu đề hộp thoại (không in) bằng `roomLabel(…, 'staff')`.
   - Thêm ca test: bill có `roomName` → tờ phiếu và `.print-root` không chứa số căn.
   - QA thêm kiểm này vào S4-52.
-- Trạng thái: Open (ORC chuyển FE-A 18/10)
+- Trạng thái: **Verified** (UXD, 19/10/2026, HEAD `50db5cd`) – đọc mã: `CheckOutPage.tsx:1621–1624` `BillDialog` tờ phiếu ghi `{khách} · {bill.roomName ?? bill.roomNo} · ngày` (tên phòng giữ tiếng Anh, số căn chỉ khi căn chưa có tên – DS 11.3); cùng component ở drawer đơn đã trả phòng (`ReservationDrawer.tsx:805`), nên H16 bước 3 và S4-29 cùng đúng. Tiêu đề hộp thoại không có số căn (đề xuất tùy chọn, không bắt buộc). Test: `s4-50b-fea.test.tsx` "FE-S4-22" – tờ phiếu và `.print-root` có "The Mist", không có "201" – xanh trên HEAD. Việc QA thêm kiểm này vào S4-52 vẫn thuộc QA.
 
 ### FB-R2-UXD-MOB-S4-02
 
@@ -486,6 +486,18 @@ Không có thẻ mới cho FE ở mục D.
   - Thêm 1 ca vào `s4-205-fea.test.tsx`: dòng nhật ký tự đóng không chứa `mlog.a_approval_cancelled`.
 - Trạng thái: Open
 
+### FB-R2-UXD-MOB-S4-05
+
+- Mức độ: Minor (thêm 19/10, MOB báo ở `outputs/MOB/s4-report.md` mục 9 (b); không chặn cổng)
+- Vị trí: `apps/mobile/src/styles.css`, `apps/guest-web/src/styles.css` (khối `html, body`). Người sửa: **MOB**.
+- Vấn đề: Chromium Android tô nền xanh mặc định (`-webkit-tap-highlight-color`) mỗi lần chạm nút, ô loại yêu cầu hay tab. Màu này ngoài bảng 80/15/5 của guideline OTTIMO. Ngoài ra, nút không có trạng thái `:active` riêng: khi chạm chỉ có `:hover` dính lại (hifi.css dòng 120–129).
+- Vì sao quan trọng: guest-web là mặt khách nhìn thấy, PWA là màn nhân viên chạm nhiều nhất. Một vệt xanh lạ mỗi lần chạm làm lệch nhận diện. G8.3 yêu cầu 0 màu ngoài bảng.
+- **Quyết định UXD: có.**
+  - (a) **Làm ngay ở bước 4** (2 dòng CSS, không đụng tiền, API hay chuỗi): thêm `-webkit-tap-highlight-color: transparent;` vào khối `html, body` của 2 tệp trên. Vẫn còn phản hồi khi chạm, vì `:hover` của DS đã có màu theo token.
+  - (b) **R3 Sprint 1, UXD làm**: thêm trạng thái `:active` vào `hifi.css` (DS v0.4.2, C1), dùng cùng màu tint với `:hover` (`.btn` `--surface-2`; `.btn.pri` Ink 88 %; `.btn.brand` Earth 88 %; `.btn.ghost` `--oak-soft`; tab `.m-nav a`, ô `.req-tile` theo `--surface-2`). Không dùng màu mới. Tất cả app nhận qua `@ottimo/ui`, MOB không phải sửa mã.
+- Kiểm (a): đọc mã thấy thuộc tính có ở cả 2 tệp; guest-web và mobile vitest xanh. Dùng Chromium mobile chạm "Gửi yêu cầu" (H23) và "Bắt đầu dọn" (PWA): không còn vệt xanh.
+- Trạng thái: Open
+
 ---
 
 ## G. Ký G8.3 (18/10/2026, sau khi MOB sửa MOB-S4-02, MOB-S4-03)
@@ -528,6 +540,13 @@ Không có thẻ mới cho FE ở mục D.
   - xem ảnh: thẻ việc gấp, nút "Bắt đầu dọn", chuông có khung, trang khách (lời chào Lora, tên phòng, Wi-Fi mono) hiện đủ, không bị che.
 - **G8.3: vẫn ĐẠT – UXD ký lại**, áp cho commit có thay đổi bố cục MOB 8.7. Không có thẻ mới.
 
+### G.2 H23 – thanh nút ngoài vùng cuộn (MOB mục 9, sửa BUG-R2-193) – 19/10
+
+- **UXD chấp nhận.** Thanh nút "Quay lại / Gửi yêu cầu" giờ nằm sau `.m-body`, đúng thứ tự của hi-fi 23.2. Màu vẫn là `.wiz-foot` của DS (`--surface`, viền `--line`), không có màu ngoài bảng. Căn cứ: đọc `RequestsPage.tsx:377, 507` và bảng đo 4 khổ của MOB (nút trúng chính nó, không chồng lên tab, 320×568 còn ~387 px nội dung).
+- Giữ thanh tab bên dưới thanh nút: **chấp nhận**. Thứ tự từ trên xuống: thân trang (cuộn), thanh nút, thanh tab. Hi-fi 23.2 không vẽ tab chỉ vì khung mẫu cắt bớt, không phải chủ ý ẩn tab. Khách vẫn cần mở tab Thông tin (Wi-Fi, giờ) trong lúc viết yêu cầu. UXD sẽ vẽ bổ sung thanh tab vào 23.2 ở DS v0.4.2 (mục F).
+- Còn lại: QA chạy lại TC-X-087 và axe (K8) trên stack QA để đóng 193. UXD xác nhận kết quả axe khi ORC nhắn.
+- Màu khi chạm (`-webkit-tap-highlight-color`): xem thẻ **MOB-S4-05** (Minor, làm 1 dòng ngay; `:active` theo token làm ở R3).
+
 ## H. Desk trên điện thoại – thanh dưới (UXR S4 P-02, FE-B) – xem thật 18/10
 
 - Cách xem:
@@ -569,7 +588,8 @@ Không có thẻ mới cho FE ở mục D.
    - giá trị sáng cố định của `.print-root` cho phiếu in.
 4. Dán lại bảng chuỗi vào `content-guide.md` mục 8.
 5. Duyệt chuỗi FE-A thêm sau vào nhóm đợt 18, nếu có.
-6. Viết lại `error.FOLIO_LOCKED` (C.6): "Folio" thay "Phiếu thanh toán"; câu đúng cho cả folio đã đóng và N-7 (đơn còn công nợ).
+6. Vẽ thanh tab vào hi-fi 23.2 (dưới `.wiz-foot`, G.2); thêm `:active` theo token vào `hifi.css` (MOB-S4-05 (b), R3 Sprint 1).
+7. Viết lại `error.FOLIO_LOCKED` (C.6): "Folio" thay "Phiếu thanh toán"; câu đúng cho cả folio đã đóng và N-7 (đơn còn công nợ).
 
 ## Điểm làm tốt (nên giữ)
 

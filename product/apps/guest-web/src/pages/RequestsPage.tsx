@@ -373,131 +373,137 @@ function NewRequest({
     }
   };
 
+  // BUG-R2-193 (WCAG 2.4.11): the action bar sits OUTSIDE the scrolling body, stacked between it and the tab bar
+  // (hi-fi H23 23.2, `.wiz-foot` after `.m-body`) – "Gửi yêu cầu" is always visible above the tabs, never under them.
   return (
-    <div className="m-body gw-stack">
-      <div className="gw-flow-head">
-        <button
-          type="button"
-          className="btn icon-btn gw-back"
-          aria-label={t('common.back')}
-          onClick={onCancel}
-        >
-          <Icon name="chevron" />
-        </button>
-        <h2 className="gw-page-title" tabIndex={-1} ref={headRef}>
-          {t('guest.req.title')}
-        </h2>
-      </div>
-      {!options && !loadError ? (
-        <div aria-busy="true">
-          <span className="sr-only">{t('common.loading')}</span>
-          <Skeleton height={96} />
+    <>
+      <div className="m-body gw-stack">
+        <div className="gw-flow-head">
+          <button
+            type="button"
+            className="btn icon-btn gw-back"
+            aria-label={t('common.back')}
+            onClick={onCancel}
+          >
+            <Icon name="chevron" />
+          </button>
+          <h2 className="gw-page-title" tabIndex={-1} ref={headRef}>
+            {t('guest.req.title')}
+          </h2>
         </div>
-      ) : loadError ? (
-        <StateView
-          kind="error"
-          title={t('gw.req.error_title')}
-          action={
-            <button type="button" className="btn" onClick={() => void loadOptions()}>
-              {t('common.retry')}
-            </button>
-          }
-        >
-          {t('guest.error_body')}
-        </StateView>
-      ) : (
-        <>
-          <div className="req-grid" role="group" aria-label={t('guest.req.title')}>
-            {TYPES.map((x) => {
-              const o = options!.find((p) => p.type === x.type);
-              if (!o) return null;
-              const tileFee = o.feeVnd ?? 0;
-              return (
-                <button
-                  key={x.type}
-                  type="button"
-                  className="req-tile"
-                  aria-pressed={type === x.type}
-                  aria-disabled={!o.available || undefined}
-                  onClick={() => {
-                    if (!o.available) return;
-                    setType(x.type);
-                    setFeeOk(false);
-                    setError(null);
-                  }}
-                >
-                  <Icon name={x.icon} />
-                  <span>{t(x.key)}</span>
-                  {!o.available && o.unavailableReason ? (
-                    <span className="fee">{t(UNAVAILABLE[o.unavailableReason])}</span>
-                  ) : tileFee > 0 ? (
-                    <span className="fee">{t('gw.req.fee_tile', { amount: money(tileFee) })}</span>
-                  ) : x.type === 'extra_cleaning' || x.type === 'amenities' ? (
-                    <span className="fee">{t('gw.req.free')}</span>
-                  ) : null}
-                </button>
-              );
-            })}
+        {!options && !loadError ? (
+          <div aria-busy="true">
+            <span className="sr-only">{t('common.loading')}</span>
+            <Skeleton height={96} />
           </div>
-
-          {option ? (
-            <div className="card gw-stack" aria-live="polite">
-              {feeText(option, t, money).map((line) => (
-                <p key={line} className="m-0">
-                  {line}
-                </p>
-              ))}
-              {fee > 0 ? (
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    checked={feeOk}
-                    onChange={(e) => setFeeOk(e.target.checked)}
-                  />
-                  <span>{t('gw.req.fee_accept', { amount: money(fee) })}</span>
-                </label>
-              ) : null}
-              <div className="field">
-                <label htmlFor="gw-req-note">
-                  {noteRequired ? t('gw.req.note_label') : t('guest.req.note')}
-                </label>
-                <textarea
-                  id="gw-req-note"
-                  className="input"
-                  maxLength={500}
-                  value={note}
-                  placeholder={t('gw.req.note_ph')}
-                  aria-required={noteRequired || undefined}
-                  aria-invalid={tried && !noteOk ? true : undefined}
-                  aria-describedby="gw-req-note-help"
-                  onChange={(e) => setNote(e.target.value)}
-                />
-                <p className={`help${tried && !noteOk ? ' err' : ''}`} id="gw-req-note-help">
-                  {tried && !noteOk ? t('gw.req.note_required') : t('gw.req.note_help')}
-                </p>
-              </div>
-              {after ? (
-                <Alert
-                  tone="info"
-                  title={t('gw.req.after_hours_title')}
-                  actions={
-                    tel ? (
-                      <a className="btn" href={tel}>
-                        {t('guest.contact.call')}
-                      </a>
-                    ) : undefined
-                  }
-                >
-                  {t('gw.req.after_hours_body')}
-                </Alert>
-              ) : (
-                <p className="li-s m-0">{t('guest.req.reply_time', { minutes: 10 })}</p>
-              )}
+        ) : loadError ? (
+          <StateView
+            kind="error"
+            title={t('gw.req.error_title')}
+            action={
+              <button type="button" className="btn" onClick={() => void loadOptions()}>
+                {t('common.retry')}
+              </button>
+            }
+          >
+            {t('guest.error_body')}
+          </StateView>
+        ) : (
+          <>
+            <div className="req-grid" role="group" aria-label={t('guest.req.title')}>
+              {TYPES.map((x) => {
+                const o = options!.find((p) => p.type === x.type);
+                if (!o) return null;
+                const tileFee = o.feeVnd ?? 0;
+                return (
+                  <button
+                    key={x.type}
+                    type="button"
+                    className="req-tile"
+                    aria-pressed={type === x.type}
+                    aria-disabled={!o.available || undefined}
+                    onClick={() => {
+                      if (!o.available) return;
+                      setType(x.type);
+                      setFeeOk(false);
+                      setError(null);
+                    }}
+                  >
+                    <Icon name={x.icon} />
+                    <span>{t(x.key)}</span>
+                    {!o.available && o.unavailableReason ? (
+                      <span className="fee">{t(UNAVAILABLE[o.unavailableReason])}</span>
+                    ) : tileFee > 0 ? (
+                      <span className="fee">
+                        {t('gw.req.fee_tile', { amount: money(tileFee) })}
+                      </span>
+                    ) : x.type === 'extra_cleaning' || x.type === 'amenities' ? (
+                      <span className="fee">{t('gw.req.free')}</span>
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
-          ) : null}
-          {error ? <Alert tone="bad">{error}</Alert> : null}
-        </>
-      )}
+
+            {option ? (
+              <div className="card gw-stack" aria-live="polite">
+                {feeText(option, t, money).map((line) => (
+                  <p key={line} className="m-0">
+                    {line}
+                  </p>
+                ))}
+                {fee > 0 ? (
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={feeOk}
+                      onChange={(e) => setFeeOk(e.target.checked)}
+                    />
+                    <span>{t('gw.req.fee_accept', { amount: money(fee) })}</span>
+                  </label>
+                ) : null}
+                <div className="field">
+                  <label htmlFor="gw-req-note">
+                    {noteRequired ? t('gw.req.note_label') : t('guest.req.note')}
+                  </label>
+                  <textarea
+                    id="gw-req-note"
+                    className="input"
+                    maxLength={500}
+                    value={note}
+                    placeholder={t('gw.req.note_ph')}
+                    aria-required={noteRequired || undefined}
+                    aria-invalid={tried && !noteOk ? true : undefined}
+                    aria-describedby="gw-req-note-help"
+                    onChange={(e) => setNote(e.target.value)}
+                  />
+                  <p className={`help${tried && !noteOk ? ' err' : ''}`} id="gw-req-note-help">
+                    {tried && !noteOk ? t('gw.req.note_required') : t('gw.req.note_help')}
+                  </p>
+                </div>
+                {after ? (
+                  <Alert
+                    tone="info"
+                    title={t('gw.req.after_hours_title')}
+                    actions={
+                      tel ? (
+                        <a className="btn" href={tel}>
+                          {t('guest.contact.call')}
+                        </a>
+                      ) : undefined
+                    }
+                  >
+                    {t('gw.req.after_hours_body')}
+                  </Alert>
+                ) : (
+                  <p className="li-s m-0">{t('guest.req.reply_time', { minutes: 10 })}</p>
+                )}
+              </div>
+            ) : null}
+            {error ? <Alert tone="bad">{error}</Alert> : null}
+          </>
+        )}
+      </div>
       <div className="wiz-foot gw-foot">
         <button type="button" className="btn" onClick={onCancel}>
           {t('common.back')}
@@ -517,6 +523,6 @@ function NewRequest({
           </p>
         ) : null}
       </div>
-    </div>
+    </>
   );
 }

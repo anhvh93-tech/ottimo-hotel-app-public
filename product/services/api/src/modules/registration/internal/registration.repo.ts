@@ -241,6 +241,24 @@ export function latestConsent(
 }
 
 /**
+ * ARC FB-R2-ARC-BE-S4-21: ONE definition of "linked to nobody". Since BE-73 (16.22) a document of the BOOKER
+ * is linked by `guest_id` with `party_member_id` NULL – it is linked, whatever its slot ("Khách n", n ≥ 2,
+ * linked to the booker through `GuestDocumentLink`). Every TS check and SQL filter below uses this pair.
+ */
+export function isLinkedToNobody(d: Pick<DocRow, 'party_member_id' | 'guest_id'>): boolean {
+  return d.party_member_id === null && d.guest_id === null;
+}
+
+/** SQL twin of `isLinkedToNobody` on `guest_document` aliased `d`. */
+export const LINKED_TO_NOBODY_SQL = '(d.party_member_id IS NULL AND d.guest_id IS NULL)';
+
+/**
+ * SQL twin of `isUnclaimed` (minus `removed_at`, which each query states) on `guest_document` aliased `d`:
+ * a guest-link slot n ≥ 2 linked to nobody and on the 24-hour deadline.
+ */
+export const UNCLAIMED_DOC_SQL = `(${LINKED_TO_NOBODY_SQL} AND d.person_index >= 2 AND d.fields_purge_after IS NOT NULL)`;
+
+/**
  * BUG-R2-083 (SEC-BE-53 fallback): a guest-link document ("Khách n", n ≥ 2) not linked to any party member,
  * left after a person was removed from the party – nobody knows whose it is. It does not count for "enough
  * people" (guest-web, BR-601), is not declared, and J16 removes it at `fields_purge_after` unless the desk
@@ -253,8 +271,7 @@ export function isUnclaimed(
   >,
 ): boolean {
   return (
-    d.party_member_id === null &&
-    d.guest_id === null &&
+    isLinkedToNobody(d) &&
     d.person_index !== null &&
     d.person_index >= 2 &&
     d.fields_purge_after !== null &&
@@ -268,11 +285,14 @@ export function isUnclaimed(
  * is the person who received the link (the booker side), never asked about.
  */
 export function isOpenGuestSlot(
-  d: Pick<DocRow, 'capture_method' | 'party_member_id' | 'person_index' | 'removed_at'>,
+  d: Pick<
+    DocRow,
+    'capture_method' | 'party_member_id' | 'guest_id' | 'person_index' | 'removed_at'
+  >,
 ): boolean {
   return (
     d.capture_method === 'guest_upload' &&
-    d.party_member_id === null &&
+    isLinkedToNobody(d) &&
     d.person_index !== null &&
     d.person_index >= 2 &&
     d.removed_at === null

@@ -274,3 +274,41 @@ Mã guest-web không phải sửa trong đợt này.
 - **Việc của người khác:**
   - QA chạy lại TC-X-079 trên CI.
   - Đề nghị QA đưa phép quét "nhiều vị trí cuộn" vào bộ e2e UI (a13), để bắt loại lỗi phụ thuộc chiều cao nội dung này.
+
+## 9. Bước 4 sau cổng QC Sprint 4 – sửa BUG-R2-193 (19/10/2026)
+BUG-R2-193 (P2, `qa/bug-list.md` mục 11.36): ở guest-web H23 (form yêu cầu), thanh tab đáy che nút "Gửi yêu cầu". Chạm vào giữa nút thì sang tab "Thông tin" (WCAG 2.2 SC 2.4.11).
+
+- **Gốc lỗi:**
+  - Mục 8.7 đã xếp chồng đầu trang, thân trang, thanh tab. Nhưng ở form H23, thanh nút (`.wiz-foot.gw-foot`) vẫn nằm **trong** `.m-body`, tức là trong vùng cuộn.
+  - Khi chưa cuộn, nút nằm dưới mép vùng cuộn. Chỉ ~4 px lộ ra, phần còn lại bị cắt và thanh tab nằm đúng chỗ đó. `elementFromPoint` ở tâm nút trúng tab "Thông tin".
+  - Hi-fi H23 23.2 đặt `.wiz-foot` **sau** `.m-body`, không nằm trong đó. Mã đã lệch khỏi thiết kế.
+- **Sửa** (chỉ giao diện, không đụng đường tiền, API hay chuỗi):
+  - `RequestsPage.tsx` (`NewRequest`): thanh nút "Quay lại / Gửi yêu cầu" ra ngoài vùng cuộn. Trong `<main>` giờ là [thân trang cuộn, thanh nút], thanh tab nằm ngay dưới. Nút gửi luôn hiện đủ, ngay trên thanh tab, ở mọi vị trí cuộn và mọi chiều cao màn.
+  - `styles.css` (`.guest-app .wiz-foot.gw-foot`): `padding-bottom: 12px`. Safe-area do thanh tab bên dưới gánh, không cộng hai lần. Màu, nền, viền vẫn là `.wiz-foot` của DS (`--surface`, viền `--line`), lưới 2 cột như cũ.
+- **Kiểm:**
+  - **TC-X-087 trên stack riêng `ottimo-mob-s4`:**
+    - Cổng 47000 / 47081–47083 / 47432. Dùng ảnh `ottimo-api:qa-s4` + `ottimo-web:qa-r9`, API `api-dist30` của QA gắn chỉ đọc, guest-web dựng từ cây làm việc, seed DS-E riêng.
+    - Không đụng stack demo (8181–8183, 3100) hay stack `ottimo-qa-s4`. Đã `down -v` sau khi chạy.
+    - Còn `OPEN` → Playwright báo "Expected to fail, but passed".
+    - Xóa BUG-R2-193 khỏi `OPEN` → **1 passed**.
+  - **Các ca H23 khác của `gate-s4.spec.ts`** (bản VI/EN H23 + S30) đều xanh.
+    - 2 ca desk (TC-X-078 H03, TC-L3-085 H13) đỏ trên stack mới dựng: `CHECKIN_CONDITIONS_NOT_MET room_ready` / nút H13 bị khóa.
+    - Đây là admin-web dùng `aw-dist` của QA, chạy `--no-deps` trên DB trống trạng thái. Không liên quan guest-web.
+  - **Đo vị trí** (Chromium mobile, mock MSW, form "Khăn, đồ dùng" có ghi chú, không cuộn): tâm nút trúng chính nút ở cả 4 khung. Chạm vào nút thì gửi được và vẫn ở tab "Yêu cầu".
+
+    | Khung | Nút (y) | Thanh tab (y) |
+    |---|---|---|
+    | 390×844 | 731–775 | 787–844 |
+    | 375×812 | 699–743 | 755–812 |
+    | 360×640 | 527–571 | 583–640 |
+    | 320×568 | 455–499 | 511–568 |
+
+  - **Unit test mới** (`requests.test.tsx`): nút gửi không nằm trong `.m-body`; `main` = [`.m-body`, `.wiz-foot`]; ngay sau `main` là `.m-nav`.
+  - **Kết quả:** guest-web vitest **67/67**, `tsc` 0 lỗi, ESLint 0 lỗi, Prettier sạch (cả `tests/e2e/support/known-bugs.ts`). Không commit.
+- **Nhờ UXD xác nhận:**
+  - (a) Form H23 giữ thanh tab bên dưới thanh nút. Hi-fi 23.2 không vẽ thanh tab. Ở 320×568 vùng nội dung còn ~387 px, vẫn đọc và gõ được.
+  - (b) Nhận xét thêm, chưa sửa: Chromium Android tô nền xanh mặc định (`-webkit-tap-highlight-color`) khi chạm nút. Màu này ngoài bảng màu OTTIMO. Đề nghị DS quy định `-webkit-tap-highlight-color: transparent` và dùng trạng thái `:active` theo token. Việc này áp cho cả PWA lẫn guest-web.
+- **Việc của QA:**
+  - Duyệt việc xóa dòng 193 trong `OPEN`.
+  - Đóng BUG-R2-193 sau khi chạy lại TC-X-087 trên stack QA.
+  - Ca TC-X-087 vẫn gọi `knownBug('BUG-R2-193')`: mã không còn trong `OPEN` thì coi như đã đóng và ca phải xanh. QA có thể bỏ dòng này khi dọn spec.

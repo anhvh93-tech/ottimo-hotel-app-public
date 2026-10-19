@@ -6,6 +6,8 @@ body,
   min-height: 100%;
 }
 body {
+  /* FB-R2-UXD-MOB-S4-05 (a): no browser tap colour outside the OTTIMO palette */
+  -webkit-tap-highlight-color: transparent;
   margin: 0;
   background: var(--bg);
 }

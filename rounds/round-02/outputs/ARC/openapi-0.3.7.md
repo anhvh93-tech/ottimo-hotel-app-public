@@ -1208,7 +1208,7 @@ Phạm vi: cây làm việc chưa commit trên HEAD `316b9ac` (`git diff HEAD` +
 - Vấn đề: dòng đêm của **đơn con** → khóa đơn con rồi mới khóa đơn chính (id nhỏ hơn) – ngược thứ tự id ở L1 (16.19). Đua với `requestFoc`/`reversePayment`/thu nợ/B18 cùng folio (khóa đơn chính trước) → 40P01. Trước vòng 8, nhánh này chỉ lấy L3 nên không có vòng chờ – đây là hồi quy.
 - Vì sao quan trọng: vi phạm quy tắc khóa một nguồn; lễ tân nhận 409 "đang có thao tác khác" khi sửa giá đêm sớm/đêm gia hạn trong lúc quản lý thao tác trên cùng folio; QA đo deadlock +0.
 - Đề xuất sửa: tách phần L1 của `lockStay` (khóa mọi đơn của folio theo id, `NO KEY UPDATE`) và gọi **trước** khối `if (target … statusOf)`; sau `setNightRate` gọi `this.folios.lock(tx, folioId)` (L3). Hoặc đơn giản: chuyển `lockStay` lên trước khối dòng đêm (khi đó L3 giữ trước `setNightRate`; `setNightRate` chỉ khóa lại đơn đã giữ và ghi `stay_night`/`reservation` – vẫn đúng chiều L1 → L3). Test đua: sửa giá đêm của đơn con (B9a) ‖ `requestFoc` trên dòng khác cùng folio, hai thứ tự, 20 lần – `pg_stat_database.deadlocks` +0, kết quả = chạy tuần tự.
-- Trạng thái: Open
+- Trạng thái: **Verified 19/10** (ARC, HEAD `50db5cd`, mã chạy = `d527f9c`; K6): `folio-lines.service.ts:402-405` lấy L1 (`FolioService.lockStayBookings`, mọi đơn của folio theo id, `folio.service.ts:736`) **trước** nhánh dòng đêm/`setNightRate`; L3 sau. Test đua `reversal-debt-g4` "FB-R2-ARC-BE-S4-16"; lượt kiểm tiền 8 P9/P10 deadlocks +0 (`reviews/s4-money-recheck8.md`).
 
 ### FB-R2-ARC-BE-S4-17
 - Mức độ: Minor (trong round, trước cổng QC; không chặn gộp #19) | Người sửa: BE-A (cổng `debtSettled`) + BE-B (approvals/FOC)

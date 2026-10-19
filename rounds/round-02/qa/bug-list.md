@@ -9,8 +9,8 @@
 |---|---|---|---|---|---|
 | P0 | 10 | 0 | 0 | 0 | 10 |
 | P1 | 66 | 0 | 2 | 0 | 64 |
-| P2 | 78 | 10 | 9 | 1 | 58 |
-| P3 | 56 | 16 | 2 | 0 | 38 |
+| P2 | 79 | 11 | 9 | 1 | 58 |
+| P3 | 55 | 15 | 2 | 0 | 38 |
 | **Tổng** | **210** | **26** | **13** | **1** | **170** |
 
 **Sprint 4 D1 (QA, 17/10 ~17:00–19:40, mục 11):**
@@ -227,7 +227,7 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | BUG-R2-190 | P2 | ARC FB-R2-ARC-BE-S4-13: ảnh biên nhận gửi kèm khoản thu lúc tạo đơn (B2) bị bỏ im lặng | BE-A (+ FE-A/FE-B H09) | **Fixed** theo hướng (B) – ARC 16.23 (B2 trả 422 `NOT_ALLOWED`) – chờ gộp + CI |
 | BUG-R2-191 | P2 | UXD FE-S4-22: Phiếu thanh toán in số căn (BR-012 – khách thấy tên phòng, không thấy số) | FE-A | **Fixed** – chờ gộp + CI |
 | BUG-R2-192 | P2 | UXD MOB-S4-02: nút "Quay lại" PWA dùng vỏ nút mặc định của trình duyệt (màu ngoài bảng) | MOB | **Fixed** (UXD Verified 18/10) – chờ gộp + CI |
-| BUG-R2-193 | P3 | H23 guest-web 390×844: hàng nút "Quay lại" / "Gửi yêu cầu" của form yêu cầu nằm dưới thanh tab đáy tới khi khách cuộn (axe `target-size` serious ở vị trí đầu; cuộn xuống thì hết) | MOB | Open |
+| BUG-R2-193 | **P2** (nâng từ P3 – K8, 19/10) | H23 guest-web 390×844: ở vị trí đầu (khách chưa cuộn) thanh tab đáy che gần hết nút "Gửi yêu cầu" (nút y 784–828, tab "Thông tin" y 788–844): điểm giữa nút trúng nút tab **"Thông tin"** → khách chạm "Gửi yêu cầu" sẽ chạm sang tab Thông tin; nút có focus vẫn bị che (WCAG 2.2 SC 2.4.11, AA). Cuộn xuống thì hết. axe trên `50db5cd` **không còn báo** `target-size` (nút bị che gần hết nên axe không chấm) → bắt bằng ca đo điểm chạm TC-X-087 (`e2e/ui-clock/axe-k8.s4.spec.ts`, `knownBug`). Mức P2: UX gây nhầm có cách khắc phục (test-strategy mục 8) | MOB (UXD xác nhận) | Open – K8: giữ (mục 11.36) |
 | BUG-R2-194 | P2 | H13 trước 06:00 (B9a): Desk nêu "Khách nhận trước 06:00 – thêm đêm …: **0 đ**" và bỏ ô "đã báo khách" – Desk lấy `earlyCheckinSurcharge.amountVnd` (0), tiền đêm ở `priorNight.defaultRateVnd`; số cần thu (708.000) đúng | FE-A | **Fixed** (18/10 ~11:50 – FE-A `CheckInPage.tsx`, cây chưa gộp; TC-L3-085 đạt không `knownBug`, H13 nêu 708.000 đ, mục 11.26) – Closed khi CI #16 xanh |
 | **BUG-R2-195** | **P1** | Kiểm lại lần 6 – R6RATE-01 + R6RATE-02 (gộp): MovePlanner (B7) bỏ qua đêm tham chiếu của đơn **thỏa thuận chưa từng đổi căn** (`origin_room_id` NULL, truyền `?? null`) → đêm thêm lấy lịch căn khách mua: 202 thỏa thuận 650.000 → 792.000 (thừa 142.000/đêm), 102 900.000 → 750.000 (thiếu 150.000); ghi thật vào folio. Trái phụ lục 5A AN-46, AN-47 (b), AN-48 | BE-A (+ DOM/ARC câu chữ, QA oracle) | **Closed** 18/10 – kiểm lại lần 7 (`reviews/s4-money-recheck7.md`, cc02fba): ĐÃ SỬA có số (MP-1/2/3 650.000/650.000/900.000; fuzz 1.040 chuỗi 0 lệch) |
 | BUG-R2-196 | P2 | Kiểm lại lần 6 – R6MISC-01: `recordMinibarCheck` vẫn nhận lần đếm thiếu `periodId` (hoặc thiếu cả `roomId`) → 201, mở lại đường thu thừa của 168 (kỳ `carry`: [35.000, 35.000], B18 thu 70.000, đúng 35.000). Trái `openapi.yaml` `required: [mode, lines, roomId, periodId]`, ARC 16.19 K11-08. Bắt buộc trước cổng | BE-B (+ ARC xóa câu K11-03 "vắng cả hai"; QA đổi ca) | **Closed** 18/10 – kiểm lại lần 7 (`reviews/s4-money-recheck7.md`, cc02fba): ĐÃ SỬA có số (thiếu `roomId`/`periodId` → 422, 0 lần đếm) |
@@ -1929,3 +1929,16 @@ Căn cứ: `reviews/s4-money-recheck8.md` (f6803d0 – gộp #19), DOM khối l�
   - QA chuyển các bước sang A+2 09:00 (trong cửa sổ: trần **100.000**), thêm bước A+2 10:01 (hết cửa sổ: trần **120.000**). Oracle BR-525-16 tách `inWindow` / `afterWindow`.
   - Lượt 2: **13/13 đạt**. `OPEN` = {}.
 - **Trạng thái:** **207 → Fixed** (Closed khi CI #20 xanh). Oracle BR-525-28 gỡ `pendingFix`.
+
+### 11.36 K8 cổng QC S4 – ca axe H20, H15, H16, H23 (QA, 19/10 ~21:05–21:25)
+- **Môi trường:** stack QA riêng `ottimo-qa-s4` dựng lại từ HEAD `50db5cd` trên CSDL mới `ottimo_qa29`, rồi `ottimo_qa30` (sau lượt quét C10 dời đồng hồ); web build từ cùng cây. Không đụng demo (8181–8183, 3100). Playwright `desk-clock`, `--retries=0`.
+- **Ca mới** (`e2e/ui-clock/axe-k8.s4.spec.ts`, TC trong `r1-main-flows.md` v0.3.47):
+  - TC-X-084 PWA H20: danh sách căn, 20.1, 20.4 (mở, lỗi chưa chọn lý do, lý do "Khác"), toast 20.2, 20.3 (mở, đủ mục + ảnh, "Chưa đạt" + lỗi thiếu ghi chú, toast "đã ghi chưa đạt" + Hoàn tác, toast Kiểm đạt) – 12 lần quét;
+  - TC-X-085 H15 hộp Gia hạn, hộp Đổi phòng (trước và sau giá xem trước) – 3 lần quét, không lưu;
+  - TC-X-086 H16 bước 2 (trả 19:00, đêm ngày đi có khách) và bước 3 hộp "Quản lý xác nhận phụ thu trả muộn" có/không miễn giảm – 3 lần quét, không Hoàn tất;
+  - TC-X-087 H23 form ở vị trí đầu: axe + đo điểm chạm nút "Gửi yêu cầu" (`knownBug('BUG-R2-193')`).
+- TC-X-077: **bỏ `scrollTo`** trước khi quét form H23.
+- **Kết quả** (2 lượt cả hai tệp `ui-clock/gate-s4` + `axe-k8`, `ottimo_qa30`): 11/11 như kỳ vọng, **39 lần quét axe, 0 vi phạm ở mọi mức**. 0 lỗi axe mới.
+- **BUG-R2-193: giữ Open, nâng P2** – axe không còn báo, nhưng nút vẫn bị thanh tab che (điểm giữa nút trúng tab "Thông tin"). TC-X-087 hỏng đúng chỗ của lỗi; khi MOB sửa, PR sửa xóa dòng 193 trong `OPEN` (`support/known-bugs.ts`).
+- **C10 (mục 6 cổng QC):** quét project `api` ở ngày thật và khi dời đồng hồ stack sang 20/12/2026, 02/02/2027, 28/04/2027. Ba ca rơi vào ngày đặc biệt DS-E (BR-309 cao điểm không hoàn cọc): TC-L2-053 dryRun 3/5/7 ngày (`reservations.api.spec.ts`), TC-L2-053 (b) (`s2-fix.api.spec.ts`), TC-L2-104/105 (`refund-credit.s4.api.spec.ts`). Sửa ca: hai ca đầu dùng ví dụ cao điểm BR-309-08 khi khoảng ở có đêm đặc biệt; ca hoàn dư bỏ qua có lý do (số ngày báo trước cố định). Sau sửa: 0 ca đỏ ở cả 4 ngày. Hai ca `paidAt` (TC-L4-062, TC-L4-140) chỉ đỏ khi dời đồng hồ (giờ máy test ≠ giờ stack) – không phải lỗi theo ngày.
+- Bảng tổng mục 1 chỉ đổi dòng P2/P3 theo 193; đếm lại toàn bảng ở K5.

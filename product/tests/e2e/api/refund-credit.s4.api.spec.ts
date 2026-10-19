@@ -27,6 +27,7 @@ import {
   getReservation,
   isRoomFree,
   newGuest,
+  isSpecialDate,
   nightsOf,
   oracle,
   reservationBody,
@@ -61,6 +62,13 @@ async function bookPaid(
   const arrival = addDays(today, notice);
   const nights = nightsOf(String(input.arrivalDate), String(input.departureDate ?? '')).length || 3;
   const departure = addDays(arrival, nights);
+  // C10 (cổng QC S4 mục 6): ngày đến = hôm nay + số ngày báo trước của ví dụ; nếu khoảng ở có đêm đặc biệt DS-E thì
+  // BR-309 cao điểm không hoàn cọc – số của ví dụ (ngày thường) không còn đúng. Không dời được ngày (số ngày báo trước
+  // cố định) → bỏ qua có lý do; luật cao điểm do TC-L2-053 (BR-309-08) kiểm.
+  test.skip(
+    nightsOf(arrival, departure).some(isSpecialDate),
+    `ngày: ${arrival}→${departure} có đêm đặc biệt (BR-104) – ví dụ ${String(input.arrivalDate)} là ngày thường`,
+  );
   const rate = num(input.roomTotalVnd) / nights;
   const prefer = room(c, String(input.roomNo));
   const l12 = [

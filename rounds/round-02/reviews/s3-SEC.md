@@ -176,7 +176,7 @@ Kết luận: **chưa cho qua cổng QC Sprint 3** tới khi 2 Blocker được 
 - Vấn đề: SEC I5 yêu cầu mọi đính kèm có hạn lưu. Tệp tải lên nhưng không bao giờ gắn vào bản ghi (lễ tân/SAL chụp biên nhận rồi đóng hộp thoại, hoặc tải lại ảnh khác) thì không có mốc, nên giữ mãi. Biên nhận chuyển khoản là C2 (tên + số tài khoản người chuyển). `work_order`, `inspection`, `meter` đã nhận tải lên từ Sprint 3 nhưng module dùng chúng là Sprint 4, nên cũng không có mốc.
 - Vì sao quan trọng: Hạn lưu là nghĩa vụ (SR-RET, NĐ 13): dữ liệu không còn mục đích phải xóa.
 - Đề xuất sửa: (1) J16: tệp chưa gắn (`bound_ref_id IS NULL`) quá 7 ngày từ `uploaded_at` → xóa (`purge_reason='unbound'`, thêm vào CHECK). (2) Tới khi module Sprint 4 có mặt: hoặc từ chối `work_order`/`inspection`/`meter` ở `uploadAttachment` (422 `NOT_IN_LIST`), hoặc đặt mốc mặc định = `uploaded_at`. (3) `refund_proof` đang dùng chung `deposit_receipt_retention_days`: giữ như giả định I5, chờ câu trả lời kế toán/luật sư về T08 (ESC-001). Test: tải biên nhận, không dùng, ngày 8 → `purged_at`, DEK hủy.
-- Trạng thái: **Mở lại một phần 18/10** – điểm (1) và (3) Verified; điểm (2) hồi quy ở Sprint 4, theo dõi bằng **FB-R2-SEC-BE-65** (Major, `reviews/s4-SEC.md` C.8) (mục 10.2)
+- Trạng thái: **Closed – Verified 19/10.** Điểm (1) và (3) Verified 18/10. Điểm (2), hồi quy ở Sprint 4, **đóng 19/10** cùng FB-R2-SEC-BE-65 (Verified, `reviews/s4-SEC.md` C.15, QC K1). Kiểm lại trên commit chấm lại khi BE-C commit (mục 10.2, 10.4)
 
 ### FB-R2-SEC-FE-06
 - Mức độ: Major
@@ -777,3 +777,8 @@ SEC phụ chạy test trên bản trích `git archive 7ac11a4`; SEC chính đọ
   - BE-65 phải xử lý trong round (G3.2), muộn nhất trước dữ liệu thật.
   - Theo SEC, **ĐK-S3-5 phần SEC đạt**, vì 8/8 thẻ Sprint 3 đã có dòng kiểm lại; phần còn mở đã chuyển sang thẻ Sprint 4 có chủ.
 - Không có ESC mới.
+
+### 10.4 QC K1 – BE-38 điểm 2 đóng (SEC, 19/10)
+- FB-R2-SEC-BE-65 **Verified** (`reviews/s4-SEC.md` C.15): ảnh phiếu sửa và kiểm phòng có mốc hạn lưu khi đóng phiếu và khi kiểm phòng; `reopen` xóa mốc; `penalty_evidence` sau trả phòng, hủy hoặc no-show có mốc; migration 0078 bù mốc cho ảnh cũ; J16 đếm ảnh còn sót mốc. Test `sec-be65-retention` 9/9, `registration-party-removal` 18/18.
+- **BE-38 điểm 2 đóng.** BE-38 nay **Closed**. **SEC-G3: 8/8 Verified** (G2.2), trên cây làm việc. SEC chạy lại 2 tệp test trên commit chấm lại (K3).
+- Rủi ro còn lại (Low) tách thành FB-R2-SEC-BE-84 (R3 Sprint 1; báo người nhận trước dữ liệu thật).

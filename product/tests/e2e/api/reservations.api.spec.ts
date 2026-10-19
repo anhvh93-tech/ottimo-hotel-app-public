@@ -29,6 +29,7 @@ import {
   newGuest,
   isSpecialDate,
   nextWeekday,
+  nightsOf,
   oracle,
   oracleNum,
   reservationBody,
@@ -527,9 +528,17 @@ test.describe(
         const c = await s2Context(request);
         const today = await stackToday(request);
         const deposit = oracleNum('BR-309-01', 'depositVnd');
-        const o = oracle(ex);
         const arrival = addDays(today, days);
         const departure = addDays(arrival, 3);
+        // C10 (cổng QC S4 mục 6): ngày đến = hôm nay + N có thể rơi vào ngày đặc biệt DS-E – đơn có đêm cao điểm thì
+        // BR-309 không hoàn cọc (ví dụ của ${ex} là peakNight=false) → dùng ví dụ cao điểm BR-309-08
+        const peak = nightsOf(arrival, departure).some(isSpecialDate);
+        if (peak)
+          test.info().annotations.push({
+            type: 'special-date',
+            description: `${arrival}→${departure} có đêm đặc biệt (BR-104) – oracle BR-309-08 thay ${ex}`,
+          });
+        const o = oracle(peak ? 'BR-309-08' : ex);
         const l12 = c.rooms.filter((x) =>
           ['101', '102', '103', '201', '202', '203'].includes(x.roomNo),
         );

@@ -23,10 +23,10 @@
 
 ## 1. Tóm tắt cho chủ đầu tư
 1. Chưa biết hãng khóa OTTIMO đang dùng → **bước đầu tiên là INV chụp ảnh khóa + tên app đang dùng để mở/quản lý khóa** (rất nhiều khóa bán ở VN thực chất chạy nền tảng **TTLock** hoặc **Tuya** dưới tên thương hiệu khác).
-2. Nếu khóa chạy **TTLock** hoặc **Tuya** và có **gateway (bộ phát Wi-Fi)**: app OTTIMO có thể **tự tạo mã cửa có hạn** (từ giờ nhận phòng đến giờ trả phòng) và **tự đặt mã theo ý** (ví dụ theo ngày sinh nhật khách) – đã thấy trong tài liệu API chính thức.
+2. Nếu khóa chạy **TTLock** hoặc **Tuya** và có **gateway (bộ phát Wi-Fi)**: app OTTIMO có thể **tự tạo mã cửa có hạn** (từ giờ nhận phòng đến giờ trả phòng) và **tự đặt mã theo ý** (app tự sinh mã ngẫu nhiên rồi đặt lên khóa) – đã thấy trong tài liệu API chính thức.
 3. Nếu khóa không có API: MVP vẫn chạy bằng **nhập mã thủ công** – lễ tân đặt mã trên app của hãng, rồi ghi mã vào app OTTIMO để gửi khách. Không chặn Round 2.
 4. **Vân tay không phù hợp cho khách ngắn ngày** (khách phải đứng tại khóa để quét) – chỉ dùng cho khách thuê tháng và nhân viên.
-5. **Mã theo ngày sinh nhật có rủi ro an ninh** (ngày sinh có trên giấy tờ, dễ đoán) – chỉ dùng khi khách chủ động chọn, và ghép thêm **ít nhất 3 số ngẫu nhiên** (xem mục 5).
+5. **Mã theo ngày sinh nhật có rủi ro an ninh** (ngày sinh có trên giấy tờ, dễ đoán) – **không dùng** (INV 19/10): mã cửa là mã ngẫu nhiên 8 số, BR-403 (xem mục 5).
 
 ## 2. Các hãng / nền tảng phổ biến tại Việt Nam
 
@@ -82,7 +82,7 @@
 4. Nhân viên nghỉ việc → thu hồi mã ngay trong quy trình khóa tài khoản.
 
 ### 4.2 Chế độ thủ công (dự phòng – `ManualDoorLockAdapter`, dùng cho MVP nếu chưa có API)
-1. App gợi ý mã (ngẫu nhiên 6 số, hoặc theo sinh nhật `ddmm` + 3 số ngẫu nhiên).
+1. App gợi ý mã ngẫu nhiên 8 số (BR-403 v0.3.9), sinh mới cho mỗi lượt ở.
 2. Lễ tân mở app của hãng khóa, tạo mã/thẻ với hạn tương ứng.
 3. Lễ tân nhập lại mã vào app OTTIMO và tick "Đã cài trên khóa" → app gửi mã cho khách.
 4. Khi trả phòng, app tạo **việc nhắc** "Xóa mã căn 201 trên app khóa" cho lễ tân; chưa tick → hiện trong "Cần chú ý".
@@ -90,16 +90,17 @@
 
 Cả hai chế độ dùng **chung giao diện** (`DoorLockAdapter`), chuyển bằng cấu hình theo từng căn – xem `product/integrations/README.md`.
 
-## 5. Mã theo ngày sinh nhật – phân tích và đề xuất
+## 5. Mã theo ngày sinh nhật – phân tích và đề xuất (đã thay bằng quyết định INV 19/10)
+- **Hiện hành (19/10/2026):** INV đổi quyết định – **bỏ mã theo ngày sinh**; mã cửa là **mã ngẫu nhiên 8 chữ số**, sinh mới mỗi lượt ở, gửi ngày đến, xóa khi trả phòng (BR-403 v0.3.9, ESC-011 ghi chú 19/10). Các gạch đầu dòng về "mã sinh nhật" bên dưới chỉ còn là lịch sử phân tích, không áp dụng.
 - **Yêu cầu INV:** [đã ẩn – INV 19/10: mã cửa đổi sang ngẫu nhiên 8 số].
 - **Rủi ro:** ngày sinh nằm trên CCCD/hộ chiếu, hồ sơ OTA, mạng xã hội → người khác đoán được; chỉ 4–6 số (ddmm / ddmmyy) → dễ thử. Ngày sinh là dữ liệu cá nhân → SEC cần xem.
 - **Đề xuất kỹ thuật (INT tự quyết, chờ SEC review):**
-  - Mặc định: mã **ngẫu nhiên 6 số**, sinh bằng bộ sinh số ngẫu nhiên an toàn (CSPRNG); độ dài cho phép 6–10 số (SR-LOCK-01).
-  - Tùy chọn "mã sinh nhật": `ddmm` + **3 số ngẫu nhiên** (ví dụ `1503`+`479`, 7 số – 1.000 khả năng với người biết ngày sinh), chỉ khi khách chọn hoặc lễ tân chọn với sự đồng ý của khách (decision-log DOM+SEC, SR-LOCK-02).
-  - **Không** dùng `ddmm` + 2 số (decision-log: dòng "THAY dòng INT về mã sinh nhật"). Nếu sau này khóa được xác nhận có T11, đội chỉ có thể đề xuất lại qua ESC-011.
-  - Không cho trùng mã đang có hiệu lực trên **cùng một khóa**; nếu trùng → sinh lại phần số ngẫu nhiên.
+  - (Hiện hành) Mã **ngẫu nhiên 8 số**, sinh bằng bộ sinh số ngẫu nhiên an toàn (CSPRNG) (BR-403 v0.3.9; SR-LOCK-01). Trước 19/10: 6 số mặc định.
+  - (Đã bỏ 19/10) Tùy chọn "mã sinh nhật": `ddmm` + **3 số ngẫu nhiên** (ví dụ `1503`+`479`, 7 số – 1.000 khả năng với người biết ngày sinh), chỉ khi khách chọn hoặc lễ tân chọn với sự đồng ý của khách (decision-log DOM+SEC, SR-LOCK-02).
+  - (Đã bỏ 19/10) **Không** dùng `ddmm` + 2 số (decision-log: dòng "THAY dòng INT về mã sinh nhật").
+  - Không cho trùng mã đang có hiệu lực trên **cùng một khóa**; nếu trùng → sinh lại mã.
   - Mã có hạn, xóa ngay khi trả phòng.
-- Có cần cho phép mã **chỉ gồm** ngày sinh (không thêm số) hay không là **chính sách** → đưa vào dự thảo ESC khóa cửa.
+- (Đã đóng 19/10) Câu hỏi chính sách về mã theo ngày sinh: INV chọn không dùng.
 
 ## 6. INV cần cung cấp
 1. Ảnh khóa (mặt trước, mặt trong, tem nhãn) + **tên app đang dùng** để quản lý khóa; có gateway chưa.

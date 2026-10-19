@@ -60,6 +60,11 @@ export interface RetentionStats {
   unconfirmedImages: number;
   t01Images: number;
   attachments: number;
+  /**
+   * SEC BE-65 (b2): bound work-order / inspection / penalty-evidence files with no retention anchor after the
+   * ops retention since upload – counted and journalled (`anchor_missing`), never purged.
+   */
+  attachmentAnchorMissing?: number;
   blobFiles: number;
   guestSessions: number;
   idempotencyKeys: number;
@@ -247,7 +252,11 @@ export class RetentionService {
     if (this.attachments) {
       const a = await this.attachments.purgeDue(tx, now, timezone);
       stats.attachments = a.purged;
+      stats.attachmentAnchorMissing = a.anchorMissing;
       errors.push(...a.errors);
+      if (a.anchorMissing > 0) {
+        await this.journal(tx, now, 'anchor_missing', a.anchorMissing, 'done', null);
+      }
     }
 
     // 5. Technical rows.

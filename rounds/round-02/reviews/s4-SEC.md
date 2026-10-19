@@ -21,10 +21,10 @@
 | Mục | Trạng thái | Ghi ở |
 |---|---|---|
 | **G2.1** S4-39 / BUG-R2-085 / SEC-G1 (b) / ĐK-S3-11 / M3 / T3 | **ĐẠT – Verified 18/10 (`7ac11a4`)**. BE-53, BE-57, BE-58 (2) Closed. Tình huống KHÔNG ĐẠT số 3 gỡ | `s3-SEC.md` 10.1 |
-| **G2.2** SEC-G3 (8 Major) | **ĐẠT CÓ ĐIỀU KIỆN** – 7/8 Verified (BE-33…37, FE-06, MOB-01). BE-38 mở lại một phần (điểm 2 hồi quy ở S4) → theo dõi bằng **BE-65** (Major, rủi ro Medium). Thẻ mới OPS-04 (Minor) | `s3-SEC.md` 10.2–10.3 |
+| **G2.2** SEC-G3 (8 Major) | **ĐẠT CÓ ĐIỀU KIỆN** – 7/8 Verified (BE-33…37, FE-06, MOB-01). BE-38 mở lại một phần (điểm 2 hồi quy ở S4) → theo dõi bằng **BE-65** (Major, rủi ro Medium). Thẻ mới OPS-04 (Minor). **19/10 (QC K1): BE-65 Verified, BE-38 đóng → 8/8 Verified** (cây làm việc; chạy lại trên commit chấm lại) | `s3-SEC.md` 10.2–10.4, mục C.15 |
 | **G2.3** S4-17 | **ĐẠT** – đóng bằng test cục bộ; phần qua Caddy thật thuộc S4-15 | mục A |
 | **G2.4** review bắt buộc (PWA, guest-web P-R2-4, SSE, nhóm D A/A.3, `roomName`) | **Đã review.** PWA (a)(b), SSE, `roomName`, guest-web: đạt có ghi chú. **Ảnh PWA: không đạt** (BE-65). **Nhóm D: không đạt** (BE-73; BE-74, BE-75 có hạn). Luật B-15: **SEC đã quyết V2** (C.6). Giả định ARC (c) xác nhận; (d) xác nhận có điều kiện. **4 Major mở:** BE-65, BE-73, BE-74, BE-75 | mục C |
-| **G2.5** Critical/High mở | **KHÔNG có Critical/High mở.** Mức cao nhất là Major / rủi ro Medium. SEC phụ đề xuất High cho BE-73; SEC chính xếp Medium theo cùng thang với BE-53 (C.9). Cách xếp này **không** bỏ việc phải sửa: SEC không ký S4-11/S4-32 tới khi BE-73 Verified | mục C.9 |
+| **G2.5** Critical/High mở | **KHÔNG có Critical/High mở.** Mức cao nhất là Major / rủi ro Medium. SEC phụ đề xuất High cho BE-73; SEC chính xếp Medium theo cùng thang với BE-53 (C.9). Cách xếp này **không** bỏ việc phải sửa: SEC không ký S4-11/S4-32 tới khi BE-73 Verified. **Đánh giá lại 19/10 khi repo công khai (QC K11): vẫn 0 Critical/High Open** | mục C.9, **mục E** |
 | **S4-51** tên miền `maps.app.goo.gl` | **SEC XÁC NHẬN** (gỡ nhãn giả định). Đúng host, https, mở khi khách bấm, `noopener noreferrer`. Gợi ý trước GL dùng link `google.com/maps` | mục B |
 
 **Cập nhật 18/10 (sau sửa của BE-C, mục C.10):**
@@ -242,7 +242,7 @@ Quan sát, không thuộc bảo mật: ở `7ac11a4`, admin-web chưa đọc `po
   - lưới an toàn J16: ảnh đã gắn mà vẫn không có mốc sau `uploaded_at` + `attachment_ops_retention_months` + biên → báo "Cần chú ý" hoặc xóa theo `uploaded_at`.
 - Liên quan: thay cho điểm (2) của FB-R2-SEC-BE-38 (mở lại một phần, `s3-SEC.md` mục 10.2). Đóng BE-65 thì đóng luôn BE-38.
 - Hạn: sửa trong round (Major). Muộn nhất **trước dữ liệu thật** (ảnh phòng thật trên staging/production).
-- Trạng thái: Open
+- Trạng thái: **Verified 19/10** (cây làm việc của BE-C, chưa commit, `s4-be-c.md` mục 21; mục C.15, QC K1). Kiểm lại trên commit chấm lại khi BE-C commit, chỉ cần chạy lại 2 tệp test SEC nêu ở C.15. Việc còn lại tách thành **FB-R2-SEC-BE-84** (Minor, R3 Sprint 1)
 
 ### FB-R2-SEC-BE-66
 - Mức độ: Minor (rủi ro Low) | Người sửa: BE-B (guests); BE-C (phía HK)
@@ -314,7 +314,7 @@ Quan sát, không thuộc bảo mật: ở `7ac11a4`, admin-web chưa đọc `po
   - test đủ 3 bước tái hiện;
   - script kiểm dữ liệu đã ghi trên DB demo/test (không có dữ liệu thật).
 - Hạn: **trước khi SEC ký S4-11/S4-32** (CỔNG – G3.2). Bắt buộc trước dữ liệu thật.
-- Trạng thái: **Verified 18/10** (cây làm việc, chưa commit – BE-C `s4-be-c.md` mục 15; mục C.10). Kiểm lại trên commit khi BE-C commit
+- Trạng thái: **Verified 18/10** (cây làm việc – mục C.10); **Verified lại 19/10 trên HEAD `50db5cd`** của repo công khai (mã chạy = `d527f9c`; mã BE-73 gộp ở `20f69f8`) – mục C.14 (QC K6)
 
 ### FB-R2-SEC-BE-74
 - Mức độ: Major (rủi ro Medium) | Người sửa: BE-C (J25); BE-B review guests
@@ -589,7 +589,181 @@ Ca thử `SEC-R7`:
 - Hạn: sửa trong round nếu kịp (cùng PR BE-80); muộn nhất **trước dữ liệu thật**. Không chặn cổng S4: không sai tiền, mọi lần đều có audit, báo cáo FOC tách mã `debt_write_off`.
 - Trạng thái: Open
 
+### C.14 QC K6 – BE-73 trên commit đã gộp: **Verified 19/10 trên HEAD `50db5cd`** (SEC)
+
+Cổng QC Sprint 4 (`qc/s4-qc-gate.md` mục 5, K6) yêu cầu SEC ghi Verified BE-73 trên commit đã gộp, không phải cây làm việc (C.10).
+
+- **Commit kiểm:** HEAD `50db5cd` của repo công khai `ottimo-hotel-app-public`. Mã chạy giống `d527f9c` của repo cũ (`git diff d527f9c HEAD -- product/` chỉ đổi tài liệu, OpenAPI, test, fixture; không đổi `src`).
+- **Mã BE-73 đi vào lịch sử ở `20f69f8`.** Từ `20f69f8` tới HEAD, `registration/` chỉ đổi một chỗ: BUG-R2-205, một câu `SELECT count(*)` chỉ đọc để cảnh báo `partyOverCount`. Không chạm `guestOfPerson`, `keepDocKey`, `recordCrmConsent`, migration 0070 hay `sec-be73-check.sql`.
+- **Đọc lại mã trên HEAD** (`registration.service.ts`):
+  - `guestOfPerson` (dòng 773–787): chỉ trả hồ sơ người đặt khi giấy tờ gắn rõ người đặt (`bookerGuestId`), ngược lại trả hồ sơ của thành viên. Không còn suy người từ `isMain`.
+  - Thêm giấy tờ không có `partyMemberId` đi cổng `party.memberForDocument` (dòng 654–672). Cổng này dùng cả giấy tờ chính.
+  - `recordCrmConsent` (dòng 1362–1373): giấy tờ chưa gắn ai → 422 `REQUIRED`; không tìm ra hồ sơ → 422 `NOT_IN_LIST`.
+- **Chạy lại** trên `git worktree` sạch tại `50db5cd`, tách khỏi cây làm việc chính (lúc kiểm, cây chính có thay đổi chưa commit của BE-C cho BE-65). DB là container Postgres 17 tạm của SEC, dùng role và mật khẩu CI công khai trong `ci.yml`, migrate đủ tới 0076:
+  - 4 tệp `guest-document-profiles`, `registration-flow`, `registration-party-removal`, `guests`: **4/4 tệp, 54/54 xanh**. Số ca tăng 53 → 54 so với C.10 vì có thêm ca BUG-R2-205. Ca SEC "SEC FB-R2-SEC-BE-73 (ARC 16.22) …" (`guest-document-profiles.test.ts:424`) chạy đủ 3 bước tái hiện, 422 `REQUIRED` và CHECK BE-78 (a).
+  - `pg_constraint`: `guest_id_doc_last4_consent_check` có và `convalidated = true` (BE-78 (a)).
+  - `scripts/sec-be73-check.sql` chạy được trên DB mới, chỉ in số đếm.
+- **Kết luận:** FB-R2-SEC-BE-73 **Verified trên commit đã gộp** (`50db5cd`); BE-78 (a) giữ Verified. Chữ ký S4-11/S4-32 của SEC (C.10) đứng trên commit này. Phần K6 của SEC xong.
+
+### C.15 QC K1 – kiểm BE-65 (SEC, 19/10): **Verified**; BE-38 điểm 2 đóng
+
+- **Mã kiểm:** cây làm việc ngày 19/10 = HEAD `50db5cd` + phần BE-C chưa commit (`s4-be-c.md` mục 21.1–21.2, `responses/s4-BE-C.md`). Cây có cả thay đổi chưa commit của vai khác. Khi BE-C commit, SEC chạy lại 2 tệp test dưới đây trên commit chấm lại.
+- **Đọc mã:**
+  - (a) `setRetentionAnchorForRef` chỉ theo **một** bản ghi (`bound_ref_type` + `bound_ref_id`), không theo mục đích (giữ ARC FB-S3-31 (2)), chỉ đụng tệp chưa xóa;
+    - phiếu sửa `complete`/`cancel` → mốc = giờ đóng cho mọi ảnh của phiếu; `reopen` → NULL. Chạy trong giao dịch đang giữ khóa phiếu, sau vòng `bindTo` ảnh sửa xong, nên ảnh gắn lúc đóng cũng có mốc;
+    - kiểm phòng → mốc = `performedAt`. Giá trị này đã bị chặn bởi `performedAtInRange`, nên không lùi hay đẩy mốc tùy ý được.
+  - (b1) `penalty_evidence` tải lên khi đơn `checked_out`/`cancelled`/`no_show` → mốc = giờ tải lên (giữ lâu hơn, không ngắn hơn). Trạng thái đơn đọc qua `ownership()`, chính lần đọc kiểm quyền sẵn có.
+    - `onReservationVoided` đặt mốc cho bằng chứng tải lên **trước** khi hủy/no-show, và đặt **trước** `if (!reg) return`, nên đơn không có `registration` vẫn có mốc. Hàm "chỉ tăng" (`retention_anchor_at < $4`): no-show được khôi phục rồi trả phòng sẽ có mốc muộn hơn.
+    - Không sửa `folio/**`, `payments/**`, checkout tiền. ORC cũng đã kiểm.
+  - (b2) J16 đếm ảnh đã gắn mà quá `attachment_ops_retention_months` vẫn không có mốc, và **không xóa** (đúng: phiếu đang mở hoặc lượt ở dài có thể còn hợp lệ). Ghi một dòng `retention_run` `policy_key = 'anchor_missing'`, chỉ có số đếm, không id hay dữ liệu cá nhân. Bảng không có CHECK `policy_key`, nên không có rủi ro J16 lỗi.
+  - (b3) migration 0078:
+    - chỉ sửa dòng `retention_anchor_at IS NULL AND purged_at IS NULL`, chạy lại không đổi;
+    - mốc = `done_at` / `updated_at` (phiếu hủy) / `inspected_at` / `actual_checkout_at` · `cancelled_at` · `no_show_marked_at`, thiếu thì `uploaded_at`;
+    - tắt rồi bật lại RLS + FORCE cho đủ 4 bảng trong cùng giao dịch migrator. Ca (6b) chứng minh nếu không tắt thì bù 0 dòng.
+- **Chạy test** (container Postgres 17 tạm của SEC, DB mới `ottimo_test_k1`, migrate đủ tới 0078):
+  - `sec-be65-retention` **9/9** + `registration-party-removal` **18/18** = **27/27 xanh**. Ca 1 chính là ca P1 của SEC: phiếu `done`, J16 trước hạn còn, sau hạn → `purged_at`, DEK hủy, GET 404;
+  - hồi quy gần: `files-attachments`, `housekeeping-s4`, `housekeeping-s4-arc`, `registration-flow`, `registration-open-cap`, `guest-document-profiles` + 2 tệp trên → **8/8 tệp, 98/98 xanh**. BE-C báo toàn bộ vitest api 2971 đạt / 0 hỏng.
+- **Quyết định SEC về hai điểm còn lại:**
+  1. **`anchor_missing` chỉ ghi `retention_run` – CHẤP NHẬN cho R2.**
+     - R2 chưa có dữ liệu thật; đường còn lọt rất hẹp (điểm 2 dưới đây, và đơn không có `registration` lúc trả phòng);
+     - số đếm vẫn ghi lại được, và lưới an toàn không xóa nhầm;
+     - đổi hợp đồng "Cần chú ý" (danh sách `check` đóng trong OpenAPI 0.3.7) giữa lúc sửa sau cổng QC là rủi ro hơn lợi.
+     - **Điều kiện:** trước dữ liệu thật phải có **một** trong hai: mục "Cần chú ý" `attachment_retention_anchor_missing` cho OWN/MGR, **hoặc** cảnh báo OPS từ `retention_run` khi `anchor_missing` > 0 (người nhận OWN). Theo dõi bằng FB-R2-SEC-BE-84.
+  2. **Ảnh tải lên đúng lúc giao dịch trả phòng chưa commit – CHẤP NHẬN là rủi ro còn lại Low.**
+     - Upload đọc trạng thái `in_house` theo READ COMMITTED, còn `onCheckedOut` chỉ đặt mốc cho dòng đã commit, nên ảnh lọt cửa sổ vài mili giây giữa hai giao dịch có mốc NULL.
+     - Không mất kiểm soát: (b2) đếm được và không có gì bị lộ, chỉ là giữ lâu hơn.
+     - Cách sửa gọn cho R3 (cùng thẻ BE-84): `upload` khóa dòng `reservation` (`FOR SHARE`) khi đọc trạng thái, để xếp hàng với khóa của trả phòng, kèm test song song. Hoặc dựa vào cảnh báo ở điểm 1.
+- **Kết luận:** FB-R2-SEC-BE-65 **Verified** (cây làm việc). FB-R2-SEC-BE-38 điểm 2 **đóng** (`s3-SEC.md`). SEC-G3 nay **8/8 Verified**: G2.2 gỡ phần SEC, chỉ còn chờ chạy lại trên commit chấm lại (K3).
+
+### FB-R2-SEC-BE-84
+- Mức độ: Minor (rủi ro Low) | Người sửa: ARC + BE-C + UXD + FE-A (mục "Cần chú ý"), hoặc OPS (cảnh báo); BE-C (khóa đọc trạng thái)
+- Vị trí: `files/public/attachment.service.ts` `upload` (đọc `ownership().status`) và `purgeDue` (`anchorMissing`); `registration/internal/retention.service.ts` (`retention_run` `anchor_missing`)
+- Vấn đề:
+  - ảnh đã gắn mà không có mốc hạn lưu chỉ được **đếm** vào `retention_run`, không ai được báo;
+  - `penalty_evidence` tải lên trong cửa sổ trước khi giao dịch trả phòng commit vẫn có mốc NULL (C.15 điểm 2).
+- Vì sao quan trọng: ảnh không mốc bị giữ vô thời hạn (SEC I5, NĐ 13). Khi có dữ liệu thật thì phải có người được báo để xử lý.
+- Đề xuất sửa:
+  - (a) mục "Cần chú ý" `attachment_retention_anchor_missing` cho OWN/MGR (ARC thêm giá trị vào danh sách `check`, UXD viết câu), **hoặc** cảnh báo OPS từ `retention_run`;
+  - (b) `upload` đọc trạng thái đơn với `FOR SHARE`, có test song song với trả phòng.
+- Hạn: R3 Sprint 1. (a) bắt buộc **trước dữ liệu thật**.
+- Trạng thái: Open
+
 ## D. Điểm làm tốt (nên giữ)
 1. PWA offline chép từng trường theo danh sách cho phép, có test dump IndexedDB thật; service worker không cache API; đăng xuất xóa sạch; `guard.test` chặn gọi endpoint C3.
 2. SSE có mức sàn theo loại sự kiện, hub đóng an toàn, payload chỉ id; phiên và vai kiểm lại theo heartbeat.
 3. Khóa giấy tờ v1 nhiều lớp (HKDF riêng mục đích, CHECK định dạng, CHECK đồng ý ở DB, không bao giờ ra API/audit). Yêu cầu khách có DTO tối giản, Luhn trước luật chữ số, hiển thị văn bản thuần.
+
+## E. QC K11 – đánh giá lại G2.5 khi repo đã công khai (SEC, 19/10/2026)
+
+- **Bối cảnh.** INV quyết công khai repo ở ESC-025 (19/10). Repo công khai là `anhvh93-tech/ottimo-hotel-app-public`, HEAD `50db5cd`, 137 commit, lịch sử đã làm sạch. Repo riêng tư cũ đã lưu trữ (`archived: true`, `private`).
+- **Cách làm.** SEC **chỉ đọc** cài đặt GitHub qua `gh api`, không đổi gì. Các cài đặt nên đổi nằm ở E.6 để ORC/OPS làm và INV duyệt.
+
+### E.1 Tài liệu review công khai mô tả cách lách của Major còn mở
+
+Cả `rounds/` công khai, nên mọi thẻ SEC/QA kèm bước tái hiện đều đọc được. Nhóm có "công thức lách" và còn mở ở HEAD:
+
+| Thẻ | Cách lách mô tả công khai | Ai làm được | Đánh giá |
+|---|---|---|---|
+| FB-R2-SEC-BE-83 | MGR chia nhỏ xóa nợ dưới giá 1 đêm để khỏi chờ OWN | Chỉ tài khoản **MGR** | Rủi ro gian lận nội bộ. Người cần biết nhất (quản lý của khách sạn) nay đọc được cách làm |
+| FB-R2-SEC-BE-79 | Sửa giấy tờ từ người A sang B, khóa giấy tờ và last4 ở lại hồ sơ A | FD+ | Gán sai dữ liệu trong phạm vi đã có quyền xem. Không ra ngoài |
+| FB-R2-SEC-BE-65, 74, 75 | Ảnh, tên, liên hệ không bao giờ bị xóa (thiếu mốc hạn lưu) | Không ai "khai thác" được | Lỗi tuân thủ hạn lưu, không phải đường tấn công |
+| BUG-R2-208/209/210 | Lệch chu kỳ nợ, thiếu nhật ký nợ | Thao tác bình thường của FD/MGR | Sai số liệu, không có lợi cho người ngoài |
+| Thẻ [CHẶN] landing/Zalo/booking | Điều kiện trước khi **bật** tính năng | – | Tính năng chưa bật, không có bề mặt |
+
+Đánh giá:
+
+- **Người ngoài:** mọi cách lách ở trên đều cần tài khoản nhân viên đã đăng nhập (FD/MGR). R2 chưa có staging chạy (E.2), chưa có dữ liệu thật. Công khai **không** tạo đường tấn công mới cho người ngoài, chỉ bỏ lớp "che giấu", mà dự án vốn không dựa vào lớp này (threat model giả định kẻ tấn công biết mã nguồn).
+- **Người trong:** cái thay đổi thật là BE-83. Trước khi công khai, chỉ đội biết cách chia nhỏ. Nay một quản lý khách sạn đọc được. Tác hại có giới hạn: mỗi lần đều có audit, báo cáo FOC tách mã `debt_write_off`, và tổng xóa không vượt trần công nợ. Mức vẫn là **Major / rủi ro Medium**, không lên High.
+- **Rủi ro trước dữ liệu thật:** nếu tới ngày nhập dữ liệu thật mà còn Major có công thức lách công khai, rủi ro nội bộ của BE-83 tăng vì ai cũng biết cách làm. Vì vậy SEC **siết hạn**:
+  - BE-83, BE-79 phải **Verified trước dữ liệu thật**, không dời qua mốc đó. Hạn này đã có, nay thành điều kiện cứng của cổng dữ liệu thật (cùng ESC-001);
+  - BE-65, BE-74, BE-75 giữ hạn cũ: trước dữ liệu thật.
+- **Nên làm (quy tắc mới cho đội, SEC tự quyết trong quyền):**
+  - (a) Từ nay, phát hiện **Critical/High**, hoặc Major mở có công thức khai thác được **từ bên ngoài**, không ghi bước tái hiện chi tiết vào repo công khai trước khi Verified. Bản chi tiết đi kênh riêng: GitHub Security Advisory nháp (private vulnerability reporting đang bật) hoặc repo riêng tư cũ. Repo công khai chỉ ghi một dòng tóm tắt + mã thẻ.
+  - (b) Major chỉ khai thác được bởi người trong (như BE-83) vẫn ghi công khai như hiện nay, để review chéo và QC kiểm được. Bù lại phải sửa trước dữ liệu thật.
+  - (c) Không xóa hay viết lại lịch sử vì các thẻ hiện có: không có thẻ nào thuộc nhóm (a).
+
+### E.2 `environment: staging` + `STAGING_SSH_KEY`
+
+Đọc ngày 19/10:
+
+| Mục | Kết quả |
+|---|---|
+| `GET …/environments` | `total_count: 0`: chưa có environment nào |
+| Secret của Actions, Dependabot | 0 / 0. **Không có** `STAGING_SSH_KEY`, `STAGING_SSH_KNOWN_HOSTS` |
+| Biến của repo | 0. `PUBLISH_IMAGES`, `STAGING_DEPLOY`, `STAGING_SSH_HOST` chưa đặt |
+| Job `deploy-staging` (`ci.yml`) | `if: push` + `refs/heads/main` + `vars.PUBLISH_IMAGES == 'true'` + `vars.STAGING_DEPLOY == 'true'`, `environment: staging`. Khóa SSH trên VPS chỉ chạy forced command `deploy-from-ci.sh` |
+
+- **Kết luận:** hôm nay **không có gì để lộ**. Không khóa, không host, job deploy tắt.
+- **Rủi ro tiềm ẩn (Medium nếu bật sai thứ tự):** khi workflow có `environment: staging` chạy lần đầu, GitHub **tự tạo** environment đó mà **không có bảo vệ**. Nếu OPS đặt `STAGING_SSH_KEY` làm **secret cấp repo** thay vì secret của environment, mọi workflow chạy trên nhánh của repo đều đọc được khóa (PR từ fork thì không).
+- **Điều kiện SEC trước khi bật deploy:** tạo environment `staging` có bảo vệ **trước** khi đặt khóa (E.6 mục 1).
+
+### E.3 PR từ fork / Dependabot có lấy được secret không
+
+- `ci.yml` chỉ dùng `pull_request`. **Không** có `pull_request_target`, `workflow_run` hay `issue_comment`.
+  - PR từ fork chạy với `GITHUB_TOKEN` chỉ đọc và **không có secret** (mặc định GitHub).
+  - PR của Dependabot chỉ nhận secret Dependabot. Hiện có 0 secret.
+- `permissions: contents: read` ở đầu workflow. Chỉ `publish-images` có `packages: write`, và job này chỉ chạy khi push vào `main`.
+- Cài đặt repo:
+  - `default_workflow_permissions: read`;
+  - `can_approve_pull_request_reviews: false`;
+  - PR từ fork của **mọi** người ngoài phải chờ duyệt mới chạy (`approval_policy: all_external_contributors`).
+- `actions/checkout` dùng `persist-credentials: false`; action ghim theo SHA.
+- Cache (`actions/cache`, pnpm): GitHub tách phạm vi cache của PR, PR không ghi được vào cache của `main`.
+- **Kết luận: Đạt.** PR từ fork hoặc Dependabot không lấy được secret. Hiện cũng không có secret nào để lấy.
+- Ghi chú:
+  - Các PR Dependabot #1–#6 đang **đỏ**. Đây là chuyện của OPS (cập nhật phụ thuộc), không phải lỗ hổng.
+  - `allowed_actions: all`, `sha_pinning_required: false`. Đội đã ghim SHA tay, nhưng nên bật bắt buộc (E.6 mục 4).
+
+### E.4 Ba cảnh báo Dependabot mức trung bình (`dependabot/alerts?state=open`)
+
+| # | Gói | Đường vào | Lỗ hổng | Có chạm tới không | Mức SEC |
+|---|---|---|---|---|---|
+| 1 | `esbuild` 0.18.20 (vá ở 0.25.0) | Chỉ dev: `drizzle-kit` → `@esbuild-kit/core-utils` (`pnpm why`). Dependabot ghi "runtime" vì đọc lockfile | GHSA-67mh-4wv8-2f99: dev server của esbuild cho trang web bất kỳ đọc phản hồi | **Không.** Không chạy `esbuild --serve`. drizzle-kit chỉ dùng loader. Không vào image | Low |
+| 2 | `react-router` 6.30.6 (vá ở 7.18.0, nhánh 6 không có bản vá) | `admin-web` → `react-router-dom` (guest-web không dùng) | GHSA-337j-9hxr-rhxg: `deserializeErrors()` khi hydrate SSR | **Không.** admin-web là SPA, không SSR, không `createStaticHandler`/dữ liệu hydrate | Low |
+| 3 | `react-router` 6.30.6 | như trên | GHSA-wrjc-x8rr-h8h6: chuyển hướng ra ngoài bằng `\` trong `<Link>`/`useNavigate` khi đường dẫn do kẻ tấn công đưa vào | **Hầu như không.** Chỗ duy nhất điều hướng tới đường dẫn "từ ngoài" là `useAfterLoginPath` (`LoginPage.tsx:21-35`). `from` lấy từ `location.state` (do `routes.tsx:77` đặt bằng `location.pathname`, link ngoài không đặt được) và phải `startsWith` một đường của `NAV` | Low |
+
+- **Kết luận:** cả 3 là **Low** theo thang dự án. Không cái nào thành High. `pnpm audit --audit-level=high` của CI vẫn đúng.
+- **Việc cần làm (backlog R3, không chặn):**
+  - nâng `react-router-dom` lên 7.18+ (bản lớn: ARC/FE-A lên kế hoạch). Thêm test cho `useAfterLoginPath` với `from` chứa `\`, `//`, `%5C`;
+  - `esbuild`: nâng `drizzle-kit` khi có bản bỏ `@esbuild-kit`, hoặc đóng cảnh báo với lý do "vulnerable code not used", ghi ngày xem lại.
+
+### E.5 Lịch sử ngoài mẫu gitleaks
+
+- **SEC rà lại độc lập** (bổ sung lần rà của ORC ngày 19/10). Phạm vi là mọi dòng **thêm vào** trong 137 commit của `origin/main` công khai (≈ 915 nghìn dòng). Các mẫu gitleaks không bắt:
+  - **Email:** chỉ có địa chỉ mẫu (`name@`, `ten@`, `someone@`, `nguyen.van.a@` gmail; `example`, `vidu`) và một danh sách mật khẩu phổ biến. Không có email cá nhân của INV hay đội. Commit dùng email `noreply` của GitHub.
+  - **SĐT Việt Nam:**
+    - số dạng mẫu (`0901234567`, `0912345678`…);
+    - hotline/Zalo của OTTIMO. Đây là số liên hệ kinh doanh công khai (landing, brochure), **không** phải dữ liệu cá nhân.
+  - **Số giấy tờ:** chỉ số mẫu. Một số CCCD đúng định dạng (`079188…`) là của fixture "Trần Thị Thử" (tên giả, giá trị toàn số 0 ở giữa) và đã bị xóa ở commit sau.
+  - **Mã cửa:** chỉ có chuỗi mẫu `Mã cửa 482913` trong test luật B-15 (ví dụ bị chặn). Không thấy mã cửa, mật khẩu wifi, mã két hay mã camera thật. SEC **không biết** mã cửa thật nên không đối chiếu được giá trị: ORC đã rà câu mã cửa thật ở bước làm sạch.
+  - **IP:** chỉ IP mẫu (`203.0.113.x`, `1.2.3.4`) và chuỗi trong danh sách mật khẩu. Không có IP hay host của VPS staging (`STAGING_SSH_HOST` chỉ là tên biến).
+  - **Khóa riêng (`BEGIN … PRIVATE KEY`), link Google Drive/Docs:** 0.
+- **GitHub:** secret scanning và push protection **đang bật**, 0 cảnh báo.
+- **Giới hạn:**
+  - quét bằng mẫu, không đọc từng tệp nhị phân (ảnh, PDF trong `00-brief/context/`);
+  - ref `refs/pull/*` của Dependabot nằm trên cùng lịch sử sạch.
+- **Việc còn lại cho ORC:** xác nhận tệp nhị phân trong lịch sử công khai không có ảnh giấy tờ, ảnh phòng có khách hay ảnh màn hình khóa cửa. Theo mô tả ESC-025, tệp gốc riêng tư đã bỏ.
+- **Kết luận:** không thấy dữ liệu cá nhân hay thông tin an ninh vật lý thật ngoài mẫu gitleaks.
+
+### E.6 Đề xuất cài đặt GitHub cho ORC/OPS (SEC không tự đổi)
+
+| # | Cài đặt | Vì sao | Khi nào |
+|---|---|---|---|
+| 1 | Tạo environment `staging`: **Required reviewers** = INV (hoặc OPS + INV); **Deployment branches** = chỉ `main`; bật "Prevent self-review" nếu có từ 2 người duyệt. Đặt `STAGING_SSH_KEY`, `STAGING_SSH_KNOWN_HOSTS` là **secret của environment**, không phải secret của repo | E.2 | **Trước** khi đặt khóa hay bật `STAGING_DEPLOY` (điều kiện SEC) |
+| 2 | Sau lần `publish-images` đầu tiên: kiểm gói GHCR `ottimo-api` / `ottimo-web` là **private**. Riêng `-test` (có endpoint test) không được public | Image của repo công khai có thể thừa hưởng chế độ hiển thị | Lần publish đầu |
+| 3 | Branch protection `main`: hiện chỉ cấm force-push/xóa, đòi 1 review nhưng **không áp cho admin** (`enforce_admins: false`), không có required status checks. Đề xuất: required status checks = các job CI chính + `secrets-scan`. Admin bypass giữ được cho 1 người, nhưng chỉ sau khi CI xanh | Repo công khai: một push sai đi thẳng vào lịch sử công khai, không gỡ được | Trước R3 |
+| 4 | Actions: bật `sha_pinning_required`. `allowed_actions` = "selected" (GitHub, `pnpm/action-setup`) | Khóa lại điều đội đang làm tay | Khi tiện |
+| 5 | Bật **Dependabot security updates** (đang tắt). Giữ secret scanning + push protection; bật thêm `secret_scanning_non_provider_patterns` | Cảnh báo có PR vá tự động; bắt chuỗi bí mật dạng chung | Khi tiện |
+| 6 | Không thêm workflow dùng `pull_request_target`/`workflow_run` có checkout mã PR. Mọi workflow mới đi qua SEC review | Giữ kết luận E.3 | Thường trực |
+| 7 | Quy tắc E.1 (a): chi tiết Critical/High hoặc lỗ hổng khai thác từ ngoài chưa vá → GitHub Security Advisory nháp, không ghi vào `rounds/` công khai | E.1 | Từ nay |
+
+### E.7 Kết luận K11 – G2.5
+
+- **Vẫn 0 Critical / 0 High Open.** Công khai repo không nâng mức thẻ nào:
+  - không có bí mật hay dữ liệu thật trong lịch sử;
+  - không có secret trên GitHub;
+  - không có đường lấy secret từ PR;
+  - 3 cảnh báo Dependabot là Low theo cách dùng thực tế;
+  - các cách lách công khai đều cần tài khoản nhân viên.
+- **Thay đổi duy nhất là hạn:** BE-83 và BE-79 thành điều kiện cứng **trước dữ liệu thật**. Hai đề xuất cài đặt là điều kiện SEC trước khi bật deploy staging: E.6 mục 1 trước khi đặt khóa, E.6 mục 2 ở lần publish đầu.
+- **Không tạo ESC mới.** Quy tắc E.1 (a) và mức rủi ro thuộc quyền SEC. Các cài đặt E.6 là việc của OPS/ORC. Nếu INV muốn đổi lại chế độ công khai trước ngày dữ liệu thật, đó là quyết định mới của INV, không phải yêu cầu của SEC.

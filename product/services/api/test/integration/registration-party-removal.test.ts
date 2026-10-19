@@ -934,6 +934,86 @@ describe.skipIf(!HAS_DB)('BUG-R2-083 – party removal and guest-link documents 
     expect((await docs(reservationId)).filter((d) => d.removed)).toEqual([]);
   });
 
+  /** GuestDocumentLink to the BOOKER (`partyMemberId` = the booking id – BE-73, ARC 16.22). */
+  async function linkToBooker(reservationId: string, documentId: string) {
+    const st = await regState(reservationId);
+    const r = await staff(
+      fa,
+      tok('fd'),
+      device,
+      'PATCH',
+      `${P(t)}/registrations/${st.registrationId}/documents/${documentId}`,
+      { ifMatch: st.version, json: { partyMemberId: reservationId } },
+    );
+    expect(r.statusCode, r.body).toBe(200);
+    const guestId = await db.withContext(
+      t.ctx(),
+      async (tx) =>
+        (
+          await tx.query<{ guest_id: string | null; party_member_id: string | null }>(
+            'SELECT guest_id, party_member_id FROM guest_document WHERE id = $1',
+            [documentId],
+          )
+        ).rows[0]!,
+    );
+    expect(guestId.guest_id).not.toBeNull();
+    expect(guestId.party_member_id).toBeNull();
+  }
+
+  it("ARC S4-21 (1) – Khách 3 linked to the BOOKER is not an open slot: removing A asks only for Khách 2; choosing 3 → 422 NOT_IN_LIST and the booker's document stays", async () => {
+    const { reservationId, a } = await threeInHouse();
+    const s0 = await docs(reservationId);
+    await linkToBooker(reservationId, person(s0, 3).id);
+    const missing = await removeMember(reservationId, a);
+    expect(missing.statusCode, missing.body).toBe(422);
+    expect(missing.json()).toMatchObject({
+      errors: [{ field: 'guestUploadPersonIndex', code: 'REQUIRED' }],
+      personIndexes: [2],
+    });
+    const three = await removeMember(reservationId, a, 3);
+    expect(three.statusCode, three.body).toBe(422);
+    expect(three.json()).toMatchObject({
+      errors: [{ field: 'guestUploadPersonIndex', code: 'NOT_IN_LIST' }],
+      personIndexes: [2],
+    });
+    const s = await docs(reservationId);
+    expectUntouched(person(s, 3));
+    expect(await c3Deletes([person(s, 3).id])).toBe(0);
+    // Choosing Khách 2 destroys only Khách 2.
+    expect((await removeMember(reservationId, a, 2)).statusCode).toBe(204);
+    const s2 = await docs(reservationId);
+    expectDestroyed(s2.find((d) => d.id === person(s0, 2).id)!);
+    expectUntouched(s2.find((d) => d.id === person(s0, 3).id)!);
+  });
+
+  it('ARC S4-21 (2)(3) – head count cut without a slot answer: the booker\'s Khách 3 gets no 24 h deadline, J16 after 25 h keeps its image; guest-web counts it (uploadedPeople), "Cần chú ý" only for Khách 2', async () => {
+    const { reservationId } = await threeInHouse();
+    const s0 = await docs(reservationId);
+    await linkToBooker(reservationId, person(s0, 3).id);
+    await cutHeadCount(reservationId, 2);
+    let s = await docs(reservationId);
+    expectPending(person(s, 2));
+    expect(person(s, 3)).toMatchObject({
+      deleteAfter: null,
+      fieldsPurgeAfter: null,
+      liveImages: 1,
+    });
+    expect((await regState(reservationId)).uploadedPeople).toEqual([1, 3]);
+    await runJ16(new Date(T0.getTime() + 25 * HOUR));
+    s = await docs(reservationId);
+    expectDestroyed(person(s, 2));
+    expect(person(s, 3)).toMatchObject({
+      removed: false,
+      purged: false,
+      liveImages: 1,
+      imageDekDestroyed: false,
+      blobPresent: true,
+    });
+    expect((await regState(reservationId)).uploadedPeople).toEqual([1, 3]);
+    await at(new Date(T0.getTime() + 25 * HOUR + 60_000));
+    expect((await unclaimedAttention())?.reservationIds ?? []).not.toContain(reservationId);
+  });
+
   /** Desk P02b decision for one document (values of Registration.consentNotice). */
   async function deskConsent(reservationId: string, documentId: string) {
     const s = await regState(reservationId);
