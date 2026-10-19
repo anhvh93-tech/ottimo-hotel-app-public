@@ -27,6 +27,7 @@ import {
   minStayFor,
   withDeposit,
   newGuest,
+  isSpecialDate,
   nextWeekday,
   oracle,
   oracleNum,
@@ -389,7 +390,9 @@ test.describe('L2 3.2 – đặt phòng mới (US-017, US-018)', { tag: ['@api',
     expect(cc.status, JSON.stringify(cc.body)).toBe(201);
     track('reservation', cc.body.id);
     // (e) thứ Năm 1 đêm: nhận
-    const thu = nextWeekday(addDays(today, 60), 4);
+    // Thứ Năm không phải ngày đặc biệt (BR-104 special_dates) – nếu không BR-113 vẫn đòi 2 đêm
+    let thu = nextWeekday(addDays(today, 60), 4);
+    while (isSpecialDate(thu)) thu = addDays(thu, 7);
     const rm2 = await freeRoom(request, fd, c.rooms, thu, addDays(thu, 1));
     const e = await createReservation(
       request,
