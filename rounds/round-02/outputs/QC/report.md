@@ -100,3 +100,32 @@
 - **Trước cổng S4:** ĐK-S3-5, 6, 7, 11.
 - **Khi có VPS:** ĐK-S3-8.
 - QC chưa đọc mã UXR #8–#11; chưa chạy lại test SEC R1–R6; chưa kiểm thiết bị thật, VoiceOver, p95, Caddy prod.
+
+---
+
+# Cổng QC Sprint 4 – 19/10/2026
+
+## 1. Đã làm gì
+- Kiểm lại 36 ý của 3 bộ phản biện bằng tệp, `git`, `gh run view` (repo công khai), `gen_traceability.py --strict`. Chấp nhận tất cả; 3 ý đã gỡ nhờ CI mới.
+- Đối chiếu mã commit cũ ↔ mới sau khi làm sạch lịch sử (`d527f9c` ↔ `23b0c7f`, `0dcf8e1` ↔ `aa0cfd6`, chỉ khác tài liệu).
+- Tải log run 39244841718 (`2a6d61f`): 8/8 xanh, API 2.960, E2E 1.968, 0 `retry #`, `s438-r8` 8/8, TC-L4-153 bản mới, gitleaks 141 commit sạch.
+- Đổi quyết định nháp ĐCĐK → **KHÔNG ĐẠT**, lập K1–K11 (quay lại bước 4) và C1–C10; ghi decision-log.
+
+## 2. File tạo/sửa
+- `rounds/round-02/qc/s4-qc-gate.md` (bản chính thức)
+- `01-decisions/decision-log.md` (1 dòng)
+- `rounds/round-02/outputs/QC/report.md` (mục này)
+
+## 3. Giả định
+- Mã chạy `2a6d61f` = `d527f9c`; dẫn chứng commit cũ kiểm bằng bản sao cục bộ.
+- "Dòng" trong 11.2 hiểu theo dòng G hay ý con đều cho KHÔNG ĐẠT.
+- TC-L2-079 đỏ ở `229eaf3` là lỗi dữ liệu ca kiểm theo ngày.
+
+## 4. Rủi ro / vướng mắc
+- K1 có thể chạm module folio (phần `penalty_evidence`) – ARC xác nhận đóng băng mã tiền trước khi sửa.
+- Repo công khai: tài liệu review công bố cách lách của Major chưa sửa (K11).
+- Ca kiểm chọn ngày tương đối có thể đỏ theo ngày chạy (C10).
+
+## 5. Việc chưa xong
+- Chấm lại rút gọn khi K1–K11 xong trên một commit có CI push + T9 xanh.
+- QC chưa đi luồng bằng tay, chưa đọc log gốc QA của 207 (dựa vào phản biện A-CH-08).
