@@ -1477,3 +1477,42 @@ Nguồn: `rounds/round-02/outputs/UXR/s4-pwa-walkthrough.md` (P-02, P-03, P-06 m
   - Lỗi theo thời điểm nên đây là bằng chứng mạnh, chưa phải chứng minh tuyệt đối.
   - Ở một lượt tải trước khi sửa, `booking.test.tsx:58` từng hết thời gian chờ toast (5 s). Lượt 18 vòng này không lặp lại.
 - `tsc --noEmit` xanh; eslint `apps/admin-web/src` xanh; prettier `--check apps/admin-web/src` xanh.
+
+### Đợt 27 – bổ sung 2: E2E TC-L6-022/033 đỏ trên desk-clock (CI 39361269566, aa2f11b) (20/10/2026)
+
+**Log CI** (đọc một lần bằng `gh run view --log-failed`):
+- Lần đầu: `expect.poll(read).toEqual({ done: 0, total: c0.total + 1 })` ở `ops.s4.spec.ts:305`. Kỳ vọng `total` 126, nhận **124**. Lúc đầu `c0.total` = 125: sau khi tạo một việc, bộ đếm **giảm** 1 chứ không tăng.
+- Retry #1: "Làm xong" khớp 2 nút (`li` 88 và 89). Cả hai hàng ghi chú "Don them theo yeu cau 1" đều hiện trong danh sách hôm nay: một hàng của lần đầu, một hàng của retry.
+
+**Gốc: không phải lỗi sản phẩm của đợt 27, mà là ca test đua với job nền của worker.**
+- Danh sách và bộ đếm của ngày D (`listHkTasks`, `OF_DAY` ở `housekeeping.service.ts:133`) gồm việc của D **cộng mọi việc còn mở của các ngày trước**. Trên CI, trước ca này đã có cả nghìn ca khác, nên D mang theo khoảng 124 việc mở.
+- Ca đổi đồng hồ sang ngày ảo mới D (`dayWithFreeRoom`), rồi đọc ngay `c0`. Worker chạy job theo nhịp **60 giây giờ thật** (`worker.ts:79`). Ở lượt chạy kế tiếp, J8 `hk.daily` (chạy bù khi sang ngày mới) đặt các việc `stayover_clean`/`long_stay_clean` còn mở của ngày trước thành `cancelled` (`day_ended`, `worker-jobs.ts:88`); J11 hủy việc của căn OOO (`room_blocked`).
+- Nhịp đó rơi vào 5 giây ca đang chờ, nên bộ đếm bị trừ 2 cùng lúc với +1 của việc vừa tạo, ra 124.
+- Ca không thể khớp con số tuyệt đối khi worker đổi danh sách giữa chừng. Retry dùng lại cùng ghi chú, lại gặp việc của lần đầu, nên khớp 2 nút.
+- **Đợt 27 không gây ra**:
+  - Việc tạo tay của cả lần đầu lẫn retry **có trong danh sách hôm nay**, tức `dueDate` khớp ngày bộ đếm đang lọc.
+  - Lúc 09:00, ngày máy (đồng hồ trình duyệt cố định ở D 09:00) và ngày server cùng là D. Hook trả về giống `todayLocal()` cũ.
+
+**Chạy lại trên stack riêng `ottimo-fea27`:**
+- Stack: ảnh dựng từ `aa2f11b` bằng git archive, DB mới, seed DS-E, cổng 47000/47081–47083/47432, Origin `http://localhost:47081`. Không đụng demo và các stack QA.
+- Kết quả:
+
+| Lượt | Kết quả |
+|---|---|
+| TC-L6-022/033 riêng, ngày ảo D 09:00 | **đạt** |
+| Cả project desk-clock (`--no-deps`) | **50/50 đạt** |
+| Bản tạm của ca với giờ **02:40** (tệp tạm, đã xóa) | **đạt** |
+
+- Kiểm thêm trong DB lượt 02:40: việc tạo lúc `2030-02-04 02:40` có `due_date` **`2030-02-03`**, đúng ngày kinh doanh (BR-010) và đúng danh sách bộ đếm đang lọc. Hai lượt 09:00 có `due_date` = ngày tạo.
+- Không tái hiện được con số 124 trên stack mới: chưa có cả nghìn việc mở dồn từ các project chạy trước, và nhịp worker không rơi vào cửa sổ của ca.
+
+**Đề xuất sửa ca test cho QA** (QA sở hữu `tests/e2e/ui-clock/ops.s4.spec.ts`; FE không sửa):
+1. Sau `dayWithFreeRoom(...)` và trước khi mở trang hay đọc `c0`: chạy `runJob(request, 'hk.daily')` và `runJob(request, 'work_order.sla')` (`support/clock.ts`, `/__test__/jobs/{jobKey}/run`). Phần chạy bù của ngày mới xong trước khi đọc `c0`; lượt worker sau không còn gì để đổi, vì hai job này lặp lại không đổi kết quả.
+2. Hoặc thêm vào (1): so tương đối với chính các việc của ca thay vì tổng tuyệt đối. Cách này bền hơn khi danh sách có việc của các ca khác.
+   - Kiểm hàng của `t1` hiện ra; sau "Làm xong" thì hàng chuyển trạng thái;
+   - `done − total` của bộ đếm trên màn hình bằng `summary` đọc qua API ngay sau đó.
+3. Ghi chú việc tạo tay thêm hậu tố duy nhất theo lần chạy, ví dụ `testInfo.retry` hoặc thời điểm, để retry không khớp nhầm hàng của lần trước (lỗi strict mode ở retry #1).
+
+**Giữ lại:**
+- Stack `ottimo-fea27` vẫn chạy để QA hoặc ORC chạy lại sau khi sửa ca. Gỡ bằng `docker compose -p ottimo-fea27 down -v`.
+- Tệp env của stack nằm trong scratchpad của FE (mode 600), không vào repo.

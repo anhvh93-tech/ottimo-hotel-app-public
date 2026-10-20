@@ -9,7 +9,7 @@
 // TC-L6-022/033 (E).
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { call, propertyIdOf, session, stackToday, type StaffSession } from '../support/api.js';
-import { needClock, resetClock, setClock } from '../support/clock.js';
+import { needClock, resetClock, runJob, setClock } from '../support/clock.js';
 import { SEED_PASSWORD, WEB_URL } from '../support/env.js';
 import { knownBug, precondition } from '../support/known-bugs.js';
 import {
@@ -276,7 +276,26 @@ test.describe(
       test.slow();
       needClock('TC-L6-022 (E)');
       needCleanRooms('TC-L6-022 (E)');
-      const { D, room } = await dayWithFreeRoom(request, 3, '09:00');
+      const { D, room, fd } = await dayWithFreeRoom(request, 3, '09:00');
+      // CI 39361269566: worker (nhịp 60 s) chạy bù J8 `hk.daily` / J11 `work_order.sla` của ngày ảo mới giữa ca và hủy
+      // việc mở ngày trước → bộ đếm tuyệt đối lệch. Chạy bù ngay tại đây (hai job lặp lại không đổi kết quả) trước khi
+      // đọc bộ đếm; bộ đếm trên màn hình còn được so với `summary` của API.
+      await runJob(request, 'hk.daily');
+      await runJob(request, 'work_order.sla');
+      const apiSummary = async () => {
+        const r = await call<{ summary: { done: number; total: number } }>(
+          request,
+          'GET',
+          p3(EP3.listHkTasks, fd),
+          { session: fd, query: { date: D } },
+        );
+        expect(r.status, `listHkTasks: ${JSON.stringify(r.body).slice(0, 200)}`).toBe(200);
+        return r.body.summary;
+      };
+      // ghi chú riêng mỗi lần chạy: retry không khớp nhầm hàng của lần trước
+      const tag = `${test.info().retry}${Date.now().toString(36).slice(-4)}`;
+      const note1 = `Don them theo yeu cau 1 ${tag}`;
+      const note2 = `Don them theo yeu cau 2 ${tag}`;
       // giờ Desk = giờ server: "Làm xong" gửi `performedAt` (B-02, ±5 phút)
       const page = await desk(browser, 'qa.fd', vnTime(D, '09:00'));
       const writes = recordWrites(page, 'POST', /\/hk-tasks(\/[^/]+\/actions\/[a-z-]+)?$/);
@@ -287,6 +306,9 @@ test.describe(
         return { done: Number(m?.[1] ?? NaN), total: Number(m?.[2] ?? NaN) };
       };
       await expect(counter).toBeVisible({ timeout: 15_000 });
+      await expect
+        .poll(read, { message: 'bộ đếm trên màn hình = summary của API' })
+        .toEqual(await apiSummary());
       const c0 = await read();
       const newTask = async (note: string) => {
         await page.getByRole('button', { name: t('hk.desk.new_task'), exact: true }).click();
@@ -301,19 +323,25 @@ test.describe(
         await expect(dlg).toBeHidden();
         return JSON.parse(w.body) as { id: string };
       };
-      const t1 = await newTask('Don them theo yeu cau 1');
+      const t1 = await newTask(note1);
+      await expect(
+        page.getByRole('listitem').filter({ hasText: note1 }),
+        'hàng việc vừa tạo',
+      ).toHaveCount(1);
       await expect.poll(read).toEqual({ done: c0.done, total: c0.total + 1 });
-      const row1 = page.getByRole('listitem').filter({ hasText: 'Don them theo yeu cau 1' });
+      expect(await read(), 'bộ đếm = API').toEqual(await apiSummary());
+      const row1 = page.getByRole('listitem').filter({ hasText: note1 });
       await row1.getByRole('button', { name: t('hk.task.complete'), exact: true }).click();
       const doneW = await waitWrite(writes, 'transitionHkTask complete', 200, (s) =>
         s.path.includes(t1.id),
       );
       expect(doneW.path).toMatch(/\/actions\/[a-z-]+$/);
       await expect.poll(read).toEqual({ done: c0.done + 1, total: c0.total + 1 });
+      expect(await read(), 'bộ đếm = API').toEqual(await apiSummary());
 
       // (TC-L6-033) hủy lý do "Khác": phải ghi chú mới hủy được
-      const t2 = await newTask('Don them theo yeu cau 2');
-      const row2 = page.getByRole('listitem').filter({ hasText: 'Don them theo yeu cau 2' });
+      const t2 = await newTask(note2);
+      const row2 = page.getByRole('listitem').filter({ hasText: note2 });
       await row2.getByRole('button', { name: t('hk.desk.cancel'), exact: true }).click();
       const cd = dialogs(page).filter({ hasText: t('hk.desk.cancel_effect') });
       await cd.getByRole('radio', { name: t('hk.refuse.other') }).check();

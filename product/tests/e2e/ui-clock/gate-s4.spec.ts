@@ -708,6 +708,10 @@ test.describe(
       const D = virtualDay(realToday, 3);
       const st = await stay(request, D, '203', 2);
       await at(request, D, '16:00');
+      // bộ lọc "Cần dọn" đếm số căn rồi so với danh sách: chạy bù J8/J11 của ngày ảo trước (worker nhịp 60 s có thể đổi
+      // OC → OD giữa hai lần đọc – cùng gốc CI 39361269566 ở ops.s4 TC-L6-022)
+      await runJob(request, 'hk.daily');
+      await runJob(request, 'work_order.sla');
       const fd = await sessionOrSkip(request, 'qa.fd');
       // khách gửi "Khăn, đồ dùng" qua guest-web (API của trang khách)
       const link = await guestLink(request, fd, st.res.id);

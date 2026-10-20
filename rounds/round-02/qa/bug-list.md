@@ -1979,3 +1979,9 @@ Căn cứ: `reviews/s4-money-recheck8.md` (f6803d0 – gộp #19), DOM khối l�
 - **Lưu ý:** TC-X-074 (desk-chromium) dùng giờ máy cho trình duyệt PWA; lượt 02:40 ở đây chỉ dời đồng hồ stack (đủ để server trả 422 với bản cũ). Ca TC-X-088 dời cả hai đồng hồ.
 - **Trạng thái:** 211, 212 (P1), 213 (P0 – sai tiền phía client) **Fixed**, Closed sau CI của commit gộp; 213 thêm điều kiện C1 (lượt kiểm tiền/ARC review) trước khi Closed. Bảng tổng: 213 lỗi; Open 17, Fixed 3, Deferred 1, Closed 192; 0 P0/P1 Open (3 Fixed chờ CI).
 
+
+### 11.40 CI 39361269566 (`aa2f11b`) – TC-L6-022/033 đỏ: lỗi ca test, không mở mã lỗi (QA, 20/10 ~10:25–10:35)
+- **Gốc** (FE-A `s4-report.md` "Đợt 27 – bổ sung 2", QA đồng ý): sau khi đổi sang ngày ảo mới, worker (nhịp 60 s) chạy bù J8 `hk.daily` / J11 `work_order.sla` đúng lúc ca chờ → hủy 2 việc mở của ngày trước, bộ đếm 125 + 1 − 2 = 124. Retry khớp 2 nút vì dùng lại ghi chú cũ. Không phải lỗi sản phẩm.
+- **Sửa ca** (`e2e/ui-clock/ops.s4.spec.ts`): chạy `runJob('hk.daily')` + `runJob('work_order.sla')` ngay sau khi đổi ngày, trước khi đọc bộ đếm; bộ đếm trên màn hình so với `listHkTasks.summary` của API (lúc đầu, sau tạo, sau "Làm xong"); kiểm hàng của việc vừa tạo; ghi chú có hậu tố riêng mỗi lần chạy (`retry` + thời điểm).
+- **Rà ca desk-clock khác đọc số đếm sau đổi ngày:** TC-X-079 (`ui-clock/gate-s4.spec.ts`) đếm bộ lọc "Cần dọn" rồi so danh sách – thêm `runJob` J8/J11 sau khi đặt giờ (J8 có thể đổi OC → OD giữa hai lần đọc). Các ca khác chỉ đếm "10 căn" (cố định) hoặc kiểm chứa chữ – không cần sửa.
+- **Chạy lại** trên stack QA riêng `ottimo-qa-s4`, CSDL mới `ottimo_qa33` từ `aa2f11b` (không dùng `ottimo-fea27`, không đụng demo): TC-L6-022/033 ×3 ✓; cả project desk-clock 50/50 ✓; sau đó TC-L6-022 ×3 + TC-X-079 ×3 ✓ (DB đã có việc dồn từ cả project). Chưa tái hiện được đúng con số 124 (cần cả nghìn việc mở như CI) – bản sửa loại bỏ cửa sổ đua thay vì chờ nó.
