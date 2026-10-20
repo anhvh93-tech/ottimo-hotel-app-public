@@ -21,7 +21,7 @@
 | S1c – biến thể C (DS-0 + 1 đơn OTA xung đột) | 7 | 7 | 0 | Xem mục 3.4 |
 | `metricRefs` (K-01, K-02, K-03, S1c) | 1 | 1 | 0 | |
 
-**Lượt 1: G4.4 chưa đạt** (K-02/K-03 lệch). **Lượt 2: G4.4 ĐẠT về số liệu** – 114/114 khớp trên cây chung 09:36 (chưa commit); chốt bằng một lần chạy lại trên commit gộp – mục 8.
+**Lượt 1: G4.4 chưa đạt** (K-02/K-03 lệch). **Lượt 2: G4.4 ĐẠT về số liệu** – 114/114 khớp trên cây chung 09:36 (chưa commit); **Lượt 4: chốt 114/114 khớp trên commit `c293ceb` (20/10) – mục 8.7.**
 - Nguyên nhân: Desk R2 chỉ nhập được đơn dài hạn qua US-017 AC5a "đơn dài hạn nhập tay", và đơn này **không sinh dòng `stay_night`**. KPI chỉ đếm `stay_night` (đúng Q-02), nên bỏ sót 2 căn dài hạn của DS-0 (301, 102).
 - Công suất đêm 15/10 vì thế ra **44,4 %** (4/9), thay vì **66,7 %** (6/9). Đây chính là ví dụ của US-010 AC1.
 - Biến thể B chứng minh nguyên nhân: thêm đêm `lease_allocation` cho 2 đơn này thì API ra đúng 6/9 = 66,7 % và 7/9 = 77,8 %.
@@ -234,7 +234,7 @@ Giới hạn về `visa_expiring`:
   - Cả hai cách: BE-D thêm ca test "DS-0 có 2 đơn AC5a → 6/9 = 66,7 %".
 - Người sửa: **BE-D** chịu số KPI (ca test, phương án B nếu chọn). **BE-A** sửa nguồn đêm (phương án A). ARC chọn phương án.
 - Kiểm lại: DATA chạy lại loader (mục 6). Kỳ vọng T0 6/9, T3 7/9.
-- Trạng thái: **Fixed – DATA đã kiểm lại 18/10 09:36 trên cây chung (chưa commit)**: T0–T2 6/9 = 66,7 %, T3 7/9 = 77,8 % (mục 8). Verified khi chạy lại trên commit gộp.
+- Trạng thái: **Verified trên `c293ceb` (20/10, mục 8.7)**. Trước đó: Fixed – DATA đã kiểm lại 18/10 09:36 trên cây chung: T0–T2 6/9 = 66,7 %, T3 7/9 = 77,8 % (mục 8).
 
 ### A7-02 – Phiếu sửa mức Cao quá hạn hiện hai dòng
 - Mức: **P3 / Minor**.
@@ -246,7 +246,7 @@ Giới hạn về `visa_expiring`:
   - mức Cao để `work_order_high_open` báo, đã chuyển `critical` khi quá hạn;
   - thêm ca test.
 - Người sửa: **BE-C** (nguồn thuộc bảng của BE-C, s4-be-d 2.3); BE-D xem lại thứ tự gộp.
-- Trạng thái: **Fixed trên cây chung 09:36** (không còn dòng `work_order_overdue` của WO-00001 ở cả 4 mốc). Verified khi chạy lại trên commit gộp.
+- Trạng thái: **Verified trên `c293ceb` (20/10, mục 8.7)**. Trước đó: Fixed trên cây chung 09:36 (không còn dòng `work_order_overdue` của WO-00001 ở cả 4 mốc).
 
 ### A7-03 – Lệch buồng giả khi khách quá ngày đi chưa trả phòng
 - Mức: **P3 / Minor**.
@@ -256,7 +256,7 @@ Giới hạn về `visa_expiring`:
 - Đề xuất sửa: một định nghĩa "khách đang ở căn" cho mọi nguồn.
 - Tình hình: **cây làm việc (chưa commit) đã có bản sửa của BE-C**: `housekeeping/public/stay-occupancy.ts` `inRoomOnSql`. Lần chạy 09:16 không còn dòng này.
 - Người sửa: **BE-C**, gộp bản sửa; DATA chạy lại sau khi gộp.
-- Trạng thái: **Fixed trên cây chung 09:36** (T3 không còn dòng). Verified khi chạy lại trên commit gộp.
+- Trạng thái: **Verified trên `c293ceb` (20/10, mục 8.7)**. Trước đó: Fixed trên cây chung 09:36 (T3 không còn dòng).
 
 QA cấp số `BUG-R2-…` cho 3 thẻ khi đưa vào `qa/bug-list.md`. DATA không sửa tệp của QA.
 
@@ -377,3 +377,13 @@ K-01…K-03 không bị ảnh hưởng (chỉ đếm đêm). Phần tiền chỉ
   - Q-10: sửa ví dụ 9.500.000 và thêm câu "số tháng báo cáo = Σ đêm" + ví dụ BR-215;
   - mục 10: +1 dòng lịch sử.
 - Scratchpad: `data-a7/a7-ds0.test.ts` bỏ biến thể B và thêm truy vấn đêm `lease_allocation`. Bản lượt 1 lưu ở `a7-ds0.v1.test.ts.bak`.
+
+### 8.7 Lượt 4 – chạy lại trên commit chấm lại `c293ceb` (K4, 20/10 08:43)
+- **Commit:** `c293cebe79315970a73d989312018f13e3f8344e` (`c293ceb`, repo công khai `anhvh93-tech/ottimo-hotel-app-public`, `origin/main`). CI run 39270302984 xanh, T9 39273997368 xanh (theo ORC). Cây làm việc sạch đúng commit này (`git status` rỗng), không có tệp chưa commit.
+- **Cách chạy:** một lần, lệnh ở mục 6. DB mới `ottimo_test_data_a7c293` trên Postgres dev (tạo bằng `newdb.sh`, migrate sạch). Không đụng stack demo (8181–8183, 3100). Không in tệp env.
+- **Kết quả vitest:** 1 tệp, 5/5 test đạt, 5,06 s. Mã thật khớp `expectedCode` 21/21.
+- **Đối chiếu:** `out-c293ceb.json` **giống từng byte** với `out-wt-d-a7-1.json`, tức lần chạy lượt 3 đã đối chiếu tay đủ 114 phép so.
+- **Kết luận: 114/114 khớp, 0 lệch, 0 dòng "Cần chú ý" thừa.** Không có thẻ lỗi mới.
+  - A7-01, A7-02 và A7-03 chuyển **Verified** trên `c293ceb`.
+  - **G4.4 ĐẠT** trên commit `c293ceb`.
+- Kết quả thô: `scratchpad/data-a7/out-c293ceb.json`, `run-c293.log`, `mig-c293.log`.
