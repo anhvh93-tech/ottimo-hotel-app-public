@@ -19,6 +19,7 @@ import { useEffect, useId, useState } from 'react';
 import { api } from '../../app/api';
 import { addDays, currentSegment, dayMonth, suggestionsOf } from '../../app/reservations';
 import { useToast } from '../../app/toast';
+import { useBusinessDay } from '../../app/businessDay';
 import { timeHHmm, todayLocal } from '../../app/dates';
 import { useCatalog } from '../../app/catalog';
 import { channelName } from '../../app/reservations';
@@ -438,7 +439,8 @@ function ChangeRoomForm({
   const toast = useToast();
   const ids = useId();
   const R = { propertyId, reservationId: r.id };
-  const today = todayLocal();
+  // BUG-R2-211: B14 applies from the BUSINESS day (`ctx.today`, BR-010) – 00:00–05:59 is still the day before.
+  const today = useBusinessDay();
   // The stay ends at the latest departure of the primary and the child the drawer shows.
   const stayEnd = shown.departureDate > r.departureDate ? shown.departureDate : r.departureDate;
   const [cause, setCause] = useState<'property_fault' | 'guest_request'>('property_fault');
@@ -454,7 +456,7 @@ function ChangeRoomForm({
           { arrival: today, departure: stayEnd, reservationId: r.id },
         )
       ).data as AvailabilityResult,
-    [r.id],
+    [r.id, today],
   );
   const options = (avail.state.data?.alternatives ?? []).filter(
     (x) => x.available && x.roomNo !== roomOf(r),
@@ -483,7 +485,7 @@ function ChangeRoomForm({
       stale = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId, cause]);
+  }, [roomId, cause, today]);
 
   const save = async () => {
     if (!target || reason.trim().length < 3) return;

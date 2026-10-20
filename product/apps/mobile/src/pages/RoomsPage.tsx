@@ -6,7 +6,7 @@ import { effectiveRoomStatus } from '../app/overlay';
 import { asRoom, guestName } from '../app/rooms';
 import { href } from '../app/router';
 import { arrivalText, inFilter, type RoomFilter } from '../app/tasks';
-import { localDate } from '../app/time';
+import { businessDate } from '../app/time';
 import { useQueue } from '../queue/QueueProvider';
 import { CallDesk, QueuedChip, RoomNo, RoomStatusChip, TopBar, UpdatedAt } from '../ui/parts';
 
@@ -24,7 +24,7 @@ export function RoomsPage() {
   const data = useHkData();
   const { items } = useQueue();
   const [filter, setFilter] = useState<RoomFilter>('all');
-  const today = localDate();
+  const today = businessDate();
 
   const rooms = useMemo(
     () =>

@@ -7,13 +7,17 @@
 
 | Mức | Số lỗi | Open | Fixed | Deferred | Closed |
 |---|---|---|---|---|---|
-| P0 | 10 | 0 | 0 | 0 | 10 |
-| P1 | 66 | 0 | 0 | 0 | 66 |
+| P0 | 11 | 0 | 1 | 0 | 10 |
+| P1 | 68 | 0 | 2 | 0 | 66 |
 | P2 | 79 | 2 | 0 | 1 | 76 |
 | P3 | 55 | 15 | 0 | 0 | 40 |
-| **Tổng** | **210** | **17** | **0** | **1** | **192** |
+| **Tổng** | **213** | **17** | **3** | **1** | **192** |
 
 **K5 cổng QC Sprint 4 (QA, 20/10, mục 11.37):** đếm lại từng dòng trên commit chấm lại `c293ceb` (CI push 39270302984 + T9 39273997368 xanh). **0 P0/P1 Open hoặc Fixed.** P2 Open: 208 (R3-Q19), 209 (R3-Q20); Deferred: 074 (S4-45). P3 Open 15 (gồm 210 – R3-Q21, 123 – R3-Q29).
+
+**K2' (QA, 20/10, mục 11.38):** T9 theo lịch 39312874062 đỏ lúc 02:40 giờ VN → **BUG-R2-211 (P1, MOB) Open** – PWA buồng phòng gửi ngày lịch thay ngày kinh doanh trước 06:00. Còn 1 P1 Open.
+
+**K2' kiểm bản sửa (QA, 20/10, mục 11.39):** 211 (P1), 212 (P1, Desk Đổi phòng), 213 (P0, Desk đặt đơn đêm – sai tiền phía client) **Fixed**, Closed sau CI của commit gộp. 0 P0/P1 Open.
 
 **Sprint 4 D1 (QA, 17/10 ~17:00–19:40, mục 11):**
 - **Ca tự động cho 7 lỗi tiền 055…061 đã có trong repo**, cùng ca cho S4-21, S4-04, S4-23, S4-35, B-6 (`expectedVersion`), BR-402-01 và tập đóng `AuditEvent.action`:
@@ -247,6 +251,9 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | BUG-R2-208 | P2 | Kiểm lại lần 8 – R8DEBT-02: N-7 chặn A32 giảm theo "chu kỳ nợ chưa đóng" (`folio-lines.service.ts`: `openDebt(...) !== null`), không theo số → công nợ đang mở = 0 mà chu kỳ còn: void khoản trong cửa sổ ghi nhầm 409 `FOLIO_LOCKED`, `debt_write_off` 422 `max` 0 → ngõ cụt, khoản ghi nhầm không sửa được. DOM chốt 18/10 (BR-525 khối lần 8 (208)): A32 giảm được khi phần giảm ≤ còn phải thu − công nợ đang mở. Trước bản dùng thử, chỉ cài **sau 207 và 210**, có SEC review (nếu không: A32 tăng lặp kéo số về 0, MGR void nợ không qua OWN) | DOM + ARC (16.30.4, mô tả `adjustFolioLine`); BE-B; BE-A; FE-A; SEC | **Open** – backlog 5.5 **R3-Q19** (R3 Sprint 1, lượt kiểm tiền riêng); oracle BR-525-29…32 `pendingFix` |
 | BUG-R2-209 | P2 | Kiểm lại lần 8 – R8DEBT-03 + R8ALL-01 (tách từ BUG-R2-202 ca B): J15 trên folio đã có công nợ đang mở gộp khoản phát sinh vào nợ (tiền đúng 170.000) nhưng không ghi nhật ký `reservation.debt_on_checkout`, không báo `debt_recorded` OWN + MGR, không cộng `debt_recorded_vnd` cho phần tăng (`debtOnCheckout`: `checkout_mode = 'debt' && debt_settled_at === null` → `none`). DOM chốt 18/10: ghi phần tăng như một lần ghi nợ, một công nợ một hạn (giữ hạn cũ). Trước bản dùng thử | ARC (16.27 mục 1 gạch 3); BE-A; BE-B; DOM; QA | **Open** – backlog 5.5 **R3-Q20** (R3 Sprint 1, lượt kiểm tiền riêng); oracle BR-525-02, BR-525-33 `pendingFix` |
 | BUG-R2-210 | P3 | Kiểm lại lần 8 – R8VER-02: nợ ghi trước migration 0076 còn trong cửa sổ 24 giờ lúc deploy; lần ghi nợ mới (`writeDebt`, `debt_opened_at IS NULL`) mở chu kỳ chỉ với phần tăng, bỏ nợ cũ khỏi `openDebtVnd`. Đúng phải là: nợ G-4 cũ 100.000 + 70.000 trong cửa sổ, đảo thêm 834.000 → open 934.000; nợ B18 cũ 2.000.000, đảo 916.000 → open 2.916.000, OWN duyệt không tự hủy. Chỉ dữ liệu cũ | OPS/ORC (điều kiện cổng: decision-log "không môi trường nào mang công nợ ghi bởi app trước 0076 còn trong cửa sổ lúc deploy"); BE-A (R3) | **Open** – R3, có điều kiện OPS; không xác nhận được → lên P2, sửa cùng 207 |
+| **BUG-R2-211** | **P1** | T9 theo lịch run 39312874062 (`c293ceb`, 19:40 UTC = 02:40 giờ VN) đỏ: TC-X-074 – PWA buồng phòng "Các căn" (và "Việc của tôi") báo "Chưa tải được trạng thái các căn" từ 00:00 tới 05:59. Gốc: `apps/mobile/src/app/data.tsx:86–89` gọi `listHkTasks(pid, localDate())` – **ngày lịch**; trước 06:00 ngày kinh doanh (BR-010) còn là hôm trước, server giới hạn vai HK ở ngày kinh doanh (`housekeeping.service.ts:811–812`) → **422 `date NOT_IN_LIST`**, `Promise.all` hỏng cả danh sách căn. QA tái hiện trên stack QA `ottimo_qa31` (= `c293ceb`), đồng hồ stack 02:40: `?date=2026-10-20` 422, `?date=2026-10-19` 200, không gửi `date` 200; TC-X-074 đỏ đúng câu trên (trace: `GET …/hk-tasks?date=2026-10-20` 422); giờ thật 08:55 xanh. Lỗi sản phẩm, không phải lỗi ca. P1: luồng chính của buồng phòng không dùng được 6 giờ mỗi ngày, sai BR-010, cách vòng (Desk S10) tốn công | MOB (BE-C xác nhận hợp đồng ngày mặc định) | **Fixed** (20/10 – chờ CI của commit gộp để Closed) – MOB `s4-report.md` mục 10 (không gửi `date`, `businessDate()`, tách tải); QA kiểm trên stack QA `ottimo_qa32` (cây làm việc): TC-X-074 lúc 02:40 xanh, TC-X-088 (02:40/05:59/06:00) và TC-L6-060 xanh; kiểm ngược: TC-X-088 đỏ trên web `c293ceb` – mục 11.39 |
+| **BUG-R2-212** | **P1** | Desk H15 Đổi phòng từ 00:00 tới 05:59 (BR-010): `ChangeRoomForm` gửi `effectiveDate` = ngày lịch (`todayLocal()`) thay ngày kinh doanh → xem trước và ghi đều **422 `effectiveDate DATE_INVALID`** – không đổi phòng được cho khách đang ở lúc đêm (căn hỏng ban đêm). Cùng gốc BUG-R2-211 (FE-A rà #1). QA tái hiện bằng TC-L2-110 trên web `c293ceb` + api `ottimo_qa32` (02:40): 422 | FE-A | **Fixed** (20/10 – chờ CI của commit gộp để Closed) – FE-A đợt 27 #1 (`StayDialogs.tsx`, `useBusinessDay`); TC-L2-110 xanh lúc 02:40 trên `ottimo_qa32` (mục 11.39) |
+| **BUG-R2-213** | **P0** (sai tiền – test-strategy mục 8; ORC đề xuất P1) | Desk H09 / đơn dài hạn từ 00:00 tới 05:59: ngày đến mặc định và `min` theo ngày lịch → không đặt được đêm đang diễn ra (D-1, `past_date`); khách tới lúc 02:40 bị đặt từ D rồi nhận phòng trước 06:00 bị B9a cộng thêm đêm D-1 → **tính khách 2 đêm thay 1** (sai tiền phía client, server tính đúng theo đơn). Cùng gốc BUG-R2-211 (FE-A rà #2, #3). QA tái hiện bằng TC-L2-109 trên web `c293ceb` lúc 02:40: ngày đến mặc định là D, không phải D-1 | FE-A (+ ARC review) | **Fixed** (20/10 – chờ CI của commit gộp để Closed) – FE-A đợt 27 #2, #3 (`BookingDialog.tsx`, `LongStayDialog.tsx`); TC-L2-109 xanh lúc 02:40 (đơn D-1 → D, đúng 1 đêm) (mục 11.39). Lỗi tiền: theo C1 cần lượt kiểm tiền/ARC review trước khi Closed |
 
 ## 2. Chi tiết
 
@@ -1953,3 +1960,22 @@ Căn cứ: `reviews/s4-money-recheck8.md` (f6803d0 – gộp #19), DOM khối l�
 - **078:** bỏ chữ "chưa có mục S4"; đóng theo trường `balanceDueVnd` của `listReservations` + ca Desk.
 - **P2 còn Open trỏ backlog 5.5:** 208 → R3-Q19, 209 → R3-Q20. 074 là Deferred (S4-45, chờ danh sách ngân hàng VietQR) – chưa có dòng 5.5, đề nghị PO thêm khi xếp R3.
 - **Bảng tổng (mục 1):** 210 lỗi; Open 17 (P2 2, P3 15), Fixed 0, Deferred 1, Closed 192. **0 P0/P1 Open/Fixed.**
+
+### 11.38 K2' – T9 theo lịch đỏ lúc 02:40 giờ VN: BUG-R2-211 (QA, 20/10 ~08:50–09:00)
+- **Lượt đỏ:** T9 schedule run 39312874062 trên `c293ceb` (19:40 UTC). TC-X-074 (`ui/gate-s4.spec.ts:413`) đỏ lần đầu và retry #1 tại `getByRole('link', { name: /^Căn \d{3}/ })` – trang "Các căn" hiện "Chưa tải được trạng thái các căn". Project desk-chromium đỏ nên 226 ca phụ thuộc không chạy (limits, rbac-logout, serial, clock, desk-clock – gồm `axe-k8`). Retry guard đỏ đúng quy tắc (1 failed). Log api của job chỉ còn phần cuối, không thấy dòng `hk-tasks`.
+- **Tái hiện** (stack QA riêng `ottimo-qa-s4`, CSDL mới `ottimo_qa31`, ảnh từ `c293ceb` – HEAD `06994e5` không đổi src; không đụng demo):
+  - đồng hồ stack đặt 2026-10-20 02:40 (giờ VN, như lượt CI): `qa.hk` `GET hk-tasks?date=2026-10-20` → **422** `[{field: date, code: NOT_IN_LIST}]`; `?date=2026-10-19` → 200; không `date` → 200. `qa.fd` cả ba → 200 (giới hạn chỉ cho vai HK);
+  - TC-X-074 lúc 02:40: đỏ đúng chỗ CI, trang ghi "Chưa tải được trạng thái các căn", trace có `GET …/hk-tasks?date=2026-10-20` 422;
+  - đối chứng: đặt lại giờ thật (08:55) → TC-X-074 xanh.
+- **Kết luận: lỗi sản phẩm (MOB).** PWA lấy ngày lịch (`localDate()`) cho tham số `date` của `listHkTasks`; hợp đồng HK `x-scope today` = ngày kinh doanh (BR-010, đổi ngày 06:00). Server làm đúng hợp đồng. Sửa đề xuất (MOB): không gửi `date` (server mặc định ngày kinh doanh) hoặc lấy ngày kinh doanh từ server; rà các chỗ khác dùng `localDate()` như "hôm nay" (`tasks.ts:53`, `RoomsPage.tsx:27`, `TasksPage.tsx:39`, `RoomPage.tsx:38`, `ReportPage.tsx:63`, `WorkOrderPage.tsx:193`). BE-C chỉ xác nhận ngày mặc định của `listHkTasks` là ngày kinh doanh (đã đúng). Rủi ro cùng kiểu ở Desk: `todayLocal()` (ngày lịch) dùng ở 16 tệp admin-web, ví dụ `effectiveDate` của Đổi phòng – chưa tái hiện, đề nghị FE/ARC rà.
+- **Ca cần thêm** (QA, sau khi MOB sửa): ca desk-clock "PWA giờ đêm" – đặt đồng hồ stack và trình duyệt 02:40, vai `qa.hk` mở Việc của tôi, Các căn, một căn → tải được, không 422; thêm biên 05:59 / 06:00 (đổi ngày kinh doanh) và một ca API `listHkTasks` của HK theo ngày kinh doanh lúc 02:40. Ca desk-chromium chạy theo giờ thật (TC-X-074) chỉ bắt được lỗi này khi T9 rơi vào 00:00–05:59.
+- Bảng tổng: 211 lỗi; Open 18 (P1 1, P2 2, P3 15). **Còn 1 P1 Open (211)** → G7 chưa đạt tới khi sửa và kiểm lại.
+
+### 11.39 K2' – kiểm bản sửa giờ đêm BUG-R2-211, cấp 212, 213 (QA, 20/10 ~09:10–09:20)
+- **Stack:** `ottimo-qa-s4` dựng lại trên CSDL mới `ottimo_qa32` từ cây làm việc (`06994e5` + bản sửa MOB mục 10 + FE-A đợt 27, chưa commit); web build cùng cây. Không đụng demo.
+- **Ca mới:** `e2e/ui-clock/night-business-day.s4.spec.ts` – TC-X-088 (PWA `qa.hk` 02:40 / 05:59 / 06:00: Việc của tôi, Các căn, một căn; mọi `GET hk-tasks` < 400), TC-L2-109 (H09 lúc 02:40: ngày đến mặc định D-1, đặt D-1 → D đúng 1 đêm), TC-L2-110 (Đổi phòng lúc 02:40: `effectiveDate` D-1, 200); `e2e/clock/night-business-day.s4.clock.spec.ts` – TC-L6-060 (API `listHkTasks` vai HK: không `date` / ngày kinh doanh 200, ngày kia 422; biên 05:59 / 06:00).
+- **Kết quả trên bản sửa:** TC-L6-060 ✓; 3 ca UI giờ đêm ✓ (lần 2 – lần 1 chỉ sửa ca: Desk không gửi `nightlyRates` khi không sửa giá); TC-X-074 với đồng hồ stack 02:40 ✓; hồi quy giờ thật `ui/gate-s4` 8/8, `ui-clock/gate-s4` + `axe-k8` + giờ đêm ✓.
+- **Kiểm ngược:** gắn web build từ `c293ceb` (admin-web, mobile) lên cùng api → cả 3 ca UI giờ đêm **đỏ đúng lỗi**: TC-X-088 "Chưa tải được việc hôm nay"; TC-L2-109 ngày đến mặc định D thay D-1; TC-L2-110 xem trước 422 `effectiveDate DATE_INVALID`. Đã gắn lại web mới.
+- **Lưu ý:** TC-X-074 (desk-chromium) dùng giờ máy cho trình duyệt PWA; lượt 02:40 ở đây chỉ dời đồng hồ stack (đủ để server trả 422 với bản cũ). Ca TC-X-088 dời cả hai đồng hồ.
+- **Trạng thái:** 211, 212 (P1), 213 (P0 – sai tiền phía client) **Fixed**, Closed sau CI của commit gộp; 213 thêm điều kiện C1 (lượt kiểm tiền/ARC review) trước khi Closed. Bảng tổng: 213 lỗi; Open 17, Fixed 3, Deferred 1, Closed 192; 0 P0/P1 Open (3 Fixed chờ CI).
+

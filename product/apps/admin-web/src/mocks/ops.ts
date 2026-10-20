@@ -17,7 +17,7 @@ import type {
   WorkOrder,
 } from '@ottimo/api-client';
 import { http, HttpResponse, type DefaultBodyType, type StrictRequest } from 'msw';
-import { todayLocal } from '../app/dates';
+import { businessDayLocal, todayLocal } from '../app/dates';
 import { addDays, nightsBetween, type ReservationMockState } from './reservations';
 import { replyNoteErrors } from './replyNote';
 import type { MockUser } from './seed';
@@ -431,7 +431,8 @@ export function createOpsMock(ctx: Ctx) {
     const endPlanned = b.endDatePlanned ? String(b.endDatePlanned) : undefined;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(start))
       errors.push({ field: f('startDate'), code: 'REQUIRED' });
-    else if (start < T()) errors.push({ field: f('startDate'), code: 'DATE_IN_PAST' });
+    else if (start < businessDayLocal())
+      errors.push({ field: f('startDate'), code: 'DATE_IN_PAST' });
     if (expected && endPlanned) errors.push({ field: f('expectedDoneDate'), code: 'NOT_ALLOWED' });
     if (!expected && !endPlanned) errors.push({ field: f('expectedDoneDate'), code: 'REQUIRED' });
     if (expected && start && expected < start)
@@ -679,7 +680,7 @@ export function createOpsMock(ctx: Ctx) {
         errors.push({ field: 'type', code: 'NOT_IN_LIST' });
       const due = String(b.dueDate ?? '');
       if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) errors.push({ field: 'dueDate', code: 'REQUIRED' });
-      else if (due < T()) errors.push({ field: 'dueDate', code: 'DATE_IN_PAST' });
+      else if (due < businessDayLocal()) errors.push({ field: 'dueDate', code: 'DATE_IN_PAST' });
       if (typeof b.note === 'string' && /(?:\d[ -]?){13,19}/.test(b.note))
         errors.push({ field: 'note', code: 'CARD_NUMBER_DETECTED' });
       if (errors.length) return validation(errors);

@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
 import { readDraft, removeDraft, writeDraft } from '../../app/clientData';
+import { useBusinessDay, useBusinessDayChange } from '../../app/businessDay';
 import { timeHHmm, todayLocal } from '../../app/dates';
 import { notifyChanged } from '../../app/live';
 import { parseVnd } from '../../app/money';
@@ -116,7 +117,8 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   const { online } = useOnline();
   const rules = useRules(propertyId, roles);
   const catalog = useCatalog(propertyId);
-  const today = todayLocal();
+  // BUG-R2-211 (BR-010): the business day – from 00:00 to 06:00 a guest arriving now books the night before.
+  const today = useBusinessDay();
   const lead = roles.some((r) => LEAD_PLUS.includes(r));
   // ARC 16.23: who attaches a receipt photo after creating – the desk (deposit confirmation) or a sale ("Báo cọc").
   const fdDesk = roles.some((r) =>
@@ -188,6 +190,14 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   const idem = useRef<{ body: string; key: string } | null>(null);
   const write = useWrite();
 
+  // The default arrival follows the server's business day while it is untouched.
+  useBusinessDayChange(today, (was, now) =>
+    setForm((f) =>
+      f.arrivalDate === was && f.departureDate === addDays(was, 1)
+        ? { ...f, arrivalDate: now, departureDate: addDays(now, 1) }
+        : f,
+    ),
+  );
   const set = (patch: Partial<Form>) => {
     setForm((f) => {
       const next = { ...f, ...patch };

@@ -11,11 +11,11 @@ import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
-import { todayLocal } from '../../app/dates';
+import { useBusinessDay, useBusinessDayChange } from '../../app/businessDay';
 import { addDays, conflictsOf, dayMonth } from '../../app/reservations';
 import { useToast } from '../../app/toast';
 import { useResource } from '../../hooks/useResource';
-import { usePropertyId, useSession } from '../../session/SessionProvider';
+import { usePropertyId } from '../../session/SessionProvider';
 import { FilePicker, useSubmit, useUnsavedLabels } from '../stay/common';
 import { SEVERITIES, WO_CATEGORIES, WO_CATEGORY_KEY, suggestedSeverity } from './opsLabels';
 
@@ -123,8 +123,8 @@ function BlockFields({
   prefix: string;
 }) {
   const { t } = useI18n();
-  const { property } = useSession();
-  const today = todayLocal(property?.timezone);
+  // BUG-R2-211 (BR-010): the business day – a room broken at 02:40 is blocked from tonight.
+  const today = useBusinessDay();
   const f = (k: string) => fields[`${prefix}${k}`];
   return (
     <div className="stack">
@@ -185,7 +185,6 @@ export function CreateWorkOrderDialog({
 }) {
   const { t } = useI18n();
   const propertyId = usePropertyId();
-  const { property } = useSession();
   const unsaved = useUnsavedLabels();
   const toast = useToast();
   const { rooms } = useCatalog(propertyId);
@@ -193,7 +192,8 @@ export function CreateWorkOrderDialog({
     async () => (await api.listRoomStatuses({ propertyId })).data.data,
     [propertyId],
   );
-  const today = todayLocal(property?.timezone);
+  // BUG-R2-211 (BR-010): the business day, not the calendar day.
+  const today = useBusinessDay();
   const ids = useId();
   const [roomId, setRoomId] = useState('');
   const [title, setTitle] = useState('');
@@ -204,6 +204,11 @@ export function CreateWorkOrderDialog({
   const [block, setBlock] = useState(false);
   const [start, setStart] = useState(today);
   const [expected, setExpected] = useState(addDays(today, 1));
+  // Untouched default dates follow the server's business day.
+  useBusinessDayChange(today, (was, now) => {
+    if (start === was) setStart(now);
+    if (expected === addDays(was, 1)) setExpected(addDays(now, 1));
+  });
   // The block reason follows the title (EP07-08 6.2) until the desk types its own.
   const [ownReason, setOwnReason] = useState<string | null>(null);
   const reason = ownReason ?? title;
@@ -418,13 +423,18 @@ export function BlockDialog({
 }) {
   const { t } = useI18n();
   const propertyId = usePropertyId();
-  const { property } = useSession();
   const toast = useToast();
   const { rooms } = useCatalog(propertyId);
-  const today = todayLocal(property?.timezone);
+  // BUG-R2-211 (BR-010): the business day, not the calendar day.
+  const today = useBusinessDay();
   const [roomId, setRoomId] = useState(workOrder?.roomId ?? '');
   const [start, setStart] = useState(today);
   const [expected, setExpected] = useState(addDays(today, 1));
+  // Untouched default dates follow the server's business day.
+  useBusinessDayChange(today, (was, now) => {
+    if (start === was) setStart(now);
+    if (expected === addDays(was, 1)) setExpected(addDays(now, 1));
+  });
   const [reason, setReason] = useState(workOrder?.title ?? '');
   const act = useSubmit({ bound: ['roomId', 'startDate', 'expectedDoneDate', 'reason'] });
   const room = rooms.find((r) => r.id === roomId);

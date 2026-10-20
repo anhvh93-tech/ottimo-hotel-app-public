@@ -17,7 +17,7 @@ import {
 import { useHkData } from '../app/data';
 import { asRoom } from '../app/rooms';
 import { canBlock, type StaffSession } from '../app/session';
-import { addDays, localDate, shortLocalDate } from '../app/time';
+import { addDays, businessDate, shortLocalDate } from '../app/time';
 import { useQueue } from '../queue/QueueProvider';
 import { PhotoPicker } from '../ui/PhotoPicker';
 import { CallDesk, TopBar } from '../ui/parts';
@@ -60,7 +60,7 @@ export function ReportPage({ session, roomId }: { session: StaffSession; roomId?
   const { online, queue } = useQueue();
   const act = useHkActions(session);
   const mayBlock = canBlock(session);
-  const today = localDate();
+  const today = businessDate();
   const rooms = [...(data.rooms?.data ?? [])].sort((a, b) => compareRoomNo(a.roomNo, b.roomNo));
   const [room, setRoom] = useState(roomId ?? '');
   const [kind, setKind] = useState<WorkOrderCategory | null>(null);

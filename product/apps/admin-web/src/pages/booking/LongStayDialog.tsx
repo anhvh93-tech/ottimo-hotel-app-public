@@ -10,7 +10,8 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
 import { readDraft, removeDraft, writeDraft } from '../../app/clientData';
-import { timeHHmm, todayLocal } from '../../app/dates';
+import { useBusinessDay, useBusinessDayChange } from '../../app/businessDay';
+import { timeHHmm } from '../../app/dates';
 import { notifyChanged } from '../../app/live';
 import { isRetryable, useWrite } from '../../app/useWrite';
 import { parseVnd } from '../../app/money';
@@ -70,7 +71,8 @@ export function LongStayDialog({
   const catalog = useCatalog(propertyId);
   const toast = useToast();
   const { online } = useOnline();
-  const today = todayLocal();
+  // BUG-R2-211 (BR-010): the business day, not the calendar day.
+  const today = useBusinessDay();
   const [form, setForm] = useState<Form>(() => {
     const draft = !prefill ? readDraft(DRAFT_KEY) : null;
     if (draft) return JSON.parse(draft) as Form;
@@ -88,6 +90,14 @@ export function LongStayDialog({
       note: '',
     };
   });
+  // The default arrival follows the server's business day while it is untouched.
+  useBusinessDayChange(today, (was, now) =>
+    setForm((f) =>
+      f.arrivalDate === was && f.departureDate === addDays(was, 182)
+        ? { ...f, arrivalDate: now, departureDate: addDays(now, 182) }
+        : f,
+    ),
+  );
   const [draftAt, setDraftAt] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [requestError, setRequestError] = useState<unknown>(null);

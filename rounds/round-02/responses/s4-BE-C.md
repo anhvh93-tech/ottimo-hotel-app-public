@@ -36,3 +36,13 @@ Nguồn thẻ: `reviews/s4-SEC.md` C.8 (BE-65), `reviews/s3-SEC.md` 10.2 (BE-38 
 Điểm cần SEC/ORC quyết:
 - **`anchor_missing` thành mục "Cần chú ý"**: chưa làm, vì phải đổi hợp đồng (`data_quality.params.check` là danh sách đóng, cần ARC + UXD + FE) và chọn người nhận. Hiện SEC/OPS đọc được qua `retention_run`. Đề xuất R3 Sprint 1 cho OWN/MGR, hoặc OPS cảnh báo.
 - Rủi ro nhỏ còn lại: bằng chứng tải lên đúng lúc giao dịch trả phòng/hủy chưa commit vẫn có thể thiếu mốc. Trường hợp này (b2) đếm được.
+
+### Thẻ SEC Major của BE-C còn dời (C11 cổng QC, `qc/s4-qc-gate.md` 10.5; chỉ mục backlog ở `responses/s4-PO.md`)
+
+| Thẻ | Mức | Trạng thái | Trả lời |
+|---|---|---|---|
+| FB-R2-SEC-BE-74 | Major | **Deferred → backlog R3-Q17** | J25 `anonymizeDue` vẫn giữ SĐT/email/công ty của hồ sơ `document` (và hồ sơ `document` còn nhận các trường đó). Làm ở R3, hạn **trước khi có dữ liệu thật** (cùng cổng ESC-001), theo SEC `s4-SEC.md` dòng 39 |
+| FB-R2-SEC-BE-75 | Major | **Deferred → backlog R3-Q17** | J25 bù mốc chỉ từ đơn `checked_out`, nên hồ sơ của đơn khác không có mốc và không bao giờ ẩn danh. Hạn **trước khi có dữ liệu thật** |
+| FB-R2-SEC-BE-79 | Major | **Deferred → backlog R3-Q17** (BE-B review) | `updateGuestDocument` đổi người của giấy tờ không gỡ khóa giấy tờ/`id_doc_last4` đã ghi lên hồ sơ người cũ. Làm cùng BE-74/75, hạn **trước khi có dữ liệu thật** |
+
+FB-R2-SEC-BE-83 (backlog R3-Q22) thuộc BE-B, nên BE-C không ghi ở đây.

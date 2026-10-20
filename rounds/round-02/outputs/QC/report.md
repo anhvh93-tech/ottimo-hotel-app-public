@@ -129,3 +129,39 @@
 ## 5. Việc chưa xong
 - Chấm lại rút gọn khi K1–K11 xong trên một commit có CI push + T9 xanh.
 - QC chưa đi luồng bằng tay, chưa đọc log gốc QA của 207 (dựa vào phản biện A-CH-08).
+
+---
+
+# Cổng QC Sprint 4 – chấm lại rút gọn 20/10/2026
+
+- Vai: QC | Round 2, Sprint 4, Bước 6 | Commit `c293ceb` (mã) + `06994e5` (tài liệu K4/K5) | **Quyết định: KHÔNG ĐẠT (lần 2)**, chi tiết ở `qc/s4-qc-gate.md` mục 10.
+
+## 1. Đã làm gì
+- Tự tải bằng `gh run view` (repo công khai) log 3 lượt trên `c293ceb`, đếm `retry #` từng lượt:
+  - push 39270302984: xanh, 0 retry;
+  - dispatch T9 39273997368: xanh, 0 retry;
+  - **lịch T9 39312874062: đỏ**, TC-X-074 đỏ cả lượt chạy lại, 226 ca không chạy. Lượt này không được ORC nêu. QC thấy qua `gh run list`.
+- Tải artifact `t9-playwright-report` của lượt đỏ, đọc `error-context.md`: PWA "Các căn" báo "Chưa tải được trạng thái các căn". Nêu giả thuyết lỗi theo giờ đêm, chưa chứng minh.
+- `git diff 2a6d61f c293ceb`: không chạm `folio`/`payments`/FOC/checkout ở `src`. Đọc diff mã BE-65 và S4-21, đối chiếu SEC C.15 và ARC C.K7/E.1.
+- Đếm lại `bug-list.md` bằng script: 210 lỗi, khớp bảng tổng, 0 P0/P1 mở.
+- Kiểm backlog 5.5 (R3-Q19…Q35), `pendingFix` ↔ backlog, `sprint-4-plan.md` 16.5, decision-log, `s4-SEC.md` mục E, `s4-UXD*.md`, `s3-ARC.md`, `openapi-0.3.7.md`.
+- Chạy `gen_traceability.py --strict` (chỉ đọc): exit 0.
+- Chấm K1–K11: 9 việc đạt (K8 đạt có điều kiện); K2, K7 chưa. Lập K2', K7', thêm C11–C13.
+
+## 2. File tạo/sửa
+- `rounds/round-02/qc/s4-qc-gate.md` (thêm mục 10 "Chấm lại 20/10" và một dòng trỏ ở đầu tệp)
+- `01-decisions/decision-log.md` (1 dòng)
+- `rounds/round-02/outputs/QC/report.md` (mục này)
+
+## 3. Giả định
+- CI trên `c293ceb` đã chạy đúng 2 tệp test SEC yêu cầu chạy lại. QC coi đó là bước kiểm lại BE-65 trên commit chấm lại, vì mã khớp mô tả C.15.
+- "Lượt T9 gần nhất" tính trên commit chấm lại, tại lúc QC chấm.
+
+## 4. Rủi ro / vướng mắc
+- Lượt T9 đêm đỏ có thể là lỗi sản phẩm: PWA buồng phòng không tải được danh sách căn sau nửa đêm. Nhân viên ca đêm sẽ gặp lỗi này.
+- Hai báo cáo (QA K5, DATA K4) ghi "T9 xanh" theo lượt dispatch, trong khi lượt lịch sau đó đã đỏ. Đã thêm C13.
+- 2 PR Dependabot mới đỏ (C9).
+
+## 5. Việc chưa xong
+- Chấm lại lần 3 chỉ K2', K7' (mục 10.4).
+- QC chưa tái hiện lỗi giờ đêm, chưa đi luồng bằng tay, chưa chạy test DB.

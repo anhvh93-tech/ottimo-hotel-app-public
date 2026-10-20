@@ -49,11 +49,38 @@ export function ddmm(
   return `${p.d}/${p.m}`;
 }
 
-/** Business date `YYYY-MM-DD` of an instant in the property time zone. */
+/**
+ * CALENDAR date `YYYY-MM-DD` of an instant in the property time zone (changes at 00:00). Not "today" for the
+ * hotel: screens and lists use `businessDate` (BR-010). Kept for wall-clock needs only (legal deadlines
+ * BR-602/603, quote validity BR-304) – the HK/MT PWA has none today (BUG-R2-211).
+ */
 export function localDate(value: number | Date = Date.now(), timeZone = PROPERTY_TZ): string {
   const d = toDate(value) ?? new Date();
   const p = parts(d, timeZone);
   return `${p.y}-${p.m}-${p.d}`;
+}
+
+/**
+ * Default of `business_day_rollover` (BR-010, BR mục 13; DS-E). HK/MT may not read the parameter
+ * (`getBookingRules` is not in their `x-roles`), so the PWA uses the default for what it only SHOWS or
+ * pre-checks; the server keeps the real value (`ctx.today`) and lists without `date` follow it.
+ */
+export const BUSINESS_DAY_ROLLOVER = '06:00';
+
+/**
+ * Business date (BR-010) `YYYY-MM-DD`: before the rollover (06:00) the local time still belongs to the
+ * previous day – 02:40 on 20/10 is business day 19/10. Same rule as the API `businessDate` (shared/time.ts).
+ */
+export function businessDate(
+  value: number | Date = Date.now(),
+  timeZone = PROPERTY_TZ,
+  rollover = BUSINESS_DAY_ROLLOVER,
+): string {
+  const d = toDate(value) ?? new Date();
+  const p = parts(d, timeZone);
+  const day = `${p.y}-${p.m}-${p.d}`;
+  const [rh, rm] = rollover.split(':').map(Number) as [number, number];
+  return Number(p.hh) * 60 + Number(p.mm) < rh * 60 + rm ? addDays(day, -1) : day;
 }
 
 /** `YYYY-MM-DD` → "17/10" (no time-zone shift). */

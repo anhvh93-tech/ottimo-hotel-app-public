@@ -5,7 +5,7 @@
 // Dev/test only – never bundled (main.tsx imports mocks dynamically).
 import type { AttentionItem, Role, Room } from '@ottimo/api-client';
 import { http, HttpResponse, type DefaultBodyType, type StrictRequest } from 'msw';
-import { todayLocal } from '../app/dates';
+import { businessDayLocal, todayLocal } from '../app/dates';
 import { currentSegment } from '../app/reservations';
 import type { MockFolioPort, MockReservation, MockServiceLine } from './reservations';
 import { MOCK_PASSWORD, type MockUser } from './seed';
@@ -1710,7 +1710,8 @@ export function createStayMock(ctx: Ctx) {
             a.reservationCode !== r.code ||
             a.status !== 'approved' ||
             !a.decidedAt ||
-            a.decidedAt.slice(0, 10) !== nowIso().slice(0, 10)
+            // Like `checkin.service`: business day of the decision === business day now (BR-010).
+            businessDayLocal(undefined, new Date(a.decidedAt)) !== businessDayLocal()
           )
             return validation([
               { field: 'roomNotReadyOverride.approvalRequestId', code: 'NOT_IN_LIST' },
@@ -2182,7 +2183,9 @@ export function createStayMock(ctx: Ctx) {
         if (!room || room.id === r.roomId)
           return validation([{ field: 'newRoomId', code: 'NOT_IN_LIST' }]);
         const from = String(body.effectiveDate ?? today());
-        if (from !== today()) return validation([{ field: 'effectiveDate', code: 'DATE_INVALID' }]);
+        // BUG-R2-211: like the API – the BUSINESS day (`ctx.today`, BR-010).
+        if (from !== businessDayLocal())
+          return validation([{ field: 'effectiveDate', code: 'DATE_INVALID' }]);
         const occ = r.adults + (r.children6to11 ?? 0);
         if (occ > (room.maxOccupancy ?? 99))
           return problem(422, 'CAPACITY_EXCEEDED', { roomNo: room.roomNo, max: room.maxOccupancy });

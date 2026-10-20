@@ -16,7 +16,7 @@ import {
   sortByPriority,
   taskTitle,
 } from '../app/tasks';
-import { hhmm, localDate } from '../app/time';
+import { hhmm, businessDate } from '../app/time';
 import { actionText, rejectionText } from '../queue/messages';
 import { useQueue } from '../queue/QueueProvider';
 import { QueuedChip, RoomStatusChip, TopBar } from '../ui/parts';
@@ -35,7 +35,7 @@ export function RoomPage({
   const data = useHkData();
   const { items, rejected, queue, resend } = useQueue();
   const act = useHkActions(session);
-  const today = localDate();
+  const today = businessDate();
   const room = data.rooms?.data.find((r) => r.roomId === roomId);
 
   const tasks = useMemo(

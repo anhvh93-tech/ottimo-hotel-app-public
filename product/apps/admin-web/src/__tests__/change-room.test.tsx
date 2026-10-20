@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { todayLocal } from '../app/dates';
+import { businessDayLocal } from '../app/dates';
 import { addDays, currentSegment } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { renderApp, tv } from '../test/render';
@@ -46,7 +46,7 @@ describe('H15 Đổi phòng – whole stay from the primary booking', () => {
     const table = await within(dlg).findByRole('table', { name: tv('booking.field.rate') });
     const rows = within(table).getAllByRole('row').slice(1);
     const nightsFromToday = [...(kim.nightlyRates ?? []), ...(child.nightlyRates ?? [])].filter(
-      (n) => n.date >= todayLocal(),
+      (n) => n.date >= businessDayLocal(),
     );
     expect(nightsFromToday.length).toBeGreaterThan(2);
     expect(rows).toHaveLength(nightsFromToday.length);
@@ -55,7 +55,7 @@ describe('H15 Đổi phòng – whole stay from the primary booking', () => {
       within(dlg).getByRole('button', { name: tv('stay.change_submit', { room: '202' }) }),
     );
     // K11-03: the nights before today stay in 402 – the room of today is 202 (one segment more).
-    const roomToday = (g: string) => currentSegment(res(g).segments, todayLocal())?.roomNo;
+    const roomToday = (g: string) => currentSegment(res(g).segments, businessDayLocal())?.roomNo;
     await waitFor(() => expect(roomToday('Kim Seo-yeon')).toBe('202'));
     // The child's nights (all after today) are in 202.
     expect(currentSegment(res('Trần Quốc Bảo').segments, child.arrivalDate)?.roomNo).toBe('202');

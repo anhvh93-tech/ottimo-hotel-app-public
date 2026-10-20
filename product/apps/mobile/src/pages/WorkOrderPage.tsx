@@ -12,7 +12,7 @@ import {
 } from '../app/api';
 import { asRoom } from '../app/rooms';
 import type { StaffSession } from '../app/session';
-import { addDays, hhmm, ddmm, localDate, shortLocalDate } from '../app/time';
+import { addDays, hhmm, ddmm, businessDate, shortLocalDate } from '../app/time';
 import { DONE_PHOTO_REQUIRED, nextDue } from '../app/workOrders';
 import { useQueue } from '../queue/QueueProvider';
 import { useLiveEvents } from '../app/live';
@@ -190,7 +190,7 @@ export function WorkOrderPage({ session, id }: { session: StaffSession; id: stri
     }
   };
 
-  const today = localDate();
+  const today = businessDate();
   const waitParts = async () => {
     setTried(true);
     const dateNeeded = wo.severity !== 'high';

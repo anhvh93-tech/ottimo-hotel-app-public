@@ -1,7 +1,7 @@
 import { hasKey, loadLocale } from '@ottimo/i18n';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { todayLocal } from '../app/dates';
+import { businessDayLocal, todayLocal } from '../app/dates';
 import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { MINIBAR } from '../mocks/stay';
@@ -18,6 +18,8 @@ const label = (key: string, args?: Record<string, string | number>) =>
 const photo = () =>
   new File([new Uint8Array([0xff, 0xd8, 0xff])], 'sau-sua.jpg', { type: 'image/jpeg' });
 const T = () => todayLocal();
+/** The API's `ctx.today` (BR-010) – what the desk now defaults a block start to (BUG-R2-211). */
+const B = () => businessDayLocal();
 const res = (guest: string) => mockControl.rsv.reservations.find((r) => r.guestName === guest)!;
 const room = (no: string) => mockControl.db.rooms.find((r) => r.roomNo === no)!;
 const taskRow = (text: RegExp | string) => screen.getByText(text).closest('li') as HTMLElement;
@@ -104,14 +106,14 @@ describe('S11 Bảo trì – work orders + blocks (US-061, US-062, US-019, US-13
     await user.click(within(dlg).getByRole('switch', { name: tv('hk.lock_request') }));
     expect(within(dlg).getByText(tv('wo.block_reopen_note'))).toBeInTheDocument();
     fireEvent.change(within(dlg).getByLabelText(label('wo.block_done_planned')), {
-      target: { value: addDays(T(), 1) },
+      target: { value: addDays(B(), 1) },
     });
     await user.click(within(dlg).getByRole('button', { name: tv('wo.create_and_block') }));
     await waitFor(() =>
       expect(mockControl.rsv.blocks.some((b) => b.roomId === room('203').id)).toBe(true),
     );
     const b = mockControl.rsv.blocks.find((x) => x.roomId === room('203').id)!;
-    expect([b.from, b.to]).toEqual([T(), addDays(T(), 2)]); // half-open: reopen = done + 1 day
+    expect([b.from, b.to]).toEqual([B(), addDays(B(), 2)]); // half-open: reopen = done + 1 day
     expect(mockControl.ops.workOrders[0]!.title).toBe('Thay vòi nước bếp');
   });
 

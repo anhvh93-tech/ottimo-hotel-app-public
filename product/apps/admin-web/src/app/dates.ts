@@ -1,4 +1,8 @@
-/** Business "today" as YYYY-MM-DD in the property time zone (BR-001, BR-010 – server is the source of truth). */
+/**
+ * CALENDAR day as YYYY-MM-DD in the property time zone – the day of an instant (a time stamp, "updated at").
+ * Not the business day: from 00:00 to the rollover (BR-010, 06:00) the business day is still the day before.
+ * For "today" in a form or a request use `useBusinessDay()` (app/businessDay.ts) – BUG-R2-211.
+ */
 export function todayLocal(timeZone = 'Asia/Ho_Chi_Minh', now = new Date()): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -32,4 +36,31 @@ export function weekdayDate(
     year: 'numeric',
   }).format(now);
   return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${date}`;
+}
+
+/** Default `business_day_rollover` (BR-010, DS-E). The API's `ctx.today` uses the property's parameter. */
+export const DEFAULT_ROLLOVER = '06:00';
+
+/**
+ * BR-010 business day of `now` in `timeZone`: before `rollover` the local time still belongs to the day before
+ * (same rule as the API `shared/time.ts businessDate`). Only an estimate on the client – the server's
+ * `BookingRules.businessDate` / `Rack.today` win (`useBusinessDay`). The time zones served have no DST.
+ */
+export function businessDayLocal(
+  timeZone = 'Asia/Ho_Chi_Minh',
+  now = new Date(),
+  rollover = DEFAULT_ROLLOVER,
+): string {
+  const [h, m] = rollover.split(':').map(Number) as [number, number];
+  return todayLocal(timeZone, new Date(now.getTime() - (h * 60 + m) * 60_000));
+}
+
+/** The instant `iso` falls on business day `day` (BR-010) – e.g. an approval "of today" (BUG-R2-211). */
+export function onBusinessDay(
+  iso: string,
+  day: string,
+  timeZone?: string,
+  rollover = DEFAULT_ROLLOVER,
+): boolean {
+  return businessDayLocal(timeZone, new Date(iso), rollover) === day;
 }

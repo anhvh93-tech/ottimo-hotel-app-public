@@ -767,3 +767,38 @@ Cả `rounds/` công khai, nên mọi thẻ SEC/QA kèm bước tái hiện đ�
   - các cách lách công khai đều cần tài khoản nhân viên.
 - **Thay đổi duy nhất là hạn:** BE-83 và BE-79 thành điều kiện cứng **trước dữ liệu thật**. Hai đề xuất cài đặt là điều kiện SEC trước khi bật deploy staging: E.6 mục 1 trước khi đặt khóa, E.6 mục 2 ở lần publish đầu.
 - **Không tạo ESC mới.** Quy tắc E.1 (a) và mức rủi ro thuộc quyền SEC. Các cài đặt E.6 là việc của OPS/ORC. Nếu INV muốn đổi lại chế độ công khai trước ngày dữ liệu thật, đó là quyết định mới của INV, không phải yêu cầu của SEC.
+
+## F. QC C11 – điều kiện SEC cho BUG-R2-208 (N-7 theo số) ở R3 (SEC, 20/10/2026)
+
+- **Nguồn:**
+  - `qc/s4-qc-gate.md` mục 10.5 C11 (c);
+  - backlog R3-Q19 (dẫn tới mục này), R3-Q20 (209), R3-Q21 (210);
+  - ARC 16.31.1;
+  - DOM BR-525 khối lần 8 (208);
+  - quyết định N-7 của SEC (FB-R2-SEC-BE-81, C.12–C.13).
+- **Vì sao SEC giữ cổng:** 208 nới N-7. Hiện tại, chu kỳ nợ còn mở thì A32 giảm bị chặn hẳn. Sau 208, A32 được giảm khi phần giảm ≤ còn phải thu − `openDebtVnd`. N-7 được đặt ra để chặn một đường tha nợ không qua OWN: A32 tăng dòng rồi giảm, hoặc MGR void phần đã thành nợ. Nới sai thì đường này mở lại.
+
+Điều kiện, **tất cả bắt buộc** trước khi gộp 208:
+
+1. **Thứ tự cài:** 207 → 210 → 208.
+   - 208 chỉ cài khi 207 đã gộp và 210 đã Verified, tức `openDebtVnd` đúng cả trên dữ liệu ghi trước migration 0076;
+   - lý do: 208 lấy `openDebtVnd` làm trần. Nếu số này thấp hơn thực tế (lỗi 210), phần giảm được phép sẽ lớn hơn phần thật sự chưa thành nợ, nghĩa là void được cả phần nợ.
+2. **SEC review trước khi gộp:**
+   - PR 208 phải có SEC review riêng, ghi trong `reviews/` của R3, trên commit sẽ gộp;
+   - không gộp dựa trên review của cây làm việc;
+   - 208 nằm trong lượt kiểm tiền riêng R3 Sprint 1 (R3-Q19…Q24, Q29, Q30).
+3. **Test bắt buộc trong PR**, chạy trên DB thật như test N-7 hiện có:
+   - (a) **"A32 tăng lặp rồi giảm vẫn 409":** folio `settled` có công nợ đang mở > 0. Lặp tăng một dòng N lần (mỗi lần công nợ tăng theo), rồi giảm dần từng lần hoặc một lần lớn. Mọi lần giảm làm còn phải thu − phần giảm < `openDebtVnd` → **409**. `openDebtVnd` sau chuỗi thao tác không bao giờ thấp hơn trước chuỗi, trừ khi có thu tiền hoặc xóa nợ đã duyệt;
+   - (b) **ranh giới:** giảm đúng bằng còn phải thu − `openDebtVnd` → được; thêm 1 đồng → 409;
+   - (c) **song song:** hai A32 giảm cùng lúc trên một folio, mỗi cái hợp lệ riêng nhưng cộng lại vượt → đúng một cái 409. Đọc số dưới khóa folio, cùng thứ tự khóa ARC 16.19;
+   - (d) cổng `openDebt` trả `null` khi `openDebtVnd` = 0 không làm mất kiểm tra ở các đường khác (xóa nợ, J15);
+   - (e) đưa các ca (a)–(c) vào fuzz công nợ R3-Q30, giữ bất biến BR-525 (ii).
+4. **Không mở đường MGR void phần nợ không qua OWN:**
+   - phần đã thành công nợ chỉ giảm được qua `debt_write_off` (hạn mức BR-433, chờ OWN khi vượt; gồm cả cách tính theo tổng khi sửa FB-R2-SEC-BE-83 / R3-Q22) hoặc qua thu tiền;
+   - A32 giảm, void, đảo dòng, đổi giá hay chuyển dòng sang folio khác đều không được làm `openDebtVnd` giảm;
+   - SEC review rà **mọi** đường ghi `folio_line` trên folio `settled` trong cửa sổ, không chỉ A32;
+   - mỗi lần giảm được phép ghi audit có vai, số giảm và `openDebtVnd` trước/sau.
+5. **Hợp đồng `Folio.totals.openDebtVnd`** (Desk) chỉ hiển thị cho FD+, như các số tiền khác của folio. Không thêm vai được đọc.
+
+- **Nếu thiếu điều kiện nào:** SEC không ký 208, và giữ hành vi N-7 hiện tại (chặn theo chu kỳ). Hành vi này an toàn về kiểm soát, chỉ bất tiện (ngõ cụt sửa khoản ghi nhầm, cần OWN xử lý).
+- Trạng thái: **Điều kiện đã ghi**, chờ PR 208 ở R3 Sprint 1.

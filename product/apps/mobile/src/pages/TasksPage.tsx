@@ -19,7 +19,7 @@ import {
   taskTitle,
   type TaskGroup,
 } from '../app/tasks';
-import { hhmm, localDate } from '../app/time';
+import { hhmm, businessDate } from '../app/time';
 import { useQueue } from '../queue/QueueProvider';
 import type { QueueItem } from '../queue/queue';
 import { CallDesk, Chip, QueuedChip, RoomNo, RoomStatusChip, TopBar, UpdatedAt } from '../ui/parts';
@@ -36,7 +36,7 @@ export function TasksPage({ session }: { session: StaffSession }) {
   const { t } = useI18n();
   const data = useHkData();
   const { items, online } = useQueue();
-  const today = localDate();
+  const today = businessDate();
 
   const rooms = useMemo(() => {
     const m = new Map<string, RoomStatusEntry>();

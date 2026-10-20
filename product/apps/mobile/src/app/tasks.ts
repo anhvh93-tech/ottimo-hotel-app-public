@@ -3,7 +3,7 @@
 import type { HkTask, RoomStatusCode, RoomStatusEntry } from './api';
 import { roomLabel } from '@ottimo/i18n';
 import { asRoom } from './rooms';
-import { hhmm, localDate } from './time';
+import { hhmm, businessDate } from './time';
 
 export type TaskGroup = 'first' | 'stay' | 'later' | 'done';
 
@@ -41,7 +41,7 @@ export function sortByPriority(tasks: readonly HkTask[]): HkTask[] {
   );
 }
 
-export function arrivingToday(room: RoomStatusEntry | undefined, today = localDate()): boolean {
+export function arrivingToday(room: RoomStatusEntry | undefined, today = businessDate()): boolean {
   return room?.nextArrival?.date === today;
 }
 
@@ -50,7 +50,7 @@ export function taskGroup(
   status: HkTask['status'],
   roomStatus: RoomStatusCode | undefined,
   room: RoomStatusEntry | undefined,
-  today = localDate(),
+  today = businessDate(),
 ): TaskGroup {
   if (status === 'done') return 'done';
   if (isKit(task) || task.type === 'priority_clean' || task.dueAt || arrivingToday(room, today)) {
@@ -100,7 +100,11 @@ export function completeToast(task: HkTask, t: T): string {
 }
 
 /** Next arrival sentence of a room card (H19.2). */
-export function arrivalText(room: RoomStatusEntry, t: T, today = localDate()): string | undefined {
+export function arrivalText(
+  room: RoomStatusEntry,
+  t: T,
+  today = businessDate(),
+): string | undefined {
   const a = room.nextArrival;
   if (!a?.date) return undefined;
   if (a.date === today) return t('hk.arriving_today', { time: a.etaTime ?? '' }).trim();

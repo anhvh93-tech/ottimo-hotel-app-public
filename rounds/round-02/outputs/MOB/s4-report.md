@@ -312,3 +312,75 @@ BUG-R2-193 (P2, `qa/bug-list.md` mục 11.36): ở guest-web H23 (form yêu cầ
   - Duyệt việc xóa dòng 193 trong `OPEN`.
   - Đóng BUG-R2-193 sau khi chạy lại TC-X-087 trên stack QA.
   - Ca TC-X-087 vẫn gọi `knownBug('BUG-R2-193')`: mã không còn trong `OPEN` thì coi như đã đóng và ca phải xanh. QA có thể bỏ dòng này khi dọn spec.
+
+## 10. Bước 4 – K2' cổng QC Sprint 4: sửa BUG-R2-211 (20/10/2026)
+
+**Lỗi (P1, QA mục 11.38):** PWA gửi `listHkTasks(pid, localDate())`. `localDate()` là **ngày lịch**. Từ 00:00 tới 05:59, ngày nghiệp vụ (BR-010, đổi lúc 06:00) vẫn là hôm trước. Server giới hạn vai HK ở `ctx.today` (`housekeeping.service.ts:810–812`) nên trả 422 `date NOT_IN_LIST`. `Promise.all` hỏng theo, làm cả "Các căn" lẫn "Việc của tôi" báo lỗi.
+
+**Cách sửa – đúng hợp đồng `openapi.yaml` (`listHkTasks`: `date` tùy chọn, `x-scope: { housekeeping: today }`):**
+- **Không gửi `date`** cho danh sách hôm nay. Server tự dùng ngày nghiệp vụ (`day = q.date ?? c.today`), kể cả khi tham số `business_day_rollover` khác 06:00. Không dùng `getBookingRules.businessDate`, vì `x-roles` của thao tác này không có HK/MT (gọi sẽ nhận 403).
+- **Tách hai lệnh tải** (`Promise.allSettled`) trong `data.tsx`:
+  - Phần nào lỗi thì lấy bản lưu offline của phần đó, kèm giờ lưu.
+  - Phần còn thiếu hiện khối lỗi riêng. Trang vẫn kiểm `status === 'error' && !data.<phần>`.
+  - Lỗi 401 vẫn nhường màn đăng nhập và giữ nguyên hàng đợi.
+  - Khi không có danh sách việc mới, bản lưu "các căn" không giữ tên gọi khách (SR-PWA-01, chọn hướng ít dữ liệu hơn).
+- **Hàm mới `businessDate()`** trong `app/time.ts`, cùng quy tắc với `services/api/src/shared/time.ts`. Mốc đổi ngày là hằng `BUSINESS_DAY_ROLLOVER = '06:00'` (mặc định BR mục 13 / DS-E). Hàm chỉ dùng cho những gì client **hiển thị hoặc kiểm trước**; server vẫn kiểm lại theo giá trị thật.
+- **Rà mọi chỗ dùng `localDate()` như "hôm nay"** – cả 6 chỗ nay dùng `businessDate()`:
+
+  | Chỗ | Dùng làm gì | Server so với |
+  |---|---|---|
+  | `tasks.ts` `arrivingToday` / `taskGroup` / `arrivalText` (mặc định) | "Có khách đến hôm nay", nhóm "Làm trước" | `nextArrival.date` theo ngày nghiệp vụ |
+  | `RoomsPage.tsx:27`, `RoomPage.tsx:38`, `TasksPage.tsx:39` | như trên | như trên |
+  | `ReportPage.tsx:63` | ngày bắt đầu khóa căn mặc định và `min` | `block.startDate < today` → `DATE_IN_PAST` (`work-orders.service.ts:517`, `today` = `ctx.today`) |
+  | `WorkOrderPage.tsx:193` | `min` / kiểm `partsExpectedDate` | `v < c.today` → `DATE_IN_PAST` (`work-orders.service.ts:826`) |
+
+  Lúc 02:40 ngày 20/10, nếu dùng ngày lịch: không chọn được khóa căn từ 19/10 (đêm đang diễn ra), và căn có khách đến ngày 19/10 bị ghi "Khách đến tiếp: 19/10" thay vì "đến hôm nay".
+- **`localDate()` được giữ lại**, đổi chú thích thành "ngày lịch". Hàm dành cho nhu cầu theo giờ đồng hồ thực (hạn pháp lý BR-602/603, hiệu lực báo giá BR-304). Hiện PWA không còn chỗ nào cần ngày lịch.
+- **Mock MSW** làm giống server, để test bắt được lỗi này:
+  - `today()` của mock = ngày nghiệp vụ;
+  - `GET hk-tasks` có `date` khác ngày nghiệp vụ với vai chỉ HK → 422 `NOT_IN_LIST`;
+  - ghi query vào `state.queries`.
+- **Không chạm đường tiền.**
+
+**Test** (`src/__tests__/business-date.test.tsx`, 15 ca, giả đồng hồ `vi.setSystemTime`):
+- `businessDate`:
+  - 02:40 → 19/10; 05:59 → 19/10; 06:00 → 20/10; thêm 00:00 và 23:59;
+  - gọi không truyền thời điểm thì đọc đồng hồ giả;
+  - `arrivingToday` lúc 02:40 / 06:00.
+- Luồng thật qua `App` với tài khoản `hk.lan`, chạy ở 02:40, 05:59 và 06:00:
+  - "Việc của tôi" và "Các căn" đều tải được, không có câu lỗi;
+  - căn 103 hiện "Có khách đến hôm nay 14:00";
+  - mọi lệnh `listHkTasks` đều không có `date`.
+- Mock trả 422 cho `?date=2026-10-20` lúc 02:40 và 200 cho `2026-10-19` hoặc khi không gửi `date`.
+- Tách tải:
+  - `hk-tasks` lỗi mãi → "Các căn" vẫn hiện căn, "Việc của tôi" hiện lỗi riêng;
+  - `room-statuses` lỗi → vẫn hiện việc.
+- Lúc 02:40, MT tạo phiếu sửa có khóa căn: `min` = 2026-10-19, body `block.startDate` = 2026-10-19.
+- **Đối chứng:** tạm cho `data.tsx` gửi lại `localDate()` thì ca 02:40 và 05:59 đỏ (422 → "Chưa tải được…"), ca 06:00 đỏ ở bước kiểm "không gửi `date`". Đã trả mã về bản sửa.
+- `s4b.test.tsx` đổi sang `businessDate()`. Lý do: mock nay dùng ngày nghiệp vụ, nên nếu giữ ngày lịch thì ca khóa căn sẽ đỏ khi chạy từ 00:00 tới 05:59.
+
+**Kết quả:** mobile vitest **122/122** (11 file), `tsc` 0 lỗi, ESLint 0 lỗi, Prettier sạch. Không commit.
+
+**File sửa:**
+- `product/apps/mobile/src/app/time.ts`
+- `product/apps/mobile/src/app/data.tsx`
+- `product/apps/mobile/src/app/tasks.ts`
+- `product/apps/mobile/src/pages/RoomsPage.tsx`
+- `product/apps/mobile/src/pages/RoomPage.tsx`
+- `product/apps/mobile/src/pages/TasksPage.tsx`
+- `product/apps/mobile/src/pages/ReportPage.tsx`
+- `product/apps/mobile/src/pages/WorkOrderPage.tsx`
+- `product/apps/mobile/src/mocks/handlers.ts`
+- `product/apps/mobile/src/__tests__/s4b.test.tsx`
+
+**File mới:** `product/apps/mobile/src/__tests__/business-date.test.tsx`
+
+**Giả định:**
+- (a) Bỏ `date` là cách đúng hợp đồng: tham số này tùy chọn, và server mặc định dùng `ctx.today`. Nhờ BE-C xác nhận ở bước review, đúng như ghi chú ở bug-list.
+- (b) Mốc 06:00 ở client chỉ phục vụ hiển thị và kiểm trước. Nếu quản lý đổi `business_day_rollover`, chữ "hôm nay" và `min` của ô ngày có thể lệch tới khi đổi ngày, nhưng server vẫn kiểm đúng.
+
+**Đề xuất ARC (0.3.8, không chặn):** thêm `businessDate` vào phản hồi `listHkTasks` hoặc `listRoomStatuses`. Khi đó PWA bỏ được hằng 06:00 và dùng đúng ngày nghiệp vụ của server.
+
+**Việc của QA:** chạy lại TC-X-074 với đồng hồ stack 02:40 trên ảnh dựng từ cây làm việc, rồi đóng BUG-R2-211. `known-bugs.ts` hiện không có mã 211 nên không cần gỡ.
+
+**Ngoài phạm vi:** chưa rà admin-web (FE) xem có chỗ nào dùng ngày lịch làm "hôm nay" hay không. Đề nghị ORC giao FE rà nhanh.

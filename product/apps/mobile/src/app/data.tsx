@@ -14,7 +14,6 @@ import { isApiError, staffApi, type HkTaskList, type RoomStatusList } from './ap
 import { REFRESH_MS } from './config';
 import { useLive, useLiveEvents } from './live';
 import type { StaffSession } from './session';
-import { localDate } from './time';
 
 export interface HkData {
   tasks?: HkTaskList;
@@ -82,21 +81,55 @@ export function HkDataProvider({
       await fromCache();
       return;
     }
+    // BUG-R2-211: no `date` – the server lists its business day (`q.date ?? ctx.today`, BR-010, rollover
+    // 06:00). The phone's calendar date is the day after between 00:00 and 05:59 → 422 for HK (x-scope T).
+    // Two loads, settled apart: a failed task list must not hide the rooms (or the other way round).
+    const [tr, rr] = await Promise.allSettled([
+      withTasks ? staffApi.listHkTasks(pid) : Promise.resolve(undefined),
+      staffApi.listRoomStatuses(pid),
+    ]);
+    const failed = [tr, rr].find((x): x is PromiseRejectedResult => x.status === 'rejected');
+    if (failed && isApiError(failed.reason) && failed.reason.status === 401) return; // login screen takes over, queue kept
+    const now = Date.now();
+    const tasks = tr.status === 'fulfilled' ? tr.value : undefined;
+    const rooms = rr.status === 'fulfilled' ? rr.value : undefined;
     try {
-      const today = localDate();
-      const [tasks, rooms] = await Promise.all([
-        withTasks ? staffApi.listHkTasks(pid, today) : Promise.resolve(undefined),
-        staffApi.listRoomStatuses(pid),
-      ]);
-      const now = Date.now();
       if (tasks) await cache.saveTasks(tasks, now);
-      await cache.saveRooms(rooms, tasks?.data ?? [], now);
+      // Guest call names are cached only for rooms with a task (SR-PWA-01): no fresh tasks → none kept.
+      if (rooms) await cache.saveRooms(rooms, tasks?.data ?? [], now);
+    } catch {
+      // A cache write failure does not hide fresh data.
+    }
+    if (!failed) {
       if (!alive.current) return;
       setState({ status: 'ready', fromCache: false, tasks, rooms, savedAt: now });
-    } catch (e) {
-      if (isApiError(e) && e.status === 401) return; // login screen takes over, queue kept
-      await fromCache(e);
+      return;
     }
+    // Partial or full failure: the part that failed comes from its last copy, with its time.
+    const [ct, cr] = await Promise.all([
+      withTasks && !tasks ? cache.loadTasks() : Promise.resolve(undefined),
+      rooms ? Promise.resolve(undefined) : cache.loadRooms(),
+    ]);
+    if (!alive.current) return;
+    const shownTasks = tasks ?? ct?.data;
+    const shownRooms = rooms ?? cr?.data;
+    const missing = (withTasks && !shownTasks) || !shownRooms;
+    if (!shownTasks && !shownRooms) {
+      setState({ status: 'error', fromCache: false, error: failed.reason });
+      return;
+    }
+    setState({
+      // A part still missing shows its own error block (pages test `status === 'error' && !data.<part>`).
+      status: missing ? 'error' : 'ready',
+      error: missing ? failed.reason : undefined,
+      fromCache: Boolean(ct ?? cr),
+      tasks: shownTasks,
+      rooms: shownRooms,
+      savedAt: Math.min(
+        tasks ? now : (ct?.savedAt ?? Infinity),
+        rooms ? now : (cr?.savedAt ?? Infinity),
+      ),
+    });
   }, [cache, pid, withTasks, fromCache]);
 
   useEffect(() => {

@@ -20,7 +20,7 @@ import type {
   RoomGroup,
 } from '@ottimo/api-client';
 import { http, HttpResponse, type DefaultBodyType, type StrictRequest } from 'msw';
-import { todayLocal } from '../app/dates';
+import { businessDayLocal, todayLocal } from '../app/dates';
 import type { MockGuest, MockUser } from './seed';
 
 type Guard = { user: MockUser; roles: Role[] } | Response;
@@ -364,6 +364,8 @@ export function createReservationMock(ctx: Ctx) {
   const groupCode = (id?: string) => ctx.db().groups.find((g) => g.id === id)?.code ?? id;
   const channelById = (id?: string) => state.channels.find((c) => c.id === id);
   const today = () => todayLocal();
+  /** The API's `ctx.today` (BR-010): before 06:00 still the day before (BUG-R2-211). */
+  const bizToday = () => businessDayLocal();
   const json = (body: unknown, status = 200) => HttpResponse.json(body as never, { status });
   const validation = (errors: Array<{ field: string; code: string }>) =>
     problem(422, 'VALIDATION_FAILED', { errors });
@@ -495,7 +497,7 @@ export function createReservationMock(ctx: Ctx) {
     const r = roomById(body.roomId);
     const errors: Array<{ field: string; code: string }> = [];
     if (!body.arrivalDate) errors.push({ field: 'arrivalDate', code: 'REQUIRED' });
-    else if (body.arrivalDate < today())
+    else if (body.arrivalDate < bizToday())
       errors.push({ field: 'arrivalDate', code: 'DATE_IN_PAST' });
     if (nights < 1) errors.push({ field: 'nights', code: 'REQUIRED' });
     if (!r) errors.push({ field: 'roomId', code: 'REQUIRED' });
@@ -611,7 +613,7 @@ export function createReservationMock(ctx: Ctx) {
     const to = body.departureDate ?? r.departureDate;
     if (isOta && (from !== r.arrivalDate || to !== r.departureDate))
       return validation([{ field: 'arrivalDate', code: 'OTA_DATES_LOCKED' }]);
-    if (from < today()) return validation([{ field: 'arrivalDate', code: 'DATE_IN_PAST' }]);
+    if (from < bizToday()) return validation([{ field: 'arrivalDate', code: 'DATE_IN_PAST' }]);
     if (to <= from) return validation([{ field: 'departureDate', code: 'DATE_ORDER' }]);
     const target = roomById(body.roomId ?? r.roomId)!;
     const over = (target.maxOccupancy ?? 9) < r.adults + (r.children6to11 ?? 0);
@@ -1024,7 +1026,7 @@ export function createReservationMock(ctx: Ctx) {
       return json({
         from,
         days,
-        today: today(),
+        today: bizToday(),
         rooms: rackRooms,
         unassigned: fd
           ? visible
@@ -1042,7 +1044,7 @@ export function createReservationMock(ctx: Ctx) {
       const arrival = q.get('arrival') ?? '';
       const departure = q.get('departure') ?? '';
       const adults = Number(q.get('adults') ?? 2);
-      if (arrival < today()) return validation([{ field: 'arrival', code: 'DATE_IN_PAST' }]);
+      if (arrival < bizToday()) return validation([{ field: 'arrival', code: 'DATE_IN_PAST' }]);
       if (departure <= arrival) return validation([{ field: 'departure', code: 'DATE_ORDER' }]);
       const roomId = q.get('roomId');
       let requestedRoom;
@@ -1138,7 +1140,7 @@ export function createReservationMock(ctx: Ctx) {
       if (!body.bookerGuestId) errors.push({ field: 'bookerGuestId', code: 'REQUIRED' });
       if (!body.adults || body.adults < 1) errors.push({ field: 'adults', code: 'REQUIRED' });
       if (!body.arrivalDate) errors.push({ field: 'arrivalDate', code: 'REQUIRED' });
-      else if (body.arrivalDate < today())
+      else if (body.arrivalDate < bizToday())
         errors.push({ field: 'arrivalDate', code: 'DATE_IN_PAST' });
       if (!body.departureDate || body.departureDate <= body.arrivalDate)
         errors.push({ field: 'departureDate', code: 'DATE_ORDER' });
@@ -1855,7 +1857,8 @@ export function createReservationMock(ctx: Ctx) {
       const g = guard(request, [...FD_PLUS, ...SALES]);
       if (isResponse(g)) return g;
       return json({
-        businessDate: today(),
+        // BUG-R2-211: the BUSINESS day like the API (`ctx.today`, BR-010 rollover 06:00).
+        businessDate: bizToday(),
         holdHoursOptions: param('hold_hours_options', [12, 24, 48]),
         holdHoursDefault: param('hold_hours_default', 24),
         holdLatestTimeOnArrival: param('hold_latest_time_on_arrival', '12:00'),

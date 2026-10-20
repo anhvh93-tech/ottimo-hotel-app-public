@@ -4,6 +4,7 @@ import { Alert, Button, Chip, Field, Modal, Seg, StateView } from '@ottimo/ui';
 import { useId, useState } from 'react';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
+import { useBusinessDay, useBusinessDayChange } from '../../app/businessDay';
 import { timeHHmm, todayLocal } from '../../app/dates';
 import { useLiveReload } from '../../app/live';
 import { dayMonth } from '../../app/reservations';
@@ -361,13 +362,16 @@ function CancelTaskDialog({
 function CreateTaskDialog({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const { t } = useI18n();
   const propertyId = usePropertyId();
-  const { property } = useSession();
   const toast = useToast();
   const { rooms } = useCatalog(propertyId);
-  const today = todayLocal(property?.timezone);
+  // BUG-R2-211 (BR-010): the business day – a task made at 02:40 is on tonight's list, not tomorrow's.
+  const today = useBusinessDay();
   const [roomId, setRoomId] = useState('');
   const [type, setType] = useState<HkTask['type']>('adhoc_clean');
   const [dueDate, setDueDate] = useState(today);
+  useBusinessDayChange(today, (was, now) => {
+    if (dueDate === was) setDueDate(now);
+  });
   const [note, setNote] = useState('');
   const act = useSubmit({ bound: ['roomId', 'type', 'dueDate', 'note'] });
   const save = async () => {
@@ -472,7 +476,8 @@ function RoomBoard({ rooms }: { rooms: RoomStatusEntry[] }) {
   const { t } = useI18n();
   const { property } = useSession();
   const tz = property?.timezone;
-  const today = todayLocal(tz);
+  // "Arriving today" = the business day (BUG-R2-211, display only).
+  const today = useBusinessDay();
   const [filter, setFilter] = useState<RoomFilter>('all');
   const ids = useId();
   const inGroup = (f: RoomFilter, r: RoomStatusEntry) =>

@@ -5,7 +5,8 @@ import { useEffect, useId, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
-import { timeHHmm, todayLocal } from '../../app/dates';
+import { useBusinessDay } from '../../app/businessDay';
+import { timeHHmm } from '../../app/dates';
 import {
   STATUS_KEY,
   STATUS_TONE,
@@ -197,9 +198,11 @@ export function ReservationDrawer({
     }
   };
 
+  const businessDay = useBusinessDay();
   const allowed = new Map((r?.allowedActions ?? []).map((a) => [a.event, a]));
   // K11-03: the room of today, not `segments[0]` (the room left after a mid-stay B14).
-  const seg = r ? currentSegment(r.segments, todayLocal()) : undefined;
+  // BUG-R2-211: "today" = the business day (display only).
+  const seg = r ? currentSegment(r.segments, businessDay) : undefined;
   const room = catalog.rooms.find((x) => x.id === seg?.roomId);
   const chName = r ? channelName(catalog.channels, r.channelCode, r.channelId) : '';
   const ota = catalog.channels.find((c) => c.id === r?.channelId)?.channelGroup === 'ota';

@@ -2,7 +2,7 @@
 // with a room block (US-061), app language sent to the inspection operations (0.3.7 bổ sung 1 #13).
 import { screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { localDate } from '../app/time';
+import { businessDate } from '../app/time';
 import { mockControl } from '../mocks/handlers';
 import { bodies, calls, FakeEventSource, fakeConnect, setOnline, start, wait } from './helpers';
 
@@ -109,7 +109,7 @@ describe('H22 22.5 – new work order with a room block (US-061, A86)', () => {
     await user.click(
       screen.getByRole('checkbox', { name: 'Khóa căn – không bán đến khi sửa xong' }),
     );
-    const today = localDate();
+    const today = businessDate();
     await user.type(screen.getByLabelText('Dự kiến xong'), addDays(today, 1));
     expect(screen.getByText(/Ngày mở bán lại do hệ thống tính/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Tạo phiếu và khóa căn' }));
@@ -133,7 +133,7 @@ describe('H22 22.5 – new work order with a room block (US-061, A86)', () => {
     await user.click(
       screen.getByRole('checkbox', { name: 'Khóa căn – không bán đến khi sửa xong' }),
     );
-    await user.type(screen.getByLabelText('Dự kiến xong'), addDays(localDate(), 1));
+    await user.type(screen.getByLabelText('Dự kiến xong'), addDays(businessDate(), 1));
     await user.type(screen.getByLabelText('Lý do khóa'), 'Sửa bồn cầu');
     await user.click(screen.getByRole('button', { name: 'Tạo phiếu và khóa căn' }));
     expect(await screen.findByText('Khoảng khóa trùng 1 đơn đã đặt')).toBeInTheDocument();
@@ -156,7 +156,7 @@ describe('H22 22.5 – new work order with a room block (US-061, A86)', () => {
     await user.click(
       screen.getByRole('checkbox', { name: 'Khóa căn – không bán đến khi sửa xong' }),
     );
-    await user.type(screen.getByLabelText('Dự kiến xong'), addDays(localDate(), 1));
+    await user.type(screen.getByLabelText('Dự kiến xong'), addDays(businessDate(), 1));
     await user.type(screen.getByLabelText('Lý do khóa'), 'Sửa trần');
     await user.click(screen.getByRole('button', { name: 'Tạo phiếu và khóa căn' }));
     expect(await screen.findByText('Căn đang có khách – chưa khóa được')).toBeInTheDocument();

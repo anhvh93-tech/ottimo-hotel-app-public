@@ -5,6 +5,7 @@
 // Room names = temporary BL 4.1 mapping (DS 11.3, P-S4-8). Dev-only data, never shipped (vite.config.ts).
 import { delay, http, HttpResponse } from 'msw';
 import type { components } from '@ottimo/api-client';
+import { businessDate } from '../app/time';
 
 type S = components['schemas'];
 type RoomCode = S['RoomStatusCode'];
@@ -48,14 +49,9 @@ const PIXEL = Uint8Array.from(
   (c) => c.charCodeAt(0),
 );
 
+/** Business date like the server's `ctx.today` (BR-010: rollover 06:00 – BUG-R2-211). */
 function today(now = Date.now()) {
-  const p = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(now));
-  return p; // YYYY-MM-DD
+  return businessDate(now);
 }
 function plusDays(date: string, n: number) {
   const d = new Date(`${date}T00:00:00Z`);
@@ -86,6 +82,8 @@ interface State {
   idem: Map<string, unknown>;
   calls: string[];
   bodies: { op: string; body: unknown }[];
+  /** Query string seen per operation (BUG-R2-211: "today" lists send no `date`). */
+  queries: { op: string; query: Record<string, string> }[];
   notifications: S['StaffNotification'][];
   /** Accept-Language seen per operation (PWA sends the app language – 0.3.7 bổ sung 1 #13). */
   languages: { op: string; lang: string | null }[];
@@ -252,6 +250,7 @@ function seed(): State {
     idem: new Map(),
     calls: [],
     bodies: [],
+    queries: [],
     notifications: [
       {
         id: '0192a1b0-0000-7000-8000-0000000aa001',
@@ -518,6 +517,15 @@ export const handlers = [
   http.get(`${P}/hk-tasks`, async ({ request }) => {
     const g = await guard('listHkTasks', request);
     if (g) return g;
+    // Like housekeeping.service listHkTasks: `day = q.date ?? ctx.today`; HK only the business day (x-scope T).
+    const date = new URL(request.url).searchParams.get('date');
+    state.queries.push({ op: 'listHkTasks', query: date === null ? {} : { date } });
+    const hkOnly = user()?.roles.every((r) => r === ('housekeeping' as never));
+    if (date !== null && hkOnly && date !== today()) {
+      return problem(422, 'VALIDATION_FAILED', {
+        errors: [{ field: 'date', code: 'NOT_IN_LIST' }],
+      });
+    }
     const live = state.tasks.filter((t) => t.status !== 'cancelled');
     return HttpResponse.json({
       summary: { done: live.filter((t) => t.status === 'done').length, total: live.length },

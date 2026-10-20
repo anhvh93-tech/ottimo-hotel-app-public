@@ -1319,3 +1319,132 @@ Nguồn: `rounds/round-02/outputs/UXR/s4-pwa-walkthrough.md` (P-02, P-03, P-06 m
   - test: `__tests__/s4-feb-uxr.test.tsx`;
   - phản hồi: `rounds/round-02/responses/s4-FE.md` (2 dòng Done).
 - **Đề xuất QA (R3):** thêm ca E2E đo `scrollWidth ≤ innerWidth` ở 360 và 390 px cho các trang trên thanh dưới, trên stack có API thật.
+
+## Rà ngày kinh doanh (BUG-R2-211) – FE-A, Desk `apps/admin-web` (20/10/2026, Bước 4 – CHỈ RÀ, chưa sửa)
+
+**Phạm vi:** mọi chỗ trong `product/apps/admin-web/src` (trừ `mocks/` và test) lấy `todayLocal()` = **ngày lịch** của múi giờ cơ sở làm "hôm nay". Server dùng **ngày kinh doanh** `businessDate(now, tz, business_day_rollover)` (`services/api/src/shared/time.ts:92`, mặc định 06:00) → `ctx.today` (`platform/public/property-context.ts:52`). Từ 00:00 tới 05:59 Desk lệch server **+1 ngày** (D so với D-1).
+
+**Kiểm nhanh (đồng hồ giả 02:40 giờ VN, 20/10/2026):** test tạm ở scratchpad, không vào repo, gọi thẳng `todayLocal`, `currentSegment` của Desk và `businessDate` của server, **3/3 đạt**:
+- Desk `2026-10-20`, server `2026-10-19`.
+- Hộp duyệt "phòng chưa sẵn sàng" quyết lúc 23:00 ngày 19/10: Desk ẩn, server nhận.
+- Hộp duyệt quyết lúc 05:00 ngày 20/10, xem lúc 10:00: Desk nhận, server từ chối.
+- `currentSegment(…, D)` chọn căn kế tiếp khi có chặng bắt đầu từ D.
+
+**Ghi chú:** **[TIỀN]** = chạm tiền (giá, đổi phòng, gia hạn, folio, công nợ). Mã tiền đang đóng băng nên những chỗ này **chờ ORC + ARC quyết**. Mức trong bảng chỉ là đề xuất, QA chốt.
+
+| # | Chỗ (file:dòng) | Dùng làm gì | Gửi server / chỉ hiển thị | Server trong 00:00–05:59 | Hậu quả | Mức đề xuất | Cách sửa |
+|---|---|---|---|---|---|---|---|
+| 1 **[TIỀN]** | `pages/stay/StayDialogs.tsx:441`, `454`, `474`, `493` (`ChangeRoomForm`) | Gửi `effectiveDate` của Đổi phòng B14, cả lượt xem trước lẫn lượt ghi. Gửi `arrival` khi tìm căn trống | **Gửi** | **Từ chối:** `stay.service.ts:779` cần `from === ctx.today`, nên trả 422 `effectiveDate DATE_INVALID`. Tìm căn trống tính từ D, bỏ qua đêm D-1 | Đổi phòng **hỏng hoàn toàn 6 giờ mỗi đêm**: xem trước lỗi, không ghi được. Hay gặp nhất là đổi phòng ban đêm do sự cố căn (máy nước nóng, ồn…), đúng ca trực đêm. Không sai tiền vì server chặn | **P1**, cùng bản chất BUG-R2-211 | Lấy ngày kinh doanh từ server như hộp Thêm người (`StayDialogs.tsx:1003–1013`, `getBookingRules().businessDate`), nên đưa thành hook chung `useBusinessDay()` |
+| 2 **[TIỀN]** | `pages/booking/BookingDialog.tsx:119`, `137`, `332`, `381`, `828`, `847` | Ngày đến mặc định. Chặn "ngày đã qua" ở client (`arrival < today`, `min`). Quyết định có tìm căn trống không | **Gửi** (ngày đến do client chặn) | Server nhận `arrivalDate ≥ D-1` (`reservations.service.ts:935`), nhưng Desk **không cho chọn D-1** | Khách vãng lai hoặc khách gọi đặt lúc 02:40 chỉ ở tới trưa D không đặt được đêm D-1. Lễ tân buộc đặt D→D+1. Khi nhận phòng lúc 02:40, B9a cộng thêm đêm trước (BR-003, BR-417) thành **2 đêm** cho khách ở 1 đêm, và không rút ngắn được (`stay.service.ts:1318` cần `nd > arrival`). Lượt xem trước nhận phòng có `addsPreviousNight` nên lễ tân thấy được, nhưng không có lối đúng | **P1**. Nếu QA coi đây là "sai tiền" theo test-strategy mục 8 thì là **P0**: ORC + ARC quyết | Thay `today` bằng ngày kinh doanh: mặc định ngày đến, `min`, kiểm `past_date` |
+| 3 **[TIỀN]** | `pages/booking/LongStayDialog.tsx:73`, `77`, `123`, `280` | Như #2, cho đơn dài hạn | **Gửi** | Như #2 | Như #2, nhưng khách dài hạn hầu như không đến lúc 2 giờ sáng | P2 | Như #2 |
+| 4 | `pages/stay/CheckInPage.tsx:121` | Tìm hộp duyệt "phòng chưa sẵn sàng" **trong hôm nay** bằng ngày lịch của `decidedAt` | **Gửi** `roomNotReadyOverride.approvalRequestId` | Server so **ngày kinh doanh** của `decided_at` với `ctx.today` (`checkin.service.ts:1025`), sai thì 422 `NOT_IN_LIST` | **Lệch hai chiều, cả ngoài cửa sổ 00–06:** (a) duyệt 18:00–23:59, nhận phòng 00:00–05:59: Desk ẩn hộp duyệt hợp lệ, phải xin duyệt lại; (b) duyệt 00:00–05:59, nhận phòng sau 06:00: Desk gửi, server từ chối, lễ tân không hiểu vì sao. Không sai tiền | P2 | So ngày kinh doanh: lấy `businessDate` từ server, cộng mốc đổi ngày để quy `decidedAt`. Hoặc để server lọc (`listApprovals` thêm `businessDate`; ARC xem có cần đổi hợp đồng không) |
+| 5 | `pages/ops/WorkOrderForms.tsx:127`, `138`, `150` / `196`, `205`, `206` / `424`, `426`, `427` | Ngày bắt đầu khóa căn (OOO) và phiếu sửa: mặc định D, `min` = D | **Gửi** `startDate` | Server nhận `≥ D-1` (`room-blocks.service.ts:118`, `work-orders.service.ts:517`). Khóa bắt đầu từ D thì trạng thái `planned` (`room-blocks.service.ts:143`) | Căn hỏng lúc 02:40 **không bị khóa cho đêm hiện tại**: vẫn bán/xếp được trên sơ đồ tới 06:00, và lễ tân không chọn được D-1. **Sai trạng thái** | P2 | Như #1 |
+| 6 | `pages/ops/HousekeepingPage.tsx:367`, `370`, `448` | Hạn việc buồng phòng tạo tay: mặc định và `min` = D | **Gửi** `dueDate` | Server nhận D-1…D-1+7 (`housekeeping.service.ts:851–853`). D nằm trong khoảng nên không lỗi | Việc gấp tạo lúc 02:40 sang ngày kinh doanh sau, **không hiện trong danh sách hôm nay** của buồng phòng (sau khi BUG-R2-211 sửa, PWA đọc D-1). Chọn D-1 cũng không được | P2 | Như #1 |
+| 7 | `pages/ops/HousekeepingPage.tsx:475`, `526` | Nhãn "Khách đến hôm nay" (`nextArrival.date === today`) | Chỉ hiển thị | – | Khách đến D-1 chưa nhận phòng không có nhãn. Khách đến D bị gắn "hôm nay" | P3 | Như #1 |
+| 8 **[TIỀN]** | `pages/RoomDrawer.tsx:49`, `63`, `100`, `340` | Giá niêm yết: `effectiveFrom` mặc định D, chặn `< today` | **Gửi** `listPrice.effectiveFrom` | Server nhận `≥ D-1` (`rooms.service.ts:265`, `372`) | Đổi giá lúc 00–06 **không đặt được hiệu lực cho ngày kinh doanh hiện tại**. Đơn tạo trong cửa sổ đó cho đêm D-1 vẫn dùng giá cũ. Hiếm (ít ai sửa giá lúc 2 giờ sáng), nhưng chạm giá | P3 | Như #1 |
+| 9 **[TIỀN]** | `pages/ParamDialog.tsx:61`, `81`, `92`, `128`, `254`, `307`; `pages/ParamsPage.tsx:48`, `49`, `59` | Tham số: `effectiveFrom` mặc định D, chặn `< today`. Nhãn "đã lên lịch" (`effectiveFrom > today`) | **Gửi** và hiển thị | Server nhận `≥ D-1` (`parameters.service.ts:158`) | Như #8. Ngoài ra dòng có hiệu lực từ D **không được gắn nhãn "đã lên lịch"**, dù server vẫn coi là tương lai. Có cả tham số tiền (cọc %, phụ thu…) | P3 | Như #1 |
+| 10 **[TIỀN]** | `pages/stay/CheckOutPage.tsx:77`, `91–92`, `304` | Chọn chặng ở hiện tại (`currentSegment`), từ đó lấy **`roomId` của tủ minibar** để đọc/ghi và tên căn | **Gửi** `roomId` minibar | Không từ chối | Chỉ sai khi có chặng bắt đầu đúng D (đổi căn xếp trước qua sửa đơn). Khi đó 02:40 chọn căn sau thay căn đang ở, minibar đếm nhầm tủ. Đổi phòng B14 chỉ ghi được cho `ctx.today` nên đường này rất hiếm | P3 | Như #1 |
+| 11 | `pages/stay/CheckOutPage.tsx:423`, `1235` | Hạn công nợ: `debtDue < today` coi là đã qua, `min` = today | **Gửi** `debt.dueDate` | Trong 00–06 khớp server. **Ban ngày lệch 1 ngày:** server cần `due > today` (`checkout.service.ts:1719`), Desk lại cho chọn `due = today`, server trả 422. Lỗi có sẵn, không do 211 | P3 **[TIỀN]**: chỉ bị từ chối, không sai tiền | Dùng ngày kinh doanh, kiểm `≤`, `min` = ngày kinh doanh + 1 |
+| 12 **[TIỀN]** | `pages/reservations/ReservationDialogs.tsx:1269` → `ServiceLines.tsx:66` | Gợi ý "đã thực hiện" trên dòng dịch vụ khi no-show | Chỉ hiển thị (gợi ý, lễ tân tự quyết giữ hay đảo) | – | Trong 00–06 lại khớp server (`≤` ngày kinh doanh). **Ban ngày lệch:** Desk dùng `<`, hợp đồng no-show dùng `≤` (`openapi.yaml:10369`), nên dòng của hôm nay không được gợi ý "đã thực hiện". Lỗi có sẵn | P3 | Ngày kinh doanh và `≤` cho no-show |
+| 13 | `pages/reservations/ReservationDialogs.tsx:881`, `1019`; `pages/reservations/ReservationDrawer.tsx:202`; `pages/stay/StayDialogs.tsx:60` | Căn hiện tại: mặc định ô chọn căn khi sửa đơn, tên căn trong toast và ngăn kéo, lọc bỏ căn hiện tại khỏi danh sách đổi phòng | Hiển thị / mặc định (chỉ gửi khi người dùng đổi) | – | Chỉ lệch khi có chặng bắt đầu đúng D (như #10) | P3 | Như #1 |
+| 14 | `pages/quotes/QuoteDialog.tsx:62`, `67`, `150`, `295`, `365`, `419`, `426`; `pages/quotes/QuotesPage.tsx:136`, `137`, `143`, `146`, `171`, `198` | Báo giá: ngày đến mặc định D+1, chặn ngày qua, cờ `arrivesToday` khóa "Giữ chỗ" | Gửi ngày đến (client chặn) | Server nhận `≥ D-1` (`quote-pricing.ts:176`) | Không báo giá được cho đêm D-1, nhưng báo giá vốn cho ngày sau. Ngày đến D lúc 02:40 thực ra là "ngày mai", nên "Giữ chỗ" vẫn bật là đúng. Không sai tiền | P3 | Như #1 |
+| 15 | `pages/rack/RackPage.tsx:44`, `45`, `125`, `190` | Cửa sổ sơ đồ (`from = today-2`), phím T | Chỉ hiển thị. Logic dùng `rack.today` của server (`75`, `152`) | – | Cửa sổ lùi 1 ngày, không ảnh hưởng gì | P3 (không cần sửa riêng) | Dùng `rack.today` khi đã có |
+| 16 | `pages/ops/MaintenancePage.tsx:47`, `53`; `424`, `427` | Cửa sổ tải khóa căn. `min` ngày kết thúc khi gia hạn khóa = today+1 | Hiển thị / chặn client | – | `min` cao hơn server 1 ngày: không chọn được ngày mở lại D | P3 | Như #1 |
+| 17 | `pages/ops/WorkOrderDrawer.tsx:386` | `min` ngày dự kiến có linh kiện | Chặn client | – | Không chọn được D-1. Không đáng kể | P3 | Như #1 |
+| 18 | `pages/money/MoneyPage.tsx:212–214` | Bộ lọc Thu tiền mặc định D-7…D | Gửi bộ lọc | `receivedTo` là ngày kinh doanh, nên D (chưa tới) không thiếu dòng nào | Không ảnh hưởng | P3 (không cần sửa riêng) | Như #1 |
+| 19 | `pages/GuestFormDialog.tsx:183` | Chặn ngày sinh ở tương lai | Chặn client | Server `DOB_FUTURE` so với D-1 (`guests.service.ts:214`) | Desk cho ngày sinh D, server trả 422 (lỗi hiện đúng ô). Không thực tế | P3 | Như #1 |
+
+**Không tính (đúng là ngày lịch của một thời điểm, không phải "hôm nay"):**
+- `BookingDialog.tsx:606` và `QuoteDialog.tsx:293`: in thời điểm `at`.
+- `HousekeepingPage.tsx:63`: giờ cập nhật.
+
+**Ngoài phạm vi, chỉ ghi lại:**
+- `mocks/*.ts` dùng `todayLocal()` nên bản demo MSW **không tái hiện** được lệch này. Sau khi sửa src, mock nên dùng cùng nguồn ngày kinh doanh.
+- `booking-web`, `guest-web` không dùng "hôm nay" theo kiểu này. `landing-web/src/scripts/booking-logic.ts` chỉ cộng ngày.
+
+**Tổng hợp:**
+- **P0:** chưa có. #2 có thể thành P0 nếu QA xếp vào "sai tiền". Lỗi tiền, mã đóng băng: ORC + ARC quyết.
+- **P1:** #1 Đổi phòng [TIỀN] (server từ chối, không sai tiền) và #2 Đặt đơn vãng lai sau 0 giờ [TIỀN].
+- **P2:** #3 [TIỀN], #4, #5, #6.
+- **P3:** các mục còn lại; trong đó #8, #9, #10, #11, #12 là [TIỀN].
+
+**Cách sửa đề xuất (một chỗ, để ARC duyệt):**
+- Thêm `app/businessDay.ts` với hook `useBusinessDay()`:
+  - đọc `BookingRules.businessDate` (`getBookingRules`, mọi vai đặt phòng đã đọc được – `app/rules.ts:115`);
+  - cache theo cơ sở, đọc lại khi tab được focus lại và khi qua mốc đổi ngày;
+  - nếu không đọc được thì dùng `todayLocal(tz, now − rollover)`, API vẫn kiểm lại.
+- Thay `todayLocal()` ở các mục trên bằng hook này. Riêng #4 quy `decidedAt` theo mốc đổi ngày.
+- **Cần ARC (hợp đồng):** `BookingRules` chưa có `businessDayRollover`, nên client chưa quy được một thời điểm ra ngày kinh doanh (#4) và không biết lúc nào cần đọc lại. Đề xuất thêm trường này (đổi nhỏ, không phá vỡ hợp đồng), hoặc cho `listApprovals` lọc theo ngày kinh doanh ở server.
+- Test kèm theo: đồng hồ giả 02:40 và 06:00 cho #1, #2, #4, #5, #6.
+
+## Phần FE-A – đợt 27: sửa ngày kinh doanh #1–#6 trên Desk (BUG-R2-211, ORC 20/10) (20/10/2026, Bước 4)
+
+**Phạm vi:**
+- Theo quyết định ORC 20/10: chỉ sửa mã client. Không đụng mã tiền phía server (folio/payments/pricing) và không đổi hợp đồng. ARC review sau.
+- Số thứ tự #1…#19 theo bảng "Rà ngày kinh doanh" ở trên.
+
+**Đã làm:**
+- **Nguồn ngày kinh doanh chung – `app/businessDay.ts` (mới):**
+  - `useBusinessDay()` đọc ngày kinh doanh theo vai:
+    - vai đặt phòng (OWN/MGR/FDL/FD/SAL/CTV): `getBookingRules().businessDate`;
+    - **HK/MNT** (hợp đồng không cho đọc `getBookingRules` – x-roles `openapi.yaml:2036`): `getRack().today`, đọc với `days: 1`. Đây là cùng `ctx.today` của `rack.service` (dòng 256), mọi vai đều đọc được, **không đổi hợp đồng**.
+  - Lưu cache theo cơ sở và theo ngày ước tính. Xóa cache khi `clearClientData`.
+  - Trước khi server trả lời, hoặc khi đọc lỗi: dùng ngày ước tính trên máy `businessDayLocal()` (mốc 06:00). API vẫn kiểm lại mọi ngày.
+  - `useBusinessDayChange()`: ô ngày còn để mặc định thì đi theo ngày server trả về.
+- **`app/dates.ts`:**
+  - thêm `businessDayLocal()`, cùng quy tắc với `shared/time.ts businessDate`, và `onBusinessDay()`;
+  - `todayLocal()` ghi rõ là **ngày lịch**, chỉ dùng để in ngày của một thời điểm.
+- **#1 Đổi phòng [TIỀN – chỉ client]** (`pages/stay/StayDialogs.tsx`, `ChangeRoomForm`): `effectiveDate` của lượt xem trước và lượt ghi, cùng `arrival` khi tìm căn trống, nay là ngày kinh doanh.
+- **#2 Đặt đơn [TIỀN – chỉ client]** (`pages/booking/BookingDialog.tsx`):
+  - ngày đến mặc định, `min`, kiểm `past_date` và lượt tìm căn trống dùng ngày kinh doanh;
+  - từ 00:00 tới 05:59 chọn được ngày đến D-1: khách đến 02:40 đặt đúng đêm D-1→D, không còn bị B9a cộng thêm đêm.
+- **#3 Đơn dài hạn [TIỀN – chỉ client]** (`pages/booking/LongStayDialog.tsx`): như #2.
+- **#4 Hộp duyệt nhận phòng** (`pages/stay/CheckInPage.tsx`):
+  - "duyệt trong hôm nay" nay so **ngày kinh doanh của `decidedAt`** với ngày kinh doanh của server, giống `checkin.service.ts:1025`;
+  - mốc đổi ngày là mặc định BR-010, vì `BookingRules` chưa có mốc này.
+- **#5 Khóa căn / phiếu sửa** (`pages/ops/WorkOrderForms.tsx`, cả 3 form): ngày bắt đầu mặc định và `min` là ngày kinh doanh. Căn hỏng lúc 02:40 bị khóa từ đêm nay.
+- **#6 Việc buồng phòng tạo tay** (`pages/ops/HousekeepingPage.tsx`, `CreateTaskDialog`): hạn mặc định và `min` là ngày kinh doanh.
+- **P3 chỉ hiển thị, không chạm tiền – sửa luôn:**
+  - #7: nhãn "Khách đến hôm nay" (`HousekeepingPage.tsx`, `RoomBoard`);
+  - #13: phần căn hiện tại hiển thị trong ngăn kéo đơn (`ReservationDrawer.tsx`).
+- **Mock MSW** (`mocks/reservations.ts`, `mocks/stay.ts`, `mocks/ops.ts`) trả lời như API:
+  - `BookingRules.businessDate` và `Rack.today` là ngày kinh doanh;
+  - đổi phòng kiểm `=== ngày kinh doanh`;
+  - hộp duyệt nhận phòng so ngày kinh doanh. Trước đây mock so **ngày UTC** (`slice(0, 10)`), cũng lệch;
+  - mốc dưới `DATE_IN_PAST` (đặt đơn, tìm căn, báo giá, khóa căn, việc buồng phòng) theo ngày kinh doanh.
+  - Dữ liệu mẫu vẫn theo ngày lịch như trước.
+
+**Test:** `__tests__/s4-211-fea.test.tsx` (mới, 21 ca), đồng hồ giả 02:40, 05:59 và 06:00 của ngày D.
+- **Helper:**
+  - `businessDayLocal`: 02:40 và 05:59 cho D-1, 06:00 cho D;
+  - #4 `onBusinessDay`: hộp duyệt 23:00 ngày D-1 còn hiệu lực lúc 02:40; hộp duyệt 05:00 ngày D hết hiệu lực sau 06:00.
+- **#1:** `effectiveDate` trong lượt xem trước và lượt ghi đúng ngày kinh doanh; mock nhận; chặng mới bắt đầu từ ngày đó.
+- **#2:**
+  - ngày đến mặc định, `min`, ngày đi cho cả 3 mốc giờ;
+  - lúc 02:40 tạo đơn D-1→D thành công.
+- **#3:** lúc 02:40 tạo đơn dài hạn từ D-1 thành công, không báo `past_date`.
+- **#5:**
+  - FD: ngày bắt đầu mặc định và `min` đúng, khóa căn `from` = ngày kinh doanh;
+  - MNT: đọc `/rack`, **không** gọi `/booking-rules`.
+- **#6:** hạn mặc định, `min`, và `dueDate` đã lưu đúng.
+- **Kiểm ngược:** trả 7 tệp trang về mã cũ (git stash) thì **13/21 ca đỏ**. 8 ca còn xanh là 3 mốc 06:00 không phụ thuộc trang và các ca helper.
+- **Ca cũ:** `s4-feb-ops.test.tsx` (AC1 khóa căn) và `change-room.test.tsx` nay so với ngày kinh doanh, để không đỏ khi CI chạy trong 00:00–05:59.
+
+**Kết quả:** chạy trên cây làm việc, chưa commit.
+- admin-web vitest: **50 tệp, 487/487 xanh** (trước đợt: 466).
+- `tsc --noEmit` xanh.
+- eslint và prettier `--check` xanh trên 15 tệp đã sửa/thêm.
+
+**Để lại R3 (ghi cho ARC/PO):**
+- **P3 chạm tiền:** #8 giá niêm yết, #9 tham số, #10 tủ minibar khi trả phòng, #11 hạn công nợ (`<` so với `≤` của server), #12 gợi ý no-show (`<` so với `≤` của hợp đồng).
+- **P3 khác:**
+  - #13 phần còn gửi lên server: mặc định căn trong hộp sửa đơn;
+  - #13 `roomOf()` trong tiêu đề các hộp gia hạn/trả muộn (cùng hộp với tiền);
+  - #14 báo giá, #15 sơ đồ, #16 gia hạn khóa căn, #17 ngày linh kiện, #18 Thu tiền, #19 ngày sinh.
+- **Hợp đồng (đề xuất R3 cho ARC, không làm lần này):** thêm `businessDayRollover` vào `BookingRules`, hoặc đưa ngày kinh doanh vào `Me.property`.
+  - Có trường này thì #4 quy `decidedAt` theo đúng tham số của cơ sở. Hiện dùng mặc định 06:00: nếu cơ sở đổi tham số, Desk có thể hiện một hộp duyệt mà server từ chối (422, có thông báo), không sai tiền.
+  - Hiện HK/MNT phải đọc `getRack` chỉ để lấy ngày.
+
+**Giả định:**
+- Múi giờ cơ sở không có giờ mùa hè (VN), nên `businessDayLocal` trừ thẳng mốc đổi ngày.
+- `getRack({ days: 1 })` đủ nhẹ cho HK/MNT: đọc một lần cho mỗi cơ sở và mỗi ngày.

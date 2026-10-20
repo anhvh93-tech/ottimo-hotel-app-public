@@ -173,7 +173,14 @@
     - (1) ô 3 gắn người đặt qua `GuestDocumentLink` → bỏ người B chưa có giấy tờ, còn ô 2 mở → `personIndexes` = [2]; chọn 3 → 422 `NOT_IN_LIST`;
     - (2) cắt số người không chọn ô → giấy tờ người đặt ở ô 3 không có `fields_purge_after`, ảnh giữ `delete_after` cũ; J16 sau 25 giờ → còn;
     - (3) guest-web `uploadedPeople` có ô 3.
-- Trạng thái: Open – **BE-C** (ORC chuyển; trước QC chấm lại)
+- Trạng thái: **Verified 20/10** (ARC, commit `c293ceb`, CI push 39270302984 xanh – `gh run view`: headSha `c293ceb`, success). Kiểm mã:
+  - một định nghĩa `isLinkedToNobody` + hai bản SQL `LINKED_TO_NOBODY_SQL`/`UNCLAIMED_DOC_SQL` (`registration.repo.ts:243-259`); `isOpenGuestSlot` và `isUnclaimed` cùng dùng định nghĩa này, nên `onPartyMemberRemoved` và `markUnclaimed` đều đúng;
+  - 4 câu SQL đã đổi sang hằng chung: J16 chọn đăng ký, "Cần chú ý" (thêm cả nhánh giấy tờ trẻ em), nhắc thị thực, `uploadedPeople`;
+  - trong `registration/` không còn mẫu `party_member_id IS NULL` viết tay, trừ `registration.controller.ts:419` (đếm giấy tờ người đặt, đúng nghĩa).
+  - Test `registration-party-removal.test.ts`, đủ 3 ca ARC đề xuất:
+    - "ARC S4-21 (1)": ô 3 gắn người đặt → `personIndexes` = [2]; chọn 3 → 422 `NOT_IN_LIST`, giấy tờ người đặt còn;
+    - "ARC S4-21 (2)(3)": cắt số người → ô 3 không có hạn; J16 sau 25 giờ còn ảnh, DEK và tệp; `uploadedPeople` = [1, 3]; "Cần chú ý" không báo.
+  - Không chạm mã tiền.
 
 #### FB-R2-ARC-BE-S4-22
 - Mức độ: Minor | Người sửa: BE-C (+ OPS chuẩn CONTRIBUTING)
@@ -189,7 +196,12 @@
   - Chạy `scripts/sec-be73-check.sql` bằng owner, tắt RLS, trên DB demo trước khi nâng.
   - Ghi vào `CONTRIBUTING.md` mục migration: "khối kiểm dữ liệu phải `NO FORCE`/`DISABLE` RLS rồi bật lại, theo mẫu 0055". **Migration 0078 của K1 phải theo mẫu này**, nếu không các câu UPDATE bù mốc sẽ không cập nhật dòng nào.
   - Test migration: dựng 1 dòng vi phạm rồi chạy, phải RAISE.
-- Trạng thái: Open – BE-C (dời R3 Sprint 1 được, trừ yêu cầu cho 0078)
+- Trạng thái: **Verified phần 0078 + quy tắc** (ARC 20/10, `c293ceb`):
+  - 0078 tắt RLS (`NO FORCE` + `DISABLE`) đúng 4 bảng nó đọc/ghi (`attachment`, `work_order`, `inspection`, `reservation`) và bật lại `ENABLE` + `FORCE` ở cuối tệp; có chú thích theo mẫu 0075.
+  - Câu UPDATE chỉ ghi dòng mốc NULL và chưa xóa. `cancelled` lấy `updated_at`; `penalty_evidence` lấy `actual_checkout_at`/`cancelled_at`/`no_show_marked_at` (các cột có ở `schema/reservations.ts:120,127`), không có thì lấy `uploaded_at`.
+  - Test `sec-be65-retention.test.ts` (6b) chạy nguyên tệp bằng owner không ngữ cảnh → bù đúng dòng; đối chứng giữ RLS → 0 dòng.
+  - Quy tắc "Migration dữ liệu và RLS" đã ghi ở `product/docs/coding-standards.md` mục 6.
+  - **Còn mở (Minor, OPS):** chạy `scripts/sec-be73-check.sql` bằng owner, tắt RLS, trên DB demo trước khi nâng demo lên ≥ 0070 (BE-C không được đụng stack demo). Không chặn chấm lại.
 
 #### FB-R2-ARC-BE-S4-23
 - Mức độ: Minor | Người sửa: BE-C (+ MOB guest-web)
@@ -229,7 +241,9 @@
   - giấy tờ đang chờ không vào nhắc thị thực (SEC-BE-58 (1)).
 - 0070: ràng buộc loại trừ `guest_id`/`party_member_id` và unique "một giấy tờ người đặt mỗi khai báo" (partial theo `removed_at`) đúng 16.22. `GRANT UPDATE (guest_id)` đủ hẹp. CHECK last4 ↔ P05 đúng BE-78 (a).
 
-**Điều kiện Verified K7:** S4-21 sửa xong và ARC kiểm lại trên commit chấm lại. S4-22: BE-C chạy script kiểm tra và áp yêu cầu RLS cho 0078. S4-23 và S4-24 dời R3 Sprint 1, có dòng backlog (S4-24 đã nằm trong K10). Phần "BE 9b/9c" của M5: **Verified** trên `50db5cd`, ngoại trừ ảnh hưởng của S4-21 lên `markUnclaimed`, vốn do BE-73 mở ra sau 9b.
+**Cập nhật 20/10 (ORC K7', `qc/s4-qc-gate.md` 10.4):** S4-21 **Verified**, S4-22 **Verified phần 0078 + quy tắc** (còn phần OPS chạy script trên demo), trên `c293ceb` CI 39270302984 xanh. K7 phía ARC: 0 Blocker, 0 Major mở.
+
+**Điều kiện Verified K7 (19/10):** S4-21 sửa xong và ARC kiểm lại trên commit chấm lại. S4-22: BE-C chạy script kiểm tra và áp yêu cầu RLS cho 0078. S4-23 và S4-24 dời R3 Sprint 1, có dòng backlog (S4-24 đã nằm trong K10). Phần "BE 9b/9c" của M5: **Verified** trên `50db5cd`, ngoại trừ ảnh hưởng của S4-21 lên `markUnclaimed`, vốn do BE-73 mở ra sau 9b.
 
 ## D. Tổng
 
@@ -293,3 +307,56 @@ Ghi chú khóa: a1/a2/a3 là `UPDATE attachment` theo `bound_ref` trong giao d�
 - Không mở lại thẻ nào. Mã HEAD so với `7ac11a4`/`f6803d0` không chạm lại vùng các thẻ này ngoài phần đã sửa.
 - Mọi dòng trên chỉ đọc mã, không chạy test DB. Kết quả test lấy từ CI 39244841718 (QC tự tải, 2.960 ca đạt).
 - K7 (mục C.K7): thêm 1 Major mới (S4-21, BE-C). Thẻ này không thuộc K6 nhưng phải đóng trước QC chấm lại.
+
+## F. Review nhanh hai bản sửa ngày kinh doanh BUG-R2-211 (20/10/2026, cây làm việc chưa commit)
+
+- Người review: ARC | Round 2 – Sprint 4, Bước 4 (K2' cổng QC) | Chỉ đọc. Phạm vi:
+  - (1) MOB, `outputs/MOB/s4-report.md` mục 10: `apps/mobile/src/app/{time,data,tasks}.ts`, 5 trang, mock;
+  - (2) FE-A đợt 27, `outputs/FE/s4-report.md`: `apps/admin-web/src/app/{businessDay,dates}.ts` cùng 7 trang và mock.
+- Đối chiếu: `openapi.yaml` (`listHkTasks` x-roles/x-scope :6750-6751; `getBookingRules` x-roles :2036; `getRack` x-roles :1785), `platform/public/property-context.ts:37-55`, `reservations/internal/booking-context.ts:29-35`, `rack.service.ts:125-135, 256`, `housekeeping.service.ts:809-813`.
+
+**Kết luận: đồng ý gộp cả hai bản, 0 Blocker, 0 Major.** Còn 2 Minor và 1 Suggestion, đều dời R3.
+
+| Câu hỏi của ORC | Trả lời |
+|---|---|
+| Đúng hợp đồng (x-roles, `ctx.today`)? | **Đúng.** MOB: `listHkTasks` không gửi `date` → server dùng `q.date ?? c.today` (`housekeeping.service.ts:809`), x-scope HK `today` qua; không gọi `getBookingRules` (HK/MNT không có trong x-roles). FE: vai đặt phòng đọc `getBookingRules().businessDate` (= `ctx.today`, `reservations.controller.ts:148`); HK/MNT đọc `getRack` (x-roles có cả HK/MNT), `days: 1` hợp lệ (`rack.service.ts:130`: 1…MAX). Không đổi hợp đồng, không thêm trường. |
+| Có đổi mã tiền phía server? | **Không.** `git diff --stat -- product/services product/packages` rỗng. #1–#3 (đổi phòng, đặt đơn, dài hạn) chỉ đổi giá trị client gửi lên; server vẫn kiểm `effectiveDate === ctx.today`, `DATE_IN_PAST` theo `ctx.today`, nên không có đường nào ghi tiền khác trước. Đặt đơn D-1→D lúc 02:40 là đúng BR-010 (đêm đang diễn ra), không phải nới quy tắc. |
+| `getRack().today` có đúng là ngày kinh doanh cho mọi vai? | **Đúng.** `today: ctx.today` (`rack.service.ts:256`), `ctx` từ `bookingContext` → `PropertyContextService.now()` → `businessDate(now, timezone, business_day_rollover)` (tham số thật của cơ sở, `property-context.ts:44-52`). Không có nhánh theo vai: `rackViewOf(roles)` chỉ che dữ liệu (`all_masked`, `availability_only`), không đổi `today`. Giá trị đúng với cả `from` bất kỳ. |
+
+Điểm làm tốt:
+- MOB bỏ hẳn `date` thay vì tự tính, để server là nguồn duy nhất.
+- `Promise.allSettled` tách lỗi: phần nào hỏng thì dùng bản offline của phần đó. Khi thiếu danh sách việc, bản lưu không giữ tên khách (SR-PWA-01).
+- Cả hai bên đều có ca đối chứng. MOB trả mã cũ thì 02:40/05:59 đỏ; FE trả mã cũ thì 13/21 ca đỏ.
+- Mock nay trả lời như server: 422 khi lệch ngày, so ngày kinh doanh chứ không so ngày UTC.
+
+### FB-R2-ARC-FE-S4-01
+- Mức độ: Minor | Người sửa: FE-A
+- Vị trí: `admin-web/src/app/businessDay.ts` `useBusinessDay` (`estimate = businessDayLocal(tz)` chỉ tính lại khi component render).
+- Vấn đề:
+  - Không có hẹn giờ tại mốc 06:00. Màn mở qua đêm (Desk để nguyên từ 05:50) sẽ giữ ngày D-1 cho mặc định và `min` cho tới khi render lại.
+  - Hậu quả: lễ tân gửi ngày D-1 sau 06:00 → server trả 422 `DATE_IN_PAST` hoặc lệch `effectiveDate`, có thông báo. Không sai tiền.
+- Đề xuất sửa: một `setTimeout` tới mốc đổi ngày kế tiếp (hoặc tính lại khi `visibilitychange`/focus) để cập nhật `estimate`; `useBusinessDayChange` đã có để dời mặc định. PWA cũng làm như vậy cho `businessDate()`.
+- Trạng thái: Open – dời R3 Sprint 1 (backlog)
+
+### FB-R2-ARC-MOB-S4-01
+- Mức độ: Minor | Người sửa: MOB
+- Vị trí: `apps/mobile/src/app/time.ts` `BUSINESS_DAY_ROLLOVER = '06:00'` (hằng), dùng cho `min`/kiểm trước ở `ReportPage.tsx:63`, `WorkOrderPage.tsx:193` và nhãn "đến hôm nay".
+- Vấn đề:
+  - `business_day_rollover` là tham số OWN/MGR sửa được (`0002_parameter_catalogue.sql:9`). Nếu cơ sở đổi mốc, PWA hiện sai "hôm nay" trong khoảng chênh.
+  - Hậu quả: `min` chặn một ngày hợp lệ, hoặc server trả 422 cho ngày PWA cho chọn. Danh sách việc vẫn đúng, vì không gửi `date`.
+  - FE đã có cách lấy ngày server cho HK/MNT (`getRack().today`); PWA không dùng.
+- Đề xuất sửa: R3 theo đề xuất hợp đồng bên dưới. Tạm thời có thể đọc `getRack({days:1}).today` khi trực tuyến (HK/MNT có trong x-roles) và lưu kèm bản offline. Hằng 06:00 chỉ dùng khi chưa từng đọc được.
+- Trạng thái: Open – dời R3 Sprint 1 (backlog)
+
+### FB-R2-ARC-FE-S4-02 (Suggestion – đề xuất hợp đồng R3, ARC tự nhận)
+- Vấn đề: client không có nguồn chính thức cho ngày kinh doanh và mốc đổi ngày, nên:
+  - HK/MNT phải đọc `getRack` (một truy vấn rack đầy đủ) chỉ để lấy `today`;
+  - FE #4 (`onBusinessDay` của `decidedAt`) và PWA dùng mặc định 06:00 thay vì tham số thật.
+- Đề xuất (0.3.8, cộng thêm, không phá vỡ):
+  - (a) `Me.property` thêm `businessDate` (`LocalDate` = `ctx.today` lúc trả lời) và `businessDayRollover` (`LocalTime`) cho mọi vai. Đây là nguồn chung cho Desk và PWA, có trong phiên nên PWA lưu offline được.
+  - (b) `BookingRules` thêm `businessDayRollover`, để #4 dùng ngay cho vai đặt phòng.
+  - (c) Không thêm vào từng phản hồi danh sách. `listHkTasks` không `date` đã đi theo `ctx.today`.
+  - Khi có (a), FE bỏ nhánh `getRack` trong `useBusinessDay`, MOB bỏ hằng 06:00 (giữ làm dự phòng khi chưa có phiên).
+- Trạng thái: Open – ARC đưa vào hợp đồng R3 Sprint 1 (PO thêm dòng backlog cùng hai Minor trên). Không chặn bản dùng thử, vì server luôn kiểm lại.
+
+**Tổng F:** 0 Blocker · 0 Major · 2 Minor · 1 Suggestion. Phía ARC đồng ý ORC gộp hai bản sửa, kèm CI xanh và QA chạy lại ca 02:40/05:59/06:00 của BUG-R2-211.

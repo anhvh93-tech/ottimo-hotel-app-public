@@ -2,6 +2,7 @@
 
 - Người chấm: QC | Nháp 18/10/2026 18:00–18:40 → **chính thức 19/10/2026** sau ba bộ phản biện (36 ý, mục 3) | Round 2, Sprint 4, tuần Ổn định | Bước 6 – Cổng chất lượng.
 - Đọc lại theo ma trận: ORC (bắt buộc), PO (khuyến nghị).
+- **Chấm lại 20/10 (mục 10, cuối tệp): KHÔNG ĐẠT lần 2** – 9/11 việc K đạt; còn K2 (lượt T9 hằng đêm gần nhất 39312874062 trên `c293ceb` đỏ, TC-X-074) và K7 (ARC chưa ghi Verified S4-21). Mục 1–9 dưới đây giữ nguyên nội dung lần chấm 19/10.
 - Căn cứ chấm: `sprint-4-plan.md` mục 3 (M1–M8), 11.1 (G1–G8), 11.2 (quyết định, quy tắc lùi cổng D8), 12.3 (thứ tự cắt), 16 (thay đổi sau đóng băng). QC **không đổi quy tắc cổng**; chỗ nào quy tắc chưa đạt thì ghi là chưa đạt và chỉ đường gỡ hợp lệ.
 - Ký hiệu: **Đạt** · **Đạt có ĐK** (đạt về nội dung, còn việc nêu ở mục 6) · **Chưa** (thiếu so với chữ của tiêu chí) · **KAD** (không áp dụng ở cổng này).
 
@@ -255,3 +256,84 @@ QC chưa kiểm được:
 8. Chờ anh/chị quyết, không chặn cổng: ESC-022 (tên Wi-Fi), ESC-023 (rút ngắn đơn < 7 ngày), ESC-024 (phụ thu trả muộn khi quản lý không trả lời).
 
 ESC mới: **không có**. ESC-025 đã đóng 19/10. KHÔNG ĐẠT ở cổng sprint của Round 2 thuộc quyền QC, không phải báo lên.
+
+---
+
+## 10. Chấm lại 20/10
+
+- Người chấm: QC | 20/10/2026 | Round 2, Sprint 4, tuần Ổn định | Bước 6 – chấm lại rút gọn theo mục 5 (chỉ K1–K11; không mở lại dòng đã Đạt trừ khi commit mới chạm vùng đó).
+- **Commit chấm lại: `c293ceb`** (mã) + `06994e5` (chỉ tài liệu K4/K5: `s4-a7-reconciliation.md`, `bug-list.md` – QC kiểm `git diff --name-only c293ceb 06994e5`).
+- QC tự tải bằng `gh run view -R anhvh93-tech/ottimo-hotel-app-public` (log + `--json headSha,event,attempt`), không dùng số tự khai:
+
+| Run | Sự kiện | Commit | Lần | Kết quả QC đọc từ log |
+|---|---|---|---|---|
+| 39270302984 | push | `c293ceb` | 1 | Xanh. API 104 tệp / **2.971 đạt**, 2 bỏ qua; `sec-be65-retention` 9/9, `registration-party-removal` 18/18, `s438-r8` 5 + 3 = 8/8. E2E `Running 2041 tests`: **1.972 đạt**, 69 bỏ qua, **0 dòng `retry #`**, 0 ✘. Bước "UI cases ran (… write steps …)" success (`WRITES` 11 ca). gitleaks **144 commit, no leaks**. `pnpm audit` "3 moderate", 0 high. GHCR/staging bỏ qua theo thiết kế |
+| 39273997368 | workflow_dispatch (T9) | `c293ceb` | 1 | Xanh. 2.041 ca: 1.972 đạt, 69 bỏ qua; **0 dòng `retry #`**; tóm tắt guard "0 flaky, 0 masked by retry"; có `gate-s4` (desk-chromium 8 ca, desk-clock 7 ca) và `axe-k8.s4` TC-X-084…087 ✓ |
+| **39312874062** | **schedule (T9 hằng đêm, 19:40 UTC = 02:40 giờ Đà Lạt 20/10)** | **`c293ceb`** | 1 | **Đỏ.** TC-X-074 (`ui/gate-s4.spec.ts:413`, desk-chromium, đồng hồ thật) ✘ lần đầu và ✘ `retry #1`: PWA "Các căn" hiện hộp lỗi "Chưa tải được trạng thái các căn", không có link "Căn nnn" (QC đọc `error-context.md` trong artifact `t9-playwright-report`). 1 failed, 1.747 đạt, 67 bỏ qua, **226 không chạy** (gồm cả `axe-k8.s4`). "T9 retry guard" **failure** |
+
+- Lượt dispatch chạy lúc 21:59 giờ Đà Lạt và xanh. Lượt lịch chạy lúc 02:40 cùng mã và đỏ cả hai lần, nên nhiều khả năng lỗi phụ thuộc giờ trong ngày, không phải chập chờn. QC chỉ nêu giả thuyết, chưa chứng minh: PWA gọi `listHkTasks(pid, localDate())` cùng `listRoomStatuses` trong một `Promise.all` (`apps/mobile/src/app/data.tsx:86-89`). Một trong hai lời gọi có thể lỗi trong khoảng sau nửa đêm, trước khi đổi ngày kinh doanh. Nếu đúng vậy thì đây là **lỗi sản phẩm** của ca đêm buồng phòng, không chỉ là lỗi ca kiểm. QA xác định, MOB/BE-C sửa.
+- **Không ai ghi lượt đỏ này.** `bug-list.md` 11.37 và `s4-a7-reconciliation.md` 8.7 chỉ dẫn 39270302984 + 39273997368 "xanh". Prompt giao việc cho QC cũng không nhắc tới lượt này. QC thấy nó khi tự chạy `gh run list`.
+- **Vùng tiền đóng băng:** `git diff --name-only 2a6d61f c293ceb` không có tệp nào trong `folio/`, `payments/`, FOC, checkout hay công nợ ở `src`. Đúng như ORC báo. Chỉ có một tệp test tiền `e2e/api/refund-credit.s4.api.spec.ts` đổi theo C10: ca bỏ qua có lý do khi ngày rơi vào đêm DS-E, và luật cao điểm đã có TC-L2-053 kiểm. Hai ca C10 khác chuyển oracle sang BR-309-08. Mã `src` đổi ở `files/attachment.service.ts`, `housekeeping` (2 lời gọi đặt mốc), `registration` (S4-21) và `0078`. Đây không phải mã tiền, nên **không mở lại G1**.
+- QC tự chạy `gen_traceability.py --strict` trên HEAD `06994e5` (chỉ đọc): **exit 0**, cây vẫn sạch.
+
+### 10.1 Bảng K1–K11
+
+| # | Đạt khi (mục 5) | Bằng chứng QC kiểm | Kết quả |
+|---|---|---|---|
+| K1 | SEC Verified 8/8 SEC-G3 trên commit chấm lại; CI xanh | SEC `s4-SEC.md` C.15 đã Verified BE-65 và đóng BE-38 điểm 2 (`s3-SEC.md` 10.4, dòng 179) **trên cây làm việc**. SEC tự nêu điều kiện "chạy lại 2 tệp test trên commit chấm lại". CI push trên `c293ceb` đã chạy đúng 2 tệp đó: `sec-be65-retention` 9/9, `registration-party-removal` 18/18. QC đọc diff `c293ceb` và thấy khớp từng điểm C.15: `setRetentionAnchorForRef` theo một bản ghi; `complete`/`cancel`/`reopen`; mốc kiểm phòng = `performedAt`; `STAY_ENDED` khi upload; `onReservationVoided` đặt mốc trước `if (!reg) return`; `anchorMissing` chỉ đếm; 0078. Không đụng folio/payments. Phần còn lại tách thành BE-84 (R3-Q33). BE-B chưa có dòng review mã (thủ tục, xem C11) | **Đạt** → G2.2 Đạt (8/8), M5 phần SEC |
+| K2 | **Lượt T9 gần nhất xanh**, retry guard xanh, có ca axe `gate-s4` | Lượt T9 gần nhất trên `c293ceb` là **39312874062 (lịch) – đỏ**, retry guard đỏ, `axe-k8` không chạy. Lượt dispatch 39273997368 xanh nhưng **không phải lượt gần nhất**. G5.2 ghi đúng chữ "lượt T9 hằng đêm gần nhất xanh". Lần chấm 19/10, QC đã rút lại việc tự nới G5.2 (A-CH-07, C-CH-04), nên lần này cũng không nới | **Chưa** → G5.2 Chưa |
+| K3 | 8/8 xanh, 0 `retry #`, `WRITES` 11/11, `s438-r8` 8/8, gitleaks toàn lịch sử, audit 0 high | Run 39270302984 (bảng trên) | **Đạt** → G5.1 giữ Đạt |
+| K4 | `a7-ds0` 114/114 trên commit chấm lại | `s4-a7-reconciliation.md` 8.7: `c293ceb`, cây sạch, DB mới, 5/5 test, 21/21 mã; kết quả giống từng byte lượt 3 (114 phép so). A7-01/02/03 Verified | **Đạt** → G4.4 Đạt |
+| K5 | Bảng tổng khớp từng dòng; 0 P0/P1 Open/Fixed | QC đếm lại bằng script: 210 lỗi, P0 10/10 Closed, P1 66/66 Closed. P2: 76 Closed, 2 Open (208 → R3-Q19, 209 → R3-Q20), 1 Deferred (074). P3: 40 Closed, 15 Open. **Khớp bảng tổng.** 186 đã tách, 193 Closed (TC-X-087 không `knownBug`). Chưa có dòng nào cho lượt đỏ 39312874062. Dòng đó thuộc K2 mới, không làm hỏng việc đếm | **Đạt** → G7 Đạt (đếm trên `06994e5`) |
+| K6 | Không còn Blocker/Major review S4 "Open" mà tác giả đã Done | ARC `s4-ARC.md` E.2: S3-15, S4-01/02/03 (định nghĩa)/07/08/09 (tiền)/13 Verified. `openapi-0.3.7.md` BE-S4-16 Verified. `s3-ARC.md` S3-15 Verified. UXD: FE-S4-01/02 (`s4-UXD.md`), FE-S4-22 (`s4-UXD-brand.md`) Verified. SEC BE-73 C.14 Verified trên `50db5cd`. Từ `50db5cd` tới `c293ceb`: không đổi trang FE của Desk. `registration` chỉ đổi định nghĩa "không gắn ai" (S4-21), không chạm `guestOfPerson`, `keepDocKey`, `recordCrmConsent` (C.14). `housekeeping` chỉ thêm lời gọi đặt mốc trong giao dịch đã giữ khóa phiếu (ARC E.1), không đổi thứ tự khóa S4-02 | **Đạt** → G3.1, G2.4 phần BE-73 |
+| K7 | Có tệp review; Blocker/Major Verified hoặc dời có backlog | `s4-ARC.md` C.K7 có: 0 Blocker, 1 Major (**S4-21**), 3 Minor, 1 Suggestion. S4-21: BE-C ghi "Done – chờ ARC kiểm" (`responses/s4-BE-C.md` dòng 33). Mã đã vào `c293ceb`: `isLinkedToNobody`, `LINKED_TO_NOBODY_SQL`, `UNCLAIMED_DOC_SQL` ở `isOpenGuestSlot` và 4 câu SQL; CI 18/18. Nhưng `s4-ARC.md` dòng S4-21 vẫn ghi **"Trạng thái: Open"**, ARC chưa ghi Verified. Chính ARC đặt điều kiện "ARC kiểm lại trên commit chấm lại". QC không Verified thay ARC (protocol: người review ghi Verified). S4-22: phần 0078 xong (ca 6b); phần chạy script trên demo chuyển OPS. S4-23 → R3-Q34, S4-24 → R3-Q28, S4-25 → R3-Q35 | **Chưa** (chỉ thủ tục: ARC ghi Verified S4-21) → G3.3, M5 phần "BE 9b/9c" |
+| K8 | Ca axe chạy trong K3 và K2, 0 lỗi nghiêm trọng | `axe-k8.s4.spec.ts` TC-X-084…087 ✓ trong push 39270302984 và dispatch 39273997368. TC-X-077 bỏ `scrollTo` ✓. BUG-R2-193 Closed. UXD chấp nhận cách sửa (`s4-UXD-brand.md` G.2). Lượt lịch 39312874062 **không chạy** `axe-k8` (dừng sau ca đỏ) | **Đạt có ĐK** (ca chạy lại trong lượt T9 của K2' – C12) → G8.2 |
+| K9 | Có dòng ORC; G6.1 = "Đạt có ĐK" | `sprint-4-plan.md` 16.5: ORC tick "Duyệt (ii)", có lý do. Decision-log 19/10 "ORC – K9". Logo S4-49 chuyển Ổn định theo 12.3 bước 7. Ô "Ngày / Dòng decision-log" ở 16.5 còn trống (thủ tục nhỏ, C11) | **Đạt** → G6.1 **Đạt có ĐK** (1 dòng mềm) |
+| K10 | grep backlog thấy đủ mã; mọi `pendingFix` trỏ tới mục có thật | Backlog 5.5 R3-Q19…Q35: 208, 209, 210, 16.31, SEC-BE-83 (`R3-SEC-BE-83` → R3-Q22; 3 thẻ `pendingFix` trong `br-examples.json`), BE-S4-17/18/19 (R3-Q23), N-11, SEC-BE-82, S4-03/09 phần đọc chéo + 186, S3-16 `ModuleRef`, S3-15 (e) + BUG-205, BUG-R2-123, fuzz công nợ, BE-84, S4-23, S4-25. Còn thiếu hai việc phụ của K10 (không nằm trong "Đạt khi"): (a) BE-B/BE-C chưa ghi "Deferred" cho SEC-BE-74, 75, 79, 83 trong `responses/`, mới có bảng trỏ của PO (`responses/s4-PO.md` mục 2); (b) backlog R3-Q19 ghi "điều kiện SEC review 208 ghi ở `s4-SEC.md`", nhưng `s4-SEC.md` chưa có câu đó | **Đạt** (2 việc phụ → C11) → G3.2, G7.2 |
+| K11 | Có mục SEC; vẫn 0 Critical/High Open | `s4-SEC.md` mục E (E.1–E.7): 0 Critical/High. BE-83, BE-79 thành điều kiện cứng trước dữ liệu thật. E.6 là đề xuất cài đặt GitHub cho ORC/OPS | **Đạt** → G2.5 Đạt |
+
+### 10.2 Dòng G sau chấm lại
+
+- Nhóm cứng: G1 Đạt (không mở lại) · G2 **Đạt** (G2.2 8/8, G2.4 Đạt có ĐK do C5 còn, G2.5 Đạt) · G4 **Đạt** · **G5 Chưa (G5.2 – K2)** · G7 **Đạt**.
+- Nhóm mềm: G3 **Chưa** (G3.3 – K7, chỉ thủ tục) · G6 **Đạt có ĐK** (16.5) · G8 **Đạt có ĐK** (K8).
+- Không có tình huống nào trong bốn tình huống KHÔNG ĐẠT ở mục 3. Không có lỗi tiền P0/P1 Open.
+
+### 10.3 Quyết định chấm lại: **KHÔNG ĐẠT (lần 2)**
+
+Lý do (1 câu): theo 11.2, ĐẠT hoặc ĐẠT CÓ ĐIỀU KIỆN đòi G5 đạt. Nhưng **lượt T9 hằng đêm gần nhất trên chính commit chấm lại đỏ**: một ca PWA buồng phòng lỗi lúc 02:40, đỏ cả hai lần chạy. Lỗi chưa ai ghi hay phân loại, nên chưa loại trừ được đây là lỗi sản phẩm của ca đêm.
+
+Đọc kỹ để không hiểu sai:
+- 9/11 việc K đạt. Tiền vẫn đạt và không mở lại.
+- Cổng trượt vì **một lượt kiểm đỏ chưa được giải thích** và **một dòng Verified còn thiếu**. Đã có thêm 8/8 SEC-G3, sổ lỗi khớp, A7 114/114, axe K8 xanh.
+- Nếu lượt đêm chỉ đỏ do ca kiểm phụ thuộc giờ, việc sửa là sửa ca kiểm. Nhưng QA phải chứng minh điều đó bằng log, không suy đoán. QC không tự coi lượt dispatch xanh là "lượt gần nhất".
+
+### 10.4 Việc còn lại để chấm lại lần 3 (rút gọn, chỉ 2 dòng)
+
+| # | Việc | Người làm | Đạt khi | Gỡ dòng |
+|---|---|---|---|---|
+| **K2'** | (1) QA ghi lượt 39312874062 vào `bug-list.md`: tái hiện TC-X-074 với đồng hồ PWA/máy chủ đặt ở khoảng 00:00–06:00 giờ Đà Lạt, tìm lời gọi API lỗi (mã, thông điệp), xếp mức theo `test-strategy.md` mục 8. (2) Lỗi sản phẩm → MOB/BE-C sửa (không chạm mã tiền), thêm ca `desk-clock` ở giờ đêm. Lỗi ca kiểm → QA sửa ca, ghi lý do. (3) Commit mới → CI push xanh như K3 → lượt T9 **chạy trong khung giờ đêm** (lượt lịch 19:17 UTC, hoặc dispatch sau 17:00 UTC) xanh, và là lượt T9 gần nhất lúc QC chấm | QA; MOB/BE-C nếu lỗi sản phẩm; ORC, OPS chạy CI | Có dòng bug-list cho lượt đỏ (Closed). Lượt T9 gần nhất xanh, chạy trong khung giờ đêm, retry guard xanh, 0 `retry #`, có `gate-s4` + `axe-k8.s4`. CI push trên cùng commit xanh như K3 | G5.2, G8.2 (C12) |
+| **K7'** | ARC kiểm lại FB-R2-ARC-BE-S4-21 trên `c293ceb` (hoặc commit chấm lần 3): mã + 2 ca mới trong `registration-party-removal.test.ts`. Ghi Verified, hoặc mở lại có lý do, ở `s4-ARC.md` | ARC | Dòng S4-21 ghi "Verified" kèm commit | G3.3, M5 |
+
+- Khi chấm lần 3, QC chỉ kiểm K2' và K7'. Nếu commit mới đổi `src`, QC kiểm `git diff` để xem có chạm vùng các K đã đạt hay vùng tiền không. Chạm thì mở lại đúng dòng đó. Không chạm thì giữ nguyên bảng 10.1.
+- Dự kiến khi xong K2' và K7': G5 Đạt, G3 Đạt. Mềm còn G6, G8 "Đạt có ĐK" (2 dòng ≤ 2) → **ĐẠT CÓ ĐIỀU KIỆN**.
+
+### 10.5 Điều kiện còn giữ (sau chấm lại)
+
+- **C1–C10 (mục 6) giữ nguyên.** C1 đóng băng mã tiền giữ tới chấm lần 3. C9 (6 PR Dependabot): QC thấy 2 PR Dependabot mới đỏ (39336320266, 39336300552, 19/10 22:38 UTC) – không gộp.
+- **C11 (mới – thủ tục, trước QC Round 2):**
+  - (a) BE-B ghi một dòng review mã BE-65 (K1 ghi "BE-B review"), hoặc ORC ghi miễn vì SEC đã đọc mã;
+  - (b) BE-B, BE-C ghi "Deferred" cho SEC-BE-74, 75, 79, 83 trong `responses/`, trỏ R3-Q17/R3-Q22;
+  - (c) SEC ghi điều kiện review 208 (thứ tự 207 → 210 → 208, review trước gộp) vào `s4-SEC.md`, như backlog R3-Q19 đã dẫn;
+  - (d) ORC điền "Ngày / Dòng decision-log" ở `sprint-4-plan.md` 16.5;
+  - (e) UXD xác nhận kết quả axe H23 (G.2 "khi ORC nhắn") và ghi Verified MOB-S4-05 (a) – QC thấy `-webkit-tap-highlight-color: transparent` đã có trong `c293ceb` (2 tệp `styles.css`).
+- **C12 (mới):** ca `axe-k8.s4` phải có trong lượt T9 của K2'. Lượt lịch 39312874062 dừng trước khi chạy tới ca này.
+- **C13 (mới – quy trình):** từ nay, mỗi báo cáo "CI/T9 xanh" (QA, DATA, ORC) phải dẫn **lượt T9 gần nhất** trên commit đó, kèm `gh run list --workflow CI -L 5`, không chỉ lượt chọn. Lý do: lần này hai báo cáo dẫn lượt dispatch xanh, trong khi lượt lịch sau đó đã đỏ 6 giờ.
+
+### 10.6 Giả định và những gì QC chưa kiểm được (chấm lại)
+
+- Giả định: SEC Verified BE-65 trên cây làm việc. Mã BE-65 trong `c293ceb` khớp mô tả C.15 (QC đọc diff), và CI trên `c293ceb` chạy đúng 2 tệp SEC yêu cầu. Vì vậy QC coi đó là lần "chạy lại trên commit chấm lại" mà SEC đặt ra.
+- Giả định: "lượt T9 gần nhất" tính trên commit chấm lại, tại lúc QC chấm (20/10 sáng). Lượt push 39355296057 trên `06994e5` (chỉ tài liệu) đang chạy và không phải T9.
+- QC chưa tái hiện TC-X-074 lúc 02:40, chưa chứng minh giả thuyết `listHkTasks`/ngày kinh doanh. Việc này của QA (K2'). Log API trong "Compose logs" chỉ còn 150 dòng cuối, sau thời điểm lỗi, nên không thấy được lời gọi lỗi.
+- QC không chạy stack, không chạy test DB, không đi luồng bằng tay, không đụng stack demo, không in tệp env. Mọi số liệu CI lấy từ log GitHub QC tự tải.
+
+ESC mới: **không có**. KHÔNG ĐẠT cổng sprint ở Round 2 thuộc quyền QC; không ảnh hưởng mốc RC hay bản dùng thử (Round 3).

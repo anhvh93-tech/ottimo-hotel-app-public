@@ -27,7 +27,8 @@ import { listApprovals } from '../../app/approvals';
 import { useCatalog } from '../../app/catalog';
 import { dayMonth } from '../../app/reservations';
 import { useRules } from '../../app/rules';
-import { timeHHmm, todayLocal } from '../../app/dates';
+import { useBusinessDay } from '../../app/businessDay';
+import { onBusinessDay, timeHHmm } from '../../app/dates';
 import { useToast } from '../../app/toast';
 import { lineLabel, signed } from '../../app/folio';
 import { Page, Topbar } from '../../components/AppShell';
@@ -76,7 +77,7 @@ const STEPS = [
 export function CheckInPage({ reservationId }: { reservationId: string }) {
   const { t, money, dateTime } = useI18n();
   const propertyId = usePropertyId();
-  const { roles, deviceTrusted } = useSession();
+  const { roles, deviceTrusted, property } = useSession();
   const { online, since } = useOnline();
   const navigate = useNavigate();
   const toast = useToast();
@@ -84,6 +85,8 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   const lead = roles.some((r) => LEAD_PLUS.includes(r));
   const catalog = useCatalog(propertyId);
   const rules = useRules(propertyId, roles);
+  const businessDay = useBusinessDay();
+  const tz = property?.timezone;
   const R = { propertyId, reservationId };
 
   const res = useResource(
@@ -118,10 +121,13 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
                 a.type === 'checkin_room_not_ready' &&
                 a.reservationCode === r.code &&
                 !!a.decidedAt &&
-                todayLocal(undefined, new Date(a.decidedAt)) === todayLocal(),
+                // BUG-R2-211: "of today" = the BUSINESS day of the decision (API `checkin.service`
+                // businessDate(decided_at) === ctx.today) – a 23:00 approval still counts at 02:40, a 05:00
+                // one no longer counts after 06:00. Rollover = BR-010 default (not in BookingRules – R3).
+                onBusinessDay(a.decidedAt, businessDay, tz),
             })
           )[0] ?? null),
-    [propertyId, lead, r?.code],
+    [propertyId, lead, r?.code, businessDay],
   );
   const approved = roomApproval.state.data ?? null;
   const reloadApproval = () => {
