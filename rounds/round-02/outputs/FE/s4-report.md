@@ -1448,3 +1448,32 @@ Nguồn: `rounds/round-02/outputs/UXR/s4-pwa-walkthrough.md` (P-02, P-03, P-06 m
 **Giả định:**
 - Múi giờ cơ sở không có giờ mùa hè (VN), nên `businessDayLocal` trừ thẳng mốc đổi ngày.
 - `getRack({ days: 1 })` đủ nhẹ cho HK/MNT: đọc một lần cho mỗi cơ sở và mỗi ngày.
+
+### Đợt 27 – bổ sung: CI 39358556872 đỏ "window is not defined" sau khi test xong (20/10/2026)
+
+**Nguồn lỗi (đã tái hiện và có stack):**
+- Cách tái hiện: chạy 6 lượt `vitest run --maxWorkers=2` cùng lúc, mô phỏng runner CI 2 vCPU đang tải. Ra **1 lần trong 12 lượt**, cùng thông báo như CI:
+  - `ReferenceError: window is not defined`, đi qua `getCurrentEventPriority` → `requestUpdateLane` → `dispatchSetState` của react-dom;
+  - nguồn là `Timeout._onTimeout src/components/GuestPicker.tsx:143` (`onBlur={() => setTimeout(() => setOpen(false), 150)}`);
+  - tệp gây lỗi: `s3-fix.test.tsx`.
+- Gốc: hẹn giờ 150 ms đóng danh sách khi rời ô chọn khách **không bị hủy khi GuestPicker unmount**. Nếu tệp test kết thúc trong 150 ms đó, jsdom đã gỡ, hẹn giờ chạy `setOpen`, và React 18 đọc `window.event` thì nổ.
+- Lỗi có sẵn từ trước, **không do `useBusinessDay`**. Hook này chỉ đổi `setState` khi chưa cleanup (cờ `stale`).
+- Nghi vấn request treo: đã kiểm bằng log `request:start`/`request:end` của MSW sau mỗi ca. Chỉ còn 1 request mở (GET folio, có sẵn) và **không có** request nào của `booking-rules` hay `rack`.
+- `--sequence.shuffle` làm đỏ ca ở `s4-feb-dashboard`/`auth` vì phụ thuộc thứ tự (`useI18n outside I18nProvider`). Đây là chuyện riêng, không phải lỗi CI này.
+
+**Đã sửa tận gốc (không tắt kiểm unhandled error):**
+- `components/GuestPicker.tsx`: giữ hẹn giờ blur trong `useRef`, hủy hẹn cũ khi blur lại, và `clearTimeout` khi unmount.
+- `app/toast.tsx`: cùng loại lỗi. Hẹn giờ tự ẩn toast (vài giây) không bị hủy khi provider unmount (đăng xuất, cleanup test), nên nay hủy hết khi unmount.
+- Đã rà các hẹn giờ/interval khác: `useDebounced`, `useDelayed`, `live.ts`, `useWrite`, `useNow`, `useDashboard`, `LoginPage` đều có cleanup.
+- Còn `setTimeout(…, 0)` ở `DocsPanel.tsx:190` gọi `setLinking`. Rủi ro rất thấp (0 ms), để R3.
+
+**Test chống tái phát** (`__tests__/s4-211-fea.test.tsx`, nhóm "CI 39358556872", 2 ca):
+- Unmount rồi chạy các hẹn giờ còn treo khi đã gỡ `window`, giống lúc jsdom bị gỡ.
+- Trên mã cũ: **2/2 đỏ** (`Cannot read properties of undefined (reading 'event')`). Trên mã mới: 2/2 xanh.
+
+**Kết quả trên cây làm việc** (chưa commit, không gọi `gh`):
+- admin-web vitest chạy tuần tự **3 lần liền: 50 tệp, 489/489 xanh, 0 lỗi unhandled**.
+- Chạy tải nặng 18 lượt (3 vòng × 6 lượt, `--maxWorkers=2`): **18/18 xanh, 0 "window is not defined"**. Trước khi sửa, 12 lượt có 1 lỗi.
+  - Lỗi theo thời điểm nên đây là bằng chứng mạnh, chưa phải chứng minh tuyệt đối.
+  - Ở một lượt tải trước khi sửa, `booking.test.tsx:58` từng hết thời gian chờ toast (5 s). Lượt 18 vòng này không lặp lại.
+- `tsc --noEmit` xanh; eslint `apps/admin-web/src` xanh; prettier `--check apps/admin-web/src` xanh.

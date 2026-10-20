@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -51,6 +52,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     },
     [schedule],
   );
+  // Auto-hide timers die with the provider (sign-out, test cleanup): a late `remove` would set state on an
+  // unmounted provider – after the Vitest jsdom teardown that throws "window is not defined".
+  useEffect(() => {
+    const live = timers.current;
+    return () => {
+      live.forEach((t) => clearTimeout(t));
+      live.clear();
+    };
+  }, []);
   const itemsRef = useRef(items);
   itemsRef.current = items;
   const pause = () => {

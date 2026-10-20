@@ -1,7 +1,7 @@
 import type { Guest, GuestSummary } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Icon } from '@ottimo/ui';
-import { useEffect, useId, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { findGuests } from '../app/guestSearch';
 import { useDebounced } from '../hooks/useDebounced';
 import { GuestFormDialog } from '../pages/GuestFormDialog';
@@ -46,6 +46,11 @@ export function GuestPicker({
   /** Name the quick-create form opens with (the text the option was offered for). */
   const [creating, setCreating] = useState<string | null>(null);
   const q = useDebounced(text.trim(), 300);
+  // The list closes 150 ms after blur (a click on an option lands first). The timer dies with the picker:
+  // firing after unmount set state on a gone component – in Vitest after the jsdom teardown it threw
+  // "window is not defined" (CI 39358556872, s3-fix.test.tsx).
+  const blurTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(blurTimer.current), []);
 
   useEffect(() => {
     if (q.length < 2) return;
@@ -140,7 +145,10 @@ export function GuestPicker({
           setOpen(true);
         }}
         onKeyDown={onKey}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onBlur={() => {
+          clearTimeout(blurTimer.current);
+          blurTimer.current = setTimeout(() => setOpen(false), 150);
+        }}
       />
       {expanded ? (
         <ul

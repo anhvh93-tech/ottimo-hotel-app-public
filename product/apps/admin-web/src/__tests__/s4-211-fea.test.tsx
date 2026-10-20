@@ -232,3 +232,47 @@ describe('#6 A83 việc buồng phòng tạo tay – due = business day', () => 
     );
   });
 });
+
+describe('CI 39358556872 – no state update after unmount (jsdom teardown: "window is not defined")', () => {
+  /** After unmount, run every pending timer with `window` gone, as after the Vitest jsdom teardown. */
+  function flushWithoutWindow() {
+    vi.stubGlobal('window', undefined);
+    try {
+      vi.runOnlyPendingTimers();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  }
+
+  it('GuestPicker: the 150 ms blur timer dies with the picker', async () => {
+    const { user, unmount } = renderApp('/rack', 'qa.fd');
+    await screen.findByRole('grid');
+    await user.click(screen.getByRole('button', { name: 'Đặt phòng mới' }));
+    const dlg = await screen.findByRole('dialog', { name: /Đặt phòng mới/ });
+    const picker = within(dlg).getByRole('combobox', { name: 'Khách đứng tên' });
+    vi.useFakeTimers();
+    fireEvent.focus(picker);
+    fireEvent.blur(picker);
+    unmount();
+    expect(flushWithoutWindow).not.toThrow();
+  });
+
+  it('Toasts: the auto-hide timers die with the provider', async () => {
+    // Fake timers from the start (the toast timer must be one of them); time still runs for the UI.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const r = res('Kim Seo-yeon');
+    res('Nguyễn Văn An').status = 'cancelled';
+    const { user, unmount } = renderApp(`/reservations/${r.id}`, 'qa.fd');
+    const drawer = await screen.findByRole('dialog', { name: 'Kim Seo-yeon' });
+    await user.click(within(drawer).getByRole('button', { name: tv('drawer.action.change_room') }));
+    const dlg = await screen.findByRole('dialog', { name: /^Đổi phòng · Căn 402/ });
+    await user.click(await within(dlg).findByRole('radio', { name: /^202/ }));
+    await user.type(within(dlg).getByLabelText(/^Lý do/), 'Máy nước nóng hỏng');
+    await user.click(
+      within(dlg).getByRole('button', { name: tv('stay.change_submit', { room: '202' }) }),
+    );
+    expect(await screen.findByText(tv('stay.toast.moved', { room: '202' }))).toBeInTheDocument();
+    unmount();
+    expect(flushWithoutWindow).not.toThrow();
+  });
+});
