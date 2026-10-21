@@ -553,7 +553,7 @@ test.describe(
       }
     });
 
-    test('TC-X-078 (E) [PO U1] US-010/AC1–AC2, US-011/AC1–AC3, US-012/AC1, AC3–AC5, US-030/AC2, US-031/AC1: H03 Hôm nay (FD, MGR) trên dữ liệu dựng sẵn – KPI, khách đến (Nhận phòng), khách đi (Trả phòng, "Có khách đến cùng căn hôm nay", "Đã trả lời" → 12:31 "Quá giờ trả phòng"), "Giữ chỗ chưa cọc", "Cần chú ý" (phiếu sửa Gấp; khai báo → bấm mở H14), nhận phòng ở máy khác → H03 tự cập nhật; 01:30 hôm sau vẫn ngày nghiệp vụ cũ + axe', async ({
+    test('TC-X-078 (E) [PO U1] US-010/AC1–AC2, US-011/AC1–AC3, US-012/AC1, AC3–AC5, US-030/AC2, US-031/AC1: H03 Hôm nay (FD, MGR) trên dữ liệu dựng sẵn – KPI, khách đến (Nhận phòng), khách đi (Trả phòng, "Có khách đến cùng căn hôm nay", "Đã trả lời" → 12:31 "Quá giờ trả phòng"), "Giữ chỗ chưa cọc", "Cần chú ý" (phiếu sửa Gấp; khai báo → nút Mở → H14), nhận phòng ở máy khác → H03 tự cập nhật; 01:30 hôm sau vẫn ngày nghiệp vụ cũ + axe', async ({
       browser,
       request,
     }) => {
@@ -649,21 +649,17 @@ test.describe(
           t('status.booking.in_house'),
           { timeout: 30_000 },
         );
-        // "Cần chú ý" khai báo của B → bấm mở H14
+        // "Cần chú ý" khai báo của B (đang ở, hạn BR-602 chưa tới) → nút "Mở" của dòng → màn khai báo H14.
+        // R-1.3: bước này chạy chắc chắn (trước đây tìm link theo chữ "khai báo", nhưng trên H03 link của dòng là "Mở"
+        // nên nhánh điều kiện không bao giờ chạy).
         const reg = attn
-          .getByRole('link')
-          .filter({ hasText: /khai báo/i })
-          .first();
-        if (await reg.isVisible({ timeout: 10_000 }).catch(() => false)) {
-          await reg.click();
-          await expect(page, 'mở H14 Khai báo').toHaveURL(/\/registration/);
-        } else {
-          test.info().annotations.push({
-            type: 'U1',
-            description:
-              'Cần chú ý chưa có mục khai báo lúc 08:00 (hạn còn xa) – bước bấm mở H14 không chạy',
-          });
-        }
+          .getByRole('listitem')
+          .filter({ hasText: t('attn.registration_due').split('{')[0]!.trim() });
+        await expect(reg, 'Cần chú ý có dòng khai báo lưu trú hôm nay').toBeVisible({
+          timeout: 20_000,
+        });
+        await reg.getByRole('link', { name: t('today.open') }).click();
+        await expect(page, 'mở H14 Khai báo').toHaveURL(/\/registration/);
       } finally {
         await page.context().close();
       }

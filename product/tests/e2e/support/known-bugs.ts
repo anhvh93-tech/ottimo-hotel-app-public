@@ -12,7 +12,12 @@ import { test } from '@playwright/test';
 
 /** Mã → mô tả ngắn (mục S4, vai sửa). Chỉ ghi mục ĐANG MỞ trên nhánh chính. */
 // BUG-R2-193 đóng 19/10 (MOB: thanh nút H23 ra ngoài vùng cuộn, nằm trên thanh tab – TC-X-087 xanh).
-export const OPEN: Readonly<Record<string, string>> = {};
+export const OPEN: Readonly<Record<string, string>> = {
+  'BUG-R2-217':
+    'Cần chú ý "Giữ chỗ {code} hết hạn lúc …" thiếu mã đơn – `hold_expiring` không có `refCode` (BE-A)',
+  'BUG-R2-218':
+    'guest-web ghi "Ngôn ngữ theo trình duyệt của bạn" cả khi ngôn ngữ lấy từ hồ sơ khách (MOB + BE: phiên không cho biết nguồn)',
+};
 
 function fixedByEnv(): Set<string> {
   return new Set(

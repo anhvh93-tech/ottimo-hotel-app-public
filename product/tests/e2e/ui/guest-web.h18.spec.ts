@@ -18,6 +18,7 @@ import {
 } from '../support/s3.js';
 import { scan } from './axe.js';
 import { UI } from './helpers.js';
+import { knownBug, precondition } from '../support/known-bugs.js';
 
 const STR = (lang: 'vi' | 'en') =>
   JSON.parse(
@@ -242,6 +243,45 @@ test.describe(
         /[ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]/i,
       );
       await scan(page, info, 'H18-2-documents-en');
+      await page.context().close();
+    });
+
+    test('TC-L7-051 (E) US-112/AC2: hồ sơ người đứng tên chọn English (`preferredLocale: en`), trình duyệt vi-VN → mở link lần đầu trang tự hiện tiếng Anh (hồ sơ thắng trình duyệt – P-S4-10); vẫn đổi tay sang Tiếng Việt ở đầu trang được', async ({
+      browser,
+      request,
+    }) => {
+      const { link } = await bookingWithLink(request, '203', { preferredLocale: 'en' });
+      const page = await guestPage(browser, 'vi-VN');
+      await page.goto(link.url);
+      await expect(page.getByRole('heading', { name: WELCOME })).toBeVisible({
+        timeout: 15_000,
+      });
+      const ctaEn = page.getByRole('button', { name: EN['guest.cta.checkin_short']! }).first();
+      const ctaVi = page.getByRole('button', { name: VI['guest.cta.checkin_short']! }).first();
+      await expect(ctaEn, 'trang tự hiện tiếng Anh theo hồ sơ').toBeVisible();
+      await expect(ctaVi).toHaveCount(0);
+      const lang = page.getByRole('combobox').first();
+      await expect(lang).toHaveValue('en');
+      await lang.selectOption({ label: 'Tiếng Việt' });
+      await expect(ctaVi, 'đổi tay sang tiếng Việt').toBeVisible({ timeout: 10_000 });
+      await page.context().close();
+    });
+
+    test('TC-L7-053 (E) US-112/AC2 BUG-R2-218: khách VN (hồ sơ tự nhận `vi` theo quốc tịch), trình duyệt en-US → trang tiếng Việt theo hồ sơ; KHÔNG được ghi "Ngôn ngữ theo trình duyệt của bạn" (ngôn ngữ không lấy từ trình duyệt)', async ({
+      browser,
+      request,
+    }) => {
+      knownBug('BUG-R2-218');
+      const { link } = await precondition('đơn khách VN + link', () =>
+        bookingWithLink(request, '103'),
+      );
+      const page = await guestPage(browser, 'en-US');
+      await page.goto(link.url);
+      await expect(
+        page.getByRole('button', { name: VI['guest.cta.checkin_short']! }).first(),
+        'hồ sơ vi thắng trình duyệt en-US',
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByText(VI['gw.lang_auto']!)).toHaveCount(0);
       await page.context().close();
     });
 

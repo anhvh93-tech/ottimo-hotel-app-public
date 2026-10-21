@@ -18,9 +18,9 @@
 | Tham chiếu chuyển trạng thái trong TC không có trong `state-machines.md` | 0 |
 | Kiểm tĩnh quyền (nguồn chuẩn: rbac-matrix.json (A-xx) + rbac-matrix.md (S-xx, Dxx)): operation lệch `x-roles`/`x-scope` · thuộc tính lệch `x-visible-to` | 0 · 0 – chi tiết mục 8 |
 | Story Must R2 không có AC ở mục 4 | 0  |
-| Tổng số TC | **567** (Cao 383 · TB 177 · Thấp 6) · **Smoke (S)** 43 |
-| TC theo nhóm | L2 91 · L3 63 · L4 123 · L5 50 · L6 42 · L7 27 · L8 13 · LP 18 · NT 53 · RB 29 · SEC 25 · X 33 |
-| TC theo tầng (một TC có thể nhiều tầng) | U 44 · A 459 · E 221 · P 5 · M 7 |
+| Tổng số TC | **568** (Cao 383 · TB 177 · Thấp 7) · **Smoke (S)** 43 |
+| TC theo nhóm | L2 91 · L3 63 · L4 123 · L5 50 · L6 42 · L7 28 · L8 13 · LP 18 · NT 53 · RB 29 · SEC 25 · X 33 |
+| TC theo tầng (một TC có thể nhiều tầng) | U 44 · A 459 · E 224 · P 5 · M 7 |
 | TC cho story ngoài Must R2 (ca chính) | US-041 (2), US-056 (2), US-064 (1), US-081 (5), US-111 (2), US-125 (5), US-128 (5), US-137 (2), US-141 (5) |
 | `operationId` dùng trong TC nhưng không có trong OpenAPI | 0 |
 | Tham chiếu AC sai (AC không tồn tại) · TC trỏ AC `[Dời R3 – R-C]` mà thiếu nhãn | 0 · 0 |
@@ -108,7 +108,7 @@
 | US-108 | Thông tin lưu trú | AC1: TC-L7-020, TC-X-077<br>AC2: TC-L7-021, TC-SEC-005 | BR-401, BR-403, BR-511 | `createGuestRequest`, `getGuestStay`, `getPublicUnitPage`, `listC3AccessLog`, `transitionGuestRequest`, `transitionHkTask` | L7 | 4.1, 4.11 | ESC-016 |
 | US-109 | Khách gửi yêu cầu (UC-15, SM-15) | AC1: TC-L7-030, TC-L6-058, TC-X-077, TC-X-087<br>AC2: TC-L7-031, TC-L6-057, TC-L6-058, TC-X-077 | BR-506 | `createGuestRequest`, `listGuestRequestOptions`, `listMyRequests`, `transitionGuestRequest`, `transitionHkTask` | L7 | 4.11 | ESC-016 |
 | US-110 | Định tuyến yêu cầu (BR-811, BR-809) | AC1: TC-L7-032, TC-X-077<br>AC2: TC-L7-033, TC-L7-034, TC-L7-035<br>AC3: TC-RB-016<br>bổ sung: TC-L7-036 | BR-809, BR-811 | `createGuestRequest`, `createWorkOrder`, `listAttentionItems`, `listGuestRequests`, `listHkTasks`, `listMyNotifications`, `listMyRequests`, `listWorkOrders`, `transitionGuestRequest`, `transitionHkTask`, `transitionWorkOrder` | L7 | 4.2, 4.11 | ESC-016 |
-| US-112 | App khách tiếng Anh (HR-01) | AC1: TC-L7-050<br>AC2: TC-L7-051, TC-X-077<br>AC3: TC-L7-052 | – | `createGuestRequest`, `getGuestStay`, `setGuestLocale`, `transitionGuestRequest`, `transitionHkTask` | L7 | 4.4, 4.11 | ESC-016 |
+| US-112 | App khách tiếng Anh (HR-01) | AC1: TC-L7-050<br>AC2: TC-L7-051, TC-L7-053, TC-X-077<br>AC3: TC-L7-052 | – | `createGuestRequest`, `getGuestStay`, `openGuestSession`, `setGuestLocale`, `transitionGuestRequest`, `transitionHkTask` | L7 | 4.4, 4.11 | ESC-016 |
 | US-119 | Ghi nhận thu tiền (SM-12, BR-521) | AC1: TC-L4-060, TC-L4-146, TC-L4-147, TC-L4-148, TC-X-081, TC-L4-152<br>AC2: TC-L4-061<br>AC3: TC-L4-062, TC-L4-140, TC-L4-142<br>AC4: TC-L4-063<br>AC6: TC-L4-069, TC-L5-052<br>AC5 (Dời R3): TC-L5-039<br>bổ sung: TC-L4-066, TC-RB-021 | BR-008, BR-307 | `addFolioLine`, `adjustFolioLine`, `approveRequest`, `cancelReservation`, `checkIn`, `checkOut`, `confirmCashHandover`, `confirmDeposit`, `confirmPaymentReceived`, `createGuestRequest`, `createRefundRequest`, `createVietQr`, `executeCashRefund`, `getBill`, `getFolio`, `getLeaseContract`, `getReservation`, `getShiftReport`, `listApprovalRequests`, `listAttentionItems`, `listCommissions`, `listPayments`, `reconcilePayment`, `recordPayment`, `reversePayment`, `setRefundDestination`, `updateReservation` | L4 | 4.5, 4.6 | ESC-012, ESC-017 |
 | US-120 | VietQR (I2) | AC1: TC-L4-064<br>AC2: TC-L4-065<br>bổ sung: TC-L4-069, TC-X-070 | BR-521 | `addGuestDocument`, `approveRequest`, `checkIn`, `checkOut`, `confirmDeposit`, `confirmPaymentReceived`, `createHoldFromQuote`, `createVietQr`, `getFolio`, `listApprovalRequests`, `listHkTasks`, `listRoomStatuses`, `previewCheckIn`, `recordInspection`, `recordPayment`, `saveQuote`, `transitionRoomStatus` | L4 | 4.6 | ESC-010 |
 

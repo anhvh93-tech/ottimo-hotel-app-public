@@ -344,11 +344,11 @@ test.describe(
       await scan(page, test.info(), 'H08-rack-drawer-keyboard');
     });
 
-    test('TC-RB-008 (E) [PO U6] US-048/AC3 BUG-R2-179: H06 hồ sơ khách đã có P05 hiện 4 ký tự cuối giấy tờ (API trả `idDocLast4` – TC-RB-008 (A)); Desk chưa hiện', async ({
+    test('TC-RB-008 (E) [PO U6] US-048/AC3 (kiểm lại BUG-R2-179, đã đóng): H06 hồ sơ khách đã có P05 hiện 4 ký tự cuối giấy tờ (API trả `idDocLast4` – TC-RB-008 (A)), không hiện số đầy đủ', async ({
       page,
       request,
     }) => {
-      const { st, last4 } = await precondition('khách có CCCD + P05 (API)', async () => {
+      const { st, last4, full } = await precondition('khách có CCCD + P05 (API)', async () => {
         const fd = await session(request, 'qa.fd');
         const c = await s2Context(request);
         const st = await farStay(request, c, fd, await stackToday(request), {
@@ -377,7 +377,7 @@ test.describe(
           },
         );
         expect(p05.status, JSON.stringify(p05.body).slice(0, 200)).toBe(201);
-        return { st, last4: String(doc.docNumber).slice(-4) };
+        return { st, last4: String(doc.docNumber).slice(-4), full: String(doc.docNumber) };
       });
       await signIn(page, 'qa.fd');
       await page.goto(`${WEB_URL}/guests`);
@@ -394,6 +394,7 @@ test.describe(
       ).toBeVisible({
         timeout: 5_000,
       });
+      await expect(dlg.getByText(full), 'không hiện số giấy tờ đầy đủ').toHaveCount(0);
     });
 
     test('TC-X-073 (E) G8.2 H24 Tổng quan chủ đầu tư (qa.owner): Cần duyệt, Cần chú ý, KPI đêm nay hiện đủ; axe 0 lỗi nghiêm trọng ở 1366 px và 390 px', async ({
