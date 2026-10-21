@@ -1,0 +1,271 @@
+<title>OTTIMO Round 2</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,500;0,600;1,500&display=swap">
+<style>
+/* Layout: one calm reading column (ivory paper), status band up top, decisions as a ruled ledger. OTTIMO 80/15/5 palette only. */
+:root {
+  --ivory: #F4F0E8; --cream: #EDE6D8; --stone: #6B6760; --ink: #2B2B28;
+  --oak: #B08D57; --earth: #7A5C44; --sage: #8A9079;
+  --bg: var(--ivory); --surface: var(--cream); --fg: var(--ink); --muted: var(--stone);
+  --line: #D9D0BF; --accent: var(--earth); --accent-soft: var(--oak); --ok: var(--sage);
+  --display: "Lora", Georgia, "Times New Roman", serif;
+  --body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #2B2B28; --surface: #35342F; --fg: #F4F0E8; --muted: #B9B2A4;
+    --line: #4A4840; --accent: #C9A774; --accent-soft: #B08D57; --ok: #A3AA92; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #2B2B28; --surface: #35342F; --fg: #F4F0E8; --muted: #B9B2A4;
+  --line: #4A4840; --accent: #C9A774; --accent-soft: #B08D57; --ok: #A3AA92; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 64px;
+}
+main { max-width: 760px; margin: 0 auto; display: grid; gap: 48px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; text-wrap: balance; margin: 0; line-height: 1.25; }
+h1 { font-size: clamp(30px, 6vw, 40px); }
+h2 { font-size: 24px; }
+h3 { font-size: 18px; }
+p { margin: 0; }
+.eyebrow { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.lede { color: var(--muted); max-width: 62ch; }
+header { display: grid; gap: 12px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+section { display: grid; gap: 16px; }
+.status { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.chip { border: 1px solid var(--line); background: var(--surface); padding: 16px; display: grid; gap: 6px; }
+.chip .k { font-size: 13px; color: var(--muted); }
+.chip .v { font-family: var(--display); font-size: 20px; font-weight: 600; }
+.chip.pass .v { color: var(--ok); }
+.chip.hold .v { color: var(--accent); }
+.chip p { font-size: 14px; color: var(--muted); }
+ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+ul.plain li::marker { color: var(--accent-soft); }
+.callout { background: var(--surface); border-left: 3px solid var(--accent); padding: 16px 18px; display: grid; gap: 8px; }
+.callout strong { font-family: var(--display); font-size: 18px; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; background: var(--surface); }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+tr.total td { font-weight: 600; }
+.mono { font-family: var(--mono); font-size: 13px; }
+.trend { font-family: var(--mono); font-size: 14px; color: var(--muted); }
+.trend b { color: var(--ok); }
+.ledger { display: grid; gap: 0; border-top: 1px solid var(--line); }
+.item { display: grid; grid-template-columns: 56px 1fr; gap: 16px; padding: 20px 0; border-bottom: 1px solid var(--line); }
+.item .id { font-family: var(--mono); font-size: 13px; color: var(--accent); padding-top: 3px; }
+.item .body { display: grid; gap: 8px; min-width: 0; }
+.item .opts { font-size: 14px; color: var(--muted); }
+.rec { font-size: 14px; }
+.rec b { color: var(--accent); }
+.fallback { font-size: 13px; color: var(--muted); }
+.item.first { background: var(--surface); padding-inline: 12px; margin-inline: -12px; }
+ol.steps { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
+code { font-family: var(--mono); font-size: 13px; background: var(--surface); padding: 1px 6px; overflow-wrap: anywhere; }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+@media (max-width: 480px) { .item { grid-template-columns: 1fr; gap: 6px; } .item.first { margin-inline: 0; } }
+</style>
+
+<main>
+  <header>
+    <span class="eyebrow">OTTIMO Boutique Stay · Báo cáo cho chủ đầu tư · 21/10/2026</span>
+    <h1>Tổng kết Round 2 – Lõi vận hành MVP</h1>
+    <p class="lede">Round 2 xây phần lõi: Desk cho lễ tân, app buồng phòng, trang cho khách và bản mẫu landing. Phần mềm chạy được luồng chính và không còn lỗi nghiêm trọng. Cổng QC của Round 2 chưa qua chỉ vì chưa có máy chủ chạy thử (staging).</p>
+  </header>
+
+  <section aria-labelledby="s-status">
+    <h2 id="s-status">Kết luận QC</h2>
+    <div class="status">
+      <div class="chip pass"><span class="k">Cổng Sprint 4</span><span class="v">Đạt có điều kiện</span><p>Lần chấm thứ 3, ngày 21/10. Phần tiền đạt từ lần đầu.</p></div>
+      <div class="chip hold"><span class="k">Cổng Round 2</span><span class="v">Chưa đạt</span><p>Chỉ vì chưa có staging. Không phải vì tiền, bảo mật hay chất lượng mã.</p></div>
+      <div class="chip pass"><span class="k">Lỗi nghiêm trọng</span><span class="v">0 P0 · 0 P1</span><p>Không có lỗi bảo mật Critical/High, không có lỗi tiền nặng nào mở.</p></div>
+    </div>
+    <div class="callout">
+      <strong>Việc đang chặn: VPS và tên miền</strong>
+      <p>Anh/chị đã hẹn gửi trong tuần này. Có thông tin, OPS dựng staging trong khoảng 3 ngày làm việc, QA chạy lại luồng chính trên đó, rồi QC chấm lại cổng Round 2. Chỉ gửi qua chat địa chỉ IP, tên miền, nhà cung cấp và hệ điều hành. Không gửi mật khẩu hay khóa SSH.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="s-results">
+    <h2 id="s-results">Kết quả chính</h2>
+    <ul class="plain">
+      <li><b>Desk cho lễ tân chạy trọn một ngày làm việc:</b> sơ đồ phòng, đặt và giữ chỗ, thu cọc bằng mã QR, nhận phòng, gia hạn, đổi phòng, trả phòng, in bill, thu tiền, hoàn tiền và công nợ. Máy chủ chặn đặt trùng phòng, kể cả khi hai người lưu cùng lúc.</li>
+      <li><b>Tiền được kiểm kỹ nhất:</b> 8 lượt kiểm độc lập. Số lỗi tiền nặng qua các lượt: <span class="trend">11 → 6 → 5 → 3 → 5 → 3 → 1 → 1 → <b>0</b></span>. Ba lỗi tiền nhỏ còn lại đều tính thiếu, không tính thừa khách, sửa đầu Round 3.</li>
+      <li><b>App buồng phòng</b> trên điện thoại và <b>trang khách</b> mở bằng link hoặc QR, có tiếng Việt và tiếng Anh.</li>
+      <li><b>QA chạy tay trọn một lượt khách</b> từ báo giá tới dọn phòng, có ảnh và video. Tiền khớp từng đồng: tiền phòng 5.205.000 đ, cọc 1.600.000 đ, thu khi nhận phòng 3.605.000 đ, minibar 100.000 đ.</li>
+      <li><b>Kiểm tra tự động chạy miễn phí</b> sau khi repo chuyển sang công khai. Lượt chạy ban đêm đã bắt được một lỗi thật: sau nửa đêm, app buồng phòng không tải được và Desk có chỗ tính thêm một đêm cho khách đến muộn. Đã sửa ngày 20/10. Lượt chạy lúc 02:41 ngày 21/10 xanh.</li>
+      <li><b>Landing ottimo.vn bản mẫu v1.2.1</b> theo brand guideline. Chưa lên mạng, chờ tên miền và anh/chị duyệt nội dung.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="s-numbers">
+    <h2 id="s-numbers">Chỉ số round</h2>
+    <h3>Lỗi theo mức</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Mức</th><th class="n">Tìm</th><th class="n">Đã sửa, đóng</th><th class="n">Hoãn</th><th class="n">Còn mở</th></tr></thead>
+        <tbody>
+          <tr><td>P0 – nghiêm trọng</td><td class="n">11</td><td class="n">11</td><td class="n">0</td><td class="n">0</td></tr>
+          <tr><td>P1 – cao</td><td class="n">68</td><td class="n">68</td><td class="n">0</td><td class="n">0</td></tr>
+          <tr><td>P2 – trung bình</td><td class="n">79</td><td class="n">76</td><td class="n">1</td><td class="n">2</td></tr>
+          <tr><td>P3 – nhẹ</td><td class="n">60</td><td class="n">40</td><td class="n">0</td><td class="n">20</td></tr>
+          <tr class="total"><td>Tổng</td><td class="n">218</td><td class="n">195</td><td class="n">1</td><td class="n">22</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="plain">
+      <li><b>Góp ý review chéo:</b> 384 thẻ. 12/12 thẻ chặn đã xử lý; thẻ Major 123 đã xử lý, 12 dời Round 3 có hạn và người chịu trách nhiệm.</li>
+      <li><b>Nghiệm thu:</b> 68/71 tính năng bắt buộc đạt trên môi trường kiểm tra tự động. 2 chờ sửa bảo mật về giấy tờ khách, 1 cần kiểm bằng trình đọc màn hình trên staging.</li>
+      <li><b>Kiểm tra tự động mỗi lần gộp mã:</b> khoảng 3.000 ca phía máy chủ và gần 2.000 ca bấm thử trên trình duyệt, 0 ca phải chạy lại.</li>
+      <li><b>Hàng việc Round 3:</b> 50 mục đã có người làm và hạn, 25 mục bắt buộc trước bản dùng thử.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="s-decide">
+    <h2 id="s-decide">Cần anh/chị quyết định</h2>
+    <p class="lede">Anh/chị chỉ cần trả lời "đồng ý đề xuất" hoặc chọn phương án khác. Câu nào chưa trả lời, đội làm theo dòng "nếu chưa quyết".</p>
+    <div class="ledger">
+      <div class="item first">
+        <span class="id">ESC-028</span>
+        <div class="body">
+          <h3>Có bắt đầu Round 3 trong lúc chờ VPS không?</h3>
+          <p class="opts">A: bắt đầu phần không cần máy chủ (sửa 3 lỗi tiền nhỏ, việc bảo mật trước dữ liệu thật) · B: dừng, chờ VPS · C: coi bản demo trên máy Mac là đủ</p>
+          <p class="rec"><b>Đề xuất A.</b> Đội không đứng chờ, nhưng Round 2 vẫn ghi "chưa đạt" tới khi chấm lại, và chưa có staging thì chưa có bản dùng thử. Không chọn C: demo trên máy Mac không có tên miền, không HTTPS, nhân viên không dùng được điện thoại của mình.</p>
+          <p class="fallback">Nếu chưa quyết: đội làm nốt việc sửa Round 2 không cần máy chủ, chuẩn bị Round 3 Sprint 1, không phát hành gì cho nhân viên hay khách.</p>
+        </div>
+      </div>
+      <div class="item">
+        <span class="id">ESC-022</span>
+        <div class="body">
+          <h3>Tên mạng Wi-Fi khách thấy</h3>
+          <p class="opts">A: mỗi căn một mạng, đặt theo tên phòng · B: một mạng chung · C: giữ tên theo số căn</p>
+          <p class="rec"><b>Đề xuất A</b> nếu mỗi căn đã có bộ phát; <b>B</b> nếu đang là mạng chung. Anh/chị gửi tên mạng hiện tại, không gửi mật khẩu.</p>
+          <p class="fallback">Nếu chưa quyết: app hiện một mạng chung, tên mẫu "OTTIMO-Guest".</p>
+        </div>
+      </div>
+      <div class="item">
+        <span class="id">ESC-023</span>
+        <div class="body">
+          <h3>Khách rút ngắn đơn khi còn dưới 7 ngày mà vẫn đến ở</h3>
+          <p class="opts">A: không thu · B: thu theo bậc phí hủy cho phần cọc của các đêm bỏ · C: giữ hết phần cọc đêm bỏ</p>
+          <p class="rec"><b>Đề xuất B.</b> Ví dụ đơn 7 đêm rút còn 2 đêm: báo trước 5 ngày phí 550.000 đ, báo trước 2 ngày phí 1.100.000 đ, báo trước từ 7 ngày phí 0. Không bao giờ nặng hơn hủy cả đơn; không áp cho đơn OTA và khách dài hạn.</p>
+          <p class="fallback">Nếu chưa quyết: giữ A.</p>
+        </div>
+      </div>
+      <div class="item">
+        <span class="id">ESC-024</span>
+        <div class="body">
+          <h3>Phụ thu trả phòng muộn khi quản lý không trả lời</h3>
+          <p class="opts">A: khách chờ quản lý · B: sau 15 phút lễ tân thu đúng số máy tính, không được giảm, quản lý xem lại trong 24 giờ · C: không thu</p>
+          <p class="rec"><b>Đề xuất B.</b> Ví dụ căn 202 ngày thường thu 792.000 đ; quản lý vẫn miễn được sau khi xem lại.</p>
+          <p class="fallback">Nếu chưa quyết: giữ A.</p>
+        </div>
+      </div>
+      <div class="item">
+        <span class="id">ESC-026</span>
+        <div class="body">
+          <h3>Quản lý miễn nhiều khoản khác loại trên cùng một lượt ở</h3>
+          <p class="opts">A: vẫn cho miễn, tổng vượt hạn mức một lần thì báo anh/chị ngay · B: phần vượt chờ anh/chị duyệt · C: giữ như hiện nay</p>
+          <p class="rec"><b>Đề xuất A.</b> Ví dụ 300.000 + 250.000 + 600.000 = 1.150.000 đ, vượt giá đêm cao nhất 911.000 đ: khách không phải chờ, anh/chị nhận thông báo và xem lại trong 24 giờ.</p>
+          <p class="fallback">Nếu chưa quyết: giữ C khi chạy dữ liệu thử; trước dữ liệu thật làm tối thiểu cảnh báo kiểu A.</p>
+        </div>
+      </div>
+      <div class="item">
+        <span class="id">ESC-027</span>
+        <div class="body">
+          <h3>Khôi phục đăng nhập hai bước khi chỉ có một tài khoản chủ</h3>
+          <p class="opts">A: bắt buộc thêm tài khoản chủ thứ hai · B: một tài khoản chủ, 10 mã khôi phục cất riêng và thủ tục kỹ thuật có nhật ký · C: không bắt buộc hai bước</p>
+          <p class="rec"><b>Đề xuất B.</b> Không thêm người toàn quyền. Nếu mất cả điện thoại lẫn mã khôi phục thì chậm vài giờ tới một ngày.</p>
+          <p class="fallback">Nếu chưa quyết: làm theo B.</p>
+        </div>
+      </div>
+      <div class="item">
+        <span class="id">Landing</span>
+        <div class="body">
+          <h3>Nội dung landing v1.2.1</h3>
+          <p class="opts">Q1 nút "Đặt ngay" trên fanpage · Q2 câu hứa thời gian trả lời · Q3 nói công khai cọc 30% · Q4 duyệt từng câu</p>
+          <p class="rec"><b>Đề xuất:</b> Q1 link về website; Q2 "trong 1 giờ, 07:00–22:00, ngoài giờ trước 09:00 sáng hôm sau"; Q3 nói rõ 30%. Nhờ anh/chị xác nhận hạng Premium (302, 402) có giường phụ 1m4 hay người ở thêm ngủ sofa, vì hai tài liệu đang ghi khác nhau.</p>
+          <p class="fallback">Nếu chưa quyết: trang không lên mạng.</p>
+        </div>
+      </div>
+      <div class="item">
+        <span class="id">GitHub</span>
+        <div class="body">
+          <h3>Ba cài đặt bảo vệ repo công khai</h3>
+          <p class="opts">(1) staging chỉ triển khai khi anh/chị bấm duyệt · (2) chỉ gộp mã khi kiểm tra tự động xanh · (3) bật tự đề nghị bản vá lỗ hổng thư viện</p>
+          <p class="rec"><b>Đề xuất đồng ý cả ba.</b> Anh/chị là chủ repo nên tự bấm theo hướng dẫn của OPS. Cài đặt (1) bắt buộc trước khi đặt khóa máy chủ staging.</p>
+          <p class="fallback">Nếu chưa quyết: đội không đổi cài đặt; staging không bật triển khai tự động.</p>
+        </div>
+      </div>
+      <div class="item">
+        <span class="id">Để biết</span>
+        <div class="body">
+          <h3>Hai phần nhỏ dời sang Round 3</h3>
+          <p class="opts">Dòng cảnh báo "Đồng bộ kênh lỗi" và thông báo chủ động "quá giờ trả phòng". Round 2 chưa có kênh OTA thật và thông báo đẩy còn giả lập, nên chưa kiểm thật được. Không cần anh/chị trả lời.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="s-inputs">
+    <h2 id="s-inputs">Đầu vào anh/chị đã hẹn</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Đầu vào</th><th>Đang chặn</th></tr></thead>
+        <tbody>
+          <tr><td><b>VPS đặt tại Việt Nam và tên miền</b></td><td>Cổng QC Round 2, staging, bản dùng thử Round 3, landing lên mạng</td></tr>
+          <tr><td>Logo dạng SVG</td><td>Gắn logo vào Desk, landing, bill</td></tr>
+          <tr><td>Bảng ghép tên phòng với số căn và hạng</td><td>Tên phòng trên trang khách, landing, Wi-Fi</td></tr>
+          <tr><td>Zalo OA đã xác thực</td><td>Chat OA và tin tự động ở Round 3</td></tr>
+          <tr><td>Tên công ty và mã số thuế</td><td>Chân trang landing, hóa đơn điện tử</td></tr>
+          <tr><td>Tên chủ tài khoản nhận cọc</td><td>Câu chống giả danh trên landing. Số tài khoản anh/chị tự nhập trên app khi có staging.</td></tr>
+          <tr><td>Trả lời của luật sư (ESC-001)</td><td>Bật form đặt phòng trên website, nhập dữ liệu khách thật</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="s-assume">
+    <h2 id="s-assume">Giả định đội đang dùng – nhờ xác nhận</h2>
+    <ul class="plain">
+      <li><b>Hạn trả công nợ mặc định 3 ngày</b> kể từ lúc ghi nợ; quản lý sửa được hạn từng khoản.</li>
+      <li><b>Giá đêm thêm</b> lấy theo lịch giá Trực tiếp của căn và đêm đó; đơn có giá thỏa thuận thì giữ giá thỏa thuận. Ví dụ căn 202: 792.000 đ ngày thường, 911.000 đ thứ Sáu và thứ Bảy, 1.030.000 đ ngày lễ.</li>
+      <li><b>Đơn dài hạn OTM-0108</b> trong dữ liệu mẫu: hợp đồng 3 tháng từ 05/09, trả phòng 05/12.</li>
+      <li><b>Số lễ tân</b> cho nút "Gọi lễ tân" đọc từ tệp <code>.env</code> trên máy anh/chị, không đưa lên repo.</li>
+      <li><b>Mã cửa 8 chữ số ngẫu nhiên</b>, sinh mới mỗi lượt ở. Nhờ anh/chị xác nhận khóa đang dùng nhận được mã 8 số.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="s-next">
+    <h2 id="s-next">Kế hoạch Round 3 – bản dùng thử</h2>
+    <ul class="plain">
+      <li><b>Mục tiêu:</b> bản phát hành ứng viên chạy trên staging, đủ an toàn để nhập dữ liệu khách thật, kèm hướng dẫn và kịch bản dùng thử.</li>
+      <li><b>Sprint 1:</b> lượt kiểm tiền riêng cho 3 lỗi tiền nhỏ, các việc bảo mật bắt buộc trước dữ liệu thật, đăng nhập hai bước, quản lý xác nhận từ xa.</li>
+      <li><b>Sprint 2:</b> kết nối kênh OTA qua Beds24, báo cáo tháng và kênh, xuất dữ liệu ra bảng tính, form đặt phòng từ website.</li>
+      <li><b>Sprint 3:</b> khách dài hạn, hợp đồng, hoa hồng CTV, hóa đơn tạm tính cho khách, mẫu tin nhắn, hóa đơn điện tử.</li>
+      <li><b>Sprint 4 và tuần ổn định:</b> đóng ca, quyền dữ liệu của khách, hiệu năng, kiểm tra bảo mật tổng, hướng dẫn vận hành, QC quyết định phát hành.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="s-try">
+    <h2 id="s-try">Cách xem sản phẩm hiện tại</h2>
+    <ol class="steps">
+      <li>Bản demo trên máy Mac đang chạy bản ngày 17/10. Để xem bản mới, mở Terminal ở thư mục dự án và chạy <code>bash product/infra/demo/demo-up.sh</code>. Lệnh này xóa dữ liệu demo cũ và đổi mật khẩu; mật khẩu nằm trong tệp <code>product/infra/demo/.out/demo-accounts.md</code> trên máy.</li>
+      <li>Trước đó, thêm số lễ tân vào dòng <code>VITE_DESK_PHONE</code> trong tệp <code>product/.env</code>.</li>
+      <li>Mở Desk tại <code>http://localhost:8181</code> và trang khách tại <code>http://localhost:8183</code>.</li>
+      <li>Làm theo 10 kịch bản trong hướng dẫn demo, gửi góp ý cho đội bằng lệnh <code>/feedback</code>.</li>
+    </ol>
+  </section>
+
+  <footer>Báo cáo do Điều phối viên tổng hợp từ kết quả QC, QA và các vai trong đội ngày 21/10/2026. Kết quả nghiên cứu người dùng là mô phỏng, cần kiểm lại với nhân viên thật.</footer>
+</main>
