@@ -2,7 +2,8 @@
 
 - Người chấm: QC | Nháp 18/10/2026 18:00–18:40 → **chính thức 19/10/2026** sau ba bộ phản biện (36 ý, mục 3) | Round 2, Sprint 4, tuần Ổn định | Bước 6 – Cổng chất lượng.
 - Đọc lại theo ma trận: ORC (bắt buộc), PO (khuyến nghị).
-- **Chấm lại 20/10 (mục 10, cuối tệp): KHÔNG ĐẠT lần 2** – 9/11 việc K đạt; còn K2 (lượt T9 hằng đêm gần nhất 39312874062 trên `c293ceb` đỏ, TC-X-074) và K7 (ARC chưa ghi Verified S4-21). Mục 1–9 dưới đây giữ nguyên nội dung lần chấm 19/10.
+- **Chấm lần 3 21/10 (mục 11, cuối tệp): ĐẠT CÓ ĐIỀU KIỆN** trên `21bb797` – K2' và K7' đạt; điều kiện còn giữ ở 11.5.
+- **Chấm lại 20/10 (mục 10): KHÔNG ĐẠT lần 2** – 9/11 việc K đạt; còn K2 (lượt T9 hằng đêm gần nhất 39312874062 trên `c293ceb` đỏ, TC-X-074) và K7 (ARC chưa ghi Verified S4-21). Mục 1–9 dưới đây giữ nguyên nội dung lần chấm 19/10.
 - Căn cứ chấm: `sprint-4-plan.md` mục 3 (M1–M8), 11.1 (G1–G8), 11.2 (quyết định, quy tắc lùi cổng D8), 12.3 (thứ tự cắt), 16 (thay đổi sau đóng băng). QC **không đổi quy tắc cổng**; chỗ nào quy tắc chưa đạt thì ghi là chưa đạt và chỉ đường gỡ hợp lệ.
 - Ký hiệu: **Đạt** · **Đạt có ĐK** (đạt về nội dung, còn việc nêu ở mục 6) · **Chưa** (thiếu so với chữ của tiêu chí) · **KAD** (không áp dụng ở cổng này).
 
@@ -337,3 +338,86 @@ Lý do (1 câu): theo 11.2, ĐẠT hoặc ĐẠT CÓ ĐIỀU KIỆN đòi G5 đ�
 - QC không chạy stack, không chạy test DB, không đi luồng bằng tay, không đụng stack demo, không in tệp env. Mọi số liệu CI lấy từ log GitHub QC tự tải.
 
 ESC mới: **không có**. KHÔNG ĐẠT cổng sprint ở Round 2 thuộc quyền QC; không ảnh hưởng mốc RC hay bản dùng thử (Round 3).
+
+---
+
+## 11. Chấm lần 3 (rút gọn) 21/10
+
+- Người chấm: QC | 21/10/2026 (giờ VN; lúc chấm 20/10 ~17:30 UTC) | Round 2, Sprint 4, tuần Ổn định | Bước 6 – chấm lần 3 rút gọn theo 10.4: chỉ K2', K7'; kiểm `git diff` xem có chạm vùng các K đã đạt hay vùng tiền không.
+- **Commit chấm: `21bb797`** (main). Từ `c293ceb`: `e3b0efb` (BUG-R2-211/212/213, MOB + FE-A), `aa2f11b` (hẹn giờ admin-web), `21bb797` (ca desk-clock chạy J8/J11 trước khi đọc bộ đếm).
+- QC tự tải bằng `gh run list/view -R anhvh93-tech/ottimo-hotel-app-public` (log + `--json headSha,event,attempt`), không dùng số tự khai. Theo C13, `gh run list --workflow CI -L 5` lúc chấm:
+
+| Run | Sự kiện | Commit | Lần | Kết quả QC đọc từ log |
+|---|---|---|---|---|
+| **39462961483** | workflow_dispatch (T9) | **`21bb797`** | 1 | **Xanh.** Tạo 17:05:09Z; E2E chạy 17:14–17:25 UTC = **00:14–00:25 giờ VN** (khung giờ đêm, trước mốc 06:00). `Running 2045 tests`: **1.976 đạt**, 69 bỏ qua, **0 dòng `retry #`**, 0 ✘. Guard "T9: 2045 case(s), 0 flaky, 0 masked by retry"; bảng project: `unexpected` 0, `flaky` 0 ở mọi project (desk-chromium 60, desk-clock 50, clock 159, rbac 1.474…). "UI: 112 case(s), 2 allowed skip(s), axe 13 case(s) ran". **TC-X-074** (desk-chromium `ui/gate-s4.spec.ts:413`, đồng hồ thật) ✓ lúc 17:17:05Z = **00:17 giờ VN** – đúng ca, đúng khung giờ đã đỏ ở 39312874062. Ca giờ đêm: **TC-L6-060** (clock) ✓, **TC-X-088**, **TC-L2-109**, **TC-L2-110** (desk-clock) ✓. **`axe-k8.s4`** TC-X-084…087 ✓. gitleaks 148 commit, no leaks; audit "3 moderate", 0 high. GHCR/staging bỏ qua theo thiết kế |
+| **39364680576** | push | **`21bb797`** | 1 | **Xanh 8/8.** API 104 tệp / **2.971 đạt**, 2 bỏ qua. E2E `Running 2045 tests`: 1.976 đạt, 69 bỏ qua, **0 `retry #`**, 0 ✘; "UI: 112 case(s)…, axe 13 case(s) ran" (bước kiểm `WRITES` qua); 4 ca giờ đêm + `axe-k8.s4` ✓. gitleaks **148 commit, no leaks**. `pnpm audit` "3 moderate", 0 high |
+| 39361269566 | push | `aa2f11b` | 1 | Đỏ – TC-L6-022/033 (desk-clock) ✘: lỗi ca test (J8/J11 chạy bù giữa hai lần đọc bộ đếm), QA `bug-list.md` 11.40; sửa ở `21bb797`. Không phải commit chấm |
+| 39358556872 | push | `e3b0efb` | 1 | Đỏ – job build-test, tác vụ `@ottimo/admin-web:test` (QC đọc `--log-failed`): hẹn giờ admin-web không dọn khi gỡ (ca vitest chập chờn), sửa ở `aa2f11b` (`toast.tsx`). Không phải commit chấm |
+| 39355296057 | push | `06994e5` | 1 | Xanh (chỉ tài liệu) |
+
+- **Lượt lịch 19:17 UTC hôm nay (20/10) chưa chạy** lúc QC chấm (17:28 UTC). Lượt T9 gần nhất trên `21bb797` là 39462961483. Lượt lịch đêm nay là đối chứng: xem C14.
+- **Vùng tiền và vùng đã đạt:** `git diff --name-only c293ceb 21bb797` (46 tệp) **không có tệp nào** ở `product/services` hay `product/packages` (`git diff c293ceb 21bb797 -- product/services product/packages` rỗng); không tệp nào có tên folio/payment/pricing/foc/checkout/debt/refund. Mã đổi chỉ ở client: `apps/mobile` (`time.ts`, `data.tsx`, `tasks.ts`, 5 trang, mock), `apps/admin-web` (`businessDay.ts`, `dates.ts`, `toast.tsx`, 9 trang/thành phần, mock), cùng test và tài liệu. Không chạm `registration` (K7), `files`/`housekeeping` server (K1), A7 (K4). **G1 không mở lại; bảng 10.1 giữ nguyên.**
+- QC tự chạy (chỉ đọc) `gen_traceability.py --strict` trên `21bb797`: **exit 0**, 71/71 story Must R2, AC 254/254, RBAC lệch 0; cây làm việc không đổi sau khi chạy.
+
+### 11.1 Bảng K2', K7'
+
+| # | Đạt khi (10.4) | Bằng chứng QC kiểm | Kết quả |
+|---|---|---|---|
+| K2' (1) | Có dòng bug-list cho lượt đỏ 39312874062, tái hiện giờ đêm, mức theo test-strategy mục 8 | `bug-list.md` 11.38: tái hiện trên `ottimo_qa31` lúc 02:40 – `GET hk-tasks?date=2026-10-20` 422 `NOT_IN_LIST`, đối chứng giờ thật xanh → **BUG-R2-211 P1 (MOB), lỗi sản phẩm**. Rà cùng gốc trên Desk: **212 P1** (Đổi phòng 422), **213 P0** (đặt đơn đêm tính thêm đêm – sai tiền phía client). ORC giữ P0 cho 213 (decision-log 20/10). Giả thuyết của QC ở 10 (`listHkTasks(pid, localDate())`) được QA chứng minh bằng trace | **Đạt** |
+| K2' (2) | Lỗi sản phẩm → MOB/BE-C sửa, không chạm mã tiền; thêm ca giờ đêm | MOB bỏ `date`, dùng `businessDate()`, `Promise.allSettled` (`s4-report.md` mục 10); FE-A `useBusinessDay` đọc `getBookingRules().businessDate`/`getRack().today` (đợt 27). Ca mới `ui-clock/night-business-day.s4.spec.ts` (TC-X-088 02:40/05:59/06:00, TC-L2-109, TC-L2-110) và `clock/night-business-day.s4.clock.spec.ts` (TC-L6-060). Kiểm ngược: 3 ca UI đỏ đúng lỗi trên web `c293ceb` (11.39). ARC `s4-ARC.md` mục F: đúng hợp đồng (`x-scope today`, `ctx.today`), không đổi hợp đồng, **0 Blocker, 0 Major**; 2 Minor (FE-S4-01 không hẹn giờ 06:00; MOB-S4-01 hằng 06:00) + 1 Suggestion dời R3 Sprint 1 – không sai tiền vì server luôn kiểm lại | **Đạt** |
+| K2' (2b) – 213 theo C1 | 213 là P0 sai tiền phía client; C1 đòi lượt kiểm tiền hoặc ARC review trước khi Closed | ORC decision-log 20/10: ARC review thay lượt kiểm tiền vì chỉ đổi ngày client gửi. QC kiểm độc lập: (a) 0 dòng mã tiền phía server đổi (trên); (b) ARC F nêu rõ server kiểm `DATE_IN_PAST`/`effectiveDate === ctx.today`, nên client không có đường ghi tiền nào khác trước; (c) TC-L2-109 kiểm **số đêm đã lưu** (`nightlyRates` = `[D-1]`, `night-business-day.s4.spec.ts:143–147`), không chỉ giá trị ô ngày; (d) ca đỏ trên bản cũ. Bộ tái hiện tiền và A7 không cần chạy lại vì máy tính tiền không đổi. **QC chấp nhận ARC review thay lượt kiểm tiền cho 213.** Giới hạn: TC-L2-109 không đi tiếp tới nhận phòng + B9a; phần đó do máy tính tiền server không đổi bảo đảm | **Đạt** |
+| K2' (3) | Commit mới → CI push xanh như K3 → lượt T9 trong khung giờ đêm xanh, là lượt T9 gần nhất lúc chấm; retry guard xanh, 0 `retry #`, có `gate-s4` + `axe-k8.s4` | Push 39364680576 xanh 8/8 như K3 (0 `retry #`, `WRITES` qua, gitleaks toàn lịch sử, audit 0 high; `s438-r8` nằm trong 2.971 ca API không đổi so với K3 – QC không grep riêng lần này). T9 39462961483: dispatch sau 17:00 UTC (00:05 giờ VN), E2E 00:14–00:25 giờ VN, xanh, guard 0 flaky / 0 masked, 0 `retry #`, `gate-s4` (desk-chromium + desk-clock) và `axe-k8.s4` có mặt; là lượt T9 gần nhất trên `21bb797` (`gh run list -L 5`) | **Đạt** → G5.2 Đạt |
+| K7' | ARC ghi Verified FB-R2-ARC-BE-S4-21 kèm commit | `s4-ARC.md` dòng 176: "**Verified 20/10** (ARC, commit `c293ceb`, CI push 39270302984 xanh)", kèm điểm kiểm mã (`isLinkedToNobody`, 2 hằng SQL, 4 câu SQL, 3 ca "ARC S4-21" trong `registration-party-removal.test.ts`). S4-22 Verified phần 0078 + quy tắc (phần OPS chạy script trên demo còn lại). `21bb797` không đổi `registration` → Verified trên `c293ceb` còn giá trị | **Đạt** → G3.3 Đạt, M5 |
+
+### 11.2 Dòng G sau chấm lần 3
+
+- Nhóm cứng: G1 **Đạt** (không mở lại) · G2 **Đạt** (G2.4 Đạt có ĐK do C5) · G4 **Đạt** · G5 **Đạt** (G5.1 push 39364680576; G5.2 T9 39462961483) · G7 **Đạt** (0 P0/P1 Open hoặc Fixed sau khi đóng 211/212/213 – mục 11.4).
+- Nhóm mềm: G3 **Đạt** (K7') · G6 **Đạt có ĐK** (16.5 – C11 d) · G8 **Đạt** (G8.2: C12 xong – `axe-k8.s4` chạy trong T9 của K2'; G8.3 vẫn Đạt, MOB-S4-05 (a) đã có trong mã, chỉ thiếu dòng Verified của UXD – C11 e).
+- Thiếu mềm: 1 dòng có ĐK (≤ 2 theo 11.2). Không có tình huống nào trong bốn tình huống KHÔNG ĐẠT ở mục 3. Không lỗi tiền P0/P1 Open.
+
+### 11.3 Quyết định chấm lần 3: **ĐẠT CÓ ĐIỀU KIỆN**
+
+Lý do (1 câu): mọi dòng cứng G1, G2, G4, G5, G7 đạt trên `21bb797` – lượt T9 gần nhất chạy lúc 00:14–00:25 giờ VN xanh, gồm đúng ca đã đỏ lúc 02:40 và 4 ca giờ đêm mới, 0 retry – còn nhóm mềm chỉ G6 "Đạt có ĐK", và các điều kiện ở 11.5 không chặn Sprint 4 nhưng phải xong đúng hạn.
+
+Đọc kỹ để không hiểu sai:
+- Cổng lần 2 trượt vì một lượt T9 đỏ chưa giải thích. Lượt đó hóa ra là **lỗi sản phẩm thật** (BUG-R2-211) và kéo ra thêm một **lỗi tiền P0 phía client** (213). Cả ba đã sửa, có ca giờ đêm, kiểm ngược đỏ trên bản cũ, nay Closed.
+- Mã tiền phía server **không đổi** từ lần chấm 1. 213 được đóng bằng ARC review + ca kiểm số đêm, theo ORC decision-log 20/10, không bằng lượt kiểm tiền riêng.
+- Lượt lịch đêm 20/10 (19:17 UTC) **chưa chạy** lúc chấm. QC không chờ nó, vì 10.4 cho phép dispatch sau 17:00 UTC. Nhưng nếu lượt đó đỏ, quyết định này mở lại (C14).
+
+### 11.4 Đóng BUG-R2-211, 212, 213
+
+- **QC đóng cả ba** trong `qa/bug-list.md` (dòng 211–213, tổng hợp mục 1, mục 11.41), theo đúng điều kiện QA đã đặt ở 11.39: "Closed sau CI của commit gộp"; riêng 213 thêm C1, đã đạt ở dòng K2' (2b). QC không đổi mức lỗi.
+- Bảng tổng sau khi đóng: 213 lỗi; P0 11/11 Closed; P1 68/68 Closed; P2 76 Closed, 2 Open (208, 209), 1 Deferred (074); P3 40 Closed, 15 Open. **0 P0/P1 Open hoặc Fixed.**
+
+### 11.5 Điều kiện còn giữ (sau chấm lần 3)
+
+| # | Điều kiện | Vai | Hạn | Tình trạng lúc chấm |
+|---|---|---|---|---|
+| C1 | Đóng băng mã tiền **tới đây hết hiệu lực cho Sprint 4** (QC chấm xong). Phần R3 giữ nguyên: 208, 209, 210, ARC 16.31, BUG-R2-123 qua lượt kiểm tiền riêng có critic đọc log gốc | ORC, BE-A/B | R3 Sprint 1 | Giữ (phần R3) |
+| C2–C10 | Giữ nguyên mục 6 | như mục 6 | như mục 6 | Chưa kiểm lại ở lần này (ngoài phạm vi rút gọn) |
+| C11 (a) | BE-B review mã BE-65 | BE-B | Trước QC Round 2 | **Xong** – `responses/s4-BE-B.md` mục 1: "OK – không mở thẻ", đọc 5 vùng (attachment, work-orders, housekeeping, registration, 0078) |
+| C11 (b) | BE-B, BE-C ghi Deferred SEC-BE-74, 75, 79, 83 | BE-B, BE-C | Trước QC Round 2 | **Xong** – `s4-BE-B.md` mục 2 (83 → R3-Q22; 74/79 review, 75 → R3-Q17); `s4-BE-C.md` (74, 75, 79 → R3-Q17, hạn trước dữ liệu thật) |
+| C11 (c) | SEC ghi điều kiện review 208 | SEC | Trước QC Round 2 | **Xong** – `s4-SEC.md` mục F: thứ tự 207 → 210 → 208, SEC review trên commit gộp, 5 nhóm test bắt buộc, không mở đường MGR void nợ |
+| C11 (d) | ORC điền "Ngày / Dòng decision-log" ở `sprint-4-plan.md` 16.5 | ORC | Trước QC Round 2 | **Chưa** – dòng 644 vẫn "Ngày: ____ · Dòng decision-log: ____" (decision-log 19/10 "ORC – K9" đã có, chỉ cần trỏ) |
+| C11 (e) | UXD xác nhận axe H23 (G.2) và ghi Verified MOB-S4-05 (a) | UXD | Trước QC Round 2 | **Chưa** – G.2 vẫn "UXD xác nhận kết quả axe khi ORC nhắn"; thẻ MOB-S4-05 "Trạng thái: Open" dù phần (a) đã kiểm. Dẫn chứng cho UXD: TC-X-087 (H23) ✓ trong push 39364680576 và T9 39462961483 |
+| C12 | `axe-k8.s4` có trong lượt T9 của K2' | QA, ORC | – | **Xong** – TC-X-084…087 ✓ trong 39462961483 |
+| C13 | Báo cáo "CI/T9 xanh" dẫn lượt T9 gần nhất + `gh run list -L 5` | QA, DATA, ORC | Từ nay | Giữ |
+| **C14 (mới)** | Lượt T9 lịch đầu tiên trên `21bb797` (hoặc commit con chỉ đổi tài liệu) – dự kiến 20/10 19:17 UTC = 02:17 giờ VN – phải xanh, 0 `retry #`. **Nếu đỏ:** QA ghi bug-list trong ngày, QC mở lại G5.2 và quyết định này. ORC dẫn run đó trong tổng kết Round 2 | ORC, QA | Trước tổng kết Round 2 | Chưa tới giờ |
+| (kiểm thêm) | Ba thẻ ARC mục F dời R3 có dòng backlog | PO | – | **Xong** – `backlog.md` R3-Q36 (FE-S4-01), R3-Q37 (MOB-S4-01), R3-Q38 (FE-S4-02, hợp đồng 0.3.8). Không thành điều kiện |
+
+### 11.6 Giả định và những gì QC chưa kiểm được (chấm lần 3)
+
+- Giả định: "khung giờ đêm" của 10.4 = 00:00–05:59 giờ VN (trước mốc `business_day_rollover` 06:00). Lượt dispatch tạo 00:05, E2E chạy 00:14–00:25 giờ VN, nên TC-X-074 (đồng hồ thật) chạy trong khung. Lượt đỏ gốc lúc 02:40 cũng trong khung này.
+- Giả định: chấp nhận ARC review thay lượt kiểm tiền cho 213 theo ORC decision-log 20/10, vì QC xác nhận độc lập 0 dòng mã tiền phía server đổi. Nếu INV hay DOM thấy cần đi tiếp tới nhận phòng + B9a lúc đêm, đó là ca bổ sung R3, không mở lại 213.
+- Giả định: S4-21 Verified trên `c293ceb` vẫn có giá trị ở `21bb797` vì `registration` không đổi.
+- QC chưa đếm riêng `s438-r8` và `WRITES` 11/11 trong push 39364680576 (bước kiểm `WRITES` success; tổng API 2.971 = đúng số của K3). QC chưa đọc artifact `t9-playwright-report` của lượt xanh.
+- QC không chạy stack, không chạy test DB, không đi luồng bằng tay, không đụng stack demo, không in tệp env. Mọi số liệu CI lấy từ log GitHub QC tự tải.
+
+ESC mới: **không có**. Quyết định cổng sprint ở Round 2 thuộc quyền QC.
+
+### 11.7 Cập nhật điều kiện 21/10 (khi chấm cổng QC Round 2)
+
+- **C14: Đạt.** Lượt T9 theo lịch **39485554354** (schedule) trên `21bb797`, tạo 2026-10-20T19:41:10Z = 02:41 giờ VN 21/10, **xanh**. QC tự tải log: `Running 2045 tests`, 1.976 đạt, 69 bỏ qua, 0 ✘, **0 dòng `retry #`**; TC-X-074 ✓ (#1792), `axe-k8.s4` TC-X-084…087 ✓; API 2.971 đạt; gitleaks 148 commit no leaks. Quyết định ĐẠT CÓ ĐIỀU KIỆN ở 11.3 **không mở lại**; G5.2 giữ Đạt.
+- **C11 (d): Đạt** – `sprint-4-plan.md` dòng 644 đã có "Ngày: 19/10/2026 · Dòng decision-log: 'ORC – K9 (cổng QC Sprint 4)' ngày 2026-10-19".
+- **C11 (e): Đạt** – `s4-UXD-brand.md` dòng 499 (MOB-S4-05 (a) Verified 21/10, `21bb797`) và dòng 549 (K8 axe Verified, gồm H23).
+- C3 (DOM BR-525-16) và C8 (UXR T6/T7) chưa thấy bằng chứng – chuyển vào cổng QC Round 2 (`round-qc-gate.md` R-4). Các điều kiện còn lại chuyển sang `round-qc-gate.md` mục 3 và 6.

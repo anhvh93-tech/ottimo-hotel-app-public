@@ -165,3 +165,69 @@
 ## 5. Việc chưa xong
 - Chấm lại lần 3 chỉ K2', K7' (mục 10.4).
 - QC chưa tái hiện lỗi giờ đêm, chưa đi luồng bằng tay, chưa chạy test DB.
+
+---
+
+# Cổng QC Sprint 4 – chấm lần 3 rút gọn 21/10/2026
+
+## 1. Đã làm gì
+- Chấm K2', K7' (10.4) trên `21bb797`: **ĐẠT CÓ ĐIỀU KIỆN** (`qc/s4-qc-gate.md` mục 11).
+- Tự tải log `gh`: push 39364680576 xanh 8/8 (0 `retry #`, 1.976 E2E đạt, API 2.971); T9 dispatch 39462961483 xanh, E2E chạy 00:14–00:25 giờ VN, TC-X-074 ✓ 00:17, 4 ca giờ đêm + `axe-k8.s4` ✓, guard 0 flaky / 0 masked. Ghi 2 lượt push đỏ trung gian (`e3b0efb`, `aa2f11b`) và lý do (C13).
+- `git diff c293ceb 21bb797`: 0 tệp `product/services`/`packages` → không mở lại G1 hay bảng 10.1.
+- 213 (P0 tiền phía client): kiểm ARC mục F + TC-L2-109 (kiểm số đêm đã lưu) + 0 mã tiền server đổi → chấp nhận thay lượt kiểm tiền (theo ORC 20/10).
+- Đóng BUG-R2-211/212/213 trong bug-list (11.41, bảng tổng). Kiểm C11: (a)(b)(c) xong, (d)(e) chưa. Backlog R3-Q36…Q38 có cho 3 thẻ ARC F.
+- Chạy `gen_traceability.py --strict` (chỉ đọc): exit 0, 71/71, AC 254/254.
+
+## 2. File tạo/sửa
+- `rounds/round-02/qc/s4-qc-gate.md` (dòng đầu + mục 11)
+- `rounds/round-02/qa/bug-list.md` (dòng 211–213, bảng tổng, ghi chú đầu, mục 11.41)
+- `01-decisions/decision-log.md` (1 dòng QC 21/10)
+- `rounds/round-02/outputs/QC/report.md` (phần này)
+
+## 3. Giả định
+- Khung giờ đêm = 00:00–05:59 giờ VN; dispatch sau 17:00 UTC hợp lệ theo 10.4.
+- ARC review thay lượt kiểm tiền cho 213 vì mã tiền server không đổi.
+- S4-21 Verified trên `c293ceb` còn giá trị ở `21bb797` (`registration` không đổi).
+
+## 4. Rủi ro / vướng mắc
+- Lượt T9 lịch đêm 20/10 chưa chạy lúc chấm; đỏ thì mở lại G5.2 (C14).
+- TC-L2-109 không đi tới nhận phòng + B9a lúc đêm; dựa vào máy tính tiền server không đổi.
+- Chạm giới hạn GitHub API 1 lần khi tải log (đã chờ, đọc lại được).
+
+## 5. Việc chưa xong
+- C11 (d) ORC điền 16.5; C11 (e) UXD Verified axe H23 + MOB-S4-05 (a); C2–C10 chưa kiểm lại; C14 chờ lượt lịch.
+- QC không chạy stack, không đi luồng bằng tay, không chạy test DB.
+
+---
+
+# Cổng QC Round 2 (cả round) – 21/10/2026
+
+## 1. Đã làm gì
+- Chấm plan mục 7 (A1–A7, B1–B5, C1–C6) trên `21bb797`: **KHÔNG ĐẠT** (`qc/round-qc-gate.md`). Lý do: nhóm A và B5 đòi staging, chưa có VPS + tên miền; quy tắc mục 7 không cho ĐCĐK khi A/B chưa đạt.
+- Tự đọc CI bằng `gh` (3 lệnh): T9 lịch **39485554354** (02:41 giờ VN 21/10) xanh, 1.976 đạt, 0 ✘, 0 `retry #`, TC-X-074 + `axe-k8.s4` ✓ → **C14 cổng S4 Đạt**; PR Dependabot 39515694829 đỏ (C9).
+- Đối chiếu 384 thẻ FB-R2 với `responses/` bằng script: 147 Blocker/Major; 7 Major SEC→INT (`landing-zalo-SEC.md` 07…14) không có trả lời.
+- Đếm 71 story Must R2 trong backlog: 36 "Đạt (stack tạm)", 35 "Đang nghiệm thu", 0 Accepted trên staging.
+- Kiểm điều kiện cổng S4: C11 (d), (e), C10, C14 Đạt; C3 (DOM), C4 (PO), C8 (UXR) chưa có bằng chứng.
+- Tạo ESC-028 (bắt đầu R3 trong lúc chờ VPS – đội đề xuất A).
+
+## 2. File tạo/sửa
+- `rounds/round-02/qc/round-qc-gate.md` (mới)
+- `rounds/round-02/qc/s4-qc-gate.md` (thêm 11.7: C14, C11 d/e)
+- `02-escalations/ESC-028.md` (mới), `02-escalations/escalations-index.md` (1 dòng)
+- `01-decisions/decision-log.md` (1 dòng QC 21/10)
+- `rounds/round-02/outputs/QC/report.md` (phần này)
+
+## 3. Giả định
+- "Staging" = môi trường cố định có tên miền, HTTPS, deploy tự động; stack CI dùng một lần và demo localhost không thay được (rủi ro R2-5 là biện pháp giảm nhẹ, không đổi tiêu chí).
+- Kênh OTA thật, cổng thanh toán thật, push thật, Zalo tự động: KAD theo plan 2.2 và ORC K9.
+- 8 story LP-v1 thuộc cổng riêng, không tính vào C1.
+- ID rút gọn (`S2-02`…) trong `responses/s2-FE.md` được ghép tay với thẻ gốc.
+
+## 4. Rủi ro / vướng mắc
+- Cổng R2 không gỡ được nếu không có VPS; bước 4 chỉ quay lại một lần.
+- Không staging thì không có RC ở R3.
+- Kết luận khả dụng còn là mô phỏng (ESC-003 chưa có kết quả phiếu).
+
+## 5. Việc chưa xong
+- Chấm lại rút gọn sau R-1…R-6 (A1–A7, B5, C1, C3, C4).
+- Chưa chấm cổng LP-v1. Không đếm trạng thái từng thẻ Minor/Suggestion. Không chạy stack, không đi luồng bằng tay.

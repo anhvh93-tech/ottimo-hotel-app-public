@@ -641,4 +641,4 @@ Căn cứ: `qc/s4-qc-gate.md` mục 5 K9 đường (ii); `outputs/PO/s4-acceptan
 - **Logo S4-49:** INV chưa gửi SVG → theo 12.3 bước 7, logo chuyển sang **Ổn định** (NÊN-ÔĐ, không sang R3): UXD, FE-B, MOB gắn logo **khi anh/chị gửi SVG (KAD)**, trước QC Round 2; tới lúc đó giữ chữ "OTTIMO" bằng Lora theo Brand Guidelines.
 
 **ORC duyệt (19/10):** ☑ Duyệt (ii) cho hai phần trên · ☐ Không duyệt. Lý do: R2 không có kênh OTA/channel manager thật và push là Mock, nên làm trong tuần Ổn định không kiểm được thật. Báo INV ở tổng kết Round 2. Logo S4-49: chuyển Ổn định theo 12.3 bước 7, gắn khi INV gửi SVG.  
-Người duyệt: ORC · Ngày: ____ · Dòng decision-log: ____
+Người duyệt: ORC · Ngày: 19/10/2026 · Dòng decision-log: "ORC – K9 (cổng QC Sprint 4)" ngày 2026-10-19

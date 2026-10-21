@@ -496,7 +496,7 @@ Không có thẻ mới cho FE ở mục D.
   - (a) **Làm ngay ở bước 4** (2 dòng CSS, không đụng tiền, API hay chuỗi): thêm `-webkit-tap-highlight-color: transparent;` vào khối `html, body` của 2 tệp trên. Vẫn còn phản hồi khi chạm, vì `:hover` của DS đã có màu theo token.
   - (b) **R3 Sprint 1, UXD làm**: thêm trạng thái `:active` vào `hifi.css` (DS v0.4.2, C1), dùng cùng màu tint với `:hover` (`.btn` `--surface-2`; `.btn.pri` Ink 88 %; `.btn.brand` Earth 88 %; `.btn.ghost` `--oak-soft`; tab `.m-nav a`, ô `.req-tile` theo `--surface-2`). Không dùng màu mới. Tất cả app nhận qua `@ottimo/ui`, MOB không phải sửa mã.
 - Kiểm (a): đọc mã thấy thuộc tính có ở cả 2 tệp; guest-web và mobile vitest xanh. Dùng Chromium mobile chạm "Gửi yêu cầu" (H23) và "Bắt đầu dọn" (PWA): không còn vệt xanh.
-- Trạng thái: Open
+- Trạng thái: (a) **Verified** (UXD 21/10, `21bb797`): `-webkit-tap-highlight-color: transparent` có trong khối `body` của `apps/mobile/src/styles.css:10` và `apps/guest-web/src/styles.css:9` (vào từ `c293ceb`), không thêm màu nào. Kiểm bằng đọc mã và CI xanh; UXD chưa chạm thử trên máy Android thật. (b) `:active` theo token: **Open – R3 Sprint 1**, UXD làm ở `hifi.css` (mục F.6).
 
 ---
 
@@ -546,6 +546,12 @@ Không có thẻ mới cho FE ở mục D.
 - Giữ thanh tab bên dưới thanh nút: **chấp nhận**. Thứ tự từ trên xuống: thân trang (cuộn), thanh nút, thanh tab. Hi-fi 23.2 không vẽ tab chỉ vì khung mẫu cắt bớt, không phải chủ ý ẩn tab. Khách vẫn cần mở tab Thông tin (Wi-Fi, giờ) trong lúc viết yêu cầu. UXD sẽ vẽ bổ sung thanh tab vào 23.2 ở DS v0.4.2 (mục F).
 - Còn lại: QA chạy lại TC-X-087 và axe (K8) trên stack QA để đóng 193. UXD xác nhận kết quả axe khi ORC nhắn.
 - Màu khi chạm (`-webkit-tap-highlight-color`): xem thẻ **MOB-S4-05** (Minor, làm 1 dòng ngay; `:active` theo token làm ở R3).
+- **K8 axe – Verified (UXD 21/10, `21bb797`, C11 (e)):** `ui-clock/axe-k8.s4.spec.ts` chặn mức critical và serious theo WCAG 2.1 A/AA + 2.2 AA. Spec có đủ các điểm QC đòi ở K8:
+  - TC-X-084 H20 (12 lần quét): danh sách căn, 20.1, 20.4 (mở, thiếu lý do, "Khác"), toast hoàn tác 20.2, 20.3 (trống, đủ mục, "Chưa đạt" + lỗi, toast);
+  - TC-X-085 H15: hộp Gia hạn, hộp Đổi phòng và phần xem trước;
+  - TC-X-086 H16: bước 2 phí trả muộn tính như một đêm, bước 3 quản lý xác nhận (có và không FOC);
+  - TC-X-087 H23: form ở vị trí đầu, không `scrollTo` (chỉ còn trong chú thích), đo điểm chạm nút "Gửi yêu cầu".
+- Kết quả: cả 4 ca đạt, 0 vi phạm, trong CI push 39364680576 và T9 39462961483 trên `21bb797`, 0 `retry #` (`qa/bug-list.md` dòng 1995–1996). BUG-R2-193 Closed (`bug-list.md` dòng 238). G8.2 phần UXD: **đạt**.
 
 ## H. Desk trên điện thoại – thanh dưới (UXR S4 P-02, FE-B) – xem thật 18/10
 
