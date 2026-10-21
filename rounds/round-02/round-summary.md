@@ -1,6 +1,6 @@
 # Tổng kết Round 2 – Xây dựng lõi MVP
 
-- Người soạn: PO (cùng ORC) | Ngày: 21/10/2026 | **BẢN NHÁP – đã có kết quả QC** (cổng Sprint 4 lần 3 và cổng Round 2, 21/10). ORC hoàn thiện và trình.
+- Người soạn: PO (cùng ORC) | Ngày: 21/10/2026 (cập nhật chiều: R-1…R-4 xong) | **BẢN NHÁP – đã có kết quả QC** (cổng Sprint 4 lần 3 và cổng Round 2, 21/10). ORC hoàn thiện và trình.
 - Nguồn: `rounds/round-02/qc/round-qc-gate.md` (cổng Round 2), `qc/s4-qc-gate.md` (cổng Sprint 4), `qa/bug-list.md`, `outputs/PO/s4-acceptance.md` mục R-1, `03-backlog/backlog.md` mục 5.5, `01-decisions/decision-log.md` (17–21/10), `02-escalations/`, `outputs/PO/landing-inv-questions.md`.
 
 ---
@@ -22,11 +22,12 @@
   - **Phần mềm chạy được luồng chính.** Cả 7 luồng A1–A7 (đặt phòng → nhận phòng → lưu trú → trả phòng → bill → buồng phòng; đơn OTA; chống trùng; sự cố khóa phòng; hủy, no-show; phân quyền và giấy tờ; số liệu tổng quan) đều xanh trong môi trường kiểm tra tự động: cùng bản cài như máy chủ thật, cơ sở dữ liệu thật, giả lập đồng hồ. Lượt chạy đêm cũng xanh.
   - **Không còn lỗi P0/P1. Không có lỗi bảo mật nghiêm trọng (Critical/High). Không có lỗi tiền nặng nào mở.**
   - Cổng trượt **vì môi trường**, không phải vì tiền, bảo mật hay chất lượng mã. Việc này đội không tự gỡ được.
-- Ngoài staging, QC giao 4 việc đội tự làm được, hạn 23/10 (R-1…R-4):
-  - R-1 – PO chấm lại nghiệm thu: **xong 21/10** (mục 3);
-  - R-2 – INT trả lời 7 thẻ góp ý bảo mật về Zalo: INT đã trả lời 21/10, chờ SEC xác nhận;
-  - R-3 – QA chạy tay luồng A1 một lần, có ghi hình: đang làm;
-  - R-4 – DOM xác nhận số liệu công nợ BR-525-16 (xong 21/10) và UXR đi lại 2 kịch bản app buồng phòng (đang làm).
+- Ngoài staging, QC giao 4 việc đội tự làm được (R-1…R-4, hạn 23/10). **Cả 4 xong ngày 21/10:**
+  - R-1 – PO chấm lại nghiệm thu: **68/71** tính năng bắt buộc đạt trên môi trường kiểm tra tự động (mục 3);
+  - R-2 – INT trả lời đủ 7 thẻ góp ý bảo mật về Zalo, SEC xác nhận: 3 thẻ đã làm và SEC đã kiểm (1 thẻ còn 1 điểm dời); phần cần tài khoản Zalo thật dời sang Round 3 có hạn. Các điều kiện chặn của SEC vẫn giữ tới khi cài xong, nên **chưa gửi tin Zalo tự động**;
+  - R-3 – QA chạy tay trọn luồng A1 (12 chặng, đặt phòng → trả phòng → dọn, kiểm phòng), có ảnh và ghi hình: **đạt, tiền khớp từng đồng** (tiền phòng 5.205.000, cọc 1.600.000, thu khi nhận 3.605.000, minibar 100.000, tổng đã thu 5.305.000). Phát hiện 3 lỗi nhỏ P3 về hiển thị;
+  - R-4 – DOM xác nhận số liệu công nợ BR-525-16; UXR đi lại 2 kịch bản app buồng phòng khi mất mạng (T6, T7): **đạt**. Hai vấn đề nặng nhất của đợt thử trước (mức 4 và mức 3) đã hết. Đây vẫn là thử mô phỏng, chưa có nhân viên thật.
+- **Việc còn lại để chấm lại cổng chỉ là staging (R-5, R-6).**
 - **Khi có VPS + tên miền:** OPS dựng staging, chạy lại luồng chính trên đó, PO nghiệm thu, SEC kiểm bảo mật. Mất khoảng **3 ngày làm việc**, rồi QC chấm lại cổng Round 2. Anh/chị đã báo sẽ gửi IP và tên miền trong tuần này (decision-log 21/10).
 
 ## 3. Chỉ số round
@@ -38,30 +39,32 @@ Số liệu QC đếm trong `qc/round-qc-gate.md` mục 8.
 | Mức | Tạo | Đã xử lý | Dời sang R3 có quyết định | Chưa có trả lời lúc QC chấm |
 |---|--:|--:|--:|--:|
 | Blocker | 12 | 12 | 0 | 0 |
-| Major | 135 | 123 | 5 | 7 (thẻ SEC → INT về Zalo; INT đã trả lời 21/10 – R-2) |
+| Major | 135 | 123 | 5 | 7 lúc QC chấm (thẻ SEC → INT về Zalo). **Nay 0:** INT trả lời, SEC xác nhận 21/10 (R-2) – 3 thẻ xong (1 thẻ còn 1 điểm dời R3), 4 thẻ dời R3 có hạn |
 | Minor | 190 | – | phần dời nằm trong hàng chờ R3 | – |
 | Suggestion | 44 | tác giả tự cân nhắc | – | – |
 | Không ghi mức | 3 | – | – | – |
 
-**Lỗi (sổ lỗi sau khi QC đóng 211–213):**
+**Lỗi (sổ lỗi 21/10, gồm 5 lỗi P3 mới tìm ở R-1 và R-3):**
 
 | Mức | Tìm | Đã sửa/đóng | Hoãn | Còn mở |
 |---|--:|--:|--:|--:|
 | P0 | 11 | 11 | 0 | 0 |
 | P1 | 68 | 68 | 0 | 0 |
 | P2 | 79 | 76 | 1 | 2 (208, 209 → Round 3 Sprint 1) |
-| P3 | 55 | 40 | 0 | 15 (gồm 210, 123 → Round 3) |
-| **Tổng** | **213** | **195** | **1** | **17** |
+| P3 | 60 | 40 | 0 | 20 (gồm 210, 123; 214–218 mới → Round 3) |
+| **Tổng** | **218** | **195** | **1** | **22** |
+
+- Lúc QC chấm cổng: 213 lỗi, 17 còn mở. Năm lỗi mới 214–218 đều mức P3 (chữ đè nhau, nhóm việc sai tiêu đề, in lặp số cọc, thiếu mã đơn trên một dòng nhắc, câu ngôn ngữ sai nguồn). Không có lỗi P0/P1/P2 mới.
 
 - Hai lỗi P2 còn mở và lỗi 210 là lỗi tiền nhỏ, đều **tính thiếu, không tính thừa khách**. Chúng được sửa trong một lượt kiểm tiền riêng đầu Round 3.
 - **Kiểm tiền:** 8 lượt kiểm độc lập. Lượt 8: 0 lỗi nặng, 0 lệch giá đêm qua 37.966 phép so ngẫu nhiên.
-- **Kiểm tra tự động trên mã `21bb797`:** gần 3.000 ca kiểm phía máy chủ (2.971 đạt) và 2.045 ca bấm thử trên trình duyệt (1.976 đạt, 69 bỏ qua có chủ đích), không ca nào phải chạy lại.
+- **Kiểm tra tự động:** trên mã QC chấm (`21bb797`): gần 3.000 ca kiểm phía máy chủ (2.971 đạt) và 2.045 ca bấm thử trên trình duyệt (1.976 đạt, 69 bỏ qua có chủ đích), không ca nào phải chạy lại. Lượt mới nhất (`e3f98d1`, 21/10, có thêm ca nghiệm thu): 1.981 ca trình duyệt đạt, 0 hỏng, 0 chạy lại.
 - **Nghiệm thu của PO (71 tính năng bắt buộc của Round 2):**
-  - **64 đạt trên môi trường kiểm tra tự động;**
-  - 7 còn thiếu một phần: 4 cần thêm ca kiểm giao diện (đội làm ngay), 2 chờ sửa bảo mật về giấy tờ khách trước khi có dữ liệu thật, 1 cần kiểm bằng trình đọc màn hình trên staging;
+  - **68 đạt trên môi trường kiểm tra tự động;**
+  - 3 còn thiếu một phần: 2 chờ sửa bảo mật về giấy tờ khách (làm ở Round 3, trước khi có dữ liệu thật), 1 cần kiểm bằng trình đọc màn hình trên staging;
   - **0 đạt trên staging**, vì chưa có staging. Khi có staging, PO nghiệm thu lại cả 71.
 - **Cổng QC trong round:** Sprint 2 đạt có điều kiện · Sprint 3 đạt có điều kiện (bản 3, sau một lần không đạt) · Sprint 4 đạt có điều kiện (lần 3, sau hai lần không đạt) · **Round 2: KHÔNG ĐẠT** (chờ staging).
-- **Hàng chờ Round 3:** 45 việc đã có vai và hạn (25 bắt buộc trước bản dùng thử), gồm 6 việc bảo mật cho kết nối Zalo OA thêm ngày 21/10.
+- **Hàng chờ Round 3:** 50 việc đã có vai và hạn (25 bắt buộc trước bản dùng thử). Ngày 21/10 thêm: 6 việc bảo mật cho kết nối Zalo OA, 3 góp ý trải nghiệm app buồng phòng khi mất mạng, 5 lỗi P3 mới, và một phần nhỏ của dòng nhắc thị thực.
 
 ## 4. CẦN ANH/CHỊ QUYẾT ĐỊNH
 

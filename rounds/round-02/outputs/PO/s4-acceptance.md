@@ -1,6 +1,6 @@
 # Nghiệm thu của PO – Round 2, Sprint 4 (tuần Ổn định, trước cổng QC Sprint 4)
 
-- Người nghiệm thu: PO | Ngày: 18/10/2026, **chấm lại 21/10/2026 trên `21bb797` – xem mục R-1 ngay dưới** (mục 0–7 giữ nguyên bản 18/10 để đối chiếu) | Bước: **QC – nghiệm thu** (G6.1, G6.2, M7 của `qc/s4-gate-readiness.md`)
+- Người nghiệm thu: PO | Ngày: 18/10/2026, **chấm lại 21/10/2026 trên `21bb797` và bổ sung trên `e3f98d1` (R-1.4) – xem mục R-1 ngay dưới** (mục 0–7 giữ nguyên bản 18/10 để đối chiếu) | Bước: **QC – nghiệm thu** (G6.1, G6.2, M7 của `qc/s4-gate-readiness.md`)
 - **Nghiệm thu trên CI + stack tạm, chờ staging.** Chưa có VPS. Mọi "Đạt" dưới đây là **Đạt (stack tạm)**. Theo P-R2-7, story chỉ lên "Xong" khi PO kiểm lại giao diện trên staging.
 - Bản được nghiệm thu:
   - mã ở HEAD **`7ac11a4`** (gộp #14, BUG-R2-178);
@@ -92,6 +92,43 @@ Các nhóm giữ của bản 18/10 đã gỡ thế nào:
 - Không story nào bị trả lại. Không thấy chỗ nào chạy sai AC.
 - Ghi chú không giữ story: BUG-R2-123 (P3, xem trước đổi căn của đơn OTA đang xung đột – US-024/US-139) và BUG-R2-208/209/210 (tiền, P2/P3, tính thiếu – US-038, US-028) còn mở, có dòng R3. DoD chỉ chặn P0/P1.
 - **Bước tiếp theo khi có staging (R-6):** PO nghiệm thu 71 story trên staging. Story đạt chuyển sang **Đạt (staging) = Xong**; story sai thì Trả lại kèm lý do.
+
+### R-1.4 Bổ sung 21/10 (chiều) – ca UI mới trên `e3f98d1`, CI push 39542016580
+
+- Bằng chứng: push **39542016580** trên `e3f98d1`, 8/8 job xanh, 2 job bỏ qua theo thiết kế (GHCR, staging). PO tự đọc log job E2E: **1.981 đạt, 69 bỏ qua, 0 hỏng, 0 `retry #`**. Ca mới `ui-clock/acceptance-r1.spec.ts` có TC-L8-001/002/005/007/008 ✓ #1997 và TC-L4-054 (E) ✓ #1999. Ngoài ra: TC-L7-051 (E) ✓ #1796, TC-X-078 (bước mở H14 nay chạy chắc chắn) ✓ #2024, TC-RB-008 (E) ✓ #1790. Hai ca `knownBug` hỏng đúng lỗi đã biết, không tính là hỏng: BUG-R2-217 #1998, BUG-R2-218 TC-L7-053 #1797.
+- Đây là lượt push, không phải T9. Lượt T9 gần nhất vẫn là 39485554354 trên `21bb797` (C13). Từ `21bb797` tới `e3f98d1` chỉ đổi test và tài liệu.
+- Báo cáo của QA: `rounds/round-02/qa/r1-3-ui-run.md`.
+
+| Story / AC | Bằng chứng | Kết quả |
+|---|---|---|
+| US-010 AC1 | TC-L8-001: H03 hiện "6/9 căn bán được (1 đang khóa)", "+ 1 căn đang giữ chỗ (chưa tính)", 66,7 %. Số khớp `dashboard/tonight` và `metrics-definitions.md` | Đạt |
+| US-010 AC2 | TC-L8-002: hủy 202 → 5/9; đặt 302 → 6/9; nhận phòng 201 → "Đang ở" 4 | Đạt |
+| US-012 AC1 | TC-L8-005: dòng "Khai báo lưu trú hôm nay: 3 đơn – hạn sớm nhất 23:00" → "Mở" → `/registration`; TC-X-078 nay chạy bước này không điều kiện | Đạt |
+| US-012 AC3 | TC-L8-007: dòng thị thực có mã đơn, không có ngày hết hạn; "Mở" dẫn tới **drawer đơn**, không phải màn giấy tờ. Dòng không có số căn: hợp đồng API cho `visa_expiring` chỉ trả mã đơn (SR-RET-06). Nhánh "thiết bị chưa cấp" chưa có ca UI | **Đạt phần R2; phần còn lại Dời R3 – P-S4-21** |
+| US-012 AC4 | TC-L8-008: 3 dòng riêng (giữ chỗ hết hạn 12:00, căn khóa 401, phiếu Gấp). Dòng giữ chỗ thiếu mã đơn: BUG-R2-217, P3 | Đạt (lỗi P3 không giữ story theo DoD) |
+| US-012 AC5 | QA chạy tay có ảnh trên CSDL mới: API `attention` = `[]`, khối hiện "Không có việc cần chú ý." (`r1-3-ui-run.md` mục 3). Không đưa vào E2E được vì stack CI dùng chung luôn có mục của ca khác | Đạt (chạy tay có ảnh, đúng quy tắc mục 0) |
+| US-038 AC2 | TC-L4-054 (E): sau trả phòng FD thấy "Folio đã chốt…", 0 nút "Điều chỉnh"; MGR ghi điều chỉnh F&B 3 → 2 có lý do → 201, dòng gốc còn | Đạt |
+| US-112 AC2 | TC-L7-051 (E): hồ sơ `en` + trình duyệt vi-VN → trang mở tiếng Anh, vẫn đổi tay được. Nhánh "trình duyệt EN" không xảy ra với hồ sơ có ngôn ngữ, vì server gán `preferredLocale` theo quốc tịch và hồ sơ thắng trình duyệt (P-S4-10, TT `guest-locale-s4-bed`). Câu "Ngôn ngữ theo trình duyệt" hiện sai nguồn: BUG-R2-218, P3 | **Đạt theo hành vi – P-S4-22** |
+| US-048 AC3 | TC-RB-008 (E) đã đổi tên cho khớp thân ca và thêm kiểm "không hiện số đầy đủ" | Đạt (story vẫn giữ vì SEC BE-79) |
+
+**Quyết định PO (thuộc quyền PO, đã ghi decision-log 21/10):**
+
+| # | Quyết định | Lý do và tác động |
+|---|---|---|
+| **P-S4-21** | **US-012 AC3:** nhận ở R2 phần dòng cảnh báo (mã đơn, không ngày hết hạn) + nút "Mở" tới drawer đơn. **Dời R3 (R3-Q46, Should):**<br>(a) nút mở thẳng màn giấy tờ của đơn;<br>(b) ca UI cho nhánh "thiết bị chưa cấp → thông báo US-142";<br>(c) chữ "và căn" của AC: thêm số căn vào dòng nếu SEC đồng ý, hoặc PO sửa chữ AC theo SR-RET-06 | Không chạm tiền. Bảo vệ dữ liệu giấy tờ do server giữ: ngày hết hạn chỉ đọc được ở màn giấy tờ, trên thiết bị được cấp, có nhật ký C3 (A6, US-142 đạt). Lễ tân chỉ mất thêm một lần bấm từ drawer. Không dùng suất Must R2 nào |
+| **P-S4-22** | **US-112 AC2:** nhận theo hành vi. Ngôn ngữ mặc định lấy theo hồ sơ khách (server gán theo quốc tịch), trình duyệt chỉ dùng khi hồ sơ không có ngôn ngữ (P-S4-10). Màn đã chứng minh hiện tiếng Anh khi nguồn là `en` (TC-L7-051). Câu chữ sai nguồn BUG-R2-218 → R3-Q50 | Khách nước ngoài có hồ sơ `en` nên thấy tiếng Anh (TC-L7-014). Khách VN thấy tiếng Việt, đúng ý P-S4-10. Không đổi chữ AC; ghi chú cách đọc ở backlog |
+
+**Kết quả sau R-1.4 (71 story Must R2):**
+
+| Trạng thái | 18/10 | 21/10 sáng (`21bb797`) | **21/10 chiều (`e3f98d1`)** |
+|---|--:|--:|--:|
+| Đạt (stack CI) | 36 | 64 | **68** |
+| Đang nghiệm thu | 35 | 7 | **3** |
+| Đạt (staging) / Xong | 0 | 0 | **0** |
+
+Ba story còn giữ đều **không đóng được nếu chưa có staging hoặc chưa có bản sửa bảo mật ở R3**:
+- US-043, US-048: SEC BE-74/75/79 (Major) dời R3-Q17, hạn trước dữ liệu thật;
+- US-135 AC3: kiểm bằng trình đọc màn hình trên staging (R-6).
 
 ---
 
