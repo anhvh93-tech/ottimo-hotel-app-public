@@ -5,3 +5,4 @@ export * from './qr/index.js';
 export * from './payment/index.js';
 export * from './doorlock/index.js';
 export * from './guest-registration/index.js';
+export * from './notification/zalo-policy.js';

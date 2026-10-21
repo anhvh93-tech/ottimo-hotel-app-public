@@ -48,17 +48,17 @@ Thang mức nặng:
 
 ### 3.2 Lượt L4 – S4 PWA, KB5, KB10, J6
 
-Tổng **34**: mức 4 là 1, mức 3 là 5, mức 2 là 19, mức 1 là 9. Mô tả, bằng chứng và đề xuất đầy đủ ở `rounds/round-02/outputs/UXR/s4-pwa-walkthrough.md` mục 3.
+Tổng **34**: mức 4 là 1, mức 3 là 5, mức 2 là 19, mức 1 là 9. Lượt đi lại 21/10 thêm 3 (P-35, P-36 mức 2; P-37 mức 1) → **37**; P-01, P-05 đã đóng phía người dùng. Mô tả, bằng chứng và đề xuất đầy đủ ở `rounds/round-02/outputs/UXR/s4-pwa-walkthrough.md` mục 3.
 
 Trạng thái theo ORC 18/10: đã giao sửa cho **FE-B, MOB, FE-A, OPS (P-24, P-15)**; **BE-C nhận P-01**. Các mục chỉ cần UXD duyệt chữ hoặc chờ chủ đầu tư ghi riêng. Tất cả đang **Open**.
 
 | ID | Mức | Vấn đề (tóm tắt) | Người sửa | Trạng thái |
 |---|:-:|---|---|---|
-| P-01 | **4** | Offline "Bắt đầu dọn" + "Dọn xong" → "Dọn xong" bị từ chối khi đồng bộ (422), căn kẹt "Đang dọn" (= FB-R2-ARC-BE-S4-01) | BE-C (MOB câu chữ ở P-08) | Open – đã giao BE-C |
+| P-01 | **4** | Offline "Bắt đầu dọn" + "Dọn xong" → "Dọn xong" bị từ chối khi đồng bộ (422), căn kẹt "Đang dọn" (= FB-R2-ARC-BE-S4-01) | BE-C (MOB câu chữ ở P-08) | **Đóng phía người dùng 21/10** – T6 đạt trên `72895de` (walkthrough mục 7) |
 | P-02 | 3 | Desk dưới 1024 px không có menu; chủ đầu tư trên điện thoại không vào được Nhật ký tiền, Tham số | FE-B (+ UXD) | Open – đã giao |
 | P-03 | 3 | Trang Cần duyệt vỡ bố cục ở 390 px, số tiền bị che; thẻ duyệt không nói khoản gì, căn nào | FE-B | Open – đã giao |
 | P-04 | 3 | Việc bổ sung minibar chỉ ghi "1, 1", không có tên món | MOB (BE-C nếu cần thêm trường API) | Open – đã giao |
-| P-05 | 3 | Báo sự cố có ảnh khi mất mạng → phiếu tạo ra không có ảnh | MOB | Open – đã giao |
+| P-05 | 3 | Báo sự cố có ảnh khi mất mạng → phiếu tạo ra không có ảnh | MOB | **Đóng phía người dùng 21/10** – T7 đạt 2 lần (WO-00001, WO-00002 có ảnh) |
 | P-06 | 3 | "Khai báo quá hạn – làm ngay" trên máy chưa cấp quyền là ngõ cụt, không có danh sách đơn | FE-B (+ UXD) | Open – đã giao |
 | P-07 | 2 | Bộ đếm hàng đợi lệch (1 so với 2), dòng trạng thái lặp | MOB | Open – đã giao |
 | P-08 | 2 | "Cần xem lại" hiện mã kỹ thuật VALIDATION_FAILED, không có nút gửi lại | MOB + UXD | Open – đã giao |
@@ -88,9 +88,13 @@ Trạng thái theo ORC 18/10: đã giao sửa cho **FE-B, MOB, FE-A, OPS (P-24, 
 | P-32 | 1 | Folio dùng lẫn gạch nối và dấu trừ | FE-A | Open – đã giao |
 | P-33 | 1 | Thẻ việc lặp số căn; buồng phòng thấy họ tên đầy đủ (spec ghi "tên gọi") | MOB + DOM/SEC xác nhận | Open – chờ DOM/SEC |
 | P-34 | 1 | Chữ "drawer" trên màn lễ tân | FE-A + UXD | Open – đã giao |
+| P-35 | 2 | Khởi động app lúc máy chủ trả 502, máy chủ lên lại: hàng đợi không tự gửi khi app vẫn mở; "tự thử lại lúc" hiện giờ đã qua, dòng ghi "Đang gửi 1/1…" dù không gửi (mới 21/10) | MOB | Open – mới, đề xuất R3 |
+| P-36 | 2 | Một phần dữ liệu (việc hoặc căn) không tải được: chỉ đổi dòng chữ nhỏ "Dữ liệu lúc …", không có câu báo hay nút thử lại (mới 21/10) | MOB + UXD | Open – mới, đề xuất R3 |
+| P-37 | 1 | Sau một lần tải việc lỗi, "Các căn" mất tên khách không giải thích (đúng SR-PWA-01) (mới 21/10) | UXD + SEC | Open – chờ UXD/SEC |
 
 Ghi chú:
 - Bản đã thử là commit `7ac11a4`. Cây làm việc đang có thay đổi chưa commit của BE-C và MOB ở vùng P-01, P-05, P-10, P-11, P-29. Sau khi gộp, QA/UXR đi lại trên stack `ottimo-uxr` (vẫn đang chạy) trước khi đóng.
+- **21/10 – R-4 cổng QC Round 2 (C8 cổng S4):** UXR đi lại T6, T7 trên stack `ottimo-uxr` dựng lại từ `72895de` (mô phỏng, chưa kiểm với nhân viên thật). T6, T7 đạt → P-01, P-05 đóng phía người dùng; cùng lượt thấy P-07, P-09, P-15 (build có số lễ tân), P-31 đã đạt; BUG-R2-211 phía PWA đạt (giờ máy 02:40 vẫn hiện ngày kinh doanh). Mục mới P-35, P-36, P-37, không mục nào mức 3–4. Chi tiết: `rounds/round-02/outputs/UXR/s4-pwa-walkthrough.md` mục 7. Trạng thái các mục còn lại ở bảng trên giữ theo 18/10, UXR chưa đi lại.
 - Có 2 mục đã được vai khác ghi trước: P-01 = FB-R2-ARC-BE-S4-01, P-29 = FB-R2-UXD-MOB-S4-03. UXR xác nhận từ phía người dùng, không tính trùng.
 
 ## 4. Phần dời từ Round 1 (plan R2 dòng UXR)
@@ -143,3 +147,4 @@ Phiếu 1 trang `real-user-check-guide.md` vẫn dùng được. Sau L4, UXR đ�
 | Phiên bản | Ngày | Người sửa | Nội dung |
 |---|---|---|---|
 | 1.0 | 18/10/2026 | UXR | Bản đầu: gộp L1–L3 (Demo 1, 17/10) và L4 (S4 PWA + KB5, KB10, J6, 18/10) theo ORC; bảng vấn đề theo mức, người sửa, trạng thái; việc dời từ R1; danh sách sửa cho R3 |
+| 1.1 | 21/10/2026 | UXR | R-4 cổng QC Round 2 / C8 cổng S4: đi lại T6, T7 trên `72895de`; P-01, P-05 đóng phía người dùng; thêm P-35, P-36, P-37 |

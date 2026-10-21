@@ -232,6 +232,9 @@ jobs:
         run: bash product/infra/ci/check-compose.sh
       - name: Caddyfile.prod rules on the stock caddy image (exact headers, real-file probes, 413, log masking)
         run: bash product/infra/ci/check-caddy-prod.sh --stub
+      # SEC E.8 / R5-01: the CI deploy key gets one summary line back (public Actions log); other commands → exit 2.
+      - name: deploy-from-ci.sh (one summary line, full log on the server, refused commands)
+        run: bash product/infra/ci/test-deploy-from-ci.sh
 
   test-surface-guard:
     # BUG-R1-SEC-08 / SR-SECR-05: the production contract must not contain /__test__ paths
@@ -711,16 +714,19 @@ jobs:
       group: deploy-staging
       cancel-in-progress: false
     steps:
+      # Public repository = public Actions log (SEC s4-SEC.md E.8, R5-01): host, key and known_hosts are secrets of the
+      # environment `staging` (masked); no `set -x`, no echo of the environment; ssh LogLevel=ERROR (no host warnings);
+      # the forced command answers one summary line only (full output stays in a 0600 log on the VPS).
       - name: Deploy over SSH (forced command deploy-from-ci.sh – the key cannot do anything else)
         env:
           SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
-          HOST: ${{ vars.STAGING_SSH_HOST }}
+          HOST: ${{ secrets.STAGING_SSH_HOST }}
           TAG: ${{ needs.publish-images.outputs.tag }}
         run: |
           [ -n "$HOST" ] && [ -n "$SSH_KEY" ] && [ -n "$KNOWN_HOSTS" ] || { echo "::error::STAGING_SSH_HOST / STAGING_SSH_KEY / STAGING_SSH_KNOWN_HOSTS missing"; exit 1; }
           install -d -m 0700 ~/.ssh
           ( umask 077; printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key; printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts )
-          trap 'rm -f ~/.ssh/deploy_key' EXIT
-          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
+          trap 'rm -f ~/.ssh/deploy_key ~/.ssh/known_hosts' EXIT
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes -o LogLevel=ERROR -o ConnectTimeout=20 \
             "ottimo@$HOST" "deploy $TAG"

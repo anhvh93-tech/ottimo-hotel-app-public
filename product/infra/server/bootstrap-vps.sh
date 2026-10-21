@@ -126,16 +126,29 @@ fi
 ssh_dir="/home/$DEPLOY_USER/.ssh"
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0700 "$ssh_dir"
 touch "$ssh_dir/authorized_keys"
+ci_opts='command="/opt/ottimo/infra/server/bin/deploy-from-ci.sh",restrict'
+key_blob() { awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^(ssh-|ecdsa-|sk-)/) { print $(i + 1); exit } }' <<<"$1"; }
+# SEC E.8 D4: the CI key is separate from every person's key. A key may not be both a person key (unrestricted) and
+# the CI key (forced command) – otherwise one of the two lines would give the CI key a shell or lock a person out.
 if [ -n "$deploy_key" ]; then
   while IFS= read -r k; do
-    [ -n "$k" ] && ! grep -qxF "$k" "$ssh_dir/authorized_keys" && echo "$k" >> "$ssh_dir/authorized_keys"
+    [ -n "$k" ] || continue
+    b=$(key_blob "$k")
+    if [ -n "$b" ] && grep -F -- "$b" "$ssh_dir/authorized_keys" | grep -qF 'deploy-from-ci.sh'; then
+      echo "a --deploy-key is already installed as the CI key – use separate keys (SEC E.8 D4)" >&2; exit 1
+    fi
+    grep -qxF -- "$k" "$ssh_dir/authorized_keys" || echo "$k" >> "$ssh_dir/authorized_keys"
   done < "$deploy_key"
 fi
 if [ -n "$ci_key" ]; then
-  opts='command="/opt/ottimo/infra/server/bin/deploy-from-ci.sh",restrict'
   while IFS= read -r k; do
     [ -n "$k" ] || continue
-    grep -qF "$k" "$ssh_dir/authorized_keys" || echo "$opts $k" >> "$ssh_dir/authorized_keys"
+    b=$(key_blob "$k")
+    [ -n "$b" ] || { echo "cannot parse the CI public key" >&2; exit 1; }
+    if grep -F -- "$b" "$ssh_dir/authorized_keys" | grep -vqF "$ci_opts"; then
+      echo "the CI key is also a person's (unrestricted) key – generate a separate CI key (SEC E.8 D4)" >&2; exit 1
+    fi
+    grep -qF -- "$b" "$ssh_dir/authorized_keys" || echo "$ci_opts $k" >> "$ssh_dir/authorized_keys"
   done < "$ci_key"
 fi
 chown "$DEPLOY_USER:$DEPLOY_USER" "$ssh_dir/authorized_keys"

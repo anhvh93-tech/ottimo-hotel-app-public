@@ -1,6 +1,6 @@
 # Zalo OA + ZBS Template Message (ZNS) – Chăm sóc khách OTTIMO
 
-- Người lập: INT | Round 2 (sau Sprint 3, trước Sprint 4) | Ngày tra cứu: 17/10/2026 | Trạng thái: **v0.1 – chờ review** ARC, SEC (bắt buộc), DOM, BE (khuyến nghị)
+- Người lập: INT | Round 2 (sau Sprint 3, trước Sprint 4) | Ngày tra cứu: 17/10/2026 | Trạng thái: **v0.2 (21/10/2026)** – đã nhận review SEC `rounds/round-02/reviews/landing-zalo-SEC.md`; các yêu cầu SEC INT-07…14 gom ở **mục 4.12** (thắng mọi chỗ khác trong tài liệu nếu lệch). v0.1 – chờ review ARC, SEC (bắt buộc), DOM, BE (khuyến nghị)
 - Đầu vào: tin nhắn INV 17/10/2026 (muốn dùng Zalo OA để chăm sóc khách); ESC-010 (INV chọn B ngày 16/10: ZNS để sau MVP); ESC-020 (landing page, nút "Chat Zalo OA"); PRD M13, M15, A6; backlog US-034, US-040, US-108, US-116, US-126, US-138, US-131/132; `integrations.md` I7 + mục 3.4; ADR-006, ADR-011; `hosting-plan.md` mục 5.1; content-guide mục 7 (mẫu tin VI/EN/RU).
 - Liên quan: `02-escalations/ESC-021.md` (mở lại phần Zalo của ESC-010).
 - Quy ước nguồn:
@@ -65,7 +65,7 @@
 - Gửi tin mẫu **qua UID** rẻ hơn gửi qua SĐT (máy tính giá: mẫu tùy chỉnh 300 đ qua SĐT, 210 đ qua UID) [Nguồn S2]. UID chỉ có khi khách đã tương tác với OA.
 
 ### 1.4 Chat 2 chiều và OA Manager cho nhân viên
-- **OA Manager** chạy trên máy tính tại `oa.zalo.me/manager` và trên điện thoại bằng **mini app OA Manager** trong Zalo [Nguồn S15].
+- **OA Manager** chạy trên máy tính tại `oa.zalo.me/manager` và trên điện thoại bằng **mini app OA Manager** trong Zalo [Nguồn S15]. OTTIMO: nhân viên chat trên **bản web**, máy của cơ sở; mini app trên điện thoại cá nhân chỉ OWN/MGR (SEC 17/10 – mục 4.12-E).
 - Có: phân quyền quản trị viên nhiều vai trò, **chỉ định người xử lý hội thoại**, lưu thông tin khách, báo cáo lượng dùng [Nguồn S15].
 - Số tài khoản nhân viên: Cơ bản **3**, Tiêu chuẩn 5, Tăng trưởng 15, Toàn diện 100. Chat trên điện thoại ở gói Cơ bản **"có giới hạn"** [Nguồn S1]. Giới hạn cụ thể **[Chưa xác minh]**.
 - Đủ cho OTTIMO giai đoạn 1: chủ đầu tư + 2 lễ tân/sale.
@@ -204,7 +204,7 @@ Hành trình gốc dùng bản tạm (DOM đang soạn bản chính thức song 
 ### 3.1 Danh sách mẫu ZNS cần đăng ký (bản tiếng Việt; UXD viết lại từ content-guide mục 7 theo quy định 2.2)
 | Mã nội bộ (`templateKey`) | Tag | Loại mẫu | Tham số chính | Nút | Giá ước/tin (chưa VAT) |
 |---|---|---|---|---|---|
-| `zns.booking_confirmed` | 1 | Tùy chỉnh | `customer_name`, `booking_code`, `room_name`, `checkin_date`, `checkout_date`, `nights` | "Làm thủ tục trước" → `g.<tên-miền>/g/<token>` | 300 + 100 = 400 đ |
+| `zns.booking_confirmed` | 1 | Tùy chỉnh | `customer_name`, `booking_code`, `room_type_name` (hạng phòng công khai, không số căn – SEC-INT-10), `checkin_date`, `checkout_date`, `nights` | "Làm thủ tục trước" → `g.<tên-miền>/g/<token>` | 300 + 100 = 400 đ |
 | `zns.arrival_reminder` | 2 | Tùy chỉnh | `customer_name`, `booking_code`, `checkin_date`, `checkin_time`, `address`, `parking_note` | "Xem chỉ đường" → trang khách | 400 đ |
 | `zns.checkout_reminder` | 2 | Tùy chỉnh | `customer_name`, `booking_code`, `checkout_date`, `checkout_time` | "Chọn giờ trả phòng" → trang khách | 400 đ |
 | `zns.payment_confirmed` | 1 | Tùy chỉnh (bảng) | `customer_name`, `bill_no`, `amount`, `paid`, `balance` | "Xem chi tiết" → trang bill | 400 đ |
@@ -214,7 +214,7 @@ Hành trình gốc dùng bản tạm (DOM đang soạn bản chính thức song 
 | `zns.direct_voucher` (tùy chọn) | 3 | Voucher | `customer_name`, `voucher_code`, `discount`, `expiry_date` | theo mẫu | 400 đ |
 
 - Bản tiếng Anh: không cần ở MVP (khách nước ngoài ít dùng Zalo). Zalo cho phép mẫu một ngôn ngữ; mẫu thuần tiếng Anh có được duyệt không **[Chưa xác minh]**.
-- Không bao giờ đưa **mã cửa, mã xác minh, số giấy tờ** vào ZNS (giữ quy tắc `integrations.md` 3.4).
+- Không mã cửa, số giấy tờ trong ZNS. Mã xác minh chỉ qua mẫu xác thực riêng khi SEC/INV bật (FB-R2-SEC-INT-15). Danh sách biến cho phép theo mẫu và theo kênh nằm trong mã: `product/integrations/notification/zalo-policy.ts` (mục 4.12-C).
 
 ## 4. Thiết kế tích hợp (trong khuôn ADR-011)
 
@@ -268,7 +268,7 @@ Hành trình gốc dùng bản tạm (DOM đang soạn bản chính thức song 
 - Zalo tự hủy webhook sau ~1 giờ lỗi liên tục → OPS thêm theo dõi: không nhận sự kiện nào trong 24 giờ trong khi có tin đã gửi → cảnh báo.
 
 ### 4.7 Opt-out và dữ liệu cá nhân
-- Hồ sơ khách thêm `contact_prefs`: `zalo_transactional` (mặc định bật – thực hiện hợp đồng lưu trú), `zalo_marketing` (mặc định **tắt** – chỉ bật khi khách đồng ý rõ, ví dụ ô chọn ở check-in online hoặc khách follow OA), `zalo_unreachable_until`.
+- Hồ sơ khách thêm `contact_prefs`: `zalo_transactional` (mặc định bật – thực hiện hợp đồng lưu trú), `zalo_marketing` (mặc định **tắt** – chỉ bật khi có `consent_record` P06 = `granted` của chính người nhận; follow OA **không** thay được – mục 4.12-D), `zalo_unreachable_until`.
 - Zalo trả `-139`/`-141` → tự tắt `zalo_transactional` + ghi lý do. Khách nhắn "không nhận tin" trong chat → lễ tân tắt trong Desk.
 - Tin Tag 3 (voucher) chỉ khi `zalo_marketing` bật. Cơ sở pháp lý cho tin quảng cáo (Luật BVDLCN 91/2025; quy định chống tin nhắn rác) → **SEC xác nhận** [Chưa xác minh].
 - Zalo/VNG là **bên xử lý dữ liệu** mới (tên, SĐT, mã đơn, ngày lưu trú) → SEC thêm vào danh sách bên xử lý (RI9). Dữ liệu đi tới doanh nghiệp Việt Nam, hợp hướng ESC-002 A; vị trí máy chủ **[Chưa xác minh]**.
@@ -277,14 +277,14 @@ Hành trình gốc dùng bản tạm (DOM đang soạn bản chính thức song 
 ### 4.8 Link khách trong tin tự động – cần ARC/SEC quyết
 - ADR-006: DB chỉ lưu **băm** của `guest_access_token`; link chỉ hiện một lần cho lễ tân sao chép. Worker gửi tin tự động **không có** token gốc để gắn vào nút.
 - Phương án INT đề xuất (ARC/SEC chọn):
-  - **L-1 (INT đề xuất):** tin **đầu tiên** (bước 1) do worker **cấp** token ngay lúc gửi: sinh token, lưu băm, đưa token gốc vào tham số nút, không ghi token gốc ở đâu khác. Các tin sau (bước 2, 5, 6) cấp **link ngắn hạn riêng cho tin** (`purpose=notify`, mức 1, hết hạn 7 ngày, không tính vào giới hạn 2 token/đơn) trỏ về cùng đơn.
+  - **[Thay bởi quyết định SEC 17/10 – mục 4.12-B]** **L-1 (INT đề xuất):** tin **đầu tiên** (bước 1) do worker **cấp** token ngay lúc gửi: sinh token, lưu băm, đưa token gốc vào tham số nút, không ghi token gốc ở đâu khác. Các tin sau (bước 2, 5, 6) cấp **link ngắn hạn riêng cho tin** (`purpose=notify`, mức 1, hết hạn 7 ngày, không tính vào giới hạn 2 token/đơn) trỏ về cùng đơn.
   - **L-2:** các tin sau dẫn về trang chung `g.<tên-miền>` kèm hướng dẫn "mở lại link trong tin xác nhận" – đơn giản hơn nhưng khách hay mất tin cũ.
   - **L-3:** lưu token gốc mã hóa – SEC từng không chọn cách này (ADR-006), INT không đề xuất.
 - Zalo nhận URL có token trong nút (dữ liệu đi qua máy chủ Zalo). Token mức 1, thu hồi được – rủi ro như gửi link qua Zalo cá nhân hiện nay. SEC xác nhận.
 
 ### 4.9 Nhân viên xem chat OA
 - **Giai đoạn 1 – OA Manager (không lập trình, làm ngay khi OA xác thực):**
-  - Lễ tân/sale trả lời trên `oa.zalo.me/manager` (máy quầy) và mini app OA Manager (điện thoại). Gói Cơ bản: 3 tài khoản.
+  - Lễ tân/sale trả lời trên OA Manager **bản web** trên máy quầy/máy tính bảng của cơ sở, hồ sơ trình duyệt riêng. Mini app trên điện thoại cá nhân **chỉ OWN/MGR** (quyết định SEC 17/10 – mục 4.12-E). Gói Cơ bản: 3 tài khoản.
   - Gắn chat với đơn bằng tay: nhân viên hỏi mã đặt phòng, ghi chú vào đơn trong Desk. Yêu cầu dịch vụ (dọn phòng, sửa chữa) vẫn tạo trong Desk/app khách để vào luồng định tuyến (US-110).
   - Landing page (ESC-020 L2-A) và trang khách (`guest.contact.message`) dẫn tới **cùng OA** → khách nhắn OA = mở cửa sổ chat 7 ngày, các tin sau đi được bằng tin tư vấn miễn phí.
 - **Giai đoạn 2 – Hộp thư Zalo trong Desk (đề xuất R4+, sau 1 tháng dùng giai đoạn 1):**
@@ -303,15 +303,65 @@ Hành trình gốc dùng bản tạm (DOM đang soạn bản chính thức song 
 ```
 ZALO_PROVIDER=manual_copy        # off | manual_copy | mock | zalo   (thay giá trị 'zns' cũ)
 ZALO_APP_ID=
-ZALO_APP_SECRET=                 # header secret_key – INV giữ
+ZALO_APP_SECRET_FILE=            # header secret_key – INV giữ, dạng tệp (SR-KEY-10)
 ZALO_OA_ID=
-ZALO_OA_SECRET_KEY=              # kiểm X-ZEvent-Signature – INV giữ
+ZALO_OA_SECRET_KEY_FILE=         # kiểm X-ZEvent-Signature – INV giữ, dạng tệp
 ZALO_OAUTH_REDIRECT_URL=         # https://desk.<tên-miền>/v1/integrations/zalo/oauth/callback
 ZALO_SEND_WINDOW=08:00-21:00     # giờ cơ sở; DOM chốt
 ZALO_MOCK_SCENARIO=ok
-INTEGRATION_TOKEN_KEK=           # mã hóa token xoay vòng trong integration_credential; khóa riêng mục đích
+INTEGRATION_TOKEN_KEK_FILE=      # 32 byte, mã hóa token xoay vòng trong integration_credential; khóa riêng mục đích
 ```
 Bảng ánh xạ `templateKey → template_id` lưu trong DB theo cơ sở (OWN cấu hình), không đặt trong `.env`.
+
+### 4.12 Yêu cầu SEC đã nhận (v0.2 – 21/10/2026)
+Nguồn: `rounds/round-02/reviews/landing-zalo-SEC.md` mục 1 (C-4…C-9) và thẻ FB-R2-SEC-INT-07…14; quyết định SEC trong `decision-log.md` 17/10 (INT-09, INT-12). Mục này **thắng** các mục 1.4, 1.6, 4.3, 4.6, 4.7, 4.8, 4.9 nếu lệch. Chưa có mã gọi Zalo thật; phần cài đặt ở R3 (US-126, US-161, các dòng R3 đề nghị PO thêm – xem `responses/INT-responses.md`).
+
+**A. Webhook vào (INT-07, C-4)** – thứ tự xử lý, sai bước nào dừng bước đó:
+1. Giới hạn body 64 KB + 300 request/phút (SR-RL-08).
+2. Chữ ký tính trên **byte thô** nhận được (không parse rồi dựng lại JSON), so `timingSafeEqual`. Công thức và dạng header (có tiền tố hay không) INT xác minh lại trên trang chữ ký của Zalo khi cài [Nguồn S23 – Chưa xác minh dạng header]. Sai → `401` không chi tiết, `signature_valid=false`, không đổi dữ liệu, tính vào cảnh báo SR-LOG-06 (≥ 5/giờ).
+3. `app_id`/`oa_id` trong dữ liệu phải bằng cấu hình.
+4. `timestamp` trong [now − 3 giờ, now + 5 phút] (Zalo gửi lại tới ~1 giờ – S22).
+5. Ghi `inbox_message` với khóa duy nhất (`event_name` + id sự kiện/`msg_id`) – lặp thì trả 200, không xử lý lại. Trả 200.
+6. Webhook không ký (nếu ZNS không ký – [Chưa xác minh]): chỉ là tín hiệu; worker gọi `queryStatus` rồi mới ghi (ADR-011 B4).
+7. Log chỉ `event_name`, kết quả kiểm, `request_id`. `inbox_message.payload` lọc theo danh sách trường cho phép, xóa sau 90 ngày.
+8. Mock B10 có ca: body đổi 1 byte, `oa_id` khác, sự kiện lặp, `timestamp` cũ 4 giờ.
+
+**B. Link khách trong tin tự động (INT-09, C-6 – SEC chốt 17/10, thay L-1 ở 4.8)**
+1. Worker **không bao giờ** cấp hay thu hồi token chính (`desk`/`pending`). Mọi tin tự động và danh sách "Tin cần gửi hôm nay" dùng **token thông báo** `purpose=notify`, mức 1.
+2. Hạn = min(lúc cấp + 7 ngày, trả phòng + ân hạn); dài hạn: 7 ngày, cấp mới theo tin.
+3. Mỗi đơn tối đa **1** token thông báo còn hiệu lực; cấp mới → thu hồi cái trước. Tổng ≤ 3 token/đơn (ARC sửa ADR-006 điểm 4). Hủy, no-show, lễ tân cấp lại link → thu hồi cả token thông báo; bộ đếm sai xác minh dùng chung theo đơn.
+4. Token gốc chỉ trong bộ nhớ worker lúc gọi API; không vào `outbox_message`, `notification_delivery`, `integration_log`, `tracking_id`, thông báo lỗi, log HTTP. Lần thử lại sau → cấp token mới.
+5. Tin **có link** chỉ tự gửi tới SĐT/email **đã xác nhận** (khách đã nhắn/gọi từ số đó, hoặc lễ tân đánh dấu). Chưa xác nhận → tin không link hoặc việc cho lễ tân.
+6. `audit_event security` mỗi lần cấp (đơn, kênh, mẫu, người/hệ thống – không token). Zalo thấy URL có token: SEC chấp nhận.
+
+**C. Biến theo mẫu và theo kênh (INT-10, C-7)** – **đã cài lớp kiểm**: `product/integrations/notification/zalo-policy.ts` (`checkTemplateVariables`, bảng cho phép 8 mẫu, danh sách cấm: mã cửa, mã xác minh, số/ảnh giấy tờ, ngày sinh, số căn/tên phòng, mật khẩu Wi-Fi, token; tiền chỉ ở mẫu bill/thanh toán). Vi phạm → `TEMPLATE_VAR_REJECTED` → lõi trả `422`, không gửi. `room_name` đổi thành `room_type_name`. Test: `zalo-policy.test.ts` (snapshot khóa 8 mẫu). Lõi gọi hàm này trước mọi lần gửi Zalo – cài ở US-126 (R3).
+
+**D. Tin marketing (INT-11, C-8 – SEC trả lời Q8)**
+1. Tin vận hành (Tag 1, 2): căn cứ thực hiện thỏa thuận, nêu trong thông báo xử lý dữ liệu; `zalo_transactional` mặc định bật.
+2. Tag 3/voucher theo SĐT: chỉ khi `consent_record` P06 = `granted` của chính người nhận (ghi phiên bản câu chữ, kênh, thời điểm). Follow OA không thay được. Không gửi khách OTA (ESC-021 K1 = A).
+3. Broadcast cho người follow OA: chấp nhận (Zalo quản lý), không nhắm khách OTA.
+4. Từ chối: `-139`/`-141` → tắt ngay; nút "Không nhận ưu đãi" → trang `g.` với token hủy đăng ký riêng (HMAC, một mục đích, bấm lại không lỗi, không hiện dữ liệu cá nhân); lễ tân tắt khi khách nhắn. Rút đồng ý có hiệu lực ngay với tin đang chờ (BR-971).
+5. Khung giờ/tần suất theo BR-973/974. Câu hỏi NĐ 91/2020 + dự thảo thay thế (mở rộng sang OTT) vào ESC-001.
+
+**E. Chat OA – thiết bị và tài khoản (INT-12 – SEC chốt 17/10)**
+1. Mỗi nhân viên dùng Zalo của chính mình làm quản trị viên OA, vai thấp nhất đủ chat; không dùng chung tài khoản. OWN giữ vai chủ OA + 1 quản trị viên dự phòng (MGR).
+2. Chat trên OA Manager **bản web**, máy quầy/máy tính bảng của cơ sở, hồ sơ trình duyệt riêng (không chung hồ sơ Desk). SEC sửa SR-DEV-07/08 (cấm **ứng dụng** Zalo, cho phép bản web theo điều kiện này).
+3. Mini app trên điện thoại cá nhân: chỉ OWN/MGR.
+4. Không xin, không nhận ảnh giấy tờ, số thẻ qua chat; có câu trả lời nhanh dẫn tới link check-in; ảnh khách đã gửi: không tải, không chuyển tiếp, nhờ khách thu hồi.
+5. Không dán dữ liệu C3 hay mã cửa vào chat. Nghỉ việc: gỡ quyền quản trị OA **trong ngày** (cùng lúc khóa Desk); OWN rà danh sách quản trị viên hằng tháng. Bật lớp bảo vệ đăng nhập của Zalo cho tài khoản quản trị [Chưa xác minh tên tính năng].
+
+**F. Khóa, token và OAuth (INT-08, C-5)**
+1. Cột token: AES-256-GCM qua `CryptoService`, AAD `integration_credential|<cột>|<id>|<kek_version>`; `INTEGRATION_TOKEN_KEK_FILE` 32 byte, tệp riêng; kiểm khởi động khi `ZALO_PROVIDER=zalo` (thêm vào SR-SECR-05 và `common/safe-config.ts` khi có giá trị `zalo`).
+2. "Kết nối Zalo OA": chỉ OWN, admin-web, thiết bị được cấp, xác nhận lại mật khẩu/PIN (TOTP khi có). `state` ngẫu nhiên 256 bit lưu server gắn phiên, dùng 1 lần, 10 phút; PKCE S256.
+3. Callback: OA trả về ≠ `ZALO_OA_ID` → từ chối, không lưu token, `audit_event security`.
+4. Làm mới: giữ khóa advisory → gọi Zalo → ghi cặp mới trong giao dịch ngắn; ghi lỗi → thử ghi lại vài lần từ bộ nhớ; vẫn lỗi → `healthCheck=down`, báo OWN kết nối lại. Không gọi lại bằng refresh token cũ.
+5. HTTP client chỉ gọi host cố định (`oauth.zaloapp.com`, `openapi.zalo.me`, `business.openapi.zalo.me`), kiểm TLS, timeout ≤ 15 giây; không log header `access_token`, `secret_key`, query của callback (`code`).
+6. `ZALO_APP_SECRET_FILE`, `ZALO_OA_SECRET_KEY_FILE` vào sổ bí mật SR-SECR-04 (mục 4.11 đã đổi). Zalo có cho đổi App Secret không [Chưa xác minh] – kiểm khi tạo App.
+
+**G. Bên nhận dữ liệu và log (INT-14, C-9)**
+1. Thông tin INT cung cấp cho SEC (cập nhật DRA P11, khung thông báo xử lý dữ liệu, luật sư duyệt – ESC-001): bên nhận là Zalo/VNG (tên pháp nhân theo điều khoản ZBS – INT ghi khi INV tạo tài khoản ZBS [Chưa xác minh]); trường gửi đi theo mẫu = bảng ở mục C (cộng SĐT người nhận, `tracking_id`); nơi lưu, vai bên xử lý/bên kiểm soát [Chưa xác minh – điều khoản ZBS].
+2. `integration_log` cho Zalo chỉ: `template_key`, kênh, mã lỗi, `msg_id`, thời gian, `cost_units` – **đã cài** `toZaloIntegrationLog` trong `zalo-policy.ts` (danh sách trường cho phép; SĐT, `template_data`, token, body bị bỏ theo cấu trúc), có test.
+3. `notification_delivery` không có cột SĐT/nội dung (giữ như 4.5). Đánh dấu "không có Zalo" lưu trên hồ sơ khách, không tạo bảng SĐT riêng.
 
 ## 5. Chi phí hằng tháng cho 10 căn
 

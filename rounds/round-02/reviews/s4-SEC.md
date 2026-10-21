@@ -802,3 +802,71 @@ Cả `rounds/` công khai, nên mọi thẻ SEC/QA kèm bước tái hiện đ�
 
 - **Nếu thiếu điều kiện nào:** SEC không ký 208, và giữ hành vi N-7 hiện tại (chặn theo chu kỳ). Hành vi này an toàn về kiểm soát, chỉ bất tiện (ngõ cụt sửa khoản ghi nhầm, cần OWN xử lý).
 - Trạng thái: **Điều kiện đã ghi**, chờ PR 208 ở R3 Sprint 1.
+
+### E.8 Bổ sung 21/10 – quyết định SEC về R5-01 (`outputs/OPS/staging-readiness.md` mục 3): log Actions công khai của `deploy-staging`
+
+- **SEC đồng ý** đề xuất của OPS: forced command `deploy-from-ci.sh` chỉ trả về **một dòng tóm tắt**. Toàn bộ output `deploy.sh` ghi trên VPS.
+- **Hạn:** **trước lần deploy staging đầu tiên từ CI**, tức trước khi bật `STAGING_DEPLOY=true`. Không đợi tới production. Lý do:
+  - log Actions của repo công khai ai cũng đọc và tải được trong suốt thời gian lưu;
+  - một khi đã lộ thì chỉ xóa run mới gỡ được;
+  - lỗi khởi động hay lỗi SQL ở staging có thể in cấu hình, tên bảng, đường dẫn nội bộ. Dữ liệu giả không làm giảm lượng thông tin hạ tầng bị lộ.
+- Deploy tay qua SSH của OPS (`deploy.sh sha-…`) **không** bị ảnh hưởng: output đầy đủ vẫn hiện trên máy OPS.
+
+**Yêu cầu cho bản sửa (OPS; SEC review cùng PR):**
+1. `deploy-from-ci.sh`:
+   - chạy `deploy.sh` với stdout/stderr ghi vào tệp log trên VPS, chủ `ottimo`, quyền 0600, xoay vòng như `deploy-history.log`;
+   - trả về đúng một dòng `deploy <tag>: ok` hoặc `deploy <tag>: failed (step=<tên bước>, ref=<mã lượt>)`, giữ mã thoát khác 0 khi lỗi;
+   - `ref` là mã ngẫu nhiên hoặc thời điểm, để OPS tìm trong log VPS. Không chứa IP, đường dẫn hay nội dung lỗi.
+2. **Giữ regex hiện tại:** chỉ `deploy sha-<hex>`, CI không chọn được tag `-test`. Đúng như R5-04: chuyển sang `-test` chỉ làm bằng tay. Sửa lại chú thích đầu tệp, đang ghi `[-test]` lệch với regex.
+3. **Chuyển `STAGING_SSH_HOST` từ biến (vars) sang secret của environment `staging`.** Biến không bị che trong log, secret được che. Chuyện IP đã lộ qua DNS không phải lý do để in nó cùng tên user `ottimo@` và cổng SSH.
+4. **Bước SSH trong `ci.yml`:**
+   - thêm `-o LogLevel=ERROR` để không in cảnh báo host kèm IP;
+   - không `set -x`, không `echo` biến môi trường;
+   - thông báo lỗi chỉ nêu tên biến thiếu (như hiện nay).
+5. **Test:**
+   - (a) deploy cố ý lỗi (tag không có trên GHCR) → log Actions chỉ có một dòng `failed`, log VPS có chi tiết;
+   - (b) lệnh lạ → `refused`, mã 2.
+   - OPS ghi kết quả vào `staging-readiness.md`.
+
+**Điều kiện SEC cho lần deploy staging đầu tiên từ CI** (gộp với E.6). Đủ cả 6 mới bật `STAGING_DEPLOY`:
+
+| # | Điều kiện | Nguồn |
+|---|---|---|
+| D1 | Environment `staging` có người duyệt bắt buộc (INV) và chỉ nhánh `main`. `STAGING_SSH_KEY`, `STAGING_SSH_KNOWN_HOSTS`, `STAGING_SSH_HOST` là **secret của environment**, tạo **sau** khi đã có bảo vệ | E.6 (1), mục 3 trên |
+| D2 | Bản sửa R5-01 (mục 1–5 trên) đã gộp và có kết quả test (a)(b) | E.8 |
+| D3 | Gói GHCR `ottimo-api` (gồm `-test`) và `ottimo-web` là **Private**. INV kiểm ngay sau lượt publish đầu, trước khi kéo image | E.6 (2), R5-02 |
+| D4 | Khóa CI trên VPS chỉ dùng được với `command="…deploy-from-ci.sh",restrict`. Khóa CI khác khóa của OPS/INV, chỉ dùng cho CI | `deploy-from-ci.sh` |
+| D5 | Staging chỉ có dữ liệu giả: không nạp dump, không nâng tại chỗ dữ liệu thật (điều kiện C2 cổng S4) | C2 |
+| D6 | Sau lượt đầu, SEC đọc log Actions của lượt đó (trường hợp xanh, và một lượt lỗi cố ý nếu có): không có IP, đường dẫn, biến môi trường hay output compose | E.8 |
+
+- **Khuyến nghị (không chặn):** giảm thời gian lưu log/artifact Actions của repo xuống 30 ngày (mặc định 90) để giới hạn thời gian lộ nếu sau này có sót.
+- **Kết luận:** R5-01 là rủi ro Medium (phần b), không phải Critical/High. **G2.5 không đổi.** Không tạo ESC mới: đây là cấu hình kỹ thuật thuộc quyền SEC/OPS. INV chỉ thực hiện D1, D3 theo checklist của OPS.
+
+#### E.8.1 Kiểm bản sửa R5-01 của OPS (SEC, 21/10) – **Verified** (cây làm việc, chờ ORC commit)
+
+- **Nguồn:** `outputs/OPS/staging-readiness.md` mục 7. Các tệp: `deploy-from-ci.sh`, `deploy.sh`, `bootstrap-vps.sh`, `ci.yml` (job `deploy-staging` và `infra-scripts`), `product/infra/ci/test-deploy-from-ci.sh` (mới), `inv-staging-checklist.md`.
+- **Đọc mã, đối chiếu từng yêu cầu E.8:**
+  1. Forced command:
+     - regex vẫn chỉ nhận `deploy sha-<hex 7–40>`; chú thích đã sửa khớp regex (bỏ `[-test]`);
+     - output của `deploy.sh` ghi vào `state/deploy-logs/ci-<ref>.log` (umask 077, 0600, giữ 30 tệp), stdin là `/dev/null`;
+     - CI chỉ nhận một dòng `ok` hoặc `failed (step, ref)`, mã thoát 1 khi lỗi;
+     - `step` đọc tối đa 32 byte, lọc còn `a-z-`; `ref` = thời điểm UTC + 3 byte ngẫu nhiên; lệnh bị từ chối trả mã 2 và chỉ ghi `logger` (không lộ nội dung).
+
+     **Đạt.**
+  2. `deploy.sh`: hàm `step` chỉ ghi tên bước cố định, và chỉ khi có `OTTIMO_STEP_FILE`. Deploy tay không đổi hành vi. **Đạt.**
+  3. `HOST` đọc từ `secrets.STAGING_SSH_HOST`; `trap` xóa cả `deploy_key` và `known_hosts`. **Đạt.**
+  4. `ssh -o LogLevel=ERROR`, không `set -x`, thông báo lỗi chỉ nêu tên biến, điều kiện `if:` của job không đổi (vẫn tắt). **Đạt.**
+  5. Test. SEC tự chạy lại `test-deploy-from-ci.sh` trong container `ubuntu:24.04`, mount `product/` chỉ đọc. Kết quả: dòng cuối `OK: …`; đạt cả (a) lỗi có dấu IP/đường dẫn giả, (b) 14 lệnh lạ, (c) thành công và giữ 30 log. Test đã nối vào job `infra-scripts`. **Đạt.**
+- **D4 (`bootstrap-vps.sh`):** so phần base64 của khóa, nên khóa CI không thể đồng thời là khóa người (mất `restrict`), và ngược lại; chạy lại không thêm dòng trùng. Đọc mã đạt. Bản chạy trọn với root để tới khi có VPS. OPS ghi kết quả vào `staging-readiness.md` lúc bootstrap.
+- **Checklist INV:** đã có D1–D6, `STAGING_SSH_HOST` thành secret của environment, tạo secret sau khi có người duyệt, khóa CI riêng, kiểm GHCR ngay sau lần publish đầu, gợi ý lưu log 30 ngày. **Đạt.**
+- **Ghi chú, không chặn:**
+  - (i) Nếu chính `deploy-from-ci.sh` lỗi trước khi mở được log (ví dụ `mkdir` lỗi quyền), bash in một dòng lỗi có đường dẫn `/opt/ottimo/state/…`. Đường dẫn này vốn đã công khai trong repo, chấp nhận.
+  - (ii) `deploy-history.log` chưa xoay vòng (mỗi lượt một dòng, không có dữ liệu nhạy cảm). Để R3.
+- **Kết luận:** R5-01 **Verified** trên cây làm việc. **SEC đồng ý để ORC commit.** Sau commit, job `infra-scripts` trên CI phải xanh, có step `deploy-from-ci.sh`. Đây là điều kiện D2.
+
+#### E.8.2 Cách hiểu D6 – **SEC xác nhận**
+
+Hiểu của OPS/ORC đúng: **bật `STAGING_DEPLOY` khi đủ D1–D5**. D6 là kiểm **ngay sau lượt deploy CI đầu tiên**. Không đạt thì **tắt lại** `STAGING_DEPLOY`. Thêm 3 điểm:
+- ORC báo SEC **trước** khi INV bấm duyệt lượt đầu, để SEC đọc log ngay khi lượt chạy xong. Lượt sau chỉ được duyệt khi SEC đã ghi kết quả D6 vào mục này.
+- Nếu log lượt đầu có IP, đường dẫn, biến môi trường hay output compose, thì INV (hoặc ORC qua `gh run delete`) **xóa run đó**, tắt `STAGING_DEPLOY`, và OPS sửa trước lượt sau. Nếu lộ IP thì thêm bước: đổi khóa CI nếu có nghi ngờ khóa liên quan. Riêng IP thì không cần đổi, vì IP vốn có trong DNS.
+- Nếu lượt đầu xanh mà chưa thấy được nhánh lỗi, SEC chấp nhận vì test (a) trên CI đã phủ nhánh lỗi. Không cần cố ý làm hỏng một lượt trên staging thật.

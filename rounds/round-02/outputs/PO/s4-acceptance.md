@@ -1,6 +1,6 @@
 # Nghiệm thu của PO – Round 2, Sprint 4 (tuần Ổn định, trước cổng QC Sprint 4)
 
-- Người nghiệm thu: PO | Ngày: 18/10/2026 | Bước: **QC – nghiệm thu** (G6.1, G6.2, M7 của `qc/s4-gate-readiness.md`)
+- Người nghiệm thu: PO | Ngày: 18/10/2026, **chấm lại 21/10/2026 trên `21bb797` – xem mục R-1 ngay dưới** (mục 0–7 giữ nguyên bản 18/10 để đối chiếu) | Bước: **QC – nghiệm thu** (G6.1, G6.2, M7 của `qc/s4-gate-readiness.md`)
 - **Nghiệm thu trên CI + stack tạm, chờ staging.** Chưa có VPS. Mọi "Đạt" dưới đây là **Đạt (stack tạm)**. Theo P-R2-7, story chỉ lên "Xong" khi PO kiểm lại giao diện trên staging.
 - Bản được nghiệm thu:
   - mã ở HEAD **`7ac11a4`** (gộp #14, BUG-R2-178);
@@ -11,6 +11,89 @@
   - PO đọc thân ca E2E (`product/tests/e2e/ui`, `ui-clock`, `api`, `clock`), test tích hợp BE (`services/api/test/integration/*-s4*.test.ts`) và test FE/MOB (vitest + MSW);
   - PO đọc các báo cáo `outputs/BE/s4-be-c.md`, `s4-be-d.md`, `outputs/FE/s4-report.md` (FE-A, FE-B), `outputs/MOB/s4-report.md`, `qa/s4-test-report.md`, các review `reviews/s4-UXD.md`, `s4-ARC.md` (mục A), `s4-SEC.md` (đang viết) và truy vết `product/docs/qa/traceability.md` (`--strict` exit 0, 254/254 AC có TC).
 - Quy tắc riêng của lượt này (ORC giao, QC-S3-09): **AC giao diện chỉ được nhận khi có ca UI bấm thật hoặc QA chạy tay có ảnh.** Ca vitest + MSW của FE/MOB và lượt dev tự xem bằng Chromium không thay được bằng chứng này.
+
+## R-1. Chấm lại 21/10/2026 – Bước 4 sau cổng QC Round 2 KHÔNG ĐẠT (điều kiện C4 cổng S4)
+
+- Người chấm: PO | Ngày: 21/10/2026 | Căn cứ: `qc/round-qc-gate.md` mục 5 (R-1), `qc/s4-qc-gate.md` 11.5 (C4).
+- **Mã chấm: `21bb797`** (HEAD `main` là `72895de`; từ `21bb797` tới `72895de` chỉ đổi tài liệu).
+- **Bằng chứng chạy** (PO tự đọc bằng `gh run view`, repo `anhvh93-tech/ottimo-hotel-app-public`):
+  - push **39364680576** trên `21bb797`: 10 job, 8 xanh, 2 bỏ qua theo thiết kế (GHCR, deploy staging – chưa có VPS);
+  - T9 tay **39462961483** và T9 theo lịch **39485554354** (02:41 giờ VN 21/10) trên `21bb797`: xanh. Log job E2E của 39485554354: `2045 case(s), 0 flaky, 0 masked by retry`, **1.976 đạt, 69 bỏ qua**. Bước kiểm của CI bắt lỗi nếu ca `ui/`, `ui-clock/` bị bỏ qua ngoài danh sách cho phép (`TC-L2-020 (E)`, `TC-L2-076 (E)`), nên các ca UI dẫn dưới đây đều **đã chạy**. PO tìm từng mã TC trong log và thấy dấu ✓.
+  - `known-bugs.ts`: `OPEN = {}` – không ca nào được che bằng `test.fail`.
+- **Hai mức "Đạt" – không trộn:**
+  - **Đạt (stack CI)**: mọi AC phần R2 đạt trên stack CI dùng một lần (cùng ảnh production, PostgreSQL thật, đồng hồ giả lập). Trước 21/10 ghi là "Đạt (stack tạm)" – **chỉ đổi tên, không đổi nghĩa**.
+  - **Đạt (staging)** = trạng thái "Xong" của backlog: PO kiểm lại giao diện trên staging (P-R2-7). **Chưa có staging nên chưa story nào ở mức này.** Việc này làm ở R-6 khi có VPS.
+- PO **không đổi tiêu chí**: giữ nguyên quy tắc mục 0 (AC giao diện cần ca UI bấm thật hoặc QA chạy tay có ảnh) và P-S4-19 (giữ story khi còn thẻ Major trên đúng đường mã hoặc tiền chưa qua kiểm chứng).
+
+### R-1.1 Kết quả
+
+| Trạng thái 71 story Must R2 | 18/10 (`7ac11a4`) | **21/10 (`21bb797`)** |
+|---|--:|--:|
+| Đạt (stack CI) | 36 | **64** |
+| Đang nghiệm thu | 35 | **7** |
+| Đạt (staging) / Xong | 0 | **0** |
+
+8 story LP-v1 thuộc cổng riêng, không tính ở đây.
+
+Các nhóm giữ của bản 18/10 đã gỡ thế nào:
+
+| Lý do giữ (18/10) | Gỡ bằng | Kết quả |
+|---|---|---|
+| **Chờ G1** – kiểm lại tiền S4-38 (US-007, 024, 025, 028, 029, 066, 136) | Cổng S4 G1 **Đạt, không mở lại** ở cả 3 lần chấm: lượt kiểm 8 có 0 Major, fuzz 0 lệch / 37.966 phép so; P0 11/11, P1 68/68 Closed (gồm BUG-R2-160…162 của US-028). `c293ceb → 21bb797` không đổi `product/services`, `packages` | Gỡ cả 7. Lỗi tiền còn mở BUG-R2-208, 209 (P2, tính thiếu, R3-Q19/Q20) và 210 (P3) không phải P0/P1 nên không giữ story theo DoD; ghi chú ở US-038 |
+| **Chưa** – S4-33 (US-024 AC4, US-139 AC3) | TC-L2-068 (A) ✓ #1948, TC-L2-026 (A) ✓ #1947 (`clock/s4-33.s5.clock.spec.ts`) | Đạt |
+| **Chờ review** US-053, US-055 (ARC S4-01, 02) | `reviews/s4-ARC.md` E.2: S4-01, S4-02 **Verified** 19/10. S4-03: phần định nghĩa Verified; phần đổi cổng đọc là sửa cấu trúc, không đổi hành vi, Deferred R3 Sprint 1 có QC chấp nhận | Đạt |
+| **Chờ review** US-110 (SEC G2.4 guest-web, ARC mục B) | SEC `s4-SEC.md` C.5 "Đạt có ghi chú" (chỉ Minor MOB-04, BE-76); ARC S4-07, 08 Verified, S4-09 Verified phần tiền (phần đọc chéo dời R3 có QC chấp nhận) | Đạt |
+| **Chờ review** US-043 | SEC BE-73 Verified; nhưng BE-74, 75, 79 (Major) **Deferred** R3-Q17, chưa sửa | **Vẫn giữ** |
+| **Chờ ca UI** (22 story) | Ca UI mới `ui/gate-s4`, `ui-clock/gate-s4`, `axe-k8.s4`, `night-business-day.s4`, `uxr-pwa.s5` – bảng R-1.2 | 18 story lên Đạt; 4 story còn thiếu một phần (US-010, 012, 038, 112) |
+| Kiểm tay trên staging (US-135 AC3) | Chưa có staging | **Vẫn giữ** |
+
+### R-1.2 AC "Chờ ca UI" của bản 18/10 → ca UI đã chạy trong T9 39485554354
+
+| Story / AC | Ca UI (dấu ✓ trong log) | Kết quả 21/10 |
+|---|---|---|
+| US-006 AC1 (điều chỉnh dòng trên Desk) | TC-L4-142 (E) ✓ #2016 – điều chỉnh dòng 3 → 2, có lý do, ghi `adjustments` 201, không xóa dòng | Đạt |
+| US-010 AC1 (ô KPI + chú thích mẫu số), AC2 (dữ liệu đổi → KPI đổi) | TC-X-078 ✓ #2019 và TC-X-073 ✓ #1791 chỉ mở H03/H24 và kiểm tiêu đề khối "Đêm nay" + axe; **không kiểm số KPI, chú thích, và KPI đổi** | **Chờ ca UI** |
+| US-011 AC1–AC3 | TC-X-078: khách đến B, E có "Nhận phòng"; khách đi A có "Trả phòng"; "Giữ chỗ chưa cọc" là mục riêng; nhận phòng ở máy khác → dòng đổi "Đang ở" không tải lại; 01:30 hôm sau H03 vẫn ngày D (danh sách theo ngày do server trả – TT) | Đạt |
+| US-012 AC1 (bấm dòng khai báo → H14) | TC-X-078 có bước này nhưng **trong nhánh có điều kiện**: không thấy dòng khai báo thì chỉ ghi chú, ca vẫn xanh. Log job không in chú thích, nên PO không xác nhận được bước đã chạy | **Chờ ca UI** (bỏ điều kiện, hoặc QA đọc `t9-playwright-report`) |
+| US-012 AC3 (thị thực), AC4 (giữ chỗ sắp hết hạn, căn khóa), AC5 (rỗng) | TC-X-078 chỉ kiểm dòng "Phiếu sửa Gấp" | AC4 phần phiếu Gấp Đạt; **AC3, AC4 phần còn lại, AC5: Chờ ca UI** |
+| US-016 AC3 | TC-L2-108 (E) ✓ #1789 – chuột và bàn phím đều mở drawer | Đạt |
+| US-020 AC2 | TC-L4-142 – "Xem Phiếu thanh toán" của đơn `checked_out` | Đạt |
+| US-030 AC2 | TC-X-078 – chip "Đã trả lời" trên thẻ khách đi | Đạt |
+| US-031 AC1 (phần R2) | TC-X-078 – 12:31 vai MGR thấy "Quá giờ trả phòng"; 08:00 vai FD thấy thẻ khách đi và "Có khách đến cùng căn"; TC-L4-143 ✓ #2017 | Đạt |
+| US-032 AC1 | TC-L4-142 | Đạt |
+| US-038 AC3 ("Ghi công nợ" chỉ MGR/OWN) | TC-L4-142 – FD không có công tắc ghi nợ; MGR ghi nợ có hạn + lý do → đơn `checked_out` còn nợ | Đạt |
+| US-038 AC2 (sau `settled`: FD không sửa; MGR/OWN tạo bút toán điều chỉnh) | Không ca UI nào làm trên folio đã `settled` (TC-L4-142 điều chỉnh trên folio đang mở) | **Chờ ca UI** |
+| US-048 AC3 | TC-RB-008 (E) ✓ #1790 – H06 hiện 4 ký tự cuối (tên ca còn chữ "Desk chưa hiện" cũ, thân ca kiểm hiện) | Đạt – story **vẫn giữ** vì SEC BE-79 (mục R-1.3) |
+| US-052 AC1, AC2 | TC-X-079 ✓ #2020 (360 px không cuộn ngang, đủ 10 căn, lọc "Cần dọn" đúng số); TC-X-080 ✓ #2044; TC-X-088 ✓ #2027 (02:40/05:59/06:00 vẫn tải được) | Đạt |
+| US-054 AC2 | TC-X-079 – chip "App khách" trên việc sinh từ yêu cầu guest-web | Đạt |
+| US-057 AC2 | TC-X-079 – HK tick "Đề nghị khóa căn" (request không có `block`) → Desk S11 có chip "Đề nghị khóa" và nút "Khóa phòng theo đề nghị" | Đạt |
+| US-061 AC2, US-062 AC3 | TC-L6-056 (E) ✓ #2021 | Đạt |
+| US-083 AC2 | TC-L5-053 (E) ✓ #1785 – chọn Русский, lời gửi khách chữ Kirin từ API | Đạt |
+| US-086 AC4 | TC-L5-054 (E) ✓ #1787 | Đạt |
+| US-108 AC1; US-109 AC1, AC2 | TC-X-077 ✓ #2018 (390×844: giờ, "Chỉ đường", không lộ số căn; gửi yêu cầu miễn phí và có phí – tick đồng ý; Desk nhận/từ chối; khách thấy "Hoàn thành"/"Không thực hiện được"); TC-X-087 ✓ #2001 | Đạt |
+| US-112 AC1 | TC-X-077 – chọn English, mọi nhãn, trạng thái, "Directions" bằng tiếng Anh | Đạt |
+| US-112 AC2 (hồ sơ English hoặc trình duyệt EN → mặc định EN) | TC-X-077 mở bằng en-US nhưng hồ sơ người đứng tên là vi (ưu tiên cao hơn – P-S4-10), nên khách tự đổi. Chưa có ca cho thấy màn **tự** hiện EN. Phần server (TT `guest-locale-s4-bed`) đạt | **Chờ ca UI** |
+| US-119 AC3 | TC-L4-142 – MGR đảo giao dịch thu có lý do; FD không có nút | Đạt |
+| US-024 AC2 (đổi phòng sau nửa đêm), US-025 AC6 (nhận trước 06:00) – thêm, không thuộc "Chờ ca UI" cũ | TC-L2-110 ✓, TC-L3-085 ✓ #2022 | Đạt (bằng chứng thêm) |
+
+### R-1.3 Bảy story còn "Đang nghiệm thu" – lý do cụ thể, không còn "Chờ G1"
+
+| Story | Lý do còn giữ | Cần gì để lên Đạt (stack CI) | Vai |
+|---|---|---|---|
+| US-010 | AC1, AC2: chưa có ca UI kiểm số KPI, chú thích mẫu số trên H03/H24, và KPI đổi khi dữ liệu đổi | Thêm vào TC-X-078 (đã dựng 6 đơn, 1 OOO, 1 giữ chỗ): kiểm ô công suất + chú thích; sau khi nhận phòng B kiểm số "đang ở" tăng | QA (FE-B) |
+| US-012 | AC1: bước bấm mở H14 có điều kiện, chưa chứng minh đã chạy. AC3, AC4 (giữ chỗ sắp hết hạn, căn khóa), AC5 chưa có ca UI | Bỏ điều kiện ở bước H14 (dựng khai báo đến hạn); thêm dòng thị thực, giữ chỗ sắp hết hạn, căn khóa; một ca H03 rỗng | QA (FE-B, BE-D) |
+| US-038 | AC2: chưa có ca UI trên folio đã `settled` | Một ca: FD mở folio đã trả không có nút sửa; MGR tạo bút toán điều chỉnh có lý do | QA (FE-A) |
+| US-112 | AC2: chưa có ca màn tự hiện tiếng Anh | Ca guest-web với hồ sơ English (hoặc hồ sơ trống + trình duyệt en-US) → H23 mở là tiếng Anh | QA (MOB) |
+| US-043 | SEC BE-74, BE-75, BE-79 (Major, đường giấy tờ – hồ sơ) Deferred R3-Q17, chưa sửa (P-S4-19) | BE-C sửa, SEC Verified – hạn trước dữ liệu thật | BE-C, BE-B, SEC |
+| US-048 | SEC BE-79 (Major, R3-Q17): đổi người của giấy tờ không gỡ `id_doc_last4` trên hồ sơ cũ – đúng cột của AC3. Bản 18/10 chưa tính thẻ này vì nó được thêm vào R3-Q17 sau lượt nghiệm thu | Như US-043 | BE-C, SEC |
+| US-135 | AC3: kiểm tay bằng trình đọc màn hình chỉ làm được trên staging | R-6 trên staging | QA, UXD |
+
+- Bốn story đầu (US-010, 012, 038, 112) **không cần VPS**: QA thêm ca trong Đợt 1 là xong. Ba story sau phụ thuộc sửa bảo mật ở R3 hoặc staging.
+- Không story nào bị trả lại. Không thấy chỗ nào chạy sai AC.
+- Ghi chú không giữ story: BUG-R2-123 (P3, xem trước đổi căn của đơn OTA đang xung đột – US-024/US-139) và BUG-R2-208/209/210 (tiền, P2/P3, tính thiếu – US-038, US-028) còn mở, có dòng R3. DoD chỉ chặn P0/P1.
+- **Bước tiếp theo khi có staging (R-6):** PO nghiệm thu 71 story trên staging. Story đạt chuyển sang **Đạt (staging) = Xong**; story sai thì Trả lại kèm lý do.
+
+---
 
 ## 0. Cách đọc
 

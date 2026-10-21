@@ -1,7 +1,7 @@
 # Tổng kết Round 2 – Xây dựng lõi MVP
 
-- Người soạn: PO (cùng ORC) | Ngày: 20/10/2026 | **BẢN NHÁP – chưa có kết quả QC cuối.** Cổng QC Sprint 4 chấm lần 3 sau lượt kiểm tra ban đêm 21/10; QC Round 2 chưa chạy. Mọi chỗ ghi **[CHỜ QC]** sẽ điền khi có kết quả.
-- Nguồn: `01-decisions/decision-log.md` (17–20/10), `02-escalations/`, `rounds/round-02/qc/s4-qc-gate.md`, `qa/bug-list.md`, `reviews/s4-money-recheck8.md`, `03-backlog/backlog.md` mục 5.5, `pending-for-INV.md`, `outputs/OPS/s4-env-0076.md`.
+- Người soạn: PO (cùng ORC) | Ngày: 21/10/2026 | **BẢN NHÁP – đã có kết quả QC** (cổng Sprint 4 lần 3 và cổng Round 2, 21/10). ORC hoàn thiện và trình.
+- Nguồn: `rounds/round-02/qc/round-qc-gate.md` (cổng Round 2), `qc/s4-qc-gate.md` (cổng Sprint 4), `qa/bug-list.md`, `outputs/PO/s4-acceptance.md` mục R-1, `03-backlog/backlog.md` mục 5.5, `01-decisions/decision-log.md` (17–21/10), `02-escalations/`, `outputs/PO/landing-inv-questions.md`.
 
 ---
 
@@ -11,29 +11,67 @@
 - **Tiền đã được kiểm kỹ nhất:** 8 lượt kiểm tiền độc lập, số lỗi tiền nghiêm trọng giảm dần 11 → 6 → 5 → 3 → 5 → 3 → 1 → 1 → **0**; không còn lỗi tiền mức P0/P1 mở. Ba lỗi tiền nhỏ (đều tính thiếu, không tính thừa khách) làm đầu Round 3.
 - **App buồng phòng trên điện thoại** (việc hôm nay, trạng thái buồng, kiểm phòng, báo sự cố) và **trang khách** (mở bằng link/QR, check-in online, xem thông tin lưu trú, gửi yêu cầu) bằng tiếng Việt và tiếng Anh.
 - **Landing page ottimo.vn – bản mẫu v1.2.1** theo Brand Guidelines (tông kem – gỗ sồi, Lora + Be Vietnam Pro). Chưa lên mạng: chờ tên miền, máy chủ và anh/chị duyệt nội dung (mục 4.6).
-- **Mã nguồn công khai, kiểm tra tự động miễn phí** (theo quyết định của anh/chị 18–19/10): mỗi lần gộp mã chạy gần 2.000 ca bấm thử trên trình duyệt và gần 3.000 ca kiểm phía máy chủ. Lượt kiểm tra ban đêm đã bắt được một lỗi thật: sau nửa đêm, app buồng phòng không tải được và Desk có chỗ tính thêm một đêm. Đã sửa ngày 20/10.
-- **Chưa có:** máy chủ chạy thử (staging) vì còn chờ VPS + tên miền. Anh/chị hiện xem sản phẩm trên bản demo chạy tại máy Mac (mục 7).
+- **Mã nguồn công khai, kiểm tra tự động miễn phí** (theo quyết định của anh/chị 18–19/10): mỗi lần gộp mã chạy gần 2.000 ca bấm thử trên trình duyệt và gần 3.000 ca kiểm phía máy chủ. Lượt kiểm tra ban đêm đã bắt được một lỗi thật: sau nửa đêm, app buồng phòng không tải được và Desk có chỗ tính thêm một đêm. Đã sửa ngày 20/10; lượt chạy đêm 02:41 ngày 21/10 xanh, không ca nào phải chạy lại.
+- **Chưa có:** máy chủ chạy thử (staging) vì còn chờ VPS + tên miền. Đây là lý do duy nhất khiến Round 2 chưa qua cổng QC (mục 2). Anh/chị hiện xem sản phẩm trên bản demo chạy tại máy Mac (mục 7).
 
-## 2. Quyết định QC: [CHỜ QC]
+## 2. Quyết định QC
 
-- **Cổng QC Sprint 4:** lần 1 (19/10) và lần 2 (20/10) **KHÔNG ĐẠT**. Lần 2 trượt chỉ vì lượt kiểm tra ban đêm đỏ. Đó là lỗi thật của ca đêm (BUG-R2-211/212/213), đã sửa, và chờ một lượt chạy ban đêm xanh. Phần tiền đạt từ lần 1 và không mở lại. **Chấm lần 3: [CHỜ QC – sau lượt kiểm tra ban đêm 21/10]**.
-- **QC Round 2: [CHỜ QC]** – quyết định ĐẠT / ĐẠT CÓ ĐIỀU KIỆN / KHÔNG ĐẠT và lý do 1 câu.
-- Để anh/chị biết trước (chưa phải kết luận QC): phần "chạy trên môi trường thật" của Round 2 sẽ không đạt khi chưa có staging. Đội đề nghị QC chuyển mục này thành điều kiện bắt buộc đầu Round 3.
+- **Cổng QC Sprint 4: ĐẠT CÓ ĐIỀU KIỆN** (lần 3, 21/10, chấm trên mã `21bb797`). Lần 1 (19/10) và lần 2 (20/10) không đạt; lần 2 trượt chỉ vì lượt kiểm tra ban đêm đỏ do lỗi ca đêm thật, đã sửa. Phần tiền đạt từ lần 1, không mở lại. Các điều kiện còn lại có hạn rõ (trước tổng kết Round 2 hoặc đầu Round 3).
+- **Cổng QC Round 2: KHÔNG ĐẠT** – lý do 1 câu: kế hoạch Round 2 đòi luồng chính chạy **trên máy chủ chạy thử (staging)** và có triển khai tự động lên đó, mà Round 2 chưa có staging vì chưa có VPS + tên miền.
+- Anh/chị nên đọc kết luận này như sau:
+  - **Phần mềm chạy được luồng chính.** Cả 7 luồng A1–A7 (đặt phòng → nhận phòng → lưu trú → trả phòng → bill → buồng phòng; đơn OTA; chống trùng; sự cố khóa phòng; hủy, no-show; phân quyền và giấy tờ; số liệu tổng quan) đều xanh trong môi trường kiểm tra tự động: cùng bản cài như máy chủ thật, cơ sở dữ liệu thật, giả lập đồng hồ. Lượt chạy đêm cũng xanh.
+  - **Không còn lỗi P0/P1. Không có lỗi bảo mật nghiêm trọng (Critical/High). Không có lỗi tiền nặng nào mở.**
+  - Cổng trượt **vì môi trường**, không phải vì tiền, bảo mật hay chất lượng mã. Việc này đội không tự gỡ được.
+- Ngoài staging, QC giao 4 việc đội tự làm được, hạn 23/10 (R-1…R-4):
+  - R-1 – PO chấm lại nghiệm thu: **xong 21/10** (mục 3);
+  - R-2 – INT trả lời 7 thẻ góp ý bảo mật về Zalo: INT đã trả lời 21/10, chờ SEC xác nhận;
+  - R-3 – QA chạy tay luồng A1 một lần, có ghi hình: đang làm;
+  - R-4 – DOM xác nhận số liệu công nợ BR-525-16 (xong 21/10) và UXR đi lại 2 kịch bản app buồng phòng (đang làm).
+- **Khi có VPS + tên miền:** OPS dựng staging, chạy lại luồng chính trên đó, PO nghiệm thu, SEC kiểm bảo mật. Mất khoảng **3 ngày làm việc**, rồi QC chấm lại cổng Round 2. Anh/chị đã báo sẽ gửi IP và tên miền trong tuần này (decision-log 21/10).
 
 ## 3. Chỉ số round
 
-- **Thẻ feedback (review chéo):** tạo khoảng 380 | đã xử lý: [CHỜ QC – số chính thức] | dời sang Round 3: đều có vai và hạn trong backlog mục 5.5 (39 mục, gồm cả lỗi). Blocker/Major còn mở mà không có hạn: 0 [CHỜ QC xác nhận].
-- **Lỗi (sổ lỗi 20/10):** tìm **213** | đã đóng 192 | đã sửa chờ kiểm tự động 3 (211, 212, 213) | hoãn 1 | còn mở 17.
-  - P0: 11 (10 đóng, 1 đã sửa chờ CI) · P1: 68 (66 đóng, 2 đã sửa chờ CI) · P2: 79 (76 đóng, **2 mở** → R3, 1 hoãn) · P3: 55 (40 đóng, **15 mở** → R3).
-  - Số cuối sau QC: [CHỜ QC].
-- **Kiểm tiền:** 8 lượt; lượt 8: 0 lệch giá đêm qua hơn 37.000 phép so ngẫu nhiên, 0 kẹt khóa dữ liệu.
+Số liệu QC đếm trong `qc/round-qc-gate.md` mục 8.
+
+**Thẻ góp ý (review chéo):** 384 thẻ.
+
+| Mức | Tạo | Đã xử lý | Dời sang R3 có quyết định | Chưa có trả lời lúc QC chấm |
+|---|--:|--:|--:|--:|
+| Blocker | 12 | 12 | 0 | 0 |
+| Major | 135 | 123 | 5 | 7 (thẻ SEC → INT về Zalo; INT đã trả lời 21/10 – R-2) |
+| Minor | 190 | – | phần dời nằm trong hàng chờ R3 | – |
+| Suggestion | 44 | tác giả tự cân nhắc | – | – |
+| Không ghi mức | 3 | – | – | – |
+
+**Lỗi (sổ lỗi sau khi QC đóng 211–213):**
+
+| Mức | Tìm | Đã sửa/đóng | Hoãn | Còn mở |
+|---|--:|--:|--:|--:|
+| P0 | 11 | 11 | 0 | 0 |
+| P1 | 68 | 68 | 0 | 0 |
+| P2 | 79 | 76 | 1 | 2 (208, 209 → Round 3 Sprint 1) |
+| P3 | 55 | 40 | 0 | 15 (gồm 210, 123 → Round 3) |
+| **Tổng** | **213** | **195** | **1** | **17** |
+
+- Hai lỗi P2 còn mở và lỗi 210 là lỗi tiền nhỏ, đều **tính thiếu, không tính thừa khách**. Chúng được sửa trong một lượt kiểm tiền riêng đầu Round 3.
+- **Kiểm tiền:** 8 lượt kiểm độc lập. Lượt 8: 0 lỗi nặng, 0 lệch giá đêm qua 37.966 phép so ngẫu nhiên.
+- **Kiểm tra tự động trên mã `21bb797`:** gần 3.000 ca kiểm phía máy chủ (2.971 đạt) và 2.045 ca bấm thử trên trình duyệt (1.976 đạt, 69 bỏ qua có chủ đích), không ca nào phải chạy lại.
+- **Nghiệm thu của PO (71 tính năng bắt buộc của Round 2):**
+  - **64 đạt trên môi trường kiểm tra tự động;**
+  - 7 còn thiếu một phần: 4 cần thêm ca kiểm giao diện (đội làm ngay), 2 chờ sửa bảo mật về giấy tờ khách trước khi có dữ liệu thật, 1 cần kiểm bằng trình đọc màn hình trên staging;
+  - **0 đạt trên staging**, vì chưa có staging. Khi có staging, PO nghiệm thu lại cả 71.
+- **Cổng QC trong round:** Sprint 2 đạt có điều kiện · Sprint 3 đạt có điều kiện (bản 3, sau một lần không đạt) · Sprint 4 đạt có điều kiện (lần 3, sau hai lần không đạt) · **Round 2: KHÔNG ĐẠT** (chờ staging).
+- **Hàng chờ Round 3:** 45 việc đã có vai và hạn (25 bắt buộc trước bản dùng thử), gồm 6 việc bảo mật cho kết nối Zalo OA thêm ngày 21/10.
 
 ## 4. CẦN ANH/CHỊ QUYẾT ĐỊNH
 
-Không câu nào chặn Round 2. Chưa quyết thì đội làm theo dòng "Nếu chưa quyết". Anh/chị chỉ cần trả lời "đồng ý đề xuất" hoặc chọn chữ cái khác. **Không gửi mật khẩu qua chat.**
+**Việc chặn chính: VPS + tên miền.** Chưa có hai thứ này thì Round 2 chưa qua cổng QC, và Round 3 **không có bản dùng thử**. Anh/chị chỉ cần gửi địa chỉ IP của VPS (Ubuntu LTS, đặt tại Việt Nam) và tên miền. **Không gửi mật khẩu hay khóa SSH qua chat**; OPS hướng dẫn cách cấp quyền an toàn.
+
+Câu đầu tiên (4.0) cần trả lời trước khi mở Round 3. Các câu sau không chặn việc chấm lại cổng Round 2. Chưa quyết thì đội làm theo dòng "Nếu chưa quyết". Anh/chị chỉ cần trả lời "đồng ý đề xuất" hoặc chọn chữ cái khác.
 
 | # | Việc | Phương án | Đội đề xuất | Nếu chưa quyết |
 |---|---|---|---|---|
+| 4.0 | **ESC-028 (mới) – Có bắt đầu Round 3 trong lúc chờ VPS không?** Round 2 chỉ trượt cổng QC vì chưa có staging | A: bắt đầu Round 3 phần không cần máy chủ (sửa 3 lỗi tiền nhỏ, việc bảo mật trước dữ liệu thật); cổng Round 2 chấm lại trong 3 ngày làm việc sau khi có VPS · B: dừng, chờ VPS rồi mới sang Round 3 · C: coi bản demo trên máy Mac là đủ | **A** – đội không đứng chờ, nhưng quy tắc vẫn giữ: Round 2 ghi "chưa đạt" tới khi chấm lại; **chưa có staging thì chưa có bản dùng thử**. Không chọn C: demo trên máy Mac không có tên miền, không HTTPS, nhân viên không dùng được điện thoại của mình, và bảo mật vẫn chặn dữ liệu khách thật | Đội làm nốt việc sửa Round 2 không cần máy chủ, chuẩn bị Round 3 Sprint 1, không phát hành gì cho nhân viên hay khách |
 | 4.1 | **ESC-022 – Tên mạng Wi-Fi.** Khách chỉ được thấy tên phòng (The Pine…), không thấy số căn | A: mỗi căn một mạng, đặt theo tên phòng · B: một mạng chung · C: giữ tên theo số căn | **A** nếu mỗi căn đã có bộ phát (0 đ, đổi tên 1–2 giờ); **B** nếu đã là mạng chung. Không chọn C. Anh/chị gửi tên mạng hiện tại, không gửi mật khẩu | App giữ một mạng chung, tên mẫu "OTTIMO-Guest" |
 | 4.2 | **ESC-023 – Khách rút ngắn đơn khi còn dưới 7 ngày mà vẫn đến ở.** Hiện không mất phí, trong khi hủy cả đơn mất 50–100% cọc | A: không thu · B: thu theo đúng bậc phí hủy cho phần cọc của các đêm bỏ · C: giữ hết phần cọc đêm bỏ | **B** – ví dụ đơn 7 đêm rút còn 2 đêm, báo trước 5 ngày: phí 550.000; báo trước 2 ngày: phí 1.100.000; báo trước ≥ 7 ngày: 0. Không bao giờ phạt nặng hơn hủy cả đơn. Không áp cho đơn OTA và khách dài hạn | Giữ A (không thu) |
 | 4.3 | **ESC-024 – Khách rời quá muộn, phải thu phụ thu bằng giá 1 đêm, mà quản lý không trả lời** | A: khách chờ quản lý · B: sau 15 phút lễ tân tự thu đúng số máy tính, không được giảm, quản lý xem lại trong 24 giờ · C: không thu | **B** – ví dụ căn 202 ngày thường thu 792.000; quản lý vẫn miễn được sau khi xem lại. Không ai phải đọc mật khẩu qua điện thoại | Giữ A |
@@ -47,7 +85,7 @@ Không câu nào chặn Round 2. Chưa quyết thì đội làm theo dòng "Nế
 
 | Đầu vào | Chặn gì |
 |---|---|
-| VPS (Ubuntu LTS, đặt tại Việt Nam) + tên miền | Staging, landing lên mạng, QC "chạy trên môi trường thật" |
+| **VPS (Ubuntu LTS, đặt tại Việt Nam) + tên miền** – anh/chị hẹn gửi trong tuần này | **Chặn chính:** cổng QC Round 2, staging, bản dùng thử Round 3, landing lên mạng |
 | Logo SVG gốc | Gắn logo vào Desk, landing, bill |
 | Bảng ghép tên phòng (The Pine … The Ember) ↔ số căn ↔ hạng | Tên phòng trên trang khách, landing, Wi-Fi (ESC-022) |
 | Zalo OA đã xác thực bằng ĐKKD + 2 quản trị viên | Chat OA; tin tự động Round 3 (ESC-021) |

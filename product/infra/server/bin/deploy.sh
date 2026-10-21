@@ -31,6 +31,9 @@ if ! [[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]; then
   exit 2
 fi
 
+# Fixed step names for deploy-from-ci.sh (the CI sees only "failed (step=<name>)" – SEC E.8).
+step() { if [ -n "${OTTIMO_STEP_FILE:-}" ]; then printf '%s\n' "$1" > "$OTTIMO_STEP_FILE"; fi; }
+step lock
 mkdir -p "$state"
 exec 9>"$state/deploy.lock"
 if ! flock -n 9; then echo "another deploy is running" >&2; exit 3; fi
@@ -50,11 +53,13 @@ export IMAGE_TAG="$tag"
 log "deploy $tag (previous: ${prev:-none}, pull=$pull, rollback=$rollback)"
 
 # ---- 1. images ----
+step pull
 if [ "$pull" -eq 1 ]; then
   dc --profile deploy pull --quiet migrate api worker web
 fi
 
 # ---- 2. database + roles (H3) ----
+step roles
 dc up --detach --wait --wait-timeout 180 postgres
 dc exec -T postgres bash /docker-entrypoint-initdb.d/02-roles.sh >/dev/null
 log "02-roles.sh applied (ottimo_app limits verified by the script)"
@@ -64,6 +69,7 @@ psql_admin() { # read-only SQL from stdin, as the superuser over the container's
 }
 
 # ---- 3. migrations (one-shot, before any api/worker runs the new code) ----
+step migrate
 dc --profile deploy run --rm --no-deps migrate
 journal=$(dc --profile deploy run --rm --no-deps --entrypoint node migrate \
   -e "process.stdout.write(String(require('/app/dist/db/migrations/meta/_journal.json').entries.length))")
@@ -91,8 +97,10 @@ fail() {
   exit 1
 }
 
+step switch
 dc up --detach --wait --wait-timeout 240 --remove-orphans api worker web || fail "containers did not become healthy"
 
+step smoke
 health=$(dc exec -T api wget -qO- http://127.0.0.1:3000/health) || fail "api /health"
 case "$health" in *'"status":"ok"'*) ;; *) fail "api /health: $health" ;; esac
 
@@ -163,6 +171,7 @@ done
 grep -qF '/g/[redacted]' <<<"$web_log" || fail "Caddy access log has no masked /g/ entry (logging off?)"
 
 # ---- 5. record ----
+step record
 if [ -n "$prev" ] && [ "$prev" != "$tag" ]; then echo "$prev" > "$state/previous_tag"; fi
 echo "$tag" > "$state/current_tag"
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $tag" >> "$state/deploy-history.log"

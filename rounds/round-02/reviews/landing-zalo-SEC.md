@@ -208,7 +208,7 @@ Ngoài ra vẫn giữ chặn cũ: **không nhận dữ liệu khách thật** v�
   4. Log chỉ: `event_name`, kết quả kiểm, `request_id`. `inbox_message.payload` lọc theo danh sách trường cho phép, xóa sau 90 ngày (T16).
   5. `ZALO_OA_SECRET_KEY_FILE` (không để trong `.env` chung – SR-KEY-10).
   6. Mock B10 có ca: body bị đổi 1 byte, `oa_id` khác, sự kiện lặp, `timestamp` cũ 4 giờ.
-- Trạng thái: Open
+- Trạng thái: **Deferred – SEC chấp nhận 21/10** → R3-Q40 (thiết kế đủ ở `zalo-oa.md` 4.12-A). **[CHẶN] C-4 giữ nguyên** tới khi mã webhook cài xong và SEC review (mục R-2)
 
 ### FB-R2-SEC-INT-08
 - Mức độ: Major · **[CHẶN] C-5 – trước khi kết nối Zalo thật**
@@ -226,7 +226,7 @@ Ngoài ra vẫn giữ chặn cũ: **không nhận dữ liệu khách thật** v�
   4. Làm mới: giữ khóa advisory → gọi Zalo → ghi cặp mới ngay trong giao dịch ngắn. Ghi lỗi → thử ghi lại vài lần trong bộ nhớ; vẫn lỗi → `healthCheck=down`, báo OWN kết nối lại. Không gọi lại bằng refresh token cũ.
   5. HTTP client chỉ gọi host cố định (`oauth.zaloapp.com`, `openapi.zalo.me`, `business.openapi.zalo.me`), kiểm TLS, timeout ≤ 15 giây (SR-INT-02). Không log header `access_token`, `secret_key`, không log query của callback (`code`).
   6. `ZALO_APP_SECRET`, `ZALO_OA_SECRET_KEY` dạng `_FILE`, vào sổ bí mật SR-SECR-04. Zalo có cho đổi App Secret không [Chưa xác minh] – INT kiểm khi tạo App.
-- Trạng thái: Open
+- Trạng thái: **Deferred – SEC chấp nhận 21/10** → R3-Q41 (thiết kế đủ ở 4.12-F, 4.11). **[CHẶN] C-5 giữ nguyên** tới khi cài và SEC review (mục R-2)
 
 ### FB-R2-SEC-INT-09
 - Mức độ: Major · **[CHẶN] C-6 – trước khi gửi tin tự động có link**
@@ -242,7 +242,7 @@ Ngoài ra vẫn giữ chặn cũ: **không nhận dữ liệu khách thật** v�
   6. Chỉ gửi tin **có link** tự động tới SĐT/email **đã xác nhận**: khách đã nhắn/gọi từ số đó, hoặc lễ tân đánh dấu "đã xác nhận liên hệ". Chưa xác nhận → tin không link (hoặc việc cho lễ tân).
   7. `audit_event security` mỗi lần cấp: đơn, kênh, mẫu, người/hệ thống (không ghi token).
   8. Zalo nhận URL có token trong nút: SEC **chấp nhận** rủi ro còn lại (token mức 1, hạn ngắn, thu hồi được – như gửi tay qua Zalo hiện nay). SEC cập nhật TM-21/TM-55.
-- Trạng thái: Open
+- Trạng thái: **Deferred – SEC chấp nhận 21/10** → R3-Q42 + US-161 AC5 (4.12-B ghi đúng quyết định SEC 17/10; L-1 cũ đã đánh dấu thay thế). **[CHẶN] C-6 giữ nguyên** (mục R-2)
 
 ### FB-R2-SEC-INT-10
 - Mức độ: Major · **[CHẶN] C-7 – trước khi gửi tin tự động**
@@ -257,7 +257,7 @@ Ngoài ra vẫn giữ chặn cũ: **không nhận dữ liệu khách thật** v�
   2. `room_name` → tên nhóm/loại căn công khai (`public_listing`), không số căn.
   3. Render vi phạm → `422`, không gửi. Test: snapshot các khóa `template_data` của 8 mẫu.
   4. Sửa câu cuối mục 3.1: "Không mã cửa, số giấy tờ trong ZNS. Mã xác minh chỉ qua mẫu xác thực riêng khi SEC/INV bật (INT-15)".
-- Trạng thái: Open
+- Trạng thái: **Verified 21/10 – lớp kiểm** (`zalo-policy.ts`, 18/18 test, `tsc` sạch). **[CHẶN] C-7 giữ** tới khi lõi gọi lớp kiểm trước mọi lần gửi (US-126 AC4) và đủ 2 điều kiện ở mục R-2 (kiểm giá trị ô chữ tự do, test 422 ở lõi)
 
 ### FB-R2-SEC-INT-11
 - Mức độ: Major · **[CHẶN] C-8 – trước khi gửi bất kỳ tin marketing nào**
@@ -273,7 +273,7 @@ Ngoài ra vẫn giữ chặn cũ: **không nhận dữ liệu khách thật** v�
   4. Cách từ chối: (a) mã `-139`/`-141` → tắt ngay; (b) nút "Không nhận ưu đãi" trong mẫu → trang `g.` với **token hủy đăng ký** riêng (HMAC, chỉ mục đích này, không đăng nhập, bấm lại không lỗi, trang không hiện dữ liệu cá nhân); (c) lễ tân tắt khi khách nhắn. Rút đồng ý có hiệu lực ngay với tin đang chờ (DOM BR-971).
   5. Khung giờ và tần suất theo DOM BR-973/974 ([08:00, 20:00), ≤ 2 tin/30 ngày) – đã chặt hơn NĐ 91/2020.
   6. Thêm câu hỏi NĐ 91 + dự thảo thay thế vào ESC-001.
-- Trạng thái: Open
+- Trạng thái: **Deferred – SEC chấp nhận 21/10** → R3-Q43 (4.7, 4.12-D đúng câu trả lời Q8). **[CHẶN] C-8 giữ nguyên**. Câu NĐ 91/2020 + dự thảo OTT **đã có** ở ESC-001 LZ-5, không cần bổ sung (mục R-2)
 
 ### FB-R2-SEC-INT-12
 - Mức độ: Major (điều kiện SEC đưa vào ESC-021, trước khi lễ tân chat OA với khách thật)
@@ -293,7 +293,7 @@ Ngoài ra vẫn giữ chặn cũ: **không nhận dữ liệu khách thật** v�
   6. Nghỉ việc: gỡ quyền quản trị OA **trong ngày** (cùng lúc khóa tài khoản Desk). OWN rà danh sách quản trị viên hằng tháng.
   7. Tài khoản Zalo của quản trị viên bật lớp bảo vệ đăng nhập có sẵn của Zalo [Chưa xác minh tên tính năng].
   - Nhận xét: chat OA vẫn **tốt hơn** hiện trạng (Zalo cá nhân của nhân viên) vì thu hồi được quyền và ca sau đọc được hội thoại.
-- Trạng thái: Open
+- Trạng thái: **Verified 21/10 (phần INT)** – 1.4, 4.9, 4.12-E đúng 7 quy tắc. Còn lại: SEC sửa SR-DEV-07/08 và hướng dẫn vận hành → R3-Q44, trước khi lễ tân chat OA với khách thật; ghi chú câu cuối 4.7 (mục R-2)
 
 ### FB-R2-SEC-INT-13
 - Mức độ: Minor
@@ -323,7 +323,7 @@ Ngoài ra vẫn giữ chặn cũ: **không nhận dữ liệu khách thật** v�
   2. `integration_log` cho Zalo chỉ: `template_key`, kênh, mã lỗi, `msg_id`, thời gian, `cost_units`. Không `phone`, `template_data`, token.
   3. `notification_delivery` không có cột SĐT/nội dung (bản hiện tại đã đúng – giữ).
   4. Đánh dấu "không có Zalo" lưu trên hồ sơ khách, không tạo bảng SĐT riêng.
-- Trạng thái: Open
+- Trạng thái: **Điểm 2–4 Verified 21/10** (`toZaloIntegrationLog` + test chuỗi rò; 4.12-G). **Điểm 1 Deferred – SEC chấp nhận** → R3-Q45. **[CHẶN] C-9 giữ nguyên**; thêm 1 điều kiện khi gắn vào lõi (mục R-2)
 
 ### FB-R2-SEC-INT-15
 - Mức độ: Suggestion
@@ -504,3 +504,55 @@ Dòng đề xuất cho `decision-log.md` (ORC ghi khi commit):
 - **INT**: Tra nguồn chính thức kỹ, phát hiện điều kiện gói Tăng trưởng. Không tự gửi lại khi hết thời gian chờ sau khi đã gửi. Outbox chỉ giữ tham chiếu, token mã hóa bằng khóa riêng mục đích.
 - **DOM**: Tách 3 loại tin và không trộn. Mời đánh giá mọi khách, khiếu nại chỉ hoãn – đúng chính sách chống lọc đánh giá. Không ghi số giấy tờ/ngày thị thực trong tin nhắc; Wi-Fi không nằm trong tin.
 - **UXD**: Không nhúng SDK Zalo/iframe bản đồ; đo lường không gửi ngày, số khách, nội dung. Đánh giá khách chỉ tên viết tắt. Mọi nút là link thật.
+
+## R-2 – Kiểm 7 thẻ INT sau cổng QC Round 2 (SEC, 21/10/2026)
+
+- **Nguồn:**
+  - `responses/INT-responses.md` mục "Round 2 – Bước 4 sau cổng QC (R-2)";
+  - `product/docs/integrations/zalo-oa.md` v0.2 mục 4.12;
+  - mã `product/integrations/notification/zalo-policy.ts` và `zalo-policy.test.ts`. Mã nằm trên cây làm việc, chưa commit.
+- **SEC chạy:** `vitest run notification/zalo-policy.test.ts` → **18/18 xanh**; `tsc --noEmit` của gói integrations sạch.
+- **Backlog:** R3-Q40…Q45 đã có trong `03-backlog/backlog.md` mục 5.5.
+
+| Thẻ | Kết luận SEC | [CHẶN] |
+|---|---|---|
+| INT-07 | Chấp nhận Deferred → R3-Q40. 4.12-A ghi đủ 6 điểm đề xuất, đúng thứ tự | C-4 giữ |
+| INT-08 | Chấp nhận Deferred → R3-Q41. 4.12-F đủ 6 điểm; biến bí mật đã đổi sang `_FILE` | C-5 giữ |
+| INT-09 | Chấp nhận Deferred → R3-Q42 + US-161 AC5. 4.12-B đúng quyết định SEC 17/10. Lưu ý khi cài: token thông báo lên mức 2 vẫn phải qua OTP/mã lễ tân (SR-GST-07). 4.12-B chưa ghi câu này, nhưng thẻ đã có | C-6 giữ |
+| INT-10 | **Verified lớp kiểm.** Hai điều kiện thêm, phải có trước khi gỡ C-7 | C-7 giữ |
+| INT-11 | Chấp nhận Deferred → R3-Q43. 4.7, 4.12-D đúng Q8 | C-8 giữ |
+| INT-12 | **Verified phần INT.** Việc của SEC (SR-DEV-07/08) và hướng dẫn vận hành → R3-Q44 | Điều kiện ESC-021 giữ tới R3-Q44 |
+| INT-14 | **Điểm 2–4 Verified**, điểm 1 chấp nhận Deferred → R3-Q45. Một điều kiện thêm khi gắn vào lõi | C-9 giữ |
+
+### Đọc mã `zalo-policy.ts` – điểm tốt
+- Danh sách cho phép nằm trong mã (sửa phải qua PR), không ở DB, nên màn OWN không nới được.
+- Mẫu lạ bị chặn. Tên biến cấm khớp cả chuỗi con (`guest_token`, `door_code_2`…).
+- Kết quả chỉ chứa tên biến, không lặp giá trị, nên log được an toàn.
+- `room_name` cấm hẳn, chặt hơn đề xuất "số căn trước ngày đến": chấp nhận. `discount` ở `zns.direct_voucher` là giá trị ưu đãi, không phải tiền của bill khách: chấp nhận.
+- `toZaloIntegrationLog` dựng bản ghi từ danh sách trường cho phép. SĐT, `template_data`, token, body bị bỏ theo cấu trúc; test có chuỗi rò.
+
+### Điều kiện thêm (giữ trong C-7, C-9; thực hiện ở US-126 AC4 / R3-Q45, SEC review cùng PR gắn lõi)
+1. **C-7 (a) – giá trị ô chữ tự do.** Lớp kiểm chỉ xét **tên** biến. `parking_note`, `address` (`zns.arrival_reminder`) và `customer_name` là chữ tự do: lễ tân có thể gõ "mã cổng 4829" vào ghi chú đỗ xe, và tin sẽ đi qua Zalo. Cách xử lý:
+   - hoặc `parking_note`/`address` chỉ lấy từ cấu hình cố định của cơ sở (OWN sửa, có kiểm luật chữ số B-15 V2 – `hasLongDigitRun`/`hasSensitiveDigits` – lúc lưu);
+   - hoặc lõi chạy luật B-15 trên giá trị các ô chữ tự do trước khi gửi, vi phạm → 422.
+   - Kèm test: ghi chú có "Mã cổng 482913" → 422.
+2. **C-7 (b) – test ở lõi.** NotificationService gọi `checkTemplateVariables` trước **mọi** lần gửi trên `zalo_zns`/`zalo_oa`, kể cả gửi lại và kênh dự phòng. Vi phạm → 422, không có dòng `outbox_message` đi ra ngoài. Có test.
+3. **C-9 – định dạng trường log.** `errorCode` và `at` hiện nhận chuỗi bất kỳ ≤ 128 ký tự. Thông báo lỗi của Zalo có thể lặp lại SĐT. Khi gắn vào lõi:
+   - `errorCode` chỉ nhận mã số của Zalo (`^-?\d{1,6}$`) hoặc mã nội bộ `^[A-Z_]{1,64}$`;
+   - `at` chỉ nhận ISO-8601;
+   - không bao giờ truyền `error.message` của Zalo vào;
+   - thêm ca test errorCode chứa SĐT → `null`.
+4. **Ghi chú tài liệu (Minor, không chặn).** Gạch cuối `zalo-oa.md` 4.7 vẫn ghi "Chat OA trên điện thoại cá nhân của nhân viên". 4.12-E thắng, nhưng INT nên sửa câu này ở lần sửa tài liệu kế tiếp cho khỏi đọc nhầm.
+
+### ESC-001 – câu NĐ 91/2020 + OTT
+ESC-001 đã có **LZ-5**: NĐ 91/2020 và dự thảo thay thế mở rộng sang OTT, áp cho Zalo OA/ZNS và WhatsApp, kèm giá trị tạm của đội. LZ-3 (Điều 28) và LZ-4 (vai của Zalo, NĐ 356/2025) cũng đã có. **SEC không bổ sung**, không đổi quyết định INV (ESC-001 = A, thuê luật sư).
+
+Đề xuất để ORC nhắc khi gửi câu hỏi cho luật sư: nếu nghị định thay thế NĐ 91/2020 được ban hành trước tin marketing đầu tiên (R3-Q43), luật sư trả lời theo văn bản mới; khi đó DOM rà lại khung giờ và tần suất BR-973/974.
+
+### Kết luận R-2
+- **7/7 thẻ có trạng thái SEC:**
+  - Verified: INT-10 (lớp kiểm), INT-12 (phần INT), INT-14 (điểm 2–4);
+  - chấp nhận Deferred có mã backlog: INT-07, 08, 09, 11, 14 điểm 1.
+- **Không mở lại thẻ nào.**
+- **[CHẶN] C-4…C-9 giữ nguyên.** Tính năng Zalo chưa bật ở R2 (ESC-021 A: tự gửi từ R3), nên các điều kiện này không chặn cổng Round 2.
+- Không có Critical/High.

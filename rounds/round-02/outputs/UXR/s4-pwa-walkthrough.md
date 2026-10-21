@@ -189,3 +189,47 @@ Cột "Vai sửa" là đề xuất của UXR; ORC/PO phân việc cuối cùng. 
 - Đếm minibar trên PWA (H20.4): chưa có trong sản phẩm.
 - Đo số lần nhập mật khẩu/xác thực lại mỗi ca (SEC-10, plan R2 mục 4): không thuộc việc ORC giao lần này.
 - `product/docs/research/usability-report-r2.md` (đầu ra plan R2) **chưa tồn tại**; tệp này là bản ghi của lượt đi thử S4. ORC quyết có cần gộp vào `usability-report-r2.md` không.
+
+## 7. Đi lại T6, T7 trên `72895de` – cổng QC Round 2 R-4, điều kiện C8 cổng S4 (21/10/2026, 10:24–10:38)
+
+- Người làm: UXR | Bước: **Round 2 – Bước 4 (Phản hồi & sửa), việc R-4** (`qc/round-qc-gate.md` mục 5; `qc/s4-qc-gate.md` dòng C8).
+- **Vẫn là đánh giá mô phỏng của đội AI** (UXR đóng vai Chú Bảy – P3 buồng phòng). Mất mạng là giả lập, không phải điện thoại thật mất sóng. Kết luận dưới đây **cần kiểm lại với 1–2 nhân viên buồng phòng thật trên điện thoại thật** theo `product/docs/research/real-user-check-guide.md` (ESC-003) trước khi cho dùng offline hằng ngày.
+- Không sửa mã, không commit mã. Ảnh để ngoài git: `scratchpad/uxr-r2/shots/01…08-*.jpg` (scratchpad của phiên UXR 21/10).
+
+### 7.1 Môi trường
+
+- **Stack riêng `ottimo-uxr` dựng lại từ `72895de`** (gồm `e3b0efb` – ngày kinh doanh sau nửa đêm BUG-R2-211/212/213, PWA tải "Việc" và "Các căn" riêng từng phần). Bản `7ac11a4` cũ của UXR đã hỏng sau khi Docker khởi động lại (api lặp khởi động lại, postgres dừng) – UXR xóa container và volume của **riêng** `ottimo-uxr`.
+  - Cách dựng: bản sao `infra/demo/demo-up.sh`, `lib.sh`, `docker-compose.demo.yml`, `seed-demo.mjs` trong scratchpad, đổi tên project `ottimo-uxr`, image `ottimo-api:uxr-r2`, `ottimo-api:uxr-r2-seed`, `ottimo-web:uxr-r2`, thư mục làm việc `~/.ottimo-uxr-r2`, cổng Desk 28181 / PWA 28182 / khách 28183 / api 127.0.0.1:23100. Dữ liệu dựng giống demo (DS-E + `seed-demo.mjs past/now`).
+  - **Không đọc `product/.env`**: `VITE_DESK_PHONE` là số giả để build (chỉ để nút "Gọi lễ tân" hiện ra), `DEMO_ENV_FILE=/dev/null` (không có tài khoản nhận VietQR – không ảnh hưởng T6, T7). Tài khoản thử sinh trong phiên, lưu trong scratchpad (0600).
+  - **Không đụng stack demo** (8181–8183, 3100) hay stack QA/FE/dev.
+- Trình duyệt: Browser pane, khổ 390×844, vai HK `buongphong.hoa`.
+- Giả lập mất mạng như lượt 18/10: `navigator.onLine = false` + sự kiện `offline`, cộng **dừng container api** (gateway trả 502). Mở lại app khi máy chủ lỗi = tải lại trang khi api đang dừng. Service worker vẫn không chạy trong pane (giới hạn mục 1 còn nguyên).
+- Kiểm kết quả phía máy chủ bằng truy vấn đọc trên postgres của stack UXR (`room_status`, `hk_task`, `work_order`).
+
+### 7.2 Kết quả
+
+| # | Nhiệm vụ (HK, 390 px) | Kết quả | Mức | Ghi chú |
+|---|---|---|---|---|
+| **T6** | Mất mạng: "Bắt đầu dọn" (10:27:25) rồi "Dọn xong" (10:28:02) căn 401, có mạng lại lúc 10:28:29 | **Đạt.** Trên máy: chip "Đang dọn · Chờ gửi", rồi "Khách đang ở – đã dọn · Chờ gửi", hoàn tác 10 giây (ảnh 01, 02). Khi có mạng: 2 lệnh `status-transitions` đều **200**. Máy chủ: căn 401 `OC` (đã dọn), việc `stayover_clean` = done, `started_at` 10:27:25, `done_at` 10:28:02 – **đúng giờ bấm trên máy**. Danh sách việc: "1/3 xong", "Đã xong (1) – 401 … xong 10:28". | – | **P-01 đóng phía người dùng.** P-07 cũng đạt: nút tròn "1 thao tác" khi lệnh 2 còn trong 10 giây hoàn tác, sau đó "2" = tiêu đề danh sách "Đang chờ gửi (2)"; mỗi dòng 1 lần "Bấm lúc" + "Chờ mạng" |
+| **T7** | Mất mạng: báo sự cố "Mất nước nóng" căn 401, 1 dòng mô tả, 1 ảnh, Gửi; tải lại app khi máy chủ còn lỗi; máy chủ lên lại | **Đạt về dữ liệu.** Form chỉ còn 1 banner (P-31 đạt), mức tự chọn "Gấp", sau Gửi: "Đã lưu trên máy – chưa gửi … Sự cố gấp? Gọi lễ tân ngay" và **có nút "Gọi lễ tân"** (P-15 đạt khi build có số). Tải lại khi api 502: **mở thẳng danh sách việc từ bản lưu**, ghi "Dữ liệu lúc 10:28" và "1 thao tác đang chờ gửi" (P-09 đạt, ảnh 05). Sau đồng bộ: **WO-00001 có 1 ảnh** (`attachments` 201 → `work-orders` 201). | – | **P-05 đóng phía người dùng.** Lặp lại lần 2 (T7b, căn 202, "Rò nước"): **WO-00002 có 1 ảnh**. Nhưng cả 2 lần, phiếu chỉ được gửi khi app được mở lại/đưa lên trước – xem **P-35** |
+| T6/T7 phụ – BUG-R2-211 | Đặt giờ điện thoại giả 02:40 ngày 22/10 (máy chủ vẫn ngày kinh doanh 21/10), mở "Việc" và "Các căn" | **Đạt.** PWA gọi `hk-tasks` **không kèm ngày** (máy chủ tự lấy ngày kinh doanh). Tiêu đề "Hôm nay 21/10", danh sách việc và căn không đổi, không lỗi | – | Ghi nhận nhỏ, không mở mục: lúc 02:40 ngày 22 mà ghi "Hôm nay 21/10" có thể làm người trực đêm khựng lại; UXD cân nhắc chữ "Ngày làm việc 21/10" nếu có phản hồi từ nhân viên thật |
+| "Các căn" tải riêng từng phần | Cho riêng `hk-tasks` lỗi 500 (chặn trong trình duyệt), rồi riêng `room-statuses` lỗi 500 | **Đạt về hành vi:** phần lỗi lấy bản lưu, phần kia vẫn hiện, không còn cả màn lỗi. **Vướng về báo hiệu** – P-36, P-37 | 2, 1 | Ảnh 08 |
+
+### 7.3 Vấn đề mới
+
+| ID | Mức | Người sửa | Vấn đề | Bằng chứng | Đề xuất |
+|---|:-:|---|---|---|---|
+| **P-35** | **2** | **MOB** | **Mở app lúc máy chủ không trả lời, rồi máy chủ lên lại: hàng đợi không tự gửi khi app vẫn đang mở.** Thao tác chỉ đi khi app được mở lại hoặc đưa lên trước. Trong lúc chờ, "Thao tác trên máy" ghi "tự thử lại lúc **10:32**" (giờ đã qua) và dòng phiếu ghi "**Đang gửi 1/1…**" dù không có yêu cầu nào đang chạy. Với phiếu "Gấp", kỹ thuật nhận trễ vài phút trong khi Chú Bảy tin là app đang gửi | T7b: api lên 10:32:36; IndexedDB: mục ảnh `attempts 2`, `nextAttemptAt` 10:32:42; danh sách việc vẫn tải lại được mỗi 60 giây (`hk-tasks` 200 lúc 10:33:27, 10:34:27, 10:35:27), nhưng **không có** `attachments`/`work-orders` cho tới 10:35:32 – ngay sau khi pane được hiện lại. Lần T7 đầu: api lên 10:29:46, phiếu đi 10:31:26, cũng ngay sau thao tác trên pane. Ảnh 06, 07. Giới hạn: pane bị ẩn trong lúc chờ, nên UXR chưa loại trừ hết khả năng trình duyệt hãm đồng hồ; tuy vậy đồng hồ tải lại 60 giây vẫn chạy đúng | MOB tái hiện bằng test: khởi động với 502 (`enter(cached, true)` không gọi `flush`) → máy chủ lên → đồng hồ `wake` có gửi không. Khi một lần tải dữ liệu thành công thì gọi `flush` luôn. Dòng trạng thái: "Chờ thử lại lúc hh:mm" thay cho "Đang gửi" khi không có yêu cầu đang chạy; không hiện giờ đã qua. Không chặn C8, nhưng **nên sửa trước khi cho nhân viên thật thử offline** |
+| **P-36** | 2 | MOB + UXD | **Một phần không tải được thì gần như không có báo hiệu.** Khi danh sách việc lỗi còn danh sách căn tải được, màn "Việc" chỉ đổi dòng chữ nhỏ thành "Dữ liệu lúc 10:35"; không có câu nói việc mới chưa tải được, không có nút thử lại. Đúng tình huống BUG-R2-211 (một danh sách lỗi kéo dài): lễ tân giao việc mới, buồng phòng không thấy và không biết | Ảnh 08; 10:36–10:37, `hk-tasks` 500 do UXR chặn | Khối nhắc ngắn trên đầu danh sách: "Chưa tải được việc mới – đang hiện bản lúc 10:35. Thử lại" (UXD viết câu). Áp dụng tương tự cho "Các căn" |
+| P-37 | 1 | UXD + SEC | Sau một lần danh sách việc lỗi, "Các căn" lấy bản lưu **không còn tên khách** ("Khách: Huy" biến mất ở 101) mà không giải thích. Đúng thiết kế SR-PWA-01 (chỉ giữ tên khách khi có việc mới), nhưng người dùng thấy như dữ liệu mất | 10:37:59, chặn `room-statuses` sau lần lỗi `hk-tasks` | Giữ quy tắc an toàn; nếu cần, thêm chữ nhỏ "Tên khách hiện lại khi tải được việc" – UXD/SEC quyết |
+
+### 7.4 Kết luận cho C8
+
+- **T6 đạt, T7 đạt** trên `72895de` (mô phỏng). **P-01 (mức 4) và P-05 (mức 3) đóng được từ phía người dùng**; cùng lượt xác nhận P-07, P-09, P-15 (khi build có số lễ tân), P-31 đã đạt.
+- Mục mới: **P-35 (mức 2, MOB)**, P-36 (mức 2, MOB + UXD), P-37 (mức 1). Không mục nào mức 3–4 → **không chặn C8**. Đề xuất đưa P-35, P-36 vào backlog R3 trước buổi cho nhân viên thật thử offline.
+- Chưa thử: điện thoại thật mất sóng, mở app khi đang mất mạng (service worker), mất mạng lâu hơn 5 phút hoặc lệch giờ máy > 5 phút, dọn trả phòng (`CL` → `VC`) offline. QA nên thêm ca "khởi động 502 → máy chủ lên → hàng đợi tự gửi" cho P-35.
+
+### 7.5 Ghi chú vận hành (cho ORC/OPS)
+
+- Lúc 10:20 và kiểm lại 10:40, **các stack dựng trước đó đều không chạy được** (trừ stack QA mới `ottimo-qa-r2a1` dựng khoảng 10:25): `ottimo-demo`, `ottimo-qa-s3`, `ottimo-qa-s4`, `ottimo-fe07`, `ottimo-dev` có api/worker lặp khởi động lại (`getaddrinfo ENOTFOUND postgres`), postgres đã dừng từ khoảng 1 giờ trước (có vẻ do Docker khởi động lại). **Stack demo cho chủ đầu tư hiện không dùng được.** UXR không chạm các stack này.
+- Stack `ottimo-uxr` (`72895de`) vẫn chạy để MOB/QA tái hiện P-35. Tắt: `docker compose -p ottimo-uxr down -v` (cần `--env-file ~/.ottimo-uxr-r2/demo.env` và hai tệp `-f` như trong bản sao `lib.sh` ở scratchpad), xóa `~/.ottimo-uxr-r2`.
