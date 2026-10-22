@@ -38,6 +38,10 @@ export interface paths {
      *     **`username` duy nhất toàn hệ thống** (không chỉ theo tổ chức) nên body không cần mã tổ chức; tra người dùng bằng hàm
      *     `auth_find_user()` SECURITY DEFINER (erd mục 2.4) vì chưa có ngữ cảnh RLS.
      *     Tài khoản có 2FA (R3): trả `401 MFA_REQUIRED` kèm `mfaToken` ngắn hạn → gọi `POST /v1/auth/login/mfa`.
+     *     **0.3.8 (SEC 06.17, 06.4)**: `mfaToken` ≥ 256 bit, DB chỉ lưu SHA-256, dùng **một lần**, hạn 5 phút, gắn `user_id` + kênh (admin/PWA); không phải phiên, không cookie, không URL/log.
+     *     Không có "ghi nhớ thiết bị" để bỏ bước 2 (06.1). Cờ triển khai `MFA_ENFORCED = true` (bắt buộc ở staging/production – server từ chối khởi động production khi `false`) và người có vai
+     *     `owner`/`manager` ở bất kỳ cơ sở nào **chưa** bật 2FA → đăng nhập 200 với **phiên hạn chế** (`Me.mfaEnrollmentRequired = true`): chỉ `getMe`, `getMy2fa`, `startMy2faSetup`,
+     *     `confirmMy2fa`, `logout`; API khác → `403 MFA_ENROLLMENT_REQUIRED`. `MFA_ENFORCED = false` (dev/CI mặc định): đăng nhập bình thường, `Me.mfaRequiredButMissing = true` để nhắc.
      *     Mật khẩu tạm (`mustChangePassword=true` trong `Me`): mọi API khác trả `403 PASSWORD_CHANGE_REQUIRED` cho tới khi đổi.
      */
     post: operations['login'];
@@ -56,7 +60,15 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Bước 2 đăng nhập – mã TOTP hoặc mã khôi phục (SR-AUTH-06) */
+    /**
+     * Bước 2 đăng nhập – mã TOTP hoặc mã khôi phục (SR-AUTH-06)
+     * @description **0.3.8 (SEC 06.17–06.22)**. Gửi **đúng một** trong `totpCode`, `recoveryCode` (cả hai/không có → `422 VALIDATION_FAILED`, không đếm).
+     *     TOTP RFC 6238 (SHA-1, 6 số, bước 30 giây), nhận bước hiện tại ± 1; **chống phát lại**: lưu `app_user.mfa_last_used_step`, mã của bước ≤ bước đã dùng bị từ chối (cập nhật nguyên tử).
+     *     Mã khôi phục: 16 ký tự base32 Crockford (server bỏ `-`/khoảng trắng, chữ hoa); xóa băm trong **cùng** câu `UPDATE … WHERE` (hai yêu cầu song song cùng mã → đúng một thành công);
+     *     dùng mã → audit `security` `mfa.recovery_code_used`, thông báo `account_security_change` cho chính người đó và mọi `owner`, email theo SEC 06.15 (kênh email – xem `s1-contracts.md`).
+     *     Mọi nhánh lỗi → **cùng** `401 MFA_INVALID` (06.20). Đúng → phiên **mới** (SR-SES-02), `user_session.mfa_at` + `amr` (`totp`/`recovery_code`).
+     *     Người có vai bắt buộc mà `MFA_ENFORCED = true`: phiên đầy đủ (đã có 2FA). Không `Idempotency-Key` (lệnh đăng nhập, token dùng một lần).
+     */
     post: operations['loginMfa'];
     delete?: never;
     options?: never;
@@ -149,7 +161,10 @@ export interface paths {
     get: operations['getMy2fa'];
     put?: never;
     post?: never;
-    /** Tắt 2FA (không cho vai bắt buộc) – cần mật khẩu + TOTP; thu hồi mọi phiên (SR-SES-06) */
+    /**
+     * Tắt 2FA (không cho vai bắt buộc) – cần mật khẩu + TOTP; thu hồi mọi phiên (SR-SES-06)
+     * @description 0.3.8 (SEC 06.25): S2 (`MfaConfirmInput` = `StrongReauth`). Vai owner/manager → `403 FORBIDDEN_ACTION`. Thành công: xóa bí mật + mọi mã khôi phục, thu hồi **mọi** phiên kể cả phiên gọi, audit `mfa.disabled`.
+     */
     delete: operations['disableMy2fa'];
     options?: never;
     head?: never;
@@ -165,7 +180,13 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Bắt đầu đăng ký TOTP – trả URI otpauth để hiện QR (chỉ trả 1 lần, no-store) */
+    /**
+     * Bắt đầu đăng ký TOTP – trả URI otpauth để hiện QR (chỉ trả 1 lần, no-store)
+     * @description **0.3.8 (SEC 06.7–06.9, 06.11)**: bí mật ≥ 160 bit (CSPRNG), lưu `app_user.mfa_pending_secret_enc` (DEK) hạn 10 phút; `mfa_enabled` vẫn `false`. Gọi lại → thay bí mật chờ cũ.
+     *     **Không có `Idempotency-Key`** (bỏ ở 0.3.8): phản hồi chứa bí mật C3 không được lưu vào `idempotency_key.response_body` (SR-C3-02); gửi lại (F5, mạng chập) = bí mật chờ **mới**,
+     *     QR cũ mất hiệu lực – không bao giờ trả lại bí mật cũ. Nhãn `OTTIMO:<tên đăng nhập>`, `issuer=OTTIMO` – không email/SĐT/tên cơ sở. 2FA đã bật → `409 INVALID_TRANSITION`.
+     *     Gọi được trong phiên hạn chế (`MFA_ENROLLMENT_REQUIRED`). Audit `security` `mfa.setup_started`.
+     */
     post: operations['startMy2faSetup'];
     delete?: never;
     options?: never;
@@ -182,8 +203,35 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Xác nhận mã TOTP đầu tiên → bật 2FA, trả 10 mã khôi phục (một lần, no-store) */
+    /**
+     * Xác nhận mã TOTP đầu tiên → bật 2FA, trả 10 mã khôi phục (một lần, no-store)
+     * @description **0.3.8 (SEC 06.9, 06.10, 06.12)**: không `Idempotency-Key` (phản hồi có mã khôi phục). Đúng → `mfa_enabled = true`, `mfa_last_used_step` = bước vừa dùng, sinh 10 mã khôi phục
+     *     (16 ký tự base32, ≥ 80 bit; DB chỉ lưu SHA-256), **thu hồi mọi phiên khác**, cấp phiên **mới** cho client đang gọi (`Set-Cookie`; `csrfToken` đổi → gọi lại `getMe`); phiên hạn chế
+     *     kết thúc. Mất phản hồi (mạng) → gọi lại trả `409 INVALID_TRANSITION` (đã bật) – người dùng tạo bộ mã mới bằng `regenerateMyRecoveryCodes`. Không có bí mật chờ/đã hết hạn → `409`.
+     *     Sai mã → `422 VALIDATION_FAILED` (`field` = `totpCode`), đếm SR-RL-02. Audit `security` `mfa.enrolled`; thông báo `account_security_change`.
+     */
     post: operations['confirmMy2fa'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/me/2fa/recovery-codes': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Tạo bộ 10 mã khôi phục mới – bộ cũ mất hiệu lực ngay (S2; SEC 06.16)
+     * @description **0.3.8**. Thân `StrongReauth` (mật khẩu + TOTP, hoặc mật khẩu + mã khôi phục còn lại). Không `Idempotency-Key` (phản hồi chứa mã – SEC 06.9). Chưa bật 2FA → `409 INVALID_TRANSITION`.
+     *     Audit `security` `mfa.recovery_codes_regenerated`; thông báo `account_security_change`. Mã chỉ hiện một lần; tải `.txt`/in làm ở client (06.13).
+     */
+    post: operations['regenerateMyRecoveryCodes'];
     delete?: never;
     options?: never;
     head?: never;
@@ -325,6 +373,31 @@ export interface paths {
      */
     put: operations['setUserRoles'];
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/users/{userId}/2fa/actions/reset': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        userId: components['parameters']['UserId'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * OWN đặt lại 2FA của **người khác** khi họ mất điện thoại (ESC-027, SEC 06.32) – S2
+     * @description **0.3.8**. Người bị đặt lại: xóa bí mật + mọi mã khôi phục, `mfa_enabled = false`, **thu hồi mọi phiên**; lần đăng nhập kế phải đăng ký lại (phiên hạn chế khi vai bắt buộc).
+     *     `userId` = chính người gọi → `422 NOT_ALLOWED` (không ai tự đặt lại qua API – dùng mã khôi phục; chủ đầu tư duy nhất mất cả hai → lệnh quản trị trên máy chủ, **không có endpoint**,
+     *     thủ tục OPS lưu ngoài repo – SEC 06.33). Đặt lại 2FA của `owner` khác được (đường ESC-027 A sau này, không cần sửa mã). Người chưa bật 2FA → `409 INVALID_TRANSITION`.
+     *     Audit `security` `mfa.reset_by_owner` (người làm, người bị đặt lại, lý do); thông báo `account_security_change` cho người bị đặt lại và mọi `owner`.
+     */
+    post: operations['resetUser2fa'];
     delete?: never;
     options?: never;
     head?: never;
@@ -502,7 +575,11 @@ export interface paths {
       };
       cookie?: never;
     };
-    /** Giá trị và lịch sử của một khóa (US-005 AC3) */
+    /**
+     * Giá trị và lịch sử của một khóa (US-005 AC3)
+     * @description **0.3.8 (R3-Q51, SEC Q51-1/Q51-2)**: khóa `payment_receiving_account` **chỉ OWN** (MGR, FDL → `403 FORBIDDEN_ACTION`); `listParameters` bỏ khóa này khỏi danh sách của vai khác OWN.
+     *     `history` gồm cả dòng **đã lên lịch** (`effectiveFrom` > ngày kinh doanh hiện tại) – Desk tách "Đang dùng" / "Đã lên lịch". Số tài khoản luôn che (`accountNoMasked`, `bankName`).
+     */
     get: operations['getParameterHistory'];
     /**
      * Thêm giá trị mới có ngày hiệu lực (không sửa giá trị quá khứ). Khóa `foc_limits`, tỷ lệ hoa hồng, phí kênh, `vat_rate`, `retention.*` và mọi tham số bảo mật chỉ OWN (rbac 5.3, A118).
@@ -524,6 +601,32 @@ export interface paths {
      */
     put: operations['setParameter'];
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/parameters/{key}/actions/cancel-scheduled': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        /** @description Khóa tham số (erd mục 9), ví dụ `hold_hours_default` */
+        key: components['parameters']['ParameterKey'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Hủy một dòng tham số **đã lên lịch** (chưa tới ngày hiệu lực) – R3-Q51, SEC Q51-5
+     * @description **0.3.8**. Xóa dòng `config_parameter` có `effectiveFrom` = ngày gửi và > ngày kinh doanh hiện tại (dòng đang/đã hiệu lực → `409 INVALID_TRANSITION`; không có → 404).
+     *     Quyền như `setParameter` theo khóa (khóa chỉ OWN → MGR 403). Khóa `payment_receiving_account`: bắt buộc `reauth` S2 như `setParameter`; audit `money` `config.changed`
+     *     (`after.cancelledEffectiveFrom`, số che); thông báo `receiving_account_changed` + email mọi `owner`. Khóa khác: audit `config`/`security` theo khóa.
+     */
+    post: operations['cancelScheduledParameter'];
     delete?: never;
     options?: never;
     head?: never;
@@ -2840,6 +2943,115 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/properties/{propertyId}/reservations/{reservationId}/manager-confirmations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        reservationId: components['parameters']['ReservationId'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Lễ tân gửi quản lý xác nhận từ xa – "phụ thu trả muộn bằng giá 1 đêm" (US-164 AC1, BR-416-06)
+     * @description **0.3.8**. Chỉ `kind = late_fee_as_night` ở R3 (AC7: đường khác thêm giá trị `kind` sau khi BA rà danh sách và SEC review – SR-AUTH-11).
+     *     Thứ tự (như `checkOut` BE-64, không kiểm mật khẩu nào): bước 0 `Idempotency-Key` → khuôn body → điều kiện nghiệp vụ **chỉ đọc** dưới khóa đơn → căn → folio (ARC 16.19):
+     *     đơn `in_house`, giờ rời (`departedAt`) sau mốc cuối BR-412 và đêm ngày đi **không bán được** (`CheckoutSummary.extraNightAvailable = false`) – khác → 422 `NOT_ALLOWED`;
+     *     `expectedLateFeeVnd` ≠ `CheckoutSummary.lateFeeAsNightVnd` → 409 `SURCHARGE_CHANGED`; `requestFoc` theo luật `lateFeeInsteadOfNight.requestFoc` (chỉ `foc`, ≤ phụ thu − FOC đã duyệt).
+     *     Đơn đã có yêu cầu `pending` → 409 `MANAGER_CONFIRMATION_PENDING` (+ `confirmationId`). Ghi `manager_confirmation` khóa số tiền server tính (`lateFeeVnd`, `focRequestedVnd`,
+     *     `guestPaysVnd`), `departedAt` (giờ rời thật – AC1), `expiresAt` = lúc tạo + `remote_confirm_timeout_minutes` (mặc định 15 – ESC-024 B). **Không** ghi gì vào folio/đơn ngoài khóa chờ:
+     *     trong lúc `pending`, `checkOut` (không kèm yêu cầu này), `extendStay`, `changeRoom`, `setLateCheckout` → 409 `MANAGER_CONFIRMATION_PENDING`; thu tiền, minibar, ghi chú vẫn được.
+     *     Thông báo `manager_confirmation_requested` (+ Web Push) tới mọi OWN/MGR đang hoạt động của cơ sở; SSE `manager_confirmation.changed`. Audit `money` `manager_confirmation.requested`
+     *     (BE thêm vào tập đóng cùng PR). Nội dung thông báo/SSE: không tên khách, SĐT.
+     */
+    post: operations['createManagerConfirmation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/manager-confirmations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+      };
+      cookie?: never;
+    };
+    /**
+     * Hộp "Chờ quản lý xác nhận" (OWN/MGR mọi yêu cầu; FD/FDL yêu cầu của mình) – US-164 AC2
+     * @description **0.3.8**. Mặc định `status = pending`, mới nhất trước. Trạng thái `expired` tính lúc đọc (`expiresAt` ≤ bây giờ) – không chờ job.
+     */
+    get: operations['listManagerConfirmations'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/manager-confirmations/{confirmationId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        confirmationId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    /**
+     * Chi tiết một yêu cầu xác nhận – quản lý thấy đủ số trước khi duyệt (US-164 AC2, SEC 06.29)
+     * @description **0.3.8**. Phạm vi như danh sách (FD/FDL ngoài phạm vi → 404). Trả `ETag: "<version>"`.
+     */
+    get: operations['getManagerConfirmation'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/manager-confirmations/{confirmationId}/actions/{action}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        confirmationId: components['schemas']['Uuid'];
+        action: 'approve' | 'reject' | 'cancel';
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Quản lý duyệt/từ chối bằng PIN trên phiên của mình; lễ tân hủy yêu cầu (US-164 AC2–AC4)
+     * @description **0.3.8**.
+     *     | `action` | Chuyển | Ai | Điều kiện |
+     *     |---|---|---|---|
+     *     | `approve` | `pending → approved` | OWN, MGR của cơ sở (FD/FDL → 403) | `pin` bắt buộc (PIN duyệt SR-AUTH-09 của **chính** người gọi, không cửa sổ – mỗi yêu cầu nhập PIN); người có 2FA phải dùng phiên đã qua bước 2 (`user_session.mfa_at`) – khác → 401 `MFA_REQUIRED`; `focRequestedVnd` > hạn mức BR-433 của người duyệt → 403 `APPROVAL_LIMIT_EXCEEDED`, **không đổi** (quản lý từ chối kèm lý do hoặc nhờ OWN) |
+     *     | `reject` | `pending → rejected` | OWN, MGR | `pin` + `rejectReason` (3–300) bắt buộc |
+     *     | `cancel` | `pending, approved → cancelled` | Người gửi; FDL+ | Mở khóa đơn; `reason` tùy chọn. Không cần PIN |
+     *     Thứ tự: bước 0 `Idempotency-Key` (băm không gồm `pin`) → khuôn body → trạng thái/hạn (chỉ đọc; quá `expiresAt` → 409 `CONFIRMATION_EXPIRED`, đã xử lý → 409 `INVALID_TRANSITION`) →
+     *     `expectedVersion` (lệch → 412) → PIN (sai → 401 `REAUTH_FAILED` `field` = `pin`, đếm SR-RL-02 của người duyệt; khóa → 429). Không bao giờ nhận mật khẩu (`pin` là trường duy nhất).
+     *     Audit `money` `manager_confirmation.decided` (người gửi, người duyệt, vai, `authMethod = pin`, kênh `remote`, giờ gửi/duyệt, số tiền); audit `security` khi sai PIN.
+     *     Thông báo `manager_confirmation_decided` cho người gửi; SSE `manager_confirmation.changed`. Yêu cầu `approved` dùng được **một lần** ở `checkOut` tới hết ngày kinh doanh; sau đó → `expired`.
+     */
+    post: operations['transitionManagerConfirmation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/properties/{propertyId}/approval-requests': {
     parameters: {
       query?: never;
@@ -4743,6 +4955,12 @@ export interface components {
       /** @description Mã máy đọc (bảng mã lỗi ở info.description) */
       code: string;
       requestId?: string;
+      /** @description `401 MFA_REQUIRED` của `login` – token bước 2 (5 phút, một lần; SEC 06.17). Không bao giờ ghi log */
+      mfaToken?: string;
+      /** @description 0.3.8 – `409 MANAGER_CONFIRMATION_PENDING`: yêu cầu đang chờ của đơn */
+      confirmationId?: components['schemas']['Uuid'];
+      /** @description 0.3.8 – `409 CONFIRMATION_NOT_USABLE` / `CONFIRMATION_EXPIRED`: trạng thái hiện tại của yêu cầu xác nhận */
+      confirmationStatus?: string;
       errors?: components['schemas']['FieldError'][];
       /** @description Với PARAM_OUT_OF_RANGE – biên dưới */
       min?: unknown;
@@ -5129,12 +5347,25 @@ export interface components {
         screens: string[];
         /** @description Thiết bị đang dùng đã được owner cấp (cookie `__Host-ottimo_did`) – FE ẩn nút C3 khi false; server vẫn kiểm (SR-DEV-05) */
         deviceTrusted?: boolean;
+        /**
+         * @description **0.3.8 (R3-Q38, FB-R2-ARC-FE-S4-02)** – ngày kinh doanh của cơ sở **lúc trả lời** (= `ctx.today`, BR-010), mọi vai. Nguồn chung cho Desk (`useBusinessDay`) và PWA (lưu kèm bản
+         *     offline). Client tự đổi sang ngày kế tiếp ở mốc `businessDayRollover` theo `timezone` và gọi lại `getMe` khi tab được focus; server luôn kiểm lại (422 khi lệch).
+         */
+        businessDate?: components['schemas']['LocalDate'];
+        /** @description 0.3.8 (R3-Q38) – tham số `business_day_rollover` đang hiệu lực (mặc định 06:00) */
+        businessDayRollover?: components['schemas']['LocalTime'];
       }[];
       /** @description Mật khẩu tạm – chỉ cho đổi mật khẩu (SR-AUTH-05) */
       mustChangePassword?: boolean;
       mfaEnabled?: boolean;
-      /** @description Vai owner/manager chưa bật 2FA (R3 – nhắc bắt buộc trước khi đưa dữ liệu thật) */
+      /** @description Vai owner/manager chưa bật 2FA (R3 – nhắc bắt buộc trước khi đưa dữ liệu thật). 0.3.8: chỉ có nghĩa khi `MFA_ENFORCED = false` */
       mfaRequiredButMissing?: boolean;
+      /** @description 0.3.8 (SEC 06.4) – phiên hạn chế: chỉ màn đăng ký 2FA; mọi API khác 403 `MFA_ENROLLMENT_REQUIRED` */
+      mfaEnrollmentRequired?: boolean;
+      /** @description 0.3.8 (ESC-027 B) – người gọi là `owner` duy nhất của tổ chức (câu `auth.enroll.single_owner`); vắng với vai khác */
+      soleOwner?: boolean;
+      /** @description 0.3.8 (SEC 06.15) – còn ≤ 3 mã khôi phục → nhắc tạo bộ mới mỗi lần đăng nhập */
+      recoveryCodesLow?: boolean;
     };
     User: {
       id: components['schemas']['Uuid'];
@@ -5145,8 +5376,14 @@ export interface components {
       roles: components['schemas']['PropertyRole'][];
       lastLoginAt?: components['schemas']['Instant'];
       version: number;
+      /** @description 0.3.8 (SEC 06.35) – OWN xem trạng thái 2FA của mọi người dùng (không xem bí mật) */
+      mfaEnabled?: boolean;
+      /** @description 0.3.8 (SEC 06.35) */
+      mfaRecoveryCodesRemaining?: number;
     };
     UserCreate: {
+      /** @description 0.3.8 (SEC 06.26 – S2): bắt buộc từ khi BE + FE cài (CỔNG cùng PR) */
+      reauth?: components['schemas']['StrongReauth'];
       username: string;
       displayName: string;
       phone?: string;
@@ -5347,7 +5584,10 @@ export interface components {
       'reminded_waiting' | 'replied' | 'call_needed' | 'overdue' | 'checked_out';
     AttentionItem: {
       /**
-       * @description 0.3.7 bổ sung 2 (US-155): `website_request_new` – nguồn `computed`, FD+ (OWN/MGR/FDL/FD); `count` = số yêu cầu website `new` chưa ai nhận; mức `warning` khi yêu cầu `new`
+       * @description **0.3.8**: `late_fee_post_review` (US-164/ESC-024 B – nguồn `event`, OWN/MGR, mức `warning`, `dueAt` = ghi + `late_fee_post_review_hours`, `refCode` = mã đơn; đóng bằng
+       *     `resolveAttentionEvent` sau khi xem lại); `foc_stay_total_exceeded` (ESC-026 A – nguồn `event`, **chỉ OWN**, `warning`, **một mục mỗi lượt ở** (mở ở lần vượt đầu), `dueAt` = +24 giờ, `params` chỉ `count` khoản);
+       *     `manager_confirmation_pending` (nguồn `computed`, OWN/MGR, `count` yêu cầu đang chờ, `dueAt` = `expiresAt` sớm nhất).
+       *     0.3.7 bổ sung 2 (US-155): `website_request_new` – nguồn `computed`, FD+ (OWN/MGR/FDL/FD); `count` = số yêu cầu website `new` chưa ai nhận; mức `warning` khi yêu cầu `new`
        *     cũ nhất đã quá `replyBy`, còn lại `info`; `dueAt` = `replyBy` sớm nhất; `params` chỉ `count`; `refCode` = mã yêu cầu khi `count` = 1; `link` = `/website-requests?status=new`;
        *     không tên/SĐT. Hết khi không còn yêu cầu `new`. SAL nhận thông báo `website_request_new` thay cho mục này.
        * @enum {string}
@@ -5382,7 +5622,10 @@ export interface components {
         | 'ota_no_show_report'
         | 'closed_reservation_credit'
         | 'website_request_new'
-        | 'checkout_debt';
+        | 'checkout_debt'
+        | 'late_fee_post_review'
+        | 'foc_stay_total_exceeded'
+        | 'manager_confirmation_pending';
       /**
        * @description computed = tính lúc đọc; event = bản ghi `attention_event` (đóng bằng resolveAttentionEvent)
        * @enum {string}
@@ -5403,6 +5646,7 @@ export interface components {
        * @description 0.3.6 (B-21, SEC J duyệt có điều kiện): tham số điền chuỗi UXD. Mỗi `kind` có **danh sách khóa cho phép trong code**; khóa lạ → lỗi lúc sinh mục
        *     (không lọc im lặng). Chỉ số, mã đơn/WO, số căn, ngày – **không** tên, SĐT, ghi chú, số tiền chi tiết của khách. `reconcile_overdue`: `count`, `oldestDays`.
        *     **0.3.7**: `data_quality` → `check` ∈ `registration_stay_not_closed`, `registration_party_docs_unlinked` (S4-39); `ooo_ending_work_open` → `roomNo`, `endDate`.
+       *     **0.3.8 (SEC B.6 – ARC chọn a1, R3-Q33 a)**: `data_quality` thêm `check = attachment_retention_anchor_missing` – **chỉ OWN/MGR** (FD/HK không thấy), nguồn `computed` từ lần chạy J16 gần nhất, `params` chỉ `check` + `count`; hết ảnh thiếu mốc → mục tự hết.
        *     **0.3.7 bổ sung D1**: `ota_no_show_report` (US-136 AC2/AC5) → `action` ∈ `report` ("Báo no-show trên kênh" – sinh khi `markNoShow` đơn kênh `ota`), `revoke` ("Báo kênh hủy no-show" –
        *     sinh khi `restoreNoShow` đơn OTA đã báo), `channel` (mã kênh); `refCode` = mã đơn; nguồn `event`, mức `warning`, OWN/MGR/FDL/FD; lễ tân đóng bằng `resolveAttentionEvent` sau khi
        *     làm trên extranet (ghi người, lúc). `closed_reservation_credit` (S4-06, BR-522 – "tiền dư đơn đã đóng") → không tham số; `refCode` = mã đơn, **không** số tiền; nguồn `event`,
@@ -5572,6 +5816,8 @@ export interface components {
      */
     BookingRules: {
       businessDate: components['schemas']['LocalDate'];
+      /** @description 0.3.8 (R3-Q38) – `business_day_rollover` (BR-010) đang hiệu lực */
+      businessDayRollover?: components['schemas']['LocalTime'];
       /** @description `hold_hours_options` (BR-302) */
       holdHoursOptions: number[];
       /** @description `hold_hours_default` */
@@ -7926,9 +8172,80 @@ export interface components {
       db: 'ok' | 'down';
       time: components['schemas']['Instant'];
     };
-    MfaConfirmInput: {
-      currentPassword: string;
-      code: string;
+    /** @description 0.3.8 – giữ tên cho `disableMy2fa`; cùng nghĩa `StrongReauth` */
+    MfaConfirmInput: components['schemas']['StrongReauth'];
+    /**
+     * @description 0.3.8 (US-164) – SM-19 đề xuất (BA đặt mã chuyển MC1…)
+     * @enum {string}
+     */
+    ManagerConfirmationStatus:
+      'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled' | 'consumed';
+    ManagerConfirmationCreate: {
+      /** @enum {string} */
+      kind: 'late_fee_as_night';
+      /** @description Giờ khách rời thật (BR-412; như `checkOut.checkoutAt` – kiểm `TIME_AFTER_ACTION`/`TIME_NOTE_REQUIRED`) */
+      departedAt: components['schemas']['Instant'];
+      departedAtNote?: string;
+      /** @description `CheckoutSummary.lateFeeAsNightVnd` Desk đang hiện – lệch → 409 `SURCHARGE_CHANGED` */
+      expectedLateFeeVnd: components['schemas']['MoneyVnd'];
+      reason: string;
+      /** @description Tùy chọn – như `lateFeeInsteadOfNight.requestFoc` (chỉ `foc`); người duyệt tự áp trong hạn mức của mình khi B18 dùng yêu cầu */
+      requestFoc?: components['schemas']['FocRequestInput'];
+    };
+    /**
+     * @description **0.3.8 (US-164, ESC-024 B)** – yêu cầu quản lý xác nhận từ xa. Bảng `manager_confirmation` (module frontdesk, erd 4.15). Số tiền do server tính và **khóa** lúc tạo.
+     *     Không chứa tên khách/SĐT (quản lý thấy mã đơn + số căn + tên phòng).
+     */
+    ManagerConfirmation: {
+      id: components['schemas']['Uuid'];
+      /** @enum {string} */
+      kind: 'late_fee_as_night';
+      status: components['schemas']['ManagerConfirmationStatus'];
+      reservationId: components['schemas']['Uuid'];
+      reservationCode: string;
+      roomNo: string;
+      roomName?: string;
+      departedAt: components['schemas']['Instant'];
+      /** @description Đêm ngày đi không bán được (BR-416-06) */
+      serviceDate?: components['schemas']['LocalDate'];
+      /** @description Phụ thu bằng giá 1 đêm (server tính) */
+      lateFeeVnd: components['schemas']['MoneyVnd'];
+      /** @description FOC trả muộn đã duyệt từ trước đi theo */
+      focApprovedBeforeVnd?: components['schemas']['MoneyVnd'];
+      /** @description FOC xin thêm trong yêu cầu (0 nếu không) */
+      focRequestedVnd?: components['schemas']['MoneyVnd'];
+      /** @description Khách phải trả cho khoản này nếu duyệt */
+      guestPaysVnd: components['schemas']['MoneyVnd'];
+      reason?: string;
+      requestedBy: string;
+      requestedAt: components['schemas']['Instant'];
+      expiresAt: components['schemas']['Instant'];
+      decidedBy?: string;
+      decidedByRole?: components['schemas']['Role'];
+      decidedAt?: components['schemas']['Instant'];
+      rejectReason?: string;
+      consumedAt?: components['schemas']['Instant'];
+      /**
+       * @description Cách B18 dùng yêu cầu
+       * @enum {string}
+       */
+      consumedMode?: 'approved' | 'expired_self_record';
+      /** @description Hạn mức tháng còn lại của **người xem** (OWN/MGR) – để biết duyệt FOC được không */
+      approverRemainingMonthlyVnd?: components['schemas']['MoneyVnd'];
+      version: number;
+    };
+    /**
+     * @description **0.3.8 – xác nhận lại mức S2 (SEC A.5, 06.23–06.27)**, dùng chung cho mọi operation có `x-strong-reauth: true`. Gửi **trong** request, kiểm ngay, **không** mở cửa sổ, không
+     *     dùng lại được (mỗi request một lần; TOTP chống phát lại theo `mfa_last_used_step` – hai thao tác S2 trong cùng 30 giây cần mã của bước kế tiếp).
+     *     Người gọi **đã bật 2FA**: `password` + đúng một trong `totpCode`, `recoveryCode` (thiếu → 422 `STRONG_REAUTH_REQUIRED`, không đếm). **Chưa bật** (chỉ khi `MFA_ENFORCED = false`):
+     *     `password` đủ; phản hồi lỗi/thành công không đổi, `Me.mfaRequiredButMissing` nhắc bật. Sai bất kỳ yếu tố nào → **cùng** `401 REAUTH_FAILED` (`field` = `reauth` hoặc ô mật khẩu của
+     *     operation) – đếm SR-RL-02 (5 sai/15 phút). Một hàm server `StrongReauthService.verify(user, input, operationId)` (module identity) – không cài lại ở từng module.
+     *     Audit `security` `stepup.s2_granted` / `stepup.s2_failed` (kèm `operationId`, không ghi giá trị).
+     */
+    StrongReauth: {
+      password: string;
+      totpCode?: string;
+      recoveryCode?: string;
     };
     TrustedDevice: {
       id: components['schemas']['Uuid'];
@@ -7945,7 +8262,12 @@ export interface components {
     StaffNotification: {
       id: components['schemas']['Uuid'];
       /**
-       * @description **0.3.7 bổ sung 4 (BR-525 G-4, migration 0072)**: `debt_recorded` – công nợ của khách được ghi tự động khi MGR+ đảo khoản thu sau trả phòng làm còn phải thu > 0, hoặc khi J15 đóng folio còn phát sinh sau trả phòng chưa thu (R7LOCK-01 – hết 24 giờ kể từ trả phòng); gửi **OWN + MGR**
+       * @description **0.3.8 (US-164)**: `manager_confirmation_requested` (mọi OWN/MGR **đang hoạt động** của cơ sở; Web Push nếu đã đăng ký – payload chỉ `kind` + `refId`; refType `manager_confirmation`,
+       *     refCode = mã đơn) · `manager_confirmation_decided` (người gửi – đã duyệt/từ chối) · `manager_confirmation_expired` (người gửi – hết hạn, Desk mở nhánh tự ghi) ·
+       *     `late_fee_post_review` (OWN + MGR – lễ tân tự ghi sau hết hạn, hậu kiểm 24 giờ; refType `reservation`). **ESC-026 A**: `foc_stay_total_exceeded` (mọi OWN – Σ số đang áp của FOC/giảm giá đặc biệt/xóa nợ
+       *     do FD/FDL/MGR áp trên một lượt ở vượt ngưỡng BR-433 (c) v0.4.0 – ngưỡng = hạn mức một lần của vai cao nhất dưới OWN có khoản đang áp; **một thông báo mỗi lần áp** khi Σ đang vượt
+       *     (oracle DOM E26-1…5, 9); refType `reservation`, refCode = mã đơn gốc của lượt; không số tiền, không tên khách). Không tên khách/SĐT trong mọi loại.
+       *     **0.3.7 bổ sung 4 (BR-525 G-4, migration 0072)**: `debt_recorded` – công nợ của khách được ghi tự động khi MGR+ đảo khoản thu sau trả phòng làm còn phải thu > 0, hoặc khi J15 đóng folio còn phát sinh sau trả phòng chưa thu (R7LOCK-01 – hết 24 giờ kể từ trả phòng); gửi **OWN + MGR**
        *     (trừ người đảo); refType `reservation`, `refCode` = mã đơn; không số tiền, không tên khách.
        *     0.3.6 (A-36): `online_checkin_completed` (FD đang trực – "Khách {refCode} đã làm thủ tục trước – đến lúc {eta}", EP06 8.3; refType `reservation`);
        *     `payment_disputed` (OWN + MGR khác người ghi – SEC F5; refType `payment`); `deposit_shortfall_accepted` (OWN – B-29); `receiving_account_changed`
@@ -7998,7 +8320,12 @@ export interface components {
         | 'website_request_overdue'
         | 'website_request_linked_hold'
         | 'public_booking_toggled'
-        | 'debt_recorded';
+        | 'debt_recorded'
+        | 'manager_confirmation_requested'
+        | 'manager_confirmation_decided'
+        | 'manager_confirmation_expired'
+        | 'late_fee_post_review'
+        | 'foc_stay_total_exceeded';
       /** @enum {string} */
       refType?:
         | 'reservation'
@@ -8010,7 +8337,8 @@ export interface components {
         | 'payment'
         | 'property'
         | 'hk_task'
-        | 'website_booking_request';
+        | 'website_booking_request'
+        | 'manager_confirmation';
       refId?: components['schemas']['Uuid'];
       /** @description Mã hiển thị (OTM-00171, WO-00034, số căn) – không C2/C3 */
       refCode?: string;
@@ -8762,11 +9090,19 @@ export interface operations {
     };
     requestBody: {
       content: {
+        /**
+         * @example {
+         *       "mfaToken": "q8Zr1vX0bW6mN3pL5tY7uI9oA2sD4fG6hJ8kK0lQ",
+         *       "totpCode": "123456"
+         *     }
+         */
         'application/json': {
-          /** @description Token ngắn hạn (5 phút) trả kèm 401 MFA_REQUIRED */
+          /** @description Token ngắn hạn (5 phút, một lần) trả kèm 401 MFA_REQUIRED */
           mfaToken: string;
-          /** @description TOTP 6 số hoặc mã khôi phục 10 ký tự */
-          code: string;
+          /** @description Mã 6 số từ ứng dụng xác thực */
+          totpCode?: string;
+          /** @description Mã khôi phục 16 ký tự (hiển thị 4-4-4-4) */
+          recoveryCode?: string;
         };
       };
     };
@@ -8774,13 +9110,32 @@ export interface operations {
       /** @description Đăng nhập thành công (đặt cookie như `login`) */
       200: {
         headers: {
+          /** @description __Host-ottimo_sid=...; HttpOnly; Secure; SameSite=Lax; Path=/ */
+          'Set-Cookie'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': components['schemas']['Me'];
         };
       };
-      401: components['responses']['Unauthenticated'];
+      /** @description MFA_INVALID – mọi nhánh lỗi giống hệt (06.20) */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "type": "/problems/mfa-invalid",
+           *       "title": "Mã xác thực không đúng hoặc đã hết hạn",
+           *       "status": 401,
+           *       "code": "MFA_INVALID"
+           *     }
+           */
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationFailed'];
       429: components['responses']['RateLimited'];
     };
   };
@@ -8815,6 +9170,10 @@ export interface operations {
         'application/json': {
           currentPassword: string;
           newPassword: string;
+          /** @description 0.3.8 (SEC 06.25 – S2): **bắt buộc** khi người gọi đã bật 2FA (thiếu → 422 `STRONG_REAUTH_REQUIRED`, `field` = `totpCode`), hoặc gửi `recoveryCode`; sai → 401 `REAUTH_FAILED` (`field` = `currentPassword` – không nói yếu tố nào sai) */
+          totpCode?: string;
+          /** @description 0.3.8 – thay `totpCode` khi mất điện thoại (dùng một lần, như `loginMfa`) */
+          recoveryCode?: string;
         };
       };
     };
@@ -8910,7 +9269,14 @@ export interface operations {
             enabled: boolean;
             /** @description Vai owner/manager → true */
             required: boolean;
+            /** @description 0.3.8 – cờ triển khai `MFA_ENFORCED` (chỉ đọc) */
+            enforced?: boolean;
+            /** @description 0.3.8 – đã gọi `startMy2faSetup`, chưa xác nhận (bí mật chờ hết hạn sau 10 phút) */
+            pendingSetup?: boolean;
+            enrolledAt?: components['schemas']['Instant'];
             recoveryCodesRemaining?: number;
+            /** @description 0.3.8 (ESC-027 B, SEC 06.6) – người gọi là `owner` duy nhất của tổ chức → câu `auth.enroll.single_owner` */
+            soleOwner?: boolean;
           };
         };
       };
@@ -8943,13 +9309,7 @@ export interface operations {
   startMy2faSetup: {
     parameters: {
       query?: never;
-      header?: {
-        /**
-         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
-         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
-         */
-        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-      };
+      header?: never;
       path?: never;
       cookie?: never;
     };
@@ -8969,36 +9329,66 @@ export interface operations {
         };
         content: {
           'application/json': {
-            /** @description otpauth://totp/OTTIMO:<username>?secret=… */
+            /** @description otpauth://totp/OTTIMO:<username>?secret=…&issuer=OTTIMO */
             otpauthUri: string;
+            /** @description 0.3.8 – hạn bí mật chờ (10 phút) */
+            expiresAt?: components['schemas']['Instant'];
           };
         };
       };
-      401: components['responses']['Unauthenticated'];
+      401: components['responses']['ReauthFailed'];
+      409: components['responses']['Conflict'];
+      429: components['responses']['RateLimited'];
     };
   };
   confirmMy2fa: {
     parameters: {
       query?: never;
-      header?: {
-        /**
-         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
-         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
-         */
-        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-      };
+      header?: never;
       path?: never;
       cookie?: never;
     };
     requestBody: {
       content: {
         'application/json': {
-          code: string;
+          totpCode: string;
         };
       };
     };
     responses: {
       /** @description Đã bật */
+      200: {
+        headers: {
+          'Cache-Control'?: 'no-store';
+          /** @description Phiên mới (SR-SES-02) */
+          'Set-Cookie'?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            recoveryCodes: string[];
+          };
+        };
+      };
+      409: components['responses']['Conflict'];
+      422: components['responses']['ValidationFailed'];
+      429: components['responses']['RateLimited'];
+    };
+  };
+  regenerateMyRecoveryCodes: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StrongReauth'];
+      };
+    };
+    responses: {
+      /** @description Bộ mã mới (một lần, no-store) */
       200: {
         headers: {
           'Cache-Control'?: 'no-store';
@@ -9010,7 +9400,10 @@ export interface operations {
           };
         };
       };
+      401: components['responses']['ReauthFailed'];
+      409: components['responses']['Conflict'];
       422: components['responses']['ValidationFailed'];
+      429: components['responses']['RateLimited'];
     };
   };
   listMyNotifications: {
@@ -9289,6 +9682,8 @@ export interface operations {
           status?: 'active' | 'disabled';
           /** @description V-10 (khớp `newPassword`); 0.3.1 nâng từ 8 */
           resetPassword?: string;
+          /** @description 0.3.8 (SEC 06.26 – S2): bắt buộc khi có `status` hoặc `resetPassword` (đổi tên hiển thị không cần) */
+          reauth?: components['schemas']['StrongReauth'];
         };
       };
     };
@@ -9333,6 +9728,8 @@ export interface operations {
          */
         'application/json': {
           roles: components['schemas']['PropertyRole'][];
+          /** @description 0.3.8 (SEC 06.26 – S2): bắt buộc khi danh sách mới **thêm** vai `owner`/`manager`; các thay đổi khác không cần */
+          reauth?: components['schemas']['StrongReauth'];
         };
       };
     };
@@ -9349,6 +9746,45 @@ export interface operations {
       403: components['responses']['Forbidden'];
       412: components['responses']['VersionConflict'];
       422: components['responses']['ValidationFailed'];
+    };
+  };
+  resetUser2fa: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        userId: components['parameters']['UserId'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          reauth: components['schemas']['StrongReauth'];
+          reason: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Đã đặt lại */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      401: components['responses']['ReauthFailed'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      422: components['responses']['ValidationFailed'];
+      429: components['responses']['RateLimited'];
     };
   };
   listTrustedDevices: {
@@ -9403,7 +9839,10 @@ export interface operations {
            */
           deviceKind: 'desk' | 'facility_mobile';
           currentPassword: string;
+          /** @description 0.3.8 (S2): bắt buộc khi người gọi đã bật 2FA (hoặc `recoveryCode`) – thiếu → 422 `STRONG_REAUTH_REQUIRED` */
           totpCode?: string;
+          /** @description 0.3.8 – thay `totpCode` */
+          recoveryCode?: string;
           /** @description Đã kiểm checklist cứng hóa SR-DEV-07 */
           hardeningChecklistConfirmed: boolean;
         };
@@ -9446,6 +9885,8 @@ export interface operations {
       content: {
         'application/json': {
           reason?: string;
+          /** @description 0.3.8 (SEC 06.27 – S2): bắt buộc từ khi BE + FE cài (CỔNG cùng PR) */
+          reauth?: components['schemas']['StrongReauth'];
         };
       };
     };
@@ -9736,11 +10177,13 @@ export interface operations {
           value: unknown;
           effectiveFrom: components['schemas']['LocalDate'];
           reason: string;
-          /** @description Bắt buộc với khóa `payment_receiving_account` (0.3.6, SEC F3); khóa khác bỏ qua. Thiếu → 422 `REQUIRED` (`field` = `reauth`) */
+          /** @description Bắt buộc với khóa `payment_receiving_account` (0.3.6, SEC F3); khóa khác bỏ qua. Thiếu → 422 `REQUIRED` (`field` = `reauth`). **0.3.8**: mức S2 – `secret` = mật khẩu, kèm `totpCode` hoặc `recoveryCode` khi OWN đã bật 2FA (thiếu → 422 `STRONG_REAUTH_REQUIRED`); sai → 401 `REAUTH_FAILED` (`field` = `reauth.secret`) */
           reauth?: {
             /** @enum {string} */
             authMethod: 'password';
             secret: string;
+            totpCode?: string;
+            recoveryCode?: string;
           };
         };
       };
@@ -9782,6 +10225,55 @@ export interface operations {
           'application/problem+json': components['schemas']['Problem'];
         };
       };
+    };
+  };
+  cancelScheduledParameter: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        /** @description Khóa tham số (erd mục 9), ví dụ `hold_hours_default` */
+        key: components['parameters']['ParameterKey'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          effectiveFrom: components['schemas']['LocalDate'];
+          reason: string;
+          /** @description Như `setParameter.reauth` (S2) – bắt buộc với `payment_receiving_account` */
+          reauth?: {
+            /** @enum {string} */
+            authMethod: 'password';
+            secret: string;
+            totpCode?: string;
+            recoveryCode?: string;
+          };
+        };
+      };
+    };
+    responses: {
+      /** @description Đã hủy dòng lên lịch */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      401: components['responses']['ReauthFailed'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      422: components['responses']['ValidationFailed'];
+      429: components['responses']['RateLimited'];
     };
   };
   getTonightKpi: {
@@ -10026,6 +10518,8 @@ export interface operations {
        *     SAL/CTV vì vậy chỉ nhận `reservation.changed` của đơn mình và `notification.created` của mình (SAL thêm `payment.changed` của khoản mình ghi). Client không lọc thêm.
        *     **0.3.7 bổ sung 2 (US-155)**: loại mới `website_request.changed` (id = `requestId`) – mức sàn FD+; SAL **thêm** loại này cho yêu cầu trong phạm vi `unassigned_or_own`
        *     (`new` chưa giao hoặc giao cho mình). Phát khi tạo yêu cầu, mỗi chuyển WR1–WR7 và khi xóa C2.
+       *     **0.3.8 (US-164)**: `manager_confirmation.changed` (id = `confirmationId`) – tới người gửi và mọi OWN/MGR của cơ sở; phát khi tạo, duyệt, từ chối, hủy, hết hạn, dùng.
+       *     Desk của lễ tân nhận kết quả ≤ 5 giây (US-164 AC3) rồi gọi `getManagerConfirmation`.
        */
       200: {
         headers: {
@@ -11568,18 +12062,33 @@ export interface operations {
            *     `amountVnd` = số client đang hiện (`CheckoutSummary.lateFeeAsNightVnd`) – lệch → 409 `SURCHARGE_CHANGED`. Giảm/miễn: FOC trả muộn đã duyệt đi theo; FOC mới cho khoản này gửi
            *     kèm `requestFoc` (B18 chốt folio ngay, không còn chỗ xin sau – DOM 18/10). `applyLateSurcharge`/`expectedSurchargeVnd` không dùng ở đường này. Không có `lateFeeAsNightVnd`
            *     (không thêm đêm) nên không tính lại bậc BR-107 (DOM xác nhận 18/10).
+           *     **0.3.8 (US-164, ESC-024 B, SEC 06.29–06.31)** – ba cách xác nhận, đúng một:
+           *     (1) **Tại quầy** (D5, SR-AUTH-11): `amountVnd`, `reason`, `authMethod`, `secret` (+ `approverUsername` khi người gọi là FD/FDL). R3: người xác nhận đã bật 2FA chỉ được
+           *     `pin`, hoặc `password` **kèm** `totpCode` – mật khẩu đơn → 401 `REAUTH_FAILED` giống hệt (fail-closed); FE-08 giữ nguyên.
+           *     (2) **Từ xa đã duyệt**: chỉ gửi `confirmationId` (+ `reason` tùy chọn) – yêu cầu `approved`, cùng đơn, chưa dùng; số phụ thu/FOC lấy **từ yêu cầu** (server tính lại dưới khóa,
+           *     lệch → 409 `SURCHARGE_CHANGED`); giờ trả = `departedAt` của yêu cầu; FOC áp với người duyệt = người xác nhận (như D5). Gửi kèm `amountVnd`, `requestFoc`, `authMethod`,
+           *     `secret`, `approverUsername` → 422 `NOT_ALLOWED`. Yêu cầu chuyển `consumed` trong cùng giao dịch B18.
+           *     (3) **Hết hạn – lễ tân tự ghi (ESC-024 B)**: `confirmationId` của yêu cầu `expired` (không phải `rejected`), người gọi FD/FDL/MGR/OWN của cơ sở: ghi **đúng** phụ thu server tính
+           *     (`lateFeeAsNightVnd` đọc dưới khóa; khác số đã khóa ở yêu cầu → 409 `SURCHARGE_CHANGED`, tạo yêu cầu mới), **không** FOC (FOC xin trong yêu cầu bỏ, khách trả đủ), điều kiện
+           *     "đêm không bán được" phải còn đúng lúc ghi. Audit `money` `reservation.late_fee_instead_of_night` `after.channel = expired_self_record`, `after.confirmationId`; thông báo
+           *     `late_fee_post_review` mọi OWN/MGR; "Cần chú ý" `late_fee_post_review` hạn `late_fee_post_review_hours`. Không dùng mật khẩu/PIN của ai khác.
+           *     Miễn sau hậu kiểm: MGR+ dùng A32 (`adjustFolioLine`) trên folio `settled` trong cửa sổ 24 giờ → dư → hoàn tiền BR-522 (đường có sẵn, không thêm đường tiền) [GIẢ ĐỊNH – DOM chốt BR-416].
            */
           lateFeeInsteadOfNight?: {
-            amountVnd: components['schemas']['MoneyVnd'];
-            reason: string;
+            /** @description 0.3.8 (US-164) – `ManagerConfirmation.id` */
+            confirmationId?: components['schemas']['Uuid'];
+            /** @description 0.3.8 (SR-AUTH-11 R3) – bắt buộc khi `authMethod = password` và người xác nhận đã bật 2FA */
+            totpCode?: string;
+            amountVnd?: components['schemas']['MoneyVnd'];
+            reason?: string;
             /** @description Bắt buộc khi người gọi là FD/FDL (thiếu → 422 `REQUIRED`); OWN/MGR bỏ trống = tự xác nhận */
             approverUsername?: string;
             /**
              * @description R2 chỉ `password` (`pin` → 422 `NOT_IN_LIST`, không đếm). R3: `pin`, hoặc `password` + `totpCode` (contract-ahead, SEC ARC-24)
              * @enum {string}
              */
-            authMethod: 'password' | 'pin';
-            secret: string;
+            authMethod?: 'password' | 'pin';
+            secret?: string;
             /**
              * @description 0.3.7 bổ sung 4 (DOM 18/10, như `setLateCheckout.requestFocForSurcharge`) – tùy chọn: FOC/giảm giá cho khoản phụ thu này, **người xác nhận** của `lateFeeInsteadOfNight`
              *     **tự áp** trong hạn mức BR-433 của mình (cùng giao dịch B18, yêu cầu `approved`, người gửi = người gọi, người duyệt = người xác nhận). Dùng `kind` (**chỉ `foc`** –
@@ -14077,6 +14586,160 @@ export interface operations {
       401: components['responses']['Unauthenticated'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
+    };
+  };
+  createManagerConfirmation: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        reservationId: components['parameters']['ReservationId'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "kind": "late_fee_as_night",
+         *       "departedAt": "2026-10-27T20:30:00+07:00",
+         *       "expectedLateFeeVnd": 792000,
+         *       "reason": "Khách rời 20:30, căn đã có khách đến đêm nay"
+         *     }
+         */
+        'application/json': components['schemas']['ManagerConfirmationCreate'];
+      };
+    };
+    responses: {
+      /** @description Đã gửi */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ManagerConfirmation'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      422: components['responses']['ValidationFailed'];
+    };
+  };
+  listManagerConfirmations: {
+    parameters: {
+      query?: {
+        status?: components['schemas']['ManagerConfirmationStatus'][];
+        /** @description Con trỏ mờ từ `page.nextCursor` */
+        cursor?: components['parameters']['Cursor'];
+        limit?: components['parameters']['Limit'];
+      };
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['ManagerConfirmation'][];
+            page: components['schemas']['PageInfo'];
+          };
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+    };
+  };
+  getManagerConfirmation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        confirmationId: components['schemas']['Uuid'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          ETag: components['headers']['ETag'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ManagerConfirmation'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+    };
+  };
+  transitionManagerConfirmation: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        confirmationId: components['schemas']['Uuid'];
+        action: 'approve' | 'reject' | 'cancel';
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Bắt buộc với `approve`, `reject`; `cancel` gửi → 422 `NOT_ALLOWED` */
+          pin?: string;
+          expectedVersion: number;
+          rejectReason?: string;
+          /** @description Lý do hủy (tùy chọn) */
+          reason?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Yêu cầu sau khi chuyển */
+      200: {
+        headers: {
+          ETag: components['headers']['ETag'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ManagerConfirmation'];
+        };
+      };
+      401: components['responses']['ReauthFailed'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      412: components['responses']['VersionConflict'];
+      422: components['responses']['ValidationFailed'];
+      429: components['responses']['RateLimited'];
     };
   };
   listApprovalRequests: {

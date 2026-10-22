@@ -1116,6 +1116,20 @@ Giữ sau khi xóa (không định danh – DATA, US-158): ngày, số khách, h
 
 **Job** (worker, mẫu đúng-một-lần architecture 9.1): `web_request.stale` (06:05, sau đổi ngày nghiệp vụ), `web_request.purge` (03:10), dọn `public_form_nonce` + `rate_limit_counter` (hằng giờ). Mục "Cần chú ý" `website_request_new` **tính lúc đọc** (không lưu `attention_event`).
 
+### 4.15 Round 3 Sprint 1 – 2FA, xác nhận từ xa, cảnh báo miễn giảm theo lượt (0.3.8 – `rounds/round-03/outputs/ARC/s1-contracts.md`)
+
+**`app_user` thêm** (module identity, migration BE-C): `mfa_pending_secret_enc` bytea null (C3, DEK – bí mật chờ xác nhận), `mfa_pending_expires_at` timestamptz null (10 phút), `mfa_last_used_step` bigint null (chống phát lại TOTP – cập nhật nguyên tử `WHERE mfa_last_used_step IS NULL OR mfa_last_used_step < $step`), `mfa_enrolled_at` timestamptz null, `mfa_reset_at` timestamptz null. `mfa_recovery_codes_hash` đổi nghĩa: **SHA-256** của mã 16 ký tự (≥ 80 bit – SEC 06.12), xóa phần tử bằng một câu `UPDATE … SET mfa_recovery_codes_hash = array_remove(…) WHERE $hash = ANY(mfa_recovery_codes_hash)`.
+
+**`user_session` thêm**: `mfa_at` timestamptz null (lúc qua bước 2), `amr` text null (`pwd|totp|recovery_code`), `enrollment_only` bool not null default false (phiên hạn chế SEC 06.4).
+
+**`mfa_login_challenge`** (module identity, không RLS cơ sở – chưa có ngữ cảnh; chỉ hàm SECURITY DEFINER đọc/ghi): `token_hash` bytea PK (SHA-256), `user_id`, `client_origin` (`admin|staff_pwa`), `created_at`, `expires_at` (+5 phút), `failed_count` smallint (≤ 5), `used_at`. Xóa dòng hết hạn ở T16.
+
+**`manager_confirmation`** (module frontdesk, RLS theo cơ sở): `id`, `organization_id`, `property_id`, `reservation_id` FK, `kind` (`late_fee_as_night`), `status` (`pending|approved|rejected|expired|cancelled|consumed` – SM-19 đề xuất), `departed_at`, `departed_at_note`, `service_date`, `late_fee_vnd`, `foc_approved_before_vnd`, `foc_requested_vnd`, `foc_request` jsonb null (`reasonCode`, `note` – không C2), `guest_pays_vnd`, `reason`, `requested_by`, `requested_at`, `expires_at`, `decided_by`, `decided_by_role`, `decided_at`, `reject_reason`, `consumed_at`, `consumed_mode` (`approved|expired_self_record`), `consumed_folio_line_id`, `version`. UK một dòng `pending` mỗi đơn: `UNIQUE (reservation_id) WHERE status = 'pending'`. `expired` tính khi đọc (`status = 'pending' AND expires_at <= now()`) và được ghi cứng ở lần chạm kế tiếp hoặc job J27 mỗi phút (phát SSE + thông báo `manager_confirmation_expired`). Tiêu thụ trong giao dịch B18 dưới L1 (đơn) → L2 → L3 (folio) → khóa dòng yêu cầu `FOR UPDATE`.
+
+**`foc_stay_alert`** (module folio/approvals, RLS): `stay_root_reservation_id` PK (đơn gốc của chuỗi đơn con – lượt ở; dài hạn = đơn HĐ), `first_alerted_at`, `last_alerted_at`, `alert_count`, `attention_event_id`. Mỗi lần áp FOC/giảm giá đặc biệt/xóa nợ do FD/FDL/MGR: tính Σ số đang áp trên lượt và ngưỡng BR-433 (c) **dưới khóa folio** (thứ tự 16.19) → Σ > ngưỡng: thông báo `foc_stay_total_exceeded` (mỗi lần áp), mở "Cần chú ý" một lần (dòng này).
+
+**`config_parameter_def` thêm** (khóa thường, chỉ OWN): `remote_confirm_timeout_minutes` (5–60, 15), `late_fee_post_review_hours` (12–48, 24). Khóa `payment_receiving_account`: chỉ OWN đọc (server lọc), `effective_from` ≥ ngày kinh doanh + 1.
+
 ## 5. Enum trạng thái ↔ máy trạng thái của BA
 
 | Máy | Bảng.cột | Giá trị (đúng tên BA) | Chuyển hợp lệ kiểm ở |
@@ -1587,6 +1601,7 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 ## 15. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
+| 22/10/2026 | 3 – Sprint 1 (Sản xuất) | **0.3.8** (khớp OpenAPI 0.3.8-draft, `rounds/round-03/outputs/ARC/s1-contracts.md`): mục **4.15 mới** – `app_user` cột 2FA chờ/chống phát lại, `user_session.mfa_at/amr/enrollment_only`, `mfa_login_challenge`, `manager_confirmation` (US-164, SM-19 đề xuất), `foc_stay_alert` (ESC-026 A), khóa `remote_confirm_timeout_minutes`, `late_fee_post_review_hours` | ARC |
 | 18/10/2026 | 2 – Sprint 4 (tuần Ổn định, vòng sửa 8) | `openapi-0.3.7.md` 16.30: 4.5 `reservation.debt_due_date/debt_reason/debt_settled_at` (0074, ghi bù vào ERD) + chu kỳ công nợ `debt_opened_at/debt_recorded_vnd/debt_base_vnd` (0076); `pricing_snapshot.nights[]` ghi rõ khóa, thêm `agreedRateVnd` (G-5/AN-50, không DDL); 4.6 `approval_request.applied_cap_vnd` + `auto_cancel_reason` `debt_cleared` (0077) | ARC |
 | 18/10/2026 | 2 – Sprint 4 (tuần Ổn định) | **0.3.7 bổ sung 4 – mô hình minibar M-1** (`openapi-0.3.7.md` mục 16): `minibar_check` UK theo (`reservation_id`, `room_id`); bảng mới `minibar_fill(_line)` (mốc = mức lúc nhận phòng, chụp khi danh mục đổi); `folio_line.charge_code = item.code` cho dòng minibar; `payment.qr_purpose`, `qr_context` (xác nhận QR vượt, DOM (f)) | ARC |
 | 17/10/2026 | 2 – Sprint 4 (luồng LP, FB-INV-002) | **0.3.7 bổ sung 2** (`openapi-0.3.7.md` mục 12, ADR-014 mục 4): mục **4.14 mới** `public-site` – `website_booking_request` (SM-18 đề xuất, hạn lưu SEC ARC-03, T19 giả định), `privacy_notice_version`, `public_form_nonce`, `rate_limit_counter`, hàm `public_resolve_property`; 4.5 `reservation.direct_sub_source`, `quote.website_booking_request_id`; `idempotency_key.principal_type` + `public_site`; mục 5 SM-18; 9.2/9.3 khóa mới; 12 job `web_request.purge`. Cài theo lịch ORC (OpenAPI `x-round: R3`) | ARC |
