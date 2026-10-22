@@ -351,3 +351,6 @@ Môi trường dùng một lần đã tự xóa. Bản `.age` chép về Mac đ�
 | D6 | Sau lượt CI đầu: SEC đọc log |
 
 - ORC 22/10: đã kiểm trên VPS bằng `sudo find / -xdev` – không còn `demo.env`, `demo-accounts.md` hay `infra/demo/.work` (xác nhận việc SEC E.11 yêu cầu).
+
+- **22/10 – SEC E.13, đổi tên hiển thị tài khoản VietQR thử: CHƯA ĐỔI, chờ ORC.** `PUT …/parameters/payment_receiving_account` bằng `qa.owner` (re-auth mật khẩu đọc từ tệp, không in ra) bị từ chối **422 VALIDATION_FAILED** "value already effective – add a row with a later effectiveFrom". Đây là luật lịch sử tham số (`parameter.service.ts`: chỉ sửa được dòng có `effectiveFrom` > hôm nay), không phải lỗi quyền. Giá trị hiện tại không đổi: `970436` / `9704••••6789` / "OTTIMO TEST", hiệu lực 2026-10-22. Sớm nhất đổi được là dòng mới hiệu lực **2026-10-23**. Không tham số nào khác bị đụng, không đụng OTM-00239.
+- **22/10 – SEC E.13 (phương án A của ORC): đã thêm dòng mới.** `PUT payment_receiving_account` bằng `qa.owner` (re-auth) → 200: `970436` / `0123456789` (số thử, QA xác nhận, = `TEST_RECEIVING_ACCOUNT`) / "STAGING KHONG CHUYEN TIEN", **hiệu lực 2026-10-23**. Đọc lại: hôm nay (22/10) vẫn "OTTIMO TEST"; lịch sử 2 dòng (2026-10-23 "STAGING KHONG CHUYEN TIEN", 2026-10-22 "OTTIMO TEST"). Không đổi tham số khác, không đụng OTM-00239.
