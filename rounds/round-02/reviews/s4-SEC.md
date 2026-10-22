@@ -999,3 +999,59 @@ SEC tự kéo cả 3 tag **không cần đăng nhập** (đúng là công khai) 
 - D4 **Đạt**. Diff **Đạt**, ORC commit được.
 - Sự cố `.out`: Low, đã xử lý, không đổi mật khẩu.
 - G2.5 không đổi: 0 Critical/High. Không tạo ESC.
+
+### E.12 D6 – log Actions công khai của lượt deploy CI đầu: **ĐẠT** (SEC, 22/10)
+
+- **Run:** 39771928044, commit `62d3a7c`, job "deploy staging" (id 119808043100), `success`. SEC đọc bằng `gh run view --job … --log` (46 dòng).
+
+| Điểm E.8.2 | Kết quả |
+|---|---|
+| IP | Khối `env:` hiện `HOST: ***`, `SSH_KEY: ***`, `KNOWN_HOSTS: ***` (đã che). Quét mẫu IPv4 trên toàn log: **0** |
+| Đường dẫn nội bộ | Không có `/opt/…`, không có tên tệp log trên VPS. Chỉ có `~/.ssh/deploy_key` trong nội dung lệnh, mà lệnh vốn đã công khai trong `ci.yml` |
+| Biến môi trường / secret | Chỉ `TAG: sha-62d3a7c5fd5a` (công khai). Không `set -x`, không echo |
+| Output compose | Không có: **đúng một dòng** `deploy sha-62d3a7c5fd5a: ok` |
+
+- Quyền token của job: `Contents: read`, `Metadata: read`.
+- **Kết luận:** D6 **Đạt**. Không phải xóa run. `STAGING_DEPLOY` giữ bật. Các lượt deploy CI sau được duyệt bình thường (E.8.2).
+
+### E.13 R-6 phần SEC – smoke bảo mật trên staging (SEC, 22/10)
+
+- **Đích:** `desk.staging.ottimo.vn`, `staff.staging.ottimo.vn`, `g.staging.ottimo.vn`. Image `sha-62d3a7c5fd5a` (production, không `-test`).
+- **Cách làm:**
+  - chỉ gửi yêu cầu đọc hoặc yêu cầu bị từ chối, bằng `curl` từ máy đội;
+  - không dò mật khẩu, không gửi tải lớn lặp lại, không dùng dữ liệu thật;
+  - **không đăng nhập** bằng tài khoản nào: phần có phiên lấy theo kết quả QA (`qa/staging-run.md`) và đọc mã;
+  - chỉ 3 lần đăng nhập sai bằng tên không tồn tại, cộng 1 thân 1,2 MB.
+
+| # | Kiểm | Kết quả | Đánh giá |
+|---|---|---|---|
+| 1 | Header 3 host | Đủ và đúng Caddyfile.prod:<ul><li>HSTS 1 năm `includeSubDomains`; CSP không `unsafe-*`;</li><li>`frame-ancestors 'none'`, `X-Frame-Options DENY`, `nosniff`, COOP/CORP `same-origin`, Permissions-Policy;</li><li>`X-Robots-Tag noindex`; không có header `Server`;</li><li>`worker-src 'self'` chỉ ở staff (PWA), `'none'` ở desk/g;</li><li>`Referrer-Policy`: `no-referrer` ở g (SR-GST-03), `same-origin` ở desk/staff;</li><li>`Cache-Control`: `no-store` ở g, `no-cache` ở desk/staff</li></ul> | **Đạt** |
+| 2 | HTTP → HTTPS; TLS | `http://` → 308 `https://`. Ép TLS ≤ 1.1 → không bắt tay được. TLS 1.2+ → 200 | **Đạt** |
+| 3 | Đường ẩn / test / theo dõi | `/health`, `/__test__/clock`, `POST /__test__/rate-limits/reset`, `/.env`, `/.git/config`, `/var/blobs`, `*.js.map`, `../../etc/passwd` → **404** | **Đạt** |
+| 4 | Endpoint test-support không có trên image production | Từ ngoài: 404 ở Caddy. Image đang chạy là tag không `-test`: log D6 có `sha-62d3a7c5fd5a`, regex CI không cho `-test`. Image production không có `dist/test-support` (E.10.1). `config.ts` từ chối `INCLUDE_TEST_SUPPORT`/`TEST_SUPPORT_TOKEN` khi production. QA cũng không reset được giới hạn tần suất trên staging | **Đạt** |
+| 5 | Chưa đăng nhập | `GET /v1/me`, `/v1/properties/<uuid>/reservations` → 401 problem+json, có `requestId`, không stack hay chi tiết. Đường lạ → 404 cùng dạng | **Đạt** |
+| 6 | Lỗi đăng nhập | Sai tên/mật khẩu → 401 `UNAUTHENTICATED` chung, không phân biệt "không có người dùng" (SR-AUTH-04) | **Đạt** |
+| 7 | Origin / CSRF | `POST /v1/auth/login`:<ul><li>`Origin: https://evil.example` → 403 "Origin not allowed";</li><li>**không có** `Origin` → 403;</li><li>gọi API nhân viên từ host khách `g.` → 403 (tách origin nhân viên/khách)</li></ul> | **Đạt** |
+| 8 | CORS | Preflight từ origin lạ → 404, không có `Access-Control-Allow-*`. GET từ origin lạ không có header CORS. API không mở CORS (cùng origin qua Caddy) | **Đạt** |
+| 9 | Giới hạn kích thước | JSON 1,2 MB tới `login` → 413 tại Caddy. QA đo upload (S4-15, `staging-run.md` mục 5): 43 MB → 413; guest upload 12/25 MB → 422; đúng 42 MB / 1 MB / 10 MB | **Đạt** |
+| 10 | Giới hạn tần suất | SEC **không** dò lại, để khỏi khóa IP chung của đội. Bằng chứng QA trên staging: 429 đăng nhập 20/IP/15 phút (SR-RL-01), tra khách 30/người/giờ, mở phiên khách 10/IP/phút (SR-RL-03); image production không có đường reset | **Đạt** (theo QA) |
+| 11 | RBAC từ ngoài | Không có phiên → 401 mọi đường thử. RBAC theo vai trên staging thật: QA `rbac` 1.474 đạt / 0 đỏ (`staging-run.md`). BUG-R2-221 (9 đỏ lượt đầu) đã xanh ở lượt lại | **Đạt** (theo QA) |
+| 12 | Cookie | Không có phiên nên SEC không đọc `Set-Cookie` thật. Mã đặt tiền tố `__Host-` (`cookies.ts`); trình duyệt bắt buộc `Secure`, `Path=/`, không `Domain`. `config.ts` chỉ cho tắt tiền tố ở dev/test. QA chạy E2E với `E2E_COOKIE_SECURE_PREFIX=true` và đạt | **Đạt có ghi chú:** SEC đọc `Set-Cookie` (HttpOnly, SameSite) ở lượt PO nghiệm thu, khi có người đăng nhập trước mặt |
+
+#### Phát hiện / khuyến nghị
+- **VietQR – tài khoản nhận thử (Low, trước khi người ngoài đội dùng staging).**
+  - `payment_receiving_account` trên staging đang là số thử của bộ test (`staging-run.md` mục 4). Số này **có thể trùng tài khoản thật của người khác** ở ngân hàng đó. Ai quét QR staging bằng app ngân hàng thật và bấm chuyển thì tiền đi tới người lạ, không đòi lại được. QA đã tắt quay video màn có QR: đúng.
+  - **Khuyến nghị:** trước lượt PO/INV nghiệm thu trên staging, chọn một trong hai:
+    - (a) đổi sang tài khoản nhận **thật của OTTIMO**. Số tài khoản nhận vốn in trên bill cho khách nên không phải bí mật; lỡ chuyển thì tiền về OTTIMO;
+    - (b) giữ số thử, nhưng tên hiển thị đổi thành "STAGING KHONG CHUYEN TIEN", và quy tắc: **không ai quét QR staging bằng app ngân hàng thật**.
+
+    SEC chọn **(a)**.
+  - Kèm theo: giữ cảnh báo "tài khoản nhận vừa đổi trong 24 giờ" (đã thấy hiện), vì đó là kiểm soát chống tráo tài khoản.
+- Không có phát hiện Critical/High/Medium mới.
+
+#### Kết luận E.13
+- **Smoke bảo mật staging: ĐẠT** (12/12 mục; mục 10–12 dựa trên bằng chứng QA và đọc mã).
+- Phần SEC của R-6 xong. Còn lại:
+  - đọc `Set-Cookie` lúc PO nghiệm thu;
+  - khuyến nghị VietQR (a).
+- G2.5 không đổi: 0 Critical/High. Không tạo ESC.

@@ -1,6 +1,6 @@
 # Nghiệm thu của PO – Round 2, Sprint 4 (tuần Ổn định, trước cổng QC Sprint 4)
 
-- Người nghiệm thu: PO | Ngày: 18/10/2026, **chấm lại 21/10/2026 trên `21bb797` và bổ sung trên `e3f98d1` (R-1.4) – xem mục R-1 ngay dưới** (mục 0–7 giữ nguyên bản 18/10 để đối chiếu) | Bước: **QC – nghiệm thu** (G6.1, G6.2, M7 của `qc/s4-gate-readiness.md`)
+- Người nghiệm thu: PO | Ngày: 18/10/2026, **chấm lại 21/10/2026 trên `21bb797` và bổ sung trên `e3f98d1` (R-1.4); nghiệm thu trên staging 22/10 (R-6) – xem mục R-1, R-6 ngay dưới** (mục 0–7 giữ nguyên bản 18/10 để đối chiếu) | Bước: **QC – nghiệm thu** (G6.1, G6.2, M7 của `qc/s4-gate-readiness.md`)
 - **Nghiệm thu trên CI + stack tạm, chờ staging.** Chưa có VPS. Mọi "Đạt" dưới đây là **Đạt (stack tạm)**. Theo P-R2-7, story chỉ lên "Xong" khi PO kiểm lại giao diện trên staging.
 - Bản được nghiệm thu:
   - mã ở HEAD **`7ac11a4`** (gộp #14, BUG-R2-178);
@@ -129,6 +129,125 @@ Các nhóm giữ của bản 18/10 đã gỡ thế nào:
 Ba story còn giữ đều **không đóng được nếu chưa có staging hoặc chưa có bản sửa bảo mật ở R3**:
 - US-043, US-048: SEC BE-74/75/79 (Major) dời R3-Q17, hạn trước dữ liệu thật;
 - US-135 AC3: kiểm bằng trình đọc màn hình trên staging (R-6).
+
+### R-6. Nghiệm thu trên staging – 22/10/2026 (cổng QC Round 2, mục 5 dòng R-6, phần PO)
+
+- Người chấm: PO | 22/10/2026, sau lượt QA 18:15–19:25 | Staging: `desk.staging.ottimo.vn`, `staff.staging.ottimo.vn`, `g.staging.ottimo.vn`, image production `sha-4fd0651b7be3`, `CLOCK_MODE=system`, dữ liệu giả DS-E. Deploy tự động gần nhất: run 39771928044 trên `62d3a7c` (mã chạy giống `e3f98d1`/`21bb797`, chỉ khác tài liệu/test).
+- Nguồn bằng chứng: `rounds/round-02/qa/staging-run.md` và log gốc của QA ở scratchpad phiên (`qa-r6/api.log`, `ui.log`, `rbac*.log`, `re1…re5.log`, `a1/`, `a4/`). PO đối chiếu **từng AC** (bảng AC → TC của `product/docs/qa/traceability.md` mục 2) với dấu ✓ trong các log đó bằng script đọc log (scratchpad `po-r6/classify.py`, `story.py`; không vào repo).
+- **Tiêu chí giữ nguyên, PO không đổi:**
+  - "Đạt (staging)" khi **mọi AC phần R2** có bằng chứng trên staging: ca E2E chạy xanh trên staging (tầng API hoặc UI), hoặc lượt chạy tay có ảnh trên staging (A1 chặng 1–5, A4 trọn chuỗi);
+  - AC chỉ có ca cần đồng hồ giả, test-support hoặc SQL: ghi **"chạy trên stack CI vì cần đồng hồ giả"** (`staging-run.md` mục 4; bằng chứng push 39542016580 trên `e3f98d1`, T9 39485554354 trên `21bb797`). Có nhận thay bằng chứng staging hay không là **việc QC quyết**;
+  - giữ P-S4-19: story còn thẻ Major bảo mật trên đúng đường mã thì giữ, dù đủ bằng chứng.
+- **PO chưa tự kiểm tay trên staging được.** Lượt PO tự chạy (đăng nhập `qa.*`, đi màn) bị hệ thống quyền của phiên chặn (lý do: sửa tài nguyên dùng chung). PO không tìm cách vượt. Mọi kết luận dưới đây chỉ dựa trên ca E2E và lượt chạy tay của QA trên staging.
+- **SEC E.13 (ORC giao 22/10): CHƯA LÀM.** Việc cần làm: đổi tên hiển thị chủ tài khoản nhận VietQR trên staging thành "STAGING KHONG CHUYEN TIEN", giữ số tài khoản thử. Lệnh bị hệ thống quyền chặn cùng lý do trên, PO không đổi tham số nào. Cần INV cho phép phiên làm, hoặc OPS/INV tự đổi bằng `qa.owner`. Lưu ý khi đổi:
+  - tham số mới làm hiện lại cảnh báo "Tài khoản nhận vừa đổi trong 24 giờ" ở A1 phần 3 (25/10);
+  - không đụng đơn `OTM-00239`.
+
+#### R-6.1 Kết quả (71 story Must R2)
+
+| Trạng thái | 21/10 (R-1.4) | **22/10 (R-6)** |
+|---|--:|--:|
+| **Đạt (staging) = Xong** | 0 | **15** |
+| Đạt (stack CI), còn AC chưa có bằng chứng staging | 68 | **53** |
+| Đang nghiệm thu (giữ) | 3 | **3** |
+
+- Theo AC (254 AC phần R2 của 71 story): 36 AC có ca UI xanh trên staging; 95 AC có ca API xanh trên staging; 8 AC phủ bằng chạy tay A1 chặng 1–5 / A4. Còn 96 AC chỉ có ca stack CI vì cần đồng hồ giả, test-support hoặc SQL; 27 AC chỉ có test tích hợp BE / test FE-MOB (TT), không có ca E2E chạy được trên staging.
+- Không story nào **Trả lại**. Không AC nào chạy sai trên staging. 4 lỗi P3 mới của QA (BUG-R2-219…222) không giữ story theo DoD:
+  - 219 (US-084), 220 (US-082/US-080);
+  - 221, 222 là lỗi của bộ test.
+
+**15 story Đạt (staging):** US-002, 005, 018, 019, 039, 046, 071, 072, 080, 083, 084, 086, 106, 107, 119.
+- 9 story có bằng chứng giao diện trên chính staging: ca UI ✓, hoặc chạy tay A1/A4 có ảnh:
+  - US-002, 018, 106, 107: ca UI;
+  - US-080, 083, 084, 086: A1 chặng 1–3;
+  - US-019: A4 bước 2.
+- 6 story **chỉ có ca tầng API trên staging**: US-005, 039, 046, 071, 072, 119. Phần giao diện của 6 story này đã có E2E-UI trên stack CI, cùng image. Ghi rõ để QC xem khi chấm C1.
+
+**3 story giữ (Đang nghiệm thu):**
+- US-043, US-048: SEC BE-74/75/79 (Major, R3-Q17). Mọi AC đã xanh trên staging.
+- US-135: AC3 (trình đọc màn hình) **chưa kiểm**. Phiên PO không chạy được trình duyệt trên staging, nên không kiểm được bằng VoiceOver. axe TC-X-040 H01–H12 + giao diện tối xanh trên staging (9/9), nhưng axe không thay được trình đọc màn hình. AC1, AC2 chỉ có TT. Việc còn lại: UXR/QA kiểm VoiceOver trên staging (macOS Safari + iPhone) theo N3-5 của `s3-acceptance.md`.
+
+#### R-6.2 53 story còn thiếu bằng chứng staging – AC nào, vì sao
+
+Cột "Stack CI" = chỉ có ca cần đồng hồ giả/test-support/SQL (QC quyết). Cột "TT" = chỉ có test tích hợp BE hoặc test FE/MOB, chưa có ca E2E chạy được trên staging (PO kiểm tay được khi phiên có quyền). Cột "A1 tay" = lượt chạy tay A1 còn lại sẽ phủ thêm (phần 2: 23/10 sau 14:00; phần 3: 25/10).
+
+| Story | AC đã có bằng chứng staging | AC chỉ stack CI | AC chỉ TT | A1 tay |
+|---|---|---|---|---|
+| US-001 Đăng nhập | AC1, AC2, AC3 | – | AC4 | – |
+| US-003 Ẩn dữ liệu nhạy cảm | AC1, AC2 | – | AC3, AC4 | – |
+| US-004 Danh mục căn | AC3 | AC1, AC2 | – | – |
+| US-006 Nhật ký thao tác tiền | AC2 | AC1 | – | – |
+| US-007 Phê duyệt FOC/giảm giá | AC1, AC2 | AC3, AC4, AC5, AC6 | – | – |
+| US-142 Thiết bị được cấp cho dữ liệu C3 | AC2, AC3 | – | AC1 | – |
+| US-010 KPI đêm nay | AC1 | AC2 | AC3 | A1 phần 2 |
+| US-011 Khách đến/đi hôm nay | – | AC1, AC2, AC3 | – | A1 phần 2 |
+| US-012 Cần chú ý | – | AC1, AC3, AC4 | AC5, AC6, AC8, AC7 | – |
+| US-016 Room rack | AC1, AC2, AC3 | – | AC4 | – |
+| US-017 Tạo đơn ngắn ngày đã đảm bảo | AC1, AC2, AC3, AC4, AC5, AC5a, AC6, AC7, AC9 | – | AC8 | – |
+| US-020 Chi tiết đơn | AC1, AC4 | AC2 | AC3 | – |
+| US-021 Hủy đơn / hủy giữ chỗ | AC1, AC2, AC3, AC4, AC5 | AC6 | – | – |
+| US-022 Người đi cùng | AC1, AC2, AC3 | AC4 | – | – |
+| US-023 Mã duy nhất | AC2 | – | AC1 | – |
+| US-024 Đổi căn / đổi ngày / đổi phòng | AC1, AC2, AC5, AC6, AC7 | AC4 | AC3 | – |
+| US-136 Đánh dấu no-show | AC2 | AC1, AC3, AC4, AC5 | – | – |
+| US-025 Nhận phòng | AC1, AC3 | AC2, AC4, AC5, AC6, AC7 | – | A1 phần 2 |
+| US-026 Phụ thu nhận sớm | – | AC1, AC2, AC3, AC4 | – | – |
+| US-027 Phụ thu cho đơn dài hạn | – | AC1, AC2 | – | – |
+| US-028 Gia hạn | AC2 | AC1, AC3, AC4, AC5 | – | – |
+| US-029 Trả muộn | – | AC1, AC2, AC3, AC4 | – | – |
+| US-030 Xác nhận giờ trả | – | AC1, AC2 | – | A1 phần 3 |
+| US-031 Thẻ khách trả phòng hôm nay chưa trả | – | AC1, AC2 | – | A1 phần 3 |
+| US-032 Dòng phát sinh / phí phạt | – | AC1, AC2, AC3, AC4 | – | A1 phần 3 |
+| US-035 Trả phòng bước 1: minibar | – | AC1, AC2, AC3 | – | A1 phần 3 |
+| US-036 Trả phòng bước 2: phụ phí | – | AC1, AC2, AC3 | – | A1 phần 3 |
+| US-037 Trả phòng bước 3: bill | AC2 | AC1, AC3 | – | A1 phần 3 |
+| US-038 Hoàn tất trả phòng | – | AC1, AC2, AC3, AC4 | – | A1 phần 3 |
+| US-042 Danh sách cần khai báo | – | AC1, AC2, AC3 | – | – |
+| US-044 Đối chiếu tự động | AC1, AC2, AC3 | AC4 | – | – |
+| US-045 Ghi nhận đồng ý lưu ảnh giấy tờ | AC1, AC3 | AC2 | – | – |
+| US-047 Mọi đơn có bản ghi khai báo | AC1, AC3 | AC2 | – | – |
+| US-049 Tự xóa ảnh giấy tờ | AC2, AC3 | AC1 | – | – |
+| US-050 Ngày đi thực tế & hạn tạm trú | – | AC1, AC2 | – | – |
+| US-052 Xem trạng thái buồng | AC1 | AC2 | AC3 | – |
+| US-053 Đổi trạng thái buồng hợp lệ | AC2, AC3, AC4 | AC1 | – | A1 phần 3 |
+| US-054 Việc hôm nay tự sinh | AC1 | AC2, AC3 | AC4 | A1 phần 3 |
+| US-055 Checklist kiểm phòng | AC2 | AC1 | – | A1 phần 3 |
+| US-057 Báo sự cố từ điện thoại | AC1 | AC2 | – | – |
+| US-061 Tạo phiếu sửa và khóa phòng | AC1, AC2, AC4 | AC3 | – | – |
+| US-062 Cập nhật phiếu sửa | AC1 | AC3 | AC2 | – |
+| US-066 Danh mục mặt hàng minibar | AC3 | AC1, AC2 | – | – |
+| US-073 Bộ chọn khách dùng chung | AC1, AC2 | – | AC3 | – |
+| US-082 Kiểm phòng trống khi báo giá | AC2 | – | AC1 | – |
+| US-085 Hết hạn giữ chỗ | AC3 | AC1, AC2, AC4 | – | – |
+| US-087 CTV chỉ thấy phần của mình | AC1, AC3 | – | AC2 | – |
+| US-139 Xung đột đơn OTA trùng | AC1, AC2 | AC3 | – | – |
+| US-108 Thông tin lưu trú | – | AC1 | AC2 | – |
+| US-109 Khách gửi yêu cầu | AC2 | AC1 | – | – |
+| US-110 Định tuyến yêu cầu | – | AC1 | AC2, AC3 | – |
+| US-112 App khách tiếng Anh | AC2 | – | AC1, AC3 | – |
+| US-120 VietQR | AC2 | AC1 | – | A1 phần 3 |
+
+Tóm tắt nhóm:
+- 34 story chỉ thiếu phần "stack CI":
+  - nếu QC nhận "chạy trên stack CI vì cần đồng hồ giả" cho các AC này, 34 story lên Đạt (staging), tổng **49/71**;
+  - 14 story của chuỗi nhận phòng → trả phòng → dọn được A1 phần 2–3 phủ thêm bằng tay trên staging (23/10 và 25/10).
+- 10 story chỉ thiếu phần "TT": US-001, 003, 142, 016, 017, 023, 073, 082, 087, 112. Phần lớn là AC quyền hoặc giao diện tĩnh, PO kiểm tay được trên staging trong khoảng 1 giờ, ví dụ:
+  - rack của HK/MT không có tên khách (US-016 AC4);
+  - danh sách kênh (US-017 AC8);
+  - CTV không mở đơn người khác (US-020 AC3, US-087 AC2);
+  - chip "Trùng lịch" (US-082 AC1);
+  - guest-web tiếng Anh (US-112 AC1).
+- 9 story thiếu cả hai: US-010, 012, 020, 024, 052, 054, 062, 108, 110.
+
+#### R-6.3 Việc để đóng R-6 (phần PO)
+
+| # | Việc | Ai | Khi nào |
+|---|---|---|---|
+| 1 | Cho phép phiên PO đăng nhập `qa.*` trên staging để kiểm tay. Sau đó PO kiểm tay 19 story có AC "TT" (ảnh lưu ngoài repo) | INV cho phép; PO làm | Trước khi QC chấm lại |
+| 2 | QC quyết: AC "chỉ stack CI" (96 AC, 43 story) có được tính cho "Đạt (staging)" không | QC | Lần chấm lại rút gọn |
+| 3 | A1 phần 2 (23/10 sau 14:00), phần 3 (25/10) → PO cập nhật cột "A1 tay" | QA, PO | 23/10, 25/10 |
+| 4 | US-135 AC3: VoiceOver trên staging | UXR/QA (UXD xem) | Trước bản dùng thử |
+| 5 | SEC E.13: đổi tên hiển thị tài khoản nhận VietQR trên staging | OPS/INV (hoặc PO khi được phép) | Trước khi ai ngoài đội quét QR staging |
 
 ---
 

@@ -13,6 +13,8 @@
 | P3 | 55 | 15 | 0 | 0 | 40 |
 | **Tổng** | **213** | **17** | **0** | **1** | **195** |
 
+**R-6 staging (QA, 22/10, mục 11.44):** thêm **BUG-R2-219…222**, đều **P3 Open** (219, 220 sản phẩm – FE; 221, 222 bộ test – QA). Không P0/P1/P2 mới. Bảng trên chưa cộng 214–222.
+
 **K5 cổng QC Sprint 4 (QA, 20/10, mục 11.37):** đếm lại từng dòng trên commit chấm lại `c293ceb` (CI push 39270302984 + T9 39273997368 xanh). **0 P0/P1 Open hoặc Fixed.** P2 Open: 208 (R3-Q19), 209 (R3-Q20); Deferred: 074 (S4-45). P3 Open 15 (gồm 210 – R3-Q21, 123 – R3-Q29).
 
 **K2' (QA, 20/10, mục 11.38):** T9 theo lịch 39312874062 đỏ lúc 02:40 giờ VN → **BUG-R2-211 (P1, MOB) Open** – PWA buồng phòng gửi ngày lịch thay ngày kinh doanh trước 06:00. Còn 1 P1 Open.
@@ -261,6 +263,10 @@ Sprint 3 kiểm thử (17/10): đóng BUG-R2-025…029 (mục 4); thêm BUG-R2-0
 | BUG-R2-216 | P3 | R-3 chạy tay A1: hộp "Giữ chỗ" sau khi tạo giữ chỗ (H12, `QuoteDialog.tsx:662–674`) in **hai lần** số cọc 1.600.000 đ và "Nội dung chuyển khoản: OTM…": khối tóm tắt rồi `DepositQr` lặp lại cùng hai dòng. Khối tóm tắt chỉ cần cho nhánh CTV (không có QR). Ảnh `05-giu-cho-vietqr-coc.png`. Nếu UXD cố ý giữ thì đóng có lý do | FE (+ UXD) | Open |
 | BUG-R2-217 | P3 | R-1.3 (21/10, `72895de`): H03 "Cần chú ý" dòng giữ chỗ sắp hết hạn in **"Giữ chỗ  hết hạn lúc 12:00"** – thiếu mã đơn. Gốc: `frontdesk/internal/attention-sources.ts` `holdsExpiring()` không gửi `refCode` (Desk `app/attention.ts` lấy `{code}` từ `refCode`); nhiều giữ chỗ cùng lúc cũng chỉ một dòng số ít. Bấm "Mở" vẫn tới đúng đơn khi chỉ có 1. Ca `TC-L8-008 (E) … BUG-R2-217` (`knownBug`) | BE-A (+ FE-B nếu đổi chuỗi số nhiều) | Open |
 | BUG-R2-218 | P3 | R-1.3: guest-web ghi "Ngôn ngữ theo trình duyệt của bạn" (2 lần: đầu trang và dưới lời chào) cả khi ngôn ngữ lấy từ **hồ sơ khách** – khách VN mở bằng trình duyệt en-US thấy trang tiếng Việt kèm câu này. Server luôn gán `preferredLocale` theo quốc tịch (`guests.service.ts:233`), phiên chỉ có `localeChosenByGuest`, không cho biết nguồn → guest-web (`GuestShell.tsx:66`, `HomePage.tsx:52`) không phân biệt. Ca `TC-L7-053` (`knownBug`) | MOB (+ BE-D thêm nguồn ngôn ngữ, UXD chữ) | Open |
+| BUG-R2-219 | P3 | R-6 staging (22/10, `sha-4fd0651b7be3`): H12 hộp "Giữ chỗ" khi khách **đến hôm nay** – thông báo "không giữ chỗ được" và nút khóa đúng, nhưng vẫn hiện bộ chọn "Giữ trong 12/24/48 h" và "Hết hạn 12:00 22/10 – chưa cọc thì tự hủy" (mốc **đã qua**, lúc đó 18:31). Ảnh `a1-try1/screens/004-giu-cho-hop.png` (`qa/staging-run.md` mục 9) | FE (+ UXD chữ) | Open |
+| BUG-R2-220 | P3 | R-6 staging: H12 tìm thứ Sáu 1 đêm liệt kê căn "Trống" và cho bấm "Báo giá"; chỉ sau khi mở hộp, chọn khách mới báo "Ngày này cần ở tối thiểu 2 đêm" (quy tắc đúng, ESC-004 M-A) – sale mất một vòng thao tác. Nếu UXD cố ý thì đóng có lý do. Ảnh `a1-try2/screens/002-bao-gia.png` | FE (+ UXD) | Open |
+| BUG-R2-221 | P3 | R-6 staging – **bộ test**: `rbac/rbac-sprint3.spec.ts` gọi SSE bằng `node:http` cho mọi URL → 9 ca `streamEvents` đỏ `Protocol "https:" not supported` khi đích là https. Sửa trên bản chép (chọn `node:https`) → 9/9 đạt | QA | Open |
+| BUG-R2-222 | P3 | R-6 staging – **bộ test**: (1) `global-setup`, `stackToday`/`stackNow`/`serverLocalTime` đọc giờ từ `GET /health` – staging trả 404 từ Internet theo thiết kế → mọi ca đọc ngày hỏng; (2) không có test-support thì 429 (đăng nhập/tra khách/mở phiên khách) làm ca đỏ ngay thay vì chờ `Retry-After`. Đề xuất `E2E_LOCAL_CLOCK=1` (chỉ cho `CLOCK_MODE=system`) + chờ `Retry-After` có trần (`qa/staging-run.md` mục 9) | QA | Open |
 
 ## 2. Chi tiết
 
@@ -2009,3 +2015,12 @@ Căn cứ: `reviews/s4-money-recheck8.md` (f6803d0 – gộp #19), DOM khối l�
 
 ### 11.43 R-1.3 – ca UI cho AC "Chờ ca UI" (QA, 21/10 ~11:00–12:30)
 - Chi tiết: `rounds/round-02/qa/r1-3-ui-run.md`. Lỗi mới: BUG-R2-217, 218 (P3), cùng mã trong `e2e/support/known-bugs.ts` `OPEN` (PR sửa xóa dòng).
+
+### 11.44 R-6 – QA chạy trên staging (QA, 22/10 ~18:15–19:25)
+- Chi tiết: `rounds/round-02/qa/staging-run.md`. Staging `sha-4fd0651b7be3` (image production, không test-support).
+- Tự động trên staging, sau khi chạy lại hết cửa sổ giới hạn tần suất: API 209/216 đạt (7 bỏ qua như CI), RBAC 1.474/1.474 + logout 11/11, desk-chromium 62/64 (2 `fixme`) gồm axe H01–H12. Ca đỏ lượt đầu đều do 429 (không reset được trên production image) hoặc BUG-R2-221.
+- Ca cần đồng hồ giả/test-support (clock 160, desk-clock 53 gồm TC-X-070/072, limits 3, serial 5, db-outage 1): chạy trên stack CI (`e3f98d1` push 39542016580; `21bb797`).
+- Chạy tay: **A4 trọn chuỗi Đạt**; **A1 phần 1 (chặng 1–5) Đạt** (`OTM-00239`, đến 23/10, đi 25/10); chặng 6–7 chạy 23/10 sau 14:00, chặng 8–12 chạy 25/10.
+- S4-15 upload qua Caddy thật: Đạt.
+- Lỗi mới: BUG-R2-219…222 (P3). Thấy lại trên staging: 216, 218.
+
