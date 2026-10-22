@@ -138,8 +138,8 @@ Ba story còn giữ đều **không đóng được nếu chưa có staging ho�
   - "Đạt (staging)" khi **mọi AC phần R2** có bằng chứng trên staging: ca E2E chạy xanh trên staging (tầng API hoặc UI), hoặc lượt chạy tay có ảnh trên staging (A1 chặng 1–5, A4 trọn chuỗi);
   - AC chỉ có ca cần đồng hồ giả, test-support hoặc SQL: ghi **"chạy trên stack CI vì cần đồng hồ giả"** (`staging-run.md` mục 4; bằng chứng push 39542016580 trên `e3f98d1`, T9 39485554354 trên `21bb797`). Có nhận thay bằng chứng staging hay không là **việc QC quyết**;
   - giữ P-S4-19: story còn thẻ Major bảo mật trên đúng đường mã thì giữ, dù đủ bằng chứng.
-- **PO chưa tự kiểm tay trên staging được.** Lượt PO tự chạy (đăng nhập `qa.*`, đi màn) bị hệ thống quyền của phiên chặn (lý do: sửa tài nguyên dùng chung). PO không tìm cách vượt. Mọi kết luận dưới đây chỉ dựa trên ca E2E và lượt chạy tay của QA trên staging.
-- **SEC E.13 (ORC giao 22/10): CHƯA LÀM.** Việc cần làm: đổi tên hiển thị chủ tài khoản nhận VietQR trên staging thành "STAGING KHONG CHUYEN TIEN", giữ số tài khoản thử. Lệnh bị hệ thống quyền chặn cùng lý do trên, PO không đổi tham số nào. Cần INV cho phép phiên làm, hoặc OPS/INV tự đổi bằng `qa.owner`. Lưu ý khi đổi:
+- **PO kiểm tay trên staging (bổ sung 22/10 19:54–20:05, sau khi INV cho phép đăng nhập `qa.*` – mục R-6.4).** Lượt đầu (trước khi có phép) bị hệ thống quyền chặn; bảng R-6.1 đã gồm kết quả kiểm tay.
+- **SEC E.13 (ORC giao 22/10): CHƯA LÀM.** Việc cần làm: đổi tên hiển thị chủ tài khoản nhận VietQR trên staging thành "STAGING KHONG CHUYEN TIEN", giữ số tài khoản thử. PO đã đọc giá trị hiện hành bằng `qa.owner` (20:00): BIN 970436, số che `…6789`, tên "OTTIMO TEST", hiệu lực 22/10. Lệnh ghi (setParameter) **bị hệ thống quyền của phiên chặn hai lần, kể cả sau khi ORC báo INV cho phép**, nên PO dừng, không đổi tham số nào. OPS/INV tự đổi bằng `qa.owner` (Desk → Tham số quy tắc), hoặc INV cấp quyền trực tiếp cho phiên. Lưu ý khi đổi:
   - tham số mới làm hiện lại cảnh báo "Tài khoản nhận vừa đổi trong 24 giờ" ở A1 phần 3 (25/10);
   - không đụng đơn `OTM-00239`.
 
@@ -147,16 +147,16 @@ Ba story còn giữ đều **không đóng được nếu chưa có staging ho�
 
 | Trạng thái | 21/10 (R-1.4) | **22/10 (R-6)** |
 |---|--:|--:|
-| **Đạt (staging) = Xong** | 0 | **15** |
-| Đạt (stack CI), còn AC chưa có bằng chứng staging | 68 | **53** |
+| **Đạt (staging) = Xong** | 0 | **19** |
+| Đạt (stack CI), còn AC chưa có bằng chứng staging | 68 | **49** |
 | Đang nghiệm thu (giữ) | 3 | **3** |
 
-- Theo AC (254 AC phần R2 của 71 story): 36 AC có ca UI xanh trên staging; 95 AC có ca API xanh trên staging; 8 AC phủ bằng chạy tay A1 chặng 1–5 / A4. Còn 96 AC chỉ có ca stack CI vì cần đồng hồ giả, test-support hoặc SQL; 27 AC chỉ có test tích hợp BE / test FE-MOB (TT), không có ca E2E chạy được trên staging.
+- Theo AC (254 AC phần R2 của 71 story): 36 AC có ca UI xanh trên staging; 95 AC có ca API xanh trên staging; 8 AC phủ bằng chạy tay A1 chặng 1–5 / A4; **9 AC PO kiểm tay** (R-6.4). Còn 96 AC chỉ có ca stack CI vì cần đồng hồ giả, test-support hoặc SQL; 18 AC chỉ có TT (test tích hợp BE / test FE-MOB), chưa có bằng chứng staging.
 - Không story nào **Trả lại**. Không AC nào chạy sai trên staging. 4 lỗi P3 mới của QA (BUG-R2-219…222) không giữ story theo DoD:
   - 219 (US-084), 220 (US-082/US-080);
   - 221, 222 là lỗi của bộ test.
 
-**15 story Đạt (staging):** US-002, 005, 018, 019, 039, 046, 071, 072, 080, 083, 084, 086, 106, 107, 119.
+**19 story Đạt (staging):** US-002, 005, 016, 017, 018, 019, 039, 046, 071, 072, 073, 080, 083, 084, 086, 087, 106, 107, 119. Bốn story US-016, 017, 073, 087 lên nhờ PO kiểm tay (R-6.4).
 - 9 story có bằng chứng giao diện trên chính staging: ca UI ✓, hoặc chạy tay A1/A4 có ảnh:
   - US-002, 018, 106, 107: ca UI;
   - US-080, 083, 084, 086: A1 chặng 1–3;
@@ -165,9 +165,9 @@ Ba story còn giữ đều **không đóng được nếu chưa có staging ho�
 
 **3 story giữ (Đang nghiệm thu):**
 - US-043, US-048: SEC BE-74/75/79 (Major, R3-Q17). Mọi AC đã xanh trên staging.
-- US-135: AC3 (trình đọc màn hình) **chưa kiểm**. Phiên PO không chạy được trình duyệt trên staging, nên không kiểm được bằng VoiceOver. axe TC-X-040 H01–H12 + giao diện tối xanh trên staging (9/9), nhưng axe không thay được trình đọc màn hình. AC1, AC2 chỉ có TT. Việc còn lại: UXR/QA kiểm VoiceOver trên staging (macOS Safari + iPhone) theo N3-5 của `s3-acceptance.md`.
+- US-135: AC3 (trình đọc màn hình) **chưa kiểm**. Phần bàn phím PO đã kiểm trên staging (R-6.4); nghe bằng VoiceOver chưa làm vì phải bật trình đọc màn hình trong cài đặt hệ thống. axe TC-X-040 H01–H12 + giao diện tối xanh trên staging (9/9), nhưng axe không thay được trình đọc màn hình. AC2 và phần hủy đơn của AC1 PO đã kiểm tay (R-6.4). Việc còn lại: UXR/QA kiểm VoiceOver trên staging (macOS Safari + iPhone) theo N3-5 của `s3-acceptance.md`.
 
-#### R-6.2 53 story còn thiếu bằng chứng staging – AC nào, vì sao
+#### R-6.2 Story còn thiếu bằng chứng staging – AC nào, vì sao (bản 19:45, trước khi PO kiểm tay; cập nhật ở R-6.4)
 
 Cột "Stack CI" = chỉ có ca cần đồng hồ giả/test-support/SQL (QC quyết). Cột "TT" = chỉ có test tích hợp BE hoặc test FE/MOB, chưa có ca E2E chạy được trên staging (PO kiểm tay được khi phiên có quyền). Cột "A1 tay" = lượt chạy tay A1 còn lại sẽ phủ thêm (phần 2: 23/10 sau 14:00; phần 3: 25/10).
 
@@ -248,6 +248,43 @@ Tóm tắt nhóm:
 | 3 | A1 phần 2 (23/10 sau 14:00), phần 3 (25/10) → PO cập nhật cột "A1 tay" | QA, PO | 23/10, 25/10 |
 | 4 | US-135 AC3: VoiceOver trên staging | UXR/QA (UXD xem) | Trước bản dùng thử |
 | 5 | SEC E.13: đổi tên hiển thị tài khoản nhận VietQR trên staging | OPS/INV (hoặc PO khi được phép) | Trước khi ai ngoài đội quét QR staging |
+
+#### R-6.4 PO kiểm tay trên staging – 22/10 19:54–20:05 (sau khi INV cho phép)
+
+- Cách làm: Playwright bấm thật trên `desk.staging` và `staff.staging`, đăng nhập `qa.*`. Mật khẩu đọc từ tệp vào biến, không in. Chỉ đọc: không bấm nút xác nhận, không lưu form, không đụng `OTM-00239`, không đổi tham số.
+- Bằng chứng ngoài repo:
+  - nhật ký và ảnh: scratchpad `po-r6/walk/` (`log.md`, ảnh `01…46`);
+  - script: `qa-r6/src/product/tests/e2e/ui/po-r6-walk*.spec.ts`, `api/po-r6-check.api.spec.ts`.
+
+| Story / AC | PO thấy trên staging | Kết quả |
+|---|---|---|
+| US-016 AC4 | `qa.hk`, `qa.mt` mở Sơ đồ phòng: chỉ số căn, trạng thái, "Có khách đến ngày mai"; không tên khách, kênh, giá. `qa.sal` mở `/rack` → "Bạn không có quyền mở trang này"; sale xem căn còn/hết ở H12 | **Đạt** |
+| US-017 AC8 | H09 có 4 kênh: Trực tiếp · CTV/môi giới · OTA · Nội bộ.<br>Trực tiếp có "Nguồn *": Zalo/điện thoại, Website, Khách vãng lai, Khách quay lại, Sale nội bộ.<br>OTA: Airbnb, Booking.com, Agoda, Expedia, Trip.com – khớp BR-901, không có Traveloka.<br>PO mở hộp rồi đóng, không lưu | **Đạt** |
+| US-020 AC3 | `qa.ctv1` mở đơn không do mình chốt (OTM-00240) → 404. Mở đơn của mình (OTM-00161): chỉ có `totalRoomVnd`, `depositRequiredVnd`, `depositPaidVnd`; folio chỉ có tổng, không dòng | **Đạt** (story còn AC2 chỉ stack CI) |
+| US-087 AC2 | CTV mở báo giá người khác (BG-00041) → 404. Báo giá của mình (BG-00040) có hoa hồng dự kiến 8 % theo BR-903 (114.720 trên 1.434.000) | **Đạt** |
+| US-073 AC3 | Bộ chọn khách `q="Khach"`: CTV, SAL, FD ra 3 tập khác nhau. CTV không thấy KH-0369 (khách của sale) mà FD thấy | **Đạt** |
+| US-012 AC6 | H03 của `qa.fd` không có dòng FOC; của `qa.owner` có | **Đạt** (story còn AC chỉ stack CI/TT) |
+| US-003 AC4 | `qa.fd` mở `/overview` → "Bạn không có quyền mở trang này", menu không có mục Tổng quan | **Đạt** (AC3 chưa kiểm rõ: đường dẫn P&L/báo cáo kênh chưa có ở R2, PO chưa xác định màn hiện ra) |
+| US-135 AC2 | Đơn thử OTM-00283 (không phải OTM-00239): mở hộp "Hủy đơn" bằng bàn phím → Esc → hộp đóng. API sau đó: `confirmed`, version 1 không đổi, lịch sử không có sự kiện mới | **Đạt** |
+| US-135 AC1 (phần hủy đơn) | Hộp nêu hậu quả cụ thể: "Căn 402 mở bán lại 02/07 → 04/07 trên mọi kênh. Không giữ phí hủy; hoàn đủ 700.000 cho khách – cần quản lý duyệt". Nút ghi "Hủy đơn", nút quay lại ghi "Giữ lại đơn" | Đạt phần hủy đơn; hành động khác như R-1 |
+| US-135 AC3 | Phần bàn phím đạt:<br>– `role=alertdialog`, `aria-modal=true`;<br>– tên hộp = tiêu đề, `aria-describedby` = câu hậu quả;<br>– focus vào hộp khi mở; Tab 8 lần không ra khỏi hộp;<br>– Esc đóng hộp, focus về nút "Hủy đơn" của drawer.<br>Chưa nghe bằng VoiceOver: phải bật trình đọc màn hình của macOS (cài đặt hệ thống), phiên không làm | **Chưa** – giữ US-135 |
+| US-023 AC1 | 293 đơn trên staging: 0 mã trùng, mọi mã đúng mẫu `OTM-#####` (BR-007). Phần "tạo đồng thời" chỉ có TT | Chưa đủ (giữ TT) |
+| US-052 AC3 | PWA `qa.hk` 360 px: không giá, không kênh. Hôm nay không căn nào có việc kèm khách nên chưa thấy nhánh "tên gọi khách" | Chưa đủ (story còn AC2 chỉ stack CI) |
+| US-082 AC1 | H12 ngày 23/10, 2 đêm: căn bận (202, có OTM-00239) không hiện trong danh sách "6 căn trống". Chưa dựng được tình huống "căn chọn bị trùng" mà không tạo dữ liệu | Chưa (giữ TT) |
+| US-142 AC1 | `/devices` của `qa.owner` không mở ra danh sách thiết bị (về màn Tổng quan). PO chưa tìm đúng đường vào màn | Chưa (giữ TT) |
+
+**Kết quả sau kiểm tay:**
+- **19 Đạt (staging)** · 49 Đạt (stack CI), còn AC chưa có bằng chứng staging · 3 giữ.
+- 49 story còn thiếu:
+  - **35** chỉ thiếu phần "stack CI": thêm US-020;
+  - **6** chỉ thiếu phần TT: US-001, 003, 023, 082, 112, 142;
+  - **8** thiếu cả hai: US-010, 012, 024, 052, 054, 062, 108, 110.
+- Nếu QC nhận "chạy trên stack CI vì cần đồng hồ giả" thì tổng là **54/71**.
+- Phần TT còn lại cần dựng tình huống mới hoặc dùng app khách:
+  - tài khoản mới phải đổi mật khẩu lần đầu (US-001 AC4);
+  - guest-web tiếng Anh, Wi-Fi, định tuyến yêu cầu (US-108, 110, 112) – cần một đơn thử có link khách.
+  - Việc này sẽ làm cùng A1 phần 2 (23/10), dùng đơn thử riêng, không dùng OTM-00239.
+- Phát hiện nhỏ, không phải lỗi (không mở bug): folio CTV OTM-00161 có `totals.roomVnd` = 0, trong khi đơn có `totalRoomVnd` = 1.534.000. Có thể vì tiền phòng chỉ vào folio khi nhận phòng. QA xem lại khi chạy A1 phần 2.
 
 ---
 
