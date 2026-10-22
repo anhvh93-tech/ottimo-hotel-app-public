@@ -126,3 +126,50 @@ Chạy trong container `ubuntu:24.04` (như runner CI; máy OPS là macOS, khôn
 - `known_hosts` có chứa IP. Nó nằm trong secret và bị xóa ở `trap`.
 - D6 là kiểm **sau** lượt đầu, nên không thể có trước khi bật. Checklist ghi: bật khi đủ D1–D5, kiểm D6 ngay sau lượt đầu, không đạt thì tắt `STAGING_DEPLOY`. Cần SEC xác nhận cách hiểu này.
 - Log VPS giữ 30 lượt CI. Chưa nối vào xoay vòng `deploy-history.log`, vì tệp đó hiện cũng chưa xoay: chỉ thêm dòng, mỗi lượt một dòng.
+
+## 8. Lượt 3 (22/10) – dựng nền VPS staging (R-5, ngày 1 bước 1–2)
+
+VPS: Nhân Hòa, Ubuntu 24.04.2, 3 vCPU, ~4,8 GB RAM, 55 GB NVMe. IP **không ghi ở đây** (repo công khai): ORC giữ, INV có trong email nhà cung cấp. Nhà cung cấp giữ 2 bản backup toàn máy (decision-log 22/10) – chấp nhận cho staging dữ liệu giả.
+
+### 8.1 Đã làm
+
+1. Đăng nhập root bằng khóa `ottimo_ops` (nhà cung cấp gắn sẵn). Tạo `ottimo-admin` theo cách B (checklist Bước 3): nhóm `sudo`, `NOPASSWD` (`/etc/sudoers.d/90-ottimo-admin`, kiểm `visudo -c`), khóa `ottimo_ops`. **Kiểm đăng nhập `ottimo-admin` bằng khóa + `sudo -n` trước** khi chạy bất kỳ thứ gì tắt root/mật khẩu.
+2. Chép bundle (`infra` + `ds-e.json`) vào `~ottimo-admin/ottimo-bundle`, chạy `sudo bootstrap-vps.sh --deploy-key ~/ottimo_ops.pub --admin-user ottimo-admin`. Kết quả `EXIT=0`. Log trên VPS: `/var/log/ottimo-bootstrap.log`. Chạy lại thêm 2 lần (sau khi sửa script) – không lỗi, không thêm dòng trùng.
+3. Khởi động lại 2 lần (nhân Linux mới từ bản cập nhật, và để kiểm tường lửa sống qua reboot).
+4. **Chưa** cài khóa CI, chưa `.env`, chưa `init-secrets.sh`, chưa khóa `age`, chưa đăng nhập GHCR, chưa deploy, chưa bật timer. Không đụng GitHub settings/secrets/biến.
+
+### 8.2 Lỗi tìm thấy trong `bootstrap-vps.sh` trên ảnh máy của nhà cung cấp – đã sửa (chờ SEC review, chưa commit)
+
+| Mã | Hiện tượng trên VPS | Hậu quả nếu không sửa | Sửa |
+|---|---|---|---|
+| R5-09 | Ảnh máy có `/etc/ssh/sshd_config.d/50-cloud-init.conf` = `PasswordAuthentication yes`. sshd lấy giá trị **đọc đầu tiên**, tệp đọc theo thứ tự tên, nên `60-ottimo.conf` cũ **bị bỏ qua** | Đăng nhập mật khẩu **vẫn bật** dù script báo xong | Tệp đổi tên `00-ottimo.conf` (xóa `60-ottimo.conf` cũ). Sau `sshd -t` thêm kiểm `sshd -T`: `passwordauthentication no` và `permitrootlogin` đúng, sai thì dừng trước khi reload |
+| R5-10 | Ảnh máy chỉ có khóa host RSA + DSA, **không có ed25519** | `ssh-keyscan -t ed25519` (README mục 8, `STAGING_SSH_KNOWN_HOSTS`) ra rỗng | `ssh-keygen -A` tạo khóa host mặc định còn thiếu |
+| R5-11 | `ufw.service` **bị tắt** trong ảnh máy (`ufw.conf` có `ENABLED=yes` nhưng unit không chạy lúc khởi động). Sau reboot đầu: `ufw status` = inactive, `INPUT ACCEPT` | Tường lửa mất sau mỗi lần khởi động (kể cả lần tự vá 02:30) | `systemctl enable --now ufw` + kiểm `is-enabled`, sai thì dừng. Đã reboot lại: `ufw active`, `INPUT DROP` |
+
+Chú thích: lúc `apt upgrade` nâng `openssh-server`, cổng 22 từ chối kết nối khoảng 1–2 phút (dịch vụ SSH khởi động lại). Không ảnh hưởng (script chạy `nohup`), nhưng ghi để lần sau không hoảng.
+
+### 8.3 Kết quả kiểm sau cài (22/10, sau reboot thứ 2)
+
+| # | Kiểm | Kết quả |
+|---|---|---|
+| 1 | `ottimo-admin` đăng nhập bằng khóa `ottimo_ops`, `sudo -n true` | **Đạt** |
+| 2 | `root` đăng nhập bằng đúng khóa đã gắn | **Bị từ chối** (`Permission denied (publickey)`) – Đạt |
+| 3 | Đăng nhập mật khẩu / keyboard-interactive (`ottimo-admin` và `root`) | **Bị từ chối**, máy chủ chỉ chào `publickey` – Đạt. `sshd -T`: `passwordauthentication no`, `kbdinteractiveauthentication no`, `permitrootlogin no`, `maxauthtries 4`, `x11forwarding no` |
+| 4 | Người dùng triển khai `ottimo` (uid 2001, nhóm `docker`) đăng nhập bằng khóa, chạy `docker ps` | **Đạt** |
+| 5 | `ufw status verbose` | **Đạt**: active, mặc định deny vào / allow ra / deny routed; chỉ 22, 80, 443 (v4 + v6). Từ ngoài: 22 mở; 5432, 8080 không vào được. 80/443 chưa có dịch vụ (chưa deploy) |
+| 6 | Docker | **Đạt**: Docker 29.9.2, Compose v5.6.1, kho chính thức (vân tay khóa kiểm trong script), `hello-world` chạy rồi xóa image. `daemon.json` đúng (log `local` 20m×5, `live-restore`, `userland-proxy: false`, `no-new-privileges`) |
+| 7 | Hệ thống | Múi giờ `Asia/Ho_Chi_Minh`; swap 2 GB; tự vá bảo mật bật (reboot khi cần 02:30); không còn `reboot-required`; `systemctl --failed` trống. `fwupd.service` lỗi một lần lúc nâng cấp (VM không có firmware) – bỏ qua |
+| 8 | `/opt/ottimo` | `infra` (root, không ai khác ghi), `.env` (0600 `ottimo`, bản mẫu – chưa điền), `state` (0700 `ottimo`), `backup` (0750 root:ottimo), `seed` (0700 uid 1000), `/var/backups/ottimo`. Timer `ottimo-backup`, `ottimo-ops-check` đã cài, **chưa bật** (bật sau deploy đầu) |
+| 9 | Cổng nghe từ ngoài | Chỉ `sshd` :22 |
+
+### 8.4 Ghi chú / rủi ro mới
+
+- **R5-12** – `ottimo-admin` có uid 1000 (= uid người dùng trong container api) vì tạo bằng `adduser` như checklist. Script đã lường trước: `/opt/ottimo/secrets` (0710 root:ottimo) không đi qua được bằng uid này; thư mục `seed` (dữ liệu giả) thuộc uid 1000 nên `ottimo-admin` đọc được – chấp nhận (người này có sudo). Production: tạo người dùng quản trị với uid khác 1000.
+- **R5-13** – Khóa `ottimo_ops` **chưa có passphrase** (decision-log 22/10) và giờ mở được sudo trên VPS. Đề xuất INV đặt passphrase: `ssh-keygen -p -f ~/.ssh/ottimo_ops` (không ảnh hưởng VPS). Mục 0 của tệp này ghi "dùng qua Keychain" – chưa đúng thực tế cho tới khi có passphrase.
+- **R5-14** – `10-legacy-rsa.conf` của nhà cung cấp bật lại `ssh-rsa` (SHA-1). Không mở thêm đường đăng nhập (chỉ khóa), nhưng nên gỡ cùng SEC trước production. Chưa sửa lượt này.
+- Khóa `ottimo_ops` vẫn còn trong `/root/.ssh/authorized_keys` nhưng vô hiệu vì `PermitRootLogin no`. Giữ để nếu cần mở lại root qua console của hãng thì không phải gắn lại.
+- **DNS:** `ottimo.vn` dùng máy chủ DNS của **Mắt Bão** (không phải Google), đã có email Google (MX + SPF) và trang Google Sites ở `@`/`www`. Hướng dẫn INV: `rounds/round-02/inv-dns-steps.md`: 3 bản ghi A `*.staging`, CAA `letsencrypt.org` **và** `pki.goog` (giữ chứng chỉ Google Sites), không thêm `v=spf1 -all`.
+
+### 8.5 Bước tiếp (khi INV báo đã thêm DNS)
+
+`dig` 3 tên + CAA → `.env` (`APP_ENV=staging`, tên miền `*.staging.ottimo.vn`) → `init-secrets.sh` → khóa `age` (sinh trên máy INV, chỉ khóa công khai lên VPS) → INV bật `PUBLISH_IMAGES` + kiểm GHCR Private (R5-02) → INV `docker login` (token `read:packages`) → `deploy.sh sha-…` → thủ tục BUG-R2-210 (DB trống). Khóa CI + environment: sau, cùng INV (mục 4 ngày 2).

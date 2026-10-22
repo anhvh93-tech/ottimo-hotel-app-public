@@ -870,3 +870,45 @@ Hiểu của OPS/ORC đúng: **bật `STAGING_DEPLOY` khi đủ D1–D5**. D6 l�
 - ORC báo SEC **trước** khi INV bấm duyệt lượt đầu, để SEC đọc log ngay khi lượt chạy xong. Lượt sau chỉ được duyệt khi SEC đã ghi kết quả D6 vào mục này.
 - Nếu log lượt đầu có IP, đường dẫn, biến môi trường hay output compose, thì INV (hoặc ORC qua `gh run delete`) **xóa run đó**, tắt `STAGING_DEPLOY`, và OPS sửa trước lượt sau. Nếu lộ IP thì thêm bước: đổi khóa CI nếu có nghi ngờ khóa liên quan. Riêng IP thì không cần đổi, vì IP vốn có trong DNS.
 - Nếu lượt đầu xanh mà chưa thấy được nhánh lỗi, SEC chấp nhận vì test (a) trên CI đã phủ nhánh lỗi. Không cần cố ý làm hỏng một lượt trên staging thật.
+
+### E.9 Nền VPS staging – review diff `bootstrap-vps.sh` (R5-09…R5-11) và quyết định R5-12…R5-14 (SEC, 22/10)
+
+- **Nguồn:** `outputs/OPS/staging-readiness.md` mục 8 (lượt 3); diff `product/infra/server/bootstrap-vps.sh`, chưa commit.
+- **Giới hạn:** SEC không SSH vào VPS. Kết quả trên máy lấy theo bảng 8.3 của OPS.
+
+#### E.9.1 Diff – **Đạt, SEC đồng ý commit**
+
+| Mã | Sửa | Đánh giá SEC |
+|---|---|---|
+| R5-09 | `60-ottimo.conf` → `00-ottimo.conf`, xóa tệp cũ; sau `sshd -t` kiểm thêm `sshd -T`: `passwordauthentication no` và `permitrootlogin` đúng, sai thì dừng **trước** reload | Đúng gốc lỗi: sshd lấy giá trị đọc đầu tiên. Kiểm bằng giá trị hiệu lực thay vì nội dung tệp nên bắt được mọi tệp khác ghi đè. Nếu `sshd -T` lỗi thì `eff` rỗng và script dừng: an toàn. **Đạt** |
+| R5-10 | `ssh-keygen -A` | Tạo khóa host ed25519 còn thiếu, cần cho `STAGING_SSH_KNOWN_HOSTS`. **Đạt** |
+| R5-11 | `systemctl enable --now ufw` + kiểm `is-enabled` | Lỗi nặng nhất trong 3: tường lửa mất sau mỗi lần reboot, kể cả lần tự vá 02:30. OPS đã kiểm lại sau reboot: `active`, `INPUT DROP`, từ ngoài chỉ vào được 22. **Đạt** |
+
+Đề xuất nhỏ cho cùng PR, không chặn commit:
+- (a) Kiểm `sshd -T` thêm `kbdinteractiveauthentication no` (cùng nhóm đăng nhập mật khẩu).
+- (b) Thêm `sshd -T -C user=ottimo-admin,host=x,addr=203.0.113.1` để bắt cả khối `Match` của nhà cung cấp, nếu có.
+- (c) Sau `ufw --force enable`, kiểm thêm `ufw status | grep -q '^Status: active'`.
+
+Mục 8.1–8.3: OPS kiểm đăng nhập `ottimo-admin` + `sudo -n` **trước** khi tắt root và mật khẩu, có kiểm từ ngoài, reboot 2 lần. IP không ghi vào repo. Cách làm đúng.
+
+#### E.9.2 Quyết định rủi ro
+
+| Mã | Rủi ro | Mức | Quyết định SEC | Hạn |
+|---|---|---|---|---|
+| **R5-13** | Khóa `ottimo_ops` **không passphrase** mở được `ottimo-admin` có `sudo NOPASSWD`, tức root trên VPS. Ai lấy được tệp khóa trên máy INV là thành root | **Medium** | Staging sắp giữ bí mật thật của hệ thống: KEK dữ liệu (`init-secrets.sh`), token GHCR `read:packages`, khóa SSH cho CI. Lộ khóa thì mất cả các bí mật này, dù dữ liệu chỉ là dữ liệu giả. Việc sửa chỉ là một lệnh trên máy INV (`ssh-keygen -p -f ~/.ssh/ottimo_ops`), không đụng VPS | **Trước staging:** trước `init-secrets.sh` và `docker login` GHCR (mục 8.5). Sau đó dùng qua Keychain/ssh-agent (`ssh-add --apple-use-keychain`) |
+| **R5-12** | `ottimo-admin` uid 1000 trùng uid người dùng trong container api; đọc được `seed` (dữ liệu giả) | Low | Chấp nhận cho staging. Người này có sudo nên không có thêm quyền thật. `secrets` 0710 root:ottimo không đi qua được bằng uid này | **Trước production:** người quản trị dùng uid ≠ 1000, và mọi thư mục của uid 1000 chỉ chứa thứ container cần. Script nên dừng khi `--admin-user` có uid 1000 ở `APP_ENV=production` |
+| **R5-14** | `10-legacy-rsa.conf` của nhà cung cấp bật lại `ssh-rsa` (chữ ký SHA-1) | Low | Không mở thêm đường đăng nhập (vẫn phải có khóa đã cài). Tấn công SHA-1 thực tế không giả được chữ ký xác thực SSH. Chấp nhận cho staging | **Trước production.** Cách rẻ, làm luôn được: `00-ottimo.conf` đọc trước nên thắng. Thêm `PubkeyAcceptedAlgorithms -ssh-rsa`, `HostKeyAlgorithms -ssh-rsa`, `HostKey` chỉ ed25519 (+ rsa-sha2), kiểm bằng `sshd -T`, xóa khóa host DSA. Không cần xóa tệp của nhà cung cấp |
+| (kèm) | Khóa `ottimo_ops` còn trong `/root/.ssh/authorized_keys`, đang vô hiệu vì `PermitRootLogin no` | Low | Chấp nhận cho staging, giữ để dự phòng như OPS nêu | **Trước production:** gỡ. Mở lại root chỉ qua console của nhà cung cấp |
+
+**Điều kiện production rút ra (ghi vào `hosting-plan` / checklist production, OPS):**
+- mỗi người quản trị một khóa riêng có passphrase;
+- **không dùng lại** `ottimo_ops` của staging;
+- khóa CI production khác khóa CI staging;
+- `sudo` cho người quản trị: hoặc có mật khẩu, hoặc `NOPASSWD` chỉ khi khóa có passphrase. SEC chọn NOPASSWD + passphrase bắt buộc, để không phải lưu mật khẩu sudo ở đâu;
+- R5-12, R5-14 và mục (kèm) trên.
+
+#### E.9.3 Kết luận
+- Diff `bootstrap-vps.sh` **Đạt**, ORC commit được. Đề xuất nhỏ (a)(b)(c) làm cùng lúc hoặc ở lượt sau.
+- **Điều kiện mới trước staging:** R5-13 (passphrase cho `ottimo_ops` trước `init-secrets.sh` / GHCR login). Gộp vào D1–D5, gọi là **D0**: INV làm, một lệnh.
+- R5-12, R5-14 và khóa ở `/root`: trước production.
+- **G2.5 không đổi:** 0 Critical/High. Không tạo ESC mới.

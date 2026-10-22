@@ -183,6 +183,9 @@ if [ -n "$ssh_allow" ]; then ufw allow from "$ssh_allow" to any port 22 proto tc
 ufw allow 80/tcp >/dev/null
 ufw allow 443/tcp >/dev/null
 ufw --force enable >/dev/null
+# Some provider images ship ufw.service disabled: the rules would then vanish at the next reboot.
+systemctl enable --now ufw >/dev/null 2>&1
+systemctl is-enabled --quiet ufw || { echo "ufw.service is not enabled at boot" >&2; exit 1; }
 
 # ---- 6. SSH: keys only (checked before reload, so a typo cannot cut the session) ----
 root_login=prohibit-password
@@ -192,7 +195,12 @@ if [ -n "$admin_user" ]; then
   root_login=no
 fi
 [ -s "$ssh_dir/authorized_keys" ] || { echo "deploy user has no SSH key – refusing to turn passwords off" >&2; exit 1; }
-cat > /etc/ssh/sshd_config.d/60-ottimo.conf <<EOF
+# Some provider images ship only RSA/DSA host keys: create the missing default ones (ed25519 – used for CI known_hosts).
+ssh-keygen -A >/dev/null
+# sshd keeps the FIRST value it reads and the drop-ins are read in name order: provider/cloud-init files such as
+# 50-cloud-init.conf ("PasswordAuthentication yes") would win over a later file – so ours sorts first (00-).
+rm -f /etc/ssh/sshd_config.d/60-ottimo.conf
+cat > /etc/ssh/sshd_config.d/00-ottimo.conf <<EOF
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin $root_login
@@ -200,6 +208,9 @@ X11Forwarding no
 MaxAuthTries 4
 EOF
 sshd -t
+eff=$(sshd -T 2>/dev/null)
+grep -qx 'passwordauthentication no' <<<"$eff" && grep -qx "permitrootlogin $root_login" <<<"$eff" \
+  || { echo "another sshd_config file overrides the OTTIMO SSH settings – check /etc/ssh/sshd_config.d" >&2; exit 1; }
 systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true
 
 # ---- 7. systemd timers (enabled once something is deployed) ----

@@ -84,6 +84,8 @@ Lưu ý:
 - Sau khi đội dựng xong, đăng nhập bằng mật khẩu và đăng nhập root đều bị tắt.
 
 ### Bước 4. Tạo bản ghi DNS cho staging
+**Với `ottimo.vn` (22/10/2026): làm theo `inv-dns-steps.md`** – DNS ở Mắt Bão, đã có email Google và trang Google Sites, nên cần thêm CAA `pki.goog` và **không** thêm `v=spf1 -all`. Bảng dưới là mẫu chung.
+
 Tại nhà đăng ký tên miền (hoặc Cloudflare ở chế độ **chỉ DNS**, đám mây xám). TTL 300.
 
 | Loại | Tên | Giá trị |
@@ -176,6 +178,7 @@ Lệnh chờ mà không hiện gì: dán token, bấm Enter, rồi bấm Ctrl-D.
 
 | # | Điều kiện | Ai |
 |---|---|---|
+| D0 | Khóa SSH `ottimo_ops` trên máy anh/chị đã có mật khẩu bảo vệ (passphrase) – đặt bằng `ssh-keygen -p -f ~/.ssh/ottimo_ops`, rồi `ssh-add --apple-use-keychain ~/.ssh/ottimo_ops`. Phải xong trước khi đội cài khóa bí mật và đăng nhập kho ảnh trên VPS (SEC E.9) | Anh/chị |
 | D1 | Môi trường `staging` có anh/chị duyệt, chỉ `main`; 3 secret `STAGING_SSH_KEY`, `STAGING_SSH_KNOWN_HOSTS`, `STAGING_SSH_HOST` là secret của môi trường, tạo sau khi có người duyệt | Anh/chị (Bước 5, 6) |
 | D2 | Bản sửa "CI chỉ nhận một dòng tóm tắt" đã gộp, có kết quả test | Đội |
 | D3 | Gói `ottimo-api` và `ottimo-web` là Private | Anh/chị (8a) |
