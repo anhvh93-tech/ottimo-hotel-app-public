@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Prepare a fresh Ubuntu LTS VPS (22.04 / 24.04) for OTTIMO staging or production – run as root, idempotent.
 # Copy the bundle first (from product/ on the OPS laptop – infra/server/README.md step 2):
-#   tar -czf ottimo-infra.tgz infra tests/fixtures/seed/ds-e.json
+#   tar --exclude .out --exclude .work --exclude '.env*' -czf ottimo-infra.tgz infra tests/fixtures/seed/ds-e.json
 #   scp ottimo-infra.tgz root@<IP>:/root/ && ssh root@<IP> 'mkdir -p /root/ottimo-bundle && tar -xzf /root/ottimo-infra.tgz -C /root/ottimo-bundle'
 #   ssh root@<IP> 'bash /root/ottimo-bundle/infra/server/bootstrap-vps.sh --deploy-key /root/ops_key.pub [options]'
 # Options:
@@ -166,7 +166,9 @@ if [ -f "$bundle_root/tests/fixtures/seed/ds-e.json" ]; then
   install -o 1000 -g 1000 -m 0600 "$bundle_root/tests/fixtures/seed/ds-e.json" "$OTTIMO_HOME/seed/ds-e.json"
 fi
 # The bundle is owned by root: the deploy user (and CI) can run it but not change compose/Caddy/scripts.
-rsync -a --delete --chown=root:root --exclude '.DS_Store' "$bundle_infra/" "$OTTIMO_HOME/infra/"
+# Local-only files (demo .out/.work hold demo passwords, .env) never go to a server even if the tarball has them.
+rsync -a --delete --delete-excluded --chown=root:root --exclude '.DS_Store' --exclude '.out' --exclude '.work' \
+  --exclude '.env' --exclude '.env.*' "$bundle_infra/" "$OTTIMO_HOME/infra/"
 chmod -R go-w "$OTTIMO_HOME/infra"
 chmod 0755 "$OTTIMO_HOME"/infra/server/bin/* "$OTTIMO_HOME/infra/postgres/init/02-roles.sh"
 if [ ! -f "$OTTIMO_HOME/.env" ]; then

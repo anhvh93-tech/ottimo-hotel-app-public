@@ -32,7 +32,9 @@ DNS (INV) → 2. chép bundle → 3. bootstrap-vps.sh → 4. .env + init-secrets
 ## 2. Chép bundle lên VPS (từ máy OPS, trong `product/`)
 
 ```bash
-tar -czf /tmp/ottimo-infra.tgz infra tests/fixtures/seed/ds-e.json
+# không đưa tệp cục bộ (.out/.work của demo trên Mac có mật khẩu demo, .env) lên máy chủ
+COPYFILE_DISABLE=1 tar --exclude '.out' --exclude '.work' --exclude '.env*' --exclude '.DS_Store' \
+  -czf /tmp/ottimo-infra.tgz infra tests/fixtures/seed/ds-e.json
 scp /tmp/ottimo-infra.tgz ~/.ssh/ottimo_ops.pub root@<IP>:/root/
 ssh root@<IP> 'mkdir -p /root/ottimo-bundle && tar -xzf /root/ottimo-infra.tgz -C /root/ottimo-bundle'
 ```

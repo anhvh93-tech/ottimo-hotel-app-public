@@ -298,3 +298,56 @@ Môi trường dùng một lần đã tự xóa. Bản `.age` chép về Mac đ�
 - `deploy-history.log` hiện 1 dòng (`sha-4fd0651b7be3`). Chưa có tag trước để thử `rollback.sh` thật: thử ở lần deploy thứ 2.
 - R5-15 (không CAA), R5-16 (khóa `age` mới có 1 bản trên Mac – INV cất thêm): giữ nguyên.
 - Máy Mac là nơi duy nhất giữ khóa `age` **và** mật khẩu QA. Mất máy = mất khả năng giải mã sao lưu staging. Chấp nhận cho dữ liệu giả; trước dữ liệu thật phải có bản ngoại tuyến (hosting-plan 7, 8.1).
+
+## 11. Lượt 6 (22/10) – D4: cài khóa CI, đối chiếu vân tay
+
+### 11.1 Đã làm
+
+- **Vân tay khóa CI:** INV tạo khóa `~/.ssh/ottimo_ci_deploy` trên Mac. Vân tay `.pub` khớp số ORC gửi (SHA256:MNNE…absBI). OPS không đọc, không in khóa riêng; chỉ dùng nó với `ssh -i` để thử giới hạn.
+- **Vân tay máy chủ:** host ed25519 đọc từ ba nguồn đều là SHA256:s44i…Drbo, khớp nhau:
+  - `ssh-keyscan` từ Mac;
+  - tệp `/etc/ssh/ssh_host_ed25519_key.pub` trên VPS;
+  - số ORC gửi.
+  INV chạy được phần 5b (`ssh-keyscan … | gh secret set STAGING_SSH_KNOWN_HOSTS`).
+- **Cài khóa:** `sudo bootstrap-vps.sh --ci-key ~/ottimo-ci-deploy.pub --admin-user ottimo-admin` → EXIT=0. `~ottimo/.ssh/authorized_keys` có đúng 2 dòng:
+  - `ottimo-ops`, không tùy chọn (người);
+  - `command="/opt/ottimo/infra/server/bin/deploy-from-ci.sh",restrict ottimo-ci-deploy`.
+
+  Kiểm D4 trong script không báo trùng khóa.
+
+### 11.2 Kiểm giới hạn khóa CI (từ Mac, `IdentitiesOnly`)
+
+| Thử | Kết quả |
+|---|---|
+| Không lệnh (shell), `bash`, `id`, `deploy`, `deploy latest`, `deploy sha-…-test`, `deploy sha-…; id`, `rollback`, `scp -t`, `rsync --server` | Đều `refused: only 'deploy sha-<hex>' is allowed for this key`, mã 2 |
+| `sftp` | Không mở được (subsystem bị forced command thay) |
+| Chuyển cổng `-L` | `administratively prohibited` |
+| Xin PTY (`-tt`) | `PTY allocation request failed` |
+| `deploy sha-4fd0651b7be3` (lệnh hợp lệ, tag đang chạy) | `deploy sha-4fd0651b7be3: ok`, mã 0. CI chỉ nhận một dòng. Log đủ ở `state/deploy-logs/ci-<ref>.log` (0600 `ottimo`). `deploy-history.log` thêm dòng. Container không đổi (cùng tag) |
+
+### 11.3 Sự cố nhỏ tìm thấy và đã xử lý – bundle mang theo tệp cục bộ của demo
+
+- **Hiện tượng:** bundle chép lên VPS ở lượt 3 (tar `infra` trên Mac) có thư mục `infra/demo/.out/`. Thư mục này gitignored, của stack demo **localhost** trên Mac, gồm:
+  - `demo-accounts.md`: mật khẩu tài khoản demo localhost, dữ liệu giả;
+  - 2 ảnh mẫu giả.
+
+  Tệp đã nằm trên VPS ở `~ottimo-admin/ottimo-bundle` (0600) và `/opt/ottimo/infra/demo/.out` (thư mục 0700 root). Không ai ngoài root/`ottimo-admin` đọc được, không lên repo, không lên image.
+- **Xử lý:**
+  - đã xóa cả hai chỗ và tệp `ottimo-infra.tgz` cũ; `find /` không còn `demo-accounts.md`;
+  - `README.md` bước 2: lệnh `tar` loại `.out`, `.work`, `.env*`, `.DS_Store`;
+  - `bootstrap-vps.sh`: `rsync` thêm `--exclude .out/.work/.env/.env.*` + `--delete-excluded`, để tệp cục bộ không lên máy chủ kể cả khi tarball có. Đã chạy lại trên VPS: EXIT=0, `demo/.out` không còn. Shellcheck sạch.
+- **Mức:** Low. Mật khẩu demo localhost không mở được gì trên staging hay Internet. Đề nghị SEC xem cùng diff `bootstrap-vps.sh`. Nếu muốn chắc thì đổi mật khẩu demo bằng `demo-reset.sh` ở lần dựng demo tới.
+
+### 11.4 Trạng thái D0–D6
+
+| # | Trạng thái |
+|---|---|
+| D0 | Đạt (ORC) |
+| D1 | Environment `staging` có người duyệt (ORC, commit `4fd0651`). **Chờ INV phần 5b**: 3 secret của environment |
+| D2 | Đạt |
+| D3 | Đạt (SEC E.10) |
+| **D4** | **Đạt** (mục 11.1–11.2) |
+| D5 | Đạt (DS-E, dữ liệu giả) |
+| D6 | Sau lượt CI đầu: SEC đọc log |
+
+- ORC 22/10: đã kiểm trên VPS bằng `sudo find / -xdev` – không còn `demo.env`, `demo-accounts.md` hay `infra/demo/.work` (xác nhận việc SEC E.11 yêu cầu).

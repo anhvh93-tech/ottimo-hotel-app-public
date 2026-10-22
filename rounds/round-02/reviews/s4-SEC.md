@@ -966,3 +966,36 @@ SEC tự kéo cả 3 tag **không cần đăng nhập** (đúng là công khai) 
 
 - **`PUBLISH_IMAGES` bật lại được ngay.** SEC không chặn.
 - **G2.5 không đổi:** 0 Critical/High. Không tạo ESC mới. Công khai image là hệ quả trực tiếp của ESC-025, INV đã quyết.
+
+### E.11 D4 và sự cố bundle mang `infra/demo/.out` lên VPS (SEC, 22/10)
+
+- **Nguồn:** `outputs/OPS/staging-readiness.md` mục 11; diff `bootstrap-vps.sh` (rsync) và `infra/server/README.md` (lệnh `tar`), chưa commit. SEC không SSH vào VPS.
+
+#### E.11.1 D4 – **SEC xác nhận Đạt**
+- Vân tay khóa CI và khóa host ed25519 được đối chiếu qua nhiều nguồn, ORC gửi số riêng.
+- `authorized_keys` có đúng 2 dòng: khóa người không tùy chọn, khóa CI có `command=…deploy-from-ci.sh`,`restrict`.
+- Đã thử trên máy thật:
+  - shell, lệnh lạ, `-test`, chèn lệnh, `scp`, `rsync`: đều bị từ chối, mã 2;
+  - `sftp` bị chặn, `-L` bị từ chối, không cấp PTY;
+  - lệnh hợp lệ trả đúng một dòng.
+
+  Khớp E.8 và test CI.
+
+#### E.11.2 Sự cố `.out` – mức **Low**, **không cần đổi mật khẩu demo localhost**
+- Nội dung bị chép lên: mật khẩu tài khoản demo **localhost** và 2 ảnh mẫu giả. Mật khẩu này do `demo-up.sh`/`lib.sh` sinh **ngẫu nhiên mỗi lần dựng** và chỉ dùng cho stack demo trên Mac (cổng localhost). Staging không dùng lại; seed DS-E và `init-secrets.sh` của staging sinh bí mật riêng.
+- Tệp nằm ở chỗ chỉ root/`ottimo-admin` đọc được, không lên repo hay image. OPS đã xóa, `find /` không còn.
+- Vì vậy **không bắt buộc** đổi. Lần dựng demo tới (`demo-up.sh`/`demo-reset.sh`) tự sinh mật khẩu mới, thế là đủ.
+- Một việc OPS xác nhận thêm (trả lời một dòng trong `staging-readiness.md`): bundle lượt 3 **không** có `infra/demo/.work/`. Thư mục này chứa `demo.env` với KEK và mật khẩu DB của demo. Kiểm bằng `sudo find / -xdev \( -name demo.env -o -name state.json -path '*demo*' \)` → rỗng. Hiện máy OPS không có `.work`, nên khả năng cao là không. Nếu có thì xóa như `.out` và chạy `demo-reset.sh` trước khi dựng demo lần tới. Vẫn chỉ Low, vì là khóa của demo localhost.
+
+#### E.11.3 Diff – **Đạt, SEC đồng ý commit**
+- `rsync … --exclude .out --exclude .work --exclude .env --exclude '.env.*' --delete-excluded`:
+  - chặn ở phía máy chủ dù tarball có lẫn;
+  - `--delete-excluded` dọn cả bản đã lỡ chép.
+  - SEC kiểm: trong `infra/` không có tệp `.env*` nào được git theo dõi. Mẫu cấu hình tên `env.example` (không có dấu chấm đầu) vẫn được chép. Không loại nhầm tệp cần.
+- README bước 2 và chú thích đầu `bootstrap-vps.sh`: `tar --exclude .out/.work/.env*/.DS_Store`, `COPYFILE_DISABLE=1` (không kèm metadata macOS). **Đạt.**
+- Đề xuất, không chặn: tạo bundle từ `git archive HEAD infra` (cộng `ds-e.json`) thay cho `tar` trên cây làm việc. Khi đó chỉ tệp có trong git mới lên máy chủ, không cần nhớ danh sách loại trừ. OPS cân nhắc trước production.
+
+#### E.11.4 Kết luận
+- D4 **Đạt**. Diff **Đạt**, ORC commit được.
+- Sự cố `.out`: Low, đã xử lý, không đổi mật khẩu.
+- G2.5 không đổi: 0 Critical/High. Không tạo ESC.

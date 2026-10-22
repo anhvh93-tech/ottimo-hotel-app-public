@@ -25,7 +25,8 @@ Repo công khai, nên tài liệu ghi `<IP-VPS>` thay cho IP thật. **IP đội
 | Cấu hình staging, khóa bí mật của ứng dụng, khóa sao lưu | Xong. Bí mật sinh ngay trên máy chủ, không ai thấy |
 | HTTPS | Đã thử xin chứng chỉ thử nghiệm cho cả 3 tên miền: đạt |
 | Image đầu tiên (`sha-4fd0651b7be3`), deploy tay lần đầu | **Xong 22/10**: https://desk.staging.ottimo.vn, https://staff.staging.ottimo.vn, https://g.staging.ottimo.vn (chứng chỉ thật, dữ liệu giả, sao lưu hằng ngày) |
-| Deploy tự động từ GitHub | **Chờ anh/chị** – phần 5–6 |
+| Khóa CI (phần 5a) | **Xong 22/10**: anh/chị đã tạo; đội đã cài lên máy chủ (chỉ chạy được lệnh deploy) và đối chiếu vân tay máy chủ – **làm tiếp phần 5b** |
+| Deploy tự động từ GitHub | **Chờ anh/chị** – phần 5b, 6 |
 
 ---
 
