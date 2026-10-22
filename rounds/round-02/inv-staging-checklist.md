@@ -113,6 +113,8 @@ Bảo vệ tài khoản tên miền (hosting-plan mục 10, 0 đ):
 - bật tự gia hạn.
 
 ### Bước 5. Cài đặt GitHub – môi trường `staging`
+**Với repo hiện tại (22/10/2026): làm theo `inv-github-steps.md`** (Bước 5–8 viết lại thành 6 phần, có token GHCR hạn 90 ngày và lệnh `gh` đầy đủ). Phần dưới giữ làm tham khảo.
+
 Làm **trước** mọi bước có khóa. Đây là điều kiện của SEC.
 
 Vào repo `ottimo-hotel-app-public` → Settings → Environments → New environment, tên `staging`:

@@ -173,3 +173,36 @@ Chú thích: lúc `apt upgrade` nâng `openssh-server`, cổng 22 từ chối k�
 ### 8.5 Bước tiếp (khi INV báo đã thêm DNS)
 
 `dig` 3 tên + CAA → `.env` (`APP_ENV=staging`, tên miền `*.staging.ottimo.vn`) → `init-secrets.sh` → khóa `age` (sinh trên máy INV, chỉ khóa công khai lên VPS) → INV bật `PUBLISH_IMAGES` + kiểm GHCR Private (R5-02) → INV `docker login` (token `read:packages`) → `deploy.sh sha-…` → thủ tục BUG-R2-210 (DB trống). Khóa CI + environment: sau, cùng INV (mục 4 ngày 2).
+
+## 9. Lượt 4 (22/10) – cấu hình staging, bí mật, khóa sao lưu, HTTPS (R-5, ngày 1 bước 4)
+
+Điều kiện đầu vào (ORC báo): DNS 3 tên `*.staging.ottimo.vn` đã trỏ về VPS (OPS kiểm lại bằng `dig` công khai và `dig @ns1.matbao.vn`: khớp); CAA **không thêm được** ở Mắt Bão; D0 xong (khóa `ottimo_ops` có passphrase, qua Keychain/agent); SEC E.9 duyệt, ORC commit `b337086`. Không đụng GitHub settings.
+
+### 9.1 Đã làm
+
+| # | Việc | Kết quả |
+|---|---|---|
+| 1 | `/opt/ottimo/.env` (0600 `ottimo`) | `APP_ENV=staging`, `CLOCK_MODE=system`, `DESK/STAFF/GUEST_HOST=desk/staff/g.staging.ottimo.vn`, `ACME_EMAIL=ops@ottimo.vn` [GIẢ ĐỊNH – mục 9.3], `API_IMAGE`/`WEB_IMAGE=ghcr.io/anhvh93-tech/ottimo-api|web`, `API_TAG_SUFFIX=` (image production), `INCLUDE_TEST_SUPPORT=0`, tích hợp giữ off/mock/manual như mẫu. Không còn `<…>`. `dc config --quiet` (người dùng `ottimo`): hợp lệ. Dải `172.30.0.0/24` không trùng mạng của VPS |
+| 2 | `init-secrets.sh` (root) | Tạo đủ 11 tệp. Thư mục `secrets` 0710 root:ottimo, tệp 0400: uid 1000 cho api/worker/migrate/seed, uid 70 cho postgres. `ottimo` không liệt kê, không đọc được (đã thử). Không giá trị nào in ra hay rời VPS. Staging: không cần chép KEK ngoại tuyến |
+| 3 | Khóa `age` sao lưu | Sinh **trên máy Mac** (Mac chưa có `age`: chạy `age-keygen` trong container `alpine:3.20` tạm, gắn thư mục ra ngoài). Khóa riêng: `~/.ottimo/backup/ottimo-backup-identity.txt` (0600, thư mục 0700, ngoài repo). Chỉ khóa công khai lên VPS: `/opt/ottimo/backup/recipients.txt` (0640 root:ottimo) |
+| 4 | Thử cấp chứng chỉ HTTPS | Chưa có image web (chờ GHCR), nên chạy tạm container `caddy:2-alpine` **cùng digest với image web**, chỉ trả "acme test", dùng **CA thử nghiệm** của Let's Encrypt (không tốn hạn mức cấp chứng chỉ thật). Cả 3 tên: `certificate obtained successfully` (HTTP-01 qua cổng 80). Từ máy ngoài: HTTPS 200 với chứng chỉ `(STAGING)` của Let's Encrypt; HTTP → 308 sang HTTPS. Sau đó xóa container, image và tệp tạm; cổng 80/443 không còn dịch vụ. Chứng chỉ thật cấp ở lần `deploy.sh` đầu |
+| 5 | Chuẩn bị deploy | Kéo sẵn `postgres:17-alpine` (đúng digest trong compose). Thủ tục BUG-R2-210 N1-3: không có volume `ottimo_*`, chưa có `state/current_tag`. `ottimo` chưa đăng nhập GHCR (`~/.docker` chưa có) |
+| 6 | Hướng dẫn INV phần GitHub | `rounds/round-02/inv-github-steps.md`: 6 phần theo đúng thứ tự D0–D6. INV tự gõ token trong `ssh ottimo@…` → `docker login` (dấu nhắc ẩn, không qua chat). Secret CI đặt bằng `gh secret set --env staging`, đọc thẳng từ tệp. Checklist Bước 5 trỏ sang tệp này |
+
+Kiểm chỉ đọc phía GitHub: `gh` trên máy này đăng nhập `anhvh93-tech`; repo chưa có biến nào (`VITE_DESK_PHONE` cũng chưa); 0 environment.
+
+### 9.2 Rủi ro / ghi chú mới
+
+- **R5-15** – Không có CAA (Mắt Bão từ chối loại bản ghi này). CA nào cũng cấp được chứng chỉ cho `ottimo.vn`. Mức Low cho staging. **Trước production:** hỏi Mắt Bão hỗ trợ CAA, hoặc cân nhắc chuyển DNS sang nơi có CAA + 2 lớp (hosting-plan mục 10). Ghi để SEC quyết.
+- **R5-12 (bổ sung)** – Các tệp bí mật của api thuộc uid 1000, trên máy là `ottimo-admin`. Người này **không đi qua được** thư mục `secrets` (0710 root:ottimo, không thuộc nhóm `ottimo`), nhưng có sudo. Không thêm quyền thật; production theo SEC E.9.2 (uid khác 1000).
+- **R5-16** – Khóa giải mã sao lưu `age` hiện chỉ có **một bản** trên máy Mac. INV cần cất thêm vào trình quản lý mật khẩu và một bản ngoại tuyến (README mục 4.3, R5-08). Staging dữ liệu giả nên không chặn; mất khóa thì tạo cặp mới (README mục 11).
+- Token GHCR đề xuất hạn 90 ngày (checklist cũ ghi 1 năm). Hết hạn thì deploy dừng ở bước `pull`. OPS nhắc trước hạn.
+- Đề xuất nhỏ của SEC E.9.1 (a)(b)(c) cho `bootstrap-vps.sh`: chưa làm lượt này.
+
+### 9.3 Giả định
+
+- `ACME_EMAIL=ops@ottimo.vn`: hộp thư nhóm chưa xác nhận là có thật. Let's Encrypt không kiểm hộp thư và đã ngừng gửi thư nhắc hạn, nên không ảnh hưởng việc cấp chứng chỉ. INV muốn địa chỉ khác thì OPS sửa `.env` (một dòng, không cần deploy lại image).
+
+### 9.4 Bước tiếp
+
+INV làm `inv-github-steps.md` phần 1–4 → push lên `main` tạo image → INV kiểm gói Private (D3) → OPS chạy `deploy.sh sha-…` (DB trống, BUG-R2-210) → kiểm chứng chỉ thật + smoke R5-03 → nạp DS-E (N2-2) → bật timer sao lưu, `backup.sh` tay, `restore-drill.sh` trên Mac bằng khóa ở `~/.ottimo/backup`. Sau đó phần 5–6 (khóa CI, `STAGING_DEPLOY`).
