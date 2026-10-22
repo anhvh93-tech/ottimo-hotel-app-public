@@ -912,3 +912,57 @@ Mục 8.1–8.3: OPS kiểm đăng nhập `ottimo-admin` + `sudo -n` **trước*
 - **Điều kiện mới trước staging:** R5-13 (passphrase cho `ottimo_ops` trước `init-secrets.sh` / GHCR login). Gộp vào D1–D5, gọi là **D0**: INV làm, một lệnh.
 - R5-12, R5-14 và khóa ở `/root`: trước production.
 - **G2.5 không đổi:** 0 Critical/High. Không tạo ESC mới.
+
+### E.10 D3 trượt – gói GHCR công khai (SEC, 22/10)
+
+- **Sự việc:** lượt publish đầu (run 39763920224, commit `4fd0651`) tạo `ghcr.io/anhvh93-tech/ottimo-api` (tag `sha-4fd0651b7be3` và `sha-4fd0651b7be3-test`) và `ottimo-web`. Hai gói thừa kế **Public** từ repo công khai. ORC đã đặt `PUBLISH_IMAGES=false`. INV chưa `docker login`.
+
+#### E.10.1 SEC kiểm nội dung image
+
+SEC tự kéo cả 3 tag **không cần đăng nhập** (đúng là công khai) rồi kiểm:
+
+| Kiểm | Kết quả |
+|---|---|
+| `Config.Env` | api: chỉ `PATH`, `NODE_VERSION`, `YARN_VERSION`, `NODE_ENV=production`. web: chỉ biến của Caddy. **Không** có biến bí mật |
+| `docker history` (lệnh build) | Không có `secret`/`token`/`password`/`key=`. Build arg duy nhất là `VITE_DESK_PHONE`: hotline công khai, có cả trên landing |
+| Tệp trong image (ngoài `node_modules`, migration) | Không có `.env*`, `*.pem`, `*.key`, `*.age`, `id_*`, `*.p12`, `*.sql`, `*.dump`, `*.kdbx` |
+| Chuỗi khóa trong `/app/dist`, `/srv` | Không có khóa riêng, `ghp_`/`github_pat_`, `AKIA…`, `sk_live_` |
+| Ngữ cảnh build | Checkout sạch trên CI. `.dockerignore` loại `.env*`, khóa, dump, `infra/demo/.work`/`.out` |
+| `-test` | Có `/app/dist/test-support`. Bản production không có (đúng BUG-R1-SEC-08) |
+
+- **Kết luận:** image chỉ chứa mã đã công khai trong repo, cộng phụ thuộc npm và chuỗi giao diện. Bí mật chỉ nạp lúc chạy (`.env`, `_FILE`). **Không có gì lộ.**
+
+#### E.10.2 Quyết định SEC
+
+1. **CHẤP NHẬN gói Public** cho cả `ottimo-api` và `ottimo-web`. Không phải xóa gói, không phải đổi tên. Rủi ro công khai image bằng rủi ro công khai mã nguồn, mà INV đã chấp nhận ở ESC-025. Điều kiện E.6 (2) "gói phải Private" **được thay** bằng E.10.
+2. **Tag `-test`: giữ, không cần xóa, được tiếp tục publish.**
+   - QA cần `-test` cho E2E đồng hồ giả trên staging (R5-04).
+   - Mã `test-support` vốn đã công khai trong repo, nên kẻ tấn công không lợi gì thêm từ image. Endpoint `/__test__` chỉ có khi **chính OTTIMO** chạy image này với `INCLUDE_TEST_SUPPORT=1`. `config.ts` từ chối cờ này và `TEST_SUPPORT_TOKEN` khi `APP_ENV=production`, và CI không chọn được tag `-test` (E.8).
+   - Điều kiện thêm, **trước production** (OPS): `deploy.sh` từ chối tag có hậu tố `-test` và `API_TAG_SUFFIX` khác rỗng khi `.env` có `APP_ENV=production`. Có test trong `infra-scripts`.
+3. **Bỏ bước `docker login` GHCR của INV trên VPS.** VPS kéo image công khai không cần token, nên không có token `read:packages` nằm trên VPS, bớt một bí mật phải giữ. OPS sửa `inv-staging-checklist.md` và README mục 8 cho khớp.
+4. **Quy tắc mới, vì mọi image đẩy lên là công khai ngay và không thu hồi được hoàn toàn:**
+   - (a) **Không bao giờ** đưa bí mật vào build arg, `ENV` hay `COPY` của Dockerfile. Mọi thay đổi `infra/docker/Dockerfile.*` và `.dockerignore` phải có SEC review.
+   - (b) **Trước production:** CI quét image vừa build trước khi push (`docker history` + danh sách tệp cấm như bảng E.10.1, hoặc gitleaks trên filesystem image). Có lỗi thì không push.
+   - (c) **Trước production:** production kéo image theo **digest** (`@sha256:…`) do CI ghi lại, không theo tag.
+   - (d) Lỡ đẩy nhầm bí mật: xóa phiên bản gói ngay **và coi bí mật đó đã lộ**, phải xoay khóa. Xóa gói không đủ.
+5. Nếu INV muốn image Private sau này (không bắt buộc theo SEC):
+   - đẩy sang **gói tên mới** tạo Private **trước** lần đẩy đầu, ví dụ tạo tay hoặc đẩy từ máy OPS với gói không liên kết repo, rồi sửa `owner/api`/`web` trong `ci.yml`;
+   - hoặc build trên VPS;
+   - hoặc dùng registry khác.
+
+   Cả ba đều tốn thêm việc mà không giảm rủi ro thật, nên SEC **không khuyến nghị** ở R2/R3.
+
+#### E.10.3 Điều kiện bật deploy staging sau E.10
+
+| # | Điều kiện | Thay đổi |
+|---|---|---|
+| D0 | Passphrase cho `ottimo_ops` trước `init-secrets.sh` (E.9) | Giữ nguyên |
+| D1 | Environment `staging` có người duyệt bắt buộc, chỉ nhánh `main`. 3 secret của environment, tạo sau khi có bảo vệ | Giữ nguyên |
+| D2 | Bản sửa R5-01 đã gộp, `infra-scripts` xanh | Giữ nguyên |
+| **D3** | **Đổi thành:** gói Public được chấp nhận (E.10.2); VPS **không** `docker login`; image đúng tag `sha-<commit>` đã kiểm như E.10.1 | **Đạt** với 3 tag hiện có |
+| D4 | Khóa CI riêng, có `restrict` | Giữ nguyên |
+| D5 | Staging chỉ có dữ liệu giả | Giữ nguyên |
+| D6 | SEC đọc log Actions ngay sau lượt deploy CI đầu (E.8.2) | Giữ nguyên |
+
+- **`PUBLISH_IMAGES` bật lại được ngay.** SEC không chặn.
+- **G2.5 không đổi:** 0 Critical/High. Không tạo ESC mới. Công khai image là hệ quả trực tiếp của ESC-025, INV đã quyết.

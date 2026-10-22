@@ -156,7 +156,7 @@ rm ~/.ssh/ottimo_ci_deploy
 - Dòng cuối xóa khóa riêng khỏi máy sau khi đã lưu lên GitHub.
 - Đội đối chiếu vân tay máy chủ trước khi anh/chị chạy dòng `ssh-keyscan`.
 
-### Bước 7. Token đọc image cho VPS
+### Bước 7. Token đọc image cho VPS – **BỎ** (SEC E.10, 22/10: gói công khai, VPS kéo không cần đăng nhập; token đã tạo thì xóa – `inv-github-steps.md` phần 3)
 GitHub → Settings (tài khoản) → Developer settings → Personal access tokens → Tokens (classic) → Generate:
 - chỉ tích quyền `read:packages`;
 - hạn 1 năm.
@@ -173,8 +173,7 @@ Lệnh chờ mà không hiện gì: dán token, bấm Enter, rồi bấm Ctrl-D.
 **8a. Khi đội báo (ngày đầu, cần image để deploy tay):**
 1. Variables cấp repo: thêm `PUBLISH_IMAGES` = `true`.
 2. **Ngay sau** lượt CI đầu tạo image, vào GitHub → Packages:
-   - kiểm `ottimo-api` và `ottimo-web` đang ở chế độ **Private**;
-   - nếu thấy Public, báo đội ngay, chưa làm bước tiếp theo. Gói đã Public thì không chuyển lại Private được, chỉ xóa đi rồi tạo lại.
+   - ~~kiểm Private~~ – thay bằng SEC E.10: gói **Public** được chấp nhận, không cần xóa.
 
 **8b. Chỉ khi đội báo đủ điều kiện D1–D5 của SEC (`reviews/s4-SEC.md` E.8). D6 kiểm ngay sau lượt đầu; không đạt thì tắt lại `STAGING_DEPLOY`:**
 
@@ -183,7 +182,7 @@ Lệnh chờ mà không hiện gì: dán token, bấm Enter, rồi bấm Ctrl-D.
 | D0 | Khóa SSH `ottimo_ops` trên máy anh/chị đã có mật khẩu bảo vệ (passphrase) – đặt bằng `ssh-keygen -p -f ~/.ssh/ottimo_ops`, rồi `ssh-add --apple-use-keychain ~/.ssh/ottimo_ops`. Phải xong trước khi đội cài khóa bí mật và đăng nhập kho ảnh trên VPS (SEC E.9) | Anh/chị |
 | D1 | Môi trường `staging` có anh/chị duyệt, chỉ `main`; 3 secret `STAGING_SSH_KEY`, `STAGING_SSH_KNOWN_HOSTS`, `STAGING_SSH_HOST` là secret của môi trường, tạo sau khi có người duyệt | Anh/chị (Bước 5, 6) |
 | D2 | Bản sửa "CI chỉ nhận một dòng tóm tắt" đã gộp, có kết quả test | Đội |
-| D3 | Gói `ottimo-api` và `ottimo-web` là Private | Anh/chị (8a) |
+| D3 | (SEC E.10) Gói Public được chấp nhận; VPS không `docker login`; image đúng tag `sha-<commit>` | Đội + SEC – Đạt |
 | D4 | Khóa CI trên VPS bị giới hạn chỉ lệnh deploy, khác khóa của người | Đội |
 | D5 | Staging chỉ có dữ liệu giả | Đội |
 | D6 | Sau lượt deploy đầu, SEC đọc log Actions: không có IP, đường dẫn, biến môi trường | SEC |

@@ -206,3 +206,95 @@ Kiểm chỉ đọc phía GitHub: `gh` trên máy này đăng nhập `anhvh93-te
 ### 9.4 Bước tiếp
 
 INV làm `inv-github-steps.md` phần 1–4 → push lên `main` tạo image → INV kiểm gói Private (D3) → OPS chạy `deploy.sh sha-…` (DB trống, BUG-R2-210) → kiểm chứng chỉ thật + smoke R5-03 → nạp DS-E (N2-2) → bật timer sao lưu, `backup.sh` tay, `restore-drill.sh` trên Mac bằng khóa ở `~/.ottimo/backup`. Sau đó phần 5–6 (khóa CI, `STAGING_DEPLOY`).
+
+## 10. Lượt 5 (22/10) – SEC E.10 và deploy staging lần đầu (R-5 ngày 1 bước 5 → ngày 2 bước 3–4)
+
+### 10.1 Theo SEC E.10 (gói GHCR Public được chấp nhận)
+
+- Thay **R5-02**: gói `ottimo-api`, `ottimo-web` Public là **được chấp nhận** (SEC E.10.2). D3 mới: Public + VPS **không** `docker login` + image đúng tag `sha-<commit>` → Đạt.
+- VPS kéo image **ẩn danh**. Không có token `read:packages` nào trên VPS. Đã kiểm: `~ottimo/.docker` không tồn tại.
+- Tài liệu đã sửa:
+  - `inv-github-steps.md`: phần 3 thành "xóa token đã tạo (nếu có)", phần 4 bỏ kiểm Private, bảng D3 cập nhật;
+  - `inv-staging-checklist.md`: Bước 7 bỏ, 8a và D3 theo E.10;
+  - `product/infra/server/README.md`: mục 0, 1, 5 (không đăng nhập GHCR), mục 8 (D0–D5, D6 sau lượt đầu).
+- Việc của OPS trước production (E.10.2 (2)(4)): `deploy.sh` từ chối tag `-test`/`API_TAG_SUFFIX` khi `APP_ENV=production`; quét image trước khi push; production kéo theo digest. **Chưa làm** (không chặn staging).
+
+### 10.2 Deploy tay lần đầu – `sha-4fd0651b7be3` (image production, không `-test`)
+
+Người dùng `ottimo`, `deploy.sh sha-4fd0651b7be3`, log VPS `state/manual-deploy-1.log` (0600).
+
+| Bước | Kết quả |
+|---|---|
+| BUG-R2-210 N1-3 | Trước deploy: 0 volume `ottimo_*`, chưa có `current_tag`. **DB trống**, không khôi phục dump nào |
+| Kéo image | Ẩn danh từ GHCR: đạt |
+| `02-roles.sh` | `ottimo_app limits verified` |
+| **Migration (bước riêng)** | Dịch vụ một lần `migrate` (`ottimo_migrator`) chạy **trước** api/worker. Dòng log: `migrations: 56 applied / 56 in the image journal` |
+| Đổi container | `postgres`, `api` healthy, `worker` running, `web` healthy |
+| Smoke trong `deploy.sh` | Đạt hết: `/health`; `rolconfig`; worker; blob volume chỉ ở api/worker; 3 tên miền qua Caddy với **chứng chỉ thật** (200, header khớp `expected-headers.sh`, `/health` 200 từ VPS, 4 probe 404); `/g/<token giả>` qua 443 và 308 qua 80; log Caddy không lộ token, query, header. Kết thúc `OK: sha-4fd0651b7be3 is live` (≈ 50 giây) |
+| Chứng chỉ | Let's Encrypt **thật** (`acme-v02`), cả 3 tên, hết hạn 20/01/2027, Caddy tự gia hạn |
+
+Một dòng `curl: (35) … tlsv1 alert internal error` trong log là lúc smoke gọi trước khi chứng chỉ cấp xong; `--retry` xử lý, không phải lỗi.
+
+### 10.3 Smoke từ máy ngoài (R5-03)
+
+| Kiểm | desk | staff | g |
+|---|---|---|---|
+| `https://…/` | 200, HTTP/2 | 200 | 200 |
+| HSTS `max-age=31536000; includeSubDomains`, CSP, `nosniff` | có | có | có |
+| Referrer-Policy | `same-origin` | `same-origin` | `no-referrer` |
+| Chứng chỉ | LE `YE2` | LE `YE2` | LE `YE1` |
+| `http://…/` | 308 → https | 308 | 308 |
+| `/health` từ Internet | 404 (đúng thiết kế, SEC OPS-12) | 404 | 404 |
+| `/.env`, `/blobs/x`, `/var/lib/ottimo/blobs/…`, `/assets/index.js.map` | 404 | 404 | 404 |
+
+- Cổng 5432, 3000, 2019, 8081 từ ngoài: đóng.
+- Đăng nhập thử `POST /v1/auth/login` (`qa.fd`, Origin desk): 200. Mật khẩu đọc từ tệp, không in ra.
+
+### 10.4 Dữ liệu giả (N2-2)
+
+- `dc --profile seed run --rm seed` trên DB vừa migrate từ 0000. Kết quả DS-E:
+  - 13 người dùng `qa.*`, 15 vai trò, 2 thiết bị, 10 căn, 3 nhóm phòng, 8 kênh, 142 tham số;
+  - dãy số chứng từ khớp (`OTM-00001`…).
+- **Không dữ liệu thật.**
+- Mật khẩu chung của `qa.*` + mã thiết bị: chỉ ở máy Mac, `~/.ottimo/staging/` (thư mục 0700, tệp 0600: `qa_seed_password.txt`, `ds-e.map.json`, `README.txt`). Ngoài repo, không in ra chat hay log. QA/PO/SEC nhận qua máy này.
+- Bộ dữ liệu **demo cho INV** (`infra/demo/seed-demo.mjs`: khách đang ở, booking hôm nay…) **chưa nạp**:
+  - nó cần image `-test` + đồng hồ giả ở pha 1 và tài khoản VietQR từ `.env` của INV;
+  - để theo thứ tự R5-04: SEC smoke → PO trên image production → OPS chuyển `-test` cho QA.
+
+### 10.5 Sao lưu + diễn tập khôi phục (SR-BAK-05)
+
+- Đã bật `ottimo-backup.timer` (03:30 giờ VN) và `ottimo-ops-check.timer` (30 phút).
+- `backup.sh` chạy tay: `OK: 3 encrypted files` (DB 655 KB, blobs, purge_journal + `.sha256`) ở `/var/backups/ottimo` (0700 `ottimo`).
+- `ops-check`: containers, J16, backup, disk 13 %, TLS đều `ok`. Lượt chạy đầu (ngay lúc bật timer, trước khi backup xong) báo một lần `backup FAIL: no successful backup recorded`, lượt sau `ok` – cảnh báo đổi trạng thái bình thường.
+- Diễn tập khôi phục **trên Mac**:
+  - chép 6 tệp `.age` về thư mục tạm;
+  - `age` chạy qua container tạm, vì Mac chưa cài; image api amd64 chạy giả lập trên arm64.
+
+```
+Bản sao lưu:            20261022T110801Z
+Image api:              ghcr.io/anhvh93-tech/ottimo-api:sha-4fd0651b7be3
+Kết quả:                ĐẠT – /health ok
+Thời gian khôi phục:    53 giây (giải mã + DB + tệp + khởi động api)
+Số tệp blob:            0
+purge_journal:          0 dòng
+Đếm bảng:               migrations 56 · properties 1 · users 13 · reservations 0 · guests 0 · data_keys_live 0 · purge_journal 0
+```
+
+Môi trường dùng một lần đã tự xóa. Bản `.age` chép về Mac đã xóa sau diễn tập.
+
+### 10.6 URL staging
+
+- Desk (lễ tân/quản lý, mọi vai đăng nhập ở đây): https://desk.staging.ottimo.vn
+- App nhân viên (PWA): https://staff.staging.ottimo.vn
+- Web khách: https://g.staging.ottimo.vn (trang gốc 200; nội dung cần link `/g/<token>`)
+
+### 10.7 Còn lại / rủi ro
+
+- **Phần 5–6 (khóa CI, `STAGING_DEPLOY`): chưa làm**, chờ INV. Sẵn sàng phía OPS:
+  - D0, D2, D3, D5 đạt;
+  - D4 làm ngay khi INV tạo khóa CI ở phần 5a: OPS chạy `bootstrap-vps.sh --ci-key`, đối chiếu vân tay host ed25519 trước khi INV chạy `ssh-keyscan`;
+  - D1 cần INV đặt 3 secret;
+  - D6 sau lượt CI đầu.
+- `deploy-history.log` hiện 1 dòng (`sha-4fd0651b7be3`). Chưa có tag trước để thử `rollback.sh` thật: thử ở lần deploy thứ 2.
+- R5-15 (không CAA), R5-16 (khóa `age` mới có 1 bản trên Mac – INV cất thêm): giữ nguyên.
+- Máy Mac là nơi duy nhất giữ khóa `age` **và** mật khẩu QA. Mất máy = mất khả năng giải mã sao lưu staging. Chấp nhận cho dữ liệu giả; trước dữ liệu thật phải có bản ngoại tuyến (hosting-plan 7, 8.1).
