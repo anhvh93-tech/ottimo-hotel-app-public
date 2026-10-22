@@ -28,4 +28,8 @@ regexes = [
   '''4111111111111111''',
   # 13-char fake POS auth code used to prove the TOO_LONG limit in the same test file.
   '''ABCDEF1234567''',
+  # Public container image tags `…/ottimo-api:sha-<commit>[-test]` in OPS staging notes (commit b9a97fa):
+  # the word "api" next to a hex commit id trips generic-api-key; a git commit id is not a secret.
+  # Allowlist regexes match the detected value, which here is the tag itself.
+  '''^sha-[0-9a-f]{7,40}(-test)?$''',
 ]
