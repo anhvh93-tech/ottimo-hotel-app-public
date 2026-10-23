@@ -86,8 +86,6 @@ export function LoginPage() {
       return <Navigate to="/change-password" replace state={location.state} />;
     if (session.enrollmentRequired)
       return <Navigate to="/enroll-2fa" replace state={location.state} />;
-    if (session.amr === 'recovery_code')
-      return <Navigate to="/security" replace state={{ recoveryUsed: true }} />;
     if (!session.property) return <Navigate to="/select-property" replace />;
     return <Navigate to={afterLogin()} replace />;
   }

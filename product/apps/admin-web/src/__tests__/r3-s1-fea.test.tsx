@@ -109,9 +109,9 @@ describe('US-143 sign-in step 2', () => {
     expect(dump).not.toMatch(/mfaToken/i);
   });
 
-  it('recovery code (any case, with dashes) → signed in, code spent, notice on "Xác thực 2 bước"', async () => {
-    const { recovery } = mockControl.enableMfa('qa.mgr');
-    const { user } = renderApp('/login');
+  it('recovery code (any case, with dashes) → restricted session → re-enroll on the new phone (ARC 12.3, AC3 a)', async () => {
+    const { recovery, secret: oldSecret } = mockControl.enableMfa('qa.mgr');
+    const { user } = renderApp('/settings/rooms');
     await signIn(user, 'qa.mgr');
     await user.click(await screen.findByRole('button', { name: tv('auth.totp.recovery') }));
     expect(screen.getByRole('heading', { name: tv('mfa.recovery_title') })).toBeInTheDocument();
@@ -120,9 +120,39 @@ describe('US-143 sign-in step 2', () => {
       formatRecoveryCode(recovery[0]!).toLowerCase(),
     );
     await user.click(screen.getByRole('button', { name: tv('mfa.recovery_submit') }));
-    expect(await screen.findByText(tv('mfa.recovery_used_title'))).toBeInTheDocument();
+    // Same enrollment screen, re-enroll wording; the API refuses everything else meanwhile.
+    expect(
+      await screen.findByRole('heading', { name: tv('mfa.reenroll_title') }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(tv('mfa.reenroll_lead'))).toBeInTheDocument();
     expect(userOf('qa.mgr').mfa!.recovery).toHaveLength(9);
-    expect(await screen.findByText(tv('mfa.codes_left', { n: 9 }))).toBeInTheDocument();
+    const res = await fetch('http://localhost/v1/properties/x/rooms');
+    expect((await res.json()).code).toBe('MFA_ENROLLMENT_REQUIRED');
+
+    await user.click(screen.getByRole('button', { name: tv('mfa.installed') }));
+    await user.type(screen.getByLabelText(label('auth.current_password')), MOCK_PASSWORD);
+    await user.click(screen.getByRole('button', { name: tv('mfa.enroll_start') }));
+    await screen.findByRole('img', { name: tv('mfa.qr_label') });
+    const secret = userOf('qa.mgr').mfa!.pending!.secret;
+    expect(secret).not.toBe(oldSecret);
+    await user.type(screen.getByLabelText(label('auth.enroll.confirm')), await totpNow(secret));
+    await user.click(screen.getByRole('button', { name: tv('auth.totp.submit') }));
+    await screen.findByRole('list', { name: tv('mfa.codes_list_label') });
+    // New secret, a whole new code set; the old codes are gone.
+    expect(userOf('qa.mgr').mfa!.secret).toBe(secret);
+    expect(userOf('qa.mgr').mfa!.recovery).toHaveLength(10);
+    expect(userOf('qa.mgr').mfa!.recovery).not.toContain(recovery[1]);
+    expect(mockControl.db.amr).toBe('totp');
+    await user.click(screen.getByRole('checkbox', { name: tv('mfa.codes_ack_apart') }));
+    await user.click(screen.getByRole('button', { name: tv('mfa.finish') }));
+    expect(await screen.findByRole('heading', { name: /Danh mục căn/ })).toBeInTheDocument();
+    // A full (totp) session may not start a setup while 2FA is on (12.3 b).
+    const again = await fetch('http://localhost/v1/me/2fa/setup', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-csrf-token': mockControl.db.csrf },
+      body: JSON.stringify({ currentPassword: MOCK_PASSWORD }),
+    });
+    expect(again.status).toBe(409);
   });
 
   it('5 wrong codes → the token is dead, back to the password step with a calm note', async () => {
@@ -335,6 +365,156 @@ describe('S2 dialog and "Xác thực 2 bước"', () => {
   it('recovery codes text file: title, note, 10 lines 4-4-4-4', () => {
     const txt = recoveryCodesText({ title: 'T', note: 'N' }, ['ABCDEFGHJKMNPQRS', 'x']);
     expect(txt.split('\n').slice(0, 4)).toEqual(['T', 'N', '', ' 1. ABCD-EFGH-JKMN-PQRS']);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------
+// FB-R3-SEC-FEA-01 – CỔNG S2 on the operations already built (BE-C 8712822 + ae836f7)
+// ---------------------------------------------------------------------------------------------------------
+describe('FEA-01: S2 on users, devices, password', () => {
+  const s2Label = () => label('reauth.s2_password_label');
+  const write = (method: string, path: string, body: unknown, extra: Record<string, string> = {}) =>
+    fetch(`http://localhost${path}`, {
+      method,
+      headers: {
+        'content-type': 'application/json',
+        'x-csrf-token': mockControl.db.csrf,
+        'idempotency-key': crypto.randomUUID(),
+        ...extra,
+      },
+      body: JSON.stringify(body),
+    });
+
+  it('MSW like the server: missing reauth → 422 STRONG_REAUTH_REQUIRED on the 6 operations', async () => {
+    mockControl.enableMfa('qa.owner');
+    mockControl.signInAs('qa.owner');
+    const fd = userOf('qa.fd');
+    const prop = fd.roles[0]!.propertyId;
+    const ifm = { 'if-match': `"${fd.version}"` };
+    const calls: Array<[string, string, unknown, Record<string, string>?]> = [
+      [
+        'POST',
+        '/v1/users',
+        { username: 'x.new', displayName: 'X', initialPassword: 'a'.repeat(12), roles: [] },
+      ],
+      ['PATCH', `/v1/users/${fd.id}`, { status: 'disabled' }, ifm],
+      ['PATCH', `/v1/users/${fd.id}`, { resetPassword: 'b'.repeat(12) }, ifm],
+      ['PUT', `/v1/users/${fd.id}/roles`, { roles: [{ propertyId: prop, role: 'manager' }] }, ifm],
+      [
+        'POST',
+        `/v1/properties/${prop}/trusted-devices/${mockControl.db.devices[0]!.id}/actions/revoke`,
+        {},
+      ],
+      [
+        'POST',
+        `/v1/properties/${prop}/trusted-devices`,
+        {
+          name: 'M',
+          deviceKind: 'desk',
+          currentPassword: MOCK_PASSWORD,
+          hardeningChecklistConfirmed: true,
+        },
+      ],
+      [
+        'POST',
+        '/v1/me/password',
+        { currentPassword: MOCK_PASSWORD, newPassword: 'mat-khau-moi-123' },
+      ],
+    ];
+    for (const [method, path, body, extra] of calls) {
+      const res = await write(method, path, body, extra);
+      expect(res.status, `${method} ${path}`).toBe(422);
+      const p = await res.json();
+      expect(p.errors[0].code, path).toBe('STRONG_REAUTH_REQUIRED');
+    }
+    // Display name alone needs no S2.
+    const ok = await write('PATCH', `/v1/users/${fd.id}`, { displayName: 'Hạnh B' }, ifm);
+    expect(ok.status).toBe(200);
+  });
+
+  it('owner with 2FA adds "Quản lý" → S2 dialog (password + code), roles sent with reauth', async () => {
+    const { secret } = mockControl.enableMfa('qa.owner');
+    const sent: unknown[] = [];
+    const on = ({ request }: { request: Request }) => {
+      if (/\/users\/[^/]+\/roles$/.test(request.url))
+        void request
+          .clone()
+          .json()
+          .then((b) => sent.push(b));
+    };
+    server.events.on('request:start', on);
+    const { user } = renderApp('/settings/users', 'qa.owner');
+    await user.click(await screen.findByRole('button', { name: 'Sửa vai: Hạnh' }));
+    const dlg = await screen.findByRole('dialog', { name: 'Vai của Hạnh' });
+    await user.click(within(dlg).getByRole('checkbox', { name: /^Quản lý/ }));
+    await user.click(within(dlg).getByRole('button', { name: 'Lưu vai' }));
+    const s2 = await screen.findByRole('dialog', { name: 'Đổi vai của Hạnh?' });
+    expect(within(s2).getByText(tv('reauth.s2_help'))).toBeInTheDocument();
+    await user.type(within(s2).getByLabelText(s2Label()), MOCK_PASSWORD);
+    await user.type(
+      within(s2).getByLabelText(label('auth.code_label.totp')),
+      await totpNow(secret),
+    );
+    await user.click(within(s2).getByRole('button', { name: 'Lưu vai' }));
+    expect(await screen.findByText('Đã lưu thay đổi cho Hạnh.')).toBeInTheDocument();
+    server.events.removeListener('request:start', on);
+    expect(sent[0]).toMatchObject({
+      reauth: { password: MOCK_PASSWORD, totpCode: expect.any(String) },
+    });
+    expect(userOf('qa.fd').roles.map((r) => r.role)).toContain('manager');
+  });
+
+  it('wrong code on lock → one sentence, dialog stays, nothing changed', async () => {
+    mockControl.enableMfa('qa.owner');
+    const { user } = renderApp('/settings/users', 'qa.owner');
+    const row = (await screen.findByText('qa.sal')).closest('tr')!;
+    await user.click(within(row).getByRole('button', { name: 'Khóa tài khoản' }));
+    const s2 = await screen.findByRole('dialog', { name: /Khóa tài khoản/ });
+    await user.type(within(s2).getByLabelText(s2Label()), MOCK_PASSWORD);
+    await user.type(within(s2).getByLabelText(label('auth.code_label.totp')), '000001');
+    await user.click(within(s2).getByRole('button', { name: 'Khóa tài khoản' }));
+    expect(await within(s2).findByText(tv('reauth.s2_failed'))).toBeInTheDocument();
+    expect(userOf('qa.sal').status).toBe('active');
+  });
+
+  it('change password with 2FA: code field, wrong code → one sentence, right code → saved', async () => {
+    const { secret } = mockControl.enableMfa('qa.owner');
+    const { user } = renderApp('/change-password', 'qa.owner');
+    const code = await screen.findByLabelText(label('auth.code_label.totp'));
+    await user.type(screen.getByLabelText(/Mật khẩu hiện tại/), MOCK_PASSWORD);
+    await user.type(screen.getByLabelText(/^Mật khẩu mới/), 'mat-khau-moi-123');
+    await user.type(screen.getByLabelText(/Nhập lại mật khẩu mới/), 'mat-khau-moi-123');
+    await user.type(code, '000001');
+    await user.click(screen.getByRole('button', { name: tv('pw.submit') }));
+    expect(await screen.findByText(tv('reauth.s2_failed'))).toBeInTheDocument();
+    expect(screen.getByLabelText(/Mật khẩu hiện tại/)).toHaveValue('');
+    await user.type(screen.getByLabelText(/Mật khẩu hiện tại/), MOCK_PASSWORD);
+    await user.type(screen.getByLabelText(label('auth.code_label.totp')), await totpNow(secret));
+    await user.click(screen.getByRole('button', { name: tv('pw.submit') }));
+    expect(await screen.findByText(tv('common.saved'))).toBeInTheDocument();
+  });
+
+  it('device grant with 2FA: recovery code accepted as the second factor', async () => {
+    const { recovery } = mockControl.enableMfa('qa.owner');
+    const { user } = renderApp('/settings/devices', 'qa.owner');
+    await user.type(await screen.findByLabelText(/Tên máy/), 'Máy quầy 2');
+    await user.click(screen.getByRole('checkbox', { name: 'Đội kỹ thuật đã kiểm máy này' }));
+    await user.type(screen.getByLabelText(/Nhập lại mật khẩu/), MOCK_PASSWORD);
+    await user.click(screen.getByRole('button', { name: tv('auth.totp.recovery') }));
+    await user.type(screen.getByLabelText(label('auth.code_label.recovery')), recovery[3]!);
+    await user.click(screen.getByRole('button', { name: 'Cấp quyền thiết bị này' }));
+    expect(await screen.findByText('Máy này đã được cấp quyền.')).toBeInTheDocument();
+    expect(userOf('qa.owner').mfa!.recovery).not.toContain(recovery[3]);
+  });
+
+  it('password change keeps its place before enrollment (SEC BEC-01 order)', async () => {
+    mockControl.db.mfaEnforced = true;
+    userOf('qa.mgr').mustChangePassword = true;
+    const { user } = renderApp('/login');
+    await signIn(user, 'qa.mgr');
+    expect(
+      await screen.findByRole('heading', { name: 'Đặt mật khẩu của bạn' }),
+    ).toBeInTheDocument();
   });
 });
 

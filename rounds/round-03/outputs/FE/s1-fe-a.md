@@ -145,3 +145,11 @@
   - `product/design/tools/gen_strings.py` và các tệp sinh ra: `copy/strings-vi.json`, `copy/strings-en.json`, `tools/strings-tables.md`, `wireframes/assets/strings.js`
   - `product/design/hifi/01-login.html` (một nhãn)
   - `01-decisions/decision-log.md`
+
+## 7. Phản hồi & sửa (23/10)
+
+Theo SEC `s1-SEC-on-2FA.md` và ARC mục 12.3. Chi tiết ở `rounds/round-03/responses/s1-FE-A.md`.
+
+- **FEA-01**: S2 gắn vào `updateUser` (status/resetPassword), `setUserRoles` (nâng lên owner/manager), `revokeTrustedDevice` bằng hộp dùng chung; `trustCurrentDevice`, `changeMyPassword` có ô mã riêng (`SecondFactorField`); `createUser` có endpoint (màn là của FE-B); MSW trả 422 `STRONG_REAUTH_REQUIRED` như server.
+- **G-FE-A-1 (mục 3) bỏ**: đăng nhập bằng mã khôi phục → phiên hạn chế → đăng ký lại trên màn `/enroll-2fa` ("Đăng ký lại trên điện thoại mới", chờ UXD).
+- **Kiểm**: admin-web 535/535.

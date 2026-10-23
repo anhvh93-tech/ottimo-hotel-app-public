@@ -85,6 +85,7 @@ export type My2fa = ResponseOf<'getMy2fa'>;
 export type My2faSetup = ResponseOf<'startMy2faSetup'>;
 export type RecoveryCodes = ResponseOf<'confirmMy2fa'>;
 export type ResetUser2faBody = BodyOf<'resetUser2fa'>;
+export type CreateUserBody = Schemas['UserCreate'] & { reauth: StrongReauth };
 export type ConfirmDepositBody = BodyOf<'confirmDeposit'>;
 export type CancelReservationBody = BodyOf<'cancelReservation'>;
 export type CancelReservationResult = ResponseOf<'cancelReservation'>;

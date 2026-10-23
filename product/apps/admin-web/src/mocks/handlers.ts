@@ -43,6 +43,7 @@ function recoveryCodes(): string[] {
     return Array.from(b, (x) => CROCKFORD[x % 32]).join('');
   });
 }
+const CP_FIELDS = { password: 'currentPassword', factor: 'totpCode' };
 const normRecovery = (c: string) => c.replace(/[\s-]/g, '').toUpperCase();
 
 const SESSION_KEY = 'ottimo.mock.session';
@@ -200,22 +201,28 @@ function reauthFailed(field: string) {
  * StrongReauth (S2 – SEC A.5, OpenAPI 0.3.8): missing factor → 422 STRONG_REAUTH_REQUIRED (not counted);
  * any wrong factor → the same 401 REAUTH_FAILED (`field` = `reauth`). TOTP replay refused per step.
  */
-export async function strongReauth(u: MockUser, raw: unknown): Promise<Response | null> {
+export async function strongReauth(
+  u: MockUser,
+  raw: unknown,
+  // Operations with their own fields (changeMyPassword, trustCurrentDevice): `currentPassword` + `totpCode`.
+  fields: { password: string; factor: string } = { password: 'reauth', factor: 'reauth.totpCode' },
+): Promise<Response | null> {
   const r = (raw ?? {}) as { password?: string; totpCode?: string; recoveryCode?: string };
   const m = u.mfa;
-  if (!r.password) return validation([{ field: 'reauth', code: 'STRONG_REAUTH_REQUIRED' }]);
+  // 422 before any password check (SEC review ca 11 (a)) – never counted.
+  if (!r.password) return validation([{ field: fields.password, code: 'STRONG_REAUTH_REQUIRED' }]);
   if (m?.secret && !r.totpCode && !r.recoveryCode)
-    return validation([{ field: 'reauth.totpCode', code: 'STRONG_REAUTH_REQUIRED' }]);
-  if (r.password !== MOCK_PASSWORD) return reauthFailed('reauth');
+    return validation([{ field: fields.factor, code: 'STRONG_REAUTH_REQUIRED' }]);
+  if (r.password !== MOCK_PASSWORD) return reauthFailed(fields.password);
   if (!m?.secret) return null;
   if (r.totpCode) {
     const step = await matchStep(m.secret, r.totpCode);
-    if (step === null || step <= (m.lastStep ?? -1)) return reauthFailed('reauth');
+    if (step === null || step <= (m.lastStep ?? -1)) return reauthFailed(fields.password);
     m.lastStep = step;
     return null;
   }
   const i = m.recovery.indexOf(normRecovery(r.recoveryCode!));
-  if (i < 0) return reauthFailed('reauth');
+  if (i < 0) return reauthFailed(fields.password);
   m.recovery.splice(i, 1);
   return null;
 }
@@ -532,7 +539,9 @@ export const handlers = [
     }
     db.mfaTokens.delete(body.mfaToken);
     db.sessionUserId = u.id;
-    db.enrollmentOnly = false;
+    // ARC 0.3.8 bổ sung 1 (12.3): a recovery code = the old phone is lost → restricted session for
+    // EVERYONE with 2FA, only re-enrollment until a new authenticator is confirmed (US-143 AC3 a).
+    db.enrollmentOnly = !body.totpCode;
     db.amr = body.totpCode ? 'totp' : 'recovery_code';
     db.csrf = `mock-csrf-${++csrfSeq}`;
     u.lastLoginAt = new Date().toISOString();
@@ -570,11 +579,16 @@ export const handlers = [
     if (isResponse(g)) return g;
     const body = (await request.json()) as { currentPassword?: string };
     if (body.currentPassword !== MOCK_PASSWORD) return reauthFailed('currentPassword');
-    if (g.user.mfa?.secret) return problem(409, 'INVALID_TRANSITION');
+    // 12.3 (b): 2FA on → only from a recovery-code session (re-enrollment); the old secret keeps working
+    // until the new one is confirmed.
+    const reenroll = !!g.user.mfa?.secret && db.amr === 'recovery_code';
+    if (g.user.mfa?.secret && !reenroll) return problem(409, 'INVALID_TRANSITION');
     // Every call = a NEW pending secret (SEC 06.9) – the previous QR stops working.
     const secret = randomBase32(32);
     const expiresAt = Date.now() + 10 * 60_000;
-    g.user.mfa = { recovery: [], pending: { secret, expiresAt } };
+    g.user.mfa = reenroll
+      ? { ...g.user.mfa!, pending: { secret, expiresAt } }
+      : { recovery: [], pending: { secret, expiresAt } };
     return HttpResponse.json(
       {
         otpauthUri: `otpauth://totp/OTTIMO:${encodeURIComponent(g.user.username)}?secret=${secret}&issuer=OTTIMO&algorithm=SHA1&digits=6&period=30`,
@@ -587,7 +601,8 @@ export const handlers = [
     const g = guard(request, 'any', { allowEnrollment: true });
     if (isResponse(g)) return g;
     const m = g.user.mfa;
-    if (m?.secret || !m?.pending || m.pending.expiresAt < Date.now())
+    const reenroll = !!m?.secret && db.amr === 'recovery_code';
+    if ((m?.secret && !reenroll) || !m?.pending || m.pending.expiresAt < Date.now())
       return problem(409, 'INVALID_TRANSITION');
     const body = (await request.json()) as { totpCode?: string };
     const step = await matchStep(m.pending.secret, String(body.totpCode ?? ''));
@@ -600,7 +615,9 @@ export const handlers = [
       enrolledAt: new Date().toISOString(),
     };
     // SEC 06.10: other sessions revoked, a NEW session for this client – new CSRF (reload getMe).
+    // Re-enrollment (12.3 c): the secret and the whole code set are replaced, session amr = totp.
     db.enrollmentOnly = false;
+    db.amr = 'totp';
     db.csrf = `mock-csrf-${++csrfSeq}`;
     return HttpResponse.json(
       { recoveryCodes: codes },
@@ -634,9 +651,16 @@ export const handlers = [
   http.post(`${base}/me/password`, async ({ request }) => {
     const g = guard(request, 'any', { allowPasswordChange: true });
     if (isResponse(g)) return g;
-    const body = (await request.json()) as { currentPassword?: string; newPassword?: string };
+    const body = (await request.json()) as {
+      currentPassword?: string;
+      newPassword?: string;
+      totpCode?: string;
+      recoveryCode?: string;
+    };
     // 0.3.4 Q4: wrong confirmation = field error inside 401 REAUTH_FAILED, NOT an expired session.
-    if (body.currentPassword !== MOCK_PASSWORD) return reauthFailed('currentPassword');
+    // 0.3.8 (SEC 06.25 – S2, BE-C 8712822): + totpCode / recoveryCode once 2FA is on.
+    const bad = await strongReauth(g.user, { ...body, password: body.currentPassword }, CP_FIELDS);
+    if (bad) return bad;
     if (!body.newPassword || body.newPassword.length < 10)
       return validation([{ field: 'newPassword', code: 'PASSWORD_TOO_SHORT' }]);
     if (body.newPassword === body.currentPassword || body.newPassword === g.user.username) {
@@ -884,8 +908,23 @@ export const handlers = [
     if (!u) return problem(404, 'NOT_FOUND');
     const g = guard(request, ['owner'], { ifMatch: u.version });
     if (isResponse(g)) return g;
-    const { roles } = (await request.json()) as { roles: MockUser['roles'] };
+    const { roles, reauth } = (await request.json()) as {
+      roles: MockUser['roles'];
+      reauth?: unknown;
+    };
     if (!roles?.length) return validation([{ field: 'roles', code: 'REQUIRED' }]);
+    // CỔNG S2 (BE-C ae836f7): only when the new list ADDS owner/manager (owner → manager is not one).
+    const had = new Set(u.roles.map((r) => `${r.propertyId}:${r.role}`));
+    const escalates = roles.some(
+      (r) =>
+        MFA_ROLES.includes(r.role) &&
+        !had.has(`${r.propertyId}:${r.role}`) &&
+        !(r.role === 'manager' && had.has(`${r.propertyId}:owner`)),
+    );
+    if (escalates) {
+      const bad = await strongReauth(g.user, reauth);
+      if (bad) return bad;
+    }
     const owners = db.users.filter((x) => x.status === 'active' && rolesOf(x).includes('owner'));
     if (
       rolesOf(u).includes('owner') &&
@@ -899,6 +938,36 @@ export const handlers = [
     if (db.sessionUserId === u.id && u.id !== g.user.id) db.sessionUserId = null;
     return HttpResponse.json(u);
   }),
+  // createUser (US-008 – S26 screen is FE-B's): always S2 (CỔNG, SEC 06.26).
+  http.post(`${base}/users`, async ({ request }) => {
+    const g = guard(request, ['owner']);
+    if (isResponse(g)) return g;
+    const body = (await request.json()) as {
+      username?: string;
+      displayName?: string;
+      initialPassword?: string;
+      roles?: MockUser['roles'];
+      reauth?: unknown;
+    };
+    const bad = await strongReauth(g.user, body.reauth);
+    if (bad) return bad;
+    const username = String(body.username ?? '')
+      .trim()
+      .toLowerCase();
+    if (!username || db.users.some((x) => x.username === username))
+      return validation([{ field: 'username', code: username ? 'DUPLICATE' : 'REQUIRED' }]);
+    const u: MockUser = {
+      id: `0192a1b0-0000-7000-8000-${String(900 + db.users.length).padStart(12, '0')}`,
+      username,
+      displayName: String(body.displayName ?? username),
+      status: 'active',
+      roles: body.roles ?? [],
+      version: 1,
+      mustChangePassword: true,
+    };
+    db.users.push(u);
+    return HttpResponse.json(omit(u, ['mustChangePassword']), { status: 201 });
+  }),
   http.patch(`${base}/users/:userId`, async ({ request, params }) => {
     const u = db.users.find((x) => x.id === params.userId);
     if (!u) return problem(404, 'NOT_FOUND');
@@ -908,9 +977,15 @@ export const handlers = [
       status?: 'active' | 'disabled';
       resetPassword?: string;
       displayName?: string;
+      reauth?: unknown;
     };
     if (body.status === 'disabled' && u.id === g.user.id)
       return validation([{ field: 'status', code: 'LAST_OWNER' }]);
+    // CỔNG S2: status / resetPassword on someone else (display name alone needs none).
+    if (u.id !== g.user.id && (body.status !== undefined || body.resetPassword !== undefined)) {
+      const bad = await strongReauth(g.user, body.reauth);
+      if (bad) return bad;
+    }
     if (body.resetPassword !== undefined && body.resetPassword.length < 10) {
       return validation([{ field: 'resetPassword', code: 'PASSWORD_TOO_SHORT' }]);
     }
@@ -931,9 +1006,13 @@ export const handlers = [
       name?: string;
       deviceKind?: string;
       currentPassword?: string;
+      totpCode?: string;
+      recoveryCode?: string;
       hardeningChecklistConfirmed?: boolean;
     };
-    if (body.currentPassword !== MOCK_PASSWORD) return reauthFailed('currentPassword');
+    // SR-DEV-02 at level S2 (0.3.8, SEC 06.27): + totpCode / recoveryCode once 2FA is on.
+    const bad = await strongReauth(g.user, { ...body, password: body.currentPassword }, CP_FIELDS);
+    if (bad) return bad;
     if (!body.hardeningChecklistConfirmed)
       return validation([{ field: 'hardeningChecklistConfirmed', code: 'CHECKLIST_REQUIRED' }]);
     if (db.devices.some((d) => !d.revokedAt && d.name === body.name))
@@ -954,11 +1033,15 @@ export const handlers = [
     db.currentDeviceTrusted = true;
     return HttpResponse.json(device, { status: 201 });
   }),
-  http.post(`${prop}/trusted-devices/:deviceId/actions/revoke`, ({ request, params }) => {
+  http.post(`${prop}/trusted-devices/:deviceId/actions/revoke`, async ({ request, params }) => {
     const g = guard(request, ['owner']);
     if (isResponse(g)) return g;
     const d = db.devices.find((x) => x.id === params.deviceId);
     if (!d) return problem(404, 'NOT_FOUND');
+    // CỔNG S2 (SEC 06.27).
+    const { reauth } = ((await request.json().catch(() => ({}))) ?? {}) as { reauth?: unknown };
+    const bad = await strongReauth(g.user, reauth);
+    if (bad) return bad;
     d.revokedAt = new Date().toISOString();
     if (d.isCurrentDevice) db.currentDeviceTrusted = false;
     return HttpResponse.json(d);

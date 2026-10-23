@@ -3,6 +3,7 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Field, Modal } from '@ottimo/ui';
 import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { problemView } from '../app/problem';
+import { SecondFactorField } from './SecondFactorField';
 import { normalizeRecoveryCode, normalizeTotp } from '../pages/MfaStep';
 import { useSession } from '../session/SessionProvider';
 
@@ -155,38 +156,17 @@ function StrongReauthInner({
           )}
         </Field>
         {hasMfa ? (
-          <>
-            <Field
-              label={t(useRecovery ? 'auth.code_label.recovery' : 'auth.code_label.totp')}
-              required
-              error={errors.code}
-            >
-              {(p) => (
-                <input
-                  {...p}
-                  className={useRecovery ? 'input mono' : 'input code-input'}
-                  name={useRecovery ? 'recoveryCode' : 'totpCode'}
-                  inputMode={useRecovery ? 'text' : 'numeric'}
-                  autoComplete="one-time-code"
-                  spellCheck={false}
-                  maxLength={useRecovery ? 24 : 9}
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                />
-              )}
-            </Field>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setUseRecovery((v) => !v);
-                setCode('');
-                setErrors({});
-              }}
-            >
-              {t(useRecovery ? 'mfa.use_totp' : 'auth.totp.recovery')}
-            </Button>
-          </>
+          <SecondFactorField
+            value={code}
+            onChange={setCode}
+            useRecovery={useRecovery}
+            error={errors.code}
+            onToggle={() => {
+              setUseRecovery((v) => !v);
+              setCode('');
+              setErrors({});
+            }}
+          />
         ) : null}
       </form>
     </Modal>

@@ -49,11 +49,17 @@ export function Enroll2faPage() {
   const wasForced = useRef(false);
   if (session.enrollmentRequired) wasForced.current = true;
   const forced = wasForced.current;
+  // ARC 0.3.8 bổ sung 1 (12.3): signed in with a recovery code → restricted session with 2FA still on →
+  // re-enroll on the new phone (US-143 AC3 a). Latched like `forced`.
+  const wasReenroll = useRef(false);
+  if (session.enrollmentRequired && session.me?.mfaEnabled) wasReenroll.current = true;
+  const reenroll = wasReenroll.current;
 
   if (session.status === 'loading') return null;
   if (session.status === 'anonymous') return <Navigate to="/login" replace />;
   // Already on and no fresh codes to show → nothing to do here.
-  if (session.me?.mfaEnabled && !codes) return <Navigate to="/security" replace />;
+  if (session.me?.mfaEnabled && !codes && !session.enrollmentRequired)
+    return <Navigate to="/security" replace />;
 
   const start = async (e: FormEvent) => {
     e.preventDefault();
@@ -102,6 +108,7 @@ export function Enroll2faPage() {
       setStep('codes');
       // New session (SEC 06.10): reload Me for the new CSRF token; the restricted mode is over.
       await session.refresh().catch(() => undefined);
+      session.clearAmr();
     } catch (err) {
       setCode('');
       if (isApiError(err) && err.code === 'VALIDATION_FAILED') {
@@ -111,7 +118,8 @@ export function Enroll2faPage() {
         // The pending secret expired / was replaced, or 2FA is already on (lost answer).
         const me = await session.refresh().catch(() => null);
         setSetup(null);
-        setBanner({ tone: 'info', text: t(me?.mfaEnabled ? 'mfa.already_on' : 'mfa.qr_expired') });
+        const on = me?.mfaEnabled && !me.mfaEnrollmentRequired;
+        setBanner({ tone: 'info', text: t(on ? 'mfa.already_on' : 'mfa.qr_expired') });
       } else {
         setBanner({ tone: 'bad', text: problemView(t, err).text });
       }
@@ -143,10 +151,10 @@ export function Enroll2faPage() {
             </li>
           ))}
         </ol>
-        <h2 id="enroll-h">{t('auth.enroll.title')}</h2>
+        <h2 id="enroll-h">{t(reenroll ? 'mfa.reenroll_title' : 'auth.enroll.title')}</h2>
         {forced ? (
           <Alert tone="info" icon="shield" role="status">
-            {t('mfa.enroll_required')}
+            {t(reenroll ? 'mfa.reenroll_lead' : 'mfa.enroll_required')}
           </Alert>
         ) : null}
         {!online ? (
@@ -157,7 +165,7 @@ export function Enroll2faPage() {
         {banner ? (
           <Alert tone={banner.tone} role={banner.tone === 'bad' ? 'alert' : 'status'}>
             {banner.text}
-            {session.me?.mfaEnabled && !codes ? (
+            {session.me?.mfaEnabled && !session.enrollmentRequired && !codes ? (
               <div>
                 <Link to="/security">{t('shell.security')}</Link>
               </div>

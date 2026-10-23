@@ -1,12 +1,19 @@
-import { isApiError, newIdempotencyKey, type TrustedDevice } from '@ottimo/api-client';
+import {
+  isApiError,
+  newIdempotencyKey,
+  type StrongReauth,
+  type TrustedDevice,
+} from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Alert, Button, Checkbox, Chip, ConfirmDialog, Field, Seg } from '@ottimo/ui';
+import { Alert, Button, Checkbox, Chip, Field, Seg } from '@ottimo/ui';
 import { useId, useRef, useState, type FormEvent } from 'react';
 import { api } from '../app/api';
 import { fieldErrors, problemView } from '../app/problem';
 import { useToast } from '../app/toast';
 import { Page, Topbar } from '../components/AppShell';
+import { SecondFactorField, secondFactor } from '../components/SecondFactorField';
 import { ErrorBlock, LoadingBlock } from '../components/states';
+import { isStrongReauthError, StrongReauthDialog } from '../components/StrongReauthDialog';
 import { useOnline } from '../hooks/useOnline';
 import { useResource } from '../hooks/useResource';
 import { usePropertyId, useSession } from '../session/SessionProvider';
@@ -45,6 +52,10 @@ export function DevicesPage() {
   const [checks, setChecks] = useState<Record<string, boolean>>({});
   const [opsChecked, setOpsChecked] = useState(false);
   const [password, setPassword] = useState('');
+  // S2 (0.3.8, SEC 06.27): + TOTP / recovery code once the owner has 2FA (BE-C 8712822).
+  const hasMfa = session.me?.mfaEnabled === true;
+  const [factor, setFactor] = useState('');
+  const [useRecovery, setUseRecovery] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -61,6 +72,8 @@ export function DevicesPage() {
     if (!name.trim()) errs.name = t('common.required');
     else if (name.trim().length > 80) errs.name = t('field_error.too_long', { max: 80 });
     if (!password) errs.currentPassword = t('common.required');
+    const second = secondFactor(factor, useRecovery);
+    if (hasMfa && !second.totpCode && !second.recoveryCode) errs.factor = t('common.required');
     if (missing > 0) errs.checklist = t('field_error.checklist_required');
     setErrors(errs);
     if (Object.keys(errs).length) return;
@@ -73,19 +86,26 @@ export function DevicesPage() {
           name: name.trim(),
           deviceKind: kind,
           currentPassword: password,
+          ...(hasMfa ? second : {}),
           hardeningChecklistConfirmed: true,
         },
         idem.current,
       );
       toast(t('device.granted', { device: data.name }));
       setPassword('');
+      setFactor('');
       idem.current = newIdempotencyKey();
       await session.refresh();
       list.reload();
     } catch (err) {
       setPassword('');
+      setFactor('');
       if (isApiError(err) && err.code === 'REAUTH_FAILED') {
-        setErrors({ currentPassword: t('field_error.current_password_wrong') });
+        // With 2FA one sentence for both factors (SEC 06.20); without, the password field as before.
+        if (hasMfa) setBanner(t('reauth.s2_failed'));
+        else setErrors({ currentPassword: t('field_error.current_password_wrong') });
+      } else if (isStrongReauthError(err)) {
+        setErrors({ factor: t('common.required') });
       } else if (isApiError(err) && err.code === 'VALIDATION_FAILED') {
         setErrors(fieldErrors(t, err, { value: name.trim() }));
       } else {
@@ -96,13 +116,14 @@ export function DevicesPage() {
     }
   };
 
-  const revoke = async () => {
+  /** S2 (CỔNG, SEC 06.27): a wrong/missing factor stays in the dialog; anything else closes it. */
+  const revoke = async (reauth: StrongReauth) => {
     if (!revoking) return;
-    setBusy(true);
     try {
       await api.revokeTrustedDevice(
         { propertyId, deviceId: revoking.id },
         reason.trim() || undefined,
+        reauth,
         newIdempotencyKey(),
       );
       toast(t('device.revoked', { device: revoking.name }));
@@ -111,10 +132,9 @@ export function DevicesPage() {
       setReason('');
       list.reload();
     } catch (err) {
+      if (isStrongReauthError(err)) throw err;
       setBanner(problemView(t, err).text);
       setRevoking(null);
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -220,6 +240,20 @@ export function DevicesPage() {
                   />
                 )}
               </Field>
+              {hasMfa ? (
+                <div>
+                  <SecondFactorField
+                    value={factor}
+                    onChange={setFactor}
+                    useRecovery={useRecovery}
+                    error={errors.factor}
+                    onToggle={() => {
+                      setUseRecovery((v) => !v);
+                      setFactor('');
+                    }}
+                  />
+                </div>
+              ) : null}
               <div style={{ alignSelf: 'end', marginBottom: 14 }}>
                 <Button
                   type="submit"
@@ -324,18 +358,18 @@ export function DevicesPage() {
         )}
       </Page>
       {revoking ? (
-        <ConfirmDialog
+        <StrongReauthDialog
+          open
           title={t('device.revoke_title', { device: revoking.name })}
-          body={t('device.revoke_body', { device: revoking.name })}
-          keepLabel={t('confirm.keep')}
           confirmLabel={t('device.revoke')}
-          busy={busy}
-          onKeep={() => {
+          danger
+          onClose={() => {
             setRevoking(null);
             setReason('');
           }}
-          onConfirm={() => void revoke()}
+          onConfirm={revoke}
         >
+          <p style={{ marginTop: 0 }}>{t('device.revoke_body', { device: revoking.name })}</p>
           <Field label={t('device.revoke_reason')}>
             {(p) => (
               <input
@@ -347,7 +381,7 @@ export function DevicesPage() {
               />
             )}
           </Field>
-        </ConfirmDialog>
+        </StrongReauthDialog>
       ) : null}
     </>
   );

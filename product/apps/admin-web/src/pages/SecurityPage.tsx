@@ -1,7 +1,7 @@
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip } from '@ottimo/ui';
-import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../app/api';
 import { Page, Topbar } from '../components/AppShell';
 import { RecoveryCodesPanel } from '../components/RecoveryCodes';
@@ -22,20 +22,10 @@ export const RECOVERY_LOW = 3;
 export function SecurityPage() {
   const { t, dateTime } = useI18n();
   const session = useSession();
-  const location = useLocation();
   const navigate = useNavigate();
-  const recoveryUsed = useRef(
-    (location.state as { recoveryUsed?: boolean } | null)?.recoveryUsed === true ||
-      session.amr === 'recovery_code',
-  ).current;
   const { state, reload } = useResource(() => api.getMy2fa().then((r) => r.data), []);
   const [dialog, setDialog] = useState<'regen' | 'disable' | null>(null);
   const [codes, setCodes] = useState<string[] | null>(null);
-  const { clearAmr } = session;
-
-  useEffect(() => {
-    if (session.amr === 'recovery_code') clearAmr();
-  }, [session.amr, clearAmr]);
 
   const s = state.data;
   return (
@@ -43,11 +33,6 @@ export function SecurityPage() {
       <Topbar title={t('shell.security')} />
       <Page>
         <div className="stack" style={{ maxWidth: 640 }}>
-          {recoveryUsed ? (
-            <Alert tone="warn" title={t('mfa.recovery_used_title')}>
-              {t('mfa.recovery_used_body')}
-            </Alert>
-          ) : null}
           {state.status === 'error' && !s ? (
             <ErrorBlock titleKey="shell.security" error={state.error} onRetry={reload} />
           ) : !s ? (
