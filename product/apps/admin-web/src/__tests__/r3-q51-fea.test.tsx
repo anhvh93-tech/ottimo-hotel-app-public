@@ -9,6 +9,7 @@ import { totpNow } from '../mocks/totp';
 import { http, HttpResponse } from 'msw';
 import { napasName, reasonHasAccountNumber } from '../pages/ReceivingAccount';
 import { renderApp, tv } from '../test/render';
+import { pinDaytime } from '../test/clock';
 
 /**
  * R3-Q51 – "Tài khoản nhận chuyển khoản (VietQR)" (SEC mục C Q51-1…Q51-8, OpenAPI 0.3.8 R3-Q51) on the
@@ -69,6 +70,7 @@ describe('R3-Q51 receiving account', () => {
   });
 
   it('typed twice, NAPAS name, review with •••• last 4, S2 (password) → scheduled from tomorrow; no full number shown or stored', async () => {
+    pinDaytime(); // not a BR-010 night case – see test/clock.ts
     const cap = capture(/parameters\/payment_receiving_account$/);
     const { user } = renderApp('/settings/parameters', 'qa.owner');
     const dlg = await openForm(user);
@@ -151,6 +153,7 @@ describe('R3-Q51 receiving account', () => {
   });
 
   it('effective today is refused on the client; the server says EFFECTIVE_FROM_TOMORROW too', async () => {
+    pinDaytime(); // not a BR-010 night case – see test/clock.ts
     const { user } = renderApp('/settings/parameters', 'qa.owner');
     const dlg = await openForm(user);
     await fill(user, dlg);

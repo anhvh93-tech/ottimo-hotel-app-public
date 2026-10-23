@@ -4,6 +4,7 @@ import { todayLocal } from '../app/dates';
 import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { renderApp, tv } from '../test/render';
+import { pinDaytime } from '../test/clock';
 
 type User = ReturnType<typeof renderApp>['user'];
 
@@ -196,6 +197,7 @@ describe('H09 Đặt phòng mới (US-017, US-018, US-019, US-139)', () => {
   // Deterministic: let the default 1-night quote land, then change the stay → the box keeps the old deposit.
   // Fixed (FE-B 23/10): the box follows the newest quote until the desk types in it.
   it('BUG-R3-005: received amount follows the newest quote until the desk edits it', async () => {
+    pinDaytime(); // not a BR-010 night case – see test/clock.ts
     const { user } = renderApp('/rack', 'qa.fd');
     const dlg = await openForm(user);
     const room = within(dlg).getByLabelText(/^Căn/);
@@ -220,6 +222,7 @@ describe('H09 Đặt phòng mới (US-017, US-018, US-019, US-139)', () => {
   });
 
   it('BUG-R3-005: an amount the desk typed is never overwritten – a mismatch warning shows instead', async () => {
+    pinDaytime(); // not a BR-010 night case – see test/clock.ts
     const { user } = renderApp('/rack', 'qa.fd');
     const dlg = await openForm(user);
     const room = within(dlg).getByLabelText(/^Căn/);
