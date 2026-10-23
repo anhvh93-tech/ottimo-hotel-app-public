@@ -73,6 +73,22 @@ export function parameterReauth(r: StrongReauth): ParameterReauth {
 
 const valueOf = (p: Parameter) => p.value as ReceivingValue;
 
+/**
+ * SEC FB-R3-SEC-Q51-01 (BE-B cf0ce2f): no account number in the reason – a run of ≥ 6 digits (groups split
+ * by spaces count as one run) or the number just typed → `422 reason ACCOUNT_NUMBER_NOT_ALLOWED`. Checked
+ * here first so the S2 code is not spent on a refused request; ISO dates (2030-03-21) stay allowed.
+ */
+export function reasonHasAccountNumber(reason: string, accountNo?: string): boolean {
+  const joined = reason.replace(/(\d)\s+(?=\d)/g, '$1');
+  if (/\d{6,}/.test(joined)) return true;
+  return !!accountNo && joined.includes(accountNo);
+}
+
+/** Server field error of the reason (`ACCOUNT_NUMBER_NOT_ALLOWED`) – shown under the reason field. */
+function reasonServerError(err: unknown): boolean {
+  return isApiError(err) && err.fieldErrors.some((f) => f.code === 'ACCOUNT_NUMBER_NOT_ALLOWED');
+}
+
 function AccountLine({ v }: { v: ReceivingValue }) {
   const { t } = useI18n();
   return (
@@ -139,14 +155,28 @@ export function ReceivingAccountSection() {
             <tbody>
               <tr>
                 <td>
-                  <Chip tone="ok" icon="check">
+                  <Chip
+                    tone={data.current ? 'ok' : 'neutral'}
+                    icon={data.current ? 'check' : 'clock'}
+                  >
                     {t('rcv.in_use')}
                   </Chip>
                 </td>
-                <td>
-                  <AccountLine v={valueOf(data.current)} />
-                </td>
-                <td>{t('rcv.from', { date: date(data.current.effectiveFrom) })}</td>
+                {data.current ? (
+                  <>
+                    <td>
+                      <AccountLine v={valueOf(data.current)} />
+                    </td>
+                    <td>{t('rcv.from', { date: date(data.current.effectiveFrom) })}</td>
+                  </>
+                ) : (
+                  // 0.3.8 bổ sung 2 (ARC Q51-01): first account only scheduled – 200 without `current`.
+                  <td colSpan={2}>
+                    {t('rcv.none_in_use', {
+                      date: scheduled[0] ? date(scheduled[0].effectiveFrom) : '–',
+                    })}
+                  </td>
+                )}
                 <td />
               </tr>
               {scheduled.map((h) => (
@@ -232,6 +262,11 @@ function CancelScheduledDialog({
           setReasonError(t('field_error.reason_required'));
           return;
         }
+        if (reasonHasAccountNumber(reason)) {
+          setReasonError(t('rcv.reason_no_account'));
+          return;
+        }
+        setReasonError(undefined);
         try {
           await api.cancelScheduledParameter(
             { propertyId, key: RECEIVING_KEY },
@@ -245,7 +280,8 @@ function CancelScheduledDialog({
           onDone();
         } catch (err) {
           if (isStrongReauthError(err)) throw err;
-          setBanner(problemView(t, err).text);
+          if (reasonServerError(err)) setReasonError(t('rcv.reason_no_account'));
+          else setBanner(problemView(t, err).text);
         }
       }}
     >
@@ -253,7 +289,7 @@ function CancelScheduledDialog({
       <AccountLine v={valueOf(row)} />
       <p className="li-s">{t('rcv.from', { date: date(row.effectiveFrom) })}</p>
       {banner ? <Alert tone="bad">{banner}</Alert> : null}
-      <Field label={t('rcv.reason')} required error={reasonError}>
+      <Field label={t('rcv.reason')} required error={reasonError} help={t('rcv.reason_help')}>
         {(p) => (
           <input
             {...p}
@@ -318,6 +354,7 @@ function ReceivingAccountDialog({
     if (!d.effectiveFrom || d.effectiveFrom < earliest)
       e.effectiveFrom = t('rcv.effective_min', { date: date(earliest) });
     if (d.reason.trim().length < 3) e.reason = t('field_error.reason_required');
+    else if (reasonHasAccountNumber(d.reason, d.accountNo)) e.reason = t('rcv.reason_no_account');
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -344,6 +381,8 @@ function ReceivingAccountDialog({
       setStep('form');
       if (isApiError(err) && err.fieldErrors.some((f) => f.code === 'EFFECTIVE_FROM_TOMORROW')) {
         setErrors({ effectiveFrom: t('rcv.effective_min', { date: date(earliest) }) });
+      } else if (reasonServerError(err)) {
+        setErrors({ reason: t('rcv.reason_no_account') });
       } else {
         setBanner(problemView(t, err).text);
       }
@@ -483,7 +522,7 @@ function ReceivingAccountDialog({
               />
             )}
           </Field>
-          <Field label={t('rcv.reason')} required error={errors.reason}>
+          <Field label={t('rcv.reason')} required error={errors.reason} help={t('rcv.reason_help')}>
             {(p) => (
               <input
                 {...p}

@@ -3287,6 +3287,9 @@ g("R3 Sprint 1 – FE-A R3-Q51: tài khoản nhận chuyển khoản VietQR (ch�
     ("rcv.cancelled", "Đã hủy lịch đổi tài khoản nhận.", "The scheduled change was cancelled."),
     ("rcv.verify_hint", "Muốn đối chiếu số đầy đủ: tạo một mã VietQR nhỏ và quét thử bằng ứng dụng ngân hàng của bạn.", "To check the full number, create a small VietQR code and scan it with your own banking app.", None, "SEC Q51-8 – không có nút xem đủ số"),
     ("rcv.masked_label", "Số tài khoản (che)", "Account number (masked)"),
+    ("rcv.none_in_use", "Chưa có tài khoản đang dùng – tài khoản dưới đây có hiệu lực từ {date}.", "No account in use yet – the account below takes effect on {date}.", None, "ARC 0.3.8 bổ sung 2 (FB-R3-ARC-Q51-01): getParameterHistory 200 không có current, chỉ có dòng đã lên lịch"),
+    ("rcv.reason_help", "Không ghi số tài khoản vào lý do.", "Don't put the account number in the reason.", None, "SEC FB-R3-SEC-Q51-01 – gợi ý dưới ô lý do (đặt và hủy)"),
+    ("rcv.reason_no_account", "Lý do không được chứa số tài khoản hoặc dãy từ 6 chữ số trở lên.", "The reason can't contain an account number or a run of 6 or more digits.", None, "422 reason ACCOUNT_NUMBER_NOT_ALLOWED (BE-B cf0ce2f); Desk kiểm trước khi gửi"),
 ])
 
 TEMPLATES = [

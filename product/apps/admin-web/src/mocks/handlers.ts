@@ -343,6 +343,11 @@ interface ReceivingRow {
   reason: string;
 }
 const RECEIVING_KEY = 'payment_receiving_account';
+/** Like the server (BE-B cf0ce2f): ≥ 6 digits in a run (space-separated groups joined) or the number sent. */
+function reasonHasAccountNo(reason: string, accountNo?: string): boolean {
+  const joined = reason.replace(/(\d)\s+(?=\d)/g, '$1');
+  return /\d{6,}/.test(joined) || (!!accountNo && joined.includes(accountNo));
+}
 /** Small static NAPAS table like the server's (0.3.8: unknown BIN → no bankName). */
 const MOCK_BANKS: Record<string, string> = {
   '970407': 'Techcombank',
@@ -799,8 +804,12 @@ export const handlers = [
     const today = businessDayLocal();
     const rows = [...db.receiving].sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
     const cur = rows.find((r) => r.effectiveFrom <= today);
-    if (!cur) return problem(404, 'NOT_FOUND');
-    return HttpResponse.json({ current: receivingView(cur), history: rows.map(receivingView) });
+    // 0.3.8 bổ sung 2 (ARC Q51-01): 404 only when there is no row at all; scheduled-only → 200, no `current`.
+    if (!rows.length) return problem(404, 'NOT_FOUND');
+    return HttpResponse.json({
+      ...(cur ? { current: receivingView(cur) } : {}),
+      history: rows.map(receivingView),
+    });
   }),
   http.put(`${prop}/parameters/${RECEIVING_KEY}`, async ({ request }) => {
     const g = guard(request, ['owner']);
@@ -811,6 +820,13 @@ export const handlers = [
       reason?: string;
       reauth?: { authMethod?: string; secret?: string; totpCode?: string; recoveryCode?: string };
     };
+    if (
+      reasonHasAccountNo(
+        String(body.reason ?? ''),
+        (body as { value?: { accountNo?: string } }).value?.accountNo,
+      )
+    )
+      return validation([{ field: 'reason', code: 'ACCOUNT_NUMBER_NOT_ALLOWED' }]);
     if (!body.reauth) return validation([{ field: 'reauth', code: 'REQUIRED' }]);
     const bad = await strongReauth(
       g.user,
@@ -863,6 +879,13 @@ export const handlers = [
       reason?: string;
       reauth?: { secret?: string; totpCode?: string; recoveryCode?: string };
     };
+    if (
+      reasonHasAccountNo(
+        String(body.reason ?? ''),
+        (body as { value?: { accountNo?: string } }).value?.accountNo,
+      )
+    )
+      return validation([{ field: 'reason', code: 'ACCOUNT_NUMBER_NOT_ALLOWED' }]);
     if (!body.reauth) return validation([{ field: 'reauth', code: 'REQUIRED' }]);
     const bad = await strongReauth(
       g.user,

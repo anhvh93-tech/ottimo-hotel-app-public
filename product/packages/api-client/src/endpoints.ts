@@ -241,7 +241,7 @@ export function createEndpoints(api: ApiClient) {
         query: asOf ? { asOf } : undefined,
       }),
     getParameterHistory: ({ propertyId, key }: P & { key: string }) =>
-      r<{ current: Parameter; history: Parameter[] }>(
+      r<{ current?: Parameter; history: Parameter[] }>(
         'GET',
         '/v1/properties/{propertyId}/parameters/{key}',
         { path: { propertyId, key } },

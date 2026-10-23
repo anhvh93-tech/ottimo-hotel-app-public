@@ -6,7 +6,8 @@ import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { MOCK_PASSWORD } from '../mocks/seed';
 import { totpNow } from '../mocks/totp';
-import { napasName } from '../pages/ReceivingAccount';
+import { http, HttpResponse } from 'msw';
+import { napasName, reasonHasAccountNumber } from '../pages/ReceivingAccount';
 import { renderApp, tv } from '../test/render';
 
 /**
@@ -218,5 +219,128 @@ describe('R3-Q51 receiving account', () => {
 
   it('napasName strips Vietnamese marks and Đ, uppercases', () => {
     expect(napasName('nguyễn  thị đào')).toBe('NGUYEN THI DAO');
+  });
+
+  // ---- ARC 0.3.8 bổ sung 2 (FB-R3-ARC-Q51-01) + SEC FB-R3-SEC-Q51-01 ----
+  const dmy = (iso: string) => iso.split('-').reverse().join('/');
+  const propPath = () =>
+    `http://localhost/v1/properties/${mockControl.db.users[0]!.roles[0]!.propertyId}/parameters/payment_receiving_account`;
+
+  it('first account only scheduled → "Đang dùng" says none yet, the scheduled row keeps its Cancel; after cancel → not configured', async () => {
+    const from = addDays(D, 1);
+    mockControl.db.receiving = [
+      {
+        bankBin: '970436',
+        accountNo: '0123456789123',
+        accountName: 'OTTIMO FIRST',
+        effectiveFrom: from,
+        changedBy: 'Chủ đầu tư',
+        changedAt: new Date().toISOString(),
+        reason: 'Lần đầu',
+      },
+    ];
+    mockControl.signInAs('qa.owner');
+    const res = await fetch(propPath());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).not.toHaveProperty('current');
+    expect(body.history).toHaveLength(1);
+
+    const { user } = renderApp('/settings/parameters', 'qa.owner');
+    const section = await screen.findByRole('region', { name: tv('rcv.title') });
+    expect(
+      await within(section).findByText(tv('rcv.none_in_use', { date: dmy(from) })),
+    ).toBeInTheDocument();
+    expect(within(section).getByText(tv('rcv.scheduled'))).toBeInTheDocument();
+    expect(within(section).getByText('•••• 9123')).toBeInTheDocument();
+    expect(within(section).queryByText(tv('rcv.none'))).not.toBeInTheDocument();
+
+    await user.click(
+      within(section).getByRole('button', {
+        name: new RegExp(`^${esc(tv('rcv.cancel_scheduled'))}`),
+      }),
+    );
+    const dlg = await screen.findByRole('dialog', { name: tv('rcv.cancel_title') });
+    await user.type(within(dlg).getByLabelText(label('rcv.reason')), 'Nhập sai ngân hàng');
+    await user.type(within(dlg).getByLabelText(label('reauth.s2_password_label')), MOCK_PASSWORD);
+    await user.click(within(dlg).getByRole('button', { name: tv('rcv.cancel_scheduled') }));
+    expect(await within(section).findByText(tv('rcv.none'))).toBeInTheDocument();
+    expect((await fetch(propPath())).status).toBe(404);
+  });
+
+  it('reason hint; an account number in the reason is stopped before sending (no S2 spent)', async () => {
+    const sent = capture(/parameters\/payment_receiving_account$/);
+    const { user } = renderApp('/settings/parameters', 'qa.owner');
+    const dlg = await openForm(user);
+    expect(within(dlg).getByText(tv('rcv.reason_help'))).toBeInTheDocument();
+    await fill(user, dlg);
+    const reason = within(dlg).getByLabelText(label('rcv.reason'));
+    await user.clear(reason);
+    await user.type(reason, 'Đổi sang 0123 456 789');
+    await user.click(within(dlg).getByRole('button', { name: tv('rcv.review') }));
+    expect(within(dlg).getByText(tv('rcv.reason_no_account'))).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: tv('rcv.review_title') })).not.toBeInTheDocument();
+    sent.stop();
+    expect(sent.bodies).toHaveLength(0);
+  });
+
+  it('server ACCOUNT_NUMBER_NOT_ALLOWED → back to the form, error under the reason', async () => {
+    server.use(
+      http.put('*/v1/properties/:p/parameters/payment_receiving_account', () =>
+        HttpResponse.json(
+          {
+            type: 't',
+            title: 't',
+            status: 422,
+            code: 'VALIDATION_FAILED',
+            errors: [{ field: 'reason', code: 'ACCOUNT_NUMBER_NOT_ALLOWED' }],
+          },
+          { status: 422, headers: { 'content-type': 'application/problem+json' } },
+        ),
+      ),
+    );
+    const { user } = renderApp('/settings/parameters', 'qa.owner');
+    const dlg = await openForm(user);
+    await fill(user, dlg);
+    await user.click(within(dlg).getByRole('button', { name: tv('rcv.review') }));
+    await user.click(
+      within(await screen.findByRole('dialog', { name: tv('rcv.review_title') })).getByRole(
+        'button',
+        { name: tv('rcv.save') },
+      ),
+    );
+    const s2 = await screen.findByRole('dialog', { name: tv('rcv.save') });
+    await user.type(within(s2).getByLabelText(label('reauth.s2_password_label')), MOCK_PASSWORD);
+    await user.click(within(s2).getByRole('button', { name: tv('rcv.save') }));
+    const form = await screen.findByRole('dialog', { name: tv('rcv.form_title') });
+    expect(within(form).getByText(tv('rcv.reason_no_account'))).toBeInTheDocument();
+  });
+
+  it('MSW like the server: reason with digits → 422 before S2 (wrong password still 422, nothing written)', async () => {
+    mockControl.signInAs('qa.owner');
+    const res = await fetch(propPath(), {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', 'x-csrf-token': mockControl.db.csrf },
+      body: JSON.stringify({
+        value: { bankBin: '970436', accountNo: NEW_NO, accountName: 'A' },
+        effectiveFrom: addDays(D, 2),
+        reason: `So ${NEW_NO}`,
+        reauth: { authMethod: 'password', secret: 'sai-mat-khau' },
+      }),
+    });
+    expect(res.status).toBe(422);
+    expect((await res.json()).errors[0]).toEqual({
+      field: 'reason',
+      code: 'ACCOUNT_NUMBER_NOT_ALLOWED',
+    });
+    expect(mockControl.db.receiving).toHaveLength(1);
+  });
+
+  it('reasonHasAccountNumber: runs of ≥ 6 digits, spaced groups, the typed number; ISO dates allowed', () => {
+    expect(reasonHasAccountNumber('Đổi 123456')).toBe(true);
+    expect(reasonHasAccountNumber('Đổi 123 456 789')).toBe(true);
+    expect(reasonHasAccountNumber('Hiệu lực 2030-03-21')).toBe(false);
+    expect(reasonHasAccountNumber('Mã 9123', '9123')).toBe(true);
+    expect(reasonHasAccountNumber('Đổi sang tài khoản công ty')).toBe(false);
   });
 });

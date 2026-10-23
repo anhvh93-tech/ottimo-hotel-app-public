@@ -3394,6 +3394,9 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `rcv.cancelled` | Đã hủy lịch đổi tài khoản nhận. | The scheduled change was cancelled. | ⟨chừa chỗ⟩ |  |
 | `rcv.verify_hint` | Muốn đối chiếu số đầy đủ: tạo một mã VietQR nhỏ và quét thử bằng ứng dụng ngân hàng của bạn. | To check the full number, create a small VietQR code and scan it with your own banking app. | ⟨chừa chỗ⟩ | SEC Q51-8 – không có nút xem đủ số |
 | `rcv.masked_label` | Số tài khoản (che) | Account number (masked) | ⟨chừa chỗ⟩ |  |
+| `rcv.none_in_use` | Chưa có tài khoản đang dùng – tài khoản dưới đây có hiệu lực từ {date}. | No account in use yet – the account below takes effect on {date}. | ⟨chừa chỗ⟩ | ARC 0.3.8 bổ sung 2 (FB-R3-ARC-Q51-01): getParameterHistory 200 không có current, chỉ có dòng đã lên lịch |
+| `rcv.reason_help` | Không ghi số tài khoản vào lý do. | Don't put the account number in the reason. | ⟨chừa chỗ⟩ | SEC FB-R3-SEC-Q51-01 – gợi ý dưới ô lý do (đặt và hủy) |
+| `rcv.reason_no_account` | Lý do không được chứa số tài khoản hoặc dãy từ 6 chữ số trở lên. | The reason can't contain an account number or a run of 6 or more digits. | ⟨chừa chỗ⟩ | 422 reason ACCOUNT_NUMBER_NOT_ALLOWED (BE-B cf0ce2f); Desk kiểm trước khi gửi |
 
 #### R2 Sprint 4 – MOB sửa theo UXR đi thử PWA (s4-pwa-walkthrough P-01/04/07/08/09/10/11/12/13/16/28) (UXD duyệt 18/10 – s4-UXD-brand, sửa 8)
 
