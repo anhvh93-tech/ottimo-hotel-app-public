@@ -155,7 +155,7 @@ Phần còn lại đúng hợp đồng 5.3:
 - Vấn đề: cơ sở hạn mức đọc giá dòng `room` **đang sống**. Giá này MGR sửa được bằng A31 (khi khách còn ở) hoặc A32 (sau trả phòng). MGR chỉ cần nâng giá đêm lên, tự áp xóa nợ hoặc FOC lớn, rồi hạ giá về như cũ (ca SEC Q1 = BB07-1). Mọi bằng chứng còn lại trông hợp lệ. DOM đã chốt BR-433 (d) v0.4.1: giá đêm bảo vệ = min(giá dòng hiện hành, giá tham chiếu server tính); từ B18 cơ sở = min(số chụp lúc B18, cơ sở tính lại).
 - Vì sao quan trọng: lách hạn mức duyệt BR-433, tức sai tiền và vô hiệu ESC-026 A (ngưỡng MGR cũng nâng theo).
 - Đề xuất sửa: theo "Hướng dẫn sửa FB-07" bên dưới (cột mới gộp vào migration 0080 của BE-B; một cổng `limitBasisVnd`; ràng buộc CHECK để fail-closed).
-- Trạng thái: Open
+- Trạng thái: Verified (ARC 23/10, `41c49d7`) – chờ SEC review lại FB-07
 
 ### FB-R3-ARC-BEB-S1-09
 - Mức độ: Major (điều kiện gộp)
@@ -171,14 +171,14 @@ Phần còn lại đúng hợp đồng 5.3:
   2. `STAFF_NOTIFICATION_KINDS` và CHECK = danh sách trên `main` lúc rebase **cộng thêm** kind mới. Diff của CHECK so với `main` chỉ được có dòng thêm.
   3. Thêm test (không cần DB) so tập kind trong SQL của migration mới nhất có CHECK này với `STAFF_NOTIFICATION_KINDS`. Nếu gộp được thì thêm test có DB: insert thử mỗi kind trong một giao dịch rồi rollback.
   4. Gộp luôn cột/ràng buộc của S1-08 và FK của S1-12 vào cùng migration này.
-- Trạng thái: Open
+- Trạng thái: Verified (ARC 23/10, `41c49d7`) – kèm điều kiện gộp S1-14
 
 ### FB-R3-ARC-BEB-S1-10
 - Mức độ: Minor
 - Vị trí: `frontdesk/internal/stay-support.ts` (FOC phụ thu tại quầy – `approvals.submit` type `foc` không có `perTimeAmountVnd`)
 - Vấn đề: Σ của khóa (BR-433 (b)) chỉ được tính ở `foc.service`. Đường FOC tại quầy so hạn mức bằng số của riêng yêu cầu. Hiện đây gần như luôn là yêu cầu đầu tiên trên khóa (dòng phụ thu vừa ghi), nên kết quả trùng, nhưng hai nơi tự tính là mầm của hai định nghĩa. US-164 (BE-A) cũng sẽ thêm một đường FOC nữa.
 - Đề xuất sửa: một hàm cổng folio, ví dụ `FolioService.waiverLimitInput(tx, lineId, amountVnd, kind)`, trả `{ perTimeAmountVnd, limitBasisVnd }` (cơ sở theo S1-08). Mọi người gọi `submit` type `foc`/`special_discount` đều dùng nó. Thêm test kiến trúc: mọi `approvals.submit` với hai type này phải truyền `perTimeAmountVnd`.
-- Trạng thái: Open
+- Trạng thái: Verified (ARC 23/10, `41c49d7`)
 
 ### FB-R3-ARC-BEB-S1-11
 - Mức độ: Minor
@@ -189,21 +189,21 @@ Phần còn lại đúng hợp đồng 5.3:
   - mục đã "Đã xem" → mở **một** mục mới (dedupe theo lượt) và cập nhật `foc_stay_alert.attention_event_id`.
 
   Lý do: OWN đã xem tập khoản cũ, khoản mới chưa ai xem; thông báo đẩy không thay được dòng việc cần làm. Không spam vì vẫn tối đa một mục mở mỗi lượt.
-- Trạng thái: Open
+- Trạng thái: Verified (ARC 23/10, `41c49d7`)
 
 ### FB-R3-ARC-BEB-S1-12
 - Mức độ: Minor
 - Vị trí: `0079_foc_stay_alert.sql` – `stay_root_reservation_id` không có FK
 - Vấn đề: khóa chính trỏ đơn gốc nhưng không có ràng buộc tham chiếu. Các bảng cùng loại đều có FK tới `reservation`.
 - Đề xuất sửa: thêm FK `(stay_root_reservation_id) REFERENCES reservation(id)` trong migration đã đổi số. Không cần `ON DELETE`, vì đơn không bị xóa (BR-008).
-- Trạng thái: Open
+- Trạng thái: Verified (ARC 23/10, `41c49d7`)
 
 ### FB-R3-ARC-BEB-S1-13
 - Mức độ: Suggestion (việc của ARC, 0.3.9)
 - Vị trí: hợp đồng `AttentionItem.params` của `foc_stay_total_exceeded` (hiện chỉ có `count`)
 - Vấn đề: AC7 muốn dòng hiện tổng miễn và hạn mức. Hợp đồng 0.3.8 ARC chỉ cho `count`. Hiện Desk lấy chi tiết qua danh sách yêu cầu duyệt của đơn.
 - Đề xuất: 0.3.9 xem xét thêm `stayWaiverVnd`, `thresholdVnd` (chỉ số tiền, mục chỉ dành cho OWN, SEC J cho phép). BE không làm ở Sprint 1.
-- Trạng thái: Open
+- Trạng thái: Deferred – hợp đồng 0.3.9
 
 ## Quyết định ARC cho ba điểm ORC hỏi
 
@@ -261,3 +261,60 @@ Người gọi dùng đúng cổng này và không ai tự tính:
 **Hợp đồng:** không đổi hình dạng OpenAPI (cổng nội bộ, cột không lộ ra DTO). Đổi mô tả `openapi.yaml` (đoạn nhắc `nightRateBasis` của `requestFoc` xóa nợ): "cơ sở hạn mức bảo vệ BR-433 (d)". Phần này ARC làm ở lần sinh lại kế tiếp của 0.3.8 bổ sung 1. Erd 4.15 đã ghi ba cột.
 
 SEC review lại PR sửa trên head SHA (FB-07), đặc biệt ca BB07-1 và test kiến trúc.
+
+---
+
+# Lượt 2 – review lại BE-B bước 4 sau sửa, head `41c49d7` (ARC 23/10)
+
+Đã đọc `responses/s1-BE-B.md` mục "Lượt 2" và diff mã của `41c49d7`.
+
+## Kết luận
+**Gộp được**, với hai điều kiện:
+- **S1-14 (Major – thao tác lúc gộp)**: nối nhánh lên `origin/main` đã có 0079 (2FA).
+- **SEC review lại FB-07** trên head sẽ gộp.
+
+Không còn Blocker của ARC.
+
+**Kiểm đã chạy**: gộp thử `41c49d7` vào `origin/main` (`d1c6e55`, đã có `0079_mfa_two_factor`) trên một worktree tách riêng, PostgreSQL 17 riêng, theo đúng cách sửa ở S1-14.
+- `drizzle-kit generate`: không sinh file.
+- `tsc`: đạt.
+- Toàn bộ api `vitest run`: **111 tệp đạt (1 bỏ qua), 3.061 test đạt (2 bỏ qua)**. Gồm `r3-bb07-limit-basis`, `money-limit-basis-architecture`, test kind thông báo.
+- Delta schema do drizzle tự sinh trên nền 0079 trùng đúng phần BE-B viết tay: bảng `foc_stay_alert`, ba cột, các CHECK, FK, kind mới. Không sinh lại phần 2FA.
+
+**Xác nhận từng thẻ:**
+- **S1-08 / FB-07**: đúng thiết kế.
+  - `reference_rate_vnd` chỉ do đường giá của hệ thống ghi. Đêm gõ tay (`manual`) giữ giá tham chiếu cũ; A31 không ghi cột này.
+  - `limit_ref_vnd` có CHECK fail-closed. Dòng thay của A32 và dòng đảo chép giá tham chiếu.
+  - `settle` chụp cơ sở một lần.
+  - Một cổng `limitBasisVnd` (LEAST với giá tham chiếu, min với số chụp B18). Hai tên cũ đã xóa, có test kiến trúc canh.
+  - BB07-3/4 dùng 1.900.000 thay 3.000.000 vì trần A31 của seed. Chấp nhận, vì kết luận "cơ sở vẫn 667.000" không đổi; QA ghi chú khi thêm fixture.
+- **S1-09**: CHECK = danh sách của `main` cộng `foc_stay_total_exceeded`. Có test "chỉ thêm" và test chèn từng kind. Đúng.
+- **S1-10**: `waiverLimitInput` dùng chung cho `requestFoc` và FOC tại quầy, có test kiến trúc. Đúng.
+- **S1-11**: mục còn mở thì cập nhật `details.count`; mục đã xem thì mở mục mới. `GRANT UPDATE (details)` chỉ mở đúng một cột. Đúng.
+- **S1-12**: có FK. Đúng.
+
+### FB-R3-ARC-BEB-S1-14
+- Mức độ: Major (điều kiện gộp – thao tác merge, không phải lỗi mã)
+- Vị trí: `db/migrations/meta/_journal.json`, `db/migrations/meta/0080_snapshot.json`
+- Vấn đề: nhánh cắt từ `main` 5834c6a, khi đó chưa có 0079. Gộp vào `origin/main` (có `0079_mfa_two_factor`) sẽ gặp hai việc:
+  - (a) `_journal.json` xung đột, và hai mục cùng `idx` 56;
+  - (b) `0080_snapshot.json` có `prevId` trỏ snapshot 0078 và không có bảng/cột 2FA. Nếu giữ nguyên, `drizzle-kit generate` trên `main` sẽ sinh migration tạo lại phần 2FA, CI đỏ.
+- Đề xuất sửa (BE-B hoặc ORC lúc gộp; ARC đã chạy thử đúng các bước này và toàn bộ test xanh):
+  1. Journal: giữ `0079_mfa_two_factor` (idx 56), đặt `0080_foc_stay_alert_limit_basis` thành **idx 57**, giữ `when` của BE-B.
+  2. Sinh lại snapshot 0080 trên nền 0079: tạm bỏ mục 0080 khỏi journal và cất SQL 0080, chạy `drizzle-kit generate`, đổi tên snapshot sinh ra thành `0080_snapshot.json` (`prevId` = id snapshot 0079), xóa SQL tạm, trả lại SQL viết tay 0080 và mục journal.
+  3. Kiểm: `drizzle-kit generate` báo "No schema changes"; test `migrations-journal` và kind thông báo xanh.
+  4. Áp cùng quy tắc cho BE-C q17 (0081) và BE-D T13 (0082) khi gộp lần lượt. Riêng T13 viết lại CHECK kind: lấy danh sách trên `main` lúc đó (đã có `foc_stay_total_exceeded`) rồi thêm kind của T13.
+- Trạng thái: Open
+
+### FB-R3-ARC-BEB-S1-15
+- Mức độ: Minor
+- Vị trí: `reservations/public/sales-port.ts` (`ConfirmedStay.nights[].referenceRateVnd?` tùy chọn); `folio.service.ts` resync dòng đêm (`limitRefVnd: n.referenceRateVnd ?? gross`)
+- Vấn đề: nếu một đường mới dựng `ConfirmedStay` mà quên giá tham chiếu, dòng đêm lấy **giá hiện hành**, có thể là giá gõ tay, làm giá tham chiếu. Đây là fail-open, đúng chỗ BR-433 (d) muốn đóng. Hiện chỉ có một nơi dựng (`reservations.service` `confirmedStay`) và nơi đó có truyền, nên chưa có lỗi.
+- Đề xuất sửa: đổi `referenceRateVnd` thành bắt buộc trong kiểu và bỏ `?? gross`; trình biên dịch sẽ chặn đường quên. Làm trong commit kế tiếp của BE-B, không chặn gộp.
+- Trạng thái: Open
+
+## Còn lại sau gộp
+- SEC: review lại FB-07 trên head SHA sẽ gộp (sau khi làm S1-14, SHA đổi).
+- QA: fixture BR-433-11…15 (`pendingFix R3-SEC-BE-B-07`), I16 vào fuzz R3-Q30, ghi chú số 1.900.000 của BB07-3/4.
+- PO: sửa chữ US-007 AC7 (nhật ký loại `state`).
+
