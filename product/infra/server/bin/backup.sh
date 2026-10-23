@@ -6,18 +6,24 @@
 #   blobs-<UTC stamp>.tar.age          the encrypted blob volume (ciphertext already; useless without the KEK)
 #   purge-journal-<UTC stamp>.csv.age  purge_journal only (ids, no personal data) – re-applied after a restore
 #                                      (SR-BAK-06), so it is kept longer than the rest (40 days)
+#   counts-<UTC stamp>.txt.age         row counts + money totals (infra/server/backup-counts.sql) read in the SAME
+#                                      snapshot as the dump – the restore drill must find exactly these numbers
 #   <file>.sha256                      checksum of the encrypted file
 # Every file is encrypted with `age` to the PUBLIC key(s) in $OTTIMO_HOME/backup/recipients.txt (SR-BAK-02). The
 # private key never lives on this server (INV + OPS password manager) – so nothing here can read a backup, and the
 # script refuses to write anything unencrypted. KEK/secrets are NOT in any backup (SR-KEY-10).
 # Retention (SR-BAK-03 hard cap 35 days): keep everything < 7 days, Sunday sets < 35 days, delete the rest.
-# Off-site copy (SR-BAK-04, R3): the second VPS PULLS $BACKUP_DIR read-only; this server cannot delete it.
+# Off-site copy (SR-BAK-04, R3 v1.0): a machine of INV/OPS PULLS $BACKUP_DIR read-only (rrsync forced command,
+# bootstrap-vps.sh --backup-pull-key; infra/server/bin/pull-backups.sh on that machine); this server cannot reach it.
+# Stack: OTTIMO_HOME or the home this copy belongs to; backups of /opt/ottimo-prod go to /var/backups/ottimo-prod.
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
+if [ -z "${OTTIMO_HOME:-}" ] && [ -f "$here/../../../.ottimo-home" ]; then OTTIMO_HOME=$(cd "$here/../../.." && pwd); fi
 OTTIMO_HOME="${OTTIMO_HOME:-/opt/ottimo}"
 export OTTIMO_HOME
-BACKUP_DIR="${BACKUP_DIR:-/var/backups/ottimo}"
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/$(basename "$OTTIMO_HOME")}"
+counts_sql="$here/../backup-counts.sql"
 recipients="$OTTIMO_HOME/backup/recipients.txt"
 state="$OTTIMO_HOME/state"
 
@@ -54,10 +60,31 @@ publish() { # name – checksum + atomic move into $BACKUP_DIR
 }
 
 # 1. database – custom format (pg_restore can restore selectively); pipefail catches a pg_dump error.
-dc exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --compress=6' \
+#    A read-only REPEATABLE READ transaction exports its snapshot; the counts are read inside it and pg_dump uses the
+#    same snapshot (--snapshot), so the numbers describe exactly what is in the dump.
+[ -r "$counts_sql" ] || die "missing $counts_sql"
+coproc PSQL { dc exec -T postgres sh -c 'psql -X -q -tA -F " " -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' 2>&1; }
+psql_in=${PSQL[1]}; psql_out=${PSQL[0]}
+printf '%s\n' 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;' 'SELECT pg_export_snapshot();' >&"$psql_in"
+read -r -t 60 snap <&"$psql_out" || die "no snapshot from psql"
+[[ "$snap" =~ ^[0-9A-F-]+$ ]] || die "unexpected snapshot id"
+{ grep -v '^--' "$counts_sql"; printf '%s\n' "SELECT 'end-of-counts', 0;"; } >&"$psql_in"
+: > "$tmp/counts-$stamp.txt"
+while read -r -t 60 line <&"$psql_out"; do
+  [ "$line" = "end-of-counts 0" ] && break
+  [[ "$line" =~ ^[a-z_]+\ -?[0-9]+$ ]] || die "counts query failed"
+  echo "$line" >> "$tmp/counts-$stamp.txt"
+done
+[ "$(wc -l < "$tmp/counts-$stamp.txt")" -ge 10 ] || die "counts incomplete"
+dc exec -T postgres sh -c "pg_dump -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" --snapshot=$snap --format=custom --compress=6" \
   | encrypt_to "db-$stamp.dump" || die "pg_dump"
+printf '%s\n' 'COMMIT;' '\q' >&"$psql_in"
+wait "$PSQL_PID" 2>/dev/null || true
+encrypt_to "counts-$stamp.txt" < "$tmp/counts-$stamp.txt"
+rm -f "$tmp/counts-$stamp.txt"
 publish "db-$stamp.dump"
-log "database dumped"
+publish "counts-$stamp.txt"
+log "database dumped (counts read in the dump snapshot)"
 
 # 2. purge_journal separately (SR-BAK-06): what was deleted after a backup must be deleted again after a restore.
 dc exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
@@ -74,7 +101,7 @@ log "blobs archived"
 # 4. retention: < 7 days everything; Sunday (UTC) sets < 35 days; purge-journal < 40 days; nothing older.
 now=$(date -u +%s)
 shopt -s nullglob
-for f in "$BACKUP_DIR"/db-*.age "$BACKUP_DIR"/blobs-*.age "$BACKUP_DIR"/purge-journal-*.age; do
+for f in "$BACKUP_DIR"/db-*.age "$BACKUP_DIR"/blobs-*.age "$BACKUP_DIR"/counts-*.age "$BACKUP_DIR"/purge-journal-*.age; do
   base=$(basename "$f")
   s=$(sed -E 's/^.*-([0-9]{8})T[0-9]{6}Z\..*$/\1/' <<<"$base")
   [[ "$s" =~ ^[0-9]{8}$ ]] || continue

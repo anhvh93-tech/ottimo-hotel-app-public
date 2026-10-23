@@ -1,0 +1,17 @@
+# Daily encrypted backup of the stack /opt/%i (R3 v1.0: production = ottimo-backup@ottimo-prod.timer). Staging keeps
+# the plain ottimo-backup.service (/opt/ottimo). Installed by bootstrap-vps.sh.
+[Unit]
+Description=OTTIMO encrypted backup of /opt/%i (database, blobs, purge_journal, counts)
+Wants=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=ottimo
+Group=ottimo
+Environment=OTTIMO_HOME=/opt/%i
+Environment=BACKUP_DIR=/var/backups/%i
+ExecStart=/opt/%i/infra/server/bin/backup.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

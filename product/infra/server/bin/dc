@@ -1,23 +1,42 @@
 #!/usr/bin/env bash
-# `docker compose` for the OTTIMO server (staging or production): fixed project name, the server .env, the
-# deployed image tag. Every server script goes through this wrapper; use it by hand too:
-#   /opt/ottimo/infra/server/bin/dc ps
-#   /opt/ottimo/infra/server/bin/dc logs --tail 100 api
-# Environment: OTTIMO_HOME (default /opt/ottimo), IMAGE_TAG (default: state/current_tag written by deploy.sh).
+# `docker compose` for one OTTIMO stack on the server (staging or production): project name, the stack's .env, the
+# deployed image tags. Every server script goes through this wrapper; use it by hand too:
+#   /opt/ottimo/infra/server/bin/dc ps                 (staging)
+#   /opt/ottimo-prod/infra/server/bin/dc logs --tail 100 api   (production)
+# Which stack: OTTIMO_HOME if set; else the home this copy of the scripts belongs to (marker file .ottimo-home written
+# by bootstrap-vps.sh – so /opt/ottimo-prod/infra/server/bin/dc always means production); else /opt/ottimo.
+# From the stack's .env: OTTIMO_PROJECT (compose project, default `ottimo`), EDGE_MODE=edge (adds
+# docker-compose.edge-link.yml: no published port, reached through the shared edge – infra/edge).
+# Tags: IMAGE_TAG (default state/current_tag – deploy.sh), LANDING_TAG (default state/landing_tag – deploy-landing.sh).
 set -Eeuo pipefail
 
+here=$(cd "$(dirname "$0")" && pwd)
+if [ -z "${OTTIMO_HOME:-}" ] && [ -f "$here/../../../.ottimo-home" ]; then OTTIMO_HOME=$(cd "$here/../../.." && pwd); fi
 OTTIMO_HOME="${OTTIMO_HOME:-/opt/ottimo}"
+envval() { sed -n "s/^$1=//p" "$OTTIMO_HOME/.env" 2>/dev/null | tail -n 1 | tr -d '\r' | sed -e 's/^"//' -e 's/"$//'; }
+
 if [ -z "${IMAGE_TAG:-}" ] && [ -r "$OTTIMO_HOME/state/current_tag" ]; then
   IMAGE_TAG=$(cat "$OTTIMO_HOME/state/current_tag")
 fi
+if [ -z "${LANDING_TAG:-}" ] && [ -r "$OTTIMO_HOME/state/landing_tag" ]; then
+  LANDING_TAG=$(cat "$OTTIMO_HOME/state/landing_tag")
+fi
 # "none" only lets read-only commands (ps, logs, exec) interpolate before the first deploy.
 export IMAGE_TAG="${IMAGE_TAG:-none}"
+export LANDING_TAG="${LANDING_TAG:-none}"
 export SECRETS_DIR="${SECRETS_DIR:-$OTTIMO_HOME/secrets}"
 export SEED_DIR="${SEED_DIR:-$OTTIMO_HOME/seed}"
 
+project="${OTTIMO_PROJECT:-$(envval OTTIMO_PROJECT)}"
+project="${project:-ottimo}"
+files=(--file "$OTTIMO_HOME/infra/docker-compose.prod.yml")
+if [ "$(envval EDGE_MODE)" = "edge" ]; then
+  files+=(--file "$OTTIMO_HOME/infra/docker-compose.edge-link.yml")
+fi
+
 exec docker compose \
-  --project-name "${OTTIMO_PROJECT:-ottimo}" \
+  --project-name "$project" \
   --project-directory "$OTTIMO_HOME/infra" \
   --env-file "$OTTIMO_HOME/.env" \
-  --file "$OTTIMO_HOME/infra/docker-compose.prod.yml" \
+  "${files[@]}" \
   "$@"

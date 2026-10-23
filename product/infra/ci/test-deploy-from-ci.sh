@@ -5,6 +5,12 @@
 #       (with the noisy error text) is only in the 0600 log on the server;
 #   (b) any other command → "refused", exit 2, deploy.sh never runs (also `-test` tags and shell tricks);
 #   (c) a successful deploy → exactly one line "deploy <tag>: ok", exit 0; only the 30 newest logs are kept.
+#   R3 v1.0 (production on the same VPS, v1-production.md 5):
+#   (d) `deploy sha-… api=sha256:… web=sha256:…` reaches deploy.sh as --api-digest/--web-digest; the stack is the one the
+#       script copy belongs to (.ottimo-home marker, no OTTIMO_HOME given) – the production copy acts on production;
+#   (e) `landing sha-… [landing=sha256:…]` runs deploy-landing.sh (with --digest), one line "landing <tag>: ok";
+#   (f) the production guard of the REAL deploy.sh stops at step=config: MFA_ENFORCED≠true, a -test suffix, missing
+#       digests – before any pull; a missing secret file also stops at step=config.
 # Runs on Linux (CI: job infra-scripts). Needs flock (util-linux) like deploy.sh itself.
 set -Eeuo pipefail
 
@@ -25,6 +31,7 @@ secret_marker="LEAKMARK-203.0.113.77-/opt/ottimo/secrets/data_kek_current"
 # Stub `dc`: `pull` fails like a missing GHCR tag (noisy, with an IP and a path) when STUB_MODE=fail-pull.
 cat > "$home/infra/server/bin/dc" <<EOF
 #!/usr/bin/env bash
+if [[ " \$* " == *" config --format json "* ]]; then echo "{\"secrets\":{\"x\":{\"file\":\"\${STUB_SECRET:-/dev/null}\"}}}"; exit 0; fi
 echo "dc \$*"
 if [ "\${STUB_MODE:-}" = "fail-pull" ] && [[ " \$* " == *" pull "* ]]; then
   echo "Error response from daemon: manifest unknown: ghcr.io/x/ottimo-api:\$IMAGE_TAG $secret_marker" >&2
@@ -65,9 +72,13 @@ if compgen -G "$home/state/deploy-logs/.step-*" >/dev/null; then bad "(a) step f
 before=$(ls "$home/state/deploy-logs" | wc -l | tr -d ' ')
 for c in "" "bash" "deploy" "deploy sha-0123456789ab-test" "deploy sha-XYZ1234" "deploy sha-01234" \
   "deploy sha-0123456789ab; id" "deploy sha-0123456789ab && id" $'deploy sha-0123456789ab\nid' \
-  "deploy  sha-0123456789ab" "rsync --server ." "scp -t /opt/ottimo" "deploy latest" "rollback"; do
+  "deploy  sha-0123456789ab" "rsync --server ." "scp -t /opt/ottimo" "deploy latest" "rollback" \
+  "deploy sha-0123456789ab api=sha256:abc web=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" "deploy sha-0123456789ab web=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb api=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" \
+  "deploy sha-0123456789ab api=sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA web=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" "deploy sha-0123456789ab api=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" \
+  "deploy sha-0123456789ab api=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa web=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; id" "landing" "landing latest" \
+  "landing sha-0123456789ab-test" "landing sha-0123456789ab landing=sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc x" "landing sha-0123456789ab --rollback"; do
   run ok "$c"
-  if [ "$rc" -eq 2 ] && [ "$out" = "refused: only 'deploy sha-<hex>' is allowed for this key" ]; then
+  if [ "$rc" -eq 2 ] && [ "$out" = "refused: only 'deploy sha-<hex> [api=… web=…]' or 'landing sha-<hex> [landing=…]' is allowed for this key" ]; then
     ok "(b) refused, exit 2: $(printf '%q' "$c")"
   else
     bad "(b) $(printf '%q' "$c") → rc=$rc, output: $out"
@@ -90,5 +101,56 @@ if [ "$rc" -eq 0 ] && [ "$out" = "deploy sha-abcdef1: ok" ]; then ok "(c) succes
 n=$(ls "$home/state/deploy-logs"/ci-*.log | wc -l | tr -d ' ')
 [ "$n" = 30 ] && ok "(c) 30 newest CI logs kept" || bad "(c) $n CI logs kept (expected 30)"
 
+# ---------- (d)+(e) digests, landing, stack from the marker ----------
+prod="$work/opt-prod"
+mkdir -p "$prod/infra/server/bin" "$prod/state"
+echo production > "$prod/.ottimo-home"
+cp "$src/deploy-from-ci.sh" "$prod/infra/server/bin/"
+for s in deploy.sh deploy-landing.sh; do
+  cat > "$prod/infra/server/bin/$s" <<'EOF'
+#!/usr/bin/env bash
+echo "$(basename "$0") home=$OTTIMO_HOME args=$*" > "$OTTIMO_HOME/state/called"
+exit 0
+EOF
+done
+chmod +x "$prod/infra/server/bin/"*
+A=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; B=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; C=sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+runp() { rc=0; out=$(env -u OTTIMO_HOME SSH_ORIGINAL_COMMAND="$1" "$prod/infra/server/bin/deploy-from-ci.sh" 2>&1) || rc=$?; }
+runp "deploy sha-0123456789ab api=$A web=$B"
+called=$(cat "$prod/state/called" 2>/dev/null || true)
+if [ "$rc" -eq 0 ] && [ "$out" = "deploy sha-0123456789ab: ok" ] && \
+  [ "$called" = "deploy.sh home=$prod args=sha-0123456789ab --api-digest $A --web-digest $B" ]; then
+  ok "(d) digests passed to deploy.sh; stack = the copy's own home (marker)"
+else bad "(d) rc=$rc out=$out called=$called"; fi
+runp "landing sha-0123456789ab landing=$C"
+called=$(cat "$prod/state/called" 2>/dev/null || true)
+if [ "$rc" -eq 0 ] && [ "$out" = "landing sha-0123456789ab: ok" ] && \
+  [ "$called" = "deploy-landing.sh home=$prod args=sha-0123456789ab --digest $C" ]; then
+  ok "(e) landing → deploy-landing.sh --digest, one line"
+else bad "(e) rc=$rc out=$out called=$called"; fi
+runp "landing sha-abcdef1"
+called=$(cat "$prod/state/called" 2>/dev/null || true)
+[ "$rc" -eq 0 ] && [ "$called" = "deploy-landing.sh home=$prod args=sha-abcdef1" ] && ok "(e) landing without digest" || bad "(e) $called"
+
+# ---------- (f) production guard of the real deploy.sh (stub dc: any pull would be logged) ----------
+cp "$src/deploy.sh" "$home/infra/server/bin/deploy.sh"
+guard() { # description  expected-step  extra-deploy-args  .env lines…
+  local what="$1" want="$2" args="$3"; shift 3
+  printf '%s\n' "$@" > "$home/.env"
+  rc=0
+  out=$(OTTIMO_HOME="$home" STUB_MODE=ok SSH_ORIGINAL_COMMAND="deploy sha-0123456789ab$args" \
+    "$home/infra/server/bin/deploy-from-ci.sh" 2>&1) || rc=$?
+  local ref=${out##*ref=}; ref=${ref%)}
+  if [ "$rc" -ne 0 ] && [[ "$out" == *"failed (step=$want,"* ]] && ! grep -q ' pull ' "$home/state/deploy-logs/ci-$ref.log"; then
+    ok "(f) $what → step=$want, nothing pulled"
+  else bad "(f) $what → rc=$rc $out"; fi
+}
+P=(APP_ENV=production CLOCK_MODE=system INCLUDE_TEST_SUPPORT=0 API_IMAGE=ghcr.io/x/ottimo-api WEB_IMAGE=ghcr.io/x/ottimo-web)
+guard "production with MFA_ENFORCED=false" config " api=$A web=$B" "${P[@]}" MFA_ENFORCED=false
+guard "production with a -test image suffix" config " api=$A web=$B" "${P[@]}" MFA_ENFORCED=true API_TAG_SUFFIX=-test
+guard "production without digests" config "" "${P[@]}" MFA_ENFORCED=true
+STUB_SECRET=/nonexistent/web_push_vapid_private_key guard "missing secret file" config " api=$A web=$B" "${P[@]}" MFA_ENFORCED=true
+export STUB_SECRET=/dev/null
+
 if [ "$fails" -gt 0 ]; then echo "FAILED: $fails check(s)"; exit 1; fi
-echo "OK: deploy-from-ci.sh – one summary line to the CI, full log on the server, other commands refused"
+echo "OK: deploy-from-ci.sh – one summary line to the CI, full log on the server, other commands refused, digests/landing/production guard"

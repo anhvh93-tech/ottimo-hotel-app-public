@@ -3,6 +3,12 @@
 #   deploy.sh <tag>               e.g. sha-1a2b3c4d5e6f (tag written by the CI job publish-images)
 #   deploy.sh <tag> --no-pull     images already on this host (local rehearsal, offline re-deploy)
 #   deploy.sh <tag> --rollback    used by rollback.sh: the database may be ahead of this image's migrations
+#   deploy.sh <tag> --api-digest sha256:<64 hex> --web-digest sha256:<64 hex>
+#                                 the pulled images must have exactly these registry digests (the digests CI read when
+#                                 the tag was released – SEC E.10.2 (4)); REQUIRED when APP_ENV=production (a rollback
+#                                 re-checks the digests recorded at the earlier deploy in state/digests/<tag>)
+# Production guard (APP_ENV=production, step `config`): MFA_ENFORCED=true, CLOCK_MODE=system, no test image / test
+# switches (SEC E.10.2 (2)); every secret file the compose project needs exists; edge mode: the link network exists.
 # Steps: pull → postgres up → 02-roles.sh (SEC H3: role limits re-applied on an existing database) → migrate
 # (separate one-shot, ottimo_migrator → SET ROLE ottimo_owner; erd 16 point 5) → migration count check (ARC s3 4.2-7)
 # → api/worker/web on the new tag → smoke (health, role limits, worker, Caddy headers, blob probe).
@@ -11,6 +17,7 @@
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
+if [ -z "${OTTIMO_HOME:-}" ] && [ -f "$here/../../../.ottimo-home" ]; then OTTIMO_HOME=$(cd "$here/../../.." && pwd); fi
 OTTIMO_HOME="${OTTIMO_HOME:-/opt/ottimo}"
 state="$OTTIMO_HOME/state"
 export OTTIMO_HOME
@@ -19,17 +26,24 @@ tag="${1:-}"
 shift || true
 pull=1
 rollback=0
-for arg in "$@"; do
-  case "$arg" in
-    --no-pull) pull=0 ;;
-    --rollback) rollback=1 ;;
-    *) echo "unknown option: $arg" >&2; exit 2 ;;
+api_digest=""
+web_digest=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --no-pull) pull=0; shift ;;
+    --rollback) rollback=1; shift ;;
+    --api-digest) api_digest="${2:-}"; shift 2 || true ;;
+    --web-digest) web_digest="${2:-}"; shift 2 || true ;;
+    *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
 if ! [[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]; then
-  echo "usage: $0 <image tag> [--no-pull] [--rollback]" >&2
+  echo "usage: $0 <image tag> [--no-pull] [--rollback] [--api-digest sha256:… --web-digest sha256:…]" >&2
   exit 2
 fi
+for d in "$api_digest" "$web_digest"; do
+  [ -z "$d" ] || [[ "$d" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "digest must be sha256:<64 hex>" >&2; exit 2; }
+done
 
 # Fixed step names for deploy-from-ci.sh (the CI sees only "failed (step=<name>)" – SEC E.8).
 step() { if [ -n "${OTTIMO_STEP_FILE:-}" ]; then printf '%s\n' "$1" > "$OTTIMO_STEP_FILE"; fi; }
@@ -52,10 +66,50 @@ prev=""
 export IMAGE_TAG="$tag"
 log "deploy $tag (previous: ${prev:-none}, pull=$pull, rollback=$rollback)"
 
+# ---- 0. configuration guard (before anything changes) ----
+step config
+app_env=$(envval APP_ENV)
+if [ "$rollback" -eq 1 ] && [ -z "$api_digest$web_digest" ] && [ -r "$state/digests/$tag" ]; then
+  api_digest=$(sed -n 's/^api=//p' "$state/digests/$tag"); web_digest=$(sed -n 's/^web=//p' "$state/digests/$tag")
+fi
+if [ "$app_env" = "production" ]; then
+  problems=""
+  [ "$(envval MFA_ENFORCED)" = "true" ] || problems+=" MFA_ENFORCED must be true;"
+  case "$(envval CLOCK_MODE)" in ''|system) ;; *) problems+=" CLOCK_MODE must be system;" ;; esac
+  case "$(envval INCLUDE_TEST_SUPPORT)" in ''|0) ;; *) problems+=" INCLUDE_TEST_SUPPORT must be 0;" ;; esac
+  [ -z "$(envval API_TAG_SUFFIX)" ] || problems+=" API_TAG_SUFFIX must be empty (no -test image);"
+  [ -z "$(envval TEST_SUPPORT_TOKEN)" ] || problems+=" TEST_SUPPORT_TOKEN must be empty;"
+  case "$tag" in *-test) problems+=" a -test tag cannot run in production;" ;; esac
+  if [ -z "$api_digest" ] || [ -z "$web_digest" ]; then
+    problems+=" production needs --api-digest and --web-digest (CI release job, or state/digests/<tag> on rollback);"
+  fi
+  [ -z "$problems" ] || { log "FAIL: production guard:$problems"; exit 1; }
+fi
+# Every secret file of the project must exist (a new secret in compose = run init-secrets.sh first). The deploy user
+# can test the paths (directory 0710 root:ottimo) but not read them.
+missing=$(dc --profile deploy config --format json | jq -r '.secrets // {} | to_entries[] | .value.file' \
+  | while IFS= read -r f; do [ -e "$f" ] || basename "$f"; done | tr '\n' ' ')
+[ -z "$missing" ] || { log "FAIL: secret file(s) missing: ${missing}– run: sudo $here/init-secrets.sh"; exit 1; }
+if [ "$(envval EDGE_MODE)" = "edge" ]; then
+  docker network inspect "ottimo-link-$(envval EDGE_NAME)" >/dev/null 2>&1 \
+    || { log "FAIL: network ottimo-link-$(envval EDGE_NAME) missing – start the edge first: $here/edge.sh up"; exit 1; }
+fi
+
 # ---- 1. images ----
 step pull
 if [ "$pull" -eq 1 ]; then
   dc --profile deploy pull --quiet migrate api worker web
+fi
+# Registry digest check (SEC E.10.2 (4)): the image under this tag must be the one CI released.
+digest_ok() { # image-ref expected-digest
+  docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$1" 2>/dev/null | grep -q "@$2\$"
+}
+if [ -n "$api_digest$web_digest" ]; then
+  api_ref="$(envval API_IMAGE):$tag$(envval API_TAG_SUFFIX)"
+  web_ref="$(envval WEB_IMAGE):$tag"
+  digest_ok "$api_ref" "$api_digest" || { log "FAIL: $api_ref does not have the released digest"; exit 1; }
+  digest_ok "$web_ref" "$web_digest" || { log "FAIL: $web_ref does not have the released digest"; exit 1; }
+  log "image digests match the release"
 fi
 
 # ---- 2. database + roles (H3) ----
@@ -174,6 +228,10 @@ grep -qF '/g/[redacted]' <<<"$web_log" || fail "Caddy access log has no masked /
 step record
 if [ -n "$prev" ] && [ "$prev" != "$tag" ]; then echo "$prev" > "$state/previous_tag"; fi
 echo "$tag" > "$state/current_tag"
+if [ -n "$api_digest$web_digest" ]; then
+  mkdir -p "$state/digests"
+  printf 'api=%s\nweb=%s\n' "$api_digest" "$web_digest" > "$state/digests/$tag"
+fi
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $tag" >> "$state/deploy-history.log"
 # Free disk: unused images older than 7 days (the previous tag can always be pulled again from the registry).
 docker image prune --all --force --filter "until=168h" >/dev/null 2>&1 || true

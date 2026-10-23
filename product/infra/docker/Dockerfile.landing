@@ -1,0 +1,37 @@
+# syntax=docker/dockerfile:1
+# Landing site image (ADR-014, R3 v1.0 – rounds/round-03/outputs/OPS/v1-production.md 6): the static Astro build of
+# apps/landing-web served by Caddy. Build context = product/. The Caddyfile is NOT baked in: compose mounts
+# infra/caddy/Caddyfile.landing (service `landing` of docker-compose.prod.yml).
+# One image for preview and production (INV approves exactly what goes live): canonical/sitemap/robots URLs use
+# LANDING_SITE_URL (default https://ottimo.vn); the staging preview is kept out of search engines by basic auth +
+# X-Robots-Tag in its Caddy access snippet, not by a different build.
+#   docker build -f infra/docker/Dockerfile.landing --build-arg LANDING_SITE_URL=https://ottimo.vn \
+#     --build-arg LANDING_INDEXABLE=true -t ottimo-landing .
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS build
+RUN npm install -g pnpm@9.15.4
+WORKDIR /repo
+COPY . .
+# Lockfile is mandatory (ADR-012): no lockfile or a stale one = build fails.
+RUN pnpm install --frozen-lockfile --filter @ottimo/landing-web...
+ARG LANDING_SITE_URL=https://ottimo.vn
+# US-146 AC4: true = pages indexable + robots.txt allows (CI release images – they only reach the public after INV
+# approves the production deployment); default false = every page noindex, robots disallows all.
+ARG LANDING_INDEXABLE=false
+ENV ASTRO_TELEMETRY_DISABLED=1 LANDING_SITE_URL=${LANDING_SITE_URL} LANDING_INDEXABLE=${LANDING_INDEXABLE}
+# build + the dist checks of ADR-014 2.4 (no inline script/style, budgets, hreflang) – a violation fails the image.
+RUN pnpm --filter @ottimo/landing-web build && pnpm --filter @ottimo/landing-web check:dist \
+    && chmod -R u=rwX,go=rX apps/landing-web/dist
+
+FROM caddy:2-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f AS runtime
+# Unprivileged like the app web image (Dockerfile.web): no file capability, binds 80/443 through the namespaced sysctl.
+RUN apk add --no-cache libcap \
+    && setcap -r /usr/bin/caddy \
+    && apk del libcap \
+    && mkdir -p /home/caddy/data /home/caddy/config \
+    && chown -R 10001:10001 /home/caddy
+ENV XDG_DATA_HOME=/home/caddy/data \
+    XDG_CONFIG_HOME=/home/caddy/config
+COPY --from=build /repo/apps/landing-web/dist /srv/landing
+USER 10001:10001
+RUN find /srv -type d | while IFS= read -r d; do [ -r "$d" ] && [ -x "$d" ] || { echo "not readable by uid 10001: $d" >&2; exit 1; }; done \
+    && find /srv -type f | while IFS= read -r f; do [ -r "$f" ] || { echo "not readable by uid 10001: $f" >&2; exit 1; }; done

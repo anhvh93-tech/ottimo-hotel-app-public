@@ -7,6 +7,7 @@
 #   ACME_EMAIL  Let's Encrypt account e-mail (expiry notices) – an address of the team, not a secret
 #   HEALTH_ALLOW_IPS  optional, space separated IPs/CIDRs of an external uptime monitor allowed to GET /health
 #   TEST_SUPPORT_ALLOW_IPS  staging only: who may reach /__test__/* (compose default 127.0.0.1/32 = nobody outside)
+#   PROXY_PROTOCOL_ALLOW  address of the shared edge (infra/edge) allowed to send a PROXY protocol header (EDGE_MODE=edge)
 #
 # Requirements covered (security-requirements.md): SR-HDR-01 CSP (3 SPAs, no unsafe-inline/eval; guest-web G5),
 # SR-HDR-02 HSTS / nosniff / Referrer-Policy (guest no-referrer, staff apps same-origin) / Permissions-Policy,
@@ -19,10 +20,31 @@
 	# No admin API (nothing to reload remotely; deploy recreates the container).
 	admin off
 	email {$ACME_EMAIL}
-	servers {
+	# HTTPS. Behind the shared edge (staging + production on one VPS – infra/edge, R3 v1.0) the client address arrives
+	# in a PROXY protocol header that ONLY the edge's fixed address may send (PROXY_PROTOCOL_ALLOW, set by the server
+	# .env); from anywhere else a header is ignored and the TCP peer stays the client address. Default = loopback,
+	# i.e. nobody (a stack that publishes 80/443 itself – EDGE_MODE=direct).
+	servers :443 {
+		listener_wrappers {
+			proxy_protocol {
+				timeout 5s
+				allow {$PROXY_PROTOCOL_ALLOW:127.0.0.1/32}
+				fallback_policy ignore
+			}
+			tls
+		}
 		# HTTP/3 off: only 80/tcp and 443/tcp are opened in the firewall (infra/server/bootstrap-vps.sh).
 		protocols h1 h2
 		# Slow clients cannot hold connections (42 MB upload on 4G ≈ 30 s; the api answers within 60 s).
+		timeouts {
+			read_header 10s
+			read_body 90s
+			idle 2m
+		}
+	}
+	# HTTP: only the redirect to HTTPS and the ACME HTTP-01 challenge (the edge forwards it by Host, no PROXY header).
+	servers :80 {
+		protocols h1 h2
 		timeouts {
 			read_header 10s
 			read_body 90s

@@ -1,0 +1,103 @@
+# Production releases (R3 v1.0 – rounds/round-03/outputs/OPS/v1-production.md 5). Nothing is built here: a release
+# promotes the images CI already built, tested and pushed for that commit on main (job publish-images of ci.yml), so
+# production runs exactly what staging ran.
+#   tag v<semver>          (e.g. v1.0.0)         → app: deploy sha-<12> pinned to the api/web registry digests
+#   tag landing-v<semver>  (e.g. landing-v1.0.0) → landing site: landing sha-<12> pinned to its digest
+# Gates, in order: the tag points at a commit of main; the CI workflow (push to main) succeeded on that commit; the
+# images exist (digests read from GHCR); then environment `production` = required reviewer INV, deployment tags
+# v* / landing-v* only (GitHub settings, inv-production-steps). The SSH key of the environment only runs
+# /opt/ottimo-prod/infra/server/bin/deploy-from-ci.sh, which answers one line (public log – SEC E.8).
+name: Release
+
+on:
+  push:
+    tags: ['v*', 'landing-v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: resolve release (main, CI green, image digests)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      kind: ${{ steps.r.outputs.kind }}
+      tag: ${{ steps.r.outputs.tag }}
+      api_digest: ${{ steps.r.outputs.api_digest }}
+      web_digest: ${{ steps.r.outputs.web_digest }}
+      landing_digest: ${{ steps.r.outputs.landing_digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Check tag, main, CI, images
+        id: r
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          case "$REF_NAME" in
+            v[0-9]*.[0-9]*.[0-9]*) kind=app ;;
+            landing-v[0-9]*.[0-9]*.[0-9]*) kind=landing ;;
+            *) echo "::error::tag $REF_NAME is not v<x.y.z> or landing-v<x.y.z>"; exit 1 ;;
+          esac
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
+            || { echo "::error::$REF_NAME does not point at a commit of main"; exit 1; }
+          ok=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&event=push&status=success&per_page=1" \
+            --jq '.total_count')
+          [ "${ok:-0}" -gt 0 ] || { echo "::error::no successful CI run (push to main) for $GITHUB_SHA"; exit 1; }
+          owner=$(tr '[:upper:]' '[:lower:]' <<<"$GITHUB_REPOSITORY_OWNER")
+          tag="sha-${GITHUB_SHA::12}"
+          digest() { docker buildx imagetools inspect "$1" | awk '/^Digest:/ { print $2; exit }'; }
+          { echo "kind=$kind"; echo "tag=$tag"; } >> "$GITHUB_OUTPUT"
+          if [ "$kind" = app ]; then
+            api=$(digest "ghcr.io/$owner/ottimo-api:$tag"); web=$(digest "ghcr.io/$owner/ottimo-web:$tag")
+            [[ "$api" =~ ^sha256:[0-9a-f]{64}$ && "$web" =~ ^sha256:[0-9a-f]{64}$ ]] \
+              || { echo "::error::images $tag not found on GHCR (was publish-images green for this commit?)"; exit 1; }
+            { echo "api_digest=$api"; echo "web_digest=$web"; } >> "$GITHUB_OUTPUT"
+            echo "release $REF_NAME → $tag api@$api web@$web"
+          else
+            landing=$(digest "ghcr.io/$owner/ottimo-landing:$tag")
+            [[ "$landing" =~ ^sha256:[0-9a-f]{64}$ ]] \
+              || { echo "::error::landing image $tag not found on GHCR"; exit 1; }
+            echo "landing_digest=$landing" >> "$GITHUB_OUTPUT"
+            echo "release $REF_NAME → landing $tag @$landing"
+          fi
+
+  deploy-production:
+    name: deploy production
+    needs: resolve
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    # Required reviewer INV + deployment tags v*/landing-v* are settings of this environment.
+    environment: production
+    steps:
+      - name: Deploy over SSH (forced command deploy-from-ci.sh – the key cannot do anything else)
+        env:
+          SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
+          HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          KIND: ${{ needs.resolve.outputs.kind }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          API_DIGEST: ${{ needs.resolve.outputs.api_digest }}
+          WEB_DIGEST: ${{ needs.resolve.outputs.web_digest }}
+          LANDING_DIGEST: ${{ needs.resolve.outputs.landing_digest }}
+        run: |
+          [ -n "$HOST" ] && [ -n "$SSH_KEY" ] && [ -n "$KNOWN_HOSTS" ] || { echo "::error::PRODUCTION_SSH_HOST / PRODUCTION_SSH_KEY / PRODUCTION_SSH_KNOWN_HOSTS missing"; exit 1; }
+          if [ "$KIND" = app ]; then cmd="deploy $TAG api=$API_DIGEST web=$WEB_DIGEST"; else cmd="landing $TAG landing=$LANDING_DIGEST"; fi
+          install -d -m 0700 ~/.ssh
+          ( umask 077; printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key; printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts )
+          trap 'rm -f ~/.ssh/deploy_key ~/.ssh/known_hosts' EXIT
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes -o LogLevel=ERROR -o ConnectTimeout=20 \
+            "ottimo@$HOST" "$cmd"

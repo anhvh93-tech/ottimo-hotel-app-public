@@ -235,6 +235,9 @@ jobs:
       # SEC E.8 / R5-01: the CI deploy key gets one summary line back (public Actions log); other commands → exit 2.
       - name: deploy-from-ci.sh (one summary line, full log on the server, refused commands)
         run: bash product/infra/ci/test-deploy-from-ci.sh
+      # R3 v1.0: staging + production on one VPS behind one edge (SNI routing, PROXY protocol, landing preview auth).
+      - name: Shared edge (render guards, routing, client address, no spoofing)
+        run: bash product/infra/ci/test-edge.sh
 
   test-surface-guard:
     # BUG-R1-SEC-08 / SR-SECR-05: the production contract must not contain /__test__ paths
@@ -671,7 +674,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Build (api production + api -test variant for staging + web)
+      - name: Build (api production + api -test variant for staging + web + landing)
         id: build
         env:
           # Public number, passed by name to docker build (value from the environment, not the command line).
@@ -686,22 +689,28 @@ jobs:
           docker build -f product/infra/docker/Dockerfile.api --build-arg INCLUDE_TEST_SUPPORT=1 -t "$api:$tag-test" product
           docker build -f product/infra/docker/Dockerfile.web --build-arg WEB_BUILD_PROFILE=production \
             --build-arg VITE_DESK_PHONE -t "$web:$tag" product
+          # Landing (ADR-014, R3 v1.0): the release image (indexable) – reaches the public only through the release
+          # workflow (tag landing-v*, environment production = INV approval); staging serves it behind basic auth.
+          landing="ghcr.io/$owner/ottimo-landing"
+          docker build -f product/infra/docker/Dockerfile.landing --build-arg LANDING_SITE_URL=https://ottimo.vn \
+            --build-arg LANDING_INDEXABLE=true -t "$landing:$tag" product
           # The production tag must not contain test endpoints (BUG-R1-SEC-08) – same guard as docker-build.
           rm -rf "$RUNNER_TEMP/b" && mkdir -p "$RUNNER_TEMP/b"
           cid=$(docker create "$api:$tag"); docker cp "$cid:/app/dist" "$RUNNER_TEMP/b/dist"; docker rm "$cid" >/dev/null
           bash product/infra/ci/check-no-test-surface.sh bundle "$RUNNER_TEMP/b/dist"
-          { echo "tag=$tag"; echo "api=$api"; echo "web=$web"; } >> "$GITHUB_OUTPUT"
+          { echo "tag=$tag"; echo "api=$api"; echo "web=$web"; echo "landing=$landing"; } >> "$GITHUB_OUTPUT"
       - name: Push to GHCR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.build.outputs.tag }}
           API: ${{ steps.build.outputs.api }}
           WEB: ${{ steps.build.outputs.web }}
+          LANDING: ${{ steps.build.outputs.landing }}
         run: |
           printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          docker push "$API:$TAG"; docker push "$API:$TAG-test"; docker push "$WEB:$TAG"
+          docker push "$API:$TAG"; docker push "$API:$TAG-test"; docker push "$WEB:$TAG"; docker push "$LANDING:$TAG"
           docker logout ghcr.io
-          echo "pushed $API:$TAG(-test), $WEB:$TAG"
+          echo "pushed $API:$TAG(-test), $WEB:$TAG, $LANDING:$TAG"
 
   deploy-staging:
     name: deploy staging
@@ -730,3 +739,31 @@ jobs:
           trap 'rm -f ~/.ssh/deploy_key ~/.ssh/known_hosts' EXIT
           ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes -o LogLevel=ERROR -o ConnectTimeout=20 \
             "ottimo@$HOST" "deploy $TAG"
+
+  # Landing preview on staging (R3 v1.0, decision-log 23/10 "landing lên mạng sớm"): every main push with the landing
+  # image → staging.<domain> behind basic auth + noindex, after INV approves the `staging` environment. OFF until the
+  # repository variable LANDING_PREVIEW_DEPLOY=true (staging must run behind the shared edge first – v1-production.md).
+  deploy-landing-preview:
+    name: deploy landing preview (staging)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true' && vars.LANDING_PREVIEW_DEPLOY == 'true'
+    needs: [publish-images, deploy-staging]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: staging
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    steps:
+      - name: Deploy landing over SSH (forced command deploy-from-ci.sh)
+        env:
+          SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+          HOST: ${{ secrets.STAGING_SSH_HOST }}
+          TAG: ${{ needs.publish-images.outputs.tag }}
+        run: |
+          [ -n "$HOST" ] && [ -n "$SSH_KEY" ] && [ -n "$KNOWN_HOSTS" ] || { echo "::error::STAGING_SSH_HOST / STAGING_SSH_KEY / STAGING_SSH_KNOWN_HOSTS missing"; exit 1; }
+          install -d -m 0700 ~/.ssh
+          ( umask 077; printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key; printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts )
+          trap 'rm -f ~/.ssh/deploy_key ~/.ssh/known_hosts' EXIT
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes -o LogLevel=ERROR -o ConnectTimeout=20 \
+            "ottimo@$HOST" "landing $TAG"

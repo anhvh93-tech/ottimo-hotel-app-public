@@ -1,0 +1,19 @@
+# Overlay for EDGE_MODE=edge (added by infra/server/bin/dc when the server .env says so – R3 v1.0, two stacks on one
+# VPS): the stack publishes NO port; the shared edge (infra/edge/docker-compose.edge.yml) owns 80/443 and reaches
+# `web` and `landing` on the link network of this environment under fixed aliases <EDGE_NAME>-web / -landing.
+# The link network is created by the edge project (fixed name ottimo-link-<staging|production>): start the edge first.
+services:
+  web:
+    ports: !reset []
+    networks:
+      link:
+        aliases: ['${EDGE_NAME:?set EDGE_NAME (staging|production) in the server .env}-web']
+  landing:
+    networks:
+      link:
+        aliases: ['${EDGE_NAME:?set EDGE_NAME (staging|production) in the server .env}-landing']
+
+networks:
+  link:
+    name: ottimo-link-${EDGE_NAME:?set EDGE_NAME (staging|production) in the server .env}
+    external: true

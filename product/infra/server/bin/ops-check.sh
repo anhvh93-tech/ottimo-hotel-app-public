@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Periodic checks of one server – systemd timer ottimo-ops-check.timer (every 30 min), as the deploy user.
 #   ops-check.sh            run every check, alert on failures
-#   ops-check.sh j16        one check only (j16 | backup | disk | tls | containers)
+#   ops-check.sh j16        one check only (j16 | backup | disk | mem | tls | containers | http5xx)
 #
 #   j16         SEC C6 / SR-RET-03: for every active property, the last retention_run of policy J16 with
 #               status done must be < 26 h old (a property younger than 26 h without any run is fine), and no J16 run
@@ -9,17 +9,24 @@
 #               a whole day means the worker or the job is broken – documents would outlive their deletion date.
 #   backup      last successful backup.sh < 26 h (state/backup.last_ok)
 #   disk        root filesystem < 80 % (hosting-plan 8)
+#   mem         MemAvailable ≥ MEM_MIN_AVAIL_PCT (default 10 %) of RAM – staging + production share 4.8 GB (v1-production 3)
 #   tls         certificate of DESK/STAFF/GUEST host valid > 14 days (Caddy renews at 30 days; this means renewal fails)
-#   containers  postgres, api, worker, web running (api healthy)
+#   containers  postgres, api, worker, web running (api healthy); + landing when a landing tag is deployed
+#   http5xx     server errors answered by Caddy (web + landing) in the last 35 min < HTTP5XX_MAX (default 5): a
+#               crashing api, a 502 from a dead upstream – before guests or staff report it
 #
 # Alerts (no personal data – only check names, property ids, ages): always to the journal
 # (journalctl -t ottimo-alert -p err); plus ALERT_WEBHOOK_URL from /opt/ottimo/.env if set, sent when a check
 # changes state (OK→FAIL, FAIL→OK) and again every 6 h while it stays failing. Exit 1 when any check fails.
+# HEARTBEAT_URL (optional, .env – e.g. a free healthchecks.io check): pinged after every full run, `<url>/fail` when a
+# check failed. The service e-mails INV/OPS when a ping says fail OR when pings stop (server down, timer stopped) –
+# the alert path that does not depend on this server being alive. Only check names are sent.
 # Note: with CLOCK_MODE=mutable (staging time-travel tests) run_at follows the fake clock – a J16 alert during such a
 # test is expected.
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
+if [ -z "${OTTIMO_HOME:-}" ] && [ -f "$here/../../../.ottimo-home" ]; then OTTIMO_HOME=$(cd "$here/../../.." && pwd); fi
 OTTIMO_HOME="${OTTIMO_HOME:-/opt/ottimo}"
 export OTTIMO_HOME
 state="$OTTIMO_HOME/state/ops-check"
@@ -32,7 +39,9 @@ BACKUP_MAX_HOURS="${BACKUP_MAX_HOURS:-26}"
 DISK_MAX_PCT="${DISK_MAX_PCT:-80}"
 TLS_MIN_DAYS="${TLS_MIN_DAYS:-14}"
 REMIND_SECONDS="${REMIND_SECONDS:-21600}"
-for v in J16_MAX_HOURS BACKUP_MAX_HOURS DISK_MAX_PCT TLS_MIN_DAYS REMIND_SECONDS; do
+HTTP5XX_MAX="${HTTP5XX_MAX:-5}"
+MEM_MIN_AVAIL_PCT="${MEM_MIN_AVAIL_PCT:-10}"
+for v in J16_MAX_HOURS BACKUP_MAX_HOURS DISK_MAX_PCT TLS_MIN_DAYS REMIND_SECONDS HTTP5XX_MAX MEM_MIN_AVAIL_PCT; do
   [[ "${!v}" =~ ^[0-9]+$ ]] || { echo "$v must be a number" >&2; exit 2; }
 done
 host_name=$(hostname -s 2>/dev/null || echo server)
@@ -115,10 +124,21 @@ check_disk() {
   notify disk OK "/ ${pct}%"
 }
 
+check_mem() {
+  local total avail pct
+  total=$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo)
+  avail=$(awk '/^MemAvailable:/ { print $2 }' /proc/meminfo)
+  pct=$(( avail * 100 / total ))
+  if [ "$pct" -lt "$MEM_MIN_AVAIL_PCT" ]; then notify mem FAIL "only ${pct}% RAM available ($((avail / 1024)) MB)"; return 1; fi
+  notify mem OK "${pct}% RAM available ($((avail / 1024)) MB)"
+}
+
 check_tls() {
   local h end days bad="" port
   port=$(envval PUBLIC_HTTPS_PORT); port="${port:-443}"
-  for h in "$(envval DESK_HOST)" "$(envval STAFF_HOST)" "$(envval GUEST_HOST)"; do
+  local hosts=("$(envval DESK_HOST)" "$(envval STAFF_HOST)" "$(envval GUEST_HOST)")
+  [ -s "$OTTIMO_HOME/state/landing_tag" ] && hosts+=("$(envval LANDING_HOST)" "$(envval LANDING_WWW_HOST)")
+  for h in "${hosts[@]}"; do
     end=$(echo | openssl s_client -connect "${SMOKE_ADDR:-127.0.0.1}:$port" -servername "$h" 2>/dev/null \
       | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2) || true
     if [ -z "$end" ]; then bad+=" $h: no certificate;"; continue; fi
@@ -131,26 +151,51 @@ check_tls() {
 
 check_containers() {
   local s missing=""
-  for s in postgres api worker web; do
+  local services=(postgres api worker web)
+  [ -s "$OTTIMO_HOME/state/landing_tag" ] && services+=(landing)
+  for s in "${services[@]}"; do
     [ -n "$(dc ps --status running --quiet "$s" 2>/dev/null)" ] || missing+=" $s"
   done
   if [ -n "$missing" ]; then notify containers FAIL "not running:$missing"; return 1; fi
   if ! dc exec -T api wget -qO- http://127.0.0.1:3000/health 2>/dev/null | grep -q '"status":"ok"'; then
     notify containers FAIL "api /health not ok"; return 1
   fi
-  notify containers OK "postgres api worker web running, api healthy"
+  notify containers OK "${services[*]} running, api healthy"
 }
 
-if [ "$#" -gt 0 ]; then checks=("$@"); else checks=(containers j16 backup disk tls); fi
+check_http5xx() {
+  local svc=(web) n
+  [ -s "$OTTIMO_HOME/state/landing_tag" ] && svc+=(landing)
+  # Caddy access log lines are JSON with "status":<code>; count 5xx answers of the last 35 minutes.
+  n=$(dc logs --no-color --no-log-prefix --since 35m "${svc[@]}" 2>/dev/null | grep -c '"status":5[0-9][0-9]' || true)
+  if [ "${n:-0}" -ge "$HTTP5XX_MAX" ]; then notify http5xx FAIL "$n server errors (5xx) in 35 min"; return 1; fi
+  notify http5xx OK "${n:-0} server errors (5xx) in 35 min"
+}
+
+if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx); full=1; fi
 rc=0
+failed=""
 for c in "${checks[@]}"; do
+  ok=1
   case "$c" in
-    j16) check_j16 || rc=1 ;;
-    backup) check_backup || rc=1 ;;
-    disk) check_disk || rc=1 ;;
-    tls) check_tls || rc=1 ;;
-    containers) check_containers || rc=1 ;;
-    *) echo "unknown check: $c" >&2; rc=2 ;;
+    j16) check_j16 || ok=0 ;;
+    backup) check_backup || ok=0 ;;
+    disk) check_disk || ok=0 ;;
+    mem) check_mem || ok=0 ;;
+    tls) check_tls || ok=0 ;;
+    containers) check_containers || ok=0 ;;
+    http5xx) check_http5xx || ok=0 ;;
+    *) echo "unknown check: $c" >&2; rc=2; continue ;;
   esac
+  if [ "$ok" -eq 0 ]; then failed+=" $c"; [ "$rc" -eq 2 ] || rc=1; fi
 done
+hb=$(envval HEARTBEAT_URL)
+if [ "$full" -eq 1 ] && [ -n "$hb" ]; then
+  if [ "$rc" -eq 0 ]; then
+    curl -fsS --max-time 10 --retry 3 -o /dev/null "$hb" || logger -t ottimo-alert -- "heartbeat ping failed" || true
+  else
+    curl -fsS --max-time 10 --retry 3 -o /dev/null --data-raw "failed:$failed" "$hb/fail" \
+      || logger -t ottimo-alert -- "heartbeat fail ping failed" || true
+  fi
+fi
 exit "$rc"

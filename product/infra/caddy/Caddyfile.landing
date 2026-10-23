@@ -1,0 +1,163 @@
+# OTTIMO landing site (ADR-014 1.4) – the static Astro build of apps/landing-web served by its own Caddy container
+# (`landing` service of infra/docker-compose.prod.yml, image ottimo-landing – infra/docker/Dockerfile.landing).
+# Separate from the app Caddy (Caddyfile.prod) on purpose (OPS R3 v1.0, decision-log 23/10): the landing goes live
+# before the production app and is released on its own (tag landing-v*), so it cannot share the app's container.
+# Always behind the shared edge (infra/edge): TLS is terminated HERE (certificates in the landing's caddydata volume),
+# the edge only routes by SNI and sends the client address in a PROXY protocol header.
+# Values (server .env, infra/server/env.example):
+#   LANDING_HOST      production: ottimo.vn            | staging preview: staging.ottimo.vn
+#   LANDING_WWW_HOST  production: www.ottimo.vn        | staging preview: www.staging.ottimo.vn   (→ 301 to LANDING_HOST)
+#   ACME_EMAIL, PROXY_PROTOCOL_ALLOW (edge address)
+# Access (/run/secrets/landing_access, written by infra/server/bin/init-secrets.sh): production = no restriction and
+# no X-Robots-Tag; staging = basic auth (password only on the server, root-only) + X-Robots-Tag noindex (SEC ARC-10
+# point 4: the preview looks exactly like the real site, so noindex alone is not enough).
+{
+	admin off
+	email {$ACME_EMAIL}
+	servers :443 {
+		listener_wrappers {
+			proxy_protocol {
+				timeout 5s
+				allow {$PROXY_PROTOCOL_ALLOW:127.0.0.1/32}
+				fallback_policy ignore
+			}
+			tls
+		}
+		protocols h1 h2
+		timeouts {
+			read_header 10s
+			read_body 10s
+			idle 2m
+		}
+	}
+	servers :80 {
+		protocols h1 h2
+		timeouts {
+			read_header 10s
+			read_body 10s
+			idle 2m
+		}
+	}
+	log default {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "\?.*$" "?[q]"
+				request>headers delete
+				resp_headers delete
+				request>remote_ip ip_mask 24 48
+				request>client_ip ip_mask 24 48
+			}
+		}
+	}
+}
+
+# Same masking as the app sites (SR-LOG-02/03): no query string (utm_* included – ADR-014 1.4), no header, IP /24.
+(access_log) {
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "\?.*$" "?[q]"
+				request>headers delete
+				resp_headers delete
+				request>remote_ip ip_mask 24 48
+				request>client_ip ip_mask 24 48
+			}
+		}
+	}
+}
+
+(landing_headers) {
+	header {
+		defer
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+		-Via
+	}
+	header ?Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'; manifest-src 'self'; worker-src 'none'; upgrade-insecure-requests"
+	header ?Referrer-Policy "strict-origin-when-cross-origin"
+	header ?Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=()"
+	header ?X-Content-Type-Options "nosniff"
+	header ?X-Frame-Options "DENY"
+	header ?Cross-Origin-Opener-Policy "same-origin"
+	header ?Cross-Origin-Resource-Policy "same-origin"
+}
+
+{$LANDING_WWW_HOST} {
+	import access_log
+	header -Server
+	redir https://{$LANDING_HOST}{uri} 301
+}
+
+{$LANDING_HOST} {
+	import access_log
+	# staging: basic_auth + X-Robots-Tag; production: nothing (see header of this file)
+	import /run/secrets/landing_access
+	root * /srv/landing
+	encode zstd gzip
+	# v1 has no form and calls no API (ADR-014 1.4 – L0); from L1 the form posts ≤ 16 KB to the api.
+	request_body {
+		max_size 16KB
+	}
+
+	import landing_headers
+
+	# /en, /en/… → same path without /en (typed links); /book/ → the form on the home page (ADR-014 1.4, 17/10).
+	redir /en / 301
+	@en path_regexp en ^/en(/.*)$
+	redir @en {re.en.1} 301
+	redir /book/ /#book 301
+	redir /vi/book/ /vi/#book 301
+
+	@hidden {
+		path_regexp hidden (^|/)\.|\.map$
+		not path /.well-known/*
+	}
+	handle @hidden {
+		error 404
+	}
+	# v1 (L0): no API, no health, no test endpoints on the landing origin; Russian not released yet.
+	@closed path /v1/* /health /health/* /__test__/* /ru /ru/*
+	handle @closed {
+		error 404
+	}
+	handle /_astro/* {
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+	handle /og/* {
+		# Zalo / Facebook link previews load this image from their own origin.
+		header Cross-Origin-Resource-Policy "cross-origin"
+		header Cache-Control "public, max-age=86400"
+		file_server
+	}
+	@meta path /robots.txt /sitemap-*.xml /favicon.ico /favicon.svg /site.webmanifest
+	handle @meta {
+		header Cache-Control "public, max-age=3600"
+		file_server
+	}
+	# No Accept-Language redirect, no Vary, no cookie (ADR-014 3).
+	handle {
+		header Cache-Control "public, max-age=0, must-revalidate"
+		try_files {path} {path}/index.html
+		file_server
+	}
+
+	handle_errors 404 {
+		# error responses get the same security headers (they are not covered by the site's header directives)
+		import landing_headers
+		header Cache-Control "no-store"
+		@vi path /vi /vi/*
+		handle @vi {
+			rewrite * /vi/404/index.html
+			file_server
+		}
+		handle {
+			rewrite * /404.html
+			file_server
+		}
+	}
+}

@@ -1,0 +1,58 @@
+# Shared edge of the OTTIMO VPS (R3 v1.0 – staging and production on one server, rounds/round-03/outputs/OPS/
+# v1-production.md 2). The ONLY container that publishes 80/443. It terminates nothing:
+#   443  nginx stream + ssl_preread: routes the TLS connection by SNI to the right stack's Caddy (web or landing) and
+#        prepends a PROXY protocol v1 header with the client address (Caddy accepts it only from this container's
+#        fixed address – PROXY_PROTOCOL_ALLOW in each stack's .env). Certificates stay in each stack's Caddy.
+#   80   nginx http: forwards by Host to the stack's Caddy :80 (HTTP→HTTPS redirect, ACME HTTP-01); unknown → 404.
+# Unknown host names are refused (closed connection / 404). No access log here (the stacks' Caddy logs, masked).
+# Run through infra/server/bin/edge.sh (renders nginx.conf from the stacks' .env, creates the link networks).
+name: ottimo-edge
+
+services:
+  edge:
+    image: nginx:1.30.6-alpine@sha256:47928bf67eb62a1863cb08d9ecb52d3e704304ba614eaee17884204677702951
+    # Skip the image's entrypoint scripts (they write into /etc/nginx); run nginx directly as the `nginx` user.
+    entrypoint: ['nginx', '-c', '/etc/ottimo-edge/nginx.conf', '-g', 'daemon off;']
+    user: '101:101'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    # Bind 80/443 inside the container's own network namespace without any capability (same as the app Caddy).
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: '0'
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    volumes:
+      - ${EDGE_CONF:-/opt/ottimo-edge/nginx.conf}:/etc/ottimo-edge/nginx.conf:ro
+    # EDGE_*_PORT and EDGE_BIND_PREFIX (e.g. "127.0.0.1:") exist for the local test (infra/ci/test-edge.sh); the server uses the defaults.
+    ports:
+      - '${EDGE_BIND_PREFIX:-}${EDGE_HTTP_PORT:-80}:80'
+      - '${EDGE_BIND_PREFIX:-}${EDGE_HTTPS_PORT:-443}:443'
+    networks:
+      link-staging:
+        ipv4_address: 172.31.1.2
+      link-production:
+        ipv4_address: 172.31.2.2
+    restart: unless-stopped
+    mem_limit: 64m
+    pids_limit: 50
+    logging:
+      driver: local
+      options:
+        max-size: 5m
+        max-file: '3'
+    healthcheck:
+      test: ['CMD-SHELL', 'nc -z 127.0.0.1 443 && nc -z 127.0.0.1 80 || exit 1']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+# Created by edge.sh (fixed names and subnets) so a stack can join before the edge container exists.
+networks:
+  link-staging:
+    name: ottimo-link-staging
+    external: true
+  link-production:
+    name: ottimo-link-production
+    external: true

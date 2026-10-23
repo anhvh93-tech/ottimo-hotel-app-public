@@ -7,12 +7,16 @@
 # network (no published port): postgres + roles (02-roles.sh) → pg_restore → blobs into a fresh volume → api from
 # the same image on the restored database → /health, table counts, blob count, migration count → report → remove
 # everything (containers, volumes, network, decrypted files) unless --keep.
+# Counts (R3 v1.0): backup.sh stores counts-<stamp>.txt.age = row counts + money totals (reservations, folios,
+# folio lines, payments …) read in the dump's own snapshot; the drill runs the same SQL (infra/server/backup-counts.sql)
+# on the restored database and passes only when every number is equal (backups older than that file: counts shown only).
 # KEK: not needed for this drill (counts + health). Decrypting one sample document needs the environment's KEK in a
 # tmpfs secret only for the drill (hosting-plan 7.1 step 3) – R3 together with BE (verification command in the image).
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
 roles_sh="$here/../../postgres/init/02-roles.sh"
+counts_sql="$here/../backup-counts.sql"
 PG_IMAGE="${PG_IMAGE:-postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24}"
 identity="" from="" api_image="" stamp="" keep=0
 while [ $# -gt 0 ]; do
@@ -29,6 +33,7 @@ done
   echo "usage: $0 --identity <age identity> --from <backup dir> --api-image <image:tag> [--stamp <stamp>] [--keep]" >&2; exit 2; }
 command -v age >/dev/null || { echo "age is required" >&2; exit 2; }
 [ -r "$roles_sh" ] || { echo "missing $roles_sh" >&2; exit 2; }
+[ -r "$counts_sql" ] || { echo "missing $counts_sql" >&2; exit 2; }
 
 if [ -z "$stamp" ]; then
   stamp=$(ls "$from"/db-*.dump.age 2>/dev/null | sed -E 's/^.*db-([0-9]{8}T[0-9]{6}Z)\.dump\.age$/\1/' | sort | tail -n 1)
@@ -63,6 +68,12 @@ for kind in "db-$stamp.dump" "blobs-$stamp.tar" "purge-journal-$stamp.csv"; do
   fi
   age --decrypt --identity "$identity" -o "$work/$kind" "$f"
 done
+expected=""
+if [ -r "$from/counts-$stamp.txt.age" ]; then
+  (cd "$from" && { sha256sum -c "counts-$stamp.txt.age.sha256" >/dev/null 2>&1 || shasum -a 256 -c "counts-$stamp.txt.age.sha256" >/dev/null; }) \
+    || { log "checksum mismatch: counts-$stamp.txt.age"; exit 1; }
+  expected=$(age --decrypt --identity "$identity" "$from/counts-$stamp.txt.age")
+fi
 log "decrypted backup $stamp"
 
 # 2. throw-away PostgreSQL with the same roles (random passwords, this drill only)
@@ -109,26 +120,28 @@ for _ in $(seq 1 45); do
 done
 case "$health" in *'"status":"ok"'*) log "api /health ok on the restored database" ;; *) docker logs --tail 40 "$name-api"; log "FAIL: api /health"; exit 1 ;; esac
 
-# 6. counts (compare with the numbers of the source at backup time – runbook)
-counts=$(docker exec -i "$name-pg" psql -X -v ON_ERROR_STOP=1 -U ottimo_admin -d ottimo -tA -F ' ' <<'SQL'
-SELECT 'migrations', count(*) FROM drizzle.__drizzle_migrations
-UNION ALL SELECT 'properties', count(*) FROM property
-UNION ALL SELECT 'users', count(*) FROM app_user
-UNION ALL SELECT 'reservations', count(*) FROM reservation
-UNION ALL SELECT 'guests', count(*) FROM guest
-UNION ALL SELECT 'data_keys_live', count(*) FROM data_key WHERE destroyed_at IS NULL
-UNION ALL SELECT 'purge_journal', count(*) FROM purge_journal;
-SQL
-)
+# 6. counts on the restored database, compared with the numbers recorded in the dump snapshot (counts-<stamp>)
+counts=$(grep -v '^--' "$counts_sql" | docker exec -i "$name-pg" psql -X -v ON_ERROR_STOP=1 -U ottimo_admin -d ottimo -tA -F ' ')
+verdict="ĐẠT – /health ok"
+diffs=""
+if [ -n "$expected" ]; then
+  diffs=$(diff <(sort <<<"$expected") <(sort <<<"$counts") || true)
+  if [ -n "$diffs" ]; then verdict="KHÔNG ĐẠT – số liệu sau khôi phục khác số ghi lúc sao lưu"; fi
+else
+  verdict="ĐẠT – /health ok (bản sao lưu cũ: không có tệp counts để so)"
+fi
 pj_lines=$(( $(wc -l < "$work/purge-journal-$stamp.csv") - 1 ))
 t1=$(date +%s)
 echo "================ BIÊN BẢN DIỄN TẬP KHÔI PHỤC (dán vào report OPS) ================"
 echo "Ngày chạy (UTC):        $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "Bản sao lưu:            $stamp (từ $from)"
 echo "Image api:              $api_image"
-echo "Kết quả:                ĐẠT – /health ok"
+echo "Kết quả:                $verdict"
 echo "Thời gian khôi phục:    $((t1 - t0)) giây (giải mã + DB + tệp + khởi động api)"
 echo "Số tệp blob:            $blob_files"
 echo "purge_journal (tệp riêng): $pj_lines dòng – áp lại sau khôi phục theo SR-BAK-06 (lệnh áp lại: R3, BE + OPS)"
-echo "Đếm bảng:"; sed 's/^/  /' <<<"$counts"
+echo "Đếm bảng (sau khôi phục; so với lúc sao lưu: $([ -n "$expected" ] && { [ -z "$diffs" ] && echo 'khớp 100 %' || echo 'LỆCH'; } || echo 'không có'))":
+sed 's/^/  /' <<<"$counts"
+if [ -n "$diffs" ]; then echo "Khác biệt (< lúc sao lưu, > sau khôi phục):"; sed 's/^/  /' <<<"$diffs"; fi
 echo "=============================================================================="
+[ -z "$diffs" ] || exit 1

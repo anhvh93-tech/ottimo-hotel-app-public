@@ -11,6 +11,14 @@
 #                         (otherwise root keeps key-only login – PermitRootLogin prohibit-password)
 #   --ssh-allow <cidr>    allow SSH only from this address range (default: anywhere, key-only)
 #   --no-swap             do not create /swapfile (default: 2 GB when the VPS has no swap)
+#   --env staging|production   which stack this run prepares (default staging = /opt/ottimo, project `ottimo`);
+#                         production = /opt/ottimo-prod (project `ottimo-prod`, own .env/secrets/state/volumes, backups
+#                         in /var/backups/ottimo-prod, timers ottimo-backup@ottimo-prod / ottimo-ops-check@ottimo-prod,
+#                         no seed fixtures). Both stacks share Docker, the deploy user and the edge (R3 v1.0).
+#                         --ci-key / --backup-pull-key apply to the stack named by --env.
+#   --backup-pull-key <file>   public key of the machine that pulls the backups off-site (SR-BAK-04): forced to
+#                         `rrsync -ro /var/backups/<stack>` – read-only, that directory only, no shell
+# Every run also refreshes /opt/ottimo-edge/infra (the shared edge – infra/edge, bin/edge.sh) from this bundle.
 # What it does (hosting-plan 5): OS updates + automatic security updates (reboot 02:30 Vietnam time), Docker Engine
 # from Docker's apt repository (key fingerprint checked), daemon.json (log rotation, live-restore, no userland proxy,
 # no-new-privileges), deploy user `ottimo` (uid 2001, group docker – NOT uid 1000, which the api container uses),
@@ -18,9 +26,11 @@
 # timers for backup + ops checks. It does NOT create secrets (bin/init-secrets.sh), log in to the registry or deploy.
 set -Eeuo pipefail
 
-deploy_key="" ci_key="" admin_user="" ssh_allow="" swap=1
+deploy_key="" ci_key="" admin_user="" ssh_allow="" swap=1 env_name=staging pull_key=""
 while [ $# -gt 0 ]; do
   case "$1" in
+    --env) env_name="$2"; shift 2 ;;
+    --backup-pull-key) pull_key="$2"; shift 2 ;;
     --deploy-key) deploy_key="$2"; shift 2 ;;
     --ci-key) ci_key="$2"; shift 2 ;;
     --admin-user) admin_user="$2"; shift 2 ;;
@@ -32,8 +42,14 @@ done
 
 DEPLOY_USER=ottimo
 DEPLOY_UID=2001
-OTTIMO_HOME=/opt/ottimo
-BACKUP_DIR=/var/backups/ottimo
+case "$env_name" in
+  staging) OTTIMO_HOME=/opt/ottimo ;;
+  production) OTTIMO_HOME=/opt/ottimo-prod ;;
+  *) echo "--env must be staging or production" >&2; exit 2 ;;
+esac
+stack=$(basename "$OTTIMO_HOME")
+BACKUP_DIR=/var/backups/$stack
+EDGE_HOME=/opt/ottimo-edge
 bundle_infra=$(cd "$(dirname "$0")/.." && pwd)   # …/infra of the copied bundle
 bundle_root=$(cd "$bundle_infra/.." && pwd)
 DOCKER_GPG_FPR=9DC858229FC7DD38854AE2D88D81803C0EBFCD88
@@ -47,7 +63,7 @@ case "${VERSION_ID:-}" in 22.04|24.04) ;; *) log "WARNING: tested for Ubuntu 22.
 if ! id "$DEPLOY_USER" >/dev/null 2>&1 && [ -z "$deploy_key" ]; then
   echo "--deploy-key <public key file> is required the first time (or you could lock yourself out)" >&2; exit 2
 fi
-for f in "$deploy_key" "$ci_key"; do
+for f in "$deploy_key" "$ci_key" "$pull_key"; do
   [ -z "$f" ] || [ -r "$f" ] || { echo "cannot read $f" >&2; exit 2; }
   if [ -n "$f" ] && grep -q 'PRIVATE KEY' "$f"; then echo "$f is a PRIVATE key – give the .pub file" >&2; exit 2; fi
 done
@@ -126,7 +142,8 @@ fi
 ssh_dir="/home/$DEPLOY_USER/.ssh"
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0700 "$ssh_dir"
 touch "$ssh_dir/authorized_keys"
-ci_opts='command="/opt/ottimo/infra/server/bin/deploy-from-ci.sh",restrict'
+ci_opts="command=\"$OTTIMO_HOME/infra/server/bin/deploy-from-ci.sh\",restrict"
+pull_opts="command=\"/usr/bin/rrsync -ro $BACKUP_DIR\",restrict"
 key_blob() { awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^(ssh-|ecdsa-|sk-)/) { print $(i + 1); exit } }' <<<"$1"; }
 # SEC E.8 D4: the CI key is separate from every person's key. A key may not be both a person key (unrestricted) and
 # the CI key (forced command) – otherwise one of the two lines would give the CI key a shell or lock a person out.
@@ -134,8 +151,8 @@ if [ -n "$deploy_key" ]; then
   while IFS= read -r k; do
     [ -n "$k" ] || continue
     b=$(key_blob "$k")
-    if [ -n "$b" ] && grep -F -- "$b" "$ssh_dir/authorized_keys" | grep -qF 'deploy-from-ci.sh'; then
-      echo "a --deploy-key is already installed as the CI key – use separate keys (SEC E.8 D4)" >&2; exit 1
+    if [ -n "$b" ] && grep -F -- "$b" "$ssh_dir/authorized_keys" | grep -qE 'deploy-from-ci.sh|rrsync'; then
+      echo "a --deploy-key is already installed as a CI or backup-pull key – use separate keys (SEC E.8 D4)" >&2; exit 1
     fi
     grep -qxF -- "$k" "$ssh_dir/authorized_keys" || echo "$k" >> "$ssh_dir/authorized_keys"
   done < "$deploy_key"
@@ -151,6 +168,18 @@ if [ -n "$ci_key" ]; then
     grep -qF -- "$b" "$ssh_dir/authorized_keys" || echo "$ci_opts $k" >> "$ssh_dir/authorized_keys"
   done < "$ci_key"
 fi
+if [ -n "$pull_key" ]; then
+  [ -x /usr/bin/rrsync ] || { echo "/usr/bin/rrsync missing (package rsync ≥ 3.2.4)" >&2; exit 1; }
+  while IFS= read -r k; do
+    [ -n "$k" ] || continue
+    b=$(key_blob "$k")
+    [ -n "$b" ] || { echo "cannot parse the backup-pull public key" >&2; exit 1; }
+    if grep -F -- "$b" "$ssh_dir/authorized_keys" | grep -vqF "$pull_opts"; then
+      echo "the backup-pull key is already used for something else – generate a separate key" >&2; exit 1
+    fi
+    grep -qF -- "$b" "$ssh_dir/authorized_keys" || echo "$pull_opts $k" >> "$ssh_dir/authorized_keys"
+  done < "$pull_key"
+fi
 chown "$DEPLOY_USER:$DEPLOY_USER" "$ssh_dir/authorized_keys"
 chmod 0600 "$ssh_dir/authorized_keys"
 
@@ -160,9 +189,13 @@ install -d -o root -g root -m 0755 "$OTTIMO_HOME"
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0700 "$OTTIMO_HOME/state"
 install -d -o root -g "$DEPLOY_USER" -m 0750 "$OTTIMO_HOME/backup"
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0700 "$BACKUP_DIR"
-# Seed fixtures (fake data, staging): written by the seed container (uid 1000) – device tokens go to .out (0600).
+# Scripts in $OTTIMO_HOME/infra/server/bin resolve their stack from this marker (bin/dc) – the production copy can
+# never act on staging by a forgotten OTTIMO_HOME, and the reverse.
+echo "$env_name" > "$OTTIMO_HOME/.ottimo-home"
+chmod 0644 "$OTTIMO_HOME/.ottimo-home"
+# Seed fixtures (fake data, staging only): written by the seed container (uid 1000) – device tokens go to .out (0600).
 install -d -o 1000 -g 1000 -m 0700 "$OTTIMO_HOME/seed"
-if [ -f "$bundle_root/tests/fixtures/seed/ds-e.json" ]; then
+if [ "$env_name" = "staging" ] && [ -f "$bundle_root/tests/fixtures/seed/ds-e.json" ]; then
   install -o 1000 -g 1000 -m 0600 "$bundle_root/tests/fixtures/seed/ds-e.json" "$OTTIMO_HOME/seed/ds-e.json"
 fi
 # The bundle is owned by root: the deploy user (and CI) can run it but not change compose/Caddy/scripts.
@@ -171,10 +204,18 @@ rsync -a --delete --delete-excluded --chown=root:root --exclude '.DS_Store' --ex
   --exclude '.env' --exclude '.env.*' "$bundle_infra/" "$OTTIMO_HOME/infra/"
 chmod -R go-w "$OTTIMO_HOME/infra"
 chmod 0755 "$OTTIMO_HOME"/infra/server/bin/* "$OTTIMO_HOME/infra/postgres/init/02-roles.sh"
+template="$OTTIMO_HOME/infra/server/env.example"
+[ "$env_name" = "production" ] && template="$OTTIMO_HOME/infra/server/env.production.example"
 if [ ! -f "$OTTIMO_HOME/.env" ]; then
-  install -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0600 "$OTTIMO_HOME/infra/server/env.example" "$OTTIMO_HOME/.env"
-  log "created $OTTIMO_HOME/.env from env.example – fill the <...> values"
+  install -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0600 "$template" "$OTTIMO_HOME/.env"
+  log "created $OTTIMO_HOME/.env from $(basename "$template") – fill the <...> values"
 fi
+# Shared edge (one per VPS): its own root-owned copy of the bundle; nginx.conf is rendered by bin/edge.sh.
+install -d -o root -g root -m 0755 "$EDGE_HOME"
+rsync -a --delete --delete-excluded --chown=root:root --exclude '.DS_Store' --exclude '.out' --exclude '.work' \
+  --exclude '.env' --exclude '.env.*' "$bundle_infra/" "$EDGE_HOME/infra/"
+chmod -R go-w "$EDGE_HOME/infra"
+chmod 0755 "$EDGE_HOME"/infra/server/bin/*
 
 # ---- 5. firewall: SSH, HTTP, HTTPS only. Docker publishes only 80/443 (compose) – PostgreSQL/api have no port. ----
 log "firewall"
@@ -218,12 +259,15 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true
 # ---- 7. systemd timers (enabled once something is deployed) ----
 install -m 0644 "$OTTIMO_HOME"/infra/server/systemd/ottimo-*.service "$OTTIMO_HOME"/infra/server/systemd/ottimo-*.timer /etc/systemd/system/
 systemctl daemon-reload
+if [ "$env_name" = "production" ]; then timers="ottimo-backup@$stack.timer ottimo-ops-check@$stack.timer"
+else timers="ottimo-backup.timer ottimo-ops-check.timer"; fi
 if [ -s "$OTTIMO_HOME/state/current_tag" ]; then
-  systemctl enable --now ottimo-backup.timer ottimo-ops-check.timer >/dev/null
-  log "timers enabled"
+  # shellcheck disable=SC2086 # two unit names
+  systemctl enable --now $timers >/dev/null
+  log "timers enabled: $timers"
 else
   log "timers installed, not enabled yet (nothing deployed): after the first deploy run"
-  log "  sudo systemctl enable --now ottimo-backup.timer ottimo-ops-check.timer"
+  log "  sudo systemctl enable --now $timers"
 fi
 
 log "done. Next (README): age public key → $OTTIMO_HOME/backup/recipients.txt; fill $OTTIMO_HOME/.env;"

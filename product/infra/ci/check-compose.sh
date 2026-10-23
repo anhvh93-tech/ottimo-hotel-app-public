@@ -30,7 +30,13 @@ docker compose -p ottimo-compose-check --env-file "$product/.env.example" -f "$D
   --profile seed config --format json > "$tmp/dev.json"
 IMAGE_TAG=ci SECRETS_DIR=/nonexistent docker compose -p ottimo-compose-check \
   --env-file "$product/infra/server/env.example" -f "$PROD_FILE" \
-  --profile deploy --profile seed config --format json > "$tmp/prod.json"
+  --profile deploy --profile seed --profile landing config --format json > "$tmp/prod.json"
+# R3 v1.0: the production template behind the shared edge (overlay docker-compose.edge-link.yml) – same rules, and
+# with the overlay no service may publish a port at all (the edge owns 80/443).
+IMAGE_TAG=ci SECRETS_DIR=/nonexistent docker compose -p ottimo-compose-check \
+  --env-file "$product/infra/server/env.production.example" -f "$PROD_FILE" \
+  -f "$product/infra/docker-compose.edge-link.yml" \
+  --profile deploy --profile landing config --format json > "$tmp/prodedge.json"
 # Key wiring (UXR 17/10 #1): the template with throw-away random keys (never printed – only names are reported)
 umask 077
 sed -e "s|^DATA_KEK_CURRENT=$|DATA_KEK_CURRENT=$(openssl rand -base64 32)|" \
@@ -50,7 +56,7 @@ if DEMO_API_IMAGE=ottimo-api:demo docker compose -p ottimo-compose-check --env-f
   exit 1
 fi
 
-python3 - "$tmp/dev.json" "$tmp/prod.json" "$tmp/devk.json" "$tmp/demo.json" <<'PY'
+python3 - "$tmp/dev.json" "$tmp/prod.json" "$tmp/devk.json" "$tmp/demo.json" "$tmp/prodedge.json" <<'PY'
 import json, sys
 
 fails = []
@@ -123,6 +129,18 @@ check_blob('dev', dev)
 check_blob('prod', prod)
 
 # ---- prod only ----
+prodedge = json.load(open(sys.argv[5]))
+check_blob('prod-edge', prodedge)
+for name, svc in prodedge['services'].items():
+    if svc.get('ports'):
+        bad(f'prod-edge: {name} publishes ports {svc["ports"]} (the shared edge owns 80/443)')
+    if svc.get('environment', {}).get('MFA_ENFORCED') not in (None, 'true') and name in ('api', 'worker'):
+        bad(f'prod-edge: {name} MFA_ENFORCED is not true in env.production.example')
+lan = prodedge['services'].get('landing') or {}
+if lan.get('volumes') and any(v.get('source') in ('pgdata', 'blobdata') for v in lan['volumes']):
+    bad('prod-edge: landing mounts application data')
+if sorted((lan.get('networks') or {}).keys()) != ['landing', 'link']:
+    bad(f'prod-edge: landing networks {sorted((lan.get("networks") or {}).keys())} (only landing + link)')
 nets = prod.get('networks', {})
 if not (nets.get('db') or {}).get('internal'):
     bad('prod: network db must be internal')

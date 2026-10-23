@@ -13,6 +13,11 @@
 #   worker    (no port)   same image as api (dist/worker.js): jobs, J16 retention
 #   web       80, 443     Caddy: TLS (Let's Encrypt), 3 origins, security headers, masked access log
 #   seed      (one-shot)  staging only: QA/demo seed (fake data) – profile `seed`
+#   landing   (no port)   static landing site (ADR-014) behind the shared edge – profile `landing` (deploy-landing.sh)
+# Two stacks on one VPS (R3 v1.0, rounds/round-03/outputs/OPS/v1-production.md): staging = /opt/ottimo (project
+# `ottimo`), production = /opt/ottimo-prod (project `ottimo-prod`) – own .env, secrets, volumes, networks, backups.
+# With EDGE_MODE=edge in the .env, bin/dc adds docker-compose.edge-link.yml: web/landing publish nothing and the
+# shared edge (infra/edge) routes 80/443 to them by host name.
 # Volumes: pgdata (database), blobdata (encrypted uploads, api + worker only – never mounted into web: SEC C2),
 # caddydata (certificates – must persist, or every restart asks Let's Encrypt again and hits its rate limit).
 
@@ -44,10 +49,21 @@ x-api-env: &api-env
   ID_HASH_KEY_FILE: /run/secrets/id_hash_key
   LOG_IP_HMAC_KEY_FILE: /run/secrets/log_ip_hmac_key
   GUEST_CODE_SIGNING_KEY_FILE: /run/secrets/guest_code_signing_key
+  # R3 (ARC s1-contracts 3 – US-164 approval on the manager's phone): Web Push VAPID key pair, generated on the server
+  # by init-secrets.sh (EC P-256, base64url). The public key is not secret but travels with the private one (one pair).
+  WEB_PUSH_VAPID_PUBLIC_KEY_FILE: /run/secrets/web_push_vapid_public_key
+  WEB_PUSH_VAPID_PRIVATE_KEY_FILE: /run/secrets/web_push_vapid_private_key
+  WEB_PUSH_SUBJECT: ${WEB_PUSH_SUBJECT:-}
+  # ADR-014 4 (website booking form, v1.1): HMAC key of the public form token + the landing origin (empty = no form).
+  PUBLIC_FORM_SIGNING_KEY_FILE: /run/secrets/public_form_signing_key
+  LANDING_BASE_URL: ${LANDING_BASE_URL:-}
   # Caddy's fixed address on `edge` (below): the only proxy whose X-Forwarded-For is trusted.
   TRUST_PROXY: ${WEB_IP:-172.30.0.10}
   COOKIE_SECURE_PREFIX: 'true'
   CLOCK_MODE: ${CLOCK_MODE:-system}
+  # US-143 (SEC 06.3): two-step login mandatory for owner/manager. production refuses to start unless true;
+  # staging sets true before real data (OPS – /opt/ottimo/.env).
+  MFA_ENFORCED: ${MFA_ENFORCED:-false}
   # Staging may set 1 (with an image built with test support, API_TAG_SUFFIX=-test); production refuses it.
   INCLUDE_TEST_SUPPORT: ${INCLUDE_TEST_SUPPORT:-0}
   TEST_SUPPORT_TOKEN: ${TEST_SUPPORT_TOKEN:-}
@@ -83,6 +99,9 @@ x-api-secrets: &api-secrets
   - id_hash_key
   - log_ip_hmac_key
   - guest_code_signing_key
+  - web_push_vapid_public_key
+  - web_push_vapid_private_key
+  - public_form_signing_key
 
 services:
   postgres:
@@ -109,7 +128,9 @@ services:
       # Roles only: extensions come from the migrations (0000, 0005), so no 01-extensions.sql (it creates ottimo_test).
       - ./postgres/init/02-roles.sh:/docker-entrypoint-initdb.d/02-roles.sh:ro
     networks: [db]
-    mem_limit: 1g
+    # Limits per stack from the server .env (two stacks share one 4.8 GB VPS – v1-production.md 3): production keeps
+    # the defaults, staging sets lower values.
+    mem_limit: ${PG_MEM_LIMIT:-1g}
     pids_limit: 200
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
@@ -141,7 +162,7 @@ services:
     volumes:
       - blobdata:/var/lib/ottimo/blobs
     networks: [db, edge]
-    mem_limit: 1g
+    mem_limit: ${API_MEM_LIMIT:-1g}
     pids_limit: 300
     depends_on:
       postgres:
@@ -165,7 +186,7 @@ services:
       - blobdata:/var/lib/ottimo/blobs
     # `db` is internal (no Internet); `egress` lets the worker reach integrations (e-mail, OTA, bank feed) later.
     networks: [db, egress]
-    mem_limit: 768m
+    mem_limit: ${WORKER_MEM_LIMIT:-768m}
     pids_limit: 300
     depends_on:
       postgres:
@@ -186,6 +207,8 @@ services:
       HEALTH_ALLOW_IPS: ${HEALTH_ALLOW_IPS:-}
       # Default = loopback only, i.e. nobody through the published ports (Caddyfile.prod /__test__/*).
       TEST_SUPPORT_ALLOW_IPS: ${TEST_SUPPORT_ALLOW_IPS:-127.0.0.1/32}
+      # EDGE_MODE=edge: the shared edge's fixed address (infra/edge) – the only sender of PROXY protocol headers.
+      PROXY_PROTOCOL_ALLOW: ${PROXY_PROTOCOL_ALLOW:-127.0.0.1/32}
     volumes:
       - ./caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
       - caddydata:/home/caddy/data
@@ -203,6 +226,37 @@ services:
         condition: service_healthy
     healthcheck:
       # TLS port open (an HTTPS request would need the real host name / certificate).
+      test: ['CMD-SHELL', 'nc -z 127.0.0.1 443 || exit 1']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+
+  landing:
+    # Static landing site (ADR-014) in its own Caddy container – released separately from the app (tag landing-v*,
+    # infra/server/bin/deploy-landing.sh), only behind the shared edge (EDGE_MODE=edge: docker-compose.edge-link.yml
+    # gives it the link network; it publishes no port). Profile `landing`: never started by deploy.sh.
+    <<: *hardening
+    image: ${LANDING_IMAGE:-ghcr.io/none/ottimo-landing}:${LANDING_TAG:-none}
+    profiles: ['landing']
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: '0'
+    environment:
+      LANDING_HOST: ${LANDING_HOST:-landing.invalid}
+      LANDING_WWW_HOST: ${LANDING_WWW_HOST:-www.landing.invalid}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in /opt/ottimo/.env}
+      PROXY_PROTOCOL_ALLOW: ${PROXY_PROTOCOL_ALLOW:-127.0.0.1/32}
+    # staging: basic auth + noindex; production: empty (init-secrets.sh writes it from APP_ENV)
+    secrets: [landing_access]
+    volumes:
+      - ./caddy/Caddyfile.landing:/etc/caddy/Caddyfile:ro
+      - landingdata:/home/caddy/data
+      - landingconfig:/home/caddy/config
+    networks: [landing]
+    mem_limit: 128m
+    pids_limit: 100
+    healthcheck:
       test: ['CMD-SHELL', 'nc -z 127.0.0.1 443 || exit 1']
       interval: 30s
       timeout: 3s
@@ -243,6 +297,8 @@ networks:
   db:
     internal: true
   egress: {}
+  # The landing container alone (no api, no database); in edge mode it is also on the link network.
+  landing: {}
 
 volumes:
   pgdata:
@@ -250,6 +306,9 @@ volumes:
   blobdata:
   caddydata:
   caddyconfig:
+  # Landing certificates (ottimo.vn / www) – must persist like caddydata.
+  landingdata:
+  landingconfig:
 
 # Non-swarm compose bind-mounts these files read-only at /run/secrets/<name>; their owner/mode on the host is what
 # the container sees (infra/server/bin/init-secrets.sh: api/worker/migrate/seed files uid 1000, postgres files uid 70).
@@ -276,3 +335,12 @@ secrets:
     file: ${SECRETS_DIR:-/opt/ottimo/secrets}/ottimo_app_db_password
   qa_seed_password:
     file: ${SECRETS_DIR:-/opt/ottimo/secrets}/qa_seed_password
+  web_push_vapid_public_key:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/web_push_vapid_public_key
+  web_push_vapid_private_key:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/web_push_vapid_private_key
+  public_form_signing_key:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/public_form_signing_key
+  # Not a key: a Caddyfile snippet (staging = basic auth with a bcrypt hash; production = empty), uid 10001.
+  landing_access:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/landing_access
