@@ -1,6 +1,6 @@
 # SEC review – BE-B lượt kiểm tiền R3 Sprint 1 (210 + 209, phần folio-lines của 208)
 
-- Người review: SEC | Ngày: 23/10/2026 | Round 3 Sprint 1 – Bước Review
+- Người review: SEC | Ngày: 23/10/2026 | Round 3 Sprint 1 – Bước Review; **review lại ở Bước Phản hồi & sửa, head `ab04462`** (mục ngay dưới)
 - Nhánh: `worktree-agent-a4a7a7b47e3d900bf` (chưa push). Commit được review:
   - `61dfdd5` – BUG-R2-210 + BUG-R2-209 (`writeDebt`, `cycleOpenDebtVnd`, J15, "Cần chú ý");
   - **`ad7390c` – BUG-R2-208 phần `folio-lines` + N-15 (head SHA được review)**. `d94e5e9` phía trên chỉ thêm `rounds/round-03/outputs/BE/s1-be-b.md`, không đổi mã.
@@ -8,7 +8,66 @@
 - Tên tệp: SEC D.2 ghi `SEC-on-BE-208.md`; ORC giao tên `s1-SEC-on-BE-B.md`. Tệp này thay cho cả hai.
 - Dữ liệu dùng để kiểm: toàn bộ là dữ liệu giả của fixture. Không có số tài khoản, bí mật hay dữ liệu thật trong tệp.
 
-## Kết luận
+## Review lại – 23/10/2026, head `ab04462` (Bước Phản hồi & sửa)
+
+- Nhánh `worktree-agent-a4a7a7b47e3d900bf` đã rebase lên `main` `978c62f`. Các commit nằm trên `978c62f`:
+  - `23aec2f`: 208, chính là `ad7390c` cũ. `git range-diff` cho thấy patch giống hệt, nên phần review lượt đầu vẫn còn giá trị;
+  - `ad3ce7b`: báo cáo;
+  - `78cecef`: fix 210;
+  - `e5c8258`: 208 sửa theo review;
+  - `ab04462`: trả lời thẻ.
+- SEC review toàn bộ diff `978c62f..ab04462` trong `product/` (13 tệp) và đọc `rounds/round-03/responses/s1-BE-B.md`.
+- `main` đã sang `2dd51cc`. Phần chênh so với `978c62f` chỉ gồm tài liệu, OpenAPI và api-client sinh tự động (`Folio.totals.openDebtVnd`, addendum 0.3.8), không chạm `product/services/api/src`. Gộp nhánh không đụng mã đã review.
+
+### Kết luận lượt lại
+
+| Hạng mục | Kết luận SEC |
+|---|---|
+| **"210 Verified" (D.1)** | **CẤP** trên `78cecef` (fix 210): `openDebtVnd` của dữ liệu trước 0076 không còn tụt sau chuỗi A32 dài. Chuỗi bị cắt chỉ làm O lớn lên, tức sai về phía an toàn. Xem kiểm P1. |
+| **208 (`23aec2f` + `e5c8258`), điều kiện D** | **ĐẠT D.1–D.4**, gộp được ở head `ab04462`. D.5 (`Folio.totals.openDebtVnd` chỉ cho FD+) chưa có mã, SEC kiểm khi BE làm. D.3 (e) và D.6 (fuzz R3-Q30, BE-83) vẫn chờ: lượt kiểm tiền chưa "đạt" chung cho tới khi xong hai việc này, nhưng chúng không chặn gộp 208. |
+| **Gộp** | **Gộp được cả nhánh ở head `ab04462`**, bằng merge giữ SHA. Gộp kiểu khác (squash, cherry-pick fix 210 riêng) mà patch giữ nguyên thì SEC chỉ xác nhận lại, có diff thêm thì review phần thêm. |
+| Thẻ Blocker/Major còn mở | **Không còn.** |
+
+### Kiểm đã chạy (lượt lại)
+
+Chạy trên Postgres 17 riêng của SEC (container tạm, đã xóa), role `ottimo_app`.
+
+1. `tsc --noEmit`: đạt.
+2. **Toàn bộ api `vitest run` ở `ab04462`: 106 tệp đạt, 1 bỏ qua; 2.996 test đạt, 2 bỏ qua; 0 lỗi.** Gồm 3 ca `x.race` mới, các ca trước 0076, 208-E và 210-A32.
+3. SEC tự viết test dò tạm, không commit, đã xóa (worktree sạch):
+   - **P1** (dữ liệu trước 0076, chuỗi 70 lần A32 trên dòng phòng, vượt trần 64):
+     - O = 170.000 ≥ 100.000 ban đầu. Không tụt, chỉ lớn lên như thiết kế "an toàn khi lỗi";
+     - void dòng phòng → 409; giảm 1 đồng → 409; void minibar → 409.
+   - **P2** (đơn có chu kỳ, chuỗi 70 lần A32 trên khoản cửa sổ):
+     - void khoản đã nâng (140.000 = W) → 201, B = O = 100.000;
+     - sau đó giảm phòng 1 đồng → 409;
+     - nhật ký `folio_line.adjusted` có `actorRole: manager`, `openDebtVnd` trước 100.000 và sau 100.000 (đo lại).
+
+### Đọc mã các bản sửa
+
+- **FB-01 (a), `windowChargesVnd`:** lá nào chạm trần 64 mà phía trên còn dòng bị thay cùng loại thì đóng góp 0, không bao giờ tính cả dòng. Mỗi chuỗi có tối đa một dòng gốc không phải `post_checkout` (đệ quy dừng ở đó), nên `LIMIT 1` đúng.
+- **FB-01 (b), `OpenDebt.cycleOpened`:** khi chưa có chu kỳ thì mọi lần giảm bị 409, trước cả so sánh W. ARC đã xác nhận cổng (`2dd51cc`). `openDebt` trả `null` chỉ khi O ≤ 0, mà O = 0 là thật: muốn đẩy W_cũ ≥ B mà không có thu tiền thì phải là A32 tăng, nhưng A32 tăng làm B tăng cùng lượng.
+- **Bất biến lúc chạy:** O được đo lại sau `syncReductions`, cùng giao dịch và cùng khóa. Nếu O sau < O trước thì ném lỗi, rollback toàn bộ. Log chỉ có id folio, không có số tiền của khách.
+- **ARC S1-04, `openDebt` không đọc `debt_settled_at`:** rà lại đường thu tiền (`payments.service.ts` nhánh `debtCollection`). Chu kỳ nằm im (O = 0) thì đi nhánh thu thường trong cửa sổ, sau cửa sổ thì O = B > 0. Không mở đường mới. FOC `debt_write_off` khi O = 0 → 409 thay cho 422.
+- **Nhận xét, không lập thẻ:**
+  - Với dữ liệu trước 0076 có chuỗi bị cắt, O cao hơn thực tế (P1: 170.000 so với 100.000). Trần `debt_write_off` vì thế cao hơn phần nợ thật một khoản bằng các lần tăng không truy được. Đây là sai về phía an toàn, vẫn phải qua hạn mức BR-433 hoặc OWN và có nhật ký.
+  - Lần ghi nợ kế tiếp sẽ chốt số này vào chu kỳ, nên các khoản tăng đó được tính là nợ. Chấp nhận được, vì khách vẫn nợ số đó.
+  - Chỉ xảy ra với dữ liệu trước 0076 và chuỗi trên 64 lần A32.
+
+### Trạng thái thẻ (người review xác nhận)
+
+| ID | Mức | Trạng thái BE | SEC xác nhận |
+|---|---|---|---|
+| FB-R3-SEC-BE-B-01 | Blocker | Done | **Verified** (`78cecef` + `e5c8258`; P1, P2, test PR) |
+| FB-R3-SEC-BE-B-02 | Major | Done | **Verified** (3 ca `x.race`: hai thứ tự, deadlock +0, không 5xx; 412 chấp nhận theo giả định đã ghi) |
+| FB-R3-SEC-BE-B-03 | Minor | Done | **Verified** (O sau đo lại, `actorRole`, rollback khi vi phạm bất biến; `reservation.debt_on_checkout` cũng đo lại) |
+| FB-R3-SEC-BE-B-04 | Minor | Done | **Verified** (report trỏ đúng tệp; SHA mới được review ở đây) |
+| FB-R3-SEC-BE-B-05 | Suggestion | Chuyển DOM/ARC | Đồng ý chuyển; **còn mở** chờ DOM, không chặn |
+| FB-R3-SEC-BE-B-06 | Suggestion | Done (ARC xác nhận) | Verified |
+
+---
+
+## Kết luận lượt đầu (ad7390c – giữ để truy vết)
 
 | Commit | Kết luận SEC |
 |---|---|
