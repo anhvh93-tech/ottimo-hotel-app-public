@@ -8,7 +8,7 @@
 
 | Dòng | Trên staging | Còn lại |
 |---|---|---|
-| A1 | **Đang đi, phần 1/3 Đạt.** Tự động: mọi ca A1 không cần đồng hồ giả đều xanh (API + UI). Chạy tay: chặng 1–5 Đạt hôm nay (đơn `OTM-00239`, căn 202, đến 23/10, đi 25/10) | Chặng 6–7 chạy **23/10 sau 14:00**, chặng 8–12 chạy **25/10** (giờ thật, không tua được ngày). `TC-X-070` liền mạch: chỉ chạy trên stack CI |
+| A1 | **Đang đi, phần 1–2/3 Đạt** (phần 2 chạy 23/10 19:16). Tự động: mọi ca A1 không cần đồng hồ giả đều xanh (API + UI). Chạy tay: chặng 1–5 Đạt hôm nay (đơn `OTM-00239`, căn 202, đến 23/10, đi 25/10) | Chặng 6–7 chạy **23/10 sau 14:00**, chặng 8–12 chạy **25/10** (giờ thật, không tua được ngày). `TC-X-070` liền mạch: chỉ chạy trên stack CI |
 | A2 | Đạt phần API (10/10) | Ca cần đồng hồ: stack CI |
 | A3 | Đạt (`concurrency` 4/4, chống trùng 7/7) | Giữ chỗ quá hạn tự hủy (`hold-expiry.clock`): stack CI |
 | A4 | **Đạt trọn chuỗi chạy tay** (TC-X-072 làm bằng tay trên staging, giờ thật, 15 ảnh + 5 video) | `TC-X-072` tự động: stack CI |
@@ -103,11 +103,21 @@ Lượt chính: đến thứ Sáu 23/10, 2 đêm, 1 người lớn.
 
 \* Vai sale dùng `qa.fdsal` (lễ tân kiêm sale), không dùng `qa.sal`: `qa.sal` vừa hết lượt tra khách 30 lần/giờ do bộ API chạy trước. Màn và quyền báo giá, giữ chỗ giống nhau; RBAC của `qa.sal` cho các thao tác này đã xanh ở mục 3.
 
-### 6.2 A1 – phần 2 và 3 (chưa chạy)
+### 6.2 A1 – phần 2 (chặng 6–7), 23/10 19:16, **Đạt**
+
+Người chạy: ORC chạy script QA (`A1_PART=2`) trên staging, INV cho phép ORC đăng nhập `qa.fd` ngày 23/10 (QA là subagent, không nhập mật khẩu theo lời chuyển). Mật khẩu đọc từ tệp, không in. Kết quả 1 đạt / 0 hỏng (15,6 s).
+
+| # | Chặng | Ai | Kết quả | Ảnh |
+|---|---|---|---|---|
+| 6 | Nhận phòng H13: giấy tờ khách gửi qua app → step-up → nhập số/họ tên/ngày sinh (giả) → `PATCH …/documents/:id` 200 → 1/1 → Kiểm tra → Khai báo sau → thu tiền mặt 1.322.000 cùng lệnh nhận phòng | `qa.fd` | Đạt – trước nhận phòng còn thu 1.322.000 (= 1.822.000 − cọc 500.000); sau đó `in_house` | 101–110 |
+| 7 | Lưu trú: đơn Đang ở, folio; Sơ đồ phòng | `qa.fd` | Đạt – folio 1.822.000, đã thu 1.822.000, còn phải thu 0; căn 202 "OC · Có khách, sạch" ngày 23/10 | 111–112 |
+
+Không lỗi mới. Ghi chú: setup E2E báo `/health` không phản hồi qua Desk (đúng thiết kế production, TC-X-050) nên bỏ đăng nhập trước; không ảnh hưởng ca.
+
+### 6.3 A1 – phần 3 (chưa chạy)
 
 | Phần | Chặng | Khi nào | Lệnh |
 |---|---|---|---|
-| 2 | 6 nhận phòng H13 (giấy tờ khách gửi qua app → step-up → nhập số → thu 1.322.000 tiền mặt), 7 lưu trú (đơn Đang ở, sơ đồ) | **23/10 sau 14:00** | `A1_PART=2` (mục 7) |
 | 3 | 8–10 trả phòng 3 bước (minibar 2 bia, 1 snack, 2 nước) → bill → VietQR → ghi nhận → hoàn tất; 11 PWA dọn VD → CL → VC; 12 PWA kiểm → VI | **25/10** (chủ nhật, trước 12:00 để khỏi phụ thu trả muộn) | `A1_PART=3` |
 
 Không ai được hủy hoặc sửa đơn `OTM-00239` (căn 202, 23–25/10) trước khi QA chạy xong phần 3. Mỗi phần ghi tiếp vào cùng thư mục bằng chứng. Kết quả sẽ bổ sung vào mục 6.2 của tệp này.
