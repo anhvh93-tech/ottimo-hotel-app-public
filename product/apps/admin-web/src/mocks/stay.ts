@@ -3178,13 +3178,25 @@ export function createStayMock(ctx: Ctx) {
       if (!f || !line) return problem(404, 'NOT_FOUND');
       const r = rsv().state.reservations.find((x) => x.id === f.reservationId)!;
       const body = (await request.json()) as Body;
+      // Like folio.controller: the requester's password is checked BEFORE the unit of work (R2: password only).
+      if (body.authMethod === 'pin')
+        return validation([{ field: 'authMethod', code: 'NOT_IN_LIST' }]);
+      if (body.authMethod !== undefined && !body.secret)
+        return validation([{ field: 'secret', code: 'REQUIRED' }]);
+      const reauthenticated = body.authMethod === 'password' && !!body.secret;
+      if (reauthenticated && body.secret !== MOCK_PASSWORD)
+        return problem(401, 'REAUTH_FAILED', {
+          errors: [{ field: 'secret', code: 'REAUTH_FAILED' }],
+        });
       // ARC 16.27 (R7LOCK-02, BR-525): writing a debt off after check-out – the one FOC a settled folio takes.
       if (body.reasonCode === 'debt_write_off') {
         const due = totals(r).balanceDueVnd;
         if (f.status !== 'settled' || due <= 0) return problem(409, 'FOLIO_LOCKED');
+        if (!has(g.roles, OWN_MGR)) return problem(403, 'FORBIDDEN_ACTION');
+        // R3-Q25 (FB-R2-SEC-BE-82 (b), foc.service): the write-off requester re-authenticates like an approver (S1).
+        if (!reauthenticated) return validation([{ field: 'secret', code: 'REQUIRED' }]);
         if (String(body.kind ?? 'foc') !== 'foc')
           return validation([{ field: 'kind', code: 'NOT_ALLOWED' }]);
-        if (!has(g.roles, OWN_MGR)) return problem(403, 'FORBIDDEN_ACTION');
         if (String(body.note ?? '').trim().length < 3)
           return validation([{ field: 'note', code: 'REASON_REQUIRED' }]);
         const reversed = new Set(f.lines.map((l) => l.reversalOfId).filter(Boolean));

@@ -2948,6 +2948,7 @@
   "rcv.none_in_use": "No account in use yet – the account below takes effect on {date}.",
   "rcv.reason_help": "Don't put the account number in the reason.",
   "rcv.reason_no_account": "The reason can't contain an account number or a run of 6 or more digits.",
+  "debt.write_off_reauth_help": "Writing off a debt needs your sign-in password again.",
   "hk.queue.in_line": "Waiting in line",
   "hk.queue.r.time": "Not recorded: the time you tapped ({time}) is too far from the current time. If the work is done, tap \"Send again\" to record it now.",
   "hk.queue.r.photo": "This photo couldn't be sent. The report was sent without it.",

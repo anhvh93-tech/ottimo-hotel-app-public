@@ -11,14 +11,13 @@
 import { test } from '@playwright/test';
 
 /** Mã → mô tả ngắn (mục S4, vai sửa). Chỉ ghi mục ĐANG MỞ trên nhánh chính. */
+// BUG-R3-001 đóng 23/10 (FE-A: hộp "Xóa công nợ" xin mật khẩu người xin – R3-Q25; TC-X-082 thêm bước nhập mật khẩu).
 // BUG-R2-193 đóng 19/10 (MOB: thanh nút H23 ra ngoài vùng cuộn, nằm trên thanh tab – TC-X-087 xanh).
 export const OPEN: Readonly<Record<string, string>> = {
   'BUG-R2-217':
     'Cần chú ý "Giữ chỗ {code} hết hạn lúc …" thiếu mã đơn – `hold_expiring` không có `refCode` (BE-A)',
   'BUG-R2-218':
     'guest-web ghi "Ngôn ngữ theo trình duyệt của bạn" cả khi ngôn ngữ lấy từ hồ sơ khách (MOB + BE: phiên không cho biết nguồn)',
-  'BUG-R3-001':
-    'Desk "Xóa công nợ" không xin xác thực lại người xin (R3-Q25) – `requestFoc` `debt_write_off` luôn 422 `secret` REQUIRED (FE-A)',
 };
 
 function fixedByEnv(): Set<string> {

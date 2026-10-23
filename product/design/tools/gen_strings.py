@@ -3292,6 +3292,10 @@ g("R3 Sprint 1 – FE-A R3-Q51: tài khoản nhận chuyển khoản VietQR (ch�
     ("rcv.reason_no_account", "Lý do không được chứa số tài khoản hoặc dãy từ 6 chữ số trở lên.", "The reason can't contain an account number or a run of 6 or more digits.", None, "422 reason ACCOUNT_NUMBER_NOT_ALLOWED (BE-B cf0ce2f); Desk kiểm trước khi gửi"),
 ])
 
+g("R3 – FE-A BUG-R3-001 (R3-Q25): xóa công nợ xin mật khẩu người xin. **Chờ UXD duyệt**", [
+    ("debt.write_off_reauth_help", "Xóa công nợ cần nhập lại mật khẩu đăng nhập của bạn.", "Writing off a debt needs your sign-in password again.", None, "R3-Q25 (FB-R2-SEC-BE-82 (b)) – người xin xác thực lại như người duyệt (S1); nhãn ô dùng ci.stepup_label"),
+])
+
 TEMPLATES = [
     ("msg.booking_confirmed", "Xác nhận đặt phòng",
      "Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights} đêm). Nhận phòng từ 14:00, trả phòng trước 12:00. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link}",
