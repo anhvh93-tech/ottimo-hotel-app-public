@@ -11,6 +11,7 @@ import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { useSession } from '../session/SessionProvider';
 import { renderApp, tv } from '../test/render';
+import { pinDaytime } from '../test/clock';
 
 /**
  * CI 39010774166 – TC-L3-076 (desk-clock): "Thêm vào đơn" stayed disabled and no `dryRun` was sent.
@@ -199,6 +200,7 @@ describe('Người ở – thêm người khi khách đang ở theo ngày nghi�
   });
 
   it('a refused preview is said in the dialog (retry), never a silent disabled button', async () => {
+    pinDaytime(); // not a BR-010 night case – see test/clock.ts
     let fail = true;
     server.use(
       http.post('*/v1/properties/:p/reservations/:r/party', async ({ request }) => {

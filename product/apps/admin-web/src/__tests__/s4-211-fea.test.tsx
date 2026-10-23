@@ -121,9 +121,20 @@ describe('#2 #3 H09 Đặt phòng mới – arrival = business day', () => {
 
   it('02:40: a walk-in books the night before (D-1 → D), the server accepts it', async () => {
     at('02:40');
+    // BR-113 (ESC-004 M-A): an arrival on Friday/Saturday needs 2 nights at the desk – the night before (Y) is one of
+    // them whenever the suite runs on a Saturday/Sunday (CI 39996013443: Sat 24/10 → Y = Fri). Then the walk-in
+    // stays 2 nights; Anna Martin (103 from D) is cancelled so 103 is free for both.
+    const weekend = [5, 6].includes(new Date(`${Y}T00:00:00Z`).getUTCDay());
+    const dep = weekend ? addDays(D, 1) : D;
+    if (weekend)
+      mockControl.rsv.reservations
+        .filter((r) => r.guestName === 'Anna Martin' && r.roomId === room('103').id)
+        .forEach((r) => (r.status = 'cancelled'));
     const { user } = renderApp('/rack', 'qa.fd');
     const dlg = await openForm(user);
     await waitFor(() => expect(within(dlg).getByLabelText('Ngày đến')).toHaveValue(Y));
+    if (weekend)
+      fireEvent.change(within(dlg).getByLabelText('Ngày đi'), { target: { value: dep } });
     const roomSel = within(dlg).getByLabelText(/^Căn/);
     await waitFor(() => expect(within(roomSel).getAllByRole('option').length).toBeGreaterThan(5));
     const option = within(roomSel)
@@ -137,7 +148,7 @@ describe('#2 #3 H09 Đặt phòng mới – arrival = business day', () => {
     await user.click(within(dlg).getByRole('button', { name: 'Tạo đơn' }));
     expect(await screen.findByText(/^Đã tạo đơn OTM-0\d+$/)).toBeInTheDocument();
     const r = mockControl.rsv.reservations.at(-1)!;
-    expect([r.arrivalDate, r.departureDate]).toEqual([Y, D]);
+    expect([r.arrivalDate, r.departureDate]).toEqual([Y, dep]);
   });
 
   it('#3 02:40: long stay from the business day is not "in the past"', async () => {

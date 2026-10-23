@@ -12,6 +12,7 @@ import { server } from '../mocks/node';
 import { PROPERTY_ID } from '../mocks/seed';
 import { MINIBAR } from '../mocks/stay';
 import { renderApp, tv } from '../test/render';
+import { pinDaytime } from '../test/clock';
 
 const res = (guest: string) => mockControl.rsv.reservations.find((r) => r.guestName === guest)!;
 const money = (n: number) => tv('common.currency_vnd', { amount: n.toLocaleString('vi-VN') });
@@ -489,6 +490,7 @@ describe('K11-03 – lần đếm luôn định danh tủ; căn hiện tại = �
   });
 
   it('Drawer sau B14 giữa lượt hiện căn hôm nay (202), không phải `segments[0]` (402)', async () => {
+    pinDaytime(); // not a BR-010 night case – see test/clock.ts
     const kim = res('Kim Seo-yeon');
     res('Nguyễn Văn An').status = 'cancelled';
     mockControl.stay.roomStatus['202'] = 'VC';

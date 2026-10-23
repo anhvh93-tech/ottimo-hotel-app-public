@@ -8,6 +8,7 @@ import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { MOCK_PASSWORD } from '../mocks/seed';
 import { renderApp, tv } from '../test/render';
+import { pinDaytime } from '../test/clock';
 
 type User = ReturnType<typeof renderApp>['user'];
 type Line =
@@ -272,6 +273,7 @@ describe('S4-25 – xin miễn phí trên một dòng folio (H17 17.1) và tự 
 
 describe('S4-25 / BUG-R2-093 – thêm người khi đang ở: ghi phụ thu kèm đề nghị miễn phí (US-022 AC4, BR-414)', () => {
   it('tick phụ thu + "Xin miễn phụ thu" + lý do → thêm người, rồi mỗi đêm một yêu cầu đúng phần của người mới', async () => {
+    pinDaytime(); // not a BR-010 night case – see test/clock.ts
     const r = res('Trần Thu Nga');
     const foc = capture(/\/folios\/[^/]+\/lines\/[^/]+\/foc$/);
     const { user } = renderApp(`/reservations/${r.id}`, 'qa.fd');

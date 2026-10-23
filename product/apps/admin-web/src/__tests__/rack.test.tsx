@@ -6,6 +6,7 @@ import { mockControl } from '../mocks/handlers';
 import { translate } from '@ottimo/i18n';
 import { layoutRow, oooText, packLanes } from '../pages/rack/rackModel';
 import { renderApp, tv } from '../test/render';
+import { pinDaytime } from '../test/clock';
 
 const grid = () => screen.findByRole('grid', { name: /Sơ đồ phòng/ });
 const cellNamed = (re: RegExp) =>
@@ -113,6 +114,7 @@ describe('H08 Sơ đồ phòng (US-016, US-019, US-139, US-017 AC5a)', () => {
   });
 
   it('housekeeping: masked list – room status, arrivals and kit, no guest names (AC4)', async () => {
+    pinDaytime(); // not a BR-010 night case – see test/clock.ts
     renderApp('/rack', 'qa.hk');
     const list = await screen.findByRole('list', { name: 'Các căn' });
     expect(within(list).getAllByRole('listitem')).toHaveLength(10);

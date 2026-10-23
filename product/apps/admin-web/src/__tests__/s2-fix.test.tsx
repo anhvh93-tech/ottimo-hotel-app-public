@@ -5,6 +5,7 @@ import { todayLocal } from '../app/dates';
 import { addDays, dayMonth } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { renderApp, tv } from '../test/render';
+import { pinDaytime } from '../test/clock';
 
 type User = ReturnType<typeof renderApp>['user'];
 const rsv = (guest: string) => mockControl.rsv.reservations.find((r) => r.guestName === guest)!;
@@ -53,6 +54,7 @@ describe('Sprint 2 – response & fix (OpenAPI 0.3.5, UXD/DOM/SEC cards)', () =>
   });
 
   it('A-20: OTA above the room maximum → warning + reason → saved with capacityConflict', async () => {
+    pinDaytime(); // not a BR-010 night case – see test/clock.ts
     const { user } = renderApp('/rack', 'qa.fd');
     const dlg = await openBooking(user);
     await user.click(within(dlg).getByRole('button', { name: 'OTA' }));

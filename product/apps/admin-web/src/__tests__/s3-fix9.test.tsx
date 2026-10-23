@@ -8,6 +8,7 @@ import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import type { MockLine, MockPayment } from '../mocks/stay';
 import { renderApp, tv } from '../test/render';
+import { pinDaytime } from '../test/clock';
 
 /**
  * Vòng sửa 9 (QC gate S3 v2, UXR đi demo): each write step is clicked through the real Desk screens and
@@ -241,6 +242,7 @@ describe('UXR #7 – thêm người vượt định mức khi khách đang ở',
   };
 
   it('within the standard occupancy → "no surcharge"; above it → the amount from the API, tick to add', async () => {
+    pinDaytime(); // not a BR-010 night case – see test/clock.ts
     const sent = recordWrites();
     const { r, user, dlg, pick } = await openParty('Trần Thu Nga');
     const add = within(dlg).getByRole('button', { name: tv('rsv.add_submit') });
@@ -291,6 +293,7 @@ describe('UXR #7 – thêm người vượt định mức khi khách đang ở',
   });
 
   it('422 SURCHARGE_DECISION_REQUIRED → this dialog’s sentence with the amount, then the box to tick', async () => {
+    pinDaytime(); // not a BR-010 night case – see test/clock.ts
     const r = res('Trần Thu Nga');
     mockControl.stay.party.get(r.id)!.push({
       id: '0192a1b0-0000-7000-8000-000000099003',
