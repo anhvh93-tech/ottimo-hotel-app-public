@@ -702,6 +702,8 @@ paths:
         Mã khôi phục: 16 ký tự base32 Crockford (server bỏ `-`/khoảng trắng, chữ hoa); xóa băm trong **cùng** câu `UPDATE … WHERE` (hai yêu cầu song song cùng mã → đúng một thành công);
         dùng mã → audit `security` `mfa.recovery_code_used`, thông báo `account_security_change` cho chính người đó và mọi `owner`, email theo SEC 06.15 (kênh email – xem `s1-contracts.md`).
         Mọi nhánh lỗi → **cùng** `401 MFA_INVALID` (06.20). Đúng → phiên **mới** (SR-SES-02), `user_session.mfa_at` + `amr` (`totp`/`recovery_code`).
+        **0.3.8 bổ sung 1 (US-143 AC3 (a))**: vào bằng `recoveryCode` → phiên **hạn chế** (`enrollment_only`, `Me.mfaEnrollmentRequired = true`, mọi vai có 2FA): chỉ `getMe`, `getMy2fa`,
+        `startMy2faSetup`, `confirmMy2fa`, `logout` – còn lại `403 MFA_ENROLLMENT_REQUIRED` tới khi đăng ký lại TOTP trên thiết bị mới (xem `startMy2faSetup`).
         Người có vai bắt buộc mà `MFA_ENFORCED = true`: phiên đầy đủ (đã có 2FA). Không `Idempotency-Key` (lệnh đăng nhập, token dùng một lần).
       requestBody:
         required: true
@@ -879,6 +881,9 @@ paths:
         **0.3.8 (SEC 06.7–06.9, 06.11)**: bí mật ≥ 160 bit (CSPRNG), lưu `app_user.mfa_pending_secret_enc` (DEK) hạn 10 phút; `mfa_enabled` vẫn `false`. Gọi lại → thay bí mật chờ cũ.
         **Không có `Idempotency-Key`** (bỏ ở 0.3.8): phản hồi chứa bí mật C3 không được lưu vào `idempotency_key.response_body` (SR-C3-02); gửi lại (F5, mạng chập) = bí mật chờ **mới**,
         QR cũ mất hiệu lực – không bao giờ trả lại bí mật cũ. Nhãn `OTTIMO:<tên đăng nhập>`, `issuer=OTTIMO` – không email/SĐT/tên cơ sở. 2FA đã bật → `409 INVALID_TRANSITION`.
+        **0.3.8 bổ sung 1 (US-143 AC3 (a), FE-A Q1) – đăng ký lại sau khi vào bằng mã khôi phục**: ngoại lệ duy nhất của 409 – phiên hiện tại có `amr = recovery_code`
+        (đăng nhập bằng mã khôi phục) thì gọi được khi 2FA **đang bật**: sinh bí mật chờ mới, bí mật cũ vẫn chạy tới khi `confirmMy2fa` thành công; `confirmMy2fa` trên đường này **thay** bí mật,
+        sinh bộ 10 mã mới (bộ cũ hết hiệu lực), thu hồi phiên khác, cấp phiên mới `amr = totp`; audit `security` `mfa.reenrolled`. Thân giữ nguyên (`currentPassword` vẫn bắt buộc).
         Gọi được trong phiên hạn chế (`MFA_ENROLLMENT_REQUIRED`). Audit `security` `mfa.setup_started`.
       x-roles: [any_staff]
       x-round: R3
