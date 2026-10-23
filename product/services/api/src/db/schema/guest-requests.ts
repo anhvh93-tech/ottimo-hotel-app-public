@@ -2,7 +2,8 @@
  * Guest requests of the guest app (erd 4.11 `guest_request`, SM-15; US-109, US-110; OpenAPI 0.3.6 B-14…B-16,
  * 0.3.7) – BE-D Sprint 4, migration 0058_guest_request.
  *
- * - `note` is C2 (D23): plain text ≤ 500, never in push/outbox/logs; T13 empties it later (row kept).
+ * - `note` is C2 (D23): plain text ≤ 500, never in push/outbox/logs; T13 empties it (and `reply_note`) after
+ *   `retention.guest_request_months` from `closed_at` – `note_purged_at` (R3-Q15, 0083), row kept.
  * - `routed_to` + `ack_due_at` are set at creation (BR-811 – auto reply out of hours: `auto_replied_at`).
  * - `fee_vnd_snapshot` = the BR-506 fee the guest accepted (`fee_accepted_at`); posted to the folio once,
  *   when the request becomes `done` (`fee_folio_line_id`).
@@ -83,6 +84,8 @@ export const guestRequest = pgTable(
     closedAt: instant('closed_at'),
     closedBy: uuid('closed_by'),
     purgeAfter: instant('purge_after'),
+    /** R3-Q15 T13 (migration 0083): `note` / `reply_note` emptied after `retention.guest_request_months`. */
+    notePurgedAt: instant('note_purged_at'),
     createdAt: instant('created_at').notNull(),
     createdBy: uuid('created_by'),
     updatedAt: instant('updated_at').notNull(),
@@ -152,7 +155,7 @@ export const guestRequest = pgTable(
     ),
     check(
       'guest_request_declined_other_check',
-      sql`${t.declinedReasonCode} IS DISTINCT FROM 'other' OR (${t.replyNote} IS NOT NULL AND btrim(${t.replyNote}) <> '')`,
+      sql`${t.declinedReasonCode} IS DISTINCT FROM 'other' OR ${t.notePurgedAt} IS NOT NULL OR (${t.replyNote} IS NOT NULL AND btrim(${t.replyNote}) <> '')`,
     ),
     check(
       'guest_request_fee_check',
@@ -170,5 +173,10 @@ export const guestRequest = pgTable(
       .on(t.propertyId, t.ackDueAt)
       .where(sql`${t.status} IN ('new', 'acknowledged', 'in_progress')`),
     index('guest_request_reservation_idx').on(t.reservationId, t.createdAt),
+    // R3-Q15 T13: requests still carrying free text – closed (by `closed_at`) and open ones whose stay may have
+    // ended (by `created_at`, SEC BED-02). The purge job's scan.
+    index('guest_request_t13_idx')
+      .on(t.propertyId, t.closedAt, t.createdAt)
+      .where(sql`${t.note} IS NOT NULL OR ${t.replyNote} IS NOT NULL`),
   ],
 );

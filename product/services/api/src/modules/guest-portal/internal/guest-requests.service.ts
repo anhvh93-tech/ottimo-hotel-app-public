@@ -50,7 +50,8 @@ import {
   type GuestRequestWork,
   UnwiredGuestRequestWorkPort,
 } from '../public/guest-request-ports';
-import { guestRequestSlaJob } from '../public/guest-request-jobs';
+import { guestRequestPurgeJob, guestRequestSlaJob } from '../public/guest-request-jobs';
+import { AuditService } from '../../audit/public/audit.service';
 import { GuestRequestLifecycle, sseRoles } from './guest-request-lifecycle';
 import {
   GUEST_REQUESTS_PER_DAY,
@@ -86,6 +87,8 @@ export interface GuestRequestRow {
   fee_folio_line_id: string | null;
   declined_reason_code: string | null;
   reply_note: string | null;
+  /** R3-Q15 T13: the free text was emptied at this instant (US-109 AC3 – "Ghi chú đã xóa theo hạn lưu"). */
+  note_purged_at?: Date | null;
   created_at: Date;
   updated_at: Date;
   version: number;
@@ -139,6 +142,7 @@ export class GuestRequestsService implements OnModuleInit {
     @Inject(GuestRequestLifecycle) private readonly lifecycle: GuestRequestLifecycle,
     @Inject(JobRegistry) private readonly jobs: JobRegistry,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(AuditService) private readonly audit: AuditService,
     @Optional() @Inject(GUEST_REQUEST_WORK_PORT) work?: GuestRequestWork,
   ) {
     this.work = work ?? new UnwiredGuestRequestWorkPort();
@@ -148,6 +152,13 @@ export class GuestRequestsService implements OnModuleInit {
     this.events.registerAttentionSource(guestRequestOverdueSource);
     const j10 = guestRequestSlaJob(this.events);
     if (!this.jobs.get(j10.key)) this.jobs.register(j10);
+    // R3-Q15 T13: free text of closed requests emptied after `retention.guest_request_months`.
+    const t13 = guestRequestPurgeJob({
+      events: this.events,
+      params: this.params,
+      audit: this.audit,
+    });
+    if (!this.jobs.get(t13.key)) this.jobs.register(t13);
   }
 
   /** True when BE-C has bound the work port (tests / diagnostics). */
@@ -423,6 +434,7 @@ export class GuestRequestsService implements OnModuleInit {
         : {}),
       ...(r.declined_reason_code ? { declinedReasonCode: r.declined_reason_code } : {}),
       ...(r.reply_note ? { replyNote: r.reply_note } : {}),
+      ...(r.note_purged_at ? { notePurgedAt: c.iso(r.note_purged_at) } : {}),
       feeVnd: fee,
       createdAt: c.iso(r.created_at),
       updatedAt: c.iso(r.updated_at),
@@ -502,6 +514,7 @@ export class GuestRequestsService implements OnModuleInit {
       feeVnd: r.fee_vnd_snapshot === null ? null : Number(r.fee_vnd_snapshot),
       ...(r.declined_reason_code ? { declinedReasonCode: r.declined_reason_code } : {}),
       ...(r.reply_note ? { replyNote: r.reply_note } : {}),
+      ...(r.note_purged_at ? { notePurgedAt: c.iso(r.note_purged_at) } : {}),
     };
   }
 

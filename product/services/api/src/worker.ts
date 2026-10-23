@@ -14,7 +14,10 @@ import { registrationWorkerJobs } from './modules/registration/public/worker-job
 import { reservationWorkerJobs } from './modules/reservations/public/worker-jobs';
 import { EventsService } from './modules/events/public/events.service';
 import { holdReminderJob } from './modules/reporting/public/hold-reminder-job';
-import { guestRequestSlaJob } from './modules/guest-portal/public/guest-request-jobs';
+import {
+  guestRequestPurgeJob,
+  guestRequestSlaJob,
+} from './modules/guest-portal/public/guest-request-jobs';
 import { guestsWorkerJobs } from './modules/guests/public/worker-jobs';
 import { housekeepingWorkerJobs } from './modules/housekeeping/public/worker-jobs';
 
@@ -45,6 +48,10 @@ async function main(): Promise<void> {
   registry.register(holdReminderJob(new EventsService(), parameters));
   // J10 guest_request.sla (BE-D, Sprint 4): request still `new` after its reply deadline (US-110 AC2, BR-811).
   registry.register(guestRequestSlaJob(new EventsService()));
+  // T13 guest_request.purge (BE-D, R3 Sprint 1 – R3-Q15): free text of closed requests after the retention.
+  registry.register(
+    guestRequestPurgeJob({ events: new EventsService(), params: parameters, audit }),
+  );
   // J8 hk.daily + J11 work_order.sla (BE-C, Sprint 4): stay-over cleaning, carry-over, R5, work-order deadlines.
   for (const job of housekeepingWorkerJobs({ parameters, events: new EventsService() }))
     registry.register(job);
