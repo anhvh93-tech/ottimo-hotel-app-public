@@ -91,6 +91,11 @@ interface Form {
   /** ARC 16.18 (vòng sửa 5): nights whose rate box the desk changed – `NightRate.edited` (no number test). */
   ratesEdited: Record<string, boolean>;
   depositAmount: string;
+  /**
+   * BUG-R3-005: the desk typed "Số tiền đã nhận" itself. Until then the box follows the NEWEST quote's deposit
+   * (room, dates, guests changed → new deposit); after that it is never overwritten – a mismatch warning shows.
+   */
+  depositEdited?: boolean;
   depositMethod: PaymentMethod;
   /** ARC 16.23 (S4-13 B): the bank transaction reference goes with the payment – no receipt photo at B2. */
   depositNote: string;
@@ -155,6 +160,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       rates: {},
       ratesEdited: {},
       depositAmount: '',
+      depositEdited: false,
       depositMethod: 'vietqr',
       depositNote: '',
       internalNote: '',
@@ -318,7 +324,12 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
             ),
             // The server priced the stay again (room, dates, guests): the boxes hold its rates, none edited.
             ratesEdited: {},
-            depositAmount: f.depositAmount || (r.data.depositVnd ? vnd(r.data.depositVnd) : ''),
+            // BUG-R3-005: follow the newest quote unless the desk typed the amount (then: mismatch warning).
+            depositAmount: f.depositEdited
+              ? f.depositAmount
+              : r.data.depositVnd
+                ? vnd(r.data.depositVnd)
+                : '',
           }));
         },
         (e: unknown) => {
@@ -1270,7 +1281,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                       className="input num"
                       inputMode="numeric"
                       value={form.depositAmount}
-                      onChange={(e) => set({ depositAmount: e.target.value })}
+                      onChange={(e) => set({ depositAmount: e.target.value, depositEdited: true })}
                     />
                     <span className="affix">{t('common.vnd_unit')}</span>
                   </div>
@@ -1293,6 +1304,29 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 )}
               </Field>
             </div>
+            {form.depositEdited &&
+            calc.depositVnd !== undefined &&
+            (parseVnd(form.depositAmount) ?? 0) !== calc.depositVnd ? (
+              <Alert
+                tone="warn"
+                role="alert"
+                actions={
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      set({ depositAmount: vnd(calc.depositVnd ?? 0), depositEdited: false })
+                    }
+                  >
+                    {t('bk.deposit_use_quote', { amount: vnd(calc.depositVnd) })}
+                  </Button>
+                }
+              >
+                {t('bk.deposit_mismatch', {
+                  received: vnd(parseVnd(form.depositAmount) ?? 0),
+                  deposit: vnd(calc.depositVnd),
+                })}
+              </Alert>
+            ) : null}
             {/* ARC 16.23 (S4-13 hướng B): B2 takes no receipt photo – the transaction reference is the proof here;
                 a photo goes with the booking afterwards (FD: confirm the deposit with it; SAL/CTV: "Báo cọc"). */}
             <Field label={t('co.txn_ref')} help={t('bk.txn_ref_help')}>

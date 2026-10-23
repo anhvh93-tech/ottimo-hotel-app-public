@@ -3479,6 +3479,13 @@ g("R3 Sprint 1 – FE-B US-008 thêm người dùng (FE viết theo content guid
     ("field.PASSWORD_TOO_COMMON", "Mật khẩu quá dễ đoán. Chọn mật khẩu khác.", "This password is too easy to guess. Choose another.", None, "SR-AUTH-02 – cả chuỗi chứa \"ottimo\""),
 ])
 
+# FE-B 23/10 – BUG-R3-005 (P1, H09): "Số tiền đã nhận" theo cọc của lần tính giá mới nhất; lễ tân đã tự sửa ô thì không đè,
+# hiện cảnh báo lệch. [CHỜ UXD DUYỆT]
+g("R3 – FE-B BUG-R3-005 H09 cọc đã nhận lệch cọc cần thu (FE viết theo content guide; chờ UXD duyệt)", [
+    ("bk.deposit_mismatch", "Số tiền đã nhận ({received} đ) khác cọc cần thu theo giá mới ({deposit} đ). Kiểm tra lại số khách đã chuyển trước khi tạo đơn.", "Amount received ({received} VND) differs from the deposit due at the new price ({deposit} VND). Check what the guest actually paid before creating the booking.", None, "Hiện khi lễ tân đã tự sửa ô và giá được tính lại; không chặn lưu"),
+    ("bk.deposit_use_quote", "Dùng {amount} đ", "Use {amount} VND", None, "Nút trong cảnh báo – điền lại cọc cần thu, ô lại theo giá mới"),
+])
+
 def build():
     vi, en, ru = {}, {}, {}
     for grp, k, a, b, c, n in S:

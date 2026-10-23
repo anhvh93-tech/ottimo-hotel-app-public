@@ -3447,6 +3447,13 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `field.PASSWORD_SAME_AS_USERNAME` | Mật khẩu không được chứa tên đăng nhập. | The password must not contain the username. | ⟨chừa chỗ⟩ |  |
 | `field.PASSWORD_TOO_COMMON` | Mật khẩu quá dễ đoán. Chọn mật khẩu khác. | This password is too easy to guess. Choose another. | ⟨chừa chỗ⟩ | SR-AUTH-02 – cả chuỗi chứa "ottimo" |
 
+#### R3 – FE-B BUG-R3-005 H09 cọc đã nhận lệch cọc cần thu (FE viết theo content guide; chờ UXD duyệt)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `bk.deposit_mismatch` | Số tiền đã nhận ({received} đ) khác cọc cần thu theo giá mới ({deposit} đ). Kiểm tra lại số khách đã chuyển trước khi tạo đơn. | Amount received ({received} VND) differs from the deposit due at the new price ({deposit} VND). Check what the guest actually paid before creating the booking. | ⟨chừa chỗ⟩ | Hiện khi lễ tân đã tự sửa ô và giá được tính lại; không chặn lưu |
+| `bk.deposit_use_quote` | Dùng {amount} đ | Use {amount} VND | ⟨chừa chỗ⟩ | Nút trong cảnh báo – điền lại cọc cần thu, ô lại theo giá mới |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |
