@@ -28,7 +28,7 @@ const prodOk = {
   BANKFEED_PROVIDER: 'off',
   EINVOICE_PROVIDER: 'off',
   DOORLOCK_PROVIDER: 'manual',
-  EMAIL_PROVIDER: 'ses',
+  EMAIL_PROVIDER: 'smtp',
   ZALO_PROVIDER: 'manual_copy',
 };
 
@@ -37,9 +37,54 @@ describe('findUnsafeIntegrationConfig / assertSafeConfig (README 1.3)', () => {
     for (const appEnv of ['dev', 'test', 'staging']) {
       expect(findUnsafeIntegrationConfig(devExample, appEnv)).toEqual([]);
     }
-    for (const appEnv of ['dev', 'test', 'staging', 'production']) {
+    for (const appEnv of ['dev', 'test', 'staging']) {
       expect(() => assertSafeConfig({}, appEnv)).not.toThrow();
     }
+    // INT R3 e-mail: production needs a real e-mail provider (security e-mails), so an empty env is refused.
+    expect(findUnsafeIntegrationConfig({}, 'production')).toEqual([
+      'EMAIL_PROVIDER must be smtp in production (security e-mails, SEC 06.15/06.33/Q51-6)',
+    ]);
+  });
+
+  it('e-mail (INT R3): production needs smtp; ses/resend gone; SMTP URL retired; password only from a file', () => {
+    for (const v of ['off', 'mock', '']) {
+      expect(
+        findUnsafeIntegrationConfig({ ...prodOk, EMAIL_PROVIDER: v }, 'production').join(),
+      ).toMatch(/EMAIL_PROVIDER must be smtp in production/);
+    }
+    for (const v of ['ses', 'resend']) {
+      expect(findUnsafeIntegrationConfig({ EMAIL_PROVIDER: v }, 'dev')).toEqual([
+        'EMAIL_PROVIDER must be one of off|mock|smtp',
+      ]);
+    }
+    for (const appEnv of ['dev', 'staging', 'production']) {
+      expect(
+        findUnsafeIntegrationConfig({ ...prodOk, EMAIL_SMTP_URL: 'smtps://u:p@h' }, appEnv).join(),
+      ).toMatch(/EMAIL_SMTP_URL is no longer read/);
+    }
+    // Raw password in the environment: refused on staging/production, allowed in dev/test (local fake server).
+    const raw = { ...prodOk, EMAIL_SMTP_PASSWORD: 'abcdabcdabcdabcd' };
+    expect(findUnsafeIntegrationConfig(raw, 'production').join()).toMatch(
+      /EMAIL_SMTP_PASSWORD_FILE/,
+    );
+    expect(findUnsafeIntegrationConfig(raw, 'staging').join()).toMatch(/EMAIL_SMTP_PASSWORD_FILE/);
+    expect(findUnsafeIntegrationConfig({ EMAIL_SMTP_PASSWORD: 'abcdabcdabcdabcd' }, 'dev')).toEqual(
+      [],
+    );
+    // Resolved from the file (bootstrap resolveFileSecrets keeps X_FILE next to X): accepted.
+    const fromFile = { ...raw, EMAIL_SMTP_PASSWORD_FILE: '/run/secrets/email_smtp_password' };
+    expect(findUnsafeIntegrationConfig(fromFile, 'production')).toEqual([]);
+    // SEC EMAIL-01: relay (default) or app_password; anything else refused everywhere.
+    for (const v of ['relay', 'app_password']) {
+      expect(findUnsafeIntegrationConfig({ ...prodOk, EMAIL_SMTP_MODE: v }, 'production')).toEqual(
+        [],
+      );
+    }
+    expect(findUnsafeIntegrationConfig({ EMAIL_SMTP_MODE: 'oauth' }, 'dev')).toEqual([
+      'EMAIL_SMTP_MODE must be one of relay|app_password',
+    ]);
+    // The message names the variable, never the value.
+    expect(findUnsafeIntegrationConfig(raw, 'production').join()).not.toContain('abcdabcd');
   });
 
   it('accepts a correct production config (off is always valid)', () => {
@@ -127,6 +172,7 @@ describe('findUnsafeIntegrationConfig / assertSafeConfig (README 1.3)', () => {
           PAYMENT_VIETQR_ACCOUNT_NO: '9876543210',
           PAYMENT_VIETQR_BANK_BIN: '',
           PAYMENT_VIETQR_ACCOUNT_NAME: ' ',
+          EMAIL_PROVIDER: 'smtp',
         },
         appEnv,
       );

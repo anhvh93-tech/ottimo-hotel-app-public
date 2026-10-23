@@ -17,11 +17,26 @@
 #                                                auth (bcrypt hash) + X-Robots-Tag noindex; production = empty
 #   uid 0    (root only)                         landing_preview_password (staging: the preview password INV uses –
 #                                                read it with sudo, give it to INV over a private channel)
+#   uid 1000 (worker only)                       email_smtp_password – EMPTY with EMAIL_SMTP_MODE=relay (default:
+#                                                Google Workspace relay by VPS IP, no password – SEC EMAIL-01 A).
+#                                                Only with EMAIL_SMTP_MODE=app_password (fallback) is it asked: the app
+#                                                password of EMAIL_SMTP_USER, typed by INV at a hidden prompt (not
+#                                                echoed, not in shell history, not an argument).
+# Replace the app password (Google revokes it when the mailbox password changes):
+#   sudo /opt/ottimo-prod/infra/server/bin/init-secrets.sh --reset-email-password   then   bin/dc restart worker
 # New files are added on re-run (R3: run it on staging before the first deploy that needs them – deploy.sh says so).
 # Docker (non-swarm) bind-mounts each file read-only at /run/secrets/<name>; the app reads it through X_FILE.
 # Host users other than root cannot reach the files (the directory is not traversable for them) – keep it that
 # way: no backup job and no snapshot may include this directory (SR-KEY-10, SR-BAK-03).
 set -Eeuo pipefail
+set +x # never trace: the e-mail app password passes through a variable below
+
+reset_email=0
+case "${1:-}" in
+  '') ;;
+  --reset-email-password) reset_email=1 ;;
+  *) echo "usage: init-secrets.sh [--reset-email-password]" >&2; exit 2 ;;
+esac
 
 here=$(cd "$(dirname "$0")" && pwd)
 if [ -z "${OTTIMO_HOME:-}" ] && [ -f "$here/../../../.ottimo-home" ]; then OTTIMO_HOME=$(cd "$here/../../.." && pwd); fi
@@ -105,8 +120,55 @@ if [ ! -e "$dir/web_push_vapid_private_key" ] || [ ! -e "$dir/web_push_vapid_pub
   unset priv_hex pub_hex
 fi
 
-# Landing access snippet (Caddyfile.landing imports it). APP_ENV from the non-secret .env decides.
+# APP_ENV from the non-secret .env decides the landing snippet and whether the e-mail password may stay empty;
+# EMAIL_SMTP_MODE whether there is a password at all (relay = none).
 app_env=$(sed -n 's/^APP_ENV=//p' "$OTTIMO_HOME/.env" 2>/dev/null | tail -n 1 | tr -d '\r"')
+smtp_mode=$(sed -n 's/^EMAIL_SMTP_MODE=//p' "$OTTIMO_HOME/.env" 2>/dev/null | tail -n 1 | tr -d '\r"')
+smtp_mode=${smtp_mode:-relay}
+
+# E-mail app password (INT R3 – Google Workspace SMTP, INV decision 23/10/2026). Asked, never generated or printed.
+if [ "$reset_email" -eq 1 ] && [ -e "$dir/email_smtp_password" ]; then
+  rm -f "$dir/email_smtp_password"
+fi
+if [ ! -e "$dir/email_smtp_password" ] && [ "$smtp_mode" != "app_password" ]; then
+  # relay (default): nothing to ask – the file exists (compose mounts it) and stays empty; the worker refuses a
+  # non-empty one in relay mode.
+  put email_smtp_password "$APP_UID" ''
+fi
+if [ ! -e "$dir/email_smtp_password" ]; then
+  smtp_pw=''
+  if [ -t 0 ]; then
+    cat <<'ASK'
+
+E-mail of the system (info@ottimo.vn through Google Workspace).
+Paste the 16-letter APP PASSWORD Google showed you (spaces are fine), then press Enter.
+Nothing appears while you type. This is NOT the normal mailbox password.
+ASK
+    [ "$app_env" = "production" ] || echo "Staging: press Enter on an empty line to skip (e-mail stays mock)."
+    while :; do
+      IFS= read -rs -p 'App password: ' smtp_pw; echo
+      smtp_pw=${smtp_pw//[[:space:]]/}
+      if [ -z "$smtp_pw" ]; then
+        [ "$app_env" = "production" ] && { echo "Production needs the app password – try again (Ctrl+C to stop)."; continue; }
+        break
+      fi
+      if ! [[ "$smtp_pw" =~ ^[A-Za-z]{16}$ ]]; then
+        echo "That is not 16 letters – copy the app password again (Ctrl+C to stop)."; smtp_pw=''; continue
+      fi
+      IFS= read -rs -p 'Paste it once more to confirm: ' smtp_pw2; echo
+      smtp_pw2=${smtp_pw2//[[:space:]]/}
+      if [ "$smtp_pw" = "$smtp_pw2" ]; then unset smtp_pw2; break; fi
+      echo "The two entries differ – try again."; smtp_pw=''; unset smtp_pw2
+    done
+  elif [ "$app_env" = "production" ]; then
+    echo "email_smtp_password missing: run this script in an interactive terminal (sudo, no pipe) to type the app password" >&2
+    exit 1
+  fi
+  put email_smtp_password "$APP_UID" "$smtp_pw"
+  unset smtp_pw
+fi
+
+# Landing access snippet (Caddyfile.landing imports it).
 if [ ! -e "$dir/landing_access" ]; then
   if [ "$app_env" = "production" ]; then
     put landing_access "$CADDY_UID" "# production: public site – no access restriction, no X-Robots-Tag (ADR-014 1.4)"
@@ -128,6 +190,9 @@ fi
 cat <<NOTE
 Next:
   - Staging: the landing preview password for INV: sudo cat $dir/landing_preview_password (user: ottimo).
+  - E-mail: production needs EMAIL_PROVIDER=smtp + EMAIL_FROM. Default EMAIL_SMTP_MODE=relay: allow this VPS IP in the
+    Google Admin console (SMTP relay service) – no password. Fallback app_password: set EMAIL_SMTP_MODE=app_password
+    + EMAIL_SMTP_USER, then sudo $here/init-secrets.sh --reset-email-password and bin/dc restart worker.
   - Production only: copy data_kek_current OFFLINE now (sealed paper / encrypted USB kept by INV – losing it means
     losing every encrypted document; hosting-plan 8.1). Read it once with: sudo cat $dir/data_kek_current
   - The postgres_password / *_db_password files are applied when the database volume is created; changing them

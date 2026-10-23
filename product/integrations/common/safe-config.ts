@@ -15,7 +15,10 @@ export const INTEGRATION_SELECTORS: Readonly<Record<string, readonly string[]>> 
   BANKFEED_PROVIDER: ['off', 'mock', 'sepay', 'payos'],
   EINVOICE_PROVIDER: ['off', 'mock', 'misa'],
   DOORLOCK_PROVIDER: ['off', 'manual', 'mock', 'ttlock'],
-  EMAIL_PROVIDER: ['off', 'mock', 'ses', 'resend', 'smtp'],
+  // INV 23/10/2026: Google Workspace SMTP replaces Amazon SES for v1.0 – `ses`/`resend` had no adapter and are gone.
+  EMAIL_PROVIDER: ['off', 'mock', 'smtp'],
+  // SEC FB-R3-SEC-INT-EMAIL-01: relay (by VPS IP, no password – default) | app_password (fallback, warned).
+  EMAIL_SMTP_MODE: ['relay', 'app_password'],
   ZALO_PROVIDER: ['off', 'manual_copy', 'zns'],
 };
 
@@ -41,10 +44,20 @@ export const RETIRED_VIETQR_ACCOUNT_VARS = [
 ] as const;
 
 /**
+ * Retired e-mail variables: EMAIL_SMTP_URL would carry the password inside a plain environment variable
+ * (smtps://user:pass@host). The password is only EMAIL_SMTP_PASSWORD_FILE (INT R3 e-mail).
+ */
+export const RETIRED_EMAIL_VARS = ['EMAIL_SMTP_URL', 'EMAIL_SES_REGION'] as const;
+
+/** Real e-mail providers accepted in production (2FA / receiving-account e-mails are SEC requirements of v1.0). */
+export const PRODUCTION_EMAIL_PROVIDERS = ['smtp'] as const;
+
+/**
  * Returns the list of problems (empty = safe). `appEnv` is APP_ENV already validated by the caller.
  * All environments: known selectors must hold an allowed value; PAYMENT_METHODS_ENABLED must list
  * known gateways; PAYMENT_VIETQR_BANK_BIN/ACCOUNT_NO/ACCOUNT_NAME must be empty (retired, SEC-INT-06).
- * production additionally: no *_PROVIDER/*_MODE = mock|sandbox (rule a), every method
+ * EMAIL_SMTP_URL / EMAIL_SES_REGION must be empty (retired); staging/production: EMAIL_SMTP_PASSWORD only via _FILE.
+ * production additionally: EMAIL_PROVIDER=smtp; no *_PROVIDER/*_MODE = mock|sandbox (rule a), every method
  * in PAYMENT_METHODS_ENABLED at MODE=production (rule b), no *_MOCK_SCENARIO set. mock/sandbox is
  * matched case-insensitively (selectors not in INTEGRATION_SELECTORS, FB-R2-SEC-INT-05a).
  * Outside production: PAYMENT_VNPAY_MODE / PAYMENT_MOMO_MODE = production refused (real money from a
@@ -74,6 +87,25 @@ export function findUnsafeIntegrationConfig(env: Env, appEnv: string): string[] 
     }
   }
 
+  for (const name of RETIRED_EMAIL_VARS) {
+    if (val(env, name) !== '') {
+      problems.push(
+        `${name} is no longer read – use EMAIL_SMTP_HOST/_PORT/_USER + EMAIL_SMTP_PASSWORD_FILE`,
+      );
+    }
+  }
+  // The SMTP app password only from a secret file outside dev/test (SEC SR-KEY-10): `env` here is the
+  // resolved environment, so a value that came from the file always has its _FILE next to it.
+  if (
+    (appEnv === 'staging' || appEnv === 'production') &&
+    val(env, 'EMAIL_SMTP_PASSWORD') !== '' &&
+    val(env, 'EMAIL_SMTP_PASSWORD_FILE') === ''
+  ) {
+    problems.push(
+      'EMAIL_SMTP_PASSWORD must come from EMAIL_SMTP_PASSWORD_FILE (secret file), not the environment',
+    );
+  }
+
   const enabledRaw = val(env, 'PAYMENT_METHODS_ENABLED');
   const enabled = enabledRaw === '' ? [] : enabledRaw.split(',').map((s) => s.trim());
   for (const method of enabled) {
@@ -99,6 +131,12 @@ export function findUnsafeIntegrationConfig(env: Env, appEnv: string): string[] 
       if (val(env, modeVar) !== 'production') {
         problems.push(`${modeVar} must be production when ${method} is in PAYMENT_METHODS_ENABLED`);
       }
+    }
+    const email = val(env, 'EMAIL_PROVIDER');
+    if (!(PRODUCTION_EMAIL_PROVIDERS as readonly string[]).includes(email)) {
+      problems.push(
+        `EMAIL_PROVIDER must be ${PRODUCTION_EMAIL_PROVIDERS.join('|')} in production (security e-mails, SEC 06.15/06.33/Q51-6)`,
+      );
     }
     const scenarios = Object.keys(env)
       .filter((k) => SCENARIO_VARS.test(k) && val(env, k) !== '')

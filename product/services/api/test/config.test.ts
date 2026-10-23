@@ -27,6 +27,8 @@ const prod = {
   GUEST_BASE_URL: 'https://g.example.invalid',
   // 0.3.8 (US-143, SR-AUTH-06): production refuses to start without it.
   MFA_ENFORCED: 'true',
+  // INT R3 e-mail: production refuses to start without a real e-mail provider (security e-mails).
+  EMAIL_PROVIDER: 'smtp',
 };
 const staging = { ...prod, APP_ENV: 'staging' };
 const without = (env: Record<string, string>, name: string) =>

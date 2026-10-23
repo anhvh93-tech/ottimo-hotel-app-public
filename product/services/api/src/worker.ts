@@ -20,9 +20,20 @@ import {
 } from './modules/guest-portal/public/guest-request-jobs';
 import { guestsWorkerJobs } from './modules/guests/public/worker-jobs';
 import { housekeepingWorkerJobs } from './modules/housekeeping/public/worker-jobs';
+import { createEmailAdapter } from './jobs/email-adapter';
+import { StaffEmailDispatcher } from './jobs/email-dispatch';
 
 const log = (level: string, msg: string, extra: Record<string, unknown> = {}): void =>
   console.log(JSON.stringify({ level, msg, ...extra }));
+
+/** Error fields safe to log: constructor name and a short code, never the message (SEC S-1). */
+function errorTag(err: unknown): { err: string; code?: string } {
+  const name = err instanceof Error ? err.name : 'error';
+  const code = (err as { code?: unknown } | null)?.code;
+  return typeof code === 'string' && /^[A-Za-z0-9_.:-]{1,40}$/.test(code)
+    ? { err: name, code }
+    : { err: name };
+}
 
 async function main(): Promise<void> {
   const rt = await createRuntime((m) => log('info', m));
@@ -59,7 +70,35 @@ async function main(): Promise<void> {
   for (const job of guestsWorkerJobs({ clock: rt.clock, audit, parameters }))
     registry.register(job);
   const runner = new JobRunner(rt.database, rt.clock, registry, parameters);
-  log('info', 'worker started', { jobs: registry.keys() });
+  // Staff e-mail (INT R3, outbox `staff.email`): production = Google Workspace SMTP; a bad smtp configuration
+  // (missing app password file…) throws here and the worker refuses to start.
+  const email = await createEmailAdapter(rt.env, rt.config.appEnv, rt.clock);
+  const emailDispatcher = email.adapter
+    ? new StaffEmailDispatcher(rt.database, rt.clock, email.adapter, log)
+    : null;
+  if (email.smtpMode === 'app_password') {
+    // SEC FB-R3-SEC-INT-EMAIL-01: the app password opens the whole mailbox (IMAP) and bypasses 2-step verification.
+    log(
+      'warn',
+      'email app_password mode: wider-scoped credential on this server – prefer EMAIL_SMTP_MODE=relay',
+      {
+        ref: 'FB-R3-SEC-INT-EMAIL-01',
+      },
+    );
+  }
+  if (email.provider === 'smtp' && email.adapter) {
+    // Login check only (no mail sent); a failure is logged with a code, the outbox keeps retrying.
+    const h = await email.adapter.healthCheck({
+      propertyId: '-',
+      credentialsRef: 'env:EMAIL_SMTP',
+      requestId: 'startup',
+    });
+    log(h.status === 'ok' ? 'info' : 'error', 'email smtp check', {
+      status: h.status,
+      ...(h.detail ? { code: h.detail } : {}),
+    });
+  }
+  log('info', 'worker started', { jobs: registry.keys(), email: email.provider });
 
   let running = false;
   const tick = async (): Promise<void> => {
@@ -77,6 +116,19 @@ async function main(): Promise<void> {
             job: key,
             err: err instanceof Error ? err.message : 'error',
           });
+        }
+      }
+      if (emailDispatcher) {
+        try {
+          for (const p of await runner.listProperties()) {
+            const st = await emailDispatcher.runForProperty(p);
+            if (st.done + st.retry + st.dead + st.deferred > 0) {
+              log('info', 'email dispatch', { ...st });
+            }
+          }
+        } catch (err) {
+          // SEC S-1: name + code only – a DB/library message may carry values.
+          log('error', 'email dispatch failed', errorTag(err));
         }
       }
     } finally {
