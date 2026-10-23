@@ -1,5 +1,10 @@
 # Kế hoạch Round 3 – Hoàn thiện, Ổn định & Bản phát hành ứng viên (RC)
 
+> **Cập nhật 23/10/2026 – INV duyệt "đường nhanh v1.0"** (decision-log 23/10). Đích Round 3 đổi từ "RC trên staging với đủ 30 Must R3 + 28 Must hàng chờ" thành **phát hành v1.0 vận hành thật** (lõi R2 + phần bắt buộc của Sprint 1, 5 điều kiện phát hành), dự kiến 02–05/11.
+> - Kế hoạch đích, bảng giao việc tới v1.0, danh sách dời v1.1/v1.2/v1.3 và quy trình sau v1.0: **`rounds/round-03/release-v1-plan.md`**. File đó **thay** mục 1, 3, 4.3, 6, 7 dưới đây.
+> - Việc INV làm trước ngày chạy: `rounds/round-03/inv-golive-checklist.md`. Kịch bản dùng thử: `product/docs/uat-script.md`. Release notes: `product/docs/release-notes.md`.
+> - Còn hiệu lực trong file này: ràng buộc repo công khai và staging (đầu file), mục 2.1a (R-6, chấm lại cổng R2), 4.1 (thứ tự lượt tiền), 4.2 (việc trước dữ liệu thật), mục 8 (rủi ro).
+
 - Người lập: PO (cùng ORC) | Ngày lập: 20/10/2026 | **Trạng thái: CHỐT – 22/10/2026** (PO chốt theo ESC-028 A và trả lời của INV ngày 22/10; ORC duyệt và ghi decision-log khi commit). Đổi kế hoạch sau khi chốt: PO đề xuất, ORC duyệt, ghi decision-log trong ngày.
 - Kế hoạch chi tiết Sprint 1: `rounds/round-03/sprint-1-plan.md`.
 - Đầu vào:

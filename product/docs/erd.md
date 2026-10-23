@@ -1128,6 +1128,8 @@ Giữ sau khi xóa (không định danh – DATA, US-158): ngày, số khách, h
 
 **`foc_stay_alert`** (module folio/approvals, RLS): `stay_root_reservation_id` PK (đơn gốc của chuỗi đơn con – lượt ở; dài hạn = đơn HĐ), `first_alerted_at`, `last_alerted_at`, `alert_count`, `attention_event_id`. Mỗi lần áp FOC/giảm giá đặc biệt/xóa nợ do FD/FDL/MGR: tính Σ số đang áp trên lượt và ngưỡng BR-433 (c) **dưới khóa folio** (thứ tự 16.19) → Σ > ngưỡng: thông báo `foc_stay_total_exceeded` (mỗi lần áp), mở "Cần chú ý" một lần (dòng này).
 
+**Cơ sở hạn mức được bảo vệ – BR-433 (d) v0.4.1** (0.3.8 bổ sung 1 mục 4, ARC 23/10, SEC FB-R3-SEC-BE-B-07; migration của BE-B cùng `foc_stay_alert`): `stay_night.reference_rate_vnd` bigint NOT NULL ≥ 0. Đây là giá tham chiếu cùng đơn vị với `room_revenue_gross_vnd`, chỉ các đường giá của hệ thống ghi, A31 không ghi. `folio_line.limit_ref_vnd` bigint ≥ 0, bắt buộc với dòng `room` và `late_fee_as_night` (CHECK). Dòng thay của A32 chép giá trị của dòng bị thay. `folio.limit_basis_checkout_vnd` bigint NULL ≥ 0: chụp một lần lúc B18 (`settle`). Cổng duy nhất `FolioService.limitBasisVnd(folioId, lineId|null)`: giá bảo vệ = min(giá dòng, `limit_ref_vnd`); cơ sở folio = max; sau B18 thêm min với số chụp.
+
 **`config_parameter_def` thêm** (khóa thường, chỉ OWN): `remote_confirm_timeout_minutes` (5–60, 15), `late_fee_post_review_hours` (12–48, 24). Khóa `payment_receiving_account`: chỉ OWN đọc (server lọc), `effective_from` ≥ ngày kinh doanh + 1.
 
 ## 5. Enum trạng thái ↔ máy trạng thái của BA
