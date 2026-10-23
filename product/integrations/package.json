@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Third-party adapters (owner: INT). contracts/ = types only (ADR-011); common/ = scrubCardData, EnvCredentialProvider, assertSafeConfig; qr/ = local QR encoder (browser-safe); payment/ = VietQR; doorlock/ = manual + mock; guest-registration/ = manual; notification Mock.",
+  "description": "Third-party adapters (owner: INT). contracts/ = types only (ADR-011); common/ = scrubCardData, EnvCredentialProvider, assertSafeConfig; qr/ = local QR encoder (browser-safe); payment/ = VietQR; doorlock/ = manual + mock; guest-registration/ = manual; notification/ = Mock + SMTP adapter (Google Workspace) + staff e-mail templates.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -41,6 +41,11 @@
       "types": "./dist/guest-registration/index.d.ts",
       "import": "./dist/guest-registration/index.js",
       "default": "./dist/guest-registration/index.js"
+    },
+    "./notification": {
+      "types": "./dist/notification/index.d.ts",
+      "import": "./dist/notification/index.js",
+      "default": "./dist/notification/index.js"
     }
   },
   "files": [
@@ -56,5 +61,8 @@
     "@types/node": "^22.10.2",
     "typescript": "~5.8.3",
     "vitest": "^4.1.12"
+  },
+  "dependencies": {
+    "nodemailer": "10.0.16"
   }
 }

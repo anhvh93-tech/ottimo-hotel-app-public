@@ -20,6 +20,8 @@ import {
 } from './modules/guest-portal/public/guest-request-jobs';
 import { guestsWorkerJobs } from './modules/guests/public/worker-jobs';
 import { housekeepingWorkerJobs } from './modules/housekeeping/public/worker-jobs';
+import { createEmailAdapter } from './jobs/email-adapter';
+import { StaffEmailDispatcher } from './jobs/email-dispatch';
 
 const log = (level: string, msg: string, extra: Record<string, unknown> = {}): void =>
   console.log(JSON.stringify({ level, msg, ...extra }));
@@ -59,7 +61,25 @@ async function main(): Promise<void> {
   for (const job of guestsWorkerJobs({ clock: rt.clock, audit, parameters }))
     registry.register(job);
   const runner = new JobRunner(rt.database, rt.clock, registry, parameters);
-  log('info', 'worker started', { jobs: registry.keys() });
+  // Staff e-mail (INT R3, outbox `staff.email`): production = Google Workspace SMTP; a bad smtp configuration
+  // (missing app password file…) throws here and the worker refuses to start.
+  const email = await createEmailAdapter(rt.env, rt.config.appEnv, rt.clock);
+  const emailDispatcher = email.adapter
+    ? new StaffEmailDispatcher(rt.database, rt.clock, email.adapter, log)
+    : null;
+  if (email.provider === 'smtp' && email.adapter) {
+    // Login check only (no mail sent); a failure is logged with a code, the outbox keeps retrying.
+    const h = await email.adapter.healthCheck({
+      propertyId: '-',
+      credentialsRef: 'env:EMAIL_SMTP',
+      requestId: 'startup',
+    });
+    log(h.status === 'ok' ? 'info' : 'error', 'email smtp check', {
+      status: h.status,
+      ...(h.detail ? { code: h.detail } : {}),
+    });
+  }
+  log('info', 'worker started', { jobs: registry.keys(), email: email.provider });
 
   let running = false;
   const tick = async (): Promise<void> => {
@@ -75,6 +95,18 @@ async function main(): Promise<void> {
           // Message only (no payloads); the failed slot was rolled back and is retried next tick.
           log('error', 'job failed', {
             job: key,
+            err: err instanceof Error ? err.message : 'error',
+          });
+        }
+      }
+      if (emailDispatcher) {
+        try {
+          for (const p of await runner.listProperties()) {
+            const st = await emailDispatcher.runForProperty(p);
+            if (st.done + st.retry + st.dead > 0) log('info', 'email dispatch', { ...st });
+          }
+        } catch (err) {
+          log('error', 'email dispatch failed', {
             err: err instanceof Error ? err.message : 'error',
           });
         }

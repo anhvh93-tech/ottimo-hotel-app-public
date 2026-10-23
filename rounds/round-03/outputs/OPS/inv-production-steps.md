@@ -177,24 +177,82 @@ Trong vài giờ đầu:
 
 Cách quay lại nếu cần: đặt lại 4 dòng A của Google và CNAME `www` → `ghs.googlehosted.com` theo ảnh chụp đã lưu.
 
-## Phần 8 – Email gửi đi của hệ thống (Google Workspace) – cần trước v1.0
+## Phần 8 – Email gửi đi của hệ thống (Google Workspace, info@ottimo.vn) – cần trước v1.0
 
-Anh/chị đã chọn gửi email qua Google Workspace từ `info@ottimo.vn` (23/10). Không có phần này thì check-in online không gửi được mã xác minh, và email cảnh báo 2FA cũng không đi.
+Soạn: OPS + INT · cập nhật 23/10/2026 theo SEC (FB-R3-SEC-INT-EMAIL-01). Anh/chị đã chọn gửi qua Google Workspace từ `info@ottimo.vn` (23/10), **không phát sinh phí**.
 
-**Không phải sửa DNS:** SPF `include:_spf.google.com` và DKIM `google._domainkey` của Google đã có sẵn và đúng.
+Hệ thống gửi email khi:
+- có người đăng nhập bằng mã khôi phục 2 bước;
+- đăng nhập 2 bước của ai đó được đặt lại;
+- tài khoản nhận cọc bị đổi.
 
-Các bước:
-1. Đăng nhập Google bằng `info@ottimo.vn` → https://myaccount.google.com/security → bật **Xác minh 2 bước** (nếu chưa bật).
-2. Mở https://myaccount.google.com/apppasswords → đặt tên `ottimo-server` → **Create**. Google hiện **mật khẩu ứng dụng 16 chữ cái**. Đây không phải mật khẩu hộp thư.
-3. Đừng chép mật khẩu này vào chat, email hay ghi chú. Khi đội hẹn (lúc dựng production), anh/chị tự gõ nó vào máy chủ:
-   - đăng nhập máy chủ bằng khóa của mình;
-   - chạy `sudo /opt/ottimo-prod/infra/server/bin/init-secrets.sh`;
-   - dán mật khẩu ứng dụng ở dấu nhắc. Dấu nhắc không hiện ký tự, và hỏi lại một lần để xác nhận.
+Thiếu phần này thì bản chính thức **không khởi động**.
 
-   INT gửi hướng dẫn chi tiết cùng adapter.
-4. Sau này nếu đổi mật khẩu hộp thư `info@ottimo.vn`, Google tự hủy mật khẩu ứng dụng. Khi đó tạo mật khẩu mới rồi chạy:
+**Không phải sửa DNS:** SPF `include:_spf.google.com` và DKIM `google._domainkey` của Google đã có sẵn và đúng (OPS đã kiểm).
+
+### Cách chính: "SMTP relay" của Google, xác thực bằng địa chỉ IP máy chủ – không có mật khẩu nào
+
+Google chỉ nhận thư từ đúng địa chỉ IP của máy chủ OTTIMO, nên **trên máy chủ không lưu mật khẩu nào**. Nếu máy chủ bị lộ, kẻ xấu cũng **không đọc được** hộp thư `info@`.
+
+Vì sao không dùng mật khẩu ứng dụng: mật khẩu đó mở được **cả hộp thư** `info@ottimo.vn` (đọc thư khách, OTA, ngân hàng) và bỏ qua xác minh 2 bước.
+
+#### 8a. Bật SMTP relay trong trang quản trị (10 phút) – làm ngay được
+
+Đội gửi riêng cho anh/chị **IP VPS production** (và IP VPS staging nếu muốn thử trên staging) qua chat. Repo công khai nên không ghi IP ở đây.
+
+1. Đăng nhập https://admin.google.com bằng tài khoản **quản trị** Google Workspace.
+2. Menu ☰ → **Ứng dụng** (Apps) → **Google Workspace** → **Gmail** → **Định tuyến** (Routing).
+3. Kéo xuống mục **Dịch vụ chuyển tiếp SMTP** (SMTP relay service) → **Định cấu hình** (Configure).
+   - Nếu đã có một mục cũ thì bấm **Thêm mục khác** (Add another).
+4. Điền:
+   - **Tên**: `OTTIMO Desk`.
+   - **1. Người gửi được phép** (Allowed senders): chọn **Chỉ các địa chỉ trong miền của tôi** (Only addresses in my domains).
+   - **2. Xác thực** (Authentication):
+     - tích **Chỉ chấp nhận thư từ các địa chỉ IP đã chỉ định** (Only accept mail from the specified IP addresses);
+     - bấm **Thêm địa chỉ IP/dải IP** → mô tả `VPS production` → dán **IP VPS production** → **Lưu**;
+     - (tùy chọn) thêm một dòng nữa cho **IP VPS staging**;
+     - **không** tích "Yêu cầu xác thực SMTP" (Require SMTP Authentication).
+   - **3. Mã hóa** (Encryption): tích **Yêu cầu mã hóa TLS** (Require TLS encryption).
+5. Bấm **Lưu** (Save) ở cuối hộp thoại, rồi **Lưu** ở cuối trang.
+
+Thay đổi có hiệu lực trong vài phút, có khi tới 24 giờ.
+
+Nếu không thấy mục "SMTP relay service": chụp màn hình trang Định tuyến gửi đội. Đội sẽ báo ORC để chọn cách khác (xem "Cách dự phòng" bên dưới).
+
+#### 8b. Gửi thử (5 phút) – khi đội dựng production
+
+1. Đội đặt cấu hình relay (không cần anh/chị gõ gì trên máy chủ).
+2. Khởi động lại và gửi một thư thử tới hộp thư của anh/chị.
+3. Anh/chị kiểm hộp thư: có thư "OTTIMO – Security notice…" là đạt.
+
+Khi `init-secrets.sh` hỏi mật khẩu ứng dụng, đội chỉ cần **Enter để bỏ qua**: chế độ relay không dùng mật khẩu.
+
+#### Khi đổi máy chủ hoặc IP
+
+- VPS mới hoặc IP mới: sửa IP trong mục ở 8a trước khi chuyển. Nếu không, thư sẽ chờ trong hàng đợi rồi tự gửi lại (tối đa khoảng 4,5 giờ).
+- Thôi dùng máy chủ: xóa IP đó khỏi danh sách.
+
+### Cách dự phòng: mật khẩu ứng dụng (chỉ khi 8a không làm được) – cần ORC/INV đồng ý
+
+SEC không khuyến nghị cách này. Hệ thống ghi cảnh báo mỗi lần khởi động. Chỉ dùng khi gói Workspace không có SMTP relay, và sau khi ORC trình anh/chị quyết.
+
+1. Bật **Xác minh 2 bước** cho `info@ottimo.vn` tại https://myaccount.google.com/security.
+2. Mở https://myaccount.google.com/apppasswords → tên `OTTIMO Desk` → **Tạo**. Google hiện 16 chữ cái. Để nguyên cửa sổ, không chụp ảnh, không gửi chat.
+3. Cùng đội, anh/chị tự gõ vào máy chủ:
+   ```
+   sudo /opt/ottimo-prod/infra/server/bin/init-secrets.sh
+   ```
+   Dán 16 chữ cái → Enter (màn hình không hiện gì là bình thường). Dán lại lần nữa để xác nhận.
+4. Đổi mật khẩu hộp thư thì Google tự hủy mật khẩu ứng dụng. Khi đó tạo mật khẩu mới rồi chạy:
    - `sudo …/init-secrets.sh --reset-email-password`;
    - `…/bin/dc restart worker`.
+
+### Giới hạn
+
+| Cách | Giới hạn của Google | Dùng thực tế |
+|---|---|---|
+| SMTP relay | 10.000 người nhận/ngày cho mỗi người gửi | Vài thư/tuần |
+| Mật khẩu ứng dụng | 2.000 thư/ngày | Vài thư/tuần |
 
 ---
 
@@ -204,7 +262,7 @@ Các bước:
 2. Phần 3, 4: khi đội dựng production.
 3. Phần 7: khi duyệt landing (có thể trước v1.0).
 4. Phần 6: làm được ngay (ESC-029 đã quyết A).
-5. Phần 8: trước v1.0.
+5. Phần 8: 8a làm ngay được; 8b khi đội dựng production (trước v1.0).
 6. Phần 5: mỗi lần phát hành.
 
 ## Khi cần thu hồi (sự cố, lộ khóa, đổi người)

@@ -88,8 +88,13 @@ x-api-env: &api-env
   BANKFEED_PROVIDER: ${BANKFEED_PROVIDER:-off}
   EINVOICE_PROVIDER: ${EINVOICE_PROVIDER:-off}
   DOORLOCK_PROVIDER: ${DOORLOCK_PROVIDER:-manual}
+  # E-mail: off | mock | smtp (production: smtp only – assertSafeConfig). Non-secret SMTP settings; the app password
+  # is the worker-only secret file email_smtp_password (never in .env).
   EMAIL_PROVIDER: ${EMAIL_PROVIDER:-mock}
   EMAIL_FROM: ${EMAIL_FROM:-}
+  EMAIL_SMTP_HOST: ${EMAIL_SMTP_HOST:-smtp.gmail.com}
+  EMAIL_SMTP_PORT: ${EMAIL_SMTP_PORT:-465}
+  EMAIL_SMTP_USER: ${EMAIL_SMTP_USER:-}
   ZALO_PROVIDER: ${ZALO_PROVIDER:-manual_copy}
 
 x-api-secrets: &api-secrets
@@ -179,8 +184,23 @@ services:
     <<: *hardening
     image: ${API_IMAGE:?set API_IMAGE in /opt/ottimo/.env}:${IMAGE_TAG:?IMAGE_TAG missing – use infra/server/bin/dc}${API_TAG_SUFFIX:-}
     command: ['node', 'dist/worker.js']
-    environment: *api-env
-    secrets: *api-secrets
+    environment:
+      <<: *api-env
+      # E-mail (INT R3, INV 23/10: Google Workspace SMTP from info@ottimo.vn). Only the worker sends, so only the
+      # worker gets the app password file (init-secrets.sh asks for it with a hidden prompt; empty = not set yet).
+      EMAIL_SMTP_PASSWORD_FILE: /run/secrets/email_smtp_password
+    # = *api-secrets + email_smtp_password (YAML cannot merge lists – keep the two in sync).
+    secrets:
+      - database_url
+      - session_secret
+      - data_kek_current
+      - id_hash_key
+      - log_ip_hmac_key
+      - guest_code_signing_key
+      - web_push_vapid_public_key
+      - web_push_vapid_private_key
+      - public_form_signing_key
+      - email_smtp_password
     volumes:
       # J16 deletes blobs (hủy DEK + xóa blob) – same volume as api.
       - blobdata:/var/lib/ottimo/blobs
@@ -341,6 +361,9 @@ secrets:
     file: ${SECRETS_DIR:-/opt/ottimo/secrets}/web_push_vapid_private_key
   public_form_signing_key:
     file: ${SECRETS_DIR:-/opt/ottimo/secrets}/public_form_signing_key
+  # Google Workspace app password of EMAIL_SMTP_USER (worker only, uid 1000). Typed by INV on the server (hidden prompt).
+  email_smtp_password:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/email_smtp_password
   # Not a key: a Caddyfile snippet (staging = basic auth with a bcrypt hash; production = empty), uid 10001.
   landing_access:
     file: ${SECRETS_DIR:-/opt/ottimo/secrets}/landing_access
