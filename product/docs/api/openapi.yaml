@@ -292,6 +292,7 @@ info:
     | FILE_TYPE · FILE_TOO_LARGE · TOO_MANY_FILES | Chi tiết của `422 FILE_REJECTED` (`errors[]`): sai loại theo magic bytes (không JPEG/PNG/WebP) · > 10 MB hoặc > 40 MP · vượt 4 ảnh/người hoặc 30 tệp/đơn (SR-FILE-01/02, SR-RL-05) – 0.3.3 E06-07 | `uploadGuestDocument`, `addGuestDocument`, `uploadAttachment` |
 
     ## Thay đổi phiên bản 0.3.8-draft (R3 Sprint 1 – hợp đồng trước code; chi tiết `rounds/round-03/outputs/ARC/s1-contracts.md`)
+    **0.3.8 bổ sung 2 (ARC 23/10, R3-Q51)**: `getParameterHistory` – `current` không còn bắt buộc: vắng mặt khi khóa mới chỉ có dòng đã lên lịch (lần đặt đầu `payment_receiving_account`) → 200 với `history`; 404 chỉ khi không có dòng nào và không có mặc định.
     **US-143 / SR-AUTH-06 (ESC-027 B, SEC `round-03/outputs/SEC/s1-security-requirements.md` mục A)**: cờ triển khai `MFA_ENFORCED` (OPS – không phải tham số màn hình); phiên hạn chế
     `403 MFA_ENROLLMENT_REQUIRED`; `loginMfa` thân `{mfaToken, totpCode | recoveryCode}` (bỏ trường `code`), mọi lỗi `401 MFA_INVALID`; mã khôi phục 16 ký tự base32 (≥ 80 bit, hiển thị 4-4-4-4);
     **bỏ `Idempotency-Key` ở `startMy2faSetup`, `confirmMy2fa`** (phản hồi chứa bí mật không bao giờ vào `idempotency_key` – SEC 06.9, SR-C3-02); `confirmMy2fa` thân `totpCode`;
@@ -1572,6 +1573,7 @@ paths:
       description: |
         **0.3.8 (R3-Q51, SEC Q51-1/Q51-2)**: khóa `payment_receiving_account` **chỉ OWN** (MGR, FDL → `403 FORBIDDEN_ACTION`); `listParameters` bỏ khóa này khỏi danh sách của vai khác OWN.
         `history` gồm cả dòng **đã lên lịch** (`effectiveFrom` > ngày kinh doanh hiện tại) – Desk tách "Đang dùng" / "Đã lên lịch". Số tài khoản luôn che (`accountNoMasked`, `bankName`).
+        **0.3.8 bổ sung 2 (ARC 23/10, R3-Q51 – lần đặt đầu tiên)**: `current` = dòng có `effectiveFrom` lớn nhất ≤ ngày kinh doanh; **vắng mặt** (không có thuộc tính, không phải `null`) khi khóa chưa có dòng nào đang hiệu lực mà đã có dòng **đã lên lịch** – trả **200** với `history` chỉ gồm các dòng đã lên lịch (OWN thấy và hủy được qua `cancelScheduledParameter`). **404** chỉ khi khóa không có dòng nào (không đang dùng, không lên lịch) và không có giá trị mặc định trong danh mục. Áp cho mọi khóa; thực tế chỉ khóa không có mặc định (`payment_receiving_account`) rơi vào trường hợp này. Client đọc `current` như tùy chọn.
       x-roles: [owner, manager, front_desk_lead]
       x-stories: [US-005]
       responses:
@@ -1581,7 +1583,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [current, history]
+                required: [history]
                 properties:
                   current: { $ref: '#/components/schemas/Parameter' }
                   history: { type: array, items: { $ref: '#/components/schemas/Parameter' } }

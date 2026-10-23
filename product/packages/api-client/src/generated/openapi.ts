@@ -584,6 +584,7 @@ export interface paths {
      * Giá trị và lịch sử của một khóa (US-005 AC3)
      * @description **0.3.8 (R3-Q51, SEC Q51-1/Q51-2)**: khóa `payment_receiving_account` **chỉ OWN** (MGR, FDL → `403 FORBIDDEN_ACTION`); `listParameters` bỏ khóa này khỏi danh sách của vai khác OWN.
      *     `history` gồm cả dòng **đã lên lịch** (`effectiveFrom` > ngày kinh doanh hiện tại) – Desk tách "Đang dùng" / "Đã lên lịch". Số tài khoản luôn che (`accountNoMasked`, `bankName`).
+     *     **0.3.8 bổ sung 2 (ARC 23/10, R3-Q51 – lần đặt đầu tiên)**: `current` = dòng có `effectiveFrom` lớn nhất ≤ ngày kinh doanh; **vắng mặt** (không có thuộc tính, không phải `null`) khi khóa chưa có dòng nào đang hiệu lực mà đã có dòng **đã lên lịch** – trả **200** với `history` chỉ gồm các dòng đã lên lịch (OWN thấy và hủy được qua `cancelScheduledParameter`). **404** chỉ khi khóa không có dòng nào (không đang dùng, không lên lịch) và không có giá trị mặc định trong danh mục. Áp cho mọi khóa; thực tế chỉ khóa không có mặc định (`payment_receiving_account`) rơi vào trường hợp này. Client đọc `current` như tùy chọn.
      */
     get: operations['getParameterHistory'];
     /**
@@ -10149,7 +10150,7 @@ export interface operations {
         };
         content: {
           'application/json': {
-            current: components['schemas']['Parameter'];
+            current?: components['schemas']['Parameter'];
             history: components['schemas']['Parameter'][];
           };
         };
