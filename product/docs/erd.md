@@ -1128,6 +1128,20 @@ Giữ sau khi xóa (không định danh – DATA, US-158): ngày, số khách, h
 
 **`foc_stay_alert`** (module folio/approvals, RLS): `stay_root_reservation_id` PK (đơn gốc của chuỗi đơn con – lượt ở; dài hạn = đơn HĐ), `first_alerted_at`, `last_alerted_at`, `alert_count`, `attention_event_id`. Mỗi lần áp FOC/giảm giá đặc biệt/xóa nợ do FD/FDL/MGR: tính Σ số đang áp trên lượt và ngưỡng BR-433 (c) **dưới khóa folio** (thứ tự 16.19) → Σ > ngưỡng: thông báo `foc_stay_total_exceeded` (mỗi lần áp), mở "Cần chú ý" một lần (dòng này).
 
+**A32 giảm sau trả phòng = một lần miễn – BR-433 (e) v0.4.3** (0.3.8 bổ sung 3, ARC 24/10, SEC FZ-02; migration `0085` của BE-B):
+- **`folio_settled_reduction`** (module folio, RLS theo cơ sở, chỉ thêm – app chỉ có `SELECT, INSERT`):
+  - cột: `id`, `organization_id`, `property_id`, `folio_id` FK, `folio_line_id` FK, `reduced_vnd` > 0, `actor_id` FK `app_user`, `actor_role` (`front_desk|front_desk_lead|manager|owner`), `created_at`;
+  - mỗi lần A32 **giảm** một dòng của folio `settled` thì ghi một dòng;
+  - phần do vai dưới OWN làm thì cộng vào Σ lượt ESC-026. Phần tính = max(0, min(dòng trước, số lúc khách rời) − dòng sau); tăng tay rồi hạ lại không tính (I16).
+- **`approval_request.origin_actor_ids`** uuid[] NOT NULL DEFAULT `{}` (đích sau FB-R3-ARC-ADD3-01; bản `0085` ở `943e7f2` có `origin_actor_id` uuid đơn – đổi trước gộp):
+  - chỉ có trên `refund`;
+  - giữ những người làm A32 giảm (dưới OWN) đứng sau tiền dư của folio;
+  - CHECK `approver_id` ∉ `origin_actor_ids` (app trả 403 `SELF_APPROVAL_FORBIDDEN` trước);
+  - yêu cầu thay thế (`superseded`) chép mảng và cách định tuyến của yêu cầu nó thay.
+- **Định tuyến yêu cầu hoàn trên folio `settled` có A32 giảm của vai dưới OWN**:
+  - yêu cầu do A32 tự sinh: Σ hoàn từ A32 (chờ, đã duyệt, mới; bỏ từ chối/hủy) > cơ sở (d), hoặc cơ sở null → `owner`; còn lại → `manager`;
+  - **mọi yêu cầu hoàn khác** trên folio đó (tạo tay `createRefundRequest`, từ `recordPayment`/`confirmPaymentReceived`) → `owner`, `origin_actor_ids` = mọi người làm A32 dưới OWN của folio.
+
 **Cơ sở hạn mức được bảo vệ – BR-433 (d) v0.4.1** (0.3.8 bổ sung 1 mục 4, ARC 23/10, SEC FB-R3-SEC-BE-B-07; migration của BE-B cùng `foc_stay_alert`): `stay_night.reference_rate_vnd` bigint NOT NULL ≥ 0. Đây là giá tham chiếu cùng đơn vị với `room_revenue_gross_vnd`, chỉ các đường giá của hệ thống ghi, A31 không ghi. `folio_line.limit_ref_vnd` bigint ≥ 0, bắt buộc với dòng `room` và `late_fee_as_night` (CHECK). Dòng thay của A32 chép giá trị của dòng bị thay. `folio.limit_basis_checkout_vnd` bigint NULL ≥ 0: chụp một lần lúc B18 (`settle`). Cổng duy nhất `FolioService.limitBasisVnd(folioId, lineId|null)`: giá bảo vệ = min(giá dòng, `limit_ref_vnd`); cơ sở folio = max; sau B18 thêm min với số chụp.
 
 **`config_parameter_def` thêm** (khóa thường, chỉ OWN): `remote_confirm_timeout_minutes` (5–60, 15), `late_fee_post_review_hours` (12–48, 24). Khóa `payment_receiving_account`: chỉ OWN đọc (server lọc), `effective_from` ≥ ngày kinh doanh + 1.
@@ -1603,6 +1617,7 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 ## 15. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
+| 24/10/2026 | 3 – Sprint 1 (Phản hồi & sửa) | **0.3.8 bổ sung 3 / BR-433 (e)**: 4.15 thêm `folio_settled_reduction`, `approval_request.origin_actor_ids` (đích – FB-R3-ARC-ADD3-01), định tuyến yêu cầu hoàn trên folio `settled` có A32 giảm | ARC |
 | 23/10/2026 | 3 – Sprint 1 (Review) | **0.3.8 bổ sung 1**: 4.15 `mfa_login_challenge` RLS theo tổ chức + hàm entry `auth_mfa_challenge_resolve` (thay "chỉ SECURITY DEFINER"); `app_user.mfa_data_key_id`, `mfa_key_property_id` (theo migration BE-C) | ARC |
 | 22/10/2026 | 3 – Sprint 1 (Sản xuất) | **0.3.8** (khớp OpenAPI 0.3.8-draft, `rounds/round-03/outputs/ARC/s1-contracts.md`): mục **4.15 mới** – `app_user` cột 2FA chờ/chống phát lại, `user_session.mfa_at/amr/enrollment_only`, `mfa_login_challenge`, `manager_confirmation` (US-164, SM-19 đề xuất), `foc_stay_alert` (ESC-026 A), khóa `remote_confirm_timeout_minutes`, `late_fee_post_review_hours` | ARC |
 | 18/10/2026 | 2 – Sprint 4 (tuần Ổn định, vòng sửa 8) | `openapi-0.3.7.md` 16.30: 4.5 `reservation.debt_due_date/debt_reason/debt_settled_at` (0074, ghi bù vào ERD) + chu kỳ công nợ `debt_opened_at/debt_recorded_vnd/debt_base_vnd` (0076); `pricing_snapshot.nights[]` ghi rõ khóa, thêm `agreedRateVnd` (G-5/AN-50, không DDL); 4.6 `approval_request.applied_cap_vnd` + `auto_cancel_reason` `debt_cleared` (0077) | ARC |
