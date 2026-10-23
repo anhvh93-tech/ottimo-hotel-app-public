@@ -226,6 +226,51 @@ Tổng ≥ **620 chuỗi**, khoảng 25.000 bước. Ước lượng ≤ 40 phú
   - (5) ghi `rounds/round-03/reviews/s1-money-critic.md`: số chuỗi đọc, lệch, Major.
 - **Kết luận lượt kiểm tiền (G1):** 0 lệch tiền, 0 Major của critic, 0 vi phạm fuzz.
 
+### 3.6 Trạng thái harness và kết quả lượt chạy (QA 23/10, nhánh `qa/r3-s1-booking-flaky-fuzz`, mã `origin/main` @ `7100f3b`)
+
+**Mã** ở `product/services/api/test/fuzz/`, dựng trên fixture tiền `test/integration/s438-r8/fixture.ts` (app HTTP thật, PostgreSQL thật, đồng hồ giả, J15 thật, giữ khóa folio để ép thứ tự đua):
+- `ref-ledger.ts`: `refLedger`, không import mã sản phẩm;
+- `invariants.ts`: I1–I16;
+- `runner.ts`: bộ sinh có seed, rút gọn chuỗi, log JSONL từng bước, J15 chạy mỗi giờ;
+- `debt-fuzz.test.ts`: điểm chạy;
+- `bug-r3-00{2,3,4}.test.ts`: ca tái hiện tất định, chạy với `FUZZ_KNOWN_BUGS=1`.
+
+**Cách chạy** (không chạy trong `pnpm test`):
+- `FUZZ=1` (số chuỗi theo 3.3) hoặc `FUZZ=smoke`;
+- `FUZZ_BE83=1`: bật I8, I13, I16 và các họ FZ-09…12;
+- `FUZZ_Q23=1`: biến I9 thành lỗi cứng, bật khi R3-Q23 gộp;
+- `FUZZ_FAMILIES`, `FUZZ_SEED`, `FUZZ_SHRINK=1`, `FUZZ_LOG_DIR`.
+
+**Họ chuỗi** – có: FZ-01, 02, 06, 07, 08, 09, 10, 11, 12 (FZ-12: đang ở → B18, A31/A32 đêm, đổi căn lên/xuống, gia hạn giá gõ, FOC khóa khác; FB-09 chỉ quan sát). Chưa có: FZ-03 (FOC trên chính dòng đêm), FZ-04 (đơn con B9a), FZ-05 (dài hạn), I12 (hoa hồng).
+
+**Lượt chạy:**
+- Lượt 2: 610 chuỗi, 23.951 bước, đủ số theo 3.3.
+- Lượt 3: 280 chuỗi, 11.713 bước – FZ-09…12 đủ số, FZ-01/02 thêm mỗi họ 50 chuỗi, có thêm mức số tiền "nửa cơ sở" để chạm ngưỡng ESC-026.
+- Cả hai lượt: deadlock 0, 5xx 0.
+- Ca SEC có hướng (B.5 #1–#4, BB07-1, void rồi xóa lại): xanh.
+- Critic độc lập tự tính lại 650/650 chuỗi của lượt 2 từ log gốc: `reviews/s1-money-critic.md`.
+
+**Vi phạm cứng** – cả ba đều có ca tái hiện tất định:
+
+| Bất biến | Số chuỗi (lượt 2 + 3) | Lỗi | Mức |
+|---|---|---|---|
+| I4 – folio `closed` còn tiền dư | 15 + 4 | BUG-R3-002: tiền dư phát sinh sau B18 (A32 khi O = 0) không thành yêu cầu hoàn; J15 đóng folio | P0 |
+| I8 – xóa nợ vượt cơ sở nhưng `required_role` ≠ owner | 0 + 1 (lượt 1: 1) | BUG-R3-003: định tuyến cho lễ tân trưởng; lễ tân trưởng duyệt được | P0 |
+| I16 (+ I13 cùng gốc) – MGR tự áp xóa nợ khi không còn đêm phòng sống | 0 + 9 (critic lượt 2: 6) | BUG-R3-004: mã giữ số chụp B18 khi void hết đêm, trái BR-433 (a) | P1 |
+
+**Cảnh báo (`?`, không làm đỏ):**
+- `I9?`: R3-Q23 chưa gộp.
+- `I3?` / `I5?`: đua hai thao tác ghi tiền trong cùng một giây giả. Critic xác nhận API đúng theo thứ tự chạy thật.
+- `I1?` / `I3?` trong khoảng hở trước J15: FB-R3-QA-ARC-01.
+- `FB09?`: quan sát theo SEC – Σ vượt cơ sở **sau** khi cơ sở giảm.
+
+**Kết luận lượt kiểm tiền (G1): CHƯA ĐẠT.**
+- Còn 2 lỗi tiền P0 và 1 lỗi P1.
+- I9 chờ R3-Q23.
+- Đạt: FB-07 (FZ-10, FZ-12 trước và sau B18, BB07-1…7 test BE), B.5 #1–#4, ESC-026 khi cơ sở > 0, hai tổ chức không rò số.
+
+**Giả định cần DOM xác nhận:** FB-R3-QA-DOM-01, FB-R3-QA-DOM-02 ý 2. Ý 1 đã rút – xem BUG-R3-004.
+
 ---
 
 ## 4. Nhóm C – Bảo mật bắt buộc

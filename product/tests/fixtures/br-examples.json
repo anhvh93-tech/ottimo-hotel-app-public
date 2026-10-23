@@ -3,11 +3,11 @@
   "schemaVersion": 1,
   "source": {
     "file": "product/docs/business-rules.md",
-    "version": "0.4.0",
-    "date": "2026-10-22"
+    "version": "0.4.2",
+    "date": "2026-10-23"
   },
-  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05",
-  "updated": "2026-10-22",
+  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp)",
+  "updated": "2026-10-23",
   "conventions": {
     "money": "Số nguyên VND, khóa kết thúc bằng 'Vnd' (ADR-002, BR-004)",
     "percent": "Basis point số nguyên (khóa kết thúc 'Bp'): 10% = 1000. Tham số giữ đơn vị như BR mục 13; số lẻ (15,5) ghi dạng chuỗi",
@@ -8742,6 +8742,252 @@
         "extraOwnerNotifications": 0
       },
       "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-9 (QA thêm). QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM. · 23/10 (BE-B, R3 Sprint 1 lượt kiểm tiền bước 4): gỡ pendingFix – BR-433 (a)(b)(c) v0.4.0 cài; test `services/api/test/integration/s438-r8/r3-be83-esc026.test.ts` đạt trên CSDL thật; QA/SEC xác nhận khi gộp."
+    },
+    {
+      "id": "BR-433-15",
+      "br": "BR-433",
+      "case": "(v0.4.1, BB07-1 – Q1 của SEC) Sau trả phòng MGR A32 nâng dòng phòng 667.000 → 5.000.000, xin xóa nợ 4.000.000, rồi hạ dòng phòng về 667.000: cơ sở vẫn là giá đêm bảo vệ 667.000 → yêu cầu chờ OWN; cuối B = O = 5.000.000, Σ xóa nợ đã áp 0",
+      "origin": "example",
+      "labels": ["INV-007", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "101",
+        "nightRateVnd": 667000,
+        "b18SnapshotBasisVnd": 667000,
+        "debtOpenVnd": 5000000,
+        "windowVnd": 0,
+        "steps": [
+          {
+            "by": "manager",
+            "op": "a32",
+            "line": "room",
+            "newUnitPriceVnd": 5000000
+          },
+          {
+            "by": "manager",
+            "op": "debt_write_off",
+            "amountVnd": 4000000,
+            "reauth": true
+          },
+          {
+            "by": "manager",
+            "op": "a32",
+            "line": "room",
+            "newUnitPriceVnd": 667000
+          }
+        ]
+      },
+      "expected": {
+        "afterRaise": {
+          "httpStatus": 201,
+          "amountDueVnd": 9333000,
+          "debtOpenVnd": 5000000,
+          "windowVnd": 4333000,
+          "basisVnd": 667000
+        },
+        "writeOff": {
+          "status": "pending",
+          "requiredRole": "owner",
+          "willApplyVnd": 4000000
+        },
+        "afterLower": {
+          "httpStatus": 201,
+          "amountDueVnd": 5000000,
+          "debtOpenVnd": 5000000,
+          "windowVnd": 0,
+          "writeOffAppliedVnd": 0,
+          "stayAlerts": 0
+        },
+        "wrong": {
+          "writeOff": "201 approved eff 4000000",
+          "finalDebtOpenVnd": 1000000
+        }
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.4 (BR-433 (d) v0.4.1, SEC Blocker FB-R3-SEC-BE-B-07). QA 23/10: DOM đề xuất id BR-433-11…15 nhưng 11–14 đã dùng (E26-7, E26-8, E26-5, E26-9) → BR-433-15…21. Không `pendingFix`: bước 4 lượt tiền đã gộp `main` (7100f3b); `services/api/test/integration/s438-r8/r3-bb07-limit-basis.test.ts` đạt trên CSDL riêng của QA; fuzz R3-Q30 họ FZ-10/FZ-12 (bất biến I16) – kết quả ở `rounds/round-03/qa/s1-test-plan.md` 3.6."
+    },
+    {
+      "id": "BR-433-16",
+      "br": "BR-433",
+      "case": "(v0.4.1, BB07-2) Như BB07-1 bước nâng giá, MGR xin xóa nợ đúng cơ sở 667.000 → tự áp; xin thêm 1.000 → chờ OWN",
+      "origin": "example",
+      "labels": ["INV-007", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "101",
+        "basisVnd": 667000,
+        "debtOpenVnd": 5000000,
+        "raisedRoomLineVnd": 5000000,
+        "requests": [
+          {
+            "by": "manager",
+            "amountVnd": 667000
+          },
+          {
+            "by": "manager",
+            "amountVnd": 1000
+          }
+        ]
+      },
+      "expected": {
+        "first": "approved",
+        "debtOpenAfterFirstVnd": 4333000,
+        "second": {
+          "status": "pending",
+          "requiredRole": "owner"
+        }
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.4 (BR-433 (d) v0.4.1, SEC Blocker FB-R3-SEC-BE-B-07). QA 23/10: DOM đề xuất id BR-433-11…15 nhưng 11–14 đã dùng (E26-7, E26-8, E26-5, E26-9) → BR-433-15…21. Không `pendingFix`: bước 4 lượt tiền đã gộp `main` (7100f3b); `services/api/test/integration/s438-r8/r3-bb07-limit-basis.test.ts` đạt trên CSDL riêng của QA; fuzz R3-Q30 họ FZ-10/FZ-12 (bất biến I16) – kết quả ở `rounds/round-03/qa/s1-test-plan.md` 3.6."
+    },
+    {
+      "id": "BR-433-17",
+      "br": "BR-433",
+      "case": "(v0.4.1, BB07-3, trong lúc ở (b)) MGR sửa giá đêm 667.000 → 3.000.000, FOC 2.500.000 trên khoản hư hỏng 3.000.000 → cơ sở min(3.000.000, 667.000) = 667.000 → chờ OWN; hạ giá về 667.000 → yêu cầu vẫn chờ",
+      "origin": "example",
+      "labels": ["INV-007", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "101",
+        "stayState": "in_house",
+        "nightRateVnd": 667000,
+        "steps": [
+          {
+            "by": "manager",
+            "op": "a31_night_rate",
+            "newRateVnd": 3000000
+          },
+          {
+            "by": "manager",
+            "op": "foc",
+            "line": "damage",
+            "lineVnd": 3000000,
+            "amountVnd": 2500000
+          },
+          {
+            "by": "manager",
+            "op": "a31_night_rate",
+            "newRateVnd": 667000
+          }
+        ]
+      },
+      "expected": {
+        "rateEdit": {
+          "httpStatus": 201,
+          "audited": true
+        },
+        "foc": {
+          "basisVnd": 667000,
+          "status": "pending",
+          "requiredRole": "owner"
+        },
+        "afterLower": {
+          "status": "pending",
+          "basisVnd": 667000
+        }
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.4 (BR-433 (d) v0.4.1, SEC Blocker FB-R3-SEC-BE-B-07). Ghi chú chạy: trần A31 của seed DS-E là 1.900.000 nên test BE dùng 1.900.000 thay 3.000.000 và FOC 1.500.000 – cùng kết luận (cơ sở 667.000, chờ OWN). QA 23/10: DOM đề xuất id BR-433-11…15 nhưng 11–14 đã dùng (E26-7, E26-8, E26-5, E26-9) → BR-433-15…21. Không `pendingFix`: bước 4 lượt tiền đã gộp `main` (7100f3b); `services/api/test/integration/s438-r8/r3-bb07-limit-basis.test.ts` đạt trên CSDL riêng của QA; fuzz R3-Q30 họ FZ-10/FZ-12 (bất biến I16) – kết quả ở `rounds/round-03/qa/s1-test-plan.md` 3.6."
+    },
+    {
+      "id": "BR-433-18",
+      "br": "BR-433",
+      "case": "(v0.4.1, BB07-4 – ngưỡng ESC-026) Giá đêm đang bị sửa lên 3.000.000, MGR miễn 300.000, 250.000, 300.000 trên ba khóa khác nhau → cả ba áp ngay; ngưỡng 667.000; Σ 850.000 sau khoản 3 → báo OWN",
+      "origin": "example",
+      "labels": ["INV-007", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "101",
+        "editedNightRateVnd": 3000000,
+        "protectedNightRateVnd": 667000,
+        "focs": [
+          {
+            "by": "manager",
+            "key": "late_checkout_fee",
+            "amountVnd": 300000
+          },
+          {
+            "by": "manager",
+            "key": "minibar",
+            "amountVnd": 250000
+          },
+          {
+            "by": "manager",
+            "key": "damage_fee",
+            "amountVnd": 300000
+          }
+        ]
+      },
+      "expected": {
+        "allApplied": true,
+        "thresholdVnd": 667000,
+        "stayTotalAfterVnd": [300000, 550000, 850000],
+        "ownerNotificationsAfter": [0, 0, 1]
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.4 (BR-433 (d) v0.4.1, SEC Blocker FB-R3-SEC-BE-B-07). Ghi chú chạy: test BE sửa giá lên 1.900.000 (trần seed). QA 23/10: DOM đề xuất id BR-433-11…15 nhưng 11–14 đã dùng (E26-7, E26-8, E26-5, E26-9) → BR-433-15…21. Không `pendingFix`: bước 4 lượt tiền đã gộp `main` (7100f3b); `services/api/test/integration/s438-r8/r3-bb07-limit-basis.test.ts` đạt trên CSDL riêng của QA; fuzz R3-Q30 họ FZ-10/FZ-12 (bất biến I16) – kết quả ở `rounds/round-03/qa/s1-test-plan.md` 3.6."
+    },
+    {
+      "id": "BR-433-19",
+      "br": "BR-433",
+      "case": "(v0.4.1, BB07-5 – thay đổi hợp lệ do hệ thống) Khách xin đổi 101 → 401 (B14 guest_request, giá tham chiếu 1.042.000) → cơ sở 1.042.000; MGR FOC 1.000.000 trên khoản hư hỏng → tự áp",
+      "origin": "example",
+      "labels": ["INV-007", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "fromRoomNo": "101",
+        "toRoomNo": "401",
+        "moveReason": "guest_request",
+        "referenceRateVnd": 1042000,
+        "foc": {
+          "by": "manager",
+          "amountVnd": 1000000
+        }
+      },
+      "expected": {
+        "basisVnd": 1042000,
+        "foc": "approved"
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.4 (BR-433 (d) v0.4.1, SEC Blocker FB-R3-SEC-BE-B-07). Liên quan FB-R3-SEC-BE-B-09 (đổi căn lên rồi xuống – chỉ quan sát trong fuzz FZ-12). QA 23/10: DOM đề xuất id BR-433-11…15 nhưng 11–14 đã dùng (E26-7, E26-8, E26-5, E26-9) → BR-433-15…21. Không `pendingFix`: bước 4 lượt tiền đã gộp `main` (7100f3b); `services/api/test/integration/s438-r8/r3-bb07-limit-basis.test.ts` đạt trên CSDL riêng của QA; fuzz R3-Q30 họ FZ-10/FZ-12 (bất biến I16) – kết quả ở `rounds/round-03/qa/s1-test-plan.md` 3.6."
+    },
+    {
+      "id": "BR-433-20",
+      "br": "BR-433",
+      "case": "(v0.4.1, BB07-6 – sửa tay giảm) Đơn 202 giá 792.000, LT trưởng sửa giá đêm xuống 540.000 → cơ sở 540.000 (min); MGR FOC 600.000 → chờ OWN",
+      "origin": "example",
+      "labels": ["INV-007", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "nightRateVnd": 792000,
+        "editedBy": "front_desk_lead",
+        "editedRateVnd": 540000,
+        "foc": {
+          "by": "manager",
+          "amountVnd": 600000
+        }
+      },
+      "expected": {
+        "basisVnd": 540000,
+        "foc": {
+          "status": "pending",
+          "requiredRole": "owner"
+        }
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.4 (BR-433 (d) v0.4.1, SEC Blocker FB-R3-SEC-BE-B-07). QA 23/10: DOM đề xuất id BR-433-11…15 nhưng 11–14 đã dùng (E26-7, E26-8, E26-5, E26-9) → BR-433-15…21. Không `pendingFix`: bước 4 lượt tiền đã gộp `main` (7100f3b); `services/api/test/integration/s438-r8/r3-bb07-limit-basis.test.ts` đạt trên CSDL riêng của QA; fuzz R3-Q30 họ FZ-10/FZ-12 (bất biến I16) – kết quả ở `rounds/round-03/qa/s1-test-plan.md` 3.6."
+    },
+    {
+      "id": "BR-433-21",
+      "br": "BR-433",
+      "case": "(v0.4.1, BB07-7 – sau B18 không nâng được) Đơn 202 trả phòng với cơ sở chụp 792.000; sau đó lịch giá đêm đó sửa lên 1.000.000 (hoặc A32 nâng dòng) → cơ sở min(792.000, …) = 792.000",
+      "origin": "example",
+      "labels": ["INV-007", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "b18SnapshotBasisVnd": 792000,
+        "laterCalendarRateVnd": 1000000
+      },
+      "expected": {
+        "basisVnd": 792000
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.4 (BR-433 (d) v0.4.1, SEC Blocker FB-R3-SEC-BE-B-07). QA 23/10: DOM đề xuất id BR-433-11…15 nhưng 11–14 đã dùng (E26-7, E26-8, E26-5, E26-9) → BR-433-15…21. Không `pendingFix`: bước 4 lượt tiền đã gộp `main` (7100f3b); `services/api/test/integration/s438-r8/r3-bb07-limit-basis.test.ts` đạt trên CSDL riêng của QA; fuzz R3-Q30 họ FZ-10/FZ-12 (bất biến I16) – kết quả ở `rounds/round-03/qa/s1-test-plan.md` 3.6."
     },
     {
       "id": "BR-434-01",

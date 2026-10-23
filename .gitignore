@@ -47,3 +47,6 @@ coverage/
 
 # Brand guideline page renders (regenerable from the PDF)
 00-brief/context/brand/pages/
+
+# R3-Q30 fuzz raw logs (critic reads them from the CI artifact / local run, never committed)
+product/services/api/fuzz-logs/
