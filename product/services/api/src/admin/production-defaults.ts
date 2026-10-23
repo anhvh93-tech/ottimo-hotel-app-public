@@ -287,8 +287,10 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
   { key: 'group_min_rooms', br: 'BR-324', status: 'INV-006', value: 2 },
   { key: 'checkin_time', br: 'BR-401', status: 'GD', value: '14:00' },
   { key: 'checkout_time', br: 'BR-401', status: 'GD', value: '12:00' },
-  { key: 'door_code_min_digits', br: 'BR-403', status: 'INV-011+SEC', value: 6 },
-  { key: 'birthday_code_random_digits', br: 'BR-403', status: 'INV-011+SEC', value: 3 },
+  // BR v0.3.9 (INV 19/10): door code = 8 random digits, birthday variant removed.
+  { key: 'door_code_min_digits', br: 'BR-403', status: 'INV-19/10+SEC', value: 8 },
+  // Obsolete since BR v0.3.9 (birthday variant removed); written only because the catalogue has no default.
+  { key: 'birthday_code_random_digits', br: 'BR-403', status: 'OBSOLETE', value: 3 },
   { key: 'door_lock_vendor', br: 'BR-403', status: 'INV-TT', value: 'TTLock' },
   {
     key: 'early_checkin_tiers',
@@ -389,7 +391,14 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
   { key: 'registration_digest_times', br: 'BR-611', status: 'INV-010', value: ['22:00', '07:00'] },
   { key: 'visa_expiry_warning_days.long_stay', br: 'BR-605', status: 'GD', value: 30 },
   { key: 'visa_expiry_warning_days.short_stay', br: 'BR-605', status: 'GD', value: 14 },
-  { key: 'id_image_retention_days_after_checkout', br: 'BR-610', status: 'PL', value: 30 },
+  // INV accepted the ESC-001 risk with the shortest retention (DOM + SEC, R3 v1.0): 1 day = the BR-427
+  // 24-hour post-check-out window (damage found by housekeeping), then the purge job deletes the images.
+  {
+    key: 'id_image_retention_days_after_checkout',
+    br: 'BR-610',
+    status: 'INV-ESC-001+SEC',
+    value: 1,
+  },
   { key: 'id_image_purge_max_hours', br: 'BR-609', status: 'PL+SEC', value: 24 },
   { key: 'minor_data_age_threshold', br: 'BR-612', status: 'PL', value: 16 },
   { key: 'stocktake_variance_approval_pct', br: 'BR-705', status: 'GD', value: 5 },
@@ -441,14 +450,14 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
   {
     key: 'max_open_holds_per_user',
     br: 'BR-302',
-    status: 'GD',
+    status: 'INV-017',
     value: { collaborator: 3, sales_staff: 5 },
   },
   { key: 'staff_payment_backdate_max_hours', br: 'BR-527', status: 'NGANH', value: 24 },
   {
     key: 'lease_terms',
     br: 'BR-201',
-    status: 'GD',
+    status: 'INV-005',
     value: [
       {
         months: 1,
