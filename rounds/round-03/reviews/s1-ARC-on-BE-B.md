@@ -116,3 +116,148 @@ Rà logic `writeDebt` theo 16.31.2 (b):
 - Một điểm quyết định duy nhất trong `writeDebt`, bỏ cờ `keep`, nên người gọi không còn quyết thay. Đúng tinh thần 16.31.2 (b).
 - Test bám đúng oracle DOM, gồm cả nhật ký, thông báo và hạn, cộng thêm ca đua ép thứ tự sau khóa folio. Báo cáo ghi rõ ánh xạ giờ và điều kiện gộp 208.
 - `debtReductionsVnd` đếm cả khoản thu đã đảo, nhờ đó một lần đảo không thổi phồng X. Ranh giới N-15 (`now >= until`) khớp đúng ranh giới J15.
+
+---
+
+# Mục mới – Review `29ce3d8`: BE-83 + ESC-026 A + R3-Q25 (ARC 23/10, PR tiền bắt buộc)
+
+- Đối tượng: commit `29ce3d8` trên `worktree-agent-a4a7a7b47e3d900bf`, báo cáo `outputs/BE/s1-be-b.md` mục 8.
+- Đối chiếu:
+  - s1-contracts 5.3;
+  - erd 4.15 `foc_stay_alert`;
+  - OpenAPI 0.3.8-draft (`foc_stay_total_exceeded`);
+  - DOM oracle mục 5.1–5.3 và **5.4 (BR-433 (d) v0.4.1, BB07-1…7, I16)**;
+  - SEC `reviews/s1-SEC-on-BE-B.md` FB-R3-SEC-BE-B-07.
+
+## Kết luận
+**`29ce3d8` CHƯA gộp được.** Có 1 Blocker và 1 Major.
+- **Blocker – S1-08**: ARC đồng ý thẻ FB-07 của SEC. Thiết kế kỹ thuật để sửa nằm ở mục "Hướng dẫn sửa FB-07" bên dưới.
+- **Major – S1-09**: đổi số migration và gộp đúng danh sách kind thông báo. Đây là điều kiện bắt buộc lúc rebase.
+
+Sửa xong hai thẻ này + test BB07-1…7 đạt + SEC xác nhận FB-07 thì gộp được.
+
+Phần còn lại đúng hợp đồng 5.3:
+- (a) Σ xóa nợ theo folio, mọi chu kỳ, kể cả yêu cầu đang chờ, đọc dưới L1 → L3;
+- (b) Σ theo khóa;
+- (c) báo OWN, không chặn, một mục "Cần chú ý" mỗi lượt, chạy trong hook quyết định dưới khóa folio. Hook này chạy cả khi tự áp (`runHooks` lúc `submit`) lẫn khi duyệt;
+- R3-Q25 xác thực lại.
+
+Đã chạy (worktree tách riêng ở `29ce3d8`, PostgreSQL riêng):
+- `tsc` đạt;
+- toàn bộ api `vitest run`: **107 tệp đạt (1 bỏ qua), 3.010 test đạt (2 bỏ qua)**;
+- `drizzle-kit generate`: không sinh file.
+
+## Thẻ feedback
+
+### FB-R3-ARC-BEB-S1-08
+- Mức độ: Blocker
+- Vị trí: `folio/public/folio.service.ts` `folioNightBasisVnd`, `nightRateBasis`; người gọi: `foc.service.ts` (a)(b), `stay-waiver-alert.ts` (ngưỡng MGR), `frontdesk/internal/stay-support.ts` (FOC phụ thu tại quầy, BR-416)
+- Vấn đề: cơ sở hạn mức đọc giá dòng `room` **đang sống**. Giá này MGR sửa được bằng A31 (khi khách còn ở) hoặc A32 (sau trả phòng). MGR chỉ cần nâng giá đêm lên, tự áp xóa nợ hoặc FOC lớn, rồi hạ giá về như cũ (ca SEC Q1 = BB07-1). Mọi bằng chứng còn lại trông hợp lệ. DOM đã chốt BR-433 (d) v0.4.1: giá đêm bảo vệ = min(giá dòng hiện hành, giá tham chiếu server tính); từ B18 cơ sở = min(số chụp lúc B18, cơ sở tính lại).
+- Vì sao quan trọng: lách hạn mức duyệt BR-433, tức sai tiền và vô hiệu ESC-026 A (ngưỡng MGR cũng nâng theo).
+- Đề xuất sửa: theo "Hướng dẫn sửa FB-07" bên dưới (cột mới gộp vào migration 0080 của BE-B; một cổng `limitBasisVnd`; ràng buộc CHECK để fail-closed).
+- Trạng thái: Open
+
+### FB-R3-ARC-BEB-S1-09
+- Mức độ: Major (điều kiện gộp)
+- Vị trí: `db/migrations/0079_foc_stay_alert.sql`, `db/schema/frontdesk.ts` `STAFF_NOTIFICATION_KINDS` / `staff_notification_kind_check`
+- Vấn đề: migration viết lại **toàn bộ** danh sách CHECK. Có hai nhánh khác cũng tự viết lại danh sách này:
+  - landing T13 (`0079_public_site_t13.sql`, có thêm `website_request_*`, `public_booking_toggled`);
+  - BE-A US-164 (`manager_confirmation_*`, `late_fee_post_review`).
+
+  2FA (BE-C, `0079_mfa_two_factor.sql`) không chạm CHECK này nhưng chiếm số 0079. Nhánh nào gộp sau mà không hợp danh sách thì sẽ xóa kind của nhánh trước. Khi đó mọi lần gửi thông báo kind đó vấp CHECK, giao dịch nghiệp vụ rollback và người dùng nhận 500.
+- Vì sao quan trọng: lỗi chỉ lộ lúc chạy. `drizzle-kit generate` cũng không bắt được nếu schema TS bị ghi đè theo cùng cách.
+- Đề xuất sửa (quy tắc ARC, áp cho mọi nhánh 0.3.8):
+  1. Lúc rebase, lấy số migration kế tiếp trên `main`. Nếu ORC gộp 2FA trước thì là **0080**. Nếu T13 gộp trước thì lấy số sau nó.
+  2. `STAFF_NOTIFICATION_KINDS` và CHECK = danh sách trên `main` lúc rebase **cộng thêm** kind mới. Diff của CHECK so với `main` chỉ được có dòng thêm.
+  3. Thêm test (không cần DB) so tập kind trong SQL của migration mới nhất có CHECK này với `STAFF_NOTIFICATION_KINDS`. Nếu gộp được thì thêm test có DB: insert thử mỗi kind trong một giao dịch rồi rollback.
+  4. Gộp luôn cột/ràng buộc của S1-08 và FK của S1-12 vào cùng migration này.
+- Trạng thái: Open
+
+### FB-R3-ARC-BEB-S1-10
+- Mức độ: Minor
+- Vị trí: `frontdesk/internal/stay-support.ts` (FOC phụ thu tại quầy – `approvals.submit` type `foc` không có `perTimeAmountVnd`)
+- Vấn đề: Σ của khóa (BR-433 (b)) chỉ được tính ở `foc.service`. Đường FOC tại quầy so hạn mức bằng số của riêng yêu cầu. Hiện đây gần như luôn là yêu cầu đầu tiên trên khóa (dòng phụ thu vừa ghi), nên kết quả trùng, nhưng hai nơi tự tính là mầm của hai định nghĩa. US-164 (BE-A) cũng sẽ thêm một đường FOC nữa.
+- Đề xuất sửa: một hàm cổng folio, ví dụ `FolioService.waiverLimitInput(tx, lineId, amountVnd, kind)`, trả `{ perTimeAmountVnd, limitBasisVnd }` (cơ sở theo S1-08). Mọi người gọi `submit` type `foc`/`special_discount` đều dùng nó. Thêm test kiến trúc: mọi `approvals.submit` với hai type này phải truyền `perTimeAmountVnd`.
+- Trạng thái: Open
+
+### FB-R3-ARC-BEB-S1-11
+- Mức độ: Minor
+- Vị trí: `folio/internal/stay-waiver-alert.ts` (lần vượt thứ hai trở đi)
+- Vấn đề: US-007 AC7 viết: "mỗi lần vượt thêm cập nhật cùng một dòng". Mã hiện chỉ tăng `foc_stay_alert.alert_count`; mục "Cần chú ý" giữ `params.count` của lần đầu. Ngoài ra, sau khi OWN bấm "Đã xem", lần vượt sau không mở lại mục (giả định 5).
+- Đề xuất sửa (ARC quyết giả định 5):
+  - mục còn mở → cập nhật `details.count` (và `updated_at`) của chính sự kiện đó;
+  - mục đã "Đã xem" → mở **một** mục mới (dedupe theo lượt) và cập nhật `foc_stay_alert.attention_event_id`.
+
+  Lý do: OWN đã xem tập khoản cũ, khoản mới chưa ai xem; thông báo đẩy không thay được dòng việc cần làm. Không spam vì vẫn tối đa một mục mở mỗi lượt.
+- Trạng thái: Open
+
+### FB-R3-ARC-BEB-S1-12
+- Mức độ: Minor
+- Vị trí: `0079_foc_stay_alert.sql` – `stay_root_reservation_id` không có FK
+- Vấn đề: khóa chính trỏ đơn gốc nhưng không có ràng buộc tham chiếu. Các bảng cùng loại đều có FK tới `reservation`.
+- Đề xuất sửa: thêm FK `(stay_root_reservation_id) REFERENCES reservation(id)` trong migration đã đổi số. Không cần `ON DELETE`, vì đơn không bị xóa (BR-008).
+- Trạng thái: Open
+
+### FB-R3-ARC-BEB-S1-13
+- Mức độ: Suggestion (việc của ARC, 0.3.9)
+- Vị trí: hợp đồng `AttentionItem.params` của `foc_stay_total_exceeded` (hiện chỉ có `count`)
+- Vấn đề: AC7 muốn dòng hiện tổng miễn và hạn mức. Hợp đồng 0.3.8 ARC chỉ cho `count`. Hiện Desk lấy chi tiết qua danh sách yêu cầu duyệt của đơn.
+- Đề xuất: 0.3.9 xem xét thêm `stayWaiverVnd`, `thresholdVnd` (chỉ số tiền, mục chỉ dành cho OWN, SEC J cho phép). BE không làm ở Sprint 1.
+- Trạng thái: Open
+
+## Quyết định ARC cho ba điểm ORC hỏi
+
+1. **Nhật ký cảnh báo: giữ loại `state`** (`folio.foc_stay_alerted`), không thêm vào tập `money`. Tập `money` đóng theo hợp đồng và chỉ gồm thao tác **làm đổi tiền**. Cảnh báo không đổi đồng nào. Mỗi khoản miễn được áp đã có nhật ký `money` của riêng nó (`approval.self_applied` / `approved` có `cumulativeVnd`, dòng FOC). Đưa cảnh báo vào `money` sẽ làm nhiễu đối soát và câu `mlog`. **PO sửa chữ US-007 AC7**: thay "Nhật ký `money` ghi lần cảnh báo" bằng "nhật ký ghi lần cảnh báo (loại `state`, kèm Σ, ngưỡng, số khoản); mỗi khoản miễn có nhật ký `money` riêng". Không đổi hành vi với INV.
+2. **"Lượt ở" = folio của đơn gốc: đồng ý**, khớp erd 4.15 (đơn con dùng chung folio – BR-422).
+   - Dài hạn: ở Sprint 1 tính theo folio hiện tại. Nếu một đơn HĐ có nhiều folio theo kỳ thì Σ sẽ tách theo kỳ. Ghi `[GIẢ ĐỊNH – chờ DOM]`; Sprint 2 gom theo đơn HĐ (khóa `foc_stay_alert` đã theo đơn gốc, chỉ phải đổi truy vấn Σ).
+   - Folio 0 đêm: ngưỡng MGR = 0, tức luôn báo OWN. **Đồng ý**, vì đi theo hướng an toàn và chỉ là thông báo. Sau S1-08, "không có đêm" được hiểu là cổng `limitBasisVnd` trả `null`. Khi đó (a)/(b) chuyển OWN như trước, còn (c) dùng ngưỡng 0.
+   - Giả định 2 (khoản đã duyệt nhưng đang "ngủ", áp 0, không tính vào Σ khóa): **đồng ý**, vì Σ là số đang áp và đang xin.
+3. **Migration**: xem S1-09. Ghi chú bổ sung cho ORC: số là **0080 nếu ORC gộp 2FA trước**. CHECK kind phải là hợp các kind trên `main` lúc rebase cộng kind mới. Nhánh T13 (`0079_public_site_t13`) và BE-A US-164 cũng viết lại CHECK, nên nhánh nào gộp sau thì phải hợp danh sách lại. Reviewer chỉ chấp nhận diff CHECK có dòng thêm.
+
+## Hướng dẫn sửa FB-07 (thiết kế kỹ thuật ARC – BR-433 (d) v0.4.1; ghi vào s1-contracts 12 mục 4 và erd 4.15)
+
+**Nguyên tắc:** cơ sở hạn mức là **một hàm cổng duy nhất**, đọc từ **giá tham chiếu do hệ thống ghi**. Không đường sửa tay nào ghi được giá tham chiếu. CHECK ở DB bảo đảm thiếu giá tham chiếu thì không ghi được dòng, tức fail-closed.
+
+**Dữ liệu (gộp vào migration 0080 của BE-B, cùng `foc_stay_alert`):**
+
+| Cột | Ý nghĩa | Ai ghi |
+|---|---|---|
+| `stay_night.reference_rate_vnd` bigint NOT NULL, CHECK ≥ 0 | Giá đêm tham chiếu **cùng đơn vị với `room_revenue_gross_vnd`** (sau BR-107/BR-111). Gồm giá thỏa thuận chụp lúc đặt (BR-006, G-5), lịch giá Trực tiếp, giá OTA, giá đêm quy đổi dài hạn | Chỉ các đường giá của hệ thống trong `reservations`: tạo đơn, đổi ngày/thêm bớt đêm, B14 đổi căn theo yêu cầu khách (BR-424 – BB07-5), gia hạn, đêm thêm sớm/muộn, tính lại bậc BR-107, đồng bộ OTA. B7 (OTTIMO đổi căn) **giữ** giá tham chiếu cũ (BR-429). **A31 `setNightRate` không ghi cột này** |
+| `folio_line.limit_ref_vnd` bigint NULL, CHECK ≥ 0, và CHECK `(category <> 'room' AND charge_code IS DISTINCT FROM 'late_fee_as_night') OR limit_ref_vnd IS NOT NULL` | Giá tham chiếu mang theo dòng | Dòng `room` do đồng bộ đêm ghi = `stay_night.reference_rate_vnd`. Dòng `late_fee_as_night` = số máy tính lúc ghi (BR-416, ESC-024 B). **Dòng thay của A32** chép `limit_ref_vnd` của dòng bị thay, **không** lấy giá mới |
+| `folio.limit_basis_checkout_vnd` bigint NULL, CHECK ≥ 0 | Cơ sở chụp lúc B18 | Ghi **một lần** trong cùng giao dịch `settle` (`folio.service.ts` – nơi duy nhất đặt `status = 'settled'`) = `limitBasisVnd` tính ngay lúc đó. Không đường nào sửa sau. Hiện không có "hoàn tác trả phòng"; nếu sau này có thì đường đó xóa cột và B18 kế tiếp chụp lại |
+
+Backfill trong 0080:
+- `stay_night.reference_rate_vnd = room_revenue_gross_vnd`;
+- `folio_line.limit_ref_vnd` của dòng `room` = giá tham chiếu của đêm nối qua `stay_night_id` (không nối được thì `unit_price_vnd`); dòng `late_fee_as_night` = `amount_vnd`;
+- `folio.limit_basis_checkout_vnd` để NULL, nghĩa là chỉ dùng cơ sở tính lại.
+
+Dữ liệu cũ chỉ có ở demo/QA (staging dựng từ DB trống – OPS C2), chấp nhận giá trị backfill. Thêm `NOT NULL` và CHECK **sau** câu backfill, trong cùng migration.
+
+**Cổng (thay `nightRateBasis` + `folioNightBasisVnd`; xóa hai tên cũ để không còn ai đọc giá chưa bảo vệ):**
+```ts
+// FolioService (public) – BR-433 (d) v0.4.1
+limitBasisVnd(tx: Tx, folioId: string, lineId: string | null): Promise<number | null>
+```
+- Giá bảo vệ của một dòng đêm = `LEAST(<giá dòng như hiện nay>, limit_ref_vnd)`. Dòng `room` dùng `unit_price_vnd`, dòng `late_fee_as_night` dùng `amount_vnd`.
+- `lineId` ≠ null (BR-433 (b), BR-416): đi đúng nhánh của `nightRateBasis` hiện nay (đêm của dòng; phụ thu muộn = đêm cuối; phụ thu sớm = đêm đầu; dài hạn = giá quy đổi), nhưng mỗi giá thay bằng giá bảo vệ.
+- `lineId` = null (BR-433 (a), ngưỡng MGR của (c)) = **max giá bảo vệ** của dòng đêm sống và `late_fee_as_night`, hoặc giá quy đổi dài hạn.
+- Nếu `folio.limit_basis_checkout_vnd` NOT NULL thì kết quả = `min(kết quả, số chụp)` (BB07-7).
+- `null` = không có đêm nào: (a)(b) chuyển OWN như trước; (c) dùng ngưỡng 0.
+
+Người gọi dùng đúng cổng này và không ai tự tính:
+- `foc.service` (a)(b), qua hàm của S1-10;
+- `stay-waiver-alert.threshold` (nhánh MGR);
+- `stay-support` FOC phụ thu tại quầy;
+- US-164 của BE-A khi cài.
+
+**Khóa và đua:** cổng đọc dưới L1 → L3 người gọi đã giữ. A31/A32 cũng lấy L3, nên "nâng giá ‖ xin xóa nợ" chạy tuần tự. Kể cả như vậy, kết quả cũng không phụ thuộc thứ tự, vì giá tham chiếu không đổi theo sửa tay.
+
+**Test bắt buộc (BE-B, cùng PR):**
+- BB07-1…7 đúng số oracle 5.4 (BB07-1 cả ba bước, cuối B = O = 5.000.000, Σ xóa nợ đã áp 0);
+- test kiến trúc: chỉ các hàm giá của hệ thống trong `reservations` được `UPDATE`/`INSERT` `reference_rate_vnd`; chỉ `settle` được ghi `limit_basis_checkout_vnd`; câu `UPDATE stay_night` của `setNightRate` không chứa `reference_rate_vnd`;
+- test DB: chèn dòng `room` thiếu `limit_ref_vnd` → lỗi CHECK;
+- QA thêm I16 vào fuzz R3-Q30, fixture BR-433-11…15 `pendingFix R3-SEC-BE-B-07`.
+
+**Hợp đồng:** không đổi hình dạng OpenAPI (cổng nội bộ, cột không lộ ra DTO). Đổi mô tả `openapi.yaml` (đoạn nhắc `nightRateBasis` của `requestFoc` xóa nợ): "cơ sở hạn mức bảo vệ BR-433 (d)". Phần này ARC làm ở lần sinh lại kế tiếp của 0.3.8 bổ sung 1. Erd 4.15 đã ghi ba cột.
+
+SEC review lại PR sửa trên head SHA (FB-07), đặc biệt ca BB07-1 và test kiến trúc.
