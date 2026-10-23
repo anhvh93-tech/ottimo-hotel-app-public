@@ -9,7 +9,8 @@ import { Alert, Button, Chip, ConfirmDialog, Field, Modal, Seg } from '@ottimo/u
 import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
-import { timeHHmm, todayLocal } from '../../app/dates';
+import { useBusinessDay } from '../../app/businessDay';
+import { timeHHmm } from '../../app/dates';
 import { dayMonth } from '../../app/reservations';
 import { useToast } from '../../app/toast';
 import { useOnline } from '../../hooks/useOnline';
@@ -317,7 +318,7 @@ function WaitPartsDialog({
 }) {
   const { t } = useI18n();
   const propertyId = usePropertyId();
-  const { property } = useSession();
+  const businessDay = useBusinessDay(); // BR-010 (night window)
   const toast = useToast();
   const [note, setNote] = useState('');
   const [date, setDate] = useState('');
@@ -383,7 +384,7 @@ function WaitPartsDialog({
             {...p}
             type="date"
             className="input"
-            min={todayLocal(property?.timezone)}
+            min={businessDay}
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />

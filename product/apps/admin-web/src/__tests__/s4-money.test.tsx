@@ -9,6 +9,7 @@ import { todayLocal } from '../app/dates';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { MOCK_PASSWORD, PROPERTY_ID } from '../mocks/seed';
+import { pinDaytime } from '../test/clock';
 import { renderApp, tv } from '../test/render';
 
 type User = ReturnType<typeof renderApp>['user'];
@@ -43,6 +44,8 @@ async function holdFromQuote(user: User, guestQuery: string, guestName: RegExp) 
 
 describe('S4-28 VietQR cọc H12/H11 (US-084 AC4, US-120; BUG-R2-062)', () => {
   it('H12 sale: the QR for the BR-305 deposit is created right after the hold, content = booking code', async () => {
+    // Not about the night hours: the quote dates come from the calendar seed (BR-010 night window).
+    pinDaytime();
     const { user } = renderApp('/quotes', 'qa.sal');
     await screen.findByText(/căn trống/);
     const { hold, created } = await holdFromQuote(user, 'Hoàng Gia', /Hoàng Gia Bảo/);
@@ -62,6 +65,8 @@ describe('S4-28 VietQR cọc H12/H11 (US-084 AC4, US-120; BUG-R2-062)', () => {
   });
 
   it('H12 collaborator: no createVietQr (not in x-roles) – the copy says to ask the desk', async () => {
+    // Not about the night hours: the quote dates come from the calendar seed (BR-010 night window).
+    pinDaytime();
     const { user } = renderApp('/quotes', 'qa.ctv1');
     await screen.findByText(/căn trống/);
     const dlg = await (async () => {
@@ -94,6 +99,8 @@ describe('S4-28 VietQR cọc H12/H11 (US-084 AC4, US-120; BUG-R2-062)', () => {
   });
 
   it('H12: no receiving account → the hold stands, the QR says why (US-120 AC2, no fake QR)', async () => {
+    // Not about the night hours: the quote dates come from the calendar seed (BR-010 night window).
+    pinDaytime();
     mockControl.stay.paymentNotConfigured = true;
     const { user } = renderApp('/quotes', 'qa.sal');
     await screen.findByText(/căn trống/);
@@ -104,6 +111,8 @@ describe('S4-28 VietQR cọc H12/H11 (US-084 AC4, US-120; BUG-R2-062)', () => {
   });
 
   it('H11: the QR sent at H12 is confirmed received, then B4 with existingPaymentId – no second payment', async () => {
+    // Not about the night hours: the quote dates come from the calendar seed (BR-010 night window).
+    pinDaytime();
     const sale = renderApp('/quotes', 'qa.sal');
     await screen.findByText(/căn trống/);
     const { created } = await holdFromQuote(sale.user, 'Hoàng Gia', /Hoàng Gia Bảo/);

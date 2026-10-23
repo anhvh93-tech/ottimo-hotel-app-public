@@ -11,6 +11,7 @@ import { Alert, Button, Chip, Field, Modal, Seg } from '@ottimo/ui';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
+import { useBusinessDay } from '../../app/businessDay';
 import { timeHHmm, todayLocal } from '../../app/dates';
 import { notifyChanged } from '../../app/live';
 import { monoArgs } from '../../app/mono';
@@ -59,7 +60,7 @@ export function QuoteDialog({
   const toast = useToast();
   const { online } = useOnline();
   const ctv = roles.includes('collaborator') && roles.every((r) => r === 'collaborator');
-  const today = todayLocal();
+  const today = useBusinessDay(); // BR-010 (night window – BUG-R2-211)
 
   const [step, setStep] = useState<Step>(prefill.quote ? 'send' : 'quote');
   const [saved, setSaved] = useState<Quote | null>(prefill.quote ?? null);

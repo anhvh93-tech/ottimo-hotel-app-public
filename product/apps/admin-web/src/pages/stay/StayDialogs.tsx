@@ -20,7 +20,7 @@ import { api } from '../../app/api';
 import { addDays, currentSegment, dayMonth, suggestionsOf } from '../../app/reservations';
 import { useToast } from '../../app/toast';
 import { useBusinessDay } from '../../app/businessDay';
-import { timeHHmm, todayLocal } from '../../app/dates';
+import { timeHHmm } from '../../app/dates';
 import { useCatalog } from '../../app/catalog';
 import { channelName } from '../../app/reservations';
 import { useRules } from '../../app/rules';
@@ -58,11 +58,19 @@ export interface StayDialogProps {
 
 const OWN_MGR = ['owner', 'manager'];
 // K11-03: the room of today (after a mid-stay B14 `segments[0]` is the room left).
-const roomOf = (r: Reservation) => currentSegment(r.segments, todayLocal())?.roomNo ?? '';
+/**
+ * The room the stay is in on the BUSINESS day (BR-010, BUG-R2-211): at 02:40 a stay whose next segment starts on the
+ * calendar day D is still in last night's room (night window – QA 24/10).
+ */
+function useRoomNo(r: Reservation): string {
+  const day = useBusinessDay();
+  return currentSegment(r.segments, day)?.roomNo ?? '';
+}
 const guestOf = (r: Reservation) => r.booker?.displayName ?? '';
 
 /** H15 15.2 Gia hạn (B13, US-028): consecutive free nights only, default rate, OTA → child booking. */
 export function ExtendDialog({ reservation: r, onClose, onDone }: StayDialogProps) {
+  const roomNo = useRoomNo(r);
   const { t, vnd, money, date } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
@@ -113,7 +121,7 @@ export function ExtendDialog({ reservation: r, onClose, onDone }: StayDialogProp
   return (
     <Modal
       open
-      title={t('extend.title', { room: roomOf(r), guest: guestOf(r) })}
+      title={t('extend.title', { room: roomNo, guest: guestOf(r) })}
       onClose={onClose}
       closeLabel={t('common.close')}
       footer={
@@ -208,6 +216,7 @@ export function ExtendDialog({ reservation: r, onClose, onDone }: StayDialogProp
  * removes the 12:30 grace; FD without an alternative room sends it for approval (202).
  */
 export function LateCheckoutDialog({ reservation: r, onClose, onDone }: StayDialogProps) {
+  const roomNo = useRoomNo(r);
   const { t, money } = useI18n();
   const unsaved = useUnsavedLabels();
   const propertyId = usePropertyId();
@@ -282,7 +291,7 @@ export function LateCheckoutDialog({ reservation: r, onClose, onDone }: StayDial
   return (
     <Modal
       open
-      title={t('late.title', { room: roomOf(r), guest: guestOf(r) })}
+      title={t('late.title', { room: roomNo, guest: guestOf(r) })}
       onClose={onClose}
       dirty={!!time && time !== (r.agreedCheckoutTime ?? '')}
       unsavedLabels={unsaved}
@@ -347,7 +356,7 @@ export function LateCheckoutDialog({ reservation: r, onClose, onDone }: StayDial
             {conflict
               ? t('late.conflict_block', { eta: res.arrivalSameDay.etaTime ?? '' })
               : t('late.arrival_warning_alt', {
-                  room: roomOf(r),
+                  room: roomNo,
                   eta: res.arrivalSameDay.etaTime ?? '',
                 })}
           </Alert>
@@ -381,6 +390,7 @@ export function LateCheckoutDialog({ reservation: r, onClose, onDone }: StayDial
  * is a hard block (0.3.6 A-37). Price preview with `dryRun`; the door flag resets (hand over again).
  */
 export function ChangeRoomDialog({ reservation: r, onClose, onDone }: StayDialogProps) {
+  const roomNo = useRoomNo(r);
   // BE-A B14 (17/10): a child booking (B9a / OTA extension) shares the room – the change goes to the
   // primary booking and moves the whole stay; the drawer stays on the child.
   const { t, locale } = useI18n();
@@ -397,7 +407,7 @@ export function ChangeRoomDialog({ reservation: r, onClose, onDone }: StayDialog
     return (
       <Modal
         open
-        title={t('stay.change_title', { room: roomOf(r), guest: guestOf(r) })}
+        title={t('stay.change_title', { room: roomNo, guest: guestOf(r) })}
         onClose={onClose}
         closeLabel={t('common.close')}
       >
@@ -433,6 +443,7 @@ function ChangeRoomForm({
   onClose,
   onDone,
 }: StayDialogProps & { shown: Reservation }) {
+  const roomNo = useRoomNo(r);
   const { t, money, vnd, date } = useI18n();
   const unsaved = useUnsavedLabels();
   const propertyId = usePropertyId();
@@ -459,10 +470,10 @@ function ChangeRoomForm({
     [r.id, today],
   );
   const options = (avail.state.data?.alternatives ?? []).filter(
-    (x) => x.available && x.roomNo !== roomOf(r),
+    (x) => x.available && x.roomNo !== roomNo,
   );
   // 409 ROOM_UNAVAILABLE (busy before the effective departure) → the server's suggested free room.
-  const suggested = suggestionsOf(act.error).filter((x) => x.roomNo !== roomOf(r));
+  const suggested = suggestionsOf(act.error).filter((x) => x.roomNo !== roomNo);
   const target =
     options.find((x) => x.roomId === roomId) ?? suggested.find((x) => x.roomId === roomId);
 
@@ -506,7 +517,7 @@ function ChangeRoomForm({
   return (
     <Modal
       open
-      title={t('stay.change_title', { room: roomOf(r), guest: guestOf(r) })}
+      title={t('stay.change_title', { room: roomNo, guest: guestOf(r) })}
       onClose={onClose}
       dirty={!!reason.trim() || !!roomId}
       unsavedLabels={unsaved}
@@ -609,8 +620,8 @@ function ChangeRoomForm({
       ) : null}
       {target ? (
         <ul className="list-plain li-s">
-          <li>{t('stay.change_effect_old', { room: roomOf(r) })}</li>
-          <li>{t('stay.change_effect_door', { old: roomOf(r), new: target.roomNo })}</li>
+          <li>{t('stay.change_effect_old', { room: roomNo })}</li>
+          <li>{t('stay.change_effect_door', { old: roomNo, new: target.roomNo })}</li>
           <li>{t('stay.change_effect_reg')}</li>
           <li>{t('room_change.door_reminder', { room: target.roomNo })}</li>
         </ul>
@@ -894,6 +905,7 @@ export function ConfirmTimeDialog({ reservation: r, onClose, onDone }: StayDialo
 
 /** H13 13.6: tick "door code / card handed over" after check-in (B-28, set once, cannot be undone). */
 export function DoorHandedDialog({ reservation: r, onClose, onDone }: StayDialogProps) {
+  const roomNo = useRoomNo(r);
   const { t } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
@@ -920,7 +932,7 @@ export function DoorHandedDialog({ reservation: r, onClose, onDone }: StayDialog
   return (
     <ConfirmDialog
       danger={false}
-      title={t('ci.door_late_title', { room: roomOf(r) })}
+      title={t('ci.door_late_title', { room: roomNo })}
       body={t('ci.door_late_body')}
       keepLabel={t('confirm.keep')}
       confirmLabel={t('drawer.action.door_handed_over')}
@@ -936,6 +948,7 @@ export function DoorHandedDialog({ reservation: r, onClose, onDone }: StayDialog
 
 /** H13 13.6 Hoàn tác nhận phòng (B17, MGR+): same business day, reason required. */
 export function UndoCheckInDialog({ reservation: r, onClose, onDone }: StayDialogProps) {
+  const roomNo = useRoomNo(r);
   const { t } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
@@ -947,13 +960,13 @@ export function UndoCheckInDialog({ reservation: r, onClose, onDone }: StayDialo
       api.undoCheckIn({ propertyId, reservationId: r.id }, reason.trim(), r.version, idem),
     );
     if (out) {
-      toast(t('stay.toast.undo_checkin', { room: roomOf(r) }));
+      toast(t('stay.toast.undo_checkin', { room: roomNo }));
       onDone(out.data);
     }
   };
   return (
     <ConfirmDialog
-      title={t('ci.undo_title', { room: roomOf(r), guest: guestOf(r) })}
+      title={t('ci.undo_title', { room: roomNo, guest: guestOf(r) })}
       body={t('ci.undo_body')}
       keepLabel={t('confirm.keep')}
       confirmLabel={t('drawer.action.undo_checkin')}
@@ -1006,16 +1019,18 @@ export function PartyDialog({ reservation: r, onDone }: StayDialogProps) {
   // never the device clock, which may be on another day (clock off, page left open past midnight, the virtual
   // day of the desk-clock stack) and would get every preview refused (422 DATE_INVALID). If the rules cannot
   // be read, the device day is the fallback: the API re-checks it and a refusal is said in the dialog.
+  // Fallback = the session's business day (Me.businessDate, BR-010) – never the calendar day (night window).
+  const fallbackDay = useBusinessDay();
   const businessDay = useResource(
     async () => (inHouse ? (await api.getBookingRules({ propertyId })).data.businessDate : null),
     [propertyId, inHouse],
   );
   const day: string | undefined = !inHouse
     ? undefined
-    : (businessDay.state.data ?? (businessDay.state.status === 'error' ? todayLocal() : undefined));
+    : (businessDay.state.data ?? (businessDay.state.status === 'error' ? fallbackDay : undefined));
   // S4-45 (BA EP02 mục 8, khớp server): a child's year of birth is required – it alone gives the BR-110 age
   // band, the capacity (ESC-014), BR-612 and the stay declaration. 2000 … the year of the business day.
-  const maxYear = Number((day ?? todayLocal()).slice(0, 4));
+  const maxYear = Number((day ?? fallbackDay).slice(0, 4));
   const yearText = year.trim();
   const yearNum = /^\d{4}$/.test(yearText) ? Number(yearText) : NaN;
   const yearProblem =

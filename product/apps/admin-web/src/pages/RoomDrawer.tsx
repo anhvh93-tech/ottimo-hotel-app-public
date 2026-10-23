@@ -9,12 +9,12 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Field, Modal, Stepper, Switch } from '@ottimo/ui';
 import { useId, useState, type FormEvent } from 'react';
 import { api } from '../app/api';
-import { todayLocal } from '../app/dates';
+import { useBusinessDay, useBusinessDayChange } from '../app/businessDay';
 import { nightlyFromMonthly, parseVnd } from '../app/money';
 import { fieldErrors, problemView } from '../app/problem';
 import { useToast } from '../app/toast';
 import { useOnline } from '../hooks/useOnline';
-import { usePropertyId, useSession } from '../session/SessionProvider';
+import { usePropertyId } from '../session/SessionProvider';
 
 interface Conflict {
   reservationCode?: string;
@@ -42,11 +42,12 @@ export function RoomDrawer({
 }) {
   const { t, vnd, date } = useI18n();
   const propertyId = usePropertyId();
-  const { property } = useSession();
   const toast = useToast();
   const { online } = useOnline();
   const ids = useId();
-  const today = todayLocal(property?.timezone);
+  // R3-Q39 #8 (BR-010): the list price takes effect from the BUSINESS day – at 02:40 that is still
+  // yesterday, so a price set then applies to tonight (rooms.service accepts ≥ ctx.today).
+  const today = useBusinessDay();
   const initialBase = room.baseOccupancy ?? 1;
   const initialMax = room.maxOccupancy ?? initialBase + 1;
   const initialMonthly = room.currentListPrice?.monthlyListPriceVnd;
@@ -61,6 +62,8 @@ export function RoomDrawer({
     initialMonthly !== undefined ? vnd(initialMonthly) : '',
   );
   const [effectiveFrom, setEffectiveFrom] = useState(today);
+  // The default follows the server's business day while it is untouched.
+  useBusinessDayChange(today, (was, now) => setEffectiveFrom((v) => (v === was ? now : v)));
   const [reason, setReason] = useState('');
   const [sellable, setSellable] = useState(room.isSellable);
   const [errors, setErrors] = useState<Record<string, string>>({});

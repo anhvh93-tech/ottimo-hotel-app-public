@@ -9,7 +9,8 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, Field, Modal } from '@ottimo/ui';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { api } from '../app/api';
-import { timeHHmm, todayLocal } from '../app/dates';
+import { useBusinessDay } from '../app/businessDay';
+import { timeHHmm } from '../app/dates';
 import { fieldErrorText, fieldErrors, problemView } from '../app/problem';
 import { readDraft, removeDraft, writeDraft } from '../app/clientData';
 import { useToast } from '../app/toast';
@@ -103,6 +104,8 @@ export function GuestFormDialog({
   onOpenGuest,
   onUseGuest,
 }: GuestFormDialogProps) {
+  // DOB_FUTURE is checked by the API against the business day (guests.service, BR-010).
+  const businessDay = useBusinessDay();
   const { t, locale } = useI18n();
   const propertyId = usePropertyId();
   const session = useSession();
@@ -180,7 +183,7 @@ export function GuestFormDialog({
         channel: contactLabel(form.preferredContact),
       });
     if (fdPlus) {
-      if (form.dateOfBirth && form.dateOfBirth > todayLocal(session.property?.timezone))
+      if (form.dateOfBirth && form.dateOfBirth > businessDay)
         e.dateOfBirth = t('field_error.not_in_list');
       if (form.taxCode.trim() && checkTaxCode(form.taxCode)) e.taxCode = t('invoice.tax_id_error');
       if (form.taxCode.trim() && !form.companyName.trim()) e.companyName = t('common.required');

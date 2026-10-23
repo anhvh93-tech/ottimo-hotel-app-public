@@ -2855,6 +2855,9 @@ export function createStayMock(ctx: Ctx) {
           const errs: Array<{ field: string; code: string }> = [];
           if (!/^\d{4}-\d{2}-\d{2}$/.test(String(debt.dueDate ?? '')))
             errs.push({ field: 'debt.dueDate', code: 'REQUIRED' });
+          // R3-Q39 #11 (checkout.service, BR-525 (i) v0.4.0): due > business day of the write.
+          else if (String(debt.dueDate) <= businessDayLocal())
+            errs.push({ field: 'debt.dueDate', code: 'DATE_IN_PAST' });
           if (String(debt.reason ?? '').trim().length < 3)
             errs.push({ field: 'debt.reason', code: 'REASON_REQUIRED' });
           if (errs.length) return validation(errs);

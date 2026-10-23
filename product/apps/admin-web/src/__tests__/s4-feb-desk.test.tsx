@@ -49,9 +49,11 @@ describe('S4-26 – "Ghi công nợ" on H16 step 3: OWN/MGR only (US-038 AC3, BR
     expect(complete).toHaveAttribute('aria-disabled', 'true');
     expect(complete).toHaveAccessibleDescription(tv('co.debt_needs'));
     const due = screen.getByLabelText(label('co.debt_due'));
-    expect(due).toHaveAttribute('min', todayLocal());
-    fireEvent.change(due, { target: { value: addDays(todayLocal(), -1) } });
-    expect(await screen.findByText(tv('co.debt_due_past'))).toBeInTheDocument();
+    // R3-Q39 #11 (BR-525 (i) v0.4.0): default business day + 3, earliest business day + 1 (11:30 = calendar day).
+    expect(due).toHaveValue(addDays(todayLocal(), 3));
+    expect(due).toHaveAttribute('min', addDays(todayLocal(), 1));
+    fireEvent.change(due, { target: { value: todayLocal() } });
+    expect(await screen.findByText(tv('co.debt_due_min'))).toBeInTheDocument();
     const dueDate = addDays(todayLocal(), 7);
     fireEvent.change(due, { target: { value: dueDate } });
     await user.type(

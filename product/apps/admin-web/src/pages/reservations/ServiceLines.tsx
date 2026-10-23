@@ -39,10 +39,11 @@ export const keepIncomplete = (keep: KeepState) =>
 
 /**
  * No-show has no dry run (0.3.7 D1): the live service lines come from `getFolio` – posted, not a
- * reversal, not reversed – with their approved FOC/discount netted in. `performed` = service day
- * before today (only a hint: the desk decides).
+ * reversal, not reversed – with their approved FOC/discount netted in. `performed` (only a hint: the desk
+ * decides) follows the server's no-show rule: service day **≤** the BUSINESS day (0.3.7 bổ sung 3,
+ * BR-309-09; R3-Q39 #12 – R2 used `<` and the calendar day, so a pickup of today was never hinted by day).
  */
-export function serviceLinesOfFolio(folio: Folio, today: string): ServiceLine[] {
+export function serviceLinesOfFolio(folio: Folio, businessDay: string): ServiceLine[] {
   const posted = folio.lines.filter((l) => l.lineState === 'posted');
   const reversed = new Set(posted.map((l) => l.reversalOfId).filter(Boolean));
   return posted
@@ -63,7 +64,7 @@ export function serviceLinesOfFolio(folio: Folio, today: string): ServiceLine[] 
         amountVnd:
           l.amountVnd +
           posted.filter((x) => x.relatedLineId === l.id).reduce((a, x) => a + x.amountVnd, 0),
-        performed: !!l.serviceDate && l.serviceDate < today,
+        performed: !!l.serviceDate && l.serviceDate <= businessDay,
       };
     });
 }
