@@ -29,7 +29,7 @@
 - **N-15**: folio `settled` đã quá `post_checkout_window_until` (J15 chưa chạy) → 409 `FOLIO_LOCKED`, như `closed`.
 - **SEC D.4**: mỗi lần giảm được phép khi O > 0 đều có nhật ký `folio_line.adjusted`, ghi `openDebtVnd`, `windowVnd`, `reducedVnd` (thêm vào allowlist `folio_line`). Vai người làm nằm ở actor của nhật ký. Với void, đây là nhật ký thêm, bên cạnh `folio.line_reversed`.
 
-**Điều kiện gộp 208 (ghi rõ):** chỉ gộp sau khi commit 210/209 đã gộp và xanh (CI + QA/SEC xác nhận `openDebtVnd` trên dữ liệu ghi trước 0076). SEC phải review trên head SHA sẽ gộp, ghi ở `rounds/round-03/reviews/SEC-on-BE-208.md` (SEC D.1–D.2). Commit thêm sau khi SEC duyệt thì SEC review lại phần diff.
+**Điều kiện gộp 208 (ghi rõ):** chỉ gộp sau khi commit 210/209 đã gộp và xanh (CI + QA/SEC xác nhận `openDebtVnd` trên dữ liệu ghi trước 0076). SEC phải review trên head SHA sẽ gộp, ghi ở `rounds/round-03/reviews/s1-SEC-on-BE-B.md` (SEC D.1–D.2). Commit thêm sau khi SEC duyệt thì SEC review lại phần diff.
 
 ## 2. Test đã chạy (CSDL Postgres 17 riêng trong docker, role `ottimo_app`, migration bằng `ottimo_migrator`)
 
@@ -97,3 +97,22 @@ Sửa test cũ:
 - Fuzz R3-Q30 (QA) cần chạy trên bản đã có 210/209/208.
 - FE-A: không đổi màn cho 209/210. Câu 409 của 208 đã có trong bảng việc ARC 16.31.7.
 - N-15 chặn mọi A32 trên folio quá cửa sổ, kể cả chiều tăng (giả định 6, ARC/SEC xác nhận khi review 208).
+
+## 7. Phản hồi & sửa (23/10, sau review SEC + ARC)
+
+Trả lời từng thẻ: `rounds/round-03/responses/s1-BE-B.md`. ARC đã đồng ý cả 5 giả định ở mục 5; SEC đồng ý giả định 6.
+
+- **Commit "fix 210"** – sửa trên phần đã gộp c6b0042:
+  - W_cũ an toàn khi chuỗi A32 vượt độ sâu 64 (SEC-01 a);
+  - test chuỗi A32 (ARC S1-01);
+  - `hasOpenDebtByNumber` dùng chung cho J15 và fixture; 209-E chạy qua JobRunner (S1-02);
+  - nhật ký ghi nợ đo lại O và có `actorRole` (S1-03, SEC-03).
+- **Commit "208 – sửa theo review"**:
+  - nợ trước 0076 giữ N-7 cũ qua `OpenDebt.cycleOpened` (SEC-01 b);
+  - `openDebt` theo số: trả null khi O = 0 và bỏ `debt_settled_at` (S1-04; 208-E → 409);
+  - nhật ký A32 đo lại O, có vai, rollback nếu O giảm (SEC-03);
+  - 3 ca đua thật (SEC-02).
+- Mục 6 cập nhật: đã làm phần `openDebt` null khi O = 0 và bỏ `debt_settled_at`. Còn lại:
+  - `Folio.totals.openDebtVnd`;
+  - export `cycleOpenDebtVnd` – không cần nữa, vì J15 dùng `hasOpenDebtByNumber`;
+  - gỡ `pendingFix BUG-R2-208` (QA).
