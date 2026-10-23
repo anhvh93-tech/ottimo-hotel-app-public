@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
-import { PROPERTY_ID } from '../mocks/seed';
+import { MOCK_PASSWORD, PROPERTY_ID } from '../mocks/seed';
 import { renderApp, tv } from '../test/render';
 
 const res = (guest: string) => mockControl.rsv.reservations.find((r) => r.guestName === guest)!;
@@ -175,6 +175,10 @@ describe('FB-R2-ARC-FE-S4-02 – trần xóa nợ của máy chủ, số đã á
       within(box).getByLabelText(new RegExp(`^${esc(tv('debt.write_off_note'))}`)),
       'Khách khiếu nại dịch vụ',
     );
+    await user.type(
+      within(box).getByLabelText(new RegExp(`^${esc(tv('ci.stepup_label'))}`)),
+      MOCK_PASSWORD,
+    );
     return { user, box };
   }
   const amountOf = (box: HTMLElement) =>
@@ -191,6 +195,11 @@ describe('FB-R2-ARC-FE-S4-02 – trần xóa nợ của máy chủ, số đã á
     ).toBeInTheDocument();
     await waitFor(() => expect(amountOf(box)).toHaveValue('100.000'));
     expect(within(box).getByText(tv('debt.collect_max', { amount: money(100_000) }))).toBeTruthy();
+    // The password is never kept after an attempt – typed again.
+    await user.type(
+      within(box).getByLabelText(new RegExp(`^${esc(tv('ci.stepup_label'))}`)),
+      MOCK_PASSWORD,
+    );
     await user.click(within(box).getByRole('button', { name: submitName }));
     expect(
       await screen.findByText(tv('debt.write_off_done', { amount: money(100_000), code: r.code })),

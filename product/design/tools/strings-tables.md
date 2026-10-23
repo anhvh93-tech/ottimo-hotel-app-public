@@ -3398,6 +3398,12 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `rcv.reason_help` | Không ghi số tài khoản vào lý do. | Don't put the account number in the reason. | ⟨chừa chỗ⟩ | SEC FB-R3-SEC-Q51-01 – gợi ý dưới ô lý do (đặt và hủy) |
 | `rcv.reason_no_account` | Lý do không được chứa số tài khoản hoặc dãy từ 6 chữ số trở lên. | The reason can't contain an account number or a run of 6 or more digits. | ⟨chừa chỗ⟩ | 422 reason ACCOUNT_NUMBER_NOT_ALLOWED (BE-B cf0ce2f); Desk kiểm trước khi gửi |
 
+#### R3 – FE-A BUG-R3-001 (R3-Q25): xóa công nợ xin mật khẩu người xin. **Chờ UXD duyệt**
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `debt.write_off_reauth_help` | Xóa công nợ cần nhập lại mật khẩu đăng nhập của bạn. | Writing off a debt needs your sign-in password again. | ⟨chừa chỗ⟩ | R3-Q25 (FB-R2-SEC-BE-82 (b)) – người xin xác thực lại như người duyệt (S1); nhãn ô dùng ci.stepup_label |
+
 #### R2 Sprint 4 – MOB sửa theo UXR đi thử PWA (s4-pwa-walkthrough P-01/04/07/08/09/10/11/12/13/16/28) (UXD duyệt 18/10 – s4-UXD-brand, sửa 8)
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |

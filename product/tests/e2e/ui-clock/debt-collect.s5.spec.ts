@@ -6,7 +6,7 @@ import { expect, test, type APIRequestContext } from '@playwright/test';
 import { call, needSeedPassword, sessionOrSkip, stackToday } from '../support/api.js';
 import { needClock, resetClock, setClock } from '../support/clock.js';
 import { SEED_PASSWORD, WEB_URL } from '../support/env.js';
-import { knownBug, precondition } from '../support/known-bugs.js';
+import { precondition } from '../support/known-bugs.js';
 import { addDays, cleanupTracked, oracle, s2Context, vnTime } from '../support/s2.js';
 import {
   EP3,
@@ -162,10 +162,6 @@ test.describe(
       browser,
       request,
     }) => {
-      // BUG-R3-001 (CI 39976959706, QA 23/10): server bắt buộc xác thực lại người xin xóa nợ (R3-Q25) nhưng hộp
-      // "Xóa công nợ" chưa xin mật khẩu → 422 `secret` REQUIRED. Khi FE-A sửa: thêm bước nhập mật khẩu vào ca này và
-      // xóa dòng BUG-R3-001 trong support/known-bugs.ts.
-      knownBug('BUG-R3-001');
       test.slow();
       needClock('TC-X-082');
       const { A, st, lineId } = await precondition('đơn 1 đêm, B18 MGR ghi công nợ 100.000', () =>
@@ -217,6 +213,9 @@ test.describe(
         await dlg
           .getByLabel(new RegExp(`^${esc(t('debt.write_off_note'))}`))
           .fill('Khach khong lien lac duoc');
+        // R3-Q25 (BUG-R3-001 đã sửa): người xin nhập lại mật khẩu của chính mình (S1) mới gửi được.
+        await expect(submit, 'chưa nhập mật khẩu').toBeDisabled();
+        await dlg.getByLabel(new RegExp(`^${esc(t('ci.stepup_label'))}`)).fill(SEED_PASSWORD!);
         await expect(submit).toBeEnabled();
         await scan(page, test.info(), 'H11-debt-write-off');
         await submit.click();
@@ -225,6 +224,7 @@ test.describe(
           kind: 'foc',
           reasonCode: 'debt_write_off',
           amountVnd: DEBT,
+          authMethod: 'password',
         });
         expect(w.path, 'đúng khoản đã chọn').toContain(lineId);
         expect((JSON.parse(w.body) as Json).status, 'MGR tự áp (≤ giá 1 đêm)').toBe('approved');

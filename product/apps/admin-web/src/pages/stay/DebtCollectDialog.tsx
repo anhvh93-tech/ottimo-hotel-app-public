@@ -219,6 +219,10 @@ export function DebtWriteOffDialog({
   const [lineId, setLineId] = useState('');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  // R3-Q25 (FB-R2-SEC-BE-82 (b), BUG-R3-001): the requester re-authenticates like an approver (S1 – password,
+  // `FocRequestInput.authMethod/secret`; the contract has no TOTP here). Kept only in this box, cleared after
+  // every attempt.
+  const [secret, setSecret] = useState('');
   const line = lines.find((l) => l.id === lineId);
   // FB-R2-ARC-FE-S4-02: the server's cap = min(line, open debt − pending write-offs of the folio). The box only
   // knows the line and what is still due; a 422 AMOUNT_EXCEEDS_BALANCE brings the real `max` (0 when pending
@@ -243,7 +247,8 @@ export function DebtWriteOffDialog({
   }, [lineId, max]);
   const value = amountOf(amount);
   const over = !!line && value > max;
-  const ready = !!r && !!line && value > 0 && !over && note.trim().length >= 3;
+  const ready =
+    !!r && !!line && value > 0 && !over && note.trim().length >= 3 && secret.length >= 6;
 
   const save = async () => {
     if (!r || !line || !ready) return;
@@ -251,10 +256,18 @@ export function DebtWriteOffDialog({
       api.requestFoc(
         { propertyId, folioId: r.folioId },
         line.id,
-        { kind: 'foc', amountVnd: value, reasonCode: 'debt_write_off', note: note.trim() },
+        {
+          kind: 'foc',
+          amountVnd: value,
+          reasonCode: 'debt_write_off',
+          note: note.trim(),
+          authMethod: 'password',
+          secret,
+        },
         idem,
       ),
     );
+    setSecret('');
     if (out) {
       // Applied: what the server really wrote off (`effectiveAmountVnd`), not the figure typed.
       toast(
@@ -305,7 +318,8 @@ export function DebtWriteOffDialog({
                 ? t('debt.write_off_server_max', { amount: money(serverMax) })
                 : t('debt.write_off_none_left')}
             </Alert>
-          ) : (
+          ) : act.code === 'REAUTH_FAILED' || act.fields.secret ? null : (
+            // The password error sits under its field (below).
             act.view({ max })
           )}
           <fieldset className="fieldset-plain">
@@ -346,6 +360,24 @@ export function DebtWriteOffDialog({
                 maxLength={300}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
+              />
+            )}
+          </Field>
+          <Field
+            label={t('ci.stepup_label')}
+            required
+            help={t('debt.write_off_reauth_help')}
+            error={act.fields.secret}
+          >
+            {(p) => (
+              <input
+                {...p}
+                type="password"
+                name="secret"
+                autoComplete="current-password"
+                className="input"
+                value={secret}
+                onChange={(e) => setSecret(e.target.value)}
               />
             )}
           </Field>

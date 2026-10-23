@@ -3,6 +3,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { mockControl } from '../mocks/handlers';
+import { MOCK_PASSWORD, PROPERTY_ID } from '../mocks/seed';
 import { server } from '../mocks/node';
 import { renderApp, tv } from '../test/render';
 
@@ -158,6 +159,12 @@ describe('ARC 16.27 – Xóa nợ (OWN/MGR, FOC debt_write_off)', () => {
       within(box).getByLabelText(new RegExp(`^${esc(tv('debt.write_off_note'))}`)),
       'Khách khiếu nại dịch vụ',
     );
+    // BUG-R3-001 (R3-Q25): still locked until the requester's password is typed.
+    expect(submit).toBeDisabled();
+    await user.type(
+      within(box).getByLabelText(new RegExp(`^${esc(tv('ci.stepup_label'))}`)),
+      MOCK_PASSWORD,
+    );
     expect(submit).toBeEnabled();
     await user.click(submit);
     const value = Math.min(300_000, due);
@@ -170,6 +177,8 @@ describe('ARC 16.27 – Xóa nợ (OWN/MGR, FOC debt_write_off)', () => {
       amountVnd: value,
       reasonCode: 'debt_write_off',
       note: 'Khách khiếu nại dịch vụ',
+      authMethod: 'password',
+      secret: MOCK_PASSWORD,
     });
   });
 
@@ -199,6 +208,10 @@ describe('ARC 16.27 – Xóa nợ (OWN/MGR, FOC debt_write_off)', () => {
       within(box).getByLabelText(new RegExp(`^${esc(tv('debt.write_off_note'))}`)),
       'Xóa theo chỉ đạo',
     );
+    await user.type(
+      within(box).getByLabelText(new RegExp(`^${esc(tv('ci.stepup_label'))}`)),
+      MOCK_PASSWORD,
+    );
     await user.click(within(box).getByRole('button', { name: submitName }));
     expect(
       await screen.findByText(
@@ -210,5 +223,70 @@ describe('ARC 16.27 – Xóa nợ (OWN/MGR, FOC debt_write_off)', () => {
     await screen.findByRole('dialog', { name: 'Ngọc Anh' });
     await screen.findByRole('button', { name: tv('debt.collect') });
     expect(screen.queryByRole('button', { name: tv('debt.write_off') })).toBeNull();
+  });
+});
+
+describe('BUG-R3-001 – Xóa công nợ: người xin nhập lại mật khẩu (R3-Q25, S1)', () => {
+  const submitName = new RegExp(
+    `^${esc(tv('debt.write_off_submit', { amount: '§' })).replace('§', '.+')}$`,
+  );
+  it('sai mật khẩu → lỗi dưới ô mật khẩu, không ghi gì, ô được xóa; đúng → áp', async () => {
+    const { r } = withDebt();
+    const before = mockControl.stay.approvals.length;
+    const { user } = renderApp(`/reservations/${r.id}`, 'qa.mgr');
+    const d = await screen.findByRole('dialog', { name: 'Ngọc Anh' });
+    await user.click(await within(d).findByRole('button', { name: tv('debt.write_off') }));
+    const box = await screen.findByRole('dialog', {
+      name: tv('debt.write_off_title', { code: r.code }),
+    });
+    expect(within(box).getByText(tv('debt.write_off_reauth_help'))).toBeInTheDocument();
+    await user.click(within(box).getByRole('radio', { name: /300\.000/ }));
+    await user.type(
+      within(box).getByLabelText(new RegExp(`^${esc(tv('debt.write_off_note'))}`)),
+      'Khach khong lien lac duoc',
+    );
+    const pw = within(box).getByLabelText(new RegExp(`^${esc(tv('ci.stepup_label'))}`));
+    expect(pw).toHaveAttribute('type', 'password');
+    await user.type(pw, 'sai-mat-khau');
+    await user.click(within(box).getByRole('button', { name: submitName }));
+    expect(
+      await within(box).findByText(tv('field_error.current_password_wrong')),
+    ).toBeInTheDocument();
+    expect(pw).toHaveValue('');
+    expect(pw).toHaveAttribute('aria-invalid', 'true');
+    expect(mockControl.stay.approvals.length).toBe(before);
+    await user.type(pw, MOCK_PASSWORD);
+    await user.click(within(box).getByRole('button', { name: submitName }));
+    expect(
+      await screen.findByText(
+        new RegExp(
+          esc(tv('debt.write_off_done', { amount: '§', code: r.code })).replace('§', '.+'),
+        ),
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('MSW như server: debt_write_off không kèm mật khẩu → 422 `secret` REQUIRED', async () => {
+    const { r } = withDebt();
+    mockControl.signInAs('qa.mgr');
+    const res = await fetch(
+      `http://localhost/v1/properties/${PROPERTY_ID}/folios/${r.folioId}/lines/debt-line/foc`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-csrf-token': mockControl.db.csrf,
+          'idempotency-key': crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          kind: 'foc',
+          amountVnd: 100_000,
+          reasonCode: 'debt_write_off',
+          note: 'Khach khong lien lac duoc',
+        }),
+      },
+    );
+    expect(res.status).toBe(422);
+    expect((await res.json()).errors[0]).toEqual({ field: 'secret', code: 'REQUIRED' });
   });
 });
