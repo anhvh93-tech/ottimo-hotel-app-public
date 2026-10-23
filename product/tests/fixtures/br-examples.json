@@ -12318,6 +12318,26 @@
       "qaAssumption": "Ngày 15/10 do QA chọn"
     },
     {
+      "id": "BR-610-01",
+      "br": "BR-610",
+      "case": "Trả phòng 10:00 ngày 16/11 → ảnh giấy tờ xóa sau 1 ngày, chậm nhất trước 10:00 ngày 18/11",
+      "origin": "example",
+      "labels": ["PHÁP LÝ"],
+      "params": {
+        "id_image_retention_days_after_checkout": 1,
+        "id_image_purge_max_hours": 24
+      },
+      "calc": null,
+      "input": {
+        "checkedOutAt": "2026-11-16T10:00:00+07:00"
+      },
+      "expected": {
+        "purgeAt": "2026-11-17T10:00:00+07:00",
+        "purgeBackstopBy": "2026-11-18T10:00:00+07:00"
+      },
+      "qaAssumption": "ORC thêm theo BR-610 v0.4.2 (ví dụ số trong BR); QA rà lại ở lượt kế tiếp"
+    },
+    {
       "id": "BR-611-01",
       "br": "BR-611",
       "case": "Khách Hàn đến 01:30 → hạn khai 13:30; 07:00 người trực sáng nhận danh sách nhắc",

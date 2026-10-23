@@ -32,4 +32,8 @@ regexes = [
   # the word "api" next to a hex commit id trips generic-api-key; a git commit id is not a secret.
   # Allowlist regexes match the detected value, which here is the tag itself.
   '''^sha-[0-9a-f]{7,40}(-test)?$''',
+  # Fake values in R3 2FA tests and the OpenAPI example (commits dd78694, 02a1a8e, 8228f33): a deliberately
+  # wrong test password and a made-up mfaToken example. Neither is valid anywhere.
+  '''^Wrong-pass-2026$''',
+  '''^q8Zr1vX0bW6mN3pL5tY7uI9oA2sD4fG6hJ8kK0lQ$''',
 ]
