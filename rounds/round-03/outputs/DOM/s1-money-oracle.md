@@ -135,6 +135,33 @@ Bất biến: I1, I2, I3 (mục 8) đúng sau mọi bước. Thủ tục OPS đi
 
 Bất biến bổ sung cho fuzz (I16): với mọi chuỗi có A31/A32 tăng rồi giảm giá dòng `room`, Σ miễn/xóa nợ do MGR tự áp trên folio ≤ cơ sở tính bằng giá tham chiếu (không kể sửa tay) và ≤ số chụp lúc B18; cảnh báo ESC-026 bật đúng như khi không có lần sửa tay nào. Fixture đề xuất: BR-433-11…15 (BB07-1, 3, 4, 5, 7), `pendingFix` `R3-SEC-BE-B-07`.
 
+### 5.5 BR-433 (e) – A32 giảm sau trả phòng là một lần miễn (v0.4.3, SEC FZ-02)
+
+Nền chung: đơn 101, 3 đêm 23–26/11 (thứ Hai–thứ Tư) × 667.000 = 2.001.000, minibar 70.000; khách đã thu đủ **2.071.000**; trả phòng 26/11 10:00 (folio `settled`, O 0, W 0); cơ sở hạn mức **667.000**.
+
+| Ca | Thao tác | Kết quả đúng |
+|---|---|---|
+| FZ02-1 | MGR void dòng phòng đêm 25/11 (667.000), lý do khiếu nại tiếng ồn | 201; B **−667.000** → **một** yêu cầu hoàn tự sinh **667.000**, `requested_by` = MGR; Σ hoàn từ A32 667.000 = cơ sở → **quản lý khác hoặc OWN** duyệt (OTTIMO một MGR → OWN); chính MGR đó duyệt → **403**. `reason_note` = "Tự sinh từ A32: void dòng tiền phòng 25/11 667.000 – <MGR> – lý do: <lý do>". Σ lượt ESC-026 = 667.000 = ngưỡng → **không** báo |
+| FZ02-2 | Tiếp FZ02-1: MGR hạ minibar 70.000 → 0 | Yêu cầu hoàn tự sinh thứ hai **70.000**; Σ hoàn 737.000 > 667.000 → **chờ OWN**; Σ lượt **737.000** > 667.000 → **báo OWN** |
+| FZ02-3 | Từ nền: MGR void 2 đêm 24/11 và 25/11 một lần (1.334.000) | Hoàn tự sinh **1.334.000** > cơ sở (đêm còn lại 667.000) → **chờ OWN**; báo OWN |
+| FZ02-4 | Từ nền: MGR void cả 3 đêm | Cơ sở null → hoàn **2.001.000** chờ OWN; báo OWN (ngưỡng MGR = null → mọi khoản > 0 là vượt) |
+| FZ02-5 | Như nền nhưng lúc khách đang ở MGR đã FOC 300.000 trên một đêm (khách đã thu đủ số sau FOC, 1.771.000); sau trả phòng MGR hạ minibar 70.000 → 0 | Hoàn **70.000** ≤ cơ sở → MGR khác/OWN; Σ lượt 300.000 + 70.000 = **370.000** ≤ 667.000 → không báo |
+| FZ02-6 | OWN tự void đêm 25/11 | Không tính vào Σ hoàn từ A32, không tính Σ lượt; yêu cầu hoàn theo đường BR-522 hiện có |
+| FZ02-7 | Minibar 70.000 ghi sau trả phòng (W 70.000, chưa trả); MGR void (ghi nhầm) | Không tiền dư → **không** có yêu cầu hoàn; Σ lượt +70.000 |
+| FZ02-8 | FZ02-1, OWN **từ chối** yêu cầu 667.000; MGR hạ minibar 70.000 → 0 | Σ hoàn = **70.000** (bỏ yêu cầu bị từ chối) → MGR khác/OWN; tiền dư 737.000 vẫn còn → J15 không đóng folio, "Cần chú ý" (BUG-R3-002) |
+
+### 5.6 FZ-08 – nợ ghi trước 0076 khi khoản xóa nợ bị hủy (v0.4.3, cài v1.1)
+
+Quy tắc: nợ cũ tính đúng như nợ mới, O = clamp(R − D, 0, max(0, B)). Khoản xóa nợ bị hủy thì D giảm, nhưng nợ chỉ trở lại trong giới hạn còn phải thu.
+
+| Ca | Số liệu vào | Kết quả đúng |
+|---|---|---|
+| FZ08-1 (chuỗi fuzz) | Nợ cũ 100.000: đơn 101, 2 đêm × 667.000 = 1.334.000, đã thu 1.234.000, folio `settled`, W 0. MGR xóa nợ 100.000 trên dòng đêm 2 → O 0, B 0. MGR A32 void dòng đêm 2 | FOC xóa nợ tự hủy; B = 667.000 − 1.234.000 = **−567.000** → O **0** (nợ **không** sống lại vì tiền của dòng cũng mất); hoàn tự sinh **567.000** ≤ cơ sở 667.000 → MGR khác/OWN; Σ lượt = 667.000 (khoản xóa nợ đã hủy không còn tính) → không báo. Mô hình tham chiếu cho O = 100.000 là **sai** (thiếu kẹp [0, B]) – QA sửa `refLedger` |
+| FZ08-2 | Nợ cũ 100.000 từ dòng hư hỏng 100.000 (tiền phòng đã thu đủ), hạn **19/11**. MGR xóa nợ 100.000 → O 0. OWN thu hồi khoản xóa nợ (E26-6) | Dòng còn → O **100.000** sống lại, hạn giữ **19/11**, "Cần chú ý" mở lại; xem lúc ngày nghiệp vụ 20/11 → hiện **quá hạn** ngay |
+| FZ08-3 | Như FZ08-2 nhưng thay vì thu hồi, MGR A32 tăng dòng hư hỏng 100.000 → 120.000 (FOC đăng lại theo dòng mới) | FOC = min(100.000, 120.000) = 100.000; B **20.000** = W (khoản trong cửa sổ, không phải nợ cũ sống lại); O **0** |
+
+Bất biến bổ sung (fuzz): **I17** – mọi yêu cầu hoàn tự sinh từ A32 có `requested_by` = người làm A32, `reason_note` bắt đầu "Tự sinh từ A32"; Σ hoàn từ A32 trên folio > cơ sở ⇒ `required_role = owner`; Σ lượt ESC-026 gồm phần A32 giảm sau trả phòng của vai dưới OWN. **I1–I3 cho nợ cũ** dùng cùng công thức kẹp như nợ mới. Fixture đề xuất: BR-433-16…19 (FZ02-1, 2, 4, 8), `pendingFix` `R3-SEC-FZ-02`; BR-525-42, 43 (FZ08-1, 2), `pendingFix` `R3-FZ-08` (v1.1).
+
 Ghi chú cài đặt: "thu hồi" là đường tiền mới – ARC chốt hợp đồng và đưa vào checklist "đường mới làm thay đổi O" (16.31.3); nếu chưa kịp Sprint 1 thì Sprint 1 chỉ kiểm thông báo + "Cần chú ý" (E26-1…5, 9) và để E26-6…8 có `pendingFix`.
 
 ---
