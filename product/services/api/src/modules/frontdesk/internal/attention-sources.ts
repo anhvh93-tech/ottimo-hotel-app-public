@@ -13,7 +13,6 @@ import type {
   AttentionSource,
   AttentionSourceContext,
 } from '../../events/public/events.service';
-import type { FolioService } from '../../folio/public/folio.service';
 import { businessMinutes } from '../public/stay-rules';
 
 /** Technical cap of the ids/room numbers listed in one item (the UI shows a summary). */
@@ -185,15 +184,17 @@ async function roomsOoo(tx: Tx, ctx: AttentionSourceContext): Promise<AttentionI
 }
 
 /**
- * BR-525 (18/10 – G-4): "Cần chú ý" `checkout_debt` (MGR+, computed) – checked-out stays whose debt is still open:
- * `checkout_mode = debt` (B18 debt, A19, or a receipt reversed after check-out – CheckoutService.debtAfterReversal)
- * not settled (`debt_settled_at`, ARC 16.26) and the folio still owes money. Gone as soon as the money is in, or MGR
- * FOCs / writes it off (BR-433). `critical`
- * once a due date has passed (BR-525 "cảnh báo quá hạn"), else `warning`; `dueAt` = the earliest due date (start
- * of that business day). The SQL keeps the folios whose posted lines exceed their own receipts (a superset of
- * `balanceDueVnd > 0` – OTA money only lowers it), then the folio module's balance decides (one computation).
+ * BR-525 (18/10 – G-4): "Cần chú ý" `checkout_debt` (MGR+, computed) – checked-out stays whose OPEN debt is > 0 by
+ * the number (ARC 16.31.2 – BUG-R2-209: `openDebtVnd`, the read-only variant `CheckoutService.openDebtVndView`; a
+ * "dormant" cycle – debt paid back to 0, only charges still in their window – is NOT a debt and never shows, so an
+ * old due date of it never turns `critical`). Gone as soon as the money is in, or MGR FOCs / writes it off (BR-433).
+ * `critical` once a due date of an open debt has passed (BR-525 "cảnh báo quá hạn"), else `warning`; `dueAt` = the
+ * earliest due date (start of that business day). The SQL is only a cheap superset (debt bookings not settled whose
+ * posted lines exceed their own receipts); the number decides.
  */
-export function checkoutDebtSource(folios: Pick<FolioService, 'balance'>): AttentionSource {
+export function checkoutDebtSource(
+  openDebtVnd: (tx: Tx, folioId: string) => Promise<number>,
+): AttentionSource {
   return async (tx: Tx, ctx: AttentionSourceContext): Promise<AttentionItem[]> => {
     const { rows } = await tx.query<{
       id: string;
@@ -214,7 +215,7 @@ export function checkoutDebtSource(folios: Pick<FolioService, 'balance'>): Atten
     );
     const open: typeof rows = [];
     for (const r of rows) {
-      if ((await folios.balance(tx, r.folio_id)).balanceDueVnd > 0) open.push(r);
+      if ((await openDebtVnd(tx, r.folio_id)) > 0) open.push(r);
     }
     if (open.length === 0) return [];
     const dues = open.map((r) => r.due).filter((d): d is LocalDate => d !== null);

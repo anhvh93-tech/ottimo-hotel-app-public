@@ -57,6 +57,8 @@ defineAuditEntity('reservation', [
   'tierPct',
   'checkoutMode',
   'debtVnd',
+  // ARC 16.31.2 (BUG-R2-209/210): open debt before/after a debt record (numbers only).
+  'openDebtVnd',
   'debtOutcome',
   'balanceDueVnd',
   'dueDate',
@@ -191,7 +193,10 @@ export class FrontdeskModule implements OnModuleInit {
     for (const source of FRONTDESK_ATTENTION_SOURCES) this.events.registerAttentionSource(source);
     // BR-525 (18/10 – G-4): open guest debts (MGR+), and the debt a receipt reversed after B18 leaves – payments
     // (BE-B `reversePayment`) calls the port in the reversal's transaction.
-    this.events.registerAttentionSource(checkoutDebtSource(this.support.folios));
+    // ARC 16.31.2 (BUG-R2-209): by the open debt number, read without a lock.
+    this.events.registerAttentionSource(
+      checkoutDebtSource((tx, folioId) => this.checkout.openDebtVndView(tx, folioId)),
+    );
     this.hooks.provideDebtAfterReversal((tx, input) => this.checkout.debtAfterReversal(tx, input));
     // ARC 16.26: collecting the debt after check-out – payments `recordPayment` (debt branch) asks for the open debt
     // and closes it when the folio owes nothing.
