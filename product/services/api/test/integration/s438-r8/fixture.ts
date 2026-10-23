@@ -16,6 +16,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { expect } from 'vitest';
 import type { Database } from '../../../src/db/database';
 import { JobRunner } from '../../../src/jobs/job-runner';
+import { hasOpenDebtByNumber } from '../../../src/modules/folio/public/folio-close-job';
 import { FolioService } from '../../../src/modules/folio/public/folio.service';
 import {
   NoGuestAccessPort,
@@ -285,7 +286,7 @@ export async function startFixture() {
                 reason: 'post_checkout_unpaid',
                 actor: { userId: '00000000-0000-0000-0000-000000000000', roles: ['owner'] },
               }),
-            hasOpenDebt: async (folioId) => (await h.openDebt(one, folioId)) !== null,
+            hasOpenDebt: (folioId) => hasOpenDebtByNumber(h, one, folioId),
           }),
       );
       return {

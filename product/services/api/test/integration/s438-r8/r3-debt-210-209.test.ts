@@ -78,6 +78,21 @@ describe.skipIf(!HAS_DB)(
       );
     const j15 = async (s: S) => (await x.j15Unit(s)()).json().status as string;
     const D = (s: S, n: number) => addDays(s.departure, n);
+    /** A32 +`byVnd` on a live line; returns the replacement's id (same category and service date). */
+    const raiseLive = async (s: S, category: string, lineId: string, byVnd: number) => {
+      const lines = (await x.folio(s.folioId)).lines as any[];
+      const cur = lines.find((l) => l.id === lineId);
+      const r = await x.adjust(s, lineId, {
+        newUnitPriceVnd: cur.unitPriceVnd + byVnd,
+        reason: 'Sửa giá ghi thiếu',
+      })();
+      expect(r.statusCode, r.body).toBe(201);
+      return ((await x.liveLineIds(s, category)) as any[]).find(
+        (l) => l.serviceDate === cur.serviceDate && l.unitPriceVnd === cur.unitPriceVnd + byVnd,
+      ).id as string;
+    };
+    const liveFnb = async (s: S, amount: number) =>
+      ((await x.liveLineIds(s, 'fnb')) as any[]).find((l) => l.amountVnd === amount).id as string;
 
     // ───────────────────────────── BUG-R2-210 – DOM oracle mục 2 ─────────────────────────────
 
@@ -101,7 +116,7 @@ describe.skipIf(!HAS_DB)(
       expect((await due(s)) - (await open(s)), 'W').toBe(70_000);
       const a = await lastAudit(s);
       expect(a.after).toMatchObject({ debtVnd: 834_000, dueDate: D(s, 3), openDebtVnd: 934_000 });
-      expect(a.before).toMatchObject({ openDebtVnd: 100_000 });
+      expect(a.before).toMatchObject({ openDebtVnd: 100_000, actorRole: 'manager' });
       expect(await cycle(s)).toMatchObject({ has_cycle: true, rec: 934_000, due: D(s, 3) });
       expect(await told(s)).toEqual({ own: toldBefore.own + 1, mgr2: toldBefore.mgr2 + 1 });
       expect(await inAttention(s)).toBe(true);
@@ -171,7 +186,7 @@ describe.skipIf(!HAS_DB)(
       expect(await open(s)).toBe(170_000);
       expect((await x.folio(s.folioId)).status).toBe('closed');
       const a = await lastAudit(s);
-      expect(a.before).toMatchObject({ openDebtVnd: 100_000 });
+      expect(a.before).toMatchObject({ openDebtVnd: 100_000, actorRole: 'system' });
       expect(a.after).toMatchObject({ debtVnd: 70_000, openDebtVnd: 170_000, dueDate: D(s, 3) });
     }, 120_000);
 
@@ -251,12 +266,53 @@ describe.skipIf(!HAS_DB)(
       );
     }, 240_000);
 
+    // ───────── FB-R3-ARC-BEB-S1-01 / FB-R3-SEC-BE-B-01: W_old through A32 replacement chains ─────────
+
+    it('210-A32 (ARC S1-01 probe): old debt 100.000; A32 +10.000 three times on the pre-checkout fnb line (chain of 3) + window charge 70.000 raised to 75.000 → W 105.000, O 100.000; reverse 834.000 → O 934.000; J15 → O = B', async () => {
+      const s = await x.checkedOutStay({ big: 834_000 });
+      expect((await x.reverse(s.transferId)()).statusCode).toBe(200);
+      await asPre0076(s);
+      await x.at(`${s.departure}T15:30:00+07:00`);
+      let big = await liveFnb(s, 834_000);
+      for (let i = 0; i < 3; i++) big = await raiseLive(s, 'fnb', big, 10_000);
+      expect(await due(s)).toBe(130_000);
+      expect(await open(s), 'the 30.000 increase is a window charge').toBe(100_000);
+      const late = await x.lateCharge(s, 70_000, s.departure);
+      await raiseLive(s, 'fnb', late, 5_000);
+      expect(await due(s)).toBe(205_000);
+      expect(await open(s), 'W = 30.000 + 75.000').toBe(100_000);
+      await x.at(`${s.departure}T17:00:00+07:00`);
+      expect((await x.reverse(s.bigTransferId!)()).statusCode).toBe(200);
+      expect(await due(s)).toBe(1_039_000);
+      expect(await open(s)).toBe(934_000);
+      await x.at(`${D(s, 1)}T11:00:00+07:00`);
+      expect(await j15(s)).toBe('closed_with_debt');
+      expect(await open(s)).toBe(1_039_000);
+    }, 180_000);
+
+    it('FB-R3-SEC-BE-B-01 (SEC S5): old debt 100.000; MGR raises the room line 1.000 at a time, 60 times → O stays 100.000 at every step; past the chain cap (64) the line counts 0 in W → O never below 100.000', async () => {
+      const s = await x.checkedOutStay();
+      expect((await x.reverse(s.transferId)()).statusCode).toBe(200);
+      await asPre0076(s);
+      let room = ((await x.liveLineIds(s, 'room')) as any[])[0].id as string;
+      for (let i = 1; i <= 70; i++) {
+        room = await raiseLive(s, 'room', room, 1_000);
+        const o = await open(s);
+        if (i <= 60) expect(o, `after A32 #${i}`).toBe(100_000);
+        else expect(o, `after A32 #${i} (chain cap)`).toBeGreaterThanOrEqual(100_000);
+        expect(o).toBeLessThanOrEqual(await due(s));
+      }
+    }, 300_000);
+
     it('209-E (B = O): debt 100.000, no window charge → J15 only closes: no new record, nobody told again', async () => {
       const s = await x.checkedOutStay();
       expect((await x.reverse(s.transferId)()).statusCode).toBe(200);
       const before = await told(s);
       await x.at(`${D(s, 1)}T11:00:00+07:00`);
-      expect(await j15(s)).toBe('closed_with_debt');
+      // FB-R3-ARC-BEB-S1-02: through the real job (JobRunner) – its `hasOpenDebt` safety net (X = B, nothing written)
+      const stats = await x.runJ15();
+      expect(stats.closedWithDebt).toBeGreaterThanOrEqual(1);
+      expect((await x.folio(s.folioId)).status).toBe('closed');
       expect(await debtAudits(s)).toEqual([100_000]);
       expect(await told(s)).toEqual(before);
       expect(await cycle(s)).toMatchObject({ rec: 100_000, due: D(s, 3) });

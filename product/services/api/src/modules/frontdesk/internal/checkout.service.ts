@@ -26,6 +26,7 @@ import {
   businessDate,
   localDate,
 } from '../../../shared/time';
+import { actorRoleOf } from '../../audit/public/actor-role';
 import { AuditService } from '../../audit/public/audit.service';
 import { folioLineDto } from '../../folio/public/folio-view';
 import { roomNamesOf, snapshotSettledRoomNames } from '../../folio/public/room-names';
@@ -76,6 +77,11 @@ interface DebtRow {
   debt_base_vnd: string | number;
   actual_checkout_at: Date | null;
 }
+/**
+ * BUG-R2-210 W_old: replacements followed back through `related_line_id` (technical cap; beyond it the line counts 0 –
+ * FB-R3-SEC-BE-B-01).
+ */
+const WINDOW_CHAIN_MAX_DEPTH = 64;
 const DEBT_ROW_COLUMNS = `id, code, status, parent_reservation_id, checkout_mode,
   debt_due_date::text AS debt_due_date, debt_reason, debt_settled_at, debt_opened_at, debt_recorded_vnd,
   debt_base_vnd, actual_checkout_at`;
@@ -346,18 +352,32 @@ export class CheckoutService {
         await recordChange(tx, r.id, 'checkout_mode', r.checkout_mode, 'debt', ctx.now, reason);
       }
     }
+    // FB-R3-ARC-BEB-S1-03: the open debt after the write is MEASURED (the row as written, the same function), never
+    // computed from the inputs – critic / fuzz compare the money audit with the reference function.
+    const { rows: afterRows } = await tx.query<DebtRow>(
+      `SELECT ${DEBT_ROW_COLUMNS} FROM reservation WHERE id = $1`,
+      [primary.id],
+    );
+    const openAfterVnd = afterRows[0]
+      ? await this.cycleOpenDebtVnd(tx, d.folioId, afterRows[0], d.balanceDueVnd)
+      : 0;
     await this.audit.recordMoney(tx, {
       action: 'reservation.debt_on_checkout',
       entityType: 'reservation',
       entityId: primary.id,
       entityCode: primary.code,
-      before: { checkoutMode: primary.checkout_mode, openDebtVnd: d.openBeforeVnd },
+      before: {
+        checkoutMode: primary.checkout_mode,
+        openDebtVnd: d.openBeforeVnd,
+        // FB-R3-SEC-BE-B-03: the role at the time (J15 = system).
+        actorRole: actorRoleOf(ctx.actor.userId, ctx.actor.roles),
+      },
       after: {
         checkoutMode: 'debt',
         debtVnd: d.debtVnd,
         balanceDueVnd: d.balanceDueVnd,
         dueDate,
-        openDebtVnd: d.openBeforeVnd + d.debtVnd,
+        openDebtVnd: openAfterVnd,
       },
       reason: newReason,
       ...(d.requestId ? { requestId: d.requestId } : {}),
@@ -487,6 +507,8 @@ export class CheckoutService {
    * replacements on the settled folio – not a reversal, not reversed, not a `debt_write_off` FOC), each A32
    * replacement counted for its INCREASE only (its amount − the pre-checkout line it replaced, found through
    * `related_line_id` of the same category). Receipts are not subtracted (they pay the debt first – G-6). ≥ 0.
+   * FB-R3-SEC-BE-B-01 (fail safe): a chain longer than WINDOW_CHAIN_MAX_DEPTH whose pre-checkout root is never reached
+   * counts 0 (never the whole line) – an unresolved chain can only make W smaller, so the open debt never drops.
    */
   private async windowChargesVnd(tx: Tx, folioId: string): Promise<number> {
     const { rows } = await tx.query<{ w: string }>(
@@ -503,12 +525,23 @@ export class CheckoutService {
          UNION ALL
          SELECT c.leaf, p.id, p.category, p.related_line_id, p.post_checkout, p.amount_vnd, c.depth + 1
            FROM chain c JOIN folio_line p ON p.id = c.related_line_id AND p.folio_id = $1 AND p.category = c.category
-          WHERE c.post_checkout AND c.depth < 50
+          WHERE c.post_checkout AND c.depth < $2
             AND EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = p.id)
+       ), leaf AS (
+         SELECT v.amount_vnd,
+                (SELECT c.amount_vnd FROM chain c WHERE c.leaf = v.id AND NOT c.post_checkout LIMIT 1) AS root_vnd,
+                -- the walk stopped at the depth cap while a replaced line of the same category is still above it
+                EXISTS (SELECT 1 FROM chain c
+                          JOIN folio_line p ON p.id = c.related_line_id AND p.folio_id = $1 AND p.category = c.category
+                         WHERE c.leaf = v.id AND c.post_checkout AND c.depth >= $2
+                           AND EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = p.id)) AS cut
+           FROM live v
        )
-       SELECT ((SELECT COALESCE(sum(amount_vnd), 0) FROM live)
-             - (SELECT COALESCE(sum(amount_vnd), 0) FROM chain WHERE NOT post_checkout))::text AS w`,
-      [folioId],
+       SELECT COALESCE(sum(CASE WHEN cut THEN 0
+                                WHEN root_vnd IS NOT NULL THEN amount_vnd - root_vnd
+                                ELSE amount_vnd END), 0)::text AS w
+         FROM leaf`,
+      [folioId, WINDOW_CHAIN_MAX_DEPTH],
     );
     return Math.max(0, Number(rows[0]?.w ?? 0));
   }
