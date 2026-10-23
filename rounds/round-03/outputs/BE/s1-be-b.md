@@ -223,3 +223,48 @@ Theo OpenAPI 0.3.8 + SEC mục C (Q51-1…7):
 ### Còn mở – cần ARC quyết
 - Lần đặt đầu, khi mới chỉ có dòng đã lên lịch: server và MSW đều trả 404 cho `getParameterHistory`, vì hợp đồng bắt buộc có `current`. Hệ quả: màn hiện "chưa cấu hình" và OWN không thấy, cũng không hủy được dòng đã lên lịch cho tới ngày hiệu lực.
 - Đề xuất: hợp đồng 0.3.9 cho `current` được vắng.
+
+## 11. Sửa lỗi tiền từ fuzz R3-Q30 – BUG-R3-002/003/004 (24/10)
+
+Nhánh `be-b/r3-fuzz-bugs-002-004`, tách từ `origin/main` dabcb99 (đã có harness fuzz của QA).
+
+### BUG-R3-002 (P0) – tiền dư phát sinh sau trả phòng
+Trước: J15 đóng folio dù vẫn còn tiền dư của khách.
+
+Sửa ở hai chỗ:
+- **A32 trên folio `settled`.** Nếu sau thao tác còn tiền dư chưa có yêu cầu hoàn (`unhandledCreditVnd` > 0):
+  - trong cùng giao dịch, tạo một yêu cầu hoàn `overpayment` đúng bằng phần chưa yêu cầu, người xin = MGR+ vừa thao tác (`FolioService.closeStayCredit`, như đường hủy/no-show S4-06);
+  - mở "Cần chú ý" `closed_reservation_credit`.
+
+  Căn cứ: BR-522 K11-06, "mọi thay đổi folio của đơn đã đóng chạy lại refundPlan".
+- **Lưới an toàn ở J15 (`closeAfterWindow`).** Còn tiền dư chưa có yêu cầu hoàn (ví dụ khách trả thừa sau trả phòng) → không đóng folio, trả `waiting_refund`, mở "Cần chú ý" `closed_reservation_credit`. J15 không tự tạo yêu cầu hoàn vì yêu cầu phải có người xin là người thật (FK `requested_by`).
+
+### BUG-R3-003 (P0) – xóa nợ bị chuyển cho lễ tân trưởng duyệt
+Sửa: định tuyến `debt_write_off` không bao giờ thấp hơn MGR (BR-525):
+- Σ ≤ cơ sở bảo vệ → manager;
+- vượt cơ sở, hoặc không có cơ sở → owner.
+
+Lễ tân trưởng bấm duyệt → 403.
+
+### BUG-R3-004 (P1) – không còn đêm sống mà MGR vẫn tự áp xóa nợ
+Sửa: `limitBasisVnd` trả `null` khi không còn đêm phòng sống. Số chụp lúc B18 chỉ dùng để **hạ** cơ sở đang có, không thay cho cơ sở đã mất. Theo BR-433 (a): không có đêm → chờ OWN.
+
+### Test
+- 3 ca tái hiện của QA (`test/fuzz/bug-r3-00{2,3,4}.test.ts`): bỏ cờ `FUZZ_KNOWN_BUGS`, nay luôn chạy, đều xanh.
+- Test oracle mới `s438-r8/r3-bug-002-credit-after-checkout.test.ts`, 2 ca:
+  - void dòng phòng → đúng một yêu cầu hoàn bằng đúng tiền dư, người xin là MGR, có "Cần chú ý", J15 chờ;
+  - khách trả thừa không có yêu cầu hoàn → J15 không đóng, có "Cần chú ý".
+- Toàn bộ API: 122 tệp đạt, 2 bỏ qua; 3.120 test đạt, 18 bỏ qua (gồm harness fuzz, chỉ chạy khi đặt `FUZZ`).
+- Fuzz chạy lại trên bản sửa: `FUZZ=1 FUZZ_BE83=1 FUZZ_CHAINS=30 FUZZ_SHRINK=1`, 9 họ, 270 chuỗi, 10.359 bước, deadlock 0, 5xx 0.
+  - I4, I8, I13, I16: **0 vi phạm**.
+  - Còn 12 vi phạm I3/I7, đều ở họ **FZ-08** (seed 1012, 1026; đã thu gọn còn 3–6 bước). Xem phần dưới.
+
+### Phát hiện mới từ fuzz (chưa sửa – cần ORC/DOM quyết)
+- Họ FZ-08 là dữ liệu **công nợ ghi trước migration 0076** (chưa có chu kỳ).
+- Chuỗi gây lỗi:
+  - MGR xóa hết nợ cũ bằng FOC `debt_write_off`;
+  - sau đó A32 void đúng dòng phòng mang khoản xóa nợ đó, nên FOC tự hủy;
+  - mô hình tham chiếu cho rằng công nợ cũ 100.000 sống lại;
+  - mã tính theo công thức nợ cũ (B − W_cũ) thì ra 0, và vì O = 0 nên A32 giảm sau đó không bị chặn (I7).
+- Phạm vi: chỉ dữ liệu trước 0076. Staging dựng từ DB trống, production chưa có dữ liệu (điều kiện OPS C2), nên đề xuất **P3**. Cần DOM chốt có coi nợ cũ sống lại sau khi xóa nợ bị hủy hay không. Nếu có: tạo chu kỳ cho nợ cũ ngay lần xóa nợ đầu tiên.
+- Log gốc nằm ngoài repo (thư mục scratchpad); có thể chạy lại tất định bằng seed.

@@ -1138,8 +1138,11 @@ export class FolioService implements FolioStaySync {
       [folioId],
     );
     const captured = rows[0]?.captured;
+    // BUG-R3-004 (BR-433 (a) "no night → OWN"): no live night left → no basis, whatever B18 captured (the capture
+    // only ever LOWERS a basis that exists).
+    if (computed === null) return null;
     if (captured === null || captured === undefined) return computed;
-    return computed === null ? Number(captured) : Math.min(computed, Number(captured));
+    return Math.min(computed, Number(captured));
   }
 
   /** limitBasisVnd without the B18 capture (what `settle` captures). */
@@ -1369,6 +1372,28 @@ export class FolioService implements FolioStaySync {
     }
     const b = await this.balance(tx, folioId);
     if (b.openRefundVnd > 0) return 'waiting_refund';
+    // BUG-R3-002 (fuzz R3-Q30 I4, BR-522 / BR-427 (d)): never a closed folio holding the guest's money. An
+    // overpayment not routed to a refund request yet (normally A32 opens one – FolioLinesService) keeps the folio
+    // `settled` and "Cần chú ý" `closed_reservation_credit` tells the desk; J15 closes it once it is paid back or
+    // left by the guest (the next tick after that).
+    if (b.unhandledCreditVnd > 0) {
+      if (this.events) {
+        const { rows: r } = await tx.query<{ code: string }>(
+          'SELECT code FROM reservation WHERE id = $1',
+          [folio.primary_reservation_id],
+        );
+        await this.events.openAttention(tx, {
+          kind: 'closed_reservation_credit',
+          severity: 'warning',
+          dedupeKey: `closed_reservation_credit:${folio.primary_reservation_id}`,
+          refType: 'reservation',
+          refId: folio.primary_reservation_id,
+          ...(r[0]?.code ? { refCode: r[0].code } : {}),
+          now,
+        });
+      }
+      return 'waiting_refund';
+    }
     let debt = false;
     if (b.balanceDueVnd > 0) {
       const r = await debts.recordDebt(folioId);

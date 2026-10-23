@@ -641,6 +641,22 @@ export class FolioLinesService {
         ...(actor.requestId ? { requestId: actor.requestId } : {}),
       });
     }
+    // BUG-R3-002 (BR-522 K11-06 "every change of a closed stay's folio re-runs refundPlan"): a reduction after check-out
+    // that leaves an overpayment → ONE refund request of the part not requested yet (requester = this MGR+, decided by
+    // another MGR / OWN – SEC F8) + "Cần chú ý" closed_reservation_credit, in this transaction.
+    if (
+      folio.status === 'settled' &&
+      (await this.folios.balance(tx, folio.id)).unhandledCreditVnd > 0
+    ) {
+      await this.folios.closeStayCredit(tx, {
+        folioId: folio.id,
+        reservationId: folio.primary_reservation_id,
+        reservationCode: stayCode ?? folio.bill_no ?? folio.id,
+        reasonCode: 'overpayment',
+        actor: { userId: actor.userId, roles: actor.roles },
+        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+      });
+    }
     await this.folios.touch(tx, folio.id);
     if (line.reservation_id)
       await publishEvent(tx, this.events, 'reservation.changed', line.reservation_id);

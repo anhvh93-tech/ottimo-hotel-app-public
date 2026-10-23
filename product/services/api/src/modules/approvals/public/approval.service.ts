@@ -57,6 +57,9 @@ import {
 } from '../internal/limits';
 
 /** Reason codes of BR-432 (FocRequestInput.reasonCode). Other request types pass their own code. */
+/** BR-525: the FOC reason that writes a debt off after check-out (MGR+ only – folio `DEBT_WRITE_OFF`). */
+const DEBT_WRITE_OFF_REASON = 'debt_write_off';
+
 export const FOC_REASON_CODES = [
   'regular_vip',
   'room_ready_no_impact',
@@ -390,6 +393,17 @@ export class ApprovalService {
       APPROVER_RANK[requiredRole] < APPROVER_RANK.manager
     ) {
       requiredRole = 'manager';
+    }
+    // BUG-R3-003 (fuzz R3-Q30, BR-525 / BR-433 (a)): a debt write-off is decided by MGR+ only – never routed to the
+    // lead however small (a protected basis lowered below the lead's 300.000 sent it there): within the manager's
+    // limit (Σ ≤ the folio's protected basis) → manager, else (or no night at all) → owner.
+    if (
+      input.reasonCode === DEBT_WRITE_OFF_REASON &&
+      APPROVER_RANK[requiredRole] < APPROVER_RANK.manager
+    ) {
+      requiredRole = within(perTimeVnd(input), roleLimit(focLimits, 'manager', basis).perTime)
+        ? 'manager'
+        : 'owner';
     }
 
     // A2 – self-application within the requester's own limit (rbac 5.2 point 2). Serialised per user with
