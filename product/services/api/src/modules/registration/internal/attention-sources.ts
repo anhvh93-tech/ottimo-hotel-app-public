@@ -13,12 +13,16 @@
  * - `data_quality` / `registration_party_docs_unlinked` (warning, BUG-R2-083): a person left the party while
  *   guest-link documents ("Khách 2"…) were linked to nobody – link the ones of people still staying
  *   (document → person), otherwise J16 removes them at `dueAt` (24 h after the removal).
+ * - `data_quality` / `attachment_retention_anchor_missing` (warning, SEC FB-R2-SEC-BE-84 (a), OpenAPI 0.3.8): the
+ *   latest J16 run found photos bound without a retention anchor (kept, never purged) – OWN/MGR only
+ *   (`attentionAudience`); `params` = check + count. Gone once a run finds none.
  * Codes, counts, booking ids and room numbers only (SEC J / B-21).
  */
-import type {
-  AttentionItem,
-  AttentionSource,
-  AttentionSourceContext,
+import {
+  ATTACHMENT_ANCHOR_MISSING_CHECK,
+  type AttentionItem,
+  type AttentionSource,
+  type AttentionSourceContext,
 } from '../../events/public/events.service';
 import { type RegistrationService, UNCLAIMED_DOCUMENTS_CHECK } from './registration.service';
 import type { StayView } from './stay-reader';
@@ -143,5 +147,19 @@ export function registrationAttentionSources(regs: RegistrationService): Attenti
     ];
   };
 
-  return [declarations, visa, notClosed, unclaimed];
+  const anchorMissing: AttentionSource = async (tx) => {
+    const n = await regs.anchorMissingCount(tx);
+    if (n === 0) return [];
+    return [
+      {
+        kind: 'data_quality' as const,
+        source: 'computed' as const,
+        severity: 'warning' as const,
+        count: n,
+        params: { check: ATTACHMENT_ANCHOR_MISSING_CHECK, count: n },
+      },
+    ];
+  };
+
+  return [declarations, visa, notClosed, unclaimed, anchorMissing];
 }
