@@ -119,6 +119,22 @@ Bất biến: I1, I2, I3 (mục 8) đúng sau mọi bước. Thủ tục OPS đi
 | E26-8 (folio `closed`) | OWN thu hồi sau khi folio `closed` | Không cho thu hồi trong app (409 `FOLIO_LOCKED`); OWN chỉ bấm "Đã xem" |
 | E26-9 (FOC tự hủy) | E26-1 rồi khách rút đêm làm một FOC tự hủy theo BR-434 | Khoản tự hủy ra khỏi Σ; không có thông báo "dưới ngưỡng" |
 
+### 5.4 BR-433 (d) – cơ sở hạn mức được bảo vệ (v0.4.1, SEC Blocker FB-R3-SEC-BE-B-07)
+
+Định nghĩa: giá đêm bảo vệ = min(giá dòng `room` hiện hành, giá tham chiếu server tính – thỏa thuận chụp lúc đặt / lịch giá Trực tiếp sau BR-107, **không kể sửa tay**); cơ sở folio = giá đêm bảo vệ cao nhất; từ B18 cơ sở = min(số chụp lúc B18, cơ sở tính lại). Dùng chung cho (a), (b), (c)/ESC-026, BR-416.
+
+| Ca | Số liệu vào | Kết quả đúng |
+|---|---|---|
+| BB07-1 (Q1 của SEC) | Đơn 101, giá đêm 667.000 (tham chiếu = chụp B18 = 667.000), đã trả phòng, O **5.000.000**, W 0. (1) MGR A32 nâng dòng phòng lên 5.000.000. (2) MGR xin xóa nợ 4.000.000 (có xác thực lại). (3) MGR A32 hạ dòng phòng về 667.000 | (1) **201**; B **9.333.000**, O 5.000.000, W **4.333.000**; cơ sở vẫn **667.000**. (2) Σ 4.000.000 > 667.000 → **chờ OWN** (không tự áp); "khi duyệt sẽ áp 4.000.000". (3) **201** (4.333.000 ≤ W); cuối: B = O = **5.000.000**, W 0, Σ xóa nợ đã áp **0**, `foc_stay_alert` không phát sinh (chưa có khoản áp). Mã lỗi: `201 approved eff 4.000.000`, cuối B = O = 1.000.000 |
+| BB07-2 | Như BB07-1 bước (1), MGR xin xóa nợ **667.000** | Σ 667.000 = cơ sở → tự áp; O **4.333.000**; xin thêm 1.000 → chờ OWN |
+| BB07-3 (trong lúc ở, (b)) | Đơn 101 đang ở, giá đêm 667.000. MGR sửa giá đêm (A31/S4-35) lên 3.000.000; MGR FOC 2.500.000 trên khoản hư hỏng 3.000.000; MGR hạ giá đêm về 667.000 | Sửa giá: 201 (nhật ký). FOC: cơ sở min(3.000.000, 667.000) = **667.000** → **chờ OWN**. Sau khi hạ giá: yêu cầu vẫn chờ, cơ sở 667.000 |
+| BB07-4 (ngưỡng ESC-026) | Như BB07-3 (giá đêm đang 3.000.000), MGR miễn 300.000, 250.000, 300.000 trên ba khóa khác nhau | Cả ba áp ngay; ngưỡng **667.000**; sau khoản 2 Σ 550.000 không báo; sau khoản 3 Σ **850.000** → **báo OWN** |
+| BB07-5 (thay đổi hợp lệ do hệ thống) | Đơn 101 đang ở, khách xin đổi sang 401 (B14 `guest_request`, giá tham chiếu 1.042.000) | Cơ sở **1.042.000**; MGR FOC 1.000.000 trên khoản hư hỏng → tự áp |
+| BB07-6 (sửa tay giảm) | Đơn 202 giá 792.000, LT trưởng sửa giá đêm xuống 540.000 | Cơ sở **540.000** (min); MGR FOC 600.000 → chờ OWN |
+| BB07-7 (sau B18 không nâng được) | Đơn 202 trả phòng với cơ sở chụp 792.000; sau đó lịch giá Trực tiếp đêm đó được sửa lên 1.000.000 (hoặc A32 nâng dòng) | Cơ sở = min(792.000, …) = **792.000** |
+
+Bất biến bổ sung cho fuzz (I16): với mọi chuỗi có A31/A32 tăng rồi giảm giá dòng `room`, Σ miễn/xóa nợ do MGR tự áp trên folio ≤ cơ sở tính bằng giá tham chiếu (không kể sửa tay) và ≤ số chụp lúc B18; cảnh báo ESC-026 bật đúng như khi không có lần sửa tay nào. Fixture đề xuất: BR-433-11…15 (BB07-1, 3, 4, 5, 7), `pendingFix` `R3-SEC-BE-B-07`.
+
 Ghi chú cài đặt: "thu hồi" là đường tiền mới – ARC chốt hợp đồng và đưa vào checklist "đường mới làm thay đổi O" (16.31.3); nếu chưa kịp Sprint 1 thì Sprint 1 chỉ kiểm thông báo + "Cần chú ý" (E26-1…5, 9) và để E26-6…8 có `pendingFix`.
 
 ---
