@@ -126,6 +126,10 @@ export const approvalRequest = pgTable(
     // 0060 (BE-B S4-02/S4-18): current service date of the FOC KEY of a request on a room / extra-person line
     // (BR-434 (1)–(3): moves with the nights, also while dormant/pending). NULL for other lines.
     focServiceDate: date('foc_service_date', { mode: 'string' }),
+    // 0085 (BE-B, BR-433 (e) v0.4.3 – SEC FZ-02): a `refund` request made by the server from an A32 reduction on a
+    // settled folio by someone below the owner – the person who made that A32 (also on the request that replaces it,
+    // `superseded`). Counted in the folio's Σ of A32 refunds (> protected basis → owner) and never its approver.
+    originActorId: uuid('origin_actor_id'),
     ...auditColumns(),
   },
   (t) => [
@@ -167,6 +171,11 @@ export const approvalRequest = pgTable(
     check(
       'approval_request_no_self_approval',
       sql`${t.approverId} IS NULL OR ${t.approverId} <> ${t.requestedBy} OR ${t.selfApplied} OR ${t.approverRoleSnapshot} IN ('owner', 'manager')`,
+    ),
+    // 0085 (BR-433 (e)): the person whose A32 produced the refund never approves it.
+    check(
+      'approval_request_origin_check',
+      sql`${t.originActorId} IS NULL OR (${t.type} = 'refund' AND (${t.approverId} IS NULL OR ${t.approverId} <> ${t.originActorId}))`,
     ),
     check(
       'approval_request_self_applied_check',

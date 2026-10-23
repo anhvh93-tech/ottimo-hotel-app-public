@@ -631,3 +631,51 @@ export const focStayAlert = pgTable(
     check('foc_stay_alert_count_check', sql`${t.alertCount} >= 1`),
   ],
 );
+
+/**
+ * 0085 (BE-B, BR-433 (e) v0.4.3 – SEC FB-R3-SEC-FZ-02): every A32 that REDUCES a line of a `settled` folio (void, lower
+ * price, lower quantity) – the reduction (line before − after), who made it and their role at the time. Append-only.
+ * A reduction by someone below the owner is a waiver: it adds to the stay's Σ of ESC-026 (StayWaiverAlertService).
+ */
+export const folioSettledReduction = pgTable(
+  'folio_settled_reduction',
+  {
+    id: uuid('id').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    propertyId: uuid('property_id').notNull(),
+    folioId: uuid('folio_id').notNull(),
+    folioLineId: uuid('folio_line_id').notNull(),
+    reducedVnd: bigint('reduced_vnd', { mode: 'number' }).notNull(),
+    actorId: uuid('actor_id').notNull(),
+    actorRole: text('actor_role').notNull(),
+    createdAt: instant('created_at').notNull(),
+  },
+  (t) => [
+    index('folio_settled_reduction_folio_idx').on(t.folioId),
+    foreignKey({
+      name: 'folio_settled_reduction_property_fk',
+      columns: [t.organizationId, t.propertyId],
+      foreignColumns: [property.organizationId, property.id],
+    }),
+    foreignKey({
+      name: 'folio_settled_reduction_folio_fk',
+      columns: [t.propertyId, t.folioId],
+      foreignColumns: [folio.propertyId, folio.id],
+    }),
+    foreignKey({
+      name: 'folio_settled_reduction_line_fk',
+      columns: [t.propertyId, t.folioLineId],
+      foreignColumns: [folioLine.propertyId, folioLine.id],
+    }),
+    foreignKey({
+      name: 'folio_settled_reduction_actor_fk',
+      columns: [t.organizationId, t.actorId],
+      foreignColumns: [appUser.organizationId, appUser.id],
+    }),
+    check('folio_settled_reduction_amount_check', sql`${t.reducedVnd} > 0`),
+    check(
+      'folio_settled_reduction_role_check',
+      sql`${t.actorRole} IN ('front_desk', 'front_desk_lead', 'manager', 'owner')`,
+    ),
+  ],
+);

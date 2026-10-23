@@ -19,6 +19,7 @@ import {
   type Actor,
   type ApprovalRow,
   ApprovalService,
+  DEBT_WRITE_OFF,
 } from '../../approvals/public/approval.service';
 import { ReservationHooks } from '../../reservations/public/reservation-hooks';
 import { applyPct } from '../../reservations/public/pricing';
@@ -26,11 +27,8 @@ import { FolioService, OTA_COVERED } from '../public/folio.service';
 import { keyKindOf } from '../public/reductions';
 import { StayWaiverAlertService } from './stay-waiver-alert';
 
-/**
- * ARC 16.27 (2) / R7LOCK-02 (DOM 18/10, BR-525): the FOC reason that writes a debt off after check-out – the ONLY
- * request on a `settled` / `closed` folio, and only while the stay has an open debt.
- */
-export const DEBT_WRITE_OFF = 'debt_write_off';
+// ARC 16.27 (2) / R7LOCK-02 (DOM 18/10, BR-525): `DEBT_WRITE_OFF` (approvals/public – FB-R3-ARC-FUZZ-03) is the ONLY
+// request on a `settled` / `closed` folio, and only while the stay has an open debt.
 const WRITE_OFF_ROLES = ['owner', 'manager'];
 
 export interface FocInput {
@@ -179,7 +177,7 @@ export class FolioFocService {
       folio.id,
       line.id,
       input.amountVnd,
-      writeOff ? 'debt_write_off' : 'key',
+      writeOff ? DEBT_WRITE_OFF : 'key',
     );
 
     const now = this.clock.now();

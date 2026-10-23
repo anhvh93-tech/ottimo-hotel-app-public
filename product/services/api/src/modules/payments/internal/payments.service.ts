@@ -301,6 +301,9 @@ export class PaymentsService {
     // "paid in full" step (FolioService.tryEarnCommissions): DOM 18/10, a receipt recorded after check-out counts
     // once confirmed (a transfer waits for its reconciliation, which runs this again).
     if (r.status === 'checked_out') await this.tryEarn(tx, r.id, actor.requestId);
+    // 0.3.8 bổ sung 3 (ARC FB-R3-ARC-FUZZ-01, BR-522 K11-06): a receipt recorded by a person on a settled folio that
+    // leaves an overpayment → the one shared rule (refund request by this person + "Cần chú ý"); L1 → L3 held above.
+    if (r.status === 'checked_out') await this.folios.afterSettledMoneyChange(tx, folioId, actor);
     await this.changed(tx, row, r.id);
     return row;
   }
@@ -573,6 +576,10 @@ export class PaymentsService {
       },
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });
+    // 0.3.8 bổ sung 3 (ARC FB-R3-ARC-FUZZ-01, BR-522 K11-06): a QR confirmed by a person after check-out (folio
+    // settled) that leaves an overpayment → refund request by this person + "Cần chú ý", same transaction (L1 → L3
+    // held above). The automatic reconciliation of a QR never comes here (J15 `waiting_refund`, the desk requests it).
+    await this.folios.afterSettledMoneyChange(tx, folioId, actor);
     const out = (await this.payments.row(tx, p.id)) as PaymentRowLite;
     await this.changed(tx, out, r.id);
     return out;

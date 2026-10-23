@@ -237,3 +237,47 @@ Nhánh `be-b/r3-q51-receiving-account`, đã rebase lên `origin/main` bea761f (
 - admin-web: 53 tệp, 550 test đạt.
 - typecheck 13/13; eslint, prettier đạt.
 - `drizzle-kit generate`: không sinh tệp.
+
+---
+
+# Fuzz R3-Q30 sau sửa – trả lời ARC (`s1-ARC-on-fuzz-fixes.md`), SEC (`s1-SEC-on-fuzz-fixes.md`) + hợp đồng 0.3.8 bổ sung 3 – 24/10
+
+Nhánh `be-b/r3-0.3.8-add3`, nằm trên `main` cục bộ `0281e20` (đã có ARC bổ sung 3 `ee88134` và DOM BR v0.4.3). Chi tiết ở `outputs/BE/s1-be-b.md` mục 12.
+
+## FB-R3-ARC-FUZZ-01 (Major): Done
+- `createRefundRequest` nhận folio `settled`; folio `closed` → 409.
+- Hàm dùng chung `FolioService.afterSettledMoneyChange` được gọi từ `adjustFolioLine`, `recordPayment` và `confirmPaymentReceived` (chỉ các đường có người bấm). Đường tự động vẫn để J15 giữ `waiting_refund`.
+- Đã có test cho cả 4 ca ARC liệt kê ở mục 13.2.
+
+## FB-R3-ARC-FUZZ-02 (Minor): Done
+- Hàm dùng chung chạy cả khi `openRefundVnd` > `rawCreditVnd`: hủy yêu cầu với lý do `superseded` rồi tạo lại đúng số.
+- Có test: A32 tăng làm tiền dư còn 60.000.
+
+## FB-R3-ARC-FUZZ-03 (Minor): Done
+- Chỉ còn một hằng `DEBT_WRITE_OFF`, ở `approvals/public`; folio import hằng này. JSDoc đã đặt lại đúng chỗ.
+- Còn hằng riêng ở `reporting` (không thuộc BE-B), đề xuất chủ module đổi theo.
+
+## FB-R3-SEC-FZ-01 (Minor): Done
+- Bước `approve` và `reject` không cho vai dưới `manager` quyết định `debt_write_off`, bất kể `required_role` đã lưu.
+- Test chèn tay một dòng có `required_role = front_desk_lead`: lễ tân trưởng duyệt hoặc từ chối → 403, dòng vẫn `pending`.
+
+## FB-R3-SEC-FZ-02 (Minor) → BR-433 (e) v0.4.3: Done
+- Cài đúng như DOM chốt:
+  - Σ ESC-026 cộng thêm phần A32 giảm sau trả phòng của người dưới OWN;
+  - yêu cầu hoàn tự sinh cộng dồn theo folio, so với cơ sở (d): vượt hoặc cơ sở null → chờ OWN;
+  - `reason_note` bắt đầu "Tự sinh từ A32";
+  - người làm A32 không duyệt được (403 + CHECK ở DB);
+  - OWN tự làm thì không tính.
+- Migration 0085.
+- Oracle FZ02-1, 2, 3 (biến thể), 4, 6, 7, 8 có test. FZ02-5 để QA đưa vào fuzz.
+- Hai điểm cài đặt, cần DOM/SEC xác nhận:
+  1. **Phần giảm tính vào Σ** = phần xuống dưới số của dòng lúc khách rời (đêm phòng không vượt giá tham chiếu). Tăng tay rồi hạ lại không tính, để giữ I16/BB07-1. Hạ → tăng → hạ thì có thể tính trùng; lệch này theo hướng báo nhiều hơn, tức an toàn.
+  2. **Số của yêu cầu hoàn từ A32** = min(tiền dư chưa yêu cầu, phần giảm thực). Yêu cầu thay thế (`superseded`) giữ nguồn A32. Người xin của yêu cầu thay thế là người vừa thao tác, còn `origin_actor_id` vẫn là người làm A32. I17 viết "`requested_by` = người làm A32", nên bản thay thế lệch I17 ở trường này; người làm A32 vẫn bị chặn duyệt.
+
+## Kiểm đã chạy
+- Toàn bộ API: 124 tệp đạt, 2 bỏ qua; 3.134 test đạt, 18 bỏ qua.
+- typecheck, eslint, prettier đạt. `drizzle-kit generate`: không sinh tệp.
+- Fuzz `FUZZ=1 FUZZ_BE83=1 FUZZ_CHAINS=30 FUZZ_SHRINK=1`: 9 họ, 270 chuỗi, 10.359 bước, deadlock 0, 5xx 0.
+  - I4, I8, I13, I16: **0 vi phạm**.
+  - 12 vi phạm I3/I7 vẫn chỉ ở họ **FZ-08**, seed 1012 và 1026. Đây đúng là nợ trước 0076: ORC/ARC đã xếp P3, DOM giữ ở v1.1, mã không sửa.
+  - Harness chưa có thao tác "QR về muộn dư" và "khoản tự động dư" (việc của QA theo ARC 13.2). Hai ca này hiện chỉ được phủ bằng test tích hợp ở trên.

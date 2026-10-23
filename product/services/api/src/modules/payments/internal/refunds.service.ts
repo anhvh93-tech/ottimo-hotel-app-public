@@ -168,7 +168,9 @@ export class RefundsService {
     }
     const folio = await this.folios.lock(tx, folioId);
     if (!folio) throw problem('NOT_FOUND');
-    if (folio.status !== 'open') throw problem('FOLIO_LOCKED');
+    // 0.3.8 bổ sung 3 (ARC FB-R3-ARC-FUZZ-01, BR-522 K11-06): an overpayment left after check-out is requested on the
+    // `settled` folio too (J15 keeps it settled – `waiting_refund` – until it is paid back); `closed` holds no credit (I4).
+    if (folio.status === 'closed') throw problem('FOLIO_LOCKED');
     // E15-05: the cap is the overpayment not routed to a refund request yet (open requests of every booking
     // of the folio already deducted by FolioService.balance).
     const max = (await this.folios.balance(tx, folio.id)).unhandledCreditVnd;

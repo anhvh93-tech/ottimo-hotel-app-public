@@ -268,3 +268,93 @@ Sửa: `limitBasisVnd` trả `null` khi không còn đêm phòng sống. Số ch
   - mã tính theo công thức nợ cũ (B − W_cũ) thì ra 0, và vì O = 0 nên A32 giảm sau đó không bị chặn (I7).
 - Phạm vi: chỉ dữ liệu trước 0076. Staging dựng từ DB trống, production chưa có dữ liệu (điều kiện OPS C2), nên đề xuất **P3**. Cần DOM chốt có coi nợ cũ sống lại sau khi xóa nợ bị hủy hay không. Nếu có: tạo chu kỳ cho nợ cũ ngay lần xóa nợ đầu tiên.
 - Log gốc nằm ngoài repo (thư mục scratchpad); có thể chạy lại tất định bằng seed.
+
+## 12. Hợp đồng 0.3.8 bổ sung 3 + BR-433 (e) v0.4.3 (24/10)
+
+Nhánh `be-b/r3-0.3.8-add3`, tách từ `main` cục bộ `ee88134`, đã fast-forward lên `0281e20` (DOM BR v0.4.3). Một PR, cần ARC + SEC review (mã tiền).
+
+### (a) `createRefundRequest` trên folio `settled` (ARC 13.2 điểm 1)
+- `RefundsService.create` nhận folio `open` hoặc `settled`, kể cả khi đã qua cửa sổ phát sinh mà J15 đang chờ (`waiting_refund`).
+- Folio `closed` → 409 `FOLIO_LOCKED`.
+- Vai, trần `unhandledCreditVnd` (422 + `max`) và luật người duyệt giữ như cũ.
+
+### (b) Quy tắc K11-06 dùng chung (ARC 13.2 điểm 2, FUZZ-01 + FUZZ-02)
+- Hàm duy nhất `FolioService.afterSettledMoneyChange(tx, folioId, actor, a32?)`. Ba đường **có người bấm** gọi hàm này, cùng giao dịch, dưới L1 → L3:
+  - `adjustFolioLine` (A32);
+  - `recordPayment`: mọi khoản thu trên đơn đã trả phòng, không chỉ khoản thu nợ;
+  - `confirmPaymentReceived`.
+- Hàm chỉ chạy khi folio `settled`, và khi có một trong hai điều kiện:
+  - `unhandledCreditVnd` > 0;
+  - `openRefundVnd` > `rawCreditVnd`.
+
+  Khi đó chạy `closeStayCredit`: `refundPlan` hủy các yêu cầu chờ với lý do `superseded`, tạo **một** yêu cầu `overpayment` bằng phần chưa yêu cầu (người xin = người bấm), và mở "Cần chú ý" `closed_reservation_credit`.
+- Đường **không** có người bấm không gọi hàm này: J15 giữ `waiting_refund` và mở "Cần chú ý"; lễ tân tạo yêu cầu bằng điểm (a).
+- Lý do hủy `superseded` truyền qua tham số mới `cancelReason` của `closeStayCredit`.
+
+### FUZZ-03 – một hằng `debt_write_off`
+- `DEBT_WRITE_OFF` khai một lần, export ở `approvals/public/approval.service.ts`. Folio (`foc.service.ts`) import hằng này; hằng riêng của folio đã bỏ.
+- JSDoc "Reason codes of BR-432" đã về đúng chỗ, trên `FOC_REASON_CODES`.
+- `reporting/internal/attention-sources.ts` vẫn còn `DEBT_WRITE_OFF_REASON` riêng. Module này không thuộc BE-B, nên chưa sửa; đề xuất chủ module đổi sang import hằng chung.
+
+### SEC FZ-01 – kiểm vai ở bước quyết định
+- Hàm `decisionFloor` dùng cho cả `approve` và `reject`: với `debt_write_off`, vai tối thiểu là `manager`, bất kể `required_role` đã lưu.
+- Dòng cũ có `required_role = front_desk_lead`: lễ tân trưởng bấm duyệt hoặc từ chối → 403 `APPROVAL_LIMIT_EXCEEDED`, không ghi gì.
+
+### BR-433 (e) v0.4.3 – A32 giảm sau trả phòng là một lần miễn (SEC FZ-02, oracle FZ02-1…8, I17)
+**Migration 0085** `settled_reduction_a32_refund`. Số kế tiếp sau 0084 trên `main` cục bộ; ORC xác nhận khi gộp. Journal `when` sau 0084, snapshot `prevId` = 0084.
+- Bảng `folio_settled_reduction`: mỗi lần A32 giảm trên folio `settled` ghi một dòng (phần giảm, người làm, vai lúc làm).
+  - Chỉ thêm, không sửa (app chỉ có SELECT, INSERT).
+  - Có RLS `tenant_isolation`.
+- Cột `approval_request.origin_actor_id`: người làm A32 sinh ra yêu cầu hoàn.
+  - CHECK `approval_request_origin_check`: chỉ dùng cho `refund`, và người duyệt khác người làm A32.
+
+**(1) Tính vào Σ lượt ESC-026.**
+- `StayWaiverAlertService.afterSettledReduction`, dùng chung phần đánh giá với `afterApplied`.
+- Σ = FOC đang áp + phần giảm sau trả phòng của vai dưới OWN.
+- Ngưỡng theo vai cao nhất có trong Σ. Thông báo, "Cần chú ý" và audit giữ như (c).
+
+**Phần giảm tính vào Σ** = max(0, min(dòng trước, số lúc khách rời) − dòng sau).
+- "Số lúc khách rời": lần theo chuỗi A32 (`related_line_id`, cùng loại dòng) về dòng ghi trước trả phòng, hoặc về dòng đầu của khoản phát sinh trong cửa sổ.
+- Đêm phòng không bao giờ vượt `limit_ref_vnd`.
+- Vì vậy tăng tay rồi hạ lại **không** tính (giữ đúng BB07-1 / I16).
+
+**(2) Yêu cầu hoàn tự sinh** (khi người làm A32 không phải OWN).
+- Số tiền = min(tiền dư chưa yêu cầu, phần giảm). Tiền dư mà OWN đã từ chối hoàn không bị A32 sau xin lại (FZ02-8).
+- Định tuyến theo Σ hoàn từ A32 của folio (đã duyệt + chờ + mới, bỏ yêu cầu bị từ chối hoặc hủy), so với cơ sở (d) `limitBasisVnd`:
+  - vượt cơ sở, hoặc cơ sở null → `owner`, qua `SubmitInput.minRequiredRole`;
+  - còn lại → `manager`.
+- Người làm A32 duyệt → 403 `SELF_APPROVAL_FORBIDDEN`.
+
+**(3) `reason_note`** = "Tự sinh từ A32: <void/giảm> dòng <loại> <dd/mm> <số> – <tên người làm> – lý do: <lý do A32>", tối đa 500 ký tự (cắt phần lý do).
+- Yêu cầu thay thế (`superseded`) giữ `origin_actor_id`, ghi chú và cách định tuyến của yêu cầu A32 mà nó thay. Áp dụng ở cả `closeStayCredit` và `refundsDownToCredit`.
+- OWN tự làm A32 thì không tính, và yêu cầu hoàn đi theo đường BR-522 cũ (FZ02-6).
+
+### Test
+- `s438-r8/r3-add3-settled-credit.test.ts` (6 ca):
+  - QR về muộn, người bấm xác nhận → yêu cầu đúng số;
+  - `recordPayment` thừa → yêu cầu do FD xin;
+  - khoản không có người bấm → J15 `waiting_refund` + "Cần chú ý" → FD tạo yêu cầu trên folio `settled` (vượt → 422 `max`) → MGR duyệt → lễ tân trưởng chi tiền mặt → J15 đóng;
+  - folio `closed` → 409;
+  - FUZZ-02: hủy `superseded` rồi tạo lại 60.000, giữ nguồn A32;
+  - SEC FZ-01.
+- `s438-r8/r3-br433e-a32-waiver.test.ts` (8 ca):
+  - FZ02-1, 2, 4, 6, 7, 8;
+  - FZ02-3 làm trên dòng F&B 1.500.000 > cơ sở, vì đơn hai đêm không void được hai đêm trong một lần A32;
+  - BB07-1/I16: tăng rồi hạ lại không tính.
+  - FZ02-5 (FOC lúc ở + giảm sau trả phòng) cùng đường cộng Σ với FZ02-2; để QA đưa vào fuzz.
+- `r3-bug-002-credit-after-checkout`, ca 2: `recordPayment` thừa nay tự sinh yêu cầu. Ca kiểm lưới an toàn J15 nay rút yêu cầu trước.
+- Toàn bộ API: 124 tệp đạt, 2 bỏ qua; 3.134 test đạt, 18 bỏ qua. typecheck, eslint, prettier đạt; `drizzle-kit generate` không sinh tệp.
+- Fuzz `FUZZ=1 FUZZ_BE83=1 FUZZ_CHAINS=30 FUZZ_SHRINK=1`: 270 chuỗi, 10.359 bước, deadlock 0, 5xx 0.
+  - I4, I8, I13, I16: 0 vi phạm.
+  - Còn 12 vi phạm I3/I7, chỉ ở họ FZ-08 (seed 1012, 1026) – nợ trước 0076, P3, để v1.1.
+
+### Việc cho vai khác
+- **ARC**:
+  - cập nhật `erd.md` cho bảng `folio_settled_reduction` và cột `approval_request.origin_actor_id`;
+  - xác nhận số migration 0085.
+- **QA**:
+  - đưa vào fuzz: thao tác "QR về muộn dư", "khoản tự động dư", FZ02-5 và bất biến I17;
+  - thêm fixture BR-433-16…19 (bỏ `pendingFix R3-SEC-FZ-02`).
+- **FE-A**:
+  - nút "Tạo yêu cầu hoàn" trên folio `settled`;
+  - hiện `reasonNote` "Tự sinh từ A32" cho người duyệt.
