@@ -156,3 +156,18 @@ export async function receivingAccountInEffect(
   const changedAt = r.updated_at.getTime() > start.getTime() ? r.updated_at : start;
   return { ...r.value, changedAt };
 }
+
+/**
+ * FB-R3-SEC-Q51-01: the free-text `reason` of a change to the receiving account must not carry an account number –
+ * it is stored and audited in clear (MGR reads money audits). Refused: a run of ≥ 6 digits (digit groups separated by
+ * spaces count as one run), or the account number sent. 422 `reason` `ACCOUNT_NUMBER_NOT_ALLOWED`.
+ */
+export function assertReasonWithoutAccountNumber(reason: string, accountNo?: unknown): void {
+  const joined = reason.replace(/(\d)\s+(?=\d)/g, '$1');
+  const own = typeof accountNo === 'string' ? accountNo.replace(/\s+/g, '') : '';
+  if (/\d{6,}/.test(joined) || (own.length > 0 && joined.includes(own))) {
+    throw problem('VALIDATION_FAILED', {
+      errors: [{ field: 'reason', code: 'ACCOUNT_NUMBER_NOT_ALLOWED' }],
+    });
+  }
+}

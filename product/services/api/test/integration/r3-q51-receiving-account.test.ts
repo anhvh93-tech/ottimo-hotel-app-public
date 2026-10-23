@@ -27,7 +27,7 @@ describe.skipIf(!HAS_DB)(
     let x: Fx;
     beforeAll(async () => {
       x = await startFixture();
-      await x.at('2026-10-20T10:00:00+07:00');
+      await x.at('2030-03-20T10:00:00+07:00');
     });
     afterAll(async () => {
       await x?.close();
@@ -61,7 +61,7 @@ describe.skipIf(!HAS_DB)(
       const r = keep(
         await put('owner', {
           value: ACC,
-          effectiveFrom: '2026-10-20',
+          effectiveFrom: '2030-03-20',
           reason: 'Tài khoản mới',
           reauth: REAUTH,
         }),
@@ -78,7 +78,7 @@ describe.skipIf(!HAS_DB)(
         const r = keep(
           await put(who, {
             value: ACC,
-            effectiveFrom: '2026-10-21',
+            effectiveFrom: '2030-03-21',
             reason: 'Tài khoản mới',
             reauth: REAUTH,
           }),
@@ -86,14 +86,14 @@ describe.skipIf(!HAS_DB)(
         expect(r.statusCode, `${who} ${r.body}`).toBe(403);
       }
       const missing = keep(
-        await put('owner', { value: ACC, effectiveFrom: '2026-10-21', reason: 'Tài khoản mới' }),
+        await put('owner', { value: ACC, effectiveFrom: '2030-03-21', reason: 'Tài khoản mới' }),
       );
       expect(missing.statusCode).toBe(422);
       expect(missing.json().errors).toEqual([{ field: 'reauth', code: 'REQUIRED' }]);
       const wrong = keep(
         await put('owner', {
           value: ACC,
-          effectiveFrom: '2026-10-21',
+          effectiveFrom: '2030-03-21',
           reason: 'Tài khoản mới',
           reauth: { authMethod: 'password', secret: 'not-the-password' },
         }),
@@ -108,11 +108,68 @@ describe.skipIf(!HAS_DB)(
       expect(denied[0].n).toBeGreaterThanOrEqual(1);
     });
 
+    it('ARC Q51-01 (0.3.8 bổ sung 2): first time, only a scheduled row → GET 200 WITHOUT current, history = that row (masked); MGR 403; OWN cancels it → GET 404; MGR still 403', async () => {
+      const r = keep(
+        await put('owner', {
+          value: ACC,
+          effectiveFrom: '2030-03-28',
+          reason: 'Nhập lần đầu',
+          reauth: REAUTH,
+        }),
+      );
+      expect(r.statusCode, r.body).toBe(200);
+      const h = keep(await history('owner'));
+      expect(h.statusCode, h.body).toBe(200);
+      expect(h.json()).not.toHaveProperty('current');
+      expect(h.json().history).toEqual([
+        expect.objectContaining({
+          effectiveFrom: '2030-03-28',
+          value: {
+            bankBin: '970407',
+            bankName: 'Techcombank',
+            accountNoMasked: '•••• 6789',
+            accountName: 'OTTIMO TEST',
+          },
+        }),
+      ]);
+      expect(keep(await history('mgr')).statusCode).toBe(403);
+      const c = keep(
+        await cancel('owner', { effectiveFrom: '2030-03-28', reason: 'Nhập nhầm', reauth: REAUTH }),
+      );
+      expect(c.statusCode, c.body).toBe(204);
+      expect(keep(await history('owner')).statusCode).toBe(404);
+      expect(keep(await history('mgr')).statusCode).toBe(403);
+      expect(await rows()).toEqual([]);
+    });
+
+    it('FB-R3-SEC-Q51-01: an account number in the reason (≥ 6 digits, spaced groups too, or the number sent) → 422 reason ACCOUNT_NUMBER_NOT_ALLOWED before S2, nothing written; an ISO date is fine', async () => {
+      for (const reason of ['Đổi sang TK 1903123456789', 'TK 1903 1234 56789', 'Mã 123456 cũ']) {
+        const r = keep(
+          await put('owner', { value: ACC, effectiveFrom: '2030-03-21', reason, reauth: REAUTH }),
+        );
+        expect(r.statusCode, `${reason} ${r.body}`).toBe(422);
+        expect(r.json().errors).toEqual([{ field: 'reason', code: 'ACCOUNT_NUMBER_NOT_ALLOWED' }]);
+      }
+      const c = keep(
+        await cancel('owner', {
+          effectiveFrom: '2030-03-21',
+          reason: 'Hủy TK 1903123456789',
+          reauth: REAUTH,
+        }),
+      );
+      expect(c.json().errors).toEqual([{ field: 'reason', code: 'ACCOUNT_NUMBER_NOT_ALLOWED' }]);
+      expect(await rows()).toEqual([]);
+      const failed = await x.q(
+        `SELECT count(*)::int AS n FROM audit_event WHERE action = 'stepup.s2_failed'`,
+      );
+      expect(failed[0].n).toBe(1); // only the wrong password of the case above – no factor burnt here
+    });
+
     it('Q51-2/Q51-6: OWN sets it from tomorrow → 200 masked `•••• 6789` + bankName; money audit masked; OWN/MGR told with the date; email to owners', async () => {
       const r = keep(
         await put('owner', {
           value: ACC,
-          effectiveFrom: '2026-10-21',
+          effectiveFrom: '2030-03-21',
           reason: 'Tài khoản mới',
           reauth: REAUTH,
         }),
@@ -124,34 +181,34 @@ describe.skipIf(!HAS_DB)(
         accountNoMasked: '•••• 6789',
         accountName: 'OTTIMO TEST',
       });
-      const [a] = await audits();
+      const a = (await audits()).pop();
       expect(a.category).toBe('money');
       expect(a.after.value).toMatchObject({
         accountNoMasked: '•••• 6789',
         bankName: 'Techcombank',
       });
       const told = await x.q(
-        `SELECT user_id, ref_code FROM staff_notification WHERE kind = 'receiving_account_changed'`,
+        `SELECT user_id, ref_code FROM staff_notification
+          WHERE kind = 'receiving_account_changed' AND ref_code = '2030-03-21'`,
       );
       const ids = told.map((n: any) => n.user_id);
       expect(ids).toEqual(expect.arrayContaining([x.t.users.owner!.id, x.t.users.mgr!.id]));
-      expect(told.every((n: any) => n.ref_code === '2026-10-21')).toBe(true);
       const mails = await x.q(`SELECT payload FROM outbox_message WHERE topic = 'staff.email'`);
       expect(mails.map((m: any) => m.payload)).toContainEqual({
         template: 'receiving_account_changed',
         userIds: [],
         owners: true,
-        effectiveDate: '2026-10-21',
+        effectiveDate: '2030-03-21',
       });
     });
 
     it('Q51-1: history – OWN 200 with the scheduled row; MGR → 403; FD, SAL refused; listParameters drops the key for MGR', async () => {
-      await x.at('2026-10-22T10:00:00+07:00');
+      await x.at('2030-03-22T10:00:00+07:00');
       expect(
         keep(
           await put('owner', {
             value: { ...ACC, accountNo: '0071000123456', bankBin: '970436' },
-            effectiveFrom: '2026-10-25',
+            effectiveFrom: '2030-03-25',
             reason: 'Đổi sang tài khoản mới',
             reauth: REAUTH,
           }),
@@ -159,10 +216,10 @@ describe.skipIf(!HAS_DB)(
       ).toBe(200);
       const h = keep(await history('owner'));
       expect(h.statusCode, h.body).toBe(200);
-      expect(h.json().current.effectiveFrom).toBe('2026-10-21');
+      expect(h.json().current.effectiveFrom).toBe('2030-03-21');
       expect(h.json().history.map((p: any) => p.effectiveFrom)).toEqual([
-        '2026-10-25',
-        '2026-10-21',
+        '2030-03-25',
+        '2030-03-21',
       ]);
       expect(h.json().history[0].value).toEqual({
         bankBin: '970436',
@@ -182,7 +239,7 @@ describe.skipIf(!HAS_DB)(
     });
 
     it('Q51-5: cancelScheduledParameter – MGR 403; wrong password 401; OWN → 204, money audit `cancelledEffectiveFrom` masked, told + email; the row in force → 409; no such row → 404', async () => {
-      const body = { effectiveFrom: '2026-10-25', reason: 'Nhập nhầm', reauth: REAUTH };
+      const body = { effectiveFrom: '2030-03-25', reason: 'Nhập nhầm', reauth: REAUTH };
       expect(keep(await cancel('mgr', body)).statusCode).toBe(403);
       const wrong = keep(
         await cancel('owner', {
@@ -191,29 +248,30 @@ describe.skipIf(!HAS_DB)(
         }),
       );
       expect(wrong.statusCode).toBe(401);
-      expect(await rows()).toEqual(['2026-10-21', '2026-10-25']);
+      expect(await rows()).toEqual(['2030-03-21', '2030-03-25']);
       const ok = keep(await cancel('owner', body));
       expect(ok.statusCode, ok.body).toBe(204);
-      expect(await rows()).toEqual(['2026-10-21']);
+      expect(await rows()).toEqual(['2030-03-21']);
       const last = (await audits()).pop();
       expect(last.category).toBe('money');
-      expect(last.after).toEqual({ cancelledEffectiveFrom: '2026-10-25' });
+      expect(last.after).toEqual({ cancelledEffectiveFrom: '2030-03-25' });
       expect(last.before.value).toMatchObject({ accountNoMasked: '•••• 3456' });
       const mails = await x.q(
         `SELECT payload FROM outbox_message
-          WHERE topic = 'staff.email' AND dedupe_key LIKE 'email:receiving_account_changed:cancel:%'`,
+          WHERE topic = 'staff.email' AND dedupe_key LIKE 'email:receiving_account_changed:cancel:%'
+            AND payload->>'effectiveDate' = '2030-03-25'`,
       );
       expect(mails.map((m: any) => m.payload)).toEqual([
         {
           template: 'receiving_account_changed',
           userIds: [],
           owners: true,
-          effectiveDate: '2026-10-25',
+          effectiveDate: '2030-03-25',
         },
       ]);
-      const inForce = keep(await cancel('owner', { ...body, effectiveFrom: '2026-10-21' }));
+      const inForce = keep(await cancel('owner', { ...body, effectiveFrom: '2030-03-21' }));
       expect(inForce.statusCode, inForce.body).toBe(409);
-      const none = keep(await cancel('owner', { ...body, effectiveFrom: '2026-10-30' }));
+      const none = keep(await cancel('owner', { ...body, effectiveFrom: '2030-03-30' }));
       expect(none.statusCode).toBe(404);
     });
 
@@ -230,6 +288,32 @@ describe.skipIf(!HAS_DB)(
         );
         expect(hit, n).toEqual({ audit: 0, outbox: 0, notes: 0, replies: 0 });
       }
+    });
+
+    it('FB-R3-SEC-Q51-02 (0084 trigger): ottimo_app deleting a row in force / past straight in SQL → refused by the database; a future row is deletable (the app path)', async () => {
+      // (the trigger reads the real clock: 2020 is in the past, 2031 in the future of any run of this suite)
+      await x.q(
+        `INSERT INTO config_parameter (id, organization_id, property_id, key, value, effective_from, reason,
+           created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, $2, 'business_day_rollover', '"06:00"', '2020-01-02', 'q51 trigger test',
+           now(), now()),
+                (gen_random_uuid(), $1, $2, 'business_day_rollover', '"06:00"', '2031-01-02', 'q51 trigger test',
+           now(), now())`,
+        [x.t.organizationId, x.t.propertyIds[0]],
+      );
+      await expect(
+        x.q(
+          `DELETE FROM config_parameter WHERE key = 'business_day_rollover' AND effective_from = '2020-01-02'`,
+        ),
+      ).rejects.toThrow(/only a row scheduled after the business date/);
+      await x.q(
+        `DELETE FROM config_parameter WHERE key = 'business_day_rollover' AND effective_from = '2031-01-02'`,
+      );
+      const left = await x.q(
+        `SELECT effective_from::text AS d FROM config_parameter
+          WHERE key = 'business_day_rollover' AND reason = 'q51 trigger test'`,
+      );
+      expect(left.map((r: any) => r.d)).toEqual(['2020-01-02']);
     });
   },
 );

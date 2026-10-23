@@ -31,7 +31,10 @@ import { ProblemError, problem } from '../../../shared/problem';
 import { EventsService } from '../../events/public/events.service';
 import { StrongReauthService } from '../../identity/public/strong-reauth';
 import { notifyStaff } from '../public/staff-notify';
-import { RECEIVING_ACCOUNT_KEY } from '../public/receiving-account';
+import {
+  RECEIVING_ACCOUNT_KEY,
+  assertReasonWithoutAccountNumber,
+} from '../public/receiving-account';
 import { AuditService } from '../../audit/public/audit.service';
 import { assertNoCardNumber, localDateSchema, parseBody, reasonSchema } from '../public/validation';
 import { ChannelsService, channelDto } from '../public/channels';
@@ -269,6 +272,11 @@ export class PlatformController {
       if (receiving) {
         // SEC F3: owner only (403 before any password check), then the owner's own password in this request.
         if (!p.roles.includes('owner')) throw problem('FORBIDDEN_ACTION');
+        // FB-R3-SEC-Q51-01: no account number in the free-text reason (checked before S2 – no factor burnt).
+        assertReasonWithoutAccountNumber(
+          input.reason,
+          (input.value as { accountNo?: unknown } | null)?.accountNo,
+        );
         await this.s2(req, input.reauth, 'setParameter');
       }
       const result = await this.uow.run(req, async (tx) => {
@@ -317,6 +325,7 @@ export class PlatformController {
       if (receiving) {
         // SEC Q51-1/Q51-4: owner only (403 before any password check), then S2 in this request.
         if (!p.roles.includes('owner')) throw problem('FORBIDDEN_ACTION');
+        assertReasonWithoutAccountNumber(input.reason);
         await this.s2(req, input.reauth, 'cancelScheduledParameter');
       }
       const result = await this.uow.run(req, async (tx) => {

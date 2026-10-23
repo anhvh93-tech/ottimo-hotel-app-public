@@ -128,7 +128,7 @@ export class ParametersService {
     tx: Tx,
     roles: readonly string[],
     key: string,
-  ): Promise<{ current: ParameterDto; history: ParameterDto[] }> {
+  ): Promise<{ current?: ParameterDto; history: ParameterDto[] }> {
     const pc = await this.property.now(tx);
     const since = await this.propertySince(tx);
     const { rows: defs } = await tx.query<Row>(
@@ -152,8 +152,11 @@ export class ParametersService {
     );
     const history = rows.map((r) => this.dto(r, pc.iso, since));
     const currentRow = rows.find((r) => (r.effective_from as string) <= pc.today);
-    if (!currentRow && def.default_value === null) throw problem('NOT_FOUND');
-    return { current: this.dto(currentRow ?? def, pc.iso, since), history };
+    // 0.3.8 bổ sung 2 (ARC FB-R3-ARC-Q51-01): 404 only when the key has no row at all and no default; rows that are all
+    // scheduled → 200 without `current` (the owner sees – and can cancel – what was typed the first time).
+    if (rows.length === 0 && def.default_value === null) throw problem('NOT_FOUND');
+    const current = currentRow ?? (def.default_value !== null ? def : null);
+    return { ...(current ? { current: this.dto(current, pc.iso, since) } : {}), history };
   }
 
   async set(

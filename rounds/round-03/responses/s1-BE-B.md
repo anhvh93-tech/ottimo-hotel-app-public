@@ -199,3 +199,41 @@ Như FB-07 ở trên. Test kiến trúc mới `test/money-limit-basis-architectu
 - `ConfirmedStay.nights[].referenceRateVnd` chuyển thành bắt buộc. Bỏ `?? gross` khi ghi dòng đêm.
 
 Ngoài hai thẻ trên, mã không đổi so với `41c49d7`.
+
+---
+
+# R3-Q51 – trả lời review ARC (`s1-ARC-on-Q51.md`) và SEC (`s1-SEC-on-Q51.md`) – 23/10
+
+Nhánh `be-b/r3-q51-receiving-account`, đã rebase lên `origin/main` bea761f (có hợp đồng 0.3.8 bổ sung 2).
+
+## FB-R3-ARC-Q51-01 (Major) – phần server: Done
+- `getParameterHistory` chỉ trả 404 khi khóa **không có dòng nào** và cũng không có mặc định.
+- Khóa có dòng nhưng chưa dòng nào tới ngày hiệu lực → 200, bỏ `current`, `history` liệt kê đủ các dòng đã lên lịch.
+- Test: đặt lần đầu → GET 200, không có `current`, `history` 1 dòng (số đã che) → MGR 403 → OWN hủy → GET 404 → MGR vẫn 403.
+- Phần màn hình và MSW: FE-A làm tiếp trên nhánh này, theo đúng chỉ đạo của ORC.
+
+## FB-R3-ARC-Q51-02 (Minor) + FB-R3-SEC-Q51-02 (Minor): Done
+- Migration 0084 thêm trigger `config_parameter_delete_future_only` (`BEFORE DELETE`).
+  - Chỉ cho xóa dòng có `effective_from` sau ngày kinh doanh của cơ sở, tính bằng giờ địa phương − `business_day_rollover` (mặc định 06:00). Các dòng khác bị chặn bằng `check_violation`.
+- Test DB: dùng chính role `ottimo_app`, xóa thẳng bằng SQL một dòng đã qua → bị từ chối; xóa một dòng tương lai → được.
+- Test kiến trúc `test/parameters-delete-architecture.test.ts`:
+  - `DELETE FROM config_parameter` chỉ xuất hiện trong `ParametersService.cancelScheduled`;
+  - migration 0084 phải có trigger nói trên.
+- Lưu ý: trigger đọc giờ thật của CSDL (`now()`), không đọc đồng hồ giả của test. Vì vậy test Q51 dùng ngày năm 2030.
+
+## FB-R3-SEC-Q51-01 (Minor): Done
+- Với khóa `payment_receiving_account`, cả khi đặt lẫn khi hủy: `reason` có dãy từ 6 chữ số trở lên (các nhóm số cách nhau bằng dấu cách tính là một dãy), hoặc chứa đúng số tài khoản vừa gửi → 422 `reason` `ACCOUNT_NUMBER_NOT_ALLOWED`.
+- Kiểm tra chạy **trước** bước xác thực S2, nên không làm hỏng mã TOTP hay tốn mã khôi phục, và không ghi gì.
+- Ngày dạng ISO (`2030-03-21`) vẫn được nhận.
+- Có test riêng; bước quét JSON của Q51-2 vẫn xanh.
+- Gợi ý chữ trên màn ("không ghi số tài khoản vào lý do"): giao FE-A.
+
+## FB-R3-SEC-Q51-03
+- Phần axe/E2E: giao QA, theo ORC.
+
+## Kiểm đã chạy
+- `r3-q51-receiving-account` 9/9; kiến trúc 2/2.
+- Toàn bộ API: 116 tệp đạt, 1 bỏ qua; 3.097 test đạt, 7 bỏ qua.
+- admin-web: 53 tệp, 550 test đạt.
+- typecheck 13/13; eslint, prettier đạt.
+- `drizzle-kit generate`: không sinh tệp.
