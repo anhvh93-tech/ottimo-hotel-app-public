@@ -204,7 +204,7 @@ jobs:
         run: pnpm --filter @ottimo/tests test:e2e:landing
       - name: Upload landing Playwright report (on failure)
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: landing-playwright-report
           path: |
@@ -640,7 +640,7 @@ jobs:
       # night's failures the next morning (qa/s4-test-plan 3.2 points 2 and 4).
       - name: Upload Playwright report (on failure; every T9 run)
         if: ${{ failure() || (!cancelled() && env.T9 == 'true') }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.T9 == 'true' && 't9-playwright-report' || 'playwright-report' }}
           path: |
@@ -727,7 +727,7 @@ jobs:
             || { echo "::error::could not read the pushed digests"; exit 1; }
           cat "$RUNNER_TEMP/digests/image-digests.txt"
       - name: Keep the pushed digests (read by release.yml)
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: image-digests
           path: ${{ runner.temp }}/digests/image-digests.txt
