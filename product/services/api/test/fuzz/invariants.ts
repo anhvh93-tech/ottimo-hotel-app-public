@@ -19,6 +19,8 @@ import {
 } from './ref-ledger';
 
 export interface CodeView {
+  /** Folio.totals.unhandledCreditVnd (credit not yet routed to a refund request) */
+  unhandledCreditVnd?: number;
   dueVnd: number;
   creditVnd: number;
   folioStatus: string;
@@ -38,6 +40,10 @@ export interface StepCtx {
     windowOverBefore: boolean;
     closedBefore: boolean;
   };
+  /** The step was a money op done by a person on a settled folio (A32 reduce, collect, confirm a QR) – K11-06. */
+  humanMoneyOnSettled?: boolean;
+  /** user id → role of the fixture accounts (who did what) */
+  roleOf?: Record<string, string>;
   /** Chain started from a pre-0076 debt (210): `debt_recorded_vnd` holds X + new records (ARC 5.2), not Σ audits. */
   legacyCycle?: boolean;
   /**
@@ -74,6 +80,12 @@ export interface Gates {
   /** R3-Q23 (FB-R2-ARC-BE-S4-17, lượt tiền bước 6c): pending write-offs auto-cancelled `debt_cleared` in the SAME
    *  transaction that brings O to 0. Until merged (fixture BR-525-41 `pendingFix`), I9 is a warning. */
   q23?: boolean;
+  /** BR-433 (e) v0.4.3 (SEC FZ-02): post-checkout A32 reductions = waivers – auto refund "Tự sinh từ A32", Σ > basis
+   *  → OWN, counted in ESC-026 (I17). Until BE-B merges it, I17 is a warning. */
+  fz02?: boolean;
+  /** ARC 0.3.8 addendum 3 (FUZZ-01, K11-06): a HUMAN money op leaving credit on a settled folio creates the refund
+   *  request in the same transaction. Until merged, the check is a warning. */
+  k1106?: boolean;
 }
 
 export function check(
@@ -108,9 +120,12 @@ export function check(
   // I3 – code O = reference O
   if (O !== ref.O)
     add(
-      soft('I3', !!ctx.ambiguousOrder || gap),
+      soft('I3', !!ctx.ambiguousOrder || gap || !!ctx.legacyCycle),
       `openDebtVnd ${O} ≠ ref ${ref.O} (R ${ref.R}, D ${ref.D}, B ${ref.B})` +
-        (ctx.ambiguousOrder ? ' – race at one instant, critic orders it from the log' : ''),
+        (ctx.ambiguousOrder ? ' – race at one instant, critic orders it from the log' : '') +
+        (ctx.legacyCycle
+          ? ' – FZ-08 known: pre-0076 debt uses the legacy formula (ARC s1-ARC-on-fuzz-fixes, P3, not counted in G1)'
+          : ''),
     );
   // I4
   if (code.folioStatus === 'closed' && codeB < 0) add('I4', `closed folio with credit ${-codeB}`);
@@ -199,7 +214,8 @@ export function check(
   // I14 – no 5xx (deadlocks are counted by the runner per chain)
   if (ctx.http5xx) add('I14', `${ctx.op} answered ${ctx.status}`);
 
-  if (g.be83) be83(raw, ref, v, nowIso, ctx.basisAtCreate);
+  if (g.be83) be83(raw, ref, v, nowIso, ctx.basisAtCreate, g, ctx.roleOf);
+  refundChecks(raw, ref, code, ctx, v, g);
   return v;
 }
 
@@ -223,6 +239,8 @@ function be83(
   v: Violation[],
   nowIso: string,
   created?: Map<string, number>,
+  g?: Gates,
+  roleOf?: Record<string, string>,
 ): void {
   const basisOf = (id: string, t: string) => created?.get(id) ?? basisAt(raw, t);
   const add = (inv: string, msg: string) => v.push({ inv, msg });
@@ -246,15 +264,43 @@ function be83(
     if (before + a.amountVnd > basisOf(a.id, a.requestedAt) && a.requiredRole !== 'owner')
       add('I8', `request ${a.id} above the basis but required_role = ${a.requiredRole}`);
   }
-  // I16 + I13 replay
+  // debt_write_off never routed or approved below MGR (SEC fuzz-fixes #3, FB-R3-SEC-FZ-01; BUG-R3-003)
+  for (const a of raw.approvals.filter((x) => x.reasonCode === 'debt_write_off')) {
+    if (a.requiredRole && RANK[a.requiredRole] !== undefined && RANK[a.requiredRole]! < 3)
+      add('I8', `debt_write_off ${a.id} routed to ${a.requiredRole}`);
+    if (a.status === 'approved' && a.approverRole && RANK[a.approverRole]! < 3)
+      add('I8', `debt_write_off ${a.id} approved by ${a.approverRole}`);
+  }
+  // I16 + I13 replay; BR-433 (e): post-checkout A32 reductions by roles below OWN count in Σ lượt
+  type W = { t: string; amt: number; role: string; wo: boolean; id?: string };
+  const items: W[] = applied.map((a) => ({
+    t: a.requestedAt,
+    amt: appliedAt(raw, a.id, nowIso),
+    role: a.approverRole!,
+    wo: a.reasonCode === 'debt_write_off',
+    id: a.id,
+  }));
+  const out = raw.reservation.actualCheckoutAt;
+  if (g?.fz02 && out)
+    for (const r of raw.a32Reductions)
+      if (r.at >= out && r.role && SUB_OWNER.has(r.role))
+        items.push({ t: r.at, amt: r.reducedVnd, role: r.role, wo: false });
+  items.sort((p, q) => (p.t < q.t ? -1 : 1));
+  void roleOf;
   let woSum = 0;
   let staySum = 0;
   let top = 0;
   let crossed = false;
-  for (const a of applied) {
+  for (const it of items) {
+    const a = {
+      requestedAt: it.t,
+      reasonCode: it.wo ? 'debt_write_off' : 'x',
+      id: it.id ?? '',
+      approverRole: it.role,
+    };
     const t = a.requestedAt;
-    const amt = appliedAt(raw, a.id, nowIso);
-    const basis = basisOf(a.id, t);
+    const amt = it.amt;
+    const basis = it.id ? basisOf(it.id, t) : basisAt(raw, t);
     if (a.reasonCode === 'debt_write_off') {
       woSum += amt;
       if (woSum > basis && !told)
@@ -292,4 +338,62 @@ function be83(
       `Σ write-off ${ref.writeOffBySubOwnerVnd} > basis now ${ref.basisVnd} after the basis went down`,
     );
   void nowIso;
+}
+
+/**
+ * Refunds after check-out (BUG-R3-002 fix, ARC addendum 3 – K11-06, BR-433 (e) v0.4.3 / I17, SEC fuzz-fixes #1–#2):
+ * - I4+: a settled folio never keeps unhandled credit after a money op done by a person (the refund request is
+ *   created in the same transaction); credit from a path without a person → J15 waits + closed_reservation_credit.
+ * - I17: every refund request born from an A32 reduction: requested_by = the person of the A32, reason_note starts
+ *   "Tự sinh từ A32"; Σ of those (not rejected/cancelled/superseded) > basis ⇒ required_role = owner.
+ * - a refund request is never approved by its requester, nor by a role below MGR.
+ */
+function refundChecks(
+  raw: RawFolio,
+  ref: RefView,
+  code: CodeView,
+  ctx: StepCtx,
+  v: Violation[],
+  g: Gates,
+): void {
+  const add = (inv: string, msg: string) => v.push({ inv, msg });
+  const unhandled = code.unhandledCreditVnd ?? 0;
+  if (raw.folio.status === 'settled' && ctx.humanMoneyOnSettled && unhandled > 0)
+    add(
+      g.k1106 ? 'I4' : 'I4?',
+      `settled folio keeps ${unhandled} credit without a refund request after "${ctx.op}"${g.k1106 ? '' : ' – K11-06 (ARC addendum 3) not merged'}`,
+    );
+  if (
+    raw.folio.status === 'settled' &&
+    ref.windowOver &&
+    unhandled > 0 &&
+    raw.creditAttentionOpen === 0
+  )
+    add(
+      'I4',
+      `window over, credit ${unhandled} without refund request and no closed_reservation_credit item`,
+    );
+  const alive = (st: string) => !['rejected', 'cancelled', 'superseded'].includes(st);
+  let sumA32 = 0;
+  for (const r of raw.refunds) {
+    if (r.status === 'approved' || r.status === 'paid' || r.status === 'executed') {
+      if (r.approverId && r.approverId === r.requestedBy)
+        add('I17', `refund ${r.id} approved by its requester`);
+      if (r.approverRole && !['manager', 'owner'].includes(r.approverRole))
+        add('I17', `refund ${r.id} approved by ${r.approverRole}`);
+    }
+    const fromA32 = (r.reasonNote ?? '').startsWith('Tự sinh từ A32');
+    if (!fromA32) continue;
+    if (!alive(r.status)) continue;
+    sumA32 += r.amountVnd;
+    const basis = basisAt(raw, r.requestedAt);
+    if (sumA32 > basis && r.requiredRole !== 'owner')
+      add(
+        g.fz02 ? 'I17' : 'I17?',
+        `Σ A32 refunds ${sumA32} > basis ${basis} but ${r.id} required_role = ${r.requiredRole}`,
+      );
+    const a32 = raw.a32Reductions.filter((x) => x.at <= r.requestedAt).pop();
+    if (a32?.actorId && r.requestedBy && a32.actorId !== r.requestedBy)
+      add(g.fz02 ? 'I17' : 'I17?', `refund ${r.id} requested_by ≠ the person of the A32`);
+  }
 }

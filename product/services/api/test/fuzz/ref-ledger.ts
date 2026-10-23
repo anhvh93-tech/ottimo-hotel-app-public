@@ -9,17 +9,16 @@
  *
  *   B  còn phải thu (signed) = Σ posted lines − Σ live receipts (succeeded, not reversed, not a security deposit,
  *      not a refund) + Σ refunds paid (refund rows are negative amounts → subtract them)
- *   R  debt recorded in the current cycle = Σ `reservation.debt_on_checkout`.after.debtVnd since the cycle opened
- *   D  reduced since the cycle opened = Σ receipts received at/after the cycle opened (reversed later or not – the
- *      reversal is in R)
- *      + Σ live `debt_write_off` FOC lines posted at/after the cycle opened (posted, not a reversal row, not reversed)
- *   O  open debt = clamp(R − D, 0, max(0, B)); window over (folio `closed` or now ≥ post_checkout_window_until)
- *      → O = max(0, B)
+ *   O  open debt by EVENT REPLAY (v0.4.3, oracle 5.6): in time order – a debt record adds (a record while O = 0 opens
+ *      a new cycle), a receipt reduces (counted when received, also one reversed later: its reversal is a debt
+ *      record), a posted `debt_write_off` FOC reduces, a reversed one revives; after every instant
+ *      O = clamp(O, 0, max(0, B of that instant)). So debt extinguished because B fell to 0 does not come back
+ *      when B rises later (FZ08-1/3). Old (pre-0076) debt the same way. Window over (folio `closed` or
+ *      now ≥ post_checkout_window_until) → O = max(0, B).
+ *   R, D  the records / reductions of the current cycle (for I5 and the log)
  *   W  = max(0, B) − O
- *   cycle: a debt record while O (just before it) = 0 opens a new cycle (R restarts at that record); otherwise it
- *      adds to the open cycle. O "just before" is computed with the same formula on rows created before the record
- *      (receipts reversed LATER still count as live before their reversal: `updated_at` of a reversed receipt is
- *      taken as its reversal time – [GIẢ ĐỊNH QA], critic checks on the raw log).
+ *   Same-instant rows: reductions, then revivals, then records (the runner spaces steps by one fake second; a race
+ *      at one instant is flagged `ambiguousOrder` and the critic orders it from the raw log).
  *   basis (BR-433 (d), v0.4.1 – oracle mục 5.4): per night, protected rate = min(live night line price, reference
  *      rate of that night (`stay_night.reference_rate_vnd` – the system price, INPUT data; a late_fee_as_night line
  *      uses the price the system wrote)); a night without a live line protects 0; basis = highest protected night.
@@ -91,6 +90,27 @@ export interface RawFolio {
   ownerNotifications: number | null;
   /** Open "Cần chú ý" items `foc_stay_total_exceeded` of this stay. */
   openAttention: number | null;
+  /** Refund requests of the stay (approval_request type refund) – BR-522, BR-433 (e) / I17. */
+  refunds: Array<{
+    id: string;
+    status: string;
+    amountVnd: number;
+    requestedBy: string | null;
+    requiredRole: string | null;
+    reasonNote: string | null;
+    approverId: string | null;
+    approverRole: string | null;
+    requestedAt: string;
+  }>;
+  /** A32 reductions on this folio (audit `folio_line.adjusted` with `after.reducedVnd`): who (role) and when. */
+  a32Reductions: Array<{
+    at: string;
+    role: string | null;
+    actorId: string | null;
+    reducedVnd: number;
+  }>;
+  /** Open "Cần chú ý" `closed_reservation_credit` of this stay. */
+  creditAttentionOpen: number;
 }
 
 const num = (v: unknown) => (v === null || v === undefined ? 0 : Number(v));
@@ -161,7 +181,45 @@ export async function readRaw(q: Q, folioId: string, reservationId: string): Pro
     );
     openAttention = a?.n ?? 0;
   }
+  const refunds = await q(
+    `SELECT id, status, amount_vnd, requested_by, required_role, reason_note, approver_id, approver_role_snapshot,
+            requested_at
+       FROM approval_request WHERE type = 'refund' AND target_id = $1 ORDER BY requested_at, id`,
+    [reservationId],
+  );
+  const a32 = await q(
+    `SELECT a.occurred_at, a.actor_user_id AS actor_id, a.before, a.after FROM audit_event a
+      WHERE a.action = 'folio_line.adjusted'
+        AND a.entity_id IN (SELECT id::text FROM folio_line WHERE folio_id = $1)
+      ORDER BY a.occurred_at, a.id`,
+    [folioId],
+  ).catch(() => []);
+  const [ca] = await q(
+    `SELECT count(*)::int AS n FROM attention_event
+      WHERE kind = 'closed_reservation_credit' AND ref_id = $1 AND resolved_at IS NULL`,
+    [reservationId],
+  );
   return {
+    refunds: refunds.map((x: any) => ({
+      id: x.id,
+      status: x.status,
+      amountVnd: num(x.amount_vnd),
+      requestedBy: x.requested_by,
+      requiredRole: x.required_role,
+      reasonNote: x.reason_note,
+      approverId: x.approver_id,
+      approverRole: x.approver_role_snapshot,
+      requestedAt: iso(x.requested_at)!,
+    })),
+    a32Reductions: a32
+      .filter((x: any) => num(x.after?.reducedVnd) > 0)
+      .map((x: any) => ({
+        at: iso(x.occurred_at)!,
+        role: x.before?.actorRole ?? null,
+        actorId: x.actor_id ?? null,
+        reducedVnd: num(x.after?.reducedVnd),
+      })),
+    creditAttentionOpen: ca?.n ?? 0,
     folio: {
       id: f.id,
       status: f.status,
@@ -283,78 +341,105 @@ function signedBAt(raw: RawFolio, t: string): number {
 const writeOffIds = (raw: RawFolio) =>
   new Set(raw.approvals.filter((a) => a.reasonCode === 'debt_write_off').map((a) => a.id));
 
-/**
- * D counts every receipt RECEIVED in the cycle, also one reversed later: the reversal itself is a debt record
- * (G-4 "phần tăng", in R). Counting it out of D as well would add the same money twice (fuzz FZ-01 seed 1000
- * step 31: reverse a 1.000 receipt → O +2.000). Oracle mục 1 says "khoản thu" without saying which – [GIẢ ĐỊNH QA],
- * card to DOM (FB-R3-QA-DOM-01) to write it in the definition.
- */
-function dSince(raw: RawFolio, from: string, t: string): number {
-  let d = 0;
+interface Ev {
+  t: string;
+  /** 0 reduction (receipt, write-off), 1 revival (write-off undone), 2 debt record */
+  order: number;
+  kind: 'reduce' | 'revive' | 'record' | 'tick';
+  amount: number;
+  audit?: RawFolio['debtAudits'][number];
+}
+
+function replay(
+  raw: RawFolio,
+  nowIso: string,
+): {
+  O: number;
+  cycleOpenedAt: string | null;
+  R: number;
+  D: number;
+  oBeforeRecord: RefView['oBeforeRecord'];
+} {
+  const wo = writeOffIds(raw);
+  const ev: Ev[] = [];
+  for (const a of raw.debtAudits)
+    if (a.at <= nowIso) ev.push({ t: a.at, order: 2, kind: 'record', amount: a.debtVnd, audit: a });
+  // receipts count when received, also one reversed later (its reversal is a debt record – FB-R3-QA-DOM-01)
   for (const p of raw.payments)
     if (
-      p.createdAt >= from &&
-      p.createdAt <= t &&
+      p.createdAt <= nowIso &&
       !p.reversalOfId &&
       p.type !== 'refund' &&
       p.type !== 'security_deposit' &&
       (p.status === 'succeeded' || p.status === 'reversed')
     )
-      d += p.amountVnd;
-  const wo = writeOffIds(raw);
-  for (const l of raw.lines)
-    if (
-      l.category === 'foc' &&
-      l.approvalRequestId &&
-      wo.has(l.approvalRequestId) &&
-      l.postedAt >= from &&
-      lineLiveAt(raw, l, t)
-    )
-      d += -l.amountVnd;
-  // a write-off of an EARLIER cycle undone in this one (its FOC reversed, e.g. A32 void of the line carrying it):
-  // the forgiven debt comes back – [GIẢ ĐỊNH QA, FB-R3-QA-DOM-02] (fuzz FZ-01 seed 10094 step 30: code O +13.000)
-  for (const l of raw.lines)
-    if (
-      l.category === 'foc' &&
-      l.reversalOfId &&
-      l.postedAt >= from &&
-      l.postedAt <= t &&
-      l.amountVnd > 0
-    ) {
+      ev.push({ t: p.createdAt, order: 0, kind: 'reduce', amount: p.amountVnd });
+  for (const l of raw.lines) {
+    if (l.category !== 'foc' || l.postedAt > nowIso || l.lineState !== 'posted') continue;
+    if (!l.reversalOfId && l.approvalRequestId && wo.has(l.approvalRequestId) && l.amountVnd < 0)
+      ev.push({ t: l.postedAt, order: 0, kind: 'reduce', amount: -l.amountVnd });
+    if (l.reversalOfId && l.amountVnd > 0) {
       const orig = raw.lines.find((x) => x.id === l.reversalOfId);
-      if (orig && orig.approvalRequestId && wo.has(orig.approvalRequestId) && orig.postedAt < from)
-        d -= l.amountVnd;
+      if (orig?.approvalRequestId && wo.has(orig.approvalRequestId))
+        ev.push({ t: l.postedAt, order: 1, kind: 'revive', amount: l.amountVnd });
     }
-  return d;
+  }
+  // every instant B changes is a clamp point (A32 lines, refunds, receipts reversed later)
+  for (const l of raw.lines)
+    if (l.postedAt <= nowIso) ev.push({ t: l.postedAt, order: 3, kind: 'tick', amount: 0 });
+  for (const p of raw.payments) {
+    if (p.createdAt <= nowIso) ev.push({ t: p.createdAt, order: 3, kind: 'tick', amount: 0 });
+    if (p.updatedAt <= nowIso) ev.push({ t: p.updatedAt, order: 3, kind: 'tick', amount: 0 });
+  }
+  ev.sort((a, b) => (a.t === b.t ? a.order - b.order : a.t < b.t ? -1 : 1));
+  let O = 0;
+  let cycleOpenedAt: string | null = null;
+  let R = 0;
+  let D = 0;
+  const oBeforeRecord: RefView['oBeforeRecord'] = [];
+  for (let i = 0; i < ev.length;) {
+    const t = ev[i]!.t;
+    // all events of one instant, then clamp to max(0, B) of that instant
+    for (; i < ev.length && ev[i]!.t === t; i++) {
+      const e = ev[i]!;
+      if (e.kind === 'record') {
+        const clamped = Math.max(0, Math.min(O, Math.max(0, signedBAt(raw, prevMs(t)))));
+        oBeforeRecord.push({ at: e.audit!.at, oBefore: clamped, dueDate: e.audit!.dueDate });
+        if (clamped === 0) {
+          cycleOpenedAt = t;
+          R = 0;
+          D = 0;
+          O = 0;
+        }
+        R += e.amount;
+        O += e.amount;
+      } else if (e.kind === 'reduce') {
+        if (cycleOpenedAt) D += e.amount;
+        O -= e.amount;
+      } else if (e.kind === 'revive') {
+        // DOM 5.6 (BR v0.4.3, FZ08-1…3): a cancelled write-off brings the debt back, and the clamp of this
+        // instant (below) keeps it within còn phải thu – O = clamp(R − D, 0, max(0, B)), for old and new debt alike
+        if (cycleOpenedAt) D -= e.amount;
+        O += e.amount;
+      }
+    }
+    O = Math.max(0, Math.min(O, Math.max(0, signedBAt(raw, t))));
+  }
+  O = Math.max(0, Math.min(O, Math.max(0, signedBAt(raw, nowIso))));
+  return { O, cycleOpenedAt, R, D, oBeforeRecord };
 }
+
+const prevMs = (t: string) => new Date(new Date(t).getTime() - 1).toISOString();
 
 export function refView(raw: RawFolio, nowIso: string): RefView {
   const B = signedBAt(raw, nowIso);
   const windowOver =
     raw.folio.status === 'closed' || (!!raw.folio.windowUntil && nowIso >= raw.folio.windowUntil);
-  let cycleOpenedAt: string | null = null;
-  let R = 0;
-  const oBeforeRecord: RefView['oBeforeRecord'] = [];
-  for (const a of raw.debtAudits) {
-    // O just before this record (same formula on the rows of that moment; t − 1 ms)
-    const tBefore = new Date(new Date(a.at).getTime() - 1).toISOString();
-    const bBefore = signedBAt(raw, tBefore);
-    const oBefore =
-      cycleOpenedAt === null
-        ? 0
-        : Math.max(0, Math.min(R - dSince(raw, cycleOpenedAt, tBefore), Math.max(0, bBefore)));
-    oBeforeRecord.push({ at: a.at, oBefore, dueDate: a.dueDate });
-    if (oBefore === 0) {
-      cycleOpenedAt = a.at;
-      R = a.debtVnd;
-    } else R += a.debtVnd;
-  }
-  const D = cycleOpenedAt ? dSince(raw, cycleOpenedAt, nowIso) : 0;
-  const O = windowOver
-    ? Math.max(0, B)
-    : cycleOpenedAt
-      ? Math.max(0, Math.min(R - D, Math.max(0, B)))
-      : 0;
+  // O by EVENT REPLAY with the clamp applied at every instant (DOM oracle 5.6, BR v0.4.3 – FZ08-1/3): a debt that
+  // is extinguished because B fell to 0 does not come back when B rises later (a later window charge is W, not
+  // revived debt); a cancelled write-off revives debt only up to max(0, B) of that instant.
+  const { O: replayO, cycleOpenedAt, R, D, oBeforeRecord } = replay(raw, nowIso);
+  const O = windowOver ? Math.max(0, B) : replayO;
   const W = Math.max(0, B) - O;
 
   // write-offs: live FOC lines of debt_write_off approvals

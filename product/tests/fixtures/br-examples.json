@@ -3,11 +3,11 @@
   "schemaVersion": 1,
   "source": {
     "file": "product/docs/business-rules.md",
-    "version": "0.4.2",
-    "date": "2026-10-23"
+    "version": "0.4.3",
+    "date": "2026-10-24"
   },
-  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp)",
-  "updated": "2026-10-23",
+  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp); v0.4.3 QA 24/10: BR-433-22…25 (FZ02-1, 2, 4, 8 – pendingFix R3-SEC-FZ-02), BR-525-44 (FZ08-1, không pendingFix – mã đúng), BR-525-45 (FZ08-2 – pendingFix R3-FZ-08); id DOM đề xuất trùng → đánh tiếp",
+  "updated": "2026-10-24",
   "conventions": {
     "money": "Số nguyên VND, khóa kết thúc bằng 'Vnd' (ADR-002, BR-004)",
     "percent": "Basis point số nguyên (khóa kết thúc 'Bp'): 10% = 1000. Tham số giữ đơn vị như BR mục 13; số lẻ (15,5) ghi dạng chuỗi",
@@ -8990,6 +8990,143 @@
       "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.4 (BR-433 (d) v0.4.1, SEC Blocker FB-R3-SEC-BE-B-07). QA 23/10: DOM đề xuất id BR-433-11…15 nhưng 11–14 đã dùng (E26-7, E26-8, E26-5, E26-9) → BR-433-15…21. Không `pendingFix`: bước 4 lượt tiền đã gộp `main` (7100f3b); `services/api/test/integration/s438-r8/r3-bb07-limit-basis.test.ts` đạt trên CSDL riêng của QA; fuzz R3-Q30 họ FZ-10/FZ-12 (bất biến I16) – kết quả ở `rounds/round-03/qa/s1-test-plan.md` 3.6."
     },
     {
+      "id": "BR-433-22",
+      "br": "BR-433",
+      "case": "(v0.4.3, BR-433 (e), FZ02-1) Sau trả phòng MGR void 1 đêm 667.000 (khách đã thu đủ): một yêu cầu hoàn tự sinh 667.000, requested_by = MGR, reason_note \"Tự sinh từ A32 …\"; Σ hoàn từ A32 = cơ sở → MGR khác/OWN duyệt; chính MGR đó duyệt → 403; Σ lượt ESC-026 = ngưỡng → không báo",
+      "origin": "example",
+      "labels": ["INV-007", "NGÀNH"],
+      "pendingFix": "R3-SEC-FZ-02",
+      "calc": null,
+      "input": {
+        "roomNo": "101",
+        "stay": ["2026-11-23", "2026-11-26"],
+        "nightsVnd": [667000, 667000, 667000],
+        "minibarVnd": 70000,
+        "paidVnd": 2071000,
+        "checkoutAt": "2026-11-26T10:00:00+07:00",
+        "folioStatus": "settled",
+        "basisVnd": 667000,
+        "steps": [
+          {
+            "by": "manager",
+            "op": "a32_void",
+            "line": "room",
+            "date": "2026-11-25",
+            "reason": "khiếu nại tiếng ồn"
+          }
+        ]
+      },
+      "expected": {
+        "refunds": [
+          {
+            "amountVnd": 667000,
+            "requestedBy": "manager",
+            "reasonNotePrefix": "Tự sinh từ A32",
+            "approverNot": "same_manager"
+          }
+        ],
+        "sameManagerApproveStatus": 403,
+        "stayTotalVnd": 667000,
+        "ownerNotified": false
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.5 FZ02-1; SEC FB-R3-SEC-FZ-02. QA 24/10: DOM đề xuất id BR-433-16…19 nhưng 16–19 đã dùng (BB07-2…5) → BR-433-22…25."
+    },
+    {
+      "id": "BR-433-23",
+      "br": "BR-433",
+      "case": "(v0.4.3, BR-433 (e), FZ02-2) Tiếp FZ02-1: MGR hạ minibar 70.000 → 0: yêu cầu hoàn thứ hai 70.000; Σ hoàn 737.000 > 667.000 → chờ OWN; Σ lượt 737.000 → báo OWN",
+      "origin": "example",
+      "labels": ["INV-007", "NGÀNH"],
+      "pendingFix": "R3-SEC-FZ-02",
+      "calc": null,
+      "input": {
+        "fromCase": "BR-433-22",
+        "steps": [
+          {
+            "by": "manager",
+            "op": "a32_lower",
+            "line": "minibar",
+            "newUnitPriceVnd": 0
+          }
+        ]
+      },
+      "expected": {
+        "secondRefundVnd": 70000,
+        "refundSumFromA32Vnd": 737000,
+        "requiredRole": "owner",
+        "stayTotalVnd": 737000,
+        "ownerNotified": true
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.5 FZ02-2. QA 24/10: DOM đề xuất id BR-433-16…19 nhưng 16–19 đã dùng (BB07-2…5) → BR-433-22…25."
+    },
+    {
+      "id": "BR-433-24",
+      "br": "BR-433",
+      "case": "(v0.4.3, BR-433 (e), FZ02-4) MGR void cả 3 đêm: cơ sở null → hoàn 2.001.000 chờ OWN; báo OWN (ngưỡng MGR null → mọi khoản > 0 là vượt)",
+      "origin": "example",
+      "labels": ["INV-007", "NGÀNH"],
+      "pendingFix": "R3-SEC-FZ-02",
+      "calc": null,
+      "input": {
+        "roomNo": "101",
+        "stay": ["2026-11-23", "2026-11-26"],
+        "nightsVnd": [667000, 667000, 667000],
+        "minibarVnd": 70000,
+        "paidVnd": 2071000,
+        "checkoutAt": "2026-11-26T10:00:00+07:00",
+        "folioStatus": "settled",
+        "basisVnd": 667000,
+        "steps": [
+          {
+            "by": "manager",
+            "op": "a32_void",
+            "line": "room",
+            "dates": ["2026-11-23", "2026-11-24", "2026-11-25"]
+          }
+        ]
+      },
+      "expected": {
+        "refundVnd": 2001000,
+        "requiredRole": "owner",
+        "ownerNotified": true,
+        "basisNull": true
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.5 FZ02-4. QA 24/10: DOM đề xuất id BR-433-16…19 nhưng 16–19 đã dùng (BB07-2…5) → BR-433-22…25."
+    },
+    {
+      "id": "BR-433-25",
+      "br": "BR-433",
+      "case": "(v0.4.3, BR-433 (e), FZ02-8) FZ02-1, OWN từ chối yêu cầu 667.000; MGR hạ minibar 70.000 → 0: Σ hoàn = 70.000 (bỏ yêu cầu bị từ chối) → MGR khác/OWN; tiền dư 737.000 còn → J15 không đóng folio, \"Cần chú ý\"",
+      "origin": "example",
+      "labels": ["INV-007", "NGÀNH"],
+      "pendingFix": "R3-SEC-FZ-02",
+      "calc": null,
+      "input": {
+        "fromCase": "BR-433-22",
+        "steps": [
+          {
+            "by": "owner",
+            "op": "reject_refund",
+            "amountVnd": 667000
+          },
+          {
+            "by": "manager",
+            "op": "a32_lower",
+            "line": "minibar",
+            "newUnitPriceVnd": 0
+          }
+        ]
+      },
+      "expected": {
+        "refundSumFromA32Vnd": 70000,
+        "requiredRoleOfSecond": "manager_other_or_owner",
+        "creditVnd": 737000,
+        "j15": "waiting_refund",
+        "attention": "closed_reservation_credit"
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.5 FZ02-8; BUG-R3-002. QA 24/10: DOM đề xuất id BR-433-16…19 nhưng 16–19 đã dùng (BB07-2…5) → BR-433-22…25."
+    },
+    {
       "id": "BR-434-01",
       "br": "BR-434",
       "case": "Bill ghi dòng phát sinh + dòng FOC âm",
@@ -12042,6 +12179,76 @@
         }
       },
       "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 6 #11; BR-525 (i) 0.4.0 – hạn 3 ngày INV xác nhận 22/10. Sai thường gặp: Desk cho chọn 20/10 ban ngày → server 422; Desk coi hạn = hôm nay là đã quá. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-525-44",
+      "br": "BR-525",
+      "case": "(v0.4.3, 5.6 FZ08-1) Nợ cũ (trước 0076) 100.000 được MGR xóa trên dòng đêm 2; MGR A32 void dòng đêm 2 → FOC xóa nợ tự hủy, B −567.000 → O 0 (nợ không sống lại vì tiền của dòng cũng mất); hoàn tự sinh 567.000 ≤ cơ sở → MGR khác/OWN; Σ lượt 667.000 → không báo",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomNo": "101",
+        "nightsVnd": [667000, 667000],
+        "paidVnd": 1234000,
+        "legacyDebtVnd": 100000,
+        "folioStatus": "settled",
+        "steps": [
+          {
+            "by": "manager",
+            "op": "debt_write_off",
+            "amountVnd": 100000,
+            "line": "night2"
+          },
+          {
+            "by": "manager",
+            "op": "a32_void",
+            "line": "night2"
+          }
+        ]
+      },
+      "expected": {
+        "debtOpenVnd": 0,
+        "amountDueVnd": -567000,
+        "autoRefundVnd": 567000,
+        "stayTotalVnd": 667000,
+        "ownerNotified": false,
+        "wrongRefDebtOpenVnd": 100000
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.6 FZ08-1 (BR v0.4.3). Không `pendingFix`: mã đúng (O 0) – fuzz `debt-fuzz.test.ts` ca \"FZ08-1 / FZ08-3\" khớp API và `refLedger` (kẹp [0, max(0, B)] theo từng thời điểm). Phần hoàn tự sinh 567.000 và Σ lượt theo BR-433 (e) kiểm ở BR-433-22…25. QA 24/10: DOM đề xuất id BR-525-42, 43 nhưng đã dùng (Q23-18, #11) → BR-525-44, 45."
+    },
+    {
+      "id": "BR-525-45",
+      "br": "BR-525",
+      "case": "(v0.4.3, 5.6 FZ08-2) Nợ cũ 100.000 từ dòng hư hỏng 100.000, hạn 19/11; MGR xóa nợ 100.000 → O 0; OWN thu hồi khoản xóa nợ (E26-6) → dòng còn → O 100.000 sống lại, hạn giữ 19/11, \"Cần chú ý\" mở lại; ngày nghiệp vụ 20/11 → quá hạn",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "pendingFix": "R3-FZ-08",
+      "calc": null,
+      "input": {
+        "damageLineVnd": 100000,
+        "legacyDebtVnd": 100000,
+        "dueDate": "2026-11-19",
+        "steps": [
+          {
+            "by": "manager",
+            "op": "debt_write_off",
+            "amountVnd": 100000
+          },
+          {
+            "by": "owner",
+            "op": "revoke_write_off"
+          }
+        ],
+        "checkAt": "2026-11-20T09:00:00+07:00"
+      },
+      "expected": {
+        "debtOpenVnd": 100000,
+        "dueDate": "2026-11-19",
+        "attentionReopened": true,
+        "overdue": true
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.6 FZ08-2 (cài v1.1; cần đường thu hồi R3-FOC-REVOKE). QA 24/10: DOM đề xuất id BR-525-42, 43 nhưng đã dùng (Q23-18, #11) → BR-525-44, 45."
     },
     {
       "id": "BR-526-01",

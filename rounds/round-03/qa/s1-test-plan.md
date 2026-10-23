@@ -253,7 +253,46 @@ Tổng ≥ **620 chuỗi**, khoảng 25.000 bước. Ước lượng ≤ 40 phú
 **Vi phạm cứng** – cả ba đều có ca tái hiện tất định:
 
 | Bất biến | Số chuỗi (lượt 2 + 3) | Lỗi | Mức |
-|---|---|---|---|
+|
+#### 3.7 Lượt fuzz cuối cho G1 – harness đã sẵn (QA 24/10, nhánh `qa/r3-s1-fuzz-final` từ `main` @ `0281e20`)
+
+**Đã đổi so với lượt trước:**
+- **`refLedger` theo BR v0.4.3, mục 5.6:**
+  - O tính bằng phát lại sự kiện, kẹp [0, max(0, B)] ở **từng thời điểm**. Khoản xóa nợ bị hủy làm nợ sống lại trong giới hạn còn phải thu; nợ đã mất vì B về 0 không sống lại khi B tăng sau đó. Nợ cũ và nợ mới cùng công thức.
+  - Bỏ khoản xóa nợ đang chờ duyệt ra khỏi D.
+  - Ca có hướng "FZ08-1 / FZ08-3" khớp API và `refLedger`.
+  - Chênh còn lại của nợ trước 0076 (công thức cũ `B − W_cũ` của mã) ghi `I3?` kèm nhãn "FZ-08 đã biết – P3, không tính G1" (ARC `s1-ARC-on-fuzz-fixes.md`).
+- **BR-433 (e) / I17** (bật bằng `FUZZ_FZ02=1` khi BE-B gộp; trước đó chỉ cảnh báo):
+  - yêu cầu hoàn "Tự sinh từ A32": `requested_by` = người làm A32; Σ hoàn từ A32 > cơ sở ⇒ `owner`;
+  - không ai duyệt yêu cầu hoàn của chính mình, vai dưới MGR không duyệt;
+  - Σ lượt ESC-026 cộng phần A32 giảm sau trả phòng của vai dưới OWN.
+  - Ca có hướng FZ02-1/2, 4, 7, 8. FZ02-7 đã đạt; các ca còn lại đỏ đúng dự kiến tới khi BE-B gộp.
+- **SEC fuzz-fixes #1–#4** (I8 mở rộng):
+  - `debt_write_off` không bao giờ định tuyến hay được duyệt dưới MGR (cả dòng cũ, FB-R3-SEC-FZ-01);
+  - tiền dư sau thao tác của người trên folio `settled` = 0 (`FUZZ_K1106=1` khi BE-B gộp ARC bổ sung 3);
+  - hết cửa sổ mà còn tiền dư ⇒ phải có "Cần chú ý" `closed_reservation_credit`;
+  - J15 không bao giờ đóng folio còn dư (I4).
+- **Thao tác mới (ARC mục 13.2):**
+  - `qrLate`: QR về muộn dư, lễ tân bấm xác nhận;
+  - `sysCredit`: khoản thu không người bấm. Chưa có endpoint đối soát tự động, nên giả lập bằng SQL và ghi rõ nhãn;
+  - `refundReq`: FD tạo yêu cầu hoàn trên folio `settled`;
+  - `refundApprove`: duyệt, gồm cả vai không được phép;
+  - `refundPay`: chi tiền mặt kèm chứng từ.
+  - Có trong FZ-01, FZ-02.
+
+**Chạy thử** trên `main` (6 chuỗi × 9 họ + ca có hướng): xanh. Không còn vi phạm cứng; BUG-R3-002/003/004 không tái phát.
+
+**Lệnh cho lượt đầy đủ** (sau khi BE-B gộp BR-433 (e) và ARC bổ sung 3):
+`FUZZ=1 FUZZ_BE83=1 FUZZ_FZ02=1 FUZZ_K1106=1 [FUZZ_Q23=1 nếu R3-Q23 đã gộp] pnpm --filter @ottimo/api exec vitest run test/fuzz/debt-fuzz.test.ts`
+- chạy 5 tiến trình theo họ như lượt 2;
+- critic đọc log JSONL gốc.
+
+**Fixture BR v0.4.3:**
+- BR-433-22…25 (FZ02-1, 2, 4, 8 – `pendingFix R3-SEC-FZ-02`). DOM đề xuất 16…19, nhưng các số này đã dùng.
+- BR-525-44 (FZ08-1, không `pendingFix` – mã đúng).
+- BR-525-45 (FZ08-2 – `pendingFix R3-FZ-08`, cần đường thu hồi). DOM đề xuất 42/43, nhưng các số này đã dùng.
+
+---|---|---|---|
 | I4 – folio `closed` còn tiền dư | 15 + 4 | BUG-R3-002: tiền dư phát sinh sau B18 (A32 khi O = 0) không thành yêu cầu hoàn; J15 đóng folio | P0 |
 | I8 – xóa nợ vượt cơ sở nhưng `required_role` ≠ owner | 0 + 1 (lượt 1: 1) | BUG-R3-003: định tuyến cho lễ tân trưởng; lễ tân trưởng duyệt được | P0 |
 | I16 (+ I13 cùng gốc) – MGR tự áp xóa nợ khi không còn đêm phòng sống | 0 + 9 (critic lượt 2: 6) | BUG-R3-004: mã giữ số chụp B18 khi void hết đêm, trái BR-433 (a) | P1 |

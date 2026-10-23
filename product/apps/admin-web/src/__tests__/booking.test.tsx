@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { todayLocal } from '../app/dates';
+import { businessDayLocal, todayLocal } from '../app/dates';
 import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { renderApp, tv } from '../test/render';
@@ -207,7 +207,8 @@ describe('H09 Đặt phòng mới (US-017, US-018, US-019, US-139)', () => {
     await waitFor(() => expect(received).not.toHaveValue('')); // 1-night quote landed
     const oneNight = (received as HTMLInputElement).value;
     fireEvent.change(within(dlg).getByLabelText('Ngày đi'), {
-      target: { value: addDays(todayLocal(), 4) },
+      // the dialog opens on the BUSINESS day (BR-010): before 06:00 that is yesterday (BUG-R3-006)
+      target: { value: addDays(businessDayLocal(), 4) },
     });
     // the 4-night quote landed (4 nightly rate boxes)
     await waitFor(() =>
@@ -233,7 +234,8 @@ describe('H09 Đặt phòng mới (US-017, US-018, US-019, US-139)', () => {
     await user.clear(received);
     await user.type(received, '150000');
     fireEvent.change(within(dlg).getByLabelText('Ngày đi'), {
-      target: { value: addDays(todayLocal(), 4) },
+      // the dialog opens on the BUSINESS day (BR-010): before 06:00 that is yesterday (BUG-R3-006)
+      target: { value: addDays(businessDayLocal(), 4) },
     });
     await waitFor(() =>
       expect(

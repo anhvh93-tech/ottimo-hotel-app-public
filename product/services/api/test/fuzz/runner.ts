@@ -15,6 +15,8 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Fx } from '../integration/s438-r8/fixture';
 import { addDays, outcome } from '../integration/s438-r8/fixture';
+import { AttachmentService } from '../../src/modules/files/public/attachment.service';
+import { TEST_PASSWORD } from '../helpers/feature-app';
 import { type CodeView, type Gates, type StepCtx, type Violation, check } from './invariants';
 import { type RawFolio, readRaw, refView } from './ref-ledger';
 
@@ -60,7 +62,13 @@ export type Op =
   | { k: 'foc'; line: number; amount: AmountMode; who: Who }
   | { k: 'moveRoom'; up: boolean }
   | { k: 'extend'; rateUpBp: number }
-  | { k: 'checkout'; debt: boolean };
+  | { k: 'checkout'; debt: boolean }
+  // ARC 0.3.8 addendum 3 (FUZZ-01): credit after check-out and its refund path
+  | { k: 'qrLate'; extraVnd: number } // QR paid late, above what is due, a person confirms it (K11-06)
+  | { k: 'sysCredit'; extraVnd: number } // a receipt with no person (stand-in: no such endpoint exists yet)
+  | { k: 'refundReq'; who: Who } // FD+ createRefundRequest on a settled folio for the unhandled credit
+  | { k: 'refundApprove'; req: number; who: Who }
+  | { k: 'refundPay'; req: number; who: Who };
 
 export type Family =
   'FZ-01' | 'FZ-02' | 'FZ-06' | 'FZ-07' | 'FZ-08' | 'FZ-09' | 'FZ-10' | 'FZ-11' | 'FZ-12';
@@ -89,6 +97,11 @@ export const FAMILIES: Record<
       a32: 3,
       j15: 1,
       race: 1,
+      qrLate: 1,
+      sysCredit: 1,
+      refundReq: 1,
+      refundApprove: 1,
+      refundPay: 1,
     },
   },
   'FZ-02': {
@@ -105,6 +118,8 @@ export const FAMILIES: Record<
       a32: 2,
       j15: 1,
       race: 5,
+      qrLate: 1,
+      refundApprove: 1,
     },
   },
   'FZ-06': {
@@ -269,6 +284,20 @@ function genOp(r: Rng, fam: Family, depth = 0): Op {
       return { k, rateUpBp: pick(r, [0, 2_000, 5_000, 9_900]) };
     case 'checkout':
       return { k, debt: r() < 0.6 };
+    case 'qrLate':
+      return { k, extraVnd: pick(r, [10_000, 50_000, 300_000, 900_000]) };
+    case 'sysCredit':
+      return { k, extraVnd: pick(r, [20_000, 150_000, 700_000]) };
+    case 'refundReq':
+      return { k, who: pick(r, ['fd', 'lead', 'mgr'] as const) as Who };
+    case 'refundApprove':
+      return {
+        k,
+        req: int(r, 0, 9),
+        who: pick(r, ['mgr', 'mgr2', 'owner', 'lead', 'fd'] as const) as Who,
+      };
+    case 'refundPay':
+      return { k, req: int(r, 0, 9), who: pick(r, ['fd', 'lead', 'mgr'] as const) as Who };
   }
 }
 
@@ -407,6 +436,57 @@ export class Runner {
     return { s, b18DueAt };
   }
 
+  private accountSet = false;
+  /** The VietQR receiving account (needed by the QR op): set once per fixture, effective from the next day. */
+  async ensureAccount(): Promise<void> {
+    if (this.accountSet) return;
+    const [has] = await this.x
+      .q(`SELECT count(*)::int AS n FROM config_parameter WHERE key = 'payment_receiving_account'`)
+      .catch(() => [{ n: 0 }]);
+    if (has?.n > 0) {
+      this.accountSet = true;
+      return;
+    }
+    const keep = this.nowMs;
+    await this.x.at('2026-10-14T09:00:00+07:00');
+    await this.x.c.owner!.send('PUT', this.x.url('/parameters/payment_receiving_account'), {
+      value: { bankBin: '970407', accountNo: '1903123456789', accountName: 'OTTIMO TEST' },
+      effectiveFrom: '2026-10-15',
+      reason: 'Tài khoản nhận thử nghiệm',
+      reauth: { authMethod: 'password', secret: TEST_PASSWORD },
+    });
+    await this.at(keep);
+    this.accountSet = true;
+  }
+
+  /** A refund proof attachment (memory blob store – BLOBSTORE_PROVIDER=memory in the fuzz entry). */
+  private async proof(s: Stay): Promise<string | undefined> {
+    try {
+      const svc = this.x.fa.app.get(AttachmentService, { strict: false });
+      const fd = this.x.t.users.fd!;
+      return await this.x.db.withContext(
+        { ...this.x.t.ctx(), userId: fd.id, actorType: 'user' } as any,
+        async (tx: any) =>
+          (
+            await svc.upload(
+              tx,
+              { userId: fd.id, roles: fd.roles },
+              { purpose: 'refund_proof', reservationId: s.id },
+              { data: Buffer.from('fake-jpeg-bytes'), mime: 'image/jpeg', width: 1, height: 1 },
+            )
+          ).id,
+      );
+    } catch {
+      return undefined;
+    }
+  }
+
+  roleOf(): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const [, u] of Object.entries(this.x.t.users)) out[u.id] = (u.roles ?? [])[0] ?? '';
+    return out;
+  }
+
   private async raw(s: Stay): Promise<RawFolio> {
     return readRaw(this.x.q, s.folioId, s.id);
   }
@@ -420,6 +500,7 @@ export class Runner {
       folioStatus: f.status,
       openDebtVnd: od ? od.openDebtVnd : 0,
       openDebtDueDate: od ? (od.dueDate as string) : null,
+      unhandledCreditVnd: f.totals.unhandledCreditVnd ?? 0,
     };
   }
 
@@ -501,7 +582,7 @@ export class Runner {
         const amt = this.amountOf(op.amount, raw, s);
         return {
           label: `collect ${amt} by ${op.who}`,
-          ctx: {},
+          ctx: raw.folio.status === 'settled' ? { humanMoneyOnSettled: true } : {},
           run: () => x.collect(s, amt, 'cash', op.who)(),
         };
       }
@@ -571,6 +652,7 @@ export class Runner {
           ctx:
             reduce > 0 && raw.folio.status !== 'open'
               ? {
+                  humanMoneyOnSettled: raw.folio.status === 'settled',
                   a32: {
                     reduceVnd: reduce,
                     wBefore: ref.W,
@@ -587,6 +669,100 @@ export class Runner {
         return { label: 'J15', ctx: {}, run: () => x.j15Unit(s)() };
       case 'race':
         throw new Error('race is prepared by step()');
+      case 'qrLate': {
+        if (raw.folio.status !== 'settled')
+          return { label: 'qrLate (not settled)', ctx: {}, run: async () => null };
+        const due = Math.max(0, ref.B);
+        const amt = due + op.extraVnd;
+        return {
+          label: `QR paid late ${amt} (due ${due}) confirmed by fd`,
+          ctx: { humanMoneyOnSettled: true },
+          run: async () => {
+            await this.ensureAccount();
+            const q = await x.c.fd!.send('POST', x.url(`/folios/${s.folioId}/vietqr`), {
+              amountVnd: amt,
+              ...(op.extraVnd > 0 ? { overBalanceReason: 'Khách chuyển thừa' } : {}),
+            });
+            if (q.statusCode !== 201) return q as Res;
+            return x.c.fd!.send(
+              'POST',
+              x.url(`/payments/${q.json().payment.id}/actions/confirm-received`),
+              {
+                note: 'Tiền về muộn',
+              },
+            ) as Promise<Res>;
+          },
+        };
+      }
+      case 'sysCredit': {
+        if (raw.folio.status !== 'settled')
+          return { label: 'sysCredit (not settled)', ctx: {}, run: async () => null };
+        return {
+          label: `receipt with no person +${op.extraVnd} (SQL stand-in – no automatic reconciliation endpoint)`,
+          ctx: {},
+          run: async () => {
+            const t = new Date(this.nowMs).toISOString();
+            await x.q(
+              `INSERT INTO payment
+               SELECT (jsonb_populate_record(NULL::payment, to_jsonb(p) || jsonb_build_object(
+                 'id', gen_random_uuid(), 'code', 'QA-SYS-' || substr(md5(random()::text), 1, 8),
+                 'amount_vnd', $2::bigint, 'status', 'succeeded', 'method', 'bank_transfer',
+                 'reconciliation', 'not_required', 'reconciled_by', NULL, 'reconciled_at', NULL, 'reversal_of_id', NULL, 'approval_request_id', NULL,
+                 'note', 'QA giả lập đối soát tự động', 'created_at', $3::timestamptz,
+                 'updated_at', $3::timestamptz, 'received_at', $3::timestamptz, 'version', 1))).*
+                 FROM payment p
+                WHERE p.folio_id = $1 AND p.type = 'charge' AND p.reversal_of_id IS NULL
+                ORDER BY p.created_at LIMIT 1`,
+              [s.folioId, op.extraVnd, t],
+            );
+            return { statusCode: 299, body: 'sql', json: () => ({}) } as unknown as Res;
+          },
+        };
+      }
+      case 'refundReq': {
+        const f = await x.folio(s.folioId);
+        const amt = f.totals.unhandledCreditVnd ?? 0;
+        if (amt <= 0)
+          return { label: 'refundReq (no unhandled credit)', ctx: {}, run: async () => null };
+        return {
+          label: `refund request ${amt} by ${op.who}`,
+          ctx: {},
+          run: () =>
+            x.c[op.who]!.send('POST', x.url(`/folios/${s.folioId}/refund-requests`), {
+              amountVnd: amt,
+              reason: 'Tiền dư sau trả phòng',
+            }) as Promise<Res>,
+        };
+      }
+      case 'refundApprove': {
+        const pend = raw.refunds.filter((r) => r.status === 'pending' || r.status === 'escalated');
+        if (!pend.length) return { label: 'refundApprove (none)', ctx: {}, run: async () => null };
+        const r = pend[op.req % pend.length]!;
+        return {
+          label: `approve refund ${r.amountVnd} by ${op.who}`,
+          ctx: {},
+          run: () => x.decide(r.id, 'approve', op.who)(),
+        };
+      }
+      case 'refundPay': {
+        const ok = raw.refunds.filter((r) => r.status === 'approved');
+        if (!ok.length) return { label: 'refundPay (none)', ctx: {}, run: async () => null };
+        const r = ok[op.req % ok.length]!;
+        return {
+          label: `pay refund ${r.amountVnd} cash by ${op.who}`,
+          ctx: {},
+          run: async () =>
+            x.c[op.who]!.send(
+              'POST',
+              x.url(`/approval-requests/${r.id}/actions/execute-cash-refund`),
+              {
+                amountVnd: r.amountVnd,
+                paidAt: new Date(this.nowMs).toISOString(),
+                attachmentId: await this.proof(s),
+              },
+            ) as Promise<Res>,
+        };
+      }
       case 'charge':
         return {
           label: `charge +${op.amountVnd}`,
@@ -788,6 +964,7 @@ export class Runner {
       explicitDueDates: this.explicitDue,
       basisAtCreate: this.basisAtCreate,
       ambiguousOrder: this.ambiguousSeen,
+      roleOf: this.roleOf(),
       http5xx: c5 > 0,
       ...ctx,
     };
