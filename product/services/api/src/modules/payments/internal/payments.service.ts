@@ -303,7 +303,13 @@ export class PaymentsService {
     if (r.status === 'checked_out') await this.tryEarn(tx, r.id, actor.requestId);
     // 0.3.8 bổ sung 3 (ARC FB-R3-ARC-FUZZ-01, BR-522 K11-06): a receipt recorded by a person on a settled folio that
     // leaves an overpayment → the one shared rule (refund request by this person + "Cần chú ý"); L1 → L3 held above.
-    if (r.status === 'checked_out') await this.folios.afterSettledMoneyChange(tx, folioId, actor);
+    // SEC ADD3-02: the request says which receipt made it.
+    if (r.status === 'checked_out') {
+      await this.folios.afterSettledMoneyChange(tx, folioId, actor, undefined, {
+        code: row.code,
+        method: row.method,
+      });
+    }
     await this.changed(tx, row, r.id);
     return row;
   }
@@ -496,7 +502,18 @@ export class PaymentsService {
     const meta = await this.folioMeta(tx, folioId);
     const r = await this.scopedReservation(tx, actor, meta.primary_reservation_id, { lock: true });
     if (!isDesk(actor.roles) && current.type !== 'deposit') throw problem('NOT_FOUND');
-    await this.folios.lock(tx, folioId);
+    // As recordPayment (ARC 16.26, BR-525): after check-out the stay's bookings then the folio (`lockStay`), and an open
+    // debt the confirmed money pays is closed in this transaction (fuzz R3-Q30 qrLate – a QR confirmed late on a
+    // settled folio with a debt left the debt cycle open).
+    let debtOpen = false;
+    if (r.status === 'checked_out') {
+      const locked = await this.folios.lockStay(tx, folioId);
+      if (locked && locked.status !== 'open') {
+        debtOpen = (await this.debtOwner().openDebt(tx, folioId)) !== null;
+      }
+    } else {
+      await this.folios.lock(tx, folioId);
+    }
     const p = (await this.payments.row(tx, paymentId, { forUpdate: true })) as PaymentRowLite;
     const now = this.clock.now();
     const expired = p.status === 'pending' && p.expires_at !== null && p.expires_at <= now;
@@ -576,10 +593,23 @@ export class PaymentsService {
       },
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });
+    if (debtOpen && (await this.folios.balance(tx, folioId)).balanceDueVnd <= 0) {
+      await this.debtOwner().debtSettled(tx, {
+        folioId,
+        paymentId: p.id,
+        outcome: 'paid',
+        actor: { userId: actor.userId, roles: actor.roles },
+        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+      });
+    }
+    if (r.status === 'checked_out') await this.tryEarn(tx, r.id, actor.requestId);
     // 0.3.8 bổ sung 3 (ARC FB-R3-ARC-FUZZ-01, BR-522 K11-06): a QR confirmed by a person after check-out (folio
     // settled) that leaves an overpayment → refund request by this person + "Cần chú ý", same transaction (L1 → L3
     // held above). The automatic reconciliation of a QR never comes here (J15 `waiting_refund`, the desk requests it).
-    await this.folios.afterSettledMoneyChange(tx, folioId, actor);
+    await this.folios.afterSettledMoneyChange(tx, folioId, actor, undefined, {
+      code: p.code,
+      method: p.method,
+    });
     const out = (await this.payments.row(tx, p.id)) as PaymentRowLite;
     await this.changed(tx, out, r.id);
     return out;

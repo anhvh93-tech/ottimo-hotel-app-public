@@ -281,3 +281,43 @@ Nhánh `be-b/r3-0.3.8-add3`, nằm trên `main` cục bộ `0281e20` (đã có A
   - I4, I8, I13, I16: **0 vi phạm**.
   - 12 vi phạm I3/I7 vẫn chỉ ở họ **FZ-08**, seed 1012 và 1026. Đây đúng là nợ trước 0076: ORC/ARC đã xếp P3, DOM giữ ở v1.1, mã không sửa.
   - Harness chưa có thao tác "QR về muộn dư" và "khoản tự động dư" (việc của QA theo ARC 13.2). Hai ca này hiện chỉ được phủ bằng test tích hợp ở trên.
+
+---
+
+# ADD3 – trả lời ARC (`s1-ARC-on-add3.md`) và SEC (`s1-SEC-on-add3.md`) – 24/10
+
+Nhánh `be-b/r3-0.3.8-add3`, nằm trên `main` cục bộ `784db59`. Chi tiết ở `outputs/BE/s1-be-b.md` mục 13.
+
+## FB-R3-ARC-ADD3-01 + FB-R3-SEC-ADD3-01 (Blocker): Done
+Làm theo đúng cách ARC chốt và ORC duyệt:
+- một hàm định tuyến chung, chạy cho mọi yêu cầu `refund` (gọi ngay trong `ApprovalService.submit`);
+- folio có A32 giảm của người dưới OWN: yêu cầu nguồn `other` chờ OWN; yêu cầu nguồn `a32` giữ cách định tuyến theo Σ;
+- `origin_actor_ids uuid[]` kèm CHECK, sửa thẳng trong 0085;
+- yêu cầu `superseded` chép nguồn và mảng.
+
+Thêm theo SEC: người làm A32 không tự hủy được yêu cầu A32 tự sinh (403).
+
+Thêm một lớp nữa: lúc duyệt, server kiểm cả người làm A32 **sau** khi yêu cầu đã lập (`isA32Maker`), vì mảng chỉ ghi lúc INSERT nên không chứa họ.
+
+Điểm 3 của SEC ("OWN đã từ chối thì không hạ cấp"): mọi yêu cầu nguồn `other` trên folio này đã chờ OWN. Yêu cầu A32 mới sau khi OWN từ chối vẫn định tuyến theo Σ, đúng FZ02-8 của DOM.
+
+Test có: hai ca probe của ARC, P1 và P2 của SEC, `recordPayment` dư, folio không có A32 vẫn `manager`, FZ02-1…9.
+
+## FB-R3-SEC-ADD3-02 (Minor): Done một phần
+- Đã làm: ghi chú "Tự sinh từ khoản thu <mã> <phương thức>".
+- Chưa làm: điều kiện "tiền mặt phải đối soát xong mới được duyệt", chờ DOM chọn.
+
+## FB-R3-SEC-ADD3-03 (Minor): Done
+- Hai cột chỉ ghi lúc INSERT: không có quyền UPDATE theo cột, và có thêm trigger.
+- Test: role app UPDATE → `permission denied`.
+
+## FB-R3-ARC-ADD3-03 / FB-R3-SEC-ADD3-04
+- Hằng `debt_write_off` của module `reporting` (BE-D): ORC chưa giao cho BE-B, nên chưa làm.
+
+## Kiểm đã chạy
+- Toàn bộ API: 124 tệp đạt, 2 bỏ qua; 3.144 test đạt, 19 bỏ qua.
+- Fuzz bản cuối của QA, bật đủ cờ: chạy dở vì OrbStack treo. FZ-01, FZ-02, FZ-06 xong; FZ-07 được 8/30 chuỗi; FZ-08…12 chưa chạy.
+  - Vi phạm I4, I17, I13 do harness chưa theo quy tắc đã chốt (FZ02-8, FZ02-9, `origin_actor_ids`).
+  - I5 (1023) và I3 (1013) tái hiện được trên `main` `784db59`, tức lỗi có sẵn.
+  - Chi tiết: `outputs/BE/s1-be-b.md` mục 13 "Fuzz".
+- tsc, eslint, prettier đạt; `drizzle-kit generate` không sinh tệp.

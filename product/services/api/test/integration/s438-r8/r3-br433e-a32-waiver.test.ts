@@ -33,8 +33,9 @@ describe.skipIf(!HAS_DB)(
 
     const refunds = (s: { id: string }) =>
       x.q(
-        `SELECT id, amount_vnd::int AS amount, requested_by, required_role, status, origin_actor_id, reason_note
-         FROM approval_request WHERE type = 'refund' AND target_id = $1 ORDER BY requested_at, id`,
+        `SELECT id, amount_vnd::int AS amount, requested_by, required_role, status, origin_actor_ids, refund_source,
+                reason_note
+           FROM approval_request WHERE type = 'refund' AND target_id = $1 ORDER BY requested_at, id`,
         [s.id],
       );
     const alerted = async (s: { id: string }) =>
@@ -76,7 +77,7 @@ describe.skipIf(!HAS_DB)(
       expect(r).toMatchObject({
         amount: N,
         requested_by: x.t.users.mgr!.id,
-        origin_actor_id: x.t.users.mgr!.id,
+        origin_actor_ids: [x.t.users.mgr!.id],
         required_role: 'manager',
         status: 'pending',
       });
@@ -106,7 +107,7 @@ describe.skipIf(!HAS_DB)(
           amount: 70_000,
           required_role: 'owner',
           status: 'pending',
-          origin_actor_id: x.t.users.mgr!.id,
+          origin_actor_ids: [x.t.users.mgr!.id],
         },
       ]);
       expect(rs[1].reason_note).toMatch(NOTE);
@@ -125,7 +126,7 @@ describe.skipIf(!HAS_DB)(
       expect(N).toBeLessThan(1_500_000);
       expect(outcome(await voidLine(s, s.bigLineId!))).toMatch(/^201/);
       expect(await refunds(s)).toMatchObject([
-        { amount: 1_500_000, required_role: 'owner', origin_actor_id: x.t.users.mgr!.id },
+        { amount: 1_500_000, required_role: 'owner', origin_actor_ids: [x.t.users.mgr!.id] },
       ]);
       expect(await alerted(s)).toBe(true);
     }, 180_000);
@@ -154,7 +155,7 @@ describe.skipIf(!HAS_DB)(
       expect(r).toMatchObject({
         amount: N,
         requested_by: x.t.users.owner!.id,
-        origin_actor_id: null,
+        origin_actor_ids: [],
         required_role: 'manager',
       });
       expect(r.reason_note).toBeNull();
@@ -202,6 +203,59 @@ describe.skipIf(!HAS_DB)(
       expect(outcome(await x.adjust(s, raised.id, { newUnitPriceVnd: N })())).toMatch(/^201/);
       expect(await reductions(s)).toEqual([]);
       expect(await refunds(s)).toEqual([]);
+    }, 180_000);
+
+    // FZ02-9 (DOM 24/10 – BE-B's reading agreed). Stays from here on may arrive on a Thursday: only night 1 is used.
+    const night1 = async (s: Stay) => {
+      const l = (await x.liveLineIds(s, 'room'))[0] as any;
+      return { id: l.id as string, amount: l.amountVnd as number };
+    };
+    const liveNight = async (s: Stay, amount: number) =>
+      ((await x.liveLineIds(s, 'room')).find((l: any) => l.amountVnd === amount) as any)
+        .id as string;
+
+    it('FZ02-9 (a): lower a night by 167.000, raise it back, lower it again → Σ ESC-026 counts 167.000 × 2; ONE open refund 167.000 (the first superseded)', async () => {
+      const s = await x.checkedOutStay();
+      const n = await night1(s);
+      const low = n.amount - 167_000;
+      expect(outcome(await x.adjust(s, n.id, { newUnitPriceVnd: low })())).toMatch(/^201/);
+      expect(
+        outcome(await x.adjust(s, await liveNight(s, low), { newUnitPriceVnd: n.amount })()),
+      ).toMatch(/^201/);
+      expect(
+        outcome(await x.adjust(s, await liveNight(s, n.amount), { newUnitPriceVnd: low })()),
+      ).toMatch(/^201/);
+      expect(await reductions(s)).toEqual([
+        { vnd: 167_000, role: 'manager' },
+        { vnd: 167_000, role: 'manager' },
+      ]);
+      const open = (await refunds(s)).filter((r: any) => r.status === 'pending');
+      expect(open).toMatchObject([{ amount: 167_000, refund_source: 'a32' }]);
+      expect((await x.folio(s.folioId)).totals.creditVnd).toBe(167_000);
+    }, 180_000);
+
+    it('FZ02-9 (b): raise a night to 5.000.000 then lower it to 300.000 → Σ ESC-026 counts N − 300.000 (the raise never counts); refund N − 300.000', async () => {
+      const s = await x.checkedOutStay();
+      const n = await night1(s);
+      expect(outcome(await x.adjust(s, n.id, { newUnitPriceVnd: 5_000_000 })())).toMatch(/^201/);
+      expect(
+        outcome(await x.adjust(s, await liveNight(s, 5_000_000), { newUnitPriceVnd: 300_000 })()),
+      ).toMatch(/^201/);
+      expect(await reductions(s)).toEqual([{ vnd: n.amount - 300_000, role: 'manager' }]);
+      expect(await refunds(s)).toMatchObject([
+        { amount: n.amount - 300_000, refund_source: 'a32', status: 'pending' },
+      ]);
+    }, 180_000);
+
+    it('FZ02-9 (c): a charge of 70.000 unpaid in the window, MGR voids a night N → refund N − 70.000 = min(credit, reduction); Σ ESC-026 +N', async () => {
+      const s = await x.checkedOutStay();
+      await x.lateCharge(s, 70_000, s.departure);
+      const n = await night1(s);
+      expect(outcome(await voidLine(s, n.id))).toMatch(/^201/);
+      expect(await refunds(s)).toMatchObject([
+        { amount: n.amount - 70_000, refund_source: 'a32', status: 'pending' },
+      ]);
+      expect(await reductions(s)).toEqual([{ vnd: n.amount, role: 'manager' }]);
     }, 180_000);
   },
 );

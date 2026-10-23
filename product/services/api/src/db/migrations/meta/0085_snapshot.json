@@ -1,5 +1,5 @@
 {
-  "id": "e4e80660-08bd-403e-a309-6cf1d017600e",
+  "id": "b310990a-946e-4c4b-8797-80804ff0cc16",
   "prevId": "f77601e5-cd2c-485c-95b8-97264c6deddb",
   "version": "7",
   "dialect": "postgresql",
@@ -238,9 +238,16 @@
           "primaryKey": false,
           "notNull": false
         },
-        "origin_actor_id": {
-          "name": "origin_actor_id",
-          "type": "uuid",
+        "origin_actor_ids": {
+          "name": "origin_actor_ids",
+          "type": "uuid[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::uuid[]"
+        },
+        "refund_source": {
+          "name": "refund_source",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -449,9 +456,17 @@
           "name": "approval_request_no_self_approval",
           "value": "\"approval_request\".\"approver_id\" IS NULL OR \"approval_request\".\"approver_id\" <> \"approval_request\".\"requested_by\" OR \"approval_request\".\"self_applied\" OR \"approval_request\".\"approver_role_snapshot\" IN ('owner', 'manager')"
         },
+        "approval_request_origin_scope_check": {
+          "name": "approval_request_origin_scope_check",
+          "value": "cardinality(\"approval_request\".\"origin_actor_ids\") = 0 OR \"approval_request\".\"type\" = 'refund'"
+        },
         "approval_request_origin_check": {
           "name": "approval_request_origin_check",
-          "value": "\"approval_request\".\"origin_actor_id\" IS NULL OR (\"approval_request\".\"type\" = 'refund' AND (\"approval_request\".\"approver_id\" IS NULL OR \"approval_request\".\"approver_id\" <> \"approval_request\".\"origin_actor_id\"))"
+          "value": "\"approval_request\".\"approver_id\" IS NULL OR NOT (\"approval_request\".\"approver_id\" = ANY(\"approval_request\".\"origin_actor_ids\"))"
+        },
+        "approval_request_refund_source_check": {
+          "name": "approval_request_refund_source_check",
+          "value": "\"approval_request\".\"refund_source\" IS NULL OR (\"approval_request\".\"type\" = 'refund' AND \"approval_request\".\"refund_source\" IN ('a32', 'other'))"
         },
         "approval_request_self_applied_check": {
           "name": "approval_request_self_applied_check",

@@ -612,7 +612,11 @@ export class FolioLinesService {
       });
       // x-ota-prepaid-rule (re-verification 17/10): the replacement of an OTA-covered line moves the receipt.
       await this.folios.resyncOtaCollect(tx, folio.id, line.reservation_id, actorInfo);
-      if (!debtCheck) {
+      // A reduction on a settled folio is audited below with its reduction and the role at the time (BR-433 (e)).
+      const settledReduction =
+        folio.status === 'settled' &&
+        newAmount < Math.round(Number(line.quantity) * line.unit_price_vnd);
+      if (!debtCheck && !settledReduction) {
         await this.audit.recordMoney(tx, {
           action: 'folio_line.adjusted',
           entityType: 'folio_line',
@@ -678,6 +682,20 @@ export class FolioLinesService {
       REDUCTION_ROLES.includes(role)
     ) {
       const reducedVnd = lineBeforeVnd - lineAfterVnd;
+      // BR-433 (e) / SEC FZ-02: every reduction after check-out is audited with what it took off and the role at the time
+      // (the debt branch above already wrote its own, with the debt numbers).
+      if (!debtCheck) {
+        await this.audit.recordMoney(tx, {
+          action: 'folio_line.adjusted',
+          entityType: 'folio_line',
+          entityId: line.id,
+          ...(stayCode ? { entityCode: stayCode } : {}),
+          before: { category: line.category, amountVnd: lineBeforeVnd, actorRole: role },
+          after: { category: line.category, amountVnd: lineAfterVnd, reducedVnd },
+          reason,
+          ...(actor.requestId ? { requestId: actor.requestId } : {}),
+        });
+      }
       const waiverVnd = Math.max(
         0,
         Math.min(lineBeforeVnd, await this.amountAtCheckout(tx, line.id)) - lineAfterVnd,

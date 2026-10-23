@@ -32,8 +32,8 @@ describe.skipIf(!HAS_DB)(
 
     const refunds = (s: { id: string }) =>
       x.q(
-        `SELECT id, amount_vnd::int AS amount, reason_code, requested_by, required_role, status, origin_actor_id,
-              reason_note, auto_cancel_reason
+        `SELECT id, amount_vnd::int AS amount, reason_code, requested_by, required_role, status, origin_actor_ids,
+              refund_source, reason_note, auto_cancel_reason
          FROM approval_request WHERE type = 'refund' AND target_id = $1 ORDER BY requested_at, id`,
         [s.id],
       );
@@ -113,7 +113,9 @@ describe.skipIf(!HAS_DB)(
           requested_by: x.t.users.fd!.id,
           required_role: 'manager',
           status: 'pending',
-          origin_actor_id: null,
+          origin_actor_ids: [],
+          refund_source: 'other',
+          reason_note: `Tự sinh từ khoản thu QR-ADD3-${qrId.slice(-6)} vietqr`,
         },
       ]);
       expect(await creditItems(s)).toBe(1);
@@ -182,9 +184,13 @@ describe.skipIf(!HAS_DB)(
       });
       expect(r.statusCode, r.body).toBe(201);
       const [req] = await refunds(s);
+      // No A32 on this folio: BR-522 as before (MGR+) – a late QR is not made heavier (ARC ADD3-01 (4)).
       expect(req).toMatchObject({
         amount: 50_000,
         requested_by: x.t.users.fd!.id,
+        required_role: 'manager',
+        origin_actor_ids: [],
+        refund_source: 'other',
         status: 'pending',
       });
       const dest = await x.c.fd!.send(
@@ -237,10 +243,18 @@ describe.skipIf(!HAS_DB)(
       expect(first).toMatchObject({
         amount: 100_000,
         requested_by: x.t.users.mgr!.id,
-        origin_actor_id: x.t.users.mgr!.id,
+        origin_actor_ids: [x.t.users.mgr!.id],
+        refund_source: 'a32',
         status: 'pending',
       });
-      const raise = await x.adjust(s, n2!.id, { newUnitPriceVnd: n2!.amount + 40_000 })();
+      // The OWNER raises another night: the replacement is still the MGR's A32 request (requested_by – I17).
+      const raise = await x.adjust(
+        s,
+        n2!.id,
+        { newUnitPriceVnd: n2!.amount + 40_000 },
+        undefined,
+        'owner',
+      )();
       expect(outcome(raise)).toMatch(/^201/);
       const after = await refunds(s);
       expect(after).toMatchObject([
@@ -248,7 +262,9 @@ describe.skipIf(!HAS_DB)(
         {
           amount: 60_000,
           status: 'pending',
-          origin_actor_id: x.t.users.mgr!.id,
+          requested_by: x.t.users.mgr!.id,
+          origin_actor_ids: [x.t.users.mgr!.id],
+          refund_source: 'a32',
           reason_note: first.reason_note,
         },
       ]);
@@ -278,6 +294,178 @@ describe.skipIf(!HAS_DB)(
       }
       const [row] = await x.q('SELECT status FROM approval_request WHERE id = $1', [id]);
       expect(row.status).toBe('pending');
+    }, 180_000);
+
+    // ─── ARC / SEC FB-…-ADD3-01 (Blocker): the credit an A32 made is never asked again around BR-433 (e) ───
+    const manual = (s: Stay, amountVnd: number) =>
+      x.c.fd!.send('POST', x.url(`/folios/${s.folioId}/refund-requests`), {
+        amountVnd,
+        reason: 'Khách trả thừa',
+      });
+
+    it('ADD3-01 / ARC probe 1: MGR voids F&B 1.500.000 (> basis → OWN), OWN rejects; FD asks it again by hand → OWNER, the A32 maker → 403', async () => {
+      const s = await x.checkedOutStay({ big: 1_500_000 });
+      expect(outcome(await x.adjust(s, s.bigLineId!, { voidLine: true })())).toMatch(/^201/);
+      const [r] = await refunds(s);
+      expect(r).toMatchObject({ required_role: 'owner', refund_source: 'a32' });
+      const no = await decideRefund(r.id, 'reject', 'owner');
+      expect(no.statusCode, no.body).toBe(200);
+      const m = await manual(s, 1_500_000);
+      expect(m.statusCode, m.body).toBe(201);
+      const [, again] = await refunds(s);
+      expect(again).toMatchObject({
+        amount: 1_500_000,
+        requested_by: x.t.users.fd!.id,
+        required_role: 'owner',
+        refund_source: 'other',
+        origin_actor_ids: [x.t.users.mgr!.id],
+      });
+      const self = await decideRefund(again.id, 'approve', 'mgr');
+      expect(self.statusCode, self.body).toBe(403);
+      expect(self.json().code).toBe('SELF_APPROVAL_FORBIDDEN');
+      const mgr2 = await decideRefund(again.id, 'approve', 'mgr2');
+      expect(mgr2.statusCode, mgr2.body).toBe(403);
+      expect(mgr2.json().code).toBe('APPROVAL_LIMIT_EXCEEDED');
+      const own = await decideRefund(again.id, 'approve', 'owner');
+      expect(own.statusCode, own.body).toBe(200);
+    }, 180_000);
+
+    it('ADD3-01 / ARC probe 2 + SEC P1: the A32 maker cannot withdraw the request the A32 made (403); rejected by another MGR, the hand-made one goes to the OWNER and the maker → 403', async () => {
+      const s = await x.checkedOutStay();
+      const [n1] = await nights(s);
+      expect(outcome(await x.adjust(s, n1!.id, { voidLine: true })())).toMatch(/^201/);
+      const [r] = await refunds(s);
+      expect(r).toMatchObject({ required_role: 'manager', refund_source: 'a32' });
+      const w = await x.cancelReq(r.id, 'mgr')();
+      expect(w.statusCode, w.body).toBe(403);
+      expect(
+        (await x.q('SELECT status FROM approval_request WHERE id = $1', [r.id]))[0].status,
+      ).toBe('pending');
+      // Nothing left to ask by hand while the A32 request is open.
+      const none = await manual(s, n1!.amount);
+      expect(none.statusCode, none.body).toBe(422);
+      expect(none.json().max).toBe(0);
+      const no = await decideRefund(r.id, 'reject', 'mgr2');
+      expect(no.statusCode, no.body).toBe(200);
+      const m = await manual(s, n1!.amount);
+      expect(m.statusCode, m.body).toBe(201);
+      const [, again] = await refunds(s);
+      expect(again).toMatchObject({
+        required_role: 'owner',
+        origin_actor_ids: [x.t.users.mgr!.id],
+      });
+      const self = await decideRefund(again.id, 'approve', 'mgr');
+      expect(self.statusCode, self.body).toBe(403);
+    }, 180_000);
+
+    it('ADD3-01 / SEC P2: MGR voids both nights (2nd → OWN), OWN rejects the 2nd; FD asks it by hand → OWNER (another MGR → 403)', async () => {
+      const s = await x.checkedOutStay();
+      const [n1, n2] = await nights(s);
+      expect(outcome(await x.adjust(s, n1!.id, { voidLine: true })())).toMatch(/^201/);
+      expect(outcome(await x.adjust(s, n2!.id, { voidLine: true })())).toMatch(/^201/);
+      const [, second] = await refunds(s);
+      expect(second).toMatchObject({ required_role: 'owner', refund_source: 'a32' });
+      const no = await decideRefund(second.id, 'reject', 'owner');
+      expect(no.statusCode, no.body).toBe(200);
+      const m = await manual(s, n2!.amount);
+      expect(m.statusCode, m.body).toBe(201);
+      const all = await refunds(s);
+      expect(all[2]).toMatchObject({ required_role: 'owner', refund_source: 'other' });
+      const mgr2 = await decideRefund(all[2].id, 'approve', 'mgr2');
+      expect(mgr2.statusCode, mgr2.body).toBe(403);
+      const self = await decideRefund(all[2].id, 'approve', 'mgr');
+      expect(self.statusCode, self.body).toBe(403);
+    }, 180_000);
+
+    it('ADD3-01: a receipt above what is due on a folio with an A32 reduction → its refund waits for the OWNER (A32 maker listed)', async () => {
+      const s = await x.checkedOutStay();
+      const [n1] = await nights(s);
+      expect(outcome(await x.adjust(s, n1!.id, { voidLine: true })())).toMatch(/^201/);
+      const p = await x.pay(s.folioId, {
+        type: 'charge',
+        method: 'cash',
+        amountVnd: 50_000,
+        note: 'Khách đưa thừa',
+      });
+      expect(p.statusCode, p.body).toBe(201);
+      const [, fromReceipt] = await refunds(s);
+      expect(fromReceipt).toMatchObject({
+        amount: 50_000,
+        requested_by: x.t.users.fd!.id,
+        required_role: 'owner',
+        refund_source: 'other',
+        origin_actor_ids: [x.t.users.mgr!.id],
+        reason_note: `Tự sinh từ khoản thu ${p.json().code} cash`,
+      });
+    }, 180_000);
+
+    it('SEC ADD3-03: origin_actor_ids / refund_source cannot be changed by the app role', async () => {
+      const s = await x.checkedOutStay();
+      const [n1] = await nights(s);
+      expect(outcome(await x.adjust(s, n1!.id, { voidLine: true })())).toMatch(/^201/);
+      const [r] = await refunds(s);
+      await expect(
+        x.q(`UPDATE approval_request SET origin_actor_ids = '{}' WHERE id = $1`, [r.id]),
+      ).rejects.toThrow(/permission denied/);
+      await expect(
+        x.q(`UPDATE approval_request SET refund_source = 'other' WHERE id = $1`, [r.id]),
+      ).rejects.toThrow(/permission denied/);
+    }, 180_000);
+
+    it('fuzz qrLate (FZ-02 seed 1013): a QR confirmed late on a stay with a debt pays the debt off – the debt is closed as by recordPayment, the excess asked back', async () => {
+      const s = await x.checkedOutStay({ b18Debt: { unpaid: 300_000, finalPay: 0 } });
+      expect((await x.openDebtOf(s))?.openDebtVnd).toBe(300_000);
+      const qrId = uuidv7();
+      await x.q(
+        `INSERT INTO payment (id, organization_id, property_id, code, folio_id, reservation_id, type, method,
+           reconciliation, amount_vnd, status, expires_at, recorded_by, recorded_by_role, created_at, created_by,
+           updated_at, qr_purpose)
+         VALUES ($1, $2, $3, $4, $5, $6, 'charge', 'vietqr', 'pending', 350000, 'pending', $7, $8, 'front_desk', $9,
+                 $8, $9, 'balance')`,
+        [
+          qrId,
+          x.t.organizationId,
+          x.t.propertyIds[0],
+          `QR-DEBT-${qrId.slice(-6)}`,
+          s.folioId,
+          s.id,
+          new Date(`${addDays(s.departure, 1)}T06:00:00+07:00`),
+          x.t.users.fd!.id,
+          new Date(`${s.departure}T12:00:00+07:00`),
+        ],
+      );
+      const c = await x.c.fd!.send('POST', x.url(`/payments/${qrId}/actions/confirm-received`), {
+        note: 'Công ty chuyển khoản trả nợ',
+      });
+      expect(c.statusCode, c.body).toBe(200);
+      expect((await x.openDebtOf(s))?.openDebtVnd ?? 0).toBe(0);
+      const [r] = await x.q(
+        'SELECT debt_settled_at IS NOT NULL AS settled FROM reservation WHERE id = $1',
+        [s.id],
+      );
+      expect(r.settled).toBe(true);
+      expect(await refunds(s)).toMatchObject([{ amount: 50_000, status: 'pending' }]);
+    }, 180_000);
+
+    it('ADD3-01 (residual): a MGR who makes an A32 reduction AFTER a request was written cannot approve it either (403)', async () => {
+      const s = await x.checkedOutStay();
+      const [n1, n2] = await nights(s);
+      expect(outcome(await x.adjust(s, n1!.id, { voidLine: true })())).toMatch(/^201/);
+      const [r1] = await refunds(s);
+      expect(r1).toMatchObject({ required_role: 'manager', origin_actor_ids: [x.t.users.mgr!.id] });
+      expect(outcome(await x.adjust(s, n2!.id, { voidLine: true }, undefined, 'mgr2')())).toMatch(
+        /^201/,
+      );
+      const [, r2] = await refunds(s);
+      expect(r2).toMatchObject({
+        required_role: 'owner',
+        origin_actor_ids: expect.arrayContaining([x.t.users.mgr2!.id, x.t.users.mgr!.id]),
+      });
+      const late = await decideRefund(r1.id, 'approve', 'mgr2');
+      expect(late.statusCode, late.body).toBe(403);
+      expect(late.json().code).toBe('SELF_APPROVAL_FORBIDDEN');
+      const own = await decideRefund(r1.id, 'approve', 'owner');
+      expect(own.statusCode, own.body).toBe(200);
     }, 180_000);
   },
 );
