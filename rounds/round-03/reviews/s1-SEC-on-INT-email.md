@@ -61,7 +61,7 @@ Kèm điều kiện:
   - **(C)** Giữ nguyên và chấp nhận rủi ro. Đây là quyết định của INV (ESC), SEC không khuyến nghị.
 - Nếu (A) không làm được vì gói Workspace không có SMTP relay: INT báo ORC, ORC lập ESC giữa (B) và (C).
 - Hạn: **trước khi nhập mật khẩu hay bật `smtp` trên production** (bước 8 của INV). Staging tiếp tục chạy `mock`.
-- Trạng thái: Open
+- Trạng thái: **Done (mã) – SEC xác nhận 23/10 trên `dfdc121`** (mục 6). Còn bước INV 8a: khai IP VPS trong Admin console.
 
 ### FB-R3-SEC-INT-EMAIL-02
 - Mức độ: Minor
@@ -70,7 +70,7 @@ Kèm điều kiện:
 - Vì sao quan trọng: thư bảo mật trùng lặp làm người nhận quen bỏ qua cảnh báo. Mức thấp.
 - Đề xuất sửa: lease ≥ (lô × số người nhận tối đa × timeout tổng), hoặc gia hạn lease trước mỗi lần gửi. Hoặc đơn giản: mỗi lượt chỉ xử lý một hàng khi gặp lỗi `TIMEOUT`.
 - Hạn: Sprint 2.
-- Trạng thái: Open
+- Trạng thái: **Done – SEC xác nhận 23/10 trên `dfdc121`** (mục 6)
 
 ### FB-R3-SEC-INT-EMAIL-03
 - Mức độ: Minor
@@ -88,3 +88,35 @@ Kèm điều kiện:
 1. Mật khẩu ứng dụng chỉ nằm ở một nơi: tệp secret của worker, nhập bằng prompt ẩn có xác nhận. Cấu hình kiểu URL chứa mật khẩu bị bỏ hẳn, có kiểm ở cả `safe-config` và `check-compose`.
 2. Lỗi SMTP được thu về mã + số trạng thái, không dùng chữ máy chủ trả về. Outbox không lưu địa chỉ. Test kiểm `@` không xuất hiện trong log và payload.
 3. Mẫu thư theo đúng nguyên tắc "thư bảo mật không có link", có câu nhắc chống lừa đảo, song ngữ theo brand.
+
+## 6. Review lại – 23/10/2026, nhánh `int-r3-smtp`, HEAD `dfdc121`
+
+- Nhánh đã rebase lên `origin/main` `3e9be89`: `a5f0868` là bản `463592b` cũ, `dfdc121` là bản sửa. SEC đọc diff `dfdc121` (20 tệp) và `responses/s1-INT-email.md`.
+- Kiểm trên worktree tạm ở `dfdc121`, Postgres 17 riêng (cổng 56636). Worktree và container đã xóa.
+  - `integrations` vitest **180/180**. Có thêm ca relay:
+    - không AUTH, EHLO bằng tên miền;
+    - relay trả 550 5.7.0 → `AUTH`, chữ máy chủ trả về bị bỏ;
+    - máy chủ không có TLS thì không bao giờ nhận được thư;
+    - tệp mật khẩu còn sót thì bị từ chối.
+  - api `tsc` đạt.
+  - **Toàn bộ api vitest: 116 tệp đạt, 1 bỏ qua; 3104 test đạt, 7 bỏ qua; 0 lỗi.**
+  - `check-compose.sh` đạt.
+
+### 6.1 Kết luận: **gộp được `dfdc121`.** Blocker 0, Major 0.
+
+| Thẻ | Kết luận |
+|---|---|
+| FB-R3-SEC-INT-EMAIL-01 (Major) | **Done (mã).** Mặc định `EMAIL_SMTP_MODE=relay`:<br>- `smtp-relay.gmail.com:587`, `requireTLS`, kiểm chứng chỉ, TLS ≥ 1.2;<br>- **không có `auth`** trong tùy chọn transport;<br>- EHLO = tên miền của `EMAIL_FROM`.<br>Chốt chặn:<br>- relay mà tệp `email_smtp_password` có nội dung → `CONFIG`, worker không khởi động;<br>- relay thiếu `EMAIL_FROM` → không khởi động;<br>- `init-secrets.sh` ở chế độ relay chỉ tạo tệp rỗng, không hỏi gì.<br>Từ chối `5.7.x` được xếp vào `AUTH` (thử lại cả hàng), không bị coi là người nhận hỏng, nên một lỗi cấu hình relay không làm mất thư. Chỉ lấy mã trạng thái mở rộng từ chữ máy chủ trả về. |
+| FB-R3-SEC-INT-EMAIL-02 (Minor) | **Done.** Mỗi lượt chỉ gửi trong nửa thời hạn thuê (5 phút); kiểm trước mỗi hàng và trước mỗi người nhận. Một lần gửi dài nhất khoảng 55 giây, nên lượt chạy luôn xong trước khi hết thời hạn thuê. Hàng chưa tới được trả lại, không tính lần thử, người đã nhận vẫn giữ trong `sentUserIds`. Không ghi được hàng nào → log `email lease lost`. Compose ghi rõ mỗi stack một worker. |
+| S-1 | **Done.** Lỗi bất ngờ chỉ log `err.name` + `code`, và `code` phải khớp mẫu ký tự giới hạn. |
+| FB-R3-SEC-INT-EMAIL-03 (Minor) | Deferred (R4+, khi có cơ sở thứ 2): **chấp nhận.** |
+
+### 6.2 Rủi ro còn lại và điều kiện vận hành (không thành thẻ chặn)
+
+1. **Relay tin theo IP của cả VPS.** Mọi tiến trình trên VPS, kể cả stack staging, có thể gửi thư qua relay dưới bất kỳ địa chỉ nào của tên miền. Phạm vi này **hẹp hơn hẳn** mật khẩu ứng dụng: không đọc được hộp thư, không bỏ qua 2SV. Nhưng nếu VPS bị chiếm thì vẫn giả danh gửi thư được. Ba điều kiện:
+   - (a) staging giữ `EMAIL_PROVIDER=mock` hoặc `off`, không bật `smtp` trên staging khi chưa có quyết định riêng;
+   - (b) trong Admin console chọn "chỉ địa chỉ thuộc tên miền của tôi", "bắt buộc TLS", và **chỉ** IP của VPS (/32), theo hướng dẫn 8a;
+   - (c) INV bật bản ghi DMARC (khuyến nghị đã có trong `v1-production.md` 6.2) để theo dõi thư gửi dưới tên miền.
+2. **Chế độ `app_password` dự phòng**: worker log `warn` khi khởi động. SEC chấp nhận giữ đường này, với điều kiện chỉ bật khi relay không dùng được **và** có dòng quyết định của INV (ESC hoặc decision-log), vì đây là chấp nhận rủi ro mà SEC không khuyến nghị.
+   - Nên có (Suggestion, R4): production bắt thêm một biến xác nhận rõ ràng mới chạy `app_password`.
+3. Lần gửi thật đầu tiên trên production (INV bước 8c) là bằng chứng relay hoạt động. OPS ghi kết quả (chỉ "đã nhận / chưa nhận") vào report.
