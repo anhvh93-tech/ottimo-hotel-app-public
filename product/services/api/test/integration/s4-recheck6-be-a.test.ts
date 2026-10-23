@@ -733,6 +733,8 @@ describe.skipIf(!HAS_DB)('kiểm lại tiền lần 6 – BE-A', () => {
         debtVnd: want.debtVnd,
         balanceDueVnd: want.amountDueVnd,
         dueDate: day(day(d0, 1), 3),
+        // R3 (ARC 16.31.2, BUG-R2-209): the open debt after the record.
+        openDebtVnd: want.debtVnd,
       },
     ]);
     // No post_checkout line, the folio stays settled with its bill: only the receipt was reversed.
@@ -836,7 +838,13 @@ describe.skipIf(!HAS_DB)('kiểm lại tiền lần 6 – BE-A', () => {
     await reverse(m.transferIds[0]!);
     expect((await totals(m.b)).balanceDueVnd).toBe(170_000);
     expect(await debtAuditAfter(m.b)).toEqual([
-      { checkoutMode: 'debt', debtVnd: 100_000, balanceDueVnd: 170_000, dueDate: '2031-06-06' },
+      {
+        checkoutMode: 'debt',
+        debtVnd: 100_000,
+        balanceDueVnd: 170_000,
+        dueDate: '2031-06-06',
+        openDebtVnd: 100_000,
+      },
     ]);
     expect(await reversedDebt(m.transferIds[0]!)).toBe(100_000);
     expect(await postCheckoutLines(m.b)).toBe(1);
@@ -853,7 +861,13 @@ describe.skipIf(!HAS_DB)('kiểm lại tiền lần 6 – BE-A', () => {
     await reverse(r.transferIds[0]!);
     expect((await totals(r.b)).balanceDueVnd).toBe(70_000);
     expect(await debtAuditAfter(r.b)).toEqual([
-      { checkoutMode: 'debt', debtVnd: 70_000, balanceDueVnd: 70_000, dueDate: '2031-06-13' },
+      {
+        checkoutMode: 'debt',
+        debtVnd: 70_000,
+        balanceDueVnd: 70_000,
+        dueDate: '2031-06-13',
+        openDebtVnd: 70_000,
+      },
     ]);
     expect(await reversedDebt(r.transferIds[0]!)).toBe(70_000);
     // The port itself: the same formula on what the caller read before (no new debt when nothing was added).
@@ -1035,7 +1049,13 @@ describe.skipIf(!HAS_DB)('kiểm lại tiền lần 6 – BE-A', () => {
       reason: 'post_checkout_unpaid',
     });
     expect(await debtAuditAfter(b)).toEqual([
-      { checkoutMode: 'debt', debtVnd: 70_000, balanceDueVnd: 70_000, dueDate: '2032-11-20' },
+      {
+        checkoutMode: 'debt',
+        debtVnd: 70_000,
+        balanceDueVnd: 70_000,
+        dueDate: '2032-11-20',
+        openDebtVnd: 70_000,
+      },
     ]);
     const told = (
       await q<{ user_id: string }>(

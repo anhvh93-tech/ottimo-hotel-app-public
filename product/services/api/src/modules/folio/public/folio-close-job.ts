@@ -1,7 +1,8 @@
 /**
  * J15 `folio.close` (architecture 9.1; ARC `openapi-0.3.7.md` 16.27 (1) – BR-427 (d), BR-525, DOM 18/10): a `settled`
  * folio whose post-checkout window is over is closed; what it still owes becomes ONE debt of the stay first (front
- * desk `ReservationHooks.debtOnCheckout`, reason `post_checkout_unpaid`, due date by `debt_default_due_days`). Every
+ * desk `ReservationHooks.debtOnCheckout`, reason `post_checkout_unpaid`, due date by `debt_default_due_days`; an open
+ * debt > 0 takes the difference and keeps its due date – ARC 16.31.2, BUG-R2-209). Every
  * worker tick (idempotent – a closed folio is skipped), each folio in a transaction of its own (16.19: bookings →
  * folio, read under the locks – FolioService.closeAfterWindow); one folio failing never stops the others.
  */
@@ -49,7 +50,9 @@ export function folioCloseJob(
                     reason: 'post_checkout_unpaid',
                     actor: SYSTEM_ACTOR,
                   }),
-                hasOpenDebt: async (folioId) => (await hooks.openDebt(one, folioId)) !== null,
+                // ARC 16.31.2 (BUG-R2-209): by the number – X = B means the open debt already holds what is owed.
+                hasOpenDebt: async (folioId) =>
+                  ((await hooks.openDebt(one, folioId))?.openDebtVnd ?? 0) > 0,
               }),
             { lockTimeoutMs: JOB_LOCK_TIMEOUT_MS },
           );
