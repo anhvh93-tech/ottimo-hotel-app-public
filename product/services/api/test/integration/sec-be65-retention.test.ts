@@ -44,6 +44,7 @@ describe.skipIf(!HAS_DB)('SEC BE-65 – retention anchor of operational photos (
   beforeEach(async () => {
     t = await createTenant(db, {
       users: {
+        own: ['owner'],
         mgr: ['manager'],
         fdl: ['front_desk_lead'],
         fd: ['front_desk'],
@@ -600,5 +601,57 @@ describe.skipIf(!HAS_DB)('SEC BE-65 – retention anchor of operational photos (
     await at(new Date(T0.getTime() + 3_600_000));
     await act('fd', wo.id, 'cancel', wo.version, { cancelReason: 'Không còn rỉ' });
     expect((await purge(new Date(due.getTime() + DAY))).anchorMissing).toBe(1);
+  });
+
+  it('(8) SEC FB-R2-SEC-BE-84 (a) / B.6 (a1): OWN/MGR see "Cần chú ý" attachment_retention_anchor_missing with the count of the latest J16 run; FD/HK do not; gone once a run finds none; J16 still never deletes them', async () => {
+    const { wo, photo } = await openOrder('102');
+    const inH = await seedStay(db, t, ids, { roomNo: '101', status: 'in_house' });
+    const p = await upload('fd', 'penalty_evidence', inH.reservationId);
+    await db.withContext(t.ctx(), (tx) =>
+      svc().bindTo(tx, p, { type: 'folio_line', id: '00000000-0000-7000-8000-00000000000b' }),
+    );
+    const due = plusMonths(T0, MONTHS);
+    const j16 = async (now: Date) => {
+      await at(now);
+      return db.withContext(t.ctx(), (tx) =>
+        fa.app.get(RetentionService).run(tx, TZ, { force: true }),
+      );
+    };
+    const item = async (u: string) => {
+      const r = await call(u, 'GET', '/attention');
+      if (u === 'hk') {
+        expect(r.statusCode).toBe(403); // HK has no "Cần chú ý" at all
+        return undefined;
+      }
+      expect(r.statusCode, r.body).toBe(200);
+      return (
+        r.json().data as Array<{ kind: string; params?: Record<string, unknown>; count?: number }>
+      ).find(
+        (i) =>
+          i.kind === 'data_quality' && i.params?.check === 'attachment_retention_anchor_missing',
+      );
+    };
+    // before the retention since upload: nothing missing yet
+    await j16(new Date(due.getTime() - DAY));
+    expect(await item('own')).toBeUndefined();
+    expect((await j16(new Date(due.getTime() + DAY))).attachmentAnchorMissing).toBe(2);
+    for (const u of ['own', 'mgr']) {
+      const it8 = await item(u);
+      expect(it8, u).toMatchObject({
+        count: 2,
+        params: { check: 'attachment_retention_anchor_missing', count: 2 },
+      });
+      expect(JSON.stringify(it8)).not.toMatch(new RegExp(`${photo}|${p}|${inH.reservationId}`));
+    }
+    for (const u of ['fd', 'fdl', 'hk']) expect(await item(u), u).toBeUndefined();
+    expect((await rows(photo, p)).map((x) => x.purged_at)).toEqual([null, null]);
+    // the order closes, the penalty photo gets its anchor → the next run finds none → the item is gone
+    await at(new Date(T0.getTime() + 3_600_000));
+    await act('fd', wo.id, 'cancel', wo.version, { cancelReason: 'Không còn rỉ' });
+    await db.withContext(t.ctx(), (tx) =>
+      tx.query('UPDATE attachment SET retention_anchor_at = $2 WHERE id = $1', [p, due]),
+    );
+    expect((await j16(new Date(due.getTime() + 2 * DAY))).attachmentAnchorMissing).toBe(0);
+    expect(await item('own')).toBeUndefined();
   });
 });

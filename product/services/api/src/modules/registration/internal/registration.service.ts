@@ -794,6 +794,111 @@ export class RegistrationService {
     return rows[0]?.booker_guest_id ?? null;
   }
 
+  /** v1 key of a stored document's number (decrypted in memory only – nothing logged, nothing returned). */
+  private async docKeyOf(
+    tx: Tx,
+    doc: Pick<DocRow, 'id' | 'data_key_id' | 'doc_type' | 'nationality_code' | 'enc'>,
+  ): Promise<string | null> {
+    if (!doc.enc.doc_number_enc || !doc.nationality_code) return null;
+    const number = await this.crypto.decryptText(
+      tx,
+      doc.data_key_id,
+      aadOf(doc.id, 'doc_number_enc'),
+      doc.enc.doc_number_enc,
+    );
+    return this.guestDocKey({
+      docType: doc.doc_type as DocumentFields['docType'],
+      nationalityCode: doc.nationality_code,
+      docNumber: number,
+    });
+  }
+
+  /**
+   * SEC FB-R2-SEC-BE-79 – a document edited to another person (or another number), in the SAME transaction as the
+   * edit (an error anywhere rolls all of it back):
+   * (1) the old profile loses the document key + last 4 when they are this document's (old number);
+   * (2) when the latest P05_CRM of this document was recorded for the OLD person, the old profile gets back its
+   *     decision from before (its own latest P05 on another document, else `not_asked`) + audit; the new person is
+   *     NOT given that decision – except when the record was made for the new person (A → B → A ends as "only A");
+   * (3) the new profile gets the key + last 4 only when it has P05 (`writeDocKey` checks `crm_consent`).
+   */
+  private async moveDocProfile(
+    tx: Tx,
+    reg: Pick<RegRow, 'id' | 'reservation_id'>,
+    docId: string,
+    before: { key: string | null; person: DocPerson | null },
+    after: { person: DocPerson | null; key: string; last4: string; requestId: string },
+  ): Promise<void> {
+    if (!this.profiles) return;
+    const oldGuest = await this.guestOfPerson(tx, reg.reservation_id, before.person);
+    const newGuest = await this.guestOfPerson(tx, reg.reservation_id, after.person);
+    if (oldGuest === newGuest && before.key === after.key) return;
+    if (oldGuest && before.key) await this.profiles.removeDocKey(tx, oldGuest, before.key);
+    const now = this.clock.now();
+    if (oldGuest !== newGuest) {
+      const { rows } = await tx.query<{
+        decision: 'granted' | 'refused';
+        party_member_id: string | null;
+      }>(
+        `SELECT decision, party_member_id FROM consent_record
+          WHERE guest_document_id = $1 AND purpose = 'P05_CRM' ORDER BY recorded_at DESC, id DESC LIMIT 1`,
+        [docId],
+      );
+      const rec = rows[0];
+      const recordFor = (p: DocPerson | null) =>
+        !!rec && !!p && (rec.party_member_id ?? null) === (p.memberId ?? null);
+      if (rec && oldGuest && recordFor(before.person)) {
+        const prior = await this.priorCrmDecision(tx, oldGuest, docId);
+        await this.profiles.restoreCrmConsent(tx, oldGuest, prior, now);
+        await this.audit.record(tx, {
+          category: 'data',
+          action: 'consent.reverted',
+          entityType: 'consent_record',
+          entityId: reg.id,
+          after: { purpose: 'P05_CRM', decision: prior },
+          requestId: after.requestId,
+        });
+      }
+      if (rec && newGuest && recordFor(after.person)) {
+        if (rec.decision === 'granted') {
+          await this.profiles.grantCrmConsent(
+            tx,
+            newGuest,
+            { key: after.key, last4: after.last4 },
+            now,
+          );
+        } else {
+          await this.profiles.withdrawCrmConsent(tx, newGuest, now);
+        }
+      }
+    }
+    if (newGuest) await this.profiles.writeDocKey(tx, newGuest, after.key, after.last4);
+  }
+
+  /**
+   * The profile's own latest P05_CRM decision on ANOTHER document (this property), else `not_asked`.
+   * Known limit (SEC FB-R3-SEC-BEC-02, Minor, safe side): `consent_record` is property-level RLS, so a P05 the
+   * person gave at ANOTHER property of the organisation is not seen – the profile falls back to `not_asked`
+   * (more is removed, nothing is kept). Org-wide lookup comes with R3-Q28 (read port) / a second property.
+   */
+  private async priorCrmDecision(
+    tx: Tx,
+    guestId: string,
+    excludeDocId: string,
+  ): Promise<'granted' | 'refused' | 'not_asked'> {
+    const { rows } = await tx.query<{ decision: 'granted' | 'refused' }>(
+      `SELECT cr.decision FROM consent_record cr
+         JOIN registration rg ON rg.id = cr.registration_id
+         LEFT JOIN reservation_guest m ON m.id = cr.party_member_id
+         LEFT JOIN reservation r ON r.id = rg.reservation_id
+        WHERE cr.purpose = 'P05_CRM' AND cr.guest_document_id IS DISTINCT FROM $2
+          AND COALESCE(m.guest_id, CASE WHEN cr.party_member_id IS NULL THEN r.booker_guest_id END) = $1
+        ORDER BY cr.recorded_at DESC, cr.id DESC LIMIT 1`,
+      [guestId, excludeDocId],
+    );
+    return rows[0]?.decision ?? 'not_asked';
+  }
+
   /** S4-11 (a) / S4-32: writes `guest.id_doc_hmac` + `id_doc_last4` when the person's profile has P05. */
   private async keepDocKey(
     tx: Tx,
@@ -900,6 +1005,8 @@ export class RegistrationService {
         errors: [{ field: 'isMain', code: 'MAIN_GUEST_DUPLICATE' }],
       });
     }
+    // SEC FB-R2-SEC-BE-79: the profile side of the document BEFORE the change (key of the old number, old person).
+    const before = { key: await this.docKeyOf(tx, doc), person: personOfDoc(doc) };
     const enc = await encryptFields(tx, this.crypto, doc.id, doc.data_key_id, input);
     const set = encSetSql(14);
     const minor = await this.isMinor(tx, input, stay.arrivalDate, c.today);
@@ -936,6 +1043,12 @@ export class RegistrationService {
       subjectId: doc.id,
       action: 'update',
       reservationId: reg.reservation_id,
+      requestId: actor.requestId,
+    });
+    await this.moveDocProfile(tx, reg, doc.id, before, {
+      person: person ?? before.person,
+      key: this.guestDocKey(input),
+      last4: input.docNumber.slice(-4),
       requestId: actor.requestId,
     });
     // BUG-R2-083: the desk linked an unclaimed guest-link document to a person still in the party → it is
@@ -2704,6 +2817,20 @@ export class RegistrationService {
    * guest-link documents, with the earliest removal deadline – booking ids only (SEC J). A booking under
    * `legal_hold` is left out: J16 does not remove anything there, so the deadline would be wrong (SEC-BE-57).
    */
+  /**
+   * SEC FB-R2-SEC-BE-84 (a) (ARC a1): photos bound without a retention anchor counted by the LATEST hourly J16 run
+   * of this property (`retention_run` `anchor_missing`, same `run_at` as that run's `J16` row). 0 when that run
+   * found none – the "Cần chú ý" item disappears by itself. Count only.
+   */
+  async anchorMissingCount(tx: Tx): Promise<number> {
+    const { rows } = await tx.query<{ n: number }>(
+      `SELECT coalesce(sum(a.items_count), 0)::int AS n FROM retention_run a
+        WHERE a.policy_key = 'anchor_missing'
+          AND a.run_at = (SELECT max(j.run_at) FROM retention_run j WHERE j.policy_key = 'J16')`,
+    );
+    return rows[0]?.n ?? 0;
+  }
+
   async unclaimedDocumentStays(tx: Tx): Promise<Array<{ stay: StayView; dueAt: Date | null }>> {
     // BR-601 v0.3.8 (DOM-S4-16 b): also a child's document linked to nobody (desk-entered – no profile for a
     // minor, S4-11 – or a guest-link slot) while the stay is not declared: no deadline, the desk links it.

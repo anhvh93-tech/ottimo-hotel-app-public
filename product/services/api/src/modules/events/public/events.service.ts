@@ -41,6 +41,9 @@ export type SseEventType = (typeof SSE_EVENT_TYPES)[number];
 export const FD_PLUS = ['owner', 'manager', 'front_desk_lead', 'front_desk'] as const;
 export const MGR_PLUS = ['owner', 'manager'] as const;
 const OWNER_ONLY = ['owner'] as const;
+
+/** `data_quality` check of J16's safety net (SEC FB-R2-SEC-BE-84 (a), OpenAPI 0.3.8 AttentionItem.params). */
+export const ATTACHMENT_ANCHOR_MISSING_CHECK = 'attachment_retention_anchor_missing';
 const HK = 'housekeeping';
 const MT = 'maintenance';
 
@@ -137,7 +140,8 @@ export const ATTENTION_PARAM_KEYS: Partial<Record<AttentionKind, readonly string
   registration_due: ['count', 'deadline'],
   registration_overdue: ['count'],
   deposit_after_cancel: ['code'],
-  data_quality: ['check'],
+  // `count`: 0.3.8 (SEC B.6 a1) – attachment_retention_anchor_missing carries the number of photos.
+  data_quality: ['check', 'count'],
   unassigned_with_free_room: ['count'],
   security_alert: ['code'],
   foc_threshold: ['check', 'pct', 'threshold', 'count', 'max'],
@@ -166,6 +170,8 @@ export function attentionAudience(item: Pick<AttentionItem, 'kind' | 'params'>):
       return MGR_PLUS;
     case 'data_quality': {
       const check = item.params?.check;
+      // 0.3.8 (SEC FB-R2-SEC-BE-84 a / B.6 – ARC a1): photos without retention anchor → OWN/MGR only.
+      if (check === ATTACHMENT_ANCHOR_MISSING_CHECK) return MGR_PLUS;
       return typeof check === 'string' && check.startsWith('registration_') ? FD_PLUS : OWNER_ONLY;
     }
     default:
