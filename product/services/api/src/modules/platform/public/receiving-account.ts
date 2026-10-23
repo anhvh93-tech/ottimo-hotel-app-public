@@ -62,18 +62,71 @@ export function parseReceivingAccount(value: unknown): ReceivingAccount {
   return { bankBin, accountNo, accountName };
 }
 
-/** `9704••••1234` style mask (BIN prefix + last 4) – never the full number. */
+/**
+ * `9704••••1234` style mask (BIN prefix + last 4) – the VietQR result for the desk (`createVietQr.receivingAccountMasked`,
+ * contract unchanged). Never the full number.
+ */
 export function maskedAccountNo(a: { bankBin: string; accountNo: string }): string {
   return `${a.bankBin.slice(0, 4)}••••${a.accountNo.slice(-4)}`;
 }
 
-/** The parameter value as listings show it (accountNo replaced by accountNoMasked). */
+/**
+ * 0.3.8 (R3-Q51, SEC Q51-2): bank names of the NAPAS BINs – a static table in code (no lookup service, no guest data).
+ * An unknown BIN has no name (the screen shows the BIN).
+ */
+export const NAPAS_BANKS: Readonly<Record<string, string>> = {
+  '970400': 'Saigonbank',
+  '970403': 'Sacombank',
+  '970405': 'Agribank',
+  '970406': 'DongA Bank',
+  '970407': 'Techcombank',
+  '970408': 'GPBank',
+  '970409': 'BacA Bank',
+  '970412': 'PVcomBank',
+  '970414': 'OceanBank',
+  '970415': 'VietinBank',
+  '970416': 'ACB',
+  '970418': 'BIDV',
+  '970419': 'NCB',
+  '970422': 'MB',
+  '970423': 'TPBank',
+  '970425': 'ABBANK',
+  '970426': 'MSB',
+  '970427': 'VietABank',
+  '970428': 'Nam A Bank',
+  '970429': 'SCB',
+  '970430': 'PGBank',
+  '970431': 'Eximbank',
+  '970432': 'VPBank',
+  '970433': 'Vietbank',
+  '970436': 'Vietcombank',
+  '970437': 'HDBank',
+  '970438': 'BaoViet Bank',
+  '970440': 'SeABank',
+  '970441': 'VIB',
+  '970443': 'SHB',
+  '970448': 'OCB',
+  '970449': 'LPBank',
+  '970452': 'KienlongBank',
+  '970454': 'Viet Capital Bank',
+};
+
+export function bankNameOf(bankBin: string | undefined): string | undefined {
+  return bankBin ? NAPAS_BANKS[bankBin] : undefined;
+}
+
+/**
+ * The parameter value as every read, audit and notification shows it (0.3.8 – SEC Q51-2): `accountNoMasked` =
+ * `•••• 1234` + `bankName` from the BIN; the full number never leaves the server here (only in a VietQR payload).
+ */
 export function maskReceivingAccount(value: unknown): unknown {
   const v = value as Partial<ReceivingAccount> | null;
   if (!v || typeof v !== 'object' || typeof v.accountNo !== 'string') return value;
+  const bankName = bankNameOf(v.bankBin);
   return {
     bankBin: v.bankBin,
-    accountNoMasked: maskedAccountNo({ bankBin: v.bankBin ?? '', accountNo: v.accountNo }),
+    ...(bankName ? { bankName } : {}),
+    accountNoMasked: `•••• ${v.accountNo.slice(-4)}`,
     accountName: v.accountName,
   };
 }

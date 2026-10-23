@@ -131,7 +131,8 @@ describe.skipIf(!HAS_DB)('createVietQr check_in / check_out (BE-B Sprint 4, S4-1
     );
     c.fd!.deviceToken = token;
     await setPassword(db, t, 'owner');
-    await at('2026-10-15T09:00:00+07:00');
+    // 0.3.8 (R3-Q51, SEC Q51-5): the receiving account takes effect from the NEXT business day.
+    await at('2026-10-14T09:00:00+07:00');
     const put = await c.owner!.send('PUT', url('/parameters/payment_receiving_account'), {
       value: ACCOUNT,
       effectiveFrom: '2026-10-15',

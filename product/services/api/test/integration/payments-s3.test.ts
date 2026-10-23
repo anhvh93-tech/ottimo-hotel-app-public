@@ -404,6 +404,9 @@ describe.skipIf(!HAS_DB)(
           reason: 'Tài khoản nhận thử nghiệm',
           ...body,
         });
+      // 0.3.8 (R3-Q51, SEC Q51-5): the account takes effect from the NEXT business day – set it the day before T0.
+      fa.clock.set(new Date(T0.getTime() - 24 * 3_600_000));
+      await refreshSessions(db, t, fa.clock.now());
       expect(
         (await put('mgr', { reauth: { authMethod: 'password', secret: TEST_PASSWORD } }))
           .statusCode,
@@ -418,9 +421,11 @@ describe.skipIf(!HAS_DB)(
       expect(bad.json().code).toBe('REAUTH_FAILED');
       const ok = await put('owner', { reauth: { authMethod: 'password', secret: TEST_PASSWORD } });
       expect(ok.statusCode, ok.body).toBe(200);
+      // 0.3.8 (SEC Q51-2): `•••• 1234` + bankName on the parameter (the QR keeps `9704••••6789`).
       expect(ok.json().value).toEqual({
         bankBin: '970407',
-        accountNoMasked: '9704••••6789',
+        bankName: 'Techcombank',
+        accountNoMasked: '•••• 6789',
         accountName: 'OTTIMO TEST',
       });
       expect(ok.body).not.toContain(ACCOUNT.accountNo);
@@ -445,6 +450,8 @@ describe.skipIf(!HAS_DB)(
         [t.users.owner!.id, t.users.owner2!.id, t.users.mgr!.id, t.users.mgr2!.id].sort(),
       );
       expect(JSON.stringify(push[0]!.payload)).not.toContain(ACCOUNT.accountNo);
+      fa.clock.set(T0);
+      await refreshSessions(db, t, T0);
     });
 
     it('createVietQr (US-120, SEC F1/F2): server amount cap, code-only content, payload with CRC, one pending QR per folio', async () => {

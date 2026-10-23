@@ -21,14 +21,15 @@ import {
   Res,
 } from '@nestjs/common';
 import { z } from 'zod';
-import { DATABASE, Database } from '../../../db/database';
+import { v7 as uuidv7 } from 'uuid';
+import { DATABASE, Database, type Tx } from '../../../db/database';
 import { type GuardedRequest, tenantOf } from '../../../shared/http/auth.guard';
 import { Operation } from '../../../shared/http/operation';
 import { etag, expectedVersion } from '../../../shared/http/precondition';
 import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
 import { ProblemError, problem } from '../../../shared/problem';
 import { EventsService } from '../../events/public/events.service';
-import { PasswordReauth } from '../../identity/public/password-reauth';
+import { StrongReauthService } from '../../identity/public/strong-reauth';
 import { notifyStaff } from '../public/staff-notify';
 import { RECEIVING_ACCOUNT_KEY } from '../public/receiving-account';
 import { AuditService } from '../../audit/public/audit.service';
@@ -107,15 +108,34 @@ const roomPatch = z.object({
     .optional(),
 });
 
+/** 0.3.8 `setParameter.reauth` / `cancelScheduledParameter.reauth`: S2 – password (`secret`) + TOTP or recovery code. */
+const reauthSchema = z
+  .object({
+    authMethod: z.literal('password'),
+    secret: z.string().min(6).max(256),
+    totpCode: z
+      .string()
+      .regex(/^[0-9]{6}$/)
+      .optional(),
+    recoveryCode: z.string().min(1).max(32).optional(),
+  })
+  .strict();
+
 const setParameterSchema = z.object({
   value: z.unknown().refine((v) => v !== undefined, { params: { code: 'REQUIRED' } }),
   effectiveFrom: localDateSchema,
   reason: reasonSchema,
-  // 0.3.6 x-reauth-parameters (SEC F3): payment_receiving_account only; other keys ignore it.
-  reauth: z
-    .object({ authMethod: z.literal('password'), secret: z.string().min(6).max(256) })
-    .optional(),
+  // 0.3.6 x-reauth-parameters (SEC F3) + 0.3.8 S2 (R3-Q51): payment_receiving_account only; other keys ignore it.
+  reauth: reauthSchema.optional(),
 });
+
+const cancelScheduledSchema = z
+  .object({
+    effectiveFrom: localDateSchema,
+    reason: reasonSchema,
+    reauth: reauthSchema.optional(),
+  })
+  .strict();
 
 @Controller('v1/properties/:propertyId')
 export class PlatformController {
@@ -127,7 +147,7 @@ export class PlatformController {
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(ChannelsService) private readonly channels: ChannelsService,
     @Inject(PropertyContextService) private readonly property: PropertyContextService,
-    @Inject(PasswordReauth) private readonly reauth: PasswordReauth,
+    @Inject(StrongReauthService) private readonly strong: StrongReauthService,
     @Optional() @Inject(EventsService) private readonly events?: EventsService,
   ) {}
 
@@ -249,14 +269,7 @@ export class PlatformController {
       if (receiving) {
         // SEC F3: owner only (403 before any password check), then the owner's own password in this request.
         if (!p.roles.includes('owner')) throw problem('FORBIDDEN_ACTION');
-        if (!input.reauth) {
-          throw problem('VALIDATION_FAILED', { errors: [{ field: 'reauth', code: 'REQUIRED' }] });
-        }
-        await this.reauth.verify(tenantOf(p), input.reauth.secret, {
-          field: 'reauth.secret',
-          purpose: 'receiving_account',
-          requestId: req.id,
-        });
+        await this.s2(req, input.reauth, 'setParameter');
       }
       const result = await this.uow.run(req, async (tx) => {
         const dto = await this.parameters.set(tx, {
@@ -267,21 +280,7 @@ export class PlatformController {
           roles: p.roles,
           requestId: req.id,
         });
-        if (receiving) {
-          // SEC F3: every owner/manager learns that the account was changed (no number in the push).
-          const pc = await this.property.now(tx);
-          await notifyStaff(
-            tx,
-            this.events,
-            {
-              kind: 'receiving_account_changed',
-              roles: ['owner', 'manager'],
-              refType: 'property',
-              refId: pc.propertyId,
-            },
-            pc.now,
-          );
-        }
+        if (receiving) await this.receivingAccountChanged(tx, input.effectiveFrom, 'set');
         return { status: 200, body: dto };
       });
       return applyResult(reply, result);
@@ -299,5 +298,115 @@ export class PlatformController {
       }
       throw err;
     }
+  }
+
+  @Post('parameters/:key/actions/cancel-scheduled')
+  @Operation('cancelScheduledParameter')
+  async cancelScheduledParameter(
+    @Req() req: Req,
+    @Res({ passthrough: true }) reply: Reply,
+    @Param('key') key: string,
+    @Body() body: unknown,
+  ): Promise<void> {
+    if (!KEY.test(key)) throw problem('NOT_FOUND');
+    const input = parseBody(cancelScheduledSchema, body);
+    assertNoCardNumber('reason', input.reason);
+    const p = principal(req);
+    const receiving = key === RECEIVING_ACCOUNT_KEY;
+    try {
+      if (receiving) {
+        // SEC Q51-1/Q51-4: owner only (403 before any password check), then S2 in this request.
+        if (!p.roles.includes('owner')) throw problem('FORBIDDEN_ACTION');
+        await this.s2(req, input.reauth, 'cancelScheduledParameter');
+      }
+      const result = await this.uow.run(req, async (tx) => {
+        await this.parameters.cancelScheduled(tx, {
+          key,
+          effectiveFrom: input.effectiveFrom,
+          reason: input.reason,
+          roles: p.roles,
+          requestId: req.id,
+        });
+        if (receiving) await this.receivingAccountChanged(tx, input.effectiveFrom, 'cancel');
+        return { status: 204, body: undefined };
+      });
+      return applyResult(reply, result);
+    } catch (err) {
+      if (err instanceof ProblemError && err.code === 'FORBIDDEN_ACTION') {
+        await this.audit.recordDenied(tenantOf(p), {
+          action: 'access.denied',
+          entityType: 'config_parameter',
+          entityId: key,
+          requestId: req.id,
+          sessionId: p.sessionId,
+          after: { operationId: 'cancelScheduledParameter', roles: p.roles },
+        });
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * 0.3.8 S2 (SEC Q51-4, A.5) through identity's one server function, BEFORE the unit of work (counted although the
+   * request fails). `reauth` missing → 422 REQUIRED (field `reauth`); `secret` = the password.
+   */
+  private async s2(req: Req, reauth: z.infer<typeof reauthSchema> | undefined, op: string) {
+    if (!reauth) {
+      throw problem('VALIDATION_FAILED', { errors: [{ field: 'reauth', code: 'REQUIRED' }] });
+    }
+    const p = principal(req);
+    await this.strong.verify(
+      tenantOf(p),
+      {
+        password: reauth.secret,
+        ...(reauth.totpCode !== undefined ? { totpCode: reauth.totpCode } : {}),
+        ...(reauth.recoveryCode !== undefined ? { recoveryCode: reauth.recoveryCode } : {}),
+      },
+      {
+        operationId: op,
+        passwordField: 'reauth.secret',
+        factorField: 'reauth.totpCode',
+        requestId: req.id,
+        sessionId: p.sessionId,
+      },
+    );
+  }
+
+  /**
+   * SEC F3 + Q51-6: every OWN/MGR is told in the app (the effective date as the display code – never a number) and
+   * every owner by email through the outbox (`staff.email`, template + date only; the dispatcher resolves the
+   * addresses – an owner whose session was taken cannot hide it).
+   */
+  private async receivingAccountChanged(tx: Tx, effectiveFrom: string, action: 'set' | 'cancel') {
+    const pc = await this.property.now(tx);
+    await notifyStaff(
+      tx,
+      this.events,
+      {
+        kind: 'receiving_account_changed',
+        roles: ['owner', 'manager'],
+        refType: 'property',
+        refId: pc.propertyId,
+        refCode: effectiveFrom,
+      },
+      pc.now,
+    );
+    await tx.query(
+      `INSERT INTO outbox_message (id, organization_id, property_id, topic, payload, dedupe_key)
+       VALUES ($1, $2, $3, 'staff.email', $4, $5)`,
+      [
+        uuidv7(),
+        tx.ctx.organizationId,
+        pc.propertyId,
+        // Q51-6 – the INT worker's contract (`int-r3-smtp`): template + owners + the effective date, no number.
+        JSON.stringify({
+          template: 'receiving_account_changed',
+          userIds: [],
+          owners: true,
+          effectiveDate: effectiveFrom,
+        }),
+        `email:receiving_account_changed:${action}:${pc.propertyId}:${uuidv7()}`,
+      ],
+    );
   }
 }
