@@ -51,6 +51,8 @@ export async function startFeatureApp(
      * suites run with a high limit; the rate-limit test passes the production value.
      */
     staffRequestsPerMinute?: number;
+    /** 0.3.8 MFA_ENFORCED (US-143) – guard + identity. */
+    mfaEnforced?: boolean;
   } = {},
 ): Promise<FeatureApp> {
   const clock = new FixedClock(T0);
@@ -70,6 +72,7 @@ export async function startFeatureApp(
             staffPwa: opts.pwaOrigins ?? [],
           },
           staffRequestsPerMinute: opts.staffRequestsPerMinute ?? 1_000_000,
+          mfaEnforced: opts.mfaEnforced === true,
         },
         imports: featureModules({
           sessionSecret: 'test-session-secret-0123456789abcdef',
@@ -77,6 +80,7 @@ export async function startFeatureApp(
           adminOrigins: opts.adminOrigins ?? [],
           pwaOrigins: opts.pwaOrigins ?? [],
           ipHmacKey: 'test-ip-hmac-key-0123456789abcdefgh',
+          mfaEnforced: opts.mfaEnforced === true,
         }),
       }),
     ],

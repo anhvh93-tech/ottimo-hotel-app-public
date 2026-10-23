@@ -195,6 +195,11 @@ describe.skipIf(!HAS_DB)('SECURITY DEFINER entry functions (erd 2.4)', () => {
       'client_origin',
       'last_active_at',
       'must_change_password',
+      // 0.3.8 (0079_mfa_two_factor, US-143): second-factor state for the restricted-session guard.
+      'mfa_at',
+      'enrollment_only',
+      'mfa_enabled',
+      'mfa_required',
     ]);
     expect(await columns('auth_resolve_device')).toEqual([
       'device_id',

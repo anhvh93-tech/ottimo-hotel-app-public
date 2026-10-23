@@ -25,7 +25,12 @@ export type RevokeReason =
   | 'password_reset'
   | 'password_changed'
   | 'mfa_disabled'
+  | 'mfa_enrolled'
+  | 'mfa_reset'
   | 'admin';
+
+/** How the session was authenticated (user_session.amr, SEC 06.21). */
+export type SessionAmr = 'pwd' | 'totp' | 'recovery_code';
 
 export interface SessionPolicy {
   admin: { idleMinutes: number; maxHours: number };
@@ -68,6 +73,10 @@ export class SessionService {
       ip?: string | undefined;
       userAgent?: string | undefined;
       policy: SessionPolicy;
+      /** 0.3.8 (US-143): second factor passed now (amr totp/recovery_code); default password only. */
+      amr?: SessionAmr;
+      /** 0.3.8 (SEC 06.4): restricted session – only the 2FA enrolment operations. */
+      enrollmentOnly?: boolean;
     },
   ): Promise<NewSession> {
     const now = this.clock.now();
@@ -80,8 +89,8 @@ export class SessionService {
     const id = sha256Hex(token);
     await tx.query(
       `INSERT INTO user_session (id, organization_id, user_id, active_property_id, client_origin, created_at,
-         last_active_at, idle_expires_at, expires_at, ip_hmac, user_agent)
-       VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $10)`,
+         last_active_at, idle_expires_at, expires_at, ip_hmac, user_agent, mfa_at, amr, enrollment_only)
+       VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $10, $11, $12, $13)`,
       [
         id,
         input.organizationId,
@@ -93,6 +102,9 @@ export class SessionService {
         expiresAt,
         this.ipHmac(input.ip),
         input.userAgent ? input.userAgent.slice(0, 200) : null,
+        input.amr === 'totp' || input.amr === 'recovery_code' ? now : null,
+        input.amr ?? 'pwd',
+        input.enrollmentOnly === true,
       ],
     );
     return { token, id, expiresAt, idleExpiresAt, clientOrigin: input.clientOrigin };
