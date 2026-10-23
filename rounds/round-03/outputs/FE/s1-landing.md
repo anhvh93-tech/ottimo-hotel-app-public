@@ -49,7 +49,7 @@
 | 4e Messenger | Giữ câu "Our Facebook page is for news…" |
 | 4f e-brochure | Không có link tải |
 | Pháp nhân | Chân trang: "Operated by / Đơn vị vận hành CÔNG TY CỔ PHẦN UTMG LIVING · Tax code / MST 5801551657 · 28 Triệu Việt Vương, P. Xuân Hương – Đà Lạt, Lâm Đồng" (`site.json` → `legal`, schema kiểm MST 10 số) |
-| Email | Chỉ hộp thư chung `booking@ottimo.vn` (schema chặn email ngoài tên miền OTTIMO); không email cá nhân |
+| Email | Chỉ hộp thư chung `info@ottimo.vn` (schema chặn email ngoài tên miền OTTIMO); không email cá nhân |
 | Form | Tắt (`features.bookingRequest = false`), bản production không có `form/input` (TC-LP-004) |
 
 ## 4. Kiểm thử
@@ -75,7 +75,7 @@ Không JS: trình duyệt bỏ qua `loading="lazy"` nên tải mọi ảnh (như
 ## 6. Giả định và việc cho vai khác
 
 - [GIẢ ĐỊNH] Khách thứ thêm ở Premium ngủ giường phụ 1m4 (thay sofa); sức chứa Premium giữ 3–4 (BR-110). DOM/PO xác nhận nếu giường 1m4 cho phép 2 người.
-- [GIẢ ĐỊNH] Hộp thư `booking@ottimo.vn` tồn tại trên Google Workspace khi trang lên mạng. Nếu chưa: đặt `contact.email = ""` trong `site.json` (mọi link email tự ẩn) – INV kiểm khi duyệt bản xem trước.
+- [GIẢ ĐỊNH] Hộp thư `info@ottimo.vn` tồn tại trên Google Workspace khi trang lên mạng. Nếu chưa: đặt `contact.email = ""` trong `site.json` (mọi link email tự ẩn) – INV kiểm khi duyệt bản xem trước.
 - [GIẢ ĐỊNH] Thứ tự 5 ảnh đầu trang do FE chọn (chưa có hi-fi UXD cho R3-Q52); UXD review chéo.
 - Không thiết kế UXD hi-fi R3-Q52 trong repo – FE dựng theo mock v1.2.1 và brand; mời UXD review (chấm/viên điều khiển, hộp ảnh).
 - OPS: đưa `product/apps/landing-web/dist/` lên địa chỉ xem trước (Caddy site thứ 4, header ADR-014 1.4); không đặt `LANDING_INDEXABLE`.

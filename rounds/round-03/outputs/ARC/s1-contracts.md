@@ -201,7 +201,7 @@ Phải chờ: US-164 phần B18 (sau bước 3), R3-Q27 phía payments (sau bư�
 
 ## 11. Rủi ro / giả định
 - R1 – CỔNG S2 trên operation đã cài: BE + FE cùng PR, nếu tách sẽ vỡ màn người dùng/thiết bị/đổi mật khẩu/tham số.
-- R2 – **Email** (SEC 06.15, 06.33, Q51-6): repo chưa có kênh email chạy thật. Sprint 1 dùng adapter email qua outbox với chế độ mock (như US-141); gửi thật cần hộp thư booking@ottimo.vn có SMTP – không phát sinh phí nếu dùng hộp thư sẵn có [GIẢ ĐỊNH – INT/OPS xác nhận; nếu cần dịch vụ trả phí thì ORC mở ESC].
+- R2 – **Email** (SEC 06.15, 06.33, Q51-6): repo chưa có kênh email chạy thật. Sprint 1 dùng adapter email qua outbox với chế độ mock (như US-141); gửi thật cần hộp thư info@ottimo.vn có SMTP – không phát sinh phí nếu dùng hộp thư sẵn có [GIẢ ĐỊNH – INT/OPS xác nhận; nếu cần dịch vụ trả phí thì ORC mở ESC].
 - R3 – Web Push trên iOS chỉ chạy khi Desk được "Thêm vào màn hình chính" (iOS 16.4+); quản lý dùng iPhone phải làm bước này – hướng dẫn vận hành (OPS + DOM). SSE + hộp thông báo vẫn là đường dự phòng.
 - Giả định: DOM chốt BR-416 (miễn sau hậu kiểm qua A32) và SM-19 do BA đặt mã; SEC xác nhận lệch 06.29 (tài nguyên riêng thay `approval_request`) và S2 gửi trong request thay token.
 

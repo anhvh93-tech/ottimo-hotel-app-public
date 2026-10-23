@@ -187,7 +187,7 @@ describe('site facts (site.json)', () => {
   it('validates and keeps the INV contact data of ESC-020 / FB-INV-002', () => {
     expect(site.phone.e164).toBe('+84844440909');
     expect(site.mapUrl).toBe('https://maps.app.goo.gl/oYos42G5YvUEcDCc6');
-    expect(site.contact.email).toBe('booking@ottimo.vn');
+    expect(site.contact.email).toBe('info@ottimo.vn');
     expect(site.facebookUrl).toBe('https://www.facebook.com/profile.php?id=100091335431646');
   });
 
@@ -208,7 +208,7 @@ describe('site facts (site.json)', () => {
   });
 
   it('accepts only a shared mailbox on the OTTIMO domain, or nothing (ADR-014 4.2)', () => {
-    expect(isOttimoMailbox('booking@ottimo.vn', 'ottimo.vn')).toBe(true);
+    expect(isOttimoMailbox('info@ottimo.vn', 'ottimo.vn')).toBe(true);
     expect(isOttimoMailbox('someone@gmail.com', 'ottimo.vn')).toBe(false);
     const withEmail = (email: string) => ({ ...raw, contact: { ...raw.contact, email } });
     expect(siteSchema.safeParse(withEmail('nguyen.van.a@gmail.com')).success).toBe(false);
