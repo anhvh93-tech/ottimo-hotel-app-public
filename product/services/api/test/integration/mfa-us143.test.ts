@@ -54,6 +54,7 @@ describe.skipIf(!HAS_DB)('US-143 two-step login, recovery codes, S2 (SEC A.7)', 
     setup: ['front_desk_lead'],
     resetme: ['manager'],
     op: ['owner'],
+    cp: ['manager'],
   };
 
   beforeAll(async () => {
@@ -516,6 +517,25 @@ describe.skipIf(!HAS_DB)('US-143 two-step login, recovery codes, S2 (SEC A.7)', 
     // next sign-in of the manager: no second step (2FA gone); with MFA_ENFORCED → restricted again
     expect((await login(fa, 'resetme')).statusCode).toBe(200);
     expect((await login(enforced, 'resetme')).json().mfaEnrollmentRequired).toBe(true);
+  });
+
+  it('S2 on changeMyPassword (SEC 06.25): 2FA user without factor → 422, wrong → 401, with TOTP → 204', async () => {
+    fa.clock.set(new Date(T0.getTime() + 14 * 3600_000));
+    const c = await enroll('cp');
+    step();
+    const body = { currentPassword: TEST_PASSWORD, newPassword: 'Another-fake-pass-77' };
+    const missing = await c.send('POST', '/v1/me/password', body);
+    expect(missing.statusCode).toBe(422);
+    expect(missing.json().errors[0]).toEqual({ field: 'totpCode', code: 'STRONG_REAUTH_REQUIRED' });
+    const wrong = await c.send('POST', '/v1/me/password', { ...body, totpCode: code('cp', fa, 3) });
+    expect(wrong.statusCode).toBe(401);
+    expect(wrong.json().errors[0]).toMatchObject({
+      field: 'currentPassword',
+      code: 'REAUTH_FAILED',
+    });
+    const ok = await c.send('POST', '/v1/me/password', { ...body, totpCode: code('cp') });
+    expect(ok.statusCode).toBe(204);
+    await setPassword(db, t, 'cp');
   });
 
   it('case 15: an approver with 2FA confirming with a password alone → the same 401 REAUTH_FAILED', async () => {

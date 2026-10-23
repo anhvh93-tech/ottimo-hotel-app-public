@@ -48,6 +48,9 @@ x-api-env: &api-env
   TRUST_PROXY: ${WEB_IP:-172.30.0.10}
   COOKIE_SECURE_PREFIX: 'true'
   CLOCK_MODE: ${CLOCK_MODE:-system}
+  # US-143 (SEC 06.3): two-step login mandatory for owner/manager. production refuses to start unless true;
+  # staging sets true before real data (OPS – /opt/ottimo/.env).
+  MFA_ENFORCED: ${MFA_ENFORCED:-false}
   # Staging may set 1 (with an image built with test support, API_TAG_SUFFIX=-test); production refuses it.
   INCLUDE_TEST_SUPPORT: ${INCLUDE_TEST_SUPPORT:-0}
   TEST_SUPPORT_TOKEN: ${TEST_SUPPORT_TOKEN:-}

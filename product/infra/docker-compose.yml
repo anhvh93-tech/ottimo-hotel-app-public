@@ -49,6 +49,8 @@ x-api-env: &api-env
   # SR-RL-09 requests per staff user and minute (empty = 600). dev/test may raise it: the CI E2E stack sets 5000
   # (infra/ci/make-ci-env.sh) because parallel Playwright workers share the qa.* accounts (BUG-R2-051).
   STAFF_REQUESTS_PER_MINUTE: ${STAFF_REQUESTS_PER_MINUTE:-}
+  # US-143 (SEC 06.3): dev default false; set true in product/.env to try the restricted session.
+  MFA_ENFORCED: ${MFA_ENFORCED:-false}
   # Key material (ADR-013; services/api keyring.ts + config.ts). api and worker MUST get the same values.
   # Empty = the api's intentional dev/test fallback: a random key PER PROCESS – api and worker disagree, and after any
   # restart every document written before is unreadable (500 DecryptionError, UXR 17/10 #1) and CSRF tokens die.
