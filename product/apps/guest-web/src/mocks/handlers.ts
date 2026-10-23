@@ -149,7 +149,34 @@ function closedGuard() {
   return scenario.closed || scenario.inHouse ? problem(409, 'ONLINE_CHECKIN_CLOSED') : undefined;
 }
 
+/** VN calendar date `YYYY-MM-DD` + n days (UTC+7, no DST). */
+function vnDate(now: number, n = 0): string {
+  return new Date(now + 7 * 3_600_000 + n * 86_400_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Stay dates of the mock, relative to the clock (CI 23/10: fixed dates made the link expire by real time and
+ * broke every test – keep it moving). Arrival in 2 days, 3 nights, link valid until noon the day after
+ * check-out (the server's `expiresAt` rule for level 1). Tests read the expected dates from here.
+ */
+export function mockDates(now = Date.now()) {
+  const arrival = vnDate(now, 2);
+  const departure = vnDate(now, 5);
+  return {
+    arrival,
+    departure,
+    doorFrom: `${arrival}T14:00:00+07:00`,
+    doorTo: `${departure}T12:00:00+07:00`,
+    linkExpiresAt: `${vnDate(now, 6)}T12:00:00+07:00`,
+    /** Online check-in finished 3 days before arrival, 20:10. */
+    completedAt: `${vnDate(now, -1)}T20:10:00+07:00`,
+    /** A guest request sent on the arrival evening. */
+    requestAt: `${arrival}T20:10:00+07:00`,
+  };
+}
+
 function stayBody() {
+  const dates = mockDates();
   const inHouse = scenario.inHouse;
   const body: Record<string, unknown> = {
     reservationCode: 'OTM-0150',
@@ -158,8 +185,8 @@ function stayBody() {
     // 0.3.7 (BR-012): name + public room type; the server no longer sends roomNo to guests.
     roomName: 'The Bloom',
     publicRoomType: 'Standard Studio · Garden View',
-    arrivalDate: '2026-10-19',
-    departureDate: '2026-10-22',
+    arrivalDate: dates.arrival,
+    departureDate: dates.departure,
     checkinTime: '14:00',
     checkoutTime: '12:00',
     property: {
@@ -180,8 +207,8 @@ function stayBody() {
     body.guestFullName = 'Anna Martin';
     body.doorCode = {
       code: '582913',
-      validFrom: '2026-10-19T14:00:00+07:00',
-      validTo: '2026-10-22T12:00:00+07:00',
+      validFrom: dates.doorFrom,
+      validTo: dates.doorTo,
     };
   }
   return body;
@@ -239,7 +266,7 @@ export const handlers = [
       roomName: 'The Bloom',
       locale: state.locale,
       localeChosenByGuest: state.localeChosen,
-      expiresAt: '2026-10-23T12:00:00+07:00',
+      expiresAt: mockDates().linkExpiresAt,
       level2ExpiresAt: null,
     });
   }),
@@ -399,7 +426,7 @@ export const handlers = [
     const missing = missingStep();
     if (missing) return problem(409, 'INVALID_TRANSITION', { currentState: missing });
     state.oci.currentStep = 'done';
-    state.oci.completedAt = '2026-10-16T20:10:00+07:00';
+    state.oci.completedAt = mockDates().completedAt;
     return HttpResponse.json(oci());
   }),
 
@@ -504,7 +531,7 @@ export const handlers = [
       status: 'new' as const,
       statusLabel: state.locale === 'vi' ? 'Đã gửi' : 'Sent',
       feeVnd: fee > 0 ? fee : null,
-      createdAt: '2026-10-19T20:10:00+07:00',
+      createdAt: mockDates().requestAt,
     };
     state.requests = [created, ...state.requests];
     return HttpResponse.json(created, { status: 201 });

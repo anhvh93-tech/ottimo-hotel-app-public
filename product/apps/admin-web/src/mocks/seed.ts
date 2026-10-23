@@ -263,6 +263,10 @@ export function seedGuests(): MockGuest[] {
   ];
 }
 
+/** Device grant still valid by the real clock (180-day grant; fixed dates would turn "expired" in 04/2027 – CI 23/10). */
+const grantEnds = (minutes: number) =>
+  new Date(Date.now() + 180 * 86_400_000 + minutes * 60_000).toISOString();
+
 export function seedDevices(): TrustedDevice[] {
   return [
     {
@@ -271,7 +275,7 @@ export function seedDevices(): TrustedDevice[] {
       deviceKind: 'desk',
       createdByName: 'Chủ đầu tư',
       createdAt: '2026-10-15T08:00:00+07:00',
-      expiresAt: '2027-04-13T08:00:00+07:00',
+      expiresAt: grantEnds(0),
       lastSeenAt: '2026-10-16T07:50:00+07:00',
     },
     {
@@ -280,7 +284,7 @@ export function seedDevices(): TrustedDevice[] {
       deviceKind: 'desk',
       createdByName: 'Chủ đầu tư',
       createdAt: '2026-10-15T08:10:00+07:00',
-      expiresAt: '2027-04-13T08:10:00+07:00',
+      expiresAt: grantEnds(10),
     },
   ];
 }
