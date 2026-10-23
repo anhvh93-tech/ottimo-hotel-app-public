@@ -368,3 +368,10 @@ Chạy trên Postgres 17 riêng của SEC (container tạm, đã xóa), role `ot
 3. **FB-09:** B14 đổi căn lên rồi xuống, và B7 thêm rồi rút đêm giá gõ sát trần, xen FOC trên khóa khác. Ghi lại Σ so với cơ sở **sau** khi hoàn tác. Hiện đây là ca quan sát: báo số lần vượt, không fail, cho tới khi DOM chốt cách xử lý.
 4. Void dòng mang xóa nợ rồi xóa lại; bất biến O không giảm qua A32 (BR-525 (ii)).
 5. Bất biến cảnh báo: Σ lượt ở > ngưỡng ⇒ có ít nhất một thông báo OWN và đúng một mục "Cần chú ý" đang mở (S1-11).
+
+- **Xác nhận sau rebase (SEC, 23/10) – head `9208a94` trên `e1f4b99`: GỘP ĐƯỢC.** Đã so phần thay đổi của nhánh `5834c6a..41c49d7` với `e1f4b99..9208a94` trong `product/services/api/src`, bỏ qua `migrations/meta`. Khác biệt chỉ gồm ba nhóm:
+  - đổi số 0080 → 0082 (SQL chỉ đổi chú thích; 0082 là migration duy nhất viết lại `staff_notification_kind_check`);
+  - chú thích schema;
+  - ARC S1-15: `referenceRateVnd` thành bắt buộc trong `sales-port.ts`, bỏ `?? gross` trong `folio.service.ts`. Thay đổi này chặt hơn: không còn đường lấy giá hiện hành, có thể là giá gõ tay, làm giá tham chiếu.
+
+  Không có mã mới ảnh hưởng FB-07. Kết luận review lượt 2 giữ nguyên. Verified chính thức theo B.0 ghi sau khi gộp qua PR, CI xanh, SEC chạy lại ở commit gộp.
