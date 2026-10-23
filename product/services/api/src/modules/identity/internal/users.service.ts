@@ -39,6 +39,9 @@ export interface UserDto {
   roles: PropertyRole[];
   lastLoginAt?: string;
   version: number;
+  /** 0.3.8 (SEC 06.35): every users.* operation is owner-only (x-roles), so OWN sees the 2FA state. */
+  mfaEnabled: boolean;
+  mfaRecoveryCodesRemaining?: number;
 }
 
 interface UserRow {
@@ -49,10 +52,13 @@ interface UserRow {
   locked_until: Date | null;
   last_login_at: Date | null;
   version: number;
+  mfa_enabled: boolean;
+  recovery_left: number;
 }
 
 const USER_COLUMNS =
-  'u.id, u.username, u.display_name, u.status, u.locked_until, u.last_login_at, u.version';
+  'u.id, u.username, u.display_name, u.status, u.locked_until, u.last_login_at, u.version, u.mfa_enabled, ' +
+  'coalesce(cardinality(u.mfa_recovery_codes_hash), 0)::int AS recovery_left';
 
 const ROLE_SET = new Set<string>(STAFF_ROLES);
 
@@ -101,6 +107,8 @@ export class UsersService {
         .map((r) => ({ propertyId: r.property_id, role: r.role })),
       ...(u.last_login_at ? { lastLoginAt: toZonedIso(u.last_login_at, tz) } : {}),
       version: u.version,
+      mfaEnabled: u.mfa_enabled,
+      ...(u.mfa_enabled ? { mfaRecoveryCodesRemaining: u.recovery_left } : {}),
     }));
   }
 

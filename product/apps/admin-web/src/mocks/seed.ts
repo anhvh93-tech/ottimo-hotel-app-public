@@ -39,9 +39,19 @@ export const SCREENS: Record<Role, string[]> = {
   collaborator: 'S01 S03 S04 S14 S15 S16 S17 S23 S25 S29'.split(' '),
 };
 
+/** US-143 mock 2FA state (SEC A) – the server keeps the secret encrypted and only hashes of the codes. */
+export interface MockMfa {
+  secret?: string;
+  pending?: { secret: string; expiresAt: number };
+  lastStep?: number;
+  recovery: string[];
+  enrolledAt?: string;
+}
+
 export interface MockUser extends User {
   mustChangePassword?: boolean;
   deviceTrusted?: boolean;
+  mfa?: MockMfa;
 }
 
 const uid = (n: number) => `0192a1b0-0000-7000-8000-${String(n).padStart(12, '0')}`;

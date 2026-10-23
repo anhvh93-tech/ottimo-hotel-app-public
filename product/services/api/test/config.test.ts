@@ -25,6 +25,8 @@ const prod = {
   ADMIN_BASE_URL: 'https://desk.example.invalid',
   STAFF_BASE_URL: 'https://staff.example.invalid/',
   GUEST_BASE_URL: 'https://g.example.invalid',
+  // 0.3.8 (US-143, SR-AUTH-06): production refuses to start without it.
+  MFA_ENFORCED: 'true',
 };
 const staging = { ...prod, APP_ENV: 'staging' };
 const without = (env: Record<string, string>, name: string) =>
@@ -55,6 +57,17 @@ describe('loadConfig (SR-SECR-05)', () => {
     expect(loadConfig({ ...prod, STAFF_REQUESTS_PER_MINUTE: '300' }).staffRequestsPerMinute).toBe(
       300,
     );
+  });
+
+  it('MFA_ENFORCED (US-143): default false in dev, production refuses false, bad value refused', () => {
+    expect(loadConfig(base).mfaEnforced).toBe(false);
+    expect(loadConfig({ ...base, MFA_ENFORCED: 'true' }).mfaEnforced).toBe(true);
+    expect(() => loadConfig({ ...base, MFA_ENFORCED: 'yes' })).toThrow(/MFA_ENFORCED/);
+    expect(() => loadConfig({ ...prod, MFA_ENFORCED: 'false' })).toThrow(
+      /MFA_ENFORCED must be true/,
+    );
+    expect(() => loadConfig(without(prod, 'MFA_ENFORCED'))).toThrow(/MFA_ENFORCED must be true/);
+    expect(loadConfig({ ...staging, MFA_ENFORCED: 'false' }).mfaEnforced).toBe(false);
   });
 
   it('accepts a complete production config', () => {

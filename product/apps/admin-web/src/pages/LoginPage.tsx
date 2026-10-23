@@ -1,12 +1,14 @@
-import { isApiError } from '@ottimo/api-client';
+import { isApiError, type Role } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Field } from '@ottimo/ui';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { fieldErrors, problemView } from '../app/problem';
 import { useOnline } from '../hooks/useOnline';
-import { NAV, canOpen, homePath } from '../session/nav';
+import { canOpen, homePath } from '../session/nav';
+import { navItemOf, safeInternalPath } from '../session/safePath';
 import { useSession } from '../session/SessionProvider';
+import { MfaStep } from './MfaStep';
 
 type Banner = {
   tone: 'bad' | 'warn' | 'info';
@@ -17,21 +19,30 @@ type Banner = {
   rateLimited?: boolean;
 } | null;
 
-/** Where to go after sign-in: the deep link the user opened if their role may open it (US-001 AC2). */
+/**
+ * Where to go after sign-in: the deep link the user opened if their role may open it (US-001 AC2). The
+ * link must be a plain in-app path (`safeInternalPath` – SEC E, R3-Q31) of a menu item, matched on whole
+ * segments; anything else goes home.
+ */
+export function afterLoginPath(
+  from: unknown,
+  access: { roles: Role[]; screens: string[]; deviceTrusted: boolean },
+): string {
+  const safe = safeInternalPath(from);
+  const item = safe ? navItemOf(safe) : undefined;
+  if (safe && item && canOpen(item, access)) return safe;
+  return homePath(access.roles);
+}
+
 export function useAfterLoginPath() {
   const location = useLocation();
   const session = useSession();
-  return () => {
-    const from = (location.state as { from?: string } | null)?.from;
-    const access = {
+  return () =>
+    afterLoginPath((location.state as { from?: unknown } | null)?.from, {
       roles: session.roles,
       screens: session.screens,
       deviceTrusted: session.deviceTrusted,
-    };
-    const item = from ? NAV.find((n) => from.startsWith(n.path)) : undefined;
-    if (from && item && canOpen(item, access)) return from;
-    return homePath(session.roles);
-  };
+    });
 }
 
 /** H01 1.1 – staff sign-in. One generic error sentence for wrong name/password (SR-AUTH-04). */
@@ -49,6 +60,9 @@ export function LoginPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState<Banner>(null);
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  /** Step 2 token (SEC 06.17): React state only – never storage, URL or log. */
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [mfaNote, setMfaNote] = useState<string | null>(null);
   const [, setTick] = useState(0);
   const userRef = useRef<HTMLInputElement>(null);
 
@@ -70,6 +84,8 @@ export function LoginPage() {
   if (session.status === 'authenticated') {
     if (session.mustChangePassword)
       return <Navigate to="/change-password" replace state={location.state} />;
+    if (session.enrollmentRequired)
+      return <Navigate to="/enroll-2fa" replace state={location.state} />;
     if (!session.property) return <Navigate to="/select-property" replace />;
     return <Navigate to={afterLogin()} replace />;
   }
@@ -100,13 +116,12 @@ export function LoginPage() {
       } else if (err.code === 'RATE_LIMITED') {
         setLockedUntil(Date.now() + (err.retryAfterSeconds ?? 900) * 1000);
         setBanner({ tone: 'bad', text: '', rateLimited: true });
+      } else if (err.code === 'MFA_REQUIRED' && err.problem.mfaToken) {
+        // US-143: step 2 (TOTP or recovery code) with the one-time token from the 401.
+        setMfaNote(null);
+        setMfaToken(err.problem.mfaToken);
       } else if (err.code === 'MFA_REQUIRED') {
-        // R3: TOTP step (auth.totp.*). R2 only reserves the place.
-        setBanner({
-          tone: 'info',
-          text: `${t('error.MFA_REQUIRED')} ${t('auth.mfa_later')}`,
-          role: 'status',
-        });
+        setBanner({ tone: 'bad', text: problemView(t, err).text });
       } else if (err.code === 'PASSWORD_CHANGE_REQUIRED') {
         await session.refresh().catch(() => undefined);
         navigate('/change-password', { replace: true, state: location.state });
@@ -128,6 +143,18 @@ export function LoginPage() {
       setBusy(false);
     }
   };
+
+  if (mfaToken) {
+    return (
+      <MfaStep
+        mfaToken={mfaToken}
+        onBack={(note) => {
+          setMfaToken(null);
+          setMfaNote(note ?? null);
+        }}
+      />
+    );
+  }
 
   const locked = lockedUntil !== null && Date.now() < lockedUntil;
   const bannerText = banner?.rateLimited
@@ -153,6 +180,11 @@ export function LoginPage() {
         {session.expired && !banner ? (
           <Alert tone="info" role="status">
             {t('error.UNAUTHENTICATED')}
+          </Alert>
+        ) : null}
+        {mfaNote && !banner ? (
+          <Alert tone="info" role="status">
+            {mfaNote}
           </Alert>
         ) : null}
         {banner ? (

@@ -1,6 +1,7 @@
 import {
   isApiError,
   type ChangePasswordBody,
+  type LoginMfaBody,
   type Me,
   type MeProperty,
   type Role,
@@ -30,9 +31,18 @@ export interface Session {
   screens: string[];
   deviceTrusted: boolean;
   mustChangePassword: boolean;
+  /** US-143 / SEC 06.4: restricted session – only the 2FA enrollment screen until it is on. */
+  enrollmentRequired: boolean;
+  /** How this tab's session was opened – `recovery_code` shows the "code used" notice (US-143 AC3 a). */
+  amr: 'password' | 'totp' | 'recovery_code' | null;
   /** Set when a 401 ended the session mid-work (shows error.UNAUTHENTICATED on the login page). */
   expired: boolean;
+  /** Throws ApiError 401 `MFA_REQUIRED` (+ `problem.mfaToken`) when the account has 2FA. */
   login: (username: string, password: string) => Promise<Me>;
+  /** Sign-in step 2 (`loginMfa`): the token stays in the caller's memory only (SEC 06.17). */
+  loginMfa: (body: LoginMfaBody) => Promise<Me>;
+  /** After `confirmMy2fa` (new session): reload Me for the new CSRF token, keep the screen. */
+  clearAmr: () => void;
   logout: () => Promise<void>;
   refresh: () => Promise<Me | null>;
   selectProperty: (propertyId: string) => void;
@@ -55,6 +65,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [me, setMeState] = useState<Me | null>(null);
   const [propertyId, setPropertyId] = useState<string | null>(null);
   const [expired, setExpired] = useState(false);
+  const [amr, setAmr] = useState<Session['amr']>(null);
   const statusRef = useRef(status);
   statusRef.current = status;
   /** Last signed-in user in this tab: a different user signing in wipes the previous one's data. */
@@ -102,6 +113,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           setMe(null);
         } else if (error.code === 'PASSWORD_CHANGE_REQUIRED') {
           setMeState((m) => (m ? { ...m, mustChangePassword: true } : m));
+        } else if (error.code === 'MFA_ENROLLMENT_REQUIRED') {
+          // SEC 06.4: the server put this session in enrollment-only mode → the route guard opens /enroll-2fa.
+          setMeState((m) => (m ? { ...m, mfaEnrollmentRequired: true } : m));
         }
       }),
     [setMe],
@@ -111,11 +125,25 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     async (username: string, password: string) => {
       const { data } = await api.login({ username, password });
       setExpired(false);
+      setAmr('password');
       setMe(data);
       return data;
     },
     [setMe],
   );
+
+  const loginMfa = useCallback(
+    async (body: LoginMfaBody) => {
+      const { data } = await api.loginMfa(body);
+      setExpired(false);
+      setAmr(body.recoveryCode ? 'recovery_code' : 'totp');
+      setMe(data);
+      return data;
+    },
+    [setMe],
+  );
+
+  const clearAmr = useCallback(() => setAmr(null), []);
 
   const logout = useCallback(async () => {
     try {
@@ -127,6 +155,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     clearClientData();
     lastUserId.current = null;
     setExpired(false);
+    setAmr(null);
     setMe(null);
   }, [setMe]);
 
@@ -154,14 +183,31 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       screens: property?.screens ?? [],
       deviceTrusted: property?.deviceTrusted === true,
       mustChangePassword: me?.mustChangePassword === true,
+      enrollmentRequired: me?.mfaEnrollmentRequired === true,
+      amr,
       expired,
       login,
+      loginMfa,
+      clearAmr,
       logout,
       refresh,
       selectProperty,
       changePassword,
     };
-  }, [status, me, propertyId, expired, login, logout, refresh, selectProperty, changePassword]);
+  }, [
+    status,
+    me,
+    propertyId,
+    expired,
+    amr,
+    login,
+    loginMfa,
+    clearAmr,
+    logout,
+    refresh,
+    selectProperty,
+    changePassword,
+  ]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

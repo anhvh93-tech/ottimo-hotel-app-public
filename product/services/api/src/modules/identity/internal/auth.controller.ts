@@ -9,7 +9,7 @@ import { UnitOfWork } from '../../../shared/http/unit-of-work';
 import { parseBody } from '../../platform/public/validation';
 import { SessionService } from '../public/session.service';
 import { IdentityParamsService } from '../public/identity-params';
-import { PasswordReauth } from '../public/password-reauth';
+import { StrongReauthService } from '../public/strong-reauth';
 import { AuthService } from './auth.service';
 import { type Me, MeService } from './me.service';
 
@@ -42,6 +42,12 @@ const loginSchema = z.object({
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1).max(256),
   newPassword: z.string().min(1).max(256),
+  // 0.3.8 (SEC 06.25 – S2): required when the caller has 2FA (one of them).
+  totpCode: z
+    .string()
+    .regex(/^[0-9]{6}$/)
+    .optional(),
+  recoveryCode: z.string().min(16).max(19).optional(),
 });
 
 @Controller('v1')
@@ -52,7 +58,7 @@ export class AuthController {
     @Inject(MeService) private readonly me: MeService,
     @Inject(SessionService) private readonly sessions: SessionService,
     @Inject(UnitOfWork) private readonly uow: UnitOfWork,
-    @Inject(PasswordReauth) private readonly reauth: PasswordReauth,
+    @Inject(StrongReauthService) private readonly strong: StrongReauthService,
     @Inject(IdentityParamsService) private readonly identityParams: IdentityParamsService,
   ) {}
 
@@ -115,16 +121,28 @@ export class AuthController {
   ): Promise<void> {
     const input = parseBody(changePasswordSchema, body);
     const p = principalOf(req);
-    await this.reauth.verify(tenantOf(p), input.currentPassword, {
-      field: 'currentPassword',
-      purpose: 'password_change',
-      requestId: req.id,
-    });
+    // S2 (0.3.8, SEC 06.25): current password, plus TOTP/recovery code once 2FA is on.
+    const proof = await this.strong.verify(
+      tenantOf(p),
+      {
+        password: input.currentPassword,
+        totpCode: input.totpCode,
+        recoveryCode: input.recoveryCode,
+      },
+      {
+        operationId: 'changeMyPassword',
+        passwordField: 'currentPassword',
+        factorField: 'totpCode',
+        requestId: req.id,
+        sessionId: p.sessionId,
+      },
+    );
     // Own transactions → before the unit of work (no nested connection, FB-R2-ARC-BE-01).
     const { session: sessionPolicy } = await this.identityParams.forUser(tenantOf(p));
     const result = await this.uow.run(req, async (tx) => {
       const session = await this.auth.changeMyPassword(tx, {
         sessionPolicy,
+        amr: proof.method === 'password' ? 'pwd' : proof.method,
         userId: p.userId,
         sessionId: p.sessionId,
         currentPassword: input.currentPassword,

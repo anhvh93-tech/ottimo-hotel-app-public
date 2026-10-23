@@ -100,7 +100,7 @@ Chạy trên Postgres 17 riêng của SEC (container tạm, đã xóa), role `ot
   - (3) FE giữ thứ tự `/change-password` rồi `/enroll-2fa`.
   - (4) Thêm ca vào `mfa-us143`: manager mới tạo, cờ bật → đổi mật khẩu → đăng ký → vào được `/reservations`.
   - Cách ngược lại (cho phép đăng ký 2FA khi còn mật khẩu tạm) cũng được, nhưng khi đó mật khẩu tạm do OWN biết sẽ là yếu tố một của bí mật mới. Vì vậy SEC đề xuất cách trên.
-- Trạng thái: Open
+- Trạng thái: Verified (`aa570e6`)
 
 ### FB-R3-SEC-BEC-02
 - Mức độ: Major
@@ -113,7 +113,7 @@ Chạy trên Postgres 17 riêng của SEC (container tạm, đã xóa), role `ot
   - (1) Đổi thành `coalesce(before::text,'') || coalesce(after::text,'') || coalesce(reason,'')`. Áp tương tự cho các cột có thể NULL của `outbox_message`, `idempotency_key`, `staff_notification`.
   - (2) Thêm assert "dump chứa ít nhất một chuỗi đã biết", ví dụ `"operationId": "regenerateMyRecoveryCodes"`, để test tự phát hiện khi quét rỗng.
   - (3) Thêm quét log: bắt output pino của `startFeatureApp` (stream giả), chạy luồng đăng ký, đăng nhập 2 bước, S2 sai/đúng và lỗi 5xx giả, rồi assert không có mã, token, bí mật hay `otpauth`.
-- Trạng thái: Open
+- Trạng thái: Verified (`aa570e6`)
 
 ### FB-R3-SEC-FEA-01
 - Mức độ: Major
@@ -127,7 +127,7 @@ Chạy trên Postgres 17 riêng của SEC (container tạm, đã xóa), role `ot
   - QA sửa `tests/e2e/support/api.ts` và các spec theo `s1-be-c.md` mục 5.
   - Gộp `ae836f7` + FE + QA trong **một** lần gộp.
   - Nếu FE chưa kịp: gộp `bd0fb4f` + `8712822` + `2888322`, và tạm chưa cho bật 2FA trên staging tới khi (b) xong. Đây là đường dự phòng, không phải đích.
-- Trạng thái: Open
+- Trạng thái: Verified (`aa570e6`)
 
 ### FB-R3-SEC-BEC-03
 - Mức độ: Minor
@@ -135,7 +135,7 @@ Chạy trên Postgres 17 riêng của SEC (container tạm, đã xóa), role `ot
 - Vấn đề: khi đổi hoặc đặt lại mật khẩu, mọi phiên bị thu hồi nhưng `mfa_login_challenge` còn sống của người đó **không** bị xóa. Kẻ đã có mật khẩu cũ và đang giữ `mfaToken` vẫn hoàn tất được `loginMfa` trong tối đa 5 phút sau khi OWN đặt lại mật khẩu để xử lý sự cố. Kẻ đó vẫn cần TOTP, nên đây là Minor.
 - Vì sao quan trọng: phản ứng sự cố (đặt lại mật khẩu) phải cắt ngay mọi đường đang dở.
 - Đề xuất sửa: trong cùng giao dịch với `sessions.revokeAll(..., 'password_changed' | 'password_reset' | 'disabled' | 'role_changed')`, chạy `DELETE FROM mfa_login_challenge WHERE user_id = $1`. Tốt nhất đặt trong `revokeAll`. Kèm một ca test. Nối luôn job dọn T16.
-- Trạng thái: Open
+- Trạng thái: Verified phần chính (`aa570e6`); job T16 dọn dòng hết hạn: Deferred – SEC chấp nhận dời
 
 ### FB-R3-SEC-BEC-04
 - Mức độ: Minor
@@ -143,7 +143,7 @@ Chạy trên Postgres 17 riêng của SEC (container tạm, đã xóa), role `ot
 - Vấn đề: hợp đồng 0.3.8 có hai trường cho 06.35 (OWN xem trạng thái 2FA của mọi người dùng), nhưng server chưa điền.
 - Vì sao quan trọng: OWN không thấy ai chưa bật 2FA hay ai sắp hết mã, nên khó dùng đường 2 (06.32). Đây là điều kiện để ghi Verified.
 - Đề xuất sửa: điền hai trường **chỉ** khi người gọi là `owner` (MGR không thấy). Không bao giờ trả bí mật hay băm. Thêm vào test `listUsers`/`getUser` cho cả hai vai.
-- Trạng thái: Open
+- Trạng thái: Verified (`aa570e6`)
 
 ### FB-R3-SEC-BEC-05
 - Mức độ: Minor
@@ -151,7 +151,7 @@ Chạy trên Postgres 17 riêng của SEC (container tạm, đã xóa), role `ot
 - Vấn đề: 06.22 đòi che `code`, `mfaToken`, `recoveryCode`, `otpauthUri` "ở mọi độ sâu". Wildcard của pino chỉ khớp một cấp (`*.mfaToken`), không khớp `err.details.body.mfaToken`. Hiện request log không ghi body và Problem không bị log, nên chưa có đường rò thực tế.
 - Vì sao quan trọng: một thay đổi sau này, ví dụ log body khi 5xx, sẽ lộ ngay mà không có lớp chặn thứ hai.
 - Đề xuất sửa: thêm serializer `err`/`req` gọi `withoutSecrets()` (đệ quy) trước khi ghi, hoặc thêm đường hai cấp `*.*.k` cho nhóm trường 2FA. Test cùng phần log của BEC-02.
-- Trạng thái: Open
+- Trạng thái: Verified (`aa570e6`)
 
 ### FB-R3-SEC-BEC-06
 - Mức độ: Minor
@@ -159,21 +159,21 @@ Chạy trên Postgres 17 riêng của SEC (container tạm, đã xóa), role `ot
 - Vấn đề: người đã bật 2FA đổi mật khẩu phải qua S2 (có TOTP), nhưng phiên mới cấp ra có `amr = 'pwd'`, `mfa_at = NULL`. Hệ quả: (1) duyệt US-164 trên phiên đó bị từ chối `MFA_REQUIRED` (06.29), phải đăng nhập lại; (2) audit ghi phiên là "chỉ mật khẩu", không đúng sự thật.
 - Vì sao quan trọng: dữ liệu `amr`/`mfa_at` là căn cứ cho 06.29 và cho điều tra sự cố. Nó phải phản ánh đúng.
 - Đề xuất sửa: trả `method` của `StrongReauthService.verify` về controller, truyền `amr: method` (`totp`/`recovery_code`) vào `sessions.create`. Người chưa có 2FA giữ `pwd`.
-- Trạng thái: Open
+- Trạng thái: Verified (`aa570e6`)
 
 ### FB-R3-SEC-BEC-07
 - Mức độ: Suggestion
 - Vị trí: `users.controller.ts` `setUserRoles`: tập vai `current` được đọc trong một giao dịch chỉ đọc riêng, **trước** UnitOfWork.
 - Vấn đề: việc quyết định có cần S2 hay không dựa trên dữ liệu đọc ngoài giao dịch ghi (TOCTOU). Hiện `If-Match` (version của người dùng) chặn được lượt đua, vì một lượt hạ vai chen vào sẽ làm lượt nâng vai nhận 412. Tuy vậy, an toàn đang dựa vào một cơ chế không được viết ra cho mục đích này.
 - Đề xuất sửa: ghi chú rõ sự phụ thuộc vào `If-Match`, thêm một ca test đua (hạ vai chen giữa → 412). Hoặc tính `escalates` lại trong UnitOfWork, và nếu kết quả khác lúc trước thì trả 409 để client gửi lại kèm S2.
-- Trạng thái: Open
+- Trạng thái: Verified (`aa570e6`)
 
 ### FB-R3-SEC-BEC-08
 - Mức độ: Suggestion
 - Vị trí: `0079_mfa_two_factor.sql` dòng 62 (`entry_function_read ON user_property_role … TO ottimo_owner`).
 - Vấn đề: policy mới cho mọi hàm SECURITY DEFINER thuộc `ottimo_owner` đọc được toàn bộ `user_property_role` của mọi tổ chức. Cách làm giống các bảng `app_user` và `user_session` trong 0001, và `auth_resolve_session` chỉ trả một boolean, nên chấp nhận được.
 - Đề xuất sửa: thêm `user_property_role` vào test `db-role`/`architecture` đang liệt kê các bảng có `entry_function_read`, để lần thêm sau có người review.
-- Trạng thái: Open
+- Trạng thái: Verified (`aa570e6`)
 
 ## Việc còn lại trước khi SEC ghi Verified US-143 / SR-AUTH-06
 
@@ -191,3 +191,75 @@ Chạy trên Postgres 17 riêng của SEC (container tạm, đã xóa), role `ot
 - `StrongReauthService` là một hàm duy nhất. Hàm chỉ kiểm yếu tố hai khi mật khẩu đúng, nên sai mật khẩu không đốt mã khôi phục. Hàm chạy trong giao dịch riêng nên vẫn đếm được khi request lỗi. Danh sách operation được test so khớp với `x-strong-reauth` của spec.
 - Các thao tác nguyên tử đều làm đúng chỗ: chống phát lại TOTP và tiêu mã khôi phục, mỗi việc chỉ bằng một câu `UPDATE` có điều kiện. `loginMfa` khóa dòng challenge và dòng user. Ở đăng nhập bước một, mật khẩu đúng **không** xóa bộ đếm khóa, nên kẻ dò TOTP không tự xóa được bằng cách đăng nhập lại.
 - FE giữ `mfaToken`, bí mật và mã khôi phục chỉ trong state React. QR vẽ tại chỗ. Tải `.txt`/In làm ở client bằng text node. Mọi lỗi bước 2 hiện một câu.
+
+---
+
+## Review lại – nhánh tích hợp `r3-2fa-int`, head `aa570e6` (23/10/2026)
+
+Phạm vi: main + BE-C (sửa BEC-01…08, ARC 0.3.8 bổ sung 1, đăng ký lại qua mã khôi phục) + CỔNG S2 `6f87ad4` + FE-A (FEA-01) + QA E2E `a237cab` + FE-B US-008 (createUser + S2). Căn cứ: `responses/s1-BE-C.md`, `responses/s1-FE-A.md`.
+
+### Kết luận
+
+**Gộp được cả nhánh vào main ở head `aa570e6`.** Còn 0 Blocker, 0 Major. 3 thẻ Major đã Verified. Cổng S2 nay đi cùng FE và E2E trong một lần gộp, đúng điều kiện đặt ra ở lượt trước.
+
+US-143 / SR-AUTH-06 **chưa Verified**. Còn các điều kiện ở mục "Điều kiện còn lại" bên dưới.
+
+### Kiểm đã chạy
+
+Chạy trên Postgres 17 riêng của SEC (container tạm, đã xóa), migrate từ đầu. Worktree vẫn sạch: các `dist/` build tạm nằm trong `.gitignore`.
+
+1. Toàn bộ api vitest: **108 tệp đạt, 1 skip; 3032 ca đạt, 2 skip, 0 lỗi.**
+   - Muốn chạy được phải build trước `packages/contracts` và `integrations`.
+   - Nếu chưa build thì 73 tệp đỏ vì không resolve được `@ottimo/contracts`. Đây là lỗi môi trường, không phải lỗi mã.
+2. admin-web vitest: **52 tệp, 541/541 đạt.**
+3. E2E Playwright: SEC **không** chạy lại vì cần stack đầy đủ. Kết luận về E2E dựa vào việc đọc spec và báo cáo "cục bộ xanh" của QA.
+4. SEC đọc diff identity và guard từ `ae836f7` tới `aa570e6`:
+   - `auth.guard.ts`, `auth.service.ts` (`loginMfa`, `changeMyPassword`);
+   - `mfa.service.ts` (`startSetup`, `confirm` đường đăng ký lại);
+   - `session.service.ts` (`revokeAll`), `users.service.ts`, `users.controller.ts`.
+   - Phía FE: các nơi dùng `StrongReauthDialog`, gồm `UsersPage`, `DevicesPage`, `ChangePasswordPage`, `SecurityPage`, `AddUserDialog`. Không có Web Storage, không có `console`.
+
+### Đối chiếu thẻ
+
+| ID | Kết quả review lại |
+|---|---|
+| BEC-01 | Đạt. Guard chỉ cho `changeMyPassword` đi qua phiên hạn chế khi `mustChangePassword = true`. Phiên mới giữ `enrollment_only`. Có ca tích hợp đầy đủ: setup bị `PASSWORD_CHANGE_REQUIRED` → đổi mật khẩu → vẫn hạn chế → đăng ký → vào được. FE giữ thứ tự `/change-password` rồi `/enroll-2fa`. |
+| BEC-02 | Đạt. Câu quét dùng `coalesce` cho từng cột, thêm `c3_access_log`, có assert "dump chứa chuỗi đã biết". Có ca quét log thật (pino + stdout/stderr) kèm assert đã thu được dòng log. |
+| FEA-01 | Đạt. S2 đã gắn ở 6 thao tác, cùng quy tắc nâng vai với server. 401/422 hiện một câu. E2E API kiểm cả "thiếu/sai S2 thì không ghi gì". FE-B `createUser` cũng gửi `reauth`. |
+| BEC-03 | Đạt. `revokeAll` xóa mọi `mfa_login_challenge` trong cùng giao dịch, có ca test. Job T16 dọn dòng hết hạn: chấp nhận dời. Rủi ro thấp: DB chỉ có SHA-256, token chết sau 5 phút. Ghi backlog chung với T16. |
+| BEC-04 | Đạt. `User.mfaEnabled` / `mfaRecoveryCodesRemaining` chỉ đi qua các operation `users.*` (`x-roles: [owner]`). MGR/FD → 403. Không trả băm. |
+| BEC-05 | Đạt. `formatters.log` gọi `withoutSecrets()` đệ quy, test log kiểm hành vi thật. |
+| BEC-06 | Đạt. Phiên sau `changeMyPassword` mang `amr` và `mfa_at` theo yếu tố của S2. |
+| BEC-07 | Đạt. Có ghi chú phụ thuộc `If-Match` và ca đua "hạ vai chen giữa → 412". |
+| BEC-08 | Đạt. `architecture.test.ts` khóa đúng 8 bảng có `entry_function_read`. |
+| Ca 11 (a)(b) | Đạt. Mật khẩu sai + thiếu mã → 422, body giống hệt trường hợp mật khẩu đúng. |
+
+### Phần mới: đăng ký lại qua mã khôi phục (ARC 0.3.8 bổ sung 1 #3)
+
+SEC chấp nhận về bảo mật. Lý do:
+
+- Đăng nhập bằng mã khôi phục → phiên `enrollment_only`. Phiên này không làm được gì ngoài đăng ký lại và đăng xuất, nên giảm phạm vi phiên so với trước.
+- `startMy2faSetup` vẫn đòi `currentPassword` và chỉ chạy khi phiên có `amr = recovery_code`. Phiên khác → 409.
+- Bí mật cũ vẫn chạy tới lúc `confirm`. Đăng ký lại thay bí mật, sinh bộ mã mới (bộ cũ chết), thu hồi phiên khác, xóa các bước 2 đang dở.
+- Có audit `mfa.reenrolled`, thông báo người đó và OWN, và email (đã gửi từ lúc dùng mã khôi phục, theo 06.15).
+- Ai có mật khẩu + một mã khôi phục vốn đã có toàn quyền tài khoản. Đường này không cấp thêm quyền nào, chỉ buộc người dùng gắn điện thoại mới ngay.
+
+SEC sẽ bổ sung `mfa.reenrolled` vào danh sách 06.34 và mô tả đường này vào A.6 của `s1-security-requirements.md`.
+
+### Ghi nhận (không mở thẻ mới)
+
+- **G1 – ca 16 thiếu đồng hồ giả.** Ca 16 (`tests/e2e/ui/mfa-us143.r3s1.spec.ts`) phủ: đăng ký, đăng nhập TOTP, đăng nhập bằng mã khôi phục, màn hạn chế, axe. Còn thiếu ca đồng hồ giả mà A.7 #16 yêu cầu, ví dụ `mfaToken` quá 5 phút → về bước mật khẩu, hoặc mã của bước ±1/±2 qua UI. Ca 16 dùng FDL tự nguyện, nên màn hạn chế 06.4 với `MFA_ENFORCED = true` mới được phủ ở mức tích hợp server và vitest FE, chưa có ở E2E. **Đây là điều kiện Verified, không chặn gộp.**
+- **G2 – trường hợp hiếm, chấp nhận.** Phiên hạn chế từ mã khôi phục mà gặp mật khẩu tạm, nếu người dùng chứng minh S2 bằng TOTP thì phiên mới mang `amr = totp` và không đăng ký lại được (409) cho tới khi đăng nhập lại. Người mất điện thoại sẽ dùng mã khôi phục, nên trường hợp này hiếm và tự thoát được khi đăng nhập lại.
+
+### Điều kiện còn lại để SEC ghi Verified US-143 / SR-AUTH-06
+
+1. **CI push xanh trên commit gộp vào main**: vitest api, vitest admin-web và E2E (`api/mfa-s2.r3s1`, `ui/mfa-us143.r3s1`, `api/identity`).
+2. **Ca 14** (US-164 duyệt từ xa, BE-A) và **SR-AUTH-11** (người xác nhận có 2FA dùng PIN hoặc mật khẩu + TOTP trong `verifyApprover`). Ca 15 hiện vẫn đạt nhờ fail-closed.
+3. **Ca 16** thêm phần đồng hồ giả (G1). Nên có thêm một lượt với `MFA_ENFORCED = true` cho MGR chưa bật 2FA.
+4. **06.23 / 06.24 / 06.28**: S2 trên `setParameter` `payment_receiving_account` và `cancelScheduledParameter` (BE-B, R3-Q51), và trên xuất US-104 khi có. Riêng 06.23 phải xong trước khi màn tài khoản nhận VietQR lên staging.
+5. **Staging**:
+   - OPS đặt `MFA_ENFORCED=true`;
+   - OWN và MGR thật đăng nhập 2 bước được, SEC chứng kiến lúc PO/INV nghiệm thu, không giữ mã;
+   - tài khoản OWN thật đã đăng ký 2FA và cất mã khôi phục tách khỏi điện thoại.
+6. **06.33**: OPS viết thủ tục xác minh danh tính, SEC duyệt, lưu ngoài repo. Diễn tập lệnh `mfa-operator-reset` một lần trên staging, biên bản chỉ ghi kết quả. Repo chỉ ghi "có thủ tục, SEC duyệt ngày …".
+7. **Backlog**: job T16 dọn `mfa_login_challenge` (và `user_session`) hết hạn, theo phần dời của BEC-03.

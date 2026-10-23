@@ -1,10 +1,15 @@
 /**
  * `Me` (OpenAPI schema Me): user, properties with roles + screens (menu – US-002 AC1), deviceTrusted per
  * property (SR-DEV-05), csrfToken bound to the session (SR-SES-04), temporary-password flag (SR-AUTH-05).
+ * 0.3.8: 2FA state (US-143 – mfaEnrollmentRequired, soleOwner, recoveryCodesLow) and the business day of each
+ * property (R3-Q38 – businessDate, businessDayRollover from PropertyContextService, BR-010).
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
-import type { Tx } from '../../../db/database';
+import { DATABASE, Database, type Tx } from '../../../db/database';
+import { PropertyContextService } from '../../platform/public/property-context';
+import { IDENTITY_OPTIONS, type IdentityOptions } from '../public/identity-options';
+import { MfaStore } from '../public/mfa-store';
 import { sha256Hex } from '../../../shared/http/auth.guard';
 import { SessionService } from '../public/session.service';
 import { screensFor } from './screens';
@@ -16,6 +21,9 @@ export interface MeProperty {
   roles: string[];
   screens: string[];
   deviceTrusted: boolean;
+  /** 0.3.8 (R3-Q38): business date of the property now (BR-010) and the rollover in force. */
+  businessDate?: string;
+  businessDayRollover?: string;
 }
 
 export interface Me {
@@ -27,6 +35,12 @@ export interface Me {
   mustChangePassword: boolean;
   mfaEnabled: boolean;
   mfaRequiredButMissing: boolean;
+  /** 0.3.8 (SEC 06.4): restricted session – only the 2FA enrolment operations. */
+  mfaEnrollmentRequired: boolean;
+  /** 0.3.8 (ESC-027 B): the caller is the only active owner of the organisation (absent otherwise). */
+  soleOwner?: boolean;
+  /** 0.3.8 (SEC 06.15): ≤ 3 recovery codes left. */
+  recoveryCodesLow: boolean;
 }
 
 interface RoleRow {
@@ -55,10 +69,37 @@ const ROLE_ORDER = [
 
 @Injectable()
 export class MeService {
+  private readonly logger = new Logger('MeService');
+
   constructor(
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(SessionService) private readonly sessions: SessionService,
+    @Inject(DATABASE) private readonly db: Database,
+    @Inject(PropertyContextService) private readonly propertyContext: PropertyContextService,
+    @Inject(IDENTITY_OPTIONS) private readonly options: IdentityOptions,
   ) {}
+
+  /**
+   * R3-Q38: business date + rollover of a property. The property in the transaction context is read in `tx`;
+   * another property (multi-property user) in its own read-only transaction – config_parameter is
+   * property-level RLS. A property without the parameter (should not happen – catalogue default) is left out.
+   */
+  private async businessDay(
+    tx: Tx,
+    propertyId: string,
+  ): Promise<{ businessDate: string; businessDayRollover: string } | null> {
+    const read = async (t: Tx) => {
+      const pc = await this.propertyContext.now(t);
+      return { businessDate: pc.today, businessDayRollover: pc.rollover };
+    };
+    try {
+      if (tx.ctx.propertyId === propertyId) return await read(tx);
+      return await this.db.withContext({ ...tx.ctx, propertyId }, read, { readOnly: true });
+    } catch (err) {
+      this.logger.warn(`business day unavailable for a property: ${(err as Error).name}`);
+      return null;
+    }
+  }
 
   /** Properties where the user holds a live role, ordered by property code. */
   async properties(
@@ -102,9 +143,19 @@ export class MeService {
       display_name: string;
       must_change_password: boolean;
       mfa_enabled: boolean;
-    }>(`SELECT display_name, must_change_password, mfa_enabled FROM app_user WHERE id = $1`, [
-      input.userId,
-    ]);
+      recovery_left: number;
+      enrollment_only: boolean | null;
+      other_owners: number;
+    }>(
+      `SELECT u.display_name, u.must_change_password, u.mfa_enabled,
+              coalesce(cardinality(u.mfa_recovery_codes_hash), 0) AS recovery_left,
+              (SELECT s.enrollment_only FROM user_session s WHERE s.id = $2) AS enrollment_only,
+              (SELECT count(DISTINCT r.user_id)::int FROM user_property_role r JOIN app_user o ON o.id = r.user_id
+                WHERE r.role = 'owner' AND r.revoked_at IS NULL AND o.status <> 'disabled'
+                  AND r.user_id <> u.id) AS other_owners
+         FROM app_user u WHERE u.id = $1`,
+      [input.userId, input.sessionId],
+    );
     const u = rows[0];
     if (!u) throw new Error('user not visible in this context');
     const props = await this.properties(tx, input.userId);
@@ -118,15 +169,20 @@ export class MeService {
       device = d.rows[0];
     }
     const now = this.clock.now().getTime();
-    const properties: MeProperty[] = [...props.values()].map((p) => ({
-      ...p,
-      screens: screensFor(p.roles),
-      deviceTrusted:
-        !!device &&
-        device.property_id === p.propertyId &&
-        !device.revoked_at &&
-        device.expires_at.getTime() > now,
-    }));
+    const properties: MeProperty[] = [];
+    for (const p of props.values()) {
+      const day = await this.businessDay(tx, p.propertyId);
+      properties.push({
+        ...p,
+        screens: screensFor(p.roles),
+        deviceTrusted:
+          !!device &&
+          device.property_id === p.propertyId &&
+          !device.revoked_at &&
+          device.expires_at.getTime() > now,
+        ...(day ?? {}),
+      });
+    }
     const allRoles = new Set(properties.flatMap((p) => p.roles));
     const active =
       input.activePropertyId && props.has(input.activePropertyId)
@@ -142,6 +198,14 @@ export class MeService {
       mfaEnabled: u.mfa_enabled,
       // R3 (SR-AUTH-06): owner/manager must enable 2FA before real data – flag only in R2.
       mfaRequiredButMissing: !u.mfa_enabled && (allRoles.has('owner') || allRoles.has('manager')),
+      // Same rule as the AuthGuard: flagged session, or MFA_ENFORCED + owner/manager without 2FA (SEC 06.4).
+      mfaEnrollmentRequired:
+        u.enrollment_only === true ||
+        (this.options.mfaEnforced === true &&
+          !u.mfa_enabled &&
+          (allRoles.has('owner') || allRoles.has('manager'))),
+      ...(allRoles.has('owner') ? { soleOwner: u.other_owners === 0 } : {}),
+      recoveryCodesLow: MfaStore.recoveryCodesLow(u.recovery_left, u.mfa_enabled),
     };
   }
 }

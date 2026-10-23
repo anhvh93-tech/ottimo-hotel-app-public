@@ -64,3 +64,51 @@ export function onBusinessDay(
 ): boolean {
   return businessDayLocal(timeZone, new Date(iso), rollover) === day;
 }
+
+/** `day` (YYYY-MM-DD) plus `n` days. */
+export function shiftDay(day: string, n: number): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Whole days from `a` to `b` (YYYY-MM-DD). */
+export function daysBetween(a: string, b: string): number {
+  return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+}
+
+/** Offset of `timeZone` from UTC at `now`, in ms (wall clock − UTC). */
+function zoneOffsetMs(timeZone: string, now: Date): number {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+      .formatToParts(now)
+      .map((x) => [x.type, x.value]),
+  ) as Record<string, string>;
+  const wall = Date.UTC(+p.year!, +p.month! - 1, +p.day!, +p.hour!, +p.minute!, +p.second!);
+  return wall - Math.floor(now.getTime() / 1000) * 1000;
+}
+
+/**
+ * R3-Q36: milliseconds from `now` to the next business-day rollover (BR-010) in `timeZone` – the Desk
+ * moves "today" at that instant instead of keeping D-1 until the next render. Time zones served have no DST.
+ */
+export function msUntilNextRollover(
+  timeZone = 'Asia/Ho_Chi_Minh',
+  rollover = DEFAULT_ROLLOVER,
+  now = new Date(),
+): number {
+  const [h, m] = rollover.split(':').map(Number) as [number, number];
+  const next = shiftDay(businessDayLocal(timeZone, now, rollover), 1);
+  const [y, mo, d] = next.split('-').map(Number) as [number, number, number];
+  const wall = Date.UTC(y, mo - 1, d, h, m);
+  return Math.max(0, wall - zoneOffsetMs(timeZone, now) - now.getTime());
+}

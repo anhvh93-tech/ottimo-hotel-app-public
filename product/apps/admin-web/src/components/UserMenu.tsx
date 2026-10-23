@@ -70,6 +70,10 @@ export function UserMenu() {
             <Icon name="key" />
             <span>{t('shell.change_password')}</span>
           </Link>
+          <Link className="rowlink" to="/security" onClick={() => setOpen(false)}>
+            <Icon name="shield" />
+            <span>{t('shell.security')}</span>
+          </Link>
           <div className="rowlink" style={{ cursor: 'default' }}>
             <Icon name="globe" />
             <span className="grow" id={`${menuId}-lang`}>

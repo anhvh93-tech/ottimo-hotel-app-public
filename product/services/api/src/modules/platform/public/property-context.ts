@@ -14,6 +14,8 @@ export interface PropertyNow {
   now: Date;
   /** Business date (BR-010). */
   today: LocalDate;
+  /** `business_day_rollover` in force (HH:mm) – 0.3.8 R3-Q38 `Me.properties[].businessDayRollover`. */
+  rollover: string;
   /** Instant → ISO with the property offset (API format). */
   iso(instant: Date): string;
 }
@@ -50,6 +52,7 @@ export class PropertyContextService {
       timezone,
       now,
       today: businessDate(now, timezone, rollover),
+      rollover,
       iso: (instant: Date) => toZonedIso(instant, timezone),
     };
   }

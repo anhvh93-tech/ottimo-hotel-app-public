@@ -10,7 +10,7 @@ import { problem } from '../../../shared/problem';
 import { assertNoCardNumber, parseBody } from '../../platform/public/validation';
 import { SessionService } from '../public/session.service';
 import { type HttpRequest, type Reply, headerOf, principalOf } from './auth.controller';
-import { PasswordReauth } from '../public/password-reauth';
+import { StrongReauthService, strongReauthSchema } from '../public/strong-reauth';
 import { DevicesService, type TrustedDeviceDto } from './devices.service';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -26,10 +26,13 @@ const trustSchema = z.object({
     .string()
     .regex(/^[0-9]{6}$/)
     .optional(),
+  recoveryCode: z.string().min(16).max(19).optional(),
   hardeningChecklistConfirmed: z.boolean(),
 });
 
 const revokeSchema = z.object({
+  // 0.3.8 (SEC 06.27 – S2): required (CỔNG – FE-A sends it in the same merge).
+  reauth: strongReauthSchema.optional(),
   reason: z
     .string()
     .transform((s) => s.trim())
@@ -44,7 +47,7 @@ export class DevicesController {
     @Inject(DevicesService) private readonly devices: DevicesService,
     @Inject(SessionService) private readonly sessions: SessionService,
     @Inject(UnitOfWork) private readonly uow: UnitOfWork,
-    @Inject(PasswordReauth) private readonly reauth: PasswordReauth,
+    @Inject(StrongReauthService) private readonly strong: StrongReauthService,
   ) {}
 
   private deviceToken(req: HttpRequest): string | undefined {
@@ -69,12 +72,23 @@ export class DevicesController {
   ): Promise<TrustedDeviceDto> {
     const input = parseBody(trustSchema, body);
     const p = principalOf(req);
-    // SR-DEV-02 re-authentication; counted in its own transaction (shared with approvals, SR-RL-02).
-    await this.reauth.verify(tenantOf(p), input.currentPassword, {
-      field: 'currentPassword',
-      purpose: 'trusted_device',
-      requestId: req.id,
-    });
+    // SR-DEV-02 re-authentication at level S2 (0.3.8, SEC 06.27): password + TOTP/recovery code when the
+    // owner has 2FA; counted in its own transaction (shared with approvals, SR-RL-02).
+    await this.strong.verify(
+      tenantOf(p),
+      {
+        password: input.currentPassword,
+        totpCode: input.totpCode,
+        recoveryCode: input.recoveryCode,
+      },
+      {
+        operationId: 'trustCurrentDevice',
+        passwordField: 'currentPassword',
+        factorField: 'totpCode',
+        requestId: req.id,
+        sessionId: p.sessionId,
+      },
+    );
     let cookie: string | null = null;
     const result = await this.uow.run(req, async (tx) => {
       const r = await this.devices.trustCurrent(tx, {
@@ -108,6 +122,11 @@ export class DevicesController {
     const input = parseBody(revokeSchema, body);
     assertNoCardNumber('reason', input.reason);
     const p = principalOf(req);
+    await this.strong.verify(tenantOf(p), input.reauth, {
+      operationId: 'revokeTrustedDevice',
+      requestId: req.id,
+      sessionId: p.sessionId,
+    });
     const result = await this.uow.run(req, async (tx) => ({
       status: 200,
       body: await this.devices.revoke(tx, {

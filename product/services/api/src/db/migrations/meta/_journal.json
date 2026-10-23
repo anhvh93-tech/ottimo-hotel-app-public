@@ -393,6 +393,13 @@
       "when": 1792254794821,
       "tag": "0078_attachment_retention_anchor_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1792254795821,
+      "tag": "0079_mfa_two_factor",
+      "breakpoints": true
     }
   ]
 }

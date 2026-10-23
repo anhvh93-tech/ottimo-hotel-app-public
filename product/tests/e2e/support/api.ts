@@ -50,6 +50,9 @@ export interface Me {
   activePropertyId?: string;
   properties: MeProperty[];
   mustChangePassword?: boolean;
+  /** US-143 (OpenAPI 0.3.8): restricted session – only the 2FA enrolment endpoints (SEC 06.4, ARC 12.3). */
+  mfaEnrollmentRequired?: boolean;
+  mfaEnabled?: boolean;
 }
 
 export interface StaffSession {
@@ -609,6 +612,20 @@ export async function stackToday(ctx: APIRequestContext, rollover = '06:00'): Pr
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * S2 proof (OpenAPI 0.3.8 `StrongReauth`, ARC s1-contracts 1.2 – CỔNG S2) for a DS-E account: the seed password.
+ * DS-E accounts have no 2FA on the E2E stack (MFA_ENFORCED=false in dev/CI), so the password alone is S2 there.
+ * Sent ONLY by the session that owns that password (never in a request of another role). A DS-E account with
+ * 2FA would need `totpCode` too – pass `extra`.
+ */
+export function seedReauth(extra: { totpCode?: string; recoveryCode?: string } = {}): {
+  password: string;
+  totpCode?: string;
+  recoveryCode?: string;
+} {
+  return { password: SEED_PASSWORD ?? '', ...extra };
+}
+
 /** Owner creates a throwaway account (must change password on first login – SR-AUTH-05). */
 export async function createThrowawayUser(
   ctx: APIRequestContext,
@@ -632,6 +649,7 @@ export async function createThrowawayUser(
       displayName: `Qa Tam ${role.replace(/[^a-z]/g, ' ')} ${uniqName(4)}`,
       initialPassword: password,
       roles: [{ propertyId: propertyIdOf(owner), role }],
+      reauth: seedReauth(), // CỔNG S2 (SEC 06.26): createUser needs S2
     },
   });
   expect(r.status, `createUser ${username}: ${JSON.stringify(r.body)}`).toBe(201);

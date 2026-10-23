@@ -14,6 +14,7 @@ import type { APIRequestContext } from '@playwright/test';
 import {
   call,
   propertyIdOf,
+  seedReauth,
   session,
   uniq,
   uniqName,
@@ -107,7 +108,7 @@ export const SPRINT1_OPS: Record<string, OpDef> = {
   listUsers: read(undefined, () => ({})),
   createUser: {
     mode: 'valid',
-    prepare: async (_c, _s, _sub, f) => ({
+    prepare: async (_c, _s, sub, f) => ({
       params: {},
       idempotencyKey: true,
       body: {
@@ -115,8 +116,11 @@ export const SPRINT1_OPS: Record<string, OpDef> = {
         displayName: 'Qa Rbac tạm',
         initialPassword: `E2e-${uniq(12)}-tmp`,
         roles: [{ propertyId: f.propertyId, role: 'housekeeping' }],
+        // CỔNG S2 (SEC 06.26): only the caller's own password, and only for the allowed role – a refused role
+        // gets 403 before S2 is looked at (and never carries another account's password).
+        ...(sub === 'qa.owner' ? { reauth: seedReauth() } : {}),
       },
-      note: 'owner tạo tài khoản tạm qa.e2e.rb*',
+      note: 'owner tạo tài khoản tạm qa.e2e.rb* (kèm S2)',
     }),
   },
   updateUser: {
@@ -157,12 +161,13 @@ export const SPRINT1_OPS: Record<string, OpDef> = {
   },
   revokeTrustedDevice: {
     mode: 'valid',
-    prepare: async (_c, _s, _sub, f) => ({
+    prepare: async (_c, _s, sub, f) => ({
       params: P(f, { deviceId: uuid() }),
       idempotencyKey: true,
-      body: { reason: 'E2E RBAC' },
+      // CỔNG S2 (SEC 06.27): S2 is verified before the device lookup – without it the owner gets 422.
+      body: { reason: 'E2E RBAC', ...(sub === 'qa.owner' ? { reauth: seedReauth() } : {}) },
       accept: [404],
-      note: 'deviceId ngẫu nhiên → owner 404',
+      note: 'deviceId ngẫu nhiên → owner 404 (kèm S2)',
     }),
   },
 
