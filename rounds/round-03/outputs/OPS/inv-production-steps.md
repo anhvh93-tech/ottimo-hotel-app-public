@@ -20,6 +20,7 @@ Cách vào trang và bấm giống hệt `rounds/round-02/inv-dns-steps.md` mụ
 | 5 | A | `g` | `<IP-VPS>` | 300 | Bản chính thức – trang khách |
 
 - Năm bản ghi này **không ảnh hưởng email** và không ảnh hưởng trang `ottimo.vn` hiện tại.
+- **Chỉ thêm bản ghi A, không thêm AAAA (IPv6)** cho các tên trỏ về VPS, kể cả khi Mắt Bão hay Nhân Hòa gợi ý. Lý do: với IPv6, máy chủ không thấy đúng địa chỉ khách, nên các lớp chặn tấn công không hoạt động đúng.
 - Bản ghi 3–5 thêm sớm cũng không sao: tới khi bản chính thức chạy, mở các địa chỉ đó sẽ chưa vào được, như bình thường.
 - Xong thì nhắn đội "đã thêm DNS phần 1".
 
@@ -105,7 +106,7 @@ Cách duyệt:
 - đội đã báo trong chat số tag và nội dung bản;
 - QC đã ghi "đạt cổng v1.0" (lần đầu) hoặc "đạt hotfix" (bản vá).
 
-## Phần 6 – Báo động miễn phí (20 phút) – sau khi quyết ESC-029 (đội đề xuất A)
+## Phần 6 – Báo động miễn phí (20 phút) – ESC-029 đã quyết A (23/10)
 
 6a. **Healthchecks.io** (báo cả khi máy chủ sập):
 1. Vào https://healthchecks.io → **Sign Up** bằng hộp thư nhóm `@ottimo.vn` (gói Hobbyist miễn phí).
@@ -142,7 +143,7 @@ Email Google Workspace **không bị ảnh hưởng** nếu làm đúng bảng d
 
 7b. **Trước 1 ngày:** ở Mắt Bão, sửa TTL của bản ghi `@` (4 dòng A) và `www` (CNAME) xuống `300`, nếu có ô TTL.
 
-7c. **Chọn về `mail.ottimo.vn`:** đội đề xuất **xóa** bản ghi CNAME `mail` (đường tắt cũ vào Gmail). Lý do: trang mới bật chế độ "luôn HTTPS" cho mọi tên miền con, còn `mail.ottimo.vn` không có HTTPS. Gmail vẫn vào bằng `mail.google.com` hoặc app Gmail; email không ảnh hưởng gì. Nhắn đội: "xóa mail" hoặc "giữ mail".
+7c. **`mail.ottimo.vn`: anh/chị đã quyết xóa (23/10).** Xóa bản ghi CNAME `mail` cùng buổi với 7d. Gmail vẫn vào bằng `mail.google.com` hoặc app Gmail, email không ảnh hưởng gì.
 
 7d. **Buổi tối hẹn với đội** (đội đã đẩy tag `landing-v…` và job đang chờ duyệt):
 
@@ -152,12 +153,13 @@ Email Google Workspace **không bị ảnh hưởng** nếu làm đúng bảng d
 | `@` – **A** mới | **Thêm**: Tên `@`, Giá trị `<IP-VPS>`, TTL 300 |
 | `www` – **CNAME** `ghs.googlehosted.com` | **Xóa** |
 | `www` – **A** mới | **Thêm**: Tên `www`, Giá trị `<IP-VPS>`, TTL 300 |
-| `mail` – CNAME | Theo lựa chọn 7c |
+| `mail` – CNAME | **Xóa** (7c) |
 | `@` **MX** `smtp.google.com` | **KHÔNG ĐỤNG** |
 | `@` **TXT** `v=spf1 include:_spf.google.com ~all` | **KHÔNG ĐỤNG** |
 | `@` **TXT** `google-site-verification=…` | **KHÔNG ĐỤNG** |
 | `google._domainkey` **TXT** (`v=DKIM1…`) | **KHÔNG ĐỤNG** |
 | `desk.staging`, `staff.staging`, `g.staging`, `staging`, `www.staging`, `desk`, `staff`, `g` | **KHÔNG ĐỤNG** |
+| Bất kỳ bản ghi **AAAA** nào trỏ về VPS | **Không thêm** |
 
 Ngay sau khi lưu DNS:
 - mở GitHub → lượt **Release** đang chờ → **Approve and deploy**;
@@ -175,19 +177,24 @@ Trong vài giờ đầu:
 
 Cách quay lại nếu cần: đặt lại 4 dòng A của Google và CNAME `www` → `ghs.googlehosted.com` theo ảnh chụp đã lưu.
 
-## Phần 8 – Email gửi đi của hệ thống (Amazon SES – ESC-010 B) – cần trước v1.0
+## Phần 8 – Email gửi đi của hệ thống (Google Workspace) – cần trước v1.0
 
-Không có phần này thì:
-- check-in online không gửi được mã xác minh qua email;
-- email cảnh báo 2FA cũng không đi.
+Anh/chị đã chọn gửi email qua Google Workspace từ `info@ottimo.vn` (23/10). Không có phần này thì check-in online không gửi được mã xác minh, và email cảnh báo 2FA cũng không đi.
 
-Đội (INT) sẽ gửi hướng dẫn riêng: tạo tài khoản AWS, chọn vùng Singapore, xác minh tên miền.
+**Không phải sửa DNS:** SPF `include:_spf.google.com` và DKIM `google._domainkey` của Google đã có sẵn và đúng.
 
-Ở Mắt Bão, phần này chỉ **thêm** bản ghi mới:
-- 3 bản ghi CNAME dạng `xxxx._domainkey`;
-- tùy chọn: một bản ghi `_dmarc`.
+Các bước:
+1. Đăng nhập Google bằng `info@ottimo.vn` → https://myaccount.google.com/security → bật **Xác minh 2 bước** (nếu chưa bật).
+2. Mở https://myaccount.google.com/apppasswords → đặt tên `ottimo-server` → **Create**. Google hiện **mật khẩu ứng dụng 16 chữ cái**. Đây không phải mật khẩu hộp thư.
+3. Đừng chép mật khẩu này vào chat, email hay ghi chú. Khi đội hẹn (lúc dựng production), anh/chị tự gõ nó vào máy chủ:
+   - đăng nhập máy chủ bằng khóa của mình;
+   - chạy `sudo /opt/ottimo-prod/infra/server/bin/init-secrets.sh`;
+   - dán mật khẩu ứng dụng ở dấu nhắc. Dấu nhắc không hiện ký tự, và hỏi lại một lần để xác nhận.
 
-**Không sửa** MX, SPF hay DKIM của Google.
+   INT gửi hướng dẫn chi tiết cùng adapter.
+4. Sau này nếu đổi mật khẩu hộp thư `info@ottimo.vn`, Google tự hủy mật khẩu ứng dụng. Khi đó tạo mật khẩu mới rồi chạy:
+   - `sudo …/init-secrets.sh --reset-email-password`;
+   - `…/bin/dc restart worker`.
 
 ---
 
@@ -196,7 +203,7 @@ Không có phần này thì:
 1. Phần 1, 2: làm ngay.
 2. Phần 3, 4: khi đội dựng production.
 3. Phần 7: khi duyệt landing (có thể trước v1.0).
-4. Phần 6: sau ESC-029.
+4. Phần 6: làm được ngay (ESC-029 đã quyết A).
 5. Phần 8: trước v1.0.
 6. Phần 5: mỗi lần phát hành.
 

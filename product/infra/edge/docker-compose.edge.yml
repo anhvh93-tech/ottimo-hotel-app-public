@@ -33,9 +33,15 @@ services:
         ipv4_address: 172.31.1.2
       link-production:
         ipv4_address: 172.31.2.2
+    # worker_rlimit_nofile in nginx.conf needs the hard limit (FB-R3-SEC-OPS-01).
+    ulimits:
+      nofile:
+        soft: 32768
+        hard: 32768
     restart: unless-stopped
-    mem_limit: 64m
-    pids_limit: 50
+    # 3 workers × 8192 connections: buffers of idle TCP proxies are small; 128 MB leaves room (v1-production 3).
+    mem_limit: 128m
+    pids_limit: 100
     logging:
       driver: local
       options:

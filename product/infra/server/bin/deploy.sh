@@ -69,6 +69,12 @@ log "deploy $tag (previous: ${prev:-none}, pull=$pull, rollback=$rollback)"
 # ---- 0. configuration guard (before anything changes) ----
 step config
 app_env=$(envval APP_ENV)
+# FB-R3-SEC-OPS-03: the production stack is recognised by its home (marker written by bootstrap-vps.sh --env
+# production, /opt/ottimo-prod) or EDGE_NAME – a mistyped APP_ENV there must not switch the production guard off.
+if [ "$(cat "$OTTIMO_HOME/.ottimo-home" 2>/dev/null)" = "production" ] || [ "$(envval EDGE_NAME)" = "production" ] \
+  || [ "$(basename "$OTTIMO_HOME")" = "ottimo-prod" ]; then
+  [ "$app_env" = "production" ] || { log "FAIL: this is the production stack but APP_ENV=${app_env:-<empty>}"; exit 1; }
+fi
 if [ "$rollback" -eq 1 ] && [ -z "$api_digest$web_digest" ] && [ -r "$state/digests/$tag" ]; then
   api_digest=$(sed -n 's/^api=//p' "$state/digests/$tag"); web_digest=$(sed -n 's/^web=//p' "$state/digests/$tag")
 fi

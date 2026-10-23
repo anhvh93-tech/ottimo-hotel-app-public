@@ -228,7 +228,8 @@ jobs:
           shellcheck --version | head -2
           shellcheck -x -S warning product/infra/server/bootstrap-vps.sh product/infra/server/bin/dc \
             product/infra/server/bin/*.sh product/infra/postgres/init/02-roles.sh product/infra/ci/*.sh \
-            product/infra/caddy/*.sh product/infra/demo/*.sh product/infra/docker/*.sh
+            product/infra/caddy/*.sh product/infra/demo/*.sh product/infra/docker/*.sh \
+            product/services/api/scripts/production-bootstrap.sh product/services/api/scripts/mfa-operator-reset.sh
       # UXR P-15: demo/production web builds refuse a missing, malformed or placeholder desk phone; dev only warns.
       - name: Web build config guard (VITE_DESK_PHONE)
         run: bash product/infra/ci/test-web-build-config.sh
@@ -716,6 +717,22 @@ jobs:
           docker push "$API:$TAG"; docker push "$API:$TAG-test"; docker push "$WEB:$TAG"; docker push "$LANDING:$TAG"
           docker logout ghcr.io
           echo "pushed $API:$TAG(-test), $WEB:$TAG, $LANDING:$TAG"
+          # FB-R3-SEC-OPS-02: record the digests THIS run pushed. release.yml takes them from this run's artifact (same
+          # commit, CI green) and refuses a release when GHCR now serves something else under the tag.
+          d() { docker buildx imagetools inspect "$1" | awk '/^Digest:/ { print $2; exit }'; }
+          mkdir -p "$RUNNER_TEMP/digests"
+          { echo "tag=$TAG"; echo "api=$(d "$API:$TAG")"; echo "web=$(d "$WEB:$TAG")"; echo "landing=$(d "$LANDING:$TAG")"; } \
+            > "$RUNNER_TEMP/digests/image-digests.txt"
+          grep -cE '^(api|web|landing)=sha256:[0-9a-f]{64}$' "$RUNNER_TEMP/digests/image-digests.txt" | grep -qx 3 \
+            || { echo "::error::could not read the pushed digests"; exit 1; }
+          cat "$RUNNER_TEMP/digests/image-digests.txt"
+      - name: Keep the pushed digests (read by release.yml)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: image-digests
+          path: ${{ runner.temp }}/digests/image-digests.txt
+          retention-days: 90
+          if-no-files-found: error
 
   deploy-staging:
     name: deploy staging

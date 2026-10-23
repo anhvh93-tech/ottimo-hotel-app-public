@@ -7,7 +7,9 @@
 #       SNI → right stack (production web / production landing / staging landing), the backend sees the CLIENT address
 #       (PROXY protocol), not the edge's; unknown SNI → connection closed; :80 by Host → the backend's 308; unknown
 #       Host on :80 → 404; a PROXY header from any address other than the edge is ignored (no address spoofing);
-#       the staging landing preview answers 401 without its password, the production landing 200 + headers.
+#       the staging landing preview answers 401 without its password, the production landing 200 + headers;
+#       FB-R3-SEC-OPS-01: one address holding EDGE_CONN_PER_IP (test: 5) idle connections is refused more, another
+#       address still gets in, and idle connections that never send a ClientHello are closed after preread_timeout.
 # Needs Docker. Uses the fixed network names ottimo-link-staging/production: do NOT run on the VPS.
 set -Eeuo pipefail
 
@@ -23,7 +25,7 @@ ok() { echo "ok   $*"; }
 bad() { echo "FAIL $*"; fails=$((fails + 1)); }
 
 cleanup() {
-  EDGE_CONF="$work/edge/nginx.conf" docker compose --project-name ottimo-edge-test -f "$infra/edge/docker-compose.edge.yml" \
+  EDGE_CONF="$work/edge5/nginx.conf" docker compose --project-name ottimo-edge-test -f "$infra/edge/docker-compose.edge.yml" \
     down --remove-orphans >/dev/null 2>&1 || true
   docker rm -f et-prod-web et-prod-landing et-stg-landing >/dev/null 2>&1 || true
   for n in staging production; do
@@ -71,6 +73,10 @@ grep -qE '^\s+landing\.localhost production-landing:443;$' "$conf" && grep -qE '
   && grep -qE '^\s+preview\.localhost staging-landing:443;$' "$conf" && ok "(a) SNI map: hosts → <env>-web / <env>-landing" \
   || bad "(a) SNI map content"
 grep -q 'old.localhost' "$conf" && bad "(a) a direct-mode stack was routed" || ok "(a) direct-mode stack ignored"
+grep -qE 'limit_conn ottimo_tls_perip 100;' "$conf" && grep -q 'preread_timeout 5s;' "$conf" \
+  && grep -qE 'limit_conn ottimo_http_perip 20;' "$conf" && grep -q 'worker_connections 8192;' "$conf" \
+  && ok "(a) limits: 100 connections per IP on 443, 20 on 80, preread 5 s, 8192 worker connections" \
+  || bad "(a) connection limits missing in nginx.conf"
 cp "$conf" "$work/good.conf"
 
 mk_env "$work/dup" staging edge 172.31.1.2/32 desk.localhost x.localhost www.x.localhost
@@ -79,6 +85,8 @@ mk_env "$work/badhost" staging edge 172.31.1.2/32 'desk.localhost;evil' x.localh
 render "$work/badhost" >/dev/null 2>&1 && bad "(a) malformed host accepted" || ok "(a) malformed host refused"
 mk_env "$work/badallow" production edge 0.0.0.0/0 desk.y.localhost y.localhost www.y.localhost
 render "$work/badallow" >/dev/null 2>&1 && bad "(a) wrong PROXY_PROTOCOL_ALLOW accepted" || ok "(a) wrong PROXY_PROTOCOL_ALLOW refused"
+EDGE_CONN_PER_IP=abc render "$work/prod" >/dev/null 2>&1 && bad "(a) non-numeric EDGE_CONN_PER_IP accepted" \
+  || ok "(a) non-numeric EDGE_CONN_PER_IP refused"
 cmp -s "$conf" "$work/good.conf" && ok "(a) refused renders left the previous nginx.conf untouched" || bad "(a) nginx.conf changed by a refused render"
 
 # ---------- (b) end to end ----------
@@ -121,7 +129,9 @@ for l in prod stg; do
     -v "$infra/caddy/Caddyfile.landing:/etc/caddy/Caddyfile:ro" -v "$work/site:/srv/landing:ro" \
     -v "$work/access-$l:/run/secrets/landing_access:ro" "$CADDY_IMAGE" >/dev/null
 done
-EDGE_CONF="$work/good.conf" EDGE_BIND_PREFIX=127.0.0.1: EDGE_HTTP_PORT="$HTTP_PORT" EDGE_HTTPS_PORT="$HTTPS_PORT" \
+# The end-to-end run uses a low per-IP limit (5) so the limit can be reached with a handful of idle connections.
+EDGE_CONN_PER_IP=5 EDGE_HOME="$work/edge5" EDGE_STACKS="$work/prod $work/stg" bash "$infra/server/bin/edge.sh" render >/dev/null
+EDGE_CONF="$work/edge5/nginx.conf" EDGE_BIND_PREFIX=127.0.0.1: EDGE_HTTP_PORT="$HTTP_PORT" EDGE_HTTPS_PORT="$HTTPS_PORT" \
   docker compose --project-name ottimo-edge-test -f "$infra/edge/docker-compose.edge.yml" up --detach --wait --wait-timeout 60 >/dev/null
 sleep 3
 
@@ -161,6 +171,27 @@ spoof=$(docker run --rm --network ottimo-link-production --ip 172.31.2.77 "$CURL
   https://desk.localhost/ 2>/dev/null || true)
 [ "$spoof" = "web-production 172.31.2.77" ] && ok "(b) forged PROXY header (203.0.113.9) from a non-edge address ignored – backend saw 172.31.2.77" \
   || bad "(b) PROXY header from a non-edge address: '$spoof'"
+
+# FB-R3-SEC-OPS-01: per-IP limit + preread timeout. Client A holds 6 idle TCP connections (no ClientHello) to the edge.
+docker run --rm --network ottimo-link-production --ip 172.31.2.60 --entrypoint sh "$CURL_IMAGE" -c '
+  for i in 1 2 3 4 5 6; do (sleep 20 | nc 172.31.2.2 443 >/dev/null 2>&1 &); done
+  sleep 1
+  if curl -sk --max-time 3 --resolve desk.localhost:443:172.31.2.2 -o /dev/null https://desk.localhost/; then echo A-over-limit=served; else echo A-over-limit=refused; fi
+  sleep 7
+  if curl -sk --max-time 5 --resolve desk.localhost:443:172.31.2.2 -o /dev/null https://desk.localhost/; then echo A-after-preread=served; else echo A-after-preread=refused; fi' \
+  > "$work/limits.txt" 2>/dev/null &
+pid=$!
+sleep 2
+other=$(docker run --rm --network ottimo-link-production --ip 172.31.2.61 "$CURL_IMAGE" -sk --max-time 5 \
+  --resolve desk.localhost:443:172.31.2.2 https://desk.localhost/ 2>/dev/null || true)
+wait "$pid" || true
+limits=$(cat "$work/limits.txt" 2>/dev/null || true)
+grep -q 'A-over-limit=refused' <<<"$limits" && ok "(b) per-IP limit: connections of one address beyond the limit (5) refused" \
+  || bad "(b) per-IP limit not applied ($limits)"
+case "$other" in "web-production "*) ok "(b) another address still served while the first one is at its limit" ;;
+  *) bad "(b) another address not served during the flood: '$other'" ;; esac
+grep -q 'A-after-preread=served' <<<"$limits" && ok "(b) idle connections without ClientHello closed after preread_timeout (address served again)" \
+  || bad "(b) idle connections not closed by preread_timeout ($limits)"
 
 if [ "$fails" -gt 0 ]; then echo "FAILED: $fails check(s)"; exit 1; fi
 echo "OK: shared edge – render guards, SNI/Host routing, client address via PROXY protocol, no spoofing"

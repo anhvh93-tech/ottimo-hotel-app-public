@@ -4,7 +4,7 @@
 #   tag v<semver>          (e.g. v1.0.0)         → app: deploy sha-<12> pinned to the api/web registry digests
 #   tag landing-v<semver>  (e.g. landing-v1.0.0) → landing site: landing sha-<12> pinned to its digest
 # Gates, in order: the tag points at a commit of main; the CI workflow (push to main) succeeded on that commit; the
-# images exist (digests read from GHCR); then environment `production` = required reviewer INV, deployment tags
+# digests that run pushed (its artifact image-digests) equal what GHCR serves under the tag now; then environment `production` = required reviewer INV, deployment tags
 # v* / landing-v* only (GitHub settings, inv-production-steps). The SSH key of the environment only runs
 # /opt/ottimo-prod/infra/server/bin/deploy-from-ci.sh, which answers one line (public log – SEC E.8).
 name: Release
@@ -54,23 +54,32 @@ jobs:
           git fetch --no-tags origin main
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
             || { echo "::error::$REF_NAME does not point at a commit of main"; exit 1; }
-          ok=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&event=push&status=success&per_page=1" \
-            --jq '.total_count')
-          [ "${ok:-0}" -gt 0 ] || { echo "::error::no successful CI run (push to main) for $GITHUB_SHA"; exit 1; }
+          run_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&event=push&status=success&per_page=1" \
+            --jq '.workflow_runs[0].id // empty')
+          [ -n "$run_id" ] || { echo "::error::no successful CI run (push to main) for $GITHUB_SHA"; exit 1; }
+          # FB-R3-SEC-OPS-02: the digests that green CI run pushed (artifact image-digests, 90 days) are the reference;
+          # GHCR must still serve exactly them under the tag.
+          gh run download "$run_id" -R "$GITHUB_REPOSITORY" -n image-digests -D "$RUNNER_TEMP/ci-digests" \
+            || { echo "::error::CI run $run_id has no image-digests artifact (older than 90 days? re-run CI on main)"; exit 1; }
+          ci() { sed -n "s/^$1=//p" "$RUNNER_TEMP/ci-digests/image-digests.txt"; }
           owner=$(tr '[:upper:]' '[:lower:]' <<<"$GITHUB_REPOSITORY_OWNER")
           tag="sha-${GITHUB_SHA::12}"
+          [ "$(ci tag)" = "$tag" ] || { echo "::error::artifact of run $run_id is for another tag"; exit 1; }
           digest() { docker buildx imagetools inspect "$1" | awk '/^Digest:/ { print $2; exit }'; }
+          same() { [ -n "$2" ] && [ "$2" = "$(ci "$1")" ] || { echo "::error::$1 image under $tag differs from what CI run $run_id pushed"; exit 1; }; }
           { echo "kind=$kind"; echo "tag=$tag"; } >> "$GITHUB_OUTPUT"
           if [ "$kind" = app ]; then
             api=$(digest "ghcr.io/$owner/ottimo-api:$tag"); web=$(digest "ghcr.io/$owner/ottimo-web:$tag")
             [[ "$api" =~ ^sha256:[0-9a-f]{64}$ && "$web" =~ ^sha256:[0-9a-f]{64}$ ]] \
               || { echo "::error::images $tag not found on GHCR (was publish-images green for this commit?)"; exit 1; }
+            same api "$api"; same web "$web"
             { echo "api_digest=$api"; echo "web_digest=$web"; } >> "$GITHUB_OUTPUT"
             echo "release $REF_NAME → $tag api@$api web@$web"
           else
             landing=$(digest "ghcr.io/$owner/ottimo-landing:$tag")
             [[ "$landing" =~ ^sha256:[0-9a-f]{64}$ ]] \
               || { echo "::error::landing image $tag not found on GHCR"; exit 1; }
+            same landing "$landing"
             echo "landing_digest=$landing" >> "$GITHUB_OUTPUT"
             echo "release $REF_NAME → landing $tag @$landing"
           fi

@@ -44,6 +44,10 @@ flock -n 9 || { echo "another landing deploy is running" >&2; exit 3; }
 step config
 [ "$(envval EDGE_MODE)" = "edge" ] || { log "FAIL: EDGE_MODE=edge required (the landing is only reachable through the edge)"; exit 1; }
 host=$(envval LANDING_HOST); www=$(envval LANDING_WWW_HOST); app_env=$(envval APP_ENV)
+if [ "$(cat "$OTTIMO_HOME/.ottimo-home" 2>/dev/null)" = "production" ] || [ "$(envval EDGE_NAME)" = "production" ] \
+  || [ "$(basename "$OTTIMO_HOME")" = "ottimo-prod" ]; then
+  [ "$app_env" = "production" ] || { log "FAIL: this is the production stack but APP_ENV=${app_env:-<empty>}"; exit 1; }
+fi
 [ -n "$host" ] && [ -n "$www" ] && [ -n "$(envval LANDING_IMAGE)" ] || { log "FAIL: LANDING_HOST, LANDING_WWW_HOST, LANDING_IMAGE must be set"; exit 1; }
 [ -e "$OTTIMO_HOME/secrets/landing_access" ] || { log "FAIL: secrets/landing_access missing – sudo $here/init-secrets.sh"; exit 1; }
 [ -n "$digest" ] || [ ! -r "$state/digests/landing-$tag" ] || digest=$(cat "$state/digests/landing-$tag")

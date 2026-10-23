@@ -10,7 +10,8 @@
 #       script copy belongs to (.ottimo-home marker, no OTTIMO_HOME given) – the production copy acts on production;
 #   (e) `landing sha-… [landing=sha256:…]` runs deploy-landing.sh (with --digest), one line "landing <tag>: ok";
 #   (f) the production guard of the REAL deploy.sh stops at step=config: MFA_ENFORCED≠true, a -test suffix, missing
-#       digests – before any pull; a missing secret file also stops at step=config.
+#       digests, the production home or EDGE_NAME=production with APP_ENV≠production (SEC OPS-03) – before any pull;
+#       a missing secret file also stops at step=config.
 # Runs on Linux (CI: job infra-scripts). Needs flock (util-linux) like deploy.sh itself.
 set -Eeuo pipefail
 
@@ -151,6 +152,11 @@ guard "production with a -test image suffix" config " api=$A web=$B" "${P[@]}" M
 guard "production without digests" config "" "${P[@]}" MFA_ENFORCED=true
 STUB_SECRET=/nonexistent/web_push_vapid_private_key guard "missing secret file" config " api=$A web=$B" "${P[@]}" MFA_ENFORCED=true
 export STUB_SECRET=/dev/null
+# FB-R3-SEC-OPS-03: the production stack (marker / EDGE_NAME) with a mistyped APP_ENV is refused.
+echo production > "$home/.ottimo-home"
+guard "production home (marker) with APP_ENV=staging" config " api=$A web=$B" APP_ENV=staging MFA_ENFORCED=true
+rm -f "$home/.ottimo-home"
+guard "EDGE_NAME=production with APP_ENV=staging" config "" APP_ENV=staging EDGE_NAME=production MFA_ENFORCED=true
 
 if [ "$fails" -gt 0 ]; then echo "FAILED: $fails check(s)"; exit 1; fi
 echo "OK: deploy-from-ci.sh – one summary line to the CI, full log on the server, other commands refused, digests/landing/production guard"

@@ -58,7 +58,7 @@ Ghi chú quan trọng:
 | worker | 768 MB | 384 MB | ~45 MB |
 | web (Caddy) | 256 MB | 256 MB | ~15 MB |
 | landing (Caddy) | 128 MB | 128 MB | ~15 MB |
-| edge (nginx) | 64 MB dùng chung | | ~5 MB |
+| edge (nginx) | 128 MB dùng chung (3 worker × 8192 kết nối – SEC OPS-01) | | ~5 MB |
 
 - Ước khi chạy thật (10 căn, vài nhân viên): mỗi stack khoảng 0,6–0,9 GB, hai stack khoảng 1,6 GB. Cộng hệ điều hành + Docker ~0,4 GB, tổng **~2 GB / 4,8 GB**, còn swap 2 GB dự phòng.
 - Tổng giới hạn (production ~3,2 GB + staging ~1,8 GB) **vượt nhẹ RAM**. Giới hạn chỉ là trần, không giữ chỗ trước, nên chỉ nguy hiểm khi cả hai cùng đầy. Để giảm rủi ro: staging chạy giới hạn thấp hơn. QA chạy kiểm thử nặng (E2E, image `-test`) vào giờ vắng khách. `ops-check` có kiểm `mem` (RAM còn trống < 10 % thì báo).
@@ -78,7 +78,9 @@ Khi `APP_ENV=production`, deploy dừng nếu gặp một trong các trường h
 - thiếu tệp bí mật mà compose cần → dừng, kèm lời nhắc chạy `init-secrets.sh`. Đây là trường hợp sẽ gặp trên staging ở lần deploy kế tiếp, vì có thêm bí mật VAPID / form;
 - chạy sau edge mà chưa có mạng link → dừng.
 
-Sau khi kéo image, deploy so **digest trong registry** với digest mà CI đọc lúc phát hành. Đây là phần còn nợ của SEC E.10.2 (2)(4), nay đã làm. Rollback production kiểm lại digest đã ghi ở `state/digests/<tag>`.
+Ngoài ra, ở mọi môi trường: thư mục production (tệp mốc `production`) hoặc `EDGE_NAME=production` mà `APP_ENV` khác `production` → dừng (SEC OPS-03, có test). Cả `deploy-landing.sh` cũng kiểm điều này.
+
+Sau khi kéo image, deploy so **digest trong registry** với digest được truyền vào. Digest đó do `release.yml` lấy **từ chính lần chạy CI xanh** đã đẩy image: job `publish-images` ghi `image-digests.txt` thành artifact của lần chạy, giữ 90 ngày. Workflow phát hành dừng nếu GHCR hiện đang phục vụ digest khác dưới cùng tag (SEC OPS-02). Như vậy SEC E.10.2 (2)(4) đã xong. Rollback production kiểm lại digest đã ghi ở `state/digests/<tag>`.
 
 ## 5. Deploy production qua environment GitHub `production`
 
@@ -143,7 +145,7 @@ Sau khi kéo image, deploy so **digest trong registry** với digest mà CI đ�
 | `@` TXT `google-site-verification=…` | xác minh Google | **KHÔNG ĐỤNG** (dùng cho Workspace / Search Console) |
 | `google._domainkey` TXT | DKIM Google Workspace | **KHÔNG ĐỤNG** |
 | `_dmarc` TXT | (chưa có) | Không bắt buộc. Khuyến nghị thêm sau `v=DMARC1; p=none; rua=mailto:<hộp thư nhóm>` – bản ghi mới, không ảnh hưởng thư đang chạy |
-| `mail` CNAME | `ghs.googlehosted.com.` | **Cần INV chọn** (mục 6.3) |
+| `mail` CNAME | `ghs.googlehosted.com.` | **XÓA** (INV quyết 23/10, mục 6.3) |
 | `desk/staff/g.staging` A | IP VPS | giữ |
 | CAA | không có (Mắt Bão không hỗ trợ – R5-15) | giữ nguyên rủi ro thấp, SEC đã biết |
 
@@ -153,11 +155,12 @@ Bản ghi **thêm mới**:
 
 Tất cả là A → IP VPS. Thêm được ngay, không ảnh hưởng email.
 
-### 6.3 Điểm cần chọn: HSTS `includeSubDomains` và `mail.ottimo.vn`
+### 6.3 HSTS `includeSubDomains` và `mail.ottimo.vn` – **INV đã quyết 23/10: xóa `mail`**
 ADR-014 đặt `Strict-Transport-Security: max-age=31536000; includeSubDomains` ở tên miền gốc. Trình duyệt nào đã mở `https://ottimo.vn` sẽ **ép HTTPS cho mọi tên miền con trong 1 năm**. `mail.ottimo.vn` (CNAME tới Google) là đường tắt cũ vào Gmail và **không có chứng chỉ HTTPS cho tên này**, nên sẽ báo lỗi chứng chỉ trên những trình duyệt đó. Các tên miền con khác đều đã có HTTPS.
 - Đề xuất OPS: **xóa bản ghi `mail`**. Gmail vẫn vào bằng `mail.google.com`, email không ảnh hưởng gì. Giữ HSTS đúng ADR.
 - Phương án khác: giữ `mail` và bỏ `includeSubDomains` ở landing. Phương án này cần ARC + SEC đồng ý vì lệch ADR.
-- Chưa chọn thì không bật landing production. Bản xem trước không bị ảnh hưởng.
+- **Đã quyết (INV 23/10): xóa bản ghi `mail`**, giữ HSTS đúng ADR. MX, SPF, DKIM và bản ghi xác minh Google giữ nguyên.
+- **Không thêm bản ghi AAAA (IPv6)** cho bất kỳ tên nào trỏ về VPS (SEC S-1). Lý do: Docker chuyển tiếp IPv6 qua `docker-proxy` thay địa chỉ khách bằng địa chỉ nội bộ. Khi đó `/health` mở cho mọi khách IPv6, giới hạn đăng nhập và giới hạn kết nối của edge gộp mọi khách IPv6 thành một. Muốn bật IPv6 thì phải làm cấu hình và test riêng trước.
 
 ### 6.4 Thứ tự chuyển `ottimo.vn` từ Google Sites sang VPS
 1. Trước 1 ngày: INV hạ TTL của `@` và `www` xuống 300 giây, nếu Mắt Bão cho đặt.
@@ -177,7 +180,7 @@ ADR-014 đặt `Strict-Transport-Security: max-age=31536000; includeSubDomains` 
 | Báo cả khi máy chủ chết | **`HEARTBEAT_URL` (mới)**: sau mỗi lượt kiểm, máy chủ gọi Healthchecks.io; lượt có lỗi gọi `/fail`. Mất tín hiệu > 1 giờ hoặc nhận `/fail` → dịch vụ gửi email | Email INV + OPS |
 | Từ bên ngoài | UptimeRobot (miễn phí) kiểm 5 phút/lần `https://desk/staff/g.ottimo.vn/` + `ottimo.vn` + `www` | Email |
 
-- Zalo không có kênh báo động miễn phí → **ESC-029** (đội đề xuất A: email + Google Chat).
+- Zalo không có kênh báo động miễn phí → **ESC-029: INV chọn A (23/10)**: email qua Healthchecks.io + UptimeRobot, và Google Chat.
 - Không gửi dữ liệu khách nào, chỉ gửi tên mục kiểm.
 
 ## 8. Sao lưu, giữ, off-site, diễn tập
@@ -222,9 +225,9 @@ Thời gian khôi phục:    12 giây (giải mã + DB + tệp + khởi động 
 
 | # | Việc | Ảnh hưởng | Đề xuất |
 |---|---|---|---|
-| R3-OPS-01 | **Email production chưa có** (ESC-010 B = Amazon SES). `EMAIL_PROVIDER=off` thì **mã xác minh email của check-in online không gửi được**, email 2FA (06.18/06.33) cũng không | Check-in online thuộc v1.0 | ORC giao INT: hướng dẫn INV tạo SES + bản ghi DKIM (3 CNAME `_domainkey`, không đụng bản ghi Google). Hoặc ORC quyết v1.0 tạm không bật check-in online |
-| R3-OPS-02 | **Chưa có lệnh khởi tạo production**: seed chỉ cho dữ liệu giả và từ chối `production`. Production trống sẽ không có cơ sở, căn, tham số, tài khoản `owner` đầu tiên | Chặn v1.0 | ORC giao BE + ARC: lệnh quản trị một lần (giống `mfa-operator-reset`) tạo cơ sở + 10 căn + tham số thật + `owner` đầu tiên với mật khẩu tạm buộc đổi và buộc đăng ký 2FA. Dữ liệu thật do PO/DOM chuẩn bị |
-| R3-OPS-03 | HSTS `includeSubDomains` và `mail.ottimo.vn` (6.3) | Lỗi chứng chỉ khi mở `mail.ottimo.vn` | INV xóa `mail` (đề xuất) |
+| R3-OPS-01 | Email production: **INV chọn Google Workspace SMTP** từ `info@ottimo.vn` (decision-log 23/10, thay SES cho v1.0). Adapter + `init-secrets.sh` (hỏi mật khẩu ứng dụng qua dấu nhắc ẩn, `--reset-email-password`) do INT làm trên nhánh `int-r3-smtp` | Check-in online cần email | **Không cần đổi DNS**: SPF `include:_spf.google.com` và DKIM `google._domainkey` đã có. INV tạo mật khẩu ứng dụng (`inv-production-steps.md` phần 8). OPS không sửa các tệp INT đang sửa (compose, `init-secrets.sh`, mẫu `.env`) để khỏi xung đột |
+| R3-OPS-02 | Lệnh khởi tạo production | – | **Xong**: BE-A `production-bootstrap` (gộp `f7696e7`, SEC đạt). OPS thêm wrapper máy chủ `infra/server/bin/production-bootstrap.sh` (chặn pipe/tee/script/tmux – BOOT-01) và thủ tục cùng buổi (BOOT-02) ở README `infra/server` 12.1 |
+| R3-OPS-03 | HSTS `includeSubDomains` và `mail.ottimo.vn` (6.3) | – | **Đã quyết**: INV xóa `mail` |
 | R3-OPS-04 | Lệch ADR-014: landing chạy container riêng | Tài liệu | ARC xác nhận |
 | R3-OPS-05 | Staging chuyển sang chạy sau edge | Staging gián đoạn vài giây | Làm cùng lần dựng production |
 | R3-OPS-06 | Nginx edge và digest image `nginx:1.30.6-alpine` chưa nằm trong Dependabot (Dependabot docker chỉ quét `infra/docker`) | Bản vá nginx phải tự nâng | OPS nâng tay hằng tháng; xem lại khi Dependabot hỗ trợ compose |
@@ -236,8 +239,8 @@ Thời gian khôi phục:    12 giây (giải mã + DB + tệp + khởi động 
 
 | Kiểm | Kết quả |
 |---|---|
-| `test-deploy-from-ci.sh` (mở rộng, ubuntu/alpine có flock) | Đạt: (a) 4, (b) 24 lệnh bị từ chối, (c) 2, (d) 1, (e) 2, (f) 4 – chốt chặn production dừng ở `step=config` và không kéo image |
-| `test-edge.sh` (mới, Docker) | Đạt 15/15. Render: chặn tên miền trùng/sai dạng, `PROXY_PROTOCOL_ALLOW` sai, bỏ qua stack chạy trực tiếp, render lỗi không đè cấu hình cũ. E2E: định tuyến SNI đúng stack, backend thấy địa chỉ khách thật (không phải edge), SNI lạ bị đóng, `:80` chuyển đúng / host lạ 404, **header PROXY giả từ địa chỉ khác bị bỏ qua**, xem trước 401/200 có mật khẩu |
+| `test-deploy-from-ci.sh` (mở rộng, ubuntu/alpine có flock) | Đạt: (a) 4, (b) 24 lệnh bị từ chối, (c) 2, (d) 1, (e) 2, (f) 6 – chốt chặn production (kể cả thư mục/`EDGE_NAME` production mà `APP_ENV` sai) dừng ở `step=config` và không kéo image |
+| `test-edge.sh` (mới, Docker) | Đạt 20/20 (lượt 2). Thêm so với lượt 1: giới hạn 100 kết nối/IP ở cổng 443 và 20 ở cổng 80; preread 5 s; 8192 kết nối mỗi worker; từ chối giới hạn không phải số; E2E: một địa chỉ vượt giới hạn bị từ chối trong khi địa chỉ khác vẫn vào, kết nối treo không gửi ClientHello bị đóng sau preread_timeout. Phần lượt 1: Render: chặn tên miền trùng/sai dạng, `PROXY_PROTOCOL_ALLOW` sai, bỏ qua stack chạy trực tiếp, render lỗi không đè cấu hình cũ. E2E: định tuyến SNI đúng stack, backend thấy địa chỉ khách thật (không phải edge), SNI lạ bị đóng, `:80` chuyển đúng / host lạ 404, **header PROXY giả từ địa chỉ khác bị bỏ qua**, xem trước 401/200 có mật khẩu |
 | `check-caddy-prod.sh --stub` (Caddyfile.prod có thêm listener PROXY) | Đạt (header, probe, 413, che log) |
 | `check-compose.sh` (thêm production sau edge: không dịch vụ nào mở cổng, landing chỉ ở mạng landing + link) | Đạt |
 | `shellcheck -S warning` (cùng danh sách job `infra-scripts`, kèm 4 script mới) | Sạch |
@@ -277,3 +280,28 @@ Sửa:
 
 Ngoài repo: `~/.ottimo/runbooks/2fa-operator-reset-06.33.md`.
 GitHub: cảnh báo Dependabot #1 (esbuild, GHSA-67mh-4wv8-2f99) → **dismissed – "vulnerable code not used"** lúc 13:38 UTC 23/10. Lời ghi chú dẫn SEC R3-Q31 mục E, ngày xem lại 22/01/2027.
+
+## 12. Lượt 2 (23/10) – sửa theo SEC `reviews/s1-SEC-on-v1-prod.md`
+
+Trả lời từng thẻ: `rounds/round-03/responses/s1-OPS-v1.md`.
+
+- **OPS-01 (Major) – giới hạn của edge.**
+  - `worker_processes auto`, `worker_connections 8192`, `nofile 32768`.
+  - Giới hạn kết nối theo IP: 100 ở cổng 443, 20 ở cổng 80. Có thể chỉnh bằng `EDGE_CONN_PER_IP*` khi chạy `edge.sh`.
+  - `preread_timeout 5s`. Ở cổng 80: thời hạn header/thân 10 s, quá giới hạn trả 429.
+  - `mem_limit` của edge nâng lên 128 MB (bảng RAM mục 3).
+  - Test E2E mới chứng minh giới hạn có tác dụng.
+- **OPS-02 – nguồn digest:** lấy từ artifact của lần chạy CI xanh, so với GHCR (mục 4).
+- **OPS-03 – stack production phải có `APP_ENV=production`:** `deploy.sh` và `deploy-landing.sh` đều kiểm, test thêm 2 ca.
+- **OPS-04 (Major), OPS-05 – thủ tục 06.33 (ngoài repo):**
+  - người thật cho từng vai;
+  - nhánh 3B "INV vừa yêu cầu vừa chạy" (khóa SSH có passphrase + người chứng kiến thật);
+  - ghi rõ lệnh không đổi mật khẩu, kèm "giới hạn đã biết";
+  - báo bằng điện thoại khi email chưa chạy;
+  - bước kiểm lịch sử shell;
+  - README ghi "SEC duyệt ngày: (chưa)".
+  - Còn lại: diễn tập trên staging với người chứng kiến thật, rồi SEC duyệt.
+- **S-1:** không thêm bản ghi AAAA (mục 6.3, hướng dẫn INV phần 1 và 7).
+- **BOOT-01, BOOT-02:** wrapper `infra/server/bin/production-bootstrap.sh` và README `infra/server` 12.1. Lệnh cũ trong README dùng `services/api/scripts/…`, đường dẫn này không có trên máy chủ (bundle chỉ có `infra/`), nay thay bằng wrapper.
+- **CI:** đã xem thay đổi của BE-A (DB `ottimo_bootstrap_test` rỗng, tạo bằng `ottimo_admin` trước `02-roles.sh`, role ứng dụng không quyền tạo DB): **đồng ý**. `shellcheck` thêm `services/api/scripts/production-bootstrap.sh` và `mfa-operator-reset.sh`: cả hai sạch.
+
