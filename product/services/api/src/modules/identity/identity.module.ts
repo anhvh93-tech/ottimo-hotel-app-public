@@ -1,6 +1,6 @@
 /**
  * identity module (architecture 5.1): login/sessions (US-001), users & roles (US-002), trusted devices
- * (US-142). Global so other modules can use SessionService / RateLimiter (public/).
+ * (US-142), two-step login + recovery codes + S2 step-up (US-143, 0.3.8). Global so other modules can use SessionService / RateLimiter (public/).
  * Registers SessionPolicyInterceptor globally (idle timeout, user status, temporary password) and the
  * CSRF_VERIFIER used by the AuthGuard (CSRF/Origin are checked there).
  */
@@ -18,6 +18,10 @@ import { CSRF_VERIFIER } from '../../shared/http/csrf';
 import { AuthController } from './internal/auth.controller';
 import { AuthService } from './internal/auth.service';
 import { DevicesController } from './internal/devices.controller';
+import { MfaController } from './internal/mfa.controller';
+import { MfaService } from './internal/mfa.service';
+import { MfaStore } from './public/mfa-store';
+import { StrongReauthService } from './public/strong-reauth';
 import { DevicesService } from './internal/devices.service';
 import { MeService } from './internal/me.service';
 import { SessionPolicyInterceptor } from './internal/session-policy.interceptor';
@@ -61,7 +65,13 @@ export class IdentityModule {
   static register(options: IdentityOptions): DynamicModule {
     return {
       module: IdentityModule,
-      controllers: [AuthController, UsersController, DevicesController, CloserCandidatesController],
+      controllers: [
+        AuthController,
+        MfaController,
+        UsersController,
+        DevicesController,
+        CloserCandidatesController,
+      ],
       providers: [
         { provide: IDENTITY_OPTIONS, useValue: options },
         CommonPasswordListCheck,
@@ -76,6 +86,9 @@ export class IdentityModule {
         MeService,
         PasswordReauth,
         IdentityParamsService,
+        MfaStore,
+        StrongReauthService,
+        MfaService,
         AuthService,
         UsersService,
         DevicesService,
@@ -89,6 +102,8 @@ export class IdentityModule {
         CSRF_VERIFIER,
         PasswordReauth,
         IdentityParamsService,
+        // 0.3.8 (US-143): S2 step-up for every `x-strong-reauth` operation (BE-B R3-Q51 uses it).
+        StrongReauthService,
       ],
     };
   }

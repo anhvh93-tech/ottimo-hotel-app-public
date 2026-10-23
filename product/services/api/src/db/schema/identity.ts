@@ -1,8 +1,10 @@
 /** identity module tables (erd 4.2): users, roles per property, sessions, trusted devices. */
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
   check,
+  smallint,
   foreignKey,
   index,
   integer,
@@ -49,7 +51,18 @@ export const appUser = pgTable(
     rolesVersion: integer('roles_version').notNull().default(1),
     mfaEnabled: boolean('mfa_enabled').notNull().default(false),
     mfaSecretEnc: bytea('mfa_secret_enc'),
+    // 0.3.8 (US-143, erd 4.15): SHA-256 hex of each unused recovery code (16 chars base32, ≥ 80 bit).
     mfaRecoveryCodesHash: text('mfa_recovery_codes_hash').array(),
+    // 0.3.8: secret waiting for confirmMy2fa (10 min); one DEK per enrolment (`mfa_data_key_id`) under the
+    // property `mfa_key_property_id` (data_key is property-level RLS) – used by the pending and the live secret.
+    mfaPendingSecretEnc: bytea('mfa_pending_secret_enc'),
+    mfaPendingExpiresAt: instant('mfa_pending_expires_at'),
+    mfaDataKeyId: uuid('mfa_data_key_id'),
+    mfaKeyPropertyId: uuid('mfa_key_property_id'),
+    // TOTP anti-replay (SEC 06.18): last 30-second step accepted, updated atomically (only increases).
+    mfaLastUsedStep: bigint('mfa_last_used_step', { mode: 'number' }),
+    mfaEnrolledAt: instant('mfa_enrolled_at'),
+    mfaResetAt: instant('mfa_reset_at'),
     status: text('status').notNull().default('active'),
     failedLoginCount: integer('failed_login_count').notNull().default(0),
     lockedUntil: instant('locked_until'),
@@ -150,6 +163,10 @@ export const userSession = pgTable(
     ipHmac: text('ip_hmac'),
     userAgent: text('user_agent'),
     stepupUntil: instant('stepup_until'),
+    // 0.3.8 (SEC 06.4, 06.21): second factor passed at (null = password only), method, restricted session.
+    mfaAt: instant('mfa_at'),
+    amr: text('amr'),
+    enrollmentOnly: boolean('enrollment_only').notNull().default(false),
   },
   (t) => [
     foreignKey({
@@ -165,9 +182,42 @@ export const userSession = pgTable(
     check('user_session_origin_check', sql`${t.clientOrigin} IN ('admin', 'staff_pwa')`),
     check(
       'user_session_revoked_reason_check',
-      sql`${t.revokedReason} IS NULL OR ${t.revokedReason} IN ('logout', 'role_changed', 'disabled', 'password_reset', 'password_changed', 'mfa_disabled', 'admin')`,
+      sql`${t.revokedReason} IS NULL OR ${t.revokedReason} IN ('logout', 'role_changed', 'disabled', 'password_reset', 'password_changed', 'mfa_disabled', 'mfa_enrolled', 'mfa_reset', 'admin')`,
+    ),
+    check(
+      'user_session_amr_check',
+      sql`${t.amr} IS NULL OR ${t.amr} IN ('pwd', 'totp', 'recovery_code')`,
     ),
     index('user_session_user_idx').on(t.userId),
     index('user_session_expires_idx').on(t.expiresAt),
+  ],
+);
+
+/**
+ * Second login step (0.3.8, SEC 06.17, erd 4.15): `mfaToken` returned with 401 MFA_REQUIRED. Only its SHA-256
+ * is stored; single use, 5 minutes, ≤ 5 failures, bound to the user and the client. No grant to ottimo_app:
+ * read/written only through the SECURITY DEFINER functions auth_mfa_challenge_* (migration 0079).
+ */
+export const mfaLoginChallenge = pgTable(
+  'mfa_login_challenge',
+  {
+    tokenHash: text('token_hash').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    clientOrigin: text('client_origin').notNull(),
+    createdAt: instant('created_at').notNull(),
+    expiresAt: instant('expires_at').notNull(),
+    failedCount: smallint('failed_count').notNull().default(0),
+    usedAt: instant('used_at'),
+  },
+  (t) => [
+    foreignKey({
+      name: 'mfa_login_challenge_user_fk',
+      columns: [t.organizationId, t.userId],
+      foreignColumns: [appUser.organizationId, appUser.id],
+    }),
+    check('mfa_login_challenge_origin_check', sql`${t.clientOrigin} IN ('admin', 'staff_pwa')`),
+    index('mfa_login_challenge_user_idx').on(t.userId),
+    index('mfa_login_challenge_expires_idx').on(t.expiresAt),
   ],
 );

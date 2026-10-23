@@ -919,6 +919,7 @@ paths:
       tags: [auth]
       operationId: confirmMy2fa
       summary: Xác nhận mã TOTP đầu tiên → bật 2FA, trả 10 mã khôi phục (một lần, no-store)
+      x-c3-log: { subjectType: mfa_secret, action: create }
       description: |
         **0.3.8 (SEC 06.9, 06.10, 06.12)**: không `Idempotency-Key` (phản hồi có mã khôi phục). Đúng → `mfa_enabled = true`, `mfa_last_used_step` = bước vừa dùng, sinh 10 mã khôi phục
         (16 ký tự base32, ≥ 80 bit; DB chỉ lưu SHA-256), **thu hồi mọi phiên khác**, cấp phiên **mới** cho client đang gọi (`Set-Cookie`; `csrfToken` đổi → gọi lại `getMe`); phiên hạn chế
@@ -967,6 +968,7 @@ paths:
       x-round: R3
       x-stories: [US-143]
       x-strong-reauth: true
+      x-c3-log: { subjectType: mfa_secret, action: update }
       x-rate-limit: 5 sai/người/15 phút (SR-RL-02)
       requestBody:
         required: true

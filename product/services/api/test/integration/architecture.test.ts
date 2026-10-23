@@ -195,6 +195,11 @@ describe.skipIf(!HAS_DB)('SECURITY DEFINER entry functions (erd 2.4)', () => {
       'client_origin',
       'last_active_at',
       'must_change_password',
+      // 0.3.8 (0079_mfa_two_factor, US-143): second-factor state for the restricted-session guard.
+      'mfa_at',
+      'enrollment_only',
+      'mfa_enabled',
+      'mfa_required',
     ]);
     expect(await columns('auth_resolve_device')).toEqual([
       'device_id',
@@ -237,6 +242,30 @@ describe.skipIf(!HAS_DB)('SECURITY DEFINER entry functions (erd 2.4)', () => {
         sp: expect.stringMatching(/, pg_temp$/),
       });
     }
+  });
+
+  it('entry_function_read (owner-only SELECT for SECURITY DEFINER entry functions) is on the listed tables only (FB-R3-SEC-BEC-08)', async () => {
+    // Adding a table here = a new cross-organisation read for every ottimo_owner function: SEC reviews it.
+    const { rows } = await db.pool.query<{ tablename: string; roles: string[]; cmd: string }>(
+      `SELECT tablename, roles::text[] AS roles, cmd FROM pg_policies
+        WHERE schemaname = 'public' AND policyname = 'entry_function_read' ORDER BY tablename`,
+    );
+    expect(rows.map((r) => r.tablename)).toEqual([
+      'app_user',
+      'guest_access_token',
+      'guest_session',
+      'mfa_login_challenge',
+      'property',
+      'trusted_device',
+      'user_property_role',
+      'user_session',
+    ]);
+    for (const r of rows)
+      expect({ t: r.tablename, roles: r.roles, cmd: r.cmd }).toEqual({
+        t: r.tablename,
+        roles: ['ottimo_owner'],
+        cmd: 'SELECT',
+      });
   });
 
   it('PUBLIC cannot execute them; ottimo_app can', async () => {

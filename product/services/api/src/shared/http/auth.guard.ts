@@ -61,7 +61,21 @@ export interface AuthOptions {
    * (config.ts – dev/test may raise it, staging/production may only lower it); tests pass their own.
    */
   staffRequestsPerMinute?: number;
+  /**
+   * 0.3.8 (US-143, SEC 06.3/06.4) – deployment flag MFA_ENFORCED: an owner/manager without 2FA only reaches the
+   * enrolment operations (`MFA_ENROLLMENT_OPERATIONS`), every other one → 403 MFA_ENROLLMENT_REQUIRED.
+   */
+  mfaEnforced?: boolean;
 }
+
+/** Operations a restricted (enrolment-only) session may call (SEC 06.4, OpenAPI login). */
+export const MFA_ENROLLMENT_OPERATIONS: ReadonlySet<string> = new Set([
+  'getMe',
+  'getMy2fa',
+  'startMy2faSetup',
+  'confirmMy2fa',
+  'logout',
+]);
 
 /** SR-RL-09 default (security-requirements section 5). */
 export const STAFF_REQUESTS_PER_MINUTE = 600;
@@ -87,6 +101,10 @@ export interface SessionState {
   idleExpiresAt: Date | null;
   lastActiveAt: Date | null;
   mustChangePassword: boolean;
+  /** 0.3.8: when the second factor was passed (null = password only) – US-164 approvals need it (SEC 06.29). */
+  mfaAt?: Date | null;
+  /** 0.3.8 (SEC 06.4): restricted session (flagged at login, or MFA_ENFORCED + owner/manager without 2FA). */
+  enrollmentOnly?: boolean;
 }
 
 export interface RequestAuth {
@@ -134,6 +152,11 @@ interface SessionRow {
   client_origin?: 'admin' | 'staff_pwa' | null;
   last_active_at?: Date | null;
   must_change_password?: boolean | null;
+  /** 0.3.8 (migration 0079_mfa_two_factor). */
+  mfa_at?: Date | null;
+  enrollment_only?: boolean | null;
+  mfa_enabled?: boolean | null;
+  mfa_required?: boolean | null;
 }
 
 interface DeviceRow {
@@ -294,6 +317,16 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     const principal = await this.authenticate(req);
     await this.rateLimit(req, principal);
     await this.checkCsrf(req, operationId, principal);
+    // SEC 06.4: server-side gate of the restricted session, before any role/business check.
+    // FB-R3-SEC-BEC-01: password first, then 2FA – a temporary password may be changed in the restricted session
+    // (the new session stays restricted).
+    if (
+      principal.session?.enrollmentOnly &&
+      !MFA_ENROLLMENT_OPERATIONS.has(operationId) &&
+      !(operationId === 'changeMyPassword' && principal.session.mustChangePassword)
+    ) {
+      throw problem('MFA_ENROLLMENT_REQUIRED');
+    }
     await this.checkTrustedDevice(req, operation, principal);
     const ifMatchVersion = this.checkPreconditionHeaders(req, operation);
 
@@ -414,6 +447,10 @@ export class AuthGuard implements CanActivate, OnModuleInit {
         idleExpiresAt: s.idle_expires_at ?? null,
         lastActiveAt: s.last_active_at ?? null,
         mustChangePassword: s.must_change_password === true,
+        mfaAt: s.mfa_at ?? null,
+        enrollmentOnly:
+          s.enrollment_only === true ||
+          (this.options.mfaEnforced === true && s.mfa_required === true && s.mfa_enabled !== true),
       },
     };
   }

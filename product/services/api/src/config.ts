@@ -41,6 +41,12 @@ export interface AppConfig {
    * parallel workers – BUG-R2-051); staging/production may only keep or lower it.
    */
   staffRequestsPerMinute: number;
+  /**
+   * 0.3.8 (US-143, SEC 06.3): MFA_ENFORCED – owner/manager must have 2FA (restricted session until enrolled).
+   * true|false, empty = false. production refuses false (ARC s1-contracts 1.1); staging must set true before
+   * real data (cổng dữ liệu thật – checked by OPS/SEC, not here, so the staging stack keeps starting).
+   */
+  mfaEnforced: boolean;
 }
 
 /** SR-RL-09 default (security-requirements section 5). Kept equal to auth.guard STAFF_REQUESTS_PER_MINUTE. */
@@ -322,6 +328,15 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     );
   }
 
+  const mfaRaw = (env.MFA_ENFORCED ?? '').trim();
+  if (!['', 'true', 'false'].includes(mfaRaw)) {
+    throw new ConfigError('MFA_ENFORCED must be true or false');
+  }
+  const mfaEnforced = mfaRaw === 'true';
+  if (appEnv === 'production' && !mfaEnforced) {
+    throw new ConfigError('MFA_ENFORCED must be true in production (SR-AUTH-06)');
+  }
+
   return {
     appEnv,
     databaseUrl,
@@ -333,5 +348,6 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     cookieSecurePrefix: cookiePrefixRaw === 'true',
     allowedOrigins: parseAllowedOrigins(env, appEnv),
     staffRequestsPerMinute,
+    mfaEnforced,
   };
 }

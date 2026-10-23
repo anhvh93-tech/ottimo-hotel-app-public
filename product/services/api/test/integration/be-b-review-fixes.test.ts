@@ -77,7 +77,7 @@ describe.skipIf(!HAS_DB)('BE-B review fixes (R2 Sprint 1)', () => {
         );
       }
     });
-    for (const u of ['burst', 'hard', 'temp', 'strict', 'fd']) await setPassword(db, t, u);
+    for (const u of ['burst', 'hard', 'temp', 'strict', 'fd', 'owner']) await setPassword(db, t, u);
     fa = await startFeatureApp(db);
   });
   afterAll(async () => {
@@ -138,7 +138,7 @@ describe.skipIf(!HAS_DB)('BE-B review fixes (R2 Sprint 1)', () => {
       const unlock = await owner.send(
         'PATCH',
         `/v1/users/${u.id}`,
-        { status: 'active' },
+        { status: 'active', reauth: { password: TEST_PASSWORD } },
         { 'if-match': `"${row.version}"` },
       );
       expect(unlock.statusCode).toBe(200);
@@ -262,7 +262,7 @@ describe.skipIf(!HAS_DB)('BE-B review fixes (R2 Sprint 1)', () => {
       const reset = await owner.send(
         'PATCH',
         `/v1/users/${u.id}`,
-        { resetPassword: 'Mot-mat-khau-tam-thoi-9' },
+        { resetPassword: 'Mot-mat-khau-tam-thoi-9', reauth: { password: TEST_PASSWORD } },
         { 'if-match': '"1"' },
       );
       expect(reset.statusCode).toBe(403);
@@ -270,7 +270,7 @@ describe.skipIf(!HAS_DB)('BE-B review fixes (R2 Sprint 1)', () => {
       const disable = await owner.send(
         'PATCH',
         `/v1/users/${u.id}`,
-        { status: 'disabled' },
+        { status: 'disabled', reauth: { password: TEST_PASSWORD } },
         { 'if-match': '"1"' },
       );
       expect(disable.statusCode).toBe(403);

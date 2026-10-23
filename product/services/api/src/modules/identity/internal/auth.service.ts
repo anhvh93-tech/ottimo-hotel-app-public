@@ -15,10 +15,14 @@
  * - Per-IP limit (20/15 min) in memory (RateLimiter); reaching it writes audit_event security once per
  *   window (FB-R2-SEC-BE-14).
  */
+import { randomBytes } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
 import { DATABASE, Database, type TenantContext, type Tx } from '../../../db/database';
+import { sha256Hex } from '../../../shared/http/auth.guard';
 import { ProblemError, problem } from '../../../shared/problem';
+import { IDENTITY_OPTIONS, type IdentityOptions } from '../public/identity-options';
+import { MFA_REQUIRED_ROLES, MfaStore } from '../public/mfa-store';
 import { AuditService } from '../../audit/public/audit.service';
 import { IdentityParamsService, type LockoutPolicy } from '../public/identity-params';
 import { hashPassword, passwordPolicyErrors, verifyPassword } from '../public/passwords';
@@ -26,6 +30,7 @@ import { RATE_LIMITER, RATE_RULES, type RateLimiter } from '../public/rate-limit
 import {
   type ClientOrigin,
   type NewSession,
+  type SessionAmr,
   type SessionPolicy,
   SessionService,
 } from '../public/session.service';
@@ -48,6 +53,29 @@ interface CounterRow {
   lock_count_24h: number;
   locked_until: Date | null;
   status: 'active' | 'locked' | 'disabled';
+}
+
+/** mfaToken lifetime and failures per token (SEC 06.17, 06.19). */
+export const MFA_TOKEN_TTL_MS = 5 * 60_000;
+export const MFA_TOKEN_MAX_FAILURES = 5;
+
+export interface LoginMfaInput {
+  mfaToken: string;
+  totpCode?: string | undefined;
+  recoveryCode?: string | undefined;
+  ip: string | undefined;
+  userAgent: string | undefined;
+  origin: string | undefined;
+  deviceToken: string | undefined;
+  requestId: string;
+}
+
+interface ChallengeRow {
+  user_id: string;
+  client_origin: ClientOrigin;
+  expires_at: Date;
+  failed_count: number;
+  used_at: Date | null;
 }
 
 export interface LoginInput {
@@ -82,6 +110,8 @@ export class AuthService {
     @Inject(MeService) private readonly me: MeService,
     @Inject(RATE_LIMITER) private readonly limiter: RateLimiter,
     @Inject(IdentityParamsService) private readonly identityParams: IdentityParamsService,
+    @Inject(MfaStore) private readonly mfa: MfaStore,
+    @Inject(IDENTITY_OPTIONS) private readonly options: IdentityOptions,
   ) {}
 
   async login(input: LoginInput): Promise<{ me: Me; session: NewSession }> {
@@ -145,10 +175,33 @@ export class AuthService {
       throw problem('UNAUTHENTICATED');
     }
     if (found.mfa_enabled) {
-      // TODO(R3, SR-AUTH-06 / FB-R2-SEC-BE-19): 401 MFA_REQUIRED + short-lived single-use mfaToken that
-      // shares the login lockout counter; the session is issued only after the second factor.
-      throw problem('MFA_REQUIRED');
+      // SR-AUTH-06 (SEC 06.17): no session yet – a single-use 5-minute mfaToken bound to the user and the client.
+      // The failure counter is NOT reset by a right password alone (a TOTP guesser would otherwise reset it by
+      // signing in again); the full success of loginMfa resets it.
+      const token = randomBytes(32).toString('base64url');
+      await this.db.withContext(ctx, async (tx) => {
+        await tx.query(`DELETE FROM mfa_login_challenge WHERE user_id = $1 AND expires_at <= $2`, [
+          found.user_id,
+          now,
+        ]);
+        await tx.query(
+          `INSERT INTO mfa_login_challenge (token_hash, organization_id, user_id, client_origin, created_at, expires_at)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            sha256Hex(token),
+            found.organization_id,
+            found.user_id,
+            clientOrigin,
+            now,
+            new Date(now.getTime() + MFA_TOKEN_TTL_MS),
+          ],
+        );
+      });
+      throw problem('MFA_REQUIRED', { extras: { mfaToken: token } });
     }
+    // SEC 06.4: MFA_ENFORCED and an owner/manager without 2FA → restricted session (enrolment only).
+    const enrollmentOnly =
+      this.options.mfaEnforced === true && (await this.requiresMfa(orgCtx, found.user_id));
 
     const outcome = await this.db.withContext(ctx, async (tx) => {
       // Re-check the lock under the row lock: a parallel wrong-password burst may have locked the account
@@ -177,6 +230,8 @@ export class AuthService {
         ip: input.ip,
         userAgent: input.userAgent,
         policy: params.session,
+        amr: 'pwd',
+        enrollmentOnly,
       });
       await this.audit.record(tx, {
         category: 'access',
@@ -185,7 +240,7 @@ export class AuthService {
         entityId: found.user_id,
         requestId: input.requestId,
         sessionId: session.id,
-        after: { clientOrigin },
+        after: { clientOrigin, amr: 'pwd' },
         ...this.ip(input.ip),
       });
       const me = await this.me.build(tx, {
@@ -201,6 +256,187 @@ export class AuthService {
       throw problem('UNAUTHENTICATED');
     }
     return outcome;
+  }
+
+  /** Live owner/manager role at any property (SEC 06.2). */
+  async requiresMfa(ctx: TenantContext, userId: string): Promise<boolean> {
+    return this.db.withContext(
+      { ...ctx, propertyId: null },
+      async (tx) => {
+        const { rows } = await tx.query(
+          `SELECT 1 FROM user_property_role
+            WHERE user_id = $1 AND revoked_at IS NULL AND role = ANY($2::text[]) LIMIT 1`,
+          [userId, [...MFA_REQUIRED_ROLES]],
+        );
+        return rows.length > 0;
+      },
+      { readOnly: true },
+    );
+  }
+
+  /**
+   * Login step 2 (loginMfa, SEC 06.17–06.22). Every failure is the same 401 MFA_INVALID; a wrong code counts on
+   * the token (5 → dead) AND on the login lockout counter of SR-AUTH-04 (5 → temporary lock → 429 Retry-After,
+   * K locks → hard lock; live sessions are not ended). Success: token used, counters reset, NEW session with
+   * mfa_at/amr. One transaction under the user's organisation and the DEK property, challenge row and user row
+   * locked (FOR UPDATE): two requests with the same token or the same code serialise – one wins.
+   */
+  async loginMfa(input: LoginMfaInput): Promise<{ me: Me; session: NewSession }> {
+    const kind = this.sessions.originKind(input.origin);
+    if (kind === 'unknown') throw problem('FORBIDDEN_ACTION', { detail: 'Origin' });
+    this.limiter.consume(`login:ip:${input.ip ?? '-'}`, RATE_RULES.loginPerIp);
+    const tokenHash = sha256Hex(input.mfaToken);
+    const ref = await this.db.entry(async (tx) => {
+      const r = await tx.query<{ user_id: string; organization_id: string }>(
+        'SELECT * FROM auth_mfa_challenge_resolve($1)',
+        [tokenHash],
+      );
+      return r.rows[0];
+    });
+    if (!ref) throw problem('MFA_INVALID');
+    const orgCtx: TenantContext = {
+      organizationId: ref.organization_id,
+      propertyId: null,
+      userId: ref.user_id,
+      actorType: 'user',
+    };
+    const params = await this.identityParams.forUser(orgCtx);
+    const activePropertyId = params.propertyIds[0] ?? null;
+    const ctx = await this.mfa.keyContext({ ...orgCtx, propertyId: activePropertyId }, ref.user_id);
+    const now = this.clock.now();
+
+    const outcome = await this.db.withContext(ctx, async (tx) => {
+      const { rows: ch } = await tx.query<ChallengeRow>(
+        `SELECT user_id, client_origin, expires_at, failed_count, used_at FROM mfa_login_challenge
+          WHERE token_hash = $1 FOR UPDATE`,
+        [tokenHash],
+      );
+      const c = ch[0];
+      const u = await this.mfa.lockUser(tx, ref.user_id);
+      const counters = async () =>
+        (
+          await tx.query<CounterRow>(
+            'SELECT failed_login_count, lock_count_24h, locked_until, status FROM app_user WHERE id = $1',
+            [ref.user_id],
+          )
+        ).rows[0];
+      const before = await counters();
+      if (
+        !c ||
+        !u ||
+        !before ||
+        c.used_at !== null ||
+        c.expires_at <= now ||
+        c.failed_count >= MFA_TOKEN_MAX_FAILURES ||
+        (kind !== null && kind !== c.client_origin) ||
+        !u.mfa_enabled ||
+        isHardLocked(before)
+      ) {
+        return { kind: 'invalid' as const };
+      }
+      if (before.locked_until && before.locked_until > now) {
+        return { kind: 'locked' as const, until: before.locked_until };
+      }
+      const factor = await this.mfa.consumeSecondFactor(tx, u, input);
+      if (!factor) {
+        const failed = c.failed_count + 1;
+        await tx.query(
+          `UPDATE mfa_login_challenge SET failed_count = $2::smallint,
+               used_at = CASE WHEN $2::int >= $3::int THEN $4::timestamptz ELSE used_at END
+            WHERE token_hash = $1`,
+          [tokenHash, failed, MFA_TOKEN_MAX_FAILURES, now],
+        );
+        const found: FoundUser = {
+          user_id: u.id,
+          organization_id: u.organization_id,
+          password_hash: '',
+          status: before.status,
+          locked_until: before.locked_until,
+          failed_login_count: before.failed_login_count,
+          must_change_password: false,
+          mfa_enabled: true,
+        };
+        await this.registerFailure(
+          tx,
+          found,
+          { ...input, username: u.username, password: '' },
+          params.lockout,
+        );
+        // One mfa.verify_failed per user and minute (SEC 06.34 "gộp theo phút"); never the code.
+        const { rows: recent } = await tx.query(
+          `SELECT 1 FROM audit_event WHERE entity_id = $1 AND action = 'mfa.verify_failed'
+              AND occurred_at >= date_trunc('minute', $2::timestamptz) LIMIT 1`,
+          [u.id, now],
+        );
+        if (recent.length === 0) {
+          await this.mfa.record(tx, 'mfa.verify_failed', u.id, { requestId: input.requestId });
+        }
+        const after = await counters();
+        const lockedNow =
+          !!after &&
+          (isHardLocked(after) || (after.locked_until !== null && after.locked_until > now));
+        if (lockedNow) {
+          // SEC 06.19: a lock reached through TOTP → security audit + alert to the user and the owners.
+          await this.mfa.record(tx, 'mfa.locked', u.id, { requestId: input.requestId });
+          await this.mfa.notify(tx, u.id, 'mfa.locked', { owners: true, kind: 'security_alert' });
+        }
+        return { kind: 'invalid' as const };
+      }
+      await tx.query(`UPDATE mfa_login_challenge SET used_at = $2 WHERE token_hash = $1`, [
+        tokenHash,
+        now,
+      ]);
+      await tx.query(
+        `UPDATE app_user SET failed_login_count = 0, locked_until = NULL, status = 'active', last_login_at = $2
+          WHERE id = $1`,
+        [u.id, now],
+      );
+      const session = await this.sessions.create(tx, {
+        userId: u.id,
+        organizationId: u.organization_id,
+        activePropertyId,
+        clientOrigin: c.client_origin,
+        ip: input.ip,
+        userAgent: input.userAgent,
+        policy: params.session,
+        amr: factor.method,
+        // ARC 0.3.8 bổ sung 1 #3 (US-143 AC3 a): a recovery code means the phone is lost – the session only
+        // reaches the enrolment operations until the user re-enrols on a new phone.
+        enrollmentOnly: factor.method === 'recovery_code',
+      });
+      await this.audit.record(tx, {
+        category: 'access',
+        action: 'auth.login_succeeded',
+        entityType: 'app_user',
+        entityId: u.id,
+        requestId: input.requestId,
+        sessionId: session.id,
+        after: { clientOrigin: c.client_origin, amr: factor.method },
+        ...this.ip(input.ip),
+      });
+      if (factor.method === 'recovery_code') {
+        await this.mfa.recoveryCodeUsed(tx, u.id, factor.recoveryCodesRemaining ?? 0, {
+          requestId: input.requestId,
+          sessionId: session.id,
+          channel: 'login',
+        });
+      }
+      return { kind: 'ok' as const, session };
+    });
+    if (outcome.kind === 'locked') throw retryAfter(outcome.until, now);
+    if (outcome.kind !== 'ok') throw problem('MFA_INVALID');
+    const me = await this.db.withContext(
+      { ...orgCtx, propertyId: activePropertyId },
+      (tx) =>
+        this.me.build(tx, {
+          userId: ref.user_id,
+          sessionId: outcome.session.id,
+          activePropertyId,
+          deviceToken: input.deviceToken,
+        }),
+      { readOnly: true },
+    );
+    return { me, session: outcome.session };
   }
 
   /**
@@ -326,6 +562,8 @@ export class AuthService {
       newPassword: string;
       /** Strictest session_policy of the user, read BEFORE the unit of work (IdentityParamsService). */
       sessionPolicy: SessionPolicy;
+      /** FB-R3-SEC-BEC-06: how the S2 of this change was proven (`totp`/`recovery_code`) → amr/mfa_at. */
+      amr?: SessionAmr;
       ip: string | undefined;
       userAgent: string | undefined;
       requestId: string;
@@ -336,8 +574,9 @@ export class AuthService {
       password_hash: string;
       client_origin: ClientOrigin;
       active_property_id: string | null;
+      enrollment_only: boolean;
     }>(
-      `SELECT u.username, u.password_hash, s.client_origin, s.active_property_id
+      `SELECT u.username, u.password_hash, s.client_origin, s.active_property_id, s.enrollment_only
          FROM app_user u JOIN user_session s ON s.user_id = u.id AND s.id = $2
         WHERE u.id = $1`,
       [input.userId, input.sessionId],
@@ -368,6 +607,9 @@ export class AuthService {
       ip: input.ip,
       userAgent: input.userAgent,
       policy: input.sessionPolicy,
+      amr: input.amr ?? 'pwd',
+      // A restricted session stays restricted after the password change (FB-R3-SEC-BEC-01).
+      enrollmentOnly: u.enrollment_only === true,
     });
     await this.audit.record(tx, {
       category: 'security',

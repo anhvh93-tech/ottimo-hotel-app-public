@@ -51,6 +51,11 @@ export async function startFeatureApp(
      * suites run with a high limit; the rate-limit test passes the production value.
      */
     staffRequestsPerMinute?: number;
+    /** 0.3.8 MFA_ENFORCED (US-143) – guard + identity. */
+    mfaEnforced?: boolean;
+    /** FB-R3-SEC-BEC-02: capture the request log (pino) at this level. Default silent. */
+    logStream?: NodeJS.WritableStream;
+    logLevel?: string;
   } = {},
 ): Promise<FeatureApp> {
   const clock = new FixedClock(T0);
@@ -70,6 +75,7 @@ export async function startFeatureApp(
             staffPwa: opts.pwaOrigins ?? [],
           },
           staffRequestsPerMinute: opts.staffRequestsPerMinute ?? 1_000_000,
+          mfaEnforced: opts.mfaEnforced === true,
         },
         imports: featureModules({
           sessionSecret: 'test-session-secret-0123456789abcdef',
@@ -77,13 +83,18 @@ export async function startFeatureApp(
           adminOrigins: opts.adminOrigins ?? [],
           pwaOrigins: opts.pwaOrigins ?? [],
           ipHmacKey: 'test-ip-hmac-key-0123456789abcdefgh',
+          mfaEnforced: opts.mfaEnforced === true,
         }),
       }),
     ],
   });
   const moduleRef = await (opts.override ? opts.override(builder) : builder).compile();
   const app = moduleRef.createNestApplication<NestFastifyApplication>(
-    createHttpAdapter({ logLevel: 'silent', trustProxy: false }),
+    createHttpAdapter({
+      logLevel: opts.logLevel ?? 'silent',
+      trustProxy: false,
+      ...(opts.logStream ? { logStream: opts.logStream } : {}),
+    }),
   );
   await app.init();
   await app.getHttpAdapter().getInstance().ready();

@@ -5,6 +5,7 @@
  * - adminOrigins / pwaOrigins: allowed `Origin` values (SR-SES-04, SR-HDR-04). Empty lists = Origin not
  *   checked (only allowed for APP_ENV dev/test – main.ts refuses that elsewhere).
  * - ipHmacKey: LOG_IP_HMAC_KEY for user_session.ip_hmac / audit (SR-KEY-08); empty = not recorded.
+ * - mfaEnforced: MFA_ENFORCED (0.3.8, SEC 06.3/06.4) – owner/manager without 2FA get a restricted session.
  * - appEnv: APP_ENV – staging/production refuse to start without the full common-password list (SR-AUTH-02).
  */
 export const IDENTITY_OPTIONS = Symbol('IDENTITY_OPTIONS');
@@ -16,4 +17,5 @@ export interface IdentityOptions {
   pwaOrigins: string[];
   ipHmacKey: string;
   appEnv?: string;
+  mfaEnforced?: boolean;
 }

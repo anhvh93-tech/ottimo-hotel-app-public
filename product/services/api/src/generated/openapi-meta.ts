@@ -135,7 +135,7 @@ export const OPENAPI_META: OpenApiMeta = {
       trustedDevice: false,
       stepUp: false,
       public: false,
-      c3Log: false,
+      c3Log: true,
     },
     regenerateMyRecoveryCodes: {
       method: 'POST',
@@ -147,7 +147,7 @@ export const OPENAPI_META: OpenApiMeta = {
       trustedDevice: false,
       stepUp: false,
       public: false,
-      c3Log: false,
+      c3Log: true,
     },
     listMyNotifications: {
       method: 'GET',
