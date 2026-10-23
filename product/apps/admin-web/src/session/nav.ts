@@ -139,6 +139,17 @@ export const NAV: NavItem[] = [
     ready: true,
   },
   {
+    // R3 Sprint 1 FE-B (US-155 Desk, R3-Q06): queue of booking requests from the website (rbac S35, A64).
+    id: 'webreq',
+    path: '/website-requests',
+    icon: 'globe',
+    label: 'nav.website_requests',
+    screen: 'S35',
+    section: 'sales',
+    roles: [...DESK, 'sales_staff'],
+    ready: true,
+  },
+  {
     id: 'moneylog',
     path: '/audit',
     icon: 'bill',

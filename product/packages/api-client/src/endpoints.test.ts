@@ -345,3 +345,26 @@ describe('Sprint 4 FE-B Desk ops endpoints (EP07/EP08/EP14/EP09, OpenAPI 0.3.7)'
     expect(call(2)[0]).toBe('http://x/v1/properties/p/items');
   });
 });
+
+describe('S35 website requests (US-155 Desk, OpenAPI 0.3.8)', () => {
+  it('list joins status (style form), keeps only the code in the URL; transition sends If-Match + key', async () => {
+    const { api, call } = setup();
+    await api.listWebsiteBookingRequests({ propertyId: 'p' }, { status: ['new', 'in_progress'] });
+    expect(call(0)[0]).toBe(
+      'http://x/v1/properties/p/website-booking-requests?status=new%2Cin_progress',
+    );
+    await api.listWebsiteBookingRequests({ propertyId: 'p' }, { refCode: 'W7K3QX9P', status: [] });
+    expect(call(1)[0]).toBe('http://x/v1/properties/p/website-booking-requests?refCode=W7K3QX9P');
+    await api.transitionWebsiteBookingRequest(
+      { propertyId: 'p', requestId: 'q' },
+      'decline',
+      { reasonCode: 'no_availability' },
+      3,
+      'key-9',
+    );
+    const [url, init] = call(2);
+    expect(url).toBe('http://x/v1/properties/p/website-booking-requests/q/actions/decline');
+    expect(JSON.parse(String(init.body))).toEqual({ reasonCode: 'no_availability' });
+    expect(init.headers).toMatchObject({ 'If-Match': '"3"', 'Idempotency-Key': 'key-9' });
+  });
+});

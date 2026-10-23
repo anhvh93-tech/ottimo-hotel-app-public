@@ -15,27 +15,27 @@ export const MOCK_PASSWORD = 'ottimo-demo-2026';
 export const PROPERTY_ID = '0192a1b0-0000-7000-8000-0000000000a1';
 export const PROPERTY_NAME = 'OTTIMO Boutique Stay – Đà Lạt';
 
-/** rbac-matrix.md §3 (S01…S34) – generated from the table; MGR without S26 (note 20a, R2 owner only). */
+/** rbac-matrix.md §3 (S01…S35 – S35 website requests R3 S1: OWN/MGR/FDL/FD/SAL) – generated from the table; MGR without S26 (note 20a, R2 owner only). */
 export const SCREENS: Record<Role, string[]> = {
   owner:
-    'S01 S02 S03 S04 S05 S06 S07 S08 S09 S10 S11 S12 S13 S14 S15 S16 S17 S18 S19 S20 S21 S22 S23 S24 S25 S26 S27 S28 S29 S30 S31 S32 S33 S34'.split(
+    'S01 S02 S03 S04 S05 S06 S07 S08 S09 S10 S11 S12 S13 S14 S15 S16 S17 S18 S19 S20 S21 S22 S23 S24 S25 S26 S27 S28 S29 S30 S31 S32 S33 S34 S35'.split(
       ' ',
     ),
   manager:
-    'S01 S02 S03 S04 S05 S06 S07 S08 S09 S10 S11 S12 S13 S14 S15 S16 S17 S18 S19 S20 S21 S22 S23 S24 S25 S27 S28 S29 S30 S31 S32 S33 S34'.split(
+    'S01 S02 S03 S04 S05 S06 S07 S08 S09 S10 S11 S12 S13 S14 S15 S16 S17 S18 S19 S20 S21 S22 S23 S24 S25 S27 S28 S29 S30 S31 S32 S33 S34 S35'.split(
       ' ',
     ),
   front_desk_lead:
-    'S01 S02 S03 S04 S05 S06 S07 S08 S09 S10 S11 S12 S13 S14 S15 S16 S18 S19 S22 S23 S24 S25 S27 S29 S30 S32 S33 S34'.split(
+    'S01 S02 S03 S04 S05 S06 S07 S08 S09 S10 S11 S12 S13 S14 S15 S16 S18 S19 S22 S23 S24 S25 S27 S29 S30 S32 S33 S34 S35'.split(
       ' ',
     ),
   front_desk:
-    'S01 S02 S03 S04 S05 S06 S07 S08 S09 S10 S11 S12 S13 S14 S15 S16 S18 S23 S25 S27 S29 S30 S32 S34'.split(
+    'S01 S02 S03 S04 S05 S06 S07 S08 S09 S10 S11 S12 S13 S14 S15 S16 S18 S23 S25 S27 S29 S30 S32 S34 S35'.split(
       ' ',
     ),
   housekeeping: 'S01 S03 S10 S11 S13 S23 S30'.split(' '),
   maintenance: 'S01 S03 S10 S11 S12 S23 S30'.split(' '),
-  sales_staff: 'S01 S03 S04 S14 S15 S16 S17 S23 S25 S29'.split(' '),
+  sales_staff: 'S01 S03 S04 S14 S15 S16 S17 S23 S25 S29 S35'.split(' '),
   collaborator: 'S01 S03 S04 S14 S15 S16 S17 S23 S25 S29'.split(' '),
 };
 

@@ -39,6 +39,15 @@ interface Ctx {
     params: Parameter[];
   };
   summary: (g: MockGuest, roles: Role[]) => Record<string, unknown>;
+  /** R3 S1 FE-B (US-155 AC2): website request linked to a quote / converted by its hold (WR1 auto, WR6). */
+  webRequests?: () => WebRequestHooks;
+}
+
+export interface WebRequestHooks {
+  /** `saveQuote.websiteBookingRequestId`: error when the request is closed / out of scope, else null. */
+  checkQuote: (requestId: string, user: MockUser, roles: Role[]) => Response | null;
+  linkQuote: (requestId: string, user: MockUser, quoteId: string) => void;
+  convert: (requestId: string, reservationId: string, reservationCode: string) => void;
 }
 
 const OWN_MGR: Role[] = ['owner', 'manager'];
@@ -1707,8 +1716,16 @@ export function createReservationMock(ctx: Ctx) {
       if (isResponse(g)) return g;
       const { key, replay } = idem(request, 'saveQuote');
       if (replay) return replay;
-      const body = (await request.json()) as QuoteInput & { guestId: string };
+      const body = (await request.json()) as QuoteInput & {
+        guestId: string;
+        websiteBookingRequestId?: string;
+      };
       if (!body.guestId) return validation([{ field: 'guestId', code: 'REQUIRED' }]);
+      const webReq = body.websiteBookingRequestId;
+      if (webReq) {
+        const err = ctx.webRequests?.().checkQuote(webReq, g.user, g.roles);
+        if (err) return err;
+      }
       const calc = calculate(body, g.roles);
       if (calc instanceof Response) return calc;
       state.nextQuote += 1;
@@ -1728,6 +1745,7 @@ export function createReservationMock(ctx: Ctx) {
         input: body,
       };
       state.quotes.push(q);
+      if (webReq) ctx.webRequests?.().linkQuote(webReq, g.user, q.id);
       return remember(key, 201, publicQuote(q));
     }),
     http.get(`${prop}/quotes/:quoteId`, ({ request, params }) => {
@@ -1815,6 +1833,8 @@ export function createReservationMock(ctx: Ctx) {
       state.reservations.push(created);
       q.status = 'converted';
       q.convertedReservationId = created.id;
+      const linked = (q.input as { websiteBookingRequestId?: string }).websiteBookingRequestId;
+      if (linked) ctx.webRequests?.().convert(linked, created.id, created.code);
       if (q.commission?.amountVnd && has(g.roles, SALES))
         state.commissions.push({
           id: uid(9000 + state.nextRes),

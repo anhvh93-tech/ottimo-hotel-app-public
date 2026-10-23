@@ -16,6 +16,7 @@ import { createOpsMock } from './ops';
 import { createReservationMock } from './reservations';
 import { createStayMock } from './stay';
 import { matchStep, randomBase32 } from './totp';
+import { createWebRequestMock } from './webreq';
 import {
   BOOKED_GUESTS,
   MOCK_PASSWORD,
@@ -109,6 +110,14 @@ const reservations = createReservationMock({
   problem: (status, code, extra) => problem(status, code, extra),
   db: () => db,
   summary: (g, roles) => summary(g, roles),
+  webRequests: () => webRequests.hooks,
+});
+
+// R3 Sprint 1 FE-B (US-155 Desk, S35): website booking requests + the form switch.
+const webRequests = createWebRequestMock({
+  guard: (request, allowed, opts) => guard(request, allowed, opts),
+  problem: (status, code, extra) => problem(status, code, extra),
+  users: () => db.users,
 });
 
 // Sprint 3 (EP03–EP06, EP15) – reads the EP02 reservations through the same helpers.
@@ -150,6 +159,7 @@ export const mockControl = {
     stay.reset();
     ops.reset();
     dashboard.reset();
+    webRequests.reset();
     persist();
   },
   failNext(
@@ -189,6 +199,10 @@ export const mockControl = {
   /** Sprint 4 Desk ops mock (work orders, blocks, tasks, requests, minibar meta) for tests. */
   get ops() {
     return ops.state;
+  },
+  /** R3 S1 website booking requests (S35) and the `public_booking_requests_enabled` switch. */
+  get webRequests() {
+    return webRequests.state;
   },
 };
 
@@ -529,6 +543,7 @@ export const handlers = [
     return undefined;
   }),
   // EP01 first: its `GET …/attention` (full BR-907 list, incl. the stay item) wins over the S3 one in stay.ts.
+  ...webRequests.handlers,
   ...dashboard.handlers,
   ...ops.handlers,
   ...stay.handlers,
