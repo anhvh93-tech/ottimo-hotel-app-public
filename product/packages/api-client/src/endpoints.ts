@@ -40,6 +40,7 @@ import type {
   LoginBody,
   LoginMfaBody,
   CreateUserBody,
+  CancelScheduledParameterBody,
   My2fa,
   My2faSetup,
   RecoveryCodes,
@@ -240,7 +241,7 @@ export function createEndpoints(api: ApiClient) {
         query: asOf ? { asOf } : undefined,
       }),
     getParameterHistory: ({ propertyId, key }: P & { key: string }) =>
-      r<{ current: Parameter; history: Parameter[] }>(
+      r<{ current?: Parameter; history: Parameter[] }>(
         'GET',
         '/v1/properties/{propertyId}/parameters/{key}',
         { path: { propertyId, key } },
@@ -249,6 +250,17 @@ export function createEndpoints(api: ApiClient) {
       r<Parameter>('PUT', '/v1/properties/{propertyId}/parameters/{key}', {
         path: { propertyId, key },
         body,
+      }),
+    /** 0.3.8 (R3-Q51): drop a value scheduled for a later day; `payment_receiving_account` needs S2 `reauth`. */
+    cancelScheduledParameter: (
+      { propertyId, key }: P & { key: string },
+      body: CancelScheduledParameterBody,
+      idempotencyKey: string,
+    ) =>
+      r<void>('POST', '/v1/properties/{propertyId}/parameters/{key}/actions/cancel-scheduled', {
+        path: { propertyId, key },
+        body,
+        idempotencyKey,
       }),
 
     // guests (S14)

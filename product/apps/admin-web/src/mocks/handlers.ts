@@ -83,6 +83,21 @@ function makeDb() {
     /** `amr` of the current session (`totp` / `recovery_code`). */
     amr: null as null | 'pwd' | 'totp' | 'recovery_code',
     mfaTokens: new Map<string, { userId: string; expiresAt: number; fails: number }>(),
+    /** R3-Q51 `payment_receiving_account` rows (full number kept server side only – never answered). */
+    receiving: [
+      {
+        bankBin: '970407',
+        // Test value only (staging holder rule, SEC E.13): not a real account.
+        accountNo: '19030000007777',
+        accountName: 'OTTIMO TEST',
+        effectiveFrom: '2026-10-01',
+        changedBy: 'Chủ đầu tư',
+        changedAt: '2026-10-01T09:00:00+07:00',
+        reason: 'Tài khoản thử',
+      },
+    ] as ReceivingRow[],
+    /** Masked audit trail of the receiving account (tests check no full number). */
+    receivingAudit: [] as Array<Record<string, unknown>>,
   };
 }
 
@@ -315,6 +330,47 @@ function mfaView(u: MockUser): Partial<Me> {
     ...(db.enrollmentOnly && db.sessionUserId === u.id ? { mfaEnrollmentRequired: true } : {}),
     ...(isOwner && owners.length === 1 ? { soleOwner: true } : {}),
     ...(enabled && (u.mfa?.recovery.length ?? 0) <= 3 ? { recoveryCodesLow: true } : {}),
+  };
+}
+
+interface ReceivingRow {
+  bankBin: string;
+  accountNo: string;
+  accountName: string;
+  effectiveFrom: string;
+  changedBy: string;
+  changedAt: string;
+  reason: string;
+}
+const RECEIVING_KEY = 'payment_receiving_account';
+/** Like the server (BE-B cf0ce2f): ≥ 6 digits in a run (space-separated groups joined) or the number sent. */
+function reasonHasAccountNo(reason: string, accountNo?: string): boolean {
+  const joined = reason.replace(/(\d)\s+(?=\d)/g, '$1');
+  return /\d{6,}/.test(joined) || (!!accountNo && joined.includes(accountNo));
+}
+/** Small static NAPAS table like the server's (0.3.8: unknown BIN → no bankName). */
+const MOCK_BANKS: Record<string, string> = {
+  '970407': 'Techcombank',
+  '970436': 'Vietcombank',
+  '970418': 'BIDV',
+  '970415': 'VietinBank',
+  '970422': 'MB',
+};
+/** 0.3.8 (SEC Q51-2): `•••• 1234` + bankName; the full number never leaves the mock either. */
+function receivingView(r: ReceivingRow): Parameter {
+  return {
+    key: RECEIVING_KEY,
+    value: {
+      bankBin: r.bankBin,
+      ...(MOCK_BANKS[r.bankBin] ? { bankName: MOCK_BANKS[r.bankBin] } : {}),
+      accountNoMasked: `•••• ${r.accountNo.slice(-4)}`,
+      accountName: r.accountName,
+    },
+    effectiveFrom: r.effectiveFrom,
+    editableBy: ['owner'],
+    changedBy: r.changedBy,
+    changedAt: r.changedAt,
+    reason: r.reason,
   };
 }
 
@@ -739,6 +795,115 @@ export const handlers = [
         : 0;
     const warnings = keep ? [{ code: 'FUTURE_RESERVATIONS_KEEP_ROOM', count: keep }] : [];
     return HttpResponse.json({ ...room, warnings }, { headers: { etag: `"${room.version}"` } });
+  }),
+
+  // ---------- R3-Q51 receiving account (OpenAPI 0.3.8; SEC mục C) – before the generic handlers ----------
+  http.get(`${prop}/parameters/${RECEIVING_KEY}`, ({ request }) => {
+    const g = guard(request, ['owner']); // Q51-1: owner only, even the masked read
+    if (isResponse(g)) return g;
+    const today = businessDayLocal();
+    const rows = [...db.receiving].sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
+    const cur = rows.find((r) => r.effectiveFrom <= today);
+    // 0.3.8 bổ sung 2 (ARC Q51-01): 404 only when there is no row at all; scheduled-only → 200, no `current`.
+    if (!rows.length) return problem(404, 'NOT_FOUND');
+    return HttpResponse.json({
+      ...(cur ? { current: receivingView(cur) } : {}),
+      history: rows.map(receivingView),
+    });
+  }),
+  http.put(`${prop}/parameters/${RECEIVING_KEY}`, async ({ request }) => {
+    const g = guard(request, ['owner']);
+    if (isResponse(g)) return g;
+    const body = (await request.json()) as {
+      value?: { bankBin?: string; accountNo?: string; accountName?: string; [k: string]: unknown };
+      effectiveFrom?: string;
+      reason?: string;
+      reauth?: { authMethod?: string; secret?: string; totpCode?: string; recoveryCode?: string };
+    };
+    if (
+      reasonHasAccountNo(
+        String(body.reason ?? ''),
+        (body as { value?: { accountNo?: string } }).value?.accountNo,
+      )
+    )
+      return validation([{ field: 'reason', code: 'ACCOUNT_NUMBER_NOT_ALLOWED' }]);
+    if (!body.reauth) return validation([{ field: 'reauth', code: 'REQUIRED' }]);
+    const bad = await strongReauth(
+      g.user,
+      { ...body.reauth, password: body.reauth.secret },
+      { password: 'reauth.secret', factor: 'reauth.totpCode' },
+    );
+    if (bad) return bad;
+    const v = body.value ?? {};
+    const errors: Array<{ field: string; code: string }> = [];
+    const extra = Object.keys(v).filter(
+      (k) => !['bankBin', 'accountNo', 'accountName'].includes(k),
+    );
+    if (extra.length) errors.push({ field: 'value', code: 'VALIDATION_FAILED' });
+    if (!/^\d{6}$/.test(String(v.bankBin ?? '')))
+      errors.push({ field: 'value.bankBin', code: 'VALIDATION_FAILED' });
+    if (!/^\d{6,19}$/.test(String(v.accountNo ?? '')))
+      errors.push({ field: 'value.accountNo', code: 'VALIDATION_FAILED' });
+    if (!/^[A-Z0-9 ]{1,50}$/.test(String(v.accountName ?? '')))
+      errors.push({ field: 'value.accountName', code: 'VALIDATION_FAILED' });
+    // Q51-5: from the next business day, the first time too – no "now" path.
+    if (!body.effectiveFrom || body.effectiveFrom <= businessDayLocal())
+      errors.push({ field: 'effectiveFrom', code: 'EFFECTIVE_FROM_TOMORROW' });
+    if (String(body.reason ?? '').trim().length < 3)
+      errors.push({ field: 'reason', code: 'REASON_REQUIRED' });
+    if (errors.length) return validation(errors);
+    const row: ReceivingRow = {
+      bankBin: String(v.bankBin),
+      accountNo: String(v.accountNo),
+      accountName: String(v.accountName),
+      effectiveFrom: body.effectiveFrom!,
+      changedBy: g.user.displayName,
+      changedAt: new Date().toISOString(),
+      reason: String(body.reason).trim(),
+    };
+    // Same day as a scheduled row = edit that row.
+    db.receiving = [...db.receiving.filter((r) => r.effectiveFrom !== row.effectiveFrom), row];
+    const view = receivingView(row);
+    db.receivingAudit.push({
+      action: 'config.changed',
+      after: view.value,
+      effectiveFrom: row.effectiveFrom,
+    });
+    return HttpResponse.json(view);
+  }),
+  http.post(`${prop}/parameters/${RECEIVING_KEY}/actions/cancel-scheduled`, async ({ request }) => {
+    const g = guard(request, ['owner']);
+    if (isResponse(g)) return g;
+    const body = (await request.json()) as {
+      effectiveFrom?: string;
+      reason?: string;
+      reauth?: { secret?: string; totpCode?: string; recoveryCode?: string };
+    };
+    if (
+      reasonHasAccountNo(
+        String(body.reason ?? ''),
+        (body as { value?: { accountNo?: string } }).value?.accountNo,
+      )
+    )
+      return validation([{ field: 'reason', code: 'ACCOUNT_NUMBER_NOT_ALLOWED' }]);
+    if (!body.reauth) return validation([{ field: 'reauth', code: 'REQUIRED' }]);
+    const bad = await strongReauth(
+      g.user,
+      { ...body.reauth, password: body.reauth.secret },
+      { password: 'reauth.secret', factor: 'reauth.totpCode' },
+    );
+    if (bad) return bad;
+    if (String(body.reason ?? '').trim().length < 3)
+      return validation([{ field: 'reason', code: 'REASON_REQUIRED' }]);
+    const row = db.receiving.find((r) => r.effectiveFrom === body.effectiveFrom);
+    if (!row) return problem(404, 'NOT_FOUND');
+    if (row.effectiveFrom <= businessDayLocal()) return problem(409, 'INVALID_TRANSITION');
+    db.receiving = db.receiving.filter((r) => r !== row);
+    db.receivingAudit.push({
+      action: 'config.changed',
+      after: { cancelledEffectiveFrom: row.effectiveFrom, ...(receivingView(row).value as object) },
+    });
+    return new HttpResponse(null, { status: 204 });
   }),
 
   // ---------- parameters (S24) ----------

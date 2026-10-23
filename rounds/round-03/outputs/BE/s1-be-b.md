@@ -190,3 +190,36 @@ Trả lời từng thẻ: `rounds/round-03/responses/s1-BE-B.md`, mục "Lượt
 - **Giả định:**
   - Giá gõ lúc **bán** đêm (tạo đơn, gia hạn) là giá thỏa thuận, nên được làm giá tham chiếu. Chỉ sửa giá của đêm đã bán (A31/A32) mới không đổi giá tham chiếu.
   - BB07-3/4 dùng 1.900.000 (trần A31 của seed) thay cho 3.000.000 của oracle.
+
+## 10. R3-Q51 – tài khoản nhận VietQR, phía server (23/10)
+
+Nhánh `be-b/r3-q51-receiving-account`, rebase lên `main` 8e0b08c. Đã gộp nhánh FE-A `fe-a/r3-q51-receiving-account` (0ca52a8).
+
+### Đã làm
+Theo OpenAPI 0.3.8 + SEC mục C (Q51-1…7):
+- **Chỉ OWN.** `getParameterHistory` của khóa `payment_receiving_account` chỉ OWN gọi được; MGR/FDL → 403, có ghi `access.denied`. `listParameters` bỏ khóa này với vai khác OWN.
+- **Hiệu lực từ ngày mai.** `setParameter` từ chối `effectiveFrom` ≤ ngày kinh doanh, kể cả lần đặt đầu → 422 `EFFECTIVE_FROM_TOMORROW`.
+- **Xác nhận lại S2** qua `StrongReauthService`: mật khẩu ở `reauth.secret` + `totpCode` hoặc `recoveryCode`.
+- **`cancelScheduledParameter` (mới)**: chỉ OWN + S2. Không có dòng → 404; dòng đang hiệu lực → 409. Ghi audit `money` `config.changed`, kèm `cancelledEffectiveFrom` và số đã che.
+- **Che số** trên mọi đường đọc và audit: `•••• 1234` + `bankName` tra từ bảng NAPAS tĩnh trong mã. QR giữ dạng `9704••••1234` vì hợp đồng của QR không đổi.
+- **Báo khi đặt và khi hủy:**
+  - thông báo `receiving_account_changed` tới mọi OWN/MGR, mã hiển thị = ngày hiệu lực, không có số tài khoản;
+  - outbox `staff.email` trong cùng giao dịch, payload `{template:'receiving_account_changed', userIds:[], owners:true, effectiveDate}` (Q51-6).
+- **Migration 0084** (không đổi schema): `GRANT DELETE ON config_parameter TO ottimo_app`. Snapshot sinh lại trên 0083; `drizzle-kit generate` không sinh tệp.
+
+### Đối chiếu màn FE-A với server
+- Request khớp hợp đồng: `reauth` gửi `{authMethod, secret, totpCode?, recoveryCode?}`; ô báo lỗi của S2 là `reauth.secret` / `reauth.totpCode`.
+- Mã lỗi khớp: 404 khi chưa cấu hình, 409 khi hủy dòng đang hiệu lực, 422 `EFFECTIVE_FROM_TOMORROW`.
+- Ngày "hôm nay" phía FE lấy từ ngày kinh doanh (`useBusinessDay`).
+- Kiểm tra ở FE chặt hơn server (tên chủ tài khoản không nhận `.`/`-`) – chấp nhận được.
+- Không phải sửa mã FE.
+
+### Test
+- `r3-q51-receiving-account` 6/6.
+- Toàn bộ API: 115 tệp đạt, 1 bỏ qua; 3.092 test đạt, 7 bỏ qua.
+- admin-web: 53 tệp, 550 test đạt.
+- typecheck toàn repo, eslint, prettier: đạt.
+
+### Còn mở – cần ARC quyết
+- Lần đặt đầu, khi mới chỉ có dòng đã lên lịch: server và MSW đều trả 404 cho `getParameterHistory`, vì hợp đồng bắt buộc có `current`. Hệ quả: màn hiện "chưa cấu hình" và OWN không thấy, cũng không hủy được dòng đã lên lịch cho tới ngày hiệu lực.
+- Đề xuất: hợp đồng 0.3.9 cho `current` được vắng.

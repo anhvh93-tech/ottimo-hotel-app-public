@@ -75,6 +75,9 @@ export type ResponseOf<K extends keyof operations> = operations[K]['responses'] 
 export type LoginBody = BodyOf<'login'>;
 export type ChangePasswordBody = BodyOf<'changeMyPassword'>;
 export type SetParameterBody = BodyOf<'setParameter'>;
+export type CancelScheduledParameterBody = BodyOf<'cancelScheduledParameter'>;
+/** `setParameter.reauth` / `cancelScheduledParameter.reauth` (password as `secret` + S2 factor – 0.3.8). */
+export type ParameterReauth = NonNullable<SetParameterBody['reauth']>;
 export type TrustDeviceBody = BodyOf<'trustCurrentDevice'>;
 export type UpdateUserBody = BodyOf<'updateUser'>;
 export type LookupGuestBody = BodyOf<'lookupGuestByContact'>;

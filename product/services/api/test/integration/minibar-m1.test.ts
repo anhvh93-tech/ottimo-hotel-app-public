@@ -2685,13 +2685,15 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
 
   it('DOM (f): QR balance 300.000 when 200.000 is due → confirm without note 422 REASON_REQUIRED max 200.000; Payment.qrPurpose / amountDueNowVnd; lateFeeAsNight only with check_out', async () => {
     const { b } = await inHouse('401', '2028-12-04', '2028-12-05');
-    await at('2028-12-04T16:00:00+07:00');
+    // 0.3.8 (R3-Q51, SEC Q51-5): the receiving account takes effect from the NEXT business day.
+    await at('2028-12-03T16:00:00+07:00');
     await c.own!.send('PUT', url('/parameters/payment_receiving_account'), {
       value: { bankBin: '970407', accountNo: '1903123456789', accountName: 'OTTIMO TEST' },
       effectiveFrom: '2028-12-04',
       reason: 'Tài khoản nhận thử nghiệm',
       reauth: { authMethod: 'password', secret: TEST_PASSWORD },
     });
+    await at('2028-12-04T16:00:00+07:00');
     const add = await c.fd!.send('POST', url(`/folios/${b.folioId}/lines`), {
       category: 'fnb',
       description: 'Bữa tối',

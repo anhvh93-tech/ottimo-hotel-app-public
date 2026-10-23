@@ -12,6 +12,7 @@ import { useResource } from '../hooks/useResource';
 import { NAV, isVisible } from '../session/nav';
 import { usePropertyId, useSession } from '../session/SessionProvider';
 import { ParamDialog, formatParamValue } from './ParamDialog';
+import { ReceivingAccountSection } from './ReceivingAccount';
 import {
   GROUP_LABEL,
   GROUP_ORDER,
@@ -94,6 +95,8 @@ export function ParamsPage() {
             {t('params.view_only_banner')}
           </Alert>
         ) : null}
+        {/* R3-Q51 (SEC Q51-1): owner only – other roles never mount it (the API answers 403 too). */}
+        {session.roles.includes('owner') ? <ReceivingAccountSection /> : null}
         {state.status === 'error' && !state.data ? (
           <ErrorBlock titleKey="params.error_title" error={state.error} onRetry={reload} />
         ) : state.status === 'loading' && !state.data ? (

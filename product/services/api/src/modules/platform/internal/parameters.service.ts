@@ -8,6 +8,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
 import type { LocalDate } from '../../../shared/time';
+import { AuditService } from '../../audit/public/audit.service';
 import { ParameterService } from '../public/parameter.service';
 import { PropertyContextService } from '../public/property-context';
 import {
@@ -54,11 +55,17 @@ function restricted(row: { is_security: boolean; br_ref: string | null }): boole
   return row.is_security || (row.br_ref ?? '').startsWith('SR-');
 }
 
+/** 0.3.8 (R3-Q51, SEC Q51-1): `payment_receiving_account` is the owner's only – read (even masked) and write. */
+function ownerOnlyKey(key: string): boolean {
+  return key === RECEIVING_ACCOUNT_KEY;
+}
+
 @Injectable()
 export class ParametersService {
   constructor(
     @Inject(ParameterService) private readonly params: ParameterService,
     @Inject(PropertyContextService) private readonly property: PropertyContextService,
+    @Inject(AuditService) private readonly audit: AuditService,
   ) {}
 
   private async propertySince(tx: Tx): Promise<LocalDate> {
@@ -109,7 +116,11 @@ export class ParametersService {
     );
     const all = canSeeRestricted(roles);
     return {
-      data: rows.filter((r) => all || !restricted(r)).map((r) => this.dto(r, pc.iso, since)),
+      data: rows
+        .filter((r) => all || !restricted(r))
+        // 0.3.8 (SEC Q51-1): the receiving account is not even listed to a role other than owner.
+        .filter((r) => !ownerOnlyKey(r.key) || roles.includes('owner'))
+        .map((r) => this.dto(r, pc.iso, since)),
     };
   }
 
@@ -117,7 +128,7 @@ export class ParametersService {
     tx: Tx,
     roles: readonly string[],
     key: string,
-  ): Promise<{ current: ParameterDto; history: ParameterDto[] }> {
+  ): Promise<{ current?: ParameterDto; history: ParameterDto[] }> {
     const pc = await this.property.now(tx);
     const since = await this.propertySince(tx);
     const { rows: defs } = await tx.query<Row>(
@@ -129,6 +140,8 @@ export class ParametersService {
     );
     const def = defs[0];
     if (!def || (!canSeeRestricted(roles) && restricted(def))) throw problem('NOT_FOUND');
+    // 0.3.8 (SEC Q51-1): MGR / FDL → 403 on the receiving account (its history included scheduled rows).
+    if (ownerOnlyKey(key) && !roles.includes('owner')) throw problem('FORBIDDEN_ACTION');
     const { rows } = await tx.query<Row>(
       `SELECT d.key, d.edit_roles, d.br_ref, d.is_security, d.default_value, ${VALUE_COLUMNS}
          FROM config_parameter c JOIN config_parameter_def d ON d.key = c.key
@@ -139,8 +152,11 @@ export class ParametersService {
     );
     const history = rows.map((r) => this.dto(r, pc.iso, since));
     const currentRow = rows.find((r) => (r.effective_from as string) <= pc.today);
-    if (!currentRow && def.default_value === null) throw problem('NOT_FOUND');
-    return { current: this.dto(currentRow ?? def, pc.iso, since), history };
+    // 0.3.8 bổ sung 2 (ARC FB-R3-ARC-Q51-01): 404 only when the key has no row at all and no default; rows that are all
+    // scheduled → 200 without `current` (the owner sees – and can cancel – what was typed the first time).
+    if (rows.length === 0 && def.default_value === null) throw problem('NOT_FOUND');
+    const current = currentRow ?? (def.default_value !== null ? def : null);
+    return { ...(current ? { current: this.dto(current, pc.iso, since) } : {}), history };
   }
 
   async set(
@@ -169,7 +185,15 @@ export class ParametersService {
     if (!input.roles.some((r) => defs[0]?.edit_roles.includes(r)))
       throw problem('FORBIDDEN_ACTION');
     const receiving = input.key === RECEIVING_ACCOUNT_KEY;
-    if (receiving) input = { ...input, value: parseReceivingAccount(input.value) };
+    if (receiving) {
+      // 0.3.8 (SEC Q51-5): from the NEXT business day, the first time too – no "in force now" path.
+      if (input.effectiveFrom <= pc.today) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'effectiveFrom', code: 'EFFECTIVE_FROM_TOMORROW' }],
+        });
+      }
+      input = { ...input, value: parseReceivingAccount(input.value) };
+    }
     await this.params.validate(tx, input.key, input.value);
     await checkStructuredParameter(
       input.key,
@@ -199,5 +223,59 @@ export class ParametersService {
       [input.key, pc.propertyId, input.effectiveFrom],
     );
     return this.dto(rows[0] as Row, pc.iso, since);
+  }
+
+  /**
+   * 0.3.8 `cancelScheduledParameter` (R3-Q51, SEC Q51-5): remove a row not yet in force (`effectiveFrom` > business
+   * date). Rights as `setParameter` per key (the receiving account: owner only). No row → 404; a row in force → 409.
+   * Audit `config.changed` (receiving account: category money, masked value, `cancelledEffectiveFrom`).
+   */
+  async cancelScheduled(
+    tx: Tx,
+    input: {
+      key: string;
+      effectiveFrom: LocalDate;
+      reason: string;
+      roles: readonly string[];
+      requestId: string;
+    },
+  ): Promise<void> {
+    const pc = await this.property.now(tx);
+    const { rows: defs } = await tx.query<{ edit_roles: string[]; is_security: boolean }>(
+      'SELECT edit_roles, is_security FROM config_parameter_def WHERE key = $1',
+      [input.key],
+    );
+    const def = defs[0];
+    if (!def) throw problem('NOT_FOUND');
+    if (!input.roles.some((r) => def.edit_roles.includes(r))) throw problem('FORBIDDEN_ACTION');
+    if (ownerOnlyKey(input.key) && !input.roles.includes('owner')) {
+      throw problem('FORBIDDEN_ACTION');
+    }
+    const { rows } = await tx.query<{ id: string; value: unknown; effective_from: string }>(
+      `SELECT id, value, effective_from::text AS effective_from FROM config_parameter
+        WHERE property_id = $1 AND key = $2 AND effective_from = $3 FOR UPDATE`,
+      [pc.propertyId, input.key, input.effectiveFrom],
+    );
+    const row = rows[0];
+    if (!row) throw problem('NOT_FOUND');
+    if (row.effective_from <= pc.today) {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: 'in_force' } });
+    }
+    await tx.query('DELETE FROM config_parameter WHERE id = $1', [row.id]);
+    const receiving = input.key === RECEIVING_ACCOUNT_KEY;
+    await this.audit.record(tx, {
+      category: receiving ? 'money' : def.is_security ? 'security' : 'config',
+      action: 'config.changed',
+      entityType: 'config_parameter',
+      entityId: input.key,
+      before: {
+        value: receiving ? maskReceivingAccount(row.value) : row.value,
+        effectiveFrom: row.effective_from,
+      },
+      after: { cancelledEffectiveFrom: row.effective_from },
+      reason: input.reason,
+      requestId: input.requestId,
+    });
+    await tx.query(`SELECT pg_notify('config_changed', $1)`, [pc.propertyId]);
   }
 }

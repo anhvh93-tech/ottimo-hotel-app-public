@@ -137,7 +137,8 @@ describe.skipIf(!HAS_DB)('S4-38 money fixes (BE-A)', () => {
     await setPassword(db, t, 'fdl');
     await setPassword(db, t, 'own');
     // The VietQR receiving account (FAKE) – the QR cap cases (S4-10) need one.
-    await at('2026-10-15T09:00:00+07:00');
+    // 0.3.8 (R3-Q51, SEC Q51-5): the receiving account takes effect from the NEXT business day.
+    await at('2026-10-14T09:00:00+07:00');
     const put = await c.own!.send('PUT', url('/parameters/payment_receiving_account'), {
       value: ACCOUNT,
       effectiveFrom: '2026-10-15',

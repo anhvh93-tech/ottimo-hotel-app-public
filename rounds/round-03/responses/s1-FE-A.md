@@ -91,3 +91,24 @@ Ca test bao trọn luồng:
 - **Ca A.7 #16 E2E Playwright** (đồng hồ giả): chờ server US-143 + cổng S2 gộp trên stack CI. FE-A làm cùng QA.
 - **Chuỗi chờ UXD**: 2 chuỗi mới (`mfa.reenroll_title`, `mfa.reenroll_lead`) và nhóm "R3 Sprint 1 – FE-A". Đã bỏ 2 khóa `mfa.recovery_used_*`.
 - **Thứ tự gộp**: theo SEC, gộp `ae836f7` + nhánh này + phần E2E của QA trong **một** lần. Nhánh này đã gửi `reauth` nên chạy được cả khi server chưa có cổng: schema zod của `users.controller.ts`/`devices.controller.ts` ở `bd0fb4f` không `.strict()`, nên trường `reauth` thừa bị bỏ qua (FE-A đã đọc mã).
+
+---
+
+# R3-Q51 – phần FE trả lời review ARC (`s1-ARC-on-Q51.md`) và SEC (qua `s1-BE-B.md`) – 23/10
+
+- Nhánh: `fe-a/r3-q51-followup` tách từ `be-b/r3-q51-receiving-account` `cf0ce2f`, chỉ chồng thêm commit FE nên ORC fast-forward được. Agent FE-A bị giới hạn trong worktree riêng, không commit thẳng vào worktree của BE-B.
+- Kết quả kiểm:
+
+  | Kiểm tra | Kết quả |
+  |---|---|
+  | admin-web | **555/555** (`r3-q51-fea` 14/14) |
+  | api-client | 30/30 |
+  | `tsc`, eslint, prettier, `check_hifi.py` | xanh |
+
+| ID | Trạng thái | Ghi chú |
+|---|---|---|
+| FB-R3-ARC-Q51-01 (Major, phần FE) | Done | Theo 0.3.8 bổ sung 2: khi `getParameterHistory` không có `current`, dòng "Đang dùng" hiện `rcv.none_in_use` "Chưa có tài khoản đang dùng – tài khoản dưới đây có hiệu lực từ {ngày}". Dòng "Đã lên lịch" vẫn có nút Hủy. 404 vẫn hiện "chưa cấu hình". Kiểu api-client đổi `current?`. MSW: 200 không có `current` khi chỉ có dòng đã lên lịch, 404 khi không có dòng nào. Ca test: đặt lần đầu → hiện đúng → hủy → 404 |
+| FB-R3-SEC-Q51-01 (Minor, phần FE) | Done | Thêm gợi ý `rcv.reason_help` "Không ghi số tài khoản vào lý do." dưới ô lý do, ở cả hộp đặt và hộp hủy. Desk kiểm trước khi gửi bằng cùng quy tắc server (dãy từ 6 chữ số, nhóm cách nhau bằng dấu cách tính là một dãy, hoặc chứa số vừa gõ) nên không tốn mã S2. Server trả 422 `reason` `ACCOUNT_NUMBER_NOT_ALLOWED` → lỗi hiện dưới ô lý do (`rcv.reason_no_account`). MSW kiểm trước S2 như server. Ngày ISO vẫn được nhận |
+| FB-R3-ARC-Q51-02, FB-R3-SEC-Q51-02/03 | – | Phần của BE-B / QA |
+
+- Chuỗi mới chờ UXD duyệt: `rcv.none_in_use`, `rcv.reason_help`, `rcv.reason_no_account`.
