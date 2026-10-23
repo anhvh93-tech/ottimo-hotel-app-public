@@ -315,10 +315,12 @@ DOORLOCK_TTLOCK_CLIENT_SECRET=
 # Notification
 EMAIL_PROVIDER=mock              # off | mock | smtp  (production: chỉ smtp – INV 23/10/2026: Google Workspace)
 EMAIL_FROM=                      # trống = EMAIL_SMTP_USER; với Gmail phải là chính hộp thư hoặc bí danh đã xác minh
-EMAIL_SMTP_HOST=smtp.gmail.com
-EMAIL_SMTP_PORT=465              # 465 (TLS) | 587 (STARTTLS bắt buộc); cổng khác bị từ chối
-EMAIL_SMTP_USER=                 # vd. info@ottimo.vn
-EMAIL_SMTP_PASSWORD_FILE=        # tệp bí mật chứa mật khẩu ứng dụng Google; staging/production cấm EMAIL_SMTP_PASSWORD thô
+EMAIL_SMTP_MODE=relay            # relay (mặc định: smtp-relay.gmail.com:587, xác thực theo IP VPS, KHÔNG mật khẩu – SEC EMAIL-01 A) | app_password (dự phòng)
+EMAIL_SMTP_HOST=                 # trống = mặc định của chế độ (relay: smtp-relay.gmail.com; app_password: smtp.gmail.com)
+EMAIL_SMTP_PORT=                 # trống = 587 (relay) / 465 (app_password); chỉ 465 (TLS) | 587 (STARTTLS bắt buộc)
+EMAIL_SMTP_USER=                 # chỉ app_password, vd. info@ottimo.vn
+EMAIL_SMTP_HELO=                 # tên EHLO, trống = tên miền của EMAIL_FROM
+EMAIL_SMTP_PASSWORD_FILE=        # chỉ app_password: tệp bí mật mật khẩu ứng dụng; relay: tệp phải rỗng; staging/production cấm EMAIL_SMTP_PASSWORD thô
 # EMAIL_SMTP_URL, EMAIL_SES_REGION: đã bỏ (khác rỗng → không khởi động)
 ZALO_PROVIDER=manual_copy        # off | manual_copy | zns
 ZALO_APP_ID=

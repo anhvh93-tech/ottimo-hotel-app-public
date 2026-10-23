@@ -17,10 +17,11 @@
 #                                                auth (bcrypt hash) + X-Robots-Tag noindex; production = empty
 #   uid 0    (root only)                         landing_preview_password (staging: the preview password INV uses –
 #                                                read it with sudo, give it to INV over a private channel)
-#   uid 1000 (worker only)                       email_smtp_password – the ONE value not generated here: the Google
-#                                                Workspace app password of EMAIL_SMTP_USER (info@ottimo.vn), typed by
-#                                                INV at a hidden prompt (not echoed, not in shell history, not an
-#                                                argument). Staging may leave it empty (EMAIL_PROVIDER=mock).
+#   uid 1000 (worker only)                       email_smtp_password – EMPTY with EMAIL_SMTP_MODE=relay (default:
+#                                                Google Workspace relay by VPS IP, no password – SEC EMAIL-01 A).
+#                                                Only with EMAIL_SMTP_MODE=app_password (fallback) is it asked: the app
+#                                                password of EMAIL_SMTP_USER, typed by INV at a hidden prompt (not
+#                                                echoed, not in shell history, not an argument).
 # Replace the app password (Google revokes it when the mailbox password changes):
 #   sudo /opt/ottimo-prod/infra/server/bin/init-secrets.sh --reset-email-password   then   bin/dc restart worker
 # New files are added on re-run (R3: run it on staging before the first deploy that needs them – deploy.sh says so).
@@ -119,12 +120,20 @@ if [ ! -e "$dir/web_push_vapid_private_key" ] || [ ! -e "$dir/web_push_vapid_pub
   unset priv_hex pub_hex
 fi
 
-# APP_ENV from the non-secret .env decides the landing snippet and whether the e-mail password may stay empty.
+# APP_ENV from the non-secret .env decides the landing snippet and whether the e-mail password may stay empty;
+# EMAIL_SMTP_MODE whether there is a password at all (relay = none).
 app_env=$(sed -n 's/^APP_ENV=//p' "$OTTIMO_HOME/.env" 2>/dev/null | tail -n 1 | tr -d '\r"')
+smtp_mode=$(sed -n 's/^EMAIL_SMTP_MODE=//p' "$OTTIMO_HOME/.env" 2>/dev/null | tail -n 1 | tr -d '\r"')
+smtp_mode=${smtp_mode:-relay}
 
 # E-mail app password (INT R3 – Google Workspace SMTP, INV decision 23/10/2026). Asked, never generated or printed.
 if [ "$reset_email" -eq 1 ] && [ -e "$dir/email_smtp_password" ]; then
   rm -f "$dir/email_smtp_password"
+fi
+if [ ! -e "$dir/email_smtp_password" ] && [ "$smtp_mode" != "app_password" ]; then
+  # relay (default): nothing to ask – the file exists (compose mounts it) and stays empty; the worker refuses a
+  # non-empty one in relay mode.
+  put email_smtp_password "$APP_UID" ''
 fi
 if [ ! -e "$dir/email_smtp_password" ]; then
   smtp_pw=''
@@ -181,8 +190,9 @@ fi
 cat <<NOTE
 Next:
   - Staging: the landing preview password for INV: sudo cat $dir/landing_preview_password (user: ottimo).
-  - E-mail: set EMAIL_PROVIDER=smtp and EMAIL_SMTP_USER / EMAIL_FROM in the .env (production requires smtp). A new app
-    password later: sudo $here/init-secrets.sh --reset-email-password, then bin/dc restart worker.
+  - E-mail: production needs EMAIL_PROVIDER=smtp + EMAIL_FROM. Default EMAIL_SMTP_MODE=relay: allow this VPS IP in the
+    Google Admin console (SMTP relay service) – no password. Fallback app_password: set EMAIL_SMTP_MODE=app_password
+    + EMAIL_SMTP_USER, then sudo $here/init-secrets.sh --reset-email-password and bin/dc restart worker.
   - Production only: copy data_kek_current OFFLINE now (sealed paper / encrypted USB kept by INV – losing it means
     losing every encrypted document; hosting-plan 8.1). Read it once with: sudo cat $dir/data_kek_current
   - The postgres_password / *_db_password files are applied when the database volume is created; changing them

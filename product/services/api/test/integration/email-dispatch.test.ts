@@ -13,6 +13,7 @@ import {
 import type { Database } from '../../src/db/database';
 import {
   EMAIL_MAX_ATTEMPTS,
+  EMAIL_SEND_BUDGET_MS,
   StaffEmailDispatcher,
   formatLocalTime,
 } from '../../src/jobs/email-dispatch';
@@ -111,7 +112,7 @@ describe.skipIf(!HAS_DB)('staff e-mail dispatcher (outbox staff.email)', () => {
       owners: true,
     });
     const st = await d.runForProperty(p);
-    expect(st).toEqual({ sent: 2, done: 1, retry: 0, dead: 0 });
+    expect(st).toEqual({ sent: 2, done: 1, retry: 0, dead: 0, deferred: 0 });
     const byTo = Object.fromEntries(adapter.sent.map((m) => [m.to, m]));
     expect(Object.keys(byTo).sort()).toEqual([email('fd'), email('own1')].sort());
     expect(byTo[email('fd')]!.params).toMatchObject({ audience: 'self', staffName: 'fd' });
@@ -128,7 +129,7 @@ describe.skipIf(!HAS_DB)('staff e-mail dispatcher (outbox staff.email)', () => {
     expect(r.dispatched_at).not.toBeNull();
     expect(JSON.stringify(r.payload)).not.toContain('@');
     // Nothing left: a second tick sends nothing.
-    expect(await d.runForProperty(p)).toEqual({ sent: 0, done: 0, retry: 0, dead: 0 });
+    expect(await d.runForProperty(p)).toEqual({ sent: 0, done: 0, retry: 0, dead: 0, deferred: 0 });
     expect(adapter.sent).toHaveLength(2);
   });
 
@@ -209,7 +210,7 @@ describe.skipIf(!HAS_DB)('staff e-mail dispatcher (outbox staff.email)', () => {
     expect(r).toMatchObject({ status: 'dead', attempts: EMAIL_MAX_ATTEMPTS });
     expect(logs.some((l) => l.includes('"email dead"'))).toBe(true);
     expect(logs.join()).not.toContain('@');
-    expect(await d.runForProperty(p)).toEqual({ sent: 0, done: 0, retry: 0, dead: 0 });
+    expect(await d.runForProperty(p)).toEqual({ sent: 0, done: 0, retry: 0, dead: 0, deferred: 0 });
   });
 
   it('nobody with an address, or an unknown template → dead with a reason; other topics untouched', async () => {
@@ -251,6 +252,63 @@ describe.skipIf(!HAS_DB)('staff e-mail dispatcher (outbox staff.email)', () => {
       audience: 'owner',
       effectiveDate: '25/10/2026',
     });
+  });
+
+  it('ARC-03/SEC-02: past half the lease the run stops sending; the rest is released (attempt not counted)', async () => {
+    let ms = 0;
+    const slow = new StaffEmailDispatcher(
+      db,
+      clock,
+      adapter,
+      (level, msg, extra) => logs.push(JSON.stringify({ level, msg, ...extra })),
+      { elapsed: () => ms },
+    );
+    // Every send "takes" 3 minutes; budget = 5 minutes → the 2nd recipient is still sent, the 3rd is not.
+    adapter.failWith = () => {
+      ms += 3 * 60_000;
+      return null;
+    };
+    await setEmail('own2', email('own2'));
+    const a = await enqueue({
+      template: 'mfa_recovery_code_used',
+      userIds: [t.users.fd!.id],
+      owners: true,
+    });
+    const b = await enqueue({ template: 'mfa_reset', userIds: [t.users.fd!.id], owners: false });
+    const st = await slow.runForProperty(p);
+    expect(EMAIL_SEND_BUDGET_MS).toBe(5 * 60_000);
+    expect(st).toMatchObject({ sent: 2, deferred: 2, done: 0 });
+    const ra = await row(a);
+    expect(ra).toMatchObject({ status: 'pending', attempts: 0 });
+    expect((ra.payload.sentUserIds as string[]).length).toBe(2);
+    expect(ra.next_attempt_at!.getTime()).toBe(now.getTime());
+    expect(await row(b)).toMatchObject({ status: 'pending', attempts: 0 });
+    // Next tick (fresh budget): the remaining owner + row b – nobody twice.
+    ms = 0;
+    adapter.failWith = () => null;
+    await slow.runForProperty(p);
+    const tos = adapter.sent.map((m) => `${m.templateId}:${m.to}`);
+    expect(tos).toHaveLength(4);
+    expect(new Set(tos).size).toBe(4);
+    expect((await row(a)).status).toBe('done');
+    expect((await row(b)).status).toBe('done');
+  });
+
+  it('a run that lost its lease records nothing and logs "email lease lost"', async () => {
+    const id = await enqueue({ template: 'mfa_reset', userIds: [t.users.fd!.id], owners: false });
+    const send = adapter.send.bind(adapter);
+    adapter.send = async (c, m) => {
+      const r = await send(c, m);
+      // Meanwhile another run took the row after the lease (its attempt counter moved on).
+      await db.withContext(t.ctx(), (tx) =>
+        tx.query('UPDATE outbox_message SET attempts = attempts + 1 WHERE id = $1', [id]),
+      );
+      return r;
+    };
+    await d.runForProperty(p);
+    expect(logs.some((l) => l.includes('"email lease lost"'))).toBe(true);
+    expect(logs.join()).not.toContain('@');
+    expect(await row(id)).toMatchObject({ status: 'in_flight', attempts: 2 });
   });
 
   it('formatLocalTime uses the property time zone', () => {

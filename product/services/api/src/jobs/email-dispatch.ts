@@ -30,6 +30,12 @@ export const EMAIL_MAX_ATTEMPTS = EMAIL_BACKOFF_MINUTES.length + 1;
 /** A claimed row nobody finished (crash) is taken again after this. */
 export const EMAIL_LEASE_MS = 10 * 60_000;
 const DEFAULT_BATCH = 10;
+/**
+ * ARC-03 / SEC-02: a run stops sending once it has used half of the lease, so a slow SMTP server can never make it
+ * outlive the lease (another run would take the row again and e-mail twice). The rows not reached are released
+ * (attempt not counted, due now) for the next tick.
+ */
+export const EMAIL_SEND_BUDGET_MS = EMAIL_LEASE_MS / 2;
 
 export type EmailLog = (
   level: 'info' | 'warn' | 'error',
@@ -69,7 +75,19 @@ export interface EmailDispatchStats {
   done: number;
   retry: number;
   dead: number;
+  /** Released unfinished because the run used half of the lease (attempt not counted). */
+  deferred: number;
 }
+
+interface Outcome {
+  newlySent: string[];
+  newlySkipped: string[];
+  retryError: IntegrationError | null;
+  /** Stopped before the end because the send budget was used up. */
+  deferred: boolean;
+}
+
+type FinalStatus = 'done' | 'failed' | 'dead' | 'deferred';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ids = (v: unknown): string[] =>
@@ -102,32 +120,41 @@ function formatLocalDate(v: unknown): string | undefined {
 
 export class StaffEmailDispatcher {
   private readonly batch: number;
+  /** Monotonic milliseconds for the send budget (not business time – ADR-008 Clock stays for timestamps). */
+  private readonly elapsed: () => number;
 
   constructor(
     private readonly db: Database,
     private readonly clock: Clock,
     private readonly adapter: NotificationAdapter,
     private readonly log: EmailLog,
-    opts: { batch?: number } = {},
+    opts: { batch?: number; elapsed?: () => number } = {},
   ) {
     this.batch = opts.batch ?? DEFAULT_BATCH;
+    this.elapsed = opts.elapsed ?? (() => performance.now());
   }
 
   async runForProperty(p: PropertyRef): Promise<EmailDispatchStats> {
-    const stats: EmailDispatchStats = { sent: 0, done: 0, retry: 0, dead: 0 };
+    const stats: EmailDispatchStats = { sent: 0, done: 0, retry: 0, dead: 0, deferred: 0 };
     const ctx = {
       organizationId: p.organizationId,
       propertyId: p.propertyId,
       userId: null,
       actorType: 'system' as const,
     };
+    const started = this.elapsed();
+    const overBudget = () => this.elapsed() - started > EMAIL_SEND_BUDGET_MS;
     const claimed = await this.db.withContext(ctx, (tx) => this.claim(tx, p));
     for (const row of claimed) {
-      const outcome = row.deadReason ? null : await this.deliver(p, row);
+      const outcome: Outcome | null = row.deadReason
+        ? null
+        : overBudget()
+          ? { newlySent: [], newlySkipped: [], retryError: null, deferred: true }
+          : await this.deliver(p, row, overBudget);
       await this.db.withContext(ctx, (tx) => this.finish(tx, row, outcome));
       if (outcome) stats.sent += outcome.newlySent.length;
       const status = this.statusOf(row, outcome);
-      stats[status === 'done' ? 'done' : status === 'failed' ? 'retry' : 'dead'] += 1;
+      stats[status === 'failed' ? 'retry' : status] += 1;
     }
     return stats;
   }
@@ -216,10 +243,7 @@ export class StaffEmailDispatcher {
     return out;
   }
 
-  private async deliver(
-    p: PropertyRef,
-    row: Claimed,
-  ): Promise<{ newlySent: string[]; newlySkipped: string[]; retryError: IntegrationError | null }> {
+  private async deliver(p: PropertyRef, row: Claimed, overBudget: () => boolean): Promise<Outcome> {
     const done = new Set([...row.sentUserIds, ...row.skippedUserIds]);
     const newlySent: string[] = [];
     const newlySkipped: string[] = [];
@@ -231,6 +255,7 @@ export class StaffEmailDispatcher {
     };
     for (const rcpt of row.recipients) {
       if (done.has(rcpt.userId)) continue;
+      if (overBudget()) return { newlySent, newlySkipped, retryError: null, deferred: true };
       try {
         await this.adapter.send(ictx, {
           channel: 'email',
@@ -259,27 +284,16 @@ export class StaffEmailDispatcher {
         break;
       }
     }
-    return { newlySent, newlySkipped, retryError };
+    return { newlySent, newlySkipped, retryError, deferred: false };
   }
 
-  private statusOf(
-    row: Claimed,
-    outcome: { retryError: IntegrationError | null } | null,
-  ): 'done' | 'failed' | 'dead' {
+  private statusOf(row: Claimed, outcome: Outcome | null): FinalStatus {
     if (!outcome) return 'dead';
-    if (!outcome.retryError) return 'done';
+    if (!outcome.retryError) return outcome.deferred ? 'deferred' : 'done';
     return row.attempts >= EMAIL_MAX_ATTEMPTS ? 'dead' : 'failed';
   }
 
-  private async finish(
-    tx: Tx,
-    row: Claimed,
-    outcome: {
-      newlySent: string[];
-      newlySkipped: string[];
-      retryError: IntegrationError | null;
-    } | null,
-  ): Promise<void> {
+  private async finish(tx: Tx, row: Claimed, outcome: Outcome | null): Promise<void> {
     const now = this.clock.now();
     const status = this.statusOf(row, outcome);
     const sent = [...row.sentUserIds, ...(outcome?.newlySent ?? [])];
@@ -293,23 +307,29 @@ export class StaffEmailDispatcher {
           : null;
     const delayMin =
       EMAIL_BACKOFF_MINUTES[Math.min(row.attempts, EMAIL_BACKOFF_MINUTES.length) - 1] ?? 1;
-    await tx.query(
+    // deferred: released for the next tick – the attempt is given back, due now, earlier error kept.
+    const dbStatus =
+      status === 'deferred' ? (row.attempts - 1 === 0 ? 'pending' : 'failed') : status;
+    const r = await tx.query(
       `UPDATE outbox_message
           SET status = $3,
+              attempts = CASE WHEN $9 THEN attempts - 1 ELSE attempts END,
               payload = payload || jsonb_build_object('sentUserIds', $4::jsonb, 'skippedUserIds', $5::jsonb),
-              last_error = $6,
-              next_attempt_at = CASE WHEN $3 = 'failed' THEN $7::timestamptz ELSE NULL END,
+              last_error = CASE WHEN $9 THEN last_error ELSE $6 END,
+              next_attempt_at = CASE WHEN $9 THEN $8::timestamptz
+                                     WHEN $3 = 'failed' THEN $7::timestamptz ELSE NULL END,
               dispatched_at = CASE WHEN $3 = 'done' THEN $8::timestamptz ELSE dispatched_at END
         WHERE id = $1 AND status = 'in_flight' AND attempts = $2`,
       [
         row.id,
         row.attempts,
-        status,
+        dbStatus,
         JSON.stringify(sent),
         JSON.stringify(skipped),
         lastError,
         new Date(now.getTime() + delayMin * 60_000),
         now,
+        status === 'deferred',
       ],
     );
     const extra = {
@@ -318,8 +338,19 @@ export class StaffEmailDispatcher {
       attempt: row.attempts,
       code: lastError,
     };
+    if ((r.rowCount ?? 0) === 0) {
+      // Another run took the row after the lease (ARC-03): this run's progress is not recorded.
+      this.log('warn', 'email lease lost', {
+        outboxId: row.id,
+        template: row.template,
+        attempt: row.attempts,
+      });
+      return;
+    }
     if (status === 'dead') this.log('error', 'email dead', extra);
     else if (status === 'failed') this.log('warn', 'email retry', extra);
+    else if (status === 'deferred')
+      this.log('info', 'email deferred', { outboxId: row.id, template: row.template });
   }
 }
 

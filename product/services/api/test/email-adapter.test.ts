@@ -37,21 +37,62 @@ describe('createEmailAdapter (worker)', () => {
     }
   });
 
-  it('smtp reads the app password from EMAIL_SMTP_PASSWORD_FILE (as resolved by the bootstrap)', async () => {
+  it('SEC EMAIL-01 A: relay is the default – no password, only EMAIL_FROM; the empty secret file is fine', async () => {
+    const bare = await createEmailAdapter(
+      { EMAIL_PROVIDER: 'smtp', EMAIL_FROM: 'info@ottimo.test' },
+      'production',
+      clock,
+    );
+    expect(bare.smtpMode).toBe('relay');
+    expect(bare.adapter).toBeInstanceOf(SmtpNotificationAdapter);
+    (bare.adapter as SmtpNotificationAdapter).close();
+    // As compose runs it: host/port/user variables + the (empty) worker secret file.
     const env = resolveFileSecrets({
       EMAIL_PROVIDER: 'smtp',
+      EMAIL_FROM: 'info@ottimo.test',
+      EMAIL_SMTP_MODE: 'relay',
+      EMAIL_SMTP_HOST: '',
+      EMAIL_SMTP_PORT: '',
+      EMAIL_SMTP_USER: '',
+      EMAIL_SMTP_PASSWORD_FILE: secretFile(''),
+    });
+    const r = await createEmailAdapter(env, 'production', clock);
+    expect(r.smtpMode).toBe('relay');
+    (r.adapter as SmtpNotificationAdapter).close();
+  });
+
+  it('relay refuses a leftover app password file and a missing EMAIL_FROM', async () => {
+    const leftover = resolveFileSecrets({
+      EMAIL_PROVIDER: 'smtp',
+      EMAIL_FROM: 'info@ottimo.test',
+      EMAIL_SMTP_PASSWORD_FILE: secretFile('abcdefghijklmnop'),
+    });
+    const err = await createEmailAdapter(leftover, 'production', clock).catch((e: unknown) => e);
+    expect(String(err)).toMatch(/relay uses no password/);
+    expect(String(err)).not.toContain('abcdefghijklmnop');
+    await expect(
+      createEmailAdapter({ EMAIL_PROVIDER: 'smtp' }, 'production', clock),
+    ).rejects.toThrow(/EMAIL_FROM is required in relay mode/);
+  });
+
+  it('app_password (fallback) reads the password from EMAIL_SMTP_PASSWORD_FILE (as resolved by the bootstrap)', async () => {
+    const env = resolveFileSecrets({
+      EMAIL_PROVIDER: 'smtp',
+      EMAIL_SMTP_MODE: 'app_password',
       EMAIL_SMTP_USER: 'desk-test@ottimo.test',
       EMAIL_SMTP_PASSWORD_FILE: secretFile('abcd efgh ijkl mnop\n'),
     });
     const r = await createEmailAdapter(env, 'production', clock);
     expect(r.provider).toBe('smtp');
+    expect(r.smtpMode).toBe('app_password');
     expect(r.adapter).toBeInstanceOf(SmtpNotificationAdapter);
     (r.adapter as SmtpNotificationAdapter).close();
   });
 
-  it('smtp with an empty secret file or no user → CONFIG error naming variables only', async () => {
+  it('app_password with an empty secret file or no user → CONFIG error naming variables only', async () => {
     const empty = resolveFileSecrets({
       EMAIL_PROVIDER: 'smtp',
+      EMAIL_SMTP_MODE: 'app_password',
       EMAIL_SMTP_USER: 'desk-test@ottimo.test',
       EMAIL_SMTP_PASSWORD_FILE: secretFile(''),
     });
@@ -60,6 +101,7 @@ describe('createEmailAdapter (worker)', () => {
     );
     const noUser = resolveFileSecrets({
       EMAIL_PROVIDER: 'smtp',
+      EMAIL_SMTP_MODE: 'app_password',
       EMAIL_SMTP_PASSWORD_FILE: secretFile('abcdefghijklmnop'),
     });
     const err = await createEmailAdapter(noUser, 'production', clock).catch((e: unknown) => e);

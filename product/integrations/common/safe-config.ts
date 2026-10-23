@@ -17,6 +17,8 @@ export const INTEGRATION_SELECTORS: Readonly<Record<string, readonly string[]>> 
   DOORLOCK_PROVIDER: ['off', 'manual', 'mock', 'ttlock'],
   // INV 23/10/2026: Google Workspace SMTP replaces Amazon SES for v1.0 – `ses`/`resend` had no adapter and are gone.
   EMAIL_PROVIDER: ['off', 'mock', 'smtp'],
+  // SEC FB-R3-SEC-INT-EMAIL-01: relay (by VPS IP, no password – default) | app_password (fallback, warned).
+  EMAIL_SMTP_MODE: ['relay', 'app_password'],
   ZALO_PROVIDER: ['off', 'manual_copy', 'zns'],
 };
 

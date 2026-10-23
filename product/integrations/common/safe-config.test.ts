@@ -74,6 +74,15 @@ describe('findUnsafeIntegrationConfig / assertSafeConfig (README 1.3)', () => {
     // Resolved from the file (bootstrap resolveFileSecrets keeps X_FILE next to X): accepted.
     const fromFile = { ...raw, EMAIL_SMTP_PASSWORD_FILE: '/run/secrets/email_smtp_password' };
     expect(findUnsafeIntegrationConfig(fromFile, 'production')).toEqual([]);
+    // SEC EMAIL-01: relay (default) or app_password; anything else refused everywhere.
+    for (const v of ['relay', 'app_password']) {
+      expect(findUnsafeIntegrationConfig({ ...prodOk, EMAIL_SMTP_MODE: v }, 'production')).toEqual(
+        [],
+      );
+    }
+    expect(findUnsafeIntegrationConfig({ EMAIL_SMTP_MODE: 'oauth' }, 'dev')).toEqual([
+      'EMAIL_SMTP_MODE must be one of relay|app_password',
+    ]);
     // The message names the variable, never the value.
     expect(findUnsafeIntegrationConfig(raw, 'production').join()).not.toContain('abcdabcd');
   });

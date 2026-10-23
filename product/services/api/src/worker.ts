@@ -26,6 +26,15 @@ import { StaffEmailDispatcher } from './jobs/email-dispatch';
 const log = (level: string, msg: string, extra: Record<string, unknown> = {}): void =>
   console.log(JSON.stringify({ level, msg, ...extra }));
 
+/** Error fields safe to log: constructor name and a short code, never the message (SEC S-1). */
+function errorTag(err: unknown): { err: string; code?: string } {
+  const name = err instanceof Error ? err.name : 'error';
+  const code = (err as { code?: unknown } | null)?.code;
+  return typeof code === 'string' && /^[A-Za-z0-9_.:-]{1,40}$/.test(code)
+    ? { err: name, code }
+    : { err: name };
+}
+
 async function main(): Promise<void> {
   const rt = await createRuntime((m) => log('info', m));
   const registry = new JobRegistry();
@@ -67,6 +76,16 @@ async function main(): Promise<void> {
   const emailDispatcher = email.adapter
     ? new StaffEmailDispatcher(rt.database, rt.clock, email.adapter, log)
     : null;
+  if (email.smtpMode === 'app_password') {
+    // SEC FB-R3-SEC-INT-EMAIL-01: the app password opens the whole mailbox (IMAP) and bypasses 2-step verification.
+    log(
+      'warn',
+      'email app_password mode: wider-scoped credential on this server – prefer EMAIL_SMTP_MODE=relay',
+      {
+        ref: 'FB-R3-SEC-INT-EMAIL-01',
+      },
+    );
+  }
   if (email.provider === 'smtp' && email.adapter) {
     // Login check only (no mail sent); a failure is logged with a code, the outbox keeps retrying.
     const h = await email.adapter.healthCheck({
@@ -103,12 +122,13 @@ async function main(): Promise<void> {
         try {
           for (const p of await runner.listProperties()) {
             const st = await emailDispatcher.runForProperty(p);
-            if (st.done + st.retry + st.dead > 0) log('info', 'email dispatch', { ...st });
+            if (st.done + st.retry + st.dead + st.deferred > 0) {
+              log('info', 'email dispatch', { ...st });
+            }
           }
         } catch (err) {
-          log('error', 'email dispatch failed', {
-            err: err instanceof Error ? err.message : 'error',
-          });
+          // SEC S-1: name + code only – a DB/library message may carry values.
+          log('error', 'email dispatch failed', errorTag(err));
         }
       }
     } finally {

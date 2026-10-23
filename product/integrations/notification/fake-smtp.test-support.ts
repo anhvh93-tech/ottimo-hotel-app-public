@@ -16,6 +16,10 @@ export interface FakeSmtpOptions {
   advertiseStartTls?: boolean;
   /** Recipients answered with 550. */
   rejectRcpt?: string[];
+  /** Accept MAIL without AUTH (Google SMTP relay authenticated by IP). */
+  ipAuth?: boolean;
+  /** Answer MAIL FROM like the relay does when the client IP is not allowed (550 5.7.0). */
+  relayDenied?: boolean;
   /** Answer MAIL FROM with this code (e.g. 421 = temporary). */
   mailFromCode?: number;
 }
@@ -23,6 +27,7 @@ export interface FakeSmtpOptions {
 export class FakeSmtpServer {
   readonly mails: FakeMail[] = [];
   readonly commands: string[] = [];
+  readonly ehlo: string[] = [];
   private server: Server | null = null;
   port = 0;
 
@@ -97,6 +102,7 @@ export class FakeSmtpServer {
         const verb = line.split(' ')[0]!.toUpperCase();
         this.commands.push(verb === 'AUTH' ? 'AUTH' : verb);
         if (verb === 'EHLO' || verb === 'HELO') {
+          this.ehlo.push(line.split(' ')[1] ?? '');
           sock.write('250-fake.smtp.test\r\n');
           if (o.advertiseStartTls) sock.write('250-STARTTLS\r\n');
           sock.write('250-AUTH PLAIN LOGIN\r\n250 8BITMIME\r\n');
@@ -119,7 +125,11 @@ export class FakeSmtpServer {
             say('334 VXNlcm5hbWU6');
           } else say('504 5.5.4 Unrecognized authentication type');
         } else if (verb === 'MAIL') {
-          if (!authUser) say('530 5.7.0 Authentication Required');
+          if (!authUser && !o.ipAuth) say('530 5.7.0 Authentication Required');
+          else if (o.relayDenied)
+            say(
+              '550 5.7.0 Mail relay denied [192.0.2.1]. Invalid credentials for relay for one of the domains in: x@y.test',
+            );
           else if (o.mailFromCode) say(`${o.mailFromCode} 4.7.0 Try again later`);
           else {
             from = /<([^>]*)>/.exec(line)?.[1] ?? '';
