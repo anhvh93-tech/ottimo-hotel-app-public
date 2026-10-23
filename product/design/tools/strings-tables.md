@@ -3381,6 +3381,24 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `hk.cancel.day_ended` | Hết ngày – chưa làm | Day ended – not done | ⟨chừa chỗ⟩ | P-13: cancelReasonCode day_ended |
 | `hk.refill_unnamed` | Bổ sung minibar: {n} món – xem tủ hoặc hỏi lễ tân tên món | Restock minibar: {n} items – check the minibar or ask the front desk which ones | ⟨chừa chỗ⟩ | P-04: khi refillItems chưa có itemName (BE chưa trả) – thay câu "1, 1". UXD 18/10: EN "minibar" như hk.refill |
 
+#### R3 Sprint 1 – FE-B US-008 thêm người dùng (FE viết theo content guide; chờ UXD duyệt)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `users.add_title` | Thêm người dùng | Add user | ⟨chừa chỗ⟩ | Tiêu đề hộp S26 – chỉ OWN (A100) |
+| `users.f_username` | Tên đăng nhập | Username | ⟨chừa chỗ⟩ |  |
+| `users.f_username_help` | 3–64 ký tự: chữ thường không dấu, số, dấu chấm, gạch dưới, gạch ngang. Ví dụ lan.hk | 3–64 characters: lower-case letters, numbers, dot, underscore, hyphen. For example lan.hk | ⟨chừa chỗ⟩ |  |
+| `users.f_temp_pw` | Mật khẩu tạm | Temporary password | ⟨chừa chỗ⟩ |  |
+| `users.f_temp_pw_help` | Ít nhất 10 ký tự, không chứa tên đăng nhập. Người dùng phải đổi ở lần đăng nhập đầu. | At least 10 characters, without the username. The user must change it at first sign-in. | ⟨chừa chỗ⟩ |  |
+| `users.gen_pw` | Tạo mật khẩu khác | Generate another | ⟨chừa chỗ⟩ |  |
+| `users.add_s2_title` | Xác nhận thêm {name} | Confirm adding {name} | ⟨chừa chỗ⟩ |  |
+| `users.add_s2_body` | Tài khoản mới có vai: {roles}. | The new account gets these roles: {roles}. | ⟨chừa chỗ⟩ |  |
+| `users.added` | Đã thêm {name}. | {name} added. | ⟨chừa chỗ⟩ |  |
+| `users.f_username_invalid` | Chỉ dùng chữ thường không dấu, số, dấu chấm, gạch dưới, gạch ngang (3–64 ký tự). | Use only lower-case letters, numbers, dot, underscore or hyphen (3–64 characters). | ⟨chừa chỗ⟩ |  |
+| `field.USERNAME_TAKEN` | Tên đăng nhập này đã có. Chọn tên khác. | This username is already in use. Choose another. | ⟨chừa chỗ⟩ | createUser 409 – lỗi tại ô (US-008 AC2) |
+| `field.PASSWORD_SAME_AS_USERNAME` | Mật khẩu không được chứa tên đăng nhập. | The password must not contain the username. | ⟨chừa chỗ⟩ |  |
+| `field.PASSWORD_TOO_COMMON` | Mật khẩu quá dễ đoán. Chọn mật khẩu khác. | This password is too easy to guess. Choose another. | ⟨chừa chỗ⟩ | SR-AUTH-02 – cả chuỗi chứa "ottimo" |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |

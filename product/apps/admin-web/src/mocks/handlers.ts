@@ -949,13 +949,29 @@ export const handlers = [
       roles?: MockUser['roles'];
       reauth?: unknown;
     };
-    const bad = await strongReauth(g.user, body.reauth);
-    if (bad) return bad;
+    // Same order as users.controller/service (FE-B US-008): schema → S2 → password policy → 409 USERNAME_TAKEN.
     const username = String(body.username ?? '')
       .trim()
       .toLowerCase();
-    if (!username || db.users.some((x) => x.username === username))
-      return validation([{ field: 'username', code: username ? 'DUPLICATE' : 'REQUIRED' }]);
+    if (!/^[a-z0-9._-]{3,64}$/.test(username))
+      return validation([{ field: 'username', code: username ? 'PATTERN' : 'REQUIRED' }]);
+    if (!body.roles?.length) return validation([{ field: 'roles', code: 'REQUIRED' }]);
+    const bad = await strongReauth(g.user, body.reauth);
+    if (bad) return bad;
+    const pw = String(body.initialPassword ?? '');
+    const pwCode =
+      pw.length < 10
+        ? 'PASSWORD_TOO_SHORT'
+        : pw.toLowerCase().includes(username)
+          ? 'PASSWORD_SAME_AS_USERNAME'
+          : /ottimo|password|12345678/i.test(pw)
+            ? 'PASSWORD_TOO_COMMON'
+            : null;
+    if (pwCode) return validation([{ field: 'initialPassword', code: pwCode }]);
+    if (db.users.some((x) => x.username === username))
+      return problem(409, 'USERNAME_TAKEN', {
+        errors: [{ field: 'username', code: 'USERNAME_TAKEN' }],
+      });
     const u: MockUser = {
       id: `0192a1b0-0000-7000-8000-${String(900 + db.users.length).padStart(12, '0')}`,
       username,

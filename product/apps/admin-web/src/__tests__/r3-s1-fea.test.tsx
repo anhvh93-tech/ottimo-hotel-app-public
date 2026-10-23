@@ -395,7 +395,12 @@ describe('FEA-01: S2 on users, devices, password', () => {
       [
         'POST',
         '/v1/users',
-        { username: 'x.new', displayName: 'X', initialPassword: 'a'.repeat(12), roles: [] },
+        {
+          username: 'x.new',
+          displayName: 'X',
+          initialPassword: 'a'.repeat(12),
+          roles: [{ propertyId: prop, role: 'front_desk' }],
+        },
       ],
       ['PATCH', `/v1/users/${fd.id}`, { status: 'disabled' }, ifm],
       ['PATCH', `/v1/users/${fd.id}`, { resetPassword: 'b'.repeat(12) }, ifm],
