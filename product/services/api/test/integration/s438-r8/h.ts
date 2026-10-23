@@ -15,6 +15,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { expect } from 'vitest';
 import type { Database, Tx } from '../../../src/db/database';
 import { JobRunner } from '../../../src/jobs/job-runner';
+import { hasOpenDebtByNumber } from '../../../src/modules/folio/public/folio-close-job';
 import { FolioService } from '../../../src/modules/folio/public/folio.service';
 import { AttachmentService } from '../../../src/modules/files/public/attachment.service';
 import { NoGuestAccessPort } from '../../../src/modules/frontdesk/internal/default-ports';
@@ -403,7 +404,7 @@ export function kit(
             reason: 'post_checkout_unpaid',
             actor: { userId: '00000000-0000-0000-0000-000000000000', roles: ['owner'] },
           }),
-        hasOpenDebt: async (id) => (await hooks.openDebt(one, id)) !== null,
+        hasOpenDebt: (id) => hasOpenDebtByNumber(hooks, one, id),
       }),
     );
     return { statusCode: 200, body: String(out), json: () => out } as unknown as Res;

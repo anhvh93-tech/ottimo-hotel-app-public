@@ -59,6 +59,7 @@ defineAuditEntity('reservation', [
   'debtVnd',
   // ARC 16.31.2 (BUG-R2-209/210): open debt before/after a debt record (numbers only).
   'openDebtVnd',
+  'actorRole',
   'debtOutcome',
   'balanceDueVnd',
   'dueDate',

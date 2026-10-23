@@ -172,8 +172,15 @@ export interface OpenDebt {
    * DOM 18/10 (BR-525): the OPEN debt – from the debt records of the open cycle (B18 = what was owed, G-4 = each
    * increase, J15 = everything owed) minus what was collected or written off since; capped by `balanceDueVnd`.
    * After the post-checkout window everything owed is debt (= `balanceDueVnd`). The cap of a `debt_write_off` FOC.
+   * Always > 0 (ARC 16.31.1 – BUG-R2-208: 0 → the reader returns null).
    */
   openDebtVnd: number;
+  /**
+   * FB-R3-SEC-BE-B-01 (b): the debt has its 0076 cycle (`debt_opened_at`). false = a debt written before 0076 whose
+   * number is derived back from the lines (W_old) – A32 reductions stay blocked (R2 N-7) until a debt record opens
+   * the cycle.
+   */
+  cycleOpened: boolean;
 }
 export type OpenDebtReader = (tx: Tx, folioId: string) => Promise<OpenDebt | null>;
 

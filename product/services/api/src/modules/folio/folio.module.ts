@@ -61,6 +61,12 @@ defineAuditEntity('folio_line', [
   'lineState',
   'relatedCategory',
   'reversedVnd',
+  // BUG-R2-208 (ARC 16.31.1, SEC s1 D.4): numbers an A32 reduction on a folio with an open debt was decided on.
+  'openDebtVnd',
+  'windowVnd',
+  'reducedVnd',
+  // FB-R3-SEC-BE-B-03: the role at the time of the reduction.
+  'actorRole',
 ]);
 defineAuditEntity('invoice_request', ['buyerType', 'einvoiceStatus']);
 // 0.3.7 D1 (S4-02/S4-18/S4-22): folio.foc_dormant / foc_restored / foc_suspended / foc_cancelled on the request.

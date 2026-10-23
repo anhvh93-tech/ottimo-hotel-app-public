@@ -10,7 +10,7 @@
  * - Adjustment = reversal + new line with the reason (BR-008); settled folio → MGR+ only (A32).
  * Settled folio: new charges only inside post_checkout_window_until (BR-427 c), flagged post_checkout.
  */
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
 import type { FolioLineCategory } from '../../../db/schema/folio';
@@ -22,6 +22,7 @@ import {
   requireReason,
   stripControlChars,
 } from '../../../shared/validation';
+import { actorRoleOf } from '../../audit/public/actor-role';
 import { AuditService } from '../../audit/public/audit.service';
 import { type ApprovalRow, ApprovalService } from '../../approvals/public/approval.service';
 import { EventsService } from '../../events/public/events.service';
@@ -65,6 +66,7 @@ interface Actor {
 /** Categories staff may type without a catalogue code (EP03-05 3.2). */
 const FREE_CATEGORIES = ['fnb', 'service_fee', 'damage'] as const;
 const MANAGERS = ['owner', 'manager'];
+const logger = new Logger('FolioLines');
 
 @Injectable()
 export class FolioLinesService {
@@ -446,6 +448,16 @@ export class FolioLinesService {
     }
     const managers = actor.roles.some((r) => MANAGERS.includes(r));
     if (folio.status === 'closed') throw problem('FOLIO_LOCKED');
+    // N-15 (ARC 16.31.1/16.31.4, BR-427 (d)): past `post_checkout_window_until` the folio is final even before J15
+    // (hourly) has closed it – treated as `closed`.
+    const windowUntil = folio.post_checkout_window_until ?? null;
+    if (
+      folio.status === 'settled' &&
+      windowUntil !== null &&
+      this.clock.now().getTime() >= windowUntil.getTime()
+    ) {
+      throw problem('FOLIO_LOCKED', { detail: 'post-checkout window over (BR-427 d)' });
+    }
     // US-038 AC2 / A32: after checkout only MGR+ posts corrections.
     if (folio.status === 'settled' && !managers) throw problem('FORBIDDEN_ACTION');
     const { rows } = await tx.query<{
@@ -484,16 +496,30 @@ export class FolioLinesService {
     }
     const qty = input.newQuantity ?? Number(line.quantity);
     const price = input.newUnitPriceVnd ?? line.unit_price_vnd;
-    // BR-525 N-7 (DOM 18/10): while the checked-out stay has an OPEN debt, no correction may REDUCE a line of the
-    // settled folio – owed money only goes down through a FOC `debt_write_off` (BR-433 limits, OWN above them, FOC
-    // report). An increase, or a folio without an open debt, keeps A32.
+    // BR-525 N-7 by the number (ARC 16.31.1 – BUG-R2-208, DOM 18/10; SEC s1 D): on a settled folio inside its window
+    // a correction that REDUCES a line (void, lower price, lower quantity; reduction = line before − after) is allowed
+    // only up to W = max(0, còn phải thu) − `openDebtVnd` (the charges still in their window); above → 409, every
+    // role, nothing written – the debt part only goes down through a FOC `debt_write_off` (BR-433) or a receipt.
+    // `openDebtVnd` = 0 → as a stay without debt. An increase keeps A32. Read under L1 → L3 held above.
+    let debtCheck: { openDebtVnd: number; windowVnd: number; reducedVnd: number } | null = null;
     if (folio.status === 'settled') {
       const before = Math.round(Number(line.quantity) * line.unit_price_vnd);
       const after = input.voidLine ? 0 : night ? night.amountVnd : Math.round(qty * price);
-      if (after < before && (await this.hooks.openDebt(tx, folio.id)) !== null) {
-        throw problem('FOLIO_LOCKED', {
-          detail: 'open debt – reduce what is owed through a FOC debt_write_off (BR-525)',
-        });
+      if (after < before) {
+        const debt = await this.hooks.openDebt(tx, folio.id);
+        if (debt) {
+          const openDebtVnd = debt.openDebtVnd;
+          const windowVnd = Math.max(0, debt.balanceDueVnd) - openDebtVnd;
+          // FB-R3-SEC-BE-B-01 (b): a debt written before 0076 (no cycle yet) keeps R2 N-7 – no reduction at all; the
+          // right to reduce never rests on the number derived back from the lines.
+          if (!debt.cycleOpened || before - after > windowVnd) {
+            throw problem('FOLIO_LOCKED', {
+              detail:
+                'reduction above the charges still in their window – the debt goes down through a FOC debt_write_off (BR-525)',
+            });
+          }
+          debtCheck = { openDebtVnd, windowVnd, reducedVnd: before - after };
+        }
       }
     }
     if (input.newUnitPriceVnd !== undefined && !managers && !night) {
@@ -562,6 +588,37 @@ export class FolioLinesService {
       });
       // x-ota-prepaid-rule (re-verification 17/10): the replacement of an OTA-covered line moves the receipt.
       await this.folios.resyncOtaCollect(tx, folio.id, line.reservation_id, actorInfo);
+      if (!debtCheck) {
+        await this.audit.recordMoney(tx, {
+          action: 'folio_line.adjusted',
+          entityType: 'folio_line',
+          entityId: line.id,
+          ...(stayCode ? { entityCode: stayCode } : {}),
+          before: {
+            category: line.category,
+            amountVnd: Math.round(Number(line.quantity) * line.unit_price_vnd),
+          },
+          after: { category: line.category, amountVnd: newAmount },
+          reason,
+          ...(actor.requestId ? { requestId: actor.requestId } : {}),
+        });
+      }
+    }
+    await this.folios.syncReductions(tx, folio.id, {
+      userId: actor.userId,
+      ...(actor.requestId ? { requestId: actor.requestId } : {}),
+    });
+    if (debtCheck) {
+      // FB-R3-SEC-BE-B-03 (SEC s1 D.4): a reduction allowed while the stay owes a debt is audited with the role at the
+      // time and the open debt MEASURED after the write (same transaction, same locks). BR-525 (ii) checked at run
+      // time: the open debt never drops through A32 – otherwise everything is rolled back.
+      const openAfterVnd = (await this.hooks.openDebt(tx, folio.id))?.openDebtVnd ?? 0;
+      if (openAfterVnd < debtCheck.openDebtVnd) {
+        logger.error(
+          `BR-525 (ii): open debt dropped through A32 on folio ${folio.id} – rolled back`,
+        );
+        throw new Error('BR-525 (ii) invariant: open debt dropped through A32');
+      }
       await this.audit.recordMoney(tx, {
         action: 'folio_line.adjusted',
         entityType: 'folio_line',
@@ -570,16 +627,20 @@ export class FolioLinesService {
         before: {
           category: line.category,
           amountVnd: Math.round(Number(line.quantity) * line.unit_price_vnd),
+          openDebtVnd: debtCheck.openDebtVnd,
+          windowVnd: debtCheck.windowVnd,
+          actorRole: actorRoleOf(actor.userId, actor.roles),
         },
-        after: { category: line.category, amountVnd: newAmount },
+        after: {
+          category: line.category,
+          amountVnd: input.voidLine || qty <= 0 ? 0 : newAmount,
+          reducedVnd: debtCheck.reducedVnd,
+          openDebtVnd: openAfterVnd,
+        },
         reason,
         ...(actor.requestId ? { requestId: actor.requestId } : {}),
       });
     }
-    await this.folios.syncReductions(tx, folio.id, {
-      userId: actor.userId,
-      ...(actor.requestId ? { requestId: actor.requestId } : {}),
-    });
     await this.folios.touch(tx, folio.id);
     if (line.reservation_id)
       await publishEvent(tx, this.events, 'reservation.changed', line.reservation_id);

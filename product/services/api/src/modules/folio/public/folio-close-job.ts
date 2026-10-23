@@ -8,12 +8,24 @@
  */
 import { Logger } from '@nestjs/common';
 import { JOB_LOCK_TIMEOUT_MS, type JobDefinition } from '../../../jobs/job-runner';
-import type { Database } from '../../../db/database';
+import type { Database, Tx } from '../../../db/database';
 import type { ReservationHooks } from '../../reservations/public/reservation-hooks';
 import { SYSTEM_ACTOR } from '../../reservations/public/stay-view';
 import type { FolioService } from './folio.service';
 
 export const FOLIO_CLOSE_JOB_KEY = 'folio.close';
+
+/**
+ * ARC 16.31.2 (BUG-R2-209, FB-R3-ARC-BEB-S1-02): J15's "an open debt already holds what is owed" – by the number
+ * (`openDebtVnd` > 0), one definition shared with the tests that run J15's unit.
+ */
+export async function hasOpenDebtByNumber(
+  hooks: Pick<ReservationHooks, 'openDebt'>,
+  tx: Tx,
+  folioId: string,
+): Promise<boolean> {
+  return ((await hooks.openDebt(tx, folioId))?.openDebtVnd ?? 0) > 0;
+}
 /** Folios handled per tick and property (the rest on the next tick). */
 const BATCH = 200;
 const logger = new Logger('J15');
@@ -51,8 +63,7 @@ export function folioCloseJob(
                     actor: SYSTEM_ACTOR,
                   }),
                 // ARC 16.31.2 (BUG-R2-209): by the number – X = B means the open debt already holds what is owed.
-                hasOpenDebt: async (folioId) =>
-                  ((await hooks.openDebt(one, folioId))?.openDebtVnd ?? 0) > 0,
+                hasOpenDebt: (folioId) => hasOpenDebtByNumber(hooks, one, folioId),
               }),
             { lockTimeoutMs: JOB_LOCK_TIMEOUT_MS },
           );
