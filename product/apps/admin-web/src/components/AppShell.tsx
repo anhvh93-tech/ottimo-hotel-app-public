@@ -1,8 +1,9 @@
 import { useI18n } from '@ottimo/i18n';
-import { Chip, Icon, Modal, OfflineBar } from '@ottimo/ui';
+import { Alert, Button, Chip, Icon, Modal, OfflineBar } from '@ottimo/ui';
 import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { timeHHmm } from '../app/dates';
+import { readSession, writeSession } from '../app/storage';
 import { useNarrow } from '../hooks/useMedia';
 import { useOnline } from '../hooks/useOnline';
 import {
@@ -250,7 +251,55 @@ export function Topbar({ title, sub, actions }: TopbarProps) {
           {t('shell.offline_readonly', { time: timeHHmm(since ?? new Date()) })}
         </OfflineBar>
       ) : null}
+      <MfaNudge />
     </>
+  );
+}
+
+const NUDGE_LATER_KEY = 'ottimo.mfaNudgeLater';
+
+/**
+ * SEC 06.3 / 06.15: owner/manager without 2FA while `MFA_ENFORCED = false` (`Me.mfaRequiredButMissing`) and
+ * accounts with ≤ 3 recovery codes (`Me.recoveryCodesLow`) see a reminder on every screen. "Để sau" hides
+ * it for this tab session only (UI flag, wiped at sign-out). Not on the 2FA screen itself.
+ * [CHỜ UXD] placement in the R3 hi-fi (hi-fi 01-login 1.4 shows the banner, not where it sits).
+ */
+function MfaNudge() {
+  const { t } = useI18n();
+  const { me } = useSession();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [later, setLater] = useState(() => readSession(NUDGE_LATER_KEY) === '1');
+  if (later || location.pathname === '/security') return null;
+  const missing = me?.mfaRequiredButMissing === true;
+  const low = me?.recoveryCodesLow === true;
+  if (!missing && !low) return null;
+  return (
+    <div style={{ padding: '8px 16px 0' }}>
+      <Alert
+        tone="warn"
+        icon="shield"
+        actions={
+          <>
+            <Button size="sm" onClick={() => navigate(missing ? '/enroll-2fa' : '/security')}>
+              {t(missing ? 'mfa.nudge_cta' : 'mfa.regen')}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                writeSession(NUDGE_LATER_KEY, '1');
+                setLater(true);
+              }}
+            >
+              {t('mfa.nudge_later')}
+            </Button>
+          </>
+        }
+      >
+        {t(missing ? 'mfa.nudge' : 'mfa.codes_low_short')}
+      </Alert>
+    </div>
   );
 }
 

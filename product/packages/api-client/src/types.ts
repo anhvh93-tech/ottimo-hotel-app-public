@@ -78,6 +78,13 @@ export type SetParameterBody = BodyOf<'setParameter'>;
 export type TrustDeviceBody = BodyOf<'trustCurrentDevice'>;
 export type UpdateUserBody = BodyOf<'updateUser'>;
 export type LookupGuestBody = BodyOf<'lookupGuestByContact'>;
+// R3 Sprint 1 – US-143 2FA (OpenAPI 0.3.8, SEC A)
+export type StrongReauth = Schemas['StrongReauth'];
+export type LoginMfaBody = BodyOf<'loginMfa'>;
+export type My2fa = ResponseOf<'getMy2fa'>;
+export type My2faSetup = ResponseOf<'startMy2faSetup'>;
+export type RecoveryCodes = ResponseOf<'confirmMy2fa'>;
+export type ResetUser2faBody = BodyOf<'resetUser2fa'>;
 export type ConfirmDepositBody = BodyOf<'confirmDeposit'>;
 export type CancelReservationBody = BodyOf<'cancelReservation'>;
 export type CancelReservationResult = ResponseOf<'cancelReservation'>;
