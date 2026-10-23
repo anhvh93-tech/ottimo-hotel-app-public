@@ -1,7 +1,7 @@
 /**
  * R3-Q17 – SEC mandatory cases before real data (rounds/round-03/outputs/SEC/s1-security-requirements.md B.2–B.4):
  * - FB-R2-SEC-BE-74: J25 leaves nothing that identifies the person on an anonymised `document` profile (option (b)),
- *   a returning guest with the same phone gets ONE live profile, the 0080 back-fill is idempotent;
+ *   a returning guest with the same phone gets ONE live profile, the 0081 back-fill is idempotent;
  * - FB-R2-SEC-BE-75: the J25 anchor also comes from cancelled / no-show bookings and removed members, else the
  *   profile's creation; an open booking in ANOTHER property of the organisation keeps the profile;
  *   `guest_stay_retention` is a narrow SECURITY DEFINER function (boolean + instant, current organisation only);
@@ -150,7 +150,7 @@ describe.skipIf(!HAS_DB)('R3-Q17 – SEC BE-74, BE-75, BE-79', () => {
       expect(live).toEqual([{ id: back, anonymized_at: null }]);
     });
 
-    it('(4) the 0080 back-fill clears profiles anonymised before the fix and is idempotent', async () => {
+    it('(4) the 0081 back-fill clears profiles anonymised before the fix and is idempotent', async () => {
       const g = await docProfile('Cũ Đã Ẩn', monthsBefore(30));
       await q(
         `UPDATE guest SET full_name = 'ANON X', anonymized_at = $2, phone_e164 = '84907770002',
@@ -159,7 +159,7 @@ describe.skipIf(!HAS_DB)('R3-Q17 – SEC BE-74, BE-75, BE-79', () => {
         [g, monthsBefore(1)],
       );
       const sql = readFileSync(
-        join(__dirname, '..', '..', 'src', 'db', 'migrations', '0080_sec_retention_be_c.sql'),
+        join(__dirname, '..', '..', 'src', 'db', 'migrations', '0081_sec_retention_be_c.sql'),
         'utf8',
       );
       const update = sql.slice(
@@ -279,6 +279,50 @@ describe.skipIf(!HAS_DB)('R3-Q17 – SEC BE-74, BE-75, BE-79', () => {
       expect(seen).toEqual({ has_open: false, last_end: null });
       const [mine] = await q('SELECT * FROM guest_stay_retention($1)', [g]);
       expect(mine).toEqual({ has_open: true, last_end: null });
+    });
+  });
+
+  describe('FB-R3-SEC-BEC-01 – guard of the owner-only policies (before RC)', () => {
+    it('(1) the only SECURITY DEFINER function reading reservation / reservation_guest is guest_stay_retention', async () => {
+      const { rows } = await db.pool.query<{ proname: string }>(
+        `SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+          WHERE n.nspname = 'public' AND p.prosecdef
+            AND p.prosrc ~ '\\mreservation(_guest)?\\M(?!_)'
+          ORDER BY p.proname`,
+      );
+      // A new definer function here sees EVERY property of the organisation through org_retention_read: SEC
+      // reviews it before it joins this list (ARC coding standard).
+      expect(rows.map((r) => r.proname)).toEqual(['guest_stay_retention']);
+    });
+
+    it('(2) policies granted to ottimo_owner are exactly the reviewed list', async () => {
+      const { rows } = await db.pool.query<{ policyname: string; tablename: string; cmd: string }>(
+        `SELECT policyname, tablename, cmd FROM pg_policies
+          WHERE schemaname = 'public' AND 'ottimo_owner' = ANY(roles)
+          ORDER BY policyname, tablename`,
+      );
+      expect(rows.map((r) => `${r.policyname}:${r.tablename}:${r.cmd}`)).toEqual([
+        'entry_function_read:app_user:SELECT',
+        'entry_function_read:guest_access_token:SELECT',
+        'entry_function_read:guest_session:SELECT',
+        'entry_function_read:mfa_login_challenge:SELECT',
+        'entry_function_read:property:SELECT',
+        'entry_function_read:trusted_device:SELECT',
+        'entry_function_read:user_property_role:SELECT',
+        'entry_function_read:user_session:SELECT',
+        'org_retention_read:reservation:SELECT',
+        'org_retention_read:reservation_guest:SELECT',
+      ]);
+    });
+
+    it('(3) no view / materialized view in public runs with the owner rights (security_invoker required)', async () => {
+      const { rows } = await db.pool.query<{ relname: string }>(
+        `SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'public' AND c.relkind IN ('v', 'm')
+            AND NOT coalesce('security_invoker=true' = ANY(c.reloptions), false)
+          ORDER BY c.relname`,
+      );
+      expect(rows.map((r) => r.relname)).toEqual([]);
     });
   });
 

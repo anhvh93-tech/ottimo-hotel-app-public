@@ -174,7 +174,7 @@ export class DocumentProfileService {
    *   cancellation, no-show, removal from the party – or `last_stay_checkout_at` (touchLastStay), else the
    *   profile's `created_at` (a profile on no stay at all). A stay still open (hold / confirmed / in house, not
    *   removed) in ANY property of the organisation keeps the profile. Both come from the SECURITY DEFINER
-   *   function `guest_stay_retention` (migration 0080: id in, one boolean + one instant out, current
+   *   function `guest_stay_retention` (migration 0081: id in, one boolean + one instant out, current
    *   organisation only) – J25 runs per property under property RLS and could not see the other properties.
    * - Anonymised = nothing left that identifies the person (SEC FB-R2-SEC-BE-74 (b)): an anonymous name, and
    *   every field outside SEC 7.1 NULL (contact, messaging, company, tax code, notes, tags, date of birth,
@@ -182,6 +182,9 @@ export class DocumentProfileService {
    *   e-mail unique indexes ignore anonymised rows, and those rows now hold none – a returning guest with the
    *   same phone gets one live profile.
    * Audit / purge_journal: ids and counts only.
+   * Merged profiles are skipped (`merged_into_id IS NULL`) – SEC FB-R3-SEC-BEC-03: no code merges profiles yet;
+   * the merge story MUST either clear the personal fields of the merged profile when merging or make J25 handle
+   * merged profiles too (with a test), otherwise a merged `document` profile keeps its data forever.
    */
   async anonymizeDue(
     tx: Tx,

@@ -1,5 +1,5 @@
--- 0080 (BE-C, R3 Sprint 1 – R3-Q17: SEC FB-R2-SEC-BE-74, FB-R2-SEC-BE-75; number after 0079 (2FA) on main, ARC
--- s1-contracts 7). No table change: the head snapshot is 0079's tables with a new id (prevId = 0079).
+-- 0081 (BE-C, R3 Sprint 1 – R3-Q17: SEC FB-R2-SEC-BE-74, FB-R2-SEC-BE-75; ORC order: BE-B 0080, BE-C 0081, BE-D 0082. ARC
+-- s1-contracts 7). No table change. Chained after 0079 for now (prevId = 0079) – ORC re-chains after BE-B 0080 at merge.
 --
 -- (1) guest_stay_retention(guest) – J25 (T05) needs the retention anchor and "a stay still open" of a `document`
 --     profile across EVERY property of its organisation (SEC BE-75: J25 runs per property under property RLS and

@@ -875,7 +875,12 @@ export class RegistrationService {
     if (newGuest) await this.profiles.writeDocKey(tx, newGuest, after.key, after.last4);
   }
 
-  /** The profile's own latest P05_CRM decision on ANOTHER document (this property), else `not_asked`. */
+  /**
+   * The profile's own latest P05_CRM decision on ANOTHER document (this property), else `not_asked`.
+   * Known limit (SEC FB-R3-SEC-BEC-02, Minor, safe side): `consent_record` is property-level RLS, so a P05 the
+   * person gave at ANOTHER property of the organisation is not seen – the profile falls back to `not_asked`
+   * (more is removed, nothing is kept). Org-wide lookup comes with R3-Q28 (read port) / a second property.
+   */
   private async priorCrmDecision(
     tx: Tx,
     guestId: string,
