@@ -290,3 +290,81 @@ Chạy trên Postgres 17 riêng của SEC (container tạm, đã xóa), role `ot
 1. Σ được đọc dưới L1 → L3 ngay trong `request`. Ca đua BR-525-27 ép thứ tự sau khóa folio, chạy hai thứ tự, deadlock +0.
 2. Σ xóa nợ tính theo dòng FOC **đang sống** và gồm cả yêu cầu đang chờ. Từ chối hay hủy `debt_cleared` không cộng, và đăng lại do BUG-R2-207 không bị tính hai lần.
 3. Bảng `foc_stay_alert` có RLS FORCE và quyền cột tối thiểu. Mục "Cần chú ý" chỉ OWN thấy. Audit cảnh báo không có dữ liệu khách.
+
+---
+
+## Review lại BE-83 lượt 2 – head `41c49d7` (Phản hồi & sửa, 23/10/2026)
+
+- Phạm vi:
+  - diff `5834c6a..41c49d7` trong `product/services/api/src`, gồm:
+    - `folio.service` (`limitBasisVnd`, `waiverLimitInput`, chụp cơ sở trong `settle`);
+    - `foc.service`, `stay-support`, `stay-waiver-alert`;
+    - các đường giá của `reservations` (`insertNights`, `lease-nights`, re-price, kế hoạch dời/đổi);
+    - migration 0080;
+  - test `r3-bb07-limit-basis`, `money-limit-basis-architecture`;
+  - `responses/s1-BE-B.md` mục "Lượt 2".
+- Cách chạy kiểm:
+  - worktree tách riêng của SEC ở đúng `41c49d7`, Postgres 17 mới, migrate từ đầu, dữ liệu giả;
+  - không sửa nhánh `worktree-agent-a4a7a7b47e3d900bf`, vì worktree đó nay đang dùng cho nhánh khác.
+
+### Kiểm đã chạy
+1. `tsc --noEmit`: đạt.
+2. **Toàn bộ api `vitest run` ở `41c49d7`: 109 tệp đạt (1 bỏ qua), 3.025 test đạt (2 bỏ qua), 0 lỗi.**
+3. `r3-bb07-limit-basis` (BB07-1…7, S1-11, 0080 guards), `r3-be83-esc026`, `money-limit-basis-architecture`: 30/30 đạt.
+4. Chạy lại ca dò Q1 của SEC, thêm chuỗi nâng giá:
+   - MGR A32 nâng dòng phòng lần lượt 2.000.000 → 5.000.000 → 9.000.000, tất cả `201`;
+   - mọi dòng thay vẫn mang `limit_ref_vnd` = 667.000; `limit_basis_checkout_vnd` = 667.000;
+   - MGR xóa nợ 1.000.000 trên dòng nợ → **`pending`** OWN;
+   - MGR xóa nợ 1.000.000 trên chính dòng phòng đã nâng → **`pending`**;
+   - MGR xóa nợ 600.000 → **`pending`**;
+   - O giữ 5.000.000. **Đường của FB-07 đã đóng.**
+
+### Đọc mã
+- **Một cổng đọc cơ sở:**
+  - giá bảo vệ của đêm = `LEAST(giá dòng, limit_ref_vnd)`, rồi lấy min với số chụp lúc B18;
+  - `nightRateBasis` và `folioNightBasisVnd` đã bị xóa;
+  - test kiến trúc khóa: ai được ghi `reference_rate_vnd` / `limit_basis_checkout_vnd`, và mọi `approvals.submit` loại `foc`/`special_discount` phải đi qua `waiverLimitInput`.
+- **A31 `setNightRate` không ghi giá tham chiếu.** Đêm gõ tay giữ giá tham chiếu cũ. Sửa tay chỉ làm cơ sở **giảm** (BB07-6), không bao giờ làm tăng.
+- **CHECK `folio_line_limit_ref_required_check`:** dòng đêm không có giá tham chiếu thì không ghi được, tức hỏng thì đóng (fail-closed).
+- **Migration 0080:**
+  - backfill chạy lại được (`WHERE … IS NULL`); tắt RLS chỉ trong lúc backfill, sau đó bật lại `ENABLE` + `FORCE` (theo mẫu 0016/0055);
+  - `foc_stay_alert` có FK tới `reservation`; `GRANT UPDATE (details)` trên `attention_event` vẫn chỉ cho ghi khóa `params` có trong allowlist.
+  - Folio đã settle trước 0080 không có số chụp, nên rơi về cơ sở tính từ giá tham chiếu backfill (= giá hiện hành lúc migrate). Chấp nhận được, vì staging bắt đầu rỗng (OPS C2) và chưa có dữ liệu thật.
+- **CHECK kind thông báo:** 0079 (2FA) và 0081 (BE-C) trên `main` không viết lại `staff_notification_kind_check`. 0080 là bản viết lại duy nhất (hợp các kind + `foc_stay_total_exceeded`), nên không làm mất kind của nhánh khác.
+
+### Trạng thái thẻ (người review xác nhận)
+
+| ID | Mức | Trạng thái BE | SEC xác nhận |
+|---|---|---|---|
+| FB-R3-SEC-BE-B-07 | Blocker | Done | **Verified (review)** ở `41c49d7`: Q1 và chuỗi nâng giá → `pending`; BB07-1…7 đạt. |
+| FB-R3-SEC-BE-B-08 | Suggestion | Accepted → checklist US-143 | Đồng ý. Còn mở, theo US-143, không chặn. |
+| FB-R3-SEC-BE-B-09 (mới) | Minor | – | Open, xem dưới. |
+
+### FB-R3-SEC-BE-B-09
+- Mức độ: Minor (rủi ro còn lại, không chặn gộp)
+- Vị trí: BR-433 (d) – đường giá **hợp lệ** của hệ thống trong lúc ở: B14 đổi căn, B7 gia hạn với giá gõ trong khung sàn–trần (`insertNights` ghi giá tham chiếu = giá đêm). Áp lên `stay-waiver-alert.ts` (ngưỡng MGR lấy lúc áp).
+- Vấn đề:
+  - Trong lúc ở, MGR vẫn nâng được cơ sở bằng một thao tác hệ thống hợp lệ. Ví dụ đổi khách sang căn đắt hơn (BB07-5 cho phép đúng như BR-433 (d)), hoặc thêm một đêm giá gõ sát trần. Sau đó MGR tự áp FOC lớn trên khóa khác, rồi đổi căn ngược lại hoặc rút đêm. FOC đã áp vẫn còn.
+  - Ngưỡng ESC-026 tính tại lúc áp nên cũng không bật.
+  - Trần là giá căn đắt nhất hoặc trần sàn–trần, không còn vô hạn như FB-07. Mọi bước đều để lại vết vận hành (đổi căn, sửa ngày, nhật ký).
+- Vì sao quan trọng: đây là cách lách hạn mức nhỏ hơn FB-07, nhưng vẫn là MGR tự áp vượt "giá một đêm thật" mà OWN không được báo.
+- Đề xuất sửa (DOM chọn, Sprint 2):
+  - khi giá tham chiếu của một đêm **giảm** (đổi căn ngược, rút đêm) mà khóa đó hoặc lượt ở đang có FOC do vai dưới OWN áp vượt cơ sở mới, gửi thông báo OWN (đánh giá lại ESC-026 khi cơ sở giảm);
+  - hoặc dùng cơ sở = min(giá tham chiếu lúc nhận phòng, hiện hành) cho FOC trên khóa không phải `room`;
+  - QA đưa vào fuzz (mục dưới).
+- Trạng thái: Open
+
+### Kết luận lượt 2
+
+| Hạng mục | Kết luận SEC |
+|---|---|
+| **BE-83 (FB-R2-SEC-BE-83) + ESC-026 A theo B.5** | **Đạt review ở `41c49d7`.** Không còn Blocker/Major của SEC. Ca B.5 #1–#8 đạt (B.5 #6 hiểu theo BR-433 v0.4.0, cộng mọi chu kỳ). R3-Q25 đạt. |
+| **Gộp** | **Gộp được** sau khi ARC làm thao tác S1-14 (nối lên `main` đã có 0079/0081). SEC chỉ cần xác nhận lại khi diff của bước nối chỉ chạm journal/snapshot migration. Nếu có đổi mã, SEC review phần thêm. |
+| **Verified chính thức (B.0)** | **Chưa ghi.** SEC ghi Verified ở `SEC-sprint1.md` khi đủ: (1) commit đã gộp `main` qua PR, CI xanh, 0 `retry #`; (2) SEC chạy lại các tệp `r3-be83-esc026`, `r3-bb07-limit-basis`, `money-limit-basis-architecture` trên worktree sạch ở commit gộp, DB mới; (3) QA đã đưa các ca fuzz dưới đây vào R3-Q30 và chạy xanh (D.6). |
+
+### Ca QA đưa vào fuzz R3-Q30 (cập nhật)
+1. B.5 #1–#4 (như mục trước).
+2. **I16 / FB-07:** xen ngẫu nhiên A31/A32 tăng hoặc giảm dòng `room` và `late_fee_as_night`, trước và sau B18, giữa các lần FOC/xóa nợ của MGR. Bất biến: cơ sở hạn mức ≤ min(giá tham chiếu, số chụp lúc B18); Σ đang áp do vai dưới OWN duyệt ≤ cơ sở, trừ khi OWN đã nhận `foc_stay_total_exceeded`.
+3. **FB-09:** B14 đổi căn lên rồi xuống, và B7 thêm rồi rút đêm giá gõ sát trần, xen FOC trên khóa khác. Ghi lại Σ so với cơ sở **sau** khi hoàn tác. Hiện đây là ca quan sát: báo số lần vượt, không fail, cho tới khi DOM chốt cách xử lý.
+4. Void dòng mang xóa nợ rồi xóa lại; bất biến O không giảm qua A32 (BR-525 (ii)).
+5. Bất biến cảnh báo: Σ lượt ở > ngưỡng ⇒ có ít nhất một thông báo OWN và đúng một mục "Cần chú ý" đang mở (S1-11).
