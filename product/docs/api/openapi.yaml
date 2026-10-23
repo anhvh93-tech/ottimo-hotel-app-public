@@ -968,7 +968,7 @@ paths:
       x-round: R3
       x-stories: [US-143]
       x-strong-reauth: true
-      x-c3-log: { subjectType: mfa_secret, action: create }
+      x-c3-log: { subjectType: mfa_secret, action: update }
       x-rate-limit: 5 sai/người/15 phút (SR-RL-02)
       requestBody:
         required: true

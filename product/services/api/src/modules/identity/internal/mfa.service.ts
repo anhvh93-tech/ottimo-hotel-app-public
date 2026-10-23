@@ -95,8 +95,7 @@ export class MfaService {
           enabled: u.mfa_enabled,
           required: roles.some((r) => (MFA_REQUIRED_ROLES as readonly string[]).includes(r)),
           enforced: this.options.mfaEnforced === true,
-          pendingSetup:
-            !u.mfa_enabled && !!u.mfa_pending_expires_at && u.mfa_pending_expires_at > now,
+          pendingSetup: !!u.mfa_pending_expires_at && u.mfa_pending_expires_at > now,
           ...(u.mfa_enrolled_at ? { enrolledAt: u.mfa_enrolled_at.toISOString() } : {}),
           ...(u.mfa_enabled ? { recoveryCodesRemaining: u.remaining } : {}),
           ...(roles.includes('owner') ? { soleOwner: await this.soleOwner(tx, userId) } : {}),
@@ -106,9 +105,21 @@ export class MfaService {
     );
   }
 
+  /** amr of the calling session (0.3.8 bổ sung 1: re-enrolment only from a recovery-code session). */
+  private async sessionAmr(tx: Tx, sessionId: string): Promise<string | null> {
+    const { rows } = await tx.query<{ amr: string | null }>(
+      'SELECT amr FROM user_session WHERE id = $1',
+      [sessionId],
+    );
+    return rows[0]?.amr ?? null;
+  }
+
   /**
    * startMy2faSetup (SEC 06.7, 06.8, 06.11). currentPassword is checked by the controller (PasswordReauth,
    * SR-RL-02) before this. New 160-bit secret, sealed with a NEW DEK (the previous pending DEK is destroyed).
+   * 0.3.8 bổ sung 1 (ARC 12 #3): with 2FA already on, allowed ONLY from a session signed in with a recovery code
+   * (re-enrolment on a new phone): the pending secret is sealed with the user's existing DEK and the live secret
+   * keeps working until confirmMy2fa replaces it. Any other session → 409.
    */
   async startSetup(
     ctx: TenantContext,
@@ -120,29 +131,46 @@ export class MfaService {
     return this.db.withContext(keyCtx, async (tx) => {
       const u = await this.mfa.lockUser(tx, userId);
       if (!u) throw problem('UNAUTHENTICATED');
-      if (u.mfa_enabled) throw problem('INVALID_TRANSITION');
-      if (u.mfa_data_key_id && u.mfa_key_property_id === keyCtx.propertyId) {
-        await this.mfa.destroyKeyIn(tx, u.mfa_data_key_id, userId);
-      }
       const now = this.clock.now();
       const expiresAt = new Date(now.getTime() + MFA_PENDING_TTL_MS);
       const secret = newTotpSecret();
-      const sealed = await this.crypto.seal(
-        tx,
-        {
-          purpose: 'mfa_secret',
-          subjectId: userId,
-          aad: secretAad(userId, 'mfa_pending_secret_enc'),
-          expiresAt,
-        },
-        secret,
-      );
-      await tx.query(
-        `UPDATE app_user SET mfa_pending_secret_enc = $2, mfa_pending_expires_at = $3, mfa_data_key_id = $4,
-             mfa_key_property_id = $5, mfa_secret_enc = NULL
-          WHERE id = $1`,
-        [userId, sealed.ciphertext, expiresAt, sealed.dataKeyId, keyCtx.propertyId],
-      );
+      if (u.mfa_enabled) {
+        const reenrol =
+          (await this.sessionAmr(tx, meta.sessionId)) === 'recovery_code' &&
+          !!u.mfa_data_key_id &&
+          u.mfa_key_property_id === keyCtx.propertyId;
+        if (!reenrol) throw problem('INVALID_TRANSITION');
+        const pendingEnc = await this.crypto.encrypt(
+          tx,
+          u.mfa_data_key_id as string,
+          secretAad(userId, 'mfa_pending_secret_enc'),
+          secret,
+        );
+        await tx.query(
+          `UPDATE app_user SET mfa_pending_secret_enc = $2, mfa_pending_expires_at = $3 WHERE id = $1`,
+          [userId, pendingEnc, expiresAt],
+        );
+      } else {
+        if (u.mfa_data_key_id && u.mfa_key_property_id === keyCtx.propertyId) {
+          await this.mfa.destroyKeyIn(tx, u.mfa_data_key_id, userId);
+        }
+        const sealed = await this.crypto.seal(
+          tx,
+          {
+            purpose: 'mfa_secret',
+            subjectId: userId,
+            aad: secretAad(userId, 'mfa_pending_secret_enc'),
+            expiresAt,
+          },
+          secret,
+        );
+        await tx.query(
+          `UPDATE app_user SET mfa_pending_secret_enc = $2, mfa_pending_expires_at = $3, mfa_data_key_id = $4,
+               mfa_key_property_id = $5, mfa_secret_enc = NULL
+            WHERE id = $1`,
+          [userId, sealed.ciphertext, expiresAt, sealed.dataKeyId, keyCtx.propertyId],
+        );
+      }
       await this.audit.recordC3Access(tx, {
         subjectType: 'mfa_secret',
         subjectId: userId,
@@ -160,6 +188,9 @@ export class MfaService {
   /**
    * confirmMy2fa (SEC 06.10, 06.12): right TOTP of the pending secret → enabled, 10 recovery codes, every
    * session of the user revoked (also this one), a NEW full session for the calling client.
+   * Re-enrolment (0.3.8 bổ sung 1): 2FA on + calling session `amr = recovery_code` + pending secret → the live
+   * secret is REPLACED, 10 new codes (old set dead), other sessions revoked, new session `amr = totp`,
+   * audit `mfa.reenrolled`. 2FA on from any other session → 409 (as before).
    */
   async confirm(
     ctx: TenantContext,
@@ -175,7 +206,13 @@ export class MfaService {
         const wait = Math.ceil((u.approval_pin_locked_until.getTime() - now.getTime()) / 1000);
         return { kind: 'locked' as const, wait };
       }
-      if (u.mfa_enabled || !u.mfa_pending_expires_at || u.mfa_pending_expires_at <= now) {
+      const reenrol =
+        u.mfa_enabled && (await this.sessionAmr(tx, input.sessionId)) === 'recovery_code';
+      if (
+        (u.mfa_enabled && !reenrol) ||
+        !u.mfa_pending_expires_at ||
+        u.mfa_pending_expires_at <= now
+      ) {
         return { kind: 'conflict' as const };
       }
       const secret = await this.mfa.decryptSecret(tx, u, 'pending');
@@ -225,11 +262,12 @@ export class MfaService {
         requestId: input.requestId,
         sessionId: session.id,
       });
-      await this.mfa.record(tx, 'mfa.enrolled', u.id, {
+      const event = reenrol ? 'mfa.reenrolled' : 'mfa.enrolled';
+      await this.mfa.record(tx, event, u.id, {
         requestId: input.requestId,
         sessionId: session.id,
       });
-      await this.mfa.notify(tx, u.id, 'mfa.enrolled');
+      await this.mfa.notify(tx, u.id, event, { owners: reenrol });
       return { kind: 'ok' as const, codes, session };
     });
     switch (outcome.kind) {
@@ -311,10 +349,11 @@ export class MfaService {
         [userId, hashRecoveryCodes(codes)],
       );
       if ((r.rowCount ?? 0) !== 1) throw problem('INVALID_TRANSITION');
+      // x-c3-log `mfa_secret/update` (ARC 0.3.8 bổ sung 1: replaces the existing set).
       await this.audit.recordC3Access(tx, {
         subjectType: 'mfa_secret',
         subjectId: userId,
-        action: 'create',
+        action: 'update',
         requestId,
       });
       await this.mfa.record(tx, 'mfa.recovery_codes_regenerated', userId, { requestId });

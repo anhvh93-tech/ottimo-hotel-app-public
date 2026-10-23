@@ -122,7 +122,7 @@ export class AuthController {
     const input = parseBody(changePasswordSchema, body);
     const p = principalOf(req);
     // S2 (0.3.8, SEC 06.25): current password, plus TOTP/recovery code once 2FA is on.
-    await this.strong.verify(
+    const proof = await this.strong.verify(
       tenantOf(p),
       {
         password: input.currentPassword,
@@ -142,6 +142,7 @@ export class AuthController {
     const result = await this.uow.run(req, async (tx) => {
       const session = await this.auth.changeMyPassword(tx, {
         sessionPolicy,
+        amr: proof.method === 'password' ? 'pwd' : proof.method,
         userId: p.userId,
         sessionId: p.sessionId,
         currentPassword: input.currentPassword,

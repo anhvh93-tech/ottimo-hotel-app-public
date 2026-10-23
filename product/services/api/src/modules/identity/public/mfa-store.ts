@@ -61,6 +61,7 @@ export type SecondFactor = 'totp' | 'recovery_code';
 export type MfaSecurityEvent =
   | 'mfa.setup_started'
   | 'mfa.enrolled'
+  | 'mfa.reenrolled'
   | 'mfa.verify_failed'
   | 'mfa.locked'
   | 'mfa.recovery_code_used'

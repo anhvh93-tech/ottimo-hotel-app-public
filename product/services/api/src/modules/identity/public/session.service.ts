@@ -122,6 +122,9 @@ export class SessionService {
         WHERE user_id = $1 AND revoked_at IS NULL AND ($4::text IS NULL OR id <> $4)`,
       [userId, this.clock.now(), reason, exceptSessionId ?? null],
     );
+    // FB-R3-SEC-BEC-03: a login half-way (password done, mfaToken pending) dies with the sessions – a password
+    // reset/disable/role change cuts every open path at once.
+    await tx.query('DELETE FROM mfa_login_challenge WHERE user_id = $1', [userId]);
     return r.rowCount ?? 0;
   }
 

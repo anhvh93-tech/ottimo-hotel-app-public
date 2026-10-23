@@ -30,6 +30,7 @@ import { RATE_LIMITER, RATE_RULES, type RateLimiter } from '../public/rate-limit
 import {
   type ClientOrigin,
   type NewSession,
+  type SessionAmr,
   type SessionPolicy,
   SessionService,
 } from '../public/session.service';
@@ -399,6 +400,9 @@ export class AuthService {
         userAgent: input.userAgent,
         policy: params.session,
         amr: factor.method,
+        // ARC 0.3.8 bổ sung 1 #3 (US-143 AC3 a): a recovery code means the phone is lost – the session only
+        // reaches the enrolment operations until the user re-enrols on a new phone.
+        enrollmentOnly: factor.method === 'recovery_code',
       });
       await this.audit.record(tx, {
         category: 'access',
@@ -558,6 +562,8 @@ export class AuthService {
       newPassword: string;
       /** Strictest session_policy of the user, read BEFORE the unit of work (IdentityParamsService). */
       sessionPolicy: SessionPolicy;
+      /** FB-R3-SEC-BEC-06: how the S2 of this change was proven (`totp`/`recovery_code`) → amr/mfa_at. */
+      amr?: SessionAmr;
       ip: string | undefined;
       userAgent: string | undefined;
       requestId: string;
@@ -568,8 +574,9 @@ export class AuthService {
       password_hash: string;
       client_origin: ClientOrigin;
       active_property_id: string | null;
+      enrollment_only: boolean;
     }>(
-      `SELECT u.username, u.password_hash, s.client_origin, s.active_property_id
+      `SELECT u.username, u.password_hash, s.client_origin, s.active_property_id, s.enrollment_only
          FROM app_user u JOIN user_session s ON s.user_id = u.id AND s.id = $2
         WHERE u.id = $1`,
       [input.userId, input.sessionId],
@@ -600,6 +607,9 @@ export class AuthService {
       ip: input.ip,
       userAgent: input.userAgent,
       policy: input.sessionPolicy,
+      amr: input.amr ?? 'pwd',
+      // A restricted session stays restricted after the password change (FB-R3-SEC-BEC-01).
+      enrollmentOnly: u.enrollment_only === true,
     });
     await this.audit.record(tx, {
       category: 'security',

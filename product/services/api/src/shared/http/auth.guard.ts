@@ -318,7 +318,13 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     await this.rateLimit(req, principal);
     await this.checkCsrf(req, operationId, principal);
     // SEC 06.4: server-side gate of the restricted session, before any role/business check.
-    if (principal.session?.enrollmentOnly && !MFA_ENROLLMENT_OPERATIONS.has(operationId)) {
+    // FB-R3-SEC-BEC-01: password first, then 2FA – a temporary password may be changed in the restricted session
+    // (the new session stays restricted).
+    if (
+      principal.session?.enrollmentOnly &&
+      !MFA_ENROLLMENT_OPERATIONS.has(operationId) &&
+      !(operationId === 'changeMyPassword' && principal.session.mustChangePassword)
+    ) {
       throw problem('MFA_ENROLLMENT_REQUIRED');
     }
     await this.checkTrustedDevice(req, operation, principal);

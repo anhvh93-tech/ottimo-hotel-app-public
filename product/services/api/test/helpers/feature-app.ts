@@ -53,6 +53,9 @@ export async function startFeatureApp(
     staffRequestsPerMinute?: number;
     /** 0.3.8 MFA_ENFORCED (US-143) – guard + identity. */
     mfaEnforced?: boolean;
+    /** FB-R3-SEC-BEC-02: capture the request log (pino) at this level. Default silent. */
+    logStream?: NodeJS.WritableStream;
+    logLevel?: string;
   } = {},
 ): Promise<FeatureApp> {
   const clock = new FixedClock(T0);
@@ -87,7 +90,11 @@ export async function startFeatureApp(
   });
   const moduleRef = await (opts.override ? opts.override(builder) : builder).compile();
   const app = moduleRef.createNestApplication<NestFastifyApplication>(
-    createHttpAdapter({ logLevel: 'silent', trustProxy: false }),
+    createHttpAdapter({
+      logLevel: opts.logLevel ?? 'silent',
+      trustProxy: false,
+      ...(opts.logStream ? { logStream: opts.logStream } : {}),
+    }),
   );
   await app.init();
   await app.getHttpAdapter().getInstance().ready();

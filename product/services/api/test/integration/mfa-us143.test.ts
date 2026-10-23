@@ -3,9 +3,11 @@
  * the server: 1–13 and 15 (14 = US-164 – BE-A, 16 = Playwright – FE-A/QA). Each block uses its own users
  * (TOTP anti-replay is per user) and moves the shared FixedClock only forward inside a block.
  */
+import { Writable } from 'node:stream';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '../../src/db/database';
 import { PasswordReauth } from '../../src/modules/identity/public/password-reauth';
+import { SessionService } from '../../src/modules/identity/public/session.service';
 import {
   base32Decode,
   base32Encode,
@@ -55,6 +57,13 @@ describe.skipIf(!HAS_DB)('US-143 two-step login, recovery codes, S2 (SEC A.7)', 
     resetme: ['manager'],
     op: ['owner'],
     cp: ['manager'],
+    gate: ['owner'],
+    promo: ['front_desk'],
+    newmgr: ['manager'],
+    own4: ['owner'],
+    half: ['manager'],
+    re: ['front_desk_lead'],
+    lg: ['front_desk_lead'],
   };
 
   beforeAll(async () => {
@@ -394,6 +403,13 @@ describe.skipIf(!HAS_DB)('US-143 two-step login, recovery codes, S2 (SEC A.7)', 
     const missing = await c.send('POST', url, { password: TEST_PASSWORD });
     expect(missing.statusCode).toBe(422);
     expect(missing.json().errors[0].code).toBe('STRONG_REAUTH_REQUIRED');
+    // SEC condition (a)/(b): the 422 comes before the password check – same answer with a wrong password
+    const missingWrong = await c.send('POST', url, { password: 'Wrong-pass-2026' });
+    expect(missingWrong.statusCode).toBe(422);
+    expect({ ...missingWrong.json(), requestId: undefined }).toEqual({
+      ...missing.json(),
+      requestId: undefined,
+    });
     const wrongPw = await c.send('POST', url, {
       password: 'Wrong-pass-2026',
       totpCode: code('s2'),
@@ -535,6 +551,13 @@ describe.skipIf(!HAS_DB)('US-143 two-step login, recovery codes, S2 (SEC A.7)', 
     });
     const ok = await c.send('POST', '/v1/me/password', { ...body, totpCode: code('cp') });
     expect(ok.statusCode).toBe(204);
+    // FB-R3-SEC-BEC-06: the new session records the second factor of the S2
+    const s = await q<{ amr: string; mfa_at: Date | null }>(
+      `SELECT amr, mfa_at FROM user_session WHERE id = $1`,
+      [sha256Hex(cookieValue(ok, 'ottimo_sid')!)],
+    );
+    expect(s.rows[0]!.amr).toBe('totp');
+    expect(s.rows[0]!.mfa_at).not.toBeNull();
     await setPassword(db, t, 'cp');
   });
 
@@ -553,6 +576,269 @@ describe.skipIf(!HAS_DB)('US-143 two-step login, recovery codes, S2 (SEC A.7)', 
     ).rejects.toMatchObject({ code: 'REAUTH_FAILED' });
   });
 
+  it('FB-R3-SEC-BEC-01: MFA_ENFORCED + temporary password – change the password first, then enrol, then work', async () => {
+    enforced.clock.set(new Date(T0.getTime() + 16 * 3600_000));
+    await q(`UPDATE app_user SET must_change_password = true WHERE id = $1`, [t.users.newmgr!.id]);
+    const res = await login(enforced, 'newmgr');
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ mustChangePassword: true, mfaEnrollmentRequired: true });
+    const c = new Client(enforced, cookieValue(res, 'ottimo_sid')!);
+    const early = await c.send('POST', '/v1/me/2fa/setup', { currentPassword: TEST_PASSWORD });
+    expect(early.json().code).toBe('PASSWORD_CHANGE_REQUIRED');
+    const newPw = 'Another-fake-pass-88';
+    const changed = await c.send('POST', '/v1/me/password', {
+      currentPassword: TEST_PASSWORD,
+      newPassword: newPw,
+    });
+    expect(changed.statusCode).toBe(204);
+    const c2 = new Client(enforced, cookieValue(changed, 'ottimo_sid')!);
+    const me = (await c2.get('/v1/me')).json();
+    expect(me).toMatchObject({ mustChangePassword: false, mfaEnrollmentRequired: true });
+    // the new session is still restricted
+    expect((await c2.get(`${P(t)}/guests?q=ab`)).json().code).toBe('MFA_ENROLLMENT_REQUIRED');
+    const setup = await c2.send('POST', '/v1/me/2fa/setup', { currentPassword: newPw });
+    expect(setup.statusCode).toBe(200);
+    const secret = base32Decode(
+      new URL(setup.json().otpauthUri.replace('otpauth://', 'https://')).searchParams.get(
+        'secret',
+      )!,
+    );
+    secrets.set('newmgr', secret);
+    const conf = await c2.send('POST', '/v1/me/2fa/confirm', {
+      totpCode: totpAt(secret, totpStep(enforced.clock.now())),
+    });
+    expect(conf.statusCode).toBe(200);
+    codes.set('newmgr', conf.json().recoveryCodes);
+    const full = new Client(enforced, cookieValue(conf, 'ottimo_sid')!);
+    expect((await full.get(`${P(t)}/guests?q=ab`)).statusCode).toBe(200);
+    await setPassword(db, t, 'newmgr');
+  });
+
+  it('FB-R3-SEC-BEC-03: a password reset kills a pending mfaToken (login half-way)', async () => {
+    fa.clock.set(new Date(T0.getTime() + 17 * 3600_000));
+    await enroll('half');
+    step();
+    const pending = await mfaToken(fa, 'half');
+    await db.withContext(t.ctx(), async (tx) => {
+      // same effect as updateUser.resetPassword / disable / role change: SessionService.revokeAll
+      await fa.app.get(SessionService).revokeAll(tx, t.users.half!.id, 'password_reset');
+    });
+    const r = await loginMfa(fa, { mfaToken: pending, totpCode: code('half') });
+    expect(r.statusCode).toBe(401);
+    expect(r.json().code).toBe('MFA_INVALID');
+  });
+
+  it('FB-R3-SEC-BEC-04 (06.35): owner sees mfaEnabled + codes left of every user, never a secret', async () => {
+    fa.clock.set(new Date(T0.getTime() + 17.5 * 3600_000));
+    const ownC = await enroll('own4');
+    const list = await ownC.get('/v1/users?limit=100');
+    expect(list.statusCode).toBe(200);
+    const rows = list.json().data as Array<Record<string, unknown>>;
+    const rec = rows.find((u) => u.id === t.users.rec!.id)!;
+    expect(rec).toMatchObject({ mfaEnabled: true });
+    expect(typeof rec.mfaRecoveryCodesRemaining).toBe('number');
+    const fd = rows.find((u) => u.id === t.users.fd!.id)!;
+    expect(fd).toMatchObject({ mfaEnabled: false });
+    expect(fd).not.toHaveProperty('mfaRecoveryCodesRemaining');
+    expect(JSON.stringify(rows)).not.toMatch(/mfa_secret|recovery_codes_hash|otpauth/);
+    const fdC = new Client(fa, cookieValue(await login(fa, 'fd'), 'ottimo_sid')!);
+    expect((await fdC.get('/v1/users')).statusCode).toBe(403);
+  });
+
+  it('ARC 12 #2: a user who lost the role at the DEK property still signs in with 2FA', async () => {
+    const t2 = await createTenant(db, { properties: 2, users: { mp: ['manager'] } });
+    await seedSprint1Params(db, t2);
+    await seedSprint1Params(db, t2, 1);
+    await db.withContext(t2.ctx(), (tx) =>
+      tx.query(
+        `INSERT INTO user_property_role (user_id, property_id, organization_id, role, granted_at)
+         VALUES ($1, $2, $3, 'manager', $4)`,
+        [t2.users.mp!.id, t2.propertyIds[1], t2.organizationId, T0],
+      ),
+    );
+    await setPassword(db, t2, 'mp');
+    fa.clock.set(new Date(T0.getTime() + 18 * 3600_000));
+    const res = await fa.app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: { username: t2.users.mp!.username, password: TEST_PASSWORD },
+    });
+    const c = new Client(fa, cookieValue(res, 'ottimo_sid')!);
+    const setup = await c.send('POST', '/v1/me/2fa/setup', { currentPassword: TEST_PASSWORD });
+    const secret = base32Decode(
+      new URL(setup.json().otpauthUri.replace('otpauth://', 'https://')).searchParams.get(
+        'secret',
+      )!,
+    );
+    const conf = await c.send('POST', '/v1/me/2fa/confirm', {
+      totpCode: totpAt(secret, totpStep(fa.clock.now())),
+    });
+    expect(conf.statusCode).toBe(200);
+    const keyProp = await db.withContext(t2.ctx(), (tx) =>
+      tx.query<{ p: string }>(`SELECT mfa_key_property_id AS p FROM app_user WHERE id = $1`, [
+        t2.users.mp!.id,
+      ]),
+    );
+    expect(keyProp.rows[0]!.p).toBe(t2.propertyIds[0]);
+    await db.withContext(t2.ctx(), (tx) =>
+      tx.query(
+        `UPDATE user_property_role SET revoked_at = $3 WHERE user_id = $1 AND property_id = $2`,
+        [t2.users.mp!.id, t2.propertyIds[0], T0],
+      ),
+    );
+    step();
+    const first = await fa.app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: { username: t2.users.mp!.username, password: TEST_PASSWORD },
+    });
+    expect(first.json().code).toBe('MFA_REQUIRED');
+    const ok = await loginMfa(fa, {
+      mfaToken: first.json().mfaToken,
+      totpCode: totpAt(secret, totpStep(fa.clock.now())),
+    });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json().activePropertyId).toBe(t2.propertyIds[1]);
+  });
+
+  it('ARC 12 #3: recovery-code session is restricted; re-enrolment replaces secret + codes; totp session → 409', async () => {
+    fa.clock.set(new Date(T0.getTime() + 19 * 3600_000));
+    await enroll('re');
+    const oldSecret = secrets.get('re')!;
+    const oldCodes = codes.get('re')!;
+    step();
+    // QA 1: in through a recovery code → restricted, other APIs 403
+    const viaCode = await loginMfa(fa, {
+      mfaToken: await mfaToken(fa, 're'),
+      recoveryCode: oldCodes[0],
+    });
+    expect(viaCode.statusCode).toBe(200);
+    expect(viaCode.json().mfaEnrollmentRequired).toBe(true);
+    const rc = new Client(fa, cookieValue(viaCode, 'ottimo_sid')!);
+    expect((await rc.get(`${P(t)}/guests?q=ab`)).json().code).toBe('MFA_ENROLLMENT_REQUIRED');
+    expect(
+      (await rc.send('POST', '/v1/me/2fa/recovery-codes', { password: TEST_PASSWORD })).json().code,
+    ).toBe('MFA_ENROLLMENT_REQUIRED');
+    // old secret still works until the new one is confirmed
+    const setup = await rc.send('POST', '/v1/me/2fa/setup', { currentPassword: TEST_PASSWORD });
+    expect(setup.statusCode).toBe(200);
+    expect((await rc.get('/v1/me/2fa')).json()).toMatchObject({
+      enabled: true,
+      pendingSetup: true,
+    });
+    const newSecret = base32Decode(
+      new URL(setup.json().otpauthUri.replace('otpauth://', 'https://')).searchParams.get(
+        'secret',
+      )!,
+    );
+    const conf = await rc.send('POST', '/v1/me/2fa/confirm', {
+      totpCode: totpAt(newSecret, totpStep(fa.clock.now())),
+    });
+    expect(conf.statusCode).toBe(200);
+    const newCodes = conf.json().recoveryCodes as string[];
+    expect(newCodes).toHaveLength(10);
+    secrets.set('re', newSecret);
+    codes.set('re', newCodes);
+    expect((await rc.get('/v1/me')).statusCode).toBe(401); // other sessions revoked
+    const fresh = new Client(fa, cookieValue(conf, 'ottimo_sid')!);
+    expect((await fresh.get('/v1/me')).json().mfaEnrollmentRequired).toBe(false);
+    expect((await fresh.get(`${P(t)}/guests?q=ab`)).statusCode).toBe(200);
+    // QA 2: old TOTP and old recovery codes are dead, the new ones work
+    step();
+    const oldT = await loginMfa(fa, {
+      mfaToken: await mfaToken(fa, 're'),
+      totpCode: totpAt(oldSecret, totpStep(fa.clock.now())),
+    });
+    expect(oldT.statusCode).toBe(401);
+    const oldR = await loginMfa(fa, {
+      mfaToken: await mfaToken(fa, 're'),
+      recoveryCode: oldCodes[1],
+    });
+    expect(oldR.statusCode).toBe(401);
+    const newT = await loginMfa(fa, { mfaToken: await mfaToken(fa, 're'), totpCode: code('re') });
+    expect(newT.statusCode).toBe(200);
+    // QA 3: a session with amr = totp cannot start a setup while 2FA is on
+    const totpSession = new Client(fa, cookieValue(newT, 'ottimo_sid')!);
+    expect(
+      (await totpSession.send('POST', '/v1/me/2fa/setup', { currentPassword: TEST_PASSWORD }))
+        .statusCode,
+    ).toBe(409);
+    const audit = await q<{ n: number }>(
+      `SELECT count(*)::int AS n FROM audit_event WHERE entity_id = $1 AND action = 'mfa.reenrolled'`,
+      [t.users.re!.id],
+    );
+    expect(audit.rows[0]!.n).toBe(1);
+  });
+
+  it('FB-R3-SEC-BEC-02 (log part) + BEC-05: nothing secret in the request log or the Nest logger output', async () => {
+    const lines: string[] = [];
+    const sink = new Writable({
+      write(chunk, _enc, cb) {
+        lines.push(String(chunk));
+        cb();
+      },
+    });
+    const logged = await startFeatureApp(db, { logStream: sink, logLevel: 'trace' });
+    const out: string[] = [];
+    const origOut = process.stdout.write.bind(process.stdout);
+    const origErr = process.stderr.write.bind(process.stderr);
+    process.stdout.write = ((s: string | Uint8Array, ...rest: unknown[]) => {
+      out.push(String(s));
+      return origOut(s as string, ...(rest as []));
+    }) as typeof process.stdout.write;
+    process.stderr.write = ((s: string | Uint8Array, ...rest: unknown[]) => {
+      out.push(String(s));
+      return origErr(s as string, ...(rest as []));
+    }) as typeof process.stderr.write;
+    const local: string[] = [];
+    try {
+      logged.clock.set(new Date(T0.getTime() + 20 * 3600_000));
+      const c = await enroll('lg', logged);
+      local.push(base32Encode(secrets.get('lg')!), ...codes.get('lg')!);
+      logged.clock.advance(30_000);
+      const tk = await mfaToken(logged, 'lg');
+      local.push(tk);
+      const wrong = await loginMfa(logged, { mfaToken: tk, totpCode: '000000' });
+      expect(wrong.statusCode).toBe(401);
+      const good = code('lg', logged);
+      expect((await loginMfa(logged, { mfaToken: tk, totpCode: good })).statusCode).toBe(200);
+      logged.clock.advance(30_000);
+      const s2bad = await c.send('POST', '/v1/me/2fa/recovery-codes', {
+        password: 'Wrong-pass-2026',
+        totpCode: code('lg', logged),
+      });
+      expect(s2bad.statusCode).toBe(401);
+      const s2 = await c.send('POST', '/v1/me/2fa/recovery-codes', {
+        password: TEST_PASSWORD,
+        totpCode: code('lg', logged),
+      });
+      expect(s2.statusCode).toBe(200);
+      local.push(...(s2.json().recoveryCodes as string[]));
+      // malformed body (422) carrying secrets – the validation error must not echo them
+      const bad = await logged.app.inject({
+        method: 'POST',
+        url: '/v1/auth/login/mfa',
+        payload: { mfaToken: tk, totpCode: '12', recoveryCode: codes.get('lg')![0], extra: 1 },
+      });
+      expect(bad.statusCode).toBe(422);
+      expect(bad.body).not.toContain(tk);
+    } finally {
+      process.stdout.write = origOut;
+      process.stderr.write = origErr;
+      await logged.close();
+    }
+    const text = lines.join('') + out.join('');
+    expect(lines.length).toBeGreaterThan(5); // the request log was captured
+    expect(text).toContain('/v1/auth/login/mfa');
+    for (const n of [...local, 'otpauth', TEST_PASSWORD]) {
+      expect(text.includes(n), n.slice(0, 4)).toBe(false);
+    }
+    // a 6-digit code could collide with timestamps: look for it as a logged field instead
+    expect(text).not.toMatch(
+      /"(totpCode|recoveryCode|mfaToken|password|currentPassword)"\s*:\s*"(?!\[)/,
+    );
+  });
+
   it('case 12: no TOTP code, recovery code, mfaToken, secret or otpauth URI in audit, outbox, idempotency, notifications', async () => {
     const needles: string[] = ['otpauth', 'OTTIMO%3A'];
     for (const [, s] of secrets) needles.push(s.toString('hex'), base32Encode(s));
@@ -561,8 +847,11 @@ describe.skipIf(!HAS_DB)('US-143 two-step login, recovery codes, S2 (SEC A.7)', 
     expect(issuedTokens.length).toBeGreaterThan(10);
     const dump = await q<{ j: string }>(
       `SELECT coalesce(json_agg(x)::text, '') AS j FROM (
-         SELECT before::text || after::text || coalesce(reason, '') AS x FROM audit_event WHERE organization_id = $1
-         UNION ALL SELECT payload::text FROM outbox_message WHERE organization_id = $1
+         SELECT coalesce(before::text, '') || coalesce(after::text, '') || coalesce(reason, '') AS x
+           FROM audit_event WHERE organization_id = $1
+         UNION ALL SELECT coalesce(payload::text, '') FROM outbox_message WHERE organization_id = $1
+         UNION ALL SELECT coalesce(subject_type, '') || coalesce(action, '') || coalesce(reason_code, '')
+           FROM c3_access_log WHERE organization_id = $1
          UNION ALL SELECT coalesce(request_hash, '') || coalesce(response_body::text, '') FROM idempotency_key
           WHERE organization_id = $1
          UNION ALL SELECT coalesce(ref_code, '') FROM staff_notification WHERE organization_id = $1) s`,
@@ -570,6 +859,9 @@ describe.skipIf(!HAS_DB)('US-143 two-step login, recovery codes, S2 (SEC A.7)', 
     );
     const text = dump.rows[0]!.j;
     expect(text.length).toBeGreaterThan(100);
+    // FB-R3-SEC-BEC-02: the scan really reads the `after` of the 2FA audit rows (no NULL-concatenation blind spot).
+    expect(text).toContain('regenerateMyRecoveryCodes');
+    expect(text).toContain('recoveryCodesRemaining');
     for (const n of needles) expect(text.includes(n), n.slice(0, 6)).toBe(false);
   });
 
