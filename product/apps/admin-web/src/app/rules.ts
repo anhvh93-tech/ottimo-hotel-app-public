@@ -133,3 +133,38 @@ export function resetRulesCache() {
   cache = null;
 }
 onClientDataClear(resetRulesCache);
+
+/** BR-525 (i) v0.4.0 (INV 22/10): `debt_default_due_days` = 3 – due = business day of the write + this. */
+export const DEBT_DEFAULT_DUE_DAYS = 3;
+let debtDaysCache: { propertyId: string; days: number } | null = null;
+onClientDataClear(() => {
+  debtDaysCache = null;
+});
+
+/**
+ * R3-Q39 #11: `debt_default_due_days` for the debt due-date default. Debt is MGR+ only and MGR+ read
+ * `listParameters`; `BookingRules` has no such field (0.3.8) – others / errors keep the BR default.
+ */
+export function useDebtDefaultDueDays(propertyId: string, roles: Role[]): number {
+  const canRead = roles.some((r) => READERS.includes(r));
+  const [days, setDays] = useState(
+    debtDaysCache?.propertyId === propertyId ? debtDaysCache.days : DEBT_DEFAULT_DUE_DAYS,
+  );
+  useEffect(() => {
+    if (!canRead || debtDaysCache?.propertyId === propertyId) return;
+    let stale = false;
+    api.listParameters({ propertyId }, true).then(
+      (p) => {
+        const v = p.data.data.find((x) => x.key === 'debt_default_due_days')?.value;
+        const d = typeof v === 'number' && v >= 1 ? v : DEBT_DEFAULT_DUE_DAYS;
+        debtDaysCache = { propertyId, days: d };
+        if (!stale) setDays(d);
+      },
+      () => undefined,
+    );
+    return () => {
+      stale = true;
+    };
+  }, [canRead, propertyId]);
+  return days;
+}

@@ -3404,6 +3404,12 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 |---|---|---|---|---|
 | `debt.write_off_reauth_help` | Xóa công nợ cần nhập lại mật khẩu đăng nhập của bạn. | Writing off a debt needs your sign-in password again. | ⟨chừa chỗ⟩ | R3-Q25 (FB-R2-SEC-BE-82 (b)) – người xin xác thực lại như người duyệt (S1); nhãn ô dùng ci.stepup_label |
 
+#### R3 Sprint 1 – FE-A R3-Q39 #11: hạn công nợ theo ngày nghiệp vụ (BR-525 (i) v0.4.0). **Chờ UXD duyệt**
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `co.debt_due_min` | Chọn hạn thanh toán từ ngày mai trở đi. | Choose a due date from tomorrow onwards. | ⟨chừa chỗ⟩ | R3-Q39 #11 – server cần hạn > ngày nghiệp vụ (checkout.service); thay co.debt_due_past ("từ hôm nay" – sai từ R2, UXD đánh dấu CŨ) |
+
 #### R2 Sprint 4 – MOB sửa theo UXR đi thử PWA (s4-pwa-walkthrough P-01/04/07/08/09/10/11/12/13/16/28) (UXD duyệt 18/10 – s4-UXD-brand, sửa 8)
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |

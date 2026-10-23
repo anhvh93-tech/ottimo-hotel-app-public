@@ -4,7 +4,8 @@ import { Alert, Button, Chip, Icon, Seg } from '@ottimo/ui';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
-import { timeHHmm, todayLocal, weekdayDate } from '../../app/dates';
+import { useBusinessDay } from '../../app/businessDay';
+import { timeHHmm, weekdayDate } from '../../app/dates';
 import { useLiveReload } from '../../app/live';
 import { STATUS_KEY, addDays, channelName, dayMonth } from '../../app/reservations';
 import { Page, Topbar } from '../../components/AppShell';
@@ -41,7 +42,7 @@ export function RackPage() {
   const propertyId = usePropertyId();
   const session = useSession();
   const fd = session.roles.some((r) => FD_PLUS.includes(r));
-  const today = todayLocal();
+  const today = useBusinessDay(); // BR-010 (night window – BUG-R2-211)
   const [from, setFrom] = useState(() => addDays(today, -2));
   const { state, reload } = useResource(
     async () => (await api.getRack({ propertyId }, { from, days: DAYS })).data,

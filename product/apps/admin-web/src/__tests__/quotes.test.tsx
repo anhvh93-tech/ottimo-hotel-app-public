@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { todayLocal } from '../app/dates';
 import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
+import { pinDaytime } from '../test/clock';
 import { renderApp, tv } from '../test/render';
 
 type User = ReturnType<typeof renderApp>['user'];
@@ -26,6 +27,8 @@ async function pickGuest(user: User, dlg: HTMLElement, q: string, name: RegExp) 
 
 describe('H12 Báo giá & giữ chỗ (US-080, 082–087)', () => {
   it('sale: free rooms → quote with own commission → text to send → hold (VietQR content = code)', async () => {
+    // Not about the night hours: the quote dates come from the calendar seed (BR-010 night window).
+    pinDaytime();
     const { user } = renderApp('/quotes', 'qa.sal');
     expect(await screen.findByText(/căn trống/)).toBeInTheDocument();
     const dlg = await quoteFor(user, '203');
@@ -87,6 +90,8 @@ describe('H12 Báo giá & giữ chỗ (US-080, 082–087)', () => {
   });
 
   it('arrival today: hold not allowed – hand over to the front desk (US-084 AC2)', async () => {
+    // Not about the night hours: the quote dates come from the calendar seed (BR-010 night window).
+    pinDaytime();
     const { user } = renderApp('/quotes', 'qa.sal');
     await screen.findByText(/căn trống/);
     fireEvent.change(screen.getByLabelText('Ngày đến'), { target: { value: todayLocal() } });

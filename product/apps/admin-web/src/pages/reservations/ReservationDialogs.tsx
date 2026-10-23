@@ -16,7 +16,8 @@ import { formatInstant, hasKey, useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, ConfirmDialog, Field, Modal } from '@ottimo/ui';
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { api } from '../../app/api';
-import { timeHHmm, todayLocal } from '../../app/dates';
+import { useBusinessDay } from '../../app/businessDay';
+import { timeHHmm } from '../../app/dates';
 import { notifyChanged } from '../../app/live';
 import { monoArgs } from '../../app/mono';
 import { parseVnd } from '../../app/money';
@@ -878,7 +879,9 @@ export function MoveDialog(
     (c !== 'overbooking' || r.conflictState === 'open' || !!r.capacityConflict) &&
     (c !== 'force_majeure' || (postpone && mgr)) &&
     (c !== 'inventory_optimize' || !r.roomDisclosedToGuest);
-  const currentRoom = currentSegment(r.segments, todayLocal())?.roomId ?? '';
+  // BR-010 (night window, QA 24/10): the room of the BUSINESS day – at 02:40 still last night's room.
+  const businessDay = useBusinessDay();
+  const currentRoom = currentSegment(r.segments, businessDay)?.roomId ?? '';
   const [roomId, setRoomId] = useState(currentRoom ?? '');
   const [arrival, setArrival] = useState(r.arrivalDate);
   const [departure, setDeparture] = useState(r.departureDate);
@@ -1016,7 +1019,7 @@ export function MoveDialog(
     toast(
       t('rsv.toast.moved', {
         code: r.code,
-        room: currentSegment(out.data.segments, todayLocal())?.roomNo ?? '',
+        room: currentSegment(out.data.segments, businessDay)?.roomNo ?? '',
         from: dayMonth(out.data.arrivalDate),
         to: dayMonth(out.data.departureDate),
       }),
@@ -1248,6 +1251,8 @@ export function NoShowDialog(props: DialogBase & { channelName: string }) {
   const propertyId = usePropertyId();
   const toast = useToast();
   const act = useAction(props);
+  // R3-Q39 #12: "đã thực hiện" hint by the BUSINESS day (BR-010) – at 01:30 the pickup of yesterday is today.
+  const businessDay = useBusinessDay();
   const [contact, setContact] = useState('');
   const [detail, setDetail] = useState('');
   const helpId = useId();
@@ -1266,13 +1271,13 @@ export function NoShowDialog(props: DialogBase & { channelName: string }) {
     let stale = false;
     setLinesError(false);
     api.getFolio({ propertyId, folioId: r.folioId }).then(
-      (f) => !stale && setLines(serviceLinesOfFolio(f.data, todayLocal())),
+      (f) => !stale && setLines(serviceLinesOfFolio(f.data, businessDay)),
       () => !stale && setLinesError(true),
     );
     return () => {
       stale = true;
     };
-  }, [propertyId, r.folioId, linesTick]);
+  }, [propertyId, r.folioId, linesTick, businessDay]);
   const ready = note.length >= 3 && lines !== null;
 
   const submit = async () => {

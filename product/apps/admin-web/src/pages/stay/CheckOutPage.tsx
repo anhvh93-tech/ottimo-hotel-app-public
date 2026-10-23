@@ -22,11 +22,12 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
-import { timeHHmm, todayLocal } from '../../app/dates';
+import { useBusinessDay } from '../../app/businessDay';
+import { timeHHmm } from '../../app/dates';
 import { hasLineKey, lineLabel, signed } from '../../app/folio';
-import { currentSegment } from '../../app/reservations';
+import { addDays, currentSegment } from '../../app/reservations';
 import { Code, monoArgs } from '../../app/mono';
-import { useRules } from '../../app/rules';
+import { useDebtDefaultDueDays, useRules } from '../../app/rules';
 import { useToast } from '../../app/toast';
 import { Page, Topbar } from '../../components/AppShell';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
@@ -73,8 +74,11 @@ const EXTRAS: Array<{ key: string; preset: string }> = [
 export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const { t, vnd, money, date } = useI18n();
   const propertyId = usePropertyId();
-  const { roles, property } = useSession();
-  const today = todayLocal(property?.timezone);
+  const { roles } = useSession();
+  // R3-Q39 #10, #11 (BR-010): the BUSINESS day – at 02:40 the stay is still in last night's room, and the
+  // debt due date counts from the business day of the write (BR-525 (i) v0.4.0).
+  const today = useBusinessDay();
+  const debtDays = useDebtDefaultDueDays(propertyId, roles);
   const rules = useRules(propertyId, roles);
   const { online, since } = useOnline();
   const toast = useToast();
@@ -129,6 +133,15 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // S4-26 (US-038 AC3, BR-525, A19): OWN/MGR may complete with a balance left as a debt (due date + reason).
   const [debtOn, setDebtOn] = useState(false);
   const [debtDue, setDebtDue] = useState('');
+  const debtDefault = addDays(today, debtDays);
+  // BR-525 (i): the due date starts at business day + 3 when the debt option is turned on, and follows the
+  // business day / the parameter while the manager has not changed it.
+  const debtDefaultRef = useRef('');
+  useEffect(() => {
+    if (!debtOn) return;
+    setDebtDue((v) => (v === '' || v === debtDefaultRef.current ? debtDefault : v));
+    debtDefaultRef.current = debtDefault;
+  }, [debtOn, debtDefault]);
   const [debtReason, setDebtReason] = useState('');
   // BR-416-06 (ARC 0.3.7 bổ sung 4, 16.6 (d)): the night of departure cannot be sold → a late fee of one night,
   // confirmed at the desk by a manager (username + password; OWN/MGR: their own password) with a reason.
@@ -420,7 +433,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       : Math.max(0, credit0 - extraNightVnd - lateFeeNet - lateDelta - (s?.balanceDueVnd ?? 0));
   const pendingFoc = lines.filter((l) => l.lineState === 'pending_approval');
   const debtActive = mgr && debtOn && balance > 0;
-  const debtDuePast = !!debtDue && debtDue < today;
+  // checkout.service: due > business day (≥ business day + 1); default business day + `debt_default_due_days`.
+  const debtMin = addDays(today, 1);
+  const debtDuePast = !!debtDue && debtDue < debtMin;
   const debtReady = !!debtDue && !debtDuePast && debtReason.trim().length >= 3;
   const reload = () => {
     sum.reload();
@@ -1223,7 +1238,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                     required
                     error={
                       debtDuePast
-                        ? t('co.debt_due_past')
+                        ? t('co.debt_due_min')
                         : (act.fields['debt.dueDate'] ?? act.fields.debt)
                     }
                   >
@@ -1232,7 +1247,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                         {...p}
                         type="date"
                         className="input"
-                        min={today}
+                        min={debtMin}
                         value={debtDue}
                         onChange={(e) => setDebtDue(e.target.value)}
                       />

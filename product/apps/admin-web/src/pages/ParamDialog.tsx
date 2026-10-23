@@ -3,13 +3,13 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Field, Modal, Seg } from '@ottimo/ui';
 import { useId, useState, type FormEvent } from 'react';
 import { api } from '../app/api';
-import { todayLocal } from '../app/dates';
+import { useBusinessDay, useBusinessDayChange } from '../app/businessDay';
 import { parseVnd } from '../app/money';
 import { fieldErrors, problemView } from '../app/problem';
 import { useToast } from '../app/toast';
 import { useOnline } from '../hooks/useOnline';
 import { useResource } from '../hooks/useResource';
-import { usePropertyId, useSession } from '../session/SessionProvider';
+import { usePropertyId } from '../session/SessionProvider';
 import { SECURITY_BOUNDS, UNIT_KEY, paramLabel, paramMeta } from './paramCatalog';
 
 type T = (key: string, args?: Record<string, string | number>) => string;
@@ -54,11 +54,12 @@ export function ParamDialog({
 }) {
   const { t, date, dateTime } = useI18n();
   const propertyId = usePropertyId();
-  const { property } = useSession();
   const toast = useToast();
   const { online } = useOnline();
   const ids = useId();
-  const today = todayLocal(property?.timezone);
+  // R3-Q39 #9 (BR-010): `effectiveFrom` and "đã lên lịch" are measured against the BUSINESS day
+  // (parameters.service: `effectiveFrom ≥ ctx.today`; a row of a later day is scheduled).
+  const today = useBusinessDay();
   const name = paramLabel(t, param.key);
   const choices =
     param.key === 'hold_hours_default' && Array.isArray(options) && options.length <= 5
@@ -79,6 +80,11 @@ export function ParamDialog({
         : String(param.value ?? '');
   const [text, setText] = useState(initialText);
   const [effectiveFrom, setEffectiveFrom] = useState(today);
+  const [initialFrom, setInitialFrom] = useState(today);
+  useBusinessDayChange(today, (was, now) => {
+    setEffectiveFrom((v) => (v === was ? now : v));
+    setInitialFrom(now);
+  });
   const [reason, setReason] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState<string | null>(null);
@@ -89,7 +95,7 @@ export function ParamDialog({
     [propertyId, param.key],
   );
 
-  const dirty = text !== initialText || reason !== '' || effectiveFrom !== today;
+  const dirty = text !== initialText || reason !== '' || effectiveFrom !== initialFrom;
 
   const parseValue = (): { ok: true; value: unknown } | { ok: false; error: string } => {
     if (kind === 'options') return { ok: true, value: Number(text) };

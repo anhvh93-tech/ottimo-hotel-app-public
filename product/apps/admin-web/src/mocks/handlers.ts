@@ -757,7 +757,8 @@ export const handlers = [
       const lp = body.listPrice;
       if (!(Number(lp.monthlyListPriceVnd) > 0))
         errors.push({ field: 'listPrice.monthlyListPriceVnd', code: 'AMOUNT_NOT_POSITIVE' });
-      if (String(lp.effectiveFrom) < todayLocal())
+      // R3-Q39 #8: like rooms.service – the bound is the BUSINESS day (ctx.today, BR-010).
+      if (String(lp.effectiveFrom) < businessDayLocal())
         errors.push({ field: 'listPrice.effectiveFrom', code: 'DATE_IN_PAST' });
       if (String(lp.reason ?? '').trim().length < 3)
         errors.push({ field: 'listPrice.reason', code: 'REASON_REQUIRED' });
@@ -775,7 +776,7 @@ export const handlers = [
       isSellable: (body.isSellable as boolean | undefined) ?? room.isSellable,
       version: room.version + 1,
     });
-    if (body.listPrice && String(body.listPrice.effectiveFrom) <= todayLocal()) {
+    if (body.listPrice && String(body.listPrice.effectiveFrom) <= businessDayLocal()) {
       const m = Number(body.listPrice.monthlyListPriceVnd);
       room.currentListPrice = {
         effectiveFrom: String(body.listPrice.effectiveFrom),
@@ -945,7 +946,8 @@ export const handlers = [
     };
     const errors: Array<{ field: string; code: string }> = [];
     if (!body.effectiveFrom) errors.push({ field: 'effectiveFrom', code: 'REQUIRED' });
-    else if (body.effectiveFrom < todayLocal())
+    // R3-Q39 #9: parameters.service – `effectiveFrom ≥ ctx.today` (business day).
+    else if (body.effectiveFrom < businessDayLocal())
       errors.push({ field: 'effectiveFrom', code: 'DATE_IN_PAST' });
     if (String(body.reason ?? '').trim().length < 3)
       errors.push({ field: 'reason', code: 'REASON_REQUIRED' });
@@ -980,7 +982,7 @@ export const handlers = [
       changedAt: new Date().toISOString(),
     };
     db.history.set(cur.key, [next, ...(db.history.get(cur.key) ?? [cur])]);
-    if (next.effectiveFrom <= todayLocal()) Object.assign(cur, next);
+    if (next.effectiveFrom <= businessDayLocal()) Object.assign(cur, next);
     return HttpResponse.json(next);
   }),
 

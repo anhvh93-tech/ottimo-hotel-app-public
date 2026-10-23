@@ -10,7 +10,7 @@ import { Alert, Button, Chip, Field, StateView } from '@ottimo/ui';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
-import { todayLocal } from '../../app/dates';
+import { useBusinessDay } from '../../app/businessDay';
 import { useLiveReload } from '../../app/live';
 import { addDays, dayMonth } from '../../app/reservations';
 import { Page, Topbar } from '../../components/AppShell';
@@ -133,7 +133,7 @@ function AvailabilityPanel({
   const { online } = useOnline();
   const catalog = useCatalog(propertyId);
   const now = useNow(60_000);
-  const today = todayLocal();
+  const today = useBusinessDay(); // BR-010 (night window – BUG-R2-211)
   const [arrival, setArrival] = useState(addDays(today, 1));
   const [nights, setNights] = useState(2);
   const [adults, setAdults] = useState(2);

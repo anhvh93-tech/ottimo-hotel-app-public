@@ -12,7 +12,7 @@ import { useId, useState } from 'react';
 import { api } from '../../app/api';
 import { approvalStatusText, auditReasonText, autoCancelCode } from '../../app/auditReason';
 import { listApprovals } from '../../app/approvals';
-import { todayLocal } from '../../app/dates';
+import { useBusinessDay } from '../../app/businessDay';
 import { useLiveReload } from '../../app/live';
 import { addDays } from '../../app/reservations';
 import { useToast } from '../../app/toast';
@@ -209,7 +209,7 @@ function AuditAction({ e }: { e: AuditEvent }) {
 function MoneyLog() {
   const { t, vnd, dateTime } = useI18n();
   const propertyId = usePropertyId();
-  const today = todayLocal();
+  const today = useBusinessDay(); // BR-010 (night window – BUG-R2-211)
   const [from, setFrom] = useState(addDays(today, -7));
   const [to, setTo] = useState(today);
   const { state, reload } = useResource(

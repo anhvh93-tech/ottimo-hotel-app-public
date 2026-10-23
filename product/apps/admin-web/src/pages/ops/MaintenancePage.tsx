@@ -4,7 +4,7 @@ import { Button, Chip, ConfirmDialog, Field, Modal, Seg, StateView } from '@otti
 import { useId, useState } from 'react';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
-import { todayLocal } from '../../app/dates';
+import { useBusinessDay } from '../../app/businessDay';
 import { useLiveReload } from '../../app/live';
 import { Code } from '../../app/mono';
 import { addDays, dayMonth } from '../../app/reservations';
@@ -44,7 +44,7 @@ export function MaintenancePage() {
     async () => (await api.listWorkOrders({ propertyId })).data.data,
     [propertyId],
   );
-  const today = todayLocal();
+  const today = useBusinessDay(); // BR-010 (night window – BUG-R2-211)
   const blocks = useResource(
     async () =>
       (
@@ -421,7 +421,7 @@ function ChangeEndDialog({
   const { t } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
-  const today = todayLocal();
+  const today = useBusinessDay(); // BR-010 (night window – BUG-R2-211)
   const [end, setEnd] = useState(block.endDatePlanned);
   const act = useSubmit({ bound: ['endDatePlanned'] });
   const min = addDays(block.startDate > today ? block.startDate : today, 1);

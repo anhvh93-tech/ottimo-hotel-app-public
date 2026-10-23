@@ -4,7 +4,7 @@ import { Alert, Button, Chip } from '@ottimo/ui';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../app/api';
-import { todayLocal } from '../app/dates';
+import { useBusinessDay } from '../app/businessDay';
 import { dayMonth } from '../app/reservations';
 import { Page, Topbar } from '../components/AppShell';
 import { ErrorBlock, LoadingBlock } from '../components/states';
@@ -46,7 +46,8 @@ export function ParamsPage() {
   );
   // UXR S4 P-22: a value saved for a later day is not in force yet – the same list read far ahead shows it, so
   // the row can say "35% từ 19/10" instead of looking unchanged.
-  const today = todayLocal(session.property?.timezone);
+  // R3-Q39 #9: "scheduled" = takes effect after the BUSINESS day (BR-010), like the server's `asOf`.
+  const today = useBusinessDay();
   const farDay = `${Number(today.slice(0, 4)) + 10}-12-31`;
   const scheduled = useResource(
     async () =>
