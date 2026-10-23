@@ -384,7 +384,10 @@ async function serviceLine(
 
 /**
  * qa.fdl duyệt các FOC (do qa.fd gửi, mỗi lần ≤ hạn mức lần) cho tới khi đã dùng `targetUsed` trong tháng
- * (`usedNow` = đã dùng hiện tại). Dùng một dòng service_fee riêng trên folio.
+ * (`usedNow` = đã dùng hiện tại). Mỗi FOC một dòng service_fee riêng (một khóa FOC riêng): BR-433 (b) v0.4.0 /
+ * BE-83 (R3-Q22) so hạn mức lần với Σ cộng dồn trên CÙNG khóa, nên lần 2 trên cùng dòng (Σ 600.000 > 300.000) sẽ
+ * chuyển quản lý – đúng quy tắc chống chia nhỏ, không phải thứ ca này kiểm. Khác khóa trên cùng lượt ở chỉ báo OWN
+ * (BR-433 (c), ESC-026 A), không đổi định tuyến.
  */
 async function fillFdlMonth(
   ctx: APIRequestContext,
@@ -396,9 +399,9 @@ async function fillFdlMonth(
 ): Promise<void> {
   let left = targetUsed - usedNow;
   if (left <= 0) return;
-  const lineId = await serviceLine(ctx, fd, folioId, left);
   while (left > 0) {
     const amountVnd = Math.min(FDL_PER_TIME, left);
+    const lineId = await serviceLine(ctx, fd, folioId, amountVnd);
     const r = await requestFoc(ctx, fd, folioId, lineId, {
       amountVnd,
       reasonCode: 'service_recovery',

@@ -21,6 +21,7 @@ import {
 import { setClock } from './clock.js';
 import { SEED_PASSWORD } from './env.js';
 import {
+  addDays,
   createReservation,
   freeWindow,
   getReservation,
@@ -334,11 +335,20 @@ export const TEST_RECEIVING_ACCOUNT = {
 /**
  * Cấu hình tài khoản nhận (BR-521, ESC-010) hiệu lực từ `effectiveFrom` = NGÀY ẢO của ca clock. Không bao giờ đặt
  * cho ngày thật: TC-L4-065 ("chưa cấu hình") chạy ở project api với đồng hồ thật.
+ *
+ * R3-Q51 (hợp đồng 0.3.8, SEC Q51-5, ARC `s1-ARC-on-Q51.md`): khóa `payment_receiving_account` chỉ nhận
+ * `effectiveFrom` > ngày kinh doanh, kể cả lần đầu (422 `EFFECTIVE_FROM_TOMORROW`) – không có đường "hiệu lực ngay".
+ * Ca gọi hàm này khi đồng hồ đã ở ngày ảo D, nên hàm lùi đồng hồ về 12:00 ngày D−1 (ngày kinh doanh D−1 với mọi mốc
+ * `business_day_rollover`), lên lịch dòng từ D như OWN làm thật, rồi trả đồng hồ về đúng thời điểm ca đang đứng.
  */
 export async function ensureReceivingAccount(
   ctx: APIRequestContext,
   effectiveFrom: string,
 ): Promise<void> {
+  const h = await call<{ time: string }>(ctx, 'GET', '/health');
+  expect(h.status, `/health: ${JSON.stringify(h.body)}`).toBe(200);
+  const back = h.body.time;
+  await at(ctx, vnTime(addDays(effectiveFrom, -1), '12:00'));
   const r = await setParam(
     ctx,
     'payment_receiving_account',
@@ -353,6 +363,8 @@ export async function ensureReceivingAccount(
   const already =
     r.status === 422 &&
     /already effective/i.test(String((r.body as { detail?: string })?.detail ?? ''));
+  // Trả đồng hồ trước khi kiểm, để ca hỏng ở đây không để đồng hồ đứng ở D−1 cho ca sau.
+  await at(ctx, back);
   expect(
     r.status === 200 || already,
     `setParameter payment_receiving_account: ${JSON.stringify(r.body)}`,
