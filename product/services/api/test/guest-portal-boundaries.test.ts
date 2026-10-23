@@ -49,6 +49,9 @@ describe('guest-portal boundaries (ARC S4-09)', () => {
       'guest_access_token',
       'online_checkin',
       'idempotency_key',
+      // SR-RET-03 shared purge journal (append-only, ids only): every module that purges writes its rows –
+      // T13 `guest_request.purge` (R3-Q15).
+      'purge_journal',
     ]);
     const bad: string[] = [];
     for (const f of files(GUEST_PORTAL)) {
