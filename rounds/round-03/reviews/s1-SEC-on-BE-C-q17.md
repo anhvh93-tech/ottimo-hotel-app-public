@@ -17,7 +17,7 @@
 | FB-R2-SEC-BE-75 | **Đạt B.3**, chấp nhận hai điểm lệch (mục 3) | Mốc = điểm kết thúc mới nhất của trả phòng / hủy / no-show / bị bỏ khỏi đoàn, không có thì `created_at`. Kiểm đơn mở trên toàn tổ chức. Hàm trả thêm mốc thời gian, và có policy `org_retention_read` mới: SEC chấp nhận cả hai, kèm FB-R3-SEC-BEC-01 (Minor). |
 | FB-R2-SEC-BE-79 | **Đạt B.4** | Đủ 7 ca. Mọi thao tác nằm trong một giao dịch: test ép lỗi 500 xong thì A, B và giấy tờ y như trước. Audit `consent.reverted` không có số giấy tờ. CHECK `guest_id_doc_last4_consent_check` vẫn `convalidated`. Có một điểm lệch về phía an toàn, xem FB-R3-SEC-BEC-02 (Minor). |
 | FB-R2-SEC-BE-84 (a) | **Đạt B.6** (a1) | Mục "Cần chú ý" chỉ OWN/MGR thấy. FD, FDL không thấy; HK nhận 403. Nội dung chỉ có `check` + `count`, test xác nhận không có id ảnh hay id đơn. Lượt J16 sau không còn ảnh thiếu mốc thì mục tự biến mất. J16 không xóa ảnh thiếu mốc. Phần (b) `FOR SHARE` (Should) chưa làm, vẫn để mở ở thẻ gốc. |
-| R3-Q15 (B.7) | **Phần `note`/`reply_note`: đạt B.7. Toàn mục R3-Q15: CHƯA đạt** | Còn thiếu `online_checkin.arrival_note`, cũng là chữ khách gõ (C2, D23), mà ERD ghi phải xóa theo T13. Xem FB-R3-SEC-BED-01 (**Major**, phải xong trước dữ liệu thật). |
+| R3-Q15 (B.7) | **Lượt đầu (`9715e1f`): phần `note`/`reply_note` đạt, toàn mục CHƯA đạt. Lượt lại (`e54340c`, mục 8): ĐẠT B.7, gộp được** | Còn thiếu `online_checkin.arrival_note`, cũng là chữ khách gõ (C2, D23), mà ERD ghi phải xóa theo T13. Xem FB-R3-SEC-BED-01 (**Major**, phải xong trước dữ liệu thật). |
 
 - **Blocker: không có.**
 - **Major: 1** – FB-R3-SEC-BED-01 (arrival_note chưa có T13). Thẻ này không chặn gộp `9715e1f`, nhưng R3-Q15 chưa được ghi "SEC đạt B.7" cho tới khi sửa xong.
@@ -105,7 +105,7 @@ SEC đề nghị ORC ghi `decision-log`: *"SEC chấp nhận `guest_stay_retenti
   - ghi `purge_journal` (`subject_type = 'online_checkin'`, `T13`, `null_columns`), audit chỉ số đếm;
   - test: trước hạn còn, sau hạn mất; đơn còn mở thì không xóa; chạy 2 lần không đổi thêm; audit/journal không chứa chữ.
 - Hạn: **trước dữ liệu khách thật** (cùng cổng R3-Q15). R3-Q15 chỉ được ghi "SEC đạt B.7" khi thẻ này Done.
-- Trạng thái: Open
+- Trạng thái: **Done – SEC xác nhận 23/10 trên `e54340c`** (mục 8)
 
 ### FB-R3-SEC-BED-02
 - Mức độ: Minor
@@ -115,7 +115,7 @@ SEC đề nghị ORC ghi `decision-log`: *"SEC chấp nhận `guest_stay_retenti
 - Vì sao quan trọng: J10 chỉ báo yêu cầu `new` quá hạn, nên yêu cầu `in_progress` bị quên sẽ không ai thấy. Rủi ro thấp vì nhân viên vẫn thấy danh sách yêu cầu mở.
 - Đề xuất sửa: thêm nhánh mốc theo lượt ở trong cùng job (có thể làm chung với BED-01, vì cùng nguồn "lượt ở kết thúc"). Thêm một ca test.
 - Hạn: R3 nếu kịp cùng BED-01; muộn nhất R4.
-- Trạng thái: Open
+- Trạng thái: **Done – SEC xác nhận 23/10 trên `e54340c`** (mục 8)
 
 ### Suggestion
 - **S-1 (BE-C):** đổi `guest_stay_retention` thành `guest_retention_due(p_guest, p_now, p_months, p_fallback) → boolean`, đúng chữ B.3 và không còn trả mốc thời gian. Không bắt buộc.
@@ -143,3 +143,53 @@ SEC đề nghị ORC ghi `decision-log`: *"SEC chấp nhận `guest_stay_retenti
 1. Test BE-74 soát **từng cột** của `guest` theo danh sách cho phép, nên cột mới thêm sau này mà quên xóa sẽ làm test đỏ ngay.
 2. BE-79 có ca ép lỗi giữa giao dịch, kiểm cả ba bên (A, B, giấy tờ), và có ca đổi qua lại A → B → A.
 3. Job T13 xóa luôn bản sao chữ của khách ở `hk_task` và `work_order` qua hàm công khai của module housekeeping, không ghi thẳng vào bảng của module khác.
+
+## 8. Review lại R3-Q15 – 23/10/2026, nhánh `be-d-r3-q15-t13`, `e54340c`
+
+- `e54340c` nằm ngay trên `ed25d25` (đã có trong `main`). SEC đọc diff `ed25d25..e54340c`: 10 tệp trong `product/services/api`, không đụng tệp khác.
+- Migration đổi số thành `0083_guest_request_t13`. Nội dung giống bản `0081` cũ, chỉ khác chỉ mục `guest_request_t13_idx`, nay gồm cả yêu cầu còn mở (`property_id, closed_at, created_at`, khi còn chữ). `0082` (BE-B) chưa có trên `main`: ORC nối lại `prevId` của snapshot lúc gộp. SEC chỉ cần đọc lại diff nếu nội dung SQL đổi.
+
+### 8.1 Kết luận
+
+| Thẻ | Kết luận |
+|---|---|
+| FB-R3-SEC-BED-01 (Major) – `online_checkin.arrival_note` | **Done.** Job `guest_request.purge` làm rỗng `arrival_note` khi lượt ở đã kết thúc từ ≥ `retention.guest_request_months` (trả phòng / hủy / no-show). Ghi `purge_journal` (`online_checkin`, `T13`, `null_columns`). Audit chỉ thêm số đếm `arrivalNotes`. Lượt ở còn mở thì không xóa. |
+| FB-R3-SEC-BED-02 (Minor) – mốc T13 | **Done**, đúng mốc SEC chốt: `COALESCE(closed_at, kết thúc lượt ở)` + N tháng. Yêu cầu đã đóng: mốc là `closed_at`. Yêu cầu chưa đóng: chỉ xóa khi lượt ở đã kết thúc từ ≥ N tháng. |
+| **R3-Q15 / B.7** | **ĐẠT. Gộp được.** Verified chính thức theo B.0 sau khi gộp (mục 6). |
+
+**Blocker: 0. Major: 0.** Có một ghi chú Minor ở 8.3, không chặn gộp.
+
+### 8.2 Kiểm đã chạy
+
+Worktree tạm ở `e54340c`, Postgres 17 riêng (cổng 56634), migrate từ đầu tới 0083. Worktree và container đã xóa.
+
+1. `tsc --noEmit`: đạt.
+2. `guest-request-t13-r3-bed` (6 ca) + `guest-portal-boundaries` + `migrations-journal` + `module-boundaries`: **23/23 đạt**. Hai ca mới đáng chú ý:
+   - (1) "while the stay runs": yêu cầu còn mở và ghi chú lúc đến **không** bị xóa, kể cả nhiều năm sau;
+   - (2) "SEC BED-01/02": khách trả phòng, đúng 12 tháng sau thì yêu cầu còn mở + ghi chú lúc đến bị xóa **một lần**, lượt chạy sau không đổi thêm.
+3. **Toàn bộ api `vitest run`: 110 tệp đạt, 1 bỏ qua; 3054 test đạt, 2 bỏ qua; 0 lỗi.**
+
+### 8.3 Đọc diff
+
+- **Ranh giới module:** guest-portal không đọc bảng đặt phòng. Thời điểm kết thúc lượt ở lấy qua `reservations/public/stay-view` (`stayViews`, `SYSTEM_ACTOR`), và `module-boundaries` xanh. `stayViews` vẫn chạy dưới RLS theo cơ sở của job.
+- **"Lượt ở kết thúc":**
+  - `checked_out` → `actual_checkout_at`; `cancelled` → `cancelled_at`; `no_show` → `no_show_marked_at`. Trạng thái khác (`hold`, `confirmed`, `in_house`) thì chưa kết thúc.
+  - Lượt ở còn kéo dài qua đơn con **đang mở** (`effectiveDepartureDate > departureDate`, chỉ tính con `confirmed`/`in_house`) thì bỏ qua. Con đã trả phòng thì không còn tính, nên lượt ở có gia hạn vẫn được xóa sau khi kết thúc hẳn.
+  - Mốc tháng trong JS (`cutoffOf`) và trong SQL (`make_interval`) cùng cách cộng tháng. SQL chỉ dùng để lọc trước bằng `created_at`.
+- **Không lộ chữ:**
+  - `UPDATE … SET note = NULL, reply_note = NULL` theo id;
+  - `hk_task.note` / `work_order.description` được xóa qua hàm công khai của housekeeping;
+  - SSE chỉ mang id;
+  - `purge_journal` chỉ có id;
+  - audit `retention_run` chỉ có `policyKey`, `count`, `linkedWork`, `arrivalNotes` (danh sách trường cho phép).
+- **Chạy lại không đổi thêm:** điều kiện chọn dòng đòi cột còn chữ. Dòng đã khóa bởi lượt khác thì bỏ qua (`FOR UPDATE SKIP LOCKED`).
+- **Ghi chú (Minor, không thành thẻ chặn):**
+  - Nhánh "chưa đóng" và nhánh `arrival_note` lấy 500 dòng cũ nhất theo `created_at`, **rồi mới** lọc lượt ở đã kết thúc. Nếu có ≥ 500 dòng thuộc lượt ở chưa kết thúc mà tạo đã > N tháng (thuê dài hạn trên 12 tháng, hoặc đơn kẹt ở `confirmed` vì chưa đánh no-show), các dòng này luôn chiếm hết lô, và dòng đến hạn phía sau không được xử lý. Với 10 căn thì gần như không xảy ra.
+  - Đề xuất BE-D (R4): bỏ qua dòng đã xét bằng con trỏ, hoặc lọc lượt ở đã kết thúc trước khi `LIMIT`.
+  - Đơn kẹt ở `confirmed` sau ngày đến thì không bao giờ có mốc kết thúc. Việc này thuộc J4 / đánh no-show (R3-Q13), không thuộc T13.
+- **Ghi cho ARC (lặp lại từ mục 5):** `notePurgedAt` vẫn chưa có trong OpenAPI / contracts.
+
+### 8.4 Trạng thái sau lượt lại
+
+- FB-R3-SEC-BED-01: **Done** (SEC xác nhận). FB-R3-SEC-BED-02: **Done** (SEC xác nhận).
+- R3-Q15 không còn thẻ SEC mở. SEC ghi Verified vào `SEC-sprint1.md` sau khi gộp `main` (CI xanh, chạy lại `guest-request-t13-r3-bed` trên worktree sạch, DB mới).
