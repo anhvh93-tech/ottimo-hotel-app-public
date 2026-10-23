@@ -137,14 +137,12 @@ describe.skipIf(!HAS_DB)(
       expect(ids).toEqual(expect.arrayContaining([x.t.users.owner!.id, x.t.users.mgr!.id]));
       expect(told.every((n: any) => n.ref_code === '2026-10-21')).toBe(true);
       const mails = await x.q(`SELECT payload FROM outbox_message WHERE topic = 'staff.email'`);
-      expect(mails.map((m: any) => m.payload)).toContainEqual(
-        {
-          template: 'receiving_account_changed',
-          userIds: [],
-          owners: true,
-          effectiveDate: '2026-10-21',
-        },
-      );
+      expect(mails.map((m: any) => m.payload)).toContainEqual({
+        template: 'receiving_account_changed',
+        userIds: [],
+        owners: true,
+        effectiveDate: '2026-10-21',
+      });
     });
 
     it('Q51-1: history – OWN 200 with the scheduled row; MGR → 403; FD, SAL refused; listParameters drops the key for MGR', async () => {
@@ -206,7 +204,12 @@ describe.skipIf(!HAS_DB)(
           WHERE topic = 'staff.email' AND dedupe_key LIKE 'email:receiving_account_changed:cancel:%'`,
       );
       expect(mails.map((m: any) => m.payload)).toEqual([
-        { template: 'receiving_account_changed', userIds: [], owners: true, effectiveDate: '2026-10-25' },
+        {
+          template: 'receiving_account_changed',
+          userIds: [],
+          owners: true,
+          effectiveDate: '2026-10-25',
+        },
       ]);
       const inForce = keep(await cancel('owner', { ...body, effectiveFrom: '2026-10-21' }));
       expect(inForce.statusCode, inForce.body).toBe(409);
