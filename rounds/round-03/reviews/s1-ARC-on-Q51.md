@@ -71,16 +71,65 @@ Lý do chọn "vắng mặt" thay `null`: cùng quy ước repo (BUG-R2-101: tr�
     - 404 giữ "chưa cấu hình";
     - sửa MSW cho ca này, thêm test.
   - Chữ theo brand OTTIMO, Việt/Anh.
-- Trạng thái: Open
+- Trạng thái: Verified (ARC 23/10, `190ab21`)
 
 ### FB-R3-ARC-Q51-02
 - Mức độ: Minor
 - Vị trí: `0084_parameter_cancel_scheduled.sql` (`GRANT DELETE ON config_parameter TO ottimo_app`)
 - Vấn đề: quyền DELETE mở cho **mọi** dòng `config_parameter` của cơ sở (RLS chỉ giới hạn theo cơ sở), trong khi chỉ cần xóa dòng chưa hiệu lực. Bảng này là lịch sử ("không sửa giá trị quá khứ"). Hiện chỉ `cancelScheduled` xóa và có kiểm ngày dưới khóa dòng, nên chưa có lỗi.
 - Đề xuất sửa (commit kế tiếp, không chặn gộp): thêm test kiến trúc, `DELETE FROM config_parameter` chỉ được xuất hiện trong `ParametersService.cancelScheduled`. Cân nhắc thêm một chính sách RLS `FOR DELETE` giới hạn `effective_from > ngày lịch hiện tại theo múi cơ sở − 1`. Ở R3 không bắt buộc, vì ngày kinh doanh đổi lúc 06:00 nên cần hàm SQL riêng.
-- Trạng thái: Open
+- Trạng thái: Verified (ARC 23/10, `190ab21`)
 
 ## Điểm làm tốt
 - Hủy dòng đã lên lịch dùng S2 và khóa dòng `FOR UPDATE`, audit `money` có giá trị đã che. Q51-6 được nối vào outbox `staff.email` khớp payload của worker INT.
 - Phía server chặn hiệu lực từ ngày mai kể cả lần đầu, nên không có đường "đổi tài khoản nhận tiền ngay lập tức".
 - Rebase sạch lên 0083, snapshot sinh lại đúng (`drizzle-kit generate` không sinh file).
+
+---
+
+# Lượt 2 – review lại `190ab21` (nhánh `fe-a/r3-q51-followup` = BE-B `cf0ce2f` + một commit FE-A), ARC 23/10
+
+Đã đọc `responses/s1-BE-B.md` mục R3-Q51 và `responses/s1-FE-A.md`.
+
+## Kết luận
+**Gộp được.** Q51-01 và Q51-02 đã sửa đúng, tôi chuyển sang Verified. Không còn thẻ Blocker hay Major của ARC.
+
+Còn hai việc không chặn gộp:
+- (1) ARC đã thêm mã `ACCOUNT_NUMBER_NOT_ALLOWED` vào bảng mã trường của `openapi.yaml` trên main (chưa commit) – ORC commit cùng lúc gộp;
+- (2) UXD duyệt 3 chuỗi `rcv.none_in_use`, `rcv.reason_help`, `rcv.reason_no_account`.
+
+**Đã chạy** (worktree tách riêng ở `190ab21`, PostgreSQL 17 riêng):
+- `tsc` api + admin-web: 0 lỗi;
+- `r3-q51-receiving-account` + `parameters-delete-architecture` + `contract`: 16/16;
+- 8 tệp tích hợp có chạm `config_parameter`: 134 đạt, 5 bỏ qua (kiểm trigger không làm hỏng đường cũ);
+- admin-web `r3-q51-fea`: 14/14.
+
+**Xác nhận:**
+- **Q51-01**:
+  - Server: 404 chỉ khi khóa không có dòng nào và không có mặc định; chỉ có dòng đã lên lịch → 200, không có `current`. Test đi đủ chuỗi "đặt lần đầu → 200 → MGR 403 → hủy → 404".
+  - FE: "Chưa có tài khoản đang dùng – … có hiệu lực từ {ngày}" kèm nút Hủy ở dòng đã lên lịch; MSW khớp hợp đồng; api-client `current?`.
+  - Không lệch với `openapi.yaml` trên main (bổ sung 2 đã commit `bea761f`).
+- **Q51-02**:
+  - Trigger `config_parameter_delete_future_only` (`BEFORE DELETE`) là lớp phòng thủ thứ hai sau quyền DELETE.
+  - Test kiến trúc giới hạn `DELETE FROM config_parameter` chỉ ở `cancelScheduled`. Trong mã nguồn chỉ còn đúng chỗ đó; ngoài ra chỉ test Q51 tự dọn dòng nó tạo.
+- **SEC Q51-01** (không ghi số tài khoản vào lý do): kiểm trước S2, FE kiểm cùng quy tắc trước khi gửi. Đúng. Mã lỗi mới chưa có trong hợp đồng, nên ARC bổ sung (xem trên).
+
+## Quyết định: trigger dùng `now()` của CSDL thay đồng hồ giả – **CHẤP NHẬN**
+Lý do:
+1. Trigger là lớp phòng thủ, không phải nơi quyết định. Quy tắc nghiệp vụ (409 khi dòng đã hiệu lực) do app kiểm bằng đồng hồ của app, giờ giả hoặc thật. Ở production không có đồng hồ giả (`CLOCK_MODE` thật, OPS chặn), nên hai đồng hồ là một.
+2. Đồng hồ giả chỉ sống ở tầng app (ADR-008). Muốn đưa nó xuống CSDL thì phải có bảng/hàm `dev_clock` cho trigger đọc, tức là thêm một đường cho dữ liệu test chạm vào lớp bảo vệ của production. Đánh đổi đó không đáng.
+3. Hệ quả chấp nhận được:
+   - đồng hồ giả **đi trước** giờ thật: trigger dễ hơn app, app vẫn chặn;
+   - đồng hồ giả **đi sau** giờ thật: hủy một dòng có ngày nằm giữa hai đồng hồ sẽ bị trigger chặn (lỗi `check_violation`). Chỉ xảy ra ở test/staging, nên test Q51 dùng ngày năm 2030 là đúng.
+
+Kèm điều kiện nhỏ (Minor, commit kế tiếp, không chặn gộp): ánh xạ `check_violation` từ trigger này sang **409 `INVALID_TRANSITION`** thay 500, để nếu staging gặp ca đồng hồ giả đi sau thì Desk hiện lỗi đúng nghĩa. Ghi chú này vào `dev-setup.md` mục đồng hồ giả (OPS).
+
+## Thẻ mới
+
+### FB-R3-ARC-Q51-03
+- Mức độ: Minor
+- Vị trí: `parameters.service.ts` `cancelScheduled` (câu `DELETE`) / bộ lọc lỗi chung
+- Vấn đề: trigger `config_parameter_delete_future_only` từ chối bằng `check_violation`. App kiểm cùng quy tắc trước đó, nên ở production chỉ gặp khi có lỗi lập trình hoặc lệch đồng hồ giả ở staging. Khi gặp thì hiện là 500.
+- Đề xuất sửa: bắt `check_violation` của đúng câu `DELETE` này và trả 409 `INVALID_TRANSITION` (`currentState: in_force`), có log `warn` (chỉ key và ngày). Thêm một dòng vào `dev-setup.md`: trigger dùng giờ thật của CSDL.
+- Trạng thái: Open
+

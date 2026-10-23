@@ -88,3 +88,38 @@ Chạy trên worktree tách riêng ở `d99f6e2`, Postgres 17 mới, migrate t�
 1. Một hàm che số dùng chung cho mọi đường đọc và audit, và có test quét JSON cả các bảng lưu (audit, outbox, thông báo, phản hồi idempotency), không chỉ quét phản hồi HTTP.
 2. Kiểm vai đặt trước kiểm mật khẩu và chạy ngoài unit of work: người không có quyền không dùng được endpoint này để dò mật khẩu, và lần sai vẫn được đếm.
 3. Màn nhập đúng tinh thần "số chỉ sống trong hộp thoại": không điền sẵn, gõ hai lần, chặn dán ở ô xác nhận, không có đường xem số đầy đủ.
+
+---
+
+## Xác nhận lại – nhánh `fe-a/r3-q51-followup`, head `190ab21` (Phản hồi & sửa, 23/10/2026)
+
+- Commit:
+  - `cf0ce2f` (BE-B): `assertReasonWithoutAccountNumber` kiểm **trước** S2; trigger `config_parameter_delete_future_only` trong 0084; `getParameterHistory` không có `current` theo ARC Q51-01;
+  - `190ab21` (FE-A): màn khi chưa có `current`; kiểm lý do phía Desk; dòng gợi ý dưới ô lý do; MSW theo hợp đồng.
+- Kiểm đã chạy (worktree tách riêng ở `190ab21`, Postgres mới; đã gỡ):
+  - `r3-q51-receiving-account` + `parameters-delete-architecture`: **12/12 đạt**; admin-web `r3-q51-fea`: **14/14 đạt**;
+  - test dò tạm của SEC:
+    - `DELETE` thẳng bằng SQL với role `ottimo_app` lên dòng đã có hiệu lực → **CSDL từ chối** (`23514`, trigger);
+    - lý do có số viết cách bằng dấu cách → 422 `ACCOUNT_NUMBER_NOT_ALLOWED`;
+    - lý do có ngày ISO → 200, đúng ý đồ;
+    - lý do có số viết cách bằng **dấu gạch hoặc dấu chấm** (`5550-0011-1222-3`, `5550.001.112.223`) → **200, vẫn lọt** (FB-Q51-05).
+
+| Thẻ | Trạng thái SEC |
+|---|---|
+| FB-R3-SEC-Q51-01 | **Verified**, với phần còn lại tách thành FB-Q51-05. Chặn dãy từ 6 chữ số trở lên (kể cả nhóm cách bằng dấu cách) và chính số vừa gửi; kiểm trước S2 nên không tốn mã xác thực; FE báo dưới ô lý do. |
+| FB-R3-SEC-Q51-02 | **Verified**. Trigger `BEFORE DELETE` tính ngày kinh doanh theo múi giờ và `business_day_rollover` của cơ sở. Test kiến trúc chỉ cho một câu `DELETE` (trong `cancelScheduled`). Có ca SQL trực tiếp bị từ chối. |
+| FB-R3-SEC-Q51-03 | Còn mở (Minor): QA làm ca HK, axe và E2E ở bước Kiểm thử. Không chặn gộp. |
+| FB-R3-SEC-Q51-04 | Đóng. ARC chọn 200 không có `current`, giữ luật "từ ngày mai" cả lần đầu, đúng ý kiến SEC. Màn hiện "chưa có tài khoản đang dùng" cùng ngày của dòng đã lên lịch. |
+
+### FB-R3-SEC-Q51-05
+- Mức độ: Suggestion (không chặn gộp)
+- Vị trí: `receiving-account.ts` `assertReasonWithoutAccountNumber`; `ReceivingAccount.tsx` `reasonHasAccountNumber`.
+- Vấn đề: hàm chỉ gộp các nhóm số cách nhau bằng dấu cách. Viết số tài khoản với dấu `-` hoặc `.` thì vẫn lưu được số đầy đủ trong lý do và audit. Muốn lọt phải cố ý gõ dấu, và người gõ là OWN, nên rủi ro thấp.
+- Đề xuất sửa:
+  - thêm phép so chỉ trên chữ số: `reason.replace(/\D/g, '').includes(accountNo)` cho lúc đặt mới;
+  - khi hủy, so với số của dòng đang hủy. Server đã đọc dòng này dưới `FOR UPDATE`, nên có thể kiểm ngay trong `cancelScheduled`;
+  - cách này không làm ngày ISO bị chặn nhầm.
+- Trạng thái: Open
+
+### Kết luận
+**Gộp được ở `190ab21`.** Không có Blocker, không có Major. Còn mở: FB-Q51-03 (Minor, QA ở bước Kiểm thử) và FB-Q51-05 (Suggestion).
