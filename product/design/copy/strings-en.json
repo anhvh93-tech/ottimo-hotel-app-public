@@ -2951,6 +2951,7 @@
   "debt.write_off_reauth_help": "Writing off a debt needs your sign-in password again.",
   "co.debt_due_min": "Choose a due date from tomorrow onwards.",
   "refund.settled_credit": "The guest has checked out with {amount} overpaid and no refund request yet. Send a refund request for a manager to approve and pay.",
+  "refund.requested_owner": "Refund request sent – it will wait for the owner's approval.",
   "hk.queue.in_line": "Waiting in line",
   "hk.queue.r.time": "Not recorded: the time you tapped ({time}) is too far from the current time. If the work is done, tap \"Send again\" to record it now.",
   "hk.queue.r.photo": "This photo couldn't be sent. The report was sent without it.",

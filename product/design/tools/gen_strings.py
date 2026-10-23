@@ -3302,6 +3302,7 @@ g("R3 Sprint 1 – FE-A R3-Q39 #11: hạn công nợ theo ngày nghiệp vụ (B
 
 g("R3 – FE-A FUZZ-01 (ARC 0.3.8 bổ sung 3, BR-522 K11-06): yêu cầu hoàn trên folio đã chốt. **Chờ UXD duyệt**", [
     ("refund.settled_credit", "Khách đã trả phòng và còn dư {amount} chưa có yêu cầu hoàn. Gửi đề nghị hoàn để quản lý duyệt và chi.", "The guest has checked out with {amount} overpaid and no refund request yet. Send a refund request for a manager to approve and pay.", None, "Folio settled (kể cả J15 waiting_refund), unhandledCreditVnd > 0 – drawer đơn; mục Cần chú ý closed_reservation_credit dẫn tới đây"),
+    ("refund.requested_owner", "Đã gửi đề nghị hoàn – sẽ chờ chủ đầu tư duyệt.", "Refund request sent – it will wait for the owner's approval.", None, "ADD3-01 (SEC/ARC 24/10): server định tuyến requiredRole = owner (folio đã chốt có dòng bị giảm bởi người dưới chủ đầu tư). Biến thể của refund.requested, cùng giọng debt.write_off_pending"),
 ])
 
 TEMPLATES = [

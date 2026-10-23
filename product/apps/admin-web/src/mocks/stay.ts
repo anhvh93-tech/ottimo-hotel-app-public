@@ -124,6 +124,11 @@ interface MockFolio {
   reservationId: string;
   /** `closed` = J15 closed it (window over, no credit left – I4); set by tests. */
   status: 'open' | 'settled' | 'closed';
+  /**
+   * ADD3-01 (ARC/SEC 24/10, erd `folio_settled_reduction`): users below OWN who cut a line (A32) on this settled
+   * folio – a refund asked by hand on it is routed to the owner.
+   */
+  settledReductionBy?: string[];
   billNo: string | null;
   /** 0.3.7 add. 1 (`Bill.settledAt`) – set with the folio number at B18. */
   settledAt?: string;
@@ -135,6 +140,8 @@ export interface MockApproval {
   id: string;
   type: string;
   status: 'pending' | 'approved' | 'rejected' | 'escalated' | 'cancelled';
+  /** Who may decide (OpenAPI `ApprovalRequest.requiredRole`) – ADD3-01 routes some refunds to the owner. */
+  requiredRole?: Role;
   reservationCode?: string;
   folioId?: string;
   folioLineId?: string;
@@ -3126,6 +3133,8 @@ export function createStayMock(ctx: Ctx) {
         return problem(409, 'FOLIO_LOCKED', {
           detail: 'open debt – reduce what is owed through a FOC debt_write_off (BR-525)',
         });
+      if (f.status === 'settled' && after < l.amountVnd && !g.roles.includes('owner'))
+        f.settledReductionBy = [...new Set([...(f.settledReductionBy ?? []), g.user.id])];
       if (night && l.category === 'room') {
         const list = roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000;
         if (unit < list * 0.5 || unit > list * 2)
@@ -3556,6 +3565,8 @@ export function createStayMock(ctx: Ctx) {
         requestedByUserId: g.user.id,
         requestedAt: nowIso(),
         refundedVnd: 0,
+        // ADD3-01 (`refundRouting`, source 'other'): a settled folio cut by someone below OWN → the owner decides.
+        requiredRole: f.status === 'settled' && f.settledReductionBy?.length ? 'owner' : 'manager',
       };
       st.approvals.push(a);
       return json(a, 201);
@@ -3703,6 +3714,9 @@ export function createStayMock(ctx: Ctx) {
           });
         if (a.requestedByUserId === g.user.id) return problem(403, 'SELF_APPROVAL_FORBIDDEN');
         if (a.type === 'refund' && !has(g.roles, OWN_MGR)) return problem(403, 'FORBIDDEN_ACTION');
+        // ADD3-01: a refund routed to the owner – a manager cannot decide it.
+        if (a.requiredRole === 'owner' && !g.roles.includes('owner'))
+          return problem(403, 'FORBIDDEN_ACTION');
         if (!['pending', 'escalated'].includes(a.status))
           return problem(409, 'INVALID_TRANSITION', {
             currentState: a.status,

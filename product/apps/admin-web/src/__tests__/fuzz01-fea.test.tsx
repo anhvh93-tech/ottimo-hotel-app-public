@@ -152,4 +152,26 @@ describe('FUZZ-01 – đề nghị hoàn trên folio đã chốt', () => {
     const d = await screen.findByRole('dialog', { name: 'Ngọc Anh' });
     expect(await within(d).findByRole('button', { name: requestButton() })).toBeInTheDocument();
   });
+
+  it('ADD3-01: settled folio cut by a manager (A32) → the request waits for the owner, the toast says so', async () => {
+    const { r, f } = withCredit(250_000);
+    f.settledReductionBy = [mockControl.db.users.find((u) => u.username === 'qa.mgr')!.id];
+    const { user } = renderApp(`/reservations/${r.id}`, 'qa.fd');
+    const d = await screen.findByRole('dialog', { name: 'Ngọc Anh' });
+    await user.click(await within(d).findByRole('button', { name: requestButton() }));
+    const box = await screen.findByRole('dialog', {
+      name: tv('refund.request_overpayment', { amount: money(250_000) }),
+    });
+    await user.type(
+      within(box).getByLabelText(new RegExp(`^${esc(tv('ci.reason'))}`)),
+      'QR về sau khi trả phòng',
+    );
+    await user.click(within(box).getByRole('button', { name: requestButton() }));
+    expect(await screen.findByText(tv('refund.requested_owner'))).toBeInTheDocument();
+    expect(screen.queryByText(tv('refund.requested'))).toBeNull();
+    const a = mockControl.stay.approvals.find(
+      (x) => x.type === 'refund' && x.folioId === r.folioId,
+    );
+    expect(a?.requiredRole).toBe('owner');
+  });
 });
