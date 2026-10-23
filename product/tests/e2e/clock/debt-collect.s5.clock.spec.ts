@@ -7,12 +7,13 @@
 //   (BR-525-08, BR-525-09, BR-525-12).
 // - TC-L4-149: J15 `folio.close` ở trả phòng + 24 giờ ± 1 phút với khoản phát sinh 70.000 chưa thu (BR-525-13, R7LOCK-01).
 // - TC-L4-150: J15 bỏ qua folio còn yêu cầu hoàn mở (BR-427-02).
-// - TC-L4-151: xóa công nợ bằng FOC `debt_write_off` – vai, ghi chú, trần, `kind`, MGR vượt giá 1 đêm chờ OWN (BR-525-15).
+// - TC-L4-151: xóa công nợ bằng FOC `debt_write_off` – vai, xác thực lại người xin (R3-Q25), ghi chú, trần, `kind`, MGR
+//   vượt giá 1 đêm chờ OWN (BR-525-15).
 // - TC-L4-152: folio đang thừa 30.000 (yêu cầu hoàn mở) → đảo 100.000 → công nợ 70.000 = phần tăng, yêu cầu hoàn tự hủy
 //   `superseded`; thu 70.000 → hết nợ (BR-525-03, recheck7 R7ALL-02).
 // - TC-L4-153: N-7 / SEC BE-81 – còn công nợ thì MGR, OWN void/giảm dòng → 409; tăng dòng vẫn được, phần tăng là khoản
 //   trong cửa sổ – công nợ đang mở giữ 100.000 (BR-525-16, DOM khối lần 8).
-// - TC-L4-154: N-6 – A32 trên version cũ sau lần thu nợ → 412; đọc lại → 201 (BR-525-17).
+// - TC-L4-154: N-6 – A32 trên version cũ sau lần thu nợ → 412; đọc lại → 201 (BR-525-17), trong cửa sổ (N-15).
 // - TC-L4-155…157: SEC BE-80 (BUG-R2-206, BE-B vòng sửa 8) – yêu cầu xóa nợ chờ OWN mà khách đã trả / hai yêu cầu /
 //   đua duyệt ‖ thu: không bao giờ dư thừa vì xóa nợ (BR-525-18…20).
 // - TC-L4-158: AN-50 (G-5) – dời hẳn ngày đơn thỏa thuận rồi B13 → 650.000 (BR-417-24).
@@ -28,6 +29,7 @@ import {
   type StaffSession,
 } from '../support/api.js';
 import { needClock, resetClock, runJob, setClock } from '../support/clock.js';
+import { SEED_PASSWORD } from '../support/env.js';
 import { precondition } from '../support/known-bugs.js';
 import {
   addDays,
@@ -173,7 +175,13 @@ function collect(
   }) as Promise<ApiResult<Json & ProblemFields>>;
 }
 
-/** Yêu cầu xóa nợ `debt_write_off` của MGR (vượt giá 1 đêm → chờ OWN). */
+/**
+ * R3-Q25 (FB-R2-SEC-BE-82 (b), BE-B lượt kiểm tiền bước 4): người xin `debt_write_off` phải xác thực lại như người duyệt
+ * (S1 – mật khẩu); thiếu → 422 `secret` `REQUIRED`, kiểm TRƯỚC `kind`/ghi chú/trần.
+ */
+const WRITE_OFF_REAUTH = { authMethod: 'password', secret: SEED_PASSWORD } as const;
+
+/** Yêu cầu xóa nợ `debt_write_off` của MGR, có xác thực lại R3-Q25 (vượt giá 1 đêm → chờ OWN). */
 async function writeOffRequest(
   request: APIRequestContext,
   st: Stay,
@@ -188,7 +196,13 @@ async function writeOffRequest(
     {
       session: mgr,
       idempotencyKey: true,
-      body: { kind: 'foc', reasonCode: 'debt_write_off', amountVnd, note: 'No kho doi' },
+      body: {
+        kind: 'foc',
+        reasonCode: 'debt_write_off',
+        amountVnd,
+        note: 'No kho doi',
+        ...WRITE_OFF_REAUTH,
+      },
     },
   );
 }
@@ -436,7 +450,7 @@ test.describe(
       const fd = await sessionOrSkip(request, 'qa.fd');
       const mgr = await sessionOrSkip(request, 'qa.mgr');
       const owner = await sessionOrSkip(request, 'qa.owner');
-      const wo = (s: StaffSession, body: Json) =>
+      const wo = (s: StaffSession, body: Json, reauth = true) =>
         call<Json & ProblemFields>(
           request,
           'POST',
@@ -444,13 +458,25 @@ test.describe(
           {
             session: s,
             idempotencyKey: true,
-            body: { kind: 'foc', reasonCode: 'debt_write_off', ...body },
+            body: {
+              kind: 'foc',
+              reasonCode: 'debt_write_off',
+              ...(reauth ? WRITE_OFF_REAUTH : {}),
+              ...body,
+            },
           },
         );
       const byFd = await wo(fd, { amountVnd: 100_000, note: 'Khong thu duoc' });
       expect(byFd.status, `FD: ${JSON.stringify(byFd.body).slice(0, 200)}`).toBe(
         Number((exp.frontDesk as Json).status),
       );
+      // R3-Q25: MGR không xác thực lại → 422 `secret` `REQUIRED`, không ghi gì (kiểm trước ghi chú/trần)
+      const noSecret = await wo(mgr, { amountVnd: 100_000, note: 'Khong thu duoc' }, false);
+      expect(
+        noSecret.status,
+        `thiếu xác thực lại: ${JSON.stringify(noSecret.body).slice(0, 200)}`,
+      ).toBe(422);
+      expect(noSecret.body.errors).toEqual([{ field: 'secret', code: 'REQUIRED' }]);
       const noNote = await wo(mgr, { amountVnd: 100_000 });
       expect(noNote.status, `thiếu ghi chú: ${JSON.stringify(noNote.body).slice(0, 200)}`).toBe(
         422,
@@ -644,7 +670,10 @@ test.describe(
       const { A, st, lineId } = await precondition('đơn 1 đêm, B18 MGR ghi công nợ 100.000', () =>
         debtStay(request, 'checkout'),
       );
-      await at(request, addDays(A, 2), '10:00');
+      // Trả phòng A+1 10:00 → cửa sổ tới A+2 10:00. N-15 (ARC 16.31.1/16.31.4, BR-427 (d); BUG-R2-208 gộp 23/10,
+      // FB-R3-SEC-BE-B-06): từ đúng mốc hết cửa sổ, A32 → 409 `FOLIO_LOCKED` với mọi vai, cả chiều tăng – nên ca
+      // (kiểm N-6 version) làm trong cửa sổ như TC-L4-153.
+      await at(request, addDays(A, 2), '09:00');
       const mgr = await sessionOrSkip(request, 'qa.mgr');
       const fd = await sessionOrSkip(request, 'qa.fd');
       const v = (await getFolio(request, mgr, st.res.folioId!)).version;

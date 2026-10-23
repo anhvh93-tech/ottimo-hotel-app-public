@@ -18,6 +18,7 @@ import {
   type StaffSession,
 } from '../support/api.js';
 import { needClock, resetClock, runJob, runJobIfAny } from '../support/clock.js';
+import { SEED_PASSWORD } from '../support/env.js';
 import { precondition } from '../support/known-bugs.js';
 import {
   EP,
@@ -2297,26 +2298,14 @@ test.describe(
           const f0 = await getFolio(request, fd, a.res.folioId!);
           expect(f0.status).toBe('settled');
           const line = liveLines(f0, 'minibar')[0]!;
-          // (a) FD sửa dòng → 403 (A32); sau cửa sổ BR-427 FD thêm dòng → 409 FOLIO_LOCKED
+          // (a) FD sửa dòng → 403 (A32)
           const fdAdj = await adjustLine(request, fd, a.res.folioId!, line.id, {
             newQuantity: 2,
             reason: 'Sua so luong',
           });
           expect(fdAdj.status, JSON.stringify(fdAdj.body)).toBe(403);
-          const hours = dsParam<number>('post_checkout_charge_hours');
-          await at(
-            request,
-            new Date(new Date(outAt).getTime() + hours * 3_600_000 + 60_000).toISOString(),
-          );
-          fd = await fresh(request, 'qa.fd');
-          const fdAdd = await addLine(request, fd, a.res.folioId!, {
-            category: 'fnb',
-            description: 'Nuoc ep',
-            quantity: 1,
-            unitPriceVnd: 30000,
-            serviceDate: D1,
-          });
-          expectProblem(fdAdd, 409, 'FOLIO_LOCKED');
+          // (c), (b) trong cửa sổ BR-427 (c): N-15 (ARC 16.31.1/16.31.4, BR-427 (d); BUG-R2-208 gộp 23/10,
+          // FB-R3-SEC-BE-B-06) – hết cửa sổ thì folio coi như `closed`, A32 của mọi vai → 409 FOLIO_LOCKED (kiểm ở dưới).
           // (c) MGR không lý do → 422
           const mgr = await fresh(request, 'qa.mgr');
           const noReason = await adjustLine(request, mgr, a.res.folioId!, line.id, {
@@ -2333,9 +2322,29 @@ test.describe(
           expect(ok.status, JSON.stringify(ok.body)).toBe(201);
           const f1 = await getFolio(request, mgr, a.res.folioId!);
           expect(f1.lines.some((l) => l.reversalOfId === line.id)).toBe(true);
-          expect(liveLines(f1, 'minibar').find((l) => l.relatedLineId === line.id)?.amountVnd).toBe(
-            2 * line.unitPriceVnd,
+          const fixed = liveLines(f1, 'minibar').find((l) => l.relatedLineId === line.id);
+          expect(fixed?.amountVnd).toBe(2 * line.unitPriceVnd);
+          // Sau cửa sổ BR-427: FD thêm dòng → 409 FOLIO_LOCKED; MGR A32 (kể cả tăng) → 409 FOLIO_LOCKED (N-15)
+          const hours = dsParam<number>('post_checkout_charge_hours');
+          await at(
+            request,
+            new Date(new Date(outAt).getTime() + hours * 3_600_000 + 60_000).toISOString(),
           );
+          fd = await fresh(request, 'qa.fd');
+          const fdAdd = await addLine(request, fd, a.res.folioId!, {
+            category: 'fnb',
+            description: 'Nuoc ep',
+            quantity: 1,
+            unitPriceVnd: 30000,
+            serviceDate: D1,
+          });
+          expectProblem(fdAdd, 409, 'FOLIO_LOCKED');
+          const mgrLate = await fresh(request, 'qa.mgr');
+          const late = await adjustLine(request, mgrLate, a.res.folioId!, fixed!.id, {
+            newQuantity: 3,
+            reason: 'Kiem lai minibar lan 2',
+          });
+          expectProblem(late, 409, 'FOLIO_LOCKED');
           const owner = await fresh(request, 'qa.owner');
           const log = await call<{ data: Array<{ action: string; entityId?: string }> }>(
             request,
@@ -2813,6 +2822,9 @@ test.describe(
                 reasonCode: 'debt_write_off',
                 amountVnd: 10000,
                 note: 'Khach khieu nai mon an',
+                // R3-Q25 (FB-R2-SEC-BE-82 (b)): người xin xóa nợ xác thực lại (S1); thiếu → 422 `secret` REQUIRED
+                authMethod: 'password',
+                secret: SEED_PASSWORD,
               },
             },
           );

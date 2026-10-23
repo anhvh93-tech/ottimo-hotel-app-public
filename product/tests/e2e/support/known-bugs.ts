@@ -17,6 +17,8 @@ export const OPEN: Readonly<Record<string, string>> = {
     'Cần chú ý "Giữ chỗ {code} hết hạn lúc …" thiếu mã đơn – `hold_expiring` không có `refCode` (BE-A)',
   'BUG-R2-218':
     'guest-web ghi "Ngôn ngữ theo trình duyệt của bạn" cả khi ngôn ngữ lấy từ hồ sơ khách (MOB + BE: phiên không cho biết nguồn)',
+  'BUG-R3-001':
+    'Desk "Xóa công nợ" không xin xác thực lại người xin (R3-Q25) – `requestFoc` `debt_write_off` luôn 422 `secret` REQUIRED (FE-A)',
 };
 
 function fixedByEnv(): Set<string> {
@@ -36,7 +38,9 @@ function fixedByEnv(): Set<string> {
 export function knownBug(...ids: string[]): void {
   const bad = ids.filter(
     (id) =>
-      !/^(BUG-R2-\d{3}|S4-\d{2}[a-c]?|DOM-S4-\d{2}|B-\d{1,2}|US-\d{3}(\/AC\d+[a-z]?)?)$/.test(id),
+      !/^(BUG-R[23]-\d{3}|S4-\d{2}[a-c]?|DOM-S4-\d{2}|B-\d{1,2}|US-\d{3}(\/AC\d+[a-z]?)?)$/.test(
+        id,
+      ),
   );
   if (bad.length) throw new Error(`knownBug: mã không đúng dạng ${bad.join(', ')}`);
   const fixed = fixedByEnv();
