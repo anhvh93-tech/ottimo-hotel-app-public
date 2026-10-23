@@ -23,7 +23,10 @@ export interface Room {
   altName: Foreign;
   /** Short name in the form's room select (concept T7). */
   shortName: string;
-  /** Standard and maximum guests, the maximum with one guest on the sofa (BR-110, concept 4). */
+  /**
+   * Standard and maximum guests (BR-110, concept 4): the maximum adds one guest on the sofa or, in Premium, on the
+   * 1.4 m extra bed (INV 22/10).
+   */
   sleeps: readonly [number, number];
   size: string;
   view: string;
@@ -98,6 +101,28 @@ export interface Copy {
   /** Alt text per photo id (falls back to the photo manifest). */
   photoAlt: Readonly<Record<string, string>>;
   hero: { label: string; lead: string };
+  /** Hero slideshow (R3-Q52): region name, slide names, dot and pause/play labels (screen readers only). */
+  carousel: {
+    roledescription: string;
+    label: string;
+    track: string;
+    slideRole: string;
+    slide: (i: number, n: number) => string;
+    goTo: (i: number, n: number) => string;
+    pause: string;
+    play: string;
+  };
+  /** Room photo gallery (R3-Q52, OTA style): button on the room card and the full-screen viewer. */
+  gallery: {
+    open: (n: number) => string;
+    dialogLabel: (room: string) => string;
+    track: string;
+    close: string;
+    prev: string;
+    next: string;
+    /** Screen-reader counter; lightbox.ts fills "{i}" in the copy rendered with i = "{i}". */
+    counter: (i: number | string, n: number) => string;
+  };
   why: {
     label: string;
     title: string;
@@ -165,7 +190,15 @@ export interface Copy {
     otherText: string;
     privacy: string;
   };
-  footer: { backToTop: string; links: string; place: string; privacy: string };
+  footer: {
+    backToTop: string;
+    links: string;
+    place: string;
+    privacy: string;
+    /** Legal line (INV 22/10): operator name, tax code and registered address come from site.json `legal`. */
+    operator: string;
+    taxCode: string;
+  };
   sticky: { label: string };
   notFound: { title: string; heading: string; body: string; back: string };
 }

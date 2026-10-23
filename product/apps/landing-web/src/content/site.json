@@ -1,5 +1,5 @@
 {
-  "$comment": "Single source for the facts the landing publishes (ADR-014 4.2, 5). Values from the e-brochure 2026 and INV 17/10 (ESC-020, FB-INV-002). No room count anywhere (FB-INV-002 point 1). Swap zaloUrl for the verified Zalo OA link with no UI change (US-151 AC2, ESC-021). The email must be a shared mailbox on the OTTIMO domain, never a personal one; leave it empty to hide every email link. facebookUrl is a plain link (no Facebook plugin/SDK – SEC C-1). features.bookingRequest stays false until the booking-request endpoint exists (ARC/BE) and the SEC/legal conditions of US-155 AC4 are met; features.privacyPage turns on the footer link once SEC publishes /privacy/. booking = public promise and windows the page states (BR-912 (4), BR-811, BR-112, BR-305) – the copy is tested against these numbers. paymentReceivingAccountHolder (ESC-008) names the deposit account in the FAQ; empty = sentence without the name.",
+  "$comment": "Single source for the facts the landing publishes (ADR-014 4.2, 5). Values from the e-brochure 2026 and INV 17/10 (ESC-020, FB-INV-002). No room count anywhere (FB-INV-002 point 1). Swap zaloUrl for the verified Zalo OA link with no UI change (US-151 AC2, ESC-021). The email must be a shared mailbox on the OTTIMO domain, never a personal one; leave it empty to hide every email link. facebookUrl is a plain link (no Facebook plugin/SDK – SEC C-1). features.bookingRequest stays false until the booking-request endpoint exists (ARC/BE) and the SEC/legal conditions of US-155 AC4 are met; features.privacyPage turns on the footer link once SEC publishes /privacy/. booking = public promise and windows the page states (BR-912 (4), BR-811, BR-112, BR-305) – the copy is tested against these numbers. paymentReceivingAccountHolder (ESC-008) names the deposit account in the FAQ; empty = sentence without the name (INV 23/10: left empty until INV names the account). legal = operator shown in the footer (INV 22/10, public).",
   "name": "OTTIMO Boutique Stay",
   "tagline": "A refined stay inspired by the calm spirit of Dalat.",
   "checkinTime": "14:00",
@@ -39,5 +39,10 @@
     "shortMaxNights": 27,
     "depositPercent": 30
   },
-  "paymentReceivingAccountHolder": ""
+  "paymentReceivingAccountHolder": "",
+  "legal": {
+    "name": "CÔNG TY CỔ PHẦN UTMG LIVING",
+    "taxCode": "5801551657",
+    "address": "28 Triệu Việt Vương, P. Xuân Hương – Đà Lạt, Lâm Đồng"
+  }
 }

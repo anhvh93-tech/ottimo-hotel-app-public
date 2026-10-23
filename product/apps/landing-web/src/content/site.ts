@@ -70,6 +70,12 @@ export const siteSchema = z.object({
   }),
   // Name of the deposit account holder (ESC-008) for the anti-impersonation answer (SEC UXD-06); empty = not yet.
   paymentReceivingAccountHolder: z.string(),
+  // Operator of the stay (INV 22/10, public): footer legal line. Tax code = 10 digits (or 10-3 for a branch).
+  legal: z.object({
+    name: z.string().min(1),
+    taxCode: z.string().regex(/^\d{10}(-\d{3})?$/),
+    address: z.string().min(1),
+  }),
 });
 
 export type Site = z.infer<typeof siteSchema>;

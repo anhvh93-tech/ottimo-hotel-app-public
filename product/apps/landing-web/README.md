@@ -41,7 +41,7 @@ Astro 7: khi không chạy trong terminal (script, agent), `astro dev` tự ch�
 
 - `src/content/site.json` – điện thoại, Zalo, WhatsApp/Telegram/Viber, email chung, địa chỉ, ghim Google Maps, fanpage Facebook, cờ tính năng, tham số câu hứa/giờ lễ tân/cọc (`booking` – test so với chữ trên trang), tên chủ tài khoản nhận cọc (trống = câu FAQ không nêu tên). Kiểm bằng zod lúc build (`src/content/site.ts`). Đổi Zalo số hotline sang Zalo OA: chỉ sửa `contact.zaloUrl`.
 - `src/content/en.ts`, `vi.ts` – chữ trên trang (kiểu `Copy` trong `types.ts`: thiếu chuỗi là lỗi typecheck).
-- `src/assets/photos/` – 9 ảnh mock v1.2.1 dùng (concept 10) × 480/960/1600 × AVIF/WebP do UXD tối ưu (`design/landing/tools/optimize-images.mjs`), `manifest.json` (alt EN/VI), `CREDITS.md`. Không mã hóa lại khi build (`passthroughImageService`). Điện thoại không bao giờ nhận ảnh rộng hơn 960 px.
+- `src/assets/photos/` – đủ 18 ảnh UXD đã tối ưu (R3-Q52; trước đó 9 ảnh mock v1.2.1 dùng – concept 10) × 480/960/1600 × AVIF/WebP do UXD tối ưu (`design/landing/tools/optimize-images.mjs`), `manifest.json` (alt EN/VI), `CREDITS.md`. Không mã hóa lại khi build (`passthroughImageService`). Điện thoại không bao giờ nhận ảnh rộng hơn 960 px.
 - `src/styles/tokens.css` – **sinh** từ nhóm màu thương hiệu của Design System (`pnpm sync:tokens`). Chỉ 7 màu Brand Guidelines + trắng; CSS của landing chỉ dùng `var(--brand-*)`.
 - `src/styles/fonts.css` – **sinh** từ `@fontsource` (`pnpm sync:fonts`): Lora 400 + 400 nghiêng, Be Vietnam Pro 400/500/600; chỉ latin, latin-ext, vietnamese; woff2.
 - `public/og/ottimo-1200x630.jpg` – sinh từ ảnh hero (`pnpm og`), chạy tay khi đổi ảnh hero.
@@ -53,6 +53,13 @@ Astro 7: khi không chạy trong terminal (script, agent), `astro dev` tự ch�
 - `src/scripts/booking.test.ts` – khóa gửi theo hợp đồng, một cách liên hệ, `months` null, `children`/`infants`, UTM/refHost, câu hứa theo `promise`, transport (`minDelaySeconds`, gửi lại một lần, 503/429/404).
 - `src/checks/dist.test.ts` (+ `scripts/dist-checks.mjs`) – trên `dist/` **và** `dist-booking-preview/`: không script/style nội tuyến, không tài nguyên khác origin, mỗi trang đúng một H1, form (tắt: không có; bật: SEC UXD-08), không link OTA, từ ngữ (FB-INV-002), hreflang 2 chiều + x-default, OG, JSON-LD `LodgingBusiness`, sitemap/robots, chỉ màu trong bảng, ngân sách byte, ảnh, ký tự nằm trong subset font.
 - `product/tests/e2e/landing/` – Playwright trên `serve.mjs` (header như ADR-014 1.4): axe 0 lỗi, không cuộn ngang, CSP sạch, 0 yêu cầu ra ngoài, glyph chỉ từ Lora/Be Vietnam Pro, quy tắc ngôn ngữ, ngân sách byte theo DPR (concept 12.2), cấu trúc v1.2.1 (8 mục, thanh đáy ẩn/hiện, header Zalo ≥ 768 px, kênh khác thu gọn, không JS), luồng form trên bản duyệt.
+
+## Ảnh đầu trang tự chạy + bộ ảnh theo hạng phòng (R3-Q52, INV 22–23/10)
+
+- Danh sách ảnh: `src/content/gallery.ts` (`HERO_SLIDES`, `ROOM_GALLERIES`, `HERO_INTERVAL_MS = 3000`). Alt EN/VI cho mọi ảnh trong `photoAlt` của `en.ts`/`vi.ts` (test chặn thiếu). Thêm ảnh: chạy `design/landing/tools/optimize-images.mjs`, chép vào `src/assets/photos/`, thêm id vào `gallery.ts` + alt.
+- Đầu trang (`home/Hero.astro` + `scripts/carousel.ts`): dải scroll-snap (vuốt bằng cử chỉ gốc), 3 giây chuyển một ảnh sau sự kiện `load`, chấm chỉ báo + nút tạm dừng nhỏ trong viên Ink (WCAG 2.2.2). Dừng khi `prefers-reduced-motion` (không tự chạy, ẩn nút dừng), tab ẩn, đầu trang ra khỏi màn hình, chuột đặt trên ảnh hoặc focus bên trong. Ảnh 2+ là `display:none` tới ~0,8 s trước khi hiện (giữ ngân sách byte concept 11.2); không JS = chỉ ảnh mặt tiền. Phím ← → Home End trên dải ảnh.
+- Hạng phòng (`components/RoomGallery.astro` + `scripts/lightbox.ts`): nút "n photos" phủ ảnh bìa mở `<dialog>` modal toàn màn hình nền Ink; vuốt, ← → Home End, nút trước/sau vòng lại, bộ đếm "2 / 6" (+ câu đọc cho trình đọc màn hình), chú thích = alt, Esc đóng, Tab không rời hộp, đóng xong focus về nút. Ảnh trong hộp đóng không tải.
+- Chân trang: dòng pháp nhân từ `site.json` → `legal` (INV 22/10).
 
 ## "Request to book" (FB-INV-002, ESC-020 L7 = A, concept 5)
 

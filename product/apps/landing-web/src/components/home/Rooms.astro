@@ -2,7 +2,12 @@
 // 3 · Rooms (concept 4, US-147): the 4 room types of the e-brochure, one photo each; swipe row on phones, 2 × 2 from
 // 768 px. No room count, no unit numbers, no room names until INV sends the mapping (FB-INV-002, BR-012).
 // "Request this room" goes to #book and, when the form is on, preselects the room type (data-room).
+// Gallery (R3-Q52, INV 22/10 "như OTA"): "n photos" on the cover opens a full-screen viewer (RoomGallery – native
+// <dialog>, swipe, arrow keys, Esc). The button is rendered hidden and shown by scripts/lightbox.ts, so without
+// JavaScript the card is the plain cover photo.
+import { ROOM_GALLERIES } from '../../content/gallery';
 import type { Copy } from '../../content/types';
+import RoomGallery from '../RoomGallery.astro';
 import Icon from '../Icon.astro';
 import Picture from '../Picture.astro';
 
@@ -24,6 +29,7 @@ const { t } = Astro.props;
       {
         t.rooms.items.map((room, i) => (
           <li class="room">
+            <div class="room-media">
             <Picture
               id={room.photo}
               lang={t.lang}
@@ -32,6 +38,20 @@ const { t } = Astro.props;
               sizesMobile="calc(80vw - 26px)"
               sizes="(min-width: 1200px) 544px, (min-width: 768px) calc(50vw - 40px), calc(100vw - 32px)"
             />
+            <button
+              class="gal-open"
+              type="button"
+              hidden
+              aria-haspopup="dialog"
+              aria-describedby={`r${i + 1}-h`}
+              data-gallery-open={`gal-${room.slug}`}
+            >
+              <span class="gal-chip">
+                <Icon name="photos" />
+                {t.gallery.open(ROOM_GALLERIES[room.slug].length)}
+              </span>
+            </button>
+            </div>
             <h3 id={`r${i + 1}-h`}>{room.name}</h3>
             <p class="alt-name">
               <span lang={room.altName.lang}>{room.altName.text}</span>
@@ -51,5 +71,6 @@ const { t } = Astro.props;
       }
     </ul>
     <p class="rooms-note">{t.rooms.note}</p>
+    {t.rooms.items.map((room) => <RoomGallery t={t} room={room} />)}
   </div>
 </section>

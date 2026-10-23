@@ -283,7 +283,8 @@ export const BANNED = [
   /là khách sạn/iu,
   /\b\d\s*-?\s*(star|sao)\b/iu,
   /luxury hotel|sang trọng/iu,
-  /extra bed/i,
+  // "extra bed" is no longer banned: Premium has a 1.4 m extra bed (INV 22/10, replaces 4c "sofa"). copy.test.ts
+  // keeps it to the Premium room and the capacity note.
   /instant confirmation|xác nhận ngay/iu,
 ];
 
