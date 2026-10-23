@@ -190,17 +190,33 @@ export async function readRaw(q: Q, folioId: string, reservationId: string): Pro
   const refunds = await q(
     `SELECT id, status, amount_vnd, requested_by, required_role, reason_note, approver_id, approver_role_snapshot,
             requested_at, decided_at, auto_cancel_reason,
-            to_jsonb(a)->'origin_actor_ids' AS origin_actor_ids, to_jsonb(a)->>'source' AS source
+            to_jsonb(a)->'origin_actor_ids' AS origin_actor_ids, COALESCE(to_jsonb(a)->>'refund_source', to_jsonb(a)->>'source') AS source
        FROM approval_request a WHERE type = 'refund' AND target_id = $1 ORDER BY requested_at, id`,
     [reservationId],
   );
-  const a32 = await q(
-    `SELECT a.occurred_at, a.actor_user_id AS actor_id, a.before, a.after FROM audit_event a
-      WHERE a.action = 'folio_line.adjusted'
-        AND a.entity_id IN (SELECT id::text FROM folio_line WHERE folio_id = $1)
-      ORDER BY a.occurred_at, a.id`,
-    [folioId],
-  ).catch(() => []);
+  // ESC-026 Σ and the A32 makers (FZ02-9 (b), DOM 24/10): `folio_settled_reduction` (0085) holds only the part that
+  // went BELOW the amount at check-out, per reduction; before 0085 fall back to the audit's `after.reducedVnd`
+  const [fsr] = await q(`SELECT to_regclass('folio_settled_reduction') IS NOT NULL AS ok`);
+  const a32 = fsr?.ok
+    ? (
+        await q(
+          `SELECT created_at AS occurred_at, actor_id, actor_role, reduced_vnd FROM folio_settled_reduction
+            WHERE folio_id = $1 ORDER BY created_at, id`,
+          [folioId],
+        )
+      ).map((x: any) => ({
+        occurred_at: x.occurred_at,
+        actor_id: x.actor_id,
+        before: { actorRole: x.actor_role },
+        after: { reducedVnd: x.reduced_vnd },
+      }))
+    : await q(
+        `SELECT a.occurred_at, a.actor_user_id AS actor_id, a.before, a.after FROM audit_event a
+          WHERE a.action = 'folio_line.adjusted'
+            AND a.entity_id IN (SELECT id::text FROM folio_line WHERE folio_id = $1)
+          ORDER BY a.occurred_at, a.id`,
+        [folioId],
+      ).catch(() => []);
   const [ca] = await q(
     `SELECT count(*)::int AS n FROM attention_event
       WHERE kind = 'closed_reservation_credit' AND ref_id = $1 AND resolved_at IS NULL`,

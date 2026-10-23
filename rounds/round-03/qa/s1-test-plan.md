@@ -294,6 +294,16 @@ Tổng ≥ **620 chuỗi**, khoảng 25.000 bước. Ước lượng ≤ 40 phú
   - SEC P1 qua: hủy hoặc lập tay không đi tiếp tới bước duyệt;
   - fuzz 4 chuỗi × 9 họ với cờ mặc định: xanh.
 
+**Chỉnh theo quy tắc đã chốt** (BE-B `s1-be-b.md` mục 13, `43abb0b`; QA 24/10, chưa chạy lại vì Docker treo):
+- **I4:**
+  - khoản thu của người bấm (thu, xác nhận QR) phải đưa toàn bộ tiền dư chưa yêu cầu vào yêu cầu hoàn;
+  - A32 chỉ xin phần của lần giảm đó (FZ02-8, quy tắc min): tiền dư chưa yêu cầu **không tăng** qua bước A32;
+  - bước trả 4xx không bị kiểm.
+- **I17:** nhận diện yêu cầu A32 bằng `refund_source = 'a32'` (0085); kiểm `requested_by ∈ origin_actor_ids`. Không ghép với lần A32 gần nhất nữa.
+- **I13 / ESC-026 / I18:** đọc `folio_settled_reduction` (chỉ phần xuống dưới số lúc khách rời – FZ02-9 (b)). Trước 0085 thì dùng audit.
+- **Duyệt và từ chối** (thao tác fuzz và mọi ca có hướng) luôn gửi `expectedVersion` (`decideV`).
+- **FZ02-4** theo oracle DOM 24/10, đơn 2 đêm: void đêm 1 → `manager`; void đêm 2 → `owner`.
+
 **Lệnh cho lượt đầy đủ** (sau khi BE-B gộp BR-433 (e), ARC bổ sung 3 và ADD3-01; thêm `FUZZ_ADD3=1`):
 `FUZZ=1 FUZZ_BE83=1 FUZZ_FZ02=1 FUZZ_K1106=1 [FUZZ_Q23=1 nếu R3-Q23 đã gộp] pnpm --filter @ottimo/api exec vitest run test/fuzz/debt-fuzz.test.ts`
 - chạy 5 tiến trình theo họ như lượt 2;

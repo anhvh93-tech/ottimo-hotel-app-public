@@ -22,6 +22,7 @@ import { type Fx, addDays, outcome, startFixture } from '../integration/s438-r8/
 import { isWarning } from './invariants';
 import { readRaw, refView } from './ref-ledger';
 import {
+  decideV,
   FAMILIES,
   type Family,
   NOT_BUILT,
@@ -165,7 +166,7 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
       expect(rs).toHaveLength(1);
       expect(rs[0]).toMatchObject({ amount: n1.unitPriceVnd, requested_by: x.t.users.mgr!.id });
       expect(String(rs[0].reason_note)).toMatch(/^Tự sinh từ A32/);
-      expect((await x.decide(rs[0].id, 'approve', 'mgr')()).statusCode).toBe(403);
+      expect((await decideV(x, rs[0].id, 'approve', 'mgr')()).statusCode).toBe(403);
       const low = await x.adjust(s, mb, { newUnitPriceVnd: 0, reason: 'Miễn minibar' })();
       expect(outcome(low)).toMatch(/^201/);
       rs = await refunds(s);
@@ -174,17 +175,22 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
         expect(rs[1].required_role).toBe('owner');
       expect(await told(s)).toBeGreaterThanOrEqual(1);
     }, 240_000);
-    it('FZ02-4: MGR voids every night → basis null → refund waits for OWN; OWN told', async () => {
+    it('FZ02-4 (DOM 24/10, 2-night stay): MGR voids night 1 → refund manager; voids night 2 → basis null → refund owner; OWN told', async () => {
       const s = await x.checkedOutStay();
-      for (const n of await nights(s))
-        expect(outcome(await x.adjust(s, n.id, { voidLine: true, reason: 'Ghi nhầm' })())).toMatch(
-          /^201/,
-        );
-      const rs = await refunds(s);
-      expect(rs.length).toBeGreaterThanOrEqual(1);
-      expect(rs.every((r: any) => r.required_role === 'owner' || r.status !== 'pending')).toBe(
-        true,
+      const ns = await nights(s);
+      expect(ns.length).toBe(2);
+      expect(
+        outcome(await x.adjust(s, ns[0].id, { voidLine: true, reason: 'Ghi nhầm' })()),
+      ).toMatch(/^201/);
+      let rs = await refunds(s);
+      expect(rs.map((r: any) => r.required_role)).toEqual(['manager']);
+      expect(
+        outcome(await x.adjust(s, ns[1].id, { voidLine: true, reason: 'Ghi nhầm' })()),
+      ).toMatch(/^201/);
+      rs = (await refunds(s)).filter(
+        (r: any) => r.status === 'pending' || r.status === 'escalated',
       );
+      expect(rs.map((r: any) => r.required_role)).toEqual(['manager', 'owner']);
       expect(await told(s)).toBeGreaterThanOrEqual(1);
     }, 240_000);
     it('FZ02-7: a window charge (not paid) voided by MGR → no refund request', async () => {
@@ -204,7 +210,7 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
         /^201/,
       );
       const [first] = await refunds(s);
-      expect((await x.decide(first.id, 'reject', 'owner')()).statusCode).toBe(200);
+      expect((await decideV(x, first.id, 'reject', 'owner')()).statusCode).toBe(200);
       expect(outcome(await x.adjust(s, mb, { newUnitPriceVnd: 0, reason: 'Miễn' })())).toMatch(
         /^201/,
       );
@@ -242,7 +248,7 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
         const [r] = await refunds(s);
         expect(r.required_role).toBe('owner');
         if (path === 'owner rejects')
-          expect((await x.decide(r.id, 'reject', 'owner')()).statusCode).toBe(200);
+          expect((await decideV(x, r.id, 'reject', 'owner')()).statusCode).toBe(200);
         else {
           const c = await x.cancelReq(r.id, 'mgr')();
           // either the A32 actor cannot cancel his own request, or the cancel keeps the folio on owner (below)
@@ -251,7 +257,7 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
         const m = await manual(s, 1_500_000);
         if (m.statusCode !== 201) return; // refused outright – also safe
         expect(m.json().requiredRole ?? (await refunds(s)).pop().required_role).toBe('owner');
-        expect((await x.decide(m.json().id, 'approve', 'mgr')()).statusCode).toBe(403);
+        expect((await decideV(x, m.json().id, 'approve', 'mgr')()).statusCode).toBe(403);
       }, 240_000);
     it('SEC P1: MGR voids a night → auto refund; MGR cancels it; FD requests by hand; the same MGR approves → 403', async () => {
       const s = await x.checkedOutStay();
@@ -265,7 +271,7 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
         const m = await manual(s, n1.unitPriceVnd);
         if (m.statusCode === 201) {
           expect((await refunds(s)).pop().required_role).toBe('owner');
-          expect((await x.decide(m.json().id, 'approve', 'mgr')()).statusCode).toBe(403);
+          expect((await decideV(x, m.json().id, 'approve', 'mgr')()).statusCode).toBe(403);
         }
       }
     }, 240_000);
@@ -279,11 +285,11 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
       const rs = await refunds(s);
       const top = rs.find((r: any) => r.required_role === 'owner');
       expect(top).toBeTruthy();
-      expect((await x.decide(top.id, 'reject', 'owner')()).statusCode).toBe(200);
+      expect((await decideV(x, top.id, 'reject', 'owner')()).statusCode).toBe(200);
       const m = await manual(s, top.amount);
       if (m.statusCode === 201) {
         expect((await refunds(s)).pop().required_role).toBe('owner');
-        expect((await x.decide(m.json().id, 'approve', 'mgr2')()).statusCode).toBe(403);
+        expect((await decideV(x, m.json().id, 'approve', 'mgr2')()).statusCode).toBe(403);
       }
     }, 240_000);
     it('ARC: recordPayment above due on a folio with an A32 reduction → the refund it creates waits for owner; without A32 → manager', async () => {
@@ -341,7 +347,7 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
       const { s, basis, line } = await debtStay();
       const p = await x.writeOff(s, line, basis + 1_000)();
       expect(outcome(p)).toMatch(/^201 pending/);
-      expect((await x.decide(p.json().id, 'reject')()).statusCode).toBe(200);
+      expect((await decideV(x, p.json().id, 'reject')()).statusCode).toBe(200);
       expect(outcome(await x.writeOff(s, line, basis)())).toMatch(/^201 approved/);
     }, 300_000);
     it('B.5 #4: two MGR requests at once, together above the basis → exactly one self-applied', async () => {

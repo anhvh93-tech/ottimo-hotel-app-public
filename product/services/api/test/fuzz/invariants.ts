@@ -40,8 +40,11 @@ export interface StepCtx {
     windowOverBefore: boolean;
     closedBefore: boolean;
   };
-  /** The step was a money op done by a person on a settled folio (A32 reduce, collect, confirm a QR) – K11-06. */
-  humanMoneyOnSettled?: boolean;
+  /** The step was a money op done by a person on a settled folio – K11-06: 'payment' (collect, confirm a QR) or
+   *  'a32' (reduction; asks only for ITS part – FZ02-8 min rule). */
+  humanMoneyOnSettled?: 'payment' | 'a32';
+  /** Folio.totals.unhandledCreditVnd just before the step. */
+  unhandledBefore?: number;
   /** user id → role of the fixture accounts (who did what) */
   roleOf?: Record<string, string>;
   /** Chain started from a pre-0076 debt (210): `debt_recorded_vnd` holds X + new records (ARC 5.2), not Σ audits. */
@@ -352,6 +355,9 @@ function be83(
  *   "Tự sinh từ A32"; Σ of those (not rejected/cancelled/superseded) > basis ⇒ required_role = owner.
  * - a refund request is never approved by its requester, nor by a role below MGR.
  */
+export const isA32Refund = (r: RawFolio['refunds'][number]) =>
+  r.source === 'a32' || (r.source === null && (r.reasonNote ?? '').startsWith('Tự sinh từ A32'));
+
 function refundChecks(
   raw: RawFolio,
   ref: RefView,
@@ -362,10 +368,29 @@ function refundChecks(
 ): void {
   const add = (inv: string, msg: string) => v.push({ inv, msg });
   const unhandled = code.unhandledCreditVnd ?? 0;
-  if (raw.folio.status === 'settled' && ctx.humanMoneyOnSettled && unhandled > 0)
+  const ok2xx = ctx.status >= 200 && ctx.status < 300;
+  // K11-06 (ARC addendum 3) with the min rule (FZ02-8, ARC + DOM): a receipt asks for ALL the unhandled credit;
+  // an A32 reduction asks only for its own part → unhandled credit never grows through it. A refused step (4xx) is
+  // not judged (BE-B s1-be-b 13 point 1).
+  if (
+    raw.folio.status === 'settled' &&
+    ok2xx &&
+    ctx.humanMoneyOnSettled === 'payment' &&
+    unhandled > 0
+  )
     add(
       g.k1106 ? 'I4' : 'I4?',
-      `settled folio keeps ${unhandled} credit without a refund request after "${ctx.op}"${g.k1106 ? '' : ' – K11-06 (ARC addendum 3) not merged'}`,
+      `settled folio keeps ${unhandled} credit without a refund request after "${ctx.op}"${g.k1106 ? '' : ' – K11-06 not merged'}`,
+    );
+  if (
+    raw.folio.status === 'settled' &&
+    ok2xx &&
+    ctx.humanMoneyOnSettled === 'a32' &&
+    unhandled > (ctx.unhandledBefore ?? 0)
+  )
+    add(
+      g.k1106 ? 'I4' : 'I4?',
+      `A32 "${ctx.op}" left unhandled credit ${ctx.unhandledBefore ?? 0} → ${unhandled} (its own part must be requested)`,
     );
   if (
     raw.folio.status === 'settled' &&
@@ -386,7 +411,8 @@ function refundChecks(
       if (r.approverRole && !['manager', 'owner'].includes(r.approverRole))
         add('I17', `refund ${r.id} approved by ${r.approverRole}`);
     }
-    const fromA32 = (r.reasonNote ?? '').startsWith('Tự sinh từ A32');
+    // refund_source = 'a32' (0085) – fallback to the note while the column is absent
+    const fromA32 = isA32Refund(r);
     if (!fromA32) continue;
     if (!alive(r.status)) continue;
     sumA32 += r.amountVnd;
@@ -396,9 +422,10 @@ function refundChecks(
         g.fz02 ? 'I17' : 'I17?',
         `Σ A32 refunds ${sumA32} > basis ${basis} but ${r.id} required_role = ${r.requiredRole}`,
       );
-    const a32 = raw.a32Reductions.filter((x) => x.at <= r.requestedAt).pop();
-    if (a32?.actorId && r.requestedBy && a32.actorId !== r.requestedBy)
-      add(g.fz02 ? 'I17' : 'I17?', `refund ${r.id} requested_by ≠ the person of the A32`);
+    // the requester of an A32 refund is one of the people who made an A32 reduction on the folio (a superseded
+    // replacement keeps the requester of the oldest one it replaces – BE-B s1-be-b 13 point 2)
+    if (r.originActorIds.length && r.requestedBy && !r.originActorIds.includes(r.requestedBy))
+      add(g.fz02 ? 'I17' : 'I17?', `refund ${r.id} requested_by ∉ origin_actor_ids`);
   }
 }
 
@@ -420,8 +447,7 @@ function i18(raw: RawFolio, v: Violation[], g: Gates): void {
   const actors = new Set(reds.map((r) => r.actorId).filter(Boolean) as string[]);
   const first = reds[0]!.at;
   const add = (msg: string) => v.push({ inv, msg });
-  const fromA32 = (r: RawFolio['refunds'][number]) =>
-    r.source === 'a32' || (r.source === null && (r.reasonNote ?? '').startsWith('Tự sinh từ A32'));
+  const fromA32 = isA32Refund;
   let ownerRejectedAt: string | null = null;
   let a32CancelledByActorAt: string | null = null;
   for (const r of raw.refunds) {
