@@ -958,6 +958,7 @@ describe.skipIf(!HAS_DB)('kiểm lại tiền lần 6 – BE-A', () => {
       dueDate: day(d1, days),
       balanceDueVnd: 100_000,
       openDebtVnd: 100_000,
+      cycleOpened: true,
     });
     // A part paid (later than the reversal): the debt stays open with the rest.
     await at(`${d1}T10:30:00+07:00`);

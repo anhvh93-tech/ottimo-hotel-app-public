@@ -1012,11 +1012,9 @@ describe.skipIf(!HAS_DB)('G-4 / BR-525 – reversal after check-out records the 
       creditVnd: 0,
       folioStatus: 'settled',
     });
-    // the open debt is 0 now (what is owed is the charge inside its window) → nothing more to write off
-    expect((await writeOff(s, room, 1_000)).json()).toMatchObject({
-      errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
-      max: 0,
-    });
+    // the open debt is 0 now (what is owed is the charge inside its window) → nothing more to write off: R3 (ARC
+    // 16.31.1 – BUG-R2-208, 208-E) 409 FOLIO_LOCKED – `openDebt` is null at 0 (was 422 `max` 0 in R2)
+    expect((await writeOff(s, room, 1_000)).json()).toMatchObject({ code: 'FOLIO_LOCKED' });
     // window over → J15: the 70.000 is the debt now, the folio closes; a write-off up to 70.000 closes it
     await at(`${addDays(s.departure, 1)}T11:01:00+07:00`);
     await runJ15();

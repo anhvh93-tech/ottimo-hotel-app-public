@@ -10,7 +10,7 @@
  * - Adjustment = reversal + new line with the reason (BR-008); settled folio → MGR+ only (A32).
  * Settled folio: new charges only inside post_checkout_window_until (BR-427 c), flagged post_checkout.
  */
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
 import type { FolioLineCategory } from '../../../db/schema/folio';
@@ -22,6 +22,7 @@ import {
   requireReason,
   stripControlChars,
 } from '../../../shared/validation';
+import { actorRoleOf } from '../../audit/public/actor-role';
 import { AuditService } from '../../audit/public/audit.service';
 import { type ApprovalRow, ApprovalService } from '../../approvals/public/approval.service';
 import { EventsService } from '../../events/public/events.service';
@@ -65,6 +66,7 @@ interface Actor {
 /** Categories staff may type without a catalogue code (EP03-05 3.2). */
 const FREE_CATEGORIES = ['fnb', 'service_fee', 'damage'] as const;
 const MANAGERS = ['owner', 'manager'];
+const logger = new Logger('FolioLines');
 
 @Injectable()
 export class FolioLinesService {
@@ -505,10 +507,12 @@ export class FolioLinesService {
       const after = input.voidLine ? 0 : night ? night.amountVnd : Math.round(qty * price);
       if (after < before) {
         const debt = await this.hooks.openDebt(tx, folio.id);
-        const openDebtVnd = debt?.openDebtVnd ?? 0;
-        if (debt && openDebtVnd > 0) {
+        if (debt) {
+          const openDebtVnd = debt.openDebtVnd;
           const windowVnd = Math.max(0, debt.balanceDueVnd) - openDebtVnd;
-          if (before - after > windowVnd) {
+          // FB-R3-SEC-BE-B-01 (b): a debt written before 0076 (no cycle yet) keeps R2 N-7 – no reduction at all; the
+          // right to reduce never rests on the number derived back from the lines.
+          if (!debt.cycleOpened || before - after > windowVnd) {
             throw problem('FOLIO_LOCKED', {
               detail:
                 'reduction above the charges still in their window – the debt goes down through a FOC debt_write_off (BR-525)',
@@ -584,31 +588,37 @@ export class FolioLinesService {
       });
       // x-ota-prepaid-rule (re-verification 17/10): the replacement of an OTA-covered line moves the receipt.
       await this.folios.resyncOtaCollect(tx, folio.id, line.reservation_id, actorInfo);
-      await this.audit.recordMoney(tx, {
-        action: 'folio_line.adjusted',
-        entityType: 'folio_line',
-        entityId: line.id,
-        ...(stayCode ? { entityCode: stayCode } : {}),
-        before: {
-          category: line.category,
-          amountVnd: Math.round(Number(line.quantity) * line.unit_price_vnd),
-          ...(debtCheck
-            ? { openDebtVnd: debtCheck.openDebtVnd, windowVnd: debtCheck.windowVnd }
-            : {}),
-        },
-        after: {
-          category: line.category,
-          amountVnd: newAmount,
-          ...(debtCheck
-            ? { reducedVnd: debtCheck.reducedVnd, openDebtVnd: debtCheck.openDebtVnd }
-            : {}),
-        },
-        reason,
-        ...(actor.requestId ? { requestId: actor.requestId } : {}),
-      });
-    } else if (debtCheck) {
-      // SEC s1 D.4: a reduction allowed on a folio with an open debt is audited with the numbers it was decided on
-      // (the void itself is `folio.line_reversed`).
+      if (!debtCheck) {
+        await this.audit.recordMoney(tx, {
+          action: 'folio_line.adjusted',
+          entityType: 'folio_line',
+          entityId: line.id,
+          ...(stayCode ? { entityCode: stayCode } : {}),
+          before: {
+            category: line.category,
+            amountVnd: Math.round(Number(line.quantity) * line.unit_price_vnd),
+          },
+          after: { category: line.category, amountVnd: newAmount },
+          reason,
+          ...(actor.requestId ? { requestId: actor.requestId } : {}),
+        });
+      }
+    }
+    await this.folios.syncReductions(tx, folio.id, {
+      userId: actor.userId,
+      ...(actor.requestId ? { requestId: actor.requestId } : {}),
+    });
+    if (debtCheck) {
+      // FB-R3-SEC-BE-B-03 (SEC s1 D.4): a reduction allowed while the stay owes a debt is audited with the role at the
+      // time and the open debt MEASURED after the write (same transaction, same locks). BR-525 (ii) checked at run
+      // time: the open debt never drops through A32 – otherwise everything is rolled back.
+      const openAfterVnd = (await this.hooks.openDebt(tx, folio.id))?.openDebtVnd ?? 0;
+      if (openAfterVnd < debtCheck.openDebtVnd) {
+        logger.error(
+          `BR-525 (ii): open debt dropped through A32 on folio ${folio.id} – rolled back`,
+        );
+        throw new Error('BR-525 (ii) invariant: open debt dropped through A32');
+      }
       await this.audit.recordMoney(tx, {
         action: 'folio_line.adjusted',
         entityType: 'folio_line',
@@ -619,21 +629,18 @@ export class FolioLinesService {
           amountVnd: Math.round(Number(line.quantity) * line.unit_price_vnd),
           openDebtVnd: debtCheck.openDebtVnd,
           windowVnd: debtCheck.windowVnd,
+          actorRole: actorRoleOf(actor.userId, actor.roles),
         },
         after: {
           category: line.category,
-          amountVnd: 0,
+          amountVnd: input.voidLine || qty <= 0 ? 0 : newAmount,
           reducedVnd: debtCheck.reducedVnd,
-          openDebtVnd: debtCheck.openDebtVnd,
+          openDebtVnd: openAfterVnd,
         },
         reason,
         ...(actor.requestId ? { requestId: actor.requestId } : {}),
       });
     }
-    await this.folios.syncReductions(tx, folio.id, {
-      userId: actor.userId,
-      ...(actor.requestId ? { requestId: actor.requestId } : {}),
-    });
     await this.folios.touch(tx, folio.id);
     if (line.reservation_id)
       await publishEvent(tx, this.events, 'reservation.changed', line.reservation_id);

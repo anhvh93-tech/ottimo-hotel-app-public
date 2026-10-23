@@ -405,10 +405,11 @@ export class CheckoutService {
   }
 
   /**
-   * ARC 16.26 (BR-525 G-4): the OPEN debt of the folio's stay – primary booking `checked_out`, `checkout_mode =
-   * debt`, not settled, folio still owing. The caller (payments, debt-collection branch of `recordPayment`) holds
-   * the bookings (L1) and the folio (L3); the bookings are re-taken here without waiting, the balance read under
-   * them. null = no open debt.
+   * ARC 16.26 + 16.31.1 (BR-525 G-4, BUG-R2-208): the OPEN debt of the folio's stay BY THE NUMBER – primary booking
+   * `checked_out`, `checkout_mode = debt`, `openDebtVnd` > 0 (FB-R3-ARC-BEB-S1-04: `debt_settled_at` is no longer
+   * read – one definition: a dormant cycle, paid back to 0, is no debt). The caller (payments debt branch, FOC
+   * `debt_write_off`, A32 – 208) holds the bookings (L1) and the folio (L3); the bookings are re-taken here without
+   * waiting, the balance read under them. null = no open debt (`debt_write_off` → 409 FOLIO_LOCKED – 208-E).
    */
   async openDebt(tx: Tx, folioId: string): Promise<OpenDebt | null> {
     const { rows, primary } = await this.lockDebtRows(tx, folioId);
@@ -416,13 +417,14 @@ export class CheckoutService {
       !primary ||
       primary.status !== 'checked_out' ||
       primary.checkout_mode !== 'debt' ||
-      primary.debt_settled_at !== null ||
       !primary.debt_due_date
     ) {
       return null;
     }
     const balance = await this.s.folios.balance(tx, folioId);
     if (balance.balanceDueVnd <= 0) return null;
+    const openDebtVnd = await this.openDebtVnd(tx, folioId, primary, balance.balanceDueVnd);
+    if (openDebtVnd <= 0) return null;
     return {
       reservationId: primary.id,
       reservationCode: primary.code,
@@ -431,7 +433,8 @@ export class CheckoutService {
         .map((r) => r.id),
       dueDate: primary.debt_due_date,
       balanceDueVnd: balance.balanceDueVnd,
-      openDebtVnd: await this.openDebtVnd(tx, folioId, primary, balance.balanceDueVnd),
+      openDebtVnd,
+      cycleOpened: primary.debt_opened_at !== null,
     };
   }
 
