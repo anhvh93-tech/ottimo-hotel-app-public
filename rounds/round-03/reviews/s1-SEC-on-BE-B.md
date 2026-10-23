@@ -218,3 +218,75 @@ Chạy trên Postgres 17 riêng của SEC (container tạm, đã xóa), role `ot
 1. Kiểm tra theo số đặt **sau** L1 → L3 và sau kiểm version, **trước** mọi lần ghi. Vai FD bị chặn trước khi chạm tới số nợ nên không suy ra được nợ qua mã lỗi. Thông báo 409 không lộ số tiền.
 2. Công thức có chu kỳ (`recorded − (Σ giảm − base)`, kẹp theo B) không phụ thuộc dòng nào bị sửa. Fuzz nhỏ của SEC và các ca đua đều giữ được O không giảm. Trần `applied_cap_vnd` được tôn trọng khi đăng lại FOC.
 3. Test chạy trên DB thật với role `ottimo_app`. Có ca nhiều vai (MGR + OWN đều 409). Ca không ghi gì so cả số dòng lẫn version.
+
+---
+
+## Review BE-83 (R3-Q22) + ESC-026 A + R3-Q25 – commit `29ce3d8` (23/10/2026)
+
+- Phạm vi: diff `29ce3d8` trên nhánh `worktree-agent-a4a7a7b47e3d900bf`, gồm:
+  - `foc.service`, `approval.service`, `folio.service` (`folioNightBasisVnd`, `reductionUsage`);
+  - `stay-waiver-alert.ts`, `attention.service`/`events.service`;
+  - migration 0079;
+  - test `r3-be83-esc026.test.ts`.
+- Đối chiếu: `s1-security-requirements.md` B.0 + B.5. Báo cáo `outputs/BE/s1-be-b.md` mục 8.
+- Kiểm đã chạy (Postgres 17 riêng của SEC, đã gỡ; dữ liệu giả):
+  - `r3-be83-esc026.test.ts`: **14/14 đạt**;
+  - test dò tạm của SEC (Q1, không commit, đã xóa; worktree sạch).
+
+### Kết luận
+
+| Hạng mục | Kết luận SEC |
+|---|---|
+| **FB-R2-SEC-BE-83 / ESC-026 A – Verified (B.5)?** | **CHƯA.** 1 Blocker: FB-R3-SEC-BE-B-07, MGR tự nâng cơ sở hạn mức để xóa nợ một mình, có tái hiện. Ngoài ra B.0 chưa đủ: commit chưa gộp `main` qua PR và CI. |
+| R3-Q25 (xác thực lại khi tự áp xóa nợ) | Đạt về mã và test: thiếu → 422 `secret` `REQUIRED`, không ghi gì. Kiểm mật khẩu chạy trước unit of work, lần sai được đếm (`PasswordReauth`). |
+| Ca B.5 #1–#5, #7, #8 | Đạt trên test của PR (BR-525-21…24, 26, 27 (đua ép thứ tự, deadlock +0), BR-433-04/05, E26-1…5, 9; 15 dòng `pendingFix` đã gỡ). |
+| Ca B.5 #6 (chu kỳ nợ mới) | Mã cộng **mọi chu kỳ** của folio, chặt hơn chữ B.5 "tính lại từ chu kỳ mới". DOM BR-433 v0.4.0 / oracle BR-525-25 chốt cách này. **SEC chấp nhận**, vì chặt hơn tức an toàn hơn. B.5 #6 được hiểu theo BR-433 v0.4.0. |
+| Migration 0079 | Đạt: RLS + FORCE, policy theo `property_id`. Quyền `ottimo_app` chỉ SELECT/INSERT và UPDATE 3 cột, không DELETE. Audit `folio.foc_stay_alerted` chỉ chứa số tiền và số đếm. Mục "Cần chú ý" chỉ OWN thấy (`OWNER_ONLY`, có E26 kiểm). |
+
+### FB-R3-SEC-BE-B-07
+- Mức độ: **Blocker** (sai tiền, lách hạn mức BR-433 (a) và lách cả cảnh báo ESC-026 A)
+- Vị trí: `folio.service.ts` `folioNightBasisVnd` (cơ sở đọc từ dòng `room` **đang sống**); `foc.service.ts` `request` (`limitBasisVnd`); `stay-waiver-alert.ts` `threshold` (MGR = cùng hàm). Đường mở: A32 tăng giá dòng phòng trên folio `settled` (MGR không bị giới hạn sàn/trần), rồi A32 giảm lại theo 208 (giảm ≤ W).
+- Vấn đề, tái hiện Q1 (dữ liệu giả):
+  - Ban đầu: nợ 5.000.000, giá đêm 667.000.
+  - MGR A32 nâng dòng phòng lên 5.000.000 → `201`. B tăng thêm 4.333.000, nằm trong cửa sổ; O không đổi.
+  - MGR xóa nợ 4.000.000, có xác thực lại → **`201 approved eff 4000000`, tự áp, không qua OWN**, vì Σ 4.000.000 ≤ cơ sở "đêm cao nhất" đã bị nâng thành 5.000.000.
+  - MGR A32 hạ dòng phòng về 667.000 → `201` (phần giảm 4.333.000 ≤ W = B − O).
+  - Kết quả: B = O = 1.000.000. **4.000.000 nợ bị xóa chỉ bởi MGR. `foc_stay_alert` = 0, thông báo OWN = 0**, vì ngưỡng cảnh báo được tính bằng chính cơ sở đã bị nâng lúc áp, và không có đánh giá lại khi cơ sở giảm.
+  - Đọc mã, chưa tái hiện: cùng kiểu với (b) trong lúc ở. `nightRateBasis` đọc giá đêm hiện hành; MGR đổi giá đêm qua A31/A32 không bị sàn/trần. Nâng giá đêm → FOC trên khóa khác vượt hạn mức thật → hạ giá đêm lại. FOC trên khóa khác vẫn giữ, và cảnh báo ESC-026 cũng không bật.
+- Vì sao quan trọng:
+  - BE-83 và ESC-026 A sinh ra để chặn MGR tự xóa hay miễn vượt hạn mức mà OWN không biết. Đây là 1 trong 6 điều kiện phát hành v1.0.
+  - Đường này cho MGR xóa gần trọn công nợ một mình. Dấu vết chỉ còn ở nhật ký A32, không có cảnh báo nào.
+- Đề xuất sửa (ARC chốt hợp đồng, DOM xác nhận định nghĩa cơ sở):
+  1. **Cơ sở hạn mức không lấy từ dòng sửa được sau trả phòng.** Với `debt_write_off` và ngưỡng ESC-026 trên folio `settled`/`closed`: cơ sở = giá đêm cao nhất **lúc B18**, chụp khi `settle` (cột mới trên `folio`, hoặc tính từ các dòng `room`/`late_fee_as_night` có `post_checkout = false`, kể cả dòng đã bị đảo sau đó). Lấy **min(cơ sở lúc B18, cơ sở hiện hành)** để A32 giảm không làm hạn mức lớn lên.
+  2. **Trong lúc ở (b):** cơ sở của FOC/giảm giá = giá đêm **trước** mọi lần đổi giá trong cùng ca, hoặc min(giá đặt phòng, giá hiện hành). Hoặc: một lần đổi giá đêm vượt +X% do MGR làm thì phải chờ OWN, hay ít nhất báo OWN. DOM chọn.
+  3. Khi áp xong, ngưỡng ESC-026 dùng cùng cơ sở đã sửa ở (1)/(2).
+  4. Test bắt buộc trong PR:
+     - Q1 như trên → lần xóa nợ 4.000.000 phải `pending` OWN, hoặc nếu tự áp thì phải có thông báo `foc_stay_total_exceeded`;
+     - biến thể (b): nâng giá đêm rồi FOC trên khóa khác → `pending`;
+     - biến thể A32 nâng `late_fee_as_night`.
+- Trạng thái: Open
+
+### FB-R3-SEC-BE-B-08
+- Mức độ: Suggestion
+- Vị trí: `folio.controller.ts` `requestFoc` (R3-Q25); `s1-security-requirements.md` A (SR-AUTH-06).
+- Vấn đề: xác thực lại khi tự áp xóa nợ hiện chỉ dùng mật khẩu. Khi US-143 (TOTP cho `owner`/`manager`) vào, thao tác tự áp tiền vượt mức FD nên đòi thêm TOTP như đăng nhập, để mật khẩu lộ không đủ để xóa nợ.
+- Đề xuất: ghi vào checklist US-143 (A.x) để `PasswordReauth` cho mục đích `foc`/`debt_write_off` dùng chung bước TOTP khi người dùng đã bật 2FA.
+- Trạng thái: Open
+
+### Ca QA phải đưa vào fuzz R3-Q30
+1. B.5 #1–#4: chuỗi MGR 450.000 lặp lại; biên Σ = cơ sở / +1 đồng; từ chối, hủy `debt_cleared` không tính, đang chờ có tính; hai yêu cầu song song vượt tổng → đúng một tự áp.
+2. **Nâng cơ sở (FB-07):** xen ngẫu nhiên A32 tăng/giảm dòng `room` và `late_fee_as_night` giữa các lần xóa nợ/FOC của MGR. Bất biến: tổng xóa nợ đang áp của các yêu cầu do vai dưới OWN duyệt ≤ cơ sở lúc B18, **trừ khi** có thông báo `foc_stay_total_exceeded` tới OWN.
+3. **Void dòng mang xóa nợ rồi xóa lại:** A32 void (khoản cửa sổ) dòng có FOC `debt_write_off`, rồi MGR xóa nợ lần nữa. Bất biến: Σ đang áp do vai dưới OWN duyệt ≤ cơ sở tại mọi thời điểm; O không giảm qua A32 (BR-525 (ii)).
+4. Bất biến cảnh báo: Σ lượt (vai dưới OWN) > ngưỡng ⇒ có ít nhất một thông báo OWN và đúng một mục "Cần chú ý" cho lượt đó.
+5. Giữ các ca 208 đã có (A32 tăng lặp rồi giảm, biên W, đua) trên cùng bản.
+
+### Điều kiện để SEC ghi Verified FB-R2-SEC-BE-83 + ESC-026 A
+1. Sửa FB-R3-SEC-BE-B-07, có test Q1 và các biến thể trong PR. SEC review lại diff.
+2. Gộp `main` qua PR, CI xanh, 0 `retry #` (B.0 1–2).
+3. SEC chạy lại các ca bắt buộc trên worktree sạch ở commit đã gộp, DB mới migrate từ đầu (B.0 3). Ghi Verified ở `SEC-sprint1.md` như B.0 6.
+4. Fuzz R3-Q30 có các ca 1–4 ở trên và chạy xanh trên bản có 208 + BE-83 (D.6).
+
+### Điểm làm tốt
+1. Σ được đọc dưới L1 → L3 ngay trong `request`. Ca đua BR-525-27 ép thứ tự sau khóa folio, chạy hai thứ tự, deadlock +0.
+2. Σ xóa nợ tính theo dòng FOC **đang sống** và gồm cả yêu cầu đang chờ. Từ chối hay hủy `debt_cleared` không cộng, và đăng lại do BUG-R2-207 không bị tính hai lần.
+3. Bảng `foc_stay_alert` có RLS FORCE và quyền cột tối thiểu. Mục "Cần chú ý" chỉ OWN thấy. Audit cảnh báo không có dữ liệu khách.
