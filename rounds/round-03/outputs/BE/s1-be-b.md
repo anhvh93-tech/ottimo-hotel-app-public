@@ -116,3 +116,57 @@ Trả lời từng thẻ: `rounds/round-03/responses/s1-BE-B.md`. ARC đã đồ
   - `Folio.totals.openDebtVnd`;
   - export `cycleOpenDebtVnd` – không cần nữa, vì J15 dùng `hasOpenDebtByNumber`;
   - gỡ `pendingFix BUG-R2-208` (QA).
+
+## 8. Lượt kiểm tiền bước 4 – BE-83 (R3-Q22) + ESC-026 A + R3-Q25 (23/10, Sản xuất)
+
+Căn cứ: BR-433 (a)(b)(c) v0.4.0; DOM `s1-money-oracle.md` mục 5; SEC `s1-security-requirements.md` B.5; ARC `s1-contracts.md` 5.3; OpenAPI 0.3.8-draft (`foc_stay_total_exceeded`); erd 4.15 (`foc_stay_alert`). Nhánh đã fast-forward lên `main` 4863c5c.
+
+### 8.1 Đã làm
+- **(a) Xóa nợ cộng dồn theo folio.**
+  - Σ gồm: số đang áp của mọi yêu cầu `debt_write_off` đã duyệt trên folio (mọi chu kỳ, mọi người, kể cả OWN; tính theo dòng FOC sống), cộng số xin của các yêu cầu đang chờ, cộng số xin mới. Yêu cầu bị từ chối hoặc tự hủy `debt_cleared` không tính.
+  - Cơ sở so sánh = giá đêm cao nhất của folio: dòng `room` sống, phụ thu thay đêm `late_fee_as_night`, hoặc giá đêm quy đổi của đơn dài hạn (hàm mới `FolioService.folioNightBasisVnd`).
+  - Σ đọc dưới khóa L1 → L3, nên hai yêu cầu gửi cùng lúc không thể cùng tự áp.
+- **(b) FOC thường cộng dồn theo khóa.** Σ = phần đang áp và đang xin trên khóa (`FolioService.reductionUsage`) cộng số xin mới.
+  - `ApprovalService.SubmitInput.perTimeAmountVnd` đem Σ này so với hạn mức lần và định tuyến; hạn mức tháng vẫn tính theo số của từng yêu cầu.
+  - Nhật ký `approval.requested`/`self_applied` có thêm `cumulativeVnd`.
+- **(c) ESC-026 A – báo OWN khi tổng miễn trên lượt ở vượt ngưỡng.**
+  - `StayWaiverAlertService` chạy sau mỗi khoản được áp bởi FD/FDL/MGR, trong cùng giao dịch và dưới khóa folio.
+  - Σ lượt = tổng các dòng FOC / giảm giá đặc biệt / xóa nợ đang sống, chỉ tính khoản do vai dưới OWN duyệt hoặc tự áp.
+  - Ngưỡng theo vai cao nhất có khoản đang áp: MGR = giá đêm cao nhất của lượt; FDL = `foc_limits.front_desk_lead.perTimeVnd`; chỉ FD = `foc_self_apply.front_desk.per_time`.
+  - Σ vượt ngưỡng →
+    - mỗi lần áp gửi một thông báo `foc_stay_total_exceeded` tới mọi OWN;
+    - **một** mục "Cần chú ý" cho cả lượt (nguồn `event`, chỉ OWN, `warning`, `params.count`, `dueAt` = lúc mở + `stay_waiver_review_hours`);
+    - bảng `foc_stay_alert` giữ trạng thái "đã mở mục" và đếm số lần vượt;
+    - nhật ký `folio.foc_stay_alerted` (loại `state`, chỉ có số tiền).
+  - Không chặn thao tác nào. Phần "OWN thu hồi khoản miễn" dời Sprint 2 (ARC 5.4).
+- **R3-Q25:** yêu cầu `debt_write_off` bắt buộc người xin xác thực lại (S1); thiếu → 422 `secret` `REQUIRED`.
+- **Migration 0079** (`foc_stay_alert` + RLS + quyền cột; kind thông báo; khóa tham số `stay_waiver_review_hours` = 24, chỉ OWN sửa, khoảng 1–168).
+- **Gỡ `pendingFix`** ở 15 dòng fixture: thẻ `R3-SEC-BE-83` (BR-433-04/05, BR-525-21…27) và thẻ `R3-ESC-026` (BR-433-06…09, 13, 14).
+
+### 8.2 Test
+- `s438-r8/r3-be83-esc026.test.ts`: **14/14 đạt**.
+  - Xóa nợ: BR-525-21 + 22 (12 × 450.000, 422 `max` 50.000, biên = cơ sở), BR-525-23 (a)(b), BR-525-24 (cơ sở theo folio), BR-525-25 (hai chu kỳ), BR-525-26 (`debt_cleared` không tính), BR-525-27 (đua ép thứ tự sau khóa folio, hai thứ tự, deadlock +0).
+  - FOC theo khóa: BR-433-04, BR-433-05.
+  - ESC-026: E26-1 (có cả E26-9), E26-2, E26-3, E26-4, E26-5.
+  - R3-Q25.
+- Hai test R2 trước đây chia nhỏ xóa nợ bằng MGR (`s4-recheck8-be-a` "auto-cancel", `r8debt-01` repostStay) – đúng kiểu BE-83 nay chặn. Các khoản từ thứ hai nay do OWN áp; điều test kiểm (FOC đăng lại chỉ tính một lần) không đổi.
+- Toàn bộ API: 105 tệp đạt + 1 bỏ qua; 3.008 test đạt, 2 lỗi. Hai lỗi là đúng hai test R2 ở trên; sau khi sửa, chạy lại riêng hai tệp đó: 7/7 đạt.
+- `validate-fixtures`: 0 lỗi.
+- typecheck, eslint, prettier: đạt.
+
+### 8.3 Giả định (ARC/SEC xác nhận khi review)
+1. "Lượt ở" = folio của đơn gốc (đơn con dùng chung folio – BR-422). Dài hạn tính theo folio hiện tại, chưa gộp nhiều kỳ HĐ.
+2. Σ khóa (b) dùng phần đang áp và đang xin trên khóa, không cộng yêu cầu đã duyệt mà còn "ngủ" (áp 0).
+3. Folio không có đêm nào: ngưỡng MGR = 0 (luôn báo OWN), thiên về an toàn. Với (a), trường hợp này vẫn chuyển OWN như trước.
+4. Nhật ký cảnh báo ghi loại `state` (`folio.foc_stay_alerted`). Tập `money` đóng theo hợp đồng nên thêm mã `money` mới phải qua ARC + UXD (câu `mlog`). US-007 AC7 ghi "nhật ký money" → **ARC quyết**.
+5. Mục "Cần chú ý" chỉ mở ở lần vượt đầu; nếu OWN đã bấm "Đã xem", lần vượt sau chỉ gửi thông báo, không mở lại mục.
+6. FD tự miễn 50.000 trong ca E26-3 (thay cho "LT trưởng miễn 50.000" của oracle), vì 50.000 nằm trong hạn mức tự miễn của FD trên khóa đó. Σ và kết quả không đổi.
+
+### 8.4 Rủi ro / việc còn lại
+- **Migration 0079 khi rebase:**
+  - Đổi số nếu `main` đã có 0079.
+  - CHECK `staff_notification_kind_check` phải là **hợp** các kind của mọi nhánh 0.3.8, vì BE-A cũng thêm `manager_confirmation_*` và `late_fee_post_review`. Nếu không, migration chạy sau sẽ xóa kind của nhánh kia.
+- FE-B làm dòng "Cần chú ý" (US-007 AC7) với kind `foc_stay_total_exceeded`. Server đã có mục event; BE-D không cần cổng đọc riêng.
+- Fuzz R3-Q30 (QA): đưa ca 1–4 của SEC B.5 vào.
+- R3-Q39 #8–#12 phía server: chưa làm. Theo bảng 3.1, mục này là FE-A, kèm BE-A nếu có phần server, không phải BE-B.
+
