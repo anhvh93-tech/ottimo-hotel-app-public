@@ -3,11 +3,11 @@
   "schemaVersion": 1,
   "source": {
     "file": "product/docs/business-rules.md",
-    "version": "0.3.8",
-    "date": "2026-10-17"
+    "version": "0.4.0",
+    "date": "2026-10-22"
   },
-  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101",
-  "updated": "2026-10-18",
+  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05",
+  "updated": "2026-10-22",
   "conventions": {
     "money": "Số nguyên VND, khóa kết thúc bằng 'Vnd' (ADR-002, BR-004)",
     "percent": "Basis point số nguyên (khóa kết thúc 'Bp'): 10% = 1000. Tham số giữ đơn vị như BR mục 13; số lẻ (15,5) ghi dạng chuỗi",
@@ -372,6 +372,175 @@
       "expected": {
         "businessDate": "2026-10-20"
       }
+    },
+    {
+      "id": "BR-010-05",
+      "br": "BR-010",
+      "case": "(R3 S1, R3-Q39 #8) Đổi giá niêm yết lúc 02:40 (ngày nghiệp vụ hôm trước): Desk mặc định và cho chọn `effectiveFrom` = ngày nghiệp vụ; đơn vãng lai đêm đó lấy giá mới; đơn đã xác nhận giữ snapshot",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "pendingFix": "R3-Q39",
+      "calc": null,
+      "input": {
+        "clockAt": "2026-10-20T02:40:00+07:00",
+        "businessDate": "2026-10-19",
+        "roomNo": "101",
+        "monthlyRate": {
+          "beforeVnd": 8000000,
+          "afterVnd": 8400000
+        },
+        "walkIn": {
+          "at": "2026-10-20T02:50:00+07:00",
+          "stay": ["2026-10-19", "2026-10-20"]
+        }
+      },
+      "expected": {
+        "deskDefaultEffectiveFrom": "2026-10-19",
+        "deskAllowsEffectiveFrom": "2026-10-19",
+        "walkInNightVnd": 700000,
+        "confirmedBeforeChangeNightVnd": 667000,
+        "wrongNightVnd": 667000,
+        "wrongDiffVnd": 33000
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 6 #8 (số minh họa, không phải giá INV). Chạy ở 02:40 / 05:59 / 06:00 (06:00 → ngày nghiệp vụ 20/10, `effectiveFrom` mặc định 20/10). QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-010-06",
+      "br": "BR-010",
+      "case": "(R3 S1, R3-Q39 #9) Tham số tiền đổi lúc 02:40: dòng hiệu lực ngày nghiệp vụ là \"đang hiệu lực\", dòng ngày lịch hôm nay là \"đã lên lịch\"; phụ thu đêm ngày nghiệp vụ dùng số mới",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "pendingFix": "R3-Q39",
+      "calc": null,
+      "input": {
+        "clockAt": "2026-10-20T02:40:00+07:00",
+        "businessDate": "2026-10-19",
+        "extraAdultFee": {
+          "beforeVnd": 150000,
+          "rows": [
+            {
+              "effectiveFrom": "2026-10-19",
+              "valueVnd": 170000
+            },
+            {
+              "effectiveFrom": "2026-10-20",
+              "valueVnd": 170000
+            }
+          ]
+        },
+        "booking": {
+          "at": "2026-10-20T02:50:00+07:00",
+          "roomNo": "101",
+          "stay": ["2026-10-19", "2026-10-20"],
+          "adults": 3,
+          "baseOccupancy": 2
+        }
+      },
+      "expected": {
+        "rowLabels": {
+          "2026-10-19": "active",
+          "2026-10-20": "scheduled"
+        },
+        "extraAdultFeeNightVnd": 170000,
+        "wrongExtraAdultFeeNightVnd": 150000
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 6 #9 (số minh họa). QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-010-07",
+      "br": "BR-010",
+      "case": "(R3 S1, R3-Q39 #10) Trả phòng lúc 02:40 trên lượt hai chặng: tủ minibar được chọn = chặng chứa ngày nghiệp vụ (202), không phải chặng chứa ngày lịch (203)",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "pendingFix": "R3-Q39",
+      "calc": null,
+      "input": {
+        "clockAt": "2026-10-20T02:40:00+07:00",
+        "businessDate": "2026-10-19",
+        "legs": [
+          {
+            "roomNo": "202",
+            "range": ["2026-10-18", "2026-10-20"]
+          },
+          {
+            "roomNo": "203",
+            "range": ["2026-10-20", "2026-10-21"]
+          }
+        ],
+        "minibarUsed": {
+          "bia": 2
+        },
+        "beerUnitVnd": 35000
+      },
+      "expected": {
+        "fridgeRoomNo": "202",
+        "minibarLineVnd": 70000,
+        "fridge203LineVnd": 0
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 6 #10. Sai thường gặp: chọn tủ 203 → dòng sai tủ, đếm lại 202 → 140.000 hoặc lệch tồn. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-010-08",
+      "br": "BR-010",
+      "case": "(R3 S1, R3-Q39 #12) Gợi ý \"đã thực hiện\" khi no-show/hủy theo ngày nghiệp vụ: no-show dòng có ngày ≤ ngày nghiệp vụ; hủy dòng có ngày < ngày nghiệp vụ",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "pendingFix": "R3-Q39",
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "arrival": "2026-10-20",
+        "lines": [
+          {
+            "key": "pickup",
+            "date": "2026-10-20",
+            "amountVnd": 300000
+          },
+          {
+            "key": "tour",
+            "date": "2026-10-21",
+            "amountVnd": 300000
+          }
+        ],
+        "cases": [
+          {
+            "key": "a",
+            "action": "no_show",
+            "at": "2026-10-20T23:10:00+07:00",
+            "businessDate": "2026-10-20"
+          },
+          {
+            "key": "b",
+            "action": "no_show",
+            "at": "2026-10-21T01:30:00+07:00",
+            "businessDate": "2026-10-20"
+          },
+          {
+            "key": "c",
+            "action": "cancel",
+            "at": "2026-10-20T09:00:00+07:00",
+            "businessDate": "2026-10-20"
+          }
+        ]
+      },
+      "expected": {
+        "a": {
+          "pickupPerformed": true,
+          "tourPerformed": false,
+          "keptVnd": 300000
+        },
+        "b": {
+          "pickupPerformed": true,
+          "tourPerformed": false,
+          "keptVnd": 300000
+        },
+        "c": {
+          "pickupPerformed": false,
+          "tourPerformed": false,
+          "keptVnd": 0
+        }
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 6 #12. (a) lễ tân theo gợi ý: giữ 300.000 (trừ vào cọc), tour tự đảo. Sai thường gặp: ban ngày Desk dùng `<` cho no-show. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
     },
     {
       "id": "BR-011-01",
@@ -3560,6 +3729,216 @@
       "note": "R3 – OTTIMO-fault cancel: BE-A xác nhận 18/10 chưa có đường (cần mã lý do mới, migration nới CHECK, nhánh hoàn đủ trong `cancellationQuote`, màn Desk) – dời R3. Trong R2 quản lý miễn qua đường duyệt BR-433. Không tính là lỗi mở của R2. DOM chốt 18/10 (`business-rules.md` BR-417, BR-309 – giả định BE-A r4-1…r4-3, `s4-be-a.md` 15.3)."
     },
     {
+      "id": "BR-309-19",
+      "br": "BR-309",
+      "case": "(R3 S1, ESC-023 A – hồi quy \"phí 0\") Rút ngắn đơn khi còn < 7 ngày rồi vẫn đến ở: không có dòng phí ở xem trước lẫn lệnh ghi; cọc thừa hoàn lúc trả phòng",
+      "origin": "example",
+      "labels": ["INV-023"],
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "stayBefore": ["2026-11-09", "2026-11-16"],
+        "roomTotalBeforeVnd": 5205000,
+        "depositPaidVnd": 1600000,
+        "shortenAt": "2026-11-07",
+        "stayAfter": ["2026-11-09", "2026-11-11"],
+        "roomTotalAfterVnd": 1584000,
+        "variantMinibarVnd": 35000
+      },
+      "expected": {
+        "shortenFeeVnd": 0,
+        "previewHasFeeLine": false,
+        "commandHasFeeLine": false,
+        "refundAtCheckoutVnd": 16000,
+        "variantMinibarGuestPaysVnd": 19000
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 10 (ESC-023 A, INV 22/10), BR-309 (iii) 0.4.0. Không có mã mới – ca giữ để không ai cài nhầm phương án B (thu phí rút ngắn). Không `pendingFix` (DOM: đã đạt ở R2). QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-309-20",
+      "br": "BR-309",
+      "case": "(R3 S1, ESC-023 A) Rút ngắn rồi hủy hẳn: mức giữ chống lách chỉ dùng khi hủy – rút lúc < 7 ngày rồi hủy → phí = tiền phòng; rút lúc ≥ 7 ngày rồi hủy → phí theo cọc yêu cầu mới",
+      "origin": "example",
+      "labels": ["INV-023"],
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "stayBefore": ["2026-11-09", "2026-11-16"],
+        "roomTotalBeforeVnd": 5205000,
+        "depositPaidVnd": 1600000,
+        "stayAfter": ["2026-11-09", "2026-11-11"],
+        "roomTotalAfterVnd": 1584000,
+        "cases": [
+          {
+            "key": "lateShorten",
+            "shortenAt": "2026-11-07",
+            "cancelAt": "2026-11-08"
+          },
+          {
+            "key": "earlyShorten",
+            "shortenAt": "2026-11-02",
+            "cancelAt": "2026-11-08"
+          }
+        ]
+      },
+      "expected": {
+        "lateShorten": {
+          "feeVnd": 1584000,
+          "refundVnd": 16000
+        },
+        "earlyShorten": {
+          "feeVnd": 500000,
+          "refundVnd": 1100000
+        }
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 10; cùng số với BR-309-11 x6bLate / x6b. Không `pendingFix`. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-309-21",
+      "br": "BR-309",
+      "case": "(R3 S1, R3-Q01-b) OTTIMO hủy vì lỗi cơ sở 1 ngày trước ngày đến: không áp bậc < 3 ngày, hoàn toàn bộ tiền khách đã chuyển (kể cả phần chuyển dư)",
+      "origin": "example",
+      "labels": ["INV-006", "NGÀNH"],
+      "pendingFix": "R3-OTTIMO-FAULT-CANCEL",
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "arrival": "2026-11-20",
+        "depositRequiredVnd": 700000,
+        "depositPaidVnd": 1000000,
+        "cancelAt": "2026-11-19",
+        "cause": "property_fault",
+        "by": "manager"
+      },
+      "expected": {
+        "feeVnd": 0,
+        "refundVnd": 1000000,
+        "refundRequests": 1
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 7.4 Q01-b; BR-309 (vii) 0.4.0; US-021 AC7. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-309-22",
+      "br": "BR-309",
+      "case": "(R3 S1, R3-Q01-c) OTTIMO hủy vì lỗi cơ sở đơn có đêm Giỗ Tổ: không áp \"đêm cao điểm không hoàn\"",
+      "origin": "example",
+      "labels": ["INV-006", "NGÀNH"],
+      "pendingFix": "R3-OTTIMO-FAULT-CANCEL",
+      "calc": null,
+      "input": {
+        "stay": ["2027-04-15", "2027-04-17"],
+        "hasPeakNight": true,
+        "depositPaidVnd": 600000,
+        "cancelAt": "2027-04-14",
+        "cause": "property_fault",
+        "by": "manager"
+      },
+      "expected": {
+        "feeVnd": 0,
+        "refundVnd": 600000
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 7.4 Q01-c. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-309-23",
+      "br": "BR-309",
+      "case": "(R3 S1, R3-Q01-d) OTTIMO hủy vì lỗi cơ sở đơn đã rút muộn (x6bLate): mức giữ chống lách không áp → hoàn đủ; so sánh khách tự hủy",
+      "origin": "example",
+      "labels": ["INV-006", "NGÀNH"],
+      "pendingFix": "R3-OTTIMO-FAULT-CANCEL",
+      "calc": null,
+      "input": {
+        "roomNo": "203",
+        "roomTotalVnd": 1584000,
+        "depositRequiredBeforeVnd": 1600000,
+        "depositPaidVnd": 1600000,
+        "cause": "property_fault",
+        "by": "manager"
+      },
+      "expected": {
+        "feeVnd": 0,
+        "refundVnd": 1600000,
+        "compareGuestCancel": {
+          "feeVnd": 1584000,
+          "refundVnd": 16000
+        }
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 7.4 Q01-d; so sánh = BR-309-11 x6bLate. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-309-24",
+      "br": "BR-309",
+      "case": "(R3 S1, R3-Q01-e) OTTIMO hủy vì lỗi cơ sở đơn đã dời vì bất khả kháng (trần hoàn 0): vẫn hoàn đủ",
+      "origin": "example",
+      "labels": ["INV-006", "NGÀNH"],
+      "pendingFix": "R3-OTTIMO-FAULT-CANCEL",
+      "calc": null,
+      "input": {
+        "movedForReason": "force_majeure",
+        "refundCapAfterMoveVnd": 0,
+        "depositPaidVnd": 500000,
+        "cause": "property_fault",
+        "by": "manager"
+      },
+      "expected": {
+        "feeVnd": 0,
+        "refundVnd": 500000
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 7.4 Q01-e; đối chiếu BR-309-17. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-309-25",
+      "br": "BR-309",
+      "case": "(R3 S1, R3-Q01-f) OTTIMO hủy vì lỗi cơ sở khi dòng đón sân bay đã thực hiện: gợi ý đảo dòng; theo gợi ý hoàn đủ; lễ tân trưởng giữ dòng có lý do → hoàn phần còn lại",
+      "origin": "example",
+      "labels": ["INV-006", "NGÀNH"],
+      "pendingFix": "R3-OTTIMO-FAULT-CANCEL",
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "depositPaidVnd": 700000,
+        "pickupLine": {
+          "amountVnd": 300000,
+          "performedHint": true
+        },
+        "cause": "property_fault"
+      },
+      "expected": {
+        "pickupSuggestedAction": "reverse",
+        "followHint": {
+          "guestPaysVnd": 0,
+          "refundVnd": 700000
+        },
+        "leadKeepsLineWithReason": {
+          "refundVnd": 400000
+        }
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 7.4 Q01-f (QA thêm – DOM mục 9 chưa liệt kê). QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-309-26",
+      "br": "BR-309",
+      "case": "(R3 S1, R3-Q01-h) OTTIMO hủy vì lỗi cơ sở đơn CTV 8%: hoa hồng 0, không dòng FOC, không trừ hạn mức BR-433; báo cáo hủy tách mã lý do",
+      "origin": "example",
+      "labels": ["INV-006", "NGÀNH"],
+      "pendingFix": "R3-OTTIMO-FAULT-CANCEL",
+      "calc": null,
+      "input": {
+        "channel": "collaborator",
+        "commissionBp": 800,
+        "cause": "property_fault",
+        "by": "manager"
+      },
+      "expected": {
+        "commissionVnd": 0,
+        "commissionEarned": false,
+        "focLines": 0,
+        "approvalLimitUsedVnd": 0,
+        "cancelReportCode": "property_fault"
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 7.4 Q01-h (QA thêm). Mã lý do `property_fault` theo đề xuất ARC – chờ \"0.3.8 bổ sung 1\". QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
       "id": "BR-310-01",
       "br": "BR-310",
       "case": "Booking trả trước hủy, OTA giữ 900.000 → phí hủy là doanh thu khác, ghi folio (v0.3.4 bổ sung)",
@@ -5302,6 +5681,106 @@
         }
       },
       "note": "Kèm BUG-R2-153 (người duyệt = người xác nhận)"
+    },
+    {
+      "id": "BR-416-08",
+      "br": "BR-416",
+      "case": "(R3 S1, ESC-024 B, US-164 AC4) Hết 15 phút quản lý không trả lời: lễ tân hoàn tất thu đúng phụ thu server khóa lúc gửi, không sửa/miễn/FOC, lý do bắt buộc; đêm ngày đi thứ Sáu/ngày lễ theo giá đêm đó",
+      "origin": "example",
+      "labels": ["INV-024", "NGÀNH"],
+      "pendingFix": "R3-US-164",
+      "calc": null,
+      "input": {
+        "roomNo": "203",
+        "stay": ["2030-04-16", "2030-04-18"],
+        "leftAt": "2030-04-18T20:30:00+07:00",
+        "departureNightSellable": false,
+        "requestSentAt": "2030-04-18T20:32:00+07:00",
+        "timeoutMinutes": 15,
+        "clockChecks": ["2030-04-18T20:46:59+07:00", "2030-04-18T20:47:00+07:00"],
+        "variants": {
+          "fridayDepartureNightVnd": 911000,
+          "holidayDepartureNightVnd": 1030000
+        }
+      },
+      "expected": {
+        "expiresAt": "2030-04-18T20:47:00+07:00",
+        "at204659": {
+          "expired": false,
+          "completeExpiredButton": false
+        },
+        "at204700": {
+          "expired": true,
+          "completeExpiredButton": true
+        },
+        "lateFeeVnd": 792000,
+        "amountEditable": false,
+        "requestWithFocStatus": [403, 422],
+        "reasonRequired": true,
+        "channel": "expired_self_record",
+        "notified": ["manager", "owner"],
+        "variantsLateFeeVnd": {
+          "friday": 911000,
+          "holiday": 1030000
+        },
+        "sellableNightPath": "checkout_add_one_night"
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 10 ESC-024 B; BR-416 0.4.0; SEC 06.30; ARC s1-contracts 2.2. [GIẢ ĐỊNH QA] hết hạn ⇔ now ≥ expiresAt (mốc 15:00 phút là đã hết hạn) – ARC xác nhận. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-416-09",
+      "br": "BR-416",
+      "case": "(R3 S1, ESC-024 B, US-164 AC8) Quản lý xem lại trong 24 giờ: miễn 50% → hoàn 396.000 qua BR-522; quá 24 giờ chưa xem → báo OWN; quản lý trả lời trong hạn kèm miễn 100% → khách trả 0",
+      "origin": "example",
+      "labels": ["INV-024", "NGÀNH"],
+      "pendingFix": "R3-US-164",
+      "calc": null,
+      "input": {
+        "fromCase": "BR-416-08",
+        "completedAt": "2030-04-18T20:47:00+07:00",
+        "lateFeeVnd": 792000,
+        "reviewHours": 24,
+        "cases": [
+          {
+            "key": "review50",
+            "at": "2030-04-19T09:00:00+07:00",
+            "by": "manager",
+            "waiveBp": 5000
+          },
+          {
+            "key": "notReviewed",
+            "clockChecks": ["2030-04-19T20:46:59+07:00", "2030-04-19T20:47:00+07:00"]
+          },
+          {
+            "key": "answeredInTime",
+            "at": "2030-04-18T20:40:00+07:00",
+            "by": "manager",
+            "decision": "approve",
+            "waiveBp": 10000
+          }
+        ]
+      },
+      "expected": {
+        "review50": {
+          "waivedVnd": 396000,
+          "refundRequestVnd": 396000,
+          "guestNetPaysVnd": 396000
+        },
+        "notReviewed": {
+          "at204659": {
+            "overdue": false
+          },
+          "at204700": {
+            "overdue": true,
+            "notified": ["owner"]
+          }
+        },
+        "answeredInTime": {
+          "focVnd": 792000,
+          "guestPaysVnd": 0
+        }
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 10. Lệch cần thống nhất (không đổi số): DOM ghi \"FOC 396.000\", ARC s1-contracts 2.2 ghi miễn sau hậu kiểm qua A32 trên folio `settled` (mã lý do `late_fee_waived_post_review`) – QA chỉ kiểm số tiền và yêu cầu hoàn; cơ chế theo DOM + ARC chốt. DOM ghi mốc báo OWN \"quá 19/04 20:30\" (theo giờ rời) – QA dùng hoàn tất + 24 giờ (US-164 AC8) = 20:47, chờ DOM xác nhận. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
     },
     {
       "id": "BR-417-01",
@@ -8024,6 +8503,255 @@
       "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
     },
     {
+      "id": "BR-433-06",
+      "br": "BR-433",
+      "case": "(R3 S1, ESC-026 A, E26-1) Ba khoản miễn khác khóa của MGR trên lượt có đêm thứ Sáu (ngưỡng 911.000): đều áp ngay; vượt ngưỡng sau khoản 3 → 1 thông báo OWN + 1 mục \"Cần chú ý\"",
+      "origin": "example",
+      "labels": ["INV-026", "NGÀNH"],
+      "pendingFix": "R3-ESC-026",
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "thresholdVnd": 911000,
+        "focs": [
+          {
+            "by": "manager",
+            "key": "late_checkout_fee",
+            "amountVnd": 300000
+          },
+          {
+            "by": "manager",
+            "key": "minibar",
+            "amountVnd": 250000
+          },
+          {
+            "by": "manager",
+            "key": "damage_fee",
+            "amountVnd": 600000
+          }
+        ]
+      },
+      "expected": {
+        "allAppliedImmediately": true,
+        "stayTotalAfterVnd": [300000, 550000, 1150000],
+        "ownerNotificationsAfter": [0, 0, 1],
+        "attentionItems": 1,
+        "guestPaysReductionVnd": 1150000
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-1; BR-433 (c) 0.4.0; US-007 AC7. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-433-07",
+      "br": "BR-433",
+      "case": "(R3 S1, ESC-026 A, E26-2) MGR tự áp giảm giá đặc biệt 100% từng đêm (căn 101, ngưỡng 767.000): thông báo mỗi lần áp vượt ngưỡng, chỉ một mục \"Cần chú ý\"",
+      "origin": "example",
+      "labels": ["INV-026", "NGÀNH"],
+      "pendingFix": "R3-ESC-026",
+      "calc": null,
+      "input": {
+        "roomNo": "101",
+        "stay": ["2026-11-23", "2026-11-28"],
+        "nightsVnd": [667000, 667000, 667000, 667000, 767000],
+        "thresholdVnd": 767000,
+        "by": "manager",
+        "discountBp": 10000
+      },
+      "expected": {
+        "stayTotalAfterVnd": [667000, 1334000, 2001000, 2668000, 3435000],
+        "ownerNotifications": 4,
+        "attentionItems": 1,
+        "guestRoomPaysVnd": 0
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-2. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-433-08",
+      "br": "BR-433",
+      "case": "(R3 S1, ESC-026 A, E26-3) Ngưỡng theo vai cao nhất có khoản đang áp: FD/LT trưởng → 300.000; khi MGR áp thêm → ngưỡng thành giá đêm cao nhất 792.000",
+      "origin": "example",
+      "labels": ["INV-026", "NGÀNH"],
+      "pendingFix": "R3-ESC-026",
+      "calc": null,
+      "input": {
+        "roomNo": "203",
+        "maxNightVnd": 792000,
+        "focs": [
+          {
+            "by": "front_desk",
+            "key": "minibar_beer",
+            "amountVnd": 70000
+          },
+          {
+            "by": "front_desk_lead",
+            "key": "late_checkout_fee",
+            "amountVnd": 210000
+          },
+          {
+            "by": "front_desk_lead",
+            "key": "minibar_other",
+            "amountVnd": 50000
+          },
+          {
+            "by": "manager",
+            "key": "other",
+            "amountVnd": 200000
+          }
+        ]
+      },
+      "expected": {
+        "stayTotalAfterVnd": [70000, 280000, 330000, 530000],
+        "thresholdAfterVnd": [100000, 300000, 300000, 792000],
+        "ownerNotificationsAfter": [0, 0, 1, 0]
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-3. Sau khoản 1 (chỉ FD tự miễn) ngưỡng 100.000, Σ 70.000 → không báo. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-433-09",
+      "br": "BR-433",
+      "case": "(R3 S1, ESC-026 A, E26-4) Khoản do OWN duyệt không tính vào Σ lượt",
+      "origin": "example",
+      "labels": ["INV-026", "NGÀNH"],
+      "pendingFix": "R3-ESC-026",
+      "calc": null,
+      "input": {
+        "fromCase": "BR-433-06",
+        "thresholdVnd": 911000,
+        "damageFeeApprovedBy": "owner"
+      },
+      "expected": {
+        "stayTotalVnd": 550000,
+        "ownerNotifications": 0,
+        "attentionItems": 0
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-4. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-433-10",
+      "br": "BR-433",
+      "case": "(R3 S2 – dời, E26-6) OWN thu hồi khoản miễn khi khách còn ở: dòng thành phải thu, trả lại hạn mức tháng MGR, nhật ký có lý do",
+      "origin": "example",
+      "labels": ["INV-026", "NGÀNH"],
+      "pendingFix": "R3-FOC-REVOKE",
+      "calc": null,
+      "input": {
+        "fromCase": "BR-433-06",
+        "revokedBy": "owner",
+        "revokedFocVnd": 600000,
+        "guestInHouse": true
+      },
+      "expected": {
+        "guestPaysExtraVnd": 600000,
+        "managerMonthlyLimitReturnedVnd": 600000,
+        "revokeAuditHasReason": true,
+        "stayTotalVnd": 550000
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-6. ARC s1-contracts 5.4: đường tiền mới \"thu hồi\" dời Sprint 2 (`revokeApproval`, hợp đồng 0.3.9, cần ngoại lệ đóng băng mã tiền) → `pendingFix` R3-FOC-REVOKE (DOM đề xuất tên R3-ESC-026-REVOKE; dùng tên ARC/ORC). QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-433-11",
+      "br": "BR-433",
+      "case": "(R3 S2 – dời, E26-7) OWN thu hồi sau trả phòng (folio `settled`): khoản thành khoản trong cửa sổ; hết cửa sổ chưa trả → J15 ghi công nợ, hạn = ngày nghiệp vụ J15 + 3",
+      "origin": "example",
+      "labels": ["INV-026", "NGÀNH"],
+      "pendingFix": "R3-FOC-REVOKE",
+      "calc": null,
+      "input": {
+        "fromCase": "BR-433-06",
+        "checkoutAt": "2026-11-16T11:00:00+07:00",
+        "revokedAt": "2026-11-16T15:00:00+07:00",
+        "revokedFocVnd": 600000,
+        "j15At": "2026-11-17T11:00:00+07:00"
+      },
+      "expected": {
+        "afterRevoke": {
+          "windowVnd": 600000,
+          "debtOpenVnd": 0,
+          "paymentLinkSent": true
+        },
+        "afterJ15Unpaid": {
+          "debtOpenVnd": 600000,
+          "debtDueDate": "2026-11-20",
+          "folioStatus": "closed"
+        }
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-7. [GIẢ ĐỊNH QA] ngày 16/11 cho ví dụ không ghi ngày của DOM. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-433-12",
+      "br": "BR-433",
+      "case": "(R3 S2 – dời, E26-8) OWN thu hồi khi folio `closed`: không cho trong app (409 FOLIO_LOCKED); OWN chỉ \"Đã xem\"",
+      "origin": "example",
+      "labels": ["INV-026", "NGÀNH"],
+      "pendingFix": "R3-FOC-REVOKE",
+      "calc": null,
+      "input": {
+        "fromCase": "BR-433-06",
+        "folioStatus": "closed",
+        "revokedFocVnd": 600000
+      },
+      "expected": {
+        "httpStatus": 409,
+        "code": "FOLIO_LOCKED",
+        "amountDueChangeVnd": 0,
+        "ownerAction": "acknowledge"
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-8; ARC 5.4. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-433-13",
+      "br": "BR-433",
+      "case": "(R3 S1, ESC-026 A, E26-5) Xóa nợ MGR tự áp tính vào Σ lượt: miễn minibar 400.000 lúc ở + xóa nợ 600.000 sau trả phòng (ngưỡng = cơ sở 911.000) → báo OWN",
+      "origin": "example",
+      "labels": ["INV-026", "NGÀNH"],
+      "pendingFix": "R3-ESC-026",
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "nights": ["thursday", "friday"],
+        "thresholdVnd": 911000,
+        "writeOffBasisVnd": 911000,
+        "steps": [
+          {
+            "by": "manager",
+            "kind": "foc",
+            "key": "minibar",
+            "amountVnd": 400000
+          },
+          {
+            "by": "manager",
+            "kind": "debt_write_off",
+            "amountVnd": 600000,
+            "afterCheckout": true
+          }
+        ]
+      },
+      "expected": {
+        "writeOffSelfApplied": true,
+        "stayTotalVnd": 1000000,
+        "ownerNotifications": 1
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-5 (QA thêm – DOM mục 9 chưa liệt kê). QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-433-14",
+      "br": "BR-433",
+      "case": "(R3 S1, ESC-026 A, E26-9) FOC tự hủy theo BR-434 (khách rút đêm) ra khỏi Σ lượt; không có thông báo \"dưới ngưỡng\"",
+      "origin": "example",
+      "labels": ["INV-026", "NGÀNH"],
+      "pendingFix": "R3-ESC-026",
+      "calc": null,
+      "input": {
+        "fromCase": "BR-433-06",
+        "autoCancelledFoc": "BR-434 shorten"
+      },
+      "expected": {
+        "autoCancelledExcludedFromTotal": true,
+        "belowThresholdNotification": false,
+        "extraOwnerNotifications": 0
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-9 (QA thêm). QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
       "id": "BR-434-01",
       "br": "BR-434",
       "case": "Bill ghi dòng phát sinh + dòng FOC âm",
@@ -8717,6 +9445,43 @@
         "selfApplyAllowed": false,
         "routeTo": "front_desk_lead"
       }
+    },
+    {
+      "id": "BR-437-01",
+      "br": "BR-437",
+      "case": "(v0.4.0, ESC-027 B) Chủ đầu tư tạm mất đăng nhập: không ai nhận thay quyền; yêu cầu xóa nợ vượt cơ sở giữ chờ OWN (không tự hết hạn, không tự duyệt); phụ thu thay đêm hết hạn chờ quản lý vẫn theo BR-416",
+      "origin": "example",
+      "labels": ["INV-027", "NGÀNH"],
+      "pendingFix": "R3-US-164",
+      "calc": null,
+      "input": {
+        "ownerLostAt": "2026-12-05T21:00:00+07:00",
+        "ownerRecoveredAt": "2026-12-06T12:00:00+07:00",
+        "writeOffRequest": {
+          "by": "manager",
+          "amountVnd": 1000000,
+          "basisVnd": 792000
+        },
+        "lateFeeExpired": {
+          "lateFeeVnd": 792000
+        }
+      },
+      "expected": {
+        "writeOff": {
+          "statusUntilRecovered": "pending",
+          "requiredRole": "owner",
+          "managerCanSelfApply": false,
+          "autoExpired": false,
+          "debtStillOpen": true
+        },
+        "lateFeeExpired": {
+          "collectedVnd": 792000,
+          "needsOwner": false
+        },
+        "temporaryOwnerAccountCreated": false
+      },
+      "note": "Nguồn: `product/docs/business-rules.md` BR-437 (mới 0.4.0, DOM 22/10). Dòng này đóng lỗi validator \"BR-437 có ví dụ số nhưng chưa có dòng oracle\". `pendingFix` R3-US-164 vì phần phụ thu hết hạn cần US-164; phần chờ OWN là hành vi R2 (kiểm lại khi US-164 gộp). Giờ 21:00 và 12:00 là [GIẢ ĐỊNH QA] (BR ghi \"tối 05/12\", \"trưa 06/12\"). QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM.",
+      "qaAssumption": "Giờ mất/khôi phục đăng nhập"
     },
     {
       "id": "BR-501-01",
@@ -10709,6 +11474,347 @@
       "note": "Nguồn: `business-rules.md` BR-525 khối \"(18/10 – kiểm lại tiền lần 8: BUG-R2-208, BUG-R2-209, G-6, DOM chốt)\" và cột ví dụ (208)/(209)/(G-6)/(N-13); `reviews/s4-money-recheck8.md` bảng Minor/Note. Năm 2026 theo quy ước. Mã f6803d0 đã làm (recheck8 N-13, r8ver M3: 200, mở chu kỳ mới, có nhật ký); DOM sửa câu \"chỉ còn hai việc\" thành ba. Chưa có trong ma trận đua (RD trên `closed`)."
     },
     {
+      "id": "BR-525-36",
+      "br": "BR-525",
+      "case": "(R3 S1, BUG-R2-210 / R3-Q21, 210-A) Nợ cũ ghi trước 0076 (chưa có chu kỳ) + khoản cửa sổ: lần ghi nợ mới sau deploy giữ nợ cũ trong O, không tính khoản cửa sổ, giữ hạn cũ; J15 ghi phần chênh",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "pendingFix": "BUG-R2-210",
+      "calc": null,
+      "input": {
+        "checkoutAt": "2026-11-16T10:00:00+07:00",
+        "legacyDebt": {
+          "source": "G-4 reversal",
+          "amountVnd": 100000,
+          "debtOpenedAt": null,
+          "writtenBy": "pre-0076"
+        },
+        "postCheckoutLine": {
+          "at": "2026-11-16T15:00:00+07:00",
+          "category": "minibar",
+          "amountVnd": 70000,
+          "paymentLinkSent": true
+        },
+        "reversalAfterDeploy": {
+          "at": "2026-11-16T17:00:00+07:00",
+          "by": "manager",
+          "paymentVnd": 834000
+        },
+        "j15At": "2026-11-17T10:00:00+07:00",
+        "controlNoLegacy": {
+          "amountDueVnd": 0,
+          "reversalPaymentVnd": 500000
+        }
+      },
+      "expected": {
+        "afterReversal": {
+          "amountDueVnd": 1004000,
+          "debtOpenVnd": 934000,
+          "windowVnd": 70000,
+          "debtAuditVnd": 834000,
+          "dueDateKeptFromLegacy": true,
+          "attentionOpen": true,
+          "wrongDebtOpenVnd": 834000,
+          "wrongArcSentenceDebtOpenVnd": 1004000
+        },
+        "afterJ15": {
+          "debtAddedVnd": 70000,
+          "debtOpenVnd": 1004000,
+          "windowVnd": 0,
+          "dueDateKeptFromLegacy": true,
+          "notifiedAgain": ["owner", "manager"],
+          "folioStatus": "closed"
+        },
+        "controlNoLegacy": {
+          "debtOpenVnd": 500000,
+          "newCycle": true,
+          "dueDate": "businessDate+3"
+        },
+        "xFormula": "X = max(0, B_trước − W_cũ) = 170.000 − 70.000 = 100.000 (ARC s1-contracts 5.2)"
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 2 (210-A, 210-A tiếp, 210-C); ARC `rounds/round-03/outputs/ARC/s1-contracts.md` 5.2. DOM mục 9 đề xuất id BR-525-34 nhưng id đó đã dùng (G-6) – QA đánh lại BR-525-36. Bất biến I1–I3 sau mọi bước. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-525-37",
+      "br": "BR-525",
+      "case": "(R3 S1, BUG-R2-210, 210-B) Nợ cũ B18 2.000.000 có yêu cầu xóa nợ 1.500.000 chờ OWN; sau deploy MGR đảo 916.000 → O 2.916.000; OWN duyệt áp đủ 1.500.000, không applied_capped, không tự hủy",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "pendingFix": "BUG-R2-210",
+      "calc": null,
+      "input": {
+        "legacyDebt": {
+          "source": "B18 debt",
+          "amountVnd": 2000000,
+          "debtOpenedAt": null,
+          "writtenBy": "pre-0076"
+        },
+        "writeOffRequest": {
+          "by": "manager",
+          "amountVnd": 1500000,
+          "aboveBasis": true
+        },
+        "reversalAfterDeploy": {
+          "by": "manager",
+          "paymentVnd": 916000
+        },
+        "then": "owner approves"
+      },
+      "expected": {
+        "afterReversal": {
+          "debtOpenVnd": 2916000,
+          "requestStatus": "pending",
+          "willApplyVnd": 1500000,
+          "wrongDebtOpenVnd": 916000
+        },
+        "afterOwnerApproves": {
+          "status": "approved",
+          "appliedVnd": 1500000,
+          "appliedCapped": false,
+          "autoCancelledDebtCleared": false,
+          "debtOpenVnd": 1416000,
+          "creditVnd": 0
+        },
+        "wrongOutcomes": ["áp 916.000 kèm applied_capped", "tự hủy debt_cleared"]
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 2 (210-B, 210-B tiếp). DOM đề xuất id BR-525-35 (đã dùng – N-13) → BR-525-37. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-525-38",
+      "br": "BR-525",
+      "case": "(R3 S1, BUG-R2-209, 209-D đua) J15 ‖ đảo 100.000 cùng lúc 17/11 10:00 khi O = 0, W = 70.000: hai thứ tự cùng kết quả – O 170.000, hạn 20/11, nhật ký {100.000, 70.000}",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "pendingFix": "BUG-R2-209",
+      "calc": null,
+      "input": {
+        "checkoutAt": "2026-11-16T10:00:00+07:00",
+        "amountDueAfterB18Vnd": 0,
+        "postCheckoutLine": {
+          "at": "2026-11-16T15:00:00+07:00",
+          "category": "minibar",
+          "amountVnd": 70000,
+          "paymentLinkSent": true
+        },
+        "race": {
+          "at": "2026-11-17T10:00:00+07:00",
+          "ops": ["J15", "reversal 100000 by manager"],
+          "orders": 2,
+          "rounds": 3
+        }
+      },
+      "expected": {
+        "eachOrder": {
+          "debtOpenVnd": 170000,
+          "debtDueDate": "2026-11-20",
+          "debtAuditsVnd": [70000, 100000],
+          "debtRecordedVnd": 170000,
+          "deadlocks": 0,
+          "http5xx": 0
+        }
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 3 209-D. `debtAuditsVnd` là tập (so không theo thứ tự). DOM đề xuất id BR-525-36 → QA dùng BR-525-38 (dời vì 34/35 đã dùng). QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-525-39",
+      "br": "BR-525",
+      "case": "(R3 S1, BUG-R2-208, 208-E) Không còn công nợ (O = 0, W = 0, folio `settled`): xin FOC `debt_write_off` → 409 FOLIO_LOCKED (đổi từ 422 max 0 của R2)",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "pendingFix": "BUG-R2-208",
+      "calc": null,
+      "input": {
+        "folioStatus": "settled",
+        "debtOpenVnd": 0,
+        "windowVnd": 0,
+        "request": {
+          "by": "manager",
+          "reasonCode": "debt_write_off",
+          "amountVnd": 10000
+        }
+      },
+      "expected": {
+        "httpStatus": 409,
+        "code": "FOLIO_LOCKED",
+        "deskMessageKey": "no_open_debt_to_write_off",
+        "r2HttpStatus": 422
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 4 208-E. Desk: \"Không còn công nợ để xóa\". QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-525-40",
+      "br": "BR-525",
+      "case": "(R3 S1, BUG-R2-208, 208-F N-15) Quá cửa sổ 24 giờ nhưng J15 chưa chạy (folio còn `settled`): coi như `closed` – A32 giảm → 409; FD thu tiền trong khoảng hở → 409 tới J15 (≤ 1 giờ, chấp nhận)",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "pendingFix": "BUG-R2-208",
+      "calc": null,
+      "input": {
+        "checkoutAt": "2026-11-16T10:00:00+07:00",
+        "windowUntil": "2026-11-17T10:00:00+07:00",
+        "attemptAt": "2026-11-17T10:20:00+07:00",
+        "j15Ran": false,
+        "attempts": [
+          {
+            "by": "manager",
+            "op": "A32 reduce minibar"
+          },
+          {
+            "by": "front_desk",
+            "op": "collect payment"
+          }
+        ]
+      },
+      "expected": {
+        "a32Reduce": {
+          "httpStatus": 409,
+          "code": "FOLIO_LOCKED"
+        },
+        "collectInGap": {
+          "httpStatus": 409,
+          "acceptedGapMaxMinutes": 60
+        }
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 4 208-F. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-525-41",
+      "br": "BR-525",
+      "case": "(R3 S1, R3-Q23 FB-R2-ARC-BE-S4-17) Yêu cầu xóa nợ chờ OWN tự hủy `debt_cleared` cùng giao dịch khi O về 0 (khách trả đủ / xóa nợ khác được duyệt / còn W); OWN duyệt yêu cầu cũ → 409 INVALID_TRANSITION",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "pendingFix": "R3-ARC-BE-S4-17-18",
+      "calc": null,
+      "input": {
+        "roomNo": "101",
+        "basisVnd": 667000,
+        "debtOpenVnd": 5000000,
+        "pendingRequest": {
+          "by": "manager",
+          "amountVnd": 5000000
+        },
+        "cases": [
+          {
+            "key": "a",
+            "guestPaysVnd": 5000000
+          },
+          {
+            "key": "b",
+            "otherWriteOffApprovedVnd": 5000000
+          },
+          {
+            "key": "c",
+            "debtToZeroWithWindowVnd": 70000
+          }
+        ]
+      },
+      "expected": {
+        "a": {
+          "requestStatus": "cancelled",
+          "autoCancelReason": "debt_cleared",
+          "sameTransaction": true,
+          "notifiedRequester": true,
+          "approvalsQueueHasRequest": false,
+          "debtOpenVnd": 0,
+          "creditVnd": 0,
+          "writeOffSumVnd": 0,
+          "ownerApprovesOld": {
+            "httpStatus": 409,
+            "code": "INVALID_TRANSITION"
+          }
+        },
+        "b": {
+          "remainingPendingStatus": "cancelled",
+          "autoCancelReason": "debt_cleared"
+        },
+        "c": {
+          "requestStatus": "cancelled",
+          "windowVnd": 70000
+        }
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 7.1 Q23-17a/b/c. Bất biến I9. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-525-42",
+      "br": "BR-525",
+      "case": "(R3 S1, R3-Q23 FB-R2-ARC-BE-S4-18) Khách trả một phần khi yêu cầu xóa nợ đang chờ: màn duyệt hiện \"khi duyệt sẽ áp\" = O hiện tại; OWN duyệt → áp phần còn lại, applied_capped, hạn mức tính số thực áp",
+      "origin": "example",
+      "labels": ["GIẢ ĐỊNH", "NGÀNH"],
+      "pendingFix": "R3-ARC-BE-S4-17-18",
+      "calc": null,
+      "input": {
+        "roomNo": "101",
+        "basisVnd": 667000,
+        "debtOpenVnd": 5000000,
+        "pendingRequest": {
+          "by": "manager",
+          "amountVnd": 5000000
+        },
+        "guestPaysVnd": 4000000,
+        "then": "owner approves"
+      },
+      "expected": {
+        "beforeApprove": {
+          "requestStatus": "pending",
+          "debtOpenVnd": 1000000,
+          "willApplyVnd": 1000000,
+          "listTakesLineLock": false
+        },
+        "afterApprove": {
+          "status": "approved",
+          "appliedVnd": 1000000,
+          "auditAction": "approval.applied_capped",
+          "cappedReason": "debt_collected_before_approval",
+          "debtOpenVnd": 0,
+          "creditVnd": 0,
+          "limitCountedVnd": 1000000
+        }
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 7.1 Q23-18a/b. Bất biến I3 (số \"khi duyệt sẽ áp\"). QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
+      "id": "BR-525-43",
+      "br": "BR-525",
+      "case": "(R3 S1, R3-Q39 #11) Hạn công nợ theo ngày nghiệp vụ: mặc định ngày nghiệp vụ lúc ghi + 3, nhỏ nhất + 1; ghi lúc 02:40 dùng ngày nghiệp vụ hôm trước; quá hạn từ 06:00 sau ngày hạn",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "pendingFix": "R3-Q39",
+      "calc": null,
+      "input": {
+        "cases": [
+          {
+            "key": "day",
+            "at": "2026-10-20T14:00:00+07:00",
+            "businessDate": "2026-10-20"
+          },
+          {
+            "key": "night",
+            "at": "2026-10-21T02:40:00+07:00",
+            "businessDate": "2026-10-20"
+          }
+        ],
+        "debtDefaultDueDays": 3,
+        "overdueChecks": ["2026-10-24T05:59:00+07:00", "2026-10-24T06:00:00+07:00"]
+      },
+      "expected": {
+        "day": {
+          "defaultDueDate": "2026-10-23",
+          "minDueDate": "2026-10-21",
+          "dueDate20Blocked": true
+        },
+        "night": {
+          "defaultDueDate": "2026-10-23",
+          "minDueDate": "2026-10-21",
+          "dueDate20Blocked": true
+        },
+        "overdue": {
+          "at0559": false,
+          "at0600": true
+        }
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 6 #11; BR-525 (i) 0.4.0 – hạn 3 ngày INV xác nhận 22/10. Sai thường gặp: Desk cho chọn 20/10 ban ngày → server 422; Desk coi hạn = hôm nay là đã quá. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+    },
+    {
       "id": "BR-526-01",
       "br": "BR-526",
       "case": "Ca 14:00–22:00: hệ thống 3.491.000, đếm 3.441.000",
@@ -11715,6 +12821,93 @@
         "b18Status": 200
       },
       "note": "Thay oracle của kiểm lại 5b (`reviews/s4-money-recheck5b.md` K11-03: '09:06 … → 201' ngay) bằng '409 → tải lại → 201' theo ARC 16.19 bổ sung 2 (ah) và ca 30 (B14 ghi nhận tủ căn cũ bằng `check_in`, nên `null` soạn trước B14 là kỳ đã đổi). Có `periodId` (kể cả null) mà vắng `roomId` → 422 `REQUIRED` (ARC 16.19 K11-03 – thay câu '409, không ghi' của kiểm lại 5b). E2E: TC-L4-137 (API), TC-L4-138 (Desk H16)."
+    },
+    {
+      "id": "BR-703-05",
+      "br": "BR-703",
+      "case": "(R3 S1, R3-Q10 / K11-08) Minibar buồng phòng bắt buộc `periodId`: lần đếm chỉ đổi dòng của kỳ nó ghi tên; lần đếm cũ gửi trễ không `periodId` hoặc của kỳ cũ bị từ chối, không ghi",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "pendingFix": "R3-Q10",
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "beerUnitVnd": 35000,
+        "standard": {
+          "bia": 2
+        },
+        "steps": [
+          {
+            "key": "a",
+            "at": "2026-10-21T10:00:00+07:00",
+            "by": "housekeeping",
+            "period": "checkin",
+            "remaining": 1,
+            "thenRefill": true
+          },
+          {
+            "key": "b",
+            "at": "2026-10-22T09:00:00+07:00",
+            "by": "housekeeping",
+            "periodId": null,
+            "remaining": 1,
+            "draftFrom": "period1"
+          },
+          {
+            "key": "c",
+            "by": "housekeeping",
+            "periodId": "period1",
+            "remaining": 1
+          },
+          {
+            "key": "d",
+            "by": "housekeeping",
+            "periodId": "period2",
+            "remaining": 2
+          },
+          {
+            "key": "e",
+            "by": "housekeeping",
+            "periodId": "period2",
+            "remaining": 1
+          }
+        ],
+        "onlyCheckinPeriodCase": {
+          "by": "housekeeping",
+          "periodId": null
+        }
+      },
+      "expected": {
+        "a": {
+          "minibarVnd": 35000
+        },
+        "b": {
+          "httpStatus": 422,
+          "code": "REQUIRED",
+          "writes": 0,
+          "minibarVnd": 35000,
+          "r2MinibarVnd": 70000
+        },
+        "c": {
+          "httpStatus": 409,
+          "writes": 0,
+          "minibarVnd": 35000
+        },
+        "d": {
+          "newLines": 0,
+          "minibarVnd": 35000
+        },
+        "e": {
+          "newLineVnd": 35000,
+          "minibarVnd": 70000
+        },
+        "onlyCheckinPeriodCase": {
+          "httpStatus": 422,
+          "code": "REQUIRED"
+        }
+      },
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 7.5 Q10-a…f; ARC s1-contracts mục 8 (vai `housekeeping` thiếu `periodId`/`roomId` → 422 REQUIRED; FD+ giữ như cũ). DOM đề xuất id BR-703-03 (đã dùng – K11-09) → BR-703-05. [GIẢ ĐỊNH QA] ngày 21–22/10. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM.",
+      "qaAssumption": "Ngày/giờ các lần đếm"
     },
     {
       "id": "BR-705-01",
