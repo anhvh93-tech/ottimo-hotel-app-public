@@ -1633,7 +1633,8 @@ export function RefundRequestDialog({
           />
         )}
       </Field>
-      {act.view()}
+      {/* A field error (REFUND_EXCEEDS_APPROVED + max, reason) sits under its field – not said twice. */}
+      {act.fields.amountVnd || act.fields.reason ? null : act.view()}
     </Modal>
   );
 }

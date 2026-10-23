@@ -2950,6 +2950,7 @@
   "rcv.reason_no_account": "Lý do không được chứa số tài khoản hoặc dãy từ 6 chữ số trở lên.",
   "debt.write_off_reauth_help": "Xóa công nợ cần nhập lại mật khẩu đăng nhập của bạn.",
   "co.debt_due_min": "Chọn hạn thanh toán từ ngày mai trở đi.",
+  "refund.settled_credit": "Khách đã trả phòng và còn dư {amount} chưa có yêu cầu hoàn. Gửi đề nghị hoàn để quản lý duyệt và chi.",
   "hk.queue.in_line": "Chờ lượt",
   "hk.queue.r.time": "Chưa ghi được vì giờ bấm ({time}) lệch quá xa giờ hiện tại. Nếu việc đã xong, bấm \"Gửi lại\" để ghi theo giờ bây giờ.",
   "hk.queue.r.photo": "Ảnh này không gửi được. Phiếu vẫn được gửi, không kèm ảnh này.",

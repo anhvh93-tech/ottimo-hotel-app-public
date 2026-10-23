@@ -130,6 +130,12 @@ export function ReservationDrawer({
   const paidVnd = ownFolio?.totals.paidVnd;
   // BUG-R2-102 / ARC 16.20: "Đã thu" = `paidVnd` (refunds not taken off), "Đã hoàn" = `refundedVnd` – the server's.
   const refundedVnd = ownFolio?.totals.refundedVnd ?? 0;
+  // 0.3.8 bổ sung 3 (FUZZ-01): a refund can be asked on an `open` or `settled` folio (J15 `waiting_refund` too) for
+  // the money not asked yet (`unhandledCreditVnd` – the server's cap); `closed` holds no credit (I4) → no button.
+  const refundable =
+    fd && folio && folio.status !== 'closed'
+      ? (folio.totals.unhandledCreditVnd ?? folio.totals.creditVnd ?? 0)
+      : 0;
   // BUG-R2-103: with the folio lines listed below, "Còn phải thu" is said once – there, after the lines.
   const linesShown = !!folio && folioLines;
   // ARC 16.20: a folio at 0 with no posted line – "Chưa có khoản nào trên folio", never "Còn phải thu 0 đ".
@@ -691,10 +697,18 @@ export function ReservationDrawer({
                   </tr>
                 </tbody>
               </table>
-              {(folio.totals.creditVnd ?? 0) > 0 && online ? (
-                <Button size="sm" onClick={() => setOpen('refund')}>
-                  {t('refund.request_overpayment', { amount: money(folio.totals.creditVnd ?? 0) })}
-                </Button>
+              {refundable > 0 && online ? (
+                <>
+                  {folio.status === 'settled' ? (
+                    // 0.3.8 bổ sung 3 (FB-R3-ARC-FUZZ-01, BR-522 K11-06): money left after check-out, not asked yet.
+                    <Alert tone="warn">
+                      {t('refund.settled_credit', { amount: money(refundable) })}
+                    </Alert>
+                  ) : null}
+                  <Button size="sm" onClick={() => setOpen('refund')}>
+                    {t('refund.request_overpayment', { amount: money(refundable) })}
+                  </Button>
+                </>
               ) : null}
             </>
           ) : null}
@@ -799,7 +813,7 @@ export function ReservationDrawer({
       {r && open === 'refund' && folio ? (
         <RefundRequestDialog
           reservation={r}
-          creditVnd={folio.totals.creditVnd ?? 0}
+          creditVnd={refundable}
           onClose={() => setOpen(null)}
           onDone={done}
         />

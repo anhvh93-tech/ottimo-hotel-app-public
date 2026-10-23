@@ -135,7 +135,11 @@ const dashboard = createDashboardMock({
   problem: (status, code, extra) => problem(status, code, extra),
   db: () => db,
   rsv: () => reservations.state,
-  extra: () => [...stay.registrationAttention(), ...ops.attentionItems()],
+  extra: () => [
+    ...stay.registrationAttention(),
+    ...stay.creditAttention(),
+    ...ops.attentionItems(),
+  ],
 });
 
 /** Reset state between tests / from the browser console (`__ottimoMock.reset()`). */

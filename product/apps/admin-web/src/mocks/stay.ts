@@ -122,7 +122,8 @@ export interface MockPayment {
 interface MockFolio {
   id: string;
   reservationId: string;
-  status: 'open' | 'settled';
+  /** `closed` = J15 closed it (window over, no credit left – I4); set by tests. */
+  status: 'open' | 'settled' | 'closed';
   billNo: string | null;
   /** 0.3.7 add. 1 (`Bill.settledAt`) – set with the folio number at B18. */
   settledAt?: string;
@@ -3531,11 +3532,17 @@ export function createStayMock(ctx: Ctx) {
       const f = st.folios.get(String(params.folioId));
       if (!f) return problem(404, 'NOT_FOUND');
       const r = rsv().state.reservations.find((x) => x.id === f.reservationId)!;
+      // 0.3.8 bổ sung 3 (FB-R3-ARC-FUZZ-01): `open` or `settled` (also J15 `waiting_refund`); `closed` → 409.
+      if (f.status === 'closed') return problem(409, 'FOLIO_LOCKED');
       const body = (await request.json()) as Body;
       if (String(body.reason ?? '').trim().length < 3)
         return validation([{ field: 'reason', code: 'REASON_REQUIRED' }]);
-      if (!(Number(body.amountVnd) > 0) || Number(body.amountVnd) > totals(r).unhandledCreditVnd)
-        return validation([{ field: 'amountVnd', code: 'REFUND_EXCEEDS_APPROVED' }]);
+      const cap = totals(r).unhandledCreditVnd;
+      if (!(Number(body.amountVnd) > 0) || Number(body.amountVnd) > cap)
+        return problem(422, 'VALIDATION_FAILED', {
+          max: cap,
+          errors: [{ field: 'amountVnd', code: 'REFUND_EXCEEDS_APPROVED' }],
+        });
       const a: MockApproval = {
         id: uid(89_000 + next()),
         type: 'refund',
@@ -4506,9 +4513,31 @@ export function createStayMock(ctx: Ctx) {
     ];
   }
 
+  /**
+   * 0.3.8 bổ sung 3 (BR-522 K11-06, J15 `waiting_refund`): one "Cần chú ý" `closed_reservation_credit` per
+   * checked-out stay whose settled folio still holds money nobody asked to refund; it closes itself once a
+   * refund request covers it (computed here – the API stores it as an event).
+   */
+  function creditAttention(): AttentionItem[] {
+    return rsv()
+      .state.reservations.filter((r) => r.status === 'checked_out' && st.folios.has(r.folioId))
+      .filter(
+        (r) => st.folios.get(r.folioId)!.status === 'settled' && totals(r).unhandledCreditVnd > 0,
+      )
+      .map((r) => ({
+        kind: 'closed_reservation_credit' as const,
+        source: 'computed' as const,
+        severity: 'warning' as const,
+        count: 1,
+        reservationIds: [r.id],
+        refCode: r.code,
+      }));
+  }
+
   return {
     handlers,
     registrationAttention,
+    creditAttention,
     reset() {
       st = makeState();
     },
