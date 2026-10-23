@@ -25,7 +25,7 @@ import { parseBody } from '../../platform/public/validation';
 import { MfaStore } from '../public/mfa-store';
 import { PasswordReauth } from '../public/password-reauth';
 import { SessionService } from '../public/session.service';
-import { StrongReauthService } from '../public/strong-reauth';
+import { StrongReauthService, strongReauthSchema } from '../public/strong-reauth';
 import { type HttpRequest, type Reply, headerOf, principalOf } from './auth.controller';
 import { AuthService } from './auth.service';
 import type { Me } from './me.service';
@@ -37,15 +37,6 @@ const totpCode = z.string().regex(/^[0-9]{6}$/);
 const recoveryCode = z
   .string()
   .regex(/^[0-9A-Za-z]{4}[- ]?[0-9A-Za-z]{4}[- ]?[0-9A-Za-z]{4}[- ]?[0-9A-Za-z]{4}$/);
-
-/** OpenAPI `StrongReauth` (0.3.8) – exactly one factor at most; the service decides whether one is needed. */
-export const strongReauthSchema = z
-  .object({
-    password: z.string().min(1).max(256),
-    totpCode: totpCode.optional(),
-    recoveryCode: recoveryCode.optional(),
-  })
-  .strict();
 
 const loginMfaSchema = z
   .object({

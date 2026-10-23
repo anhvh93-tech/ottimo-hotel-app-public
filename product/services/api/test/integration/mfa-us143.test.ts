@@ -561,6 +561,65 @@ describe.skipIf(!HAS_DB)('US-143 two-step login, recovery codes, S2 (SEC A.7)', 
     await setPassword(db, t, 'cp');
   });
 
+  it('case 11 (gate): S2 on createUser / setUserRoles to manager / updateUser status / revokeTrustedDevice', async () => {
+    fa.clock.set(new Date(T0.getTime() + 15 * 3600_000));
+    const own = await enroll('gate');
+    step();
+    const promo = t.users.promo!;
+    const toMgr = { roles: [{ propertyId: t.propertyIds[0], role: 'manager' }] };
+    const pwOnly = await own.send(
+      'PUT',
+      `/v1/users/${promo.id}/roles`,
+      { ...toMgr, reauth: { password: TEST_PASSWORD } },
+      { 'if-match': '"1"' },
+    );
+    expect(pwOnly.statusCode).toBe(422);
+    expect(pwOnly.json().errors[0]).toEqual({
+      field: 'reauth.totpCode',
+      code: 'STRONG_REAUTH_REQUIRED',
+    });
+    const good = code('gate');
+    const ok = await own.send(
+      'PUT',
+      `/v1/users/${promo.id}/roles`,
+      { ...toMgr, reauth: { password: TEST_PASSWORD, totpCode: good } },
+      { 'if-match': '"1"' },
+    );
+    expect(ok.statusCode).toBe(200);
+    // the same proof cannot serve another operation (anti-replay)
+    const reuse = await own.send('POST', '/v1/users', {
+      username: `s2.${Date.now()}`,
+      displayName: 'Người mới',
+      initialPassword: 'Fake-initial-pass-1',
+      roles: [{ propertyId: t.propertyIds[0], role: 'housekeeping' }],
+      reauth: { password: TEST_PASSWORD, totpCode: good },
+    });
+    expect(reuse.statusCode).toBe(401);
+    expect(reuse.json().code).toBe('REAUTH_FAILED');
+    const none = await own.send('POST', '/v1/users', {
+      username: `s2b.${Date.now()}`,
+      displayName: 'Người mới',
+      initialPassword: 'Fake-initial-pass-1',
+      roles: [{ propertyId: t.propertyIds[0], role: 'housekeeping' }],
+    });
+    expect(none.statusCode).toBe(422);
+    expect(none.json().errors[0]).toEqual({ field: 'reauth', code: 'STRONG_REAUTH_REQUIRED' });
+    // display name alone: no S2
+    const rename = await own.send(
+      'PATCH',
+      `/v1/users/${promo.id}`,
+      { displayName: 'Lễ tân Mới' },
+      { 'if-match': `"${ok.json().version}"` },
+    );
+    expect(rename.statusCode).toBe(200);
+    const revoke = await own.send(
+      'POST',
+      `${P(t)}/trusted-devices/0192a1b0-0000-7000-8000-000000000999/actions/revoke`,
+      {},
+    );
+    expect(revoke.statusCode).toBe(422);
+  });
+
   it('case 15: an approver with 2FA confirming with a password alone → the same 401 REAUTH_FAILED', async () => {
     const reauth = fa.app.get(PasswordReauth);
     await expect(

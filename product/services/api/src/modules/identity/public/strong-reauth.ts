@@ -13,12 +13,28 @@
  * - Audit security `stepup.s2_granted` / `stepup.s2_failed` with the operationId, never a value.
  */
 import { Inject, Injectable } from '@nestjs/common';
+import { z } from 'zod';
 import { CLOCK, type Clock } from '../../../clock';
 import { DATABASE, Database, type TenantContext } from '../../../db/database';
 import { problem } from '../../../shared/problem';
 import { MfaStore, type SecondFactor } from './mfa-store';
 import { REAUTH_LOCK_MS, REAUTH_MAX_FAILURES } from './password-reauth';
 import { verifyPassword } from './passwords';
+
+/** OpenAPI `StrongReauth` body (0.3.8) – parse it with the operation's schema, then call `verify`. */
+export const strongReauthSchema = z
+  .object({
+    password: z.string().min(1).max(256),
+    totpCode: z
+      .string()
+      .regex(/^[0-9]{6}$/)
+      .optional(),
+    recoveryCode: z
+      .string()
+      .regex(/^[0-9A-Za-z]{4}[- ]?[0-9A-Za-z]{4}[- ]?[0-9A-Za-z]{4}[- ]?[0-9A-Za-z]{4}$/)
+      .optional(),
+  })
+  .strict();
 
 export interface StrongReauthInput {
   password?: string | undefined;

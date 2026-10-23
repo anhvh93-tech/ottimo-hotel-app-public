@@ -265,6 +265,36 @@ describe.skipIf(!HAS_DB)('identity – login, sessions, users, trusted devices',
   describe('users & roles (US-002, A100)', () => {
     let created: { id: string; version: number };
 
+    it('setUserRoles race (FB-R3-SEC-BEC-07): a change in between makes the stale escalation 412', async () => {
+      const owner = Client.of(fa, t, 'owner');
+      const made = await owner.send('POST', '/v1/users', {
+        username: `race.${Date.now()}`,
+        displayName: 'Race',
+        initialPassword: 'Fake-initial-pass-1',
+        reauth: { password: TEST_PASSWORD },
+        roles: [{ propertyId: t.propertyIds[0], role: 'front_desk' }],
+      });
+      expect(made.statusCode).toBe(201);
+      const { id, version: v } = made.json() as { id: string; version: number };
+      const first = await owner.send(
+        'PUT',
+        `/v1/users/${id}/roles`,
+        { roles: [{ propertyId: t.propertyIds[0], role: 'housekeeping' }] },
+        { 'if-match': `"${v}"` },
+      );
+      expect(first.statusCode).toBe(200);
+      const stale = await owner.send(
+        'PUT',
+        `/v1/users/${id}/roles`,
+        {
+          roles: [{ propertyId: t.propertyIds[0], role: 'manager' }],
+          reauth: { password: TEST_PASSWORD },
+        },
+        { 'if-match': `"${v}"` },
+      );
+      expect(stale.statusCode).toBe(412);
+    });
+
     it('manager → 403 on listUsers (US-002 AC4); owner lists users with roles', async () => {
       expect((await Client.of(fa, t, 'mgr').get('/v1/users')).statusCode).toBe(403);
       const res = await Client.of(fa, t, 'owner').get('/v1/users?limit=100');
@@ -281,6 +311,7 @@ describe.skipIf(!HAS_DB)('identity – login, sessions, users, trusted devices',
         username,
         displayName: 'Chị Lan',
         initialPassword: 'Fake-initial-pass-1',
+        reauth: { password: TEST_PASSWORD },
         roles: [{ propertyId: t.propertyIds[0], role: 'housekeeping' }],
       });
       expect(res.statusCode).toBe(201);
@@ -290,6 +321,7 @@ describe.skipIf(!HAS_DB)('identity – login, sessions, users, trusted devices',
         username: username.toUpperCase(),
         displayName: 'Lan Khác',
         initialPassword: 'Fake-initial-pass-1',
+        reauth: { password: TEST_PASSWORD },
         roles: [{ propertyId: t.propertyIds[0], role: 'housekeeping' }],
       });
       expect(again.statusCode).toBe(409);
@@ -298,6 +330,7 @@ describe.skipIf(!HAS_DB)('identity – login, sessions, users, trusted devices',
         username: `x${username}`,
         displayName: 'Lan',
         initialPassword: 'Fake-initial-pass-1',
+        reauth: { password: TEST_PASSWORD },
         roles: [{ propertyId: other.propertyIds[0], role: 'housekeeping' }],
       });
       expect(bad.statusCode).toBe(422);
@@ -373,7 +406,7 @@ describe.skipIf(!HAS_DB)('identity – login, sessions, users, trusted devices',
       const ok = await Client.of(fa, t, 'owner').send(
         'PATCH',
         `/v1/users/${t.users.owner2!.id}`,
-        { status: 'disabled' },
+        { status: 'disabled', reauth: { password: TEST_PASSWORD } },
         { 'if-match': '"1"' },
       );
       expect(ok.statusCode).toBe(200);
@@ -386,7 +419,11 @@ describe.skipIf(!HAS_DB)('identity – login, sessions, users, trusted devices',
       const res = await owner.send(
         'PATCH',
         `/v1/users/${created.id}`,
-        { resetPassword: 'Fake-reset-pass-77', displayName: 'Lan Buồng' },
+        {
+          resetPassword: 'Fake-reset-pass-77',
+          displayName: 'Lan Buồng',
+          reauth: { password: TEST_PASSWORD },
+        },
         { 'if-match': `"${created.version}"` },
       );
       expect(res.statusCode).toBe(200);
@@ -472,11 +509,20 @@ describe.skipIf(!HAS_DB)('identity – login, sessions, users, trusted devices',
 
       // Revoke → effective at once; second revoke is a no-op 200; other property → 404.
       const id = ok.json().id as string;
-      const rev = await owner.send('POST', `${url}/${id}/actions/revoke`, { reason: 'Mất máy' });
+      const rev = await owner.send('POST', `${url}/${id}/actions/revoke`, {
+        reason: 'Mất máy',
+        reauth: { password: TEST_PASSWORD },
+      });
       expect(rev.statusCode).toBe(200);
       expect(rev.json().revokedAt).toBeDefined();
       expect((await owner.get('/v1/me')).json().properties[0].deviceTrusted).toBe(false);
-      expect((await owner.send('POST', `${url}/${id}/actions/revoke`, {})).statusCode).toBe(200);
+      expect(
+        (
+          await owner.send('POST', `${url}/${id}/actions/revoke`, {
+            reauth: { password: TEST_PASSWORD },
+          })
+        ).statusCode,
+      ).toBe(200);
       const elsewhere = await owner.send(
         'POST',
         `/v1/properties/${other.propertyIds[0]}/trusted-devices/${id}/actions/revoke`,
