@@ -282,7 +282,19 @@ Tổng ≥ **620 chuỗi**, khoảng 25.000 bước. Ước lượng ≤ 40 phú
 
 **Chạy thử** trên `main` (6 chuỗi × 9 họ + ca có hướng): xanh. Không còn vi phạm cứng; BUG-R3-002/003/004 không tái phát.
 
-**Lệnh cho lượt đầy đủ** (sau khi BE-B gộp BR-433 (e) và ARC bổ sung 3):
+**ADD3-01 / I18** (QA 24/10, theo `reviews/s1-ARC-on-add3.md`, `s1-SEC-on-add3.md`, decision-log ORC ADD3-01; bật bằng `FUZZ_ADD3=1` khi BE-B gộp):
+- Áp cho folio `settled` có A32 giảm sau trả phòng của vai dưới OWN:
+  - (a) mọi yêu cầu hoàn **không** do A32 tự sinh có `required_role = owner`;
+  - (b) không ai làm A32 trên folio đó được duyệt bất kỳ yêu cầu hoàn nào của folio;
+  - (c) người làm A32 hủy yêu cầu tự sinh của mình thì mọi yêu cầu sau vẫn về owner; OWN đã từ chối một yêu cầu thì mọi yêu cầu sau vẫn về owner.
+- Thêm thao tác: người xin (hoặc người khác) hủy yêu cầu hoàn (`refundCancel`); FD/LT trưởng/MGR lập yêu cầu hoàn bằng tay (`refundReq`). Có trong FZ-01, 02, 11.
+- Ca có hướng: probe ARC × 2 (OWN từ chối; người xin hủy), SEC P1, SEC P2, ARC "recordPayment dư trên folio có A32 → owner; folio không có A32 → manager".
+- Kết quả trên `main` `784db59`, khi BE-B chưa sửa:
+  - 4 ca đỏ đúng lỗ ADD3-01 hoặc đúng phần K11-06 chưa gộp;
+  - SEC P1 qua: hủy hoặc lập tay không đi tiếp tới bước duyệt;
+  - fuzz 4 chuỗi × 9 họ với cờ mặc định: xanh.
+
+**Lệnh cho lượt đầy đủ** (sau khi BE-B gộp BR-433 (e), ARC bổ sung 3 và ADD3-01; thêm `FUZZ_ADD3=1`):
 `FUZZ=1 FUZZ_BE83=1 FUZZ_FZ02=1 FUZZ_K1106=1 [FUZZ_Q23=1 nếu R3-Q23 đã gộp] pnpm --filter @ottimo/api exec vitest run test/fuzz/debt-fuzz.test.ts`
 - chạy 5 tiến trình theo họ như lượt 2;
 - critic đọc log JSONL gốc.

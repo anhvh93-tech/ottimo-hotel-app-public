@@ -216,6 +216,111 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
     }, 240_000);
   });
 
+  // ─── ADD3-01 (ARC probe + SEC FB-01 P1/P2): refunds of a settled folio with an A32 reduction – needs BE-B ───
+  describe.skipIf(process.env.FUZZ_ADD3 !== '1')('ADD3-01 directed (I18)', () => {
+    const refunds = (s: { id: string }) =>
+      x.q(
+        `SELECT id, amount_vnd::int AS amount, requested_by, required_role, status FROM approval_request
+          WHERE type = 'refund' AND target_id = $1 ORDER BY requested_at, id`,
+        [s.id],
+      );
+    const manual = (s: { folioId: string }, amountVnd: number) =>
+      x.c.fd!.send('POST', x.url(`/folios/${s.folioId}/refund-requests`), {
+        amountVnd,
+        reason: 'Khách trả thừa',
+      });
+    const nights = async (s: any) =>
+      ((await x.liveLineIds(s, 'room')) as any[]).sort((p, q) =>
+        p.serviceDate < q.serviceDate ? -1 : 1,
+      );
+    for (const path of ['owner rejects', 'requester cancels'] as const)
+      it(`ARC probe (${path}): MGR voids F&B 1.500.000 (> basis → OWN); FD re-requests by hand → owner; the MGR who voided approves → 403`, async () => {
+        const s = await x.checkedOutStay({ big: 1_500_000 });
+        expect(
+          (await x.adjust(s, s.bigLineId!, { voidLine: true, reason: 'Ghi nhầm' })()).statusCode,
+        ).toBe(201);
+        const [r] = await refunds(s);
+        expect(r.required_role).toBe('owner');
+        if (path === 'owner rejects')
+          expect((await x.decide(r.id, 'reject', 'owner')()).statusCode).toBe(200);
+        else {
+          const c = await x.cancelReq(r.id, 'mgr')();
+          // either the A32 actor cannot cancel his own request, or the cancel keeps the folio on owner (below)
+          if (c.statusCode >= 300) return;
+        }
+        const m = await manual(s, 1_500_000);
+        if (m.statusCode !== 201) return; // refused outright – also safe
+        expect(m.json().requiredRole ?? (await refunds(s)).pop().required_role).toBe('owner');
+        expect((await x.decide(m.json().id, 'approve', 'mgr')()).statusCode).toBe(403);
+      }, 240_000);
+    it('SEC P1: MGR voids a night → auto refund; MGR cancels it; FD requests by hand; the same MGR approves → 403', async () => {
+      const s = await x.checkedOutStay();
+      const [n1] = await nights(s);
+      expect((await x.adjust(s, n1.id, { voidLine: true, reason: 'Khiếu nại' })()).statusCode).toBe(
+        201,
+      );
+      const [r] = await refunds(s);
+      const c = await x.cancelReq(r.id, 'mgr')();
+      if (c.statusCode < 300) {
+        const m = await manual(s, n1.unitPriceVnd);
+        if (m.statusCode === 201) {
+          expect((await refunds(s)).pop().required_role).toBe('owner');
+          expect((await x.decide(m.json().id, 'approve', 'mgr')()).statusCode).toBe(403);
+        }
+      }
+    }, 240_000);
+    it('SEC P2: MGR voids two nights → second refund > basis → owner; OWN rejects; FD requests by hand → owner; MGR2 approves → 403', async () => {
+      const s = await x.checkedOutStay();
+      const ns = await nights(s);
+      for (const n of ns)
+        expect(
+          (await x.adjust(s, n.id, { voidLine: true, reason: 'Khiếu nại' })()).statusCode,
+        ).toBe(201);
+      const rs = await refunds(s);
+      const top = rs.find((r: any) => r.required_role === 'owner');
+      expect(top).toBeTruthy();
+      expect((await x.decide(top.id, 'reject', 'owner')()).statusCode).toBe(200);
+      const m = await manual(s, top.amount);
+      if (m.statusCode === 201) {
+        expect((await refunds(s)).pop().required_role).toBe('owner');
+        expect((await x.decide(m.json().id, 'approve', 'mgr2')()).statusCode).toBe(403);
+      }
+    }, 240_000);
+    it('ARC: recordPayment above due on a folio with an A32 reduction → the refund it creates waits for owner; without A32 → manager', async () => {
+      const s = await x.checkedOutStay({ big: 500_000 });
+      expect(
+        (await x.adjust(s, s.bigLineId!, { voidLine: true, reason: 'Ghi nhầm' })()).statusCode,
+      ).toBe(201);
+      const before = (await refunds(s)).length;
+      expect(
+        (
+          await x.pay(s.folioId, {
+            type: 'charge',
+            method: 'cash',
+            amountVnd: 50_000,
+            note: 'Khách đưa thừa',
+          })
+        ).statusCode,
+      ).toBe(201);
+      const after = await refunds(s);
+      expect(after.length).toBeGreaterThan(before);
+      expect(after.pop().required_role).toBe('owner');
+      const t = await x.checkedOutStay();
+      expect(
+        (
+          await x.pay(t.folioId, {
+            type: 'charge',
+            method: 'cash',
+            amountVnd: 50_000,
+            note: 'Khách đưa thừa',
+          })
+        ).statusCode,
+      ).toBe(201);
+      const m = await manual(t, 50_000);
+      if (m.statusCode === 201) expect((await refunds(t)).pop().required_role).toBe('manager');
+    }, 240_000);
+  });
+
   describe.skipIf(!BE83)('SEC directed (BE-83 + BR-433 (d))', () => {
     const debtStay = async (unpaid = 5_000_000) => {
       const s = await x.checkedOutStay({ b18Debt: { unpaid, finalPay: 0 } });

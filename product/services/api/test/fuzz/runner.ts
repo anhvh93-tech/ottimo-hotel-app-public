@@ -68,7 +68,8 @@ export type Op =
   | { k: 'sysCredit'; extraVnd: number } // a receipt with no person (stand-in: no such endpoint exists yet)
   | { k: 'refundReq'; who: Who } // FD+ createRefundRequest on a settled folio for the unhandled credit
   | { k: 'refundApprove'; req: number; who: Who }
-  | { k: 'refundPay'; req: number; who: Who };
+  | { k: 'refundPay'; req: number; who: Who }
+  | { k: 'refundCancel'; req: number; who: Who | 'requester' }; // ADD3-01: the requester (or someone) cancels;
 
 export type Family =
   'FZ-01' | 'FZ-02' | 'FZ-06' | 'FZ-07' | 'FZ-08' | 'FZ-09' | 'FZ-10' | 'FZ-11' | 'FZ-12';
@@ -102,6 +103,7 @@ export const FAMILIES: Record<
       refundReq: 1,
       refundApprove: 1,
       refundPay: 1,
+      refundCancel: 1,
     },
   },
   'FZ-02': {
@@ -119,7 +121,9 @@ export const FAMILIES: Record<
       j15: 1,
       race: 5,
       qrLate: 1,
+      refundReq: 1,
       refundApprove: 1,
+      refundCancel: 1,
     },
   },
   'FZ-06': {
@@ -175,7 +179,18 @@ export const FAMILIES: Record<
     title: 'void the line carrying a write-off, then write off again (SEC #3)',
     be83: true,
     start: 'bigDebt',
-    weights: { writeOff: 4, a32: 4, decide: 2, collect: 1, late: 1, advance: 1, race: 1 },
+    weights: {
+      writeOff: 4,
+      a32: 4,
+      decide: 2,
+      collect: 1,
+      late: 1,
+      advance: 1,
+      race: 1,
+      refundReq: 1,
+      refundApprove: 2,
+      refundCancel: 1,
+    },
   },
   'FZ-12': {
     title:
@@ -298,6 +313,12 @@ function genOp(r: Rng, fam: Family, depth = 0): Op {
       };
     case 'refundPay':
       return { k, req: int(r, 0, 9), who: pick(r, ['fd', 'lead', 'mgr'] as const) as Who };
+    case 'refundCancel':
+      return {
+        k,
+        req: int(r, 0, 9),
+        who: pick(r, ['requester', 'requester', 'mgr', 'fd'] as const) as Who | 'requester',
+      };
   }
 }
 
@@ -742,6 +763,21 @@ export class Runner {
           label: `approve refund ${r.amountVnd} by ${op.who}`,
           ctx: {},
           run: () => x.decide(r.id, 'approve', op.who)(),
+        };
+      }
+      case 'refundCancel': {
+        const pend = raw.refunds.filter((r) => r.status === 'pending' || r.status === 'escalated');
+        if (!pend.length) return { label: 'refundCancel (none)', ctx: {}, run: async () => null };
+        const r = pend[op.req % pend.length]!;
+        let who: string = op.who;
+        if (op.who === 'requester') {
+          const hit = Object.entries(x.t.users).find(([, u]) => u.id === r.requestedBy);
+          who = hit?.[0] ?? 'mgr';
+        }
+        return {
+          label: `cancel refund ${r.amountVnd} by ${who}`,
+          ctx: {},
+          run: () => x.cancelReq(r.id, who)(),
         };
       }
       case 'refundPay': {

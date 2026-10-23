@@ -101,6 +101,12 @@ export interface RawFolio {
     approverId: string | null;
     approverRole: string | null;
     requestedAt: string;
+    /** ADD3-01: people who made a post-checkout A32 reduction on the folio (`origin_actor_ids`, if the column exists) */
+    originActorIds: string[];
+    /** `source` a32 / other, if the column exists */
+    source: string | null;
+    autoCancelReason: string | null;
+    decidedAt: string | null;
   }>;
   /** A32 reductions on this folio (audit `folio_line.adjusted` with `after.reducedVnd`): who (role) and when. */
   a32Reductions: Array<{
@@ -183,8 +189,9 @@ export async function readRaw(q: Q, folioId: string, reservationId: string): Pro
   }
   const refunds = await q(
     `SELECT id, status, amount_vnd, requested_by, required_role, reason_note, approver_id, approver_role_snapshot,
-            requested_at
-       FROM approval_request WHERE type = 'refund' AND target_id = $1 ORDER BY requested_at, id`,
+            requested_at, decided_at, auto_cancel_reason,
+            to_jsonb(a)->'origin_actor_ids' AS origin_actor_ids, to_jsonb(a)->>'source' AS source
+       FROM approval_request a WHERE type = 'refund' AND target_id = $1 ORDER BY requested_at, id`,
     [reservationId],
   );
   const a32 = await q(
@@ -210,6 +217,10 @@ export async function readRaw(q: Q, folioId: string, reservationId: string): Pro
       approverId: x.approver_id,
       approverRole: x.approver_role_snapshot,
       requestedAt: iso(x.requested_at)!,
+      originActorIds: Array.isArray(x.origin_actor_ids) ? x.origin_actor_ids : [],
+      source: x.source ?? null,
+      autoCancelReason: x.auto_cancel_reason ?? null,
+      decidedAt: iso(x.decided_at),
     })),
     a32Reductions: a32
       .filter((x: any) => num(x.after?.reducedVnd) > 0)

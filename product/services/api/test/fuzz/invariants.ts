@@ -86,6 +86,9 @@ export interface Gates {
   /** ARC 0.3.8 addendum 3 (FUZZ-01, K11-06): a HUMAN money op leaving credit on a settled folio creates the refund
    *  request in the same transaction. Until merged, the check is a warning. */
   k1106?: boolean;
+  /** ADD3-01 (ARC + SEC Blocker, ORC 24/10): I18 – every refund of a settled folio with a post-checkout A32
+   *  reduction below OWN is routed by the folio. Until BE-B merges it, I18 is a warning. */
+  add3?: boolean;
 }
 
 export function check(
@@ -216,6 +219,7 @@ export function check(
 
   if (g.be83) be83(raw, ref, v, nowIso, ctx.basisAtCreate, g, ctx.roleOf);
   refundChecks(raw, ref, code, ctx, v, g);
+  i18(raw, v, g);
   return v;
 }
 
@@ -396,4 +400,60 @@ function refundChecks(
     if (a32?.actorId && r.requestedBy && a32.actorId !== r.requestedBy)
       add(g.fz02 ? 'I17' : 'I17?', `refund ${r.id} requested_by ≠ the person of the A32`);
   }
+}
+
+/**
+ * I18 (ADD3-01; SEC s1-SEC-on-add3 FB-01 P1/P2, ARC s1-ARC-on-add3): on a settled folio with at least one
+ * post-checkout A32 reduction by a role below OWN (the "A32 actors"):
+ * (a) every refund request NOT born from the A32 (manual, recordPayment, confirmPaymentReceived) has
+ *     required_role = owner;
+ * (b) no A32 actor ever approves ANY refund request of that folio;
+ * (c) an A32 actor cannot cancel the request born from his A32 (or the cancel does not lower Σ – then the request
+ *     after it must still be owner); once OWN rejected a refund of the folio, every later one is owner.
+ */
+function i18(raw: RawFolio, v: Violation[], g: Gates): void {
+  const inv = g.add3 ? 'I18' : 'I18?';
+  const out = raw.reservation.actualCheckoutAt;
+  if (!out) return;
+  const reds = raw.a32Reductions.filter((r) => r.at >= out && r.role && SUB_OWNER.has(r.role));
+  if (!reds.length) return;
+  const actors = new Set(reds.map((r) => r.actorId).filter(Boolean) as string[]);
+  const first = reds[0]!.at;
+  const add = (msg: string) => v.push({ inv, msg });
+  const fromA32 = (r: RawFolio['refunds'][number]) =>
+    r.source === 'a32' || (r.source === null && (r.reasonNote ?? '').startsWith('Tự sinh từ A32'));
+  let ownerRejectedAt: string | null = null;
+  let a32CancelledByActorAt: string | null = null;
+  for (const r of raw.refunds) {
+    if (r.requestedAt < first) continue;
+    if (!fromA32(r) && r.requiredRole !== 'owner')
+      add(`(a) refund ${r.id} not born from the A32 routed to ${r.requiredRole}`);
+    if (ownerRejectedAt && r.requestedAt > ownerRejectedAt && r.requiredRole !== 'owner')
+      add(`(c) refund ${r.id} after OWN rejected one routed to ${r.requiredRole}`);
+    if (
+      a32CancelledByActorAt &&
+      r.requestedAt > a32CancelledByActorAt &&
+      r.requiredRole !== 'owner'
+    )
+      add(
+        `(c) refund ${r.id} after the A32 actor cancelled his request routed to ${r.requiredRole}`,
+      );
+    if (r.status === 'rejected' && r.approverRole === 'owner' && r.decidedAt)
+      ownerRejectedAt = ownerRejectedAt ?? r.decidedAt;
+    if (
+      fromA32(r) &&
+      r.status === 'cancelled' &&
+      !r.autoCancelReason &&
+      r.requestedBy &&
+      actors.has(r.requestedBy)
+    )
+      a32CancelledByActorAt = a32CancelledByActorAt ?? r.decidedAt ?? r.requestedAt;
+  }
+  for (const r of raw.refunds)
+    if (
+      ['approved', 'paid', 'executed'].includes(r.status) &&
+      r.approverId &&
+      actors.has(r.approverId)
+    )
+      add(`(b) refund ${r.id} approved by a person who made an A32 reduction on this folio`);
 }
