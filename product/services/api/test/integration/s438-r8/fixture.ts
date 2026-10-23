@@ -265,7 +265,19 @@ export async function startFixture() {
   const openDebtOf = (s: Booking) =>
     db.withContext(t.ctx(), (tx) => hooks().openDebt(tx, s.folioId));
   const nightBasis = (lineId: string) =>
-    db.withContext(t.ctx(), (tx) => fa.app.get(FolioService).nightRateBasis(tx, lineId));
+    db.withContext(t.ctx(), async (tx) =>
+      fa.app
+        .get(FolioService)
+        .limitBasisVnd(
+          tx,
+          (
+            await tx.query<{ f: string }>('SELECT folio_id AS f FROM folio_line WHERE id = $1', [
+              lineId,
+            ])
+          ).rows[0]!.f,
+          lineId,
+        ),
+    );
   const runJ15 = async () => {
     const runner = fa.app.get(JobRunner, { strict: false });
     const p = (await runner.listProperties()).find((x: any) => x.propertyId === t.propertyIds[0])!;

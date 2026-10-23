@@ -120,6 +120,12 @@ export interface ConfirmedStay {
     stayNightId: string;
     date: LocalDate;
     roomRevenueVnd: number;
+    /**
+     * BR-433 (d) v0.4.1 (ARC S1-08, S1-15): reference rate of the night written by the system's price paths only – the
+     * room line carries it as `limit_ref_vnd`. Required: a path that builds a stay without it does not compile (never
+     * the current – possibly typed – price as the reference).
+     */
+    referenceRateVnd: number;
     extraPersonVnd: number;
     /** 0032 (blocker verification ARC-S3-01): extra persons of THAT night – the bill label "{n} người". */
     extraPersonCount?: number;

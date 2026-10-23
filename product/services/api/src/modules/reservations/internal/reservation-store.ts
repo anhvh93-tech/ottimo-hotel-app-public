@@ -209,14 +209,18 @@ export interface NightWrite {
   now: Date;
 }
 
-/** stay_night rows for priced nights (erd 8): `hold` for B1, `sold` (+ sold_at) for B2/B4/B12. */
+/**
+ * stay_night rows for priced nights (erd 8): `hold` for B1, `sold` (+ sold_at) for B2/B4/B12. A system price path:
+ * the night's price is its reference rate too (BR-433 (d) v0.4.1 – `reference_rate_vnd`).
+ */
 export async function insertNights(tx: Tx, w: NightWrite, nights: readonly PricedNight[]) {
   for (const n of nights) {
     await tx.query(
       `INSERT INTO stay_night (id, organization_id, property_id, reservation_id, reservation_segment_id, room_id,
          stay_date, night_state, room_revenue_gross_vnd, discount_vnd, room_revenue_vnd, sold_at,
-         is_complimentary, rate_source, channel_id, stay_type, created_at, updated_at, calendar_rate_vnd)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $9, $10, $11, 'short_stay_rate', $12, $13, $14, $14, $15)`,
+         is_complimentary, rate_source, channel_id, stay_type, created_at, updated_at, calendar_rate_vnd,
+         reference_rate_vnd)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $9, $10, $11, 'short_stay_rate', $12, $13, $14, $14, $15, $9)`,
       [
         uuidv7(),
         tx.ctx.organizationId,

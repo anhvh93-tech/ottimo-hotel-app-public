@@ -8,7 +8,7 @@
  *   the stay's highest night (the same basis as BR-433 (a)); lead → `foc_limits.front_desk_lead.perTimeVnd`
  *   (300.000); front desk self-waivers only → `foc_self_apply.front_desk.per_time` (100.000);
  * - Σ > threshold → notification `foc_stay_total_exceeded` to every OWN (one per waiver applied while above), ONE
- *   "Cần chú ý" item per stay (`foc_stay_alert` keeps it – opened at the first crossing, never re-opened), a state
+ *   "Cần chú ý" item per stay open (`foc_stay_alert` – count updated at each crossing; a new one after OWN reviewed it, ARC S1-11), a state
  *   audit `folio.foc_stay_alerted` with the numbers (no guest data).
  * The stay = the folio of the primary booking (its child bookings share it – BR-422). A waiver cancelled later by the
  * rules (BR-434) leaves Σ but nothing is re-evaluated (no "below the threshold" message – E26-9). The owner's
@@ -89,32 +89,42 @@ export class StayWaiverAlertService {
         now,
       );
     }
-    // One attention item per stay, opened at the first crossing (erd 4.15 `foc_stay_alert`).
-    const { rows: alert } = await tx.query<{ first: boolean; alert_count: number }>(
+    // At most ONE open attention item per stay (erd 4.15 `foc_stay_alert`; ARC S1-11): each later crossing updates
+    // the open item's count; once OWN has reviewed it ("Đã xem"), a crossing with new waivers opens a new one.
+    const { rows: alert } = await tx.query<{
+      alert_count: number;
+      attention_event_id: string | null;
+    }>(
       `INSERT INTO foc_stay_alert (organization_id, property_id, stay_root_reservation_id, first_alerted_at,
          last_alerted_at, alert_count)
        VALUES ($1, $2, $3, $4, $4, 1)
        ON CONFLICT (stay_root_reservation_id) DO UPDATE
          SET last_alerted_at = EXCLUDED.last_alerted_at, alert_count = foc_stay_alert.alert_count + 1
-       RETURNING (xmax = 0) AS first, alert_count`,
+       RETURNING alert_count, attention_event_id`,
       [tx.ctx.organizationId, folio.property_id, rootId, now],
     );
-    if (alert[0]?.first && this.events) {
-      const eventId = await this.events.openAttention(tx, {
-        kind: KIND,
-        severity: 'warning',
-        dedupeKey: `${KIND}:${rootId}`,
-        refType: 'reservation',
-        refId: rootId,
-        ...(refCode ? { refCode } : {}),
-        params: { count: items },
-        now,
-      });
-      if (eventId) {
-        await tx.query(
-          'UPDATE foc_stay_alert SET attention_event_id = $2 WHERE stay_root_reservation_id = $1',
-          [rootId, eventId],
-        );
+    if (this.events) {
+      const current = alert[0]?.attention_event_id ?? null;
+      const updated = current
+        ? await this.events.updateAttentionParams(tx, current, KIND, { count: items })
+        : false;
+      if (!updated) {
+        const eventId = await this.events.openAttention(tx, {
+          kind: KIND,
+          severity: 'warning',
+          dedupeKey: `${KIND}:${rootId}`,
+          refType: 'reservation',
+          refId: rootId,
+          ...(refCode ? { refCode } : {}),
+          params: { count: items },
+          now,
+        });
+        if (eventId) {
+          await tx.query(
+            'UPDATE foc_stay_alert SET attention_event_id = $2 WHERE stay_root_reservation_id = $1',
+            [rootId, eventId],
+          );
+        }
       }
     }
     await this.audit.record(tx, {
@@ -135,7 +145,8 @@ export class StayWaiverAlertService {
   }
 
   private async threshold(tx: Tx, folioId: string, roles: Set<string>): Promise<number> {
-    if (roles.has('manager')) return (await this.folios.folioNightBasisVnd(tx, folioId)) ?? 0;
+    // BR-433 (d) v0.4.1: the protected basis (FolioService.limitBasisVnd – never a hand-raised night).
+    if (roles.has('manager')) return (await this.folios.limitBasisVnd(tx, folioId, null)) ?? 0;
     const today = localDate(this.clock.now(), await this.folios.timezone(tx));
     if (roles.has('front_desk_lead')) {
       const limits = await this.param<Record<string, { perTimeVnd?: unknown }>>(

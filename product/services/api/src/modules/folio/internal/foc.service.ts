@@ -146,11 +146,6 @@ export class FolioFocService {
     // rule as the desk's requestFocForSurcharge, S4-25).
     const usage = await this.folios.reductionUsage(tx, line.id);
     const remaining = Math.max(0, usage.valueVnd - usage.usedVnd);
-    // BR-433 (a)(b) v0.4.0 (R3 – FB-R2-SEC-BE-83, "chống chia nhỏ"): the per-time limit is compared with the Σ of
-    // the same write-off folio / FOC key – read here, under L1 → L3 (lockStay above), so two requests sent at the
-    // same time never both fit the limit (BR-525-27).
-    let perTimeAmountVnd: number;
-    let limitBasisVnd: number | null;
     if (writeOff) {
       // DOM 18/10 (BR-525, ARC 16.28) + FB-R2-SEC-BE-80 (a): min(what the line still allows, the OPEN DEBT –
       // `OpenDebt.openDebtVnd` of the front desk, the one source of the amount – minus what the write-offs still
@@ -163,39 +158,29 @@ export class FolioFocService {
             AND a.status IN ('pending', 'escalated')`,
         [folio.id, DEBT_WRITE_OFF],
       );
-      const askedVnd = Number(asked[0]?.total ?? 0);
-      const max = Math.max(0, Math.min(remaining, openDebtVnd - askedVnd));
+      const max = Math.max(0, Math.min(remaining, openDebtVnd - Number(asked[0]?.total ?? 0)));
       if (input.amountVnd > max) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
           extras: { max },
         });
       }
-      // (a) Σ = what the approved write-offs of the folio apply now (every debt cycle, every requester/approver,
-      // OWN included – live posted lines, BUG-R2-207) + what the pending ones ask + this request; rejected and
-      // auto-cancelled (`debt_cleared`) requests count nothing. Basis = the folio's highest night (not the line).
-      const { rows: applied } = await tx.query<{ total: string | number }>(
-        `SELECT COALESCE(-sum(l.amount_vnd), 0) AS total FROM folio_line l
-           JOIN approval_request a ON a.id = l.approval_request_id
-          WHERE l.folio_id = $1 AND l.category = 'foc' AND l.line_state = 'posted'
-            AND l.reversal_of_id IS NULL AND a.reason_code = $2
-            AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)`,
-        [folio.id, DEBT_WRITE_OFF],
-      );
-      perTimeAmountVnd = Number(applied[0]?.total ?? 0) + askedVnd + input.amountVnd;
-      limitBasisVnd = await this.folios.folioNightBasisVnd(tx, folio.id);
-    } else {
-      if (input.amountVnd > remaining) {
-        throw problem('VALIDATION_FAILED', {
-          errors: [{ field: 'amountVnd', code: 'VALUE_OUT_OF_RANGE' }],
-          extras: { max: remaining },
-        });
-      }
-      // (b) Σ of the FOC key = what its reductions apply now + what is still asked on it + this request.
-      perTimeAmountVnd = usage.usedVnd + input.amountVnd;
-      // BR-433 "≤ giá 1 đêm": the night rate of the night the reduced line belongs to (BUG-R2-046).
-      limitBasisVnd = await this.folios.nightRateBasis(tx, line.id);
+    } else if (input.amountVnd > remaining) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'amountVnd', code: 'VALUE_OUT_OF_RANGE' }],
+        extras: { max: remaining },
+      });
     }
+    // BR-433 (a)(b) v0.4.0 + (d) v0.4.1 (FB-R2-SEC-BE-83, FB-R3-SEC-BE-B-07; ARC S1-08/S1-10): the cumulative Σ of the
+    // write-off folio / FOC key and the PROTECTED basis – one folio definition (FolioService.waiverLimitInput), read
+    // here under L1 → L3 (lockStay above) so two requests sent at the same time never both fit the limit (BR-525-27).
+    const limitInput = await this.folios.waiverLimitInput(
+      tx,
+      folio.id,
+      line.id,
+      input.amountVnd,
+      writeOff ? 'debt_write_off' : 'key',
+    );
 
     const now = this.clock.now();
     const focLineId = await this.folios.insertLine(tx, {
@@ -243,9 +228,8 @@ export class FolioFocService {
       targetId: folio.primary_reservation_id,
       ...(ctx.reservationCode ? { targetCode: ctx.reservationCode } : {}),
       folioLineId: focLineId,
-      // BR-433 "≤ giá 1 đêm" (BUG-R2-046) – for a write-off the folio's highest night (BR-433 (a) v0.4.0).
-      limitBasisVnd,
-      perTimeAmountVnd,
+      // BR-433 "≤ giá 1 đêm" (BUG-R2-046) – protected (d); for a write-off the folio's highest night ((a) v0.4.0).
+      ...limitInput,
       lineCategory: line.category,
       requesterReauthenticated: input.requesterReauthenticated,
       ...(ctx.requestId ? { requestId: ctx.requestId } : {}),

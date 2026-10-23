@@ -1119,39 +1119,75 @@ export class FolioService implements FolioStaySync {
   }
 
   /**
-   * BR-433 "≤ giá 1 đêm" basis of a FOC/discount on a folio line (BUG-R2-046): the night rate of the night the
-   * line belongs to – a room line: its own rate; late check-out: the last night; early check-in: the first
-   * night; any other line: the night of its service date (else the latest night before it, else the first).
-   * Live room lines of the line's booking only; null when the booking has no night on the folio.
+   * BR-433 (d) v0.4.1 (FB-R3-SEC-BE-B-07, ARC S1-08) – THE limit basis of every waiver rule (BR-433 (a)(b), the manager
+   * threshold of (c) / ESC-026 A, BR-416 at the desk). Nobody else computes it. Each night price is PROTECTED:
+   * LEAST(the line's price – `room`: unit price, `late_fee_as_night`: the charge –, its `limit_ref_vnd`), the reference
+   * written by the system's price paths only, so raising a night by hand (A31 / A32) never raises a limit.
+   * - `lineId` (BR-433 (b), BR-416): the night the line belongs to (BUG-R2-046): a room line its own night; the late fee
+   *   as a night itself; late check-out the last night; early check-in the first; any other line the night of its
+   *   service date (else the latest before it, else the first) – of the line's booking; a long stay its converted
+   *   night (BR-102);
+   * - `lineId` null (BR-433 (a), (c)): the HIGHEST protected night of the folio (or the long stay's converted night);
+   * - after check-out never above what `settle` captured (`folio.limit_basis_checkout_vnd`, BB07-7).
+   * null = no night at all (→ the owner decides (a)(b); (c) uses 0). Read under the caller's L1 → L3.
    */
-  async nightRateBasis(tx: Tx, lineId: string): Promise<number | null> {
+  async limitBasisVnd(tx: Tx, folioId: string, lineId: string | null): Promise<number | null> {
+    const computed = await this.limitBasisNow(tx, folioId, lineId);
+    const { rows } = await tx.query<{ captured: string | number | null }>(
+      'SELECT limit_basis_checkout_vnd AS captured FROM folio WHERE id = $1',
+      [folioId],
+    );
+    const captured = rows[0]?.captured;
+    if (captured === null || captured === undefined) return computed;
+    return computed === null ? Number(captured) : Math.min(computed, Number(captured));
+  }
+
+  /** limitBasisVnd without the B18 capture (what `settle` captures). */
+  private async limitBasisNow(
+    tx: Tx,
+    folioId: string,
+    lineId: string | null,
+  ): Promise<number | null> {
+    const protectedPrice = `LEAST(CASE WHEN l.charge_code = 'late_fee_as_night' THEN l.amount_vnd
+                                       ELSE l.unit_price_vnd END,
+                                  COALESCE(l.limit_ref_vnd, CASE WHEN l.charge_code = 'late_fee_as_night'
+                                                                 THEN l.amount_vnd ELSE l.unit_price_vnd END))`;
+    if (lineId === null) {
+      const longNight = await this.longStayNightOf(tx, null, folioId);
+      if (longNight !== null) return longNight;
+      const { rows } = await tx.query<{ basis: string | number | null }>(
+        `SELECT max(${protectedPrice}) AS basis FROM folio_line l
+          WHERE l.folio_id = $1 AND l.line_state = 'posted' AND l.reversal_of_id IS NULL
+            AND (l.category = 'room' OR l.charge_code = 'late_fee_as_night')
+            AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)`,
+        [folioId],
+      );
+      const b = rows[0]?.basis;
+      return b === null || b === undefined ? null : Number(b);
+    }
     const { rows } = await tx.query<{
       category: string;
-      unit_price_vnd: number;
-      amount_vnd: number;
+      price: number;
       service_date: string | null;
       folio_id: string;
       reservation_id: string | null;
       charge_code: string | null;
     }>(
-      `SELECT category, unit_price_vnd, amount_vnd, service_date::text AS service_date, folio_id, reservation_id,
-              charge_code
-         FROM folio_line WHERE id = $1`,
+      `SELECT l.category, ${protectedPrice} AS price, l.service_date::text AS service_date, l.folio_id,
+              l.reservation_id, l.charge_code
+         FROM folio_line l WHERE l.id = $1`,
       [lineId],
     );
     const line = rows[0];
     if (!line) return null;
-    if (line.category === 'room') return line.unit_price_vnd;
-    // BUG-R2-148 (BR-416-06, DOM 18/10): the late fee charged as one night IS the night of the departure day – its
-    // BR-433 basis is the charge itself (a MGR may waive it in full even above the last night stayed).
-    if (line.charge_code === 'late_fee_as_night') return line.amount_vnd;
-    // ARC 16.21 (Minor): a long stay's night is its monthly rent ÷ long_stay_daily_divisor (BR-102/BR-413 – the
-    // same base as its early/late surcharge); a manual long stay (US-017 AC5a) has no room line to read, which
-    // sent every reduction on it to OWN instead of the manager (BR-433).
+    if (line.category === 'room') return Number(line.price);
+    // BUG-R2-148 (BR-416-06, DOM 18/10): the late fee charged as one night IS the night of the departure day.
+    if (line.charge_code === 'late_fee_as_night') return Number(line.price);
+    // ARC 16.21 (Minor): a long stay's night is its monthly rent ÷ long_stay_daily_divisor (BR-102/BR-413).
     const longNight = await this.longStayNightOf(tx, line.reservation_id, line.folio_id);
     if (longNight !== null) return longNight;
-    const { rows: nights } = await tx.query<{ unit_price_vnd: number; service_date: string }>(
-      `SELECT l.unit_price_vnd, l.service_date::text AS service_date FROM folio_line l
+    const { rows: nights } = await tx.query<{ price: string | number; service_date: string }>(
+      `SELECT ${protectedPrice} AS price, l.service_date::text AS service_date FROM folio_line l
         WHERE l.folio_id = $1 AND l.category = 'room' AND l.line_state = 'posted'
           AND l.reversal_of_id IS NULL AND l.service_date IS NOT NULL
           AND ($2::uuid IS NULL OR l.reservation_id = $2)
@@ -1160,37 +1196,57 @@ export class FolioService implements FolioStaySync {
       [line.folio_id, line.reservation_id],
     );
     if (nights.length === 0) return null;
-    const first = nights[0] as { unit_price_vnd: number; service_date: string };
-    const last = nights[nights.length - 1] as { unit_price_vnd: number; service_date: string };
-    if (line.category === 'late_checkout') return last.unit_price_vnd;
-    if (line.category === 'early_checkin') return first.unit_price_vnd;
+    const price = (n: { price: string | number }) => Number(n.price);
+    const first = nights[0] as { price: string | number; service_date: string };
+    const last = nights[nights.length - 1] as { price: string | number; service_date: string };
+    if (line.category === 'late_checkout') return price(last);
+    if (line.category === 'early_checkin') return price(first);
     const d = line.service_date;
-    if (!d) return last.unit_price_vnd;
+    if (!d) return price(last);
     const same = nights.find((n) => n.service_date === d);
-    if (same) return same.unit_price_vnd;
+    if (same) return price(same);
     const before = nights.filter((n) => n.service_date < d);
-    return (before[before.length - 1] ?? first).unit_price_vnd;
+    return price(before[before.length - 1] ?? first);
   }
 
   /**
-   * BR-433 (a) v0.4.0 (FB-R2-SEC-BE-83) – "cơ sở xóa nợ của folio" and the manager threshold of BR-433 (c): the
-   * HIGHEST night rate of the folio – live `room` lines (rate after BR-107), the late fee charged as one night
-   * (BR-416, `late_fee_as_night`), a long stay's converted night (BR-102). One number for the whole folio, never
-   * the line chosen. null = no night at all (→ the owner decides, as before).
+   * BR-433 (a)(b) v0.4.0 + (d) v0.4.1 (ARC S1-10) – what every waiver request hands to `ApprovalService.submit`, ONE
+   * definition for the folio (`requestFoc`) and the desk (FOC of a surcharge, BR-416): the Σ the per-time limit is
+   * compared with (write-off: the folio's write-offs applied now – every cycle, OWN included – + the pending ones +
+   * this one; any other waiver: the key's applied + asked + this one) and the protected basis (write-off: the folio's
+   * highest night; otherwise the line's night). Read under the caller's L1 → L3.
    */
-  async folioNightBasisVnd(tx: Tx, folioId: string): Promise<number | null> {
-    const longNight = await this.longStayNightOf(tx, null, folioId);
-    if (longNight !== null) return longNight;
-    const { rows } = await tx.query<{ basis: string | number | null }>(
-      `SELECT max(CASE WHEN l.category = 'room' THEN l.unit_price_vnd ELSE l.amount_vnd END) AS basis
-         FROM folio_line l
-        WHERE l.folio_id = $1 AND l.line_state = 'posted' AND l.reversal_of_id IS NULL
-          AND (l.category = 'room' OR l.charge_code = 'late_fee_as_night')
-          AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)`,
-      [folioId],
-    );
-    const b = rows[0]?.basis;
-    return b === null || b === undefined ? null : Number(b);
+  async waiverLimitInput(
+    tx: Tx,
+    folioId: string,
+    lineId: string,
+    amountVnd: number,
+    kind: 'debt_write_off' | 'key',
+  ): Promise<{ perTimeAmountVnd: number; limitBasisVnd: number | null }> {
+    if (kind === 'debt_write_off') {
+      const { rows } = await tx.query<{ applied: string | number; asked: string | number }>(
+        `SELECT
+           (SELECT COALESCE(-sum(l.amount_vnd), 0) FROM folio_line l
+              JOIN approval_request a ON a.id = l.approval_request_id
+             WHERE l.folio_id = $1 AND l.category = 'foc' AND l.line_state = 'posted'
+               AND l.reversal_of_id IS NULL AND a.reason_code = 'debt_write_off'
+               AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)) AS applied,
+           (SELECT COALESCE(sum(a.amount_vnd), 0) FROM approval_request a
+              JOIN folio_line f ON f.id = a.folio_line_id
+             WHERE f.folio_id = $1 AND a.type = 'foc' AND a.reason_code = 'debt_write_off'
+               AND a.status IN ('pending', 'escalated')) AS asked`,
+        [folioId],
+      );
+      return {
+        perTimeAmountVnd: Number(rows[0]?.applied ?? 0) + Number(rows[0]?.asked ?? 0) + amountVnd,
+        limitBasisVnd: await this.limitBasisVnd(tx, folioId, null),
+      };
+    }
+    const usage = await this.reductionUsage(tx, lineId);
+    return {
+      perTimeAmountVnd: usage.usedVnd + amountVnd,
+      limitBasisVnd: await this.limitBasisVnd(tx, folioId, lineId),
+    };
   }
 
   /**
@@ -1264,11 +1320,15 @@ export class FolioService implements FolioStaySync {
     const until = new Date(now.getTime() + hours * 3_600_000);
     if (!this.docNumbers) throw new Error('FolioService.settle needs DocNumberService');
     const billNo = await this.docNumbers.allocate(tx, 'bill');
+    // BR-433 (d) v0.4.1 (ARC S1-08): the limit basis is captured ONCE here – the only place that settles a folio; no
+    // path writes it afterwards, so a night raised after check-out never raises a limit (BB07-7).
+    const basisAtCheckout = await this.limitBasisNow(tx, folio.id, null);
     await tx.query(
       `UPDATE folio SET status = 'settled', bill_no = $2, settled_at = $3, settled_by = $4,
-          post_checkout_window_until = $5, updated_at = $3, version = version + 1
+          post_checkout_window_until = $5, updated_at = $3, version = version + 1,
+          limit_basis_checkout_vnd = $6
         WHERE id = $1`,
-      [folio.id, billNo, now, actor.userId, until],
+      [folio.id, billNo, now, actor.userId, until, basisAtCheckout],
     );
     const b = await this.balance(tx, folio.id);
     await this.audit.recordMoney(tx, {
@@ -1871,6 +1931,8 @@ export class FolioService implements FolioStaySync {
         now,
         chargeCode: n.extraNight ? 'extra_night' : null,
         labelParams: { date: n.date },
+        // BR-433 (d) v0.4.1: the reference rate of the night (system price paths only) – never the typed price.
+        limitRefVnd: n.referenceRateVnd,
       });
       result.roomVnd += gross;
     }
@@ -3255,10 +3317,10 @@ export class FolioService implements FolioStaySync {
       `INSERT INTO folio_line (id, organization_id, property_id, folio_id, reservation_id, category, adjusts_group,
          revenue_group, description, quantity, unit_price_vnd, amount_vnd, vat_rate_pct, service_date,
          stay_night_id, line_state, related_line_id, reversal_of_id, source, posted_at, posted_by, created_at,
-         charge_code, reason, label_params)
+         charge_code, reason, label_params, limit_ref_vnd)
        SELECT $2, organization_id, property_id, folio_id, reservation_id, category, adjusts_group, revenue_group,
               description, quantity, -unit_price_vnd, -amount_vnd, vat_rate_pct, service_date, stay_night_id,
-              'posted', related_line_id, id, $5, $3, $4, $3, charge_code, $6, label_params
+              'posted', related_line_id, id, $5, $3, $4, $3, charge_code, $6, label_params, limit_ref_vnd
          FROM folio_line WHERE id = $1
           AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = $1)`,
       [l.id, id, now, by, reason ? 'manual' : 'system', reason],
@@ -3326,6 +3388,12 @@ export class FolioService implements FolioStaySync {
       evidenceAttachmentIds?: readonly string[] | null;
       postCheckout?: boolean;
       labelParams?: Record<string, string | number> | null;
+      /**
+       * BR-433 (d) v0.4.1 (ARC S1-08): reference price of a night line (`room`, `late_fee_as_night`). Absent → the line
+       * it replaces (`relatedLineId`, same category – an A32 replacement keeps the reference, never the new price),
+       * else the line's own price (a system line).
+       */
+      limitRefVnd?: number | null;
     },
   ): Promise<string> {
     if (!Number.isSafeInteger(l.amountVnd) || !Number.isSafeInteger(l.unitPriceVnd)) {
@@ -3336,9 +3404,12 @@ export class FolioService implements FolioStaySync {
       `INSERT INTO folio_line (id, organization_id, property_id, folio_id, reservation_id, category,
          revenue_group, description, quantity, unit_price_vnd, amount_vnd, vat_rate_pct, service_date,
          stay_night_id, line_state, related_line_id, source, posted_at, posted_by, created_at, charge_code, note,
-         reason, evidence_attachment_ids, post_checkout, label_params)
+         reason, evidence_attachment_ids, post_checkout, label_params, limit_ref_vnd)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $18, $20, $21,
-         $22, $23, $24, $25)`,
+         $22, $23, $24, $25,
+         CASE WHEN $6 = 'room' OR $20::text = 'late_fee_as_night' THEN COALESCE($26::bigint,
+           (SELECT r.limit_ref_vnd FROM folio_line r WHERE r.id = $16 AND r.category = $6),
+           CASE WHEN $20::text = 'late_fee_as_night' THEN abs($11::bigint) ELSE abs($10::bigint) END) END)`,
       [
         id,
         tx.ctx.organizationId,
@@ -3365,6 +3436,7 @@ export class FolioService implements FolioStaySync {
         l.evidenceAttachmentIds ? [...l.evidenceAttachmentIds] : null,
         l.postCheckout ?? false,
         l.labelParams ? JSON.stringify(l.labelParams) : null,
+        l.limitRefVnd ?? null,
       ],
     );
     await this.touch(tx, l.folioId);

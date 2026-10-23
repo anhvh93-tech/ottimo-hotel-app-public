@@ -35,6 +35,7 @@ import { channel } from './channels';
 import { approvalRequest } from './approvals';
 import { appUser } from './identity';
 import { property } from './platform';
+import { reservation } from './reservations';
 
 export const FOLIO_LINE_CATEGORIES = [
   'room',
@@ -99,6 +100,9 @@ export const folio = pgTable(
     // settling transaction (with bill_no); Bill.roomName and labelParams.room/from/to of a settled folio
     // read it, so renaming a room later does not change the bill. folio_line stays append-only.
     settledRoomNames: jsonb('settled_room_names'),
+    // 0082 (BR-433 (d) v0.4.1, ARC S1-08): the limit basis captured once by `settle` (B18); later the basis is
+    // min(this, the basis computed again) – nothing raises it after check-out (BB07-7). NULL = not captured.
+    limitBasisCheckoutVnd: bigint('limit_basis_checkout_vnd', { mode: 'number' }),
     ...auditColumns(),
   },
   (t) => [
@@ -112,6 +116,10 @@ export const folio = pgTable(
     }),
     check('folio_status_check', sql`${t.status} IN ('open', 'settled', 'closed')`),
     check('folio_bill_no_check', sql`${t.status} = 'open' OR ${t.billNo} IS NOT NULL`),
+    check(
+      'folio_limit_basis_checkout_check',
+      sql`${t.limitBasisCheckoutVnd} IS NULL OR ${t.limitBasisCheckoutVnd} >= 0`,
+    ),
     check(
       'folio_settled_room_names_check',
       sql`${t.settledRoomNames} IS NULL OR jsonb_typeof(${t.settledRoomNames}) = 'object'`,
@@ -153,6 +161,10 @@ export const folioLine = pgTable(
     note: text('note'),
     evidenceAttachmentIds: uuid('evidence_attachment_ids').array(),
     postCheckout: boolean('post_checkout').notNull().default(false),
+    // 0082 (BR-433 (d) v0.4.1, ARC S1-08): reference price carried by a night line (`room`, `late_fee_as_night`) –
+    // from stay_night.reference_rate_vnd / the late fee computed; an A32 replacement copies it from the line it
+    // replaces. The protected night rate = LEAST(line price, limit_ref_vnd) (FolioService.limitBasisVnd).
+    limitRefVnd: bigint('limit_ref_vnd', { mode: 'number' }),
     // 0042 (review S3, DOM BE-21): params of the printable label `labelKey` (bill.line.*).
     labelParams: jsonb('label_params').$type<Record<string, string | number>>(),
   },
@@ -181,6 +193,11 @@ export const folioLine = pgTable(
     check(
       'folio_line_category_check',
       sql`${t.category} IN ('room', 'early_checkin', 'late_checkout', 'extra_person', 'minibar', 'fnb', 'laundry', 'cleaning', 'service_fee', 'utilities', 'penalty', 'damage', 'cancellation_fee', 'no_show_fee', 'early_departure_fee', 'deposit_forfeit', 'discount', 'foc', 'adjustment', 'room_change_difference')`,
+    ),
+    check('folio_line_limit_ref_check', sql`${t.limitRefVnd} IS NULL OR ${t.limitRefVnd} >= 0`),
+    check(
+      'folio_line_limit_ref_required_check',
+      sql`(${t.category} <> 'room' AND ${t.chargeCode} IS DISTINCT FROM 'late_fee_as_night') OR ${t.limitRefVnd} IS NOT NULL`,
     ),
     check(
       'folio_line_revenue_group_check',
@@ -584,7 +601,7 @@ export const invoiceRequest = pgTable(
 );
 
 /**
- * 0079 (0.3.8 – BR-433 (c) v0.4.0, ESC-026 A, erd 4.15; BE-B): one row per stay whose waivers went above the
+ * 0082 (0.3.8 – BR-433 (c) v0.4.0, ESC-026 A, erd 4.15; BE-B): one row per stay whose waivers went above the
  * threshold – the "Cần chú ý" item is opened once (`attention_event_id`), each later crossing only counts.
  * `stay_root_reservation_id` = the primary booking of the folio (the stay; child bookings share it – BR-422).
  */
@@ -604,6 +621,12 @@ export const focStayAlert = pgTable(
       name: 'foc_stay_alert_property_fk',
       columns: [t.organizationId, t.propertyId],
       foreignColumns: [property.organizationId, property.id],
+    }),
+    // ARC S1-12: the stay root is a booking (never deleted – BR-008).
+    foreignKey({
+      name: 'foc_stay_alert_reservation_fk',
+      columns: [t.propertyId, t.stayRootReservationId],
+      foreignColumns: [reservation.propertyId, reservation.id],
     }),
     check('foc_stay_alert_count_check', sql`${t.alertCount} >= 1`),
   ],

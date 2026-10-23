@@ -228,7 +228,7 @@ export const STAFF_NOTIFICATION_KINDS = [
   'no_show_restored',
   // 0072 (BR-525 G-4, BE-A): a receipt reversed after check-out left a debt – OWN + MGR.
   'debt_recorded',
-  // 0079 (0.3.8 – BR-433 (c) v0.4.0, ESC-026 A, BE-B): waivers on one stay above the threshold – every OWN.
+  // 0082 (0.3.8 – BR-433 (c) v0.4.0, ESC-026 A, BE-B): waivers on one stay above the threshold – every OWN.
   'foc_stay_total_exceeded',
 ] as const;
 export type StaffNotificationKind = (typeof STAFF_NOTIFICATION_KINDS)[number];

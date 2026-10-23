@@ -118,8 +118,9 @@ export async function syncLeaseNights(
       await tx.query(
         `INSERT INTO stay_night (id, organization_id, property_id, reservation_id, reservation_segment_id, room_id,
            stay_date, night_state, room_revenue_gross_vnd, discount_vnd, room_revenue_vnd, sold_at,
-           is_complimentary, rate_source, channel_id, stay_type, created_at, updated_at, calendar_rate_vnd)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'sold', $8, 0, $8, $9, false, $10, $11, 'long', $9, $9, NULL)`,
+           is_complimentary, rate_source, channel_id, stay_type, created_at, updated_at, calendar_rate_vnd,
+           reference_rate_vnd)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'sold', $8, 0, $8, $9, false, $10, $11, 'long', $9, $9, NULL, $8)`,
         [
           uuidv7(),
           tx.ctx.organizationId,
@@ -145,7 +146,7 @@ export async function syncLeaseNights(
     ) {
       await tx.query(
         `UPDATE stay_night SET room_revenue_gross_vnd = $2::bigint, room_revenue_vnd = $2::bigint - discount_vnd,
-                room_id = $3, reservation_segment_id = $4, updated_at = $5
+                reference_rate_vnd = $2::bigint, room_id = $3, reservation_segment_id = $4, updated_at = $5
           WHERE id = $1`,
         [n.id, w.amountVnd, seg?.room_id ?? null, seg?.id ?? null, now],
       );

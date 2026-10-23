@@ -551,6 +551,14 @@ export class StaySupport {
         extras: { max },
       });
     }
+    // ARC S1-10 + BR-433 (b)(d): Σ of the key and the protected basis BEFORE this request's own pending line exists.
+    const limitInput = await this.folios.waiverLimitInput(
+      tx,
+      folioId,
+      line.id,
+      input.amountVnd,
+      'key',
+    );
     const [focLineId] = await this.folios.postLines(
       tx,
       folioId,
@@ -581,8 +589,9 @@ export class StaySupport {
       folioLineId: focLineId as string,
       lineCategory: line.category,
       // BR-433 "≤ giá 1 đêm" (BUG-R2-046, folio port of BE-B): last night for late check-out, first for early;
-      // the late charge of one night (BR-416-07, BUG-R2-148): the charge itself.
-      limitBasisVnd: await this.folios.nightRateBasis(tx, line.id),
+      // the late charge of one night (BR-416-07, BUG-R2-148): the charge itself. ARC S1-10 + BR-433 (b)(d): the Σ
+      // of the key and the PROTECTED basis come from the folio's one definition (FolioService.waiverLimitInput).
+      ...limitInput,
       ...(opts.noSelfApply ? { noSelfApply: true } : {}),
       ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
     });

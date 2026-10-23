@@ -170,3 +170,23 @@ Căn cứ: BR-433 (a)(b)(c) v0.4.0; DOM `s1-money-oracle.md` mục 5; SEC `s1-se
 - Fuzz R3-Q30 (QA): đưa ca 1–4 của SEC B.5 vào.
 - R3-Q39 #8–#12 phía server: chưa làm. Theo bảng 3.1, mục này là FE-A, kèm BE-A nếu có phần server, không phải BE-B.
 
+
+## 9. Phản hồi & sửa bước 4 – BR-433 (d) v0.4.1, S1-09…12 (23/10)
+
+Trả lời từng thẻ: `rounds/round-03/responses/s1-BE-B.md`, mục "Lượt 2". Nhánh đã rebase lên `main` 5834c6a.
+
+- **FB-07 / S1-08 (Blocker) – cơ sở hạn mức được bảo vệ.**
+  - Thêm 3 cột: `stay_night.reference_rate_vnd`, `folio_line.limit_ref_vnd` (kèm CHECK fail-closed), `folio.limit_basis_checkout_vnd` (chụp trong `settle`).
+  - Một cổng duy nhất `FolioService.limitBasisVnd`; xóa hai hàm cũ.
+  - Chỉ các đường giá của hệ thống ghi giá tham chiếu. Đêm có giá gõ tay giữ nguyên giá tham chiếu; A31 không ghi cột này.
+- **S1-10:** thêm `FolioService.waiverLimitInput`. FOC tại folio và FOC phụ thu tại quầy đều dùng nó. Ở quầy, hàm được gọi **trước** khi ghi dòng chờ duyệt của chính yêu cầu đó (nếu gọi sau thì Σ tính dòng đó hai lần).
+- **S1-11:** mục "Cần chú ý" còn mở thì cập nhật số đếm; mục đã "Đã xem" thì lần vượt sau mở mục mới.
+- **S1-12:** FK từ `foc_stay_alert` tới đơn gốc.
+- **S1-09:** migration đổi số **0080** (2FA giữ 0079). CHECK kind = danh sách trên `main` + 1 kind mới. Có test so tập kind (không DB) và test chèn thử từng kind (có DB).
+- **Test mới:**
+  - `s438-r8/r3-bb07-limit-basis.test.ts`: 9 ca – BB07-1…7, S1-11, các ràng buộc của 0080.
+  - `test/money-limit-basis-architecture.test.ts`: 6 ca.
+- **Toàn bộ API:** xem kết quả trả ORC.
+- **Giả định:**
+  - Giá gõ lúc **bán** đêm (tạo đơn, gia hạn) là giá thỏa thuận, nên được làm giá tham chiếu. Chỉ sửa giá của đêm đã bán (A31/A32) mới không đổi giá tham chiếu.
+  - BB07-3/4 dùng 1.900.000 (trần A31 của seed) thay cho 3.000.000 của oracle.

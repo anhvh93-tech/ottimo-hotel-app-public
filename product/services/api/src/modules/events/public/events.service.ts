@@ -464,6 +464,26 @@ export class EventsService {
     return created;
   }
 
+  /**
+   * ARC S1-11 (US-007 AC7 "mỗi lần vượt thêm cập nhật cùng một dòng"): new params of an OPEN event item (same keys
+   * rule as openAttention). false = the item is closed (or unknown) – the caller opens a new one if it must.
+   */
+  async updateAttentionParams(
+    tx: Tx,
+    id: string,
+    kind: AttentionKind,
+    params: Record<string, string | number>,
+  ): Promise<boolean> {
+    assertAttentionParams(kind, params);
+    const r = await tx.query<{ id: string }>(
+      `UPDATE attention_event SET details = $3 WHERE id = $1 AND kind = $2 AND resolved_at IS NULL RETURNING id`,
+      [id, kind, JSON.stringify(params)],
+    );
+    if (r.rows.length === 0) return false;
+    await this.publish(tx, 'attention.changed', id, { roles: FD_PLUS });
+    return true;
+  }
+
   async resolveAttention(
     tx: Tx,
     dedupeKey: string,

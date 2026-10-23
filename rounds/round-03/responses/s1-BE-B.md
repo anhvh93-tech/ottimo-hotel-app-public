@@ -99,3 +99,103 @@ Probe 2 (giảm trên nợ cũ → 409) nằm ở test 208.
 - ARC xác nhận trường `cycleOpened` của cổng.
 - `Folio.totals.openDebtVnd` (D.5) – chờ ORC xếp vào hợp đồng.
 - FB-R3-SEC-BE-B-05 – chờ DOM/ARC quyết.
+
+---
+
+# Lượt 2 – review của `29ce3d8` (BE-83 + ESC-026 A + R3-Q25) – Phản hồi & sửa 23/10
+
+- Review được trả lời: `reviews/s1-SEC-on-BE-B.md` (mục `29ce3d8`: FB-07, FB-08), `reviews/s1-ARC-on-BE-B.md` (mục `29ce3d8`: S1-08…S1-13).
+- Căn cứ: BR-433 (d) v0.4.1; oracle DOM 5.4 (BB07-1…7, I16); "Hướng dẫn sửa FB-07" của ARC.
+- Nhánh đã rebase lên `main` 5834c6a. Migration đổi số **0079 → 0080**, vì 2FA (BE-C) giữ 0079. Lúc rebase `main` chưa có 0079, nên trên `main` hiện để hở một số; điều này vô hại, test `migrations-journal` chỉ kiểm thứ tự `when`.
+
+## Thẻ SEC
+
+### FB-R3-SEC-BE-B-07 (Blocker) – Done, chờ SEC review lại diff
+Làm đúng thiết kế ARC.
+
+**Ba cột dữ liệu mới (migration 0080)**
+- `stay_night.reference_rate_vnd` (NOT NULL): giá đêm tham chiếu do hệ thống ghi.
+  - Chỉ các đường giá của hệ thống trong `reservations` ghi cột này: `insertNights`, đêm dài hạn, giá lại đêm giữ nguyên, kế hoạch dời/đổi căn (B7/B14/đổi ngày).
+  - Đêm có giá gõ tay (snapshot `manual`) giữ nguyên giá tham chiếu cũ.
+  - A31 `setNightRate` không ghi cột này.
+- `folio_line.limit_ref_vnd`: dòng `room` mang theo giá tham chiếu của đêm qua `ConfirmedStay.nights[].referenceRateVnd`.
+  - Dòng `late_fee_as_night` lấy chính số máy tính lúc ghi.
+  - Dòng thay của A32 chép giá tham chiếu của dòng bị thay.
+  - Dòng đảo chép theo dòng gốc.
+  - CHECK `folio_line_limit_ref_required_check` chặn mọi dòng đêm thiếu giá tham chiếu (fail-closed).
+- `folio.limit_basis_checkout_vnd`: chụp **một lần** trong `settle`.
+- Backfill cả ba cột cho dữ liệu cũ, sau đó mới đặt NOT NULL và CHECK.
+
+**Một cổng duy nhất `FolioService.limitBasisVnd(tx, folioId, lineId | null)`**
+- Giá bảo vệ của một đêm = LEAST(giá dòng, `limit_ref_vnd`). Nếu đã có số chụp lúc B18 thì lấy thêm min với số đó.
+- Đã xóa `nightRateBasis` và `folioNightBasisVnd`, nên không còn đường đọc giá chưa bảo vệ.
+- Người gọi: `foc.service` (a)(b), `stay-waiver-alert` (ngưỡng MGR), `stay-support` (FOC phụ thu tại quầy).
+
+**Test (`s438-r8/r3-bb07-limit-basis.test.ts`)**
+- BB07-1: đủ 3 bước, cuối B = O = 5.000.000; Σ đã áp 0; không phát sinh `foc_stay_alert`.
+- BB07-2.
+- BB07-3, BB07-4: dùng giá đêm 1.900.000 vì đó là trần A31 của seed; số 3.000.000 trong oracle vượt trần. Kết luận không đổi: cơ sở vẫn 667.000.
+- BB07-5: B14 theo yêu cầu khách sang 401 → cơ sở 1.042.000 → MGR tự áp được 1.000.000.
+- BB07-6: dùng LT trưởng sửa giá, vượt sàn thì dùng MGR → cơ sở 540.000.
+- BB07-7: số chụp B18 là trần.
+
+**Fuzz:** QA đưa I16 vào R3-Q30. Fixture BR-433-11…15 (`pendingFix R3-SEC-BE-B-07`) chưa có trên `main`; QA thêm rồi gỡ theo test này.
+
+### FB-R3-SEC-BE-B-08 (Suggestion) – Accepted, chuyển checklist US-143
+- Khi người dùng đã bật 2FA, `PasswordReauth` cho mục đích `foc`/`debt_write_off` sẽ đòi thêm bước TOTP.
+- Việc này phụ thuộc US-143 (BE-C), nên không làm trong commit này.
+
+## Thẻ ARC
+
+### FB-R3-ARC-BEB-S1-08 (Blocker) – Done
+Như FB-07 ở trên. Test kiến trúc mới `test/money-limit-basis-architecture.test.ts` kiểm:
+- chỉ ba tệp hệ thống của `reservations` ghi `reference_rate_vnd`;
+- `stay-night-pricing.ts` (A31) không có `reference_rate_vnd`;
+- chỉ `settle` ghi `limit_basis_checkout_vnd`;
+- không còn tên `nightRateBasis` / `folioNightBasisVnd` trong mã.
+
+### FB-R3-ARC-BEB-S1-09 (Major) – Done
+- Migration 0080: CHECK kind = danh sách trên `main` (0072) **+** `foc_stay_total_exceeded`, chỉ có dòng thêm.
+- Test không cần DB:
+  - CHECK của migration mới nhất (có viết lại CHECK này) = `STAFF_NOTIFICATION_KINDS`;
+  - mỗi lần viết lại giữ đủ kind của lần trước.
+- Test có DB: chèn thử từng kind trong một giao dịch rồi rollback.
+- Cột/ràng buộc của S1-08 và FK của S1-12 đã gộp vào cùng migration.
+
+### FB-R3-ARC-BEB-S1-10 (Minor) – Done
+- Thêm `FolioService.waiverLimitInput(tx, folioId, lineId, amountVnd, 'debt_write_off' | 'key')`, trả `{ perTimeAmountVnd, limitBasisVnd }`.
+- `foc.service` và `stay-support` dùng hàm này.
+- Test kiến trúc: mọi `approvals.submit` loại `foc`/`special_discount` phải truyền kết quả của hàm này.
+
+### FB-R3-ARC-BEB-S1-11 (Minor) – Done
+- Mục "Cần chú ý" còn mở thì cập nhật `details.count` (`EventsService.updateAttentionParams`, cấp quyền `UPDATE (details)` trong 0080).
+- Mục đã "Đã xem" thì mở một mục mới và cập nhật `foc_stay_alert.attention_event_id`.
+- Test S1-11: count 2 → 3, OWN bấm "Đã xem", vượt tiếp mở mục mới count 4, tổng 3 thông báo.
+
+### FB-R3-ARC-BEB-S1-12 (Minor) – Done
+- FK `foc_stay_alert_reservation_fk (property_id, stay_root_reservation_id) → reservation`.
+
+### FB-R3-ARC-BEB-S1-13 (Suggestion) – Không làm Sprint 1
+- Theo quyết định ARC: hợp đồng 0.3.9.
+
+## Còn mở
+- SEC review lại diff trên head mới (FB-07 + test kiến trúc).
+- PO sửa chữ US-007 AC7 (nhật ký loại `state`) theo quyết định ARC.
+- QA: thêm I16 và fixture BR-433-11…15.
+- Thêm `AttentionItem.params` tổng/ngưỡng (S1-13) ở hợp đồng 0.3.9.
+
+## Lượt 3 – điều kiện gộp ARC S1-14, S1-15 (23/10)
+
+### FB-R3-ARC-BEB-S1-14 (Major – thao tác gộp) – Done
+- Nhánh đã rebase lên `origin/main` e1f4b99, trên đó đã có 0079 (2FA) và 0081 (BE-C q17).
+- Migration đổi tên thành **0082_foc_stay_alert_limit_basis**:
+  - journal idx 58, `when` sau 0081;
+  - `0082_snapshot.json` sinh lại bằng `drizzle-kit` trên nền 0081 (`prevId` = id snapshot 0081);
+  - phần SQL viết tay giữ nguyên nội dung, chỉ đổi đoạn chú thích đầu tệp.
+- CHECK kind = danh sách trên `main` (giữ như 0072) + `foc_stay_total_exceeded`.
+- `drizzle-kit generate`: "No schema changes".
+
+### FB-R3-ARC-BEB-S1-15 (Minor) – Done
+- `ConfirmedStay.nights[].referenceRateVnd` chuyển thành bắt buộc. Bỏ `?? gross` khi ghi dòng đêm.
+
+Ngoài hai thẻ trên, mã không đổi so với `41c49d7`.

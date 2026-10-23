@@ -495,6 +495,10 @@ export const stayNight = pgTable(
     // 0.3.5 A-22 (DOM D-8): calendar price before the BR-107 tier; NULL for OTA/lease nights.
     calendarRateVnd: bigint('calendar_rate_vnd', { mode: 'number' }),
     roomRevenueGrossVnd: bigint('room_revenue_gross_vnd', { mode: 'number' }).notNull(),
+    // 0082 (BR-433 (d) v0.4.1 – FB-R3-SEC-BE-B-07, ARC S1-08): the reference night rate written ONLY by the system's
+    // price paths (booking, dates, B14 guest move, extension, BR-107 re-tier, OTA, lease) – same unit as
+    // room_revenue_gross_vnd. A31 `setNightRate` never writes it: the limit basis of BR-433 never follows a hand edit.
+    referenceRateVnd: bigint('reference_rate_vnd', { mode: 'number' }).notNull(),
     discountVnd: bigint('discount_vnd', { mode: 'number' }).notNull().default(0),
     roomRevenueVnd: bigint('room_revenue_vnd', { mode: 'number' }).notNull(),
     channelFeeVnd: bigint('channel_fee_vnd', { mode: 'number' }).notNull().default(0),
@@ -544,6 +548,7 @@ export const stayNight = pgTable(
       'stay_night_void_check',
       sql`${t.nightState} <> 'void' OR (${t.voidedAt} IS NOT NULL AND ${t.voidReason} IN ('hold_expired', 'cancelled', 'no_show', 'early_departure', 'lease_terminated', 'date_change', 'relocated_external', 'channel_cancelled') AND ${t.prevState} IN ('hold', 'sold'))`,
     ),
+    check('stay_night_reference_rate_check', sql`${t.referenceRateVnd} >= 0`),
     check(
       'stay_night_extra_person_fee_check',
       sql`${t.extraPersonFeeVnd} IS NULL OR ${t.extraPersonFeeVnd} >= 0`,
