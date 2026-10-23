@@ -84,6 +84,8 @@ export const ROLES = {
   owner: ['owner'],
   sal: ['sales_staff'],
   ctv: ['collaborator'],
+  // R3 S1 step 4 (BR-433 (c) – ESC-026 A): a lead deciding FOC of the desk.
+  lead: ['front_desk_lead'],
 };
 const ROOMS = ['101', '102', '103', '201', '202', '203', '301', '302'];
 export const TRANSFER = 100_000;
@@ -164,7 +166,7 @@ export async function startFixture() {
     ),
   );
   c.fd!.deviceToken = token;
-  for (const u of ['mgr', 'mgr2', 'owner', 'fd']) await setPassword(db, t, u);
+  for (const u of ['mgr', 'mgr2', 'owner', 'fd', 'lead']) await setPassword(db, t, u);
 
   const url = (path = '') => `${P(t)}${path}`;
   const q = (sql: string, args: unknown[] = []) =>
@@ -577,6 +579,7 @@ export async function startFixture() {
 
   return {
     db,
+    guest,
     fa,
     t,
     ids,

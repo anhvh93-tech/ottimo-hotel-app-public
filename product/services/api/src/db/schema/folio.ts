@@ -21,6 +21,7 @@ import {
   date,
   foreignKey,
   index,
+  integer,
   jsonb,
   numeric,
   pgTable,
@@ -579,5 +580,31 @@ export const invoiceRequest = pgTable(
       'invoice_request_status_check',
       sql`${t.einvoiceStatus} IN ('not_requested', 'pending', 'issued', 'failed')`,
     ),
+  ],
+);
+
+/**
+ * 0079 (0.3.8 – BR-433 (c) v0.4.0, ESC-026 A, erd 4.15; BE-B): one row per stay whose waivers went above the
+ * threshold – the "Cần chú ý" item is opened once (`attention_event_id`), each later crossing only counts.
+ * `stay_root_reservation_id` = the primary booking of the folio (the stay; child bookings share it – BR-422).
+ */
+export const focStayAlert = pgTable(
+  'foc_stay_alert',
+  {
+    stayRootReservationId: uuid('stay_root_reservation_id').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    propertyId: uuid('property_id').notNull(),
+    firstAlertedAt: instant('first_alerted_at').notNull(),
+    lastAlertedAt: instant('last_alerted_at').notNull(),
+    alertCount: integer('alert_count').notNull(),
+    attentionEventId: uuid('attention_event_id'),
+  },
+  (t) => [
+    foreignKey({
+      name: 'foc_stay_alert_property_fk',
+      columns: [t.organizationId, t.propertyId],
+      foreignColumns: [property.organizationId, property.id],
+    }),
+    check('foc_stay_alert_count_check', sql`${t.alertCount} >= 1`),
   ],
 );

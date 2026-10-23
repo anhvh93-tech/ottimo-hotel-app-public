@@ -118,7 +118,9 @@ export type AttentionKind =
   | 'ota_no_show_report'
   | 'closed_reservation_credit'
   // BR-525 (18/10 – G-4, BE-A): open guest debts of checked-out stays (B18 debt or a receipt reversed after it).
-  | 'checkout_debt';
+  | 'checkout_debt'
+  // 0.3.8 – BR-433 (c) v0.4.0, ESC-026 A (BE-B): waivers on one stay above the threshold – OWN only, one per stay.
+  | 'foc_stay_total_exceeded';
 
 /**
  * B-21 / SEC J: the ONLY `params` keys an item of a kind may carry (counts, codes, room numbers, dates –
@@ -149,6 +151,7 @@ export const ATTENTION_PARAM_KEYS: Partial<Record<AttentionKind, readonly string
   ooo_ending_work_open: ['roomNo', 'endDate'],
   guest_request_overdue: ['count'],
   checkout_debt: ['count'],
+  foc_stay_total_exceeded: ['count'],
 };
 
 /**
@@ -164,6 +167,7 @@ export function attentionAudience(item: Pick<AttentionItem, 'kind' | 'params'>):
   switch (item.kind) {
     case 'foc_threshold':
     case 'security_alert':
+    case 'foc_stay_total_exceeded':
       return OWNER_ONLY;
     case 'reconcile_overdue':
     case 'checkout_debt':

@@ -24,6 +24,7 @@ import { ReservationHooks } from '../../reservations/public/reservation-hooks';
 import { applyPct } from '../../reservations/public/pricing';
 import { FolioService, OTA_COVERED } from '../public/folio.service';
 import { keyKindOf } from '../public/reductions';
+import { StayWaiverAlertService } from './stay-waiver-alert';
 
 /**
  * ARC 16.27 (2) / R7LOCK-02 (DOM 18/10, BR-525): the FOC reason that writes a debt off after check-out – the ONLY
@@ -64,6 +65,7 @@ export class FolioFocService {
     @Inject(ApprovalService) private readonly approvals: ApprovalService,
     @Inject(FolioService) private readonly folios: FolioService,
     @Inject(ReservationHooks) private readonly hooks: ReservationHooks,
+    @Inject(StayWaiverAlertService) private readonly stayAlert: StayWaiverAlertService,
   ) {}
 
   async request(
@@ -86,6 +88,11 @@ export class FolioFocService {
       if (!debt) throw problem('FOLIO_LOCKED');
       openDebtVnd = debt.openDebtVnd;
       if (!actor.roles.some((r) => WRITE_OFF_ROLES.includes(r))) throw problem('FORBIDDEN_ACTION');
+      // R3-Q25 (FB-R2-SEC-BE-82 (b)): a write-off may be self-applied by OWN/MGR – the requester re-authenticates
+      // exactly as an approver deciding it would (S1: password, checked by the controller before the unit of work).
+      if (!input.requesterReauthenticated) {
+        throw problem('VALIDATION_FAILED', { errors: [{ field: 'secret', code: 'REQUIRED' }] });
+      }
       if (input.kind !== 'foc') {
         throw problem('VALIDATION_FAILED', { errors: [{ field: 'kind', code: 'NOT_ALLOWED' }] });
       }
@@ -137,7 +144,13 @@ export class FolioFocService {
     }
     // S4-23 (6): line − (what is applied now + what pending requests ask) on the key (FolioService – the same
     // rule as the desk's requestFocForSurcharge, S4-25).
-    const remaining = await this.folios.reductionHeadroomVnd(tx, line.id);
+    const usage = await this.folios.reductionUsage(tx, line.id);
+    const remaining = Math.max(0, usage.valueVnd - usage.usedVnd);
+    // BR-433 (a)(b) v0.4.0 (R3 – FB-R2-SEC-BE-83, "chống chia nhỏ"): the per-time limit is compared with the Σ of
+    // the same write-off folio / FOC key – read here, under L1 → L3 (lockStay above), so two requests sent at the
+    // same time never both fit the limit (BR-525-27).
+    let perTimeAmountVnd: number;
+    let limitBasisVnd: number | null;
     if (writeOff) {
       // DOM 18/10 (BR-525, ARC 16.28) + FB-R2-SEC-BE-80 (a): min(what the line still allows, the OPEN DEBT –
       // `OpenDebt.openDebtVnd` of the front desk, the one source of the amount – minus what the write-offs still
@@ -150,18 +163,38 @@ export class FolioFocService {
             AND a.status IN ('pending', 'escalated')`,
         [folio.id, DEBT_WRITE_OFF],
       );
-      const max = Math.max(0, Math.min(remaining, openDebtVnd - Number(asked[0]?.total ?? 0)));
+      const askedVnd = Number(asked[0]?.total ?? 0);
+      const max = Math.max(0, Math.min(remaining, openDebtVnd - askedVnd));
       if (input.amountVnd > max) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
           extras: { max },
         });
       }
-    } else if (input.amountVnd > remaining) {
-      throw problem('VALIDATION_FAILED', {
-        errors: [{ field: 'amountVnd', code: 'VALUE_OUT_OF_RANGE' }],
-        extras: { max: remaining },
-      });
+      // (a) Σ = what the approved write-offs of the folio apply now (every debt cycle, every requester/approver,
+      // OWN included – live posted lines, BUG-R2-207) + what the pending ones ask + this request; rejected and
+      // auto-cancelled (`debt_cleared`) requests count nothing. Basis = the folio's highest night (not the line).
+      const { rows: applied } = await tx.query<{ total: string | number }>(
+        `SELECT COALESCE(-sum(l.amount_vnd), 0) AS total FROM folio_line l
+           JOIN approval_request a ON a.id = l.approval_request_id
+          WHERE l.folio_id = $1 AND l.category = 'foc' AND l.line_state = 'posted'
+            AND l.reversal_of_id IS NULL AND a.reason_code = $2
+            AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)`,
+        [folio.id, DEBT_WRITE_OFF],
+      );
+      perTimeAmountVnd = Number(applied[0]?.total ?? 0) + askedVnd + input.amountVnd;
+      limitBasisVnd = await this.folios.folioNightBasisVnd(tx, folio.id);
+    } else {
+      if (input.amountVnd > remaining) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'amountVnd', code: 'VALUE_OUT_OF_RANGE' }],
+          extras: { max: remaining },
+        });
+      }
+      // (b) Σ of the FOC key = what its reductions apply now + what is still asked on it + this request.
+      perTimeAmountVnd = usage.usedVnd + input.amountVnd;
+      // BR-433 "≤ giá 1 đêm": the night rate of the night the reduced line belongs to (BUG-R2-046).
+      limitBasisVnd = await this.folios.nightRateBasis(tx, line.id);
     }
 
     const now = this.clock.now();
@@ -210,9 +243,9 @@ export class FolioFocService {
       targetId: folio.primary_reservation_id,
       ...(ctx.reservationCode ? { targetCode: ctx.reservationCode } : {}),
       folioLineId: focLineId,
-      // BR-433 "≤ giá 1 đêm": the night rate of the night the reduced line belongs to (BUG-R2-046 – surcharges,
-      // services and fees too, not only room lines).
-      limitBasisVnd: await this.folios.nightRateBasis(tx, line.id),
+      // BR-433 "≤ giá 1 đêm" (BUG-R2-046) – for a write-off the folio's highest night (BR-433 (a) v0.4.0).
+      limitBasisVnd,
+      perTimeAmountVnd,
       lineCategory: line.category,
       requesterReauthenticated: input.requesterReauthenticated,
       ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
@@ -346,6 +379,8 @@ export class FolioFocService {
       });
       // ARC 16.27 (2): a write-off OWN approved above the manager's limit.
       await this.afterWriteOff(tx, request);
+      // BR-433 (c) v0.4.0 – ESC-026 A: Σ of the waivers applied on the stay vs the threshold → tell the owner.
+      await this.stayAlert.afterApplied(tx, request, first.folio_id);
       return;
     }
     if (request.status !== 'rejected' && request.status !== 'cancelled') return;

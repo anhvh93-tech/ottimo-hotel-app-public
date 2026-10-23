@@ -140,6 +140,20 @@ export class AttentionService {
     await this.events.publish(tx, 'attention.changed', row.id, { roles: FD_PLUS });
   }
 
+  /**
+   * Due time of an event item: when it was raised, except `foc_stay_total_exceeded` (0.3.8 – BR-433 (c) v0.4.0): the
+   * owner reviews it within `stay_waiver_review_hours` (24).
+   */
+  private async dueOf(
+    kind: AttentionKind,
+    createdAt: Date,
+    ctx: AttentionSourceContext,
+  ): Promise<Date> {
+    if (kind !== 'foc_stay_total_exceeded') return createdAt;
+    const hours = (await ctx.param<number>('stay_waiver_review_hours')) ?? 0;
+    return new Date(createdAt.getTime() + hours * 3_600_000);
+  }
+
   private async eventItems(tx: Tx, ctx: AttentionSourceContext): Promise<AttentionItem[]> {
     const { rows } = await tx.query<{
       id: string;
@@ -155,19 +169,21 @@ export class AttentionService {
         WHERE resolved_at IS NULL ORDER BY created_at DESC LIMIT $1`,
       [MAX_EVENT_ROWS],
     );
-    return rows.map((r) => {
+    const out: AttentionItem[] = [];
+    for (const r of rows) {
       const params = r.details && Object.keys(r.details).length > 0 ? r.details : undefined;
-      return {
+      out.push({
         kind: r.kind,
         source: 'event',
         severity: r.severity,
         eventId: r.id,
         count: 1,
-        dueAt: ctx.iso(r.created_at),
+        dueAt: ctx.iso(await this.dueOf(r.kind, r.created_at, ctx)),
         ...(r.ref_type === 'reservation' && r.ref_id ? { reservationIds: [r.ref_id] } : {}),
         ...(r.ref_code ? { refCode: r.ref_code } : {}),
         ...(params ? { params } : {}),
-      };
-    });
+      });
+    }
+    return out;
   }
 }

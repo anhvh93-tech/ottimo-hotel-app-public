@@ -1173,6 +1173,27 @@ export class FolioService implements FolioStaySync {
   }
 
   /**
+   * BR-433 (a) v0.4.0 (FB-R2-SEC-BE-83) – "cơ sở xóa nợ của folio" and the manager threshold of BR-433 (c): the
+   * HIGHEST night rate of the folio – live `room` lines (rate after BR-107), the late fee charged as one night
+   * (BR-416, `late_fee_as_night`), a long stay's converted night (BR-102). One number for the whole folio, never
+   * the line chosen. null = no night at all (→ the owner decides, as before).
+   */
+  async folioNightBasisVnd(tx: Tx, folioId: string): Promise<number | null> {
+    const longNight = await this.longStayNightOf(tx, null, folioId);
+    if (longNight !== null) return longNight;
+    const { rows } = await tx.query<{ basis: string | number | null }>(
+      `SELECT max(CASE WHEN l.category = 'room' THEN l.unit_price_vnd ELSE l.amount_vnd END) AS basis
+         FROM folio_line l
+        WHERE l.folio_id = $1 AND l.line_state = 'posted' AND l.reversal_of_id IS NULL
+          AND (l.category = 'room' OR l.charge_code = 'late_fee_as_night')
+          AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = l.id)`,
+      [folioId],
+    );
+    const b = rows[0]?.basis;
+    return b === null || b === undefined ? null : Number(b);
+  }
+
+  /**
    * Nightly equivalent of the long stay a line belongs to (its booking, else the folio's primary booking): monthly
    * rent ÷ `long_stay_daily_divisor`, rounded to `rounding.night_rate` (BR-102, BR-413 – what the desk's
    * `longStayNight` computes). Null for a short stay, a long stay without rent, or missing parameters.
@@ -2981,6 +3002,17 @@ export class FolioService implements FolioStaySync {
    * sits on the CURRENT line of the key (syncReductions), so this is the key's headroom. The line must be live.
    */
   async reductionHeadroomVnd(tx: Tx, lineId: string): Promise<number> {
+    const u = await this.reductionUsage(tx, lineId);
+    return Math.max(0, u.valueVnd - u.usedVnd);
+  }
+
+  /**
+   * The KEY of a charge line (BR-434) as the reductions see it: its value (the live line; a minibar item = every
+   * live line of the item – mô hình M-1, BUG-R2-135) and what the FOC / special-discount lines on it use now
+   * (posted, or still asked – `pending_approval`). BR-433 (b) (R3 – FB-R2-SEC-BE-83): `usedVnd` is the Σ of the
+   * key a new request is added to before it is compared with the per-time limit.
+   */
+  async reductionUsage(tx: Tx, lineId: string): Promise<{ valueVnd: number; usedVnd: number }> {
     // Mô hình minibar M-1 (ARC R8, BUG-R2-135): a minibar item is ONE key – its value is every live line of the
     // item, minus every reduction (posted or asked) on any of them.
     const { rows: item } = await tx.query<{
@@ -3004,7 +3036,7 @@ export class FolioService implements FolioStaySync {
                              AND NOT EXISTS (SELECT 1 FROM folio_line r WHERE r.reversal_of_id = f.id)), 0) AS used`,
         [item[0].folio_id, code],
       );
-      return Math.max(0, Number(agg[0]?.amount ?? 0) - Number(agg[0]?.used ?? 0));
+      return { valueVnd: Number(agg[0]?.amount ?? 0), usedVnd: Number(agg[0]?.used ?? 0) };
     }
     const { rows } = await tx.query<{ amount: string | number; used: string | number }>(
       `SELECT l.amount_vnd AS amount,
@@ -3016,8 +3048,8 @@ export class FolioService implements FolioStaySync {
       [lineId],
     );
     const r = rows[0];
-    if (!r) return 0;
-    return Math.max(0, Number(r.amount) - Number(r.used));
+    if (!r) return { valueVnd: 0, usedVnd: 0 };
+    return { valueVnd: Number(r.amount), usedVnd: Number(r.used) };
   }
 
   /** stay_night.discount_vnd of every live night = the FOC / discount applied on its room line now (DATA). */
