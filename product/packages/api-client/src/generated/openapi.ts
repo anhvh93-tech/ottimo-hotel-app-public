@@ -2334,7 +2334,8 @@ export interface paths {
     put?: never;
     /**
      * Sửa một dòng = bút toán đảo + dòng mới, lý do bắt buộc (BR-008). Folio `settled` chỉ MGR+ (A32, US-038 AC2).
-     * @description **0.3.6 bổ sung (review S3, ARC 17/10)**: `If-Match` = `Folio.version` (ETag của `getFolio`/`addFolioLine`; mọi thay đổi dòng của folio tăng version – BE-B decision 16/10; **0.3.7 bổ sung 4 (N-6)**: và mọi thay đổi giao dịch thu/hoàn – xem `Folio.version`).
+     * @description **0.3.8 bổ sung 3 (ARC 24/10, FB-R3-ARC-FUZZ-01, BR-522 K11-06)**: trên folio `settled`, thao tác này để lại tiền dư chưa có yêu cầu hoàn (`unhandledCreditVnd` > 0) → server tạo **một** yêu cầu hoàn `overpayment` bằng phần chưa yêu cầu (người xin = người thao tác; người duyệt MGR+ khác người xin – SEC F8) và mở "Cần chú ý" `closed_reservation_credit`, **cùng giao dịch**; yêu cầu hoàn đang mở lớn hơn tiền dư → chạy lại `refundPlan` (hủy `superseded` + tạo lại, DOM-S4-14). Không đổi hình dạng phản hồi.
+     *     **0.3.6 bổ sung (review S3, ARC 17/10)**: `If-Match` = `Folio.version` (ETag của `getFolio`/`addFolioLine`; mọi thay đổi dòng của folio tăng version – BE-B decision 16/10; **0.3.7 bổ sung 4 (N-6)**: và mọi thay đổi giao dịch thu/hoàn – xem `Folio.version`).
      *     Dòng **sinh từ đêm lưu trú** (`room`, `extra_person`) sửa giá phải ghi lại giá đêm ở đơn (cùng giao dịch) để lần đồng bộ đêm sau (gia hạn, đổi phòng, đổi số người)
      *     **giữ** giá đã sửa và các dòng FOC/giảm giá đi kèm – không bao giờ tự đảo giá đã sửa (thẻ FB-R2-ARC-BE-S3-14).
      *     **0.3.7 bổ sung D1 – cách cài S4-35 (CỔNG; ARC chốt, thay "Done (tạm)" của ARC-BE-S3-14)**: bỏ chặn tạm 422 `NOT_ALLOWED` cho dòng `room`/`extra_person` của đơn
@@ -2423,7 +2424,8 @@ export interface paths {
     put?: never;
     /**
      * Ghi nhận một lần thu (cọc, thu khi nhận/trả, OTA thu hộ) – giao dịch `succeeded` (US-119; A33). Không nhận dữ liệu thẻ.
-     * @description **0.3.7 bổ sung 4 – thu công nợ sau trả phòng (BR-525, ARC 16.26)**: folio `settled`/`closed` mặc định → 409 `FOLIO_LOCKED`. **Ngoại lệ duy nhất**: đơn có **công nợ mở**
+     * @description **0.3.8 bổ sung 3 (ARC 24/10, FB-R3-ARC-FUZZ-01, BR-522 K11-06)**: trên folio `settled`, thao tác này để lại tiền dư chưa có yêu cầu hoàn (`unhandledCreditVnd` > 0) → server tạo **một** yêu cầu hoàn `overpayment` bằng phần chưa yêu cầu (người xin = người thao tác; người duyệt MGR+ khác người xin – SEC F8) và mở "Cần chú ý" `closed_reservation_credit`, **cùng giao dịch**; yêu cầu hoàn đang mở lớn hơn tiền dư → chạy lại `refundPlan` (hủy `superseded` + tạo lại, DOM-S4-14). Không đổi hình dạng phản hồi.
+     *     **0.3.7 bổ sung 4 – thu công nợ sau trả phòng (BR-525, ARC 16.26)**: folio `settled`/`closed` mặc định → 409 `FOLIO_LOCKED`. **Ngoại lệ duy nhất**: đơn có **công nợ mở**
      *     (ghi lúc B18 `checkOut.debt`, hoặc tự ghi khi đảo khoản thu – G-4) và `type = charge` → được ghi (FD+, không SAL/CTV), số tiền ≤ còn phải thu (vượt → 422 `AMOUNT_EXCEEDS_BALANCE`,
      *     `max`); folio **giữ** `settled`/`closed`, hóa đơn đã xuất không đổi, audit `money` `payment.recorded` kèm `debtCollection: true`. Thứ tự khóa (16.19): mọi đơn của folio
      *     `NO KEY UPDATE` → folio → giao dịch. Thu đủ (còn phải thu = 0) trong cùng giao dịch → công nợ đóng (mục "Cần chú ý" `checkout_debt` tự hết) và gọi cổng hoa hồng "đã thu đủ".
@@ -2636,7 +2638,8 @@ export interface paths {
     put?: never;
     /**
      * Lễ tân xác nhận đã thấy tiền của VietQR đang chờ – `pending → succeeded`, `reconciliation=pending` (SM-12; US-120, US-119 AC6)
-     * @description **0.3.3 (E05-02)**. Chỉ giao dịch `method=vietqr`, `status=pending`, `expiresAt` chưa qua; khác → `409 INVALID_TRANSITION` (kèm `currentState`).
+     * @description **0.3.8 bổ sung 3 (ARC 24/10, FB-R3-ARC-FUZZ-01, BR-522 K11-06)**: trên folio `settled`, thao tác này để lại tiền dư chưa có yêu cầu hoàn (`unhandledCreditVnd` > 0) → server tạo **một** yêu cầu hoàn `overpayment` bằng phần chưa yêu cầu (người xin = người thao tác; người duyệt MGR+ khác người xin – SEC F8) và mở "Cần chú ý" `closed_reservation_credit`, **cùng giao dịch**; yêu cầu hoàn đang mở lớn hơn tiền dư → chạy lại `refundPlan` (hủy `superseded` + tạo lại, DOM-S4-14). Không đổi hình dạng phản hồi.
+     *     **0.3.3 (E05-02)**. Chỉ giao dịch `method=vietqr`, `status=pending`, `expiresAt` chưa qua; khác → `409 INVALID_TRANSITION` (kèm `currentState`).
      *     Server khóa `payment … FOR UPDATE` + `folio … FOR UPDATE`; ghi `receivedAt` (mặc định bây giờ, ≤ bây giờ), `confirmedAt`, `confirmedBy` = người gọi,
      *     `reconciliation=pending` (chờ MGR+ đối soát sao kê – người xác nhận **không** được tự đối soát, A46); "còn phải thu" cập nhật ngay; nhật ký tiền BR-008.
      *     Giao dịch của cổng (VNPay/MoMo – R3) chỉ chuyển `succeeded` qua IPN đã xác thực, không qua endpoint này. Không cần `If-Match` (một chuyển trạng thái
@@ -2786,8 +2789,13 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Tạo yêu cầu hoàn **tay** từ folio khi khách trả thừa giữa kỳ ở (A43, BA E15-01)
-     * @description 0.3.6. Folio `open`, `creditVnd > 0`; `amountVnd` ≤ `creditVnd` − tổng yêu cầu `refund` đang `pending`/`approved` chưa chi của folio → 422 `REFUND_EXCEEDS_APPROVED`
+     * Tạo yêu cầu hoàn **tay** từ folio khi khách trả thừa – giữa kỳ ở hoặc sau trả phòng (A43, BA E15-01)
+     * @description **0.3.8 bổ sung 3 (ARC 24/10, FB-R3-ARC-FUZZ-01)**: nhận folio `open` **hoặc `settled`** (kể cả `settled` đã quá `post_checkout_window_until` mà J15 đang chờ –
+     *     `waiting_refund`); folio `closed` → 409 `FOLIO_LOCKED`. Vai, trần (`unhandledCreditVnd` – 422 `REFUND_EXCEEDS_APPROVED` kèm `max`), `reasonCode = overpayment`
+     *     và người duyệt (MGR+, khác người xin – SEC F8) như folio `open`. Dùng cho tiền dư sau trả phòng mà **không** có người bấm để tự tạo yêu cầu
+     *     (khoản thu đối soát tự động, khách trả qua link, đồng bộ `ota_collect`): "Cần chú ý" `closed_reservation_credit` dẫn tới thao tác này; khi tiền dư đã có yêu cầu
+     *     hoàn đủ (chi xong hoặc khách để lại tiền) J15 đóng folio ở lần chạy kế tiếp. Không đổi hình dạng request/response.
+     *     0.3.6. Folio `open`, `creditVnd > 0`; `amountVnd` ≤ `creditVnd` − tổng yêu cầu `refund` đang `pending`/`approved` chưa chi của folio → 422 `REFUND_EXCEEDS_APPROVED`
      *     (`field` = `amountVnd`). Tạo `ApprovalRequest` `type=refund` (`reasonCode = overpayment`), duyệt MGR+ (BR-522); nơi nhận nhập bằng `setRefundDestination`
      *     (operation này **không** nhận nơi nhận – 0.3.7 sửa mô tả, nháp B-10). Các nguồn tự động (B10, B16, dời ra ngoài, A-34) **không** dùng operation này.
      */

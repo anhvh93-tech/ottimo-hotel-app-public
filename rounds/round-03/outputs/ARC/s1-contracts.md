@@ -217,3 +217,46 @@ Phải chờ: US-164 phần B18 (sau bước 3), R3-Q27 phía payments (sau bư�
 | 2 | `mfa_login_challenge` RLS theo tổ chức + hàm entry; cột `mfa_data_key_id`, `mfa_key_property_id` | **Đồng ý**, erd 4.15 đã sửa. Lý do: cùng mẫu `user_session` (token → tổ chức qua hàm entry hẹp, mọi ghi dưới RLS) – chặt hơn bảng không RLS chỉ đi qua SECURITY DEFINER. Điều kiện: hàm entry chỉ trả `(user_id, organization_id)`, không trả `failed_count`/`expires_at`; `REVOKE … FROM PUBLIC`, `GRANT EXECUTE` cho `ottimo_app` (đúng như migration 0079 nhánh BE-C). `mfa_key_property_id` = cơ sở dùng bọc DEK lúc đăng ký, cố định tới khi đăng ký lại; mất vai ở cơ sở đó không làm mất khả năng mở DEK (CryptoService mở theo id đã lưu, không theo vai) – BE-C có ca test |
 | 3 | FE-A Q1 – US-143 AC3 (a) "buộc đăng ký lại 2FA trên thiết bị mới sau khi vào bằng mã khôi phục" | **Giữ AC, mở đường trong hợp đồng** (không sửa AC): (a) `loginMfa` bằng `recoveryCode` → phiên **hạn chế** (`enrollment_only`, `Me.mfaEnrollmentRequired = true`) cho **mọi** người có 2FA, không chỉ vai bắt buộc; (b) `startMy2faSetup` cho phép khi 2FA đang bật **chỉ** nếu phiên hiện tại `amr = recovery_code` (còn lại vẫn 409) – sinh bí mật chờ, bí mật cũ chạy tới khi xác nhận; (c) `confirmMy2fa` trên đường này **thay** bí mật, sinh 10 mã mới (bộ cũ hết hiệu lực), thu hồi phiên khác, cấp phiên mới `amr = totp`, audit `security` `mfa.reenrolled`. Không operation mới, không cần OWN. Lý do: AC đúng về bảo mật (mã khôi phục đã dùng nghĩa là điện thoại cũ coi như mất), và ESC-027 B có một OWN – đường "nhờ OWN đặt lại" không dùng được cho chính OWN. Đã ghi mô tả `loginMfa`, `startMy2faSetup` trong `openapi.yaml`. **Việc**: BE-C (guard + nhánh confirm), FE-A (bỏ thông báo tạm G-FE-A-1, dùng màn đăng ký có sẵn với chữ "Đăng ký lại trên điện thoại mới" – UXD), QA (ca: vào bằng mã khôi phục → API khác 403; đăng ký lại → mã cũ + bộ khôi phục cũ hết hiệu lực; phiên `amr = totp` gọi setup → 409), SEC xem lại cùng Verified US-143 |
 | 4 | SEC Blocker FB-R3-SEC-BE-B-07 + DOM BR-433 (d) v0.4.1 – cơ sở hạn mức được bảo vệ | **Chốt kỹ thuật** (chi tiết: `reviews/s1-ARC-on-BE-B.md` mục "Hướng dẫn sửa FB-07"; erd 4.15). Ba cột (`stay_night.reference_rate_vnd`, `folio_line.limit_ref_vnd` có CHECK bắt buộc với dòng `room`/`late_fee_as_night`, `folio.limit_basis_checkout_vnd` chụp lúc B18) gộp vào migration của BE-B (0080 nếu 2FA gộp trước). Một cổng nội bộ `FolioService.limitBasisVnd(tx, folioId, lineId \| null)` thay `nightRateBasis`/`folioNightBasisVnd` cho (a)(b)(c), BR-416, US-164. Không đổi hình dạng OpenAPI. Mô tả `requestFoc` (đoạn `nightRateBasis`) đổi thành "cơ sở hạn mức bảo vệ BR-433 (d)" ở lần sinh lại kế tiếp |
+
+---
+
+## 13. 0.3.8 bổ sung 2 và 3 (23–24/10/2026)
+
+`info.version` giữ `0.3.8-draft`. Không thêm trường hay operation; chỉ nới điều kiện và đổi mô tả.
+
+### 13.1 Bổ sung 2 (R3-Q51, đã commit `bea761f` + ORC)
+- `getParameterHistory`: `current` không bắt buộc.
+- Mã trường `ACCOUNT_NUMBER_NOT_ALLOWED`.
+- Chi tiết: `reviews/s1-ARC-on-Q51.md`.
+
+### 13.2 Bổ sung 3 – tiền dư sau trả phòng (FB-R3-ARC-FUZZ-01, BUG-R3-002; BR-522 K11-06, oracle I4)
+
+| # | Điểm | Quyết định ARC |
+|---|---|---|
+| 1 | `createRefundRequest` trên folio `settled` | **Nhận folio `open` hoặc `settled`**, kể cả `settled` đã quá `post_checkout_window_until` mà J15 đang chờ (`waiting_refund`). Folio `closed` → 409 `FOLIO_LOCKED`; theo I4, folio `closed` không còn tiền dư. Giữ nguyên như folio `open`: vai FD+ (A43, `x-roles` không đổi, chỉ tạo yêu cầu, không đổi tiền), trần `unhandledCreditVnd` (422 `REFUND_EXCEEDS_APPROVED` + `max`), `reasonCode = overpayment`, người duyệt MGR+ khác người xin (SEC F8), nơi nhận qua `setRefundDestination` |
+| 2 | Quy tắc K11-06 ở server | Thao tác **do người bấm** trên folio `settled` mà sau thao tác `unhandledCreditVnd` > 0 → `FolioService.closeStayCredit` **cùng giao dịch**, dưới L3 người gọi đã giữ: **một** yêu cầu hoàn `overpayment` bằng phần chưa yêu cầu, người xin = người thao tác, kèm "Cần chú ý" `closed_reservation_credit`. Yêu cầu hoàn đang mở > tiền dư → chạy lại `refundPlan` (hủy `superseded` + tạo lại – DOM-S4-14; gộp FB-R3-ARC-FUZZ-02). Áp cho `adjustFolioLine` (đã có, BUG-R3-002), `recordPayment`, `confirmPaymentReceived`. Ghi ở mô tả ba operation này |
+| 3 | Đường **không** có người bấm (đối soát tự động, khách trả qua link, đồng bộ `ota_collect`) | Không tự tạo yêu cầu, vì `requested_by` phải là người thật. J15 giữ folio `settled` (`waiting_refund`) + "Cần chú ý" `closed_reservation_credit` (đã có). Nhân viên xử lý bằng điểm 1. Mục tự đóng khi tiền dư đã có yêu cầu hoàn đủ; J15 đóng folio ở lần chạy kế tiếp sau khi chi xong hoặc khách để lại tiền |
+| 4 | Hình dạng | Không đổi request/response của operation nào. `openapi-meta`/`openapi-schemas` up to date; api-client sinh lại (chỉ JSDoc) |
+
+**Việc BE-B** (một PR, review ARC + SEC, mã tiền):
+- `refunds.service.ts` `create`: nhận folio `settled` (`closed` → `FOLIO_LOCKED`).
+- `recordPayment` và `confirmPaymentReceived` (nhánh người bấm): sau khi ghi, nếu folio `settled` và `unhandledCreditVnd` > 0, hoặc `openRefundVnd` > `rawCreditVnd`, thì gọi `closeStayCredit`. Gom điều kiện này thành **một** hàm dùng chung với `folio-lines.service.ts`, ví dụ `FolioService.afterSettledMoneyChange(tx, folioId, actor)`, để không có hai định nghĩa.
+- Test:
+  - QR về muộn, dư sau trả phòng (người bấm xác nhận) → có yêu cầu hoàn đúng số;
+  - khoản đối soát tự động dư → J15 `waiting_refund` + "Cần chú ý" → FD gọi `createRefundRequest` trên folio `settled` → MGR duyệt, chi → J15 đóng;
+  - folio `closed` → 409;
+  - A32 tăng làm tiền dư < yêu cầu đang mở → `refundPlan` hủy và tạo lại (FUZZ-02).
+
+**Việc FE-A:** thao tác "Tạo yêu cầu hoàn" hiện cả trên folio `settled` (nhãn và chữ theo brand OTTIMO). Từ mục "Cần chú ý" `closed_reservation_credit` dẫn tới folio đó.
+
+**Việc QA:** fuzz thêm thao tác "QR về muộn dư" và "đối soát tự động dư" vào các họ có trả phòng; I4 vẫn phải bằng 0.
+
+**Kiểm đã chạy (24/10):**
+- `openapi-spec-validator`: OK;
+- `gen-openapi-meta --check`: up to date;
+- api-client sinh lại, tsc đạt, vitest 30/30;
+- `gen_rbac_cases --check`: OK;
+- `gen_traceability --strict`: exit 0. `traceability.md` sinh lại có lệch không do thay đổi này, nên không đưa vào commit; QA sinh lại;
+- api `contract` 5/5;
+- prettier: xanh;
+- Redocly không có trên máy, CI `contract-lint` chạy.
