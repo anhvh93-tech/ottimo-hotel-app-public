@@ -446,6 +446,16 @@ export class FolioLinesService {
     }
     const managers = actor.roles.some((r) => MANAGERS.includes(r));
     if (folio.status === 'closed') throw problem('FOLIO_LOCKED');
+    // N-15 (ARC 16.31.1/16.31.4, BR-427 (d)): past `post_checkout_window_until` the folio is final even before J15
+    // (hourly) has closed it – treated as `closed`.
+    const windowUntil = folio.post_checkout_window_until ?? null;
+    if (
+      folio.status === 'settled' &&
+      windowUntil !== null &&
+      this.clock.now().getTime() >= windowUntil.getTime()
+    ) {
+      throw problem('FOLIO_LOCKED', { detail: 'post-checkout window over (BR-427 d)' });
+    }
     // US-038 AC2 / A32: after checkout only MGR+ posts corrections.
     if (folio.status === 'settled' && !managers) throw problem('FORBIDDEN_ACTION');
     const { rows } = await tx.query<{
@@ -484,16 +494,28 @@ export class FolioLinesService {
     }
     const qty = input.newQuantity ?? Number(line.quantity);
     const price = input.newUnitPriceVnd ?? line.unit_price_vnd;
-    // BR-525 N-7 (DOM 18/10): while the checked-out stay has an OPEN debt, no correction may REDUCE a line of the
-    // settled folio – owed money only goes down through a FOC `debt_write_off` (BR-433 limits, OWN above them, FOC
-    // report). An increase, or a folio without an open debt, keeps A32.
+    // BR-525 N-7 by the number (ARC 16.31.1 – BUG-R2-208, DOM 18/10; SEC s1 D): on a settled folio inside its window
+    // a correction that REDUCES a line (void, lower price, lower quantity; reduction = line before − after) is allowed
+    // only up to W = max(0, còn phải thu) − `openDebtVnd` (the charges still in their window); above → 409, every
+    // role, nothing written – the debt part only goes down through a FOC `debt_write_off` (BR-433) or a receipt.
+    // `openDebtVnd` = 0 → as a stay without debt. An increase keeps A32. Read under L1 → L3 held above.
+    let debtCheck: { openDebtVnd: number; windowVnd: number; reducedVnd: number } | null = null;
     if (folio.status === 'settled') {
       const before = Math.round(Number(line.quantity) * line.unit_price_vnd);
       const after = input.voidLine ? 0 : night ? night.amountVnd : Math.round(qty * price);
-      if (after < before && (await this.hooks.openDebt(tx, folio.id)) !== null) {
-        throw problem('FOLIO_LOCKED', {
-          detail: 'open debt – reduce what is owed through a FOC debt_write_off (BR-525)',
-        });
+      if (after < before) {
+        const debt = await this.hooks.openDebt(tx, folio.id);
+        const openDebtVnd = debt?.openDebtVnd ?? 0;
+        if (debt && openDebtVnd > 0) {
+          const windowVnd = Math.max(0, debt.balanceDueVnd) - openDebtVnd;
+          if (before - after > windowVnd) {
+            throw problem('FOLIO_LOCKED', {
+              detail:
+                'reduction above the charges still in their window – the debt goes down through a FOC debt_write_off (BR-525)',
+            });
+          }
+          debtCheck = { openDebtVnd, windowVnd, reducedVnd: before - after };
+        }
       }
     }
     if (input.newUnitPriceVnd !== undefined && !managers && !night) {
@@ -570,8 +592,40 @@ export class FolioLinesService {
         before: {
           category: line.category,
           amountVnd: Math.round(Number(line.quantity) * line.unit_price_vnd),
+          ...(debtCheck
+            ? { openDebtVnd: debtCheck.openDebtVnd, windowVnd: debtCheck.windowVnd }
+            : {}),
         },
-        after: { category: line.category, amountVnd: newAmount },
+        after: {
+          category: line.category,
+          amountVnd: newAmount,
+          ...(debtCheck
+            ? { reducedVnd: debtCheck.reducedVnd, openDebtVnd: debtCheck.openDebtVnd }
+            : {}),
+        },
+        reason,
+        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+      });
+    } else if (debtCheck) {
+      // SEC s1 D.4: a reduction allowed on a folio with an open debt is audited with the numbers it was decided on
+      // (the void itself is `folio.line_reversed`).
+      await this.audit.recordMoney(tx, {
+        action: 'folio_line.adjusted',
+        entityType: 'folio_line',
+        entityId: line.id,
+        ...(stayCode ? { entityCode: stayCode } : {}),
+        before: {
+          category: line.category,
+          amountVnd: Math.round(Number(line.quantity) * line.unit_price_vnd),
+          openDebtVnd: debtCheck.openDebtVnd,
+          windowVnd: debtCheck.windowVnd,
+        },
+        after: {
+          category: line.category,
+          amountVnd: 0,
+          reducedVnd: debtCheck.reducedVnd,
+          openDebtVnd: debtCheck.openDebtVnd,
+        },
         reason,
         ...(actor.requestId ? { requestId: actor.requestId } : {}),
       });

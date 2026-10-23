@@ -1079,12 +1079,14 @@ describe.skipIf(!HAS_DB)('G-4 / BR-525 – reversal after check-out records the 
     );
     expect(ok.statusCode, ok.body).toBe(200);
     expect(await openDebtOf(s)).toMatchObject({ openDebtVnd: 100_000, balanceDueVnd: 100_000 });
-    // an INCREASE stays A32 (201) while the debt is open
+    // R3 N-15 (ARC 16.31.1, BUG-R2-208): the window is over (D+2, J15 not run yet) → the folio is final even for an
+    // INCREASE (as `closed`); an increase inside the window stays A32 – `r3-folio-lines-208.test.ts`.
     const room = await roomLineOf(s);
     const unit = ((await folio(s.folioId)).lines as any[]).find((l) => l.id === room).unitPriceVnd;
     const up = await adjustLine(s, room, { newUnitPriceVnd: unit + 10_000, reason: 'Sửa giá' });
-    expect(up.statusCode, up.body).toBe(201);
-    expect((await folio(s.folioId)).totals.balanceDueVnd).toBe(110_000);
+    expect(up.statusCode, up.body).toBe(409);
+    expect(up.json().code).toBe('FOLIO_LOCKED');
+    expect((await folio(s.folioId)).totals.balanceDueVnd).toBe(100_000);
   });
 
   // ───────────── FB-R2-SEC-BE-80 (Blocker): the write-off is capped again when it is APPLIED ─────────────
