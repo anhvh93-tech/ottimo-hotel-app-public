@@ -194,8 +194,8 @@ describe('H09 Đặt phòng mới (US-017, US-018, US-019, US-139)', () => {
   // BUG-R3-005 (QA 23/10, P1 – FE): "Số tiền đã nhận" is prefilled from the first quote only
   // (`depositAmount: f.depositAmount || …` in BookingDialog) and never follows a later quote the desk did not edit.
   // Deterministic: let the default 1-night quote land, then change the stay → the box keeps the old deposit.
-  // Un-skip when FE fixes it (expected: follows the newest quote until the desk types in the box).
-  it.skip('BUG-R3-005: received amount follows the newest quote until the desk edits it', async () => {
+  // Fixed (FE-B 23/10): the box follows the newest quote until the desk types in it.
+  it('BUG-R3-005: received amount follows the newest quote until the desk edits it', async () => {
     const { user } = renderApp('/rack', 'qa.fd');
     const dlg = await openForm(user);
     const room = within(dlg).getByLabelText(/^Căn/);
@@ -216,6 +216,36 @@ describe('H09 Đặt phòng mới (US-017, US-018, US-019, US-139)', () => {
       ).toHaveLength(4),
     );
     await waitFor(() => expect((received as HTMLInputElement).value).not.toBe(oneNight));
+    expect(within(dlg).queryByRole('button', { name: /^Dùng / })).not.toBeInTheDocument();
+  });
+
+  it('BUG-R3-005: an amount the desk typed is never overwritten – a mismatch warning shows instead', async () => {
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openForm(user);
+    const room = within(dlg).getByLabelText(/^Căn/);
+    await waitFor(() => expect(within(room).getAllByRole('option').length).toBeGreaterThan(5));
+    await user.selectOptions(room, within(room).getByRole('option', { name: /^201 / }));
+    const received = await within(dlg).findByLabelText(new RegExp(`^${tv('rsv.amount_received')}`));
+    await waitFor(() => expect(received).not.toHaveValue(''));
+    await user.clear(received);
+    await user.type(received, '150000');
+    fireEvent.change(within(dlg).getByLabelText('Ngày đi'), {
+      target: { value: addDays(todayLocal(), 4) },
+    });
+    await waitFor(() =>
+      expect(
+        within(dlg).getAllByLabelText(
+          new RegExp(`^${tv('rate.pre_tier').replace(/[()]/g, '\\$&')} \\d\\d/\\d\\d`),
+        ),
+      ).toHaveLength(4),
+    );
+    // Kept as typed, and the desk is told it differs from the deposit due at the new price.
+    expect((received as HTMLInputElement).value).toBe('150000');
+    const warn = await within(dlg).findByText(/^Số tiền đã nhận \(150\.000 đ\) khác cọc cần thu/);
+    const alert = warn.closest('.alert') as HTMLElement;
+    await user.click(within(alert).getByRole('button', { name: /^Dùng / }));
+    expect((received as HTMLInputElement).value).not.toBe('150000');
+    expect(within(dlg).queryByText(/khác cọc cần thu/)).not.toBeInTheDocument();
   });
 
   it('sale / CTV cannot open the booking form (US-017 AC6) – no rack, no button', async () => {

@@ -2982,6 +2982,8 @@
   "field.USERNAME_TAKEN": "This username is already in use. Choose another.",
   "field.PASSWORD_SAME_AS_USERNAME": "The password must not contain the username.",
   "field.PASSWORD_TOO_COMMON": "This password is too easy to guess. Choose another.",
+  "bk.deposit_mismatch": "Amount received ({received} VND) differs from the deposit due at the new price ({deposit} VND). Check what the guest actually paid before creating the booking.",
+  "bk.deposit_use_quote": "Use {amount} VND",
   "msg.booking_confirmed": "Hi {name}, OTTIMO confirms booking {code}: room {room}, {from} → {to} ({nights} nights). Check-in from 14:00, check-out by 12:00. Deposit paid {deposit}, {balance} due at check-in. Cancellation: {cancel_policy_short}. Check in online for a faster arrival: {link}",
   "msg.deposit_received": "Hi {name}, OTTIMO has received your deposit of {deposit} for booking {code} (room {room}, {from} → {to}). {balance} is due at check-in. Cancellation: {cancel_policy_short}",
   "msg.checkin_link": "Hi {name}, to speed up your check-in, please send your IDs and arrival time here: {link} (about 2 minutes).",
