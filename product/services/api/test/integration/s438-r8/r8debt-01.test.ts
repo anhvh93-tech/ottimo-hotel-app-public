@@ -48,8 +48,11 @@ describe.skipIf(!HAS_DB || Boolean(PENDING))(
       const n = typeof nOf === 'number' ? nOf : nOf(sv, X);
       await x.at(`${s.departure}T15:00:00+07:00`);
       expect((await x.reverse(s.bigTransferId!)()).statusCode).toBe(200);
+      // R3 BE-83 (BR-433 (a) v0.4.0): MGR self-applies only the first (Σ ≤ basis); the next ones are OWN's own.
       for (let i = 0; i < n; i++)
-        expect(outcome(await x.writeOff(s, s.bigLineId!, sv)())).toBe(`201 approved eff ${sv}`);
+        expect(
+          outcome(await x.writeOff(s, s.bigLineId!, sv, i === 0 ? {} : { who: 'owner' })()),
+        ).toBe(`201 approved eff ${sv}`);
       return { s, X, b, sv, n };
     };
     const raise = async (s: any, X: number, by = 10_000) => {

@@ -84,6 +84,8 @@ export const ROLES = {
   owner: ['owner'],
   sal: ['sales_staff'],
   ctv: ['collaborator'],
+  // R3 S1 step 4 (BR-433 (c) – ESC-026 A): a lead deciding FOC of the desk.
+  lead: ['front_desk_lead'],
 };
 const ROOMS = ['101', '102', '103', '201', '202', '203', '301', '302'];
 export const TRANSFER = 100_000;
@@ -164,7 +166,7 @@ export async function startFixture() {
     ),
   );
   c.fd!.deviceToken = token;
-  for (const u of ['mgr', 'mgr2', 'owner', 'fd']) await setPassword(db, t, u);
+  for (const u of ['mgr', 'mgr2', 'owner', 'fd', 'lead']) await setPassword(db, t, u);
 
   const url = (path = '') => `${P(t)}${path}`;
   const q = (sql: string, args: unknown[] = []) =>
@@ -263,7 +265,19 @@ export async function startFixture() {
   const openDebtOf = (s: Booking) =>
     db.withContext(t.ctx(), (tx) => hooks().openDebt(tx, s.folioId));
   const nightBasis = (lineId: string) =>
-    db.withContext(t.ctx(), (tx) => fa.app.get(FolioService).nightRateBasis(tx, lineId));
+    db.withContext(t.ctx(), async (tx) =>
+      fa.app
+        .get(FolioService)
+        .limitBasisVnd(
+          tx,
+          (
+            await tx.query<{ f: string }>('SELECT folio_id AS f FROM folio_line WHERE id = $1', [
+              lineId,
+            ])
+          ).rows[0]!.f,
+          lineId,
+        ),
+    );
   const runJ15 = async () => {
     const runner = fa.app.get(JobRunner, { strict: false });
     const p = (await runner.listProperties()).find((x: any) => x.propertyId === t.propertyIds[0])!;
@@ -577,6 +591,7 @@ export async function startFixture() {
 
   return {
     db,
+    guest,
     fa,
     t,
     ids,

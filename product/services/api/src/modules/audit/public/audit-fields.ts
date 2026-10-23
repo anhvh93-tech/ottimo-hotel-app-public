@@ -72,6 +72,8 @@ defineAuditEntity('approval_request', [
   'decisionNote',
   'monthlyUsedVnd',
   'limitVnd',
+  // BR-433 (a)(b) v0.4.0 (R3 – FB-R2-SEC-BE-83): the cumulative Σ the per-time limit was compared with.
+  'cumulativeVnd',
 ]);
 // identity (BE-B) – fields its use cases write today; the identity module may take this over.
 defineAuditEntity('app_user', [

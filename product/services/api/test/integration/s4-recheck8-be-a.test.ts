@@ -325,7 +325,11 @@ describe.skipIf(!HAS_DB)('kiểm lại tiền lần 8 – BE-A (BUG-R2-207)', ()
   it('BUG-R2-207 auto-cancel: 4 × 791.000 self-applied, 1.836.000 asked (pending), A32 +10.000 → OWN approves approved eff 1.836.000 (not cancelled debt_cleared), due 10.000', async () => {
     const s = await stay(5_000_000);
     for (let i = 0; i < 4; i += 1) {
-      expect(out(await writeOff(s.folioId, s.lineId, 791_000))).toBe('201 approved eff 791000');
+      // R3 BE-83 (BR-433 (a) v0.4.0): MGR can no longer self-apply write-offs one by one past the basis – OWN applies
+      // them here; the case under test (a re-posted FOC counted once) is the same.
+      expect(out(await writeOff(s.folioId, s.lineId, 791_000, 'owner'))).toBe(
+        '201 approved eff 791000',
+      );
     }
     const w = await writeOff(s.folioId, s.lineId, 1_836_000);
     expect(out(w)).toBe('201 pending eff 1836000');

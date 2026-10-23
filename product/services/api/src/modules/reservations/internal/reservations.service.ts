@@ -1207,9 +1207,10 @@ export class ReservationsService {
       amount: number;
       extra: number | null;
       cnt: number | null;
+      ref: string | number;
     }>(
       `SELECT id, stay_date::text AS date, room_revenue_vnd AS amount, extra_person_fee_vnd AS extra,
-              extra_person_count AS cnt
+              extra_person_count AS cnt, reference_rate_vnd AS ref
          FROM stay_night WHERE reservation_id = $1 AND night_state = 'sold' AND rate_source <> $2
         ORDER BY stay_date`,
       // A7-01 (ARC 16.21): a lease night of a manual long stay never becomes a folio line.
@@ -1239,6 +1240,8 @@ export class ReservationsService {
         stayNightId: n.id,
         date: n.date,
         roomRevenueVnd: n.amount,
+        // BR-433 (d) v0.4.1: the reference rate the folio's room line carries (`folio_line.limit_ref_vnd`).
+        referenceRateVnd: Number(n.ref),
         // NULL = the booking-level fee of the snapshot (every night alike); a value = this night's own fee.
         extraPersonVnd: n.extra ?? snap.extraPersonFeePerNightVnd ?? 0,
         // 0032 – the bill label "{n} người" of that night (NULL count = the booking-level one).
@@ -2662,11 +2665,14 @@ export class ReservationsService {
   ): Promise<number> {
     for (const k of input.kept) {
       await tx.query(
+        // BR-433 (d) v0.4.1: a system re-price moves the reference rate; a typed night (A31 / agreed at booking –
+        // snapshot `manual`) keeps the reference it had (a hand edit never raises the limit basis).
         `UPDATE stay_night SET room_revenue_gross_vnd = $3::bigint, room_revenue_vnd = $3::bigint - discount_vnd,
-                calendar_rate_vnd = $4::bigint, updated_at = $5
+                calendar_rate_vnd = $4::bigint, updated_at = $5,
+                reference_rate_vnd = CASE WHEN $6::boolean THEN reference_rate_vnd ELSE $3::bigint END
           WHERE reservation_id = $1 AND stay_date = $2 AND night_state <> 'void'
             AND (room_revenue_gross_vnd <> $3::bigint OR calendar_rate_vnd IS DISTINCT FROM $4::bigint)`,
-        [row.id, k.date, k.amountVnd, k.calendarVnd, ctx.now],
+        [row.id, k.date, k.amountVnd, k.calendarVnd, ctx.now, k.manual],
       );
     }
     await insertNights(
@@ -3751,7 +3757,9 @@ export class ReservationsService {
                 extra_person_fee_vnd = CASE WHEN $10::boolean THEN $7::bigint ELSE extra_person_fee_vnd END,
                 extra_person_count = CASE WHEN $10::boolean THEN $8::smallint ELSE extra_person_count END,
                 extra_person_base = CASE WHEN $10::boolean THEN $9::smallint ELSE extra_person_base END,
-                updated_at = $11
+                updated_at = $11,
+                -- BR-433 (d) v0.4.1: the plan's system price is the reference; a typed price kept keeps its reference.
+                reference_rate_vnd = CASE WHEN $12::boolean THEN reference_rate_vnd ELSE $5::bigint END
           WHERE reservation_id = $1 AND stay_date = $2 AND night_state <> 'void'`,
         [
           row.id,
@@ -3765,6 +3773,7 @@ export class ReservationsService {
           n.feeBase,
           n.roomChanged || n.added,
           ctx.now,
+          n.manual,
         ],
       );
     }
@@ -3826,7 +3835,9 @@ export class ReservationsService {
                 extra_person_fee_vnd = CASE WHEN $10::boolean THEN $7::bigint ELSE extra_person_fee_vnd END,
                 extra_person_count = CASE WHEN $10::boolean THEN $8::smallint ELSE extra_person_count END,
                 extra_person_base = CASE WHEN $10::boolean THEN $9::smallint ELSE extra_person_base END,
-                updated_at = $11
+                updated_at = $11,
+                -- BR-433 (d) v0.4.1: the plan's system price is the reference; a typed price kept keeps its reference.
+                reference_rate_vnd = CASE WHEN $12::boolean THEN reference_rate_vnd ELSE $5::bigint END
           WHERE reservation_id = $1 AND stay_date = $2 AND night_state <> 'void'`,
         [
           row.id,
@@ -3840,6 +3851,7 @@ export class ReservationsService {
           n.feeBase,
           n.roomChanged,
           ctx.now,
+          n.manual,
         ],
       );
     }

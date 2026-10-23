@@ -22,6 +22,7 @@ import { ReservationHooks } from '../reservations/public/reservation-hooks';
 import { FolioController } from './internal/folio.controller';
 import { BillService } from './internal/bill.service';
 import { FolioFocService } from './internal/foc.service';
+import { StayWaiverAlertService } from './internal/stay-waiver-alert';
 import { FolioLinesService } from './internal/folio-lines.service';
 import { folioCloseJob } from './public/folio-close-job';
 import { FolioService } from './public/folio.service';
@@ -84,6 +85,8 @@ defineAuditEntity('approval_request', [
 ]);
 // 0.3.6 B-29 (payments.confirmDeposit): short deposit accepted by MGR+.
 defineAuditEntity('reservation', ['shortfallVnd', 'depositRequiredVnd', 'depositPaidVnd']);
+// BR-433 (c) v0.4.0 – ESC-026 A: `folio.foc_stay_alerted` (numbers only, no guest data).
+defineAuditEntity('reservation', ['stayWaiverVnd', 'thresholdVnd', 'itemCount', 'alertCount']);
 defineAuditEntity('commission', [
   'status',
   'payeeType',
@@ -102,6 +105,7 @@ defineAuditEntity('commission', [
   providers: [
     FolioService,
     FolioFocService,
+    StayWaiverAlertService,
     FolioLinesService,
     BillService,
     // reservations/public/folio-sync-port.ts (BE-A): reversal + resync after posted nights change.

@@ -94,7 +94,19 @@ export interface SubmitInput {
    * transaction (the approver who confirmed at the desk, `approve`).
    */
   noSelfApply?: boolean;
+  /**
+   * BR-433 (a)(b) v0.4.0 (R3 – FB-R2-SEC-BE-83, "chống chia nhỏ"): the amount the PER-TIME limit and the routing
+   * are compared with – the cumulative Σ of the same write-off folio / FOC key (applied + still asked + this
+   * request), computed by the caller under the folio lock. Absent → the request's own amount (every other type).
+   * The monthly limit keeps counting the request's own amount.
+   */
+  perTimeAmountVnd?: number;
   requestId?: string;
+}
+
+/** BR-433 (a)(b): what the per-time limit is compared with (see `SubmitInput.perTimeAmountVnd`). */
+function perTimeVnd(input: SubmitInput): number {
+  return Math.max(input.amountVnd, input.perTimeAmountVnd ?? 0);
 }
 
 export interface ApprovalRow {
@@ -371,7 +383,7 @@ export class ApprovalService {
     const { propertyId, tz, today, now } = await this.context(tx);
     const focLimits = await this.focLimits(tx);
     const basis = input.limitBasisVnd ?? null;
-    let requiredRole = requiredRoleFor(input.type, input.amountVnd, focLimits, basis);
+    let requiredRole = requiredRoleFor(input.type, perTimeVnd(input), focLimits, basis);
     // FB-R2-ARC-BE-09: a lead's own request is decided above the lead level.
     if (
       approverRoleOf(actor.roles) === 'front_desk_lead' &&
@@ -440,6 +452,7 @@ export class ApprovalService {
         selfApplied: row.self_applied,
         targetType: row.target_type,
         targetCode: row.target_code,
+        ...(input.perTimeAmountVnd !== undefined ? { cumulativeVnd: perTimeVnd(input) } : {}),
       },
       ...(note ? { reason: note } : {}),
       ...(input.requestId ? { requestId: input.requestId } : {}),
@@ -468,7 +481,7 @@ export class ApprovalService {
       const limit = MONEY_LIMITED.has(input.type)
         ? roleLimit(c.focLimits, role, c.basis)
         : { perTime: 'unlimited' as const, perMonth: 'unlimited' as const };
-      if (!within(input.amountVnd, limit.perTime)) return null;
+      if (!within(perTimeVnd(input), limit.perTime)) return null;
       const used = await this.monthlyApprovedBy(tx, actor.userId, c.tz, c.now, 'all');
       if (limit.perMonth !== 'unlimited' && used + input.amountVnd > limit.perMonth) return null;
       return {
@@ -501,7 +514,7 @@ export class ApprovalService {
       'foc_self_apply.front_desk.per_month',
       c.today,
     );
-    if (input.amountVnd > perTime) return null;
+    if (perTimeVnd(input) > perTime) return null;
     const used = await this.monthlyApprovedBy(tx, actor.userId, c.tz, c.now, 'self');
     if (used + input.amountVnd > perMonth) return null;
     return {

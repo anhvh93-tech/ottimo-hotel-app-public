@@ -8460,8 +8460,7 @@
         },
         "r2CodeSelfAppliedVnd": 3000000
       },
-      "pendingFix": "R3-SEC-BE-83",
-      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài. · 23/10 (BE-B, R3 Sprint 1 lượt kiểm tiền bước 4): gỡ pendingFix – BR-433 (a)(b)(c) v0.4.0 cài; test `services/api/test/integration/s438-r8/r3-be83-esc026.test.ts` đạt trên CSDL thật; QA/SEC xác nhận khi gộp."
     },
     {
       "id": "BR-433-05",
@@ -8499,8 +8498,7 @@
         },
         "r2CodeBothSelfApplied": true
       },
-      "pendingFix": "R3-SEC-BE-83",
-      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài. · 23/10 (BE-B, R3 Sprint 1 lượt kiểm tiền bước 4): gỡ pendingFix – BR-433 (a)(b)(c) v0.4.0 cài; test `services/api/test/integration/s438-r8/r3-be83-esc026.test.ts` đạt trên CSDL thật; QA/SEC xác nhận khi gộp."
     },
     {
       "id": "BR-433-06",
@@ -8508,7 +8506,6 @@
       "case": "(R3 S1, ESC-026 A, E26-1) Ba khoản miễn khác khóa của MGR trên lượt có đêm thứ Sáu (ngưỡng 911.000): đều áp ngay; vượt ngưỡng sau khoản 3 → 1 thông báo OWN + 1 mục \"Cần chú ý\"",
       "origin": "example",
       "labels": ["INV-026", "NGÀNH"],
-      "pendingFix": "R3-ESC-026",
       "calc": null,
       "input": {
         "roomNo": "202",
@@ -8538,7 +8535,7 @@
         "attentionItems": 1,
         "guestPaysReductionVnd": 1150000
       },
-      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-1; BR-433 (c) 0.4.0; US-007 AC7. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-1; BR-433 (c) 0.4.0; US-007 AC7. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM. · 23/10 (BE-B, R3 Sprint 1 lượt kiểm tiền bước 4): gỡ pendingFix – BR-433 (a)(b)(c) v0.4.0 cài; test `services/api/test/integration/s438-r8/r3-be83-esc026.test.ts` đạt trên CSDL thật; QA/SEC xác nhận khi gộp."
     },
     {
       "id": "BR-433-07",
@@ -8546,7 +8543,6 @@
       "case": "(R3 S1, ESC-026 A, E26-2) MGR tự áp giảm giá đặc biệt 100% từng đêm (căn 101, ngưỡng 767.000): thông báo mỗi lần áp vượt ngưỡng, chỉ một mục \"Cần chú ý\"",
       "origin": "example",
       "labels": ["INV-026", "NGÀNH"],
-      "pendingFix": "R3-ESC-026",
       "calc": null,
       "input": {
         "roomNo": "101",
@@ -8562,7 +8558,7 @@
         "attentionItems": 1,
         "guestRoomPaysVnd": 0
       },
-      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-2. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-2. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM. · 23/10 (BE-B, R3 Sprint 1 lượt kiểm tiền bước 4): gỡ pendingFix – BR-433 (a)(b)(c) v0.4.0 cài; test `services/api/test/integration/s438-r8/r3-be83-esc026.test.ts` đạt trên CSDL thật; QA/SEC xác nhận khi gộp."
     },
     {
       "id": "BR-433-08",
@@ -8570,7 +8566,6 @@
       "case": "(R3 S1, ESC-026 A, E26-3) Ngưỡng theo vai cao nhất có khoản đang áp: FD/LT trưởng → 300.000; khi MGR áp thêm → ngưỡng thành giá đêm cao nhất 792.000",
       "origin": "example",
       "labels": ["INV-026", "NGÀNH"],
-      "pendingFix": "R3-ESC-026",
       "calc": null,
       "input": {
         "roomNo": "203",
@@ -8603,7 +8598,7 @@
         "thresholdAfterVnd": [100000, 300000, 300000, 792000],
         "ownerNotificationsAfter": [0, 0, 1, 0]
       },
-      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-3. Sau khoản 1 (chỉ FD tự miễn) ngưỡng 100.000, Σ 70.000 → không báo. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-3. Sau khoản 1 (chỉ FD tự miễn) ngưỡng 100.000, Σ 70.000 → không báo. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM. · 23/10 (BE-B, R3 Sprint 1 lượt kiểm tiền bước 4): gỡ pendingFix – BR-433 (a)(b)(c) v0.4.0 cài; test `services/api/test/integration/s438-r8/r3-be83-esc026.test.ts` đạt trên CSDL thật; QA/SEC xác nhận khi gộp."
     },
     {
       "id": "BR-433-09",
@@ -8611,7 +8606,6 @@
       "case": "(R3 S1, ESC-026 A, E26-4) Khoản do OWN duyệt không tính vào Σ lượt",
       "origin": "example",
       "labels": ["INV-026", "NGÀNH"],
-      "pendingFix": "R3-ESC-026",
       "calc": null,
       "input": {
         "fromCase": "BR-433-06",
@@ -8623,7 +8617,7 @@
         "ownerNotifications": 0,
         "attentionItems": 0
       },
-      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-4. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-4. QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM. · 23/10 (BE-B, R3 Sprint 1 lượt kiểm tiền bước 4): gỡ pendingFix – BR-433 (a)(b)(c) v0.4.0 cài; test `services/api/test/integration/s438-r8/r3-be83-esc026.test.ts` đạt trên CSDL thật; QA/SEC xác nhận khi gộp."
     },
     {
       "id": "BR-433-10",
@@ -8703,7 +8697,6 @@
       "case": "(R3 S1, ESC-026 A, E26-5) Xóa nợ MGR tự áp tính vào Σ lượt: miễn minibar 400.000 lúc ở + xóa nợ 600.000 sau trả phòng (ngưỡng = cơ sở 911.000) → báo OWN",
       "origin": "example",
       "labels": ["INV-026", "NGÀNH"],
-      "pendingFix": "R3-ESC-026",
       "calc": null,
       "input": {
         "roomNo": "202",
@@ -8730,7 +8723,7 @@
         "stayTotalVnd": 1000000,
         "ownerNotifications": 1
       },
-      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-5 (QA thêm – DOM mục 9 chưa liệt kê). QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-5 (QA thêm – DOM mục 9 chưa liệt kê). QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM. · 23/10 (BE-B, R3 Sprint 1 lượt kiểm tiền bước 4): gỡ pendingFix – BR-433 (a)(b)(c) v0.4.0 cài; test `services/api/test/integration/s438-r8/r3-be83-esc026.test.ts` đạt trên CSDL thật; QA/SEC xác nhận khi gộp."
     },
     {
       "id": "BR-433-14",
@@ -8738,7 +8731,6 @@
       "case": "(R3 S1, ESC-026 A, E26-9) FOC tự hủy theo BR-434 (khách rút đêm) ra khỏi Σ lượt; không có thông báo \"dưới ngưỡng\"",
       "origin": "example",
       "labels": ["INV-026", "NGÀNH"],
-      "pendingFix": "R3-ESC-026",
       "calc": null,
       "input": {
         "fromCase": "BR-433-06",
@@ -8749,7 +8741,7 @@
         "belowThresholdNotification": false,
         "extraOwnerNotifications": 0
       },
-      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-9 (QA thêm). QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM."
+      "note": "Nguồn: `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 5.3 E26-9 (QA thêm). QA 22/10 (R3 S1 Sản xuất – `rounds/round-03/qa/s1-test-plan.md`). Số là chuẩn: mã ra khác → lỗi tiền P0 tới khi chứng minh khác; không tự đổi kỳ vọng – ghi thẻ cho DOM. · 23/10 (BE-B, R3 Sprint 1 lượt kiểm tiền bước 4): gỡ pendingFix – BR-433 (a)(b)(c) v0.4.0 cài; test `services/api/test/integration/s438-r8/r3-be83-esc026.test.ts` đạt trên CSDL thật; QA/SEC xác nhận khi gộp."
     },
     {
       "id": "BR-434-01",
@@ -10820,8 +10812,7 @@
         "managerAloneWrittenOffVnd": 450000,
         "r2CodeManagerAloneVnd": 4950000
       },
-      "pendingFix": "R3-SEC-BE-83",
-      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài. · 23/10 (BE-B, R3 Sprint 1 lượt kiểm tiền bước 4): gỡ pendingFix – BR-433 (a)(b)(c) v0.4.0 cài; test `services/api/test/integration/s438-r8/r3-be83-esc026.test.ts` đạt trên CSDL thật; QA/SEC xác nhận khi gộp."
     },
     {
       "id": "BR-525-22",
@@ -10860,8 +10851,7 @@
           "requiredRole": "owner"
         }
       },
-      "pendingFix": "R3-SEC-BE-83",
-      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài. · 23/10 (BE-B, R3 Sprint 1 lượt kiểm tiền bước 4): gỡ pendingFix – BR-433 (a)(b)(c) v0.4.0 cài; test `services/api/test/integration/s438-r8/r3-be83-esc026.test.ts` đạt trên CSDL thật; QA/SEC xác nhận khi gộp."
     },
     {
       "id": "BR-525-23",
@@ -10903,8 +10893,7 @@
           "requiredRole": "owner"
         }
       },
-      "pendingFix": "R3-SEC-BE-83",
-      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài. · 23/10 (BE-B, R3 Sprint 1 lượt kiểm tiền bước 4): gỡ pendingFix – BR-433 (a)(b)(c) v0.4.0 cài; test `services/api/test/integration/s438-r8/r3-be83-esc026.test.ts` đạt trên CSDL thật; QA/SEC xác nhận khi gộp."
     },
     {
       "id": "BR-525-24",
@@ -10958,8 +10947,7 @@
         },
         "lineOrderIndependent": true
       },
-      "pendingFix": "R3-SEC-BE-83",
-      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài. · 23/10 (BE-B, R3 Sprint 1 lượt kiểm tiền bước 4): gỡ pendingFix – BR-433 (a)(b)(c) v0.4.0 cài; test `services/api/test/integration/s438-r8/r3-be83-esc026.test.ts` đạt trên CSDL thật; QA/SEC xác nhận khi gộp."
     },
     {
       "id": "BR-525-25",
@@ -11003,8 +10991,7 @@
         },
         "perCycleNotUsed": true
       },
-      "pendingFix": "R3-SEC-BE-83",
-      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài. · 23/10 (BE-B, R3 Sprint 1 lượt kiểm tiền bước 4): gỡ pendingFix – BR-433 (a)(b)(c) v0.4.0 cài; test `services/api/test/integration/s438-r8/r3-be83-esc026.test.ts` đạt trên CSDL thật; QA/SEC xác nhận khi gộp."
     },
     {
       "id": "BR-525-26",
@@ -11022,8 +11009,7 @@
       "expected": {
         "sumAfterAutoCancelVnd": 0
       },
-      "pendingFix": "R3-SEC-BE-83",
-      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài. · 23/10 (BE-B, R3 Sprint 1 lượt kiểm tiền bước 4): gỡ pendingFix – BR-433 (a)(b)(c) v0.4.0 cài; test `services/api/test/integration/s438-r8/r3-be83-esc026.test.ts` đạt trên CSDL thật; QA/SEC xác nhận khi gộp."
     },
     {
       "id": "BR-525-27",
@@ -11055,8 +11041,7 @@
         "exactlyOneSelfApplied": true,
         "pendingRequiredRole": "owner"
       },
-      "pendingFix": "R3-SEC-BE-83",
-      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài."
+      "note": "Nguồn: `business-rules.md` BR-433 đoạn chống chia nhỏ (a)(b) và BR-525 ghi chú [R3] (DOM 18/10, FB-R2-SEC-BE-83 – `reviews/s4-SEC.md` C.13; decision-log dòng DOM 18/10). Mã tiền R2 đóng băng – cài ở R3 trước dữ liệu thật; R2 vẫn xét từng yêu cầu riêng (BR-433 \"≤ giá 1 đêm\" theo đêm của dòng – BUG-R2-046). Gỡ pendingFix khi R3 cài. · 23/10 (BE-B, R3 Sprint 1 lượt kiểm tiền bước 4): gỡ pendingFix – BR-433 (a)(b)(c) v0.4.0 cài; test `services/api/test/integration/s438-r8/r3-be83-esc026.test.ts` đạt trên CSDL thật; QA/SEC xác nhận khi gộp."
     },
     {
       "id": "BR-525-28",

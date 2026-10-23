@@ -407,6 +407,13 @@
       "when": 1792254796821,
       "tag": "0081_sec_retention_be_c",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1792764093333,
+      "tag": "0082_foc_stay_alert_limit_basis",
+      "breakpoints": true
     }
   ]
 }

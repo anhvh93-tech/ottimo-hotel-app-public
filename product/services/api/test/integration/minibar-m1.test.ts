@@ -908,7 +908,9 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
         chargeCode: 'late_fee_as_night',
       }),
     );
-    expect(await db.withContext(t.ctx(), (tx) => folios.nightRateBasis(tx, lineId))).toBe(911_000);
+    expect(await db.withContext(t.ctx(), (tx) => folios.limitBasisVnd(tx, b.folioId, lineId))).toBe(
+      911_000,
+    );
     const r = await c.mgr!.send('POST', url(`/folios/${b.folioId}/lines/${lineId}/foc`), {
       kind: 'foc',
       amountVnd: 911_000,
@@ -2429,7 +2431,17 @@ describe.skipIf(!HAS_DB)('minibar M-1 + QR confirmation (BE-B, ARC 16 / DOM (f))
     expect(added.statusCode, added.body).toBe(201);
     const line = (added.json().lines as Line[]).find((l) => l.category === 'service_fee')!;
     const { basis, divisor } = await db.withContext(t.ctx(), async (tx) => ({
-      basis: await fa.app.get(FolioService).nightRateBasis(tx, line.id),
+      basis: await fa.app
+        .get(FolioService)
+        .limitBasisVnd(
+          tx,
+          (
+            await tx.query<{ f: string }>('SELECT folio_id AS f FROM folio_line WHERE id = $1', [
+              line.id,
+            ])
+          ).rows[0]!.f,
+          line.id,
+        ),
       divisor: await fa.app
         .get(ParameterService)
         .get<number>(tx, 'long_stay_daily_divisor', '2031-05-01' as LocalDate),

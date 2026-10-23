@@ -228,6 +228,8 @@ export const STAFF_NOTIFICATION_KINDS = [
   'no_show_restored',
   // 0072 (BR-525 G-4, BE-A): a receipt reversed after check-out left a debt – OWN + MGR.
   'debt_recorded',
+  // 0082 (0.3.8 – BR-433 (c) v0.4.0, ESC-026 A, BE-B): waivers on one stay above the threshold – every OWN.
+  'foc_stay_total_exceeded',
 ] as const;
 export type StaffNotificationKind = (typeof STAFF_NOTIFICATION_KINDS)[number];
 
@@ -271,7 +273,7 @@ export const staffNotification = pgTable(
     }),
     check(
       'staff_notification_kind_check',
-      sql`${t.kind} IN ('hold_expired', 'hold_expiring', 'deposit_notice', 'deposit_after_cancel', 'guest_request_new', 'guest_request_overdue', 'work_order_overdue', 'approval_requested', 'approval_decided', 'registration_due', 'checkout_call_needed', 'security_alert', 'account_security_change', 'online_checkin_completed', 'payment_disputed', 'deposit_shortfall_accepted', 'receiving_account_changed', 'refund_ready', 'work_order_new', 'work_order_high_new', 'work_order_block_requested', 'hk_task_urgent', 'room_awaiting_inspection', 'hk_task_cancelled', 'approval_cancelled', 'no_show_marked', 'no_show_restored', 'debt_recorded')`,
+      sql`${t.kind} IN ('hold_expired', 'hold_expiring', 'deposit_notice', 'deposit_after_cancel', 'guest_request_new', 'guest_request_overdue', 'work_order_overdue', 'approval_requested', 'approval_decided', 'registration_due', 'checkout_call_needed', 'security_alert', 'account_security_change', 'online_checkin_completed', 'payment_disputed', 'deposit_shortfall_accepted', 'receiving_account_changed', 'refund_ready', 'work_order_new', 'work_order_high_new', 'work_order_block_requested', 'hk_task_urgent', 'room_awaiting_inspection', 'hk_task_cancelled', 'approval_cancelled', 'no_show_marked', 'no_show_restored', 'debt_recorded', 'foc_stay_total_exceeded')`,
     ),
     check(
       'staff_notification_ref_type_check',
