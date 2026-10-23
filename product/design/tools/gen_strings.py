@@ -3417,6 +3417,24 @@ g("R2 Sprint 4 – MOB sửa theo UXR đi thử PWA (s4-pwa-walkthrough P-01/04/
     ("hk.refill_unnamed", "Bổ sung minibar: {n} món – xem tủ hoặc hỏi lễ tân tên món", "Restock minibar: {n} items – check the minibar or ask the front desk which ones", None, "P-04: khi refillItems chưa có itemName (BE chưa trả) – thay câu \"1, 1\". UXD 18/10: EN \"minibar\" như hk.refill"),
 ])
 
+# FE-B R3 Sprint 1 (23/10) – US-008 S26 "Thêm người dùng" (v1.0 đường nhanh). Câu FE viết theo content guide + H07;
+# dùng lại users.new_cta, users.f_display, users.roles_legend, users.role_desc.*, users.temp_pw_*. [CHỜ UXD DUYỆT]
+g("R3 Sprint 1 – FE-B US-008 thêm người dùng (FE viết theo content guide; chờ UXD duyệt)", [
+    ("users.add_title", "Thêm người dùng", "Add user", None, "Tiêu đề hộp S26 – chỉ OWN (A100)"),
+    ("users.f_username", "Tên đăng nhập", "Username"),
+    ("users.f_username_help", "3–64 ký tự: chữ thường không dấu, số, dấu chấm, gạch dưới, gạch ngang. Ví dụ lan.hk", "3–64 characters: lower-case letters, numbers, dot, underscore, hyphen. For example lan.hk"),
+    ("users.f_temp_pw", "Mật khẩu tạm", "Temporary password"),
+    ("users.f_temp_pw_help", "Ít nhất 10 ký tự, không chứa tên đăng nhập. Người dùng phải đổi ở lần đăng nhập đầu.", "At least 10 characters, without the username. The user must change it at first sign-in."),
+    ("users.gen_pw", "Tạo mật khẩu khác", "Generate another"),
+    ("users.add_s2_title", "Xác nhận thêm {name}", "Confirm adding {name}"),
+    ("users.add_s2_body", "Tài khoản mới có vai: {roles}.", "The new account gets these roles: {roles}."),
+    ("users.added", "Đã thêm {name}.", "{name} added."),
+    ("users.f_username_invalid", "Chỉ dùng chữ thường không dấu, số, dấu chấm, gạch dưới, gạch ngang (3–64 ký tự).", "Use only lower-case letters, numbers, dot, underscore or hyphen (3–64 characters)."),
+    ("field.USERNAME_TAKEN", "Tên đăng nhập này đã có. Chọn tên khác.", "This username is already in use. Choose another.", None, "createUser 409 – lỗi tại ô (US-008 AC2)"),
+    ("field.PASSWORD_SAME_AS_USERNAME", "Mật khẩu không được chứa tên đăng nhập.", "The password must not contain the username."),
+    ("field.PASSWORD_TOO_COMMON", "Mật khẩu quá dễ đoán. Chọn mật khẩu khác.", "This password is too easy to guess. Choose another.", None, "SR-AUTH-02 – cả chuỗi chứa \"ottimo\""),
+])
+
 def build():
     vi, en, ru = {}, {}, {}
     for grp, k, a, b, c, n in S:

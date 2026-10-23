@@ -11,6 +11,7 @@ import { isStrongReauthError, StrongReauthDialog } from '../components/StrongRea
 import { useOnline } from '../hooks/useOnline';
 import { useResource } from '../hooks/useResource';
 import { usePropertyId, useSession } from '../session/SessionProvider';
+import { AddUserDialog } from './AddUserDialog';
 
 /** Roles the owner can assign here – "owner" itself is granted by the tech team only (H07 7.1b `[GIẢ ĐỊNH UXD]`). */
 const ASSIGNABLE: Role[] = [
@@ -68,6 +69,9 @@ export function UsersPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tempPw, setTempPw] = useState<{ name: string; value: string } | null>(null);
+  const [adding, setAdding] = useState(false);
+  // US-008 AC3: only the owner sees "Thêm người dùng" (the API answers 403 A100 to anyone else).
+  const isOwner = session.roles.includes('owner');
 
   const rolesHere = (u: User) =>
     u.roles.filter((r) => r.propertyId === propertyId).map((r) => r.role);
@@ -148,7 +152,16 @@ export function UsersPage() {
 
   return (
     <>
-      <Topbar title={t('nav.users')} />
+      <Topbar
+        title={t('nav.users')}
+        actions={
+          isOwner && online ? (
+            <Button variant="pri" icon="plus" onClick={() => setAdding(true)}>
+              {t('users.new_cta')}
+            </Button>
+          ) : undefined
+        }
+      />
       <Page>
         {error ? <Alert tone="bad">{error}</Alert> : null}
         {state.status === 'error' && !state.data ? (
@@ -352,6 +365,20 @@ export function UsersPage() {
           busy={busy}
           onKeep={() => setPending(null)}
           onConfirm={() => void run(pending)}
+        />
+      ) : null}
+
+      {adding ? (
+        <AddUserDialog
+          assignable={ASSIGNABLE}
+          onClose={() => setAdding(false)}
+          onDone={(u, value) => {
+            setAdding(false);
+            mutate((list) => [...list, u]);
+            reload();
+            toast(t('users.added', { name: u.displayName }));
+            setTempPw({ name: u.displayName, value });
+          }}
         />
       ) : null}
 
