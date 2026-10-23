@@ -153,3 +153,63 @@ Theo SEC `s1-SEC-on-2FA.md` và ARC mục 12.3. Chi tiết ở `rounds/round-03/
 - **FEA-01**: S2 gắn vào `updateUser` (status/resetPassword), `setUserRoles` (nâng lên owner/manager), `revokeTrustedDevice` bằng hộp dùng chung; `trustCurrentDevice`, `changeMyPassword` có ô mã riêng (`SecondFactorField`); `createUser` có endpoint (màn là của FE-B); MSW trả 422 `STRONG_REAUTH_REQUIRED` như server.
 - **G-FE-A-1 (mục 3) bỏ**: đăng nhập bằng mã khôi phục → phiên hạn chế → đăng ký lại trên màn `/enroll-2fa` ("Đăng ký lại trên điện thoại mới", chờ UXD).
 - **Kiểm**: admin-web 535/535.
+
+## 8. R3-Q51 – Tài khoản nhận chuyển khoản VietQR (v1.0, 23/10)
+
+Nhánh `fe-a/r3-q51-receiving-account`, tách từ `r3-2fa-int` để dùng được `StrongReauthDialog`. Căn cứ: ARC `s1-contracts.md` mục 4, OpenAPI 0.3.8 (`setParameter` khóa `payment_receiving_account`, `cancelScheduledParameter`), SEC mục C. Server của BE-B chưa có nên chạy trên MSW theo hợp đồng.
+
+### 8.1 Đã làm
+- **Màn** (`pages/ReceivingAccount.tsx`): khối đặt trên H05 Tham số.
+  - Chỉ hiện với vai `owner`; vai khác không mount khối này (Q51-1).
+  - Hiện tên ngân hàng, số che `•••• 1234` (JetBrains Mono) và tên chủ tài khoản. Các dòng tách nhãn "Đang dùng" / "Đã lên lịch" theo ngày kinh doanh.
+  - Không có nút xem đủ số. Muốn đối chiếu thì dùng câu hướng dẫn quét thử QR (Q51-2, Q51-8).
+- **Đổi tài khoản** (Q51-3, Q51-5, Q51-7):
+  - Không điền sẵn số cũ. Số tài khoản gõ hai lần; ô nhập lại chặn dán.
+  - Tắt `autocomplete` trên các ô số; dữ liệu chỉ nằm trong state của hộp, đóng hộp là mất.
+  - Tên chủ tài khoản tự chuyển sang chữ in hoa, bỏ dấu và chữ Đ (dạng NAPAS).
+  - Ngày hiệu lực mặc định và nhỏ nhất = ngày kinh doanh + 1.
+  - Màn xem lại hiện ngân hàng, `•••• 4 số cuối`, tên chủ tài khoản, ngày hiệu lực. Bấm lưu thì mở hộp S2.
+  - Gửi `reauth` theo dạng của hợp đồng: `{authMethod: 'password', secret, totpCode | recoveryCode}`.
+  - 422 `EFFECTIVE_FROM_TOMORROW` hiện ngay dưới ô ngày.
+- **Hủy dòng đã lên lịch**: hộp S2, có lý do bắt buộc, gọi `cancelScheduledParameter`.
+- **api-client**: thêm `cancelScheduledParameter`, kiểu `ParameterReauth` và `CancelScheduledParameterBody`.
+- **MSW** cho `GET`/`PUT`/`cancel-scheduled` của khóa này:
+  - chỉ OWN; vai khác nhận 403;
+  - chỉ trả số đã che, kèm `bankName` từ bảng BIN;
+  - hiệu lực phải lớn hơn ngày kinh doanh; gửi lại cùng ngày thì sửa dòng đó;
+  - S2 đi qua `strongReauth`;
+  - có nhật ký che số để test kiểm.
+- **Chuỗi**: nhóm "R3 Sprint 1 – FE-A R3-Q51", 33 khóa, chờ UXD duyệt. Brand OTTIMO: không thêm màu, chỉ dùng class của design system.
+
+### 8.2 Kiểm
+- `r3-q51-fea.test.tsx`: 9 ca.
+  - Phân quyền: OWN thấy khối; MGR, FDL không thấy và API trả 403.
+  - Luồng đổi đầy đủ: không điền sẵn, gõ lệch bị chặn, tên NAPAS, xem lại, S2 bằng mật khẩu. Kiểm thân request, và số đầy đủ không xuất hiện trên trang, Web Storage hay nhật ký mock.
+  - OWN có 2FA: sai mã thì một câu lỗi, không ghi gì; đúng mã thì lưu.
+  - Ngày hiệu lực hôm nay: client chặn, server mock cũng trả 422.
+  - Đồng hồ 02:40: ngày sớm nhất = ngày lịch D, và được nhận.
+  - Hủy dòng đã lên lịch.
+  - Hàm `napasName`.
+- admin-web 543/544. Ca hỏng duy nhất thuộc `booking.test.tsx`: lần nào chạy cả bộ cũng có một ca của file này hỏng, nhưng ca hỏng đổi theo lần chạy (cũng gặp trên nhánh R3-Q39). Chạy riêng file thì 7/7, hai lần liền.
+- api-client 30/30. `tsc`, eslint, prettier, `check_hifi.py` xanh.
+
+### 8.3 Cần BE-B (server, theo hợp đồng – không đổi gì thêm)
+- `getParameterHistory`, `setParameter`, `cancelScheduledParameter` cho khóa này đúng như MSW:
+  - chỉ OWN, che dạng `•••• 1234` kèm `bankName`;
+  - `effectiveFrom` > ngày kinh doanh;
+  - S2 với trường `reauth.secret`;
+  - thông báo cho OWN/MGR và email cho mọi owner.
+- `listParameters` bỏ khóa này khỏi danh sách của vai khác OWN.
+- Khi server lên: chạy lại `r3-q51-fea` ở chế độ server và E2E (QA).
+
+### 8.4 R3-Q39 #8–#12 – dời v1.1 (PO, G-v1-3), commit dở dang
+Nhánh `fe-a/r3-q39-business-day` (tách từ `main`), commit `547db3e`.
+- **Đã làm**: dùng ngày kinh doanh cho các chỗ sau:
+  - #8 giá niêm yết;
+  - #9 tham số và nhãn "đã lên lịch";
+  - #10 tủ minibar lúc trả phòng;
+  - #11 hạn công nợ: mặc định ngày kinh doanh + `debt_default_due_days`, nhỏ nhất ngày kinh doanh + 1, chuỗi mới `co.debt_due_min`;
+  - #12 gợi ý "đã thực hiện" khi no-show đổi sang `≤`;
+  - MSW cũng đổi sang ngày kinh doanh.
+- **Dở dang**: chưa có test đồng hồ 02:40 / 05:59 / 06:00 riêng cho từng màn; chưa sửa các chỗ chỉ hiển thị #13.
+- **Server**: không cần sửa. Gợi ý cho ARC, không bắt buộc: thêm `BookingRules.debtDefaultDueDays`, để FD cũng đọc được tham số này mà không phải gọi `listParameters`.

@@ -3356,6 +3356,45 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `reauth.s2_wait_code` | Mỗi mã chỉ dùng một lần. Nếu vừa dùng mã này, chờ ứng dụng hiện mã mới. | Each code works only once. If you just used this one, wait for the app to show a new code. | ⟨chừa chỗ⟩ | ARC s1-contracts 1.2 – hai thao tác S2 trong cùng 30 giây cần mã kế tiếp |
 | `reauth.s2_password_label` | Mật khẩu đăng nhập | Sign-in password | ⟨chừa chỗ⟩ |  |
 
+#### R3 Sprint 1 – FE-A R3-Q51: tài khoản nhận chuyển khoản VietQR (chỉ OWN, SEC mục C, ARC 0.3.8). FE viết theo content guide + brand OTTIMO (ngắn, điềm tĩnh, không emoji). **Chờ UXD duyệt**
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `rcv.title` | Tài khoản nhận chuyển khoản (VietQR) | Receiving account (VietQR) | ⟨chừa chỗ⟩ | Khối chỉ OWN trên Tham số (SEC Q51-1) |
+| `rcv.lead` | Mọi mã VietQR khách quét đều chuyển tiền vào tài khoản này. Chỉ chủ đầu tư xem và đổi được. | Every VietQR code guests scan pays into this account. Only the owner can view or change it. | ⟨chừa chỗ⟩ |  |
+| `rcv.none` | Chưa đặt tài khoản nhận. Lễ tân chưa tạo được mã VietQR. | No receiving account yet. The desk can't create VietQR codes. | ⟨chừa chỗ⟩ | Khi chưa có dòng nào (409 PAYMENT_NOT_CONFIGURED ở QR) |
+| `rcv.in_use` | Đang dùng | In use | ⟨chừa chỗ⟩ |  |
+| `rcv.scheduled` | Đã lên lịch | Scheduled | ⟨chừa chỗ⟩ |  |
+| `rcv.from` | Từ {date} | From {date} | ⟨chừa chỗ⟩ |  |
+| `rcv.bank_unknown` | Ngân hàng BIN {bin} | Bank BIN {bin} | ⟨chừa chỗ⟩ | Server không trả bankName (BIN lạ) |
+| `rcv.change` | Đổi tài khoản nhận | Change receiving account | ⟨chừa chỗ⟩ |  |
+| `rcv.form_title` | Tài khoản nhận mới | New receiving account | ⟨chừa chỗ⟩ |  |
+| `rcv.bank_bin` | Mã BIN ngân hàng (6 số) | Bank BIN (6 digits) | ⟨chừa chỗ⟩ |  |
+| `rcv.bank_found` | Ngân hàng: {bank} | Bank: {bank} | ⟨chừa chỗ⟩ |  |
+| `rcv.account_no` | Số tài khoản | Account number | ⟨chừa chỗ⟩ |  |
+| `rcv.account_no_repeat` | Nhập lại số tài khoản | Re-enter account number | ⟨chừa chỗ⟩ |  |
+| `rcv.account_no_mismatch` | Hai số tài khoản chưa giống nhau. | The two account numbers don't match. | ⟨chừa chỗ⟩ |  |
+| `rcv.account_no_invalid` | Số tài khoản gồm 6–19 chữ số. | An account number has 6–19 digits. | ⟨chừa chỗ⟩ |  |
+| `rcv.bin_invalid` | Mã BIN gồm đúng 6 chữ số. | A BIN has exactly 6 digits. | ⟨chừa chỗ⟩ |  |
+| `rcv.account_name` | Tên chủ tài khoản | Account holder name | ⟨chừa chỗ⟩ |  |
+| `rcv.account_name_help` | Viết như trên ngân hàng: chữ in hoa, không dấu. | As the bank shows it: capital letters, no accents. | ⟨chừa chỗ⟩ |  |
+| `rcv.account_name_invalid` | Chỉ dùng chữ in hoa không dấu, số và khoảng trắng (tối đa 50 ký tự). | Use capital letters without accents, digits and spaces only (up to 50). | ⟨chừa chỗ⟩ |  |
+| `rcv.effective_help` | Có hiệu lực sớm nhất từ ngày kinh doanh kế tiếp. Không đổi ngay trong ngày. | Takes effect from the next business day at the earliest. It can't change the same day. | ⟨chừa chỗ⟩ |  |
+| `rcv.effective_min` | Chọn ngày từ {date} trở đi. | Choose {date} or later. | ⟨chừa chỗ⟩ | 422 EFFECTIVE_FROM_TOMORROW hoặc kiểm ở client |
+| `rcv.reason` | Lý do đổi | Reason for the change | ⟨chừa chỗ⟩ |  |
+| `rcv.review` | Xem lại | Review | ⟨chừa chỗ⟩ |  |
+| `rcv.review_title` | Kiểm tra trước khi lưu | Check before saving | ⟨chừa chỗ⟩ |  |
+| `rcv.review_body` | Đối chiếu với sổ hoặc ứng dụng ngân hàng của bạn. Sau khi lưu, số đầy đủ không hiện lại ở đâu trên Desk. | Check against your bank app or records. After saving, the full number is not shown anywhere on the Desk again. | ⟨chừa chỗ⟩ | SEC Q51-3, Q51-8 |
+| `rcv.review_effective` | Hiệu lực từ | Effective from | ⟨chừa chỗ⟩ |  |
+| `rcv.save` | Lưu tài khoản nhận | Save receiving account | ⟨chừa chỗ⟩ |  |
+| `rcv.saved` | Đã lên lịch tài khoản nhận mới từ {date}. Chủ đầu tư và quản lý đã được báo. | The new receiving account is scheduled from {date}. Owners and managers have been notified. | ⟨chừa chỗ⟩ |  |
+| `rcv.cancel_scheduled` | Hủy lịch | Cancel schedule | ⟨chừa chỗ⟩ |  |
+| `rcv.cancel_title` | Hủy tài khoản nhận đã lên lịch? | Cancel the scheduled receiving account? | ⟨chừa chỗ⟩ |  |
+| `rcv.cancel_body` | Tài khoản đang dùng giữ nguyên. Chủ đầu tư và quản lý sẽ được báo. | The account in use stays the same. Owners and managers will be notified. | ⟨chừa chỗ⟩ |  |
+| `rcv.cancelled` | Đã hủy lịch đổi tài khoản nhận. | The scheduled change was cancelled. | ⟨chừa chỗ⟩ |  |
+| `rcv.verify_hint` | Muốn đối chiếu số đầy đủ: tạo một mã VietQR nhỏ và quét thử bằng ứng dụng ngân hàng của bạn. | To check the full number, create a small VietQR code and scan it with your own banking app. | ⟨chừa chỗ⟩ | SEC Q51-8 – không có nút xem đủ số |
+| `rcv.masked_label` | Số tài khoản (che) | Account number (masked) | ⟨chừa chỗ⟩ |  |
+
 #### R2 Sprint 4 – MOB sửa theo UXR đi thử PWA (s4-pwa-walkthrough P-01/04/07/08/09/10/11/12/13/16/28) (UXD duyệt 18/10 – s4-UXD-brand, sửa 8)
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
