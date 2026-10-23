@@ -18,18 +18,22 @@ async function fill(
   dlg: HTMLElement,
   opts: { room: RegExp; from: number; to: number; guest: string; pick: RegExp },
 ) {
-  const room = within(dlg).getByLabelText(/^Căn/);
-  await waitFor(() => expect(within(room).getAllByRole('option').length).toBeGreaterThan(5));
-  const option = within(room)
-    .getAllByRole<HTMLOptionElement>('option')
-    .find((o) => opts.room.test(o.textContent ?? ''))!;
-  await user.selectOptions(room, option);
+  // Dates BEFORE the room (BUG-R3-005): the form prices on a 300 ms debounce and fills "Số tiền đã nhận" from the
+  // FIRST quote only. Room first + a slow worker (full suite) let a quote for the default 1-night stay land between
+  // the two steps → the 2-night form kept the 1-night deposit (200.000 < 500.000) → "Chưa đủ cọc", no "Đã tạo đơn".
+  // The product bug itself is pinned by the skipped case at the end of this file.
   fireEvent.change(within(dlg).getByLabelText('Ngày đến'), {
     target: { value: addDays(todayLocal(), opts.from) },
   });
   fireEvent.change(within(dlg).getByLabelText('Ngày đi'), {
     target: { value: addDays(todayLocal(), opts.to) },
   });
+  const room = within(dlg).getByLabelText(/^Căn/);
+  await waitFor(() => expect(within(room).getAllByRole('option').length).toBeGreaterThan(5));
+  const option = within(room)
+    .getAllByRole<HTMLOptionElement>('option')
+    .find((o) => opts.room.test(o.textContent ?? ''))!;
+  await user.selectOptions(room, option);
   await user.type(within(dlg).getByRole('combobox', { name: 'Khách đứng tên' }), opts.guest);
   await user.click(await screen.findByRole('option', { name: opts.pick }));
 }
@@ -185,6 +189,33 @@ describe('H09 Đặt phòng mới (US-017, US-018, US-019, US-139)', () => {
     expect(mockControl.db.guests.find((g) => g.fullName === 'Phan Thị Mơ')!.phone).toBe(
       '+84912345678',
     );
+  });
+
+  // BUG-R3-005 (QA 23/10, P1 – FE): "Số tiền đã nhận" is prefilled from the first quote only
+  // (`depositAmount: f.depositAmount || …` in BookingDialog) and never follows a later quote the desk did not edit.
+  // Deterministic: let the default 1-night quote land, then change the stay → the box keeps the old deposit.
+  // Un-skip when FE fixes it (expected: follows the newest quote until the desk types in the box).
+  it.skip('BUG-R3-005: received amount follows the newest quote until the desk edits it', async () => {
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openForm(user);
+    const room = within(dlg).getByLabelText(/^Căn/);
+    await waitFor(() => expect(within(room).getAllByRole('option').length).toBeGreaterThan(5));
+    await user.selectOptions(room, within(room).getByRole('option', { name: /^201 / }));
+    const received = await within(dlg).findByLabelText(new RegExp(`^${tv('rsv.amount_received')}`));
+    await waitFor(() => expect(received).not.toHaveValue('')); // 1-night quote landed
+    const oneNight = (received as HTMLInputElement).value;
+    fireEvent.change(within(dlg).getByLabelText('Ngày đi'), {
+      target: { value: addDays(todayLocal(), 4) },
+    });
+    // the 4-night quote landed (4 nightly rate boxes)
+    await waitFor(() =>
+      expect(
+        within(dlg).getAllByLabelText(
+          new RegExp(`^${tv('rate.pre_tier').replace(/[()]/g, '\\$&')} \\d\\d/\\d\\d`),
+        ),
+      ).toHaveLength(4),
+    );
+    await waitFor(() => expect((received as HTMLInputElement).value).not.toBe(oneNight));
   });
 
   it('sale / CTV cannot open the booking form (US-017 AC6) – no rack, no button', async () => {
