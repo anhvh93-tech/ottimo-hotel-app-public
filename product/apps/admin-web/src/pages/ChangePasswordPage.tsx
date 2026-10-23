@@ -4,6 +4,8 @@ import { Alert, Button, Field, Icon } from '@ottimo/ui';
 import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { fieldErrors, problemView } from '../app/problem';
+import { SecondFactorField, secondFactor } from '../components/SecondFactorField';
+import { isStrongReauthError } from '../components/StrongReauthDialog';
 import { useToast } from '../app/toast';
 import { useOnline } from '../hooks/useOnline';
 import { useAfterLoginPath } from './LoginPage';
@@ -26,11 +28,15 @@ export function ChangePasswordPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // S2 (0.3.8, SEC 06.25 – BE-C 8712822): + TOTP / recovery code once 2FA is on.
+  const [factor, setFactor] = useState('');
+  const [useRecovery, setUseRecovery] = useState(false);
 
   if (session.status === 'loading') return null;
   if (session.status === 'anonymous') return <Navigate to="/login" replace />;
 
   const forced = session.mustChangePassword;
+  const hasMfa = session.me?.mfaEnabled === true;
   const name = (session.me?.displayName ?? '').trim().toLowerCase();
   const lenOk = next.length >= PASSWORD_MIN;
   const nameOk = next.length > 0 && (!name || !next.toLowerCase().includes(name));
@@ -46,18 +52,31 @@ export function ChangePasswordPage() {
     else if (!lenOk) errs.newPassword = t('field_error.password_short', { min: PASSWORD_MIN });
     else if (next === current) errs.newPassword = t('field_error.password_reused');
     if (repeat !== next) errs.repeat = t('pw.mismatch');
+    const second = secondFactor(factor, useRecovery);
+    if (hasMfa && !second.totpCode && !second.recoveryCode) errs.factor = t('common.required');
     setErrors(errs);
     if (Object.values(errs).some(Boolean)) return;
     setBusy(true);
     setBanner(null);
     try {
-      await session.changePassword({ currentPassword: current, newPassword: next });
+      await session.changePassword({
+        currentPassword: current,
+        newPassword: next,
+        ...(hasMfa ? second : {}),
+      });
       toast(t('common.saved'));
       navigate(afterLogin(), { replace: true });
     } catch (err) {
+      setFactor('');
       if (isApiError(err) && err.code === 'REAUTH_FAILED') {
         // 0.3.4 Q4: field error, not an expired session (UNAUTHENTICATED is handled globally).
-        setErrors({ currentPassword: t('field_error.current_password_wrong') });
+        // With 2FA: one sentence for both factors (SEC 06.20), the current password is emptied too.
+        if (hasMfa) {
+          setCurrent('');
+          setBanner(t('reauth.s2_failed'));
+        } else setErrors({ currentPassword: t('field_error.current_password_wrong') });
+      } else if (isStrongReauthError(err)) {
+        setErrors({ factor: t('common.required') });
       } else if (isApiError(err) && err.code === 'VALIDATION_FAILED') {
         setErrors(fieldErrors(t, err, { min: PASSWORD_MIN }));
       } else {
@@ -91,6 +110,18 @@ export function ChangePasswordPage() {
             />
           )}
         </Field>
+        {hasMfa ? (
+          <SecondFactorField
+            value={factor}
+            onChange={setFactor}
+            useRecovery={useRecovery}
+            error={errors.factor}
+            onToggle={() => {
+              setUseRecovery((v) => !v);
+              setFactor('');
+            }}
+          />
+        ) : null}
         <Field label={t('pw.new')} required error={errors.newPassword}>
           {(p) => (
             <>

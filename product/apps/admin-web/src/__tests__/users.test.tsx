@@ -2,7 +2,17 @@ import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { mockControl } from '../mocks/handlers';
 import { MOCK_PASSWORD } from '../mocks/seed';
-import { renderApp } from '../test/render';
+import { renderApp, tv } from '../test/render';
+
+/** S2 dialog (0.3.8 CỔNG): the owner has no 2FA in these seeds → password only. */
+async function confirmS2(user: ReturnType<typeof renderApp>['user'], name: RegExp | string) {
+  const dlg = await screen.findByRole('dialog', { name });
+  await user.type(
+    within(dlg).getByLabelText(new RegExp(`^${tv('reauth.s2_password_label')}`)),
+    MOCK_PASSWORD,
+  );
+  return dlg;
+}
 
 describe('H07 Người dùng & vai (US-002)', () => {
   it('owner changes roles with a consequence confirm (US-135); focus starts on the safe button', async () => {
@@ -32,25 +42,19 @@ describe('H07 Người dùng & vai (US-002)', () => {
     const { user } = renderApp('/settings/users', 'qa.owner');
     const row = (await screen.findByText('qa.fd')).closest('tr')!;
     await user.click(within(row).getByRole('button', { name: 'Đặt lại mật khẩu' }));
-    await user.click(
-      within(await screen.findByRole('alertdialog')).getByRole('button', {
-        name: 'Đặt lại mật khẩu',
-      }),
-    );
+    const s2 = await confirmS2(user, /Đặt lại mật khẩu/);
+    await user.click(within(s2).getByRole('button', { name: 'Đặt lại mật khẩu' }));
     const dlg = await screen.findByRole('dialog', { name: 'Mật khẩu tạm của Hạnh' });
     expect(within(dlg).getByText(/^[A-Za-z0-9]{14}$/)).toBeInTheDocument();
     expect(mockControl.db.users.find((u) => u.username === 'qa.fd')?.mustChangePassword).toBe(true);
   });
 
-  it('lock account asks first, then shows "Đã khóa"', async () => {
+  it('lock account asks first (S2), then shows "Đã khóa"', async () => {
     const { user } = renderApp('/settings/users', 'qa.owner');
     const row = (await screen.findByText('qa.sal')).closest('tr')!;
     await user.click(within(row).getByRole('button', { name: 'Khóa tài khoản' }));
-    await user.click(
-      within(await screen.findByRole('alertdialog')).getByRole('button', {
-        name: 'Khóa tài khoản',
-      }),
-    );
+    const s2 = await confirmS2(user, /Khóa tài khoản/);
+    await user.click(within(s2).getByRole('button', { name: 'Khóa tài khoản' }));
     expect(await within(row).findByText('Đã khóa')).toBeInTheDocument();
   });
 });
@@ -74,14 +78,11 @@ describe('H07 Thiết bị được cấp (US-142)', () => {
     expect(screen.getByText('Máy này')).toBeInTheDocument();
   });
 
-  it('revoke asks with the consequence and focuses "Không, quay lại"', async () => {
+  it('revoke asks with the consequence and S2 (CỔNG, SEC 06.27)', async () => {
     const { user } = renderApp('/settings/devices', 'qa.owner');
     await user.click(await screen.findByRole('button', { name: 'Thu hồi: Laptop quản lý' }));
-    const dlg = await screen.findByRole('alertdialog', {
-      name: 'Thu hồi quyền của Laptop quản lý?',
-    });
-    expect(dlg).toHaveAccessibleDescription(/không xem được giấy tờ/);
-    expect(within(dlg).getByRole('button', { name: 'Không, quay lại' })).toHaveFocus();
+    const dlg = await confirmS2(user, 'Thu hồi quyền của Laptop quản lý?');
+    expect(within(dlg).getByText(/không xem được giấy tờ/)).toBeInTheDocument();
     await user.click(within(dlg).getByRole('button', { name: 'Thu hồi' }));
     expect(await screen.findByText('Đã thu hồi Laptop quản lý.')).toBeInTheDocument();
     const row = screen.getByText('Laptop quản lý').closest('tr')!;

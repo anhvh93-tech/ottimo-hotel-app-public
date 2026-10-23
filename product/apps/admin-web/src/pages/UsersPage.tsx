@@ -1,4 +1,4 @@
-import { isApiError, type Role, type User } from '@ottimo/api-client';
+import { isApiError, type Role, type StrongReauth, type User } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, Chip, ConfirmDialog, Modal } from '@ottimo/ui';
 import { useState } from 'react';
@@ -7,6 +7,7 @@ import { fieldErrors, problemView } from '../app/problem';
 import { useToast } from '../app/toast';
 import { Page, Topbar } from '../components/AppShell';
 import { ErrorBlock, LoadingBlock } from '../components/states';
+import { isStrongReauthError, StrongReauthDialog } from '../components/StrongReauthDialog';
 import { useOnline } from '../hooks/useOnline';
 import { useResource } from '../hooks/useResource';
 import { usePropertyId, useSession } from '../session/SessionProvider';
@@ -27,6 +28,26 @@ export function generateTempPassword(): string {
   const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
   const bytes = crypto.getRandomValues(new Uint8Array(14));
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
+}
+
+/** Roles whose grant needs S2 (SEC 06.26). */
+const S2_ROLES: Role[] = ['owner', 'manager'];
+
+/**
+ * CỔNG S2 (BE-C ae836f7, same rule as the server): the new list ADDS owner/manager at a property –
+ * owner → manager is not an escalation.
+ */
+export function rolesNeedS2(
+  current: { propertyId: string; role: Role }[],
+  next: { propertyId: string; role: Role }[],
+): boolean {
+  const had = new Set(current.map((r) => `${r.propertyId}:${r.role}`));
+  return next.some(
+    (r) =>
+      S2_ROLES.includes(r.role) &&
+      !had.has(`${r.propertyId}:${r.role}`) &&
+      !(r.role === 'manager' && had.has(`${r.propertyId}:owner`)),
+  );
 }
 
 type Pending =
@@ -52,36 +73,61 @@ export function UsersPage() {
     u.roles.filter((r) => r.propertyId === propertyId).map((r) => r.role);
   const replace = (u: User) => mutate((list) => list.map((x) => (x.id === u.id ? u : x)));
 
+  const nextRoles = (p: { user: User; roles: Role[] }) => {
+    const others = p.user.roles.filter((r) => r.propertyId !== propertyId);
+    const keepOwner = rolesHere(p.user).includes('owner') ? (['owner'] as Role[]) : [];
+    return [...others, ...[...keepOwner, ...p.roles].map((role) => ({ propertyId, role }))];
+  };
+
+  /** Lock/unlock and reset password always need S2; roles only when they add owner/manager. */
+  const needsS2 = (p: Pending) => p.kind !== 'roles' || rolesNeedS2(p.user.roles, nextRoles(p));
+
+  const perform = async (p: Pending, reauth?: StrongReauth) => {
+    if (p.kind === 'roles') {
+      replace((await api.setUserRoles(p.user.id, nextRoles(p), p.user.version, reauth)).data);
+      setEditing(null);
+    } else if (p.kind === 'lock') {
+      const status = p.user.status === 'active' ? 'disabled' : 'active';
+      replace((await api.updateUser(p.user.id, { status, reauth }, p.user.version)).data);
+    } else {
+      const value = generateTempPassword();
+      replace(
+        (await api.updateUser(p.user.id, { resetPassword: value, reauth }, p.user.version)).data,
+      );
+      setTempPw({ name: p.user.displayName, value });
+    }
+    toast(t('users.saved', { name: p.user.displayName }));
+    setPending(null);
+  };
+
+  const fail = (err: unknown) => {
+    const fe = fieldErrors(t, err);
+    setError(Object.values(fe)[0] ?? problemView(t, err).text);
+    setPending(null);
+    if (isApiError(err) && err.code === 'VERSION_CONFLICT') reload();
+  };
+
+  /** Confirm-only path (role changes that add no owner/manager). */
   const run = async (p: Pending) => {
     setBusy(true);
     setError(null);
     try {
-      if (p.kind === 'roles') {
-        const others = p.user.roles.filter((r) => r.propertyId !== propertyId);
-        const keepOwner = rolesHere(p.user).includes('owner') ? (['owner'] as Role[]) : [];
-        const roles = [
-          ...others,
-          ...[...keepOwner, ...p.roles].map((role) => ({ propertyId, role })),
-        ];
-        replace((await api.setUserRoles(p.user.id, roles, p.user.version)).data);
-        setEditing(null);
-      } else if (p.kind === 'lock') {
-        const status = p.user.status === 'active' ? 'disabled' : 'active';
-        replace((await api.updateUser(p.user.id, { status }, p.user.version)).data);
-      } else {
-        const value = generateTempPassword();
-        replace((await api.updateUser(p.user.id, { resetPassword: value }, p.user.version)).data);
-        setTempPw({ name: p.user.displayName, value });
-      }
-      toast(t('users.saved', { name: p.user.displayName }));
-      setPending(null);
+      await perform(p);
     } catch (err) {
-      const fe = fieldErrors(t, err);
-      setError(Object.values(fe)[0] ?? problemView(t, err).text);
-      setPending(null);
-      if (isApiError(err) && err.code === 'VERSION_CONFLICT') reload();
+      fail(err);
     } finally {
       setBusy(false);
+    }
+  };
+
+  /** S2 path: a wrong/missing factor stays in the dialog (one sentence); anything else closes it. */
+  const runS2 = async (p: Pending, reauth: StrongReauth) => {
+    setError(null);
+    try {
+      await perform(p, reauth);
+    } catch (err) {
+      if (isStrongReauthError(err)) throw err;
+      fail(err);
     }
   };
 
@@ -175,11 +221,7 @@ export function UsersPage() {
                                 size="sm"
                                 variant="ghost"
                                 disabled={!online}
-                                onClick={() =>
-                                  u.status === 'active'
-                                    ? setPending({ kind: 'lock', user: u })
-                                    : void run({ kind: 'lock', user: u })
-                                }
+                                onClick={() => setPending({ kind: 'lock', user: u })}
                               >
                                 {u.status === 'active' ? t('users.lock') : t('users.unlock')}
                               </Button>
@@ -250,7 +292,40 @@ export function UsersPage() {
         </Modal>
       ) : null}
 
-      {pending ? (
+      {pending && needsS2(pending) ? (
+        <StrongReauthDialog
+          open
+          title={
+            pending.kind === 'roles'
+              ? t('users.roles_confirm_title', { name: pending.user.displayName })
+              : pending.kind === 'lock'
+                ? pending.user.status === 'active'
+                  ? t('users.lock_title', { name: pending.user.displayName })
+                  : t('users.unlock')
+                : t('users.reset_pw_title', { name: pending.user.displayName })
+          }
+          confirmLabel={
+            pending.kind === 'roles'
+              ? t('users.save_roles')
+              : pending.kind === 'lock'
+                ? pending.user.status === 'active'
+                  ? t('users.lock')
+                  : t('users.unlock')
+                : t('users.reset_pw')
+          }
+          danger={pending.kind === 'lock' && pending.user.status === 'active'}
+          onClose={() => setPending(null)}
+          onConfirm={(reauth) => runS2(pending, reauth)}
+        >
+          {pending.kind === 'roles'
+            ? t('users.roles_confirm_body')
+            : pending.kind === 'lock'
+              ? pending.user.status === 'active'
+                ? t('users.lock_body')
+                : null
+              : t('users.reset_pw_body')}
+        </StrongReauthDialog>
+      ) : pending ? (
         <ConfirmDialog
           title={
             pending.kind === 'roles'

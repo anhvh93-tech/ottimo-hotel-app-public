@@ -663,7 +663,7 @@
 | `auth.login.error_generic` | Tên đăng nhập hoặc mật khẩu không đúng. Quên mật khẩu? Nhờ chủ đầu tư đặt lại. | Incorrect username or password. Forgot it? Ask the owner to reset it. | ⟨chừa chỗ⟩ | Luôn giống nhau, không nêu số lần còn lại (SR-AUTH-04, FB-R1-UXR-UXD-14) |
 | `auth.login.username` | Tên đăng nhập | Username | ⟨chừa chỗ⟩ | Hợp đồng login dùng `username` (vd hanh.fd) – không phải SĐT/email (FE S1) |
 | `auth.code_label.totp` | Mã trong ứng dụng xác thực (6 số) | Code from your authenticator app (6 digits) | ⟨chừa chỗ⟩ |  |
-| `auth.code_label.recovery` | Mã khôi phục (8 ký tự) | Recovery code (8 characters) | ⟨chừa chỗ⟩ |  |
+| `auth.code_label.recovery` | Mã khôi phục (16 ký tự) | Recovery code (16 characters) | ⟨chừa chỗ⟩ | R3 S1 FE-A: OpenAPI 0.3.8 – 16 ký tự base32, hiện 4-4-4-4 (trước: 8). Chờ UXD duyệt |
 | `auth.code_label.pin` | PIN duyệt của bạn (4–6 số) | Your approval PIN (4–6 digits) | ⟨chừa chỗ⟩ |  |
 | `auth.code_label.guest` | Mã cấp cho khách | Code for the guest | ⟨chừa chỗ⟩ |  |
 | `auth.enroll.title` | Bật xác thực 2 bước | Turn on 2-step verification | ⟨chừa chỗ⟩ | SR-AUTH-06 – lần đăng nhập đầu của owner/manager |
@@ -3313,6 +3313,48 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `debt.write_off_server_max` | Chưa xóa công nợ. Lúc này chỉ xóa được tới {amount} – số này đã được điền sẵn. Kiểm tra rồi bấm Xóa công nợ lần nữa. | Nothing was written off. Up to {amount} can be written off right now – it has been filled in. Check it, then select Write off again. | ⟨chừa chỗ⟩ | FB-R2-ARC-FE-S4-02: 422 AMOUNT_EXCEEDS_BALANCE kèm max > 0 (trần của máy chủ = min(dòng, công nợ đang mở − xóa nợ đang chờ)). UXD 18/10: nói rõ chưa xóa; gọi đúng nút debt.write_off_submit; bỏ "chỉ … tối đa" (lặp nghĩa) |
 | `debt.write_off_none_left` | Lúc này không xóa thêm được. Thường là do phần công nợ còn lại đã có yêu cầu xóa công nợ đang chờ duyệt. Xem ở Cần duyệt. | Nothing more can be written off right now. Usually the rest of the debt already has a write-off request awaiting approval. See Approvals. | ⟨chừa chỗ⟩ | FB-R2-ARC-FE-S4-02: 422 AMOUNT_EXCEEDS_BALANCE kèm max = 0. UXD 18/10: "phần nợ" → "phần công nợ" (đợt 23); thêm chỗ xem tiếp – MGR/OWN thấy mọi yêu cầu đang chờ ở Cần duyệt (nav.approvals) |
 | `approval.sent_recent` | Yêu cầu bạn đã gửi – kết quả gần đây | Requests you sent – recent results | ⟨chừa chỗ⟩ | QA 11.33 – tiêu đề khối dưới hàng chờ H17 (SentRequests.tsx): tối đa 5 yêu cầu của người xem đã có kết quả (duyệt, từ chối, tự đóng). UXD thêm 18/10 thay ov.my_requests_n: số ({n}) chỉ là số dòng đang hiện (≤ 5) nên dễ đọc thành tổng số đã gửi, và khối không có yêu cầu còn chờ – chờ FE-A nối |
+
+#### R3 Sprint 1 – FE-A: US-143 đăng nhập 2 bước, đăng ký 2FA bắt buộc, mã khôi phục, xác nhận S2 (OpenAPI 0.3.8, SEC A). FE viết theo content guide + brand OTTIMO (ngắn, điềm tĩnh, không emoji). **Chờ UXD duyệt** (UXD đang làm hi-fi R3)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `mfa.use_totp` | Dùng mã trong ứng dụng xác thực | Use the code from your authenticator app | ⟨chừa chỗ⟩ | Bước 2 đăng nhập – từ ô mã khôi phục quay về ô TOTP |
+| `mfa.back_to_password` | Quay lại đăng nhập | Back to sign-in | ⟨chừa chỗ⟩ | Bước 2 – bỏ mfaToken, về bước mật khẩu |
+| `mfa.step_expired` | Bước nhập mã đã hết hạn. Đăng nhập lại bằng mật khẩu. | This sign-in step has expired. Sign in again with your password. | ⟨chừa chỗ⟩ | MFA_INVALID lần thứ 5 hoặc quá 5 phút (OpenAPI 0.3.8 bảng mã lỗi) – client tự về bước 1 |
+| `error.MFA_INVALID` | Mã chưa đúng hoặc đã hết hạn. Nhập mã đang hiện trong ứng dụng. | The code is wrong or has expired. Enter the code the app shows now. | ⟨chừa chỗ⟩ | 401 – loginMfa, mọi nhánh lỗi một câu (SEC 06.20). Không nêu số lần còn lại |
+| `error.MFA_ENROLLMENT_REQUIRED` | Tài khoản của bạn cần bật xác thực 2 bước trước khi làm việc. | Your account needs 2-step verification before you continue. | ⟨chừa chỗ⟩ | 403 – phiên hạn chế (SEC 06.4) – Desk chuyển sang màn đăng ký |
+| `mfa.enroll_required` | Vai chủ đầu tư và quản lý bắt buộc bật xác thực 2 bước. Bật xong bạn vào làm việc như thường. | Owner and manager accounts must use 2-step verification. Once it is on, you can continue as usual. | ⟨chừa chỗ⟩ | Màn đăng ký khi Me.mfaEnrollmentRequired = true (US-143 AC1) |
+| `mfa.enroll_password` | Nhập mật khẩu đăng nhập để tạo mã QR. | Enter your sign-in password to create the QR code. | ⟨chừa chỗ⟩ | startMy2faSetup cần currentPassword (SEC 06.7) |
+| `mfa.enroll_start` | Tạo mã QR | Create QR code | ⟨chừa chỗ⟩ | Nút gọi startMy2faSetup |
+| `mfa.qr_label` | Mã QR để thêm OTTIMO vào ứng dụng xác thực | QR code to add OTTIMO to your authenticator app | ⟨chừa chỗ⟩ | aria-label của QR (không đọc khóa) |
+| `mfa.manual_key_label` | Khóa nhập tay | Setup key | ⟨chừa chỗ⟩ | Nhãn trên khóa (JetBrains Mono, nhóm 4 ký tự) |
+| `mfa.qr_expired` | Mã QR đã hết hạn hoặc đã được tạo lại. Tạo mã mới rồi quét lại. | This QR code has expired or was replaced. Create a new one and scan again. | ⟨chừa chỗ⟩ | 409 confirmMy2fa khi không còn bí mật chờ (hạn 10 phút / gọi setup lần nữa) |
+| `mfa.already_on` | Xác thực 2 bước đã bật cho tài khoản này. Nếu chưa lưu mã khôi phục, tạo bộ mã mới. | 2-step verification is already on for this account. If you didn't save your recovery codes, create a new set. | ⟨chừa chỗ⟩ | 409 INVALID_TRANSITION khi đã bật (mất phản hồi confirm) |
+| `mfa.codes_once` | Các mã chỉ hiện một lần. Rời màn này sẽ không xem lại được. | These codes are shown only once. You can't view them again after leaving this screen. | ⟨chừa chỗ⟩ | SEC 06.13 |
+| `mfa.codes_ack_apart` | Tôi đã cất 10 mã này ở nơi an toàn, tách khỏi điện thoại | I've stored these 10 codes somewhere safe, away from my phone | ⟨chừa chỗ⟩ | US-143 AC3 (a) – ô bắt buộc trước Hoàn tất (thay auth.enroll.ack ở R3) |
+| `mfa.finish` | Hoàn tất | Finish | ⟨chừa chỗ⟩ | Nút sau khi tick ô đã cất mã |
+| `mfa.codes_list_label` | 10 mã khôi phục | 10 recovery codes | ⟨chừa chỗ⟩ | aria-label danh sách mã |
+| `mfa.codes_file_title` | OTTIMO – mã khôi phục xác thực 2 bước | OTTIMO – 2-step verification recovery codes | ⟨chừa chỗ⟩ | Dòng đầu tệp .txt / bản in (tạo ở client, SEC 06.13) |
+| `mfa.codes_file_note` | Tài khoản {user}. Tạo lúc {time}. Mỗi mã dùng một lần. Cất tách khỏi điện thoại. | Account {user}. Created {time}. Each code works once. Keep them away from your phone. | ⟨chừa chỗ⟩ | Dòng 2 tệp .txt / bản in |
+| `mfa.status_on` | Đang bật từ {date} | On since {date} | ⟨chừa chỗ⟩ | Màn Xác thực 2 bước (SEC 06.35) |
+| `mfa.status_on_nodate` | Đang bật | On | ⟨chừa chỗ⟩ | Khi server chưa trả enrolledAt |
+| `mfa.status_off` | Chưa bật | Off | ⟨chừa chỗ⟩ |  |
+| `mfa.required_note` | Bắt buộc với vai chủ đầu tư và quản lý. | Required for owner and manager roles. | ⟨chừa chỗ⟩ |  |
+| `mfa.codes_left` | Còn {n} mã khôi phục | {n} recovery codes left | ⟨chừa chỗ⟩ |  |
+| `mfa.codes_low` | Chỉ còn {n} mã khôi phục. Tạo bộ mới để không bị khóa ngoài tài khoản. | Only {n} recovery codes left. Create a new set so you aren't locked out. | ⟨chừa chỗ⟩ | getMy2fa.recoveryCodesRemaining ≤ 3 – SEC 06.15 |
+| `mfa.codes_low_short` | Sắp hết mã khôi phục. Tạo bộ mới ở mục Xác thực 2 bước. | You're running out of recovery codes. Create a new set under 2-step verification. | ⟨chừa chỗ⟩ | Banner đầu trang khi Me.recoveryCodesLow |
+| `mfa.regen` | Tạo bộ mã mới | Create new codes | ⟨chừa chỗ⟩ |  |
+| `mfa.regen_note` | Bộ mã cũ hết hiệu lực ngay khi bộ mới được tạo. | The old set stops working as soon as the new one is created. | ⟨chừa chỗ⟩ |  |
+| `mfa.disable` | Tắt xác thực 2 bước | Turn off 2-step verification | ⟨chừa chỗ⟩ | Chỉ vai không bắt buộc (SEC 06.25) |
+| `mfa.disable_note` | Mọi phiên đăng nhập, kể cả phiên này, sẽ kết thúc. | Every sign-in session, including this one, will end. | ⟨chừa chỗ⟩ |  |
+| `mfa.reenroll_title` | Đăng ký lại trên điện thoại mới | Set up on your new phone | ⟨chừa chỗ⟩ | ARC 0.3.8 bổ sung 1 (12.3) – sau loginMfa bằng mã khôi phục: phiên hạn chế, dùng lại màn đăng ký (US-143 AC3 a). Chữ ORC giao 23/10, chờ UXD |
+| `mfa.reenroll_lead` | Bạn vừa đăng nhập bằng mã khôi phục, mã đó đã hết hiệu lực. Thêm OTTIMO vào ứng dụng xác thực trên điện thoại mới để tiếp tục. Bộ mã khôi phục cũ sẽ được thay bằng bộ mới. | You signed in with a recovery code, and that code no longer works. Add OTTIMO to the authenticator app on your new phone to continue. Your old recovery codes will be replaced with a new set. | ⟨chừa chỗ⟩ | Câu dẫn của màn đăng ký lại (thay mfa.recovery_used_* – bỏ G-FE-A-1) |
+| `reauth.s2_title` | Xác nhận bằng mật khẩu và mã xác thực | Confirm with your password and code | ⟨chừa chỗ⟩ | Hộp S2 dùng chung (StrongReauth – SEC A.5) |
+| `reauth.s2_help` | Thao tác này cần mật khẩu đăng nhập và mã 6 số đang hiện trong ứng dụng xác thực. | This action needs your sign-in password and the 6-digit code your authenticator app shows. | ⟨chừa chỗ⟩ |  |
+| `reauth.s2_help_password` | Thao tác này cần mật khẩu đăng nhập của bạn. | This action needs your sign-in password. | ⟨chừa chỗ⟩ | Người chưa bật 2FA (chỉ khi MFA_ENFORCED = false): S2 = mật khẩu |
+| `reauth.s2_failed` | Mật khẩu hoặc mã chưa đúng. Kiểm tra lại rồi nhập mã mới. | The password or code isn't right. Check them and enter a new code. | ⟨chừa chỗ⟩ | 401 REAUTH_FAILED – không nói yếu tố nào sai |
+| `reauth.s2_wait_code` | Mỗi mã chỉ dùng một lần. Nếu vừa dùng mã này, chờ ứng dụng hiện mã mới. | Each code works only once. If you just used this one, wait for the app to show a new code. | ⟨chừa chỗ⟩ | ARC s1-contracts 1.2 – hai thao tác S2 trong cùng 30 giây cần mã kế tiếp |
+| `reauth.s2_password_label` | Mật khẩu đăng nhập | Sign-in password | ⟨chừa chỗ⟩ |  |
 
 #### R2 Sprint 4 – MOB sửa theo UXR đi thử PWA (s4-pwa-walkthrough P-01/04/07/08/09/10/11/12/13/16/28) (UXD duyệt 18/10 – s4-UXD-brand, sửa 8)
 

@@ -38,6 +38,13 @@ import type {
   GuestSummary,
   ResponseOf,
   LoginBody,
+  LoginMfaBody,
+  CreateUserBody,
+  My2fa,
+  My2faSetup,
+  RecoveryCodes,
+  ResetUser2faBody,
+  StrongReauth,
   LookupGuestBody,
   Me,
   Parameter,
@@ -187,6 +194,24 @@ export function createEndpoints(api: ApiClient) {
     // `401 UNAUTHENTICATED` is an expired session – the global handler decides by `code`, not status.
     // Q3: 204 + new session cookie → callers reload getMe() for the new csrfToken.
     changeMyPassword: (body: ChangePasswordBody) => r<void>('POST', '/v1/me/password', { body }),
+
+    // 2FA (US-143, OpenAPI 0.3.8 – SEC A). No Idempotency-Key on setup/confirm/recovery codes (SEC 06.9):
+    // their answers carry secrets that must never be stored server side.
+    /** Step 2 of sign-in: exactly one of `totpCode`, `recoveryCode`; every failure is `401 MFA_INVALID`. */
+    loginMfa: (body: LoginMfaBody) => r<Me>('POST', '/v1/auth/login/mfa', { body, local: true }),
+    getMy2fa: () => r<My2fa>('GET', '/v1/me/2fa'),
+    /** Current password → a NEW pending secret every call (the previous QR stops working). */
+    startMy2faSetup: (currentPassword: string) =>
+      r<My2faSetup>('POST', '/v1/me/2fa/setup', { body: { currentPassword }, local: true }),
+    /** First TOTP code → 2FA on, 10 recovery codes once, NEW session (reload getMe for the csrfToken). */
+    confirmMy2fa: (totpCode: string) =>
+      r<RecoveryCodes>('POST', '/v1/me/2fa/confirm', { body: { totpCode }, local: true }),
+    /** S2 – the previous set stops working at once. */
+    regenerateMyRecoveryCodes: (reauth: StrongReauth) =>
+      r<RecoveryCodes>('POST', '/v1/me/2fa/recovery-codes', { body: reauth, local: true }),
+    /** S2 – voluntary roles only (owner/manager → 403); every session is revoked, this one too. */
+    disableMy2fa: (reauth: StrongReauth) =>
+      r<void>('DELETE', '/v1/me/2fa', { body: reauth, local: true }),
 
     // rooms (S25)
     listRooms: ({ propertyId }: P) =>
@@ -1135,14 +1160,31 @@ export function createEndpoints(api: ApiClient) {
 
     // users & devices (S26, owner only)
     listUsers: () => r<Paged<User>>('GET', '/v1/users', { query: { limit: 100 } }),
-    setUserRoles: (userId: string, roles: PropertyRole[], version: number) =>
+    /** S2 `reauth` (0.3.8 CỔNG) only when the new list ADDS owner/manager – see `rolesNeedS2`. */
+    setUserRoles: (userId: string, roles: PropertyRole[], version: number, reauth?: StrongReauth) =>
       r<User>('PUT', '/v1/users/{userId}/roles', {
         path: { userId },
-        body: { roles } satisfies BodyOf<'setUserRoles'>,
+        body: (reauth ? { roles, reauth } : { roles }) satisfies BodyOf<'setUserRoles'>,
         ifMatch: version,
       }),
+    /** US-008 – always S2 (SEC 06.26). The S26 "add user" screen is FE-B's. */
+    createUser: (body: CreateUserBody, idempotencyKey: string) =>
+      r<User>('POST', '/v1/users', { body, idempotencyKey }),
+    /** `status` / `resetPassword` on someone else need `body.reauth` (S2, 0.3.8 CỔNG). */
     updateUser: (userId: string, body: UpdateUserBody, version: number) =>
-      r<User>('PATCH', '/v1/users/{userId}', { path: { userId }, body, ifMatch: version }),
+      r<User>('PATCH', '/v1/users/{userId}', {
+        path: { userId },
+        body,
+        ifMatch: version,
+      }),
+    /** US-143 AC3 (b): OWN resets another user's 2FA (S2 + reason); never one's own (422). */
+    resetUser2fa: (userId: string, body: ResetUser2faBody, idempotencyKey: string) =>
+      r<void>('POST', '/v1/users/{userId}/2fa/actions/reset', {
+        path: { userId },
+        body,
+        idempotencyKey,
+        local: true,
+      }),
     listTrustedDevices: ({ propertyId }: P) =>
       r<{ data: TrustedDevice[] }>('GET', '/v1/properties/{propertyId}/trusted-devices', {
         path: { propertyId },
@@ -1153,15 +1195,21 @@ export function createEndpoints(api: ApiClient) {
         body,
         idempotencyKey,
       }),
+    /** S2 (SEC 06.27, 0.3.8 CỔNG). */
     revokeTrustedDevice: (
       { propertyId, deviceId }: P & { deviceId: string },
       reason: string | undefined,
+      reauth: StrongReauth,
       idempotencyKey: string,
     ) =>
       r<TrustedDevice>(
         'POST',
         '/v1/properties/{propertyId}/trusted-devices/{deviceId}/actions/revoke',
-        { path: { propertyId, deviceId }, body: reason ? { reason } : {}, idempotencyKey },
+        {
+          path: { propertyId, deviceId },
+          body: (reason ? { reason, reauth } : { reauth }) satisfies BodyOf<'revokeTrustedDevice'>,
+          idempotencyKey,
+        },
       ),
   };
 }

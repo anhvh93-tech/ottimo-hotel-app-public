@@ -195,9 +195,10 @@ describe('#5 S11 khóa căn / phiếu sửa – start = business day', () => {
   });
 
   it.each(CLOCKS)(
-    '%s, maintenance (no BookingRules in the contract) → Rack.today %s',
+    '%s, maintenance, server before R3-Q38 (no BookingRules in the contract) → Rack.today %s',
     async (hhmm, day) => {
       at(hhmm);
+      mockControl.db.meBusinessDate = false;
       const reads = capture(/\/(booking-rules|rack)(\?|$)/);
       const { user } = renderApp('/maintenance', 'qa.mt');
       const { start } = await newOrder(user);
@@ -206,6 +207,20 @@ describe('#5 S11 khóa căn / phiếu sửa – start = business day', () => {
       reads.stop();
       expect(reads.paths.some((p) => p.endsWith('/rack'))).toBe(true);
       expect(reads.paths.some((p) => p.endsWith('/booking-rules'))).toBe(false);
+    },
+  );
+
+  it.each(CLOCKS)(
+    '%s, maintenance, R3-Q38 → Me.businessDate %s, no rack / booking-rules read',
+    async (hhmm, day) => {
+      at(hhmm);
+      const reads = capture(/\/(booking-rules|rack)(\?|$)/);
+      const { user } = renderApp('/maintenance', 'qa.mt');
+      const { start } = await newOrder(user);
+      await waitFor(() => expect(start).toHaveValue(day));
+      expect(start).toHaveAttribute('min', day);
+      reads.stop();
+      expect(reads.paths).toEqual([]);
     },
   );
 });

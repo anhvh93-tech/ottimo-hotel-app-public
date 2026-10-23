@@ -5,10 +5,12 @@ import { AppShell } from '../components/AppShell';
 import { ComingSoonPage, DeviceBlocked, NoAccessPage } from '../components/states';
 import { ChangePasswordPage } from '../pages/ChangePasswordPage';
 import { DevicesPage } from '../pages/DevicesPage';
+import { Enroll2faPage } from '../pages/Enroll2faPage';
 import { GuestsPage } from '../pages/GuestsPage';
 import { LoginPage } from '../pages/LoginPage';
 import { ParamsPage } from '../pages/ParamsPage';
 import { RoomsPage } from '../pages/RoomsPage';
+import { SecurityPage } from '../pages/SecurityPage';
 import { SelectPropertyPage } from '../pages/SelectPropertyPage';
 import { UsersPage } from '../pages/UsersPage';
 import { NAV, canOpen, homePath, type NavItem } from '../session/nav';
@@ -78,6 +80,15 @@ function RequireAuth({ children }: { children: ReactNode }) {
     );
   }
   if (session.mustChangePassword) return <Navigate to="/change-password" replace />;
+  // US-143 / SEC 06.4: restricted session → only the 2FA enrollment screen (the API 403s the rest).
+  if (session.enrollmentRequired)
+    return (
+      <Navigate
+        to="/enroll-2fa"
+        replace
+        state={{ from: `${location.pathname}${location.search}` }}
+      />
+    );
   if (!session.property) return <Navigate to="/select-property" replace />;
   return <>{children}</>;
 }
@@ -157,6 +168,7 @@ export function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/change-password" element={<ChangePasswordPage />} />
       <Route path="/select-property" element={<SelectPropertyPage />} />
+      <Route path="/enroll-2fa" element={<Enroll2faPage />} />
       <Route
         element={
           <RequireAuth>
@@ -178,6 +190,7 @@ export function AppRoutes() {
             }
           />
         ))}
+        <Route path="/security" element={<SecurityPage />} />
         <Route path="/no-access" element={<NoAccessPage />} />
         <Route path="*" element={<Home />} />
       </Route>
