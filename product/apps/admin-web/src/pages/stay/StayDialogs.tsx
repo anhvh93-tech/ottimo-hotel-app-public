@@ -1587,7 +1587,9 @@ export function RefundRequestDialog({
       ),
     );
     if (out) {
-      toast(t('refund.requested'));
+      // ADD3-01 (SEC/ARC 24/10): on a settled folio a staff member cut (A32), the server routes the request to
+      // the owner – say who decides.
+      toast(t(out.data.requiredRole === 'owner' ? 'refund.requested_owner' : 'refund.requested'));
       onDone();
     }
   };
@@ -1633,7 +1635,8 @@ export function RefundRequestDialog({
           />
         )}
       </Field>
-      {act.view()}
+      {/* A field error (REFUND_EXCEEDS_APPROVED + max, reason) sits under its field – not said twice. */}
+      {act.fields.amountVnd || act.fields.reason ? null : act.view()}
     </Modal>
   );
 }

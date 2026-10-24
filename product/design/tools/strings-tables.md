@@ -3410,6 +3410,13 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 |---|---|---|---|---|
 | `co.debt_due_min` | Chọn hạn thanh toán từ ngày mai trở đi. | Choose a due date from tomorrow onwards. | ⟨chừa chỗ⟩ | R3-Q39 #11 – server cần hạn > ngày nghiệp vụ (checkout.service); thay co.debt_due_past ("từ hôm nay" – sai từ R2, UXD đánh dấu CŨ) |
 
+#### R3 – FE-A FUZZ-01 (ARC 0.3.8 bổ sung 3, BR-522 K11-06): yêu cầu hoàn trên folio đã chốt. **Chờ UXD duyệt**
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `refund.settled_credit` | Khách đã trả phòng và còn dư {amount} chưa có yêu cầu hoàn. Gửi đề nghị hoàn để quản lý duyệt và chi. | The guest has checked out with {amount} overpaid and no refund request yet. Send a refund request for a manager to approve and pay. | ⟨chừa chỗ⟩ | Folio settled (kể cả J15 waiting_refund), unhandledCreditVnd > 0 – drawer đơn; mục Cần chú ý closed_reservation_credit dẫn tới đây |
+| `refund.requested_owner` | Đã gửi đề nghị hoàn – sẽ chờ chủ đầu tư duyệt. | Refund request sent – it will wait for the owner's approval. | ⟨chừa chỗ⟩ | ADD3-01 (SEC/ARC 24/10): server định tuyến requiredRole = owner (folio đã chốt có dòng bị giảm bởi người dưới chủ đầu tư). Biến thể của refund.requested, cùng giọng debt.write_off_pending |
+
 #### R2 Sprint 4 – MOB sửa theo UXR đi thử PWA (s4-pwa-walkthrough P-01/04/07/08/09/10/11/12/13/16/28) (UXD duyệt 18/10 – s4-UXD-brand, sửa 8)
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
