@@ -3043,6 +3043,34 @@ export class FolioService implements FolioStaySync {
   }
 
   /**
+   * BUG-R3-014 (critic rerun M-2; contract 0.3.8 bổ sung 6, 13.3 points 1 + 3): a refund paid out lowers the credit
+   * like any other change – right after the pay-out, in its transaction, under the folio lock the pay-out holds,
+   * refundPlan runs on the folio (open or settled; closed folios take no pay-out): requests asking more than the credit
+   * left are re-planned (`superseded`; nobody else acting – a replacement keeps its requester and level) and, the
+   * credit gone, every approved request with money left (the one just paid in part included) is closed `superseded`
+   * – money arriving later is never absorbed by an old approval: it gets its own request and routing (ADD3-01).
+   */
+  async replanRefundsAfterPayout(tx: Tx, folioId: string, requestId?: string): Promise<void> {
+    const folio = await this.get(tx, folioId);
+    if (!folio || folio.status === 'closed') return;
+    const { rows } = await tx.query<{ code: string }>(
+      'SELECT code FROM reservation WHERE id = $1',
+      [folio.primary_reservation_id],
+    );
+    await this.refundsDownToCredit(
+      tx,
+      {
+        folioId,
+        reservationId: folio.primary_reservation_id,
+        reservationCode: rows[0]?.code ?? folio.bill_no ?? folioId,
+        actor: null,
+        ...(requestId ? { requestId } : {}),
+      },
+      'superseded',
+    );
+  }
+
+  /**
    * BR-433 (e) v0.4.3 + ARC/SEC FB-…-ADD3-01 – THE routing of every `refund` request (ApprovalService.submit calls it
    * through provideRefundRouting, whatever path asks: by hand `createRefundRequest`, a receipt, a cancellation, an A32
    * reduction, a `superseded` replacement). Its folio = the target booking's folio. When someone below the owner made
@@ -3462,29 +3490,41 @@ export class FolioService implements FolioStaySync {
     const total = open.reduce((a, r) => a + r.remainingVnd, 0);
     if (total <= Math.max(0, b.rawCreditVnd)) return { cancelledIds: [], createdId: null };
     const approvals = this.requireApprovals();
+    const credit = Math.max(0, b.rawCreditVnd);
     const plan = refundPlan(b.rawCreditVnd, open);
-    const carried = await this.carriedOrigin(tx, plan.createVnd > 0 ? plan.cancelIds : []);
+    // ARC 0.3.8 bổ sung 7 (13.4 point 1 – BUG014-01), the K11-06 INVARIANT: Σ (pending + what approved requests still
+    // have to pay) ≤ rawCreditVnd. Pending ones above it are cancelled (refundPlan); APPROVED ones still above it are
+    // closed `superseded` too, newest first (audited, requester + approvers told, refund hook purges the account –
+    // SEC-BE-45), and exactly what is left is asked again – so an approval never holds money it was not given for
+    // (an A32 reduction then always lands as credit not requested yet → its own `a32` request, ADD3-01).
+    const approvedOpen = open.filter((r) => r.status === 'approved');
+    let keptApprovedVnd = approvedOpen.reduce((a, r) => a + r.remainingVnd, 0);
+    const approvedCancelIds: string[] = [];
+    for (const r of [...approvedOpen].reverse()) {
+      if (keptApprovedVnd <= credit) break;
+      approvedCancelIds.push(r.id);
+      keptApprovedVnd -= r.remainingVnd;
+    }
+    const createVnd = Math.max(0, credit - keptApprovedVnd);
+    const carried = await this.carriedOrigin(
+      tx,
+      createVnd > 0 ? [...plan.cancelIds, ...approvedCancelIds] : [],
+    );
     const cancelledIds: string[] = [];
     for (const id of plan.cancelIds) {
       if (await approvals.autoCancel(tx, id, cancelReason, input.requestId)) cancelledIds.push(id);
     }
-    // BUG-R3-012/013 (critic B-1 / M-1, BR-522): no credit left at all → an APPROVED request not paid (or paid in part)
-    // has nothing left to pay back – it is closed (`cancelled`, `superseded`, audited, requester + approvers told),
-    // so it never holds the folio (J15) nor reaches a pay-out. A credit still there keeps it (pay-out clamps to it).
-    if (b.rawCreditVnd <= 0) {
-      for (const r of open) {
-        if (r.status !== 'approved' || plan.cancelIds.includes(r.id)) continue;
-        if (await approvals.cancelApproved(tx, r.id, 'superseded', input.requestId)) {
-          cancelledIds.push(r.id);
-        }
+    for (const id of approvedCancelIds) {
+      if (await approvals.cancelApproved(tx, id, 'superseded', input.requestId)) {
+        cancelledIds.push(id);
       }
     }
     let createdId: string | null = null;
-    if (plan.createVnd > 0) {
+    if (createVnd > 0) {
       const row = await this.submitStayRefund(tx, {
         reservationId: input.reservationId,
         reservationCode: input.reservationCode,
-        amountVnd: plan.createVnd,
+        amountVnd: createVnd,
         reasonCode: 'overpayment',
         reasonNote: carried.note,
         actor: this.replacementActor(carried, input.actor),

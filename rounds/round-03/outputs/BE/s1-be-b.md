@@ -533,3 +533,49 @@ Nhánh `be-b/r3-bug012-followups`, tách từ `origin/main` `27c5dcc` (đã có 
 Kết quả chạy:
 - Toàn bộ API: 129 tệp đạt, 2 bỏ qua; 3.231 test đạt, 21 bỏ qua.
 - tsc, eslint, prettier đạt. `r3-bug-012-013.test.ts` chỉ định dạng lại.
+
+## 16. BUG-R3-014 (P1) – chi hoàn không lập lại kế hoạch hoàn (critic rerun M-2, 24/10)
+
+Nhánh `be-b/r3-bug-014`, tách từ `origin/main` `ae93e48`. Không có migration, không đổi hình dạng API.
+
+### Sửa
+- `RefundsService.payOut` (dùng cho cả `executeCashRefund` và `executeRefund`): ghi phiếu hoàn xong, trong cùng giao dịch và dưới khóa folio mà lần chi đang giữ, gọi `FolioService.replanRefundsAfterPayout`.
+- Hàm này chạy `refundsDownToCredit` trên folio đang mở hoặc `settled` (folio `closed` không chi được), không có người bấm, theo hợp đồng 13.3 điểm 1 + 3:
+  - yêu cầu chờ vượt tiền dư → `superseded`, xin lại đúng số. Bản thay giữ người xin, nguồn và cấp duyệt (FB-1213-01/02);
+  - **hết tiền dư** → mọi yêu cầu **đã duyệt còn tiền** đóng `cancelled` `superseded`, kể cả chính yêu cầu vừa chi dở; có audit, báo người xin/người duyệt, hook xóa tài khoản nhận (SEC-BE-45);
+  - còn tiền dư → yêu cầu đã duyệt giữ nguyên, lần chi sau vẫn kẹp `min(còn lại, tiền dư)`.
+- Hệ quả: tiền khách trả thêm sau khi tiền dư đã về 0 luôn sinh yêu cầu mới, đi qua định tuyến ADD3-01 (folio có A32 → `owner`). Lần duyệt cũ không còn "hút" được tiền mới.
+
+### ARC quyết (hợp đồng 0.3.8 bổ sung 7, `s1-contracts.md` 13.4) – đã làm
+- **BUG014-01 – bất biến K11-06**, thay cho quy tắc "chỉ đóng yêu cầu đã duyệt khi hết tiền dư":
+  - Trong `refundsDownToCredit`, sau mọi thay đổi tiền, giữ Σ (yêu cầu chờ + phần còn phải chi của yêu cầu đã duyệt) ≤ `rawCreditVnd`.
+  - Vượt thì:
+    - hủy `superseded` mọi yêu cầu chờ (`refundPlan`);
+    - đóng `superseded` các yêu cầu **đã duyệt** đang vượt, **mới nhất trước**, cho tới khi phần giữ lại nằm gọn trong tiền dư;
+    - xin lại đúng phần còn lại.
+  - Bản thay lấy nguồn, ghi chú, `origin_actor_ids`, người xin và cấp duyệt cao nhất từ **mọi** yêu cầu bị đóng, cả yêu cầu đã duyệt (FB-1213-01/02).
+  - Mọi đường đã gắn quy tắc dùng chung một hàm, nên bất biến áp cho cả chi hoàn, phát sinh, A32, khoản thu, đảo, J15 và lớp chặn ở bước duyệt.
+- **BUG014-02:**
+  - Người có dòng `folio_settled_reduction` (vai dưới OWN) trên folio gọi `executeCashRefund`, `executeRefund` hoặc `setRefundDestination` cho yêu cầu hoàn của folio đó → 403 `SELF_REFUND_FORBIDDEN`.
+  - Kiểm dưới khóa folio, cùng chỗ với "người chi ≠ người tạo". OWN (vai hiện tại) không bị chặn.
+
+### Test
+- `fuzz/bug-r3-014.test.ts` (ca tái hiện của QA): bỏ cờ `FUZZ_KNOWN_BUGS`, nay luôn chạy.
+- `fuzz/bug-r3-014.test.ts`: các bước được BE-B viết lại theo oracle 13.4 (QA xác nhận).
+  - Lần phát sinh 100.000 làm yêu cầu đã duyệt 300.000 thành `superseded` và xin lại 200.000.
+  - Duyệt rồi chi 200.000 → không còn gì mở.
+  - QR mới 500.000 → yêu cầu 500.000.
+- `s438-r8/r3-bug-014-payout-replan.test.ts` (4 ca):
+  1. ca test 1 của ARC: duyệt 300.000 khi tiền dư 300.000 → phát sinh 200.000 → yêu cầu đã duyệt `superseded` + xin lại 100.000 (giữ nguồn, người xin, cấp) → MGR A32 giảm 150.000 → yêu cầu `a32` 150.000 riêng → chi theo lần duyệt cũ → 409;
+  2. chi 100.000 → phần còn 200.000 = tiền dư, giữ nguyên; chi 250.000 → 422 `max` 200.000; chi nốt → không còn gì mở;
+  3. tiền mới sau khi tiền dư về 0 → yêu cầu riêng `owner`;
+  4. BUG014-02: người làm A32 đặt nơi nhận → 403, chi → 403; lễ tân đặt nơi nhận, OWN chi → 201.
+- `r3-bug-012-013`: ca "J15 vẫn chờ" sửa theo 13.4 (yêu cầu đã duyệt vượt tiền dư → `superseded` + xin lại 200.000 cùng cấp).
+- **Đã chạy sau khi OrbStack khởi động lại** (Postgres riêng, migrate từ đầu):
+  - test oracle `r3-bug-014-payout-replan` 4/4, ca tái hiện `fuzz/bug-r3-014` 1/1, `r3-bug-012-013` 5/5 – đạt;
+    - sửa trong test BUG014-02: lệnh đặt nơi nhận của MGR chạy trên thiết bị desk tin cậy, vì nếu không, kiểm thiết bị trả `DEVICE_NOT_TRUSTED` trước kiểm người làm A32;
+  - toàn bộ API (`--maxWorkers=3`, máy đang tải cao): 3.233 đạt, 24 bỏ qua, 3 đỏ;
+    - `close-stay-dom-s4` (1 ca) chạy lại riêng: đạt;
+    - `upload-gate-socket` (2 ca): đỏ do quá giờ ở phép thử socket/khe upload, không liên quan mã tiền. Lúc 16:10 tệp này chạy lại riêng thì đạt, lúc 16:35 chạy riêng lại đỏ khi máy tải cao;
+  - hai lần chạy cả bộ với số worker mặc định có 30–34 ca đỏ, gần hết là quá giờ 30 giây, 401 phiên hết hạn hoặc ngày giả lệch vì test chạy chậm (load average 4–10). Mọi tệp đỏ ở lần 1 khi chạy lại đều đạt, trừ `upload-gate-socket`.
+

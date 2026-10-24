@@ -263,6 +263,7 @@ export class RefundsService {
     if (!OPEN_STATES.includes(row.status) || row.refunded_vnd >= row.amount_vnd) {
       throw problem('INVALID_TRANSITION', { extras: { currentState: row.status } });
     }
+    await this.assertNotA32Maker(tx, row, actor);
     const now = this.clock.now();
     let enc: Buffer | null = null;
     let keyId: string | null = null;
@@ -492,6 +493,7 @@ export class RefundsService {
     // Cash refunds (A47a): the requester never pays, no exception (CHECK in 0040/0042 as well).
     const ownerTransfer = channel === 'transfer' && primaryRole(actor.roles) === 'owner';
     if (row.requested_by === actor.userId && !ownerTransfer) throw problem('SELF_REFUND_FORBIDDEN');
+    await this.assertNotA32Maker(tx, row, actor);
     if (
       channel === 'transfer' &&
       !ownerTransfer &&
@@ -647,6 +649,9 @@ export class RefundsService {
       ...(note ? { reason: note } : {}),
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });
+    // BUG-R3-014 (critic rerun M-2, 13.3 points 1 + 3): the pay-out lowered the credit – the open refunds of the folio
+    // are re-planned in this transaction; no credit left → approved requests with money left are closed `superseded`.
+    await this.folios.replanRefundsAfterPayout(tx, folio.id, actor.requestId);
     // S4-06 (BR-522 v0.3.4): the "Cần chú ý – tiền dư đơn đã đóng" item of a cancelled / no-show booking closes
     // itself once nothing is left to pay back on its folio (BE-D 2.2: system-resolved only).
     if (this.events) {
@@ -672,6 +677,24 @@ export class RefundsService {
     });
     await publishEvent(tx, this.events, 'reservation.changed', target);
     return (await this.payments.row(tx, id)) as PaymentRowLite;
+  }
+
+  /**
+   * ARC 0.3.8 bổ sung 7 (13.4 point 2 – BUG014-02): whoever made an A32 reduction below the owner on the folio after
+   * check-out never touches its refunds – paying one out (cash or transfer) or setting where it goes – 403
+   * SELF_REFUND_FORBIDDEN, under the folio lock the caller holds. The owner is never blocked.
+   */
+  private async assertNotA32Maker(
+    tx: Tx,
+    row: Pick<RefundRow, 'target_type' | 'target_id'>,
+    actor: { userId: string; roles: readonly string[] },
+  ): Promise<void> {
+    if (actor.roles.includes('owner')) return;
+    if (
+      await this.folios.isA32Maker(tx, row.target_type ?? null, row.target_id ?? null, actor.userId)
+    ) {
+      throw problem('SELF_REFUND_FORBIDDEN');
+    }
   }
 
   /** Booking of a refund request (unlocked read – the request row is locked after the folio). */
