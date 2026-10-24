@@ -140,6 +140,9 @@ test.describe('TC-LP-019 hero slideshow (R3-Q52)', () => {
 });
 
 const GARDEN = '[data-gallery-open="gal-standard-studio-garden-view"]';
+/** Photos per room type = ROOM_GALLERIES in landing-web src/content/gallery.ts (UXD FB-R3-UXD-FE-05, pending INV). */
+const GARDEN_N = 7;
+const SIGNATURE_N = 6;
 
 for (const lang of Object.keys(PAGES) as Lang[]) {
   for (const width of [375, 1280]) {
@@ -159,7 +162,10 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
       // one button per room type, the number of photos in its text
       await expect(page.locator('.gal-open')).toHaveCount(4);
       const open = page.locator(GARDEN);
-      await expect(open).toHaveText(lang === 'en' ? '6 photos' : '6 ảnh');
+      await expect(open).toHaveText(lang === 'en' ? `${GARDEN_N} photos` : `${GARDEN_N} ảnh`);
+      await expect(page.locator('[data-gallery-open="gal-signature-two-bedrooms"]')).toHaveText(
+        lang === 'en' ? `${SIGNATURE_N} photos` : `${SIGNATURE_N} ảnh`,
+      );
       await open.scrollIntoViewIfNeeded();
       await open.click();
 
@@ -168,7 +174,7 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
       await expect(page.locator('html')).toHaveClass(/lb-open/);
       await expect(dialog.locator('[data-lb-close]')).toBeFocused();
       const count = dialog.locator('[data-lb-count]');
-      await expect(count).toHaveText('1 / 6');
+      await expect(count).toHaveText(`1 / ${GARDEN_N}`);
       // the first photo really shows (lazy image inside the dialog loads on open)
       await expect
         .poll(() =>
@@ -182,27 +188,27 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
       const alts = await dialog
         .locator('.lb-slide img')
         .evaluateAll((is) => is.map((i) => i.getAttribute('alt') ?? ''));
-      expect(alts).toHaveLength(6);
+      expect(alts).toHaveLength(GARDEN_N);
       for (const a of alts) expect(a.trim().length).toBeGreaterThan(5);
 
       await page.keyboard.press('ArrowRight');
-      await expect(count).toHaveText('2 / 6');
+      await expect(count).toHaveText(`2 / ${GARDEN_N}`);
       await expect(dialog.locator('[data-lb-count-sr]')).toHaveText(
-        lang === 'en' ? 'Photo 2 of 6' : 'Ảnh 2 trên 6',
+        lang === 'en' ? `Photo 2 of ${GARDEN_N}` : `Ảnh 2 trên ${GARDEN_N}`,
       );
       await page.keyboard.press('End');
-      await expect(count).toHaveText('6 / 6');
+      await expect(count).toHaveText(`${GARDEN_N} / ${GARDEN_N}`);
       await dialog.locator('[data-lb-next]').click(); // wraps to the first
-      await expect(count).toHaveText('1 / 6');
+      await expect(count).toHaveText(`1 / ${GARDEN_N}`);
       await dialog.locator('[data-lb-prev]').click(); // and back to the last
-      await expect(count).toHaveText('6 / 6');
+      await expect(count).toHaveText(`${GARDEN_N} / ${GARDEN_N}`);
       await page.keyboard.press('Home');
-      await expect(count).toHaveText('1 / 6');
+      await expect(count).toHaveText(`1 / ${GARDEN_N}`);
       // swipe = scroll of the snap row
       await dialog
         .locator('[data-lb-track]')
         .evaluate((t) => t.scrollTo({ left: t.clientWidth * 2, behavior: 'auto' }));
-      await expect(count).toHaveText('3 / 6');
+      await expect(count).toHaveText(`3 / ${GARDEN_N}`);
 
       // focus never leaves the dialog
       for (const key of [

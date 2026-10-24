@@ -20,13 +20,22 @@ export const ROOM_GALLERIES: Readonly<Record<RoomSlug, readonly string[]>> = {
   'standard-studio-garden-view': [
     'garden-oak',
     'garden-navy',
+    'garden-navy-kitchen',
     'garden-balcony',
     'detail-kitchen',
     'detail-laundry-desk',
     'detail-balcony-sunset',
   ],
   'premium-one-bedroom-1': ['premium-kitchen', 'premium-bed', 'premium-living'],
-  'signature-two-bedrooms': ['signature-dining', 'signature-bed', 'signature-bath'],
+  // UXD FB-R3-UXD-FE-05 (pending INV): Signature 3 → 6, Garden + photo 16. Separate commit – drop it to go back.
+  'signature-two-bedrooms': [
+    'signature-dining',
+    'signature-living-oak',
+    'signature-bedroom-desk',
+    'signature-bed',
+    'signature-laundry-dining',
+    'signature-bath',
+  ],
 };
 
 /** What an OTA listing usually shows at least; fewer = ask INV for more photos of that room type. */
