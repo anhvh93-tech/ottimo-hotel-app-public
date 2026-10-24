@@ -112,3 +112,41 @@ Chạy trên worktree tách riêng ở `2fdff4d`, Postgres 17 mới, migrate t�
 1. Công tắc mặc định tắt, chỉ OWN bật được, và server tự từ chối khi chưa đủ điều kiện pháp lý/kỹ thuật (422 `PUBLIC_FORM_NOT_READY` kèm `missing[]`).
 2. Bước 0 hoàn toàn trong RAM trước mọi truy cập DB; phản hồi công khai không bao giờ lặp lại dữ liệu khách; lỗi chỉ có trường + mã.
 3. Phân quyền SAL theo dữ liệu (không tên/SĐT/lời nhắn khi chưa nhận) và xóa C2 trong cùng giao dịch khi chuyển đơn. Thiết kế "dữ liệu người lạ là tạm thời" được làm đúng.
+
+---
+
+## Kiểm lại trên `main` `61255f1` (24/10/2026)
+
+- `main` đã có:
+  - BE-D `32e5fda`: sửa FB-01/02/03 và ARC US155-01/02, thêm migration 0087;
+  - FE-B `aa2d52c`: màn Desk S35 và form landing (mặc định tắt).
+- Đã đọc diff `5820a97..32e5fda`: `unit-of-work.ts` (`storeBody`), `http.ts` (`bodyLimit` cho `/v1/public/`), `website-requests.controller.ts`, `quotes.controller.ts`, `reservations.controller.ts`, migration 0087. Đã đọc thêm trả lời `responses/s1-BE-D-us155.md`.
+- Kiểm đã chạy, trên worktree tách riêng ở `61255f1`, Postgres 17 mới, migrate từ đầu tới 0087; đã gỡ sau khi chạy:
+  - `tsc` đạt;
+  - `public-site-r3-bed`, `be-d-r3-s1-units`, `architecture` cộng ca quét của SEC: **82/82 đạt**;
+  - **SEC quét lại** sau toàn bộ luồng test (nhận, từ chối, mở lại, đánh dấu spam, xóa, giữ chỗ, đơn B2): `idempotency_key.response_body`, audit, outbox, "Cần chú ý" **0 dòng** có tên/SĐT/lời nhắn. Log lượt chạy: 0 lần;
+  - body JSON 20 KB gửi lên route công khai → **413** (chặn trước parse).
+
+### Trạng thái thẻ
+
+| ID | Mức | SEC xác nhận |
+|---|---|---|
+| FB-R3-SEC-US155-01 | Major | **Verified.** Thao tác chuyển trạng thái của yêu cầu, giữ chỗ `website` và đơn B2 chỉ lưu `{ id }` vào bộ đệm idempotency; khi phát lại thì đọc lại bản ghi theo quyền hiện tại, nên sau WR8 không còn C2. Có test quét bảng; SEC quét độc lập ra 0 dòng. |
+| FB-R3-SEC-US155-02 | Minor | **Verified phần server.** `bodyLimit` 8 KB cho mọi route `/v1/public/`, chặn cả body chunked trước parse; SEC dò 20 KB → 413. **Còn phần OPS**: Caddy `request_body max_size 16KB` trên vhost landing, kèm ca kiểm qua Caddy. |
+| FB-R3-SEC-US155-03 | Minor | **Verified phần server.** Đã có test cho B.1.1 (429 mà không mượn kết nối DB), B.1.2 (503 khi đủ 4 request đang chạy), B.1.4 (cookie), B.1.6 (`trustProxy` thật), B.1.10 (khóa ngắn hoặc trùng), B.1.12 (IPv6 /48), B.2.8 (SSE chỉ có `{ id }`). **Còn B.2.1–B.2.3** (hiển thị chuỗi độc hại trên Desk) – FE-B/QA. |
+| FB-R3-SEC-US155-04 | Suggestion | Ghi nhận. OPS ghi runbook "API chạy 1 bản" (cùng ARC US155-04). |
+| (ARC US155-01/02, SEC đọc kèm) | – | Đạt góc bảo mật. `public_resolve_property` chỉ trả khi đúng **một** cơ sở `active` khớp mã, nên yêu cầu không bao giờ rơi vào cơ sở của tenant khác. Trigger chỉ cho xóa dòng `spam`, cùng lớp với Q51-02. |
+
+### Điều kiện còn lại trước khi bật form trên production (SEC xác nhận mốc khi đủ cả 7)
+
+| # | Điều kiện | Ai làm | Trạng thái |
+|---|---|---|---|
+| 1 | B.2.1–B.2.3 phía Desk S35: tên/lời nhắn chứa `<img onerror>` và URL hiển thị nguyên chữ, không tạo thẻ `<a>`, có nhãn cảnh báo URL; ký tự U+202E bị bỏ; CCCD trong lời nhắn → 422 và không xuất hiện trong log Caddy/Postgres. Có test E2E hoặc FE. | FE-B + QA | Mở |
+| 2 | Caddy vhost landing: chỉ proxy 2 đường dẫn công khai, `request_body max_size 16KB`; ca chunked 64 KB qua Caddy → 413. Có `LANDING_BASE_URL` (https) và secret `PUBLIC_FORM_SIGNING_KEY_FILE` riêng trên production. Runbook "API 1 bản". | OPS | Mở |
+| 3 | C-1: bản dựng landing (`/book/`, trang cảm ơn, trang quyền riêng tư) qua `check-dist.mjs` + Playwright: 0 request ra bên thứ ba, không lỗi CSP. | FE-B / FE-LP + QA | Mở (FE-B báo bản prod giống hệt từng byte khi form tắt; cần chạy lại khi bật) |
+| 4 | C-3 (a): thông báo xử lý dữ liệu EN + VI đã luật sư duyệt, đã đăng, đã ghi `privacy_notice_version` cho từng ngôn ngữ. Server tự chặn bật khi thiếu. | INV + luật sư, rồi OPS ghi phiên bản | Mở (ESC-001) |
+| 5 | C-13: luật sư trả lời LZ-2 (căn cứ xử lý) và LZ-8 (thông báo/đăng ký website theo Luật TMĐT 2025, NĐ 248/2026), hoặc OTTIMO đã làm thủ tục. | INV + luật sư | Mở (ESC-001) |
+| 6 | SEC-G1/G2: Desk chạy dữ liệu thật đạt kiểm tra SEC (`s3-SEC.md` mục 9.5). | SEC + OPS | Theo cổng phát hành v1.0 |
+| 7 | E2E US-155 trên stack có `LANDING_BASE_URL` + khóa ký: form → Desk S35 → báo giá/giữ chỗ hoặc đơn đảm bảo; ca B2. | QA | Mở |
+
+Phía server không còn thẻ SEC nào chặn mốc này.
