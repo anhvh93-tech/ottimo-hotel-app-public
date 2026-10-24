@@ -16,7 +16,15 @@ export const HERO_INTERVAL_MS = 3000;
 
 /** Photos per room type; the first one is the cover of the room card. */
 export const ROOM_GALLERIES: Readonly<Record<RoomSlug, readonly string[]>> = {
-  'standard-studio-city-view': ['city-living', 'city-bed', 'city-view'],
+  // INV 25/10: at least GALLERY_TARGET photos per room type (copy.test.ts).
+  'standard-studio-city-view': [
+    'city-living',
+    'city-studio',
+    'city-kitchen',
+    'city-bed',
+    'city-laundry',
+    'city-view',
+  ],
   'standard-studio-garden-view': [
     'garden-oak',
     'garden-navy',
@@ -26,7 +34,14 @@ export const ROOM_GALLERIES: Readonly<Record<RoomSlug, readonly string[]>> = {
     'detail-laundry-desk',
     'detail-balcony-sunset',
   ],
-  'premium-one-bedroom-1': ['premium-kitchen', 'premium-bed', 'premium-living'],
+  'premium-one-bedroom-1': [
+    'premium-kitchen',
+    'premium-living-tv',
+    'premium-living',
+    'premium-bed',
+    'premium-extra-bed',
+    'premium-bath',
+  ],
   // UXD FB-R3-UXD-FE-05 (pending INV): Signature 3 → 6, Garden + photo 16. Separate commit – drop it to go back.
   'signature-two-bedrooms': [
     'signature-dining',
@@ -38,5 +53,5 @@ export const ROOM_GALLERIES: Readonly<Record<RoomSlug, readonly string[]>> = {
   ],
 };
 
-/** What an OTA listing usually shows at least; fewer = ask INV for more photos of that room type. */
+/** Minimum photos per room type – INV rule 25/10 (was a target, now enforced by copy.test.ts). */
 export const GALLERY_TARGET = 6;

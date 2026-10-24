@@ -58,6 +58,12 @@ export const en: Copy = {
     'signature-living-oak':
       'Living room with an oak shelf wall, a TV, a cream sofa and a full-size fridge',
     'signature-laundry-dining': 'A washer and dryer beside a dining table and an oak kitchen',
+    'city-studio': 'Studio with a cream sofa, the bed behind it and a desk by a glass-block screen',
+    'city-kitchen': 'Grey kitchen with a full-size fridge and a white dining counter',
+    'city-laundry': 'Washer and dryer in a nook beside the shower room',
+    'premium-living-tv': 'Living room with a TV wall, and a washer and dryer down the hall',
+    'premium-extra-bed': 'Living room with an extra bed, a TV and a sofa by the balcony door',
+    'premium-bath': 'Bathroom with a glass shower and a green-tiled basin wall',
   },
   hero: {
     label: 'Boutique stay · Da Lat',

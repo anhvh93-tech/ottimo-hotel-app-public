@@ -108,6 +108,19 @@ const PHOTOS = [
   // Amenities photo since 24/10 (UXD FB-R3-UXD-FE-02): picker 30, so the hero photo 9 is not repeated there.
   { id: 'signature-laundry-dining', src: 'phong-4/1.png', use: 'Amenities (picker 30)', type: 'Signature Two-Bedroom', brochure: '–',
     alt: { en: 'A washer and dryer beside a dining table and an oak kitchen', vi: 'Máy giặt sấy cạnh bàn ăn và gian bếp gỗ sồi' } },
+  // INV 25/10: every room type shows at least 6 photos (City and Premium had 3). Picker numbers in `use`.
+  { id: 'city-studio', src: 'phong-3/05.png', use: 'Room gallery (picker 24)', type: 'City Studio', brochure: '–',
+    alt: { en: 'Studio with a cream sofa, the bed behind it and a desk by a glass-block screen', vi: 'Studio với sofa màu kem, giường phía sau và bàn làm việc cạnh vách gạch kính' } },
+  { id: 'city-kitchen', src: 'phong-3/01.1.png', use: 'Room gallery (picker 20)', type: 'City Studio', brochure: '–',
+    alt: { en: 'Grey kitchen with a full-size fridge and a white dining counter', vi: 'Bếp tông xám với tủ lạnh cỡ lớn và quầy ăn màu trắng' } },
+  { id: 'city-laundry', src: 'phong-3/10.png', use: 'Room gallery (picker 29)', type: 'City Studio', brochure: '–',
+    alt: { en: 'Washer and dryer in a nook beside the shower room', vi: 'Máy giặt sấy đặt trong hốc tường, cạnh phòng tắm' } },
+  { id: 'premium-living-tv', src: 'phong-5/1.png', use: 'Room gallery (picker 39)', type: 'Premium One-Bedroom', brochure: '–',
+    alt: { en: 'Living room with a TV wall, and a washer and dryer down the hall', vi: 'Phòng khách với vách TV, máy giặt sấy cuối hành lang' } },
+  { id: 'premium-extra-bed', src: 'phong-5/6.png', use: 'Room gallery (picker 44)', type: 'Premium One-Bedroom', brochure: '–',
+    alt: { en: 'Living room with an extra bed, a TV and a sofa by the balcony door', vi: 'Phòng khách với giường phụ, TV và sofa cạnh cửa ban công' } },
+  { id: 'premium-bath', src: 'phong-5/7.png', use: 'Room gallery (picker 45)', type: 'Premium One-Bedroom', brochure: '–',
+    alt: { en: 'Bathroom with a glass shower and a green-tiled basin wall', vi: 'Phòng tắm với vách tắm kính và tường gạch xanh sau bồn rửa' } },
 ];
 
 const SEC_CHECK =

@@ -237,7 +237,7 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
 
       // the other rooms open their own photos
       await page.locator('[data-gallery-open="gal-premium-one-bedroom-1"]').click();
-      await expect(page.locator('#gal-premium-one-bedroom-1 [data-lb-count]')).toHaveText('1 / 3');
+      await expect(page.locator('#gal-premium-one-bedroom-1 [data-lb-count]')).toHaveText('1 / 6');
       await page.locator('#gal-premium-one-bedroom-1 [data-lb-close]').click();
       await expect(page.locator('#gal-premium-one-bedroom-1')).toHaveJSProperty('open', false);
 

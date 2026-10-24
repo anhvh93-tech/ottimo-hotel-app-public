@@ -57,6 +57,12 @@ export const vi: Copy = {
     'garden-navy-kitchen': 'Bếp navy và gỗ sồi cạnh góc sofa, cửa kính lớn nhìn ra Đà Lạt',
     'signature-living-oak': 'Phòng khách với vách kệ gỗ sồi, TV, sofa màu kem và tủ lạnh cỡ lớn',
     'signature-laundry-dining': 'Máy giặt sấy cạnh bàn ăn và gian bếp gỗ sồi',
+    'city-studio': 'Studio với sofa màu kem, giường phía sau và bàn làm việc cạnh vách gạch kính',
+    'city-kitchen': 'Bếp tông xám với tủ lạnh cỡ lớn và quầy ăn màu trắng',
+    'city-laundry': 'Máy giặt sấy đặt trong hốc tường, cạnh phòng tắm',
+    'premium-living-tv': 'Phòng khách với vách TV, máy giặt sấy cuối hành lang',
+    'premium-extra-bed': 'Phòng khách với giường phụ, TV và sofa cạnh cửa ban công',
+    'premium-bath': 'Phòng tắm với vách tắm kính và tường gạch xanh sau bồn rửa',
   },
   hero: {
     label: 'Boutique stay · Đà Lạt',

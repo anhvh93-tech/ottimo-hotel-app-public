@@ -124,7 +124,10 @@ describe('page copy EN + VI', () => {
       const g = ROOM_GALLERIES[r.slug];
       expect(g[0], `${r.slug}: cover = first gallery photo`).toBe(r.photo);
       expect(new Set(g).size, `${r.slug}: no duplicate`).toBe(g.length);
-      expect(g.length).toBeGreaterThanOrEqual(3);
+      expect(
+        g.length,
+        `${r.slug}: at least ${GALLERY_TARGET} photos (INV 25/10)`,
+      ).toBeGreaterThanOrEqual(GALLERY_TARGET);
     }
     expect(GALLERY_TARGET).toBe(6);
   });

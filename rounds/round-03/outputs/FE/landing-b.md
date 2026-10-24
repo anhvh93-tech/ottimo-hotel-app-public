@@ -172,3 +172,71 @@ Căn cứ: `rounds/round-03/reviews/landing-b-UXD.md` (FB-R3-UXD-FE-01…05), `l
 
 ### 10.6 Còn lại cho UXD (không chặn)
 - 320 px VI: tiêu đề thẻ The Stay "Một mùa Đà Lạt, sống thong / thả" còn rớt một chữ (`why-320-vi.jpg`) – thẻ `.h3` chưa có `text-wrap: balance` vì UXD-04 chỉ nêu `.h2`. UXD quyết có áp cho `.h3` không.
+
+## 11. Thư viện hạng phòng tối thiểu 6 ảnh (INV 25/10)
+
+INV giữ commit `b08768a` (Signature 6, Garden 7) và chốt quy tắc **mỗi hạng ≥ 6 ảnh**. City và Premium được nâng từ 3 lên 6 ảnh.
+
+**Xác định nguồn theo nội dung ảnh, không theo tên thư mục:**
+- 10 ảnh `phong-3` (số 20–29) cùng một phòng: tủ bếp xám–kem, TV logo OTTIMO, bàn kính, quầy ăn trắng chân tròn. Khớp 3 ảnh City đang dùng (22, 25, 27).
+- 7 ảnh `phong-5` (số 39–45) cùng một phòng có phòng ngủ tách riêng: bếp navy dài (43), **giường phụ ở phòng khách (44)**, tủ lạnh đen cạnh cửa ban công. Khớp 3 ảnh Premium đang dùng (40, 42, 43) và mô tả hạng Premium.
+
+### 11.1 Hạng → ảnh (thứ tự hiển thị; ảnh đầu = bìa thẻ)
+
+| Hạng | Số ảnh | id (số trong bảng 45 ảnh) |
+|---|---|---|
+| City Studio | 6 | `city-living` (22, bìa) · **`city-studio` (24)** · **`city-kitchen` (20)** · `city-bed` (25) · **`city-laundry` (29)** · `city-view` (27) |
+| Garden Studio | 7 | `garden-oak` (7, bìa) · `garden-navy` (18) · `garden-navy-kitchen` (16) · `garden-balcony` (13) · `detail-kitchen` (9) · `detail-laundry-desk` (15) · `detail-balcony-sunset` (19) |
+| Premium One-Bedroom | 6 | `premium-kitchen` (43, bìa) · **`premium-living-tv` (39)** · `premium-living` (42) · `premium-bed` (40) · **`premium-extra-bed` (44)** · **`premium-bath` (45)** |
+| Signature Two-Bedroom | 6 | `signature-dining` (32, bìa) · `signature-living-oak` (33) · `signature-bedroom-desk` (37) · `signature-bed` (35) · `signature-laundry-dining` (30) · `signature-bath` (34) |
+
+In đậm = ảnh mới ở lượt này. Tất cả qua `optimize-images.mjs --only` (AVIF q50 / WebP q72, 480/960/1600). Có trong `manifest.json` và `photoAlt` EN + VI.
+
+### 11.2 Lý do chọn và ảnh không đạt tiêu chí
+- **City.** Chọn 24 (góc rộng: sofa, giường, bàn làm việc trong một khung), 20 (bếp, tủ lạnh, quầy ăn – công năng), 29 (máy giặt sấy trong hốc tường – công năng; ảnh đứng như `city-view`).
+  - Không chọn 21 và 23: gần trùng góc với bìa 22.
+  - Không chọn 26: giường chụp thấp, cận.
+  - Không chọn 28: phòng tắm. Hạng đã đủ 6 ảnh công năng.
+  - Không có ảnh City nào thấy cây hay mái nhà hàng xóm.
+  - Hạng City không có tông gỗ sồi (tủ xám–kem): đây là thiết kế phòng, không phải lựa chọn ảnh.
+- **Premium.** Chọn 39 (phòng khách, vách TV, máy giặt sấy cuối hành lang – công năng), 44 (giường phụ ở phòng khách – INV muốn có từ 22/10), 45 (phòng tắm).
+  - **Ảnh không đạt trọn tiêu chí, vẫn dùng để đủ 6 ảnh:**
+    - 45 là ảnh phòng tắm, không phải ảnh công năng góc rộng, và thấy bồn cầu. Ảnh còn lại duy nhất là 41 (giường chụp thấp, trùng ý với 40), nên 45 được chọn.
+    - 42 (ảnh cũ, đã có trong thư viện) thấy chậu cây ở ban công.
+  - Đề xuất đợt chụp sau: Premium thêm 1 ảnh góc rộng phòng ngủ + bàn làm việc.
+- **Không người** ở cả 6 ảnh mới. Không có ảnh mới nào trùng ảnh đầu trang.
+  - Signature và Garden có trùng ảnh đầu trang (33, 37, 16, 9) theo commit INV đã duyệt `b08768a`.
+- **SEC xác nhận lại:** cửa ra vào ở ảnh 20 và 24 có khóa điện tử (nhỏ, không cận) và một tấm nội quy/sơ đồ thoát hiểm. Ở 1600 px không đọc được chữ, không có số phòng. Cùng loại với `city-living` đã được chấp nhận.
+
+### 11.3 Alt mới
+
+| id | EN | VI |
+|---|---|---|
+| `city-studio` | Studio with a cream sofa, the bed behind it and a desk by a glass-block screen | Studio với sofa màu kem, giường phía sau và bàn làm việc cạnh vách gạch kính |
+| `city-kitchen` | Grey kitchen with a full-size fridge and a white dining counter | Bếp tông xám với tủ lạnh cỡ lớn và quầy ăn màu trắng |
+| `city-laundry` | Washer and dryer in a nook beside the shower room | Máy giặt sấy đặt trong hốc tường, cạnh phòng tắm |
+| `premium-living-tv` | Living room with a TV wall, and a washer and dryer down the hall | Phòng khách với vách TV, máy giặt sấy cuối hành lang |
+| `premium-extra-bed` | Living room with an extra bed, a TV and a sofa by the balcony door | Phòng khách với giường phụ, TV và sofa cạnh cửa ban công |
+| `premium-bath` | Bathroom with a glass shower and a green-tiled basin wall | Phòng tắm với vách tắm kính và tường gạch xanh sau bồn rửa |
+
+- Alt giường phụ không ghi "1,4 m" vì ảnh không cho thấy kích thước. Con số vẫn ở mô tả hạng và câu gợi ý trong form.
+- CPY đọc lại.
+
+### 11.4 Test và kết quả
+- `copy.test.ts`: mỗi hạng trong `ROOM_GALLERIES` phải có ≥ `GALLERY_TARGET` (6) ảnh – quy tắc INV 25/10, trước chỉ ≥ 3. Ảnh mới phải có trong manifest và có alt hai thứ tiếng (ca R3-Q52 có sẵn).
+- E2E thư viện ảnh: Premium "1 / 3" → "1 / 6".
+- Kết quả kiểm:
+  - typecheck 0 lỗi;
+  - ESLint và Prettier sạch;
+  - Vitest 203/203;
+  - Playwright landing 54/54.
+- Ngân sách byte giữ, không nới: ảnh thư viện chỉ tải khi mở hộp xem.
+  - Điện thoại EN DPR2: mở trang 307,1 KB (≤ 320), cuộn hết 413,2 KB (≤ 600).
+  - VI DPR2: 336,7 KB (≤ 390).
+  - Máy tính DPR2: 495,8 KB (≤ 700), cuộn hết 601,9 KB (≤ 1100).
+  - Ảnh đầu trang: 12,9 / 38,4 / 99 KB, không đổi.
+
+### 11.5 Ảnh chụp (`landing-b-shots/`)
+- `gallery-city-1440.jpg`, `gallery-city-390.jpg`, `gallery-premium-1440.jpg`, `gallery-premium-390.jpg`: hộp xem ảnh đang mở, ảnh 1/6.
+- `gallery-city-1440-card.jpg`, `gallery-city-390-card.jpg`, `gallery-premium-1440-card.jpg`, `gallery-premium-390-card.jpg`: thẻ hạng có nhãn "6 photos".
+- `gallery-city-grid.jpg`, `gallery-premium-grid.jpg`: lưới 6 ảnh đúng thứ tự, có id.
