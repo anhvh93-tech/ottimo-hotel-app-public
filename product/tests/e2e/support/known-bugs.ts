@@ -18,6 +18,14 @@ export const OPEN: Readonly<Record<string, string>> = {
     'Cần chú ý "Giữ chỗ {code} hết hạn lúc …" thiếu mã đơn – `hold_expiring` không có `refCode` (BE-A)',
   'BUG-R2-218':
     'guest-web ghi "Ngôn ngữ theo trình duyệt của bạn" cả khi ngôn ngữ lấy từ hồ sơ khách (MOB + BE: phiên không cho biết nguồn)',
+  'BUG-R3-007':
+    'Me.screens của server không có S35 cho vai nào (screens.ts dừng ở S34) → Desk ẩn "Yêu cầu từ website" và chặn /website-requests (BE-D)',
+  'BUG-R3-008':
+    'Công tắc public_booking_requests_enabled không đổi lại được trong ngày đã đặt (setParameter: "value already effective") → không tắt form ngay được (BE-D + ARC)',
+  'BUG-R3-009':
+    'looksLikeIdNumber chỉ bắt dãy số liền: CCCD viết "079 203 012 345" / có gạch / chấm trong lời nhắn được nhận (202) và lưu (BE-D)',
+  'BUG-R3-010':
+    'S35 không báo "form đang tắt" cho FDL: getParameterHistory của khóa bảo mật trả 404 cho FDL, FE coi là "không biết" (FE-B + BE-D)',
 };
 
 function fixedByEnv(): Set<string> {

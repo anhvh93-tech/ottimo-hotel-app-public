@@ -1,0 +1,58 @@
+# QA – throwaway stack for the US-155 E2E (tests/e2e/ui/us155-website-requests.r3.spec.ts). Overlay on
+# infra/docker-compose.yml; NEVER for dev/demo/staging. Relative paths resolve from infra/ (the first file's folder).
+#
+#   own project (-p ottimo-qa155), own images (docker compose … build api web → ottimo-api:qa155 / ottimo-web:qa155),
+#   own ports: api 53155, Desk 58151/58152/58153, landing 58150, PostgreSQL 55155 (127.0.0.1 only)
+#   + `landing`: Caddy serving the LIVE-form landing build and proxying ONLY the two public form routes (body ≤ 16 KB) –
+#     same shape as the contract asks of Caddyfile.landing (Caddyfile.us155-landing next to this file).
+#
+# .env of the stack: infra/ci/make-ci-env.sh .env.example <file>, then add (fresh random key, never a real one):
+#   PUBLIC_FORM_SIGNING_KEY=<openssl rand -hex 32>   LANDING_BASE_URL=http://127.0.0.1:58150
+#   API_ADMIN_BASE_URL=http://127.0.0.1:58151  API_STAFF_BASE_URL=http://127.0.0.1:58152  API_GUEST_BASE_URL=http://127.0.0.1:58153
+# Landing build (slug = DS-E property DLT):
+#   cd apps/landing-web && LANDING_BOOKING_FORM=true LANDING_PROPERTY_SLUG=dlt LANDING_OUT_DIR=<dir> pnpm exec astro build
+#   export US155_LANDING_DIST=<dir>
+# Up + seed:  docker compose -p ottimo-qa155 --env-file <file> -f infra/docker-compose.yml \
+#               -f tests/e2e/support/us155-stack/compose.us155.yml up -d  (then … run --rm seed)
+# Run: E2E_UI=1 E2E_COMPOSE_CONTROL=1 E2E_COMPOSE_PROJECT=ottimo-qa155 E2E_COMPOSE_ENV_FILE=<file>
+#      E2E_API_URL=http://127.0.0.1:53155 E2E_WEB_URL=http://127.0.0.1:58151 E2E_ORIGIN=http://127.0.0.1:58151
+#      E2E_LANDING_URL=http://127.0.0.1:58150 QA_SEED_PASSWORD=… TEST_SUPPORT_TOKEN=… (from <file>)
+#      pnpm --filter @ottimo/tests exec playwright test -c e2e/playwright.config.ts --project=desk-chromium \
+#        e2e/ui/us155-website-requests.r3.spec.ts
+# Restart the api between two runs within an hour (RAM limit 30 public calls/hour/IP – C-11 step 0).
+services:
+  postgres:
+    ports: !override
+      - '127.0.0.1:55155:5432'
+  migrate:
+    image: ottimo-api:qa155
+  api:
+    image: ottimo-api:qa155
+    environment:
+      LANDING_BASE_URL: ${LANDING_BASE_URL:?LANDING_BASE_URL}
+      PUBLIC_FORM_SIGNING_KEY: ${PUBLIC_FORM_SIGNING_KEY:?PUBLIC_FORM_SIGNING_KEY}
+    ports: !override
+      - '127.0.0.1:53155:3000'
+  worker:
+    image: ottimo-api:qa155
+    environment:
+      LANDING_BASE_URL: ${LANDING_BASE_URL:?LANDING_BASE_URL}
+      PUBLIC_FORM_SIGNING_KEY: ${PUBLIC_FORM_SIGNING_KEY:?PUBLIC_FORM_SIGNING_KEY}
+  web:
+    image: ottimo-web:qa155
+    ports: !override
+      - '127.0.0.1:58151:8081'
+      - '127.0.0.1:58152:8082'
+      - '127.0.0.1:58153:8083'
+  seed:
+    image: ottimo-api:qa155
+  landing:
+    image: caddy:2-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
+    volumes:
+      - ${US155_LANDING_DIST:?US155_LANDING_DIST}:/srv/landing:ro
+      - ../tests/e2e/support/us155-stack/Caddyfile.us155-landing:/etc/caddy/Caddyfile:ro
+    ports:
+      - '127.0.0.1:58150:8080'
+    depends_on:
+      api:
+        condition: service_healthy
