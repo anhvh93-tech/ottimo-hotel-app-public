@@ -55,6 +55,30 @@ function restricted(row: { is_security: boolean; br_ref: string | null }): boole
   return row.is_security || (row.br_ref ?? '').startsWith('SR-');
 }
 
+/**
+ * BUG-R3-008 – kill switches: setting one of these keys to its SAFE value with `effectiveFrom` = today takes effect
+ * NOW, even when a row of today already exists (the general rule "a value in force is never edited" – erd 4.1 –
+ * would keep the public form open until tomorrow). Turning it back on follows the normal rule (a new day / a
+ * later row). The audit records `sameDayOverride`; the setParameter hook tells OWN + MGR (`public_booking_toggled`).
+ */
+export const KILL_SWITCH_SAFE_VALUE: Readonly<Record<string, unknown>> = {
+  public_booking_requests_enabled: false,
+};
+
+/**
+ * BUG-R3-010 – security keys that FDL may READ (rbac S35 / EP19: the Desk queue shows "the website form is off").
+ * Writing stays OWN only (edit_roles).
+ */
+const FDL_READABLE_KEYS: ReadonlySet<string> = new Set(['public_booking_requests_enabled']);
+
+function hidden(
+  row: { key: string; is_security: boolean; br_ref: string | null },
+  roles: readonly string[],
+) {
+  if (canSeeRestricted(roles) || !restricted(row)) return false;
+  return !(roles.includes('front_desk_lead') && FDL_READABLE_KEYS.has(row.key));
+}
+
 /** 0.3.8 (R3-Q51, SEC Q51-1): `payment_receiving_account` is the owner's only – read (even masked) and write. */
 function ownerOnlyKey(key: string): boolean {
   return key === RECEIVING_ACCOUNT_KEY;
@@ -114,10 +138,9 @@ export class ParametersService {
         ORDER BY d.key`,
       [pc.propertyId, date],
     );
-    const all = canSeeRestricted(roles);
     return {
       data: rows
-        .filter((r) => all || !restricted(r))
+        .filter((r) => !hidden(r, roles))
         // 0.3.8 (SEC Q51-1): the receiving account is not even listed to a role other than owner.
         .filter((r) => !ownerOnlyKey(r.key) || roles.includes('owner'))
         .map((r) => this.dto(r, pc.iso, since)),
@@ -139,7 +162,7 @@ export class ParametersService {
       [key],
     );
     const def = defs[0];
-    if (!def || (!canSeeRestricted(roles) && restricted(def))) throw problem('NOT_FOUND');
+    if (!def || hidden(def, roles)) throw problem('NOT_FOUND');
     // 0.3.8 (SEC Q51-1): MGR / FDL → 403 on the receiving account (its history included scheduled rows).
     if (ownerOnlyKey(key) && !roles.includes('owner')) throw problem('FORBIDDEN_ACTION');
     const { rows } = await tx.query<Row>(
@@ -213,6 +236,12 @@ export class ParametersService {
       today: pc.today,
       requestId: input.requestId,
       ...(receiving ? { auditAs: { category: 'money' as const, mask: maskReceivingAccount } } : {}),
+      // BUG-R3-008: a kill switch turned to its safe value today replaces today's row.
+      ...(input.key in KILL_SWITCH_SAFE_VALUE &&
+      input.value === KILL_SWITCH_SAFE_VALUE[input.key] &&
+      input.effectiveFrom === pc.today
+        ? { sameDayOverride: true }
+        : {}),
     });
     const since = await this.propertySince(tx);
     const { rows } = await tx.query<Row>(

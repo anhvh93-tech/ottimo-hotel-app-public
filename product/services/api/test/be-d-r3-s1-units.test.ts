@@ -7,6 +7,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config';
+import { screensFor } from '../src/modules/identity/internal/screens';
 import { issueFormToken, verifyFormToken } from '../src/modules/public-site/internal/form-token';
 import { publicSiteOptionsFrom } from '../src/modules/public-site/internal/public-site.options';
 import {
@@ -120,6 +121,40 @@ describe('free text (ARC-21, V-09, SR-LOG-04)', () => {
   it('card numbers (Luhn) detected', () => {
     expect(looksLikeCard('card 4111 1111 1111 1111')).toBe(true);
     expect(looksLikeCard('room for 2 adults, 1 child')).toBe(false);
+  });
+  it('BUG-R3-009: grouped ID numbers (spaces, dashes, dots) are caught on their digits', () => {
+    for (const s of [
+      'CCCD cua toi 079 203 012 345',
+      'CCCD 079-203-012-345',
+      'CCCD 079.203.012.345',
+      'cccd: 0792 0301 2345 thanks',
+      'CMND 123 456 789',
+      'CMND 123.456.789',
+      'CMND 123-456-789',
+    ]) {
+      expect(looksLikeIdNumber(s), s).toBe(true);
+    }
+    expect(looksLikeCard('card 4111.1111.1111.1111')).toBe(true);
+    expect(looksLikeCard('card 4111-1111-1111-1111')).toBe(true);
+  });
+  it('BUG-R3-009: phones, dates, times, amounts and counts are not IDs or cards', () => {
+    for (const s of [
+      'call 0905 111 222 please',
+      'Zalo 0905-111-222',
+      'phone 0905.111.222',
+      '+84 905 111 222',
+      '+84 905.111.222',
+      '84 905 111 222',
+      'arrive 23.10.2026 leave 25.10.2026',
+      'arrive 23/10 25/10 around 22:30 or 22h30',
+      '23-10-2026 25-10-2026',
+      'budget 100.000.000 đ',
+      'budget 150 000 000 VND a month',
+      '2 adults 1 child 3 nights',
+    ]) {
+      expect(looksLikeIdNumber(s), s).toBe(false);
+      expect(looksLikeCard(s), s).toBe(false);
+    }
   });
 });
 
@@ -264,5 +299,65 @@ describe('ARC FB-R3-ARC-US155-02: only the T19 job deletes website_booking_reque
       'utf8',
     );
     expect(sql).toMatch(/BEFORE DELETE ON website_booking_request/);
+  });
+});
+
+/**
+ * BUG-R3-007: `Me.screens` (identity/internal/screens.ts) follows rbac-matrix.md section 3 – a new screen
+ * (S35 was forgotten) breaks this test. A role gets a screen when its cell is not ✖; listed exceptions only.
+ */
+describe('BUG-R3-007: SCREENS_BY_ROLE = rbac-matrix.md section 3', () => {
+  const ROLES = [
+    'owner',
+    'manager',
+    'front_desk_lead',
+    'front_desk',
+    'housekeeping',
+    'maintenance',
+    'sales_staff',
+    'collaborator',
+  ] as const;
+  /** Cells that are not ✖ but deliberately not a screen (with the reason). */
+  const NOT_A_SCREEN: Record<string, string> = {
+    'manager:S26': '◐ made only of own-account actions (screens.ts header, ARC Q8, rbac 20a)',
+    'front_desk:S33':
+      'M R own payments – existing before US-155, not a menu screen today (BA/ARC to confirm)',
+    'sales_staff:S33':
+      'M R own deposits – existing before US-155, not a menu screen today (BA/ARC to confirm)',
+  };
+  const md = readFileSync(join(__dirname, '..', '..', '..', 'docs', 'rbac-matrix.md'), 'utf8');
+  const matrix = new Map<string, Set<string>>(ROLES.map((r) => [r, new Set<string>()]));
+  for (const line of md.split('\n')) {
+    const m = /^\| (S\d\d) \|/.exec(line);
+    if (!m) continue;
+    const cells = line
+      .trim()
+      .replace(/^\||\|$/g, '')
+      .split('|')
+      .map((c) => c.trim());
+    ROLES.forEach((r, i) => {
+      if (!cells[2 + i]!.startsWith('✖')) matrix.get(r)!.add(m[1]!);
+    });
+  }
+  it('the matrix lists S35 (sanity)', () => {
+    expect(matrix.get('owner')!.has('S35')).toBe(true);
+  });
+  it.each(ROLES)('%s', (role) => {
+    const code = new Set(screensFor([role]));
+    const allowed = matrix.get(role)!;
+    expect(
+      [...code].filter((s) => !allowed.has(s)),
+      'screen given to a ✖ cell',
+    ).toEqual([]);
+    expect(
+      [...allowed].filter((s) => !code.has(s) && !NOT_A_SCREEN[`${role}:${s}`]).sort(),
+      'screen of the matrix missing in screens.ts',
+    ).toEqual([]);
+  });
+  it('S35: OWN, MGR, FDL, FD, SAL – not CTV, HK, MT (rbac note 42)', () => {
+    for (const r of ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff'])
+      expect(screensFor([r]), r).toContain('S35');
+    for (const r of ['collaborator', 'housekeeping', 'maintenance'])
+      expect(screensFor([r]), r).not.toContain('S35');
   });
 });

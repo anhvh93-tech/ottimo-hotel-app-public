@@ -45,11 +45,29 @@ export function normalizeFreeText(raw: string): string {
     .trim();
 }
 
-/** Luhn-valid 13–19 digit run (spaces / dashes between digits) – the V-09 card rule. */
+/**
+ * Dates and times a guest writes in a note ("23.10.2026", "23/10", "22:30") – blanked before the number rules so
+ * two dates side by side never read as a card or an ID (BUG-R3-009 widened the separators to dots).
+ */
+function withoutDatesAndTimes(text: string): string {
+  return text
+    .replace(/(?<!\d)\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?(?!\d)/g, ' / ')
+    .replace(/(?<!\d)\d{1,2}[:h]\d{2}(?!\d)/g, ' / ');
+}
+
+/** Digit runs with at most ONE separator (space, dot, dash) between two digits – how people group numbers. */
+const GROUPED_DIGITS = /\d(?:[ .-]?\d)*/g;
+
+/**
+ * Luhn-valid 13–19 digit run (spaces / dots / dashes between digits – BUG-R3-009) – the V-09 card rule.
+ * Compared on the digits only.
+ */
 export function looksLikeCard(text: string): boolean {
-  const candidates = text.match(/\d(?:[ -]?\d){12,18}/g) ?? [];
+  const candidates = (withoutDatesAndTimes(text).match(GROUPED_DIGITS) ?? []).filter(
+    (c) => c.replace(/\D/g, '').length >= 13,
+  );
   for (const c of candidates) {
-    const d = c.replace(/[ -]/g, '');
+    const d = c.replace(/\D/g, '');
     for (let len = 13; len <= Math.min(19, d.length); len += 1) {
       for (let s = 0; s + len <= d.length; s += 1) if (luhn(d.slice(s, s + len))) return true;
     }
@@ -75,10 +93,22 @@ function luhn(digits: string): boolean {
 /**
  * SR-LOG-04 / ARC-08: an identity document number – CCCD (12 digits), old CMND (9 digits), passport style
  * (1–2 capital letters + 7–8 digits). Phone numbers (10–11 digits, or with +) do not match.
+ * BUG-R3-009 (US-155 AC5): compared on the DIGITS of a grouped run – `079 203 012 345`, `079-203-012-345`,
+ * `079.203.012.345` are caught like `079203012345`. Not an ID: a run right after `+` (international phone, also
+ * `+84 905 111 222`), or an amount with its currency (`100.000.000 đ`, `150.000.000 VND`, `$ 100 000 000`).
  */
 export function looksLikeIdNumber(text: string): boolean {
-  if (/(?<![\d+])\d{12}(?!\d)/.test(text)) return true;
-  if (/(?<![\d+])\d{9}(?!\d)/.test(text)) return true;
+  const t = withoutDatesAndTimes(text);
+  for (const m of t.matchAll(GROUPED_DIGITS)) {
+    const digits = m[0].replace(/\D/g, '');
+    if (digits.length !== 9 && digits.length !== 12) continue;
+    const at = m.index ?? 0;
+    const before = t.slice(Math.max(0, at - 2), at);
+    if (/\+\s?$/.test(before) || /\$\s?$/.test(before)) continue;
+    const after = t.slice(at + m[0].length, at + m[0].length + 6);
+    if (/^\s?(đ|₫|vnd|vnđ|usd|k\b|tr\b|triệu)/i.test(after)) continue;
+    return true;
+  }
   return /\b[A-Z]{1,2}\d{7,8}\b/.test(text);
 }
 

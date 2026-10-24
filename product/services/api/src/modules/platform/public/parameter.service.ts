@@ -238,6 +238,12 @@ export class ParameterService {
        * category money, account number masked). Default: category security/config with the raw values.
        */
       auditAs?: { category: 'money'; mask: (value: unknown) => unknown };
+      /**
+       * BUG-R3-008 (kill switch): the row of `today` may be overwritten (the value in force changes now). Only
+       * the caller's whitelist decides when (ParametersService: a public-form switch turned OFF); the audit
+       * carries `sameDayOverride` and the previous value, so history is kept.
+       */
+      sameDayOverride?: boolean;
     },
   ): Promise<{ id: string; previous: unknown }> {
     const { ctx } = tx;
@@ -266,7 +272,7 @@ export class ParameterService {
        ON CONFLICT (property_id, key, effective_from) DO UPDATE
          SET value = EXCLUDED.value, reason = EXCLUDED.reason, updated_at = EXCLUDED.updated_at,
              version = config_parameter.version + 1
-       WHERE config_parameter.effective_from > $11
+       WHERE config_parameter.effective_from > $11 OR $12::boolean
        RETURNING id`,
       [
         id,
@@ -280,6 +286,7 @@ export class ParameterService {
         now,
         ctx.userId,
         input.today,
+        input.sameDayOverride === true && input.effectiveFrom === input.today,
       ],
     );
     if (!rows[0]) {
@@ -295,7 +302,13 @@ export class ParameterService {
       entityType: 'config_parameter',
       entityId: input.key,
       before: { value: previous === null ? null : shown(previous) },
-      after: { value: shown(input.value), effectiveFrom: input.effectiveFrom },
+      after: {
+        value: shown(input.value),
+        effectiveFrom: input.effectiveFrom,
+        ...(input.sameDayOverride === true && input.effectiveFrom === input.today
+          ? { sameDayOverride: true }
+          : {}),
+      },
       reason: input.reason,
       ...(input.requestId ? { requestId: input.requestId } : {}),
     });
