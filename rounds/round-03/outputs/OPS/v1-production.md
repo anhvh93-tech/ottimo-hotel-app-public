@@ -305,3 +305,44 @@ Trả lời từng thẻ: `rounds/round-03/responses/s1-OPS-v1.md`.
 - **BOOT-01, BOOT-02:** wrapper `infra/server/bin/production-bootstrap.sh` và README `infra/server` 12.1. Lệnh cũ trong README dùng `services/api/scripts/…`, đường dẫn này không có trên máy chủ (bundle chỉ có `infra/`), nay thay bằng wrapper.
 - **CI:** đã xem thay đổi của BE-A (DB `ottimo_bootstrap_test` rỗng, tạo bằng `ottimo_admin` trước `02-roles.sh`, role ứng dụng không quyền tạo DB): **đồng ý**. `shellcheck` thêm `services/api/scripts/production-bootstrap.sh` và `mfa-operator-reset.sh`: cả hai sạch.
 
+
+## 13. Landing live 24/10 (INV đổi lệnh: bỏ bản xem trước – decision-log 24/10)
+
+Làm từ máy Mac của INV, SSH `ottimo-admin` (khóa `ottimo_ops`, có passphrase, qua Keychain). Giờ ghi theo giờ VN (UTC+7). Không ghi IP.
+
+| Giờ | Việc | Kết quả |
+|---|---|---|
+| 08:13 | Sao lưu staging trước khi đổi (`backup.sh`) | OK |
+| 08:13–08:15 | Bundle từ `main` `4fab25b` → `bootstrap-vps.sh --env staging`, rồi `--env production` | rc 0 cả hai. Tạo `/opt/ottimo-prod` (tệp mốc `production`) và `/opt/ottimo-edge`. Timer production **chưa bật** (chưa có app). `linux-firmware` được giữ tạm (`apt-mark hold`) trong lúc chạy rồi bỏ giữ, để tránh cờ khởi động lại trước A1 25/10 |
+| 08:15 | `init-secrets.sh` staging (thêm VAPID, khóa form, `landing_access`, `email_smtp_password` rỗng – relay) và production (bộ đầy đủ) | Chỉ in tên tệp, không in giá trị |
+| 08:15 | `.env` staging thêm `EDGE_MODE=edge`, `EDGE_NAME=staging`, `PROXY_PROTOCOL_ALLOW`, giới hạn RAM staging, `WEB_PUSH_SUBJECT`. `.env` production: `desk/staff/g.ottimo.vn`, `ottimo.vn` / `www.ottimo.vn`, image, `ACME_EMAIL=info@ottimo.vn` | `dc config` hợp lệ cả hai. Bản `.env` staging cũ lưu ở `state/env.before-edge.*` |
+| **08:15:49–08:15:58** | `edge.sh up`: tạo 2 mạng link, dựng lại `web` staging không mở cổng, bật edge (giới hạn SEC OPS-01) | **Staging gián đoạn 2 giây** (08:15:51–08:15:52, đo bằng `curl` 2 lần/giây từ Mac: 3 lần thất bại trên 245 lần thử). api/worker/postgres **không** dựng lại |
+| 08:16 | Kiểm staging | `desk/staff/g.staging` 200 + CSP/HSTS. `:80` → 308. `/health` từ ngoài 404 (Caddy thấy địa chỉ thật của khách qua PROXY, log che /24). Đăng nhập `qa.fd` 200. `ops-check` 7/7 ok. **OTM-00239 còn nguyên** (`in_house`), 293 đơn – DB không đụng |
+| 08:27 | CI push `4fab25b` xanh, `publish-images` đẩy `ottimo-landing:sha-4fab25b81c45`. Digest trên GHCR **khớp** digest artifact `image-digests` của lượt CI đó (SEC OPS-02). Kéo ẩn danh được (gói Public) | – |
+| 08:27:46–08:28:05 | `deploy-landing.sh sha-4fab25b81c45 --digest sha256:b0fad8f5…` trên stack production | OK. Smoke: 200, CSP, HSTS, không `X-Robots-Tag`, `/health` `/v1/x` `/.env` 404, `/en/` 301, `www` 301. Hai dòng `curl (35)` trong log là lúc chờ chứng chỉ, tự thử lại |
+
+**DNS (đọc từ `ns1.matbao.vn` và 1.1.1.1 / 8.8.8.8, 24/10):**
+- `@` và `www`: mỗi tên một bản ghi A trỏ VPS. Không còn địa chỉ Google Sites, không có AAAA.
+- `mail`: đã xóa.
+- MX `smtp.google.com`, SPF, `google-site-verification`, DKIM `google._domainkey`: **giữ nguyên**.
+
+**Chứng chỉ:** Let's Encrypt (YE1) cho `ottimo.vn` và `www.ottimo.vn`, hết hạn 22/01/2027. Caddy tự gia hạn.
+
+**Kiểm từ ngoài:**
+- `https://ottimo.vn` → 200;
+- `/vi/` → 200;
+- `http://` → 308;
+- `https://www.ottimo.vn/…` → 301 về `https://ottimo.vn/…`;
+- `robots.txt`: `Allow: /` (`LANDING_INDEXABLE=true`, INV đồng ý).
+
+**Giới hạn và việc tiếp theo:**
+- **Giám sát:** `ottimo.vn` chưa có. Timer `ops-check@ottimo-prod` chưa bật vì chưa có app production (kiểm `containers` sẽ báo lỗi). Cần UptimeRobot cho `https://ottimo.vn/` và `https://www.ottimo.vn/` (ESC-029 A, INV tạo tài khoản).
+- **App production:** `desk/staff/g.ottimo.vn` chưa có bản ghi DNS và chưa có app. Edge đã có tuyến sẵn; kết nối tới đó hiện bị đóng.
+- **KEK production:** đã sinh. INV chép bản ngoại tuyến **trước** khi production có dữ liệu thật (`inv-production-steps.md` phần 4b).
+- **Đóng gói mới đã áp lên staging:** compose mới gồm bí mật mới, giới hạn RAM 512/512/384 MB và listener PROXY.
+  - Lượt CI `deploy staging` kế tiếp (`sha-4fab25b81c45`, chờ INV duyệt) sẽ dựng lại api/worker và chạy migration mới trên DB staging. Dữ liệu giữ nguyên, nhưng API gián đoạn khoảng 30–60 giây.
+  - Nếu muốn staging đứng yên trước A1 25/10, **chưa duyệt** lượt đó.
+- **Đã bỏ:** bản xem trước `staging.ottimo.vn` và biến `LANDING_PREVIEW_DEPLOY`. Từ nay landing chỉ phát hành bằng tag `landing-v*` + duyệt environment `production` (`release.yml`).
+- **Quay lui** (khoảng 30 giây):
+  - landing: `deploy-landing.sh --rollback`; hoặc đặt lại DNS Google Sites theo ảnh chụp INV đã lưu;
+  - edge: theo `README` `infra/server` (đặt `EDGE_MODE=direct`, `docker compose -p ottimo-edge down`, `dc up -d --no-deps web`).
