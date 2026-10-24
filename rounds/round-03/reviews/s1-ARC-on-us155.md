@@ -97,3 +97,40 @@ Có **1 Major (US155-01)**: tên rút gọn (slug) của cơ sở có thể trù
 - Gộp hai nhánh cẩn thận: bỏ phần T13 đã có trên `main`, CHECK hợp tập có test riêng, snapshot sinh lại trên 0085 và so khớp từng ký tự.
 - `ParameterHooks` giữ đúng ranh giới ADR-001: platform không biết module tính năng. Đã nhớ gọi cả ở đường hủy lịch mới.
 - Luồng B2 → WR6 có thứ tự khóa rõ và 409 hủy cả giao dịch, nên không có đơn "mồ côi".
+
+---
+
+# Lượt 2 – review nhanh BUG-R3-007…010 (BE-D `031f183`, đã gộp `4233290`), ARC 24/10
+
+Kết luận: **đồng ý cả bốn bản sửa**. Hợp đồng đã ghi hai ngoại lệ ở **0.3.8 bổ sung 5**.
+
+## (1) Kill switch – BUG-R3-008: **đồng ý cách cài**
+- `KILL_SWITCH_SAFE_VALUE` là danh sách đóng phía server (chỉ `public_booking_requests_enabled → false`). Cờ `sameDayOverride` chỉ được bật khi khóa có trong danh sách **và** giá trị = giá trị an toàn **và** `effectiveFrom` = hôm nay.
+- Ghi đè dòng hôm nay bằng `ON CONFLICT … WHERE effective_from > today OR $sameDayOverride`. Lịch sử giữ trong audit `security` (`before.value`, `after.sameDayOverride`).
+- Đây là ngoại lệ có chủ đích của erd 4.1: một chiều, chỉ về phía an toàn. Không dùng được để **mở** form ngay.
+- Bật lại theo luật thường: cùng ngày → 422 `VALIDATION_FAILED` `effectiveFrom`; ngày sau thì được.
+- Chỉ khóa này, **không** gồm `public_booking_request_pow_enabled`: **đồng ý**. Tắt PoW là nới, không phải chặn, nên không có "giá trị an toàn" cần hiệu lực ngay.
+- Ghi chú vận hành, đã ghi vào hợp đồng: dòng `true` đã lên lịch cho ngày sau **không** tự hủy khi tắt khẩn. OWN muốn tắt hẳn thì hủy thêm dòng đó (`cancelScheduledParameter`). Đề nghị FE-A hiện dòng "Đã lên lịch bật lại {ngày}" ngay sau khi tắt khẩn – Suggestion, không chặn.
+
+## (1b) FDL đọc khóa – BUG-R3-010: **đồng ý**
+- `FDL_READABLE_KEYS` là danh sách đóng, chỉ cho đọc. Sửa vẫn theo `edit_roles` (OWN) → 403. Các khóa bảo mật khác vẫn 404 với FDL.
+- Lý do: hàng chờ S35 của FDL phải biết form đang tắt; giá trị là một boolean, không phải dữ liệu nhạy cảm.
+
+## (2) Hợp đồng – 0.3.8 bổ sung 5 (commit cùng tệp này)
+- `setParameter`: đoạn "công tắc khẩn" (điều kiện, ghi đè, audit, bật lại 422, dòng đã lên lịch không bị hủy, danh sách khóa do server giữ).
+- `getParameterHistory` + `listParameters` (thêm `description`): FDL đọc được `public_booking_requests_enabled`, không sửa.
+- Thêm dòng changelog. Không đổi hình dạng.
+- Kiểm:
+  - spec validator OK; `gen-openapi-meta --check` up to date;
+  - api-client sinh lại (JSDoc), `tsc` đạt, vitest 32/32;
+  - `gen_rbac_cases --check` OK; `gen_traceability --strict` exit 0 (`traceability.md` lệch sẵn, không do thay đổi này, không đưa vào commit);
+  - api `contract` 5/5; prettier xanh.
+
+## (3) Ngoại lệ S33 `M R` của FD/SAL trong test `SCREENS_BY_ROLE` – **ARC xác nhận giữ ngoại lệ cho v1.0**
+- Quy tắc `Me.screens` (OpenAPI 0.3.4, ARC Q8): một màn có trong menu khi ô ≠ ✖ **và** vai có operation của màn đó.
+- FD/SAL có `listPayments` `x-scope: own` (ghi chú 33a), nên theo chữ thì S33 lẽ ra có trong menu. Nhưng mục đích của 33a (theo dõi cờ "chờ đối soát" của khoản mình ghi) hiện được đáp ở nơi khác: dòng thu trong folio/đơn (S30/S04) đã hiện cờ này. Màn S33 trên admin-web chưa có chế độ "chỉ của mình" cho FD/SAL; mở menu lúc này sẽ đưa họ tới một màn chỉ hợp với OWN/MGR.
+- Quyết định: **giữ ngoại lệ có tên trong test** (như BE-D đã ghi) cho v1.0. **BA** bổ sung vào ghi chú 33a một câu: "FD, SAL: không có mục menu S33 riêng ở v1.0 – xem cờ chờ đối soát trên dòng thu của folio/đơn; FDL giữ menu S33".
+- Sprint 2 chọn một trong hai:
+  - (a) FE làm S33 chế độ "của mình" và bỏ ngoại lệ;
+  - (b) BA đổi ô FD/SAL S33 thành ✖ kèm ghi chú.
+- Không cần hỏi thêm BA trước khi gộp, vì phân quyền server không đổi (`listPayments` own vẫn chạy).

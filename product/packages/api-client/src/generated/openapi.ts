@@ -559,7 +559,10 @@ export interface paths {
       };
       cookie?: never;
     };
-    /** Bảng tham số quy tắc đang hiệu lực (US-005; BR mục 13; erd mục 9) */
+    /**
+     * Bảng tham số quy tắc đang hiệu lực (US-005; BR mục 13; erd mục 9)
+     * @description Tham số bảo mật chỉ OWN/MGR thấy; `payment_receiving_account` chỉ OWN (0.3.8). **0.3.8 bổ sung 5 (BUG-R3-010)**: `front_desk_lead` thấy thêm `public_booking_requests_enabled` (chỉ đọc).
+     */
     get: operations['listParameters'];
     put?: never;
     post?: never;
@@ -585,6 +588,7 @@ export interface paths {
      * @description **0.3.8 (R3-Q51, SEC Q51-1/Q51-2)**: khóa `payment_receiving_account` **chỉ OWN** (MGR, FDL → `403 FORBIDDEN_ACTION`); `listParameters` bỏ khóa này khỏi danh sách của vai khác OWN.
      *     `history` gồm cả dòng **đã lên lịch** (`effectiveFrom` > ngày kinh doanh hiện tại) – Desk tách "Đang dùng" / "Đã lên lịch". Số tài khoản luôn che (`accountNoMasked`, `bankName`).
      *     **0.3.8 bổ sung 2 (ARC 23/10, R3-Q51 – lần đặt đầu tiên)**: `current` = dòng có `effectiveFrom` lớn nhất ≤ ngày kinh doanh; **vắng mặt** (không có thuộc tính, không phải `null`) khi khóa chưa có dòng nào đang hiệu lực mà đã có dòng **đã lên lịch** – trả **200** với `history` chỉ gồm các dòng đã lên lịch (OWN thấy và hủy được qua `cancelScheduledParameter`). **404** chỉ khi khóa không có dòng nào (không đang dùng, không lên lịch) và không có giá trị mặc định trong danh mục. Áp cho mọi khóa; thực tế chỉ khóa không có mặc định (`payment_receiving_account`) rơi vào trường hợp này. Client đọc `current` như tùy chọn.
+     *     **0.3.8 bổ sung 5 (ARC 24/10, BUG-R3-010)**: tham số bảo mật vẫn ẩn với `front_desk_lead` (404, không có trong `listParameters`), **trừ** `public_booking_requests_enabled` – FDL **đọc** được (hàng chờ S35 cần biết "form website đang tắt"), không sửa được (`setParameter` → 403). Danh sách khóa đọc được do server giữ; thêm khóa = đổi hợp đồng.
      */
     get: operations['getParameterHistory'];
     /**
@@ -600,6 +604,11 @@ export interface paths {
      *     đang hiệu lực cho mỗi ngôn ngữ landing đang phát hành (`vi`, `en`; `ru` khi có trang RU) và khóa ký form đã nạp – thiếu → 422 `PUBLIC_FORM_NOT_READY` (`missing[]`), giá trị không đổi;
      *     đổi thành công → thông báo `public_booking_toggled` cho OWN + MGR. Đây là **công tắc duy nhất** việc nhận dữ liệu lúc chạy: trang luôn có sẵn mã form, form token 404 → khối Zalo;
      *     cờ build của landing chỉ chọn `request` (A) hay `live` (B), không bật/tắt việc nhận dữ liệu.
+     *     **0.3.8 bổ sung 5 (ARC 24/10, BUG-R3-008) – công tắc khẩn (ngoại lệ duy nhất của "không sửa dòng đang hiệu lực", erd 4.1)**: OWN đặt `public_booking_requests_enabled = false`
+     *     với `effectiveFrom` = ngày kinh doanh hiện tại → **có hiệu lực ngay**, kể cả khi đã có dòng của hôm nay (dòng đó bị ghi đè; audit `security` `config.changed` giữ
+     *     `before.value`, `after.sameDayOverride: true`); hook báo `public_booking_toggled` OWN + MGR như mọi lần đổi. **Bật lại** (`true`) theo luật thường: đã có dòng hôm nay →
+     *     422 `VALIDATION_FAILED` (`field` = `effectiveFrom`), đặt từ ngày kinh doanh sau. Dòng **đã lên lịch** cho ngày sau **không** bị hủy theo – muốn tắt hẳn thì OWN hủy thêm bằng
+     *     `cancelScheduledParameter`. Danh sách khóa có ngoại lệ này do server giữ (hiện **chỉ** khóa này; `public_booking_request_pow_enabled` không thuộc); thêm khóa = đổi hợp đồng.
      *     **0.3.7 bổ sung 1 (BE-D s4 2.5 #6, S4-51 / P-S4-7)**: khóa `property_map_url` (chuỗi URL, **chỉ OWN** – MGR → 403; không phải tham số bảo mật, audit `config`) là **nguồn duy nhất**
      *     của `GuestStay.property.mapUrl` ("Chỉ đường" US-108; landing/bill dùng cùng khóa khi có). Mặc định danh mục = ghim INV gửi 17/10 (migration `0058`). Chỉ nhận `https` không
      *     user/mật khẩu/cổng, host đúng danh sách SEC E14-08 (`maps.google.com`, `www.google.com` path `/maps…`, `maps.app.goo.gl`, `maps.apple.com`, `www.openstreetmap.org`) –
