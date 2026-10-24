@@ -22,6 +22,7 @@ import { guestsWorkerJobs } from './modules/guests/public/worker-jobs';
 import { housekeepingWorkerJobs } from './modules/housekeeping/public/worker-jobs';
 import { createEmailAdapter } from './jobs/email-adapter';
 import { StaffEmailDispatcher } from './jobs/email-dispatch';
+import { publicSiteWorkerJobs } from './modules/public-site/public/worker-jobs';
 
 const log = (level: string, msg: string, extra: Record<string, unknown> = {}): void =>
   console.log(JSON.stringify({ level, msg, ...extra }));
@@ -68,6 +69,9 @@ async function main(): Promise<void> {
     registry.register(job);
   // J25 guest.document_profile_anonymize (BE-C, Sprint 4 – T05): `document` profiles without P05.
   for (const job of guestsWorkerJobs({ clock: rt.clock, audit, parameters }))
+    registry.register(job);
+  // US-155 (BE-D, R3 Sprint 1): website requests – overdue reminder, WR7 stale, T19 retention, technical cleanup.
+  for (const job of publicSiteWorkerJobs({ events: new EventsService(), params: parameters }))
     registry.register(job);
   const runner = new JobRunner(rt.database, rt.clock, registry, parameters);
   // Staff e-mail (INT R3, outbox `staff.email`): production = Google Workspace SMTP; a bad smtp configuration

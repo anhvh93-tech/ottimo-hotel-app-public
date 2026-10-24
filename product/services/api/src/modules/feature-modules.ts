@@ -23,6 +23,7 @@ import { FilesModule } from './files/files.module';
 import { GuestPortalModule } from './guest-portal/guest-portal.module';
 import { RegistrationModule } from './registration/registration.module';
 import { ReportingModule } from './reporting/reporting.module';
+import { PublicSiteModule } from './public-site/public-site.module';
 
 export function featureModules(
   identity: IdentityOptions,
@@ -56,6 +57,8 @@ export function featureModules(
     HousekeepingModule,
     // Sprint 4 (BE-D): reporting – Tổng quan / Hôm nay reads, "Cần chú ý" sources, B11/B12 notices, J2.
     ReportingModule,
+    // R3 Sprint 1 (BE-D): public-site – website booking requests + Desk queue S35 (US-155, R3-Q06).
+    PublicSiteModule.register({ env: runtimeEnv }),
   ];
 }
 

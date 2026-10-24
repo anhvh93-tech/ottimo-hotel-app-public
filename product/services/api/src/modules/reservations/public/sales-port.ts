@@ -89,6 +89,11 @@ export interface HoldFromQuoteInput {
   pricingSnapshot: Record<string, unknown>;
   createdBy: string;
   requestId?: string;
+  /**
+   * US-155 AC2 / BR-112 (a) (BE-D R3 S1): the quote answers a website request → `directSource = website` (always –
+   * over `sales_staff`) and its sub-source (BR-911, `reservation.direct_sub_source` – server only).
+   */
+  website?: { subSource: string | null };
 }
 
 export interface ReservationOwnership {

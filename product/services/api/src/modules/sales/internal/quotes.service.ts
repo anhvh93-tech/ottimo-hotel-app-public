@@ -34,6 +34,10 @@ import {
   RESERVATION_SALES_PORT,
   type ReservationSalesPort,
 } from '../../reservations/public/sales-port';
+import {
+  WEBSITE_REQUEST_PORT,
+  type WebsiteRequestPortContract,
+} from '../../public-site/public/website-request.port';
 import { LeadsService } from '../public/leads.service';
 import {
   type Caller,
@@ -65,12 +69,15 @@ export interface QuoteRow {
   created_by: string | null;
   expires_at: Date;
   converted_reservation_id: string | null;
+  /** US-155 (0086): the website request this quote answers. */
+  website_booking_request_id?: string | null;
   version: number;
 }
 
 const COLUMNS = `q.id, q.code, q.type, q.status, q.lead_id, q.guest_id, q.room_id, q.room_group_id, q.channel_id,
   q.closer_user_id, q.arrival_date::text AS arrival_date, q.nights, q.adults, q.children_bands, q.pricing_snapshot,
-  q.total_vnd, q.deposit_vnd, q.created_at, q.created_by, q.expires_at, q.converted_reservation_id, q.version`;
+  q.total_vnd, q.deposit_vnd, q.created_at, q.created_by, q.expires_at, q.converted_reservation_id, q.version,
+  q.website_booking_request_id`;
 
 export type Locale = 'vi' | 'en' | 'ru';
 
@@ -116,6 +123,10 @@ export class QuotesService {
     @Optional()
     @Inject(RESERVATION_SALES_PORT)
     private readonly reservations?: ReservationSalesPort,
+    // US-155 (BE-D R3 S1): website booking requests – WR1 at save, WR6 at hold (public-site module).
+    @Optional()
+    @Inject(WEBSITE_REQUEST_PORT)
+    private readonly websiteRequests?: WebsiteRequestPortContract,
   ) {}
 
   dto(row: QuoteRow, tz: string, now: Date): Record<string, unknown> {
@@ -133,6 +144,9 @@ export class QuotesService {
       ...(row.converted_reservation_id
         ? { convertedReservationId: row.converted_reservation_id }
         : {}),
+      ...(row.website_booking_request_id
+        ? { websiteBookingRequestId: row.website_booking_request_id }
+        : {}),
       version: row.version,
     };
   }
@@ -140,12 +154,26 @@ export class QuotesService {
   async save(
     tx: Tx,
     c: Caller,
-    input: QuoteInput & { guestId: string; leadId?: string | undefined },
+    input: QuoteInput & {
+      guestId: string;
+      leadId?: string | undefined;
+      websiteBookingRequestId?: string | undefined;
+    },
     requestId?: string,
   ): Promise<Record<string, unknown>> {
     await this.leads.assertGuestInScope(tx, c, input.guestId);
     if (input.leadId) await this.leads.assertLeadForQuote(tx, c, input.leadId, input.guestId);
     const result = await this.pricing.calculate(tx, c, input);
+    const webRequest = input.websiteBookingRequestId ?? null;
+    if (webRequest) {
+      // 0.3.7 bổ sung 2: only a `direct` quote answers a website request (422 NOT_ALLOWED).
+      if (result.snapshot.channelGroup !== 'direct') {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'websiteBookingRequestId', code: 'NOT_ALLOWED' }],
+        });
+      }
+      if (!this.websiteRequests) throw problem('NOT_FOUND');
+    }
     const { timezone: tz, now, today } = await this.property.now(tx);
     const validity = await this.params.get<number>(tx, 'quote_validity_days', today);
     const leadId = input.leadId ?? (await this.leads.openLeadFor(tx, c.userId, input.guestId));
@@ -157,9 +185,9 @@ export class QuotesService {
       `INSERT INTO quote (id, organization_id, property_id, code, type, status, lead_id, guest_id, room_id,
          room_group_id, channel_id, closer_user_id, arrival_date, nights, adults, children_bands,
          guest_category, pricing_snapshot, total_vnd, deposit_vnd, commission_vnd, ottimo_remaining_vnd,
-         started_at, expires_at, created_at, created_by, updated_at)
+         started_at, expires_at, created_at, created_by, updated_at, website_booking_request_id)
        VALUES ($1, $2, $3, $4, 'short', 'active', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
-         $18, $19, $20, $21, $22, $21, $23, $21)`,
+         $18, $19, $20, $21, $22, $21, $23, $21, $24)`,
       [
         id,
         tx.ctx.organizationId,
@@ -195,8 +223,18 @@ export class QuotesService {
         now,
         expiresAt,
         c.userId,
+        webRequest,
       ],
     );
+    if (webRequest && this.websiteRequests) {
+      // Scope (SAL: unassigned or own → else 404), state (declined/spam/converted → 409), WR1 when `new`.
+      await this.websiteRequests.attachQuote(tx, {
+        requestId: webRequest,
+        quoteId: id,
+        actor: { userId: c.userId, roles: c.roles },
+        now,
+      });
+    }
     await this.leads.onQuoteSaved(tx, leadId);
     await this.audit.record(tx, {
       category: 'state',
@@ -497,6 +535,11 @@ export class QuotesService {
 
     const s = row.pricing_snapshot as Record<string, unknown> & { calc: QuoteCalculation };
     const departureDate = String(s.departureDate ?? addDays(row.arrival_date, row.nights));
+    // US-155 AC2 / BR-112 (a): a quote answering a website request makes a `website` hold with its sub-source.
+    const web =
+      row.website_booking_request_id && this.websiteRequests
+        ? await this.websiteRequests.linkInfo(tx, row.website_booking_request_id)
+        : null;
     const created = await port.createHoldFromQuote(tx, {
       quoteId: row.id,
       quoteCode: row.code,
@@ -519,7 +562,17 @@ export class QuotesService {
       pricingSnapshot: { ...s, quoteId: row.id, quoteCode: row.code },
       createdBy: c.userId,
       ...(requestId ? { requestId } : {}),
+      ...(web ? { website: { subSource: web.subSource } } : {}),
     });
+    if (web && this.websiteRequests) {
+      // WR6 in this transaction (FD+ or the holder; otherwise the holder is told – SEC ARC-19 (3)).
+      await this.websiteRequests.markConverted(tx, {
+        requestId: web.requestId,
+        reservationId: created.reservationId,
+        actor: { userId: c.userId, roles: c.roles },
+        now,
+      });
+    }
     await tx.query(
       `UPDATE quote SET status = 'converted', converted_reservation_id = $2, updated_at = $3,
           version = version + 1

@@ -27,6 +27,8 @@ export interface ReservationRow {
   ota_ref: string | null;
   ota_booked_at: Date | null;
   direct_source: string | null;
+  /** US-155 (0086): sub-source of a `website` booking (BR-911). */
+  direct_sub_source?: string | null;
   booker_guest_id: string;
   closer_user_id: string | null;
   parent_reservation_id: string | null;
@@ -88,7 +90,7 @@ export interface ReservationRow {
 
 export const RESERVATION_COLUMNS = `r.id, r.organization_id, r.property_id, r.code, r.status, r.stay_type, r.channel_id,
   c.code AS channel_code, c.channel_group, r.payment_model, r.ota_ref, r.ota_booked_at, r.direct_source,
-  r.booker_guest_id, r.closer_user_id, r.parent_reservation_id, r.quote_id, r.group_id, r.folio_id,
+  r.direct_sub_source, r.booker_guest_id, r.closer_user_id, r.parent_reservation_id, r.quote_id, r.group_id, r.folio_id,
   r.arrival_date::text AS arrival_date, r.departure_date::text AS departure_date, r.adults, r.children_6_11,
   r.children_under_6, to_char(r.eta_time, 'HH24:MI') AS eta_time, r.is_complimentary, r.conflict_state, r.capacity_conflict_at, r.capacity_ack_reason,
   r.hold_created_at, r.hold_hours, r.hold_expires_at, r.hold_extended_count, r.deposit_required_vnd,

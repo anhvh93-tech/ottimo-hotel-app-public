@@ -20,3 +20,5 @@ export * from './guest-portal';
 export * from './guest-requests';
 // Sprint 4 (BE-C): housekeeping + maintenance (work_order, inspection, inspection_checklist).
 export * from './housekeeping';
+// R3 Sprint 1 (BE-D): public-site – website booking requests (erd 4.14, migration 0086).
+export * from './public-site';

@@ -92,6 +92,7 @@ export function toReservationDto(d: DtoInput): Record<string, unknown> {
     channelId: row.channel_id,
     channelCode: row.channel_code,
     directSource: row.direct_source,
+    directSubSource: row.direct_sub_source ?? null,
     paymentModel: row.payment_model,
     ...(row.ota_ref ? { otaRef: row.ota_ref } : {}),
     ...(d.booker ? { booker: guestSummary(d.booker) } : {}),

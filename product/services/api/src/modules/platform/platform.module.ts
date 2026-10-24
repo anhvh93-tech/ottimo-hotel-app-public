@@ -9,6 +9,7 @@ import { ParametersService } from './internal/parameters.service';
 import { PlatformController } from './internal/platform.controller';
 import { RoomsService } from './internal/rooms.service';
 import { ChannelsService } from './public/channels';
+import { ParameterHooks } from './public/parameter-hooks';
 import { PropertyContextService } from './public/property-context';
 import { defineAuditEntity } from '../audit/public/audit-fields';
 
@@ -34,7 +35,14 @@ defineAuditEntity('dataset', ['rooms', 'channels']);
 @Global()
 @Module({
   controllers: [PlatformController],
-  providers: [PropertyContextService, ChannelsService, RoomsService, ParametersService],
-  exports: [PropertyContextService, ChannelsService],
+  providers: [
+    PropertyContextService,
+    ChannelsService,
+    RoomsService,
+    ParametersService,
+    ParameterHooks,
+  ],
+  // ParameterHooks (R3 S1 – BE-D): per-key setParameter rules owned by feature modules (US-155 form switch).
+  exports: [PropertyContextService, ChannelsService, ParameterHooks],
 })
 export class PlatformModule {}

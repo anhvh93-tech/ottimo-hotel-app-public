@@ -319,7 +319,18 @@ describe('allowed origins (SR-SES-04, architecture 17)', () => {
       guest: ['https://g.example.invalid'],
       admin: ['https://desk.example.invalid'],
       staffPwa: ['https://staff.example.invalid'],
+      landing: [],
     });
+  });
+
+  it('LANDING_BASE_URL (US-155): optional, origin only, https outside dev/test', () => {
+    expect(
+      loadConfig({ ...prod, LANDING_BASE_URL: 'https://ottimo.example.invalid/vi/' }).allowedOrigins
+        .landing,
+    ).toEqual(['https://ottimo.example.invalid']);
+    expect(() =>
+      loadConfig({ ...prod, LANDING_BASE_URL: 'http://ottimo.example.invalid' }),
+    ).toThrow(/LANDING_BASE_URL/);
   });
 
   it('requires all three, https only, in staging and production', () => {
@@ -342,6 +353,7 @@ describe('allowed origins (SR-SES-04, architecture 17)', () => {
       guest: [],
       admin: [],
       staffPwa: [],
+      landing: [],
     });
     expect(
       loadConfig({
@@ -354,6 +366,7 @@ describe('allowed origins (SR-SES-04, architecture 17)', () => {
       guest: ['http://localhost:8083'],
       admin: ['http://localhost:8081'],
       staffPwa: [],
+      landing: [],
     });
   });
 });

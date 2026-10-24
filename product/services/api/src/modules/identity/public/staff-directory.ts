@@ -44,3 +44,16 @@ export async function isActiveStaff(
   );
   return rows.length > 0;
 }
+
+/** Display names of staff ids (rbac D27 – names only), for "người đang xử lý" labels (US-155 – BE-D). */
+export async function displayNamesOf(
+  tx: Tx,
+  userIds: readonly string[],
+): Promise<Map<string, string>> {
+  if (userIds.length === 0) return new Map();
+  const { rows } = await tx.query<{ id: string; display_name: string }>(
+    'SELECT id, display_name FROM app_user WHERE id = ANY($1::uuid[])',
+    [[...new Set(userIds)]],
+  );
+  return new Map(rows.map((r) => [r.id, r.display_name]));
+}

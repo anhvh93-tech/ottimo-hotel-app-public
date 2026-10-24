@@ -62,7 +62,12 @@ const quoteInput = z.object({
   returnGuestCode: z.string().max(40).optional(),
 });
 
-const saveInput = quoteInput.extend({ guestId: uuid, leadId: uuid.optional() });
+// US-155 AC2 (0.3.7 bổ sung 2 – BE-D R3 S1): a quote answering a website booking request.
+const saveInput = quoteInput.extend({
+  guestId: uuid,
+  leadId: uuid.optional(),
+  websiteBookingRequestId: uuid.optional(),
+});
 
 const holdInput = z.object({
   holdHours: z.number().int().min(1).max(168),
@@ -152,7 +157,11 @@ export class QuotesController {
     @Body() body: unknown,
   ) {
     rejectDryRun(body);
-    const input = parseBody(saveInput, body) as QuoteInput & { guestId: string; leadId?: string };
+    const input = parseBody(saveInput, body) as QuoteInput & {
+      guestId: string;
+      leadId?: string;
+      websiteBookingRequestId?: string;
+    };
     const result = await this.uow.run(req, async (tx) => ({
       status: 201,
       body: await this.quotes.save(tx, caller(req), input, req.id),

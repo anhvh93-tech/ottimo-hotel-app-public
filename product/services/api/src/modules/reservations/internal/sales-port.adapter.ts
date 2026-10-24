@@ -131,6 +131,7 @@ export class ReservationSalesAdapter implements ReservationSalesPort {
       holdHours: input.holdHours,
       quoteId: input.quoteId,
       priced: { result, snapshot },
+      ...(input.website ? { website: input.website } : {}),
     });
     return { reservationId: row.id, code: row.code };
   }

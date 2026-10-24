@@ -4,7 +4,7 @@
  * business writes → state_transition + reservation_change + audit_event → outbox → hooks.
  * Inventory goes through OccupancyService only (EXCLUDE constraint, 409 + conflicts/suggestions).
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { LeadsService } from '../../sales/public/leads.service';
 import { inSequence } from '../../../shared/sequence';
 import { v7 as uuidv7 } from 'uuid';
@@ -47,6 +47,10 @@ import type { NightSource } from '../public/added-night-price';
 import { type PriceResult, type PricingParams, PricingService } from '../public/pricing.service';
 import { type InitialPayment, ReservationHooks } from '../public/reservation-hooks';
 import type { ConfirmedStay } from '../public/sales-port';
+import {
+  WEBSITE_REQUEST_PORT,
+  type WebsiteRequestPortContract,
+} from '../../public-site/public/website-request.port';
 import { LEASE_RATE_SOURCE, syncLeaseNights } from './lease-nights';
 import { MoneyBridge } from './money-bridge';
 import { type BookingMovePlan, MovePlanner, moveCauseOf } from './move-planner';
@@ -300,6 +304,8 @@ export interface CreateHoldInput {
   quoteId?: string | undefined;
   /** Prices of the quote (BR-006 snapshot) – omitted = priced now. */
   priced?: { result: PriceResult; snapshot: Record<string, unknown> } | undefined;
+  /** US-155 (BE-D R3 S1): hold from a quote answering a website request – source `website` + sub-source. */
+  website?: { subSource: string | null } | undefined;
 }
 
 /** Booking reads by system jobs and ports (no SAL/CTV scope). */
@@ -326,6 +332,10 @@ export class ReservationsService {
     @Inject(ReservationHooks) private readonly hooks: ReservationHooks,
     @Inject(MoneyBridge) private readonly money: MoneyBridge,
     @Inject(LeadsService) private readonly leads: LeadsService,
+    // US-155 AC2 (BE-D R3, v1.0): createReservation `websiteBookingRequestId` → WR6 (public-site module).
+    @Optional()
+    @Inject(WEBSITE_REQUEST_PORT)
+    private readonly websiteRequests?: WebsiteRequestPortContract,
   ) {}
 
   /** ONE calculation of a room move – B7/B7a/B8 here, B14 through the stay port (ARC 10.4, S4-04/05/07/21). */
@@ -499,6 +509,8 @@ export class ReservationsService {
       ['website', 'zalo_phone', 'walk_in', 'returning', 'sales_staff'] as const,
       false,
     );
+    // 0.3.7 bổ sung 2 (US-155 AC2): the website request this guaranteed booking answers (WR6).
+    const websiteRequestId = f.uuid('websiteBookingRequestId', false);
     const etaTime = f.time('etaTime');
     const internalNote = f.text('internalNote', 1000);
     const rateOverrideReason = f.text('rateOverrideReason', 500, { min: 3 });
@@ -582,12 +594,18 @@ export class ReservationsService {
         f.add('paymentModel', 'NOT_IN_LIST');
       }
     }
-    if (group === 'direct' && !directSource) f.add('directSource', 'REQUIRED');
+    // US-155 AC2: a booking for a website request is `direct` / `website` (directSource absent → website).
+    if (websiteRequestId) {
+      if (group !== 'direct') f.add('websiteBookingRequestId', 'NOT_ALLOWED');
+      else if (directSource && directSource !== 'website') f.add('directSource', 'NOT_ALLOWED');
+    }
+    const source = websiteRequestId && group === 'direct' ? 'website' : directSource;
+    if (group === 'direct' && !source) f.add('directSource', 'REQUIRED');
     if (group !== 'direct' && directSource) f.add('directSource', 'DIRECT_SOURCE_NOT_ALLOWED');
     this.checkCloserForChannel(
       f,
       group,
-      group === 'direct' ? directSource : null,
+      group === 'direct' ? source : null,
       closerUserId,
       closerKind,
     );
@@ -700,6 +718,11 @@ export class ReservationsService {
     }
     const depositRequired = priced?.depositRequiredVnd ?? 0;
     await this.assertSellable(tx, rm, from, to);
+    // US-155 AC2: the request must exist (404) and still be open (409) – createReservation is FD+ only, so every
+    // request of the property is in scope. Read here without lock; WR6 below locks it (request last – 16.19).
+    const webRequest = websiteRequestId
+      ? await this.websiteRequestOpen(tx, websiteRequestId)
+      : null;
 
     // ── writes ──
     await this.occupancy.lockRooms(tx, [rm.id]);
@@ -727,9 +750,9 @@ export class ReservationsService {
          booked_arrival_date, booked_departure_date, adults, children_6_11, children_under_6, eta_time,
          is_complimentary, conflict_state, deposit_required_vnd, total_room_vnd, pricing_snapshot, confirmed_at,
          internal_note, external_contract, manual_long_stay, stay_group_id, created_at, created_by, updated_at,
-         folio_id)
+         folio_id, direct_sub_source)
        VALUES ($1, $2, $3, $4, 'confirmed', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $13, $14, $15, $16, $17,
-         $18, $19, 'none', $20, $21, $22, $23, $24, $25, $26, $1, $23, $27, $23, $28)`,
+         $18, $19, 'none', $20, $21, $22, $23, $24, $25, $26, $1, $23, $27, $23, $28, $29)`,
       [
         id,
         tx.ctx.organizationId,
@@ -740,7 +763,7 @@ export class ReservationsService {
         manual ? 'direct' : paymentModel,
         otaRef ?? null,
         otaBookedAt ?? null,
-        directSource ?? null,
+        (group === 'direct' ? source : directSource) ?? null,
         booker.id,
         closerUserId ?? null,
         from,
@@ -759,6 +782,7 @@ export class ReservationsService {
         manual ? JSON.stringify(manual) : null,
         ctx.actor.userId,
         folioId,
+        webRequest?.subSource ?? null,
       ],
     );
     const segmentId = await insertSegment(tx, id, rm.id, from, to, ctx.now);
@@ -861,6 +885,19 @@ export class ReservationsService {
       now: ctx.now,
       requestId: ctx.requestId,
     });
+    if (webRequest && this.websiteRequests) {
+      // WR6 in this transaction: request → `converted` + C2 erased (FD+ always may). A request closed meanwhile
+      // (declined/spam/converted by someone else) → 409 and nothing is written.
+      const link = await this.websiteRequests.markConverted(tx, {
+        requestId: webRequest.requestId,
+        reservationId: id,
+        actor: { userId: ctx.actor.userId, roles: ctx.actor.roles },
+        now: ctx.now,
+      });
+      if (!link.converted) {
+        throw problem('INVALID_TRANSITION', { extras: { currentState: link.status } });
+      }
+    }
     await this.audit.record(tx, {
       category: 'state',
       action: 'reservation.created',
@@ -997,9 +1034,9 @@ export class ReservationsService {
          booker_guest_id, closer_user_id, quote_id, arrival_date, departure_date, booked_arrival_date,
          booked_departure_date, adults, children_6_11, children_under_6, conflict_state, hold_created_at, hold_hours,
          hold_expires_at, deposit_required_vnd, total_room_vnd, pricing_snapshot, stay_group_id, created_at,
-         created_by, updated_at, direct_source, folio_id)
+         created_by, updated_at, direct_source, folio_id, direct_sub_source)
        VALUES ($1, $2, $3, $4, 'hold', 'short', $5, 'direct', $6, $7, $8, $9, $10, $9, $10, $11, $12, $13, 'none',
-         $14, $15, $16, $17, $18, $19, $1, $14, $20, $14, $21, $22)`,
+         $14, $15, $16, $17, $18, $19, $1, $14, $20, $14, $21, $22, $23)`,
       [
         id,
         tx.ctx.organizationId,
@@ -1021,10 +1058,14 @@ export class ReservationsService {
         result.totalRoomVnd,
         JSON.stringify(snapshot),
         ctx.actor.userId,
-        ch.channel_group === 'direct' && ctx.actor.roles.includes('sales_staff')
-          ? 'sales_staff'
-          : null,
+        // BR-112 (a): a hold for a website request is `website` whoever closes it (US-155 AC2).
+        input.website && ch.channel_group === 'direct'
+          ? 'website'
+          : ch.channel_group === 'direct' && ctx.actor.roles.includes('sales_staff')
+            ? 'sales_staff'
+            : null,
         folioId,
+        input.website && ch.channel_group === 'direct' ? input.website.subSource : null,
       ],
     );
     const segmentId = await insertSegment(
@@ -1801,6 +1842,19 @@ export class ReservationsService {
         extras: { max },
       });
     }
+  }
+
+  /** US-155 AC2 (createReservation): the website request, 404 when unknown, 409 when no longer open. */
+  private async websiteRequestOpen(
+    tx: Tx,
+    requestId: string,
+  ): Promise<{ requestId: string; subSource: string | null }> {
+    const link = this.websiteRequests ? await this.websiteRequests.linkInfo(tx, requestId) : null;
+    if (!link) throw problem('NOT_FOUND');
+    if (link.status !== 'new' && link.status !== 'in_progress') {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: link.status } });
+    }
+    return { requestId: link.requestId, subSource: link.subSource };
   }
 
   /** BR-113 (a) suggestions: rooms of the same group where [from, to) is exactly an orphan night. */

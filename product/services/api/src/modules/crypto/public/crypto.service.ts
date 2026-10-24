@@ -52,7 +52,7 @@ export interface Sealed {
 /** The DEK was destroyed (or is not visible in this property): the data is gone – map to 404, never 500. */
 /** Domains of `keyedHash` (one HKDF sub-key each). */
 /** `guest_doc` (0.3.7 nhóm D A, erd 4.4): the v1 document key of a P05 guest profile (`guest.id_doc_hmac`). */
-export type KeyedHashPurpose = 'child_name' | 'idempotency' | 'guest_doc';
+export type KeyedHashPurpose = 'child_name' | 'idempotency' | 'guest_doc' | 'web_request_contact';
 
 export class DataKeyDestroyedError extends Error {
   constructor() {
