@@ -88,7 +88,7 @@ export type Op =
   | { k: 'refundCancel'; req: number; who: Who | 'requester' }; // ADD3-01: the requester (or someone) cancels;
 
 export type Family =
-  'FZ-01' | 'FZ-02' | 'FZ-06' | 'FZ-07' | 'FZ-08' | 'FZ-09' | 'FZ-10' | 'FZ-11' | 'FZ-12';
+  'FZ-01' | 'FZ-02' | 'FZ-06' | 'FZ-07' | 'FZ-08' | 'FZ-09' | 'FZ-10' | 'FZ-11' | 'FZ-12' | 'FZ-13';
 
 /**
  * Families of the test plan mục 3.3 built in this harness. FZ-03 (night-branch FOC in stay), FZ-04 (child
@@ -223,6 +223,29 @@ export const FAMILIES: Record<
       writeOff: 2,
       decide: 2,
       advance: 1,
+    },
+  },
+  // critic final §4 row 14 / M-1 (ORC 24/10): the refund pay-out path. In FZ-01 refundPay has weight 1 and a
+  // pay-out needs request → destination → approval → pay, so 200 chains paid twice. A family of its own (the
+  // streams of FZ-01…12 stay as they were): late QR excess, refund ops, and the ops that move the credit under them.
+  'FZ-13': {
+    title:
+      'refund pay-out path: destination, approval, reconciliation, clamp (I23) under A32 / late charges / J15',
+    be83: false,
+    start: 'mixed',
+    weights: {
+      advance: 2,
+      late: 2,
+      collect: 1,
+      reverse: 1,
+      a32: 2,
+      j15: 1,
+      race: 2,
+      qrLate: 3,
+      refundReq: 1,
+      refundApprove: 4,
+      refundPay: 6,
+      refundCancel: 1,
     },
   },
 };
@@ -1122,6 +1145,7 @@ export class Runner {
       roleOf: this.roleOf(),
       refundsBefore: before.refunds,
       sequential: op.k !== 'race',
+      creditBefore: Math.max(0, -refView(before, nowIso).B),
       http5xx: c5 > 0,
       ...ctx,
     };

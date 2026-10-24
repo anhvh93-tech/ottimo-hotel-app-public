@@ -8,11 +8,11 @@
 
 | Mức | Số lỗi | Open | Fixed | Closed |
 |---|---|---|---|---|
-| P0 | 3 | 1 | 0 | 2 |
-| P1 | 7 | 1 | 0 | 6 |
+| P0 | 3 | 0 | 0 | 3 |
+| P1 | 8 | 1 | 0 | 7 |
 | P2 | 3 | 0 | 0 | 3 |
 | P3 | 0 | 0 | 0 | 0 |
-| **Tổng** | **13** | **2** | **0** | **11** |
+| **Tổng** | **14** | **1** | **0** | **13** |
 
 Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - Lượt 1 trên stack `ottimo-qa155`, bản `0ac4261`: mở BUG-R3-007…011.
@@ -34,8 +34,9 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-009 | **P1** | US-155 AC5: số CCCD viết cách nhóm (`079 203 012 345`) trong lời nhắn được nhận (202) và lưu vào yêu cầu; chỉ dãy 12 số liền bị chặn | BE-D (`website-request-rules.ts`) | **Closed** (QA xác nhận 24/10 trên `a1da76f` – TC-WR-007 + TC-WR-010 đạt) |
 | BUG-R3-010 | P2 | S35: lễ tân trưởng (FDL) không thấy dòng "Form đặt phòng trên website đang tắt" – đọc công tắc trả 404 cho FDL, FE coi là "không biết" | FE-B + BE-D | **Closed** (QA xác nhận 24/10 trên `a1da76f` – TC-WR-011 đạt) |
 | BUG-R3-011 | P2 | H09 "Tạo đơn" từ yêu cầu website: ô Kênh/Nguồn vẫn sửa được (AC2: nhân viên không đổi được nguồn); đổi thì server 422, Desk chỉ báo "Không áp dụng được cho đơn này." | FE-B (+ UXD chữ) | **Closed** (QA xác nhận 24/10 trên `a1da76f` – TC-WR-012 đạt) |
-| BUG-R3-012 | **P0** | J15 trả `waiting_refund` mãi khi còn yêu cầu hoàn mở, kể cả khi đã hết tiền dư và khách đang **nợ**: không ghi công nợ, không báo OWN/MGR, folio không bao giờ đóng | BE-B (folio/J15) | Open |
-| BUG-R3-013 | P1 | Yêu cầu hoàn đang mở không được tính lại (`refundPlan`) khi tiền dư giảm (phát sinh sau trả phòng, A32, J15) – yêu cầu > tiền dư, có lần duyệt khi tiền dư 0 | BE-B (folio/refunds) | Open |
+| BUG-R3-012 | **P0** | J15 trả `waiting_refund` mãi khi còn yêu cầu hoàn mở, kể cả khi đã hết tiền dư và khách đang **nợ**: không ghi công nợ, không báo OWN/MGR, folio không bao giờ đóng | BE-B (folio/J15) | **Closed** 24/10. Lượt fuzz chạy lại trên `origin/main` `f2ba2ac`: 710 chuỗi, 28.250 bước. Critic `reviews/s1-money-critic-rerun.md` mục 6 xác nhận. |
+| BUG-R3-013 | P1 | Yêu cầu hoàn đang mở không được tính lại (`refundPlan`) khi tiền dư giảm (phát sinh sau trả phòng, A32, J15) – yêu cầu > tiền dư, có lần duyệt khi tiền dư 0 | BE-B (folio/refunds) | **Closed** 24/10. Lượt fuzz chạy lại trên `origin/main` `f2ba2ac`: 710 chuỗi, 28.250 bước. Critic `reviews/s1-money-critic-rerun.md` mục 6 xác nhận. |
+| BUG-R3-014 | P1 | Chi hoàn (`payOut`) đưa tiền dư của folio `settled` về 0 nhưng các yêu cầu hoàn đã duyệt còn tiền chưa chi vẫn `approved`, không đóng `superseded` (hợp đồng 13.3 điểm 1 + 3). Tiền khách trả thêm về sau bị duyệt cũ "hút" và chi theo duyệt cũ, không qua định tuyến ADD3 | BE-B (payments/refunds) | Open |
 
 ## 3. Chi tiết
 
@@ -313,7 +314,15 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Thực tế:** folio `settled`, `openDebtVnd` 0, J15 trả `waiting_refund`.
 - **Mong đợi:** folio `closed`, công nợ 200.000 có nhật ký và báo OWN/MGR; yêu cầu hoàn thừa thì được hủy hoặc tính lại.
 - **Mã:** `FolioService.closeAfterWindow` dòng ~1375 `if (b.openRefundVnd > 0) return 'waiting_refund'`. Nên chờ chỉ khi còn tiền dư thật, hoặc tính lại `refundPlan` trước.
-- **Vai:** BE-B. **Trạng thái:** Open.
+- **Vai:** BE-B.
+- **Trạng thái:** **Closed** 24/10. Bản sửa BE-B `2f1d738` và các bản theo sau `69a5398`, gộp ở `f2ba2ac`.
+  - Lượt fuzz chạy lại: 710 chuỗi, 28.250 bước.
+  - Critic `reviews/s1-money-critic-rerun.md` mục 6:
+    - 195 lần J15 `waiting_refund`, lần nào cũng còn tiền dư và yêu cầu mở;
+    - 25 lần đóng, trong đó 21 lần có ghi nợ;
+    - seed cũ 60164 và 61092 nay đóng kèm ghi nợ;
+    - 0 yêu cầu chờ vượt tiền dư trống sau 1.459 bước tuần tự làm giảm tiền dư; 0/297 lần duyệt vượt tiền dư trống.
+  - Đường chi hoàn còn hở, tách thành BUG-R3-014.
 
 ### BUG-R3-013 – Yêu cầu hoàn không được tính lại khi tiền dư giảm (critic M-1)
 - **Mức:** P1.
@@ -321,7 +330,15 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - Chưa thấy tiền chi sai, vì mức chi bị chặn ở số tiền dư (critic đọc mã). Fuzz chưa chi lần nào, do thiếu nơi nhận tiền (`REFUND_DESTINATION_REQUIRED`).
   - Đây là gốc của BUG-R3-012.
 - **Mong đợi:** BR-522 / ARC 13.2: khi tiền dư giảm, chạy `refundPlan` để hủy (`superseded`) hoặc giảm yêu cầu đang mở; không duyệt yêu cầu lớn hơn tiền dư.
-- **Vai:** BE-B. **Trạng thái:** Open.
+- **Vai:** BE-B.
+- **Trạng thái:** **Closed** 24/10. Bản sửa BE-B `2f1d738` và các bản theo sau `69a5398`, gộp ở `f2ba2ac`.
+  - Lượt fuzz chạy lại: 710 chuỗi, 28.250 bước.
+  - Critic `reviews/s1-money-critic-rerun.md` mục 6:
+    - 195 lần J15 `waiting_refund`, lần nào cũng còn tiền dư và yêu cầu mở;
+    - 25 lần đóng, trong đó 21 lần có ghi nợ;
+    - seed cũ 60164 và 61092 nay đóng kèm ghi nợ;
+    - 0 yêu cầu chờ vượt tiền dư trống sau 1.459 bước tuần tự làm giảm tiền dư; 0/297 lần duyệt vượt tiền dư trống.
+  - Đường chi hoàn còn hở, tách thành BUG-R3-014.
 
 ### Xác nhận BUG-R3-006 (QA 24/10, `origin/main` @ `12f6d37`)
 - Đã chạy cả bộ admin-web 5 lần:
@@ -329,3 +346,26 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - bốn lần với đồng hồ giả cố định qua `vi.useFakeTimers`, lúc 00:36, 02:40, 05:59 và 14:00. Đây là tệp cấu hình tạm, không commit.
 - Cả 5 lần đều **610/610 đạt**.
 - Bản sửa của QA2 và FE-A (ngày nghiệp vụ cho mọi màn, 4b193d7) đã có hiệu lực → **Closed**.
+
+### BUG-R3-014 – Chi hoàn đưa tiền dư về 0 nhưng các yêu cầu đã duyệt vẫn treo (critic chạy lại M-2)
+- **Mức:** P1. Loại (a): lách kiểm soát duyệt tiền ra, sổ không lệch đồng nào. Critic đề nghị **nâng P0** nếu SEC tái hiện được biến thể "tiền miễn A32 bị chi theo duyệt cũ".
+- **Tìm thấy:**
+  - Lượt fuzz chạy lại 24/10 trên `origin/main` `f2ba2ac`. Họ mới FZ-13 đi đường chi hoàn có nơi nhận.
+  - QA tính lại offline bất biến I24 (đã thêm vào harness sau lượt chạy), critic xác nhận trong `reviews/s1-money-critic-rerun.md` mục 4, 5, 7.
+- **Bằng chứng:**
+  - 7 bước chi đưa tiền dư về 0: FZ-01 60023 #41; FZ-13 64023 #42, 64026 #29, 64029 #36, 64034 #10, 64053 #27, 64062 #29.
+  - Sau các bước này, 10 yêu cầu `approved` còn tổng 4.827.000 chưa chi vẫn để nguyên.
+  - 4 lần tiền mới vào bị duyệt cũ "hút". Ví dụ 64023 #45: QR 900.000 chỉ sinh yêu cầu 66.000.
+  - 2 lần chi tiền mới theo duyệt cũ, tổng 1.174.000:
+    - 64023 #50: 534.000 theo duyệt `manager` cũ;
+    - 64053 #54: 640.000, người chi là MGR đã làm A32 trên folio.
+- **Mong đợi:** hợp đồng ARC 0.3.8 bổ sung 6 (`s1-contracts` 13.3).
+  - Điểm 1: đường hoàn tiền làm giảm tiền dư phải chạy lại `refundPlan` (`refundsDownToCredit` / `afterSettledMoneyChange`) trong cùng giao dịch.
+  - Điểm 3: hết tiền dư thì yêu cầu đã duyệt chưa chi hoặc chi dở phải đóng `superseded`, có nhật ký, báo người liên quan, xóa nơi nhận.
+  - Tiền mới thành yêu cầu mới, định tuyến theo ADD3.
+- **Gốc lỗi** (critic đọc mã): `refunds.service.ts` `payOut` (từ khoảng dòng 447) không gọi hàm lập lại kế hoạch hoàn.
+- **Ca tái hiện:** `product/services/api/test/fuzz/bug-r3-014.test.ts` – QR thừa 300.000 → duyệt → phát sinh 100.000 → chi 200.000 → kỳ vọng không còn yêu cầu mở, QR mới 500.000 thì xin 500.000.
+  - Chỉ chạy khi `FUZZ_KNOWN_BUGS=1`.
+  - **Chưa chạy được**: Docker (OrbStack) treo ngay sau lượt fuzz, Postgres test không truy cập được. Bằng chứng hiện có là log JSONL của lượt chạy và đối chiếu của critic. QA chạy lại ca này khi Docker trở lại.
+- **Vai:** BE-B sửa; SEC dò biến thể A32 để chốt mức; ARC review.
+- **Trạng thái:** Open.

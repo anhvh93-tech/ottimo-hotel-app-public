@@ -55,6 +55,8 @@ export interface StepCtx {
   refundsBefore?: RawFolio['refunds'];
   /** The step was one op (not a race): I19 links a replacement to what the step superseded only then. */
   sequential?: boolean;
+  /** Raw credit (max(0, −B)) just before the step (I24). */
+  creditBefore?: number;
   /** The step was a money op done by a person on a settled folio – K11-06: 'payment' (collect, confirm a QR) or
    *  'a32' (reduction; asks only for ITS part – FZ02-8 min rule). */
   humanMoneyOnSettled?: 'payment' | 'a32';
@@ -531,6 +533,10 @@ function i18(raw: RawFolio, v: Violation[], g: Gates): void {
  *   no credit.
  * - I22 (critic final B-1 proposal 5): past the window and after the hourly J15 (window + 60 min), a folio still
  *   `settled` is only waiting to pay money back – credit > 0. Settled with credit 0 (B ≥ 0) = J15 waiting for ever.
+ * - I24 (ARC 0.3.8 addendum 6 rules 1–3, found by the re-run 24/10 on the pay-out path): a step that LOWERS the credit
+ *   of a settled folio re-plans its refunds in the same transaction – after it, credit 0 ⇒ no open refund request
+ *   (pending or approved with something left: rule 3 "hết tiền dư → đã duyệt chưa chi / chi dở đóng"), and
+ *   Σ open > credit ⇒ no pending one left (rule 2). Judged on sequential steps; in a race → "?".
  * - I23 (critic final §4 row 14, M-1): refund pay-out clamp – a pay-out accepted only for ≤ min(left of the
  *   request, credit before), never turns the folio into a debt (B after ≤ 0); one inside the clamp is not refused as
  *   REFUND_EXCEEDS_APPROVED; on every row, paid out ≤ approved and `refunded_vnd` = Σ its refund payments.
@@ -555,7 +561,11 @@ function bug012Checks(
         was.has(r.id) &&
         was.get(r.id)!.autoCancelReason !== 'superseded',
     );
-    const fresh = raw.refunds.filter((r) => !was.has(r.id));
+    // a request born from a receipt (K11-06 "Tự sinh từ khoản thu …") is new money, never a replacement: in a race
+    // "QR ‖ late charge" the charge may supersede without replacement, then the QR asks for its excess (61053 #21)
+    const fresh = raw.refunds.filter(
+      (r) => !was.has(r.id) && !(r.reasonNote ?? '').startsWith('Tự sinh từ khoản thu'),
+    );
     if (superseded.length && fresh.length) {
       const union = new Set(superseded.flatMap((r) => r.originActorIds));
       const anyA32 = superseded.some(isA32Refund);
@@ -608,6 +618,28 @@ function bug012Checks(
       'I22',
       `window over + J15 ran: folio still settled with credit 0 (B ${ref.B}, open refunds ${raw.refunds.filter(openSt).length}) – J15 must record the debt and close`,
     );
+  // I24
+  const credit = Math.max(0, -ref.B);
+  if (
+    code.folioStatus === 'settled' &&
+    ctx.creditBefore !== undefined &&
+    credit < ctx.creditBefore
+  ) {
+    const inv = ctx.sequential ? 'I24' : 'I24?';
+    const open = raw.refunds.filter(openSt);
+    const left = (r: RawFolio['refunds'][number]) => r.amountVnd - r.refundedVnd;
+    const total = open.reduce((a, r) => a + left(r), 0);
+    if (credit === 0 && open.length)
+      add(
+        inv,
+        `"${ctx.op}" took the credit ${ctx.creditBefore} → 0 but ${open.length} refund request(s) stay open: ${open.map((r) => `${r.status} ${left(r)}`).join(', ')}`,
+      );
+    else if (total > credit && open.some((r) => r.status !== 'approved'))
+      add(
+        inv,
+        `"${ctx.op}" lowered the credit ${ctx.creditBefore} → ${credit}; open requests ${total} > credit and a pending one was not re-planned`,
+      );
+  }
   // I23
   const p = ctx.refundPay;
   if (p) {

@@ -385,6 +385,57 @@ Bản sửa đã gộp: `27c5dcc` và các bản theo sau `69a5398`, nên các b
 - Ở bước 29, A32 hạ 139.000, mã trả 201. W của mã là 584.000 − 308.000 = 276.000 ≥ 139.000, nên 201 đúng quy tắc 208.
 - Harness mới chạy lại FZ-02 1000–1007 trên `27c5dcc`: bước này ra `I7?` kèm chú thích, không còn I7 cứng. Seed 1003 ra một `I19?` ở bước đua "QR ‖ phát sinh": bản thay `a32` đúng, cộng thêm một yêu cầu `other` cho phần QR thừa. Bản sửa I19 cho bước đua đã loại trường hợp này.
 
+**Chỉnh thêm sau lượt thử 1** (`origin/main` `f2ba2ac`, 610 chuỗi, cùng seed, ra 1 vi phạm cứng):
+- **I3 ở FZ-01 60082 bước 56: lỗi tham chiếu (b).**
+  - Dòng FOC xóa nợ được tạo khi yêu cầu còn chờ (dòng đi theo khoản, nguồn `system`), nên `posted_at` là lúc tạo.
+  - Tiền chỉ trừ khi duyệt, tức sau lúc mở chu kỳ nợ. Tham chiếu tính theo `posted_at` nên D thiếu 57.000.
+  - Nay dòng FOC tính từ max(`posted_at`, `decided_at` của yêu cầu).
+- **I19 khi đua:** yêu cầu "Tự sinh từ khoản thu …" là tiền mới, không bao giờ là bản thay. Ví dụ 61053 #21, "QR ‖ phát sinh": phát sinh làm hủy `superseded` mà không có bản thay, sau đó QR xin phần thừa.
+- **Họ mới FZ-13** (100 chuỗi, seed 64000–64099) dành cho đường chi hoàn: QR thừa, các thao tác hoàn, A32, phát sinh, J15. Lý do: ở FZ-01, `refundPay` có trọng số 1 nên 200 chuỗi chỉ chi được 2 lần. Các họ FZ-01…12 giữ nguyên chuỗi.
+- **I24** (hợp đồng 13.3 điểm 1–3): bước làm giảm tiền dư của folio `settled` thì sau bước đó phải thỏa:
+  - tiền dư 0 ⇒ không còn yêu cầu hoàn mở;
+  - Σ yêu cầu mở > tiền dư ⇒ không còn yêu cầu chờ.
+  - Bất biến này thêm **sau** lượt chấm. Kết quả bên dưới được QA tính offline từ log, critic tính độc lập.
+
+#### 3.10 Kết quả lượt fuzz chạy lại sau BUG-R3-012/013 (QA 24/10, `origin/main` @ `f2ba2ac`)
+
+**Cách chạy:**
+- Cờ `FUZZ=1 FUZZ_BE83=1 FUZZ_FZ02=1 FUZZ_K1106=1 FUZZ_ADD3=1`, theo lệnh ORC.
+- 5 tiến trình, PostgreSQL 17 riêng (container mới), dữ liệu giả.
+- Seed như lượt trước: FZ-01 60000–60199, FZ-02/06 61000…, FZ-07/08/09 62000…, FZ-10/11/12 63000…; thêm FZ-13 64000–64099.
+
+**Kết quả lượt chấm:**
+- **710 chuỗi, 28.250 bước** (610 chuỗi cùng seed lượt trước + 100 chuỗi FZ-13); deadlock 0, 5xx 0.
+- Harness báo **0 vi phạm cứng**. Các bất biến I19–I23 đều 0.
+- Cảnh báo: `I5?` 220 / `I3?` 31 / `I6?` 2, đều do đua trong cùng một giây giả; `I7?` 6, đều FZ-08 (P3); `I9?` 146, chờ R3-Q23.
+- Chi hoàn:
+  - 34 lần chi được, tổng 19.797.000;
+  - 12 lần bị chặn `REFUND_EXCEEDS_APPROVED` (mức `over`, hoặc khi tiền dư bằng 0);
+  - 4 lần `409 REFUND_SOURCE_NOT_RECONCILED`;
+  - 0 lần chi vượt min(phần còn lại, tiền dư).
+- Ca có hướng mới `refundPay op (cash|transfer)`: 2/2 đạt.
+
+**Critic độc lập** (`reviews/s1-money-critic-rerun.md`): tự tính lại toàn bộ 710 chuỗi và đọc tay 24 chuỗi, trong đó 10 chuỗi FZ-13.
+- **0 lệch tiền** trên B, O, W, R, hạn nợ và sổ cân.
+- SEC (i)–(iii): 0 vi phạm.
+- **BUG-R3-012 và BUG-R3-013: đóng được.** Không còn J15 chờ khi tiền dư 0. Không còn yêu cầu chờ vượt tiền dư trống.
+- **1 Major mới – BUG-R3-014 (P1, critic M-2):** đường chi hoàn không lập lại kế hoạch hoàn, nên duyệt cũ treo khi tiền dư 0 và hút tiền mới.
+  - 7 lần đưa tiền dư về 0, 10 yêu cầu treo (4.827.000).
+  - 2 lần chi tiền mới theo duyệt cũ, tổng 1.174.000.
+  - QA phát hiện qua I24 offline, critic xác nhận.
+- Minor (critic mục 4):
+  - yêu cầu đã duyệt bị đổi nơi nhận quay về `pending` có thể vượt tiền dư trống;
+  - fuzz chưa kích lớp chặn ở bước duyệt;
+  - bản ghi J15 theo giờ được ghi trước bước;
+  - 412 thay cho 409 trên folio đóng (đã biết);
+  - độ phủ chi hoàn còn mỏng.
+
+**Kết luận G1: CHƯA ĐẠT.** Đạt vế "0 lệch tiền", không đạt vế "0 Major" vì còn BUG-R3-014.
+- Đã đóng BUG-R3-012 và BUG-R3-013.
+- Điều kiện còn lại:
+  - BE-B sửa BUG-R3-014, ARC + SEC review; SEC dò biến thể tiền miễn A32 để chốt mức P1 hay P0;
+  - chạy `bug-r3-014.test.ts`, rồi chạy lại họ FZ-01, FZ-02, FZ-13 với I24 đã có trong harness; critic đọc lại.
+
 ---|---|---|---|
 | I4 – folio `closed` còn tiền dư | 15 + 4 | BUG-R3-002: tiền dư phát sinh sau B18 (A32 khi O = 0) không thành yêu cầu hoàn; J15 đóng folio | P0 |
 | I8 – xóa nợ vượt cơ sở nhưng `required_role` ≠ owner | 0 + 1 (lượt 1: 1) | BUG-R3-003: định tuyến cho lễ tân trưởng; lễ tân trưởng duyệt được | P0 |

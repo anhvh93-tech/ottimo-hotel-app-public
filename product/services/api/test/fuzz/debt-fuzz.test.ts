@@ -46,6 +46,7 @@ const PLAN_COUNTS: Record<Family, number> = {
   'FZ-10': 50,
   'FZ-11': 40,
   'FZ-12': 40,
+  'FZ-13': 100,
 };
 const chainsOf = (f: Family) =>
   MODE === 'smoke' ? 2 : Number(process.env.FUZZ_CHAINS ?? PLAN_COUNTS[f]);
