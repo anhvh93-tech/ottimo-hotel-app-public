@@ -142,7 +142,7 @@ Chạy trên worktree tách riêng ở `2fdff4d`, Postgres 17 mới, migrate t�
 | # | Điều kiện | Ai làm | Trạng thái |
 |---|---|---|---|
 | 1 | B.2.1–B.2.3 phía Desk S35: tên/lời nhắn chứa `<img onerror>` và URL hiển thị nguyên chữ, không tạo thẻ `<a>`, có nhãn cảnh báo URL; ký tự U+202E bị bỏ; CCCD trong lời nhắn → 422 và không xuất hiện trong log Caddy/Postgres. Có test E2E hoặc FE. | FE-B + QA | Mở |
-| 2 | Caddy vhost landing: chỉ proxy 2 đường dẫn công khai, `request_body max_size 16KB`; ca chunked 64 KB qua Caddy → 413. Có `LANDING_BASE_URL` (https) và secret `PUBLIC_FORM_SIGNING_KEY_FILE` riêng trên production. Runbook "API 1 bản". | OPS | Mở |
+| 2 | Caddy vhost landing: chỉ proxy 2 đường dẫn công khai, `request_body max_size 16KB`; ca chunked 64 KB qua Caddy → 413. Có `LANDING_BASE_URL` (https) và secret `PUBLIC_FORM_SIGNING_KEY_FILE` riêng trên production. Runbook "API 1 bản". | OPS | **Đạt trên repo** (`751ce79`, SEC kiểm 24/10 – mục dưới). Còn bước VPS khi bật form: `LANDING_IP` trong `.env`, `LANDING_PUBLIC_API=on`, `LANDING_BASE_URL` – theo README 12.3 |
 | 3 | C-1: bản dựng landing (`/book/`, trang cảm ơn, trang quyền riêng tư) qua `check-dist.mjs` + Playwright: 0 request ra bên thứ ba, không lỗi CSP. | FE-B / FE-LP + QA | Mở (FE-B báo bản prod giống hệt từng byte khi form tắt; cần chạy lại khi bật) |
 | 4 | C-3 (a): thông báo xử lý dữ liệu EN + VI đã luật sư duyệt, đã đăng, đã ghi `privacy_notice_version` cho từng ngôn ngữ. Server tự chặn bật khi thiếu. | INV + luật sư, rồi OPS ghi phiên bản | Mở (ESC-001) |
 | 5 | C-13: luật sư trả lời LZ-2 (căn cứ xử lý) và LZ-8 (thông báo/đăng ký website theo Luật TMĐT 2025, NĐ 248/2026), hoặc OTTIMO đã làm thủ tục. | INV + luật sư | Mở (ESC-001) |
@@ -150,3 +150,22 @@ Chạy trên worktree tách riêng ở `2fdff4d`, Postgres 17 mới, migrate t�
 | 7 | E2E US-155 trên stack có `LANDING_BASE_URL` + khóa ký: form → Desk S35 → báo giá/giữ chỗ hoặc đơn đảm bảo; ca B2. | QA | Mở |
 
 Phía server không còn thẻ SEC nào chặn mốc này.
+
+### Điều kiện 2 – phần OPS (`751ce79`, kiểm 24/10/2026)
+
+- Đã đọc:
+  - `Caddyfile.landing`; `docker-compose.prod.yml` (landing vào mạng `edge` ở `LANDING_IP` cố định; `TRUST_PROXY = WEB_IP,LANDING_IP`; landing không vào mạng `db`, không nhận bí mật app);
+  - các bước `config` của `deploy.sh` / `deploy-landing.sh`, gồm chặn `LANDING_BASE_URL` không phải https, lệch host khi `on`, `LANDING_IP` ngoài `EDGE_SUBNET`;
+  - kiểm số bản api của `ops-check`; README 12.2–12.3;
+  - báo cáo `outputs/OPS/v1-production.md` mục 14.
+- Đã chạy, trên worktree tách riêng ở `751ce79`, image `caddy` đúng digest pin, có sẵn trên máy:
+  - `check-caddy-landing.sh` → **16/16 ok**:
+    - chỉ `GET …/form-token` và `POST …/booking-requests` được proxy, có XFF do Caddy đặt;
+    - body khai 20 KB → 413; chunked 64 KB → 413; body quá cỡ không tới api;
+    - sai phương thức, `availability`/`offers`, slug viết hoa hoặc quá ngắn, `/v1/me`, `/v1/auth/login`, `/health` → 404;
+    - `LANDING_PUBLIC_API` không đặt → 404.
+  - `check-compose.sh` → OK.
+- Kết luận: **phần OPS của điều kiện 2 đạt trên repo.** Khi bật form, OPS làm các bước VPS theo README 12.3, sau đó gửi SEC kết quả `ops-check` cùng một lần gọi thật qua landing (form-token 200, `/v1/me` 404).
+- Gợi ý (không chặn):
+  1. Thêm một ca vào `check-caddy-landing.sh`: khách tự gửi `X-Forwarded-For: 1.2.3.4` → stub api nhận XFF là IP thật, không phải 1.2.3.4. Caddy mặc định không tin XFF đầu vào khi chưa cấu hình `trusted_proxies`; ca này khóa hành vi đó lại.
+  2. Mạng `edge` chưa có `ip_range` cho cấp phát động. Nên đặt, ví dụ nửa trên của subnet, để Docker không bao giờ cấp `WEB_IP`/`LANDING_IP` cho container khác. Hai IP này được api tin làm proxy.
