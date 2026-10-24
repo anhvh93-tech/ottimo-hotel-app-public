@@ -1,6 +1,11 @@
 ---
-// 1 · Hero (concept 3.1, US-146 AC1): facade at dusk (LCP), label, tagline as the only H1 (English on every page –
-// brand), positioning lead (DOM 1.1), Request to book (filled) + Chat on Zalo (outline) – concept 3.3 N2.
+// 1 · Hero (concept 3.1, US-146 AC1): label, tagline as the only H1 (English on every page – brand), positioning
+// lead (DOM 1.1), Request to book (filled) + Chat on Zalo (outline) – concept 3.3 N2.
+// Photo slideshow (R3-Q52, INV 22/10): the facade at dusk stays slide 1 and the LCP image; the next photos change every
+// 3 s, swipe on phones (CSS scroll snap), discreet dots + pause. Without JavaScript only slide 1 shows (the others are
+// `is-pending` = display:none, so their lazy images never load); scripts/carousel.ts reveals each slide just before it
+// is shown, never with prefers-reduced-motion, a hidden tab or the hero off screen.
+import { HERO_SLIDES } from '../../content/gallery';
 import { links, site } from '../../content/site';
 import type { Copy } from '../../content/types';
 import Icon from '../Icon.astro';
@@ -11,19 +16,70 @@ interface Props {
 }
 
 const { t } = Astro.props;
+const n = HERO_SLIDES.length;
 ---
 
 <section class="hero" aria-labelledby="hero-h">
   <div class="wrap hero-grid">
-    <Picture
-      id="hero-facade-dusk"
-      lang={t.lang}
-      alt={t.photoAlt['hero-facade-dusk']}
-      class="hero-media"
-      sizesMobile="100vw"
-      sizes="(min-width: 1200px) 640px, (min-width: 1024px) 54vw, 100vw"
-      eager
-    />
+    <div
+      class="hero-media car"
+      role="region"
+      aria-roledescription={t.carousel.roledescription}
+      aria-label={t.carousel.label}
+      data-carousel
+    >
+      <div class="car-track" tabindex="0" role="group" aria-label={t.carousel.track} data-car-track>
+        {
+          HERO_SLIDES.map((id, i) => (
+            <div
+              class:list={['car-slide', { 'is-pending': i > 0 }]}
+              role="group"
+              aria-roledescription={t.carousel.slideRole}
+              aria-label={t.carousel.slide(i + 1, n)}
+              data-car-slide={i}
+            >
+              <Picture
+                id={id}
+                lang={t.lang}
+                alt={t.photoAlt[id]}
+                class="car-pic"
+                sizesMobile="100vw"
+                sizes="(min-width: 1200px) 640px, (min-width: 1024px) 54vw, 100vw"
+                eager={i === 0}
+              />
+            </div>
+          ))
+        }
+      </div>
+      <div class="car-ctrl" hidden data-car-ctrl>
+        <button
+          class="car-toggle"
+          type="button"
+          aria-label={t.carousel.pause}
+          data-label-pause={t.carousel.pause}
+          data-label-play={t.carousel.play}
+          data-car-toggle
+        >
+          <Icon name="pause" class="i-pause" />
+          <Icon name="play" class="i-play" />
+        </button>
+        <span class="car-dots">
+          {
+            HERO_SLIDES.map((_, i) => (
+              <button
+                class="car-dot"
+                type="button"
+                aria-label={t.carousel.goTo(i + 1, n)}
+                aria-current={i === 0 ? 'true' : undefined}
+                data-car-dot={i}
+              >
+                <span aria-hidden="true" />
+              </button>
+            ))
+          }
+        </span>
+      </div>
+    </div>
     <div class="hero-text">
       <p class="label">{t.hero.label}</p>
       <h1 id="hero-h" lang="en">{site.tagline}</h1>

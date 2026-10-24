@@ -1,6 +1,10 @@
 // The only script of the landing (external module – CSP script-src 'self'). The page works without it: every
-// button is a real link; only "Copy address" and the language suggestion need JavaScript.
+// button is a real link; only "Copy address", the language suggestion, the hero slideshow controls and the room
+// photo viewer need JavaScript (R3-Q52: without it the hero is the first photo, a room card its cover photo).
+import { HERO_INTERVAL_MS } from '../content/gallery';
+import { initCarousel } from './carousel';
 import { preferredLang, readChoice, saveChoice, suggestion } from './lang';
+import { initLightboxes } from './lightbox';
 
 const root = document.documentElement;
 const pageLang = root.lang;
@@ -117,3 +121,12 @@ document.addEventListener(
 for (const img of document.images) {
   if (img.complete && img.naturalWidth === 0) img.classList.add('is-broken');
 }
+
+// Hero slideshow and room photo viewers (R3-Q52).
+const hero = document.querySelector<HTMLElement>('[data-carousel]');
+if (hero)
+  initCarousel(hero, {
+    intervalMs: HERO_INTERVAL_MS,
+    reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)'),
+  });
+initLightboxes();

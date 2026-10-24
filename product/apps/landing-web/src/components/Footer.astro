@@ -1,6 +1,7 @@
 ---
 // Footer (concept 3.1, N1): lockup on Ink, tagline, one row of links (Zalo · Facebook · Email), © and – once SEC
 // publishes it – the privacy notice. Address, hotline and other channels live in Location / Contact only.
+// Legal line (INV 22/10): operator, tax code and registered address, as registered (Vietnamese) on every page.
 import { links, site } from '../content/site';
 import type { Copy } from '../content/types';
 import { pathFor } from '../lib/i18n';
@@ -47,6 +48,11 @@ const year = 2026;
         }
       </ul>
     </div>
+    <p class="f-legal">
+      <span>{t.footer.operator} <span lang="vi">{site.legal.name}</span></span>
+      <span>{t.footer.taxCode} <span class="nw">{site.legal.taxCode}</span></span>
+      <span lang="vi">{site.legal.address}</span>
+    </p>
     <div class="f-base">
       <span>© {year} {site.name} · {t.footer.place}</span>
       {site.features.privacyPage && <a href={pathFor(t.lang, 'privacy')}>{t.footer.privacy}</a>}

@@ -5,6 +5,8 @@ import { BANNED } from '../../scripts/dist-checks.mjs';
 import { plain } from '../lib/rich';
 import { BOOKING_STRINGS } from '../scripts/booking-strings';
 import { en } from './en';
+import { GALLERY_TARGET, HERO_INTERVAL_MS, HERO_SLIDES, ROOM_GALLERIES } from './gallery';
+import manifest from '../assets/photos/manifest.json';
 import { isOttimoMailbox, site, siteSchema } from './site';
 import raw from './site.json';
 import type { Copy } from './types';
@@ -105,6 +107,52 @@ describe('page copy EN + VI', () => {
     }
   });
 
+  it('R3-Q52: hero slides and every room gallery photo exist and have alt text in both languages', () => {
+    const known = new Set(manifest.photos.map((p) => p.id));
+    const used = [...HERO_SLIDES, ...Object.values(ROOM_GALLERIES).flat()];
+    for (const id of used) {
+      expect(known.has(id), `${id} in manifest`).toBe(true);
+      expect(en.photoAlt[id], `EN alt ${id}`).toBeTruthy();
+      expect(vi.photoAlt[id], `VI alt ${id}`).toBeTruthy();
+    }
+    expect(HERO_SLIDES[0]).toBe('hero-facade-dusk'); // LCP image stays first (preload in Base.astro)
+    expect(new Set(HERO_SLIDES).size).toBe(HERO_SLIDES.length);
+    expect(HERO_SLIDES.length).toBeGreaterThanOrEqual(3);
+    expect(HERO_INTERVAL_MS).toBe(3000); // INV 22/10
+    for (const r of en.rooms.items) {
+      const g = ROOM_GALLERIES[r.slug];
+      expect(g[0], `${r.slug}: cover = first gallery photo`).toBe(r.photo);
+      expect(new Set(g).size, `${r.slug}: no duplicate`).toBe(g.length);
+      expect(g.length).toBeGreaterThanOrEqual(3);
+    }
+    expect(GALLERY_TARGET).toBe(6);
+  });
+
+  it('R3-Q52: viewer strings fill their numbers; the counter template keeps "{i}" for the script', () => {
+    for (const c of [en, vi]) {
+      expect(c.gallery.open(6)).toContain('6');
+      expect(c.gallery.counter(2, 6)).toMatch(/2.*6/);
+      expect(c.gallery.counter('{i}', 6)).toContain('{i}');
+      expect(c.carousel.goTo(2, 5)).toMatch(/2.*5/);
+      expect(c.gallery.dialogLabel('X')).toContain('X');
+    }
+  });
+
+  it('VI photo alt texts never say "căn" (FB-INV-002) – the manifest alt of detail-laundry-desk does', () => {
+    for (const v of Object.values(vi.photoAlt)) expect(v).not.toMatch(/(?<!\p{L})căn(?!\p{L})/iu);
+  });
+
+  it('Premium has the 1.4 m extra bed (INV 22/10); no other room promises an extra bed', () => {
+    const premium = (c: Copy) => c.rooms.items.find((r) => r.slug === 'premium-one-bedroom-1')!;
+    expect(plain(premium(en).desc)).toContain('1.4 m extra bed');
+    expect(plain(premium(vi).desc)).toContain('giường phụ 1,4 m');
+    for (const c of [en, vi]) {
+      for (const r of c.rooms.items.filter((x) => x.slug !== 'premium-one-bedroom-1'))
+        expect(r.desc).not.toMatch(/extra bed|giường phụ/i);
+      expect(c.rooms.note).toMatch(/Premium/);
+    }
+  });
+
   it('the action labels are "Request to book" / "Yêu cầu đặt phòng" (concept T5)', () => {
     expect(en.actions.requestToBook).toBe('Request to book');
     expect(vi.actions.requestToBook).toBe('Yêu cầu đặt phòng');
@@ -139,8 +187,20 @@ describe('site facts (site.json)', () => {
   it('validates and keeps the INV contact data of ESC-020 / FB-INV-002', () => {
     expect(site.phone.e164).toBe('+84844440909');
     expect(site.mapUrl).toBe('https://maps.app.goo.gl/oYos42G5YvUEcDCc6');
-    expect(site.contact.email).toBe('booking@ottimo.vn');
+    expect(site.contact.email).toBe('info@ottimo.vn');
     expect(site.facebookUrl).toBe('https://www.facebook.com/profile.php?id=100091335431646');
+  });
+
+  it('publishes the operator of INV 22/10 and no deposit account holder yet (INV 23/10, 4d)', () => {
+    expect(site.legal).toEqual({
+      name: 'CÔNG TY CỔ PHẦN UTMG LIVING',
+      taxCode: '5801551657',
+      address: '28 Triệu Việt Vương, P. Xuân Hương – Đà Lạt, Lâm Đồng',
+    });
+    expect(site.paymentReceivingAccountHolder).toBe('');
+    expect(
+      siteSchema.safeParse({ ...raw, legal: { ...raw.legal, taxCode: '58015' } }).success,
+    ).toBe(false);
   });
 
   it('keeps the booking form off (no endpoint, SEC/legal conditions open – US-155 AC4)', () => {
@@ -148,7 +208,7 @@ describe('site facts (site.json)', () => {
   });
 
   it('accepts only a shared mailbox on the OTTIMO domain, or nothing (ADR-014 4.2)', () => {
-    expect(isOttimoMailbox('booking@ottimo.vn', 'ottimo.vn')).toBe(true);
+    expect(isOttimoMailbox('info@ottimo.vn', 'ottimo.vn')).toBe(true);
     expect(isOttimoMailbox('someone@gmail.com', 'ottimo.vn')).toBe(false);
     const withEmail = (email: string) => ({ ...raw, contact: { ...raw.contact, email } });
     expect(siteSchema.safeParse(withEmail('nguyen.van.a@gmail.com')).success).toBe(false);

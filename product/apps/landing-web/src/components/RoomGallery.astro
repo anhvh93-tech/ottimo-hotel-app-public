@@ -1,0 +1,66 @@
+---
+// Full-screen photo viewer of one room type (R3-Q52, OTA style). Native modal <dialog>: the rest of the page is inert
+// while it is open, Esc closes it, focus goes back to the button that opened it (scripts/lightbox.ts also keeps Tab
+// inside). Photos sit in a scroll-snap row: swipe on phones, ← → keys, previous/next buttons, counter "2 / 6".
+// The photos are lazy and inside a closed dialog (display:none), so nothing loads until a guest opens it.
+// Every photo has its alt text, repeated as a visible caption (hidden from screen readers – the alt already says it).
+import { ROOM_GALLERIES } from '../content/gallery';
+import type { Copy, Room } from '../content/types';
+import Icon from './Icon.astro';
+import Picture from './Picture.astro';
+
+interface Props {
+  t: Copy;
+  room: Room;
+}
+
+const { t, room } = Astro.props;
+const ids = ROOM_GALLERIES[room.slug];
+const n = ids.length;
+const id = `gal-${room.slug}`;
+---
+
+<dialog class="lb on-dark" id={id} aria-label={t.gallery.dialogLabel(room.name)} data-lightbox>
+  <div class="lb-bar">
+    <h2 class="lb-title">{room.name}</h2>
+    <p class="lb-count" aria-live="polite" aria-atomic="true">
+      <span aria-hidden="true" data-lb-count>1 / {n}</span>
+      <span class="sr" data-lb-count-sr data-template={t.gallery.counter('{i}', n)}
+        >{t.gallery.counter(1, n)}</span
+      >
+    </p>
+    <button class="lb-btn lb-close" type="button" aria-label={t.gallery.close} data-lb-close>
+      <Icon name="close" />
+    </button>
+  </div>
+  <div class="lb-track" tabindex="0" role="group" aria-label={t.gallery.track} data-lb-track>
+    {
+      ids.map((photo, i) => (
+        <div
+          class="lb-slide"
+          role="group"
+          aria-roledescription={t.carousel.slideRole}
+          aria-label={t.carousel.slide(i + 1, n)}
+        >
+          <Picture
+            id={photo}
+            lang={t.lang}
+            alt={t.photoAlt[photo]}
+            class="lb-pic"
+            sizesMobile="100vw"
+            sizes="(min-width: 1600px) 1600px, 100vw"
+          />
+          <p class="lb-cap" aria-hidden="true">
+            {t.photoAlt[photo]}
+          </p>
+        </div>
+      ))
+    }
+  </div>
+  <button class="lb-btn lb-nav lb-prev" type="button" aria-label={t.gallery.prev} data-lb-prev>
+    <Icon name="prev" />
+  </button>
+  <button class="lb-btn lb-nav lb-next" type="button" aria-label={t.gallery.next} data-lb-next>
+    <Icon name="next" />
+  </button>
+</dialog>

@@ -278,7 +278,7 @@ Tên khóa theo `WebsiteBookingRequestInput` (hợp đồng 0.3.7 bổ sung 2) �
 |---|---|---|---|
 | **Zalo** (chính, mọi ngôn ngữ) | Header ≥ 768 px (link chữ), hero (nút viền), thanh đáy (nút viền), Liên hệ (nút đặc), chân trang, trang cảm ơn, khối "form tắt" | `https://zalo.me/0844440909` | Tạm Zalo số hotline; đổi sang link **Zalo OA** khi xác thực (ESC-021) – một chỗ cấu hình (T9) |
 | Hotline | Liên hệ (dòng), trang cảm ơn (dòng lối thoát), lỗi 503 | `tel:+84844440909` | Không còn ở chân trang (N1) |
-| Email | Liên hệ (dòng), chân trang | `mailto:booking@ottimo.vn` | [GIẢ ĐỊNH – tên miền INV đang mua] |
+| Email | Liên hệ (dòng), chân trang | `mailto:info@ottimo.vn` | [GIẢ ĐỊNH – tên miền INV đang mua] |
 | **Facebook** | Liên hệ ("OTTIMO on Facebook"), chân trang | `https://www.facebook.com/profile.php?id=100091335431646`, `target="_blank" rel="noopener noreferrer"` | Liên kết thường – không SDK, plugin, pixel (SEC C-1). JSON-LD `sameAs` |
 | WhatsApp · Telegram · Viber | **Chỉ** ô gập "Other channels / Kênh khác" ở mục Liên hệ | `wa.me/84844440909` · `t.me/+84844440909` · `viber://chat?number=%2B84844440909` | "Khó tìm một chút" nhưng một chạm (ý 4). Bỏ khỏi chân trang (N1) |
 

@@ -145,7 +145,7 @@ const ALLOWED_LINKS = [
   /^https:\/\/t\.me\/\+84844440909$/,
   /^viber:\/\/chat\?number=%2B84844440909$/,
   /^tel:\+84844440909$/,
-  /^mailto:booking@ottimo\.vn(\?subject=\S*)?$/, // shared mailbox on the OTTIMO domain only
+  /^mailto:info@ottimo\.vn(\?subject=\S*)?$/, // shared mailbox on the OTTIMO domain only
   /^https:\/\/maps\.app\.goo\.gl\/oYos42G5YvUEcDCc6$/, // INV's pin (P-S4-7)
   /^https:\/\/(www\.)?facebook\.com\/\S+$/, // fanpage – plain link (FB-INV-002 point 4)
 ];
