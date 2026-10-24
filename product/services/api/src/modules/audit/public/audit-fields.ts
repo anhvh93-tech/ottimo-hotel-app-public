@@ -54,7 +54,13 @@ export function pickAuditFields(
 
 // Entities written by the foundation (Đợt 0) and BE-A Sprint 1.
 defineAuditEntity('operation', ['operationId', 'roles']);
-defineAuditEntity('config_parameter', ['value', 'effectiveFrom', 'cancelledEffectiveFrom']);
+defineAuditEntity('config_parameter', [
+  'value',
+  'effectiveFrom',
+  'cancelledEffectiveFrom',
+  // BUG-R3-008: a kill switch turned off within the day (the row of today overwritten).
+  'sameDayOverride',
+]);
 defineAuditEntity('dev_clock', ['now', 'op', 'mode']);
 defineAuditEntity('job', ['status', 'slot']);
 defineAuditEntity('dataset', ['users', 'parameters', 'devices']);

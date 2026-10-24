@@ -847,6 +847,8 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
 
   // ───────────── SEC review s1-SEC-on-us155 (Phụ lục B of landing-booking-SEC) + ARC s1-ARC-on-us155 ─────────────
 
+  /** A named client IP of this run (in the run's own /16 – the DB IP counters outlive a run). */
+  const fixedIp = (n: number) => `${net}.250.${n}`;
   /** A token for this client IP, usable 3 s later (the clock moves 5 s). */
   const tokenFor = async (ip: string): Promise<string> => {
     const r = await formToken({}, ip);
@@ -857,7 +859,7 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
 
   it('B.1.1: the 31st call of an IP in the hour → 429 in RAM, without any database connection', async () => {
     await at('2026-10-21T09:30:00+07:00');
-    const ip = '192.0.2.10';
+    const ip = fixedIp(10);
     for (let i = 0; i < 30; i += 1) expect((await formToken({}, ip)).statusCode).toBe(200);
     const connect = vi.spyOn(db.pool, 'connect');
     try {
@@ -883,9 +885,9 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
       return original(slug);
     };
     try {
-      const held = [1, 2, 3, 4].map((i) => formToken({}, `192.0.2.${20 + i}`));
+      const held = [1, 2, 3, 4].map((i) => formToken({}, fixedIp(20 + i)));
       await new Promise((r) => setTimeout(r, 100));
-      const fifth = await formToken({}, '192.0.2.30');
+      const fifth = await formToken({}, fixedIp(30));
       expect(fifth.statusCode, fifth.body).toBe(503);
       expect(fifth.json().code).toBe('SERVICE_UNAVAILABLE');
       expect(fifth.headers['retry-after']).toBe('5');
@@ -893,7 +895,7 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
       expect(deskList.statusCode).toBe(200);
       release();
       for (const r of await Promise.all(held)) expect(r.statusCode).toBe(200);
-      expect((await formToken({}, '192.0.2.30')).statusCode).toBe(200);
+      expect((await formToken({}, fixedIp(30))).statusCode).toBe(200);
     } finally {
       release();
       svc.formToken = original;
@@ -901,7 +903,7 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
   });
 
   it('B.1.4: a staff cookie on the public form changes nothing – 202 like a stranger, no user written', async () => {
-    const ip = '192.0.2.40';
+    const ip = fixedIp(40);
     const token = await tokenFor(ip);
     const key = randomUUID();
     const r = await fa.app.inject({
@@ -962,16 +964,16 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
         origin: LANDING,
       },
       payload: Readable.from([Buffer.from(big)]),
-      remoteAddress: '192.0.2.50',
+      remoteAddress: fixedIp(50),
     });
     expect(chunked.statusCode, chunked.body).toBe(413);
     expect(chunked.json().code).toBe('PAYLOAD_TOO_LARGE');
-    const sized = await submit({ note: 'x'.repeat(9 * 1024) }, { ip: '192.0.2.51' });
+    const sized = await submit({ note: 'x'.repeat(9 * 1024) }, { ip: fixedIp(51) });
     expect(sized.statusCode).toBe(413);
     // Stopped by Fastify before the handler: even a foreign Origin (403 in the handler) gets 413 first.
     const foreign = await submit(
       { note: 'x'.repeat(9 * 1024) },
-      { ip: '192.0.2.52', origin: 'https://evil.example.invalid' },
+      { ip: fixedIp(52), origin: 'https://evil.example.invalid' },
     );
     expect(foreign.statusCode).toBe(413);
     // Staff routes keep the application limit (a 9 KB body is parsed and answered by the use case).
@@ -1060,7 +1062,7 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
       ),
     );
     try {
-      const ip = '192.0.2.60';
+      const ip = fixedIp(60);
       const r = await submit(
         form(await tokenFor(ip), {
           guestName: 'Sse Marker',
@@ -1123,13 +1125,13 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
     const svc = fa.app.get(PublicBookingService, { strict: false });
     svc.clearCache();
     try {
-      const r = await formToken({}, '192.0.2.70');
+      const r = await formToken({}, fixedIp(70));
       expect(r.statusCode, r.body).toBe(404);
       const before = await q<{ n: number }>(
         `SELECT count(*)::int AS n FROM website_booking_request`,
       );
       const s = await submit(form('v1.xxxxxxxxxxxxxxxxxxxxxxxx', { phone: '0905 707 070' }), {
-        ip: '192.0.2.71',
+        ip: fixedIp(71),
       });
       expect(s.statusCode).toBe(404);
       expect(await q(`SELECT count(*)::int AS n FROM website_booking_request`)).toEqual(before);
@@ -1146,7 +1148,7 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
       );
       svc.clearCache();
     }
-    expect((await formToken({}, '192.0.2.72')).statusCode).toBe(200);
+    expect((await formToken({}, fixedIp(72))).statusCode).toBe(200);
   });
 
   it('ARC US155-02: the database deletes only `spam` rows of website_booking_request', async () => {
@@ -1159,7 +1161,7 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
   });
 
   it('FB-01: Desk transitions keep no C2 in the idempotency store; a replay reads the request again under the current scope; nothing of the senders is left there', async () => {
-    const ip = '192.0.2.80';
+    const ip = fixedIp(80);
     const r = await submit(
       form(await tokenFor(ip), {
         guestName: 'Anna Scan',
@@ -1202,7 +1204,7 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
       (await desk('sal', 'POST', `/${id}/actions/reopen`, { ifMatch: await etagOf() })).statusCode,
     ).toBe(200);
     // mark-spam on another new request (FD+).
-    const ip2 = '192.0.2.81';
+    const ip2 = fixedIp(81);
     expect(
       (await submit(form(await tokenFor(ip2), { phone: '0905 616 162' }), { ip: ip2 })).statusCode,
     ).toBe(202);
@@ -1234,5 +1236,105 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
       ],
     );
     expect(leaks).toEqual([]);
+  });
+
+  // ───────────── QA E2E bugs (rounds/round-03/qa/bug-list.md) ─────────────
+
+  it('BUG-R3-009: a grouped ID number in the note (spaces / dashes / dots) → 422 ID_NUMBER_DETECTED, nothing stored; a phone in the note passes', async () => {
+    for (const [i, note] of [
+      'CCCD cua toi 079 203 012 345',
+      'CCCD 079-203-012-345',
+      'CCCD 079.203.012.345',
+    ].entries()) {
+      const ip = fixedIp(90 + i);
+      const r = await submit(form(await tokenFor(ip), { phone: `0905 909 09${i}`, note }), { ip });
+      expect(r.statusCode, r.body).toBe(422);
+      expect(r.json().errors).toEqual([{ field: 'note', code: 'ID_NUMBER_DETECTED' }]);
+      expect(r.body).not.toMatch(/079.?203|012.?345/);
+    }
+    expect(
+      await q(`SELECT 1 FROM website_booking_request WHERE phone_e164 LIKE '8490590909%'`),
+    ).toEqual([]);
+    const ok = await submit(
+      form(await tokenFor(fixedIp(95)), {
+        phone: '0905 909 095',
+        note: 'Zalo 0905 111 222, arrive 23.10.2026 around 22:30',
+      }),
+      { ip: fixedIp(95) },
+    );
+    expect(ok.statusCode, ok.body).toBe(202);
+  });
+
+  it('BUG-R3-008 + 010: OWN turns the form OFF within the day (kill switch, audit, OWN + MGR told); ON again only by the normal rule; FDL reads the switch, cannot write', async () => {
+    await at('2026-10-22T10:00:00+07:00');
+    const put = (who: string, value: boolean, effectiveFrom: string) =>
+      staff(fa, tok(who), null, 'PUT', `${P(t)}/parameters/public_booking_requests_enabled`, {
+        json: { value, effectiveFrom, reason: `Thử công tắc ${value ? 'bật' : 'tắt'}` },
+      });
+    const toggled = async () =>
+      (
+        await q<{ n: number }>(
+          `SELECT count(*)::int AS n FROM staff_notification WHERE kind = 'public_booking_toggled'`,
+        )
+      )[0]!.n;
+    const on = await put('own', true, '2026-10-22');
+    expect(on.statusCode, on.body).toBe(200);
+    expect((await formToken({}, fixedIp(100))).statusCode).toBe(200);
+    const before = await toggled();
+    // Same day, turned OFF: in force now (the row of today is replaced).
+    const off = await put('own', false, '2026-10-22');
+    expect(off.statusCode, off.body).toBe(200);
+    expect(off.json()).toMatchObject({ value: false, effectiveFrom: '2026-10-22' });
+    expect((await formToken({}, fixedIp(101))).statusCode).toBe(404);
+    expect(
+      (await submit(form('v1.xxxxxxxxxxxxxxxxxxxxxxxx'), { ip: fixedIp(102) })).statusCode,
+    ).toBe(404);
+    const [audit] = await q<{ category: string; before: unknown; after: unknown }>(
+      `SELECT category, before, after FROM audit_event
+        WHERE action = 'config.changed' AND entity_id = 'public_booking_requests_enabled'
+        ORDER BY occurred_at DESC, id DESC LIMIT 1`,
+    );
+    expect(audit).toMatchObject({
+      category: 'security',
+      before: { value: true },
+      after: { value: false, effectiveFrom: '2026-10-22', sameDayOverride: true },
+    });
+    expect(await toggled()).toBeGreaterThan(before);
+    // ON again the same day: the general rule (a value in force is not edited) → 422.
+    const again = await put('own', true, '2026-10-22');
+    expect(again.statusCode).toBe(422);
+    expect((await formToken({}, fixedIp(103))).statusCode).toBe(404);
+    // MGR cannot use the switch at all (security key, OWN only).
+    expect((await put('mgr', false, '2026-10-22')).statusCode).toBe(403);
+    // BUG-R3-010: FDL reads it (history + list), cannot write; other security keys stay hidden from FDL.
+    const fdlRead = await staff(
+      fa,
+      tok('fdl'),
+      null,
+      'GET',
+      `${P(t)}/parameters/public_booking_requests_enabled`,
+    );
+    expect(fdlRead.statusCode, fdlRead.body).toBe(200);
+    expect(fdlRead.json().current).toMatchObject({ value: false });
+    const fdlList = await staff(fa, tok('fdl'), null, 'GET', `${P(t)}/parameters`);
+    const keys = (fdlList.json().data as Array<{ key: string }>).map((p) => p.key);
+    expect(keys).toContain('public_booking_requests_enabled');
+    expect(keys).not.toContain('public_booking_request_daily_cap');
+    expect(
+      (
+        await staff(
+          fa,
+          tok('fdl'),
+          null,
+          'GET',
+          `${P(t)}/parameters/public_booking_request_daily_cap`,
+        )
+      ).statusCode,
+    ).toBe(404);
+    expect((await put('fdl', false, '2026-10-22')).statusCode).toBe(403);
+    // The next day OWN turns it back on (normal rule).
+    await at('2026-10-23T09:00:00+07:00');
+    expect((await put('own', true, '2026-10-23')).statusCode).toBe(200);
+    expect((await formToken({}, fixedIp(104))).statusCode).toBe(200);
   });
 });

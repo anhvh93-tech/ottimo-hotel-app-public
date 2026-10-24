@@ -15,13 +15,15 @@ const range = (from: number, to: number): string[] =>
 const S = (...n: number[]): string[] => n.map((x) => `S${String(x).padStart(2, '0')}`);
 
 export const SCREENS_BY_ROLE: Record<StaffRole, readonly string[]> = {
-  owner: range(1, 34),
-  manager: range(1, 34).filter((s) => s !== 'S26'),
-  front_desk_lead: [...range(1, 16), ...S(18, 19, 22, 23, 24, 25, 27, 29, 30, 32, 33, 34)],
-  front_desk: [...range(1, 16), ...S(18, 23, 25, 27, 29, 30, 32, 34)],
+  // S35 (US-155 website requests, rbac 0.2.5 note 42 – BUG-R3-007): OWN, MGR, FDL, FD all requests; SAL scope M
+  // (unassigned `new` without contact + its own) – CTV, HK, MT ✖.
+  owner: range(1, 35),
+  manager: range(1, 35).filter((s) => s !== 'S26'),
+  front_desk_lead: [...range(1, 16), ...S(18, 19, 22, 23, 24, 25, 27, 29, 30, 32, 33, 34, 35)],
+  front_desk: [...range(1, 16), ...S(18, 23, 25, 27, 29, 30, 32, 34, 35)],
   housekeeping: S(1, 3, 10, 11, 13, 23, 30),
   maintenance: S(1, 3, 10, 11, 12, 23, 30),
-  sales_staff: S(1, 3, 4, 14, 15, 16, 17, 23, 25, 29),
+  sales_staff: S(1, 3, 4, 14, 15, 16, 17, 23, 25, 29, 35),
   collaborator: S(1, 3, 4, 14, 15, 16, 17, 23, 25, 29),
 };
 
