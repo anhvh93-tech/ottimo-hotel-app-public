@@ -175,6 +175,15 @@ export class ApprovalsController {
           fail: problem('APPROVAL_LIMIT_EXCEEDED', { extras: { approver: out.escalatedTo } }),
         };
       }
+      if ('superseded' in out) {
+        // ARC BUG012-01 (0.3.8 bổ sung 6): the refund asked more than the credit still free – re-planned (committed:
+        // cancelled `superseded`, the right amount asked again), nothing approved.
+        return {
+          fail: problem('INVALID_TRANSITION', {
+            extras: { currentState: 'cancelled', autoCancelReason: 'superseded' },
+          }),
+        };
+      }
       return { status: 200, body: await this.approvals.toDto(tx, out.row) };
     });
     return applyResult(reply, result);

@@ -187,6 +187,7 @@ export class FolioModule implements OnModuleInit, OnApplicationBootstrap {
       (tx, input) => this.folios.refundRouting(tx, input),
       (tx, row, userId) =>
         this.folios.isA32Maker(tx, row.target_type ?? null, row.target_id ?? null, userId),
+      (tx, row) => this.folios.refundAboveFreeCredit(tx, row),
     );
     // US-032 AC4 / BR-512: damage outside the table, priced by MGR+.
     this.approvals.onDecided('damage_pricing', (tx, row) =>
