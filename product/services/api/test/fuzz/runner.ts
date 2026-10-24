@@ -88,7 +88,7 @@ export type Op =
   | { k: 'refundCancel'; req: number; who: Who | 'requester' }; // ADD3-01: the requester (or someone) cancels;
 
 export type Family =
-  'FZ-01' | 'FZ-02' | 'FZ-06' | 'FZ-07' | 'FZ-08' | 'FZ-09' | 'FZ-10' | 'FZ-11' | 'FZ-12';
+  'FZ-01' | 'FZ-02' | 'FZ-06' | 'FZ-07' | 'FZ-08' | 'FZ-09' | 'FZ-10' | 'FZ-11' | 'FZ-12' | 'FZ-13';
 
 /**
  * Families of the test plan mục 3.3 built in this harness. FZ-03 (night-branch FOC in stay), FZ-04 (child
@@ -223,6 +223,29 @@ export const FAMILIES: Record<
       writeOff: 2,
       decide: 2,
       advance: 1,
+    },
+  },
+  // critic final §4 row 14 / M-1 (ORC 24/10): the refund pay-out path. In FZ-01 refundPay has weight 1 and a
+  // pay-out needs request → destination → approval → pay, so 200 chains paid twice. A family of its own (the
+  // streams of FZ-01…12 stay as they were): late QR excess, refund ops, and the ops that move the credit under them.
+  'FZ-13': {
+    title:
+      'refund pay-out path: destination, approval, reconciliation, clamp (I23) under A32 / late charges / J15',
+    be83: false,
+    start: 'mixed',
+    weights: {
+      advance: 2,
+      late: 2,
+      collect: 1,
+      reverse: 1,
+      a32: 2,
+      j15: 1,
+      race: 2,
+      qrLate: 3,
+      refundReq: 1,
+      refundApprove: 4,
+      refundPay: 6,
+      refundCancel: 1,
     },
   },
 };
@@ -497,10 +520,11 @@ export class Runner {
   }
 
   /** A refund proof attachment (memory blob store – BLOBSTORE_PROVIDER=memory in the fuzz entry). */
-  private async proof(s: Stay): Promise<string | undefined> {
+  private async proof(s: Stay, who = 'fd'): Promise<string | undefined> {
     try {
       const svc = this.x.fa.app.get(AttachmentService, { strict: false });
-      const fd = this.x.t.users.fd!;
+      // uploaded by the payer: an attachment is visible to its uploader (a lead cannot use the desk's file)
+      const fd = this.x.t.users[who]!;
       return await this.x.db.withContext(
         { ...this.x.t.ctx(), userId: fd.id, actorType: 'user' } as any,
         async (tx: any) =>
@@ -696,6 +720,9 @@ export class Runner {
                     reduceVnd: reduce,
                     wBefore: ref.W,
                     oBefore: ref.O,
+                    // ARC BUG012-02 (b): the decision is judged on the API's own state read just before the step
+                    apiOBefore: (await x.openDebtOf(s))?.openDebtVnd ?? 0,
+                    bBefore: ref.B,
                     windowOverBefore: ref.windowOver,
                     closedBefore: raw.folio.status === 'closed',
                   },
@@ -799,21 +826,114 @@ export class Runner {
         };
       }
       case 'refundPay': {
-        const ok = raw.refunds.filter((r) => r.status === 'approved');
-        if (!ok.length) return { label: 'refundPay (none)', ctx: {}, run: async () => null };
-        const r = ok[op.req % ok.length]!;
-        return {
-          label: `pay refund ${r.amountVnd} cash by ${op.who}`,
-          ctx: {},
-          run: async () =>
-            x.c[op.who]!.send(
-              'POST',
-              x.url(`/approval-requests/${r.id}/actions/execute-cash-refund`),
-              {
-                amountVnd: r.amountVnd,
-                paidAt: new Date(this.nowMs).toISOString(),
-                attachmentId: await this.proof(s),
+        // Critic final §4 row 14 / M-1 (ORC 24/10): the pay-out path with a destination. The op draws nothing new from
+        // the PRNG (chains of earlier runs replay unchanged up to their first refundPay); `req` picks the request,
+        // the destination kind and the amount mode:
+        //   - an approved request with a destination → pay it out (cash A47a by FD+, transfer A47 by MGR/OWN), after
+        //     reconciling the pending receipts of the folio (one step);
+        //   - else an open request without one → FD sets it on the trusted desk device (after approval this sends
+        //     the request back to `pending` – SEC F8 – and refundApprove decides again).
+        const open = raw.refunds.filter(
+          (r) =>
+            ['pending', 'escalated', 'approved'].includes(r.status) && r.refundedVnd < r.amountVnd,
+        );
+        const payable = open.filter((r) => r.status === 'approved' && r.refundMethod);
+        // a pay-out is backed only by settled money (DOM S3-16 a): a receipt still waiting for the statement (a QR
+        // confirmed by the desk) is reconciled by MGR first (A46) – except req 9, which tries to pay anyway
+        // (→ 409 REFUND_SOURCE_NOT_RECONCILED, the refusal path stays in the fuzz)
+        const waiting = raw.payments.filter(
+          (p) =>
+            p.type !== 'refund' &&
+            p.status === 'succeeded' &&
+            !p.reversalOfId &&
+            p.reconciliation === 'pending',
+        );
+        if (payable.length && waiting.length && op.req !== 9) {
+          // every receipt still waiting (the fixture's transfers too), one request each, in this step
+          const who = (p: (typeof waiting)[number]) =>
+            p.recordedBy === x.t.users.mgr?.id ? 'mgr2' : 'mgr';
+          return {
+            label: `reconcile ${waiting.length} receipt(s) ${waiting.map((p) => p.amountVnd).join('+')} by MGR (before a refund pay-out)`,
+            ctx: {},
+            run: async () => {
+              let last: Res | null = null;
+              for (const p of waiting)
+                last = (await x.c[who(p)]!.send(
+                  'POST',
+                  x.url(`/payments/${p.id}/actions/reconcile`),
+                  { result: 'reconciled' },
+                  { 'if-match': `"${p.version}"` },
+                )) as Res;
+              return last;
+            },
+          };
+        }
+        if (payable.length) {
+          const r = payable[op.req % payable.length]!;
+          const left = r.amountVnd - r.refundedVnd;
+          const credit = Math.max(0, -ref.B);
+          const cap = Math.min(left, credit);
+          const mode = (['cap', 'cap', 'left', 'over'] as const)[Math.floor(op.req / 2) % 4]!;
+          const amt = mode === 'left' || cap <= 0 ? left : mode === 'over' ? cap + 1_000 : cap;
+          const cash = r.refundMethod === 'cash';
+          const busy = new Set([r.requestedBy, r.approverId, r.destinationSetBy]);
+          const idOf = (w: string) => x.t.users[w]?.id;
+          // the payer is never the requester (cash), nor anyone who requested / approved / set the destination
+          // (transfer) – a role check is not what this op exercises
+          const payer =
+            (cash ? [op.who, 'lead', 'fd', 'mgr'] : ['mgr', 'mgr2', 'owner']).find((w) =>
+              cash ? idOf(w) !== r.requestedBy : !busy.has(idOf(w) ?? null),
+            ) ?? (cash ? op.who : 'mgr');
+          return {
+            label: `pay refund ${amt} (${mode}; left ${left}, credit ${credit}) ${cash ? 'cash' : 'transfer'} by ${payer}`,
+            ctx: {
+              refundPay: {
+                id: r.id,
+                amountVnd: amt,
+                leftVnd: left,
+                creditVnd: credit,
+                bBefore: ref.B,
               },
+            },
+            run: async () =>
+              x.c[payer]!.send(
+                'POST',
+                x.url(
+                  `/approval-requests/${r.id}/actions/${cash ? 'execute-cash-refund' : 'execute-refund'}`,
+                ),
+                {
+                  amountVnd: amt,
+                  paidAt: new Date(this.nowMs).toISOString(),
+                  attachmentId: await this.proof(s, payer),
+                  ...(cash ? {} : { bankReference: `QAFZ-${op.req}-${this.nowMs % 100_000}` }),
+                },
+              ) as Promise<Res>,
+          };
+        }
+        // before approval first (the real desk flow); an approved one without a destination goes back to `pending`
+        const bare = [
+          ...open.filter((r) => !r.refundMethod && r.status !== 'approved'),
+          ...open.filter((r) => !r.refundMethod && r.status === 'approved'),
+        ];
+        if (!bare.length) return { label: 'refundPay (none)', ctx: {}, run: async () => null };
+        const r = bare[op.req % bare.length]!;
+        const transfer = op.req % 2 === 1;
+        return {
+          label: `set refund destination ${transfer ? 'bank_transfer' : 'cash'} on ${r.status} ${r.amountVnd} by fd`,
+          ctx: {},
+          // FAKE account (10 digits – never Luhn-checked as a card); only FD holds the trusted desk device
+          run: () =>
+            x.c.fd!.send(
+              'PUT',
+              x.url(`/approval-requests/${r.id}/refund-destination`),
+              transfer
+                ? {
+                    method: 'bank_transfer',
+                    bankBin: '970407',
+                    accountNo: '0000012345',
+                    accountHolder: 'QA FUZZ GUEST',
+                  }
+                : { method: 'cash' },
             ) as Promise<Res>,
         };
       }
@@ -1023,6 +1143,9 @@ export class Runner {
       basisAtCreate: this.basisAtCreate,
       ambiguousOrder: this.ambiguousSeen,
       roleOf: this.roleOf(),
+      refundsBefore: before.refunds,
+      sequential: op.k !== 'race',
+      creditBefore: Math.max(0, -refView(before, nowIso).B),
       http5xx: c5 > 0,
       ...ctx,
     };

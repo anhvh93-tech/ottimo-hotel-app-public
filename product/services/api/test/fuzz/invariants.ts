@@ -39,7 +39,24 @@ export interface StepCtx {
     oBefore: number;
     windowOverBefore: boolean;
     closedBefore: boolean;
+    /** ARC BUG012-02 (b): the API's own O and the (order-free) B just before the step – I7 judges on these. */
+    apiOBefore?: number;
+    bBefore?: number;
   };
+  /** A sequential refund pay-out (I23): the request, the amount sent, what was left of it, the credit and B before. */
+  refundPay?: {
+    id: string;
+    amountVnd: number;
+    leftVnd: number;
+    creditVnd: number;
+    bBefore: number;
+  };
+  /** Refund requests before the step (I19: which ones a replacement replaced). */
+  refundsBefore?: RawFolio['refunds'];
+  /** The step was one op (not a race): I19 links a replacement to what the step superseded only then. */
+  sequential?: boolean;
+  /** Raw credit (max(0, −B)) just before the step (I24). */
+  creditBefore?: number;
   /** The step was a money op done by a person on a settled folio – K11-06: 'payment' (collect, confirm a QR) or
    *  'a32' (reduction; asks only for ITS part – FZ02-8 min rule). */
   humanMoneyOnSettled?: 'payment' | 'a32';
@@ -177,25 +194,36 @@ export function check(
         );
     }
   }
-  // I7 – A32 reduction on settled allowed ⇔ reduction ≤ W and window not over
+  // I7 – A32 reduction on settled allowed ⇔ reduction ≤ W and window not over. ARC BUG012-02 (b): W is the API's
+  // own (max(0, B) − openDebtVnd read just before the step) – I7 is about the decision on the state the API has, not
+  // about the order of history (a race the reference ordered the other way is I3's business: FZ-02 seed 1006 #29 was
+  // a harness ordering fault, ARC s1-ARC-on-bug-012-013 (3)). When the reference W disagrees, a "?" note for the critic.
   if (ctx.a32) {
-    // O = 0 → as a stay without debt (oracle 208 rule); 403 = role gate (FD), 412 = stale If-Match: not I7
-    const allowed =
-      !ctx.a32.closedBefore &&
-      !ctx.a32.windowOverBefore &&
-      (ctx.a32.oBefore === 0 || ctx.a32.reduceVnd <= ctx.a32.wBefore);
+    const apiO = ctx.a32.apiOBefore ?? ctx.a32.oBefore;
+    const apiW =
+      ctx.a32.bBefore !== undefined ? Math.max(0, ctx.a32.bBefore) - apiO : ctx.a32.wBefore;
+    const allowedBy = (o: number, w: number) =>
+      !ctx.a32!.closedBefore && !ctx.a32!.windowOverBefore && (o === 0 || ctx.a32!.reduceVnd <= w);
+    const allowed = allowedBy(apiO, apiW);
+    const refAllowed = allowedBy(ctx.a32.oBefore, ctx.a32.wBefore);
     const ok = ctx.status >= 200 && ctx.status < 300;
+    // O = 0 → as a stay without debt (oracle 208 rule); 403 = role gate (FD), 412 = stale If-Match: not I7
     const roleOrStale = ctx.status === 403 || ctx.status === 412;
     // 210: a debt written before 0076 keeps the old N-7 (no reduction while it is open – SEC-01 b): warning only
     if (allowed && !ok && !roleOrStale)
       add(
-        soft('I7', !!ctx.legacyCycle || !!ctx.ambiguousOrder),
-        `A32 −${ctx.a32.reduceVnd} ≤ W ${ctx.a32.wBefore} refused ${ctx.status} ${ctx.code ?? ''}`,
+        soft('I7', !!ctx.legacyCycle),
+        `A32 −${ctx.a32.reduceVnd} ≤ W ${apiW} (API O ${apiO}) refused ${ctx.status} ${ctx.code ?? ''}`,
       );
     if (!allowed && ok)
       add(
         'I7',
-        `A32 −${ctx.a32.reduceVnd} > W ${ctx.a32.wBefore} (or window over) accepted ${ctx.status}`,
+        `A32 −${ctx.a32.reduceVnd} > W ${apiW} (API O ${apiO}, or window over) accepted ${ctx.status}`,
+      );
+    if (allowed !== refAllowed && (ok || !roleOrStale))
+      add(
+        'I7?',
+        `reference W ${ctx.a32.wBefore} (O ${ctx.a32.oBefore}) ≠ API W ${apiW} (O ${apiO}): API decision judged on its own W – O itself is I3`,
       );
     // I11 – closed ⇒ every A32 → 409
     if (ctx.a32.closedBefore && ok) add('I11', `A32 on a closed folio accepted ${ctx.status}`);
@@ -229,6 +257,7 @@ export function check(
   if (g.be83) be83(raw, ref, v, nowIso, ctx.basisAtCreate, g, ctx.roleOf);
   refundChecks(raw, ref, code, ctx, v, g);
   i18(raw, v, g);
+  bug012Checks(raw, ref, code, ctx, nowIso, v);
   return v;
 }
 
@@ -490,4 +519,155 @@ function i18(raw: RawFolio, v: Violation[], g: Gates): void {
       (!r.decidedAt || firstRed.get(r.approverId)! < r.decidedAt)
     )
       add(`(b) refund ${r.id} approved by a person who had made an A32 reduction on this folio`);
+}
+
+/**
+ * BUG-R3-012 / 013 fix (`2f1d738`, merged 27c5dcc) – what the re-run must show (ORC 24/10):
+ * - I19 (SEC s1-SEC-on-bug-012-013 #1): a replacement made when a step superseded open refund requests carries
+ *   `origin_actor_ids` ⊇ the union of the ones it replaces, and source `a32` when any of them was `a32`. Judged on
+ *   sequential steps (one op); in a race the step may also make an unrelated request → "?".
+ * - I20 (SEC #2): no refund request is ever approved by its requester, by a person in its `origin_actor_ids`, or by
+ *   a person below OWN who had already made a post-checkout A32 reduction on the folio – J15 replacements included,
+ *   and requests later closed `superseded` after their approval included (I17 / I18 (b) look at live approvals only).
+ * - I21 (SEC #3): a `closed` folio keeps no open refund request (pending / escalated / approved not fully paid) and
+ *   no credit.
+ * - I22 (critic final B-1 proposal 5): past the window and after the hourly J15 (window + 60 min), a folio still
+ *   `settled` is only waiting to pay money back – credit > 0. Settled with credit 0 (B ≥ 0) = J15 waiting for ever.
+ * - I24 (ARC 0.3.8 addendum 6 rules 1–3, found by the re-run 24/10 on the pay-out path): a step that LOWERS the credit
+ *   of a settled folio re-plans its refunds in the same transaction – after it, credit 0 ⇒ no open refund request
+ *   (pending or approved with something left: rule 3 "hết tiền dư → đã duyệt chưa chi / chi dở đóng"), and
+ *   Σ open > credit ⇒ no pending one left (rule 2). Judged on sequential steps; in a race → "?".
+ * - I23 (critic final §4 row 14, M-1): refund pay-out clamp – a pay-out accepted only for ≤ min(left of the
+ *   request, credit before), never turns the folio into a debt (B after ≤ 0); one inside the clamp is not refused as
+ *   REFUND_EXCEEDS_APPROVED; on every row, paid out ≤ approved and `refunded_vnd` = Σ its refund payments.
+ */
+function bug012Checks(
+  raw: RawFolio,
+  ref: RefView,
+  code: CodeView,
+  ctx: StepCtx,
+  nowIso: string,
+  v: Violation[],
+): void {
+  const add = (inv: string, msg: string) => v.push({ inv, msg });
+  const openSt = (r: RawFolio['refunds'][number]) =>
+    ['pending', 'escalated', 'approved'].includes(r.status) && r.refundedVnd < r.amountVnd;
+  // I19
+  if (ctx.refundsBefore) {
+    const was = new Map(ctx.refundsBefore.map((r) => [r.id, r]));
+    const superseded = raw.refunds.filter(
+      (r) =>
+        r.autoCancelReason === 'superseded' &&
+        was.has(r.id) &&
+        was.get(r.id)!.autoCancelReason !== 'superseded',
+    );
+    // a request born from a receipt (K11-06 "Tự sinh từ khoản thu …") is new money, never a replacement: in a race
+    // "QR ‖ late charge" the charge may supersede without replacement, then the QR asks for its excess (61053 #21)
+    const fresh = raw.refunds.filter(
+      (r) => !was.has(r.id) && !(r.reasonNote ?? '').startsWith('Tự sinh từ khoản thu'),
+    );
+    if (superseded.length && fresh.length) {
+      const union = new Set(superseded.flatMap((r) => r.originActorIds));
+      const anyA32 = superseded.some(isA32Refund);
+      const faults = (n: RawFolio['refunds'][number]) => [
+        ...[...union]
+          .filter((id) => !n.originActorIds.includes(id))
+          .map((id) => `replacement ${n.id} lost origin actor ${id} of the superseded request(s)`),
+        ...(anyA32 && !isA32Refund(n)
+          ? [`replacement ${n.id} source ${n.source} although an a32 request was superseded`]
+          : []),
+      ];
+      if (ctx.sequential && fresh.length === 1) for (const m of faults(fresh[0]!)) add('I19', m);
+      // a race (or a step making several requests) may also make an unrelated one (e.g. QR ‖ late charge: the
+      // replacement + an `other` request for the QR excess) – a breach only when NO new request is a faithful one
+      else if (!fresh.some((n) => faults(n).length === 0))
+        for (const m of faults(fresh[0]!)) add('I19?', m);
+    }
+  }
+  // I20
+  const reds = raw.a32Reductions.filter((r) => r.role && SUB_OWNER.has(r.role) && r.actorId);
+  for (const r of raw.refunds) {
+    if (!r.approverId || r.status === 'rejected') continue; // approver_id is set by approve (and reject) only
+    if (r.approverId === r.requestedBy) add('I20', `refund ${r.id} approved by its requester`);
+    if (r.originActorIds.includes(r.approverId))
+      add('I20', `refund ${r.id} approved by a person of its origin_actor_ids`);
+    if (reds.some((d) => d.actorId === r.approverId && (!r.decidedAt || d.at < r.decidedAt)))
+      add(
+        'I20',
+        `refund ${r.id} approved by a person below OWN who had made an A32 reduction on the folio`,
+      );
+  }
+  // I21
+  if (code.folioStatus === 'closed') {
+    const still = raw.refunds.filter(openSt);
+    if (still.length)
+      add(
+        'I21',
+        `closed folio keeps ${still.length} open refund request(s): ${still.map((r) => `${r.status} ${r.amountVnd - r.refundedVnd}`).join(', ')}`,
+      );
+    // the credit half ("tiền dư = 0") is I4 `closed folio with credit` – not counted twice
+  }
+  // I22
+  if (
+    code.folioStatus === 'settled' &&
+    raw.folio.windowUntil &&
+    new Date(nowIso).getTime() >= new Date(raw.folio.windowUntil).getTime() + 60 * 60_000 &&
+    ref.B >= 0
+  )
+    add(
+      'I22',
+      `window over + J15 ran: folio still settled with credit 0 (B ${ref.B}, open refunds ${raw.refunds.filter(openSt).length}) – J15 must record the debt and close`,
+    );
+  // I24
+  const credit = Math.max(0, -ref.B);
+  if (
+    code.folioStatus === 'settled' &&
+    ctx.creditBefore !== undefined &&
+    credit < ctx.creditBefore
+  ) {
+    const inv = ctx.sequential ? 'I24' : 'I24?';
+    const open = raw.refunds.filter(openSt);
+    const left = (r: RawFolio['refunds'][number]) => r.amountVnd - r.refundedVnd;
+    const total = open.reduce((a, r) => a + left(r), 0);
+    if (credit === 0 && open.length)
+      add(
+        inv,
+        `"${ctx.op}" took the credit ${ctx.creditBefore} → 0 but ${open.length} refund request(s) stay open: ${open.map((r) => `${r.status} ${left(r)}`).join(', ')}`,
+      );
+    else if (total > credit && open.some((r) => r.status !== 'approved'))
+      add(
+        inv,
+        `"${ctx.op}" lowered the credit ${ctx.creditBefore} → ${credit}; open requests ${total} > credit and a pending one was not re-planned`,
+      );
+  }
+  // I23
+  const p = ctx.refundPay;
+  if (p) {
+    const ok = ctx.status >= 200 && ctx.status < 300;
+    const cap = Math.min(p.leftVnd, p.creditVnd);
+    if (ok && p.amountVnd > cap)
+      add(
+        'I23',
+        `pay-out ${p.amountVnd} accepted above min(left ${p.leftVnd}, credit ${p.creditVnd}) = ${cap}`,
+      );
+    if (ok && ref.B > 0)
+      add('I23', `pay-out ${p.amountVnd} turned the folio into a debt: B ${p.bBefore} → ${ref.B}`);
+    if (!ok && p.amountVnd <= cap && /REFUND_EXCEEDS_APPROVED/.test(ctx.code ?? ''))
+      add('I23', `pay-out ${p.amountVnd} ≤ min(left, credit) ${cap} refused ${ctx.code}`);
+  }
+  for (const r of raw.refunds) {
+    if (r.refundedVnd > r.amountVnd)
+      add('I23', `refund ${r.id} paid ${r.refundedVnd} > approved ${r.amountVnd}`);
+    const paid = raw.payments
+      .filter(
+        (x) =>
+          x.type === 'refund' &&
+          x.approvalRequestId === r.id &&
+          x.status === 'succeeded' &&
+          !x.reversalOfId,
+      )
+      .reduce((a, x) => a - x.amountVnd, 0);
+    if (paid !== r.refundedVnd)
+      add('I23', `refund ${r.id} refunded_vnd ${r.refundedVnd} ≠ Σ its refund payments ${paid}`);
+  }
 }

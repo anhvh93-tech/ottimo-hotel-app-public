@@ -67,6 +67,12 @@ export interface RawFolio {
     reversalOfId: string | null;
     createdAt: string;
     updatedAt: string;
+    /** a refund pay-out row points at its refund request */
+    approvalRequestId: string | null;
+    /** pending / reconciled / disputed / not_required (A46) – the refundPay op reconciles a pending receipt first */
+    reconciliation: string | null;
+    recordedBy: string | null;
+    version: number;
   }>;
   debtAudits: Array<{ at: string; id: string; debtVnd: number; dueDate: string | null }>;
   approvals: Array<{
@@ -106,6 +112,11 @@ export interface RawFolio {
     source: string | null;
     autoCancelReason: string | null;
     decidedAt: string | null;
+    /** paid out so far (`refunded_vnd`) */
+    refundedVnd: number;
+    /** destination: cash / bank_transfer / original_method / null */
+    refundMethod: string | null;
+    destinationSetBy: string | null;
   }>;
   /** A32 reductions on this folio (audit `folio_line.adjusted` with `after.reducedVnd`): who (role) and when. */
   a32Reductions: Array<{
@@ -116,6 +127,13 @@ export interface RawFolio {
   }>;
   /** Open "Cần chú ý" `closed_reservation_credit` of this stay. */
   creditAttentionOpen: number;
+}
+
+function focAppliedAt(l: any, appr: any[]): string {
+  const posted = iso(l.posted_at)!;
+  if (l.category !== 'foc' || !l.approval_request_id) return posted;
+  const decided = iso(appr.find((a: any) => a.id === l.approval_request_id)?.decided_at ?? null);
+  return decided && decided > posted ? decided : posted;
 }
 
 const num = (v: unknown) => (v === null || v === undefined ? 0 : Number(v));
@@ -140,7 +158,8 @@ export async function readRaw(q: Q, folioId: string, reservationId: string): Pro
     [folioId],
   );
   const pays = await q(
-    `SELECT id, type, status, amount_vnd, reversal_of_id, created_at, updated_at
+    `SELECT id, type, status, amount_vnd, reversal_of_id, created_at, updated_at, approval_request_id,
+            reconciliation, recorded_by, version
        FROM payment WHERE folio_id = $1 ORDER BY created_at, id`,
     [folioId],
   );
@@ -152,7 +171,7 @@ export async function readRaw(q: Q, folioId: string, reservationId: string): Pro
   const appr = await q(
     `SELECT a.id, a.reason_code, a.status, a.amount_vnd, a.applied_cap_vnd, a.required_role, a.self_applied,
             a.approver_role_snapshot, a.foc_state, a.auto_cancel_reason, a.folio_line_id, a.requested_at,
-            a.limit_basis_vnd
+            a.limit_basis_vnd, a.decided_at
        FROM approval_request a JOIN folio_line l ON l.id = a.folio_line_id
       WHERE l.folio_id = $1 ORDER BY a.requested_at, a.id`,
     [folioId],
@@ -188,7 +207,7 @@ export async function readRaw(q: Q, folioId: string, reservationId: string): Pro
   }
   const refunds = await q(
     `SELECT id, status, amount_vnd, requested_by, required_role, reason_note, approver_id, approver_role_snapshot,
-            requested_at, decided_at, auto_cancel_reason,
+            requested_at, decided_at, auto_cancel_reason, refunded_vnd, refund_method, refund_destination_set_by,
             to_jsonb(a)->'origin_actor_ids' AS origin_actor_ids, COALESCE(to_jsonb(a)->>'refund_source', to_jsonb(a)->>'source') AS source
        FROM approval_request a WHERE type = 'refund' AND target_id = $1 ORDER BY requested_at, id`,
     [reservationId],
@@ -236,6 +255,9 @@ export async function readRaw(q: Q, folioId: string, reservationId: string): Pro
       source: x.source ?? null,
       autoCancelReason: x.auto_cancel_reason ?? null,
       decidedAt: iso(x.decided_at),
+      refundedVnd: num(x.refunded_vnd ?? 0),
+      refundMethod: x.refund_method ?? null,
+      destinationSetBy: x.refund_destination_set_by ?? null,
     })),
     a32Reductions: a32
       .filter((x: any) => num(x.after?.reducedVnd) > 0)
@@ -272,7 +294,10 @@ export async function readRaw(q: Q, folioId: string, reservationId: string): Pro
       amountVnd: num(l.amount_vnd),
       unitPriceVnd: num(l.unit_price_vnd),
       lineState: l.line_state,
-      postedAt: iso(l.posted_at)!,
+      // a FOC line made while its request was still pending (e.g. moved with its line – source `system`) only
+      // counts from the decision: its posted_at is the row's creation, the money moves when it is applied
+      // (fuzz re-run 24/10, FZ-01 60082 #56 – the reference dated a write-off before the debt cycle it reduced)
+      postedAt: focAppliedAt(l, appr),
       serviceDate: l.service_date ?? null,
       referenceRateVnd: l.reference_rate_vnd === null ? null : num(l.reference_rate_vnd),
     })),
@@ -284,6 +309,10 @@ export async function readRaw(q: Q, folioId: string, reservationId: string): Pro
       reversalOfId: p.reversal_of_id,
       createdAt: iso(p.created_at)!,
       updatedAt: iso(p.updated_at)!,
+      approvalRequestId: p.approval_request_id ?? null,
+      reconciliation: p.reconciliation ?? null,
+      recordedBy: p.recorded_by ?? null,
+      version: num(p.version),
     })),
     debtAudits: audits.map((a: any) => ({
       id: a.id,

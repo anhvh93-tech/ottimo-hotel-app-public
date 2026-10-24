@@ -350,6 +350,92 @@ Tổng ≥ **620 chuỗi**, khoảng 25.000 bước. Ước lượng ≤ 40 phú
 - Đã đóng BUG-R3-002, 003, 004.
 - Khi BE-B sửa: chạy lại `bug-r3-012` cùng lượt fuzz đầy đủ (cùng cờ và seed 60000–63000), critic đọc lại log.
 
+#### 3.9 Harness cho lượt chạy lại sau BUG-R3-012/013 (QA 24/10, nhánh `qa/r3-s1-fuzz-rerun`)
+
+Căn cứ:
+- critic `reviews/s1-money-critic-final.md`: B-1 đề xuất 5, bảng lệch dòng 14;
+- ARC `reviews/s1-ARC-on-bug-012-013.md`: (3) và BUG012-02;
+- SEC `reviews/s1-SEC-on-bug-012-013.md`: phần "Ca thêm cho fuzz".
+
+Bản sửa đã gộp: `27c5dcc` và các bản theo sau `69a5398`, nên các bất biến mới đều là vi phạm **cứng**, không cần cờ.
+
+| Mã | Nội dung | Nguồn |
+|---|---|---|
+| I7 (đổi) | Phần giảm A32 so với **W của chính mã** = max(0, B) − `openDebtVnd`, đọc ngay trước bước. Nếu W tham chiếu khác thì chỉ ghi cảnh báo `I7?`, vì chênh lệch O là việc của I3. | ARC BUG012-02 (b) |
+| I19 | Bản thay của bước làm `superseded` mang `origin_actor_ids` ⊇ hợp origin của các yêu cầu bị thay, và nguồn `a32` nếu có yêu cầu bị thay là `a32`. Cứng khi bước chỉ có một thao tác và sinh đúng một yêu cầu. Bước đua thì cần ít nhất một yêu cầu mới đúng; không có thì `I19?`. | SEC #1 |
+| I20 | Không yêu cầu hoàn nào được duyệt bởi người xin, bởi người có trong `origin_actor_ids`, hoặc bởi người dưới OWN đã làm A32 trên folio trước lúc duyệt. Kể cả bản do J15 tạo và yêu cầu đã duyệt rồi bị đóng `superseded`. | SEC #2 |
+| I21 | Folio `closed` thì không còn yêu cầu hoàn `pending`/`escalated`/`approved` chưa chi đủ. Vế "tiền dư = 0" đã có ở I4. | SEC #3 |
+| I22 | Quá cửa sổ + 60 phút (J15 chạy theo giờ) mà folio còn `settled` thì phải còn tiền dư > 0. Còn `settled` khi tiền dư 0 tức là J15 chờ mãi. | critic B-1 đề xuất 5 |
+| I23 | Kẹp chi hoàn. Chi được nhận khi số chi ≤ min(phần còn của yêu cầu, tiền dư trước bước); chi xong B ≤ 0; số trong mức kẹp không bị từ chối `REFUND_EXCEEDS_APPROVED`. Mọi bước: `refunded_vnd` ≤ số duyệt và bằng Σ phiếu chi của yêu cầu. | critic dòng 14, M-1 |
+
+**Thao tác `refundPay`:**
+- Không rút thêm số ngẫu nhiên, nên chuỗi của lượt trước giữ nguyên cho tới lần `refundPay` đầu tiên. `req` chọn yêu cầu, loại nơi nhận và mức tiền.
+- Nếu có yêu cầu `approved` đã có nơi nhận:
+  - trước hết MGR đối soát các phiếu thu còn `pending` của folio (A46). Riêng `req` = 9 thì chi luôn, để giữ đường bị từ chối `409 REFUND_SOURCE_NOT_RECONCILED`;
+  - sau đó chi: tiền mặt (A47a, người chi ≠ người xin, chứng từ do người chi tải lên) hoặc chuyển khoản (A47, MGR/MGR2/OWN không trùng người xin, người duyệt hay người đặt nơi nhận; có mã tham chiếu và chứng từ);
+  - mức tiền: `cap` = min(còn lại, tiền dư), dùng 2/4 lần; `left` = phần còn lại; `over` = cap + 1.000.
+- Nếu không: FD đặt nơi nhận trên thiết bị tin cậy, ưu tiên yêu cầu chưa duyệt. Có hai loại:
+  - tiền mặt;
+  - chuyển khoản với tài khoản GIẢ 10 số, không qua kiểm Luhn.
+  - Nếu đặt nơi nhận cho yêu cầu đã duyệt thì yêu cầu quay về `pending` (SEC F8).
+- Ca có hướng mới `refundPay op (cash|transfer)` (2/2 đạt trên `27c5dcc`): QR về muộn 300.000 → đặt nơi nhận → MGR duyệt → chi trước khi đối soát (409) → đối soát → chi vượt (422, `max` 300.000) → chi đúng mức (201), 0 vi phạm cứng.
+
+**Phân loại lại I7 FZ-02 seed 1006 bước 29: loại (b), lỗi harness, không phải lỗi mã.**
+- Bước 27 là bước đua "QR về muộn 1.567.000 ‖ đảo 1.484.000". Mã chạy "đảo trước", nên R = 1.875.000, D = 1.567.000, O = 308.000. Tham chiếu chọn thứ tự ngược lại, ra O = 584.000.
+- Ở bước 29, A32 hạ 139.000, mã trả 201. W của mã là 584.000 − 308.000 = 276.000 ≥ 139.000, nên 201 đúng quy tắc 208.
+- Harness mới chạy lại FZ-02 1000–1007 trên `27c5dcc`: bước này ra `I7?` kèm chú thích, không còn I7 cứng. Seed 1003 ra một `I19?` ở bước đua "QR ‖ phát sinh": bản thay `a32` đúng, cộng thêm một yêu cầu `other` cho phần QR thừa. Bản sửa I19 cho bước đua đã loại trường hợp này.
+
+**Chỉnh thêm sau lượt thử 1** (`origin/main` `f2ba2ac`, 610 chuỗi, cùng seed, ra 1 vi phạm cứng):
+- **I3 ở FZ-01 60082 bước 56: lỗi tham chiếu (b).**
+  - Dòng FOC xóa nợ được tạo khi yêu cầu còn chờ (dòng đi theo khoản, nguồn `system`), nên `posted_at` là lúc tạo.
+  - Tiền chỉ trừ khi duyệt, tức sau lúc mở chu kỳ nợ. Tham chiếu tính theo `posted_at` nên D thiếu 57.000.
+  - Nay dòng FOC tính từ max(`posted_at`, `decided_at` của yêu cầu).
+- **I19 khi đua:** yêu cầu "Tự sinh từ khoản thu …" là tiền mới, không bao giờ là bản thay. Ví dụ 61053 #21, "QR ‖ phát sinh": phát sinh làm hủy `superseded` mà không có bản thay, sau đó QR xin phần thừa.
+- **Họ mới FZ-13** (100 chuỗi, seed 64000–64099) dành cho đường chi hoàn: QR thừa, các thao tác hoàn, A32, phát sinh, J15. Lý do: ở FZ-01, `refundPay` có trọng số 1 nên 200 chuỗi chỉ chi được 2 lần. Các họ FZ-01…12 giữ nguyên chuỗi.
+- **I24** (hợp đồng 13.3 điểm 1–3): bước làm giảm tiền dư của folio `settled` thì sau bước đó phải thỏa:
+  - tiền dư 0 ⇒ không còn yêu cầu hoàn mở;
+  - Σ yêu cầu mở > tiền dư ⇒ không còn yêu cầu chờ.
+  - Bất biến này thêm **sau** lượt chấm. Kết quả bên dưới được QA tính offline từ log, critic tính độc lập.
+
+#### 3.10 Kết quả lượt fuzz chạy lại sau BUG-R3-012/013 (QA 24/10, `origin/main` @ `f2ba2ac`)
+
+**Cách chạy:**
+- Cờ `FUZZ=1 FUZZ_BE83=1 FUZZ_FZ02=1 FUZZ_K1106=1 FUZZ_ADD3=1`, theo lệnh ORC.
+- 5 tiến trình, PostgreSQL 17 riêng (container mới), dữ liệu giả.
+- Seed như lượt trước: FZ-01 60000–60199, FZ-02/06 61000…, FZ-07/08/09 62000…, FZ-10/11/12 63000…; thêm FZ-13 64000–64099.
+
+**Kết quả lượt chấm:**
+- **710 chuỗi, 28.250 bước** (610 chuỗi cùng seed lượt trước + 100 chuỗi FZ-13); deadlock 0, 5xx 0.
+- Harness báo **0 vi phạm cứng**. Các bất biến I19–I23 đều 0.
+- Cảnh báo: `I5?` 220 / `I3?` 31 / `I6?` 2, đều do đua trong cùng một giây giả; `I7?` 6, đều FZ-08 (P3); `I9?` 146, chờ R3-Q23.
+- Chi hoàn:
+  - 34 lần chi được, tổng 19.797.000;
+  - 12 lần bị chặn `REFUND_EXCEEDS_APPROVED` (mức `over`, hoặc khi tiền dư bằng 0);
+  - 4 lần `409 REFUND_SOURCE_NOT_RECONCILED`;
+  - 0 lần chi vượt min(phần còn lại, tiền dư).
+- Ca có hướng mới `refundPay op (cash|transfer)`: 2/2 đạt.
+
+**Critic độc lập** (`reviews/s1-money-critic-rerun.md`): tự tính lại toàn bộ 710 chuỗi và đọc tay 24 chuỗi, trong đó 10 chuỗi FZ-13.
+- **0 lệch tiền** trên B, O, W, R, hạn nợ và sổ cân.
+- SEC (i)–(iii): 0 vi phạm.
+- **BUG-R3-012 và BUG-R3-013: đóng được.** Không còn J15 chờ khi tiền dư 0. Không còn yêu cầu chờ vượt tiền dư trống.
+- **1 Major mới – BUG-R3-014 (P1, critic M-2):** đường chi hoàn không lập lại kế hoạch hoàn, nên duyệt cũ treo khi tiền dư 0 và hút tiền mới.
+  - 7 lần đưa tiền dư về 0, 10 yêu cầu treo (4.827.000).
+  - 2 lần chi tiền mới theo duyệt cũ, tổng 1.174.000.
+  - QA phát hiện qua I24 offline, critic xác nhận.
+- Minor (critic mục 4):
+  - yêu cầu đã duyệt bị đổi nơi nhận quay về `pending` có thể vượt tiền dư trống;
+  - fuzz chưa kích lớp chặn ở bước duyệt;
+  - bản ghi J15 theo giờ được ghi trước bước;
+  - 412 thay cho 409 trên folio đóng (đã biết);
+  - độ phủ chi hoàn còn mỏng.
+
+**Kết luận G1: CHƯA ĐẠT.** Đạt vế "0 lệch tiền", không đạt vế "0 Major" vì còn BUG-R3-014.
+- Đã đóng BUG-R3-012 và BUG-R3-013.
+- Điều kiện còn lại:
+  - BE-B sửa BUG-R3-014, ARC + SEC review; SEC dò biến thể tiền miễn A32 để chốt mức P1 hay P0;
+  - chạy `bug-r3-014.test.ts`, rồi chạy lại họ FZ-01, FZ-02, FZ-13 với I24 đã có trong harness; critic đọc lại.
+
 ---|---|---|---|
 | I4 – folio `closed` còn tiền dư | 15 + 4 | BUG-R3-002: tiền dư phát sinh sau B18 (A32 khi O = 0) không thành yêu cầu hoàn; J15 đóng folio | P0 |
 | I8 – xóa nợ vượt cơ sở nhưng `required_role` ≠ owner | 0 + 1 (lượt 1: 1) | BUG-R3-003: định tuyến cho lễ tân trưởng; lễ tân trưởng duyệt được | P0 |
