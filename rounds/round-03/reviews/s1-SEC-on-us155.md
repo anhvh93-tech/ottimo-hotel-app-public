@@ -169,3 +169,39 @@ Phía server không còn thẻ SEC nào chặn mốc này.
 - Gợi ý (không chặn):
   1. Thêm một ca vào `check-caddy-landing.sh`: khách tự gửi `X-Forwarded-For: 1.2.3.4` → stub api nhận XFF là IP thật, không phải 1.2.3.4. Caddy mặc định không tin XFF đầu vào khi chưa cấu hình `trusted_proxies`; ca này khóa hành vi đó lại.
   2. Mạng `edge` chưa có `ip_range` cho cấp phát động. Nên đặt, ví dụ nửa trên của subnet, để Docker không bao giờ cấp `WEB_IP`/`LANDING_IP` cho container khác. Hai IP này được api tin làm proxy.
+
+---
+
+## Duyệt nhanh BUG-R3-008 / 009 (SEC, 24/10/2026) – `main` `4233290` (BE-D `031f183`)
+
+### BUG-R3-009 – mẫu `looksLikeIdNumber` / `looksLikeCard`: **SEC đồng ý**
+- Cách làm: bỏ ngày/giờ trước, rồi so trên **chữ số** của dãy số có nhóm. Hai chữ số liền nhau chỉ được cách bởi tối đa 1 dấu: cách, chấm hoặc gạch. Bắt khi đúng 9 hoặc 12 chữ số, trừ khi ngay trước là `+`/`$`, hoặc ngay sau là đơn vị tiền.
+- SEC chạy thử trên mã của `031f183`:
+  - **Chặn đúng:** `079 203 012 345`, `079-203-012-345`, `079.203.012.345`, `079  203 012 345` (hai dấu cách), `CMND 123 456 789`, `B1234567`.
+  - **Thẻ** `4111.1111.1111.1111` → chặn (Luhn).
+  - **Không chặn:** `0905 111 222`, `+84 905 111 222`, `84 905 111 222`, `0263 382 1234`, `23.10.2026 lúc 22:30`, `23.10 - 26.10.2026`, `100.000.000 đ`, `150 000 000 VND`, `$ 100 000 000`.
+  - **Bị chặn theo hướng an toàn** (khách sửa lời nhắn là gửi được): `100.000.000` không có đơn vị; `905 111 222` (SĐT bỏ số 0 đầu).
+- Đồng ý giả định của BE-D: số 9 chữ số dạng tiền mà không có đơn vị thì coi là CMND. Mục tiêu của luật này là **tối thiểu hóa dữ liệu**: không để khách vô tình gửi số giấy tờ qua form công khai. Nó không phải hàng rào chống người cố tình lách. Vì vậy chặn thừa một chuỗi hiếm còn hơn lọt số CCCD vào hàng chờ, thông báo và log.
+- Còn lọt, chấp nhận được, ghi để biết:
+  - `079/203/012/345` (dấu `/` được dành cho ngày);
+  - hộ chiếu chữ thường `c1234567` (đã như vậy từ trước).
+
+  Người cố tình thì luôn lách được. Hai điểm này chỉ là gợi ý (FB-05), không chặn.
+- Gợi ý cho FE/UXD: câu lỗi 422 `ID_NUMBER_DETECTED` nên nói rõ "nếu là số tiền, thêm đ hoặc VND" để khách tự sửa.
+
+### BUG-R3-008 – công tắc tắt form ngay trong ngày: **SEC đồng ý**
+- Chỉ áp cho đúng một khóa (`public_booking_requests_enabled`), chỉ khi đặt về giá trị an toàn `false`, và chỉ với `effectiveFrom` = hôm nay. Vẫn chỉ OWN sửa được (`edit_roles`).
+- Bật lại vẫn theo luật thường (cùng ngày → 422). Nhật ký `security` giữ giá trị cũ cùng `sameDayOverride: true`, và có thông báo OWN + MGR. Đúng hướng an toàn: tắt nhanh, bật chậm.
+- `public_booking_request_pow_enabled` không cần nằm trong danh sách này, vì bật PoW là thắt chặt thêm và cũng hiệu lực từ hôm sau.
+
+  Nếu muốn bật PoW ngay trong ngày khi đang bị spam, có thể thêm "giá trị an toàn = `true`" cho khóa này. Việc này để ARC/DOM chọn; SEC không bắt buộc.
+- **BUG-R3-010** (FDL đọc được khóa công tắc): chấp nhận. Giá trị chỉ là một boolean; FDL vẫn không sửa được (403), và các khóa bảo mật khác vẫn ẩn với FDL (404).
+
+### FB-R3-SEC-US155-05
+- Mức độ: Suggestion
+- Vị trí: `website-request-rules.ts` `looksLikeIdNumber`.
+- Đề xuất:
+  - coi `/` là dấu nhóm khi dãy có ≥ 3 nhóm và tổng đúng 9 hoặc 12 chữ số (ngày tối đa có 3 nhóm và 8 chữ số);
+  - so mẫu hộ chiếu không phân biệt hoa thường;
+  - thêm cả hai vào test đơn vị.
+- Trạng thái: Open
