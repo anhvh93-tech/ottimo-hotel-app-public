@@ -7997,6 +7997,8 @@ export interface components {
         'not_available_now' | 'outside_service_hours' | 'needs_front_desk' | 'duplicate' | 'other';
       /** @description 0.3.7 – lời nhắn nhân viên đã gửi khách (hiện ở mức 1) */
       replyNote?: string;
+      /** @description 0.3.8 bổ sung 4 (ARC 24/10, R3-Q15 T13 – migration 0083): lúc ghi chú của yêu cầu (`note`, `replyNote`) bị xóa theo hạn lưu `retention.guest_request_months`; có thì `note`/`replyNote` vắng mặt và màn hiện "Ghi chú đã xóa theo hạn lưu". Vắng = chưa xóa */
+      notePurgedAt?: components['schemas']['Instant'];
     };
     GuestRequestForGuest: {
       id: components['schemas']['Uuid'];
@@ -8016,6 +8018,8 @@ export interface components {
       replyNote?: string;
       /** @description Phí đã chấp nhận (snapshot) – 0.3.6 B-16 */
       feeVnd?: components['schemas']['MoneyVnd'] | null;
+      /** @description 0.3.8 bổ sung 4 (ARC 24/10, R3-Q15 T13 – migration 0083): lúc ghi chú của yêu cầu (`note`, `replyNote`) bị xóa theo hạn lưu `retention.guest_request_months`; có thì `note`/`replyNote` vắng mặt và màn hiện "Ghi chú đã xóa theo hạn lưu". Vắng = chưa xóa */
+      notePurgedAt?: components['schemas']['Instant'];
       createdAt: components['schemas']['Instant'];
       updatedAt?: components['schemas']['Instant'];
     };

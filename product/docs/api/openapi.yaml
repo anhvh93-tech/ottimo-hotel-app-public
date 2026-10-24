@@ -293,6 +293,7 @@ info:
     | FILE_TYPE · FILE_TOO_LARGE · TOO_MANY_FILES | Chi tiết của `422 FILE_REJECTED` (`errors[]`): sai loại theo magic bytes (không JPEG/PNG/WebP) · > 10 MB hoặc > 40 MP · vượt 4 ảnh/người hoặc 30 tệp/đơn (SR-FILE-01/02, SR-RL-05) – 0.3.3 E06-07 | `uploadGuestDocument`, `addGuestDocument`, `uploadAttachment` |
 
     ## Thay đổi phiên bản 0.3.8-draft (R3 Sprint 1 – hợp đồng trước code; chi tiết `rounds/round-03/outputs/ARC/s1-contracts.md`)
+    **0.3.8 bổ sung 4 (ARC 24/10)**: `GuestRequest.notePurgedAt`, `GuestRequestForGuest.notePurgedAt` (tùy chọn, Instant) – ghi chú đã xóa theo hạn lưu T13 (server 0083 đã trả).
     **0.3.8 bổ sung 3 (ARC 24/10, FUZZ-01)**: `createRefundRequest` nhận folio `open` **hoặc `settled`** (`closed` → 409 `FOLIO_LOCKED`); quy tắc K11-06 – thao tác do người bấm trên folio `settled` (`adjustFolioLine`, `recordPayment`, `confirmPaymentReceived`) để lại tiền dư chưa có yêu cầu hoàn → `closeStayCredit` cùng giao dịch; J15 không đóng folio còn tiền dư chưa xử lý (`waiting_refund`).
     **0.3.8 bổ sung 2 (ARC 23/10, R3-Q51)**: `getParameterHistory` – `current` không còn bắt buộc: vắng mặt khi khóa mới chỉ có dòng đã lên lịch (lần đặt đầu `payment_receiving_account`) → 200 với `history`; 404 chỉ khi không có dòng nào và không có mặc định.
     **US-143 / SR-AUTH-06 (ESC-027 B, SEC `round-03/outputs/SEC/s1-security-requirements.md` mục A)**: cờ triển khai `MFA_ENFORCED` (OPS – không phải tham số màn hình); phiên hạn chế
@@ -12633,6 +12634,7 @@ components:
           description: '0.3.7 (EP14 4.4, B-16): phí khách đã đồng ý (snapshot) – ghi folio khi việc xong (BR-506); null = không phí'
         declinedReasonCode: { type: string, enum: [not_available_now, outside_service_hours, needs_front_desk, duplicate, other], description: '0.3.7 – như `GuestRequestForGuest`' }
         replyNote: { type: string, x-rbac-field: D23, description: '0.3.7 – lời nhắn nhân viên đã gửi khách (hiện ở mức 1)' }
+        notePurgedAt: { $ref: '#/components/schemas/Instant', description: '0.3.8 bổ sung 4 (ARC 24/10, R3-Q15 T13 – migration 0083): lúc ghi chú của yêu cầu (`note`, `replyNote`) bị xóa theo hạn lưu `retention.guest_request_months`; có thì `note`/`replyNote` vắng mặt và màn hiện "Ghi chú đã xóa theo hạn lưu". Vắng = chưa xóa' }
     GuestRequestForGuest:
       type: object
       required: [id, type, status, statusLabel, createdAt]
@@ -12646,6 +12648,7 @@ components:
         declinedReasonCode: { type: string, enum: [not_available_now, outside_service_hours, needs_front_desk, duplicate, other], description: '0.3.6 (B-15) – thay `declinedReason` tự do' }
         replyNote: { type: string, x-rbac-field: D23, x-sec-review: approved-DK2 (SEC 16/10/2026), description: 'Lời nhắn của nhân viên (B-15) – văn bản thuần' }
         feeVnd: { oneOf: [{ $ref: '#/components/schemas/MoneyVnd' }, { type: 'null' }], description: 'Phí đã chấp nhận (snapshot) – 0.3.6 B-16' }
+        notePurgedAt: { $ref: '#/components/schemas/Instant', description: '0.3.8 bổ sung 4 (ARC 24/10, R3-Q15 T13 – migration 0083): lúc ghi chú của yêu cầu (`note`, `replyNote`) bị xóa theo hạn lưu `retention.guest_request_months`; có thì `note`/`replyNote` vắng mặt và màn hiện "Ghi chú đã xóa theo hạn lưu". Vắng = chưa xóa' }
         createdAt: { $ref: '#/components/schemas/Instant' }
         updatedAt: { $ref: '#/components/schemas/Instant' }
     MessageTemplate:
