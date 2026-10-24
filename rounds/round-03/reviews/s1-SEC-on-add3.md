@@ -98,3 +98,44 @@ Chạy trên worktree tách riêng ở `943e7f2`, Postgres 17 mới, migrate t�
 1. `decisionFloor` đóng FZ-01 cho cả duyệt lẫn từ chối, kể cả dòng cũ.
 2. Bảng `folio_settled_reduction` chỉ thêm, ghi vai lúc làm. Đây là nền đúng để sửa FB-01 theo folio thay vì theo yêu cầu.
 3. Một hàm K11-06 dùng chung cho mọi đường có người bấm. Đường tự động không tạo yêu cầu, J15 có lưới an toàn.
+
+---
+
+## Review lại – BE-B `43abb0b`, FE-A `9633211` (24/10/2026)
+
+- Bản sửa BE-B (`43abb0b`) gồm:
+  - một hàm định tuyến chung `FolioService.refundRouting`, được `ApprovalService.submit` gọi cho **mọi** yêu cầu hoàn (lập tay, từ khoản thu, từ A32, yêu cầu thay thế khi bị `superseded`);
+  - cột `origin_actor_ids` (danh sách) và `refund_source` (`a32` | `other`), cùng CHECK `approval_request_origin_check`, `approval_request_origin_scope_check`, `approval_request_refund_source_check`, và trigger khóa hai cột này, tức chỉ ghi lúc INSERT;
+  - `isA32Maker` được kiểm lại **lúc duyệt**, nên bắt cả trường hợp có người làm A32 sau khi yêu cầu đã được tạo;
+  - người làm A32 không tự hủy được yêu cầu tự sinh (403);
+  - folio có A32 giảm của vai dưới OWN thì mọi yêu cầu hoàn nguồn `other` đều về `owner`.
+- Bản sửa FE-A (`9633211`): thông báo sau khi lập yêu cầu nói rõ "chờ chủ cơ sở duyệt" khi server định tuyến `owner`; MSW theo hợp đồng.
+- Kiểm đã chạy, trên worktree tách riêng ở `43abb0b`, Postgres 17 mới, migrate từ đầu; đã gỡ sau khi chạy:
+  - `tsc` đạt;
+  - toàn bộ `test/integration/s438-r8/` và `test/fuzz/bug-r3-00*`: **12 tệp, 85/85 đạt**.
+- Chạy lại test dò P1, P2 của SEC, thêm P3 (không commit, đã xóa):
+
+| Ca | Kết quả |
+|---|---|
+| P1 – MGR void đêm đã trả → yêu cầu tự sinh (`a32`, origin = MGR) | MGR tự hủy → **403**. Lễ tân lập tay khi tiền dư đã có yêu cầu → 422 `max 0`. MGR làm A32 duyệt yêu cầu tự sinh → **403**. |
+| P1 tiếp – MGR2 từ chối, lễ tân lập tay lại | Yêu cầu mới `other`, **`owner`**, origin = [MGR]. MGR làm A32 duyệt → **403**. MGR2 duyệt → **403** (chưa đủ vai). |
+| P2 – yêu cầu đã chuyển OWN, OWN từ chối, lễ tân lập tay lại | Yêu cầu mới **`owner`**. MGR2 → **403**; MGR → **403**. Quyết định của OWN không bị lách. |
+| P3 – MGR2 làm A32 trên folio **sau khi** yêu cầu đầu đã tạo | MGR2 duyệt yêu cầu đầu → **403** (`isA32Maker` lúc duyệt). |
+| P3 – `UPDATE origin_actor_ids = '{}'` bằng SQL với role `ottimo_app` | **Bị từ chối** (`42501`: không có quyền UPDATE trên cột; trigger chặn thêm một lớp). |
+
+### Trạng thái thẻ
+
+| ID | Mức | SEC xác nhận |
+|---|---|---|
+| FB-R3-SEC-ADD3-01 | Blocker | **Verified** ở `43abb0b`: P1, P2, P3 đều bị chặn; một hàm định tuyến dùng chung cho mọi đường; người làm A32 không duyệt, kể cả khi làm A32 sau; nguồn `other` trên folio có A32 → `owner`. |
+| FB-R3-SEC-ADD3-02 | Minor | Đạt phần ghi nguồn: tham số `receipt` của `afterSettledMoneyChange` ghi ghi chú "từ khoản thu". Phần "tiền mặt phải đối soát trước khi duyệt" chờ DOM, không chặn. |
+| FB-R3-SEC-ADD3-03 | Minor | **Verified**: không có quyền UPDATE theo cột cho hai cột này, cộng trigger `approval_request_refund_origin_immutable`. |
+| FB-R3-SEC-ADD3-04 | Suggestion | Còn mở (module `reporting`), không chặn. |
+
+### Nhận xét, không lập thẻ
+- Bước tăng tay rồi hạ lại sau trả phòng không ghi vào `folio_settled_reduction`. Vì vậy nếu khách đã trả cả phần tăng, tiền dư phát sinh khi hạ lại sẽ đi đường `other` không có sàn `owner`.
+- Chấp nhận được: đó là tiền khách trả thêm và nhận lại đúng số đó, không có phần miễn thu; yêu cầu vẫn phải qua người thứ hai (F8).
+- QA nên đưa ca này vào fuzz cùng I17/I18.
+
+### Kết luận
+**Gộp được:** BE-B `43abb0b` cùng FE-A `9633211`, gộp cùng lượt. Không còn Blocker hay Major của SEC. Còn mở: ADD3-02 phần đối soát tiền mặt (chờ DOM), ADD3-04 (Suggestion).
