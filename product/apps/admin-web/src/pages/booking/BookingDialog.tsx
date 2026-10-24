@@ -81,6 +81,8 @@ const METHODS: Array<{ value: PaymentMethod; key: string }> = [
   { value: 'card_pos', key: 'pay.card' },
 ];
 const LEAD_PLUS = ['owner', 'manager', 'front_desk_lead'];
+/** Fields the server fixes for a booking from a website request (US-155 AC2) – a 422 on them = source changed. */
+const WEB_LOCKED_FIELDS = ['channelId', 'directSource', 'paymentModel', 'websiteBookingRequestId'];
 
 interface Form {
   roomId: string;
@@ -517,6 +519,21 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       setRequestError(e);
       return;
     }
+    // BUG-R3-011 (US-155 AC2): the server sets channel Direct + source Website for a booking from a website request
+    // and refuses anything else (422 NOT_ALLOWED) – say why, not "does not apply"; a request closed or converted in
+    // the meantime (409 INVALID_TRANSITION) gets its own sentence.
+    if (webRequest && e.code === 'INVALID_TRANSITION') {
+      setErrors({ webRequestClosed: t('webreq.booking_closed') });
+      return;
+    }
+    if (
+      webRequest &&
+      e.code === 'VALIDATION_FAILED' &&
+      e.fieldErrors.some((fe) => WEB_LOCKED_FIELDS.includes(fe.field.replace(/^body\./, '')))
+    ) {
+      setErrors({ webRequest: t('webreq.source_must_be_website') });
+      return;
+    }
     if (e.code === 'ROOM_UNAVAILABLE') {
       setConflict(e);
       return;
@@ -784,6 +801,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
             {t('webreq.booking_hint')}
           </Alert>
         ) : null}
+        {errors.webRequestClosed ? <Alert tone="bad">{errors.webRequestClosed}</Alert> : null}
         {!online ? (
           <Alert tone="warn" icon="offline">
             {t('bk.offline')}
@@ -943,30 +961,48 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           </Field>
         ) : null}
 
-        <div className="field">
-          <span className="lbl" id="bk-ch-l">
-            {t('booking.field.channel')}{' '}
-            <span className="req" aria-hidden="true">
-              *
+        {webRequest ? (
+          // BUG-R3-011 (US-155 AC2): channel Direct + source Website, read-only – the server sets them.
+          <Field
+            label={t('booking.field.channel')}
+            help={t('webreq.source_locked')}
+            error={errors.webRequest}
+          >
+            {(p) => (
+              <input
+                {...p}
+                className="input"
+                readOnly
+                value={`${t('bk.ch_direct')} · ${t('bk.src_web')}`}
+              />
+            )}
+          </Field>
+        ) : (
+          <div className="field">
+            <span className="lbl" id="bk-ch-l">
+              {t('booking.field.channel')}{' '}
+              <span className="req" aria-hidden="true">
+                *
+              </span>
             </span>
-          </span>
-          <Seg
-            labelledBy="bk-ch-l"
-            value={form.group}
-            onChange={(group) => {
-              set({ group });
-              setRateWarn(false);
-              setCapWarn(null);
-            }}
-            options={[
-              { value: 'direct', label: t('bk.ch_direct') },
-              { value: 'agent', label: t('bk.ch_agent') },
-              { value: 'ota', label: t('bk.ch_ota') },
-              { value: 'internal', label: t('bk.ch_internal') },
-            ]}
-          />
-        </div>
-        {form.group === 'direct' ? (
+            <Seg
+              labelledBy="bk-ch-l"
+              value={form.group}
+              onChange={(group) => {
+                set({ group });
+                setRateWarn(false);
+                setCapWarn(null);
+              }}
+              options={[
+                { value: 'direct', label: t('bk.ch_direct') },
+                { value: 'agent', label: t('bk.ch_agent') },
+                { value: 'ota', label: t('bk.ch_ota') },
+                { value: 'internal', label: t('bk.ch_internal') },
+              ]}
+            />
+          </div>
+        )}
+        {form.group === 'direct' && !webRequest ? (
           <div className="g-2">
             <Field
               label={t('bk.source')}

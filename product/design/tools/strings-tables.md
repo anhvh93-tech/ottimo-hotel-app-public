@@ -3654,6 +3654,9 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `webreq.missing.privacy_notice_vi` | thông báo xử lý dữ liệu tiếng Việt | the Vietnamese privacy notice | ⟨chừa chỗ⟩ |  |
 | `webreq.missing.privacy_notice_en` | thông báo xử lý dữ liệu tiếng Anh | the English privacy notice | ⟨chừa chỗ⟩ |  |
 | `webreq.missing.privacy_notice_ru` | thông báo xử lý dữ liệu tiếng Nga | the Russian privacy notice | ⟨chừa chỗ⟩ |  |
+| `webreq.source_locked` | Đơn tạo từ yêu cầu website luôn là kênh Trực tiếp, nguồn Website – không đổi được. | A booking from a website request is always Direct, source Website – this can't be changed. | ⟨chừa chỗ⟩ | BUG-R3-011, US-155 AC2 |
+| `webreq.source_must_be_website` | Đơn từ yêu cầu website phải giữ kênh Trực tiếp, nguồn Website. Đóng hộp này rồi bấm Tạo đơn trong yêu cầu để thử lại. | A booking from a website request must stay Direct, source Website. Close this form and choose Create booking in the request to try again. | ⟨chừa chỗ⟩ | BUG-R3-011 – 422 NOT_ALLOWED channelId/directSource |
+| `webreq.booking_closed` | Yêu cầu này vừa đóng hoặc đã thành đơn nên không tạo đơn từ nó được nữa. Đóng hộp này và tải lại yêu cầu để xem trạng thái. | This request has just been closed or booked, so a booking can't be made from it. Close this form and reload the request to see its status. | ⟨chừa chỗ⟩ | createReservation 409 INVALID_TRANSITION |
 | `webreq.missing.form_signing_key` | khóa ký form trên máy chủ (báo kỹ thuật) | the form signing key on the server (ask the tech team) | ⟨chừa chỗ⟩ |  |
 
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
