@@ -117,6 +117,7 @@ export interface RawFolio {
     /** destination: cash / bank_transfer / original_method / null */
     refundMethod: string | null;
     destinationSetBy: string | null;
+    destinationSetAt: string | null;
   }>;
   /** A32 reductions on this folio (audit `folio_line.adjusted` with `after.reducedVnd`): who (role) and when. */
   a32Reductions: Array<{
@@ -207,7 +208,7 @@ export async function readRaw(q: Q, folioId: string, reservationId: string): Pro
   }
   const refunds = await q(
     `SELECT id, status, amount_vnd, requested_by, required_role, reason_note, approver_id, approver_role_snapshot,
-            requested_at, decided_at, auto_cancel_reason, refunded_vnd, refund_method, refund_destination_set_by,
+            requested_at, decided_at, auto_cancel_reason, refunded_vnd, refund_method, refund_destination_set_by, refund_destination_set_at,
             to_jsonb(a)->'origin_actor_ids' AS origin_actor_ids, COALESCE(to_jsonb(a)->>'refund_source', to_jsonb(a)->>'source') AS source
        FROM approval_request a WHERE type = 'refund' AND target_id = $1 ORDER BY requested_at, id`,
     [reservationId],
@@ -258,6 +259,7 @@ export async function readRaw(q: Q, folioId: string, reservationId: string): Pro
       refundedVnd: num(x.refunded_vnd ?? 0),
       refundMethod: x.refund_method ?? null,
       destinationSetBy: x.refund_destination_set_by ?? null,
+      destinationSetAt: iso(x.refund_destination_set_at ?? null),
     })),
     a32Reductions: a32
       .filter((x: any) => num(x.after?.reducedVnd) > 0)
