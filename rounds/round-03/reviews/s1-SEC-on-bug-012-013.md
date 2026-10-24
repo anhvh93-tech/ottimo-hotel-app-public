@@ -62,3 +62,18 @@ Chạy trên worktree tách riêng ở `2f1d738`, Postgres 17 mới, migrate t�
 1. Một hàm lập lại kế hoạch (`refundsDownToCredit`) dùng chung cho A32, phát sinh sau trả phòng, giá bồi thường hư hỏng được duyệt và J15. Không viết thêm đường hoàn tiền mới.
 2. Bản thay luôn mang theo nguồn, ghi chú và danh sách người không được duyệt. Kiểm lúc duyệt vẫn còn, nên không có cách "rửa" origin qua `superseded`.
 3. Yêu cầu không còn gì để trả bị đóng **kèm** xóa tài khoản nhận, không để một yêu cầu "approved" treo có thể bị chi về sau.
+
+---
+
+## Xác nhận nhanh – `be-b/r3-bug012-followups` `69a5398` (24/10/2026)
+
+- Đã đọc diff `approval.service.ts` (`RefundApprovalCheck`), `approvals.controller.ts` (409 `superseded`), `folio.service.ts` (`refundAboveFreeCredit`, `carriedOrigin.minRequiredRole`, `replacementActor`).
+- Đã chạy, trên worktree tách riêng, Postgres mới; đã gỡ sau khi chạy: `tsc` đạt; `r3-bug012-followups` (4 ca mới), `r3-bug-012-013`, `r3-add3-settled-credit`, `r3-br433e-a32-waiver`, `fuzz/bug-r3-012`: **34/34 đạt**.
+
+| Thẻ | SEC xác nhận |
+|---|---|
+| FB-R3-SEC-1213-01 | **Verified.** Bản thay mang `minRequiredRole` = cấp cao nhất của các yêu cầu bị thay, nên chỉ có thể giữ nguyên hoặc nâng, không hạ. Có ca "owner → thay đúng số MGR được duyệt → vẫn owner". |
+| FB-R3-SEC-1213-02 | **Verified.** Khi OWN thao tác, hoặc J15 chạy không có người bấm, bản thay giữ người xin của yêu cầu cũ nhất. Riêng nguồn `a32` thì giữ người làm A32. Như vậy OWN vẫn duyệt được, và không ai trong danh sách bị cấm thành người duyệt. |
+| ARC BUG012-01 (lớp chặn ở bước duyệt) | **Đạt.** Lớp chặn chạy **sau** các kiểm F8, người làm A32 và cấp duyệt, nên chỉ người đủ quyền mới kích được việc lập lại kế hoạch. Nếu số xin > tiền dư còn trống (trừ phần các yêu cầu đã duyệt khác chưa chi), yêu cầu bị `superseded` và xin lại đúng số. Thay đổi này được commit, rồi trả 409. Không yêu cầu nào được duyệt vượt tiền dư. |
+
+**Kết luận: gộp được ở `69a5398`.** Không còn Blocker/Major/Minor của SEC cho BUG-R3-012/013.

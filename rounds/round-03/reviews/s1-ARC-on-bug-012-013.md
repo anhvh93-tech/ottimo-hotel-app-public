@@ -79,7 +79,7 @@ ARC chạy lại seed này trên `2f1d738` và đọc log từng bước:
 - Đề xuất sửa:
   - theo quyết định (1);
   - test: yêu cầu chờ 300.000, tiền dư giảm còn 100.000 qua đường không gắn hook (ghi thẳng bảng như ca J15 của BE-B) → duyệt → 409, yêu cầu cũ `superseded`, có yêu cầu thay thế 100.000 cùng nguồn.
-- Trạng thái: Open
+- Trạng thái: Verified (ARC 24/10, `69a5398`)
 
 ### FB-R3-ARC-BUG012-02
 - Mức độ: Suggestion (QA – harness fuzz)
@@ -91,3 +91,24 @@ ARC chạy lại seed này trên `2f1d738` và đọc log từng bước:
 - Sửa đúng gốc ở một chỗ (`refundsDownToCredit`) rồi gắn vào mọi đường, kể cả J15 không có người bấm (bản thay thế giữ người xin cũ) – không thêm định nghĩa thứ hai.
 - J15 dùng lại đường ghi nợ `debtOnCheckout` có sẵn thay vì tự ghi.
 - Báo cáo nêu rõ vi phạm fuzz còn lại kèm seed và đối chiếu trên `main` trước bản sửa.
+
+---
+
+# Lượt 2 – `69a5398` (lớp chặn bước duyệt BUG012-01 + SEC FB-1213-01/02), ARC 24/10
+
+**Gộp được.** BUG012-01 chuyển Verified.
+
+- Đã chạy (worktree tách riêng ở `69a5398`, PostgreSQL 17 riêng):
+  - `tsc` đạt;
+  - toàn bộ api **129 tệp đạt (2 bỏ qua), 3.231 test đạt (21 bỏ qua)**;
+  - gồm `r3-bug012-followups` 4 ca.
+- **BUG012-01** – đúng hợp đồng 13.3 điểm 5:
+  - `refundAboveFreeCredit` chạy trong `approve`, dưới khóa folio (preLock của refund);
+  - tiền dư còn trống = `rawCreditVnd` − phần còn phải chi của các yêu cầu hoàn **đã duyệt khác** của lượt ở; so với phần còn lại của yêu cầu;
+  - vượt → `refundsDownToCredit` (người xin giữ như J15) được **commit**, rồi trả 409 `INVALID_TRANSITION` (`currentState = cancelled`, `autoCancelReason = superseded`) theo mẫu `fail` sau commit như A4;
+  - không duyệt gì;
+  - đăng ký qua `provideRefundRouting`, nên module approvals không import folio (ADR-001).
+- **SEC FB-1213-01**: bản thay mang `minRequiredRole` = cấp cao nhất của các yêu cầu bị thay, và định tuyến chỉ nâng, không hạ. Đồng ý.
+- **SEC FB-1213-02**: OWN thao tác thì bản thay giữ người xin của yêu cầu cũ nhất (yêu cầu `a32` vẫn giữ người làm A32). Đồng ý – tránh kẹt luật F8 ở cơ sở chỉ có một OWN. Khi OWN là người xin gốc thì vẫn là OWN, và đó là ca F8 hiện có (OWN không tự duyệt yêu cầu của mình).
+- Ghi chú (không phải thẻ): khi nhiều yêu cầu cùng chờ, `refundPlan` hủy mọi yêu cầu chờ rồi tạo lại một (DOM-S4-14), nên yêu cầu đang được duyệt luôn nằm trong số bị hủy; 409 "cancelled" luôn đúng.
+
