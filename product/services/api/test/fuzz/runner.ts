@@ -20,6 +20,22 @@ import { TEST_PASSWORD } from '../helpers/feature-app';
 import { type CodeView, type Gates, type StepCtx, type Violation, check } from './invariants';
 import { type RawFolio, readRaw, refView } from './ref-ledger';
 
+/**
+ * Approve / reject with `expectedVersion` (B-6: the refund paths answer 422 without it – BE-B s1-be-b 13 point 5).
+ * Reads the current version right before the call, so a race still meets the real check.
+ */
+export function decideV(x: Fx, id: string, verb: 'approve' | 'reject', who = 'owner') {
+  return async () => {
+    const [row] = await x.q('SELECT version FROM approval_request WHERE id = $1', [id]);
+    return x.c[who]!.send('POST', x.url(`/approval-requests/${id}/actions/${verb}`), {
+      authMethod: 'password',
+      secret: TEST_PASSWORD,
+      expectedVersion: Number(row?.version ?? 0),
+      ...(verb === 'reject' ? { reason: 'Không đồng ý', decisionNote: 'Không đồng ý' } : {}),
+    });
+  };
+}
+
 // ───────────────────────── PRNG ─────────────────────────
 export function mulberry32(seed: number) {
   let a = seed >>> 0;
@@ -603,7 +619,7 @@ export class Runner {
         const amt = this.amountOf(op.amount, raw, s);
         return {
           label: `collect ${amt} by ${op.who}`,
-          ctx: raw.folio.status === 'settled' ? { humanMoneyOnSettled: true } : {},
+          ctx: raw.folio.status === 'settled' ? { humanMoneyOnSettled: 'payment' } : {},
           run: () => x.collect(s, amt, 'cash', op.who)(),
         };
       }
@@ -649,7 +665,7 @@ export class Runner {
             a.reasonCode === 'debt_write_off' && op.verb === 'approve'
               ? { writeOff: { appliedVnd: null, oBefore: ref.O } }
               : {},
-          run: () => x.decide(a.id, op.verb, op.who)(),
+          run: () => decideV(x, a.id, op.verb, op.who)(),
         };
       }
       case 'a32': {
@@ -673,7 +689,9 @@ export class Runner {
           ctx:
             reduce > 0 && raw.folio.status !== 'open'
               ? {
-                  humanMoneyOnSettled: raw.folio.status === 'settled',
+                  ...(raw.folio.status === 'settled'
+                    ? { humanMoneyOnSettled: 'a32' as const }
+                    : {}),
                   a32: {
                     reduceVnd: reduce,
                     wBefore: ref.W,
@@ -697,7 +715,7 @@ export class Runner {
         const amt = due + op.extraVnd;
         return {
           label: `QR paid late ${amt} (due ${due}) confirmed by fd`,
-          ctx: { humanMoneyOnSettled: true },
+          ctx: { humanMoneyOnSettled: 'payment' },
           run: async () => {
             await this.ensureAccount();
             const q = await x.c.fd!.send('POST', x.url(`/folios/${s.folioId}/vietqr`), {
@@ -762,7 +780,7 @@ export class Runner {
         return {
           label: `approve refund ${r.amountVnd} by ${op.who}`,
           ctx: {},
-          run: () => x.decide(r.id, 'approve', op.who)(),
+          run: () => decideV(x, r.id, 'approve', op.who)(),
         };
       }
       case 'refundCancel': {
@@ -928,6 +946,7 @@ export class Runner {
     await this.at(this.nowMs + 1_000);
     const before = await this.raw(s);
     const auditsBefore = before.debtAudits.length;
+    const unhandledBefore = (await this.codeView(s)).unhandledCreditVnd ?? 0;
     let label: string;
     let ctx: Partial<StepCtx> = {};
     let results: Array<Res | null>;
@@ -996,6 +1015,7 @@ export class Runner {
       code: last ? outcome(last) : '',
       auditsBefore,
       b18ExplicitDueAt: b18DueAt,
+      unhandledBefore,
       legacyCycle: this.legacy,
       explicitDueDates: this.explicitDue,
       basisAtCreate: this.basisAtCreate,
