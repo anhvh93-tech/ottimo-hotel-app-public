@@ -9,12 +9,15 @@
 | Mức | Số lỗi | Open | Fixed | Closed |
 |---|---|---|---|---|
 | P0 | 2 | 2 | 0 | 0 |
-| P1 | 6 | 4 | 0 | 2 |
-| P2 | 3 | 3 | 0 | 0 |
+| P1 | 6 | 1 | 0 | 5 |
+| P2 | 3 | 1 | 0 | 2 |
 | P3 | 0 | 0 | 0 | 0 |
-| **Tổng** | **11** | **9** | **0** | **2** |
+| **Tổng** | **11** | **4** | **0** | **7** |
 
-Cập nhật 24/10 (luồng QA phụ – E2E US-155 trên stack `ottimo-qa155`, `0ac4261`): thêm BUG-R3-007…011. Báo cáo: `rounds/round-03/outputs/QA/s1-us155-e2e.md`.
+Cập nhật 24/10 (luồng QA phụ – E2E US-155):
+- Lượt 1 trên stack `ottimo-qa155`, bản `0ac4261`: mở BUG-R3-007…011.
+- Lượt 2 trên `origin/main` `a1da76f`, dùng ảnh landing thật và `Caddyfile.landing` của OPS (`LANDING_PUBLIC_API=on`), không còn harness S35: 13/13 ca đạt. **BUG-R3-007…011 Closed.**
+- Báo cáo: `rounds/round-03/outputs/QA/s1-us155-e2e.md`.
 
 ## 2. Bảng lỗi
 
@@ -26,11 +29,11 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155 trên stack `ottimo-qa155`, 
 | BUG-R3-004 | **P1** | Đã void hết đêm phòng sau trả phòng, MGR vẫn tự áp xóa nợ theo số chụp B18, không chuyển OWN (BR-433 (a) "không có đêm nào → chờ OWN") | BE-B (BR-433 (d) cơ sở) | **Verified** 24/10 (ca tái hiện + fuzz thử); Closed sau lượt fuzz cuối G1 |
 | BUG-R3-005 | P1 | H09 Đặt phòng mới: ô "Số tiền đã nhận" giữ cọc của lần tính giá **đầu tiên**, không theo lần tính giá sau (gốc của `booking.test.tsx` chập chờn) | FE (H09 – `BookingDialog`) | **Closed** (QA xác nhận 24/10) |
 | BUG-R3-006 | P2 | Test admin-web phụ thuộc giờ: từ 00:00 đến 05:59 một số ca đỏ vì lấy `todayLocal()` trong khi app mở form theo **ngày nghiệp vụ** (BR-010) | FE-A, FE-B (+ QA cho 2 ca BUG-R3-005, đã sửa) | Open |
-| BUG-R3-007 | **P1** | US-155: `Me.screens` của server không có **S35** cho vai nào → Desk thật ẩn "Yêu cầu từ website" và chặn `/website-requests` ("Bạn không có quyền mở trang này"), kể cả nút "Mở" của "Cần chú ý" | BE-D (`identity/internal/screens.ts`) | Fixed (BE-D 24/10, `be-d/r3-us155-bugs`) – chờ QA xác nhận; còn chặn mốc bật form tới khi đóng |
-| BUG-R3-008 | **P1** | US-155: công tắc `public_booking_requests_enabled` không đổi lại được trong ngày đã đặt (422 "value already effective") → OWN bật form xong không tắt ngay được khi có spam/sự cố | BE-D + ARC (mô hình tham số) | Fixed (BE-D 24/10, kill switch – ARC xác nhận) – chờ QA xác nhận; còn chặn mốc bật form tới khi đóng |
-| BUG-R3-009 | **P1** | US-155 AC5: số CCCD viết cách nhóm (`079 203 012 345`) trong lời nhắn được nhận (202) và lưu vào yêu cầu; chỉ dãy 12 số liền bị chặn | BE-D (`website-request-rules.ts`) | Fixed (BE-D 24/10, SEC duyệt mẫu) – chờ QA xác nhận; còn chặn mốc bật form tới khi đóng |
-| BUG-R3-010 | P2 | S35: lễ tân trưởng (FDL) không thấy dòng "Form đặt phòng trên website đang tắt" – đọc công tắc trả 404 cho FDL, FE coi là "không biết" | FE-B + BE-D | Fixed phía server (BE-D 24/10: FDL đọc được khóa) – chờ FE-B/QA xác nhận |
-| BUG-R3-011 | P2 | H09 "Tạo đơn" từ yêu cầu website: ô Kênh/Nguồn vẫn sửa được (AC2: nhân viên không đổi được nguồn); đổi thì server 422, Desk chỉ báo "Không áp dụng được cho đơn này." | FE-B (+ UXD chữ) | Open |
+| BUG-R3-007 | **P1** | US-155: `Me.screens` của server không có **S35** cho vai nào → Desk thật ẩn "Yêu cầu từ website" và chặn `/website-requests` ("Bạn không có quyền mở trang này"), kể cả nút "Mở" của "Cần chú ý" | BE-D (`identity/internal/screens.ts`) | **Closed** (QA xác nhận 24/10 trên `a1da76f` – TC-WR-000 đạt) |
+| BUG-R3-008 | **P1** | US-155: công tắc `public_booking_requests_enabled` không đổi lại được trong ngày đã đặt (422 "value already effective") → OWN bật form xong không tắt ngay được khi có spam/sự cố | BE-D + ARC (mô hình tham số) | **Closed** (QA xác nhận 24/10 trên `a1da76f` – TC-WR-008 đạt) |
+| BUG-R3-009 | **P1** | US-155 AC5: số CCCD viết cách nhóm (`079 203 012 345`) trong lời nhắn được nhận (202) và lưu vào yêu cầu; chỉ dãy 12 số liền bị chặn | BE-D (`website-request-rules.ts`) | **Closed** (QA xác nhận 24/10 trên `a1da76f` – TC-WR-007 + TC-WR-010 đạt) |
+| BUG-R3-010 | P2 | S35: lễ tân trưởng (FDL) không thấy dòng "Form đặt phòng trên website đang tắt" – đọc công tắc trả 404 cho FDL, FE coi là "không biết" | FE-B + BE-D | **Closed** (QA xác nhận 24/10 trên `a1da76f` – TC-WR-011 đạt) |
+| BUG-R3-011 | P2 | H09 "Tạo đơn" từ yêu cầu website: ô Kênh/Nguồn vẫn sửa được (AC2: nhân viên không đổi được nguồn); đổi thì server 422, Desk chỉ báo "Không áp dụng được cho đơn này." | FE-B (+ UXD chữ) | **Closed** (QA xác nhận 24/10 trên `a1da76f` – TC-WR-012 đạt) |
 
 ## 3. Chi tiết
 
@@ -190,7 +193,10 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155 trên stack `ottimo-qa155`, 
   - Dò `GET /v1/me` của 3 vai: `S35` = false.
   - Các ca S35 còn lại chạy được nhờ harness thêm S35 vào `Me.screens` **chỉ trong trình duyệt** (annotation `harness`). Mọi API vẫn do server kiểm quyền.
 - **Ca chống tái phát:** TC-WR-000 (`product/tests/e2e/ui/us155-website-requests.r3.spec.ts`). Khi sửa: xóa `BUG-R3-007` khỏi `OPEN` trong `support/known-bugs.ts`; harness tự thôi sửa `Me`.
-- **Trạng thái:** Open.
+- **Ghi chú test lại (QA, 24/10, `origin/main` `a1da76f`, stack `ottimo-qa155`, harness S35 đã gỡ khỏi spec):**
+  - TC-WR-000 đạt: OWN, MGR, FDL, FD, SAL đều thấy menu "Yêu cầu từ website" và mở được S35 (tiêu đề trang hiện, không có câu "không có quyền"); CTV không có menu và bị từ chối khi mở thẳng.
+  - Mọi ca S35 khác (TC-WR-002…012) chạy với `Me` thật của server và đều đạt.
+- **Trạng thái:** **Closed** 24/10.
 
 ### BUG-R3-008 – Công tắc form website không đổi lại được trong ngày đã đặt
 - **Mức:** P1. QA quyết.
@@ -221,7 +227,14 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155 trên stack `ottimo-qa155`, 
   - TC-WR-008 (`knownBug('BUG-R3-008')`) đỏ đúng dự kiến, 422 như trên.
   - Lượt chạy đầu của QA tự vướng: đặt `false` rồi `true` trong cùng ngày nhận đúng câu 422 này.
 - **Ghi chú harness:** để kiểm nhánh "công tắc tắt" trong cùng lượt, TC-WR-009 xóa dòng hôm nay bằng psql (bỏ qua trigger, superuser, chỉ trên stack dùng một lần) để giả lập "ngày hôm sau". Production không có đường này.
-- **Trạng thái:** Open.
+- **Ghi chú test lại (QA, 24/10, `a1da76f` – hợp đồng 0.3.8 bổ sung 5):** TC-WR-008 viết lại thành ca kill switch, đạt. Các bước kiểm:
+  - Hôm nay đã có dòng `true` và form token trả 200.
+  - MGR, FDL đặt `false` → 403.
+  - OWN đặt `false` hôm nay → 200. Lần gọi form token **ngay sau** đó → 404, landing hiện câu tạm dừng.
+  - Dòng hôm nay thành `false`. Audit `security` có `before.value = true` và `after.sameDayOverride = true`.
+  - OWN bật lại `true` cùng ngày → 422 (`effectiveFrom`), form token vẫn 404.
+  - TC-WR-009 bỏ bước xóa dòng bằng psql: công tắc tắt đúng bằng API. Harness chỉ còn xóa dòng ở `beforeAll`/`afterAll` để chạy lại trong cùng ngày, vì bật lại cùng ngày bị chặn theo thiết kế.
+- **Trạng thái:** **Closed** 24/10.
 
 ### BUG-R3-009 – Số CCCD viết cách nhóm trong lời nhắn lọt qua bộ lọc
 - **Mức:** P1. QA quyết.
@@ -240,7 +253,11 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155 trên stack `ottimo-qa155`, 
 - **Nguyên nhân (đọc mã):** `product/services/api/src/modules/public-site/internal/website-request-rules.ts` `looksLikeIdNumber()` (dòng 79–83) chỉ bắt `\d{12}` / `\d{9}` liền nhau. `looksLikeCard()` cùng tệp đã cho phép dấu cách/gạch. Dạng gạch `079-203-012-345` và chấm `079.203.012.345` cũng lọt theo cùng biểu thức (đọc mã; lượt E2E dừng ở dạng đầu).
 - **Đề xuất sửa:** bỏ `[ .-]` giữa các chữ số trước khi so (như `looksLikeCard`), giữ ngoại lệ số điện thoại có `+`; thêm ca đơn vị cho 3 dạng. FE landing không cần đổi (lỗi trả về theo `field` + `code`).
 - **Ca chống tái phát:** TC-WR-010 (`knownBug('BUG-R3-009')`).
-- **Trạng thái:** Open.
+- **Ghi chú test lại (QA, 24/10, `a1da76f`):**
+  - TC-WR-010 đạt: `079 203 012 345`, `079-203-012-345`, `079.203.012.345` đều nhận 422 `ID_NUMBER_DETECTED`.
+  - TC-WR-007 đạt: dãy liền qua form landing → 422 báo tại ô, không lặp số, không lưu.
+  - Log của mọi container trong project (api, worker, postgres, Caddy Desk, **Caddy landing thật với access log của OPS**) không có số; `idempotency_key` không có số.
+- **Trạng thái:** **Closed** 24/10.
 
 ### BUG-R3-010 – S35 không báo "form đang tắt" cho lễ tân trưởng
 - **Mức:** P2. Chức năng phụ sai; FDL vẫn xử lý yêu cầu cũ bình thường, chỉ thiếu dòng thông tin.
@@ -256,7 +273,11 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155 trên stack `ottimo-qa155`, 
 - **Mong đợi:** OWN/MGR/FDL đều thấy. Chú thích trong mã FE ghi "OWN/MGR/FDL – getParameterHistory"; `x-roles` của `getParameterHistory` có `front_desk_lead`.
 - **Đề xuất sửa:** server cho FDL đọc khóa này (chỉ đọc), hoặc FE lấy trạng thái từ chỗ khác (ví dụ một trường trong danh sách S35).
 - **Ca chống tái phát:** TC-WR-011 (`knownBug('BUG-R3-010')`).
-- **Trạng thái:** Open.
+- **Ghi chú test lại (QA, 24/10, `a1da76f`):**
+  - TC-WR-011 đạt. FDL đọc công tắc → 200, `current.value = false`; khóa bảo mật khác (`public_booking_request_pow_enabled`) vẫn 404 với FDL.
+  - S35 của FDL hiện "Form đặt phòng trên website đang tắt".
+  - FDL đặt công tắc → 403 (trong TC-WR-008).
+- **Trạng thái:** **Closed** 24/10.
 
 ### BUG-R3-011 – "Tạo đơn" từ yêu cầu website vẫn cho đổi Kênh/Nguồn
 - **Mức:** P2. UX gây nhầm, có cách khắc phục; server chặn đúng nên dữ liệu không sai.
@@ -270,4 +291,9 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155 trên stack `ottimo-qa155`, 
   - Không tạo đơn; yêu cầu giữ `in_progress` (đúng).
 - **Mong đợi:** khi tạo đơn từ yêu cầu website, Kênh = Trực tiếp và Nguồn = Website ở dạng chỉ đọc, kèm câu đã có "Đơn tạo ra có nguồn Website…".
 - **Bằng chứng:** TC-WR-012 đạt phần server (422, không đơn, yêu cầu giữ nguyên), annotation `observation` "Ô Nguồn … SỬA ĐƯỢC"; ảnh `h09-source-changed.png` trong thư mục kết quả của ca.
-- **Trạng thái:** Open.
+- **Ghi chú test lại (QA, 24/10, `a1da76f`):**
+  - TC-WR-012 viết lại và đạt. H09 mở từ yêu cầu có ô "Kênh" chỉ đọc, giá trị "Trực tiếp · Website", kèm dòng "Đơn tạo từ yêu cầu website luôn là kênh Trực tiếp, nguồn Website – không đổi được."
+  - Không còn ô chọn Nguồn hay nút "CTV / môi giới" / "OTA". Yêu cầu giữ `in_progress`, không có đơn.
+  - TC-WR-003 tạo đơn B2 với ô khóa này: đơn `direct/website`.
+  - Câu lỗi mới khi server trả 422/409 (`webreq.source_must_be_website`, `webreq.booking_closed`) không còn đường kích hoạt từ UI. Chỉ có test đơn vị của FE (`r3-bug-010-011-feb.test.tsx`), QA chưa kiểm E2E.
+- **Trạng thái:** **Closed** 24/10.

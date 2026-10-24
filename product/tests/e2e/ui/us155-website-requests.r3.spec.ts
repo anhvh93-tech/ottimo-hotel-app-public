@@ -10,12 +10,14 @@
 //   E2E_COMPOSE_CONTROL=1    psql on the stack (publish privacy_notice_version like the landing release does, reset the
 //                            SR-RL-11 DB counters between cases, scan C2 copies) + `docker compose logs` (B.2.3).
 //                            Also E2E_COMPOSE_PROJECT / E2E_COMPOSE_ENV_FILE when the stack is not the dev one.
-// Stack: support/us155-stack/compose.us155.yml (overlay + landing Caddy; how to build/run is written there).
+// Stack: support/us155-stack/compose.us155.yml – the real landing image + OPS infra/caddy/Caddyfile.landing
+// (LANDING_PUBLIC_API=on, https://landing.localhost:58150 on Caddy's internal CA → ignoreHTTPSErrors); how to
+// build/run is written there.
 // The cases share one state (the switch, the requests made) → serial. The form switch is put back OFF at the end.
 // The api's RAM limit (30 public calls/hour/IP – C-11 step 0) is NOT reset by anything: one full run makes ~22 calls;
 // restart the api container before a second run within the hour.
 // Test data is fake (example.invalid, fake VN mobiles, a made-up 12-digit number for the CCCD case).
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
 import {
   call,
@@ -27,7 +29,6 @@ import {
   type Problem,
   type StaffSession,
 } from '../support/api.js';
-import { PRODUCT_DIR } from '../support/env.js';
 import { knownBug } from '../support/known-bugs.js';
 import { stackSql } from '../support/s3.js';
 import { UI, signIn, t } from './helpers.js';
@@ -45,6 +46,8 @@ test.skip(
   'US-155 E2E: cần E2E_UI=1, E2E_LANDING_URL (bản landing có form thật) và E2E_COMPOSE_CONTROL=1 (stack dùng một lần)',
 );
 test.describe.configure({ mode: 'serial' });
+// The landing origin runs on Caddy's internal CA (*.localhost) – the certificate is not the subject here.
+test.use({ ignoreHTTPSErrors: true });
 
 // ───────────────────────── helpers ─────────────────────────
 
@@ -69,9 +72,10 @@ function unpublishNotices(): void {
 }
 
 /**
- * Rows of the switch from today on. The parameter model is append-only by day (setParameter: a row already effective
- * cannot be changed – BUG-R3-007), so on a disposable stack the harness removes today's row (trigger bypassed as
- * superuser) before setting the switch again; production has no such way (that is the bug).
+ * Rows of the switch from today on – rerun hygiene only (beforeAll/afterAll). Since 0.3.8 add. 5 the switch can be
+ * turned OFF the same day (kill switch, BUG-R3-008), but turning it back ON the same day is refused by design; a
+ * second run on the same business day therefore starts by removing today's row (trigger bypassed as superuser,
+ * disposable stack only).
  */
 function clearSwitchRows(): void {
   // The table's trigger (config_parameter_delete_future_only) refuses this on purpose – superuser, disposable stack only.
@@ -271,29 +275,29 @@ function c2Copies(needles: string[]): string[] {
 
 /** `docker compose logs` of the stack (api, worker, landing Caddy, web Caddy, postgres) – B.2.3. */
 function stackLogs(): string {
-  const args = [
-    'compose',
-    ...(process.env.E2E_COMPOSE_PROJECT ? ['-p', process.env.E2E_COMPOSE_PROJECT] : []),
-    '--env-file',
-    process.env.E2E_COMPOSE_ENV_FILE ?? '.env',
-    '-f',
-    process.env.E2E_COMPOSE_FILE ?? 'infra/docker-compose.yml',
-    'logs',
-    '--no-color',
-  ];
-  return execFileSync('docker', args, {
-    cwd: PRODUCT_DIR,
-    stdio: 'pipe',
-    maxBuffer: 256 * 1024 * 1024,
-  }).toString();
+  // Every container of the compose project – also those only in an overlay (the landing Caddy), which
+  // `docker compose -f <base file> logs` would not list. stdout + stderr of each.
+  const project = process.env.E2E_COMPOSE_PROJECT ?? 'ottimo-dev';
+  const ids = execFileSync(
+    'docker',
+    ['ps', '-a', '-q', '--filter', `label=com.docker.compose.project=${project}`],
+    { stdio: 'pipe' },
+  )
+    .toString()
+    .split('\n')
+    .filter(Boolean);
+  expect(ids.length, `container của project ${project}`).toBeGreaterThan(3);
+  return ids
+    .map((id) => {
+      const out = spawnSync('docker', ['logs', id], { maxBuffer: 256 * 1024 * 1024 });
+      return `${out.stdout.toString()}\n${out.stderr.toString()}`;
+    })
+    .join('\n');
 }
 
 /**
- * Desk signed in as `user`. BUG-R3-007: the server's `Me.screens` has no S35 for any role, so the real Desk hides the
- * menu item and refuses /website-requests ("Bạn không có quyền mở trang này"). To test the rest of S35 the harness
- * adds S35 to `screens` of GET /v1/me IN THIS BROWSER ONLY (menu + route guard are presentation; every API call is
- * still checked by the server – x-roles, x-scope). Annotation `harness`. Off once BUG-R3-007 is closed (E2E_FIXED_BUGS
- * or removed from OPEN): then the real `Me` is used.
+ * Desk signed in as `user`, with the server's real `Me` (the S35 harness of the first run is gone since BUG-R3-007
+ * was fixed – the menu and route guard are now tested as they are).
  */
 async function desk(browser: Browser, user: string): Promise<Page> {
   const ctx = await browser.newContext({
@@ -302,24 +306,6 @@ async function desk(browser: Browser, user: string): Promise<Page> {
     timezoneId: 'Asia/Ho_Chi_Minh',
   });
   const page = await ctx.newPage();
-  const fixed = (process.env.E2E_FIXED_BUGS ?? '').split(',').includes('BUG-R3-007');
-  if (!fixed) {
-    test.info().annotations.push({
-      type: 'harness',
-      description:
-        'BUG-R3-007: thêm S35 vào Me.screens trong trình duyệt để kiểm phần còn lại của S35',
-    });
-    await page.route(/\/v1\/me$/, async (route) => {
-      const res = await route.fetch();
-      const body = (await res.json()) as { properties?: { roles: string[]; screens: string[] }[] };
-      const s35 = ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff'];
-      for (const p of body.properties ?? []) {
-        if (p.roles.some((r) => s35.includes(r)) && !p.screens.includes('S35'))
-          p.screens.push('S35');
-      }
-      await route.fulfill({ response: res, json: body });
-    });
-  }
   await signIn(page, user);
   return page;
 }
@@ -390,7 +376,7 @@ test('TC-WR-000 BUG-R3-007 Desk thật (Me.screens của server): OWN/FD/SAL th�
   browser,
 }) => {
   knownBug('BUG-R3-007');
-  for (const user of ['qa.owner', 'qa.fd', 'qa.sal']) {
+  for (const user of ['qa.owner', 'qa.mgr', 'qa.fdl', 'qa.fd', 'qa.sal']) {
     const ctx = await browser.newContext({
       viewport: { width: 1366, height: 768 },
       locale: 'vi-VN',
@@ -402,9 +388,22 @@ test('TC-WR-000 BUG-R3-007 Desk thật (Me.screens của server): OWN/FD/SAL th�
       `${user}: menu có "Yêu cầu từ website" (rbac S35)`,
     ).toBeVisible({ timeout: 10_000 });
     await p.goto(new URL('/website-requests', p.url()).toString());
+    await expect(
+      p.getByRole('heading', { level: 1, name: new RegExp(t('nav.website_requests')) }),
+    ).toBeVisible({ timeout: 10_000 });
     await expect(p.getByText('Bạn không có quyền mở trang này')).toHaveCount(0);
     await ctx.close();
   }
+  // rbac S35: CTV ✖ – no menu item, the page is refused.
+  const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 }, locale: 'vi-VN' });
+  const ctv = await ctx.newPage();
+  await signIn(ctv, 'qa.ctv1');
+  await expect(ctv.getByRole('link', { name: new RegExp(t('nav.website_requests')) })).toHaveCount(
+    0,
+  );
+  await ctv.goto(new URL('/website-requests', ctv.url()).toString());
+  await expect(ctv.getByText('Bạn không có quyền mở trang này')).toBeVisible({ timeout: 10_000 });
+  await ctx.close();
 });
 
 test('TC-WR-002 khách gửi yêu cầu (EN) → trang cảm ơn có mã; Desk: hàng chờ, số trên menu, "Cần chú ý"', async ({
@@ -493,7 +492,10 @@ test('TC-WR-003 FD nhận xử lý → thấy tên/SĐT, số trên menu giảm;
   await expect(d).toBeVisible();
   await expect(d.getByRole('textbox', { name: 'Ngày đến' })).toHaveValue(s.arrival);
   await expect(d.getByRole('textbox', { name: 'Ngày đi' })).toHaveValue(s.departure);
-  await expect(d.getByRole('combobox', { name: t('bk.source') })).toHaveValue('website');
+  // BUG-R3-011 fixed: channel + source shown read-only ("Trực tiếp · Website").
+  await expect(d.getByRole('textbox', { name: t('booking.field.channel') })).toHaveValue(
+    `${t('bk.ch_direct')} · ${t('bk.src_web')}`,
+  );
 
   const roomSel = d.getByRole('combobox', { name: t('booking.field.room'), exact: true });
   const roomOptions = async () =>
@@ -548,10 +550,11 @@ test('TC-WR-003 FD nhận xử lý → thấy tên/SĐT, số trên menu giảm;
   await fd.context().close();
 });
 
-test('TC-WR-012 "Tạo đơn" từ yêu cầu: đổi Nguồn khác Website → server từ chối, không tạo đơn, yêu cầu giữ nguyên (AC2 – BR-112 (a))', async ({
+test('TC-WR-012 BUG-R3-011 "Tạo đơn" từ yêu cầu: Kênh/Nguồn chỉ đọc "Trực tiếp · Website", không còn ô đổi (AC2 – BR-112 (a))', async ({
   page,
   browser,
 }) => {
+  knownBug('BUG-R3-011');
   resetPublicCounters();
   const phone = fakeMobile();
   const arrival = addDays(today, 80 + Math.floor(Math.random() * 15));
@@ -571,51 +574,17 @@ test('TC-WR-012 "Tạo đơn" từ yêu cầu: đổi Nguồn khác Website → 
     .getByRole('dialog')
     .filter({ hasText: t('webreq.booking_hint').slice(0, 30) })
     .first();
-  const source = d.getByRole('combobox', { name: t('bk.source') });
-  await expect(source).toHaveValue('website');
-  const editable = await source.isEnabled();
-  test.info().annotations.push({
-    type: 'observation',
-    description: `Ô Nguồn trong H09 từ yêu cầu website: ${editable ? 'SỬA ĐƯỢC (BUG-R3-011)' : 'khóa'}`,
-  });
-  test.skip(!editable, 'ô Nguồn đã khóa – không còn đường đổi nguồn');
-  await source.selectOption('zalo_phone');
-  const roomSel = d.getByRole('combobox', { name: t('booking.field.room'), exact: true });
-  await expect
-    .poll(async () =>
-      (await roomSel.locator('option').allTextContents()).some((o) => /^\d{3}\b/.test(o.trim())),
-    )
-    .toBe(true);
-  const label = (await roomSel.locator('option').allTextContents()).find((o) =>
-    /^\d{3}\b/.test(o.trim()),
-  )!;
-  await roomSel.selectOption({ label });
-  await d.getByRole('combobox', { name: t('booking.field.guest') }).fill('Qa Eta');
-  await fd.getByRole('option', { name: /Tạo nhanh/ }).click();
-  const g = fd.getByRole('dialog', { name: 'Hồ sơ khách mới' });
-  const gPhone = g.getByRole('textbox', { name: 'Số điện thoại / Zalo' });
-  if (!(await gPhone.inputValue())) await gPhone.fill(phone);
-  await g.getByRole('button', { name: 'Lưu hồ sơ' }).click();
-  await expect(g).toBeHidden();
-  const answer = fd.waitForResponse(
-    (r) => r.request().method() === 'POST' && /\/reservations$/.test(new URL(r.url()).pathname),
-  );
-  await d.getByRole('button', { name: t('booking.create'), exact: true }).click();
-  const res = await answer;
-  expect(res.status(), 'server không nhận nguồn khác website cho đơn từ yêu cầu').toBe(422);
-  expect(await res.text()).toContain('directSource');
   await expect(d).toBeVisible();
-  await fd.waitForTimeout(500);
-  const shown = (await d.locator('.field-error, [role="alert"], .alert').allInnerTexts())
-    .map((x) => x.trim())
-    .filter(Boolean);
-  test.info().annotations.push({
-    type: 'observation',
-    description: `H09 sau 422: ${JSON.stringify(shown)}`,
-  });
-  console.log('[QA] H09 after 422:', JSON.stringify(shown));
-  await d.getByRole('combobox', { name: t('bk.source') }).scrollIntoViewIfNeeded();
-  await fd.screenshot({ path: test.info().outputPath('h09-source-changed.png') });
+  const channel = d.getByRole('textbox', { name: t('booking.field.channel') });
+  await expect(channel).toHaveValue(`${t('bk.ch_direct')} · ${t('bk.src_web')}`);
+  await expect(channel).toHaveAttribute('readonly', '');
+  await expect(d.getByText(t('webreq.source_locked'))).toBeVisible();
+  // No way to pick another channel or source in this dialog.
+  await expect(d.getByRole('combobox', { name: t('bk.source') })).toHaveCount(0);
+  await expect(d.getByRole('button', { name: t('bk.ch_agent'), exact: true })).toHaveCount(0);
+  await expect(d.getByRole('button', { name: t('bk.ch_ota'), exact: true })).toHaveCount(0);
+  await channel.scrollIntoViewIfNeeded();
+  await fd.screenshot({ path: test.info().outputPath('h09-channel-locked.png') });
   const row = requestRow(refCode);
   expect(row.status).toBe('in_progress');
   expect(row.reservation).toBeNull();
@@ -837,29 +806,71 @@ test('TC-WR-010 BUG-R3-009 số CCCD viết có dấu cách / gạch / chấm tr
   }
 });
 
-test('TC-WR-008 BUG-R3-008 OWN tắt form ngay trong ngày đã bật → công tắc tắt, form token 404', async ({
+test('TC-WR-008 BUG-R3-008 kill switch: OWN tắt trong ngày đã bật → 404 ngay; bật lại cùng ngày → 422; MGR/FDL không tắt được', async ({
   request,
   page,
 }) => {
   knownBug('BUG-R3-008');
+  const status = async () =>
+    page.evaluate(
+      async (slug) => (await fetch(`/v1/public/properties/${slug}/form-token`)).status,
+      SLUG,
+    );
+  await page.goto(`${LANDING}/`);
+  // Precondition: TC-WR-001 turned it ON today (a row of today exists) – the token is served.
+  expect(
+    sql1(
+      `SELECT value::text FROM config_parameter WHERE key = '${SWITCH}' AND effective_from = '${today}'`,
+    ),
+  ).toBe('true');
+  expect(await status(), 'trước khi tắt: form token 200').toBe(200);
+
+  // Only OWN may pull it (setParameter security key).
+  for (const user of ['qa.mgr', 'qa.fdl']) {
+    const s = await session(request, user);
+    const r = await setSwitch(request, s, false);
+    expect(r.status, `${user} tắt công tắc`).toBe(403);
+  }
+
   const own = await session(request, 'qa.owner');
   const off = await setSwitch(request, own, false);
   expect(off.status, JSON.stringify(off.body)).toBeLessThan(300);
-  await page.goto(`${LANDING}/`);
-  const tok = await page.evaluate(
-    async (slug) => (await fetch(`/v1/public/properties/${slug}/form-token`)).status,
-    SLUG,
+  // In force NOW: the very next token call is refused, and the landing points to Zalo / phone.
+  expect(await status(), 'ngay sau khi tắt: form token 404').toBe(404);
+  await page.goto(`${LANDING}/#book`);
+  await page.locator('#f-name').click();
+  await expect(page.locator('#bk-status')).toContainText('Online requests are paused right now', {
+    timeout: 10_000,
+  });
+  // Same-day override recorded: today's row now false, audit `security` with sameDayOverride + previous value.
+  expect(
+    sql1(
+      `SELECT value::text FROM config_parameter WHERE key = '${SWITCH}' AND effective_from = '${today}'`,
+    ),
+  ).toBe('false');
+  const audit = sql1(
+    `SELECT category || '|' || coalesce(before::text, '') || '|' || coalesce(after::text, '') FROM audit_event
+      WHERE entity_type = 'config_parameter' AND entity_id = '${SWITCH}' AND after IS NOT NULL
+      ORDER BY occurred_at DESC, id DESC LIMIT 1`,
   );
-  expect(tok).toBe(404);
+  test.info().annotations.push({ type: 'evidence', description: `audit: ${audit}` });
+  expect(audit).toContain('security|');
+  expect(audit).toContain('"sameDayOverride": true');
+  expect(audit).toMatch(/"value": true/);
+
+  // Turning it back ON the same day follows the normal rule → 422 on effectiveFrom, form stays off.
+  const again = await setSwitch(request, own, true);
+  expect(again.status, JSON.stringify(again.body)).toBe(422);
+  expect(JSON.stringify(again.body)).toContain('effectiveFrom');
+  expect(await status(), 'bật lại cùng ngày bị từ chối → vẫn 404').toBe(404);
 });
 
-test('TC-WR-009 công tắc tắt (ngày sau) → 404, landing hiện Zalo/gọi điện; Desk báo form tắt, yêu cầu cũ vẫn xem được', async ({
+test('TC-WR-009 công tắc tắt → 404, landing hiện Zalo/gọi điện; Desk báo form tắt, yêu cầu cũ vẫn xem được', async ({
   page,
   browser,
   request,
 }) => {
-  // Harness: today's ON row removed (BUG-R3-008 – emulates "the next business day"), then OWN turns it off.
-  clearSwitchRows();
+  // State from TC-WR-008 (kill switch OFF today); OWN setting OFF again is accepted (same-day override, idempotent).
   const own = await session(request, 'qa.owner');
   const off = await setSwitch(request, own, false);
   expect(off.status, JSON.stringify(off.body)).toBeLessThan(300);
@@ -906,8 +917,26 @@ test('TC-WR-009 công tắc tắt (ngày sau) → 404, landing hiện Zalo/gọi
 
 test('TC-WR-011 BUG-R3-010 lễ tân trưởng (FDL) cũng thấy dòng "Form đặt phòng trên website đang tắt" ở S35', async ({
   browser,
+  request,
 }) => {
   knownBug('BUG-R3-010');
+  // 0.3.8 add. 5: FDL READS this one security key (200, current false); other security keys stay hidden (404).
+  const s = await session(request, 'qa.fdl');
+  const read = await call<{ current?: { value: unknown } }>(
+    request,
+    'GET',
+    `/v1/properties/${propertyIdOf(s)}/parameters/${SWITCH}`,
+    { session: s },
+  );
+  expect(read.status).toBe(200);
+  expect(read.body.current?.value).toBe(false);
+  const other = await call(
+    request,
+    'GET',
+    `/v1/properties/${propertyIdOf(s)}/parameters/public_booking_request_pow_enabled`,
+    { session: s },
+  );
+  expect(other.status, 'khóa bảo mật khác vẫn ẩn với FDL').toBe(404);
   const fdl = await desk(browser, 'qa.fdl');
   await openQueue(fdl);
   await expect(fdl.getByText(t('webreq.form_off_title')).first()).toBeVisible({ timeout: 10_000 });
