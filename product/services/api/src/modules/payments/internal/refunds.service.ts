@@ -647,6 +647,9 @@ export class RefundsService {
       ...(note ? { reason: note } : {}),
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });
+    // BUG-R3-014 (critic rerun M-2, 13.3 points 1 + 3): the pay-out lowered the credit – the open refunds of the folio
+    // are re-planned in this transaction; no credit left → approved requests with money left are closed `superseded`.
+    await this.folios.replanRefundsAfterPayout(tx, folio.id, actor.requestId);
     // S4-06 (BR-522 v0.3.4): the "Cần chú ý – tiền dư đơn đã đóng" item of a cancelled / no-show booking closes
     // itself once nothing is left to pay back on its folio (BE-D 2.2: system-resolved only).
     if (this.events) {

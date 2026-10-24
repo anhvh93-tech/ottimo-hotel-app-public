@@ -3043,6 +3043,34 @@ export class FolioService implements FolioStaySync {
   }
 
   /**
+   * BUG-R3-014 (critic rerun M-2; contract 0.3.8 bổ sung 6, 13.3 points 1 + 3): a refund paid out lowers the credit
+   * like any other change – right after the pay-out, in its transaction, under the folio lock the pay-out holds,
+   * refundPlan runs on the folio (open or settled; closed folios take no pay-out): requests asking more than the credit
+   * left are re-planned (`superseded`; nobody else acting – a replacement keeps its requester and level) and, the
+   * credit gone, every approved request with money left (the one just paid in part included) is closed `superseded`
+   * – money arriving later is never absorbed by an old approval: it gets its own request and routing (ADD3-01).
+   */
+  async replanRefundsAfterPayout(tx: Tx, folioId: string, requestId?: string): Promise<void> {
+    const folio = await this.get(tx, folioId);
+    if (!folio || folio.status === 'closed') return;
+    const { rows } = await tx.query<{ code: string }>(
+      'SELECT code FROM reservation WHERE id = $1',
+      [folio.primary_reservation_id],
+    );
+    await this.refundsDownToCredit(
+      tx,
+      {
+        folioId,
+        reservationId: folio.primary_reservation_id,
+        reservationCode: rows[0]?.code ?? folio.bill_no ?? folioId,
+        actor: null,
+        ...(requestId ? { requestId } : {}),
+      },
+      'superseded',
+    );
+  }
+
+  /**
    * BR-433 (e) v0.4.3 + ARC/SEC FB-…-ADD3-01 – THE routing of every `refund` request (ApprovalService.submit calls it
    * through provideRefundRouting, whatever path asks: by hand `createRefundRequest`, a receipt, a cancellation, an A32
    * reduction, a `superseded` replacement). Its folio = the target booking's folio. When someone below the owner made

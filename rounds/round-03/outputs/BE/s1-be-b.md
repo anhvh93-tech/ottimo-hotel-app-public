@@ -533,3 +533,35 @@ Nhánh `be-b/r3-bug012-followups`, tách từ `origin/main` `27c5dcc` (đã có 
 Kết quả chạy:
 - Toàn bộ API: 129 tệp đạt, 2 bỏ qua; 3.231 test đạt, 21 bỏ qua.
 - tsc, eslint, prettier đạt. `r3-bug-012-013.test.ts` chỉ định dạng lại.
+
+## 16. BUG-R3-014 (P1) – chi hoàn không lập lại kế hoạch hoàn (critic rerun M-2, 24/10)
+
+Nhánh `be-b/r3-bug-014`, tách từ `origin/main` `ae93e48`. Không có migration, không đổi hình dạng API.
+
+### Sửa
+- `RefundsService.payOut` (dùng cho cả `executeCashRefund` và `executeRefund`): ghi phiếu hoàn xong, trong cùng giao dịch và dưới khóa folio mà lần chi đang giữ, gọi `FolioService.replanRefundsAfterPayout`.
+- Hàm này chạy `refundsDownToCredit` trên folio đang mở hoặc `settled` (folio `closed` không chi được), không có người bấm, theo hợp đồng 13.3 điểm 1 + 3:
+  - yêu cầu chờ vượt tiền dư → `superseded`, xin lại đúng số. Bản thay giữ người xin, nguồn và cấp duyệt (FB-1213-01/02);
+  - **hết tiền dư** → mọi yêu cầu **đã duyệt còn tiền** đóng `cancelled` `superseded`, kể cả chính yêu cầu vừa chi dở; có audit, báo người xin/người duyệt, hook xóa tài khoản nhận (SEC-BE-45);
+  - còn tiền dư → yêu cầu đã duyệt giữ nguyên, lần chi sau vẫn kẹp `min(còn lại, tiền dư)`.
+- Hệ quả: tiền khách trả thêm sau khi tiền dư đã về 0 luôn sinh yêu cầu mới, đi qua định tuyến ADD3-01 (folio có A32 → `owner`). Lần duyệt cũ không còn "hút" được tiền mới.
+
+### Chưa làm – cần ARC quyết (critic đề xuất 2, ORC dặn hỏi ARC)
+1. **Biến thể còn hở, suy ra từ mã:**
+   - Tiền dư vẫn **> 0** nhưng nhỏ hơn phần còn lại của một yêu cầu đã duyệt **trước** khi có A32.
+   - Sau đó MGR làm A32 giảm d. Tiền dư tăng d, nhưng phần chưa yêu cầu vẫn = 0, nên không sinh yêu cầu `a32`.
+   - Phần tiền miễn này có thể được chi theo lần duyệt cũ.
+   - Đề xuất:
+     - (a) lúc chi, nếu folio có A32 dưới OWN tạo sau `decided_at` của yêu cầu → đóng yêu cầu `superseded` và lập lại (bản mới đi định tuyến ADD3), trả 409 như lớp chặn ở bước duyệt;
+     - hoặc (b) A32 giảm đóng mọi yêu cầu đã duyệt chưa chi trên folio rồi lập lại.
+2. **Người chi thuộc `origin_actor_ids` hoặc là người làm A32** (64053 #54, MGR làm A32 rồi chi chuyển khoản): hợp đồng hiện **không** cấm.
+   - Đề xuất thêm luật: người làm A32 giảm trên folio không chi yêu cầu hoàn của folio đó, trừ OWN → 403 `SELF_REFUND_FORBIDDEN`.
+   - Chờ ARC ghi hợp đồng rồi BE-B làm.
+
+### Test
+- `fuzz/bug-r3-014.test.ts` (ca tái hiện của QA): bỏ cờ `FUZZ_KNOWN_BUGS`, nay luôn chạy.
+- `s438-r8/r3-bug-014-payout-replan.test.ts` (3 ca):
+  1. ca của QA: duyệt 300.000, tiền dư 200.000, chi 200.000 → phần 100.000 còn lại đóng `superseded`, tài khoản nhận bị xóa;
+  2. tiền mới 500.000 sau khi tiền dư về 0 → yêu cầu mới 500.000 `owner`; lần duyệt cũ chi → 409;
+  3. chi 150.000, còn dư 50.000 → yêu cầu đã duyệt giữ nguyên; chi tiếp 100.000 → 422 `max` 50.000.
+- **Chưa chạy test DB:** Docker trên máy đang treo (ORC báo). tsc, eslint, prettier đạt. Sẽ chạy cả bộ API khi ORC báo Docker chạy lại.

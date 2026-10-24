@@ -360,3 +360,14 @@ Nhánh `be-b/r3-bug012-followups`, nằm trên `origin/main` `27c5dcc`. Chi ti�
 - **FB-R3-SEC-1213-02: Done.** OWN thao tác thì bản thay giữ người xin cũ, như nhánh J15. Test: OWN duyệt được bản thay.
 - **FB-R3-ARC-BUG012-02** (harness I7 khi thứ tự đua mơ hồ): việc của QA.
 - **Kiểm:** toàn bộ API 3.231 test đạt, 21 bỏ qua. Không chạy lại fuzz vì ORC chỉ yêu cầu test oracle và toàn bộ API.
+
+---
+
+# BUG-R3-014 – trả lời critic rerun (`s1-money-critic-rerun.md` M-2) – 24/10
+
+Nhánh `be-b/r3-bug-014`, nằm trên `origin/main` `ae93e48`. Chi tiết ở `outputs/BE/s1-be-b.md` mục 16.
+
+- **M-2, đề xuất 1: Done.** `payOut` lập lại kế hoạch hoàn ngay sau khi chi, cùng giao dịch. Hết tiền dư thì mọi yêu cầu đã duyệt còn tiền đóng `superseded`.
+- **Đề xuất 2 và luật người chi:** chờ ARC quyết. Hai phương án nằm ở mục 16 "Chưa làm".
+- **Đề xuất 3:** việc của QA (I24, I24b, ca hồi quy).
+- **Kiểm:** tsc, eslint, prettier đạt. Test DB chưa chạy vì Docker đang treo.
