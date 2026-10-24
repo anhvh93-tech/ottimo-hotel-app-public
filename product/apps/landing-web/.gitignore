@@ -3,3 +3,5 @@
 dist/
 # Review build of the booking form (never deployed)
 dist-booking-preview/
+# Live-form test build (LANDING_BOOKING_FORM=true, slug dl01 – tests only, never deployed)
+dist-booking-live/

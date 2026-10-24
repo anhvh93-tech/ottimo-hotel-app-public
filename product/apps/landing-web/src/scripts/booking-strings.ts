@@ -30,8 +30,21 @@ export interface BookingStrings {
     email: string;
     card: string;
     consent: string;
+    /** Server ID_NUMBER_DETECTED (SEC ARC-08): no documents at this step. */
+    idNumber: string;
+    /** Server PHONE_INVALID / PHONE_COUNTRY_CODE_REQUIRED (V-02). */
+    phoneCountry: string;
+    /** Any other field the server refused. */
+    server: string;
   };
   net: { network: string; busy: string; rate: string };
+  /**
+   * The form is not taking requests right now (404 / PUBLIC_FORM_NOT_READY – switch off on the server): text around
+   * the Zalo link and the hotline link, "… message us on [Zalo] or call [08.4444.0909]."
+   */
+  notReady: readonly [string, string, string];
+  /** NOTICE_VERSION_INVALID: the privacy notice changed since the page loaded. */
+  reload: string;
   sending: string;
   /** Review build only: the request is validated but never sent (no endpoint yet). */
   notSent: string;
@@ -78,6 +91,10 @@ export const BOOKING_STRINGS: Record<'en' | 'vi', BookingStrings> = {
       email: 'Enter an email like name@example.com.',
       card: 'Please remove card numbers from the note.',
       consent: 'Please tick the box so we can reply.',
+      idNumber: 'No need to send ID numbers at this step. Please remove it.',
+      phoneCountry:
+        'Please check the number. Numbers outside Viet Nam start with + and the country code.',
+      server: 'Please check this field.',
     },
     net: {
       network:
@@ -85,6 +102,12 @@ export const BOOKING_STRINGS: Record<'en' | 'vi', BookingStrings> = {
       busy: 'We are receiving many requests right now. Please message us on Zalo or call 08.4444.0909.',
       rate: 'Too many requests from this connection. Please try again later, or chat with us on Zalo.',
     },
+    notReady: [
+      'Online requests are paused right now. Please message us on ',
+      ' or call ',
+      '. We will reply as soon as we can.',
+    ],
+    reload: 'This page has been updated. Please reload it and send your request again.',
     sending: 'Sending…',
     notSent:
       'Preview: this request was not sent. Online requests open soon – please chat with us on Zalo.',
@@ -126,12 +149,21 @@ export const BOOKING_STRINGS: Record<'en' | 'vi', BookingStrings> = {
       email: 'Nhập email dạng ten@vidu.com.',
       card: 'Vui lòng xóa số thẻ khỏi ghi chú.',
       consent: 'Vui lòng đánh dấu ô đồng ý để OTTIMO trả lời.',
+      idNumber: 'Không cần gửi số giấy tờ ở bước này. Vui lòng xóa số đó.',
+      phoneCountry: 'Vui lòng kiểm tra lại số. Số nước ngoài bắt đầu bằng + và mã nước.',
+      server: 'Vui lòng kiểm tra lại mục này.',
     },
     net: {
       network: 'Chưa gửi được yêu cầu. Kiểm tra kết nối rồi thử lại, hoặc nhắn OTTIMO qua Zalo.',
       busy: 'OTTIMO đang nhận nhiều yêu cầu. Vui lòng nhắn Zalo hoặc gọi 08.4444.0909.',
       rate: 'Kết nối này đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau, hoặc nhắn OTTIMO qua Zalo.',
     },
+    notReady: [
+      'Yêu cầu trực tuyến đang tạm dừng. Vui lòng nhắn OTTIMO qua ',
+      ' hoặc gọi ',
+      '. OTTIMO sẽ trả lời sớm nhất có thể.',
+    ],
+    reload: 'Trang vừa được cập nhật. Vui lòng tải lại trang rồi gửi lại yêu cầu.',
     sending: 'Đang gửi…',
     notSent:
       'Bản xem trước: yêu cầu chưa được gửi. Yêu cầu trực tuyến sắp mở – vui lòng nhắn OTTIMO qua Zalo.',

@@ -374,6 +374,48 @@ export function checkForms({ html }, { bookingRequest = false } = {}) {
   return problems;
 }
 
+/**
+ * Where a rendered form sends (US-155 v1.0): `data-transport` is `preview` (never sends) or `api`; the api form names a
+ * property slug (`PropertySlug` ^[a-z0-9-]{2,40}$), a published notice version (`consentVersion`) and an API base that
+ * is empty (same origin – the contract route, CSP connect-src 'self') or exactly `apiOrigin` (https origin, no path).
+ * Pages without the form, and builds without it, link to no privacy page unless it is published (`privacy`).
+ */
+export function checkFormEndpoint(
+  { html },
+  { bookingRequest = false, apiOrigin = '', privacy } = {},
+) {
+  const problems = [];
+  const published = privacy ?? bookingRequest;
+  for (const page of html) {
+    const t = tags(page.source);
+    for (const a of t.filter((x) => x.name === 'a' && /\/privacy\//.test(x.attrs.href ?? '')))
+      if (!published)
+        problems.push(`${page.path}: link to ${a.attrs.href} but no privacy page is published`);
+    const form = t.find((x) => x.name === 'form');
+    if (!form) continue;
+    const mode = form.attrs['data-transport'];
+    if (!['preview', 'api'].includes(mode))
+      problems.push(`${page.path}: form data-transport "${mode}" (preview | api)`);
+    if (mode !== 'api') continue;
+    if (!/^[a-z0-9-]{2,40}$/.test(form.attrs['data-property'] ?? ''))
+      problems.push(`${page.path}: live form without a property slug`);
+    if (!/^\d{4}-\d{2}-\d{2}(\.\d{1,2})?$/.test(form.attrs['data-consent-version'] ?? ''))
+      problems.push(`${page.path}: live form without a privacy notice version`);
+    const api = form.attrs['data-api'] ?? '';
+    if (api !== '' && api !== apiOrigin)
+      problems.push(
+        `${page.path}: form posts to ${api} (expected same origin or ${apiOrigin || 'none'})`,
+      );
+    if (
+      api !== '' &&
+      !/^https:\/\/[a-z0-9.-]+(:\d+)?$/.test(api) &&
+      !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(api)
+    )
+      problems.push(`${page.path}: API base ${api} is not an https origin`);
+  }
+  return problems;
+}
+
 function head(page) {
   const t = tags(page.source);
   const meta = (key, value) =>
@@ -708,6 +750,7 @@ export function runAll(dist, opts) {
     thirdParty: checkThirdParty(d, opts.siteUrl, opts),
     singleH1: checkSingleH1(d),
     forms: checkForms(d, opts),
+    formEndpoint: checkFormEndpoint(d, opts),
     wording: checkWording(d),
     seo: checkSeo(d, opts),
     sitemapRobots: checkSitemapRobots(d, opts),

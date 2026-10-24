@@ -4,13 +4,25 @@
   "tasks": {
     "build": {
       "outputs": ["dist/**"],
-      "env": ["LANDING_SITE_URL", "LANDING_INDEXABLE"]
+      "env": [
+        "LANDING_SITE_URL",
+        "LANDING_INDEXABLE",
+        "LANDING_BOOKING_FORM",
+        "LANDING_PROPERTY_SLUG",
+        "PUBLIC_FORM_API_BASE"
+      ]
     },
     "test": {
       "dependsOn": ["^build", "build"],
-      "env": ["LANDING_SITE_URL", "LANDING_INDEXABLE"],
+      "env": [
+        "LANDING_SITE_URL",
+        "LANDING_INDEXABLE",
+        "LANDING_BOOKING_FORM",
+        "LANDING_PROPERTY_SLUG",
+        "PUBLIC_FORM_API_BASE"
+      ],
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/design/wireframes/assets/tokens.css"],
-      "outputs": ["dist-booking-preview/**"]
+      "outputs": ["dist-booking-preview/**", "dist-booking-live/**"]
     }
   }
 }

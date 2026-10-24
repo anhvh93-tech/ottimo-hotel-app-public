@@ -1,0 +1,43 @@
+---
+// Privacy notice for the booking request form (US-155 AC4, SEC C-3 (a), UXD-04) – /privacy/ and /vi/privacy/.
+// Built only with the form (lib/booking-request.ts PRIVACY_PAGE_PUBLISHED); text and version in content/privacy.ts.
+// Plain document: one H1, H2 per topic, no script of its own, no third-party resource.
+import { PRIVACY_NOTICE } from '../content/privacy';
+import type { Copy } from '../content/types';
+import Base from '../layouts/Base.astro';
+import { pathFor } from '../lib/i18n';
+import '../styles/privacy.css';
+
+interface Props {
+  t: Copy;
+}
+
+const { t } = Astro.props;
+const p = PRIVACY_NOTICE[t.lang];
+---
+
+<Base t={t} slug="privacy" title={p.title} description={p.description}>
+  <section class="sec privacy" aria-labelledby="pv-h">
+    <div class="wrap">
+      <p class="label">{p.label}</p>
+      <h1 id="pv-h">{p.h1}</h1>
+      <p class="lead">{p.intro}</p>
+      <div class="privacy-body" id={p.anchor}>
+        {
+          p.sections.map((s) => (
+            <>
+              <h2 class="h3">{s.h}</h2>
+              {s.p.map((x) => (
+                <p>{x}</p>
+              ))}
+            </>
+          ))
+        }
+        <p class="privacy-ver">{p.version}</p>
+      </div>
+      <div class="actions">
+        <a class="btn btn-ghost" href={pathFor(t.lang)}>{p.back}</a>
+      </div>
+    </div>
+  </section>
+</Base>

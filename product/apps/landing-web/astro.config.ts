@@ -4,17 +4,20 @@
 import sitemap from '@astrojs/sitemap';
 import { defineConfig, passthroughImageService } from 'astro/config';
 import { fileURLToPath } from 'node:url';
-import { BOOKING_FORM_RENDERED } from './src/lib/booking-request';
+import { securityHeaders } from './scripts/headers.mjs';
+import {
+  BOOKING_FORM_RENDERED,
+  PRIVACY_PAGE_PUBLISHED,
+  PUBLIC_FORM_API_BASE,
+} from './src/lib/booking-request';
 import { DEFAULT_LANG, LANGS, SITE_URL, alternatesFor, langOfPath } from './src/lib/i18n';
-import securityHeaders from './src/lib/security-headers.json';
 
 // Review build of the booking form goes to its own folder (never deployed): `pnpm build:booking-preview`.
 const outDir = process.env.LANDING_OUT_DIR ?? 'dist';
 
-// Same headers as production (ADR-014 1.4) on `astro preview`; keys starting with "$" are notes, not headers.
-const previewHeaders = Object.fromEntries(
-  Object.entries(securityHeaders).filter(([name]) => !name.startsWith('$')),
-);
+// Same headers as production (ADR-014 1.4) on `astro preview`; connect-src gains the API origin only when the live
+// form names one (PUBLIC_FORM_API_BASE – scripts/headers.mjs).
+const previewHeaders = securityHeaders({ apiOrigin: PUBLIC_FORM_API_BASE || null });
 
 export default defineConfig({
   site: SITE_URL,
@@ -50,6 +53,15 @@ export default defineConfig({
           new URL(
             BOOKING_FORM_RENDERED
               ? './src/components/BookingForm.astro'
+              : './src/components/NoBookingForm.astro',
+            import.meta.url,
+          ),
+        ),
+        // Same for the privacy notice page (US-155): its CSS only exists in builds that publish it.
+        '@privacy-page': fileURLToPath(
+          new URL(
+            PRIVACY_PAGE_PUBLISHED
+              ? './src/components/PrivacyPage.astro'
               : './src/components/NoBookingForm.astro',
             import.meta.url,
           ),

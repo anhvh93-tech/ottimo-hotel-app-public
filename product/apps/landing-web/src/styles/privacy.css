@@ -1,0 +1,23 @@
+/* Privacy notice page only (imported by components/PrivacyPage.astro, so the production build without the form
+   ships exactly the CSS it shipped before). Brand tokens only. */
+.privacy h1 {
+  margin: 0 0 var(--s5);
+}
+.privacy .lead,
+.privacy-body {
+  max-width: 40em;
+}
+.privacy .lead {
+  margin-bottom: var(--s6);
+}
+.privacy-body h2 {
+  margin: var(--s6) 0 var(--s3);
+}
+.privacy-body p {
+  margin-bottom: var(--s3);
+}
+.privacy-ver {
+  margin-top: var(--s6);
+  color: var(--brand-stone);
+  font-size: var(--fs-small);
+}

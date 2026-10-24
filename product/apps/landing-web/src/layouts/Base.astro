@@ -28,14 +28,18 @@ interface Props {
   slug?: string;
   title: string;
   description: string;
-  /** Published page (home): canonical, hreflang, JSON-LD, hero preload. False for 404. */
+  /** Published page (home, privacy): canonical, hreflang, JSON-LD. False for 404. */
   published?: boolean;
+  /** Preload the hero photo – the home page only (default: `published && slug === ''`). */
+  heroPreload?: boolean;
 }
 
 const { t, slug = '', title, description, published = true } = Astro.props;
+const heroPreload = Astro.props.heroPreload ?? (published && slug === '');
 const lang = t.lang;
 const pageUrl = absoluteUrl(pathFor(lang, slug));
-const home = published ? '' : pathFor(lang);
+/** '' on the home page (in-page anchors); the home path on every other page. */
+const home = published && slug === '' ? '' : pathFor(lang);
 const robots = INDEXABLE && published ? 'index, follow' : 'noindex, nofollow';
 const ogImage = absoluteUrl(OG_IMAGE.path);
 const hero = photo('hero-facade-dusk');
@@ -56,7 +60,7 @@ const heroPhone = hero.widths.filter((w) => w <= 960);
     <link rel="preload" href={loraLatin400} as="font" type="font/woff2" crossorigin />
     <noscript><link rel="stylesheet" href={nojsCss} /></noscript>
     {
-      published && (
+      heroPreload && (
         <>
           <link
             rel="preload"
@@ -76,6 +80,12 @@ const heroPhone = hero.widths.filter((w) => w <= 960);
             imagesrcset={srcset(hero, 'avif', hero.widths)}
             imagesizes="(min-width: 1200px) 640px, (min-width: 1024px) 54vw, 100vw"
           />
+        </>
+      )
+    }
+    {
+      published && (
+        <>
           <link rel="canonical" href={pageUrl} />
           {alternatesFor(slug).map((a) => (
             <link rel="alternate" hreflang={a.hreflang} href={a.href} />
@@ -94,7 +104,10 @@ const heroPhone = hero.widths.filter((w) => w <= 960);
             <meta property="og:locale:alternate" content={OG_LOCALE[l]} />
           ))}
           <meta name="twitter:card" content="summary_large_image" />
-          <script type="application/ld+json" set:html={jsonForScript(homeJsonLd(t, pageUrl))} />
+          <script
+            type="application/ld+json"
+            set:html={jsonForScript(homeJsonLd(t, absoluteUrl(pathFor(lang))))}
+          />
         </>
       )
     }

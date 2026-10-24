@@ -180,11 +180,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       # dist/ = production build (booking form off); dist-booking-preview/ = review build with the form rendered
-      # (never deployed) for the form cases – concept 5, SEC UXD-08.
-      - name: Build landing (production + booking-form review build)
+      # (never deployed) for the form cases – concept 5, SEC UXD-08; dist-booking-live/ = live-form test build
+      # (LANDING_BOOKING_FORM=true, slug dl01, public API answered by the tests – US-155 v1.0, FE-B).
+      - name: Build landing (production + booking-form review build + live-form test build)
         run: |
           pnpm --filter @ottimo/landing-web build
           pnpm --filter @ottimo/landing-web build:booking-preview
+          pnpm --filter @ottimo/landing-web build:booking-live-test
       - name: Playwright version
         id: pw
         run: echo "version=$(pnpm --filter @ottimo/tests exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"

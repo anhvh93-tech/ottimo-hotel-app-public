@@ -1,0 +1,14 @@
+---
+// /privacy/ – generated only when the privacy notice is published with the booking form (getStaticPaths is empty
+// otherwise, so today's production build has no such page – lib/booking-request.ts).
+// @privacy-page = PrivacyPage.astro when published, else an empty stand-in (astro.config.ts).
+import PrivacyPage from '@privacy-page';
+import { en } from '../content/en';
+import { PRIVACY_PAGE_PUBLISHED } from '../lib/booking-request';
+
+export function getStaticPaths() {
+  return PRIVACY_PAGE_PUBLISHED ? [{ params: { privacy: 'privacy' } }] : [];
+}
+---
+
+<PrivacyPage t={en} />

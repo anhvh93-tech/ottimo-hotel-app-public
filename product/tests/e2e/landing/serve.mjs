@@ -4,11 +4,12 @@
 // /en/* → 301 without the prefix, 404 page by language prefix, cache rules, gzip for text. Never reads
 // Accept-Language, never sets a cookie, never sends Vary: Accept-Language. Production headers are OPS's
 // Caddyfile.prod; this mirror only lets the tests catch CSP violations and byte budgets before deploy.
-// Usage: node serve.mjs [--port 5186] [--root <dist>]
-import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
+// Usage: node serve.mjs [--port 5186] [--root <dist>] [--api-origin <origin>]
+// --api-origin: the live form build that posts to another API origin (CSP connect-src gains exactly it).
+import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createGzip } from 'node:zlib';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -20,12 +21,9 @@ const arg = (name, fallback) => {
 const ROOT = path.resolve(arg('--root', process.env.LANDING_DIST ?? path.join(app, 'dist')));
 const PORT = Number(arg('--port', process.env.LANDING_PORT ?? 5186));
 
-// Keys starting with "$" are notes, not headers.
-const SECURITY = Object.fromEntries(
-  Object.entries(
-    JSON.parse(readFileSync(path.join(app, 'src/lib/security-headers.json'), 'utf8')),
-  ).filter(([name]) => !name.startsWith('$')),
-);
+// Same headers as ADR-014 1.4 (apps/landing-web/scripts/headers.mjs – keys starting with "$" are notes).
+const { securityHeaders } = await import(pathToFileURL(path.join(app, 'scripts/headers.mjs')).href);
+const SECURITY = securityHeaders({ apiOrigin: arg('--api-origin', null) });
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',

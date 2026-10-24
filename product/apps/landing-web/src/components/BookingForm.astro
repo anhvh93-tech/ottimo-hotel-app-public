@@ -9,6 +9,7 @@ import type { Copy } from '../content/types';
 import {
   BOOKING_FORM_PREVIEW,
   PRIVACY_NOTICE_VERSION,
+  PUBLIC_FORM_API_BASE,
   PUBLIC_PROPERTY_SLUG,
 } from '../lib/booking-request';
 import { pathFor } from '../lib/i18n';
@@ -50,6 +51,8 @@ const counts = (from: number, to: number) => Array.from({ length: to - from + 1 
   data-hotline-tel={links.tel}
   data-consent-version={PRIVACY_NOTICE_VERSION}
   data-property={PUBLIC_PROPERTY_SLUG}
+  data-api={PUBLIC_FORM_API_BASE}
+  data-zalo={links.zalo}
 >
   <h3 class="h3 sr" id="bk-form-h">{f.title}</h3>
   <div class="summary" id="bk-summary" tabindex="-1" hidden>

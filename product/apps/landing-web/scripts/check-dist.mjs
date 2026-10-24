@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // CLI report of the dist checks (same functions as src/checks/dist.test.ts, which is what CI runs).
-// Usage: pnpm --filter @ottimo/landing-web check:dist [-- --dir dist-booking-preview]
-// (after `build` / `build:booking-preview`; honours LANDING_SITE_URL, LANDING_INDEXABLE)
+// Usage: pnpm --filter @ottimo/landing-web check:dist [-- --dir dist-booking-preview | dist-booking-live]
+// (after `build` / `build:booking-preview` / `build:booking-live-test`; honours LANDING_SITE_URL, LANDING_INDEXABLE,
+// LANDING_BOOKING_FORM and PUBLIC_FORM_API_BASE of the build being checked)
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { runAll } from './dist-checks.mjs';
@@ -15,11 +16,24 @@ if (!existsSync(dist)) {
 }
 const site = JSON.parse(readFileSync(new URL('../src/content/site.json', import.meta.url), 'utf8'));
 const preview = name === 'dist-booking-preview';
+const live =
+  name === 'dist-booking-live' ||
+  process.env.LANDING_BOOKING_FORM === 'true' ||
+  site.features?.bookingRequest === true;
+let apiOrigin = '';
+try {
+  apiOrigin = process.env.PUBLIC_FORM_API_BASE
+    ? new URL(process.env.PUBLIC_FORM_API_BASE).origin
+    : '';
+} catch {
+  apiOrigin = 'invalid';
+}
 const opts = {
   siteUrl: (process.env.LANDING_SITE_URL ?? 'https://ottimo.vn').replace(/\/+$/, ''),
   langs: ['en', 'vi'],
-  indexable: !preview && process.env.LANDING_INDEXABLE === 'true',
-  bookingRequest: preview || site.features?.bookingRequest === true,
+  indexable: !preview && name !== 'dist-booking-live' && process.env.LANDING_INDEXABLE === 'true',
+  bookingRequest: preview || live,
+  apiOrigin,
 };
 const results = runAll(dist, opts);
 let failed = 0;

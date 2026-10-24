@@ -1,9 +1,10 @@
 ---
-// Footer (concept 3.1, N1): lockup on Ink, tagline, one row of links (Zalo · Facebook · Email), © and – once SEC
-// publishes it – the privacy notice. Address, hotline and other channels live in Location / Contact only.
+// Footer (concept 3.1, N1): lockup on Ink, tagline, one row of links (Zalo · Facebook · Email), © and – whenever the
+// privacy notice is published (with the booking form) – a link to it. Address, hotline and other channels live in Location / Contact only.
 // Legal line (INV 22/10): operator, tax code and registered address, as registered (Vietnamese) on every page.
 import { links, site } from '../content/site';
 import type { Copy } from '../content/types';
+import { PRIVACY_PAGE_PUBLISHED } from '../lib/booking-request';
 import { pathFor } from '../lib/i18n';
 import Monogram from './Monogram.astro';
 
@@ -55,7 +56,7 @@ const year = 2026;
     </p>
     <div class="f-base">
       <span>© {year} {site.name} · {t.footer.place}</span>
-      {site.features.privacyPage && <a href={pathFor(t.lang, 'privacy')}>{t.footer.privacy}</a>}
+      {PRIVACY_PAGE_PUBLISHED && <a href={pathFor(t.lang, 'privacy')}>{t.footer.privacy}</a>}
     </div>
   </div>
 </footer>

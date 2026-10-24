@@ -17,7 +17,13 @@ import {
   type BookingPromise,
   type FormValues,
 } from './booking-logic';
-import { apiTransport, previewTransport, type Outcome, type Transport } from './booking-transport';
+import {
+  apiTransport,
+  previewTransport,
+  type FieldProblem,
+  type Outcome,
+  type Transport,
+} from './booking-transport';
 
 const form = document.getElementById('bk-form') as HTMLFormElement | null;
 if (form) init(form);
@@ -36,12 +42,16 @@ function init(form: HTMLFormElement) {
     callNowMinutes: Number(cfg.callNowMinutes ?? 60),
   };
   const shortMax = Number(cfg.shortMax ?? 27);
+  const status = $('bk-status');
   const TODAY = todayIn(tz, new Date());
   const MAX = addDays(TODAY, Number(cfg.windowDays ?? 365));
 
+  // Same origin by default (`data-api` empty – the landing proxies /v1/public/…); the live build may name another
+  // API origin, and CSP connect-src then allows exactly that origin (lib/booking-request.ts, scripts/headers.mjs).
+  const apiBase = cfg.api ?? '';
   const transport: Transport =
     cfg.transport === 'api'
-      ? apiTransport(`/v1/public/properties/${encodeURIComponent(cfg.property ?? '')}`, {
+      ? apiTransport(`${apiBase}/v1/public/properties/${encodeURIComponent(cfg.property ?? '')}`, {
           fetch: (url, init) =>
             cfg.property ? fetch(url, init) : Promise.reject(new Error('no endpoint')),
           now: () => performance.now(),
@@ -56,7 +66,15 @@ function init(form: HTMLFormElement) {
     $<HTMLInputElement>(id).max = MAX;
   }
   $<HTMLInputElement>('f-out').min = addDays(TODAY, 1);
-  form.addEventListener('focusin', () => transport.prepare(), { once: true });
+  // First touch: fetch the form token; if the property is not taking requests, say so before the guest types more.
+  form.addEventListener(
+    'focusin',
+    () =>
+      void transport.prepare().then((o) => {
+        if (o) showOutcome(o);
+      }),
+    { once: true },
+  );
 
   const checked = (name: string) =>
     (form.querySelector(`input[name="${name}"]:checked`) as HTMLInputElement | null)?.value ?? '';
@@ -243,7 +261,11 @@ function init(form: HTMLFormElement) {
         $<HTMLInputElement>('f-consent').checked ? '' : E.consent,
       ),
     );
+    showSummary(errs, focus);
+    return errs.length === 0;
+  }
 
+  function showSummary(errs: { id: string; msg: string }[], focus: boolean) {
     const sum = $('bk-summary');
     if (errs.length) {
       $('bk-summary-h').textContent = S.summary(errs.length);
@@ -264,7 +286,105 @@ function init(form: HTMLFormElement) {
       sum.hidden = false;
       if (focus) sum.focus();
     } else sum.hidden = true;
-    return errs.length === 0;
+  }
+
+  /**
+   * 422 VALIDATION_FAILED from the server (`field` + `code` only – ARC-21): the same messages, at the same fields, as
+   * the checks in the page. Returns false when no error belongs to a field of the form (→ generic message).
+   */
+  function showServerErrors(errors: FieldProblem[]): boolean {
+    const E = S.e;
+    const short = stayType() === 'short';
+    const FIELD: Record<string, [string, string]> = {
+      arrival: short ? ['f-in', 'f-in-err'] : ['f-arr', 'f-arr-err'],
+      departure: ['f-out', 'f-out-err'],
+      months: ['f-months', 'f-arr-err'],
+      adults: ['f-adults', 'f-guests-err'],
+      children: ['f-children', 'f-guests-err'],
+      infants: ['f-infants', 'f-guests-err'],
+      roomType: ['f-room', 'f-guests-err'],
+      guestName: ['f-name', 'f-name-err'],
+      phone: ['f-phone', 'f-phone-err'],
+      email: ['f-email', 'f-email-err'],
+      note: ['f-note', 'f-note-err'],
+      consent: ['f-consent', 'f-consent-err'],
+    };
+    const REQUIRED: Record<string, string> = {
+      arrival: short ? E.inReq : E.arrReq,
+      departure: E.outReq,
+      guestName: E.name,
+      phone: E.phone(S.chName[channel() === 'email' ? 'phone' : (channel() as 'zalo')]),
+      email: E.email,
+      consent: E.consent,
+    };
+    const message = (fe: FieldProblem): string => {
+      switch (fe.code) {
+        case 'ID_NUMBER_DETECTED':
+          return E.idNumber;
+        case 'CARD_NUMBER_DETECTED':
+          return E.card;
+        case 'PHONE_INVALID':
+        case 'PHONE_COUNTRY_CODE_REQUIRED':
+          return E.phoneCountry;
+        case 'EMAIL_INVALID':
+          return E.email;
+        case 'DATE_IN_PAST':
+        case 'OUTSIDE_BOOKING_WINDOW':
+          return E.range(fmtDate(MAX, lang));
+        case 'DATE_ORDER':
+          return E.order;
+        case 'CONSENT_REQUIRED':
+          return E.consent;
+        case 'REQUIRED':
+          return REQUIRED[fe.field] ?? E.server;
+        default:
+          return E.server;
+      }
+    };
+    const errs: { id: string; msg: string }[] = [];
+    const seen = new Set<string>();
+    for (const fe of errors) {
+      const target = FIELD[fe.field];
+      if (!target || seen.has(target[1])) continue;
+      seen.add(target[1]);
+      const x = setErr(target[0], target[1], message(fe));
+      if (x) errs.push(x);
+    }
+    showSummary(errs, true);
+    return errs.length > 0;
+  }
+
+  /** Text with the Zalo link and the hotline link – "… message us on [Zalo] or call [08.4444.0909]." */
+  function notReadyLine(): (string | HTMLAnchorElement)[] {
+    const zalo = document.createElement('a');
+    zalo.className = 'link-in';
+    zalo.href = cfg.zalo ?? '';
+    zalo.textContent = 'Zalo';
+    const tel = document.createElement('a');
+    tel.className = 'link-in';
+    tel.href = cfg.hotlineTel ?? '';
+    tel.textContent = cfg.hotline ?? '';
+    return [S.notReady[0], zalo, S.notReady[1], tel, S.notReady[2]];
+  }
+
+  /** Every answer except "accepted" ends here: role=alert announces it; focus stays where it is. */
+  function showOutcome(outcome: Outcome) {
+    status.textContent = '';
+    if (outcome.kind === 'not-ready') {
+      status.append(...notReadyLine());
+      return;
+    }
+    if (outcome.kind === 'invalid' && showServerErrors(outcome.errors)) return;
+    status.textContent =
+      outcome.kind === 'not-sent'
+        ? S.notSent
+        : outcome.kind === 'reload'
+          ? S.reload
+          : outcome.kind === 'busy'
+            ? S.net.busy
+            : outcome.kind === 'rate'
+              ? S.net.rate
+              : S.net.network;
   }
   form.addEventListener('input', () => {
     if (form.dataset.validated === '1') validate(false);
@@ -299,7 +419,6 @@ function init(form: HTMLFormElement) {
 
   // ---- Submit ----
   const btn = $<HTMLButtonElement>('bk-submit');
-  const status = $('bk-status');
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     form.dataset.validated = '1';
@@ -320,15 +439,7 @@ function init(form: HTMLFormElement) {
     btn.disabled = false;
     btn.textContent = label;
     if (outcome.kind !== 'accepted') {
-      // role=alert announces; focus stays on the button
-      status.textContent =
-        outcome.kind === 'not-sent'
-          ? S.notSent
-          : outcome.kind === 'busy'
-            ? S.net.busy
-            : outcome.kind === 'rate'
-              ? S.net.rate
-              : S.net.network;
+      showOutcome(outcome);
       return;
     }
     showDone(v, outcome.refCode, outcome.promise);
