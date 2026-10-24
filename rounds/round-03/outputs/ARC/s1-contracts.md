@@ -260,3 +260,21 @@ Phải chờ: US-164 phần B18 (sau bước 3), R3-Q27 phía payments (sau bư�
 - api `contract` 5/5;
 - prettier: xanh;
 - Redocly không có trên máy, CI `contract-lint` chạy.
+
+### 13.3 Bổ sung 6 – K11-06 thành quy tắc chung (BUG-R3-012/013, critic cuối B-1/M-1; ARC 24/10)
+Thay danh sách liệt kê ở 13.2 điểm 2 bằng quy tắc:
+
+1. **Mọi** thay đổi làm **giảm** tiền dư của folio `settled` thì chạy lại `refundPlan` cùng giao dịch, dưới L1 → L3, qua `afterSettledMoneyChange` / `replanSettledRefunds` / J15 (`refundsDownToCredit`). Danh sách hiện có:
+   - người bấm: `adjustFolioLine` (A32), **`addFolioLine`** (phát sinh sau trả phòng – critic đề xuất 3), `recordPayment`, `confirmPaymentReceived`, duyệt giá hư hỏng (`damage_pricing`);
+   - hệ thống: J15.
+   Đường mới làm giảm tiền dư (thu hồi FOC Sprint 2, cổng thanh toán, hoàn tiền) **phải** gọi một trong các hàm này – đưa vào checklist review ARC 16.31.3.
+2. Yêu cầu chờ lớn hơn tiền dư → hủy `superseded`, xin lại đúng số. Giữ nguồn, người xin, ghi chú, `origin_actor_ids`; J15 không có người bấm thì giữ người xin của yêu cầu cũ nhất.
+3. Hết tiền dư → yêu cầu **đã duyệt** chưa chi (hoặc chi dở) đóng `cancelled` `superseded`, có nhật ký, báo người xin/người duyệt, chạy hook refund (xóa nơi nhận – SEC-BE-45).
+4. J15 chỉ `waiting_refund` khi **còn tiền dư và còn yêu cầu mở**. Còn lại thì ghi nợ nếu B > 0 rồi đóng, giải "Cần chú ý" `closed_reservation_credit`. Tiền dư chưa có yêu cầu thì giữ như 13.2 điểm 3.
+5. **Lớp chặn ở bước duyệt (ARC quyết, critic đề xuất)**: `approveRequest` `type = refund` dưới khóa folio so `amountVnd` với tiền dư còn trống (`rawCreditVnd` − các yêu cầu hoàn đã duyệt chưa chi khác). Vượt thì chạy lại `refundPlan` và trả 409 `INVALID_TRANSITION` (`currentState = cancelled`, `autoCancelReason = superseded`), không duyệt gì. Đây là phòng thủ cho đường làm giảm tiền dư chưa gắn quy tắc 1. Lúc chi tiền vẫn kẹp `min(còn lại, rawCreditVnd)`.
+
+Hợp đồng đã ghi ở `openapi.yaml` (changelog bổ sung 6, `addFolioLine`, `approveRequest`). Không đổi hình dạng.
+
+**Việc của BE-B (PR riêng, SEC review):**
+- cài điểm 5;
+- test: yêu cầu chờ 300.000, tiền dư giảm còn 100.000 bằng đường không gắn hook (ghi thẳng bảng) → duyệt → 409, có yêu cầu 100.000 thay thế.

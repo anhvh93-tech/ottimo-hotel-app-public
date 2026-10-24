@@ -2310,7 +2310,10 @@ export interface paths {
     put?: never;
     /**
      * Thêm dòng phát sinh từ danh mục (giặt, phạt thuốc lá, làm lại thẻ… BR-511) – ghi nhật ký tiền (US-032, A30)
-     * @description Dòng folio là chỉ-thêm nên **không** cần `If-Match` (ngoại lệ có chủ đích với coding-standards 7.5). Server khóa
+     * @description **0.3.8 bổ sung 6 (ARC 24/10, BUG-R3-013, BR-522 K11-06)**: trên folio `settled`, dòng phát sinh sau trả phòng làm **giảm** tiền dư → server chạy lại `refundPlan`
+     *     cùng giao dịch (dưới L1 → L3): yêu cầu hoàn đang chờ lớn hơn tiền dư bị hủy `superseded` và xin lại đúng số (giữ nguồn, người xin, `origin_actor_ids` của yêu cầu A32);
+     *     hết tiền dư → yêu cầu **đã duyệt** chưa chi cũng đóng (`cancelled`, `superseded`, có nhật ký, báo người xin/người duyệt). Không đổi hình dạng phản hồi.
+     *     Dòng folio là chỉ-thêm nên **không** cần `If-Match` (ngoại lệ có chủ đích với coding-standards 7.5). Server khóa
      *     `folio … FOR UPDATE`, kiểm `status='open'` (hoặc trong `post_checkout_window_until`) rồi ghi; bill đã khóa → `409 FOLIO_LOCKED`.
      *
      *     **0.3.3 (EP03-05 mục 3.2, E04-03)**: khoản danh mục có `priceEditable=false` (phạt, hư hỏng theo bảng, dọn lẻ, giặt ủi – giá theo tham số BR) mà gửi
@@ -3118,7 +3121,10 @@ export interface paths {
     put?: never;
     /**
      * Duyệt bằng xác nhận lại của chính người duyệt (A3; BR-432, 433; US-007 AC2, AC3)
-     * @description **R2: nhập lại mật khẩu** của chính tài khoản đang đăng nhập (`authMethod=password`, decision-log PO 15/10); **R3**: PIN duyệt
+     * @description **0.3.8 bổ sung 6 (ARC 24/10, critic M-1 – lớp chặn ở bước duyệt)**: `type = refund` – dưới khóa folio, server so `amountVnd` với **tiền dư còn trống**
+     *     (`rawCreditVnd` − các yêu cầu hoàn **đã duyệt chưa chi** khác của folio). Vượt → server chạy lại `refundPlan` (yêu cầu này thành `cancelled` `superseded`, xin lại
+     *     đúng số nếu còn dư) và trả **409 `INVALID_TRANSITION`** (`currentState = cancelled`, `autoCancelReason = superseded`); không duyệt gì. Màn duyệt tải lại hàng chờ.
+     *     **R2: nhập lại mật khẩu** của chính tài khoản đang đăng nhập (`authMethod=password`, decision-log PO 15/10); **R3**: PIN duyệt
      *     (`authMethod=pin`, SR-AUTH-09) hoặc TOTP. Không chọn tên người duyệt. Người duyệt = người gửi → `403 SELF_APPROVAL_FORBIDDEN`
      *     (trừ MGR/OWN). Vượt hạn mức lần/tháng → yêu cầu chuyển `escalated` và trả `403 APPROVAL_LIMIT_EXCEEDED`.
      *     Sai → `401 REAUTH_FAILED` + `errors[{field: secret, code: REAUTH_FAILED}]` (5 sai/15 phút → khóa duyệt – SR-RL-02; 0.3.4 Q4).

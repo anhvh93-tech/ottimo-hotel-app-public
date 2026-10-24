@@ -293,6 +293,7 @@ info:
     | FILE_TYPE · FILE_TOO_LARGE · TOO_MANY_FILES | Chi tiết của `422 FILE_REJECTED` (`errors[]`): sai loại theo magic bytes (không JPEG/PNG/WebP) · > 10 MB hoặc > 40 MP · vượt 4 ảnh/người hoặc 30 tệp/đơn (SR-FILE-01/02, SR-RL-05) – 0.3.3 E06-07 | `uploadGuestDocument`, `addGuestDocument`, `uploadAttachment` |
 
     ## Thay đổi phiên bản 0.3.8-draft (R3 Sprint 1 – hợp đồng trước code; chi tiết `rounds/round-03/outputs/ARC/s1-contracts.md`)
+    **0.3.8 bổ sung 6 (ARC 24/10, BUG-R3-012/013)**: K11-06 thành quy tắc chung – **mọi** thay đổi làm giảm tiền dư của folio `settled` (người bấm: `adjustFolioLine`, `addFolioLine`, `recordPayment`, `confirmPaymentReceived`, duyệt giá hư hỏng; hệ thống: J15) chạy lại `refundPlan`; hết tiền dư → yêu cầu đã duyệt chưa chi đóng `superseded`; J15 chỉ chờ (`waiting_refund`) khi còn tiền dư **và** còn yêu cầu mở; duyệt hoàn kiểm số ≤ tiền dư còn trống.
     **0.3.8 bổ sung 5 (ARC 24/10, BUG-R3-008/010)**: `setParameter` – công tắc khẩn `public_booking_requests_enabled = false` hôm nay có hiệu lực ngay (ghi đè dòng hôm nay, audit `sameDayOverride`); bật lại theo luật thường. `getParameterHistory`/`listParameters` – FDL đọc được khóa này (không sửa).
     **0.3.8 bổ sung 4 (ARC 24/10)**: `GuestRequest.notePurgedAt`, `GuestRequestForGuest.notePurgedAt` (tùy chọn, Instant) – ghi chú đã xóa theo hạn lưu T13 (server 0083 đã trả).
     **0.3.8 bổ sung 3 (ARC 24/10, FUZZ-01)**: `createRefundRequest` nhận folio `open` **hoặc `settled`** (`closed` → 409 `FOLIO_LOCKED`); quy tắc K11-06 – thao tác do người bấm trên folio `settled` (`adjustFolioLine`, `recordPayment`, `confirmPaymentReceived`) để lại tiền dư chưa có yêu cầu hoàn → `closeStayCredit` cùng giao dịch; J15 không đóng folio còn tiền dư chưa xử lý (`waiting_refund`).
@@ -4899,6 +4900,9 @@ paths:
       operationId: addFolioLine
       summary: Thêm dòng phát sinh từ danh mục (giặt, phạt thuốc lá, làm lại thẻ… BR-511) – ghi nhật ký tiền (US-032, A30)
       description: |
+        **0.3.8 bổ sung 6 (ARC 24/10, BUG-R3-013, BR-522 K11-06)**: trên folio `settled`, dòng phát sinh sau trả phòng làm **giảm** tiền dư → server chạy lại `refundPlan`
+        cùng giao dịch (dưới L1 → L3): yêu cầu hoàn đang chờ lớn hơn tiền dư bị hủy `superseded` và xin lại đúng số (giữ nguồn, người xin, `origin_actor_ids` của yêu cầu A32);
+        hết tiền dư → yêu cầu **đã duyệt** chưa chi cũng đóng (`cancelled`, `superseded`, có nhật ký, báo người xin/người duyệt). Không đổi hình dạng phản hồi.
         Dòng folio là chỉ-thêm nên **không** cần `If-Match` (ngoại lệ có chủ đích với coding-standards 7.5). Server khóa
         `folio … FOR UPDATE`, kiểm `status='open'` (hoặc trong `post_checkout_window_until`) rồi ghi; bill đã khóa → `409 FOLIO_LOCKED`.
 
@@ -6129,6 +6133,9 @@ paths:
       operationId: approveRequest
       summary: Duyệt bằng xác nhận lại của chính người duyệt (A3; BR-432, 433; US-007 AC2, AC3)
       description: |
+        **0.3.8 bổ sung 6 (ARC 24/10, critic M-1 – lớp chặn ở bước duyệt)**: `type = refund` – dưới khóa folio, server so `amountVnd` với **tiền dư còn trống**
+        (`rawCreditVnd` − các yêu cầu hoàn **đã duyệt chưa chi** khác của folio). Vượt → server chạy lại `refundPlan` (yêu cầu này thành `cancelled` `superseded`, xin lại
+        đúng số nếu còn dư) và trả **409 `INVALID_TRANSITION`** (`currentState = cancelled`, `autoCancelReason = superseded`); không duyệt gì. Màn duyệt tải lại hàng chờ.
         **R2: nhập lại mật khẩu** của chính tài khoản đang đăng nhập (`authMethod=password`, decision-log PO 15/10); **R3**: PIN duyệt
         (`authMethod=pin`, SR-AUTH-09) hoặc TOTP. Không chọn tên người duyệt. Người duyệt = người gửi → `403 SELF_APPROVAL_FORBIDDEN`
         (trừ MGR/OWN). Vượt hạn mức lần/tháng → yêu cầu chuyển `escalated` và trả `403 APPROVAL_LIMIT_EXCEEDED`.
