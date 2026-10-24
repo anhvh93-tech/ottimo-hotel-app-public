@@ -126,6 +126,17 @@ export const approvalRequest = pgTable(
     // 0060 (BE-B S4-02/S4-18): current service date of the FOC KEY of a request on a room / extra-person line
     // (BR-434 (1)–(3): moves with the nights, also while dormant/pending). NULL for other lines.
     focServiceDate: date('foc_service_date', { mode: 'string' }),
+    // 0085 (BE-B, BR-433 (e) v0.4.3 – SEC FZ-02, ARC/SEC ADD3-01): on a `refund` of a folio where someone below the
+    // owner made an A32 reduction after check-out – EVERY such person (and the one whose A32 made it): none of them
+    // ever approves it. Written at INSERT only (no UPDATE grant – SEC ADD3-03); a `superseded` replacement copies it.
+    originActorIds: uuid('origin_actor_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'::uuid[]`),
+    // 0085 (ADD3-01): how a `refund` came to be – `a32` = made by the server from an A32 reduction (routed on the
+    // folio's Σ of A32 refunds vs the protected basis), `other` = any other path (by hand, a receipt, a cancellation…;
+    // on a folio with such an A32 → owner). NULL on other types and on refunds before 0085.
+    refundSource: text('refund_source'),
     ...auditColumns(),
   },
   (t) => [
@@ -167,6 +178,19 @@ export const approvalRequest = pgTable(
     check(
       'approval_request_no_self_approval',
       sql`${t.approverId} IS NULL OR ${t.approverId} <> ${t.requestedBy} OR ${t.selfApplied} OR ${t.approverRoleSnapshot} IN ('owner', 'manager')`,
+    ),
+    // 0085 (BR-433 (e), ADD3-01): nobody who made an A32 reduction on the folio approves its refunds.
+    check(
+      'approval_request_origin_scope_check',
+      sql`cardinality(${t.originActorIds}) = 0 OR ${t.type} = 'refund'`,
+    ),
+    check(
+      'approval_request_origin_check',
+      sql`${t.approverId} IS NULL OR NOT (${t.approverId} = ANY(${t.originActorIds}))`,
+    ),
+    check(
+      'approval_request_refund_source_check',
+      sql`${t.refundSource} IS NULL OR (${t.type} = 'refund' AND ${t.refundSource} IN ('a32', 'other'))`,
     ),
     check(
       'approval_request_self_applied_check',

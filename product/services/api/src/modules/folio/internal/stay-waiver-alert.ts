@@ -10,6 +10,9 @@
  * - Σ > threshold → notification `foc_stay_total_exceeded` to every OWN (one per waiver applied while above), ONE
  *   "Cần chú ý" item per stay open (`foc_stay_alert` – count updated at each crossing; a new one after OWN reviewed it, ARC S1-11), a state
  *   audit `folio.foc_stay_alerted` with the numbers (no guest data).
+ * BR-433 (e) v0.4.3 (SEC FZ-02): an A32 that REDUCES a line of the settled folio, made by someone below the owner, is a
+ * waiver too – its reduction (`folio_settled_reduction`, role at the time) adds to Σ stay and its role to the threshold,
+ * checked right after that A32 (`afterSettledReduction`), same notification / item / audit.
  * The stay = the folio of the primary booking (its child bookings share it – BR-422). A waiver cancelled later by the
  * rules (BR-434) leaves Σ but nothing is re-evaluated (no "below the threshold" message – E26-9). The owner's
  * revocation of a waiver (E26-6…8) is Sprint 2 (ARC s1-contracts 5.4); the "hold" mode (ESC-026 B) is not built.
@@ -53,9 +56,29 @@ export class StayWaiverAlertService {
     if (request.status !== 'approved') return null;
     if (!(BELOW_OWNER as readonly string[]).includes(request.approver_role_snapshot ?? ''))
       return null;
+    return this.evaluate(tx, folioId, `approval ${request.id}`, request.target_code ?? null);
+  }
+
+  /** BR-433 (e) v0.4.3: called by adjustFolioLine (A32) after a reduction on a settled folio by `role`. */
+  async afterSettledReduction(
+    tx: Tx,
+    folioId: string,
+    role: string,
+    reductionId: string,
+  ): Promise<StayWaiverCheck | null> {
+    if (!(BELOW_OWNER as readonly string[]).includes(role)) return null;
+    return this.evaluate(tx, folioId, `settled_reduction ${reductionId}`, null);
+  }
+
+  private async evaluate(
+    tx: Tx,
+    folioId: string,
+    reason: string,
+    fallbackCode: string | null,
+  ): Promise<StayWaiverCheck | null> {
     const folio = await this.folios.get(tx, folioId);
     if (!folio) return null;
-    const { rows } = await tx.query<{ role: string; total: string | number; n: number }>(
+    const { rows: focRows } = await tx.query<{ role: string; total: string | number; n: number }>(
       `SELECT a.approver_role_snapshot AS role, COALESCE(-sum(l.amount_vnd), 0) AS total,
               count(DISTINCT a.id)::int AS n
          FROM folio_line l JOIN approval_request a ON a.id = l.approval_request_id
@@ -66,6 +89,15 @@ export class StayWaiverAlertService {
         GROUP BY a.approver_role_snapshot`,
       [folioId, [...BELOW_OWNER]],
     );
+    // BR-433 (e): A32 reductions after check-out by someone below the owner (each counted once, as made).
+    const { rows: reduced } = await tx.query<{ role: string; total: string | number; n: number }>(
+      `SELECT actor_role AS role, COALESCE(sum(reduced_vnd), 0) AS total, count(*)::int AS n
+         FROM folio_settled_reduction
+        WHERE folio_id = $1 AND actor_role = ANY($2::text[])
+        GROUP BY actor_role`,
+      [folioId, [...BELOW_OWNER]],
+    );
+    const rows = [...focRows, ...reduced];
     const live = rows.filter((r) => Number(r.total) > 0);
     if (live.length === 0) return null;
     const stayTotalVnd = live.reduce((s, r) => s + Number(r.total), 0);
@@ -81,7 +113,7 @@ export class StayWaiverAlertService {
       'SELECT code FROM reservation WHERE id = $1',
       [rootId],
     );
-    const refCode = code[0]?.code ?? request.target_code ?? null;
+    const refCode = code[0]?.code ?? fallbackCode;
     if (this.events) {
       await this.events.notify(
         tx,
@@ -139,7 +171,7 @@ export class StayWaiverAlertService {
         itemCount: items,
         alertCount: alert[0]?.alert_count ?? 1,
       },
-      reason: `approval ${request.id}`,
+      reason,
     });
     return { ...out, alerted: true };
   }

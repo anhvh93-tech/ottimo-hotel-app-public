@@ -3,8 +3,10 @@
  * on a closed folio"):
  * - A32 reduction after check-out that leaves an overpayment → in the same transaction ONE refund request of exactly the
  *   unhandled credit (requested by the MGR, `overpayment`) + "Cần chú ý" closed_reservation_credit; J15 waits.
- * - Safety net: any overpayment without a refund request when the window ends (a receipt above what is due) → J15 keeps
- *   the folio `settled` (`waiting_refund`) and opens closed_reservation_credit – never `closed` with money of the guest.
+ * - Safety net: any overpayment without a refund request when the window ends → J15 keeps the folio `settled`
+ *   (`waiting_refund`) and opens closed_reservation_credit – never `closed` with money of the guest. Since 0.3.8 bổ sung 3
+ *   a receipt recorded BY A PERSON makes its own request (K11-06); the request withdrawn leaves the credit to the net.
+ *   The path with nobody behind it: r3-add3-settled-credit.test.ts.
  * Fake clock, FAKE data only.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -55,7 +57,7 @@ describe.skipIf(!HAS_DB)('BUG-R3-002 – a credit after check-out is never close
     expect((await x.folio(s.folioId)).status).toBe('settled');
   }, 180_000);
 
-  it('safety net: the guest pays above what is due after check-out (no refund request) → J15 does not close, opens closed_reservation_credit', async () => {
+  it('safety net: the guest pays above what is due after check-out, the request is withdrawn → J15 does not close, opens closed_reservation_credit', async () => {
     const s = await x.checkedOutStay();
     const p = await x.pay(s.folioId, {
       type: 'charge',
@@ -64,7 +66,15 @@ describe.skipIf(!HAS_DB)('BUG-R3-002 – a credit after check-out is never close
       note: 'Khách đưa thừa',
     });
     expect(p.statusCode, p.body).toBe(201);
-    expect(await refunds(s)).toEqual([]);
+    // 0.3.8 bổ sung 3 (K11-06): the desk's receipt made its refund request; withdrawn by the requester.
+    const [req] = await x.q(
+      `SELECT id, amount_vnd::int AS amount, requested_by FROM approval_request
+        WHERE type = 'refund' AND target_id = $1`,
+      [s.id],
+    );
+    expect(req).toMatchObject({ amount: 50_000, requested_by: x.t.users.fd!.id });
+    const w = await x.cancelReq(req.id, 'fd')();
+    expect(w.statusCode, w.body).toBe(200);
     await x.at(`${addDays(s.departure, 1)}T13:00:00+07:00`);
     const stats = await x.runJ15();
     expect(stats.waitingRefund).toBeGreaterThanOrEqual(1);

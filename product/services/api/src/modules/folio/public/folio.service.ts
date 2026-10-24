@@ -28,6 +28,7 @@ import type { FolioLineCategory } from '../../../db/schema/folio';
 import { problem } from '../../../shared/problem';
 import { type LocalDate, localDate, toZonedIso } from '../../../shared/time';
 import {
+  type ApprovalRow,
   ApprovalService,
   type FocCancelReason,
   type FocState,
@@ -2905,6 +2906,256 @@ export class FolioService implements FolioStaySync {
   }
 
   /**
+   * 0.3.8 bổ sung 3 (ARC FB-R3-ARC-FUZZ-01/02, BR-522 K11-06, oracle I4) – THE rule after a money change done BY A
+   * PERSON on a `settled` folio (A32 `adjustFolioLine`, `recordPayment`, `confirmPaymentReceived` by the person who
+   * confirms): when an overpayment is left that no refund request covers (`unhandledCreditVnd` > 0), or the open
+   * requests ask more than the overpayment (`openRefundVnd` > `rawCreditVnd`), `refundPlan` runs again here –
+   * pending requests above it are cancelled `superseded`, ONE request `overpayment` of the part not requested yet is
+   * made (requester = that person; decided by another MGR / OWN – SEC F8), "Cần chú ý" closed_reservation_credit.
+   * Paths without a person (automatic reconciliation, link payments, `ota_collect` sync) never call it: J15 keeps the
+   * folio settled (`waiting_refund`) and the desk requests it (`createRefundRequest` on a settled folio). Caller holds
+   * L1 → L3. `receipt` (SEC ADD3-02): the request a receipt produced says so in its note.
+   *
+   * BR-433 (e) v0.4.3 (SEC FZ-02) – `a32` = an A32 REDUCTION by someone below the owner: it is a waiver, so the refund it
+   * produces is ONLY that reduction's part of the overpayment (min(not requested yet, reduction) – an overpayment
+   * whose request the owner rejected is never asked again by it, FZ02-8), made with `reason_note` "Tự sinh từ A32: …",
+   * source `a32` (routed by `refundRouting`). The owner's own A32 takes the plain path (not counted – as (c)).
+   */
+  async afterSettledMoneyChange(
+    tx: Tx,
+    folioId: string,
+    actor: { userId: string; roles: readonly string[]; requestId?: string },
+    a32?: { reducedVnd: number; note: string },
+    receipt?: { code: string; method: string },
+  ): Promise<void> {
+    const folio = await this.get(tx, folioId);
+    if (!folio || folio.status !== 'settled') return;
+    const b = await this.balance(tx, folioId);
+    const { rows } = await tx.query<{ code: string }>(
+      'SELECT code FROM reservation WHERE id = $1',
+      [folio.primary_reservation_id],
+    );
+    const reservationCode = rows[0]?.code ?? folio.bill_no ?? folioId;
+    if (a32 && a32.reducedVnd > 0 && !actor.roles.includes('owner')) {
+      const amountVnd = Math.min(b.unhandledCreditVnd, a32.reducedVnd);
+      if (amountVnd > 0) {
+        await this.submitStayRefund(tx, {
+          reservationId: folio.primary_reservation_id,
+          reservationCode,
+          amountVnd,
+          reasonCode: 'overpayment',
+          reasonNote: a32.note,
+          actor: { userId: actor.userId, roles: actor.roles },
+          source: 'a32',
+          originActorIds: [actor.userId],
+          ...(actor.requestId ? { requestId: actor.requestId } : {}),
+        });
+      }
+      if (b.rawCreditVnd > 0) {
+        await this.openCreditAttention(tx, folio.primary_reservation_id, reservationCode);
+      }
+      return;
+    }
+    if (!(b.unhandledCreditVnd > 0 || b.openRefundVnd > b.rawCreditVnd)) return;
+    await this.closeStayCredit(tx, {
+      folioId,
+      reservationId: folio.primary_reservation_id,
+      reservationCode,
+      reasonCode: 'overpayment',
+      ...(receipt ? { reasonNote: `Tự sinh từ khoản thu ${receipt.code} ${receipt.method}` } : {}),
+      actor: { userId: actor.userId, roles: actor.roles },
+      cancelReason: 'superseded',
+      ...(actor.requestId ? { requestId: actor.requestId } : {}),
+    });
+  }
+
+  /**
+   * BR-433 (e) v0.4.3 + ARC/SEC FB-…-ADD3-01 – THE routing of every `refund` request (ApprovalService.submit calls it
+   * through provideRefundRouting, whatever path asks: by hand `createRefundRequest`, a receipt, a cancellation, an A32
+   * reduction, a `superseded` replacement). Its folio = the target booking's folio. When someone below the owner made
+   * an A32 reduction on that folio after check-out (`folio_settled_reduction`):
+   * - every such person never approves it (`originActorIds`, + those carried by the caller);
+   * - source `a32` (made by the server from an A32 reduction): Σ of the folio's `a32` refunds (pending + escalated +
+   *   approved + this one; rejected / cancelled left out) > the protected basis (`limitBasisVnd`, d), or no basis →
+   *   `owner`, else `manager` (FZ02-1…9);
+   * - source `other` → `owner`: no part of that folio's overpayment can be told apart from the A32 one (ORC 24/10).
+   * A folio without such an A32: no floor (BR-522 as before – MGR+). Read under the caller's L3.
+   */
+  async refundRouting(
+    tx: Tx,
+    input: {
+      targetType: string | null;
+      targetId: string | null;
+      amountVnd: number;
+      source: 'a32' | 'other';
+      originActorIds: readonly string[];
+    },
+  ): Promise<{ minRequiredRole: 'manager' | 'owner' | null; originActorIds: string[] }> {
+    const carried = [...input.originActorIds];
+    if (!input.targetId) return { minRequiredRole: null, originActorIds: carried };
+    const { rows: f } = await tx.query<{ folio_id: string | null }>(
+      input.targetType === 'folio'
+        ? 'SELECT id AS folio_id FROM folio WHERE id = $1'
+        : 'SELECT folio_id FROM reservation WHERE id = $1',
+      [input.targetId],
+    );
+    const folioId = f[0]?.folio_id ?? null;
+    if (!folioId) return { minRequiredRole: null, originActorIds: carried };
+    const { rows: makers } = await tx.query<{ actor_id: string }>(
+      `SELECT DISTINCT actor_id FROM folio_settled_reduction WHERE folio_id = $1 AND actor_role <> 'owner'`,
+      [folioId],
+    );
+    const originActorIds = [...new Set([...carried, ...makers.map((m) => m.actor_id)])];
+    if (input.source === 'a32') {
+      const basis = await this.limitBasisVnd(tx, folioId, null);
+      const total = (await this.a32RefundTotalVnd(tx, folioId)) + input.amountVnd;
+      return {
+        minRequiredRole: basis === null || total > basis ? 'owner' : 'manager',
+        originActorIds,
+      };
+    }
+    return { minRequiredRole: makers.length > 0 ? 'owner' : null, originActorIds };
+  }
+
+  /** ADD3-01: did `userId` (below the owner) make an A32 reduction after check-out on the target's folio? */
+  async isA32Maker(
+    tx: Tx,
+    targetType: string | null,
+    targetId: string | null,
+    userId: string,
+  ): Promise<boolean> {
+    if (!targetId) return false;
+    const { rows } = await tx.query(
+      `SELECT 1 FROM folio_settled_reduction r
+        WHERE r.actor_id = $3 AND r.actor_role <> 'owner'
+          AND r.folio_id = (CASE WHEN $1::text = 'folio' THEN $2::uuid
+                                 ELSE (SELECT folio_id FROM reservation WHERE id = $2::uuid) END)
+        LIMIT 1`,
+      [targetType, targetId, userId],
+    );
+    return rows.length > 0;
+  }
+
+  /**
+   * One server-made `refund` request of the stay, routed by `refundRouting` (inside ApprovalService.submit). `source`
+   * `a32` + its note and `originActorIds` are carried by a `superseded` replacement (ADD3-01). Caller holds L3 (the
+   * open requests are locked by refundPlan).
+   */
+  private async submitStayRefund(
+    tx: Tx,
+    input: {
+      reservationId: string;
+      reservationCode: string;
+      amountVnd: number;
+      reasonCode: string;
+      reasonNote?: string | null;
+      actor: { userId: string; roles: readonly string[] };
+      requestId?: string;
+      source?: 'a32' | 'other';
+      originActorIds?: readonly string[];
+    },
+  ): Promise<ApprovalRow> {
+    return this.requireApprovals().submit(tx, input.actor, {
+      type: 'refund',
+      amountVnd: input.amountVnd,
+      reasonCode: input.reasonCode,
+      ...(input.reasonNote ? { reasonNote: input.reasonNote } : {}),
+      targetType: 'reservation',
+      targetId: input.reservationId,
+      targetCode: input.reservationCode,
+      refundSource: input.source ?? 'other',
+      ...(input.originActorIds?.length ? { originActorIds: input.originActorIds } : {}),
+      ...(input.requestId ? { requestId: input.requestId } : {}),
+    });
+  }
+
+  /** BR-433 (e): Σ amount of the folio's refund requests made from A32 reductions, not rejected / cancelled. */
+  private async a32RefundTotalVnd(tx: Tx, folioId: string): Promise<number> {
+    const ids = await this.stayReservationIds(tx, folioId);
+    const { rows } = await tx.query<{ total: string | number }>(
+      `SELECT COALESCE(SUM(amount_vnd), 0) AS total FROM approval_request
+        WHERE type = 'refund' AND refund_source = 'a32' AND target_type = 'reservation'
+          AND target_id = ANY($1::uuid[]) AND status IN ('pending', 'escalated', 'approved')`,
+      [ids],
+    );
+    return Number(rows[0]?.total ?? 0);
+  }
+
+  /**
+   * ADD3-01: what a `superseded` replacement carries from the requests it replaces – source `a32` (with the note and the
+   * requester of the oldest such request: the replacement is that A32 request restated at the right amount, so
+   * `requested_by` stays the person of the A32 – oracle I17) when any of them was one, and every person who may not
+   * approve them.
+   */
+  private async carriedOrigin(
+    tx: Tx,
+    requestIds: readonly string[],
+  ): Promise<{
+    source: 'a32' | 'other';
+    note: string | null;
+    requestedBy: string | null;
+    originActorIds: string[];
+  }> {
+    if (requestIds.length === 0) {
+      return { source: 'other', note: null, requestedBy: null, originActorIds: [] };
+    }
+    const { rows } = await tx.query<{
+      refund_source: string | null;
+      reason_note: string | null;
+      requested_by: string;
+      origin_actor_ids: string[] | null;
+    }>(
+      `SELECT refund_source, reason_note, requested_by, origin_actor_ids FROM approval_request
+        WHERE id = ANY($1::uuid[]) ORDER BY requested_at, id`,
+      [[...requestIds]],
+    );
+    const a32 = rows.find((r) => r.refund_source === 'a32');
+    return {
+      source: a32 ? 'a32' : 'other',
+      note: a32?.reason_note ?? null,
+      requestedBy: a32?.requested_by ?? null,
+      originActorIds: [...new Set(rows.flatMap((r) => r.origin_actor_ids ?? []))],
+    };
+  }
+
+  /** The requester of a replacement: the A32 maker for an `a32` one (I17), else the person acting now. */
+  private replacementActor(
+    carried: { requestedBy: string | null },
+    actor: { userId: string; roles: readonly string[] },
+  ): { userId: string; roles: readonly string[] } {
+    return carried.requestedBy && carried.requestedBy !== actor.userId
+      ? { userId: carried.requestedBy, roles: [] }
+      : actor;
+  }
+
+  /** The bookings of the folio (primary + every booking with a line) – the targets of its refund requests. */
+  private async stayReservationIds(tx: Tx, folioId: string): Promise<string[]> {
+    const folio = await this.get(tx, folioId);
+    if (!folio) return [];
+    const ids = new Set<string>([folio.primary_reservation_id]);
+    for (const l of await this.lines(tx, folioId)) if (l.reservation_id) ids.add(l.reservation_id);
+    return [...ids];
+  }
+
+  /** "Cần chú ý" closed_reservation_credit of the stay (one per booking – dedupeKey). */
+  private async openCreditAttention(
+    tx: Tx,
+    reservationId: string,
+    reservationCode: string,
+  ): Promise<void> {
+    if (!this.events) return;
+    await this.events.openAttention(tx, {
+      kind: 'closed_reservation_credit',
+      severity: 'warning',
+      dedupeKey: `closed_reservation_credit:${reservationId}`,
+      refType: 'reservation',
+      refId: reservationId,
+      refCode: reservationCode,
+      now: this.clock.now(),
+    });
+  }
+
+  /**
    * S4-06 (BR-522 v0.3.4 bổ sung 17/10) – after a booking was cancelled / marked no-show (its folio already
    * synced: nights and services reversed, fee posted): the overpayment not yet routed to a refund request
    * (OTA money excluded) becomes ONE `refund` request (MGR+ decides, BR-522), and "Cần chú ý"
@@ -2922,6 +3173,8 @@ export class FolioService implements FolioStaySync {
       reasonNote?: string | null;
       actor: { userId: string; roles: readonly string[] };
       requestId?: string;
+      /** Why pending requests above the overpayment are cancelled when none is made again (default: the close). */
+      cancelReason?: 'superseded';
     },
   ): Promise<{ id: string; amountVnd: number; created: boolean } | null> {
     const b = await this.balance(tx, input.folioId);
@@ -2933,24 +3186,27 @@ export class FolioService implements FolioStaySync {
       await this.openRefunds(tx, input.folioId, { lock: true }),
     );
     const cancelReason =
-      plan.createVnd > 0
+      plan.createVnd > 0 || input.cancelReason === 'superseded'
         ? ('superseded' as const)
         : input.reasonCode === 'no_show'
           ? ('reservation_no_show' as const)
           : ('reservation_cancelled' as const);
+    // BR-433 (e) / ADD3-01: a replacement keeps the source, note and "never approves" list of what it replaces.
+    const carried = await this.carriedOrigin(tx, plan.createVnd > 0 ? plan.cancelIds : []);
     for (const id of plan.cancelIds) {
       await approvals.autoCancel(tx, id, cancelReason, input.requestId);
     }
     let request: { id: string; amountVnd: number; created: boolean } | null = null;
     if (plan.createVnd > 0) {
-      const row = await approvals.submit(tx, input.actor, {
-        type: 'refund',
+      const row = await this.submitStayRefund(tx, {
+        reservationId: input.reservationId,
+        reservationCode: input.reservationCode,
         amountVnd: plan.createVnd,
         reasonCode: input.reasonCode,
-        ...(input.reasonNote ? { reasonNote: input.reasonNote } : {}),
-        targetType: 'reservation',
-        targetId: input.reservationId,
-        targetCode: input.reservationCode,
+        reasonNote: carried.note ?? input.reasonNote ?? null,
+        actor: this.replacementActor(carried, input.actor),
+        source: carried.source,
+        originActorIds: carried.originActorIds,
         ...(input.requestId ? { requestId: input.requestId } : {}),
       });
       request = { id: row.id, amountVnd: Number(row.amount_vnd), created: true };
@@ -2966,16 +3222,8 @@ export class FolioService implements FolioStaySync {
         request = { id: rows[0].id, amountVnd: Number(rows[0].amount_vnd), created: false };
       }
     }
-    if (b.rawCreditVnd > 0 && this.events) {
-      await this.events.openAttention(tx, {
-        kind: 'closed_reservation_credit',
-        severity: 'warning',
-        dedupeKey: `closed_reservation_credit:${input.reservationId}`,
-        refType: 'reservation',
-        refId: input.reservationId,
-        refCode: input.reservationCode,
-        now: this.clock.now(),
-      });
+    if (b.rawCreditVnd > 0) {
+      await this.openCreditAttention(tx, input.reservationId, input.reservationCode);
     }
     return request;
   }
@@ -3063,19 +3311,22 @@ export class FolioService implements FolioStaySync {
     if (total <= Math.max(0, b.rawCreditVnd)) return { cancelledIds: [], createdId: null };
     const approvals = this.requireApprovals();
     const plan = refundPlan(b.rawCreditVnd, open);
+    const carried = await this.carriedOrigin(tx, plan.createVnd > 0 ? plan.cancelIds : []);
     const cancelledIds: string[] = [];
     for (const id of plan.cancelIds) {
       if (await approvals.autoCancel(tx, id, cancelReason, input.requestId)) cancelledIds.push(id);
     }
     let createdId: string | null = null;
     if (plan.createVnd > 0) {
-      const row = await approvals.submit(tx, input.actor, {
-        type: 'refund',
+      const row = await this.submitStayRefund(tx, {
+        reservationId: input.reservationId,
+        reservationCode: input.reservationCode,
         amountVnd: plan.createVnd,
         reasonCode: 'overpayment',
-        targetType: 'reservation',
-        targetId: input.reservationId,
-        targetCode: input.reservationCode,
+        reasonNote: carried.note,
+        actor: this.replacementActor(carried, input.actor),
+        source: carried.source,
+        originActorIds: carried.originActorIds,
         ...(input.requestId ? { requestId: input.requestId } : {}),
       });
       createdId = row.id;

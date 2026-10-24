@@ -56,10 +56,14 @@ import {
   within,
 } from '../internal/limits';
 
-/** Reason codes of BR-432 (FocRequestInput.reasonCode). Other request types pass their own code. */
-/** BR-525: the FOC reason that writes a debt off after check-out (MGR+ only – folio `DEBT_WRITE_OFF`). */
-const DEBT_WRITE_OFF_REASON = 'debt_write_off';
+/**
+ * ARC 16.27 (2) / R7LOCK-02 (DOM 18/10, BR-525): the FOC reason that writes a debt off after check-out – decided by
+ * MGR+ only (BUG-R3-003, SEC FZ-01). THE one constant (FB-R3-ARC-FUZZ-03): approvals owns the reason catalogue; the
+ * folio module imports it.
+ */
+export const DEBT_WRITE_OFF = 'debt_write_off';
 
+/** Reason codes of BR-432 (FocRequestInput.reasonCode). Other request types pass their own code. */
 export const FOC_REASON_CODES = [
   'regular_vip',
   'room_ready_no_impact',
@@ -68,7 +72,7 @@ export const FOC_REASON_CODES = [
   'other',
   // ARC 16.27 (2), R7LOCK-02 (DOM 18/10, BR-525): writing a debt off after check-out – FolioFocService only
   // accepts it on a settled / closed folio with an open debt (OWN/MGR, `kind = foc`, note).
-  'debt_write_off',
+  DEBT_WRITE_OFF,
 ] as const;
 
 export interface Actor {
@@ -104,7 +108,33 @@ export interface SubmitInput {
    * The monthly limit keeps counting the request's own amount.
    */
   perTimeAmountVnd?: number;
+  /** The lowest role that may decide it (the routing never goes below it). */
+  minRequiredRole?: ApproverRole;
+  /**
+   * BR-433 (e) / ADD3-01 – `refund` only: `a32` = made by the server from an A32 reduction on a settled folio (or the
+   * `superseded` replacement of one); anything else is `other` (default). Every refund is routed by the folio
+   * module's RefundRouting (provideRefundRouting) with it – ONE routing for every path that asks a refund.
+   */
+  refundSource?: 'a32' | 'other';
+  /** `refund` only: people who may never approve it, carried over (the A32 maker, a superseded request's list). */
+  originActorIds?: readonly string[];
   requestId?: string;
+}
+
+/**
+ * The lowest role that may decide a stored request: its `required_role` (and the caller's floor), never below
+ * `manager` for a `debt_write_off` – FB-R3-SEC-FZ-01 (defence in depth for BUG-R3-003): a row routed before the fix
+ * (or by a path that forgot the rule) with `required_role` below manager is still decided by MGR+ only.
+ */
+function decisionFloor(
+  row: Pick<ApprovalRow, 'required_role' | 'reason_code'>,
+  floor: ApproverRole,
+): ApproverRole {
+  let needed = APPROVER_RANK[row.required_role] >= APPROVER_RANK[floor] ? row.required_role : floor;
+  if (row.reason_code === DEBT_WRITE_OFF && APPROVER_RANK[needed] < APPROVER_RANK.manager) {
+    needed = 'manager';
+  }
+  return needed;
 }
 
 /** BR-433 (a)(b): what the per-time limit is compared with (see `SubmitInput.perTimeAmountVnd`). */
@@ -124,6 +154,10 @@ export interface ApprovalRow {
   amount_vnd: number;
   limit_basis_vnd: number | null;
   reason_code: string;
+  /** 0085 (BR-433 (e), ADD3-01): `refund` – people who made an A32 reduction on its folio (never its approver). */
+  origin_actor_ids?: string[] | null;
+  /** 0085: `refund` – `a32` (made by the server from an A32 reduction) | `other`; NULL before 0085. */
+  refund_source?: 'a32' | 'other' | null;
   reason_note: string | null;
   requested_by: string;
   requested_at: Date;
@@ -200,6 +234,32 @@ export type FocViewProvider = (
   tx: Tx,
   rows: readonly ApprovalRow[],
 ) => Promise<ReadonlyMap<string, FocView>>;
+
+/**
+ * BR-433 (e) v0.4.3 / ARC-SEC ADD3-01: the folio module routes EVERY `refund` request at submission – the lowest role
+ * that may decide it and everyone who may never approve it (people who made an A32 reduction on the folio after
+ * check-out below the owner). Called by `submit` under the caller's folio lock.
+ */
+export type RefundRouting = (
+  tx: Tx,
+  input: {
+    targetType: string | null;
+    targetId: string | null;
+    amountVnd: number;
+    source: 'a32' | 'other';
+    originActorIds: readonly string[];
+  },
+) => Promise<{ minRequiredRole: ApproverRole | null; originActorIds: string[] }>;
+
+/**
+ * ADD3-01 (residual): at APPROVAL time – did this person make an A32 reduction on the request's folio after check-out
+ * (also one made after the request was written, which `origin_actor_ids` cannot hold)?
+ */
+export type RefundMakerCheck = (
+  tx: Tx,
+  row: Pick<ApprovalRow, 'target_type' | 'target_id'>,
+  userId: string,
+) => Promise<boolean>;
 
 /**
  * 0055 (erd 4.6): `foc_state` is set iff the request is an approved foc / special_discount (DB CHECK
@@ -280,6 +340,8 @@ export class ApprovalService {
   /** Hooks registered without types (older form – they filter by type themselves); not counted as declared. */
   private readonly untypedPreLocks: PreLockHook[] = [];
   private focView: FocViewProvider | null = null;
+  private refundRouting: RefundRouting | null = null;
+  private refundMaker: RefundMakerCheck | null = null;
   /** Per-transaction memo: time zone/today and foc_limits are read once per request (FB-R2-ARC-BE-06). */
   private readonly perTx = new WeakMap<
     Tx,
@@ -333,6 +395,12 @@ export class ApprovalService {
   /** OpenAPI 0.3.7 D1: the folio module provides effectiveAmountVnd / the current FOC line (FocView). */
   provideFocView(provider: FocViewProvider): void {
     this.focView = provider;
+  }
+
+  /** BR-433 (e) / ADD3-01: the folio module routes every refund request (RefundRouting). */
+  provideRefundRouting(routing: RefundRouting, makerCheck?: RefundMakerCheck): void {
+    this.refundRouting = routing;
+    if (makerCheck) this.refundMaker = makerCheck;
   }
 
   private async preLock(tx: Tx, approvalId: string): Promise<void> {
@@ -398,12 +466,38 @@ export class ApprovalService {
     // lead however small (a protected basis lowered below the lead's 300.000 sent it there): within the manager's
     // limit (Σ ≤ the folio's protected basis) → manager, else (or no night at all) → owner.
     if (
-      input.reasonCode === DEBT_WRITE_OFF_REASON &&
+      input.reasonCode === DEBT_WRITE_OFF &&
       APPROVER_RANK[requiredRole] < APPROVER_RANK.manager
     ) {
       requiredRole = within(perTimeVnd(input), roleLimit(focLimits, 'manager', basis).perTime)
         ? 'manager'
         : 'owner';
+    }
+    if (
+      input.minRequiredRole &&
+      APPROVER_RANK[requiredRole] < APPROVER_RANK[input.minRequiredRole]
+    ) {
+      requiredRole = input.minRequiredRole;
+    }
+    if ((input.refundSource || input.originActorIds?.length) && input.type !== 'refund') {
+      throw new Error('refundSource / originActorIds are for a refund request only (BR-433 (e))');
+    }
+    // BR-433 (e) / ADD3-01: ONE routing for every refund, whatever path asks it (by hand, a receipt, a cancellation, an
+    // A32 reduction, a superseded replacement).
+    const refundSource = input.type === 'refund' ? (input.refundSource ?? 'other') : null;
+    let originActorIds: string[] = [...new Set(input.originActorIds ?? [])];
+    if (input.type === 'refund' && this.refundRouting) {
+      const r = await this.refundRouting(tx, {
+        targetType: input.targetType ?? null,
+        targetId: input.targetId ?? null,
+        amountVnd: input.amountVnd,
+        source: refundSource ?? 'other',
+        originActorIds,
+      });
+      if (r.minRequiredRole && APPROVER_RANK[requiredRole] < APPROVER_RANK[r.minRequiredRole]) {
+        requiredRole = r.minRequiredRole;
+      }
+      originActorIds = [...new Set([...originActorIds, ...r.originActorIds])];
     }
 
     // A2 – self-application within the requester's own limit (rbac 5.2 point 2). Serialised per user with
@@ -419,10 +513,11 @@ export class ApprovalService {
       `INSERT INTO approval_request (id, organization_id, property_id, type, status, target_type, target_id,
          target_code, folio_line_id, amount_vnd, limit_basis_vnd, reason_code, reason_note, requested_by,
          requested_at, required_role, approver_id, approver_role_snapshot, approver_limit_snapshot,
-         self_applied, decided_at, auth_method, foc_state, created_at, created_by, updated_at)
+         self_applied, decided_at, auth_method, foc_state, created_at, created_by, updated_at, origin_actor_ids,
+         refund_source)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
          $21, $22, CASE WHEN $5::text = 'approved' AND $4::text IN ('foc', 'special_discount') THEN 'applied' END,
-         $15, $14, $15)
+         $15, $14, $15, $23::uuid[], $24)
        RETURNING *`,
       [
         id,
@@ -447,6 +542,8 @@ export class ApprovalService {
         !!self,
         self ? now : null,
         self && input.requesterReauthenticated ? 'password' : null,
+        originActorIds,
+        refundSource,
       ],
     );
     const row = rows[0] as ApprovalRow;
@@ -571,12 +668,17 @@ export class ApprovalService {
     const role = approverRoleOf(actor.roles);
     if (!role) throw problem('FORBIDDEN_ACTION');
     this.assertNotSelf(row, actor, role);
+    // ADD3-01: whoever made an A32 reduction on the folio – even after this request was written – never approves it.
+    if (
+      row.type === 'refund' &&
+      this.refundMaker &&
+      (await this.refundMaker(tx, row, actor.userId))
+    ) {
+      throw problem('SELF_APPROVAL_FORBIDDEN');
+    }
     // FB-R2-ARC-BE-08: a request routed above this approver is decided at that level – 403, nothing written
     // (same as reject). Escalation (A4) is only for an approver of the routed level who exceeds a limit.
-    const needed =
-      APPROVER_RANK[row.required_role] >= APPROVER_RANK[minRoleFor(row.type)]
-        ? row.required_role
-        : minRoleFor(row.type);
+    const needed = decisionFloor(row, minRoleFor(row.type));
     if (APPROVER_RANK[role] < APPROVER_RANK[needed]) {
       throw problem('APPROVAL_LIMIT_EXCEEDED', { extras: { approver: needed } });
     }
@@ -786,8 +888,9 @@ export class ApprovalService {
     if (!role) throw problem('FORBIDDEN_ACTION');
     this.assertNotSelf(row, actor, role);
     // A request routed above this approver is decided at that level (no change, no escalation).
-    if (APPROVER_RANK[role] < APPROVER_RANK[row.required_role]) {
-      throw problem('APPROVAL_LIMIT_EXCEEDED', { extras: { approver: row.required_role } });
+    const needed = decisionFloor(row, row.required_role);
+    if (APPROVER_RANK[role] < APPROVER_RANK[needed]) {
+      throw problem('APPROVAL_LIMIT_EXCEEDED', { extras: { approver: needed } });
     }
     const now = this.clock.now();
     const { rows } = await tx.query<ApprovalRow>(
@@ -990,6 +1093,13 @@ export class ApprovalService {
     const row = rows[0];
     if (!row) throw problem('NOT_FOUND');
     if (row.status !== 'pending') throw problem('INVALID_TRANSITION');
+    // SEC ADD3-01 (4): a refund the server made from an A32 reduction is not withdrawn by its requester (the person
+    // who made the A32) – it leaves only through a decision of someone else (or the server's own refundPlan).
+    if (row.type === 'refund' && row.refund_source === 'a32') {
+      throw problem('FORBIDDEN_ACTION', {
+        detail: 'a refund made from an A32 reduction is decided, not withdrawn (BR-433 (e))',
+      });
+    }
     const now = this.clock.now();
     const updated = await tx.query<ApprovalRow>(
       `UPDATE approval_request SET status = 'cancelled', updated_at = $2, version = version + 1
@@ -1208,6 +1318,11 @@ export class ApprovalService {
   private assertNotSelf(row: ApprovalRow, actor: Actor, role: ApproverRole): void {
     // SEC F8 (BE-B, 0.3.6): nobody approves the refund they requested – no owner/manager exception.
     if (row.type === 'refund' && row.requested_by === actor.userId) {
+      throw problem('SELF_APPROVAL_FORBIDDEN');
+    }
+    // BR-433 (e) v0.4.3 / ADD3-01: nobody who made an A32 reduction on the folio decides its refunds (CHECK
+    // approval_request_origin_check, 0085).
+    if (row.type === 'refund' && (row.origin_actor_ids ?? []).includes(actor.userId)) {
       throw problem('SELF_APPROVAL_FORBIDDEN');
     }
     // SEC-BE-37 (BE-B, review S3): whoever set the refund destination does not approve it (CHECK 0031/0042).

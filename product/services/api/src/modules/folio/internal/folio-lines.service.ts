@@ -11,6 +11,7 @@
  * Settled folio: new charges only inside post_checkout_window_until (BR-427 c), flagged post_checkout.
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { v7 as uuidv7 } from 'uuid';
 import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
 import type { FolioLineCategory } from '../../../db/schema/folio';
@@ -33,6 +34,7 @@ import { applyPct } from '../../reservations/public/pricing';
 import { ReservationHooks } from '../../reservations/public/reservation-hooks';
 import { StayNightPricingPort } from '../../reservations/public/stay-night-pricing';
 import { FolioService } from '../public/folio.service';
+import { StayWaiverAlertService } from './stay-waiver-alert';
 
 export interface ChargeCatalogItem {
   code: string;
@@ -67,6 +69,27 @@ interface Actor {
 const FREE_CATEGORIES = ['fnb', 'service_fee', 'damage'] as const;
 const MANAGERS = ['owner', 'manager'];
 const logger = new Logger('FolioLines');
+/** Roles stored on `folio_settled_reduction` (CHECK 0085). */
+const REDUCTION_ROLES = ['front_desk', 'front_desk_lead', 'manager', 'owner'];
+/** Staff-facing words of the line kinds in the "Tự sinh từ A32" note (BR-433 (e)); others show their code. */
+const A32_LINE_LABEL: Partial<Record<FolioLineCategory, string>> = {
+  room: 'tiền phòng',
+  extra_person: 'phụ thu người thêm',
+  early_checkin: 'nhận phòng sớm',
+  late_checkout: 'trả phòng muộn',
+  minibar: 'minibar',
+  fnb: 'ăn uống',
+  laundry: 'giặt ủi',
+  cleaning: 'dọn phòng',
+  service_fee: 'phí dịch vụ',
+  utilities: 'điện nước',
+  damage: 'hư hỏng',
+};
+
+/** 667000 → "667.000" (the amounts of the note). */
+function vnd(n: number): string {
+  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
 
 @Injectable()
 export class FolioLinesService {
@@ -81,6 +104,7 @@ export class FolioLinesService {
     // a wiring mistake fails at start-up, never as a 404 on a night line).
     @Inject(StayNightPricingPort) private readonly nightPricing: StayNightPricingPort,
     @Inject(ReservationHooks) private readonly hooks: ReservationHooks,
+    @Inject(StayWaiverAlertService) private readonly stayAlert: StayWaiverAlertService,
     @Optional() @Inject(EventsService) private readonly events?: EventsService,
   ) {}
 
@@ -588,7 +612,11 @@ export class FolioLinesService {
       });
       // x-ota-prepaid-rule (re-verification 17/10): the replacement of an OTA-covered line moves the receipt.
       await this.folios.resyncOtaCollect(tx, folio.id, line.reservation_id, actorInfo);
-      if (!debtCheck) {
+      // A reduction on a settled folio is audited below with its reduction and the role at the time (BR-433 (e)).
+      const settledReduction =
+        folio.status === 'settled' &&
+        newAmount < Math.round(Number(line.quantity) * line.unit_price_vnd);
+      if (!debtCheck && !settledReduction) {
         await this.audit.recordMoney(tx, {
           action: 'folio_line.adjusted',
           entityType: 'folio_line',
@@ -641,24 +669,133 @@ export class FolioLinesService {
         ...(actor.requestId ? { requestId: actor.requestId } : {}),
       });
     }
-    // BUG-R3-002 (BR-522 K11-06 "every change of a closed stay's folio re-runs refundPlan"): a reduction after check-out
-    // that leaves an overpayment → ONE refund request of the part not requested yet (requester = this MGR+, decided by
-    // another MGR / OWN – SEC F8) + "Cần chú ý" closed_reservation_credit, in this transaction.
+    // BR-433 (e) v0.4.3 (SEC FZ-02): a reduction on a settled folio by someone below the owner is a waiver – the refund
+    // it produces is routed on the folio's A32 refunds (FolioService.afterSettledMoneyChange) and the part of it that
+    // goes BELOW the line's amount at check-out (`waiverVnd`) is recorded (who, role at the time) for Σ of ESC-026.
+    let a32: { reducedVnd: number; note: string } | undefined;
+    const lineBeforeVnd = Math.round(Number(line.quantity) * line.unit_price_vnd);
+    const lineAfterVnd = input.voidLine || qty <= 0 ? 0 : newAmount;
+    const role = actorRoleOf(actor.userId, actor.roles);
     if (
       folio.status === 'settled' &&
-      (await this.folios.balance(tx, folio.id)).unhandledCreditVnd > 0
+      lineAfterVnd < lineBeforeVnd &&
+      REDUCTION_ROLES.includes(role)
     ) {
-      await this.folios.closeStayCredit(tx, {
-        folioId: folio.id,
-        reservationId: folio.primary_reservation_id,
-        reservationCode: stayCode ?? folio.bill_no ?? folio.id,
-        reasonCode: 'overpayment',
-        actor: { userId: actor.userId, roles: actor.roles },
-        ...(actor.requestId ? { requestId: actor.requestId } : {}),
-      });
+      const reducedVnd = lineBeforeVnd - lineAfterVnd;
+      // BR-433 (e) / SEC FZ-02: every reduction after check-out is audited with what it took off and the role at the time
+      // (the debt branch above already wrote its own, with the debt numbers).
+      if (!debtCheck) {
+        await this.audit.recordMoney(tx, {
+          action: 'folio_line.adjusted',
+          entityType: 'folio_line',
+          entityId: line.id,
+          ...(stayCode ? { entityCode: stayCode } : {}),
+          before: { category: line.category, amountVnd: lineBeforeVnd, actorRole: role },
+          after: { category: line.category, amountVnd: lineAfterVnd, reducedVnd },
+          reason,
+          ...(actor.requestId ? { requestId: actor.requestId } : {}),
+        });
+      }
+      const waiverVnd = Math.max(
+        0,
+        Math.min(lineBeforeVnd, await this.amountAtCheckout(tx, line.id)) - lineAfterVnd,
+      );
+      if (waiverVnd > 0) {
+        const reductionId = uuidv7();
+        await tx.query(
+          `INSERT INTO folio_settled_reduction (id, organization_id, property_id, folio_id, folio_line_id, reduced_vnd,
+             actor_id, actor_role, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            reductionId,
+            tx.ctx.organizationId,
+            folio.property_id,
+            folio.id,
+            line.id,
+            waiverVnd,
+            actor.userId,
+            role,
+            this.clock.now(),
+          ],
+        );
+        await this.stayAlert.afterSettledReduction(tx, folio.id, role, reductionId);
+      }
+      a32 = {
+        reducedVnd,
+        note: await this.a32RefundNote(tx, {
+          voided: lineAfterVnd === 0,
+          category: line.category,
+          serviceDate: line.service_date,
+          reducedVnd,
+          actorId: actor.userId,
+          reason,
+        }),
+      };
     }
+    // BUG-R3-002 / 0.3.8 bổ sung 3 (BR-522 K11-06): the one shared rule for a human money change on a settled folio.
+    await this.folios.afterSettledMoneyChange(
+      tx,
+      folio.id,
+      {
+        userId: actor.userId,
+        roles: actor.roles,
+        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+      },
+      a32,
+    );
     await this.folios.touch(tx, folio.id);
     if (line.reservation_id)
       await publishEvent(tx, this.events, 'reservation.changed', line.reservation_id);
+  }
+
+  /**
+   * BR-433 (e) + oracle I16: what the line stood at when the guest left – the A32 chain (`related_line_id`, same
+   * category, replacements posted after check-out) walked back to the line posted before check-out, or to the first
+   * line of a charge posted in the window (FZ02-7). A night is never above its protected reference (`limit_ref_vnd`,
+   * BR-433 (d)): raising a line by hand then lowering it back is not a waiver (BB07-1), lowering below is.
+   */
+  private async amountAtCheckout(tx: Tx, lineId: string): Promise<number> {
+    const { rows } = await tx.query<{ amount: string | number }>(
+      `WITH RECURSIVE chain AS (
+         SELECT l.id, l.related_line_id, l.post_checkout, l.category, l.amount_vnd, l.limit_ref_vnd, 0 AS depth
+           FROM folio_line l WHERE l.id = $1
+         UNION ALL
+         SELECT p.id, p.related_line_id, p.post_checkout, p.category, p.amount_vnd, p.limit_ref_vnd, c.depth + 1
+           FROM chain c JOIN folio_line p ON p.id = c.related_line_id
+          WHERE c.post_checkout AND p.category = c.category AND p.reversal_of_id IS NULL AND c.depth < 200
+       )
+       SELECT CASE WHEN r.limit_ref_vnd IS NULL THEN r.amount_vnd
+                   ELSE LEAST(r.amount_vnd, (SELECT limit_ref_vnd FROM folio_line WHERE id = $1))
+              END AS amount
+         FROM chain r ORDER BY r.depth DESC LIMIT 1`,
+      [lineId],
+    );
+    return Number(rows[0]?.amount ?? 0);
+  }
+
+  /**
+   * BR-433 (e) (3): `reason_note` of the refund an A32 reduction produces – "Tự sinh từ A32: <void/giảm> dòng <loại,
+   * ngày> <số tiền> – <người làm> – lý do: <lý do A32>" (≤ 500 characters – the reason is cut, never the source).
+   */
+  private async a32RefundNote(
+    tx: Tx,
+    p: {
+      voided: boolean;
+      category: FolioLineCategory;
+      serviceDate: string | null;
+      reducedVnd: number;
+      actorId: string;
+      reason: string;
+    },
+  ): Promise<string> {
+    const { rows } = await tx.query<{ display_name: string }>(
+      'SELECT display_name FROM app_user WHERE id = $1',
+      [p.actorId],
+    );
+    const day = p.serviceDate ? ` ${p.serviceDate.slice(8, 10)}/${p.serviceDate.slice(5, 7)}` : '';
+    const head =
+      `Tự sinh từ A32: ${p.voided ? 'void' : 'giảm'} dòng ${A32_LINE_LABEL[p.category] ?? p.category}${day} ` +
+      `${vnd(p.reducedVnd)} – ${rows[0]?.display_name ?? p.actorId} – lý do: `;
+    return head + p.reason.slice(0, Math.max(0, 500 - head.length));
   }
 }
