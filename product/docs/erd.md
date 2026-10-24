@@ -1133,14 +1133,19 @@ Giữ sau khi xóa (không định danh – DATA, US-158): ngày, số khách, h
   - cột: `id`, `organization_id`, `property_id`, `folio_id` FK, `folio_line_id` FK, `reduced_vnd` > 0, `actor_id` FK `app_user`, `actor_role` (`front_desk|front_desk_lead|manager|owner`), `created_at`;
   - mỗi lần A32 **giảm** một dòng của folio `settled` thì ghi một dòng;
   - phần do vai dưới OWN làm thì cộng vào Σ lượt ESC-026. Phần tính = max(0, min(dòng trước, số lúc khách rời) − dòng sau); tăng tay rồi hạ lại không tính (I16).
-- **`approval_request.origin_actor_ids`** uuid[] NOT NULL DEFAULT `{}` (đích sau FB-R3-ARC-ADD3-01; bản `0085` ở `943e7f2` có `origin_actor_id` uuid đơn – đổi trước gộp):
-  - chỉ có trên `refund`;
-  - giữ những người làm A32 giảm (dưới OWN) đứng sau tiền dư của folio;
-  - CHECK `approver_id` ∉ `origin_actor_ids` (app trả 403 `SELF_APPROVAL_FORBIDDEN` trước);
-  - yêu cầu thay thế (`superseded`) chép mảng và cách định tuyến của yêu cầu nó thay.
-- **Định tuyến yêu cầu hoàn trên folio `settled` có A32 giảm của vai dưới OWN**:
-  - yêu cầu do A32 tự sinh: Σ hoàn từ A32 (chờ, đã duyệt, mới; bỏ từ chối/hủy) > cơ sở (d), hoặc cơ sở null → `owner`; còn lại → `manager`;
-  - **mọi yêu cầu hoàn khác** trên folio đó (tạo tay `createRefundRequest`, từ `recordPayment`/`confirmPaymentReceived`) → `owner`, `origin_actor_ids` = mọi người làm A32 dưới OWN của folio.
+- **`approval_request.origin_actor_ids`** uuid[] NOT NULL DEFAULT `{}` và **`approval_request.refund_source`** text NULL (`a32` | `other`) – bản cuối của FB-R3-ARC-ADD3-01 (gộp `43abb0b`):
+  - `origin_actor_ids` = mọi người làm A32 giảm (dưới OWN) trên folio lúc lập yêu cầu, cộng người làm A32 sinh ra chính yêu cầu (nếu có). Gán cho **mọi** yêu cầu `refund` của folio đó, kể cả `refund_source = other`;
+  - `refund_source`: `a32` = server tự sinh từ A32; `other` = mọi đường khác (lập tay `createRefundRequest`, khoản thu, hủy / no-show); NULL ở dòng trước 0085;
+  - CHECK `approval_request_origin_scope_check`: mảng khác rỗng chỉ khi `type = 'refund'`. CHECK `approval_request_refund_source_check`: chỉ `refund`, giá trị trong tập. CHECK `approval_request_origin_check`: `approver_id` không thuộc `origin_actor_ids`;
+  - **chỉ ghi lúc INSERT**: quyền UPDATE theo cột của `ottimo_app` không gồm hai cột này, thêm trigger `approval_request_refund_origin_immutable` (BEFORE UPDATE) chặn đổi giá trị kể cả với role chủ;
+  - yêu cầu thay thế (`superseded`, ở `closeStayCredit` và `refundsDownToCredit`) chép `origin_actor_ids`, `refund_source`, ghi chú và cách định tuyến của yêu cầu nó thay. Bản thay thế của yêu cầu `a32` giữ người xin = người làm A32 (I17).
+- **Định tuyến** – một hàm `FolioService.refundRouting`, gọi từ `ApprovalService.submit` (`provideRefundRouting`) cho **mọi** yêu cầu `refund`. Folio có dòng `folio_settled_reduction` của vai dưới OWN:
+  - `refund_source = a32`: Σ hoàn `a32` (chờ, đã duyệt, mới; bỏ từ chối/hủy) > cơ sở (d), hoặc cơ sở null → `owner`; còn lại → `manager`;
+  - `refund_source = other` → `owner`;
+  - folio không có A32 giảm: định tuyến BR-522 như cũ (`manager`).
+- **Lúc quyết định**:
+  - `approve` hỏi `FolioService.isA32Maker(folio, người duyệt)`: người duyệt từng làm A32 giảm trên folio, **kể cả sau khi yêu cầu đã lập**, → 403 `SELF_APPROVAL_FORBIDDEN` (CHECK ở trên là lớp DB cho người có trong mảng);
+  - người làm A32 **không tự hủy** yêu cầu `a32` mình sinh ra → 403 `FORBIDDEN_ACTION`. Yêu cầu chỉ rời hàng chờ bằng quyết định của người khác, hoặc bằng `refundPlan` của server.
 
 **Cơ sở hạn mức được bảo vệ – BR-433 (d) v0.4.1** (0.3.8 bổ sung 1 mục 4, ARC 23/10, SEC FB-R3-SEC-BE-B-07; migration của BE-B cùng `foc_stay_alert`): `stay_night.reference_rate_vnd` bigint NOT NULL ≥ 0. Đây là giá tham chiếu cùng đơn vị với `room_revenue_gross_vnd`, chỉ các đường giá của hệ thống ghi, A31 không ghi. `folio_line.limit_ref_vnd` bigint ≥ 0, bắt buộc với dòng `room` và `late_fee_as_night` (CHECK). Dòng thay của A32 chép giá trị của dòng bị thay. `folio.limit_basis_checkout_vnd` bigint NULL ≥ 0: chụp một lần lúc B18 (`settle`). Cổng duy nhất `FolioService.limitBasisVnd(folioId, lineId|null)`: giá bảo vệ = min(giá dòng, `limit_ref_vnd`); cơ sở folio = max; sau B18 thêm min với số chụp.
 
@@ -1617,6 +1622,7 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 ## 15. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
+| 24/10/2026 | 3 – Sprint 1 (Phản hồi & sửa, sau gộp `43abb0b`) | 4.15 khớp bản cuối ADD3-01: `approval_request.origin_actor_ids` uuid[] + `refund_source`, ba CHECK, trigger `approval_request_refund_origin_immutable`, định tuyến `refundRouting` cho mọi yêu cầu `refund`, `isA32Maker` lúc duyệt, người làm A32 không tự hủy | ARC |
 | 24/10/2026 | 3 – Sprint 1 (Phản hồi & sửa) | **0.3.8 bổ sung 3 / BR-433 (e)**: 4.15 thêm `folio_settled_reduction`, `approval_request.origin_actor_ids` (đích – FB-R3-ARC-ADD3-01), định tuyến yêu cầu hoàn trên folio `settled` có A32 giảm | ARC |
 | 23/10/2026 | 3 – Sprint 1 (Review) | **0.3.8 bổ sung 1**: 4.15 `mfa_login_challenge` RLS theo tổ chức + hàm entry `auth_mfa_challenge_resolve` (thay "chỉ SECURITY DEFINER"); `app_user.mfa_data_key_id`, `mfa_key_property_id` (theo migration BE-C) | ARC |
 | 22/10/2026 | 3 – Sprint 1 (Sản xuất) | **0.3.8** (khớp OpenAPI 0.3.8-draft, `rounds/round-03/outputs/ARC/s1-contracts.md`): mục **4.15 mới** – `app_user` cột 2FA chờ/chống phát lại, `user_session.mfa_at/amr/enrollment_only`, `mfa_login_challenge`, `manager_confirmation` (US-164, SM-19 đề xuất), `foc_stay_alert` (ESC-026 A), khóa `remote_confirm_timeout_minutes`, `late_fee_post_review_hours` | ARC |
