@@ -5,7 +5,7 @@ import { BANNED } from '../../scripts/dist-checks.mjs';
 import { plain } from '../lib/rich';
 import { BOOKING_STRINGS } from '../scripts/booking-strings';
 import { en } from './en';
-import { GALLERY_TARGET, HERO_INTERVAL_MS, ROOM_GALLERIES } from './gallery';
+import { AMENITIES_PHOTO, GALLERY_TARGET, HERO_INTERVAL_MS, ROOM_GALLERIES } from './gallery';
 import { HERO_EXCLUDED, HERO_PICKS, HERO_SLIDES, PICKER_SOURCES, photoIdForPick } from './hero';
 import manifest from '../assets/photos/manifest.json';
 import { isOttimoMailbox, site, siteSchema } from './site';
@@ -99,7 +99,7 @@ describe('page copy EN + VI', () => {
       en.why.short.photo,
       en.why.long.photo,
       ...en.rooms.items.map((r) => r.photo),
-      'detail-kitchen',
+      AMENITIES_PHOTO,
       'aerial-hillside',
     ];
     for (const id of used) {
@@ -140,6 +140,9 @@ describe('page copy EN + VI', () => {
     for (const p of manifest.photos) expect(sources.has(p.src), `${p.id} ← ${p.src}`).toBe(true);
     expect(() => photoIdForPick(46)).toThrow(/not a picker number/);
     expect(() => photoIdForPick(1)).toThrow(/optimize-images\.mjs/); // 01a.png is not on the site
+    // UXD rule 24/10: editorial photos (The Stay, Amenities, Location) never repeat a hero slide
+    for (const id of [en.why.short.photo, en.why.long.photo, AMENITIES_PHOTO, 'aerial-hillside'])
+      expect(HERO_SLIDES, `${id} is editorial`).not.toContain(id);
   });
 
   it('R3-Q52: viewer strings fill their numbers; the counter template keeps "{i}" for the script', () => {
@@ -192,7 +195,13 @@ describe('page copy EN + VI', () => {
   });
 
   it('VI speaks as "chúng tôi"; only the deposit step and the anti-impersonation answer keep "OTTIMO" (INV 24/10)', () => {
-    for (const s of [vi.book.intro, vi.book.chat.text, vi.contact.title, vi.contact.intro])
+    for (const s of [
+      vi.book.intro,
+      vi.book.chat.text,
+      vi.contact.title,
+      vi.contact.intro,
+      ...BOOKING_STRINGS.vi.notReady,
+    ])
       expect(plain(s)).not.toMatch(/OTTIMO/);
     expect(plain(vi.book.steps[2].text)).toMatch(/OTTIMO/);
     expect(vi.faq.items.find((i) => i.deposit)!.a.join(' ')).toMatch(/OTTIMO/);

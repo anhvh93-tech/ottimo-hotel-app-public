@@ -66,7 +66,7 @@ const PHOTOS = [
   { id: 'hero-facade-dusk', src: 'mat-tien-sanh/03.png', use: 'Hero (LCP)', type: 'Exterior', brochure: '–', avifQuality: 42,
     alt: { en: 'OTTIMO at dusk, with warm lights on every balcony', vi: 'OTTIMO lúc chạng vạng, ban công sáng đèn ấm' } },
   { id: 'lobby', src: 'mat-tien-sanh/01b.png', use: 'About · Lobby', type: 'Lobby', brochure: 'p31',
-    alt: { en: 'Ground-floor lobby with an oak reception desk and a coffee counter', vi: 'Sảnh tầng trệt với quầy lễ tân gỗ sồi và quầy cà phê' } },
+    alt: { en: 'Ground-floor lobby with an oak reception desk', vi: 'Sảnh tầng trệt với quầy lễ tân gỗ sồi' } },
   { id: 'aerial-hillside', src: 'mat-tien-sanh/05.2.png', use: 'Location', type: 'Exterior', brochure: '–',
     alt: { en: 'Aerial view of OTTIMO on a quiet hillside, with Da Lat and the mountains behind', vi: 'OTTIMO nhìn từ trên cao, trên triền đồi yên tĩnh, phía sau là Đà Lạt và núi' } },
   { id: 'city-living', src: 'phong-3/03.png', use: 'Room 01 cover', type: 'Standard Studio · City View', brochure: 'p8',
@@ -100,11 +100,14 @@ const PHOTOS = [
   { id: 'detail-balcony-sunset', src: 'phong-2/06.png', use: 'Location quote', type: 'Standard Studio · Garden View (navy)', brochure: 'p30',
     alt: { en: 'Balcony at sunset over the hills of Da Lat', vi: 'Ban công lúc hoàng hôn nhìn ra đồi Đà Lạt' } },
   { id: 'signature-bedroom-desk', src: 'phong-4/8.png', use: 'Hero slide (picker 37)', type: 'Signature Two-Bedroom', brochure: '–',
-    alt: { en: 'Bedroom with a white bed on an oak platform, a wardrobe and a desk by the window', vi: 'Phòng ngủ với giường trắng trên bệ gỗ, tủ áo và bàn làm việc cạnh cửa sổ' } },
+    alt: { en: 'Bedroom with a writing desk, a built-in wardrobe and a raised bed, a washer and dryer in the hall beyond', vi: 'Phòng ngủ với bàn làm việc, tủ áo âm tường và giường đặt trên bệ, máy giặt sấy ở hành lang bên ngoài' } },
   { id: 'garden-navy-kitchen', src: 'phong-2/03.png', use: 'Hero slide (picker 16)', type: 'Garden Studio (navy)', brochure: '–',
-    alt: { en: 'Long navy kitchen open to a sofa corner by tall glass doors', vi: 'Bếp navy dài liền góc sofa bên cửa kính lớn' } },
+    alt: { en: 'Navy and oak kitchen by a sofa corner, with tall windows over Da Lat', vi: 'Bếp navy và gỗ sồi cạnh góc sofa, cửa kính lớn nhìn ra Đà Lạt' } },
   { id: 'signature-living-oak', src: 'phong-4/4.png', use: 'Hero slide (picker 33)', type: 'Signature Two-Bedroom', brochure: '–',
-    alt: { en: 'Living room with an oak shelf wall, a TV and a cream sofa by the window', vi: 'Phòng khách với vách kệ gỗ sồi, TV và sofa màu kem cạnh cửa sổ' } },
+    alt: { en: 'Living room with an oak shelf wall, a TV, a cream sofa and a full-size fridge', vi: 'Phòng khách với vách kệ gỗ sồi, TV, sofa màu kem và tủ lạnh cỡ lớn' } },
+  // Amenities photo since 24/10 (UXD FB-R3-UXD-FE-02): picker 30, so the hero photo 9 is not repeated there.
+  { id: 'signature-laundry-dining', src: 'phong-4/1.png', use: 'Amenities (picker 30)', type: 'Signature Two-Bedroom', brochure: '–',
+    alt: { en: 'A washer and dryer beside a dining table and an oak kitchen', vi: 'Máy giặt sấy cạnh bàn ăn và gian bếp gỗ sồi' } },
 ];
 
 const SEC_CHECK =

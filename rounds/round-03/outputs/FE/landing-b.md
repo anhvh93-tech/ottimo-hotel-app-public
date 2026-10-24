@@ -117,3 +117,58 @@ Ngân sách byte (Playwright, KB = 1024 B):
 - Công cụ: `product/design/landing/tools/optimize-images.mjs` (`--only`, `--out`, `avifQuality`, 3 ảnh mới, hero → `03.png`).
 - Test E2E: `product/tests/e2e/landing/{form,sections,gallery}.landing.spec.ts`.
 - Tài liệu: `01-decisions/decision-log.md` (1 dòng FE-LP), báo cáo này, `landing-b-shots/`.
+
+## 10. Phản hồi & sửa – review UXD + CPY (24/10)
+
+Căn cứ: `rounds/round-03/reviews/landing-b-UXD.md` (FB-R3-UXD-FE-01…05), `landing-b-CPY.md` (FB-R3-CPY-FE-01…07). Alt mới: bản UXD cho ảnh 37 và 33 (đã tính khung 4/3), bản CPY cho ảnh 16 (theo ORC). Bảng alt ở mục 1 là bản cũ – bản đang dùng ở 10.3.
+
+### 10.1 Trả lời từng thẻ
+
+| Thẻ | Mức | Trạng thái | Đã làm |
+|---|---|---|---|
+| FB-R3-UXD-FE-01 | Major | Done | `landing.css` ≥ 1024 px: `.hero-media img` 4/3, `max-height: none`, `object-position: 50% 50%`; 6 rule `img.hero-img--<id>` đúng giá trị UXD (4: 50% 60%, 37: 25%, 16: 60%, 33: 40%, 32 và 9: 50%). `Hero.astro` gắn `imgClass="hero-img hero-img--<id>"` – không style nội tuyến (CSP). Điện thoại/máy tính bảng không đổi. README mục "Đổi ảnh đầu trang" thêm cách đặt điểm lấy nét cho ảnh mới. Byte hero không đổi (38,4 KB), CLS 0, preload không đổi |
+| FB-R3-UXD-FE-02 | Minor | Done | Ảnh 30 (`phong-4/1.png`) → id `signature-laundry-dining` (tool `--only`, AVIF q50: 960 px = 21,2 KB). `Amenities.astro` dùng hằng `AMENITIES_PHOTO` (gallery.ts), `imgClass="op-x08"`; `.op-x35` bỏ (không còn chỗ dùng). Alt EN/VI theo UXD. **Thêm test** quy tắc UXD: ảnh biên tập (The Stay, Tiện nghi, Vị trí) không trùng slide đầu trang. `detail-kitchen` giữ ở đầu trang + thư viện Garden |
+| FB-R3-UXD-FE-03 | Minor | Done | Alt 37 và 33 theo bảng UXD; 16 theo CPY (10.3). `manifest.json` đồng bộ |
+| FB-R3-UXD-FE-04 | Minor | Done | VI `why.title` = `Nghệ thuật [[lưu trú an yên.]]`, `rooms.title` = `Chọn khung cửa sổ [[của bạn]]`, bảng đi xe `Chợ Đà Lạt · [[Hồ Xuân Hương]]` (EN `[[Xuan Huong Lake]]` – EN cũng ngắt ở 390). `Why.astro`, `Rooms.astro`, `Location.astro` render qua `<Rich>`. CSS: `.h2 { text-wrap: balance }`, `.head p, .why-intro, .hero-text .lead { text-wrap: pretty }`, không áp H1. **Ngoại lệ dưới 360 px:** bảng đi xe không đủ chỗ cho cả ba cột không ngắt ("Hồ Xuân Hương", "khoảng 28 km", "30 phút") – trang VI 320 px bị đẩy ngang 4 px (E2E TC-LP-001 bắt được). Dưới 360 px tên hồ được phép ngắt (`@media (max-width: 359px) .dist tbody th .nw { white-space: normal }`); từ 360 px trở lên giữ nguyên cụm |
+| FB-R3-UXD-FE-05 | Suggestion | Chuẩn bị, chờ INV | Commit **riêng, cuối cùng** (`gallery.ts`): Signature `signature-dining · signature-living-oak · signature-bedroom-desk · signature-bed · signature-laundry-dining · signature-bath` (3 → 6), Garden thêm `garden-navy-kitchen` sau `garden-navy` (6 → 7). E2E thư viện chỉnh theo số ảnh mới trong cùng commit. Bỏ commit này ra là trở về thư viện cũ |
+| FB-R3-CPY-FE-01 | Minor | Done | Như UXD-04 (why.title) |
+| FB-R3-CPY-FE-02 | Minor | Done | Như UXD-04 (rooms.title) |
+| FB-R3-CPY-FE-03 | Minor | Done (bản UXD) | Ảnh 37 dùng bản UXD-03 = câu CPY + "a washer and dryer in the hall beyond" (khung 4/3 nay thấy máy giặt sấy ở mọi cỡ) |
+| FB-R3-CPY-FE-04 | Minor | Done | Ảnh 16 theo CPY |
+| FB-R3-CPY-FE-05 | Minor | Done | VI `notReady` xưng "chúng tôi"; test "VI không có OTTIMO" thêm `notReady` |
+| FB-R3-CPY-FE-06 | Suggestion | Done | Alt `lobby` bỏ "coffee counter / quầy cà phê" (en.ts, vi.ts, manifest, tool) |
+| FB-R3-CPY-FE-07 | Suggestion | Done | VI bước cọc `…qua [[mã QR]].` (bước này đã render qua `<Rich>`) |
+| CPY ghi chú: alt manifest lệch `photoAlt` | – | Done | `manifest.json` đồng bộ alt với `photoAlt` cho cả 22 ảnh có trên trang (alt tool của ảnh cũ chưa đồng bộ – chạy lại `--only` một ảnh cũ sẽ đưa alt tool vào manifest; trang không bị ảnh hưởng vì dùng `photoAlt`) |
+
+### 10.2 Ảnh đầu trang sau khi đổi khung (1440 px)
+- Slide 4 (ảnh 37) thấy máy giặt sấy ở hành lang, bàn, tủ, trọn giường. Slide 6 (ảnh 33) thấy tủ lạnh, vách kệ, hành lang. Slide 1 (ảnh 4) đủ các tầng ban công sáng đèn, biển OTTIMO, sảnh.
+- Đầu trang máy tính thấp hơn (ảnh 625 × 469 ở 1440): tiêu đề "The art of staying well." ló lên trong màn hình đầu.
+
+### 10.3 Alt đang dùng (photoAlt = manifest)
+
+| id (số ảnh) | EN | VI |
+|---|---|---|
+| `signature-bedroom-desk` (37) | Bedroom with a writing desk, a built-in wardrobe and a raised bed, a washer and dryer in the hall beyond | Phòng ngủ với bàn làm việc, tủ áo âm tường và giường đặt trên bệ, máy giặt sấy ở hành lang bên ngoài |
+| `garden-navy-kitchen` (16) | Navy and oak kitchen by a sofa corner, with tall windows over Da Lat | Bếp navy và gỗ sồi cạnh góc sofa, cửa kính lớn nhìn ra Đà Lạt |
+| `signature-living-oak` (33) | Living room with an oak shelf wall, a TV, a cream sofa and a full-size fridge | Phòng khách với vách kệ gỗ sồi, TV, sofa màu kem và tủ lạnh cỡ lớn |
+| `signature-laundry-dining` (30, Tiện nghi) | A washer and dryer beside a dining table and an oak kitchen | Máy giặt sấy cạnh bàn ăn và gian bếp gỗ sồi |
+| `lobby` (2, không dùng trên trang) | Ground-floor lobby with an oak reception desk | Sảnh tầng trệt với quầy lễ tân gỗ sồi |
+
+### 10.4 Kết quả kiểm (lượt sửa)
+
+| Kiểm | Kết quả |
+|---|---|
+| `astro check` | 0 lỗi, 0 cảnh báo |
+| ESLint, Prettier | Sạch |
+| Vitest landing (nguồn + 3 bản dist) | 203/203 (test mới gộp trong các ca có sẵn: quy tắc ảnh biên tập, `notReady`) |
+| Playwright landing | 54/54 (lần chạy đầu 53/54: VI 320 px cuộn ngang 4 px do `[[Hồ Xuân Hương]]` – đã sửa như 10.1, không nới test) |
+| Ngân sách | Hero 12,9 / 38,4 / 99 KB như trước; mở trang điện thoại EN DPR2 305,9 KB (≤ 320), VI 335,4 (≤ 390), máy tính DPR2 494,6 (≤ 700); cuộn hết ≤ 600,7 KB (≤ 1100) |
+
+### 10.5 Ảnh chụp lại (`landing-b-shots/`, 47 ảnh)
+- `hero-1440-en-slide1…6.jpg` (khung 4/3), `hero-1024-en-slide1.jpg`, `hero-1024-en-slide4.jpg`;
+- `amenities-1440-{en,vi}.jpg`, `amenities-390-{en,vi}.jpg` (ảnh 30);
+- `why-390-vi.jpg`, `why-320-vi.jpg`, `rooms-390-vi.jpg`, `rooms-320-vi.jpg`, `location-390-vi.jpg`, `location-320-vi.jpg`, `rooms-1440-en.jpg`;
+- chụp lại cả bộ cũ (mọi mục × 1440/390 × EN/VI, đầu trang 390 EN 6 slide, VI slide 1).
+
+### 10.6 Còn lại cho UXD (không chặn)
+- 320 px VI: tiêu đề thẻ The Stay "Một mùa Đà Lạt, sống thong / thả" còn rớt một chữ (`why-320-vi.jpg`) – thẻ `.h3` chưa có `text-wrap: balance` vì UXD-04 chỉ nêu `.h2`. UXD quyết có áp cho `.h3` không.

@@ -43,7 +43,7 @@ export const vi: Copy = {
     'detail-kitchen': 'Bếp gỗ sồi với bếp từ, tủ lạnh lớn và máy giặt sấy',
     'aerial-hillside':
       'OTTIMO nhìn từ trên cao, trên triền đồi yên tĩnh, phía sau là Đà Lạt và núi',
-    lobby: 'Sảnh tầng trệt với quầy lễ tân gỗ sồi và quầy cà phê',
+    lobby: 'Sảnh tầng trệt với quầy lễ tân gỗ sồi',
     'city-bed': 'Giường đôi cạnh cửa sổ có rèm',
     'city-view': 'Sofa cạnh cửa kính lớn nhìn ra thành phố',
     'garden-navy': 'Studio tông navy với giường, sofa và cửa kính ra ban công',
@@ -53,9 +53,10 @@ export const vi: Copy = {
     'premium-living': 'Phòng khách với sofa cạnh ban công',
     'signature-bath': 'Phòng tắm vách kính, bồn rửa ốp gạch xanh',
     'signature-bedroom-desk':
-      'Phòng ngủ với giường trắng trên bệ gỗ, tủ áo và bàn làm việc cạnh cửa sổ',
-    'garden-navy-kitchen': 'Bếp navy dài liền góc sofa bên cửa kính lớn',
-    'signature-living-oak': 'Phòng khách với vách kệ gỗ sồi, TV và sofa màu kem cạnh cửa sổ',
+      'Phòng ngủ với bàn làm việc, tủ áo âm tường và giường đặt trên bệ, máy giặt sấy ở hành lang bên ngoài',
+    'garden-navy-kitchen': 'Bếp navy và gỗ sồi cạnh góc sofa, cửa kính lớn nhìn ra Đà Lạt',
+    'signature-living-oak': 'Phòng khách với vách kệ gỗ sồi, TV, sofa màu kem và tủ lạnh cỡ lớn',
+    'signature-laundry-dining': 'Máy giặt sấy cạnh bàn ăn và gian bếp gỗ sồi',
   },
   hero: {
     label: 'Boutique stay · Đà Lạt',
@@ -82,7 +83,7 @@ export const vi: Copy = {
   },
   why: {
     label: 'Kỳ lưu trú',
-    title: 'Nghệ thuật lưu trú an yên.',
+    title: 'Nghệ thuật [[lưu trú an yên.]]',
     intro:
       'Bắt đầu từ những điều nhỏ được làm đúng, mỗi ngày: chăn ga phẳng phiu, sự yên tĩnh trọn vẹn, ánh sáng trên sắc gỗ sồi. Ở một đêm, hay trọn một mùa.',
     short: {
@@ -101,7 +102,7 @@ export const vi: Copy = {
   },
   rooms: {
     label: 'Phòng nghỉ',
-    title: 'Chọn khung cửa sổ của bạn',
+    title: 'Chọn khung cửa sổ [[của bạn]]',
     intro:
       'Phố lên đèn hay vườn xanh trước mặt. Studio cho hai người, hoặc hai phòng ngủ cho cả gia đình.',
     request: 'Nhận báo giá phòng này',
@@ -191,7 +192,7 @@ export const vi: Copy = {
     rows: [
       { place: 'Dinh Bảo Đại III', distance: '1,7 km', time: '4 phút' },
       { place: 'Nhà thờ Con Gà', distance: '2,5 km', time: '6 phút' },
-      { place: 'Chợ Đà Lạt · Hồ Xuân Hương', distance: '3,3 km', time: '7 phút' },
+      { place: 'Chợ Đà Lạt · [[Hồ Xuân Hương]]', distance: '3,3 km', time: '7 phút' },
       { place: 'Bến xe liên tỉnh', distance: '3,7 km', time: '8 phút' },
       { place: 'Hồ Tuyền Lâm', distance: '4,1 km', time: '9 phút' },
       { place: 'Sân bay Liên Khương', distance: 'khoảng 28 km', time: '30 phút' },
@@ -211,7 +212,7 @@ export const vi: Copy = {
       },
       {
         title: 'Giữ phòng cho bạn',
-        text: 'Khi bạn ưng báo giá, OTTIMO giữ phòng cho bạn sau khi nhận cọc 30% qua mã QR.',
+        text: 'Khi bạn ưng báo giá, OTTIMO giữ phòng cho bạn sau khi nhận cọc 30% qua [[mã QR]].',
       },
     ],
     reassure: 'Không thanh toán trên trang này, và không ràng buộc gì cho đến khi bạn đồng ý.',

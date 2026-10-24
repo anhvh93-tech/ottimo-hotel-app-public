@@ -5,6 +5,12 @@
 // GALLERY_TARGET photos are listed in the FE report so INV can send more (bathroom, balcony, the 1.4 m extra bed…).
 import type { RoomSlug } from './types';
 
+/**
+ * Fixed photo of the Amenities section: picker 30 since 24/10 (UXD FB-R3-UXD-FE-02). Editorial photos (The Stay,
+ * Amenities, Location) never repeat a hero slide; room covers and galleries may (copy.test.ts).
+ */
+export const AMENITIES_PHOTO = 'signature-laundry-dining';
+
 /** Seconds between two hero photos (INV 22/10: "mỗi 3 giây"). */
 export const HERO_INTERVAL_MS = 3000;
 

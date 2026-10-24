@@ -43,7 +43,7 @@ export const en: Copy = {
     'detail-kitchen': 'Oak kitchen with an induction hob, a full-size fridge and a washer-dryer',
     'aerial-hillside':
       'OTTIMO from above, on a quiet hillside with Da Lat and the mountains behind',
-    lobby: 'Ground-floor lobby with an oak reception desk and a coffee counter',
+    lobby: 'Ground-floor lobby with an oak reception desk',
     'city-bed': 'Double bed beside a curtained window',
     'city-view': 'Sofa by floor-to-ceiling windows looking over the city',
     'garden-navy': 'Navy studio with a bed, a sofa and a glass door to the balcony',
@@ -53,10 +53,11 @@ export const en: Copy = {
     'premium-living': 'Living room with a sofa beside the balcony',
     'signature-bath': 'Glass shower and a green-tiled vanity',
     'signature-bedroom-desk':
-      'Bedroom with a white bed on an oak platform, a wardrobe and a desk by the window',
-    'garden-navy-kitchen': 'Long navy kitchen open to a sofa corner by tall glass doors',
+      'Bedroom with a writing desk, a built-in wardrobe and a raised bed, a washer and dryer in the hall beyond',
+    'garden-navy-kitchen': 'Navy and oak kitchen by a sofa corner, with tall windows over Da Lat',
     'signature-living-oak':
-      'Living room with an oak shelf wall, a TV and a cream sofa by the window',
+      'Living room with an oak shelf wall, a TV, a cream sofa and a full-size fridge',
+    'signature-laundry-dining': 'A washer and dryer beside a dining table and an oak kitchen',
   },
   hero: {
     label: 'Boutique stay · Da Lat',
@@ -191,7 +192,7 @@ export const en: Copy = {
     rows: [
       { place: 'Bao Dai Summer Palace', distance: '1.7 km', time: '4 min' },
       { place: 'Da Lat Cathedral', distance: '2.5 km', time: '6 min' },
-      { place: 'Da Lat Market · Xuan Huong Lake', distance: '3.3 km', time: '7 min' },
+      { place: 'Da Lat Market · [[Xuan Huong Lake]]', distance: '3.3 km', time: '7 min' },
       { place: 'Intercity bus station', distance: '3.7 km', time: '8 min' },
       { place: 'Tuyen Lam Lake', distance: '4.1 km', time: '9 min' },
       { place: 'Lien Khuong Airport', distance: 'about 28 km', time: '30 min' },

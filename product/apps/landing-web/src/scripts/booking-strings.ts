@@ -158,9 +158,9 @@ export const BOOKING_STRINGS: Record<'en' | 'vi', BookingStrings> = {
       rate: 'Kết nối này đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau, hoặc nhắn chúng tôi qua Zalo.',
     },
     notReady: [
-      'Yêu cầu trực tuyến đang tạm dừng. Vui lòng nhắn OTTIMO qua ',
+      'Yêu cầu trực tuyến đang tạm dừng. Vui lòng nhắn chúng tôi qua ',
       ' hoặc gọi ',
-      '. OTTIMO sẽ trả lời sớm nhất có thể.',
+      '. Chúng tôi sẽ trả lời sớm nhất có thể.',
     ],
     reload: 'Trang vừa được cập nhật. Vui lòng tải lại trang rồi gửi lại yêu cầu.',
     sending: 'Đang gửi…',

@@ -5,6 +5,7 @@ import { addressLine, site } from '../../content/site';
 import type { Copy } from '../../content/types';
 import Icon from '../Icon.astro';
 import Picture from '../Picture.astro';
+import Rich from '../Rich.astro';
 
 interface Props {
   t: Copy;
@@ -46,7 +47,7 @@ const { t } = Astro.props;
           {
             t.location.rows.map((r) => (
               <tr>
-                <th scope="row">{r.place}</th>
+                <th scope="row"><Rich text={r.place} /></th>
                 <td>{r.distance}</td>
                 <td>{r.time}</td>
               </tr>

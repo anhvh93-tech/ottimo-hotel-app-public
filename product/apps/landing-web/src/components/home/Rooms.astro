@@ -23,7 +23,7 @@ const { t } = Astro.props;
   <div class="wrap">
     <div class="head">
       <p class="label">{t.rooms.label}</p>
-      <h2 class="h2" id="rooms-h">{t.rooms.title}</h2>
+      <h2 class="h2" id="rooms-h"><Rich text={t.rooms.title} /></h2>
       <p class="muted">{t.rooms.intro}</p>
     </div>
     <ul class="rooms" aria-labelledby="rooms-h">

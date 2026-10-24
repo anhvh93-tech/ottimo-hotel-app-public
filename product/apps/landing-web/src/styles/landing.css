@@ -193,6 +193,7 @@ h1 {
   letter-spacing: 0.04em;
 }
 .h2 {
+  text-wrap: balance; /* UXD FB-R3-UXD-FE-04 – progressive; [[…]] in the copy still fixes key breaks */
   font-family: var(--serif);
   font-size: var(--fs-h2);
   line-height: 1.2;
@@ -231,6 +232,12 @@ h1 {
 }
 .head p:last-child {
   margin-bottom: 0;
+}
+/* Lead paragraphs avoid a one-word last line (UXD FB-R3-UXD-FE-04). Not on the H1 tagline. */
+.head p,
+.why-intro,
+.hero-text .lead {
+  text-wrap: pretty;
 }
 .rule-top {
   border-top: 1px solid var(--brand-oak);
@@ -559,8 +566,8 @@ h1 {
 .r45 img {
   aspect-ratio: 4/5;
 }
-.pic img.op-x35 {
-  object-position: 35% 50%;
+.pic img.op-x08 {
+  object-position: 8% 50%; /* Amenities photo 30: washer-dryer, dining table and kitchen in the 4/5 frame */
 }
 
 /* 1 · Hero */
@@ -623,9 +630,32 @@ h1 {
   .hero-text {
     order: -1;
   }
+  /* 4/3 since 24/10 (UXD review landing-b FB-R3-UXD-FE-01): 5 of 6 slides are landscape; 4/5 kept only 58 % of
+     their width and cut the washer-dryer (37) and fridge (33). 4/3 keeps 89 % of a landscape photo and the whole
+     lit facade of photo 4. Class per id comes from Hero.astro (no inline style: CSP style-src 'self'). */
   .hero-media img {
-    aspect-ratio: 4/5;
-    max-height: min(80svh, 760px);
+    aspect-ratio: 4/3;
+    max-height: none;
+    object-position: 50% 50%;
+  }
+  /* Per-photo focus on the 4/3 desktop frame. Ids without a rule stay centred (5.5 % lost each side). */
+  .hero-media img.hero-img--hero-facade-dusk {
+    object-position: 50% 60%; /* 4 – all balconies, sign, entrance */
+  }
+  .hero-media img.hero-img--signature-dining {
+    object-position: 50% 50%; /* 32 */
+  }
+  .hero-media img.hero-img--detail-kitchen {
+    object-position: 50% 50%; /* 9 */
+  }
+  .hero-media img.hero-img--signature-bedroom-desk {
+    object-position: 25% 50%; /* 37 – washer-dryer in the hall + full bed */
+  }
+  .hero-media img.hero-img--garden-navy-kitchen {
+    object-position: 60% 50%; /* 16 – sofa + whole navy kitchen */
+  }
+  .hero-media img.hero-img--signature-living-oak {
+    object-position: 40% 50%; /* 33 – fridge + TV wall + corridor */
   }
 }
 
@@ -1127,6 +1157,13 @@ table.dist {
 .dist tbody th {
   font-weight: 400;
   padding-right: var(--s3);
+}
+/* [[Hồ Xuân Hương]] stays whole from 360 px; below that the three columns cannot all hold their no-break text
+   ("khoảng 28 km", "30 phút"), so the place name may wrap rather than push the page sideways (FE-LP 24/10). */
+@media (max-width: 359px) {
+  .dist tbody th .nw {
+    white-space: normal;
+  }
 }
 .dist td {
   white-space: nowrap;
