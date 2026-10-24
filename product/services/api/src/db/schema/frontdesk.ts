@@ -230,6 +230,12 @@ export const STAFF_NOTIFICATION_KINDS = [
   'debt_recorded',
   // 0082 (0.3.8 – BR-433 (c) v0.4.0, ESC-026 A, BE-B): waivers on one stay above the threshold – every OWN.
   'foc_stay_total_exceeded',
+  // 0086 (US-155 – OpenAPI 0.3.7 bổ sung 2, BE-D R3, v1.0): website booking requests + the form switch.
+  'website_request_new',
+  'website_request_cap_reached',
+  'website_request_overdue',
+  'website_request_linked_hold',
+  'public_booking_toggled',
 ] as const;
 export type StaffNotificationKind = (typeof STAFF_NOTIFICATION_KINDS)[number];
 
@@ -243,6 +249,7 @@ export const NOTIFICATION_REF_TYPES = [
   'payment',
   'property',
   'hk_task', // 0055 (OpenAPI 0.3.7 B-08)
+  'website_booking_request', // 0086 (US-155)
 ] as const;
 export type NotificationRefType = (typeof NOTIFICATION_REF_TYPES)[number];
 
@@ -273,11 +280,11 @@ export const staffNotification = pgTable(
     }),
     check(
       'staff_notification_kind_check',
-      sql`${t.kind} IN ('hold_expired', 'hold_expiring', 'deposit_notice', 'deposit_after_cancel', 'guest_request_new', 'guest_request_overdue', 'work_order_overdue', 'approval_requested', 'approval_decided', 'registration_due', 'checkout_call_needed', 'security_alert', 'account_security_change', 'online_checkin_completed', 'payment_disputed', 'deposit_shortfall_accepted', 'receiving_account_changed', 'refund_ready', 'work_order_new', 'work_order_high_new', 'work_order_block_requested', 'hk_task_urgent', 'room_awaiting_inspection', 'hk_task_cancelled', 'approval_cancelled', 'no_show_marked', 'no_show_restored', 'debt_recorded', 'foc_stay_total_exceeded')`,
+      sql`${t.kind} IN ('hold_expired', 'hold_expiring', 'deposit_notice', 'deposit_after_cancel', 'guest_request_new', 'guest_request_overdue', 'work_order_overdue', 'approval_requested', 'approval_decided', 'registration_due', 'checkout_call_needed', 'security_alert', 'account_security_change', 'online_checkin_completed', 'payment_disputed', 'deposit_shortfall_accepted', 'receiving_account_changed', 'refund_ready', 'work_order_new', 'work_order_high_new', 'work_order_block_requested', 'hk_task_urgent', 'room_awaiting_inspection', 'hk_task_cancelled', 'approval_cancelled', 'no_show_marked', 'no_show_restored', 'debt_recorded', 'foc_stay_total_exceeded', 'website_request_new', 'website_request_cap_reached', 'website_request_overdue', 'website_request_linked_hold', 'public_booking_toggled')`,
     ),
     check(
       'staff_notification_ref_type_check',
-      sql`${t.refType} IS NULL OR ${t.refType} IN ('reservation', 'guest_request', 'work_order', 'approval_request', 'registration', 'user', 'payment', 'property', 'hk_task')`,
+      sql`${t.refType} IS NULL OR ${t.refType} IN ('reservation', 'guest_request', 'work_order', 'approval_request', 'registration', 'user', 'payment', 'property', 'hk_task', 'website_booking_request')`,
     ),
     check('staff_notification_ref_check', sql`(${t.refType} IS NULL) = (${t.refId} IS NULL)`),
     check(

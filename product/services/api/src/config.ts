@@ -79,7 +79,20 @@ export function parseAllowedOrigins(env: NodeJS.ProcessEnv, appEnv: AppEnv): All
   const admin = read('ADMIN_BASE_URL', env.ADMIN_BASE_URL || env.APP_BASE_URL);
   const staff = read('STAFF_BASE_URL', env.STAFF_BASE_URL);
   const guest = read('GUEST_BASE_URL', env.GUEST_BASE_URL);
-  return { staff: [...new Set([...admin, ...staff])], guest, admin, staffPwa: staff };
+  // LANDING_BASE_URL (US-155): optional everywhere – the public form is off until OWN switches it on.
+  const landingRaw = (env.LANDING_BASE_URL ?? '').trim();
+  let landing: string[] = [];
+  if (landingRaw) {
+    try {
+      landing = [originOf(landingRaw)];
+    } catch {
+      throw new ConfigError('LANDING_BASE_URL must be an http(s) URL');
+    }
+    if (strict && !(landing[0] as string).startsWith('https://')) {
+      throw new ConfigError(`LANDING_BASE_URL must use https when APP_ENV=${appEnv}`);
+    }
+  }
+  return { staff: [...new Set([...admin, ...staff])], guest, admin, staffPwa: staff, landing };
 }
 
 export class ConfigError extends Error {
@@ -104,7 +117,13 @@ export const REQUIRED_SECRETS = [
   'GUEST_CODE_SIGNING_KEY',
 ] as const;
 /** Every key material that must never be shared between purposes (includes the KEK). */
-const DISTINCT_KEYS = [...REQUIRED_SECRETS, 'DATA_KEK_CURRENT', 'TEST_SUPPORT_TOKEN'] as const;
+// PUBLIC_FORM_SIGNING_KEY (US-155 – BE-D R3 S1): optional while the public form is off; its own key when set.
+const DISTINCT_KEYS = [
+  ...REQUIRED_SECRETS,
+  'DATA_KEK_CURRENT',
+  'TEST_SUPPORT_TOKEN',
+  'PUBLIC_FORM_SIGNING_KEY',
+] as const;
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'];
 
 /**

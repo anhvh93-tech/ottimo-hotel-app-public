@@ -37,6 +37,12 @@ export interface AllowedOrigins {
    */
   admin?: string[];
   staffPwa?: string[];
+  /**
+   * Landing page (LANDING_BASE_URL – US-155, `x-allowed-origins: [landing]`): the only origin of the public
+   * "Yêu cầu đặt phòng" calls. Empty/missing = not checked by the guard (dev/test); the public-site controller
+   * still refuses a missing Origin (SEC ARC-13).
+   */
+  landing?: string[];
 }
 
 export function isWriteMethod(method: string): boolean {

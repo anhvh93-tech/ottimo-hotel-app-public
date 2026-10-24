@@ -106,6 +106,8 @@ export const quote = pgTable(
     sentAt: instant('sent_at'),
     expiresAt: instant('expires_at').notNull(),
     convertedReservationId: uuid('converted_reservation_id'),
+    /** 0.3.7 bổ sung 2 (US-155, migration 0086): the website request this quote answers (FK in SQL only). */
+    websiteBookingRequestId: uuid('website_booking_request_id'),
     withdrawnAt: instant('withdrawn_at'),
     ...auditColumns(),
   },

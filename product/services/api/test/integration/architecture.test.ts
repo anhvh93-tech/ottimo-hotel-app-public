@@ -22,6 +22,8 @@ import { HAS_DB, T0, type TestTenant, appDatabase, createTenant } from '../helpe
 const RLS_EXCEPTIONS: Record<string, string> = {
   config_parameter_def: 'global parameter catalogue, no tenant data',
   dev_clock: 'fake clock for dev/test/staging, no tenant data',
+  rate_limit_counter:
+    'SR-RL-11 counters (erd 4.14, 0086): bucket key = limit code + HMAC/id only, no tenant data',
 };
 
 describe.skipIf(!HAS_DB)('schema architecture (erd 2.3, 16)', () => {

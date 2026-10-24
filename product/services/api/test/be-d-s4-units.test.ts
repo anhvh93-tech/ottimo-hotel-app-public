@@ -232,6 +232,8 @@ describe('SSE audience by role (OpenAPI 0.3.7, SEC review – streamEvents)', ()
       'notification.created': [],
       'registration.changed': [OWN, MGR, FDL, FD],
       'payment.changed': [OWN, MGR],
+      // US-155 (R3 S1): floor FD+; SAL only when the publisher adds it (unassigned `new` / the assignee).
+      'website_request.changed': [OWN, MGR, FDL, FD],
     };
     for (const type of SSE_EVENT_TYPES) {
       if (type === 'notification.created') continue;

@@ -141,6 +141,13 @@ function checkBounds(
       throw problem('PARAM_OUT_OF_RANGE', { errors: fieldError, extras: { allowed } });
     return;
   }
+  if (b.type === 'boolean') {
+    // 0.3.7 bổ sung 2 (US-155 – BE-D R3 Sprint 1): the form switch / tầng 2 PoW switch.
+    if (typeof value !== 'boolean') {
+      throw problem('VALIDATION_FAILED', { errors: [{ field, code: 'VALIDATION_FAILED' }] });
+    }
+    return;
+  }
   throw new Error(`unsupported security parameter type for ${key}`);
 }
 

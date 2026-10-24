@@ -38,6 +38,7 @@ import {
 import { AuditService } from '../../audit/public/audit.service';
 import { assertNoCardNumber, localDateSchema, parseBody, reasonSchema } from '../public/validation';
 import { ChannelsService, channelDto } from '../public/channels';
+import { ParameterHooks } from '../public/parameter-hooks';
 import { PropertyContextService } from '../public/property-context';
 import { type ParameterDto, ParametersService } from './parameters.service';
 import { type RoomDto, RoomsService } from './rooms.service';
@@ -151,6 +152,7 @@ export class PlatformController {
     @Inject(ChannelsService) private readonly channels: ChannelsService,
     @Inject(PropertyContextService) private readonly property: PropertyContextService,
     @Inject(StrongReauthService) private readonly strong: StrongReauthService,
+    @Inject(ParameterHooks) private readonly hooks: ParameterHooks,
     @Optional() @Inject(EventsService) private readonly events?: EventsService,
   ) {}
 
@@ -279,7 +281,10 @@ export class PlatformController {
         );
         await this.s2(req, input.reauth, 'setParameter');
       }
+      const hook = this.hooks.get(key);
       const result = await this.uow.run(req, async (tx) => {
+        // Rules of another module for this key (R3 S1: public_booking_requests_enabled – SEC ARC-17).
+        if (hook?.before) await hook.before(tx, input.value, p.roles);
         const dto = await this.parameters.set(tx, {
           key,
           value: input.value,
@@ -289,6 +294,7 @@ export class PlatformController {
           requestId: req.id,
         });
         if (receiving) await this.receivingAccountChanged(tx, input.effectiveFrom, 'set');
+        if (hook?.after) await hook.after(tx, input.value);
         return { status: 200, body: dto };
       });
       return applyResult(reply, result);
@@ -328,6 +334,7 @@ export class PlatformController {
         assertReasonWithoutAccountNumber(input.reason);
         await this.s2(req, input.reauth, 'cancelScheduledParameter');
       }
+      const hook = this.hooks.get(key);
       const result = await this.uow.run(req, async (tx) => {
         await this.parameters.cancelScheduled(tx, {
           key,
@@ -337,6 +344,8 @@ export class PlatformController {
           requestId: req.id,
         });
         if (receiving) await this.receivingAccountChanged(tx, input.effectiveFrom, 'cancel');
+        // A cancelled scheduled change of a hooked key is a change too (US-155: `public_booking_toggled`).
+        if (hook?.after) await hook.after(tx, undefined);
         return { status: 204, body: undefined };
       });
       return applyResult(reply, result);

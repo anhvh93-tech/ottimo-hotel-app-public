@@ -35,6 +35,8 @@ export const SSE_EVENT_TYPES = [
   'notification.created',
   'registration.changed',
   'payment.changed',
+  // 0.3.7 bổ sung 2 (US-155 – BE-D R3 Sprint 1): website booking requests (floor FD+; SAL added per request).
+  'website_request.changed',
 ] as const;
 export type SseEventType = (typeof SSE_EVENT_TYPES)[number];
 
@@ -65,6 +67,7 @@ export const SSE_ROLE_FLOOR: Readonly<Record<SseEventType, readonly string[]>> =
   'notification.created': [],
   'registration.changed': FD_PLUS,
   'payment.changed': MGR_PLUS,
+  'website_request.changed': FD_PLUS,
 };
 
 export interface SseAudience {
@@ -120,7 +123,9 @@ export type AttentionKind =
   // BR-525 (18/10 – G-4, BE-A): open guest debts of checked-out stays (B18 debt or a receipt reversed after it).
   | 'checkout_debt'
   // 0.3.8 – BR-433 (c) v0.4.0, ESC-026 A (BE-B): waivers on one stay above the threshold – OWN only, one per stay.
-  | 'foc_stay_total_exceeded';
+  | 'foc_stay_total_exceeded'
+  // 0.3.7 bổ sung 2 (US-155 AC8 – BE-D R3, v1.0): website booking requests still `new` (computed, FD+).
+  | 'website_request_new';
 
 /**
  * B-21 / SEC J: the ONLY `params` keys an item of a kind may carry (counts, codes, room numbers, dates –
@@ -152,6 +157,7 @@ export const ATTENTION_PARAM_KEYS: Partial<Record<AttentionKind, readonly string
   guest_request_overdue: ['count'],
   checkout_debt: ['count'],
   foc_stay_total_exceeded: ['count'],
+  website_request_new: ['count'],
 };
 
 /**

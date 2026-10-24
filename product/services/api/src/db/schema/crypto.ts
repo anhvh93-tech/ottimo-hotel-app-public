@@ -98,7 +98,7 @@ export const purgeJournal = pgTable(
     }),
     check(
       'purge_journal_action_check',
-      sql`${t.action} IN ('destroy_dek', 'delete_blob', 'null_columns', 'anonymize')`,
+      sql`${t.action} IN ('destroy_dek', 'delete_blob', 'null_columns', 'anonymize', 'delete_row')`,
     ),
     index('purge_journal_property_purged_idx').on(t.propertyId, t.purgedAt),
   ],

@@ -23,8 +23,8 @@ export interface OperationMeta {
 }
 
 export interface SecurityParameterBounds {
-  /** 'object' (0.3.4: session_policy, login_lockout) = nested bounds in `properties`. */
-  type: 'integer' | 'array' | 'object';
+  /** 'object' (0.3.4: session_policy, login_lockout) = nested bounds in `properties`; 'boolean' (0.3.7 bổ sung 2). */
+  type: 'integer' | 'array' | 'object' | 'boolean';
   minimum?: number;
   maximum?: number;
   uniqueItems?: boolean;

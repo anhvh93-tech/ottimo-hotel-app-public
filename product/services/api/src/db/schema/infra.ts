@@ -143,7 +143,7 @@ export const idempotencyKey = pgTable(
     }),
     check(
       'idempotency_key_principal_type_check',
-      sql`${t.principalType} IN ('user', 'guest_session')`,
+      sql`${t.principalType} IN ('user', 'guest_session', 'public_site')`,
     ),
     check('idempotency_key_state_check', sql`${t.state} IN ('in_progress', 'completed')`),
     index('idempotency_key_created_idx').on(t.createdAt),

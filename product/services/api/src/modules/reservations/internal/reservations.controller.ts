@@ -198,11 +198,26 @@ export class ReservationsController {
     @Body() raw: unknown,
   ) {
     const body = asBody(raw);
-    const result = await this.uow.run(req, async (tx) => {
+    // US-155 (SEC FB-R3-SEC-US155-01): a booking for a website request keeps only its id in the idempotency
+    // store; a replay reads the booking again for the caller.
+    const web = body.websiteBookingRequestId !== undefined;
+    let result = await this.uow.run(req, async (tx) => {
       const ctx = await this.ctx(tx, req);
       const { row } = await this.reservations.create(tx, ctx, body);
-      return { status: 201, body: await this.reservations.dtoOf(tx, ctx, row) };
+      return {
+        status: 201,
+        body: await this.reservations.dtoOf(tx, ctx, row),
+        ...(web ? { storeBody: false } : {}),
+      };
     });
+    const stored = result.body as Record<string, unknown> | null;
+    if (result.replayed && web && stored && Object.keys(stored).length === 1) {
+      const id = stored.id as string;
+      result = {
+        ...result,
+        body: await this.read(req, (tx, ctx) => this.reservations.dto(tx, ctx, id)),
+      };
+    }
     const out = applyResult(reply, result) as { id?: string; version?: number };
     if (out.id)
       reply.header(

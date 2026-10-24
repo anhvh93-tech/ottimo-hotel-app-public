@@ -64,6 +64,9 @@ const CROSS_MODULE_FKS: Record<string, string> = {
   hk_task_guest_request_fk: 'reservations (hk_task) → guest-portal (guest_request), 0057',
   work_order_guest_request_fk: 'maintenance (work_order) → guest-portal (guest_request), 0057',
   guest_request_work_order_fk: 'guest-portal (guest_request) → maintenance (work_order), 0057',
+  website_booking_request_quote_fk: 'public-site → sales (quote), 0086',
+  website_booking_request_reservation_fk: 'public-site → reservations, 0086',
+  quote_website_request_fk: 'sales (quote) → public-site (website_booking_request), 0086',
 };
 /** Monthly partitions of the logs (BE-ARC-18) are created by log_ensure_month_partition(). */
 const PARTITION = /_(y\d{4}m\d{2}|default)$/;

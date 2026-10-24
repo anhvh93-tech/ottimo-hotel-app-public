@@ -82,6 +82,8 @@ export const reservation = pgTable(
     otaRef: text('ota_ref'),
     otaBookedAt: instant('ota_booked_at'),
     directSource: text('direct_source'),
+    /** 0.3.7 bổ sung 2 (US-155, migration 0086): sub-source of a `website` booking – server only (WR6). */
+    directSubSource: text('direct_sub_source'),
     bookerGuestId: uuid('booker_guest_id').notNull(),
     closerUserId: uuid('closer_user_id'),
     parentReservationId: uuid('parent_reservation_id'),
@@ -210,6 +212,10 @@ export const reservation = pgTable(
     check(
       'reservation_direct_source_check',
       sql`${t.directSource} IS NULL OR ${t.directSource} IN ('website', 'zalo_phone', 'walk_in', 'returning', 'sales_staff')`,
+    ),
+    check(
+      'reservation_direct_sub_source_check',
+      sql`${t.directSubSource} IS NULL OR (${t.directSource} = 'website' AND ${t.directSubSource} IN ('facebook', 'instagram', 'google', 'zalo', 'qr', 'other'))`,
     ),
     check('reservation_dates_check', sql`${t.departureDate} > ${t.arrivalDate}`),
     check(

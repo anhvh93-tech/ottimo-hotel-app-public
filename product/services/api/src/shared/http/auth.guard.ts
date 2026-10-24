@@ -488,6 +488,14 @@ export class AuthGuard implements CanActivate, OnModuleInit {
   private publicOrigins(operation: OperationMeta): string[] {
     const o = this.options.allowedOrigins;
     if (!o) return [];
+    // US-155 (0.3.7 bổ sung 2): the website booking form talks to the API from the landing origin only.
+    if (
+      /^\/v1\/public\/properties\/\{propertySlug\}\/(form-token|booking-requests)$/.test(
+        operation.path,
+      )
+    ) {
+      return o.landing ?? [];
+    }
     const guestSide =
       operation.roles.includes('guest') ||
       operation.path.startsWith('/v1/guest/') ||
