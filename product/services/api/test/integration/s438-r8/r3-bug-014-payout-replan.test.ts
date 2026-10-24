@@ -158,7 +158,11 @@ describe.skipIf(!HAS_DB)('BUG-R3-014 – a refund pay-out re-plans the open refu
     expect(p.statusCode, p.body).toBe(201);
     const [, desk] = await refunds(s);
     expect(desk).toMatchObject({ amount: 50_000, requested_by: x.t.users.fd!.id });
+    // On the trusted desk device (setRefundDestination needs one – the device check answers first otherwise).
+    const mgrDevice = x.c.mgr!.deviceToken;
+    x.c.mgr!.deviceToken = x.c.fd!.deviceToken;
     const dest = await setCash(desk.id, 'mgr');
+    x.c.mgr!.deviceToken = mgrDevice;
     expect(dest.statusCode, dest.body).toBe(403);
     expect(dest.json().code).toBe('SELF_REFUND_FORBIDDEN');
     expect((await setCash(desk.id)).statusCode).toBe(200);

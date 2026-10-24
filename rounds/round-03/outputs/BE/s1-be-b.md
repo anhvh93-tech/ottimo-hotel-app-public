@@ -571,4 +571,11 @@ Nhánh `be-b/r3-bug-014`, tách từ `origin/main` `ae93e48`. Không có migrati
   3. tiền mới sau khi tiền dư về 0 → yêu cầu riêng `owner`;
   4. BUG014-02: người làm A32 đặt nơi nhận → 403, chi → 403; lễ tân đặt nơi nhận, OWN chi → 201.
 - `r3-bug-012-013`: ca "J15 vẫn chờ" sửa theo 13.4 (yêu cầu đã duyệt vượt tiền dư → `superseded` + xin lại 200.000 cùng cấp).
-- **Chưa chạy test DB:** Docker trên máy đang treo (ORC báo). tsc, eslint, prettier đạt. Sẽ chạy cả bộ API khi ORC báo Docker chạy lại.
+- **Đã chạy sau khi OrbStack khởi động lại** (Postgres riêng, migrate từ đầu):
+  - test oracle `r3-bug-014-payout-replan` 4/4, ca tái hiện `fuzz/bug-r3-014` 1/1, `r3-bug-012-013` 5/5 – đạt;
+    - sửa trong test BUG014-02: lệnh đặt nơi nhận của MGR chạy trên thiết bị desk tin cậy, vì nếu không, kiểm thiết bị trả `DEVICE_NOT_TRUSTED` trước kiểm người làm A32;
+  - toàn bộ API (`--maxWorkers=3`, máy đang tải cao): 3.233 đạt, 24 bỏ qua, 3 đỏ;
+    - `close-stay-dom-s4` (1 ca) chạy lại riêng: đạt;
+    - `upload-gate-socket` (2 ca): đỏ do quá giờ ở phép thử socket/khe upload, không liên quan mã tiền. Lúc 16:10 tệp này chạy lại riêng thì đạt, lúc 16:35 chạy riêng lại đỏ khi máy tải cao;
+  - hai lần chạy cả bộ với số worker mặc định có 30–34 ca đỏ, gần hết là quá giờ 30 giây, 401 phiên hết hạn hoặc ngày giả lệch vì test chạy chậm (load average 4–10). Mọi tệp đỏ ở lần 1 khi chạy lại đều đạt, trừ `upload-gate-socket`.
+

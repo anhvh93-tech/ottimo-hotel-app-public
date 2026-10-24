@@ -371,4 +371,6 @@ Nhánh `be-b/r3-bug-014`, nằm trên `origin/main` `ae93e48`. Chi tiết ở `o
 - **ARC BUG014-01** (bất biến K11-06, gồm cả yêu cầu đã duyệt) **và BUG014-02** (người làm A32 không chi, không đặt nơi nhận → 403): Done theo hợp đồng 0.3.8 bổ sung 7, có test oracle.
   - Ca tái hiện của QA được viết lại theo oracle 13.4; QA xác nhận.
 - **Đề xuất 3:** việc của QA (I24, I24b, ca hồi quy).
-- **Kiểm:** tsc, eslint, prettier đạt. Test DB chưa chạy vì Docker đang treo.
+- **Kiểm (sau khi OrbStack chạy lại):**
+  - test oracle 4/4, ca tái hiện QA 1/1, `r3-bug-012-013` 5/5;
+  - toàn bộ API: 3.233 đạt / 3 đỏ. Ba ca đỏ đều do quá giờ khi máy tải cao: `close-stay-dom-s4` chạy lại thì đạt; `upload-gate-socket` là phép thử socket, không liên quan mã tiền, kết quả lúc đạt lúc đỏ.
