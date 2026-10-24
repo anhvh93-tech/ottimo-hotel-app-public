@@ -8,6 +8,8 @@ useDefault = true
 [allowlist]
 description = "Reviewed false positives – see .github/gitleaks.toml comments"
 paths = [
+  # Fuzz harness of R3-Q30 (variable names like `apiO = ctx.a32.apiOBefore` trip generic-api-key); test code, no secrets.
+  '''product/services/api/test/fuzz/''',
   # Round-0 prototype kept for reference only (217 KB single HTML, no backend, no real keys).
   '''product/legacy/''',
   # Lockfile integrity hashes (sha512-…) look like high-entropy keys.
