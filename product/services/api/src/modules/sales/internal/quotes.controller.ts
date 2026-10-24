@@ -94,6 +94,11 @@ function principal(req: GuardedRequest) {
   return p;
 }
 
+/** A replayed answer stored as `{ id }` only (UseCaseResult.storeBody = false). */
+function idOnly(body: Record<string, unknown> | null): body is { id: string } {
+  return !!body && typeof body.id === 'string' && Object.keys(body).length === 1;
+}
+
 function caller(req: GuardedRequest) {
   const p = principal(req);
   return { userId: p.userId, roles: p.roles };
@@ -269,16 +274,33 @@ export class QuotesController {
         errors: [{ field: 'depositMethod', code: 'NOT_IN_LIST' }],
       });
     }
-    const result = await this.uow.run(req, async (tx) => ({
-      status: 201,
-      body: await this.quotes.createHold(
+    let result = await this.uow.run(req, async (tx) => {
+      const view = await this.quotes.createHold(
         tx,
         caller(req),
         quoteId,
         { holdHours: input.holdHours, depositMethod },
         req.id,
-      ),
-    }));
+      );
+      // US-155 (SEC FB-R3-SEC-US155-01): a hold of a website request (only those are `website` from a quote)
+      // keeps only its id in the idempotency store – the sender's contact never outlives WR8 / T19 there.
+      return {
+        status: 201,
+        body: view,
+        ...(view.directSource === 'website' ? { storeBody: false } : {}),
+      };
+    });
+    if (result.replayed && idOnly(result.body)) {
+      const id = result.body.id as string;
+      result = {
+        ...result,
+        body: await this.db.withContext(
+          tenantOf(principal(req)),
+          (tx) => this.quotes.reservationView(tx, id),
+          { readOnly: true },
+        ),
+      };
+    }
     if (typeof result.body.version === 'number') reply.header('etag', etag(result.body.version));
     return applyResult(reply, result);
   }

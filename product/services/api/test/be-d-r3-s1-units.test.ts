@@ -3,10 +3,12 @@
  * BR-912 deadline + public promise examples (v0.4.0), reference codes (UXD-07), ID/card detection (SR-LOG-04,
  * V-09), form token (ADR-014 4.4), month arithmetic, IP buckets (SR-RL-10).
  */
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { loadConfig } from '../src/config';
 import { issueFormToken, verifyFormToken } from '../src/modules/public-site/internal/form-token';
+import { publicSiteOptionsFrom } from '../src/modules/public-site/internal/public-site.options';
 import {
   addMonths,
   ipBuckets,
@@ -217,5 +219,50 @@ describe('0086 CHECK lists = previous list + US-155 values only (ARC S1-09)', ()
     expect(before, `no earlier migration writes ${name}`).toBeDefined();
     expect(now).toEqual([...new Set([...before!, ...added])].sort());
     expect(before!.filter((v) => added.includes(v))).toEqual([]);
+  });
+});
+
+describe('SEC Phụ lục B.1.10: the form signing key stops the start when too short or shared', () => {
+  const base = { APP_ENV: 'dev', DATABASE_URL: 'postgres://ottimo_app:x@localhost:5432/ottimo' };
+  it('< 32 characters → the module refuses to start; 32 → ready', () => {
+    expect(() => publicSiteOptionsFrom({ PUBLIC_FORM_SIGNING_KEY: 'k'.repeat(31) })).toThrow(
+      /PUBLIC_FORM_SIGNING_KEY must be at least 32 characters/,
+    );
+    expect(publicSiteOptionsFrom({ PUBLIC_FORM_SIGNING_KEY: 'k'.repeat(32) }).signingKey).toBe(
+      'k'.repeat(32),
+    );
+    expect(publicSiteOptionsFrom({}).signingKey).toBeNull();
+  });
+  it('the same value as another key (one key per purpose, ADR-013 5) → configuration error', () => {
+    const shared = 's'.repeat(32);
+    expect(() =>
+      loadConfig({ ...base, SESSION_SECRET: shared, PUBLIC_FORM_SIGNING_KEY: shared }),
+    ).toThrow(/PUBLIC_FORM_SIGNING_KEY must differ from SESSION_SECRET/);
+  });
+});
+
+describe('ARC FB-R3-ARC-US155-02: only the T19 job deletes website_booking_request rows (spam)', () => {
+  const SRC = join(__dirname, '..', 'src');
+  const files = (dir: string): string[] =>
+    readdirSync(dir).flatMap((f) => {
+      const p = join(dir, f);
+      if (statSync(p).isDirectory()) return f === 'migrations' ? [] : files(p);
+      return p.endsWith('.ts') ? [p] : [];
+    });
+  it('the single DELETE is in public-site/public/worker-jobs.ts and keeps `status = spam`', () => {
+    const hits = files(SRC)
+      .map((p) => ({ path: relative(SRC, p), text: readFileSync(p, 'utf8') }))
+      .filter((f) => /DELETE\s+FROM\s+website_booking_request/i.test(f.text));
+    expect(hits.map((h) => h.path)).toEqual(['modules/public-site/public/worker-jobs.ts']);
+    const stmt = /DELETE\s+FROM\s+website_booking_request[\s\S]*?RETURNING/i.exec(
+      hits[0]!.text,
+    )![0];
+    expect(stmt).toMatch(/status = 'spam'/);
+    // 0087: the database refuses any other row (trigger) – also checked on PostgreSQL in public-site-r3-bed.
+    const sql = readFileSync(
+      join(SRC, 'db', 'migrations', '0087_public_site_slug_unique.sql'),
+      'utf8',
+    );
+    expect(sql).toMatch(/BEFORE DELETE ON website_booking_request/);
   });
 });

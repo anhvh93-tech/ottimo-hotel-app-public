@@ -322,6 +322,10 @@ function pipelinedBehindAnother(raw: RawLike | undefined): boolean {
   return !!current && current.req !== undefined && current.req !== raw;
 }
 
+/** Unauthenticated routes of the landing form (public-site module) and their body limit (SEC C-11). */
+export const PUBLIC_ROUTE_PREFIX = '/v1/public/';
+export const PUBLIC_ROUTE_BODY_LIMIT = 8 * 1024;
+
 export function createHttpAdapter(opts: HttpOptions): FastifyAdapter {
   const adapter = new FastifyAdapter({
     trustProxy: opts.trustProxy,
@@ -363,6 +367,11 @@ export function createHttpAdapter(opts: HttpOptions): FastifyAdapter {
   // body read fails or the client goes away; after that a closed socket does not (the handler still holds
   // the body – s3-round5-verification).
   const fastify = adapter.getInstance();
+  // SEC FB-R3-SEC-US155-02 (C-11): the public form routes (US-155) never read more than 8 KB – Fastify stops
+  // the body (chunked too) before parsing → 413 PAYLOAD_TOO_LARGE. Caddy caps the landing vhost at 16 KB (OPS).
+  fastify.addHook('onRoute', (route: { url: string; bodyLimit?: number }) => {
+    if (route.url.startsWith(PUBLIC_ROUTE_PREFIX)) route.bodyLimit = PUBLIC_ROUTE_BODY_LIMIT;
+  });
   fastify.addHook('onResponse', async (req: unknown) => releaseUploadSlot(req));
   fastify.addHook('onRequestAbort', async (req: unknown) => releaseUploadSlot(req));
   fastify.addHook(

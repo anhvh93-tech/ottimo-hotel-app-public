@@ -135,17 +135,32 @@ export class WebsiteRequestsController {
     if (!UUID.test(id)) throw problem('NOT_FOUND');
     const p = req.ottimoAuth?.principal;
     if (!p?.propertyId) throw problem('UNAUTHENTICATED');
-    const result = await this.uow.run(req, async (tx) => {
-      const out = await this.requests.transition(
-        tx,
-        { userId: p.userId, roles: p.roles, requestId: req.id },
-        id,
-        action,
-        obj(body),
-        req.ottimoAuth?.ifMatchVersion,
+    // SEC FB-R3-SEC-US155-01 (C-3 (d), C-12 (c)): the idempotency store keeps only `{ id }` – never the sender's
+    // name / phone / note, which WR8, WR6 and the T19 jobs erase from the request itself. A replay reads the
+    // request again under the caller's CURRENT scope (erased → no C2; out of scope → 404).
+    let result = await this.uow.run(
+      req,
+      async (tx) => {
+        const out = await this.requests.transition(
+          tx,
+          { userId: p.userId, roles: p.roles, requestId: req.id },
+          id,
+          action,
+          obj(body),
+          req.ottimoAuth?.ifMatchVersion,
+        );
+        return { status: 200, body: out.body };
+      },
+      { storeBody: false },
+    );
+    if (result.replayed && result.status === 200) {
+      const again = await this.db.withContext(
+        tenantOf(p),
+        (tx) => this.requests.get(tx, { userId: p.userId, roles: p.roles }, id),
+        { readOnly: true },
       );
-      return { status: 200, body: out.body };
-    });
+      result = { ...result, body: again.body };
+    }
     const version = (result.body as { version?: number }).version;
     if (typeof version === 'number') reply.header('ETag', `"${version}"`);
     return applyResult(reply, result);

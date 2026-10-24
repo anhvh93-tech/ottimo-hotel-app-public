@@ -50,7 +50,7 @@ Ghi chú: `gen_traceability.py` chạy lại làm đổi `docs/qa/traceability.m
 - [GIẢ ĐỊNH – ARC] `createReservation` với yêu cầu đã đóng giữa lúc kiểm và lúc ghi → 409 cho cả request (không tạo đơn "mồ côi" nguồn `website` không gắn yêu cầu).
 
 ## 4. Việc còn lại / cho vai khác
-- **ARC**: `notePurgedAt` **chưa có** trong `openapi.yaml` (`GuestRequest`, `GuestRequestForGuest`) – server (T13 trên `main`) đã trả, serializer đang bỏ. Không thêm vào hợp đồng ở nhánh này theo chỉ thị; ARC thêm rồi BE chỉ cần sinh lại meta. Các việc ARC khác của báo cáo cũ mục 4 (erd 4.6 `delete_row`, T19, mức `critical`, mã WR8, ADR-001 `ParameterHooks`) vẫn mở.
+- ~~**ARC**: `notePurgedAt` chưa có trong `openapi.yaml`~~ → ARC đã thêm (0.3.8 bổ sung 4, daf814c); nhánh đã rebase và sinh lại meta (mục 6). Các việc ARC khác của báo cáo cũ mục 4 (erd 4.6 `delete_row`, T19, mức `critical`, mã WR8, ADR-001 `ParameterHooks`) vẫn mở.
 - **ARC + SEC**: review nhánh này (bắt buộc theo decision 24/10), trọng tâm: 0086 (RLS, hàm SECURITY DEFINER, CHECK hợp), `platform.controller.ts` (gộp S2 + hook), `createReservation` B2 + WR6.
 - **QA**: E2E US-155 (form → Desk S35 → báo giá/giữ chỗ hoặc đơn đảm bảo) trên stack có `LANDING_BASE_URL` + `PUBLIC_FORM_SIGNING_KEY`; ca B2 mới.
 - **BE-A**: migration US-164 (`manager_confirmation_*`) phải mang hợp hai danh sách kind (test CHECK của BE-D và test chung sẽ đỏ nếu thiếu).
@@ -61,3 +61,16 @@ Ghi chú: `gen_traceability.py` chạy lại làm đổi `docs/qa/traceability.m
 ## 5. Tệp tạo / sửa (so với `main` 91de0e7)
 Tạo: `product/services/api/src/modules/public-site/**`, `src/db/schema/public-site.ts`, `src/db/migrations/0086_public_site_us155.sql`, `src/db/migrations/meta/0086_snapshot.json`, `src/modules/platform/public/parameter-hooks.ts`, `test/be-d-r3-s1-units.test.ts`, `test/integration/public-site-r3-bed.test.ts`, tệp báo cáo này.
 Sửa: `product/.env.example`, `product/docs/api/openapi.yaml` (9 khóa `x-security-parameters` bỏ dấu chú thích), `src/generated/openapi-meta.ts`, `src/config.ts`, `src/worker.ts`, `src/modules/feature-modules.ts`, `src/db/migrations/meta/_journal.json`, `src/db/schema/{crypto,frontdesk,index,infra,reservations,sales}.ts`, `src/modules/events/public/events.service.ts`, `src/modules/crypto/public/crypto.service.ts`, `src/modules/identity/public/staff-directory.ts`, `src/modules/platform/{platform.module.ts,internal/platform.controller.ts,public/parameter.service.ts}`, `src/modules/reservations/{public/sales-port.ts,internal/sales-port.adapter.ts,internal/reservations.service.ts,internal/reservation-store.ts,internal/reservation-dto.ts}`, `src/modules/sales/internal/{quotes.controller.ts,quotes.service.ts}`, `src/shared/http/{auth.guard.ts,csrf.ts}`, `src/shared/openapi-types.ts`, test `be-d-s4-units`, `config`, `integration/architecture`, `integration/schema-parity`.
+
+## 6. Phản hồi & sửa (24/10) – review SEC + ARC
+Chi tiết từng thẻ: `rounds/round-03/responses/s1-BE-D-us155.md`. Nhánh rebase lên `main` daf814c (có 0.3.8 bổ sung 4 `notePurgedAt`; `openapi-meta.ts`/`openapi-schemas.ts` sinh lại bằng script).
+- SEC FB-01 (Major): Desk transitions, giữ chỗ `website`, đơn B2 có yêu cầu → `idempotency_key` chỉ lưu `{ id }` (`UseCaseResult.storeBody = false`, mới); phát lại đọc lại theo quyền hiện tại. Test quét: 0 dòng có C2.
+- SEC FB-02 (Minor): `bodyLimit` 8 KB cho route `/v1/public/` (hook `onRoute` trong `http.ts`) → 413 trước khi parse. Còn OPS: Caddy 16 KB.
+- SEC FB-03 (Minor): ca server B.1.1, B.1.2, B.1.4, B.1.6, B.1.10, B.1.12, B.2.8.
+- ARC US155-01 (Major): migration **0087** – `public_resolve_property` chỉ trả khi đúng một cơ sở khớp; app `rows.length !== 1` → 404; test hai tổ chức trùng mã.
+- ARC US155-02 (Minor): 0087 trigger chỉ cho xóa dòng `spam`; test kiến trúc + test PostgreSQL.
+- Còn lại: ARC US155-03 (dời cổng `WEBSITE_REQUEST_PORT` sang module lõi – Sprint 2), US155-04 + SEC FB-04 (runbook 1 bản api – OPS), OPS Caddy 16 KB, FE-B/QA ca B.2.1–B.2.3.
+
+Kiểm tra (Postgres `bed2-pg`, migrate tới 0087): `vitest run` toàn bộ api **126 tệp pass, 2 skip; 3.212 ca pass**; `public-site-r3-bed` 29/29; units + kiến trúc 87/87 (4 tệp); tsc, eslint, prettier 0 lỗi; `drizzle-kit generate` không sinh tệp; `gen-openapi-meta --check`, api-client `--check`, `gen_rbac_cases --check`, `gen_traceability --strict` đạt.
+
+Tệp sửa thêm: `src/http.ts`, `src/shared/http/unit-of-work.ts`, `src/modules/public-site/internal/{website-requests.controller.ts,public-booking.service.ts}`, `src/modules/reservations/internal/reservations.controller.ts`, `src/modules/sales/internal/{quotes.controller.ts,quotes.service.ts}`, `src/db/migrations/0087_public_site_slug_unique.sql` + `meta/0087_snapshot.json` + `_journal.json`, `test/helpers/feature-app.ts` (tùy chọn `trustProxy`), `test/be-d-r3-s1-units.test.ts`, `test/integration/public-site-r3-bed.test.ts`; tạo `rounds/round-03/responses/s1-BE-D-us155.md`.

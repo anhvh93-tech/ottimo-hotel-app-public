@@ -56,6 +56,8 @@ export async function startFeatureApp(
     /** FB-R3-SEC-BEC-02: capture the request log (pino) at this level. Default silent. */
     logStream?: NodeJS.WritableStream;
     logLevel?: string;
+    /** TRUST_PROXY (IP/CIDR list of the reverse proxy) – default trust nobody (SEC Phụ lục B.1.6). */
+    trustProxy?: string[];
   } = {},
 ): Promise<FeatureApp> {
   const clock = new FixedClock(T0);
@@ -92,7 +94,7 @@ export async function startFeatureApp(
   const app = moduleRef.createNestApplication<NestFastifyApplication>(
     createHttpAdapter({
       logLevel: opts.logLevel ?? 'silent',
-      trustProxy: false,
+      trustProxy: opts.trustProxy ?? false,
       ...(opts.logStream ? { logStream: opts.logStream } : {}),
     }),
   );

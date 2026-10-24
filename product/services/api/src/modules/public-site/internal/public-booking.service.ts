@@ -156,7 +156,9 @@ export class PublicBookingService {
         property_id: string;
         timezone: string;
       }>('SELECT organization_id, property_id, timezone FROM public_resolve_property($1)', [slug]);
-      const r = rows[0];
+      // FB-R3-ARC-US155-01: exactly one property of the whole system (0087 answers nothing otherwise) – never
+      // pick "the first" of two organisations sharing a code.
+      const r = rows.length === 1 ? rows[0] : undefined;
       return r
         ? { organizationId: r.organization_id, propertyId: r.property_id, timezone: r.timezone }
         : null;

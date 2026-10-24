@@ -47,6 +47,11 @@ import { AuthGuard, type GuardedRequest, tenantOf } from './auth.guard';
 export interface UseCaseResult<T> {
   status: number;
   body: T;
+  /**
+   * false = store only `{ id }` for replay, decided by the use case itself (the response turned out to hold
+   * data that must not outlive its erasure – SEC FB-R3-SEC-US155-01). Same effect as RunOptions.storeBody.
+   */
+  storeBody?: boolean;
 }
 
 /** Commit the transaction, then answer with this problem (see "Commit-then-fail" above). */
@@ -193,10 +198,9 @@ export class UnitOfWork {
         ? { status: outcome.fail.status, body: outcome.fail.toBody() }
         : outcome;
       if (key) {
-        const stored =
-          options.storeBody === false && !isFailure(outcome)
-            ? pickId(result.body)
-            : ((result.body as unknown) ?? null);
+        const idOnly =
+          !isFailure(outcome) && (options.storeBody === false || outcome.storeBody === false);
+        const stored = idOnly ? pickId(result.body) : ((result.body as unknown) ?? null);
         await tx.query(
           `UPDATE idempotency_key SET state = 'completed', response_status = $4, response_body = $5
             WHERE principal_type = 'user' AND principal_id = $1 AND key = $2 AND organization_id = $3`,

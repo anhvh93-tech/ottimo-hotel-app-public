@@ -475,6 +475,13 @@ export class QuotesService {
     return this.dto((await this.row(tx, c, id)) as QuoteRow, timezone, now);
   }
 
+  /** The Reservation JSON of a hold for the caller (replay of an id-only idempotent answer – US-155). */
+  async reservationView(tx: Tx, reservationId: string): Promise<Record<string, unknown>> {
+    if (!this.reservations)
+      throw problem('INTERNAL_ERROR', { detail: 'reservations module not wired' });
+    return this.reservations.reservationView(tx, reservationId);
+  }
+
   /** Q2 + B1 (US-084): hold on the quote's room with the quote's snapshot prices. */
   async createHold(
     tx: Tx,

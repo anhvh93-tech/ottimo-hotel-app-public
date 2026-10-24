@@ -6,10 +6,14 @@
  * Fake clock (T0 = Thu 15/10/2026 09:00 VN, inside the desk hours). FAKE data only (example.invalid, fake phones).
  */
 import { randomUUID } from 'node:crypto';
+import { Readable } from 'node:stream';
 import { Client as PgClient } from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Database } from '../../src/db/database';
 import { JobRunner } from '../../src/jobs/job-runner';
+import { SseHub } from '../../src/modules/events/internal/sse-hub';
+import { SSE_CHANNEL } from '../../src/modules/events/public/events.service';
+import { PublicBookingService } from '../../src/modules/public-site/internal/public-booking.service';
 import {
   WEBSITE_REQUEST_PORT,
   type WebsiteRequestPortContract,
@@ -719,6 +723,12 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
       { json: { holdHours: 24 } },
     );
     expect(hold.statusCode, hold.body).toBe(201);
+    // SEC FB-R3-SEC-US155-01: a hold of a website request is stored as its id only for replays.
+    const [held] = await q<{ response_body: unknown }>(
+      `SELECT response_body FROM idempotency_key WHERE principal_type = 'user' AND path LIKE $1`,
+      [`%/quotes/${saved.json().id}/actions/create-hold`],
+    );
+    expect(held!.response_body).toEqual({ id: hold.json().id });
     const [res] = await q<Record<string, unknown>>(
       `SELECT direct_source, direct_sub_source FROM reservation WHERE id = $1`,
       [hold.json().id],
@@ -754,8 +764,9 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
       phone: '84905444555',
       createdBy: t.users.fd!.id,
     });
-    const book = (extra: Record<string, unknown> = {}) =>
+    const book = (extra: Record<string, unknown> = {}, idem?: string) =>
       staff(fa, tok('fd'), null, 'POST', `${P(t)}/reservations`, {
+        ...(idem ? { idem } : {}),
         json: {
           roomId: ids.rooms['203'],
           channelId: ids.channels.direct,
@@ -784,12 +795,29 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
     });
     expect((await book({ websiteBookingRequestId: randomUUID() })).statusCode).toBe(404);
     // directSource absent → website; the deposit rule of B2 still applies.
-    let created = await book();
-    if (created.statusCode === 422 && created.json().code === 'DEPOSIT_INSUFFICIENT') {
-      const amountVnd = created.json().depositRequiredVnd as number;
-      created = await book({ initialPayment: { type: 'deposit', method: 'cash', amountVnd } });
-    }
+    const short = await book();
+    expect(short.statusCode, short.body).toBe(422);
+    expect(short.json().code).toBe('DEPOSIT_INSUFFICIENT');
+    const paid = {
+      initialPayment: {
+        type: 'deposit',
+        method: 'cash',
+        amountVnd: short.json().depositRequiredVnd as number,
+      },
+    };
+    const idem = randomUUID();
+    const created = await book(paid, idem);
     expect(created.statusCode, created.body).toBe(201);
+    // SEC FB-R3-SEC-US155-01: the idempotency store keeps the id only; a replay reads the booking again.
+    const [stored] = await q<{ response_body: unknown }>(
+      `SELECT response_body FROM idempotency_key WHERE principal_type = 'user' AND key = $1`,
+      [idem],
+    );
+    expect(stored!.response_body).toEqual({ id: created.json().id });
+    const replay = await book(paid, idem);
+    expect(replay.statusCode, replay.body).toBe(201);
+    expect(replay.headers['idempotent-replayed']).toBe('true');
+    expect(replay.json()).toMatchObject({ id: created.json().id, directSubSource: 'facebook' });
     const [res] = await q<Record<string, unknown>>(
       `SELECT direct_source, direct_sub_source FROM reservation WHERE id = $1`,
       [created.json().id],
@@ -815,5 +843,396 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
     const again = await book({ roomId: ids.rooms['202'], directSource: 'website' });
     expect(again.statusCode, again.body).toBe(409);
     expect(again.json().code).toBe('INVALID_TRANSITION');
+  });
+
+  // ───────────── SEC review s1-SEC-on-us155 (Phụ lục B of landing-booking-SEC) + ARC s1-ARC-on-us155 ─────────────
+
+  /** A token for this client IP, usable 3 s later (the clock moves 5 s). */
+  const tokenFor = async (ip: string): Promise<string> => {
+    const r = await formToken({}, ip);
+    expect(r.statusCode, r.body).toBe(200);
+    fa.clock.set(new Date(fa.clock.now().getTime() + 5_000));
+    return r.json().token as string;
+  };
+
+  it('B.1.1: the 31st call of an IP in the hour → 429 in RAM, without any database connection', async () => {
+    await at('2026-10-21T09:30:00+07:00');
+    const ip = '192.0.2.10';
+    for (let i = 0; i < 30; i += 1) expect((await formToken({}, ip)).statusCode).toBe(200);
+    const connect = vi.spyOn(db.pool, 'connect');
+    try {
+      const r = await formToken({}, ip);
+      expect(r.statusCode, r.body).toBe(429);
+      expect(r.json().code).toBe('RATE_LIMITED');
+      expect(Number(r.headers['retry-after'])).toBeGreaterThan(0);
+      const s = await submit({}, { ip });
+      expect(s.statusCode).toBe(429);
+      expect(connect).not.toHaveBeenCalled();
+    } finally {
+      connect.mockRestore();
+    }
+  });
+
+  it('B.1.2: 4 public calls in flight → the 5th gets 503 at once (no queue); the Desk still answers', async () => {
+    const svc = fa.app.get(PublicBookingService, { strict: false });
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const original = svc.formToken.bind(svc);
+    svc.formToken = async (slug: string) => {
+      await gate;
+      return original(slug);
+    };
+    try {
+      const held = [1, 2, 3, 4].map((i) => formToken({}, `192.0.2.${20 + i}`));
+      await new Promise((r) => setTimeout(r, 100));
+      const fifth = await formToken({}, '192.0.2.30');
+      expect(fifth.statusCode, fifth.body).toBe(503);
+      expect(fifth.json().code).toBe('SERVICE_UNAVAILABLE');
+      expect(fifth.headers['retry-after']).toBe('5');
+      const deskList = await desk('fd', 'GET', '');
+      expect(deskList.statusCode).toBe(200);
+      release();
+      for (const r of await Promise.all(held)) expect(r.statusCode).toBe(200);
+      expect((await formToken({}, '192.0.2.30')).statusCode).toBe(200);
+    } finally {
+      release();
+      svc.formToken = original;
+    }
+  });
+
+  it('B.1.4: a staff cookie on the public form changes nothing – 202 like a stranger, no user written', async () => {
+    const ip = '192.0.2.40';
+    const token = await tokenFor(ip);
+    const key = randomUUID();
+    const r = await fa.app.inject({
+      method: 'POST',
+      url: `/v1/public/properties/${slug}/booking-requests`,
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': key,
+        origin: LANDING,
+        cookie: `ottimo_sid=${tok('own')}`,
+      },
+      payload: JSON.stringify(form(token, { phone: '0905 404 404' })),
+      remoteAddress: ip,
+    });
+    expect(r.statusCode, r.body).toBe(202);
+    const [row] = await q<Record<string, unknown>>(
+      `SELECT assigned_user_id, converted_by, claimed_at FROM website_booking_request
+        WHERE phone_e164 = '84905404404'`,
+    );
+    expect(row).toEqual({ assigned_user_id: null, converted_by: null, claimed_at: null });
+    const [k] = await q<{ principal_type: string; principal_id: string }>(
+      `SELECT principal_type, principal_id FROM idempotency_key WHERE key = $1`,
+      [key],
+    );
+    expect(k!.principal_type).toBe('public_site');
+    expect(k!.principal_id).not.toBe(t.users.own!.id);
+    // And a staff cookie cannot write on the Desk from the landing origin (the cookie is not a pass):
+    // 403 before the request is even looked up (an unknown id would otherwise be 404). An app with the staff
+    // origins configured like staging/production (the shared test app checks none).
+    const deskApp = await startFeatureApp(db, { adminOrigins: ['https://desk.example.invalid'] });
+    deskApp.clock.set(fa.clock.now());
+    try {
+      const claimAt = (origin: string) =>
+        staff(
+          deskApp,
+          tok('fd'),
+          null,
+          'POST',
+          `${P(t)}/website-booking-requests/${randomUUID()}/actions/claim`,
+          { headers: { origin }, ifMatch: 1 },
+        );
+      const cross = await claimAt(LANDING);
+      expect(cross.statusCode, cross.body).toBe(403);
+      expect((await claimAt('https://desk.example.invalid')).statusCode).toBe(404);
+    } finally {
+      await deskApp.close();
+    }
+  });
+
+  it('FB-02: the public routes stop the body at 8 KB before parsing – chunked or with Content-Length → 413', async () => {
+    const big = JSON.stringify({ note: 'x'.repeat(64 * 1024) });
+    const chunked = await fa.app.inject({
+      method: 'POST',
+      url: `/v1/public/properties/${slug}/booking-requests`,
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': randomUUID(),
+        origin: LANDING,
+      },
+      payload: Readable.from([Buffer.from(big)]),
+      remoteAddress: '192.0.2.50',
+    });
+    expect(chunked.statusCode, chunked.body).toBe(413);
+    expect(chunked.json().code).toBe('PAYLOAD_TOO_LARGE');
+    const sized = await submit({ note: 'x'.repeat(9 * 1024) }, { ip: '192.0.2.51' });
+    expect(sized.statusCode).toBe(413);
+    // Stopped by Fastify before the handler: even a foreign Origin (403 in the handler) gets 413 first.
+    const foreign = await submit(
+      { note: 'x'.repeat(9 * 1024) },
+      { ip: '192.0.2.52', origin: 'https://evil.example.invalid' },
+    );
+    expect(foreign.statusCode).toBe(413);
+    // Staff routes keep the application limit (a 9 KB body is parsed and answered by the use case).
+    const deskBig = await desk('fd', 'POST', '/lookup', {
+      json: { phone: '0905 000 001', pad: 'x'.repeat(9 * 1024) },
+    });
+    expect(deskBig.statusCode).not.toBe(413);
+  });
+
+  it('B.1.6: behind a trusted proxy the client is the right-most untrusted X-Forwarded-For entry – a forged left part changes nothing', async () => {
+    const proxied = await startFeatureApp(db, { trustProxy: ['10.0.0.5'] });
+    proxied.clock.set(fa.clock.now());
+    await touchSessions(db, t, fa.clock.now());
+    const get = (remoteAddress: string, xff: string) =>
+      proxied.app.inject({
+        method: 'GET',
+        url: `/v1/public/properties/${slug}/form-token`,
+        headers: { 'x-forwarded-for': xff },
+        remoteAddress,
+      });
+    try {
+      for (let i = 0; i < 30; i += 1) {
+        expect((await get('10.0.0.5', `198.18.${i}.1, 198.51.100.77`)).statusCode).toBe(200);
+      }
+      expect((await get('10.0.0.5', '198.18.99.1, 198.51.100.77')).statusCode).toBe(429);
+      // Another real client behind the same proxy has its own counter.
+      expect((await get('10.0.0.5', '198.18.99.1, 198.51.100.78')).statusCode).toBe(200);
+      // A caller that is not the proxy cannot pick its IP with the header.
+      for (let i = 0; i < 30; i += 1) {
+        expect((await get('203.0.113.60', `198.51.100.${i + 100}`)).statusCode).toBe(200);
+      }
+      expect((await get('203.0.113.60', '198.51.100.250')).statusCode).toBe(429);
+    } finally {
+      await proxied.close();
+    }
+  });
+
+  it('B.1.12: 40 calls a day from one IPv6 /48 (each from its own /64) → the 41st is refused 429; another /48 passes', async () => {
+    const p48 = `2001:db8:${Math.floor(Math.random() * 0xffff).toString(16)}`;
+    for (let i = 1; i <= 40; i += 1) {
+      const r = await submit({}, { ip: `${p48}:${i.toString(16)}::1` });
+      expect(r.statusCode).toBeLessThan(500);
+      expect(r.statusCode).not.toBe(202);
+    }
+    const ip41 = `${p48}:ff::1`;
+    const token = await tokenFor(ip41);
+    const refused = await submit(form(token, { phone: '0905 484 848' }), { ip: ip41 });
+    expect(refused.statusCode, refused.body).toBe(429);
+    expect(refused.json().code).toBe('RATE_LIMITED');
+    const other = `2001:db8:${(parseInt(p48.split(':')[2]!, 16) ^ 1).toString(16)}:1::1`;
+    const ok = await submit(form(await tokenFor(other), { phone: '0905 484 849' }), { ip: other });
+    expect(ok.statusCode, ok.body).toBe(202);
+  });
+
+  it('B.2.8: SSE website_request.changed carries the id only (wire + hub), to FD+ and the right SAL', async () => {
+    const hub = fa.app.get(SseHub);
+    const roles: Record<string, string[]> = {
+      fd: ['front_desk'],
+      sal: ['sales_staff'],
+      sal2: ['sales_staff'],
+    };
+    const got: Record<string, Array<{ type: string; data: Record<string, unknown> }>> = {
+      fd: [],
+      sal: [],
+      sal2: [],
+    };
+    const wire: string[] = [];
+    const listener = new PgClient({ connectionString: process.env.DATABASE_URL });
+    await listener.connect();
+    listener.on('notification', (n) => {
+      if (n.payload?.includes('website_request.changed')) wire.push(n.payload);
+    });
+    await listener.query(`LISTEN ${SSE_CHANNEL}`);
+    const subs = await Promise.all(
+      Object.keys(got).map((who) =>
+        hub.subscribe({
+          propertyId: t.propertyIds[0]!,
+          userId: t.users[who]!.id,
+          roles: roles[who]!,
+          send: (type, data) => {
+            if (type === 'website_request.changed') got[who]!.push({ type, data });
+            return true;
+          },
+          close: () => undefined,
+        }),
+      ),
+    );
+    try {
+      const ip = '192.0.2.60';
+      const r = await submit(
+        form(await tokenFor(ip), {
+          guestName: 'Sse Marker',
+          phone: '0905 626 262',
+          note: 'Sse note marker',
+        }),
+        { ip },
+      );
+      expect(r.statusCode, r.body).toBe(202);
+      const [req] = await q<{ id: string }>(
+        `SELECT id FROM website_booking_request WHERE phone_e164 = '84905626262'`,
+      );
+      const id = req!.id;
+      const etagOf = async () =>
+        Number(String((await desk('sal', 'GET', `/${id}`)).headers.etag).replace(/"/g, ''));
+      expect(
+        (await desk('sal', 'POST', `/${id}/actions/claim`, { ifMatch: await etagOf() })).statusCode,
+      ).toBe(200);
+      expect(
+        (
+          await desk('sal', 'POST', `/${id}/actions/decline`, {
+            ifMatch: await etagOf(),
+            json: { reasonCode: 'guest_unreachable' },
+          })
+        ).statusCode,
+      ).toBe(200);
+      const mine = () => wire.filter((w) => w.includes(id));
+      const deadline = Date.now() + 5_000;
+      while ((got.fd!.length < 3 || mine().length < 3) && Date.now() < deadline)
+        await new Promise((res) => setTimeout(res, 50));
+      for (const who of Object.keys(got)) {
+        for (const e of got[who]!) expect(e.data).toEqual({ id });
+      }
+      expect(got.fd!.length).toBe(3); // WR0 new, WR1 claim, WR3 decline
+      expect(got.sal!.length).toBe(3);
+      expect(got.sal2!.length).toBe(2); // new + claim (it left the shared list), not the decline
+      expect(mine().length).toBe(3);
+      for (const w of mine()) {
+        const ev = JSON.parse(w) as Record<string, unknown>;
+        expect(Object.keys(ev).sort()).toEqual(
+          Object.keys(ev).includes('u') ? ['id', 'p', 'r', 't', 'u'] : ['id', 'p', 'r', 't'],
+        );
+        expect(ev.id).toBe(id);
+        expect(w).not.toMatch(/Sse Marker|Sse note marker|84905626262|0905/);
+      }
+    } finally {
+      for (const u of subs) u();
+      await listener.end();
+    }
+  });
+
+  it('ARC US155-01: two organisations with the same property code → the public form answers 404 and writes nothing', async () => {
+    const other = await createTenant(db, { users: { own2: ['owner'] } });
+    await db.withContext(other.ctx(), (tx) =>
+      tx.query(`UPDATE property SET code = $2 WHERE id = $1`, [
+        other.propertyIds[0],
+        slug.toUpperCase(),
+      ]),
+    );
+    const svc = fa.app.get(PublicBookingService, { strict: false });
+    svc.clearCache();
+    try {
+      const r = await formToken({}, '192.0.2.70');
+      expect(r.statusCode, r.body).toBe(404);
+      const before = await q<{ n: number }>(
+        `SELECT count(*)::int AS n FROM website_booking_request`,
+      );
+      const s = await submit(form('v1.xxxxxxxxxxxxxxxxxxxxxxxx', { phone: '0905 707 070' }), {
+        ip: '192.0.2.71',
+      });
+      expect(s.statusCode).toBe(404);
+      expect(await q(`SELECT count(*)::int AS n FROM website_booking_request`)).toEqual(before);
+      const rows = await db.withContext(other.ctx(), (tx) =>
+        tx.query(`SELECT count(*)::int AS n FROM website_booking_request`),
+      );
+      expect(rows.rows[0]).toEqual({ n: 0 });
+    } finally {
+      await db.withContext(other.ctx(), (tx) =>
+        tx.query(`UPDATE property SET code = $2 WHERE id = $1`, [
+          other.propertyIds[0],
+          `X${randomUUID().slice(0, 6)}`,
+        ]),
+      );
+      svc.clearCache();
+    }
+    expect((await formToken({}, '192.0.2.72')).statusCode).toBe(200);
+  });
+
+  it('ARC US155-02: the database deletes only `spam` rows of website_booking_request', async () => {
+    const [live] = await q<{ id: string; status: string }>(
+      `SELECT id, status FROM website_booking_request WHERE status <> 'spam' LIMIT 1`,
+    );
+    await expect(
+      q(`DELETE FROM website_booking_request WHERE id = $1`, [live!.id]),
+    ).rejects.toThrow(/only a spam row may be deleted/);
+  });
+
+  it('FB-01: Desk transitions keep no C2 in the idempotency store; a replay reads the request again under the current scope; nothing of the senders is left there', async () => {
+    const ip = '192.0.2.80';
+    const r = await submit(
+      form(await tokenFor(ip), {
+        guestName: 'Anna Scan',
+        phone: '0905 616 161',
+        note: 'Scan note marker',
+      }),
+      { ip },
+    );
+    expect(r.statusCode, r.body).toBe(202);
+    const [req] = await q<{ id: string }>(
+      `SELECT id FROM website_booking_request WHERE phone_e164 = '84905616161'`,
+    );
+    const id = req!.id;
+    const etagOf = async (who = 'sal') =>
+      Number(String((await desk(who, 'GET', `/${id}`)).headers.etag).replace(/"/g, ''));
+    const k1 = randomUUID();
+    const v1 = await etagOf();
+    const claim = await desk('sal', 'POST', `/${id}/actions/claim`, { ifMatch: v1, idem: k1 });
+    expect(claim.statusCode, claim.body).toBe(200);
+    expect(claim.json()).toMatchObject({ status: 'in_progress', guestName: 'Anna Scan' });
+    const [stored] = await q<{ response_body: unknown }>(
+      `SELECT response_body FROM idempotency_key WHERE principal_type = 'user' AND key = $1`,
+      [k1],
+    );
+    expect(stored!.response_body).toEqual({ id });
+    // Replay of the claim: same answer shape, read again (holder → contact visible).
+    const replay = await desk('sal', 'POST', `/${id}/actions/claim`, { ifMatch: v1, idem: k1 });
+    expect(replay.statusCode, replay.body).toBe(200);
+    expect(replay.headers['idempotent-replayed']).toBe('true');
+    expect(replay.json()).toMatchObject({ id, status: 'in_progress', guestName: 'Anna Scan' });
+    expect(
+      (
+        await desk('sal', 'POST', `/${id}/actions/decline`, {
+          ifMatch: await etagOf(),
+          json: { reasonCode: 'no_availability' },
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (await desk('sal', 'POST', `/${id}/actions/reopen`, { ifMatch: await etagOf() })).statusCode,
+    ).toBe(200);
+    // mark-spam on another new request (FD+).
+    const ip2 = '192.0.2.81';
+    expect(
+      (await submit(form(await tokenFor(ip2), { phone: '0905 616 162' }), { ip: ip2 })).statusCode,
+    ).toBe(202);
+    const [spam] = await q<{ id: string }>(
+      `SELECT id FROM website_booking_request WHERE phone_e164 = '84905616162'`,
+    );
+    const vs = Number(
+      String((await desk('fd', 'GET', `/${spam!.id}`)).headers.etag).replace(/"/g, ''),
+    );
+    expect(
+      (await desk('fd', 'POST', `/${spam!.id}/actions/mark-spam`, { ifMatch: vs })).statusCode,
+    ).toBe(200);
+    // WR8 erase, then a replay of the old claim shows the request as it is now: no C2.
+    const erase = await desk('fdl', 'POST', `/${id}/actions/erase`, {
+      ifMatch: await etagOf('fdl'),
+      json: { verificationMethod: 'same_contact', verifiedContact: '+84 905 616 161' },
+    });
+    expect(erase.statusCode, erase.body).toBe(200);
+    const after = await desk('sal', 'POST', `/${id}/actions/claim`, { ifMatch: v1, idem: k1 });
+    expect(after.statusCode, after.body).toBe(200);
+    for (const k of ['guestName', 'phone', 'email', 'note'])
+      expect(after.json()).not.toHaveProperty(k);
+    // Scan: no stored response of this tenant holds a sender's name, phone or note (C-12 (c)).
+    const leaks = await q<{ path: string }>(
+      `SELECT path FROM idempotency_key
+        WHERE response_body::text ~* $1`,
+      [
+        'Anna (Test|Scan)|Sse Marker|Late arrival|Scan note marker|Sse note marker|8490(5111222|5616161|5888999|5444555)',
+      ],
+    );
+    expect(leaks).toEqual([]);
   });
 });
