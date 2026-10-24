@@ -499,3 +499,37 @@ Các đường đã gắn:
   - Còn 2 vi phạm cứng I7, đều không do bản sửa này:
     - FZ-08 seed 1026: nợ trước 0076, P3, không tính G1 (ARC);
     - FZ-02 seed 1006 bước 29: nối tiếp `I3?`/`I5?` của bước đua "QR về muộn ‖ đảo khoản thu" ở bước 27, khi harness đoán thứ tự đua (critic: loại (b)). Chạy seed này trên `origin/main` `593ce95` (trước bản sửa) ra đúng vi phạm I7 đó.
+
+## 15. Sau BUG-R3-012/013 – lớp chặn ở bước duyệt (ARC BUG012-01), SEC FB-1213-01/02 (24/10)
+
+Nhánh `be-b/r3-bug012-followups`, tách từ `origin/main` `27c5dcc` (đã có hợp đồng 0.3.8 bổ sung 6). Không có migration, không đổi hình dạng API.
+
+### ARC BUG012-01 – hợp đồng 13.3 điểm 5
+- `ApprovalService.approve` với `type = refund`, đang giữ khóa folio (preLock của refund), hỏi `FolioService.refundAboveFreeCredit`. Hàm này đăng ký qua `provideRefundRouting`, tham số thứ 3.
+- **Tiền dư còn trống** = `rawCreditVnd` − phần còn phải chi của các yêu cầu hoàn **đã duyệt khác** của lượt ở.
+- Phần còn lại của yêu cầu lớn hơn tiền dư còn trống:
+  - chạy `refundPlan` (`refundsDownToCredit`, không có người bấm): yêu cầu thành `cancelled` `superseded`, xin lại đúng số nếu còn dư, bản thay giữ nguồn, người xin và cấp duyệt;
+  - phần này được **commit**;
+  - API trả 409 `INVALID_TRANSITION`, `currentState = cancelled`, `autoCancelReason = superseded`, không duyệt gì. Dùng cùng mẫu `fail` sau commit như A4.
+
+### SEC FB-1213-01 – bản thay không hạ cấp duyệt
+- `carriedOrigin` lấy cấp cao nhất (`owner` > `manager`) của các yêu cầu bị thay, rồi truyền vào `submit` dưới dạng `minRequiredRole`.
+- Định tuyến BR-433 (e) và ADD3-01 vẫn chạy và chỉ có thể nâng cấp, không hạ.
+
+### SEC FB-1213-02 – OWN thao tác thì giữ người xin cũ
+- `replacementActor`:
+  - yêu cầu `a32` → người làm A32 (I17);
+  - OWN thao tác, hoặc không có người bấm (J15) → người xin của yêu cầu cũ nhất bị thay;
+  - còn lại → người đang thao tác.
+- Nhờ vậy OWN vẫn duyệt được bản thay, không bị kẹt ở luật F8 với cơ sở chỉ có một OWN.
+
+### Test
+`s438-r8/r3-bug012-followups.test.ts` (4 ca):
+1. Yêu cầu chờ 300.000, tiền dư giảm còn 100.000 qua đường không gắn hook (ghi thẳng bảng) → duyệt → 409 `superseded`, có yêu cầu thay 100.000 (nguồn A32, người xin cũ); duyệt bản thay → 200.
+2. Đã duyệt 300.000, yêu cầu thứ hai 50.000, tiền dư còn trống 20.000 → 409; bản thay 20.000; yêu cầu đã duyệt giữ nguyên.
+3. Yêu cầu A32 cấp `owner` bị thay bằng số mà quản lý đủ quyền duyệt → bản thay vẫn `owner`.
+4. OWN ghi phát sinh làm thay yêu cầu do lễ tân lập → bản thay có người xin là lễ tân, cấp `owner`, OWN duyệt được (200).
+
+Kết quả chạy:
+- Toàn bộ API: 129 tệp đạt, 2 bỏ qua; 3.231 test đạt, 21 bỏ qua.
+- tsc, eslint, prettier đạt. `r3-bug-012-013.test.ts` chỉ định dạng lại.

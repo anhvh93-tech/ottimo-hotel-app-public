@@ -255,6 +255,14 @@ export type RefundRouting = (
  * ADD3-01 (residual): at APPROVAL time – did this person make an A32 reduction on the request's folio after check-out
  * (also one made after the request was written, which `origin_actor_ids` cannot hold)?
  */
+/**
+ * ARC FB-R3-ARC-BUG012-01 (contract 0.3.8 bổ sung 6, 13.3 point 5): at APPROVAL time, under the folio lock – does this
+ * refund ask more than the credit still free (rawCreditVnd − the other approved refunds not paid)? Then the folio
+ * module has re-planned (refundPlan: the request cancelled `superseded`, the right amount asked again) and answers
+ * true: nothing is approved.
+ */
+export type RefundApprovalCheck = (tx: Tx, row: ApprovalRow) => Promise<boolean>;
+
 export type RefundMakerCheck = (
   tx: Tx,
   row: Pick<ApprovalRow, 'target_type' | 'target_id'>,
@@ -342,6 +350,7 @@ export class ApprovalService {
   private focView: FocViewProvider | null = null;
   private refundRouting: RefundRouting | null = null;
   private refundMaker: RefundMakerCheck | null = null;
+  private refundApprovalCheck: RefundApprovalCheck | null = null;
   /** Per-transaction memo: time zone/today and foc_limits are read once per request (FB-R2-ARC-BE-06). */
   private readonly perTx = new WeakMap<
     Tx,
@@ -398,9 +407,14 @@ export class ApprovalService {
   }
 
   /** BR-433 (e) / ADD3-01: the folio module routes every refund request (RefundRouting). */
-  provideRefundRouting(routing: RefundRouting, makerCheck?: RefundMakerCheck): void {
+  provideRefundRouting(
+    routing: RefundRouting,
+    makerCheck?: RefundMakerCheck,
+    approvalCheck?: RefundApprovalCheck,
+  ): void {
     this.refundRouting = routing;
     if (makerCheck) this.refundMaker = makerCheck;
+    if (approvalCheck) this.refundApprovalCheck = approvalCheck;
   }
 
   private async preLock(tx: Tx, approvalId: string): Promise<void> {
@@ -661,7 +675,11 @@ export class ApprovalService {
       /** 0.3.7 B-6: required for a `refund` (what the approver saw – destination, amount, state). */
       expectedVersion?: number;
     },
-  ): Promise<{ row: ApprovalRow } | { escalatedTo: ApproverRole; row: ApprovalRow }> {
+  ): Promise<
+    | { row: ApprovalRow }
+    | { escalatedTo: ApproverRole; row: ApprovalRow }
+    | { superseded: true; row: ApprovalRow }
+  > {
     await this.preLock(tx, approvalId);
     const row = await this.lockOpen(tx, approvalId);
     assertExpectedVersion(row, input.expectedVersion);
@@ -681,6 +699,19 @@ export class ApprovalService {
     const needed = decisionFloor(row, minRoleFor(row.type));
     if (APPROVER_RANK[role] < APPROVER_RANK[needed]) {
       throw problem('APPROVAL_LIMIT_EXCEEDED', { extras: { approver: needed } });
+    }
+    // ARC BUG012-01 (0.3.8 bổ sung 6): never approve a refund larger than the credit still free – re-planned instead
+    // (committed), the caller answers 409 INVALID_TRANSITION (currentState cancelled, autoCancelReason superseded).
+    if (
+      row.type === 'refund' &&
+      this.refundApprovalCheck &&
+      (await this.refundApprovalCheck(tx, row))
+    ) {
+      const { rows: fresh } = await tx.query<ApprovalRow>(
+        'SELECT * FROM approval_request WHERE id = $1',
+        [row.id],
+      );
+      return { superseded: true, row: fresh[0] as ApprovalRow };
     }
 
     const { tz, today, now } = await this.context(tx);

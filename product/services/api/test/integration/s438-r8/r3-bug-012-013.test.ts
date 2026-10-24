@@ -8,7 +8,7 @@
  *   recorded and the folio is closed, its "Cần chú ý" closed_reservation_credit resolved.
  * Fake clock, FAKE data only.
  */
- 
+
 import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { TEST_PASSWORD } from '../../helpers/feature-app';

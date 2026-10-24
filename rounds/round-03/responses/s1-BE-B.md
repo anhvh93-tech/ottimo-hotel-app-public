@@ -345,3 +345,18 @@ Làm theo đề xuất 1, 2 của critic:
 - Toàn bộ API: 128 tệp đạt, 2 bỏ qua; 3.227 test đạt, 21 bỏ qua.
 - Fuzz đủ cờ ORC (`FUZZ_CHAINS=30`): 270 chuỗi, 10.359 bước, deadlock 0, 5xx 0; mọi ca có hướng đạt.
 - Còn 2 vi phạm I7, đều có sẵn trước bản sửa: FZ-08 1026 (P3, không tính G1), và FZ-02 1006 (nối tiếp bước đua; tái hiện được trên `593ce95`).
+
+---
+
+# Sau BUG-R3-012/013 – trả lời ARC BUG012-01, SEC FB-1213-01/02 – 24/10
+
+Nhánh `be-b/r3-bug012-followups`, nằm trên `origin/main` `27c5dcc`. Chi tiết ở `outputs/BE/s1-be-b.md` mục 15.
+
+- **FB-R3-ARC-BUG012-01: Done** theo hợp đồng 13.3 điểm 5.
+  - Duyệt yêu cầu hoàn vượt tiền dư còn trống → lập lại kế hoạch (commit) → 409 `INVALID_TRANSITION` (`currentState = cancelled`, `autoCancelReason = superseded`), không duyệt gì.
+  - Có ca test ARC yêu cầu (ghi thẳng bảng), cộng một ca tính cả các yêu cầu đã duyệt khác.
+- **FB-R3-SEC-1213-01: Done.** Bản thay giữ cấp duyệt cao nhất của các yêu cầu nó thay. Test: `owner` → thay → vẫn `owner`.
+  - Cần DOM xác nhận câu nghiệp vụ "viết lại đúng số không đổi cấp duyệt".
+- **FB-R3-SEC-1213-02: Done.** OWN thao tác thì bản thay giữ người xin cũ, như nhánh J15. Test: OWN duyệt được bản thay.
+- **FB-R3-ARC-BUG012-02** (harness I7 khi thứ tự đua mơ hồ): việc của QA.
+- **Kiểm:** toàn bộ API 3.231 test đạt, 21 bỏ qua. Không chạy lại fuzz vì ORC chỉ yêu cầu test oracle và toàn bộ API.

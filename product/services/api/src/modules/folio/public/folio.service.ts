@@ -3090,6 +3090,53 @@ export class FolioService implements FolioStaySync {
     return { minRequiredRole: makers.length > 0 ? 'owner' : null, originActorIds };
   }
 
+  /**
+   * ARC FB-R3-ARC-BUG012-01 (0.3.8 bổ sung 6, 13.3 point 5) – called by ApprovalService.approve for a `refund`, under the
+   * folio lock (the refund preLock): what is left of the request > the credit still free (`rawCreditVnd` − what the
+   * OTHER approved refunds of the stay still have to pay) → refundPlan runs (`superseded`; nobody acting: a
+   * replacement keeps its requester) and true is answered – the request is not approved. Defence in depth for a path
+   * lowering the credit that forgot the K11-06 rule; the pay-out still clamps to the credit.
+   */
+  async refundAboveFreeCredit(tx: Tx, row: ApprovalRow): Promise<boolean> {
+    if (row.type !== 'refund' || !row.target_id) return false;
+    const { rows: f } = await tx.query<{ folio_id: string | null }>(
+      row.target_type === 'folio'
+        ? 'SELECT id AS folio_id FROM folio WHERE id = $1'
+        : 'SELECT folio_id FROM reservation WHERE id = $1',
+      [row.target_id],
+    );
+    const folioId = f[0]?.folio_id ?? null;
+    if (!folioId) return false;
+    const folio = await this.get(tx, folioId);
+    if (!folio) return false;
+    const b = await this.balance(tx, folioId);
+    const ids = await this.stayReservationIds(tx, folioId);
+    const { rows: other } = await tx.query<{ left: string | number }>(
+      `SELECT COALESCE(SUM(amount_vnd - refunded_vnd), 0) AS left FROM approval_request
+        WHERE type = 'refund' AND target_type = 'reservation' AND target_id = ANY($1::uuid[])
+          AND status = 'approved' AND refunded_vnd < amount_vnd AND id <> $2`,
+      [ids, row.id],
+    );
+    const freeVnd = b.rawCreditVnd - Number(other[0]?.left ?? 0);
+    const leftVnd = Number(row.amount_vnd) - Number(row.refunded_vnd ?? 0);
+    if (leftVnd <= freeVnd) return false;
+    const { rows: code } = await tx.query<{ code: string }>(
+      'SELECT code FROM reservation WHERE id = $1',
+      [folio.primary_reservation_id],
+    );
+    await this.refundsDownToCredit(
+      tx,
+      {
+        folioId,
+        reservationId: folio.primary_reservation_id,
+        reservationCode: code[0]?.code ?? folio.bill_no ?? folioId,
+        actor: null,
+      },
+      'superseded',
+    );
+    return true;
+  }
+
   /** ADD3-01: did `userId` (below the owner) make an A32 reduction after check-out on the target's folio? */
   async isA32Maker(
     tx: Tx,
@@ -3126,9 +3173,12 @@ export class FolioService implements FolioStaySync {
       requestId?: string;
       source?: 'a32' | 'other';
       originActorIds?: readonly string[];
+      /** SEC FB-1213-01: a replacement keeps at least the level of what it replaces. */
+      minRequiredRole?: 'manager' | 'owner' | null;
     },
   ): Promise<ApprovalRow> {
     return this.requireApprovals().submit(tx, input.actor, {
+      ...(input.minRequiredRole ? { minRequiredRole: input.minRequiredRole } : {}),
       type: 'refund',
       amountVnd: input.amountVnd,
       reasonCode: input.reasonCode,
@@ -3170,6 +3220,8 @@ export class FolioService implements FolioStaySync {
     /** Requester of the oldest request replaced (any source) – the requester when nobody acts (J15). */
     firstRequester: string | null;
     originActorIds: string[];
+    /** SEC FB-1213-01: the highest level that had to decide what is replaced – a replacement never goes lower. */
+    minRequiredRole: 'manager' | 'owner' | null;
   }> {
     if (requestIds.length === 0) {
       return {
@@ -3178,6 +3230,7 @@ export class FolioService implements FolioStaySync {
         requestedBy: null,
         firstRequester: null,
         originActorIds: [],
+        minRequiredRole: null,
       };
     }
     const { rows } = await tx.query<{
@@ -3185,8 +3238,9 @@ export class FolioService implements FolioStaySync {
       reason_note: string | null;
       requested_by: string;
       origin_actor_ids: string[] | null;
+      required_role: string;
     }>(
-      `SELECT refund_source, reason_note, requested_by, origin_actor_ids FROM approval_request
+      `SELECT refund_source, reason_note, requested_by, origin_actor_ids, required_role FROM approval_request
         WHERE id = ANY($1::uuid[]) ORDER BY requested_at, id`,
       [[...requestIds]],
     );
@@ -3197,12 +3251,20 @@ export class FolioService implements FolioStaySync {
       requestedBy: a32?.requested_by ?? null,
       firstRequester: rows[0]?.requested_by ?? null,
       originActorIds: [...new Set(rows.flatMap((r) => r.origin_actor_ids ?? []))],
+      minRequiredRole: rows.some((r) => r.required_role === 'owner')
+        ? 'owner'
+        : rows.some((r) => r.required_role === 'manager')
+          ? 'manager'
+          : null,
     };
   }
 
   /**
-   * The requester of a replacement: the A32 maker for an `a32` one (I17), else the person acting now – or, with nobody
-   * acting (J15), the requester of the oldest request it replaces (the same request restated at the right amount).
+   * The requester of a replacement – it is the replaced request restated at the right amount:
+   * - an `a32` one keeps the A32 maker (I17);
+   * - nobody acting (J15) or the OWNER acting (SEC FB-1213-02: an owner-requested refund routed `owner` could not be
+   *   decided by anyone at a property with one owner – F8) → the requester of the oldest request replaced;
+   * - else the person acting now.
    */
   private replacementActor(
     carried: { requestedBy: string | null; firstRequester: string | null },
@@ -3211,7 +3273,7 @@ export class FolioService implements FolioStaySync {
     if (carried.requestedBy && carried.requestedBy !== actor?.userId) {
       return { userId: carried.requestedBy, roles: [] };
     }
-    if (actor) return actor;
+    if (actor && (!actor.roles.includes('owner') || !carried.firstRequester)) return actor;
     if (!carried.firstRequester) throw new Error('refund replacement without a requester');
     return { userId: carried.firstRequester, roles: [] };
   }
@@ -3295,6 +3357,7 @@ export class FolioService implements FolioStaySync {
         actor: this.replacementActor(carried, input.actor),
         source: carried.source,
         originActorIds: carried.originActorIds,
+        minRequiredRole: carried.minRequiredRole,
         ...(input.requestId ? { requestId: input.requestId } : {}),
       });
       request = { id: row.id, amountVnd: Number(row.amount_vnd), created: true };
@@ -3427,6 +3490,7 @@ export class FolioService implements FolioStaySync {
         actor: this.replacementActor(carried, input.actor),
         source: carried.source,
         originActorIds: carried.originActorIds,
+        minRequiredRole: carried.minRequiredRole,
         ...(input.requestId ? { requestId: input.requestId } : {}),
       });
       createdId = row.id;
