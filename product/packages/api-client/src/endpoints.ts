@@ -140,6 +140,7 @@ import type {
   User,
   WebsiteBookingRequest,
   WebsiteBookingRequestAction,
+  WebsiteBookingRequestRef,
   WebsiteBookingRequestStatus,
   WebsiteBookingRequestTransition,
 } from './types';
@@ -1205,6 +1206,18 @@ export function createEndpoints(api: ApiClient) {
         body,
         ifMatch: version,
         idempotencyKey,
+      }),
+    /**
+     * Data-rights request without a code (SEC ARC-16, OWN/MGR/FDL): exactly one phone OR email in the BODY (never the
+     * URL); returns ids/codes/status only – the detail opens with `getWebsiteBookingRequest`. Read-only, no key.
+     */
+    lookupWebsiteBookingRequests: (
+      { propertyId }: P,
+      body: { phone: string } | { email: string },
+    ) =>
+      r<{ data: WebsiteBookingRequestRef[] }>('POST', `${WBR}/lookup`, {
+        path: { propertyId },
+        body,
       }),
 
     // users & devices (S26, owner only)

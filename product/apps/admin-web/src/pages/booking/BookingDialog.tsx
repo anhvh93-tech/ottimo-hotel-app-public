@@ -35,8 +35,10 @@ import {
 import { useRules } from '../../app/rules';
 import { useToast } from '../../app/toast';
 import { normalizePhone } from '../../app/validation';
+import { monoArgs } from '../../app/mono';
 import { GuestPicker } from '../../components/GuestPicker';
 import { OccupancyField, type Occupancy } from '../../components/OccupancyField';
+import { ContactMatches, type WebRequestLink } from '../webreq/ContactMatches';
 import { useDebounced } from '../../hooks/useDebounced';
 import { useOnline } from '../../hooks/useOnline';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
@@ -45,6 +47,14 @@ import { isRetryable, useWrite } from '../../app/useWrite';
 export interface BookingPrefill {
   roomId?: string;
   arrivalDate?: string;
+  /** R3 v1.0 (US-155 AC2, WR6): from a website request – its dates and guests. */
+  departureDate?: string;
+  occ?: Occupancy;
+  /**
+   * The website request this booking answers: `createReservation.websiteBookingRequestId` (and the hold's
+   * `saveQuote.websiteBookingRequestId`). Source preset to "Website"; the request's contact only suggests profiles.
+   */
+  webRequest?: WebRequestLink;
 }
 
 interface Props {
@@ -125,6 +135,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   // BUG-R2-211 (BR-010): the business day – from 00:00 to 06:00 a guest arriving now books the night before.
   const today = useBusinessDay();
   const lead = roles.some((r) => LEAD_PLUS.includes(r));
+  const webRequest = prefill?.webRequest;
   // ARC 16.23: who attaches a receipt photo after creating – the desk (deposit confirmation) or a sale ("Báo cọc").
   const fdDesk = roles.some((r) =>
     ['owner', 'manager', 'front_desk_lead', 'front_desk'].includes(r),
@@ -142,20 +153,24 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       };
     }
     const arrival = prefill?.arrivalDate ?? today;
+    const web = prefill?.webRequest;
     return {
       roomId: prefill?.roomId ?? '',
       arrivalDate: arrival,
-      departureDate: addDays(arrival, 1),
+      departureDate:
+        prefill?.departureDate && prefill.departureDate > arrival
+          ? prefill.departureDate
+          : addDays(arrival, 1),
       group: 'direct',
       otaChannelId: '',
-      directSource: 'zalo_phone',
+      directSource: web ? 'website' : 'zalo_phone',
       closerUserId: '',
       otaRef: '',
       paymentModel: 'ota_prepaid',
-      occ: { adults: 2, children6to11: 0, childrenUnder6: 0 },
+      occ: prefill?.occ ?? { adults: 2, children6to11: 0, childrenUnder6: 0 },
       guest: null,
-      phone: '',
-      email: '',
+      phone: web?.contact?.phone ?? '',
+      email: web?.contact?.email ?? '',
       eta: '',
       rates: {},
       ratesEdited: {},
@@ -479,6 +494,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           }
         : undefined,
       internalNote: form.internalNote.trim() || undefined,
+      websiteBookingRequestId: webRequest?.id,
     };
   }
 
@@ -599,6 +615,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           childrenUnder6: form.occ.childrenUnder6,
           channelId: channel!.id,
           guestId: form.guest!.id,
+          websiteBookingRequestId: webRequest?.id,
         },
         newIdempotencyKey(),
       );
@@ -720,7 +737,11 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     <Modal
       open
       size="lg"
-      title={t('booking.new.title')}
+      title={
+        webRequest
+          ? monoArgs(t, 'webreq.booking_from', { code: webRequest.code }, ['code'])
+          : t('booking.new.title')
+      }
       meta={draftAt ? t('crm.draft_saved', { time: draftAt }) : undefined}
       closeLabel={t('common.close')}
       onClose={onClose}
@@ -758,6 +779,11 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       }
     >
       <form id="booking-form" onSubmit={(e) => void submit(e)} noValidate>
+        {webRequest ? (
+          <Alert tone="info" icon="globe" role="note">
+            {t('webreq.booking_hint')}
+          </Alert>
+        ) : null}
         {!online ? (
           <Alert tone="warn" icon="offline">
             {t('bk.offline')}
@@ -1073,6 +1099,13 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
         />
 
         <div className="g-2">
+          {webRequest?.contact ? (
+            <ContactMatches
+              contact={webRequest.contact}
+              chosen={form.guest}
+              onPick={(guest) => set({ guest })}
+            />
+          ) : null}
           <GuestPicker
             label={t('booking.field.guest')}
             required

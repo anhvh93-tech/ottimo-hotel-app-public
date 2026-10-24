@@ -2,16 +2,18 @@ import {
   isApiError,
   type Role,
   type WebsiteBookingRequest,
+  type WebsiteBookingRequestRef,
   type WebsiteBookingRequestStatus,
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Alert, Button, Checkbox, Chip, Field, StateView } from '@ottimo/ui';
+import { Alert, Button, Checkbox, Chip, Field, Modal, StateView } from '@ottimo/ui';
 import { useCallback, useId, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../app/api';
 import { timeHHmm } from '../../app/dates';
 import { useLiveEvents } from '../../app/live';
 import { Code } from '../../app/mono';
+import { problemView } from '../../app/problem';
 import { Page, Topbar } from '../../components/AppShell';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
 import { useNow } from '../../hooks/useNow';
@@ -80,6 +82,8 @@ export function WebRequestsPage() {
   const [onlyMine, setOnlyMine] = useState(false);
   const [more, setMore] = useState<{ rows: WebsiteBookingRequest[]; cursor?: string } | null>(null);
   const [moreBusy, setMoreBusy] = useState(false);
+  const [lookupOpen, setLookupOpen] = useState(false);
+  const isLead = roles.some((r) => LEADS.includes(r));
 
   const statusKey = statuses.join(',');
   const list = useResource(async () => {
@@ -222,6 +226,11 @@ export function WebRequestsPage() {
                 {t('webreq.clear_filters')}
               </Button>
             ) : null}
+            {isLead ? (
+              <Button size="sm" icon="shield" onClick={() => setLookupOpen(true)}>
+                {t('webreq.lookup')}
+              </Button>
+            ) : null}
           </div>
 
           {!firstPage && list.state.status === 'error' && !refInvalid ? (
@@ -288,6 +297,15 @@ export function WebRequestsPage() {
           ) : null}
         </div>
       </Page>
+      {lookupOpen ? (
+        <LookupDialog
+          onClose={() => setLookupOpen(false)}
+          onOpen={(id) => {
+            setLookupOpen(false);
+            navigate(`/website-requests/${id}`);
+          }}
+        />
+      ) : null}
       {openId ? (
         <WebRequestDrawer
           requestId={openId}
@@ -394,5 +412,98 @@ function Row({
         ) : null}
       </td>
     </tr>
+  );
+}
+
+/**
+ * "Tìm theo liên hệ" (SEC ARC-16 – OWN/MGR/FDL): a sender asks to see or erase their details without the request
+ * code. Exactly one phone OR email goes in the POST body (never the URL, never kept in the page after closing);
+ * the answer is ids/codes/status only – the drawer opens the detail (where "Xóa theo yêu cầu người gửi" is).
+ */
+function LookupDialog({ onClose, onOpen }: { onClose: () => void; onOpen: (id: string) => void }) {
+  const { t, dateTime } = useI18n();
+  const propertyId = usePropertyId();
+  const [value, setValue] = useState('');
+  const [error, setError] = useState<string | undefined>();
+  const [busy, setBusy] = useState(false);
+  const [rows, setRows] = useState<WebsiteBookingRequestRef[] | null>(null);
+  const find = async (e: FormEvent) => {
+    e.preventDefault();
+    const v = value.trim();
+    const isEmail = v.includes('@');
+    const ok = isEmail ? /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) : v.replace(/[^\d]/g, '').length >= 8;
+    if (!ok) {
+      setError(t('webreq.lookup_invalid'));
+      return;
+    }
+    setError(undefined);
+    setBusy(true);
+    try {
+      const out = await api.lookupWebsiteBookingRequests(
+        { propertyId },
+        isEmail ? { email: v } : { phone: v },
+      );
+      setRows(out.data.data);
+    } catch (err) {
+      setRows(null);
+      setError(
+        isApiError(err) && err.code === 'VALIDATION_FAILED'
+          ? t('webreq.lookup_invalid')
+          : problemView(t, err).text,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal
+      open
+      size="sm"
+      title={t('webreq.lookup_title')}
+      onClose={onClose}
+      closeLabel={t('common.close')}
+    >
+      <p className="li-s">{t('webreq.lookup_body')}</p>
+      <form className="row wrap" onSubmit={(e) => void find(e)}>
+        <Field label={t('webreq.lookup_field')} error={error}>
+          {(p) => (
+            <input
+              {...p}
+              className="input"
+              maxLength={254}
+              autoComplete="off"
+              spellCheck={false}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+            />
+          )}
+        </Field>
+        <Button type="submit" icon="search" busy={busy}>
+          {t('webreq.lookup_btn')}
+        </Button>
+      </form>
+      {rows ? (
+        rows.length === 0 ? (
+          <p role="status">{t('webreq.lookup_none')}</p>
+        ) : (
+          <div className="stack">
+            <p role="status">{t('webreq.lookup_found', { n: rows.length })}</p>
+            <ul className="list-plain">
+              {rows.map((x) => (
+                <li key={x.id} className="row wrap">
+                  <Button size="sm" className="mono" onClick={() => onOpen(x.id)}>
+                    {x.refCode}
+                  </Button>
+                  <Chip tone={WR_STATUS[x.status].tone} icon={WR_STATUS[x.status].icon}>
+                    {t(WR_STATUS[x.status].key)}
+                  </Chip>
+                  <span className="li-s">{dateTime(x.createdAt)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
+      ) : null}
+    </Modal>
   );
 }

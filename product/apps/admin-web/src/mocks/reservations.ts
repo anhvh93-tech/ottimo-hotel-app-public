@@ -1142,6 +1142,12 @@ export function createReservationMock(ctx: Ctx) {
       const { key, replay } = idem(request, 'createReservation');
       if (replay) return replay;
       const body = (await request.json()) as ReservationCreate;
+      // US-155 AC2 (WR6): a booking straight from a website request – closed/out-of-scope request → 409/404.
+      const webReq = body.websiteBookingRequestId;
+      if (webReq) {
+        const err = ctx.webRequests?.().checkQuote(webReq, g.user, g.roles);
+        if (err) return err;
+      }
       const ch = channelById(body.channelId);
       const r = roomById(body.roomId);
       const errors: Array<{ field: string; code: string }> = [];
@@ -1284,6 +1290,7 @@ export function createReservationMock(ctx: Ctx) {
       const created = createRes(body, g.user);
       if (capacityConflict) created.capacityConflict = true;
       state.reservations.push(created);
+      if (webReq) ctx.webRequests?.().convert(webReq, created.id, created.code);
       return remember(key, 201, view(created, g.user, g.roles));
     }),
 

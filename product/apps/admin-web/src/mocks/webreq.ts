@@ -7,6 +7,7 @@
 // OWN/MGR/FDL through `getParameterHistory`, answered here before the generic parameter handler.
 import type {
   AllowedAction,
+  AttentionItem,
   Role,
   WebsiteBookingRequest,
   WebsiteBookingRequestStatus,
@@ -53,6 +54,19 @@ export type MockWebRequest = Omit<WebsiteBookingRequest, 'allowedActions'>;
 /** Server normalisation of `refCode=` (SEC UXD-07): no `-`/spaces, upper case, Crockford I/L → 1, O → 0. */
 export function normalizeRefCode(raw: string): string {
   return raw.replace(/[-\s]/g, '').toUpperCase().replace(/[IL]/g, '1').replace(/O/g, '0');
+}
+
+/**
+ * Contact as the server compares it (BR-951): e-mail lower-cased; phone to E.164 digits (Vietnamese 0… → 84…).
+ * Empty string = not a usable contact.
+ */
+export function contactKey(raw: string): string {
+  const v = raw.trim();
+  if (v.includes('@')) return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) ? v.toLowerCase() : '';
+  const digits = v.replace(/[^\d+]/g, '');
+  if (/^\+[1-9]\d{7,14}$/.test(digits)) return digits.slice(1);
+  if (/^0\d{9,10}$/.test(digits)) return `84${digits.slice(1)}`;
+  return '';
 }
 
 function seed(): MockWebRequest[] {
@@ -328,6 +342,42 @@ export function createWebRequestMock(ctx: Ctx) {
         return HttpResponse.json(view(r, g.user, g.roles), { headers: etag(r) });
       },
     ),
+    // SEC ARC-16: data-rights lookup by contact (OWN/MGR/FDL) – exactly one of phone/email, in the body; refs only.
+    http.post(
+      '*/v1/properties/:propertyId/website-booking-requests/lookup',
+      async ({ request }) => {
+        const g = guard(request, LEADS);
+        if (isResponse(g)) return g;
+        const body = ((await request.json().catch(() => ({}))) ?? {}) as {
+          phone?: string;
+          email?: string;
+        };
+        if (body.phone && body.email)
+          return problem(422, 'VALIDATION_FAILED', {
+            errors: [{ field: 'email', code: 'NOT_ALLOWED' }],
+          });
+        const raw = body.phone ?? body.email;
+        if (!raw)
+          return problem(422, 'VALIDATION_FAILED', {
+            errors: [{ field: 'phone', code: 'REQUIRED' }],
+          });
+        const key = contactKey(raw);
+        if (!key)
+          return problem(422, 'VALIDATION_FAILED', {
+            errors: [
+              {
+                field: body.phone ? 'phone' : 'email',
+                code: body.phone ? 'PHONE_INVALID' : 'EMAIL_INVALID',
+              },
+            ],
+          });
+        const data = state.requests
+          .filter((r) => r.status !== 'converted' && !r.piiPurgedAt)
+          .filter((r) => contactKey(r.phone ?? r.email ?? '') === key)
+          .map((r) => ({ id: r.id, refCode: r.refCode, status: r.status, createdAt: r.createdAt }));
+        return HttpResponse.json({ data }, { headers: { 'Cache-Control': 'no-store' } });
+      },
+    ),
     http.post(
       '*/v1/properties/:propertyId/website-booking-requests/:requestId/actions/:action',
       async ({ request, params }) => {
@@ -349,6 +399,7 @@ export function createWebRequestMock(ctx: Ctx) {
           reasonCode?: string;
           note?: string;
           verificationMethod?: string;
+          verifiedContact?: string;
         };
         if (action === 'erase' && !has(g.roles, LEADS)) return problem(403, 'FORBIDDEN_ACTION');
         if (!allowed(r, g.user, g.roles).some((a) => a.action === action)) {
@@ -393,6 +444,26 @@ export function createWebRequestMock(ctx: Ctx) {
             return problem(422, 'VALIDATION_FAILED', {
               errors: [{ field: 'verificationMethod', code: 'REQUIRED' }],
             });
+          if (!['same_contact', 'called_back'].includes(body.verificationMethod))
+            return problem(422, 'VALIDATION_FAILED', {
+              errors: [{ field: 'verificationMethod', code: 'NOT_IN_LIST' }],
+            });
+          // SEC ARC-16: `same_contact` → the contact the person used must match the request (server compares HMACs;
+          // here the normalised values). `called_back` needs a phone on the request to call back.
+          if (body.verificationMethod === 'same_contact') {
+            const given = contactKey(body.verifiedContact ?? '');
+            if (!given)
+              return problem(422, 'VALIDATION_FAILED', {
+                errors: [{ field: 'verifiedContact', code: 'REQUIRED' }],
+              });
+            if (given !== contactKey(r.phone ?? r.email ?? ''))
+              return problem(422, 'VALIDATION_FAILED', {
+                errors: [{ field: 'verifiedContact', code: 'CONTACT_MISMATCH' }],
+              });
+          } else if (!r.phone)
+            return problem(422, 'VALIDATION_FAILED', {
+              errors: [{ field: 'verificationMethod', code: 'NOT_ALLOWED' }],
+            });
           r.status = 'declined';
           r.declineReasonCode = 'erased_on_request';
           r.piiPurgedAt = now;
@@ -408,8 +479,30 @@ export function createWebRequestMock(ctx: Ctx) {
     ),
   ];
 
+  /** "Cần chú ý" `website_request_new` (computed, FD+): new requests nobody picked up (0.3.7 add. 2). */
+  function attentionItems(): AttentionItem[] {
+    const fresh = state.requests
+      .filter((r) => r.status === 'new')
+      .sort((a, b) => a.replyBy.localeCompare(b.replyBy));
+    if (!fresh.length) return [];
+    const oldest = fresh[0]!;
+    return [
+      {
+        kind: 'website_request_new',
+        source: 'computed',
+        severity: Date.parse(oldest.replyBy) < Date.now() ? 'warning' : 'info',
+        count: fresh.length,
+        dueAt: oldest.replyBy,
+        refCode: fresh.length === 1 ? oldest.refCode : undefined,
+        params: { count: fresh.length },
+        link: '/website-requests?status=new',
+      } as AttentionItem,
+    ];
+  }
+
   return {
     handlers,
+    attentionItems,
     get state() {
       return state;
     },

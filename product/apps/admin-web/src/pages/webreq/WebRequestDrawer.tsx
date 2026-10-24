@@ -11,13 +11,15 @@ import { useCallback, useEffect, useId, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../app/api';
 import { timeHHmm } from '../../app/dates';
-import { useLiveEvents } from '../../app/live';
+import { notifyChanged, useLiveEvents } from '../../app/live';
 import { monoArgs } from '../../app/mono';
 import { useToast } from '../../app/toast';
 import { LoadingBlock } from '../../components/states';
 import { useOnline } from '../../hooks/useOnline';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
+import { BookingDialog } from '../booking/BookingDialog';
+import { LongStayDialog } from '../booking/LongStayDialog';
 import { QuoteDialog } from '../quotes/QuoteDialog';
 import { useSubmit } from '../stay/common';
 import {
@@ -35,6 +37,8 @@ import {
 
 const CONFLICT = ['INVALID_TRANSITION', 'VERSION_CONFLICT'];
 const QUOTE_ROLES = ['owner', 'manager', 'front_desk_lead', 'front_desk', 'sales_staff'];
+/** `createReservation` (guaranteed booking – guest agreed and paid the deposit): FD+ only (US-155 AC2). */
+const BOOKING_ROLES = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
 const LIVE_EVENTS = ['website_request.changed'] as const;
 const TOAST: Partial<Record<WebsiteBookingRequestAction, string>> = {
   claim: 'webreq.claimed_toast',
@@ -42,6 +46,7 @@ const TOAST: Partial<Record<WebsiteBookingRequestAction, string>> = {
   decline: 'webreq.declined_toast',
   'mark-spam': 'webreq.spam_toast',
   reopen: 'webreq.reopened_toast',
+  erase: 'webreq.erased_toast',
 };
 
 async function copyText(text: string): Promise<boolean> {
@@ -56,8 +61,9 @@ async function copyText(text: string): Promise<boolean> {
 /**
  * S35 detail drawer (`getWebsiteBookingRequest`, EP19 4–6): what the guest asked, contact block (only while C2 is
  * kept – links built at click time from the server's E.164 phone, SEC ARC-21), the guest's message as plain text,
- * source details, and ONLY the SM-18 actions the server lists in `allowedActions` (WR1–WR5; `erase` is not on this
- * screen yet). "Báo giá" opens H12 with the request linked (`saveQuote.websiteBookingRequestId` – US-155 AC2).
+ * source details, and ONLY the SM-18 actions the server lists in `allowedActions` (WR1–WR5, WR8 `erase` for OWN/MGR/FDL –
+ * SEC ARC-16). "Báo giá" opens H12 with the request linked (`saveQuote.websiteBookingRequestId` – US-155 AC2);
+ * "Tạo đơn" (FD+) opens H09, or H10 for a long stay, with `createReservation.websiteBookingRequestId` (WR6).
  * 409/412 → "someone else just updated it" + reload; 404 → not found / assigned to someone else.
  */
 export function WebRequestDrawer({
@@ -91,7 +97,9 @@ export function WebRequestDrawer({
     },
   );
   const act = useSubmit();
-  const [dialog, setDialog] = useState<'decline' | 'spam' | 'release' | 'quote' | null>(null);
+  const [dialog, setDialog] = useState<
+    'decline' | 'spam' | 'release' | 'quote' | 'booking' | 'long' | 'erase' | null
+  >(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const r = res.state.data;
@@ -125,6 +133,8 @@ export function WebRequestDrawer({
       const key = TOAST[action];
       if (key) toast(t(key, { code: r.refCode }));
       onChanged();
+      // Menu number + other open screens of this tab (SSE covers other people).
+      notifyChanged('website_request.changed');
       return true;
     }
     if (conflict) {
@@ -132,6 +142,7 @@ export function WebRequestDrawer({
       setNotice(t('webreq.already_changed'));
       reload();
       onChanged();
+      notifyChanged('website_request.changed');
     }
     return false;
   };
@@ -142,6 +153,24 @@ export function WebRequestDrawer({
   const isOpen = r && (r.status === 'new' || r.status === 'in_progress');
   const mine = r?.assignedUserId && r.assignedUserId === me?.id;
   const canQuote = !!isOpen && roles.some((x) => QUOTE_ROLES.includes(x));
+  const canBook = !!isOpen && roles.some((x) => BOOKING_ROLES.includes(x));
+  const link = r
+    ? {
+        id: r.id,
+        code: r.refCode,
+        contact: r.phone || r.email ? { phone: r.phone, email: r.email } : undefined,
+      }
+    : undefined;
+  const occ = r
+    ? { adults: r.adults, children6to11: r.children, childrenUnder6: r.infants }
+    : undefined;
+  const afterBooking = (id: string) => {
+    setDialog(null);
+    toast(t('webreq.converted_toast', { code: r?.refCode ?? '' }));
+    onChanged();
+    notifyChanged('website_request.changed');
+    navigate(`/reservations/${id}`);
+  };
 
   const footer =
     r && !notFound ? (
@@ -175,6 +204,14 @@ export function WebRequestDrawer({
           {canQuote ? (
             <Button icon="tag" onClick={() => setDialog('quote')}>
               {t('webreq.quote')}
+            </Button>
+          ) : null}
+          {canBook ? (
+            <Button
+              icon="calendar"
+              onClick={() => setDialog(r.stayKind === 'long' ? 'long' : 'booking')}
+            >
+              {t('webreq.create_booking')}
             </Button>
           ) : null}
           {can('claim') ? (
@@ -316,6 +353,16 @@ export function WebRequestDrawer({
           </section>
 
           <ContactBlock r={r} />
+          {can('erase') ? (
+            <div className="stack">
+              <div className="row wrap">
+                <Button size="sm" variant="ghost" icon="shield" onClick={() => setDialog('erase')}>
+                  {t('webreq.erase')}
+                </Button>
+              </div>
+              <p className="li-s">{t('webreq.erase_copy_hint')}</p>
+            </div>
+          ) : null}
 
           {r.note ? (
             <section aria-labelledby={`${ids}-note`}>
@@ -384,6 +431,43 @@ export function WebRequestDrawer({
           busy={act.busy}
           onKeep={() => setDialog(null)}
           onConfirm={() => void run('release').then((ok) => ok && setDialog(null))}
+        />
+      ) : null}
+      {r && dialog === 'erase' ? (
+        <EraseDialog
+          r={r}
+          busy={act.busy}
+          fields={act.fields}
+          onClose={() => setDialog(null)}
+          onSubmit={async (body) => {
+            if (await run('erase', body)) setDialog(null);
+          }}
+        />
+      ) : null}
+      {r && link && dialog === 'booking' ? (
+        <BookingDialog
+          prefill={{
+            arrivalDate: r.arrival,
+            departureDate: r.departure ?? undefined,
+            occ,
+            webRequest: link,
+          }}
+          onClose={() => setDialog(null)}
+          onCreated={(res) => afterBooking(res.id)}
+          onLongStay={() => setDialog('long')}
+        />
+      ) : null}
+      {r && link && dialog === 'long' ? (
+        <LongStayDialog
+          prefill={{
+            arrivalDate: r.arrival,
+            departureDate: r.departure ?? undefined,
+            occ,
+            webRequest: link,
+          }}
+          onClose={() => setDialog(null)}
+          onCreated={(res) => afterBooking(res.id)}
+          onShortStay={() => setDialog('booking')}
         />
       ) : null}
       {r && dialog === 'quote' ? (
@@ -617,6 +701,108 @@ function DeclineDialog({
       {blocked ? (
         <p className="li-s" id={`${ids}-need`}>
           {t('webreq.decline_need')}
+        </p>
+      ) : null}
+    </Modal>
+  );
+}
+
+/**
+ * WR8 "Xóa theo yêu cầu người gửi" (SEC ARC-16, SR-DSR-04 – OWN/MGR/FDL): how the person asking was checked is
+ * required; `same_contact` sends the contact they used (compared by HMAC on the server, never stored – a mismatch
+ * comes back as `CONTACT_MISMATCH` on the field); `called_back` only when the request has a phone to call back.
+ */
+function EraseDialog({
+  r,
+  busy,
+  fields,
+  onClose,
+  onSubmit,
+}: {
+  r: WebsiteBookingRequest;
+  busy: boolean;
+  fields: Record<string, string>;
+  onClose: () => void;
+  onSubmit: (body: WebsiteBookingRequestTransition) => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const ids = useId();
+  const [method, setMethod] = useState<'same_contact' | 'called_back' | null>(null);
+  const [contact, setContact] = useState('');
+  const blocked = !method || (method === 'same_contact' && contact.trim().length < 5);
+  const methods: Array<'same_contact' | 'called_back'> = r.phone
+    ? ['same_contact', 'called_back']
+    : ['same_contact'];
+  return (
+    <Modal
+      open
+      size="sm"
+      title={monoArgs(t, 'webreq.erase_title', { code: r.refCode }, ['code'])}
+      onClose={onClose}
+      closeLabel={t('common.close')}
+      dirty={!!contact}
+      footer={
+        <>
+          <Button onClick={onClose}>{t('confirm.keep')}</Button>
+          <Button
+            variant="danger"
+            busy={busy}
+            disabled={blocked}
+            aria-describedby={blocked ? `${ids}-need` : undefined}
+            onClick={() =>
+              void onSubmit(
+                method === 'same_contact'
+                  ? { verificationMethod: 'same_contact', verifiedContact: contact.trim() }
+                  : { verificationMethod: 'called_back' },
+              )
+            }
+          >
+            {t('webreq.erase_confirm')}
+          </Button>
+        </>
+      }
+    >
+      <p>{t('webreq.erase_body')}</p>
+      <fieldset className="fieldset-plain">
+        <legend>{t('webreq.erase_how')}</legend>
+        {methods.map((m) => (
+          <label key={m} className="check">
+            <input
+              type="radio"
+              name={`${ids}-m`}
+              checked={method === m}
+              onChange={() => setMethod(m)}
+            />
+            {t(`webreq.erase.${m}`)}
+          </label>
+        ))}
+      </fieldset>
+      {fields.verificationMethod ? (
+        <p className="field-error">{fields.verificationMethod}</p>
+      ) : null}
+      {method === 'same_contact' ? (
+        <Field
+          label={t('webreq.erase_contact')}
+          help={t('webreq.erase_contact_hint')}
+          required
+          error={fields.verifiedContact}
+        >
+          {(p) => (
+            <input
+              {...p}
+              className="input"
+              maxLength={254}
+              autoComplete="off"
+              spellCheck={false}
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+            />
+          )}
+        </Field>
+      ) : null}
+      {blocked ? (
+        <p className="li-s" id={`${ids}-need`}>
+          {t('webreq.erase_need')}
         </p>
       ) : null}
     </Modal>

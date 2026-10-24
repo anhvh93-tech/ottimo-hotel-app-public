@@ -218,6 +218,8 @@ export type WebsiteBookingRequest = Schemas['WebsiteBookingRequest'];
 export type WebsiteBookingRequestStatus = Schemas['WebsiteBookingRequestStatus'];
 export type WebsiteBookingRequestDeclineReason = Schemas['WebsiteBookingRequestDeclineReason'];
 export type WebsiteBookingRequestTransition = Schemas['WebsiteBookingRequestTransition'];
+/** `lookupWebsiteBookingRequests` row – id, code, status, sent time; no C2 (SEC ARC-16). */
+export type WebsiteBookingRequestRef = Schemas['WebsiteBookingRequestRef'];
 /** Path segment of `transitionWebsiteBookingRequest` (SM-18 WR1–WR5, WR8). */
 export type WebsiteBookingRequestAction =
   'claim' | 'release' | 'decline' | 'mark-spam' | 'reopen' | 'erase';

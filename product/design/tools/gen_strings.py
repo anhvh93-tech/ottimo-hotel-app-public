@@ -3648,6 +3648,45 @@ g("R3 Sprint 1 – FE-B S35 Yêu cầu từ website (FE viết theo content guid
     ("webreq.reply.policy_mismatch", "OTTIMO chưa nhận được yêu cầu {code} theo cách bạn mô tả. Nếu bạn muốn, chúng tôi sẽ gợi ý cách khác phù hợp – cứ nhắn lại.", "We're unable to accept request {code} as described. Reply if you'd like us to suggest another option.", None, "khách đọc"),
 ])
 
+# FE-B R3 v1.0 (24/10) – S35 làm nốt theo hợp đồng US-155 (INV kéo US-155 vào v1.0): số đếm trên menu, dòng "Cần chú ý"
+# `website_request_new`, "Tạo đơn" (createReservation.websiteBookingRequestId), xóa theo yêu cầu người gửi (WR8 `erase`,
+# SEC ARC-16) + tìm theo liên hệ (`lookupWebsiteBookingRequests`), lỗi bật form PUBLIC_FORM_NOT_READY. [CHỜ UXD DUYỆT]
+g("R3 v1.0 – FE-B S35 làm nốt US-155 (FE viết theo content guide; chờ UXD duyệt)", [
+    ("nav.website_requests_new", "{n} yêu cầu mới chưa ai nhận", "{n} new requests not picked up", None, "Chữ đọc cho số trên menu (số hiện aria-hidden như hifi .badge)"),
+    ("attn.website_request_new", "Yêu cầu đặt phòng từ website chưa ai nhận: {n}", "Website booking requests nobody has picked up: {n}", None, "kind website_request_new (US-155, BR-912) – count > 1"),
+    ("attn.website_request_new_one", "Yêu cầu đặt phòng từ website {code} chưa ai nhận", "Website booking request {code} not picked up yet", None, "count = 1, refCode có giá trị"),
+    ("webreq.create_booking", "Tạo đơn", "Create booking", None, "createReservation kèm websiteBookingRequestId – FD+ (khách đã chốt và đã cọc)"),
+    ("webreq.booking_from", "Đặt phòng cho yêu cầu {code}", "Booking for request {code}", None, "Tiêu đề H09 khi mở từ S35"),
+    ("webreq.booking_hint", "Đơn tạo ra có nguồn Website; yêu cầu chuyển sang Đã thành đơn và thông tin liên hệ trên yêu cầu được xóa (đã nằm trong hồ sơ khách).", "The booking gets the Website source; the request becomes Booked and its contact details are deleted (they are in the guest profile now).", None, "WR6 – erd 4.14"),
+    ("webreq.converted_toast", "Yêu cầu {code} đã thành đơn", "Request {code} is now a booking"),
+    ("webreq.erase", "Xóa theo yêu cầu người gửi", "Erase at sender's request", None, "WR8 – OWN, MGR, FDL (SEC ARC-16)"),
+    ("webreq.erase_title", "Xóa dữ liệu của yêu cầu {code}?", "Erase the details of request {code}?"),
+    ("webreq.erase_body", "Tên, liên hệ và lời nhắn bị xóa ngay, không khôi phục được. Yêu cầu đóng với lý do \"Đã xóa theo yêu cầu của người gửi\" và không mở lại được.", "Name, contact and message are deleted now and cannot be recovered. The request closes as \"Erased at the sender's request\" and cannot be reopened."),
+    ("webreq.erase_how", "Cách xác minh người xin xóa", "How you checked who is asking"),
+    ("webreq.erase.same_contact", "Họ liên hệ từ chính SĐT hoặc email trên yêu cầu", "They contacted us from the phone or email on the request"),
+    ("webreq.erase.called_back", "Tôi đã gọi lại đúng SĐT trên yêu cầu và người nghe xác nhận muốn xóa", "I called back the phone on the request and the person confirmed"),
+    ("webreq.erase_contact", "SĐT hoặc email họ đã dùng để liên hệ", "Phone or email they contacted us from"),
+    ("webreq.erase_contact_hint", "Hệ thống chỉ so khớp, không lưu số này.", "Only compared, never stored."),
+    ("webreq.erase_copy_hint", "Người gửi xin bản sao: chỉ gửi tới đúng liên hệ trên yêu cầu.", "If the sender asks for a copy, send it only to the contact on the request."),
+    ("webreq.erase_confirm", "Xóa ngay", "Erase now"),
+    ("webreq.erase_need", "Chọn cách xác minh (và nhập liên hệ khi chọn cách thứ nhất) để bật nút.", "Choose how you checked (and enter the contact for the first option) to enable the button."),
+    ("webreq.erased_toast", "Đã xóa dữ liệu của yêu cầu {code}", "Details of request {code} erased"),
+    ("field.CONTACT_MISMATCH", "Liên hệ này không khớp liên hệ trên yêu cầu. Chưa xóa – xác minh lại.", "This contact doesn't match the one on the request. Nothing was erased – check again.", None, "erase same_contact – SEC ARC-16"),
+    ("webreq.lookup", "Tìm theo liên hệ", "Find by contact", None, "lookupWebsiteBookingRequests – OWN, MGR, FDL"),
+    ("webreq.lookup_title", "Tìm yêu cầu theo liên hệ", "Find requests by contact"),
+    ("webreq.lookup_body", "Dùng khi người gửi xin xem hoặc xóa dữ liệu mà không còn mã yêu cầu. Nhập đúng một SĐT hoặc email họ đã dùng.", "Use this when a sender asks to see or erase their details and has no request code. Enter the one phone or email they used."),
+    ("webreq.lookup_field", "SĐT hoặc email", "Phone or email"),
+    ("webreq.lookup_btn", "Tìm", "Find"),
+    ("webreq.lookup_none", "Không có yêu cầu nào còn dữ liệu của liên hệ này.", "No request still holds details for this contact."),
+    ("webreq.lookup_found", "{n} yêu cầu còn dữ liệu của liên hệ này – mở để xem hoặc xóa.", "{n} requests still hold details for this contact – open one to view or erase it."),
+    ("webreq.lookup_invalid", "Nhập một SĐT (số nước ngoài có +mã nước) hoặc một email.", "Enter one phone number (with +country code if outside Viet Nam) or one email."),
+    ("error.PUBLIC_FORM_NOT_READY", "Chưa bật được form đặt phòng trên website: còn thiếu {missing}.", "The website booking form can't be turned on yet: {missing} missing.", None, "setParameter public_booking_requests_enabled – SEC ARC-17"),
+    ("webreq.missing.privacy_notice_vi", "thông báo xử lý dữ liệu tiếng Việt", "the Vietnamese privacy notice"),
+    ("webreq.missing.privacy_notice_en", "thông báo xử lý dữ liệu tiếng Anh", "the English privacy notice"),
+    ("webreq.missing.privacy_notice_ru", "thông báo xử lý dữ liệu tiếng Nga", "the Russian privacy notice"),
+    ("webreq.missing.form_signing_key", "khóa ký form trên máy chủ (báo kỹ thuật)", "the form signing key on the server (ask the tech team)"),
+])
+
 def build():
     vi, en, ru = {}, {}, {}
     for grp, k, a, b, c, n in S:

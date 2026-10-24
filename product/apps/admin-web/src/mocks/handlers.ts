@@ -148,6 +148,7 @@ const dashboard = createDashboardMock({
     ...stay.registrationAttention(),
     ...stay.creditAttention(),
     ...ops.attentionItems(),
+    ...webRequests.attentionItems(),
   ],
 });
 

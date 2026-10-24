@@ -367,4 +367,13 @@ describe('S35 website requests (US-155 Desk, OpenAPI 0.3.8)', () => {
     expect(JSON.parse(String(init.body))).toEqual({ reasonCode: 'no_availability' });
     expect(init.headers).toMatchObject({ 'If-Match': '"3"', 'Idempotency-Key': 'key-9' });
   });
+
+  it('lookup by contact sends the contact in the POST body only (SEC ARC-16)', async () => {
+    const { api, call } = setup();
+    await api.lookupWebsiteBookingRequests({ propertyId: 'p' }, { phone: '+79123456789' });
+    const [url, init] = call(0);
+    expect(url).toBe('http://x/v1/properties/p/website-booking-requests/lookup');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({ phone: '+79123456789' });
+  });
 });
