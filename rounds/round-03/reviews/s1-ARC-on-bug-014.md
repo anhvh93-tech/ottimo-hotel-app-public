@@ -55,15 +55,40 @@ Hai điểm ORC hỏi đã quyết bên dưới và ghi hợp đồng **0.3.8 b�
 - Vị trí: `folio.service.ts` `refundsDownToCredit`
 - Vấn đề: hiện chỉ đóng yêu cầu đã duyệt khi **hết** tiền dư. Khi tiền dư > 0 nhưng nhỏ hơn phần còn lại của yêu cầu đã duyệt, phần vượt vẫn treo và hút được tiền A32 giảm về sau (quyết định 1).
 - Đề xuất sửa: cài bất biến 13.4 điểm 1, kèm test như `s1-contracts` 13.4. QA thêm bất biến vào fuzz: "sau mỗi bước, Σ chờ + đã duyệt còn phải chi ≤ `rawCreditVnd`".
-- Trạng thái: Open
+- Trạng thái: Verified (ARC 24/10, `76e21c4`)
 
 ### FB-R3-ARC-BUG014-02
 - Mức độ: Major (điều kiện G1)
 - Vị trí: `refunds.service.ts` – `executeCashRefund`, `executeRefund`, `setRefundDestination`
 - Vấn đề: người làm A32 giảm trên folio vẫn chi được và nhập được nơi nhận cho yêu cầu hoàn của folio đó (critic 64053 #54).
 - Đề xuất sửa: chặn theo quyết định 2, 403 `SELF_REFUND_FORBIDDEN`. Test: MGR làm A32 rồi chi / nhập nơi nhận → 403; MGR khác (không làm A32) → được; OWN → được.
-- Trạng thái: Open
+- Trạng thái: Verified (ARC 24/10, `76e21c4`)
 
 ## Điểm làm tốt
 - Đặt lập lại kế hoạch ở `payOut` (một chỗ cho cả hai đường chi) và dùng lại `refundsDownToCredit`, không thêm định nghĩa.
 - Báo cáo nêu thẳng biến thể còn hở suy ra từ mã, không để fuzz tìm lại.
+
+---
+
+# Lượt 2 – `76e21c4` (BUG014-01 bất biến K11-06, BUG014-02 `SELF_REFUND_FORBIDDEN`), ARC 24/10
+
+**Gộp được.** BUG014-01 và BUG014-02 chuyển Verified. Toàn bộ suite để CI chạy sau khi gộp (máy đang tải cao, theo ORC).
+
+**Đã chạy** (worktree tách riêng ở `76e21c4`, PostgreSQL 17 tạm, **đã gỡ container ngay sau khi xong**):
+- `tsc`: đạt;
+- `r3-bug-014-payout-replan`, `r3-bug-012-013`, `fuzz/bug-r3-014`, `approvals-refund-payout`: **4 tệp, 16/16 đạt**.
+
+**Đọc mã:**
+- **BUG014-01** – `refundsDownToCredit` cài đúng bất biến 13.4 điểm 1:
+  - Σ mở > tiền dư → mọi yêu cầu **chờ** hủy (`refundPlan`, như DOM-S4-14);
+  - yêu cầu **đã duyệt** hủy `superseded` **mới nhất trước** cho tới khi phần còn giữ ≤ tiền dư;
+  - xin lại đúng `credit − phần đã duyệt còn giữ`;
+  - bản thay chép nguồn, ghi chú, `origin_actor_ids`, cấp duyệt từ **cả** yêu cầu chờ lẫn yêu cầu đã duyệt bị hủy;
+  - `cancelApproved` có audit, báo tin và hook xóa nơi nhận;
+  - không còn nhánh riêng "hết tiền dư", vì đó là trường hợp đặc biệt của cùng vòng lặp (credit = 0 thì hủy hết, không xin lại).
+- **BUG014-02** – `assertNotA32Maker` ở `setDestination` và ở `payOut` (đường chung của tiền mặt và chuyển khoản):
+  - đặt sau điều kiện "người chi ≠ người tạo";
+  - OWN bỏ qua;
+  - dùng `FolioService.isA32Maker`, cùng hàm của bước duyệt (ADD3-01), nên một định nghĩa "người làm A32".
+- Hợp đồng 0.3.8 bổ sung 7 khớp mã; không đổi hình dạng.
+
