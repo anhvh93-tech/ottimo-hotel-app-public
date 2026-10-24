@@ -67,6 +67,12 @@ export interface RawFolio {
     reversalOfId: string | null;
     createdAt: string;
     updatedAt: string;
+    /** a refund pay-out row points at its refund request */
+    approvalRequestId: string | null;
+    /** pending / reconciled / disputed / not_required (A46) – the refundPay op reconciles a pending receipt first */
+    reconciliation: string | null;
+    recordedBy: string | null;
+    version: number;
   }>;
   debtAudits: Array<{ at: string; id: string; debtVnd: number; dueDate: string | null }>;
   approvals: Array<{
@@ -106,6 +112,11 @@ export interface RawFolio {
     source: string | null;
     autoCancelReason: string | null;
     decidedAt: string | null;
+    /** paid out so far (`refunded_vnd`) */
+    refundedVnd: number;
+    /** destination: cash / bank_transfer / original_method / null */
+    refundMethod: string | null;
+    destinationSetBy: string | null;
   }>;
   /** A32 reductions on this folio (audit `folio_line.adjusted` with `after.reducedVnd`): who (role) and when. */
   a32Reductions: Array<{
@@ -140,7 +151,8 @@ export async function readRaw(q: Q, folioId: string, reservationId: string): Pro
     [folioId],
   );
   const pays = await q(
-    `SELECT id, type, status, amount_vnd, reversal_of_id, created_at, updated_at
+    `SELECT id, type, status, amount_vnd, reversal_of_id, created_at, updated_at, approval_request_id,
+            reconciliation, recorded_by, version
        FROM payment WHERE folio_id = $1 ORDER BY created_at, id`,
     [folioId],
   );
@@ -188,7 +200,7 @@ export async function readRaw(q: Q, folioId: string, reservationId: string): Pro
   }
   const refunds = await q(
     `SELECT id, status, amount_vnd, requested_by, required_role, reason_note, approver_id, approver_role_snapshot,
-            requested_at, decided_at, auto_cancel_reason,
+            requested_at, decided_at, auto_cancel_reason, refunded_vnd, refund_method, refund_destination_set_by,
             to_jsonb(a)->'origin_actor_ids' AS origin_actor_ids, COALESCE(to_jsonb(a)->>'refund_source', to_jsonb(a)->>'source') AS source
        FROM approval_request a WHERE type = 'refund' AND target_id = $1 ORDER BY requested_at, id`,
     [reservationId],
@@ -236,6 +248,9 @@ export async function readRaw(q: Q, folioId: string, reservationId: string): Pro
       source: x.source ?? null,
       autoCancelReason: x.auto_cancel_reason ?? null,
       decidedAt: iso(x.decided_at),
+      refundedVnd: num(x.refunded_vnd ?? 0),
+      refundMethod: x.refund_method ?? null,
+      destinationSetBy: x.refund_destination_set_by ?? null,
     })),
     a32Reductions: a32
       .filter((x: any) => num(x.after?.reducedVnd) > 0)
@@ -284,6 +299,10 @@ export async function readRaw(q: Q, folioId: string, reservationId: string): Pro
       reversalOfId: p.reversal_of_id,
       createdAt: iso(p.created_at)!,
       updatedAt: iso(p.updated_at)!,
+      approvalRequestId: p.approval_request_id ?? null,
+      reconciliation: p.reconciliation ?? null,
+      recordedBy: p.recorded_by ?? null,
+      version: num(p.version),
     })),
     debtAudits: audits.map((a: any) => ({
       id: a.id,

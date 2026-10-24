@@ -14,7 +14,7 @@
  * critic reads those files (mục 3.5), not this test's summary. Fake clock, FAKE data only.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { appendFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { HAS_DB } from '../helpers/tenant';
@@ -255,6 +255,47 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
     );
     expect(refunds.map((x2: any) => x2.amount)).toEqual([50_000]);
   }, 240_000);
+
+  // ─── critic final §4 row 14 / M-1 (ORC 24/10): the refundPay op walks the pay-out path with a destination ───
+  // cash: FD sets the destination, MGR approves, a pay-out above min(left, credit) → 422, the capped one → 2xx;
+  // transfer: the same with MGR2 paying (MGR approved). I23 (clamp) + every invariant judged by the runner.
+  for (const [kind, req] of [
+    ['cash', 0],
+    ['transfer', 1],
+  ] as const) {
+    it(`refundPay op (${kind}): destination → approve → over the clamp refused, capped pay-out accepted (I23)`, async () => {
+      const log = join(dir, `refundPay-${kind}.jsonl`);
+      const ops: Op[] = [
+        { k: 'qrLate', extraVnd: 300_000 },
+        { k: 'refundPay', req, who: 'fd' }, // sets the destination on the pending request
+        { k: 'refundApprove', req: 0, who: 'mgr' },
+        { k: 'refundPay', req: 9, who: 'fd' }, // req 9: pays before the QR is reconciled → 409
+        { k: 'refundPay', req, who: 'fd' }, // reconciles the QR receipt (MGR, A46)
+        { k: 'refundPay', req: req + 6, who: 'fd' }, // mode "over" → 422
+        { k: 'refundPay', req, who: 'fd' }, // mode "cap" → paid
+      ];
+      const res = await new Runner(
+        x,
+        { be83: BE83, fz02: true, k1106: true, add3: true },
+        log,
+      ).chain('FZ-01', 99_001 + req, ops);
+      const steps = readFileSync(log, 'utf8')
+        .trim()
+        .split('\n')
+        .map((l) => JSON.parse(l))
+        .filter((d) => d.label);
+      const out = steps.map(
+        (d) => `${d.label.split(' (')[0]} → ${d.outcomes.map((o: any) => o.outcome).join(',')}`,
+      );
+      expect(out[1], out.join('\n')).toMatch(/^set refund destination .* → 200/);
+      expect(out[2], out.join('\n')).toMatch(/→ 200 approved/);
+      expect(out[3], out.join('\n')).toMatch(/^pay refund .* → 409 REFUND_SOURCE_NOT_RECONCILED/);
+      expect(out[4], out.join('\n')).toMatch(/^reconcile \d+ receipt.* → 200/);
+      expect(out[5], out.join('\n')).toMatch(/^pay refund .* → 422 .*REFUND_EXCEEDS_APPROVED/);
+      expect(out[6], out.join('\n')).toMatch(/^pay refund .* → 20\d/);
+      expect(res.violations.filter((v) => !isWarning(v))).toEqual([]);
+    }, 240_000);
+  }
 
   // ─── SEC s1-SEC-on-add3 "nhận xét": manual raise then lower after check-out, the guest paid the raise (OBSERVED) ───
   it('observation: A32 raise +300.000, guest pays it, MGR lowers back → refund 300.000 goes the `other` way (logged, not failed)', async () => {

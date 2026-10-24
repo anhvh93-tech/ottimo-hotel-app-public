@@ -350,6 +350,41 @@ Tổng ≥ **620 chuỗi**, khoảng 25.000 bước. Ước lượng ≤ 40 phú
 - Đã đóng BUG-R3-002, 003, 004.
 - Khi BE-B sửa: chạy lại `bug-r3-012` cùng lượt fuzz đầy đủ (cùng cờ và seed 60000–63000), critic đọc lại log.
 
+#### 3.9 Harness cho lượt chạy lại sau BUG-R3-012/013 (QA 24/10, nhánh `qa/r3-s1-fuzz-rerun`)
+
+Căn cứ:
+- critic `reviews/s1-money-critic-final.md`: B-1 đề xuất 5, bảng lệch dòng 14;
+- ARC `reviews/s1-ARC-on-bug-012-013.md`: (3) và BUG012-02;
+- SEC `reviews/s1-SEC-on-bug-012-013.md`: phần "Ca thêm cho fuzz".
+
+Bản sửa đã gộp: `27c5dcc` và các bản theo sau `69a5398`, nên các bất biến mới đều là vi phạm **cứng**, không cần cờ.
+
+| Mã | Nội dung | Nguồn |
+|---|---|---|
+| I7 (đổi) | Phần giảm A32 so với **W của chính mã** = max(0, B) − `openDebtVnd`, đọc ngay trước bước. Nếu W tham chiếu khác thì chỉ ghi cảnh báo `I7?`, vì chênh lệch O là việc của I3. | ARC BUG012-02 (b) |
+| I19 | Bản thay của bước làm `superseded` mang `origin_actor_ids` ⊇ hợp origin của các yêu cầu bị thay, và nguồn `a32` nếu có yêu cầu bị thay là `a32`. Cứng khi bước chỉ có một thao tác và sinh đúng một yêu cầu. Bước đua thì cần ít nhất một yêu cầu mới đúng; không có thì `I19?`. | SEC #1 |
+| I20 | Không yêu cầu hoàn nào được duyệt bởi người xin, bởi người có trong `origin_actor_ids`, hoặc bởi người dưới OWN đã làm A32 trên folio trước lúc duyệt. Kể cả bản do J15 tạo và yêu cầu đã duyệt rồi bị đóng `superseded`. | SEC #2 |
+| I21 | Folio `closed` thì không còn yêu cầu hoàn `pending`/`escalated`/`approved` chưa chi đủ. Vế "tiền dư = 0" đã có ở I4. | SEC #3 |
+| I22 | Quá cửa sổ + 60 phút (J15 chạy theo giờ) mà folio còn `settled` thì phải còn tiền dư > 0. Còn `settled` khi tiền dư 0 tức là J15 chờ mãi. | critic B-1 đề xuất 5 |
+| I23 | Kẹp chi hoàn. Chi được nhận khi số chi ≤ min(phần còn của yêu cầu, tiền dư trước bước); chi xong B ≤ 0; số trong mức kẹp không bị từ chối `REFUND_EXCEEDS_APPROVED`. Mọi bước: `refunded_vnd` ≤ số duyệt và bằng Σ phiếu chi của yêu cầu. | critic dòng 14, M-1 |
+
+**Thao tác `refundPay`:**
+- Không rút thêm số ngẫu nhiên, nên chuỗi của lượt trước giữ nguyên cho tới lần `refundPay` đầu tiên. `req` chọn yêu cầu, loại nơi nhận và mức tiền.
+- Nếu có yêu cầu `approved` đã có nơi nhận:
+  - trước hết MGR đối soát các phiếu thu còn `pending` của folio (A46). Riêng `req` = 9 thì chi luôn, để giữ đường bị từ chối `409 REFUND_SOURCE_NOT_RECONCILED`;
+  - sau đó chi: tiền mặt (A47a, người chi ≠ người xin, chứng từ do người chi tải lên) hoặc chuyển khoản (A47, MGR/MGR2/OWN không trùng người xin, người duyệt hay người đặt nơi nhận; có mã tham chiếu và chứng từ);
+  - mức tiền: `cap` = min(còn lại, tiền dư), dùng 2/4 lần; `left` = phần còn lại; `over` = cap + 1.000.
+- Nếu không: FD đặt nơi nhận trên thiết bị tin cậy, ưu tiên yêu cầu chưa duyệt. Có hai loại:
+  - tiền mặt;
+  - chuyển khoản với tài khoản GIẢ 10 số, không qua kiểm Luhn.
+  - Nếu đặt nơi nhận cho yêu cầu đã duyệt thì yêu cầu quay về `pending` (SEC F8).
+- Ca có hướng mới `refundPay op (cash|transfer)` (2/2 đạt trên `27c5dcc`): QR về muộn 300.000 → đặt nơi nhận → MGR duyệt → chi trước khi đối soát (409) → đối soát → chi vượt (422, `max` 300.000) → chi đúng mức (201), 0 vi phạm cứng.
+
+**Phân loại lại I7 FZ-02 seed 1006 bước 29: loại (b), lỗi harness, không phải lỗi mã.**
+- Bước 27 là bước đua "QR về muộn 1.567.000 ‖ đảo 1.484.000". Mã chạy "đảo trước", nên R = 1.875.000, D = 1.567.000, O = 308.000. Tham chiếu chọn thứ tự ngược lại, ra O = 584.000.
+- Ở bước 29, A32 hạ 139.000, mã trả 201. W của mã là 584.000 − 308.000 = 276.000 ≥ 139.000, nên 201 đúng quy tắc 208.
+- Harness mới chạy lại FZ-02 1000–1007 trên `27c5dcc`: bước này ra `I7?` kèm chú thích, không còn I7 cứng. Seed 1003 ra một `I19?` ở bước đua "QR ‖ phát sinh": bản thay `a32` đúng, cộng thêm một yêu cầu `other` cho phần QR thừa. Bản sửa I19 cho bước đua đã loại trường hợp này.
+
 ---|---|---|---|
 | I4 – folio `closed` còn tiền dư | 15 + 4 | BUG-R3-002: tiền dư phát sinh sau B18 (A32 khi O = 0) không thành yêu cầu hoàn; J15 đóng folio | P0 |
 | I8 – xóa nợ vượt cơ sở nhưng `required_role` ≠ owner | 0 + 1 (lượt 1: 1) | BUG-R3-003: định tuyến cho lễ tân trưởng; lễ tân trưởng duyệt được | P0 |
