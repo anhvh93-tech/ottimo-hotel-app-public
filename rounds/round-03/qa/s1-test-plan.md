@@ -436,6 +436,41 @@ Bản sửa đã gộp: `27c5dcc` và các bản theo sau `69a5398`, nên các b
   - BE-B sửa BUG-R3-014, ARC + SEC review; SEC dò biến thể tiền miễn A32 để chốt mức P1 hay P0;
   - chạy `bug-r3-014.test.ts`, rồi chạy lại họ FZ-01, FZ-02, FZ-13 với I24 đã có trong harness; critic đọc lại.
 
+#### 3.11 Lượt fuzz chạy lại sau BUG-R3-014 – lượt chấm G1 (QA 24/10, `origin/main` @ `ce38624`)
+
+**Harness thêm** (theo hợp đồng ARC 0.3.8 bổ sung 7 = `s1-contracts` 13.4):
+- **I24** đổi thành bất biến K11-06: sau **mọi** bước trên folio `open`/`settled`, Σ (yêu cầu chờ + phần còn phải chi của yêu cầu đã duyệt) ≤ tiền dư thô. Chấm cứng, kể cả bước đua.
+- **I25 `SELF_REFUND_FORBIDDEN`:** người dưới OWN đã làm A32 trên folio thì không được chi hoàn, không được đặt nơi nhận.
+  - Bước đó phải bị từ chối.
+  - Trên các dòng dữ liệu: không có phiếu chi hay nơi nhận nào do người đó tạo sau lần A32 đầu tiên của họ.
+- **Thao tác:** với `req` 4/9, MGR nhập nơi nhận trên thiết bị quầy, để đường bị chặn được thử.
+
+**Cách chạy:**
+- Cùng cờ `FUZZ=1 FUZZ_BE83=1 FUZZ_FZ02=1 FUZZ_K1106=1 FUZZ_ADD3=1`, cùng seed (gồm FZ-13 64000–64099).
+- 4 tiến trình vì máy tải cao. PostgreSQL 17 riêng, đã gỡ container ngay sau khi chạy.
+- Trước lượt chạy: `bug-r3-014.test.ts` và `bug-r3-012.test.ts` đạt 2/2; ca có hướng 20/20.
+
+**Kết quả:**
+- **710 chuỗi, 28.250 bước, 0 vi phạm cứng**; deadlock 0, 5xx 0.
+- Cảnh báo: `I5?` 220, `I3?` 37, `I6?` 2 do đua trong cùng một giây giả; `I7?` 6 thuộc FZ-08 (P3); `I9?` 146 chờ R3-Q23.
+- Chi hoàn và nơi nhận (bước tuần tự):
+  - 17 lần chi được;
+  - 4 lần chi bị `403 SELF_REFUND_FORBIDDEN`;
+  - 59 lần đặt nơi nhận bị `403 SELF_REFUND_FORBIDDEN`.
+
+**Critic độc lập** (`reviews/s1-money-critic-014.md`): tính lại 710 chuỗi, đọc tay 23 chuỗi (12 chuỗi FZ-13).
+- **0 lệch tiền.** Mọi kiểm của lượt trước đều 0 vi phạm.
+- **K11-06:** 0 vi phạm trên 26.105 bản ghi.
+  - 123 yêu cầu đã duyệt bị `superseded`. Cắt tối thiểu 96/96, xin lại đúng 61/61. 0/1.204 bản thay bị hạ cấp duyệt.
+- **`SELF_REFUND_FORBIDDEN`:** 63/63 lần 403 đúng người. Không có phiếu chi hay nơi nhận nào do người làm A32.
+- **7 chuỗi M-2 cũ:** không còn duyệt treo, không còn chi theo duyệt cũ.
+- **Minor (không phải lỗi tiền):**
+  - "mới nhất trước" xếp theo thời điểm tạo; ARC nên ghi rõ khóa sắp xếp;
+  - bản thay của yêu cầu "other" mất ghi chú hoặc đổi người xin. Đã có từ trước, hợp đồng ghi phải giữ;
+  - độ phủ chi hoàn còn mỏng: 18 lần chi; chưa có lần OWN chi sau A32; lớp chặn ở bước duyệt chưa bị kích.
+
+**Kết luận G1: ĐẠT "0 lệch tiền, 0 Major".** FZ-08 (P3) và I9 (chờ R3-Q23) nằm ngoài G1 theo đề bài. BUG-R3-012, 013, 014 đã Closed.
+
 ---|---|---|---|
 | I4 – folio `closed` còn tiền dư | 15 + 4 | BUG-R3-002: tiền dư phát sinh sau B18 (A32 khi O = 0) không thành yêu cầu hoàn; J15 đóng folio | P0 |
 | I8 – xóa nợ vượt cơ sở nhưng `required_role` ≠ owner | 0 + 1 (lượt 1: 1) | BUG-R3-003: định tuyến cho lễ tân trưởng; lễ tân trưởng duyệt được | P0 |

@@ -9,10 +9,10 @@
 | Mức | Số lỗi | Open | Fixed | Closed |
 |---|---|---|---|---|
 | P0 | 3 | 0 | 0 | 3 |
-| P1 | 8 | 1 | 0 | 7 |
+| P1 | 8 | 0 | 0 | 8 |
 | P2 | 3 | 0 | 0 | 3 |
 | P3 | 0 | 0 | 0 | 0 |
-| **Tổng** | **14** | **1** | **0** | **13** |
+| **Tổng** | **14** | **0** | **0** | **14** |
 
 Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - Lượt 1 trên stack `ottimo-qa155`, bản `0ac4261`: mở BUG-R3-007…011.
@@ -36,7 +36,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-011 | P2 | H09 "Tạo đơn" từ yêu cầu website: ô Kênh/Nguồn vẫn sửa được (AC2: nhân viên không đổi được nguồn); đổi thì server 422, Desk chỉ báo "Không áp dụng được cho đơn này." | FE-B (+ UXD chữ) | **Closed** (QA xác nhận 24/10 trên `a1da76f` – TC-WR-012 đạt) |
 | BUG-R3-012 | **P0** | J15 trả `waiting_refund` mãi khi còn yêu cầu hoàn mở, kể cả khi đã hết tiền dư và khách đang **nợ**: không ghi công nợ, không báo OWN/MGR, folio không bao giờ đóng | BE-B (folio/J15) | **Closed** 24/10. Lượt fuzz chạy lại trên `origin/main` `f2ba2ac`: 710 chuỗi, 28.250 bước. Critic `reviews/s1-money-critic-rerun.md` mục 6 xác nhận. |
 | BUG-R3-013 | P1 | Yêu cầu hoàn đang mở không được tính lại (`refundPlan`) khi tiền dư giảm (phát sinh sau trả phòng, A32, J15) – yêu cầu > tiền dư, có lần duyệt khi tiền dư 0 | BE-B (folio/refunds) | **Closed** 24/10. Lượt fuzz chạy lại trên `origin/main` `f2ba2ac`: 710 chuỗi, 28.250 bước. Critic `reviews/s1-money-critic-rerun.md` mục 6 xác nhận. |
-| BUG-R3-014 | P1 | Chi hoàn (`payOut`) đưa tiền dư của folio `settled` về 0 nhưng các yêu cầu hoàn đã duyệt còn tiền chưa chi vẫn `approved`, không đóng `superseded` (hợp đồng 13.3 điểm 1 + 3). Tiền khách trả thêm về sau bị duyệt cũ "hút" và chi theo duyệt cũ, không qua định tuyến ADD3 | BE-B (payments/refunds) | Open |
+| BUG-R3-014 | P1 | Chi hoàn (`payOut`) đưa tiền dư của folio `settled` về 0 nhưng các yêu cầu hoàn đã duyệt còn tiền chưa chi vẫn `approved`, không đóng `superseded` (hợp đồng 13.3 điểm 1 + 3). Tiền khách trả thêm về sau bị duyệt cũ "hút" và chi theo duyệt cũ, không qua định tuyến ADD3 | BE-B (payments/refunds) | **Closed** 24/10 – BE-B `76e21c4` (gộp `ce38624`, hợp đồng 13.4); fuzz chạy lại 710 chuỗi / 28.250 bước, 0 vi phạm cứng; critic `reviews/s1-money-critic-014.md` |
 
 ## 3. Chi tiết
 
@@ -368,4 +368,14 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - Chỉ chạy khi `FUZZ_KNOWN_BUGS=1`.
   - **Chưa chạy được**: Docker (OrbStack) treo ngay sau lượt fuzz, Postgres test không truy cập được. Bằng chứng hiện có là log JSONL của lượt chạy và đối chiếu của critic. QA chạy lại ca này khi Docker trở lại.
 - **Vai:** BE-B sửa; SEC dò biến thể A32 để chốt mức; ARC review.
-- **Trạng thái:** Open.
+- **Trạng thái:** **Closed** 24/10.
+  - Bản sửa BE-B `76e21c4`, gộp ở `ce38624`, theo hợp đồng ARC 0.3.8 bổ sung 7 (`s1-contracts` 13.4):
+    - bất biến K11-06 tính cả yêu cầu đã duyệt;
+    - `payOut` lập lại kế hoạch hoàn;
+    - `SELF_REFUND_FORBIDDEN` cho người làm A32 dưới OWN.
+  - `bug-r3-014.test.ts` (bước do BE-B viết lại theo 13.4): 1/1 đạt trên `ce38624`, QA xác nhận đúng oracle 13.4.
+  - Lượt fuzz chạy lại cùng seed: 710 chuỗi, 28.250 bước, 0 vi phạm cứng. I24 (K11-06) và I25 (`SELF_REFUND_FORBIDDEN`) chấm cứng, đều 0.
+  - Critic `reviews/s1-money-critic-014.md`:
+    - 0 vi phạm K11-06 trên 26.105 bản ghi;
+    - 7 chuỗi M-2 cũ không còn duyệt treo hay chi theo duyệt cũ;
+    - 63/63 lần 403 `SELF_REFUND_FORBIDDEN` đúng người.
