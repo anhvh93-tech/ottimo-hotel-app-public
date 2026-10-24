@@ -314,6 +314,42 @@ Tổng ≥ **620 chuỗi**, khoảng 25.000 bước. Ước lượng ≤ 40 phú
 - BR-525-44 (FZ08-1, không `pendingFix` – mã đúng).
 - BR-525-45 (FZ08-2 – `pendingFix R3-FZ-08`, cần đường thu hồi). DOM đề xuất 42/43, nhưng các số này đã dùng.
 
+
+#### 3.8 Kết quả lượt fuzz cuối G1 (QA 24/10, `origin/main` @ `91de0e7`)
+
+**Cách chạy:**
+- Cờ: `FUZZ=1 FUZZ_BE83=1 FUZZ_FZ02=1 FUZZ_K1106=1 FUZZ_ADD3=1`.
+- 5 tiến trình, PostgreSQL 17 riêng, dữ liệu giả.
+- Harness có thêm `ambiguousOrder` cho mọi cặp đua giữa một bên ghi nợ và một thao tác bất kỳ trừ `advance` (ARC add3); ca có hướng "QR về muộn trả hết nợ → đóng chu kỳ"; ca quan sát SEC "tăng tay rồi hạ lại".
+
+**Chỉnh harness trong lượt** (theo kết quả lượt 1, cùng seed):
+- Cờ `add3` chưa được truyền vào harness, nay đã truyền.
+- I18 (b) chỉ xét lần duyệt **sau** lần A32 của chính người duyệt. 22/22 ca bị báo đều duyệt trước khi người đó làm A32.
+- O theo đúng công thức DOM clamp(R − D, 0, max(0, B)), bỏ cách kẹp "dính". Hai chuỗi FZ-10 63048 và FZ-11 63008 cho thấy cách kẹp dính lệch công thức.
+- I13 xét Σ theo số tại từng lần áp.
+
+**Kết quả lượt 2 (lượt chấm):**
+- 610 chuỗi, 24.266 bước; deadlock 0, 5xx 0.
+- 482 lần Σ lượt vượt ngưỡng: lần nào cũng báo OWN và có đúng một mục "Cần chú ý".
+- Ca có hướng (FZ08, FZ02-1…9, ADD3 ×5, B.5, BB07, QR về muộn): 28/28 đạt.
+- Harness báo 0 vi phạm cứng.
+
+**Critic độc lập** (`reviews/s1-money-critic-final.md`, tự tính lại 610 chuỗi, đọc tay 27 chuỗi):
+- B lệch 0.
+- **1 Blocker – BUG-R3-012 (P0):** J15 chờ hoàn mãi trong khi khách đang nợ. 5 chuỗi.
+  - Harness đã ghi nhầm thành cảnh báo khoảng hở J15. Nay đã sửa harness; chạy lại seed 60164 ra I1 + I3 cứng.
+  - Có ca tái hiện tất định `bug-r3-012.test.ts`.
+- **1 Major – BUG-R3-013 (P1):** yêu cầu hoàn không được tính lại khi tiền dư giảm.
+- Cảnh báo còn lại:
+  - `I3?`/`I5?`/`I6?`: lỗi của hàm tham chiếu khi đua trong cùng một giây giả. API đúng theo một thứ tự tuần tự; critic xác nhận bằng thứ tự id.
+  - `I7?`: FZ-08, P3, không tính G1.
+  - `I9?`: R3-Q23 chưa gộp.
+- Phần đạt (0 vi phạm): I2, I4, I5, I6, I8/I16 (636 yêu cầu xóa nợ), I15, I17/I18, ESC-026, hai tổ chức không rò số.
+
+**Kết luận G1: CHƯA ĐẠT** – còn BUG-R3-012 (P0) và BUG-R3-013 (P1).
+- Đã đóng BUG-R3-002, 003, 004.
+- Khi BE-B sửa: chạy lại `bug-r3-012` cùng lượt fuzz đầy đủ (cùng cờ và seed 60000–63000), critic đọc lại log.
+
 ---|---|---|---|
 | I4 – folio `closed` còn tiền dư | 15 + 4 | BUG-R3-002: tiền dư phát sinh sau B18 (A32 khi O = 0) không thành yêu cầu hoàn; J15 đóng folio | P0 |
 | I8 – xóa nợ vượt cơ sở nhưng `required_role` ≠ owner | 0 + 1 (lượt 1: 1) | BUG-R3-003: định tuyến cho lễ tân trưởng; lễ tân trưởng duyệt được | P0 |

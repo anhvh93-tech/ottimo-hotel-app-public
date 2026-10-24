@@ -116,7 +116,13 @@ export function check(
   if (W < 0) add('I2', `W ${W} < 0`);
   // J15 gap (208-F / N-15): past the window, J15 not run yet (≤ 1 h, the runner models the hourly job) – the API
   // reads O from the debt cycle, the definition says max(0, B): warning, card FB-R3-QA-ARC-01
-  const gap = ref.windowOver && code.folioStatus !== 'closed';
+  // only while J15 is not due yet (the runner runs it hourly): past window + 60 min a settled folio is a breach –
+  // critic s1-money-critic-final B-1 showed J15 itself answering `waiting_refund` for ever (BUG-R3-012)
+  const gap =
+    ref.windowOver &&
+    code.folioStatus !== 'closed' &&
+    !!raw.folio.windowUntil &&
+    new Date(nowIso).getTime() < new Date(raw.folio.windowUntil).getTime() + 60 * 60_000;
   const soft = (inv: string, when: boolean) => (when ? `${inv}?` : inv);
   if (ref.windowOver && W !== 0)
     add(
@@ -278,11 +284,12 @@ function be83(
     if (a.status === 'approved' && a.approverRole && RANK[a.approverRole]! < 3)
       add('I8', `debt_write_off ${a.id} approved by ${a.approverRole}`);
   }
-  // I16 + I13 replay; BR-433 (e): post-checkout A32 reductions by roles below OWN count in Σ lượt
-  type W = { t: string; amt: number; role: string; wo: boolean; id?: string };
+  // I16 + I13 replay; BR-433 (e): post-checkout A32 reductions by roles below OWN count in Σ lượt. Each event is
+  // judged with the amounts AS THEY WERE at that event (an FOC re-posted later by A32 is not an apply – fuzz final
+  // run 24/10, FZ-10 63009 / FZ-11 63000).
+  type W = { t: string; role: string; wo: boolean; id?: string; red?: number };
   const items: W[] = applied.map((a) => ({
     t: a.requestedAt,
-    amt: appliedAt(raw, a.id, nowIso),
     role: a.approverRole!,
     wo: a.reasonCode === 'debt_write_off',
     id: a.id,
@@ -291,38 +298,32 @@ function be83(
   if (g?.fz02 && out)
     for (const r of raw.a32Reductions)
       if (r.at >= out && r.role && SUB_OWNER.has(r.role))
-        items.push({ t: r.at, amt: r.reducedVnd, role: r.role, wo: false });
+        items.push({ t: r.at, role: r.role, wo: false, red: r.reducedVnd });
   items.sort((p, q) => (p.t < q.t ? -1 : 1));
   void roleOf;
-  let woSum = 0;
-  let staySum = 0;
-  let top = 0;
   let crossed = false;
-  for (const it of items) {
-    const a = {
-      requestedAt: it.t,
-      reasonCode: it.wo ? 'debt_write_off' : 'x',
-      id: it.id ?? '',
-      approverRole: it.role,
-    };
-    const t = a.requestedAt;
-    const amt = it.amt;
+  let top = 0;
+  for (let k = 0; k < items.length; k++) {
+    const it = items[k]!;
+    const t = it.t;
+    top = Math.max(top, RANK[it.role] ?? 0);
+    const upTo = items.slice(0, k + 1);
+    const woSum = upTo
+      .filter((x) => x.wo && x.id)
+      .reduce((s2, x) => s2 + appliedAt(raw, x.id!, t), 0);
+    const staySum = upTo.reduce((s2, x) => s2 + (x.id ? appliedAt(raw, x.id, t) : (x.red ?? 0)), 0);
     const basis = it.id ? basisOf(it.id, t) : basisAt(raw, t);
-    if (a.reasonCode === 'debt_write_off') {
-      woSum += amt;
-      if (woSum > basis && !told)
-        add(
-          'I16',
-          `Σ write-off below OWN ${woSum} > basis ${basis} at ${t} (${a.id}), OWN not told`,
-        );
-    }
-    staySum += amt;
-    top = Math.max(top, RANK[a.approverRole!] ?? 0);
+    if (it.wo && woSum > basis && !told)
+      add(
+        'I16',
+        `Σ write-off below OWN ${woSum} > basis ${basis} at ${t} (${it.id}), OWN not told`,
+      );
     const threshold = top === 3 ? basis : top === 2 ? 300_000 : 100_000;
     if (staySum > threshold) crossed = true;
   }
   if (crossed) {
-    if (!told) add('I13', `Σ stay ${staySum} crossed its threshold, OWN not told`);
+    if (!told)
+      add('I13', `Σ stay (by roles below OWN) crossed its threshold at an apply, OWN not told`);
     if (raw.openAttention !== null && raw.openAttention !== 1)
       add(
         'I13',
@@ -475,11 +476,18 @@ function i18(raw: RawFolio, v: Violation[], g: Gates): void {
     )
       a32CancelledByActorAt = a32CancelledByActorAt ?? r.decidedAt ?? r.requestedAt;
   }
+  // (b) judged at the approval: the approver had ALREADY made an A32 reduction on the folio (an approval given
+  // before one's own later A32 is not a breach – fuzz final run 24/10, 22/22 such cases checked)
+  const firstRed = new Map<string, string>();
+  for (const r of reds)
+    if (r.actorId && (!firstRed.has(r.actorId) || r.at < firstRed.get(r.actorId)!))
+      firstRed.set(r.actorId, r.at);
   for (const r of raw.refunds)
     if (
       ['approved', 'paid', 'executed'].includes(r.status) &&
       r.approverId &&
-      actors.has(r.approverId)
+      firstRed.has(r.approverId) &&
+      (!r.decidedAt || firstRed.get(r.approverId)! < r.decidedAt)
     )
-      add(`(b) refund ${r.id} approved by a person who made an A32 reduction on this folio`);
+      add(`(b) refund ${r.id} approved by a person who had made an A32 reduction on this folio`);
 }

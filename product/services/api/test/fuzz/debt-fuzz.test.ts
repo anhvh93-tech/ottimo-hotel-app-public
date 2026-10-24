@@ -14,7 +14,7 @@
  * critic reads those files (mục 3.5), not this test's summary. Fake clock, FAKE data only.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { writeFileSync } from 'node:fs';
+import { appendFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { HAS_DB } from '../helpers/tenant';
@@ -167,7 +167,7 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
       expect(rs[0]).toMatchObject({ amount: n1.unitPriceVnd, requested_by: x.t.users.mgr!.id });
       expect(String(rs[0].reason_note)).toMatch(/^Tự sinh từ A32/);
       expect((await decideV(x, rs[0].id, 'approve', 'mgr')()).statusCode).toBe(403);
-      const low = await x.adjust(s, mb, { newUnitPriceVnd: 0, reason: 'Miễn minibar' })();
+      const low = await x.adjust(s, mb, { voidLine: true, reason: 'Miễn minibar' })();
       expect(outcome(low)).toMatch(/^201/);
       rs = await refunds(s);
       expect(rs).toHaveLength(2);
@@ -211,9 +211,7 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
       );
       const [first] = await refunds(s);
       expect((await decideV(x, first.id, 'reject', 'owner')()).statusCode).toBe(200);
-      expect(outcome(await x.adjust(s, mb, { newUnitPriceVnd: 0, reason: 'Miễn' })())).toMatch(
-        /^201/,
-      );
+      expect(outcome(await x.adjust(s, mb, { voidLine: true, reason: 'Miễn' })())).toMatch(/^201/);
       const rs = (await refunds(s)).filter((r: any) => r.status !== 'rejected');
       expect(rs.map((r: any) => r.amount)).toContain(70_000);
       await x.at(`${addDays(s.departure, 1)}T13:00:00+07:00`);
@@ -221,6 +219,74 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
       expect((await x.folio(s.folioId)).status).toBe('settled');
     }, 240_000);
   });
+
+  // ─── BE-B confirmPaymentReceived fix (ARC s1-ARC-on-add3): a QR paid late that clears the debt closes the cycle ───
+  it('QR paid late clears the open debt (300.000) + 50.000 over → debt cycle closed, refund request 50.000', async () => {
+    const s = await x.checkedOutStay({ big: 300_000 });
+    await x.at(`${s.departure}T15:00:01+07:00`);
+    expect((await x.reverse(s.bigTransferId!)()).statusCode).toBe(200);
+    expect((await x.openDebtOf(s))?.openDebtVnd).toBe(300_000);
+    await x.at(`${s.departure}T15:00:02+07:00`);
+    await new Runner(x, { be83: BE83 }, '/dev/null').ensureAccount();
+    await x.at(`${s.departure}T15:00:03+07:00`);
+    const q = await x.c.fd!.send('POST', x.url(`/folios/${s.folioId}/vietqr`), {
+      amountVnd: 350_000,
+      overBalanceReason: 'Khách chuyển thừa',
+    });
+    expect(q.statusCode, q.body).toBe(201);
+    const c = await x.c.fd!.send(
+      'POST',
+      x.url(`/payments/${q.json().payment.id}/actions/confirm-received`),
+      {
+        note: 'Tiền về muộn',
+      },
+    );
+    expect(c.statusCode, c.body).toBe(200);
+    expect((await x.openDebtOf(s))?.openDebtVnd ?? 0).toBe(0);
+    const [r] = await x.q(
+      `SELECT debt_settled_at IS NOT NULL AS settled FROM reservation WHERE id = $1`,
+      [s.id],
+    );
+    expect(r.settled).toBe(true);
+    const refunds = await x.q(
+      `SELECT amount_vnd::int AS amount FROM approval_request WHERE type = 'refund' AND target_id = $1
+          AND status IN ('pending', 'escalated')`,
+      [s.id],
+    );
+    expect(refunds.map((x2: any) => x2.amount)).toEqual([50_000]);
+  }, 240_000);
+
+  // ─── SEC s1-SEC-on-add3 "nhận xét": manual raise then lower after check-out, the guest paid the raise (OBSERVED) ───
+  it('observation: A32 raise +300.000, guest pays it, MGR lowers back → refund 300.000 goes the `other` way (logged, not failed)', async () => {
+    const s = await x.checkedOutStay();
+    const line = await x.lateCharge(s, 100_000, s.departure);
+    await x.at(`${s.departure}T15:00:01+07:00`);
+    expect(
+      (await x.adjust(s, line, { newUnitPriceVnd: 400_000, reason: 'Sửa giá' })()).statusCode,
+    ).toBe(201);
+    await x.at(`${s.departure}T15:00:02+07:00`);
+    expect((await x.collect(s, 400_000)()).statusCode).toBe(201);
+    const raised = ((await x.liveLineIds(s, 'fnb')) as any[]).find(
+      (l) => l.unitPriceVnd === 400_000,
+    );
+    await x.at(`${s.departure}T15:00:03+07:00`);
+    expect(
+      (await x.adjust(s, raised.id, { newUnitPriceVnd: 100_000, reason: 'Sửa lại' })()).statusCode,
+    ).toBe(201);
+    const rows = await x.q(
+      `SELECT amount_vnd::int AS amount, required_role, to_jsonb(a)->>'refund_source' AS source FROM approval_request a
+        WHERE type = 'refund' AND target_id = $1 ORDER BY requested_at`,
+      [s.id],
+    );
+    const [fsr] = await x.q(
+      `SELECT count(*)::int AS n FROM folio_settled_reduction WHERE folio_id = $1`,
+      [s.folioId],
+    );
+    test_log(
+      `[observation SEC add3] refunds ${JSON.stringify(rows)} folio_settled_reduction rows ${fsr.n}`,
+    );
+    expect(rows.reduce((t: number, r2: any) => t + r2.amount, 0)).toBe(300_000);
+  }, 240_000);
 
   // ─── ADD3-01 (ARC probe + SEC FB-01 P1/P2): refunds of a settled folio with an A32 reduction – needs BE-B ───
   describe.skipIf(process.env.FUZZ_ADD3 !== '1')('ADD3-01 directed (I18)', () => {
@@ -428,6 +494,7 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
             q23: process.env.FUZZ_Q23 === '1',
             fz02: process.env.FUZZ_FZ02 === '1',
             k1106: process.env.FUZZ_K1106 === '1',
+            add3: process.env.FUZZ_ADD3 === '1',
           },
           join(dir, `${fam}.jsonl`),
         );
@@ -443,6 +510,7 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
                 q23: process.env.FUZZ_Q23 === '1',
                 fz02: process.env.FUZZ_FZ02 === '1',
                 k1106: process.env.FUZZ_K1106 === '1',
+                add3: process.env.FUZZ_ADD3 === '1',
               },
               join(dir, `${fam}-org2.jsonl`),
             ),
@@ -492,6 +560,7 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
                     q23: process.env.FUZZ_Q23 === '1',
                     fz02: process.env.FUZZ_FZ02 === '1',
                     k1106: process.env.FUZZ_K1106 === '1',
+                    add3: process.env.FUZZ_ADD3 === '1',
                   },
                   join(dir, `${fam}-${seed}-shrink.jsonl`),
                 );
@@ -525,6 +594,12 @@ describe.skipIf(!HAS_DB || !MODE)('R3-Q30 fuzz công nợ (BR-525 (ii), I1–I16
     expect(JSON.stringify(genChain('FZ-01', 42))).toBe(JSON.stringify(genChain('FZ-01', 42)));
   });
 });
+
+function test_log(line: string) {
+  console.log(line);
+  if (process.env.FUZZ_LOG_DIR)
+    appendFileSync(join(process.env.FUZZ_LOG_DIR, 'observations.log'), `${line}\n`);
+}
 
 async function lastStay(x: Fx) {
   const [r] = await x.q(

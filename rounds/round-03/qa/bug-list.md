@@ -8,11 +8,11 @@
 
 | Mức | Số lỗi | Open | Fixed | Closed |
 |---|---|---|---|---|
-| P0 | 2 | 2 | 0 | 0 |
-| P1 | 6 | 1 | 0 | 5 |
-| P2 | 3 | 1 | 0 | 2 |
+| P0 | 3 | 1 | 0 | 2 |
+| P1 | 7 | 1 | 0 | 6 |
+| P2 | 3 | 0 | 0 | 3 |
 | P3 | 0 | 0 | 0 | 0 |
-| **Tổng** | **11** | **4** | **0** | **7** |
+| **Tổng** | **13** | **2** | **0** | **11** |
 
 Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - Lượt 1 trên stack `ottimo-qa155`, bản `0ac4261`: mở BUG-R3-007…011.
@@ -24,16 +24,18 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | ID | Mức | Mô tả ngắn | Vai | Trạng thái |
 |---|---|---|---|---|
 | BUG-R3-001 | P1 | Desk "Xóa công nợ" không xin xác thực lại người xin (R3-Q25) → mọi lần xóa nợ trên Desk bị 422 `secret` REQUIRED | FE-A (+ UXD chữ) | **Closed** (QA xác nhận 24/10 – TC-X-082 đạt) |
-| BUG-R3-002 | **P0** | Tiền dư phát sinh sau trả phòng (A32 void/giảm khi không còn công nợ) không thành yêu cầu hoàn; J15 đóng folio vẫn còn tiền dư | BE-B (folio/J15) | **Verified** 24/10 (ca tái hiện + fuzz thử); Closed sau lượt fuzz cuối G1 |
-| BUG-R3-003 | **P0** | Xóa nợ của MGR vượt cơ sở hạn mức nhưng `required_role = front_desk_lead`; lễ tân trưởng duyệt được (200) | BE-B (approvals/BR-433) | **Verified** 24/10 (ca tái hiện + fuzz thử); Closed sau lượt fuzz cuối G1 |
-| BUG-R3-004 | **P1** | Đã void hết đêm phòng sau trả phòng, MGR vẫn tự áp xóa nợ theo số chụp B18, không chuyển OWN (BR-433 (a) "không có đêm nào → chờ OWN") | BE-B (BR-433 (d) cơ sở) | **Verified** 24/10 (ca tái hiện + fuzz thử); Closed sau lượt fuzz cuối G1 |
+| BUG-R3-002 | **P0** | Tiền dư phát sinh sau trả phòng (A32 void/giảm khi không còn công nợ) không thành yêu cầu hoàn; J15 đóng folio vẫn còn tiền dư | BE-B (folio/J15) | **Closed** 24/10 (lượt fuzz cuối G1: 610 chuỗi, 0 vi phạm I4/I8/I16) |
+| BUG-R3-003 | **P0** | Xóa nợ của MGR vượt cơ sở hạn mức nhưng `required_role = front_desk_lead`; lễ tân trưởng duyệt được (200) | BE-B (approvals/BR-433) | **Closed** 24/10 (lượt fuzz cuối G1: 610 chuỗi, 0 vi phạm I4/I8/I16) |
+| BUG-R3-004 | **P1** | Đã void hết đêm phòng sau trả phòng, MGR vẫn tự áp xóa nợ theo số chụp B18, không chuyển OWN (BR-433 (a) "không có đêm nào → chờ OWN") | BE-B (BR-433 (d) cơ sở) | **Closed** 24/10 (lượt fuzz cuối G1: 610 chuỗi, 0 vi phạm I4/I8/I16) |
 | BUG-R3-005 | P1 | H09 Đặt phòng mới: ô "Số tiền đã nhận" giữ cọc của lần tính giá **đầu tiên**, không theo lần tính giá sau (gốc của `booking.test.tsx` chập chờn) | FE (H09 – `BookingDialog`) | **Closed** (QA xác nhận 24/10) |
-| BUG-R3-006 | P2 | Test admin-web phụ thuộc giờ: từ 00:00 đến 05:59 một số ca đỏ vì lấy `todayLocal()` trong khi app mở form theo **ngày nghiệp vụ** (BR-010) | FE-A, FE-B (+ QA cho 2 ca BUG-R3-005, đã sửa) | Open |
+| BUG-R3-006 | P2 | Test admin-web phụ thuộc giờ: từ 00:00 đến 05:59 một số ca đỏ vì lấy `todayLocal()` trong khi app mở form theo **ngày nghiệp vụ** (BR-010) | FE-A, FE-B (+ QA cho 2 ca BUG-R3-005, đã sửa) | **Closed** (QA xác nhận 24/10: admin-web 610/610 ở giờ thật và giờ giả 00:36, 02:40, 05:59, 14:00 trên `origin/main` `12f6d37`) |
 | BUG-R3-007 | **P1** | US-155: `Me.screens` của server không có **S35** cho vai nào → Desk thật ẩn "Yêu cầu từ website" và chặn `/website-requests` ("Bạn không có quyền mở trang này"), kể cả nút "Mở" của "Cần chú ý" | BE-D (`identity/internal/screens.ts`) | **Closed** (QA xác nhận 24/10 trên `a1da76f` – TC-WR-000 đạt) |
 | BUG-R3-008 | **P1** | US-155: công tắc `public_booking_requests_enabled` không đổi lại được trong ngày đã đặt (422 "value already effective") → OWN bật form xong không tắt ngay được khi có spam/sự cố | BE-D + ARC (mô hình tham số) | **Closed** (QA xác nhận 24/10 trên `a1da76f` – TC-WR-008 đạt) |
 | BUG-R3-009 | **P1** | US-155 AC5: số CCCD viết cách nhóm (`079 203 012 345`) trong lời nhắn được nhận (202) và lưu vào yêu cầu; chỉ dãy 12 số liền bị chặn | BE-D (`website-request-rules.ts`) | **Closed** (QA xác nhận 24/10 trên `a1da76f` – TC-WR-007 + TC-WR-010 đạt) |
 | BUG-R3-010 | P2 | S35: lễ tân trưởng (FDL) không thấy dòng "Form đặt phòng trên website đang tắt" – đọc công tắc trả 404 cho FDL, FE coi là "không biết" | FE-B + BE-D | **Closed** (QA xác nhận 24/10 trên `a1da76f` – TC-WR-011 đạt) |
 | BUG-R3-011 | P2 | H09 "Tạo đơn" từ yêu cầu website: ô Kênh/Nguồn vẫn sửa được (AC2: nhân viên không đổi được nguồn); đổi thì server 422, Desk chỉ báo "Không áp dụng được cho đơn này." | FE-B (+ UXD chữ) | **Closed** (QA xác nhận 24/10 trên `a1da76f` – TC-WR-012 đạt) |
+| BUG-R3-012 | **P0** | J15 trả `waiting_refund` mãi khi còn yêu cầu hoàn mở, kể cả khi đã hết tiền dư và khách đang **nợ**: không ghi công nợ, không báo OWN/MGR, folio không bao giờ đóng | BE-B (folio/J15) | Open |
+| BUG-R3-013 | P1 | Yêu cầu hoàn đang mở không được tính lại (`refundPlan`) khi tiền dư giảm (phát sinh sau trả phòng, A32, J15) – yêu cầu > tiền dư, có lần duyệt khi tiền dư 0 | BE-B (folio/refunds) | Open |
 
 ## 3. Chi tiết
 
@@ -167,7 +169,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Nguyên nhân:** test tính ngày bằng `todayLocal()` (ngày lịch). App và MSW mở form và kiểm "từ ngày mai" theo **ngày nghiệp vụ**, đổi lúc 06:00.
 - **Mong đợi:** test dùng `businessDayLocal()`, hoặc cố định giờ bằng `vi.setSystemTime`; thêm một lượt CI chạy unit với giờ giả 02:40 (quy tắc ca đồng hồ giả, plan R3 mục 6).
 - **Vai:** FE-A (`r3-q51-fea`), FE-B (`guest-picker-race`). QA đã sửa phần của mình.
-- **Trạng thái:** Open.
+- **Trạng thái:** **Closed** 24/10. QA đã chạy lại trên `origin/main` `12f6d37`, xem mục "Xác nhận BUG-R3-006" ở cuối file.
 
 ### BUG-R3-007 – Desk thật không mở được S35 "Yêu cầu từ website" (thiếu S35 trong `Me.screens`)
 - **Mức:** P1. QA quyết.
@@ -297,3 +299,33 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - TC-WR-003 tạo đơn B2 với ô khóa này: đơn `direct/website`.
   - Câu lỗi mới khi server trả 422/409 (`webreq.source_must_be_website`, `webreq.booking_closed`) không còn đường kích hoạt từ UI. Chỉ có test đơn vị của FE (`r3-bug-010-011-feb.test.tsx`), QA chưa kiểm E2E.
 - **Trạng thái:** **Closed** 24/10.
+
+### BUG-R3-012 – J15 chờ hoàn mãi khi khách đang nợ (critic B-1)
+- **Mức:** P0 (lỗi tiền, oracle mục 0): khoản khách nợ không thành công nợ, không có nhật ký, không có thông báo, folio không đóng.
+- **Tìm bằng:** lượt fuzz cuối G1 (24/10). Critic độc lập `reviews/s1-money-critic-final.md` B-1 thấy ở 5 chuỗi: FZ-01 60070, 60164; FZ-02 61019, 61084, 61092.
+  - Harness đã ghi nhầm thành cảnh báo "J15 chưa chạy" (`I1?`/`I3?`). Nay đã sửa: quá cửa sổ + 60 phút mà folio còn `settled` là vi phạm cứng. Chạy lại seed 60164: I1 + I3 cứng.
+- **Tái hiện (tất định):** `services/api/test/fuzz/bug-r3-012.test.ts`, chạy với `FUZZ_KNOWN_BUGS=1`.
+  1. Trả phòng.
+  2. MGR void F&B 300.000 → yêu cầu hoàn tự sinh.
+  3. OWN duyệt.
+  4. Ghi phát sinh 500.000 sau trả phòng → khách nợ 200.000.
+  5. Qua cửa sổ, chạy J15.
+- **Thực tế:** folio `settled`, `openDebtVnd` 0, J15 trả `waiting_refund`.
+- **Mong đợi:** folio `closed`, công nợ 200.000 có nhật ký và báo OWN/MGR; yêu cầu hoàn thừa thì được hủy hoặc tính lại.
+- **Mã:** `FolioService.closeAfterWindow` dòng ~1375 `if (b.openRefundVnd > 0) return 'waiting_refund'`. Nên chờ chỉ khi còn tiền dư thật, hoặc tính lại `refundPlan` trước.
+- **Vai:** BE-B. **Trạng thái:** Open.
+
+### BUG-R3-013 – Yêu cầu hoàn không được tính lại khi tiền dư giảm (critic M-1)
+- **Mức:** P1.
+  - Có 2.406 bản ghi ở 241 chuỗi; 12 lần duyệt khi yêu cầu lớn hơn tiền dư, 2 lần trong đó tiền dư bằng 0.
+  - Chưa thấy tiền chi sai, vì mức chi bị chặn ở số tiền dư (critic đọc mã). Fuzz chưa chi lần nào, do thiếu nơi nhận tiền (`REFUND_DESTINATION_REQUIRED`).
+  - Đây là gốc của BUG-R3-012.
+- **Mong đợi:** BR-522 / ARC 13.2: khi tiền dư giảm, chạy `refundPlan` để hủy (`superseded`) hoặc giảm yêu cầu đang mở; không duyệt yêu cầu lớn hơn tiền dư.
+- **Vai:** BE-B. **Trạng thái:** Open.
+
+### Xác nhận BUG-R3-006 (QA 24/10, `origin/main` @ `12f6d37`)
+- Đã chạy cả bộ admin-web 5 lần:
+  - một lần ở giờ thật (11:24);
+  - bốn lần với đồng hồ giả cố định qua `vi.useFakeTimers`, lúc 00:36, 02:40, 05:59 và 14:00. Đây là tệp cấu hình tạm, không commit.
+- Cả 5 lần đều **610/610 đạt**.
+- Bản sửa của QA2 và FE-A (ngày nghiệp vụ cho mọi màn, 4b193d7) đã có hiệu lực → **Closed**.
