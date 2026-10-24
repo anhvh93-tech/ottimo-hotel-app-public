@@ -1,12 +1,18 @@
 ---
-// Guard: the live booking request needs a transport (endpoint by ARC/BE) – not built yet. Turning the feature flag
-// on before that fails the build instead of publishing a form that cannot send (src/lib/booking-request.ts).
-import { BOOKING_REQUEST_ENABLED } from '../lib/booking-request';
+// Guard for the live booking request (lib/booking-request.ts): the transport is built (OpenAPI 0.3.7 add-on 2,
+// public-site), so the live form only needs its build settings – a property slug and the published privacy notice.
+// Missing → the build stops instead of publishing a form that cannot send.
+import {
+  BOOKING_REQUEST_ENABLED,
+  PRIVACY_NOTICE_VERSION,
+  PROPERTY_SLUG_PATTERN,
+  PUBLIC_PROPERTY_SLUG,
+} from '../lib/booking-request';
 
-if (BOOKING_REQUEST_ENABLED) {
-  throw new Error(
-    'site.json features.bookingRequest is on but the booking-request transport is not built yet ' +
-      '(endpoint: ARC/BE – ADR-014 4.8) – see src/lib/booking-request.ts',
-  );
+if (BOOKING_REQUEST_ENABLED && !PROPERTY_SLUG_PATTERN.test(PUBLIC_PROPERTY_SLUG)) {
+  throw new Error('LANDING_BOOKING_FORM=true needs LANDING_PROPERTY_SLUG (lib/booking-request.ts)');
+}
+if (BOOKING_REQUEST_ENABLED && !PRIVACY_NOTICE_VERSION) {
+  throw new Error('The live booking form needs the privacy notice version (content/privacy.ts)');
 }
 ---

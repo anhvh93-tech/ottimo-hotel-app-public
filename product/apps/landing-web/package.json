@@ -8,14 +8,15 @@
     "dev": "ASTRO_TELEMETRY_DISABLED=1 astro dev --port 5176",
     "build": "ASTRO_TELEMETRY_DISABLED=1 astro build",
     "build:booking-preview": "ASTRO_TELEMETRY_DISABLED=1 LANDING_BOOKING_PREVIEW=true LANDING_OUT_DIR=dist-booking-preview astro build",
+    "build:booking-live-test": "ASTRO_TELEMETRY_DISABLED=1 LANDING_BOOKING_FORM=true LANDING_PROPERTY_SLUG=dl01 LANDING_OUT_DIR=dist-booking-live astro build",
     "preview": "ASTRO_TELEMETRY_DISABLED=1 astro preview --port 5176",
     "typecheck": "ASTRO_TELEMETRY_DISABLED=1 astro check",
-    "test": "pnpm run build:booking-preview && vitest run",
+    "test": "pnpm run build:booking-preview && pnpm run build:booking-live-test && vitest run",
     "check:dist": "node scripts/check-dist.mjs",
     "sync:tokens": "node scripts/sync-tokens.mjs",
     "sync:fonts": "node scripts/sync-fonts.mjs",
     "og": "node scripts/make-og.mjs",
-    "clean": "rm -rf dist dist-booking-preview .astro"
+    "clean": "rm -rf dist dist-booking-preview dist-booking-live .astro"
   },
   "dependencies": {
     "@fontsource/be-vietnam-pro": "5.2.8",

@@ -72,6 +72,7 @@ const ICON: Partial<Record<AttentionItem['kind'], IconName>> = {
   extra_guest_kit_overdue: 'sofa',
   room_status_mismatch: 'broom',
   guest_request_overdue: 'chat',
+  website_request_new: 'globe',
 };
 /** Closed by the system when the business state changes (EP01 3.2) – no "Đã xử lý" button. */
 const AUTO_CLOSE = new Set([
@@ -209,6 +210,13 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
       break;
     case 'security_alert':
       to = '/settings/users';
+      break;
+    case 'website_request_new':
+      // US-155 (0.3.7 add. 2): `count` new requests nobody picked up; `refCode` only when there is one; `dueAt` =
+      // earliest replyBy (warning once it has passed). No name / phone – the queue opens on the "new" chip.
+      if (n === 1 && code) [key, args] = ['attn.website_request_new_one', { code }];
+      sub = time ? t('webreq.reply_by', { time }) : undefined;
+      to = '/website-requests';
       break;
     case 'guest_request_overdue':
     case 'channel_sync_error':

@@ -1,8 +1,10 @@
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Icon, Modal, OfflineBar } from '@ottimo/ui';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { api } from '../app/api';
 import { timeHHmm } from '../app/dates';
+import { useLiveEvents } from '../app/live';
 import { readSession, writeSession } from '../app/storage';
 import { useNarrow } from '../hooks/useMedia';
 import { useOnline } from '../hooks/useOnline';
@@ -41,6 +43,53 @@ function useMenuItems(): NavItem[] {
   return NAV.filter((n) => isVisible(n, access));
 }
 
+type NavCounts = Partial<Record<NonNullable<NavItem['count']>, number>>;
+const COUNT_PAGE = 50;
+const COUNT_EVENTS = ['website_request.changed'] as const;
+
+/**
+ * Menu numbers (hi-fi `.nav a .badge`). `webreq_new` (US-155, v1.0): website requests still `new` = nobody picked
+ * them up – the server scopes SAL to unassigned `new` + own, so `status=new` is exactly what the person can pick up.
+ * Live on SSE `website_request.changed` (1 s burst), poll + focus fallback; 50 or more shows "50+". Errors → no number.
+ */
+function useNavCounts(items: NavItem[]): NavCounts {
+  const propertyId = useSession().property?.propertyId ?? '';
+  const wantWebreq = items.some((n) => n.count === 'webreq_new');
+  const [counts, setCounts] = useState<NavCounts>({});
+  const load = useCallback(() => {
+    if (!wantWebreq || !propertyId) return;
+    api.listWebsiteBookingRequests({ propertyId }, { status: ['new'], limit: COUNT_PAGE }).then(
+      (out) =>
+        setCounts({
+          webreq_new: out.data.page.nextCursor ? COUNT_PAGE : out.data.data.length,
+        }),
+      () => setCounts({}),
+    );
+  }, [propertyId, wantWebreq]);
+  useEffect(load, [load]);
+  useLiveEvents(propertyId, load, {
+    events: COUNT_EVENTS,
+    debounceMs: 1000,
+    enabled: wantWebreq && !!propertyId,
+  });
+  return wantWebreq ? counts : {};
+}
+
+/** The number on a menu item; the visual badge is hidden from screen readers, a sentence is read instead. */
+function NavCount({ n }: { n?: number }) {
+  const { t } = useI18n();
+  if (!n) return null;
+  const shown = n >= COUNT_PAGE ? `${COUNT_PAGE}+` : String(n);
+  return (
+    <>
+      <span className="badge" aria-hidden="true">
+        {shown}
+      </span>
+      <span className="sr-only">{t('nav.website_requests_new', { n: shown })}</span>
+    </>
+  );
+}
+
 /**
  * H02 Desk shell: sidebar menu built from `screens`, device chip, skip link. At ≤ 860 px (hifi hides the
  * sidebar) the H24 bottom bar + "Thêm" take its place (UXR S4 P-02) – one menu at any width.
@@ -50,6 +99,7 @@ export function AppShell() {
   const navigate = useNavigate();
   const narrow = useNarrow();
   const items = useMenuItems();
+  const counts = useNavCounts(items);
 
   // Shortcut R = room rack (H02 2.1), only when not typing.
   useEffect(() => {
@@ -81,7 +131,7 @@ export function AppShell() {
             OTTIMO<small>BOUTIQUE STAY · DESK</small>
           </div>
           <PropertySwitch />
-          <NavSections items={items} />
+          <NavSections items={items} counts={counts} />
           <div className="side-foot">
             <DeviceChip />
           </div>
@@ -90,7 +140,7 @@ export function AppShell() {
       <div className="content">
         <Outlet />
       </div>
-      {narrow ? <MobileNav items={items} /> : null}
+      {narrow ? <MobileNav items={items} counts={counts} /> : null}
     </div>
   );
 }
@@ -128,7 +178,15 @@ function DeviceChip() {
 }
 
 /** Sidebar sections (and the same list inside "Thêm" on a phone). */
-function NavSections({ items, onPick }: { items: NavItem[]; onPick?: () => void }) {
+function NavSections({
+  items,
+  counts = {},
+  onPick,
+}: {
+  items: NavItem[];
+  counts?: NavCounts;
+  onPick?: () => void;
+}) {
   const { t } = useI18n();
   const { roles } = useSession();
   return (
@@ -143,6 +201,7 @@ function NavSections({ items, onPick }: { items: NavItem[]; onPick?: () => void 
               <NavLink key={n.id} to={n.path} data-screen={n.screen} onClick={onPick}>
                 <Icon name={n.icon} />
                 <span>{t(labelFor(n, roles))}</span>
+                {n.count ? <NavCount n={counts[n.count]} /> : null}
                 {n.kbd && !onPick ? <kbd aria-hidden="true">{n.kbd}</kbd> : null}
               </NavLink>
             ))}
@@ -157,7 +216,7 @@ function NavSections({ items, onPick }: { items: NavItem[]; onPick?: () => void 
  * Phone bottom bar (hi-fi H24 `.m-nav`, ≤ 5 entries – H02 2.2): four screens of the role + "Thêm", a drawer
  * with every other menu item, the property and the device chip (UXR S4 P-02: Nhật ký tiền, Tham số…).
  */
-function MobileNav({ items }: { items: NavItem[] }) {
+function MobileNav({ items, counts }: { items: NavItem[]; counts: NavCounts }) {
   const { t } = useI18n();
   const { roles } = useSession();
   const { pathname } = useLocation();
@@ -171,6 +230,7 @@ function MobileNav({ items }: { items: NavItem[] }) {
           <NavLink key={n.id} to={n.path} data-screen={n.screen}>
             <Icon name={n.icon} />
             <span>{t(n.short ?? labelFor(n, roles))}</span>
+            {n.count ? <NavCount n={counts[n.count]} /> : null}
           </NavLink>
         ))}
         {more.length ? (
@@ -195,7 +255,7 @@ function MobileNav({ items }: { items: NavItem[] }) {
       >
         <div className="m-more">
           <PropertySwitch />
-          <NavSections items={more} onPick={() => setOpen(false)} />
+          <NavSections items={more} counts={counts} onPick={() => setOpen(false)} />
           <div className="mt-8">
             <DeviceChip />
           </div>

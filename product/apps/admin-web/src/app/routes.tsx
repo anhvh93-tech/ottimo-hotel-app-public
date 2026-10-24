@@ -60,6 +60,11 @@ const MinibarPage = lazy(() =>
   import('../pages/MinibarPage').then((m) => ({ default: m.MinibarPage })),
 );
 
+// R3 Sprint 1 FE-B: S35 Yêu cầu từ website (US-155 Desk).
+const WebRequestsPage = lazy(() =>
+  import('../pages/webreq/WebRequestsPage').then((m) => ({ default: m.WebRequestsPage })),
+);
+
 function Splash() {
   const { t } = useI18n();
   return (
@@ -147,6 +152,7 @@ const PAGES: Record<string, () => ReactNode> = {
   rack: () => <RackPage />,
   reservations: () => <ReservationsPage />,
   quotes: () => <QuotesPage />,
+  webreq: () => <WebRequestsPage />,
   registration: () => <RegistrationPage />,
   approvals: () => <ApprovalsPage />,
   moneylog: () => <MoneyPage />,

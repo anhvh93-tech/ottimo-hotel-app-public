@@ -1,0 +1,13 @@
+---
+// /vi/privacy/ – generated only when the privacy notice is published with the booking form (see ../[privacy].astro).
+// @privacy-page = PrivacyPage.astro when published, else an empty stand-in (astro.config.ts).
+import PrivacyPage from '@privacy-page';
+import { vi } from '../../content/vi';
+import { PRIVACY_PAGE_PUBLISHED } from '../../lib/booking-request';
+
+export function getStaticPaths() {
+  return PRIVACY_PAGE_PUBLISHED ? [{ params: { privacy: 'privacy' } }] : [];
+}
+---
+
+<PrivacyPage t={vi} />

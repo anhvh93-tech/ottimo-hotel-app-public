@@ -7,7 +7,8 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node"],
     "paths": {
-      "@booking-form": ["./src/components/BookingForm.astro"]
+      "@booking-form": ["./src/components/BookingForm.astro"],
+      "@privacy-page": ["./src/components/PrivacyPage.astro"]
     }
   },
   "include": [".astro/types.d.ts", "src", "astro.config.ts", "vitest.config.ts"],

@@ -3467,6 +3467,195 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `bk.deposit_mismatch` | Số tiền đã nhận ({received} đ) khác cọc cần thu theo giá mới ({deposit} đ). Kiểm tra lại số khách đã chuyển trước khi tạo đơn. | Amount received ({received} VND) differs from the deposit due at the new price ({deposit} VND). Check what the guest actually paid before creating the booking. | ⟨chừa chỗ⟩ | Hiện khi lễ tân đã tự sửa ô và giá được tính lại; không chặn lưu |
 | `bk.deposit_use_quote` | Dùng {amount} đ | Use {amount} VND | ⟨chừa chỗ⟩ | Nút trong cảnh báo – điền lại cọc cần thu, ô lại theo giá mới |
 
+#### R3 Sprint 1 – FE-B S35 Yêu cầu từ website (FE viết theo content guide + BA EP19; chờ UXD duyệt)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `nav.website_requests` | Yêu cầu từ website | Website requests | ⟨chừa chỗ⟩ | Mục menu S35 – OWN, MGR, FDL, FD, SAL |
+| `webreq.status.new` | Mới | New | ⟨chừa chỗ⟩ | SM-18 |
+| `webreq.status.in_progress` | Đang xử lý | In progress | ⟨chừa chỗ⟩ |  |
+| `webreq.status.converted` | Đã thành đơn | Booked | ⟨chừa chỗ⟩ |  |
+| `webreq.status.declined` | Đã đóng | Closed | ⟨chừa chỗ⟩ |  |
+| `webreq.status.spam` | Spam | Spam | ⟨chừa chỗ⟩ |  |
+| `webreq.filter_label` | Lọc theo trạng thái | Filter by status | ⟨chừa chỗ⟩ |  |
+| `webreq.only_mine` | Chỉ yêu cầu tôi đang xử lý | Only requests I'm handling | ⟨chừa chỗ⟩ | Lọc ở client theo assignedUserId [GIẢ ĐỊNH BA] |
+| `webreq.search_label` | Tìm theo mã yêu cầu | Find by request code | ⟨chừa chỗ⟩ |  |
+| `webreq.search_btn` | Tìm | Find | ⟨chừa chỗ⟩ |  |
+| `webreq.search_hint` | Nhập đủ 8 ký tự của mã yêu cầu. | Enter all 8 characters of the request code. | ⟨chừa chỗ⟩ |  |
+| `webreq.clear_filters` | Xóa bộ lọc | Clear filters | ⟨chừa chỗ⟩ |  |
+| `webreq.count_new` | {n} yêu cầu mới | {n} new | ⟨chừa chỗ⟩ |  |
+| `webreq.empty` | Chưa có yêu cầu mới từ website. | No new requests from the website. | ⟨chừa chỗ⟩ |  |
+| `webreq.empty_filtered` | Không có yêu cầu khớp bộ lọc. | No requests match the filters. | ⟨chừa chỗ⟩ |  |
+| `webreq.empty_form_off` | Form trên website đang tắt nên chưa có yêu cầu mới. | The website form is off, so no new requests arrive yet. | ⟨chừa chỗ⟩ |  |
+| `webreq.error_title` | Chưa tải được yêu cầu từ website | Couldn't load website requests | ⟨chừa chỗ⟩ |  |
+| `webreq.load_more` | Xem thêm | Show more | ⟨chừa chỗ⟩ |  |
+| `webreq.form_off_title` | Form đặt phòng trên website đang tắt | The website booking form is off | ⟨chừa chỗ⟩ |  |
+| `webreq.form_off_body` | Khách bấm Đặt phòng sẽ mở chat Zalo, nên yêu cầu mới chưa vào đây. Yêu cầu đã có vẫn xử lý bình thường. | Guests who tap Book are sent to Zalo chat, so new requests don't arrive here yet. Existing requests can still be handled. | ⟨chừa chỗ⟩ |  |
+| `webreq.form_off_owner` | Chỉ chủ đầu tư bật được form, khi đã đủ điều kiện pháp lý và bảo mật (US-155 AC4). | Only the owner can turn the form on, once the legal and security conditions are met (US-155 AC4). | ⟨chừa chỗ⟩ |  |
+| `webreq.col.code` | Mã yêu cầu | Request code | ⟨chừa chỗ⟩ |  |
+| `webreq.col.sent` | Gửi lúc | Sent | ⟨chừa chỗ⟩ |  |
+| `webreq.col.stay` | Ngày ở | Stay | ⟨chừa chỗ⟩ |  |
+| `webreq.col.guests` | Số khách | Guests | ⟨chừa chỗ⟩ |  |
+| `webreq.col.room_type` | Hạng phòng | Room type | ⟨chừa chỗ⟩ |  |
+| `webreq.col.channel` | Trả lời qua | Reply via | ⟨chừa chỗ⟩ |  |
+| `webreq.col.source` | Nguồn | Source | ⟨chừa chỗ⟩ |  |
+| `webreq.col.reply_by` | Hạn trả lời | Reply by | ⟨chừa chỗ⟩ |  |
+| `webreq.col.flags` | Cần xem | Check | ⟨chừa chỗ⟩ |  |
+| `webreq.col.assignee` | Người xử lý | Handled by | ⟨chừa chỗ⟩ |  |
+| `webreq.col.status` | Trạng thái | Status | ⟨chừa chỗ⟩ |  |
+| `webreq.stay_short` | {arrival} → {departure} · {nights} đêm | {arrival} → {departure} · {nights} nights | ⟨chừa chỗ⟩ |  |
+| `webreq.stay_long_months` | Từ {arrival} · {months} tháng | From {arrival} · {months} months | ⟨chừa chỗ⟩ |  |
+| `webreq.stay_long_open` | Từ {arrival} · chưa rõ bao lâu | From {arrival} · length not decided | ⟨chừa chỗ⟩ |  |
+| `webreq.long_stay` | Ở dài ngày – báo giá dài hạn | Long stay – long-stay quote | ⟨chừa chỗ⟩ |  |
+| `webreq.adults` | {n} người lớn | {n} adults | ⟨chừa chỗ⟩ |  |
+| `webreq.children` | {n} trẻ 6–11 tuổi | {n} children 6–11 | ⟨chừa chỗ⟩ |  |
+| `webreq.infants` | {n} trẻ dưới 6 tuổi | {n} under 6 | ⟨chừa chỗ⟩ |  |
+| `webreq.room_any` | Chưa chọn – tư vấn giúp | Not chosen – please advise | ⟨chừa chỗ⟩ |  |
+| `webreq.channel.zalo` | Zalo | Zalo | ⟨chừa chỗ⟩ |  |
+| `webreq.channel.whatsapp` | WhatsApp | WhatsApp | ⟨chừa chỗ⟩ |  |
+| `webreq.channel.telegram` | Telegram | Telegram | ⟨chừa chỗ⟩ |  |
+| `webreq.channel.viber` | Viber | Viber | ⟨chừa chỗ⟩ |  |
+| `webreq.channel.phone` | Gọi điện | Phone call | ⟨chừa chỗ⟩ |  |
+| `webreq.channel.email` | Email | Email | ⟨chừa chỗ⟩ |  |
+| `webreq.source.website` | Website | Website | ⟨chừa chỗ⟩ | subSource null (US-155 AC6) |
+| `webreq.source_with` | Website · {label} | Website · {label} | ⟨chừa chỗ⟩ | US-155 AC6 – "Website · Facebook" |
+| `webreq.source.facebook` | Facebook | Facebook | ⟨chừa chỗ⟩ |  |
+| `webreq.source.instagram` | Instagram | Instagram | ⟨chừa chỗ⟩ |  |
+| `webreq.source.google` | Google | Google | ⟨chừa chỗ⟩ |  |
+| `webreq.source.zalo` | Zalo | Zalo | ⟨chừa chỗ⟩ |  |
+| `webreq.source.qr` | Mã QR | QR code | ⟨chừa chỗ⟩ |  |
+| `webreq.source.other` | Khác | Other | ⟨chừa chỗ⟩ |  |
+| `webreq.reply_by` | Trả lời trước {time} | Reply by {time} | ⟨chừa chỗ⟩ |  |
+| `webreq.overdue` | Quá hạn {m} phút | Overdue by {m} min | ⟨chừa chỗ⟩ | Chữ, không chỉ màu (EP19 10) |
+| `webreq.arrives_today` | Đến hôm nay | Arrives today | ⟨chừa chỗ⟩ | arrivesToday – BR-912 (3) |
+| `webreq.flag.contains_url` | Lời nhắn có đường link – không bấm | Message has a link – don't open it | ⟨chừa chỗ⟩ | SEC ARC-21 |
+| `webreq.flag.unexpected_script` | Chữ lạ | Unusual characters | ⟨chừa chỗ⟩ |  |
+| `webreq.flag.far_future` | Ngày đến xa (trên 180 ngày) | Arrival far ahead (over 180 days) | ⟨chừa chỗ⟩ |  |
+| `webreq.flag.repeat_contact` | Liên hệ gửi lặp | Repeat sender | ⟨chừa chỗ⟩ |  |
+| `webreq.flag.room_type_unmatched` | Hạng phòng không khớp | Room type not matched | ⟨chừa chỗ⟩ |  |
+| `webreq.flag.possible_duplicate` | Có thể trùng yêu cầu khác | Possible duplicate | ⟨chừa chỗ⟩ |  |
+| `webreq.flag.offer_unverified` | Giá trên web chưa xác minh | Web price not verified | ⟨chừa chỗ⟩ |  |
+| `webreq.unassigned` | Chưa ai nhận | Not picked up | ⟨chừa chỗ⟩ |  |
+| `webreq.you` | Bạn | You | ⟨chừa chỗ⟩ |  |
+| `webreq.assignee_since` | {name} · nhận lúc {time} | {name} · picked up {time} | ⟨chừa chỗ⟩ |  |
+| `webreq.detail_title` | Yêu cầu {code} | Request {code} | ⟨chừa chỗ⟩ |  |
+| `webreq.copy_code` | Sao chép mã | Copy code | ⟨chừa chỗ⟩ |  |
+| `webreq.copied` | Đã sao chép | Copied | ⟨chừa chỗ⟩ |  |
+| `webreq.sec.stay` | Lưu trú khách hỏi | What the guest asked for | ⟨chừa chỗ⟩ |  |
+| `webreq.sec.contact` | Liên hệ khách | Guest contact | ⟨chừa chỗ⟩ |  |
+| `webreq.sec.note` | Lời nhắn của khách | Guest's message | ⟨chừa chỗ⟩ |  |
+| `webreq.sec.source` | Chi tiết nguồn | Source details | ⟨chừa chỗ⟩ |  |
+| `webreq.guest_name` | Tên khách | Guest name | ⟨chừa chỗ⟩ |  |
+| `webreq.phone` | SĐT | Phone | ⟨chừa chỗ⟩ |  |
+| `webreq.email` | Email | Email | ⟨chừa chỗ⟩ |  |
+| `webreq.locale` | Ngôn ngữ khách dùng | Guest's language | ⟨chừa chỗ⟩ |  |
+| `webreq.locale.vi` | Tiếng Việt | Vietnamese | ⟨chừa chỗ⟩ |  |
+| `webreq.locale.en` | Tiếng Anh | English | ⟨chừa chỗ⟩ |  |
+| `webreq.locale.ru` | Tiếng Nga | Russian | ⟨chừa chỗ⟩ |  |
+| `webreq.preferred` | Khách muốn được trả lời qua {channel} | Guest prefers a reply via {channel} | ⟨chừa chỗ⟩ |  |
+| `webreq.copy_phone` | Sao chép SĐT | Copy phone | ⟨chừa chỗ⟩ |  |
+| `webreq.copy_email` | Sao chép email | Copy email | ⟨chừa chỗ⟩ |  |
+| `webreq.call` | Gọi | Call | ⟨chừa chỗ⟩ |  |
+| `webreq.whatsapp` | Mở WhatsApp | Open WhatsApp | ⟨chừa chỗ⟩ |  |
+| `webreq.send_email` | Gửi email | Send email | ⟨chừa chỗ⟩ |  |
+| `webreq.own_account_hint` | Liên hệ bằng tài khoản OTTIMO (Zalo OA hoặc Zalo của cơ sở) – không dùng tài khoản cá nhân. | Contact the guest from an OTTIMO account (Zalo OA or the property's Zalo) – not a personal one. | ⟨chừa chỗ⟩ | BR-913 (4), SEC ARC-21 – không có nút mở Zalo tới SĐT khách |
+| `webreq.zalo_hint` | Khách chưa nhắn Zalo OA thì OA chưa nhắn trước được – gọi khách và mời nhắn OA kèm mã {code}. | Zalo OA can't message a guest first – call the guest and ask them to message the OA with code {code}. | ⟨chừa chỗ⟩ |  |
+| `webreq.call_window` | Ngoài giờ gọi cho khách (08:00–21:00) – nhắn tin thay vì gọi, trừ khách đến tối nay. | Outside guest call hours (08:00–21:00) – send a message instead, unless the guest arrives tonight. | ⟨chừa chỗ⟩ |  |
+| `webreq.pii_purged` | Thông tin liên hệ đã xóa theo hạn lưu ({date}). | Contact details were deleted under the retention rule ({date}). | ⟨chừa chỗ⟩ |  |
+| `webreq.pii_hidden_sal` | Nhận xử lý để xem tên và liên hệ của khách. | Pick up the request to see the guest's name and contact. | ⟨chừa chỗ⟩ | SAL, yêu cầu new chưa giao – SEC ARC-19 |
+| `webreq.duplicate_count` | Cùng liên hệ đã gửi thêm {n} lần hôm nay (không tạo yêu cầu mới). | The same contact sent {n} more times today (no new request created). | ⟨chừa chỗ⟩ |  |
+| `webreq.related` | Có thể trùng với: {codes} | May duplicate: {codes} | ⟨chừa chỗ⟩ |  |
+| `webreq.converted` | Đã thành đơn {code} | Booked as {code} | ⟨chừa chỗ⟩ |  |
+| `webreq.open_booking` | Mở đơn | Open booking | ⟨chừa chỗ⟩ |  |
+| `webreq.has_quote` | Đã có báo giá | Quote saved | ⟨chừa chỗ⟩ |  |
+| `webreq.declined_reason` | Lý do đóng: {reason} | Closed: {reason} | ⟨chừa chỗ⟩ |  |
+| `webreq.utm` | UTM: {source} · {medium} · {campaign} | UTM: {source} · {medium} · {campaign} | ⟨chừa chỗ⟩ |  |
+| `webreq.ref_host` | Trang giới thiệu: {host} | Referred by: {host} | ⟨chừa chỗ⟩ |  |
+| `webreq.landing_path` | Trang gửi: {path} | Sent from page: {path} | ⟨chừa chỗ⟩ |  |
+| `webreq.not_found` | Không tìm thấy yêu cầu này hoặc yêu cầu đã giao cho người khác. | This request wasn't found, or it has been assigned to someone else. | ⟨chừa chỗ⟩ |  |
+| `webreq.already_changed` | Yêu cầu vừa được người khác xử lý. Đã tải lại. | Someone else just updated this request. It has been reloaded. | ⟨chừa chỗ⟩ |  |
+| `webreq.claim` | Nhận xử lý | Pick up | ⟨chừa chỗ⟩ |  |
+| `webreq.release` | Trả lại hàng chờ | Return to queue | ⟨chừa chỗ⟩ |  |
+| `webreq.decline` | Đóng – không thành đơn | Close – no booking | ⟨chừa chỗ⟩ |  |
+| `webreq.mark_spam` | Đánh dấu spam | Mark as spam | ⟨chừa chỗ⟩ |  |
+| `webreq.reopen` | Mở lại | Reopen | ⟨chừa chỗ⟩ |  |
+| `webreq.quote` | Báo giá | Quote | ⟨chừa chỗ⟩ |  |
+| `webreq.claimed_toast` | Đã nhận yêu cầu {code} | Request {code} picked up | ⟨chừa chỗ⟩ |  |
+| `webreq.released_toast` | Đã trả {code} về hàng chờ | {code} returned to the queue | ⟨chừa chỗ⟩ |  |
+| `webreq.declined_toast` | Đã đóng yêu cầu {code}. | Request {code} closed. | ⟨chừa chỗ⟩ |  |
+| `webreq.spam_toast` | Đã đánh dấu {code} là spam | {code} marked as spam | ⟨chừa chỗ⟩ |  |
+| `webreq.reopened_toast` | Đã mở lại yêu cầu {code} | Request {code} reopened | ⟨chừa chỗ⟩ |  |
+| `webreq.release_other_title` | Trả yêu cầu {code} của {name} về hàng chờ? | Return {name}'s request {code} to the queue? | ⟨chừa chỗ⟩ |  |
+| `webreq.release_other_body` | {name} sẽ không còn phụ trách yêu cầu này. Hạn trả lời giữ nguyên. | {name} will no longer handle this request. The reply deadline stays the same. | ⟨chừa chỗ⟩ |  |
+| `webreq.spam_title` | Đánh dấu {code} là spam? | Mark {code} as spam? | ⟨chừa chỗ⟩ |  |
+| `webreq.spam_body` | Không liên hệ khách này nữa. Yêu cầu spam tự xóa sau hạn lưu ngắn. | Don't contact this sender again. Spam requests are deleted after a short retention period. | ⟨chừa chỗ⟩ |  |
+| `webreq.decline_title` | Đóng yêu cầu {code} | Close request {code} | ⟨chừa chỗ⟩ |  |
+| `webreq.decline_reason` | Lý do | Reason | ⟨chừa chỗ⟩ |  |
+| `webreq.decline.no_availability` | Hết phòng | No availability | ⟨chừa chỗ⟩ |  |
+| `webreq.decline.price_not_accepted` | Khách chưa chọn vì giá | Guest declined the price | ⟨chừa chỗ⟩ |  |
+| `webreq.decline.guest_not_proceeding` | Khách không đặt nữa | Guest not going ahead | ⟨chừa chỗ⟩ |  |
+| `webreq.decline.guest_unreachable` | Không liên lạc được | Guest unreachable | ⟨chừa chỗ⟩ |  |
+| `webreq.decline.duplicate` | Trùng yêu cầu / đã có đơn | Duplicate / already booked | ⟨chừa chỗ⟩ |  |
+| `webreq.decline.policy_mismatch` | Không phù hợp quy định | Outside our policy | ⟨chừa chỗ⟩ |  |
+| `webreq.decline.other` | Lý do khác | Other reason | ⟨chừa chỗ⟩ |  |
+| `webreq.decline.stale` | Tự đóng – không hoạt động | Closed automatically – no activity | ⟨chừa chỗ⟩ |  |
+| `webreq.decline.erased_on_request` | Đã xóa theo yêu cầu của người gửi | Erased at the sender's request | ⟨chừa chỗ⟩ |  |
+| `webreq.decline_send_first` | Gửi câu này cho khách trước khi đóng – hệ thống không tự gửi. | Send this to the guest before closing – the system doesn't send it. | ⟨chừa chỗ⟩ |  |
+| `webreq.reply_template` | Câu gợi ý gửi khách ({lang}) | Suggested reply to the guest ({lang}) | ⟨chừa chỗ⟩ |  |
+| `webreq.copy_reply` | Sao chép câu | Copy text | ⟨chừa chỗ⟩ |  |
+| `webreq.note` | Ghi chú nội bộ | Internal note | ⟨chừa chỗ⟩ |  |
+| `webreq.note_hint` | Ghi chú nội bộ – khách không thấy. Không ghi số thẻ, số giấy tờ. | Internal note – the guest won't see it. Don't include card or ID numbers. | ⟨chừa chỗ⟩ |  |
+| `webreq.decline_confirm` | Đóng yêu cầu | Close request | ⟨chừa chỗ⟩ |  |
+| `webreq.decline_need` | Chọn lý do (và ghi chú khi chọn Lý do khác) để bật nút. | Choose a reason (and add a note for Other reason) to enable the button. | ⟨chừa chỗ⟩ |  |
+| `webreq.quote_from` | Báo giá cho yêu cầu {code} | Quote for request {code} | ⟨chừa chỗ⟩ |  |
+| `webreq.contact_matches` | Hồ sơ có cùng liên hệ – kiểm tra đúng người rồi chọn | Profiles with the same contact – check it's the same person, then choose | ⟨chừa chỗ⟩ |  |
+| `webreq.contact_none` | Chưa có hồ sơ cùng liên hệ – tìm hoặc tạo hồ sơ mới bên dưới. | No profile with this contact – find or create one below. | ⟨chừa chỗ⟩ |  |
+| `webreq.pick` | Chọn | Choose | ⟨chừa chỗ⟩ |  |
+| `webreq.picked` | Đã chọn {name} | {name} selected | ⟨chừa chỗ⟩ |  |
+| `webreq.quote_closed` | Yêu cầu đã đóng – mở lại trước khi báo giá. | This request is closed – reopen it before quoting. | ⟨chừa chỗ⟩ |  |
+| `webreq.reply.no_availability` | Cảm ơn bạn đã gửi yêu cầu {code}. OTTIMO đã kín phòng từ {arrival} đến {departure}. Nếu bạn đổi được ngày, cứ nhắn lại – chúng tôi sẽ kiểm tra ngày gần nhất còn phòng. | Thank you for request {code}. OTTIMO is fully booked from {arrival} to {departure}. If your dates are flexible, just reply and we'll check the nearest available dates. | ⟨chừa chỗ⟩ | BA EP19 6.1 – khách đọc |
+| `webreq.reply.price_not_accepted` | Cảm ơn bạn đã cân nhắc OTTIMO. Khi có dịp quay lại Đà Lạt, bạn cứ nhắn mã {code} – chúng tôi sẽ báo giá cho ngày mới. | Thank you for considering OTTIMO. If you plan another trip to Da Lat, send us {code} and we'll quote your new dates. | ⟨chừa chỗ⟩ | khách đọc |
+| `webreq.reply.guest_not_proceeding` | Cảm ơn bạn đã báo OTTIMO. Hẹn gặp bạn dịp khác ở Đà Lạt. | Thank you for letting us know. We hope to welcome you in Da Lat another time. | ⟨chừa chỗ⟩ | khách đọc |
+| `webreq.reply.policy_mismatch` | OTTIMO chưa nhận được yêu cầu {code} theo cách bạn mô tả. Nếu bạn muốn, chúng tôi sẽ gợi ý cách khác phù hợp – cứ nhắn lại. | We're unable to accept request {code} as described. Reply if you'd like us to suggest another option. | ⟨chừa chỗ⟩ | khách đọc |
+
+#### R3 v1.0 – FE-B S35 làm nốt US-155 (FE viết theo content guide; chờ UXD duyệt)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `nav.website_requests_new` | {n} yêu cầu mới chưa ai nhận | {n} new requests not picked up | ⟨chừa chỗ⟩ | Chữ đọc cho số trên menu (số hiện aria-hidden như hifi .badge) |
+| `attn.website_request_new` | Yêu cầu đặt phòng từ website chưa ai nhận: {n} | Website booking requests nobody has picked up: {n} | ⟨chừa chỗ⟩ | kind website_request_new (US-155, BR-912) – count > 1 |
+| `attn.website_request_new_one` | Yêu cầu đặt phòng từ website {code} chưa ai nhận | Website booking request {code} not picked up yet | ⟨chừa chỗ⟩ | count = 1, refCode có giá trị |
+| `webreq.create_booking` | Tạo đơn | Create booking | ⟨chừa chỗ⟩ | createReservation kèm websiteBookingRequestId – FD+ (khách đã chốt và đã cọc) |
+| `webreq.booking_from` | Đặt phòng cho yêu cầu {code} | Booking for request {code} | ⟨chừa chỗ⟩ | Tiêu đề H09 khi mở từ S35 |
+| `webreq.booking_hint` | Đơn tạo ra có nguồn Website; yêu cầu chuyển sang Đã thành đơn và thông tin liên hệ trên yêu cầu được xóa (đã nằm trong hồ sơ khách). | The booking gets the Website source; the request becomes Booked and its contact details are deleted (they are in the guest profile now). | ⟨chừa chỗ⟩ | WR6 – erd 4.14 |
+| `webreq.converted_toast` | Yêu cầu {code} đã thành đơn | Request {code} is now a booking | ⟨chừa chỗ⟩ |  |
+| `webreq.erase` | Xóa theo yêu cầu người gửi | Erase at sender's request | ⟨chừa chỗ⟩ | WR8 – OWN, MGR, FDL (SEC ARC-16) |
+| `webreq.erase_title` | Xóa dữ liệu của yêu cầu {code}? | Erase the details of request {code}? | ⟨chừa chỗ⟩ |  |
+| `webreq.erase_body` | Tên, liên hệ và lời nhắn bị xóa ngay, không khôi phục được. Yêu cầu đóng với lý do "Đã xóa theo yêu cầu của người gửi" và không mở lại được. | Name, contact and message are deleted now and cannot be recovered. The request closes as "Erased at the sender's request" and cannot be reopened. | ⟨chừa chỗ⟩ |  |
+| `webreq.erase_how` | Cách xác minh người xin xóa | How you checked who is asking | ⟨chừa chỗ⟩ |  |
+| `webreq.erase.same_contact` | Họ liên hệ từ chính SĐT hoặc email trên yêu cầu | They contacted us from the phone or email on the request | ⟨chừa chỗ⟩ |  |
+| `webreq.erase.called_back` | Tôi đã gọi lại đúng SĐT trên yêu cầu và người nghe xác nhận muốn xóa | I called back the phone on the request and the person confirmed | ⟨chừa chỗ⟩ |  |
+| `webreq.erase_contact` | SĐT hoặc email họ đã dùng để liên hệ | Phone or email they contacted us from | ⟨chừa chỗ⟩ |  |
+| `webreq.erase_contact_hint` | Hệ thống chỉ so khớp, không lưu số này. | Only compared, never stored. | ⟨chừa chỗ⟩ |  |
+| `webreq.erase_copy_hint` | Người gửi xin bản sao: chỉ gửi tới đúng liên hệ trên yêu cầu. | If the sender asks for a copy, send it only to the contact on the request. | ⟨chừa chỗ⟩ |  |
+| `webreq.erase_confirm` | Xóa ngay | Erase now | ⟨chừa chỗ⟩ |  |
+| `webreq.erase_need` | Chọn cách xác minh (và nhập liên hệ khi chọn cách thứ nhất) để bật nút. | Choose how you checked (and enter the contact for the first option) to enable the button. | ⟨chừa chỗ⟩ |  |
+| `webreq.erased_toast` | Đã xóa dữ liệu của yêu cầu {code} | Details of request {code} erased | ⟨chừa chỗ⟩ |  |
+| `field.CONTACT_MISMATCH` | Liên hệ này không khớp liên hệ trên yêu cầu. Chưa xóa – xác minh lại. | This contact doesn't match the one on the request. Nothing was erased – check again. | ⟨chừa chỗ⟩ | erase same_contact – SEC ARC-16 |
+| `webreq.lookup` | Tìm theo liên hệ | Find by contact | ⟨chừa chỗ⟩ | lookupWebsiteBookingRequests – OWN, MGR, FDL |
+| `webreq.lookup_title` | Tìm yêu cầu theo liên hệ | Find requests by contact | ⟨chừa chỗ⟩ |  |
+| `webreq.lookup_body` | Dùng khi người gửi xin xem hoặc xóa dữ liệu mà không còn mã yêu cầu. Nhập đúng một SĐT hoặc email họ đã dùng. | Use this when a sender asks to see or erase their details and has no request code. Enter the one phone or email they used. | ⟨chừa chỗ⟩ |  |
+| `webreq.lookup_field` | SĐT hoặc email | Phone or email | ⟨chừa chỗ⟩ |  |
+| `webreq.lookup_btn` | Tìm | Find | ⟨chừa chỗ⟩ |  |
+| `webreq.lookup_none` | Không có yêu cầu nào còn dữ liệu của liên hệ này. | No request still holds details for this contact. | ⟨chừa chỗ⟩ |  |
+| `webreq.lookup_found` | {n} yêu cầu còn dữ liệu của liên hệ này – mở để xem hoặc xóa. | {n} requests still hold details for this contact – open one to view or erase it. | ⟨chừa chỗ⟩ |  |
+| `webreq.lookup_invalid` | Nhập một SĐT (số nước ngoài có +mã nước) hoặc một email. | Enter one phone number (with +country code if outside Viet Nam) or one email. | ⟨chừa chỗ⟩ |  |
+| `error.PUBLIC_FORM_NOT_READY` | Chưa bật được form đặt phòng trên website: còn thiếu {missing}. | The website booking form can't be turned on yet: {missing} missing. | ⟨chừa chỗ⟩ | setParameter public_booking_requests_enabled – SEC ARC-17 |
+| `webreq.missing.privacy_notice_vi` | thông báo xử lý dữ liệu tiếng Việt | the Vietnamese privacy notice | ⟨chừa chỗ⟩ |  |
+| `webreq.missing.privacy_notice_en` | thông báo xử lý dữ liệu tiếng Anh | the English privacy notice | ⟨chừa chỗ⟩ |  |
+| `webreq.missing.privacy_notice_ru` | thông báo xử lý dữ liệu tiếng Nga | the Russian privacy notice | ⟨chừa chỗ⟩ |  |
+| `webreq.missing.form_signing_key` | khóa ký form trên máy chủ (báo kỹ thuật) | the form signing key on the server (ask the tech team) | ⟨chừa chỗ⟩ |  |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |

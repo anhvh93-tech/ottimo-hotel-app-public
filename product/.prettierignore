@@ -5,6 +5,7 @@ dist
 # Astro generated types + booking-form review build (apps/landing-web)
 .astro
 apps/landing-web/dist-booking-preview
+apps/landing-web/dist-booking-live
 coverage
 pnpm-lock.yaml
 # Owned by other roles, not formatted by CI in R1 (docs/design are Vietnamese prose & prototypes)

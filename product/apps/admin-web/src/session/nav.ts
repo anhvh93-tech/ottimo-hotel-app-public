@@ -26,6 +26,8 @@ export interface NavItem {
   kbd?: string;
   /** Built in this sprint; others render the "coming later" state. */
   ready?: boolean;
+  /** Number shown next to the label (hi-fi `.nav a .badge`) – see `useNavCounts` in AppShell. */
+  count?: 'webreq_new';
 }
 
 const DESK: Role[] = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
@@ -137,6 +139,19 @@ export const NAV: NavItem[] = [
     screen: 'S15',
     section: 'sales',
     ready: true,
+  },
+  {
+    // R3 Sprint 1 FE-B (US-155 Desk, R3-Q06): queue of booking requests from the website (rbac S35, A64).
+    id: 'webreq',
+    path: '/website-requests',
+    icon: 'globe',
+    label: 'nav.website_requests',
+    screen: 'S35',
+    section: 'sales',
+    roles: [...DESK, 'sales_staff'],
+    ready: true,
+    // US-155 (v1.0): new requests nobody picked up – the reply clock (BR-912, 15 min) starts at arrival.
+    count: 'webreq_new',
   },
   {
     id: 'moneylog',

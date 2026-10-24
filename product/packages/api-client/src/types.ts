@@ -212,3 +212,14 @@ export type GuestRequestType = Schemas['GuestRequestType'];
 export type TransitionGuestRequestBody = NonNullable<BodyOf<'transitionGuestRequest'>>;
 export type Item = Schemas['Item'];
 export type ItemInput = Schemas['ItemInput'];
+
+// ---------- R3 Sprint 1 FE-B – S35 "Yêu cầu từ website" (US-155 Desk, OpenAPI 0.3.7 bổ sung 2, frozen in 0.3.8) ----------
+export type WebsiteBookingRequest = Schemas['WebsiteBookingRequest'];
+export type WebsiteBookingRequestStatus = Schemas['WebsiteBookingRequestStatus'];
+export type WebsiteBookingRequestDeclineReason = Schemas['WebsiteBookingRequestDeclineReason'];
+export type WebsiteBookingRequestTransition = Schemas['WebsiteBookingRequestTransition'];
+/** `lookupWebsiteBookingRequests` row – id, code, status, sent time; no C2 (SEC ARC-16). */
+export type WebsiteBookingRequestRef = Schemas['WebsiteBookingRequestRef'];
+/** Path segment of `transitionWebsiteBookingRequest` (SM-18 WR1–WR5, WR8). */
+export type WebsiteBookingRequestAction =
+  'claim' | 'release' | 'decline' | 'mark-spam' | 'reopen' | 'erase';

@@ -24,11 +24,16 @@ import { GuestPicker } from '../../components/GuestPicker';
 import { OccupancyField, type Occupancy } from '../../components/OccupancyField';
 import { useOnline } from '../../hooks/useOnline';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
+import { monoArgs } from '../../app/mono';
+import { ContactMatches, type WebRequestLink } from '../webreq/ContactMatches';
 
 export interface LongStayPrefill {
   roomId?: string;
   arrivalDate?: string;
   departureDate?: string;
+  /** R3 v1.0 (US-155 AC2): a long stay asked on the website – guests and the linked request. */
+  occ?: Occupancy;
+  webRequest?: WebRequestLink;
 }
 
 interface Form {
@@ -81,9 +86,9 @@ export function LongStayDialog({
       roomId: prefill?.roomId ?? '',
       arrivalDate: arrival,
       departureDate: prefill?.departureDate ?? addDays(arrival, 182),
-      occ: { adults: 1, children6to11: 0, childrenUnder6: 0 },
+      occ: prefill?.occ ?? { adults: 1, children6to11: 0, childrenUnder6: 0 },
       guest: null,
-      phone: '',
+      phone: prefill?.webRequest?.contact?.phone ?? '',
       rent: '',
       deposit: '',
       contractRef: '',
@@ -184,6 +189,7 @@ export function LongStayDialog({
           externalContractRef: form.contractRef.trim() || undefined,
           note: form.note.trim() || undefined,
         },
+        websiteBookingRequestId: prefill?.webRequest?.id,
       };
       const sig = JSON.stringify(body);
       if (idem.current?.body !== sig) idem.current = { body: sig, key: newIdempotencyKey() };
@@ -222,7 +228,10 @@ export function LongStayDialog({
       size="lg"
       title={
         <>
-          {t('lsm.title')} <Chip tone="info">{t('status.booking.long_term')}</Chip>
+          {prefill?.webRequest
+            ? monoArgs(t, 'webreq.booking_from', { code: prefill.webRequest.code }, ['code'])
+            : t('lsm.title')}{' '}
+          <Chip tone="info">{t('status.booking.long_term')}</Chip>
         </>
       }
       meta={draftAt ? t('crm.draft_saved', { time: draftAt }) : undefined}
@@ -255,6 +264,11 @@ export function LongStayDialog({
         <Alert tone="info" role="note" title={t('lsm.flag')}>
           {t('lsm.flag_body')}
         </Alert>
+        {prefill?.webRequest ? (
+          <Alert tone="info" icon="globe" role="note">
+            {t('webreq.booking_hint')}
+          </Alert>
+        ) : null}
         {!online ? <Alert tone="warn">{t('bk.offline')}</Alert> : null}
         {write.notice}
         {requestError ? (
@@ -317,6 +331,13 @@ export function LongStayDialog({
           </Button>
         ) : null}
         <div className="g-2">
+          {prefill?.webRequest?.contact ? (
+            <ContactMatches
+              contact={prefill.webRequest.contact}
+              chosen={form.guest}
+              onPick={(guest) => set({ guest })}
+            />
+          ) : null}
           <GuestPicker
             label={t('booking.field.guest')}
             required

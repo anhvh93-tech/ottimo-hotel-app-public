@@ -138,6 +138,11 @@ import type {
   TrustedDevice,
   UpdateUserBody,
   User,
+  WebsiteBookingRequest,
+  WebsiteBookingRequestAction,
+  WebsiteBookingRequestRef,
+  WebsiteBookingRequestStatus,
+  WebsiteBookingRequestTransition,
 } from './types';
 
 type P = { propertyId: string };
@@ -183,6 +188,15 @@ export interface ListReservationsQuery {
   limit?: number;
 }
 type Paged<T> = { data: T[]; page: PageInfo };
+
+/** S35 queue filters – only the status list and the request code go in the URL (C2 never does – SEC ARC-12). */
+export interface ListWebsiteRequestsQuery {
+  status?: WebsiteBookingRequestStatus[];
+  refCode?: string;
+  cursor?: string;
+  limit?: number;
+}
+const WBR = '/v1/properties/{propertyId}/website-booking-requests';
 
 export function createEndpoints(api: ApiClient) {
   const r = api.request.bind(api);
@@ -1168,6 +1182,42 @@ export function createEndpoints(api: ApiClient) {
         query: { reason },
         ifMatch: version,
         idempotencyKey: idem,
+      }),
+
+    // ---------- S35 "Yêu cầu từ website" (US-155 Desk – R3-Q06) ----------
+    /** Queue: default `new,in_progress`; server sorts (new by `replyBy`, then `updatedAt` desc) and scopes SAL. */
+    listWebsiteBookingRequests: ({ propertyId }: P, query: ListWebsiteRequestsQuery = {}) =>
+      r<Paged<WebsiteBookingRequest>>('GET', WBR, {
+        path: { propertyId },
+        query: { ...query, status: query.status?.length ? query.status.join(',') : undefined },
+      }),
+    getWebsiteBookingRequest: ({ propertyId, requestId }: P & { requestId: string }) =>
+      r<WebsiteBookingRequest>('GET', `${WBR}/{requestId}`, { path: { propertyId, requestId } }),
+    /** WR1–WR5 (+ WR8 erase, OWN/MGR/FDL): `If-Match` = version, one Idempotency-Key per click. */
+    transitionWebsiteBookingRequest: (
+      { propertyId, requestId }: P & { requestId: string },
+      action: WebsiteBookingRequestAction,
+      body: WebsiteBookingRequestTransition,
+      version: number,
+      idempotencyKey: string,
+    ) =>
+      r<WebsiteBookingRequest>('POST', `${WBR}/{requestId}/actions/{action}`, {
+        path: { propertyId, requestId, action },
+        body,
+        ifMatch: version,
+        idempotencyKey,
+      }),
+    /**
+     * Data-rights request without a code (SEC ARC-16, OWN/MGR/FDL): exactly one phone OR email in the BODY (never the
+     * URL); returns ids/codes/status only – the detail opens with `getWebsiteBookingRequest`. Read-only, no key.
+     */
+    lookupWebsiteBookingRequests: (
+      { propertyId }: P,
+      body: { phone: string } | { email: string },
+    ) =>
+      r<{ data: WebsiteBookingRequestRef[] }>('POST', `${WBR}/lookup`, {
+        path: { propertyId },
+        body,
       }),
 
     // users & devices (S26, owner only)

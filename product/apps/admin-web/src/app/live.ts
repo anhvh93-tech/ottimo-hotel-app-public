@@ -35,6 +35,8 @@ export interface LiveOptions {
   events?: readonly string[];
   /** Burst window – several events in it give one call (rack 150 ms; dashboard 1 s – EP01 §4). */
   debounceMs?: number;
+  /** false = no stream, no poll, no listener (e.g. a menu number the person's role does not show). Default true. */
+  enabled?: boolean;
 }
 
 export function useLiveEvents(
@@ -47,8 +49,10 @@ export function useLiveEvents(
   cbRef.current = onEvents;
   const events = (opts.events ?? RELOAD_EVENTS).join(' ');
   const debounceMs = opts.debounceMs ?? 150;
+  const enabled = opts.enabled ?? true;
 
   useEffect(() => {
+    if (!enabled) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let pending = new Set<string>();
     // Several events in a burst (e.g. move = 2 reservations) → one call with every kind seen.
@@ -112,7 +116,7 @@ export function useLiveEvents(
       window.removeEventListener('focus', onFocus);
       source?.close();
     };
-  }, [propertyId, events, debounceMs]);
+  }, [propertyId, events, debounceMs, enabled]);
 
   return { stale };
 }

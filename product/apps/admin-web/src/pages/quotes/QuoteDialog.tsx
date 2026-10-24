@@ -25,14 +25,28 @@ import { useDebounced } from '../../hooks/useDebounced';
 import { useOnline } from '../../hooks/useOnline';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { DepositQr } from '../reservations/DepositQr';
+import { ContactMatches } from '../webreq/ContactMatches';
 
 export interface QuotePrefill {
   roomId?: string;
   arrivalDate?: string;
   nights?: number;
   adults?: number;
+  children6to11?: number;
+  childrenUnder6?: number;
   /** Reopen a saved quote at the "send" step. */
   quote?: Quote;
+  /**
+   * R3 S1 FE-B (US-155 AC2): quote for a website request – `saveQuote.websiteBookingRequestId` (the request moves to
+   * `in_progress`, a hold from this quote converts it – WR6). `contact` (C2 of the request) is only sent in the body
+   * of `lookupGuestByContact` to suggest profiles; nothing is merged automatically (BR-951, ADR-014 4.3).
+   */
+  webRequest?: {
+    id: string;
+    code: string;
+    locale: 'vi' | 'en' | 'ru';
+    contact?: { phone?: string; email?: string };
+  };
 }
 
 type Step = 'quote' | 'send' | 'hold';
@@ -69,8 +83,8 @@ export function QuoteDialog({
   const [nights, setNights] = useState(prefill.nights ?? 2);
   const [occ, setOcc] = useState<Occupancy>({
     adults: prefill.adults ?? 2,
-    children6to11: 0,
-    childrenUnder6: 0,
+    children6to11: prefill.children6to11 ?? 0,
+    childrenUnder6: prefill.childrenUnder6 ?? 0,
   });
   const [returnCode, setReturnCode] = useState('');
   const [guest, setGuest] = useState<GuestSummary | null>(null);
@@ -80,7 +94,7 @@ export function QuoteDialog({
   const [guestError, setGuestError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
   // BUG-R2-080 (US-083 AC2, P-S4-3): the guest text in Vietnamese, English or Russian (API has all three).
-  const [lang, setLang] = useState<'vi' | 'en' | 'ru'>('vi');
+  const [lang, setLang] = useState<'vi' | 'en' | 'ru'>(prefill.webRequest?.locale ?? 'vi');
   const [text, setText] = useState('');
   const [holdHours, setHoldHours] = useState(rules.holdHoursDefault);
   const [held, setHeld] = useState<Reservation | null>(null);
@@ -224,6 +238,7 @@ export function QuoteDialog({
             channelId: channel!.id,
             returnGuestCode: returnCode.trim() || undefined,
             guestId: guest.id,
+            websiteBookingRequestId: prefill.webRequest?.id,
           },
           key,
         ),
@@ -377,7 +392,11 @@ export function QuoteDialog({
       size="lg"
       title={
         step === 'quote' ? (
-          t('sale.quote_title')
+          prefill.webRequest ? (
+            monoArgs(t, 'webreq.quote_from', { code: prefill.webRequest.code }, ['code'])
+          ) : (
+            t('sale.quote_title')
+          )
         ) : step === 'send' ? (
           <>
             {saved?.code}{' '}
@@ -463,6 +482,16 @@ export function QuoteDialog({
             }
           />
           <div className="g-2">
+            {prefill.webRequest?.contact ? (
+              <ContactMatches
+                contact={prefill.webRequest.contact}
+                chosen={guest}
+                onPick={(g) => {
+                  setGuest(g);
+                  setGuestError(undefined);
+                }}
+              />
+            ) : null}
             <GuestPicker
               label={t('booking.field.guest')}
               required

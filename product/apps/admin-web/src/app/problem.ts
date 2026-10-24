@@ -37,6 +37,11 @@ function argsFor(error: ApiError, locale: 'vi' | 'en' = 'vi'): Args {
   if (p.min !== undefined) args.min = String(p.min);
   if (p.max !== undefined) args.max = String(p.max);
   if (Array.isArray(p.allowed)) args.allowed = p.allowed.join(', ');
+  // US-155 (SEC ARC-17): PUBLIC_FORM_NOT_READY lists what is missing before the website form can be turned on.
+  if (Array.isArray(p.missing))
+    args.missing = (p.missing as unknown[])
+      .map((m) => translate(locale, `webreq.missing.${String(m)}`))
+      .join(', ');
   if (p.requestId) args.request_id = p.requestId;
   // UXR #9: room / dates / guest of a conflict (ROOM_BLOCKED, ROOM_UNAVAILABLE, ROOM_OCCUPIED,
   // LATE_CHECKOUT_CONFLICT…) – `{room}` `{from}` `{to}` are never shown raw. The guest name is only

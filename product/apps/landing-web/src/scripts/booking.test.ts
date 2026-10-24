@@ -293,3 +293,118 @@ describe('transport', () => {
     });
   });
 });
+
+describe('live form answers (US-155 v1.0 – OpenAPI 0.3.7 add-on 2)', () => {
+  const draft = buildDraft(base);
+  const tok = {
+    token: `v1.${'t'.padEnd(30, 'x')}`,
+    notBefore: '2026-10-24T00:00:03Z',
+    expiresAt: '2026-10-24T02:00:00Z',
+    minDelaySeconds: 0,
+  };
+  const ok = (kind: string, by: string) => ({
+    status: 202,
+    body: { refCode: 'K7Q2M9XD', promise: { kind, by, minutes: 60 } },
+  });
+  function deps(responses: Array<{ status: number; body?: unknown }>) {
+    const urls: string[] = [];
+    const d: TransportDeps = {
+      fetch: async (url) => {
+        urls.push(url);
+        const r = responses.shift();
+        if (!r) throw new Error('unexpected request');
+        return new Response(r.body === undefined ? null : JSON.stringify(r.body), {
+          status: r.status,
+        });
+      },
+      now: () => 0,
+      sleep: async () => {},
+      uuid: () => 'k',
+    };
+    return { d, urls };
+  }
+
+  it('switch off on the server: 404 on the post or 422 PUBLIC_FORM_NOT_READY → not-ready (Zalo / call)', async () => {
+    expect(
+      await apiTransport('/b', deps([{ status: 200, body: tok }, { status: 404 }]).d).send(draft),
+    ).toEqual({ kind: 'not-ready' });
+    const notReady = { code: 'PUBLIC_FORM_NOT_READY', missing: ['privacy_notice_en'] };
+    expect(
+      await apiTransport(
+        '/b',
+        deps([
+          { status: 200, body: tok },
+          { status: 422, body: notReady },
+        ]).d,
+      ).send(draft),
+    ).toEqual({ kind: 'not-ready' });
+  });
+
+  it('first touch tells the page early when the form is off; the next send asks again', async () => {
+    const f = deps([
+      { status: 404 },
+      { status: 200, body: tok },
+      ok('next_morning', '2026-10-25T02:00:00Z'),
+    ]);
+    const t = apiTransport('/b', f.d);
+    expect(await t.prepare()).toEqual({ kind: 'not-ready' });
+    expect((await t.send(draft)).kind).toBe('accepted');
+    expect(f.urls).toEqual(['/b/form-token', '/b/form-token', '/b/booking-requests']);
+    expect(await previewTransport.prepare()).toBeNull();
+  });
+
+  it('422 field errors come back as field + code only (no value); NOTICE_VERSION_INVALID → reload', async () => {
+    const invalid = {
+      code: 'VALIDATION_FAILED',
+      errors: [
+        { field: 'body.note', code: 'ID_NUMBER_DETECTED' },
+        { field: 'phone', code: 'PHONE_COUNTRY_CODE_REQUIRED' },
+      ],
+    };
+    expect(
+      await apiTransport(
+        '/b',
+        deps([
+          { status: 200, body: tok },
+          { status: 422, body: invalid },
+        ]).d,
+      ).send(draft),
+    ).toEqual({
+      kind: 'invalid',
+      errors: [
+        { field: 'note', code: 'ID_NUMBER_DETECTED' },
+        { field: 'phone', code: 'PHONE_COUNTRY_CODE_REQUIRED' },
+      ],
+    });
+    const stale = {
+      code: 'VALIDATION_FAILED',
+      errors: [{ field: 'consentVersion', code: 'NOTICE_VERSION_INVALID' }],
+    };
+    expect(
+      await apiTransport(
+        '/b',
+        deps([
+          { status: 200, body: tok },
+          { status: 422, body: stale },
+        ]).d,
+      ).send(draft),
+    ).toEqual({ kind: 'reload' });
+  });
+
+  it('an API on another origin is called with its absolute base (PUBLIC_FORM_API_BASE)', async () => {
+    const f = deps([{ status: 200, body: tok }, ok('within_minutes', '2026-10-24T03:00:00Z')]);
+    await apiTransport('https://desk.example.vn/v1/public/properties/dl01', f.d).send(draft);
+    expect(f.urls).toEqual([
+      'https://desk.example.vn/v1/public/properties/dl01/form-token',
+      'https://desk.example.vn/v1/public/properties/dl01/booking-requests',
+    ]);
+  });
+
+  it('every new sentence exists in EN and VI, calm voice, no emoji or "!"', () => {
+    for (const lang of ['en', 'vi'] as const) {
+      const S = BOOKING_STRINGS[lang];
+      for (const x of [S.reload, S.e.idNumber, S.e.phoneCountry, S.e.server, ...S.notReady])
+        expect(x).not.toMatch(/!|\p{Extended_Pictographic}/u);
+    }
+  });
+});
