@@ -9,12 +9,11 @@
  *
  *   B  còn phải thu (signed) = Σ posted lines − Σ live receipts (succeeded, not reversed, not a security deposit,
  *      not a refund) + Σ refunds paid (refund rows are negative amounts → subtract them)
- *   O  open debt by EVENT REPLAY (v0.4.3, oracle 5.6): in time order – a debt record adds (a record while O = 0 opens
- *      a new cycle), a receipt reduces (counted when received, also one reversed later: its reversal is a debt
- *      record), a posted `debt_write_off` FOC reduces, a reversed one revives; after every instant
- *      O = clamp(O, 0, max(0, B of that instant)). So debt extinguished because B fell to 0 does not come back
- *      when B rises later (FZ08-1/3). Old (pre-0076) debt the same way. Window over (folio `closed` or
- *      now ≥ post_checkout_window_until) → O = max(0, B).
+ *   O  = clamp(R − D, 0, max(0, B)) (oracle 1, 5.6 v0.4.3), R and D replayed in time order: a debt record adds to R
+ *      (a record while O = 0 opens a new cycle: R, D restart), a receipt adds to D (counted when received, also one
+ *      reversed later: its reversal is a debt record), a posted `debt_write_off` FOC adds to D, a reversed one takes
+ *      it back. Old (pre-0076) debt the same way. Window over (folio `closed` or now ≥ post_checkout_window_until)
+ *      → O = max(0, B).
  *   R, D  the records / reductions of the current cycle (for I5 and the log)
  *   W  = max(0, B) − O
  *   Same-instant rows: reductions, then revivals, then records (the runner spaces steps by one fake second; a race
@@ -419,40 +418,33 @@ function replay(
     if (p.updatedAt <= nowIso) ev.push({ t: p.updatedAt, order: 3, kind: 'tick', amount: 0 });
   }
   ev.sort((a, b) => (a.t === b.t ? a.order - b.order : a.t < b.t ? -1 : 1));
-  let O = 0;
+  // O = clamp(R − D, 0, max(0, B)) – the DOM formula (oracle 1 + 5.6), NOT a sticky clamp: fuzz final run 24/10
+  // (FZ-10 63048, FZ-11 63008) showed the sticky reading departs from the formula the code and every DOM example
+  // follow (FZ08-1: B < 0 → 0; FZ08-3: D unchanged → 0). R, D are replayed in time order for the cycle boundary.
   let cycleOpenedAt: string | null = null;
   let R = 0;
   let D = 0;
+  const oAt = (t: string) =>
+    cycleOpenedAt ? Math.max(0, Math.min(R - D, Math.max(0, signedBAt(raw, t)))) : 0;
   const oBeforeRecord: RefView['oBeforeRecord'] = [];
-  for (let i = 0; i < ev.length;) {
-    const t = ev[i]!.t;
-    // all events of one instant, then clamp to max(0, B) of that instant
-    for (; i < ev.length && ev[i]!.t === t; i++) {
-      const e = ev[i]!;
-      if (e.kind === 'record') {
-        const clamped = Math.max(0, Math.min(O, Math.max(0, signedBAt(raw, prevMs(t)))));
-        oBeforeRecord.push({ at: e.audit!.at, oBefore: clamped, dueDate: e.audit!.dueDate });
-        if (clamped === 0) {
-          cycleOpenedAt = t;
-          R = 0;
-          D = 0;
-          O = 0;
-        }
-        R += e.amount;
-        O += e.amount;
-      } else if (e.kind === 'reduce') {
-        if (cycleOpenedAt) D += e.amount;
-        O -= e.amount;
-      } else if (e.kind === 'revive') {
-        // DOM 5.6 (BR v0.4.3, FZ08-1…3): a cancelled write-off brings the debt back, and the clamp of this
-        // instant (below) keeps it within còn phải thu – O = clamp(R − D, 0, max(0, B)), for old and new debt alike
-        if (cycleOpenedAt) D -= e.amount;
-        O += e.amount;
+  for (const e of ev) {
+    if (e.kind === 'record') {
+      const oBefore = oAt(prevMs(e.t));
+      oBeforeRecord.push({ at: e.audit!.at, oBefore, dueDate: e.audit!.dueDate });
+      if (oBefore === 0) {
+        cycleOpenedAt = e.t;
+        R = 0;
+        D = 0;
       }
+      R += e.amount;
+    } else if (e.kind === 'reduce') {
+      if (cycleOpenedAt) D += e.amount;
+    } else if (e.kind === 'revive') {
+      // a write-off undone (also one of an earlier cycle) brings the debt back – FB-R3-QA-DOM-02 point 2
+      if (cycleOpenedAt) D -= e.amount;
     }
-    O = Math.max(0, Math.min(O, Math.max(0, signedBAt(raw, t))));
   }
-  O = Math.max(0, Math.min(O, Math.max(0, signedBAt(raw, nowIso))));
+  const O = oAt(nowIso);
   return { O, cycleOpenedAt, R, D, oBeforeRecord };
 }
 
@@ -462,9 +454,7 @@ export function refView(raw: RawFolio, nowIso: string): RefView {
   const B = signedBAt(raw, nowIso);
   const windowOver =
     raw.folio.status === 'closed' || (!!raw.folio.windowUntil && nowIso >= raw.folio.windowUntil);
-  // O by EVENT REPLAY with the clamp applied at every instant (DOM oracle 5.6, BR v0.4.3 – FZ08-1/3): a debt that
-  // is extinguished because B fell to 0 does not come back when B rises later (a later window charge is W, not
-  // revived debt); a cancelled write-off revives debt only up to max(0, B) of that instant.
+  // O = clamp(R − D, 0, max(0, B)) with R, D replayed in time order (see `replay`).
   const { O: replayO, cycleOpenedAt, R, D, oBeforeRecord } = replay(raw, nowIso);
   const O = windowOver ? Math.max(0, B) : replayO;
   const W = Math.max(0, B) - O;

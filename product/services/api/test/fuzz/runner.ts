@@ -954,10 +954,12 @@ export class Runner {
       const a = await this.prepare(op.a, s);
       const b = await this.prepare(op.b, s);
       label = `race [${a.label}] ‖ [${b.label}] ${op.bFirst ? 'B first' : 'A first'}`;
+      // ARC s1-ARC-on-add3 (QR-late race = harness ordering): a race of a debt-recording op with ANY other op but
+      // `advance` happens at one fake instant – the reference cannot order the two rows (qrLate, sysCredit, refund
+      // ops included)
       const records = (o: Op) => o.k === 'reverse' || o.k === 'j15';
-      const money = (o: Op) =>
-        records(o) || o.k === 'collect' || o.k === 'writeOff' || o.k === 'decide' || o.k === 'a32';
-      if ((records(op.a) && money(op.b)) || (records(op.b) && money(op.a)))
+      const other = (o: Op) => o.k !== 'advance';
+      if ((records(op.a) && other(op.b)) || (records(op.b) && other(op.a)))
         this.ambiguousSeen = true;
       const thunks = (op.bFirst ? [b, a] : [a, b]).map(
         (p) => async () => (await p.run()) ?? ({ statusCode: 0, body: '' } as unknown as Res),
