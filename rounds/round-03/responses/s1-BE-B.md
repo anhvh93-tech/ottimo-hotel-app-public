@@ -340,3 +340,8 @@ Làm theo đề xuất 1, 2 của critic:
 - Lúc chi vẫn kẹp ở `min(còn lại, tiền dư)`.
 - Chưa làm: kiểm "số duyệt ≤ tiền dư" ở bước duyệt. Vì kế hoạch đã được lập lại ở mọi đường làm giảm tiền dư, yêu cầu tới tay người duyệt đã đúng số. Nếu ARC vẫn muốn thêm lớp chặn ở bước duyệt thì tôi làm tiếp.
 - ARC thêm `postLine` vào danh sách 13.2.
+
+## Kiểm đã chạy
+- Toàn bộ API: 128 tệp đạt, 2 bỏ qua; 3.227 test đạt, 21 bỏ qua.
+- Fuzz đủ cờ ORC (`FUZZ_CHAINS=30`): 270 chuỗi, 10.359 bước, deadlock 0, 5xx 0; mọi ca có hướng đạt.
+- Còn 2 vi phạm I7, đều có sẵn trước bản sửa: FZ-08 1026 (P3, không tính G1), và FZ-02 1006 (nối tiếp bước đua; tái hiện được trên `593ce95`).

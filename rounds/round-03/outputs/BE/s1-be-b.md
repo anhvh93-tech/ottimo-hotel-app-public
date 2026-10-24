@@ -492,3 +492,10 @@ Các đường đã gắn:
   - còn tiền dư 200.000 → yêu cầu đã duyệt giữ nguyên, J15 vẫn chờ;
   - yêu cầu chờ 300.000, phát sinh 100.000 → hủy `superseded`, xin lại 200.000 (giữ nguồn A32, người xin, ghi chú);
   - phát sinh vượt tiền dư → hủy, không xin lại; J15 ghi nợ 50.000.
+- Toàn bộ API: 128 tệp đạt, 2 bỏ qua; 3.227 test đạt, 21 bỏ qua. tsc, eslint, prettier đạt. Không có migration.
+- Fuzz `FUZZ=1 FUZZ_BE83=1 FUZZ_FZ02=1 FUZZ_K1106=1 FUZZ_ADD3=1 FUZZ_CHAINS=30` (harness `593ce95`): 9 họ, 270 chuỗi, 10.359 bước, deadlock 0, 5xx 0.
+  - Mọi ca có hướng đạt: FZ02, ADD3/I18, SEC.
+  - Không còn J15 `waiting_refund` khi tiền dư = 0, không còn yêu cầu mở vượt tiền dư.
+  - Còn 2 vi phạm cứng I7, đều không do bản sửa này:
+    - FZ-08 seed 1026: nợ trước 0076, P3, không tính G1 (ARC);
+    - FZ-02 seed 1006 bước 29: nối tiếp `I3?`/`I5?` của bước đua "QR về muộn ‖ đảo khoản thu" ở bước 27, khi harness đoán thứ tự đua (critic: loại (b)). Chạy seed này trên `origin/main` `593ce95` (trước bản sửa) ra đúng vi phạm I7 đó.
