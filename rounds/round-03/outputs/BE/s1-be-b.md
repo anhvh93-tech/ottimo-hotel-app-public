@@ -457,3 +457,38 @@ Không có vi phạm I1, I2, I7, I8, I11, I16, không deadlock, không 5xx trong
 ### Còn mở
 - FE-A: hiện câu "Sẽ chờ chủ cơ sở duyệt" khi yêu cầu lập tay chuyển `owner` (SEC 5, ARC ADD3-02).
 - QA: fuzz thêm thao tác "người xin hủy yêu cầu hoàn" và "lập yêu cầu tay sau A32", kèm bất biến I18.
+
+## 14. Sửa BUG-R3-012 (P0) và BUG-R3-013 (P1) – fuzz G1 cuối (24/10)
+
+Nhánh `be-b/r3-bug-012-013`, tách từ `origin/main` `593ce95`. Không cần migration: lý do `superseded` đã có trong CHECK `auto_cancel_reason`.
+
+### BUG-R3-013 (gốc) – yêu cầu hoàn đang mở phải theo tiền dư
+Mọi thay đổi làm **giảm** tiền dư của folio `settled` nay chạy lại `refundPlan` (BR-522 K11-06):
+- yêu cầu đang chờ lớn hơn tiền dư → hủy `superseded`, xin lại đúng số. Yêu cầu A32 giữ nguyên nguồn, ghi chú, người xin và mảng `origin_actor_ids`;
+- **không còn tiền dư**:
+  - yêu cầu **đã duyệt** mà chưa chi (hoặc chi dở) được đóng: `cancelled`, `superseded`;
+  - có audit; người xin và người được hỏi duyệt được báo;
+  - hook của payments chạy (xóa tài khoản nhận – SEC-BE-45);
+- vẫn còn tiền dư thì yêu cầu đã duyệt giữ nguyên; lúc chi vẫn kẹp ở `min(còn lại, tiền dư)`.
+
+Các đường đã gắn:
+- `afterSettledMoneyChange` chạy lập lại kế hoạch **trước** mọi việc khác, nên cả A32 giảm khi yêu cầu đang vượt cũng được xử lý;
+- ghi phát sinh sau trả phòng (`addFolioLine`, gồm `late`) gọi `afterSettledMoneyChange`;
+- duyệt giá hư hỏng (`damage_pricing`) trên folio `settled` gọi hàm mới `replanSettledRefunds`;
+- J15 tự lập lại kế hoạch khi không có người bấm. Bản thay thế lấy người xin của yêu cầu cũ nhất mà nó thay.
+
+`ApprovalService.cancelApproved` nhận thêm lý do `superseded` (chỉ dùng cho refund) và chạy hook quyết định của refund.
+
+### BUG-R3-012 – J15
+- `closeAfterWindow` chỉ trả `waiting_refund` khi **còn tiền phải trả lại khách** (tiền dư > 0 và còn yêu cầu mở).
+- Yêu cầu vượt tiền dư được lập lại trước. Khi tiền dư = 0, các yêu cầu đều đã đóng, nên J15 ghi công nợ `post_checkout_unpaid` qua đường `debtOnCheckout` sẵn có rồi đóng folio.
+- Đóng folio thì giải "Cần chú ý" `closed_reservation_credit`.
+
+### Test
+- `fuzz/bug-r3-012.test.ts` (ca tái hiện của QA): bỏ cờ `FUZZ_KNOWN_BUGS`, nay luôn chạy, đạt.
+- `s438-r8/r3-bug-012-013.test.ts` (5 ca):
+  - ca của QA: yêu cầu đã duyệt 300.000, ghi phát sinh 500.000 → yêu cầu đóng ngay; J15 → `closed`, nợ 200.000, "Cần chú ý" giải;
+  - J15 tự xử lý: phát sinh ghi thẳng vào bảng, không qua hook → J15 đóng yêu cầu, ghi nợ, đóng folio, `waitingRefund` = 0;
+  - còn tiền dư 200.000 → yêu cầu đã duyệt giữ nguyên, J15 vẫn chờ;
+  - yêu cầu chờ 300.000, phát sinh 100.000 → hủy `superseded`, xin lại 200.000 (giữ nguồn A32, người xin, ghi chú);
+  - phát sinh vượt tiền dư → hủy, không xin lại; J15 ghi nợ 50.000.
