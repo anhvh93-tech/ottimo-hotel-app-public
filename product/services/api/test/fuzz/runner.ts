@@ -894,6 +894,7 @@ export class Runner {
                 creditVnd: credit,
                 bBefore: ref.B,
               },
+              refundActor: { userId: idOf(payer) ?? '', kind: 'pay' as const },
             },
             run: async () =>
               x.c[payer]!.send(
@@ -918,12 +919,16 @@ export class Runner {
         if (!bare.length) return { label: 'refundPay (none)', ctx: {}, run: async () => null };
         const r = bare[op.req % bare.length]!;
         const transfer = op.req % 2 === 1;
+        // 13.4 point 2 (SELF_REFUND_FORBIDDEN): req 4 / 9 → MGR types the destination on the desk device (the desk's
+        // trusted device token) – refused when MGR made an A32 reduction on the folio; otherwise FD
+        const setter = op.req % 5 === 4 ? 'mgr' : 'fd';
+        if (setter !== 'fd' && x.c.fd!.deviceToken) x.c[setter]!.deviceToken = x.c.fd!.deviceToken;
         return {
-          label: `set refund destination ${transfer ? 'bank_transfer' : 'cash'} on ${r.status} ${r.amountVnd} by fd`,
-          ctx: {},
-          // FAKE account (10 digits – never Luhn-checked as a card); only FD holds the trusted desk device
+          label: `set refund destination ${transfer ? 'bank_transfer' : 'cash'} on ${r.status} ${r.amountVnd} by ${setter}`,
+          ctx: { refundActor: { userId: x.t.users[setter]!.id, kind: 'destination' as const } },
+          // FAKE account (10 digits – never Luhn-checked as a card)
           run: () =>
-            x.c.fd!.send(
+            x.c[setter]!.send(
               'PUT',
               x.url(`/approval-requests/${r.id}/refund-destination`),
               transfer

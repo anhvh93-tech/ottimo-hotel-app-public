@@ -55,8 +55,10 @@ export interface StepCtx {
   refundsBefore?: RawFolio['refunds'];
   /** The step was one op (not a race): I19 links a replacement to what the step superseded only then. */
   sequential?: boolean;
-  /** Raw credit (max(0, −B)) just before the step (I24). */
+  /** Raw credit (max(0, −B)) just before the step. */
   creditBefore?: number;
+  /** A sequential refund pay-out / destination change: who did it (I25 – SELF_REFUND_FORBIDDEN, ARC 13.4 point 2). */
+  refundActor?: { userId: string; kind: 'pay' | 'destination' };
   /** The step was a money op done by a person on a settled folio – K11-06: 'payment' (collect, confirm a QR) or
    *  'a32' (reduction; asks only for ITS part – FZ02-8 min rule). */
   humanMoneyOnSettled?: 'payment' | 'a32';
@@ -533,10 +535,13 @@ function i18(raw: RawFolio, v: Violation[], g: Gates): void {
  *   no credit.
  * - I22 (critic final B-1 proposal 5): past the window and after the hourly J15 (window + 60 min), a folio still
  *   `settled` is only waiting to pay money back – credit > 0. Settled with credit 0 (B ≥ 0) = J15 waiting for ever.
- * - I24 (ARC 0.3.8 addendum 6 rules 1–3, found by the re-run 24/10 on the pay-out path): a step that LOWERS the credit
- *   of a settled folio re-plans its refunds in the same transaction – after it, credit 0 ⇒ no open refund request
- *   (pending or approved with something left: rule 3 "hết tiền dư → đã duyệt chưa chi / chi dở đóng"), and
- *   Σ open > credit ⇒ no pending one left (rule 2). Judged on sequential steps; in a race → "?".
+ * - I24 (ARC 0.3.8 addendum 7 = s1-contracts 13.4 point 1, the K11-06 invariant; BUG-R3-014): after EVERY step on an
+ *   `open` / `settled` folio, Σ (pending / escalated requests + what approved requests still have to pay) ≤ raw
+ *   credit. Each money change keeps it under the folio lock, so a race ends in a state that holds it too – hard
+ *   everywhere. (Supersedes the addendum 6 reading "only when the credit went down / to 0".)
+ * - I25 (13.4 point 2): a person below OWN with a post-checkout A32 reduction on the folio never pays out a refund
+ *   of that folio nor sets its destination – the step answers 403 SELF_REFUND_FORBIDDEN; on the rows: no refund
+ *   payment recorded by, and no destination set by, such a person after his first reduction. OWN is not blocked.
  * - I23 (critic final §4 row 14, M-1): refund pay-out clamp – a pay-out accepted only for ≤ min(left of the
  *   request, credit before), never turns the folio into a debt (B after ≤ 0); one inside the clamp is not refused as
  *   REFUND_EXCEEDS_APPROVED; on every row, paid out ≤ approved and `refunded_vnd` = Σ its refund payments.
@@ -618,26 +623,58 @@ function bug012Checks(
       'I22',
       `window over + J15 ran: folio still settled with credit 0 (B ${ref.B}, open refunds ${raw.refunds.filter(openSt).length}) – J15 must record the debt and close`,
     );
-  // I24
-  const credit = Math.max(0, -ref.B);
-  if (
-    code.folioStatus === 'settled' &&
-    ctx.creditBefore !== undefined &&
-    credit < ctx.creditBefore
-  ) {
-    const inv = ctx.sequential ? 'I24' : 'I24?';
+  // I24 – K11-06 invariant (13.4 point 1)
+  if (code.folioStatus === 'settled' || code.folioStatus === 'open') {
+    const credit = Math.max(0, -ref.B);
     const open = raw.refunds.filter(openSt);
     const left = (r: RawFolio['refunds'][number]) => r.amountVnd - r.refundedVnd;
     const total = open.reduce((a, r) => a + left(r), 0);
-    if (credit === 0 && open.length)
+    if (total > credit)
       add(
-        inv,
-        `"${ctx.op}" took the credit ${ctx.creditBefore} → 0 but ${open.length} refund request(s) stay open: ${open.map((r) => `${r.status} ${left(r)}`).join(', ')}`,
+        'I24',
+        `after "${ctx.op}": open refunds ${total} > raw credit ${credit} (${open.map((r) => `${r.status} ${left(r)}`).join(', ')})`,
       );
-    else if (total > credit && open.some((r) => r.status !== 'approved'))
+  }
+  // I25 – SELF_REFUND_FORBIDDEN (13.4 point 2)
+  const firstRed = new Map<string, string>();
+  for (const d of raw.a32Reductions)
+    if (
+      d.actorId &&
+      d.role &&
+      SUB_OWNER.has(d.role) &&
+      (!firstRed.has(d.actorId) || d.at < firstRed.get(d.actorId)!)
+    )
+      firstRed.set(d.actorId, d.at);
+  const makerAt = (id: string | null, t: string | null) =>
+    !!id && !!t && firstRed.has(id) && firstRed.get(id)! < t;
+  for (const pmt of raw.payments)
+    if (pmt.type === 'refund' && makerAt(pmt.recordedBy, pmt.createdAt))
       add(
-        inv,
-        `"${ctx.op}" lowered the credit ${ctx.creditBefore} → ${credit}; open requests ${total} > credit and a pending one was not re-planned`,
+        'I25',
+        `refund payment ${pmt.id} paid out by a person below OWN who made an A32 reduction on the folio`,
+      );
+  for (const r of raw.refunds)
+    if (makerAt(r.destinationSetBy, r.destinationSetAt))
+      add(
+        'I25',
+        `refund ${r.id} destination set by a person below OWN who made an A32 reduction on the folio`,
+      );
+  if (ctx.refundActor) {
+    const ok = ctx.status >= 200 && ctx.status < 300;
+    const maker = makerAt(ctx.refundActor.userId, nowIso);
+    if (maker && ok)
+      add(
+        'I25',
+        `A32 maker's ${ctx.refundActor.kind} accepted ${ctx.status} (13.4: 403 SELF_REFUND_FORBIDDEN)`,
+      );
+    if (
+      !maker &&
+      /SELF_REFUND_FORBIDDEN/.test(ctx.code ?? '') &&
+      ctx.refundActor.kind === 'destination'
+    )
+      add(
+        'I25?',
+        `destination refused SELF_REFUND_FORBIDDEN for a person who made no A32 reduction`,
       );
   }
   // I23
