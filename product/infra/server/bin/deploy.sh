@@ -91,6 +91,21 @@ if [ "$app_env" = "production" ]; then
   fi
   [ -z "$problems" ] || { log "FAIL: production guard:$problems"; exit 1; }
 fi
+# US-155 (SEC s1-SEC-on-us155 condition 2): LANDING_BASE_URL is empty or an https origin; the landing form proxy
+# (LANDING_PUBLIC_API=on) needs it to be exactly https://<LANDING_HOST>.
+lb=$(envval LANDING_BASE_URL)
+if [ -n "$lb" ] && ! [[ "$lb" =~ ^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ ]]; then
+  log "FAIL: LANDING_BASE_URL must be https://<host> without path (found '$lb')"; exit 1
+fi
+if [ "$(envval LANDING_PUBLIC_API)" = "on" ] && [ "$lb" != "https://$(envval LANDING_HOST)" ]; then
+  log "FAIL: LANDING_PUBLIC_API=on needs LANDING_BASE_URL=https://$(envval LANDING_HOST)"; exit 1
+fi
+# The landing container joins the stack's `edge` network at LANDING_IP (trusted by the api): it must lie in EDGE_SUBNET
+# (production 172.30.1.0/24 – an .env written before 24/10 lacks LANDING_IP and would fall back to staging's address).
+es=$(envval EDGE_SUBNET); li=$(envval LANDING_IP); li=${li:-172.30.0.11}  # compose default
+if [ -n "$es" ] && [ "${es##*/}" = "24" ] && [ "${li%.*}" != "${es%.*/*}" ]; then
+  log "FAIL: LANDING_IP='${li:-<unset>}' (default when unset) is not in EDGE_SUBNET=$es – add LANDING_IP=${es%.*/*}.11 to $OTTIMO_HOME/.env"; exit 1
+fi
 # Every secret file of the project must exist (a new secret in compose = run init-secrets.sh first). The deploy user
 # can test the paths (directory 0710 root:ottimo) but not read them.
 missing=$(dc --profile deploy config --format json | jq -r '.secrets // {} | to_entries[] | .value.file' \

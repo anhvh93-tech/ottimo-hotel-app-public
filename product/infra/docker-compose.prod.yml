@@ -58,7 +58,8 @@ x-api-env: &api-env
   PUBLIC_FORM_SIGNING_KEY_FILE: /run/secrets/public_form_signing_key
   LANDING_BASE_URL: ${LANDING_BASE_URL:-}
   # Caddy's fixed address on `edge` (below): the only proxy whose X-Forwarded-For is trusted.
-  TRUST_PROXY: ${WEB_IP:-172.30.0.10}
+  # + the landing container's fixed address (US-155: it proxies the two public form operations – Caddyfile.landing).
+  TRUST_PROXY: ${WEB_IP:-172.30.0.10},${LANDING_IP:-172.30.0.11}
   COOKIE_SECURE_PREFIX: 'true'
   CLOCK_MODE: ${CLOCK_MODE:-system}
   # US-143 (SEC 06.3): two-step login mandatory for owner/manager. production refuses to start unless true;
@@ -272,13 +273,21 @@ services:
       LANDING_WWW_HOST: ${LANDING_WWW_HOST:-www.landing.invalid}
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in /opt/ottimo/.env}
       PROXY_PROTOCOL_ALLOW: ${PROXY_PROTOCOL_ALLOW:-127.0.0.1/32}
+      # US-155 website form: on = proxy the two public operations to api:3000 (only with the stack's api running and
+      # LANDING_BASE_URL set); default off = every /v1/* is 404 on the landing origin.
+      LANDING_PUBLIC_API: ${LANDING_PUBLIC_API:-off}
+      LANDING_API_UPSTREAM: api:3000
     # staging: basic auth + noindex; production: empty (init-secrets.sh writes it from APP_ENV)
     secrets: [landing_access]
     volumes:
       - ./caddy/Caddyfile.landing:/etc/caddy/Caddyfile:ro
       - landingdata:/home/caddy/data
       - landingconfig:/home/caddy/config
-    networks: [landing]
+    # `edge` (fixed LANDING_IP, trusted by the api next to WEB_IP) only to reach api:3000 for the form; no blob, no db.
+    networks:
+      landing: {}
+      edge:
+        ipv4_address: ${LANDING_IP:-172.30.0.11}
     mem_limit: 128m
     pids_limit: 100
     healthcheck:

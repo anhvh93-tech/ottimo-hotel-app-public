@@ -8,6 +8,12 @@
 #   LANDING_HOST      production: ottimo.vn            | staging preview: staging.ottimo.vn
 #   LANDING_WWW_HOST  production: www.ottimo.vn        | staging preview: www.staging.ottimo.vn   (→ 301 to LANDING_HOST)
 #   ACME_EMAIL, PROXY_PROTOCOL_ALLOW (edge address)
+#   LANDING_PUBLIC_API  on | off (default off). US-155 website form (v1.0, SEC s1-SEC-on-us155 condition 2): `on` proxies
+#                       EXACTLY two public operations to the stack's api – GET  /v1/public/properties/<slug>/form-token
+#                       and POST /v1/public/properties/<slug>/booking-requests – every other /v1/* stays 404. Turn it on
+#                       only when the api of the same stack runs (production Desk) and LANDING_BASE_URL is set there.
+#   LANDING_API_UPSTREAM  default api:3000 (the landing container joins the stack's `edge` network at LANDING_IP, which
+#                       the api trusts as a proxy next to WEB_IP – docker-compose.prod.yml TRUST_PROXY)
 # Access (/run/secrets/landing_access, written by infra/server/bin/init-secrets.sh): production = no restriction and
 # no X-Robots-Tag; staging = basic auth (password only on the server, root-only) + X-Robots-Tag noindex (SEC ARC-10
 # point 4: the preview looks exactly like the real site, so noindex alone is not enough).
@@ -70,6 +76,21 @@
 	}
 }
 
+# Proxy of the two public form operations (US-155). The request body is buffered (≤ 16 KB, request_body above) before
+# the api sees it, so a chunked body over the limit ends in 413 here, never as a cut body at the api. Caddy overwrites
+# X-Forwarded-For with the client address it got from the edge (PROXY protocol); the api trusts this container's
+# fixed address (TRUST_PROXY). Responses of the api (no-store, its own headers) pass through.
+(public_api) {
+	reverse_proxy {$LANDING_API_UPSTREAM:api:3000} {
+		# larger than max_size: the whole body is read (and refused at 16 KB) before any byte goes to the api
+		request_buffers 32KB
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 30s
+		}
+	}
+}
+
 (landing_headers) {
 	header {
 		defer
@@ -98,9 +119,15 @@
 	import /run/secrets/landing_access
 	root * /srv/landing
 	encode zstd gzip
-	# v1 has no form and calls no API (ADR-014 1.4 – L0); from L1 the form posts ≤ 16 KB to the api.
+	# Request bodies ≤ 16 KB on this origin (SEC US155-02; the api itself stops /v1/public/ bodies at 8 KB). A declared
+	# Content-Length over it is refused below before anything is proxied; on the public form route a body WITHOUT
+	# Content-Length (chunked) is refused with 413 before the proxy (infra/ci/check-caddy-landing.sh "chunked 64 KB").
 	request_body {
 		max_size 16KB
+	}
+	@too_big expression `{http.request.header.Content-Length}.matches('^[0-9]{1,15}$') && int({http.request.header.Content-Length}) > 16384`
+	handle @too_big {
+		respond 413
 	}
 
 	import landing_headers
@@ -119,7 +146,35 @@
 	handle @hidden {
 		error 404
 	}
-	# v1 (L0): no API, no health, no test endpoints on the landing origin; Russian not released yet.
+	# US-155: the only two operations of the api reachable from the landing origin (same origin – no CORS, CSP
+	# connect-src 'self'). Off unless LANDING_PUBLIC_API=on (substituted when Caddy reads this file).
+	@public_form_token {
+		method GET
+		path_regexp ^/v1/public/properties/[a-z0-9-]{2,40}/form-token$
+		expression `"{$LANDING_PUBLIC_API:off}" == "on"`
+	}
+	@public_booking_request {
+		method POST
+		path_regexp ^/v1/public/properties/[a-z0-9-]{2,40}/booking-requests$
+		expression `"{$LANDING_PUBLIC_API:off}" == "on"`
+	}
+	# A POST without Content-Length (chunked) is refused before the proxy: the reverse proxy would otherwise forward a
+	# request whose body it could not read in full. Browsers always send Content-Length for the form's JSON body.
+	@public_post_unsized {
+		method POST
+		path_regexp ^/v1/public/properties/[a-z0-9-]{2,40}/booking-requests$
+		not header Content-Length *
+	}
+	handle @public_post_unsized {
+		respond 413
+	}
+	handle @public_form_token {
+		import public_api
+	}
+	handle @public_booking_request {
+		import public_api
+	}
+	# No API, no health, no test endpoints on the landing origin otherwise; Russian not released yet.
 	@closed path /v1/* /health /health/* /__test__/* /ru /ru/*
 	handle @closed {
 		error 404

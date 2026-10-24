@@ -49,6 +49,21 @@ if [ "$(cat "$OTTIMO_HOME/.ottimo-home" 2>/dev/null)" = "production" ] || [ "$(e
   [ "$app_env" = "production" ] || { log "FAIL: this is the production stack but APP_ENV=${app_env:-<empty>}"; exit 1; }
 fi
 [ -n "$host" ] && [ -n "$www" ] && [ -n "$(envval LANDING_IMAGE)" ] || { log "FAIL: LANDING_HOST, LANDING_WWW_HOST, LANDING_IMAGE must be set"; exit 1; }
+# US-155 (SEC s1-SEC-on-us155 condition 2): LANDING_BASE_URL is empty or an https origin; the landing form proxy
+# (LANDING_PUBLIC_API=on) needs it to be exactly https://<LANDING_HOST>.
+lb=$(envval LANDING_BASE_URL)
+if [ -n "$lb" ] && ! [[ "$lb" =~ ^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ ]]; then
+  log "FAIL: LANDING_BASE_URL must be https://<host> without path (found '$lb')"; exit 1
+fi
+if [ "$(envval LANDING_PUBLIC_API)" = "on" ] && [ "$lb" != "https://$(envval LANDING_HOST)" ]; then
+  log "FAIL: LANDING_PUBLIC_API=on needs LANDING_BASE_URL=https://$(envval LANDING_HOST)"; exit 1
+fi
+# The landing container joins the stack's `edge` network at LANDING_IP (trusted by the api): it must lie in EDGE_SUBNET
+# (production 172.30.1.0/24 – an .env written before 24/10 lacks LANDING_IP and would fall back to staging's address).
+es=$(envval EDGE_SUBNET); li=$(envval LANDING_IP); li=${li:-172.30.0.11}  # compose default
+if [ -n "$es" ] && [ "${es##*/}" = "24" ] && [ "${li%.*}" != "${es%.*/*}" ]; then
+  log "FAIL: LANDING_IP='${li:-<unset>}' (default when unset) is not in EDGE_SUBNET=$es – add LANDING_IP=${es%.*/*}.11 to $OTTIMO_HOME/.env"; exit 1
+fi
 [ -e "$OTTIMO_HOME/secrets/landing_access" ] || { log "FAIL: secrets/landing_access missing – sudo $here/init-secrets.sh"; exit 1; }
 [ -n "$digest" ] || [ ! -r "$state/digests/landing-$tag" ] || digest=$(cat "$state/digests/landing-$tag")
 if [ "$app_env" = "production" ] && [ -z "$digest" ]; then log "FAIL: production needs --digest (CI release job)"; exit 1; fi

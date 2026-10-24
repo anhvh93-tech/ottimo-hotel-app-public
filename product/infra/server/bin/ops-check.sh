@@ -157,6 +157,11 @@ check_containers() {
     [ -n "$(dc ps --status running --quiet "$s" 2>/dev/null)" ] || missing+=" $s"
   done
   if [ -n "$missing" ]; then notify containers FAIL "not running:$missing"; return 1; fi
+  # US155-04 / SEC FB-R3-SEC-US155-04: the public form limits (step 0 counters, in-flight cap) live in the api
+  # process – exactly ONE api replica (README infra/server 12.2 "API chạy 1 bản").
+  local n_api
+  n_api=$(dc ps --status running --quiet api 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$n_api" != "1" ]; then notify containers FAIL "$n_api api replicas running (must be exactly 1)"; return 1; fi
   if ! dc exec -T api wget -qO- http://127.0.0.1:3000/health 2>/dev/null | grep -q '"status":"ok"'; then
     notify containers FAIL "api /health not ok"; return 1
   fi

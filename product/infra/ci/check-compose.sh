@@ -139,8 +139,14 @@ for name, svc in prodedge['services'].items():
 lan = prodedge['services'].get('landing') or {}
 if lan.get('volumes') and any(v.get('source') in ('pgdata', 'blobdata') for v in lan['volumes']):
     bad('prod-edge: landing mounts application data')
-if sorted((lan.get('networks') or {}).keys()) != ['landing', 'link']:
-    bad(f'prod-edge: landing networks {sorted((lan.get("networks") or {}).keys())} (only landing + link)')
+if sorted((lan.get('networks') or {}).keys()) != ['edge', 'landing', 'link']:
+    bad(f'prod-edge: landing networks {sorted((lan.get("networks") or {}).keys())} (only edge + landing + link)')
+if 'db' in (lan.get('networks') or {}) or lan.get('secrets') and [x for x in lan['secrets'] if x.get('source') != 'landing_access']:
+    bad('prod-edge: landing must not reach the database network nor get application secrets')
+api_tp = ((prodedge['services'].get('api') or {}).get('environment') or {}).get('TRUST_PROXY', '')
+lan_ip = ((lan.get('networks') or {}).get('edge') or {}).get('ipv4_address')
+if not lan_ip or lan_ip not in api_tp.split(','):
+    bad(f'prod-edge: api TRUST_PROXY {api_tp!r} does not name the landing address {lan_ip!r} (US-155 client address)')
 nets = prod.get('networks', {})
 if not (nets.get('db') or {}).get('internal'):
     bad('prod: network db must be internal')

@@ -191,3 +191,30 @@ export HISTCONTROL=ignorespace
 - Chạy lần hai (DB đã có cơ sở) → `refused: …`, mã thoát 2, không ghi gì. Lỗi giữa chừng → giao dịch hủy toàn bộ, chạy lại được.
 - Sau đó INV nhập trên app: giá niêm yết từng căn, `ota_base_rate`, tài khoản nhận VietQR (màn R3-Q51, chỉ OWN), mật khẩu Wi-Fi, hạng phòng công khai của các căn Studio, hàng minibar; xem lại các tham số nhãn GĐ/PL trên màn Tham số.
 - Danh sách giá trị mặc định: `services/api/src/admin/production-defaults.ts` (DOM đối chiếu BR v0.4.1 mục 13 trước lần chạy thật).
+
+### 12.2 API chạy đúng 1 bản (US155-04, SEC FB-R3-SEC-US155-04)
+
+Giới hạn của form website nằm **trong RAM của tiến trình api**: bộ đếm bước 0 theo IP / khóa, và trần 4 request công khai đang chạy. Chạy 2 bản api thì mọi giới hạn nhân đôi.
+
+- Mỗi stack chỉ một container `api`.
+  - Không dùng `dc up --scale api=N`.
+  - Không thêm dịch vụ api thứ hai.
+  - Không chạy api ở nơi khác dùng chung DB.
+- `ops-check` (mục `containers`) báo lỗi khi số bản `api` đang chạy khác 1.
+- Muốn mở rộng thành nhiều bản, phải làm trước rồi ARC + SEC duyệt:
+  1. chuyển bước 0 sang bộ đếm dùng chung (Postgres hoặc Redis), hoặc đặt giới hạn tại Caddy;
+  2. đặt trần request đang chạy theo tổng số bản.
+- Lúc deploy, `api` mới thay `api` cũ, nên trong vài giây có thể có 2 container. Đây không phải hai bản cùng phục vụ: Caddy chỉ gọi tên `api`.
+
+### 12.3 Bật form website US-155 trên production (khi SEC xác nhận đủ 7 điều kiện của `s1-SEC-on-us155.md`)
+
+1. `/opt/ottimo-prod/.env`:
+   - `LANDING_IP=172.30.1.11` (`.env` tạo trước 24/10 chưa có dòng này; `deploy.sh` / `deploy-landing.sh` từ chối nếu địa chỉ nằm ngoài `EDGE_SUBNET`);
+   - `LANDING_BASE_URL=https://ottimo.vn`;
+   - `LANDING_PUBLIC_API=on`.
+2. Bí mật `public_form_signing_key`: riêng cho production, đã sinh lúc `init-secrets.sh` (44 ký tự, quyền 0400, uid 1000).
+3. Deploy app production (`deploy.sh`) để api nhận `LANDING_BASE_URL` và `TRUST_PROXY` có thêm `LANDING_IP`.
+4. Biến repo `LANDING_BOOKING_FORM=true`, `LANDING_PROPERTY_SLUG=dlt`. Lượt CI kế tiếp build image landing có form → tag `landing-v…` → INV duyệt → `deploy-landing.sh`.
+5. OWN ghi `privacy_notice_version` (vi, en), rồi bật `public_booking_requests_enabled` trên Desk.
+
+Quay lui: đặt `LANDING_PUBLIC_API=off` rồi `deploy-landing.sh <tag hiện tại> --no-pull`. Khi đó mọi `/v1/*` trên `ottimo.vn` trả 404, còn form tự hướng khách sang Zalo / gọi điện.

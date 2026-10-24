@@ -346,3 +346,49 @@ Làm từ máy Mac của INV, SSH `ottimo-admin` (khóa `ottimo_ops`, có passph
 - **Quay lui** (khoảng 30 giây):
   - landing: `deploy-landing.sh --rollback`; hoặc đặt lại DNS Google Sites theo ảnh chụp INV đã lưu;
   - edge: theo `README` `infra/server` (đặt `EDGE_MODE=direct`, `docker compose -p ottimo-edge down`, `dc up -d --no-deps web`).
+
+## 14. Hạ tầng cho form website US-155 (24/10, chỉ trên repo – chưa đụng VPS)
+
+Căn cứ:
+- SEC `reviews/s1-SEC-on-us155.md`: điều kiện 2, thẻ FB-02 phần OPS và FB-04;
+- FE `outputs/FE/s1-us155.md` mục 8;
+- BE-D `outputs/BE/s1-be-d-us155.md`.
+
+### 14.1 Thay đổi
+- **`Caddyfile.landing`**:
+  - `LANDING_PUBLIC_API=on` mới proxy, và chỉ hai thao tác:
+    - `GET /v1/public/properties/<slug>/form-token`;
+    - `POST /v1/public/properties/<slug>/booking-requests`.
+
+    Slug phải khớp `[a-z0-9-]{2,40}`. Mặc định `off`.
+  - Mọi `/v1/*` khác, sai phương thức, `availability`/`offers`, `/health` → 404.
+  - Body tối đa 16 KB: `Content-Length` khai > 16 KB → 413 trước khi proxy.
+  - POST không có `Content-Length` (chunked) → 413 trước khi proxy. Lý do: thử thật cho thấy với chunked, `reverse_proxy` vẫn gửi tới api một request **rỗng** dù khách nhận 413.
+  - `request_buffers 32KB`, nên body ≤ 16 KB được đọc hết trước khi gửi.
+  - `X-Forwarded-For` lấy từ địa chỉ thật của khách, mà Caddy nhận qua PROXY protocol từ edge.
+- **`docker-compose.prod.yml`**:
+  - container landing vào thêm mạng `edge` của stack, với địa chỉ cố định `LANDING_IP` (production `172.30.1.11`). Landing vẫn không vào mạng `db` và không nhận bí mật ứng dụng (`check-compose.sh` kiểm);
+  - api `TRUST_PROXY = WEB_IP,LANDING_IP` (`check-compose.sh` kiểm landing có tên trong `TRUST_PROXY`);
+  - thêm `LANDING_PUBLIC_API`.
+- **`deploy.sh` / `deploy-landing.sh`** (bước `config`) dừng khi:
+  - `LANDING_BASE_URL` không phải `https://<host>`;
+  - `LANDING_PUBLIC_API=on` mà `LANDING_BASE_URL` ≠ `https://<LANDING_HOST>`;
+  - `LANDING_IP` nằm ngoài `EDGE_SUBNET`.
+- **Khóa ký form:** `public_form_signing_key` sinh riêng trong mỗi `secrets/` của từng stack bằng `init-secrets.sh` (từ R3 lượt 1), truyền vào api dưới dạng `PUBLIC_FORM_SIGNING_KEY_FILE`. Production đã có tệp riêng (sinh 24/10).
+- **`Dockerfile.landing`**: thêm build-arg `LANDING_BOOKING_FORM` (mặc định `false`) và `LANDING_PROPERTY_SLUG` (production: `dlt` = mã cơ sở `DLT` viết thường, `public_resolve_property`). CI truyền theo tên từ **biến repo** cùng tên; chưa đặt thì không có form.
+- **`ops-check`**: `containers` báo lỗi khi số bản `api` đang chạy khác 1. Runbook "API chạy 1 bản" ở README `infra/server` 12.2. Các bước bật form ở 12.3.
+- **CI**: job `infra-scripts` thêm bước `check-caddy-landing.sh`.
+
+  Đã xem lệnh FE-B thêm vào `ci.yml` (job `landing-e2e`: `build:booking-live-test`, slug `dl01`, ra `dist-booking-live/`, chỉ để test, không deploy): **đồng ý**. Image production không dùng bản build này.
+
+### 14.2 Test (local 24/10)
+
+| Test | Kết quả |
+|---|---|
+| `check-caddy-landing.sh` (mới) | 16/16 |
+| `test-deploy-from-ci.sh` | Đạt. (f) thêm 2 ca: `LANDING_BASE_URL` http; `LANDING_PUBLIC_API=on` lệch host |
+| `check-compose.sh` | Đạt, có luật mới về landing/`TRUST_PROXY` |
+| `test-edge.sh`, `check-caddy-prod.sh --stub`, shellcheck | Đạt |
+
+### 14.3 Trên VPS khi bật form (chưa làm)
+Theo README 12.3. Việc **phải nhớ**: thêm `LANDING_IP=172.30.1.11` vào `/opt/ottimo-prod/.env` trước lần deploy landing kế tiếp, nếu không `deploy-landing.sh` dừng ở `config`. Landing đang chạy không bị ảnh hưởng.

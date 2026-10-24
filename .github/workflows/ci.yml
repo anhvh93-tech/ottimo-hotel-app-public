@@ -240,6 +240,9 @@ jobs:
         run: bash product/infra/ci/check-compose.sh
       - name: Caddyfile.prod rules on the stock caddy image (exact headers, real-file probes, 413, log masking)
         run: bash product/infra/ci/check-caddy-prod.sh --stub
+      # US-155 (SEC s1-SEC-on-us155 condition 2): only the two public form operations reach the api, ≤ 16 KB.
+      - name: Caddyfile.landing form proxy (2 operations only, 413 over 16 KB incl. chunked, rest 404)
+        run: bash product/infra/ci/check-caddy-landing.sh
       # SEC E.8 / R5-01: the CI deploy key gets one summary line back (public Actions log); other commands → exit 2.
       - name: deploy-from-ci.sh (one summary line, full log on the server, refused commands)
         run: bash product/infra/ci/test-deploy-from-ci.sh
@@ -687,6 +690,8 @@ jobs:
         env:
           # Public number, passed by name to docker build (value from the environment, not the command line).
           VITE_DESK_PHONE: ${{ vars.VITE_DESK_PHONE }}
+          LANDING_BOOKING_FORM: ${{ vars.LANDING_BOOKING_FORM }}
+          LANDING_PROPERTY_SLUG: ${{ vars.LANDING_PROPERTY_SLUG }}
         run: |
           # Fail in seconds, before the api builds, when the desk phone is missing or malformed (UXR P-15).
           WEB_BUILD_PROFILE=production sh product/infra/docker/check-web-build-config.sh
@@ -700,8 +705,11 @@ jobs:
           # Landing (ADR-014, R3 v1.0): the release image (indexable) – reaches the public only through the release
           # workflow (tag landing-v*, environment production = INV approval); staging serves it behind basic auth.
           landing="ghcr.io/$owner/ottimo-landing"
+          # US-155: repository VARIABLES LANDING_BOOKING_FORM (true = live form) + LANDING_PROPERTY_SLUG (dlt) – unset =
+          # no form (today's page). Set only when SEC's 7 go-live conditions hold (s1-SEC-on-us155); passed by name.
           docker build -f product/infra/docker/Dockerfile.landing --build-arg LANDING_SITE_URL=https://ottimo.vn \
-            --build-arg LANDING_INDEXABLE=true -t "$landing:$tag" product
+            --build-arg LANDING_INDEXABLE=true --build-arg LANDING_BOOKING_FORM --build-arg LANDING_PROPERTY_SLUG \
+            -t "$landing:$tag" product
           # The production tag must not contain test endpoints (BUG-R1-SEC-08) – same guard as docker-build.
           rm -rf "$RUNNER_TEMP/b" && mkdir -p "$RUNNER_TEMP/b"
           cid=$(docker create "$api:$tag"); docker cp "$cid:/app/dist" "$RUNNER_TEMP/b/dist"; docker rm "$cid" >/dev/null

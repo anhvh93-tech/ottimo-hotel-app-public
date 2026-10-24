@@ -155,6 +155,10 @@ export STUB_SECRET=/dev/null
 # FB-R3-SEC-OPS-03: the production stack (marker / EDGE_NAME) with a mistyped APP_ENV is refused.
 echo production > "$home/.ottimo-home"
 guard "production home (marker) with APP_ENV=staging" config " api=$A web=$B" APP_ENV=staging MFA_ENFORCED=true
+guard "production with LANDING_BASE_URL over http" config " api=$A web=$B" "${P[@]}" MFA_ENFORCED=true EDGE_NAME=production \
+  LANDING_BASE_URL=http://ottimo.vn
+guard "LANDING_PUBLIC_API=on without the matching https LANDING_BASE_URL" config " api=$A web=$B" "${P[@]}" MFA_ENFORCED=true \
+  EDGE_NAME=production LANDING_HOST=ottimo.vn LANDING_PUBLIC_API=on LANDING_BASE_URL=https://www.ottimo.vn
 rm -f "$home/.ottimo-home"
 guard "EDGE_NAME=production with APP_ENV=staging" config "" APP_ENV=staging EDGE_NAME=production MFA_ENFORCED=true
 
