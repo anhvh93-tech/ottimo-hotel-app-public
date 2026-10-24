@@ -321,3 +321,27 @@ Test có: hai ca probe của ARC, P1 và P2 của SEC, `recordPayment` dư, foli
   - I5 (1023) và I3 (1013) tái hiện được trên `main` `784db59`, tức lỗi có sẵn.
   - Chi tiết: `outputs/BE/s1-be-b.md` mục 13 "Fuzz".
 - tsc, eslint, prettier đạt; `drizzle-kit generate` không sinh tệp.
+
+---
+
+# Fuzz G1 cuối – BUG-R3-012 (P0), BUG-R3-013 (P1) – trả lời critic (`s1-money-critic-final.md` B-1, M-1) – 24/10
+
+Nhánh `be-b/r3-bug-012-013`, nằm trên `origin/main` `593ce95`. Chi tiết ở `outputs/BE/s1-be-b.md` mục 14.
+
+## B-1 / BUG-R3-012: Done
+Làm theo đề xuất 1, 2 của critic:
+1. J15 chỉ chờ khi tiền dư > 0.
+2. Khi tiền dư = 0, yêu cầu đã duyệt mà chưa chi tự đóng (`superseded`, có nhật ký); sau đó J15 ghi nợ và đóng folio. Đóng folio thì giải "Cần chú ý" `closed_reservation_credit`.
+
+Đề xuất 3 (câu cho ARC 13.2 điểm 3) và 4–5 (ca hồi quy, bất biến mới) thuộc ARC/QA. Ca tái hiện của QA đã bỏ cờ và chạy xanh.
+
+## M-1 / BUG-R3-013: Done
+- Mọi đường làm giảm tiền dư trên folio `settled` đều chạy lại `refundPlan`: ghi phát sinh (`postLine`/`late`), A32 (tăng, và cả A32 giảm khi yêu cầu đang vượt), duyệt giá hư hỏng, đảo khoản thu (đã có từ trước), J15.
+- Lúc chi vẫn kẹp ở `min(còn lại, tiền dư)`.
+- Chưa làm: kiểm "số duyệt ≤ tiền dư" ở bước duyệt. Vì kế hoạch đã được lập lại ở mọi đường làm giảm tiền dư, yêu cầu tới tay người duyệt đã đúng số. Nếu ARC vẫn muốn thêm lớp chặn ở bước duyệt thì tôi làm tiếp.
+- ARC thêm `postLine` vào danh sách 13.2.
+
+## Kiểm đã chạy
+- Toàn bộ API: 128 tệp đạt, 2 bỏ qua; 3.227 test đạt, 21 bỏ qua.
+- Fuzz đủ cờ ORC (`FUZZ_CHAINS=30`): 270 chuỗi, 10.359 bước, deadlock 0, 5xx 0; mọi ca có hướng đạt.
+- Còn 2 vi phạm I7, đều có sẵn trước bản sửa: FZ-08 1026 (P3, không tính G1), và FZ-02 1006 (nối tiếp bước đua; tái hiện được trên `593ce95`).

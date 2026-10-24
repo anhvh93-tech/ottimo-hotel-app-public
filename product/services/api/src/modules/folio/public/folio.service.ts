@@ -1371,8 +1371,28 @@ export class FolioService implements FolioStaySync {
     if (!folio || folio.status !== 'settled' || !until || until.getTime() > now.getTime()) {
       return 'skipped';
     }
-    const b = await this.balance(tx, folioId);
-    if (b.openRefundVnd > 0) return 'waiting_refund';
+    let b = await this.balance(tx, folioId);
+    // BUG-R3-012 (critic B-1, P0): J15 waits only for money it still has to pay back. Open requests asking more than
+    // the credit left are re-planned first (BUG-R3-013 – nobody acts: a replacement keeps its requester); with no
+    // credit left they are all closed, and a guest who now owes gets the debt recorded below (BR-427 (d)).
+    if (b.openRefundVnd > b.rawCreditVnd) {
+      const { rows: rc } = await tx.query<{ code: string }>(
+        'SELECT code FROM reservation WHERE id = $1',
+        [folio.primary_reservation_id],
+      );
+      await this.refundsDownToCredit(
+        tx,
+        {
+          folioId,
+          reservationId: folio.primary_reservation_id,
+          reservationCode: rc[0]?.code ?? folio.bill_no ?? folioId,
+          actor: null,
+        },
+        'superseded',
+      );
+      b = await this.balance(tx, folioId);
+    }
+    if (b.openRefundVnd > 0 && b.rawCreditVnd > 0) return 'waiting_refund';
     // BUG-R3-002 (fuzz R3-Q30 I4, BR-522 / BR-427 (d)): never a closed folio holding the guest's money. An
     // overpayment not routed to a refund request yet (normally A32 opens one – FolioLinesService) keeps the folio
     // `settled` and "Cần chú ý" `closed_reservation_credit` tells the desk; J15 closes it once it is paid back or
@@ -1408,6 +1428,15 @@ export class FolioService implements FolioStaySync {
       `UPDATE folio SET status = 'closed', closed_at = $2, updated_at = $2, version = version + 1 WHERE id = $1`,
       [folioId, now],
     );
+    // No credit is left on a folio J15 closes: its "Cần chú ý" closed_reservation_credit goes (critic B-1).
+    if (this.events) {
+      await this.events.resolveAttention(
+        tx,
+        `closed_reservation_credit:${folio.primary_reservation_id}`,
+        now,
+        'folio closed – no credit left (J15)',
+      );
+    }
     await this.audit.record(tx, {
       category: 'state',
       action: 'folio.closed',
@@ -2930,12 +2959,25 @@ export class FolioService implements FolioStaySync {
   ): Promise<void> {
     const folio = await this.get(tx, folioId);
     if (!folio || folio.status !== 'settled') return;
-    const b = await this.balance(tx, folioId);
     const { rows } = await tx.query<{ code: string }>(
       'SELECT code FROM reservation WHERE id = $1',
       [folio.primary_reservation_id],
     );
     const reservationCode = rows[0]?.code ?? folio.bill_no ?? folioId;
+    // BUG-R3-013 (critic M-1, BR-522): open requests asking more than the credit left are re-planned FIRST, whatever
+    // the change (also before an A32 reduction's own request).
+    await this.refundsDownToCredit(
+      tx,
+      {
+        folioId,
+        reservationId: folio.primary_reservation_id,
+        reservationCode,
+        actor: { userId: actor.userId, roles: actor.roles },
+        ...(actor.requestId ? { requestId: actor.requestId } : {}),
+      },
+      'superseded',
+    );
+    const b = await this.balance(tx, folioId);
     if (a32 && a32.reducedVnd > 0 && !actor.roles.includes('owner')) {
       const amountVnd = Math.min(b.unhandledCreditVnd, a32.reducedVnd);
       if (amountVnd > 0) {
@@ -2967,6 +3009,37 @@ export class FolioService implements FolioStaySync {
       cancelReason: 'superseded',
       ...(actor.requestId ? { requestId: actor.requestId } : {}),
     });
+  }
+
+  /**
+   * BUG-R3-013 (critic M-1, BR-522 "every change of a closed stay's folio re-runs refundPlan"): after a change that can
+   * LOWER the credit of a settled folio outside `afterSettledMoneyChange` (a damage price approved after check-out),
+   * open requests asking more than the credit left are cancelled `superseded` and the right amount asked again; with
+   * no credit left, approved ones not paid are closed. Caller holds L1 → L3.
+   */
+  async replanSettledRefunds(
+    tx: Tx,
+    folioId: string,
+    actor: { userId: string; roles: readonly string[] } | null,
+    requestId?: string,
+  ): Promise<void> {
+    const folio = await this.get(tx, folioId);
+    if (!folio || folio.status !== 'settled') return;
+    const { rows } = await tx.query<{ code: string }>(
+      'SELECT code FROM reservation WHERE id = $1',
+      [folio.primary_reservation_id],
+    );
+    await this.refundsDownToCredit(
+      tx,
+      {
+        folioId,
+        reservationId: folio.primary_reservation_id,
+        reservationCode: rows[0]?.code ?? folio.bill_no ?? folioId,
+        actor,
+        ...(requestId ? { requestId } : {}),
+      },
+      'superseded',
+    );
   }
 
   /**
@@ -3094,10 +3167,18 @@ export class FolioService implements FolioStaySync {
     source: 'a32' | 'other';
     note: string | null;
     requestedBy: string | null;
+    /** Requester of the oldest request replaced (any source) – the requester when nobody acts (J15). */
+    firstRequester: string | null;
     originActorIds: string[];
   }> {
     if (requestIds.length === 0) {
-      return { source: 'other', note: null, requestedBy: null, originActorIds: [] };
+      return {
+        source: 'other',
+        note: null,
+        requestedBy: null,
+        firstRequester: null,
+        originActorIds: [],
+      };
     }
     const { rows } = await tx.query<{
       refund_source: string | null;
@@ -3114,18 +3195,25 @@ export class FolioService implements FolioStaySync {
       source: a32 ? 'a32' : 'other',
       note: a32?.reason_note ?? null,
       requestedBy: a32?.requested_by ?? null,
+      firstRequester: rows[0]?.requested_by ?? null,
       originActorIds: [...new Set(rows.flatMap((r) => r.origin_actor_ids ?? []))],
     };
   }
 
-  /** The requester of a replacement: the A32 maker for an `a32` one (I17), else the person acting now. */
+  /**
+   * The requester of a replacement: the A32 maker for an `a32` one (I17), else the person acting now – or, with nobody
+   * acting (J15), the requester of the oldest request it replaces (the same request restated at the right amount).
+   */
   private replacementActor(
-    carried: { requestedBy: string | null },
-    actor: { userId: string; roles: readonly string[] },
+    carried: { requestedBy: string | null; firstRequester: string | null },
+    actor: { userId: string; roles: readonly string[] } | null,
   ): { userId: string; roles: readonly string[] } {
-    return carried.requestedBy && carried.requestedBy !== actor.userId
-      ? { userId: carried.requestedBy, roles: [] }
-      : actor;
+    if (carried.requestedBy && carried.requestedBy !== actor?.userId) {
+      return { userId: carried.requestedBy, roles: [] };
+    }
+    if (actor) return actor;
+    if (!carried.firstRequester) throw new Error('refund replacement without a requester');
+    return { userId: carried.firstRequester, roles: [] };
   }
 
   /** The bookings of the folio (primary + every booking with a line) – the targets of its refund requests. */
@@ -3300,7 +3388,8 @@ export class FolioService implements FolioStaySync {
       folioId: string;
       reservationId: string;
       reservationCode: string;
-      actor: { userId: string; roles: readonly string[] };
+      /** null = nobody acts (J15): a replacement keeps the requester of what it replaces. */
+      actor: { userId: string; roles: readonly string[] } | null;
       requestId?: string;
     },
     cancelReason: 'no_show_restored' | 'superseded',
@@ -3315,6 +3404,17 @@ export class FolioService implements FolioStaySync {
     const cancelledIds: string[] = [];
     for (const id of plan.cancelIds) {
       if (await approvals.autoCancel(tx, id, cancelReason, input.requestId)) cancelledIds.push(id);
+    }
+    // BUG-R3-012/013 (critic B-1 / M-1, BR-522): no credit left at all → an APPROVED request not paid (or paid in part)
+    // has nothing left to pay back – it is closed (`cancelled`, `superseded`, audited, requester + approvers told),
+    // so it never holds the folio (J15) nor reaches a pay-out. A credit still there keeps it (pay-out clamps to it).
+    if (b.rawCreditVnd <= 0) {
+      for (const r of open) {
+        if (r.status !== 'approved' || plan.cancelIds.includes(r.id)) continue;
+        if (await approvals.cancelApproved(tx, r.id, 'superseded', input.requestId)) {
+          cancelledIds.push(r.id);
+        }
+      }
     }
     let createdId: string | null = null;
     if (plan.createVnd > 0) {

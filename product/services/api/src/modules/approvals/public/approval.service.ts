@@ -816,7 +816,8 @@ export class ApprovalService {
   async cancelApproved(
     tx: Tx,
     approvalId: string,
-    reason: Extract<AutoCancelReason, 'debt_cleared'>,
+    /** `debt_cleared`: a write-off with no debt left; `superseded`: a refund with no credit left (BUG-R3-012). */
+    reason: Extract<AutoCancelReason, 'debt_cleared' | 'superseded'>,
     requestId?: string,
   ): Promise<ApprovalRow | null> {
     const { now } = await this.context(tx);
@@ -839,6 +840,8 @@ export class ApprovalService {
       reason: `auto: ${reason}`,
       ...(requestId ? { requestId } : {}),
     });
+    // A refund that will never be paid runs its decision hook (payments: the refund account is purged – SEC-BE-45).
+    if (cancelled.type === 'refund') await this.runHooks(tx, cancelled);
     const { rows: asked } = await tx.query<{ user_id: string }>(
       `SELECT DISTINCT user_id FROM staff_notification
         WHERE kind = 'approval_requested' AND ref_type = 'approval_request' AND ref_id = $1`,

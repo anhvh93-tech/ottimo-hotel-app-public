@@ -352,6 +352,13 @@ export class FolioLinesService {
         row.id,
       ]);
     }
+    // BUG-R3-013 (critic M-1, BR-522 K11-06): a charge posted after check-out lowers the credit – the shared rule
+    // re-plans open refund requests that now ask more than is left (settled folio only; L1 → L3 held above).
+    await this.folios.afterSettledMoneyChange(tx, folioId, {
+      userId: actor.userId,
+      roles: actor.roles,
+      ...(actor.requestId ? { requestId: actor.requestId } : {}),
+    });
     await this.folios.touch(tx, folioId);
     await publishEvent(tx, this.events, 'reservation.changed', stay.reservationId);
   }
@@ -372,6 +379,14 @@ export class FolioLinesService {
       [request.folio_line_id, next],
     );
     if (!changed[0]) return;
+    // BUG-R3-013: a damage price approved on a settled folio lowers its credit – open refunds re-planned.
+    if (next === 'posted') {
+      await this.folios.replanSettledRefunds(
+        tx,
+        changed[0].folio_id,
+        request.approver_id ? { userId: request.approver_id, roles: [] } : null,
+      );
+    }
     await this.folios.touch(tx, changed[0].folio_id);
     await this.audit.recordMoney(tx, {
       action: next === 'posted' ? 'folio.damage_posted' : 'folio.damage_rejected',
