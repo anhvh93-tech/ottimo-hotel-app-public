@@ -262,7 +262,9 @@ export function checkThirdParty({ html, files }, siteUrl, { bookingRequest = fal
 /**
  * Positioning and wording (FB-INV-002, concept 2.3–2.4, DOM landing-positioning) on everything a visitor or a search
  * engine reads: visible text, <title>, meta and JSON-LD. No room count, never "apartment"/"căn", no self-claimed hotel
- * class, no plain "Book"/"Đặt phòng" button (option A is a request), "meter" only in the long-stay FAQ.
+ * class, no plain "Book"/"Đặt phòng" button (option A is a request). INV 24/10 (CPY concept B): no "hotel/khách sạn"
+ * at all in the page body, no fees on the page ("phụ thu", extra-guest fee, meter/công tơ), no "open soon", no old room
+ * type names.
  */
 export const BANNED = [
   /apartment/i,
@@ -286,6 +288,17 @@ export const BANNED = [
   // "extra bed" is no longer banned: Premium has a 1.4 m extra bed (INV 22/10, replaces 4c "sofa"). copy.test.ts
   // keeps it to the Premium room and the capacity note.
   /instant confirmation|xác nhận ngay/iu,
+  // INV 24/10 – CPY landing review 12.2 (concept B): positioning, fees out of the page body, old names.
+  /small hotel/i,
+  /khách sạn nhỏ/iu,
+  /phụ thu/iu,
+  /extra-guest fee/i,
+  /\bby meter\b/i,
+  /công tơ/iu,
+  /open soon/i,
+  /sắp mở/iu,
+  /\bStandard Studio\b/,
+  /One Bedroom \+ 1/,
 ];
 
 export function checkWording({ html }) {
@@ -309,15 +322,19 @@ export function checkWording({ html }) {
     }
     const body = page.source.split(/<body[^>]*>/)[1] ?? '';
     const hotel = (visibleText(body).match(/hotel|khách sạn/giu) ?? []).length;
-    if (hotel > 3)
-      problems.push(`${page.path}: "hotel/khách sạn" ${hotel}× (concept 2.4 allows 3 comparisons)`);
+    if (hotel > 0)
+      problems.push(`${page.path}: "hotel/khách sạn" ${hotel}× (INV 24/10: none on the page)`);
     for (const m of body.matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)) {
       const label = visibleText(m[2]).replace(/\s+/g, ' ').trim();
       if (/^(book|đặt phòng|book now)$/iu.test(label))
         problems.push(
-          `${page.path}: <${m[1]}> labelled "${label}" – use "Request to book" (concept T5)`,
+          `${page.path}: <${m[1]}> labelled "${label}" – use "Plan your stay" (INV 24/10)`,
         );
     }
+    // [[…]] is copy markup for a no-break run (lib/rich.ts) – it must never reach the visitor (FE-LP 24/10: the room
+    // cards printed "[[1.4 m]]" since 22/10).
+    if (/\[\[|\]\]/.test(visibleText(body)))
+      problems.push(`${page.path}: copy markup "[[…]]" shown as text – render it with <Rich>`);
     const why = body.match(/<section[^>]*id="why"[\s\S]*?<\/section>/)?.[0] ?? '';
     if (/meter|công tơ/iu.test(visibleText(why)))
       problems.push(`${page.path}: "meter/công tơ" in #why (concept N3)`);

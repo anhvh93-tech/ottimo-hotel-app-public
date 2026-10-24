@@ -1,7 +1,7 @@
 // English copy – the leading version (Brand Guidelines v1.0: English leads, Vietnamese supports).
-// Text = UXD mock v1.2.1 (product/design/landing/mock/index.html, concept v1.2.1). Positioning: boutique stay, never
-// "apartment", no room count (FB-INV-002, DOM landing-positioning). INV approves the copy once before going live
-// (US-146 AC4). Only characters of the latin, latin-ext and vietnamese font subsets (concept 3.3).
+// Text = CPY final copy 24/10, concept B "The art of staying well" (rounds/round-03/outputs/CPY/landing-copy-review.md;
+// INV decisions 24/10). Positioning: boutique stay, never "apartment", no room count, no hotel wording, no fees on the
+// page body (FB-INV-002, INV 24/10). Only characters of the latin, latin-ext and vietnamese font subsets (concept 3.3).
 import type { Copy } from './types';
 
 export const en: Copy = {
@@ -9,7 +9,7 @@ export const en: Copy = {
   meta: {
     title: 'OTTIMO Boutique Stay · Da Lat',
     description:
-      'A boutique stay in Da Lat: the care of a small hotel, with a kitchen, a washer-dryer and a desk in every room. Stay a night, or a season. Chat with us on Zalo.',
+      'A boutique stay on a quiet Da Lat hillside, devoted to the art of staying well: deep sleep, calm rooms, everything at hand. Stay a night, or a season.',
     ogImageAlt: 'OTTIMO at dusk, with warm lights on every balcony',
   },
   skip: 'Skip to content',
@@ -17,7 +17,7 @@ export const en: Copy = {
     label: 'Main',
     mobileLabel: 'Main (mobile)',
     menu: 'Menu',
-    why: 'Why OTTIMO',
+    why: 'The Stay',
     rooms: 'Rooms',
     amenities: 'Amenities',
     location: 'Location',
@@ -27,7 +27,7 @@ export const en: Copy = {
   langSwitch: { label: 'Language' },
   langSuggest: { region: 'Language', text: 'View this page in English', close: 'Close' },
   actions: {
-    requestToBook: 'Request to book',
+    requestToBook: 'Plan your stay',
     chatOnZalo: 'Chat on Zalo',
     chatOnPrefix: 'Chat on ',
     newTab: ' (opens in a new tab)',
@@ -52,10 +52,15 @@ export const en: Copy = {
     'premium-bed': 'Separate bedroom with a double bed and a desk by the window',
     'premium-living': 'Living room with a sofa beside the balcony',
     'signature-bath': 'Glass shower and a green-tiled vanity',
+    'signature-bedroom-desk':
+      'Bedroom with a white bed on an oak platform, a wardrobe and a desk by the window',
+    'garden-navy-kitchen': 'Long navy kitchen open to a sofa corner by tall glass doors',
+    'signature-living-oak':
+      'Living room with an oak shelf wall, a TV and a cream sofa by the window',
   },
   hero: {
     label: 'Boutique stay · Da Lat',
-    lead: 'The care of a small hotel, with a kitchen, a washer-dryer and a desk in every room.',
+    lead: 'Quiet, well-made rooms on a Da Lat hillside, where sleep comes easily and everything just works.',
   },
   carousel: {
     roledescription: 'carousel',
@@ -77,104 +82,106 @@ export const en: Copy = {
     counter: (i, n) => `Photo ${i} of ${n}`,
   },
   why: {
-    label: 'Why OTTIMO',
-    title: 'Stay a night, or a season.',
-    intro: 'Two ways to stay, one standard of care.',
+    label: 'The Stay',
+    title: 'The art of staying well.',
+    intro:
+      'It begins with small things done right, every day: crisp linen, a quiet that holds, light on warm oak. Stay a night, or a season.',
     short: {
       photo: 'signature-bed',
       label: 'For a few nights',
-      title: 'Beyond what a hotel room gives you',
-      body: 'Check in at 14:00 to a quiet room, a bed made for deep sleep and daily housekeeping. And more space than you expected, with a balcony of your own.',
+      title: 'Room to breathe, even for a night',
+      body: 'A quiet room, a bed made for deep sleep, housekeeping every day. Then the surprise: more space than you planned for, and a balcony of your own.',
     },
     long: {
       photo: 'detail-laundry-desk',
       label: 'For a month, or longer',
-      title: 'Made for living here',
-      body: 'Unpack once and settle into your own rhythm: market mornings, dinners cooked at home, quiet hours of work by the window. Monthly rates and a housekeeping plan to suit you.',
+      title: 'A season, lived well',
+      body: 'Unpack once and find your rhythm: market mornings, dinners from your own kitchen, quiet hours of work by the window, laundry done without leaving the room. Everything shaped around how you live.',
     },
+    more: 'See the rooms',
   },
   rooms: {
     label: 'Rooms',
-    title: 'Four ways to stay',
-    intro:
-      'From a studio for two to two bedrooms for four, looking out over the garden or the city.',
-    request: 'Request this room',
+    title: 'Choose your window',
+    intro: 'City lights or garden green. A studio for two, or two bedrooms for the whole family.',
+    request: 'Ask about this room',
     sleeps: (min, max) => `Sleeps ${min}–${max}`,
     items: [
       {
         slug: 'standard-studio-city-view',
         photo: 'city-living',
-        name: 'Standard Studio · City View',
-        altName: { lang: 'vi', text: 'Studio — Hướng thành phố' },
-        shortName: 'Studio · City View',
+        name: 'City Studio',
+        altName: { lang: 'vi', text: 'Studio hướng phố' },
+        shortName: 'City Studio',
         sleeps: [2, 3],
         size: '29 m²',
         view: 'City view',
-        desc: 'City lights from your window. Easy for a weekend, easy for a month.',
+        desc: 'Da Lat glows beyond the glass at night. Right for a weekend; right for a month.',
       },
       {
         slug: 'standard-studio-garden-view',
         photo: 'garden-oak',
-        name: 'Standard Studio · Garden View',
-        altName: { lang: 'vi', text: 'Studio — Hướng vườn' },
-        shortName: 'Studio · Garden View',
+        name: 'Garden Studio',
+        altName: { lang: 'vi', text: 'Studio hướng vườn' },
+        shortName: 'Garden Studio',
         sleeps: [2, 3],
         size: '28–34 m²',
         view: 'Garden view',
-        desc: 'Glass to the garden and a private balcony. Morning light for a short stay; a quiet desk for the weeks after.',
+        desc: 'Wake to green beyond the glass and a balcony of your own. Morning light for a short stay; a quiet desk for the weeks that follow.',
       },
       {
         slug: 'premium-one-bedroom-1',
         photo: 'premium-kitchen',
-        name: 'Premium · One Bedroom + 1',
-        altName: { lang: 'vi', text: 'Premium — 1 phòng ngủ + 1' },
-        shortName: 'Premium · One Bedroom + 1',
+        name: 'Premium One-Bedroom',
+        altName: { lang: 'vi', text: 'Premium một phòng ngủ' },
+        shortName: 'Premium One-Bedroom',
         sleeps: [3, 4],
         size: '37 m²',
         view: 'Garden view',
-        desc: 'A bedroom, a living room and a [[1.4 m]] extra bed for one more guest. The space of a suite for a short stay; room for family on a long one.',
+        desc: 'A separate bedroom and living room, a long navy kitchen and a [[1.4 m]] extra bed for one more. A suite for a short stay; room for family on a long one.',
       },
       {
         slug: 'signature-two-bedrooms',
         photo: 'signature-dining',
-        name: 'Signature · Two Bedrooms',
-        altName: { lang: 'vi', text: 'Signature — 2 phòng ngủ' },
-        shortName: 'Signature · Two Bedrooms',
+        name: 'Signature Two-Bedroom',
+        altName: { lang: 'vi', text: 'Signature hai phòng ngủ' },
+        shortName: 'Signature Two-Bedroom',
         sleeps: [4, 5],
         size: '47 m²',
         view: 'Garden view',
-        desc: 'Two bedrooms, a table for four and a sunset balcony. One booking for the whole family, or for two remote workers over a season.',
+        desc: 'Two bedrooms, a table for four and a balcony that holds the sunset. One stay for the whole family, or for two who work remotely through a season.',
       },
     ],
-    note: 'The higher number includes one more guest, on the sofa or, in Premium, the extra bed, with an extra-guest fee. Rates by the night or by the month, on request.',
+    note: 'Room for one more guest on request. Rates by the night or by the month, prepared for your dates.',
   },
   amenities: {
     label: 'Amenities',
-    title: 'The details you feel every day.',
+    title: 'Staying well, in every detail.',
     intro: 'Small luxuries for one night. The essentials for a month.',
     groups: [
       {
-        title: 'Sleep',
-        body: 'Hotel-grade Dunlopillo mattress and bedding. Ceiling air conditioning that never blows at the bed.',
+        title: 'Sleep well',
+        body: 'Dunlopillo mattress and fine bedding, chosen for deep sleep. Ceiling air conditioning that never blows at the bed.',
       },
       {
-        title: 'Kitchen & laundry',
-        body: 'Hafele induction hob, Samsung [[280 L]] fridge, microwave and kettle. Electrolux washer and dryer in the room.',
+        title: 'Live well',
+        body: 'Hafele induction hob, a Samsung [[280 L]] fridge, microwave and kettle. Your own Electrolux washer and dryer, in the room.',
       },
       {
-        title: 'Work & rest',
+        title: 'Work well',
         body: 'A [[1 Gbps]] fibre line, a desk by the window, a [[55-inch]] 4K TV and a hot rain shower.',
       },
       {
-        title: 'Reception & arrival',
-        body: 'Reception on the ground floor, [[07:00–22:00]]. Check-in 14:00, check-out 12:00. A smart lock, so late arrivals are easy.',
+        title: 'Come and go freely',
+        body: 'A warm welcome at the ground-floor reception, [[07:00–22:00]], and a smart lock for late arrivals. Check-in from 14:00, check-out by 12:00.',
       },
     ],
   },
   location: {
     label: 'Location',
     title: 'A quiet hillside, minutes from town.',
-    intro: 'Calm evenings at home; the market, cafés and the lake a short drive away.',
+    intro: 'Come home to quiet. The market, the cafés and Xuan Huong Lake are a short drive away.',
+    ask: 'Ask us about your dates',
     maps: 'Open in Google Maps',
     copy: 'Copy address',
     copied: 'Address copied.',
@@ -193,23 +200,24 @@ export const en: Copy = {
   },
   book: {
     label: 'Book direct',
-    title: 'Request to book',
-    intro: 'Tell us your dates. We reply with availability and your rate.',
+    title: 'Plan your stay',
+    intro:
+      'Share your dates and how you like to travel. We will suggest the right room and prepare a rate for your stay.',
     steps: [
-      { title: 'Send a request', text: 'Dates, guests and the room you like.' },
+      { title: 'Share your dates', text: 'Dates, guests and the room you have in mind.' },
       {
-        title: 'We confirm on Zalo',
+        title: 'We reply on Zalo',
         text: 'Within 1 hour ([[07:00–22:00]], Da Lat time); outside these hours, before 09:00 the next morning.',
       },
       {
-        title: 'Secure your room',
-        text: 'Your room is held once you confirm and pay a 30% deposit by QR transfer.',
+        title: 'Your room, held for you',
+        text: 'When the quote feels right, a 30% deposit by QR transfer holds your room.',
       },
     ],
-    reassure: 'No payment on this website. A request does not commit you to anything.',
+    reassure: 'Nothing to pay here, and no commitment until you say yes.',
     chat: {
       title: 'Send your dates on Zalo',
-      text: 'Online requests open soon. For now, message us your dates and number of guests. We reply within 1 hour ([[07:00–22:00]]); outside these hours, before 09:00.',
+      text: 'Message us your dates and the number of guests. We reply within 1 hour ([[07:00–22:00]]); outside these hours, before 09:00.',
       call: 'Call',
     },
     form: {
@@ -266,20 +274,20 @@ export const en: Copy = {
     title: 'Good to know',
     items: [
       {
-        q: 'What kind of place is OTTIMO?',
+        q: 'What is it like to stay at OTTIMO?',
         a: [
-          'A boutique stay: a reception, check-in at 14:00 and check-out at 12:00, and daily housekeeping for short stays, in rooms with a full kitchen, a washer-dryer and a desk. Stay one night or several months.',
+          'The attentiveness of a reception and, for short stays, daily housekeeping, with the ease of your own kitchen, washer-dryer and desk. Check-in from 14:00, check-out by 12:00. One night or several months, it simply works.',
         ],
       },
       {
-        q: 'Is housekeeping included?',
-        a: ['Daily for short stays. Monthly stays choose a housekeeping plan that suits them.'],
+        q: 'How often is my room made up?',
+        a: ['Every day for short stays. On a monthly stay, you choose the rhythm that suits you.'],
       },
       {
         id: 'faq-long',
-        q: 'How do long stays work?',
+        q: 'How do longer stays work?',
         a: [
-          'Choose "By the month" in the request. Monthly rates are quoted for you, less for longer terms. Utilities by meter, clear monthly terms, and support when you need it.',
+          'Choose "By the month" in your request. We prepare a monthly rate for you, kinder the longer you stay, with every term set out clearly in your quote. And someone is always here when you need help.',
         ],
       },
       {
@@ -299,8 +307,8 @@ export const en: Copy = {
   },
   contact: {
     label: 'Contact',
-    title: 'Talk to us.',
-    intro: 'A question about a room, a date or a long stay? Chat with us on Zalo.',
+    title: 'Just a message away.',
+    intro: 'Dates, rooms, a longer stay: message us on Zalo and we will take care of the details.',
     facebookLink: 'OTTIMO on Facebook',
     mailSubject: 'Booking – OTTIMO',
     otherChannels: 'Other channels',

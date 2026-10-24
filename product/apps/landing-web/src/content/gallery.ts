@@ -1,17 +1,9 @@
 // Photo sets of R3-Q52 (INV 22/10 + 23/10): the hero slideshow and one OTA-style gallery per room type. Language
 // independent – the alt text of every id lives in the page copy (`photoAlt`), checked in copy.test.ts.
-// Photos = the 18 files UXD optimised (src/assets/photos/CREDITS.md). Room types with fewer than
+// Hero slides: content/hero.ts (by INV's picker numbers). Photos = the files UXD's tool optimised
+// (src/assets/photos/CREDITS.md). Room types with fewer than
 // GALLERY_TARGET photos are listed in the FE report so INV can send more (bathroom, balcony, the 1.4 m extra bed…).
 import type { RoomSlug } from './types';
-
-/** Hero slideshow, in order. The first one is the LCP image (preloaded in layouts/Base.astro). */
-export const HERO_SLIDES = [
-  'hero-facade-dusk',
-  'lobby',
-  'signature-dining',
-  'garden-balcony',
-  'premium-living',
-] as const;
 
 /** Seconds between two hero photos (INV 22/10: "mỗi 3 giây"). */
 export const HERO_INTERVAL_MS = 3000;

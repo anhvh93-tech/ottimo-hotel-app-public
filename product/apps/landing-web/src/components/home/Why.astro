@@ -1,7 +1,10 @@
 ---
-// 2 · Why OTTIMO (concept 2.2): the dual promise – a few nights / a month or longer, two equal cards.
+// 2 · The Stay (concept 2.2; CPY concept B): the dual promise – a few nights / a month or longer, two equal cards,
+// then a text link to the rooms (why.more).
 import type { Copy } from '../../content/types';
+import Icon from '../Icon.astro';
 import Picture from '../Picture.astro';
+import Rich from '../Rich.astro';
 
 interface Props {
   t: Copy;
@@ -38,10 +41,13 @@ const SIZES = '(min-width: 1200px) 544px, (min-width: 768px) calc(50vw - 40px), 
             <h3 class="h3" id={id}>
               {c.title}
             </h3>
-            <p>{c.body}</p>
+            <p><Rich text={c.body} /></p>
           </article>
         ))
       }
     </div>
+    <p class="why-more">
+      <a class="link" href="#rooms">{t.why.more}<Icon name="arrow" /></a>
+    </p>
   </div>
 </section>

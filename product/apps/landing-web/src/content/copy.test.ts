@@ -5,7 +5,8 @@ import { BANNED } from '../../scripts/dist-checks.mjs';
 import { plain } from '../lib/rich';
 import { BOOKING_STRINGS } from '../scripts/booking-strings';
 import { en } from './en';
-import { GALLERY_TARGET, HERO_INTERVAL_MS, HERO_SLIDES, ROOM_GALLERIES } from './gallery';
+import { GALLERY_TARGET, HERO_INTERVAL_MS, ROOM_GALLERIES } from './gallery';
+import { HERO_EXCLUDED, HERO_PICKS, HERO_SLIDES, PICKER_SOURCES, photoIdForPick } from './hero';
 import manifest from '../assets/photos/manifest.json';
 import { isOttimoMailbox, site, siteSchema } from './site';
 import raw from './site.json';
@@ -115,7 +116,7 @@ describe('page copy EN + VI', () => {
       expect(en.photoAlt[id], `EN alt ${id}`).toBeTruthy();
       expect(vi.photoAlt[id], `VI alt ${id}`).toBeTruthy();
     }
-    expect(HERO_SLIDES[0]).toBe('hero-facade-dusk'); // LCP image stays first (preload in Base.astro)
+    expect(HERO_SLIDES[0]).toBe('hero-facade-dusk'); // LCP image stays first (preload in Base.astro, OG image)
     expect(new Set(HERO_SLIDES).size).toBe(HERO_SLIDES.length);
     expect(HERO_SLIDES.length).toBeGreaterThanOrEqual(3);
     expect(HERO_INTERVAL_MS).toBe(3000); // INV 22/10
@@ -126,6 +127,19 @@ describe('page copy EN + VI', () => {
       expect(g.length).toBeGreaterThanOrEqual(3);
     }
     expect(GALLERY_TARGET).toBe(6);
+  });
+
+  it('hero = INV picker numbers (FB-INV-003, INV 24/10): 45 distinct originals, none of the ruled-out photos', () => {
+    const nums = Object.keys(PICKER_SOURCES).map(Number);
+    expect(nums).toEqual(Array.from({ length: 45 }, (_, i) => i + 1));
+    expect(new Set(Object.values(PICKER_SOURCES)).size).toBe(45);
+    expect(HERO_SLIDES).toEqual(HERO_PICKS.map(photoIdForPick));
+    for (const n of HERO_EXCLUDED) expect(HERO_PICKS, `photo ${n} ruled out`).not.toContain(n);
+    // every manifest photo comes from a picker original, so any number INV sends can be traced to a file
+    const sources = new Set(Object.values(PICKER_SOURCES));
+    for (const p of manifest.photos) expect(sources.has(p.src), `${p.id} ← ${p.src}`).toBe(true);
+    expect(() => photoIdForPick(46)).toThrow(/not a picker number/);
+    expect(() => photoIdForPick(1)).toThrow(/optimize-images\.mjs/); // 01a.png is not on the site
   });
 
   it('R3-Q52: viewer strings fill their numbers; the counter template keeps "{i}" for the script', () => {
@@ -142,20 +156,63 @@ describe('page copy EN + VI', () => {
     for (const v of Object.values(vi.photoAlt)) expect(v).not.toMatch(/(?<!\p{L})căn(?!\p{L})/iu);
   });
 
-  it('Premium has the 1.4 m extra bed (INV 22/10); no other room promises an extra bed', () => {
+  it('Premium has the 1.4 m extra bed (INV 22/10); no other room promises an extra bed; the form hint says so', () => {
     const premium = (c: Copy) => c.rooms.items.find((r) => r.slug === 'premium-one-bedroom-1')!;
     expect(plain(premium(en).desc)).toContain('1.4 m extra bed');
     expect(plain(premium(vi).desc)).toContain('giường phụ 1,4 m');
     for (const c of [en, vi]) {
       for (const r of c.rooms.items.filter((x) => x.slug !== 'premium-one-bedroom-1'))
         expect(r.desc).not.toMatch(/extra bed|giường phụ/i);
-      expect(c.rooms.note).toMatch(/Premium/);
     }
+    // CPY 24/10: the extra guest moved from the room-grid note to the form hint (no fee wording on the page body)
+    expect(BOOKING_STRINGS.en.roomHint('2', '3')).toContain('1.4 m extra bed');
+    expect(BOOKING_STRINGS.vi.roomHint('2', '3')).toContain('giường phụ 1,4 m');
   });
 
-  it('the action labels are "Request to book" / "Yêu cầu đặt phòng" (concept T5)', () => {
-    expect(en.actions.requestToBook).toBe('Request to book');
-    expect(vi.actions.requestToBook).toBe('Yêu cầu đặt phòng');
+  it('the action labels are "Plan your stay" / "Chọn ngày ở" (INV 24/10, CPY concept B)', () => {
+    expect(en.actions.requestToBook).toBe('Plan your stay');
+    expect(vi.actions.requestToBook).toBe('Chọn ngày ở');
+  });
+
+  it('room type names of INV 24/10 (Desk keeps its own names; slugs unchanged)', () => {
+    expect(en.rooms.items.map((r) => r.name)).toEqual([
+      'City Studio',
+      'Garden Studio',
+      'Premium One-Bedroom',
+      'Signature Two-Bedroom',
+    ]);
+    expect(vi.rooms.items.map((r) => r.name)).toEqual([
+      'Studio hướng phố',
+      'Studio hướng vườn',
+      'Premium một phòng ngủ',
+      'Signature hai phòng ngủ',
+    ]);
+    expect(en.rooms.items.map((r) => r.altName.text)).toEqual(vi.rooms.items.map((r) => r.name));
+    expect(vi.rooms.items.map((r) => r.altName.text)).toEqual(en.rooms.items.map((r) => r.name));
+  });
+
+  it('VI speaks as "chúng tôi"; only the deposit step and the anti-impersonation answer keep "OTTIMO" (INV 24/10)', () => {
+    for (const s of [vi.book.intro, vi.book.chat.text, vi.contact.title, vi.contact.intro])
+      expect(plain(s)).not.toMatch(/OTTIMO/);
+    expect(plain(vi.book.steps[2].text)).toMatch(/OTTIMO/);
+    expect(vi.faq.items.find((i) => i.deposit)!.a.join(' ')).toMatch(/OTTIMO/);
+  });
+
+  it.each(['en', 'vi'] as const)('%s: run-time form strings follow the banned list too', (lang) => {
+    const s = BOOKING_STRINGS[lang];
+    const all = [
+      ...Object.values(s.next),
+      ...s.fallback,
+      ...s.notReady,
+      ...Object.values(s.net),
+      s.roomHint('2', '3'),
+      s.roomHint(null, null),
+      s.longHint(30),
+      s.notSent,
+      s.e.cap('3'),
+    ].join(' \n ');
+    for (const re of BANNED) expect(all.match(re)?.[0] ?? null, String(re)).toBeNull();
+    expect(all).not.toMatch(/hotel|khách sạn/iu);
   });
 });
 

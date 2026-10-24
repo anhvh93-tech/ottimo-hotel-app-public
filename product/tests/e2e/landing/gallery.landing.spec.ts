@@ -22,6 +22,8 @@ const currentDot = (page: Page) =>
 /** Index of the slide that fills the track (what the guest sees). */
 const visibleSlide = (page: Page) =>
   page.locator('[data-car-track]').evaluate((t) => Math.round(t.scrollLeft / t.clientWidth));
+/** Hero photos = HERO_PICKS in landing-web src/content/hero.ts (INV may send another set: 6 since 24/10). */
+const SLIDES = 6;
 
 test.describe('TC-LP-019 hero slideshow (R3-Q52)', () => {
   test('advances on its own every 3 s after load; the next photo loads only shortly before', async ({
@@ -32,7 +34,8 @@ test.describe('TC-LP-019 hero slideshow (R3-Q52)', () => {
     const errors = watchErrors(page);
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     // first view: only the facade is rendered, the other slides wait (budget concept 11.2)
-    await expect(page.locator('[data-car-slide].is-pending')).toHaveCount(4);
+    await expect(page.locator('[data-car-slide]')).toHaveCount(SLIDES);
+    await expect(page.locator('[data-car-slide].is-pending')).toHaveCount(SLIDES - 1);
     await expect(page.locator('[data-car-ctrl]')).toBeVisible();
     await page.waitForLoadState('load');
     const t0 = Date.now();
@@ -60,7 +63,7 @@ test.describe('TC-LP-019 hero slideshow (R3-Q52)', () => {
     await expect.poll(() => currentDot(page)).toBe(2);
     await expect.poll(() => visibleSlide(page)).toBe(2);
     await page.keyboard.press('End');
-    await expect.poll(() => visibleSlide(page)).toBe(4);
+    await expect.poll(() => visibleSlide(page)).toBe(SLIDES - 1);
     await page.locator('[data-car-dot="1"]').click();
     await expect.poll(() => visibleSlide(page)).toBe(1);
     await expect.poll(() => currentDot(page)).toBe(1);
@@ -95,7 +98,7 @@ test.describe('TC-LP-019 hero slideshow (R3-Q52)', () => {
     await expect(page.locator('[data-car-toggle]')).toBeHidden();
     await page.waitForTimeout(4000);
     expect(await currentDot(page)).toBe(0);
-    await expect(page.locator('[data-car-slide].is-pending')).toHaveCount(4);
+    await expect(page.locator('[data-car-slide].is-pending')).toHaveCount(SLIDES - 1);
     await page.locator('[data-car-dot="2"]').click();
     await expect.poll(() => visibleSlide(page)).toBe(2);
     await context.close();

@@ -61,7 +61,12 @@ Astro 7: khi không chạy trong terminal (script, agent), `astro dev` tự ch�
 
 ## Ảnh đầu trang tự chạy + bộ ảnh theo hạng phòng (R3-Q52, INV 22–23/10)
 
-- Danh sách ảnh: `src/content/gallery.ts` (`HERO_SLIDES`, `ROOM_GALLERIES`, `HERO_INTERVAL_MS = 3000`). Alt EN/VI cho mọi ảnh trong `photoAlt` của `en.ts`/`vi.ts` (test chặn thiếu). Thêm ảnh: chạy `design/landing/tools/optimize-images.mjs`, chép vào `src/assets/photos/`, thêm id vào `gallery.ts` + alt.
+- Danh sách ảnh: ảnh đầu trang ở `src/content/hero.ts` (`HERO_PICKS` = số ảnh INV chọn trong bảng 45 ảnh `rounds/round-03/outputs/UXD/landing-photo-picker.html`, `PICKER_SOURCES` = số → tệp gốc); hạng phòng ở `src/content/gallery.ts` (`ROOM_GALLERIES`, `HERO_INTERVAL_MS = 3000`). Alt EN/VI cho mọi ảnh trong `photoAlt` của `en.ts`/`vi.ts` (test chặn thiếu).
+- **Đổi ảnh đầu trang** (INV gửi bộ số mới):
+  1. Sửa **một dòng** `HERO_PICKS` trong `src/content/hero.ts` (thứ tự = thứ tự chạy). Ảnh đã có trên site thì xong ở đây.
+  2. Số nào chưa có trên site → build dừng và in đúng lệnh cần chạy: thêm ảnh vào `PHOTOS` của `product/design/landing/tools/optimize-images.mjs` rồi `node product/design/landing/tools/optimize-images.mjs --raw <thư mục ảnh gốc> --only <id> --out product/apps/landing-web/src/assets/photos` (chỉ mã hóa ảnh đó, gộp vào `manifest.json`), thêm alt vào `photoAlt` của `en.ts` + `vi.ts`.
+  3. Đổi **ảnh số 1**: ảnh này luôn mang id `hero-facade-dusk` (preload LCP, ảnh OG, test). Đổi `src` của `hero-facade-dusk` trong tool, chạy `--only hero-facade-dusk`, rồi `pnpm og`. Ảnh đầu trang phải ≤ 50 KB ở 960 px AVIF (ngân sách concept 11.2): ảnh nhiều chi tiết dùng `avifQuality` riêng (ảnh số 4 hiện dùng 42).
+  4. Ảnh 2+ khung 4/5 (máy tính) cắt hai bên ảnh ngang – xem bản chụp trước khi phát hành.
 - Đầu trang (`home/Hero.astro` + `scripts/carousel.ts`): dải scroll-snap (vuốt bằng cử chỉ gốc), 3 giây chuyển một ảnh sau sự kiện `load`, chấm chỉ báo + nút tạm dừng nhỏ trong viên Ink (WCAG 2.2.2). Dừng khi `prefers-reduced-motion` (không tự chạy, ẩn nút dừng), tab ẩn, đầu trang ra khỏi màn hình, chuột đặt trên ảnh hoặc focus bên trong. Ảnh 2+ là `display:none` tới ~0,8 s trước khi hiện (giữ ngân sách byte concept 11.2); không JS = chỉ ảnh mặt tiền. Phím ← → Home End trên dải ảnh.
 - Hạng phòng (`components/RoomGallery.astro` + `scripts/lightbox.ts`): nút "n photos" phủ ảnh bìa mở `<dialog>` modal toàn màn hình nền Ink; vuốt, ← → Home End, nút trước/sau vòng lại, bộ đếm "2 / 6" (+ câu đọc cho trình đọc màn hình), chú thích = alt, Esc đóng, Tab không rời hộp, đóng xong focus về nút. Ảnh trong hộp đóng không tải.
 - Chân trang: dòng pháp nhân từ `site.json` → `legal` (INV 22/10).

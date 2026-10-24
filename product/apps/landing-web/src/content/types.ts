@@ -1,4 +1,4 @@
-// Shape of the page copy (concept v1.2.1). Every published language must fill every field (ADR-014 3.4): a missing
+// Shape of the page copy (concept v1.2.1; CPY concept B 24/10 adds why.more and location.ask). Every published language must fill every field (ADR-014 3.4): a missing
 // string is a type error at `astro check`, and copy.test.ts checks that no field is empty.
 // Inline markup in copy strings: [[…]] = never break inside (`.nw`, concept T7). Nothing else is interpreted.
 import type { Lang } from '../lib/i18n';
@@ -96,7 +96,10 @@ export interface Copy {
   langSwitch: { label: string };
   /** Shown only on pages in another language, written in this language (ADR-014 3.2). */
   langSuggest: { region: string; text: string; close: string };
-  /** The two actions of the page (concept 3.3): Request to book (primary) and Chat on Zalo (secondary). */
+  /**
+   * The two actions of the page (concept 3.3): Plan your stay (primary, INV 24/10 – key name kept from "Request to
+   * book") and Chat on Zalo (secondary).
+   */
   actions: { requestToBook: string; chatOnZalo: string; chatOnPrefix: string; newTab: string };
   /** Alt text per photo id (falls back to the photo manifest). */
   photoAlt: Readonly<Record<string, string>>;
@@ -129,6 +132,8 @@ export interface Copy {
     intro: string;
     short: { photo: string; label: string; title: string; body: string };
     long: { photo: string; label: string; title: string; body: string };
+    /** Text link to #rooms under the two cards (CPY concept B 3, funnel). */
+    more: string;
   };
   rooms: {
     label: string;
@@ -157,6 +162,8 @@ export interface Copy {
     head: { place: string; distance: string; time: string };
     rows: readonly { place: string; distance: string; time: string }[];
     note: string;
+    /** Text link to #book after the drive times (CPY concept B 3, funnel). */
+    ask: string;
   };
   book: {
     label: string;

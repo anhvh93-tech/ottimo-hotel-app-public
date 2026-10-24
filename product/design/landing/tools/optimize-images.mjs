@@ -6,6 +6,11 @@
 //
 // Usage (from repo root):
 //   node product/design/landing/tools/optimize-images.mjs [--no-avif] [--raw <dir>]
+//   node product/design/landing/tools/optimize-images.mjs --only <id,id> --out product/apps/landing-web/src/assets/photos
+//
+// --only re-encodes just those ids and merges them into the manifest.json already in the output folder (other
+// entries and files untouched) – used by FE-LP to add or swap a landing photo (round 3, hero photos 24/10).
+// --out writes somewhere else than the mock (e.g. the landing app's src/assets/photos).
 //
 // sharp is resolved from the repo (services/api or the pnpm store) – no new deps.
 
@@ -22,7 +27,8 @@ const argVal = (name) => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 const RAW = path.resolve(argVal('--raw') ?? path.join(REPO, '00-brief/context/landing/raw'));
-const OUT = path.join(REPO, 'product/design/landing/mock/img');
+const OUT = path.resolve(argVal('--out') ?? path.join(REPO, 'product/design/landing/mock/img'));
+const ONLY = argVal('--only')?.split(',').map((s) => s.trim()).filter(Boolean);
 const WITH_AVIF = !args.includes('--no-avif');
 
 const WIDTHS = [480, 960, 1600];
@@ -52,9 +58,13 @@ function loadSharp() {
 
 // id → source. Room type mapping is UXD's reading of the e-brochure pages
 // (see concept.md section 6); "check" = SEC photo checklist (FB-R2-SEC-UXD-02).
+// Round 3 (INV/CPY 24/10, concept B): hero = picker photo 4 (`03.png`, front facade at blue hour) instead of 04.1;
+// the id stays `hero-facade-dusk` (LCP preload, OG image, tests). Two photos added for the hero slideshow.
 const PHOTOS = [
-  { id: 'hero-facade-dusk', src: 'mat-tien-sanh/04.1.png', use: 'Hero (LCP)', type: 'Exterior', brochure: 'p33',
-    alt: { en: 'OTTIMO at dusk: a five-storey building with warm lights on every balcony', vi: 'OTTIMO lúc chạng vạng: tòa nhà năm tầng, ban công sáng đèn ấm' } },
+  // avifQuality 42: this photo carries more detail than 04.1 – at q50 the 960 px AVIF is 58 KB, over the 50 KB hero
+  // budget of concept 11.2 (budget.landing.spec.ts). q42 keeps it at ~41 KB with no visible loss at that size.
+  { id: 'hero-facade-dusk', src: 'mat-tien-sanh/03.png', use: 'Hero (LCP)', type: 'Exterior', brochure: '–', avifQuality: 42,
+    alt: { en: 'OTTIMO at dusk, with warm lights on every balcony', vi: 'OTTIMO lúc chạng vạng, ban công sáng đèn ấm' } },
   { id: 'lobby', src: 'mat-tien-sanh/01b.png', use: 'About · Lobby', type: 'Lobby', brochure: 'p31',
     alt: { en: 'Ground-floor lobby with an oak reception desk and a coffee counter', vi: 'Sảnh tầng trệt với quầy lễ tân gỗ sồi và quầy cà phê' } },
   { id: 'aerial-hillside', src: 'mat-tien-sanh/05.2.png', use: 'Location', type: 'Exterior', brochure: '–',
@@ -89,6 +99,12 @@ const PHOTOS = [
     alt: { en: 'Oak kitchen with an induction hob, full-size fridge and washer-dryer', vi: 'Bếp gỗ sồi với bếp từ, tủ lạnh lớn và máy giặt sấy' } },
   { id: 'detail-balcony-sunset', src: 'phong-2/06.png', use: 'Location quote', type: 'Standard Studio · Garden View (navy)', brochure: 'p30',
     alt: { en: 'Balcony at sunset over the hills of Da Lat', vi: 'Ban công lúc hoàng hôn nhìn ra đồi Đà Lạt' } },
+  { id: 'signature-bedroom-desk', src: 'phong-4/8.png', use: 'Hero slide (picker 37)', type: 'Signature Two-Bedroom', brochure: '–',
+    alt: { en: 'Bedroom with a white bed on an oak platform, a wardrobe and a desk by the window', vi: 'Phòng ngủ với giường trắng trên bệ gỗ, tủ áo và bàn làm việc cạnh cửa sổ' } },
+  { id: 'garden-navy-kitchen', src: 'phong-2/03.png', use: 'Hero slide (picker 16)', type: 'Garden Studio (navy)', brochure: '–',
+    alt: { en: 'Long navy kitchen open to a sofa corner by tall glass doors', vi: 'Bếp navy dài liền góc sofa bên cửa kính lớn' } },
+  { id: 'signature-living-oak', src: 'phong-4/4.png', use: 'Hero slide (picker 33)', type: 'Signature Two-Bedroom', brochure: '–',
+    alt: { en: 'Living room with an oak shelf wall, a TV and a cream sofa by the window', vi: 'Phòng khách với vách kệ gỗ sồi, TV và sofa màu kem cạnh cửa sổ' } },
 ];
 
 const SEC_CHECK =
@@ -102,8 +118,13 @@ async function main() {
   fs.mkdirSync(OUT, { recursive: true });
   const manifest = [];
   let total = 0;
+  const todo = ONLY ? PHOTOS.filter((p) => ONLY.includes(p.id)) : PHOTOS;
+  if (ONLY) {
+    const unknown = ONLY.filter((id) => !PHOTOS.some((p) => p.id === id));
+    if (unknown.length) throw new Error(`--only: unknown id(s) ${unknown.join(', ')} – add them to PHOTOS first`);
+  }
 
-  for (const p of PHOTOS) {
+  for (const p of todo) {
     const src = path.join(RAW, p.src);
     if (!fs.existsSync(src)) throw new Error(`missing source: ${src}`);
     const meta = await sharp(src, { limitInputPixels: false }).metadata();
@@ -117,7 +138,7 @@ async function main() {
         .resize({ width, withoutEnlargement: true })
         .toColourspace('srgb');
       const outs = [['webp', base.clone().webp(WEBP)]];
-      if (WITH_AVIF) outs.push(['avif', base.clone().avif(AVIF)]);
+      if (WITH_AVIF) outs.push(['avif', base.clone().avif({ ...AVIF, ...(p.avifQuality ? { quality: p.avifQuality } : {}) })]);
       for (const [fmt, pipe] of outs) {
         const name = `${p.id}-${w}.${fmt}`;
         const info = await pipe.toFile(path.join(OUT, name));
@@ -130,9 +151,18 @@ async function main() {
     console.log(`${p.id.padEnd(24)} ← ${p.src.padEnd(26)} ${largest.width}×${largest.height}  webp1600 ${kb(largest.bytes)}`);
   }
 
-  fs.writeFileSync(path.join(OUT, 'manifest.json'), JSON.stringify({ widths: WIDTHS, webp: WEBP, avif: WITH_AVIF ? AVIF : null, totalBytes: total, photos: manifest }, null, 2) + '\n');
-  fs.writeFileSync(path.join(OUT, 'CREDITS.md'), credits(manifest, total));
-  console.log(`\n${manifest.length} photos · ${manifest.reduce((n, e) => n + e.files.length, 0)} files · total ${(total / 1024 / 1024).toFixed(2)} MB`);
+  let photos = manifest;
+  if (ONLY) {
+    // Merge: replace the re-encoded entries in place, append new ones, keep every other entry as it is.
+    const prev = JSON.parse(fs.readFileSync(path.join(OUT, 'manifest.json'), 'utf8')).photos;
+    const fresh = new Map(manifest.map((e) => [e.id, e]));
+    photos = prev.map((e) => fresh.get(e.id) ?? e);
+    for (const e of manifest) if (!prev.some((x) => x.id === e.id)) photos.push(e);
+    total = photos.reduce((n, e) => n + e.files.reduce((m, f) => m + f.bytes, 0), 0);
+  }
+  fs.writeFileSync(path.join(OUT, 'manifest.json'), JSON.stringify({ widths: WIDTHS, webp: WEBP, avif: WITH_AVIF ? AVIF : null, totalBytes: total, photos }, null, 2) + '\n');
+  fs.writeFileSync(path.join(OUT, 'CREDITS.md'), credits(photos, total));
+  console.log(`\n${photos.length} photos · ${photos.reduce((n, e) => n + e.files.length, 0)} files · total ${(total / 1024 / 1024).toFixed(2)} MB`);
 }
 
 function credits(manifest, total) {

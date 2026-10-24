@@ -8,59 +8,60 @@
     "quality": 50,
     "effort": 4
   },
-  "totalBytes": 4758128,
+  "totalBytes": 5351404,
   "photos": [
     {
       "id": "hero-facade-dusk",
-      "src": "mat-tien-sanh/04.1.png",
+      "src": "mat-tien-sanh/03.png",
       "use": "Hero (LCP)",
       "type": "Exterior",
-      "brochure": "p33",
+      "brochure": "–",
+      "avifQuality": 42,
       "alt": {
-        "en": "OTTIMO at dusk: a five-storey building with warm lights on every balcony",
-        "vi": "OTTIMO lúc chạng vạng: tòa nhà năm tầng, ban công sáng đèn ấm"
+        "en": "OTTIMO at dusk, with warm lights on every balcony",
+        "vi": "OTTIMO lúc chạng vạng, ban công sáng đèn ấm"
       },
       "original": {
-        "width": 1792,
-        "height": 2432,
-        "bytes": 4729684
+        "width": 1600,
+        "height": 2416,
+        "bytes": 4696088
       },
       "files": [
         {
           "name": "hero-facade-dusk-480.webp",
           "width": 480,
-          "height": 651,
-          "bytes": 23060
+          "height": 725,
+          "bytes": 27694
         },
         {
           "name": "hero-facade-dusk-480.avif",
           "width": 480,
-          "height": 651,
-          "bytes": 16566
+          "height": 725,
+          "bytes": 13190
         },
         {
           "name": "hero-facade-dusk-960.webp",
           "width": 960,
-          "height": 1303,
-          "bytes": 69514
+          "height": 1450,
+          "bytes": 87058
         },
         {
           "name": "hero-facade-dusk-960.avif",
           "width": 960,
-          "height": 1303,
-          "bytes": 49321
+          "height": 1450,
+          "bytes": 39351
         },
         {
           "name": "hero-facade-dusk-1600.webp",
           "width": 1600,
-          "height": 2171,
-          "bytes": 152486
+          "height": 2416,
+          "bytes": 214962
         },
         {
           "name": "hero-facade-dusk-1600.avif",
           "width": 1600,
-          "height": 2171,
-          "bytes": 118605
+          "height": 2416,
+          "bytes": 101365
         }
       ]
     },
@@ -979,6 +980,168 @@
           "width": 1600,
           "height": 1063,
           "bytes": 90979
+        }
+      ]
+    },
+    {
+      "id": "signature-bedroom-desk",
+      "src": "phong-4/8.png",
+      "use": "Hero slide (picker 37)",
+      "type": "Signature Two-Bedroom",
+      "brochure": "–",
+      "alt": {
+        "en": "Bedroom with a white bed on an oak platform, a wardrobe and a desk by the window",
+        "vi": "Phòng ngủ với giường trắng trên bệ gỗ, tủ áo và bàn làm việc cạnh cửa sổ"
+      },
+      "original": {
+        "width": 5804,
+        "height": 3869,
+        "bytes": 21667435
+      },
+      "files": [
+        {
+          "name": "signature-bedroom-desk-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 9738
+        },
+        {
+          "name": "signature-bedroom-desk-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 7274
+        },
+        {
+          "name": "signature-bedroom-desk-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 26158
+        },
+        {
+          "name": "signature-bedroom-desk-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 20590
+        },
+        {
+          "name": "signature-bedroom-desk-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 59454
+        },
+        {
+          "name": "signature-bedroom-desk-1600.avif",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 46978
+        }
+      ]
+    },
+    {
+      "id": "garden-navy-kitchen",
+      "src": "phong-2/03.png",
+      "use": "Hero slide (picker 16)",
+      "type": "Garden Studio (navy)",
+      "brochure": "–",
+      "alt": {
+        "en": "Long navy kitchen open to a sofa corner by tall glass doors",
+        "vi": "Bếp navy dài liền góc sofa bên cửa kính lớn"
+      },
+      "original": {
+        "width": 5937,
+        "height": 3957,
+        "bytes": 31210695
+      },
+      "files": [
+        {
+          "name": "garden-navy-kitchen-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 10660
+        },
+        {
+          "name": "garden-navy-kitchen-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 7776
+        },
+        {
+          "name": "garden-navy-kitchen-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 30370
+        },
+        {
+          "name": "garden-navy-kitchen-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 21890
+        },
+        {
+          "name": "garden-navy-kitchen-1600.webp",
+          "width": 1600,
+          "height": 1066,
+          "bytes": 69414
+        },
+        {
+          "name": "garden-navy-kitchen-1600.avif",
+          "width": 1600,
+          "height": 1066,
+          "bytes": 51500
+        }
+      ]
+    },
+    {
+      "id": "signature-living-oak",
+      "src": "phong-4/4.png",
+      "use": "Hero slide (picker 33)",
+      "type": "Signature Two-Bedroom",
+      "brochure": "–",
+      "alt": {
+        "en": "Living room with an oak shelf wall, a TV and a cream sofa by the window",
+        "vi": "Phòng khách với vách kệ gỗ sồi, TV và sofa màu kem cạnh cửa sổ"
+      },
+      "original": {
+        "width": 5786,
+        "height": 3858,
+        "bytes": 23176812
+      },
+      "files": [
+        {
+          "name": "signature-living-oak-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 9788
+        },
+        {
+          "name": "signature-living-oak-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 7320
+        },
+        {
+          "name": "signature-living-oak-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 27356
+        },
+        {
+          "name": "signature-living-oak-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 20793
+        },
+        {
+          "name": "signature-living-oak-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 63354
+        },
+        {
+          "name": "signature-living-oak-1600.avif",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 48795
         }
       ]
     }

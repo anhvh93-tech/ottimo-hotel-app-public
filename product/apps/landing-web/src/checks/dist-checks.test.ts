@@ -89,17 +89,28 @@ describe('dist checks catch violations', () => {
     ).toMatch(/api\.example\.com/);
   });
 
-  it('wording: room count, "apartment", plain "Book" button, meter in #why', () => {
+  it('wording: room count, "apartment", plain "Book" button, meter in #why, any hotel word, fees, old names', () => {
     const d = site({
       'index.html': page(
-        '<h1>x</h1><section id="why"><p>Utilities by meter</p></section><p>Ten apartments in Da Lat</p><a href="#book">Book</a>',
+        '<h1>x</h1><section id="why"><p>Utilities by meter</p></section><p>Ten apartments in Da Lat</p><a href="#book">Book</a>' +
+          '<p>The care of a small hotel. Giường phụ có phụ thu. Online requests open soon. Standard Studio · City View</p>' +
+          '<p>a [[1.4 m]] extra bed</p>',
       ),
+      'vi/index.html': page('<h1>x</h1><p>Không như một khách sạn.</p>'),
     });
     const problems = checks.checkWording(d).join('\n');
     expect(problems).toMatch(/apartment/);
     expect(problems).toMatch(/ten \(rooms\|apartments\|names\)/);
     expect(problems).toMatch(/labelled "Book"/);
     expect(problems).toMatch(/#why/);
+    expect(problems).toMatch(/small hotel/);
+    expect(problems).toMatch(/phụ thu/);
+    expect(problems).toMatch(/open soon/);
+    expect(problems).toMatch(/Standard Studio/);
+    expect(problems).toMatch(/by meter/);
+    expect(problems).toMatch(/copy markup/);
+    // a single "khách sạn" is enough since INV 24/10 (was: up to 3 comparisons)
+    expect(problems).toMatch(/\/vi\/: "hotel\/khách sạn" 1×/);
   });
 
   it('a terracotta accent, a named colour and rgb() in CSS', () => {

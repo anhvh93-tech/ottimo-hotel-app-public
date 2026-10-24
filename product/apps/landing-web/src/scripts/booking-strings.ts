@@ -74,7 +74,7 @@ export const BOOKING_STRINGS: Record<'en' | 'vi', BookingStrings> = {
     nights: (n) => (n === 1 ? '1 night' : `${n} nights`),
     roomHint: (lo, hi) =>
       lo
-        ? `Sleeps ${lo}–${hi}. The higher number uses the sofa.`
+        ? `Sleeps ${lo}–${hi}. The higher number includes one more guest (sofa, or the 1.4 m extra bed in Premium), included in your quote.`
         : 'We suggest a room that suits your group.',
     longHint: (n) => `${n} nights. We will quote our long-stay rate.`,
     summary: (n) => (n === 1 ? 'Please check 1 field' : `Please check ${n} fields`),
@@ -109,32 +109,31 @@ export const BOOKING_STRINGS: Record<'en' | 'vi', BookingStrings> = {
     ],
     reload: 'This page has been updated. Please reload it and send your request again.',
     sending: 'Sending…',
-    notSent:
-      'Preview: this request was not sent. Online requests open soon – please chat with us on Zalo.',
+    notSent: 'Preview: this request was not sent. Please chat with us on Zalo.',
   },
   vi: {
     chName: { zalo: 'Zalo', whatsapp: 'WhatsApp', phone: 'điện thoại' },
     thanks: (name) => `Cảm ơn ${name}. Đây là yêu cầu, chưa phải đặt phòng.`,
     next: {
       zalo: 'Để được trả lời nhanh nhất, mở Zalo và gửi mã này cho OTTIMO.',
-      whatsapp: 'OTTIMO sẽ nhắn bạn qua WhatsApp.',
-      phone: 'OTTIMO sẽ gọi cho bạn.',
-      email: 'OTTIMO sẽ trả lời qua email.',
+      whatsapp: 'Chúng tôi sẽ nhắn bạn qua WhatsApp.',
+      phone: 'Chúng tôi sẽ gọi cho bạn.',
+      email: 'Chúng tôi sẽ trả lời qua email.',
     },
     when: {
       withinMinutes: (m, open, close) =>
-        `OTTIMO trả lời trong ${m % 60 === 0 ? `${m / 60} giờ` : `${m} phút`} (${open}–${close}, giờ Đà Lạt).`,
+        `Chúng tôi trả lời trong ${m % 60 === 0 ? `${m / 60} giờ` : `${m} phút`} (${open}–${close}, giờ Đà Lạt).`,
       nextMorning: (by, open) =>
-        `Lễ tân làm việc lại từ ${open}. OTTIMO sẽ trả lời bạn trước ${by}.`,
-      callNow: (m) => `Bạn đến trong tối nay, OTTIMO sẽ liên hệ bạn trong ${m} phút.`,
+        `Lễ tân làm việc lại từ ${open}. Chúng tôi sẽ trả lời bạn trước ${by}.`,
+      callNow: (m) => `Bạn đến trong tối nay, chúng tôi sẽ liên hệ bạn trong ${m} phút.`,
     },
-    fallback: ['Nếu đến ', ' OTTIMO chưa liên hệ, vui lòng gọi ', ' hoặc nhắn Zalo kèm mã này.'],
+    fallback: ['Nếu đến ', ' chúng tôi chưa liên hệ, vui lòng gọi ', ' hoặc nhắn Zalo kèm mã này.'],
     nights: (n) => `${n} đêm`,
     roomHint: (lo, hi) =>
       lo
-        ? `${lo}–${hi} khách. Số lớn hơn là khi dùng sofa.`
-        : 'OTTIMO gợi ý hạng phòng hợp với số khách.',
-    longHint: (n) => `${n} đêm. OTTIMO sẽ báo giá ở dài ngày.`,
+        ? `${lo}–${hi} khách. Số lớn hơn là khi thêm một khách (ngủ sofa, hoặc giường phụ 1,4 m ở hạng Premium); chi phí đã gồm trong báo giá.`
+        : 'Chúng tôi sẽ gợi ý phòng hợp với số khách.',
+    longHint: (n) => `${n} đêm. Chúng tôi sẽ báo giá ở dài ngày.`,
     summary: (n) => `Vui lòng kiểm tra ${n} mục`,
     e: {
       inReq: 'Chọn ngày nhận phòng.',
@@ -143,20 +142,20 @@ export const BOOKING_STRINGS: Record<'en' | 'vi', BookingStrings> = {
       range: (max) => `Chọn ngày từ hôm nay đến ${max}.`,
       order: 'Ngày trả phòng phải sau ngày nhận phòng.',
       cap: (n) =>
-        `Hạng phòng này ở tối đa ${n} người (không tính trẻ dưới 6 tuổi). Chọn hạng lớn hơn, hoặc "Hạng nào cũng được".`,
-      name: 'Cho OTTIMO biết tên của bạn.',
-      phone: (c) => `Nhập số ${c} để OTTIMO liên hệ.`,
+        `Hạng phòng này ở tối đa ${n} người (không tính trẻ dưới 6 tuổi). Chọn hạng lớn hơn, hoặc "Gợi ý giúp tôi".`,
+      name: 'Cho chúng tôi biết tên của bạn.',
+      phone: (c) => `Nhập số ${c} để chúng tôi liên hệ.`,
       email: 'Nhập email dạng ten@vidu.com.',
       card: 'Vui lòng xóa số thẻ khỏi ghi chú.',
-      consent: 'Vui lòng đánh dấu ô đồng ý để OTTIMO trả lời.',
+      consent: 'Vui lòng đánh dấu ô đồng ý để chúng tôi trả lời.',
       idNumber: 'Không cần gửi số giấy tờ ở bước này. Vui lòng xóa số đó.',
       phoneCountry: 'Vui lòng kiểm tra lại số. Số nước ngoài bắt đầu bằng + và mã nước.',
       server: 'Vui lòng kiểm tra lại mục này.',
     },
     net: {
-      network: 'Chưa gửi được yêu cầu. Kiểm tra kết nối rồi thử lại, hoặc nhắn OTTIMO qua Zalo.',
-      busy: 'OTTIMO đang nhận nhiều yêu cầu. Vui lòng nhắn Zalo hoặc gọi 08.4444.0909.',
-      rate: 'Kết nối này đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau, hoặc nhắn OTTIMO qua Zalo.',
+      network: 'Chưa gửi được yêu cầu. Kiểm tra kết nối rồi thử lại, hoặc nhắn chúng tôi qua Zalo.',
+      busy: 'Chúng tôi đang nhận nhiều yêu cầu. Vui lòng nhắn Zalo hoặc gọi 08.4444.0909.',
+      rate: 'Kết nối này đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau, hoặc nhắn chúng tôi qua Zalo.',
     },
     notReady: [
       'Yêu cầu trực tuyến đang tạm dừng. Vui lòng nhắn OTTIMO qua ',
@@ -165,7 +164,6 @@ export const BOOKING_STRINGS: Record<'en' | 'vi', BookingStrings> = {
     ],
     reload: 'Trang vừa được cập nhật. Vui lòng tải lại trang rồi gửi lại yêu cầu.',
     sending: 'Đang gửi…',
-    notSent:
-      'Bản xem trước: yêu cầu chưa được gửi. Yêu cầu trực tuyến sắp mở – vui lòng nhắn OTTIMO qua Zalo.',
+    notSent: 'Bản xem trước: yêu cầu chưa được gửi. Vui lòng nhắn chúng tôi qua Zalo.',
   },
 };

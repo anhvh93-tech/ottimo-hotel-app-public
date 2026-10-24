@@ -730,7 +730,7 @@ h1 {
   border-radius: 999px;
 }
 
-/* 2 · Why OTTIMO – the dual promise */
+/* 2 · The Stay (#why) – the dual promise */
 .why-intro {
   max-width: 720px;
 }
@@ -770,6 +770,11 @@ h1 {
   .promise {
     gap: var(--s7);
   }
+}
+
+/* Text link under the two cards (CPY concept B: "See the rooms") – one filled button per screen stays the rule. */
+.why-more {
+  margin: var(--s6) 0 0;
 }
 
 /* 3 · Rooms – swipe row on phones, 2 x 2 grid from 768 px */
@@ -1128,6 +1133,10 @@ table.dist {
   padding-left: var(--s3);
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+/* "Ask us about your dates" → #book (CPY concept B) */
+.loc-ask {
+  margin: var(--s4) 0 0;
 }
 .loc .pic img {
   aspect-ratio: 16/9;
@@ -1796,7 +1805,7 @@ legend.f-label:not(.sr) {
   }
 }
 
-/* Sticky bar – phones only. Same hierarchy as the hero: Request to book (primary) + Zalo (secondary).
+/* Sticky bar – phones only. Same hierarchy as the hero: Plan your stay (primary) + Zalo (secondary).
    Rendered hidden; the script shows it while the hero buttons, #book, #contact and the footer are all off screen
    (concept 3.3, N2). Without JavaScript nojs.css shows it. */
 .stickybar {
@@ -1864,7 +1873,7 @@ legend.f-label:not(.sr) {
 }
 
 /* Language suggestion strip (ADR-014 3.2): fixed (no layout shift), never a dialog, above the phone action bar so
-   it covers neither "Request to book" nor the bar. Ink background, Ivory text (Brand Guidelines dark pair). */
+   it covers neither "Plan your stay" nor the bar. Ink background, Ivory text (Brand Guidelines dark pair). */
 .lang-suggest {
   position: fixed;
   left: 0;
