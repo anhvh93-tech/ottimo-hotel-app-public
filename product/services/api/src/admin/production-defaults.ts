@@ -288,7 +288,7 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
   { key: 'checkin_time', br: 'BR-401', status: 'GD', value: '14:00' },
   { key: 'checkout_time', br: 'BR-401', status: 'GD', value: '12:00' },
   // BR v0.3.9 (INV 19/10): door code = 8 random digits, birthday variant removed.
-  { key: 'door_code_min_digits', br: 'BR-403', status: 'INV-19/10+SEC', value: 8 },
+  { key: 'door_code_min_digits', br: 'BR-403', status: 'INV-1910+SEC', value: 8 },
   // Obsolete since BR v0.3.9 (birthday variant removed); written only because the catalogue has no default.
   { key: 'birthday_code_random_digits', br: 'BR-403', status: 'OBSOLETE', value: 3 },
   { key: 'door_lock_vendor', br: 'BR-403', status: 'INV-TT', value: 'TTLock' },
