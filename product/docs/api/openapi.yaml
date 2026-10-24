@@ -181,7 +181,7 @@ info:
     | MINIBAR_PERIOD_CHANGED | 409 | `recordMinibarCheck`: `periodId` client gửi không còn là kỳ hiện tại của tủ (vừa có lần nạp, lượt ở tiếp mở kỳ mới, hoặc việc bổ sung của kỳ đã xong sau lần đếm sống – ARC 16.17), **hoặc** lần nạp `periodId` không thuộc tủ (lượt, `roomId`), **hoặc** `periodId = null` mà tủ đã có lần nạp (ARC 16.19 K11-03) – không ghi gì; client tải lại `getMinibarStandard` và **đếm lại tủ** (0.3.7 bổ sung 4) |
     | SELF_RECONCILE_FORBIDDEN | 403 | `reconcilePayment`: người đối soát là người đã ghi/xác nhận giao dịch, và không phải OWN (rbac A46) (0.3.3, E05-03) |
     | CONSENT_CHANGE_NOT_ALLOWED | 409 | `recordImageConsent`: đổi `refused → granted` khi ảnh đã xóa (khai báo đã `confirmed` hoặc ảnh đã purge) (BR-609 c) (0.3.3, E06-02) |
-    | SELF_REFUND_FORBIDDEN | 403 | `executeCashRefund`/`executeRefund`: người chi là người đã tạo yêu cầu hoàn (`requestedBy`) – không ngoại lệ (rbac A47a ghi chú 38) (0.3.6) |
+    | SELF_REFUND_FORBIDDEN | 403 | `executeCashRefund`/`executeRefund`: người chi là người đã tạo yêu cầu hoàn (`requestedBy`) – không ngoại lệ (rbac A47a ghi chú 38) (0.3.6) | **0.3.8 bổ sung 7 (BUG-R3-014)**: thêm – người đã làm A32 giảm (vai dưới OWN, có trong `folio_settled_reduction`) trên folio của yêu cầu không chi (`executeCashRefund`/`executeRefund`) và không nhập/đổi nơi nhận (`setRefundDestination`) cho **mọi** yêu cầu hoàn của folio đó; OWN không bị chặn.
     | REFUND_DESTINATION_REQUIRED | 409 | `executeRefund`: yêu cầu hoàn chưa có nơi nhận (`setRefundDestination`) hoặc nơi nhận đổi sau khi duyệt (yêu cầu đã về `pending`) – F8 SEC (0.3.6, A-33) |
     | REFUND_SOURCE_NOT_RECONCILED | 409 | `executeRefund`/`executeCashRefund`: phần thừa định chi sinh từ khoản thu chưa đối soát (chuyển khoản/VietQR `pending`/`disputed`) – chỉ chi khi khoản tạo ra nó đã đối soát hoặc là tiền mặt/POS (BR-522 v0.3.4, DOM S3-16 a). Kèm `paymentIds[]`, `unreconciledVnd` (0.3.6 bổ sung 2 (BA v0.3, ARC 17/10), E15-05) |
     | CHECKLIST_OUTDATED | 409 | `recordInspection`: `checklistVersion` khác phiên bản hiện hành (OWN/MGR vừa sửa danh mục hoặc mục động BR-812 vừa đổi) – kèm `currentVersion`; PWA tải lại checklist rồi kiểm lại (0.3.7, B-02/BA E07-02) |
@@ -293,6 +293,7 @@ info:
     | FILE_TYPE · FILE_TOO_LARGE · TOO_MANY_FILES | Chi tiết của `422 FILE_REJECTED` (`errors[]`): sai loại theo magic bytes (không JPEG/PNG/WebP) · > 10 MB hoặc > 40 MP · vượt 4 ảnh/người hoặc 30 tệp/đơn (SR-FILE-01/02, SR-RL-05) – 0.3.3 E06-07 | `uploadGuestDocument`, `addGuestDocument`, `uploadAttachment` |
 
     ## Thay đổi phiên bản 0.3.8-draft (R3 Sprint 1 – hợp đồng trước code; chi tiết `rounds/round-03/outputs/ARC/s1-contracts.md`)
+    **0.3.8 bổ sung 7 (ARC 24/10, BUG-R3-014)**: (1) bất biến K11-06 – sau **mọi** thay đổi tiền (kể cả chi hoàn, A32 giảm) Σ yêu cầu hoàn **chờ + đã duyệt còn phải chi** ≤ `rawCreditVnd`; vượt → `refundPlan` hủy `superseded` cả yêu cầu **đã duyệt** phần vượt và xin lại đúng số (giữ nguồn, người xin, cấp duyệt). (2) Người làm A32 giảm (dưới OWN) trên folio không chi, không nhập nơi nhận cho yêu cầu hoàn của folio đó → 403 `SELF_REFUND_FORBIDDEN`.
     **0.3.8 bổ sung 6 (ARC 24/10, BUG-R3-012/013)**: K11-06 thành quy tắc chung – **mọi** thay đổi làm giảm tiền dư của folio `settled` (người bấm: `adjustFolioLine`, `addFolioLine`, `recordPayment`, `confirmPaymentReceived`, duyệt giá hư hỏng; hệ thống: J15) chạy lại `refundPlan`; hết tiền dư → yêu cầu đã duyệt chưa chi đóng `superseded`; J15 chỉ chờ (`waiting_refund`) khi còn tiền dư **và** còn yêu cầu mở; duyệt hoàn kiểm số ≤ tiền dư còn trống.
     **0.3.8 bổ sung 5 (ARC 24/10, BUG-R3-008/010)**: `setParameter` – công tắc khẩn `public_booking_requests_enabled = false` hôm nay có hiệu lực ngay (ghi đè dòng hôm nay, audit `sameDayOverride`); bật lại theo luật thường. `getParameterHistory`/`listParameters` – FDL đọc được khóa này (không sửa).
     **0.3.8 bổ sung 4 (ARC 24/10)**: `GuestRequest.notePurgedAt`, `GuestRequestForGuest.notePurgedAt` (tùy chọn, Instant) – ghi chú đã xóa theo hạn lưu T13 (server 0083 đã trả).
@@ -6253,6 +6254,8 @@ paths:
       operationId: setRefundDestination
       summary: Nhập nơi nhận hoàn của yêu cầu `refund` (tiền mặt / chuyển khoản / về phương thức gốc) – số tài khoản C3 (D15, SEC F8)
       description: |
+        **0.3.8 bổ sung 7 (ARC 24/10, BUG-R3-014, critic rerun M-2)**: người đã làm **A32 giảm** trên folio của yêu cầu (vai dưới OWN – dòng `folio_settled_reduction`) → `403 SELF_REFUND_FORBIDDEN`,
+        cho **mọi** yêu cầu hoàn của folio đó (không chỉ yêu cầu `a32`); OWN không bị chặn. Kiểm dưới khóa folio, cùng lúc với điều kiện người chi ≠ người tạo.
         0.3.6 (A-33). Chỉ yêu cầu `type=refund` chưa thực hiện (khác → `409 INVALID_TRANSITION`). `accountNo` mã hóa DEK riêng
         (`approval_request.refund_account_enc`), Luhn đạt → 422 `CARD_NUMBER_DETECTED` (không nhận số thẻ). Đổi nơi nhận khi yêu cầu đã `approved`
         → yêu cầu về `pending`, phải duyệt lại (F8). Tiền thu qua cổng (`vnpay`, `momo`) chỉ được `original_method`.
@@ -6329,6 +6332,8 @@ paths:
       operationId: executeCashRefund
       summary: Chi hoàn **tiền mặt** tại quầy theo yêu cầu `refund` đã duyệt – FD+ (PO 16/10, rbac A47a)
       description: |
+        **0.3.8 bổ sung 7 (ARC 24/10, BUG-R3-014, critic rerun M-2)**: người đã làm **A32 giảm** trên folio của yêu cầu (vai dưới OWN – dòng `folio_settled_reduction`) → `403 SELF_REFUND_FORBIDDEN`,
+        cho **mọi** yêu cầu hoàn của folio đó (không chỉ yêu cầu `a32`); OWN không bị chặn. Kiểm dưới khóa folio, cùng lúc với điều kiện người chi ≠ người tạo.
         0.3.6. Chỉ khi nơi nhận `method=cash` (khác → `409 INVALID_TRANSITION`; chuyển khoản/phương thức gốc dùng `executeRefund`, OWN/MGR). Yêu cầu `approved`;
         người chi ≠ người **tạo** yêu cầu (`requestedBy`, CHECK DB) → `403 SELF_REFUND_FORBIDDEN`; `amountVnd` ≤ số duyệt − `refundedVnd` và ≤ đã thu − đã hoàn → 422
         `REFUND_EXCEEDS_APPROVED`; `attachmentId` (`purpose=refund_proof`, biên nhận khách ký) **bắt buộc** → `EVIDENCE_REQUIRED`. **0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E15-05)**: `amountVnd` ≤ `creditVnd`
@@ -6372,6 +6377,8 @@ paths:
       operationId: executeRefund
       summary: Ghi giao dịch hoàn đã chi theo yêu cầu `refund` `approved` – OWN/MGR, mọi cách hoàn (A47, BR-522, SEC F8)
       description: |
+        **0.3.8 bổ sung 7 (ARC 24/10, BUG-R3-014, critic rerun M-2)**: người đã làm **A32 giảm** trên folio của yêu cầu (vai dưới OWN – dòng `folio_settled_reduction`) → `403 SELF_REFUND_FORBIDDEN`,
+        cho **mọi** yêu cầu hoàn của folio đó (không chỉ yêu cầu `a32`); OWN không bị chặn. Kiểm dưới khóa folio, cùng lúc với điều kiện người chi ≠ người tạo.
         0.3.6 (A-33). **Chỉ nơi nhận `bank_transfer`/`original_method`** (nơi nhận `cash` → `409 INVALID_TRANSITION`, dùng `executeCashRefund` – PO 16/10).
         Ghi `payment` `type=refund` (`succeeded`, `approvalRequestId`) trên folio của yêu cầu – nhận cả khi folio `settled` (không đổi bill).
         Kiểm dưới `FOR UPDATE` của folio + yêu cầu: yêu cầu `approved`, có nơi nhận (`409 REFUND_DESTINATION_REQUIRED`), người duyệt ≠ người tạo (CHECK DB);

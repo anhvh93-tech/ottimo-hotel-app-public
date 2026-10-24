@@ -3203,7 +3203,9 @@ export interface paths {
     get: operations['getRefundDestination'];
     /**
      * Nhập nơi nhận hoàn của yêu cầu `refund` (tiền mặt / chuyển khoản / về phương thức gốc) – số tài khoản C3 (D15, SEC F8)
-     * @description 0.3.6 (A-33). Chỉ yêu cầu `type=refund` chưa thực hiện (khác → `409 INVALID_TRANSITION`). `accountNo` mã hóa DEK riêng
+     * @description **0.3.8 bổ sung 7 (ARC 24/10, BUG-R3-014, critic rerun M-2)**: người đã làm **A32 giảm** trên folio của yêu cầu (vai dưới OWN – dòng `folio_settled_reduction`) → `403 SELF_REFUND_FORBIDDEN`,
+     *     cho **mọi** yêu cầu hoàn của folio đó (không chỉ yêu cầu `a32`); OWN không bị chặn. Kiểm dưới khóa folio, cùng lúc với điều kiện người chi ≠ người tạo.
+     *     0.3.6 (A-33). Chỉ yêu cầu `type=refund` chưa thực hiện (khác → `409 INVALID_TRANSITION`). `accountNo` mã hóa DEK riêng
      *     (`approval_request.refund_account_enc`), Luhn đạt → 422 `CARD_NUMBER_DETECTED` (không nhận số thẻ). Đổi nơi nhận khi yêu cầu đã `approved`
      *     → yêu cầu về `pending`, phải duyệt lại (F8). Tiền thu qua cổng (`vnpay`, `momo`) chỉ được `original_method`.
      *     **0.3.7 bổ sung D1 (S4-43, P-S4-6)**: FD/FDL nhập được nơi nhận cho yêu cầu **người khác tạo** (mọi đơn trong cơ sở – thấy ở hàng chờ `listApprovalRequests`); người đặt nơi nhận
@@ -3231,7 +3233,9 @@ export interface paths {
     put?: never;
     /**
      * Chi hoàn **tiền mặt** tại quầy theo yêu cầu `refund` đã duyệt – FD+ (PO 16/10, rbac A47a)
-     * @description 0.3.6. Chỉ khi nơi nhận `method=cash` (khác → `409 INVALID_TRANSITION`; chuyển khoản/phương thức gốc dùng `executeRefund`, OWN/MGR). Yêu cầu `approved`;
+     * @description **0.3.8 bổ sung 7 (ARC 24/10, BUG-R3-014, critic rerun M-2)**: người đã làm **A32 giảm** trên folio của yêu cầu (vai dưới OWN – dòng `folio_settled_reduction`) → `403 SELF_REFUND_FORBIDDEN`,
+     *     cho **mọi** yêu cầu hoàn của folio đó (không chỉ yêu cầu `a32`); OWN không bị chặn. Kiểm dưới khóa folio, cùng lúc với điều kiện người chi ≠ người tạo.
+     *     0.3.6. Chỉ khi nơi nhận `method=cash` (khác → `409 INVALID_TRANSITION`; chuyển khoản/phương thức gốc dùng `executeRefund`, OWN/MGR). Yêu cầu `approved`;
      *     người chi ≠ người **tạo** yêu cầu (`requestedBy`, CHECK DB) → `403 SELF_REFUND_FORBIDDEN`; `amountVnd` ≤ số duyệt − `refundedVnd` và ≤ đã thu − đã hoàn → 422
      *     `REFUND_EXCEEDS_APPROVED`; `attachmentId` (`purpose=refund_proof`, biên nhận khách ký) **bắt buộc** → `EVIDENCE_REQUIRED`. **0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E15-05)**: `amountVnd` ≤ `creditVnd`
      *     hiện tại (→ 422 `REFUND_EXCEEDS_APPROVED`); phần thừa sinh từ khoản thu chưa đối soát → `409 REFUND_SOURCE_NOT_RECONCILED`. Ghi `payment` `type=refund`,
@@ -3259,7 +3263,9 @@ export interface paths {
     put?: never;
     /**
      * Ghi giao dịch hoàn đã chi theo yêu cầu `refund` `approved` – OWN/MGR, mọi cách hoàn (A47, BR-522, SEC F8)
-     * @description 0.3.6 (A-33). **Chỉ nơi nhận `bank_transfer`/`original_method`** (nơi nhận `cash` → `409 INVALID_TRANSITION`, dùng `executeCashRefund` – PO 16/10).
+     * @description **0.3.8 bổ sung 7 (ARC 24/10, BUG-R3-014, critic rerun M-2)**: người đã làm **A32 giảm** trên folio của yêu cầu (vai dưới OWN – dòng `folio_settled_reduction`) → `403 SELF_REFUND_FORBIDDEN`,
+     *     cho **mọi** yêu cầu hoàn của folio đó (không chỉ yêu cầu `a32`); OWN không bị chặn. Kiểm dưới khóa folio, cùng lúc với điều kiện người chi ≠ người tạo.
+     *     0.3.6 (A-33). **Chỉ nơi nhận `bank_transfer`/`original_method`** (nơi nhận `cash` → `409 INVALID_TRANSITION`, dùng `executeCashRefund` – PO 16/10).
      *     Ghi `payment` `type=refund` (`succeeded`, `approvalRequestId`) trên folio của yêu cầu – nhận cả khi folio `settled` (không đổi bill).
      *     Kiểm dưới `FOR UPDATE` của folio + yêu cầu: yêu cầu `approved`, có nơi nhận (`409 REFUND_DESTINATION_REQUIRED`), người duyệt ≠ người tạo (CHECK DB);
      *     `amountVnd` ≤ số duyệt − `refundedVnd` **và** ≤ đã thu − đã hoàn của folio (server tính) → 422 `REFUND_EXCEEDS_APPROVED`. **0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E15-05)**: và ≤ `creditVnd`

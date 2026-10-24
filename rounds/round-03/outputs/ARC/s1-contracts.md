@@ -278,3 +278,31 @@ Hợp đồng đã ghi ở `openapi.yaml` (changelog bổ sung 6, `addFolioLine`
 **Việc của BE-B (PR riêng, SEC review):**
 - cài điểm 5;
 - test: yêu cầu chờ 300.000, tiền dư giảm còn 100.000 bằng đường không gắn hook (ghi thẳng bảng) → duyệt → 409, có yêu cầu 100.000 thay thế.
+
+### 13.4 Bổ sung 7 – BUG-R3-014 (critic rerun M-2; ARC 24/10)
+1. **Bất biến K11-06** – thay 13.3 điểm 3 (chỉ đóng yêu cầu đã duyệt khi hết tiền dư). Sau **mọi** thay đổi tiền của folio `open`/`settled` (có người bấm, J15, **chi hoàn**, **A32 giảm**):
+   > Σ (yêu cầu hoàn chờ + phần còn phải chi của yêu cầu đã duyệt) ≤ `rawCreditVnd`.
+
+   Vượt → `refundPlan`:
+   - hủy `superseded` các yêu cầu chờ **và** các yêu cầu **đã duyệt** đang vượt (mới nhất trước), có nhật ký, báo người xin/người duyệt, hook xóa nơi nhận (SEC-BE-45);
+   - xin lại đúng phần còn lại;
+   - bản thay giữ nguồn, ghi chú, `origin_actor_ids`, người xin và cấp duyệt **không thấp hơn** bản cũ (FB-1213-01/02).
+
+   Hệ quả: trước một lần A32 giảm, mọi yêu cầu mở đã nằm gọn trong tiền dư, nên phần A32 sinh ra **luôn** là tiền dư chưa yêu cầu và đi đúng đường yêu cầu `a32` (BR-433 (e), ADD3-01). Một lần duyệt cũ không bao giờ "hút" tiền miễn.
+
+   ARC chọn cách này thay cho (a) "kiểm lúc chi theo `decided_at`" và (b) "A32 đóng mọi yêu cầu đã duyệt":
+   - (a) để yêu cầu đã duyệt trông như chi được rồi mới 409 lúc chi, và phải gắn ở mọi đường chi;
+   - (b) hủy cả những lần duyệt nằm gọn trong tiền dư, không liên quan A32, bắt duyệt lại vô ích.
+2. **Người làm A32 giảm không chạm tiền hoàn của folio**: người có dòng `folio_settled_reduction` (vai dưới OWN) trên folio → `403 SELF_REFUND_FORBIDDEN` ở `executeCashRefund`, `executeRefund` **và** `setRefundDestination`, cho mọi yêu cầu hoàn của folio đó. OWN không bị chặn.
+   - Lý do thêm `setRefundDestination`: đổi nơi nhận cũng chuyển được tiền miễn về tài khoản mình.
+   - Kiểm dưới khóa folio, cùng chỗ với "người chi ≠ người tạo".
+
+Hợp đồng đã ghi ở `openapi.yaml` (changelog bổ sung 7, bảng mã `SELF_REFUND_FORBIDDEN`, mô tả ba operation). Không đổi hình dạng.
+
+**Việc BE-B:**
+- (1) trong `refundsDownToCredit`, khi Σ mở > `rawCreditVnd` mà tiền dư còn > 0, hủy `superseded` phần **đã duyệt** đang vượt rồi xin lại;
+- (2) chặn 403 ở ba operation;
+- test:
+  - duyệt 300.000 khi dư 300.000 → phát sinh 200.000 (dư 100.000) → yêu cầu đã duyệt thành `superseded` + yêu cầu 100.000 → MGR A32 giảm 150.000 → yêu cầu `a32` 150.000 (`owner` nếu vượt cơ sở), không lần duyệt cũ nào chi được phần 150.000;
+  - MGR làm A32 rồi chi / nhập nơi nhận → 403;
+  - OWN chi → 200.
