@@ -113,10 +113,19 @@ describe.skipIf(!HAS_DB)(
       expect(await creditItems(s)).toBe(0);
     }, 180_000);
 
-    it('J15 still waits while there is money to pay back: approved 300.000, credit 200.000 after a 100.000 charge → kept, pay-out capped at 200.000', async () => {
+    it('J15 still waits while there is money to pay back: approved 300.000, credit 200.000 after a 100.000 charge → (ARC 13.4) the approval is superseded and 200.000 asked again at the same level; J15 waits', async () => {
       const { s, r } = await approvedA32Refund(300_000);
       await x.lateCharge(s, 100_000, s.departure);
-      expect(await refunds(s)).toMatchObject([{ id: r.id, status: 'approved' }]);
+      expect(await refunds(s)).toMatchObject([
+        { id: r.id, status: 'cancelled', auto_cancel_reason: 'superseded' },
+        {
+          amount: 200_000,
+          status: 'pending',
+          refund_source: 'a32',
+          requested_by: x.t.users.mgr!.id,
+          required_role: r.required_role,
+        },
+      ]);
       expect((await x.folio(s.folioId)).totals.creditVnd).toBe(200_000);
       await x.at(`${addDays(s.departure, 1)}T13:00:00+07:00`);
       expect((await x.runJ15()).waitingRefund).toBeGreaterThanOrEqual(1);

@@ -546,22 +546,29 @@ Nhánh `be-b/r3-bug-014`, tách từ `origin/main` `ae93e48`. Không có migrati
   - còn tiền dư → yêu cầu đã duyệt giữ nguyên, lần chi sau vẫn kẹp `min(còn lại, tiền dư)`.
 - Hệ quả: tiền khách trả thêm sau khi tiền dư đã về 0 luôn sinh yêu cầu mới, đi qua định tuyến ADD3-01 (folio có A32 → `owner`). Lần duyệt cũ không còn "hút" được tiền mới.
 
-### Chưa làm – cần ARC quyết (critic đề xuất 2, ORC dặn hỏi ARC)
-1. **Biến thể còn hở, suy ra từ mã:**
-   - Tiền dư vẫn **> 0** nhưng nhỏ hơn phần còn lại của một yêu cầu đã duyệt **trước** khi có A32.
-   - Sau đó MGR làm A32 giảm d. Tiền dư tăng d, nhưng phần chưa yêu cầu vẫn = 0, nên không sinh yêu cầu `a32`.
-   - Phần tiền miễn này có thể được chi theo lần duyệt cũ.
-   - Đề xuất:
-     - (a) lúc chi, nếu folio có A32 dưới OWN tạo sau `decided_at` của yêu cầu → đóng yêu cầu `superseded` và lập lại (bản mới đi định tuyến ADD3), trả 409 như lớp chặn ở bước duyệt;
-     - hoặc (b) A32 giảm đóng mọi yêu cầu đã duyệt chưa chi trên folio rồi lập lại.
-2. **Người chi thuộc `origin_actor_ids` hoặc là người làm A32** (64053 #54, MGR làm A32 rồi chi chuyển khoản): hợp đồng hiện **không** cấm.
-   - Đề xuất thêm luật: người làm A32 giảm trên folio không chi yêu cầu hoàn của folio đó, trừ OWN → 403 `SELF_REFUND_FORBIDDEN`.
-   - Chờ ARC ghi hợp đồng rồi BE-B làm.
+### ARC quyết (hợp đồng 0.3.8 bổ sung 7, `s1-contracts.md` 13.4) – đã làm
+- **BUG014-01 – bất biến K11-06**, thay cho quy tắc "chỉ đóng yêu cầu đã duyệt khi hết tiền dư":
+  - Trong `refundsDownToCredit`, sau mọi thay đổi tiền, giữ Σ (yêu cầu chờ + phần còn phải chi của yêu cầu đã duyệt) ≤ `rawCreditVnd`.
+  - Vượt thì:
+    - hủy `superseded` mọi yêu cầu chờ (`refundPlan`);
+    - đóng `superseded` các yêu cầu **đã duyệt** đang vượt, **mới nhất trước**, cho tới khi phần giữ lại nằm gọn trong tiền dư;
+    - xin lại đúng phần còn lại.
+  - Bản thay lấy nguồn, ghi chú, `origin_actor_ids`, người xin và cấp duyệt cao nhất từ **mọi** yêu cầu bị đóng, cả yêu cầu đã duyệt (FB-1213-01/02).
+  - Mọi đường đã gắn quy tắc dùng chung một hàm, nên bất biến áp cho cả chi hoàn, phát sinh, A32, khoản thu, đảo, J15 và lớp chặn ở bước duyệt.
+- **BUG014-02:**
+  - Người có dòng `folio_settled_reduction` (vai dưới OWN) trên folio gọi `executeCashRefund`, `executeRefund` hoặc `setRefundDestination` cho yêu cầu hoàn của folio đó → 403 `SELF_REFUND_FORBIDDEN`.
+  - Kiểm dưới khóa folio, cùng chỗ với "người chi ≠ người tạo". OWN (vai hiện tại) không bị chặn.
 
 ### Test
 - `fuzz/bug-r3-014.test.ts` (ca tái hiện của QA): bỏ cờ `FUZZ_KNOWN_BUGS`, nay luôn chạy.
-- `s438-r8/r3-bug-014-payout-replan.test.ts` (3 ca):
-  1. ca của QA: duyệt 300.000, tiền dư 200.000, chi 200.000 → phần 100.000 còn lại đóng `superseded`, tài khoản nhận bị xóa;
-  2. tiền mới 500.000 sau khi tiền dư về 0 → yêu cầu mới 500.000 `owner`; lần duyệt cũ chi → 409;
-  3. chi 150.000, còn dư 50.000 → yêu cầu đã duyệt giữ nguyên; chi tiếp 100.000 → 422 `max` 50.000.
+- `fuzz/bug-r3-014.test.ts`: các bước được BE-B viết lại theo oracle 13.4 (QA xác nhận).
+  - Lần phát sinh 100.000 làm yêu cầu đã duyệt 300.000 thành `superseded` và xin lại 200.000.
+  - Duyệt rồi chi 200.000 → không còn gì mở.
+  - QR mới 500.000 → yêu cầu 500.000.
+- `s438-r8/r3-bug-014-payout-replan.test.ts` (4 ca):
+  1. ca test 1 của ARC: duyệt 300.000 khi tiền dư 300.000 → phát sinh 200.000 → yêu cầu đã duyệt `superseded` + xin lại 100.000 (giữ nguồn, người xin, cấp) → MGR A32 giảm 150.000 → yêu cầu `a32` 150.000 riêng → chi theo lần duyệt cũ → 409;
+  2. chi 100.000 → phần còn 200.000 = tiền dư, giữ nguyên; chi 250.000 → 422 `max` 200.000; chi nốt → không còn gì mở;
+  3. tiền mới sau khi tiền dư về 0 → yêu cầu riêng `owner`;
+  4. BUG014-02: người làm A32 đặt nơi nhận → 403, chi → 403; lễ tân đặt nơi nhận, OWN chi → 201.
+- `r3-bug-012-013`: ca "J15 vẫn chờ" sửa theo 13.4 (yêu cầu đã duyệt vượt tiền dư → `superseded` + xin lại 200.000 cùng cấp).
 - **Chưa chạy test DB:** Docker trên máy đang treo (ORC báo). tsc, eslint, prettier đạt. Sẽ chạy cả bộ API khi ORC báo Docker chạy lại.

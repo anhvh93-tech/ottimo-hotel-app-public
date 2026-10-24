@@ -368,6 +368,7 @@ Nhánh `be-b/r3-bug012-followups`, nằm trên `origin/main` `27c5dcc`. Chi ti�
 Nhánh `be-b/r3-bug-014`, nằm trên `origin/main` `ae93e48`. Chi tiết ở `outputs/BE/s1-be-b.md` mục 16.
 
 - **M-2, đề xuất 1: Done.** `payOut` lập lại kế hoạch hoàn ngay sau khi chi, cùng giao dịch. Hết tiền dư thì mọi yêu cầu đã duyệt còn tiền đóng `superseded`.
-- **Đề xuất 2 và luật người chi:** chờ ARC quyết. Hai phương án nằm ở mục 16 "Chưa làm".
+- **ARC BUG014-01** (bất biến K11-06, gồm cả yêu cầu đã duyệt) **và BUG014-02** (người làm A32 không chi, không đặt nơi nhận → 403): Done theo hợp đồng 0.3.8 bổ sung 7, có test oracle.
+  - Ca tái hiện của QA được viết lại theo oracle 13.4; QA xác nhận.
 - **Đề xuất 3:** việc của QA (I24, I24b, ca hồi quy).
 - **Kiểm:** tsc, eslint, prettier đạt. Test DB chưa chạy vì Docker đang treo.

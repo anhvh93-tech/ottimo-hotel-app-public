@@ -5,7 +5,8 @@
  * paths that must re-plan, rule 3: no credit left ⇒ approved-but-unpaid / partly paid requests are closed
  * `superseded`. Money arriving later is then absorbed by the stale approval (the new receipt asks only for the part
  * above it) and paid out under it – without the routing new money needs (ADD3-01). Was gated by FUZZ_KNOWN_BUGS=1 –
- * fixed by BE-B (the pay-out re-plans the folio's refunds), now always runs. FAKE data, harness ops (runner.ts).
+ * fixed by BE-B (the pay-out re-plans the folio's refunds; ARC 13.4 invariant incl. approved requests), now always
+ * runs; steps re-written by BE-B for the 13.4 oracle (QA to confirm). FAKE data, harness ops (runner.ts).
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { readFileSync } from 'node:fs';
@@ -25,16 +26,22 @@ describe.skipIf(!HAS_DB)('BUG-R3-014 pay-out to credit 0 leaves approved refunds
   afterAll(async () => {
     await x?.close();
   });
-  it('QR excess 300.000 → request approved (cash); late charge 100.000; pay-out 200.000 (all the credit) → the 100.000 left must be closed `superseded`; a new QR 500.000 must ask for 500.000', async () => {
+  // Oracle per ARC 0.3.8 bổ sung 7 (s1-contracts 13.4 point 1, BE-B 24/10): the K11-06 invariant Σ (pending + what
+  // approved requests still have to pay) ≤ rawCreditVnd now holds after EVERY money change – the late charge itself
+  // closes the approved 300.000 `superseded` and asks 200.000 again (to be approved); paying that empties the credit
+  // with nothing left open, and new money gets a request of its own.
+  it('QR excess 300.000 → approved (cash); late charge 100.000 → approved superseded + 200.000 asked again; approved + paid → nothing open; a new QR 500.000 asks for 500.000', async () => {
     const log = join(tmpdir(), `bug-r3-014-${process.pid}.jsonl`);
     const ops: Op[] = [
-      { k: 'qrLate', extraVnd: 300_000 }, // K11-06: request 300.000 (FD)
-      { k: 'refundPay', req: 0, who: 'fd' }, // destination cash
-      { k: 'refundApprove', req: 0, who: 'mgr' },
-      { k: 'late', amountVnd: 100_000 }, // credit 200.000, the approved request stays (pay-out clamps)
-      { k: 'refundPay', req: 0, who: 'fd' }, // MGR reconciles the receipts
-      { k: 'refundPay', req: 0, who: 'fd' }, // pays min(300.000, 200.000) = 200.000 → credit 0
-      { k: 'qrLate', extraVnd: 500_000 }, // new money
+      { k: 'qrLate', extraVnd: 300_000 }, // 0: K11-06 request 300.000 (FD)
+      { k: 'refundPay', req: 0, who: 'fd' }, // 1: destination cash
+      { k: 'refundApprove', req: 0, who: 'mgr' }, // 2
+      { k: 'late', amountVnd: 100_000 }, // 3: credit 200.000 < 300.000 approved → superseded, 200.000 asked again
+      { k: 'refundPay', req: 0, who: 'fd' }, // 4: destination cash on the new request
+      { k: 'refundApprove', req: 0, who: 'mgr' }, // 5
+      { k: 'refundPay', req: 0, who: 'fd' }, // 6: MGR reconciles the receipts
+      { k: 'refundPay', req: 0, who: 'fd' }, // 7: pays 200.000 → credit 0
+      { k: 'qrLate', extraVnd: 500_000 }, // 8: new money
     ];
     const runner = new Runner(x, { be83: false, fz02: true, k1106: true, add3: true }, log);
     const res = await runner.chain('FZ-13', 99_014, ops);
@@ -44,8 +51,6 @@ describe.skipIf(!HAS_DB)('BUG-R3-014 pay-out to credit 0 leaves approved refunds
       .map((l) => JSON.parse(l))
       .filter((d) => d.label);
     const at = (i: number) => steps[i]!;
-    expect(at(5).label, at(5).label).toMatch(/^pay refund 200000 /);
-    expect(at(5).outcomes[0].status).toBe(201);
     const open = (i: number) =>
       at(i)
         .raw.refunds.filter(
@@ -53,10 +58,14 @@ describe.skipIf(!HAS_DB)('BUG-R3-014 pay-out to credit 0 leaves approved refunds
             ['pending', 'escalated', 'approved'].includes(r.status) && r.refundedVnd < r.amountVnd,
         )
         .map((r: any) => `${r.status} ${r.amountVnd - r.refundedVnd}`);
-    // after the pay-out: credit 0 → nothing open (13.3 rule 3)
-    expect({ credit: Math.max(0, -at(5).ref.B), open: open(5) }).toEqual({ credit: 0, open: [] });
+    // the late charge keeps the invariant: nothing approved above the credit, 200.000 asked again
+    expect(open(3)).toEqual(['pending 200000']);
+    expect(at(7).label, at(7).label).toMatch(/^pay refund 200000 /);
+    expect(at(7).outcomes[0].status).toBe(201);
+    // after the pay-out: credit 0 → nothing open (13.4 point 1)
+    expect({ credit: Math.max(0, -at(7).ref.B), open: open(7) }).toEqual({ credit: 0, open: [] });
     // new money gets its own request for all of it
-    expect(open(6)).toEqual(['pending 500000']);
+    expect(open(8)).toEqual(['pending 500000']);
     expect(res.violations.filter((v) => v.inv === 'I24')).toEqual([]);
   }, 240_000);
 });

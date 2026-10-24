@@ -263,6 +263,7 @@ export class RefundsService {
     if (!OPEN_STATES.includes(row.status) || row.refunded_vnd >= row.amount_vnd) {
       throw problem('INVALID_TRANSITION', { extras: { currentState: row.status } });
     }
+    await this.assertNotA32Maker(tx, row, actor);
     const now = this.clock.now();
     let enc: Buffer | null = null;
     let keyId: string | null = null;
@@ -492,6 +493,7 @@ export class RefundsService {
     // Cash refunds (A47a): the requester never pays, no exception (CHECK in 0040/0042 as well).
     const ownerTransfer = channel === 'transfer' && primaryRole(actor.roles) === 'owner';
     if (row.requested_by === actor.userId && !ownerTransfer) throw problem('SELF_REFUND_FORBIDDEN');
+    await this.assertNotA32Maker(tx, row, actor);
     if (
       channel === 'transfer' &&
       !ownerTransfer &&
@@ -675,6 +677,24 @@ export class RefundsService {
     });
     await publishEvent(tx, this.events, 'reservation.changed', target);
     return (await this.payments.row(tx, id)) as PaymentRowLite;
+  }
+
+  /**
+   * ARC 0.3.8 bổ sung 7 (13.4 point 2 – BUG014-02): whoever made an A32 reduction below the owner on the folio after
+   * check-out never touches its refunds – paying one out (cash or transfer) or setting where it goes – 403
+   * SELF_REFUND_FORBIDDEN, under the folio lock the caller holds. The owner is never blocked.
+   */
+  private async assertNotA32Maker(
+    tx: Tx,
+    row: Pick<RefundRow, 'target_type' | 'target_id'>,
+    actor: { userId: string; roles: readonly string[] },
+  ): Promise<void> {
+    if (actor.roles.includes('owner')) return;
+    if (
+      await this.folios.isA32Maker(tx, row.target_type ?? null, row.target_id ?? null, actor.userId)
+    ) {
+      throw problem('SELF_REFUND_FORBIDDEN');
+    }
   }
 
   /** Booking of a refund request (unlocked read – the request row is locked after the folio). */
