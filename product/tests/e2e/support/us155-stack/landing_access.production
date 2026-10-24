@@ -1,0 +1,1 @@
+# production: no access restriction (what infra/server/bin/init-secrets.sh writes when APP_ENV=production)
