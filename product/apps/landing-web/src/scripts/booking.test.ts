@@ -153,7 +153,7 @@ describe('thank-you promise (202 `promise`, BR-912 (4)) – never replyBy', () =
         hours,
       ),
     ).toEqual({
-      when: 'Lễ tân làm việc lại từ 07:00. OTTIMO sẽ trả lời bạn trước 09:00.',
+      when: 'Lễ tân làm việc lại từ 07:00. Chúng tôi sẽ trả lời bạn trước 09:00.',
       by: '09:00',
       callNow: false,
     });

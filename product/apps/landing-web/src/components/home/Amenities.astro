@@ -1,5 +1,6 @@
 ---
 // 4 · Amenities (concept 3.1): the one place that lists equipment, in 4 groups (DOM 3.3).
+import { AMENITIES_PHOTO } from '../../content/gallery';
 import type { Copy } from '../../content/types';
 import Picture from '../Picture.astro';
 import Rich from '../Rich.astro';
@@ -14,11 +15,11 @@ const { t } = Astro.props;
 <section class="sec" id="amenities" aria-labelledby="amen-h">
   <div class="wrap amen">
     <Picture
-      id="detail-kitchen"
+      id={AMENITIES_PHOTO}
       lang={t.lang}
-      alt={t.photoAlt['detail-kitchen']}
+      alt={t.photoAlt[AMENITIES_PHOTO]}
       class="r45"
-      imgClass="op-x35"
+      imgClass="op-x08"
       sizesMobile="calc(100vw - 32px)"
       sizes="(min-width: 1200px) 440px, (min-width: 1024px) 38vw, calc(100vw - 48px)"
     />

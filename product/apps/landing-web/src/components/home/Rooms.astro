@@ -1,7 +1,7 @@
 ---
 // 3 · Rooms (concept 4, US-147): the 4 room types of the e-brochure, one photo each; swipe row on phones, 2 × 2 from
 // 768 px. No room count, no unit numbers, no room names until INV sends the mapping (FB-INV-002, BR-012).
-// "Request this room" goes to #book and, when the form is on, preselects the room type (data-room).
+// "Ask about this room" goes to #book and, when the form is on, preselects the room type (data-room).
 // Gallery (R3-Q52, INV 22/10 "như OTA"): "n photos" on the cover opens a full-screen viewer (RoomGallery – native
 // <dialog>, swipe, arrow keys, Esc). The button is rendered hidden and shown by scripts/lightbox.ts, so without
 // JavaScript the card is the plain cover photo.
@@ -10,6 +10,7 @@ import type { Copy } from '../../content/types';
 import RoomGallery from '../RoomGallery.astro';
 import Icon from '../Icon.astro';
 import Picture from '../Picture.astro';
+import Rich from '../Rich.astro';
 
 interface Props {
   t: Copy;
@@ -22,7 +23,7 @@ const { t } = Astro.props;
   <div class="wrap">
     <div class="head">
       <p class="label">{t.rooms.label}</p>
-      <h2 class="h2" id="rooms-h">{t.rooms.title}</h2>
+      <h2 class="h2" id="rooms-h"><Rich text={t.rooms.title} /></h2>
       <p class="muted">{t.rooms.intro}</p>
     </div>
     <ul class="rooms" aria-labelledby="rooms-h">
@@ -61,7 +62,7 @@ const { t } = Astro.props;
               <li>{room.size}</li>
               <li>{room.view}</li>
             </ul>
-            <p class="desc">{room.desc}</p>
+            <p class="desc"><Rich text={room.desc} /></p>
             <a class="link" href="#book" data-room={room.slug} aria-describedby={`r${i + 1}-h`}>
               {t.rooms.request}
               <Icon name="arrow" />

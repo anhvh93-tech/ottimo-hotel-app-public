@@ -1,9 +1,11 @@
 ---
 // 5 · Location (concept 3.1, 11; US-148 AC2): the only place with the address; the INV's Google Maps pin as a
-// plain link (no embedded map – SEC C-1); drive times from the e-brochure.
+// plain link (no embedded map – SEC C-1); drive times from the e-brochure; a text link to #book (CPY concept B).
 import { addressLine, site } from '../../content/site';
 import type { Copy } from '../../content/types';
+import Icon from '../Icon.astro';
 import Picture from '../Picture.astro';
+import Rich from '../Rich.astro';
 
 interface Props {
   t: Copy;
@@ -45,7 +47,7 @@ const { t } = Astro.props;
           {
             t.location.rows.map((r) => (
               <tr>
-                <th scope="row">{r.place}</th>
+                <th scope="row"><Rich text={r.place} /></th>
                 <td>{r.distance}</td>
                 <td>{r.time}</td>
               </tr>
@@ -54,6 +56,9 @@ const { t } = Astro.props;
         </tbody>
       </table>
       <p class="small muted">{t.location.note}</p>
+      <p class="loc-ask">
+        <a class="link" href="#book">{t.location.ask}<Icon name="arrow" /></a>
+      </p>
     </div>
     <Picture
       id="aerial-hillside"

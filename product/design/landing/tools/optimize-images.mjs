@@ -6,6 +6,11 @@
 //
 // Usage (from repo root):
 //   node product/design/landing/tools/optimize-images.mjs [--no-avif] [--raw <dir>]
+//   node product/design/landing/tools/optimize-images.mjs --only <id,id> --out product/apps/landing-web/src/assets/photos
+//
+// --only re-encodes just those ids and merges them into the manifest.json already in the output folder (other
+// entries and files untouched) – used by FE-LP to add or swap a landing photo (round 3, hero photos 24/10).
+// --out writes somewhere else than the mock (e.g. the landing app's src/assets/photos).
 //
 // sharp is resolved from the repo (services/api or the pnpm store) – no new deps.
 
@@ -22,7 +27,8 @@ const argVal = (name) => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 const RAW = path.resolve(argVal('--raw') ?? path.join(REPO, '00-brief/context/landing/raw'));
-const OUT = path.join(REPO, 'product/design/landing/mock/img');
+const OUT = path.resolve(argVal('--out') ?? path.join(REPO, 'product/design/landing/mock/img'));
+const ONLY = argVal('--only')?.split(',').map((s) => s.trim()).filter(Boolean);
 const WITH_AVIF = !args.includes('--no-avif');
 
 const WIDTHS = [480, 960, 1600];
@@ -52,11 +58,15 @@ function loadSharp() {
 
 // id → source. Room type mapping is UXD's reading of the e-brochure pages
 // (see concept.md section 6); "check" = SEC photo checklist (FB-R2-SEC-UXD-02).
+// Round 3 (INV/CPY 24/10, concept B): hero = picker photo 4 (`03.png`, front facade at blue hour) instead of 04.1;
+// the id stays `hero-facade-dusk` (LCP preload, OG image, tests). Two photos added for the hero slideshow.
 const PHOTOS = [
-  { id: 'hero-facade-dusk', src: 'mat-tien-sanh/04.1.png', use: 'Hero (LCP)', type: 'Exterior', brochure: 'p33',
-    alt: { en: 'OTTIMO at dusk: a five-storey building with warm lights on every balcony', vi: 'OTTIMO lúc chạng vạng: tòa nhà năm tầng, ban công sáng đèn ấm' } },
+  // avifQuality 42: this photo carries more detail than 04.1 – at q50 the 960 px AVIF is 58 KB, over the 50 KB hero
+  // budget of concept 11.2 (budget.landing.spec.ts). q42 keeps it at ~41 KB with no visible loss at that size.
+  { id: 'hero-facade-dusk', src: 'mat-tien-sanh/03.png', use: 'Hero (LCP)', type: 'Exterior', brochure: '–', avifQuality: 42,
+    alt: { en: 'OTTIMO at dusk, with warm lights on every balcony', vi: 'OTTIMO lúc chạng vạng, ban công sáng đèn ấm' } },
   { id: 'lobby', src: 'mat-tien-sanh/01b.png', use: 'About · Lobby', type: 'Lobby', brochure: 'p31',
-    alt: { en: 'Ground-floor lobby with an oak reception desk and a coffee counter', vi: 'Sảnh tầng trệt với quầy lễ tân gỗ sồi và quầy cà phê' } },
+    alt: { en: 'Ground-floor lobby with an oak reception desk', vi: 'Sảnh tầng trệt với quầy lễ tân gỗ sồi' } },
   { id: 'aerial-hillside', src: 'mat-tien-sanh/05.2.png', use: 'Location', type: 'Exterior', brochure: '–',
     alt: { en: 'Aerial view of OTTIMO on a quiet hillside, with Da Lat and the mountains behind', vi: 'OTTIMO nhìn từ trên cao, trên triền đồi yên tĩnh, phía sau là Đà Lạt và núi' } },
   { id: 'city-living', src: 'phong-3/03.png', use: 'Room 01 cover', type: 'Standard Studio · City View', brochure: 'p8',
@@ -89,6 +99,28 @@ const PHOTOS = [
     alt: { en: 'Oak kitchen with an induction hob, full-size fridge and washer-dryer', vi: 'Bếp gỗ sồi với bếp từ, tủ lạnh lớn và máy giặt sấy' } },
   { id: 'detail-balcony-sunset', src: 'phong-2/06.png', use: 'Location quote', type: 'Standard Studio · Garden View (navy)', brochure: 'p30',
     alt: { en: 'Balcony at sunset over the hills of Da Lat', vi: 'Ban công lúc hoàng hôn nhìn ra đồi Đà Lạt' } },
+  { id: 'signature-bedroom-desk', src: 'phong-4/8.png', use: 'Hero slide (picker 37)', type: 'Signature Two-Bedroom', brochure: '–',
+    alt: { en: 'Bedroom with a writing desk, a built-in wardrobe and a raised bed, a washer and dryer in the hall beyond', vi: 'Phòng ngủ với bàn làm việc, tủ áo âm tường và giường đặt trên bệ, máy giặt sấy ở hành lang bên ngoài' } },
+  { id: 'garden-navy-kitchen', src: 'phong-2/03.png', use: 'Hero slide (picker 16)', type: 'Garden Studio (navy)', brochure: '–',
+    alt: { en: 'Navy and oak kitchen by a sofa corner, with tall windows over Da Lat', vi: 'Bếp navy và gỗ sồi cạnh góc sofa, cửa kính lớn nhìn ra Đà Lạt' } },
+  { id: 'signature-living-oak', src: 'phong-4/4.png', use: 'Hero slide (picker 33)', type: 'Signature Two-Bedroom', brochure: '–',
+    alt: { en: 'Living room with an oak shelf wall, a TV, a cream sofa and a full-size fridge', vi: 'Phòng khách với vách kệ gỗ sồi, TV, sofa màu kem và tủ lạnh cỡ lớn' } },
+  // Amenities photo since 24/10 (UXD FB-R3-UXD-FE-02): picker 30, so the hero photo 9 is not repeated there.
+  { id: 'signature-laundry-dining', src: 'phong-4/1.png', use: 'Amenities (picker 30)', type: 'Signature Two-Bedroom', brochure: '–',
+    alt: { en: 'A washer and dryer beside a dining table and an oak kitchen', vi: 'Máy giặt sấy cạnh bàn ăn và gian bếp gỗ sồi' } },
+  // INV 25/10: every room type shows at least 6 photos (City and Premium had 3). Picker numbers in `use`.
+  { id: 'city-studio', src: 'phong-3/05.png', use: 'Room gallery (picker 24)', type: 'City Studio', brochure: '–',
+    alt: { en: 'Studio with a cream sofa, the bed behind it and a desk by a glass-block screen', vi: 'Studio với sofa màu kem, giường phía sau và bàn làm việc cạnh vách gạch kính' } },
+  { id: 'city-kitchen', src: 'phong-3/01.1.png', use: 'Room gallery (picker 20)', type: 'City Studio', brochure: '–',
+    alt: { en: 'Grey kitchen with a full-size fridge and a white dining counter', vi: 'Bếp tông xám với tủ lạnh cỡ lớn và quầy ăn màu trắng' } },
+  { id: 'city-laundry', src: 'phong-3/10.png', use: 'Room gallery (picker 29)', type: 'City Studio', brochure: '–',
+    alt: { en: 'Washer and dryer in a nook beside the shower room', vi: 'Máy giặt sấy đặt trong hốc tường, cạnh phòng tắm' } },
+  { id: 'premium-living-tv', src: 'phong-5/1.png', use: 'Room gallery (picker 39)', type: 'Premium One-Bedroom', brochure: '–',
+    alt: { en: 'Living room with a TV wall, and a washer and dryer down the hall', vi: 'Phòng khách với vách TV, máy giặt sấy cuối hành lang' } },
+  { id: 'premium-extra-bed', src: 'phong-5/6.png', use: 'Room gallery (picker 44)', type: 'Premium One-Bedroom', brochure: '–',
+    alt: { en: 'Living room with an extra bed, a TV and a sofa by the balcony door', vi: 'Phòng khách với giường phụ, TV và sofa cạnh cửa ban công' } },
+  { id: 'premium-bath', src: 'phong-5/7.png', use: 'Room gallery (picker 45)', type: 'Premium One-Bedroom', brochure: '–',
+    alt: { en: 'Bathroom with a glass shower and a green-tiled basin wall', vi: 'Phòng tắm với vách tắm kính và tường gạch xanh sau bồn rửa' } },
 ];
 
 const SEC_CHECK =
@@ -102,8 +134,13 @@ async function main() {
   fs.mkdirSync(OUT, { recursive: true });
   const manifest = [];
   let total = 0;
+  const todo = ONLY ? PHOTOS.filter((p) => ONLY.includes(p.id)) : PHOTOS;
+  if (ONLY) {
+    const unknown = ONLY.filter((id) => !PHOTOS.some((p) => p.id === id));
+    if (unknown.length) throw new Error(`--only: unknown id(s) ${unknown.join(', ')} – add them to PHOTOS first`);
+  }
 
-  for (const p of PHOTOS) {
+  for (const p of todo) {
     const src = path.join(RAW, p.src);
     if (!fs.existsSync(src)) throw new Error(`missing source: ${src}`);
     const meta = await sharp(src, { limitInputPixels: false }).metadata();
@@ -117,7 +154,7 @@ async function main() {
         .resize({ width, withoutEnlargement: true })
         .toColourspace('srgb');
       const outs = [['webp', base.clone().webp(WEBP)]];
-      if (WITH_AVIF) outs.push(['avif', base.clone().avif(AVIF)]);
+      if (WITH_AVIF) outs.push(['avif', base.clone().avif({ ...AVIF, ...(p.avifQuality ? { quality: p.avifQuality } : {}) })]);
       for (const [fmt, pipe] of outs) {
         const name = `${p.id}-${w}.${fmt}`;
         const info = await pipe.toFile(path.join(OUT, name));
@@ -130,9 +167,18 @@ async function main() {
     console.log(`${p.id.padEnd(24)} ← ${p.src.padEnd(26)} ${largest.width}×${largest.height}  webp1600 ${kb(largest.bytes)}`);
   }
 
-  fs.writeFileSync(path.join(OUT, 'manifest.json'), JSON.stringify({ widths: WIDTHS, webp: WEBP, avif: WITH_AVIF ? AVIF : null, totalBytes: total, photos: manifest }, null, 2) + '\n');
-  fs.writeFileSync(path.join(OUT, 'CREDITS.md'), credits(manifest, total));
-  console.log(`\n${manifest.length} photos · ${manifest.reduce((n, e) => n + e.files.length, 0)} files · total ${(total / 1024 / 1024).toFixed(2)} MB`);
+  let photos = manifest;
+  if (ONLY) {
+    // Merge: replace the re-encoded entries in place, append new ones, keep every other entry as it is.
+    const prev = JSON.parse(fs.readFileSync(path.join(OUT, 'manifest.json'), 'utf8')).photos;
+    const fresh = new Map(manifest.map((e) => [e.id, e]));
+    photos = prev.map((e) => fresh.get(e.id) ?? e);
+    for (const e of manifest) if (!prev.some((x) => x.id === e.id)) photos.push(e);
+    total = photos.reduce((n, e) => n + e.files.reduce((m, f) => m + f.bytes, 0), 0);
+  }
+  fs.writeFileSync(path.join(OUT, 'manifest.json'), JSON.stringify({ widths: WIDTHS, webp: WEBP, avif: WITH_AVIF ? AVIF : null, totalBytes: total, photos }, null, 2) + '\n');
+  fs.writeFileSync(path.join(OUT, 'CREDITS.md'), credits(photos, total));
+  console.log(`\n${photos.length} photos · ${photos.reduce((n, e) => n + e.files.length, 0)} files · total ${(total / 1024 / 1024).toFixed(2)} MB`);
 }
 
 function credits(manifest, total) {

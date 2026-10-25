@@ -262,7 +262,9 @@ export function checkThirdParty({ html, files }, siteUrl, { bookingRequest = fal
 /**
  * Positioning and wording (FB-INV-002, concept 2.3–2.4, DOM landing-positioning) on everything a visitor or a search
  * engine reads: visible text, <title>, meta and JSON-LD. No room count, never "apartment"/"căn", no self-claimed hotel
- * class, no plain "Book"/"Đặt phòng" button (option A is a request), "meter" only in the long-stay FAQ.
+ * class, no plain "Book"/"Đặt phòng" button (option A is a request). INV 24/10 (CPY concept B): no "hotel/khách sạn"
+ * at all in the page body, no fees on the page ("phụ thu", extra-guest fee, meter/công tơ), no "open soon", no old room
+ * type names.
  */
 export const BANNED = [
   /apartment/i,
@@ -286,6 +288,17 @@ export const BANNED = [
   // "extra bed" is no longer banned: Premium has a 1.4 m extra bed (INV 22/10, replaces 4c "sofa"). copy.test.ts
   // keeps it to the Premium room and the capacity note.
   /instant confirmation|xác nhận ngay/iu,
+  // INV 24/10 – CPY landing review 12.2 (concept B): positioning, fees out of the page body, old names.
+  /small hotel/i,
+  /khách sạn nhỏ/iu,
+  /phụ thu/iu,
+  /extra-guest fee/i,
+  /\bby meter\b/i,
+  /công tơ/iu,
+  /open soon/i,
+  /sắp mở/iu,
+  /\bStandard Studio\b/,
+  /One Bedroom \+ 1/,
 ];
 
 export function checkWording({ html }) {
@@ -309,15 +322,19 @@ export function checkWording({ html }) {
     }
     const body = page.source.split(/<body[^>]*>/)[1] ?? '';
     const hotel = (visibleText(body).match(/hotel|khách sạn/giu) ?? []).length;
-    if (hotel > 3)
-      problems.push(`${page.path}: "hotel/khách sạn" ${hotel}× (concept 2.4 allows 3 comparisons)`);
+    if (hotel > 0)
+      problems.push(`${page.path}: "hotel/khách sạn" ${hotel}× (INV 24/10: none on the page)`);
     for (const m of body.matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)) {
       const label = visibleText(m[2]).replace(/\s+/g, ' ').trim();
       if (/^(book|đặt phòng|book now)$/iu.test(label))
         problems.push(
-          `${page.path}: <${m[1]}> labelled "${label}" – use "Request to book" (concept T5)`,
+          `${page.path}: <${m[1]}> labelled "${label}" – use "Plan your stay" (INV 24/10)`,
         );
     }
+    // [[…]] is copy markup for a no-break run (lib/rich.ts) – it must never reach the visitor (FE-LP 24/10: the room
+    // cards printed "[[1.4 m]]" since 22/10).
+    if (/\[\[|\]\]/.test(visibleText(body)))
+      problems.push(`${page.path}: copy markup "[[…]]" shown as text – render it with <Rich>`);
     const why = body.match(/<section[^>]*id="why"[\s\S]*?<\/section>/)?.[0] ?? '';
     if (/meter|công tơ/iu.test(visibleText(why)))
       problems.push(`${page.path}: "meter/công tơ" in #why (concept N3)`);
@@ -627,6 +644,19 @@ export function namedColors(css) {
   return found;
 }
 
+/**
+ * Photo id of the LCP image: the image preload of a page (= the first hero slide, content/hero.ts; INV 25/10 the hero is
+ * landscape only, so the id is no longer fixed). Null when no page preloads an image.
+ */
+export function lcpPhotoId(page) {
+  const link = tags(page.source).find(
+    (x) => x.name === 'link' && x.attrs.rel === 'preload' && x.attrs.as === 'image',
+  );
+  const first = link?.attrs.imagesrcset?.split(',')[0]?.trim().split(/\s+/)[0];
+  const m = first && path.basename(first).match(/^(.+)-\d+\.[\w-]+\.avif$/);
+  return m ? m[1] : null;
+}
+
 /** Byte budgets (ADR-014 7.7, 9; concept 11.2 hero per DPR). */
 export function checkBudgets({ dist, files, html }, { bookingRequest: bookingForm = false } = {}) {
   const problems = [];
@@ -637,8 +667,10 @@ export function checkBudgets({ dist, files, html }, { bookingRequest: bookingFor
   for (const f of files.filter((f) => /\.(avif|webp|jpe?g|png)$/.test(f)))
     if (size(f) > BUDGET.imageMax)
       problems.push(`${path.basename(f)} ${size(f)} B > ${BUDGET.imageMax}`);
+  const lcp = html.map(lcpPhotoId).find(Boolean);
+  if (!lcp) problems.push('no page preloads its hero photo (LCP)');
   const hero = (w) =>
-    files.find((f) => new RegExp(`/hero-facade-dusk-${w}\\.[\\w-]+\\.avif$`).test(f));
+    lcp && files.find((f) => new RegExp(`/${lcp}-${w}\\.[\\w-]+\\.avif$`).test(f));
   for (const [w, max] of [
     [480, BUDGET.heroAvif480],
     [960, BUDGET.heroAvif960],
@@ -688,14 +720,24 @@ export function checkImages({ html }) {
   const problems = [];
   for (const page of html) {
     const t = tags(page.source);
-    for (const img of t.filter((x) => x.name === 'img')) {
-      const a = img.attrs;
+    // The hero = the one eager <img>; it must be the preloaded photo (LCP) with fetchpriority=high. Every other <img>
+    // is lazy (the same photo may appear again lazily, e.g. as a room cover).
+    const lcp = lcpPhotoId(page);
+    const imgs = t.filter((x) => x.name === 'img').map((x) => x.attrs);
+    const eager = imgs.filter((a) => a.loading !== 'lazy');
+    if (lcp && eager.length !== 1)
+      problems.push(`${page.path}: ${eager.length} eager <img> (only the hero, ${lcp})`);
+    if (!lcp && eager.length) problems.push(`${page.path}: eager <img> but no hero preload`);
+    for (const a of imgs) {
       if (!a.width || !a.height) problems.push(`${page.path}: <img ${a.src}> without width/height`);
       if (!a.alt?.trim()) problems.push(`${page.path}: <img ${a.src}> without alt`);
-      const hero = /hero-facade-dusk/.test(a.src ?? '');
-      if (hero && (a.loading === 'lazy' || a.fetchpriority !== 'high'))
-        problems.push(`${page.path}: hero must be eager + fetchpriority=high`);
-      if (!hero && a.loading !== 'lazy') problems.push(`${page.path}: <img ${a.src}> not lazy`);
+    }
+    for (const a of eager) {
+      const isLcp = lcp && path.basename(a.src ?? '').startsWith(`${lcp}-`);
+      if (!isLcp || a.fetchpriority !== 'high')
+        problems.push(
+          `${page.path}: <img ${a.src}> not lazy – only the preloaded hero (eager + fetchpriority=high)`,
+        );
     }
     for (const s of t.filter(
       (x) => x.name === 'source' && /max-width:\s*767px/.test(x.attrs.media ?? ''),

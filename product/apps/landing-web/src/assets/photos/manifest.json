@@ -8,59 +8,60 @@
     "quality": 50,
     "effort": 4
   },
-  "totalBytes": 4758128,
+  "totalBytes": 6779461,
   "photos": [
     {
       "id": "hero-facade-dusk",
-      "src": "mat-tien-sanh/04.1.png",
+      "src": "mat-tien-sanh/03.png",
       "use": "Hero (LCP)",
       "type": "Exterior",
-      "brochure": "p33",
+      "brochure": "–",
+      "avifQuality": 42,
       "alt": {
-        "en": "OTTIMO at dusk: a five-storey building with warm lights on every balcony",
-        "vi": "OTTIMO lúc chạng vạng: tòa nhà năm tầng, ban công sáng đèn ấm"
+        "en": "OTTIMO at dusk, with warm lights on every balcony",
+        "vi": "OTTIMO lúc chạng vạng, ban công sáng đèn ấm"
       },
       "original": {
-        "width": 1792,
-        "height": 2432,
-        "bytes": 4729684
+        "width": 1600,
+        "height": 2416,
+        "bytes": 4696088
       },
       "files": [
         {
           "name": "hero-facade-dusk-480.webp",
           "width": 480,
-          "height": 651,
-          "bytes": 23060
+          "height": 725,
+          "bytes": 27694
         },
         {
           "name": "hero-facade-dusk-480.avif",
           "width": 480,
-          "height": 651,
-          "bytes": 16566
+          "height": 725,
+          "bytes": 13190
         },
         {
           "name": "hero-facade-dusk-960.webp",
           "width": 960,
-          "height": 1303,
-          "bytes": 69514
+          "height": 1450,
+          "bytes": 87058
         },
         {
           "name": "hero-facade-dusk-960.avif",
           "width": 960,
-          "height": 1303,
-          "bytes": 49321
+          "height": 1450,
+          "bytes": 39351
         },
         {
           "name": "hero-facade-dusk-1600.webp",
           "width": 1600,
-          "height": 2171,
-          "bytes": 152486
+          "height": 2416,
+          "bytes": 214962
         },
         {
           "name": "hero-facade-dusk-1600.avif",
           "width": 1600,
-          "height": 2171,
-          "bytes": 118605
+          "height": 2416,
+          "bytes": 101365
         }
       ]
     },
@@ -71,8 +72,8 @@
       "type": "Lobby",
       "brochure": "p31",
       "alt": {
-        "en": "Ground-floor lobby with an oak reception desk and a coffee counter",
-        "vi": "Sảnh tầng trệt với quầy lễ tân gỗ sồi và quầy cà phê"
+        "en": "Ground-floor lobby with an oak reception desk",
+        "vi": "Sảnh tầng trệt với quầy lễ tân gỗ sồi"
       },
       "original": {
         "width": 5704,
@@ -125,7 +126,7 @@
       "type": "Exterior",
       "brochure": "–",
       "alt": {
-        "en": "Aerial view of OTTIMO on a quiet hillside, with Da Lat and the mountains behind",
+        "en": "OTTIMO from above, on a quiet hillside with Da Lat and the mountains behind",
         "vi": "OTTIMO nhìn từ trên cao, trên triền đồi yên tĩnh, phía sau là Đà Lạt và núi"
       },
       "original": {
@@ -179,8 +180,8 @@
       "type": "Standard Studio · City View",
       "brochure": "p8",
       "alt": {
-        "en": "Cream-and-grey studio: sofa, TV wall and kitchen",
-        "vi": "Studio tông kem – xám: sofa, tường TV và bếp"
+        "en": "Cream-and-grey studio with a sofa, a TV wall and a kitchen",
+        "vi": "Studio tông kem – xám với sofa, tường TV và bếp"
       },
       "original": {
         "width": 5971,
@@ -341,7 +342,7 @@
       "type": "Standard Studio · Garden View (light oak)",
       "brochure": "p14",
       "alt": {
-        "en": "Light-oak studio with a bed, sofa and balcony door",
+        "en": "Light-oak studio with a bed, a sofa and a balcony door",
         "vi": "Studio gỗ sáng với giường, sofa và cửa ra ban công"
       },
       "original": {
@@ -395,8 +396,8 @@
       "type": "Standard Studio · Garden View (navy)",
       "brochure": "p19",
       "alt": {
-        "en": "Navy studio: bed, sofa and a glass door to the balcony",
-        "vi": "Studio tông navy: giường, sofa và cửa kính ra ban công"
+        "en": "Navy studio with a bed, a sofa and a glass door to the balcony",
+        "vi": "Studio tông navy với giường, sofa và cửa kính ra ban công"
       },
       "original": {
         "width": 5487,
@@ -719,8 +720,8 @@
       "type": "Signature · Two Bedrooms",
       "brochure": "p28",
       "alt": {
-        "en": "One of two bedrooms, with a double bed on an oak platform",
-        "vi": "Một trong hai phòng ngủ, giường đôi trên bệ gỗ sồi"
+        "en": "A crisp white double bed on an oak platform, beside a window",
+        "vi": "Giường đôi trắng trên bệ gỗ sồi, cạnh cửa sổ"
       },
       "original": {
         "width": 5793,
@@ -773,8 +774,8 @@
       "type": "Signature · Two Bedrooms",
       "brochure": "p27",
       "alt": {
-        "en": "Glass shower and green-tiled vanity",
-        "vi": "Phòng tắm kính, tường gạch xanh"
+        "en": "Glass shower and a green-tiled vanity",
+        "vi": "Phòng tắm vách kính, bồn rửa ốp gạch xanh"
       },
       "original": {
         "width": 5858,
@@ -827,8 +828,8 @@
       "type": "Standard Studio · Garden View (navy)",
       "brochure": "p17",
       "alt": {
-        "en": "In-room washer and dryer next to a wardrobe and a work desk",
-        "vi": "Máy giặt và máy sấy trong căn, cạnh tủ áo và bàn làm việc"
+        "en": "A washer and dryer next to a wardrobe and a work desk",
+        "vi": "Máy giặt và máy sấy cạnh tủ áo và bàn làm việc"
       },
       "original": {
         "width": 5831,
@@ -881,7 +882,7 @@
       "type": "Standard Studio · Garden View (light oak)",
       "brochure": "p15",
       "alt": {
-        "en": "Oak kitchen with an induction hob, full-size fridge and washer-dryer",
+        "en": "Oak kitchen with an induction hob, a full-size fridge and a washer-dryer",
         "vi": "Bếp gỗ sồi với bếp từ, tủ lạnh lớn và máy giặt sấy"
       },
       "original": {
@@ -979,6 +980,546 @@
           "width": 1600,
           "height": 1063,
           "bytes": 90979
+        }
+      ]
+    },
+    {
+      "id": "signature-bedroom-desk",
+      "src": "phong-4/8.png",
+      "use": "Hero slide (picker 37)",
+      "type": "Signature Two-Bedroom",
+      "brochure": "–",
+      "alt": {
+        "en": "Bedroom with a writing desk, a built-in wardrobe and a raised bed, a washer and dryer in the hall beyond",
+        "vi": "Phòng ngủ với bàn làm việc, tủ áo âm tường và giường đặt trên bệ, máy giặt sấy ở hành lang bên ngoài"
+      },
+      "original": {
+        "width": 5804,
+        "height": 3869,
+        "bytes": 21667435
+      },
+      "files": [
+        {
+          "name": "signature-bedroom-desk-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 9738
+        },
+        {
+          "name": "signature-bedroom-desk-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 7274
+        },
+        {
+          "name": "signature-bedroom-desk-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 26158
+        },
+        {
+          "name": "signature-bedroom-desk-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 20590
+        },
+        {
+          "name": "signature-bedroom-desk-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 59454
+        },
+        {
+          "name": "signature-bedroom-desk-1600.avif",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 46978
+        }
+      ]
+    },
+    {
+      "id": "garden-navy-kitchen",
+      "src": "phong-2/03.png",
+      "use": "Hero slide (picker 16)",
+      "type": "Garden Studio (navy)",
+      "brochure": "–",
+      "alt": {
+        "en": "Navy and oak kitchen by a sofa corner, with tall windows over Da Lat",
+        "vi": "Bếp navy và gỗ sồi cạnh góc sofa, cửa kính lớn nhìn ra Đà Lạt"
+      },
+      "original": {
+        "width": 5937,
+        "height": 3957,
+        "bytes": 31210695
+      },
+      "files": [
+        {
+          "name": "garden-navy-kitchen-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 10660
+        },
+        {
+          "name": "garden-navy-kitchen-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 7776
+        },
+        {
+          "name": "garden-navy-kitchen-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 30370
+        },
+        {
+          "name": "garden-navy-kitchen-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 21890
+        },
+        {
+          "name": "garden-navy-kitchen-1600.webp",
+          "width": 1600,
+          "height": 1066,
+          "bytes": 69414
+        },
+        {
+          "name": "garden-navy-kitchen-1600.avif",
+          "width": 1600,
+          "height": 1066,
+          "bytes": 51500
+        }
+      ]
+    },
+    {
+      "id": "signature-living-oak",
+      "src": "phong-4/4.png",
+      "use": "Hero slide (picker 33)",
+      "type": "Signature Two-Bedroom",
+      "brochure": "–",
+      "alt": {
+        "en": "Living room with an oak shelf wall, a TV, a cream sofa and a full-size fridge",
+        "vi": "Phòng khách với vách kệ gỗ sồi, TV, sofa màu kem và tủ lạnh cỡ lớn"
+      },
+      "original": {
+        "width": 5786,
+        "height": 3858,
+        "bytes": 23176812
+      },
+      "files": [
+        {
+          "name": "signature-living-oak-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 9788
+        },
+        {
+          "name": "signature-living-oak-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 7320
+        },
+        {
+          "name": "signature-living-oak-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 27356
+        },
+        {
+          "name": "signature-living-oak-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 20793
+        },
+        {
+          "name": "signature-living-oak-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 63354
+        },
+        {
+          "name": "signature-living-oak-1600.avif",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 48795
+        }
+      ]
+    },
+    {
+      "id": "signature-laundry-dining",
+      "src": "phong-4/1.png",
+      "use": "Amenities (picker 30)",
+      "type": "Signature Two-Bedroom",
+      "brochure": "–",
+      "alt": {
+        "en": "A washer and dryer beside a dining table and an oak kitchen",
+        "vi": "Máy giặt sấy cạnh bàn ăn và gian bếp gỗ sồi"
+      },
+      "original": {
+        "width": 6000,
+        "height": 4000,
+        "bytes": 27909694
+      },
+      "files": [
+        {
+          "name": "signature-laundry-dining-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 10504
+        },
+        {
+          "name": "signature-laundry-dining-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 7624
+        },
+        {
+          "name": "signature-laundry-dining-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 29472
+        },
+        {
+          "name": "signature-laundry-dining-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 21661
+        },
+        {
+          "name": "signature-laundry-dining-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 68208
+        },
+        {
+          "name": "signature-laundry-dining-1600.avif",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 50996
+        }
+      ]
+    },
+    {
+      "id": "city-studio",
+      "src": "phong-3/05.png",
+      "use": "Room gallery (picker 24)",
+      "type": "City Studio",
+      "brochure": "–",
+      "alt": {
+        "en": "Studio with a cream sofa, the bed behind it and a desk by a glass-block screen",
+        "vi": "Studio với sofa màu kem, giường phía sau và bàn làm việc cạnh vách gạch kính"
+      },
+      "original": {
+        "width": 5887,
+        "height": 3924,
+        "bytes": 25119607
+      },
+      "files": [
+        {
+          "name": "city-studio-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 9904
+        },
+        {
+          "name": "city-studio-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 7807
+        },
+        {
+          "name": "city-studio-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 25140
+        },
+        {
+          "name": "city-studio-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 19589
+        },
+        {
+          "name": "city-studio-1600.webp",
+          "width": 1600,
+          "height": 1066,
+          "bytes": 56812
+        },
+        {
+          "name": "city-studio-1600.avif",
+          "width": 1600,
+          "height": 1066,
+          "bytes": 42570
+        }
+      ]
+    },
+    {
+      "id": "city-kitchen",
+      "src": "phong-3/01.1.png",
+      "use": "Room gallery (picker 20)",
+      "type": "City Studio",
+      "brochure": "–",
+      "alt": {
+        "en": "Grey kitchen with a full-size fridge and a white dining counter",
+        "vi": "Bếp tông xám với tủ lạnh cỡ lớn và quầy ăn màu trắng"
+      },
+      "original": {
+        "width": 5966,
+        "height": 3977,
+        "bytes": 25917101
+      },
+      "files": [
+        {
+          "name": "city-kitchen-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 7392
+        },
+        {
+          "name": "city-kitchen-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 6180
+        },
+        {
+          "name": "city-kitchen-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 20950
+        },
+        {
+          "name": "city-kitchen-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 16550
+        },
+        {
+          "name": "city-kitchen-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 50090
+        },
+        {
+          "name": "city-kitchen-1600.avif",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 38412
+        }
+      ]
+    },
+    {
+      "id": "city-laundry",
+      "src": "phong-3/10.png",
+      "use": "Room gallery (picker 29)",
+      "type": "City Studio",
+      "brochure": "–",
+      "alt": {
+        "en": "Washer and dryer in a nook beside the shower room",
+        "vi": "Máy giặt sấy đặt trong hốc tường, cạnh phòng tắm"
+      },
+      "original": {
+        "width": 3801,
+        "height": 5702,
+        "bytes": 23751184
+      },
+      "files": [
+        {
+          "name": "city-laundry-480.webp",
+          "width": 480,
+          "height": 720,
+          "bytes": 18622
+        },
+        {
+          "name": "city-laundry-480.avif",
+          "width": 480,
+          "height": 720,
+          "bytes": 13292
+        },
+        {
+          "name": "city-laundry-960.webp",
+          "width": 960,
+          "height": 1440,
+          "bytes": 55604
+        },
+        {
+          "name": "city-laundry-960.avif",
+          "width": 960,
+          "height": 1440,
+          "bytes": 40006
+        },
+        {
+          "name": "city-laundry-1600.webp",
+          "width": 1600,
+          "height": 2400,
+          "bytes": 124170
+        },
+        {
+          "name": "city-laundry-1600.avif",
+          "width": 1600,
+          "height": 2400,
+          "bytes": 87616
+        }
+      ]
+    },
+    {
+      "id": "premium-living-tv",
+      "src": "phong-5/1.png",
+      "use": "Room gallery (picker 39)",
+      "type": "Premium One-Bedroom",
+      "brochure": "–",
+      "alt": {
+        "en": "Living room with a TV wall, and a washer and dryer down the hall",
+        "vi": "Phòng khách với vách TV, máy giặt sấy cuối hành lang"
+      },
+      "original": {
+        "width": 5708,
+        "height": 3808,
+        "bytes": 20509177
+      },
+      "files": [
+        {
+          "name": "premium-living-tv-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 10122
+        },
+        {
+          "name": "premium-living-tv-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 7397
+        },
+        {
+          "name": "premium-living-tv-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 27082
+        },
+        {
+          "name": "premium-living-tv-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 20680
+        },
+        {
+          "name": "premium-living-tv-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 63822
+        },
+        {
+          "name": "premium-living-tv-1600.avif",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 47516
+        }
+      ]
+    },
+    {
+      "id": "premium-extra-bed",
+      "src": "phong-5/6.png",
+      "use": "Room gallery (picker 44)",
+      "type": "Premium One-Bedroom",
+      "brochure": "–",
+      "alt": {
+        "en": "Living room with an extra bed, a TV and a sofa by the balcony door",
+        "vi": "Phòng khách với giường phụ, TV và sofa cạnh cửa ban công"
+      },
+      "original": {
+        "width": 5673,
+        "height": 3778,
+        "bytes": 21566438
+      },
+      "files": [
+        {
+          "name": "premium-extra-bed-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 8904
+        },
+        {
+          "name": "premium-extra-bed-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 6927
+        },
+        {
+          "name": "premium-extra-bed-960.webp",
+          "width": 960,
+          "height": 639,
+          "bytes": 25260
+        },
+        {
+          "name": "premium-extra-bed-960.avif",
+          "width": 960,
+          "height": 639,
+          "bytes": 19133
+        },
+        {
+          "name": "premium-extra-bed-1600.webp",
+          "width": 1600,
+          "height": 1066,
+          "bytes": 59316
+        },
+        {
+          "name": "premium-extra-bed-1600.avif",
+          "width": 1600,
+          "height": 1066,
+          "bytes": 44556
+        }
+      ]
+    },
+    {
+      "id": "premium-bath",
+      "src": "phong-5/7.png",
+      "use": "Room gallery (picker 45)",
+      "type": "Premium One-Bedroom",
+      "brochure": "–",
+      "alt": {
+        "en": "Bathroom with a glass shower and a green-tiled basin wall",
+        "vi": "Phòng tắm với vách tắm kính và tường gạch xanh sau bồn rửa"
+      },
+      "original": {
+        "width": 5931,
+        "height": 3954,
+        "bytes": 26786598
+      },
+      "files": [
+        {
+          "name": "premium-bath-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 15098
+        },
+        {
+          "name": "premium-bath-480.avif",
+          "width": 480,
+          "height": 320,
+          "bytes": 9131
+        },
+        {
+          "name": "premium-bath-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 45662
+        },
+        {
+          "name": "premium-bath-960.avif",
+          "width": 960,
+          "height": 640,
+          "bytes": 27517
+        },
+        {
+          "name": "premium-bath-1600.webp",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 100096
+        },
+        {
+          "name": "premium-bath-1600.avif",
+          "width": 1600,
+          "height": 1067,
+          "bytes": 60667
         }
       ]
     }

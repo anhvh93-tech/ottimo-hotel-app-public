@@ -143,7 +143,7 @@ function init(form: HTMLFormElement) {
     () => ($('f-note-count').textContent = `${note.value.length} / 500`),
   );
   room.addEventListener('change', roomHint);
-  // "Request this room" preselects the room type
+  // "Ask about this room" preselects the room type
   document.querySelectorAll<HTMLAnchorElement>('a[data-room]').forEach((a) =>
     a.addEventListener('click', () => {
       room.value = a.dataset.room ?? '';

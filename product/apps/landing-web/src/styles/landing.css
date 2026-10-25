@@ -193,6 +193,7 @@ h1 {
   letter-spacing: 0.04em;
 }
 .h2 {
+  text-wrap: balance; /* UXD FB-R3-UXD-FE-04 – progressive; [[…]] in the copy still fixes key breaks */
   font-family: var(--serif);
   font-size: var(--fs-h2);
   line-height: 1.2;
@@ -231,6 +232,12 @@ h1 {
 }
 .head p:last-child {
   margin-bottom: 0;
+}
+/* Lead paragraphs avoid a one-word last line (UXD FB-R3-UXD-FE-04). Not on the H1 tagline. */
+.head p,
+.why-intro,
+.hero-text .lead {
+  text-wrap: pretty;
 }
 .rule-top {
   border-top: 1px solid var(--brand-oak);
@@ -559,8 +566,8 @@ h1 {
 .r45 img {
   aspect-ratio: 4/5;
 }
-.pic img.op-x35 {
-  object-position: 35% 50%;
+.pic img.op-x08 {
+  object-position: 8% 50%; /* Amenities photo 30: washer-dryer, dining table and kitchen in the 4/5 frame */
 }
 
 /* 1 · Hero */
@@ -575,10 +582,11 @@ h1 {
   margin-inline: calc(var(--gutter) * -1);
   border-radius: 0;
 }
+/* INV 25/10: landscape photos only – phones show the whole 3:2 photo (nothing cropped: washer-dryer in 37, fridge
+   in 33 stay in view). Was 4/5 + max-height 30svh for the portrait facade. */
 .hero-media img {
-  aspect-ratio: 4/5;
-  max-height: 30svh;
-  object-position: 50% 58%;
+  aspect-ratio: 3/2;
+  object-position: 50% 50%;
 }
 .hero-text h1 {
   margin: 0 0 var(--s5);
@@ -623,9 +631,29 @@ h1 {
   .hero-text {
     order: -1;
   }
+  /* 4/3 since 24/10 (UXD review landing-b FB-R3-UXD-FE-01): 5 of 6 slides are landscape; 4/5 kept only 58 % of
+     their width and cut the washer-dryer (37) and fridge (33). 4/3 keeps 89 % of a landscape photo and the whole
+     lit facade of photo 4. Class per id comes from Hero.astro (no inline style: CSP style-src 'self'). */
   .hero-media img {
-    aspect-ratio: 4/5;
-    max-height: min(80svh, 760px);
+    aspect-ratio: 4/3;
+    max-height: none;
+    object-position: 50% 50%;
+  }
+  /* Per-photo focus on the 4/3 desktop frame. Ids without a rule stay centred (5.5 % lost each side). */
+  .hero-media img.hero-img--signature-dining {
+    object-position: 50% 50%; /* 32 */
+  }
+  .hero-media img.hero-img--detail-kitchen {
+    object-position: 50% 50%; /* 9 */
+  }
+  .hero-media img.hero-img--signature-bedroom-desk {
+    object-position: 25% 50%; /* 37 – washer-dryer in the hall + full bed */
+  }
+  .hero-media img.hero-img--garden-navy-kitchen {
+    object-position: 60% 50%; /* 16 – sofa + whole navy kitchen */
+  }
+  .hero-media img.hero-img--signature-living-oak {
+    object-position: 40% 50%; /* 33 – fridge + TV wall + corridor */
   }
 }
 
@@ -730,7 +758,7 @@ h1 {
   border-radius: 999px;
 }
 
-/* 2 · Why OTTIMO – the dual promise */
+/* 2 · The Stay (#why) – the dual promise */
 .why-intro {
   max-width: 720px;
 }
@@ -770,6 +798,11 @@ h1 {
   .promise {
     gap: var(--s7);
   }
+}
+
+/* Text link under the two cards (CPY concept B: "See the rooms") – one filled button per screen stays the rule. */
+.why-more {
+  margin: var(--s6) 0 0;
 }
 
 /* 3 · Rooms – swipe row on phones, 2 x 2 grid from 768 px */
@@ -1123,11 +1156,22 @@ table.dist {
   font-weight: 400;
   padding-right: var(--s3);
 }
+/* [[Hồ Xuân Hương]] stays whole from 360 px; below that the three columns cannot all hold their no-break text
+   ("khoảng 28 km", "30 phút"), so the place name may wrap rather than push the page sideways (FE-LP 24/10). */
+@media (max-width: 359px) {
+  .dist tbody th .nw {
+    white-space: normal;
+  }
+}
 .dist td {
   white-space: nowrap;
   padding-left: var(--s3);
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+/* "Ask us about your dates" → #book (CPY concept B) */
+.loc-ask {
+  margin: var(--s4) 0 0;
 }
 .loc .pic img {
   aspect-ratio: 16/9;
@@ -1149,10 +1193,31 @@ table.dist {
   }
 }
 
-/* 6 · Book – how it works + request form (or the Zalo/call block while the form is off) */
+/* 6 · Book – the facade at dusk (portrait, picker 4 – INV 25/10), how it works + request form (or the Zalo/call
+   block while the form is off). Phones: the photo full width above the steps, 4/5. Desktop: a portrait column on the
+   left (Location has its photo on the right). object-position keeps the roof and the entrance steps in the frame. */
 .book {
   display: grid;
   gap: var(--s7);
+}
+.book-main {
+  display: grid;
+  gap: var(--s7);
+}
+.book-pic {
+  margin-inline: calc(var(--gutter) * -1);
+  border-radius: 0;
+}
+.book-pic img {
+  aspect-ratio: 4/5;
+  object-position: 50% 70%;
+}
+@media (min-width: 768px) {
+  .book-pic {
+    margin-inline: 0;
+    border-radius: var(--r);
+    max-width: 480px; /* tablet: a full-width 4/5 photo would fill more than a screen */
+  }
 }
 .steps {
   margin: var(--s5) 0 var(--s5);
@@ -1200,9 +1265,10 @@ table.dist {
     gap: var(--s8);
     align-items: start;
   }
-  .book-intro {
+  .book-pic {
     position: sticky;
     top: calc(var(--header-h) + var(--s6));
+    max-width: none;
   }
 }
 .bk-card {
@@ -1796,7 +1862,7 @@ legend.f-label:not(.sr) {
   }
 }
 
-/* Sticky bar – phones only. Same hierarchy as the hero: Request to book (primary) + Zalo (secondary).
+/* Sticky bar – phones only. Same hierarchy as the hero: Plan your stay (primary) + Zalo (secondary).
    Rendered hidden; the script shows it while the hero buttons, #book, #contact and the footer are all off screen
    (concept 3.3, N2). Without JavaScript nojs.css shows it. */
 .stickybar {
@@ -1864,7 +1930,7 @@ legend.f-label:not(.sr) {
 }
 
 /* Language suggestion strip (ADR-014 3.2): fixed (no layout shift), never a dialog, above the phone action bar so
-   it covers neither "Request to book" nor the bar. Ink background, Ivory text (Brand Guidelines dark pair). */
+   it covers neither "Plan your stay" nor the bar. Ink background, Ivory text (Brand Guidelines dark pair). */
 .lang-suggest {
   position: fixed;
   left: 0;

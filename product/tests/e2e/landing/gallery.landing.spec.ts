@@ -22,6 +22,8 @@ const currentDot = (page: Page) =>
 /** Index of the slide that fills the track (what the guest sees). */
 const visibleSlide = (page: Page) =>
   page.locator('[data-car-track]').evaluate((t) => Math.round(t.scrollLeft / t.clientWidth));
+/** Hero photos = HERO_PICKS in landing-web src/content/hero.ts (INV 25/10: 5 landscape photos). */
+const SLIDES = 5;
 
 test.describe('TC-LP-019 hero slideshow (R3-Q52)', () => {
   test('advances on its own every 3 s after load; the next photo loads only shortly before', async ({
@@ -32,7 +34,8 @@ test.describe('TC-LP-019 hero slideshow (R3-Q52)', () => {
     const errors = watchErrors(page);
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     // first view: only the facade is rendered, the other slides wait (budget concept 11.2)
-    await expect(page.locator('[data-car-slide].is-pending')).toHaveCount(4);
+    await expect(page.locator('[data-car-slide]')).toHaveCount(SLIDES);
+    await expect(page.locator('[data-car-slide].is-pending')).toHaveCount(SLIDES - 1);
     await expect(page.locator('[data-car-ctrl]')).toBeVisible();
     await page.waitForLoadState('load');
     const t0 = Date.now();
@@ -60,7 +63,7 @@ test.describe('TC-LP-019 hero slideshow (R3-Q52)', () => {
     await expect.poll(() => currentDot(page)).toBe(2);
     await expect.poll(() => visibleSlide(page)).toBe(2);
     await page.keyboard.press('End');
-    await expect.poll(() => visibleSlide(page)).toBe(4);
+    await expect.poll(() => visibleSlide(page)).toBe(SLIDES - 1);
     await page.locator('[data-car-dot="1"]').click();
     await expect.poll(() => visibleSlide(page)).toBe(1);
     await expect.poll(() => currentDot(page)).toBe(1);
@@ -95,7 +98,7 @@ test.describe('TC-LP-019 hero slideshow (R3-Q52)', () => {
     await expect(page.locator('[data-car-toggle]')).toBeHidden();
     await page.waitForTimeout(4000);
     expect(await currentDot(page)).toBe(0);
-    await expect(page.locator('[data-car-slide].is-pending')).toHaveCount(4);
+    await expect(page.locator('[data-car-slide].is-pending')).toHaveCount(SLIDES - 1);
     await page.locator('[data-car-dot="2"]').click();
     await expect.poll(() => visibleSlide(page)).toBe(2);
     await context.close();
@@ -137,6 +140,9 @@ test.describe('TC-LP-019 hero slideshow (R3-Q52)', () => {
 });
 
 const GARDEN = '[data-gallery-open="gal-standard-studio-garden-view"]';
+/** Photos per room type = ROOM_GALLERIES in landing-web src/content/gallery.ts (UXD FB-R3-UXD-FE-05, pending INV). */
+const GARDEN_N = 7;
+const SIGNATURE_N = 6;
 
 for (const lang of Object.keys(PAGES) as Lang[]) {
   for (const width of [375, 1280]) {
@@ -156,7 +162,10 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
       // one button per room type, the number of photos in its text
       await expect(page.locator('.gal-open')).toHaveCount(4);
       const open = page.locator(GARDEN);
-      await expect(open).toHaveText(lang === 'en' ? '6 photos' : '6 ảnh');
+      await expect(open).toHaveText(lang === 'en' ? `${GARDEN_N} photos` : `${GARDEN_N} ảnh`);
+      await expect(page.locator('[data-gallery-open="gal-signature-two-bedrooms"]')).toHaveText(
+        lang === 'en' ? `${SIGNATURE_N} photos` : `${SIGNATURE_N} ảnh`,
+      );
       await open.scrollIntoViewIfNeeded();
       await open.click();
 
@@ -165,7 +174,7 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
       await expect(page.locator('html')).toHaveClass(/lb-open/);
       await expect(dialog.locator('[data-lb-close]')).toBeFocused();
       const count = dialog.locator('[data-lb-count]');
-      await expect(count).toHaveText('1 / 6');
+      await expect(count).toHaveText(`1 / ${GARDEN_N}`);
       // the first photo really shows (lazy image inside the dialog loads on open)
       await expect
         .poll(() =>
@@ -179,27 +188,27 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
       const alts = await dialog
         .locator('.lb-slide img')
         .evaluateAll((is) => is.map((i) => i.getAttribute('alt') ?? ''));
-      expect(alts).toHaveLength(6);
+      expect(alts).toHaveLength(GARDEN_N);
       for (const a of alts) expect(a.trim().length).toBeGreaterThan(5);
 
       await page.keyboard.press('ArrowRight');
-      await expect(count).toHaveText('2 / 6');
+      await expect(count).toHaveText(`2 / ${GARDEN_N}`);
       await expect(dialog.locator('[data-lb-count-sr]')).toHaveText(
-        lang === 'en' ? 'Photo 2 of 6' : 'Ảnh 2 trên 6',
+        lang === 'en' ? `Photo 2 of ${GARDEN_N}` : `Ảnh 2 trên ${GARDEN_N}`,
       );
       await page.keyboard.press('End');
-      await expect(count).toHaveText('6 / 6');
+      await expect(count).toHaveText(`${GARDEN_N} / ${GARDEN_N}`);
       await dialog.locator('[data-lb-next]').click(); // wraps to the first
-      await expect(count).toHaveText('1 / 6');
+      await expect(count).toHaveText(`1 / ${GARDEN_N}`);
       await dialog.locator('[data-lb-prev]').click(); // and back to the last
-      await expect(count).toHaveText('6 / 6');
+      await expect(count).toHaveText(`${GARDEN_N} / ${GARDEN_N}`);
       await page.keyboard.press('Home');
-      await expect(count).toHaveText('1 / 6');
+      await expect(count).toHaveText(`1 / ${GARDEN_N}`);
       // swipe = scroll of the snap row
       await dialog
         .locator('[data-lb-track]')
         .evaluate((t) => t.scrollTo({ left: t.clientWidth * 2, behavior: 'auto' }));
-      await expect(count).toHaveText('3 / 6');
+      await expect(count).toHaveText(`3 / ${GARDEN_N}`);
 
       // focus never leaves the dialog
       for (const key of [
@@ -228,7 +237,7 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
 
       // the other rooms open their own photos
       await page.locator('[data-gallery-open="gal-premium-one-bedroom-1"]').click();
-      await expect(page.locator('#gal-premium-one-bedroom-1 [data-lb-count]')).toHaveText('1 / 3');
+      await expect(page.locator('#gal-premium-one-bedroom-1 [data-lb-count]')).toHaveText('1 / 6');
       await page.locator('#gal-premium-one-bedroom-1 [data-lb-close]').click();
       await expect(page.locator('#gal-premium-one-bedroom-1')).toHaveJSProperty('open', false);
 

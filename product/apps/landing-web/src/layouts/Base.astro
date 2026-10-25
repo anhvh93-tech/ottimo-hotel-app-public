@@ -7,6 +7,7 @@ import Footer from '../components/Footer.astro';
 import Header from '../components/Header.astro';
 import LangSuggest from '../components/LangSuggest.astro';
 import StickyBar from '../components/StickyBar.astro';
+import { HERO_SLIDES } from '../content/hero';
 import { photo, srcset } from '../content/photos';
 import type { Copy } from '../content/types';
 import {
@@ -42,7 +43,8 @@ const pageUrl = absoluteUrl(pathFor(lang, slug));
 const home = published && slug === '' ? '' : pathFor(lang);
 const robots = INDEXABLE && published ? 'index, follow' : 'noindex, nofollow';
 const ogImage = absoluteUrl(OG_IMAGE.path);
-const hero = photo('hero-facade-dusk');
+// LCP = first hero slide (INV 25/10: landscape only – content/hero.ts)
+const hero = photo(HERO_SLIDES[0]!);
 const heroPhone = hero.widths.filter((w) => w <= 960);
 ---
 

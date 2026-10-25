@@ -1,11 +1,11 @@
 ---
 // 1 · Hero (concept 3.1, US-146 AC1): label, tagline as the only H1 (English on every page – brand), positioning
-// lead (DOM 1.1), Request to book (filled) + Chat on Zalo (outline) – concept 3.3 N2.
-// Photo slideshow (R3-Q52, INV 22/10): the facade at dusk stays slide 1 and the LCP image; the next photos change every
-// 3 s, swipe on phones (CSS scroll snap), discreet dots + pause. Without JavaScript only slide 1 shows (the others are
+// lead (CPY concept B), Plan your stay (filled) + Chat on Zalo (outline) – concept 3.3 N2.
+// Photo slideshow (R3-Q52, INV 22/10; INV 25/10: landscape photos only, one per slide – content/hero.ts): slide 1 is
+// the LCP image (preloaded in Base.astro); the next photos change every 3 s, swipe on phones (CSS scroll snap), discreet dots + pause. Without JavaScript only slide 1 shows (the others are
 // `is-pending` = display:none, so their lazy images never load); scripts/carousel.ts reveals each slide just before it
 // is shown, never with prefers-reduced-motion, a hidden tab or the hero off screen.
-import { HERO_SLIDES } from '../../content/gallery';
+import { HERO_SLIDES } from '../../content/hero';
 import { links, site } from '../../content/site';
 import type { Copy } from '../../content/types';
 import Icon from '../Icon.astro';
@@ -43,6 +43,7 @@ const n = HERO_SLIDES.length;
                 lang={t.lang}
                 alt={t.photoAlt[id]}
                 class="car-pic"
+                imgClass={`hero-img hero-img--${id}`}
                 sizesMobile="100vw"
                 sizes="(min-width: 1200px) 640px, (min-width: 1024px) 54vw, 100vw"
                 eager={i === 0}

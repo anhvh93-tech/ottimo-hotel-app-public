@@ -77,7 +77,7 @@ describe.each(builds)('$name', ({ name, form, live }) => {
   it('forms: none while off; rendered = hidden, no action, honeypot, unticked consent (SEC UXD-08); no OTA link', () => {
     expect(checks.checkForms(d, opts)).toEqual([]);
   });
-  it('wording: boutique stay, no room count, no plain "Book", hotel only as comparison (FB-INV-002, concept 2.3)', () => {
+  it('wording: boutique stay, no room count, no plain "Book", no hotel wording, no fees on the page (FB-INV-002, INV 24/10)', () => {
     expect(checks.checkWording(d)).toEqual([]);
   });
   it('declares lang, canonical, two-way hreflang + x-default, OG, JSON-LD (ADR-014 3.3, 5)', () => {

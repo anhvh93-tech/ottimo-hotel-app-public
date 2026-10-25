@@ -41,11 +41,11 @@ test('TC-LP-016 LP-v1.2.1 form: capacity (under-6s not counted), by the month, e
   page,
 }) => {
   await openForm(page);
-  // "Request this room" on the Signature card preselects it with its sleeps hint
+  // "Ask about this room" on the Signature card preselects it with its sleeps hint (CPY 24/10 wording)
   await page.locator('a[data-room="signature-two-bedrooms"]').click();
   await expect(page.locator('#f-room')).toHaveValue('signature-two-bedrooms');
   await expect(page.locator('#f-room-hint')).toHaveText(
-    'Sleeps 4–5. The higher number uses the sofa.',
+    'Sleeps 4–5. The higher number includes one more guest (sofa, or the 1.4 m extra bed in Premium), included in your quote.',
   );
   // Studio: 3 adults + 2 under 6 = fine; 4 adults = over capacity
   await page.locator('#f-room').selectOption('standard-studio-city-view');

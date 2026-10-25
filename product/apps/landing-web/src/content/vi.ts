@@ -1,5 +1,7 @@
-// Vietnamese copy – supports the English version (Brand Guidelines v1.0). Text = UXD mock v1.2.1; INV approves once
-// before going live (US-146 AC4). No "căn", no room count, decimal comma in distances (concept 2.3, 11).
+// Vietnamese copy – supports the English version (Brand Guidelines v1.0). Text = CPY final copy 24/10, concept B
+// (rounds/round-03/outputs/CPY/landing-copy-review.md). Speaks as "chúng tôi"; only the deposit step and the
+// anti-impersonation answer keep "OTTIMO" (INV 24/10). No "căn", no room count, no "khách sạn", no "phụ thu",
+// decimal comma in distances (concept 2.3, 11).
 import type { Copy } from './types';
 
 export const vi: Copy = {
@@ -7,7 +9,7 @@ export const vi: Copy = {
   meta: {
     title: 'OTTIMO Boutique Stay · Đà Lạt',
     description:
-      'Boutique stay ở Đà Lạt: sự chăm chút của một khách sạn nhỏ; mỗi phòng đều có bếp, máy giặt sấy và bàn làm việc riêng. Ở một đêm, hay cả một mùa. Nhắn qua Zalo.',
+      'Boutique stay trên triền đồi yên tĩnh ở Đà Lạt: giấc ngủ sâu, không gian chỉn chu, mọi thứ sẵn sàng. Ở một đêm, hay trọn một mùa. Nhắn Zalo.',
     ogImageAlt: 'OTTIMO lúc chạng vạng, ban công sáng đèn ấm',
   },
   skip: 'Bỏ qua tới nội dung',
@@ -15,8 +17,8 @@ export const vi: Copy = {
     label: 'Điều hướng chính',
     mobileLabel: 'Điều hướng chính (di động)',
     menu: 'Menu',
-    why: 'Vì sao OTTIMO',
-    rooms: 'Hạng phòng',
+    why: 'Kỳ lưu trú',
+    rooms: 'Phòng nghỉ',
     amenities: 'Tiện nghi',
     location: 'Vị trí',
     faq: 'Hỏi đáp',
@@ -25,9 +27,9 @@ export const vi: Copy = {
   langSwitch: { label: 'Ngôn ngữ' },
   langSuggest: { region: 'Ngôn ngữ', text: 'Xem trang này bằng tiếng Việt', close: 'Đóng' },
   actions: {
-    requestToBook: 'Yêu cầu đặt phòng',
-    chatOnZalo: 'Chat qua Zalo',
-    chatOnPrefix: 'Chat qua ',
+    requestToBook: 'Chọn ngày ở',
+    chatOnZalo: 'Nhắn qua Zalo',
+    chatOnPrefix: 'Nhắn qua ',
     newTab: ' (mở tab mới)',
   },
   photoAlt: {
@@ -41,7 +43,7 @@ export const vi: Copy = {
     'detail-kitchen': 'Bếp gỗ sồi với bếp từ, tủ lạnh lớn và máy giặt sấy',
     'aerial-hillside':
       'OTTIMO nhìn từ trên cao, trên triền đồi yên tĩnh, phía sau là Đà Lạt và núi',
-    lobby: 'Sảnh tầng trệt với quầy lễ tân gỗ sồi và quầy cà phê',
+    lobby: 'Sảnh tầng trệt với quầy lễ tân gỗ sồi',
     'city-bed': 'Giường đôi cạnh cửa sổ có rèm',
     'city-view': 'Sofa cạnh cửa kính lớn nhìn ra thành phố',
     'garden-navy': 'Studio tông navy với giường, sofa và cửa kính ra ban công',
@@ -50,10 +52,21 @@ export const vi: Copy = {
     'premium-bed': 'Phòng ngủ riêng với giường đôi và bàn cạnh cửa sổ',
     'premium-living': 'Phòng khách với sofa cạnh ban công',
     'signature-bath': 'Phòng tắm vách kính, bồn rửa ốp gạch xanh',
+    'signature-bedroom-desk':
+      'Phòng ngủ với bàn làm việc, tủ áo âm tường và giường đặt trên bệ, máy giặt sấy ở hành lang bên ngoài',
+    'garden-navy-kitchen': 'Bếp navy và gỗ sồi cạnh góc sofa, cửa kính lớn nhìn ra Đà Lạt',
+    'signature-living-oak': 'Phòng khách với vách kệ gỗ sồi, TV, sofa màu kem và tủ lạnh cỡ lớn',
+    'signature-laundry-dining': 'Máy giặt sấy cạnh bàn ăn và gian bếp gỗ sồi',
+    'city-studio': 'Studio với sofa màu kem, giường phía sau và bàn làm việc cạnh vách gạch kính',
+    'city-kitchen': 'Bếp tông xám với tủ lạnh cỡ lớn và quầy ăn màu trắng',
+    'city-laundry': 'Máy giặt sấy đặt trong hốc tường, cạnh phòng tắm',
+    'premium-living-tv': 'Phòng khách với vách TV, máy giặt sấy cuối hành lang',
+    'premium-extra-bed': 'Phòng khách với giường phụ, TV và sofa cạnh cửa ban công',
+    'premium-bath': 'Phòng tắm với vách tắm kính và tường gạch xanh sau bồn rửa',
   },
   hero: {
     label: 'Boutique stay · Đà Lạt',
-    lead: 'Sự chăm chút của một khách sạn nhỏ; mỗi phòng đều có bếp, máy giặt sấy và bàn làm việc riêng.',
+    lead: 'Phòng nghỉ yên tĩnh, chỉn chu trên triền đồi Đà Lạt, nơi giấc ngủ đến dễ dàng và mọi thứ vận hành êm ái.',
   },
   carousel: {
     roledescription: 'trình chiếu ảnh',
@@ -75,103 +88,107 @@ export const vi: Copy = {
     counter: (i, n) => `Ảnh ${i} trên ${n}`,
   },
   why: {
-    label: 'Vì sao OTTIMO',
-    title: 'Ở một đêm, hay cả một mùa.',
-    intro: 'Hai cách ở, một chuẩn chăm chút.',
+    label: 'Kỳ lưu trú',
+    title: 'Nghệ thuật [[lưu trú an yên.]]',
+    intro:
+      'Bắt đầu từ những điều nhỏ được làm đúng, mỗi ngày: chăn ga phẳng phiu, sự yên tĩnh trọn vẹn, ánh sáng trên sắc gỗ sồi. Ở một đêm, hay trọn một mùa.',
     short: {
       photo: 'signature-bed',
-      label: 'Ở vài đêm',
-      title: 'Vượt những gì một phòng khách sạn mang lại',
-      body: 'Nhận phòng lúc 14:00: phòng yên tĩnh, giường cho giấc ngủ sâu, dọn phòng mỗi ngày. Và rộng hơn bạn nghĩ, có cả ban công riêng.',
+      label: 'Cho vài đêm',
+      title: 'Rộng rãi, dù chỉ một đêm',
+      body: 'Phòng yên tĩnh, giường cho giấc ngủ sâu, dọn phòng mỗi ngày. Rồi một điều bất ngờ: rộng hơn bạn nghĩ, và ban công là của riêng bạn.',
     },
     long: {
       photo: 'detail-laundry-desk',
-      label: 'Ở một tháng, hay lâu hơn',
-      title: 'Sinh ra cho những kỳ ở dài',
-      body: 'Dỡ vali một lần rồi sống theo nhịp của bạn: sáng đi chợ, tối nấu bữa cơm nhà, những giờ làm việc yên tĩnh bên cửa sổ. Giá theo tháng và gói dọn phòng tùy chọn.',
+      label: 'Cho một tháng, hay lâu hơn',
+      title: 'Một mùa Đà Lạt, sống thong thả',
+      body: 'Dỡ vali một lần rồi sống theo nhịp của mình: sáng ghé chợ, tối nấu bữa cơm trong gian bếp riêng, những giờ làm việc yên tĩnh bên cửa sổ, giặt sấy ngay trong phòng. Mọi thứ theo cách bạn sống.',
     },
+    more: 'Xem các phòng',
   },
   rooms: {
-    label: 'Hạng phòng',
-    title: 'Chọn phòng hợp với bạn',
-    intro: 'Từ studio cho hai người đến hai phòng ngủ cho bốn người, nhìn ra vườn hoặc thành phố.',
-    request: 'Yêu cầu hạng phòng này',
+    label: 'Phòng nghỉ',
+    title: 'Chọn khung cửa sổ [[của bạn]]',
+    intro:
+      'Phố lên đèn hay vườn xanh trước mặt. Studio cho hai người, hoặc hai phòng ngủ cho cả gia đình.',
+    request: 'Nhận báo giá phòng này',
     sleeps: (min, max) => `${min}–${max} khách`,
     items: [
       {
         slug: 'standard-studio-city-view',
         photo: 'city-living',
-        name: 'Studio — Hướng thành phố',
-        altName: { lang: 'en', text: 'Standard Studio · City View' },
-        shortName: 'Studio — Hướng thành phố',
+        name: 'Studio hướng phố',
+        altName: { lang: 'en', text: 'City Studio' },
+        shortName: 'Studio hướng phố',
         sleeps: [2, 3],
         size: '29 m²',
         view: 'Nhìn ra phố',
-        desc: 'Phố đêm ngay bên khung cửa. Gọn cho một cuối tuần, đủ cho một tháng.',
+        desc: 'Đêm xuống, Đà Lạt lên đèn ngay sau khung kính. Vừa vặn cho một cuối tuần, trọn vẹn cho một tháng.',
       },
       {
         slug: 'standard-studio-garden-view',
         photo: 'garden-oak',
-        name: 'Studio — Hướng vườn',
-        altName: { lang: 'en', text: 'Standard Studio · Garden View' },
-        shortName: 'Studio — Hướng vườn',
+        name: 'Studio hướng vườn',
+        altName: { lang: 'en', text: 'Garden Studio' },
+        shortName: 'Studio hướng vườn',
         sleeps: [2, 3],
         size: '28–34 m²',
         view: 'Nhìn ra vườn',
-        desc: 'Cửa kính nhìn ra vườn và ban công riêng. Nắng sớm cho chuyến đi ngắn; góc làm việc yên tĩnh cho những tuần ở lại.',
+        desc: 'Thức dậy giữa sắc xanh sau khung kính, ban công là của riêng bạn. Nắng sớm cho chuyến đi ngắn; góc làm việc yên tĩnh cho những tuần ở lại.',
       },
       {
         slug: 'premium-one-bedroom-1',
         photo: 'premium-kitchen',
-        name: 'Premium — 1 phòng ngủ + 1',
-        altName: { lang: 'en', text: 'Premium · One Bedroom + 1' },
-        shortName: 'Premium — 1 phòng ngủ + 1',
+        name: 'Premium một phòng ngủ',
+        altName: { lang: 'en', text: 'Premium One-Bedroom' },
+        shortName: 'Premium một phòng ngủ',
         sleeps: [3, 4],
         size: '37 m²',
         view: 'Nhìn ra vườn',
-        desc: 'Phòng ngủ riêng, phòng khách riêng và giường phụ [[1,4 m]] cho thêm một người. Rộng như một suite cho chuyến đi ngắn; đủ chỗ đón người thân khi ở lâu.',
+        desc: 'Phòng ngủ, phòng khách tách riêng, gian bếp navy dài và giường phụ [[1,4 m]] cho thêm một người. Như một suite khi ở ngắn; đủ chỗ đón người thân khi ở lâu.',
       },
       {
         slug: 'signature-two-bedrooms',
         photo: 'signature-dining',
-        name: 'Signature — 2 phòng ngủ',
-        altName: { lang: 'en', text: 'Signature · Two Bedrooms' },
-        shortName: 'Signature — 2 phòng ngủ',
+        name: 'Signature hai phòng ngủ',
+        altName: { lang: 'en', text: 'Signature Two-Bedroom' },
+        shortName: 'Signature hai phòng ngủ',
         sleeps: [4, 5],
         size: '47 m²',
         view: 'Nhìn ra vườn',
-        desc: 'Hai phòng ngủ, bàn ăn bốn người và ban công đón hoàng hôn. Một lần đặt cho cả gia đình, hoặc cho hai người làm việc từ xa nhiều tháng.',
+        desc: 'Hai phòng ngủ, bàn ăn bốn người và ban công đón hoàng hôn. Một kỳ nghỉ cho cả gia đình, hoặc cho hai người làm việc từ xa suốt một mùa.',
       },
     ],
-    note: 'Số lớn hơn là khi thêm một khách, ngủ sofa hoặc giường phụ ở hạng Premium (có phụ thu). Giá theo đêm hoặc theo tháng, báo khi bạn gửi yêu cầu.',
+    note: 'Có thể thêm một khách theo yêu cầu. Giá theo đêm hoặc theo tháng, báo riêng theo ngày ở của bạn.',
   },
   amenities: {
     label: 'Tiện nghi',
-    title: 'Những chi tiết bạn cảm nhận mỗi ngày.',
-    intro: 'Một đêm thì là điều dễ chịu. Một tháng thì là điều cần có.',
+    title: 'Lưu trú an yên, từ những chi tiết nhỏ.',
+    intro: 'Ở một đêm, đó là sự chiều chuộng. Ở một tháng, đó là điều cần có.',
     groups: [
       {
-        title: 'Giấc ngủ',
-        body: 'Nệm và chăn ga Dunlopillo chuẩn khách sạn. Điều hòa âm trần, không thổi thẳng vào giường.',
+        title: 'Ngủ ngon',
+        body: 'Nệm và chăn ga Dunlopillo, chọn cho giấc ngủ sâu. Điều hòa âm trần, không thổi thẳng vào giường.',
       },
       {
-        title: 'Bếp & giặt sấy',
-        body: 'Bếp từ Hafele, tủ lạnh Samsung [[280 lít]], lò vi sóng, ấm đun. Máy giặt và máy sấy Electrolux ngay trong phòng.',
+        title: 'Sống thong thả',
+        body: 'Bếp từ Hafele, tủ lạnh Samsung [[280 lít]], lò vi sóng, ấm đun. Máy giặt và máy sấy Electrolux của riêng bạn, ngay trong phòng.',
       },
       {
-        title: 'Làm việc & nghỉ ngơi',
+        title: 'Làm việc tập trung',
         body: 'Đường truyền cáp quang [[1 Gbps]], bàn làm việc cạnh cửa sổ, TV 4K [[55 inch]], sen tắm nước nóng.',
       },
       {
-        title: 'Lễ tân & nhận phòng',
-        body: 'Lễ tân ở tầng trệt, [[07:00–22:00]]. Nhận phòng 14:00, trả phòng 12:00. Khóa điện tử, đến muộn vẫn dễ dàng.',
+        title: 'Đi về tự do',
+        body: 'Lễ tân đón bạn ở tầng trệt, [[07:00–22:00]]; khóa điện tử để bạn đến muộn vẫn thong thả. Nhận phòng từ 14:00, trả phòng trước 12:00.',
       },
     ],
   },
   location: {
     label: 'Vị trí',
     title: 'Triền đồi yên tĩnh, vài phút tới trung tâm.',
-    intro: 'Về là yên tĩnh; chợ, cà phê và hồ chỉ cách vài phút đi xe.',
+    intro: 'Về đến là yên tĩnh. Chợ, những quán cà phê và hồ Xuân Hương chỉ cách vài phút đi xe.',
+    ask: 'Hỏi chúng tôi về ngày ở',
     maps: 'Mở Google Maps',
     copy: 'Chép địa chỉ',
     copied: 'Đã chép địa chỉ.',
@@ -181,7 +198,7 @@ export const vi: Copy = {
     rows: [
       { place: 'Dinh Bảo Đại III', distance: '1,7 km', time: '4 phút' },
       { place: 'Nhà thờ Con Gà', distance: '2,5 km', time: '6 phút' },
-      { place: 'Chợ Đà Lạt · Hồ Xuân Hương', distance: '3,3 km', time: '7 phút' },
+      { place: 'Chợ Đà Lạt · [[Hồ Xuân Hương]]', distance: '3,3 km', time: '7 phút' },
       { place: 'Bến xe liên tỉnh', distance: '3,7 km', time: '8 phút' },
       { place: 'Hồ Tuyền Lâm', distance: '4,1 km', time: '9 phút' },
       { place: 'Sân bay Liên Khương', distance: 'khoảng 28 km', time: '30 phút' },
@@ -190,20 +207,24 @@ export const vi: Copy = {
   },
   book: {
     label: 'Đặt trực tiếp',
-    title: 'Yêu cầu đặt phòng',
-    intro: 'Cho OTTIMO biết ngày bạn đến. OTTIMO trả lời kèm phòng trống và giá.',
+    title: 'Lên kế hoạch cho kỳ nghỉ',
+    intro:
+      'Cho chúng tôi biết ngày bạn đến và cách bạn muốn ở. Chúng tôi sẽ gợi ý phòng phù hợp và gửi báo giá riêng cho bạn.',
     steps: [
-      { title: 'Gửi yêu cầu', text: 'Ngày ở, số khách, hạng phòng bạn thích.' },
+      { title: 'Gửi ngày ở', text: 'Ngày ở, số khách và phòng bạn thích.' },
       {
-        title: 'OTTIMO xác nhận qua Zalo',
+        title: 'Chúng tôi trả lời qua Zalo',
         text: 'Trong 1 giờ ([[07:00–22:00]], giờ Đà Lạt); ngoài giờ, trước 09:00 sáng hôm sau.',
       },
-      { title: 'Giữ phòng', text: 'Phòng được giữ khi bạn xác nhận và chuyển cọc 30% qua mã QR.' },
+      {
+        title: 'Giữ phòng cho bạn',
+        text: 'Khi bạn ưng báo giá, OTTIMO giữ phòng cho bạn sau khi nhận cọc 30% qua [[mã QR]].',
+      },
     ],
-    reassure: 'Không thanh toán trên website. Gửi yêu cầu không ràng buộc bạn điều gì.',
+    reassure: 'Không thanh toán trên trang này, và không ràng buộc gì cho đến khi bạn đồng ý.',
     chat: {
       title: 'Gửi ngày ở qua Zalo',
-      text: 'Yêu cầu đặt phòng trực tuyến sắp mở. Hiện bạn nhắn ngày ở và số khách qua Zalo; OTTIMO trả lời trong 1 giờ ([[07:00–22:00]]), ngoài giờ trước 09:00.',
+      text: 'Nhắn ngày ở và số khách qua Zalo. Chúng tôi trả lời trong 1 giờ ([[07:00–22:00]]); ngoài giờ, trước 09:00 sáng hôm sau.',
       call: 'Gọi',
     },
     form: {
@@ -228,8 +249,8 @@ export const vi: Copy = {
       ages6to11: 'Trẻ 6–11 tuổi',
       under6: 'Dưới 6 tuổi',
       roomType: 'Hạng phòng',
-      anyRoom: 'Hạng nào cũng được',
-      reachYou: 'Cách OTTIMO liên hệ bạn',
+      anyRoom: 'Gợi ý giúp tôi',
+      reachYou: 'Chúng tôi liên hệ bạn qua',
       yourName: 'Tên của bạn',
       replyOn: 'Trả lời qua',
       phoneCall: 'Gọi điện',
@@ -244,11 +265,11 @@ export const vi: Copy = {
         'Nếu bạn không đặt phòng, OTTIMO xóa thông tin này trong tối đa 180 ngày. OTTIMO chỉ trả lời từ các kênh ghi trên trang này.',
       privacy: 'Thông báo xử lý dữ liệu',
       submit: 'Gửi yêu cầu đặt phòng',
-      noJs: 'Form cần JavaScript. Bạn cũng có thể nhắn OTTIMO qua Zalo: ',
+      noJs: 'Biểu mẫu cần JavaScript. Bạn cũng có thể nhắn chúng tôi qua Zalo: ',
       done: {
         title: 'Đã gửi yêu cầu',
         requestNumber: 'Mã yêu cầu',
-        tonight: 'Đến trong tối nay? Gọi ngay cho nhanh: ',
+        tonight: 'Bạn đến ngay tối nay? Gọi chúng tôi để được hỗ trợ nhanh nhất: ',
         openZalo: 'Mở Zalo',
         again: 'Gửi yêu cầu khác',
       },
@@ -256,23 +277,23 @@ export const vi: Copy = {
   },
   faq: {
     label: 'Hỏi đáp',
-    title: 'Cần biết trước khi đến',
+    title: 'Trước khi bạn đến',
     items: [
       {
-        q: 'OTTIMO là loại hình lưu trú nào?',
+        q: 'Ở OTTIMO thế nào?',
         a: [
-          'Boutique stay: có lễ tân, nhận phòng 14:00, trả phòng 12:00, dọn phòng mỗi ngày cho khách ở ngắn ngày, phòng nào cũng có bếp, máy giặt sấy và bàn làm việc. Ở một đêm hay vài tháng đều phù hợp.',
+          'Sự chu đáo của lễ tân và, với kỳ ở ngắn, dọn phòng mỗi ngày; cùng sự tiện lợi của gian bếp, máy giặt sấy và bàn làm việc riêng. Nhận phòng từ 14:00, trả phòng trước 12:00. Một đêm hay vài tháng, mọi thứ đều sẵn sàng.',
         ],
       },
       {
-        q: 'Có dọn phòng không?',
-        a: ['Khách ở ngắn ngày được dọn mỗi ngày. Khách ở theo tháng chọn gói dọn phòng phù hợp.'],
+        q: 'Phòng được dọn thế nào?',
+        a: ['Mỗi ngày với kỳ ở ngắn. Ở theo tháng, bạn chọn lịch dọn phòng hợp với mình.'],
       },
       {
         id: 'faq-long',
         q: 'Ở dài ngày thế nào?',
         a: [
-          'Chọn "Theo tháng" khi gửi yêu cầu. Giá theo tháng được báo riêng, ở càng lâu giá càng tốt. Điện nước theo công tơ, điều khoản theo tháng rõ ràng, có người hỗ trợ khi cần.',
+          'Chọn "Theo tháng" khi gửi yêu cầu. Chúng tôi gửi giá theo tháng riêng cho bạn, ở càng lâu càng ưu đãi, mọi điều khoản ghi rõ trong báo giá. Và luôn có người hỗ trợ khi bạn cần.',
         ],
       },
       {
@@ -292,8 +313,9 @@ export const vi: Copy = {
   },
   contact: {
     label: 'Liên hệ',
-    title: 'Trò chuyện với OTTIMO.',
-    intro: 'Hỏi về phòng, ngày ở hay kỳ ở dài? Nhắn OTTIMO qua Zalo.',
+    title: 'Chỉ cách một tin nhắn.',
+    intro:
+      'Ngày ở, phòng nghỉ, một kỳ ở dài: nhắn chúng tôi qua Zalo, mọi chi tiết để chúng tôi lo.',
     facebookLink: 'OTTIMO trên Facebook',
     mailSubject: 'Đặt phòng – OTTIMO',
     otherChannels: 'Kênh khác',

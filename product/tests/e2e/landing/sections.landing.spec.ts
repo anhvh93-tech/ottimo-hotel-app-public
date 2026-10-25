@@ -15,9 +15,12 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
       .locator('main > section')
       .evaluateAll((ss) => ss.map((s) => s.id || (s.classList.contains('hero') ? 'hero' : '')));
     expect(ids).toEqual(['hero', ...SECTIONS]);
-    // every "Request to book" goes to #book (hero, header, menu, phone bar); room links too
+    // every "Plan your stay" goes to #book (hero, header, menu, phone bar); room links and "Ask us about your dates"
+    // (Location) too; "See the rooms" under the two cards goes to #rooms (CPY concept B, 24/10)
     const toBook = await page.locator('a[href$="#book"]').count();
-    expect(toBook).toBeGreaterThanOrEqual(1 + 1 + 1 + 1 + 4);
+    expect(toBook).toBeGreaterThanOrEqual(1 + 1 + 1 + 1 + 4 + 1);
+    await expect(page.locator('#location a.link[href="#book"]')).toHaveCount(1);
+    await expect(page.locator('#why a.link[href="#rooms"]')).toHaveCount(1);
     // form off (concept 5.5 "chat"): no form, a filled Zalo button + a call button in #book
     await expect(page.locator('#book form')).toHaveCount(0);
     await expect(

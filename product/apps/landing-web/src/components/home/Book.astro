@@ -1,8 +1,10 @@
 ---
-// 6 · Request to book (concept 5, US-155, ESC-020 L7 = A). How it works (3 steps) + the card on the right:
+// 6 · Plan your stay (concept 5, US-155, ESC-020 L7 = A). The facade at dusk (portrait – INV 25/10 moved it here from
+// the hero; lazy, never the LCP), how it works (3 steps) + the card:
 //  - feature off (production today, concept 5.5 "chat"): "Send your dates on Zalo" with Zalo (filled) and Call –
-//    every "Request to book" link lands here, nothing is collected;
+//    every "Plan your stay" link lands here, nothing is collected;
 //  - form rendered (review build, or the feature once the endpoint exists): the request form (BookingForm).
+import { BOOK_PHOTO } from '../../content/gallery';
 import { links, site } from '../../content/site';
 import type { Copy } from '../../content/types';
 import { BOOKING_FORM_RENDERED } from '../../lib/booking-request';
@@ -10,6 +12,7 @@ import { BOOKING_FORM_RENDERED } from '../../lib/booking-request';
 import BookingForm from '@booking-form';
 import BookingRequestSlot from '../BookingRequestSlot.astro';
 import Icon from '../Icon.astro';
+import Picture from '../Picture.astro';
 import Rich from '../Rich.astro';
 
 interface Props {
@@ -21,51 +24,61 @@ const { t } = Astro.props;
 
 <section class="sec" id="book" aria-labelledby="book-h">
   <div class="wrap book">
-    <div class="book-intro">
-      <p class="label">{t.book.label}</p>
-      <h2 class="h2" id="book-h">{t.book.title}</h2>
-      <p class="muted">{t.book.intro}</p>
-      <ol class="steps">
+    <Picture
+      id={BOOK_PHOTO}
+      lang={t.lang}
+      alt={t.photoAlt[BOOK_PHOTO]}
+      class="book-pic"
+      sizesMobile="100vw"
+      sizes="(min-width: 1200px) 440px, (min-width: 1024px) 38vw, 480px"
+    />
+    <div class="book-main">
+      <div class="book-intro">
+        <p class="label">{t.book.label}</p>
+        <h2 class="h2" id="book-h">{t.book.title}</h2>
+        <p class="muted">{t.book.intro}</p>
+        <ol class="steps">
+          {
+            t.book.steps.map((s, i) => (
+              <li>
+                <span class="n" aria-hidden="true">
+                  {i + 1}
+                </span>
+                <h3 class="h3">{s.title}</h3>
+                <p>
+                  <Rich text={s.text} />
+                </p>
+              </li>
+            ))
+          }
+        </ol>
+        <p class="reassure"><Icon name="shield" /><span>{t.book.reassure}</span></p>
+      </div>
+      <div class="bk-card">
+        <BookingRequestSlot />
         {
-          t.book.steps.map((s, i) => (
-            <li>
-              <span class="n" aria-hidden="true">
-                {i + 1}
-              </span>
-              <h3 class="h3">{s.title}</h3>
-              <p>
-                <Rich text={s.text} />
+          BOOKING_FORM_RENDERED ? (
+            <BookingForm t={t} />
+          ) : (
+            <div class="chat-fallback">
+              <h3 class="h3">{t.book.chat.title}</h3>
+              <p class="muted">
+                <Rich text={t.book.chat.text} />
               </p>
-            </li>
-          ))
-        }
-      </ol>
-      <p class="reassure"><Icon name="shield" /><span>{t.book.reassure}</span></p>
-    </div>
-    <div class="bk-card">
-      <BookingRequestSlot />
-      {
-        BOOKING_FORM_RENDERED ? (
-          <BookingForm t={t} />
-        ) : (
-          <div class="chat-fallback">
-            <h3 class="h3">{t.book.chat.title}</h3>
-            <p class="muted">
-              <Rich text={t.book.chat.text} />
-            </p>
-            <div class="actions">
-              <a class="btn btn-primary" href={links.zalo}>
-                <Icon name="chat" />
-                {t.actions.chatOnZalo}
-              </a>
-              <a class="btn btn-ghost" href={links.tel}>
-                <Icon name="phone" />
-                {t.book.chat.call} {site.phone.local}
-              </a>
+              <div class="actions">
+                <a class="btn btn-primary" href={links.zalo}>
+                  <Icon name="chat" />
+                  {t.actions.chatOnZalo}
+                </a>
+                <a class="btn btn-ghost" href={links.tel}>
+                  <Icon name="phone" />
+                  {t.book.chat.call} {site.phone.local}
+                </a>
+              </div>
             </div>
-          </div>
-        )
-      }
+          )
+        }
+      </div>
     </div>
   </div>
 </section>
