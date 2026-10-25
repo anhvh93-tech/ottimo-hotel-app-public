@@ -114,13 +114,19 @@ Người chạy: ORC chạy script QA (`A1_PART=2`) trên staging, INV cho phép
 
 Không lỗi mới. Ghi chú: setup E2E báo `/health` không phản hồi qua Desk (đúng thiết kế production, TC-X-050) nên bỏ đăng nhập trước; không ảnh hưởng ca.
 
-### 6.3 A1 – phần 3 (chưa chạy)
+### 6.3 A1 – phần 3 (chặng 8–12), 25/10 12:26, **Đạt**
 
-| Phần | Chặng | Khi nào | Lệnh |
-|---|---|---|---|
-| 3 | 8–10 trả phòng 3 bước (minibar 2 bia, 1 snack, 2 nước) → bill → VietQR → ghi nhận → hoàn tất; 11 PWA dọn VD → CL → VC; 12 PWA kiểm → VI | **25/10** (chủ nhật, trước 12:00 để khỏi phụ thu trả muộn) | `A1_PART=3` |
+Người chạy: ORC chạy script QA (`A1_PART=3`) trên staging, INV cho phép ORC đăng nhập `qa.fd`, `qa.hk`, `qa.fdl` ngày 25/10. Mật khẩu đọc từ tệp, không in. Kết quả 1 đạt / 0 hỏng (24,6 s). Chạy lúc 12:26 (trễ hơn mốc "trước 12:00" đã hẹn – ORC không chạy sớm); trang trả phòng không tự cộng phụ thu trả muộn, bước 2 phụ phí để trống đúng kịch bản.
 
-Không ai được hủy hoặc sửa đơn `OTM-00239` (căn 202, 23–25/10) trước khi QA chạy xong phần 3. Mỗi phần ghi tiếp vào cùng thư mục bằng chứng. Kết quả sẽ bổ sung vào mục 6.2 của tệp này.
+| # | Chặng | Ai | Kết quả | Ảnh |
+|---|---|---|---|---|
+| 8 | Trả phòng H16 bước 1 minibar (2 bia, 1 snack, 2 nước) → bước 2 phụ phí/giờ trả → bước 3 bill | `qa.fd` | Đạt – bill còn thu 100.000 | 201–203 |
+| 9 | VietQR thu nốt → ghi nhận đã nhận tiền | `qa.fd` | Đạt – QR che trong ảnh, không ai quét; folio đủ | 204–205 |
+| 10 | Hoàn tất trả phòng | `qa.fd` | Đạt – folio `settled`, bill F26-000001, đã thu 1.922.000, còn thu 0 | 206–207 |
+| 11 | PWA buồng phòng: việc dọn căn 202 VD → CL → VC | `qa.hk` | Đạt | 208–210 |
+| 12 | PWA lễ tân trưởng: checklist kiểm phòng → đạt → VI | `qa.fdl` | Đạt – căn 202 = VI | 211–212 |
+
+**A1 trọn chuỗi 12 chặng trên staging giờ thật: Đạt** (22/10 đặt, 23/10 nhận phòng, 25/10 trả phòng). Không lỗi mới. Bằng chứng ở thư mục scratchpad `qa-r6/a1` (`run-log.md`, `screens/201–212`).
 
 ### 6.3 A4 – trọn chuỗi, 22/10 18:35, **Đạt**
 
