@@ -11,6 +11,12 @@ import type { RoomSlug } from './types';
  */
 export const AMENITIES_PHOTO = 'signature-laundry-dining';
 
+/**
+ * Portrait facade at dusk (picker 4) in #book since 25/10 – INV: the hero shows landscape photos only. Id kept from
+ * its hero days (OG image `pnpm og` and the optimiser use it).
+ */
+export const BOOK_PHOTO = 'hero-facade-dusk';
+
 /** Seconds between two hero photos (INV 22/10: "mỗi 3 giây"). */
 export const HERO_INTERVAL_MS = 3000;
 

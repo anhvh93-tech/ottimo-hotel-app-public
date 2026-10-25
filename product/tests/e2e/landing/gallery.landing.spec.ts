@@ -22,8 +22,8 @@ const currentDot = (page: Page) =>
 /** Index of the slide that fills the track (what the guest sees). */
 const visibleSlide = (page: Page) =>
   page.locator('[data-car-track]').evaluate((t) => Math.round(t.scrollLeft / t.clientWidth));
-/** Hero photos = HERO_PICKS in landing-web src/content/hero.ts (INV may send another set: 6 since 24/10). */
-const SLIDES = 6;
+/** Hero photos = HERO_PICKS in landing-web src/content/hero.ts (INV 25/10: 5 landscape photos). */
+const SLIDES = 5;
 
 test.describe('TC-LP-019 hero slideshow (R3-Q52)', () => {
   test('advances on its own every 3 s after load; the next photo loads only shortly before', async ({

@@ -113,6 +113,35 @@ describe('dist checks catch violations', () => {
     expect(problems).toMatch(/\/vi\/: "hotel\/khách sạn" 1×/);
   });
 
+  it('images: the only eager <img> is the preloaded hero (LCP id read from the preload), with fetchpriority=high', () => {
+    const preload =
+      '<link rel="preload" as="image" imagesrcset="/_astro/room-a-480.X1.avif 480w, /_astro/room-a-960.X2.avif 960w">';
+    const img = (src: string, extra: string) =>
+      `<img src="/_astro/${src}" width="3" height="2" alt="A room" ${extra}>`;
+    const ok = site({
+      'index.html': page(
+        '<h1>x</h1>' +
+          img('room-a-960.X3.webp', 'fetchpriority="high"') +
+          img('room-a-960.X3.webp', 'loading="lazy"'),
+        preload,
+      ),
+    });
+    expect(checks.checkImages(ok)).toEqual([]);
+    const bad = site({
+      'index.html': page(
+        '<h1>x</h1>' +
+          img('room-b-960.X4.webp', 'fetchpriority="high"') +
+          img('room-a-960.X3.webp', ''),
+        preload,
+      ),
+    });
+    const problems = checks.checkImages(bad).join('\n');
+    expect(problems).toMatch(/2 eager <img>/);
+    expect(problems).toMatch(/room-b-960.*not lazy/);
+    expect(problems).toMatch(/room-a-960.*not lazy/); // eager but no fetchpriority=high
+    expect(checks.lcpPhotoId(ok.html[0]!)).toBe('room-a');
+  });
+
   it('a terracotta accent, a named colour and rgb() in CSS', () => {
     const d = site({
       'index.html': page('<h1>x</h1><svg><path fill="#C0634A"></path></svg>'),

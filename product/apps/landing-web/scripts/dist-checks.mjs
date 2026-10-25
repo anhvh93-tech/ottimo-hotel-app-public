@@ -644,6 +644,19 @@ export function namedColors(css) {
   return found;
 }
 
+/**
+ * Photo id of the LCP image: the image preload of a page (= the first hero slide, content/hero.ts; INV 25/10 the hero is
+ * landscape only, so the id is no longer fixed). Null when no page preloads an image.
+ */
+export function lcpPhotoId(page) {
+  const link = tags(page.source).find(
+    (x) => x.name === 'link' && x.attrs.rel === 'preload' && x.attrs.as === 'image',
+  );
+  const first = link?.attrs.imagesrcset?.split(',')[0]?.trim().split(/\s+/)[0];
+  const m = first && path.basename(first).match(/^(.+)-\d+\.[\w-]+\.avif$/);
+  return m ? m[1] : null;
+}
+
 /** Byte budgets (ADR-014 7.7, 9; concept 11.2 hero per DPR). */
 export function checkBudgets({ dist, files, html }, { bookingRequest: bookingForm = false } = {}) {
   const problems = [];
@@ -654,8 +667,10 @@ export function checkBudgets({ dist, files, html }, { bookingRequest: bookingFor
   for (const f of files.filter((f) => /\.(avif|webp|jpe?g|png)$/.test(f)))
     if (size(f) > BUDGET.imageMax)
       problems.push(`${path.basename(f)} ${size(f)} B > ${BUDGET.imageMax}`);
+  const lcp = html.map(lcpPhotoId).find(Boolean);
+  if (!lcp) problems.push('no page preloads its hero photo (LCP)');
   const hero = (w) =>
-    files.find((f) => new RegExp(`/hero-facade-dusk-${w}\\.[\\w-]+\\.avif$`).test(f));
+    lcp && files.find((f) => new RegExp(`/${lcp}-${w}\\.[\\w-]+\\.avif$`).test(f));
   for (const [w, max] of [
     [480, BUDGET.heroAvif480],
     [960, BUDGET.heroAvif960],
@@ -705,14 +720,24 @@ export function checkImages({ html }) {
   const problems = [];
   for (const page of html) {
     const t = tags(page.source);
-    for (const img of t.filter((x) => x.name === 'img')) {
-      const a = img.attrs;
+    // The hero = the one eager <img>; it must be the preloaded photo (LCP) with fetchpriority=high. Every other <img>
+    // is lazy (the same photo may appear again lazily, e.g. as a room cover).
+    const lcp = lcpPhotoId(page);
+    const imgs = t.filter((x) => x.name === 'img').map((x) => x.attrs);
+    const eager = imgs.filter((a) => a.loading !== 'lazy');
+    if (lcp && eager.length !== 1)
+      problems.push(`${page.path}: ${eager.length} eager <img> (only the hero, ${lcp})`);
+    if (!lcp && eager.length) problems.push(`${page.path}: eager <img> but no hero preload`);
+    for (const a of imgs) {
       if (!a.width || !a.height) problems.push(`${page.path}: <img ${a.src}> without width/height`);
       if (!a.alt?.trim()) problems.push(`${page.path}: <img ${a.src}> without alt`);
-      const hero = /hero-facade-dusk/.test(a.src ?? '');
-      if (hero && (a.loading === 'lazy' || a.fetchpriority !== 'high'))
-        problems.push(`${page.path}: hero must be eager + fetchpriority=high`);
-      if (!hero && a.loading !== 'lazy') problems.push(`${page.path}: <img ${a.src}> not lazy`);
+    }
+    for (const a of eager) {
+      const isLcp = lcp && path.basename(a.src ?? '').startsWith(`${lcp}-`);
+      if (!isLcp || a.fetchpriority !== 'high')
+        problems.push(
+          `${page.path}: <img ${a.src}> not lazy – only the preloaded hero (eager + fetchpriority=high)`,
+        );
     }
     for (const s of t.filter(
       (x) => x.name === 'source' && /max-width:\s*767px/.test(x.attrs.media ?? ''),

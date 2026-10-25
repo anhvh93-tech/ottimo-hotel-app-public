@@ -582,10 +582,11 @@ h1 {
   margin-inline: calc(var(--gutter) * -1);
   border-radius: 0;
 }
+/* INV 25/10: landscape photos only – phones show the whole 3:2 photo (nothing cropped: washer-dryer in 37, fridge
+   in 33 stay in view). Was 4/5 + max-height 30svh for the portrait facade. */
 .hero-media img {
-  aspect-ratio: 4/5;
-  max-height: 30svh;
-  object-position: 50% 58%;
+  aspect-ratio: 3/2;
+  object-position: 50% 50%;
 }
 .hero-text h1 {
   margin: 0 0 var(--s5);
@@ -639,9 +640,6 @@ h1 {
     object-position: 50% 50%;
   }
   /* Per-photo focus on the 4/3 desktop frame. Ids without a rule stay centred (5.5 % lost each side). */
-  .hero-media img.hero-img--hero-facade-dusk {
-    object-position: 50% 60%; /* 4 – all balconies, sign, entrance */
-  }
   .hero-media img.hero-img--signature-dining {
     object-position: 50% 50%; /* 32 */
   }
@@ -1195,10 +1193,31 @@ table.dist {
   }
 }
 
-/* 6 · Book – how it works + request form (or the Zalo/call block while the form is off) */
+/* 6 · Book – the facade at dusk (portrait, picker 4 – INV 25/10), how it works + request form (or the Zalo/call
+   block while the form is off). Phones: the photo full width above the steps, 4/5. Desktop: a portrait column on the
+   left (Location has its photo on the right). object-position keeps the roof and the entrance steps in the frame. */
 .book {
   display: grid;
   gap: var(--s7);
+}
+.book-main {
+  display: grid;
+  gap: var(--s7);
+}
+.book-pic {
+  margin-inline: calc(var(--gutter) * -1);
+  border-radius: 0;
+}
+.book-pic img {
+  aspect-ratio: 4/5;
+  object-position: 50% 70%;
+}
+@media (min-width: 768px) {
+  .book-pic {
+    margin-inline: 0;
+    border-radius: var(--r);
+    max-width: 480px; /* tablet: a full-width 4/5 photo would fill more than a screen */
+  }
 }
 .steps {
   margin: var(--s5) 0 var(--s5);
@@ -1246,9 +1265,10 @@ table.dist {
     gap: var(--s8);
     align-items: start;
   }
-  .book-intro {
+  .book-pic {
     position: sticky;
     top: calc(var(--header-h) + var(--s6));
+    max-width: none;
   }
 }
 .bk-card {

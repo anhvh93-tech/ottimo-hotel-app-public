@@ -240,3 +240,71 @@ In đậm = ảnh mới ở lượt này. Tất cả qua `optimize-images.mjs --
 - `gallery-city-1440.jpg`, `gallery-city-390.jpg`, `gallery-premium-1440.jpg`, `gallery-premium-390.jpg`: hộp xem ảnh đang mở, ảnh 1/6.
 - `gallery-city-1440-card.jpg`, `gallery-city-390-card.jpg`, `gallery-premium-1440-card.jpg`, `gallery-premium-390-card.jpg`: thẻ hạng có nhãn "6 photos".
 - `gallery-city-grid.jpg`, `gallery-premium-grid.jpg`: lưới 6 ảnh đúng thứ tự, có id.
+
+## 12. Ảnh đầu trang chỉ dùng ảnh ngang; mặt tiền chuyển xuống `#book` (INV 25/10)
+
+INV không chấp nhận ảnh mặt tiền đứng (số 4) bị cắt ở đầu trang và không chọn ghép đôi/khung tranh. Chốt: **ảnh đầu trang chỉ dùng ảnh ngang, mỗi slide một ảnh**.
+
+### 12.1 Đầu trang
+- `HERO_PICKS = [32, 9, 37, 16, 33]`: 5 slide. Ảnh LCP = slide 1 = ảnh 32 `signature-dining`.
+
+  | Slide | Số ảnh | id |
+  |---|---|---|
+  | 1 (LCP) | 32 | `signature-dining` |
+  | 2 | 9 | `detail-kitchen` |
+  | 3 | 37 | `signature-bedroom-desk` |
+  | 4 | 16 | `garden-navy-kitchen` |
+  | 5 | 33 | `signature-living-oak` |
+
+- **Chặn ảnh đứng lúc build:** `heroPhotoForPick` dừng build nếu ảnh có tỉ lệ < 4/3.
+- **Ảnh LCP không còn cố định theo id:**
+  - `Base.astro` preload `HERO_SLIDES[0]`;
+  - dist-check lấy id ảnh LCP từ thẻ preload: đúng một `<img>` eager, phải là ảnh đó và có `fetchpriority=high`; mọi ảnh khác lazy; có ca thử vi phạm;
+  - Playwright ngân sách cũng đọc id từ thẻ preload và chỉ đếm lượt tải ưu tiên cao. Lý do: ảnh 32 còn là bìa thẻ Signature, tải lazy ở mức ưu tiên thấp, không được tính nhầm vào ảnh LCP.
+- **Khung ảnh:**
+  - Máy tính (≥ 1024 px) giữ 4/3 + `object-position` từng id; bỏ rule của ảnh mặt tiền.
+  - Điện thoại và máy tính bảng dùng 3/2 (trước là 4/5 + `max-height: 30svh`, đặt cho ảnh mặt tiền đứng). Ảnh 3:2 hiện trọn ở 390 px: ảnh 37 thấy máy giặt sấy, ảnh 33 thấy tủ lạnh (`hero-390-en-slide3.jpg`, `hero-390-en-slide5.jpg`). Không cần `object-position` riêng ở điện thoại.
+- **Byte ảnh LCP (ảnh 32, AVIF q50 sẵn có, không cần mã hóa riêng):**
+
+  | Cỡ file | Dùng cho | Dung lượng | Giới hạn |
+  |---|---|---|---|
+  | 480 px | điện thoại DPR1 | 7,3 KB | 20 KB |
+  | 960 px | điện thoại DPR2/3, máy tính DPR1 | 20,0 KB | 50 KB |
+  | 1600 px | máy tính DPR2 | 45,2 KB | 120 KB |
+
+- Ảnh chia sẻ link (OG) giữ ảnh mặt tiền hiện tại, không đổi.
+
+### 12.2 Mặt tiền ở `#book`
+- Ảnh số 4 giữ id `hero-facade-dusk` (để `pnpm og` và tool khỏi đổi), khai báo `BOOK_PHOTO` trong `gallery.ts`. Lazy-load, không ảnh hưởng LCP. Alt EN/VI giữ câu cũ.
+- **Máy tính:** cột ảnh đứng 4/5 bên **trái** (Vị trí có ảnh bên phải), dính theo khi cuộn. Bên phải là tiêu đề, 3 bước và khối Zalo/gọi (hoặc form khi bật).
+- **Điện thoại:** ảnh tràn hết chiều ngang, khung 4/5, đặt trên tiêu đề và 3 bước. `object-position: 50% 70%`: cắt bớt trời, giữ trọn mái, mọi ban công, biển OTTIMO, bậc thềm và cổng (`book-390-en.jpg`, `book-390-vi.jpg`).
+- **Máy tính bảng:** ảnh rộng tối đa 480 px, để khung 4/5 không chiếm quá một màn hình.
+- Không trùng ảnh mục Vị trí (ảnh flycam, giữ). Test thêm: ảnh `#book` không được là slide đầu trang (quy tắc ảnh biên tập của UXD).
+
+### 12.3 Test và kết quả
+- `copy.test.ts`:
+  - slide 1 = ảnh ngang đầu tiên của `HERO_PICKS`;
+  - mọi ảnh đầu trang có tỉ lệ ≥ 4/3;
+  - mặt tiền không ở đầu trang;
+  - `heroPhotoForPick(4)` phải dừng build;
+  - ảnh `#book` nằm trong danh sách ảnh biên tập.
+- `dist-checks.test.ts`: ca thử mới cho luật ảnh eager/LCP.
+- E2E đầu trang: số slide 6 → 5.
+- **Kết quả kiểm:**
+  - typecheck 0 lỗi;
+  - ESLint, Prettier sạch;
+  - Vitest 204/204;
+  - Playwright landing 54/54 (axe, CSP, không cuộn ngang 320–1280, ngân sách).
+- **Ngân sách (Playwright, KB = 1024 B):**
+
+  | Trường hợp | Ảnh LCP (giới hạn) | Mở trang (giới hạn) | Cuộn hết (giới hạn) |
+  |---|---|---|---|
+  | Điện thoại EN DPR1 | 7,3 (20) | 187,5 (250) | 232,2 (350) |
+  | Điện thoại EN DPR2 | 20 (50) | 268,7 (320) | 413,2 (600) |
+  | Điện thoại VI DPR2 | 20 (50) | 298,3 (390) | 442,8 (670) |
+  | Máy tính EN DPR1 | 20 (50) | 255 (400) | 299,8 (600) |
+  | Máy tính EN DPR2 | 45,2 (120) | 396,8 (700) | 541,3 (1100) |
+
+### 12.4 Ảnh chụp (`landing-b-shots/`)
+- `hero-1440-en-slide1…5.jpg`, `hero-390-en-slide1…5.jpg`. Ảnh đầu trang cũ (6 slide, 1024, VI slide 1) đã xóa vì không còn đúng.
+- `book-1440-en.jpg`, `book-390-en.jpg`, `book-390-vi.jpg`.

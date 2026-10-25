@@ -63,11 +63,14 @@ async function measure(browser: Browser, c: Case) {
   await cdp.send('Network.enable');
   await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
   const urls = new Map<string, string>();
+  const priority = new Map<string, string>();
   const headerBytes = new Map<string, number>();
+  const done: { url: string; body: number; priority: string }[] = [];
   let bytes = 0;
-  let hero = 0;
-  let heroFetches = 0;
-  cdp.on('Network.requestWillBeSent', (e) => urls.set(e.requestId, e.request.url));
+  cdp.on('Network.requestWillBeSent', (e) => {
+    urls.set(e.requestId, e.request.url);
+    priority.set(e.requestId, e.request.initialPriority);
+  });
   // At responseReceived, encodedDataLength = bytes received so far = the response headers.
   cdp.on('Network.responseReceived', (e) =>
     headerBytes.set(e.requestId, e.response.encodedDataLength),
@@ -75,15 +78,33 @@ async function measure(browser: Browser, c: Case) {
   cdp.on('Network.loadingFinished', (e) => {
     const body = e.encodedDataLength - (headerBytes.get(e.requestId) ?? 0);
     bytes += body;
-    if (/hero-facade-dusk/.test(urls.get(e.requestId) ?? '')) {
-      hero += body;
-      heroFetches += 1;
-    }
+    done.push({
+      url: urls.get(e.requestId) ?? '',
+      body,
+      priority: priority.get(e.requestId) ?? '',
+    });
   });
   await page.goto(c.path, { waitUntil: 'load' });
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(300);
   const open = bytes;
+  // The hero = the photo the page preloads (first hero slide, INV 25/10: no longer a fixed id). Counted among the
+  // high-priority fetches only: the same photo may load again later, lazily (low priority), as a room cover.
+  const lcpId = await page.evaluate(() => {
+    const link = document.querySelector<HTMLLinkElement>('link[rel="preload"][as="image"]');
+    const first =
+      (link?.getAttribute('imagesrcset') ?? '').split(',')[0]!.trim().split(/\s+/)[0] ?? '';
+    return first
+      .split('/')
+      .pop()!
+      .replace(/-\d+\.[\w-]+\.avif$/, '');
+  });
+  expect(lcpId, 'the page preloads its hero photo').not.toBe('');
+  const heroHits = done.filter(
+    (d) => d.url.includes(`/${lcpId}-`) && /^(VeryHigh|High)$/.test(d.priority),
+  );
+  const hero = heroHits.reduce((n, d) => n + d.body, 0);
+  const heroFetches = heroHits.length;
   await page.evaluate(async () => {
     const step = Math.floor(window.innerHeight * 0.8);
     for (let y = 0; y < document.documentElement.scrollHeight; y += step) {

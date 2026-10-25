@@ -5,8 +5,23 @@ import { BANNED } from '../../scripts/dist-checks.mjs';
 import { plain } from '../lib/rich';
 import { BOOKING_STRINGS } from '../scripts/booking-strings';
 import { en } from './en';
-import { AMENITIES_PHOTO, GALLERY_TARGET, HERO_INTERVAL_MS, ROOM_GALLERIES } from './gallery';
-import { HERO_EXCLUDED, HERO_PICKS, HERO_SLIDES, PICKER_SOURCES, photoIdForPick } from './hero';
+import {
+  AMENITIES_PHOTO,
+  BOOK_PHOTO,
+  GALLERY_TARGET,
+  HERO_INTERVAL_MS,
+  ROOM_GALLERIES,
+} from './gallery';
+import {
+  HERO_EXCLUDED,
+  HERO_MIN_RATIO,
+  HERO_PICKS,
+  HERO_SLIDES,
+  PICKER_SOURCES,
+  heroPhotoForPick,
+  photoIdForPick,
+  photoRatio,
+} from './hero';
 import manifest from '../assets/photos/manifest.json';
 import { isOttimoMailbox, site, siteSchema } from './site';
 import raw from './site.json';
@@ -95,7 +110,7 @@ describe('page copy EN + VI', () => {
 
   it('every photo used by the copy has an alt text in both languages', () => {
     const used = [
-      'hero-facade-dusk',
+      BOOK_PHOTO,
       en.why.short.photo,
       en.why.long.photo,
       ...en.rooms.items.map((r) => r.photo),
@@ -116,7 +131,12 @@ describe('page copy EN + VI', () => {
       expect(en.photoAlt[id], `EN alt ${id}`).toBeTruthy();
       expect(vi.photoAlt[id], `VI alt ${id}`).toBeTruthy();
     }
-    expect(HERO_SLIDES[0]).toBe('hero-facade-dusk'); // LCP image stays first (preload in Base.astro, OG image)
+    // LCP image = the first landscape pick (preload in Base.astro); INV 25/10: landscape photos only
+    expect(HERO_SLIDES[0]).toBe(photoIdForPick(HERO_PICKS[0]!));
+    for (const id of HERO_SLIDES)
+      expect(photoRatio(id), `${id} landscape ≥ 4/3`).toBeGreaterThanOrEqual(HERO_MIN_RATIO - 0.01);
+    expect(HERO_SLIDES).not.toContain('hero-facade-dusk'); // the portrait facade lives in #book
+    expect(() => heroPhotoForPick(4)).toThrow(/not landscape/); // a portrait pick stops the build
     expect(new Set(HERO_SLIDES).size).toBe(HERO_SLIDES.length);
     expect(HERO_SLIDES.length).toBeGreaterThanOrEqual(3);
     expect(HERO_INTERVAL_MS).toBe(3000); // INV 22/10
@@ -144,7 +164,13 @@ describe('page copy EN + VI', () => {
     expect(() => photoIdForPick(46)).toThrow(/not a picker number/);
     expect(() => photoIdForPick(1)).toThrow(/optimize-images\.mjs/); // 01a.png is not on the site
     // UXD rule 24/10: editorial photos (The Stay, Amenities, Location) never repeat a hero slide
-    for (const id of [en.why.short.photo, en.why.long.photo, AMENITIES_PHOTO, 'aerial-hillside'])
+    for (const id of [
+      en.why.short.photo,
+      en.why.long.photo,
+      AMENITIES_PHOTO,
+      'aerial-hillside',
+      BOOK_PHOTO,
+    ])
       expect(HERO_SLIDES, `${id} is editorial`).not.toContain(id);
   });
 

@@ -56,12 +56,14 @@ export const PICKER_SOURCES: Readonly<Record<number, string>> = {
 };
 
 /**
- * THE ONE PLACE TO CHANGE THE HERO: INV's picker numbers, in order (INV 24/10, CPY concept B 7.2: arrive → live →
- * work → sleep → a smaller room still complete → the shared living room). The first one is the LCP image and must be
- * the photo behind the id `hero-facade-dusk`. A number whose photo is not optimised yet stops the build with the
- * command to run (README "Đổi ảnh đầu trang").
+ * THE ONE PLACE TO CHANGE THE HERO: INV's picker numbers, in order. INV 25/10: **landscape photos only, one photo per
+ * slide** – the portrait facade (picker 4) moved to #book. The first one is the LCP image (preload in Base.astro).
+ * A number whose photo is not optimised yet, or a portrait photo, stops the build (README "Đổi ảnh đầu trang").
  */
-export const HERO_PICKS: readonly number[] = [4, 32, 9, 37, 16, 33];
+export const HERO_PICKS: readonly number[] = [32, 9, 37, 16, 33];
+
+/** Smallest width/height of a hero photo (INV 25/10: landscape only; the desktop frame is 4/3). */
+export const HERO_MIN_RATIO = 4 / 3;
 
 /** Picker numbers INV/CPY ruled out of the hero (FB-INV-003: plants, neighbours' roofs) – copy.test.ts checks. */
 export const HERO_EXCLUDED: readonly number[] = [13, 42, 6, 19, 38];
@@ -80,5 +82,25 @@ export function photoIdForPick(n: number): string {
   return entry.id;
 }
 
+/** Width / height of a photo's largest optimised file (manifest.json). */
+export function photoRatio(id: string): number {
+  const entry = manifest.photos.find((p) => p.id === id);
+  if (!entry) throw new Error(`unknown photo id: ${id}`);
+  const largest = entry.files.reduce((a, b) => (b.width > a.width ? b : a));
+  return largest.width / largest.height;
+}
+
+/** Photo id of a hero pick; throws (= build fails) for a photo that is not landscape ≥ 4/3 (INV 25/10). */
+export function heroPhotoForPick(n: number): string {
+  const id = photoIdForPick(n);
+  // 1600×1067 = 1.4995: compare with a small tolerance for rounding of the encoded height
+  if (photoRatio(id) < HERO_MIN_RATIO - 0.01)
+    throw new Error(
+      `hero photo ${n} (${id}) is not landscape (${photoRatio(id).toFixed(2)} < 4/3): INV 25/10 – landscape only, ` +
+        'use it in another section',
+    );
+  return id;
+}
+
 /** Hero slideshow, in order. The first one is the LCP image (preloaded in layouts/Base.astro). */
-export const HERO_SLIDES: readonly string[] = HERO_PICKS.map(photoIdForPick);
+export const HERO_SLIDES: readonly string[] = HERO_PICKS.map(heroPhotoForPick);
