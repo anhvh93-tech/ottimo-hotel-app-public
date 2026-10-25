@@ -392,3 +392,33 @@ Căn cứ:
 
 ### 14.3 Trên VPS khi bật form (chưa làm)
 Theo README 12.3. Việc **phải nhớ**: thêm `LANDING_IP=172.30.1.11` vào `/opt/ottimo-prod/.env` trước lần deploy landing kế tiếp, nếu không `deploy-landing.sh` dừng ở `config`. Landing đang chạy không bị ảnh hưởng.
+
+## 15. Nhật ký phát hành landing
+
+### 15.1 Landing concept B – 25/10 (INV duyệt 25/10, decision-log)
+
+Làm từ máy Mac của INV, SSH `ottimo-admin` (khóa `ottimo_ops`). Giờ VN. Không ghi IP, không in `.env` hay bí mật.
+
+| Giờ | Việc | Kết quả |
+|---|---|---|
+| 20:40 | Chọn image: `main` `47ad517` khác `d67d204` đúng 1 dòng `decision-log.md`, nên dùng image CI đã publish của `d67d204`: `ottimo-landing:sha-d67d20440a1a` @ `sha256:db2b4964488c74b4e1e6c86f6308d91e3a44091dd5f39d7ca8c303f3c320bab0`. Digest artifact `image-digests` (lượt CI 40165925608, mọi job kiểm xanh; 2 job deploy staging bị hủy vì chờ duyệt) = digest GHCR = digest kéo về VPS | Khớp cả 3 |
+| 20:40 | Cờ form: repo `ottimo-hotel-app-public` không có biến `LANDING_BOOKING_FORM` / `LANDING_PROPERTY_SLUG` → image build với mặc định `false`. Kiểm trong image (`/srv/landing`): không `<form`, không `small hotel`, không `[[`, preload `signature-dining` ở `/` và `/vi/` | Đạt |
+| 20:46:38 | Sao lưu: bundle cũ `/opt/ottimo-prod/infra` (`4fab25b`) → `/root/ottimo-prod-bundles/infra-4fab25b-20261025-204638`; `.env` → `state/env.before-landing-ip.20261025-204638` (0600 `ottimo`) | OK |
+| 20:46:38 | Thêm `LANDING_IP=172.30.1.11` vào `/opt/ottimo-prod/.env` (ghi chú "phải nhớ" mục 14.3) | 1 dòng, `.env` giữ `ottimo:ottimo 600` |
+| 20:46:38 | Cập nhật bundle **chỉ của stack production** lên `47ad517` (cùng lệnh `rsync` mà `bootstrap-vps.sh` dùng, **không** chạy cả `bootstrap-vps.sh` để tránh `apt upgrade`/`ufw reset` chạm staging). Hash `deploy-landing.sh`, `docker-compose.prod.yml` khớp repo. `dc --profile landing config -q` | OK. `/opt/ottimo` (staging) và `/opt/ottimo-edge` không đổi |
+| 20:46:51–20:46:57 | `deploy-landing.sh sha-d67d20440a1a --digest sha256:db2b…bab0` (người dùng `ottimo`) | rc 0, smoke của script đạt. Tạo mạng `ottimo-prod_edge` 172.30.1.0/24, landing ở `172.30.1.11`. `LANDING_PUBLIC_API` mặc định `off` |
+| 20:46:53 | Đo từ Mac `curl` ~1,5 lần/giây trong lúc đổi | **1 lần lỗi / 145 lần** (lúc đổi container, ~1 giây) |
+
+**Kiểm từ ngoài (máy Mac, 20:47–20:48):**
+- `https://ottimo.vn/` 200, `/vi/` 200. HTML: preload ảnh LCP `signature-dining` (2 thẻ theo cỡ màn hình), hero **5 slide**, slide 1 = `signature-dining` (ảnh 32), rồi `detail-kitchen`, `signature-bedroom-desk`, `garden-navy-kitchen`, `city-living`. Không `small hotel`, không `[[`, không `<form`, không gọi `form-token`/`booking-requests`.
+- `#book`: ảnh mặt tiền chạng vạng (alt EN "OTTIMO at dusk…", VI "OTTIMO lúc chạng vạng…").
+- Header như 24/10: CSP `default-src 'self'; script-src 'self'; …`, HSTS `max-age=31536000; includeSubDomains`, COOP/CORP, `nosniff`, `X-Frame-Options DENY`, không `X-Robots-Tag`.
+- `https://www.ottimo.vn/…` 301 → `https://ottimo.vn/…`; `http://` 308; `/en/` 301; `/health`, `/v1/x`, `/v1/public/properties/dlt/form-token`, `/.env` 404. `robots.txt` `Allow: /`. Chứng chỉ Let's Encrypt YE1 tới 22/01/2027.
+- Ảnh chụp trang thật (EN, toàn trang): `landing-b-live-1440.jpg` (1440 px), `landing-b-live-390.jpg` (390 px, DPR 2).
+- Staging: container `ottimo-*` không bị dựng lại (uptime 37–42 giờ).
+
+**Quay lui** (khoảng 10 giây): `sudo -u ottimo /opt/ottimo-prod/infra/server/bin/deploy-landing.sh --rollback` → `sha-4fab25b81c45` (đã ghi `state/landing_previous_tag`, digest còn trong `state/digests`). Nếu cần trả cả bundle: `rsync -a --delete /root/ottimo-prod-bundles/infra-4fab25b-20261025-204638/ /opt/ottimo-prod/infra/` rồi chạy lệnh trên; dòng `LANDING_IP` để nguyên cũng không ảnh hưởng bundle cũ.
+
+**Không gắn tag `landing-v*`:** environment `production` của repo chưa có secret `PRODUCTION_SSH_KEY/HOST/KNOWN_HOSTS` (`gh secret list --env production` rỗng), nên `release.yml` sẽ dừng ở job deploy. Lần này deploy tay bằng đúng script và digest mà `release.yml` dùng. Khi INV làm xong `inv-production-steps.md` phần 2–3, phát hành landing sẽ qua tag + duyệt.
+
+**Còn mở (không đổi):** UptimeRobot cho `ottimo.vn` (ESC-029 A); form website chỉ bật cùng ngày Desk production (README 12.3).
