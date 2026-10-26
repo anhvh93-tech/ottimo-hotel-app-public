@@ -1104,10 +1104,10 @@
 | `rooms.edit` | Sửa | Edit | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.edit_title` | Sửa căn {room} · {name} | Edit room {room} · {name} | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.error_title` | Chưa tải được danh mục căn | Couldn't load rooms | ⟨chừa chỗ⟩ | 04-rooms.html |
-| `rooms.footnote` | Giá đêm niêm yết = giá tháng ÷ 12, làm tròn 1.000 (BR-101) – do hệ thống tính. Đổi giá có ngày hiệu lực; đơn, báo giá đã có giữ giá cũ (BR-006). | Nightly list price = monthly price ÷ 12, rounded to 1,000 (BR-101) – calculated by the system. Price changes have an effective date; existing bookings and quotes keep the old price (BR-006). | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.footnote` | Giá tháng và giá đêm nhập riêng (BR-101). Đổi giá có ngày hiệu lực; đơn, báo giá đã có giữ giá cũ (BR-006). | Monthly and nightly prices are entered separately (BR-101). Price changes have an effective date; existing bookings and quotes keep the old price (BR-006). | ⟨chừa chỗ⟩ | 04-rooms.html – FB-INV-005 (26/10): bỏ ÷ 12, câu VI theo DOM fb-inv-005 §4.2; FE-A soạn EN, chờ UXD duyệt |
 | `rooms.inc` | Tăng | Increase | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.name` | Tên căn | Room name | ⟨chừa chỗ⟩ | 04-rooms.html |
-| `rooms.night_auto` | Tự tính: giá tháng ÷ 12 (BR-101) | Auto: monthly price ÷ 12 (BR-101) | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.night_auto` | Giá đêm ngày thường, kênh Trực tiếp, đã gồm VAT. Cuối tuần +15 %, ngày lễ +30 % tự cộng theo lịch giá. | Weekday night, Direct channel, VAT included. Weekends +15% and holidays +30% are added by the rate calendar. | ⟨chừa chỗ⟩ | 04-rooms.html – chữ phụ dưới ô giá đêm (nay nhập được). FB-INV-005: BR-101 v0.4.7 (VAT – BR-523), BR-104 + ESC-036 A (+15 %/+30 %). Đổi tham số lịch giá thì sửa câu này. Chờ UXD duyệt. Key giữ tên cũ để không đổi hi-fi |
 | `rooms.ooo_until` | Khóa sửa chữa đến {date} | Blocked for repair until {date} | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.price` | Giá niêm yết | List price | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.reason` | Lý do đổi giá | Reason for price change | ⟨chừa chỗ⟩ | 04-rooms.html |
@@ -3693,6 +3693,13 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `webreq.source_must_be_website` | Đơn từ yêu cầu website phải giữ kênh Trực tiếp, nguồn Website. Đóng hộp này rồi bấm Tạo đơn trong yêu cầu để thử lại. | A booking from a website request must stay Direct, source Website. Close this form and choose Create booking in the request to try again. | ⟨chừa chỗ⟩ | BUG-R3-011 – 422 NOT_ALLOWED channelId/directSource |
 | `webreq.booking_closed` | Yêu cầu này vừa đóng hoặc đã thành đơn nên không tạo đơn từ nó được nữa. Đóng hộp này và tải lại yêu cầu để xem trạng thái. | This request has just been closed or booked, so a booking can't be made from it. Close this form and reload the request to see its status. | ⟨chừa chỗ⟩ | createReservation 409 INVALID_TRANSITION |
 | `webreq.missing.form_signing_key` | khóa ký form trên máy chủ (báo kỹ thuật) | the form signing key on the server (ask the tech team) | ⟨chừa chỗ⟩ |  |
+
+#### R3 v1.0 – FE-A FB-INV-005: giá tháng và giá đêm độc lập (H04 4.2)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `field_error.multiple_of_1000` | Nhập số tròn nghìn, ví dụ 650.000. | Use whole thousands, for example 650,000. | ⟨chừa chỗ⟩ | BR-005 – giá niêm yết bội 1.000; lỗi tại ô (listPrice.nightlyListPriceVnd) |
+| `rooms.night_low` | Giá đêm đang thấp hơn giá tháng chia 30 ngày ({perDay}). Kiểm tra lại trước khi lưu. | The nightly price is below the monthly price per day ({perDay}). Please check before saving. | ⟨chừa chỗ⟩ | Cảnh báo mềm, không chặn lưu (BR-101 v0.4.7: giá đêm < giá tháng ÷ 30). {perDay} = giá tháng ÷ 30, làm tròn 1.000 để hiển thị |
 
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 

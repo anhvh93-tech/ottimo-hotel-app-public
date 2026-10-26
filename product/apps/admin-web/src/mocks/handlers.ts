@@ -788,6 +788,9 @@ export const handlers = [
       const lp = body.listPrice;
       if (!(Number(lp.monthlyListPriceVnd) > 0))
         errors.push({ field: 'listPrice.monthlyListPriceVnd', code: 'AMOUNT_NOT_POSITIVE' });
+      // platform.controller: nightlyListPriceVnd is optional, but when sent it is an integer ≥ 1.
+      if (lp.nightlyListPriceVnd !== undefined && !(Number(lp.nightlyListPriceVnd) > 0))
+        errors.push({ field: 'listPrice.nightlyListPriceVnd', code: 'AMOUNT_NOT_POSITIVE' });
       // R3-Q39 #8: like rooms.service – the bound is the BUSINESS day (ctx.today, BR-010).
       if (String(lp.effectiveFrom) < businessDayLocal())
         errors.push({ field: 'listPrice.effectiveFrom', code: 'DATE_IN_PAST' });
@@ -809,10 +812,16 @@ export const handlers = [
     });
     if (body.listPrice && String(body.listPrice.effectiveFrom) <= businessDayLocal()) {
       const m = Number(body.listPrice.monthlyListPriceVnd);
+      // FB-INV-005: the nightly price sent is stored as is (rooms.service). The ÷ 12 branch only mirrors
+      // the server's fallback for callers that omit it (removed in v1.0.1) – the Desk always sends it.
+      const n =
+        body.listPrice.nightlyListPriceVnd !== undefined
+          ? Number(body.listPrice.nightlyListPriceVnd)
+          : Math.round(m / 12 / 1000) * 1000;
       room.currentListPrice = {
         effectiveFrom: String(body.listPrice.effectiveFrom),
         monthlyListPriceVnd: m,
-        nightlyListPriceVnd: Math.round(m / 12 / 1000) * 1000,
+        nightlyListPriceVnd: n,
       };
     }
     // 0.3.6 A-39: stop-sale is not blocked by future bookings – it warns with their count.
