@@ -585,3 +585,94 @@ Sửa câu chữ: kiểm terminal của wrapper chặn được pipe, `>`, `| te
 
 ### 18.4 Để sau
 Xóa `state/env.before-vietqr-mode.*` trên production **sau khi** lượt Release chạy lại đạt (ORC báo). Không đụng `.env` production.
+
+## 19. 26/10 – Sau lần deploy production đầu (QC `v1-gate-checklist.md` 5.1 việc 10)
+
+Bối cảnh: chạy lại lượt Release 40288670558 → `deploy sha-29636757822b: ok` (08:21:55Z), sau khi INV sửa `.env` (phần 10.1). Mọi việc dưới đây làm qua SSH `ottimo-admin` (khóa `ottimo_ops`), giờ VN. Không ghi IP hay bí mật.
+
+### 19.1 Dọn bản `.env` cũ (SEC 3.2)
+Đã xóa `state/env.before-vietqr-mode.20261026`. Trong `state/` còn 2 bản cũ hơn là `env.before-landing-ip.*` (25/10) và `env.before-prod-prep.*` (26/10). Hai bản này **chưa xóa** vì ORC chỉ giao xóa bản `vietqr`. Đề xuất xóa nốt khi SEC-G1/G2 xong.
+
+### 19.2 Sao lưu production (G4-5)
+
+| Giờ | Việc | Kết quả |
+|---|---|---|
+| 15:23 | `systemctl enable --now ottimo-backup@ottimo-prod.timer ottimo-ops-check@ottimo-prod.timer` | Hai timer bật. Lịch sao lưu 03:00 hằng ngày (lệch ngẫu nhiên tối đa 5 phút), lần đầu 27/10 03:01. `ops-check` chạy 30 phút một lần |
+| 15:23 | `ops-check` lần đầu | 6/7 ok. `FAIL backup: no successful backup recorded`: đúng dự kiến vì chưa có bản sao lưu nào |
+| 15:24 | `systemctl start ottimo-backup@ottimo-prod.service`: chạy lần đầu khi DB còn trống | OK: 4 tệp mã hóa `age` + 4 tệp `.sha256` trong `/var/backups/ottimo-prod` (0700/0600 `ottimo`). Dump ~690 KB (lược đồ 64 migration) |
+| 15:25 | `ops-check` chạy lại | **7/7 ok**: containers, j16, backup 0 h, disk 16 %, mem 78 %, tls, http5xx |
+| 15:26 | `pull-backups.sh` về Mac bằng khóa kéo (`rrsync -ro`) | Lần đầu **lỗi trên macOS**. Gốc lỗi: rsync có sẵn của macOS là `openrsync`, không nhận `--chmod`, và dòng lệnh phía server của nó bị `rrsync` từ chối (`invalid rsync-command syntax`). Chạy script trong container `alpine:3.20` (rsync 3, openssh), gắn khóa chỉ đọc, `known_hosts`, thư mục đích: **đạt**, 4 tệp `.age` + checksum khớp, `~/.ottimo/backups/ottimo-prod` 0700, tệp 0600 |
+| 15:27 | Khóa kéo mở shell? | `ssh … 'id'` → `rrsync error: SSH_ORIGINAL_COMMAND does not run rsync`. Đúng: khóa này không mở được shell |
+
+Lệnh kéo đã chạy (thay `<IP>`; dùng tới khi Mac có rsync 3):
+```bash
+docker run --rm -v "$PWD/product/infra/server/bin/pull-backups.sh":/pull.sh:ro -v ~/.ssh/ottimo_backup_pull:/k/key:ro \
+  -v ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro -v ~/.ottimo/backups/ottimo-prod:/out alpine:3.20 \
+  sh -c 'apk add -q --no-cache rsync openssh-client bash coreutils >/dev/null && cp /k/key /tmp/key && chmod 600 /tmp/key && bash /pull.sh --host <IP> --key /tmp/key --to /out'
+```
+Sửa repo `pull-backups.sh`:
+- bỏ `--chmod`, thay bằng `chmod` sau khi kéo (umask 077 vẫn giữ);
+- gặp `openrsync` thì dừng, mã thoát 2, kèm lời nhắc dùng rsync 3 (`brew install rsync`) hoặc chạy trong container.
+
+README `infra/server` (dòng "Bản sao lưu ngoài máy") ghi cả hai cách. Shellcheck sạch.
+
+**Chưa làm (để B2):** diễn tập khôi phục (`restore-drill.sh`) cần khóa giải mã của INV, INV có mặt. Bản sao lưu lúc DB trống chỉ dùng để kiểm đường ống; diễn tập thật làm trên bản sao lưu chụp sau khi có dữ liệu B2.
+
+### 19.3 Cấu hình đang chạy và RAM (G4-3, G2-6, G4-11)
+- `printenv` trong container: api `MFA_ENFORCED=true`, `APP_ENV=production`, `CLOCK_MODE=system`; worker giống hệt.
+- `state/current_tag` = `sha-29636757822b`. Container: api, web healthy; worker, postgres chạy; landing không bị đụng.
+- RAM cả VPS lúc 15:25 (staging + production + landing + edge cùng chạy, chưa có người dùng): `free -m` cho tổng 4.917 MB, dùng 1.020, **khả dụng 3.896 (79 %)**, swap 0/2.047. Đĩa 16 % (7,8/55 GB).
+
+| Container | RAM | Giới hạn |
+|---|---|---|
+| prod api / worker / postgres / web / landing | 62 / 42 / 49 / 38 / 21 MB | 1 GB / 768 MB / 1 GB / 256 MB / 128 MB |
+| staging api / worker / postgres / web | 78 / 50 / 40 / 15 MB | 512 / 384 / 512 / 256 MB |
+| edge | 14 MB | 128 MB |
+
+Tổng container ~410 MB. Khớp ước tính mục 3; còn xa ngưỡng `mem` (< 10 %). Đo lại sau 1 tuần chạy thật.
+
+### 19.4 Chuẩn bị `production-bootstrap` cho B2 (G2-7) – **chưa chạy**
+
+| Kiểm (chỉ đọc) | Kết quả |
+|---|---|
+| Wrapper trên máy chủ | sha256 giống `main` (`d3da078c…`) |
+| CLI trong image production | Có `dist/admin/production-bootstrap-cli.js` và `mfa-operator-reset-cli.js` |
+| DB production | `app_user` 0, `property` 0, `room` 0: trống, đúng điều kiện chạy lần đầu |
+| `sudo` có ghi lại màn hình không | Không. `sudoers` chỉ có `use_pty`, không có `log_output`/`iolog`, không có `/var/log/sudo-io`. Mật khẩu tạm in qua `sudo -u ottimo` không bị ghi lại |
+
+README 12.1 sửa theo thực tế:
+- SSH bằng `ottimo-admin` (cùng tài khoản thủ tục 06.33), `cd /tmp`, lệnh chạy qua `sudo -u ottimo`, có dấu cách đầu dòng và `HISTCONTROL=ignorespace`;
+- lệnh kiểm `mfa.enrolled` cũng chạy qua `sudo -u ottimo`;
+- nhánh "làm lại từ DB trống" đổi từ `dc down` sang `dc rm --stop --force api worker web postgres` + xóa 2 volume, để không gỡ container landing đang phục vụ `ottimo.vn`.
+
+Kịch bản B2 phần 1 (OPS chạy, INV ngồi cạnh):
+1. Mở SSH mới, gõ `export HISTCONTROL=ignorespace`, `cd /tmp`, rồi chạy lệnh ở README 12.1 (có dấu cách đầu dòng). Điền `--owner-username`, `--owner-name` theo INV, `--operator` là tên người chạy.
+2. Mật khẩu tạm hiện trên màn hình. INV đọc và gõ trực tiếp vào `desk.ottimo.vn`. Không chụp, không chép.
+3. Chạy `clear`, kiểm `history | tail -3`, đóng phiên.
+4. INV đổi mật khẩu, đăng ký 2FA, cất 10 mã khôi phục (giấy, 2 nơi).
+5. Mở phiên mới, kiểm `mfa.enrolled`.
+
+### 19.5 Edge đang chạy = `main` (SEC-G1/G2, G7-5, SEC 3.1 OPS-01)
+
+| Kiểm | Kết quả |
+|---|---|
+| `edge.sh`, `edge/docker-compose.edge.yml` trên máy chủ | sha256 **giống** `main` (`73a4db68…`, `ca7ebe45…`) |
+| `nginx.conf` đang chạy so với bản `edge.sh render` mới (render vào thư mục tạm, có `nginx -t`) | **Giống hệt** (bỏ dòng tiêu đề có giờ sinh). Tệp trong container = tệp trên đĩa (cùng sha256) |
+| Nội dung | `worker_processes auto`, `worker_rlimit_nofile 32768`, `worker_connections 8192`, `limit_conn` 100/IP ở 443 và 20/IP ở 80, `preread_timeout 5s`. 8 tên miền: 3 staging, 3 production, `ottimo.vn` + `www` → landing |
+| Container `ottimo-edge-edge-1` | image `nginx:1.30.6-alpine@sha256:47928bf6…`, `nofile 32768`, RAM 128 MB, pids 100, `read_only`, `cap_drop ALL`. Chạy từ 24/10 08:15 |
+
+→ Bundle edge đang chạy là bản có giới hạn (OPS-01). Phần này SEC dùng cho SEC-G1/G2.
+
+### 19.6 Thư thử 8b – đã chuẩn bị, **chưa gửi**
+- Script mới `infra/server/mail-test.mjs`:
+  - không nằm trong image, không đặt trên máy chủ; đẩy từ Mac vào một container worker tạm qua stdin;
+  - đi đúng đường của worker: relay theo IP, TLS ≥ 1.2, `EMAIL_FROM`, mạng `egress`;
+  - chỉ in một dòng `verified|sent|failed (<mã>)`, không in địa chỉ, không in chữ của nhà cung cấp.
+  - Thư: tiếng Anh dẫn, tiếng Việt hỗ trợ, màu và font OTTIMO, không emoji. Tiêu đề: "OTTIMO – Test message: e-mail delivery check / Thư thử: kiểm tra gửi email".
+- **Đã chạy thử chế độ chỉ kiểm (`MAIL_TEST_VERIFY_ONLY=1`) trên production: `mail-test: verified`** (kết nối, EHLO, STARTTLS; không gửi gì).
+- Gửi thật (chỉ khi ORC báo INV sẵn sàng mở hộp thư; thay `<IP>`):
+  ```bash
+  ssh -i ~/.ssh/ottimo_ops ottimo-admin@<IP> 'cd /tmp && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc run --rm --no-deps -T -e MAIL_TEST_TO=info@ottimo.vn --entrypoint node worker --input-type=module -' < product/infra/server/mail-test.mjs
+  ```
+  Đạt khi script in `mail-test: sent` **và** INV thấy thư trong hộp `info@ottimo.vn`, kể cả mục Spam. Nếu thư vào Spam, ghi lại để INV kiểm SPF/DKIM của tên miền.
+- Thư bảo mật thật ("OTTIMO – Security notice…") chỉ có khi xảy ra sự kiện 2FA. Thư thử này kiểm đúng đường gửi đó.

@@ -22,12 +22,23 @@ done
 [ -n "$host" ] && [ -r "$key" ] && [ -n "$to" ] || { echo "usage: $0 --host <vps> --key <private key> --to <dir>" >&2; exit 2; }
 [[ "$keep_days" =~ ^[0-9]+$ ]] && [ "$keep_days" -le 35 ] || { echo "--keep-days must be 0..35 (SR-BAK-03)" >&2; exit 2; }
 
+# macOS ships openrsync (rsync 2.6.9 compatible): its server command line is refused by the server's rrsync
+# ("invalid rsync-command syntax", 26/10/2026). Use rsync 3 (Homebrew `rsync`, or a Linux container – infra/server/README.md, row "Bản sao lưu ngoài máy").
+if rsync --version 2>/dev/null | head -1 | grep -qi openrsync; then
+  echo "openrsync is not accepted by rrsync on the server – install rsync 3 (brew install rsync, first in PATH) or run this script in a Linux container" >&2
+  exit 2
+fi
+
 umask 077
 mkdir -p "$to"
-# Only the encrypted files and their checksums; partial files are not kept.
-rsync -rt --chmod=F600,D700 --include '*.age' --include '*.age.sha256' --exclude '*' \
+# Only the encrypted files and their checksums; partial files are not kept. No --chmod: macOS ships openrsync
+# (rsync 2.6.9 compatible), which rejects it (26/10/2026) – umask 077 above plus the chmod below give 0600/0700.
+rsync -rt --include '*.age' --include '*.age.sha256' --exclude '*' \
   -e "ssh -i $key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20" \
   "ottimo@$host:./" "$to/"
+
+chmod 700 "$to"
+find "$to" -type f -exec chmod 600 {} +
 
 # Verify every checksum that arrived (a corrupted copy is worse than none – it hides the gap).
 bad=0
