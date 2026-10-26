@@ -345,3 +345,55 @@ Hai điểm khác INV nêu:
 | B2 phần 3: OWN đặt `document_profile_retention_months = 3`, `id_image_retention_days_after_checkout = 30`, `id_image_unconfirmed_max_days` theo INV (SEC đề xuất 7) | INV, ORC sửa checklist | B2 |
 | Tờ thông báo tại quầy cùng câu 5.2; nhắc OWN xem `c3_access_log` mỗi tuần | DOM, PO | Trước ngày D |
 | Biên bản diễn tập khôi phục thêm dòng "J16 sau khôi phục: ảnh quá hạn = 0" | OPS | B2 |
+
+---
+
+## 6. Trước B1 (26/10, ~16:00): `staging-add-owner.mjs`, `b1-runbook.md`, thủ tục 06.33 bản 3
+
+- Người ghi: SEC | Commit được review: **`f89d95e`** (OPS). Tệp `product/infra/server/staging-add-owner.mjs` có sha256 `a51c9b2c…fab10`.
+- SEC chỉ đọc mã và thủ tục, không chạy lệnh nào trên VPS.
+
+### 6.1 Kết luận: **cho INV chạy** lệnh 2.3 của runbook (tạo `inv.owner` trên staging), kèm 4 điều kiện ở 6.4
+
+| Yêu cầu của ORC | Kết luận | Căn cứ trong mã |
+|---|---|---|
+| Không lưu, không ghi log mật khẩu | **Đạt** | <ul><li>Mật khẩu sinh bằng `temporaryPassword()` của bootstrap (18 byte ngẫu nhiên = 24 ký tự base64url, qua chính sách V-10). Chỉ bản băm argon2 (`hashPassword`) vào DB.</li><li>Audit `user.created_by_operator` chỉ có tên người chạy.</li><li>Mật khẩu in đúng **một lần** ra stdout. `dc exec` không đưa đầu ra vào log driver của docker. `sudoers` không ghi I/O (OPS 19.4). sshd không ghi stdout.</li><li>Mã script đi qua stdin, nên mật khẩu không nằm trên dòng lệnh hay trong danh sách tiến trình.</li><li>Chạy khô (`ADD_OWNER_DRY_RUN=1`) không in mật khẩu.</li><li>Nhánh lỗi chỉ in `err.name: err.message`. Truy vấn chỉ có bản băm, nên thông báo lỗi của Postgres không chứa mật khẩu.</li><li>`[ -t 1 ]` phía Mac chặn trường hợp chuyển đầu ra vào tệp.</li></ul> |
+| Chỉ chạy được trên staging | **Đạt** | <ul><li>Script từ chối khi `APP_ENV` của container khác `staging`. Trên production, container mang `APP_ENV=production`, có hai lớp đảm bảo: `deploy.sh` OPS-03 và api không khởi động khi sai. Vì vậy chạy nhầm vào `/opt/ottimo-prod` sẽ bị `refused`, không ghi gì.</li><li>Script cũng từ chối khi `MFA_ENFORCED` khác `true`.</li><li>Lệnh trong runbook trỏ `/opt/ottimo/…` (staging).</li></ul> |
+| Không mở quyền thừa | **Đạt** | <ul><li>Tạo đúng **một** người dùng, một vai `owner`, tại cơ sở duy nhất. Nếu không đúng 1 cơ sở thì từ chối. Không gắn tổ chức hay cơ sở khác.</li><li>`must_change_password = true`, và `MFA_ENFORCED` buộc đăng ký 2FA ở lần đăng nhập đầu.</li><li>Kết nối bằng role ứng dụng (`assertSafeDbRole`), ngữ cảnh RLS như bootstrap. Không dùng owner hay migrator của DB.</li><li>Từ chối tên đã có và tên `qa.*`.</li><li>Script không nằm trong image, không đặt lên máy chủ, không thêm endpoint.</li></ul> |
+
+Ghi chú nhỏ, không chặn:
+- Kiểm tên trùng nằm ở giao dịch đầu, chèn ở giao dịch sau. Hai người chạy cùng lúc thì khóa duy nhất của `username` vẫn chặn lượt sau, nên không có rủi ro.
+- `[ -t 1 ] && ssh … | tee` vẫn qua được kiểm, vì pipe gắn vào `ssh`. Không gõ thêm gì vào cuối lệnh. Chép nguyên lệnh của runbook.
+
+### 6.2 `b1-runbook.md`: đạt
+
+- Đúng thủ tục 06.33 bản 3:
+  - INV là người chạy lệnh, nhánh 3B;
+  - người chứng kiến là người thật và cấp mã phiếu `MFA-DRILL-20261026` trước khi gõ lệnh;
+  - agent (OPS/SEC/ORC) chỉ theo dõi, không giữ mã;
+  - dòng lệnh reset có dấu cách đầu dòng, `HISTCONTROL`, kiểm `history`;
+  - biên bản chỉ ghi kết quả, không đưa vào repo.
+- **SEC chấp nhận lệch "báo QA trước ít nhất 1 ngày"** (thủ tục mục 6), với điều kiện ghi vào biên bản. Diễn tập không đụng `qa.*`; ORC chỉ cần báo QA dừng E2E staging 16:30–19:30.
+- G7-3: tên tài khoản nhận thử "STAGING KHONG CHUYEN TIEN" có hiệu lực từ 23/10. SEC nhìn trên Desk ở phần 1 (runbook mục 1). Không ai quét QR staging bằng app ngân hàng thật.
+
+### 6.3 Thủ tục 06.33 bản 3 (ngoài repo, sửa 26/10 15:20): **đạt văn bản**
+
+- Đủ 7 nhận xét (a)–(g) của 3.7:
+  - cấm `qa.*`, ưu tiên tài khoản dùng thử của INV;
+  - một tài khoản SSH `ottimo-admin` + `sudo -u`, không khóa CI;
+  - người chứng kiến cấp mã phiếu, ghi biên bản trước khi chạy;
+  - câu xác minh riêng cho người không phải INV;
+  - biên bản giấy ký tay hoặc tin nhắn xác nhận;
+  - email là kênh chính, điện thoại dự phòng;
+  - đồng bộ bản trong trình quản lý mật khẩu.
+- Ghi nhận việc `sudo` lưu dòng lệnh vào nhật ký hệ thống: không có bí mật, chấp nhận.
+- **SEC duyệt sau diễn tập**, khi có biên bản kết quả và xác nhận của người chứng kiến (giấy hoặc tin nhắn). SEC ghi ngày duyệt vào README `infra/server` mục 12 theo báo của ORC.
+
+### 6.4 Điều kiện khi INV chạy
+
+1. **Chạy đúng bản đã review.** Trong thư mục repo: `git pull`, rồi `shasum -a 256 product/infra/server/staging-add-owner.mjs` phải bắt đầu bằng `a51c9b2c`. Khác thì dừng, báo ORC.
+2. **Mật khẩu tạm.** Gõ tay vào Desk là tốt nhất. Nếu chép–dán thì sau đó chép một chữ khác để ghi đè bộ nhớ tạm, vì Universal Clipboard có thể đẩy sang iPhone. Xong thì bấm Cmd+K trong Terminal như runbook.
+3. **Người chứng kiến.** Phần 2 (diễn tập 06.33) **chỉ tính** khi có người chứng kiến thật do INV chỉ định. Không có người chứng kiến thì làm phần 1 và UAT, dời phần 2. Không để agent đóng vai người chứng kiến.
+4. SEC chứng kiến đăng ký 2FA qua màn hình, **không xem mã**: INV che QR và mã khôi phục khi chia sẻ màn hình. Kiểm `mfa.enrolled` (runbook 2.3 bước 6) là bằng chứng cho G2-4.
+
+Sau B1 (khi có kết quả): G2-4 → SEC ghi "OWN thật đăng ký 2FA trên staging" (MGR thật nếu có), G2-5 → SEC duyệt 06.33.
