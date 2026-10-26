@@ -576,3 +576,72 @@ Sau B1 (khi có kết quả): G2-4 → SEC ghi "OWN thật đăng ký 2FA trên 
 - 8.6 (3) QA kiểm tiền trên `MFA_ENFORCED=true`: thêm kiểm Desk chỉ có một cách, body 3 trường (như báo cáo FE-A mục 5).
 - UXD duyệt 16 chuỗi mới – không phải điều kiện bảo mật.
 - Gộp FE-A cùng BE-B (`35a477c`) và ARC (`66d88e7`) vào cùng bản chạy ngày D; không gộp FE một mình.
+
+## 10. Review FE-A BUG-R3-017 (P1) – tiền mặt/thẻ POS ở bước 3 trả phòng khi B18 mới ghi phụ thu 1 đêm / đêm thêm (commit `64bf5c0`, nhánh `worktree-agent-a67639f06f6add4d9`, so với `15a3764`)
+
+- Người ghi: SEC | 26/10/2026 | Bước: Review (Round 3). Không đổi máy chủ; Desk gửi `checkOut.finalPayment {type: charge, method: cash|card_pos, amountVnd, posAuthCode?}` trong lệnh B18.
+- Phạm vi đọc: `git diff 15a3764 64bf5c0` – `CheckOutPage.tsx`, `PaymentPanel.tsx`, `mocks/stay.ts`, `__tests__/bug-r3-017-fea.test.tsx` + 3 tệp test sửa (`checkout`, `s4-418-fea`, `esc031-fea`), 8 chuỗi `co.pay_at_complete*`, 2 tệp E2E QA đưa vào nhánh, dòng decision-log FE-A, báo cáo `esc031-fe-a.md` mục 6. Đối chiếu máy chủ: `checkout.service.ts` (`paymentInput`, khối `finalPayment` trong giao dịch B18), `payment.service.ts` (`checkPaymentShape`, trần `owed` + quy tắc ghi chú quầy), `app/useWrite.tsx` (vòng đời Idempotency-Key).
+- Kiểm lại của SEC trong worktree: `vitest run bug-r3-017-fea checkout.test s4-418-fea esc031-fea` – 4 tệp, 33/33 ca xanh.
+- **Kết luận: Verified.** Không có thẻ Blocker/Major. 1 thẻ Minor (chữ dễ dẫn tới thu tiền khách hai lần – nên sửa cùng lượt UXD duyệt chữ, không chặn gộp), 2 thẻ Suggestion.
+
+### 10.1 Đối chiếu từng yêu cầu
+
+| Yêu cầu | Bằng chứng | Đạt |
+|---|---|---|
+| `lateFeeInsteadOfNight` vẫn đúng 3 trường | Diff không chạm khối dựng `lateFee` trong `complete()`; nhánh `lfReview` vẫn là object literal `{amountVnd, reason, postReview: true}`. `finalPayment` là khóa riêng ở cấp body, không trộn vào `lateFee`. Test mới ca ESC-031: `toStrictEqual({amountVnd: fee, reason, postReview: true})` cùng lúc với `finalPayment` | Đạt |
+| Không gửi trùng tiền (`recordPayment` + `finalPayment`) | `PaymentPanel.record()`: cash/card_pos có số **> folio đang nợ** → chỉ gọi `onStage` rồi `return`, không gọi `recordPayment`; số ≤ folio đang nợ → `recordPayment` như cũ, không dàn. Khi đã có `staged`, panel bị thay bằng Alert (không thể thu thêm cho đến khi "Bỏ"); dàn lần nữa chỉ **thay** (`setStaged`), không cộng dồn. `finalPayment` chỉ gửi khi `stagedOk`; thành công → `setStaged(null)`. Test: `pays.sent` = 0 và folio có đúng 1 khoản cash; ca thu một phần: phần ≤ folio đi `/payments`, phần còn lại đi `finalPayment` | Đạt |
+| Idempotency-Key mới khi đổi khoản | `useWrite` giữ khóa khi lỗi, đổi khi thành công. `onStage` → `act.renewKey()` + `act.reset()`; nút "Bỏ" → `act.renewKey()`. Khoản không còn hợp lệ → `finalPayment` rơi khỏi body nhưng Hoàn tất bị khóa (`co.pay_at_complete_needs`) nên không có lệnh body khác đi với khóa cũ. Gửi lại cùng body sau lỗi mạng (STAY_WRITE_RETRY) dùng cùng khóa – đúng (máy chủ phát lại, không ghi 2 lần) | Đạt (thiếu assert trong test – FB-15) |
+| Không cho vượt số còn phải thu ở client | Trong nhánh dàn: `value > balanceVnd` (= số còn phải thu lúc trả phòng) → lỗi ở ô, không dàn. `stagedOk` chỉ giữ khi `staged.amountVnd ≤ dueAtCheckout`; số cần thu giảm (thu nơi khác, đổi giờ) → cảnh báo, khóa Hoàn tất, phải "Bỏ". Test ca 5 phủ cả hai | Đạt |
+| Máy chủ vẫn là chốt | `checkout.service.ts`: `finalPayment.amountVnd > owed` (số dư folio **sau** các dòng B18 vừa ghi, trong cùng giao dịch) → 422 `AMOUNT_EXCEEDS_BALANCE` + `max`; rồi `recordInTx` chạy lại `checkPaymentShape` (card_pos thiếu mã → `REQUIRED`, `assertNoCardNumber`) và trần `owed`. Không có đường nào client vượt qua | Đạt |
+| Không log/lưu mã chuẩn chi POS hay dữ liệu nhạy cảm | Diff mã app không thêm `console.*`, `localStorage`/`sessionStorage`/IndexedDB, tracking. `posAuthCode` chỉ nằm trong state React (`staged`), ô nhập bị xóa ngay khi dàn (`setPos('')`), không hiện trong Alert, dòng bảng folio hay hộp xác nhận (chỉ phương thức + số tiền). Ô nhập lọc chỉ chữ-số; nút ghi bị khóa khi mã trống. Mã chuẩn chi không phải dữ liệu thẻ (PAN/SAD) theo PCI DSS; máy chủ vẫn chặn chuỗi giống số thẻ | Đạt |
+| Mock không che lỗi thật | Mock `recordPayment` nay từ chối số vượt folio: SAL/CTV → `AMOUNT_EXCEEDS_BALANCE`, FD+ không ghi chú (< 3 ký tự) → `REASON_REQUIRED` – khớp `payment.service.ts` (`!desk` / `note.length < 3`). Mock `finalPayment` kiểm trần **sau** khi ghi đêm thêm/phụ thu, cùng mã lỗi + `max` như máy chủ. Hệ quả tốt: 4 ca cũ (`checkout`, `s4-418-fea`) trước đây xanh chỉ vì mock lỏng – đúng loại lỗi mock che mà BUG-R3-017 lộ ra; nay đi đúng đường thật. Lệch nhỏ còn lại: mock bỏ qua folio `settled` và `type: deposit`, không mô phỏng `debtCollection` – không ảnh hưởng luồng này | Đạt |
+
+### 10.2 Ghi nhận nhỏ (không cần thẻ)
+
+- `esc031-fea.test.tsx` nới `audit[0]` thành `audit.some(...)` vì nay có thêm audit khoản thu – hợp lý, không làm yếu kiểm tra phụ thu.
+- Hai tệp E2E của QA (`qa-esc031.r3.clock.spec.ts`, `qa-esc031-ui.spec.ts`) in body B18 và phản hồi ra console/`QA_ESC_LOG` (mặc định `/dev/null`); chỉ chạy khi có `E2E_TOTP_DIR`, dữ liệu là bản ghi test, ca UI dùng tiền mặt (không có mã POS). Tệp `.laststep` chỉ chứa số bước TOTP, không phải secret. Chấp nhận – chỉ nhắc: không chạy hai tệp này trên stack có dữ liệu khách thật.
+
+### 10.3 Duyệt nhanh 8 chuỗi `co.pay_at_complete*` (thay UXD – về giọng; chỉ nhận xét, không sửa)
+
+Chung: không emoji, câu ngắn, giọng điềm tĩnh, đúng thuật ngữ đã dùng ("folio", "Hoàn tất"). Màn nội bộ cho lễ tân nên tiếng Việt dẫn là đúng.
+
+| Khóa | Nhận xét | Kết luận |
+|---|---|---|
+| `co.pay_at_complete` | Rõ: đã nhận gì, khi nào ghi. en "It is recorded…" có thể là "It will be recorded…" cho đúng thì tương lai | Đạt |
+| `co.pay_at_complete_remaining` | Ngắn, đúng | Đạt |
+| `co.pay_at_complete_undo` | Nút rõ hành động | Đạt |
+| `co.pay_at_complete_row` | vi "Thu khi hoàn tất", en "Collected at check-out" – nghĩa gần nhau, chấp nhận; nếu muốn khớp: en "Collected on completion" | Đạt |
+| `co.pay_at_complete_effect` | Đúng giọng các dòng `*_effect` khác | Đạt |
+| `co.pay_at_complete_over` | Câu 1 hơi mệnh lệnh ("Không thu quá…") nhưng chấp nhận được với lỗi chặn. Câu 2 nói về ô "Tiền khách đưa" – ô này chỉ có ở tiền mặt, nhưng lỗi cũng hiện khi chọn thẻ POS. en "Give the change back using the Cash received box" vụng. Gợi ý: vi "Chỉ nhập tối đa {max} – số còn phải thu. Tiền thối tính ở ô Tiền khách đưa." và chỉ thêm câu 2 khi là tiền mặt; en "Enter no more than {max}, the amount still due." | Đạt có ghi chú |
+| `co.pay_at_complete_changed` | "…rồi **thu lại** theo số mới" – xem FB-14 | Cần sửa chữ |
+| `co.pay_at_complete_needs` | Cùng vấn đề "thu lại" – xem FB-14 | Cần sửa chữ |
+
+### FB-R3-SEC-FE-A-14
+- Mức độ: Minor
+- Vị trí: `strings-vi.json` / `strings-en.json` – `co.pay_at_complete_changed`, `co.pay_at_complete_needs` (en: "collect again")
+- Vấn đề: ở trạng thái này tiền mặt/thẻ **đã cầm trong tay** (chỉ chưa ghi vào folio). Chữ "thu lại theo số mới" / "collect again" dễ hiểu thành thu tiền khách thêm một lần nữa, nhất là với thẻ POS (cà thẻ lần 2).
+- Vì sao quan trọng: rủi ro thu tiền khách hai lần (sai tiền, khiếu nại, phải hoàn tiền thẻ) – đúng loại "trùng tiền" mà bản sửa này muốn tránh ở tầng mã.
+- Đề xuất sửa: đổi động từ thành "nhập lại"/"ghi lại" và nói rõ tiền đã nhận. Ví dụ vi `co.pay_at_complete_changed`: "Số cần thu vừa đổi nên khoản {amount} chưa được ghi. Tiền đã nhận vẫn giữ – bấm Bỏ rồi nhập lại theo số mới."; `co.pay_at_complete_needs`: "Bỏ khoản chưa ghi rồi nhập lại theo số mới để hoàn tất trả phòng."; en: "…Money already received is kept – remove it and enter it again using the new amount." Sửa chuỗi, không đổi mã; nên làm cùng lượt UXD duyệt chữ, không chặn gộp.
+- Trạng thái: Open
+
+### FB-R3-SEC-FE-A-15
+- Mức độ: Suggestion
+- Vị trí: `__tests__/bug-r3-017-fea.test.tsx`
+- Vấn đề: mã gọi `act.renewKey()` khi dàn khoản và khi "Bỏ", nhưng không ca nào kiểm header `Idempotency-Key` của lệnh B18 sau khi đổi khoản khác lệnh bị từ chối trước đó (ca 5 dừng ở "Bỏ", không gửi lại).
+- Vì sao quan trọng: nếu ai đó bỏ `renewKey()`, lệnh mới (khoản khác) sẽ mang khóa cũ → máy chủ phát lại lỗi cũ hoặc báo trùng khóa; lễ tân kẹt ở bước tiền. Không mất tiền, nhưng là đường tiền.
+- Đề xuất sửa: nối ca 5 – sau "Bỏ", dàn lại theo số mới, Hoàn tất; assert khóa lần 2 ≠ lần 1 và `finalPayment.amountVnd` = số mới (như test 409 của ESC-031 đã làm).
+- Trạng thái: Open
+
+### FB-R3-SEC-FE-A-16
+- Mức độ: Suggestion
+- Vị trí: `CheckOutPage.tsx` – state `staged`
+- Vấn đề: khoản "đã nhận" chỉ sống trong bộ nhớ trang. Rời trang, tải lại hoặc mất phiên trước khi bấm Hoàn tất → khoản mất, màn hiện lại đủ số phải thu, trong khi tiền đã trong két.
+- Vì sao quan trọng: lệch két cuối ca, hoặc lễ tân thu lại khách. Xác suất thấp (bước 3 ngay trước Hoàn tất, Alert luôn hiện).
+- Đề xuất sửa: khi `staged ≠ null`, chặn rời trang (route blocker + `beforeunload`) với câu nhắc ngắn. **Không** lưu khoản dàn (nhất là `posAuthCode`) vào `localStorage`/`sessionStorage` để khôi phục. Có thể làm ở v1.0.1.
+- Trạng thái: Open
+
+### 10.4 Điều kiện gộp
+
+- Không có điều kiện bảo mật chặn gộp. Gộp cùng bộ ESC-031 (BE-B `35a477c`, ARC `66d88e7`, FE-A `6f72a9c`) như 9.4.
+- FB-14 nên sửa trước ngày D nếu UXD còn lượt duyệt chữ (chỉ đổi chuỗi).
+- QA chạy hai tệp E2E trên `ottimo-esc031` (`MFA_ENFORCED=true`): thêm kiểm B18 mang `finalPayment` và `/payments` không được gọi cho khoản B18 mới ghi.
