@@ -103,6 +103,10 @@ export class FrontdeskController {
     const v = body.lateFeeInsteadOfNight;
     if (v === undefined || v === null || typeof v !== 'object' || Array.isArray(v)) return null;
     const o = v as Record<string, unknown>;
+    // ESC-024 B / ESC-031 (v1.0 patch): `postReview` records the server's number without anyone's credentials – no
+    // re-auth here; B18 reads the field (a non-boolean → 422, credentials or `requestFoc` sent with it → 422
+    // NOT_ALLOWED) before anything is written. `postReview: false` is the desk confirmation below.
+    if (o.postReview !== undefined && o.postReview !== null && o.postReview !== false) return null;
     const p = principal(req);
     const field = 'lateFeeInsteadOfNight';
     const errors: Array<{ field: string; code: string }> = [];
