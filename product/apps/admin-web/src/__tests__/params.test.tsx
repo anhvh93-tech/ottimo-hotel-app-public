@@ -93,7 +93,7 @@ describe('H05 Tham số quy tắc (US-005)', () => {
 describe('paramLabel (FB-R2-UXD-FE-03)', () => {
   it('uses params.k.<key> (dots → _), the channel template, and the key only as last resort', () => {
     const t = (k: string, a?: Record<string, string | number>) => translate('vi', k, a);
-    expect(paramLabel(t, 'checkin_time')).toBe('Giờ nhận phòng chuẩn');
+    expect(paramLabel(t, 'checkin_time')).toBe('Nhận phòng từ');
     expect(paramLabel(t, 'foc_self_apply.front_desk.per_time')).toBe(
       'Lễ tân tự áp miễn phí (FOC) – mỗi lần',
     );

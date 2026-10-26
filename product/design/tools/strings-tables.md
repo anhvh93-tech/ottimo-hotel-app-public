@@ -337,7 +337,7 @@
 | `guest.hello` | Xin chào, {name} | Hello, {name} | Здравствуйте, {name} |  |
 | `guest.stay.dates` | {from} → {to} · {nights} đêm | {from} → {to} · {nights} nights | {from} → {to} · ночей: {nights} |  |
 | `guest.stay.room` | Căn {room} · {room_name} | Room {room} · {room_name} | ⟨chừa chỗ⟩ |  |
-| `guest.stay.checkin_time` | Nhận phòng từ {time} (phòng luôn sẵn sàng lúc 14:00) | Check-in from {time} (your room is always ready by 14:00) | Заезд с {time} (апартаменты всегда готовы к 14:00) | R3 FB-INV-004, BR-401 v0.4.6 (e) – DOM 8.3 #7; 14:00 viết trong chuỗi đến v1.0.1 (F8 room_ready_guaranteed_time) [FE viết, chờ UXD duyệt] |
+| `guest.stay.checkin_time` | Nhận phòng từ {time} (phòng luôn sẵn sàng lúc 14:00) | Check-in from {time} (your room is always ready by 14:00) | Заезд с {time} (апартаменты всегда готовы к 14:00) | R3 FB-INV-004, BR-401 v0.4.6 (e) – DOM 8.3 #7; 14:00 viết trong chuỗi đến v1.0.1 (F8 room_ready_guaranteed_time). UXD duyệt R3 Review – đúng câu chuẩn content-guide mục Mẫu tin |
 | `guest.stay.checkout_time` | Trả phòng trước {time} | Check-out by {time} | Выезд до {time} |  |
 | `guest.cta.checkin` | Làm thủ tục trước (check-in online) | Online check-in | Онлайн-регистрация | FB-R1-UXR-UXD-16 – lần đầu kèm 'check-in online'; chỗ sau dùng guest.cta.checkin_short |
 | `guest.cta.checkin_help` | Gửi giấy tờ trước, nhận phòng tại quầy chỉ vài phút. | Send your IDs in advance – check-in at the desk takes just minutes. | Отправьте документы заранее – заселение на стойке займёт всего несколько минут. |  |
@@ -378,7 +378,7 @@
 | `guest.cta.checkin_short` | Làm thủ tục trước | Online check-in | Онлайн-регистрация |  |
 | `guest.oci.submit` | Gửi thủ tục | Submit check-in | Отправить регистрацию |  |
 | `guest.oci.done_title` | Thủ tục đã xong. Hẹn gặp bạn ngày {date}. | You're all set. See you on {date}. | Всё готово. До встречи {date}. | DS 11.2.2 G4 (v0.4.1) – bỏ "!" theo Brand Guidelines; MOB đưa vào nhóm guest-web S4, UXD gộp về đây 17/10 (một khóa một dòng). RU nháp |
-| `guest.oci.done_body` | Nhận phòng từ {time} khi phòng đã sẵn sàng – phòng luôn sẵn sàng lúc 14:00. Lễ tân sẽ giao mã cửa khi bạn đến. | Check-in from {time}, once your room is ready – always ready by 14:00. Reception will give you your door code when you arrive. | Заезд с {time}, если апартаменты уже готовы; к 14:00 они готовы всегда. Код от двери администратор выдаст при заезде. | R2 – SEC P-R2-4 ĐK-6, BA E06-10; bản hiện mã cửa trên trang quay lại ở R3 (US-128, US-141). R3 FB-INV-004 (DOM 8.3 #6, F3): không hứa "sẵn sàng từ {time}" khi {time} = 12:00; 14:00 viết trong chuỗi đến v1.0.1 (F8) [FE viết, chờ UXD duyệt] |
+| `guest.oci.done_body` | Nhận phòng từ {time} khi phòng đã sẵn sàng – phòng luôn sẵn sàng lúc 14:00. Lễ tân sẽ giao mã cửa khi bạn đến. | Check-in from {time}, once your room is ready – it is always ready by 14:00. Reception will give you your door code when you arrive. | Заезд с {time}, если апартаменты уже готовы; к 14:00 они готовы всегда. Код от двери администратор выдаст при заезде. | R2 – SEC P-R2-4 ĐK-6, BA E06-10; bản hiện mã cửa trên trang quay lại ở R3 (US-128, US-141). R3 FB-INV-004 (DOM 8.3 #6, F3): không hứa "sẵn sàng từ {time}" khi {time} = 12:00; 14:00 viết trong chuỗi đến v1.0.1 (F8). UXD duyệt R3 Review: EN thêm "it is" theo DOM 8.3 #6 |
 | `guest.oci.upload_error` | Ảnh chưa rõ. Chụp lại nơi đủ sáng, không lóa, thấy đủ 4 góc. | The photo isn't clear. Retake it in good light, without glare, showing all 4 corners. | ⟨chừa chỗ⟩ |  |
 | `guest.req.title` | Bạn cần gì? | What do you need? | ⟨chừa chỗ⟩ |  |
 | `guest.req.clean` | Dọn phòng thêm | Extra cleaning | ⟨chừa chỗ⟩ |  |
@@ -1776,8 +1776,8 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `params.k.hold_expiry_reminder_hours` | Nhắc trước khi hết hạn giữ chỗ | Reminder before a hold expires | ⟨chừa chỗ⟩ | Khóa API hold_expiry_reminder_hours |
 | `params.k.hold_extension_max_hours` | Gia hạn giữ chỗ tối đa | Maximum hold extension | ⟨chừa chỗ⟩ | Khóa API hold_extension_max_hours |
 | `params.k.adult_from_age` | Tính là người lớn từ | Counted as an adult from | ⟨chừa chỗ⟩ | Khóa API adult_from_age |
-| `params.k.checkin_time` | Giờ nhận phòng chuẩn | Standard check-in time | ⟨chừa chỗ⟩ | Khóa API checkin_time |
-| `params.k.checkout_time` | Giờ trả phòng chuẩn | Standard check-out time | ⟨chừa chỗ⟩ | Khóa API checkout_time |
+| `params.k.checkin_time` | Nhận phòng từ | Check-in from | ⟨chừa chỗ⟩ | Khóa API checkin_time. R3 FB-INV-004: đổi từ "Giờ nhận phòng chuẩn" – BR-401 v0.4.6 nhận từ giờ này nếu căn VI/VC, cùng cách nói với câu chuẩn khách thấy |
+| `params.k.checkout_time` | Trả phòng trước | Check-out by | ⟨chừa chỗ⟩ | Khóa API checkout_time. R3 FB-INV-004: đổi từ "Giờ trả phòng chuẩn" cho cặp với params.k.checkin_time |
 | `params.k.late_grace_until` | Ân hạn trả muộn tới | Late check-out grace until | ⟨chừa chỗ⟩ | Khóa API late_grace_until |
 | `params.k.no_show_call_time` | Giờ gọi khách chưa đến | Time to call guests not yet arrived | ⟨chừa chỗ⟩ | Khóa API no_show_call_time |
 | `params.k.no_show_mark_time` | Giờ được đánh dấu không đến | Time a no-show can be marked | ⟨chừa chỗ⟩ | Khóa API no_show_mark_time |

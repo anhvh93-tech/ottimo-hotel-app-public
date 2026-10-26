@@ -40,7 +40,7 @@
           <h2 style="font-size:1.375rem" data-i18n="guest.hello" data-i18n-args='{"name":"Anna"}'>Xin chào, Anna</h2>
           <p class="li-s">OTM-0150 · <span data-i18n="guest.stay.dates" data-i18n-args='{"from":"15/10","to":"18/10","nights":"3"}'>15/10 → 18/10 · 3 đêm</span></p>
           <div class="card" style="margin:12px 0">
-            <dl class="dl"><dt data-i18n="gw.room">Căn</dt><dd>103 · The Bloom</dd><dt data-i18n="gw.checkin">Nhận phòng</dt><dd data-i18n="guest.stay.checkin_time" data-i18n-args='{"time":"14:00"}'>Nhận phòng từ 14:00</dd><dt data-i18n="gw.checkout">Trả phòng</dt><dd data-i18n="guest.stay.checkout_time" data-i18n-args='{"time":"12:00"}'>Trả phòng trước 12:00</dd><dt data-i18n="guest.wifi">Wi-Fi</dt><dd data-i18n="gw.wifi_later" data-i18n-args='{"date":"15/10"}'>Hiện ở đây vào ngày nhận phòng (15/10).</dd></dl>
+            <dl class="dl"><dt data-i18n="gw.room">Căn</dt><dd>103 · The Bloom</dd><dt data-i18n="gw.checkin">Nhận phòng</dt><dd data-i18n="guest.stay.checkin_time" data-i18n-args='{"time":"12:00"}'>Nhận phòng từ 12:00 (phòng luôn sẵn sàng lúc 14:00)</dd><dt data-i18n="gw.checkout">Trả phòng</dt><dd data-i18n="guest.stay.checkout_time" data-i18n-args='{"time":"12:00"}'>Trả phòng trước 12:00</dd><dt data-i18n="guest.wifi">Wi-Fi</dt><dd data-i18n="gw.wifi_later" data-i18n-args='{"date":"15/10"}'>Hiện ở đây vào ngày nhận phòng (15/10).</dd></dl>
           </div>
           <div class="card" style="border-color:var(--ink)"><h3 data-i18n="guest.cta.checkin">Làm thủ tục trước (check-in online)</h3><p class="li-s" style="margin:4px 0 10px" data-i18n="guest.cta.checkin_help">Gửi giấy tờ trước, nhận phòng tại quầy chỉ vài phút.</p><a class="btn pri block" href="#s182" data-i18n="guest.cta.checkin_short">Làm thủ tục trước</a></div>
           <div class="card" style="margin-top:12px"><h3 data-i18n="gw.door_at_desk_title">Mã cửa</h3><p class="li-s" data-i18n="gw.door_at_desk">Lễ tân giao mã cửa khi bạn đến. Đến sau 22:00? Gọi người trực khi tới nơi.</p><a class="btn block" href="tel:+84000000000" data-i18n="guest.contact.call">Gọi người trực</a></div>
@@ -117,6 +117,7 @@
       <div class="m-body">
         <ol class="progress-steps" data-i18n-label="gw.steps_label" aria-label="Các bước làm thủ tục"><li class="done" data-i18n="guest.oci.step1">Giấy tờ</li><li aria-current="step" data-i18n="guest.oci.step2">Giờ đến</li><li data-i18n="guest.oci.step3">Xác nhận</li></ol>
         <fieldset style="border:0;padding:0;margin:0"><legend class="lbl" style="font-weight:500;margin-bottom:6px" data-i18n="guest.oci.arrival">Bạn dự kiến đến lúc nào?</legend>
+          <label class="choice"><input type="radio" name="eta"><span>12:00 – 14:00</span></label>
           <label class="choice"><input type="radio" name="eta"><span>14:00 – 16:00</span></label>
           <label class="choice"><input type="radio" name="eta" checked><span>16:00 – 18:00</span></label>
           <label class="choice"><input type="radio" name="eta"><span>18:00 – 22:00</span></label>
@@ -143,7 +144,7 @@
 
     <div class="frame-phone" id="s183d"><div class="device touch">
       <header class="m-top"><h1>OTTIMO</h1></header>
-      <div class="m-body"><div class="state"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></div><h3 data-i18n="guest.oci.done_title" data-i18n-args='{"date":"15/10"}'>Thủ tục đã xong. Hẹn gặp bạn ngày 15/10.</h3><p data-i18n="guest.oci.done_body" data-i18n-args='{"time":"14:00"}'>Phòng sẵn sàng từ 14:00. Lễ tân sẽ giao mã cửa khi bạn đến.</p><p class="li-s" data-i18n="gw.done_desk_check">Tại quầy, lễ tân xem giấy tờ gốc vài phút để đối chiếu.</p><a class="btn" href="#s181" data-i18n="gw.back_home">Về trang lưu trú</a></div></div>
+      <div class="m-body"><div class="state"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg></div><h3 data-i18n="guest.oci.done_title" data-i18n-args='{"date":"15/10"}'>Thủ tục đã xong. Hẹn gặp bạn ngày 15/10.</h3><p data-i18n="guest.oci.done_body" data-i18n-args='{"time":"12:00"}'>Nhận phòng từ 12:00 khi phòng đã sẵn sàng – phòng luôn sẵn sàng lúc 14:00. Lễ tân sẽ giao mã cửa khi bạn đến.</p><p class="li-s" data-i18n="gw.done_desk_check">Tại quầy, lễ tân xem giấy tờ gốc vài phút để đối chiếu.</p><a class="btn" href="#s181" data-i18n="gw.back_home">Về trang lưu trú</a></div></div>
     </div><p class="frame-cap" data-i18n="gw.cap_done">Hoàn tất – bản R2 không hứa mã cửa trên trang</p></div>
     <aside class="spec" aria-label="Đặc tả 18.3">
       <h3>Story / AC</h3><ul><li><span class="us">US-107</span> AC1 hoàn tất → khai báo <code>pre</code>, lễ tân thấy giờ đến + thông báo "Khách {code} đã làm thủ tục trước – đến lúc {eta}"; AC3 chọn "Không" vẫn hoàn tất.</li><li><span class="us">US-045</span> AC3 quyết định qua app ghi kèm thời điểm, hình thức "qua app".</li><li>BA EP06 8.1: chỉ hỏi Khách 1; người đi cùng trả lời tại quầy (R-CON-04). SEC ĐK-5: dòng hướng dẫn rút đồng ý qua lễ tân. ĐK-6: <code>guest.oci.done_body</code> bản R2 (BA E06-10).</li></ul>
