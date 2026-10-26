@@ -36,3 +36,26 @@
 - **UXD duyệt chữ** 4 chuỗi (đánh dấu "chờ UXD duyệt" trong `gen_strings.py`); hi-fi `design/hifi/04-rooms.html` vẫn vẽ ô giá đêm `readonly` + chữ cũ – UXD sửa.
 - QA: e2e API `tests/e2e/serial/platform-mutations.serial.spec.ts` (~169–210) vẫn kiểm đường ÷ 12 không gửi giá đêm – còn đúng với server hiện tại (đường tạm), nhưng nên thêm ca có giá đêm riêng (DOM §4.4).
 - Cần 1 lượt build rc + deploy production trong 27/10 để kịp B2.
+
+## Bổ sung 27/10 – BUG-R3-018 (P2): giá đã lên lịch trên ngăn kéo căn
+
+**Đã làm (phần FE làm được với hợp đồng 0.3.8):**
+- Gõ lại đúng giá đang dùng không còn làm ẩn ô "Hiệu lực từ" và "Lý do đổi giá". Hai ô hiện ngay khi chủ đầu tư gõ vào ô giá.
+- Giá trùng giá đang dùng + ngày hiệu lực **sau hôm nay** (ngày nghiệp vụ) = một thay đổi thật: nút Lưu mở, gửi `listPrice` cho ngày đó. `rooms.service.writePrice` ghi `ON CONFLICT (room_id, effective_from) DO UPDATE`, nên dòng giá nhầm đã lên lịch đúng ngày đó bị thay. Đây đúng là đường vòng QA đã làm bằng API, nay làm được trên Desk.
+- Giá trùng + ngày = hôm nay: không có gì để lưu, nút Lưu vẫn khóa. Chữ phụ dưới ô ngày hướng dẫn chọn đúng ngày hiệu lực của giá cần thay.
+- Chỉ ghi lý do mà giá không đổi thì không mở nút Lưu nữa. Trước đây bấm được nhưng PATCH không có `listPrice`, trông như đã lưu giá.
+- Lưu giá có ngày hiệu lực sau hôm nay thì toast ghi rõ ngày áp dụng ("Đã lưu căn 102. Giá áp dụng từ 27/10/2026."), vì bảng vẫn hiện giá hôm nay đến ngày đó.
+- Thêm 3 chuỗi mới (`rooms.price_same_today`, `rooms.price_same_future`, `rooms.saved_scheduled`) qua `gen_strings.py`. Chuỗi đã đánh dấu chờ UXD duyệt.
+- Mock MSW: `db.scheduledListPrices` ghi dòng tương lai theo đúng luật upsert của server. Dòng này không trả ra GET, giống hợp đồng.
+
+**Chưa làm – cần BE/ARC (đã báo ORC):** hiện danh sách giá đã lên lịch (ngày, giá tháng, giá đêm, người, lý do) trong ngăn kéo. `Room` 0.3.8 chỉ có `currentListPrice` (dòng `effective_from <= hôm nay`), và không có endpoint đọc hay hủy dòng `room_list_price` tương lai. Không suy ra từ `audit-events`, vì nhật ký không lọc theo căn, có phân trang theo ngày ghi, và không phản ánh dòng do `createRoom`/import tạo. Đề xuất hợp đồng (0.3.9, cộng thêm, không phá vỡ):
+- `Room.scheduledListPrices[]` (x-visible-to owner, manager): `{effectiveFrom, monthlyListPriceVnd, nightlyListPriceVnd, changedBy, changedAt, reason}`, các dòng `effective_from > ctx.today`, sắp tăng dần. BE-A chỉ thêm 1 truy vấn trong `rooms.service` (`list`/`loadRoom`).
+- Tùy chọn: `POST /rooms/{roomId}/list-prices/{effectiveFrom}/actions/cancel-scheduled` (If-Match, lý do, audit `room.list_price_cancelled`), giống `parameters/{key}/actions/cancel-scheduled`. Desk khi đó thêm nút "Hủy lịch giá này" cho từng dòng.
+
+**Kiểm thử:** `rooms.test.tsx` thêm 2 ca, mô phỏng kịch bản QA rc.2 mục 13 trên căn 101:
+- Ca 1: lên lịch 700.000 cho ngày mai, toast báo ngày, bảng vẫn hiện 667.000. Gõ lại 667.000 hôm nay thì Lưu khóa và có chữ hướng dẫn; ghi lý do vẫn khóa. Đổi sang ngày mai thì Lưu mở, PATCH đúng `listPrice`, dòng lên lịch của mock bị thay (chỉ còn 1 dòng, 667.000).
+- Ca 2: không chạm giá thì ô ngày ẩn; sửa tên căn vẫn lưu được, không gửi `listPrice`.
+
+Kết quả: admin-web 60 file / **632/632** đạt; `tsc --noEmit`, eslint, prettier sạch; `@ottimo/i18n` 19/19.
+
+**File sửa:** `product/apps/admin-web/src/pages/RoomDrawer.tsx`, `src/mocks/handlers.ts`, `src/__tests__/rooms.test.tsx`; `product/design/tools/gen_strings.py` và các file sinh ra (`design/copy/strings-vi.json`, `strings-en.json`, `design/tools/strings-tables.md`, `design/wireframes/assets/strings.js`).

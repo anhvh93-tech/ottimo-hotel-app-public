@@ -1,5 +1,8 @@
+import { formatLocalDate } from '@ottimo/i18n';
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { businessDayLocal } from '../app/dates';
+import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { renderApp } from '../test/render';
@@ -193,6 +196,83 @@ describe('H04 Danh mục căn (US-004, ESC-014)', () => {
     await user.type(within(dlg).getByLabelText(/Lý do đổi giá/), 'Giá B2');
     await user.click(within(dlg).getByRole('button', { name: 'Lưu' }));
     await waitFor(() => expect(nightly).toHaveAttribute('aria-invalid', 'true'));
+  });
+
+  it('BUG-R3-018: a wrong price scheduled for tomorrow is replaced by re-saving the current price for that date', async () => {
+    // Business day, not calendar day (BR-010 / BUG-R3-006): rooms.service bounds effectiveFrom by ctx.today.
+    const tomorrow = addDays(businessDayLocal(), 1);
+    const cap = capturePatches();
+    const { user } = renderApp('/settings/rooms', 'qa.owner');
+
+    // 1. The owner schedules 700.000 from tomorrow by mistake (QA rc.2 §13: 102 → 700.000 from 27/10).
+    let dlg = await openRoom(user, '101');
+    let nightly = within(dlg).getByLabelText(/Giá đêm niêm yết/);
+    await user.clear(nightly);
+    await user.type(nightly, '700000');
+    let from = within(dlg).getByLabelText(/Hiệu lực từ/);
+    await user.clear(from);
+    await user.type(from, tomorrow);
+    await user.type(within(dlg).getByLabelText(/Lý do đổi giá/), 'Giá B2');
+    await user.click(within(dlg).getByRole('button', { name: 'Lưu' }));
+    // The catalog keeps today's price until that day, so the toast says when the new one applies.
+    expect(
+      await screen.findByText(`Đã lưu căn 101. Giá áp dụng từ ${formatLocalDate(tomorrow)}.`),
+    ).toBeInTheDocument();
+    const row = screen.getByText('The Amber').closest('tr')!;
+    expect(within(row).getByText('667.000')).toBeInTheDocument();
+    expect(mockControl.db.scheduledListPrices).toEqual([
+      expect.objectContaining({ effectiveFrom: tomorrow, nightlyListPriceVnd: 700_000 }),
+    ]);
+
+    // 2. Typing the current price back: today it is no change – Save stays off, the help says what to do.
+    dlg = await openRoom(user, '101');
+    nightly = within(dlg).getByLabelText(/Giá đêm niêm yết/);
+    await user.clear(nightly);
+    await user.type(nightly, '667000');
+    const save = within(dlg).getByRole('button', { name: 'Lưu' });
+    expect(save).toBeDisabled();
+    from = within(dlg).getByLabelText(/Hiệu lực từ/);
+    expect(from).toHaveAccessibleDescription(
+      'Đây là giá đang dùng. Muốn thay một giá đã lên lịch, chọn đúng ngày hiệu lực của giá đó.',
+    );
+    // A reason alone sends nothing, so it does not unlock Save either.
+    await user.type(within(dlg).getByLabelText(/Lý do đổi giá/), 'Nhập nhầm giá B2');
+    expect(save).toBeDisabled();
+
+    // 3. Same price for tomorrow = a real change: it replaces the row scheduled for that date.
+    await user.clear(from);
+    await user.type(from, tomorrow);
+    expect(from).toHaveAccessibleDescription(
+      `Lưu để giữ giá này từ ${formatLocalDate(tomorrow)}. Giá đã lên lịch đúng ngày đó sẽ được thay; giá lên lịch ngày khác giữ nguyên.`,
+    );
+    expect(save).toBeEnabled();
+    await user.click(save);
+    await waitFor(() => expect(cap.sent).toHaveLength(2));
+    cap.stop();
+    expect(cap.sent[1]!.listPrice).toEqual({
+      effectiveFrom: tomorrow,
+      monthlyListPriceVnd: 8_000_000,
+      nightlyListPriceVnd: 667_000,
+      reason: 'Nhập nhầm giá B2',
+    });
+    expect(mockControl.db.scheduledListPrices).toEqual([
+      expect.objectContaining({ effectiveFrom: tomorrow, nightlyListPriceVnd: 667_000 }),
+    ]);
+    expect(within(row).getByText('667.000')).toBeInTheDocument();
+  });
+
+  it('BUG-R3-018: untouched prices keep the date and reason boxes hidden; other edits still save', async () => {
+    const cap = capturePatches();
+    const { user } = renderApp('/settings/rooms', 'qa.owner');
+    const dlg = await openRoom(user, '101');
+    expect(within(dlg).queryByLabelText(/Hiệu lực từ/)).toBeNull();
+    expect(within(dlg).getByRole('button', { name: 'Lưu' })).toBeDisabled();
+    await user.type(within(dlg).getByLabelText('Tên căn'), ' II');
+    await user.click(within(dlg).getByRole('button', { name: 'Lưu' }));
+    expect(await screen.findByText('Đã lưu căn 101.')).toBeInTheDocument();
+    await waitFor(() => expect(cap.sent).toHaveLength(1));
+    cap.stop();
+    expect(cap.sent[0]).not.toHaveProperty('listPrice');
   });
 
   it('412 VERSION_CONFLICT keeps the input and offers reload', async () => {

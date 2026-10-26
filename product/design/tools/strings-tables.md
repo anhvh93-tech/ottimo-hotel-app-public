@@ -3701,6 +3701,14 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `field_error.multiple_of_1000` | Nhập số tròn nghìn, ví dụ 650.000. | Use whole thousands, e.g. 650,000. | ⟨chừa chỗ⟩ | BR-005 – giá niêm yết bội 1.000; lỗi tại ô (listPrice.nightlyListPriceVnd). UXD duyệt R3 Review 26/10: EN "for example" → "e.g." như các lỗi trường khác |
 | `rooms.night_low` | Giá đêm đang thấp hơn giá tháng chia 30 ngày ({perDay} đ). Kiểm tra lại số; nếu đúng, vẫn lưu được. | The nightly price is below the monthly price per day ({perDay} VND). Check the figure – you can still save if it is right. | ⟨chừa chỗ⟩ | Cảnh báo mềm, không chặn lưu (BR-101 v0.4.7 (4): giá đêm < giá tháng ÷ 30). {perDay} = giá tháng ÷ 30, làm tròn 1.000, chỉ số (không đơn vị). UXD duyệt R3 Review 26/10: thêm đơn vị đ/VND sau {perDay}; câu sau nói rõ vẫn lưu được (cảnh báo mềm), bỏ "Please" |
 
+#### R3 v1.0 – FE-A BUG-R3-018: giá đã lên lịch (H04 4.2)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `rooms.price_same_today` | Đây là giá đang dùng. Muốn thay một giá đã lên lịch, chọn đúng ngày hiệu lực của giá đó. | This is the current price. To replace a scheduled price, choose the date it takes effect. | ⟨chừa chỗ⟩ | Chữ phụ dưới ô Hiệu lực từ khi giá gõ lại trùng giá đang dùng và ngày = hôm nay (nút Lưu chưa mở). FE-A soạn – chờ UXD duyệt |
+| `rooms.price_same_future` | Lưu để giữ giá này từ {date}. Giá đã lên lịch đúng ngày đó sẽ được thay; giá lên lịch ngày khác giữ nguyên. | Save to keep this price from {date}. A price scheduled for that date is replaced; prices scheduled for other dates stay. | ⟨chừa chỗ⟩ | Chữ phụ dưới ô Hiệu lực từ khi giá trùng giá đang dùng và ngày > hôm nay (rooms.service upsert theo room_id + effective_from). {date} = dd/mm/yyyy. FE-A soạn – chờ UXD duyệt |
+| `rooms.saved_scheduled` | Đã lưu căn {room}. Giá áp dụng từ {date}. | Saved unit {room}. The price applies from {date}. | ⟨chừa chỗ⟩ | Toast sau khi lưu giá có ngày hiệu lực sau hôm nay (bảng vẫn hiện giá hôm nay đến ngày đó). FE-A soạn – chờ UXD duyệt |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |
