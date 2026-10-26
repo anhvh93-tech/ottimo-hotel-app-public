@@ -17,12 +17,23 @@ import {
   API_URL,
   AUTH_DIR,
   GUEST_COOKIE,
+  LOCAL_CLOCK,
   ORIGIN,
   SEED_PASSWORD,
   SESSION_COOKIE,
+  SUBJECTS,
   TEST_TOKEN,
   WEB_URL,
 } from './env.js';
+import { secretOfUri, stepOf } from './totp.js';
+import {
+  TOTP_DIR,
+  TOTP_ENROLL,
+  hasTotpSecret,
+  markTotpStepUsed,
+  nextTotpCode,
+  saveTotpSecret,
+} from './totp-store.js';
 
 export interface Problem {
   type?: string;
@@ -420,11 +431,71 @@ export async function freshSession(
   password = SEED_PASSWORD ?? '',
   base?: string,
 ): Promise<StaffSession> {
-  const r = await login(ctx, username, password, base);
+  let r = await login(ctx, username, password, base);
   if (r.status === 429) throw new LoginRateLimited(`login ${username}: 429 RATE_LIMITED`);
+  if (r.status === 401 && (r.body as Problem)?.code === 'MFA_REQUIRED') {
+    // BUG-R3-015: account with 2FA (stack MFA_ENFORCED=true) – step 2 with the test TOTP of E2E_TOTP_DIR
+    if (!hasTotpSecret(username))
+      throw new Error(
+        `login ${username}: 401 MFA_REQUIRED – tài khoản đã bật 2FA; đặt E2E_TOTP_DIR chứa ${username}.secret (tests/README.md)`,
+      );
+    const m = await call<Me | Problem>(ctx, 'POST', '/v1/auth/login/mfa', {
+      body: {
+        mfaToken: (r.body as Problem & { mfaToken?: string }).mfaToken,
+        totpCode: await nextTotpCode(username),
+      },
+      headers: { origin: ORIGIN },
+      ...(base ? { base } : {}),
+    });
+    r = { ...m, token: sessionTokenFrom(m.setCookies) };
+  }
   expect(r.status, `login ${username}: ${JSON.stringify(r.body)}`).toBe(200);
   expect(r.token, `login ${username}: no ${SESSION_COOKIE} cookie`).toBeTruthy();
-  return { username, token: r.token!, me: r.body as Me };
+  let s: StaffSession = { username, token: r.token!, me: r.body as Me };
+  // Only DS-E accounts are enrolled/failed here; a throwaway account (qa.e2e.*) is returned as the stack gives it –
+  // the case decides (it may still have to change its temporary password first, SR-AUTH-05).
+  if (s.me.mfaEnrollmentRequired && (SUBJECTS as readonly string[]).includes(username))
+    s = await enrolOrFail(ctx, s, password);
+  return s;
+}
+
+/**
+ * BUG-R3-015: OWN/MGR without 2FA on a stack with MFA_ENFORCED=true get a restricted session (SEC 06.4 – every other
+ * call answers 403 MFA_ENROLLMENT_REQUIRED). With E2E_TOTP_ENROLL=1 + E2E_TOTP_DIR the harness enrols the account
+ * (setup → confirm) and stores the secret + recovery codes there (0600); otherwise the case fails with the reason
+ * instead of skipping for an unrelated one ("DS-E chưa nạp đủ 10 căn").
+ */
+async function enrolOrFail(
+  ctx: APIRequestContext,
+  s: StaffSession,
+  password: string,
+): Promise<StaffSession> {
+  if (!TOTP_ENROLL || !TOTP_DIR)
+    throw new Error(
+      `${s.username}: phiên hạn chế (MFA_ENROLLMENT_REQUIRED) – tài khoản cần đăng ký 2FA trước; đặt E2E_TOTP_DIR + E2E_TOTP_ENROLL=1 hoặc đăng ký tay rồi cất secret vào E2E_TOTP_DIR`,
+    );
+  const setup = await call<{ otpauthUri: string }>(ctx, 'POST', '/v1/me/2fa/setup', {
+    session: s,
+    body: { currentPassword: password },
+  });
+  expect(setup.status, `startMy2faSetup ${s.username}`).toBe(200);
+  const uri = new URL(setup.body.otpauthUri.replace('otpauth://', 'https://'));
+  const base32 = uri.searchParams.get('secret') ?? '';
+  secretOfUri(setup.body.otpauthUri); // label/issuer/length checks (SEC 06.7–06.8)
+  saveTotpSecret(s.username, base32);
+  const conf = await call<{ recoveryCodes: string[] }>(ctx, 'POST', '/v1/me/2fa/confirm', {
+    session: s,
+    body: { totpCode: await nextTotpCode(s.username) },
+  });
+  expect(conf.status, `confirmMy2fa ${s.username}`).toBe(200);
+  saveTotpSecret(s.username, base32, conf.body.recoveryCodes ?? []);
+  markTotpStepUsed(s.username, stepOf(Date.now()));
+  const token = sessionTokenFrom(conf.setCookies);
+  expect(token, `confirmMy2fa ${s.username}: phiên mới (06.10)`).toBeTruthy();
+  const me = await getMe(ctx, token!);
+  expect(me.status).toBe(200);
+  console.log(`[e2e] ${s.username}: đã đăng ký 2FA thử (secret cất ở E2E_TOTP_DIR)`);
+  return { username: s.username, token: token!, me: me.body };
 }
 
 /** Per-worker memory of validated sessions (avoids re-reading the file; getMe still re-validates). */
@@ -438,7 +509,8 @@ async function cachedSession(
   for (const token of tokens) {
     if (!token) continue;
     const me = await getMe(ctx, token);
-    if (me.status === 200) {
+    // BUG-R3-015: a restricted "enrol 2FA first" session (SEC 06.4) is not a usable session – log in again
+    if (me.status === 200 && !me.body.mfaEnrollmentRequired) {
       memSessions.set(username, token);
       return { username, token, me: me.body };
     }
@@ -490,10 +562,18 @@ async function ownerForTestSupport(ctx: APIRequestContext): Promise<StaffSession
   if (!SEED_PASSWORD) return null;
   for (const base of [API_URL, WEB_URL]) {
     const r = await loginRaw(ctx, 'qa.owner', SEED_PASSWORD, base).catch(() => null);
-    if (r?.status === 200 && r.token) {
+    if (r?.status === 200 && r.token && !(r.body as Me).mfaEnrollmentRequired) {
       const s = { username: 'qa.owner', token: r.token, me: r.body as Me };
       storeSession(s);
       return s;
+    }
+    // BUG-R3-015: owner with 2FA (or still to enrol) on a MFA_ENFORCED stack – the full login path
+    if (r?.status === 200 || (r?.status === 401 && (r.body as Problem)?.code === 'MFA_REQUIRED')) {
+      const s = await freshSession(ctx, 'qa.owner', SEED_PASSWORD, base).catch(() => null);
+      if (s) {
+        storeSession(s);
+        return s;
+      }
     }
   }
   return null;
@@ -599,12 +679,28 @@ export async function testClock(
 }
 
 /**
+ * `GET /health` time of the stack. BUG-R2-222 (1): staging/production answer 404 to /health from the Internet (SEC
+ * OPS-12) and run the system clock – with E2E_LOCAL_CLOCK=1 the host clock (+07:00) is used instead. Never set it
+ * for a stack with a moved MutableClock.
+ */
+export async function healthTime(
+  ctx: APIRequestContext,
+): Promise<{ status: number; body: { time: string } }> {
+  if (LOCAL_CLOCK)
+    return {
+      status: 200,
+      body: { time: new Date(Date.now() + 7 * 3_600_000).toISOString().replace('Z', '+07:00') },
+    };
+  return call<{ time: string }>(ctx, 'GET', '/health');
+}
+
+/**
  * Business date "today" of the stack (getHealth.time is +07:00 and follows the MutableClock). BR-010: the business
  * day changes at `business_day_rollover` (DS-E 06:00), not at midnight – between 00:00 and 05:59 it is the
  * PREVIOUS calendar date (QA S3 testing 17/10: the calendar date made TC-L2-014/053, TC-L5-005/023 red after midnight).
  */
 export async function stackToday(ctx: APIRequestContext, rollover = '06:00'): Promise<string> {
-  const r = await call<{ time: string }>(ctx, 'GET', '/health');
+  const r = await healthTime(ctx);
   const date = r.body.time.slice(0, 10);
   if (r.body.time.slice(11, 16) >= rollover) return date;
   const d = new Date(`${date}T00:00:00Z`);
@@ -624,6 +720,18 @@ export function seedReauth(extra: { totpCode?: string; recoveryCode?: string } =
   recoveryCode?: string;
 } {
   return { password: SEED_PASSWORD ?? '', ...extra };
+}
+
+/**
+ * S2 of the DS-E account `username` on any stack (BUG-R3-015): the seed password, plus a fresh TOTP code when the
+ * account has a test secret in E2E_TOTP_DIR (stack MFA_ENFORCED=true). Use it wherever a DS-E OWN/MGR sends S2.
+ */
+export async function seedReauthFor(
+  username: string,
+): Promise<{ password: string; totpCode?: string }> {
+  return hasTotpSecret(username)
+    ? seedReauth({ totpCode: await nextTotpCode(username) })
+    : seedReauth();
 }
 
 /** Owner creates a throwaway account (must change password on first login – SR-AUTH-05). */
@@ -649,7 +757,7 @@ export async function createThrowawayUser(
       displayName: `Qa Tam ${role.replace(/[^a-z]/g, ' ')} ${uniqName(4)}`,
       initialPassword: password,
       roles: [{ propertyId: propertyIdOf(owner), role }],
-      reauth: seedReauth(), // CỔNG S2 (SEC 06.26): createUser needs S2
+      reauth: await seedReauthFor(owner.username), // CỔNG S2 (SEC 06.26): createUser needs S2
     },
   });
   expect(r.status, `createUser ${username}: ${JSON.stringify(r.body)}`).toBe(201);

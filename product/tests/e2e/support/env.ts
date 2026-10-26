@@ -47,6 +47,11 @@ export const GUEST_ORIGIN = new URL(
 ).origin;
 export const SEED_PASSWORD = secret('QA_SEED_PASSWORD');
 export const TEST_TOKEN = secret('TEST_SUPPORT_TOKEN');
+/**
+ * BUG-R2-222 (1): staging/production hide /health from the Internet and run the system clock – E2E_LOCAL_CLOCK=1
+ * takes "now" from the host (+07:00). Only for a target with CLOCK_MODE=system (never with project clock/desk-clock).
+ */
+export const LOCAL_CLOCK = process.env.E2E_LOCAL_CLOCK === '1';
 /** Dev over HTTP drops the __Host- prefix (COOKIE_SECURE_PREFIX=false). */
 export const COOKIE_PREFIX =
   (process.env.E2E_COOKIE_SECURE_PREFIX ?? fromDotEnv('COOKIE_SECURE_PREFIX') ?? 'false') === 'true'

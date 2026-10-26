@@ -16,6 +16,12 @@ import { ensureDeskDevice } from './support/device.js';
 import { API_URL, SEED_PASSWORD, SUBJECTS, TEST_TOKEN } from './support/env.js';
 
 export default async function globalSetup(): Promise<void> {
+  // Production read-only smoke (smoke-prod/): no DS-E account exists there and nothing may be written – no login
+  // of qa.*, no limiter reset, no device registration.
+  if (process.env.E2E_PROD_SMOKE === '1') {
+    console.log('[e2e setup] E2E_PROD_SMOKE=1 – bỏ qua đăng nhập DS-E (smoke production chỉ đọc)');
+    return;
+  }
   const ctx = await pwRequest.newContext();
   try {
     const health = await ctx

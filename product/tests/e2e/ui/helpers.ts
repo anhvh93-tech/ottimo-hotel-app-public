@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { expect, type Browser, type Page } from '@playwright/test';
 import { fakeMobile, resetRateLimits, session } from '../support/api.js';
 import { SEED_PASSWORD, SESSION_COOKIE, WEB_URL } from '../support/env.js';
+import { nextTotpCode } from '../support/totp-store.js';
 
 export const UI = process.env.E2E_UI === '1';
 
@@ -48,7 +49,14 @@ export async function loginForm(page: Page, user: string): Promise<void> {
     await page.getByRole('button', { name: /Đăng nhập/ }).click();
     const nav = page.getByRole('navigation').first();
     const limited = page.getByText(/quá nhiều lần/).first();
-    await expect(nav.or(limited)).toBeVisible({ timeout: 15_000 });
+    const totp = page.getByLabel(t('auth.code_label.totp'));
+    await expect(nav.or(limited).or(totp)).toBeVisible({ timeout: 15_000 });
+    if (await totp.isVisible()) {
+      // BUG-R3-015: DS-E account with 2FA (stack MFA_ENFORCED=true) – test TOTP from E2E_TOTP_DIR
+      await totp.fill(await nextTotpCode(user));
+      await page.getByRole('button', { name: t('auth.totp.submit') }).click();
+      await expect(nav.or(limited)).toBeVisible({ timeout: 15_000 });
+    }
     if (await nav.isVisible()) return;
     if (attempt > 0 || !(await resetRateLimits(page.context().request, `UI login ${user}`)))
       throw new Error(`login ${user}: SR-RL-01 – quá nhiều lần đăng nhập từ IP của web`);

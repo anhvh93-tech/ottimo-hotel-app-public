@@ -17,9 +17,10 @@ import {
   versionTag,
   type ApiResult,
   type StaffSession,
+  healthTime,
 } from './api.js';
 import { setClock } from './clock.js';
-import { SEED_PASSWORD } from './env.js';
+import { LOCAL_CLOCK, SEED_PASSWORD, TEST_TOKEN } from './env.js';
 import {
   addDays,
   createReservation,
@@ -345,7 +346,15 @@ export async function ensureReceivingAccount(
   ctx: APIRequestContext,
   effectiveFrom: string,
 ): Promise<void> {
-  const h = await call<{ time: string }>(ctx, 'GET', '/health');
+  // BUG-R3-015: staging/production (no test support, system clock) – the account is set by the owner on the
+  // Tham số screen (R3-Q51); the harness neither moves the clock nor writes the parameter there.
+  if (!TEST_TOKEN || LOCAL_CLOCK) {
+    console.log(
+      '[e2e] ensureReceivingAccount: đích không có test-support – dùng tài khoản nhận đang cấu hình',
+    );
+    return;
+  }
+  const h = await healthTime(ctx);
   expect(h.status, `/health: ${JSON.stringify(h.body)}`).toBe(200);
   const back = h.body.time;
   await at(ctx, vnTime(addDays(effectiveFrom, -1), '12:00'));

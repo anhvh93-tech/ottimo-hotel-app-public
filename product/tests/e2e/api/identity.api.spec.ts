@@ -17,7 +17,7 @@ import {
   propertyIdOf,
   requireEndpoints,
   resetRateLimits,
-  seedReauth,
+  seedReauthFor,
   sessionOrSkip,
   uniq,
   uniqName,
@@ -183,7 +183,7 @@ test.describe('L1 – đăng nhập, phiên, vai (US-001, US-002)', { tag: ['@ap
           displayName: 'Qa trùng',
           initialPassword: `E2e-${uniq(12)}-tmp`,
           roles: [{ propertyId: propertyIdOf(owner), role: 'housekeeping' }],
-          reauth: seedReauth(), // CỔNG S2: S2 is checked before the username (no 422 masking the 409)
+          reauth: await seedReauthFor('qa.owner'), // CỔNG S2: S2 is checked before the username (no 422 masking the 409)
         },
       });
       expectProblem(r, 409, 'USERNAME_TAKEN');
@@ -301,7 +301,7 @@ test.describe('L1 – đăng nhập, phiên, vai (US-001, US-002)', { tag: ['@ap
     const reset = await call<{ version: number }>(request, 'PATCH', `/v1/users/${y.id}`, {
       session: owner,
       ifMatch: `"${v1}"`,
-      body: { resetPassword: temp, reauth: seedReauth() }, // CỔNG S2 (SEC 06.26)
+      body: { resetPassword: temp, reauth: await seedReauthFor('qa.owner') }, // CỔNG S2 (SEC 06.26)
     });
     expect(reset.status, JSON.stringify(reset.body)).toBe(200);
     expect((await getMe(request, s1.token)).status, '(c) đặt lại mật khẩu thu hồi phiên').toBe(401);
@@ -312,7 +312,7 @@ test.describe('L1 – đăng nhập, phiên, vai (US-001, US-002)', { tag: ['@ap
     const disable = await call(request, 'PATCH', `/v1/users/${y.id}`, {
       session: owner,
       ifMatch: `"${reset.body.version}"`,
-      body: { status: 'disabled', reauth: seedReauth() }, // CỔNG S2 (SEC 06.26)
+      body: { status: 'disabled', reauth: await seedReauthFor('qa.owner') }, // CỔNG S2 (SEC 06.26)
     });
     expect(disable.status, JSON.stringify(disable.body)).toBe(200);
     expect((await getMe(request, s2.token)).status, '(b) khóa tài khoản thu hồi phiên').toBe(401);

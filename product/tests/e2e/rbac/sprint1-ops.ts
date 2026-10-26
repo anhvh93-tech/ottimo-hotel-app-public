@@ -14,7 +14,7 @@ import type { APIRequestContext } from '@playwright/test';
 import {
   call,
   propertyIdOf,
-  seedReauth,
+  seedReauthFor,
   session,
   uniq,
   uniqName,
@@ -118,7 +118,7 @@ export const SPRINT1_OPS: Record<string, OpDef> = {
         roles: [{ propertyId: f.propertyId, role: 'housekeeping' }],
         // CỔNG S2 (SEC 06.26): only the caller's own password, and only for the allowed role – a refused role
         // gets 403 before S2 is looked at (and never carries another account's password).
-        ...(sub === 'qa.owner' ? { reauth: seedReauth() } : {}),
+        ...(sub === 'qa.owner' ? { reauth: await seedReauthFor(sub) } : {}),
       },
       note: 'owner tạo tài khoản tạm qa.e2e.rb* (kèm S2)',
     }),
@@ -165,7 +165,10 @@ export const SPRINT1_OPS: Record<string, OpDef> = {
       params: P(f, { deviceId: uuid() }),
       idempotencyKey: true,
       // CỔNG S2 (SEC 06.27): S2 is verified before the device lookup – without it the owner gets 422.
-      body: { reason: 'E2E RBAC', ...(sub === 'qa.owner' ? { reauth: seedReauth() } : {}) },
+      body: {
+        reason: 'E2E RBAC',
+        ...(sub === 'qa.owner' ? { reauth: await seedReauthFor(sub) } : {}),
+      },
       accept: [404],
       note: 'deviceId ngẫu nhiên → owner 404 (kèm S2)',
     }),

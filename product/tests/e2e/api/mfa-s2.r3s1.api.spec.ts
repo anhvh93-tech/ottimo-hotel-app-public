@@ -41,6 +41,12 @@ async function liveUser(
 ): Promise<{ id: string; username: string; password: string; s: StaffSession }> {
   const u = await createThrowawayUser(request, owner, role, prefix);
   const { session: s, password } = await activateUser(request, u);
+  // BUG-R3-015: on a stack with MFA_ENFORCED=true a new OWN/MGR only gets the "enrol 2FA first" session – these
+  // cases need a stack with the flag off (dev/CI); the enforced path is covered by ui-clock/mfa-us143-clock + QA-3.
+  test.skip(
+    !!s.me.mfaEnrollmentRequired,
+    'stack MFA_ENFORCED=true: tài khoản tạm OWN/MGR phải đăng ký 2FA trước – ca này chạy trên stack cờ tắt',
+  );
   return { id: u.id, username: u.username, password, s };
 }
 

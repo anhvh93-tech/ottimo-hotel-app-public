@@ -23,6 +23,7 @@ import {
   type ApiResult,
   type Problem,
   type StaffSession,
+  healthTime,
 } from './api.js';
 
 /** Problem fields that can sit next to a resource body (`status` excluded: resource status is a string). */
@@ -188,7 +189,7 @@ const rnd = (min: number, max: number) => min + Math.floor(Math.random() * (max 
 
 /** Stack "now" (GET /health – follows the MutableClock, +07:00). */
 export async function stackNow(ctx: APIRequestContext): Promise<string> {
-  const r = await call<{ time: string }>(ctx, 'GET', '/health');
+  const r = await healthTime(ctx);
   return r.body.time;
 }
 

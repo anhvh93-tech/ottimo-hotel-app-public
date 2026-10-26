@@ -48,6 +48,13 @@ export default defineConfig({
   },
   projects: [
     { name: 'smoke', testMatch: /smoke\/.*\.spec\.ts$/ },
+    // Production read-only smoke after a deploy (QA-3, BUG-R3-015): GET only, + one optional login/logout of a smoke
+    // account given by the person running it. Needs E2E_PROD_SMOKE=1, otherwise every case skips.
+    {
+      name: 'smoke-prod',
+      testMatch: /smoke-prod\/.*\.prod\.spec\.ts$/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1366, height: 768 } },
+    },
     { name: 'rbac', testMatch: /rbac\/rbac-sprint\d\.spec\.ts$/ },
     { name: 'api', testMatch: /api\/.*\.api\.spec\.ts$/ },
     // TC-NT-043 lockout / SR-RL-01 IP window: serial, after every project that logs in through the

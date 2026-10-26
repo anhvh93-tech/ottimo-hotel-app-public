@@ -36,6 +36,7 @@ import {
   type ApiResult,
   type CallOptions,
   type StaffSession,
+  healthTime,
 } from './api.js';
 import {
   API_URL,
@@ -1134,7 +1135,7 @@ export function decisionRequired(body: unknown): boolean {
 
 /** HH:MM of the stack clock (GET /health time is +07:00 and follows the MutableClock). */
 export async function serverLocalTime(ctx: APIRequestContext): Promise<string> {
-  const h = await call<{ time: string }>(ctx, 'GET', '/health');
+  const h = await healthTime(ctx);
   return h.body.time.slice(11, 16);
 }
 
@@ -1236,7 +1237,7 @@ export async function stackBusinessDate(
   ctx: APIRequestContext,
   rollover = '06:00',
 ): Promise<string> {
-  const r = await call<{ time: string }>(ctx, 'GET', '/health');
+  const r = await healthTime(ctx);
   const date = r.body.time.slice(0, 10);
   return r.body.time.slice(11, 16) < rollover ? addDays(date, -1) : date;
 }
