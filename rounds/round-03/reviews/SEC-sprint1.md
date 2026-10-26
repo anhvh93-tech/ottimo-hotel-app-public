@@ -441,3 +441,90 @@ Sau B1 (khi có kết quả): G2-4 → SEC ghi "OWN thật đăng ký 2FA trên 
 
 - Kiểm lại của SEC: `vitest run test/integration/production-bootstrap.test.ts` trong worktree – 4 ca đơn vị đạt; 6 ca cần DB bị bỏ qua (không có DB ở máy SEC lúc review). Ca tích hợp đọc lại ba khóa từ DB phải xanh trong CI trước khi gộp – QA-3 xác nhận.
 - Việc còn mở theo mục 5.6 không đổi: migration nới 90 (v1.0.1), câu `gw.notice_body` v2 trước khách thật đầu tiên dùng check-in online.
+
+---
+
+## 8. Review BE-B vá ESC-031 – phụ thu trả muộn bằng giá 1 đêm, lễ tân ghi – quản lý hậu kiểm (commit `35a477c`, nhánh `worktree-agent-ae045319d05dda682`)
+
+- Người ghi: SEC | 26/10/2026 | Bước: Review (Round 3, ngoại lệ đóng băng mã tiền ORC 26/10, chỉ phạm vi ESC-031/ESC-024 B; cổng gộp INV = DOM + ARC + SEC + QA kiểm tiền).
+- Phạm vi đọc: diff `35a477c` (trừ snapshot) – `checkout.service.ts` (`lateFeeInput`, `checkOut`, `decide`, `recordForPostReview`), `frontdesk.controller.ts` (`checkOut`, `lateFeeApprover`), `late-fee-review-job.ts`, `events.service.ts` (`attentionAudience`), `attention.service.ts` (`dueOf`), migration `0088`, hai tệp test; thiết kế `rounds/round-03/outputs/BE/esc031-be-b.md`. Đối chiếu `Fields.bool`, `EventsService.notify`, `job-runner` (chạy theo từng cơ sở), `architecture.test.ts` (RLS mọi bảng).
+- Kiểm lại của SEC trên Postgres 17 riêng (container tạm, mật khẩu sinh ngẫu nhiên ngoài repo, đã xóa sau khi chạy): `esc031-late-fee-post-review` 6/6, `esc031-units` 3/3, `mfa-us143*` xanh (32 ca); hồi quy `s438r3/r4/r5-money`, `s438-r8/*`, `architecture`, `notification-kinds`, `module-boundaries` – 19 tệp, 165 ca xanh.
+- **Kết luận: Verified**, kèm 4 điều kiện ở 8.6. Không có thẻ Blocker/Major.
+
+### 8.1 Không có lối vượt quyền
+
+| Điểm kiểm | Bằng chứng trong mã | Đạt |
+|---|---|---|
+| Không mật khẩu, không kiểm mật khẩu của ai | `lateFeeApprover`: `postReview` khác `undefined/null/false` → trả `null` trước mọi đọc `secret`; `verifyApprover` không được gọi, nên không có oracle mật khẩu, không đếm SR-RL-02, không `account_security_change`. Ca 1 kiểm 0 audit `security`, bộ đếm 0 | Đạt |
+| Gửi kèm thông tin xác nhận bị từ chối | `POST_REVIEW_FORBIDDEN` (`approverUsername`, `authMethod`, `secret`, `totpCode`, `confirmationId`, `requestFoc`): khác `undefined/null` → 422 `NOT_ALLOWED` từng trường (chuỗi rỗng cũng bị chặn). Phòng thủ lớp 2: `postReview && approver` → 422 (không thể xảy ra qua controller, giữ lại là đúng) | Đạt |
+| Không miễn/giảm trong lệnh | `requestFoc` bị bỏ qua khi đọc (`rf = postReview ? undefined : …`) và bị 422; khối `if (fee && approver)` (chỗ duy nhất duyệt FOC lồng) không chạy khi không có người xác nhận | Đạt |
+| Số do server tính | `decide`: `surcharge = lateChargeOf(d)` = `extraNight.defaultRateVnd` (giá mặc định, không phải giá sửa tay); `amountVnd !== surcharge` → 409 `SURCHARGE_CHANGED` (ca −100.000 và +1). Không có ô nào cho lễ tân chọn giá | Đạt |
+| Chỉ mở khi đêm không bán được | `unsellable = !!d.extraNight && !d.extraNight.available` (`occupancy.isFree` dưới khóa đơn); `lateFee && !unsellable` → 422 `NOT_ALLOWED`; trả trước giới hạn giờ (`d.extraNight` null) cũng 422 | Đạt |
+| Lỗi trả trước khi ghi | 422 trường: `readInput` + `f.done()` đầu `checkOut`, trước `loadReservation`. 409/422 nghiệp vụ: trong `decide` (chỉ đọc), trước `addExtraNight`/`replaceLateCharge`/audit/thông báo. Lỗi sau đó (minibar, yêu cầu chờ, số dư) rollback cả dòng, audit, thông báo, mục "Cần chú ý" vì cùng giao dịch. Ca 3 kiểm 0 dòng/0 audit/0 thông báo/0 mục | Đạt |
+| Kiểu cờ lạ | `postReview: 'yes'`/`0`/`"false"`: controller không coi là đường quầy (không đòi mật khẩu), `Fields.bool` → 422 `VALIDATION_FAILED`. Không có giá trị nào rơi vào trạng thái "không xác nhận mà vẫn ghi" ngoài `true` | Đạt |
+| Ai gọi | `x-roles` `checkOut` không đổi; vẫn cần thiết bị tin cậy (`x-requires-trusted-device`) và phiên nhân viên. MGR/OWN gọi `postReview` theo đúng luật trên, không có lối tắt "mật khẩu của chính mình" | Đạt |
+
+### 8.2 Fail-closed với người có 2FA giữ nguyên
+
+- `PasswordReauth`, MFA, phiên, `verifyApprover`: **không tệp nào trong `src/modules/auth*` hay `mfa*` bị sửa**. Đường `postReview: false`/vắng vẫn đi `verifyApprover` y như cũ.
+- Ca 2: MGR có 2FA xác nhận tại quầy → 401 `REAUTH_FAILED`, không ghi gì; cùng lệnh với `postReview` → 200. `mfa-us143` ca 15 xanh.
+- SEC giữ quyết 3.6 ghi chú 3: không nới fail-closed. Bản vá đi đường vòng hợp lệ (không cần người xác nhận) chứ không hạ kiểm.
+
+### 8.3 Audit, thông báo, "Cần chú ý" – đúng người thấy
+
+- Audit `money` `reservation.late_fee_instead_of_night`: actor = người ghi, `channel = post_review`, `reviewDueAt`, **không** `confirmedBy` – người đọc sổ không nhầm là đã có quản lý xác nhận. Lý do bắt buộc (≥ 3 ký tự). `reviewDueAt` đã thêm vào danh sách trường audit của `reservation`.
+- Thông báo `late_fee_post_review`: `roles: ['owner','manager']`, trừ người ghi; `notify` lấy `property_id` từ ngữ cảnh giao dịch, chỉ người dùng `active` có vai còn hiệu lực ở cơ sở. Nội dung chỉ mã đơn + id (SEC J), không số tiền, không tên khách.
+- "Cần chú ý": `attentionAudience` → `MGR_PLUS`; không mang `params`; `dedupeKey` một mục mỗi đơn. FD/FDL không thấy, `resolve` của FD → 404 (ca 5). `dueAt` = tạo + `post_checkout_charge_hours` – khớp cửa sổ A32 trên folio `settled`, nên hạn hậu kiểm không vượt lúc còn miễn được.
+- Miễn sau hậu kiểm không mở đường tiền mới: A32 → hoàn tự sinh, `SELF_REFUND_FORBIDDEN`, BR-433 (e) đếm vào Σ ESC-026 – đã Verified ở FZ-02/K11-06; hồi quy `s438-r8` xanh.
+
+### 8.4 Job quá hạn `late_fee.post_review_overdue`
+
+- Chạy theo từng cơ sở (`job-runner` → `worker_list_properties()` + `withContext`); `attention_event`, `staff_notification` có RLS (kiểm `architecture.test.ts`), nên truy vấn không lọc `property_id` vẫn không đọc chéo cơ sở.
+- Chỉ báo OWN, một lần: điều kiện "đã có thông báo OWN cùng kind cho đơn, tạo từ hạn trở đi" – chạy trễ hoặc chạy lặp không báo hai lần (ca 6: 3 lượt chạy thêm vẫn 2). Thiếu tham số → không làm gì (không ném, không báo sai).
+- Mục vẫn mở sau khi báo; J15 đóng folio như cũ. Đúng BR-416 (4).
+- Chi tiết nhỏ: nếu cơ sở không còn OWN đang hoạt động, mục quá hạn bị chọn lại mỗi lượt (không chèn gì) – xem FB-R3-SEC-BE-B-12.
+
+### 8.5 Rủi ro "tạo đơn/giữ chỗ giả cho đêm đó để mở đường này" và idempotency
+
+**Đơn giả – đánh giá Low, chấp nhận cho v1.0.** Lễ tân có thể tạo giữ chỗ/đơn cho căn đó đêm ngày đi để `isFree` = false, rồi hủy sau khi trả phòng. Nhưng:
+1. Số tiền không đổi theo hướng có lợi cho ai: phụ thu = `defaultRateVnd`, đúng bằng giá mặc định của đêm thêm mà lễ tân vẫn bán được không cần quản lý ở đường `extraNight`. Đường `postReview` còn **chặt hơn** đường đêm thêm (không có giá tay trong khoảng sàn–trần, không có FOC).
+2. Không lấy được tiền: không giảm, không miễn, không hoàn; miễn chỉ qua A32 của MGR+ và hoàn do người khác chi.
+3. Có dấu vết: audit tạo/hủy giữ chỗ hoặc đơn (người tạo, giờ) + thông báo `late_fee_post_review` tới OWN/MGR ngay lúc ghi.
+4. Tác hại còn lại là với khách: khách muốn ở thêm bị buộc rời đi nhưng trả cùng số tiền; hoặc lễ tân bấm trả phòng muộn hơn giờ khách đi thật để vượt giới hạn giờ (rủi ro này có sẵn ở mọi bậc phụ thu, giờ gõ tay đã bị chặn không được sau giờ máy + dung sai). Biện pháp: hậu kiểm của quản lý – FB-R3-SEC-BE-B-10 làm việc này dễ hơn.
+
+**Idempotency – Đạt.** Khóa `Idempotency-Key` đã hoàn tất trả kết quả cũ trước mọi kiểm (BUG-R2-150), ca 4: 1 dòng, 1 audit, 1 thông báo mỗi người. Không có khóa: B18 khóa đơn `FOR UPDATE` + `If-Match`, lệnh thứ hai 409 vì đơn không còn `in_house`/phiên bản đổi. Mục "Cần chú ý" có `dedupeKey`.
+
+**Giả định BE (mục 5 thiết kế) – SEC xác nhận:** (1) không có đồng hồ 15 phút ở v1.0 – không làm yếu kiểm soát vì v1.0 không có kênh xác nhận từ xa để chờ; biện pháp bù là thông báo + hậu kiểm + A32. (2) FOC trả muộn đã duyệt trước đi theo dòng mới – được, vì đã do MGR+ duyệt bằng phiên của chính họ (`approveRequest`, phiên đã qua 2FA). (3) hạn = `post_checkout_charge_hours` – đúng hơn khóa riêng. (4), (5) – không có tác động bảo mật.
+
+### FB-R3-SEC-BE-B-10
+- Mức độ: Minor
+- Vị trí: `checkout.service.ts` `recordForPostReview` (audit `after`), màn "Cần chú ý" `late_fee_post_review`
+- Vấn đề: người hậu kiểm thấy số tiền, giờ đi, lý do, nhưng không thấy **vì sao** đêm không bán được. Muốn phát hiện giữ chỗ/đơn giả (8.5) phải tự mở lịch phòng.
+- Vì sao quan trọng: hậu kiểm là biện pháp kiểm soát duy nhất của đường này; thiếu thông tin thì quản lý dễ bấm "Đã xem" cho qua.
+- Đề xuất sửa: v1.0.1 – ghi thêm vào audit `after.blockedBy` mã đơn/giữ chỗ chiếm đêm đó (chỉ mã, không tên khách) và cờ "tạo sau khi khách nhận phòng". Trước đó: PO thêm 1 dòng vào `staff-one-pager.md` cho quản lý – "khi xem lại, mở lịch căn đó đêm ngày đi, kiểm đơn đang chiếm có thật không".
+- Trạng thái: Open
+
+### FB-R3-SEC-BE-B-11
+- Mức độ: Suggestion
+- Vị trí: `recordForPostReview` + `resolveAttentionEvent`
+- Vấn đề: khi người ghi là MGR, chính họ vẫn đóng được mục "Cần chú ý" của mình (tự hậu kiểm). OWN vẫn nhận thông báo nên không mất dấu, nhưng mục biến mất khỏi danh sách của OWN.
+- Vì sao quan trọng: tách người làm – người kiểm.
+- Đề xuất sửa: v1.1 – không cho người ghi đóng mục của chính mình (hoặc khi người ghi là MGR thì mục chỉ OWN đóng được). Không cần cho v1.0 (OTTIMO: 1 OWN, MGR ít).
+- Trạng thái: Open
+
+### FB-R3-SEC-BE-B-12
+- Mức độ: Suggestion
+- Vị trí: `late-fee-review-job.ts` truy vấn chọn mục quá hạn
+- Vấn đề: không có OWN đang hoạt động → `notify` không chèn gì → mục bị chọn lại mỗi lượt; >100 mục như vậy sẽ chặn mục mới hơn (`ORDER BY created_at LIMIT 100`).
+- Vì sao quan trọng: thấp – OTTIMO luôn có OWN; chỉ ảnh hưởng cơ sở mất chủ tài khoản.
+- Đề xuất sửa: khi `notify` trả 0 người nhận, ghi log cảnh báo (mã đơn) để OPS thấy; hoặc lọc trước các cơ sở không có OWN.
+- Trạng thái: Open
+
+### 8.6 Điều kiện
+
+1. **FE cùng bản** (không thì vá vô dụng): `CheckOutPage.tsx` khi `extraNightAvailable = false` gửi `{amountVnd: lateFeeAsNightVnd, reason, postReview: true}` – **không** gửi `secret`, `approverUsername`, `authMethod`, `totpCode`, `requestFoc` (kể cả rỗng: chuỗi rỗng bị 422); số chỉ đọc; không giữ mật khẩu đã gõ ở panel cũ trong state khi chuyển sang đường mới. Ẩn panel mật khẩu quản lý ở production. SEC xem diff FE trước gộp.
+2. **ARC chốt addendum 8** (trường `postReview` trong OpenAPI, `after.channel` thêm `post_review`) và sinh lại `api-client` trước khi FE dùng.
+3. **QA kiểm tiền** trên stack `MFA_ENFORCED=true` (harness BUG-R3-015): ca 1–6 của BE + ca MGR có 2FA ở đường quầy vẫn 401.
+4. **Rebase lên `main` trước gộp**: lấy lại số migration nếu `main` có migration mới sau 0087; `notification-kinds` và `migrations-journal` phải xanh lại. Commit gộp vào bản chạy ngày D (02/11).
+
+- Cảm ơn BE-B: (a) chặn từng trường thông tin xác nhận thay vì lặng lẽ bỏ qua – lễ tân và FE nhận lỗi rõ; (b) đặt hạn hậu kiểm = cửa sổ A32 nên không có "hạn xem lại mà miễn không được"; (c) audit không ghi `confirmedBy` – sổ không nói dối.
