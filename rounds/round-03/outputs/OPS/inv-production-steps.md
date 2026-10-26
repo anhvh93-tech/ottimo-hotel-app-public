@@ -256,6 +256,45 @@ SEC không khuyến nghị cách này. Hệ thống ghi cảnh báo mỗi lần 
 
 ---
 
+## Phần 9 – Cập nhật 26/10: 4 việc để bản chính thức chạy lần đầu (khoảng 20 phút)
+
+Đã xong (anh/chị không phải làm): DNS `desk`, `staff`, `g`; môi trường GitHub `production`; SMTP relay (máy chủ đã kết nối thử được, chưa gửi thư); khóa sao lưu production; bắt buộc 2 bước trên staging. Phần 3a và 4a **đội đã làm trên máy Mac của anh/chị**, nên bỏ qua.
+
+Làm theo thứ tự, trên chính máy Mac này, trong ứng dụng **Terminal**. Không dán gì vào chat.
+
+**9.1 Cài 2 khóa lên máy chủ (3 phút).** Chép cả khối, thay `<IP-VPS>` ở dòng đầu, Enter:
+```bash
+IP=<IP-VPS>
+ssh -i ~/.ssh/ottimo_ops ottimo-admin@$IP 'sudo tee -a /home/ottimo/.ssh/authorized_keys >/dev/null' <<EOF
+command="/opt/ottimo-prod/infra/server/bin/deploy-from-ci.sh",restrict $(cat ~/.ssh/ottimo_ci_production.pub)
+command="/usr/bin/rrsync -ro /var/backups/ottimo-prod",restrict $(cat ~/.ssh/ottimo_backup_pull.pub)
+EOF
+ssh -i ~/.ssh/ottimo_ops ottimo-admin@$IP 'sudo ssh-keygen -lf /home/ottimo/.ssh/authorized_keys'
+```
+- Nếu máy hỏi mật khẩu khóa `ottimo_ops`: gõ như mọi lần.
+- Dòng cuối in ra 4 dòng. Phải có `SHA256:eLPWBo5H…` (`ottimo-ci-production`) và `SHA256:SdZM00vT…` (`ottimo-backup-pull-production`).
+- Khóa thứ nhất chỉ chạy được lệnh deploy bản chính thức. Khóa thứ hai chỉ đọc được thư mục sao lưu. Không khóa nào mở được dòng lệnh.
+
+**9.2 Đưa khóa deploy lên GitHub (3 phút).** Làm đúng phần 3b ở trên (khối lệnh 5 dòng, thay `<IP-VPS>` ở 2 chỗ). Dòng `rm` xóa khóa riêng khỏi Mac sau khi đã lên GitHub, như vậy là đúng. Kết quả phải có 3 tên `PRODUCTION_SSH_HOST`, `PRODUCTION_SSH_KEY`, `PRODUCTION_SSH_KNOWN_HOSTS`.
+
+**9.3 Cất khóa sao lưu production (10 phút).** Tệp `~/.ottimo/backup/ottimo-prod-backup-identity.txt` (Finder → Go → Go to Folder… → dán `~/.ottimo/backup`).
+- Chép nội dung vào trình quản lý mật khẩu, mục "OTTIMO – khóa sao lưu production".
+- Thêm một bản ngoại tuyến (USB mã hóa hoặc giấy in, cất két).
+- **Khác** khóa staging. Không gửi qua chat, không chụp ảnh.
+
+Xong 9.1–9.3 thì nhắn đội: **"đã cài khóa production"**.
+
+**9.4 Duyệt lượt Release đầu tiên (2 phút) – khi đội báo số tag.**
+- ORC đẩy tag dạng `v1.0.0-rc.…` trên commit đã chạy ở staging. GitHub gửi email "Review deployments".
+- Duyệt theo phần 5. Lượt này dựng bản chính thức với **dữ liệu trống, chưa có tài khoản nào**, nên chưa ai dùng được. Máy chủ tự xin chứng chỉ HTTPS cho `desk`, `staff`, `g.ottimo.vn`.
+- Trang `ottimo.vn` không bị ảnh hưởng.
+
+**Sau đó (đội hẹn giờ với anh/chị):**
+- Diễn tập khôi phục sao lưu production (khoảng 30 phút, cần khóa ở 9.3).
+- Chép KEK ngoại tuyến (phần 4b), **trước** khi có dữ liệu thật.
+- Thư thử 8b: kiểm hộp thư có thư "OTTIMO – Security notice…".
+- Buổi tạo tài khoản chủ: đội chạy lệnh, anh/chị ngồi cạnh. Anh/chị đăng nhập, đổi mật khẩu, **đăng ký 2 bước ngay**, cất 10 mã khôi phục. Mật khẩu tạm chỉ hiện trên màn hình máy chủ, không gửi chat.
+
 ## Tóm tắt thứ tự
 
 1. Phần 1, 2: làm ngay.
@@ -264,6 +303,7 @@ SEC không khuyến nghị cách này. Hệ thống ghi cảnh báo mỗi lần 
 4. Phần 6: làm được ngay (ESC-029 đã quyết A).
 5. Phần 8: 8a làm ngay được; 8b khi đội dựng production (trước v1.0).
 6. Phần 5: mỗi lần phát hành.
+7. **Phần 9 (26/10): làm ngay** – thay cho phần 3a, 4a.
 
 ## Khi cần thu hồi (sự cố, lộ khóa, đổi người)
 

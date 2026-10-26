@@ -422,3 +422,83 @@ Làm từ máy Mac của INV, SSH `ottimo-admin` (khóa `ottimo_ops`). Giờ VN.
 **Không gắn tag `landing-v*`:** environment `production` của repo chưa có secret `PRODUCTION_SSH_KEY/HOST/KNOWN_HOSTS` (`gh secret list --env production` rỗng), nên `release.yml` sẽ dừng ở job deploy. Lần này deploy tay bằng đúng script và digest mà `release.yml` dùng. Khi INV làm xong `inv-production-steps.md` phần 2–3, phát hành landing sẽ qua tag + duyệt.
 
 **Còn mở (không đổi):** UptimeRobot cho `ottimo.vn` (ESC-029 A); form website chỉ bật cùng ngày Desk production (README 12.3).
+
+## 16. 26/10 – staging `MFA_ENFORCED=true`, email relay, chuẩn bị app production (ORC giao, đường nhanh v1.0)
+
+Làm từ máy Mac của INV, SSH `ottimo-admin` (khóa `ottimo_ops`). Giờ VN. Không ghi IP, không in `.env` hay bí mật. Mật khẩu tài khoản `qa.*` đọc từ tệp ngoài repo, không in ra.
+
+### 16.1 Staging chạy đúng `2963675`
+
+| Kiểm | Kết quả |
+|---|---|
+| Lượt CI 40199367309 (push `main` `2963675`) | `success`, mọi job kiểm xanh; job `deploy staging` xanh (INV duyệt). `deploy landing preview` bỏ qua (đã bỏ từ 24/10) |
+| Tag đang chạy (`state/current_tag`, `deploy-history.log`) | `sha-29636757822b`, live 11:25:39 |
+| Digest container api / web | `sha256:3298064f…cbfe8` / `sha256:88fb9b61…7a7246b` = **đúng** digest artifact `image-digests` của lượt CI đó |
+| `/health` qua đường nội bộ (`dc exec api wget 127.0.0.1:3000/health`) | `{"status":"ok","db":"ok"}` |
+| `https://desk|staff|g.staging.ottimo.vn/` | 200 cả ba |
+| `ops-check` staging (11:41) | 7/7 ok (containers, j16, backup, disk, mem 83 % trống, tls, http5xx) |
+
+Ghi chú: bundle `infra/` trên staging vẫn là `4fab25b` (24/10). Khác `main` chỉ ở phần form website US-155 (landing), staging không chạy landing nên không ảnh hưởng. Cập nhật cùng lần chạm hạ tầng staging kế tiếp.
+
+### 16.2 Staging `MFA_ENFORCED=true`
+
+Cơ chế của stack: cờ là biến trong `/opt/ottimo/.env` → compose đưa vào api và worker (`MFA_ENFORCED: ${MFA_ENFORCED:-false}`). Trước đó `.env` staging **không có** dòng này, nên đang là `false`.
+
+| Giờ | Việc | Kết quả |
+|---|---|---|
+| 11:39:02 | Sao lưu `.env` → `state/env.before-mfa.20261026-113902` (0600 `ottimo`). Thêm 1 dòng `MFA_ENFORCED=true` | `.env` giữ `ottimo:ottimo 600`. Lần gọi `dc up` đầu bị compose từ chối vì thư mục làm việc không đọc được (không đổi gì) |
+| 11:39:11–11:39:25 | `dc up --detach --wait --no-deps api worker` (từ `/opt/ottimo`, người dùng `ottimo`) | api, worker dựng lại cùng image `sha-29636757822b`, healthy sau 14 giây. **web và postgres không dựng lại**, DB không đụng |
+| 11:39:26 | `printenv MFA_ENFORCED` trong api và worker | `true` / `true`. `/health` ok |
+
+Kiểm bằng API qua `https://desk.staging.ottimo.vn` (đăng nhập → `GET /v1/me/2fa` → `GET /v1/properties/:id/rooms` → đăng xuất; không bắt đầu đăng ký 2FA, không đổi dữ liệu):
+
+| Tài khoản (vai) | Trước (11:37) | Sau (11:39) |
+|---|---|---|
+| `qa.owner` (OWN, chưa 2FA) | `mfaEnrollmentRequired=false`, rooms 200 | **`mfaEnrollmentRequired=true`**, `/me/2fa` 200, rooms **403 `MFA_ENROLLMENT_REQUIRED`** |
+| `qa.mgr` (MGR, chưa 2FA) | `false`, rooms 200 | **`true`**, `/me/2fa` 200, rooms **403 `MFA_ENROLLMENT_REQUIRED`** |
+| `qa.fd`, `qa.fdl` (lễ tân) | `false`, rooms 200 | `false`, rooms 200 – không bị ảnh hưởng |
+| `qa.hk` (buồng phòng) | – | `false`; rooms 403 `FORBIDDEN_ACTION` do vai (từ origin Desk), không liên quan 2FA |
+
+Kết luận: đúng SEC 06.4 – OWN/MGR chưa có 2FA chỉ vào được các thao tác đăng ký; vai khác không đổi.
+
+Ảnh hưởng cần biết:
+- Từ nay ai dùng `qa.owner` / `qa.mgr` (QA, UAT của INV trên staging) phải đăng ký 2FA ở lần đăng nhập đầu. Muốn ca E2E chạy bằng hai tài khoản này thì QA dùng TOTP thử trong test.
+- Lệch thứ tự `sprint-1-plan.md` 4.3 (bật sau khi INV đăng ký 2FA và OPS diễn tập 06.33): bật trước theo lệnh ORC 26/10. Rủi ro thấp: staging chỉ có dữ liệu giả, không ai bị khóa ngoài (vẫn đăng ký được).
+- Quay lui: xóa dòng `MFA_ENFORCED=true` (hoặc chép lại bản `env.before-mfa.*`), chạy lại lệnh `dc up` ở trên.
+
+### 16.3 Email: Google Workspace SMTP relay (INV lưu cấu hình 26/10)
+
+Kiểm từ VPS, **không gửi thư** (không `RCPT`, không `DATA`): `EHLO ottimo.vn` → `STARTTLS` (kiểm chứng chỉ, TLS ≥ 1.2) → `EHLO` → `MAIL FROM:<info@ottimo.vn>` → `RSET` → `QUIT`.
+
+| Lúc | Từ đâu | Kết quả |
+|---|---|---|
+| 11:40 | Máy chủ (IPv4; máy chủ không có tuyến IPv6 mặc định) | Google thấy đúng IP VPS trong lời chào. STARTTLS 220, **TLS 1.3**. `MAIL FROM` **250 2.1.0 OK**. RSET 250, QUIT 221 |
+| 11:41 | Container tạm (image api `sha-29636757822b`, mạng bridge, `--read-only --cap-drop ALL`) – cùng đường NAT worker production sẽ dùng | Như trên: IP VPS, TLS 1.3, chứng chỉ hợp lệ, `MAIL FROM` 250 |
+
+- Google **không từ chối** ở bước người gửi. Khi IP chưa được nhận, relay trả `550 5.7.x … relay` ở đây, nên không cần thử lại mỗi 15 phút.
+- Giới hạn của cách kiểm: không gửi tới người nhận nên chưa chứng minh trọn vòng. Bằng chứng cuối là **thư thử 8b** (worker production gửi tới hộp thư INV) ngay sau lần deploy app production đầu tiên.
+- `/opt/ottimo-prod/secrets/email_smtp_password` rỗng (đúng chế độ relay); `.env` production: `EMAIL_PROVIDER=smtp`, `EMAIL_SMTP_MODE=relay`, `smtp-relay.gmail.com:587`, `EMAIL_FROM=info@ottimo.vn`.
+
+### 16.4 Production `desk/staff/g.ottimo.vn` – chuẩn bị (chưa deploy app)
+
+| Hạng mục | Trạng thái 26/10 |
+|---|---|
+| DNS A `desk`, `staff`, `g` | Đúng IP VPS trên 1.1.1.1 và `ns1.matbao.vn`; không có AAAA |
+| Edge (SNI 443 + Host 80) | Đã có tuyến `desk/staff/g.ottimo.vn` → `production-web` từ 24/10. Hiện chưa có container web production nên 443 bị đóng kết nối, 80 trả 502 – đúng dự kiến |
+| `.env` production | `APP_ENV=production`, `MFA_ENFORCED=true`, `CLOCK_MODE=system`, `INCLUDE_TEST_SUPPORT=0`, không `API_TAG_SUFFIX`/`TEST_SUPPORT_TOKEN`, 3 tên miền, `ACME_EMAIL=info@ottimo.vn`. **Thêm `LANDING_PUBLIC_API=off`** (11:43, sao lưu `state/env.before-prod-prep.20261026-114307`) – trước đây chỉ ngầm định `off` |
+| `dc --profile landing config -q` (tag thử `sha-29636757822b`) | Hợp lệ: postgres, api, worker, web + landing |
+| Bí mật production | Đủ tệp từ 24/10 (KEK, session, VAPID, khóa form, mật khẩu DB…), riêng staging. KEK chưa có bản ngoại tuyến của INV |
+| Khóa `age` sao lưu production | **Mới**: sinh trên Mac INV (công cụ `age` trong container, không mạng). Khóa riêng `~/.ottimo/backup/ottimo-prod-backup-identity.txt` (0600), **khác** khóa staging. Chỉ khóa công khai lên `/opt/ottimo-prod/backup/recipients.txt` (0640 `root:ottimo`) |
+| Khóa CI production (`PRODUCTION_SSH_*`) | Cặp khóa đã sinh trên Mac INV: `~/.ssh/ottimo_ci_production` (vân tay `SHA256:eLPWBo5H…rPf4`). **Chưa cài lên máy chủ**: thêm khóa vào `authorized_keys` bị hệ thống quyền của phiên chặn (tạo quyền truy cập lâu dài cần INV cho phép). INV tự cài bằng 1 lệnh (`inv-production-steps.md` phần 9) |
+| Khóa kéo sao lưu ra ngoài (`rrsync -ro`) | Cặp khóa đã sinh: `~/.ssh/ottimo_backup_pull` (vân tay `SHA256:SdZM00vT…DxQE`). Chưa cài, cùng lý do, cùng lệnh phần 9 |
+| GitHub environment `production` | Có: người duyệt `anhvh93-tech`, chỉ tag `v*`, `landing-v*`. **Chưa có secret** (`gh secret list --env production` rỗng). Chưa có tag nào |
+| Timer `ottimo-backup@ottimo-prod`, `ottimo-ops-check@ottimo-prod` | Chưa bật – bật ngay sau deploy app đầu (kiểm `containers` sẽ báo lỗi nếu bật trước) |
+| RAM / đĩa | 4,1 GB khả dụng / 4,9 GB; đĩa 15 % |
+
+**Dừng ở đây.** Deploy app production cần (1) khóa CI cài trên máy chủ, (2) 3 secret `PRODUCTION_SSH_*` trong environment `production`, (3) ORC đẩy tag `v*` trên commit `main` có CI xanh, (4) INV duyệt lượt Release. Không deploy tay app production để không đi vòng cổng duyệt của INV (điều kiện 4 v1.0). Landing đang chạy và DNS không bị đụng.
+
+Khi lượt Release đầu tiên chạy (DB trống, chưa có tài khoản nào nên chưa ai dùng được):
+1. `deploy.sh` chạy migration, dựng api/worker/web; Caddy production xin chứng chỉ Let's Encrypt cho 3 tên miền (smoke tự thử lại ~30 giây); smoke kiểm 200 + header + `/health` + probe 404 cho cả ba.
+2. OPS bật 2 timer `@ottimo-prod`, chạy `backup.sh` lần đầu, kéo về Mac bằng `pull-backups.sh`, chạy `restore-drill.sh` (cần `age` trên Mac hoặc chạy trong container như 23/10) → biên bản vào mục này (điều kiện 4).
+3. Thư thử 8b (worker production → hộp thư INV).
+4. Buổi khởi tạo `production-bootstrap` (README `infra/server` 12.1) **có INV ngồi cạnh**: INV đổi mật khẩu, đăng ký 2FA, cất mã khôi phục ngay trong buổi (production đã `MFA_ENFORCED=true` nên bắt buộc).
