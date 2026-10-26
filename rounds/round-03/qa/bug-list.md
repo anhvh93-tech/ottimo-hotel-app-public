@@ -11,8 +11,8 @@
 | P0 | 3 | 0 | 0 | 3 |
 | P1 | 8 | 0 | 0 | 8 |
 | P2 | 3 | 0 | 0 | 3 |
-| P3 | 2 | 2 | 0 | 0 |
-| **Tổng** | **16** | **2** | **0** | **14** |
+| P3 | 2 | 1 | 1 | 0 |
+| **Tổng** | **16** | **1** | **1** | **14** |
 
 Cập nhật 26/10 (QA-3 phần 1 – hồi quy trên `v1.0.0-rc.1` staging, `rounds/round-03/qa/qa3-rc1.md`): thêm **BUG-R3-015** (P3, bộ test – QA) và **BUG-R3-016** (P3, sản phẩm – PO/FE). Không P0/P1/P2 mới. Lỗi R2 thấy lại trên `rc.1`: BUG-R2-219, BUG-R2-222 (vẫn Open trong sổ R2). Sổ R2: BUG-R2-208, 209, 210 → Closed (QA kiểm lại 26/10).
 
@@ -39,7 +39,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-012 | **P0** | J15 trả `waiting_refund` mãi khi còn yêu cầu hoàn mở, kể cả khi đã hết tiền dư và khách đang **nợ**: không ghi công nợ, không báo OWN/MGR, folio không bao giờ đóng | BE-B (folio/J15) | **Closed** 24/10. Lượt fuzz chạy lại trên `origin/main` `f2ba2ac`: 710 chuỗi, 28.250 bước. Critic `reviews/s1-money-critic-rerun.md` mục 6 xác nhận. |
 | BUG-R3-013 | P1 | Yêu cầu hoàn đang mở không được tính lại (`refundPlan`) khi tiền dư giảm (phát sinh sau trả phòng, A32, J15) – yêu cầu > tiền dư, có lần duyệt khi tiền dư 0 | BE-B (folio/refunds) | **Closed** 24/10. Lượt fuzz chạy lại trên `origin/main` `f2ba2ac`: 710 chuỗi, 28.250 bước. Critic `reviews/s1-money-critic-rerun.md` mục 6 xác nhận. |
 | BUG-R3-014 | P1 | Chi hoàn (`payOut`) đưa tiền dư của folio `settled` về 0 nhưng các yêu cầu hoàn đã duyệt còn tiền chưa chi vẫn `approved`, không đóng `superseded` (hợp đồng 13.3 điểm 1 + 3). Tiền khách trả thêm về sau bị duyệt cũ "hút" và chi theo duyệt cũ, không qua định tuyến ADD3 | BE-B (payments/refunds) | **Closed** 24/10 – BE-B `76e21c4` (gộp `ce38624`, hợp đồng 13.4); fuzz chạy lại 710 chuỗi / 28.250 bước, 0 vi phạm cứng; critic `reviews/s1-money-critic-014.md` |
-| BUG-R3-015 | P3 | **Bộ test**: không chạy được trên stack `MFA_ENFORCED=true` (staging, production): (1) `freshSession` không có bước TOTP cho DS-E OWN/MGR đã bật 2FA; (2) `createThrowawayUser` gửi S2 chỉ có mật khẩu; (3) `ensureReceivingAccount` (R3-Q51) gọi `/health` + `/__test__/clock` vô điều kiện; (4) `s2Context` dùng `qa.owner` – phiên hạn chế làm ca bỏ qua với lý do sai "DS-E chưa nạp đủ 10 căn" | QA | Open |
+| BUG-R3-015 | P3 | **Bộ test**: không chạy được trên stack `MFA_ENFORCED=true` (staging, production): (1) `freshSession` không có bước TOTP cho DS-E OWN/MGR đã bật 2FA; (2) `createThrowawayUser` gửi S2 chỉ có mật khẩu; (3) `ensureReceivingAccount` (R3-Q51) gọi `/health` + `/__test__/clock` vô điều kiện; (4) `s2Context` dùng `qa.owner` – phiên hạn chế làm ca bỏ qua với lý do sai "DS-E chưa nạp đủ 10 căn" | QA | **Fixed** 26/10 – harness trong repo (`support/totp-store.ts`, `E2E_TOTP_DIR`, `E2E_TOTP_ENROLL`, `seedReauthFor`, `E2E_LOCAL_CLOCK`); kiểm trên stack dùng một lần cờ bật và cờ tắt. Closed sau CI push xanh + lượt staging 27/10 |
 | BUG-R3-016 | P3 | Khách **đến hôm nay**: báo giá đã lưu không chuyển được thành đơn. H12 chỉ báo "Sale/CTV: nhắn lễ tân tạo đơn đã thu"; lễ tân nhập lại H09 từ đầu – mặc định 2 người lớn trong khi báo giá 1 người lớn, không mang khách/giá của báo giá, không nối báo giá với đơn | PO (+ FE-A, UXD) | Open |
 
 ## 3. Chi tiết
@@ -400,8 +400,19 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - `ensureReceivingAccount` bỏ qua khi đích không có test-support (`CLOCK_MODE=system`).
   - `s2Context`/`sessionOrSkip` báo rõ "phiên hạn chế – tài khoản cần đăng ký 2FA" thay vì bỏ qua với lý do khác.
 - **Bằng chứng:** `qa3-rc1.md` mục 2. Bản sửa thử trên bản chép scratchpad (`qa-r6/src-rc1/product/tests/e2e/support/api.ts`, `s3-stay.ts`; tệp `*.orig` là bản gốc) – với bản sửa, `money-s4` 34/34, A1, 2FA, R3-Q51, US-008 chạy được trên staging.
-- **Vai:** QA (sửa trong repo cùng BUG-R2-222). SEC xem cách lưu secret thử trước khi gộp.
-- **Trạng thái:** Open.
+- **Vai:** QA (sửa trong repo cùng BUG-R2-222 phần (1)). SEC xem cách lưu secret thử.
+- **Bản sửa (26/10 tối, QA):**
+  - `e2e/support/totp-store.ts`: secret thử đọc từ `E2E_TOTP_DIR` (ngoài repo, 0700/0600), bước đã dùng ghi `<user>.laststep` dưới khóa liên tiến trình; chờ bước mới thì cộng thời gian cho ca.
+  - `support/api.ts`: `freshSession` gửi bước 2 khi `401 MFA_REQUIRED`; phiên "đăng ký 2FA trước" của DS-E OWN/MGR → tự đăng ký khi `E2E_TOTP_ENROLL=1`, nếu không thì **đỏ** kèm lý do; phiên hạn chế không được dùng lại từ bộ nhớ đệm; `ownerForTestSupport` đi đường đăng nhập đầy đủ; `seedReauthFor(username)` thêm `totpCode` (dùng ở `createThrowawayUser`, `identity.api`, `rbac/sprint1-ops`); `healthTime` + `E2E_LOCAL_CLOCK` (BUG-R2-222 (1)).
+  - `support/s3-stay.ts`: `ensureReceivingAccount` không gọi `/health`, `/__test__` khi đích không có test-support. `ui/helpers.ts` `loginForm` điền mã TOTP. `api/mfa-s2` S1-SEC-11 bỏ qua có lý do trên stack cờ bật.
+  - Thêm `e2e/smoke-prod/readonly.prod.spec.ts` (project `smoke-prod`, chỉ đọc) cho smoke production sau deploy; `global-setup` không đăng nhập `qa.*` khi `E2E_PROD_SMOKE=1`. Hướng dẫn: `product/tests/README.md`.
+- **Kiểm (stack dùng một lần `ottimo-qa3`):**
+  - Cờ bật, `E2E_TOTP_ENROLL=1`: harness tự đăng ký 2FA `qa.owner`, `qa.mgr`; `api` identity + mfa-s2 + money-s4 + gate-s4 + stay-checkout.s3 + refund-credit.s4: 56 đạt, 0 đỏ, bỏ qua có chủ đích (S1-SEC-11, ca cần SQL/đồng hồ); `rbac-sprint1` 319 đạt / 55 bỏ qua (giống CI); UI `rack-booking.smoke`, `admin-web.smoke`, `mfa-us143` 17 đạt / 2 bỏ qua.
+  - Cờ tắt, DB mới, không `E2E_TOTP_DIR` (đường CI): identity + mfa-s2 + gate-s4 14 đạt + 1 đỏ `429` đăng nhập theo IP ở ca US-143 API (chạy lại riêng: 2/2 đạt – giới hạn 20 lần/IP của stack mới, không liên quan bản sửa); `rbac-sprint1` 319/55; `ui-clock/mfa-us143-clock` 1/1; `smoke-prod` 8 bỏ qua (không có `E2E_PROD_SMOKE`).
+  - `smoke-prod` trên stack dev với `E2E_PROD_SMOKE_LOCAL=1`: 8/8; không có cờ LOCAL thì PS-02 đỏ đúng (`/health` 200 trên dev).
+  - Chưa chạy trên staging (khung B1). Lượt staging 27/10 sáng: A1 phần 3 bằng harness repo + `smoke-prod` (PS-01…05 trên staging dùng Caddyfile.prod).
+- **Lưu ý commit:** phần sửa các tệp có sẵn đã vào `476b79d` (commit của ORC lúc 16:09 gom cả cây làm việc) trước khi `totp-store.ts` và `smoke-prod/` được thêm – `476b79d` thiếu `support/totp-store.ts` nên typecheck/E2E đỏ; commit kế tiếp của QA bổ sung.
+- **Trạng thái:** Fixed (chờ CI push xanh + lượt staging 27/10 để Closed).
 
 ### BUG-R3-016 – Khách đến hôm nay: báo giá không chuyển được thành đơn
 

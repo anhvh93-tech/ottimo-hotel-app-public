@@ -195,3 +195,9 @@ Thư mục gốc: `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3a
 - `uat-data/uat-data.md`, `uat-data.json`.
 - `run-staging-rc1.sh`, `src-rc1/` (bản chép `2963675` + tệp `*.orig` gốc của các tệp đã sửa).
 - Stack dùng một lần: `.../scratchpad/qa3-stack/` (`run-local.sh`, `clock-money*.log`, `out-*`). Stack `ottimo-qa3` còn chạy (cổng 3000/8081–8083/5432), dừng sau khi xong phần 2.
+
+## 10. Phản hồi & sửa 26/10 tối – BUG-R3-015 vào repo + smoke production chỉ đọc
+
+- Harness chạy được trên stack `MFA_ENFORCED=true`: `E2E_TOTP_DIR` (secret thử ngoài repo), `E2E_TOTP_ENROLL=1` (stack dùng một lần), S2 có mã, `ensureReceivingAccount` không gọi `/health`/`/__test__` trên đích không có test-support, `E2E_LOCAL_CLOCK` (BUG-R2-222 (1)). Chi tiết và số liệu kiểm: `bug-list.md` BUG-R3-015.
+- Smoke production chỉ đọc: `product/tests/e2e/smoke-prod/readonly.prod.spec.ts` (project `smoke-prod`, cần `E2E_PROD_SMOKE=1`), lệnh chạy ở `product/tests/README.md`. Dùng ở B2 phần 6 (G5-5) và sau mỗi deploy production.
+- Không chạy gì trên staging. Sáng 27/10: A1 chặng 8–12 (harness repo, `E2E_TOTP_DIR=~/.ottimo/staging/totp`, `E2E_LOCAL_CLOCK=1`), thử `smoke-prod` PS-01…05 trên staging (cùng Caddyfile.prod), rồi trả phòng `OTM-00297` kèm công nợ 150.000 (MGR) cho UAT.
