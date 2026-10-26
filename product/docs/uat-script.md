@@ -26,4 +26,5 @@
 
 - Đạt 8/10 việc trở lên và không có lỗi P0/P1: đủ để anh/chị chọn ngày chạy.
 - Lỗi P0/P1 đội sửa trước khi lên bản thật. Lỗi nhỏ ghi vào bản vá tuần (v1.0.x).
-- Điều chưa có trong v1.0 (xác nhận từ xa của quản lý, form đặt phòng trên website, kênh OTA tự động, báo cáo, mẫu tin, dài hạn đủ vòng): xem `product/docs/release-notes.md` mục "Chưa có trong bản này".
+- Điều chưa có trong v1.0 (xác nhận từ xa của quản lý, kênh OTA tự động, báo cáo, mẫu tin, dài hạn đủ vòng): xem `product/docs/release-notes.md` mục "Chưa có trong bản này". Form "Yêu cầu đặt phòng" trên website có trong v1.0 nhưng đang tắt tới khi anh/chị quyết ESC-030.
+- Trên staging đã bật 2 bước cho chủ và quản lý: ở việc 8, khoản miễn vượt hạn mức gửi chờ duyệt rồi duyệt ở "Cần duyệt" bằng tài khoản của chính người duyệt; Desk từ chối ô "mật khẩu của quản lý" trên màn lễ tân (xem ESC-031).
