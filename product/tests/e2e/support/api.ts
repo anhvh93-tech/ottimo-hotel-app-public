@@ -442,7 +442,7 @@ export async function freshSession(
     const m = await call<Me | Problem>(ctx, 'POST', '/v1/auth/login/mfa', {
       body: {
         mfaToken: (r.body as Problem & { mfaToken?: string }).mfaToken,
-        totpCode: await nextTotpCode(username),
+        totpCode: await nextTotpCode(username, totpNow(ctx)),
       },
       headers: { origin: ORIGIN },
       ...(base ? { base } : {}),
@@ -485,7 +485,7 @@ async function enrolOrFail(
   saveTotpSecret(s.username, base32);
   const conf = await call<{ recoveryCodes: string[] }>(ctx, 'POST', '/v1/me/2fa/confirm', {
     session: s,
-    body: { totpCode: await nextTotpCode(s.username) },
+    body: { totpCode: await nextTotpCode(s.username, totpNow(ctx)) },
   });
   expect(conf.status, `confirmMy2fa ${s.username}`).toBe(200);
   saveTotpSecret(s.username, base32, conf.body.recoveryCodes ?? []);
@@ -695,6 +695,19 @@ export async function healthTime(
 }
 
 /**
+ * "Now" of the stack for TOTP codes (BUG-R3-015): the server checks codes against Clock.now() – a MutableClock moved
+ * by the clock projects, or the system clock. E2E_LOCAL_CLOCK=1 (staging/production, /health hidden) → host time.
+ */
+export function totpNow(ctx: APIRequestContext): () => Promise<number> {
+  return async () => {
+    if (LOCAL_CLOCK) return Date.now();
+    const h = await call<{ time?: string }>(ctx, 'GET', '/health').catch(() => null);
+    const t = h?.status === 200 && h.body.time ? Date.parse(h.body.time) : NaN;
+    return Number.isFinite(t) ? t : Date.now();
+  };
+}
+
+/**
  * Business date "today" of the stack (getHealth.time is +07:00 and follows the MutableClock). BR-010: the business
  * day changes at `business_day_rollover` (DS-E 06:00), not at midnight – between 00:00 and 05:59 it is the
  * PREVIOUS calendar date (QA S3 testing 17/10: the calendar date made TC-L2-014/053, TC-L5-005/023 red after midnight).
@@ -728,9 +741,10 @@ export function seedReauth(extra: { totpCode?: string; recoveryCode?: string } =
  */
 export async function seedReauthFor(
   username: string,
+  ctx?: APIRequestContext,
 ): Promise<{ password: string; totpCode?: string }> {
   return hasTotpSecret(username)
-    ? seedReauth({ totpCode: await nextTotpCode(username) })
+    ? seedReauth({ totpCode: await nextTotpCode(username, ctx ? totpNow(ctx) : undefined) })
     : seedReauth();
 }
 
@@ -757,7 +771,7 @@ export async function createThrowawayUser(
       displayName: `Qa Tam ${role.replace(/[^a-z]/g, ' ')} ${uniqName(4)}`,
       initialPassword: password,
       roles: [{ propertyId: propertyIdOf(owner), role }],
-      reauth: await seedReauthFor(owner.username), // CỔNG S2 (SEC 06.26): createUser needs S2
+      reauth: await seedReauthFor(owner.username, ctx), // CỔNG S2 (SEC 06.26): createUser needs S2
     },
   });
   expect(r.status, `createUser ${username}: ${JSON.stringify(r.body)}`).toBe(201);

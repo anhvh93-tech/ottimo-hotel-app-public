@@ -201,3 +201,78 @@ Thư mục gốc: `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3a
 - Harness chạy được trên stack `MFA_ENFORCED=true`: `E2E_TOTP_DIR` (secret thử ngoài repo), `E2E_TOTP_ENROLL=1` (stack dùng một lần), S2 có mã, `ensureReceivingAccount` không gọi `/health`/`/__test__` trên đích không có test-support, `E2E_LOCAL_CLOCK` (BUG-R2-222 (1)). Chi tiết và số liệu kiểm: `bug-list.md` BUG-R3-015.
 - Smoke production chỉ đọc: `product/tests/e2e/smoke-prod/readonly.prod.spec.ts` (project `smoke-prod`, cần `E2E_PROD_SMOKE=1`), lệnh chạy ở `product/tests/README.md`. Dùng ở B2 phần 6 (G5-5) và sau mỗi deploy production.
 - Không chạy gì trên staging. Sáng 27/10: A1 chặng 8–12 (harness repo, `E2E_TOTP_DIR=~/.ottimo/staging/totp`, `E2E_LOCAL_CLOCK=1`), thử `smoke-prod` PS-01…05 trên staging (cùng Caddyfile.prod), rồi trả phòng `OTM-00297` kèm công nợ 150.000 (MGR) cho UAT.
+
+## 11. ESC-031 – kiểm tiền điều kiện gộp cuối (SEC 8.6 (3)) trên stack bật 2FA bắt buộc
+
+- Người chạy: QA | 26/10/2026, 16:45–17:15 | Bước **Kiểm thử**. Không dùng staging (B1 đang chạy).
+- Mã: nhánh gộp `worktree-agent-a67639f06f6add4d9`, tip **`c7ba6b5`** (BE-B `35a477c`, ARC `e386928`, FB-03 `66d88e7`, FE-A `6f72a9c`, UXD `c7ba6b5`). Dựng bằng `git archive c7ba6b5 product`; repo không sửa.
+- Stack dùng một lần `ottimo-esc031` (compose dev, đồng hồ ảo, test-support, DS-E), chạy hai pha:
+  - pha 1 – `MFA_ENFORCED=false` (như CI): hồi quy và TC-X-086;
+  - pha 2 – **`MFA_ENFORCED=true`** (`printenv` api/worker = `true`): harness BUG-R3-015 tự đăng ký 2FA cho `qa.owner`, `qa.mgr`, rồi chạy UI và E31.
+- Ca QA viết cho lượt này (scratchpad, chưa vào repo vì `main` chưa có mã ESC-031):
+  - `tests/e2e/clock/qa-esc031.r3.clock.spec.ts` – 11 ca E31 + I-E31 qua HTTP thật;
+  - `tests/e2e/ui-clock/qa-esc031-ui.spec.ts` – Desk H16.
+  - Đề nghị gộp hai tệp này vào nhánh khi gộp ESC-031.
+
+### 11.1 Kết luận: **ĐẠT** điều kiện gộp về tiền – kèm 1 lỗi P1 mới ngoài phạm vi bản vá (BUG-R3-017)
+
+| Hạng mục | Kết quả |
+|---|---|
+| E31-1…E31-11 + I-E31 (oracle DOM `s1-money-oracle.md` 10.1) trên stack 2FA bắt buộc | **14/14 Đạt** (lượt cuối 17:11, 13,6 s) |
+| UI Desk khi 2FA bắt buộc | **Đạt** – một cách duy nhất, không ô mật khẩu, body `lateFeeInsteadOfNight` đúng 3 trường; 409 và 422 hiện câu đúng, không ghi gì |
+| TC-X-086 (axe, đồng hồ ảo, cờ tắt – có hai cách) | **Đạt** 1/1 |
+| Hồi quy tiền trên nhánh (cờ tắt) | `clock`: `money-s4` + `stay-checkout.s3` + `debt-collect.s5` **63 đạt**, 1 bỏ qua có chủ đích. `api`: `money-s4` + `stay-checkout.s3` + `refund-credit.s4` + `gate-s4` **50 đạt**, 2 bỏ qua (cần SQL). `desk-clock`: `checkout.h16`, `flow-a1.s4`, `stay-money.s4`, `axe-k8.s4`, `debt-collect.s5` **19/19** |
+| Tích hợp BE trên PostgreSQL của stack | `esc031-late-fee-post-review` + `esc031-units` + `s438-r8` (14 tệp) **104/104** |
+| Lỗi mới | **BUG-R3-017 (P1)**: lễ tân không ghi được **tiền mặt/thẻ** cho phụ thu bằng 1 đêm ở bước 3. Lỗi có từ R2 (0.3.7), không do bản vá ESC-031 gây ra. Nhưng ESC-031 là đường duy nhất trên production, nên lỗi chặn trả phòng thu tiền mặt. Đường vòng: VietQR hoặc chuyển khoản |
+
+### 11.2 Kết quả từng ca E31 (MFA_ENFORCED=true, API thật)
+
+Ngày trong oracle (2030) được dời nguyên số tuần, giữ thứ trong tuần, sang sau mọi mốc đồng hồ stack đã đi qua. Lý do: đồng hồ ảo của các bộ clock pha 1 đã qua 2031, và mã TOTP của OWN/MGR chỉ được dùng tiến (chống phát lại). Ngày lễ 30/04 thay bằng một ngày đặc biệt QA thêm vào `special_dates` (OWN, hiệu lực hôm sau; `to` không tính – như dữ liệu DS-E).
+
+| Ca | Kết quả đo | Kết luận |
+|---|---|---|
+| E31-1 | B18 200; dòng `late_fee_as_night` **792.000**, không FOC; khách trả 792.000. Audit `post_review`: actor = FD, không `confirmedBy`, `checkoutTime` 20:30, `reviewDueAt` = `post_checkout_window_until` = lúc bấm + 24 giờ. Thông báo: OWN 1, MGR 1, FD 0, FDL 0. "Cần chú ý": MGR 1 (hạn đúng), OWN 1, FD 0. Audit bảo mật mới 0, đếm sai mới 0 | Đạt |
+| E31-2 | Đêm ngày đi thứ Sáu → **911.000** | Đạt |
+| E31-3 | Đêm ngày đi ngày đặc biệt → **1.030.000** (không cộng thêm +15 %) | Đạt |
+| E31-4 | Lượt 6 đêm → **792.000** (không 713.000) | Đạt |
+| E31-5 | MGR A32 792.000 → 396.000 (201). Tự sinh yêu cầu hoàn **396.000** `pending`, người xin MGR. MGR tự duyệt → **403 `SELF_APPROVAL_FORBIDDEN`**; OWN duyệt → 200. Không báo OWN thêm. MGR "Đã xem" → 204, mục hết; FD đóng → 404. Job quá hạn sau đó không báo thêm | Đạt. Mã 403 khác chữ oracle (`SELF_REFUND_FORBIDDEN` là mã của bước **chi** hoàn) – đề nghị DOM sửa câu oracle |
+| E31-6 | MGR A32 `voidLine` → hoàn **792.000**; không báo OWN thêm; tiền dư 792.000 | Đạt |
+| E31-7 | Job 20:34: OWN 1, MGR 1. 20:35: OWN **2**. Thêm 3 lần: vẫn 2, MGR 1. Mục vẫn mở. J15 đóng folio; A32 sau đó → **409 `FOLIO_LOCKED`** | Đạt |
+| E31-8 | MGR đặt trả muộn 17:00 kèm FOC 200.000 (MGR áp ngay). B18: phụ thu 792.000, xem trước = **592.000**, FOC ròng **200.000**. A32 → 396.000: FOC ròng 200.000, hoàn **396.000**. Biến thể A32 → 150.000: FOC ròng **150.000**, hoàn **592.000** = số khách đã trả cho khoản này | Đạt |
+| E31-9 | FD xin FOC 200.000 trên phụ thu trả muộn (`pending`). B18 → **409 `PENDING_APPROVALS`**. Trước/sau: `in_house`, 4 dòng, 0 audit, 0 thông báo | Đạt |
+| E31-10 | 692.000 và 792.001 → 409 `SURCHARGE_CHANGED`. `requestFoc`, mật khẩu, TOTP, `confirmationId`, `approverUsername` → 422 `NOT_ALLOWED` (MGR gửi kèm mật khẩu cũng 422). Thiếu lý do → 422 `REASON_REQUIRED`. Đêm bán được → 422 `NOT_ALLOWED`. Mọi ca: `in_house`, số dòng/audit/thông báo không đổi | Đạt |
+| E31-11 | MGR tự bấm B18 → 200; OWN 1 thông báo, MGR 0; mục mở cho MGR và OWN; audit `post_review`, actor MGR | Đạt |
+| I-E31 | 11 đơn có ghi phụ thu: Σ hoàn ≤ đã trả; ròng phụ thu sau FOC ≥ 0; số ghi = `lateFeeAsNightVnd` của summary đọc ngay trước. Đơn E31-9 không ghi gì nên không xét | Đạt |
+
+Ghi chú cách chạy: ba lượt đầu đỏ vì ca của QA, không phải sản phẩm. QA sửa ca rồi chạy lại cả chuỗi trên dữ liệu mới, lần cuối 14/14. Các lỗi của ca:
+- thiếu `Idempotency-Key` khi gọi `resolve` (428);
+- A32 hủy dòng phải gửi `voidLine`;
+- `special_dates` có `to` không tính;
+- đếm FOC phải cộng cả dòng đảo;
+- E31-9 cần FOC do FD xin (FOC của MGR được áp ngay, không chờ);
+- đếm audit bảo mật toàn bảng thay vì phần tăng thêm.
+
+### 11.3 UI Desk khi 2FA bắt buộc (`rounds/round-03/outputs/FE/esc031-shots/`)
+
+| Ảnh | Nội dung |
+|---|---|
+| `01-buoc3-mot-cach-mfa.png` | Bước 3: chỉ có "Ghi phụ thu – quản lý xem lại". Không có "Quản lý xác nhận tại quầy" (0 nút, 0 radio), 0 ô mật khẩu. Số 792.000 chỉ đọc, ô Lý do |
+| `02-buoc3-tien-mat-bi-doi-ly-do.png` | **BUG-R3-017**: tiền mặt 792.000 → `POST payments` 422 `note REASON_REQUIRED`. Màn báo "Ghi lý do (ít nhất 3 ký tự)" nhưng phần tiền mặt không có ô nào để ghi |
+| `02b-buoc3-da-thu-vietqr.png` | Thu bằng VietQR (truyền ngữ cảnh trả phòng) → ghi nhận được, còn phải thu 0 |
+| `03-hop-xac-nhan-fb02.png` | Hộp xác nhận (UXD FB-02): "Phụ thu trả muộn 792.000 đ được ghi vào folio; quản lý nhận thông báo để xem lại." |
+| `04-sau-409-so-moi.png` | Sau 409 `SURCHARGE_CHANGED` (QA sửa số trong request gửi đi để giả lập lệch; server trả 409 thật): "Phụ thu vừa được tính lại: 792.000 đ. Chưa ghi gì…"; đơn vẫn `in_house` |
+| `05-tra-phong-xong.png` | Hoàn tất lại → 200. Body: `lateFeeInsteadOfNight = {amountVnd, reason, postReview: true}` – đúng 3 trường (cấp trên còn `checkoutTime`, `applyLateSurcharge: false`) |
+| `06a-…`, `06-sau-422-dem-ban-lai-duoc.png` | Khách đến sau hủy trong lúc lễ tân ở bước 3 → B18 trả 422 `NOT_ALLOWED`. Desk báo "Đêm nay căn đã trống lại…" và quay về bước Phụ phí với "tính thêm 1 đêm"; đơn vẫn `in_house` |
+
+Ghi chú nhỏ (không ghi lỗi): khi 2FA bắt buộc, ô chọn cách vẫn hiện như một nút đơn "Ghi phụ thu – quản lý xem lại". UXD có thể cân nhắc đổi thành nhãn tĩnh.
+
+### 11.4 Harness
+
+Để chạy được ESC-031 trên stack vừa bật 2FA vừa dùng đồng hồ ảo, QA sửa thêm bộ test (BUG-R3-015 phần 2), commit cùng mục này:
+- mã TOTP tính theo **đồng hồ của stack** (`totpNow`: `/health`, hoặc giờ máy khi `E2E_LOCAL_CLOCK=1`), dùng bước kế tiếp trong cửa sổ ±1 trước khi phải chờ;
+- báo lỗi rõ khi đồng hồ ảo đứng và đã hết bước;
+- `trustCurrentDevice` của OWN (thiết bị quầy ảo, thiết bị dự phòng) gửi kèm mã.
+
+Giới hạn còn lại:
+- mã TOTP chỉ dùng **tiến**: một stack mà OWN/MGR đã đăng nhập ở mốc ảo xa thì không quay lại giờ thật được;
+- trên CI cờ 2FA vẫn tắt nên không ảnh hưởng.

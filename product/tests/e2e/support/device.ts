@@ -8,7 +8,8 @@
 // the same path as the clock project's virtual device) and says so loudly in the log.
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import type { APIRequestContext } from '@playwright/test';
-import { call, propertyIdOf, session, uuid } from './api.js';
+import { call, propertyIdOf, session, totpNow, uuid } from './api.js';
+import { hasTotpSecret, nextTotpCode } from './totp-store.js';
 import { AUTH_DIR, COOKIE_PREFIX, PRODUCT_DIR, SEED_PASSWORD } from './env.js';
 
 export const DEVICE_MAP =
@@ -70,6 +71,9 @@ export async function ensureDeskDevice(ctx: APIRequestContext): Promise<string> 
         name: `qa-e2e-desk-fallback-${uuid().slice(0, 8)}`,
         deviceKind: 'desk',
         currentPassword: SEED_PASSWORD,
+        ...(hasTotpSecret('qa.owner')
+          ? { totpCode: await nextTotpCode('qa.owner', totpNow(ctx)) }
+          : {}),
         hardeningChecklistConfirmed: true,
       },
     },

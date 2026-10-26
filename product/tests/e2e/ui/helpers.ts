@@ -2,7 +2,7 @@
 // Labels come from design/copy/strings-vi.json so a copy change breaks loudly here, not silently.
 import { readFileSync } from 'node:fs';
 import { expect, type Browser, type Page } from '@playwright/test';
-import { fakeMobile, resetRateLimits, session } from '../support/api.js';
+import { fakeMobile, resetRateLimits, session, totpNow } from '../support/api.js';
 import { SEED_PASSWORD, SESSION_COOKIE, WEB_URL } from '../support/env.js';
 import { nextTotpCode } from '../support/totp-store.js';
 
@@ -53,7 +53,7 @@ export async function loginForm(page: Page, user: string): Promise<void> {
     await expect(nav.or(limited).or(totp)).toBeVisible({ timeout: 15_000 });
     if (await totp.isVisible()) {
       // BUG-R3-015: DS-E account with 2FA (stack MFA_ENFORCED=true) – test TOTP from E2E_TOTP_DIR
-      await totp.fill(await nextTotpCode(user));
+      await totp.fill(await nextTotpCode(user, totpNow(page.context().request)));
       await page.getByRole('button', { name: t('auth.totp.submit') }).click();
       await expect(nav.or(limited)).toBeVisible({ timeout: 15_000 });
     }

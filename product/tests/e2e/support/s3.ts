@@ -37,7 +37,9 @@ import {
   type CallOptions,
   type StaffSession,
   healthTime,
+  totpNow,
 } from './api.js';
+import { hasTotpSecret, nextTotpCode } from './totp-store.js';
 import {
   API_URL,
   AUTH_DIR,
@@ -257,6 +259,10 @@ export async function useVirtualDevice(ctx: APIRequestContext, nowIso: string): 
         name: `qa-e2e-desk-${uuid().slice(0, 8)}`,
         deviceKind: 'desk',
         currentPassword: SEED_PASSWORD,
+        // BUG-R3-015: S2 of an owner with 2FA (stack MFA_ENFORCED=true) needs the code too
+        ...(hasTotpSecret('qa.owner')
+          ? { totpCode: await nextTotpCode('qa.owner', totpNow(ctx)) }
+          : {}),
         hardeningChecklistConfirmed: true,
       },
     },

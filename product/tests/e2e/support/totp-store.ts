@@ -89,26 +89,39 @@ export function markTotpStepUsed(username: string, step: number): void {
 }
 
 /**
- * A code of a step this user has never used (waits for the next 30-second step when needed – at most ~31 s).
+ * A code of a step this user has never used. `now` = the STACK's time (ms): the server verifies against its own clock
+ * (MutableClock on a disposable stack, system clock on staging/production) – pass it from `totpNow()` of support/api.
+ * Uses the current step, or the next one (window ±1, SEC 06.18) when the current one is already spent; only when
+ * both are spent it waits for real time to move (system clock). A frozen/virtual stack clock cannot move by waiting:
+ * then it fails with the reason (at most two codes per user per frozen instant – move the clock between logins).
  * Login step 2 and every S2 of the same user share the server's anti-replay counter, hence one file per user.
  */
-export async function nextTotpCode(username: string): Promise<string> {
+export async function nextTotpCode(
+  username: string,
+  now: () => Promise<number> = async () => Date.now(),
+): Promise<string> {
   if (!hasTotpSecret(username))
     throw new Error(`TOTP ${username}: không có ${username}.secret trong E2E_TOTP_DIR`);
   const key = base32Decode(readFileSync(path(username, 'secret'), 'utf8').trim());
   return withLock(username, async () => {
     const last = lastStep(username);
-    let step = stepOf(Date.now());
-    if (step <= last) {
-      const waitMs = (last + 1) * 30_000 - Date.now() + 500;
+    let t = await now();
+    let step = Math.max(stepOf(t), last + 1);
+    if (step > stepOf(t) + 1) {
+      if (Math.abs(t - Date.now()) > 120_000)
+        throw new Error(
+          `TOTP ${username}: đồng hồ stack (${new Date(t).toISOString()}) đứng/ảo và bước mã đã dùng hết – tua đồng hồ trước khi đăng nhập lại`,
+        );
+      const waitMs = (step - 1) * 30_000 - Date.now() + 500;
       try {
         // the wait belongs to the stack's anti-replay rule, not to the case: give the case that time back
         test.info().setTimeout(test.info().timeout + waitMs + 5_000);
       } catch {
         /* outside a test (global-setup) */
       }
-      await new Promise((r) => setTimeout(r, waitMs));
-      step = stepOf(Date.now());
+      await new Promise((r) => setTimeout(r, Math.max(0, waitMs)));
+      t = await now();
+      step = Math.max(stepOf(t), last + 1);
     }
     writeFileSync(path(username, 'laststep'), String(step), { mode: 0o600 });
     return totpAt(key, step);
