@@ -55,7 +55,7 @@ Ghi chép thay đổi theo từng phiên bản, viết cho chủ đầu tư và 
 - **Đơn OTA nhập tay.** Có đơn OTA mới thì lễ tân nhập vào Desk ngay và đóng phòng trên extranet của kênh khác. Desk chặn trùng trong app, nhưng chưa tự đóng phòng trên kênh.
 - **Quản lý chưa xác nhận được ngay trên màn của lễ tân, tại quầy hay từ xa.** Vì quản lý và chủ đầu tư đều có đăng nhập 2 bước, Desk từ chối mọi ô "mật khẩu của quản lý" trên phiên của lễ tân. Cách làm ở v1.0:
   - Miễn/giảm vượt hạn mức, xóa công nợ, hoàn tiền: lễ tân gửi yêu cầu, quản lý hoặc chủ đầu tư duyệt ở **"Cần duyệt"** bằng tài khoản của chính mình (máy quầy sau khi lễ tân đăng xuất, hoặc thiết bị riêng).
-  - **Phụ thu trả muộn bằng giá 1 đêm** (khách rời sau 18:00 mà đêm đó căn đã có khách đến): Desk chưa hoàn tất trả phòng theo đường này. Lễ tân phòng trước (chốt giờ đi từ 12:00) và, nếu khách vẫn ở quá 18:00, chuyển khách sắp đến sang căn trống khác để Desk tính thêm 1 đêm như thường. Hết căn để chuyển thì gọi chủ đầu tư và báo "P0". Cách làm chi tiết: `product/docs/staff-one-pager.md`.
+  - **Phụ thu trả muộn bằng giá 1 đêm** (khách rời sau 18:00 mà đêm đó căn đã có khách đến): Desk chưa hoàn tất trả phòng theo đường này. Lễ tân phòng trước (chốt giờ đi từ 12:00) và, nếu khách vẫn ở quá 18:00, chuyển khách sắp đến sang căn trống khác để Desk tính thêm 1 đêm như thường. Hết căn để chuyển thì gọi chủ đầu tư và báo "P0". Bản vá chờ anh/chị quyết ESC-031. Cách làm chi tiết: `product/docs/staff-one-pager.md`.
   - Không đọc mật khẩu qua điện thoại, không đưa mật khẩu cho lễ tân gõ hộ.
 - **Mã cửa** vẫn tạo và gửi khách như hiện nay, ngoài app.
 - **Tài khoản nhận chuyển khoản** mới nhập chỉ có hiệu lực **từ ngày hôm sau**. Đây là cách chống tráo tài khoản, không phải lỗi.
