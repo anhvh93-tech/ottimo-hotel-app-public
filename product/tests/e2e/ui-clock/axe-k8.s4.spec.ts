@@ -313,6 +313,17 @@ test.describe(
         ).toBeVisible();
         await scan(page, test.info(), 'H16-2-late-fee-as-night');
         await page.getByRole('button', { name: t('co.go_bill') }).click();
+        // ESC-031 (FE-A 26/10): bước 3 mở ở "Ghi phụ thu – quản lý xem lại" (số chỉ đọc, lý do, không mật khẩu);
+        // hộp quản lý xác nhận tại quầy chỉ có khi MFA_ENFORCED = false (stack CI) – chọn nó để quét như trước.
+        const review = page.getByRole('region', {
+          name: new RegExp(`^${esc(stem('co.late_fee_pr_title'))}`),
+        });
+        await expect(review, 'bước 3: Ghi phụ thu – quản lý xem lại').toBeVisible({
+          timeout: 15_000,
+        });
+        await expect(review.locator('input[type="password"]')).toHaveCount(0);
+        await scan(page, test.info(), 'H16-3-post-review');
+        await page.getByRole('button', { name: t('co.late_fee_mode_desk') }).click();
         const box = page.getByRole('region', {
           name: new RegExp(`^${esc(stem('co.late_fee_confirm_title'))}`),
         });

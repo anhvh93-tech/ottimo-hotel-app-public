@@ -2,7 +2,7 @@ import type { Bill, Commission, Folio, Reservation, ReservationStatus } from '@o
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Icon, Modal } from '@ottimo/ui';
 import { useEffect, useId, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../app/api';
 import { useCatalog } from '../../app/catalog';
 import { useBusinessDay } from '../../app/businessDay';
@@ -115,6 +115,18 @@ export function ReservationDrawer({
   );
   const [commission, setCommission] = useState<Commission | null>(null);
   const r = state.data;
+  // ESC-031: "Mở folio" of the "Cần chú ý" item `late_fee_post_review` (`?open=folio`) – the folio, where the manager
+  // waives or reduces the late fee ("Điều chỉnh", A32), opens once the booking is read; the flag is then dropped so
+  // closing the folio does not open it again.
+  const [search, setSearch] = useSearchParams();
+  const wantFolio = search.get('open') === 'folio';
+  useEffect(() => {
+    if (!wantFolio || !r) return;
+    if (fd && online && r.folioId && r.status !== 'hold') setOpen('folio');
+    const next = new URLSearchParams(search);
+    next.delete('open');
+    setSearch(next, { replace: true });
+  }, [wantFolio, r, fd, online, search, setSearch]);
   // Sprint 3: FD+ sees the live folio of a stay (extras, FOC pending, credit → refund request).
   // UXR #6: "Đã thu" comes from the folio (`totals.paidVnd`) for every role that sees the balance – it
   // is never "room total − balance" (wrong with a hold, extras, FOC or a refund).

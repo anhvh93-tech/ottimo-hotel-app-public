@@ -126,6 +126,17 @@ const stay = createStayMock({
   problem: (status, code, extra, headers) => problem(status, code, extra, headers),
   db: () => db,
   rsv: () => reservations,
+  // ESC-031: `late_fee_post_review` – a stored event of the dashboard mock (created below; called at request time),
+  // one open item per booking (BE-B dedupeKey `late_fee_post_review:<reservationId>`).
+  openAttention: (item) => {
+    const open = dashboard.state.events.some(
+      (e) =>
+        !e.resolvedAt &&
+        e.kind === item.kind &&
+        (e.reservationIds ?? []).join() === (item.reservationIds ?? []).join(),
+    );
+    if (!open) dashboard.addEvent(item);
+  },
 });
 
 // Sprint 4 FE-B (EP07/EP08/EP14/EP09 Desk): housekeeping, work orders + room blocks, guest requests, minibar.
