@@ -33,7 +33,22 @@ const ORACLE = JSON.parse(
 const ex = (br: string, calc: string) =>
   ORACLE.examples.filter((e) => e.br === br && e.calc === calc);
 
+/**
+ * BR-411 v0.4.6 default (INV 26/10, FB-INV-004): standard check-in `checkin_time` = 12:00 → 0 % from 12:00,
+ * 30 % 10:00–11:59, 50 % 06:00–09:59 (production-defaults `early_checkin_tiers`).
+ */
+const STANDARD_CHECKIN = '12:00';
 const EARLY = [
+  { from: '10:00', to: '12:00', pct: 30 },
+  { from: '06:00', to: '10:00', pct: 50 },
+];
+/**
+ * Custom parameters (not the default): the oracle rows BR-411-01…07 / BR-415-01 still carry their own
+ * `params.early_checkin_tiers` with the pre-v0.4.6 marks (30 % up to 14:00). Those rows – and only those –
+ * run with a standard check-in of 14:00 so the engine is checked against a parameterised timetable too.
+ */
+const CUSTOM_STANDARD_CHECKIN_1400 = '14:00';
+const EARLY_CUSTOM_1400 = [
   { from: '10:00', to: '14:00', pct: 30 },
   { from: '06:00', to: '10:00', pct: 50 },
 ];
@@ -46,11 +61,12 @@ const FEE_UNIT = 1000;
 describe('BR-411 / BR-417 early check-in (oracle)', () => {
   const cases = ex('BR-411', 'earlyCheckin');
   it('has the oracle rows', () => expect(cases.length).toBeGreaterThanOrEqual(7));
-  it.each(cases.map((c) => [c.id, c] as const))('%s', (_id, c) => {
-    const tiers = (c.params?.early_checkin_tiers as typeof EARLY | undefined) ?? EARLY;
+  // Oracle rows with their own (custom 14:00) tier parameters – see EARLY_CUSTOM_1400.
+  it.each(cases.map((c) => [c.id, c] as const))('%s (custom params, standard 14:00)', (_id, c) => {
+    const tiers = (c.params?.early_checkin_tiers as typeof EARLY | undefined) ?? EARLY_CUSTOM_1400;
     const r = earlyCheckinSurcharge({
       checkinTime: c.input.checkinTime as string,
-      standardCheckinTime: '14:00',
+      standardCheckinTime: CUSTOM_STANDARD_CHECKIN_1400,
       rollover: '06:00',
       tiers,
       baseNightVnd: c.input.firstNightRateVnd as number,
@@ -59,10 +75,10 @@ describe('BR-411 / BR-417 early check-in (oracle)', () => {
     expect(r.amountVnd).toBe(c.expected.surchargeVnd);
     expect(r.addsPreviousNight).toBe(c.expected.extraNight);
   });
-  it('form opened at 11:05 still defaults to 14:00 → 0 (BR-414)', () => {
+  it('form opened at 11:05 still defaults to the standard 12:00 → 0 (BR-414, BR-411 v0.4.6)', () => {
     const r = earlyCheckinSurcharge({
-      checkinTime: '14:00',
-      standardCheckinTime: '14:00',
+      checkinTime: STANDARD_CHECKIN,
+      standardCheckinTime: STANDARD_CHECKIN,
       rollover: '06:00',
       tiers: EARLY,
       baseNightVnd: 700_000,
@@ -70,11 +86,11 @@ describe('BR-411 / BR-417 early check-in (oracle)', () => {
     });
     expect(r).toMatchObject({ amountVnd: 0, addsPreviousNight: false });
   });
-  it('one minute each side of every mark (05:59/06:00, 09:59/10:00, 13:59/14:00)', () => {
+  it('default v0.4.6: one minute each side of every mark (05:59/06:00, 09:59/10:00, 11:59/12:00)', () => {
     const at = (t: string) =>
       earlyCheckinSurcharge({
         checkinTime: t,
-        standardCheckinTime: '14:00',
+        standardCheckinTime: STANDARD_CHECKIN,
         rollover: '06:00',
         tiers: EARLY,
         baseNightVnd: 700_000,
@@ -84,6 +100,22 @@ describe('BR-411 / BR-417 early check-in (oracle)', () => {
     expect(at('06:00').tierPct).toBe(50);
     expect(at('09:59').tierPct).toBe(50);
     expect(at('10:00').tierPct).toBe(30);
+    expect(at('11:00')).toMatchObject({ tierPct: 30, amountVnd: 210_000 });
+    expect(at('11:59')).toMatchObject({ tierPct: 30, amountVnd: 210_000 });
+    expect(at('12:00')).toMatchObject({ tierPct: 0, amountVnd: 0, ruleRef: 'BR-411' });
+    expect(at('13:59')).toMatchObject({ tierPct: 0, amountVnd: 0 });
+    expect(at('14:00')).toMatchObject({ tierPct: 0, amountVnd: 0 });
+  });
+  it('custom parameters (standard 14:00, 30 % up to 14:00): 13:59 → 30 %, 14:00 → 0', () => {
+    const at = (t: string) =>
+      earlyCheckinSurcharge({
+        checkinTime: t,
+        standardCheckinTime: CUSTOM_STANDARD_CHECKIN_1400,
+        rollover: '06:00',
+        tiers: EARLY_CUSTOM_1400,
+        baseNightVnd: 700_000,
+        unit: FEE_UNIT,
+      });
     expect(at('13:59').tierPct).toBe(30);
     expect(at('14:00').tierPct).toBe(0);
   });
@@ -93,9 +125,10 @@ describe('BR-415 OTA surcharge base = direct current rate (oracle)', () => {
   it.each(ex('BR-415', 'otaEarlyCheckin').map((c) => [c.id, c] as const))('%s', (_id, c) => {
     const r = earlyCheckinSurcharge({
       checkinTime: c.input.checkinTime as string,
-      standardCheckinTime: '14:00',
+      // Oracle BR-415-01 carries the custom 14:00 tiers (see EARLY_CUSTOM_1400).
+      standardCheckinTime: CUSTOM_STANDARD_CHECKIN_1400,
       rollover: '06:00',
-      tiers: EARLY,
+      tiers: (c.params?.early_checkin_tiers as typeof EARLY | undefined) ?? EARLY_CUSTOM_1400,
       baseNightVnd: c.input.directCurrentRateVnd as number,
       unit: FEE_UNIT,
     });
@@ -185,7 +218,7 @@ describe('BR-413 / BR-102 long stay (oracle)', () => {
     const at = (vacant: boolean) =>
       earlyCheckinSurcharge({
         checkinTime: '08:00',
-        standardCheckinTime: '14:00',
+        standardCheckinTime: STANDARD_CHECKIN,
         rollover: '06:00',
         tiers: EARLY,
         baseNightVnd: base,

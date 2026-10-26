@@ -83,6 +83,7 @@ import {
   toConfirmed,
   toScanned,
 } from '../support/s3-checkin.js';
+import { dsParam } from '../support/s3-stay.js';
 
 // Mỗi ca chạy trên ngày ảo riêng, độc lập: KHÔNG dùng mode 'serial' (một ca đỏ sẽ bỏ qua mọi ca sau và CI chạy
 // lại cả file). Thứ tự tuần tự đã do project clock/desk-clock bảo đảm (workers 1, fullyParallel false).
@@ -889,16 +890,23 @@ test.describe(
 
       test(
         'TC-L3-012 US-026/AC2 [U+A · Cao]',
-        { annotation: [story('US-026/AC2'), eps('previewCheckIn')] },
+        { annotation: [story('US-026/AC2'), eps('previewCheckIn, setParameter')] },
         async ({ request }) => {
-          const { D, c } = await begin(request, 'TC-L3-012', [EP3.previewCheckIn], '09:00');
+          const { D, c } = await begin(
+            request,
+            'TC-L3-012',
+            [EP3.previewCheckIn, EP3.setParameter],
+            '09:00',
+          );
           const fd = await fdOf(request);
           const st = await makeStay(request, c, fd, {
             room: room(c, '203'),
             arrival: D,
             ...at700(D),
           });
-          // 13:59 cùng bậc 30% với 11:00 (BR-411-01); các mốc khác có ví dụ riêng
+          // (1) THAM SỐ TÙY CHỈNH 14:00 – cố ý giữ: seed DS-E (`checkin_time` 14:00, `early_checkin_tiers` 30 % tới
+          // 14:00) và oracle BR-411-01…06 vẫn mang bậc cũ trong `params`. Kiểm máy tính phụ thu theo tham số: với
+          // bộ tham số này 13:59 cùng bậc 30 % với 11:00 (BR-411-01). KHÔNG phải mặc định BR-411 v0.4.6 – xem (2).
           const cases: Array<[string, number]> = [
             [String(oracle('BR-411-03').input.checkinTime), oracleNum('BR-411-03', 'surchargeVnd')],
             ['13:59', oracleNum('BR-411-01', 'surchargeVnd')],
@@ -915,8 +923,57 @@ test.describe(
             expect(pv.status, JSON.stringify(pv.body)).toBe(200);
             expect(
               (pv.body.earlyCheckinSurcharge as { amountVnd: number }).amountVnd,
-              `nhận ${time}`,
+              `nhận ${time} (tham số DS-E 14:00)`,
             ).toBe(want);
+          }
+          // (2) MẶC ĐỊNH BR-411 v0.4.6 (INV 26/10, FB-INV-004; production-defaults): nhận từ 12:00 = 0 %,
+          // 10:00–11:59 = 30 %, 06:00–09:59 = 50 %. OWN đặt hai tham số có hiệu lực ngày ảo D, khôi phục DS-E từ D+1
+          // (tham số đã hiệu lực hôm nay không sửa được – như TC-L3-015).
+          const owner = await sessionOrSkip(request, 'qa.owner');
+          // giá đêm đầu 700.000 (at700): 30 % = BR-411-01, 50 % = BR-411-02 – số tiền không phụ thuộc mốc giờ
+          const pct30 = oracleNum('BR-411-01', 'surchargeVnd');
+          const pct50 = oracleNum('BR-411-02', 'surchargeVnd');
+          const dsE = {
+            checkinTime: dsParam<string>('checkin_time'),
+            tiers: dsParam<unknown>('early_checkin_tiers'),
+          };
+          const v046 = [
+            { from: '10:00', to: '12:00', pct: 30 },
+            { from: '06:00', to: '10:00', pct: 50 },
+          ];
+          const tiers = await setParam(request, owner, 'early_checkin_tiers', v046, D);
+          expect(tiers.status, JSON.stringify(tiers.body)).toBeLessThan(300);
+          const std = await setParam(request, owner, 'checkin_time', '12:00', D);
+          expect(std.status, JSON.stringify(std.body)).toBeLessThan(300);
+          try {
+            const v046Cases: Array<[string, number]> = [
+              ['12:00', 0],
+              ['13:59', 0],
+              ['14:00', 0],
+              ['11:59', pct30],
+              ['11:00', pct30],
+              ['10:00', pct30],
+              ['09:59', pct50],
+              ['06:00', pct50],
+            ];
+            for (const [time, want] of v046Cases) {
+              const pv = await preview(request, fd, st.res.id, time);
+              expect(pv.status, JSON.stringify(pv.body)).toBe(200);
+              expect(
+                (pv.body.earlyCheckinSurcharge as { amountVnd: number }).amountVnd,
+                `nhận ${time} (mặc định v0.4.6)`,
+              ).toBe(want);
+            }
+            // Mẫu nhập mặc định = giờ chuẩn 12:00 (BR-414) → 0
+            const dflt = await preview(request, fd, st.res.id);
+            expect(dflt.status, JSON.stringify(dflt.body)).toBe(200);
+            expect((dflt.body.earlyCheckinSurcharge as { amountVnd: number }).amountVnd).toBe(0);
+          } finally {
+            const next = addDays(D, 1);
+            const b1 = await setParam(request, owner, 'checkin_time', dsE.checkinTime, next);
+            expect(b1.status, JSON.stringify(b1.body)).toBeLessThan(300);
+            const b2 = await setParam(request, owner, 'early_checkin_tiers', dsE.tiers, next);
+            expect(b2.status, JSON.stringify(b2.body)).toBeLessThan(300);
           }
         },
       );
