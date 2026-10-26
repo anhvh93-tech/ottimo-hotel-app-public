@@ -159,7 +159,7 @@ textarea.input{min-height:72px;resize:vertical}
 .input-affix .affix{display:grid;place-items:center;padding:0 10px;background:var(--surface-2);color:var(--muted);font-size:.8125rem;border-left:1px solid var(--line)}
 .input-affix:focus-within{outline:2px solid var(--focus);outline-offset:2px}
 .input-affix .input:focus-visible{outline:0}
-.g-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px}
+.g-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px}.g-2.top{align-items:start}
 .g-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 14px}
 .g-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 14px}
 .span-2{grid-column:span 2}

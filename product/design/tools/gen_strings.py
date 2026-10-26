@@ -1048,10 +1048,10 @@ g("R2 hi-fi – Danh mục căn (H04)", [
     ("rooms.edit", "Sửa", "Edit", None, "04-rooms.html"),
     ("rooms.edit_title", "Sửa căn {room} · {name}", "Edit room {room} · {name}", None, "04-rooms.html"),
     ("rooms.error_title", "Chưa tải được danh mục căn", "Couldn't load rooms", None, "04-rooms.html"),
-    ("rooms.footnote", "Giá tháng và giá đêm nhập riêng (BR-101). Đổi giá có ngày hiệu lực; đơn, báo giá đã có giữ giá cũ (BR-006).", "Monthly and nightly prices are entered separately (BR-101). Price changes have an effective date; existing bookings and quotes keep the old price (BR-006).", None, "04-rooms.html – FB-INV-005 (26/10): bỏ ÷ 12, câu VI theo DOM fb-inv-005 §4.2; FE-A soạn EN, chờ UXD duyệt"),
+    ("rooms.footnote", "Giá tháng và giá đêm nhập riêng (BR-101). Đổi giá có ngày hiệu lực; đơn, báo giá đã có giữ giá cũ (BR-006).", "Monthly and nightly prices are entered separately (BR-101). Price changes have an effective date; existing bookings and quotes keep the old price (BR-006).", None, "04-rooms.html – FB-INV-005 (26/10): bỏ ÷ 12, câu VI theo DOM fb-inv-005 §4.2; FE-A soạn EN. UXD duyệt R3 Review 26/10, giữ nguyên"),
     ("rooms.inc", "Tăng", "Increase", None, "04-rooms.html"),
     ("rooms.name", "Tên căn", "Room name", None, "04-rooms.html"),
-    ("rooms.night_auto", "Giá đêm ngày thường, kênh Trực tiếp, đã gồm VAT. Cuối tuần +15 %, ngày lễ +30 % tự cộng theo lịch giá.", "Weekday night, Direct channel, VAT included. Weekends +15% and holidays +30% are added by the rate calendar.", None, "04-rooms.html – chữ phụ dưới ô giá đêm (nay nhập được). FB-INV-005: BR-101 v0.4.7 (VAT – BR-523), BR-104 + ESC-036 A (+15 %/+30 %). Đổi tham số lịch giá thì sửa câu này. Chờ UXD duyệt. Key giữ tên cũ để không đổi hi-fi"),
+    ("rooms.night_auto", "Đêm ngày thường, kênh Trực tiếp, đã gồm VAT. Cuối tuần, ngày đặc biệt do lịch giá cộng thêm.", "Weekday night, Direct channel, VAT included. The rate calendar adds weekend and special-date increases.", None, "04-rooms.html – chữ phụ dưới ô giá đêm (nay nhập được). FB-INV-005: BR-101 v0.4.7 (2) (VAT – BR-523), BR-104 + ESC-036 A. UXD duyệt R3 Review 26/10: bỏ số +15 %/+30 % viết cứng (tham số lịch giá, BR §0.2 – đổi tham số thì chữ sai mà không ai biết); \"ngày lễ\" → \"ngày đặc biệt\" đúng BR-104 (gồm Tết, cao điểm, sự kiện); bỏ \"Giá đêm\" lặp nhãn ô; 4 → 3 dòng ở cột 1366 px. Key giữ tên cũ để không đổi hi-fi"),
     ("rooms.ooo_until", "Khóa sửa chữa đến {date}", "Blocked for repair until {date}", None, "04-rooms.html"),
     ("rooms.price", "Giá niêm yết", "List price", None, "04-rooms.html"),
     ("rooms.reason", "Lý do đổi giá", "Reason for price change", None, "04-rooms.html"),
@@ -3724,10 +3724,10 @@ g("R3 v1.0 – FE-B S35 làm nốt US-155 (FE viết theo content guide; chờ U
 
 # FE-A R3 Phản hồi & sửa (26/10) – FB-INV-005 gói D-min: ô giá đêm trên ngăn kéo căn nhập được, độc lập giá tháng
 # (BR-101 v0.4.7, DOM rounds/round-03/outputs/DOM/fb-inv-005.md §4). FE viết theo content guide + Brand Guidelines
-# (ngắn, điềm tĩnh, không emoji); chờ UXD duyệt.
+# (ngắn, điềm tĩnh, không emoji); UXD duyệt R3 Review 26/10 (rounds/round-03/reviews/UXD-on-FE-A-fb-inv-005.md).
 g("R3 v1.0 – FE-A FB-INV-005: giá tháng và giá đêm độc lập (H04 4.2)", [
-    ("field_error.multiple_of_1000", "Nhập số tròn nghìn, ví dụ 650.000.", "Use whole thousands, for example 650,000.", None, "BR-005 – giá niêm yết bội 1.000; lỗi tại ô (listPrice.nightlyListPriceVnd)"),
-    ("rooms.night_low", "Giá đêm đang thấp hơn giá tháng chia 30 ngày ({perDay}). Kiểm tra lại trước khi lưu.", "The nightly price is below the monthly price per day ({perDay}). Please check before saving.", None, "Cảnh báo mềm, không chặn lưu (BR-101 v0.4.7: giá đêm < giá tháng ÷ 30). {perDay} = giá tháng ÷ 30, làm tròn 1.000 để hiển thị"),
+    ("field_error.multiple_of_1000", "Nhập số tròn nghìn, ví dụ 650.000.", "Use whole thousands, e.g. 650,000.", None, "BR-005 – giá niêm yết bội 1.000; lỗi tại ô (listPrice.nightlyListPriceVnd). UXD duyệt R3 Review 26/10: EN \"for example\" → \"e.g.\" như các lỗi trường khác"),
+    ("rooms.night_low", "Giá đêm đang thấp hơn giá tháng chia 30 ngày ({perDay} đ). Kiểm tra lại số; nếu đúng, vẫn lưu được.", "The nightly price is below the monthly price per day ({perDay} VND). Check the figure – you can still save if it is right.", None, "Cảnh báo mềm, không chặn lưu (BR-101 v0.4.7 (4): giá đêm < giá tháng ÷ 30). {perDay} = giá tháng ÷ 30, làm tròn 1.000, chỉ số (không đơn vị). UXD duyệt R3 Review 26/10: thêm đơn vị đ/VND sau {perDay}; câu sau nói rõ vẫn lưu được (cảnh báo mềm), bỏ \"Please\""),
 ])
 
 def build():

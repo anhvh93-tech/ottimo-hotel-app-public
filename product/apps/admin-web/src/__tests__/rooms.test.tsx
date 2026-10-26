@@ -156,7 +156,7 @@ describe('H04 Danh mục căn (US-004, ESC-014)', () => {
     // BR-101 v0.4.7 example: 260.000 < 8.000.000 ÷ 30 = 266.667 (shown rounded: 267.000)
     await user.type(nightly, '260000');
     expect(
-      within(dlg).getByText('Giá đêm đang thấp hơn giá tháng chia 30 ngày (267.000).', {
+      within(dlg).getByText('Giá đêm đang thấp hơn giá tháng chia 30 ngày (267.000 đ).', {
         exact: false,
       }),
     ).toBeInTheDocument();

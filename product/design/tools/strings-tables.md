@@ -1104,10 +1104,10 @@
 | `rooms.edit` | Sửa | Edit | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.edit_title` | Sửa căn {room} · {name} | Edit room {room} · {name} | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.error_title` | Chưa tải được danh mục căn | Couldn't load rooms | ⟨chừa chỗ⟩ | 04-rooms.html |
-| `rooms.footnote` | Giá tháng và giá đêm nhập riêng (BR-101). Đổi giá có ngày hiệu lực; đơn, báo giá đã có giữ giá cũ (BR-006). | Monthly and nightly prices are entered separately (BR-101). Price changes have an effective date; existing bookings and quotes keep the old price (BR-006). | ⟨chừa chỗ⟩ | 04-rooms.html – FB-INV-005 (26/10): bỏ ÷ 12, câu VI theo DOM fb-inv-005 §4.2; FE-A soạn EN, chờ UXD duyệt |
+| `rooms.footnote` | Giá tháng và giá đêm nhập riêng (BR-101). Đổi giá có ngày hiệu lực; đơn, báo giá đã có giữ giá cũ (BR-006). | Monthly and nightly prices are entered separately (BR-101). Price changes have an effective date; existing bookings and quotes keep the old price (BR-006). | ⟨chừa chỗ⟩ | 04-rooms.html – FB-INV-005 (26/10): bỏ ÷ 12, câu VI theo DOM fb-inv-005 §4.2; FE-A soạn EN. UXD duyệt R3 Review 26/10, giữ nguyên |
 | `rooms.inc` | Tăng | Increase | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.name` | Tên căn | Room name | ⟨chừa chỗ⟩ | 04-rooms.html |
-| `rooms.night_auto` | Giá đêm ngày thường, kênh Trực tiếp, đã gồm VAT. Cuối tuần +15 %, ngày lễ +30 % tự cộng theo lịch giá. | Weekday night, Direct channel, VAT included. Weekends +15% and holidays +30% are added by the rate calendar. | ⟨chừa chỗ⟩ | 04-rooms.html – chữ phụ dưới ô giá đêm (nay nhập được). FB-INV-005: BR-101 v0.4.7 (VAT – BR-523), BR-104 + ESC-036 A (+15 %/+30 %). Đổi tham số lịch giá thì sửa câu này. Chờ UXD duyệt. Key giữ tên cũ để không đổi hi-fi |
+| `rooms.night_auto` | Đêm ngày thường, kênh Trực tiếp, đã gồm VAT. Cuối tuần, ngày đặc biệt do lịch giá cộng thêm. | Weekday night, Direct channel, VAT included. The rate calendar adds weekend and special-date increases. | ⟨chừa chỗ⟩ | 04-rooms.html – chữ phụ dưới ô giá đêm (nay nhập được). FB-INV-005: BR-101 v0.4.7 (2) (VAT – BR-523), BR-104 + ESC-036 A. UXD duyệt R3 Review 26/10: bỏ số +15 %/+30 % viết cứng (tham số lịch giá, BR §0.2 – đổi tham số thì chữ sai mà không ai biết); "ngày lễ" → "ngày đặc biệt" đúng BR-104 (gồm Tết, cao điểm, sự kiện); bỏ "Giá đêm" lặp nhãn ô; 4 → 3 dòng ở cột 1366 px. Key giữ tên cũ để không đổi hi-fi |
 | `rooms.ooo_until` | Khóa sửa chữa đến {date} | Blocked for repair until {date} | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.price` | Giá niêm yết | List price | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.reason` | Lý do đổi giá | Reason for price change | ⟨chừa chỗ⟩ | 04-rooms.html |
@@ -3698,8 +3698,8 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
 |---|---|---|---|---|
-| `field_error.multiple_of_1000` | Nhập số tròn nghìn, ví dụ 650.000. | Use whole thousands, for example 650,000. | ⟨chừa chỗ⟩ | BR-005 – giá niêm yết bội 1.000; lỗi tại ô (listPrice.nightlyListPriceVnd) |
-| `rooms.night_low` | Giá đêm đang thấp hơn giá tháng chia 30 ngày ({perDay}). Kiểm tra lại trước khi lưu. | The nightly price is below the monthly price per day ({perDay}). Please check before saving. | ⟨chừa chỗ⟩ | Cảnh báo mềm, không chặn lưu (BR-101 v0.4.7: giá đêm < giá tháng ÷ 30). {perDay} = giá tháng ÷ 30, làm tròn 1.000 để hiển thị |
+| `field_error.multiple_of_1000` | Nhập số tròn nghìn, ví dụ 650.000. | Use whole thousands, e.g. 650,000. | ⟨chừa chỗ⟩ | BR-005 – giá niêm yết bội 1.000; lỗi tại ô (listPrice.nightlyListPriceVnd). UXD duyệt R3 Review 26/10: EN "for example" → "e.g." như các lỗi trường khác |
+| `rooms.night_low` | Giá đêm đang thấp hơn giá tháng chia 30 ngày ({perDay} đ). Kiểm tra lại số; nếu đúng, vẫn lưu được. | The nightly price is below the monthly price per day ({perDay} VND). Check the figure – you can still save if it is right. | ⟨chừa chỗ⟩ | Cảnh báo mềm, không chặn lưu (BR-101 v0.4.7 (4): giá đêm < giá tháng ÷ 30). {perDay} = giá tháng ÷ 30, làm tròn 1.000, chỉ số (không đơn vị). UXD duyệt R3 Review 26/10: thêm đơn vị đ/VND sau {perDay}; câu sau nói rõ vẫn lưu được (cảnh báo mềm), bỏ "Please" |
 
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 

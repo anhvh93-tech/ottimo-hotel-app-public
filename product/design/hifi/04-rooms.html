@@ -15,7 +15,7 @@
 <header class="doc-head">
   <div class="crumb"><a href="index.html">Hi-fi OTTIMO R2</a> › H04</div>
   <h1>H04 · Danh mục căn – định mức, sức chứa tối đa, giá niêm yết, trạng thái bán</h1>
-  <div class="doc-meta"><span>Sprint 1 · EP00</span><span>owner, manager (sửa)</span><span>Máy quầy / laptop</span><span>US-004 AC1–AC3</span><span>BR-101, BR-106, BR-110 v0.3, ESC-014 (INV quyết 16/10)</span><span>Wireframe gốc: L10 10.3</span></div>
+  <div class="doc-meta"><span>Sprint 1 · EP00</span><span>owner, manager (sửa)</span><span>Máy quầy / laptop</span><span>US-004 AC1–AC3</span><span>BR-101 v0.4.7 (FB-INV-005), BR-005, BR-106, BR-110 v0.3, ESC-014 (INV quyết 16/10)</span><span>Wireframe gốc: L10 10.3</span></div>
 </header>
 <div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
   <div class="grp">Trạng thái:<div class="seg"><button data-set-state="normal" aria-pressed="true">Bình thường</button><button data-set-state="loading" aria-pressed="false">Đang tải</button><button data-set-state="error" aria-pressed="false">Lỗi</button><button data-set-state="offline" aria-pressed="false">Mất mạng</button></div></div>
@@ -88,7 +88,7 @@
             </div>
             <div class="cards" data-show="loading"><div class="sk h-36"></div><div class="sk h-300"></div></div>
             <div class="state err" data-show="error" role="alert"><div class="ill"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg></div><h3 data-i18n="rooms.error_title">Chưa tải được danh mục căn</h3><p data-i18n="common.error_generic_body" data-i18n-args='{"request_id":"01JB-5M2C"}'>Có thể do mạng chập chờn. Dữ liệu của bạn không bị mất. Bấm Thử lại; nếu vẫn lỗi, báo quản lý mã tham chiếu 01JB-5M2C.</p><button class="btn" data-i18n="common.retry">Thử lại</button></div>
-            <p class="caption mt-12" data-i18n="rooms.footnote">Giá đêm niêm yết = giá tháng ÷ 12, làm tròn 1.000 (BR-101) – do hệ thống tính. Đổi giá có ngày hiệu lực; đơn, báo giá đã có giữ giá cũ (BR-006).</p>
+            <p class="caption mt-12" data-i18n="rooms.footnote">Giá tháng và giá đêm nhập riêng (BR-101). Đổi giá có ngày hiệu lực; đơn, báo giá đã có giữ giá cũ (BR-006).</p>
           </div>
         </div>
       </div>
@@ -131,8 +131,9 @@
             </fieldset>
             <fieldset class="card inset">
               <legend class="label-h" data-i18n="rooms.price">Giá niêm yết</legend>
-              <div class="g-2"><div class="field"><label for="r-m" data-i18n="rooms.col_month">Giá tháng</label><div class="input-affix"><input class="input num" id="r-m" inputmode="numeric" value="11.500.000"><span class="affix">đ</span></div></div>
-                <div class="field"><label for="r-n" data-i18n="rooms.col_night">Giá đêm niêm yết</label><div class="input-affix"><input class="input num" id="r-n" readonly value="958.000"><span class="affix">đ</span></div><span class="help" data-i18n="rooms.night_auto">Tự tính: giá tháng ÷ 12 (BR-101)</span></div></div>
+              <div class="g-2 top"><div class="field"><label for="r-m" data-i18n="rooms.col_month">Giá tháng</label><div class="input-affix"><input class="input num" id="r-m" inputmode="numeric" value="11.500.000"><span class="affix">đ</span></div></div>
+                <div class="field"><label for="r-n" data-i18n="rooms.col_night">Giá đêm niêm yết</label><div class="input-affix"><input class="input num" id="r-n" inputmode="numeric" value="95.000" aria-describedby="r-n-h r-n-w"><span class="affix">đ</span></div><span class="help" id="r-n-h" data-i18n="rooms.night_auto">Đêm ngày thường, kênh Trực tiếp, đã gồm VAT. Cuối tuần, ngày đặc biệt do lịch giá cộng thêm.</span></div></div>
+              <div class="alert warn" role="status" id="r-n-w"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="rooms.night_low" data-i18n-args='{"perDay":"383.000"}'>Giá đêm đang thấp hơn giá tháng chia 30 ngày (383.000 đ). Kiểm tra lại số; nếu đúng, vẫn lưu được.</div></div>
               <div class="g-2"><div class="field"><label for="r-eff"><span data-i18n="config.effective_from">Hiệu lực từ</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="r-eff" value="01/11/2026"></div>
                 <div class="field"><label for="r-why"><span data-i18n="rooms.reason">Lý do đổi giá</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="r-why" value="Điều chỉnh mùa cao điểm"></div></div>
               <p class="caption" data-i18n="rooms.snapshot_note">Đơn, báo giá, hợp đồng tạo trước ngày hiệu lực giữ giá cũ.</p>
@@ -146,6 +147,7 @@
     <aside class="spec" aria-label="Đặc tả 4.2">
       <h3>Hành vi</h3>
       <ul><li>Stepper C4 (không ô số); tối đa chỉ nhận định mức hoặc định mức + 1: nút "−" khóa khi bằng định mức, nút "+" khóa khi bằng định mức + 1; đổi định mức thì tối đa tự đi theo (+1). Server kiểm <span class="pc">VALIDATION_FAILED</span> <code>MAX_OCCUPANCY_RANGE</code>.</li><li>Lưu trả <span class="pc">CAPACITY_BELOW_BOOKINGS</span> → alert tại nhóm "Số người", liệt kê <code>conflicts[]</code> (<code>reservationCode</code>, <code>stayFrom</code>, <code>stayTo</code>, <code>guestCount</code>), mỗi mã đơn là link mở drawer đơn (H11).</li><li>Đổi giá: bắt buộc ngày hiệu lực + lý do → <code>RoomPatch.listPrice</code>; nhật ký ghi cũ/mới (US-005 AC3 tương tự).</li><li>Tắt "Đang bán" → không hỏi xác nhận (đảo ngược được) nhưng hiện toast Hoàn tác 10 giây.</li><li>Form đã sửa + Esc → "Bỏ các thay đổi chưa lưu?" (DS §6.2).</li></ul>
+      <h3>Giá tháng và giá đêm (FB-INV-005, BR-101 v0.4.7 – 26/10)</h3><ul><li>Hai ô <b>độc lập</b>, cùng kiểu ô tiền VND (định dạng khi rời ô); điền sẵn giá hiện hành, căn chưa có giá để trống. Gõ ô này không đổi ô kia – không còn ÷ 12 ở bất kỳ đâu.</li><li>Đổi một trong hai ô → hiện "Hiệu lực từ" + "Lý do đổi giá"; gửi <code>listPrice</code> đủ <code>monthlyListPriceVnd</code> + <code>nightlyListPriceVnd</code>.</li><li>Lỗi tại ô giá đêm (class <code>.field.invalid</code> + <code>.err</code>): rỗng/0 → <code>field_error.amount_not_positive</code>; không bội 1.000 → <code>field_error.multiple_of_1000</code> (BR-005). Lỗi 422 <code>listPrice.nightlyListPriceVnd</code> từ server hiện cùng chỗ.</li><li><b>Cảnh báo mềm, không chặn</b> (BR-101 (4)): giá đêm × 30 &lt; giá tháng → <code>.alert.warn</code> ngay dưới hai ô, <code>rooms.night_low</code> với <code>{perDay}</code> = giá tháng ÷ 30 làm tròn 1.000; nút Lưu vẫn bật. Khung mẫu: OWN gõ thiếu một số 0 (95.000 thay vì 950.000) cho giá tháng 11.500.000.</li><li>Chữ phụ <code>rooms.night_auto</code> không ghi % cuối tuần/ngày đặc biệt – đó là tham số lịch giá (BR-104), xem ở màn Tham số.</li><li>Hai ô thẳng hàng trên cùng (<code>.g-2.top</code>) dù chỉ ô giá đêm có chữ phụ.</li></ul>
       <h3>Số giường, diện tích (OpenAPI 0.3.4 – ARC Q6)</h3><ul><li><code>Room.bedSetup</code> (≤ 100 ký tự, một ngôn ngữ ở R2), <code>bedCount</code> (1–10, stepper), <code>areaM2</code> (số nguyên ≥ 1, tùy chọn; gửi <code>null</code> = xóa) qua <span class="op">updateRoom</span>/<span class="op">createRoom</span>; cột "Số giường", "Diện tích" ở bảng 4.1. Lỗi trường: <code>VALUE_OUT_OF_RANGE</code>, <code>TOO_LONG</code>. Diện tích trong bảng là dữ liệu minh họa (INV chưa gửi số đo).</li><li>Hàng đang sửa tô bằng class <code>is-editing</code> (không dùng <code>aria-selected</code> trên bảng thường – FB-R2-UXD-FE-13).</li></ul>
       <h3>Dữ liệu mẫu</h3><ul><li>Giảm tối đa 302 từ 4 xuống 3 trong khi OTM-0152 (Gia đình anh Hưng) có 4 khách → lỗi.</li></ul>
     </aside>
