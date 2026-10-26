@@ -1,6 +1,9 @@
 // Arrival-time choices of H18 18.3 (UXD hi-fi, updated S3): 2-hour windows from the standard check-in
-// time, one window up to 22:00, then "After 22:00". `etaTime` = start of the window; "After 22:00"
-// stores 22:00 + `lateArrival` (contract 0.3.3, BA assumption). [GIẢ ĐỊNH MOB – start of window]
+// time up to 18:00 (at most 4 windows), one evening window up to 22:00, then "After 22:00".
+// Check-in from 12:00 (FB-INV-004, BR-401 v0.4.6; DOM v1-production-defaults F4) gives
+// 12–14, 14–16, 16–18, 18–22, 22:00+; 14:00 keeps the hi-fi set 14–16, 16–18, 18–22, 22:00+.
+// `etaTime` = start of the window; "After 22:00" stores 22:00 + `lateArrival` (contract 0.3.3,
+// BA assumption). [GIẢ ĐỊNH MOB – start of window]
 
 export interface EtaChoice {
   id: string;
@@ -10,6 +13,9 @@ export interface EtaChoice {
 }
 
 const LATE_FROM = 22 * 60;
+/** Last 2-hour window ends here; the evening window runs on to 22:00. */
+const EVENING_FROM = 18 * 60;
+const MAX_WINDOWS = 4;
 /** Start of "After 22:00" (H18 18.3) – also the time in `gw.oci_unavailable_late`. */
 export const LATE_ARRIVAL_FROM = '22:00';
 
@@ -25,7 +31,8 @@ function toHhmm(min: number): string {
 export function etaSlots(checkinTime: string): EtaChoice[] {
   const start = Math.min(toMin(checkinTime) ?? 14 * 60, LATE_FROM - 60);
   const bounds = [start];
-  for (let b = start + 120; b < LATE_FROM - 60 && bounds.length < 3; b += 120) bounds.push(b);
+  for (let b = start + 120; b <= EVENING_FROM && bounds.length < MAX_WINDOWS; b += 120)
+    bounds.push(b);
   bounds.push(LATE_FROM);
   const out: EtaChoice[] = [];
   for (let i = 0; i < bounds.length - 1; i++) {
