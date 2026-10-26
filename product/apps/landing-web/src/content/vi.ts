@@ -180,7 +180,7 @@ export const vi: Copy = {
       },
       {
         title: 'Đi về tự do',
-        body: 'Lễ tân đón bạn ở tầng trệt, [[07:00–22:00]]; khóa điện tử để bạn đến muộn vẫn thong thả. Nhận phòng từ 14:00, trả phòng trước 12:00.',
+        body: 'Lễ tân đón bạn ở tầng trệt, [[07:00–22:00]]; khóa điện tử để bạn đến muộn vẫn thong thả. Nhận phòng từ 12:00 khi phòng đã sẵn sàng – và phòng luôn sẵn sàng lúc 14:00. Trả phòng trước 12:00.',
       },
     ],
   },
@@ -282,7 +282,7 @@ export const vi: Copy = {
       {
         q: 'Ở OTTIMO thế nào?',
         a: [
-          'Sự chu đáo của lễ tân và, với kỳ ở ngắn, dọn phòng mỗi ngày; cùng sự tiện lợi của gian bếp, máy giặt sấy và bàn làm việc riêng. Nhận phòng từ 14:00, trả phòng trước 12:00. Một đêm hay vài tháng, mọi thứ đều sẵn sàng.',
+          'Sự chu đáo của lễ tân và, với kỳ ở ngắn, dọn phòng mỗi ngày; cùng sự tiện lợi của gian bếp, máy giặt sấy và bàn làm việc riêng. Nhận phòng từ 12:00 khi phòng đã sẵn sàng – và phòng luôn sẵn sàng lúc 14:00. Trả phòng trước 12:00. Một đêm hay vài tháng, mọi thứ đều chu toàn.',
         ],
       },
       {

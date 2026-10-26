@@ -43,7 +43,7 @@ Astro 7: khi không chạy trong terminal (script, agent), `astro dev` tự ch�
 
 ## Nguồn dữ liệu
 
-- `src/content/site.json` – điện thoại, Zalo, WhatsApp/Telegram/Viber, email chung, địa chỉ, ghim Google Maps, fanpage Facebook, cờ tính năng, tham số câu hứa/giờ lễ tân/cọc (`booking` – test so với chữ trên trang), tên chủ tài khoản nhận cọc (trống = câu FAQ không nêu tên). Kiểm bằng zod lúc build (`src/content/site.ts`). Đổi Zalo số hotline sang Zalo OA: chỉ sửa `contact.zaloUrl`.
+- `src/content/site.json` – điện thoại, Zalo, WhatsApp/Telegram/Viber, email chung, địa chỉ, ghim Google Maps, fanpage Facebook, cờ tính năng, tham số câu hứa/giờ lễ tân/cọc (`booking` – test so với chữ trên trang), tên chủ tài khoản nhận cọc (trống = câu FAQ không nêu tên), giờ nhận/trả phòng (`checkinTime` 12:00 = nhận sớm nhất khi phòng đã sẵn sàng, `roomReadyBy` 14:00 = giờ phòng luôn sẵn sàng – BR-401 v0.4.6, FB-INV-004; chỉ `checkinTime`/`checkoutTime` vào JSON-LD; chữ trang không bao giờ hứa "ready from"/"sẵn sàng từ" – danh sách cấm). Kiểm bằng zod lúc build (`src/content/site.ts`). Đổi Zalo số hotline sang Zalo OA: chỉ sửa `contact.zaloUrl`.
 - `src/content/en.ts`, `vi.ts` – chữ trên trang (kiểu `Copy` trong `types.ts`: thiếu chuỗi là lỗi typecheck).
 - `src/assets/photos/` – đủ 18 ảnh UXD đã tối ưu (R3-Q52; trước đó 9 ảnh mock v1.2.1 dùng – concept 10) × 480/960/1600 × AVIF/WebP do UXD tối ưu (`design/landing/tools/optimize-images.mjs`), `manifest.json` (alt EN/VI), `CREDITS.md`. Không mã hóa lại khi build (`passthroughImageService`). Điện thoại không bao giờ nhận ảnh rộng hơn 960 px.
 - `src/styles/tokens.css` – **sinh** từ nhóm màu thương hiệu của Design System (`pnpm sync:tokens`). Chỉ 7 màu Brand Guidelines + trắng; CSS của landing chỉ dùng `var(--brand-*)`.
