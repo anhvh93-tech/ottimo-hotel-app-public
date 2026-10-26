@@ -10,7 +10,8 @@
  *   carry its source (document retention keys, BR v0.4.4). Values were taken from the QA DS-E fixture, which
  *   mirrors BR section 13; `status` is the label of that row (INV-0xx decided, INV-DDMM = INV answer of that day,
  *   GD = [GIẢ ĐỊNH], PL = lawyer/accountant, NGANH = DOM) and must match `config_parameter_status_label_check`
- *   (`^[A-Z0-9-]{1,16}(\+[A-Z0-9-]{1,16}){0,3}$` – no '/'). Checked against BR v0.4.4 section 13 (DOM, 26/10).
+ *   (`^[A-Z0-9-]{1,16}(\+[A-Z0-9-]{1,16}){0,3}$` – no '/'). Checked against BR v0.4.4 section 13 (DOM, 26/10);
+ *   check-in keys per BR v0.4.6 (BR-401/BR-411, INV 26/10).
  * Deliberately NOT here (INV types them in the app after the first sign-in): room list prices
  * (`room_list_price`, BR-101), `ota_base_rate` (BR-103), `payment_receiving_account` (BR-521, R3-Q51 screen), the
  * Wi-Fi password (BR-012 (7), ESC-022 B), minibar items and their prices, `shift_max_hours` (no BR value).
@@ -298,7 +299,8 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
   { key: 'manual_close_when_rooms_left_le', br: 'BR-317', status: 'NGANH', value: 1 },
   { key: 'group_rooming_list_days', br: 'BR-323', status: 'INV-006', value: 3 },
   { key: 'group_min_rooms', br: 'BR-324', status: 'INV-006', value: 2 },
-  { key: 'checkin_time', br: 'BR-401', status: 'GD', value: '14:00' },
+  // BR v0.4.6 (INV 26/10, FB-INV-004): check-in from 12:00 when the unit is VI/VC (always ready by 14:00).
+  { key: 'checkin_time', br: 'BR-401', status: 'INV-2610', value: '12:00' },
   { key: 'checkout_time', br: 'BR-401', status: 'GD', value: '12:00' },
   // BR v0.3.9 (INV 19/10): door code = 8 random digits, birthday variant removed.
   { key: 'door_code_min_digits', br: 'BR-403', status: 'INV-1910+SEC', value: 8 },
@@ -306,11 +308,12 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
   { key: 'birthday_code_random_digits', br: 'BR-403', status: 'OBSOLETE', value: 3 },
   { key: 'door_lock_vendor', br: 'BR-403', status: 'INV-TT', value: 'TTLock' },
   {
+    // BR v0.4.6: 0 % from 12:00 (`checkin_time`), 30 % 10:00–11:59, 50 % 06:00–09:59 (tier bounds ESC-007).
     key: 'early_checkin_tiers',
     br: 'BR-411',
-    status: 'INV-007',
+    status: 'INV-007+INV-2610',
     value: [
-      { from: '10:00', to: '14:00', pct: 30 },
+      { from: '10:00', to: '12:00', pct: 30 },
       { from: '06:00', to: '10:00', pct: 50 },
     ],
   },
