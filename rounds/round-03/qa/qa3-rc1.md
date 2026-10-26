@@ -301,3 +301,51 @@ Giới hạn còn lại:
 Còn lại:
 - Ca `ui-clock/qa-bug017.spec.ts` đang ở scratchpad (`esc031b/product/tests/e2e/ui-clock/`). Đề nghị FE-A đưa vào nhánh, cùng điều kiện `E2E_TOTP_DIR` như hai bộ ca ESC-031.
 - BUG-R3-017 chuyển Closed khi nhánh gộp và CI xanh.
+
+## 13. Kiểm nhanh `v1.0.0-rc.2` trên staging (26/10 22:54–23:10)
+
+- Bản: staging `4629e6e` = tag `v1.0.0-rc.2`; CI push `4629e6e` xanh.
+- Harness repo `4629e6e` (BUG-R3-015 có sẵn): `E2E_TOTP_DIR=~/.ottimo/staging/totp`, `E2E_LOCAL_CLOCK=1`, không có test-support. Bộ chạy ở scratchpad: `qa-r6/run-staging-rc2.sh`, `qa-r6/src-rc2`.
+- Tài khoản `qa.*`; `qa.owner` dùng TOTP thử.
+- Không đụng OTM-00294 (căn 202). Không ảnh nào có QR.
+
+| # | Việc | Kết quả |
+|---|---|---|
+| 1 | Smoke `smoke-prod` chỉ đọc trên staging | **Đạt 9/9**: PS-01 desk/staff/guest 200 + header bảo mật đúng từng giá trị (HTTPS thật); PS-02 `/health`, `/__test__` 404; PS-03 401; PS-04 không request ghi, không lỗi JS; PS-05; PS-06 với `qa.fd` và với `qa.owner` (bước 2FA, `mfaEnabled` đúng) |
+| 2 | ESC-031 `postReview` + tiền mặt `finalPayment` | **Chưa chạy được tối nay (giờ thật):** không có đơn nào trả phòng hôm nay 26/10. Đơn mới tạo sớm nhất trả 27/10, và phụ thu bằng 1 đêm chỉ có khi trả muộn đúng ngày đi. **Đã dựng sẵn:** OTM-00357 căn 203, 26→27/10, đã nhận phòng 22:58, tiền phòng đã thu; OTM-00358 căn 203 đến 27/10 (đêm ngày đi không bán được). `checkout-summary` 20:30 xem trước: `lateFeeAsNightVnd` **792.000**, `extraNightAvailable` false. **Chạy 27/10 sau 18:00** (≈ 20:30): B18 `postReview` + tiền mặt qua Desk, rồi hủy OTM-00358 |
+| 3 | FB-INV-005 – giá đêm 102 từ ngày mai | **Đạt** (kèm **BUG-R3-018**, P2) – chi tiết dưới bảng |
+| 4 | `checkin_time` 12:00 + bậc nhận sớm như production | **Đặt xong, chưa kiểm số** – chi tiết dưới bảng |
+
+Mục 3 – FB-INV-005:
+- Giá đêm 102 trên staging trước lượt QA là **850.000**, hiệu lực 26/10 (giá tháng 10.200.000), không phải 750.000 của seed.
+- Qua Desk (`qa.owner`): Danh mục căn → Sửa 102 → giá đêm 700.000, hiệu lực 27/10 → PATCH 200.
+- `calculateQuote` (kênh Trực tiếp, 2 NL):
+
+  | Đêm | Kết quả |
+  |---|---|
+  | 26/10 (hôm nay) | 850.000 – không đổi |
+  | 27/10 | **700.000** |
+  | 28/10 | **700.000** |
+  | 30–31/10 (thứ Sáu, thứ Bảy) | **805.000 × 2 = 1.610.000** (= 700.000 × 1,15) |
+
+- Trả lại giá cũ:
+  - Lần 1 QA nhầm, trả về 750.000 (giá seed) trong khoảng 3 phút. Giá đó lên lịch từ 27/10, không đơn nào bị ảnh hưởng.
+  - Desk không cho trả về 850.000 (**BUG-R3-018**), nên QA đặt bằng API `PATCH rooms/102` 850.000 hiệu lực 27/10.
+  - Sau khi sửa: 27/10, 28/10 = **850.000**; 30–31/10 = **978.000 × 2** (= 850.000 × 1,15).
+  - Lịch sử giá 102 còn hai dòng thừa: 750.000 rồi 850.000, cùng hiệu lực 27/10.
+- Ảnh: `qa-r6/rc2/screens/fb005-*.png`. Ảnh `fb005-hoan-ngan-keo.png` chụp lúc ngăn kéo còn đang hiện dần, nên trông như trong suốt – không phải lỗi.
+
+Mục 4 – `checkin_time` 12:00 và bậc nhận sớm:
+- `qa.owner` đặt `checkin_time` = 12:00 và `early_checkin_tiers` = [10:00–12:00 30 %, 06:00–10:00 50 %], đúng như `production-defaults.ts`, hiệu lực **27/10** → 200 / 200.
+- Tham số chỉ cho hiệu lực từ ngày mai, nên tối nay `check-in-preview` của OTM-00358 vẫn trả `standardCheckinTime` 14:00.
+- **Kiểm sau 06:00 27/10** (ngày nghiệp vụ mới, trước A1): xem trước nhận phòng 11:00 = **30 %** × 792.000 = **238.000**; 12:30 = **0**; 09:00 = 50 %.
+
+**Kết luận rc.2 tối 26/10:**
+- Không có lỗi P0/P1 mới. **1 lỗi P2 mới: BUG-R3-018.**
+- Mục 1 và 3 Đạt. Mục 2 và 4 làm tiếp ngày 27/10 vì giờ thật.
+- BUG-R3-015, BUG-R3-017 → Closed (rc.2 có bản sửa, CI xanh).
+
+**Việc 27/10:**
+1. Sau 06:00: xem trước nhận sớm 11:00 / 12:30 / 09:00 trên OTM-00358.
+2. A1 chặng 8–12 (OTM-00294), rồi trả phòng OTM-00297 kèm công nợ 150.000.
+3. Sau 18:00: B18 OTM-00357 đường `postReview` + tiền mặt, rồi hủy OTM-00358.

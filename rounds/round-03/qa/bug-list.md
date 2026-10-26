@@ -9,10 +9,15 @@
 | Mức | Số lỗi | Open | Fixed | Closed |
 |---|---|---|---|---|
 | P0 | 3 | 0 | 0 | 3 |
-| P1 | 9 | 0 | 1 | 8 |
-| P2 | 3 | 0 | 0 | 3 |
-| P3 | 2 | 1 | 1 | 0 |
-| **Tổng** | **17** | **1** | **2** | **14** |
+| P1 | 9 | 0 | 0 | 9 |
+| P2 | 4 | 1 | 0 | 3 |
+| P3 | 2 | 1 | 0 | 1 |
+| **Tổng** | **18** | **2** | **0** | **16** |
+
+Cập nhật 26/10 ~23:15 (rc.2 trên staging, `qa3-rc1.md` mục 13):
+- **BUG-R3-015 → Closed**: harness repo chạy được trên staging bật 2FA (smoke-prod 9/9, các ca rc.2); CI push `4629e6e` xanh.
+- **BUG-R3-017 → Closed**: đã gộp `main` trong `v1.0.0-rc.2`; CI push `4629e6e` xanh. Lượt QA trên nhánh đạt 4/4. Chạy lại ca tiền mặt ESC-031 trên staging vào tối 27/10 – xem mục 13.
+- Thêm **BUG-R3-018 (P2, FE-A)**.
 
 Cập nhật 26/10 tối (ESC-031, `qa3-rc1.md` mục 11): thêm **BUG-R3-017 (P1, FE-A + BE-B)** – thu tiền mặt/thẻ cho phụ thu bằng 1 đêm ở bước 3 trả phòng bị chặn (có từ R2 0.3.7; trên production ESC-031 là đường duy nhất nên lỗi lộ ra). Bản vá ESC-031 tự nó: 14/14 ca tiền đạt.
 
@@ -41,9 +46,10 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-012 | **P0** | J15 trả `waiting_refund` mãi khi còn yêu cầu hoàn mở, kể cả khi đã hết tiền dư và khách đang **nợ**: không ghi công nợ, không báo OWN/MGR, folio không bao giờ đóng | BE-B (folio/J15) | **Closed** 24/10. Lượt fuzz chạy lại trên `origin/main` `f2ba2ac`: 710 chuỗi, 28.250 bước. Critic `reviews/s1-money-critic-rerun.md` mục 6 xác nhận. |
 | BUG-R3-013 | P1 | Yêu cầu hoàn đang mở không được tính lại (`refundPlan`) khi tiền dư giảm (phát sinh sau trả phòng, A32, J15) – yêu cầu > tiền dư, có lần duyệt khi tiền dư 0 | BE-B (folio/refunds) | **Closed** 24/10. Lượt fuzz chạy lại trên `origin/main` `f2ba2ac`: 710 chuỗi, 28.250 bước. Critic `reviews/s1-money-critic-rerun.md` mục 6 xác nhận. |
 | BUG-R3-014 | P1 | Chi hoàn (`payOut`) đưa tiền dư của folio `settled` về 0 nhưng các yêu cầu hoàn đã duyệt còn tiền chưa chi vẫn `approved`, không đóng `superseded` (hợp đồng 13.3 điểm 1 + 3). Tiền khách trả thêm về sau bị duyệt cũ "hút" và chi theo duyệt cũ, không qua định tuyến ADD3 | BE-B (payments/refunds) | **Closed** 24/10 – BE-B `76e21c4` (gộp `ce38624`, hợp đồng 13.4); fuzz chạy lại 710 chuỗi / 28.250 bước, 0 vi phạm cứng; critic `reviews/s1-money-critic-014.md` |
-| BUG-R3-015 | P3 | **Bộ test**: không chạy được trên stack `MFA_ENFORCED=true` (staging, production): (1) `freshSession` không có bước TOTP cho DS-E OWN/MGR đã bật 2FA; (2) `createThrowawayUser` gửi S2 chỉ có mật khẩu; (3) `ensureReceivingAccount` (R3-Q51) gọi `/health` + `/__test__/clock` vô điều kiện; (4) `s2Context` dùng `qa.owner` – phiên hạn chế làm ca bỏ qua với lý do sai "DS-E chưa nạp đủ 10 căn" | QA | **Fixed** 26/10 – harness trong repo (`support/totp-store.ts`, `E2E_TOTP_DIR`, `E2E_TOTP_ENROLL`, `seedReauthFor`, `E2E_LOCAL_CLOCK`); kiểm trên stack dùng một lần cờ bật và cờ tắt. Closed sau CI push xanh + lượt staging 27/10 |
+| BUG-R3-015 | P3 | **Bộ test**: không chạy được trên stack `MFA_ENFORCED=true` (staging, production): (1) `freshSession` không có bước TOTP cho DS-E OWN/MGR đã bật 2FA; (2) `createThrowawayUser` gửi S2 chỉ có mật khẩu; (3) `ensureReceivingAccount` (R3-Q51) gọi `/health` + `/__test__/clock` vô điều kiện; (4) `s2Context` dùng `qa.owner` – phiên hạn chế làm ca bỏ qua với lý do sai "DS-E chưa nạp đủ 10 căn" | QA | **Closed** 26/10 – harness trong repo (`totp-store.ts`, `E2E_TOTP_DIR`, `seedReauthFor`, `E2E_LOCAL_CLOCK`, mã TOTP theo đồng hồ stack); chạy trên staging rc.2 (smoke-prod, các ca rc.2) và stack bật 2FA; CI push `4629e6e` xanh |
 | BUG-R3-016 | P3 | Khách **đến hôm nay**: báo giá đã lưu không chuyển được thành đơn. H12 chỉ báo "Sale/CTV: nhắn lễ tân tạo đơn đã thu"; lễ tân nhập lại H09 từ đầu – mặc định 2 người lớn trong khi báo giá 1 người lớn, không mang khách/giá của báo giá, không nối báo giá với đơn | PO (+ FE-A, UXD) | Open |
-| BUG-R3-017 | **P1** | Trả phòng H16 bước 3, phụ thu trả muộn bằng 1 đêm (BR-416-06 – mọi lượt ESC-031 trên production): thu **tiền mặt** (hoặc thẻ POS) 792.000 → `recordPayment` 422 `note REASON_REQUIRED` (số > còn phải thu lúc đó vì phụ thu chỉ ghi khi B18); màn báo "Ghi lý do (ít nhất 3 ký tự)" nhưng không có ô ghi → không thu được, B18 tiếp theo 409 `BALANCE_DUE`. VietQR (gửi ngữ cảnh trả phòng) và chuyển khoản (có ô ghi chú) đi được | FE-A (+ BE-B) | **Fixed** 26/10 – FE-A `64bf5c0` + `67fc853` (Desk gửi `finalPayment` trong B18). QA kiểm trên stack bật 2FA: 4 ca tiền mặt/thẻ POS (ESC-031 và đêm thêm thường) đạt. **Closed** sau khi gộp nhánh + CI xanh |
+| BUG-R3-017 | **P1** | Trả phòng H16 bước 3, phụ thu trả muộn bằng 1 đêm (BR-416-06 – mọi lượt ESC-031 trên production): thu **tiền mặt** (hoặc thẻ POS) 792.000 → `recordPayment` 422 `note REASON_REQUIRED` (số > còn phải thu lúc đó vì phụ thu chỉ ghi khi B18); màn báo "Ghi lý do (ít nhất 3 ký tự)" nhưng không có ô ghi → không thu được, B18 tiếp theo 409 `BALANCE_DUE`. VietQR (gửi ngữ cảnh trả phòng) và chuyển khoản (có ô ghi chú) đi được | FE-A (+ BE-B) | **Closed** 26/10 – FE-A `64bf5c0` + `67fc853` gộp `main`, có trong `v1.0.0-rc.2` (`4629e6e`, CI push xanh); QA kiểm trên nhánh 4/4 (tiền mặt/thẻ POS, ESC-031 và đêm thêm) |
+| BUG-R3-018 | P2 | Desk "Danh mục căn" (FB-INV-005): giá đêm đã **lên lịch** cho ngày sau không hiện ở ngăn kéo/bảng. OWN gõ lại đúng giá đang dùng để hủy lịch thì ô ngày hiệu lực/lý do ẩn, nút Lưu khóa ("không đổi") → không gỡ được giá sai đã lên lịch trên Desk | FE-A (+ BE-A nếu cần API xem/hủy lịch) | Open |
 
 ## 3. Chi tiết
 
@@ -415,7 +421,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - `smoke-prod` trên stack dev với `E2E_PROD_SMOKE_LOCAL=1`: 8/8; không có cờ LOCAL thì PS-02 đỏ đúng (`/health` 200 trên dev).
   - Chưa chạy trên staging (khung B1). Lượt staging 27/10 sáng: A1 phần 3 bằng harness repo + `smoke-prod` (PS-01…05 trên staging dùng Caddyfile.prod).
 - **Lưu ý commit:** phần sửa các tệp có sẵn đã vào `476b79d` (commit của ORC lúc 16:09 gom cả cây làm việc) trước khi `totp-store.ts` và `smoke-prod/` được thêm – `476b79d` thiếu `support/totp-store.ts` nên typecheck/E2E đỏ; commit kế tiếp của QA bổ sung.
-- **Trạng thái:** Fixed (chờ CI push xanh + lượt staging 27/10 để Closed).
+- **Trạng thái:** Closed 26/10 – chạy trên staging `v1.0.0-rc.2` bằng harness repo (`qa3-rc1.md` mục 13); CI push `4629e6e` xanh.
 
 ### BUG-R3-016 – Khách đến hôm nay: báo giá không chuyển được thành đơn
 
@@ -479,4 +485,31 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - Cả bốn ca: không có `POST /payments` ở bước 3; hộp xác nhận có dòng "Ghi vào folio khoản thu …"; folio `settled`, còn phải thu 0, không dư; dòng thanh toán đúng cách trả và số tiền.
   - Ca ESC-031 UI (tiền mặt 1.000.000 khách đưa) → `finalPayment` 792.000. `lateFeeInsteadOfNight` vẫn đúng 3 trường. 409/422 như cũ.
   - admin-web 625/625. Ảnh: `rounds/round-03/outputs/FE/esc031-shots/02-buoc3-tien-mat-ghi-khi-hoan-tat.png`, `bug017-*.png`.
-- **Trạng thái:** Fixed – Closed khi nhánh gộp `main` và CI xanh.
+- **Trạng thái:** Closed 26/10 – gộp `main` trong `v1.0.0-rc.2` (`4629e6e`), CI push xanh.
+
+### BUG-R3-018 – Không xem, không gỡ được giá đêm đã lên lịch trên Desk (FB-INV-005)
+
+- **Mức:** P2. Lỗi chạm giá (tiền) cho các đêm tương lai, nên QA xét P1 trước. Hạ xuống P2 vì:
+  - không sai tiền của đơn/báo giá đã có (BR-006 giữ giá cũ);
+  - đổi giá lần nữa sang số **khác** vẫn làm được;
+  - có đường vòng bằng API.
+  Không thấp hơn P2 vì:
+  - B2 (28/10) là lúc INV nhập giá thật: nhập nhầm rồi muốn quay về giá đang dùng thì Desk chặn;
+  - Desk không cho biết đang có giá đã lên lịch.
+- **Môi trường:** staging `v1.0.0-rc.2` (`4629e6e`), Desk Chromium 1366×768, `qa.owner` (2FA), 26/10 ~23:00.
+- **Bước tái hiện:**
+  1. Danh mục căn → Sửa căn 102 (giá đêm đang dùng 850.000).
+  2. Giá đêm 700.000, hiệu lực 27/10, lý do → Lưu → 200. Báo giá 102 ngày 27/10 = 700.000.
+  3. Mở lại Sửa căn 102.
+- **Thực tế:**
+  - Ngăn kéo và bảng vẫn chỉ hiện 850.000 (giá đang dùng), không có dòng "đã lên lịch 700.000 từ 27/10".
+  - Gõ lại 850.000 → ô Hiệu lực từ và Lý do biến mất, nút **Lưu khóa**.
+  - Không có nút hủy lịch. Giá 700.000 vẫn áp từ 27/10.
+  - Chỉ gỡ được bằng API (`PATCH rooms/{id}` `listPrice` 850.000 hiệu lực 27/10). QA đã làm như vậy để trả staging về đúng giá.
+- **Mong đợi:**
+  - Ngăn kéo hiện giá đã lên lịch (ngày, giá tháng, giá đêm, người, lý do).
+  - So "đã đổi" với giá **của ngày hiệu lực chọn** (gồm dòng lên lịch), không chỉ giá hôm nay. Hoặc có nút "Hủy lịch đổi giá" như màn tài khoản nhận (R3-Q51).
+- **Bằng chứng:** scratchpad `qa-r6/rc2/run-log.md`, ảnh `qa-r6/rc2/screens/fb005-*.png`; ca `ui/qa-rc2.spec.ts` (`setNightly` → `Timeout` ô "Hiệu lực từ" vì ô ẩn).
+- **Vai:** FE-A (+ BE-A nếu cần API danh sách/hủy giá đã lên lịch); UXD chữ.
+- **Hạn:** trước B2 (28/10) nếu kịp. Nếu không, ORC báo INV khi nhập giá ở B2: nhập nhầm thì gọi đội sửa bằng API.
+- **Trạng thái:** Open.
