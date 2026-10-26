@@ -40,3 +40,27 @@
 - Làm rõ câu INV về tên phòng / số phòng: BR-012 (1)–(6) chưa đổi (PO ghi R3-Q53, giả định G3).
 - PO và BA review oracle; ARC đọc chéo mục 2 (210).
 - Ví dụ dài hạn (Sprint 3) và hướng dẫn vận hành (Sprint 4).
+
+---
+
+# Phản hồi & sửa – áp câu trả lời INV 26/10 (giá trị production v1.0) – DOM, 26/10/2026
+
+## Đã làm gì
+- Áp 8 câu INV trả lời vào `v1-production-defaults.md` mục 4 và BR **v0.4.4**: BR-012 (khách thấy tên + số căn, hạng Studio theo căn), BR-205/501/502 (điện 5.000 đ/kWh, nước 100.000 đ/người/tháng), BR-523, BR-602/603/612 (nguồn luật), BR-610 (ảnh 90 ngày, v1.0 tạm 30), BR-901, mục 13, mục 18.
+- Kiểm mã (mục 5): nước theo người không cần sửa mã ở v1.0 (điện nước chưa có trong app tới v1.3); hạn lưu 90 ngày bị biên tham số 0–30 chặn → BE v1.0.1; Desk đã hiện "401 · The Pine".
+- Đề xuất mùa cao điểm 2026–2027 (mục 6) → ESC-032; VAT 2027 → ESC-033.
+
+## File tạo/sửa
+- `rounds/round-03/outputs/DOM/v1-production-defaults.md`, `product/docs/business-rules.md`, `02-escalations/ESC-032.md`, `02-escalations/ESC-033.md`, `02-escalations/escalations-index.md`, `01-decisions/decision-log.md`.
+
+## Giả định
+- Nước: /người/tháng, theo ngày ở, trẻ dưới 6 tuổi miễn, vắng tạm không trừ [GIẢ ĐỊNH – chờ INV xác nhận].
+- "3 tháng" của INV áp cho ảnh người đã đồng ý và hồ sơ điền sẵn; ảnh khai báo chưa xong giữ 7 ngày (gồm cả người không đồng ý) – quyền DOM.
+- VAT 8 % hết hạn 31/12/2026 (Nghị quyết 204/2025/QH15) – theo DOM hiểu, kế toán xác nhận.
+
+## Rủi ro / vướng mắc
+- Điện 5.000 đ/kWh có thể vượt quy định giá điện cho người thuê – cần trước khi in vào HĐ mới (v1.3).
+- Nếu T1 không làm trước B2, đơn OTA chưa báo căn ở 6 căn Studio hiện hạng phòng trống phía khách.
+
+## Việc chưa xong
+- T1–T5 (mục 5) chờ ORC giao; ESC-032, ESC-033 chờ INV.
