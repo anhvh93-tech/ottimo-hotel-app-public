@@ -17,4 +17,4 @@ Bỏ quy tắc "giá đêm niêm yết = giá tháng ÷ 12" (BR-101, ESC-004 B p
 | 3 | Kiểm lại con số "chỉ từ" trên landing theo giá đêm căn rẻ nhất INV nhập (BR-114) | Nội dung bán hàng | P2 | DOM, CPY, FE-LP | sau B2 |
 
 ## Trạng thái
-- Mở. DOM đã đánh giá 26/10; chờ ORC/PO giao gói D-min. ESC-036 chờ INV.
+- Đang làm. 26/10: DOM đánh giá; INV quyết ESC-036 = A (giữ lịch giá cuối tuần/lễ trên giá đêm nhập); **BR v0.4.7 đã áp** (BR-101 độc lập, mục 13, oracle BR-101-01…16). Ý 1 (gói D-min): FE-A mở ô giá đêm trên `RoomDrawer`, BE-A thêm test – đang làm, hạn 27/10 (B2 sáng 28/10). Ý 2: v1.0.1. Ý 3: sau B2.

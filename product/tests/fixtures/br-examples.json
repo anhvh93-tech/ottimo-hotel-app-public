@@ -3,10 +3,10 @@
   "schemaVersion": 1,
   "source": {
     "file": "product/docs/business-rules.md",
-    "version": "0.4.6",
+    "version": "0.4.7",
     "date": "2026-10-26"
   },
-  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp); v0.4.3 QA 24/10: BR-433-22…25 (FZ02-1, 2, 4, 8 – pendingFix R3-SEC-FZ-02), BR-525-44 (FZ08-1, không pendingFix – mã đúng), BR-525-45 (FZ08-2 – pendingFix R3-FZ-08); id DOM đề xuất trùng → đánh tiếp; v0.4.6 DOM 26/10 (CI): thêm BR-114-01…05 (giá \"chỉ từ\", FB-INV-004 ý 2), BR-401-01…05 (nhận phòng từ 12:00, FB-INV-004 ý 1); BR-901-01 bỏ nhãn GIẢ ĐỊNH (tỷ lệ phí kênh INV 26/10 dùng tạm); validator earlyPct mốc 0 % từ 12:00 theo BR-411 v0.4.6",
+  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp); v0.4.3 QA 24/10: BR-433-22…25 (FZ02-1, 2, 4, 8 – pendingFix R3-SEC-FZ-02), BR-525-44 (FZ08-1, không pendingFix – mã đúng), BR-525-45 (FZ08-2 – pendingFix R3-FZ-08); id DOM đề xuất trùng → đánh tiếp; v0.4.6 DOM 26/10 (CI): thêm BR-114-01…05 (giá \"chỉ từ\", FB-INV-004 ý 2), BR-401-01…05 (nhận phòng từ 12:00, FB-INV-004 ý 1); BR-901-01 bỏ nhãn GIẢ ĐỊNH (tỷ lệ phí kênh INV 26/10 dùng tạm); validator earlyPct mốc 0 % từ 12:00 theo BR-411 v0.4.6; v0.4.7 DOM 26/10 (FB-INV-005, ESC-036 A): BR-101-01…10 thành bảng giá khởi tạo nhập riêng (calc null, nhãn INV-004), thêm BR-101-11…13 (lịch giá trên giá đêm nhập 650.000, INV-036), BR-101-14 (giá tháng độc lập), BR-101-15 (cảnh báo mềm), BR-101-16 (đường tạm ÷ 12 tới v1.0.1)",
   "updated": "2026-10-26",
   "conventions": {
     "money": "Số nguyên VND, khóa kết thúc bằng 'Vnd' (ADR-002, BR-004)",
@@ -712,9 +712,328 @@
     {
       "id": "BR-101-01",
       "br": "BR-101",
-      "case": "Giá đêm niêm yết căn 101: 8.000.000 ÷ 12",
+      "case": "Giá khởi tạo căn 101: tháng 8.000.000 · đêm 667.000 – nhập riêng, lưu đúng số nhập",
       "origin": "example",
       "labels": ["INV-004"],
+      "params": {
+        "rounding.night_rate": 1000
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "101",
+        "monthlyListPriceVnd": 8000000,
+        "nightlyListPriceVnd": 667000
+      },
+      "expected": {
+        "monthlyListPriceVnd": 8000000,
+        "nightlyListPriceVnd": 667000
+      },
+      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+    },
+    {
+      "id": "BR-101-02",
+      "br": "BR-101",
+      "case": "Giá khởi tạo căn 102: tháng 9.000.000 · đêm 750.000 – nhập riêng, lưu đúng số nhập",
+      "origin": "example",
+      "labels": ["INV-004"],
+      "params": {
+        "rounding.night_rate": 1000
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "102",
+        "monthlyListPriceVnd": 9000000,
+        "nightlyListPriceVnd": 750000
+      },
+      "expected": {
+        "monthlyListPriceVnd": 9000000,
+        "nightlyListPriceVnd": 750000
+      },
+      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+    },
+    {
+      "id": "BR-101-03",
+      "br": "BR-101",
+      "case": "Giá khởi tạo căn 103: tháng 9.000.000 · đêm 750.000 – nhập riêng, lưu đúng số nhập",
+      "origin": "example",
+      "labels": ["INV-004"],
+      "params": {
+        "rounding.night_rate": 1000
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "103",
+        "monthlyListPriceVnd": 9000000,
+        "nightlyListPriceVnd": 750000
+      },
+      "expected": {
+        "monthlyListPriceVnd": 9000000,
+        "nightlyListPriceVnd": 750000
+      },
+      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+    },
+    {
+      "id": "BR-101-04",
+      "br": "BR-101",
+      "case": "Giá khởi tạo căn 201: tháng 8.500.000 · đêm 708.000 – nhập riêng, lưu đúng số nhập",
+      "origin": "example",
+      "labels": ["INV-004"],
+      "params": {
+        "rounding.night_rate": 1000
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "201",
+        "monthlyListPriceVnd": 8500000,
+        "nightlyListPriceVnd": 708000
+      },
+      "expected": {
+        "monthlyListPriceVnd": 8500000,
+        "nightlyListPriceVnd": 708000
+      },
+      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+    },
+    {
+      "id": "BR-101-05",
+      "br": "BR-101",
+      "case": "Giá khởi tạo căn 202: tháng 9.500.000 · đêm 792.000 – nhập riêng, lưu đúng số nhập",
+      "origin": "example",
+      "labels": ["INV-004"],
+      "params": {
+        "rounding.night_rate": 1000
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "monthlyListPriceVnd": 9500000,
+        "nightlyListPriceVnd": 792000
+      },
+      "expected": {
+        "monthlyListPriceVnd": 9500000,
+        "nightlyListPriceVnd": 792000
+      },
+      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+    },
+    {
+      "id": "BR-101-06",
+      "br": "BR-101",
+      "case": "Giá khởi tạo căn 203: tháng 9.500.000 · đêm 792.000 – nhập riêng, lưu đúng số nhập",
+      "origin": "example",
+      "labels": ["INV-004"],
+      "params": {
+        "rounding.night_rate": 1000
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "203",
+        "monthlyListPriceVnd": 9500000,
+        "nightlyListPriceVnd": 792000
+      },
+      "expected": {
+        "monthlyListPriceVnd": 9500000,
+        "nightlyListPriceVnd": 792000
+      },
+      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+    },
+    {
+      "id": "BR-101-07",
+      "br": "BR-101",
+      "case": "Giá khởi tạo căn 301: tháng 11.500.000 · đêm 958.000 – nhập riêng, lưu đúng số nhập",
+      "origin": "example",
+      "labels": ["INV-004"],
+      "params": {
+        "rounding.night_rate": 1000
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "301",
+        "monthlyListPriceVnd": 11500000,
+        "nightlyListPriceVnd": 958000
+      },
+      "expected": {
+        "monthlyListPriceVnd": 11500000,
+        "nightlyListPriceVnd": 958000
+      },
+      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+    },
+    {
+      "id": "BR-101-08",
+      "br": "BR-101",
+      "case": "Giá khởi tạo căn 302: tháng 11.000.000 · đêm 917.000 – nhập riêng, lưu đúng số nhập",
+      "origin": "example",
+      "labels": ["INV-004"],
+      "params": {
+        "rounding.night_rate": 1000
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "302",
+        "monthlyListPriceVnd": 11000000,
+        "nightlyListPriceVnd": 917000
+      },
+      "expected": {
+        "monthlyListPriceVnd": 11000000,
+        "nightlyListPriceVnd": 917000
+      },
+      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+    },
+    {
+      "id": "BR-101-09",
+      "br": "BR-101",
+      "case": "Giá khởi tạo căn 401: tháng 12.500.000 · đêm 1.042.000 – nhập riêng, lưu đúng số nhập",
+      "origin": "example",
+      "labels": ["INV-004"],
+      "params": {
+        "rounding.night_rate": 1000
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "401",
+        "monthlyListPriceVnd": 12500000,
+        "nightlyListPriceVnd": 1042000
+      },
+      "expected": {
+        "monthlyListPriceVnd": 12500000,
+        "nightlyListPriceVnd": 1042000
+      },
+      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+    },
+    {
+      "id": "BR-101-10",
+      "br": "BR-101",
+      "case": "Giá khởi tạo căn 402: tháng 12.000.000 · đêm 1.000.000 – nhập riêng, lưu đúng số nhập",
+      "origin": "example",
+      "labels": ["INV-004"],
+      "params": {
+        "rounding.night_rate": 1000
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "402",
+        "monthlyListPriceVnd": 12000000,
+        "nightlyListPriceVnd": 1000000
+      },
+      "expected": {
+        "monthlyListPriceVnd": 12000000,
+        "nightlyListPriceVnd": 1000000
+      },
+      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+    },
+    {
+      "id": "BR-101-11",
+      "br": "BR-101",
+      "case": "Căn 101 giá đêm nhập 650.000, Trực tiếp, đêm thứ Ba 10/11/2026 → 650.000",
+      "origin": "example",
+      "labels": ["INV-036"],
+      "params": {
+        "weekend_uplift_pct": 15,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 30
+      },
+      "calc": "calendarRate",
+      "input": {
+        "roomNo": "101",
+        "monthlyListPriceVnd": 8000000,
+        "baseRateVnd": 650000,
+        "nightDate": "2026-11-10",
+        "channel": "direct"
+      },
+      "expected": {
+        "rateVnd": 650000
+      },
+      "note": "BR-101 v0.4.7 ví dụ độc lập: OWN đổi căn 101 giá đêm 650.000 từ 01/11/2026, giữ giá tháng 8.000.000; lịch giá BR-104 cộng trên giá nhập (ESC-036 A)"
+    },
+    {
+      "id": "BR-101-12",
+      "br": "BR-101",
+      "case": "Căn 101 giá đêm nhập 650.000, Trực tiếp, đêm thứ Bảy 14/11/2026: 650.000 × 1,15 = 747.500 → 748.000",
+      "origin": "example",
+      "labels": ["INV-036"],
+      "params": {
+        "weekend_uplift_pct": 15,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 30
+      },
+      "calc": "calendarRate",
+      "input": {
+        "roomNo": "101",
+        "monthlyListPriceVnd": 8000000,
+        "baseRateVnd": 650000,
+        "nightDate": "2026-11-14",
+        "channel": "direct"
+      },
+      "expected": {
+        "rateVnd": 748000
+      },
+      "note": "BR-101 v0.4.7 ví dụ độc lập: OWN đổi căn 101 giá đêm 650.000 từ 01/11/2026, giữ giá tháng 8.000.000; lịch giá BR-104 cộng trên giá nhập (ESC-036 A)"
+    },
+    {
+      "id": "BR-101-13",
+      "br": "BR-101",
+      "case": "Căn 101 giá đêm nhập 650.000, Trực tiếp, đêm 31/12/2026 (ngày đặc biệt): 650.000 × 1,3 = 845.000",
+      "origin": "example",
+      "labels": ["INV-036"],
+      "params": {
+        "weekend_uplift_pct": 15,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 30
+      },
+      "calc": "calendarRate",
+      "input": {
+        "roomNo": "101",
+        "monthlyListPriceVnd": 8000000,
+        "baseRateVnd": 650000,
+        "nightDate": "2026-12-31",
+        "channel": "direct"
+      },
+      "expected": {
+        "rateVnd": 845000
+      },
+      "note": "BR-101 v0.4.7 ví dụ độc lập: OWN đổi căn 101 giá đêm 650.000 từ 01/11/2026, giữ giá tháng 8.000.000; lịch giá BR-104 cộng trên giá nhập (ESC-036 A)"
+    },
+    {
+      "id": "BR-101-14",
+      "br": "BR-101",
+      "case": "Căn 101 giữ giá tháng 8.000.000, đổi giá đêm 650.000 → báo giá thuê dài hạn vẫn theo 8.000.000 (BR-203), không đổi theo giá đêm",
+      "origin": "example",
+      "labels": ["INV-036"],
+      "params": {},
+      "calc": null,
+      "input": {
+        "roomNo": "101",
+        "monthlyListPriceVnd": 8000000,
+        "nightlyListPriceVnd": 650000
+      },
+      "expected": {
+        "monthlyListPriceVnd": 8000000,
+        "leaseBaseMonthlyVnd": 8000000
+      },
+      "note": "Hai giá độc lập (BR-101 (1), (3))"
+    },
+    {
+      "id": "BR-101-15",
+      "br": "BR-101",
+      "case": "Nhập giá đêm 260.000 cho căn giá tháng 8.000.000 (8.000.000 ÷ 30 = 266.667) → cảnh báo, vẫn lưu",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "params": {},
+      "calc": null,
+      "input": {
+        "monthlyListPriceVnd": 8000000,
+        "nightlyListPriceVnd": 260000
+      },
+      "expected": {
+        "warnNightlyBelowMonthlyPerDay": true,
+        "saved": true
+      },
+      "note": "BR-101 (4) cảnh báo mềm trên Desk (FE)"
+    },
+    {
+      "id": "BR-101-16",
+      "br": "BR-101",
+      "case": "Đường tạm tới v1.0.1: API đổi giá không gửi giá đêm → server tính 8.000.000 ÷ 12 = 666.667 → 667.000",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
       "params": {
         "night_from_month_divisor": 12,
         "rounding.night_rate": 1000
@@ -726,185 +1045,8 @@
       },
       "expected": {
         "nightlyListPriceVnd": 667000
-      }
-    },
-    {
-      "id": "BR-101-02",
-      "br": "BR-101",
-      "case": "Giá đêm niêm yết căn 102: 9.000.000 ÷ 12",
-      "origin": "derived-table",
-      "labels": ["INV-004"],
-      "params": {
-        "night_from_month_divisor": 12,
-        "rounding.night_rate": 1000
       },
-      "calc": "nightlyListPrice",
-      "input": {
-        "roomNo": "102",
-        "monthlyListPriceVnd": 9000000
-      },
-      "expected": {
-        "nightlyListPriceVnd": 750000
-      },
-      "note": "Bảng 10 căn ở test-strategy mục 4.2 (BL 4.1 + BR-101); BR chỉ ghi ví dụ 101, 401 (202 ở BR-107)"
-    },
-    {
-      "id": "BR-101-03",
-      "br": "BR-101",
-      "case": "Giá đêm niêm yết căn 103: 9.000.000 ÷ 12",
-      "origin": "derived-table",
-      "labels": ["INV-004"],
-      "params": {
-        "night_from_month_divisor": 12,
-        "rounding.night_rate": 1000
-      },
-      "calc": "nightlyListPrice",
-      "input": {
-        "roomNo": "103",
-        "monthlyListPriceVnd": 9000000
-      },
-      "expected": {
-        "nightlyListPriceVnd": 750000
-      },
-      "note": "Bảng 10 căn ở test-strategy mục 4.2 (BL 4.1 + BR-101); BR chỉ ghi ví dụ 101, 401 (202 ở BR-107)"
-    },
-    {
-      "id": "BR-101-04",
-      "br": "BR-101",
-      "case": "Giá đêm niêm yết căn 201: 8.500.000 ÷ 12",
-      "origin": "derived-table",
-      "labels": ["INV-004"],
-      "params": {
-        "night_from_month_divisor": 12,
-        "rounding.night_rate": 1000
-      },
-      "calc": "nightlyListPrice",
-      "input": {
-        "roomNo": "201",
-        "monthlyListPriceVnd": 8500000
-      },
-      "expected": {
-        "nightlyListPriceVnd": 708000
-      },
-      "note": "Bảng 10 căn ở test-strategy mục 4.2 (BL 4.1 + BR-101); BR chỉ ghi ví dụ 101, 401 (202 ở BR-107)"
-    },
-    {
-      "id": "BR-101-05",
-      "br": "BR-101",
-      "case": "Giá đêm niêm yết căn 202: 9.500.000 ÷ 12",
-      "origin": "example",
-      "labels": ["INV-004"],
-      "params": {
-        "night_from_month_divisor": 12,
-        "rounding.night_rate": 1000
-      },
-      "calc": "nightlyListPrice",
-      "input": {
-        "roomNo": "202",
-        "monthlyListPriceVnd": 9500000
-      },
-      "expected": {
-        "nightlyListPriceVnd": 792000
-      }
-    },
-    {
-      "id": "BR-101-06",
-      "br": "BR-101",
-      "case": "Giá đêm niêm yết căn 203: 9.500.000 ÷ 12",
-      "origin": "derived-table",
-      "labels": ["INV-004"],
-      "params": {
-        "night_from_month_divisor": 12,
-        "rounding.night_rate": 1000
-      },
-      "calc": "nightlyListPrice",
-      "input": {
-        "roomNo": "203",
-        "monthlyListPriceVnd": 9500000
-      },
-      "expected": {
-        "nightlyListPriceVnd": 792000
-      },
-      "note": "Bảng 10 căn ở test-strategy mục 4.2 (BL 4.1 + BR-101); BR chỉ ghi ví dụ 101, 401 (202 ở BR-107)"
-    },
-    {
-      "id": "BR-101-07",
-      "br": "BR-101",
-      "case": "Giá đêm niêm yết căn 301: 11.500.000 ÷ 12",
-      "origin": "derived-table",
-      "labels": ["INV-004"],
-      "params": {
-        "night_from_month_divisor": 12,
-        "rounding.night_rate": 1000
-      },
-      "calc": "nightlyListPrice",
-      "input": {
-        "roomNo": "301",
-        "monthlyListPriceVnd": 11500000
-      },
-      "expected": {
-        "nightlyListPriceVnd": 958000
-      },
-      "note": "Bảng 10 căn ở test-strategy mục 4.2 (BL 4.1 + BR-101); BR chỉ ghi ví dụ 101, 401 (202 ở BR-107)"
-    },
-    {
-      "id": "BR-101-08",
-      "br": "BR-101",
-      "case": "Giá đêm niêm yết căn 302: 11.000.000 ÷ 12",
-      "origin": "derived-table",
-      "labels": ["INV-004"],
-      "params": {
-        "night_from_month_divisor": 12,
-        "rounding.night_rate": 1000
-      },
-      "calc": "nightlyListPrice",
-      "input": {
-        "roomNo": "302",
-        "monthlyListPriceVnd": 11000000
-      },
-      "expected": {
-        "nightlyListPriceVnd": 917000
-      },
-      "note": "Bảng 10 căn ở test-strategy mục 4.2 (BL 4.1 + BR-101); BR chỉ ghi ví dụ 101, 401 (202 ở BR-107)"
-    },
-    {
-      "id": "BR-101-09",
-      "br": "BR-101",
-      "case": "Giá đêm niêm yết căn 401: 12.500.000 ÷ 12",
-      "origin": "example",
-      "labels": ["INV-004"],
-      "params": {
-        "night_from_month_divisor": 12,
-        "rounding.night_rate": 1000
-      },
-      "calc": "nightlyListPrice",
-      "input": {
-        "roomNo": "401",
-        "monthlyListPriceVnd": 12500000
-      },
-      "expected": {
-        "nightlyListPriceVnd": 1042000
-      }
-    },
-    {
-      "id": "BR-101-10",
-      "br": "BR-101",
-      "case": "Giá đêm niêm yết căn 402: 12.000.000 ÷ 12",
-      "origin": "derived-table",
-      "labels": ["INV-004"],
-      "params": {
-        "night_from_month_divisor": 12,
-        "rounding.night_rate": 1000
-      },
-      "calc": "nightlyListPrice",
-      "input": {
-        "roomNo": "402",
-        "monthlyListPriceVnd": 12000000
-      },
-      "expected": {
-        "nightlyListPriceVnd": 1000000
-      },
-      "note": "Bảng 10 căn ở test-strategy mục 4.2 (BL 4.1 + BR-101); BR chỉ ghi ví dụ 101, 401 (202 ở BR-107)"
+      "note": "BR-101 (5). Bỏ dòng này khi BE bắt buộc giá đêm (v1.0.1); BE test reservations-pricing byCalc('nightlyListPrice') đang đọc dòng này"
     },
     {
       "id": "BR-102-01",
