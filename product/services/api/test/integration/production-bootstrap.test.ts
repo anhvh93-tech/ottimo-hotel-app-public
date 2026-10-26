@@ -25,6 +25,7 @@ import {
 } from '../../src/admin/production-defaults';
 import { verifyPassword } from '../../src/modules/identity/public/passwords';
 import { passwordPolicyErrors } from '../../src/modules/identity/public/passwords';
+import { earlyCheckinSurcharge } from '../../src/modules/frontdesk/public/stay-rules';
 import { checkSecurityBounds } from '../../src/modules/platform/public/parameter.service';
 import { slugOf } from '../../src/modules/public-site/internal/website-request-rules';
 import { type FeatureApp, startFeatureApp } from '../helpers/feature-app';
@@ -103,6 +104,37 @@ describe('production bootstrap – unit', () => {
     );
     // Security key: SEC hard bounds (the bootstrap validates it like ParameterService.validate).
     expect(() => checkSecurityBounds('document_profile_retention_months', 3)).not.toThrow();
+  });
+
+  it('check-in from 12:00 per INV 26/10 (BR v0.4.6 BR-401/BR-411): 0 % from 12:00, 30 % 10:00–11:59, 50 % 06:00–09:59', () => {
+    const p = Object.fromEntries(PRODUCTION_PARAMETERS.map((x) => [x.key, x]));
+    expect(p.checkin_time).toMatchObject({ value: '12:00', status: 'INV-2610' });
+    expect(p.checkout_time?.value).toBe('12:00');
+    expect(p.early_checkin_tiers).toMatchObject({
+      status: 'INV-007+INV-2610',
+      value: [
+        { from: '10:00', to: '12:00', pct: 30 },
+        { from: '06:00', to: '10:00', pct: 50 },
+      ],
+    });
+    // The same values through the Desk rule (checkin.service reads exactly these keys).
+    const at = (t: string) =>
+      earlyCheckinSurcharge({
+        checkinTime: t,
+        standardCheckinTime: p.checkin_time?.value as string,
+        rollover: p.business_day_rollover?.value as string,
+        tiers: p.early_checkin_tiers?.value as { from: string; to: string; pct: number }[],
+        baseNightVnd: 792_000,
+        unit: 1000,
+      });
+    expect(at('05:59').addsPreviousNight).toBe(true);
+    expect(at('06:00').tierPct).toBe(50);
+    expect(at('09:59').tierPct).toBe(50);
+    expect(at('10:00').tierPct).toBe(30);
+    expect(at('11:59').tierPct).toBe(30);
+    expect(at('12:00')).toMatchObject({ tierPct: 0, amountVnd: 0 });
+    expect(at('12:10')).toMatchObject({ tierPct: 0, amountVnd: 0 }); // DOM 8.1: was 238,000 before v0.4.6
+    expect(at('13:59')).toMatchObject({ tierPct: 0, amountVnd: 0 });
   });
 });
 
