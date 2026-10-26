@@ -43,9 +43,25 @@ interface Ctx {
   ) => Response;
   db: () => { users: MockUser[]; rooms: Room[]; currentDeviceTrusted: boolean };
   rsv: () => RsvApi;
+  /** ESC-031: opens a stored "Cần chú ý" event (mocks/dashboard.ts `addEvent`) – one per booking and kind. */
+  openAttention?: (item: Omit<AttentionItem, 'source' | 'eventId'> & { audience?: Role[] }) => void;
 }
 
 const OWN_MGR: Role[] = ['owner', 'manager'];
+/**
+ * ESC-031 (BE-B `checkout.service.ts` POST_REVIEW_FORBIDDEN): what `lateFeeInsteadOfNight.postReview` never takes –
+ * each present (even empty) → 422 NOT_ALLOWED on that field.
+ */
+const POST_REVIEW_FORBIDDEN = [
+  'approverUsername',
+  'authMethod',
+  'secret',
+  'totpCode',
+  'confirmationId',
+  'requestFoc',
+] as const;
+/** ESC-031: `post_checkout_charge_hours` (BR-427, default 24) – the review deadline of `late_fee_post_review`. */
+const POST_CHECKOUT_CHARGE_HOURS = 24;
 /** Mock BR-433: what a manager may waive on the BR-416-06 late fee at once (the owner: no limit). */
 const LATE_FEE_FOC_LIMIT_MGR = 1_000_000;
 const LEAD_PLUS: Role[] = ['owner', 'manager', 'front_desk_lead'];
@@ -2754,7 +2770,28 @@ export function createStayMock(ctx: Ctx) {
           return validation([{ field: 'lateFeeInsteadOfNight', code: 'NOT_ALLOWED' }]);
         let lfApprover: MockUser | undefined;
         const lfFoc = lf?.requestFoc as Body | undefined;
-        if (lf && feeVnd !== undefined) {
+        // ESC-031 (ESC-024 B): `postReview: true` – the server's number, a reason, no credentials, no waiver.
+        if (
+          lf &&
+          lf.postReview !== undefined &&
+          lf.postReview !== null &&
+          typeof lf.postReview !== 'boolean'
+        )
+          return validation([
+            { field: 'lateFeeInsteadOfNight.postReview', code: 'VALIDATION_FAILED' },
+          ]);
+        const postReview = lf?.postReview === true;
+        if (lf && feeVnd !== undefined && postReview) {
+          const errs: Array<{ field: string; code: string }> = [];
+          for (const k of POST_REVIEW_FORBIDDEN)
+            if (lf[k] !== undefined && lf[k] !== null)
+              errs.push({ field: `lateFeeInsteadOfNight.${k}`, code: 'NOT_ALLOWED' });
+          if (String(lf.reason ?? '').trim().length < 3)
+            errs.push({ field: 'lateFeeInsteadOfNight.reason', code: 'REASON_REQUIRED' });
+          if (errs.length) return validation(errs);
+          if (Number(lf.amountVnd) !== feeVnd)
+            return problem(409, 'SURCHARGE_CHANGED', { surchargeVnd: feeVnd, tierPct: 100 });
+        } else if (lf && feeVnd !== undefined) {
           // SEC BE-64: every read-only business check first, the password last.
           const selfOk = has(g.roles, OWN_MGR);
           const errs: Array<{ field: string; code: string }> = [];
@@ -2907,7 +2944,7 @@ export function createStayMock(ctx: Ctx) {
           );
         if (lateNew < lateOld || (lateRaise && body.applyLateSurcharge))
           replaceLate(r, lateNew, `late_checkout ${time} ${s.tierPct}%`, g.user.displayName);
-        if (lf && feeVnd !== undefined && lfApprover) {
+        if (lf && feeVnd !== undefined && (lfApprover || postReview)) {
           // `late_checkout` · `late_fee_as_night` (other revenue, not a night sold); the tiered charge goes.
           for (const l of liveLate(r)) l.lineState = 'rejected';
           const feeLine = addLine(
@@ -2920,7 +2957,7 @@ export function createStayMock(ctx: Ctx) {
             },
             g.user.displayName,
           );
-          if (lfFoc) {
+          if (lfFoc && lfApprover) {
             const a: MockApproval = {
               id: uid(89_000 + next()),
               type: String(lfFoc.kind ?? 'foc'),
@@ -2952,17 +2989,42 @@ export function createStayMock(ctx: Ctx) {
               g.user.displayName,
             );
           }
-          audit(g, 'reservation.late_fee_instead_of_night', r.code, {
-            amountVnd: feeVnd,
-            reason: String(lf.reason),
-            approverUserId: lfApprover.id,
-            confirmChannel: lfApprover.id === g.user.id ? 'self' : 'desk',
-          });
+          // ESC-031: `post_review` – the desk user is the actor, nobody confirmed (no approver), review due at the end
+          // of the post-checkout window.
+          audit(
+            g,
+            'reservation.late_fee_instead_of_night',
+            r.code,
+            lfApprover
+              ? {
+                  amountVnd: feeVnd,
+                  reason: String(lf.reason),
+                  approverUserId: lfApprover.id,
+                  confirmChannel: lfApprover.id === g.user.id ? 'self' : 'desk',
+                }
+              : {
+                  amountVnd: feeVnd,
+                  reason: String(lf.reason),
+                  channel: 'post_review',
+                  reviewDueAt: new Date(
+                    Date.now() + POST_CHECKOUT_CHARGE_HOURS * 3_600_000,
+                  ).toISOString(),
+                },
+          );
         }
         if (body.finalPayment) {
           const errs = paymentErrors(body.finalPayment as Body);
           if (errs.length)
             return fail(validation(errs.map((e) => ({ ...e, field: `finalPayment.${e.field}` }))));
+          // 0.3.7 (S4-47): capped at what is due AFTER the extra night / late fee posted above.
+          const owed = totals(r).balanceDueVnd;
+          if (Number((body.finalPayment as Body).amountVnd) > owed)
+            return fail(
+              problem(422, 'VALIDATION_FAILED', {
+                errors: [{ field: 'finalPayment.amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
+                max: owed,
+              }),
+            );
           recordPay(r, body.finalPayment as Body, g);
         }
         const tt = totals(r);
@@ -3023,6 +3085,17 @@ export function createStayMock(ctx: Ctx) {
         const room = roomOf(r);
         if (room) st.roomStatus[room.roomNo] = 'VD';
         bump(r);
+        // ESC-031: one "Cần chú ý" item per booking for OWN/MGR (FD/FDL never see it), due at the window's end.
+        if (lf && postReview && feeVnd !== undefined)
+          ctx.openAttention?.({
+            kind: 'late_fee_post_review',
+            severity: 'warning',
+            count: 1,
+            reservationIds: [r.id],
+            refCode: r.code,
+            dueAt: new Date(Date.now() + POST_CHECKOUT_CHARGE_HOURS * 3_600_000).toISOString(),
+            audience: OWN_MGR,
+          });
         return rsv().remember(key, 200, {
           reservation: resView(r, g),
           billNo: f.billNo,
@@ -3306,6 +3379,23 @@ export function createStayMock(ctx: Ctx) {
             errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
             max: due,
           });
+      }
+      // ARC 16.31 (N-12, BUG-R3-017): more than the folio owes NOW – SAL/CTV never; FD+ only with a note (≥ 3).
+      // At check-out the one-night late fee / extra night are not on the folio yet (B18 posts them).
+      if (f.status !== 'settled' && body.type !== 'deposit') {
+        const due = totals(r).balanceDueVnd;
+        if (Number(body.amountVnd) > due) {
+          if (!has(g.roles, FD_PLUS))
+            return problem(422, 'VALIDATION_FAILED', {
+              errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
+              max: due,
+            });
+          if (String(body.note ?? '').trim().length < 3)
+            return problem(422, 'VALIDATION_FAILED', {
+              errors: [{ field: 'note', code: 'REASON_REQUIRED' }],
+              max: due,
+            });
+        }
       }
       const p = recordPay(r, body, g);
       bump(r);

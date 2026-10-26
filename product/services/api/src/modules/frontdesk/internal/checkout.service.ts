@@ -94,6 +94,19 @@ const DEBT_MAX_DAYS = 30;
 
 /** DOM S3-10 / US-038 AC4: only MONEY requests block the check-out. */
 const BLOCKING_APPROVALS = ['foc', 'special_discount', 'damage_pricing'] as const;
+/**
+ * ESC-024 B / ESC-031: fields `lateFeeInsteadOfNight.postReview` never takes (422 NOT_ALLOWED) – the confirmation paths'
+ * credentials (at the desk, remote US-164 v1.1) and the FOC asked with the charge.
+ */
+const POST_REVIEW_FORBIDDEN = [
+  'approverUsername',
+  'authMethod',
+  'secret',
+  'totpCode',
+  'confirmationId',
+  'requestFoc',
+] as const;
+
 /** DOM S3-10: operational requests that lose their purpose at B18 (cancelled `superseded`). */
 const SUPERSEDED_AT_CHECKOUT = ['late_checkout_conflict', 'checkin_room_not_ready'] as const;
 
@@ -138,7 +151,15 @@ interface LateFeeInput {
   amountVnd: number;
   reason: string;
   requestFoc: { amountVnd: number; reasonCode: string; note: string | null } | null;
+  /**
+   * ESC-024 B (INV 22/10) – v1.0 patch ESC-031 (INV 26/10): `postReview: true` = the desk records the charge the
+   * SERVER computed, no manager credentials, no FOC; OWN/MGR review it afterwards (`late_fee_post_review`).
+   */
+  postReview: boolean;
 }
+
+/** Notification + "Cần chú ý" kind of the ESC-024 B review (OpenAPI 0.3.8 StaffNotification / AttentionItem). */
+const LATE_FEE_POST_REVIEW = 'late_fee_post_review' as const;
 
 /** The B18 body once read (`readInput`) – one reader for B18 and its precheck (BUG-R2-165). */
 interface CheckoutInput {
@@ -1015,10 +1036,16 @@ export class CheckoutService {
       throw problem('FORBIDDEN_ACTION', { detail: 'retain_with_guest_consent is MGR+' });
     }
     // BR-416-06 (ARC 16.6 (d)): OWN/MGR confirmed at the desk – checked by the controller before the unit of work.
+    // ESC-024 B / ESC-031: `postReview` takes no confirmation at all – and never one handed in by mistake.
     const approver = opts.approver ?? null;
-    if (lateFee && !approver) {
+    if (lateFee && !lateFee.postReview && !approver) {
       throw problem('REAUTH_FAILED', {
         errors: [{ field: 'lateFeeInsteadOfNight.secret', code: 'REAUTH_FAILED' }],
+      });
+    }
+    if (lateFee?.postReview && approver) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'lateFeeInsteadOfNight.postReview', code: 'NOT_ALLOWED' }],
       });
     }
 
@@ -1152,6 +1179,7 @@ export class CheckoutService {
       // (`verifyApprover` → `onSucceeded`, its own transaction) – also when B18 fails after it. Joined to this audit
       // by `requestId`.
     }
+    if (fee?.postReview) await this.recordForPostReview(tx, ctx, row, d, surcharge, fee.reason);
 
     // ── final payment in the same transaction (spec 5.4) – 0.3.7 (S4-47): capped at what the folio owes AFTER
     // the extra night / re-computed late charge (= CheckoutSummary.amountDueAtCheckoutVnd) ──
@@ -1756,12 +1784,21 @@ export class CheckoutService {
       return null;
     }
     const field = 'lateFeeInsteadOfNight';
-    const sub = new Fields(v as Record<string, unknown>);
+    const o = v as Record<string, unknown>;
+    const sub = new Fields(o);
     const amount = sub.money('amountVnd', { required: true, positive: true });
     const reason = sub.text('reason', 500, { required: true, min: 3 });
+    const postReview = sub.bool('postReview') ?? false;
     for (const e of sub.errors) f.add(`${field}.${e.field}`, e.code);
+    // ESC-024 B / ESC-031: the desk records the server's number and nothing else – no credentials of anyone, no
+    // waiver in the command (a FOC needs the manager: after the review, A32 on the settled folio).
+    if (postReview) {
+      for (const k of POST_REVIEW_FORBIDDEN) {
+        if (o[k] !== undefined && o[k] !== null) f.add(`${field}.${k}`, 'NOT_ALLOWED');
+      }
+    }
     let requestFoc: { amountVnd: number; reasonCode: string; note: string | null } | null = null;
-    const rf = (v as Record<string, unknown>).requestFoc;
+    const rf = postReview ? undefined : o.requestFoc;
     if (rf !== undefined && rf !== null) {
       if (typeof rf !== 'object' || Array.isArray(rf)) {
         f.add(`${field}.requestFoc`, 'VALIDATION_FAILED');
@@ -1784,7 +1821,71 @@ export class CheckoutService {
         }
       }
     }
-    return amount !== undefined && reason ? { amountVnd: amount, reason, requestFoc } : null;
+    return amount !== undefined && reason
+      ? { amountVnd: amount, reason, requestFoc, postReview }
+      : null;
+  }
+
+  /**
+   * ESC-024 B (INV 22/10) – v1.0 patch ESC-031 (INV 26/10 "vá luôn"), BR-416 (1)–(4): the late charge of one night the
+   * desk recorded WITHOUT a manager at the counter (production MFA: `verifyApprover` refuses every OWN/MGR with 2FA –
+   * SEC-sprint1 3.6 note 3; that path stays fail-closed). In the B18 transaction, after the charge line – a refused
+   * B18 (minibar, pending approvals, balance…) leaves nothing:
+   * - the number is the server's (`decide`: only when the night cannot be sold; another number → 409
+   *   SURCHARGE_CHANGED); no FOC in the command (`POST_REVIEW_FORBIDDEN`), an approved late FOC follows as on every path;
+   * - money audit `reservation.late_fee_instead_of_night`, `channel = post_review`: the desk user is the actor, nobody
+   *   "confirmed" (no `confirmedBy`), reason required (BR-416 (2)), `reviewDueAt` = end of the post-checkout window;
+   * - `late_fee_post_review` to every OWN + MGR of the property (not the recorder) and ONE "Cần chú ý" item per booking
+   *   (MGR+, due at the end of the window – BR-416 (3)); past it, `late-fee-review-job` tells OWN (BR-416 (4)).
+   *   A waiver after the review = A32 on the `settled` folio → refund (BR-433 (e), BR-522, K11-06,
+   *   SELF_REFUND_FORBIDDEN): existing paths.
+   */
+  private async recordForPostReview(
+    tx: Tx,
+    ctx: BookingContext,
+    row: ReservationRow,
+    d: Departure,
+    amountVnd: number,
+    reason: string,
+  ): Promise<void> {
+    const hours = await this.s.param<number>(tx, ctx, 'post_checkout_charge_hours');
+    const reviewDueAt = new Date(ctx.now.getTime() + hours * 3_600_000);
+    await this.audit.recordMoney(tx, {
+      action: 'reservation.late_fee_instead_of_night',
+      entityType: 'reservation',
+      entityId: row.id,
+      entityCode: row.code,
+      after: {
+        amountVnd,
+        checkoutTime: d.time,
+        date: d.stay.departureDate,
+        channel: 'post_review',
+        reviewDueAt: reviewDueAt.toISOString(),
+      },
+      reason,
+      ...(ctx.requestId ? { requestId: ctx.requestId } : {}),
+    });
+    await this.s.events.notify(
+      tx,
+      {
+        kind: LATE_FEE_POST_REVIEW,
+        roles: ['owner', 'manager'],
+        excludeUserIds: [ctx.actor.userId],
+        refType: 'reservation',
+        refId: row.id,
+        refCode: row.code,
+      },
+      ctx.now,
+    );
+    await this.s.events.openAttention(tx, {
+      kind: LATE_FEE_POST_REVIEW,
+      severity: 'warning',
+      dedupeKey: `${LATE_FEE_POST_REVIEW}:${row.id}`,
+      refType: 'reservation',
+      refId: row.id,
+      refCode: row.code,
+      now: ctx.now,
+    });
   }
 
   // ───────────────────────── inputs ─────────────────────────

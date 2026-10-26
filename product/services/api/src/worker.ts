@@ -14,6 +14,7 @@ import { registrationWorkerJobs } from './modules/registration/public/worker-job
 import { reservationWorkerJobs } from './modules/reservations/public/worker-jobs';
 import { EventsService } from './modules/events/public/events.service';
 import { holdReminderJob } from './modules/reporting/public/hold-reminder-job';
+import { lateFeeReviewOverdueJob } from './modules/frontdesk/public/late-fee-review-job';
 import {
   guestRequestPurgeJob,
   guestRequestSlaJob,
@@ -56,6 +57,8 @@ async function main(): Promise<void> {
     registry.register(job);
   // J24 payment.expire (BE-A, Sprint 3): pending VietQR past expires_at → expired.
   registry.register(paymentExpiryJob(audit));
+  // ESC-024 B / ESC-031 (BE-B, v1.0): a desk-recorded late charge of one night not reviewed in the window → OWN told.
+  registry.register(lateFeeReviewOverdueJob(new EventsService(), parameters));
   // J2 hold.remind (BE-D, Sprint 4): reminder before a hold expires (US-085 AC2, BR-303).
   registry.register(holdReminderJob(new EventsService(), parameters));
   // J10 guest_request.sla (BE-D, Sprint 4): request still `new` after its reply deadline (US-110 AC2, BR-811).

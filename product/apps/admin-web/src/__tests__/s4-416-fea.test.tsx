@@ -2,6 +2,7 @@
 // ngày đi không bán được – quản lý xác nhận tại quầy (+ FOC tùy chọn, SEC FB-R2-SEC-FE-08); (e) minibar theo tủ (lượt × căn),
 // số folio đã sửa thắng lần đếm cũ; (f) xác nhận VietQR vượt số còn phải thu cần ghi chú.
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { todayLocal } from '../app/dates';
 import { api } from '../app/api';
@@ -53,12 +54,19 @@ async function toBillAt1930(user: ReturnType<typeof renderApp>['user']) {
   });
 }
 
-const lateFeeBox = async (fee: number) =>
-  (
+/**
+ * ESC-031: the bill step opens on "Ghi phụ thu – quản lý xem lại"; the desk confirmation (this file) is the second
+ * choice, offered only while the server says 2FA is not enforced (mock default `mfaEnforced = false`).
+ */
+const lateFeeBox = async (fee: number) => {
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: tv('co.late_fee_mode_desk') }));
+  return (
     await screen.findByRole('heading', {
       name: tv('co.late_fee_confirm_title', { amount: money(fee) }),
     })
   ).closest('section')!;
+};
 
 describe('BR-416-06 – phụ thu trả muộn bằng giá 1 đêm khi đêm ngày đi không bán được (ARC 16.6 (d))', () => {
   it('FD: số của máy chủ gồm phụ thu, hộp quản lý xác nhận (3 số, ô mật khẩu không tự điền), FOC 50 %, sai mật khẩu → một câu chung, đúng → B18', async () => {

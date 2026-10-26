@@ -232,7 +232,7 @@ export function AttentionBlock({
               {text}
               {l.to ? (
                 <Link className="btn sm" to={l.to}>
-                  {t('today.open')}
+                  {t(l.openLabel ?? 'today.open')}
                 </Link>
               ) : null}
               {resolve}

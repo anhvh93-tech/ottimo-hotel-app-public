@@ -1,6 +1,6 @@
 import type { AttentionItem, Role } from '@ottimo/api-client';
 import type { IconName } from '@ottimo/ui';
-import { timeHHmm } from './dates';
+import { timeHHmm, todayLocal } from './dates';
 import { dayMonth } from './reservations';
 
 type Translate = (key: string, args?: Record<string, string | number>) => string;
@@ -19,6 +19,8 @@ export interface AttentionLine {
   tone: 'urgent' | 'soon' | 'info';
   /** Desk route that handles it; none → static row. */
   to?: string;
+  /** Label key of the "open" button when it says more than "Mở" (ESC-031: "Mở folio"). */
+  openLabel?: string;
   /** ARC 16.26: `checkout_debt` of one booking – the reservation whose debt "Thu công nợ" collects. */
   collectDebtId?: string;
   /** `source=event` items closed by hand (`resolveAttentionEvent`) – label key of the button. */
@@ -73,6 +75,7 @@ const ICON: Partial<Record<AttentionItem['kind'], IconName>> = {
   room_status_mismatch: 'broom',
   guest_request_overdue: 'chat',
   website_request_new: 'globe',
+  late_fee_post_review: 'bill',
 };
 /** Closed by the system when the business state changes (EP01 3.2) – no "Đã xử lý" button. */
 const AUTO_CLOSE = new Set([
@@ -108,6 +111,7 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
   let sub: string | undefined;
   let to: string | undefined = rsv;
   let collectDebtId: string | undefined;
+  let openLabel: string | undefined;
 
   switch (item.kind) {
     case 'room_ooo':
@@ -185,6 +189,23 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
       to = rsv ?? '/reservations';
       collectDebtId = item.reservationIds?.length === 1 ? item.reservationIds[0] : undefined;
       break;
+    case 'late_fee_post_review': {
+      // ESC-031 (ESC-024 B, BR-416 v0.4.5): the desk recorded the one-night late fee without a manager – OWN/MGR
+      // review it on the folio (a waiver = A32 "Điều chỉnh" on the settled folio) before `dueAt` (end of the
+      // post-checkout window), then "Đã xem". The server shows it to MGR+ only (FD/FDL never get it).
+      if (n === 1 && code) [key, args] = ['attn.late_fee_post_review_one', { code }];
+      const due = item.dueAt ? new Date(item.dueAt) : undefined;
+      sub = due
+        ? t('attn.late_fee_post_review_sub', {
+            time,
+            date: dayMonth(todayLocal(ctx.timeZone, due)),
+          })
+        : undefined;
+      // The booking with its folio open (`?open=folio` – ReservationDrawer), where "Điều chỉnh" is.
+      to = rsv ? `${rsv}?open=folio` : '/reservations';
+      openLabel = 'attn.late_fee_open_folio';
+      break;
+    }
     case 'ota_no_show_report':
       key = p.action === 'revoke' ? 'attn.ota_no_show_revoke' : 'attn.ota_no_show_report';
       args = { code, channel: ctx.channel(str(p.channel)) };
@@ -249,11 +270,14 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
     icon: ICON[item.kind] ?? 'alert',
     tone: TONE[item.severity],
     to,
+    openLabel,
     collectDebtId,
     resolveLabel: mayClose
       ? item.kind === 'ota_no_show_report'
         ? 'attn.reported_channel'
-        : 'attn.resolve'
+        : item.kind === 'late_fee_post_review'
+          ? 'attn.reviewed'
+          : 'attn.resolve'
       : undefined,
     noteRequired: item.severity === 'critical',
     ownerOnly: item.kind === 'foc_threshold' || item.kind === 'security_alert',

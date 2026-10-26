@@ -36,7 +36,7 @@ import { useOnline } from '../../hooks/useOnline';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { MoneyField, STAY_WRITE_RETRY, amountOf, useSubmit } from './common';
-import { PaymentPanel } from './PaymentPanel';
+import { PaymentPanel, type StagedPayment } from './PaymentPanel';
 import { AddChargeDialog } from './StayDialogs';
 import {
   FOC_CATEGORIES,
@@ -51,6 +51,19 @@ import {
 } from './foc';
 
 const OWN_MGR = ['owner', 'manager'];
+/**
+ * ESC-031 (INV 26/10, ESC-024 B; BE-B `esc031-be-b.md` 4): `lateFeeInsteadOfNight.postReview` – the desk records the
+ * server's one-night fee with a reason, no manager credentials, no waiver; OWN/MGR review it afterwards (OpenAPI
+ * 0.3.8 addendum 8, ARC 26/10).
+ */
+type LateFeeBody = NonNullable<CheckOutBody['lateFeeInsteadOfNight']>;
+/** How the one-night late fee is confirmed on the bill step: recorded now and reviewed later (default), or at the desk. */
+type LateFeeMode = 'review' | 'desk';
+/** BUG-R3-017: label keys of the methods collected with "Hoàn tất" (`finalPayment`). */
+const PAY_METHOD_KEY: Record<StagedPayment['method'], string> = {
+  cash: 'pay.cash',
+  card_pos: 'pay.card',
+};
 /** B18 field errors about the departure time – fixed on step 2, where the time and its note are (KB7). */
 const TIME_FIELDS = ['checkoutTime', 'checkoutAt', 'checkoutTimeNote'];
 const STEPS = ['checkout.step.minibar', 'checkout.step.extras', 'checkout.step.bill'];
@@ -63,6 +76,17 @@ const EXTRAS: Array<{ key: string; preset: string }> = [
   { key: 'checkout.extras.smoking', preset: 'SMOKING' },
   { key: 'checkout.extras.card', preset: 'CARD_LOST' },
 ];
+
+/** ESC-031: 422 NOT_ALLOWED on `lateFeeInsteadOfNight` itself – the night of departure can be sold again. */
+function lateFeeNotAllowed(e: unknown): boolean {
+  return (
+    isApiError(e) &&
+    e.code === 'VALIDATION_FAILED' &&
+    e.fieldErrors.some(
+      (f) => f.field.replace(/^body\./, '') === 'lateFeeInsteadOfNight' && f.code === 'NOT_ALLOWED',
+    )
+  );
+}
 
 /**
  * H16 Trả phòng 3 bước (S07, US-035…039, B18): minibar (counts 0…standard) → extras (actual
@@ -145,6 +169,12 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const [debtReason, setDebtReason] = useState('');
   // BR-416-06 (ARC 0.3.7 bổ sung 4, 16.6 (d)): the night of departure cannot be sold → a late fee of one night,
   // confirmed at the desk by a manager (username + password; OWN/MGR: their own password) with a reason.
+  // ESC-031 (ESC-024 B): by default the desk records it now and OWN/MGR review it afterwards (`postReview`) – with
+  // production 2FA a password typed at the counter is always refused (fail-closed), so that path is the second choice.
+  const [lfMode, setLfMode] = useState<LateFeeMode>('review');
+  // SEC-sprint1 8.6 (1): the manager-password panel only where the server says 2FA is NOT enforced
+  // (`getMy2fa.enforced === false` – dev/CI). Enforced (staging, production), unknown or unread → hidden.
+  const [deskConfirm, setDeskConfirm] = useState(false);
   const [lfReason, setLfReason] = useState('');
   const [lfUser, setLfUser] = useState('');
   const [lfSecret, setLfSecret] = useState('');
@@ -152,8 +182,35 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const [lfFoc, setLfFoc] = useState<SurchargeFoc>(noSurchargeFoc);
   const [lfFocAmount, setLfFocAmount] = useState('');
   const [confirm, setConfirm] = useState(false);
+  /** BUG-R3-017: cash / POS card collected on step 3, written by B18 as `finalPayment` (PaymentPanel `onStage`). */
+  const [staged, setStaged] = useState<StagedPayment | null>(null);
   const [bill, setBill] = useState<Bill | null>(null);
   const [done, setDone] = useState<{ billNo: string } | null>(null);
+  // SEC FB-R3-SEC-FE-A-16: money received but not on the folio yet lives only in this page (never in browser
+  // storage – no `posAuthCode` kept anywhere) – leaving asks first: reload / close (`beforeunload`) and any link of
+  // the app (capture phase, before React Router's Link handles the click).
+  const holding = !!staged && !done;
+  useEffect(() => {
+    if (!holding) return;
+    const onUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    const onClick = (e: MouseEvent) => {
+      const a = e.target instanceof Element ? e.target.closest('a[href]') : null;
+      if (!a || e.defaultPrevented || e.button !== 0) return;
+      if (!window.confirm(t('co.pay_at_complete_leave'))) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener('beforeunload', onUnload);
+    document.addEventListener('click', onClick, true);
+    return () => {
+      window.removeEventListener('beforeunload', onUnload);
+      document.removeEventListener('click', onClick, true);
+    };
+  }, [holding, t]);
   const minibarAct = useSubmit();
   const invAct = useSubmit();
   // ARC 16.17 bổ sung (af): B18 resends a CONCURRENT_UPDATE once with the same key.
@@ -223,13 +280,29 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
 
   // SEC FB-R2-SEC-FE-08: the manager's password lives only while the confirmation box is open with the same
   // figures – leaving the bill step, the box closing, or the fee / waiver changing clears it.
+  // ESC-031: the path in use – the desk confirmation only when it is offered (SEC 8.6).
+  const lfModeNow: LateFeeMode = deskConfirm ? lfMode : 'review';
+  // ESC-031 / SEC 8.6: switching to "Ghi phụ thu – quản lý xem lại" also drops a password typed in the old panel.
   const lfShownKey =
     step === 2 && s?.extraNightRequired && s.extraNightAvailable === false
-      ? `${s.lateFeeAsNightVnd ?? ''}|${lfFoc.on ? lfFocAmount || 'all' : ''}`
+      ? `${lfModeNow}|${s.lateFeeAsNightVnd ?? ''}|${lfFoc.on ? lfFocAmount || 'all' : ''}`
       : '';
   useEffect(() => {
     setLfSecret('');
   }, [lfShownKey]);
+  const lfOffered =
+    !!s?.extraNightRequired && s.extraNightAvailable === false && (s.lateFeeAsNightVnd ?? 0) > 0;
+  useEffect(() => {
+    if (!lfOffered) return;
+    let stale = false;
+    api.getMy2fa().then(
+      (x) => !stale && setDeskConfirm(x.data.enforced === false),
+      () => !stale && setDeskConfirm(false),
+    );
+    return () => {
+      stale = true;
+    };
+  }, [lfOffered]);
 
   // BR-703-01: an unchecked cabinet of an earlier room of this stay is counted first.
   useEffect(() => {
@@ -382,7 +455,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // none sent to a QR). What to charge instead waits for DOM (e.g. a late fee approved by the manager).
   const lateFeeAsNight = extraUnavailable ? s?.lateFeeAsNightVnd : undefined;
   const lateFeeMode = lateFeeAsNight !== undefined && lateFeeAsNight > 0;
-  const lfFocVnd = lateFeeMode && lfFoc.on ? amountOf(lfFocAmount) || (lateFeeAsNight ?? 0) : 0;
+  // ESC-031: recorded now, reviewed later – the server's number read-only, a reason, nothing else (no FOC, no password).
+  const lfReview = lateFeeMode && lfModeNow === 'review';
+  const lfFocVnd =
+    lateFeeMode && !lfReview && lfFoc.on ? amountOf(lfFocAmount) || (lateFeeAsNight ?? 0) : 0;
   const lfFocBody =
     lfFocVnd > 0 ? surchargeFocBody(lfFoc, Math.min(lfFocVnd, lateFeeAsNight ?? 0)) : undefined;
   const lfFocError =
@@ -393,27 +469,55 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const lfFocShown = lfFocBody?.amountVnd ?? 0;
   // SEC FB-R2-SEC-FE-08: one sentence for any failed confirmation – never "wrong name" vs "wrong password" –
   // and a lock (429) says it is temporary.
-  const lfAuthError = !lateFeeMode
-    ? undefined
-    : act.code === 'REAUTH_FAILED'
-      ? t('co.late_fee_auth_failed')
-      : act.code === 'RATE_LIMITED'
-        ? t('co.late_fee_locked', {
-            minutes:
-              isApiError(act.error) && act.error.retryAfterSeconds !== undefined
-                ? Math.max(1, Math.ceil(act.error.retryAfterSeconds / 60))
-                : 15,
-          })
-        : undefined;
-  const actView = () => (lfAuthError ? <Alert tone="bad">{lfAuthError}</Alert> : act.view());
+  const lfAuthError =
+    !lateFeeMode || lfReview
+      ? undefined
+      : act.code === 'REAUTH_FAILED'
+        ? t('co.late_fee_auth_failed')
+        : act.code === 'RATE_LIMITED'
+          ? t('co.late_fee_locked', {
+              minutes:
+                isApiError(act.error) && act.error.retryAfterSeconds !== undefined
+                  ? Math.max(1, Math.ceil(act.error.retryAfterSeconds / 60))
+                  : 15,
+            })
+          : undefined;
+  // ESC-031: what the server answered about the fee itself – said in place, in the desk's words.
+  const lfNotice = (() => {
+    const e = act.error;
+    if (!isApiError(e)) return undefined;
+    // 409 SURCHARGE_CHANGED: the summary is read again – the new number is on screen, nothing was written.
+    if (e.code === 'SURCHARGE_CHANGED' && lfReview) {
+      const fee = Number((e.problem as Record<string, unknown>).surchargeVnd);
+      return t('co.late_fee_pr_changed', {
+        amount: money(Number.isFinite(fee) ? fee : (lateFeeAsNight ?? 0)),
+      });
+    }
+    // 422 NOT_ALLOWED on the fee: the night can be sold again (the arrival moved) – an extra night instead (step 2).
+    if (lateFeeNotAllowed(e)) return t('co.late_fee_pr_not_allowed');
+    return undefined;
+  })();
+  const actView = () =>
+    lfAuthError ? (
+      // ESC-031: with 2FA a password alone is always refused – point to the path that needs none.
+      <Alert tone="bad">
+        {lfAuthError} {t('co.late_fee_auth_try_review')}
+      </Alert>
+    ) : lfNotice ? (
+      <Alert tone="warn">{lfNotice}</Alert>
+    ) : (
+      act.view()
+    );
   const lfReady =
     !lateFeeMode ||
-    (lfReason.trim().length >= 3 &&
-      (mgr || lfUser.trim().length > 0) &&
-      lfSecret.length > 0 &&
-      !surchargeFocMissing(t, lfFoc) &&
-      lfFocVnd <= (lateFeeAsNight ?? 0));
-  const balance = extraUnavailable
+    (lfReview
+      ? lfReason.trim().length >= 3
+      : lfReason.trim().length >= 3 &&
+        (mgr || lfUser.trim().length > 0) &&
+        lfSecret.length > 0 &&
+        !surchargeFocMissing(t, lfFoc) &&
+        lfFocVnd <= (lateFeeAsNight ?? 0));
+  const dueAtCheckout = extraUnavailable
     ? // 0.3.7 bổ sung 4: the server's due then includes the one-night late fee and never the unsold night;
       // an older server without `lateFeeAsNightVnd` → the folio balance (BUG-R2-139).
       lateFeeMode
@@ -424,6 +528,14 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       s?.amountDueAtCheckoutVnd ??
       s?.balanceDueVnd ??
       0);
+  // BUG-R3-017: cash / POS card taken on this step for money B18 itself posts (one-night late fee, extra night) – more
+  // than the folio owes now, so `recordPayment` would refuse it – goes with "Hoàn tất" as `finalPayment` (capped by the
+  // server at what is due after those lines). Valid only while it is not above what is due now (the time, the fee or
+  // a payment changed meanwhile → the desk collects again).
+  const stagedOk = staged && staged.amountVnd <= dueAtCheckout ? staged : null;
+  const stagedVnd = stagedOk?.amountVnd ?? 0;
+  const balance = Math.max(0, dueAtCheckout - stagedVnd);
+  const paidShown = (s?.paidVnd ?? 0) + stagedVnd;
   // BR-416-06: the late fee (less the waiver sent with it) is posted by B18 too – money taken for it before is
   // not a credit to hand back.
   const lateFeeNet = lateFeeMode ? Math.max(0, (lateFeeAsNight ?? 0) - lfFocShown) : 0;
@@ -516,6 +628,19 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   };
 
   const complete = async () => {
+    const lateFee: LateFeeBody | undefined = !lateFeeMode
+      ? undefined
+      : lfReview
+        ? // ESC-031: the number the server computed (read-only here), the reason, `postReview` – nothing else.
+          { amountVnd: lateFeeAsNight ?? 0, reason: lfReason.trim(), postReview: true }
+        : {
+            amountVnd: lateFeeAsNight ?? 0,
+            reason: lfReason.trim(),
+            approverUsername: mgr ? lfUser.trim() || undefined : lfUser.trim(),
+            authMethod: 'password',
+            secret: lfSecret,
+            requestFoc: lfFocBody,
+          };
     const body: CheckOutBody = {
       checkoutTime: time || s?.checkoutTime || rules.checkoutTime,
       checkoutTimeNote: timeNote.trim() || undefined,
@@ -526,14 +651,15 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         extraNightNeeded && !extraUnavailable
           ? { rateVnd: extraEdited ? amountOf(extraRate) : undefined }
           : undefined,
-      lateFeeInsteadOfNight: lateFeeMode
+      lateFeeInsteadOfNight: lateFee,
+      // BUG-R3-017: the cash / POS card payment taken on this step, written in the same transaction after the lines
+      // B18 posts (contract 0.3.7 S4-47: cap = what is due after them, 422 AMOUNT_EXCEEDS_BALANCE with `max`).
+      finalPayment: stagedOk
         ? {
-            amountVnd: lateFeeAsNight ?? 0,
-            reason: lfReason.trim(),
-            approverUsername: mgr ? lfUser.trim() || undefined : lfUser.trim(),
-            authMethod: 'password',
-            secret: lfSecret,
-            requestFoc: lfFocBody,
+            type: 'charge',
+            method: stagedOk.method,
+            amountVnd: stagedOk.amountVnd,
+            posAuthCode: stagedOk.posAuthCode,
           }
         : undefined,
       overpaymentHandling: credit > 0 ? { mode: overMode, reason: overReason.trim() } : undefined,
@@ -554,6 +680,13 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       sum.reload();
       const e = caught.error;
       if (isApiError(e) && e.code === 'VERSION_CONFLICT') res.reload();
+      // ESC-031: the fee changed (409) or no longer applies (422 NOT_ALLOWED) – the next "Hoàn tất" is a new command
+      // with other figures (never a replay of this one); the night sellable again → back to step 2 (extra night).
+      if (isApiError(e) && e.code === 'SURCHARGE_CHANGED' && lateFee) act.renewKey();
+      if (lateFeeNotAllowed(e)) {
+        act.renewKey();
+        setStep(1);
+      }
       // KB7 (3): a time problem is fixed where the time and its note are – back to step 2, note focused.
       if (
         isApiError(e) &&
@@ -568,6 +701,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       return;
     }
     toast(t('checkout.done'));
+    setStaged(null);
     setDone({ billNo: out.data.billNo });
     res.reload();
   };
@@ -740,6 +874,14 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 <td className="r num">−{vnd(s.paidVnd)}</td>
               </tr>
             ) : null}
+            {stagedOk ? (
+              <tr className="sub">
+                <td>
+                  {t('co.pay_at_complete_row', { method: t(PAY_METHOD_KEY[stagedOk.method]) })}
+                </td>
+                <td className="r num">−{vnd(stagedOk.amountVnd)}</td>
+              </tr>
+            ) : null}
             <tr className="total">
               <td>{t('checkout.summary.balance')}</td>
               <td className="r num" aria-live="polite">
@@ -767,6 +909,24 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       <Link to="/approvals">{t('co.see_approval')}</Link>
     </Alert>
   ));
+
+  const lfReasonField = (
+    <Field
+      label={t('co.late_fee_reason')}
+      required
+      error={act.fields['lateFeeInsteadOfNight.reason']}
+    >
+      {(p) => (
+        <input
+          {...p}
+          className="input"
+          maxLength={300}
+          value={lfReason}
+          onChange={(e) => setLfReason(e.target.value)}
+        />
+      )}
+    </Field>
+  );
 
   let body = null;
   if (done) {
@@ -1107,96 +1267,145 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         {lateFeeMode ? (
           <section className="card stack" aria-labelledby={`${ids}-lf`}>
             <h3 className="label-h" id={`${ids}-lf`}>
-              {t('co.late_fee_confirm_title', { amount: money(lateFeeAsNight ?? 0) })}
+              {lfReview
+                ? t('co.late_fee_pr_title', { amount: money(lateFeeAsNight ?? 0) })
+                : t('co.late_fee_confirm_title', { amount: money(lateFeeAsNight ?? 0) })}
             </h3>
-            <p className="li-s">{t('co.late_fee_confirm_help')}</p>
-            <Field
-              label={t('co.late_fee_reason')}
-              required
-              error={act.fields['lateFeeInsteadOfNight.reason']}
-            >
-              {(p) => (
-                <input
-                  {...p}
-                  className="input"
-                  maxLength={300}
-                  value={lfReason}
-                  onChange={(e) => setLfReason(e.target.value)}
-                />
-              )}
-            </Field>
-            {/* Optional waiver of that fee – applied by the confirming manager within their limit (BR-433). */}
-            <SurchargeFocFields
-              value={lfFoc}
-              onChange={setLfFoc}
-              label={t('co.late_fee_foc')}
-              error={act.fields['lateFeeInsteadOfNight.requestFoc.note']}
+            {/* ESC-031: recorded now and reviewed by OWN/MGR afterwards (default), or confirmed at the desk – kept
+                only where 2FA is not enforced (SEC 8.6). */}
+            <Seg<LateFeeMode>
+              label={t('co.late_fee_mode')}
+              value={lfModeNow}
+              disabled={act.busy}
+              onChange={(v) => {
+                setLfMode(v);
+                act.reset();
+              }}
+              options={
+                deskConfirm
+                  ? [
+                      { value: 'review', label: t('co.late_fee_mode_review') },
+                      { value: 'desk', label: t('co.late_fee_mode_desk') },
+                    ]
+                  : // 2FA enforced: the name staff look for (staff-one-pager step 3), no password panel at all.
+                    [{ value: 'review', label: t('co.late_fee_mode_review') }]
+              }
             />
-            {lfFoc.on ? (
-              <MoneyField
-                label={t('foc.amount')}
-                help={t('foc.max', { amount: money(lateFeeAsNight ?? 0) })}
-                required
-                value={lfFocAmount || vnd(lateFeeAsNight ?? 0)}
-                onChange={setLfFocAmount}
-                error={lfFocError}
-              />
-            ) : null}
-            {/* SEC FB-R2-SEC-FE-08: what the manager allows, right above where they type their password. */}
-            <dl className="dl" aria-label={t('co.late_fee_sum_title')}>
-              <dt>{t('co.late_fee_sum_fee')}</dt>
-              <dd className="num">{money(lateFeeAsNight ?? 0)}</dd>
-              <dt>{t('co.late_fee_sum_foc')}</dt>
-              <dd className="num">{lfFocShown > 0 ? `− ${money(lfFocShown)}` : money(0)}</dd>
-              <dt>{t('co.late_fee_sum_guest')}</dt>
-              <dd className="num">{money(Math.max(0, (lateFeeAsNight ?? 0) - lfFocShown))}</dd>
-            </dl>
-            {/* No <form> and no username/password pair: the counter browser must not offer to save or fill
+            {lfReview ? (
+              <>
+                <p className="li-s">{t('co.late_fee_pr_help')}</p>
+                {/* The server's number, read-only: no box to change it, no waiver here (A32 later, by a manager). */}
+                <dl className="dl" aria-label={t('co.late_fee_pr_sum')}>
+                  <dt>{t('co.late_fee_sum_fee')}</dt>
+                  <dd className="num">{money(lateFeeAsNight ?? 0)}</dd>
+                </dl>
+                {lfReasonField}
+              </>
+            ) : (
+              <>
+                <p className="li-s">{t('co.late_fee_confirm_help')}</p>
+                {lfReasonField}
+                {/* Optional waiver of that fee – applied by the confirming manager within their limit (BR-433). */}
+                <SurchargeFocFields
+                  value={lfFoc}
+                  onChange={setLfFoc}
+                  label={t('co.late_fee_foc')}
+                  error={act.fields['lateFeeInsteadOfNight.requestFoc.note']}
+                />
+                {lfFoc.on ? (
+                  <MoneyField
+                    label={t('foc.amount')}
+                    help={t('foc.max', { amount: money(lateFeeAsNight ?? 0) })}
+                    required
+                    value={lfFocAmount || vnd(lateFeeAsNight ?? 0)}
+                    onChange={setLfFocAmount}
+                    error={lfFocError}
+                  />
+                ) : null}
+                {/* SEC FB-R2-SEC-FE-08: what the manager allows, right above where they type their password. */}
+                <dl className="dl" aria-label={t('co.late_fee_sum_title')}>
+                  <dt>{t('co.late_fee_sum_fee')}</dt>
+                  <dd className="num">{money(lateFeeAsNight ?? 0)}</dd>
+                  <dt>{t('co.late_fee_sum_foc')}</dt>
+                  <dd className="num">{lfFocShown > 0 ? `− ${money(lfFocShown)}` : money(0)}</dd>
+                  <dt>{t('co.late_fee_sum_guest')}</dt>
+                  <dd className="num">{money(Math.max(0, (lateFeeAsNight ?? 0) - lfFocShown))}</dd>
+                </dl>
+                {/* No <form> and no username/password pair: the counter browser must not offer to save or fill
                 the manager's password (SEC FE-08); the password is cleared after every call. */}
-            <Field
-              label={t('co.late_fee_approver')}
-              required={!mgr}
-              help={mgr ? t('co.late_fee_approver_self') : undefined}
-              error={act.fields['lateFeeInsteadOfNight.approverUsername']}
-            >
-              {(p) => (
-                <input
-                  {...p}
-                  className="input"
-                  name="lf-confirming-manager"
-                  autoComplete="off"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  maxLength={100}
-                  value={lfUser}
-                  onChange={(e) => setLfUser(e.target.value)}
-                />
-              )}
-            </Field>
-            <Field
-              label={t('co.late_fee_secret')}
-              required
-              error={lfAuthError ?? act.fields['lateFeeInsteadOfNight.secret']}
-            >
-              {(p) => (
-                <input
-                  {...p}
-                  type="password"
-                  className="input"
-                  name="lf-confirming-secret"
-                  autoComplete="new-password"
-                  value={lfSecret}
-                  onChange={(e) => setLfSecret(e.target.value)}
-                />
-              )}
-            </Field>
+                <Field
+                  label={t('co.late_fee_approver')}
+                  required={!mgr}
+                  help={mgr ? t('co.late_fee_approver_self') : undefined}
+                  error={act.fields['lateFeeInsteadOfNight.approverUsername']}
+                >
+                  {(p) => (
+                    <input
+                      {...p}
+                      className="input"
+                      name="lf-confirming-manager"
+                      autoComplete="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      maxLength={100}
+                      value={lfUser}
+                      onChange={(e) => setLfUser(e.target.value)}
+                    />
+                  )}
+                </Field>
+                <Field
+                  label={t('co.late_fee_secret')}
+                  required
+                  error={lfAuthError ?? act.fields['lateFeeInsteadOfNight.secret']}
+                >
+                  {(p) => (
+                    <input
+                      {...p}
+                      type="password"
+                      className="input"
+                      name="lf-confirming-secret"
+                      autoComplete="new-password"
+                      value={lfSecret}
+                      onChange={(e) => setLfSecret(e.target.value)}
+                    />
+                  )}
+                </Field>
+              </>
+            )}
           </section>
         ) : null}
         <section className="card stack">
           <p className="kv-big num">
             {t('bill.total')}: {money(s?.totalVnd ?? 0)}
           </p>
-          {balance > 0 ? (
+          {staged ? (
+            // BUG-R3-017: collected, written with "Hoàn tất"; "Bỏ" if it was a mistake or the due changed.
+            <Alert
+              tone={stagedOk ? 'info' : 'warn'}
+              actions={
+                <Button
+                  size="sm"
+                  disabled={act.busy}
+                  onClick={() => {
+                    setStaged(null);
+                    act.renewKey();
+                  }}
+                >
+                  {t('co.pay_at_complete_undo')}
+                </Button>
+              }
+            >
+              {stagedOk
+                ? t('co.pay_at_complete', {
+                    method: t(PAY_METHOD_KEY[staged.method]),
+                    amount: money(staged.amountVnd),
+                  })
+                : t('co.pay_at_complete_changed', { amount: money(staged.amountVnd) })}
+              {stagedOk && balance > 0
+                ? ` ${t('co.pay_at_complete_remaining', { amount: money(balance) })}`
+                : ''}
+            </Alert>
+          ) : balance > 0 ? (
             online ? (
               <PaymentPanel
                 reservation={r}
@@ -1211,6 +1420,14 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                       ? amountOf(extraRate)
                       : undefined,
                   lateFeeAsNight: lateFeeMode || undefined,
+                  // BUG-R3-017: cash / card above what the folio owes now → with "Hoàn tất" (`finalPayment`).
+                  folioBalanceVnd: Math.max(0, s?.balanceDueVnd ?? 0),
+                  onStage: (p) => {
+                    setStaged(p);
+                    // the next B18 carries another body – a new command, never a replay of an earlier refusal
+                    act.renewKey();
+                    act.reset();
+                  },
                 }}
                 onPaid={reload}
                 onStale={reload}
@@ -1380,18 +1597,22 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     extraUnavailable && !lateFeeMode
       ? t('checkout.extra_night_unavailable')
       : !lfReady
-        ? t('co.late_fee_needs_confirm')
+        ? lfReview
+          ? t('co.late_fee_pr_needs')
+          : t('co.late_fee_needs_confirm')
         : lateRaise && !lateTold
           ? t('checkout.complete_needs_told')
           : debtActive && !debtReady
             ? t('co.debt_needs')
             : credit > 0 && overReason.trim().length < 3
               ? t('checkout.overpay.needs_reason')
-              : null;
+              : staged && !stagedOk
+                ? t('co.pay_at_complete_needs')
+                : null;
   const completeLabel = debtActive
     ? t('co.complete_debt', { amount: money(balance) })
-    : balance === 0 && (s?.paidVnd ?? 0) > 0
-      ? t('co.complete_paid', { amount: money(s?.paidVnd ?? 0) })
+    : balance === 0 && paidShown > 0
+      ? t('co.complete_paid', { amount: money(paidShown) })
       : t('checkout.complete');
   const blocked = whyLocked !== null;
   return (
@@ -1497,7 +1718,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             debtActive
               ? completeLabel
               : balance === 0
-                ? t('co.complete_paid', { amount: money(s?.paidVnd ?? 0) })
+                ? t('co.complete_paid', { amount: money(paidShown) })
                 : t('checkout.complete')
           }
           busy={act.busy}
@@ -1509,6 +1730,17 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             <li>{t('co.effect_bill')}</li>
             <li>{t('co.effect_door', { room })}</li>
             {r.extraGuestCount ? <li>{t('co.effect_kit_note')}</li> : null}
+            {lfReview ? (
+              <li>{t('co.late_fee_pr_effect', { amount: money(lateFeeAsNight ?? 0) })}</li>
+            ) : null}
+            {stagedOk ? (
+              <li>
+                {t('co.pay_at_complete_effect', {
+                  method: t(PAY_METHOD_KEY[stagedOk.method]),
+                  amount: money(stagedOk.amountVnd),
+                })}
+              </li>
+            ) : null}
             {debtActive ? (
               <li>{t('co.debt_effect', { amount: money(balance), date: date(debtDue) })}</li>
             ) : null}

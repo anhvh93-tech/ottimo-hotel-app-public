@@ -141,16 +141,26 @@ export class AttentionService {
   }
 
   /**
-   * Due time of an event item: when it was raised, except `foc_stay_total_exceeded` (0.3.8 – BR-433 (c) v0.4.0): the
-   * owner reviews it within `stay_waiver_review_hours` (24).
+   * Due time of an event item: when it was raised, except
+   * - `foc_stay_total_exceeded` (0.3.8 – BR-433 (c) v0.4.0): the owner reviews it within `stay_waiver_review_hours`
+   *   (24);
+   * - `late_fee_post_review` (ESC-024 B, BR-416 (4); ESC-031 – BE-B): the manager reviews within the post-checkout
+   *   window of BR-427 (`post_checkout_charge_hours`, 24) – the only time a waiver (A32 on the `settled` folio) is
+   *   still possible, so the review deadline IS that window (opened in the B18 transaction that started it).
    */
   private async dueOf(
     kind: AttentionKind,
     createdAt: Date,
     ctx: AttentionSourceContext,
   ): Promise<Date> {
-    if (kind !== 'foc_stay_total_exceeded') return createdAt;
-    const hours = (await ctx.param<number>('stay_waiver_review_hours')) ?? 0;
+    const key =
+      kind === 'foc_stay_total_exceeded'
+        ? 'stay_waiver_review_hours'
+        : kind === 'late_fee_post_review'
+          ? 'post_checkout_charge_hours'
+          : null;
+    if (!key) return createdAt;
+    const hours = (await ctx.param<number>(key)) ?? 0;
     return new Date(createdAt.getTime() + hours * 3_600_000);
   }
 

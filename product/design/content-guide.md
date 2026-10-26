@@ -2730,7 +2730,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `checkin.time_note` | Ghi chú giờ nhận (vì sao ghi bù) | Check-in time note (why it's recorded late) | ⟨chừa chỗ⟩ | checkinTimeNote 3–300 ký tự – thay stay.note |
 | `checkout.time_note` | Ghi chú giờ trả (vì sao ghi bù) | Check-out time note (why it's recorded late) | ⟨chừa chỗ⟩ | checkoutTimeNote 3–300 ký tự – thay stay.note |
 | `stay.time_note_help` | Bắt buộc khi giờ ghi sớm hơn lúc bấm. Ghi chú lưu vào nhật ký thay đổi. | Required when the time is earlier than now. The note is kept in the change log. | ⟨chừa chỗ⟩ |  |
-| `checkout.extra_night_title` | Trả sau mốc trả muộn – tính thêm 1 đêm | Check-out after the late check-out limit – one extra night | ⟨chừa chỗ⟩ | CheckoutSummary.extraNightRequired |
+| `checkout.extra_night_title` | Trả sau mốc trả muộn | Check-out after the late check-out limit | ⟨chừa chỗ⟩ | CheckoutSummary.extraNightRequired |
 | `checkout.extra_night_body` | Giờ trả này quá mốc trả muộn nên tính thêm 1 đêm ({amount}) thay cho phụ thu trả muộn. Báo khách trước khi hoàn tất. | This check-out time is past the late check-out limit, so one extra night ({amount}) is charged instead of a late check-out fee. Tell the guest before completing. | ⟨chừa chỗ⟩ | {amount} = giá đêm thêm đang nhập (kèm đơn vị) |
 | `checkout.extra_night_rate_label` | Giá đêm thêm | Extra night rate | ⟨chừa chỗ⟩ | Ô extraNight.rateVnd |
 | `checkout.extra_night_rate_help` | Mặc định giá Trực tiếp đêm nay; sửa được trong khoảng sàn – trần. | Defaults to tonight's Direct rate; can be changed within the floor–ceiling range. | ⟨chừa chỗ⟩ | Ngoài sàn–trần → field.RATE_OUT_OF_RANGE |

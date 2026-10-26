@@ -125,7 +125,10 @@ export type AttentionKind =
   // 0.3.8 – BR-433 (c) v0.4.0, ESC-026 A (BE-B): waivers on one stay above the threshold – OWN only, one per stay.
   | 'foc_stay_total_exceeded'
   // 0.3.7 bổ sung 2 (US-155 AC8 – BE-D R3, v1.0): website booking requests still `new` (computed, FD+).
-  | 'website_request_new';
+  | 'website_request_new'
+  // 0.3.8 (ESC-024 B; v1.0 patch ESC-031 – BE-B): the desk recorded the late charge of one night without a manager
+  // at the counter – OWN/MGR review it within the post-checkout window (event, MGR+, one per booking).
+  | 'late_fee_post_review';
 
 /**
  * B-21 / SEC J: the ONLY `params` keys an item of a kind may carry (counts, codes, room numbers, dates –
@@ -164,7 +167,8 @@ export const ATTENTION_PARAM_KEYS: Partial<Record<AttentionKind, readonly string
  * Who sees an item of `listAttentionItems` (EP01 3.1; rbac S02 note 1; US-012 AC6, US-003 AC4) – filtered on the
  * server, never in the client:
  * - OWN only: `foc_threshold` (BR-435), `security_alert`, `data_quality` of the DATA checks (J17 R-04/R-05/R-06a);
- * - MGR+: `reconcile_overdue` (money – FDL/FD ✖), `checkout_debt` (BR-525 – the debt is OWN/MGR's, A19);
+ * - MGR+: `reconcile_overdue` (money – FDL/FD ✖), `checkout_debt` (BR-525 – the debt is OWN/MGR's, A19),
+ *   `late_fee_post_review` (ESC-024 B – the manager's review of a late charge the desk recorded);
  * - FD+: everything else, including `data_quality` whose `check` is a registration check
  *   (`registration_stay_not_closed`, `registration_party_docs_unlinked` – the desk links/closes them, S4-39)
  *   and `closed_reservation_credit` (S4-06 – OWN/MGR/FDL/FD like `deposit_after_cancel`).
@@ -177,6 +181,7 @@ export function attentionAudience(item: Pick<AttentionItem, 'kind' | 'params'>):
       return OWNER_ONLY;
     case 'reconcile_overdue':
     case 'checkout_debt':
+    case 'late_fee_post_review':
       return MGR_PLUS;
     case 'data_quality': {
       const check = item.params?.check;

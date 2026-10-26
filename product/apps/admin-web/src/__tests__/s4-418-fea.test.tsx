@@ -53,7 +53,12 @@ async function payAndComplete(user: ReturnType<typeof renderApp>['user']) {
   await user.click(screen.getByRole('button', { name: tv('co.go_bill') }));
   await user.click(await screen.findByRole('button', { name: tv('pay.cash') }));
   await user.click(screen.getByRole('button', { name: /^Ghi nhận đã thu/ }));
-  await waitFor(() => expect(screen.getByText(tv('drawer.folio.settled'))).toBeInTheDocument());
+  // BUG-R3-017: the extra night is posted by B18 – the cash goes with "Hoàn tất" (`finalPayment`).
+  await screen.findByText(
+    new RegExp(
+      `^${esc(tv('co.pay_at_complete', { method: tv('pay.cash'), amount: '§' }).split('§')[0]!)}`,
+    ),
+  );
   await user.click(screen.getByRole('button', { name: /^Đã thu .* – hoàn tất$/ }));
   const box = await screen.findByRole('alertdialog');
   await user.click(within(box).getByRole('button', { name: /^Đã thu .* – hoàn tất$/ }));
@@ -87,7 +92,12 @@ describe('B18 đêm thêm – chỉ gửi `extraNight.rateVnd` khi lễ tân s�
     expect(qrs.sent.at(-1)).toMatchObject({ purpose: 'check_out', extraNightRateVnd: 708_000 });
     await user.click(screen.getByRole('button', { name: tv('pay.cash') }));
     await user.click(screen.getByRole('button', { name: /^Ghi nhận đã thu/ }));
-    await waitFor(() => expect(screen.getByText(tv('drawer.folio.settled'))).toBeInTheDocument());
+    // BUG-R3-017: the extra night is posted by B18 – the cash goes with "Hoàn tất" (`finalPayment`).
+    await screen.findByText(
+      new RegExp(
+        `^${esc(tv('co.pay_at_complete', { method: tv('pay.cash'), amount: '§' }).split('§')[0]!)}`,
+      ),
+    );
     await user.click(screen.getByRole('button', { name: /^Đã thu .* – hoàn tất$/ }));
     const box = await screen.findByRole('alertdialog');
     await user.click(within(box).getByRole('button', { name: /^Đã thu .* – hoàn tất$/ }));

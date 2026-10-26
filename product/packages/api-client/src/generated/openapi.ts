@@ -1592,6 +1592,9 @@ export interface paths {
      *       `pendingApprovals`, `resyncOtaCollect`, số dư và ghi `finalPayment`; mọi quyết định theo số dư/blocker đọc **sau** khóa folio (dòng folio chen vào lúc B18 không còn lọt qua).
      *     - **0.3.7 bổ sung 4 (SEC ARC-24)**: 401 `REAUTH_FAILED` (xác nhận `lateFeeInsteadOfNight` sai) / `UNAUTHENTICATED`; 403 `APPROVAL_LIMIT_EXCEEDED` (`requestFoc` vượt hạn mức người
      *       xác nhận) / `FORBIDDEN_ACTION` (`debt` của FD/FDL); 429 `RATE_LIMITED` (bộ đếm xác nhận lại đang khóa).
+     *     - **0.3.8 bổ sung 8 (ESC-031, ESC-024 B)**: `lateFeeInsteadOfNight.postReview = true` không đi qua bước "người xác nhận" (không `verifyApprover`, không đếm SR-RL-02, không 401
+     *       `REAUTH_FAILED`/429 `RATE_LIMITED` từ đường này); mọi lỗi 422/409 của khuôn body vẫn trả trước khi ghi. Audit `reservation.late_fee_instead_of_night` `after.channel` ∈
+     *       `desk|self|remote|expired_self_record|post_review`.
      *     - **0.3.7 bổ sung 4 (BUG-R2-150, ARC + SEC)** – thứ tự trên đường `lateFeeInsteadOfNight`: **bước 0** tra `Idempotency-Key` đã hoàn tất (cùng người gọi, method, path; băm body
      *       **không** gồm `secret` – `SECRET_BODY_FIELDS`) **trước** mọi kiểm nghiệp vụ và `verifyApprover`: khớp → 200 đã lưu + `Idempotent-Replayed: true`, không kiểm mật khẩu, không đếm,
      *       không thông báo; băm lệch → 422 `IDEMPOTENCY_KEY_REUSED`; đang chạy → 409 như mọi lệnh. Rồi BE-64: khuôn body → kiểm nghiệp vụ chỉ đọc → người xác nhận → `uow.run`.
@@ -5619,7 +5622,7 @@ export interface components {
       'reminded_waiting' | 'replied' | 'call_needed' | 'overdue' | 'checked_out';
     AttentionItem: {
       /**
-       * @description **0.3.8**: `late_fee_post_review` (US-164/ESC-024 B – nguồn `event`, OWN/MGR, mức `warning`, `dueAt` = ghi + `late_fee_post_review_hours`, `refCode` = mã đơn; đóng bằng
+       * @description **0.3.8**: `late_fee_post_review` (US-164/ESC-024 B; v1.0 cả `postReview` – bổ sung 8 – nguồn `event`, OWN/MGR, mức `warning`, **một mục mỗi đơn**, `dueAt` = ghi + `post_checkout_charge_hours` (bổ sung 8), `refCode` = mã đơn; đóng bằng
        *     `resolveAttentionEvent` sau khi xem lại); `foc_stay_total_exceeded` (ESC-026 A – nguồn `event`, **chỉ OWN**, `warning`, **một mục mỗi lượt ở** (mở ở lần vượt đầu), `dueAt` = +24 giờ, `params` chỉ `count` khoản);
        *     `manager_confirmation_pending` (nguồn `computed`, OWN/MGR, `count` yêu cầu đang chờ, `dueAt` = `expiresAt` sớm nhất).
        *     0.3.7 bổ sung 2 (US-155): `website_request_new` – nguồn `computed`, FD+ (OWN/MGR/FDL/FD); `count` = số yêu cầu website `new` chưa ai nhận; mức `warning` khi yêu cầu `new`
@@ -8303,7 +8306,8 @@ export interface components {
       /**
        * @description **0.3.8 (US-164)**: `manager_confirmation_requested` (mọi OWN/MGR **đang hoạt động** của cơ sở; Web Push nếu đã đăng ký – payload chỉ `kind` + `refId`; refType `manager_confirmation`,
        *     refCode = mã đơn) · `manager_confirmation_decided` (người gửi – đã duyệt/từ chối) · `manager_confirmation_expired` (người gửi – hết hạn, Desk mở nhánh tự ghi) ·
-       *     `late_fee_post_review` (OWN + MGR – lễ tân tự ghi sau hết hạn, hậu kiểm 24 giờ; refType `reservation`). **ESC-026 A**: `foc_stay_total_exceeded` (mọi OWN – Σ số đang áp của FOC/giảm giá đặc biệt/xóa nợ
+       *     `late_fee_post_review` (OWN + MGR trừ người ghi – lễ tân tự ghi sau hết hạn, hoặc `postReview` ở v1.0 (bổ sung 8), hậu kiểm trong `post_checkout_charge_hours`; quá hạn chưa xem →
+       *     mọi OWN thêm **một** lần (job `late_fee.post_review_overdue`); refType `reservation`). **ESC-026 A**: `foc_stay_total_exceeded` (mọi OWN – Σ số đang áp của FOC/giảm giá đặc biệt/xóa nợ
        *     do FD/FDL/MGR áp trên một lượt ở vượt ngưỡng BR-433 (c) v0.4.0 – ngưỡng = hạn mức một lần của vai cao nhất dưới OWN có khoản đang áp; **một thông báo mỗi lần áp** khi Σ đang vượt
        *     (oracle DOM E26-1…5, 9); refType `reservation`, refCode = mã đơn gốc của lượt; không số tiền, không tên khách). Không tên khách/SĐT trong mọi loại.
        *     **0.3.7 bổ sung 4 (BR-525 G-4, migration 0072)**: `debt_recorded` – công nợ của khách được ghi tự động khi MGR+ đảo khoản thu sau trả phòng làm còn phải thu > 0, hoặc khi J15 đóng folio còn phát sinh sau trả phòng chưa thu (R7LOCK-01 – hết 24 giờ kể từ trả phòng); gửi **OWN + MGR**
@@ -12110,8 +12114,11 @@ export interface operations {
            *     (3) **Hết hạn – lễ tân tự ghi (ESC-024 B)**: `confirmationId` của yêu cầu `expired` (không phải `rejected`), người gọi FD/FDL/MGR/OWN của cơ sở: ghi **đúng** phụ thu server tính
            *     (`lateFeeAsNightVnd` đọc dưới khóa; khác số đã khóa ở yêu cầu → 409 `SURCHARGE_CHANGED`, tạo yêu cầu mới), **không** FOC (FOC xin trong yêu cầu bỏ, khách trả đủ), điều kiện
            *     "đêm không bán được" phải còn đúng lúc ghi. Audit `money` `reservation.late_fee_instead_of_night` `after.channel = expired_self_record`, `after.confirmationId`; thông báo
-           *     `late_fee_post_review` mọi OWN/MGR; "Cần chú ý" `late_fee_post_review` hạn `late_fee_post_review_hours`. Không dùng mật khẩu/PIN của ai khác.
+           *     `late_fee_post_review` mọi OWN/MGR; "Cần chú ý" `late_fee_post_review` hạn = ghi + `post_checkout_charge_hours` (bổ sung 8 – thay `late_fee_post_review_hours`). Không dùng mật khẩu/PIN của ai khác.
            *     Miễn sau hậu kiểm: MGR+ dùng A32 (`adjustFolioLine`) trên folio `settled` trong cửa sổ 24 giờ → dư → hoàn tiền BR-522 (đường có sẵn, không thêm đường tiền) [GIẢ ĐỊNH – DOM chốt BR-416].
+           *     **0.3.8 bổ sung 8 (ESC-031, INV 26/10)** – cách thứ tư, nên thành "bốn cách, đúng một":
+           *     (4) **Lễ tân ghi, quản lý hậu kiểm** (`postReview: true`, chỉ v1.0 – xem `postReview`). Hết cách (1) dùng được ở production (MFA bắt buộc → (1) luôn 401 với người có 2FA,
+           *     giữ fail-closed); (2)/(3) chưa có tới US-164.
            */
           lateFeeInsteadOfNight?: {
             /** @description 0.3.8 (US-164) – `ManagerConfirmation.id` */
@@ -12120,6 +12127,26 @@ export interface operations {
             totpCode?: string;
             amountVnd?: components['schemas']['MoneyVnd'];
             reason?: string;
+            /**
+             * @description 0.3.8 bổ sung 8 (ARC 26/10; ESC-031 INV 26/10; ESC-024 B; BR-416 (1)–(4)) – cách (4) "Lễ tân ghi, quản lý hậu kiểm" (v1.0, chưa có US-164). Người gọi FD/FDL/MGR/OWN
+             *     của cơ sở (`x-roles` không đổi; MGR/OWN cũng theo đúng luật này, không có lối "mật khẩu của chính mình"). Gửi `amountVnd` (= `CheckoutSummary.lateFeeAsNightVnd`; lệch,
+             *     cao hay thấp → 409 `SURCHARGE_CHANGED`), `reason` (thiếu → 422, `errors[].code = REASON_REQUIRED`), `postReview: true`. Chỉ khi server xác định đêm ngày đi **không bán được**
+             *     (khác → 422 `NOT_ALLOWED`, `field` = `lateFeeInsteadOfNight`, như mọi cách).
+             *     Gửi kèm `approverUsername`, `authMethod`, `secret`, `totpCode`, `confirmationId` hoặc `requestFoc` → 422 `VALIDATION_FAILED`, `errors[].code = NOT_ALLOWED` từng trường
+             *     (`field` = `lateFeeInsteadOfNight.<trường>`); không phải boolean → 422, `errors[].code = VALIDATION_FAILED` (`field` = `lateFeeInsteadOfNight.postReview`). Không kiểm mật khẩu của ai,
+             *     không đếm SR-RL-02, không audit bảo mật; mọi lỗi trả **trước khi ghi**. `false`/vắng = cách (1)–(3) như cũ.
+             *     Lễ tân không sửa số, không miễn/giảm trong lệnh; FOC trả muộn **đã duyệt trước** đi theo như mọi đường B18 (BR-434, S3-11).
+             *     Cùng giao dịch B18 (B18 bị từ chối sau đó → không còn gì): dòng `late_checkout` `charge_code = late_fee_as_night`; audit `money` `reservation.late_fee_instead_of_night`
+             *     `after = {amountVnd, checkoutTime, date, channel: post_review, reviewDueAt}` (người làm = người gọi, **không** `confirmedBy`); thông báo `late_fee_post_review` mọi OWN/MGR
+             *     đang hoạt động của cơ sở (trừ người gọi); **một** mục "Cần chú ý" `late_fee_post_review` mỗi đơn (MGR+, `warning`, `dueAt` = ghi + `post_checkout_charge_hours`
+             *     = cột `folio.post_checkout_window_until` B18 vừa ghi). Quá hạn mà chưa "Đã xem" (`resolveAttentionEvent`, MGR+) → job `late_fee.post_review_overdue` báo mọi OWN **một lần** (cùng kind),
+             *     mục giữ nguyên; J15 đóng folio như thường (BR-416 (4)).
+             *     Miễn sau hậu kiểm: A32 (`adjustFolioLine`) trên folio `settled` → dư → yêu cầu hoàn BR-522 (K11-06, BR-433 (e), `SELF_REFUND_FORBIDDEN`) – không thêm đường tiền.
+             *     **v1.1 (US-164)**: trường còn trong hợp đồng nhưng `true` → 422 `NOT_ALLOWED` (`field` = `lateFeeInsteadOfNight.postReview`); lễ tân đi cách (2)/(3) (chờ
+             *     `remote_confirm_timeout_minutes` rồi mới tự ghi – ESC-024 B gốc). Hạ tầng hậu kiểm (kind, mục, job) dùng lại cho (3).
+             * @default false
+             */
+            postReview?: boolean;
             /** @description Bắt buộc khi người gọi là FD/FDL (thiếu → 422 `REQUIRED`); OWN/MGR bỏ trống = tự xác nhận */
             approverUsername?: string;
             /**

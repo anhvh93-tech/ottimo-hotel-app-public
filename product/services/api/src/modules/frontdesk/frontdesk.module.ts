@@ -20,10 +20,12 @@ import { ApprovalService } from '../approvals/public/approval.service';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { defineAuditEntity } from '../audit/public/audit-fields';
 import { EventsService } from '../events/public/events.service';
+import { ParameterService } from '../platform/public/parameter.service';
 import { ReservationHooks } from '../reservations/public/reservation-hooks';
 import { FRONTDESK_ATTENTION_SOURCES, checkoutDebtSource } from './internal/attention-sources';
 import { CheckinService } from './internal/checkin.service';
 import { CheckoutService } from './internal/checkout.service';
+import { lateFeeReviewOverdueJob } from './public/late-fee-review-job';
 import {
   NoGuestAccessPort,
   NoMinibarPort,
@@ -68,6 +70,8 @@ defineAuditEntity('reservation', [
   'confirmedTime',
   'partyRole',
   'priceAgeBand',
+  // ESC-024 B / ESC-031 (BE-B): end of the post-checkout window the manager reviews a desk-recorded late charge in.
+  'reviewDueAt',
 ]);
 
 @Module({
@@ -119,6 +123,7 @@ export class FrontdeskModule implements OnModuleInit {
     @Inject(StaySupport) private readonly support: StaySupport,
     @Inject(CheckinService) private readonly checkin: CheckinService,
     @Inject(CheckoutService) private readonly checkout: CheckoutService,
+    @Inject(ParameterService) private readonly params: ParameterService,
     @Optional() @Inject(RegistrationPartyLink) private readonly partyLink?: RegistrationPartyLink,
   ) {}
 
@@ -208,5 +213,8 @@ export class FrontdeskModule implements OnModuleInit {
     // J24 payment.expire (VietQR shown at check-in/check-out – jobs are BE-A's, s3-contract 4.1).
     const j24 = paymentExpiryJob(this.audit);
     if (!this.jobs.get(j24.key)) this.jobs.register(j24);
+    // ESC-024 B / ESC-031 (BE-B), BR-416 (4): a desk-recorded late charge not reviewed within the window → OWN told.
+    const review = lateFeeReviewOverdueJob(this.events, this.params);
+    if (!this.jobs.get(review.key)) this.jobs.register(review);
   }
 }
