@@ -87,3 +87,43 @@
   - chạy TC-X-086 trên stack đồng hồ ảo;
   - chạy kiểm tiền ESC-031 trên stack `MFA_ENFORCED=true`: trên Desk chỉ có một cách, body gồm 3 trường.
 - Ảnh `10-folio-opened` chụp trên đơn còn đang ở (cảnh dựng bằng mock), không phải folio đã chốt sau trả phòng. Luồng thật của A32 trên folio `settled` là màn có sẵn từ S4-27, không đổi.
+
+## 6. Bổ sung 26/10 tối – BUG-R3-017 (P1): thu tiền mặt/thẻ ở bước 3 khi có khoản B18 mới ghi
+
+**Không cần BE.**
+- Lỗi: phụ thu bằng giá 1 đêm (ESC-031) và đêm thêm sau 18:00 đều do B18 ghi. Lúc thu tiền ở bước 3, folio nợ ít hơn số bill đang hiện, nên `recordPayment` tiền mặt/thẻ bị 422 `note REASON_REQUIRED`.
+- Hợp đồng 0.3.7 S4-47 đã có sẵn `checkOut.finalPayment`, trần = còn phải thu sau các dòng đó (hướng (a) của QA).
+
+**Cách sửa:**
+- Tiền mặt hoặc thẻ POS **vượt số folio đang nợ lúc đó**:
+  - Desk không gọi `recordPayment`;
+  - hiện "Tiền mặt: đã nhận … – ghi vào folio khi bấm Hoàn tất", kèm dòng trong bảng folio và dòng trong hộp xác nhận;
+  - lệnh B18 gửi `finalPayment {type: charge, method, amountVnd, posAuthCode?}`.
+- Số ≤ folio đang nợ: ghi ngay như cũ. VietQR và chuyển khoản không đổi.
+- Không cho nhập quá số còn phải thu (báo ở ô).
+- Số cần thu đổi sau khi đã nhận: báo, khóa Hoàn tất, nút "Bỏ khoản thu này".
+- Đổi khoản thu thì lệnh B18 sau dùng Idempotency-Key mới.
+- Mock MSW làm giống máy chủ:
+  - `recordPayment` vượt mà không ghi chú → 422;
+  - `finalPayment` vượt → 422 `AMOUNT_EXCEEDS_BALANCE` kèm `max`.
+
+**Phạm vi:** cả đường ESC-031 lẫn trả phòng thường có đêm thêm.
+- Bốn ca cũ của đêm thêm (`checkout.test`, `s4-418-fea`) trước đây đi qua được chỉ vì mock không chặn. Nay các ca này đi qua `finalPayment`.
+- Phụ thu trả muộn theo bậc (trước 18:00) được ghi vào folio trước bước 3 (B15), nên tiền mặt vẫn ghi ngay như cũ.
+
+**Test:**
+- `bug-r3-017-fea` 5 ca:
+  - API của mock 422;
+  - tiền mặt ESC-031 (body `finalPayment` + `lateFeeInsteadOfNight` đúng 3 trường);
+  - thẻ POS;
+  - thu một phần ngay, phần còn lại khi Hoàn tất;
+  - nhập quá số / số đổi rồi "Bỏ".
+- admin-web: 60 tệp, 624 ca xanh. tsc, eslint, prettier xanh.
+
+**Chuỗi:** 8 khóa `co.pay_at_complete*`, chờ UXD duyệt.
+
+**QA:** đã đưa vào nhánh `tests/e2e/clock/qa-esc031.r3.clock.spec.ts` và `tests/e2e/ui-clock/qa-esc031-ui.spec.ts`.
+- Đã sửa kiểu cho `tsc`: thêm `amountDueAtCheckoutVnd`, `lateFeeAsNightVnd`, `extraNightAvailable` vào `support/s3-stay.ts` `CheckoutSummary`.
+- Hai tệp chỉ chạy khi có `E2E_TOTP_DIR` (stack MFA bật). Không đặt biến này thì bỏ qua, CI không đỏ.
+- Ca UI sửa theo hành vi mới: tiền mặt không gửi `/payments`, B18 mang `finalPayment`.
+- Chưa chạy hai ca E2E này. QA chạy trên `ottimo-esc031`.

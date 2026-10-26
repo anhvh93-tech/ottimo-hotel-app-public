@@ -11,6 +11,17 @@ import { MoneyField, amountOf, useSubmit } from './common';
 type Method = 'vietqr' | 'cash' | 'bank_transfer' | 'card_pos';
 
 /**
+ * BUG-R3-017: a cash / POS card payment taken on the check-out bill step for money B18 itself posts (one-night late fee,
+ * extra night) – not recorded now (`recordPayment` refuses more than the folio owes without a note), written by
+ * "Hoàn tất" as `checkOut.finalPayment` in the same transaction.
+ */
+export interface StagedPayment {
+  method: 'cash' | 'card_pos';
+  amountVnd: number;
+  posAuthCode?: string;
+}
+
+/**
  * H16 16.3 / H13 13.5 "Thu tiền": VietQR drawn in the bundle from the server `qrPayload` (SEC F2 –
  * amount and transfer content come from the server, never typed into the QR by the client), then
  * "Ghi nhận đã thu" (`confirmPaymentReceived`: pending → succeeded, still "chờ đối soát"); cash with
@@ -32,7 +43,17 @@ export function PaymentPanel({
    * H16 step 3 (0.3.7 S4-10, bổ sung 4): the QR of the check-out step – capped by `amountDueAtCheckoutVnd` at this
    * time, with the typed extra-night rate or the one-night late fee (BR-416-06), not by the folio balance.
    */
-  checkout?: { checkoutAt?: string; extraNightRateVnd?: number; lateFeeAsNight?: boolean };
+  checkout?: {
+    checkoutAt?: string;
+    extraNightRateVnd?: number;
+    lateFeeAsNight?: boolean;
+    /**
+     * BUG-R3-017: what the folio owes NOW (`CheckoutSummary.balanceDueVnd`). Cash / POS card above it (up to
+     * `balanceVnd`, the due at check-out) is handed to `onStage` – sent with "Hoàn tất" as `finalPayment`.
+     */
+    folioBalanceVnd?: number;
+    onStage?: (p: StagedPayment) => void;
+  };
   onPaid: (p: Payment) => void;
   /** N-6 (ARC 16.29): the folio changed meanwhile (412) – the caller reads it again; the panel keeps its input. */
   onStale?: () => void;
@@ -47,6 +68,8 @@ export function PaymentPanel({
   const [cash, setCash] = useState('');
   const [note, setNote] = useState('');
   const [pos, setPos] = useState('');
+  /** BUG-R3-017: more than the due at check-out typed for a payment written with "Hoàn tất". */
+  const [stageError, setStageError] = useState<string | null>(null);
   const [qr, setQr] = useState<VietQrResult | null>(null);
   const qrAct = useSubmit();
   const payAct = useSubmit();
@@ -111,6 +134,29 @@ export function PaymentPanel({
 
   const record = async () => {
     if (!(value > 0)) return;
+    // BUG-R3-017: the late fee of one night / the extra night is posted by B18, so the folio owes less now than the bill
+    // shows. Cash and POS card above what the folio owes go with "Hoàn tất" (`finalPayment`, capped by the server at
+    // the due at check-out) – never recorded now (422 `note` REASON_REQUIRED, no note box for them).
+    const stage = checkout?.onStage;
+    if (
+      stage &&
+      (method === 'cash' || method === 'card_pos') &&
+      checkout?.folioBalanceVnd !== undefined &&
+      value > checkout.folioBalanceVnd
+    ) {
+      if (value > balanceVnd) {
+        setStageError(t('co.pay_at_complete_over', { max: money(balanceVnd) }));
+        return;
+      }
+      stage({
+        method,
+        amountVnd: value,
+        posAuthCode: method === 'card_pos' ? pos.trim() : undefined,
+      });
+      setPos('');
+      setCash('');
+      return;
+    }
     const out = await payAct.submit((idem) =>
       api.recordPayment(
         folio,
@@ -160,8 +206,9 @@ export function PaymentPanel({
         onChange={(v) => {
           setAmount(v);
           setQr(null);
+          setStageError(null);
         }}
-        error={payAct.fields.amountVnd ?? qrAct.fields.amountVnd}
+        error={stageError ?? payAct.fields.amountVnd ?? qrAct.fields.amountVnd}
         required
       />
 

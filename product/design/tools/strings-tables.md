@@ -3438,6 +3438,19 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `attn.late_fee_open_folio` | Mở folio | Open folio | ⟨chừa chỗ⟩ | Nút mở đơn + folio của mục late_fee_post_review |
 | `attn.reviewed` | Đã xem | Mark as reviewed | ⟨chừa chỗ⟩ | Nút đóng mục late_fee_post_review (resolveAttentionEvent, MGR+) |
 
+#### R3 v1.0 – FE-A BUG-R3-017: thu tiền mặt/thẻ ở bước 3 trả phòng cho khoản B18 mới ghi (phụ thu bằng 1 đêm, đêm thêm) – ghi cùng lúc Hoàn tất (finalPayment). FE viết theo content guide + brand OTTIMO. **Chờ UXD duyệt**
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `co.pay_at_complete` | {method}: đã nhận {amount}. Khoản thu này được ghi vào folio khi bấm Hoàn tất. | {method}: {amount} received. It is recorded on the folio when you complete check-out. | ⟨chừa chỗ⟩ | {method} = pay.cash / pay.card. Thu vượt số folio đang nợ (phụ thu/đêm thêm do B18 ghi) → gửi checkOut.finalPayment |
+| `co.pay_at_complete_remaining` | Còn phải thu sau khoản này: {amount}. | Still due after this payment: {amount}. | ⟨chừa chỗ⟩ | Nối sau co.pay_at_complete khi thu chưa đủ |
+| `co.pay_at_complete_undo` | Bỏ khoản thu này | Remove this payment | ⟨chừa chỗ⟩ | Bỏ khoản thu chưa ghi (nhập nhầm, hoặc số cần thu đã đổi) |
+| `co.pay_at_complete_row` | Thu khi hoàn tất ({method}) | Collected at check-out ({method}) | ⟨chừa chỗ⟩ | Dòng trong bảng folio bên phải |
+| `co.pay_at_complete_effect` | Ghi vào folio khoản thu {amount} ({method}). | Records the {amount} payment ({method}) on the folio. | ⟨chừa chỗ⟩ | Dòng trong hộp xác nhận Hoàn tất |
+| `co.pay_at_complete_over` | Không thu quá số còn phải thu {max}. Tiền thừa trả lại khách theo ô Tiền khách đưa. | Don't collect more than the {max} still due. Give the change back using the Cash received box. | ⟨chừa chỗ⟩ | Số nhập > còn phải thu khi trả phòng (trần finalPayment của máy chủ) |
+| `co.pay_at_complete_changed` | Số cần thu vừa đổi nên khoản {amount} chưa được ghi. Bỏ khoản này rồi thu lại theo số mới. | The amount due has just changed, so the {amount} payment hasn't been recorded. Remove it and collect again using the new amount. | ⟨chừa chỗ⟩ | Giờ/phụ thu/khoản thu khác đổi sau khi đã nhận – khoản chờ ghi lớn hơn số còn phải thu |
+| `co.pay_at_complete_needs` | Bỏ khoản thu chưa ghi rồi thu lại theo số mới để hoàn tất trả phòng. | Remove the unrecorded payment and collect again using the new amount to complete check-out. | ⟨chừa chỗ⟩ | Lý do nút Hoàn tất bị khóa |
+
 #### R2 Sprint 4 – MOB sửa theo UXR đi thử PWA (s4-pwa-walkthrough P-01/04/07/08/09/10/11/12/13/16/28) (UXD duyệt 18/10 – s4-UXD-brand, sửa 8)
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |

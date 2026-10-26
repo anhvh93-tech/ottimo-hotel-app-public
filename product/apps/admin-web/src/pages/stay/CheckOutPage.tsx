@@ -36,7 +36,7 @@ import { useOnline } from '../../hooks/useOnline';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { MoneyField, STAY_WRITE_RETRY, amountOf, useSubmit } from './common';
-import { PaymentPanel } from './PaymentPanel';
+import { PaymentPanel, type StagedPayment } from './PaymentPanel';
 import { AddChargeDialog } from './StayDialogs';
 import {
   FOC_CATEGORIES,
@@ -59,6 +59,11 @@ const OWN_MGR = ['owner', 'manager'];
 type LateFeeBody = NonNullable<CheckOutBody['lateFeeInsteadOfNight']>;
 /** How the one-night late fee is confirmed on the bill step: recorded now and reviewed later (default), or at the desk. */
 type LateFeeMode = 'review' | 'desk';
+/** BUG-R3-017: label keys of the methods collected with "Hoàn tất" (`finalPayment`). */
+const PAY_METHOD_KEY: Record<StagedPayment['method'], string> = {
+  cash: 'pay.cash',
+  card_pos: 'pay.card',
+};
 /** B18 field errors about the departure time – fixed on step 2, where the time and its note are (KB7). */
 const TIME_FIELDS = ['checkoutTime', 'checkoutAt', 'checkoutTimeNote'];
 const STEPS = ['checkout.step.minibar', 'checkout.step.extras', 'checkout.step.bill'];
@@ -177,6 +182,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const [lfFoc, setLfFoc] = useState<SurchargeFoc>(noSurchargeFoc);
   const [lfFocAmount, setLfFocAmount] = useState('');
   const [confirm, setConfirm] = useState(false);
+  /** BUG-R3-017: cash / POS card collected on step 3, written by B18 as `finalPayment` (PaymentPanel `onStage`). */
+  const [staged, setStaged] = useState<StagedPayment | null>(null);
   const [bill, setBill] = useState<Bill | null>(null);
   const [done, setDone] = useState<{ billNo: string } | null>(null);
   const minibarAct = useSubmit();
@@ -485,7 +492,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         lfSecret.length > 0 &&
         !surchargeFocMissing(t, lfFoc) &&
         lfFocVnd <= (lateFeeAsNight ?? 0));
-  const balance = extraUnavailable
+  const dueAtCheckout = extraUnavailable
     ? // 0.3.7 bổ sung 4: the server's due then includes the one-night late fee and never the unsold night;
       // an older server without `lateFeeAsNightVnd` → the folio balance (BUG-R2-139).
       lateFeeMode
@@ -496,6 +503,14 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       s?.amountDueAtCheckoutVnd ??
       s?.balanceDueVnd ??
       0);
+  // BUG-R3-017: cash / POS card taken on this step for money B18 itself posts (one-night late fee, extra night) – more
+  // than the folio owes now, so `recordPayment` would refuse it – goes with "Hoàn tất" as `finalPayment` (capped by the
+  // server at what is due after those lines). Valid only while it is not above what is due now (the time, the fee or
+  // a payment changed meanwhile → the desk collects again).
+  const stagedOk = staged && staged.amountVnd <= dueAtCheckout ? staged : null;
+  const stagedVnd = stagedOk?.amountVnd ?? 0;
+  const balance = Math.max(0, dueAtCheckout - stagedVnd);
+  const paidShown = (s?.paidVnd ?? 0) + stagedVnd;
   // BR-416-06: the late fee (less the waiver sent with it) is posted by B18 too – money taken for it before is
   // not a credit to hand back.
   const lateFeeNet = lateFeeMode ? Math.max(0, (lateFeeAsNight ?? 0) - lfFocShown) : 0;
@@ -612,6 +627,16 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           ? { rateVnd: extraEdited ? amountOf(extraRate) : undefined }
           : undefined,
       lateFeeInsteadOfNight: lateFee,
+      // BUG-R3-017: the cash / POS card payment taken on this step, written in the same transaction after the lines
+      // B18 posts (contract 0.3.7 S4-47: cap = what is due after them, 422 AMOUNT_EXCEEDS_BALANCE with `max`).
+      finalPayment: stagedOk
+        ? {
+            type: 'charge',
+            method: stagedOk.method,
+            amountVnd: stagedOk.amountVnd,
+            posAuthCode: stagedOk.posAuthCode,
+          }
+        : undefined,
       overpaymentHandling: credit > 0 ? { mode: overMode, reason: overReason.trim() } : undefined,
       // S4-26: only OWN/MGR (FD/FDL → 403 on the server too); only while something is left to collect.
       debt: debtActive ? { dueDate: debtDue, reason: debtReason.trim() } : undefined,
@@ -651,6 +676,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       return;
     }
     toast(t('checkout.done'));
+    setStaged(null);
     setDone({ billNo: out.data.billNo });
     res.reload();
   };
@@ -821,6 +847,14 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
               <tr className="sub">
                 <td>{t('drawer.folio.paid')}</td>
                 <td className="r num">−{vnd(s.paidVnd)}</td>
+              </tr>
+            ) : null}
+            {stagedOk ? (
+              <tr className="sub">
+                <td>
+                  {t('co.pay_at_complete_row', { method: t(PAY_METHOD_KEY[stagedOk.method]) })}
+                </td>
+                <td className="r num">−{vnd(stagedOk.amountVnd)}</td>
               </tr>
             ) : null}
             <tr className="total">
@@ -1319,7 +1353,34 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           <p className="kv-big num">
             {t('bill.total')}: {money(s?.totalVnd ?? 0)}
           </p>
-          {balance > 0 ? (
+          {staged ? (
+            // BUG-R3-017: collected, written with "Hoàn tất"; "Bỏ" if it was a mistake or the due changed.
+            <Alert
+              tone={stagedOk ? 'info' : 'warn'}
+              actions={
+                <Button
+                  size="sm"
+                  disabled={act.busy}
+                  onClick={() => {
+                    setStaged(null);
+                    act.renewKey();
+                  }}
+                >
+                  {t('co.pay_at_complete_undo')}
+                </Button>
+              }
+            >
+              {stagedOk
+                ? t('co.pay_at_complete', {
+                    method: t(PAY_METHOD_KEY[staged.method]),
+                    amount: money(staged.amountVnd),
+                  })
+                : t('co.pay_at_complete_changed', { amount: money(staged.amountVnd) })}
+              {stagedOk && balance > 0
+                ? ` ${t('co.pay_at_complete_remaining', { amount: money(balance) })}`
+                : ''}
+            </Alert>
+          ) : balance > 0 ? (
             online ? (
               <PaymentPanel
                 reservation={r}
@@ -1334,6 +1395,14 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                       ? amountOf(extraRate)
                       : undefined,
                   lateFeeAsNight: lateFeeMode || undefined,
+                  // BUG-R3-017: cash / card above what the folio owes now → with "Hoàn tất" (`finalPayment`).
+                  folioBalanceVnd: Math.max(0, s?.balanceDueVnd ?? 0),
+                  onStage: (p) => {
+                    setStaged(p);
+                    // the next B18 carries another body – a new command, never a replay of an earlier refusal
+                    act.renewKey();
+                    act.reset();
+                  },
                 }}
                 onPaid={reload}
                 onStale={reload}
@@ -1512,11 +1581,13 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             ? t('co.debt_needs')
             : credit > 0 && overReason.trim().length < 3
               ? t('checkout.overpay.needs_reason')
-              : null;
+              : staged && !stagedOk
+                ? t('co.pay_at_complete_needs')
+                : null;
   const completeLabel = debtActive
     ? t('co.complete_debt', { amount: money(balance) })
-    : balance === 0 && (s?.paidVnd ?? 0) > 0
-      ? t('co.complete_paid', { amount: money(s?.paidVnd ?? 0) })
+    : balance === 0 && paidShown > 0
+      ? t('co.complete_paid', { amount: money(paidShown) })
       : t('checkout.complete');
   const blocked = whyLocked !== null;
   return (
@@ -1622,7 +1693,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             debtActive
               ? completeLabel
               : balance === 0
-                ? t('co.complete_paid', { amount: money(s?.paidVnd ?? 0) })
+                ? t('co.complete_paid', { amount: money(paidShown) })
                 : t('checkout.complete')
           }
           busy={act.busy}
@@ -1636,6 +1707,14 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             {r.extraGuestCount ? <li>{t('co.effect_kit_note')}</li> : null}
             {lfReview ? (
               <li>{t('co.late_fee_pr_effect', { amount: money(lateFeeAsNight ?? 0) })}</li>
+            ) : null}
+            {stagedOk ? (
+              <li>
+                {t('co.pay_at_complete_effect', {
+                  method: t(PAY_METHOD_KEY[stagedOk.method]),
+                  amount: money(stagedOk.amountVnd),
+                })}
+              </li>
             ) : null}
             {debtActive ? (
               <li>{t('co.debt_effect', { amount: money(balance), date: date(debtDue) })}</li>

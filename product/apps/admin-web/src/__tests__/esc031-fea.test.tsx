@@ -162,9 +162,9 @@ describe('ESC-031 – H16 "Ghi phụ thu – quản lý xem lại" (postReview)'
       amountVnd: fee,
     });
     expect(f.lines.some((l) => l.category === 'foc')).toBe(false);
-    expect(mockControl.stay.audit[0]).toMatchObject({
-      action: 'reservation.late_fee_instead_of_night',
-    });
+    expect(
+      mockControl.stay.audit.some((a) => a.action === 'reservation.late_fee_instead_of_night'),
+    ).toBe(true);
     // One "Cần chú ý" item for OWN/MGR.
     const items = mockControl.dashboard.state.events.filter(
       (e) => e.kind === 'late_fee_post_review',

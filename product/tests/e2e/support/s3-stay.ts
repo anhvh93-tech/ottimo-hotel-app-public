@@ -266,6 +266,10 @@ export interface CheckoutSummary {
   lateSurchargeRecalc?: { oldVnd: number; newVnd: number; newTierPct?: number };
   pendingApprovals?: number;
   blockers?: string[];
+  /** 0.3.7 bổ sung 4 (S4-47, BR-416-06) – còn phải thu khi trả phòng; phụ thu bằng 1 đêm khi đêm ngày đi không bán được. */
+  amountDueAtCheckoutVnd?: number;
+  lateFeeAsNightVnd?: number;
+  extraNightAvailable?: boolean;
 }
 
 export async function checkoutSummary(

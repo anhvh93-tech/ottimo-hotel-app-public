@@ -3016,6 +3016,15 @@ export function createStayMock(ctx: Ctx) {
           const errs = paymentErrors(body.finalPayment as Body);
           if (errs.length)
             return fail(validation(errs.map((e) => ({ ...e, field: `finalPayment.${e.field}` }))));
+          // 0.3.7 (S4-47): capped at what is due AFTER the extra night / late fee posted above.
+          const owed = totals(r).balanceDueVnd;
+          if (Number((body.finalPayment as Body).amountVnd) > owed)
+            return fail(
+              problem(422, 'VALIDATION_FAILED', {
+                errors: [{ field: 'finalPayment.amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
+                max: owed,
+              }),
+            );
           recordPay(r, body.finalPayment as Body, g);
         }
         const tt = totals(r);
@@ -3370,6 +3379,23 @@ export function createStayMock(ctx: Ctx) {
             errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
             max: due,
           });
+      }
+      // ARC 16.31 (N-12, BUG-R3-017): more than the folio owes NOW – SAL/CTV never; FD+ only with a note (≥ 3).
+      // At check-out the one-night late fee / extra night are not on the folio yet (B18 posts them).
+      if (f.status !== 'settled' && body.type !== 'deposit') {
+        const due = totals(r).balanceDueVnd;
+        if (Number(body.amountVnd) > due) {
+          if (!has(g.roles, FD_PLUS))
+            return problem(422, 'VALIDATION_FAILED', {
+              errors: [{ field: 'amountVnd', code: 'AMOUNT_EXCEEDS_BALANCE' }],
+              max: due,
+            });
+          if (String(body.note ?? '').trim().length < 3)
+            return problem(422, 'VALIDATION_FAILED', {
+              errors: [{ field: 'note', code: 'REASON_REQUIRED' }],
+              max: due,
+            });
+        }
       }
       const p = recordPay(r, body, g);
       bump(r);
