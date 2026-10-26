@@ -89,3 +89,24 @@
 
 ## Việc chưa xong
 - Diễn tập staging Q10 (DOM + QA, trước D−1).
+
+# Phản hồi & sửa – FB-INV-004 ý 1–2 (nhận phòng từ 12:00; giá "từ" trên landing) – 26/10/2026
+
+## Đã làm gì
+- BR v0.4.6: BR-401 nhận từ 12:00 khi căn sẵn sàng, chắc chắn 14:00, trả 12:00; BR-411 0 % từ 12:00 (30 % 10:00–11:59, 50 % 06:00–09:59); BR-302 giữ trần 12:00 (có lý do); BR-317, 403, 414, 425, 807, 812, 975, mục 13–15, 17, 18 theo mốc mới; BR-114 mới – giá "từ" công bố.
+- Đọc mã nhận sớm và mọi chỗ đọc `checkin_time`: logic chỉ cần đổi 2 tham số (`checkin_time`, `early_checkin_tiers`), không sửa mã logic. Liệt kê 15 chỗ chữ khách/nhân viên thấy "14:00" cho CPY/UXD/FE/INT/PO (`v1-production-defaults.md` mục 8.3).
+- Kiểm bảng giá: đêm ≤ 700.000 chỉ có căn 101 ngày thường, Trực tiếp, 667.000 (gồm VAT); không có đêm đúng 700.000; cuối tuần thấp nhất 767.000. INV đã đồng ý "chỉ từ" theo giá thật → landing "Chỉ từ 667.000 đ/đêm" (BR-114). Tạo ESC-035 (xác nhận bậc phụ thu trước 12:00, kèm báo con số).
+
+## File tạo/sửa
+- `product/docs/business-rules.md` (v0.4.6), `rounds/round-03/outputs/DOM/v1-production-defaults.md` (mục 8), `02-escalations/ESC-035.md`, `02-escalations/escalations-index.md`.
+
+## Giả định
+- Giữ mốc bậc 10:00/06:00 của ESC-007 (ESC-035 câu 2 xác nhận). Trần giữ chỗ 12:00 giữ nguyên (NGÀNH). Giá phòng production = bảng ESC-004 (OWN nhập trên Desk).
+
+## Rủi ro / vướng mắc
+- `guest.oci.done_body` sẽ hứa "phòng sẵn sàng từ 12:00" ngay khi đổi tham số – phải sửa chuỗi cùng lúc (F3).
+- Extranet OTA chưa đổi giờ → không đủ điều kiện thu phụ thu nhận sớm khách OTA (BR-415).
+- Giá trực tiếp công khai thấp hơn OTA – điều khoản ngang giá chưa xác minh.
+
+## Việc chưa xong
+- Khóa `room_ready_guaranteed_time` (v1.0.1, ARC/BE). Landing giá "chỉ từ" ở bản landing sau D, sau khi INV kiểm điều khoản ngang giá OTA.

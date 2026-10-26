@@ -94,3 +94,106 @@ Việc hằng năm (giữ từ mục 1): trước 01/2027 nhập 24/12/2027 → 
 3. Câu xác nhận ngắn (đội đã dùng giả định, không cần ESC): nước 100.000 là **/người/tháng, tính theo ngày ở, trẻ dưới 6 tuổi miễn** – đúng ý anh/chị không? Cần trước v1.3.
 4. Câu xác nhận ngắn: v1.0 lưu ảnh giấy tờ **30 ngày**, bản v1.0.1 (tuần đầu) nâng lên 3 tháng – chấp nhận? (đề xuất: chấp nhận, không lùi ngày chạy).
 5. Nhắc kế toán/luật sư (không chặn): điện 5.000 đ/kWh có vượt quy định giá điện bán cho người thuê nhà không – cần trước khi in đơn giá vào HĐ dài hạn mới (v1.3). Nếu vượt, phương án: thu điện theo giá bậc EVN, phần chênh gộp vào phí dịch vụ tháng (BR-204).
+
+## 8. FB-INV-004 (INV 26/10) – nhận phòng từ 12:00; giá "từ" trên landing (Phản hồi & sửa – DOM, 26/10/2026)
+BR nâng lên **v0.4.6** (`product/docs/business-rules.md` mục 18). Ngày chạy D = 02/11/2026.
+
+### 8.1 Nhận phòng từ 12:00 – quy tắc
+INV chốt: trả phòng 12:00 giữ nguyên; **nhận phòng từ 12:00 nếu căn đã sẵn sàng**; căn **chắc chắn sẵn sàng 14:00**; **không phụ thu nhận sớm từ 12:00**.
+
+| BR | Trước | Sau (v0.4.6) | Ghi chú |
+|---|---|---|---|
+| BR-401 | Nhận 14:00 [GIẢ ĐỊNH], trả 12:00 | Nhận **từ 12:00** khi `VI`/`VC`; chắc chắn sẵn sàng 14:00; trả 12:00 | Thêm (a)–(g): 12:00–14:00 căn chưa sẵn sàng → giữ hành lý, không phụ thu, không giảm giá; quá 14:00 do OTTIMO → sự cố (đổi căn/nâng hạng, FOC tùy trường hợp); chữ khách thấy không hứa "sẵn sàng từ 12:00"; OTA extranet phải cập nhật |
+| BR-411 | 0 % từ 14:00; 30 % 10:00–13:59; 50 % 06:00–09:59 | **0 % từ 12:00**; 30 % 10:00–11:59; 50 % 06:00–09:59 | Giữ mốc 10:00/06:00 (ESC-007) – INV xác nhận ở ESC-035 câu 2. Giá 792.000, vào 12:10: trước 238.000 → nay **0** |
+| BR-302 | Trần giữ chỗ 12:00 ngày đến | **Giữ 12:00** | Trần = giờ nhận phòng sớm nhất: khách chưa cọc không vào ở; căn được mở bán lại trước giờ khách khác có thể nhận. Luật kiểm `hold_latest_time_on_arrival` ≤ `checkin_time` (cho bằng) vẫn đạt |
+| BR-425 nhắc trả phòng | 20:00 hôm trước, 09:00, 11:00; báo đỏ 12:00 (có khách đến) / 12:31 | **Giữ nguyên** | Giờ trả không đổi; căn có khách đến báo đỏ đúng 12:00 vì khách đến có thể tới ngay |
+| BR-807 ưu tiên dọn | Khách đến hôm nay theo giờ đến (mặc định 14:00) | Mặc định theo `checkin_time` 12:00 (mã tự theo tham số) + **mục tiêu giờ** (NÊN): căn trống đêm qua có khách đến → kiểm `VI` trước 12:00; căn trả–đến cùng ngày → xong trước 14:00 | Khung dọn căn trả–đến vẫn 12:00–14:00 như trước – không thêm việc, chỉ thêm việc kiểm sớm căn trống |
+| BR-812 | Hạn bộ đồ dùng thêm 14:00 ngày đến | 12:00 (mã đọc `checkin_time`) | Buồng phòng chuẩn bị sớm hơn 2 giờ |
+| BR-317 | Critical khi ≤ 24 giờ tới 14:00 ngày đến | Tới `checkin_time` (12:00) | Mã đã đọc tham số |
+| BR-403 | Mã cửa hiệu lực từ giờ nhận chuẩn | Mã gửi trước chỉ hiệu lực từ 12:00 khi căn sẵn sàng; căn trả–đến cùng ngày từ lúc dọn xong / 14:00 | Chỉ áp khi có TTLock tự động (R3+); v1.0 lễ tân giao mã lúc nhận phòng |
+| BR-975 TP-03 | "giờ nhận 14:00" | "nhận từ 12:00 khi phòng sẵn sàng, chắc chắn 14:00; trước 12:00 có phụ thu" | Mẫu tin |
+| BR-423 hạn thu tiền gia hạn | 14:00 ngày đầu phần gia hạn [GIẢ ĐỊNH] | Không đổi | Không gắn với giờ nhận phòng |
+
+### 8.2 Kiểm mã: chỉ đổi tham số hay phải sửa mã?
+Đọc mã nhận sớm: `frontdesk/public/stay-rules.ts` `earlyCheckinSurcharge` – `t >= standardCheckinTime → 0 %` rồi mới tra bậc; `checkin.service.ts` lấy `standardCheckinTime` từ tham số `checkin_time`, bậc từ `early_checkin_tiers`. Các chỗ khác cũng đọc tham số: `dashboard.service.ts` (thứ tự khách đến), `housekeeping.service.ts` (xếp ưu tiên dọn theo giờ đến), `reservations.service.ts` (mốc critical xung đột), `extra-guest-kit.ts`, `guest-portal.service.ts` (giờ trả về trang khách), `pricing.service.ts`, `getBookingRules`. Không có "14:00" viết cứng trong logic tiền.
+
+**Kết luận: logic chỉ cần đổi tham số. Không sửa mã logic.**
+
+| Khóa (`production-defaults.ts` / catalogue) | Hiện | Đổi thành | Nhãn trạng thái |
+|---|---|---|---|
+| `checkin_time` | `'14:00'`, `GD` | **`'12:00'`** | `INV-2610` |
+| `early_checkin_tiers` | `[{from:'10:00',to:'14:00',pct:30},{from:'06:00',to:'10:00',pct:50}]` | **`[{from:'10:00',to:'12:00',pct:30},{from:'06:00',to:'10:00',pct:50}]`** | `INV-007+INV-2610` |
+| `hold_latest_time_on_arrival` | `'12:00'` | Giữ | – |
+| `late_checkout_tiers`, `late_grace_until`, `checkout_time`, `checkout_reminders`, `extension_payment_deadline`, `long_stay_free_late_until` | – | Giữ | – |
+| `room_ready_guaranteed_time` (mới, 14:00) | Không có | Đề xuất thêm ở **v1.0.1** (migration catalogue + luật kiểm `checkin_time` ≤ khóa + trả về trang khách) | `INV-2610` |
+
+Ghi chú cho BE:
+- Bậc 30 % đang là `to:'14:00'`: với `checkin_time` 12:00 thì 12:00–13:59 đã ra 0 % trước khi tra bậc (kết quả đúng ngay cả khi quên đổi bậc), nhưng vẫn phải đổi để dữ liệu khớp BR và để màn Tham số không hiển thị sai. Catalogue chưa kiểm bậc so với `checkin_time` (TODO trong `parameter-rules.ts`) – không chặn.
+- Nếu bootstrap production (B2) **đã chạy** trước khi sửa tệp: OWN đổi hai khóa trên màn Tham số của Desk, hiệu lực từ ngày đổi (không cần đội). Staging: QA/OPS đặt cùng giá trị để diễn tập.
+- Mã phụ (không chặn D): `reporting/internal/attention-sources.ts` dòng 52 dự phòng `?? '14:00'` → `'12:00'`; `integrations/doorlock/access.ts` mặc định `'14:00'` (chỉ dự phòng, lõi truyền tham số) → `'12:00'` khi INT làm TTLock; `housekeeping/internal/attention-sources.ts` dòng 112 chỉ là chú thích (cảnh báo khóa phòng sắp hết vẫn chạy từ 12:00 hôm trước – vẫn đủ ~24 giờ).
+- `apps/admin-web/src/app/rules.ts` `RULE_DEFAULTS.checkinTime: '14:00'` → `'12:00'` (giá trị dự phòng của FE khi vai không đọc được tham số; màn nhận phòng lấy `standardCheckinTime` từ máy chủ).
+- `apps/guest-web/src/checkin/eta.ts`: khung giờ đến tự bắt đầu từ `checkinTime` → 12–14, 14–16, 16–22, sau 22. Khung 16–22 rộng 6 giờ (vòng lặp chỉ cho 3 mốc) – FE/MOB nên cho 4 khung (12–14, 14–16, 16–18, 18–22). Minor, không chặn.
+
+### 8.3 Mọi chỗ chữ khách thấy có "14:00" (chỉ liệt kê – CPY/UXD/FE/INT sửa)
+Câu chuẩn (BR-401 (e)): **EN "Check-in from 12:00 (your room is always ready by 14:00) · Check-out by 12:00"** / **VI "Nhận phòng từ 12:00 (phòng luôn sẵn sàng lúc 14:00) · Trả phòng trước 12:00"**. Không viết "phòng sẵn sàng từ 12:00". CPY chốt chữ theo Brand Guidelines.
+
+| # | Tệp / chỗ | Hiện | Việc | Ai | Trước D? |
+|---|---|---|---|---|---|
+| 1 | `product/apps/landing-web/src/content/site.json` `checkinTime` | `"14:00"` | → `"12:00"` (cũng là `checkinTime` trong JSON-LD Hotel của `src/lib/seo.ts`) | FE-LP | Nên (trang đang chạy) |
+| 2 | `product/apps/landing-web/src/content/en.ts` dòng 183 (thẻ lễ tân) | "Check-in from 14:00, check-out by 12:00." | Câu chuẩn EN | CPY → FE-LP | Nên |
+| 3 | `en.ts` dòng 286 (FAQ boutique stay) | "Check-in from 14:00, check-out by 12:00." | Câu chuẩn EN | CPY → FE-LP | Nên |
+| 4 | `product/apps/landing-web/src/content/vi.ts` dòng 183 | "Nhận phòng từ 14:00, trả phòng trước 12:00." | Câu chuẩn VI | CPY → FE-LP | Nên |
+| 5 | `vi.ts` dòng 285 | như trên | Câu chuẩn VI | CPY → FE-LP | Nên |
+| 6 | `product/design/copy/strings-{en,vi,ru}.json` `guest.oci.done_body` (trang khách – check-in online xong) | "Your room is ready from {time}" / "Phòng sẵn sàng từ {time}" – với tham số mới sẽ thành **"ready from 12:00" = hứa sai** | Đổi thành "Check-in from {time}, once your room is ready – it is always ready by 14:00." (VI/RU tương ứng). v1.0: 14:00 viết trong chuỗi; v1.0.1 thay bằng biến từ `room_ready_guaranteed_time` | UXD/CPY → FE (guest-web) | **Có** – nếu không sửa, khách nhận lời hứa sai ngay khi đổi tham số |
+| 7 | `strings-*.json` `guest.stay.checkin_time` (HomePage, InfoPage) | "Check-in from {time}" | Giữ biến; thêm vế "(ready by 14:00)" nếu UXD đủ chỗ | UXD → FE | Nên |
+| 8 | `strings-*.json` `msg.booking_confirmed` (mẫu tin xác nhận – Zalo/email; cũng trong `design/content-guide.md`, `design/tools/gen_strings.py`, `design/tools/strings-tables.md`, `design/design-system.md`) | "Check-in from 14:00, check-out by 12:00" viết cứng | Câu chuẩn, dùng biến `{checkin_time}`/`{checkout_time}` như content-guide dòng 180 đã yêu cầu | UXD/CPY → INT | Nên (v1.0 tin gửi tay) |
+| 9 | Mẫu ZNS `zns.arrival_reminder` (`integrations/notification/zalo-policy.ts`, biến `checkin_time`) | Giá trị lấy từ tham số → tự thành 12:00 | Nếu chữ mẫu đã đăng ký với Zalo ghi "Giờ nhận phòng: {checkin_time}" thì đổi thành "Nhận phòng từ" khi đăng ký lại; không gửi ZNS trước khi mẫu được duyệt | INT | Không (ZNS chưa chạy ở v1.0) |
+| 10 | Mẫu TP-03 (BR-975) nhắc trước 1 ngày | "giờ nhận 14:00" | Câu chuẩn + phụ thu trước 12:00 | UXD/CPY → INT | Nên (v1.0 gửi tay theo mẫu) |
+| 11 | Email (`integrations/notification/email-templates.ts`) | Không có giờ nhận phòng | Không việc | – | – |
+| 12 | Bill / phiếu in (`CheckOutPage`, bill tạm) | Không in giờ nhận phòng | Không việc | – | – |
+| 13 | Ngoài repo: extranet Booking/Agoda/Airbnb, Google Maps, e-brochure, fanpage, thẻ trong căn, biển quầy | 14:00 | INV/OWN cập nhật câu chuẩn – điều kiện thu phụ thu nhận sớm khách OTA (BR-415) | INV | **Có** cho extranet (trước D) |
+| 14 | Tài liệu nhân viên: `product/docs/staff-one-pager.md` dòng 18 ("14:00 – Giờ nhận phòng"), `product/docs/day-one-guide.md` (mục 0 "Mốc chuyển = 14:00 (giờ nhận phòng chuẩn)", mục 2 "giờ nhận 14:00") | 14:00 | One-pager: "12:00 nhận phòng nếu căn `VI`/`VC`; 14:00 chắc chắn sẵn sàng; trước 12:00 Desk tính phụ thu". Day-one: **giữ mốc chuyển 14:00** (mốc sổ sách, ≥ 12:00 nên không phát sinh phụ thu) nhưng sửa chữ "giờ nhận phòng chuẩn" → "giờ phòng chắc chắn sẵn sàng"; khách mới đến ngày D từ 12:00 nhận trên Desk ngay khi căn đã cập nhật `VI`/`VC` (buổi đi căn 12:30–13:45 làm căn có khách đến trước) | PO | **Có** (phát cho nhân viên D−1) |
+| 15 | Wireframe/hi-fi/mock (`design/wireframes/*`, `design/landing/mock/index.html`, `design/landing/concept.md`, `apps/*/src/mocks/*`) | 14:00 | Không chặn; UXD sửa khi chạm lại | UXD | Không |
+
+### 8.4 Giá "chỉ từ 700.000 đ" – kiểm bảng giá thật
+Nguồn: BR-101 (giá đêm = giá tháng ÷ 12, BL 4.1), BR-104 (thứ Sáu/thứ Bảy +15 %, ngày đặc biệt +30 %, mọi kênh), BR-523 (giá đã gồm VAT 8 %), BR-110 (giá cho định mức). Giá phòng production **không** nằm trong `production-defaults.ts` – OWN nhập trên Desk sau đăng nhập đầu (tệp ghi rõ); con số dưới đây đúng khi OWN nhập đúng bảng giá ESC-004.
+
+| Căn | Hạng công khai | Ngày thường | T6, T7 (+15 %) | Ngày đặc biệt (+30 %) |
+|---|---|--:|--:|--:|
+| 101 | Standard Studio · City View | **667.000** | 767.000 | 867.000 |
+| 201 | Standard Studio · City View | 708.000 | 814.000 | 920.000 |
+| 102, 103 | Standard Studio · Garden View | 750.000 | 863.000 | 975.000 |
+| 202, 203 | Standard Studio · Garden View | 792.000 | 911.000 | 1.030.000 |
+| 302 | Premium · One Bedroom + 1 | 917.000 | 1.055.000 | 1.192.000 |
+| 301 | Signature · Two Bedrooms | 958.000 | 1.102.000 | 1.245.000 |
+| 402 | Premium · One Bedroom + 1 | 1.000.000 | 1.150.000 | 1.300.000 |
+| 401 | Signature · Two Bedrooms | 1.042.000 | 1.198.000 | 1.355.000 |
+
+- Đêm khách thực trả ≤ 700.000: **chỉ căn 101, đêm Chủ nhật – thứ Năm không phải ngày đặc biệt, 1–2 khách, kênh Trực tiếp: 667.000 đ** (đã gồm VAT, không phụ phí; người thứ 3 +150.000). Không có đêm đúng 700.000. OTA thấp nhất 760.000 (Lầu 1–2). Giảm ≥ 7 đêm (101: 600.000) và mã khách quay lại không dùng làm giá "từ" (điều kiện nặng).
+- Khách staycation hay đi cuối tuần: thấp nhất **767.000**/đêm, tối thiểu 2 đêm (BR-113) → 2 đêm 1.534.000.
+- Kết luận: "chỉ từ 700.000 đ" không sai hướng (có giá thấp hơn) nhưng không phải giá thật nào. INV 26/10 (decision-log) đã đồng ý **"chỉ từ" với con số theo DOM kiểm giá thật** → landing ghi **"Chỉ từ 667.000 đ/đêm"** + câu điều kiện; quy tắc mới **BR-114**. Không cần ESC cho con số; ESC-035 chỉ hỏi bậc phụ thu trước 12:00 và báo con số.
+
+**Ghi cho CPY** (Brand Guidelines: EN dẫn, VI hỗ trợ, ngắn, điềm tĩnh, không emoji; VI dùng "chỉ từ" theo INV 26/10; không dùng "giá sốc", "rẻ nhất"):
+- Bản tối thiểu: EN "From 667,000 VND a night" + dòng nhỏ ngay dưới, cùng khối: "For two, taxes included. Weekday nights, booked direct; weekends and holidays are higher." / VI "Chỉ từ 667.000 đ/đêm" + "Cho 2 khách, đã gồm thuế. Đêm ngày thường, đặt trực tiếp; cuối tuần và ngày lễ cao hơn."
+- Bản có cuối tuần (DOM gợi ý vì khách staycation hay đi cuối tuần – CPY quyết): EN "Weekdays from 667,000 VND · Weekends from 767,000 VND, a night" + "For two, taxes included, booked direct. Weekends: two nights minimum; holidays are higher." / VI "Chỉ từ 667.000 đ/đêm ngày thường · cuối tuần từ 767.000 đ" + "Cho 2 khách, đã gồm thuế, đặt trực tiếp. Cuối tuần tối thiểu 2 đêm; ngày lễ cao hơn."
+- Câu điều kiện là bắt buộc (BR-114 (2)), không đưa xuống chú thích cuối trang. Định dạng số theo content-guide (VI "667.000 đ", EN "667,000 VND").
+- Một nguồn: FE-LP thêm `booking.fromNightlyVnd` (667000) và `booking.fromWeekendNightlyVnd` (767000) vào `site.json`, chữ đọc từ đó; `copy.test.ts` kiểm chữ khớp số.
+- Đăng sau khi INV tự kiểm điều khoản ngang giá OTA (ESC-035 mục "Việc anh/chị làm"); đích: bản landing kế tiếp sau ngày D (decision-log INV 26/10).
+
+### 8.5 Việc cụ thể theo vai
+| Mã | Việc | Ai | Ước công | Chặn D 02/11? |
+|---|---|---|---|---|
+| F1 | `production-defaults.ts`: `checkin_time` 12:00, `early_checkin_tiers` bậc 30 % `to:'12:00'`, nhãn `INV-2610`; chạy test `production-bootstrap`. Nếu B2 đã chạy: OWN đổi trên màn Tham số | BE-A (ARC duyệt) | ~15 phút | **Có** – không đổi thì Desk thu 30 % khách vào 12:00–13:59, trái chính sách INV (sai tiền) |
+| F2 | Staging: đặt hai khóa như F1; QA chạy lại ca nhận sớm: 11:59 → 30 %, 12:00 → 0, 13:30 → 0, 09:59 → 50 %, 05:59 → đêm B9a; ưu tiên dọn khách đến không báo giờ = 12:00; hạn bộ đồ dùng thêm 12:00 | QA | ~1 giờ | Có (xác nhận F1) |
+| F3 | Chuỗi `guest.oci.done_body` (EN/VI/RU) theo 8.3 #6; xem #7 | UXD/CPY → FE | ~30 phút | **Có** (hứa sai với khách) |
+| F4 | `RULE_DEFAULTS.checkinTime` 12:00 (admin-web); khung giờ đến 4 khung (guest-web) | FE | ~30 phút | Không (F4b Minor) |
+| F5 | Landing: `site.json` 12:00 + 4 câu ở 8.3 #1–5 | CPY → FE-LP | ~30 phút | Nên trước D |
+| F6 | Mẫu tin `msg.booking_confirmed`, TP-03 theo câu chuẩn, dùng biến | UXD/CPY → INT | ~30 phút | Nên (tin gửi tay ở v1.0) |
+| F7 | `staff-one-pager.md`, `day-one-guide.md` theo 8.3 #14 | PO | ~20 phút | **Có** (phát D−1) |
+| F8 | Khóa `room_ready_guaranteed_time` (migration, luật kiểm, `GuestStay`), thay 14:00 viết trong chuỗi bằng biến; mã cửa TTLock theo BR-403 v0.4.6 | ARC → BE, INT | ~2 giờ | Không – v1.0.1 / khi làm TTLock |
+| F9 | Landing "Chỉ từ 667.000 đ/đêm" + câu điều kiện theo BR-114, số trong `site.json` | CPY → FE-LP | ~2 giờ | Không – bản landing sau D |
+| F10 | Extranet OTA, Google Maps, fanpage, thẻ trong căn: giờ nhận từ 12:00 (chắc chắn 14:00); kiểm điều khoản ngang giá | INV/OWN | – | **Có** cho extranet OTA |
+
+### 8.6 Câu cho INV
+- **ESC-035** (mới): giữ bậc phụ thu trước 12:00 (đề xuất A, đang áp). Hạn 01/11. Kèm báo con số landing 667.000 đ (INV đã đồng ý "chỉ từ" theo giá thật – không hỏi lại).
+- Việc INV tự làm: cập nhật giờ nhận phòng trên extranet OTA trước D; xem điều khoản ngang giá trước khi đăng giá.
