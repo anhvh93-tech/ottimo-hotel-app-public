@@ -11,8 +11,10 @@
 | P0 | 3 | 0 | 0 | 3 |
 | P1 | 8 | 0 | 0 | 8 |
 | P2 | 3 | 0 | 0 | 3 |
-| P3 | 0 | 0 | 0 | 0 |
-| **Tổng** | **14** | **0** | **0** | **14** |
+| P3 | 2 | 2 | 0 | 0 |
+| **Tổng** | **16** | **2** | **0** | **14** |
+
+Cập nhật 26/10 (QA-3 phần 1 – hồi quy trên `v1.0.0-rc.1` staging, `rounds/round-03/qa/qa3-rc1.md`): thêm **BUG-R3-015** (P3, bộ test – QA) và **BUG-R3-016** (P3, sản phẩm – PO/FE). Không P0/P1/P2 mới. Lỗi R2 thấy lại trên `rc.1`: BUG-R2-219, BUG-R2-222 (vẫn Open trong sổ R2). Sổ R2: BUG-R2-208, 209, 210 → Closed (QA kiểm lại 26/10).
 
 Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - Lượt 1 trên stack `ottimo-qa155`, bản `0ac4261`: mở BUG-R3-007…011.
@@ -37,6 +39,8 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-012 | **P0** | J15 trả `waiting_refund` mãi khi còn yêu cầu hoàn mở, kể cả khi đã hết tiền dư và khách đang **nợ**: không ghi công nợ, không báo OWN/MGR, folio không bao giờ đóng | BE-B (folio/J15) | **Closed** 24/10. Lượt fuzz chạy lại trên `origin/main` `f2ba2ac`: 710 chuỗi, 28.250 bước. Critic `reviews/s1-money-critic-rerun.md` mục 6 xác nhận. |
 | BUG-R3-013 | P1 | Yêu cầu hoàn đang mở không được tính lại (`refundPlan`) khi tiền dư giảm (phát sinh sau trả phòng, A32, J15) – yêu cầu > tiền dư, có lần duyệt khi tiền dư 0 | BE-B (folio/refunds) | **Closed** 24/10. Lượt fuzz chạy lại trên `origin/main` `f2ba2ac`: 710 chuỗi, 28.250 bước. Critic `reviews/s1-money-critic-rerun.md` mục 6 xác nhận. |
 | BUG-R3-014 | P1 | Chi hoàn (`payOut`) đưa tiền dư của folio `settled` về 0 nhưng các yêu cầu hoàn đã duyệt còn tiền chưa chi vẫn `approved`, không đóng `superseded` (hợp đồng 13.3 điểm 1 + 3). Tiền khách trả thêm về sau bị duyệt cũ "hút" và chi theo duyệt cũ, không qua định tuyến ADD3 | BE-B (payments/refunds) | **Closed** 24/10 – BE-B `76e21c4` (gộp `ce38624`, hợp đồng 13.4); fuzz chạy lại 710 chuỗi / 28.250 bước, 0 vi phạm cứng; critic `reviews/s1-money-critic-014.md` |
+| BUG-R3-015 | P3 | **Bộ test**: không chạy được trên stack `MFA_ENFORCED=true` (staging, production): (1) `freshSession` không có bước TOTP cho DS-E OWN/MGR đã bật 2FA; (2) `createThrowawayUser` gửi S2 chỉ có mật khẩu; (3) `ensureReceivingAccount` (R3-Q51) gọi `/health` + `/__test__/clock` vô điều kiện; (4) `s2Context` dùng `qa.owner` – phiên hạn chế làm ca bỏ qua với lý do sai "DS-E chưa nạp đủ 10 căn" | QA | Open |
+| BUG-R3-016 | P3 | Khách **đến hôm nay**: báo giá đã lưu không chuyển được thành đơn. H12 chỉ báo "Sale/CTV: nhắn lễ tân tạo đơn đã thu"; lễ tân nhập lại H09 từ đầu – mặc định 2 người lớn trong khi báo giá 1 người lớn, không mang khách/giá của báo giá, không nối báo giá với đơn | PO (+ FE-A, UXD) | Open |
 
 ## 3. Chi tiết
 
@@ -379,3 +383,41 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
     - 0 vi phạm K11-06 trên 26.105 bản ghi;
     - 7 chuỗi M-2 cũ không còn duyệt treo hay chi theo duyệt cũ;
     - 63/63 lần 403 `SELF_REFUND_FORBIDDEN` đúng người.
+
+### BUG-R3-015 – Bộ test không chạy được trên stack bật `MFA_ENFORCED`
+
+- **Mức:** P3. Lỗi của bộ test, không phải sản phẩm. Ảnh hưởng: không chạy được E2E hồi quy trên staging/production sau khi OWN/MGR bật 2FA, gồm smoke production sau deploy (G5-5) và các lượt hồi quy sau v1.0.
+- **Môi trường:** bộ E2E `2963675` (`v1.0.0-rc.1`), đích staging `MFA_ENFORCED=true`, 26/10.
+- **Bước tái hiện:**
+  1. Bật 2FA cho `qa.owner`, `qa.mgr` (staging bắt buộc).
+  2. Chạy bất kỳ ca nào gọi `s2Context`, `session('qa.owner'|'qa.mgr')`, `createThrowawayUser` hoặc `ensureReceivingAccount` với đích staging.
+- **Thực tế:**
+  - Trước khi OWN đăng ký: `s2Context` nhận phiên hạn chế, `GET rooms` 403 → ca **bỏ qua** "môi trường: DS-E chưa nạp đủ 10 căn" (lý do sai).
+  - Sau khi đăng ký: `freshSession` gặp `401 MFA_REQUIRED` → ca đỏ ở bước đăng nhập; `createUser` 422 `STRONG_REAUTH_REQUIRED` vì S2 thiếu mã.
+  - `ensureReceivingAccount` gọi `GET /health` (404 từ Internet theo thiết kế) và `/__test__/clock` (không có trên image production).
+- **Mong đợi:**
+  - Bộ test đọc secret TOTP thử của tài khoản DS-E từ tệp ngoài repo (biến môi trường trỏ tới thư mục, quyền 600, không in), tự gửi bước 2 và kèm `totpCode` vào S2; theo dõi bước đã dùng để không phát lại (SEC 06.18).
+  - `ensureReceivingAccount` bỏ qua khi đích không có test-support (`CLOCK_MODE=system`).
+  - `s2Context`/`sessionOrSkip` báo rõ "phiên hạn chế – tài khoản cần đăng ký 2FA" thay vì bỏ qua với lý do khác.
+- **Bằng chứng:** `qa3-rc1.md` mục 2. Bản sửa thử trên bản chép scratchpad (`qa-r6/src-rc1/product/tests/e2e/support/api.ts`, `s3-stay.ts`; tệp `*.orig` là bản gốc) – với bản sửa, `money-s4` 34/34, A1, 2FA, R3-Q51, US-008 chạy được trên staging.
+- **Vai:** QA (sửa trong repo cùng BUG-R2-222). SEC xem cách lưu secret thử trước khi gộp.
+- **Trạng thái:** Open.
+
+### BUG-R3-016 – Khách đến hôm nay: báo giá không chuyển được thành đơn
+
+- **Mức:** P3. Không sai tiền (server tính lại theo đơn), không chặn luồng: lễ tân vẫn tạo được đơn. Rủi ro là nhập lại sai số khách/giá so với cái sale đã báo cho khách.
+- **Môi trường:** staging `rc.1`, Desk Chromium 1366×768, `qa.sal` + `qa.fd`, 26/10 15:34 (A1-rc1 chặng 1–3).
+- **Bước tái hiện:**
+  1. `qa.sal` H12: ngày đến = hôm nay, 1 đêm, **1 người lớn** → Báo giá căn 202 → Lưu báo giá (tổng 792.000, cọc 200.000).
+  2. Bấm "Giữ chỗ": hộp báo "Khách đến hôm nay thì không giữ chỗ được… Sale/CTV: nhắn lễ tân tạo đơn đã thu cho khách này." Nút "Tạo giữ chỗ" khóa (đúng quy tắc).
+  3. `qa.fd` mở H09 "Đặt phòng mới".
+- **Thực tế:**
+  - Không có nút "Tạo đơn từ báo giá"; H09 không biết báo giá vừa lưu. Lễ tân chọn lại ngày, căn, khách.
+  - H09 mặc định **2 người lớn**. Đơn `OTM-00294` tạo ra có 2 khách trong khi báo giá cho khách là 1 người. Khách 2 phải "Bổ sung tại quầy", lễ tân nhập tay giấy tờ.
+- **Mong đợi:** PO chọn một trong hai:
+  - (a) khi khách đến hôm nay, hộp "Giữ chỗ" của lễ tân (vai có quyền tạo đơn) có nút tạo đơn đã thu từ báo giá: mang căn, ngày, số khách, khách, giá; sale vẫn chỉ được nhắn;
+  - (b) giữ như hiện tại nhưng H09 cho tìm/chọn báo giá còn hiệu lực của khách, và câu hướng dẫn nói rõ lễ tân kiểm lại số khách.
+  - Nếu PO cho rằng đúng thiết kế thì đóng có lý do.
+- **Bằng chứng:** `qa-r6/a1-rc1/screens/002–006`, `run-log.md` (`createReservation` 201, `adults` 2).
+- **Vai:** PO quyết; FE-A (H09/H12) + UXD (chữ) nếu sửa.
+- **Trạng thái:** Open.
