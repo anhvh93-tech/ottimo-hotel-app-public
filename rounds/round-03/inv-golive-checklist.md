@@ -80,7 +80,7 @@ Không bắt buộc, làm riêng: UAT việc 10 sau 00:00 (20 phút, anh/chị h
 | 3 | 20 phút | **Tài khoản nhận VietQR thật** ở "Tài khoản nhận chuyển khoản" (gõ hai lần, xác thực lại bằng mã 2 bước; hiệu lực từ ngày mai). **Mật khẩu Wi-Fi** mạng "OTTIMO BOUTIQUE STAY". **Giá và tham số** theo câu trả lời A3, gồm hạn lưu A4 | G7-6, G6-7 |
 | 4 | 20 phút | **Tạo tài khoản nhân viên** theo A2 (màn "Người dùng & vai"). Đưa mật khẩu tạm tận tay. Quản lý đăng ký 2 bước ngay | G2-7 |
 | 5 | 15 phút | **Diễn tập khôi phục sao lưu**: OPS đã chạy sẵn bản sao lưu và kéo về Mac; anh/chị mở khóa sao lưu trên Mac. OPS chạy phần còn lại một mình và gửi biên bản khớp số | G4-7, G4-5 |
-| 6 | 15 phút | Mở hộp thư, xác nhận có thư "OTTIMO – Security notice…" (thư thử 8b). QA và SEC kiểm trên bản thật; anh/chị **đăng xuất rồi đăng nhập lại** để thấy app đòi mã 6 số | G4-9, G5-5, G7-5 |
+| 6 | 15 phút | Mở hộp thư, xác nhận có thư "OTTIMO – Test message: e-mail delivery check / Thư thử: kiểm tra gửi email" (thư thử 8b, hộp `info@ottimo.vn`, xem cả Spam). QA và SEC kiểm trên bản thật; anh/chị **đăng xuất rồi đăng nhập lại** để thấy app đòi mã 6 số | G4-9, G5-5, G7-5 |
 
 Sau B2, QC chấm cổng v1.0. Nếu ĐẠT, anh/chị chọn ngày chạy.
 

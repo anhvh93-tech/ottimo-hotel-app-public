@@ -223,7 +223,7 @@ Nếu không thấy mục "SMTP relay service": chụp màn hình trang Định 
 
 1. Đội đặt cấu hình relay (không cần anh/chị gõ gì trên máy chủ).
 2. Khởi động lại và gửi một thư thử tới hộp thư của anh/chị.
-3. Anh/chị kiểm hộp thư: có thư "OTTIMO – Security notice…" là đạt.
+3. Anh/chị kiểm hộp thư `info@ottimo.vn` (cả mục Spam): có thư "OTTIMO – Test message: e-mail delivery check / Thư thử: kiểm tra gửi email" là đạt. Thư thử không dùng mẫu "Security notice", để không báo một sự kiện bảo mật không có thật (SEC 26/10). Thư "Security notice" thật chỉ đến khi có sự kiện 2FA hoặc khi đổi tài khoản nhận tiền.
 
 Khi `init-secrets.sh` hỏi mật khẩu ứng dụng, đội chỉ cần **Enter để bỏ qua**: chế độ relay không dùng mật khẩu.
 
@@ -292,7 +292,7 @@ Xong 9.1–9.3 thì nhắn đội: **"đã cài khóa production"**.
 **Sau đó (đội hẹn giờ với anh/chị):**
 - Diễn tập khôi phục sao lưu production (khoảng 30 phút, cần khóa ở 9.3).
 - Chép KEK ngoại tuyến (phần 4b), **trước** khi có dữ liệu thật.
-- Thư thử 8b: kiểm hộp thư có thư "OTTIMO – Security notice…".
+- Thư thử 8b: kiểm hộp thư `info@ottimo.vn` (cả Spam) có thư "OTTIMO – Test message: e-mail delivery check / Thư thử: kiểm tra gửi email".
 - Buổi tạo tài khoản chủ: đội chạy lệnh, anh/chị ngồi cạnh. Anh/chị đăng nhập, đổi mật khẩu, **đăng ký 2 bước ngay**, cất 10 mã khôi phục. Mật khẩu tạm chỉ hiện trên màn hình máy chủ, không gửi chat.
 
 ## Phần 10 – Cập nhật 26/10 chiều: sửa 1 dòng cấu hình rồi duyệt lại lượt Release (5 phút)

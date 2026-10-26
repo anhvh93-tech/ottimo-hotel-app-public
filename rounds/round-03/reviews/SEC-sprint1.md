@@ -182,3 +182,166 @@ Sau B1, SEC ghi vào README `infra/server` mục 12: "SEC duyệt ngày …, di�
 | Thêm – ca A.7 #16 đồng hồ giả (FE-A/QA) | Mở | Verified US-143 → ĐK2 |
 
 Không chặn: D4 / MOB-03 (v1.1), Dependabot (v1.0.x / v1.1 / không áp dụng), ca 14 (v1.1), S-2, việc xóa bản `.env` cũ.
+
+---
+
+## 4. Sau deploy production đầu – 26/10/2026 (tối): diff `infra/`, thư thử 8b, SEC-G2 từ ngoài vào
+
+- Người ghi: SEC | Round 3 – Bước **Kiểm thử** | Production chạy `v1.0.0-rc.1` (`sha-29636757822b`), DB trống, chưa có tài khoản.
+- SEC **không** SSH, không đăng nhập, không gửi thư. Chỉ đọc repo, đọc `v1-production.md` mục 18–19, và gửi request công khai (GET, cộng 4 POST rỗng tới `/v1/auth/login` không kèm thông tin đăng nhập) tới `desk|staff|g.ottimo.vn`.
+
+### 4.1 Diff `infra/` sau `623a258` và `mail-test.mjs`
+
+| Commit / tệp | Kết luận | Ghi chú |
+|---|---|---|
+| `65f3681` README 12.1 (S-2) | **Đạt.** S-2 đóng | Câu chữ đã đúng: kiểm terminal chặn được pipe, `>`, `\| tee`, tmux/screen. Riêng `script` chỉ chặn bằng thủ tục |
+| `6fde80f` README 12.1: SSH bằng tài khoản quản trị cá nhân, lệnh qua `sudo -u ottimo`, `cd /tmp` | **Đạt** | OPS đã kiểm `sudoers` chỉ có `use_pty`, không `log_output`/iolog, nên mật khẩu tạm in trên pty không bị ghi lại. `sudo` vẫn ghi **dòng lệnh** vào nhật ký hệ thống (tên đăng nhập INV, tên người chạy, địa chỉ nhận thư thử). Các giá trị này không phải bí mật, chấp nhận. Không đưa mật khẩu hay mã nào lên dòng lệnh |
+| `6fde80f` nhánh làm lại DB: `dc rm --stop --force api worker web postgres` + xóa 2 volume, thay `dc down` | **Đạt** | Đúng hơn bản cũ: không gỡ nhầm container landing của `ottimo.vn` |
+| `6fde80f` `pull-backups.sh`: bỏ `--chmod`, `chmod 700/600` sau khi kéo, dừng khi gặp `openrsync` | **Đạt** | Vẫn `umask 077` trước `rsync`, nên tệp không có lúc nào đọc được rộng hơn 0600. `StrictHostKeyChecking=yes` giữ nguyên. Khóa kéo vẫn bị `rrsync -ro` giới hạn, OPS đã thử không mở được shell. **Suggestion S-3 (OPS, không chặn):** cách chạy trong container `alpine:3.20` đưa khóa kéo vào một container cài gói từ mạng mỗi lần. Ưu tiên `brew install rsync` trên Mac INV. Nếu vẫn dùng container thì ghim digest image |
+| `6fde80f` **`infra/server/mail-test.mjs` (mới)** | **Đạt – SEC cho phép OPS gửi thư 8b** tới `info@ottimo.vn` | Xem dưới bảng |
+
+Đọc `mail-test.mjs`:
+- **Đường gửi.** Script đi đúng đường của worker: `smtpConfigFromCredentials`, `createSmtpTransport` (TLS ≥ 1.2, bắt buộc STARTTLS), `EMAIL_FROM` của stack, mạng `egress`. Script không nằm trong image, không đặt lại trên máy chủ. Container tạm `--rm --no-deps`, entrypoint `node`, không chạy vòng job của worker.
+- **Không lộ gì.** Bí mật đọc qua `resolveFileSecrets` chỉ nằm trong bộ nhớ. Script chỉ in một dòng `verified|sent|failed (<mã>)`. Lỗi đi qua `mapSmtpError`, nên không in chữ của nhà cung cấp hay địa chỉ.
+- **Người nhận.** `isEmailAddress` kiểm người nhận, và chỉ gửi đúng một người. Thư không có link, mã, bí mật hay dữ liệu khách.
+- **Tiêu đề mới.** SEC **đồng ý** "OTTIMO – Test message: e-mail delivery check / Thư thử: kiểm tra gửi email" thay cho mẫu "Security notice". Thư thử mà mang tiêu đề cảnh báo bảo mật sẽ tập cho người nhận coi nhẹ cảnh báo thật. Nội dung đúng brand: tiếng Anh dẫn, tiếng Việt hỗ trợ, màu Ivory/Cream/Ink, Lora + Be Vietnam Pro, không emoji.
+- **Đã sửa câu tương ứng ở 3 tệp:**
+  - `outputs/OPS/inv-production-steps.md` 8b bước 3 và tóm tắt cuối phần 9;
+  - `qc/v1-gate-checklist.md` G4-9 và B2 phần 6;
+  - `inv-golive-checklist.md` B2 phần 6.
+
+Điều kiện đạt G4-9:
+- script in `mail-test: sent`, **và** thư có trong hộp `info@ottimo.vn` (xem cả Spam);
+- thư vào Spam thì ghi lại, rồi kiểm DNS như dưới.
+
+**Kiểm đầu–cuối đường thư bảo mật thật** (outbox → `email-dispatch` → mẫu "Security notice") để ở B2. Khi INV nhập tài khoản nhận VietQR thật trên H05, hệ thống gửi `receiving_account_changed`. INV xác nhận nhận được thư đó. SEC thêm việc này vào SEC-G2 ở B2.
+
+DNS thư (đọc công khai):
+- SPF `include:_spf.google.com ~all` và DKIM `google._domainkey` đã có.
+- **Chưa có DMARC** (`_dmarc.ottimo.vn` trống).
+- **S-4 (INV, v1.0.x, không chặn):** thêm bản ghi TXT `_dmarc` ở chế độ theo dõi (`p=none`, báo cáo về `info@`), sau 2–4 tuần nâng lên `quarantine`. Việc này giúp thư bảo mật ít vào Spam, và khó bị giả mạo tên OTTIMO.
+
+### 4.2 Edge đang chạy (OPS 19.5) – phần còn lại của OPS-01
+
+**Đạt.** OPS so sha256 `edge.sh` + `docker-compose.edge.yml` trên máy chủ với `main`: giống. `nginx.conf` đang chạy giống hệt bản render mới (có `nginx -t`). Giới hạn đúng OPS-01: 100/IP ở cổng 443, 20/IP ở cổng 80, `preread 5s`, `worker_connections 8192`. Container ghim digest, `read_only`, `cap_drop ALL`.
+→ **FB-R3-SEC-OPS-01 đóng hẳn** (repo 26/10 chiều + máy chủ 26/10 tối).
+
+### 4.3 SEC-G2 trên production – phần kiểm từ ngoài vào (trước B2)
+
+| Kiểm | desk | staff | g | Kết luận |
+|---|---|---|---|---|
+| Header bảo mật trang chính, so **nguyên văn** với `infra/caddy/expected-headers.sh` (CSP theo site, HSTS 1 năm + subdomain, Referrer, Permissions, XFO DENY, nosniff, COOP, CORP, `X-Robots-Tag noindex`, Cache-Control theo site; không `Server`/`Via`) | đạt | đạt | đạt | Đạt |
+| Phản hồi `/v1/*` (401, 404) | CSP, HSTS, XFO có; body `problem+json` chỉ có mã + `requestId`, không stack, không tên framework, không `X-Powered-By` | – | – | Đạt |
+| TLS | 1.3 (h2). 1.0 và 1.1 bị từ chối. Chứng chỉ Let's Encrypt đúng tên, hạn 24/01/2027 | như desk | như desk | Đạt. Gia hạn tự động do Caddy, `ops-check tls` theo dõi |
+| HTTP → HTTPS | `308` giữ đường dẫn + query | như desk | như desk | Đạt |
+| `www.<app>` | không có bản ghi DNS. Đúng: app không dùng `www` | – | – | Đạt |
+| `ottimo.vn` / `www` | `http` → `308 https://ottimo.vn/`; `www` → `301 https://ottimo.vn/`; `/v1/me` trên landing → 404 | – | – | Đạt |
+| SNI lạ | kết nối bị đóng | – | – | Đạt |
+| `/health`, `/v1/health` | 404 | 404 | 404 | Đạt (FB-R1-SEC-OPS-12) |
+| Endpoint test: `/__test__/reset`, `/v1/__test__/clock` | 404 | 404 | 404 | Đạt |
+| `/__test__`, `/metrics`, `/docs`, `/api-docs` | 200 = **chính `index.html` của SPA** (so sha). Không có nội dung riêng | như desk | như desk | Đạt (SPA fallback) |
+| `/.env`, `/.git/config`, `*.map`, `/v1/openapi.json` | 404 | 404 | 404 | Đạt |
+| AAAA (S-1) | không có | không có | không có | Đạt |
+| Origin (CSRF) trên `POST /v1/auth/login`, body rỗng, **không** gửi thông tin đăng nhập | `evil.example` → 403 "Origin not allowed"; không Origin → 403; Origin `g.ottimo.vn` gửi sang desk → 403; Origin đúng → 422 `REQUIRED` (chưa kiểm mật khẩu) | – | – | Đạt |
+
+Một ghi chú, không phải lỗi: `/v1/*` không đặt `Cache-Control: no-store` chung. Yêu cầu hiện hành SR-C3-03 chỉ đòi `no-store` cho phản hồi C3, và api đặt riêng ở các phản hồi đó. Phản hồi JSON không có validator nên trình duyệt không lưu theo kiểu heuristic. Đề xuất v1.1 (S-5, ARC/OPS, phòng thủ nhiều lớp): Caddy thêm `Cache-Control: no-store` mặc định cho `/v1/*` khi api không tự đặt.
+
+**Phần SEC-G2 còn lại, làm ở B2** (cần tài khoản thật, SEC chứng kiến, không giữ mã):
+1. Cookie phiên sau khi đăng nhập: tiền tố `__Host-`, `Secure`, `HttpOnly`, `SameSite`. Đăng xuất thì cookie mất.
+2. `printenv` api/worker: `MFA_ENFORCED=true`. OPS 19.3 đã ghi; SEC xem lại tại buổi.
+3. OWN mới đăng nhập lần đầu: buộc đổi mật khẩu, rồi buộc đăng ký 2FA. `audit_event` có `mfa.enrolled`.
+4. Log Caddy production: IP che /24, query bị bỏ. OPS đưa 5 dòng log ra màn hình buổi B2, không chép vào repo.
+5. Thư `receiving_account_changed` tới hộp thư khi INV nhập tài khoản nhận thật (4.1).
+6. Lễ tân không thấy C3 khi chưa step-up. Xem ảnh giấy tờ ghi `c3_access_log`. Phần này cần dữ liệu khách thật đầu tiên, nên làm ở ngày D, không ở B2.
+
+SEC-G1 (BE-53 / FE-07 / S4-39) đã Verified trên mã từ R2. Image production là cùng `2963675` (3.3), nên không phải kiểm lại.
+
+### 4.4 Còn chặn v1.0 phía SEC (cập nhật 3.8)
+
+| Hạng mục | Trạng thái |
+|---|---|
+| OPS-01 phần máy chủ | **Đóng** (4.2) |
+| SEC-G2 phần ngoài vào | **Đạt** (4.3). Phần cần tài khoản: B2 |
+| 2FA OWN/MGR thật trên staging + SEC chứng kiến | Mở (B1) |
+| 06.33 diễn tập + SEC duyệt | Bản sửa 3 đã xử lý (a)–(g) (OPS 18.1, SEC chưa đọc lại bản lần 3). SEC đọc lại trước B1; duyệt sau diễn tập |
+| Ca A.7 #16 đồng hồ giả | Đang làm. Có tệp chưa commit `tests/e2e/ui-clock/mfa-us143-clock.r3s1.spec.ts` trong cây làm việc (của FE-A/QA). SEC đọc khi commit và CI xanh |
+| INV nhập tài khoản nhận thật (B2) | Mở |
+
+Thư 8b: **được gửi** (4.1).
+
+---
+
+## 5. Hạn lưu giấy tờ 3 tháng (INV 26/10, decision-log dòng "INV – trả lời 8 câu DOM" (7), (8)) – đánh giá SEC
+
+- Người ghi: SEC | 26/10/2026 (tối) | Theo yêu cầu ORC. SEC **không quyết thay INV**. Mục này nêu tham số làm được gì, cần đổi gì, rủi ro, và câu ORC chuyển INV.
+- Căn cứ:
+  - biên tham số trong migration `0003`, `0053`, `0057`;
+  - `production-defaults.ts`;
+  - SR-RET-02;
+  - chuỗi `guest.oci.consent`, `reg2.consent_q`, `gw.notice_body` (`design/copy`);
+  - `apps/landing-web/src/content/privacy.ts`;
+  - decision-log 17/10 (ĐK-2: `consent_record.retention_days`, J16 dùng số nhỏ hơn giữa số ngày khách đã đọc và tham số hiện hành).
+
+### 5.1 Tham số có cho 90 ngày không
+
+| "Loại" INV nói | Khóa | Biên hiện tại (chỉ OWN sửa) | 3 tháng được không | Cần đổi gì | Chặn v1.0? |
+|---|---|---|---|---|---|
+| Ảnh giấy tờ sau trả phòng (khách **đã đồng ý** lưu, P02b) | `id_image_retention_days_after_checkout` | 0–30 ngày; `production-bootstrap` đặt **1** | **Không**, tối đa 30 | BE: migration nới `max` lên 90 (`config_parameter_def.bounds`), sửa giá trị trong `production-defaults.ts` nếu muốn khởi tạo sẵn. ARC/SEC review. `consent_record.retention_days` đã cho 1–365, guest-web/Desk tự hiện số ngày từ tham số, nên không phải sửa màn | **Không.** Đề xuất: v1.0 chạy với 30 (OWN đặt ở B2), nới lên 90 ở **v1.0.1**. Khách đồng ý lúc còn 30 ngày vẫn chỉ bị giữ 30 ngày (quy tắc số nhỏ hơn), nên tăng sau không trái điều khách đã đọc. Làm migration trước tag `v1.0.0` thì chạm `services/api`, QA-3/SEC phải chạy lại (QC mục 6 quy tắc 2), nên không đáng |
+| Khai báo chưa xong (ảnh còn lại khi khai báo chưa `confirmed` sau ngày đi) | `id_image_unconfirmed_max_days` | 1–7 ngày (SR-RET-02), mặc định 7 | **Không**, tối đa 7 | Muốn 90 thì phải sửa yêu cầu SR-RET-02 và migration | **Không.** **SEC đề xuất giữ 7 (mức cao nhất hiện có)**, lý do ở 5.4 |
+| Hồ sơ điền sẵn (khách quay lại) | `document_profile_retention_months` | 1–12 tháng, mặc định 12 | **Được** | Không đổi mã. OWN đặt **3** trên màn Tham số ở B2. Mặc định catalogue là 12, nên **nhớ đặt**: thêm vào B2 phần 3 | Không |
+| Ảnh của khách **không** đồng ý lưu | – (BR-609) | xóa khi khai báo `confirmed` | Không áp dụng | Không đổi. Hạn 3 tháng chỉ áp cho khách **đồng ý** | – |
+
+Hai điểm khác INV nêu:
+- **Trẻ em dưới 16, hạn khai báo "làm đúng luật":** giữ `minor_data_age_threshold = 16` và `registration_deadline_*` như DOM đặt (nhãn PL). Không cần đổi gì phía SEC.
+- **Tài khoản nhận cọc chuyển sang tài khoản doanh nghiệp:** OWN đổi trên H05 (R3-Q51): xác thực lại mật khẩu, hiệu lực từ hôm sau, có thư `receiving_account_changed`. Không cần đổi mã. Số tài khoản không đưa vào repo, chat hay tài liệu (Q51-9).
+
+### 5.2 Thông báo xử lý dữ liệu
+
+- **Landing `/privacy/`, `/vi/privacy/`:** chỉ nói về form yêu cầu đặt phòng (đang tắt, ESC-030). Khi khách đặt phòng thì "thông báo cho khách lưu trú" áp dụng. Thông báo này **không nói về giấy tờ**, nên **không phải sửa** vì đổi hạn lưu giấy tờ.
+- **Câu đồng ý trong app đã nêu hạn lưu:**
+  - guest-web: "I agree OTTIMO may keep photos of my ID until {days} days after check-out, then delete them automatically.";
+  - Desk: `reg2.consent_q` "... keeping ID photos for {days} days after check-out?".
+  - `{days}` lấy từ tham số, nên khi OWN đổi số, câu tự đổi. Server từ chối khi số khách gửi lệch tham số. Đây đã là cách "một dòng, không nhấn mạnh" mà vẫn đúng NĐ 13/2023: thông báo phải nêu thời gian bắt đầu và kết thúc xử lý.
+- **Còn thiếu:** thông báo chung `gw.notice_body` (phiên bản `privacy-2026-10-v1`) chưa nêu hạn của **hồ sơ điền sẵn** và **ảnh khi khai báo chưa xong**. SEC đề xuất thêm **một câu**, viết theo mức trên của mọi tham số (giống cách làm ở landing) để câu luôn đúng dù OWN đặt số nào trong biên:
+  - EN: "ID photos and saved ID details are deleted within 3 months after check-out, unless the law requires us to keep them longer."
+  - VI: "Ảnh và thông tin giấy tờ được xóa trong vòng 3 tháng sau khi trả phòng, trừ phần pháp luật yêu cầu lưu lâu hơn."
+  - Câu này đúng với: 1–90 ngày ảnh (sau khi nới), ≤ 7 ngày khai báo chưa xong, 3 tháng hồ sơ (OWN đặt 3). Phần "pháp luật yêu cầu lưu lâu hơn" là bản ghi khai báo lưu trú, chờ luật sư (ESC-001).
+  - **Ràng buộc:** OWN không được đặt `document_profile_retention_months` > 3 khi câu này còn hiệu lực.
+- **Ai làm, khi nào:**
+  - UXD duyệt chữ (brand: ngắn, điềm tĩnh, EN dẫn, VI hỗ trợ);
+  - FE-B thêm vào `design/copy`, nâng `NOTICE_TEXT_VERSIONS` lên `privacy-2026-10-v2`;
+  - OWN/OPS đặt `privacy_notice_version` mới.
+  - Hạn: **trước khách thật đầu tiên dùng check-in online** (ngày D). Không chặn deploy hay tag `v1.0.0`; chặn **ngày chạy với khách thật** nếu chưa có.
+  - Tới lúc đó, thông báo v1 vẫn đúng với từng câu đồng ý. Chỉ thiếu ý về hồ sơ điền sẵn.
+- **Khách check-in tại quầy (không dùng link):** lễ tân đọc câu `reg2.consent_q` có số ngày. DOM thêm cùng câu trên vào tờ thông báo ở quầy (hướng dẫn 1 trang `staff-one-pager.md`).
+
+### 5.3 Rủi ro tăng thêm và biện pháp bù
+
+| Rủi ro | Mức | Biện pháp đã có | Bù thêm (đề xuất) |
+|---|---|---|---|
+| Nhiều ảnh giấy tờ nằm trong hệ thống hơn: từ 1 ngày lên 30, rồi 90 ngày, chỉ của khách đồng ý. Với 10 căn và hạn 90 ngày, ước vài trăm bộ ảnh nằm trong hệ thống tại một thời điểm | Low → **Medium** (tăng về lượng, không thêm đường lộ mới) | Ảnh mã hóa bằng DEK riêng, KEK ngoài DB. Chỉ FD/MGR/OWN xem, phải step-up, ghi `c3_access_log`. Không cache ở PWA. Khách không đồng ý thì không lưu | OWN xem `c3_access_log` (số lần xem ảnh theo người) **mỗi tuần** trong tháng đầu. Đây là việc 5 phút trên Desk; DOM đưa vào hướng dẫn |
+| Bản sao lưu chứa nhiều ảnh hơn ở mọi thời điểm (giữ 35 ngày; ảnh đã xóa còn trong bản sao lưu tối đa 35 ngày) | Medium | Bản sao lưu mã hóa `age` bằng khóa riêng. Bên trong, ảnh vẫn là bản mã DEK. KEK **không** nằm trong bản sao lưu. Kéo về Mac bằng khóa `rrsync -ro` | **G4-8 phải xong ở B2, trước khách thật:** INV cất bản KEK ngoại tuyến **tách** khỏi khóa giải mã sao lưu (hai nơi khác nhau). Lộ một trong hai thì chưa đọc được ảnh |
+| Khôi phục từ sao lưu làm "sống lại" ảnh đã quá hạn | Low | J16 chạy lại sau khôi phục và xóa theo `delete_after` | Biên bản diễn tập khôi phục (G4-7) thêm một dòng: sau khôi phục, chạy J16 một lần, ảnh quá hạn bằng 0 |
+| J16 ngừng chạy thì ảnh nằm lại quá hạn | Low | `ops-check` có mục `j16`, báo động theo ESC-029 A | G4-10 (báo động) phải xong trước ngày chạy, như QC đã ghi |
+| OWN tự nới tham số mà không đổi thông báo | Low | Tham số chỉ OWN sửa, xác thực lại, có audit. Câu đồng ý tự hiện số mới | Ràng buộc ở 5.2: hồ sơ ≤ 3 tháng; ảnh ≤ 90 ngày sau khi nới biên |
+| Pháp lý: lưu ảnh lâu hơn mức cần cho khai báo | Chưa đánh giá được | Chỉ lưu khi khách đồng ý (P02b), có mục đích ghi trong câu đồng ý | ESC-001 (luật sư) vẫn mở. SEC chỉ nói "đã cài biện pháp X, cần xác nhận pháp lý", không nói "tuân thủ" |
+
+### 5.4 Vì sao SEC đề xuất giữ "khai báo chưa xong" ở 7 ngày
+
+Ảnh của khai báo chưa xong là ảnh của người **chưa** đồng ý lưu, hoặc chưa được hỏi. Ảnh này chỉ giữ để lễ tân khai bù. Sau ngày đi, quá hạn khai báo theo luật thì ảnh không còn dùng được cho mục đích đó. Giữ 90 ngày chỉ làm tăng rủi ro mà không có lợi nghiệp vụ, và trái nguyên tắc "chỉ lưu trong thời gian cần cho mục đích". Đổi thì phải sửa yêu cầu SR-RET-02 và mã. SEC không đề xuất.
+
+### 5.5 Câu ORC chuyển INV (dễ hiểu)
+
+> Hệ thống làm được "3 tháng" cho hồ sơ điền sẵn ngay ở B2. Ảnh giấy tờ của khách đồng ý lưu hiện tối đa 30 ngày: đội đề xuất chạy 30 ngày từ ngày đầu và nâng lên 3 tháng ở bản v1.0.1, không ảnh hưởng ngày chạy. Riêng ảnh của khai báo chưa xong, SEC đề xuất giữ tối đa 7 ngày (ảnh này không dùng được nữa sau hạn khai báo), trừ khi anh/chị có lý do nghiệp vụ cần giữ lâu hơn.
+>
+> Về thông báo cho khách: luật yêu cầu nêu thời hạn lưu, nên app thêm **một câu ngắn** trong thông báo check-in online ("Ảnh và thông tin giấy tờ được xóa trong vòng 3 tháng sau khi trả phòng…"), không nhấn mạnh thêm. Lưu lâu hơn thì bản sao lưu chứa nhiều ảnh hơn: anh/chị cần cất khóa giải mã dữ liệu (KEK) ở nơi khác với khóa sao lưu trong buổi B2.
+
+### 5.6 Việc phát sinh
+
+| Việc | Vai | Hạn |
+|---|---|---|
+| Migration nới `id_image_retention_days_after_checkout` max 30 → 90, test biên. SEC review | BE-C (+ARC) | v1.0.1 |
+| Câu thông báo `gw.notice_body` v2 (EN/VI), `NOTICE_TEXT_VERSIONS`, `privacy_notice_version` | UXD, FE-B; SEC duyệt chữ | Trước khách thật đầu tiên dùng check-in online |
+| B2 phần 3: OWN đặt `document_profile_retention_months = 3`, `id_image_retention_days_after_checkout = 30`, `id_image_unconfirmed_max_days` theo INV (SEC đề xuất 7) | INV, ORC sửa checklist | B2 |
+| Tờ thông báo tại quầy cùng câu 5.2; nhắc OWN xem `c3_access_log` mỗi tuần | DOM, PO | Trước ngày D |
+| Biên bản diễn tập khôi phục thêm dòng "J16 sau khôi phục: ảnh quá hạn = 0" | OPS | B2 |

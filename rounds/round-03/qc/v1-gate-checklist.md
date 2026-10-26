@@ -82,7 +82,7 @@ Một hạng mục có thể vừa "Còn thiếu" vừa "Cần INV" (ví dụ G4
 | G4-6 | Khóa giải mã sao lưu INV giữ ngoại tuyến | **Cần INV** (B1) | Khóa riêng đang ở Mac INV, mode 0600 (OPS 16.4). Chưa có xác nhận INV đã cất bản ngoại tuyến (phần 9.3) | INV | – |
 | G4-7 | **Một lần diễn tập khôi phục** bản sao lưu production, môi trường dùng một lần, có biên bản | **Còn thiếu** + **Cần INV** (B2) | Mới chạy thử local 23/10, khớp 100 % (OPS 8.3). Lần bắt buộc làm sau deploy đầu | OPS chạy; INV có mặt (khóa ở Mac INV) | – |
 | G4-8 | KEK production có bản ngoại tuyến **trước** dữ liệu thật | **Cần INV** (B2) | OPS 13, 16.4: "KEK chưa có bản ngoại tuyến của INV" | INV (phần 4b) | – |
-| G4-9 | Email production: thư thử 8b tới hộp thư INV | **Còn thiếu** (chờ G4-1) | Relay đã thông tới `MAIL FROM` 250, TLS 1.3, từ máy chủ và từ container (OPS 16.3). Chưa gửi trọn một thư | OPS (INV mở hộp thư, B2) | sau G4-1 |
+| G4-9 | Email production: thư thử 8b tới hộp thư INV | **Còn thiếu** (chờ G4-1) | Relay đã thông tới `MAIL FROM` 250, TLS 1.3, từ máy chủ và từ container (OPS 16.3). Chưa gửi trọn một thư. 26/10: `mail-test.mjs` (SEC duyệt, `SEC-sprint1.md` mục 4.1) chạy chế độ chỉ kiểm → `verified`; thư thử có tiêu đề "OTTIMO – Test message: e-mail delivery check / Thư thử: kiểm tra gửi email", không dùng mẫu "Security notice" | OPS (INV mở hộp thư, B2) | sau G4-1 |
 | G4-10 | Báo động (ESC-029 A): Healthchecks.io, UptimeRobot, Google Chat; bật timer `ops-check@ottimo-prod` | **Cần INV** (B1) + **Còn thiếu** | `inv-production-steps.md` phần 6 chưa có xác nhận. `ottimo.vn` chưa được giám sát (OPS 13, 15.1). QC thêm hạng mục này vì cam kết "P0 sửa trong ngày" không làm được nếu không ai biết hệ thống sập. **Không chặn deploy, chặn ngày chạy** | INV tạo tài khoản; OPS gắn URL + bật timer | – |
 | G4-11 | RAM/đĩa khi production + staging + landing + edge cùng chạy | **Còn thiếu** | Trước khi có app: còn 4,1 GB / 4,9 GB, đĩa dùng 15 % (OPS 16.4). Chưa đo khi app production chạy | OPS: đo sau deploy; `ops-check` `mem` | sau G4-1 |
 | G4-12 | Bản chụp tự động của nhà cung cấp VPS (checklist A5) | **Cần INV** (tự làm) | Chưa có xác nhận | INV hỏi Nhân Hòa (không cần buổi) | – |
@@ -229,7 +229,7 @@ Không bắt buộc, làm riêng: UAT việc 10 sau 00:00 (20 phút, INV hoặc 
 | 3 | 20 phút | B2 tài khoản nhận VietQR thật (gõ hai lần, xác thực lại); B4 mật khẩu Wi-Fi; B5 giá + tham số theo câu trả lời B1, gồm hạn lưu | G7-6, B2, B4, B5 |
 | 4 | 20 phút | B6 tạo tài khoản nhân viên, đưa mật khẩu tạm tận tay. MGR đăng ký 2 bước ngay | B6, G2-7 |
 | 5 | 35 phút | OPS chạy sao lưu đầu tiên → kéo về Mac → diễn tập khôi phục trong môi trường dùng một lần bằng khóa của INV → biên bản khớp số. INV chỉ cần mở khóa / có mặt | G4-7, G4-5 |
-| 6 | 15 phút | Thư thử 8b: INV mở hộp thư, xác nhận có thư "OTTIMO – Security notice…". SEC-G1/G2 và smoke đăng nhập của QA trên production; INV đăng nhập lại để kiểm cờ 2 bước | G4-9, G5-5, G7-5 |
+| 6 | 15 phút | Thư thử 8b: INV mở hộp thư `info@ottimo.vn` (cả Spam), xác nhận có thư "OTTIMO – Test message: e-mail delivery check / Thư thử: kiểm tra gửi email". SEC-G1/G2 và smoke đăng nhập của QA trên production; INV đăng nhập lại để kiểm cờ 2 bước | G4-9, G5-5, G7-5 |
 
 Sau B2, QC chấm cổng v1.0 (G5-1). Nếu ĐẠT, INV làm B3 hôm sau, chọn ngày chạy, rồi làm B7, B9. Form website bật theo kết quả ESC-030.
 
