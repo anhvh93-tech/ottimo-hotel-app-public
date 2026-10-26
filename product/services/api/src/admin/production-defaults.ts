@@ -3,12 +3,14 @@
  * no guest/booking data and no secret:
  * - organisation + property OTTIMO Đà Lạt (BR-001 time zone);
  * - the 3 internal room groups and the 10 units (investor brief "Quy mô"; BR-110 base/max occupancy per unit,
- *   ESC-014; BR-012 room names – BL 4.1 mapping, still [GIẢ ĐỊNH] until INV sends the name ↔ unit ↔ type table);
+ *   ESC-014; BR-012 room names – BL 4.1 mapping; public room types per INV 26/10, BR v0.4.4);
  * - sales channels with the BR-901 commission rates;
  * - the BR section 13 defaults of every catalogue key that has NO catalogue default (`config_parameter_def.
- *   default_value IS NULL`). Values were taken from the QA DS-E fixture, which mirrors BR section 13; `status` is
- *   the label of that row (INV-0xx decided, GD = [GIẢ ĐỊNH], PL = lawyer/accountant, NGANH = DOM). DOM checks the
- *   list against BR v0.4.1 section 13 before the first production run.
+ *   default_value IS NULL`), plus the few keys WITH a catalogue default whose production value differs or must
+ *   carry its source (document retention keys, BR v0.4.4). Values were taken from the QA DS-E fixture, which
+ *   mirrors BR section 13; `status` is the label of that row (INV-0xx decided, INV-DDMM = INV answer of that day,
+ *   GD = [GIẢ ĐỊNH], PL = lawyer/accountant, NGANH = DOM) and must match `config_parameter_status_label_check`
+ *   (`^[A-Z0-9-]{1,16}(\+[A-Z0-9-]{1,16}){0,3}$` – no '/'). Checked against BR v0.4.4 section 13 (DOM, 26/10).
  * Deliberately NOT here (INV types them in the app after the first sign-in): room list prices
  * (`room_list_price`, BR-101), `ota_base_rate` (BR-103), `payment_receiving_account` (BR-521, R3-Q51 screen), the
  * Wi-Fi password (BR-012 (7), ESC-022 B), minibar items and their prices, `shift_max_hours` (no BR value).
@@ -44,12 +46,23 @@ export interface ProductionRoom {
   baseOccupancy: number;
   maxOccupancy: number;
   /**
-   * BR-012 public room type (e-brochure 2026). Set only where the brochure and the BR-110 bed layout leave no
-   * doubt (301/401 = Signature two bedrooms, 302/402 = Premium one bedroom + 1); studios stay null (city or garden
-   * view is INV's table).
+   * BR-012 public room type (e-brochure 2026, 4 types) – BR v0.4.4, INV 26/10: City View = 101, 201; Garden
+   * View = 102, 103, 202, 203; 301/401 = Signature two bedrooms; 302/402 = Premium one bedroom + 1. The Desk has
+   * no field to edit it, so the label must be right at bootstrap.
    */
   publicRoomType: string | null;
 }
+
+/**
+ * The 4 public room type labels (e-brochure, landing concept section 4). Their slug (`slugOf`,
+ * `modules/public-site/internal/website-request-rules.ts`) MUST equal the landing room slugs
+ * (`apps/landing-web/src/content/en.ts` rooms.items[].slug): a web request carries the slug, and the Desk flags
+ * `room_type_unmatched` / shows no room type when no sellable room has a label with that slug.
+ */
+export const STUDIO_CITY = 'Standard Studio · City View';
+export const STUDIO_GARDEN = 'Standard Studio · Garden View';
+export const PREMIUM_ONE_BEDROOM = 'Premium · One Bedroom + 1';
+export const SIGNATURE_TWO_BEDROOMS = 'Signature · Two Bedrooms';
 
 export const PRODUCTION_ROOMS: readonly ProductionRoom[] = [
   {
@@ -58,7 +71,7 @@ export const PRODUCTION_ROOMS: readonly ProductionRoom[] = [
     group: 'L12',
     baseOccupancy: 2,
     maxOccupancy: 3,
-    publicRoomType: null,
+    publicRoomType: STUDIO_CITY,
   },
   {
     roomNo: '102',
@@ -66,7 +79,7 @@ export const PRODUCTION_ROOMS: readonly ProductionRoom[] = [
     group: 'L12',
     baseOccupancy: 2,
     maxOccupancy: 3,
-    publicRoomType: null,
+    publicRoomType: STUDIO_GARDEN,
   },
   {
     roomNo: '103',
@@ -74,7 +87,7 @@ export const PRODUCTION_ROOMS: readonly ProductionRoom[] = [
     group: 'L12',
     baseOccupancy: 2,
     maxOccupancy: 3,
-    publicRoomType: null,
+    publicRoomType: STUDIO_GARDEN,
   },
   {
     roomNo: '201',
@@ -82,7 +95,7 @@ export const PRODUCTION_ROOMS: readonly ProductionRoom[] = [
     group: 'L12',
     baseOccupancy: 2,
     maxOccupancy: 3,
-    publicRoomType: null,
+    publicRoomType: STUDIO_CITY,
   },
   {
     roomNo: '202',
@@ -90,7 +103,7 @@ export const PRODUCTION_ROOMS: readonly ProductionRoom[] = [
     group: 'L12',
     baseOccupancy: 2,
     maxOccupancy: 3,
-    publicRoomType: null,
+    publicRoomType: STUDIO_GARDEN,
   },
   {
     roomNo: '203',
@@ -98,7 +111,7 @@ export const PRODUCTION_ROOMS: readonly ProductionRoom[] = [
     group: 'L12',
     baseOccupancy: 2,
     maxOccupancy: 3,
-    publicRoomType: null,
+    publicRoomType: STUDIO_GARDEN,
   },
   {
     roomNo: '301',
@@ -106,7 +119,7 @@ export const PRODUCTION_ROOMS: readonly ProductionRoom[] = [
     group: 'N',
     baseOccupancy: 4,
     maxOccupancy: 5,
-    publicRoomType: 'Signature',
+    publicRoomType: SIGNATURE_TWO_BEDROOMS,
   },
   {
     roomNo: '302',
@@ -114,7 +127,7 @@ export const PRODUCTION_ROOMS: readonly ProductionRoom[] = [
     group: 'NPLUS',
     baseOccupancy: 3,
     maxOccupancy: 4,
-    publicRoomType: 'Premium',
+    publicRoomType: PREMIUM_ONE_BEDROOM,
   },
   {
     roomNo: '401',
@@ -122,7 +135,7 @@ export const PRODUCTION_ROOMS: readonly ProductionRoom[] = [
     group: 'N',
     baseOccupancy: 4,
     maxOccupancy: 5,
-    publicRoomType: 'Signature',
+    publicRoomType: SIGNATURE_TWO_BEDROOMS,
   },
   {
     roomNo: '402',
@@ -130,7 +143,7 @@ export const PRODUCTION_ROOMS: readonly ProductionRoom[] = [
     group: 'NPLUS',
     baseOccupancy: 3,
     maxOccupancy: 4,
-    publicRoomType: 'Premium',
+    publicRoomType: PREMIUM_ONE_BEDROOM,
   },
 ];
 
@@ -359,8 +372,11 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
   },
   { key: 'foc_alert_pct_of_room_revenue', br: 'BR-435', status: 'INV-007', value: 3 },
   { key: 'foc_alert_count_per_approver', br: 'BR-435', status: 'INV-007', value: 10 },
-  { key: 'electricity_price', br: 'BR-501', status: 'INV-008+PL', value: 3500 },
-  { key: 'water_price', br: 'BR-501', status: 'INV-008+PL', value: 25000 },
+  // BR v0.4.4 (INV 26/10): electricity in VND/kWh; water in VND per PERSON per MONTH, pro-rated by the days
+  // stayed (the key changed meaning from VND/m³). No code reads either key in v1.0 (utilities stay on paper
+  // until v1.3, US-064/065 use the new meaning).
+  { key: 'electricity_price', br: 'BR-501', status: 'INV-2610+PL', value: 5000 },
+  { key: 'water_price', br: 'BR-501', status: 'INV-2610+PL', value: 100000 },
   { key: 'meter_anomaly_factor', br: 'BR-503', status: 'GD', value: 2 },
   { key: 'meter_anomaly_default_kwh', br: 'BR-503', status: 'GD', value: 300 },
   { key: 'meter_anomaly_default_m3', br: 'BR-503', status: 'GD', value: 10 },
@@ -372,8 +388,9 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
   { key: 'key_cards_per_booking', br: 'BR-511', status: 'GD', value: 2 },
   { key: 'lost_found_keep_days', br: 'BR-513', status: 'GD', value: 30 },
   { key: 'lost_found_notify_hours', br: 'BR-513', status: 'GD', value: 24 },
-  { key: 'vat_rate', br: 'BR-523', status: 'PL', value: 8 },
-  { key: 'prices_include_vat', br: 'BR-523', status: 'INV-008+PL', value: true },
+  // INV 26/10: list prices include VAT 8 %; the end date of the 8 % rate is pending the accountant (ESC-033).
+  { key: 'vat_rate', br: 'BR-523', status: 'INV-2610+PL', value: 8 },
+  { key: 'prices_include_vat', br: 'BR-523', status: 'INV-008+INV-2610', value: true },
   { key: 'business_entity_type', br: 'BR-524', status: 'INV-TT+PL', value: 'enterprise' },
   { key: 'bank_reconcile_alert_days', br: 'BR-527', status: 'GD', value: 2 },
   { key: 'no_deposit_max_lead_days', br: 'BR-527', status: 'INV-006+NGANH', value: 2 },
@@ -391,14 +408,22 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
   { key: 'registration_digest_times', br: 'BR-611', status: 'INV-010', value: ['22:00', '07:00'] },
   { key: 'visa_expiry_warning_days.long_stay', br: 'BR-605', status: 'GD', value: 30 },
   { key: 'visa_expiry_warning_days.short_stay', br: 'BR-605', status: 'GD', value: 14 },
-  // INV accepted the ESC-001 risk with the shortest retention (DOM + SEC, R3 v1.0): 1 day = the BR-427
-  // 24-hour post-check-out window (damage found by housekeeping), then the purge job deletes the images.
+  // BR v0.4.4 (INV 26/10 "3 months"): consenting guests' document images are kept 90 days after check-out;
+  // v1.0 uses 30 = the current catalogue maximum (0003_parameter_bounds, 0–30), raised to 90 in v1.0.1 (DOM T2,
+  // migration by BE-C, SEC review).
   {
     key: 'id_image_retention_days_after_checkout',
     br: 'BR-610',
-    status: 'INV-ESC-001+SEC',
-    value: 1,
+    status: 'INV-2610+SEC',
+    value: 30,
   },
+  // BR v0.4.4: images of a declaration never confirmed – 7 days after the stay (catalogue maximum, bounds 1–7;
+  // the group includes people who did not consent, so INV's "3 months" does not apply). Equal to the catalogue
+  // default; written so the production value carries its source.
+  { key: 'id_image_unconfirmed_max_days', br: 'BR-609', status: 'NGANH+SEC', value: 7 },
+  // BR v0.4.4 (INV 26/10): pre-fill document profiles anonymised 3 months after the last check-out (security
+  // parameter – SEC bounds 1–12 in OpenAPI x-security-parameters; catalogue default 12).
+  { key: 'document_profile_retention_months', br: 'BR-610', status: 'INV-2610', value: 3 },
   { key: 'id_image_purge_max_hours', br: 'BR-609', status: 'PL+SEC', value: 24 },
   { key: 'minor_data_age_threshold', br: 'BR-612', status: 'PL', value: 16 },
   { key: 'stocktake_variance_approval_pct', br: 'BR-705', status: 'GD', value: 5 },

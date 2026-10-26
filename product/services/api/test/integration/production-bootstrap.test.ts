@@ -6,6 +6,7 @@
  *     catalogue key without a default except the INV ones, no price / guest / booking; the owner signs in with
  *     the temporary password into a session that must change the password and enrol 2FA; a second run is refused.
  */
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { FixedClock } from '../../src/clock';
@@ -24,6 +25,8 @@ import {
 } from '../../src/admin/production-defaults';
 import { verifyPassword } from '../../src/modules/identity/public/passwords';
 import { passwordPolicyErrors } from '../../src/modules/identity/public/passwords';
+import { checkSecurityBounds } from '../../src/modules/platform/public/parameter.service';
+import { slugOf } from '../../src/modules/public-site/internal/website-request-rules';
 import { type FeatureApp, startFeatureApp } from '../helpers/feature-app';
 import { HAS_DB, T0, appDatabase, createTenant } from '../helpers/tenant';
 
@@ -55,6 +58,51 @@ describe('production bootstrap – unit', () => {
       '401',
       '402',
     ]);
+  });
+
+  it('public room types per INV 26/10 (BR v0.4.4 BR-012): studios by view, slugs = the landing room slugs', () => {
+    const type = Object.fromEntries(PRODUCTION_ROOMS.map((r) => [r.roomNo, r.publicRoomType]));
+    expect(type).toEqual({
+      '101': 'Standard Studio · City View',
+      '201': 'Standard Studio · City View',
+      '102': 'Standard Studio · Garden View',
+      '103': 'Standard Studio · Garden View',
+      '202': 'Standard Studio · Garden View',
+      '203': 'Standard Studio · Garden View',
+      '301': 'Signature · Two Bedrooms',
+      '401': 'Signature · Two Bedrooms',
+      '302': 'Premium · One Bedroom + 1',
+      '402': 'Premium · One Bedroom + 1',
+    });
+    // A web request carries the landing slug; the Desk matches it against slugOf(Room.publicRoomType).
+    const landing = readFileSync(
+      join(__dirname, '..', '..', '..', '..', 'apps', 'landing-web', 'src', 'content', 'en.ts'),
+      'utf8',
+    );
+    const landingSlugs = [...landing.matchAll(/^\s*slug: '([a-z0-9-]+)',$/gm)].map((m) => m[1]);
+    expect(landingSlugs).toHaveLength(4);
+    const roomSlugs = new Set(PRODUCTION_ROOMS.map((r) => slugOf(r.publicRoomType ?? '')));
+    expect([...roomSlugs].sort()).toEqual([...landingSlugs].sort());
+  });
+
+  it('parameter values per INV 26/10 (BR v0.4.4) and status labels valid for the CHECK constraint', () => {
+    const v = Object.fromEntries(PRODUCTION_PARAMETERS.map((p) => [p.key, p.value]));
+    expect(v).toMatchObject({
+      electricity_price: 5000,
+      water_price: 100000,
+      vat_rate: 8,
+      prices_include_vat: true,
+      id_image_retention_days_after_checkout: 30,
+      id_image_unconfirmed_max_days: 7,
+      document_profile_retention_months: 3,
+    });
+    // 0000_foundation config_parameter_status_label_check – no '/', at most 4 '+'-joined parts.
+    const label = /^[A-Z0-9-]{1,16}(\+[A-Z0-9-]{1,16}){0,3}$/;
+    expect(PRODUCTION_PARAMETERS.filter((p) => !label.test(p.status)).map((p) => p.key)).toEqual(
+      [],
+    );
+    // Security key: SEC hard bounds (the bootstrap validates it like ParameterService.validate).
+    expect(() => checkSecurityBounds('document_profile_retention_months', 3)).not.toThrow();
   });
 });
 
@@ -157,7 +205,13 @@ describe.skipIf(!BOOT_URL || !BOOT_MIGRATION_URL)(
           for (const no of ['302', '402']) {
             expect(by[no]).toMatchObject({ grp: 'NPLUS', base_occupancy: 3, max_occupancy: 4 });
           }
-          expect(by['401']).toMatchObject({ name: 'The Pine', public_room_type: 'Signature' });
+          expect(by['401']).toMatchObject({
+            name: 'The Pine',
+            public_room_type: 'Signature · Two Bedrooms',
+          });
+          expect(by['201']?.public_room_type).toBe('Standard Studio · City View');
+          expect(by['103']?.public_room_type).toBe('Standard Studio · Garden View');
+          expect(rooms.rows.every((r) => r.public_room_type !== null)).toBe(true);
           expect(rooms.rows.every((r) => r.is_sellable)).toBe(true);
           const groups = await tx.query('SELECT 1 FROM room_group');
           expect(groups.rows).toHaveLength(3);
@@ -203,6 +257,22 @@ describe.skipIf(!BOOT_URL || !BOOT_MIGRATION_URL)(
             `SELECT value FROM config_parameter WHERE key = 'business_day_rollover'`,
           );
           expect(tz.rows[0]?.value).toBe('06:00');
+          // Keys WITH a catalogue default that production overrides (BR v0.4.4 retention).
+          const ret = await tx.query<{ key: string; value: unknown; status_label: string }>(
+            `SELECT key, value, status_label FROM config_parameter
+            WHERE key IN ('id_image_retention_days_after_checkout', 'id_image_unconfirmed_max_days',
+                          'document_profile_retention_months')
+            ORDER BY key`,
+          );
+          expect(ret.rows).toEqual([
+            { key: 'document_profile_retention_months', value: 3, status_label: 'INV-2610' },
+            {
+              key: 'id_image_retention_days_after_checkout',
+              value: 30,
+              status_label: 'INV-2610+SEC',
+            },
+            { key: 'id_image_unconfirmed_max_days', value: 7, status_label: 'NGANH+SEC' },
+          ]);
         },
         { readOnly: true },
       );

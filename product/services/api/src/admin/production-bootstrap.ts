@@ -3,7 +3,8 @@
  * an empty production database. No HTTP endpoint; run by OPS through `production-bootstrap-cli.ts`.
  * Creates, in ONE transaction (a failure leaves the database untouched):
  * - the organisation and the property OTTIMO Đà Lạt, the 3 room groups and the 10 units (production-defaults.ts);
- * - the sales channels (BR-901) and the BR section 13 parameters the catalogue has no default for;
+ * - the sales channels (BR-901) and the BR section 13 parameters the catalogue has no default for (plus the
+ *   document retention keys whose production value is set by BR v0.4.4);
  * - the first `owner` with a RANDOM temporary password (`must_change_password = true`; under MFA_ENFORCED the first
  *   sign-in is the restricted enrolment session – SEC 06.4), returned to the caller ONCE and never stored or logged.
  * Never creates guests, bookings, payments, room prices, the VietQR receiving account, the Wi-Fi password or devices.
@@ -21,6 +22,7 @@ import { hashPassword, passwordPolicyErrors } from '../modules/identity/public/p
 import { importChannels } from '../modules/platform/public/channels';
 import {
   checkBusinessBounds,
+  checkSecurityBounds,
   checkValueSchema,
 } from '../modules/platform/public/parameter.service';
 import { localDate } from '../shared/time';
@@ -143,18 +145,28 @@ export async function bootstrapProduction(
         ],
       );
 
-      // BR section 13 parameters, checked against the catalogue type and the erd 9.1a bounds.
+      // BR section 13 parameters, checked like ParameterService.validate: security keys against the SEC hard
+      // bounds (OpenAPI x-security-parameters), the others against the catalogue type and the erd 9.1a bounds.
       for (const p of PRODUCTION_PARAMETERS) {
         const def = await tx.query<{
           value_schema: string;
+          is_security: boolean;
           bounds: { min?: number; max?: number; allowed?: unknown[] } | null;
-        }>('SELECT value_schema, bounds FROM config_parameter_def WHERE key = $1', [p.key]);
-        const schema = def.rows[0]?.value_schema;
-        if (!schema) throw new Error(`parameter ${p.key} is not in the catalogue`);
-        if (checkValueSchema(schema, p.value)) {
-          throw new Error(`parameter ${p.key}: value does not match catalogue type ${schema}`);
+        }>('SELECT value_schema, is_security, bounds FROM config_parameter_def WHERE key = $1', [
+          p.key,
+        ]);
+        const row = def.rows[0];
+        if (!row) throw new Error(`parameter ${p.key} is not in the catalogue`);
+        if (row.is_security) {
+          checkSecurityBounds(p.key, p.value);
+        } else {
+          if (checkValueSchema(row.value_schema, p.value)) {
+            throw new Error(
+              `parameter ${p.key}: value does not match catalogue type ${row.value_schema}`,
+            );
+          }
+          checkBusinessBounds(row.bounds, p.value);
         }
-        checkBusinessBounds(def.rows[0]?.bounds ?? null, p.value);
         await tx.query(
           `INSERT INTO config_parameter (id, organization_id, property_id, key, value, effective_from,
              status_label, reason, created_at, updated_at)
