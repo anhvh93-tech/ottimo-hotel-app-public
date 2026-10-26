@@ -1044,6 +1044,22 @@ html.lb-open {
   margin-top: auto;
   align-self: flex-start;
 }
+/* "Rates from" + its conditions (FB-INV-004 F9, BR-114; CPY landing-fb-inv-004 2.3 fallback): under the Rooms intro,
+   above the grid. One quiet block – body text, medium weight, Ink; conditions small, Stone (4.5:1 on Cream), right
+   under it. No Oak/Earth accent, no frame, no "offer" label, no asterisk. */
+.head p:has(+ .from-block) {
+  margin-bottom: var(--s4);
+}
+.from-block .from {
+  margin: 0 0 var(--s1);
+  font: 500 var(--fs-body) / 1.5 var(--sans);
+  color: var(--brand-ink);
+}
+.from-block .from-terms {
+  margin: 0;
+  font: 400 var(--fs-small) / 1.5 var(--sans);
+  color: var(--brand-stone);
+}
 .rooms-note {
   margin: var(--s5) 0 0;
   color: var(--brand-stone);

@@ -111,6 +111,9 @@ export const en: Copy = {
     label: 'Rooms',
     title: 'Choose your window',
     intro: 'City lights or garden green. A studio for two, or two bedrooms for the whole family.',
+    from: (price) => `Rates from [[${price}]] a night`,
+    fromTerms: (weekend) =>
+      `For two, taxes included. Sunday to Thursday nights, booked direct. Weekends from [[${weekend}]], two nights minimum; holidays are higher.`,
     request: 'Ask about this room',
     sleeps: (min, max) => `Sleeps ${min}–${max}`,
     items: [

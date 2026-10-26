@@ -6,7 +6,9 @@
 // <dialog>, swipe, arrow keys, Esc). The button is rendered hidden and shown by scripts/lightbox.ts, so without
 // JavaScript the card is the plain cover photo.
 import { ROOM_GALLERIES } from '../../content/gallery';
+import { site } from '../../content/site';
 import type { Copy } from '../../content/types';
+import { formatVnd } from '../../lib/price';
 import RoomGallery from '../RoomGallery.astro';
 import Icon from '../Icon.astro';
 import Picture from '../Picture.astro';
@@ -17,6 +19,10 @@ interface Props {
 }
 
 const { t } = Astro.props;
+// "Rates from" (FB-INV-004 F9, BR-114): numbers only from site.json; the line and its conditions stay together under
+// the intro, above the grid. The only price on the page – not on a card, in rooms.note, meta, OG or JSON-LD.
+const from = t.rooms.from(formatVnd(site.booking.fromNightlyVnd, t.lang));
+const fromTerms = t.rooms.fromTerms(formatVnd(site.booking.fromWeekendNightlyVnd, t.lang));
 ---
 
 <section class="sec alt" id="rooms" aria-labelledby="rooms-h">
@@ -25,6 +31,10 @@ const { t } = Astro.props;
       <p class="label">{t.rooms.label}</p>
       <h2 class="h2" id="rooms-h"><Rich text={t.rooms.title} /></h2>
       <p class="muted">{t.rooms.intro}</p>
+      <div class="from-block" data-from>
+        <p class="from"><Rich text={from} /></p>
+        <p class="from-terms"><Rich text={fromTerms} /></p>
+      </div>
     </div>
     <ul class="rooms" aria-labelledby="rooms-h">
       {

@@ -10,8 +10,10 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import * as checks from '../../scripts/dist-checks.mjs';
 import { PRIVACY_NOTICE } from '../content/privacy';
+import { site } from '../content/site';
 import { BOOKING_REQUEST_ENABLED, PUBLIC_FORM_API_BASE } from '../lib/booking-request';
 import { INDEXABLE, LANGS, SITE_URL } from '../lib/i18n';
+import { formatVnd } from '../lib/price';
 
 const builds = [
   { name: 'dist', form: BOOKING_REQUEST_ENABLED, live: BOOKING_REQUEST_ENABLED },
@@ -94,6 +96,26 @@ describe.each(builds)('$name', ({ name, form, live }) => {
   });
   it('gives every photo width/height/alt, lazy except the hero, ≤ 960 w on phones', () => {
     expect(checks.checkImages(d)).toEqual([]);
+  });
+  it('"from" price (FB-INV-004 F9): once per home page, in #rooms above the grid, numbers = site.json; nowhere else', () => {
+    for (const [p, lang] of [
+      ['/', 'en'],
+      ['/vi/', 'vi'],
+    ] as const) {
+      const src = d.html.find((x) => x.path === p)!.source;
+      expect(src.match(/data-from\b/g), p).toHaveLength(1);
+      const price = formatVnd(site.booking.fromNightlyVnd, lang);
+      const weekend = formatVnd(site.booking.fromWeekendNightlyVnd, lang);
+      const rooms = src.slice(src.indexOf('id="rooms"'), src.indexOf('<ul class="rooms"'));
+      expect(checks.visibleText(rooms)).toContain(price);
+      expect(checks.visibleText(rooms)).toContain(weekend);
+      // the only place with an amount: the rest of the visible page has none
+      const body = checks.visibleText(src.split(/<body[^>]*>/)[1] ?? '');
+      expect(body.split(price), `${p}: ${price} once`).toHaveLength(2);
+      expect(body.split(weekend), `${p}: ${weekend} once`).toHaveLength(2);
+    }
+    for (const p of d.html.filter((x) => !['/', '/vi/'].includes(x.path)))
+      expect(p.source, p.path).not.toMatch(/data-from\b/);
   });
   it('only uses characters covered by the self-hosted font subsets (concept 3.3)', () => {
     expect(checks.checkGlyphCoverage(d)).toEqual([]);

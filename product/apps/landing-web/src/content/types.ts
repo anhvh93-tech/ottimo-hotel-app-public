@@ -139,6 +139,14 @@ export interface Copy {
     label: string;
     title: string;
     intro: string;
+    /**
+     * "Rates from" line under the intro, above the room grid (FB-INV-004 F9, BR-114; CPY fallback 2.3 – in the hero
+     * it pushed the two buttons below the first screen at 375 px). `price` = site.json booking.fromNightlyVnd already
+     * formatted with its unit (lib/price.ts). The copy never writes a number or a unit itself.
+     */
+    from: (price: string) => string;
+    /** Conditions right under it (BR-114 (2)): `weekend` = booking.fromWeekendNightlyVnd, formatted. */
+    fromTerms: (weekend: string) => string;
     request: string;
     sleeps: (min: number, max: number) => string;
     items: readonly Room[];

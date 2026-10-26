@@ -1,7 +1,8 @@
 // Copy of every published language (ADR-014 3.4, US-152 AC1; concept v1.2.1): same shape, nothing empty, brand voice
 // rules a machine can check, wording rules of FB-INV-002 (no room count, boutique stay), numbers equal to site.json.
 import { describe, expect, it } from 'vitest';
-import { BANNED } from '../../scripts/dist-checks.mjs';
+import { BANNED, MONEY } from '../../scripts/dist-checks.mjs';
+import { formatVnd } from '../lib/price';
 import { plain } from '../lib/rich';
 import { homeJsonLd } from '../lib/seo';
 import { BOOKING_STRINGS } from '../scripts/booking-strings';
@@ -313,6 +314,79 @@ describe('numbers stated on the page = site.json booking parameters (concept 13)
       expect(s.when.withinMinutes(45, '07:00', '22:00')).toContain('45');
       expect(s.when.nextMorning('09:00', '07:00')).toContain('09:00');
       expect(s.when.callNow(60)).toContain('60');
+    }
+  });
+});
+
+// FB-INV-004 F9 / BR-114 (CPY landing-fb-inv-004 2–3): "Rates from" + conditions, numbers only from site.json.
+describe('"from" price = site.json booking.fromNightlyVnd / fromWeekendNightlyVnd (F9)', () => {
+  const b = site.booking;
+  it('the two rates of BR-114: whole VND, weekday below weekend; the schema refuses the reverse', () => {
+    expect(b.fromNightlyVnd).toBe(667000);
+    expect(b.fromWeekendNightlyVnd).toBe(767000);
+    for (const v of [b.fromNightlyVnd, b.fromWeekendNightlyVnd]) {
+      expect(Number.isInteger(v)).toBe(true);
+      expect(v).toBeGreaterThan(0);
+    }
+    expect(b.fromNightlyVnd).toBeLessThan(b.fromWeekendNightlyVnd);
+    const swapped = {
+      ...raw,
+      booking: { ...raw.booking, fromNightlyVnd: 767000, fromWeekendNightlyVnd: 667000 },
+    };
+    expect(siteSchema.safeParse(swapped).success).toBe(false);
+    expect(
+      siteSchema.safeParse({ ...raw, booking: { ...raw.booking, fromNightlyVnd: 667000.5 } })
+        .success,
+    ).toBe(false);
+  });
+
+  it('formats VND in full with the unit of each language, never shortened', () => {
+    expect(formatVnd(667000, 'en')).toBe('667,000 VND');
+    expect(formatVnd(667000, 'vi')).toBe('667.000 đ');
+    expect(formatVnd(1250000, 'vi')).toBe('1.250.000 đ');
+    expect(() => formatVnd(0, 'en')).toThrow();
+    expect(() => formatVnd(667000.5, 'en')).toThrow();
+  });
+
+  it.each([
+    [en, '667,000 VND', '767,000 VND', /For two/, /taxes included/, /two nights minimum/],
+    [vi, '667.000 đ', '767.000 đ', /Cho 2 khách/, /đã gồm thuế/, /tối thiểu 2 đêm/],
+  ] as const)(
+    '%#: page sentence and conditions carry the site.json numbers',
+    (c, p, w, guests, tax, min) => {
+      const from = plain(c.rooms.from(formatVnd(b.fromNightlyVnd, c.lang)));
+      const terms = plain(c.rooms.fromTerms(formatVnd(b.fromWeekendNightlyVnd, c.lang)));
+      expect(from).toContain(p);
+      expect(from).toBe(c.lang === 'en' ? `Rates from ${p} a night` : `Chỉ từ ${p} mỗi đêm`);
+      expect(terms).toContain(w);
+      expect(terms).toMatch(guests);
+      expect(terms).toMatch(tax);
+      expect(terms).toMatch(min);
+      // the price stays a no-break run ([[…]])
+      expect(c.rooms.from('X')).toContain('[[X]]');
+      expect(c.rooms.fromTerms('Y')).toContain('[[Y]]');
+      // the copy never writes an amount or a unit itself – only what site.json gives it
+      expect(c.rooms.from('X')).not.toMatch(/\d|VND|(?<!\p{L})đ(?!\p{L})/u);
+      expect(c.rooms.fromTerms('Y')).not.toMatch(/\d{3}|VND|(?<!\p{L})đ(?!\p{L})/u);
+      // brand voice and the banned list (texts() only walks strings, these are functions)
+      for (const s of [from, terms]) {
+        expect(s).not.toMatch(/!|\p{Extended_Pictographic}|\*/u);
+        expect(s).not.toMatch(/only|just|cheap|deal|offer|giá rẻ|giá sốc|rẻ nhất|ưu đãi|phí/iu);
+        for (const re of BANNED) expect(s.match(re)?.[0] ?? null, String(re)).toBeNull();
+      }
+    },
+  );
+
+  it('no price in the meta description or the JSON-LD (BR-114: page body only)', () => {
+    // the dist check pattern catches both written forms
+    expect(formatVnd(667000, 'en')).toMatch(MONEY);
+    expect(formatVnd(667000, 'vi')).toMatch(MONEY);
+    expect('Open 07:00–22:00, +84844440909').not.toMatch(MONEY);
+    for (const c of [en, vi]) {
+      expect(c.meta.description).not.toMatch(MONEY);
+      expect(c.meta.title).not.toMatch(MONEY);
+      expect(JSON.stringify(homeJsonLd(c, 'https://ottimo.vn/'))).not.toMatch(MONEY);
+      expect(JSON.stringify(homeJsonLd(c, 'https://ottimo.vn/'))).not.toMatch(/price|offer/i);
     }
   });
 });

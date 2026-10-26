@@ -60,17 +60,25 @@ export const siteSchema = z.object({
   }),
   // What the page promises (BR-912 (4) public promise, BR-811 front desk hours, BR-112 window, BR-305 deposit).
   // copy.test.ts checks that the EN/VI copy states exactly these numbers.
-  booking: z.object({
-    frontDeskOpen: time,
-    frontDeskClose: time,
-    promiseMinutes: z.number().int().positive(),
-    // web_request_public_promise_call_now_minutes (DOM, BR-912 v0.3.8): arriving today, sent outside desk hours
-    promiseCallNowMinutes: z.number().int().positive(),
-    promiseNextMorningBy: time,
-    windowDays: z.number().int().positive(),
-    shortMaxNights: z.number().int().positive(),
-    depositPercent: z.number().int().min(0).max(100),
-  }),
+  booking: z
+    .object({
+      frontDeskOpen: time,
+      frontDeskClose: time,
+      promiseMinutes: z.number().int().positive(),
+      // web_request_public_promise_call_now_minutes (DOM, BR-912 v0.3.8): arriving today, sent outside desk hours
+      promiseCallNowMinutes: z.number().int().positive(),
+      promiseNextMorningBy: time,
+      windowDays: z.number().int().positive(),
+      shortMaxNights: z.number().int().positive(),
+      depositPercent: z.number().int().min(0).max(100),
+      // "Rates from" line of the hero (BR-114, FB-INV-004 F9): cheapest direct Sunday–Thursday night for two, VAT
+      // included, and the same rate on Friday/Saturday nights. Whole VND; the weekend rate is the higher one.
+      fromNightlyVnd: z.number().int().positive(),
+      fromWeekendNightlyVnd: z.number().int().positive(),
+    })
+    .refine((b) => b.fromNightlyVnd < b.fromWeekendNightlyVnd, {
+      message: 'booking.fromNightlyVnd must be below fromWeekendNightlyVnd (BR-114 (2))',
+    }),
   // Name of the deposit account holder (ESC-008) for the anti-impersonation answer (SEC UXD-06); empty = not yet.
   paymentReceivingAccountHolder: z.string(),
   // Operator of the stay (INV 22/10, public): footer legal line. Tax code = 10 digits (or 10-3 for a branch).

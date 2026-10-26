@@ -111,6 +111,9 @@ export const vi: Copy = {
     title: 'Chọn khung cửa sổ [[của bạn]]',
     intro:
       'Phố lên đèn hay vườn xanh trước mặt. Studio cho hai người, hoặc hai phòng ngủ cho cả gia đình.',
+    from: (price) => `Chỉ từ [[${price}]] mỗi đêm`,
+    fromTerms: (weekend) =>
+      `Cho 2 khách, đã gồm thuế. Đêm Chủ nhật đến thứ Năm, đặt trực tiếp. Cuối tuần từ [[${weekend}]], tối thiểu 2 đêm; ngày lễ, Tết cao hơn.`,
     request: 'Nhận báo giá phòng này',
     sleeps: (min, max) => `${min}–${max} khách`,
     items: [

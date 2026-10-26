@@ -303,6 +303,10 @@ export const BANNED = [
   /ready from \d|sẵn sàng từ \d/iu,
 ];
 
+/** A VND amount as the page writes it (lib/price.ts: "667,000 VND" / "667.000 đ"), or a bare VND unit. */
+export const MONEY =
+  /\d{1,3}(?:[.,]\d{3})+(?:\s*(?:VND|đ)(?!\p{L}))?|\bVND\b|(?<!\p{L})đ(?!\p{L})/u;
+
 export function checkWording({ html }) {
   const problems = [];
   for (const page of html) {
@@ -551,6 +555,19 @@ export function checkSeo({ html, dist }, { siteUrl, langs, indexable }) {
       problems.push(`${page.path}: self-served ratings in JSON-LD`);
     if (graph.some((n) => 'numberOfRooms' in n))
       problems.push(`${page.path}: room count in JSON-LD (FB-INV-002 point 1)`);
+    // FB-INV-004 F9 / BR-114: the "from" price lives only in the page body, next to its conditions – never in the
+    // title, meta description, Open Graph/Twitter tags or JSON-LD (no room for the conditions, goes stale).
+    if (graph.some((n) => 'priceRange' in n || 'offers' in n || 'makesOffer' in n))
+      problems.push(`${page.path}: price in JSON-LD (BR-114: page body only)`);
+    const metaText = [
+      h.title ?? '',
+      ...tags(page.source)
+        .filter((x) => x.name === 'meta' && x.attrs.content)
+        .map((x) => x.attrs.content),
+      JSON.stringify(h.jsonLd),
+    ].join(' ');
+    const money = metaText.match(MONEY);
+    if (money) problems.push(`${page.path}: price "${money[0]}" in head/meta/JSON-LD (BR-114)`);
   }
   return problems;
 }
