@@ -3,7 +3,7 @@
 -- ESC-024 B (INV 22/10) / ESC-031 (INV 26/10 "vá luôn"): the desk records the late charge of one night without a
 -- manager password at the counter; OWN + MGR are told (`late_fee_post_review`) and review it within the
 -- post-checkout window (BR-416 (3)(4)). This migration only adds that notification kind. ARC S1-09: the CHECK list =
--- the list on `main` (0086) + the new kind ONLY (test/notification-kinds.test.ts compares this SQL with
+-- the list on `main` (0086) + the new kind ONLY (test/money-limit-basis-architecture.test.ts compares this SQL with
 -- STAFF_NOTIFICATION_KINDS). No table, no data change.
 -- Runs as ottimo_owner (SET ROLE by src/db/migrate.ts) inside the migrator's single transaction.
 ALTER TABLE "staff_notification" DROP CONSTRAINT "staff_notification_kind_check";--> statement-breakpoint
