@@ -36,9 +36,11 @@ const username = (env.ADD_OWNER_USERNAME ?? '').trim().toLowerCase();
 const displayName = (env.ADD_OWNER_NAME ?? '').trim();
 const operator = (env.ADD_OWNER_OPERATOR ?? '').trim();
 const dryRun = (env.ADD_OWNER_DRY_RUN ?? '') === '1';
-if (!/^[a-z0-9][a-z0-9._-]{2,63}$/.test(username)) refuse('ADD_OWNER_USERNAME: 3–64 of a-z 0-9 . _ -');
+if (!/^[a-z0-9][a-z0-9._-]{2,63}$/.test(username))
+  refuse('ADD_OWNER_USERNAME: 3–64 of a-z 0-9 . _ -');
 if (username.startsWith('qa.')) refuse('qa.* names belong to QA');
-if (displayName.length < 1 || displayName.length > 100) refuse('ADD_OWNER_NAME is required (≤ 100)');
+if (displayName.length < 1 || displayName.length > 100)
+  refuse('ADD_OWNER_NAME is required (≤ 100)');
 if (operator.length < 1 || operator.length > 100) refuse('ADD_OWNER_OPERATOR is required (≤ 100)');
 
 class DryRunRollback extends Error {}
@@ -53,7 +55,8 @@ try {
     const u = await tx.query('SELECT user_id FROM auth_find_user($1)', [username]);
     return { properties: p.rows, taken: u.rows.length > 0 };
   });
-  if (found.properties.length !== 1) refuse(`expected 1 active property, found ${found.properties.length}`);
+  if (found.properties.length !== 1)
+    refuse(`expected 1 active property, found ${found.properties.length}`);
   if (found.taken) refuse('username already exists');
   const { property_id: propertyId, organization_id: organizationId } = found.properties[0];
 
@@ -88,7 +91,9 @@ try {
     });
   } catch (err) {
     if (!(err instanceof DryRunRollback)) throw err;
-    console.log('staging-add-owner: dry-run ok (checks and inserts passed, rolled back – nothing written)');
+    console.log(
+      'staging-add-owner: dry-run ok (checks and inserts passed, rolled back – nothing written)',
+    );
   }
   if (!dryRun) {
     process.stdout.write(
@@ -102,7 +107,9 @@ try {
     );
   }
 } catch (err) {
-  console.error(`staging-add-owner: failed (${err instanceof Error ? `${err.name}: ${err.message}` : 'error'})`);
+  console.error(
+    `staging-add-owner: failed (${err instanceof Error ? `${err.name}: ${err.message}` : 'error'})`,
+  );
   code = 1;
 } finally {
   await pool.end();
