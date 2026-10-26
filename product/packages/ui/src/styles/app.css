@@ -458,3 +458,9 @@ body:has(.app-mnav) .toasts {
     grid-template-columns: 1fr;
   }
 }
+
+/* FB-INV-005 (H04 4.2): two price boxes side by side where only one has help text – keep both inputs at
+   the top instead of stretching the shorter field to the row height. */
+.g-2.top {
+  align-items: start;
+}

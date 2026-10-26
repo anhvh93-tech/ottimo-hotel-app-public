@@ -108,19 +108,21 @@ export function seedGroups(): RoomGroup[] {
 /** 10 units of OTTIMO Đà Lạt (hi-fi H04; BR-110 standard occupancy per unit; ESC-014 max = base + 1). */
 export function seedRooms(): Room[] {
   const g = seedGroups();
-  const rows: Array<[string, string, number, number, number]> = [
-    ['101', 'The Amber', 0, 2, 8_000_000],
-    ['102', 'The Fern', 0, 2, 9_000_000],
-    ['103', 'The Bloom', 0, 2, 9_000_000],
-    ['201', 'The Mist', 0, 2, 8_500_000],
-    ['202', 'The Valley', 0, 2, 9_500_000],
-    ['203', 'The Sage', 0, 2, 9_500_000],
-    ['301', 'The Velvet', 1, 4, 11_500_000],
-    ['302', 'The Ivory', 2, 3, 11_000_000],
-    ['401', 'The Pine', 1, 4, 12_500_000],
-    ['402', 'The Ember', 2, 3, 12_000_000],
+  // FB-INV-005 (BR-101 v0.4.7): monthly and nightly list prices are stored separately. The nightly
+  // numbers keep the pre-B2 suggested values (DS-E) so every oracle (667.000, 792.000…) still holds.
+  const rows: Array<[string, string, number, number, number, number]> = [
+    ['101', 'The Amber', 0, 2, 8_000_000, 667_000],
+    ['102', 'The Fern', 0, 2, 9_000_000, 750_000],
+    ['103', 'The Bloom', 0, 2, 9_000_000, 750_000],
+    ['201', 'The Mist', 0, 2, 8_500_000, 708_000],
+    ['202', 'The Valley', 0, 2, 9_500_000, 792_000],
+    ['203', 'The Sage', 0, 2, 9_500_000, 792_000],
+    ['301', 'The Velvet', 1, 4, 11_500_000, 958_000],
+    ['302', 'The Ivory', 2, 3, 11_000_000, 917_000],
+    ['401', 'The Pine', 1, 4, 12_500_000, 1_042_000],
+    ['402', 'The Ember', 2, 3, 12_000_000, 1_000_000],
   ];
-  return rows.map(([roomNo, name, gi, base, monthly], i) => ({
+  return rows.map(([roomNo, name, gi, base, monthly, nightly], i) => ({
     id: uid(201 + i),
     roomNo,
     name,
@@ -141,7 +143,7 @@ export function seedRooms(): Room[] {
     currentListPrice: {
       effectiveFrom: '2026-10-15',
       monthlyListPriceVnd: monthly,
-      nightlyListPriceVnd: Math.round(monthly / 12 / 1000) * 1000,
+      nightlyListPriceVnd: nightly,
     },
     version: 1,
   }));

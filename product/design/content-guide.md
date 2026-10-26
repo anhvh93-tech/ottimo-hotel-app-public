@@ -1309,10 +1309,10 @@ Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨
 | `rooms.edit` | Sửa | Edit | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.edit_title` | Sửa căn {room} · {name} | Edit room {room} · {name} | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.error_title` | Chưa tải được danh mục căn | Couldn't load rooms | ⟨chừa chỗ⟩ | 04-rooms.html |
-| `rooms.footnote` | Giá đêm niêm yết = giá tháng ÷ 12, làm tròn 1.000 (BR-101) – do hệ thống tính. Đổi giá có ngày hiệu lực; đơn, báo giá đã có giữ giá cũ (BR-006). | Nightly list price = monthly price ÷ 12, rounded to 1,000 (BR-101) – calculated by the system. Price changes have an effective date; existing bookings and quotes keep the old price (BR-006). | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.footnote` | Giá tháng và giá đêm nhập riêng (BR-101). Đổi giá có ngày hiệu lực; đơn, báo giá đã có giữ giá cũ (BR-006). | Monthly and nightly prices are entered separately (BR-101). Price changes have an effective date; existing bookings and quotes keep the old price (BR-006). | ⟨chừa chỗ⟩ | 04-rooms.html – FB-INV-005 (26/10): bỏ ÷ 12, câu VI theo DOM fb-inv-005 §4.2; FE-A soạn EN, chờ UXD duyệt |
 | `rooms.inc` | Tăng | Increase | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.name` | Tên căn | Room name | ⟨chừa chỗ⟩ | 04-rooms.html |
-| `rooms.night_auto` | Tự tính: giá tháng ÷ 12 (BR-101) | Auto: monthly price ÷ 12 (BR-101) | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.night_auto` | Giá đêm ngày thường, kênh Trực tiếp, đã gồm VAT. Cuối tuần +15 %, ngày lễ +30 % tự cộng theo lịch giá. | Weekday night, Direct channel, VAT included. Weekends +15% and holidays +30% are added by the rate calendar. | ⟨chừa chỗ⟩ | 04-rooms.html – chữ phụ dưới ô giá đêm (nay nhập được). FB-INV-005: BR-101 v0.4.7 (VAT – BR-523), BR-104 + ESC-036 A (+15 %/+30 %). Đổi tham số lịch giá thì sửa câu này. Chờ UXD duyệt. Key giữ tên cũ để không đổi hi-fi |
 | `rooms.ooo_until` | Khóa sửa chữa đến {date} | Blocked for repair until {date} | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.price` | Giá niêm yết | List price | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.reason` | Lý do đổi giá | Reason for price change | ⟨chừa chỗ⟩ | 04-rooms.html |

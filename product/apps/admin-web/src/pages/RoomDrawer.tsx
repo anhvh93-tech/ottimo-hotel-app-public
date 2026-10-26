@@ -10,7 +10,7 @@ import { Alert, Button, Field, Modal, Stepper, Switch } from '@ottimo/ui';
 import { useId, useState, type FormEvent } from 'react';
 import { api } from '../app/api';
 import { useBusinessDay, useBusinessDayChange } from '../app/businessDay';
-import { nightlyFromMonthly, parseVnd } from '../app/money';
+import { isVndStep, parseVnd, perDayOfMonthly } from '../app/money';
 import { fieldErrors, problemView } from '../app/problem';
 import { useToast } from '../app/toast';
 import { useOnline } from '../hooks/useOnline';
@@ -51,6 +51,7 @@ export function RoomDrawer({
   const initialBase = room.baseOccupancy ?? 1;
   const initialMax = room.maxOccupancy ?? initialBase + 1;
   const initialMonthly = room.currentListPrice?.monthlyListPriceVnd;
+  const initialNightly = room.currentListPrice?.nightlyListPriceVnd;
 
   const [name, setName] = useState(room.name ?? '');
   // 0.3.4 Q6: bedSetup (free text, ≤ 100). bedCount/areaM2 are in the contract but not in hi-fi H04 yet.
@@ -60,6 +61,10 @@ export function RoomDrawer({
   const [max, setMax] = useState(initialMax);
   const [monthlyText, setMonthlyText] = useState(
     initialMonthly !== undefined ? vnd(initialMonthly) : '',
+  );
+  // FB-INV-005 (BR-101 v0.4.7): the nightly list price is entered by the owner, never derived.
+  const [nightlyText, setNightlyText] = useState(
+    initialNightly !== undefined ? vnd(initialNightly) : '',
   );
   const [effectiveFrom, setEffectiveFrom] = useState(today);
   // The default follows the server's business day while it is untouched.
@@ -72,8 +77,17 @@ export function RoomDrawer({
   const [busy, setBusy] = useState(false);
 
   const monthly = parseVnd(monthlyText);
-  const priceChanged = monthlyText.trim() !== '' && monthly !== initialMonthly;
-  const nightly = monthly !== null ? nightlyFromMonthly(monthly) : null;
+  const nightly = parseVnd(nightlyText);
+  // A cleared box counts as a change (then it fails "amount > 0"); an untouched one does not.
+  const changed = (text: string, value: number | null, initial: number | undefined) =>
+    text.trim() === '' ? initial !== undefined : value !== initial;
+  const priceChanged =
+    changed(monthlyText, monthly, initialMonthly) || changed(nightlyText, nightly, initialNightly);
+  // Soft check only (DOM fb-inv-005 §4): a nightly price under the monthly price per day is unusual.
+  const nightlyLow =
+    monthly !== null && monthly > 0 && nightly !== null && nightly > 0
+      ? nightly * 30 < monthly
+      : false;
   const dirty =
     name !== (room.name ?? '') ||
     bedSetup !== (room.bedSetup ?? '') ||
@@ -99,6 +113,10 @@ export function RoomDrawer({
     if (priceChanged) {
       if (monthly === null || monthly <= 0)
         e['listPrice.monthlyListPriceVnd'] = t('field_error.amount_not_positive');
+      if (nightly === null || nightly <= 0)
+        e['listPrice.nightlyListPriceVnd'] = t('field_error.amount_not_positive');
+      else if (!isVndStep(nightly))
+        e['listPrice.nightlyListPriceVnd'] = t('field_error.multiple_of_1000');
       if (!effectiveFrom) e['listPrice.effectiveFrom'] = t('common.required');
       else if (effectiveFrom < today) e['listPrice.effectiveFrom'] = t('booking.error.past_date');
       if (reason.trim().length < 3) e['listPrice.reason'] = t('field_error.reason_required');
@@ -122,8 +140,14 @@ export function RoomDrawer({
     if (base !== initialBase) patch.baseOccupancy = base;
     if (max !== initialMax || base !== initialBase) patch.maxOccupancy = max;
     if (sellable !== room.isSellable) patch.isSellable = sellable;
-    if (priceChanged && monthly !== null) {
-      patch.listPrice = { effectiveFrom, monthlyListPriceVnd: monthly, reason: reason.trim() };
+    if (priceChanged && monthly !== null && nightly !== null) {
+      // Always both prices – the server's ÷ divisor fallback must never be reached from the Desk.
+      patch.listPrice = {
+        effectiveFrom,
+        monthlyListPriceVnd: monthly,
+        nightlyListPriceVnd: nightly,
+        reason: reason.trim(),
+      };
     }
     setBusy(true);
     setBanner(null);
@@ -298,7 +322,7 @@ export function RoomDrawer({
         </fieldset>
         <fieldset className="card inset">
           <legend className="label-h">{t('rooms.price')}</legend>
-          <div className="g-2">
+          <div className="g-2 top">
             <Field label={t('rooms.col_month')} error={errors['listPrice.monthlyListPriceVnd']}>
               {(p) => (
                 <div className="input-affix">
@@ -314,20 +338,31 @@ export function RoomDrawer({
                 </div>
               )}
             </Field>
-            <Field label={t('rooms.col_night')} help={t('rooms.night_auto')}>
+            <Field
+              label={t('rooms.col_night')}
+              help={t('rooms.night_auto')}
+              error={errors['listPrice.nightlyListPriceVnd']}
+            >
               {(p) => (
                 <div className="input-affix">
                   <input
                     {...p}
                     className="input num"
-                    readOnly
-                    value={nightly !== null ? vnd(nightly) : ''}
+                    inputMode="numeric"
+                    value={nightlyText}
+                    onChange={(e) => setNightlyText(e.target.value)}
+                    onBlur={() => nightly !== null && setNightlyText(vnd(nightly))}
                   />
                   <span className="affix">{t('common.vnd_unit')}</span>
                 </div>
               )}
             </Field>
           </div>
+          {nightlyLow && monthly !== null ? (
+            <Alert tone="warn">
+              {t('rooms.night_low', { perDay: vnd(perDayOfMonthly(monthly)) })}
+            </Alert>
+          ) : null}
           {priceChanged ? (
             <div className="g-2">
               <Field
