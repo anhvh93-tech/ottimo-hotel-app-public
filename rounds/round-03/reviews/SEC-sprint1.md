@@ -528,3 +528,51 @@ Sau B1 (khi có kết quả): G2-4 → SEC ghi "OWN thật đăng ký 2FA trên 
 4. **Rebase lên `main` trước gộp**: lấy lại số migration nếu `main` có migration mới sau 0087; `notification-kinds` và `migrations-journal` phải xanh lại. Commit gộp vào bản chạy ngày D (02/11).
 
 - Cảm ơn BE-B: (a) chặn từng trường thông tin xác nhận thay vì lặng lẽ bỏ qua – lễ tân và FE nhận lỗi rõ; (b) đặt hạn hậu kiểm = cửa sổ A32 nên không có "hạn xem lại mà miễn không được"; (c) audit không ghi `confirmedBy` – sổ không nói dối.
+
+---
+
+## 9. Review FE-A vá ESC-031 – màn trả phòng "Ghi phụ thu – quản lý xem lại" và "Cần chú ý" (commit `6f72a9c`, nhánh `worktree-agent-a67639f06f6add4d9`, so với merge `081ce4b`)
+
+- Người ghi: SEC | 26/10/2026 | Bước: Review (Round 3, điều kiện 8.6 (1); ngoại lệ đóng băng mã tiền ORC 26/10, chỉ phạm vi ESC-031/ESC-024 B).
+- Phạm vi đọc: `git diff 081ce4b 6f72a9c` – `CheckOutPage.tsx`, `app/attention.ts`, `dashboard/parts.tsx`, `ReservationDrawer.tsx`, `mocks/stay.ts`, `mocks/handlers.ts`, `__tests__/esc031-fea.test.tsx`, `__tests__/s4-416-fea.test.tsx`, chuỗi mới trong `strings-vi.json`, dòng decision-log FE-A; báo cáo `rounds/round-03/outputs/FE/esc031-fe-a.md`. Đối chiếu `mfa.service.ts` (`status().enforced`), OpenAPI `getMy2fa`, `infra/docker-compose.prod.yml` + `ci/test-deploy-from-ci.sh` (chặn deploy production khi `MFA_ENFORCED≠true`).
+- Kiểm lại của SEC trong worktree: `vitest run esc031-fea s4-416-fea` – 2 tệp, 17/17 ca xanh.
+- **Kết luận: Verified.** Điều kiện 8.6 (1) **đạt**. Không có thẻ Blocker/Major; 1 thẻ Suggestion.
+
+### 9.1 Đối chiếu từng yêu cầu 8.6 (1)
+
+| Yêu cầu | Bằng chứng | Đạt |
+|---|---|---|
+| Body chỉ `{amountVnd, reason, postReview: true}` | `complete()`: nhánh `lfReview` dựng object literal đúng 3 khóa; không spread, không trộn với nhánh quầy. `amountVnd = lateFeeAsNightVnd` (số server, không có ô nhập). Test ca 1 (2FA bật) và ca 2 (2FA tắt, đã gõ mật khẩu rồi đổi cách): `toStrictEqual({amountVnd, reason, postReview: true})` + vòng lặp kiểm 6 khóa xác nhận vắng; ca 2 thêm `JSON.stringify(body)` không chứa mật khẩu đã gõ. Ca 409: lần gửi lại cũng `toStrictEqual` | Đạt |
+| Không gửi trường xác nhận nào, kể cả rỗng | Nhánh `lfReview` không nhắc `approverUsername`/`authMethod`/`secret`/`totpCode`/`confirmationId`/`requestFoc`; `toStrictEqual` bắt cả khóa `undefined`. `lfFocVnd` = 0 khi `lfReview` nên FOC không lọt qua đường khác | Đạt |
+| Panel mật khẩu ẩn khi `enforced !== false`; không đọc được → ẩn | `deskConfirm` khởi tạo `false`; chỉ đặt `true` khi `getMy2fa` trả `enforced === false` (so sánh chặt – vắng trường/`undefined` → ẩn); promise lỗi → `false`. `lfModeNow = deskConfirm ? lfMode : 'review'` nên kể cả `lfMode` cũ là `'desk'` thì vẫn về `review`. `Seg` chỉ có 1 lựa chọn khi ẩn. Test ca 1: không `input[type=password]`, không ô người xác nhận, không công tắc miễn | Đạt (thiếu test nhánh lỗi – FB-R3-SEC-FE-A-13) |
+| Ý nghĩa cờ `enforced` | `mfa.service.ts`: `enforced = options.mfaEnforced === true` – cờ triển khai, **không theo vai**. FD ở production nhận `true` như OWN. Deploy production bị chặn khi `MFA_ENFORCED≠true` (`test-deploy-from-ci.sh` ca "production with MFA_ENFORCED=false") | Đạt |
+| Đổi cách xóa mật khẩu đã gõ khỏi state | `lfShownKey` thêm `lfModeNow` → đổi cách thì `useEffect` đặt `lfSecret = ''`; ô mật khẩu cũng bị gỡ khỏi DOM ở nhánh `review`. Test ca 3: gõ → đổi → đổi lại → ô trống. Quy tắc FE-08 cũ (rời bước, đổi số/miễn → xóa) giữ nguyên | Đạt |
+| "Cần chú ý" chỉ OWN/MGR | Lọc ở máy chủ (8.3: `attentionAudience` → `MGR_PLUS`, FD `resolve` → 404). FE không tự mở rộng người xem; mock đặt `audience: ['owner','manager']`; test ca OWN/FD: FD không thấy, đóng → 404. Câu hiển thị chỉ mã đơn + hạn (`dueAt`), không tên khách, không số tiền | Đạt |
+| `?open=folio` không mở đường vượt quyền | `ReservationDrawer`: chỉ `setOpen('folio')` khi `fd && online && r.folioId && r.status !== 'hold'` – **đúng điều kiện của nút "Folio" có sẵn** (dòng ~727). Đơn đọc qua API có RLS/`x-roles`; folio đọc qua API riêng có kiểm quyền. Cờ bị xóa khỏi URL (`replace`) sau khi đọc. Không có route mới, không tham số nào khác được đọc | Đạt |
+| Không log/lưu dữ liệu nhạy cảm | Diff không thêm `console.*`, `localStorage`/`sessionStorage`/IndexedDB, tracking hay `sendBeacon`. Mật khẩu chỉ trong state React của panel quầy (dev/CI). Lý do phụ thu chỉ gửi trong body | Đạt |
+
+### 9.2 Xử lý lỗi – không mở đường tắt
+
+- 409 `SURCHARGE_CHANGED`: tải lại số, `renewKey()` – lần sau là lệnh mới với số mới, không phát lại lệnh cũ; test kiểm `Idempotency-Key` khác và body lần 2 vẫn đúng 3 khóa.
+- 422 `NOT_ALLOWED` ở `lateFeeInsteadOfNight` (đêm bán được trở lại): `renewKey()` + về bước 2 (đêm thêm theo giá thường). Không có nhánh nào tự đổi sang đường quầy.
+- 401 trên đường quầy (dev/CI): câu chung FE-08 không phân biệt sai tên/sai mật khẩu, thêm câu chỉ sang "Ghi phụ thu – quản lý xem lại". Không lộ thông tin tài khoản.
+
+### 9.3 Ghi nhận nhỏ (không cần thẻ)
+
+- Tên người xác nhận (`lfUser`) và trạng thái miễn (`lfFoc`) ở panel cũ được giữ khi đổi cách; không gửi đi ở nhánh `review` (đã kiểm bằng `toStrictEqual`), tên đăng nhập không phải bí mật. Chấp nhận.
+- E2E TC-X-086 chọn đường quầy trên stack CI `MFA_ENFORCED=false` – chỉ là môi trường test; production luôn `true` (cổng deploy). Staging nên chạy `MFA_ENFORCED=true` để QA thấy đúng màn ngày D (đã nằm trong điều kiện 8.6 (3)).
+
+### FB-R3-SEC-FE-A-13
+- Mức độ: Suggestion
+- Vị trí: `__tests__/esc031-fea.test.tsx`
+- Vấn đề: chưa có ca test cho nhánh fail-closed khi `getMy2fa` lỗi (500/mạng) hoặc trả thiếu trường `enforced`. Mã hiện đúng (`=== false`, `reject → false`), nhưng không có test giữ hành vi này khi ai đó sửa lại thành `!x.data.enforced`.
+- Vì sao quan trọng: đây là điều kiện SEC 8.6 (1) "không đọc được cờ → ẩn"; một lần sửa vô ý sẽ hiện ô mật khẩu ở production khi API chập chờn (máy chủ vẫn fail-closed, nên tác hại chỉ là lễ tân gõ mật khẩu quản lý vô ích – không vượt quyền).
+- Đề xuất sửa: thêm 1 ca – mock `getMy2fa` trả 500 và 1 ca trả `{enabled, required}` không có `enforced` → chỉ 1 lựa chọn, không `input[type=password]`. Làm được trong v1.0.1; không chặn gộp.
+- Trạng thái: Open
+
+### 9.4 Điều kiện gộp còn lại (không đổi so với 8.6)
+
+- 8.6 (1) **đóng** với commit này.
+- 8.6 (3) QA kiểm tiền trên `MFA_ENFORCED=true`: thêm kiểm Desk chỉ có một cách, body 3 trường (như báo cáo FE-A mục 5).
+- UXD duyệt 16 chuỗi mới – không phải điều kiện bảo mật.
+- Gộp FE-A cùng BE-B (`35a477c`) và ARC (`66d88e7`) vào cùng bản chạy ngày D; không gộp FE một mình.
