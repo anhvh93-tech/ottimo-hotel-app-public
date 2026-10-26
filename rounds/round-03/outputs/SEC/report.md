@@ -32,3 +32,22 @@
 
 ## ESC mới
 - Không có.
+
+---
+
+## Bổ sung 26/10/2026 – Thư hỏi luật sư (ESC-030 = A, ESC-001)
+
+### Đã làm gì
+- Soạn thư hỏi luật sư 1–2 trang (INV gửi thẳng): bối cảnh website/form, 6 câu đánh số kèm cách đội đang làm – (1) duyệt thông báo xử lý dữ liệu EN/VI; (2) LZ-2 căn cứ xử lý (Luật 91/2025/QH15 Điều 19 khoản 1); (3) LZ-8 Luật TMĐT 122/2025/QH15 + NĐ 248/2026; (4) hạn lưu ảnh giấy tờ 3 tháng; (5) trẻ em dưới 16; (6) tài khoản nhận cọc cá nhân vs doanh nghiệp xuất hóa đơn. Phụ lục A/B = nguyên văn `privacy.ts` + câu ô đồng ý `en.ts`/`vi.ts` phiên bản 2026-10-24, biến thay bằng giá trị công khai `site.json`.
+
+### File tạo/sửa
+- Tạo: `04-investor-feedback/lawyer-questions-2026-10-26.md`
+- Sửa: `02-escalations/ESC-030.md` (tham chiếu), file này
+
+### Giả định
+- Đặt thư ở `04-investor-feedback/` theo chỉ định ORC.
+- Không ghi số căn (FB-INV-002), số tài khoản, địa chỉ máy chủ, tên miền nội bộ.
+- Điều khoản Luật 91 Điều 19 k1 lấy theo ESC-001 (nguồn tổng hợp) – thư nhờ luật sư sửa nếu sai.
+
+### Việc chưa xong
+- Khi có trả lời: sửa `privacy.ts` (+ tăng `VERSION`), câu đồng ý, tham số hạn lưu; SEC kiểm lại điều kiện bật form (s1-SEC-on-us155 #4, #5).
