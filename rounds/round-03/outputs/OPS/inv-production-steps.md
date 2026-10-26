@@ -295,6 +295,21 @@ Xong 9.1–9.3 thì nhắn đội: **"đã cài khóa production"**.
 - Thư thử 8b: kiểm hộp thư có thư "OTTIMO – Security notice…".
 - Buổi tạo tài khoản chủ: đội chạy lệnh, anh/chị ngồi cạnh. Anh/chị đăng nhập, đổi mật khẩu, **đăng ký 2 bước ngay**, cất 10 mã khôi phục. Mật khẩu tạm chỉ hiện trên màn hình máy chủ, không gửi chat.
 
+## Phần 10 – Cập nhật 26/10 chiều: sửa 1 dòng cấu hình rồi duyệt lại lượt Release (5 phút)
+
+Lượt Release đầu (tag `v1.0.0-rc.1`) dừng vì **một dòng trong tệp cấu hình production trên máy chủ**: mã VietQR đang để "tắt" trong khi danh sách phương thức thu tiền có VietQR. Ở production, app từ chối khởi động khi hai dòng này mâu thuẫn (đây là chốt an toàn, chạy đúng). Đội đã kiểm thử trên máy chủ: chỉ cần sửa dòng này, cấu hình còn lại đạt. Đội không tự sửa được vì hệ thống quyền của phiên chặn việc đổi tệp cấu hình production – cần anh/chị chạy lệnh.
+
+**10.1 Sửa dòng cấu hình (2 phút).** Trong Terminal trên Mac này, thay `<IP-VPS>`, chép cả khối, Enter:
+```bash
+IP=<IP-VPS>
+ssh -i ~/.ssh/ottimo_ops ottimo-admin@$IP 'sudo -u ottimo cp -p /opt/ottimo-prod/.env /opt/ottimo-prod/state/env.before-vietqr-mode.20261026 && sudo -u ottimo sed -i "s/^PAYMENT_VIETQR_MODE=off\$/PAYMENT_VIETQR_MODE=production/" /opt/ottimo-prod/.env && sudo grep -c "^PAYMENT_VIETQR_MODE=production\$" /opt/ottimo-prod/.env'
+```
+- Kết quả đúng: máy in ra số **1**.
+- Lệnh tự lưu bản cũ trước khi sửa. VietQR "production" nghĩa là app tự vẽ mã QR tới tài khoản nhận mà chủ khách sạn nhập trong app; không gọi dịch vụ ngoài, không tự chuyển tiền.
+- Không đụng `ottimo.vn` và staging.
+
+**10.2 Duyệt lại (2 phút).** Nhắn đội "đã sửa cấu hình". ORC bấm "Re-run failed jobs" trên lượt Release cũ (cùng tag, cùng image). GitHub gửi lại email "Review deployments" → duyệt như phần 5.
+
 ## Tóm tắt thứ tự
 
 1. Phần 1, 2: làm ngay.

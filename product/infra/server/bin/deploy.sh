@@ -9,7 +9,7 @@
 #                                 re-checks the digests recorded at the earlier deploy in state/digests/<tag>)
 # Production guard (APP_ENV=production, step `config`): MFA_ENFORCED=true, CLOCK_MODE=system, no test image / test
 # switches (SEC E.10.2 (2)); every secret file the compose project needs exists; edge mode: the link network exists.
-# Steps: pull → postgres up → 02-roles.sh (SEC H3: role limits re-applied on an existing database) → migrate
+# Steps: pull → appconfig (the new image's loadConfig() on this stack's .env + secrets, api and worker) → postgres up → 02-roles.sh (SEC H3: role limits re-applied on an existing database) → migrate
 # (separate one-shot, ottimo_migrator → SET ROLE ottimo_owner; erd 16 point 5) → migration count check (ARC s3 4.2-7)
 # → api/worker/web on the new tag → smoke (health, role limits, worker, Caddy headers, blob probe).
 # A failure after the containers changed puts the previous tag back (images only: migrations are forward-only and
@@ -132,6 +132,21 @@ if [ -n "$api_digest$web_digest" ]; then
   digest_ok "$web_ref" "$web_digest" || { log "FAIL: $web_ref does not have the released digest"; exit 1; }
   log "image digests match the release"
 fi
+
+# ---- 1b. the new image's own configuration check (no database, nothing running changes) ----
+# loadConfig() of the image being deployed, with this stack's .env and secret files, for api and worker. A ConfigError
+# (e.g. production rule "PAYMENT_<X>_MODE must be production when <x> is in PAYMENT_METHODS_ENABLED") stops here –
+# before migrations and before the running containers change. ConfigError names variables, never values.
+# (26/10/2026: the first production deploy only found this at `switch` – rounds/round-03/outputs/OPS/v1-production.md 17.)
+step appconfig
+config_check='const c=require("./dist/config.js");try{const r=typeof c.resolveFileSecrets==="function"?c.resolveFileSecrets(process.env):process.env;c.loadConfig(r)}catch(e){console.error("ConfigError: "+String((e&&e.message)||e));process.exit(1)}'
+for svc in api worker; do
+  if ! out=$(dc run --rm --no-deps -T --entrypoint node "$svc" -e "$config_check" 2>&1); then
+    log "FAIL: image $tag refuses this stack's configuration ($svc): $(printf '%s\n' "$out" | grep -m1 '^ConfigError' || printf '%s\n' "$out" | tail -n 1)"
+    exit 1
+  fi
+done
+log "api/worker configuration accepted by image $tag"
 
 # ---- 2. database + roles (H3) ----
 step roles

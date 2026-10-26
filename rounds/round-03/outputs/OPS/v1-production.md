@@ -502,3 +502,54 @@ Khi lượt Release đầu tiên chạy (DB trống, chưa có tài khoản nào
 2. OPS bật 2 timer `@ottimo-prod`, chạy `backup.sh` lần đầu, kéo về Mac bằng `pull-backups.sh`, chạy `restore-drill.sh` (cần `age` trên Mac hoặc chạy trong container như 23/10) → biên bản vào mục này (điều kiện 4).
 3. Thư thử 8b (worker production → hộp thư INV).
 4. Buổi khởi tạo `production-bootstrap` (README `infra/server` 12.1) **có INV ngồi cạnh**: INV đổi mật khẩu, đăng ký 2FA, cất mã khôi phục ngay trong buổi (production đã `MFA_ENFORCED=true` nên bắt buộc).
+
+## 17. 26/10 – Sự cố lượt Release đầu `v1.0.0-rc.1` (deploy production thất bại ở bước `switch`)
+
+Lượt Release 40288670558: tag `v1.0.0-rc.1` = `2963675`, image `sha-29636757822b` (api `sha256:3298064f…`, web `sha256:88fb9b61…`). Job "deploy production" trả `failed (step=switch, ref=20261026T075737Z-b915ac)` sau ~20 giây. Điều tra từ Mac INV qua SSH `ottimo-admin`; không ghi IP, không in giá trị `.env`/bí mật.
+
+### 17.1 Diễn biến (log máy chủ `state/deploy-logs/ci-20261026T075737Z-b915ac.log`, giờ UTC)
+
+| Bước | Kết quả |
+|---|---|
+| `config` (chốt production) | Qua: MFA, CLOCK_MODE, test switch, digest, đủ tệp bí mật, mạng edge |
+| `pull` 07:57:37–39 | Kéo xong; **digest khớp** đúng bản phát hành |
+| `roles` 07:57:45 | Tạo volume `ottimo-prod_pgdata` mới, postgres healthy, `02-roles.sh` áp xong (2 dòng WARNING về membership là bình thường, giống staging) |
+| `migrate` 07:57:50 | **64/64** migration, CSDL production đã có lược đồ (trống dữ liệu) |
+| `switch` 07:57:54 | api và worker **thoát ngay khi khởi động**: `ConfigError: Invalid configuration: PAYMENT_VIETQR_MODE must be production when vietqr is in PAYMENT_METHODS_ENABLED`. web ở `Created` (chờ api healthy) → deploy dừng. Không có tag trước nên không quay lui |
+
+Không phải nguyên nhân (đã loại trừ): bundle `infra/` trên production **giống hệt** `main` ở `deploy.sh`, `deploy-from-ci.sh`, `dc`, `docker-compose.prod.yml` (so sha256); bí mật đủ; migration xong; Caddy/edge/chứng chỉ chưa tới lượt (web chưa chạy).
+
+### 17.2 Nguyên nhân gốc
+
+Mẫu `infra/server/env.production.example` (OPS viết 23/10) để `PAYMENT_METHODS_ENABLED=vietqr` + `PAYMENT_VIETQR_MODE=off`. Quy tắc (b) production của INT `integrations/common/safe-config.ts` đòi mọi phương thức có trong danh sách phải có `MODE=production` – `product/.env.example` đã ghi rõ "chép nguyên sang production sẽ FAIL có chủ đích". Staging (`APP_ENV=staging`) không áp quy tắc này nên lỗi không lộ ra trước. Chốt `config` của `deploy.sh` chỉ kiểm vài cờ bằng bash, không chạy bộ kiểm cấu hình của chính image, nên lỗi chỉ lộ ở bước `switch` (sau migration).
+
+Đúng nghiệp vụ v1.0 (decision-log 23/10: "cọc VietQR" thuộc lõi v1.0) → giá trị đúng là `PAYMENT_VIETQR_MODE=production`. Với VietQR, `production` chỉ là sinh chuỗi QR tại chỗ tới tài khoản trong tham số `payment_receiving_account` (OWN nhập, xác nhận lại mật khẩu, audit) – không gọi dịch vụ ngoài, không chuyển tiền. Code api không đọc biến này ở chỗ nào khác ngoài bộ kiểm.
+
+### 17.3 Kiểm chứng trên máy chủ (không đổi gì, container tạm `--rm --no-deps`, image `sha-29636757822b`, `.env` + bí mật production, chỉ ghi đè 1 biến `PAYMENT_VIETQR_MODE=production`)
+
+| Kiểm | Kết quả |
+|---|---|
+| `loadConfig(resolveFileSecrets(env))` | `CONFIG_OK appEnv=production mfa=true` – không còn lỗi cấu hình nào khác |
+| `createRuntime()` (thêm kiểm vai DB `assertSafeDbRole` + đồng hồ production, nối CSDL production) | `RUNTIME_OK` |
+| `ottimo.vn` / `desk.staging.ottimo.vn` / `desk.ottimo.vn` | 200 / 200 / 000 (đúng: web production chưa chạy) |
+
+### 17.4 Đã sửa
+
+1. **Repo (commit dưới đây):**
+   - `env.production.example`: `PAYMENT_VIETQR_MODE=production` + chú thích quy tắc (b).
+   - `deploy.sh`: bước mới **`appconfig`** ngay sau `pull` (và kiểm digest), **trước** `roles`/`migrate`/`switch`: chạy `loadConfig()` của chính image mới với `.env` + bí mật của stack, cho cả api và worker, container tạm `--rm --no-deps`. Lỗi → `failed (step=appconfig, …)`, log máy chủ ghi đúng dòng `ConfigError` (chỉ tên biến). Bắt cả lớp lỗi này ở mọi môi trường, trước khi đụng CSDL hay container đang chạy.
+   - `ci/test-deploy-from-ci.sh`: ca (g) – image từ chối `.env` → `step=appconfig`, không `up`, không `migrate`. Chạy local trong `ubuntu:24.04`: **toàn bộ OK** (a–g); shellcheck 0.10.0 `-S warning`: sạch.
+2. **Máy chủ – CHƯA làm được:** sửa 1 dòng `/opt/ottimo-prod/.env` (`PAYMENT_VIETQR_MODE=off` → `production`, có sao lưu `state/env.before-vietqr-mode.*`) bị **hệ thống quyền của phiên chặn** (đổi cấu hình production). Không tìm đường vòng. Lệnh một dòng cho INV: `inv-production-steps.md` **phần 10**.
+
+### 17.5 Trạng thái hiện tại production (để biết, không nguy hại)
+
+- `ottimo-prod-postgres-1` healthy, CSDL có 64 migration, **không có dữ liệu, không có tài khoản**.
+- `api`, `worker` đang khởi động lại liên tục (restart policy, cùng `ConfigError`); `web` ở `Created`. Không mở ra Internet (edge 443 đóng kết nối cho `desk/staff/g.ottimo.vn` vì web chưa chạy). Lượt deploy kế tiếp dựng lại cả ba.
+- Landing `ottimo-prod-landing-1` không bị đụng (Up, healthy). Staging, edge không đổi.
+
+### 17.6 Cách chạy lại
+
+- **Không cần tag rc mới.** Image `2963675` đúng; lỗi nằm ở `.env` máy chủ. Bundle `infra/` trên production (bản cũ, chưa có bước `appconfig`) vẫn deploy đúng sau khi sửa `.env`.
+- Thứ tự: (1) INV chạy phần 10.1 → in `1`; (2) ORC bấm **"Re-run failed jobs"** trên lượt 40288670558 (cùng tag, cùng digest); (3) INV duyệt "Review deployments".
+- Bước `appconfig` (commit mới) lên máy chủ ở lần làm mới bundle `infra/` kế tiếp (OPS, cùng lần cập nhật bundle staging – mục 16.1).
+- Sau khi xanh: làm tiếp mục 16.4 "Khi lượt Release đầu tiên chạy" bước 1–4.

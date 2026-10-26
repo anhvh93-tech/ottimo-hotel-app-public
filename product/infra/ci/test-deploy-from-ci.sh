@@ -12,6 +12,7 @@
 #   (f) the production guard of the REAL deploy.sh stops at step=config: MFA_ENFORCED≠true, a -test suffix, missing
 #       digests, the production home or EDGE_NAME=production with APP_ENV≠production (SEC OPS-03) – before any pull;
 #       a missing secret file also stops at step=config.
+#   (g) the new image's own config check (loadConfig) stops at step=appconfig before postgres/migrate/switch;
 # Runs on Linux (CI: job infra-scripts). Needs flock (util-linux) like deploy.sh itself.
 set -Eeuo pipefail
 
@@ -36,6 +37,11 @@ if [[ " \$* " == *" config --format json "* ]]; then echo "{\"secrets\":{\"x\":{
 echo "dc \$*"
 if [ "\${STUB_MODE:-}" = "fail-pull" ] && [[ " \$* " == *" pull "* ]]; then
   echo "Error response from daemon: manifest unknown: ghcr.io/x/ottimo-api:\$IMAGE_TAG $secret_marker" >&2
+  exit 1
+fi
+# STUB_MODE=bad-config: the new image's loadConfig() (deploy.sh step appconfig) rejects the stack's .env.
+if [ "\${STUB_MODE:-}" = "bad-config" ] && [[ " \$* " == *" run "*"--entrypoint node api "* ]]; then
+  echo "ConfigError: Invalid configuration: PAYMENT_VIETQR_MODE must be production when vietqr is in PAYMENT_METHODS_ENABLED" >&2
   exit 1
 fi
 exit 0
@@ -161,6 +167,18 @@ guard "LANDING_PUBLIC_API=on without the matching https LANDING_BASE_URL" config
   EDGE_NAME=production LANDING_HOST=ottimo.vn LANDING_PUBLIC_API=on LANDING_BASE_URL=https://www.ottimo.vn
 rm -f "$home/.ottimo-home"
 guard "EDGE_NAME=production with APP_ENV=staging" config "" APP_ENV=staging EDGE_NAME=production MFA_ENFORCED=true
+
+# ---------- (g) the new image rejects the configuration → step=appconfig, before postgres/migrate/switch ----------
+printf '%s\n' APP_ENV=staging API_IMAGE=ghcr.io/x/ottimo-api WEB_IMAGE=ghcr.io/x/ottimo-web > "$home/.env"
+rc=0
+out=$(OTTIMO_HOME="$home" STUB_MODE=bad-config SSH_ORIGINAL_COMMAND="deploy sha-0123456789ab" \
+  "$home/infra/server/bin/deploy-from-ci.sh" 2>&1) || rc=$?
+ref=${out##*ref=}; ref=${ref%)}
+glog="$home/state/deploy-logs/ci-$ref.log"
+if [ "$rc" -ne 0 ] && [[ "$out" == *"failed (step=appconfig,"* ]] && grep -q 'PAYMENT_VIETQR_MODE must be production' "$glog" \
+  && ! grep -qE '^dc (up |--profile deploy run --rm --no-deps migrate)' "$glog"; then
+  ok "(g) image refuses the .env → step=appconfig, nothing started or migrated"
+else bad "(g) rc=$rc $out"; fi
 
 if [ "$fails" -gt 0 ]; then echo "FAILED: $fails check(s)"; exit 1; fi
 echo "OK: deploy-from-ci.sh – one summary line to the CI, full log on the server, other commands refused, digests/landing/production guard"
