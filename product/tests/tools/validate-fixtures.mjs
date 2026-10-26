@@ -110,7 +110,7 @@ const LEASE_TIERS = [
 ];
 const tierFor = (months) => [...LEASE_TIERS].reverse().find((t) => t.months <= months);
 const pctOfRate = (rate, pct) => roundTo(rate * pct, 100, 1000);
-const earlyPct = (hm) => (hm >= '14:00' ? 0 : hm >= '10:00' ? 30 : hm >= '06:00' ? 50 : null);
+const earlyPct = (hm) => (hm >= '12:00' ? 0 : hm >= '10:00' ? 30 : hm >= '06:00' ? 50 : null);
 let MINIBAR = {};
 let SPECIAL_DATES = []; // DS-E special_dates (half-open [from, to)), loaded by validateSeeds
 let SEED_PARAMS = {};
