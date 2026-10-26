@@ -533,7 +533,9 @@ jobs:
           import sys, xml.etree.ElementTree as ET
           # TC-WR-*: US-155 website-request E2E needs the landing + form-signing stack (tests/e2e/support/us155-stack); it
           # skips by design here and runs on that dedicated stack (QA, rounds/round-03/outputs/QA/s1-us155-e2e.md).
-          ALLOWED_SKIP = ('TC-L2-020 (E)', 'TC-L2-076 (E)', 'TC-WR-')
+          # QA ESC-031: needs an MFA-enforced stack with E2E_TOTP_DIR (tests/README.md); skips by design on this stack
+          # and runs on the disposable MFA stack (rounds/round-03/qa/qa3-rc1.md §11–12).
+          ALLOWED_SKIP = ('TC-L2-020 (E)', 'TC-L2-076 (E)', 'TC-WR-', 'QA ESC-031')
           cases = list(ET.parse(sys.argv[1]).iter('testcase'))
           ui = [c for c in cases if (c.get('classname') or '').startswith(('ui/', 'ui-clock/'))]
           if not ui:
