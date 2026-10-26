@@ -301,3 +301,25 @@ Cùng lúc: gỡ `pendingFix` BR-309-18 (Q01), BR-433-04/05 và BR-525-21…27 (
 - 19/04 09:00 MGR xem lại, miễn 50% → FOC **396.000**, yêu cầu hoàn **396.000** (BR-522). Quá 19/04 20:30 chưa xem → báo OWN; folio `closed` theo J15.
 - MGR trả lời 20:40 (trong hạn) xác nhận kèm miễn 100% → FOC **792.000**, khách trả **0**.
 - Đêm ngày đi thứ Sáu → **911.000**; ngày lễ → **1.030.000**. Đêm bán được → không vào đường này ("Trả phòng – tính thêm 1 đêm").
+
+### 10.1 ESC-031 – v1.0 "lễ tân ghi – quản lý xem lại" (`lateFeeInsteadOfNight.postReview`, BE-B `35a477c`; BR-416 (i)–(viii) v0.4.5)
+
+Thay ca "20:32 gửi – 20:47 hết hạn" ở trên cho v1.0 (chưa có US-164): **không có thời gian chờ**, lễ tân gọi quản lý ngoài máy rồi ghi ngay. Mốc hạn xem lại = **lúc bấm trả phòng + `post_checkout_charge_hours` (24)** = `folio.post_checkout_window_until` – không phải giờ rời nhập tay (câu "Quá 19/04 20:30" ở trên đọc là "quá lúc bấm + 24 giờ").
+
+Nền: căn 203 (Garden View, giá Trực tiếp 792.000), đơn Trực tiếp, các đêm trước đã thu đủ, không minibar, đêm ngày đi **không bán được** (có khách đến, không còn căn để dời). Tham số `post_checkout_charge_hours` = 24.
+
+| Ca | Thao tác | Kết quả đúng |
+|---|---|---|
+| E31-1 | 16–18/04/2030, rời 20:30 thứ Năm 18/04; FD bấm 20:35, `postReview: true`, `amountVnd` 792.000, lý do | 200; dòng `late_checkout` / `late_fee_as_night` **792.000**, không dòng FOC; khách trả **792.000**; audit `channel = post_review`, actor FD, không `confirmedBy`, `checkoutTime` 20:30, `reviewDueAt` **19/04 20:35** = `post_checkout_window_until`; thông báo OWN + MGR (không FD/FDL, không người bấm); **1** mục "Cần chú ý" MGR+ hạn 19/04 20:35; 0 audit bảo mật, 0 lần đếm sai mật khẩu |
+| E31-2 | 18–20/09/2030 (đêm ngày đi thứ Sáu), như E31-1 | phụ thu **911.000** (= 792.000 × 1,15 = 910.800 → 911.000) |
+| E31-3 | 28–30/04/2030 (đêm 30/04 ngày đặc biệt) – hoặc 29–31/12/2030 nếu fixture chưa có 30/4 | phụ thu **1.030.000** (= 792.000 × 1,3 = 1.029.600 → 1.030.000); không cộng thêm +15 % |
+| E31-4 | Lượt 6 đêm 12–18/04/2030, như E31-1 | phụ thu **792.000**, **không** 713.000 (không tính lại bậc BR-107 – không thêm đêm) |
+| E31-5 | Từ E31-1: 19/04 09:00 MGR A32 giảm dòng 792.000 → 396.000, lý do "khách đến muộn do OTTIMO" | yêu cầu hoàn tự sinh **396.000**, `requested_by` MGR, `pending`; chính MGR duyệt → **403** `SELF_REFUND_FORBIDDEN`; OWN duyệt → hoàn 396.000; Σ lượt ESC-026 = 396.000 ≤ 792.000 → **không** báo OWN; MGR "Đã xem" → mục đóng; job sau 20:35 không báo thêm |
+| E31-6 | Từ E31-1: MGR A32 hủy (void) cả dòng 792.000 | hoàn **792.000**; Σ lượt 792.000 = ngưỡng → không báo; khách thực trả 0 |
+| E31-7 | Từ E31-1, không ai xem: job lúc 19/04 20:34 rồi 20:35, chạy thêm 3 lần | 20:34: 0 thông báo; 20:35: **1** thông báo OWN (MGR không); tổng OWN = 2 (lúc ghi + quá hạn), không tăng; mục vẫn mở; J15 đóng folio như thường; sau đó A32 → từ chối (folio `closed`) |
+| E31-8 | FOC đã duyệt trước (giả định (b)): trong lượt E31-1, MGR đã duyệt FOC **200.000** trên khóa trả muộn của lượt (khi khách hẹn rời 17:00, phụ thu 50 % = 396.000) | B18 `postReview` 20:35: phụ thu **792.000**, FOC **200.000** (= min(200.000, 792.000), không tăng), khách trả **592.000**; xem trước = trần QR = 592.000. Sau đó MGR A32 giảm dòng → 396.000: FOC vẫn **200.000**, hoàn **396.000**. Biến thể A32 giảm dòng → 150.000: FOC **150.000** (min), ròng 0, hoàn **592.000** – hoàn **không bao giờ** > số khách đã trả (I-E31) |
+| E31-9 | Có yêu cầu FOC trả muộn **đang chờ** duyệt | B18 bị chặn như mọi lần (US-038 AC4), không ghi gì |
+| E31-10 | Từ chối trước khi ghi | `amountVnd` 692.000 hoặc 792.001 → 409 `SURCHARGE_CHANGED`; kèm `requestFoc` / mật khẩu / TOTP / `confirmationId` / `approverUsername` → 422 `NOT_ALLOWED`; thiếu lý do → 422; đêm ngày đi bán được → 422 (phải dùng "Trả phòng – tính thêm 1 đêm" 792.000 là đêm bán) – mọi ca: đơn vẫn `in_house`, 0 dòng, 0 audit, 0 thông báo |
+| E31-11 | MGR/OWN tự bấm trả phòng theo đường này | như E31-1, người bấm không nhận thông báo; mục "Cần chú ý" vẫn mở cho MGR+ (OWN thấy) |
+
+Bất biến I-E31: với mọi chuỗi A32 trên đơn E31: Σ hoàn ≤ số khách đã trả cho folio; tiền ròng dòng phụ thu sau FOC ≥ 0; số trên dòng phụ thu lúc ghi = `CheckoutSummary.lateFeeAsNightVnd` đọc trước đó (không có số khác).

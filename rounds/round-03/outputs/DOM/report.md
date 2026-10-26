@@ -64,3 +64,28 @@
 
 ## Việc chưa xong
 - T1–T5 (mục 5) chờ ORC giao; ESC-032, ESC-033 chờ INV.
+
+---
+
+# Review – DOM rà bản vá ESC-031 của BE-B (commit `35a477c`) – 26/10/2026
+
+## Đã làm gì
+- Review nghiệp vụ bản vá: **Đạt**, không Blocker/Major; 2 Minor (thêm ca FOC đã duyệt trước + A32 dưới mức FOC; tên nút FE khớp tờ hướng dẫn), 2 Suggestion (job so với cửa sổ folio; đóng ca liệt kê khoản `post_review`) – `reviews/s1-DOM-on-esc031.md`.
+- Xác nhận 3 giả định BE-B: (a) v1.0 không chờ 15 phút, lễ tân gọi quản lý rồi ghi; (b) FOC đã duyệt trước đi theo dòng mới, min, không tăng; (c) hạn xem lại = `post_checkout_charge_hours` tính từ lúc bấm trả phòng.
+- BR **v0.4.5**: BR-416 thêm (i)–(viii) cho v1.0 + ví dụ; mục 13 (`remote_confirm_timeout_minutes` v1.0 chưa dùng; `late_fee_fallback_review_hours` không là khóa riêng); mục 18.
+- Oracle mục **10.1** (E31-1…E31-11 + bất biến I-E31) cho QA kiểm tiền.
+- `staff-one-pager.md` bước 3–5 và `day-one-guide.md` mục 9 + câu Q10: cách làm mới, giữ cách cũ làm dự phòng nếu bản vá chưa lên ngày D.
+
+## File tạo/sửa
+- `product/docs/business-rules.md`, `rounds/round-03/outputs/DOM/s1-money-oracle.md`, `rounds/round-03/reviews/s1-DOM-on-esc031.md`, `product/docs/staff-one-pager.md`, `product/docs/day-one-guide.md`, `01-decisions/decision-log.md`.
+
+## Giả định
+- Quản lý muốn miễn ngay khi nghe máy: v1.0 vẫn thu đủ rồi hoàn sau – nằm trong phương án INV duyệt ở ESC-031, không ESC mới.
+- Tên nút "Ghi phụ thu – quản lý xem lại" theo đề xuất BE; FE/UXD xác nhận.
+
+## Rủi ro / vướng mắc
+- Bản vá vô dụng nếu FE không làm màn cùng bản (thiết kế BE mục 6).
+- PO cần sửa `release-notes.md` (Giới hạn đã biết: đổi đoạn ESC-031 thành cách mới + giới hạn "thu đủ rồi hoàn").
+
+## Việc chưa xong
+- Diễn tập staging Q10 (DOM + QA, trước D−1).

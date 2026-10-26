@@ -160,18 +160,19 @@ Lệch thì không sửa tay lung tung: ghi lại, gõ `/feedback` với mã đ�
 | Q7 | Căn chủ đầu tư dùng riêng có nhập bằng kênh "Nội bộ" được không? | Thêm một dòng ở mục 4 |
 | Q8 | Khách ở quá 18:00, đêm đó căn đã bán: sau khi đổi căn đơn sắp đến (cùng nhóm, rồi khác nhóm), Desk có chuyển sang "Trả phòng – tính thêm 1 đêm" (không cần quản lý) không? | Sửa `staff-one-pager.md` mục "Khi khách ở quá 18:00", ESC-031 |
 | Q9 | Quản lý duyệt ở "Cần duyệt" bằng phiên của mình trên máy quầy, rồi đăng xuất: lễ tân đăng nhập lại có mất dữ liệu đang nhập không? | Sửa mục 9 |
+| Q10 | (ESC-031) Trên staging có bản vá BE-B + màn FE: khi đêm ngày đi không bán được, màn trả phòng hiện "Ghi phụ thu – quản lý xem lại" thay ô mật khẩu quản lý; số chỉ đọc 792.000 (căn 203 đêm thường); quản lý thấy mục "Cần chú ý" và sửa được dòng trên bill trong 24 giờ? Tên nút trên màn khác chữ trong tài liệu? | Sửa `staff-one-pager.md` bước 3–5 và mục 9 (tên nút, hoặc quay về cách cũ nếu bản vá chưa lên) |
 
 DOM ghi câu trả lời vào cột cuối và sửa các mục liên quan trước D−1. PO duyệt bản sửa.
 
 ## 9. Việc cần quản lý xác nhận trong những ngày đầu (v1.0)
 
-Bản thật bật **đăng nhập 2 bước bắt buộc** cho quản lý và chủ đầu tư. Vì vậy Desk **từ chối mọi ô "mật khẩu của quản lý"** trên phiên của lễ tân (SEC giữ chặn này). Lúc chuyển đổi và các ngày sau, chỉ dùng hai đường có sẵn:
+Bản thật bật **đăng nhập 2 bước bắt buộc** cho quản lý và chủ đầu tư. Vì vậy Desk **từ chối mọi ô "mật khẩu của quản lý"** trên phiên của lễ tân (SEC giữ chặn này). Lúc chuyển đổi và các ngày sau, chỉ dùng các đường sau (không đường nào cần mật khẩu của người khác):
 
 | Việc | Cách làm ở v1.0 |
 |---|---|
 | Giảm giá ngoài sàn–trần lúc nhập đơn cũ, miễn/giảm vượt hạn mức lễ tân, xóa công nợ, duyệt hoàn | Lễ tân gửi yêu cầu, ghi lý do. Quản lý hoặc OWN mở **"Cần duyệt"** bằng **tài khoản của chính mình** (lễ tân đăng xuất khỏi máy quầy trước, hoặc quản lý dùng thiết bị riêng) và duyệt. Lúc nhập D−1, OWN ngồi cạnh nên duyệt ngay |
 | Ghi công nợ khi trả phòng | Quản lý hoặc OWN làm bước Bill trên phiên của chính mình |
-| Phụ thu trả muộn bằng giá 1 đêm (khách rời sau 18:00, đêm đó căn đã bán) | Desk chưa hoàn tất được theo đường này (ESC-031). Phòng trước và đổi căn khách sắp đến theo `staff-one-pager.md`. Không còn căn: gọi OWN, ghi sổ giấy, báo "P0" |
+| Phụ thu trả muộn bằng giá 1 đêm (khách rời sau 18:00, đêm đó căn đã bán) | Theo ESC-031 (INV 26/10, vá trước ngày D): phòng trước và đổi căn khách sắp đến theo `staff-one-pager.md`. Không còn căn: lễ tân gọi quản lý/OWN báo trước, rồi chọn "Ghi phụ thu – quản lý xem lại" – Desk ghi đúng giá 1 đêm, không sửa, không miễn, lý do bắt buộc, không cần mật khẩu của ai. Quản lý/OWN nhận thông báo và mục "Cần chú ý", xem lại trong 24 giờ kể từ lúc bấm trả phòng: đồng ý → "Đã xem"; nên giảm → sửa dòng phụ thu trên bill, yêu cầu hoàn tự sinh, OWN duyệt hoàn (người sửa không tự duyệt). Quá 24 giờ chưa xem → Desk báo OWN, bill đóng. Nếu ngày D bản vá chưa lên production (Q10): giữ cách cũ – gọi OWN, ghi sổ giấy số Desk hiển thị, báo "P0" (BR-416 (i)–(viii)) |
 
 Không ai đọc mật khẩu qua điện thoại hay đưa mật khẩu cho người khác gõ hộ, kể cả trong ngày chuyển đổi.
 

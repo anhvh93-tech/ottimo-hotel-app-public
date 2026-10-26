@@ -36,7 +36,9 @@ Desk (máy quầy): `desk.ottimo.vn` · App buồng phòng (điện thoại): `s
 **Khi khách ở quá 18:00 mà đêm đó căn đã bán cho khách khác:**
 1. Phòng trước: từ 12:00, chốt giờ đi với khách đi hôm nay nếu căn có khách đến tối nay.
 2. Khách vẫn ở quá 18:00: lễ tân trưởng hoặc quản lý đổi căn cho **khách sắp đến** sang căn trống khác (cùng hạng trước, lý do "OTTIMO đổi căn"). Khi đó Desk tính thêm 1 đêm cho khách ở quá giờ như thường.
-3. Không còn căn trống: gọi chủ đầu tư, ghi giờ rời và số tiền Desk hiển thị vào sổ giấy, báo "P0". Không tự đặt số khác.
+3. Không còn căn trống: **gọi quản lý** (không được thì chủ đầu tư) báo trước. Không chờ duyệt, không xin mật khẩu. Trên Desk chọn **"Ghi phụ thu – quản lý xem lại"**: Desk hiện số bằng giá 1 đêm của đêm đó, không sửa được, không có ô miễn. Ghi lý do (ví dụ "Rời 20:30, căn có khách đến tối nay"), thu đủ số Desk hiện, hoàn tất trả phòng.
+4. Khách xin giảm: không hứa. Nói quản lý xem lại trong 24 giờ, nếu được giảm OTTIMO sẽ hoàn lại. Khách không chịu trả: không hoàn tất trả phòng, gọi quản lý hoặc chủ đầu tư.
+5. Quản lý: trong 24 giờ mở **Cần chú ý**. Đồng ý thì bấm "Đã xem". Nên giảm thì sửa dòng phụ thu trên bill, Desk tự tạo yêu cầu hoàn; chủ đầu tư duyệt hoàn. Quá 24 giờ, bill đóng, không sửa được nữa.
 
 **Cuối ca:** "Cần chú ý" không còn dòng đỏ chưa xử lý. Ba ngày đầu: so sổ giấy với Desk lúc 22:00.
 
