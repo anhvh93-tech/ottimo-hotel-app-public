@@ -1,6 +1,6 @@
 # OTTIMO Desk v1.0 – Việc anh/chị làm trước ngày chạy
 
-- Dành cho: Chủ đầu tư | Lập: PO, 23/10/2026 | **Cập nhật: PO, 26/10/2026** (theo bảng kiểm QC `rounds/round-03/qc/v1-gate-checklist.md` mục 5)
+- Dành cho: Chủ đầu tư | Lập: PO, 23/10/2026 | **Cập nhật: PO, 26/10/2026** (theo bảng kiểm QC `rounds/round-03/qc/v1-gate-checklist.md` mục 5; tối 26/10 thêm A12 – giờ nhận phòng 12:00 trên OTA, Google Maps, FB-INV-004)
 - Đi kèm: `rounds/round-03/release-v1-plan.md` · `product/docs/uat-script.md` · `product/docs/day-one-guide.md` · `product/docs/staff-one-pager.md` · hướng dẫn kỹ thuật của OPS `rounds/round-03/outputs/OPS/inv-production-steps.md`
 - Ngày chạy dự kiến: **02–05/11/2026**. Anh/chị chọn ngày sau khi QC báo "Cổng v1.0 ĐẠT". Đội đề xuất **thứ Hai hoặc thứ Ba**, ngày có ít khách đang ở nhất (lý do ở `day-one-guide.md` mục 1).
 - **Quy tắc chung:** mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, khóa sao lưu, KEK và mật khẩu Wi-Fi **chỉ nhập trên app hoặc máy của anh/chị**. Không gửi qua chat, email hay Zalo cho đội. Đội không bao giờ hỏi những thứ này.
@@ -9,7 +9,7 @@
 
 | Phần | Khi nào | Thời gian |
 |---|---|---|
-| A. Việc lẻ, tự làm lúc tiện | Trước buổi B1 | khoảng 1 giờ 45 phút, chia nhỏ |
+| A. Việc lẻ, tự làm lúc tiện | Trước buổi B1 (A12: trước ngày chạy) | khoảng 2 giờ 20 phút, chia nhỏ |
 | **Buổi B1 – trên staging** | Sớm nhất 27–28/10, khi đội báo "B1 sẵn sàng" | **khoảng 3 giờ** (2 giờ 40 phút nếu đã trả lời trước mục A3, A4, A6, A11) |
 | **Buổi B2 – trên bản thật** | 30/10–01/11, ít nhất 1 ngày trước ngày chạy | **khoảng 1 giờ 40 phút** |
 | C. Sau B2 | Hôm sau B2 và ngày chạy | 5 phút + buổi chuyển đổi (theo `day-one-guide.md`) |
@@ -41,6 +41,7 @@
 | A9 | Duyệt lại lượt Release production khi OPS báo (phần 5, phần 10 nếu OPS còn cần) | 2–5 phút mỗi lần | Email "Review deployments" từ GitHub | ☐ |
 | A10 | Chuẩn bị **danh sách chuyển đổi**: đơn từ ngày chạy trở đi, cọc đã thu, khách đang ở, khách dài hạn, công nợ cũ – theo mẫu cột ở `day-one-guide.md` mục 3 | 30–45 phút, cùng lễ tân trưởng | Giữ trong sổ của OTTIMO, không gửi đội. Xong **trước ngày D−1** | ☐ |
 | A11 | **Quyết ESC-031** – khách rời sau 18:00 khi đêm đó căn đã có khách đến: bản thật bật 2 bước nên quản lý không xác nhận bằng mật khẩu tại quầy được; vá theo ESC-024 B ở v1.0.1, trước ngày chạy, hay chờ v1.1 (`02-escalations/ESC-031.md`) | 5 phút | Đội đề xuất **A**: chạy đúng lịch, vá ở v1.0.1 tuần đầu. Chưa quyết thì đội không chạm mã tiền, lễ tân dùng cách tạm trong `staff-one-pager.md` | ☐ |
+| A12 | **Đổi giờ nhận phòng sang 12:00 ngoài Desk** (F10 – theo quyết định của anh/chị 26/10, FB-INV-004): (1) extranet **Booking.com, Agoda, Airbnb**: giờ nhận phòng "từ 12:00", giờ trả 12:00, và câu trong nội quy/house rules: "Check-in from 12:00 (your room is always ready by 14:00) · Check-out by 12:00"; (2) **Google Maps** (hồ sơ doanh nghiệp Google), fanpage, thẻ trong căn, biển quầy, e-brochure: cùng câu, bản tiếng Việt "Nhận phòng từ 12:00 (phòng luôn sẵn sàng lúc 14:00) · Trả phòng trước 12:00". **Không** ghi "phòng sẵn sàng từ 12:00". (3) **Trước khi đăng giá "Chỉ từ 667.000 đ/đêm"** trên ottimo.vn: đọc điều khoản ngang giá (rate parity) trong hợp đồng Booking.com và Agoda – giá công khai trên website có được thấp hơn giá trên kênh không (ESC-035) | 30–40 phút | **Phần (1) xong trước ngày chạy D (02/11)**: kênh OTA chưa đổi thì Desk vẫn đề xuất phụ thu nhận sớm trước 12:00 nhưng chưa có căn cứ thu với khách đặt qua kênh đó (BR-415). Phần (3) không chặn ngày chạy – giá "chỉ từ" lên ở bản landing sau ngày D. Nếu đã đăng ký mẫu ZNS với Zalo có chữ "Giờ nhận phòng", báo đội để INT soạn lại theo câu trên | ☐ |
 
 ## B1. Buổi trên staging – khoảng 3 giờ
 

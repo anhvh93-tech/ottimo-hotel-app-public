@@ -1,15 +1,15 @@
 # Hướng dẫn chuyển đổi ngày đầu – OTTIMO Desk v1.0 (DOM-1)
 
-- Dành cho: Chủ đầu tư (OWN), lễ tân trưởng (FDL), quản lý (MGR, nếu có), kế toán | Lập: PO, 26/10/2026, góc nhìn nghiệp vụ theo `product/docs/business-rules.md` v0.4.3
+- Dành cho: Chủ đầu tư (OWN), lễ tân trưởng (FDL), quản lý (MGR, nếu có), kế toán | Lập: PO, 26/10/2026, góc nhìn nghiệp vụ theo `product/docs/business-rules.md` v0.4.3 · **Sửa PO 26/10 (tối): giờ nhận phòng từ 12:00 theo BR v0.4.6 (FB-INV-004)** – mốc chuyển giữ 14:00
 - Trạng thái: **bản 1 – chờ DOM rà và diễn tập trên staging** (mục 8). Chỗ ghi [GIẢ ĐỊNH – DOM xác nhận] có thể đổi sau diễn tập; nguyên tắc ở mục 0 không đổi.
 - Đi kèm: `rounds/round-03/inv-golive-checklist.md` (C2, C4) · `product/docs/staff-one-pager.md`
 - Repo công khai: tài liệu này không chứa và không cần số tài khoản, số giấy tờ, mã cửa hay mật khẩu. Danh sách chuyển đổi (mục 3) giữ ở OTTIMO, không gửi đội.
 
-Ký hiệu: **D** = ngày chạy. **Mốc chuyển** = 14:00 ngày D.
+Ký hiệu: **D** = ngày chạy. **Mốc chuyển** = 14:00 ngày D (mốc sổ sách, không phải giờ nhận phòng: khách nhận phòng từ 12:00 – BR-401 v0.4.6).
 
 ## 0. Năm nguyên tắc
 
-1. **Một mốc chuyển: 14:00 ngày D** (giờ nhận phòng chuẩn). Từ **đêm D** trở đi mọi đêm, mọi khoản thu nằm trên Desk. Trước đó nằm trong sổ cũ.
+1. **Một mốc chuyển: 14:00 ngày D** (giờ phòng chắc chắn sẵn sàng; sau 12:00 nên không phát sinh phụ thu nhận sớm). Từ **đêm D** trở đi mọi đêm, mọi khoản thu nằm trên Desk. Trước đó nằm trong sổ cũ.
 2. **Mỗi đồng tiền chỉ ở một sổ.** Khoản nào đã nhập Desk thì sổ cũ ghi "Đã chuyển sang Desk", kế toán không cộng hai lần.
 3. **Không nhập lịch sử.** Đơn đã trả phòng, doanh thu cũ, công nợ cũ ở lại sổ cũ. Không tạo đơn giả để chở số liệu cũ: đơn giả làm sai công suất, doanh thu và khai báo lưu trú.
 4. **Nhập trước, đối chiếu sau, rồi mới bỏ sổ.** Hai lần đối chiếu có người ký (D−1 và tối D), sổ giấy song song 3 ngày.
@@ -37,8 +37,10 @@ Ký hiệu: **D** = ngày chạy. **Mốc chuyển** = 14:00 ngày D.
 | **D−1 17:00–17:30** | FDL + OWN | **Đối chiếu 1** (mục 5). OWN ký vào danh sách | Khớp hết, hoặc có ghi chú xử lý |
 | D−1 17:30 → mốc | Lễ tân ca | Đơn **mới** nhận: nhập Desk trước, ghi sổ cũ sau | – |
 | D 06:00–12:30 | Lễ tân ca | Khách **trả phòng ngày D** làm trong **sổ cũ** như thường (các đơn này không có trên Desk) | – |
-| D 12:30–13:45 | Buồng phòng + FDL | Đi từng căn, cập nhật **trạng thái buồng** trên app: có khách / trống sạch / cần dọn | Sơ đồ phòng khớp thực tế |
-| **D 14:00** | FDL | **Mốc chuyển.** Bấm **Nhận phòng** cho nhóm 3 và 4 (giờ nhận 14:00). Khách mới đến ngày D nhận như thường | Mọi căn có khách hiện "đang ở" |
+| D trước 12:00 | Buồng phòng | Căn **trống từ đêm qua** có khách đến ngày D: kiểm, báo **sẵn sàng** trên app (BR-807) | Căn đó hiện sẵn sàng trên Desk |
+| D từ 12:00 | Lễ tân ca | **Khách mới đến ngày D** (nhóm 2, đơn mới): nhận trên Desk ngay khi căn đã được buồng phòng báo **sẵn sàng (`VI`/`VC`) trong ngày D**, không phụ thu. Trước buổi đi căn, trạng thái trên Desk của căn có khách trả ngày D **chưa đúng thực tế** (trả phòng làm ở sổ cũ): không nhận theo trạng thái cũ. Căn chưa xong: giữ hành lý, hẹn giờ, muộn nhất 14:00 | – |
+| D 12:30–13:45 | Buồng phòng + FDL | Đi từng căn, cập nhật **trạng thái buồng** trên app: có khách / trống sạch / cần dọn. **Làm căn có khách đến ngày D trước** | Sơ đồ phòng khớp thực tế |
+| **D 14:00** | FDL | **Mốc chuyển.** Bấm **Nhận phòng** cho nhóm 3 và 4 (giờ nhận ghi 14:00 = mốc chuyển). Khách mới đến ngày D tiếp tục nhận như thường | Mọi căn có khách hiện "đang ở" |
 | D 14:00–17:00 | FDL | **Giấy tờ và khai báo** cho nhóm 3, 4 (mục 4.6) | Không còn hạn khai báo đỏ |
 | D 14:00 | OWN | **Khóa sổ cũ**: từ giờ sổ cũ chỉ dùng thu công nợ cũ (nhóm 5) và tra cứu | Ghi dòng "Khóa sổ 14:00 dd/mm", ký |
 | **D 22:00** | Lễ tân ca tối + OWN (gọi điện được) | **Đối chiếu 2** (mục 5) + so sổ giấy dự phòng | Khớp; lệch thì `/feedback` |
@@ -93,7 +95,7 @@ Nhập ở D−1 như một **đơn đến ngày D**, rồi nhận phòng lúc 1
    - Ngày D rơi vào ngày tối thiểu 2 đêm mà khách chỉ còn 1 đêm: xem mục 7.
 3. Ghi chú đơn: "Khách ở từ dd/mm (sổ cũ), mã cũ …".
 4. **Ghi thu phần đã trả cho các đêm từ D**: khách ngắn ngày thường trả đủ khi nhận phòng (BR-305), nên phần này thường bằng tiền các đêm còn lại. Ghi chú "Chuyển từ sổ cũ – đã thu ngày dd/mm". Phần của các đêm trước D ở lại sổ cũ.
-5. **14:00 ngày D: Nhận phòng**, giờ nhận 14:00. Không phát sinh phụ thu nhận sớm (BR-411: từ 14:00 là 0 %). Không đổi mã cửa (mã cửa vẫn quản lý ngoài app ở v1.0).
+5. **14:00 ngày D: Nhận phòng**, giờ nhận ghi 14:00 (mốc chuyển). Không phát sinh phụ thu nhận sớm (BR-411 v0.4.6: từ 12:00 là 0 %). Không đổi mã cửa (mã cửa vẫn quản lý ngoài app ở v1.0).
 6. Khi khách trả phòng: bill trên Desk chỉ gồm các đêm từ D và khoản mới. Nếu khách cần một bill trọn kỳ ở, lễ tân đưa thêm phần sổ cũ.
 
 Khách **trả phòng sáng ngày D**: không nhập. Trả phòng trong sổ cũ.

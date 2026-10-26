@@ -3194,7 +3194,7 @@
   "webreq.source_must_be_website": "A booking from a website request must stay Direct, source Website. Close this form and choose Create booking in the request to try again.",
   "webreq.booking_closed": "This request has just been closed or booked, so a booking can't be made from it. Close this form and reload the request to see its status.",
   "webreq.missing.form_signing_key": "the form signing key on the server (ask the tech team)",
-  "msg.booking_confirmed": "Hi {name}, OTTIMO confirms booking {code}: room {room}, {from} → {to} ({nights} nights). Check-in from 14:00, check-out by 12:00. Deposit paid {deposit}, {balance} due at check-in. Cancellation: {cancel_policy_short}. Check in online for a faster arrival: {link}",
+  "msg.booking_confirmed": "Hi {name}, OTTIMO confirms booking {code}: room {room}, {from} → {to} ({nights} nights). Check-in from {checkin_time} (your room is always ready by 14:00), check-out by {checkout_time}. Deposit paid {deposit}, {balance} due at check-in. Cancellation: {cancel_policy_short}. Check in online for a faster arrival: {link}",
   "msg.deposit_received": "Hi {name}, OTTIMO has received your deposit of {deposit} for booking {code} (room {room}, {from} → {to}). {balance} is due at check-in. Cancellation: {cancel_policy_short}",
   "msg.checkin_link": "Hi {name}, to speed up your check-in, please send your IDs and arrival time here: {link} (about 2 minutes).",
   "msg.checkout_reminder": "Hi {name}, tomorrow {date} is your check-out day (by 12:00). Would you like to stay longer or check out late? Reply here: {link}",

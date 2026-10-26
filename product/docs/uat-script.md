@@ -1,6 +1,6 @@
 # Kịch bản dùng thử OTTIMO Desk v1.0
 
-- Dành cho: Chủ đầu tư (và lễ tân trưởng nếu tiện) | Lập: PO, 23/10/2026 | Phiên bản thử: `v1.0.0-rc.1` trên staging
+- Dành cho: Chủ đầu tư (và lễ tân trưởng nếu tiện) | Lập: PO, 23/10/2026 · Sửa PO 26/10: việc 6 theo giờ nhận phòng từ 12:00 (BR v0.4.6; đội đặt tham số trên staging trước buổi B1 – việc F2 của DOM) | Phiên bản thử: `v1.0.0-rc.1` trên staging
 - Nơi thử: Desk `desk.staging.ottimo.vn` · app buồng phòng `staff.staging.ottimo.vn` (mở trên điện thoại) · trang khách `g.staging.ottimo.vn` (mở từ link của đơn)
 - Thời gian: khoảng 2 giờ cho việc 1–9; việc 10 làm riêng **sau 00:00** (khoảng 20 phút).
 - **Lưu ý:**
@@ -16,7 +16,7 @@
 | 3 | **Báo giá → giữ chỗ → cọc** | Lễ tân / sale | Tạo báo giá 2 đêm cho một căn → chuyển thành giữ chỗ → mở VietQR cọc → bấm "đã nhận cọc" | Giá đúng bảng giá. QR đúng số tiền và nội dung chuyển khoản là mã đơn. Đơn chuyển sang đã đảm bảo; sơ đồ phòng chặn căn | |
 | 4 | **Đặt trực tiếp, chống trùng, đổi ngày** | Lễ tân | Tạo đơn trực tiếp → thử đặt **trùng** căn và đêm đó → đổi đơn sang ngày khác | Đặt trùng bị chặn, có câu giải thích. Đổi ngày tính lại tiền và báo phần chênh trước khi lưu | |
 | 5 | **Check-in online của khách** | Lễ tân + điện thoại | Gửi link trang khách của đơn ở việc 3 → mở trên điện thoại → khách điền thông tin, tải ảnh giấy tờ giả, chọn giờ đến → đổi ngôn ngữ EN/VI | Trang theo phong cách OTTIMO, tiếng Anh dẫn. Desk thấy khách đã check-in online | |
-| 6 | **Nhận phòng** | Lễ tân | Mở đơn ở việc 5 → kiểm giấy tờ, đối chiếu → nhận phòng → xem danh sách cần khai báo lưu trú và đánh dấu đã khai | Nhận sớm thì tự tính phụ thu. Khai báo có hạn rõ ràng. Buồng phòng không xem được ảnh giấy tờ | |
+| 6 | **Nhận phòng** | Lễ tân | Mở đơn ở việc 5 → kiểm giấy tờ, đối chiếu → nhận phòng → xem danh sách cần khai báo lưu trú và đánh dấu đã khai | Nhận từ 12:00: **không** phụ thu. Thử nhập giờ nhận 11:00: Desk đề xuất phụ thu 30 % giá đêm đầu (từ 26/10: nhận phòng từ 12:00, phòng chắc chắn sẵn sàng 14:00). Khai báo có hạn rõ ràng. Buồng phòng không xem được ảnh giấy tờ | |
 | 7 | **Lưu trú** | Lễ tân + khách + buồng phòng | Thêm dịch vụ (giặt ủi) và minibar vào folio → gia hạn 1 đêm → trên trang khách gửi yêu cầu "thêm khăn" → buồng phòng nhận việc trên điện thoại | Folio cộng đúng. Gia hạn chỉ cho đêm còn trống. Yêu cầu của khách hiện trên app buồng phòng | |
 | 8 | **Trả phòng, thu tiền, công nợ** | Lễ tân + quản lý | Trả phòng 3 bước (minibar → phụ phí → bill) → thu một phần, phần còn lại để nợ → hôm sau thu nốt → thử xin miễn một khoản lớn | Bill đúng công thức. Công nợ hiện ở "Cần chú ý" tới khi thu đủ. Khoản miễn vượt hạn mức phải chờ duyệt; nhật ký tiền ghi đủ người, giờ, số | |
 | 9 | **Buồng phòng và bảo trì** | Buồng phòng (điện thoại) + lễ tân | Căn vừa trả hiện việc dọn → dọn → kiểm theo checklist → sẵn sàng → báo một sự cố có ảnh → lễ tân mở phiếu sửa, khóa bán căn | Trạng thái đổi theo đúng bước. Desk cập nhật ngay. Căn khóa không bán được trên sơ đồ | |

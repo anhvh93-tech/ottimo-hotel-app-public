@@ -213,6 +213,7 @@ Hành trình gốc dùng bản tạm (DOM đang soạn bản chính thức song 
 | `zns.stay_feedback` | 2 | Đánh giá dịch vụ | `customer_name`, `booking_code`, `checkout_date` | (theo mẫu) | ~300 đ |
 | `zns.direct_voucher` (tùy chọn) | 3 | Voucher | `customer_name`, `voucher_code`, `discount`, `expiry_date` | theo mẫu | 400 đ |
 
+- (PO 26/10, FB-INV-004 – BR v0.4.6) **Giờ nhận phòng trong mẫu**: `checkin_time` lấy từ tham số nên tự thành **12:00**. Chữ cố định quanh biến phải theo câu chuẩn BR-401 (e): "Nhận phòng từ {checkin_time} (phòng luôn sẵn sàng lúc 14:00)" – **không** "Giờ nhận phòng: {checkin_time}" (đọc thành hứa phòng sẵn sàng lúc 12:00). Mẫu `zns.arrival_reminder` chưa đăng ký: soạn theo câu này khi đăng ký; nếu đã gửi duyệt với chữ cũ thì đăng ký lại, **không gửi ZNS** cho tới khi mẫu mới được duyệt (INT + INV).
 - Bản tiếng Anh: không cần ở MVP (khách nước ngoài ít dùng Zalo). Zalo cho phép mẫu một ngôn ngữ; mẫu thuần tiếng Anh có được duyệt không **[Chưa xác minh]**.
 - Không mã cửa, số giấy tờ trong ZNS. Mã xác minh chỉ qua mẫu xác thực riêng khi SEC/INV bật (FB-R2-SEC-INT-15). Danh sách biến cho phép theo mẫu và theo kênh nằm trong mã: `product/integrations/notification/zalo-policy.ts` (mục 4.12-C).
 
