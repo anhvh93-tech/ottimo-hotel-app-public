@@ -186,6 +186,31 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const [staged, setStaged] = useState<StagedPayment | null>(null);
   const [bill, setBill] = useState<Bill | null>(null);
   const [done, setDone] = useState<{ billNo: string } | null>(null);
+  // SEC FB-R3-SEC-FE-A-16: money received but not on the folio yet lives only in this page (never in browser
+  // storage – no `posAuthCode` kept anywhere) – leaving asks first: reload / close (`beforeunload`) and any link of
+  // the app (capture phase, before React Router's Link handles the click).
+  const holding = !!staged && !done;
+  useEffect(() => {
+    if (!holding) return;
+    const onUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    const onClick = (e: MouseEvent) => {
+      const a = e.target instanceof Element ? e.target.closest('a[href]') : null;
+      if (!a || e.defaultPrevented || e.button !== 0) return;
+      if (!window.confirm(t('co.pay_at_complete_leave'))) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener('beforeunload', onUnload);
+    document.addEventListener('click', onClick, true);
+    return () => {
+      window.removeEventListener('beforeunload', onUnload);
+      document.removeEventListener('click', onClick, true);
+    };
+  }, [holding, t]);
   const minibarAct = useSubmit();
   const invAct = useSubmit();
   // ARC 16.17 bổ sung (af): B18 resends a CONCURRENT_UPDATE once with the same key.

@@ -230,8 +230,21 @@ describe('BUG-R3-017 – thu tiền mặt/thẻ ở bước 3 cho khoản B18 m�
     expect(checkouts.sent.at(-1)!.finalPayment).toMatchObject({ method: 'cash', amountVnd: fee });
   });
 
-  it('nhập quá số còn phải thu → báo ở ô, không nhận; số cần thu đổi sau khi đã nhận → báo, khóa Hoàn tất, "Bỏ" rồi thu lại', async () => {
+  it('nhập quá số còn phải thu → báo ở ô, không nhận; số cần thu đổi sau khi đã nhận → báo, khóa Hoàn tất, "Bỏ" rồi nhập lại (khóa mới)', async () => {
     const r = soldTonight(true);
+    const checkouts = capture('POST', /\/actions\/check-out$/);
+    const keys: { keys: Array<string | null>; stop: () => void } = (() => {
+      const list: Array<string | null> = [];
+      const on = ({ request }: { request: Request }) => {
+        if (
+          request.method === 'POST' &&
+          /\/actions\/check-out$/.test(new URL(request.url).pathname)
+        )
+          list.push(request.headers.get('idempotency-key'));
+      };
+      server.events.on('request:start', on);
+      return { keys: list, stop: () => server.events.removeListener('request:start', on) };
+    })();
     const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
     await toBill(user);
     const fee = (
@@ -282,5 +295,60 @@ describe('BUG-R3-017 – thu tiền mặt/thẻ ở bước 3 cho khoản B18 m�
         name: tv('pay.vietqr_create', { amount: money(fee - 300_000) }),
       }),
     ).toBeInTheDocument();
+    // SEC FB-R3-SEC-FE-A-15: entered again at the new amount → a NEW command (other Idempotency-Key), new figure.
+    await user.click(screen.getByRole('button', { name: tv('pay.cash') }));
+    await user.click(
+      await screen.findByRole('button', {
+        name: tv('pay.record', { amount: money(fee - 300_000) }),
+      }),
+    );
+    await screen.findByText(stagedText('pay.cash', fee - 300_000));
+    await user.click(screen.getByRole('button', { name: /hoàn tất|Hoàn tất/ }));
+    await user.click(within(await screen.findByRole('alertdialog')).getAllByRole('button')[1]!);
+    await waitFor(() => expect(res('Phạm Huy').status).toBe('checked_out'));
+    keys.stop();
+    checkouts.stop();
+    expect(keys.keys).toHaveLength(2);
+    expect(keys.keys[0]).toBeTruthy();
+    expect(keys.keys[1]).not.toBe(keys.keys[0]);
+    expect(checkouts.sent[0]!.finalPayment).toMatchObject({ amountVnd: fee });
+    expect(checkouts.sent[1]!.finalPayment).toMatchObject({
+      method: 'cash',
+      amountVnd: fee - 300_000,
+    });
+  });
+
+  it('SEC FB-16: đang giữ khoản đã nhận → rời trang hỏi trước (không đồng ý thì ở lại); không lưu khoản vào trình duyệt', async () => {
+    const r = soldTonight(true);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
+    await toBill(user);
+    const fee = (
+      await api.getCheckoutSummary({ propertyId: PROPERTY_ID, reservationId: r.id }, '20:30')
+    ).data.lateFeeAsNightVnd!;
+    await user.click(await screen.findByRole('button', { name: tv('pay.card') }));
+    await user.type(screen.getByLabelText(new RegExp(`^${esc(tv('co.pos_code'))}`)), 'Z9Y8X7');
+    await user.click(
+      screen.getByRole('button', { name: tv('pay.record', { amount: money(fee) }) }),
+    );
+    await screen.findByText(stagedText('pay.card', fee));
+    // An app link (sidebar) – asked, refused → still on the check-out.
+    await user.click(screen.getAllByRole('link', { name: /Hôm nay/ })[0]!);
+    expect(confirm).toHaveBeenCalledWith(tv('co.pay_at_complete_leave'));
+    expect(screen.getByText(stagedText('pay.card', fee))).toBeInTheDocument();
+    // Reload / close: the browser asks (beforeunload prevented).
+    const ev = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+    // Nothing of it in browser storage (the POS code above all).
+    const stored = JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage });
+    expect(stored).not.toContain('Z9Y8X7');
+    // Accepted → leaves.
+    confirm.mockReturnValue(true);
+    await user.click(screen.getAllByRole('link', { name: /Hôm nay/ })[0]!);
+    await waitFor(() =>
+      expect(screen.queryByText(stagedText('pay.card', fee))).not.toBeInTheDocument(),
+    );
+    confirm.mockRestore();
   });
 });
