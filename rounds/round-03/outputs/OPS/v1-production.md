@@ -553,3 +553,35 @@ Mẫu `infra/server/env.production.example` (OPS viết 23/10) để `PAYMENT_ME
 - Thứ tự: (1) INV chạy phần 10.1 → in `1`; (2) ORC bấm **"Re-run failed jobs"** trên lượt 40288670558 (cùng tag, cùng digest); (3) INV duyệt "Review deployments".
 - Bước `appconfig` (commit mới) lên máy chủ ở lần làm mới bundle `infra/` kế tiếp (OPS, cùng lần cập nhật bundle staging – mục 16.1).
 - Sau khi xanh: làm tiếp mục 16.4 "Khi lượt Release đầu tiên chạy" bước 1–4.
+
+## 18. 26/10 – Sửa theo SEC `reviews/SEC-sprint1.md` mục 3 (Phản hồi & sửa)
+
+### 18.1 Thủ tục 06.33 – sửa lần 3 (bản ngoài repo, SEC 3.7)
+Tệp vẫn ở `~/.ottimo/runbooks/` trên Mac INV (thư mục 0700, tệp 0600). Repo chỉ ghi đã sửa gì, không chép nội dung.
+
+| Nhận xét SEC | Đã sửa |
+|---|---|
+| (a) Tài khoản diễn tập | Cấm dùng mọi `qa.*` (có TOTP thử của QA, đang chạy QA-3/E2E). Ưu tiên tài khoản OWN dùng thử của INV trên staging (G7-4, hợp nhánh "INV tự chạy"). Nếu tới B1 chưa có thì dùng một tài khoản OWN riêng, chỉ để diễn tập, khóa lại sau buổi. Phải đăng ký 2FA trước khi diễn tập. Báo QA lịch qua ORC trước ít nhất 1 ngày |
+| (b) Tài khoản SSH | Chốt **một** tài khoản: tài khoản quản trị cá nhân INV đang dùng (khóa cá nhân có passphrase). Lệnh docker chạy qua `sudo -u` người dùng triển khai. Không dùng khóa CI, khóa kéo sao lưu, hay tài khoản triển khai trực tiếp. Đã kiểm chỉ đọc trên staging: `dc ps` và `dc exec api ls dist/admin/` chạy được bằng đúng tài khoản này, có CLI reset. Có ghi chú rằng `sudo` lưu dòng lệnh (không có bí mật) vào nhật ký hệ thống |
+| (c) Mã phiếu | Người chứng kiến cấp mã khi được báo trước lúc chạy. Người chạy ghi vào biên bản **trước** khi gõ lệnh. `NN` = số thứ tự trong ngày theo biên bản. Không có mã thì không chạy |
+| (d) Câu xác minh khi người yêu cầu khác người chạy | Hai câu cũ chỉ dùng khi người yêu cầu là INV. Người khác dùng câu INV soạn sẵn (cất trong trình quản lý mật khẩu). Chưa có câu soạn sẵn thì chỉ dựa vào gặp mặt + gọi lại số có sẵn + người chứng kiến |
+| (e) Người chứng kiến ký | Biên bản giấy ký tay, hoặc tin nhắn xác nhận của người chứng kiến (chụp, lưu 0600 cạnh biên bản) |
+| (f) Báo bằng điện thoại | Email là kênh chính. Điện thoại chỉ dự phòng khi email lỗi. Trước khi thư thử 8b tới hộp thư thì báo song song cả hai |
+| (g) Bản trong trình quản lý mật khẩu | Thêm mục 7: sau mỗi lần sửa, INV chép lại vào trình quản lý mật khẩu. Bản đúng là bản có ngày sửa mới hơn. **INV cần chép bản lần 3 (26/10)** |
+
+Vẫn là **bản nháp**. SEC duyệt sau buổi diễn tập B1 có người chứng kiến thật.
+
+### 18.2 Dependabot (SEC 3.5)
+- Đã đóng trên GitHub, kèm lý do ngắn dẫn SEC 3.5:
+  - **#2** (`react-router` SSR hydration): lý do `inaccurate`. admin-web là SPA, không SSR;
+  - **#7–#14** (`fast-uri`): lý do `not_used`. Gói này chỉ phân giải `$ref` của schema do đội viết, đầu vào kiểm bằng zod. API chỉ nhận `fix_started|inaccurate|no_bandwidth|not_used|tolerable_risk`, nên dùng `not_used` thay cho `vulnerable_code_not_used`.
+- Còn mở 7 cảnh báo:
+  - #3 (`react-router`): dời v1.1;
+  - #4–#6, #15–#17 (`nodemailer`): v1.0.x.
+- PR #9 (nodemailer 10.1.4) chạy lại trên nhánh của đội: `ops/nodemailer-10.1.4` (cherry-pick `b59b562` lên `main`), **PR #10**. Không gộp khi CI chưa xanh. ORC quyết việc gộp. Khi #10 gộp, đóng #9.
+
+### 18.3 README `infra/server` 12.1 (SEC S-2)
+Sửa câu chữ: kiểm terminal của wrapper chặn được pipe, `>`, `| tee`, tmux/screen. **Không chặn được `script`**, vì `script` tự cấp pty; chỉ chặn bằng thủ tục.
+
+### 18.4 Để sau
+Xóa `state/env.before-vietqr-mode.*` trên production **sau khi** lượt Release chạy lại đạt (ORC báo). Không đụng `.env` production.
