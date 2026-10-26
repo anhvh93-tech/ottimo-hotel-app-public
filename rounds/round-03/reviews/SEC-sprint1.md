@@ -397,3 +397,47 @@ Ghi chú nhỏ, không chặn:
 4. SEC chứng kiến đăng ký 2FA qua màn hình, **không xem mã**: INV che QR và mã khôi phục khi chia sẻ màn hình. Kiểm `mfa.enrolled` (runbook 2.3 bước 6) là bằng chứng cho G2-4.
 
 Sau B1 (khi có kết quả): G2-4 → SEC ghi "OWN thật đăng ký 2FA trên staging" (MGR thật nếu có), G2-5 → SEC duyệt 06.33.
+
+---
+
+## 7. Review BE-A T1 – tham số hạn lưu trong `production-bootstrap` (commit `d271694`, nhánh `worktree-agent-adb7957e376fc24f6`)
+
+- Người ghi: SEC | 26/10/2026 | Bước: Review (Round 3, đường nhanh v1.0, trước B2).
+- Phạm vi đọc: diff `d271694` – `src/admin/production-defaults.ts`, `src/admin/production-bootstrap.ts`, `test/integration/production-bootstrap.test.ts`, dòng decision-log BE-A; đối chiếu `parameter.service.ts` (`checkSecurityBounds`, `ParameterService.validate`), `generated/openapi-meta.ts`, migration `0002`, `0003`, `0053`, `0057`.
+- **Kết luận: Verified**, kèm 2 điều kiện ở 7.4.
+
+### 7.1 Ba khóa hạn lưu và đường kiểm
+
+| Khóa | Giá trị bootstrap | Loại trong catalogue | Bootstrap kiểm bằng | Biên | Đạt |
+|---|---|---|---|---|---|
+| `id_image_retention_days_after_checkout` | 30 | `int`, `is_security = false` (0002) | `checkValueSchema` + `checkBusinessBounds` | 0–30 (0003) | Đạt – đúng mức trên, không vượt |
+| `id_image_unconfirmed_max_days` | 7 | `int`, `is_security = false` (0053, SR-RET-02) | `checkValueSchema` + `checkBusinessBounds` | 1–7 (0053) | Đạt – đúng mức trên |
+| `document_profile_retention_months` | 3 | `security`, `is_security = true` (0057) | `checkSecurityBounds` (OpenAPI `x-security-parameters`) | 1–12 | Đạt |
+
+- Ghi chính xác cho sổ: chỉ `document_profile_retention_months` là khóa `is_security`. Hai khóa ảnh giấy tờ là tham số nghiệp vụ có biên chặt trong DB. Cả hai đường đều ném lỗi khi vượt biên và hủy cả giao dịch bootstrap, nên **không có đường ghi vượt biên**.
+- Nhánh kiểm mới giống hệt `ParameterService.validate` (security → biên SEC; còn lại → kiểu + biên nghiệp vụ). Trước bản này, một khóa security trong danh sách sẽ rơi vào `checkValueSchema('security')` và bị từ chối; nay được kiểm đúng cách. Đây là **siết lại**, không hạ kiểm.
+- `checkSecurityBounds` kiểm cả kiểu (`Number.isSafeInteger`), nên việc bỏ `checkValueSchema` ở nhánh security không bỏ sót kiểm kiểu.
+- Không có luật chéo khóa nào cho ba khóa này trong `parameter-rules.ts`, nên ghi trực tiếp lúc bootstrap (DB rỗng) không bỏ qua luật nào.
+- Nhãn trạng thái `INV-2610+SEC`, `NGANH+SEC`, `INV-2610` khớp CHECK `config_parameter_status_label_check` (test có regex).
+
+### 7.2 Khớp đánh giá mục 5
+
+- 30 ngày ảnh đồng ý = phương án "v1.0 chạy 30, nới 90 ở v1.0.1" (5.1, 5.6). Bình luận trong mã ghi đúng: nới biên bằng migration BE-C, SEC review.
+- 7 ngày khai báo chưa xong = đề xuất SEC 5.4; bình luận ghi rõ hạn 3 tháng của INV không áp cho nhóm này.
+- Hồ sơ điền sẵn 3 tháng = INV 26/10, đúng ràng buộc 5.2 (≤ 3 khi câu thông báo v2 còn hiệu lực).
+- Quy tắc "số nhỏ hơn" (ĐK-2) không đổi: khách đồng ý ở 30 ngày vẫn chỉ bị giữ 30 ngày khi biên nới lên 90.
+
+### 7.3 Không đụng tiền / 2FA
+
+- Commit chỉ đổi 4 tệp: hai tệp `src/admin/`, test, decision-log. Không đổi module folio, thanh toán, `verifyApprover`, MFA, phiên.
+- `electricity_price`, `water_price`: chỉ đổi giá trị; không mã v1.0 nào đọc (tiện ích trên giấy tới v1.3). `vat_rate` (8) và `prices_include_vat` (true) giữ giá trị, chỉ đổi nhãn nguồn.
+- Phần tạo `owner` (mật khẩu tạm ngẫu nhiên, `must_change_password`, phiên đăng ký 2FA) không đổi.
+- Đổi nhãn hạng phòng (`Signature · Two Bedrooms`, `Premium · One Bedroom + 1`) là nghiệp vụ/ARC, không có tác động bảo mật.
+
+### 7.4 Điều kiện
+
+1. **Bản chạy B2 phải chứa `d271694`.** Commit đang ở nhánh worktree, chưa có trên `main`. Nếu `production-bootstrap` ở B2 chạy từ image cũ thì DB nhận `id_image_retention_days_after_checkout = 1` và hồ sơ điền sẵn mặc định 12 tháng. Khi đó OWN phải đặt tay 30 / 7 / 3 trên màn Tham số (5.6) – nếu không, hồ sơ 12 tháng trái câu thông báo 5.2.
+2. **Kiểm sau bootstrap ở B2** (thay cho việc "OWN đặt" ở 5.6 nếu điều kiện 1 đạt): OPS chạy truy vấn đọc ba khóa như test tích hợp (`SELECT key, value FROM config_parameter WHERE key IN (...)`), kết quả 30 / 7 / 3. Ghi vào biên bản B2.
+
+- Kiểm lại của SEC: `vitest run test/integration/production-bootstrap.test.ts` trong worktree – 4 ca đơn vị đạt; 6 ca cần DB bị bỏ qua (không có DB ở máy SEC lúc review). Ca tích hợp đọc lại ba khóa từ DB phải xanh trong CI trước khi gộp – QA-3 xác nhận.
+- Việc còn mở theo mục 5.6 không đổi: migration nới 90 (v1.0.1), câu `gw.notice_body` v2 trước khách thật đầu tiên dùng check-in online.
