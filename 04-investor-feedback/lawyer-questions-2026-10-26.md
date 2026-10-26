@@ -5,6 +5,7 @@
 > - Anh/chị điền tên mình và tên luật sư ở dòng đầu thư. Thư không chứa mật khẩu, khóa, số tài khoản, địa chỉ máy chủ hay số lượng căn (anh/chị không công bố số căn – FB-INV-002).
 > - Form "Yêu cầu đặt phòng" bật khi có trả lời **câu 1, 2, 3**. Câu 4, 5, 6 cần trước ngày D (02/11) nếu được; chậm hơn thì Desk vẫn chạy với giá trị tạm đang ghi.
 > - Luật sư trả lời xong, anh/chị chuyển nguyên văn cho ORC. Đội sửa câu chữ/tham số theo trả lời; không phải sửa phần mềm.
+> - 26/10 (ESC-034 = C): SEC thêm **một câu** về việc đếm lượt xem vào mục Cookies của Phụ lục A và B. Câu này chưa có trên mã nguồn; FE-LP đưa nguyên văn vào cùng bản landing đo truy cập. Không đổi câu hỏi nào.
 > - Các câu khác trong ESC-001 (tin nhắn Zalo/WhatsApp, dữ liệu sức khỏe, khai báo tạm trú khách nước ngoài, hồ sơ đánh giá tác động…) gửi đợt sau, cùng gói rà soát chung.
 
 ---
@@ -112,6 +113,7 @@ Please do not include card numbers, ID numbers or health information.
 
 **Cookies**
 This website sets no cookies and loads nothing from other companies. It remembers your language choice in your browser only.
+To see how the website is used, we count page views and taps as daily totals only – without cookies, IP addresses or anything that identifies you.
 
 **Complaints**
 If our answer does not resolve your concern, you can complain to the Vietnamese authority responsible for personal data protection.
@@ -170,6 +172,7 @@ Vui lòng không ghi số thẻ, số giấy tờ hay thông tin sức khỏe.
 
 **Cookie**
 Website này không đặt cookie và không tải gì từ công ty khác. Lựa chọn ngôn ngữ của bạn chỉ được nhớ trong trình duyệt của bạn.
+Để biết website được xem thế nào, OTTIMO chỉ đếm tổng lượt xem và lượt bấm theo ngày – không dùng cookie, không lưu địa chỉ IP hay bất cứ thông tin nào nhận diện bạn.
 
 **Khiếu nại**
 Nếu câu trả lời của OTTIMO chưa giải quyết được băn khoăn của bạn, bạn có thể khiếu nại tới cơ quan có thẩm quyền về bảo vệ dữ liệu cá nhân tại Việt Nam.
