@@ -201,7 +201,12 @@ jobs:
         run: pnpm --filter @ottimo/tests exec playwright install --with-deps chromium
       - name: Install Playwright OS dependencies (browser cache hit)
         if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: pnpm --filter @ottimo/tests exec playwright install-deps chromium
+        # 26/10: the runner's Azure Ubuntu mirror stalled for 25+ min twice; give it 8 min, then retry on archive.ubuntu.com.
+        run: |
+          timeout 480 pnpm --filter @ottimo/tests exec playwright install-deps chromium || {
+            sudo sed -i 's#azure.archive.ubuntu.com#archive.ubuntu.com#g' /etc/apt/sources.list.d/*.sources /etc/apt/sources.list 2>/dev/null || true
+            pnpm --filter @ottimo/tests exec playwright install-deps chromium
+          }
       - name: Landing E2E (pnpm test:e2e:landing)
         run: pnpm --filter @ottimo/tests test:e2e:landing
       - name: Upload landing Playwright report (on failure)
@@ -430,7 +435,12 @@ jobs:
       - name: Install Playwright OS dependencies (browser cache hit)
         if: steps.pw-cache.outputs.cache-hit == 'true'
         working-directory: product
-        run: pnpm --filter @ottimo/tests exec playwright install-deps chromium webkit
+        # 26/10: the runner's Azure Ubuntu mirror stalled for 25+ min twice; give it 8 min, then retry on archive.ubuntu.com.
+        run: |
+          timeout 480 pnpm --filter @ottimo/tests exec playwright install-deps chromium webkit || {
+            sudo sed -i 's#azure.archive.ubuntu.com#archive.ubuntu.com#g' /etc/apt/sources.list.d/*.sources /etc/apt/sources.list 2>/dev/null || true
+            pnpm --filter @ottimo/tests exec playwright install-deps chromium webkit
+          }
       # Random per-run passwords (DB roles, QA_SEED_PASSWORD) – masked, never a repo secret.
       - name: Create throwaway product/.env
         run: bash product/infra/ci/make-ci-env.sh product/.env.example product/.env
