@@ -119,6 +119,17 @@ describe('arrival windows (H18 18.3)', () => {
       '22:00+',
     ]);
     expect(etaSlots('20:00').map((s) => s.label)).toEqual(['20:00 – 22:00', '22:00+']);
+    // FB-INV-004 (DOM F4): check-in from 12:00 → four windows, the evening one 18–22.
+    expect(etaSlots('12:00').map((s) => s.label)).toEqual([
+      '12:00 – 14:00',
+      '14:00 – 16:00',
+      '16:00 – 18:00',
+      '18:00 – 22:00',
+      '22:00+',
+    ]);
+    // Never more than four windows before "22:00+", even for an early standard time.
+    expect(etaSlots('08:00').filter((s) => !s.late)).toHaveLength(4);
+    expect(etaSlots('08:00').at(-2)!.label).toBe('14:00 – 22:00');
     const late = etaSlots('14:00').at(-1)!;
     expect(late).toMatchObject({ etaTime: '22:00', late: true });
   });

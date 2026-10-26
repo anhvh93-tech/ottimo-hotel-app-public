@@ -187,7 +187,8 @@ function stayBody() {
     publicRoomType: 'Standard Studio · Garden View',
     arrivalDate: dates.arrival,
     departureDate: dates.departure,
-    checkinTime: '14:00',
+    // BR-401 v0.4.6 (FB-INV-004): check-in from 12:00 once the room is ready, always by 14:00.
+    checkinTime: '12:00',
     checkoutTime: '12:00',
     property: {
       name: 'OTTIMO Boutique Stay',

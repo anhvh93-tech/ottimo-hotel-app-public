@@ -39,7 +39,8 @@ export const RULE_DEFAULTS: RuleParams = {
   holdWarnHours: 2,
   depositPct: 30,
   quoteValidityDays: 3,
-  checkinTime: '14:00',
+  // BR-401 v0.4.6 (FB-INV-004, INV 26/10): check-in from 12:00 if the room is ready, always by 14:00.
+  checkinTime: '12:00',
   checkoutTime: '12:00',
   lateLimitTime: '18:00',
 };

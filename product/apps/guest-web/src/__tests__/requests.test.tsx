@@ -138,7 +138,9 @@ describe('tab "Thông tin" (US-108) and room name (BR-012)', () => {
     await user.click(screen.getByRole('button', { name: 'Thông tin' }));
     expect(await screen.findByRole('heading', { name: 'Thông tin' })).toBeInTheDocument();
     expect(screen.getByText('mock-wifi-pass')).toHaveClass('gw-code');
-    expect(screen.getByText('Nhận phòng từ 14:00')).toBeInTheDocument();
+    expect(
+      screen.getByText('Nhận phòng từ 12:00 (phòng luôn sẵn sàng lúc 14:00)'),
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Chỉ đường' })).toHaveAttribute(
       'href',
       'https://maps.app.goo.gl/oYos42G5YvUEcDCc6',

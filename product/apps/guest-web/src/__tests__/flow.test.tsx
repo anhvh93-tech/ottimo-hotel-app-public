@@ -97,6 +97,7 @@ describe('guest-web check-in online (H18, US-107)', () => {
     await screen.findByRole('heading', { name: 'Giờ đến', level: 1 });
     const radios = screen.getAllByRole('radio');
     expect(radios.map((r) => r.closest('label')?.textContent)).toEqual([
+      '12:00 – 14:00',
       '14:00 – 16:00',
       '16:00 – 18:00',
       '18:00 – 22:00',
@@ -127,7 +128,10 @@ describe('guest-web check-in online (H18, US-107)', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Phòng sẵn sàng từ 14:00. Lễ tân sẽ giao mã cửa khi bạn đến.'),
+      // FB-INV-004 / BR-401 v0.4.6: never "ready from 12:00" – check-in from 12:00, always ready by 14:00.
+      screen.getByText(
+        'Nhận phòng từ 12:00 khi phòng đã sẵn sàng – phòng luôn sẵn sàng lúc 14:00. Lễ tân sẽ giao mã cửa khi bạn đến.',
+      ),
     ).toBeInTheDocument();
     expect(mockControl.state.consents).toEqual([
       expect.objectContaining({
