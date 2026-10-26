@@ -56,6 +56,17 @@ function makeDb() {
     users: seedUsers(),
     groups: seedGroups(),
     rooms: seedRooms(),
+    /**
+     * BUG-R3-018: `room_list_price` rows dated after the business day. Server-side only – contract 0.3.8 returns
+     * just `currentListPrice`; kept here so tests can check a same-date save replaces the scheduled row.
+     */
+    scheduledListPrices: [] as Array<{
+      roomId: string;
+      effectiveFrom: string;
+      monthlyListPriceVnd: number;
+      nightlyListPriceVnd: number;
+      reason: string;
+    }>,
     params: seedParams(),
     history: new Map<string, Parameter[]>(),
     guests: seedGuests(),
@@ -810,6 +821,22 @@ export const handlers = [
       isSellable: (body.isSellable as boolean | undefined) ?? room.isSellable,
       version: room.version + 1,
     });
+    if (body.listPrice && String(body.listPrice.effectiveFrom) > businessDayLocal()) {
+      // rooms.service writePrice: ON CONFLICT (room_id, effective_from) DO UPDATE – same date replaces the row.
+      const lp = body.listPrice;
+      const row = {
+        roomId: room.id,
+        effectiveFrom: String(lp.effectiveFrom),
+        monthlyListPriceVnd: Number(lp.monthlyListPriceVnd),
+        nightlyListPriceVnd: Number(lp.nightlyListPriceVnd),
+        reason: String(lp.reason),
+      };
+      const at = db.scheduledListPrices.findIndex(
+        (r) => r.roomId === row.roomId && r.effectiveFrom === row.effectiveFrom,
+      );
+      if (at >= 0) db.scheduledListPrices[at] = row;
+      else db.scheduledListPrices.push(row);
+    }
     if (body.listPrice && String(body.listPrice.effectiveFrom) <= businessDayLocal()) {
       const m = Number(body.listPrice.monthlyListPriceVnd);
       // FB-INV-005: the nightly price sent is stored as is (rooms.service). The ÷ 12 branch only mirrors

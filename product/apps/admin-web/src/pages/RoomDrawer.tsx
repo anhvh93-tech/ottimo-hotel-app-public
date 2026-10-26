@@ -70,6 +70,8 @@ export function RoomDrawer({
   // The default follows the server's business day while it is untouched.
   useBusinessDayChange(today, (was, now) => setEffectiveFrom((v) => (v === was ? now : v)));
   const [reason, setReason] = useState('');
+  // BUG-R3-018: the owner typed in a price box (even back to the current figure).
+  const [priceTouched, setPriceTouched] = useState(false);
   const [sellable, setSellable] = useState(room.isSellable);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState<{ text: string; conflict?: boolean } | null>(null);
@@ -81,22 +83,29 @@ export function RoomDrawer({
   // A cleared box counts as a change (then it fails "amount > 0"); an untouched one does not.
   const changed = (text: string, value: number | null, initial: number | undefined) =>
     text.trim() === '' ? initial !== undefined : value !== initial;
-  const priceChanged =
+  const valuesChanged =
     changed(monthlyText, monthly, initialMonthly) || changed(nightlyText, nightly, initialNightly);
+  // BUG-R3-018: `currentListPrice` is today's row only – the contract has no scheduled rows to compare with.
+  // Re-entering today's prices for a LATER date is a real change: rooms.service upserts on
+  // (room_id, effective_from), so it replaces a wrong price scheduled for that exact date.
+  const sameAsCurrent = priceTouched && !valuesChanged;
+  const restate = sameAsCurrent && effectiveFrom > today;
+  const priceChanged = valuesChanged || restate;
   // Soft check only (DOM fb-inv-005 §4): a nightly price under the monthly price per day is unusual.
   const nightlyLow =
     monthly !== null && monthly > 0 && nightly !== null && nightly > 0
       ? nightly * 30 < monthly
       : false;
-  const dirty =
+  // Save needs something to send; a reason alone (price unchanged) sends nothing.
+  const canSave =
     name !== (room.name ?? '') ||
     bedSetup !== (room.bedSetup ?? '') ||
     groupId !== room.roomGroupId ||
     base !== initialBase ||
     max !== initialMax ||
     sellable !== room.isSellable ||
-    priceChanged ||
-    reason !== '';
+    priceChanged;
+  const dirty = canSave || reason !== '';
 
   const changeBase = (v: number) => {
     setBase(v);
@@ -153,7 +162,15 @@ export function RoomDrawer({
     setBanner(null);
     try {
       const { data } = await api.updateRoom({ propertyId, roomId: room.id }, patch, room.version);
-      toast(t('rooms.saved', { room: room.roomNo }));
+      // BUG-R3-018: a future price does not show in the catalog until its day – say when it applies.
+      toast(
+        patch.listPrice && patch.listPrice.effectiveFrom > today
+          ? t('rooms.saved_scheduled', {
+              room: room.roomNo,
+              date: date(patch.listPrice.effectiveFrom),
+            })
+          : t('rooms.saved', { room: room.roomNo }),
+      );
       onSaved(data);
     } catch (err) {
       if (isApiError(err) && err.code === 'CAPACITY_BELOW_BOOKINGS') {
@@ -197,7 +214,7 @@ export function RoomDrawer({
             variant="pri"
             busy={busy}
             busyLabel={t('common.saving')}
-            disabled={!online || !dirty}
+            disabled={!online || !canSave}
           >
             {t('common.save')}
           </Button>
@@ -331,7 +348,10 @@ export function RoomDrawer({
                     className="input num"
                     inputMode="numeric"
                     value={monthlyText}
-                    onChange={(e) => setMonthlyText(e.target.value)}
+                    onChange={(e) => {
+                      setMonthlyText(e.target.value);
+                      setPriceTouched(true);
+                    }}
                     onBlur={() => monthly !== null && setMonthlyText(vnd(monthly))}
                   />
                   <span className="affix">{t('common.vnd_unit')}</span>
@@ -350,7 +370,10 @@ export function RoomDrawer({
                     className="input num"
                     inputMode="numeric"
                     value={nightlyText}
-                    onChange={(e) => setNightlyText(e.target.value)}
+                    onChange={(e) => {
+                      setNightlyText(e.target.value);
+                      setPriceTouched(true);
+                    }}
                     onBlur={() => nightly !== null && setNightlyText(vnd(nightly))}
                   />
                   <span className="affix">{t('common.vnd_unit')}</span>
@@ -363,11 +386,18 @@ export function RoomDrawer({
               {t('rooms.night_low', { perDay: vnd(perDayOfMonthly(monthly)) })}
             </Alert>
           ) : null}
-          {priceChanged ? (
+          {valuesChanged || priceTouched ? (
             <div className="g-2">
               <Field
                 label={t('config.effective_from')}
                 required
+                help={
+                  sameAsCurrent
+                    ? restate
+                      ? t('rooms.price_same_future', { date: date(effectiveFrom) })
+                      : t('rooms.price_same_today')
+                    : undefined
+                }
                 error={errors['listPrice.effectiveFrom']}
               >
                 {(p) => (
