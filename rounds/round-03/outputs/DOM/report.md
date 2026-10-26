@@ -115,7 +115,7 @@
 
 ## Đã làm gì
 - CI main đỏ ở `validate-fixtures`: thêm oracle BR-114-01…05 (giá "chỉ từ", BR v0.4.6), BR-401-01…05 (nhận phòng từ 12:00); BR-901-01 bỏ nhãn GIẢ ĐỊNH (tỷ lệ phí kênh = INV 26/10 dùng tạm, không ESC). Validator `earlyPct` đổi mốc 0 % từ 14:00 sang 12:00 theo BR-411 v0.4.6. Validator 0 lỗi; test BE đọc oracle (`reservations-pricing`, `frontdesk-rules`) 114/114 xanh.
-- Đánh giá FB-INV-005: chỗ chặn duy nhất là ô giá đêm chỉ đọc trên Desk; đề xuất gói D-min trước B2, dọn BE ở v1.0.1. Tạo FB-INV-005, ESC-036.
+- Đánh giá FB-INV-005: chỗ chặn duy nhất là ô giá đêm chỉ đọc trên Desk; đề xuất gói D-min trong 27/10 để kịp B2 sáng 28/10 (hạn cứng trước D/B7 – trễ thì OWN nhập lại 10 giá đêm), dọn BE ở v1.0.1. Tạo FB-INV-005, ESC-036.
 
 ## File tạo/sửa
 - `product/tests/fixtures/br-examples.json`, `product/tests/tools/validate-fixtures.mjs`, `rounds/round-03/outputs/DOM/fb-inv-005.md`, `04-investor-feedback/FB-INV-005.md`, `02-escalations/ESC-036.md`, `02-escalations/escalations-index.md`, `01-decisions/decision-log.md`.
@@ -126,7 +126,7 @@
 
 ## Rủi ro / vướng mắc
 - Test e2e/BE còn giữ mốc cũ 14:00: `services/api/test/frontdesk-rules.test.ts` (`standardCheckinTime: '14:00'`, ca "13:59 → 30 %"), `tests/e2e/clock/checkin.s3.clock.spec.ts` dòng 901–904 ("13:59 cùng bậc 30 %") – trái BR-411 v0.4.6 (13:59 → 0). Cần QA/BE sửa (không thuộc job CI đang đỏ).
-- Nếu không kịp D-min trước B2: giá đêm production tạm = ÷ 12, đơn tạo trước v1.0.1 giữ giá sai ý INV.
+- Nếu D-min trễ sang sau D: đơn tạo trước bản sửa giữ giá ÷ 12 (BR-006), sai ý INV. Trễ B2 nhưng trước D thì chỉ tốn OWN nhập lại 10 giá đêm.
 
 ## Việc chưa xong
 - BR v0.4.7 (BR-101, mục 13, Q1) + oracle BR-101: áp cùng lượt FE/QA của gói D-min.

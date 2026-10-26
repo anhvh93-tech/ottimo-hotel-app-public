@@ -1,8 +1,8 @@
 # FB-INV-005 – Giá tháng và giá đêm độc lập, INV tự nhập (đánh giá DOM)
 
 - Tác giả: DOM | Round 3 – Phản hồi & sửa | Ngày: 26/10/2026
-- Nguồn: `04-investor-feedback/FB-INV-005.md` (INV 26/10, sau UAT B1); BR v0.4.6 (BR-101, 102, 104, 105, 107, 114, 203); `rounds/round-03/inv-golive-checklist.md` (B2 30/10–01/11, ngày chạy D 02–05/11).
-- Kết luận ngắn: **chặn ý INV ở B2 nếu không sửa** (Desk chỉ cho nhập giá tháng, giá đêm khóa = giá tháng ÷ 12). **Phần mềm đã gần sẵn:** CSDL lưu giá đêm riêng từng dòng giá, API `PATCH /rooms/{id}` đã nhận `listPrice.nightlyListPriceVnd` tùy chọn. Chỉ cần **FE mở ô giá đêm** (khoảng 3 giờ) + QA → **đề xuất làm trước B2 (hạn gộp 29/10)**. Phần dọn BE (bắt buộc giá đêm, bỏ hẳn ÷ 12 ở seed/nhập danh mục) để v1.0.1.
+- Nguồn: `04-investor-feedback/FB-INV-005.md` (INV 26/10, sau UAT B1); BR v0.4.6 (BR-101, 102, 104, 105, 107, 114, 203); `rounds/round-03/inv-golive-checklist.md` (ngày chạy D 02–05/11); decision-log 26/10: **B2 dời lên sáng 28/10**.
+- Kết luận ngắn: **chặn ý INV ở B2 nếu không sửa** (Desk chỉ cho nhập giá tháng, giá đêm khóa = giá tháng ÷ 12). **Phần mềm đã gần sẵn:** CSDL lưu giá đêm riêng từng dòng giá, API `PATCH /rooms/{id}` đã nhận `listPrice.nightlyListPriceVnd` tùy chọn. Chỉ cần **FE mở ô giá đêm** (khoảng 3 giờ) + QA → **đề xuất làm trước B2 sáng 28/10 (gộp + deploy production trong 27/10)**; trễ thì vẫn phải xong **trước ngày D và trước khi nhập dữ liệu cũ (B7)** – OWN nhập lại 10 giá đêm, khoảng 10 phút. Phần dọn BE (bắt buộc giá đêm, bỏ hẳn ÷ 12 ở seed/nhập danh mục) để v1.0.1.
 
 ## 1. Ý INV và cách hiểu
 
@@ -49,7 +49,7 @@ Oracle `br-examples.json`: BR-101-01…10 đổi từ `calc: nightlyListPrice` (
 
 ## 4. Yêu cầu sửa (đề xuất cho PO/ARC giao)
 
-**Gói D-min – trước B2 (gộp trước 29/10, có trên production image dùng cho B2):**
+**Gói D-min – trước B2 sáng 28/10 (gộp + deploy production trong 27/10); hạn cứng: trước D và trước B7:**
 1. **FE** – `RoomDrawer`: ô giá đêm nhập được như ô giá tháng (định dạng VND, `parseVnd`); điền sẵn giá đêm hiện hành, căn chưa có giá → để trống; **bỏ** tự tính ÷ 12. Đổi một trong hai ô → `priceChanged`, gửi `listPrice` **đủ cả** `monthlyListPriceVnd` + `nightlyListPriceVnd` + ngày hiệu lực + lý do. Kiểm tại ô: rỗng/0 → `AMOUNT_NOT_POSITIVE` (khóa lỗi `listPrice.nightlyListPriceVnd`); không chia hết 1.000 → lỗi tại ô (BR-005). **Cảnh báo mềm, không chặn**: giá đêm < giá tháng ÷ 30 ("giá đêm đang thấp hơn giá thuê tháng quy ra ngày – kiểm lại?"). Sửa mock + test Vitest `rooms.test.tsx` ("nightly price is computed" → "nightly price is entered").
 2. **UXD** – chữ VI/EN: `rooms.night_auto` → "Giá đêm ngày thường, kênh Trực tiếp. Cuối tuần, ngày lễ cộng thêm theo lịch giá." (EN tương ứng); `rooms.footnote` → "Giá tháng và giá đêm nhập riêng (BR-101). Đổi giá có ngày hiệu lực; đơn, báo giá đã có giữ giá cũ (BR-006)." Desk là UI nội bộ nhưng vẫn theo Brand Guidelines (Be Vietnam Pro, không emoji, giọng điềm tĩnh).
 3. **BE** – không sửa mã. ARC/BE xác nhận nhánh `lp.nightlyListPriceVnd` + thêm 1 test tích hợp `PATCH` có giá đêm riêng (101: tháng 8.000.000, đêm 650.000 → báo giá đêm thứ Ba = 650.000, thứ Bảy = 747.500 → 748.000).
@@ -73,11 +73,12 @@ Oracle `br-examples.json`: BR-101-01…10 đổi từ `calc: nightlyListPrice` (
 
 ## 6. Có chặn ngày D không
 
-- **Có, nếu không làm D-min.** B2 (30/10–01/11) là lúc OWN nhập giá thật cho 10 căn trên production. Desk hiện ép giá đêm = giá tháng ÷ 12 – trái ý INV. Không có đường vòng sạch: nhập giá tháng = giá đêm × 12 thì giá tháng sai (BR-203 báo giá dài hạn, HĐ dài hạn dùng giá tháng); OPS/đội không được nhập giá thay bằng tài khoản OWN.
-- Nếu không kịp D-min: B2 nhập giá tháng thật, giá đêm tạm = ÷ 12; sau v1.0.1 OWN nhập lại giá đêm với ngày hiệu lực. Rủi ro: mọi đơn/báo giá ngắn ngày tạo trong khoảng này **giữ giá ÷ 12** (BR-006 snapshot), lễ tân phải sửa tay từng đơn; landing "chỉ từ" có thể sai số.
+- **Có, nếu không làm D-min trước D.** B2 (sáng 28/10) là lúc OWN nhập giá thật cho 10 căn trên production. Desk hiện ép giá đêm = giá tháng ÷ 12 – trái ý INV. Không có đường vòng sạch: nhập giá tháng = giá đêm × 12 thì giá tháng sai (BR-203 báo giá dài hạn, HĐ dài hạn dùng giá tháng); OPS/đội không được nhập giá thay bằng tài khoản OWN.
+- Nếu D-min không kịp sáng 28/10 nhưng kịp trước D: B2 nhập giá tháng thật (giá đêm tạm = ÷ 12); khi bản sửa lên production, OWN nhập lại 10 giá đêm, hiệu lực từ hôm đó. Chưa có đơn nào trên production trước D/B7 nên **không có đơn giữ giá sai** – chỉ tốn thêm ~10 phút của OWN. Đây là đường lùi chấp nhận được.
+- Nếu để tới v1.0.1 (sau D): mọi đơn/báo giá ngắn ngày tạo trước bản sửa **giữ giá ÷ 12** (BR-006 snapshot), lễ tân phải sửa tay từng đơn; landing "chỉ từ" có thể sai số. Không nên.
 - Rủi ro của D-min thấp: chỉ đổi một màn, CSDL và API đã có sẵn trường, không migration, không đổi luồng tính tiền.
-- **Đề xuất: làm D-min trước B2 (P1), dọn BE ở v1.0.1 (P2).**
+- **Đề xuất: làm D-min ngay 27/10 để kịp B2 (P1, hạn cứng trước D/B7), dọn BE ở v1.0.1 (P2).**
 
 ## 7. Việc cho INV (qua ORC)
-- ESC-036 (Bình thường, trước B2): lịch giá cuối tuần/lễ vẫn cộng trên giá đêm anh/chị nhập? Đề xuất A (giữ).
+- ESC-036 (Bình thường, hạn 27/10 – trước B2 sáng 28/10): lịch giá cuối tuần/lễ vẫn cộng trên giá đêm anh/chị nhập? Đề xuất A (giữ).
 - Mang tới B2 bảng 10 căn × (giá tháng, giá đêm ngày thường). Giá đêm là giá khách trả trực tiếp, đã gồm VAT, cho định mức.
