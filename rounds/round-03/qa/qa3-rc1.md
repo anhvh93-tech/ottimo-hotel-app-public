@@ -349,3 +349,32 @@ Mục 4 – `checkin_time` 12:00 và bậc nhận sớm:
 1. Sau 06:00: xem trước nhận sớm 11:00 / 12:30 / 09:00 trên OTM-00358.
 2. A1 chặng 8–12 (OTM-00294), rồi trả phòng OTM-00297 kèm công nợ 150.000.
 3. Sau 18:00: B18 OTM-00357 đường `postReview` + tiền mặt, rồi hủy OTM-00358.
+
+## 14. Sáng 27/10 trên staging `v1.0.0-rc.2` (06:01–06:02)
+
+Harness repo `4629e6e` (`qa-r6/run-staging-rc2.sh`). Báo ORC lúc 06:02 để deploy rc.3.
+
+| # | Việc | Kết quả |
+|---|---|---|
+| 1 | Xem trước phụ thu nhận sớm OTM-00358 (căn 203, đêm đầu 792.000; tham số từ 27/10: `checkin_time` 12:00, bậc 10:00–12:00 30 %, 06:00–10:00 50 %) | **Đạt.** `standardCheckinTime` 12:00. 09:00 → 50 % = **396.000**; 11:00 → 30 % = **238.000**; 11:59 → 238.000; 12:00 → **0**; 12:30 → **0**; 13:30 → 0 (`ruleRef` BR-411) |
+| 2 | A1 chặng 8–12 OTM-00294 (căn 202) | **Đạt** – chi tiết dưới bảng |
+| 3 | Công nợ mẫu UAT: trả phòng OTM-00297 (căn 401) | **Đạt.** `qa.mgr` (2FA) B18 ghi công nợ 150.000, hạn 30/10 → 200; đơn `checked_out`, folio `settled` còn phải thu 150.000; "Cần chú ý" MGR có `checkout_debt` (1 mục, hạn 30/10) |
+
+A1 chặng 8–12 (ảnh `a1-rc1/screens/201–212`, `run-log.md` phần 3):
+
+| Chặng | Việc | Kết quả |
+|---|---|---|
+| 8 | Minibar 2 bia, 1 snack, 2 nước | Bill còn thu 100.000 |
+| 9 | VietQR thu nốt | Đã thu (ảnh 204: QR, số tài khoản, tên chủ tài khoản đều che) |
+| 10 | Hoàn tất trả phòng | Folio `settled`, bill F26-000002, đã thu 892.000, còn 0 |
+| 11 | PWA buồng phòng `qa.hk` | VD → CL → VC |
+| 12 | PWA lễ tân trưởng `qa.fdl` kiểm phòng | Đạt → VI |
+
+**A1 trên bản RC: trọn 12/12 chặng trên giờ thật**:
+- 26/10: chặng 1–7 trên `rc.1` (đặt và nhận phòng cùng ngày);
+- 27/10: chặng 8–12 trên `rc.2`.
+- Hai bản cùng chuỗi `main`; `rc.2` thêm ESC-031, BUG-R3-017, nhận phòng 12:00, giá đêm nhập riêng.
+
+Không lỗi mới.
+
+Còn tối 27/10 sau 18:00: B18 OTM-00357 đường `postReview` + tiền mặt (mục 13 việc 2), rồi hủy OTM-00358.
