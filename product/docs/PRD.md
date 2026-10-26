@@ -122,7 +122,7 @@ Ghi chú về các vai trong skill PO (F&B, kế toán): OTTIMO **không có b�
 |---|---|---|
 | X1 | POS nhà hàng/quầy bar | OTTIMO không có nhà hàng; Brief mục 7 #3: chưa dùng POS |
 | X2 | Kế toán tổng hợp, sổ sách thuế, tính lương | Dùng phần mềm kế toán riêng; app chỉ cung cấp số liệu doanh thu/chi phí vận hành |
-| X3 | Xếp lịch ca làm việc, chấm công nhân sự | Đội nhỏ, giá trị thấp so với công sức (BL 9 #13) – INV quyết ESC-012 16/10 (không làm chấm công). **Không gồm** đóng ca/bàn giao tiền – đó là kiểm soát tiền, nằm trong MVP R3 (US-124) |
+| X3 | Xếp lịch ca làm việc, chấm công nhân sự | Đội nhỏ, giá trị thấp so với công sức (BL 9 #13) – INV quyết ESC-012 16/10 (không làm chấm công). **Đổi 26/10/2026 (INV – FB-INV-006):** chấm công qua Wi-Fi OTTIMO và lịch ca tối giản vào **v1.1** (EP20, US-165…US-173 – `rounds/round-03/outputs/PO/attendance-v1.1.md`); vẫn ngoài phạm vi: tính lương, tăng ca, phép, đổi ca giữa nhân viên. **Không gồm** đóng ca/bàn giao tiền – đó là kiểm soát tiền, nằm trong MVP R3 (US-124) |
 | X4 | Ký số hợp đồng điện tử (chữ ký số có giá trị pháp lý) | Cần nhà cung cấp chữ ký số và tư vấn pháp lý; MVP chỉ xuất PDF hợp đồng (BL 9 #17) |
 | X5 | Kết nối trực tiếp từng OTA (không qua channel manager) | Airbnb chỉ mở API cho đối tác lớn; dùng channel manager (BL 3.19) |
 | X6 | Đồng bộ lịch bằng iCal | Chậm, dễ đặt trùng (BL 3.19) |
