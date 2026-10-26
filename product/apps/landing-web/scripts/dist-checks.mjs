@@ -299,6 +299,8 @@ export const BANNED = [
   /sắp mở/iu,
   /\bStandard Studio\b/,
   /One Bedroom \+ 1/,
+  // FB-INV-004 / BR-401 (e): the room is guaranteed by roomReadyBy, never promised "ready from" the check-in time.
+  /ready from \d|sẵn sàng từ \d/iu,
 ];
 
 export function checkWording({ html }) {

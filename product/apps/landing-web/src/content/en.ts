@@ -180,7 +180,7 @@ export const en: Copy = {
       },
       {
         title: 'Come and go freely',
-        body: 'A warm welcome at the ground-floor reception, [[07:00–22:00]], and a smart lock for late arrivals. Check-in from 14:00, check-out by 12:00.',
+        body: 'A warm welcome at the ground-floor reception, [[07:00–22:00]], and a smart lock for late arrivals. Check-in from 12:00 when your room is ready; it always is by 14:00. Check-out by 12:00.',
       },
     ],
   },
@@ -283,7 +283,7 @@ export const en: Copy = {
       {
         q: 'What is it like to stay at OTTIMO?',
         a: [
-          'The attentiveness of a reception and, for short stays, daily housekeeping, with the ease of your own kitchen, washer-dryer and desk. Check-in from 14:00, check-out by 12:00. One night or several months, it simply works.',
+          'The attentiveness of a reception and, for short stays, daily housekeeping, with the ease of your own kitchen, washer-dryer and desk. Check-in from 12:00 when your room is ready; it always is by 14:00. Check-out by 12:00. One night or several months, it simply works.',
         ],
       },
       {

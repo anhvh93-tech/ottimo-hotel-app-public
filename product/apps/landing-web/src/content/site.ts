@@ -17,7 +17,10 @@ const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 export const siteSchema = z.object({
   name: z.string().min(1),
   tagline: z.string().min(1),
+  // Earliest check-in when the room is ready (BR-401 v0.4.6, FB-INV-004): published in JSON-LD checkinTime.
   checkinTime: time,
+  // Time the room is always ready (BR-401 (b), Desk room_ready_guaranteed_time). Copy only – not in JSON-LD.
+  roomReadyBy: time,
   checkoutTime: time,
   phone: z.object({
     e164: z.string().regex(/^\+84\d{9}$/),

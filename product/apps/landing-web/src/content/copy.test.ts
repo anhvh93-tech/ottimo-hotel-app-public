@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { BANNED } from '../../scripts/dist-checks.mjs';
 import { plain } from '../lib/rich';
+import { homeJsonLd } from '../lib/seo';
 import { BOOKING_STRINGS } from '../scripts/booking-strings';
 import { en } from './en';
 import {
@@ -267,6 +268,44 @@ describe('numbers stated on the page = site.json booking parameters (concept 13)
     expect(plain(c.book.chat.text)).toContain(hours);
     expect(plain(c.book.steps[2].text)).toContain(`${b.depositPercent}%`);
     expect(plain(c.amenities.groups[3]!.body)).toContain(hours);
+  });
+  // FB-INV-004 / BR-401 v0.4.6 (CPY landing-fb-inv-004 1.1): check-in from checkinTime when the room is ready, always
+  // ready by roomReadyBy, check-out by checkoutTime – in the Amenities body and the first FAQ answer, both languages.
+  it.each([en, vi])('$lang: check-in / room-ready / check-out times = site.json (F5)', (c) => {
+    expect(site.checkinTime).toBe('12:00');
+    expect(site.roomReadyBy).toBe('14:00');
+    for (const s of [plain(c.amenities.groups[3]!.body), plain(c.faq.items[0]!.a[0]!)]) {
+      expect(s).toContain(site.checkinTime);
+      expect(s).toContain(site.roomReadyBy);
+      expect(s).toContain(site.checkoutTime);
+      // the guaranteed time is never the check-in time
+      expect(s).not.toMatch(/(Check-in from|Nhận phòng từ) 14:00/iu);
+      expect(s).toMatch(
+        c.lang === 'en'
+          ? new RegExp(
+              `Check-in from ${site.checkinTime} when your room is ready; it always is by ${site.roomReadyBy}\\. Check-out by ${site.checkoutTime}\\.`,
+            )
+          : new RegExp(
+              `Nhận phòng từ ${site.checkinTime} khi phòng đã sẵn sàng – và phòng luôn sẵn sàng lúc ${site.roomReadyBy}\\. Trả phòng trước ${site.checkoutTime}\\.`,
+            ),
+      );
+    }
+  });
+  it('the banned list stops a "ready from <time>" promise (BR-401 (e))', () => {
+    const hit = (s: string) => BANNED.some((re) => re.test(s));
+    expect(hit('Rooms ready from 12:00')).toBe(true);
+    expect(hit('Phòng sẵn sàng từ 12:00')).toBe(true);
+    expect(hit('it always is by 14:00')).toBe(false);
+    expect(hit('phòng luôn sẵn sàng lúc 14:00')).toBe(false);
+  });
+  it('JSON-LD publishes checkinTime/checkoutTime from site.json, never roomReadyBy', () => {
+    for (const c of [en, vi]) {
+      const graph = homeJsonLd(c, 'https://ottimo.vn/')['@graph'] as Record<string, unknown>[];
+      const lodging = graph.find((n) => n['@type'] === 'LodgingBusiness')!;
+      expect(lodging.checkinTime).toBe(site.checkinTime);
+      expect(lodging.checkoutTime).toBe(site.checkoutTime);
+      expect(JSON.stringify(lodging)).not.toMatch(/roomReady|14:00/);
+    }
   });
   it('thank-you strings follow the 202 promise (minutes / next morning / call now), not replyBy', () => {
     for (const s of Object.values(BOOKING_STRINGS)) {
