@@ -276,3 +276,28 @@ Ghi chú nhỏ (không ghi lỗi): khi 2FA bắt buộc, ô chọn cách vẫn h
 Giới hạn còn lại:
 - mã TOTP chỉ dùng **tiến**: một stack mà OWN/MGR đã đăng nhập ở mốc ảo xa thì không quay lại giờ thật được;
 - trên CI cờ 2FA vẫn tắt nên không ảnh hưởng.
+
+## 12. ESC-031 kiểm lại sau bản sửa BUG-R3-017 – **ĐẠT**
+
+- 26/10 ~17:20–17:45. Không dùng staging.
+- Nhánh `worktree-agent-a67639f06f6add4d9`: tip `64bf5c0` (đã rebase trên `origin/main`; gồm hai bộ ca ESC-031 của QA). Ảnh web dựng lại ở **`67fc853`** (FB-14/15/16: chữ, chặn rời trang).
+- Stack `ottimo-esc031` dựng mới từ đầu (DB mới):
+  - pha 1 – cờ 2FA tắt: hồi quy tiền;
+  - pha 2 – `MFA_ENFORCED=true`: ca ESC-031 và BUG-R3-017.
+
+| Hạng mục | Kết quả |
+|---|---|
+| E31-1…E31-11 + I-E31 (`clock/qa-esc031.r3.clock.spec.ts` trên nhánh) | **14/14 Đạt** (17:34) |
+| UI ESC-031 (`ui-clock/qa-esc031-ui.spec.ts`), web `67fc853` | **Đạt**: một cách, 0 ô mật khẩu; tiền mặt không gửi `/payments`, B18 mang `finalPayment` 792.000; `lateFeeInsteadOfNight` đúng 3 trường; 409 → "Phụ thu vừa được tính lại…"; 422 khi đêm bán lại được |
+| BUG-R3-017 – tiền mặt/thẻ POS ở bước 3 (ca QA `ui-clock/qa-bug017.spec.ts`), web `67fc853` | **4/4 Đạt**: ESC-031 + POS; đêm thêm thường + tiền mặt; đêm thêm thường + POS; ESC-031 + folio đã nợ 70.000 + tiền mặt 862.000. B18 200, folio `settled`, còn 0, không dư |
+| Hồi quy tiền (cờ tắt) | `clock` money-s4 + stay-checkout.s3 + debt-collect.s5: **63 đạt**, 1 bỏ qua. `desk-clock` checkout.h16, flow-a1, stay-money, axe-k8 (gồm TC-X-086), debt-collect: **19/19**. `api` money-s4 + stay-checkout.s3 + gate-s4: **47 đạt**, 2 bỏ qua |
+| admin-web (vitest) | **625/625** trên `67fc853` |
+
+Ảnh mới ở `rounds/round-03/outputs/FE/esc031-shots/`:
+- `01`, `03`–`06` chụp lại;
+- `02-buoc3-tien-mat-ghi-khi-hoan-tat.png` thay cho ảnh lỗi `02-buoc3-tien-mat-bi-doi-ly-do.png` (ảnh lỗi giữ lại làm bằng chứng);
+- `bug017-{A,B,C,D}-*-buoc3.png` và `-hop-xac-nhan.png`.
+
+Còn lại:
+- Ca `ui-clock/qa-bug017.spec.ts` đang ở scratchpad (`esc031b/product/tests/e2e/ui-clock/`). Đề nghị FE-A đưa vào nhánh, cùng điều kiện `E2E_TOTP_DIR` như hai bộ ca ESC-031.
+- BUG-R3-017 chuyển Closed khi nhánh gộp và CI xanh.

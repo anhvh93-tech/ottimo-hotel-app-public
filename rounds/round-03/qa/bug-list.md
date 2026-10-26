@@ -9,10 +9,10 @@
 | Mức | Số lỗi | Open | Fixed | Closed |
 |---|---|---|---|---|
 | P0 | 3 | 0 | 0 | 3 |
-| P1 | 9 | 1 | 0 | 8 |
+| P1 | 9 | 0 | 1 | 8 |
 | P2 | 3 | 0 | 0 | 3 |
 | P3 | 2 | 1 | 1 | 0 |
-| **Tổng** | **17** | **2** | **1** | **14** |
+| **Tổng** | **17** | **1** | **2** | **14** |
 
 Cập nhật 26/10 tối (ESC-031, `qa3-rc1.md` mục 11): thêm **BUG-R3-017 (P1, FE-A + BE-B)** – thu tiền mặt/thẻ cho phụ thu bằng 1 đêm ở bước 3 trả phòng bị chặn (có từ R2 0.3.7; trên production ESC-031 là đường duy nhất nên lỗi lộ ra). Bản vá ESC-031 tự nó: 14/14 ca tiền đạt.
 
@@ -43,7 +43,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-014 | P1 | Chi hoàn (`payOut`) đưa tiền dư của folio `settled` về 0 nhưng các yêu cầu hoàn đã duyệt còn tiền chưa chi vẫn `approved`, không đóng `superseded` (hợp đồng 13.3 điểm 1 + 3). Tiền khách trả thêm về sau bị duyệt cũ "hút" và chi theo duyệt cũ, không qua định tuyến ADD3 | BE-B (payments/refunds) | **Closed** 24/10 – BE-B `76e21c4` (gộp `ce38624`, hợp đồng 13.4); fuzz chạy lại 710 chuỗi / 28.250 bước, 0 vi phạm cứng; critic `reviews/s1-money-critic-014.md` |
 | BUG-R3-015 | P3 | **Bộ test**: không chạy được trên stack `MFA_ENFORCED=true` (staging, production): (1) `freshSession` không có bước TOTP cho DS-E OWN/MGR đã bật 2FA; (2) `createThrowawayUser` gửi S2 chỉ có mật khẩu; (3) `ensureReceivingAccount` (R3-Q51) gọi `/health` + `/__test__/clock` vô điều kiện; (4) `s2Context` dùng `qa.owner` – phiên hạn chế làm ca bỏ qua với lý do sai "DS-E chưa nạp đủ 10 căn" | QA | **Fixed** 26/10 – harness trong repo (`support/totp-store.ts`, `E2E_TOTP_DIR`, `E2E_TOTP_ENROLL`, `seedReauthFor`, `E2E_LOCAL_CLOCK`); kiểm trên stack dùng một lần cờ bật và cờ tắt. Closed sau CI push xanh + lượt staging 27/10 |
 | BUG-R3-016 | P3 | Khách **đến hôm nay**: báo giá đã lưu không chuyển được thành đơn. H12 chỉ báo "Sale/CTV: nhắn lễ tân tạo đơn đã thu"; lễ tân nhập lại H09 từ đầu – mặc định 2 người lớn trong khi báo giá 1 người lớn, không mang khách/giá của báo giá, không nối báo giá với đơn | PO (+ FE-A, UXD) | Open |
-| BUG-R3-017 | **P1** | Trả phòng H16 bước 3, phụ thu trả muộn bằng 1 đêm (BR-416-06 – mọi lượt ESC-031 trên production): thu **tiền mặt** (hoặc thẻ POS) 792.000 → `recordPayment` 422 `note REASON_REQUIRED` (số > còn phải thu lúc đó vì phụ thu chỉ ghi khi B18); màn báo "Ghi lý do (ít nhất 3 ký tự)" nhưng không có ô ghi → không thu được, B18 tiếp theo 409 `BALANCE_DUE`. VietQR (gửi ngữ cảnh trả phòng) và chuyển khoản (có ô ghi chú) đi được | FE-A (+ BE-B) | Open |
+| BUG-R3-017 | **P1** | Trả phòng H16 bước 3, phụ thu trả muộn bằng 1 đêm (BR-416-06 – mọi lượt ESC-031 trên production): thu **tiền mặt** (hoặc thẻ POS) 792.000 → `recordPayment` 422 `note REASON_REQUIRED` (số > còn phải thu lúc đó vì phụ thu chỉ ghi khi B18); màn báo "Ghi lý do (ít nhất 3 ký tự)" nhưng không có ô ghi → không thu được, B18 tiếp theo 409 `BALANCE_DUE`. VietQR (gửi ngữ cảnh trả phòng) và chuyển khoản (có ô ghi chú) đi được | FE-A (+ BE-B) | **Fixed** 26/10 – FE-A `64bf5c0` + `67fc853` (Desk gửi `finalPayment` trong B18). QA kiểm trên stack bật 2FA: 4 ca tiền mặt/thẻ POS (ESC-031 và đêm thêm thường) đạt. **Closed** sau khi gộp nhánh + CI xanh |
 
 ## 3. Chi tiết
 
@@ -464,4 +464,19 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Bằng chứng:** `rounds/round-03/outputs/FE/esc031-shots/02-buoc3-tien-mat-bi-doi-ly-do.png`; log scratchpad `esc031/p2b-ui.log` (`[ui] tiền mặt 792.000 (bước 3) → 422 … note REASON_REQUIRED`).
 - **Vai:** FE-A (+ BE-B nếu chọn (b)); UXD chữ nếu chọn (c).
 - **Hạn:** trước ngày chạy D (02/11). Đề nghị ORC xếp cùng lượt gộp ESC-031.
-- **Trạng thái:** Open.
+- **Kiểm lại (QA, 26/10 ~17:30–17:45):**
+  - Nhánh `worktree-agent-a67639f06f6add4d9` tip `64bf5c0`, ảnh web dựng lại ở `67fc853`. Stack dùng một lần `ottimo-esc031`, `MFA_ENFORCED=true`.
+  - FE-A sửa phía Desk, server không đổi: tiền mặt/thẻ POS vượt số folio đang nợ không gọi `recordPayment`. Panel ghi "đã nhận …, ghi vào folio khi bấm Hoàn tất", và B18 gửi `finalPayment`.
+  - Bốn ca (ca QA `ui-clock/qa-bug017.spec.ts`, scratchpad):
+
+    | Ca | Đường | Cách trả | Số ghi trong B18 | Kết quả |
+    |---|---|---|---|---|
+    | A | ESC-031 | thẻ POS | `finalPayment` 792.000 | 200 |
+    | B | đêm thêm sau 18:00 (đêm bán được) | tiền mặt | 708.000 | 200 |
+    | C | đêm thêm sau 18:00 | thẻ POS | 750.000 | 200 |
+    | D | ESC-031, folio đã nợ 70.000 F&B | tiền mặt | 862.000 | 200 |
+
+  - Cả bốn ca: không có `POST /payments` ở bước 3; hộp xác nhận có dòng "Ghi vào folio khoản thu …"; folio `settled`, còn phải thu 0, không dư; dòng thanh toán đúng cách trả và số tiền.
+  - Ca ESC-031 UI (tiền mặt 1.000.000 khách đưa) → `finalPayment` 792.000. `lateFeeInsteadOfNight` vẫn đúng 3 trường. 409/422 như cũ.
+  - admin-web 625/625. Ảnh: `rounds/round-03/outputs/FE/esc031-shots/02-buoc3-tien-mat-ghi-khi-hoan-tat.png`, `bug017-*.png`.
+- **Trạng thái:** Fixed – Closed khi nhánh gộp `main` và CI xanh.
