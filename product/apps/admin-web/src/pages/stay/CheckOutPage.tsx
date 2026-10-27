@@ -1781,8 +1781,8 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
 /**
  * H16 16.5 Phiếu thanh toán (FE-S3-06, DOM FE-03): the slip has its own title, tax code, number or
  * preview note, column headers, and every fixed label in VI with the EN line under it (`.en`,
- * `lang="en"`) when bilingual. Printing renders a copy into `<div class="print-root">` directly under
- * `<body>` (hifi.css §16 prints only that, A5, white paper even in dark mode). Line texts come from
+ * `lang="en"`) when bilingual. While the dialog is open a copy sits in `<div class="print-root">` directly under
+ * `<body>` (hifi.css §16 + `print.css` print only that – A4, white paper even in dark mode). Line texts come from
  * `labelKey`/`labelParams` (fallback: server description).
  */
 export function BillDialog({
@@ -1811,12 +1811,6 @@ export function BillDialog({
       stale = true;
     };
   }, [bilingual, enReady]);
-  const [printing, setPrinting] = useState(false);
-  useEffect(() => {
-    if (!printing) return;
-    window.print();
-    setPrinting(false);
-  }, [printing]);
 
   const both = bilingual && enReady;
   const L = (key: string, args?: Args) => (
@@ -1972,22 +1966,22 @@ export function BillDialog({
               { value: 'vi_en', label: t('co.bill_vien') },
             ]}
           />
-          <Button variant="pri" icon="printer" onClick={() => setPrinting(true)}>
+          <Button variant="pri" icon="printer" onClick={() => window.print()}>
             {t('co.print')}
           </Button>
         </>
       }
     >
       {paper}
-      {/* Only while printing: the copy the print stylesheet keeps (body > .print-root). */}
-      {printing
-        ? createPortal(
-            <div className="print-root" aria-hidden="true">
-              {paper}
-            </div>,
-            document.body,
-          )
-        : null}
+      {/* BUG-R3-020 (hifi.css §16): the copy the print stylesheet keeps (body > .print-root), mounted for as long as
+          the dialog is open – not only around window.print(), which returns at once on iPad Safari / headless and
+          is bypassed by Ctrl+P, so the whole Desk was printed. Hidden on screen. */}
+      {createPortal(
+        <div className="print-root" aria-hidden="true">
+          {paper}
+        </div>,
+        document.body,
+      )}
     </Modal>
   );
 }

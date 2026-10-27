@@ -7,6 +7,7 @@ import { useCatalog } from '../../app/catalog';
 import { useBusinessDay } from '../../app/businessDay';
 import { timeHHmm, weekdayDate } from '../../app/dates';
 import { useLiveReload } from '../../app/live';
+import { useRoomGroupNames } from '../../app/roomGroups';
 import { STATUS_KEY, addDays, channelName, dayMonth } from '../../app/reservations';
 import { Page, Topbar } from '../../components/AppShell';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
@@ -717,20 +718,4 @@ function useMedia(query: string): boolean {
     return () => mq.removeEventListener?.('change', on);
   }, [query]);
   return match;
-}
-
-/** Room-group code → name for the "Nhóm căn" filter (listRoomGroups; falls back to the code). */
-function useRoomGroupNames(propertyId: string): Record<string, string> {
-  const [names, setNames] = useState<Record<string, string>>({});
-  useEffect(() => {
-    let stale = false;
-    api.listRoomGroups({ propertyId }).then(
-      (r) => !stale && setNames(Object.fromEntries(r.data.data.map((g) => [g.code, g.name]))),
-      () => undefined,
-    );
-    return () => {
-      stale = true;
-    };
-  }, [propertyId]);
-  return names;
 }

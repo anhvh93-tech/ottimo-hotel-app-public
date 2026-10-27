@@ -218,6 +218,14 @@ export function ReservationDrawer({
 
   const businessDay = useBusinessDay();
   const allowed = new Map((r?.allowedActions ?? []).map((a) => [a.event, a]));
+  // BUG-R3-022: the folio's state from the server (`addFolioLine` takes `open`, or `settled` inside
+  // `post_checkout_window_until`) – the window itself is not computed here.
+  const postCheckoutCharge =
+    fd &&
+    online &&
+    r?.status === 'checked_out' &&
+    !!ownFolio &&
+    (ownFolio.status === 'settled' || ownFolio.status === 'open');
   // K11-03: the room of today, not `segments[0]` (the room left after a mid-stay B14).
   // BUG-R2-211: "today" = the business day (display only).
   const seg = r ? currentSegment(r.segments, businessDay) : undefined;
@@ -323,6 +331,11 @@ export function ReservationDrawer({
             ? t('drawer.action.request_restore')
             : t('drawer.action.restore_no_show')}
         </Button>
+      ) : null}
+      {postCheckoutCharge ? (
+        // BUG-R3-022 (BR-427 (c), US-106 AC2): after check-out the server still takes a charge while the folio is
+        // `settled` inside its window – J15 closes it when the window ends; `closed` → no button.
+        <Button onClick={() => setOpen('charge')}>{t('stay.add_charge')}</Button>
       ) : null}
       {fd && r.status === 'checked_out' && (r.balanceDueVnd ?? 0) > 0 ? (
         // ARC 16.26 (BR-525 G-4): a debt left at check-out is collected on the settled folio (FD+).

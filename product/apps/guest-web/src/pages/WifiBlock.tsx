@@ -3,11 +3,20 @@ import { useState } from 'react';
 import type { GuestStay } from '../app/api';
 import { useT } from '../app/i18n';
 
-/** US-108 AC2 (R2): Wi-Fi only inside its validity window – the server sends `wifi: null` before. */
+/** Today's date at the property (YYYY-MM-DD, Asia/Ho_Chi_Minh). */
+const propertyToday = (now = new Date()) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(now);
+
+/**
+ * US-108 AC2 (R2): Wi-Fi only inside its validity window – the server sends `wifi: null` before.
+ * BUG-R3-021: `null` from the arrival day on (or while in house) means the property has no Wi-Fi on file yet –
+ * then ask the front desk instead of promising it "on your arrival day".
+ */
 export function WifiBlock({ stay }: { stay: GuestStay }) {
   const { t, shortDate } = useT();
   const [copied, setCopied] = useState(false);
   const wifi = stay.wifi;
+  const arrived = stay.status === 'in_house' || propertyToday() >= stay.arrivalDate;
 
   const copy = async () => {
     if (!wifi?.password) return;
@@ -33,7 +42,11 @@ export function WifiBlock({ stay }: { stay: GuestStay }) {
             <span className="gw-code">{wifi.password}</span>
           </dd>
         ) : (
-          <dd>{t('gw.wifi_later', { date: shortDate(stay.arrivalDate) })}</dd>
+          <dd>
+            {arrived
+              ? t('gw.wifi_ask_desk')
+              : t('gw.wifi_later', { date: shortDate(stay.arrivalDate) })}
+          </dd>
         )}
       </dl>
       {wifi?.password ? (
