@@ -91,7 +91,8 @@ Sau B2, QC chấm cổng v1.0. Nếu ĐẠT, anh/chị chọn ngày chạy.
 |---|---|---|---|---|
 | C1 | **Kiểm VietQR** bằng app ngân hàng: tạo một đơn thử ghi chú "TEST", quét QR, xem **tên chủ tài khoản đúng**, **không chuyển tiền**, rồi hủy đơn thử | Hôm sau B2 (tài khoản đã có hiệu lực), 5 phút | Tên sai thì báo ngay "P0" | ☐ |
 | C2 | **Chuyển đổi dữ liệu** (đơn, cọc, khách đang ở) cùng lễ tân trưởng | Chiều D−1 và 14:00 ngày D | Theo `product/docs/day-one-guide.md` | ☐ |
-| C3 | Phát **hướng dẫn 1 trang** cho lễ tân và buồng phòng, cho mỗi người đăng nhập thử một lần | D−1 | `product/docs/staff-one-pager.md` | ☐ |
+| C3a | **Đào tạo từng bộ phận bằng Sổ tay sử dụng v1.0**: chủ đầu tư/quản lý (chương 1), lễ tân và lễ tân trưởng (chương 2), buồng phòng (chương 3), bảo trì, sale/CTV, kế toán (chương 4); chương 0 và 5 cho mọi người | **31/10–01/11** (bản cuối sổ tay 30/10) | `product/docs/manual/user-manual-v1.0.md` (UXD dựng bản HTML theo nhận diện OTTIMO). **Tập thao tác trên trang tập (staging)** bằng tài khoản tập đội tạo sẵn cho từng người; mã VietQR trên trang tập không chuyển tiền. Trên Desk thật chỉ đăng nhập, đổi mật khẩu tạm, đăng xuất – không tạo đơn hay thu tiền thử, vì dữ liệu thật chỉ ghi thêm, không xóa được | ☐ |
+| C3 | Phát **hướng dẫn 1 trang** cho lễ tân và buồng phòng, cho mỗi người đăng nhập thử một lần | D−1 | `product/docs/staff-one-pager.md` – **bản tóm tắt dán quầy** của sổ tay (sửa 27/10: kiểm phòng do lễ tân trưởng, buồng phòng báo số minibar cho lễ tân nhập). Đăng nhập thử trên Desk thật: chỉ đổi mật khẩu tạm rồi đăng xuất | ☐ |
 | C4 | Ngày chạy: giữ **sổ giấy dự phòng 3 ngày đầu** (đơn, thu tiền), đối chiếu mỗi tối | D, D+1, D+2 | Phòng khi mất mạng/mất điện | ☐ |
 | C5 | Form website: bật theo phương án ESC-030 anh/chị chọn | Theo ESC-030 | Bật trên Desk ở màn Tham số, 1 phút | ☐ |
 
