@@ -769,3 +769,45 @@ Buổi B2 trên bản thật: 09:00 thứ Tư 28/10 (INV chốt); kịch bản �
 | 4 | Khóa giải mã sao lưu production (`ottimo-prod-backup-identity.txt`, 184 byte, **không có passphrase**) nằm **cùng Mac** với các bản sao lưu đã kéo về | Mất/lộ Mac là lộ cả bản sao lưu (ảnh giấy tờ còn lớp mã hóa KEK; phần dữ liệu không mã hóa riêng trong DB thì đọc được) | SEC xem. OPS đề xuất: sau B2, khi INV đã có 2 bản (A8), xóa khóa khỏi Mac; mỗi lần diễn tập thì đặt lại tạm (cách ở `b2-runbook.md` 2.5). Kéo bản sao lưu không cần khóa này |
 | 5 | Tệp bí mật production thuộc `ottimo-admin` (uid 1000 trùng uid `node` của container – cách `init-secrets.sh` cấp quyền cho container) | `ottimo-admin` đọc được bí mật không cần `sudo`. Tài khoản này vốn đã có `sudo` không mật khẩu, nên không mở thêm quyền | Để biết; SEC ghi nhận |
 | 6 | Diễn tập trên Mac phụ thuộc Docker Desktop + runner dựng tại chỗ | Mất image thì dựng lại 1 lệnh (~10 giây, cần mạng) | Lệnh dựng lại ở `b2-runbook.md` 2.5 |
+
+### 21.6 Chiều 27/10 – sửa theo SEC `reviews/SEC-on-B2-readiness.md`
+
+**SEC đã quyết** (thay đề xuất 21.4):
+- B2 **không** vá email chủ. Phương án B (gõ SQL) bị từ chối.
+- Chạy ngày D với biện pháp bù B1–B6.
+- BE thêm trường email người dùng ở v1.0.1 (BUG-R3-032, P1). Quá 09/11 chưa có thì SEC lập ESC.
+- Khóa sao lưu: B2 dùng tệp hiện có. Xóa khỏi Mac trong ngày 28/10 sau khi diễn tập ĐẠT. Không đặt passphrase.
+
+**`b2-runbook.md` đã sửa:**
+- 1.3: thêm `fdesetup status` và `tmutil destinationinfo` / `tmutil addexclusion ~/.ottimo`. Bỏ cách tạo lại khóa bằng TextEdit.
+- 1.2: thêm phong bì A8 riêng, không chung KEK.
+- 2.3:
+  - Wi-Fi "bỏ qua nếu Desk chưa có ô; không ghi DB tay" (BUG-R3-021);
+  - `dead NO_RECIPIENT` là dự kiến (BUG-R3-032);
+  - B2 không vá email.
+- 2.5:
+  - B2 dùng tệp khóa hiện có;
+  - các bước sau khi ĐẠT: kiểm bản trong trình quản lý mật khẩu bằng `pbpaste | … age-keygen -y` so với khóa công khai → phong bì A8 riêng → `rm` tệp khóa, trong ngày 28/10;
+  - đường "khóa qua stdin vào tmpfs" cho lần sau.
+- Mục 3: thêm P5-d, P5-e, F (FileVault tắt).
+- Mục 4: thêm việc xóa khóa 28/10, biện pháp bù B1–B6 từ 29/10, BUG-R3-032 ở v1.0.1.
+
+**Đã thử (không dùng khóa production):**
+
+| Thử | Kết quả |
+|---|---|
+| Đường "khóa qua stdin": `cat <khóa tổng hợp> \| docker run -i … ottimo-drill-runner:local bash -c "umask 077; cat > /tmp/id && restore-drill.sh --identity /tmp/id …"` trên bản sao lưu tổng hợp | **ĐẠT – /health ok, 7 giây, khớp 100 %, 65 migration**. Không còn container/volume. Khóa chỉ nằm trong tmpfs |
+| Đúng khối lệnh của runbook 2.5 (lần sau), với một khóa dùng một lần **sai**, trên bản sao lưu production đã kéo về | `age: no identity matched any of the recipients`, dừng trước khi giải mã, môi trường tự xóa. Khối lệnh (zsh → `bash -c`, stdin qua 2 tầng) chạy đúng |
+| `age-keygen -y` qua stdin (khóa tổng hợp) so với khóa công khai | `MATCH` |
+| Khóa công khai trên Mac (`~/.ottimo/backup/ottimo-prod-backup-recipient.txt`) so với `/opt/ottimo-prod/backup/recipients.txt` trên máy chủ (1 dòng `age1…`) | **Trùng**. Lệnh kiểm của INV (2.5) so với tệp trên Mac là đủ |
+
+**`ops-check` đếm thư `dead NO_RECIPIENT`** – nhánh `ops-check-no-recipient`, commit `212cda0`. Chưa gộp, chưa đẩy, chưa deploy.
+- Kiểm mới `email_dead`, có trong lượt chạy đầy đủ của timer:
+  - `count(*)` của `outbox_message` với `topic = 'staff.email'`, `status = 'dead'`, `last_error = 'NO_RECIPIENT'`, trong `EMAIL_DEAD_HOURS` (mặc định 24) giờ;
+  - không đọc `payload`.
+- Mặc định **chỉ báo số** (ok kèm "report only … BUG-R3-032"). Sau v1.0.1, đặt `EMAIL_NO_RECIPIENT_ALERT=1` trong `.env` thì số > 0 là `FAIL` (journal + webhook + heartbeat `/fail`). Giá trị khác 0/1 → `FAIL`.
+- Test mới `infra/ci/test-ops-check.sh`: **15/15** trên Mac và trong `ubuntu:24.04`. Chạy script thật với `dc` giả; kiểm SQL chỉ đếm và có trong danh sách chạy đầy đủ. CI job `infra-scripts` có thêm bước chạy test này (YAML hợp lệ).
+- Shellcheck 0.9.0 `-S warning`: sạch.
+- README `infra/server` mục 7 thêm một dòng.
+- SQL chạy chỉ đọc 27/10: staging **4** (khớp 21.4: 3 + 1), production **0**.
+- Lên máy chủ: khi làm mới bundle `infra/` (21.5 #2), sau khi ORC gộp.

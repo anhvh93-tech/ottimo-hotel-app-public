@@ -216,3 +216,40 @@ Tất cả chỉ ghi bằng `tx.query`. `pg_notify` có tính giao dịch. Các 
   - (2) SR-RL-10 (thẻ 05), dời v1.1;
   - (3) chấp nhận dời `previewToken` sang v1.1, rủi ro còn lại như thẻ 06.
 - Thẻ 01–04 nên cùng PR. Nếu BE-A không kịp trước khi cắt v1.0.1, SEC đồng ý dời sang v1.1 với điều kiện chúng nằm trong `plan.md` của round kế tiếp.
+
+---
+
+## Lượt 2 (27/10) – nhánh `be-a-v1.0.1` HEAD `1552e49`, báo cáo mục 7.4
+
+SEC đọc `git diff 5e966a5 1552e49`:
+- `db/database.ts`;
+- `reservation-hooks.ts`, `approval.service.ts`, `attachment.service.ts`;
+- `audit/public/audit.service.ts`.
+
+| Thẻ | Kết quả SEC kiểm | Trạng thái |
+|---|---|---|
+| 01 | Có test thứ tự guard → SAVEPOINT → ROLLBACK TO → RELEASE (commit bị từ chối) và test đọc mã "guard trước `fn`". Bộ lọc xét cả văn bản gốc lẫn bản đã bỏ chú thích (lỗ `'--x'; COMMIT` đã đóng). Chú thích ghi rõ ranh giới là `simulation_guard` + kiểm txid. | Closed |
+| 02 | `tx.db` là Proxy luôn ném lỗi. Kiểm txid: đọc `txid_current()` ngay sau guard, so `txid_current_if_assigned()` khi `fn` xong, lệch thì ném lỗi, không trả kết quả. Có test ROLLBACK qua kết nối thô. Thêm (BE-B): chặn `pg_(try_)advisory_lock(_shared)` mức session, vì khóa này sống qua rollback và giữ trên kết nối pool. | Closed |
+| 03 | `ReservationHooks.emit`, `ApprovalService.submit`, `AttachmentService.bindTo` ném lỗi khi `tx.ctx.simulation`, mỗi hàm có test. Lệch: `recordMoney` không ném (xem dưới). | Closed, chấp nhận lệch |
+| 04 | Ca `room_change_difference` có trần đi qua ảnh chụp 72 bảng (BR-428-08 + ca kết hợp OTA). Test kiến trúc giới hạn `.connect()` / `new Pool(` / `new Client(`. | Closed |
+| 05, 06, 07 | Dời v1.1 theo kết luận lượt 1 (SR-RL-10; `childVersions`/`previewToken`; chặn DELETE `room_list_price`). | Dời v1.1 (chấp nhận) |
+| 08 | (a) JSDoc đã về đúng hàm. (c) ARC đã gắn `x-visible-to` (hợp đồng 10.4). | Closed |
+
+**Lệch thẻ 03 – `AuditService.recordMoney` không ném khi tính thử: SEC CHẤP NHẬN.**
+
+Lý do:
+- (a) `recordMoney` → `record` chỉ là một `tx.query` INSERT vào `audit_event`. SEC đọc lại tại `1552e49`: không log, không gọi HTTP, không `notify`, không mở kết nối. Ghi trong `tx` của simulate nên bị rollback như mọi dòng folio. Ba lớp bảo đảm: dòng guard, kiểm txid, ảnh chụp 72 bảng (có so `audit_event`).
+- (b) Các hàm folio trên đường tính thử (`syncStay`, `reverseLine`, `postLines`) phải ghi audit lồng thì mới là "chính hàm ghi". Bắt chúng phân nhánh theo `simulation` sẽ tạo đúng loại "đường thứ hai" mà ADR-015 muốn tránh.
+- (c) Thẻ 03 nhắm vào tác dụng **ngoài giao dịch**: hook xóa DEK, thu hồi link khách, cấp mã yêu cầu duyệt. `recordMoney` không có tác dụng nào như vậy. Dòng audit cuối của B16 vẫn nằm sau `if (dryRun) return`.
+- (d) `recordDenied` mở giao dịch riêng (`withContext`), nên nếu bị gọi trong simulate sẽ ném lỗi do dấu "trong unit of work". Lớp này fail-closed sẵn.
+
+Điều kiện kèm theo (Minor, làm trong v1.0.1 nếu kịp, chậm nhất v1.1):
+- Thêm test đơn vị hoặc kiến trúc: `AuditService.record`/`recordMoney` chỉ được gọi `tx.query`. Không logger, không `events`, không `db.withContext`.
+- Thêm một dòng chú thích ở `recordMoney`: "phải giữ chỉ-DB – được gọi trong giao dịch tính thử (ADR-015)".
+
+Như vậy rủi ro BE-A tự ghi ở mục 7.7 ("nếu sau này audit có tác dụng ngoài DB") sẽ bị test chặn, không chỉ dựa vào người review.
+
+**Kết luận lượt 2:** thẻ 01–04, 08 đóng. Thẻ 05–07 dời v1.1 như đã chấp nhận ở lượt 1. **Giữ kết luận chấp nhận gộp vào v1.0.1** với ba điều kiện quy trình đã nêu ở đầu file:
+- chạy lại ảnh chụp 72 bảng sau khi gộp với BE-B;
+- số migration;
+- ARC cập nhật ADR-015. ADR-015 đã sang "accepted" ở `f3dc5e6`; SEC chưa đọc lại lời văn mới, sẽ xem ở bước QC.

@@ -2,7 +2,7 @@
 
 - Đi kèm: `product/docs/manual/user-manual-v1.0.md` (mã ảnh `[ẢNH: Cx-yy-…]`)
 - Lập: BA · 27/10/2026 · Người chụp: QA, trên **staging** bản `v1.0.0-rc.3` (`70fe734`) · Người dựng HTML: UXD
-- Tổng: 88 ảnh (C0: 10 · C1: 21 · C2: 40 · C3: 9 · C4: 8). C2-19 dùng hai lần (mục 2.10 và 2.13).
+- Tổng: 89 ảnh (C0: 11 · C1: 21 · C2: 40 · C3: 9 · C4: 8). C2-19 dùng hai lần (mục 2.10 và 2.13). C0-11 thêm ngày 27/10 (bản 1.2).
 
 ## Quy tắc chung khi chụp
 
@@ -27,7 +27,8 @@
 | C0-05 | **Nhập mã xác thực** khi đăng nhập | Quản lý thử | – | Ô mã để trống |
 | C0-06 | Menu **Tài khoản** mở: **Đổi mật khẩu**, **Xác thực 2 bước**, **Ngôn ngữ giao diện**, **Giao diện**, **Đăng xuất** | Quản lý | – | – |
 | C0-07 | Thanh menu bên của Desk, đủ 4 nhóm | Lễ tân | – | – |
-| C0-08 | Chip **Máy quầy đã cấp quyền** (và một ảnh nhỏ **Máy chưa cấp quyền giấy tờ** nếu UXD muốn so sánh) | Lễ tân trên máy đã cấp / chưa cấp | Máy staging đã cấp quyền | – |
+| C0-08 | Chip **Máy quầy đã cấp quyền** (máy chưa cấp: ảnh C0-11) | Lễ tân trên máy đã cấp / chưa cấp | Máy staging đã cấp quyền | – |
+| C0-11 | Chip **Máy chưa cấp quyền giấy tờ** (góc dưới trái) và menu không có **Giấy tờ & khai báo** | Lễ tân trên máy chưa cấp quyền | – | – (QA chụp 27/10 dưới tên C0-08b, đổi mã thành C0-11 vì bộ dựng chỉ nhận mã dạng Cx-yy) |
 | C0-09 | App nhân viên – **Đăng nhập** (điện thoại) | Chưa đăng nhập | – | – |
 | C0-10 | Trang khách – trang lưu trú sau khi làm thủ tục trước (điện thoại) | Link khách của một đơn thử | Đơn đã xác nhận, đã check-in online | **Che Wi-Fi**, mã đơn trên URL |
 

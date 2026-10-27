@@ -1,6 +1,6 @@
 # OTTIMO Desk – Hướng dẫn 1 trang cho nhân viên
 
-Dành cho lễ tân và buồng phòng · v1.0 · tháng 11/2026 · Lập: PO + DOM · Sửa 26/10: nhận phòng từ 12:00 · Sửa 27/10: kiểm phòng do lễ tân trưởng, minibar buồng phòng báo số – lễ tân nhập, in phiếu. In một mặt giấy A4, dán ở quầy. Hướng dẫn đầy đủ: **Sổ tay sử dụng OTTIMO Desk v1.0** (chủ đầu tư giữ).
+Dành cho lễ tân và buồng phòng · v1.0 · tháng 11/2026 · Lập: PO + DOM · Sửa 26/10: nhận phòng từ 12:00 · Sửa 27/10: kiểm phòng do lễ tân trưởng, minibar buồng phòng báo số – lễ tân nhập, in phiếu; tối 27/10 (BA theo SEC): QR "vừa đổi tài khoản nhận", mã cửa không qua tin nhắn, báo lỗi không kèm dữ liệu khách, In phiếu đang lỗi. In một mặt giấy A4, dán ở quầy. Hướng dẫn đầy đủ: **Sổ tay sử dụng OTTIMO Desk v1.0** (chủ đầu tư giữ).
 
 <!-- PO 27/10 (L2 trong rounds/round-03/outputs/BA/manual-report.md): phần buồng phòng viết theo mã v1.0.0-rc.3 – hk_self_inspection_enabled = false (production-defaults.ts), nút kiểm phòng chỉ cho lễ tân trưởng trở lên; app nhân viên không có màn đếm minibar (chỉ việc "Bổ sung minibar"). Khớp sổ tay mục 2.14, 3.6, 3.7. CHỜ QA xác nhận trên staging Q6 (minibar) và Q7 (lễ tân trưởng thấy nút Kiểm phòng, buồng phòng không thấy) ở rounds/round-03/qa/manual-check.md. Nếu khác: PO sửa trước khi INV in ngày D−1 (01/11). Căn cứ BR-401 v0.4.6, BR-415, BR-802. -->
 
@@ -10,6 +10,7 @@ Desk (máy quầy): `desk.ottimo.vn` · App buồng phòng (điện thoại): `s
 ## Luôn nhớ
 - **Mỗi người một tài khoản.** Không dùng chung, không đọc mật khẩu qua điện thoại, không gõ mật khẩu cho người khác. Rời máy thì đăng xuất.
 - **Giấy tờ khách chỉ nằm trên Desk.** Không chụp, không gửi qua Zalo, không lưu trên điện thoại cá nhân.
+- **Mã cửa không gửi qua Zalo, tin nhắn, email hay ảnh**, kể cả gõ tay. Chỉ đọc tại quầy, hoặc lễ tân **tự gọi ra** số điện thoại trên đơn – khi khách đã nhận phòng trên Desk, có giấy tờ, đã thu đủ. Không đọc mã cho người gọi đến. Không mở cửa căn cho người tự nhận là khách.
 - **Ngày trên Desk đổi lúc 06:00**, không phải 00:00. Từ 00:00 đến 05:59 vẫn là ngày hôm trước.
 - Ba ngày đầu: ghi thêm **sổ giấy** (đơn, thu tiền), đối chiếu lúc 22:00.
 
@@ -31,13 +32,15 @@ Desk (máy quầy): `desk.ottimo.vn` · App buồng phòng (điện thoại): `s
 
 **Cọc:** gửi khách mã VietQR từ đơn. Nội dung chuyển khoản là mã đơn. Chỉ bấm "Đã nhận cọc" khi thấy tiền về tài khoản của OTTIMO.
 
+**Mã VietQR hiện dòng "Tài khoản nhận vừa đổi":** **chưa cho khách chuyển**. Gọi điện cho chủ đầu tư (số đã lưu ở điện thoại cơ sở) xác nhận trước; chủ đầu tư đồng ý mới tiếp. Không gọi được thì mời khách trả tiền mặt hoặc thẻ.
+
 **Giờ nhận phòng nói với khách:** "Nhận phòng từ 12:00, phòng luôn sẵn sàng lúc 14:00" (EN: "Check-in from 12:00, your room is always ready by 14:00"). **Không** hứa "phòng sẵn sàng từ 12:00". Khách tới 12:00–14:00 mà căn chưa xong: giữ hành lý, mời chờ ở sảnh hoặc đi dạo, hẹn giờ; không phụ thu, không giảm giá. Quá 14:00 vẫn chưa xong: báo lễ tân trưởng hoặc quản lý đổi căn sẵn sàng hoặc nâng hạng.
 
 **Nhận phòng:** buồng đã sạch; đã thu đủ phần còn lại (đơn trực tiếp); có giấy tờ người đứng tên **trước khi** giao mã cửa. Nhập giấy tờ ở bước Giấy tờ, rồi khai báo lưu trú và đánh dấu "đã khai" ở **Giấy tờ & khai báo** trước hạn.
 
 **Trả phòng – 3 bước:** minibar (nhập **số còn lại** từng món theo số buồng phòng báo) → phụ phí → bill & thu tiền. Khách chưa trả đủ: quản lý ghi công nợ trên tài khoản của quản lý.
 
-**Phiếu thanh toán:** khung đơn → **Xem Phiếu thanh toán** → chọn **Tiếng Việt** hoặc **Việt – Anh** → **In phiếu** (in qua hộp in của trình duyệt). Khách cần bản điện tử: chọn "Lưu dưới dạng PDF" trong hộp in, gửi riêng 1–1 cho khách.
+**Phiếu thanh toán:** khung đơn đã trả phòng → **Xem Phiếu thanh toán** → chọn **Tiếng Việt** hoặc **Việt – Anh**. **In phiếu** đang lỗi (in ra cả màn Desk, đội đang sửa): đưa khách xem phiếu trên màn hình; khách cần bản giấy hoặc bản điện tử thì ghi mã đơn vào sổ giao ca để gửi sau. Không chụp màn hình phiếu gửi qua chat.
 
 **Miễn, giảm, xóa nợ, hoàn tiền:** trong hạn mức của bạn thì Desk áp ngay, luôn ghi lý do. Vượt hạn mức: gửi yêu cầu, quản lý duyệt ở **Cần duyệt** bằng tài khoản của chính quản lý. **Không** gõ mật khẩu quản lý vào màn của bạn: Desk sẽ từ chối.
 
@@ -61,8 +64,9 @@ Desk (máy quầy): `desk.ottimo.vn` · App buồng phòng (điện thoại): `s
 - Hỏng hóc: **báo sự cố** kèm ảnh hỏng hóc (không chụp khách, không chụp giấy tờ). Căn không ở được thì báo lễ tân khóa bán.
 - Đồ khách để quên: báo lễ tân ngay.
 - Không thấy giấy tờ của khách trên app: đúng như thiết kế.
+- **Không mở cửa căn** cho người nói mình là khách ("quên mã, mở giúp"), kể cả khi họ biết tên khách. Mời ra quầy hoặc gọi lễ tân.
 - Trả máy hoặc nghỉ việc: bấm **Đăng xuất** (xóa dữ liệu đã lưu trên máy).
 
 ## Khi có sự cố
 - **Mất mạng:** thử 4G điện thoại của cơ sở phát Wi-Fi cho máy quầy → app trên điện thoại cơ sở → sổ giấy. Chưa xem được phòng trống thì không nhận đơn mới, ghi số điện thoại và hẹn gọi lại. Có mạng lại thì nhập bù trong 24 giờ, ghi giờ thật.
-- **Desk báo lỗi, tính sai tiền, không làm tiếp được:** ghi căn, mã đơn, giờ, đã bấm gì; chụp màn hình, **che** số giấy tờ và số tài khoản. Báo lễ tân trưởng → quản lý → chủ đầu tư. Không đặt được, không nhận/trả phòng được hay sai tiền là lỗi "P0", đội sửa trong ngày; trong lúc chờ, ghi sổ giấy.
+- **Desk báo lỗi, tính sai tiền, không làm tiếp được:** ghi bằng lời căn, mã đơn, giờ, đã bấm gì, Desk báo gì và mã tham chiếu. **Không** ghi tên, số điện thoại, số giấy tờ của khách; **không** chụp màn hình có dữ liệu khách để gửi đi. Báo lễ tân trưởng → quản lý → chủ đầu tư. Không đặt được, không nhận/trả phòng được hay sai tiền là lỗi "P0", đội sửa trong ngày; trong lúc chờ, ghi sổ giấy.
