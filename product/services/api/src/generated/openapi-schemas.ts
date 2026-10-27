@@ -1312,7 +1312,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
           s: { k: 'ref', name: 'MoneyVnd' },
           v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
         },
-        refundableAfterCapVnd: {
+        refundablePaidVnd: {
           s: { k: 'ref', name: 'MoneyVnd' },
           v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
         },

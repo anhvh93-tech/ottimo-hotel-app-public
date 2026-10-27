@@ -266,9 +266,9 @@ Hợp đồng:
 ### 10.2 Chênh lệch đổi phòng sau trần (BE-B thẻ 01) – **chốt: phương án A**
 - `roomChangeDifferenceVnd` = phần **được hoàn sau trần** = min(chênh lệch đã đảo, `refundVnd` − `extraPersonRefundVnd`).
 - Thêm `roomChangeDifferenceReversedVnd` = phần đã đảo nhưng không hoàn.
-- Thêm `refundableAfterCapVnd` = `refundVnd` − `extraPersonRefundVnd` − `roomChangeDifferenceVnd` (phần 50 % thực có trong yêu cầu hoàn). Desk hiện từng dòng mà không phải tự trừ.
+- Thêm `refundablePaidVnd` = `refundVnd` − `extraPersonRefundVnd` − `roomChangeDifferenceVnd` (phần 50 % thực có trong yêu cầu hoàn). Desk hiện từng dòng mà không phải tự trừ.
 - Bất biến:
-  - `refundVnd` = `extraPersonRefundVnd` + `roomChangeDifferenceVnd` + `refundableAfterCapVnd`;
+  - `refundVnd` = `extraPersonRefundVnd` + `roomChangeDifferenceVnd` + `refundablePaidVnd`;
   - `refundCapped` ⇔ `refundVnd` < `refundableVnd` + `extraPersonRefundVnd` + `extraPersonReversedVnd` + `roomChangeDifferenceVnd` + `roomChangeDifferenceReversedVnd` (giá trị không đổi so với trước).
 - Thứ tự trần theo BR-428: phụ thu người → chênh lệch → 50 %. DOM đang chốt; nếu DOM trả lời khác, ORC báo ARC sửa công thức. Hình dạng hợp đồng giữ nguyên.
 
@@ -279,7 +279,7 @@ Hợp đồng:
 
 ### 10.4 Quyền xem trường tiền (SEC thẻ 07) – **chốt: FD được xem**
 - B16 chỉ cho FD+ (A17). Số tiền theo đêm và tiền OTA là "Giá bán phòng, folio của đơn"; rbac mục 6 ghi FD **Đầy**.
-- Đã gắn `x-visible-to` FD+ cho `droppedNights`, `droppedNetVnd`, `refundableVnd`, `refundableAfterCapVnd`, `roomChangeDifferenceVnd`, `roomChangeDifferenceReversedVnd`, `otaRetainedMaxVnd`. Mục đích là phòng khi `x-roles` mở rộng sau này.
+- Đã gắn `x-visible-to` FD+ cho `droppedNights`, `droppedNetVnd`, `refundableVnd`, `refundablePaidVnd`, `roomChangeDifferenceVnd`, `roomChangeDifferenceReversedVnd`, `otaRetainedMaxVnd`. Mục đích là phòng khi `x-roles` mở rộng sau này.
 - Với vai hiện tại không có gì đổi: tính thử và lần ghi cùng vai ra cùng tập trường.
 - Lỗi `55P03` đi qua `ProblemFilter` → 409 `CONCURRENT_UPDATE`, không lộ SQL (BE-A đã xác nhận).
 
@@ -303,7 +303,7 @@ Hợp đồng:
 2. `allowedActions`: thêm `stayDepartureDate` vào `ActionContext`; chỉ thêm `early_departure` khi max(today, arrival + 1) < stayDepartureDate.
 3. Phương án A ở `earlyDeparture`:
    - `roomChangeDifferenceVnd` = min(đã đảo, `refundVnd` − `extraPersonRefundVnd`);
-   - thêm `roomChangeDifferenceReversedVnd` và `refundableAfterCapVnd`;
+   - thêm `roomChangeDifferenceReversedVnd` và `refundablePaidVnd`;
    - audit `after.roomChangeDifferenceVnd` dùng cùng nghĩa (thêm `roomChangeDifferenceReversedVnd`).
 4. Test:
    - một ca có chênh lệch bị trần;
@@ -318,14 +318,14 @@ Hợp đồng:
 3. Hiện/ẩn nút **chỉ** theo `allowedActions`; bỏ so `businessDay < r.departureDate`.
 4. Hộp xem trước:
    - dòng chênh lệch dùng `roomChangeDifferenceVnd` (đã hoàn) và `roomChangeDifferenceReversedVnd` (chỉ đảo);
-   - dòng 50 % dùng `refundableAfterCapVnd` khi `refundCapped`;
+   - dòng 50 % dùng `refundablePaidVnd` khi `refundCapped`;
    - không tự trừ.
 5. Chỉ gửi `expected*` của lần tính thử khớp input hiện tại. Khóa nút xác nhận khi input đổi mà chưa có kết quả tính thử mới; debounce ≥ 400 ms, hủy request cũ.
 6. Mock MSW + test đơn con: chọn ngày trong khoảng của đơn con; `effect_child_cancelled`/`done_child_cancelled`.
 
 **UXD**:
 - Thêm nhãn cho `roomChangeDifferenceReversedVnd` ("đã đảo, không hoàn").
-- Nhãn dòng 6 giữ "đã thu – hoàn đủ", vì trường nay đúng nghĩa đó.
+- Nhãn theo DOM FB-R3-DOM-UXD-ED-01 (mục 11): "… – hoàn" / "… – chỉ đảo dòng, không hoàn"; bỏ chữ "đã thu … hoàn đủ".
 - Dòng "Lượt ở hiện tại" theo ngày đi cả lượt.
 
 **QA**:
@@ -343,3 +343,74 @@ Hợp đồng:
 - tsc api và 4 app: sạch.
 - vitest contract/serializer/http: 21/21; api-client: 32/32.
 - prettier: sạch.
+
+---
+
+## 11. Bổ sung 2 (27/10, ARC theo ORC) – DOM chốt BR-428 v0.4.8
+
+Đầu vào: `reviews/DOM-on-v1.0.1-early-departure.md`; BR v0.4.8 (trên `main`); oracle BR-428-07, 08, 09 trong `br-examples.json`.
+
+### 11.1 Ghi vào hợp đồng 0.3.9
+
+**Phương án A (DOM đồng ý).** `EarlyDepartureResult` ghi các ràng buộc (a)–(e):
+- (a) ba phần được hoàn cộng lại = `refundVnd`;
+- (b) với mỗi khoản: được hoàn + đã đảo không hoàn = số đã đảo của khoản đó;
+- (c) `refundCapped` giữ nguyên nghĩa;
+- (d) chia theo số dư thừa của **cả folio**, theo thứ tự: phụ thu người → chênh lệch đổi phòng → phần 50 %. Không chia theo dòng nào khách đã trả;
+- (e) audit và yêu cầu hoàn dùng cùng nghĩa.
+
+**Đổi tên trường** `refundableAfterCapVnd` → **`refundablePaidVnd`**:
+- Lý do: khớp tên DOM/BE-B đã dùng trong oracle BR-428-07.
+- Tên cũ chỉ có trên nhánh từ commit trước, chưa client nào dùng.
+- Trường `refundableVnd` vẫn là số theo chính sách (trước trần).
+
+**Dòng phí trả sớm phần OTA** (oracle BR-428-09):
+- Dòng `early_departure_fee` phần OTA (`chargeCode = ota_retained`) **không** có `noticeDays` trong `labelParams`. Bill in "Phí trả phòng sớm" / "Early departure fee".
+- Dòng phần trực tiếp/CTV giữ `noticeDays`: "Phí trả phòng sớm (báo trước N ngày)".
+- Chỉ áp cho dòng ghi mới (BR-008); không migration.
+- Đã sửa mô tả `earlyDepartureFeeVnd` và danh sách `labelParams` của `labelKey`.
+
+**`noticeDays`**:
+- Server vẫn luôn trả số thật (dùng cho audit).
+- Số này chỉ áp cho phần không OTA. Desk chỉ hiện dòng "báo trước N ngày" khi có ít nhất một đêm không OTA bị bỏ (DOM ED-02).
+
+**Nhãn dòng chênh lệch** theo DOM ED-01: "… – hoàn" và "… – chỉ đảo dòng, không hoàn"; bỏ chữ "đã thu … hoàn đủ".
+
+### 11.2 Việc cho BE-A (cộng vào mục 10.6)
+1. Phương án A, theo đúng (a)–(e) và tên `refundablePaidVnd`:
+   - `extraPersonRefundVnd` = min(phụ thu người các đêm bỏ, `refundVnd`);
+   - `roomChangeDifferenceVnd` = min(chênh lệch đã đảo, `refundVnd` − `extraPersonRefundVnd`);
+   - `refundablePaidVnd` = `refundVnd` − hai phần trên;
+   - các phần "Reversed" = số đã đảo − phần được hoàn.
+2. Audit `reservation.early_departure`:
+   - `after` ghi đủ ba cặp số cùng nghĩa: `extraPersonRefundVnd`/`ReversedVnd`, `roomChangeDifferenceVnd`/`ReversedVnd`, `refundablePaidVnd`;
+   - `refundableVnd` giữ là số theo chính sách.
+3. Dòng phí phần OTA: bỏ `noticeDays` khỏi `labelParams` và bỏ chữ `{n}d` khỏi `description`. Dòng trực tiếp giữ. Audit `reason` dùng số thật.
+4. Test:
+   - oracle **BR-428-07** (trực tiếp, trần, phụ thu chưa thu nhận trước);
+   - **BR-428-08** (Agoda đổi phòng, được hoàn 50.000 / đã đảo không hoàn 450.000);
+   - **BR-428-09** (`labelParams` của ba dòng);
+   - qua cả tính thử và lần ghi; kiểm bất biến (a)–(b) trên mọi ca B16.
+   - Sau khi đạt, QA/DOM gỡ `pendingFix` của 08/09.
+
+### 11.3 Việc cho FE-A / UXD
+- Dùng tên `refundablePaidVnd` (không dùng `refundableAfterCapVnd`).
+- Chuỗi theo DOM ED-01…07 (UXD sửa):
+  - thêm `row_room_change_reversed`;
+  - dòng `row_notice` chỉ hiện khi có đêm không OTA;
+  - thêm `effect_ota_reopen` (luôn hiện tới v1.1).
+- Bill: `bill.line.early_departure_fee` không có `noticeDays` thì không in phần "(báo trước …)".
+
+### 11.4 Kiểm tra đã chạy
+| Kiểm | Kết quả |
+|---|---|
+| Redocly | hợp lệ, 4 cảnh báo (không đổi) |
+| spec validator | OK / OK |
+| `gen_traceability --strict` | rc 0 |
+| `gen_rbac_cases --check` | OK |
+| no-test-surface | OK |
+| meta/schemas + api-client | đã sinh lại |
+| tsc api + 4 app | sạch |
+| vitest contract/serializer/http | 21/21 |
+| api-client | 32/32 |
+| prettier | sạch |
