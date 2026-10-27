@@ -10,9 +10,14 @@
 |---|---|---|---|---|
 | P0 | 3 | 0 | 0 | 3 |
 | P1 | 9 | 0 | 0 | 9 |
-| P2 | 4 | 1 | 0 | 3 |
+| P2 | 4 | 1 (BUG-R3-018 phần 1 – dời v1.0.1) | 0 | 3 |
 | P3 | 2 | 1 | 0 | 1 |
 | **Tổng** | **18** | **2** | **0** | **16** |
+
+Cập nhật 27/10 ~07:40 (rc.3 trên staging `70fe734`, `qa3-rc1.md` mục 15):
+- **BUG-R3-018 phần 2 → Closed**: QA kiểm trên rc.3, căn 101. Lên lịch giá sai (28/10 và 29/10), rồi gõ lại giá đang dùng với cùng ngày hiệu lực. Kết quả: Lưu mở, toast ghi đúng ngày, báo giá các đêm đó về đúng giá. Cảnh báo mềm vẫn hiện; giá tháng không đổi; OTM-00355 không đổi.
+- **Phần 1 vẫn mở, dời v1.0.1** (decision-log 26/10) – lỗi tính là Open ở bảng trên.
+- Smoke-prod 9/9 trên rc.3. Không lỗi mới.
 
 Cập nhật 26/10 ~23:15 (rc.2 trên staging, `qa3-rc1.md` mục 13):
 - **BUG-R3-015 → Closed**: harness repo chạy được trên staging bật 2FA (smoke-prod 9/9, các ca rc.2); CI push `4629e6e` xanh.
@@ -49,7 +54,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-015 | P3 | **Bộ test**: không chạy được trên stack `MFA_ENFORCED=true` (staging, production): (1) `freshSession` không có bước TOTP cho DS-E OWN/MGR đã bật 2FA; (2) `createThrowawayUser` gửi S2 chỉ có mật khẩu; (3) `ensureReceivingAccount` (R3-Q51) gọi `/health` + `/__test__/clock` vô điều kiện; (4) `s2Context` dùng `qa.owner` – phiên hạn chế làm ca bỏ qua với lý do sai "DS-E chưa nạp đủ 10 căn" | QA | **Closed** 26/10 – harness trong repo (`totp-store.ts`, `E2E_TOTP_DIR`, `seedReauthFor`, `E2E_LOCAL_CLOCK`, mã TOTP theo đồng hồ stack); chạy trên staging rc.2 (smoke-prod, các ca rc.2) và stack bật 2FA; CI push `4629e6e` xanh |
 | BUG-R3-016 | P3 | Khách **đến hôm nay**: báo giá đã lưu không chuyển được thành đơn. H12 chỉ báo "Sale/CTV: nhắn lễ tân tạo đơn đã thu"; lễ tân nhập lại H09 từ đầu – mặc định 2 người lớn trong khi báo giá 1 người lớn, không mang khách/giá của báo giá, không nối báo giá với đơn | PO (+ FE-A, UXD) | Open |
 | BUG-R3-017 | **P1** | Trả phòng H16 bước 3, phụ thu trả muộn bằng 1 đêm (BR-416-06 – mọi lượt ESC-031 trên production): thu **tiền mặt** (hoặc thẻ POS) 792.000 → `recordPayment` 422 `note REASON_REQUIRED` (số > còn phải thu lúc đó vì phụ thu chỉ ghi khi B18); màn báo "Ghi lý do (ít nhất 3 ký tự)" nhưng không có ô ghi → không thu được, B18 tiếp theo 409 `BALANCE_DUE`. VietQR (gửi ngữ cảnh trả phòng) và chuyển khoản (có ô ghi chú) đi được | FE-A (+ BE-B) | **Closed** 26/10 – FE-A `64bf5c0` + `67fc853` gộp `main`, có trong `v1.0.0-rc.2` (`4629e6e`, CI push xanh); QA kiểm trên nhánh 4/4 (tiền mặt/thẻ POS, ESC-031 và đêm thêm) |
-| BUG-R3-018 | P2 | Desk "Danh mục căn" (FB-INV-005): giá đêm đã **lên lịch** cho ngày sau không hiện ở ngăn kéo/bảng. OWN gõ lại đúng giá đang dùng để hủy lịch thì ô ngày hiệu lực/lý do ẩn, nút Lưu khóa ("không đổi") → không gỡ được giá sai đã lên lịch trên Desk | FE-A (+ BE-A nếu cần API xem/hủy lịch) | **Fixed một phần – chờ QA** 27/10: FE-A cho lưu lại giá đang dùng với ngày hiệu lực sau hôm nay (server ghi đè dòng cùng ngày) + toast ghi ngày áp dụng. Phần hiện danh sách giá đã lên lịch chờ hợp đồng `Room.scheduledListPrices` (ARC/BE-A) – `outputs/FE/fb-inv-005-fe-a.md` |
+| BUG-R3-018 | P2 | Desk "Danh mục căn" (FB-INV-005): giá đêm đã **lên lịch** cho ngày sau không hiện ở ngăn kéo/bảng. OWN gõ lại đúng giá đang dùng để hủy lịch thì ô ngày hiệu lực/lý do ẩn, nút Lưu khóa ("không đổi") → không gỡ được giá sai đã lên lịch trên Desk | FE-A (+ BE-A nếu cần API xem/hủy lịch) | **Phần 2 Closed** 27/10 – QA kiểm trên staging `v1.0.0-rc.3` (`70fe734`): Desk lưu lại được giá đang dùng với ngày hiệu lực sau hôm nay; toast ghi ngày áp dụng; báo giá về đúng giá (`qa3-rc1.md` mục 15). **Phần 1 Open – dời v1.0.1**: hiện danh sách giá đã lên lịch + hủy lịch (hợp đồng 0.3.9 `Room.scheduledListPrices`, ARC/BE-A/FE-A) |
 
 ## 3. Chi tiết
 
@@ -512,4 +517,17 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Bằng chứng:** scratchpad `qa-r6/rc2/run-log.md`, ảnh `qa-r6/rc2/screens/fb005-*.png`; ca `ui/qa-rc2.spec.ts` (`setNightly` → `Timeout` ô "Hiệu lực từ" vì ô ẩn).
 - **Vai:** FE-A (+ BE-A nếu cần API danh sách/hủy giá đã lên lịch); UXD chữ.
 - **Hạn:** trước B2 (28/10) nếu kịp. Nếu không, ORC báo INV khi nhập giá ở B2: nhập nhầm thì gọi đội sửa bằng API.
-- **Trạng thái:** Open.
+- **Chia hai phần (ORC, decision-log 26/10):**
+  - (2) Desk sửa được giá nhầm đã lên lịch, bằng cách ghi đè cùng ngày hiệu lực. Có trong `v1.0.0-rc.3`.
+  - (1) Hiện danh sách giá đã lên lịch và nút hủy lịch. Dời **v1.0.1**.
+- **Kiểm lại phần 2 (QA, 27/10 07:27–07:36, staging `v1.0.0-rc.3` `70fe734`, Desk Chromium 1366×768, `qa.owner` có 2FA, căn 101):**
+  - Giá trước lượt thử: tháng 9.600.000, đêm 800.000.
+  - Gõ lại 800.000 với hiệu lực hôm nay: Lưu khóa, kể cả khi đã ghi lý do; chữ phụ `rooms.price_same_today` hiện.
+  - Lên lịch 300.000 từ 28/10: cảnh báo mềm (giá đêm × 30 < giá tháng) hiện, vẫn lưu được (200). Toast "Đã lưu căn 101. Giá áp dụng từ 28/10/2026." Báo giá 28/10 = 300.000.
+  - Gõ lại 800.000, hiệu lực 28/10: ô ngày và ô lý do không ẩn; chữ phụ `rooms.price_same_future` hiện; **Lưu mở**. PATCH 200, body `listPrice` {28/10, 9.600.000, 800.000}. Toast ghi 28/10/2026. Báo giá 28/10 và 29/10 = 800.000.
+  - Lặp lại với 29/10 (880.000, rồi về 800.000): đạt. Dòng 28/10 giữ nguyên.
+  - Giá tháng không đổi: body PATCH và nhật ký `room.updated` đều ghi 9.600.000.
+  - Đơn OTM-00355 (đêm 28/10, 667.000) không đổi.
+  - Ca: scratchpad `qa-r6/src-rc3/product/tests/e2e/ui/qa-rc3.spec.ts`. Nhật ký và ảnh: `qa-r6/rc3/`.
+- **Thêm vào mong đợi phần 1 (v1.0.1):** Desk luôn gửi cả giá tháng và giá đêm, điền sẵn theo giá **hôm nay**. Nếu dòng đã lên lịch ngày D đổi cả hai giá mà OWN chỉ sửa một giá cho D, giá kia của dòng D sẽ bị ghi đè về giá hôm nay mà không báo. Khi chọn ngày có dòng lên lịch, Desk nên điền sẵn giá của dòng đó, hoặc nói rõ cả hai giá sẽ bị thay. Trong rc.3, chữ phụ `price_same_future` chỉ nói "giá đã lên lịch đúng ngày đó sẽ được thay".
+- **Trạng thái:** **Phần 2 Closed** 27/10 (QA tự kiểm lại trên rc.3). **Phần 1 Open, dời v1.0.1.**

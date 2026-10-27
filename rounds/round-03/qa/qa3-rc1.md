@@ -378,3 +378,58 @@ A1 chặng 8–12 (ảnh `a1-rc1/screens/201–212`, `run-log.md` phần 3):
 Không lỗi mới.
 
 Còn tối 27/10 sau 18:00: B18 OTM-00357 đường `postReview` + tiền mặt (mục 13 việc 2), rồi hủy OTM-00358.
+
+## 15. rc.3 staging 27/10 – xác nhận BUG-R3-018 phần 2 + smoke-prod (07:25–07:36)
+
+- Bản: staging `70fe734` = tag `v1.0.0-rc.3`, image api/web/worker `sha-70fe734e9077`. Gói Desk đang phục vụ có 3 chuỗi mới của bản sửa (`rooms.saved_scheduled`, `rooms.price_same_*`). CI push `70fe734` (40416908930) xanh. Lượt Release `rc.3` đang chờ duyệt production.
+- Harness repo `70fe734`, chép bằng `git archive`. Bộ chạy ở scratchpad: `qa-r6/run-staging-rc3.sh`, `qa-r6/src-rc3`. Biến môi trường: `E2E_TOTP_DIR=~/.ottimo/staging/totp`, `E2E_LOCAL_CLOCK=1`. Mật khẩu `qa.*` đọc từ tệp ngoài repo, không in ra.
+- Phạm vi: chỉ phần 2 của BUG-R3-018. Phần 1 (danh sách giá đã lên lịch, hợp đồng 0.3.9, hủy lịch) dời sang v1.0.1 theo decision-log 26/10, nên không kiểm.
+- Căn thử: **101** (The Amber), có đơn `OTM-00355` (28→29/10, `confirmed`). Không đụng căn 203, OTM-00357, OTM-00358. Ảnh không có QR hay số tài khoản (màn Danh mục căn).
+
+### 15.1 Kết luận
+
+| # | Việc | Kết quả |
+|---|---|---|
+| 1 | BUG-R3-018 phần 2: OWN lên lịch giá sai, rồi trả về giá đang dùng với cùng ngày hiệu lực trên Desk | **Đạt** → BUG-R3-018 phần 2 **Closed** |
+| 2 | Smoke `smoke-prod` chỉ đọc trên rc.3 | **Đạt 9/9**: PS-01 desk/staff/guest, PS-02, PS-03, PS-04, PS-05, PS-06 với `qa.fd`, PS-06 với `qa.owner` (có bước 2FA) |
+| 3 | Dọn dữ liệu | **Xong**: giá căn 101 về đúng giá trước lượt thử (15.3) |
+
+Không có lỗi mới.
+
+### 15.2 BUG-R3-018 phần 2 – từng bước (Desk Chromium 1366×768, `qa.owner` có 2FA)
+
+Trước lượt thử, căn 101: giá tháng **9.600.000**, giá đêm **800.000**, hiệu lực 26/10. Báo giá (kênh Trực tiếp, 2 người lớn) cho đêm 28/10 và 29/10 đều 800.000.
+
+| Bước | Thao tác | Kết quả đo | Kết luận |
+|---|---|---|---|
+| A | Gõ lại 800.000, hiệu lực = hôm nay 27/10, ghi lý do | Ô "Hiệu lực từ" và "Lý do đổi giá" hiện ngay khi gõ. Chữ phụ `rooms.price_same_today` hiện. Nút **Lưu khóa**, kể cả khi đã ghi lý do. Không gửi PATCH | Đạt |
+| B | Giá đêm **300.000** (giá sai cố ý), hiệu lực **28/10** | **Cảnh báo mềm hiện**: "Giá đêm đang thấp hơn giá tháng chia 30 ngày (320.000 đ)…". Lưu vẫn mở. PATCH 200, body `listPrice` = {28/10, tháng 9.600.000, đêm 300.000}. Toast: "Đã lưu căn 101. Giá áp dụng từ 28/10/2026." Báo giá: 28/10 = **300.000**, 29/10 = 300.000, hôm nay 27/10 = 800.000 (không đổi). `currentListPrice` vẫn 800.000 | Đạt |
+| C | Mở lại ngăn kéo. Gõ lại **800.000**, hiệu lực **28/10**, ghi lý do | Ngăn kéo vẫn hiện giá hôm nay 800.000; danh sách lịch giá là phần 1, dời v1.0.1. Chữ phụ `rooms.price_same_future` ("Lưu để giữ giá này từ 28/10/2026…") hiện. **Lưu không khóa.** PATCH 200, body {28/10, 9.600.000, 800.000}. Toast ghi **28/10/2026**. Báo giá: 28/10 = **800.000**, 29/10 = **800.000** | **Đạt – lỗi đã sửa** |
+| D | Ngày thứ hai: 880.000 hiệu lực **29/10** (không cảnh báo, vì 880.000 × 30 > 9.600.000), rồi gõ lại 800.000 cùng ngày 29/10 | Cả hai lần: PATCH 200, toast ghi 29/10/2026. Sau lần sai: 28/10 = 800.000, 29/10 = 880.000, tức dòng giá 28/10 giữ nguyên. Sau khi trả lại: 29/10 = **800.000** | Đạt |
+| E | Không ảnh hưởng đơn đang có | `OTM-00355` (101, đêm 28/10): `confirmed`, giá đêm **667.000**, `version` 2. Giống hệt trước lượt thử, kể cả lúc giá sai 300.000 đang áp cho 28/10 (BR-006) | Đạt |
+| F | Giá tháng độc lập | Mọi PATCH gửi giá tháng 9.600.000, đúng giá đang có; không lần nào đổi giá tháng. Nhật ký `room.updated` (4 dòng, `after.listPrice`) xác nhận dòng 28/10 và 29/10 lưu giá tháng 9.600.000. `currentListPrice` sau lượt thử: tháng 9.600.000, đêm 800.000 | Đạt |
+
+Sau lượt thử: báo giá 27/10, 28/10, 29/10 = 800.000; 30–31/10 (thứ Sáu, thứ Bảy) = **920.000 × 2** (= 800.000 × 1,15).
+
+Ảnh và nhật ký ở scratchpad `qa-r6/rc3/`: `run-log.md`, `r018.json`, `smoke.log`, `screens/r018-*.png`.
+- Ảnh khung nhìn, chụp khi chưa lưu: `r018-A2-cung-gia-hom-nay` (Lưu khóa), `r018-C2-cung-gia-29-10` (Lưu mở, có chữ phụ), `r018-B2-canh-bao-mem`.
+- Ảnh toast: `r018-B-toast`, `r018-C-toast`, `r018-D-toast`.
+
+Ghi chú (không ghi lỗi):
+- Ảnh `fullPage` chụp ngăn kéo trông trong suốt. Đo `opacity` thì ngăn kéo = 1 sau ~400 ms, ảnh khung nhìn chụp sau đó vẫn đặc. Đây là do cách chụp, không phải lỗi giao diện.
+- Khi ô "Hiệu lực từ" có chữ phụ, ô "Lý do đổi giá" bên cạnh bị đẩy xuống, cách xa nhãn của nó (ảnh `r018-C2`). Lỗi trình bày nhỏ, đề nghị FE-A/UXD xếp ô lý do theo đầu hàng (như `.g-2.top` đã làm cho hai ô giá).
+- Không kiểm được giá tháng của một ngày tương lai qua báo giá. Lý do: `calculateQuote` loại `long` trả 422 `type NOT_IN_LIST` (US-081 chưa làm, theo thiết kế). Vì vậy F kiểm qua nhật ký và body PATCH.
+- Rủi ro cho phần 1 (v1.0.1): Desk luôn gửi **cả hai** giá, lấy giá **hôm nay** điền sẵn. Giả sử một dòng đã lên lịch ngày D đổi cả giá tháng lẫn giá đêm, và OWN chỉ sửa giá đêm cho D. Khi đó giá tháng đã lên lịch bị ghi đè về giá tháng hôm nay mà OWN không thấy. Chữ phụ `price_same_future` có nói "giá đã lên lịch đúng ngày đó sẽ được thay", nhưng không nói rõ cả giá tháng cũng bị thay. Đã thêm vào mong đợi phần 1 trong `bug-list.md`: chọn ngày có dòng lên lịch thì điền sẵn giá của dòng đó. Ở B2 (28/10), OWN nhập giá hiệu lực ngay hôm đó, nên không chạm rủi ro này.
+
+### 15.3 Dọn dữ liệu
+
+| Căn | Trước lượt thử | Đã ghi trong lượt thử (hiệu lực) | Sau dọn |
+|---|---|---|---|
+| 101 | Tháng 9.600.000 · đêm 800.000 (từ 26/10) | 28/10: 300.000, rồi ghi đè 800.000. 29/10: 880.000, rồi ghi đè 800.000. Giá tháng luôn 9.600.000 | Tháng 9.600.000 · đêm 800.000. Báo giá 27, 28, 29/10 = 800.000. Lịch sử còn 2 dòng 28/10 và 29/10 **trùng giá đang dùng**, vô hại; contract chưa có cách xóa dòng giá |
+
+- Căn khác không đổi. OTM-00355 không đổi.
+- Lượt chụp ảnh không lưu gì: 0 PATCH, đã kiểm.
+
+### 15.4 Còn lại hôm nay
+
+- Sau 18:00: B18 OTM-00357 theo đường `postReview` + tiền mặt (mục 13 việc 2), rồi hủy OTM-00358. Chạy trên rc.3.
