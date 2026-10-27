@@ -9,10 +9,14 @@
 | Mức | Số lỗi | Open | Fixed | Closed |
 |---|---|---|---|---|
 | P0 | 3 | 0 | 0 | 3 |
-| P1 | 9 | 0 | 0 | 9 |
-| P2 | 4 | 1 (BUG-R3-018 phần 1 – dời v1.0.1) | 0 | 3 |
-| P3 | 2 | 1 | 0 | 1 |
-| **Tổng** | **18** | **2** | **0** | **16** |
+| P1 | 11 | 2 (BUG-R3-019, 032) | 0 | 9 |
+| P2 | 8 | 5 (BUG-R3-018 phần 1 – dời v1.0.1; 020–023) | 0 | 3 |
+| P3 | 10 | 9 (016; 024–031) | 0 | 1 |
+| **Tổng** | **32** | **16** | **0** | **16** |
+
+Cập nhật 27/10 (SEC, `reviews/SEC-on-B2-readiness.md`): thêm **BUG-R3-032 (P1, BE-A + ARC)** – thư "Security notice" không có người nhận vì người dùng không có email. Không chặn B2/D (có biện pháp bù); sửa ở v1.0.1.
+
+Cập nhật 27/10 ~11:05 (kiểm sổ tay v1.0 trên staging rc.3 `70fe734`, `manual-check.md`): thêm **BUG-R3-019…031** (1 P1, 4 P2, 8 P3). **BUG-R3-019 (P1)**: không tạo được "Đơn dài hạn nhập tay" – chặn chuyển đổi khách dài hạn ngày D, đề nghị vào bản vá trước 02/11.
 
 Cập nhật 27/10 ~07:40 (rc.3 trên staging `70fe734`, `qa3-rc1.md` mục 15):
 - **BUG-R3-018 phần 2 → Closed**: QA kiểm trên rc.3, căn 101. Lên lịch giá sai (28/10 và 29/10), rồi gõ lại giá đang dùng với cùng ngày hiệu lực. Kết quả: Lưu mở, toast ghi đúng ngày, báo giá các đêm đó về đúng giá. Cảnh báo mềm vẫn hiện; giá tháng không đổi; OTM-00355 không đổi.
@@ -55,6 +59,20 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-016 | P3 | Khách **đến hôm nay**: báo giá đã lưu không chuyển được thành đơn. H12 chỉ báo "Sale/CTV: nhắn lễ tân tạo đơn đã thu"; lễ tân nhập lại H09 từ đầu – mặc định 2 người lớn trong khi báo giá 1 người lớn, không mang khách/giá của báo giá, không nối báo giá với đơn | PO (+ FE-A, UXD) | Open |
 | BUG-R3-017 | **P1** | Trả phòng H16 bước 3, phụ thu trả muộn bằng 1 đêm (BR-416-06 – mọi lượt ESC-031 trên production): thu **tiền mặt** (hoặc thẻ POS) 792.000 → `recordPayment` 422 `note REASON_REQUIRED` (số > còn phải thu lúc đó vì phụ thu chỉ ghi khi B18); màn báo "Ghi lý do (ít nhất 3 ký tự)" nhưng không có ô ghi → không thu được, B18 tiếp theo 409 `BALANCE_DUE`. VietQR (gửi ngữ cảnh trả phòng) và chuyển khoản (có ô ghi chú) đi được | FE-A (+ BE-B) | **Closed** 26/10 – FE-A `64bf5c0` + `67fc853` gộp `main`, có trong `v1.0.0-rc.2` (`4629e6e`, CI push xanh); QA kiểm trên nhánh 4/4 (tiền mặt/thẻ POS, ESC-031 và đêm thêm) |
 | BUG-R3-018 | P2 | Desk "Danh mục căn" (FB-INV-005): giá đêm đã **lên lịch** cho ngày sau không hiện ở ngăn kéo/bảng. OWN gõ lại đúng giá đang dùng để hủy lịch thì ô ngày hiệu lực/lý do ẩn, nút Lưu khóa ("không đổi") → không gỡ được giá sai đã lên lịch trên Desk | FE-A (+ BE-A nếu cần API xem/hủy lịch) | **Phần 2 Closed** 27/10 – QA kiểm trên staging `v1.0.0-rc.3` (`70fe734`): Desk lưu lại được giá đang dùng với ngày hiệu lực sau hôm nay; toast ghi ngày áp dụng; báo giá về đúng giá (`qa3-rc1.md` mục 15). **Phần 1 Open – dời v1.0.1**: hiện danh sách giá đã lên lịch + hủy lịch (hợp đồng 0.3.9 `Room.scheduledListPrices`, ARC/BE-A/FE-A) |
+| BUG-R3-019 | **P1** | "Đơn dài hạn nhập tay" không tạo được: `createReservation` 422 `directSource REQUIRED` – form dài hạn không có/không gửi Nguồn, quy tắc từ US-155 (`5820a97`) | FE-A (+ BE-D) | Open |
+| BUG-R3-020 | P2 | "In phiếu" (`window.print()`) in cả khung Desk (danh sách, ngăn kéo, lớp mờ, nút) – admin-web không có CSS in | FE-A (+ UXD) | Open |
+| BUG-R3-021 | P2 | Không có chỗ nhập Wi-Fi trên Desk (`property.wifi_info_i18n` chỉ sửa được ở DB); trang khách báo "Hiện ở đây vào ngày nhận phòng (27/10)" ngay trong ngày 27/10 | PO + FE-A/BE-A (+ OPS) | Open |
+| BUG-R3-022 | P2 | Không ghi được phát sinh sau trả phòng trên Desk: "Thêm phát sinh" chỉ hiện khi `in_house`, dù máy chủ có cửa sổ BR-427 (c) | FE-A | Open |
+| BUG-R3-023 | P2 | Hộp Đổi phòng (đang ở) liệt kê căn **VD** (401 "Trống, cần dọn") trong "Căn mới (đã dọn hoặc đã kiểm)"; nhãn nhóm hiện mã nội bộ L12/N/NPLUS | FE-A / BE-A | Open |
+| BUG-R3-024 | P3 | `/reservations/{id}/check-out` mở được trước ngày đi; mỗi lần qua bước Minibar ghi thêm một `minibar-checks`; hoàn tất 409 (B16) nhưng Desk báo sai "Đơn vừa chuyển sang 'Đang ở'…" | FE-A | Open |
+| BUG-R3-025 | P3 | Hộp "Xác nhận cọc" không có ô Mã giao dịch / ghi chú (form Đặt phòng mới và Thu công nợ có) → cột Mã giao dịch ở Chờ đối soát trống | FE-A (+ UXD) | Open |
+| BUG-R3-026 | P3 | App nhân viên "Báo sự cố" thiếu loại "Tắc thoát nước", "Wi-Fi" (Desk "Phiếu sửa mới" có 8 loại) | MOB | Open |
+| BUG-R3-027 | P3 | Trang khách: mở lại link giữa chừng sau khi chọn "Bổ sung tại quầy" → app quay lại bước Xác nhận nhưng mất danh sách bổ sung → `complete` 409 `INVALID_TRANSITION` (documents), về bước Giấy tờ không thông báo | FE (guest-web) | Open |
+| BUG-R3-028 | P3 | Chữ giao diện: lộ "Round 3 / R2 / R3" cho nhân viên; nhãn sai ở Thêm người đi cùng, Xác nhận giờ trả, chữ phụ ô Căn; hạn báo giá 00:00 vs 23:59 | UXD + FE-A | Open |
+| BUG-R3-029 | P3 | App nhân viên: OWN/MGR đăng nhập thấy cùng lúc "Nhập mã trong ứng dụng xác thực…" và "Đăng nhập 2 bước sẽ có ở bản sau", không có ô mã | UXD + MOB | Open |
+| BUG-R3-030 | P3 | Folio ở màn Trả phòng hiện dòng miễn "Bị từ chối" kèm số âm −210.000 (không được trừ nhưng trông như đã trừ) | FE-A | Open |
+| BUG-R3-031 | P3 | Nút "Hoàn tác nhận phòng" (MGR) mở cả khi folio đã có dòng sau nhận phòng; xác nhận thì 409 "reverse the lines posted since check-in first" | FE-A | Open |
+| BUG-R3-032 | **P1** | Thư "Security notice" (đổi tài khoản nhận tiền, dùng mã khôi phục, đặt lại 2 bước) **không tới ai**: `production-bootstrap` không đặt email cho chủ, API/Desk không có trường email người dùng → outbox `staff.email` `dead NO_RECIPIENT` (staging 0/27 người có email). Thiếu kênh ngoài app của SEC Q51-6 / 06.15 | BE-A + ARC (hợp đồng), OPS (`ops-check`) | Open – sửa ở **v1.0.1** (04/11). SEC chấp nhận chạy D 02/11 với biện pháp bù B1–B6; quá 09/11 → ESC |
 
 ## 3. Chi tiết
 
@@ -531,3 +549,201 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - Ca: scratchpad `qa-r6/src-rc3/product/tests/e2e/ui/qa-rc3.spec.ts`. Nhật ký và ảnh: `qa-r6/rc3/`.
 - **Thêm vào mong đợi phần 1 (v1.0.1):** Desk luôn gửi cả giá tháng và giá đêm, điền sẵn theo giá **hôm nay**. Nếu dòng đã lên lịch ngày D đổi cả hai giá mà OWN chỉ sửa một giá cho D, giá kia của dòng D sẽ bị ghi đè về giá hôm nay mà không báo. Khi chọn ngày có dòng lên lịch, Desk nên điền sẵn giá của dòng đó, hoặc nói rõ cả hai giá sẽ bị thay. Trong rc.3, chữ phụ `price_same_future` chỉ nói "giá đã lên lịch đúng ngày đó sẽ được thay".
 - **Trạng thái:** **Phần 2 Closed** 27/10 (QA tự kiểm lại trên rc.3). **Phần 1 Open, dời v1.0.1.**
+
+### BUG-R3-019 – Không tạo được "Đơn dài hạn nhập tay"
+
+- **Mức:** P1.
+- **Vì sao P1:**
+  - Chặn hẳn một chức năng cần cho ngày D. Khách dài hạn đang ở phải được đặt lên sơ đồ bằng đơn này (`day-one-guide.md` mục 4, sổ tay 2.7).
+  - Không có đơn thì căn của khách dài hạn hiện trống, có thể bị bán trùng.
+- **Vì sao không P0:** không sai tiền, không lộ dữ liệu. Có cách tạm chặn bán trùng bằng **Khóa phòng có kế hoạch**.
+- **Môi trường:** staging `v1.0.0-rc.3` (`70fe734`), Desk Chromium 1440×900, `qa.fd`, 27/10 10:31.
+- **Bước tái hiện:**
+  1. Sơ đồ phòng → **Đơn dài hạn nhập tay**.
+  2. Căn 402, Ngày vào 01/03/2027, Ngày ra 01/06/2027 (3 tháng · 92 đêm). Khách đứng tên "Trần Quốc Bảo" (tạo nhanh, SĐT giả). Tiền thuê 12.000.000, ký quỹ 12.000.000, số HĐ "HD-MAU-2027-01", ghi chú.
+  3. Bấm **Tạo đơn dài hạn**.
+- **Thực tế:**
+  - `POST /v1/properties/{p}/reservations` → **422** `{"code":"VALIDATION_FAILED","errors":[{"field":"directSource","code":"REQUIRED"}]}`.
+  - Form vẫn mở. Desk không chỉ ra ô nào sai (form không có ô Nguồn).
+- **Nguyên nhân (đọc mã):**
+  - `LongStayDialog.tsx` gửi `channelId` = kênh trực tiếp nhưng không có `directSource`.
+  - `reservations.service.ts:603` (US-155, commit `5820a97`) bắt buộc `directSource` khi kênh trực tiếp và không có `websiteBookingRequestId`.
+  - Mở form từ **Đặt phòng mới** với ≥ 28 đêm cũng chuyển sang form này.
+- **Mong đợi:** tạo được đơn, cờ "HĐ ngoài hệ thống".
+- **Đề xuất sửa:** form dài hạn gửi `directSource` (thêm ô Nguồn như H09, hoặc mặc định `zalo_phone`). Hoặc máy chủ miễn `directSource` khi có `manualLongStay`. ARC chọn.
+- **Thêm ca E2E** tạo đơn dài hạn nhập tay (UI) vào smoke.
+- **Bằng chứng:** scratchpad `qa-r6/man/log.md` (lượt `walk lt3`); ảnh form `product/docs/manual/img/C2-09.png`.
+- **Vai:** FE-A (+ BE-D/ARC).
+- **Hạn:** bản vá trước 02/11.
+- **Trạng thái:** Open.
+
+### BUG-R3-020 – "In phiếu" in cả khung Desk
+
+- **Mức:** P2. Sổ tay v1.0 dựa vào nút này để đưa bill giấy/PDF cho khách. Có cách tạm: cho khách xem trên màn hình.
+- **Môi trường:** staging rc.3, Desk Chromium, `qa.fd`, OTM-00294 (đã trả phòng).
+- **Bước tái hiện:**
+  1. Đơn đã trả phòng → **Xem Phiếu thanh toán**.
+  2. Bấm **In phiếu**. Xem bản in (QA dùng chế độ media `print` + `page.pdf` A4 của Chromium – cùng bộ in với Chrome).
+- **Thực tế:**
+  - `window.print()` được gọi.
+  - Bản in gồm cả danh sách đơn, ngăn kéo khung đơn, lớp phủ tối, khung hộp "Phiếu thanh toán", nút ngôn ngữ, nút "Xem Phiếu thanh toán". Chữ của trang nền chồng lên nhau.
+  - Trong `apps/admin-web` và `packages/ui` không có `@media print`.
+- **Mong đợi:** chỉ in phần phiếu (logo/tên cơ sở, số phiếu, dòng, tổng, "Giá đã gồm thuế GTGT"), đúng ngôn ngữ chọn, khổ A4/A5.
+- **Bằng chứng:** scratchpad `qa-r6/man/raw/BILL-vi.pdf`, `BILL-vi-printmedia.png` (tên khách giả, không đưa repo).
+- **Vai:** FE-A (+ UXD mẫu in).
+- **Trạng thái:** Open.
+
+### BUG-R3-021 – Wi-Fi: không có chỗ nhập trên Desk, trang khách báo sai
+
+- **Mức:** P2. Khách không xem được Wi-Fi trên trang khách. Sổ tay 1.4 dặn chủ đầu tư nhập ở Tham số quy tắc, nhưng không có chỗ đó.
+- **Môi trường:** staging rc.3. Trang khách trên điện thoại, đơn OTM-00359 (đến 27/10).
+- **Thực tế:**
+  - Tham số quy tắc không có khóa `wifi.*`. Desk không màn nào sửa Wi-Fi.
+  - Máy chủ đọc `property.wifi_info_i18n` (`guest-portal.service.ts` `wifiOf()`), cột này chỉ ghi được bằng DB/seed.
+  - Staging chưa có giá trị. Ngày 27/10, ngày nhận phòng của đơn, trang khách vẫn ghi "Wi-Fi – Hiện ở đây vào ngày nhận phòng (27/10)."
+- **Mong đợi:**
+  - (a) Chủ đầu tư nhập/sửa Wi-Fi trên Desk (vai OWN, có lịch sử).
+  - (b) Khi chưa cấu hình, trang khách không hứa "hiện vào ngày nhận phòng". Ghi "Hỏi lễ tân" hoặc ẩn mục.
+- **Cần kiểm thêm:** production đã có `wifi_info_i18n` chưa (OPS).
+- **Vai:** PO (phạm vi) + FE-A/BE-A; OPS kiểm dữ liệu production.
+- **Trạng thái:** Open.
+
+### BUG-R3-022 – Không ghi được phát sinh sau trả phòng trên Desk
+
+- **Mức:** P2. Thiếu tiền: hư hỏng/minibar phát hiện sau khi khách đi không vào folio. Cách tạm: điều chỉnh tăng một dòng có sẵn – sai bản chất dòng.
+- **Môi trường:** staging rc.3, `qa.fd` và `qa.mgr`, OTM-00294 (trả 27/10 06:01, còn trong 24 giờ).
+- **Thực tế:**
+  - Khung đơn **Đã trả phòng** chỉ có **Folio & điều chỉnh**, **Xem Phiếu thanh toán** (+ **Thu công nợ** / **Xóa công nợ** khi còn nợ).
+  - Không có **Thêm phát sinh**: `ReservationDrawer.tsx` chỉ hiện nút khi `r.status === 'in_house'`.
+  - Máy chủ có cửa sổ ghi dòng sau trả phòng (`folio-lines.service.ts`, BR-427 (c), `post_checkout_window_until`).
+- **Mong đợi:** lễ tân trở lên thấy **Thêm phát sinh** (kèm ảnh) trên đơn đã trả phòng trong cửa sổ BR-427 (c).
+- **Vai:** FE-A.
+- **Trạng thái:** Open.
+
+### BUG-R3-023 – Hộp Đổi phòng đưa căn chưa dọn vào danh sách
+
+- **Mức:** P2. Lễ tân có thể chuyển khách đang ở sang căn bẩn, trong khi giao diện ghi "Chỉ hiện căn 'Sẵn sàng' hoặc 'Trống, sạch' và không bị khóa".
+- **Môi trường:** staging rc.3, `qa.fd`, OTM-00359 (Đang ở, 201), 27/10 ~10:16. Căn 401 lúc đó **VD · Trống, cần dọn** (màn Buồng phòng).
+- **Bước tái hiện:** khung đơn → **Đổi phòng**.
+- **Thực tế:**
+  - Danh sách "CĂN MỚI (ĐÃ DỌN HOẶC ĐÃ KIỂM)" có "401 · N · Nâng hạng – cần lễ tân trưởng xác nhận".
+  - Nhãn nhóm hiện mã nội bộ "L12", "N", "NPLUS" thay vì tên nhóm ("Lầu 1–2", "Căn N", "Căn N+").
+  - QA không bấm lưu, nên chưa biết máy chủ có chặn không.
+- **Mong đợi:** chỉ VC/VI không khóa; nhãn nhóm bằng tên hiển thị.
+- **Vai:** FE-A (lọc + nhãn) / BE-A (nếu danh sách từ API).
+- **Trạng thái:** Open.
+
+### BUG-R3-024 – Trang Trả phòng mở được trước ngày đi, báo lỗi sai
+
+- **Mức:** P3. Nút trên khung đơn đã ẩn. Chỉ gặp khi mở bằng URL/lịch sử trình duyệt.
+- **Môi trường:** staging rc.3, `qa.fd`, OTM-00359 (đi 29/10), 27/10 10:22–10:25.
+- **Bước tái hiện:** mở `/reservations/{id}/check-out` → Không dùng gì → Tiếp tục: Phụ phí → giờ 08:30 → Tiếp tục: Bill → **Đã thu … – hoàn tất** → xác nhận.
+- **Thực tế:**
+  - Cả 3 bước chạy. Mỗi lần qua bước 1, Desk ghi thêm một `POST …/minibar-checks` 201 (4 bản ghi trong lượt thử).
+  - Bước 2: giờ 08:30 (sớm hơn giờ bấm) không đòi ghi chú (BR-414).
+  - Hoàn tất → `check-out` 409 `INVALID_TRANSITION` "check-out on the departure business day (early departure first – B16)".
+  - Desk báo "Đơn vừa chuyển sang 'Đang ở' nên thao tác này không còn dùng được" (sai – đơn vẫn Đang ở từ trước). Công tắc hóa đơn công ty tắt lại dù đã lưu.
+- **Mong đợi:**
+  - Trang Trả phòng chặn ngay khi chưa tới ngày đi, với câu đúng (v1.0.1 có nút Trả phòng sớm).
+  - Không ghi `minibar-checks` thừa.
+- **Vai:** FE-A.
+- **Trạng thái:** Open.
+
+### BUG-R3-025 – Hộp "Xác nhận cọc" không có ô mã giao dịch
+
+- **Mức:** P3. Đối soát khó hơn. Nhiều đơn chuyển gộp không ghi được mã chung (sổ tay 2.5a).
+- **Thực tế:**
+  - Hộp **Xác nhận cọc · OTM-00361** chỉ có Số tiền đã nhận, Cách thanh toán, Tạo mã VietQR mới.
+  - Chọn "Chuyển khoản" cũng không hiện ô **Mã giao dịch / ghi chú**. Form Đặt phòng mới và Thu công nợ thì có ô này.
+  - Tab Chờ đối soát, cột Mã giao dịch toàn "—".
+- **Mong đợi:** có ô Mã giao dịch / ghi chú (không ghi số thẻ) khi cách thanh toán là chuyển khoản/thẻ.
+- **Vai:** FE-A (+ UXD).
+- **Trạng thái:** Open.
+
+### BUG-R3-026 – App nhân viên thiếu 2 loại sự cố
+
+- **Mức:** P3.
+- **Thực tế:** **Báo sự cố** trên app nhân viên chỉ có Mất nước nóng, Điện / đèn, Rò nước, Khóa cửa, Đồ hỏng, Khác. Desk (**Phiếu sửa mới**) và sổ tay 3.9 có thêm **Tắc thoát nước**, **Wi-Fi**.
+- **Mong đợi:** cùng danh mục trên hai nơi.
+- **Vai:** MOB.
+- **Trạng thái:** Open.
+
+### BUG-R3-027 – Trang khách mất lựa chọn "Bổ sung tại quầy" khi mở lại link
+
+- **Mức:** P3. Khách bị kẹt, không có thông báo. Khách phải tự quay lại bước Giấy tờ chọn lại.
+- **Môi trường:** staging rc.3, trang khách 390×844, OTM-00359.
+- **Bước tái hiện:**
+  1. Làm thủ tục trước: khách 1 chụp giấy tờ, khách 2 chọn **Bổ sung tại quầy**, chọn giờ đến. Đóng trình duyệt trước khi Gửi.
+  2. Mở lại link → **Làm thủ tục trước**. App vào thẳng bước Xác nhận. Chọn đồng ý/không → **Gửi thủ tục**.
+- **Thực tế:** `POST /v1/guest/online-checkin/complete` 409 `{"currentState":"documents"}`. App quay về bước Giấy tờ, khách 2 lại "chưa có giấy tờ", không có câu báo.
+  - Lựa chọn bổ sung tại quầy chỉ nằm trong bộ nhớ trang, gửi ở `complete` (`deferredPeople`). Máy chủ không lưu lựa chọn giữa chừng.
+- **Mong đợi:** lưu lựa chọn bổ sung tại quầy cùng bản nháp, hoặc mở lại đúng bước Giấy tờ và báo lý do.
+- **Vai:** FE (guest-web) (+ BE nếu lưu ở máy chủ).
+- **Trạng thái:** Open.
+
+### BUG-R3-028 – Chữ trên giao diện chưa đúng
+
+- **Mức:** P3 (UX writing).
+- **Thực tế:**
+  - (a) Chữ nội bộ lộ cho nhân viên:
+    - "Hóa đơn điện tử phát hành từ Round 3; R2 lưu thông tin để kế toán xuất." (bước 3 trả phòng);
+    - "Mã cửa – nhập tay trên app khóa (R2)", "OTTIMO không lưu mã cửa ở R2" (nhận phòng, khung đơn);
+    - "lập báo giá dài hạn (R3). Ở R2 tạo 'đơn dài hạn nhập tay'" (hộp Gia hạn).
+  - (b) Hộp Người ở → Thêm người đi cùng: ô chọn người ghi "Khách đứng tên".
+  - (c) Hộp Xác nhận giờ trả: ô giờ ghi "Giờ trả phòng thực tế" (giờ khách hẹn).
+  - (d) Chữ phụ ô Căn ở Đặt phòng mới: "chỉ hiện căn đang bán và còn trống trong khoảng ngày", nhưng danh sách luôn đủ 10 căn.
+  - (e) Báo giá: hộp ghi "Hết hiệu lực 31/10/2026 00:00", tin gửi khách ghi "hiệu lực đến 23:59 30/10/2026".
+  - (f) Danh sách Đơn của tôi (sale): "Bấm Đặt phòng mới để tạo đơn" – sale không có nút này.
+  - (g) Hộp Báo đã chuyển cọc: số tiền không định dạng (600000).
+- **Vai:** UXD + FE-A.
+- **Trạng thái:** Open.
+
+### BUG-R3-029 – App nhân viên: thông báo mâu thuẫn khi OWN/MGR đăng nhập
+
+- **Mức:** P3.
+- **Thực tế:** đăng nhập `qa.mgr`, màn hiện "Nhập mã trong ứng dụng xác thực để hoàn tất đăng nhập." và ngay dưới "Đăng nhập 2 bước sẽ có ở bản sau. Nhờ chủ đầu tư hỗ trợ đăng nhập." Không có ô nhập mã.
+- **Mong đợi:** chỉ một câu: "Tài khoản chủ đầu tư/quản lý chưa đăng nhập được app nhân viên ở bản này. Dùng Desk."
+- **Vai:** UXD + MOB.
+- **Trạng thái:** Open.
+
+### BUG-R3-030 – Folio ở màn Trả phòng hiện số âm cho dòng miễn bị từ chối
+
+- **Mức:** P3. Lễ tân/khách có thể hiểu nhầm là đã được giảm.
+- **Thực tế:**
+  - OTM-00359: FOC 210.000 cho phụ thu nhận sớm bị quản lý từ chối.
+  - Màn Trả phòng (cả 3 bước) vẫn có dòng "Miễn phí · Phòng sẵn sàng, không ảnh hưởng khách sau · **Bị từ chối** · −210.000".
+  - Tổng và Còn phải thu đúng (không trừ).
+- **Mong đợi:** ẩn dòng bị từ chối, hoặc hiện số gạch ngang / "0" kèm chip "Bị từ chối".
+- **Vai:** FE-A.
+- **Trạng thái:** Open.
+
+### BUG-R3-031 – "Hoàn tác nhận phòng" bấm được nhưng máy chủ từ chối
+
+- **Mức:** P3.
+- **Thực tế:**
+  - `qa.mgr`, OTM-00359 (nhận phòng hôm nay, folio đã có phụ thu nhận sớm và khoản thu).
+  - Hộp **Hoàn tác nhận phòng căn 201 – …?** ghi "Chỉ làm được trong ngày và khi folio chưa có dòng mới", nhưng vẫn cho bấm.
+  - Máy chủ trả 409 "reverse the lines posted since check-in first".
+- **Mong đợi:** ẩn/khóa nút khi folio có dòng sau nhận phòng, nói rõ phải đảo các dòng nào trước. Hoặc cho phép hoàn tác cùng lúc đảo phụ thu nhận sớm và khoản thu ghi lúc nhận phòng.
+- **Vai:** FE-A (+ BE-B nếu chọn cách đảo cùng lúc).
+- **Trạng thái:** Open.
+
+### BUG-R3-032 – Thư "Security notice" không có người nhận (SEC Q51-6, 06.15)
+
+- **Mức:** P1. Một kiểm soát bảo mật mức B không chạy trên production: kênh báo ngoài app khi đổi tài khoản nhận tiền hoặc khi có thao tác 2 bước bất thường. Không lên P0 vì các lớp phòng ngừa vẫn đủ: chỉ OWN, S2, hiệu lực từ hôm sau, cảnh báo 24 giờ trên QR, thông báo trong app. Biện pháp bù hằng ngày ở `reviews/SEC-on-B2-readiness.md` mục 1.3.
+- **Nguồn:** OPS kiểm sẵn sàng B2, `outputs/OPS/v1-production.md` mục 21.4. Staging 27/10 (chỉ đếm): 0/27 người dùng có email; `receiving_account_changed` `dead NO_RECIPIENT` ×3, `mfa_reset_by_operator` ×1.
+- **Nguyên nhân:**
+  - `jobs/email-dispatch.ts` chỉ gửi tới `app_user.email` khác rỗng;
+  - `production-bootstrap` không nhận email;
+  - `users.controller.ts` và Desk không có trường email.
+  - Thư đã `dead` không gửi lại.
+- **Mong đợi (v1.0.1):** theo `SEC-on-B2-readiness.md` mục 1.5.
+  - Trường email cho người dùng. Đặt/đổi bắt buộc S2. MGR không đổi được email của OWN.
+  - Audit `security` (email che); thư `email_changed` tới cả địa chỉ cũ và mới.
+  - Bootstrap `--owner-email` qua dấu nhắc ẩn (tùy chọn).
+  - `ops-check` đếm `dead NO_RECIPIENT`.
+- **Không làm:** vá tạm bằng SQL tay trên production (SEC từ chối).
+- **Kiểm lại:**
+  - QA trên staging: OWN có email → đổi tài khoản nhận → thư tới; đổi email không S2 → 401; MGR đổi email OWN → 403.
+  - Production: INV xác nhận nhận được thư.
+- **Trạng thái:** Open.
