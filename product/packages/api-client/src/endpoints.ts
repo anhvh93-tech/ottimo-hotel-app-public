@@ -113,6 +113,9 @@ import type {
   InvoiceRequest,
   LateCheckoutBody,
   LateCheckoutResult,
+  EarlyDepartureBody,
+  EarlyDepartureResult,
+  CancelScheduledRoomListPriceBody,
   MinibarCheck,
   MinibarCheckInput,
   MinibarStandard,
@@ -245,6 +248,21 @@ export function createEndpoints(api: ApiClient) {
         body,
         ifMatch: version,
       }),
+    /**
+     * 0.3.9 (BUG-R3-018 phần 1): remove one price row scheduled after the business day (OWN/MGR, S25).
+     * `If-Match` = `Room.version`; the answer is the room after the change (+ ETag).
+     */
+    cancelScheduledRoomListPrice: (
+      { propertyId, roomId }: P & { roomId: string },
+      body: CancelScheduledRoomListPriceBody,
+      version: number,
+      idem: string,
+    ) =>
+      r<Room>(
+        'POST',
+        '/v1/properties/{propertyId}/rooms/{roomId}/list-prices/actions/cancel-scheduled',
+        { path: { propertyId, roomId }, body, ifMatch: version, idempotencyKey: idem },
+      ),
 
     // parameters (S24)
     /** `asOf` (LocalDate): values in force on that day – a later day shows changes already scheduled. */
@@ -589,6 +607,23 @@ export function createEndpoints(api: ApiClient) {
       idem?: string,
     ) =>
       r<LateCheckoutResult | ApprovalRequest>('POST', `${RES}/actions/late-checkout`, {
+        path: { propertyId, reservationId },
+        body,
+        ifMatch: body.dryRun ? undefined : version,
+        idempotencyKey: body.dryRun ? undefined : idem,
+        local: body.dryRun,
+      }),
+    /**
+     * 0.3.9 B16 (US-137, US-135): `dryRun=true` → preview, nothing written (no key / If-Match); the write sends the
+     * same body + `expectedRefundVnd`/`expectedFeeVnd` of the last preview, If-Match = its `reservation.version`.
+     */
+    earlyDeparture: (
+      { propertyId, reservationId }: R,
+      body: EarlyDepartureBody,
+      version?: number,
+      idem?: string,
+    ) =>
+      r<EarlyDepartureResult>('POST', `${RES}/actions/early-departure`, {
         path: { propertyId, reservationId },
         body,
         ifMatch: body.dryRun ? undefined : version,

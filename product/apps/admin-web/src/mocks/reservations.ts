@@ -779,6 +779,9 @@ export function createReservationMock(ctx: Ctx) {
       add('set_late_checkout', 'B15', 'late-checkout');
       add('change_room', 'B14', 'change-room');
       if (r.departureDate <= today()) add('check_out', 'B18', 'check-out');
+      // 0.3.9 B16 (A17, FD+): the primary booking, while a night is left to drop (server allowedActions).
+      if (!r.parentReservationId && r.stayType !== 'long' && r.departureDate > today())
+        add('early_departure', 'B16', 'early-departure');
       if (
         has(roles, OWN_MGR) &&
         r.actualCheckinAt &&

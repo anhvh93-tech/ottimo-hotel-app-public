@@ -3,16 +3,20 @@ import {
   type Room,
   type RoomGroup,
   type RoomPatch,
+  type RoomScheduledListPrice,
   type RoomUpdateResult,
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Alert, Button, Field, Modal, Stepper, Switch } from '@ottimo/ui';
+import { Alert, Button, Chip, ConfirmDialog, Field, Modal, Stepper, Switch } from '@ottimo/ui';
 import { useId, useState, type FormEvent } from 'react';
 import { api } from '../app/api';
 import { useBusinessDay, useBusinessDayChange } from '../app/businessDay';
 import { isVndStep, parseVnd, perDayOfMonthly } from '../app/money';
 import { fieldErrors, problemView } from '../app/problem';
 import { useToast } from '../app/toast';
+import { timeHHmm, todayLocal } from '../app/dates';
+import { dayMonth } from '../app/reservations';
+import { useWrite } from '../app/useWrite';
 import { useOnline } from '../hooks/useOnline';
 import { usePropertyId } from '../session/SessionProvider';
 
@@ -26,6 +30,38 @@ interface Conflict {
 const BASE_MIN = 1;
 const BASE_MAX = 10; // RoomPatch.baseOccupancy maximum
 
+/** "dd/mm HH:mm" of an instant (UXD §3.2 – who scheduled a price, when). */
+const shortStamp = (iso: string) => {
+  const d = new Date(iso);
+  return `${dayMonth(todayLocal(undefined, d))} ${timeHHmm(d)}`;
+};
+
+interface PriceRow {
+  effectiveFrom: string;
+  monthlyListPriceVnd: number;
+  nightlyListPriceVnd: number;
+}
+
+/**
+ * 0.3.9 (BUG-R3-018 phần 1, `Room.scheduledListPrices`): the row in force on day `d` = the one with the latest
+ * `effectiveFrom` ≤ `d` among `currentListPrice` ∪ `scheduledListPrices` (`skip`: leave that date out – the row a
+ * cancel removes). Picking a row, not working out money.
+ */
+export function priceRowFor(room: Room, d: string, skip?: string): PriceRow | undefined {
+  const cur = room.currentListPrice;
+  const rows: PriceRow[] = [
+    ...(cur?.effectiveFrom &&
+    cur.monthlyListPriceVnd !== undefined &&
+    cur.nightlyListPriceVnd !== undefined
+      ? [cur as PriceRow]
+      : []),
+    ...(room.scheduledListPrices ?? []),
+  ];
+  return rows
+    .filter((x) => x.effectiveFrom <= d && x.effectiveFrom !== skip)
+    .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0];
+}
+
 /** H04 4.2 – edit one unit: capacity steppers (max ∈ {base, base+1} – ESC-014), list price, stop-sale. */
 export function RoomDrawer({
   room,
@@ -33,14 +69,17 @@ export function RoomDrawer({
   onClose,
   onSaved,
   onReload,
+  onRoomChanged,
 }: {
   room: Room;
   groups: RoomGroup[];
   onClose: () => void;
   onSaved: (room: RoomUpdateResult) => void;
   onReload: () => void;
+  /** 0.3.9: the room changed while the drawer stays open (a scheduled price cancelled, or read again). */
+  onRoomChanged?: (room: Room) => void;
 }) {
-  const { t, vnd, date } = useI18n();
+  const { t, vnd, money, date } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
   const { online } = useOnline();
@@ -72,6 +111,21 @@ export function RoomDrawer({
   const [reason, setReason] = useState('');
   // BUG-R3-018: the owner typed in a price box (even back to the current figure).
   const [priceTouched, setPriceTouched] = useState(false);
+  // 0.3.9: which box the owner typed in – a box left alone follows the row in force on the date picked.
+  const [editedMonthly, setEditedMonthly] = useState(false);
+  const [editedNightly, setEditedNightly] = useState(false);
+  // 0.3.9: the room as last read (its version moves when a scheduled price is cancelled here).
+  const [cur, setCur] = useState(room);
+  const scheduled = cur.scheduledListPrices;
+  // Absent = not served (role other than OWN/MGR, or a 0.3.8 server) → the BUG-R3-018 part 2 rule below.
+  const known = scheduled !== undefined;
+  const [cancelRow, setCancelRow] = useState<RoomScheduledListPrice | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelError, setCancelError] = useState<{ field?: string; text: string } | null>(null);
+  // 409 effective / only_price: the box only says why and offers "Đóng" (UXD v1.0.1 §3.4).
+  const [cancelLocked, setCancelLocked] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const cancelWrite = useWrite();
   const [sellable, setSellable] = useState(room.isSellable);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState<{ text: string; conflict?: boolean } | null>(null);
@@ -80,17 +134,44 @@ export function RoomDrawer({
 
   const monthly = parseVnd(monthlyText);
   const nightly = parseVnd(nightlyText);
+  // 0.3.9: compare with the row in force on the date picked (`updateRoom.listPrice` writes BOTH prices for it).
+  const baseline = known ? priceRowFor(cur, effectiveFrom || today) : undefined;
+  const baseMonthly = known ? baseline?.monthlyListPriceVnd : initialMonthly;
+  const baseNightly = known ? baseline?.nightlyListPriceVnd : initialNightly;
+  // The row scheduled for exactly that date – saving replaces both of its prices.
+  const sameDateRow = known ? scheduled.find((x) => x.effectiveFrom === effectiveFrom) : undefined;
   // A cleared box counts as a change (then it fails "amount > 0"); an untouched one does not.
   const changed = (text: string, value: number | null, initial: number | undefined) =>
     text.trim() === '' ? initial !== undefined : value !== initial;
   const valuesChanged =
-    changed(monthlyText, monthly, initialMonthly) || changed(nightlyText, nightly, initialNightly);
-  // BUG-R3-018: `currentListPrice` is today's row only – the contract has no scheduled rows to compare with.
-  // Re-entering today's prices for a LATER date is a real change: rooms.service upserts on
-  // (room_id, effective_from), so it replaces a wrong price scheduled for that exact date.
-  const sameAsCurrent = priceTouched && !valuesChanged;
-  const restate = sameAsCurrent && effectiveFrom > today;
-  const priceChanged = valuesChanged || restate;
+    changed(monthlyText, monthly, baseMonthly) || changed(nightlyText, nightly, baseNightly);
+  // FB-R3-UXD-FE-A-05: no "restate" rule any more – the boxes compare with the row in force on the date picked.
+  const sameAsBaseline = priceTouched && !valuesChanged;
+  const priceChanged = valuesChanged;
+  /**
+   * Picking date D fills the boxes with the row in force on D (contract 0.3.9 / UXD §3.5). A box the owner typed in
+   * keeps what was typed; the other one follows D – so `updateRoom.listPrice` (always both prices for D) never puts
+   * today's figure back on a scheduled row by accident (QA risk BUG-R3-018).
+   */
+  const pickDate = (d: string) => {
+    setEffectiveFrom(d);
+    if (!known) return;
+    const row = priceRowFor(cur, d);
+    if (!row) return;
+    if (!editedMonthly) setMonthlyText(vnd(row.monthlyListPriceVnd));
+    if (!editedNightly) setNightlyText(vnd(row.nightlyListPriceVnd));
+  };
+  // UXD §3.5: help under the "Hiệu lực từ / Lý do" row, full width.
+  const dateHelp =
+    known && effectiveFrom
+      ? sameDateRow
+        ? t('rooms.price_replace_scheduled', {
+            date: date(effectiveFrom),
+            night: money(sameDateRow.nightlyListPriceVnd),
+            month: money(sameDateRow.monthlyListPriceVnd),
+          })
+        : t('rooms.price_for_date', { date: date(effectiveFrom) })
+      : undefined;
   // Soft check only (DOM fb-inv-005 §4): a nightly price under the monthly price per day is unusual.
   const nightlyLow =
     monthly !== null && monthly > 0 && nightly !== null && nightly > 0
@@ -106,6 +187,11 @@ export function RoomDrawer({
     sellable !== room.isSellable ||
     priceChanged;
   const dirty = canSave || reason !== '';
+  // UXD §3.5: the two boxes equal the row in force on D – Save stays off and says why.
+  const saveWhy =
+    known && sameAsBaseline && !canSave && effectiveFrom
+      ? t('rooms.price_unchanged', { date: date(effectiveFrom) })
+      : null;
 
   const changeBase = (v: number) => {
     setBase(v);
@@ -161,7 +247,7 @@ export function RoomDrawer({
     setBusy(true);
     setBanner(null);
     try {
-      const { data } = await api.updateRoom({ propertyId, roomId: room.id }, patch, room.version);
+      const { data } = await api.updateRoom({ propertyId, roomId: room.id }, patch, cur.version);
       // BUG-R3-018: a future price does not show in the catalog until its day – say when it applies.
       toast(
         patch.listPrice && patch.listPrice.effectiveFrom > today
@@ -190,6 +276,98 @@ export function RoomDrawer({
     }
   };
 
+  /** UXD §3.3: the row the room goes back to from that date (and the next scheduled date, if any). */
+  const cancelBody = (row: RoomScheduledListPrice) => {
+    const back = priceRowFor(cur, row.effectiveFrom, row.effectiveFrom);
+    if (!back) return '';
+    const next = (scheduled ?? []).find((x) => x.effectiveFrom > row.effectiveFrom);
+    const args = {
+      date: date(row.effectiveFrom),
+      room: cur.roomNo,
+      night: money(back.nightlyListPriceVnd),
+      month: money(back.monthlyListPriceVnd),
+    };
+    return next
+      ? t('rooms.cancel_sched_body_until', { ...args, next: date(next.effectiveFrom) })
+      : t('rooms.cancel_sched_body', args);
+  };
+
+  /** Read this room again (another person changed its prices) – the drawer keeps what was typed. */
+  const refreshRoom = async () => {
+    try {
+      const fresh = (await api.listRooms({ propertyId })).data.data.find((x) => x.id === cur.id);
+      if (fresh) {
+        setCur(fresh);
+        onRoomChanged?.(fresh);
+      }
+    } catch {
+      onReload();
+    }
+  };
+
+  const openCancel = (row: RoomScheduledListPrice) => {
+    setCancelRow(row);
+    setCancelReason('');
+    setCancelError(null);
+    setCancelLocked(false);
+    setNotice(null);
+  };
+
+  const cancelScheduled = async (row: RoomScheduledListPrice) => {
+    if (cancelReason.trim().length < 3 || cancelLocked) return;
+    setCancelError(null);
+    const day = date(row.effectiveFrom);
+    try {
+      const { data } = await cancelWrite.run((idem) =>
+        api.cancelScheduledRoomListPrice(
+          { propertyId, roomId: cur.id },
+          { effectiveFrom: row.effectiveFrom, reason: cancelReason.trim() },
+          cur.version,
+          idem,
+        ),
+      );
+      setCur(data);
+      onRoomChanged?.(data);
+      setCancelRow(null);
+      // The boxes were following the cancelled row → they follow the row now in force on D.
+      if (effectiveFrom === row.effectiveFrom) {
+        const now = priceRowFor(data, effectiveFrom);
+        if (now && !editedMonthly) setMonthlyText(vnd(now.monthlyListPriceVnd));
+        if (now && !editedNightly) setNightlyText(vnd(now.nightlyListPriceVnd));
+      }
+      toast(t('rooms.cancel_sched_done', { date: day, room: cur.roomNo }));
+    } catch (err) {
+      if (!isApiError(err) || err.isNetwork || err.status >= 500) {
+        // "Thử lại" resends with the same Idempotency-Key (useWrite keeps it after a failure).
+        setCancelError({ text: problemView(t, err).text });
+        return;
+      }
+      cancelWrite.renewKey();
+      if (err.code === 'VALIDATION_FAILED') {
+        setCancelError({ field: 'reason', text: t('rooms.cancel_sched_needs_reason') });
+      } else if (err.code === 'INVALID_TRANSITION') {
+        setCancelLocked(true);
+        setCancelError({
+          text:
+            err.problem.currentState === 'only_price'
+              ? t('rooms.cancel_sched_only', { date: day })
+              : t('rooms.cancel_sched_effective', { date: day }),
+        });
+        await refreshRoom();
+      } else if (err.code === 'NOT_FOUND') {
+        setCancelRow(null);
+        setNotice(t('rooms.cancel_sched_gone', { date: day }));
+        await refreshRoom();
+      } else if (err.code === 'VERSION_CONFLICT') {
+        // Keep the reason; the room is read again (version, "giá dùng lại") – the owner may confirm again.
+        setCancelError({ text: t('error.VERSION_CONFLICT') });
+        await refreshRoom();
+      } else {
+        setCancelError({ text: problemView(t, err).text });
+      }
+    }
+  };
+
   const formId = `${ids}-form`;
   return (
     <Modal
@@ -208,6 +386,11 @@ export function RoomDrawer({
       footer={
         <>
           <Button onClick={onClose}>{t('common.cancel')}</Button>
+          {saveWhy ? (
+            <span className="li-s" id={`${ids}-save-why`}>
+              {saveWhy}
+            </span>
+          ) : null}
           <Button
             type="submit"
             form={formId}
@@ -215,6 +398,7 @@ export function RoomDrawer({
             busy={busy}
             busyLabel={t('common.saving')}
             disabled={!online || !canSave}
+            aria-describedby={saveWhy ? `${ids}-save-why` : undefined}
           >
             {t('common.save')}
           </Button>
@@ -351,6 +535,7 @@ export function RoomDrawer({
                     onChange={(e) => {
                       setMonthlyText(e.target.value);
                       setPriceTouched(true);
+                      setEditedMonthly(true);
                     }}
                     onBlur={() => monthly !== null && setMonthlyText(vnd(monthly))}
                   />
@@ -373,6 +558,7 @@ export function RoomDrawer({
                     onChange={(e) => {
                       setNightlyText(e.target.value);
                       setPriceTouched(true);
+                      setEditedNightly(true);
                     }}
                     onBlur={() => nightly !== null && setNightlyText(vnd(nightly))}
                   />
@@ -386,28 +572,108 @@ export function RoomDrawer({
               {t('rooms.night_low', { perDay: vnd(perDayOfMonthly(monthly)) })}
             </Alert>
           ) : null}
+          {known ? (
+            <div className="mt-8">
+              <h3 className="label-h" id={`${ids}-sched`}>
+                {t('rooms.scheduled_title')}
+              </h3>
+              {notice ? (
+                <Alert tone="info" role="status">
+                  {notice}
+                </Alert>
+              ) : null}
+              <ul className="list" aria-labelledby={`${ids}-sched`}>
+                {cur.currentListPrice?.effectiveFrom &&
+                cur.currentListPrice.monthlyListPriceVnd !== undefined &&
+                cur.currentListPrice.nightlyListPriceVnd !== undefined ? (
+                  <li>
+                    <div className="grow">
+                      <Chip tone="ink" icon="check">
+                        {t('rooms.scheduled_current', {
+                          date: date(cur.currentListPrice.effectiveFrom),
+                        })}
+                      </Chip>
+                      <div className="num">
+                        {t('rooms.scheduled_prices', {
+                          night: money(cur.currentListPrice.nightlyListPriceVnd),
+                          month: money(cur.currentListPrice.monthlyListPriceVnd),
+                        })}
+                      </div>
+                    </div>
+                  </li>
+                ) : null}
+                {scheduled.map((x) => (
+                  <li
+                    key={x.effectiveFrom}
+                    className={x.effectiveFrom === effectiveFrom ? 'is-editing' : undefined}
+                  >
+                    <div className="grow">
+                      <b>{t('rooms.scheduled_from', { date: date(x.effectiveFrom) })}</b>
+                      <div className="num">
+                        {t('rooms.scheduled_prices', {
+                          night: money(x.nightlyListPriceVnd),
+                          month: money(x.monthlyListPriceVnd),
+                        })}
+                      </div>
+                      {x.reason ? (
+                        <div className="li-s">
+                          {t('rooms.scheduled_reason', { reason: x.reason })}
+                        </div>
+                      ) : null}
+                      <div className="caption">
+                        {x.changedBy
+                          ? t('rooms.scheduled_by', {
+                              by: x.changedBy,
+                              at: shortStamp(x.changedAt),
+                            })
+                          : t('rooms.scheduled_by_system', { at: shortStamp(x.changedAt) })}
+                      </div>
+                    </div>
+                    {!cur.currentListPrice && scheduled.length === 1 ? (
+                      // UXD D9: the room's only price – no button (it would only get 409 only_price).
+                      <span className="li-s">
+                        {t('rooms.only_price_note', { date: date(x.effectiveFrom) })}
+                      </span>
+                    ) : (
+                      <Button
+                        size="sm"
+                        disabled={!online}
+                        aria-label={t('rooms.cancel_scheduled_label', {
+                          date: date(x.effectiveFrom),
+                        })}
+                        onClick={() => openCancel(x)}
+                      >
+                        {t('rooms.cancel_scheduled')}
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {scheduled.length === 0 ? (
+                <p className="caption">{t('rooms.scheduled_empty')}</p>
+              ) : null}
+            </div>
+          ) : null}
           {valuesChanged || priceTouched ? (
             <div className="g-2">
               <Field
                 label={t('config.effective_from')}
                 required
-                help={
-                  sameAsCurrent
-                    ? restate
-                      ? t('rooms.price_same_future', { date: date(effectiveFrom) })
-                      : t('rooms.price_same_today')
-                    : undefined
-                }
                 error={errors['listPrice.effectiveFrom']}
               >
                 {(p) => (
                   <input
                     {...p}
+                    aria-describedby={
+                      [p['aria-describedby'], dateHelp ? `${ids}-dhelp` : '']
+                        .filter(Boolean)
+                        .join(' ') || undefined
+                    }
                     className="input"
                     type="date"
                     min={today}
                     value={effectiveFrom}
-                    onChange={(e) => setEffectiveFrom(e.target.value)}
+                    onChange={(e) => pickDate(e.target.value)}
                   />
                 )}
               </Field>
@@ -424,6 +690,11 @@ export function RoomDrawer({
               </Field>
             </div>
           ) : null}
+          {(valuesChanged || priceTouched) && dateHelp ? (
+            <p className="help" id={`${ids}-dhelp`}>
+              {dateHelp}
+            </p>
+          ) : null}
           <p className="caption">{t('rooms.snapshot_note')}</p>
         </fieldset>
         <div className="row">
@@ -435,6 +706,52 @@ export function RoomDrawer({
           </span>
         </div>
       </form>
+      {cancelRow ? (
+        <ConfirmDialog
+          title={t('rooms.cancel_sched_title', {
+            date: date(cancelRow.effectiveFrom),
+            room: cur.roomNo,
+          })}
+          body={cancelBody(cancelRow)}
+          keepLabel={cancelLocked ? t('common.close') : t('rooms.cancel_sched_keep')}
+          confirmLabel={cancelWrite.label(t('rooms.cancel_sched_confirm'))}
+          confirmDisabled={cancelLocked || cancelReason.trim().length < 3}
+          confirmHelpId={
+            !cancelLocked && cancelReason.trim().length < 3 ? `${ids}-cancel-why` : undefined
+          }
+          busy={cancelWrite.busy}
+          busyLabel={cancelWrite.busyLabel ?? t('common.saving')}
+          onKeep={() => setCancelRow(null)}
+          onConfirm={() => void cancelScheduled(cancelRow)}
+        >
+          <Field
+            label={t('rooms.cancel_sched_reason')}
+            required
+            help={t('rooms.cancel_sched_reason_help')}
+            error={cancelError?.field === 'reason' ? cancelError.text : undefined}
+          >
+            {(p) => (
+              <textarea
+                {...p}
+                className="input"
+                rows={2}
+                maxLength={500}
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+              />
+            )}
+          </Field>
+          {!cancelLocked && cancelReason.trim().length < 3 ? (
+            <p className="li-s" id={`${ids}-cancel-why`}>
+              {t('rooms.cancel_sched_needs_reason')}
+            </p>
+          ) : null}
+          {cancelWrite.notice ??
+            (cancelError && cancelError.field !== 'reason' ? (
+              <Alert tone="bad">{cancelError.text}</Alert>
+            ) : null)}
+        </ConfirmDialog>
+      ) : null}
     </Modal>
   );
 }

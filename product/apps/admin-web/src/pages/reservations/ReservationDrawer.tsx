@@ -10,6 +10,7 @@ import { timeHHmm } from '../../app/dates';
 import {
   STATUS_KEY,
   STATUS_TONE,
+  addDays,
   channelName,
   currentSegment,
   dayMonth,
@@ -48,6 +49,7 @@ import {
   UndoCheckInDialog,
 } from '../stay/StayDialogs';
 import { BillDialog } from '../stay/CheckOutPage';
+import { EarlyDepartureDialog } from '../stay/EarlyDepartureDialog';
 import { FolioDialog } from '../stay/FolioDialog';
 
 type Open =
@@ -62,6 +64,7 @@ type Open =
   | 'notice'
   | 'extend_stay'
   | 'late'
+  | 'early'
   | 'change_room'
   | 'charge'
   | 'confirm_time'
@@ -349,6 +352,13 @@ export function ReservationDrawer({
       ) : null}
       {allowed.has('set_late_checkout') ? (
         <Button onClick={() => setOpen('late')}>{t('drawer.action.late_checkout')}</Button>
+      ) : null}
+      {allowed.has('early_departure') &&
+      businessDay < r.departureDate &&
+      addDays(r.arrivalDate, 1) < r.departureDate ? (
+        // 0.3.9 B16 (US-137, UXD v1.0.1 §2.1): only when the server offers it and the date range is not empty –
+        // max(business day, arrival + 1) ≤ departure − 1 (BR-010 business day).
+        <Button onClick={() => setOpen('early')}>{t('drawer.action.early_departure')}</Button>
       ) : null}
       {allowed.has('extend_stay') ? (
         <Button onClick={() => setOpen('extend_stay')}>{t('drawer.action.extend')}</Button>
@@ -782,6 +792,14 @@ export function ReservationDrawer({
       ) : null}
       {r && open === 'late' ? (
         <LateCheckoutDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />
+      ) : null}
+      {r && open === 'early' ? (
+        <EarlyDepartureDialog
+          reservation={r}
+          onClose={() => setOpen(null)}
+          onDone={done}
+          onReload={() => void reloadNow()}
+        />
       ) : null}
       {r && open === 'change_room' ? (
         <ChangeRoomDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />
