@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="vi" data-init-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>v1.0.1 Trả sớm và giá đã lên lịch – OTTIMO hi-fi</title>
+<link rel="stylesheet" href="../../../../product/design/wireframes/assets/tokens.css">
+<link rel="stylesheet" href="../../../../product/design/hifi/assets/hifi.css">
+<script src="../../../../product/design/wireframes/assets/icons.js"></script>
+<script src="../../../../product/design/wireframes/assets/strings.js"></script>
+<script>/* UXD v1.0.1 – chuỗi đề xuất (chưa vào gen_strings.py) */
+(function(){var S=window.OTTIMO_STRINGS||(window.OTTIMO_STRINGS={vi:{},en:{}});var vi={"early_departure.title": "Trả sớm · Căn {room} · {guest}", "early_departure.steps_label": "Các bước trả sớm", "early_departure.step_input": "Ngày rời và giờ báo", "early_departure.step_preview": "Xem trước", "early_departure.step_result": "Kết quả", "early_departure.stay_now": "Lượt ở hiện tại: {range}", "early_departure.none_possible": "Không còn ngày rời nào sớm hơn ngày đi hiện tại.", "early_departure.new_date": "Ngày rời mới", "early_departure.new_date_help": "Từ {min} đến {max}. Các đêm từ ngày này trở đi được mở bán lại.", "early_departure.notice_at": "Giờ khách báo", "early_departure.notice_at_help": "Mặc định là lúc mở hộp. Sửa nếu khách đã báo sớm hơn (tin nhắn, cuộc gọi).", "early_departure.notice_days": "Báo trước {n} ngày (ngày nghiệp vụ lúc khách báo: {date}).", "early_departure.notice_after_midnight": "Khách báo sau nửa đêm nên tính theo ngày nghiệp vụ {date}.", "early_departure.evidence_title": "Bằng chứng giờ báo", "early_departure.evidence_why": "Giờ báo sớm hơn lúc này nên cần bằng chứng (BR-011).", "early_departure.evidence_optional": "Chênh lệch nhỏ – bằng chứng không bắt buộc.", "early_departure.evidence_note": "Khách báo qua đâu, lúc nào", "early_departure.evidence_note_ph": "Ví dụ: Zalo 21/10 09:40, khách xin rời 22/10", "early_departure.evidence_photo": "Ảnh tin nhắn của khách (không bắt buộc)", "early_departure.evidence_add": "Chọn ảnh", "early_departure.ota_retained": "Số OTA giữ lại", "early_departure.ota_retained_help": "Theo extranet {channel}. Tối đa {max} – tiền OTA của các đêm bỏ. Ghi 0 nếu OTA hoàn đủ cho khách.", "early_departure.ota_needed": "Đơn {channel}: nhập số OTA giữ lại để xem trước.", "early_departure.evidence_needed": "Thêm bằng chứng giờ báo để xem trước.", "early_departure.preview_loading": "Đang tính thử…", "early_departure.preview_failed": "Chưa tính thử được nên chưa trả sớm được. Bấm Thử lại.", "early_departure.preview_unavailable": "Máy chủ chưa hỗ trợ xem trước trả sớm nên chưa làm được trên Desk. Báo quản lý.", "early_departure.to_preview": "Xem trước số tiền", "early_departure.to_preview_wait": "Chờ tính thử xong để xem trước.", "early_departure.to_preview_needs": "Điền các ô còn thiếu ở trên để xem trước.", "early_departure.preview_question": "Trả sớm cho {guest}, rời {date}?", "early_departure.preview_note": "Số do máy chủ tính. Chưa ghi gì.", "early_departure.nights_title": "Đêm mở bán lại", "early_departure.col_booking": "Đơn", "early_departure.col_basis": "Cách tính", "early_departure.basis_ota": "Theo OTA", "early_departure.basis_policy": "Chính sách OTTIMO", "early_departure.col_amount": "Tiền phòng (đ)", "early_departure.room_unassigned": "Chưa gán", "early_departure.nights_note": "Đêm chính sách OTTIMO: tiền ròng sau giảm giá, miễn phí đã duyệt. Đêm OTA: tiền OTA của đêm. Không gồm phụ thu người.", "early_departure.calc_title": "Cách tính", "early_departure.row_base": "Cơ sở: tiền phòng ròng các đêm bỏ (không gồm đêm OTA)", "early_departure.row_notice": "Báo trước", "early_departure.notice_value": "{n} ngày", "early_departure.row_refundable": "Phần hoàn theo chính sách trả sớm", "early_departure.no_refund_notice": "Không hoàn: số ngày báo trước chưa đủ theo chính sách trả sớm (BR-428).", "early_departure.row_extra_refund": "Phụ thu người đã thu của các đêm bỏ – hoàn đủ", "early_departure.row_extra_reversed": "Phụ thu người chưa thu của các đêm bỏ – chỉ đảo dòng, không hoàn", "early_departure.row_room_change": "Chênh lệch đổi phòng đã thu của các đêm bỏ – hoàn đủ", "early_departure.row_ota_retained": "Số OTA giữ lại (đã nhập)", "early_departure.ota_room_note": "Tiền phòng OTA của các đêm bỏ do OTA hoàn cho khách, không qua OTTIMO.", "early_departure.row_refund": "Sẽ xin hoàn cho khách", "early_departure.row_refund_help": "Một yêu cầu hoàn, cần quản lý duyệt. Trả phòng sau đó không tạo thêm yêu cầu.", "early_departure.row_fee": "Phí trả phòng sớm (ghi vào folio)", "early_departure.refund_capped": "Khách chưa trả đủ phần này nên chỉ hoàn {amount} (số đã trả thừa). Phần còn lại trừ vào số khách còn phải trả.", "early_departure.refund_capped_zero": "Khách chưa trả thừa nên không có khoản hoàn. Phần hoàn trừ vào số khách còn phải trả.", "early_departure.no_refund": "Không có khoản hoàn.", "early_departure.effects_title": "Sau khi xác nhận", "early_departure.effect_nights": "Căn {room} mở bán lại: {range}.", "early_departure.effect_departure": "Ngày đi đổi thành {date}.", "early_departure.effect_fee": "Ghi dòng \"Phí trả phòng sớm\" {amount} vào folio.", "early_departure.effect_child_cancelled": "Đơn con {code} ({n} đêm) bị hủy vì mọi đêm của đơn đều bỏ.", "early_departure.effect_child_shortened": "Đơn con {code} bớt {n} đêm.", "early_departure.effect_registration": "Khách nước ngoài: cần cập nhật ngày đi trên cổng khai báo trong ngày.", "early_departure.effect_door": "Nhớ rút ngắn hiệu lực mã cửa trên app khóa tới ngày đi mới.", "early_departure.told_guest": "Đã báo khách số hoàn và phí trả phòng sớm", "early_departure.confirm_needs_told": "Tick \"Đã báo khách…\" để bật nút Xác nhận trả sớm.", "early_departure.confirm": "Xác nhận trả sớm", "early_departure.amount_changed": "Số tiền vừa thay đổi: hoàn {refund}, phí {fee}. Chưa ghi gì. Xem số mới, báo lại khách rồi tick lại.", "early_departure.changed_chip": "Vừa đổi", "early_departure.was": "Trước: {amount}", "early_departure.commit_failed": "Chưa nhận được kết quả từ máy chủ. Bấm Thử lại – thao tác không bị ghi hai lần.", "early_departure.err.date_range": "Chọn ngày từ {min} đến {max}.", "early_departure.err.notice_future": "Giờ báo không được muộn hơn lúc này.", "early_departure.err.ota_over_max": "Không quá {max} – tiền OTA của các đêm bỏ.", "early_departure.err.ota_required": "Nhập số OTA giữ lại theo extranet; ghi 0 nếu OTA hoàn đủ.", "early_departure.err.evidence_required": "Ghi khách báo qua đâu, lúc nào (ít nhất 3 ký tự).", "early_departure.err.version_conflict": "Đơn vừa được người khác thay đổi. Đã tải lại đơn – thông tin bạn nhập vẫn còn. Kiểm tra rồi xem trước lại.", "early_departure.done_title": "Đã ghi trả sớm – khách rời {date}", "early_departure.done_nights": "Đã mở bán lại {n} đêm: {dates}.", "early_departure.done_fee": "Đã ghi phí trả phòng sớm {amount} vào folio.", "early_departure.done_refund": "Đã tạo yêu cầu hoàn {amount}.", "early_departure.view_refund": "Xem yêu cầu hoàn", "early_departure.done_child_cancelled": "Đã hủy đơn con {code}.", "early_departure.reg_reminder": "Khách nước ngoài: cập nhật ngày đi {date} trên cổng khai báo trong hôm nay.", "early_departure.reg_open": "Mở danh sách cần cập nhật", "early_departure.checkout_now_hint": "Ngày rời là hôm nay. Làm tiếp trả phòng: minibar, phát sinh, phiếu thanh toán.", "early_departure.checkout_now": "Trả phòng ngay", "early_departure.later_hint": "Khách trả phòng ngày {date} như thường lệ – nút Trả phòng hiện vào ngày đó.", "early_departure.show_calc": "Xem cách tính", "error.AMOUNT_CHANGED": "Số tiền vừa thay đổi nên chưa ghi gì. Xem số mới rồi xác nhận lại.", "rooms.scheduled_title": "Giá đã lên lịch", "rooms.scheduled_current": "Đang dùng từ {date}", "rooms.scheduled_from": "Từ {date}", "rooms.scheduled_prices": "Giá đêm {night} · Giá tháng {month}", "rooms.scheduled_reason": "Lý do: {reason}", "rooms.scheduled_by": "{by} lên lịch lúc {at}", "rooms.scheduled_by_system": "Có từ dữ liệu ban đầu, {at}", "rooms.scheduled_empty": "Chưa có giá nào lên lịch.", "rooms.cancel_scheduled": "Hủy lịch giá này", "rooms.cancel_scheduled_label": "Hủy lịch giá từ {date}", "rooms.only_price_note": "Giá duy nhất của căn – sửa bằng ô giá ở trên, cùng ngày {date}.", "rooms.cancel_sched_title": "Hủy lịch giá từ {date} của căn {room}?", "rooms.cancel_sched_body": "Từ {date}, căn {room} dùng lại giá đêm {night} · giá tháng {month}. Đơn, báo giá đã có giữ giá cũ.", "rooms.cancel_sched_body_until": "Từ {date} đến trước {next}, căn {room} dùng lại giá đêm {night} · giá tháng {month}; từ {next} theo lịch giá kế tiếp. Đơn, báo giá đã có giữ giá cũ.", "rooms.cancel_sched_reason": "Lý do hủy lịch giá", "rooms.cancel_sched_reason_help": "Lưu vào nhật ký cấu hình.", "rooms.cancel_sched_needs_reason": "Ghi lý do (ít nhất 3 ký tự) để hủy lịch giá.", "rooms.cancel_sched_keep": "Giữ lịch giá", "rooms.cancel_sched_confirm": "Hủy lịch giá", "rooms.cancel_sched_done": "Đã hủy lịch giá từ {date} của căn {room}.", "rooms.cancel_sched_effective": "Giá từ {date} đã bắt đầu áp dụng nên không hủy lịch được nữa. Muốn đổi giá đang dùng, nhập giá mới ở trên.", "rooms.cancel_sched_only": "Đây là giá duy nhất của căn nên không hủy được. Sửa bằng ô giá ở trên, cùng ngày {date}.", "rooms.cancel_sched_gone": "Lịch giá từ {date} không còn – có thể người khác vừa hủy. Danh sách đã tải lại.", "rooms.price_for_date": "Hai ô đang là giá áp dụng cho {date}. Đổi một ô để lưu giá mới từ ngày này.", "rooms.price_replace_scheduled": "Đã có giá lên lịch từ {date} (giá đêm {night} · giá tháng {month}). Lưu sẽ thay cả hai giá của lịch này.", "rooms.price_unchanged": "Giá chưa đổi so với giá áp dụng cho {date}.", "rooms.saved_scheduled": "Đã lưu căn {room}. Giá mới áp dụng từ {date}.", "rooms.next_price": "Từ {date}: {amount}", "rooms.next_price_more": "+{n} lịch khác"};var en={"early_departure.title": "Early departure · Room {room} · {guest}", "early_departure.steps_label": "Early departure steps", "early_departure.step_input": "Date and notice", "early_departure.step_preview": "Preview", "early_departure.step_result": "Result", "early_departure.stay_now": "Current stay: {range}", "early_departure.none_possible": "There is no earlier departure date available.", "early_departure.new_date": "New departure date", "early_departure.new_date_help": "From {min} to {max}. Nights from this date on go back on sale.", "early_departure.notice_at": "Guest told us at", "early_departure.notice_at_help": "Defaults to when this box opened. Change it if the guest told us earlier (message, call).", "early_departure.notice_days": "Notice: {n} day(s) (business date when the guest told us: {date}).", "early_departure.notice_after_midnight": "The guest told us after midnight, so business date {date} applies.", "early_departure.evidence_title": "Proof of notice time", "early_departure.evidence_why": "The notice time is earlier than now, so proof is needed (BR-011).", "early_departure.evidence_optional": "Small difference – proof is optional.", "early_departure.evidence_note": "How and when the guest told us", "early_departure.evidence_note_ph": "e.g. Zalo 21 Oct 09:40, guest asked to leave on 22 Oct", "early_departure.evidence_photo": "Photo of the guest's message (optional)", "early_departure.evidence_add": "Choose photo", "early_departure.ota_retained": "Amount kept by the OTA", "early_departure.ota_retained_help": "As shown on the {channel} extranet. Up to {max} – the OTA amount for the dropped nights. Enter 0 if the OTA refunds the guest in full.", "early_departure.ota_needed": "{channel} booking: enter the amount kept by the OTA to see the preview.", "early_departure.evidence_needed": "Add proof of the notice time to see the preview.", "early_departure.preview_loading": "Working out the figures…", "early_departure.preview_failed": "Couldn't work out the figures, so the early departure can't be recorded yet. Select Try again.", "early_departure.preview_unavailable": "The server can't preview early departures yet, so this can't be done on the Desk. Tell a manager.", "early_departure.to_preview": "Preview amounts", "early_departure.to_preview_wait": "Wait for the figures to be worked out.", "early_departure.to_preview_needs": "Fill in the missing fields above to see the preview.", "early_departure.preview_question": "Early departure for {guest}, leaving {date}?", "early_departure.preview_note": "Figures from the server. Nothing has been recorded yet.", "early_departure.nights_title": "Nights back on sale", "early_departure.col_booking": "Booking", "early_departure.col_basis": "Basis", "early_departure.basis_ota": "Per OTA", "early_departure.basis_policy": "OTTIMO policy", "early_departure.col_amount": "Room charge (VND)", "early_departure.room_unassigned": "Not assigned", "early_departure.nights_note": "OTTIMO policy nights: net after discounts and approved waivers. OTA nights: the OTA amount for the night. Extra-guest charges not included.", "early_departure.calc_title": "How it's worked out", "early_departure.row_base": "Basis: net room charge of the dropped nights (excluding OTA nights)", "early_departure.row_notice": "Notice", "early_departure.notice_value": "{n} day(s)", "early_departure.row_refundable": "Refund under the early departure policy", "early_departure.no_refund_notice": "No refund: not enough notice under the early departure policy (BR-428).", "early_departure.row_extra_refund": "Extra-guest charge already paid for the dropped nights – refunded in full", "early_departure.row_extra_reversed": "Unpaid extra-guest charge for the dropped nights – reversed, not refunded", "early_departure.row_room_change": "Room change difference already paid for the dropped nights – refunded in full", "early_departure.row_ota_retained": "Amount kept by the OTA (entered)", "early_departure.ota_room_note": "The OTA refunds the guest for the OTA room charge of the dropped nights, not OTTIMO.", "early_departure.row_refund": "Refund to request for the guest", "early_departure.row_refund_help": "One refund request, needs manager approval. Check-out won't create another.", "early_departure.row_fee": "Early departure fee (posted to the folio)", "early_departure.refund_capped": "The guest hasn't paid all of this, so only {amount} (the overpayment) is refunded. The rest comes off what the guest still owes.", "early_departure.refund_capped_zero": "The guest hasn't overpaid, so there is no refund. The refund amount comes off what the guest still owes.", "early_departure.no_refund": "No refund.", "early_departure.effects_title": "After you confirm", "early_departure.effect_nights": "Room {room} goes back on sale: {range}.", "early_departure.effect_departure": "Departure becomes {date}.", "early_departure.effect_fee": "Posts an \"Early departure fee\" line of {amount} to the folio.", "early_departure.effect_child_cancelled": "Linked booking {code} ({n} night(s)) is cancelled – all its nights are dropped.", "early_departure.effect_child_shortened": "Linked booking {code} loses {n} night(s).", "early_departure.effect_registration": "Foreign guests: the departure date must be updated on the registration portal today.", "early_departure.effect_door": "Remember to shorten the door code's validity in the lock app to the new departure.", "early_departure.told_guest": "I've told the guest the refund and the early departure fee", "early_departure.confirm_needs_told": "Tick \"I've told the guest…\" to enable Confirm early departure.", "early_departure.confirm": "Confirm early departure", "early_departure.amount_changed": "The amounts have just changed: refund {refund}, fee {fee}. Nothing was recorded. Check the new figures, tell the guest again, then tick again.", "early_departure.changed_chip": "Just changed", "early_departure.was": "Was {amount}", "early_departure.commit_failed": "No answer from the server yet. Select Try again – it won't be recorded twice.", "early_departure.err.date_range": "Choose a date from {min} to {max}.", "early_departure.err.notice_future": "The notice time can't be later than now.", "early_departure.err.ota_over_max": "No more than {max} – the OTA amount for the dropped nights.", "early_departure.err.ota_required": "Enter the amount kept by the OTA from the extranet; 0 if the OTA refunds in full.", "early_departure.err.evidence_required": "Note how and when the guest told us (at least 3 characters).", "early_departure.err.version_conflict": "Someone else just changed this booking. It has been reloaded – what you entered is kept. Check it, then preview again.", "early_departure.done_title": "Early departure recorded – leaving {date}", "early_departure.done_nights": "{n} night(s) back on sale: {dates}.", "early_departure.done_fee": "Early departure fee of {amount} posted to the folio.", "early_departure.done_refund": "Refund request of {amount} created.", "early_departure.view_refund": "View refund request", "early_departure.done_child_cancelled": "Linked booking {code} cancelled.", "early_departure.reg_reminder": "Foreign guests: update the departure date to {date} on the registration portal today.", "early_departure.reg_open": "Open the update list", "early_departure.checkout_now_hint": "Departure is today. Continue to check-out: minibar, extra charges, guest folio.", "early_departure.checkout_now": "Check out now", "early_departure.later_hint": "The guest checks out on {date} as usual – the Check out button appears that day.", "early_departure.show_calc": "Show how it was worked out", "error.AMOUNT_CHANGED": "The amount has just changed, so nothing was recorded. Check the new figures and confirm again.", "rooms.scheduled_title": "Scheduled prices", "rooms.scheduled_current": "Current since {date}", "rooms.scheduled_from": "From {date}", "rooms.scheduled_prices": "Nightly {night} · Monthly {month}", "rooms.scheduled_reason": "Reason: {reason}", "rooms.scheduled_by": "Scheduled by {by} at {at}", "rooms.scheduled_by_system": "From the initial data, {at}", "rooms.scheduled_empty": "No prices scheduled.", "rooms.cancel_scheduled": "Cancel this scheduled price", "rooms.cancel_scheduled_label": "Cancel the price scheduled from {date}", "rooms.only_price_note": "The room's only price – change it in the price fields above, same date {date}.", "rooms.cancel_sched_title": "Cancel the price scheduled from {date} for room {room}?", "rooms.cancel_sched_body": "From {date}, room {room} goes back to nightly {night} · monthly {month}. Existing bookings and quotes keep their price.", "rooms.cancel_sched_body_until": "From {date} until {next}, room {room} goes back to nightly {night} · monthly {month}; from {next} the next scheduled price applies. Existing bookings and quotes keep their price.", "rooms.cancel_sched_reason": "Reason for cancelling", "rooms.cancel_sched_reason_help": "Kept in the settings log.", "rooms.cancel_sched_needs_reason": "Add a reason (at least 3 characters) to cancel.", "rooms.cancel_sched_keep": "Keep scheduled price", "rooms.cancel_sched_confirm": "Cancel scheduled price", "rooms.cancel_sched_done": "Cancelled the price scheduled from {date} for room {room}.", "rooms.cancel_sched_effective": "The price from {date} has already taken effect, so it can't be cancelled. To change the current price, enter a new one above.", "rooms.cancel_sched_only": "This is the room's only price, so it can't be cancelled. Change it in the price fields above, same date {date}.", "rooms.cancel_sched_gone": "The price scheduled from {date} is no longer there – someone may have just cancelled it. The list has been reloaded.", "rooms.price_for_date": "Both fields show the price that applies on {date}. Change one to save a new price from that date.", "rooms.price_replace_scheduled": "A price is already scheduled from {date} (nightly {night} · monthly {month}). Saving replaces both prices of that schedule.", "rooms.price_unchanged": "The price is the same as the one that applies on {date}.", "rooms.saved_scheduled": "Room {room} saved. The new price applies from {date}.", "rooms.next_price": "From {date}: {amount}", "rooms.next_price_more": "+{n} more"};for(var k in vi){S.vi[k]=vi[k];}for(var k2 in en){S.en[k2]=en[k2];}})();</script>
+<script src="../../../../product/design/hifi/assets/hifi.js"></script>
+<style>
+/* Chỉ bố cục minh họa – không token mới, không màu mới */
+.ed-status{display:flex;gap:8px;align-items:center;font-size:.8125rem;color:var(--muted);min-height:32px;margin-top:8px}
+.ed-total{font-weight:600}
+.ed-sub td{font-size:.75rem;color:var(--muted);padding-top:0}
+.ed-was{display:block;font-size:.75rem;color:var(--muted);font-weight:400}
+.ed-ev{border:1px solid var(--line);border-radius:var(--r-lg);padding:12px 14px;margin:8px 0 4px;background:var(--surface)}
+.ed-ev legend{padding:0 4px}
+.sched li{padding:10px 4px}
+.sched .top{display:flex;gap:12px;align-items:center}
+.sched .top .grow{flex:1}
+.sched li.is-editing{background:var(--oak-soft)}
+.ed-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:600px){.ed-grid{grid-template-columns:1fr}}
+.mt-12{margin-top:12px}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua tới nội dung</a>
+<header class="doc-head">
+  <div class="crumb">Round 3 · UXD · bản vá v1.0.1 (04/11)</div>
+  <h1>Trả sớm trên Desk (B16) và giá đã lên lịch trên ngăn kéo căn</h1>
+  <div class="doc-meta"><span>H15 mục 15.7 (mới) · H04 mục 4.2 (bổ sung)</span><span>OpenAPI 0.3.9-draft</span><span>US-137, US-135, US-004; BR-428, BR-011, BR-006</span><span>Đặc tả: v1.0.1-early-departure-and-prices.md</span></div>
+</header>
+<div class="doc-bar" role="toolbar" aria-label="Điều khiển bản thiết kế">
+  <div class="grp">Giao diện:<div class="seg"><button data-set-theme="auto" aria-pressed="true">Theo máy</button><button data-set-theme="light" aria-pressed="false">Sáng</button><button data-set-theme="dark" aria-pressed="false">Tối</button></div></div>
+  <div class="grp">Ngôn ngữ:<div class="seg"><button data-set-lang="vi" aria-pressed="true">Tiếng Việt</button><button data-set-lang="en" aria-pressed="false">English</button></div></div>
+  <span id="doc-live" class="sr-only" aria-live="polite"></span>
+</div>
+<main id="main" class="doc-main">
+
+<!-- ================= E1 ================= -->
+<section class="doc-sec" aria-labelledby="e1">
+  <h2 id="e1"><span class="no">E.1</span>Bước 1 – Ngày rời và giờ báo · OTM-00501 · 202 · Lê Minh An (Trực tiếp, 20/10 → 24/10) · oracle BR-428-01</h2>
+  <p class="lead">Mở hộp lúc 21/10 10:00. Ngày rời mặc định là ngày nhỏ nhất được chọn. Desk tự tính thử (debounce 400 ms) và chỉ hiện dòng tóm tắt; bảng tiền ở bước 2.</p>
+  <div class="doc-row">
+    <div class="frame" style="max-width:720px"><div class="modal lg" style="box-shadow:none;border:1px solid var(--line)" role="dialog" aria-labelledby="e1-h">
+      <div class="modal-h"><h2 id="e1-h" data-i18n="early_departure.title" data-i18n-args='{"room":"202","guest":"Lê Minh An"}'>Trả sớm · Căn 202 · Lê Minh An</h2><button class="btn icon-btn" data-i18n-label="common.close" aria-label="Đóng"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+      <div class="modal-b">
+        <ol class="progress-steps" data-i18n-label="early_departure.steps_label" aria-label="Các bước trả sớm"><li aria-current="step" data-i18n="early_departure.step_input">Ngày rời và giờ báo</li><li data-i18n="early_departure.step_preview">Xem trước</li><li data-i18n="early_departure.step_result">Kết quả</li></ol>
+        <p class="li-s" data-i18n="early_departure.stay_now" data-i18n-args='{"range":"T2 20/10 → T6 24/10 · 4 đêm"}'>Lượt ở hiện tại: T2 20/10 → T6 24/10 · 4 đêm</p>
+        <div class="ed-grid mt-12">
+          <div class="field"><label for="e1-d"><span data-i18n="early_departure.new_date">Ngày rời mới</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="e1-d" value="T4 22/10/2026" aria-describedby="e1-dh"><span class="help" id="e1-dh" data-i18n="early_departure.new_date_help" data-i18n-args='{"min":"21/10","max":"23/10"}'>Từ 21/10 đến 23/10. Các đêm từ ngày này trở đi được mở bán lại.</span></div>
+          <div class="field"><label for="e1-t"><span data-i18n="early_departure.notice_at">Giờ khách báo</span> <span class="req" aria-hidden="true">*</span></label><div class="row tight"><input class="input" id="e1-t" value="21/10/2026" style="max-width:140px" aria-describedby="e1-th e1-nd"><input class="input num" value="10:00" inputmode="numeric" style="max-width:90px" aria-label="Giờ"></div><span class="help" id="e1-th" data-i18n="early_departure.notice_at_help">Mặc định là lúc mở hộp. Sửa nếu khách đã báo sớm hơn (tin nhắn, cuộc gọi).</span><span class="help" id="e1-nd" data-i18n="early_departure.notice_days" data-i18n-args='{"n":"1","date":"21/10"}'>Báo trước 1 ngày (ngày nghiệp vụ lúc khách báo: 21/10).</span></div>
+        </div>
+        <div class="ed-status" role="status" aria-live="polite"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span data-i18n="move.removed_nights" data-i18n-args='{"n":"2","dates":"22/10, 23/10"}'>Bỏ 2 đêm: 22/10, 23/10</span></div>
+      </div>
+      <div class="modal-f"><button class="btn" data-i18n="common.cancel">Hủy</button><button class="btn pri" data-i18n="early_departure.to_preview">Xem trước số tiền</button></div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả E.1">
+      <h3>API</h3><ul><li><span class="op">earlyDeparture</span> <code>dryRun: true</code> – không <code>Idempotency-Key</code>/<code>If-Match</code>.</li><li>Gọi lại khi đổi ngày, giờ báo, số OTA, bằng chứng (debounce 400 ms).</li></ul>
+      <h3>Hiển thị từ phản hồi</h3><ul><li><code>noticeDays</code>, <code>noticeBusinessDate</code> → dòng "Báo trước…".</li><li><code>droppedNights[].date</code> → "Bỏ 2 đêm…" (<code>move.removed_nights</code>).</li><li>Cờ <code>otaRetainedRequired</code>/<code>evidenceRequired</code> → hiện ô (E.1b).</li></ul>
+      <h3>Khoảng ngày</h3><ul><li>min = max(hôm nay nghiệp vụ, ngày đến + 1); max = ngày đi (gồm đơn con) − 1. Ngoài khoảng → C30 khóa; server <span class="pc">DATE_INVALID</span>.</li></ul>
+    </aside>
+  </div>
+  <div class="variants">
+    <div class="variant"><span class="label-h">Nhập lùi giờ báo – cần bằng chứng (BR-428-03)</span>
+      <div class="field"><label for="v-t"><span data-i18n="early_departure.notice_at">Giờ khách báo</span></label><div class="row tight"><input class="input" id="v-t" value="22/10/2026" style="max-width:140px"><input class="input num" value="01:00" style="max-width:90px" aria-label="Giờ"></div><span class="help" data-i18n="early_departure.notice_after_midnight" data-i18n-args='{"date":"21/10"}'>Khách báo sau nửa đêm nên tính theo ngày nghiệp vụ 21/10.</span></div>
+      <fieldset class="ed-ev"><legend class="label-h" data-i18n="early_departure.evidence_title">Bằng chứng giờ báo</legend>
+        <p class="li-s" data-i18n="early_departure.evidence_why">Giờ báo sớm hơn lúc này nên cần bằng chứng (BR-011).</p>
+        <div class="field invalid"><label for="v-ev"><span data-i18n="early_departure.evidence_note">Khách báo qua đâu, lúc nào</span> <span class="req" aria-hidden="true">*</span></label><textarea class="input" id="v-ev" rows="2" aria-invalid="true" aria-describedby="v-ev-e" data-i18n-ph="early_departure.evidence_note_ph" placeholder="Ví dụ: Zalo 21/10 09:40, khách xin rời 22/10"></textarea><span class="err" id="v-ev-e"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="early_departure.err.evidence_required">Ghi khách báo qua đâu, lúc nào (ít nhất 3 ký tự).</span></span></div>
+        <div class="field"><span class="lbl" data-i18n="early_departure.evidence_photo">Ảnh tin nhắn của khách (không bắt buộc)</span><button class="btn sm" type="button"><svg class="ico" aria-hidden="true"><use href="#i-camera"/></svg><span data-i18n="early_departure.evidence_add">Chọn ảnh</span></button></div>
+      </fieldset>
+      <div class="ed-status" role="status"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span data-i18n="early_departure.evidence_needed">Thêm bằng chứng giờ báo để xem trước.</span></div>
+      <p class="caption mt-4">Sửa lùi trong ngưỡng (server trả <code>evidenceRequired=false</code>): ô không có dấu *, chữ <span data-i18n="early_departure.evidence_optional">Chênh lệch nhỏ – bằng chứng không bắt buộc.</span></p>
+    </div>
+    <div class="variant"><span class="label-h">Đơn OTA – nhập số OTA giữ lại (BR-428-06, Agoda 302)</span>
+      <div class="field"><label for="v-ota"><span data-i18n="early_departure.ota_retained">Số OTA giữ lại</span> <span class="req" aria-hidden="true">*</span></label><div class="input-affix" style="max-width:220px"><input class="input num" id="v-ota" inputmode="numeric" value="" aria-describedby="v-ota-h"><span class="affix">đ</span></div><span class="help" id="v-ota-h" data-i18n="early_departure.ota_retained_help" data-i18n-args='{"channel":"Agoda","max":"1.800.000 đ"}'>Theo extranet Agoda. Tối đa 1.800.000 đ – tiền OTA của các đêm bỏ. Ghi 0 nếu OTA hoàn đủ cho khách.</span></div>
+      <div class="ed-status" role="status"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span data-i18n="early_departure.ota_needed" data-i18n-args='{"channel":"Agoda"}'>Đơn Agoda: nhập số OTA giữ lại để xem trước.</span></div>
+      <div class="row end"><button class="btn pri" aria-disabled="true" aria-describedby="v-ota-why" data-i18n="early_departure.to_preview">Xem trước số tiền</button></div>
+      <p class="caption" id="v-ota-why" data-i18n="early_departure.to_preview_needs">Điền các ô còn thiếu ở trên để xem trước.</p>
+      <div class="field invalid mt-12"><label for="v-ota2" data-i18n="early_departure.ota_retained">Số OTA giữ lại</label><div class="input-affix" style="max-width:220px"><input class="input num" id="v-ota2" value="2.000.000" aria-invalid="true" aria-describedby="v-ota2-e"><span class="affix">đ</span></div><span class="err" id="v-ota2-e"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="early_departure.err.ota_over_max" data-i18n-args='{"max":"1.800.000 đ"}'>Không quá 1.800.000 đ – tiền OTA của các đêm bỏ.</span></span></div>
+    </div>
+    <div class="variant"><span class="label-h">Đang tính thử · lỗi mạng · máy chủ chưa hỗ trợ</span>
+      <div class="ed-status" role="status"><span class="sk" style="width:16px;height:16px;border-radius:50%"></span><span data-i18n="early_departure.preview_loading">Đang tính thử…</span></div>
+      <p class="caption" data-i18n="early_departure.to_preview_wait">Chờ tính thử xong để xem trước.</p>
+      <div class="alert bad mt-12" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt"><span data-i18n="early_departure.preview_failed">Chưa tính thử được nên chưa trả sớm được. Bấm Thử lại.</span><div class="act"><button class="btn sm" data-i18n="common.retry">Thử lại</button></div></div></div>
+      <div class="alert warn mt-12" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="early_departure.preview_unavailable">Máy chủ chưa hỗ trợ xem trước trả sớm nên chưa làm được trên Desk. Báo quản lý.</div></div>
+      <p class="caption mt-4">422 <code>dryRun NOT_ALLOWED</code> (server trước PR BE-A) hoặc phản hồi thiếu <code>droppedNights</code>. Không có đường "ghi không xem trước".</p>
+    </div>
+    <div class="variant"><span class="label-h">Lần ghi trả 412 – về bước 1, giữ ô</span>
+      <div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="early_departure.err.version_conflict">Đơn vừa được người khác thay đổi. Đã tải lại đơn – thông tin bạn nhập vẫn còn. Kiểm tra rồi xem trước lại.</div></div>
+      <div class="field invalid mt-12"><label for="v-d" data-i18n="early_departure.new_date">Ngày rời mới</label><input class="input" id="v-d" value="T6 24/10/2026" aria-invalid="true" aria-describedby="v-d-e"><span class="err" id="v-d-e"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="early_departure.err.date_range" data-i18n-args='{"min":"21/10","max":"23/10"}'>Chọn ngày từ 21/10 đến 23/10.</span></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= E2 ================= -->
+<section class="doc-sec" aria-labelledby="e2">
+  <h2 id="e2"><span class="no">E.2</span>Bước 2 – Xem trước (BR-428-01, đơn Trực tiếp)</h2>
+  <p class="lead">Mọi số lấy từ lần tính thử cuối. Tick "Đã báo khách" mới mở nút xác nhận (nút danger). Lần ghi gửi cùng thân + <code>expectedRefundVnd</code> 700.000 + <code>expectedFeeVnd</code> 700.000.</p>
+  <div class="doc-row">
+    <div class="frame" style="max-width:720px"><div class="modal lg" style="box-shadow:none;border:1px solid var(--line)" role="dialog" aria-labelledby="e2-h">
+      <div class="modal-h"><h2 id="e2-h" data-i18n="early_departure.title" data-i18n-args='{"room":"202","guest":"Lê Minh An"}'>Trả sớm · Căn 202 · Lê Minh An</h2><button class="btn icon-btn" data-i18n-label="common.close" aria-label="Đóng"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+      <div class="modal-b">
+        <ol class="progress-steps" aria-label="Các bước trả sớm"><li class="done" data-i18n="early_departure.step_input">Ngày rời và giờ báo</li><li aria-current="step" data-i18n="early_departure.step_preview">Xem trước</li><li data-i18n="early_departure.step_result">Kết quả</li></ol>
+        <h3 tabindex="-1" data-i18n="early_departure.preview_question" data-i18n-args='{"guest":"Lê Minh An","date":"22/10"}'>Trả sớm cho Lê Minh An, rời 22/10?</h3>
+        <p class="li-s" data-i18n="early_departure.preview_note">Số do máy chủ tính. Chưa ghi gì.</p>
+        <div class="table-wrap mt-12"><table class="sum">
+          <caption class="label-h" style="text-align:left;padding-bottom:6px" data-i18n="early_departure.nights_title">Đêm mở bán lại</caption>
+          <thead><tr><th scope="col" data-i18n="move.col_night">Đêm</th><th scope="col" data-i18n="early_departure.col_booking">Đơn</th><th scope="col" data-i18n="rooms.col_room">Căn</th><th scope="col" data-i18n="early_departure.col_basis">Cách tính</th><th scope="col" class="r" data-i18n="early_departure.col_amount">Tiền phòng (đ)</th></tr></thead>
+          <tbody>
+            <tr><td>T4 22/10</td><td class="mono">OTM-00501</td><td>202</td><td><span class="chip ink"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><span data-i18n="early_departure.basis_policy">Chính sách OTTIMO</span></span></td><td class="r num">700.000</td></tr>
+            <tr><td>T5 23/10</td><td class="mono">OTM-00501</td><td>202</td><td><span class="chip ink"><svg class="ico" aria-hidden="true"><use href="#i-bill"/></svg><span data-i18n="early_departure.basis_policy">Chính sách OTTIMO</span></span></td><td class="r num">700.000</td></tr>
+          </tbody></table></div>
+        <p class="caption mt-4" data-i18n="early_departure.nights_note">Đêm chính sách OTTIMO: tiền ròng sau giảm giá, miễn phí đã duyệt. Đêm OTA: tiền OTA của đêm. Không gồm phụ thu người.</p>
+        <h4 class="label-h mt-12" data-i18n="early_departure.calc_title">Cách tính</h4>
+        <table class="sum">
+          <tr><td data-i18n="early_departure.row_base">Cơ sở: tiền phòng ròng các đêm bỏ (không gồm đêm OTA)</td><td class="r">1.400.000</td></tr>
+          <tr><td data-i18n="early_departure.row_notice">Báo trước</td><td class="r" data-i18n="early_departure.notice_value" data-i18n-args='{"n":"1"}'>1 ngày</td></tr>
+          <tr><td data-i18n="early_departure.row_refundable">Phần hoàn theo chính sách trả sớm</td><td class="r">700.000</td></tr>
+          <tr class="total"><td data-i18n="early_departure.row_refund">Sẽ xin hoàn cho khách</td><td class="r">700.000 đ</td></tr>
+          <tr class="ed-sub"><td colspan="2" data-i18n="early_departure.row_refund_help">Một yêu cầu hoàn, cần quản lý duyệt. Trả phòng sau đó không tạo thêm yêu cầu.</td></tr>
+          <tr class="total"><td data-i18n="early_departure.row_fee">Phí trả phòng sớm (ghi vào folio)</td><td class="r">700.000 đ</td></tr>
+        </table>
+        <h4 class="label-h mt-12" data-i18n="early_departure.effects_title">Sau khi xác nhận</h4>
+        <ul class="consequence">
+          <li data-i18n="early_departure.effect_nights" data-i18n-args='{"room":"202","range":"T4 22/10 → T6 24/10 · 2 đêm"}'>Căn 202 mở bán lại: T4 22/10 → T6 24/10 · 2 đêm.</li>
+          <li data-i18n="early_departure.effect_departure" data-i18n-args='{"date":"22/10"}'>Ngày đi đổi thành 22/10.</li>
+          <li data-i18n="early_departure.effect_fee" data-i18n-args='{"amount":"700.000 đ"}'>Ghi dòng "Phí trả phòng sớm" 700.000 đ vào folio.</li>
+          <li data-i18n="early_departure.effect_door">Nhớ rút ngắn hiệu lực mã cửa trên app khóa tới ngày đi mới.</li>
+        </ul>
+        <label class="check"><input type="checkbox" id="e2-told"><span data-i18n="early_departure.told_guest">Đã báo khách số hoàn và phí trả phòng sớm</span></label>
+        <p class="caption" id="e2-why" data-i18n="early_departure.confirm_needs_told">Tick "Đã báo khách…" để bật nút Xác nhận trả sớm.</p>
+      </div>
+      <div class="modal-f"><button class="btn left" data-i18n="common.edit_back">← Sửa lại</button><button class="btn danger" id="e2-go" aria-disabled="true" aria-describedby="e2-why" data-i18n="early_departure.confirm">Xác nhận trả sớm</button></div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả E.2">
+      <h3>Trường → dòng</h3><ul><li><code>droppedNetVnd</code> → Cơ sở</li><li><code>noticeDays</code> → Báo trước</li><li><code>refundableVnd</code> → Phần hoàn (không ghi %)</li><li><code>refundVnd</code> → Sẽ xin hoàn (tổng)</li><li><code>earlyDepartureFeeVnd</code> → Phí (tổng)</li><li>Dòng = 0 ẩn, trừ Báo trước, Sẽ xin hoàn, Phí.</li></ul>
+      <h3>Lần ghi</h3><ul><li><code>dryRun:false</code>, <code>expectedRefundVnd</code>, <code>expectedFeeVnd</code>, <code>Idempotency-Key</code> mới, <code>If-Match</code> = <code>reservation.version</code> của lần tính thử.</li></ul>
+      <h3>Problem.code</h3><ul><li><span class="pc">AMOUNT_CHANGED</span> → E.2c · <span class="pc">VERSION_CONFLICT</span> → E.1 · <span class="pc">VALIDATION_FAILED</span> → ô ở bước 1 · <span class="pc">INVALID_TRANSITION</span></li></ul>
+    </aside>
+  </div>
+</section>
+
+<!-- ================= E2b ================= -->
+<section class="doc-sec" aria-labelledby="e2b">
+  <h2 id="e2b"><span class="no">E.2b</span>Bước 2 – đơn OTA (BR-428-06: Agoda 302, phụ thu người đã thu 600.000)</h2>
+  <p class="lead">Tiền phòng OTA của đêm bỏ do OTA hoàn. OTTIMO chỉ hoàn phụ thu người đã thu của các đêm bỏ. Phí = số OTA giữ lại lễ tân nhập. Số tiền OTA mỗi đêm là giả định để vẽ.</p>
+  <div class="doc-row">
+    <div class="frame" style="max-width:720px"><div class="modal lg" style="box-shadow:none;border:1px solid var(--line)">
+      <div class="modal-h"><h2 data-i18n="early_departure.title" data-i18n-args='{"room":"302","guest":"Kim Ha-eun"}'>Trả sớm · Căn 302 · Kim Ha-eun</h2></div>
+      <div class="modal-b">
+        <h3 data-i18n="early_departure.preview_question" data-i18n-args='{"guest":"Kim Ha-eun","date":"22/10"}'>Trả sớm cho Kim Ha-eun, rời 22/10?</h3>
+        <div class="table-wrap mt-12"><table class="sum">
+          <caption class="sr-only" data-i18n="early_departure.nights_title">Đêm mở bán lại</caption>
+          <thead><tr><th scope="col" data-i18n="move.col_night">Đêm</th><th scope="col" data-i18n="early_departure.col_booking">Đơn</th><th scope="col" data-i18n="rooms.col_room">Căn</th><th scope="col" data-i18n="early_departure.col_basis">Cách tính</th><th scope="col" class="r" data-i18n="early_departure.col_amount">Tiền phòng (đ)</th></tr></thead>
+          <tbody>
+            <tr><td>T4 22/10</td><td class="mono">OTM-00488</td><td>302</td><td><span class="chip neutral"><svg class="ico" aria-hidden="true"><use href="#i-globe"/></svg><span data-i18n="early_departure.basis_ota">Theo OTA</span></span></td><td class="r num">900.000</td></tr>
+            <tr><td>T5 23/10</td><td class="mono">OTM-00488</td><td>302</td><td><span class="chip neutral"><svg class="ico" aria-hidden="true"><use href="#i-globe"/></svg><span data-i18n="early_departure.basis_ota">Theo OTA</span></span></td><td class="r num">900.000</td></tr>
+          </tbody></table></div>
+        <table class="sum mt-12">
+          <tr><td data-i18n="early_departure.row_notice">Báo trước</td><td class="r" data-i18n="early_departure.notice_value" data-i18n-args='{"n":"1"}'>1 ngày</td></tr>
+          <tr><td data-i18n="early_departure.row_extra_refund">Phụ thu người đã thu của các đêm bỏ – hoàn đủ</td><td class="r">300.000</td></tr>
+          <tr><td data-i18n="early_departure.row_ota_retained">Số OTA giữ lại (đã nhập)</td><td class="r">900.000</td></tr>
+          <tr class="ed-sub"><td colspan="2" data-i18n="early_departure.ota_room_note">Tiền phòng OTA của các đêm bỏ do OTA hoàn cho khách, không qua OTTIMO.</td></tr>
+          <tr class="total"><td data-i18n="early_departure.row_refund">Sẽ xin hoàn cho khách</td><td class="r">300.000 đ</td></tr>
+          <tr class="ed-sub"><td colspan="2" data-i18n="early_departure.row_refund_help">Một yêu cầu hoàn, cần quản lý duyệt. Trả phòng sau đó không tạo thêm yêu cầu.</td></tr>
+          <tr class="total"><td data-i18n="early_departure.row_fee">Phí trả phòng sớm (ghi vào folio)</td><td class="r">900.000 đ</td></tr>
+        </table>
+        <ul class="consequence">
+          <li data-i18n="early_departure.effect_nights" data-i18n-args='{"room":"302","range":"T4 22/10 → T6 24/10 · 2 đêm"}'>Căn 302 mở bán lại: T4 22/10 → T6 24/10 · 2 đêm.</li>
+          <li data-i18n="early_departure.effect_departure" data-i18n-args='{"date":"22/10"}'>Ngày đi đổi thành 22/10.</li>
+          <li data-i18n="early_departure.effect_registration">Khách nước ngoài: cần cập nhật ngày đi trên cổng khai báo trong ngày.</li>
+          <li data-i18n="early_departure.effect_door">Nhớ rút ngắn hiệu lực mã cửa trên app khóa tới ngày đi mới.</li>
+        </ul>
+      </div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả E.2b"><h3>Khác đơn Trực tiếp</h3><ul><li>Không có dòng Cơ sở / Phần hoàn (không có đêm không OTA).</li><li><code>extraPersonRefundVnd</code> 300.000 → dòng hoàn đủ; <code>refundVnd</code> 300.000.</li><li>Phí = <code>otaRetainedVnd</code> gửi lên (oracle: phí = (cơ sở − phần hoàn) + số OTA giữ lại).</li><li><code>registrationNeedsUpdate</code> → dòng khai báo.</li></ul></aside>
+  </div>
+</section>
+
+<!-- ================= E2c ================= -->
+<section class="doc-sec" aria-labelledby="e2c">
+  <h2 id="e2c"><span class="no">E.2c</span>Biến thể bước 2: báo cùng ngày · trần số dư · số vừa đổi (409) · đơn con bị hủy</h2>
+  <div class="variants">
+    <div class="variant"><span class="label-h">BR-428-02 – báo 0 ngày, không hoàn</span>
+      <table class="sum">
+        <tr><td data-i18n="early_departure.row_base">Cơ sở: tiền phòng ròng các đêm bỏ (không gồm đêm OTA)</td><td class="r">1.400.000</td></tr>
+        <tr><td data-i18n="early_departure.row_notice">Báo trước</td><td class="r" data-i18n="early_departure.notice_value" data-i18n-args='{"n":"0"}'>0 ngày</td></tr>
+        <tr><td data-i18n="early_departure.row_refundable">Phần hoàn theo chính sách trả sớm</td><td class="r">0</td></tr>
+        <tr class="ed-sub"><td colspan="2" data-i18n="early_departure.no_refund_notice">Không hoàn: số ngày báo trước chưa đủ theo chính sách trả sớm (BR-428).</td></tr>
+        <tr class="total"><td data-i18n="early_departure.row_refund">Sẽ xin hoàn cho khách</td><td class="r">0 đ</td></tr>
+        <tr class="ed-sub"><td colspan="2" data-i18n="early_departure.no_refund">Không có khoản hoàn.</td></tr>
+        <tr class="total"><td data-i18n="early_departure.row_fee">Phí trả phòng sớm (ghi vào folio)</td><td class="r">1.400.000 đ</td></tr>
+      </table>
+    </div>
+    <div class="variant"><span class="label-h">Trần số dư (refundCapped) – khách mới trả cọc</span>
+      <table class="sum">
+        <tr><td data-i18n="early_departure.row_refundable">Phần hoàn theo chính sách trả sớm</td><td class="r">767.000</td></tr>
+        <tr class="total"><td data-i18n="early_departure.row_refund">Sẽ xin hoàn cho khách</td><td class="r">200.000 đ</td></tr>
+        <tr class="total"><td data-i18n="early_departure.row_fee">Phí trả phòng sớm (ghi vào folio)</td><td class="r">766.000 đ</td></tr>
+      </table>
+      <div class="alert warn tight" role="note"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><div class="txt" data-i18n="early_departure.refund_capped" data-i18n-args='{"amount":"200.000 đ"}'>Khách chưa trả đủ phần này nên chỉ hoàn 200.000 đ (số đã trả thừa). Phần còn lại trừ vào số khách còn phải trả.</div></div>
+      <p class="caption mt-4">refundVnd = 0 mà refundCapped: <span data-i18n="early_departure.refund_capped_zero">Khách chưa trả thừa nên không có khoản hoàn. Phần hoàn trừ vào số khách còn phải trả.</span></p>
+    </div>
+    <div class="variant"><span class="label-h">409 AMOUNT_CHANGED – đã tính thử lại</span>
+      <div class="alert warn" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="early_departure.amount_changed" data-i18n-args='{"refund":"650.000 đ","fee":"700.000 đ"}'>Số tiền vừa thay đổi: hoàn 650.000 đ, phí 700.000 đ. Chưa ghi gì. Xem số mới, báo lại khách rồi tick lại.</div></div>
+      <table class="sum mt-4">
+        <tr class="total"><td><span data-i18n="early_departure.row_refund">Sẽ xin hoàn cho khách</span> <span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><span data-i18n="early_departure.changed_chip">Vừa đổi</span></span></td><td class="r">650.000 đ<span class="ed-was" data-i18n="early_departure.was" data-i18n-args='{"amount":"700.000 đ"}'>Trước: 700.000 đ</span></td></tr>
+        <tr class="total"><td data-i18n="early_departure.row_fee">Phí trả phòng sớm (ghi vào folio)</td><td class="r">700.000 đ</td></tr>
+      </table>
+      <label class="check mt-4"><input type="checkbox"><span data-i18n="early_departure.told_guest">Đã báo khách số hoàn và phí trả phòng sớm</span></label>
+      <p class="caption">Ví dụ: giữa hai lần có người ghi thêm minibar 50.000, số dư thừa giảm → trần.</p>
+    </div>
+    <div class="variant"><span class="label-h">Đơn con gia hạn bị hủy hẳn (BR-422)</span>
+      <table class="sum"><thead><tr><th scope="col" data-i18n="move.col_night">Đêm</th><th scope="col" data-i18n="early_departure.col_booking">Đơn</th><th scope="col" class="r" data-i18n="early_departure.col_amount">Tiền phòng (đ)</th></tr></thead>
+        <tbody><tr><td>T5 23/10</td><td class="mono">OTM-00501</td><td class="r num">700.000</td></tr><tr><td>T6 24/10</td><td class="mono">OTM-00502</td><td class="r num">792.000</td></tr><tr><td>T7 25/10</td><td class="mono">OTM-00502</td><td class="r num">792.000</td></tr></tbody></table>
+      <ul class="consequence"><li data-i18n="early_departure.effect_child_cancelled" data-i18n-args='{"code":"OTM-00502","n":"2"}'>Đơn con OTM-00502 (2 đêm) bị hủy vì mọi đêm của đơn đều bỏ.</li></ul>
+      <p class="caption">Đơn con chỉ bớt đêm: <span data-i18n="early_departure.effect_child_shortened" data-i18n-args='{"code":"OTM-00502","n":"1"}'>Đơn con OTM-00502 bớt 1 đêm.</span></p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= E3 ================= -->
+<section class="doc-sec" aria-labelledby="e3">
+  <h2 id="e3"><span class="no">E.3</span>Bước 3 – Kết quả (BR-428-02: rời hôm nay 22/10, khách nước ngoài)</h2>
+  <div class="doc-row">
+    <div class="frame" style="max-width:720px"><div class="modal lg" style="box-shadow:none;border:1px solid var(--line)">
+      <div class="modal-h"><h2 data-i18n="early_departure.title" data-i18n-args='{"room":"202","guest":"Lê Minh An"}'>Trả sớm · Căn 202 · Lê Minh An</h2></div>
+      <div class="modal-b">
+        <ol class="progress-steps" aria-label="Các bước trả sớm"><li class="done" data-i18n="early_departure.step_input">Ngày rời và giờ báo</li><li class="done" data-i18n="early_departure.step_preview">Xem trước</li><li aria-current="step" data-i18n="early_departure.step_result">Kết quả</li></ol>
+        <div class="alert ok" role="status"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div class="txt"><b tabindex="-1" data-i18n="early_departure.done_title" data-i18n-args='{"date":"22/10"}'>Đã ghi trả sớm – khách rời 22/10</b>
+          <ul class="list-plain">
+            <li data-i18n="early_departure.done_nights" data-i18n-args='{"n":"2","dates":"22/10, 23/10"}'>Đã mở bán lại 2 đêm: 22/10, 23/10.</li>
+            <li data-i18n="early_departure.done_fee" data-i18n-args='{"amount":"1.400.000 đ"}'>Đã ghi phí trả phòng sớm 1.400.000 đ vào folio.</li>
+            <li data-i18n="early_departure.no_refund">Không có khoản hoàn.</li>
+          </ul></div></div>
+        <div class="alert warn mt-12" role="status"><svg class="ico" aria-hidden="true"><use href="#i-id"/></svg><div class="txt"><span data-i18n="early_departure.reg_reminder" data-i18n-args='{"date":"22/10"}'>Khách nước ngoài: cập nhật ngày đi 22/10 trên cổng khai báo trong hôm nay.</span><div class="act"><button class="btn sm" data-i18n="early_departure.reg_open">Mở danh sách cần cập nhật</button></div></div></div>
+        <details class="mt-12"><summary class="btn ghost sm" data-i18n="early_departure.show_calc">Xem cách tính</summary><p class="caption mt-4">Bảng như bước 2, dữ liệu từ phản hồi lần ghi.</p></details>
+        <p class="mt-12" data-i18n="early_departure.checkout_now_hint">Ngày rời là hôm nay. Làm tiếp trả phòng: minibar, phát sinh, phiếu thanh toán.</p>
+      </div>
+      <div class="modal-f"><button class="btn" data-i18n="common.close">Đóng</button><button class="btn pri" data-i18n="early_departure.checkout_now">Trả phòng ngay</button></div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả E.3"><h3>Điều kiện</h3><ul><li>"Trả phòng ngay": <code>newDepartureDate</code> = ngày nghiệp vụ hôm nay và <code>allowedActions</code> có <code>check_out</code> → mở <code>CheckOutPage</code>.</li><li>Nhắc khai báo: <code>registrationNeedsUpdate</code>; Alert warn bền (HR-09), nút tới tab <code>reg2.tab_update</code>.</li><li>Focus vào tiêu đề kết quả.</li></ul></aside>
+  </div>
+  <div class="variants">
+    <div class="variant"><span class="label-h">BR-428-01 – rời 22/10 (hôm nay 21/10), có yêu cầu hoàn</span>
+      <div class="alert ok" role="status"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><div class="txt"><b data-i18n="early_departure.done_title" data-i18n-args='{"date":"22/10"}'>Đã ghi trả sớm – khách rời 22/10</b><ul class="list-plain"><li data-i18n="early_departure.done_nights" data-i18n-args='{"n":"2","dates":"22/10, 23/10"}'>Đã mở bán lại 2 đêm: 22/10, 23/10.</li><li data-i18n="early_departure.done_fee" data-i18n-args='{"amount":"700.000 đ"}'>Đã ghi phí trả phòng sớm 700.000 đ vào folio.</li><li><span data-i18n="early_departure.done_refund" data-i18n-args='{"amount":"700.000 đ"}'>Đã tạo yêu cầu hoàn 700.000 đ.</span> <span class="chip warn"><svg class="ico" aria-hidden="true"><use href="#i-hourglass"/></svg><span data-i18n="approval.status.pending">Chờ duyệt</span></span> <a href="#" data-i18n="early_departure.view_refund">Xem yêu cầu hoàn</a></li></ul></div></div>
+      <p class="mt-8" data-i18n="early_departure.later_hint" data-i18n-args='{"date":"22/10"}'>Khách trả phòng ngày 22/10 như thường lệ – nút Trả phòng hiện vào ngày đó.</p>
+      <div class="row end"><button class="btn pri" data-i18n="common.close">Đóng</button></div>
+    </div>
+    <div class="variant"><span class="label-h">Lần ghi mất mạng – thử lại không ghi trùng</span>
+      <div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt"><span data-i18n="early_departure.commit_failed">Chưa nhận được kết quả từ máy chủ. Bấm Thử lại – thao tác không bị ghi hai lần.</span><div class="act"><button class="btn sm" data-i18n="common.retry">Thử lại</button></div></div></div>
+      <p class="caption mt-4">Thử lại dùng lại <code>Idempotency-Key</code> cũ; đã ghi thì server trả lại kết quả cũ → bước 3.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= R1 ================= -->
+<section class="doc-sec" aria-labelledby="r1">
+  <h2 id="r1"><span class="no">R.1</span>Ngăn kéo căn 302 – Giá đã lên lịch (OWN/MGR) · chọn Hiệu lực từ 01/11/2026</h2>
+  <p class="lead">Hai ô điền sẵn theo dòng áp cho ngày D (01/11 = dòng đã lên lịch). Dòng trùng D tô nền <code>--oak-soft</code>. Mục ẩn hẳn khi <code>scheduledListPrices</code> vắng.</p>
+  <div class="doc-row">
+    <div class="frame" style="max-width:480px"><div class="modal" style="box-shadow:none;border:1px solid var(--line)">
+      <div class="modal-h"><h2 data-i18n="rooms.edit_title" data-i18n-args='{"room":"302","name":"The Ivory"}'>Sửa căn 302 · The Ivory</h2></div>
+      <div class="modal-b">
+        <fieldset class="card inset">
+          <legend class="label-h" data-i18n="rooms.price">Giá niêm yết</legend>
+          <div class="g-2 top"><div class="field"><label for="r-m" data-i18n="rooms.col_month">Giá tháng</label><div class="input-affix"><input class="input num" id="r-m" inputmode="numeric" value="11.500.000"><span class="affix">đ</span></div></div>
+            <div class="field"><label for="r-n" data-i18n="rooms.col_night">Giá đêm niêm yết</label><div class="input-affix"><input class="input num" id="r-n" inputmode="numeric" value="950.000"><span class="affix">đ</span></div></div></div>
+          <h3 class="label-h mt-12" id="r-sched-h" data-i18n="rooms.scheduled_title">Giá đã lên lịch</h3>
+          <ul class="list sched" aria-labelledby="r-sched-h">
+            <li><span class="chip ink"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="rooms.scheduled_current" data-i18n-args='{"date":"15/10/2026"}'>Đang dùng từ 15/10/2026</span></span><div class="li-s" data-i18n="rooms.scheduled_prices" data-i18n-args='{"night":"917.000 đ","month":"11.000.000 đ"}'>Giá đêm 917.000 đ · Giá tháng 11.000.000 đ</div></li>
+            <li class="is-editing"><div class="top"><b class="grow" data-i18n="rooms.scheduled_from" data-i18n-args='{"date":"T7 01/11/2026"}'>Từ T7 01/11/2026</b><button class="btn sm" data-open="#dlg-cancel-sched" data-i18n-label="rooms.cancel_scheduled_label" data-i18n-args='{"date":"01/11/2026"}' aria-label="Hủy lịch giá từ 01/11/2026"><span data-i18n="rooms.cancel_scheduled">Hủy lịch giá này</span></button></div>
+              <div data-i18n="rooms.scheduled_prices" data-i18n-args='{"night":"950.000 đ","month":"11.500.000 đ"}'>Giá đêm 950.000 đ · Giá tháng 11.500.000 đ</div>
+              <div class="li-s" data-i18n="rooms.scheduled_reason" data-i18n-args='{"reason":"Điều chỉnh mùa cao điểm"}'>Lý do: Điều chỉnh mùa cao điểm</div>
+              <div class="caption" data-i18n="rooms.scheduled_by" data-i18n-args='{"by":"Nguyễn Thu Hà","at":"26/10 14:20"}'>Nguyễn Thu Hà lên lịch lúc 26/10 14:20</div></li>
+            <li><div class="top"><b class="grow" data-i18n="rooms.scheduled_from" data-i18n-args='{"date":"T3 01/12/2026"}'>Từ T3 01/12/2026</b><button class="btn sm" data-i18n-label="rooms.cancel_scheduled_label" data-i18n-args='{"date":"01/12/2026"}' aria-label="Hủy lịch giá từ 01/12/2026"><span data-i18n="rooms.cancel_scheduled">Hủy lịch giá này</span></button></div>
+              <div data-i18n="rooms.scheduled_prices" data-i18n-args='{"night":"1.000.000 đ","month":"12.000.000 đ"}'>Giá đêm 1.000.000 đ · Giá tháng 12.000.000 đ</div>
+              <div class="li-s" data-i18n="rooms.scheduled_reason" data-i18n-args='{"reason":"Mùa lễ hội hoa"}'>Lý do: Mùa lễ hội hoa</div>
+              <div class="caption" data-i18n="rooms.scheduled_by_system" data-i18n-args='{"at":"20/10 09:00"}'>Có từ dữ liệu ban đầu, 20/10 09:00</div></li>
+          </ul>
+          <div class="g-2 mt-12"><div class="field"><label for="r-eff"><span data-i18n="config.effective_from">Hiệu lực từ</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="r-eff" value="01/11/2026" aria-describedby="r-eff-h"></div>
+            <div class="field"><label for="r-why"><span data-i18n="rooms.reason">Lý do đổi giá</span> <span class="req" aria-hidden="true">*</span></label><input class="input" id="r-why" value=""></div></div>
+          <p class="help" id="r-eff-h" data-i18n="rooms.price_replace_scheduled" data-i18n-args='{"date":"01/11/2026","night":"950.000 đ","month":"11.500.000 đ"}'>Đã có giá lên lịch từ 01/11/2026 (giá đêm 950.000 đ · giá tháng 11.500.000 đ). Lưu sẽ thay cả hai giá của lịch này.</p>
+          <p class="caption" data-i18n="rooms.snapshot_note">Đơn, báo giá, hợp đồng tạo trước ngày hiệu lực giữ giá cũ.</p>
+        </fieldset>
+      </div>
+      <div class="modal-f"><button class="btn" data-i18n="common.close">Đóng</button><button class="btn pri" aria-disabled="true" aria-describedby="r-why-save" data-i18n="common.save">Lưu</button><span class="caption" id="r-why-save" data-i18n="rooms.price_unchanged" data-i18n-args='{"date":"01/11/2026"}' style="flex-basis:100%;text-align:right">Giá chưa đổi so với giá áp dụng cho 01/11/2026.</span></div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả R.1">
+      <h3>API</h3><ul><li><code>Room.scheduledListPrices[]</code> (OWN/MGR, <code>x-visible-to</code>) – có ở <span class="op">listRooms</span>, <span class="op">updateRoom</span>, <span class="op">cancelScheduledRoomListPrice</span>.</li></ul>
+      <h3>Điền sẵn theo D</h3><ul><li>Dòng áp cho D = <code>effectiveFrom</code> lớn nhất ≤ D trong {current} ∪ scheduled → điền cả hai ô; "đã đổi" so với dòng đó.</li><li>D trùng dòng → <code>rooms.price_replace_scheduled</code>; không trùng → <code>rooms.price_for_date</code>.</li><li>Thay <code>rooms.price_same_today</code>/<code>_future</code> (bỏ ở v1.0.1).</li></ul>
+      <h3>Nút Hủy</h3><ul><li><code>Button sm</code> secondary, <code>aria-label</code> kèm ngày. Bấm thử ở dòng 01/11.</li></ul>
+    </aside>
+  </div>
+  <div class="variants">
+    <div class="variant"><span class="label-h">D không trùng dòng lên lịch (15/11)</span><p class="help" data-i18n="rooms.price_for_date" data-i18n-args='{"date":"15/11/2026"}'>Hai ô đang là giá áp dụng cho 15/11/2026. Đổi một ô để lưu giá mới từ ngày này.</p></div>
+    <div class="variant"><span class="label-h">Rỗng · giá duy nhất</span><p class="li-s" data-i18n="rooms.scheduled_empty">Chưa có giá nào lên lịch.</p><hr class="hr tight"><div class="top"><b data-i18n="rooms.scheduled_from" data-i18n-args='{"date":"T2 02/11/2026"}'>Từ T2 02/11/2026</b></div><p class="caption" data-i18n="rooms.only_price_note" data-i18n-args='{"date":"02/11/2026"}'>Giá duy nhất của căn – sửa bằng ô giá ở trên, cùng ngày 02/11/2026.</p></div>
+    <div class="variant"><span class="label-h">404 – người khác vừa hủy</span><div class="alert info" role="status"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><div class="txt" data-i18n="rooms.cancel_sched_gone" data-i18n-args='{"date":"01/11/2026"}'>Lịch giá từ 01/11/2026 không còn – có thể người khác vừa hủy. Danh sách đã tải lại.</div></div></div>
+    <div class="variant"><span class="label-h">Bảng 4.1 – dòng phụ (nên có)</span><table class="table"><thead><tr><th scope="col" data-i18n="rooms.col_room">Căn</th><th scope="col" class="r" data-i18n="rooms.col_night">Giá đêm niêm yết</th></tr></thead><tbody><tr><td><b>302</b> The Ivory</td><td class="r num">917.000<div class="caption" data-i18n="rooms.next_price" data-i18n-args='{"date":"01/11","amount":"950.000 đ"}'>Từ 01/11: 950.000 đ</div><div class="caption" data-i18n="rooms.next_price_more" data-i18n-args='{"n":"1"}'>+1 lịch khác</div></td></tr></tbody></table></div>
+  </div>
+</section>
+
+<!-- ================= R2 ================= -->
+<section class="doc-sec" aria-labelledby="r2">
+  <h2 id="r2"><span class="no">R.2</span>Hộp "Hủy lịch giá" (ConfirmDialog) và lỗi 409</h2>
+  <div class="doc-row">
+    <div class="frame" style="max-width:480px"><div class="modal" role="alertdialog" aria-labelledby="r2-h" aria-describedby="r2-b" style="box-shadow:none;border:1px solid var(--line)">
+      <div class="modal-h"><h2 id="r2-h" data-i18n="rooms.cancel_sched_title" data-i18n-args='{"date":"01/11/2026","room":"302"}'>Hủy lịch giá từ 01/11/2026 của căn 302?</h2></div>
+      <div class="modal-b"><p id="r2-b" data-i18n="rooms.cancel_sched_body_until" data-i18n-args='{"date":"01/11/2026","next":"01/12/2026","room":"302","night":"917.000 đ","month":"11.000.000 đ"}'>Từ 01/11/2026 đến trước 01/12/2026, căn 302 dùng lại giá đêm 917.000 đ · giá tháng 11.000.000 đ; từ 01/12/2026 theo lịch giá kế tiếp. Đơn, báo giá đã có giữ giá cũ.</p>
+        <div class="field"><label for="r2-r"><span data-i18n="rooms.cancel_sched_reason">Lý do hủy lịch giá</span> <span class="req" aria-hidden="true">*</span></label><textarea class="input" id="r2-r" rows="2" aria-describedby="r2-rh">Nhập nhầm giá đêm</textarea><span class="help" id="r2-rh" data-i18n="rooms.cancel_sched_reason_help">Lưu vào nhật ký cấu hình.</span></div></div>
+      <div class="modal-f"><button class="btn" data-i18n="rooms.cancel_sched_keep">Giữ lịch giá</button><button class="btn danger" data-i18n="rooms.cancel_sched_confirm">Hủy lịch giá</button></div>
+    </div></div>
+    <aside class="spec" aria-label="Đặc tả R.2"><h3>API</h3><ul><li><span class="op">cancelScheduledRoomListPrice</span> {<code>effectiveFrom</code>, <code>reason</code>} + <code>Idempotency-Key</code> + <code>If-Match</code> = <code>Room.version</code> → <code>Room</code> + <code>ETag</code>.</li></ul><h3>Sau khi hủy</h3><ul><li>Toast <code>rooms.cancel_sched_done</code>; focus nút hủy dòng kế tiếp.</li><li>Không Hoàn tác.</li></ul><h3>Problem.code</h3><ul><li><span class="pc">INVALID_TRANSITION</span> effective / only_price · <span class="pc">NOT_FOUND</span> · <span class="pc">VERSION_CONFLICT</span> · <span class="pc">REASON_REQUIRED</span></li></ul></aside>
+  </div>
+  <div class="variants">
+    <div class="variant"><span class="label-h">Không còn lịch sau (body ngắn)</span><p data-i18n="rooms.cancel_sched_body" data-i18n-args='{"date":"01/12/2026","room":"302","night":"950.000 đ","month":"11.500.000 đ"}'>Từ 01/12/2026, căn 302 dùng lại giá đêm 950.000 đ · giá tháng 11.500.000 đ. Đơn, báo giá đã có giữ giá cũ.</p></div>
+    <div class="variant"><span class="label-h">409 effective</span><div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="rooms.cancel_sched_effective" data-i18n-args='{"date":"01/11/2026"}'>Giá từ 01/11/2026 đã bắt đầu áp dụng nên không hủy lịch được nữa. Muốn đổi giá đang dùng, nhập giá mới ở trên.</div></div></div>
+    <div class="variant"><span class="label-h">409 only_price · lý do thiếu</span><div class="alert bad" role="alert"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg><div class="txt" data-i18n="rooms.cancel_sched_only" data-i18n-args='{"date":"02/11/2026"}'>Đây là giá duy nhất của căn nên không hủy được. Sửa bằng ô giá ở trên, cùng ngày 02/11/2026.</div></div><p class="caption mt-4" data-i18n="rooms.cancel_sched_needs_reason">Ghi lý do (ít nhất 3 ký tự) để hủy lịch giá.</p></div>
+    <div class="variant"><span class="label-h">Toast sau khi lưu / hủy</span><div class="toast" role="status" style="position:static"><span data-i18n="rooms.cancel_sched_done" data-i18n-args='{"date":"01/11/2026","room":"302"}'>Đã hủy lịch giá từ 01/11/2026 của căn 302.</span></div><div class="toast mt-4" role="status" style="position:static"><span data-i18n="rooms.saved_scheduled" data-i18n-args='{"room":"302","date":"01/11/2026"}'>Đã lưu căn 302. Giá mới áp dụng từ 01/11/2026.</span></div></div>
+  </div>
+</section>
+
+<dialog class="dlg sm" id="dlg-cancel-sched" aria-labelledby="dlg-cs-h"><div class="modal" role="alertdialog" aria-labelledby="dlg-cs-h" aria-describedby="dlg-cs-b">
+  <div class="modal-h"><h2 id="dlg-cs-h" tabindex="-1" data-i18n="rooms.cancel_sched_title" data-i18n-args='{"date":"01/11/2026","room":"302"}'>Hủy lịch giá từ 01/11/2026 của căn 302?</h2></div>
+  <div class="modal-b"><p id="dlg-cs-b" data-i18n="rooms.cancel_sched_body_until" data-i18n-args='{"date":"01/11/2026","next":"01/12/2026","room":"302","night":"917.000 đ","month":"11.000.000 đ"}'>…</p>
+    <div class="field"><label for="dlg-cs-r" data-i18n="rooms.cancel_sched_reason">Lý do hủy lịch giá</label><textarea class="input" id="dlg-cs-r" rows="2"></textarea></div></div>
+  <div class="modal-f"><button class="btn" data-close="keep" autofocus data-i18n="rooms.cancel_sched_keep">Giữ lịch giá</button><button class="btn danger" data-close="force" data-i18n="rooms.cancel_sched_confirm">Hủy lịch giá</button></div>
+</div></dialog>
+</main>
+<script>
+/* Minh họa: tick "Đã báo khách" mở nút xác nhận ở E.2 */
+(function(){var c=document.getElementById('e2-told'),b=document.getElementById('e2-go');if(c&&b){c.addEventListener('change',function(){b.setAttribute('aria-disabled',String(!c.checked));});}})();
+</script>
+</body>
+</html>
