@@ -433,3 +433,88 @@ Ghi chú (không ghi lỗi):
 ### 15.4 Còn lại hôm nay
 
 - Sau 18:00: B18 OTM-00357 theo đường `postReview` + tiền mặt (mục 13 việc 2), rồi hủy OTM-00358. Chạy trên rc.3.
+
+## 16. ESC-031 postReview + tiền mặt trên rc.3 (đêm 27/10)
+
+- Người chạy: QA | 28/10/2026 00:04–00:21 giờ thật. Ngày nghiệp vụ Desk vẫn là **27/10** (đổi lúc 06:00), nên OTM-00357 vẫn đang ở quá giờ trả của ngày đi 27/10. Bước **Kiểm thử**.
+- Bản: staging `70fe734` = `v1.0.0-rc.3`, 2FA bắt buộc cho OWN/MGR.
+- Harness repo `70fe734`. Bộ chạy ở scratchpad: `qa-r6/run-staging-rc3n.sh`, ca `src-rc3/product/tests/e2e/ui/qa-esc031n-*.spec.ts`. Biến môi trường: `E2E_TOTP_DIR=~/.ottimo/staging/totp`, `E2E_LOCAL_CLOCK=1`. Mật khẩu `qa.*` đọc từ tệp ngoài repo, không in ra.
+- Không quét QR, không chuyển khoản. Tiền mặt và chi hoàn tiền mặt chỉ là bản ghi trên staging. Ảnh che tiêu đề (có tên khách) và mọi ảnh QR. Ảnh trang danh sách đơn có tên khách đã xóa, không dùng.
+- Nhật ký và ảnh: scratchpad `qa-r6/esc031n/` (`run-log.md`, `screens/n01…n07`).
+
+### 16.1 Kết luận: **ĐẠT** – kèm 3 lỗi mới (1 P2, 2 P3), không lỗi nào chặn rc.4
+
+| # | Việc | Kết quả |
+|---|---|---|
+| 1 | B18 OTM-00357 (căn 203) trên Desk, `qa.fd`, đường `postReview`, thanh toán cuối **tiền mặt** | **Đạt.** 200, folio `settled`, phiếu **F26-000004** |
+| 2 | Phí do máy chủ tính, không hỏi mật khẩu quản lý | **Đạt.** Số 792.000 lấy từ `checkout-summary`, Desk không cho sửa; 0 ô mật khẩu, 0 lựa chọn "Quản lý xác nhận tại quầy". Gửi số sai → 409, gửi kèm người duyệt → 422, không ghi gì |
+| 3 | Mục chờ MGR/OWN xem lại trong `post_checkout_charge_hours` (24) | **Đạt.** Hạn **29/10 00:15** = lúc trả + 24 giờ |
+| 4 | MGR/OWN (có 2FA) xem lại, duyệt; tách người làm (`SELF_APPROVAL_FORBIDDEN`, `SELF_REFUND_FORBIDDEN`) | **Đạt** cả 3 chặn (16.4) |
+| 5 | Folio, nhật ký tiền, phiếu | **Đạt** về số. Có **BUG-R3-033 (P2)**: khung Folio trên màn Trả phòng vẫn hiện "Còn phải thu 792.000 đ" sau khi xong |
+| 6 | Hủy OTM-00358 | **Đạt.** `cancelled`, giữ cọc 200.000 theo BR-309, không sinh yêu cầu hoàn, căn 203 `VD` |
+
+Lỗi mới, chi tiết ở `bug-list.md`:
+- **BUG-R3-033 (P2, FE-A).** Màn Trả phòng sau khi xong vẫn hiện số dự tính trước khi trả: "Đã thu −792.000 · Còn phải thu 792.000 đ". Máy chủ ghi đã thu 1.584.000, còn 0. Ảnh rc.2 hôm 26/10 (`esc031-shots/05-tra-phong-xong.png`) cũng có lỗi này, lúc đó QA bỏ sót.
+- **BUG-R3-034 (P3, BE-B).** Đơn đã trả phòng, sau khi chi hoàn đủ, mục "Cần chú ý · tiền dư đơn đã đóng" vẫn còn cho OWN, MGR và FD. Không đóng tay được (409). Mục chỉ tự hết khi J15 đóng folio, sau 29/10 00:15.
+- **BUG-R3-035 (P3, BE-B + UXD).** Trên phiếu, dòng phụ thu bằng 1 đêm hiện "Phụ thu trả muộn (00:15)". Chữ không nói "bằng giá 1 đêm", và 00:15 thực ra là rạng sáng 28/10, khác ngày dịch vụ 27/10.
+
+### 16.2 Trước / sau
+
+| Mục | Trước (00:04) | Sau B18 (00:15) | Cuối (00:18, sau xem lại + hủy) |
+|---|---|---|---|
+| OTM-00357 | `in_house`, 26→27/10, version 2 | `checked_out`, version 3 | như sau B18 |
+| Folio OTM-00357 | `open`; tiền phòng 792.000; đã thu 792.000 (cọc 200.000 + 592.000 tiền mặt); còn 0 | `settled`, F26-000004. Thêm dòng `late_checkout/late_fee_as_night` 792.000 (ngày 27/10, người ghi QA FD). Thêm **PT-000459** `charge/cash` 792.000. Tổng 1.584.000 = đã thu 1.584.000, còn 0, dư 0 | Dòng 792.000 đảo (−792.000) + dòng mới 396.000 (QA MGR). Thêm **PT-000460** `refund/cash` −396.000. Tổng 1.188.000; đã thu 1.584.000; đã hoàn 396.000; còn 0; dư 0 |
+| Nhật ký tiền (`listPayments`, mọi trạng thái đối soát) | PT-000450, PT-000451 | + PT-000459 tiền mặt 792.000, `not_required`, người ghi FD | + PT-000460 hoàn tiền mặt −396.000, người chi FD. Màn "Nhật ký thao tác tiền" của MGR có đủ các dòng: chi hoàn, OWN duyệt, phí hủy 358 |
+| Thông báo của đơn | OWN 0; MGR, FD, FDL: 1 `registration_due` (cũ) | `late_fee_post_review`: OWN 1, MGR 1, FD 0, FDL 0 | Thêm `approval_decided` (MGR), `refund_ready` (MGR, FD, FDL). OWN không bị báo thêm |
+| "Cần chú ý" của đơn | `registration_overdue` (mục gộp cũ) | `late_fee_post_review`: OWN 1, MGR 1 (hạn 29/10 00:15); FD 0 | `late_fee_post_review` đã hết (MGR "Đã xem"). **`closed_reservation_credit` còn** cho OWN, MGR, FD (BUG-R3-034) |
+| Yêu cầu duyệt | 0 | 0 | 1 `refund` 396.000, tiền mặt, `approved`, đã hoàn 396.000 |
+| Audit đơn | – | `reservation.late_fee_instead_of_night`: `channel` `post_review`, 792.000, `checkoutTime` 00:15, `reviewDueAt` 29/10 00:15, actor QA FD, **không có `confirmedBy`**; `folio.settled`; `reservation.checked_out` (`lateSurchargeVnd` 792.000) | + `reservation.cancellation_fee`, `reservation.cancelled` (358) |
+| OTM-00358 | `confirmed`, 27→28/10, cọc 200.000, còn phải thu 592.000 | không đổi | `cancelled`, version 2. Folio: tiền phòng đảo, dòng `cancellation_fee` 200.000 = cọc giữ lại, còn 0, không có yêu cầu hoàn |
+| Căn 203 | OC | `VD` (Trống · cần dọn), 1 việc dọn | `VD` |
+
+`checkout-summary` trước khi trả (`qa.fd`):
+- Không có `checkoutTime` thì trả giờ chuẩn 12:00.
+- Với 00:15, 20:30 và 23:59: `lateFeeAsNightVnd` đều **792.000**, `extraNightAvailable` false, còn phải thu 792.000, `blockers` [`minibar_not_checked`].
+- Máy chủ coi 00:15 sau nửa đêm vẫn thuộc ngày nghiệp vụ 27/10 (bậc 100 %), đúng BR-010.
+
+### 16.3 B18 trên Desk (Chromium 1366×768, `qa.fd`)
+
+| Bước | Đo được | Kết luận |
+|---|---|---|
+| Thăm dò API trước khi làm (`qa.fd`) | `lateFeeInsteadOfNight` 791.000 → **409 `SURCHARGE_CHANGED`**. 792.000 kèm `approverUsername` → **422** `lateFeeInsteadOfNight.approverUsername NOT_ALLOWED`. Sau cả hai: đơn `in_house` version 2, folio version 4, không thêm dòng, không thêm khoản thu | Đạt |
+| Mở Trả phòng | Desk gọi `checkout-summary?checkoutTime=00:15` → 200, `lateFeeAsNightVnd` 792.000 | Đạt |
+| Bước 2 Phụ phí (ảnh `n02`) | "Đêm nay căn đã có khách nên không bán thêm đêm được. Thay vào đó thu phụ thu trả muộn bằng giá 1 đêm: 792.000 đ…" | Đạt |
+| Bước 3 (ảnh `n03`) | Chỉ có một cách: "Ghi phụ thu – quản lý xem lại". 0 ô mật khẩu. Số 792.000 chỉ đọc; ô nhập duy nhất trong khung là Lý do | Đạt |
+| Tiền mặt (ảnh `n04`, `n05`) | Tiền 792.000, khách đưa 800.000 → "Thối lại 8.000 đ". Sau "Ghi nhận": "Tiền mặt: đã nhận 792.000 đ. Khoản thu này được ghi vào folio khi bấm Hoàn tất." **0 lần `POST /payments`** (BUG-R3-017 giữ đúng) | Đạt |
+| Hộp xác nhận (ảnh `n06`) | "Hoàn tất trả phòng căn 203? … Phụ thu trả muộn 792.000 đ được …" (FB-02) | Đạt |
+| Hoàn tất | **200**. Body gửi một lần: `{"checkoutTime":"00:15","applyLateSurcharge":false,"lateFeeInsteadOfNight":{"amountVnd":792000,"reason":"…","postReview":true},"finalPayment":{"type":"charge","method":"cash","amountVnd":792000}}`. `lateFeeInsteadOfNight` đúng 3 trường | Đạt |
+| Màn sau khi xong (ảnh `n07`) | "Đã trả phòng. Bill đã lưu. Phiếu F26-000004…". Nhưng khung Folio vẫn ghi "Phụ thu… (dự tính) 792.000 · Đã thu −792.000 · **Còn phải thu 792.000 đ**" | **BUG-R3-033** |
+
+Lần chạy đầu dừng ở bước 3: dòng QA đọc chữ "tiền thối" chờ không giới hạn. Đây là lỗi của ca QA; lần đó chưa bấm Hoàn tất, nên không ghi gì. QA sửa ca và chạy lại, lần hai đạt (00:15).
+
+### 16.4 Xem lại và duyệt (API thật, `qa.mgr` và `qa.owner` đều `mfaEnabled` true, đăng nhập bằng TOTP thử)
+
+| # | Thao tác | Kết quả | Kết luận |
+|---|---|---|---|
+| R1 | MGR A32 dòng phụ thu 792.000 → 396.000 (khách trễ do OTTIMO) | 201. Dòng đảo −792.000 + dòng 396.000. Dư 396.000, tự sinh **1 yêu cầu hoàn 396.000 `pending`** | Đạt |
+| R2 | MGR tự duyệt yêu cầu hoàn mình tạo | **403 `SELF_APPROVAL_FORBIDDEN`** | Đạt |
+| R3 | MGR (người làm A32) đặt nơi nhận | **403 `SELF_REFUND_FORBIDDEN`** (0.3.8 bổ sung 7) | Đạt |
+| R4 | FD đặt nơi nhận tiền mặt | 200, yêu cầu vẫn `pending` | Đạt |
+| R5 | OWN duyệt | 200 → `approved` | Đạt |
+| R6 | MGR (người tạo yêu cầu, người làm A32) chi tiền mặt | **403 `SELF_REFUND_FORBIDDEN`** | Đạt |
+| R7 | FD chi tiền mặt 396.000, kèm ảnh biên nhận (ảnh giả 16×16) | 201 **PT-000460** `refund/cash` −396.000. Dư về 0 | Đạt |
+| R8 | FD đóng mục "xem lại phụ thu" | 404 (không thuộc FD) | Đạt |
+| R8 | MGR "Đã xem" | 204. Mục hết ở cả MGR và OWN | Đạt |
+| – | Mục `closed_reservation_credit` sinh lúc A32 | Vẫn mở sau R7. MGR đóng tay → 409 `INVALID_TRANSITION` | **BUG-R3-034** |
+
+Ghi chú (không ghi lỗi):
+- Yêu cầu hoàn đã chi đủ vẫn để `status` `approved`, chỉ khác ở `refundedVnd` = số duyệt. Mã máy chủ suy ra "refunded" từ hai số này khi trả 409, nên coi là theo thiết kế.
+- Phiếu `GET bill` sau khi xem lại: tổng 1.188.000, đã thu 1.584.000, còn 0; dòng phụ thu hiện 396.000 (người ghi QA MGR). Dòng 792.000 đã đảo không còn trên phiếu.
+
+### 16.5 Dữ liệu staging để lại (báo ORC trước B2)
+
+- OTM-00357: `checked_out`, folio `settled` (J15 đóng sau 29/10 00:15).
+- OTM-00358: `cancelled`, giữ cọc 200.000.
+- Căn 203 `VD`, có 1 việc dọn. Nên dọn trước UAT nếu dùng căn 203.
+- Từ giờ tới khi J15 đóng folio (sau 29/10 00:15), "Cần chú ý" của OWN, MGR, FD còn mục **"tiền dư đơn đã đóng – OTM-00357"** dù dư đã về 0 (BUG-R3-034). Nếu INV hỏi trong buổi B2, nói rõ đây là dữ liệu thử của QA.
+- Hàng "Cần duyệt" có yêu cầu hoàn 396.000 của OTM-00357 ở trạng thái đã chi; không còn việc chờ.

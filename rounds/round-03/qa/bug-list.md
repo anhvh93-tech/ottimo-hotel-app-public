@@ -10,9 +10,11 @@
 |---|---|---|---|---|
 | P0 | 3 | 0 | 0 | 3 |
 | P1 | 11 | 2 (BUG-R3-019, 032) | 0 | 9 |
-| P2 | 8 | 5 (BUG-R3-018 phần 1 – dời v1.0.1; 020–023) | 0 | 3 |
-| P3 | 10 | 9 (016; 024–031) | 0 | 1 |
-| **Tổng** | **32** | **16** | **0** | **16** |
+| P2 | 9 | 6 (BUG-R3-018 phần 1 – dời v1.0.1; 020–023; 033) | 0 | 3 |
+| P3 | 12 | 11 (016; 024–031; 034; 035) | 0 | 1 |
+| **Tổng** | **35** | **19** | **0** | **16** |
+
+Cập nhật 28/10 ~00:20 (ESC-031 `postReview` + tiền mặt trên staging rc.3, `qa3-rc1.md` mục 16): ca **Đạt**. Thêm **BUG-R3-033 (P2, FE-A)**, **BUG-R3-034 (P3, BE-B)**, **BUG-R3-035 (P3, BE-B + UXD)**. Không lỗi nào chặn rc.4 hay B2.
 
 Cập nhật 27/10 (SEC, `reviews/SEC-on-B2-readiness.md`): thêm **BUG-R3-032 (P1, BE-A + ARC)** – thư "Security notice" không có người nhận vì người dùng không có email. Không chặn B2/D (có biện pháp bù); sửa ở v1.0.1.
 
@@ -747,3 +749,54 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - QA trên staging: OWN có email → đổi tài khoản nhận → thư tới; đổi email không S2 → 401; MGR đổi email OWN → 403.
   - Production: INV xác nhận nhận được thư.
 - **Trạng thái:** Open.
+
+### BUG-R3-033 – Trả phòng xong, khung Folio vẫn báo "Còn phải thu"
+
+- **Mức:** P2. Số tiền hiện sai ngay trên màn lễ tân nhìn khi khách đứng ở quầy. Lễ tân có thể thu lần hai. Dữ liệu trên máy chủ đúng.
+- **Môi trường:** staging `v1.0.0-rc.3` (`70fe734`), Desk Chromium 1366×768, `qa.fd`, 28/10 00:15. Cũng có ở nhánh ESC-031 `67fc853` ngày 26/10: ảnh `rounds/round-03/outputs/FE/esc031-shots/05-tra-phong-xong.png`, lúc đó QA bỏ sót.
+- **Các bước:**
+  1. Đơn đang ở, quá 18:00 ngày đi, đêm đó căn đã có khách đến (OTM-00357).
+  2. Trả phòng → Bill & thu tiền: ghi phụ thu – quản lý xem lại, chọn Tiền mặt, Ghi nhận 792.000.
+  3. Hoàn tất → xác nhận.
+- **Thực tế:**
+  - B18 trả 200, màn hiện "Đã trả phòng. Bill đã lưu. Phiếu F26-000004".
+  - Khung FOLIO bên phải vẫn là số trước khi trả: "Phụ thu trả muộn bằng giá 1 đêm (dự tính) 792.000 · Đã thu −792.000 · **Còn phải thu 792.000 đ**".
+  - `GET folio` cùng lúc: `settled`, đã thu 1.584.000, còn 0.
+- **Mong đợi:** sau 200, tải lại folio (hoặc dùng folio trong phản hồi). Khung hiện dòng phụ thu đã ghi (bỏ chữ "dự tính"), "Đã thu −1.584.000", "Còn phải thu 0 đ".
+- **Bằng chứng:** scratchpad `qa-r6/esc031n/screens/n07-tra-phong-xong.png`, `run-log.md` ("màn sau khi xong", "sau B18 folio").
+- **Chưa kiểm:** có xảy ra với trả phòng thường trả bằng `finalPayment` (không có phụ thu bằng 1 đêm) hay không.
+- **Vai:** FE-A.
+- **Trạng thái:** Open.
+
+### BUG-R3-034 – "Tiền dư đơn đã đóng" còn sau khi đã chi hoàn đủ (đơn đã trả phòng)
+
+- **Mức:** P3. Báo động giả trong "Cần chú ý" của OWN, MGR, FD. Kéo dài tới khi J15 đóng folio, tối đa `post_checkout_charge_hours` (24 giờ) cộng một nhịp job. Không đóng tay được.
+- **Môi trường:** staging rc.3, 28/10 00:16–00:20, OTM-00357.
+- **Các bước:**
+  1. Trả phòng xong (folio `settled`).
+  2. MGR A32 giảm dòng phụ thu → dư 396.000, tự sinh yêu cầu hoàn và mục `closed_reservation_credit`.
+  3. OWN duyệt; FD chi tiền mặt đủ 396.000 → dư 0.
+- **Thực tế:**
+  - Mục `closed_reservation_credit` vẫn mở cho OWN, MGR, FD.
+  - MGR `resolve` → 409 `INVALID_TRANSITION`: mục thuộc loại hệ thống tự đóng.
+  - Mã `refunds.service.ts` chỉ tự đóng mục khi đơn `cancelled`/`no_show`. Với đơn `checked_out`, chỉ J15 đóng mục, lúc đóng folio sau khung giờ phát sinh.
+- **Mong đợi:** chi hoàn xong mà dư về 0 thì tự đóng mục, với mọi trạng thái đơn (gồm `checked_out`), như đã làm cho `cancelled`/`no_show`.
+- **Ảnh hưởng ngay:** staging còn mục này cho OTM-00357 tới sau 29/10 00:15 (`qa3-rc1.md` 16.5).
+- **Vai:** BE-B.
+- **Trạng thái:** Open.
+
+### BUG-R3-035 – Phiếu ghi "Phụ thu trả muộn (00:15)" cho khoản phụ thu bằng 1 đêm
+
+- **Mức:** P3 (chữ trên phiếu khách cầm).
+- **Môi trường:** staging rc.3, phiếu F26-000004 (`GET folios/{id}/bill`).
+- **Thực tế:**
+  - Dòng `chargeCode` `late_fee_as_night` có `labelKey` `bill.line.late_checkout`, `labelParams` {time "00:15", pct 100}, `serviceDate` 27/10. Theo `design/copy/strings-vi.json`, dòng này hiện "Phụ thu trả muộn (00:15)"; bản tiếng Anh là "Late check-out fee (00:15)".
+  - Trên Desk, cùng khoản đó lại ghi "Phụ thu trả muộn bằng giá 1 đêm".
+  - Khách rời 00:15 rạng sáng 28/10, nhưng phiếu ghi ngày dịch vụ 27/10 với giờ 00:15, dễ đọc là sáng 27/10.
+- **Mong đợi:**
+  - Khóa nhãn riêng, ví dụ `bill.line.late_fee_as_night`: "Phụ thu trả muộn bằng giá 1 đêm" / "Late check-out (one night's rate)".
+  - Giờ sau nửa đêm ghi kèm ngày ("00:15 28/10"), hoặc bỏ giờ.
+- **Chưa kiểm:** ảnh phiếu in. QA kết luận từ `GET bill` và bảng chuỗi.
+- **Vai:** BE-B (`line-labels.ts`) + UXD (chữ).
+- **Trạng thái:** Open.
+
