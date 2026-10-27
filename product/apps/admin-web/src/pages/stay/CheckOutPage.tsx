@@ -3,6 +3,7 @@ import {
   newIdempotencyKey,
   type Bill,
   type CheckOutBody,
+  type Folio,
   type FolioLine,
 } from '@ottimo/api-client';
 import { isLocaleLoaded, loadLocale, translate, useI18n, type Args } from '@ottimo/i18n';
@@ -185,7 +186,18 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   /** BUG-R3-017: cash / POS card collected on step 3, written by B18 as `finalPayment` (PaymentPanel `onStage`). */
   const [staged, setStaged] = useState<StagedPayment | null>(null);
   const [bill, setBill] = useState<Bill | null>(null);
-  const [done, setDone] = useState<{ billNo: string } | null>(null);
+  const [done, setDone] = useState<{ billNo: string; folioId: string } | null>(null);
+  // BUG-R3-033: after B18 the Folio card shows the SERVER's settled folio (lines B18 posted, payments, 0 due) – never
+  // the pre-check-out estimate (summary + staged cash), which still said "Còn phải thu" with nothing left to collect.
+  const [doneFolio, setDoneFolio] = useState<Folio | null>(null);
+  const [doneFolioError, setDoneFolioError] = useState<unknown>(null);
+  const loadDoneFolio = (folioId: string) => {
+    setDoneFolioError(null);
+    api.getFolio({ propertyId, folioId }).then(
+      (x) => setDoneFolio(x.data),
+      (e: unknown) => setDoneFolioError(e),
+    );
+  };
   // SEC FB-R3-SEC-FE-A-16: money received but not on the folio yet lives only in this page (never in browser
   // storage – no `posAuthCode` kept anywhere) – leaving asks first: reload / close (`beforeunload`) and any link of
   // the app (capture phase, before React Router's Link handles the click).
@@ -702,7 +714,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     }
     toast(t('checkout.done'));
     setStaged(null);
-    setDone({ billNo: out.data.billNo });
+    const doneFolioId = out.data.reservation?.folioId ?? r.folioId;
+    setDone({ billNo: out.data.billNo, folioId: doneFolioId });
+    setDoneFolio(null);
+    loadDoneFolio(doneFolioId);
     res.reload();
   };
 
@@ -796,7 +811,48 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       <h2 className="label-h" id={`${ids}-sum`}>
         {t('drawer.folio.title')}
       </h2>
-      {!s ? (
+      {done ? (
+        doneFolio ? (
+          <table className="sum">
+            <tbody>
+              {doneFolio.lines.map((l) => (
+                <tr key={l.id} className={l.lineState === 'pending_approval' ? 'sub' : undefined}>
+                  <td>
+                    {lineLabel(t, l)} <FocStateChip line={l} lines={doneFolio.lines} />
+                  </td>
+                  <td className="r num">{signed(vnd, l.amountVnd)}</td>
+                </tr>
+              ))}
+              {(doneFolio.totals.paidVnd ?? 0) > 0 ? (
+                <tr className="sub">
+                  <td>{t('drawer.folio.paid')}</td>
+                  <td className="r num">−{vnd(doneFolio.totals.paidVnd ?? 0)}</td>
+                </tr>
+              ) : null}
+              {(doneFolio.totals.refundedVnd ?? 0) > 0 ? (
+                <tr className="sub">
+                  <td>{t('drawer.folio.refunded')}</td>
+                  <td className="r num">+{vnd(doneFolio.totals.refundedVnd ?? 0)}</td>
+                </tr>
+              ) : null}
+              <tr className="total">
+                <td>{t('checkout.summary.balance')}</td>
+                <td className="r num" aria-live="polite">
+                  {money(doneFolio.totals.balanceDueVnd ?? 0)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        ) : doneFolioError ? (
+          <ErrorBlock
+            titleKey="co.error_title"
+            error={doneFolioError}
+            onRetry={() => loadDoneFolio(done.folioId)}
+          />
+        ) : (
+          <LoadingBlock rows={2} />
+        )
+      ) : !s ? (
         <LoadingBlock rows={2} />
       ) : (
         <table className="sum">
