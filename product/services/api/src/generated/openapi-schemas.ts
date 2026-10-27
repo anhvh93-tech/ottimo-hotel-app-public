@@ -868,6 +868,10 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         },
         arrivalDate: { s: { k: 'ref', name: 'LocalDate' } },
         departureDate: { s: { k: 'ref', name: 'LocalDate' } },
+        stayDepartureDate: {
+          s: { k: 'ref', name: 'LocalDate' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
         nights: { s: { k: 'scalar' } },
         adults: { s: { k: 'scalar' } },
         children6to11: { s: { k: 'scalar' } },
@@ -1290,12 +1294,33 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
               open: false,
             },
           },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
         },
-        droppedNetVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
-        refundableVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
-        roomChangeDifferenceVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+        droppedNetVnd: {
+          s: { k: 'ref', name: 'MoneyVnd' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
+        refundableVnd: {
+          s: { k: 'ref', name: 'MoneyVnd' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
+        roomChangeDifferenceVnd: {
+          s: { k: 'ref', name: 'MoneyVnd' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
+        roomChangeDifferenceReversedVnd: {
+          s: { k: 'ref', name: 'MoneyVnd' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
+        refundableAfterCapVnd: {
+          s: { k: 'ref', name: 'MoneyVnd' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
         refundCapped: { s: { k: 'scalar' } },
-        otaRetainedMaxVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
+        otaRetainedMaxVnd: {
+          s: { k: 'ref', name: 'MoneyVnd' },
+          v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+        },
         otaRetainedRequired: { s: { k: 'scalar' } },
         evidenceRequired: { s: { k: 'scalar' } },
         childBookings: {
@@ -3974,6 +3999,10 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
           },
           arrivalDate: { s: { k: 'ref', name: 'LocalDate' } },
           departureDate: { s: { k: 'ref', name: 'LocalDate' } },
+          stayDepartureDate: {
+            s: { k: 'ref', name: 'LocalDate' },
+            v: ['owner', 'manager', 'front_desk_lead', 'front_desk'],
+          },
           nights: {
             s: {
               k: 'array',

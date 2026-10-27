@@ -1576,6 +1576,13 @@ export interface paths {
      *     `otaRetainedVnd`/`noticeEvidence` nếu cờ `otaRetainedRequired`/`evidenceRequired` bật, gọi `dryRun=true` lại; (3) xác nhận → gọi `dryRun=false` với **cùng** thân
      *     + `expectedRefundVnd` = `refundVnd` và `expectedFeeVnd` = `earlyDepartureFeeVnd` của lần tính thử cuối, kèm `Idempotency-Key` + `If-Match` (= `reservation.version` của lần tính thử).
      *     Client **không** tự tính tiền (50 %, làm tròn, trần theo số dư) – chỉ hiện số server trả.
+     *     **0.3.9 bổ sung 1 (BE-B thẻ 06)**: `expectedRefundVnd`/`expectedFeeVnd` phải lấy từ lần tính thử có **cùng toàn bộ input** của lần ghi (`newDepartureDate`, `noticeGivenAt`,
+     *     `otaRetainedVnd`, `noticeEvidence`). Lần tính thử còn `otaRetainedRequired = true` (phần OTA tính 0) **không** dùng để ghi được – nhập số OTA giữ lại rồi tính thử lại;
+     *     gửi số của lần tính thử khác input → lần ghi luôn `409 AMOUNT_CHANGED`. Desk tính thử lại mỗi khi một ô input đổi và khóa nút xác nhận tới khi có kết quả mới.
+     *
+     *     **`allowedActions` (0.3.9 bổ sung 1, FB-R3-UXD-FE-A-06)**: `early_departure` chỉ có khi đơn chính `in_house` **và** còn ít nhất một ngày rời hợp lệ, tức
+     *     max(hôm nay, `arrivalDate` + 1) < `stayDepartureDate` (ngày đi của cả lượt, gồm đơn con gia hạn). Desk hiện/ẩn nút chỉ theo `allowedActions`; ngày rời chọn được
+     *     trong [max(hôm nay, `arrivalDate` + 1), `stayDepartureDate` − 1]. Server vẫn kiểm lại (422 `DATE_INVALID`).
      *
      *     **Tính thử (`dryRun=true`)** – như `cancelReservation`/`setLateCheckout`: không cần `Idempotency-Key`/`If-Match`, không tiêu khóa, **không để lại gì** (không
      *     `reservation_change`, `stay_night`, `folio_line`, `approval_request`, `audit_event`, outbox, SSE, không gắn tệp, không cấp mã/số từ sequence). Cùng quyền (`x-roles`, phạm vi) và
@@ -6028,7 +6035,16 @@ export interface components {
         toDate: components['schemas']['LocalDate'];
       }[];
       arrivalDate: components['schemas']['LocalDate'];
+      /** @description Ngày đi của **chính đơn này**. Lượt ở có đơn con gia hạn (BR-422) kết thúc ở `stayDepartureDate` */
       departureDate: components['schemas']['LocalDate'];
+      /**
+       * @description **0.3.9 bổ sung 1 (ARC 27/10, FB-R3-UXD-FE-A-06)** – chỉ đọc, server tính (không phải cột): ngày đi của **cả lượt ở** = ngày đi lớn nhất của đơn chính và các đơn con
+       *     gia hạn còn hiệu lực (BR-422, cùng hàm `effectiveStay` mà B16/B18 dùng). Không có đơn con → bằng `departureDate`. Có ở mọi phản hồi trả `Reservation` của đơn
+       *     **chính** (`parentReservationId` vắng) ở trạng thái `confirmed`/`in_house`; vắng ở đơn con và trạng thái khác. Desk dùng cho: ngày rời tối đa của hộp B16
+       *     (`stayDepartureDate` − 1), dòng "Lượt ở hiện tại" (số đêm = `stayDepartureDate` − `arrivalDate`, phép trừ ngày – không phải tiền). Vắng (server cũ) → dùng `departureDate`.
+       *     Hiện hay ẩn nút "Trả sớm" **chỉ** theo `allowedActions` (xem `earlyDeparture`), không so ngày ở client.
+       */
+      stayDepartureDate?: components['schemas']['LocalDate'];
       nights?: number;
       adults: number;
       children6to11?: number;
@@ -6529,9 +6545,14 @@ export interface components {
      *     **0.3.9 (US-137, US-135)**: cùng schema cho tính thử (`dryRun=true`) và lần ghi. Các trường diễn giải (`noticeDays` … `registrationNeedsUpdate`) **luôn có** ở server cài
      *     0.3.9 (cả hai đường); để ngoài `required` chỉ để bản server cũ (0.3.8) không vi phạm hợp đồng – client 0.3.9 coi vắng = server chưa nâng cấp, không tự tính thay.
      *     Quan hệ (QA kiểm): `earlyDepartureFeeVnd` = (`droppedNetVnd` − `refundableVnd`) + `otaRetainedVnd` gửi lên (0 nếu vắng);
-     *     `refundVnd` = min(`refundableVnd` + phụ thu người đêm bỏ + `roomChangeDifferenceVnd`, số dư thừa chưa xử lý của folio **sau** thay đổi), phân bổ theo BR-428:
-     *     phụ thu người → chênh lệch đổi phòng → phần hoàn 50 %; `extraPersonRefundVnd` + `extraPersonReversedVnd` = phụ thu người của các đêm bỏ;
-     *     `refundCapped = true` ⇔ `refundVnd` < `refundableVnd` + `extraPersonRefundVnd` + `extraPersonReversedVnd` + `roomChangeDifferenceVnd`.
+     *     `refundVnd` = min(`refundableVnd` + phụ thu người đêm bỏ + chênh lệch đổi phòng đã đảo, số dư thừa chưa xử lý của folio **sau** thay đổi), phân bổ theo BR-428:
+     *     phụ thu người → chênh lệch đổi phòng → phần hoàn 50 %.
+     *     **0.3.9 bổ sung 1 (BE-B thẻ 01, phương án A)** – ba cặp "được hoàn / chỉ đảo" cùng một nghĩa (số **sau trần**):
+     *     `extraPersonRefundVnd` + `extraPersonReversedVnd` = phụ thu người của các đêm bỏ; `roomChangeDifferenceVnd` + `roomChangeDifferenceReversedVnd` = chênh lệch đổi phòng đã đảo;
+     *     `refundableAfterCapVnd` ≤ `refundableVnd`; và `refundVnd` = `extraPersonRefundVnd` + `roomChangeDifferenceVnd` + `refundableAfterCapVnd` (Desk hiện từng dòng, không tự trừ).
+     *     `refundCapped = true` ⇔ `refundVnd` < `refundableVnd` + `extraPersonRefundVnd` + `extraPersonReversedVnd` + `roomChangeDifferenceVnd` + `roomChangeDifferenceReversedVnd`.
+     *     **Quyền xem (SEC thẻ 07)**: operation chỉ cho FD+ (A17); số tiền theo đêm/OTA là "Giá bán phòng, folio của đơn" – rbac mục 6 FD **Đầy** → FD được xem. Các trường tiền gắn
+     *     `x-visible-to` FD+ để phòng khi `x-roles` của B16 mở rộng sau này (không đổi gì với vai hiện tại; phản hồi tính thử và lần ghi cùng vai cho cùng tập trường).
      */
     EarlyDepartureResult: {
       /** @description Lần ghi: đơn sau khi đổi. `dryRun`: đơn **đang lưu** (chưa đổi) – `version` dùng cho `If-Match` lần ghi (0.3.9) */
@@ -6566,8 +6587,15 @@ export interface components {
       droppedNetVnd?: components['schemas']['MoneyVnd'];
       /** @description 0.3.9 – phần hoàn BR-428 trước trần: 50 % `droppedNetVnd` làm tròn 1.000 nửa lên khi `noticeDays` ≥ 1, ngược lại 0 (oracle BR-428-01…05 `refundVnd`) */
       refundableVnd?: components['schemas']['MoneyVnd'];
-      /** @description 0.3.9 – chênh lệch đổi phòng BR-424 của các đêm bỏ được đảo (đơn OTA – hoàn 100 % trong cùng yêu cầu hoàn); 0 khi không có */
+      /**
+       * @description 0.3.9 – chênh lệch đổi phòng BR-424 của các đêm bỏ (đơn OTA) **được hoàn** trong yêu cầu hoàn – **0.3.9 bổ sung 1 (BE-B thẻ 01, A)**: số **sau trần**
+       *     = min(chênh lệch đã đảo, `refundVnd` − `extraPersonRefundVnd`) (như `extraPersonRefundVnd`); 0 khi không có. Desk: "Chênh lệch đổi phòng đã thu – hoàn đủ"
+       */
       roomChangeDifferenceVnd?: components['schemas']['MoneyVnd'];
+      /** @description 0.3.9 bổ sung 1 (BE-B thẻ 01, A) – phần chênh lệch đổi phòng đã đảo nhưng **không** hoàn (khách chưa trả / vượt số dư) = chênh lệch đã đảo − `roomChangeDifferenceVnd`; chỉ đảo dòng */
+      roomChangeDifferenceReversedVnd?: components['schemas']['MoneyVnd'];
+      /** @description 0.3.9 bổ sung 1 – phần hoàn 50 % BR-428 **thực có trong yêu cầu hoàn** sau trần = `refundVnd` − `extraPersonRefundVnd` − `roomChangeDifferenceVnd` (server tính); = `refundableVnd` khi `refundCapped = false` */
+      refundableAfterCapVnd?: components['schemas']['MoneyVnd'];
       /** @description 0.3.9 – `true` khi số dư thừa chưa xử lý không đủ: phần vượt chỉ đảo dòng, không hoàn (Desk nói rõ "hoàn tối đa số khách đã trả thừa") */
       refundCapped?: boolean;
       /** @description 0.3.9 – Σ `netVnd` của các đêm OTA bị bỏ = trần của `otaRetainedVnd`; **vắng** khi không có đêm OTA bị bỏ */
@@ -12220,9 +12248,9 @@ export interface operations {
             note: string;
             attachmentId?: components['schemas']['Uuid'];
           };
-          /** @description 0.3.9 – `refundVnd` của lần tính thử lễ tân đã xác nhận (có thể 0). Chỉ so ở lần ghi (`dryRun=false`); lệch → 409 `AMOUNT_CHANGED`. Desk luôn gửi */
+          /** @description 0.3.9 – `refundVnd` của lần tính thử lễ tân đã xác nhận (có thể 0). Chỉ so ở lần ghi (`dryRun=false`); lệch → 409 `AMOUNT_CHANGED`. Desk luôn gửi Chỉ để so, không bao giờ là số ghi. Phải từ lần tính thử có **cùng input** (cả `otaRetainedVnd`; lần tính thử còn `otaRetainedRequired = true` không dùng được) – 0.3.9 bổ sung 1 */
           expectedRefundVnd?: components['schemas']['MoneyVnd'];
-          /** @description 0.3.9 – `earlyDepartureFeeVnd` của lần tính thử lễ tân đã xác nhận (có thể 0). Chỉ so ở lần ghi; lệch → 409 `AMOUNT_CHANGED`. Desk luôn gửi */
+          /** @description 0.3.9 – `earlyDepartureFeeVnd` của lần tính thử lễ tân đã xác nhận (có thể 0). Chỉ so ở lần ghi; lệch → 409 `AMOUNT_CHANGED`. Desk luôn gửi Chỉ để so, không bao giờ là số ghi. Phải từ lần tính thử có **cùng input** (cả `otaRetainedVnd`; lần tính thử còn `otaRetainedRequired = true` không dùng được) – 0.3.9 bổ sung 1 */
           expectedFeeVnd?: components['schemas']['MoneyVnd'];
           /**
            * @description 0.3.9 (US-135, FB-R3-DOM-BA-02) – tính thử: trả `EarlyDepartureResult` mà không ghi gì (xem mô tả operation). Không cần `Idempotency-Key`/`If-Match`.
