@@ -10,6 +10,8 @@
  * - Bed setup / bed count / area (OpenAPI 0.3.4 Q6, erd 4.1 columns from 0004): visible to every role
  *   that may list rooms, edited by OWN/MGR like the other fields; `null` in a patch clears them.
  * - audit_event category config for every change (before/after allowlisted fields).
+ * - OpenAPI 0.3.9 (BUG-R3-018 part 1): `scheduledListPrices` (rows after the business date) on every Room answer;
+ *   `cancelScheduledListPrice` removes one of them (room version + 1, audit `room.list_price_cancelled`).
  */
 import { randomBytes } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
@@ -55,7 +57,31 @@ export interface RoomDto {
     monthlyListPriceVnd: number;
     nightlyListPriceVnd: number;
   };
+  /**
+   * OpenAPI 0.3.9 (BUG-R3-018 part 1): list price rows not in force yet (`effectiveFrom` > business date), ascending.
+   * Always filled here; the response serializer removes it for every role but OWN/MGR (`x-visible-to`).
+   */
+  scheduledListPrices: ScheduledListPriceDto[];
   version: number;
+}
+
+export interface ScheduledListPriceDto {
+  effectiveFrom: LocalDate;
+  monthlyListPriceVnd: number;
+  nightlyListPriceVnd: number;
+  changedBy: string | null;
+  changedAt: string;
+  reason: string | null;
+}
+
+interface ScheduledRow {
+  room_id: string;
+  effective_from: string;
+  monthly: number;
+  nightly: number;
+  changed_by: string | null;
+  changed_at: Date;
+  reason: string | null;
 }
 
 interface RoomRow {
@@ -121,7 +147,7 @@ export interface RoomPatchInput {
     | undefined;
 }
 
-function toDto(r: RoomRow): RoomDto {
+function toDto(r: RoomRow, scheduled: ScheduledListPriceDto[] = []): RoomDto {
   return {
     id: r.id,
     roomNo: r.room_no,
@@ -145,6 +171,7 @@ function toDto(r: RoomRow): RoomDto {
           },
         }
       : {}),
+    scheduledListPrices: scheduled,
     version: r.version,
   };
 }
@@ -202,7 +229,115 @@ export class RoomsService {
        ORDER BY r.room_no`,
       [pc.today, includeInactive],
     );
-    return { data: rows.map(toDto) };
+    const scheduled = await this.scheduled(
+      tx,
+      pc,
+      rows.map((r) => r.id),
+    );
+    return { data: rows.map((r) => toDto(r, scheduled.get(r.id) ?? [])) };
+  }
+
+  /**
+   * OpenAPI 0.3.9 (BUG-R3-018 part 1): rows of `room_list_price` after the business date, per room, ascending; the
+   * scheduler's display name (`Parameter.changedBy` style) and the last write of the row (`updated_at`).
+   */
+  private async scheduled(
+    tx: Tx,
+    pc: PropertyNow,
+    roomIds: readonly string[],
+  ): Promise<Map<string, ScheduledListPriceDto[]>> {
+    const out = new Map<string, ScheduledListPriceDto[]>();
+    if (roomIds.length === 0) return out;
+    const { rows } = await tx.query<ScheduledRow>(
+      `SELECT p.room_id, p.effective_from::text AS effective_from, p.monthly_list_price_vnd AS monthly,
+              p.nightly_list_price_vnd AS nightly, u.display_name AS changed_by, p.updated_at AS changed_at,
+              p.reason
+         FROM room_list_price p LEFT JOIN app_user u ON u.id = p.changed_by
+        WHERE p.room_id = ANY($1::uuid[]) AND p.effective_from > $2
+        ORDER BY p.room_id, p.effective_from`,
+      [roomIds, pc.today],
+    );
+    for (const r of rows) {
+      const list = out.get(r.room_id) ?? [];
+      list.push({
+        effectiveFrom: r.effective_from,
+        monthlyListPriceVnd: r.monthly,
+        nightlyListPriceVnd: r.nightly,
+        changedBy: r.changed_by,
+        changedAt: pc.iso(r.changed_at),
+        reason: r.reason,
+      });
+      out.set(r.room_id, list);
+    }
+    return out;
+  }
+
+  private async dtoOf(tx: Tx, pc: PropertyNow, row: RoomRow): Promise<RoomDto> {
+    return toDto(row, (await this.scheduled(tx, pc, [row.id])).get(row.id) ?? []);
+  }
+
+  /**
+   * OpenAPI 0.3.9 `cancelScheduledRoomListPrice` (BUG-R3-018 part 1, FB-INV-005): remove ONE scheduled list price row
+   * of a room – the price from that date falls back to the previous row. Room locked FOR UPDATE, `If-Match` =
+   * `room.version` (+1 here), audit `config` `room.list_price_cancelled`. Saved bookings/quotes keep their snapshot
+   * (BR-006). 404: no row on that date (or no such room); 409 `effective`: the date has come; 409 `only_price`: the
+   * room's only row (a room created with a future `activeFrom` would be left without a price).
+   */
+  async cancelScheduledListPrice(
+    tx: Tx,
+    roomId: string,
+    expectedVersion: number,
+    input: { effectiveFrom: LocalDate; reason: string },
+    requestId: string,
+  ): Promise<RoomDto> {
+    const pc = await this.property.now(tx);
+    const room = await this.loadRoom(tx, roomId, pc.today, true);
+    if (room.version !== expectedVersion) {
+      throw problem('VERSION_CONFLICT', { extras: { currentVersion: room.version } });
+    }
+    const { rows } = await tx.query<{
+      id: string;
+      monthly: number;
+      nightly: number;
+      reason: string | null;
+      total: number;
+    }>(
+      `SELECT p.id, p.monthly_list_price_vnd AS monthly, p.nightly_list_price_vnd AS nightly, p.reason,
+              (SELECT count(*)::int FROM room_list_price q WHERE q.room_id = p.room_id) AS total
+         FROM room_list_price p WHERE p.room_id = $1 AND p.effective_from = $2`,
+      [roomId, input.effectiveFrom],
+    );
+    const row = rows[0];
+    if (!row) throw problem('NOT_FOUND');
+    if (input.effectiveFrom <= pc.today) {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: 'effective' } });
+    }
+    if (row.total <= 1) {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: 'only_price' } });
+    }
+    await tx.query('DELETE FROM room_list_price WHERE id = $1', [row.id]);
+    await tx.query('UPDATE room SET updated_at = $2, version = version + 1 WHERE id = $1', [
+      roomId,
+      pc.now,
+    ]);
+    await this.audit.record(tx, {
+      category: 'config',
+      action: 'room.list_price_cancelled',
+      entityType: 'room',
+      entityId: roomId,
+      before: {
+        listPrice: {
+          effectiveFrom: input.effectiveFrom,
+          monthlyListPriceVnd: row.monthly,
+          nightlyListPriceVnd: row.nightly,
+          reason: row.reason,
+        },
+      },
+      after: { cancelledEffectiveFrom: input.effectiveFrom },
+      reason: input.reason,
+      requestId,
+    });
+    return this.dtoOf(tx, pc, await this.loadRoom(tx, roomId, pc.today));
   }
 
   private async loadRoom(tx: Tx, roomId: string, asOf: LocalDate, lock = false): Promise<RoomRow> {
@@ -339,7 +474,11 @@ export class RoomsService {
       },
       requestId,
     });
-    return toDto(await this.loadRoom(tx, id, activeFrom > pc.today ? activeFrom : pc.today));
+    return this.dtoOf(
+      tx,
+      pc,
+      await this.loadRoom(tx, id, activeFrom > pc.today ? activeFrom : pc.today),
+    );
   }
 
   async update(
@@ -452,7 +591,7 @@ export class RoomsService {
       ...(reason ? { reason } : {}),
       requestId,
     });
-    const dto = toDto(await this.loadRoom(tx, roomId, pc.today));
+    const dto = await this.dtoOf(tx, pc, await this.loadRoom(tx, roomId, pc.today));
     // A-39 (BE-A, ĐK-S2-2): stopping sales never blocks – it warns about the bookings that keep the room.
     const warnings: RoomWarning[] = [];
     if (!dto.isSellable) {

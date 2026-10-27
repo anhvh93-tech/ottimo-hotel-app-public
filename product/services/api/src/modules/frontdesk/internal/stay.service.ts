@@ -3,7 +3,8 @@
  * BR-107 D-8, BR-110, BR-412/413/416, BR-421/422, BR-424, BR-425, BR-428, BR-803, BR-812).
  * Inventory only through OccupancyService (ADR-009); money through FolioService (BE-B FolioPort) – nights are
  * re-synced (reversal + repost, BR-008), never edited on the folio. Dry runs read in a readOnly transaction
- * (controller – SEC A3) and never write here (`dryRun` paths return before the first write).
+ * (controller – SEC A3) and never write here (`dryRun` paths return before the first write) – except B16, whose
+ * preview runs the write itself in an always-rolled-back transaction (ADR-015, `earlyDeparture`).
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
@@ -14,7 +15,7 @@ import type { ApprovalRow } from '../../approvals/public/approval.service';
 import { AuditService } from '../../audit/public/audit.service';
 import { AttachmentService } from '../../files/public/attachment.service';
 import { ChannelsService } from '../../platform/public/channels';
-import { applyPct, nightDates } from '../../reservations/public/pricing';
+import { applyPct, nightDates, noticeDays } from '../../reservations/public/pricing';
 import { roomReturnsOn } from '../../reservations/public/room-return';
 import {
   type BookingContext,
@@ -52,6 +53,42 @@ import { type AddedNightContext, StaySupport, TASK_RANK } from './stay-support';
 const LONG_SCAN_NIGHTS = 62;
 
 type NightPrice = StayNightPrice;
+
+/** B16 result – OpenAPI 0.3.9 `EarlyDepartureResult` (both the dry run and the write). */
+export interface EarlyDepartureOutcome {
+  /** Write: the booking after the change. Dry run: the booking as stored (loaded under the lock, unchanged). */
+  row: ReservationRow;
+  /** Dry run only: the DTO of the stored booking, read before the first write (null on the write). */
+  storedDto: Record<string, unknown> | null;
+  earlyDepartureFeeVnd: number;
+  refundVnd: number;
+  refundRequestId: string | null;
+  extraPersonRefundVnd: number;
+  extraPersonReversedVnd: number;
+  noticeDays: number;
+  noticeBusinessDate: LocalDate;
+  droppedNights: Array<{
+    date: LocalDate;
+    reservationCode: string;
+    roomNo: string | null;
+    ota: boolean;
+    netVnd: number;
+  }>;
+  droppedNetVnd: number;
+  refundableVnd: number;
+  roomChangeDifferenceVnd: number;
+  refundCapped: boolean;
+  otaRetainedMaxVnd?: number;
+  otaRetainedRequired: boolean;
+  evidenceRequired: boolean;
+  childBookings: Array<{
+    reservationId: string;
+    code: string;
+    droppedNightCount: number;
+    cancelled: boolean;
+  }>;
+  registrationNeedsUpdate: boolean;
+}
 
 export interface LateCheckoutOutcome {
   status: 200 | 202;
@@ -1280,21 +1317,32 @@ export class StayService {
    * booking of the stay go: OTA nights → `otaRetainedVnd`, direct child nights → BR-428 policy; a child booking
    * whose nights are all dropped is cancelled (it never started). B14 OTA differences are per night and the
    * dropped ones are reversed here.
+   *
+   * OpenAPI 0.3.9 (v1.0.1, ADR-015 – US-135/US-137, FB-R3-DOM-BA-02): `dryRun` runs THIS function in a transaction
+   * that is always rolled back (UnitOfWork.simulate) – the preview numbers are the write's numbers by construction.
+   * The mode is `tx.ctx.simulation` (FB-R3-SEC-ARC-01). In dry mode: no version check (no If-Match), a missing `otaRetainedVnd` / back-dated notice without evidence
+   * become the flags `otaRetainedRequired` / `evidenceRequired` (OTA part = 0), and every step whose result is not
+   * part of the answer or that lives outside the transaction is skipped: refund request (`approvals.submit` – its
+   * code), attachment binding, money audit, registration hook, outbox, SSE, reservation hooks. The reservation
+   * answered is the STORED one (`storedDto`, read under the locks before the first write). The write compares
+   * `expectedRefundVnd` / `expectedFeeVnd` (when sent) with the numbers recomputed under the locks, right before the
+   * refund request: a difference → 409 AMOUNT_CHANGED and the whole transaction rolls back.
    */
   async earlyDeparture(
     tx: Tx,
     ctx: BookingContext,
     id: string,
-    expectedVersion: number,
+    expectedVersion: number | null,
     body: Record<string, unknown>,
-  ): Promise<{
-    row: ReservationRow;
-    earlyDepartureFeeVnd: number;
-    refundVnd: number;
-    refundRequestId: string | null;
-    extraPersonRefundVnd: number;
-    extraPersonReversedVnd: number;
-  }> {
+  ): Promise<EarlyDepartureOutcome> {
+    // FB-R3-SEC-ARC-01 (2): the mode comes from the transaction, never from a caller's flag – a dry run outside
+    // Database.simulate (or a write inside it) is a programming error, refused before anything is read.
+    const dryRun = tx.ctx.simulation === true;
+    if (dryRun !== (body.dryRun === true)) {
+      throw new Error(
+        `earlyDeparture: dryRun=${String(body.dryRun)} in a ${dryRun ? 'simulation' : 'write'} transaction`,
+      );
+    }
     const f = new Fields(body);
     const newDeparture = f.date('newDepartureDate', true);
     const notice = body.noticeGivenAt;
@@ -1308,9 +1356,15 @@ export class StayService {
     }
     const otaRetained = f.money('otaRetainedVnd', { required: false, positive: false });
     const evidence = this.evidenceInput(f, body);
+    // 0.3.9: the amounts the desk showed (write only; absent = not compared – old API/E2E callers).
+    const expectedRefundVnd = f.money('expectedRefundVnd', { required: false, positive: false });
+    const expectedFeeVnd = f.money('expectedFeeVnd', { required: false, positive: false });
     f.done();
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
-    this.s.stay.assertVersion(row, expectedVersion);
+    if (!dryRun) {
+      if (expectedVersion === null) throw new Error('earlyDeparture write without If-Match');
+      this.s.stay.assertVersion(row, expectedVersion);
+    }
     this.assertInHouse(row);
     this.assertPrimary(row);
     const nd = newDeparture as LocalDate;
@@ -1334,6 +1388,7 @@ export class StayService {
       grossVnd: number;
       netVnd: number;
       feesVnd: number;
+      nights: Array<{ date: LocalDate; grossVnd: number; discountVnd: number }>;
     }> = [];
     for (const b of stays) {
       if (b.departure_date <= nd) continue;
@@ -1351,6 +1406,7 @@ export class StayService {
         grossVnd: live.reduce((a, n) => a + n.grossVnd, 0),
         netVnd: live.reduce((a, n) => a + Math.max(0, n.grossVnd - n.discountVnd), 0),
         feesVnd,
+        nights: live,
       });
     }
     const otaParts = parts.filter((p) => p.ota);
@@ -1360,7 +1416,9 @@ export class StayService {
     const droppedFeesVnd = parts.reduce((a, p) => a + p.feesVnd, 0);
     const ota = row.channel_group === 'ota';
     // `otaRetainedVnd` is what the OTA keeps of ITS nights – none dropped (only child nights) → optional (0).
-    if (otaParts.length > 0 && otaRetained === undefined) f.add('otaRetainedVnd', 'REQUIRED');
+    // 0.3.9: missing in a dry run → `otaRetainedRequired` (the OTA part counts 0 until the desk types it).
+    const otaRetainedRequired = otaParts.length > 0 && otaRetained === undefined;
+    if (otaRetainedRequired && !dryRun) f.add('otaRetainedVnd', 'REQUIRED');
     if (!ota && otaRetained !== undefined) f.add('otaRetainedVnd', 'NOT_ALLOWED');
     const rollover = await this.s.param<LocalTime>(tx, ctx, 'business_day_rollover');
     const noticeDate = businessDate(noticeAt as Date, ctx.tz, rollover);
@@ -1369,7 +1427,7 @@ export class StayService {
     const backdated =
       ctx.now.getTime() - (noticeAt as Date).getTime() > tolerance * 60_000 ||
       noticeDate !== ctx.today;
-    if (backdated && !evidence) f.add('noticeEvidence', 'EVIDENCE_REQUIRED');
+    if (backdated && !evidence && !dryRun) f.add('noticeEvidence', 'EVIDENCE_REQUIRED');
     f.done();
     if (evidence?.attachmentId) {
       await this.attachments.assertUsable(
@@ -1386,6 +1444,8 @@ export class StayService {
         extras: { max: otaGrossVnd },
       });
     }
+    // 0.3.9: shown also when only OTA nights are dropped (display only – the OTA keeps what it says).
+    const shownNoticeDays = noticeDays(nd, noticeDate);
     let refund = { noticeDays: 0, refundVnd: 0 };
     if (directNetVnd > 0) {
       const policy = await this.s.optionalParam<EarlyDepartureRefundPolicy>(
@@ -1416,6 +1476,31 @@ export class StayService {
     ]);
     // K11-01 (ARC 16.19): reservation → rooms → folio before the refund is capped by the folio's credit.
     await this.s.stay.lockFolio(tx, row);
+    // 0.3.9: the dropped nights as shown (room of the segment holding the night; null = not assigned).
+    const roomNos = new Map<string, string>();
+    for (const roomId of new Set(
+      [...segs.values()].flat().flatMap((x) => (x.room_id ? [x.room_id] : [])),
+    )) {
+      const rm = await this.s.stay.room(tx, roomId);
+      if (rm) roomNos.set(roomId, rm.room_no);
+    }
+    const droppedNights: EarlyDepartureOutcome['droppedNights'] = parts
+      .flatMap((p) =>
+        p.dropped.map((date) => {
+          const seg = (segs.get(p.b.id) ?? []).find((x) => x.from_date <= date && date < x.to_date);
+          const n = p.nights.find((x) => x.date === date);
+          return {
+            date,
+            reservationCode: p.b.code,
+            roomNo: seg?.room_id ? (roomNos.get(seg.room_id) ?? null) : null,
+            ota: p.ota,
+            netVnd: n ? (p.ota ? n.grossVnd : Math.max(0, n.grossVnd - n.discountVnd)) : 0,
+          };
+        }),
+      )
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    // ADR-015: the preview answers the booking as stored (read under the locks, before the first write).
+    const storedDto = dryRun ? await this.s.stay.dtoOf(tx, ctx, row) : null;
     const released: Array<{ roomId: string | null; from: LocalDate; to: LocalDate }> = [];
     for (const p of parts) {
       for (const sg of segs.get(p.b.id) ?? []) {
@@ -1596,34 +1681,76 @@ export class StayService {
         );
         if (lineId) lineIds.push(lineId);
       }
-      if (evidence?.attachmentId && lineIds[0]) {
-        await this.attachments.bindTo(tx, evidence.attachmentId, {
-          type: 'folio_line',
-          id: lineIds[0],
-        });
-      }
       // G-14 / DOM S3-2 (c) / DOM 17/10 (4): the refundable part + the dropped nights' BR-110 fees + the
       // reversed BR-424 differences become ONE `refund` request, capped by the overpayment not yet routed to a
       // request (unhandled credit – never OTA money). Not collected → the reversed lines are enough.
       const credit = (await this.s.folios.balance(tx, row.folio_id)).unhandledCreditVnd;
       refundVnd = Math.min(refund.refundVnd + droppedFeesVnd + differenceReversedVnd, credit);
       extraPersonRefundVnd = Math.min(droppedFeesVnd, refundVnd);
-      if (refundVnd > 0) {
-        const req = await this.s.approvals.submit(tx, ctx.actor, {
-          type: 'refund',
-          amountVnd: refundVnd,
-          reasonCode: 'early_departure',
-          ...(evidence ? { reasonNote: evidence.note } : {}),
-          targetType: 'reservation',
-          targetId: row.id,
-          targetCode: row.code,
-          ...this.s.req(ctx),
-        });
-        refundRequestId = req.id;
-      }
     }
-    if (evidence?.attachmentId && lineIds.length === 0) {
-      await this.attachments.bindTo(tx, evidence.attachmentId, { type: 'reservation', id: row.id });
+    const earlyDepartureFeeVnd = Math.max(0, feeVnd);
+    // 0.3.9 (ADR-015 point 4): the write recomputes under the locks; what the desk confirmed must still hold.
+    if (
+      !dryRun &&
+      ((expectedRefundVnd !== undefined && expectedRefundVnd !== refundVnd) ||
+        (expectedFeeVnd !== undefined && expectedFeeVnd !== earlyDepartureFeeVnd))
+    ) {
+      throw problem('AMOUNT_CHANGED', { extras: { refundVnd, earlyDepartureFeeVnd } });
+    }
+    if (!dryRun && row.folio_id && refundVnd > 0) {
+      const req = await this.s.approvals.submit(tx, ctx.actor, {
+        type: 'refund',
+        amountVnd: refundVnd,
+        reasonCode: 'early_departure',
+        ...(evidence ? { reasonNote: evidence.note } : {}),
+        targetType: 'reservation',
+        targetId: row.id,
+        targetCode: row.code,
+        ...this.s.req(ctx),
+      });
+      refundRequestId = req.id;
+    }
+    if (!dryRun && evidence?.attachmentId) {
+      await this.attachments.bindTo(
+        tx,
+        evidence.attachmentId,
+        lineIds[0] ? { type: 'folio_line', id: lineIds[0] } : { type: 'reservation', id: row.id },
+      );
+    }
+    const childBookings = parts
+      .filter((p) => p.b.id !== row.id)
+      .map((p) => ({
+        reservationId: p.b.id,
+        code: p.b.code,
+        droppedNightCount: p.dropped.length,
+        cancelled: p.whole,
+      }));
+    const registrationNeedsUpdate =
+      (await this.s.ports.registration.hasForeignGuestDocument?.(tx, row.id)) ?? false;
+    const explained = {
+      noticeDays: shownNoticeDays,
+      noticeBusinessDate: noticeDate,
+      droppedNights,
+      droppedNetVnd: directNetVnd,
+      refundableVnd: refund.refundVnd,
+      roomChangeDifferenceVnd: differenceReversedVnd,
+      refundCapped: refundVnd < refund.refundVnd + droppedFeesVnd + differenceReversedVnd,
+      ...(otaParts.length > 0 ? { otaRetainedMaxVnd: otaGrossVnd } : {}),
+      otaRetainedRequired,
+      evidenceRequired: backdated,
+      childBookings,
+      registrationNeedsUpdate,
+    };
+    const money = {
+      earlyDepartureFeeVnd,
+      refundVnd,
+      refundRequestId,
+      extraPersonRefundVnd,
+      extraPersonReversedVnd: Math.max(0, droppedFeesVnd - extraPersonRefundVnd),
+    };
+    if (dryRun) {
+      // Everything written so far is rolled back by UnitOfWork.simulate; nothing below runs in a preview.
+      return { row, storedDto, ...money, ...explained };
     }
     await this.audit.recordMoney(tx, {
       action: 'reservation.early_departure',
@@ -1640,15 +1767,25 @@ export class StayService {
         ...(differenceReversedVnd > 0 ? { roomChangeDifferenceVnd: differenceReversedVnd } : {}),
         retainedVnd: feeVnd,
         refundRequestedVnd: refundVnd,
-        ...(parts.some((p) => p.b.id !== row.id)
+        ...(childBookings.length > 0
           ? {
-              childBookings: parts
-                .filter((p) => p.b.id !== row.id)
-                .map((p) => ({ code: p.b.code, nights: p.dropped.length, cancelled: p.whole })),
+              childBookings: childBookings.map((c) => ({
+                code: c.code,
+                nights: c.droppedNightCount,
+                cancelled: c.cancelled,
+              })),
             }
           : {}),
         noticeGivenAt: ctx.iso(noticeAt as Date),
         ...(evidence ? { noticeEvidence: true } : {}),
+        // FB-R3-SEC-ARC-05: what the desk showed and confirmed (compared above, never used as the amounts).
+        ...(expectedRefundVnd !== undefined || expectedFeeVnd !== undefined
+          ? {
+              previewConfirmed: true,
+              ...(expectedRefundVnd !== undefined ? { expectedRefundVnd } : {}),
+              ...(expectedFeeVnd !== undefined ? { expectedFeeVnd } : {}),
+            }
+          : {}),
       },
       reason: `BR-428 notice ${refund.noticeDays}d${evidence ? ` – ${evidence.note}` : ''}`,
       ...this.s.req(ctx),
@@ -1684,14 +1821,7 @@ export class StayService {
       }
     }
     const after = await loadReservation(tx, row.id, ctx.actor);
-    return {
-      row: after,
-      earlyDepartureFeeVnd: Math.max(0, feeVnd),
-      refundVnd,
-      refundRequestId,
-      extraPersonRefundVnd,
-      extraPersonReversedVnd: Math.max(0, droppedFeesVnd - extraPersonRefundVnd),
-    };
+    return { row: after, storedDto: null, ...money, ...explained };
   }
 
   /** `noticeEvidence {note, attachmentId?}` (E04-06). */

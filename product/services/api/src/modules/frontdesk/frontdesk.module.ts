@@ -72,6 +72,10 @@ defineAuditEntity('reservation', [
   'priceAgeBand',
   // ESC-024 B / ESC-031 (BE-B): end of the post-checkout window the manager reviews a desk-recorded late charge in.
   'reviewDueAt',
+  // OpenAPI 0.3.9 B16 (FB-R3-SEC-ARC-05): the amounts the desk confirmed in the preview (numbers only).
+  'previewConfirmed',
+  'expectedRefundVnd',
+  'expectedFeeVnd',
 ]);
 
 @Module({

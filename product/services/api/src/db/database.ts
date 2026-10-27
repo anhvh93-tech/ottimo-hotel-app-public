@@ -21,6 +21,12 @@ export interface TenantContext {
   propertyId: string | null;
   userId: string | null;
   actorType: ActorType;
+  /**
+   * ADR-015 (FB-R3-SEC-ARC-01): true ONLY on the `tx` of Database.simulate – a transaction that is always rolled back
+   * and that the database itself refuses to commit (simulation_guard). Use cases read their dry-run mode from here,
+   * never from a flag a caller passes.
+   */
+  readonly simulation?: true;
 }
 
 export type Schema = typeof schema;
@@ -133,6 +139,59 @@ export class Database {
   }
 
   /**
+   * ADR-015 / FB-R3-SEC-ARC-01: a WRITE transaction that never ends any other way than ROLLBACK – the preview of an
+   * operation whose numbers only exist after its writes (B16 `earlyDeparture` `dryRun`). Its own connection and its own
+   * code path (no shared "commit on success" branch):
+   * - BEGIN, then the same tenant/RLS context as `withContext` (transaction-local lock/statement timeouts);
+   * - first write: a `simulation_guard` row whose DEFERRABLE INITIALLY DEFERRED constraint trigger always raises, so
+   *   the database refuses to end this transaction with a commit whatever the code does (the stand-in for READ ONLY
+   *   of the SEC A3 dry runs);
+   * - `fn` gets a Tx with `ctx.simulation = true` whose `query` refuses transaction control (end/abort/begin, SET
+   *   without LOCAL, RESET, DISCARD); SAVEPOINT / RELEASE / ROLLBACK TO stay allowed – they cannot end the
+   *   transaction and the occupancy writes use them (23P01 handling);
+   * - ROLLBACK in `finally`, success or not; a failed ROLLBACK destroys the connection (never back to the pool).
+   * The caller keeps the "inside a unit of work" marker (UnitOfWork.simulate) so no second connection is opened.
+   */
+  async simulate<T>(
+    ctx: TenantContext,
+    fn: (tx: Tx) => Promise<T>,
+    options: { lockTimeoutMs: number; statementTimeoutMs: number },
+  ): Promise<T> {
+    const uow = unitOfWorkScope.getStore();
+    if (uow !== undefined) {
+      throw new Error(`nested database connection inside the unit of work of ${uow}`);
+    }
+    if (!ctx.organizationId || !ctx.propertyId) {
+      throw new Error('Database.simulate needs a property context');
+    }
+    const client = await this.pool.connect();
+    let broken = false;
+    try {
+      await client.query('BEGIN');
+      await client.query(SET_CONTEXT_SQL, [
+        ctx.organizationId,
+        ctx.propertyId,
+        ctx.userId ?? '',
+        ctx.actorType,
+        `${options.lockTimeoutMs}ms`,
+        `${options.statementTimeoutMs}ms`,
+      ]);
+      await client.query(
+        'INSERT INTO simulation_guard (organization_id, property_id) VALUES ($1, $2)',
+        [ctx.organizationId, ctx.propertyId],
+      );
+      return await fn(makeSimulationTx(client, { ...ctx, simulation: true }));
+    } finally {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        broken = true; // connection unusable: destroy it instead of returning it to the pool
+      }
+      client.release(broken);
+    }
+  }
+
+  /**
    * For the erd 2.4 entry functions (auth_find_user, auth_resolve_session…) that run before a tenant
    * is known. The context is empty, so a plain table query here sees 0 rows by construction.
    */
@@ -151,6 +210,33 @@ function makeTx(client: PoolClient, ctx: TenantContext): Tx {
     db: drizzle(client, { schema }),
     query: <R extends QueryResultRow>(text: string, params?: readonly unknown[]) =>
       client.query<R>(text, params as unknown[] | undefined),
+  };
+}
+
+/**
+ * Transaction control a simulation tx refuses (FB-R3-SEC-ARC-01 (4)): anything that could end the transaction or
+ * leak a setting to the pooled connection. Checked at the start of the text and after every `;`.
+ */
+const SIMULATION_FORBIDDEN =
+  /(^|;)\s*(commit\b|end\b|abort\b|begin\b|start\s+transaction\b|prepare\s+transaction\b|rollback\b(?!\s+to\b)|reset\b|discard\b|set\b(?!\s+local\b))/i;
+
+export function isForbiddenInSimulation(text: string): boolean {
+  return SIMULATION_FORBIDDEN.test(text.replace(/--[^\n]*|\/\*[\s\S]*?\*\//g, ' '));
+}
+
+function makeSimulationTx(client: PoolClient, ctx: TenantContext): Tx {
+  const inner = makeTx(client, ctx);
+  return {
+    ctx,
+    db: inner.db,
+    query: <R extends QueryResultRow>(text: string, params?: readonly unknown[]) => {
+      if (isForbiddenInSimulation(text)) {
+        return Promise.reject(
+          new Error('transaction control is not allowed inside a simulation (ADR-015)'),
+        );
+      }
+      return inner.query<R>(text, params);
+    },
   };
 }
 

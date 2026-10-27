@@ -149,3 +149,17 @@ export const idempotencyKey = pgTable(
     index('idempotency_key_created_idx').on(t.createdAt),
   ],
 );
+
+/**
+ * ADR-015 / FB-R3-SEC-ARC-01 (migration 0089): commit blocker of Database.simulate. The first write of every
+ * simulation inserts a row; a DEFERRABLE INITIALLY DEFERRED constraint trigger (SQL only) always raises, so the
+ * transaction can never be committed – it is always empty outside an open simulation. INSERT only for ottimo_app.
+ */
+export const simulationGuard = pgTable('simulation_guard', {
+  id: uuid('id')
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  organizationId: uuid('organization_id').notNull(),
+  propertyId: uuid('property_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+});

@@ -1,9 +1,10 @@
 /**
- * US-004 / US-005 endpoints: listRoomGroups, listRooms, createRoom, updateRoom, listParameters,
- * getParameterHistory, setParameter; listChannels (BR-901, Sprint 2).
+ * US-004 / US-005 endpoints: listRoomGroups, listRooms, createRoom, updateRoom, cancelScheduledRoomListPrice (0.3.9),
+ * listParameters, getParameterHistory, setParameter; listChannels (BR-901, Sprint 2).
  *
  * Field visibility (x-visible-to): Room.baseOccupancy/maxOccupancy/currentListPrice are visible to every
- * role that may call listRooms (HK/MT are refused by x-roles), so no field is removed here.
+ * role that may call listRooms (HK/MT are refused by x-roles). Room.scheduledListPrices (0.3.9) is OWN/MGR only –
+ * removed for the other roles by the response serializer (generated x-visible-to).
  * TODO(BE-B → BE-A serializer): switch to the shared x-visible-to serializer when it lands.
  */
 import {
@@ -111,6 +112,11 @@ const roomPatch = z.object({
     })
     .optional(),
 });
+
+/** OpenAPI 0.3.9 `cancelScheduledRoomListPrice` body (additionalProperties: false). */
+const cancelScheduledRoomPriceSchema = z
+  .object({ effectiveFrom: localDateSchema, reason: reasonSchema })
+  .strict();
 
 /** 0.3.8 `setParameter.reauth` / `cancelScheduledParameter.reauth`: S2 – password (`secret`) + TOTP or recovery code. */
 const reauthSchema = z
@@ -230,6 +236,27 @@ export class PlatformController {
     const result = await this.uow.run(req, async (tx) => ({
       status: 200,
       body: await this.rooms.update(tx, roomId, version, input, req.id),
+    }));
+    reply.header('etag', etag(result.body.version));
+    return applyResult(reply, result);
+  }
+
+  /** OpenAPI 0.3.9 (BUG-R3-018 part 1): OWN/MGR (x-roles, S25) remove one scheduled list price of a room. */
+  @Post('rooms/:roomId/list-prices/actions/cancel-scheduled')
+  @Operation('cancelScheduledRoomListPrice')
+  async cancelScheduledRoomListPrice(
+    @Req() req: Req,
+    @Res({ passthrough: true }) reply: Reply,
+    @Param('roomId') roomId: string,
+    @Body() body: unknown,
+  ): Promise<RoomDto> {
+    if (!UUID.test(roomId)) throw problem('NOT_FOUND');
+    const input = parseBody(cancelScheduledRoomPriceSchema, body);
+    assertNoCardNumber('reason', input.reason);
+    const version = expectedVersion(req);
+    const result = await this.uow.run(req, async (tx) => ({
+      status: 200,
+      body: await this.rooms.cancelScheduledListPrice(tx, roomId, version, input, req.id),
     }));
     reply.header('etag', etag(result.body.version));
     return applyResult(reply, result);

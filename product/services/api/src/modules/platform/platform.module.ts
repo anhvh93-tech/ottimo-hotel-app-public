@@ -29,6 +29,8 @@ defineAuditEntity('room', [
   'monthlyListPriceVnd',
   'nightlyListPriceVnd',
   'listPrice',
+  // OpenAPI 0.3.9 cancelScheduledRoomListPrice (BUG-R3-018 part 1).
+  'cancelledEffectiveFrom',
 ]);
 defineAuditEntity('dataset', ['rooms', 'channels']);
 
