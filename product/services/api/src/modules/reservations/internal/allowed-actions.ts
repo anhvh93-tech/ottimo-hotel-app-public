@@ -4,7 +4,7 @@
  * buttons. Event/transition codes from state-machines.md section 18; `action` = path segment.
  */
 import type { ChannelGroup, ReservationStatus } from '../../../db/schema';
-import type { LocalDate } from '../../../shared/time';
+import { type LocalDate, addDays } from '../../../shared/time';
 
 export interface AllowedAction {
   event: string;
@@ -40,6 +40,19 @@ export interface ActionContext {
   restoreWithinRules: boolean;
   rescheduleCount: number;
   rescheduleMaxTimes: number;
+  /**
+   * OpenAPI 0.3.9 add 1: departure of the whole stay (primary + extension children) – absent on a child booking.
+   * B16 is offered only while a valid new departure exists: max(today, arrival + 1) < stayDepartureDate.
+   */
+  stayDepartureDate?: LocalDate;
+}
+
+/** B16 new-departure window [max(today, arrival + 1), stayDepartureDate − 1] is not empty (same rule as the server). */
+export function earlyDepartureOpen(c: ActionContext): boolean {
+  if (!c.stayDepartureDate) return false;
+  const next = addDays(c.arrivalDate, 1);
+  const from = c.today > next ? c.today : next;
+  return from < c.stayDepartureDate;
 }
 
 export function allowedActions(roles: readonly string[], c: ActionContext): AllowedAction[] {
@@ -89,7 +102,9 @@ export function allowedActions(roles: readonly string[], c: ActionContext): Allo
         out.push({ event: 'extend_stay', transition: 'B13', action: 'extend' });
         out.push({ event: 'change_room', transition: 'B14', action: 'change-room' });
         out.push({ event: 'set_late_checkout', transition: 'B15', action: 'late-checkout' });
-        out.push({ event: 'early_departure', transition: 'B16', action: 'early-departure' });
+        if (earlyDepartureOpen(c)) {
+          out.push({ event: 'early_departure', transition: 'B16', action: 'early-departure' });
+        }
         if (c.today === c.departureDate) {
           out.push({ event: 'check_out', transition: 'B18', action: 'check-out' });
         }
