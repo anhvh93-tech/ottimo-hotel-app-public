@@ -3242,7 +3242,7 @@
   "early_departure.row_notice": "Notice",
   "early_departure.notice_value": "{n} day(s)",
   "early_departure.row_refundable": "Refund under the early departure policy",
-  "early_departure.row_refundable_after_cap": "Policy refund – included in the refund request",
+  "early_departure.row_refundable_after_cap": "Of which refunded (up to what the guest overpaid)",
   "early_departure.no_refund_notice": "No refund: the guest didn't give enough notice under the early departure policy.",
   "early_departure.row_extra_refund": "Extra-guest charge for the dropped nights – refunded",
   "early_departure.row_extra_reversed": "Extra-guest charge for the dropped nights – reversed, not refunded (more than the guest overpaid)",

@@ -464,15 +464,3 @@ body:has(.app-mnav) .toasts {
 .g-2.top {
   align-items: start;
 }
-
-/* H15 hộp lưu trú – khối hậu quả (US-135; hi-fi .consequence, UXD v1.0.1 §2.5) – chỉ token có sẵn. */
-.consequence {
-  background: var(--surface-2);
-  border-radius: var(--r-md);
-  padding: 10px 12px 10px 30px;
-  font-size: 0.8125rem;
-  margin: 8px 0;
-}
-.consequence li {
-  margin-bottom: 2px;
-}
