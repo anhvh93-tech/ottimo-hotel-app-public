@@ -6549,19 +6549,23 @@ export interface components {
      *     phụ thu người → chênh lệch đổi phòng → phần hoàn 50 %.
      *     **0.3.9 bổ sung 1 (BE-B thẻ 01, phương án A)** – ba cặp "được hoàn / chỉ đảo" cùng một nghĩa (số **sau trần**):
      *     `extraPersonRefundVnd` + `extraPersonReversedVnd` = phụ thu người của các đêm bỏ; `roomChangeDifferenceVnd` + `roomChangeDifferenceReversedVnd` = chênh lệch đổi phòng đã đảo;
-     *     `refundableAfterCapVnd` ≤ `refundableVnd`; và `refundVnd` = `extraPersonRefundVnd` + `roomChangeDifferenceVnd` + `refundableAfterCapVnd` (Desk hiện từng dòng, không tự trừ).
+     *     `refundablePaidVnd` ≤ `refundableVnd`; và `refundVnd` = `extraPersonRefundVnd` + `roomChangeDifferenceVnd` + `refundablePaidVnd` (Desk hiện từng dòng, không tự trừ).
      *     `refundCapped = true` ⇔ `refundVnd` < `refundableVnd` + `extraPersonRefundVnd` + `extraPersonReversedVnd` + `roomChangeDifferenceVnd` + `roomChangeDifferenceReversedVnd`.
+     *     **0.3.9 bổ sung 2 – DOM chốt (BR-428 v0.4.8, oracle BR-428-07/08)**: (a) ba phần được hoàn cộng lại = `refundVnd`; (b) mỗi khoản: được hoàn + đã đảo không hoàn = số đã đảo của
+     *     khoản đó (`extraPersonRefundVnd` + `extraPersonReversedVnd` = phụ thu người các đêm bỏ; `roomChangeDifferenceVnd` + `roomChangeDifferenceReversedVnd` = chênh lệch đã đảo);
+     *     (c) `refundCapped` giữ nguyên nghĩa; (d) chia theo **số dư thừa của cả folio** theo thứ tự phụ thu người → chênh lệch đổi phòng → phần 50 % – không theo dòng nào khách đã trả;
+     *     (e) audit `reservation.early_departure` và yêu cầu hoàn dùng **cùng nghĩa** (audit ghi đủ ba cặp số). `refundableVnd` vẫn là số theo chính sách (trước trần) – Desk hiện kèm câu `refund_capped`.
      *     **Quyền xem (SEC thẻ 07)**: operation chỉ cho FD+ (A17); số tiền theo đêm/OTA là "Giá bán phòng, folio của đơn" – rbac mục 6 FD **Đầy** → FD được xem. Các trường tiền gắn
      *     `x-visible-to` FD+ để phòng khi `x-roles` của B16 mở rộng sau này (không đổi gì với vai hiện tại; phản hồi tính thử và lần ghi cùng vai cho cùng tập trường).
      */
     EarlyDepartureResult: {
       /** @description Lần ghi: đơn sau khi đổi. `dryRun`: đơn **đang lưu** (chưa đổi) – `version` dùng cho `If-Match` lần ghi (0.3.9) */
       reservation: components['schemas']['Reservation'];
-      /** @description Dòng `early_departure_fee` đã ghi (đơn OTA = `otaRetainedVnd`). `dryRun`: số sẽ ghi – gửi lại làm `expectedFeeVnd` */
+      /** @description Tổng các dòng `early_departure_fee` đã ghi (phần trực tiếp + phần OTA = `otaRetainedVnd`). `dryRun`: số sẽ ghi – gửi lại làm `expectedFeeVnd`. **0.3.9 bổ sung 2 (DOM BR v0.4.8, oracle BR-428-09)**: dòng phần OTA (`chargeCode = ota_retained`) **không** có `noticeDays` trong `labelParams` → bill "Phí trả phòng sớm"; dòng trực tiếp/CTV có `noticeDays` → "Phí trả phòng sớm (báo trước N ngày)". Chỉ áp cho dòng ghi mới (BR-008) */
       earlyDepartureFeeVnd: components['schemas']['MoneyVnd'];
       /** @description Số của yêu cầu hoàn vừa tạo (0 khi không có). `dryRun`: số sẽ xin hoàn – gửi lại làm `expectedRefundVnd`. Đã trần theo số dư thừa chưa xử lý (BR-428, `refundCapped`) */
       refundVnd?: components['schemas']['MoneyVnd'];
-      /** @description 0.3.9 – số ngày báo trước BR-011 (ngày rời mới − ngày nghiệp vụ lúc khách báo); 0 → đơn trực tiếp không hoàn phần 50 %. Có cả khi lượt ở chỉ có đêm OTA bị bỏ (chỉ để hiển thị) */
+      /** @description 0.3.9 – số ngày báo trước BR-011 (ngày rời mới − ngày nghiệp vụ lúc khách báo); 0 → đơn trực tiếp không hoàn phần 50 %. Server luôn trả (cả khi chỉ có đêm OTA bị bỏ – số thật, dùng cho audit). **0.3.9 bổ sung 2 (DOM BR v0.4.8)**: số này **chỉ áp cho phần không OTA** – Desk chỉ hiện dòng "báo trước N ngày" khi có ít nhất một đêm không OTA bị bỏ; phần OTA giữ lại theo chính sách kênh, không phụ thuộc số ngày báo */
       noticeDays?: number;
       /** @description 0.3.9 – ngày nghiệp vụ lúc khách báo (BR-010: báo 01:00 ngày 22/10 → 21/10) để Desk giải thích `noticeDays` */
       noticeBusinessDate?: components['schemas']['LocalDate'];
@@ -6589,13 +6593,13 @@ export interface components {
       refundableVnd?: components['schemas']['MoneyVnd'];
       /**
        * @description 0.3.9 – chênh lệch đổi phòng BR-424 của các đêm bỏ (đơn OTA) **được hoàn** trong yêu cầu hoàn – **0.3.9 bổ sung 1 (BE-B thẻ 01, A)**: số **sau trần**
-       *     = min(chênh lệch đã đảo, `refundVnd` − `extraPersonRefundVnd`) (như `extraPersonRefundVnd`); 0 khi không có. Desk: "Chênh lệch đổi phòng đã thu – hoàn đủ"
+       *     = min(chênh lệch đã đảo, `refundVnd` − `extraPersonRefundVnd`) (như `extraPersonRefundVnd`); 0 khi không có. Desk: "Chênh lệch đổi phòng của các đêm bỏ – hoàn" (DOM FB-R3-DOM-UXD-ED-01 – không dùng chữ "đã thu … hoàn đủ")
        */
       roomChangeDifferenceVnd?: components['schemas']['MoneyVnd'];
       /** @description 0.3.9 bổ sung 1 (BE-B thẻ 01, A) – phần chênh lệch đổi phòng đã đảo nhưng **không** hoàn (khách chưa trả / vượt số dư) = chênh lệch đã đảo − `roomChangeDifferenceVnd`; chỉ đảo dòng */
       roomChangeDifferenceReversedVnd?: components['schemas']['MoneyVnd'];
       /** @description 0.3.9 bổ sung 1 – phần hoàn 50 % BR-428 **thực có trong yêu cầu hoàn** sau trần = `refundVnd` − `extraPersonRefundVnd` − `roomChangeDifferenceVnd` (server tính); = `refundableVnd` khi `refundCapped = false` */
-      refundableAfterCapVnd?: components['schemas']['MoneyVnd'];
+      refundablePaidVnd?: components['schemas']['MoneyVnd'];
       /** @description 0.3.9 – `true` khi số dư thừa chưa xử lý không đủ: phần vượt chỉ đảo dòng, không hoàn (Desk nói rõ "hoàn tối đa số khách đã trả thừa") */
       refundCapped?: boolean;
       /** @description 0.3.9 – Σ `netVnd` của các đêm OTA bị bỏ = trần của `otaRetainedVnd`; **vắng** khi không có đêm OTA bị bỏ */
@@ -7063,7 +7067,7 @@ export interface components {
       /**
        * @description 0.3.6 bổ sung (review S3 – ARC mục C chốt tên, DOM BE-21): khóa chuỗi hiển thị của dòng (`bill.line.*`), client dịch theo `locale`
        *     (VI, VI/EN). Danh sách khóa và tham số (đóng theo khóa): `room_night {date, room}` · `extra_night {date, room}` (0.3.6 bổ sung 2 (BA v0.3, ARC 17/10), E05-11) · `extra_person {date, count}` ·
-       *     `early_checkin {time, pct}` · `late_checkout {time, pct}` · `early_departure_fee {pct?, nights?, noticeDays?}` · `overpayment_retained` ·
+       *     `early_checkin {time, pct}` · `late_checkout {time, pct}` · `early_departure_fee {pct?, nights?, noticeDays?}` (0.3.9 bổ sung 2: `noticeDays` chỉ có ở dòng phần trực tiếp/CTV; dòng OTA giữ lại `chargeCode = ota_retained` không có – client không in "báo trước") · `overpayment_retained` ·
        *     `room_change {from, to}` · `minibar {item, qty}` · `cancellation_fee` · `no_show_fee` · `foc {reason}` · `discount {reason}` ·
        *     `laundry {qty}` · `adhoc_cleaning {qty}` · `smoking_fee` · `key_card_fee {qty}` · `damage {item, qty}` · `fnb {text, qty}` ·
        *     `service_fee {text, qty}` · `utilities` · `adjustment`.
