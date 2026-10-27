@@ -527,8 +527,43 @@ export interface paths {
      * @description 0.3.1: sửa được `baseOccupancy` (định mức từng căn, BR-110) và `maxOccupancy`; sau khi áp thay đổi phải có
      *     `maxOccupancy` ∈ {`baseOccupancy`, `baseOccupancy` + 1} (ESC-014) → nếu không `422 VALIDATION_FAILED` mã trường `MAX_OCCUPANCY_RANGE`.
      *     Giảm `maxOccupancy` dưới số người tính sức chứa của đơn tương lai/đang ở → `409 CAPACITY_BELOW_BOOKINGS`.
+     *     **0.3.9 (BUG-R3-018)** – làm rõ hành vi đã cài: `listPrice` ghi **một dòng đủ hai giá** cho `effectiveFrom` (≥ ngày nghiệp vụ – quá khứ → 422 `DATE_IN_PAST`); đã có dòng
+     *     cùng ngày (đang áp hôm nay hoặc đã lên lịch) thì dòng đó bị **thay cả hai giá**. Thiếu `nightlyListPriceVnd` → server tính theo BR-101 (5) (đường tạm; Desk luôn gửi).
+     *     Gỡ hẳn một dòng đã lên lịch (trở về giá trước đó) dùng `cancelScheduledRoomListPrice`. Phản hồi có `scheduledListPrices` (OWN/MGR).
      */
     patch: operations['updateRoom'];
+    trace?: never;
+  };
+  '/v1/properties/{propertyId}/rooms/{roomId}/list-prices/actions/cancel-scheduled': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        roomId: components['parameters']['RoomId'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Hủy một dòng giá niêm yết **đã lên lịch** của căn (chưa tới ngày hiệu lực) – BUG-R3-018 phần 1, FB-INV-005 (0.3.9)
+     * @description **0.3.9 (v1.0.1)**. Xóa dòng `room_list_price` của căn có `effectiveFrom` = ngày gửi và **>** ngày nghiệp vụ hiện tại; từ ngày đó giá trở về dòng liền trước
+     *     (dòng đã lên lịch sớm hơn hoặc giá đang dùng). Mẫu `cancelScheduledParameter` (R3-Q51) nhưng **không** cần xác nhận lại S2 (giá niêm yết không phải tham số bảo mật – như `updateRoom`).
+     *     - Dòng có `effectiveFrom` ≤ ngày nghiệp vụ (đang áp hoặc đã qua) → `409 INVALID_TRANSITION` (`currentState` = `effective`) – muốn đổi giá đang dùng thì `updateRoom.listPrice`.
+     *     - Không có dòng đúng ngày đó → `404 NOT_FOUND`. Căn khác cơ sở/không tồn tại → `404 NOT_FOUND`.
+     *     - Không được xóa dòng **duy nhất** của căn (căn chưa có giá đang dùng, chỉ có một dòng lên lịch – căn tạo với `activeFrom` tương lai) → `409 INVALID_TRANSITION`
+     *       (`currentState` = `only_price`) – sửa bằng `updateRoom.listPrice` cùng ngày.
+     *     - `If-Match` = `Room.version`; thành công tăng `room.version` (ETag mới) trong **cùng** giao dịch; khóa `room … FOR UPDATE` trước khi xóa (chống hai người cùng sửa giá).
+     *     - Audit `config` `room.list_price_cancelled` (`entityType = room`): `before.listPrice` = dòng bị xóa (ngày, hai giá, lý do cũ), `after.cancelledEffectiveFrom`, `reason` = lý do hủy.
+     *     - Đơn/báo giá đã lưu giữ giá chụp (BR-006) – không đổi. Báo giá mới, landing "giá từ", lịch giá đọc `room_list_price` lúc tính nên tự theo. Không có đồng bộ kênh (giá OTA đặt trên extranet).
+     *     Phản hồi: `Room` sau khi hủy (có `scheduledListPrices` mới) + `ETag`.
+     */
+    post: operations['cancelScheduledRoomListPrice'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   '/v1/properties/{propertyId}/channels': {
@@ -1534,7 +1569,39 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Trả sớm (B16) – đổi ngày đi, mở bán đêm còn lại, phần hoàn theo BR-428 qua yêu cầu duyệt */
+    /**
+     * Trả sớm (B16) – đổi ngày đi, mở bán đêm còn lại, phần hoàn theo BR-428 qua yêu cầu duyệt; `dryRun` để xem trước (0.3.9)
+     * @description **0.3.9 (v1.0.1 – US-137, US-135; FB-R3-DOM-BA-02 Blocker)** – luồng Desk: (1) gọi `dryRun=true` với `newDepartureDate` + `noticeGivenAt` → hộp xác nhận hiện
+     *     `EarlyDepartureResult` (đêm bỏ, số ngày báo trước, phần hoàn/phí, số OTA giữ lại tối đa, đơn con bị hủy, cần bằng chứng hay không); (2) lễ tân nhập thêm
+     *     `otaRetainedVnd`/`noticeEvidence` nếu cờ `otaRetainedRequired`/`evidenceRequired` bật, gọi `dryRun=true` lại; (3) xác nhận → gọi `dryRun=false` với **cùng** thân
+     *     + `expectedRefundVnd` = `refundVnd` và `expectedFeeVnd` = `earlyDepartureFeeVnd` của lần tính thử cuối, kèm `Idempotency-Key` + `If-Match` (= `reservation.version` của lần tính thử).
+     *     Client **không** tự tính tiền (50 %, làm tròn, trần theo số dư) – chỉ hiện số server trả.
+     *
+     *     **Tính thử (`dryRun=true`)** – như `cancelReservation`/`setLateCheckout`: không cần `Idempotency-Key`/`If-Match`, không tiêu khóa, **không để lại gì** (không
+     *     `reservation_change`, `stay_night`, `folio_line`, `approval_request`, `audit_event`, outbox, SSE, không gắn tệp, không cấp mã/số từ sequence). Cùng quyền (`x-roles`, phạm vi) và
+     *     **cùng hàm tính** với lần ghi thật – kết quả của hai lần phải bằng nhau khi dữ liệu không đổi (test bắt buộc). `reservation` trả về là đơn **đang lưu** (chưa đổi,
+     *     `version` hiện tại – dùng cho `If-Match` lần ghi); `refundRequestId` = `null`. Lỗi giống lần ghi (`INVALID_TRANSITION` khi đơn không `in_house`/không phải đơn chính,
+     *     422 `DATE_INVALID`, `VALUE_OUT_OF_RANGE` + `max`, `NOT_ALLOWED`, `PAYMENT_NOT_CONFIGURED`), **trừ hai lỗi "thiếu dữ liệu bổ sung"**: thiếu `otaRetainedVnd` khi có đêm OTA bị bỏ
+     *     → không 422, trả `otaRetainedRequired = true` và tính với phần OTA = 0; thiếu `noticeEvidence` khi giờ báo nhập lùi → không 422, trả `evidenceRequired = true`. Lần ghi
+     *     thật vẫn trả 422 `REQUIRED`/`EVIDENCE_REQUIRED` như cũ.
+     *
+     *     **Lần ghi (`dryRun=false`)**: `expectedRefundVnd`/`expectedFeeVnd` có trong thân thì **luôn** được so với số tính lại trong giao dịch ghi (sau khi khóa đơn → căn → folio,
+     *     K11-01) – lệch một trong hai → `409 AMOUNT_CHANGED` kèm `refundVnd`, `earlyDepartureFeeVnd` mới, **không ghi gì**. Desk luôn gửi cả hai; vắng = không so (giữ tương thích
+     *     test API/E2E cũ – không phải đường của Desk). Phản hồi 200 trả cùng các trường diễn giải như tính thử (màn kết quả dùng lại bảng).
+     *
+     *     **Hướng dẫn cài (BE-A)**: hàm `earlyDeparture` hiện ghi xen kẽ với tính (giải phóng occupancy, void đêm, `resyncStay`, rồi mới đọc `unhandledCreditVnd`), nên tính thử
+     *     **không** chạy được trong `read()` readOnly như `setLateCheckout`. Chọn một trong hai, ưu tiên (a) cho v1.0.1:
+     *     (a) **giao dịch luôn ROLLBACK**: `uow.simulate` (hoặc tương đương) mở giao dịch ghi được cùng ngữ cảnh tenant, `lock_timeout` ngắn, **không** ghi `idempotency_key`, gọi
+     *     **chính** hàm `earlyDeparture(..., { dryRun: true })`, rồi `ROLLBACK` trong `finally` (kể cả khi thành công). Trong chế độ dry, hàm bỏ các bước có tác dụng ngoài giao dịch
+     *     hoặc tốn sequence: `approvals.submit` (chỉ tính `refundVnd`), `attachments.bindTo`, `audit.recordMoney`; `pg_notify`/outbox nằm trong giao dịch nên tự mất khi rollback.
+     *     Kiểm `expectedRefundVnd`/`expectedFeeVnd` ngay trước bước tạo yêu cầu hoàn (đã có `refundVnd` cuối) – ném lỗi để rollback toàn bộ.
+     *     (b) tách `planEarlyDeparture` chỉ đọc (đêm bỏ, cơ sở, phần hoàn, phí, chênh lệch đổi phòng, số dư sau thay đổi) dùng cho cả hai đường – chỉ khi chứng minh được số dư sau
+     *     thay đổi bằng đúng `resyncStay` (đơn OTA trả trước có `ota_collect` đồng bộ – dễ lệch).
+     *     Test tối thiểu: oracle BR-428-01…06 (`tests/fixtures/br-examples.json`) qua cả `dryRun` và lần ghi; `dryRun` không đổi số dòng các bảng trên và không đổi `reservation.version`;
+     *     `dryRun=true` không cần hai header; lệch số → 409 `AMOUNT_CHANGED` và không ghi; replay cùng `Idempotency-Key` sau thành công trả lại kết quả cũ.
+     *     **CỔNG**: `openapi-meta.ts` khai `dryRun` cho operation này từ 0.3.9 → guard bỏ hai header khi `dryRun=true`; tới khi BE-A cài, controller giữ chặn `dryRun=true`
+     *     (422 `NOT_ALLOWED`) – không được để lời gọi `dryRun=true` rơi vào đường ghi thật.
+     */
     post: operations['earlyDeparture'];
     delete?: never;
     options?: never;
@@ -5483,7 +5550,29 @@ export interface components {
         monthlyListPriceVnd?: components['schemas']['MoneyVnd'];
         nightlyListPriceVnd?: components['schemas']['MoneyVnd'];
       };
+      /**
+       * @description **0.3.9 (v1.0.1 – BUG-R3-018 phần 1, FB-INV-005)**: các dòng giá niêm yết **đã lên lịch** – `room_list_price` có `effectiveFrom` **>** ngày nghiệp vụ hiện tại (dòng
+       *     `effectiveFrom` ≤ hôm nay là `currentListPrice` hoặc lịch sử, không nằm ở đây), tăng dần theo ngày; mảng rỗng khi không có. Chỉ OWN/MGR (rbac ghi chú 25a: vai tra cứu
+       *     không thấy lịch sử/lịch giá) – vai khác thuộc tính **vắng**. Có ở `listRooms`, `createRoom`, `updateRoom`, `cancelScheduledRoomListPrice`.
+       *     **Desk (giá của ngày chọn)**: khi OWN/MGR chọn ngày hiệu lực D, giá **đang áp cho D** = dòng có `effectiveFrom` lớn nhất ≤ D trong {`currentListPrice`} ∪ `scheduledListPrices`.
+       *     Desk điền sẵn **cả hai** ô (giá tháng, giá đêm) bằng dòng đó và so "đã đổi" với dòng đó (không với giá hôm nay) – vì `updateRoom.listPrice` luôn ghi **đủ hai giá** cho D
+       *     (ghi đè dòng cùng ngày D nếu có), điền sẵn giá hôm nay sẽ âm thầm đưa giá kia của D về giá hôm nay (rủi ro QA ghi ở BUG-R3-018). Đây là chọn dòng, không phải tính tiền.
+       */
+      scheduledListPrices?: components['schemas']['RoomScheduledListPrice'][];
+      /** @description Tăng ở mọi lần sửa căn, kể cả đổi giá (`updateRoom.listPrice`) và hủy giá đã lên lịch (0.3.9) – `ETag` của căn */
       version: number;
+    };
+    /** @description 0.3.9 (BUG-R3-018 phần 1) – một dòng `room_list_price` chưa tới ngày hiệu lực (erd 4.1) */
+    RoomScheduledListPrice: {
+      effectiveFrom: components['schemas']['LocalDate'];
+      monthlyListPriceVnd: components['schemas']['MoneyVnd'];
+      nightlyListPriceVnd: components['schemas']['MoneyVnd'];
+      /** @description Tên hiển thị người lên lịch (`room_list_price.changed_by` → `app_user.display_name`); `null` khi dòng do hệ thống/nhập liệu tạo – như `Parameter.changedBy` */
+      changedBy?: string | null;
+      /** @description Lần ghi gần nhất của dòng (`updated_at` – dòng cùng ngày bị ghi đè thì là lúc ghi đè) */
+      changedAt: components['schemas']['Instant'];
+      /** @description Lý do đổi giá đã nhập (`updateRoom.listPrice.reason`) */
+      reason?: string | null;
     };
     /**
      * @description Bỏ trống `baseOccupancy` → lấy `room_group.base_occupancy`; bỏ trống `maxOccupancy` → `baseOccupancy` + 1 (ESC-014).
@@ -6435,13 +6524,68 @@ export interface components {
       saved?: boolean;
       reservation?: components['schemas']['Reservation'];
     };
-    /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E04-06) – phản hồi `earlyDeparture` */
+    /**
+     * @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E04-06) – phản hồi `earlyDeparture`.
+     *     **0.3.9 (US-137, US-135)**: cùng schema cho tính thử (`dryRun=true`) và lần ghi. Các trường diễn giải (`noticeDays` … `registrationNeedsUpdate`) **luôn có** ở server cài
+     *     0.3.9 (cả hai đường); để ngoài `required` chỉ để bản server cũ (0.3.8) không vi phạm hợp đồng – client 0.3.9 coi vắng = server chưa nâng cấp, không tự tính thay.
+     *     Quan hệ (QA kiểm): `earlyDepartureFeeVnd` = (`droppedNetVnd` − `refundableVnd`) + `otaRetainedVnd` gửi lên (0 nếu vắng);
+     *     `refundVnd` = min(`refundableVnd` + phụ thu người đêm bỏ + `roomChangeDifferenceVnd`, số dư thừa chưa xử lý của folio **sau** thay đổi), phân bổ theo BR-428:
+     *     phụ thu người → chênh lệch đổi phòng → phần hoàn 50 %; `extraPersonRefundVnd` + `extraPersonReversedVnd` = phụ thu người của các đêm bỏ;
+     *     `refundCapped = true` ⇔ `refundVnd` < `refundableVnd` + `extraPersonRefundVnd` + `extraPersonReversedVnd` + `roomChangeDifferenceVnd`.
+     */
     EarlyDepartureResult: {
+      /** @description Lần ghi: đơn sau khi đổi. `dryRun`: đơn **đang lưu** (chưa đổi) – `version` dùng cho `If-Match` lần ghi (0.3.9) */
       reservation: components['schemas']['Reservation'];
-      /** @description Dòng `early_departure_fee` đã ghi (đơn OTA = `otaRetainedVnd`) */
+      /** @description Dòng `early_departure_fee` đã ghi (đơn OTA = `otaRetainedVnd`). `dryRun`: số sẽ ghi – gửi lại làm `expectedFeeVnd` */
       earlyDepartureFeeVnd: components['schemas']['MoneyVnd'];
-      /** @description Số của yêu cầu hoàn vừa tạo (0 khi không có) */
+      /** @description Số của yêu cầu hoàn vừa tạo (0 khi không có). `dryRun`: số sẽ xin hoàn – gửi lại làm `expectedRefundVnd`. Đã trần theo số dư thừa chưa xử lý (BR-428, `refundCapped`) */
       refundVnd?: components['schemas']['MoneyVnd'];
+      /** @description 0.3.9 – số ngày báo trước BR-011 (ngày rời mới − ngày nghiệp vụ lúc khách báo); 0 → đơn trực tiếp không hoàn phần 50 %. Có cả khi lượt ở chỉ có đêm OTA bị bỏ (chỉ để hiển thị) */
+      noticeDays?: number;
+      /** @description 0.3.9 – ngày nghiệp vụ lúc khách báo (BR-010: báo 01:00 ngày 22/10 → 21/10) để Desk giải thích `noticeDays` */
+      noticeBusinessDate?: components['schemas']['LocalDate'];
+      /** @description 0.3.9 – các đêm bị bỏ (mở bán lại) của mọi đơn trong lượt ở (đơn chính + đơn con gia hạn), tăng dần theo ngày */
+      droppedNights?: {
+        date: components['schemas']['LocalDate'];
+        /**
+         * @description Đơn sở hữu đêm (đơn con gia hạn có mã riêng)
+         * @example OTM-00501
+         */
+        reservationCode: string;
+        /**
+         * @description Căn được giải phóng đêm đó; `null` khi đêm chưa gán căn
+         * @example 202
+         */
+        roomNo?: string | null;
+        /** @description Đêm của đơn kênh OTA – không vào cơ sở BR-428 của OTTIMO; tính vào `otaRetainedMaxVnd` */
+        ota: boolean;
+        /** @description Đêm trực tiếp/CTV: tiền phòng **ròng** của đêm (sau bậc BR-107, FOC/giảm giá đã duyệt) – cơ sở BR-428. Đêm OTA: tiền phòng OTA của đêm (trần số OTA giữ lại). Không gồm phụ thu người */
+        netVnd: components['schemas']['MoneyVnd'];
+      }[];
+      /** @description 0.3.9 – cơ sở BR-428 = Σ `netVnd` của các đêm **không** OTA bị bỏ (oracle `refundBaseVnd`) */
+      droppedNetVnd?: components['schemas']['MoneyVnd'];
+      /** @description 0.3.9 – phần hoàn BR-428 trước trần: 50 % `droppedNetVnd` làm tròn 1.000 nửa lên khi `noticeDays` ≥ 1, ngược lại 0 (oracle BR-428-01…05 `refundVnd`) */
+      refundableVnd?: components['schemas']['MoneyVnd'];
+      /** @description 0.3.9 – chênh lệch đổi phòng BR-424 của các đêm bỏ được đảo (đơn OTA – hoàn 100 % trong cùng yêu cầu hoàn); 0 khi không có */
+      roomChangeDifferenceVnd?: components['schemas']['MoneyVnd'];
+      /** @description 0.3.9 – `true` khi số dư thừa chưa xử lý không đủ: phần vượt chỉ đảo dòng, không hoàn (Desk nói rõ "hoàn tối đa số khách đã trả thừa") */
+      refundCapped?: boolean;
+      /** @description 0.3.9 – Σ `netVnd` của các đêm OTA bị bỏ = trần của `otaRetainedVnd`; **vắng** khi không có đêm OTA bị bỏ */
+      otaRetainedMaxVnd?: components['schemas']['MoneyVnd'];
+      /** @description 0.3.9 – có đêm OTA bị bỏ mà thân chưa có `otaRetainedVnd` (chỉ xuất hiện `true` ở `dryRun`; lần ghi thì là 422). Desk hiện ô "Số OTA giữ lại" */
+      otaRetainedRequired?: boolean;
+      /** @description 0.3.9 – giờ báo nhập lùi (quá `manual_time_tolerance_minutes` hoặc khác ngày nghiệp vụ, BR-011): cần `noticeEvidence`. `true` cả khi thân đã có bằng chứng (Desk giữ ô hiện) */
+      evidenceRequired?: boolean;
+      /** @description 0.3.9 – đơn con gia hạn (BR-422) bị ảnh hưởng: `cancelled = true` khi mọi đêm của đơn con bị bỏ (đơn con bị hủy, chưa từng bắt đầu); mảng rỗng khi không có */
+      childBookings?: {
+        reservationId: components['schemas']['Uuid'];
+        /** @example OTM-00502 */
+        code: string;
+        droppedNightCount: number;
+        cancelled: boolean;
+      }[];
+      /** @description 0.3.9 – lượt ở có khai báo lưu trú khách nước ngoài sẽ (lần ghi: đã) chuyển `needs_update` vì đổi ngày đi (BR-604) – Desk nhắc và nối sang màn khai báo */
+      registrationNeedsUpdate?: boolean;
       /** @description 0.3.6 bổ sung 4 (DOM luật OTA 17/10, ARC) (BR-428 v0.3.4): phụ thu người **đã thu** của các đêm bỏ – hoàn 100 %, nằm trong **một** yêu cầu hoàn duy nhất (`refundRequestId`); với đơn OTA đây là phần duy nhất OTTIMO hoàn (tiền phòng OTA do OTA hoàn) */
       extraPersonRefundVnd?: components['schemas']['MoneyVnd'];
       /** @description 0.3.6 bổ sung 4 (DOM luật OTA 17/10, ARC): phụ thu người **chưa thu** của các đêm bỏ – chỉ đảo dòng (không sinh hoàn) */
@@ -10112,6 +10256,59 @@ export interface operations {
       422: components['responses']['ValidationFailed'];
     };
   };
+  cancelScheduledRoomListPrice: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        'If-Match'?: components['parameters']['IfMatch'];
+      };
+      path: {
+        propertyId: components['parameters']['PropertyId'];
+        roomId: components['parameters']['RoomId'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "effectiveFrom": "2026-10-28",
+         *       "reason": "Nhập nhầm giá đêm 300.000"
+         *     }
+         */
+        'application/json': {
+          /** @description Ngày hiệu lực của dòng cần hủy (một phần tử của `Room.scheduledListPrices`) */
+          effectiveFrom: components['schemas']['LocalDate'];
+          /** @description Lý do hủy (thiếu/ngắn → 422 `REASON_REQUIRED`, `field` = `reason`) */
+          reason: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Đã hủy dòng giá đã lên lịch – căn sau khi hủy */
+      200: {
+        headers: {
+          ETag: components['headers']['ETag'];
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Room'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      412: components['responses']['VersionConflict'];
+      422: components['responses']['ValidationFailed'];
+    };
+  };
   listChannels: {
     parameters: {
       query?: never;
@@ -12004,21 +12201,34 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Ngày rời mới: hôm nay (ngày nghiệp vụ) ≤ ngày rời mới < ngày đi hiện tại của lượt ở (gồm đơn con gia hạn) và > ngày đến – ngoài khoảng → 422 `DATE_INVALID` */
           newDepartureDate: components['schemas']['LocalDate'];
+          /** @description Giờ khách báo (BR-011) – mặc định Desk = lúc mở hộp; không được ở tương lai (422 `DATE_INVALID`). Nhập lùi quá `manual_time_tolerance_minutes` hoặc khác ngày nghiệp vụ → cần `noticeEvidence` */
           noticeGivenAt: components['schemas']['Instant'];
           /**
            * @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E04-06, DOM S3-2): **đơn kênh OTA bắt buộc** (thiếu → 422 `REQUIRED`) – số OTA giữ lại theo extranet, server không tự tính; ghi dòng
            *     `early_departure_fee`; tiền OTA thu hộ không vào luồng hoàn của OTTIMO. Đơn kênh khác gửi → 422 `NOT_ALLOWED`. > tiền OTA của các đêm bỏ → 422 `VALUE_OUT_OF_RANGE`
+           *     **0.3.9**: trần = `EarlyDepartureResult.otaRetainedMaxVnd` (lỗi kèm `max`); ở `dryRun` thiếu thì không lỗi – `otaRetainedRequired = true`.
            */
           otaRetainedVnd?: components['schemas']['MoneyVnd'];
           /**
            * @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E04-06, BR-011): bắt buộc khi `noticeGivenAt` sớm hơn lúc thao tác quá `manual_time_tolerance_minutes` hoặc khác ngày nghiệp vụ
            *     (thiếu → 422 `EVIDENCE_REQUIRED`, `field` = `noticeEvidence`). Ảnh (tin nhắn khách…) `purpose=penalty_evidence` cùng `reservationId`.
+           *     **0.3.9**: ở `dryRun` thiếu thì không lỗi – `evidenceRequired = true`; `attachmentId` gửi ở `dryRun` chỉ được kiểm (dùng được, đúng mục đích/đơn), không gắn.
            */
           noticeEvidence?: {
             note: string;
             attachmentId?: components['schemas']['Uuid'];
           };
+          /** @description 0.3.9 – `refundVnd` của lần tính thử lễ tân đã xác nhận (có thể 0). Chỉ so ở lần ghi (`dryRun=false`); lệch → 409 `AMOUNT_CHANGED`. Desk luôn gửi */
+          expectedRefundVnd?: components['schemas']['MoneyVnd'];
+          /** @description 0.3.9 – `earlyDepartureFeeVnd` của lần tính thử lễ tân đã xác nhận (có thể 0). Chỉ so ở lần ghi; lệch → 409 `AMOUNT_CHANGED`. Desk luôn gửi */
+          expectedFeeVnd?: components['schemas']['MoneyVnd'];
+          /**
+           * @description 0.3.9 (US-135, FB-R3-DOM-BA-02) – tính thử: trả `EarlyDepartureResult` mà không ghi gì (xem mô tả operation). Không cần `Idempotency-Key`/`If-Match`.
+           * @default false
+           */
+          dryRun?: boolean;
         };
       };
     };
@@ -12027,6 +12237,7 @@ export interface operations {
        * @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E04-06): đổi từ `Reservation` sang `EarlyDepartureResult` (FE chưa làm màn B16 – không vỡ client). Cơ sở BR-428 = giá **ròng** đêm bỏ
        *     (`room_revenue_vnd`, sau bậc BR-107 và FOC/giảm giá); phụ thu người đêm bỏ hoàn 100 %; yêu cầu hoàn = min(phần hoàn + phụ thu người đêm bỏ,
        *     `unhandledCreditVnd`), làm tròn nửa lên; không tính lại bậc BR-107 (DOM S3-1/S3-2).
+       *     **0.3.9**: kết quả đã ghi (`dryRun=false`) hoặc kết quả tính thử (`dryRun=true`, không ghi gì) – cùng schema.
        */
       200: {
         headers: {
@@ -12038,6 +12249,9 @@ export interface operations {
       };
       401: components['responses']['Unauthenticated'];
       403: components['responses']['Forbidden'];
+      409: components['responses']['Conflict'];
+      412: components['responses']['VersionConflict'];
+      422: components['responses']['ValidationFailed'];
     };
   };
   checkOut: {

@@ -20,5 +20,6 @@
 | [ADR-012](ADR-012-monorepo-toolchain.md) | Monorepo pnpm + Turborepo; ESLint, Prettier, Vitest, Playwright, k6 | Đề xuất | – |
 | [ADR-013](ADR-013-sensitive-file-storage.md) | Lưu ảnh giấy tờ: mã hóa phong bì (envelope), xóa bằng hủy khóa | Đề xuất | ESC-001 (thời hạn lưu) |
 | [ADR-014](ADR-014-landing-site.md) | Website giới thiệu + đặt phòng trực tiếp ở tên miền gốc: `apps/landing-web` (Astro 6 tĩnh) trên Caddy cùng VPS; tiếng Anh ở gốc, `/vi/`, không tự chuyển hướng theo ngôn ngữ (sửa 17/10); theo Brand Guidelines v1.0 qua token chung; v1 không tải gì của bên thứ ba; form tạo `booking_inquiry`; API công khai phòng trống/giá R3 | Đề xuất (sửa 17/10) | Tên miền (ESC-020 L4); chính sách hiện giá công khai (ESC-020 L3) |
+| [ADR-015](ADR-015-dry-run-rollback-transaction.md) | Tính thử (`dryRun`) cho thao tác tính và ghi xen kẽ (B16 trả sớm): chạy chính hàm ghi trong giao dịch luôn ROLLBACK; lần ghi so số đã hiện (`409 AMOUNT_CHANGED`) | Đề xuất (27/10) | – |
 
 Mẫu ADR: Bối cảnh · Quyết định · Phương án đã cân nhắc · Hệ quả (tốt / phải chấp nhận) · Điều kiện xem lại · Liên quan.

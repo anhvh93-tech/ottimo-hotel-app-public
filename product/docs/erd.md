@@ -442,7 +442,7 @@ Ký hiệu cột: **C** = mức dữ liệu (để trống = C1), **R** = phạm
 | `active_from`, `active_to` | date | `active_to` null = vô hạn | Đêm khả dụng gộp K-01 (DATA) |
 | `lock_ref` | text | null | Mã khóa cửa ở adapter (M14) |
 
-**`room_list_price`** – giá niêm yết theo hiệu lực (BR-101, US-004 AC1). `room_id`, `effective_from date`, `monthly_list_price_vnd`, `nightly_list_price_vnd` (tính theo BR-101 rồi **làm tròn** và lưu, sửa tay được), `changed_by`, `reason`. UK (`room_id`, `effective_from`). **Quy tắc (BE-ARC-15, giả định đội tự chốt)**: mọi phép tính tiếp theo (giảm theo đêm BR-107, phụ thu %, báo giá) dùng **giá đêm niêm yết đã làm tròn đã lưu** – khớp cái lễ tân thấy; DOM sửa ví dụ BR-107 cho khớp.
+**`room_list_price`** – giá niêm yết theo hiệu lực (BR-101, US-004 AC1). `room_id`, `effective_from date`, `monthly_list_price_vnd`, `nightly_list_price_vnd` (tính theo BR-101 rồi **làm tròn** và lưu, sửa tay được), `changed_by`, `reason`. UK (`room_id`, `effective_from`). **Quy tắc (BE-ARC-15, giả định đội tự chốt)**: mọi phép tính tiếp theo (giảm theo đêm BR-107, phụ thu %, báo giá) dùng **giá đêm niêm yết đã làm tròn đã lưu** – khớp cái lễ tân thấy; DOM sửa ví dụ BR-107 cho khớp. **0.3.9 (ARC 27/10, BUG-R3-018)**: dòng có `effective_from` > ngày nghiệp vụ = **giá đã lên lịch** – API trả ở `Room.scheduledListPrices` (OWN/MGR); xóa được bằng `cancelScheduledRoomListPrice` (chỉ dòng tương lai, không xóa dòng duy nhất của căn; tăng `room.version`; audit `room.list_price_cancelled`). Dòng ≤ ngày nghiệp vụ không bao giờ bị xóa/sửa ngoài luật ghi đè cùng ngày của `updateRoom`.
 
 **`config_parameter`** – bảng tham số có hiệu lực theo ngày (mục 9).
 | Cột | Kiểu | Ràng buộc | Ghi chú |
