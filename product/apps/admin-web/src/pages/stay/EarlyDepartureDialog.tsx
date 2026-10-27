@@ -12,7 +12,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../app/api';
 import { useBusinessDay } from '../../app/businessDay';
 import { useCatalog } from '../../app/catalog';
-import { timeHHmm, todayLocal } from '../../app/dates';
+import { daysBetween, timeHHmm, todayLocal } from '../../app/dates';
 import { isVndStep, parseVnd } from '../../app/money';
 import { fieldErrors } from '../../app/problem';
 import { addDays, channelName, currentSegment, dayMonth } from '../../app/reservations';
@@ -68,7 +68,9 @@ export function EarlyDepartureDialog({
   const roomNo = currentSegment(r.segments, today)?.roomNo ?? '';
   const channel = channelName(catalog.channels, r.channelCode, r.channelId);
   const minDate = today > r.arrivalDate ? today : addDays(r.arrivalDate, 1);
-  const maxDate = addDays(r.departureDate, -1);
+  // 0.3.9 bổ sung 1 (FB-R3-UXD-FE-A-06): the whole stay, child extensions included (BR-422); absent = old server.
+  const stayEnd = r.stayDepartureDate ?? r.departureDate;
+  const maxDate = addDays(stayEnd, -1);
   const [opened] = useState(nowLocal);
   const [newDate, setNewDate] = useState(minDate);
   const [noticeDate, setNoticeDate] = useState(opened.date);
@@ -138,25 +140,45 @@ export function EarlyDepartureDialog({
     if (!debounced || debounced !== sig) return;
     let stale = false;
     const at = tick;
-    api.earlyDeparture(R, { ...(JSON.parse(debounced) as Draft), dryRun: true }).then(
-      (x) => {
-        if (stale) return;
-        setPreview({ sig: debounced, tick: at, data: x.data });
-        setAsked((a) => ({
-          // Once shown, the proof box stays (the contract keeps `evidenceRequired` true with proof sent).
-          evidence: a.evidence || x.data.evidenceRequired === true,
-          otaMax: x.data.otaRetainedMaxVnd,
-        }));
-      },
-      (error: unknown) => !stale && setPreview({ sig: debounced, tick: at, error }),
-    );
+    // ARC 10.3: an older preview is cancelled, not only ignored.
+    const ctl = new AbortController();
+    api
+      .earlyDeparture(
+        R,
+        { ...(JSON.parse(debounced) as Draft), dryRun: true },
+        undefined,
+        undefined,
+        ctl.signal,
+      )
+      .then(
+        (x) => {
+          if (stale) return;
+          setPreview({ sig: debounced, tick: at, data: x.data });
+          setAsked((a) => ({
+            // Once shown, the proof box stays (the contract keeps `evidenceRequired` true with proof sent).
+            evidence: a.evidence || x.data.evidenceRequired === true,
+            otaMax: x.data.otaRetainedMaxVnd,
+          }));
+        },
+        (error: unknown) => !stale && setPreview({ sig: debounced, tick: at, error }),
+      );
     return () => {
       stale = true;
+      ctl.abort();
     };
     // `R` is rebuilt each render from the same ids.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debounced, sig, tick, propertyId, r.id]);
   const current = preview && preview.sig === sig && preview.tick === tick ? preview : null;
+  // FB-R3-UXD-FE-A-12 (DS 4): the skeleton only after 300 ms of waiting; the status text shows at once.
+  const waitKey = sig && !current ? `${sig}|${tick}` : '';
+  const [slowFor, setSlowFor] = useState('');
+  useEffect(() => {
+    if (!waitKey) return;
+    const timer = setTimeout(() => setSlowFor(waitKey), 300);
+    return () => clearTimeout(timer);
+  }, [waitKey]);
+  const slow = !!waitKey && slowFor === waitKey;
   const p = current?.data;
   const previewError = current?.error;
   const isApi = isApiError(previewError);
@@ -221,7 +243,8 @@ export function EarlyDepartureDialog({
 
   // ---- step 2 → write ----
   const save = async () => {
-    if (!p || !ready || !told || act.busy) return;
+    // ARC 10.3: the expected amounts come only from the preview of exactly this input.
+    if (!p || !ready || !told || act.busy || current?.sig !== JSON.stringify(draft)) return;
     const caught: { error?: unknown } = {};
     const out = await act.submit((idem) =>
       api
@@ -466,7 +489,7 @@ export function EarlyDepartureDialog({
       {steps}
       {inPreview ? (
         <section className="stack" aria-labelledby={`${ids}-q`}>
-          <h3 className="label-h" id={`${ids}-q`} tabIndex={-1} ref={questionRef}>
+          <h3 id={`${ids}-q`} tabIndex={-1} ref={questionRef}>
             {t('early_departure.preview_question', { guest, date: date(newDate) })}
           </h3>
           <p className="li-s">{t('early_departure.preview_note')}</p>
@@ -512,7 +535,7 @@ export function EarlyDepartureDialog({
           ) : null}
           <p className="li-s">
             {t('early_departure.stay_now', {
-              range: `${dayMonth(r.arrivalDate)} → ${dayMonth(r.departureDate)} · ${t('booking.field.nights', { n: r.nights ?? 0 })}`,
+              range: `${dayMonth(r.arrivalDate)} → ${dayMonth(stayEnd)} · ${t('booking.field.nights', { n: daysBetween(r.arrivalDate, stayEnd) })}`,
             })}
           </p>
           <Field
@@ -633,7 +656,7 @@ export function EarlyDepartureDialog({
             {failed || unavailable || !sig ? null : !current ? (
               <>
                 {t('early_departure.preview_loading')}
-                <LoadingBlock rows={1} />
+                {slow ? <LoadingBlock rows={1} /> : null}
               </>
             ) : needsOta ? (
               t('early_departure.ota_needed', { channel })
@@ -764,19 +787,20 @@ function Figures({
         <caption className="label-h">{t('early_departure.calc_title')}</caption>
         <tbody>
           {policy && p.droppedNetVnd !== undefined ? (
-            <tr className="sub">
+            <tr>
               <td>{t('early_departure.row_base')}</td>
               <td className="r num">{vnd(p.droppedNetVnd)}</td>
             </tr>
           ) : null}
-          {p.noticeDays !== undefined ? (
-            <tr className="sub">
+          {/* DOM ED-02 / ARC 11.1: notice days only apply to non-OTA nights. */}
+          {policy && p.noticeDays !== undefined ? (
+            <tr>
               <td>{t('early_departure.row_notice')}</td>
               <td className="r num">{t('early_departure.notice_value', { n: p.noticeDays })}</td>
             </tr>
           ) : null}
           {policy && p.refundableVnd !== undefined ? (
-            <tr className="sub">
+            <tr>
               <td>
                 {t('early_departure.row_refundable')}
                 {p.refundableVnd === 0 && (p.droppedNetVnd ?? 0) > 0 ? (
@@ -786,26 +810,39 @@ function Figures({
               <td className="r num">{vnd(p.refundableVnd)}</td>
             </tr>
           ) : null}
+          {/* ARC 10.2 / 11.1 (phương án A): the policy part actually inside the refund – the server's figure. */}
+          {policy && p.refundCapped && p.refundablePaidVnd !== undefined ? (
+            <tr>
+              <td>{t('early_departure.row_refundable_after_cap')}</td>
+              <td className="r num">{vnd(p.refundablePaidVnd)}</td>
+            </tr>
+          ) : null}
           {p.extraPersonRefundVnd ? (
-            <tr className="sub">
+            <tr>
               <td>{t('early_departure.row_extra_refund')}</td>
               <td className="r num">{vnd(p.extraPersonRefundVnd)}</td>
             </tr>
           ) : null}
           {p.extraPersonReversedVnd ? (
             <tr className="sub">
-              <td className="li-s">{t('early_departure.row_extra_reversed')}</td>
-              <td className="r num li-s">{vnd(p.extraPersonReversedVnd)}</td>
+              <td>{t('early_departure.row_extra_reversed')}</td>
+              <td className="r num">{vnd(p.extraPersonReversedVnd)}</td>
             </tr>
           ) : null}
           {p.roomChangeDifferenceVnd ? (
-            <tr className="sub">
+            <tr>
               <td>{t('early_departure.row_room_change')}</td>
               <td className="r num">{vnd(p.roomChangeDifferenceVnd)}</td>
             </tr>
           ) : null}
-          {ota ? (
+          {p.roomChangeDifferenceReversedVnd ? (
             <tr className="sub">
+              <td>{t('early_departure.row_room_change_reversed')}</td>
+              <td className="r num">{vnd(p.roomChangeDifferenceReversedVnd)}</td>
+            </tr>
+          ) : null}
+          {ota ? (
+            <tr>
               <td>
                 {t('early_departure.row_ota_retained')}
                 <div className="li-s">{t('early_departure.ota_room_note')}</div>
@@ -879,7 +916,7 @@ function Consequences({ p, newDate }: { p: EarlyDepartureResult; newDate: string
   return (
     <section>
       <h4 className="label-h">{t('early_departure.effects_title')}</h4>
-      <ul className="list-plain">
+      <ul className="consequence">
         {ranges.map((x) => (
           <li key={`${x.room}-${x.range}`}>
             {t('early_departure.effect_nights', { room: x.room, range: x.range })}
@@ -900,7 +937,9 @@ function Consequences({ p, newDate }: { p: EarlyDepartureResult; newDate: string
           </li>
         ))}
         {p.registrationNeedsUpdate ? <li>{t('early_departure.effect_registration')}</li> : null}
-        <li>{t('early_departure.effect_door')}</li>
+        <li>{t('early_departure.effect_door', { date: date(newDate) })}</li>
+        {/* DOM ED-06 / ARC 11.3: until v1.1 no channel link – the desk reopens the nights on the OTA extranets. */}
+        <li>{t('early_departure.effect_ota_reopen')}</li>
       </ul>
     </section>
   );

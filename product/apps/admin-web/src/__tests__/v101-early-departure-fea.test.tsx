@@ -178,7 +178,16 @@ describe('v1.0.1 B16 Trả sớm (US-137, US-135 – OpenAPI 0.3.9, UXD v1.0.1 �
     expect(row(dlg, 'early_departure.row_refundable')).toHaveTextContent(vnd(334_000));
     expect(row(dlg, 'early_departure.row_refund')).toHaveTextContent(M(334_000));
     expect(row(dlg, 'early_departure.row_fee')).toHaveTextContent(M(333_000));
-    expect(within(dlg).getByText(tv('early_departure.effect_door'))).toBeInTheDocument();
+    expect(
+      within(dlg).getByText(
+        tv('early_departure.effect_door', { date: formatLocalDate(addDays(T, 1)) }),
+      ),
+    ).toBeInTheDocument();
+    // DOM ED-06: the nights are reopened on the OTA extranets by hand until v1.1.
+    expect(within(dlg).getByText(tv('early_departure.effect_ota_reopen'))).toBeInTheDocument();
+    // DOM ED-02: a direct stay shows the notice row; FB-11: detail rows are not the Stone `sub` style.
+    expect(row(dlg, 'early_departure.row_notice')).not.toHaveClass('sub');
+    expect(within(dlg).queryByText(tv('early_departure.row_refundable_after_cap'))).toBeNull();
     // The danger button waits for the tick, saying why.
     expect(confirmBtn(dlg)).toHaveAttribute('aria-disabled', 'true');
     expect(confirmBtn(dlg)).toHaveAccessibleDescription(tv('early_departure.confirm_needs_told'));
@@ -317,11 +326,14 @@ describe('v1.0.1 B16 Trả sớm (US-137, US-135 – OpenAPI 0.3.9, UXD v1.0.1 �
     const { user, dlg } = await openDialog('Trần Thu Nga');
     const T = todayLocal();
     await setDate(user, dlg, addDays(T, 1));
-    fireEvent.change(within(dlg).getByLabelText(new RegExp(tv('early_departure.notice_date'))), {
-      target: { value: addDays(T, -1) },
-    });
     fireEvent.change(
-      within(dlg).getByLabelText(new RegExp(esc(tv('early_departure.notice_time')))),
+      within(dlg).getByLabelText(new RegExp(`^${tv('early_departure.notice_date')}(\\s*\\*)?$`)),
+      {
+        target: { value: addDays(T, -1) },
+      },
+    );
+    fireEvent.change(
+      within(dlg).getByLabelText(new RegExp(`^${tv('early_departure.notice_time')}(\\s*\\*)?$`)),
       {
         target: { value: '21:40' },
       },
@@ -477,5 +489,123 @@ describe('v1.0.1 B16 Trả sớm (US-137, US-135 – OpenAPI 0.3.9, UXD v1.0.1 �
     expect(toPreview(dlg)).toHaveAttribute('aria-disabled', 'true');
     await user.click(toPreview(dlg));
     expect(within(dlg).queryByRole('checkbox')).toBeNull();
+  });
+
+  it('capped refund: the policy row keeps its figure, the part inside the refund is the server refundablePaidVnd', async () => {
+    directStay(2_000_000);
+    const { user, dlg } = await openDialog('Trần Thu Nga');
+    await setDate(user, dlg, addDays(todayLocal(), 1));
+    await waitFor(() => expect(toPreview(dlg)).not.toHaveAttribute('aria-disabled'));
+    await user.click(toPreview(dlg));
+    expect(row(dlg, 'early_departure.row_refundable')).toHaveTextContent(vnd(334_000));
+    expect(row(dlg, 'early_departure.row_refundable_after_cap')).toHaveTextContent(/^\D*0$/);
+    expect(row(dlg, 'early_departure.row_refund')).toHaveTextContent(M(0));
+  });
+
+  it('OTA-only stay: no notice row (DOM ED-02), the OTA note does not promise a refund (DOM ED-03)', async () => {
+    const { user, dlg } = await openDialog('Kim Seo-yeon');
+    await setDate(user, dlg, addDays(todayLocal(), 1));
+    const ota = await within(dlg).findByLabelText(new RegExp(tv('early_departure.ota_retained')));
+    await user.type(ota, '0');
+    await waitFor(() => expect(toPreview(dlg)).not.toHaveAttribute('aria-disabled'));
+    await user.click(toPreview(dlg));
+    expect(within(dlg).queryByText(tv('early_departure.row_notice'))).toBeNull();
+    expect(within(dlg).queryByText(tv('early_departure.row_base'))).toBeNull();
+    expect(within(dlg).getByText(tv('early_departure.ota_room_note'))).toBeInTheDocument();
+    expect(within(dlg).getByText(tv('early_departure.effect_ota_reopen'))).toBeInTheDocument();
+  });
+
+  describe('stay with a child extension booking (BR-422, ARC 0.3.9 bổ sung 1 – stayDepartureDate)', () => {
+    /** Trần Thu Nga (direct, T−2 → T+2) + a child extension T+2 → T+4 (2 × 667.000, not paid yet). */
+    function withChild() {
+      const r = directStay();
+      const T = todayLocal();
+      const child = {
+        ...r,
+        id: '0192a1b0-0000-7000-8000-000000099991',
+        code: 'OTM-09991',
+        parentReservationId: r.id,
+        status: 'confirmed' as const,
+        arrivalDate: addDays(T, 2),
+        departureDate: addDays(T, 4),
+        nights: 2,
+        nightlyRates: [
+          { date: addDays(T, 2), amountVnd: NIGHT },
+          { date: addDays(T, 3), amountVnd: NIGHT },
+        ],
+        totalRoomVnd: 2 * NIGHT,
+        folioId: '0192a1b0-0000-7000-8000-000000099992',
+        segments: (r.segments ?? []).map((sg) => ({
+          ...sg,
+          fromDate: addDays(T, 2),
+          toDate: addDays(T, 4),
+        })),
+        allowedActions: [],
+        version: 1,
+      };
+      mockControl.rsv.reservations.push(child);
+      return { r, child, T };
+    }
+
+    it('the date range and "current stay" run to the end of the child; a date inside it shortens the child', async () => {
+      const { child, T } = withChild();
+      const cap = captureB16();
+      const { user, dlg } = await openDialog('Trần Thu Nga');
+      expect(
+        within(dlg).getByLabelText(new RegExp(tv('early_departure.new_date'))),
+      ).toHaveAttribute('max', addDays(T, 3));
+      expect(
+        within(dlg).getByText(
+          tv('early_departure.stay_now', {
+            range: `${dayMonth(addDays(T, -2))} → ${dayMonth(addDays(T, 4))} · ${tv('booking.field.nights', { n: 6 })}`,
+          }),
+        ),
+      ).toBeInTheDocument();
+      await setDate(user, dlg, addDays(T, 3)); // inside the child
+      await waitFor(() => expect(toPreview(dlg)).not.toHaveAttribute('aria-disabled'));
+      await user.click(toPreview(dlg));
+      const nights = within(dlg).getByRole('table', { name: tv('early_departure.nights_title') });
+      expect(within(nights).getByText(child.code)).toBeInTheDocument();
+      expect(
+        within(dlg).getByText(
+          tv('early_departure.effect_child_shortened', { code: child.code, n: 1 }),
+        ),
+      ).toBeInTheDocument();
+      cap.stop();
+      expect(cap.sent.at(-1)!.body.newDepartureDate).toBe(addDays(T, 3));
+    });
+
+    it('a date before the child cancels it: said before and after the write', async () => {
+      const { child, T } = withChild();
+      const { user, dlg } = await openDialog('Trần Thu Nga');
+      await setDate(user, dlg, addDays(T, 1));
+      await waitFor(() => expect(toPreview(dlg)).not.toHaveAttribute('aria-disabled'));
+      await user.click(toPreview(dlg));
+      expect(
+        within(dlg).getByText(
+          tv('early_departure.effect_child_cancelled', { code: child.code, n: 2 }),
+        ),
+      ).toBeInTheDocument();
+      await user.click(
+        within(dlg).getByRole('checkbox', { name: tv('early_departure.told_guest') }),
+      );
+      await user.click(confirmBtn(dlg));
+      expect(
+        await within(dlg).findByText(
+          tv('early_departure.done_child_cancelled', { code: child.code }),
+        ),
+      ).toBeInTheDocument();
+      expect(child.status).toBe('cancelled');
+    });
+
+    it('the server offers B16 while a night of the child is left, even on the primary departure day', async () => {
+      const { r, T } = withChild();
+      r.departureDate = T; // the primary ends today, the child runs to T+4
+      renderApp(`/reservations/${r.id}`, 'qa.fd');
+      const d = await screen.findByRole('dialog', { name: 'Trần Thu Nga' });
+      expect(
+        await within(d).findByRole('button', { name: tv('drawer.action.early_departure') }),
+      ).toBeInTheDocument();
+    });
   });
 });

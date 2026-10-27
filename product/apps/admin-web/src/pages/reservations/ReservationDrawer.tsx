@@ -10,7 +10,6 @@ import { timeHHmm } from '../../app/dates';
 import {
   STATUS_KEY,
   STATUS_TONE,
-  addDays,
   channelName,
   currentSegment,
   dayMonth,
@@ -353,11 +352,9 @@ export function ReservationDrawer({
       {allowed.has('set_late_checkout') ? (
         <Button onClick={() => setOpen('late')}>{t('drawer.action.late_checkout')}</Button>
       ) : null}
-      {allowed.has('early_departure') &&
-      businessDay < r.departureDate &&
-      addDays(r.arrivalDate, 1) < r.departureDate ? (
-        // 0.3.9 B16 (US-137, UXD v1.0.1 §2.1): only when the server offers it and the date range is not empty –
-        // max(business day, arrival + 1) ≤ departure − 1 (BR-010 business day).
+      {allowed.has('early_departure') ? (
+        // 0.3.9 B16 (US-137; bổ sung 1 mục 10.1, FB-R3-UXD-FE-A-06): only `allowedActions` – the server offers it
+        // while max(today, arrival + 1) < stayDepartureDate (the whole stay, child extensions included).
         <Button onClick={() => setOpen('early')}>{t('drawer.action.early_departure')}</Button>
       ) : null}
       {allowed.has('extend_stay') ? (

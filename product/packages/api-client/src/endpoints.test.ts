@@ -407,6 +407,19 @@ describe('v1.0.1 endpoints (OpenAPI 0.3.9)', () => {
     expect(call(1)[1].headers).toMatchObject({ 'If-Match': '"5"', 'Idempotency-Key': 'key-ed' });
   });
 
+  it('B16 preview passes an AbortSignal through (an older preview is cancelled – ARC 0.3.9 add 1, 10.3)', async () => {
+    const { api, call } = setup();
+    const ctl = new AbortController();
+    await api.earlyDeparture(
+      R,
+      { newDepartureDate: '2026-11-14', noticeGivenAt: '2026-11-12T10:00:00+07:00', dryRun: true },
+      undefined,
+      undefined,
+      ctl.signal,
+    );
+    expect(call(0)[1].signal).toBe(ctl.signal);
+  });
+
   it('cancel a scheduled list price posts the date + reason with If-Match (Room.version) and a key', async () => {
     const { api, call } = setup();
     await api.cancelScheduledRoomListPrice(

@@ -8,7 +8,7 @@ import {
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, ConfirmDialog, Field, Modal, Stepper, Switch } from '@ottimo/ui';
-import { useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
 import { api } from '../app/api';
 import { useBusinessDay, useBusinessDayChange } from '../app/businessDay';
 import { isVndStep, parseVnd, perDayOfMonthly } from '../app/money';
@@ -126,6 +126,16 @@ export function RoomDrawer({
   const [cancelLocked, setCancelLocked] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const cancelWrite = useWrite();
+  // FB-R3-UXD-FE-A-09 (UXD §3.3): after a cancel, focus the next row's cancel button, else the section title.
+  const [focusAfter, setFocusAfter] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusAfter || cancelRow) return;
+    const el =
+      document.getElementById(`${ids}-cancel-${focusAfter}`) ??
+      document.getElementById(`${ids}-sched`);
+    el?.focus();
+    setFocusAfter(null);
+  }, [focusAfter, cancelRow, ids]);
   const [sellable, setSellable] = useState(room.isSellable);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState<{ text: string; conflict?: boolean } | null>(null);
@@ -329,6 +339,10 @@ export function RoomDrawer({
       setCur(data);
       onRoomChanged?.(data);
       setCancelRow(null);
+      setFocusAfter(
+        (data.scheduledListPrices ?? []).find((x) => x.effectiveFrom > row.effectiveFrom)
+          ?.effectiveFrom ?? 'title',
+      );
       // The boxes were following the cancelled row → they follow the row now in force on D.
       if (effectiveFrom === row.effectiveFrom) {
         const now = priceRowFor(data, effectiveFrom);
@@ -574,7 +588,7 @@ export function RoomDrawer({
           ) : null}
           {known ? (
             <div className="mt-8">
-              <h3 className="label-h" id={`${ids}-sched`}>
+              <h3 className="label-h" id={`${ids}-sched`} tabIndex={-1}>
                 {t('rooms.scheduled_title')}
               </h3>
               {notice ? (
@@ -637,6 +651,7 @@ export function RoomDrawer({
                     ) : (
                       <Button
                         size="sm"
+                        id={`${ids}-cancel-${x.effectiveFrom}`}
                         disabled={!online}
                         aria-label={t('rooms.cancel_scheduled_label', {
                           date: date(x.effectiveFrom),

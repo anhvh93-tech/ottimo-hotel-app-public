@@ -292,8 +292,9 @@ export function labelFor(
       return out('bill.line.late_checkout', { ...timePct(), ...given });
     case 'early_departure_fee': {
       const m = /(\d+)d\b/.exec(d);
+      // ARC 0.3.9 bổ sung 2 (BR-428-09): the OTA part has no `noticeDays` label param.
       return out('bill.line.early_departure_fee', {
-        noticeDays: m ? Number(m[1]) : null,
+        ...(m ? { noticeDays: Number(m[1]) } : {}),
         ...given,
       });
     }
@@ -2183,10 +2184,12 @@ export function createStayMock(ctx: Ctx) {
       },
     ),
     /**
-     * 0.3.9 B16 trả sớm (US-137, US-135): `dryRun=true` → the same result, nothing written (no key / If-Match);
-     * the write compares `expectedRefundVnd`/`expectedFeeVnd` (409 AMOUNT_CHANGED). Mock BR-428: base = net of the
-     * dropped non-OTA nights, half of it (rounded 1.000) when notice ≥ 1 business day, capped by the credit left
-     * after the change; OTA nights → `otaRetainedVnd` (≤ OTA amount). No extra-person / room-change parts.
+     * 0.3.9 B16 trả sớm (US-137, US-135; bổ sung 1–2): `dryRun=true` → the same result, nothing written (no key /
+     * If-Match); the write compares `expectedRefundVnd`/`expectedFeeVnd` (409 AMOUNT_CHANGED). The whole stay counts
+     * (primary + child extension bookings, BR-422 – `stayDepartureDate`). Mock BR-428: base = net of the dropped
+     * non-OTA nights, half of it (rounded 1.000) when notice ≥ 1 business day, capped by the credit left after the
+     * change (phương án A: `refundablePaidVnd` = part of the refund; no extra-person / room-change parts here);
+     * OTA nights → `otaRetainedVnd` (≤ OTA amount).
      */
     http.post(
       `${prop}/reservations/:reservationId/actions/early-departure`,
@@ -2198,13 +2201,18 @@ export function createStayMock(ctx: Ctx) {
         const { g, r } = x;
         if (r.status !== 'in_house' || r.parentReservationId)
           return problem(409, 'INVALID_TRANSITION', { currentState: r.status });
+        const children = rsv().state.reservations.filter(
+          (o) => o.parentReservationId === r.id && ['confirmed', 'in_house'].includes(o.status),
+        );
+        const stay = [r, ...children];
+        const stayEnd = stay.reduce((a, o) => (o.departureDate > a ? o.departureDate : a), '');
         const day = businessDayLocal();
         const newDate = String(body.newDepartureDate ?? '');
         const errors: Array<{ field: string; code: string }> = [];
         if (
           !/^\d{4}-\d{2}-\d{2}$/.test(newDate) ||
           newDate < day ||
-          newDate >= r.departureDate ||
+          newDate >= stayEnd ||
           newDate <= r.arrivalDate
         )
           errors.push({ field: 'newDepartureDate', code: 'DATE_INVALID' });
@@ -2215,28 +2223,32 @@ export function createStayMock(ctx: Ctx) {
         const noticeDay = businessDayLocal(undefined, new Date(noticeMs));
         const evidenceRequired = noticeMs < Date.now() - 15 * 60_000 || noticeDay !== day;
         const evidence = body.noticeEvidence as Body | undefined;
-        const ota = r.paymentModel !== 'direct';
-        const f = folioOf(r);
-        const dropped = f.lines.filter(
-          (l) =>
-            l.category === 'room' &&
-            l.lineState === 'posted' &&
-            !!l.serviceDate &&
-            l.serviceDate >= newDate &&
-            l.serviceDate < r.departureDate,
+        const isOta = (o: MockReservation) => o.paymentModel !== 'direct';
+        const dropped = stay.flatMap((o) =>
+          folioOf(o)
+            .lines.filter(
+              (l) =>
+                l.category === 'room' &&
+                l.lineState === 'posted' &&
+                !!l.serviceDate &&
+                l.serviceDate >= newDate &&
+                l.serviceDate < o.departureDate,
+            )
+            .map((l) => ({ o, l })),
         );
-        const droppedAll = dropped.reduce((a, l) => a + l.amountVnd, 0);
-        const droppedNetVnd = ota ? 0 : droppedAll;
-        const otaRetainedMaxVnd = ota ? droppedAll : undefined;
+        const sum = (xs: typeof dropped) => xs.reduce((a, d) => a + d.l.amountVnd, 0);
+        const otaDropped = sum(dropped.filter((d) => isOta(d.o)));
+        const droppedNetVnd = sum(dropped.filter((d) => !isOta(d.o)));
+        const anyOta = dropped.some((d) => isOta(d.o));
         const otaSent = body.otaRetainedVnd;
-        if (!ota && otaSent !== undefined)
+        if (!anyOta && otaSent !== undefined)
           return validation([{ field: 'otaRetainedVnd', code: 'NOT_ALLOWED' }]);
-        if (ota && otaSent !== undefined && Number(otaSent) > droppedAll)
+        if (anyOta && otaSent !== undefined && Number(otaSent) > otaDropped)
           return problem(422, 'VALIDATION_FAILED', {
-            max: droppedAll,
+            max: otaDropped,
             errors: [{ field: 'otaRetainedVnd', code: 'VALUE_OUT_OF_RANGE' }],
           });
-        const otaRetainedRequired = ota && droppedAll > 0 && otaSent === undefined;
+        const otaRetainedRequired = anyOta && otaSent === undefined;
         if (!dry && otaRetainedRequired)
           return validation([{ field: 'otaRetainedVnd', code: 'REQUIRED' }]);
         if (!dry && evidenceRequired && String(evidence?.note ?? '').trim().length < 3)
@@ -2249,14 +2261,20 @@ export function createStayMock(ctx: Ctx) {
           ),
         );
         const refundableVnd = noticeDays >= 1 ? round1000(droppedNetVnd / 2) : 0;
-        const otaRetained = ota ? Number(otaSent ?? 0) : 0;
+        const otaRetained = anyOta ? Number(otaSent ?? 0) : 0;
         const fee = droppedNetVnd - refundableVnd + otaRetained;
-        // Credit left after the change: room nights out, fee in; OTA prepaid nights leave with their `ota_collect`.
-        const tt = totals(r);
-        const otaPaidBack = r.paymentModel === 'ota_prepaid' ? droppedAll : 0;
-        const netAfter =
-          tt.totalVnd - droppedAll + fee - (tt.paidVnd - otaPaidBack) + tt.refundedVnd;
-        const requested = tt.creditVnd - tt.unhandledCreditVnd;
+        // Credit left after the change over the stay's folios: nights out, fee in; OTA prepaid nights leave with
+        // their `ota_collect`.
+        let netAfter = 0;
+        let requested = 0;
+        for (const o of stay) {
+          const tt = totals(o);
+          const out = sum(dropped.filter((d) => d.o === o));
+          const otaBack = o.paymentModel === 'ota_prepaid' ? out : 0;
+          netAfter += tt.totalVnd - out - (tt.paidVnd - otaBack) + tt.refundedVnd;
+          requested += tt.creditVnd - tt.unhandledCreditVnd;
+        }
+        netAfter += fee;
         const creditLeft = Math.max(0, Math.max(0, -netAfter) - requested);
         const refundVnd = Math.min(refundableVnd, creditLeft);
         const reg = r.registrationId ? st.registrations.get(r.registrationId) : undefined;
@@ -2264,28 +2282,38 @@ export function createStayMock(ctx: Ctx) {
           isForeign(r) &&
           !!reg &&
           ['sent', 'confirmed', 'updated', 'needs_update'].includes(reg.status);
+        const childBookings = children
+          .map((c) => ({
+            reservationId: c.id,
+            code: c.code,
+            droppedNightCount: dropped.filter((d) => d.o === c).length,
+            cancelled: c.arrivalDate >= newDate,
+          }))
+          .filter((c) => c.droppedNightCount > 0);
         const result = {
           earlyDepartureFeeVnd: fee,
           refundVnd,
           noticeDays,
           noticeBusinessDate: noticeDay,
           droppedNights: dropped
-            .map((l) => ({
+            .map(({ o, l }) => ({
               date: l.serviceDate!,
-              reservationCode: r.code,
-              roomNo: currentSegment(r.segments, l.serviceDate!)?.roomNo ?? null,
-              ota,
+              reservationCode: o.code,
+              roomNo: currentSegment(o.segments, l.serviceDate!)?.roomNo ?? null,
+              ota: isOta(o),
               netVnd: l.amountVnd,
             }))
             .sort((a, b) => a.date.localeCompare(b.date)),
           droppedNetVnd,
           refundableVnd,
+          refundablePaidVnd: refundVnd,
           roomChangeDifferenceVnd: 0,
+          roomChangeDifferenceReversedVnd: 0,
           refundCapped: refundVnd < refundableVnd,
-          ...(otaRetainedMaxVnd !== undefined && droppedAll > 0 ? { otaRetainedMaxVnd } : {}),
+          ...(anyOta ? { otaRetainedMaxVnd: otaDropped } : {}),
           otaRetainedRequired: dry ? otaRetainedRequired : false,
           evidenceRequired,
-          childBookings: [] as unknown[],
+          childBookings,
           registrationNeedsUpdate,
           extraPersonRefundVnd: 0,
           extraPersonReversedVnd: 0,
@@ -2299,37 +2327,62 @@ export function createStayMock(ctx: Ctx) {
           (Number(body.expectedRefundVnd) !== refundVnd || Number(body.expectedFeeVnd) !== fee)
         )
           return problem(409, 'AMOUNT_CHANGED', { refundVnd, earlyDepartureFeeVnd: fee });
-        // Write: nights out (the mock hides voided lines), OTA collection follows, fee line, booking shortened.
-        for (const l of dropped) l.lineState = 'rejected';
-        if (otaPaidBack > 0) {
-          const pay = st.payments.find((p) => p.folioId === f.id && p.method === 'ota_collect');
-          if (pay) pay.amountVnd = Math.max(0, pay.amountVnd - otaPaidBack);
+        // Write: nights out (the mock hides voided lines), OTA collection follows, fee lines, bookings shortened.
+        for (const { o, l } of dropped) {
+          l.lineState = 'rejected';
+          if (o.paymentModel === 'ota_prepaid') {
+            const pay = st.payments.find(
+              (pm) => pm.folioId === o.folioId && pm.method === 'ota_collect',
+            );
+            if (pay) pay.amountVnd = Math.max(0, pay.amountVnd - l.amountVnd);
+          }
         }
-        if (fee > 0)
+        // ARC 0.3.9 bổ sung 2 (BR-428-09): the OTA part carries no notice days on its label.
+        if (droppedNetVnd - refundableVnd > 0)
           addLine(
             r,
             {
               category: 'early_departure_fee',
-              amountVnd: fee,
+              amountVnd: droppedNetVnd - refundableVnd,
               description: `early_departure_fee ${noticeDays}d`,
               serviceDate: newDate,
             },
             g.user.displayName,
           );
-        r.departureDate = newDate;
-        r.nightlyRates = (r.nightlyRates ?? []).filter((n) => n.date < newDate);
-        r.nights = r.nightlyRates.length;
-        r.totalRoomVnd = r.nightlyRates.reduce((a, n) => a + n.amountVnd, 0);
-        r.segments = (r.segments ?? [])
-          .filter((sg) => sg.fromDate < newDate)
-          .map((sg) => (sg.toDate > newDate ? { ...sg, toDate: newDate } : sg));
+        if (otaRetained > 0)
+          addLine(
+            r,
+            {
+              category: 'early_departure_fee',
+              amountVnd: otaRetained,
+              description: 'early_departure_fee ota_retained',
+              serviceDate: newDate,
+            },
+            g.user.displayName,
+          );
+        for (const o of stay) {
+          if (o !== r && o.arrivalDate >= newDate) {
+            o.status = 'cancelled';
+            continue;
+          }
+          if (o.departureDate <= newDate) continue;
+          o.departureDate = newDate;
+          o.nightlyRates = (o.nightlyRates ?? []).filter((n) => n.date < newDate);
+          o.nights = o.nightlyRates.length;
+          o.totalRoomVnd = o.nightlyRates.reduce((a, n) => a + n.amountVnd, 0);
+          o.segments = (o.segments ?? [])
+            .filter((sg) => sg.fromDate < newDate)
+            .map((sg) => (sg.toDate > newDate ? { ...sg, toDate: newDate } : sg));
+          syncReservation(o);
+          bump(o);
+        }
         if (refundVnd > 0) {
           const a: MockApproval = {
             id: uid(89_000 + next()),
             type: 'refund',
             status: 'pending',
             reservationCode: r.code,
-            folioId: f.id,
+            folioId: r.folioId,
             amountVnd: refundVnd,
             reasonCode: 'early_departure',
             reasonNote: `early departure ${newDate}`,
@@ -2346,9 +2399,8 @@ export function createStayMock(ctx: Ctx) {
           reg.status = 'needs_update';
           r.registrationStatus = 'needs_update' as MockReservation['registrationStatus'];
         }
-        f.version += 1;
+        folioOf(r).version += 1;
         syncReservation(r);
-        bump(r);
         return rsv().remember(key, 200, { ...result, reservation: resView(r, g) });
       },
     ),

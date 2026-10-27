@@ -67,7 +67,8 @@ export function lineLabel(t: T, line: FolioLine): string {
     }
     const variant = VARIANT[l.labelKey];
     const key =
-      variant && params[variant[0]] !== undefined && params[variant[0]] !== '' && hasKey(variant[1])
+      // A param sent as null counts as absent (0.3.9 bổ sung 2: the OTA early-departure fee has no notice days).
+      variant && params[variant[0]] != null && params[variant[0]] !== '' && hasKey(variant[1])
         ? variant[1]
         : l.labelKey;
     return t(key, params);

@@ -779,8 +779,10 @@ export function createReservationMock(ctx: Ctx) {
       add('set_late_checkout', 'B15', 'late-checkout');
       add('change_room', 'B14', 'change-room');
       if (r.departureDate <= today()) add('check_out', 'B18', 'check-out');
-      // 0.3.9 B16 (A17, FD+): the primary booking, while a night is left to drop (server allowedActions).
-      if (!r.parentReservationId && r.stayType !== 'long' && r.departureDate > today())
+      // 0.3.9 B16 (A17, FD+; bổ sung 1 mục 10.1): the primary booking, while max(today, arrival + 1) <
+      // stayDepartureDate (the whole stay, child extensions included – BR-422).
+      const from = addDays(r.arrivalDate, 1) > today() ? addDays(r.arrivalDate, 1) : today();
+      if (!r.parentReservationId && r.stayType !== 'long' && from < stayDeparture(r))
         add('early_departure', 'B16', 'early-departure');
       if (
         has(roles, OWN_MGR) &&
@@ -805,6 +807,12 @@ export function createReservationMock(ctx: Ctx) {
       return null;
     return `${r.arrivalDate}T${param('no_show_mark_time', '23:00')}:00+07:00`;
   }
+  /** 0.3.9 bổ sung 1: the latest departure of the primary and its live child extensions (BR-422). */
+  function stayDeparture(r: MockReservation): string {
+    return state.reservations
+      .filter((o) => o.parentReservationId === r.id && ['confirmed', 'in_house'].includes(o.status))
+      .reduce((a, o) => (o.departureDate > a ? o.departureDate : a), r.departureDate);
+  }
   function view(r: MockReservation, user: MockUser, roles: Role[]): Reservation {
     const rest = strip(r, ['createdBy', 'guestName', 'roomId', 'holdCreatedAt', 'nationality']);
     const out: Reservation = {
@@ -820,6 +828,12 @@ export function createReservationMock(ctx: Ctx) {
               { step: 'checked_out', done: r.status === 'checked_out' },
             ],
       allowedActions: actionsFor(r, user, roles),
+      // 0.3.9 bổ sung 1: primary `confirmed`/`in_house` only (x-visible-to FD+).
+      ...(!r.parentReservationId &&
+      ['confirmed', 'in_house'].includes(r.status) &&
+      has(roles, FD_PLUS)
+        ? { stayDepartureDate: stayDeparture(r) }
+        : {}),
       noShowAvailableFrom: noShowFrom(r),
       requestedRoomGroupCode: r.requestedRoomGroupId
         ? groupCode(r.requestedRoomGroupId)

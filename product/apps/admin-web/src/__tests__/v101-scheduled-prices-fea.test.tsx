@@ -204,6 +204,8 @@ describe('v1.0.1 giá đã lên lịch trên ngăn kéo căn (BUG-R3-018 phần 
     expect(within(dlg).queryByText(tv('rooms.scheduled_from', { date: D(D1) }))).toBeNull();
     expect(within(dlg).getByText(tv('rooms.scheduled_from', { date: D(D2) }))).toBeInTheDocument();
     expect(mockControl.db.scheduledListPrices.map((x) => x.effectiveFrom)).toEqual([D2]);
+    // FB-R3-UXD-FE-A-09: focus goes to the next row's cancel button.
+    await waitFor(() => expect(cancelBtn(dlg, D2)).toHaveFocus());
 
     // The drawer now writes with the new version (no 412 after its own cancel).
     await user.type(within(dlg).getByLabelText('Tên căn'), ' II');
@@ -357,5 +359,19 @@ describe('v1.0.1 giá đã lên lịch trên ngăn kéo căn (BUG-R3-018 phần 
     const save = within(dlg).getByRole('button', { name: 'Lưu' });
     expect(save).toBeDisabled();
     expect(save).toHaveAccessibleDescription(tv('rooms.price_unchanged', { date: D(D1) }));
+  });
+
+  it('cancelling the last scheduled row puts focus on the section title (FB-R3-UXD-FE-A-09)', async () => {
+    const D1 = addDays(today(), 3);
+    schedule('101', D1, 9_000_000, 700_000);
+    const { user } = renderApp('/settings/rooms', 'qa.owner');
+    const dlg = await openRoom(user, '101');
+    const ask = await askCancel(user, dlg, D1);
+    await user.type(reasonBox(ask), 'Nhập nhầm');
+    await user.click(confirmCancel(ask));
+    await within(dlg).findByText(tv('rooms.scheduled_empty'));
+    await waitFor(() =>
+      expect(within(dlg).getByRole('heading', { name: tv('rooms.scheduled_title') })).toHaveFocus(),
+    );
   });
 });
