@@ -676,3 +676,16 @@ Kịch bản B2 phần 1 (OPS chạy, INV ngồi cạnh):
   ```
   Đạt khi script in `mail-test: sent` **và** INV thấy thư trong hộp `info@ottimo.vn`, kể cả mục Spam. Nếu thư vào Spam, ghi lại để INV kiểm SPF/DKIM của tên miền.
 - Thư bảo mật thật ("OTTIMO – Security notice…") chỉ có khi xảy ra sự kiện 2FA. Thư thử này kiểm đúng đường gửi đó.
+
+## 20. 27/10 – `v1.0.0-rc.3` và `landing-v1.0.0` lên production (ORC làm thay OPS)
+
+| Việc | Kết quả |
+|---|---|
+| Staging: duyệt lượt CI push 40416908930 (`70fe734`) theo cho phép của INV | `deploy staging` đạt; `ottimo-api/web/worker` chạy `sha-70fe734e9077`, healthy. QA rc.3 đạt (`qa/qa3-rc1.md` mục 15) |
+| Tag `v1.0.0-rc.3` → `70fe734`. Lượt Release `rc.2` (40353906172) giữ nhóm chạy production nên chặn `rc.3` → từ chối (INV bấm Reject, ORC gửi lại `rejected` qua API) | `rc.2` kết thúc `failure` (bị từ chối, không deploy) |
+| Lượt Release `rc.3` (40426035072), INV đồng ý trong chat | Đạt. `ottimo-prod-api/web/worker` = `sha-70fe734e9077`, healthy; desk/staff/g.ottimo.vn 200. DB production vẫn rỗng (chờ B2) |
+| Tag `landing-v1.0.0` → `70fe734` (landing chỉ khác bản 25/10 ở `4796433` – nhận phòng 12:00). Repo không có biến `LANDING_BOOKING_FORM` → form tắt. Lượt Release 40433751349, INV đồng ý trong chat | Đạt. `ottimo-prod-landing-1` = `ottimo-landing:sha-70fe734e9077`, healthy |
+
+**Kiểm từ ngoài:** `ottimo.vn/` và `/vi/` 200; câu "Check-in from 12:00 when your room is ready; it always is by 14:00. Check-out by 12:00." (VI: "Nhận phòng từ 12:00 khi phòng đã sẵn sàng – và phòng luôn sẵn sàng lúc 14:00. Trả phòng trước 12:00.") ở Tiện nghi và FAQ; JSON-LD `checkinTime` 12:00, `checkoutTime` 12:00; không `<form`; CSP, HSTS, `X-Frame-Options DENY` như cũ. Từ nay landing phát hành qua tag `landing-v*` + INV duyệt (khóa CI production đã có).
+
+**Quay lui landing:** `sudo -u ottimo /opt/ottimo-prod/infra/server/bin/deploy-landing.sh --rollback` → `sha-d67d20440a1a`.
