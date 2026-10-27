@@ -3,11 +3,11 @@
   "schemaVersion": 1,
   "source": {
     "file": "product/docs/business-rules.md",
-    "version": "0.4.7",
-    "date": "2026-10-26"
+    "version": "0.4.8",
+    "date": "2026-10-27"
   },
-  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp); v0.4.3 QA 24/10: BR-433-22…25 (FZ02-1, 2, 4, 8 – pendingFix R3-SEC-FZ-02), BR-525-44 (FZ08-1, không pendingFix – mã đúng), BR-525-45 (FZ08-2 – pendingFix R3-FZ-08); id DOM đề xuất trùng → đánh tiếp; v0.4.6 DOM 26/10 (CI): thêm BR-114-01…05 (giá \"chỉ từ\", FB-INV-004 ý 2), BR-401-01…05 (nhận phòng từ 12:00, FB-INV-004 ý 1); BR-901-01 bỏ nhãn GIẢ ĐỊNH (tỷ lệ phí kênh INV 26/10 dùng tạm); validator earlyPct mốc 0 % từ 12:00 theo BR-411 v0.4.6; v0.4.7 DOM 26/10 (FB-INV-005, ESC-036 A): BR-101-01…10 thành bảng giá khởi tạo nhập riêng (calc null, nhãn INV-004), thêm BR-101-11…13 (lịch giá trên giá đêm nhập 650.000, INV-036), BR-101-14 (giá tháng độc lập), BR-101-15 (cảnh báo mềm), BR-101-16 (đường tạm ÷ 12 tới v1.0.1)",
-  "updated": "2026-10-26",
+  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp); v0.4.3 QA 24/10: BR-433-22…25 (FZ02-1, 2, 4, 8 – pendingFix R3-SEC-FZ-02), BR-525-44 (FZ08-1, không pendingFix – mã đúng), BR-525-45 (FZ08-2 – pendingFix R3-FZ-08); id DOM đề xuất trùng → đánh tiếp; v0.4.6 DOM 26/10 (CI): thêm BR-114-01…05 (giá \"chỉ từ\", FB-INV-004 ý 2), BR-401-01…05 (nhận phòng từ 12:00, FB-INV-004 ý 1); BR-901-01 bỏ nhãn GIẢ ĐỊNH (tỷ lệ phí kênh INV 26/10 dùng tạm); validator earlyPct mốc 0 % từ 12:00 theo BR-411 v0.4.6; v0.4.7 DOM 26/10 (FB-INV-005, ESC-036 A): BR-101-01…10 thành bảng giá khởi tạo nhập riêng (calc null, nhãn INV-004), thêm BR-101-11…13 (lịch giá trên giá đêm nhập 650.000, INV-036), BR-101-14 (giá tháng độc lập), BR-101-15 (cảnh báo mềm), BR-101-16 (đường tạm ÷ 12 tới v1.0.1); v0.4.8 DOM 27/10 (review v1.0.1 trả sớm B16, FB-R3-BE-B-BE-A-01/02): thêm BR-428-07 (trần số dư, đơn Trực tiếp), BR-428-08 (trần số dư, chênh lệch đổi phòng OTA – pendingFix FB-R3-BE-B-BE-A-01), BR-428-09 (nhãn phí trả sớm OTA không ghi số ngày – pendingFix FB-R3-BE-B-BE-A-02)",
+  "updated": "2026-10-27",
   "conventions": {
     "money": "Số nguyên VND, khóa kết thúc bằng 'Vnd' (ADR-002, BR-004)",
     "percent": "Basis point số nguyên (khóa kết thúc 'Bp'): 10% = 1000. Tham số giữ đơn vị như BR mục 13; số lẻ (15,5) ghi dạng chuỗi",
@@ -8075,6 +8075,131 @@
         "refundRequestAtCheckout": 0,
         "otaRoomMoneyInRefundFlow": false
       }
+    },
+    {
+      "id": "BR-428-07",
+      "br": "BR-428",
+      "case": "Trần số dư, đơn Trực tiếp: 4 đêm × 700.000 đã trả 2.800.000, phụ thu người 150.000/đêm đã ghi chưa thu; báo 21/10 rời 22/10 → chia số dư 400.000: phụ thu người trước, rồi phần hoàn BR-428 (v0.4.8 – FB-R3-BE-B-BE-A-01)",
+      "origin": "example",
+      "labels": [
+        "INV-006",
+        "NGÀNH"
+      ],
+      "calc": null,
+      "input": {
+        "channel": "direct",
+        "arrivalDate": "2026-10-20",
+        "departureDate": "2026-10-24",
+        "nightRateVnd": 700000,
+        "paidVnd": 2800000,
+        "extraPersonPerNightVnd": 150000,
+        "extraPersonCollectedVnd": 0,
+        "notifiedAt": "2026-10-21T10:00:00+07:00",
+        "newDepartureDate": "2026-10-22"
+      },
+      "expected": {
+        "noticeDays": 1,
+        "refundableVnd": 700000,
+        "earlyDepartureFeeVnd": 700000,
+        "unhandledCreditAfterVnd": 400000,
+        "refundVnd": 400000,
+        "extraPersonRefundVnd": 300000,
+        "extraPersonReversedVnd": 0,
+        "roomChangeDifferenceVnd": 0,
+        "roomChangeDifferenceReversedVnd": 0,
+        "refundablePaidVnd": 100000,
+        "refundCapped": true
+      },
+      "note": "Khớp tay của BE-B (`reviews/BE-B-on-BE-A-v1.0.1.md` mục C). Thứ tự chia theo số dư cả folio, không theo dòng nào khách đã trả. Tên trường theo OpenAPI 0.3.9 + đề xuất A của BE-B (ARC chốt)."
+    },
+    {
+      "id": "BR-428-08",
+      "br": "BR-428",
+      "case": "Trần số dư, đơn OTA đổi phòng theo yêu cầu khách: Agoda trả trước, 202 → 401 từ đêm 21/10 (chênh lệch 250.000/đêm × 3 = 750.000 đã ghi, đã thu 300.000); rời 22/10, OTA giữ 0 → chênh lệch được hoàn 50.000, đã đảo không hoàn 450.000 (v0.4.8 – FB-R3-BE-B-BE-A-01)",
+      "origin": "example",
+      "labels": [
+        "INV-006",
+        "NGÀNH"
+      ],
+      "calc": null,
+      "pendingFix": "FB-R3-BE-B-BE-A-01",
+      "input": {
+        "channel": "agoda",
+        "paymentModel": "ota_prepaid",
+        "arrivalDate": "2026-10-20",
+        "departureDate": "2026-10-24",
+        "roomChange": {
+          "from": "202",
+          "to": "401",
+          "fromNight": "2026-10-21",
+          "reason": "guest_request",
+          "differencePerNightVnd": 250000
+        },
+        "roomChangeDifferencePostedVnd": 750000,
+        "roomChangeDifferenceCollectedVnd": 300000,
+        "newDepartureDate": "2026-10-22",
+        "otaRetainedVnd": 0
+      },
+      "expected": {
+        "droppedNights": [
+          "2026-10-22",
+          "2026-10-23"
+        ],
+        "roomChangeDifferenceDroppedVnd": 500000,
+        "unhandledCreditAfterVnd": 50000,
+        "refundVnd": 50000,
+        "roomChangeDifferenceVnd": 50000,
+        "roomChangeDifferenceReversedVnd": 450000,
+        "extraPersonRefundVnd": 0,
+        "earlyDepartureFeeVnd": 0,
+        "refundCapped": true,
+        "refundRequestsTotal": 1
+      },
+      "note": "Code nhánh be-a-v1.0.1 `5e966a5` trả roomChangeDifferenceVnd = 500.000 (số đã đảo, chưa trần) → pendingFix tới khi BE-A áp đề xuất A của BE-B."
+    },
+    {
+      "id": "BR-428-09",
+      "br": "BR-428",
+      "case": "Nhãn dòng \"Phí trả phòng sớm\" trên bill: phần Trực tiếp ghi số ngày báo trước, phần OTA giữ lại không ghi (v0.4.8 – FB-R3-BE-B-BE-A-02)",
+      "origin": "rule-boundary",
+      "labels": [
+        "INV-006",
+        "NGÀNH"
+      ],
+      "calc": null,
+      "pendingFix": "FB-R3-BE-B-BE-A-02",
+      "input": {
+        "lines": [
+          {
+            "chargeCode": "early_departure_fee",
+            "source": "direct",
+            "noticeDays": 2
+          },
+          {
+            "chargeCode": "early_departure_fee",
+            "source": "ota_retained",
+            "noticeDays": 2
+          },
+          {
+            "chargeCode": "early_departure_fee",
+            "source": "ota_retained",
+            "noticeDays": 0
+          }
+        ]
+      },
+      "expected": {
+        "labelsVi": [
+          "Phí trả phòng sớm (báo trước 2 ngày)",
+          "Phí trả phòng sớm",
+          "Phí trả phòng sớm"
+        ],
+        "labelsEn": [
+          "Early departure fee (2 days' notice)",
+          "Early departure fee",
+          "Early departure fee"
+        ]
+      },
+      "note": "Dòng đã ghi trước bản vá giữ nguyên (BR-008); chỉ áp cho dòng mới. Chữ EN theo `bill.line.early_departure_fee(_notice)` hiện có."
     },
     {
       "id": "BR-429-01",
