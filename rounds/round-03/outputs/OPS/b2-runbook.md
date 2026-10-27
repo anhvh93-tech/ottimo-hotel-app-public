@@ -2,7 +2,7 @@
 
 - Round 3 · Bước: Sản xuất (chuẩn bị buổi) · Người viết: OPS, 27/10 · Ngày chạy D = thứ Hai 02/11.
 - Căn cứ: `rounds/round-03/inv-golive-checklist.md` mục B2 và C; QC `rounds/round-03/qc/v1-gate-checklist.md` (G2-7, G4-5, G4-7, G4-8, G4-9, G5-5, G6-7, G7-5, G7-6); `v1-production.md` mục 16–21; `inv-production-steps.md` phần 4b, 8b; README `product/infra/server` mục 12.1; `b1-runbook.md`.
-- Kiểm sẵn sàng 27/10: `v1-production.md` **mục 21**.
+- Kiểm sẵn sàng 27/10: `v1-production.md` **mục 21**. Sửa chiều 27/10 theo SEC `rounds/round-03/reviews/SEC-on-B2-readiness.md`: B2 không vá email chủ (BUG-R3-032); xử lý khóa sao lưu (2.5, 1.3); Wi-Fi bỏ qua nếu Desk chưa có ô (BUG-R3-021).
 - Tệp này **không** chứa IP, mật khẩu, mã 2 bước, mã khôi phục, KEK, số tài khoản, email cá nhân. IP ghi `<IP-VPS>`. ORC chuyển lệnh có IP thật cho INV qua chat (IP không phải bí mật, nhưng repo công khai không ghi).
 - Mọi lệnh chạy trên **Mac của INV**, trong thư mục repo `~/Desktop/hotel-app`, bằng khóa cá nhân `~/.ssh/ottimo_ops` (có passphrase, qua Keychain): tài khoản `ottimo-admin`, lệnh docker qua `sudo -u ottimo`. Không dùng khóa CI hay khóa kéo sao lưu để mở shell.
 
@@ -44,7 +44,8 @@ ORC báo INV "B2 sẵn sàng" lúc 08:50, hoặc báo dòng nào chưa đạt.
 - **Giấy + bút** cho 10 mã khôi phục (chép 2 bản, cất 2 nơi), 2 phong bì. Giấy niêm phong hoặc USB mã hóa cho **KEK**. Chỗ cất: két.
 - **Trình quản lý mật khẩu** mở được: lưu mật khẩu Desk mới; có mục "OTTIMO – khóa sao lưu production" (A8 / phần 9.3).
 - **Tài khoản nhận VietQR thật**: ngân hàng, số tài khoản, tên chủ tài khoản đúng như trên app ngân hàng. Chỉ gõ vào Desk.
-- **Mật khẩu Wi-Fi** mạng "OTTIMO BOUTIQUE STAY".
+- **Mật khẩu Wi-Fi** mạng "OTTIMO BOUTIQUE STAY". Chỉ dùng nếu Desk đã có ô nhập: BUG-R3-021, xem 2.3.
+- Phong bì **riêng** cho bản ngoại tuyến khóa sao lưu (A8), **không** chung phong bì với KEK.
 - **Câu trả lời 8 câu DOM (A3) + hạn lưu (A4)**, bảng giá niêm yết từng căn, giá OTA nền (`ota_base_rate`), hạng công khai của 6 căn Studio.
 - **Danh sách nhân viên (A2)**: tên hiển thị, vai, tên đăng nhập dự kiến. Giấy + phong bì để ghi mật khẩu tạm cho từng người.
 - Quyền mở hộp thư `info@ottimo.vn` (trên điện thoại hoặc trình duyệt khác).
@@ -54,9 +55,13 @@ ORC báo INV "B2 sẵn sàng" lúc 08:50, hoặc báo dòng nào chưa đạt.
 ### 1.3 INV làm trước 09:00
 
 1. Bật Docker Desktop. Mở Terminal, thử SSH (thay `<IP-VPS>`): `ssh -i ~/.ssh/ottimo_ops ottimo-admin@<IP-VPS> true`. Không báo lỗi là được.
-2. Kiểm khóa sao lưu production. Finder → Go → Go to Folder… → `~/.ottimo/backup`. Phải có `ottimo-prod-backup-identity.txt` **và** một bản trong trình quản lý mật khẩu. Nếu đã xóa khỏi Mac sau A8 thì không sao: mang trình quản lý mật khẩu, mục 2.5 có cách đặt lại tạm.
-3. Có sẵn câu trả lời A3/A4. Nếu chưa trả lời trong chat, phần 3 sẽ kéo dài thêm khoảng 10 phút.
-4. Không bấm duyệt email "Review deployments" nào trong sáng 28/10.
+2. Kiểm khóa sao lưu production. Finder → Go → Go to Folder… → `~/.ottimo/backup`. Phải có `ottimo-prod-backup-identity.txt` (B2 diễn tập bằng **đúng tệp này**, SEC 27/10) **và** một bản trong trình quản lý mật khẩu. Nếu tệp đã bị xóa khỏi Mac thì báo ORC trước 08:50. OPS sẽ dùng đường "khóa qua stdin" ở 2.5 (đã thử 27/10 bằng khóa tổng hợp). **Không** tạo lại tệp bằng TextEdit.
+3. **FileVault** (SEC 27/10 mục 2.2). Terminal: `fdesetup status` → phải in `FileVault is On.` Báo trong chat "FileVault bật" hoặc "FileVault tắt", không gửi ảnh. Nếu tắt: B2 vẫn làm, nhưng **trong ngày 28/10** phải bật FileVault, hoặc xóa cả khóa lẫn `~/.ottimo/backups/ottimo-prod` khỏi Mac sau diễn tập.
+4. **Time Machine.** Kiểm Mac có dùng không: `tmutil destinationinfo`. Ra `No destinations configured` thì bỏ qua bước này. Có ổ đích thì:
+   - chạy `tmutil addexclusion ~/.ottimo`;
+   - xem ổ có mã hóa không: System Settings → General → Time Machine, ổ đĩa ghi "Encrypted". Ổ **không** mã hóa mà đã sao lưu `~/.ottimo` từ 26/10 → báo SEC (phải thay cặp khóa sao lưu, P5-b).
+5. Có sẵn câu trả lời A3/A4. Nếu chưa trả lời trong chat, phần 3 sẽ kéo dài thêm khoảng 10 phút.
+6. Không bấm duyệt email "Review deployments" nào trong sáng 28/10.
 
 ## 2. Kịch bản theo phút
 
@@ -135,7 +140,7 @@ Lệnh fingerprint đã thử trên tệp KEK của **staging** 27/10 (đúng d�
 
 INV làm trên Desk:
 1. **"Tài khoản nhận chuyển khoản"**: gõ số tài khoản 2 lần, tên chủ tài khoản đúng như ngân hàng, xác thực lại bằng mã 2 bước. Hiệu lực **từ ngày mai 29/10**. Hôm nay QR chưa trỏ về tài khoản này là đúng.
-2. **Mật khẩu Wi-Fi** "OTTIMO BOUTIQUE STAY".
+2. **Mật khẩu Wi-Fi** "OTTIMO BOUTIQUE STAY". **Bỏ qua nếu Desk chưa có ô nhập.** BUG-R3-021: rc.3 chỉ sửa được `property.wifi_info_i18n` trong DB; FE đang đánh giá. **Không ghi DB tay.** Wi-Fi nhập khi bản có ô lên production. Tới lúc đó, lễ tân báo Wi-Fi bằng thẻ trong căn hoặc nói trực tiếp.
 3. **Giá niêm yết từng căn**, `ota_base_rate`, hạng công khai 6 căn Studio, và **tham số** theo A3: phí từng kênh OTA, VAT 8 %, giá điện nước, Tết 2027, các mục chờ luật sư/kế toán. Hạn lưu giấy tờ theo A4: ảnh 1 ngày sau trả phòng, khai báo chưa xong 2 ngày, hồ sơ điền sẵn 3 tháng. DOM đọc lại bảng cùng INV.
 
 **OPS kiểm (agent, không đọc giá trị):**
@@ -146,7 +151,9 @@ SELECT payload->>'template' AS template, status, left(coalesce(last_error,''),40
 ```
 **Đạt khi:** có 1 dòng `payment_receiving_account|2026-10-29`; DOM xác nhận tham số khớp A3/A4.
 
-Dòng outbox thư `receiving_account_changed` sẽ là `dead|NO_RECIPIENT`. Đây là **lỗ hổng đã biết** (mục 21.4): tài khoản trên Desk chưa có email nên thư "Security notice" không có người nhận. Không chặn buổi; ORC/SEC quyết trước 09:00 có vá tạm hay không.
+Dòng outbox thư `receiving_account_changed` sẽ là `dead|NO_RECIPIENT`. **Đúng dự kiến** (BUG-R3-032, P1, sửa ở v1.0.1): tài khoản trên Desk chưa có email nên thư "Security notice" không có người nhận. QA/QC không tính là lỗi mới.
+
+**B2 KHÔNG vá email chủ.** Không gõ SQL đặt email, không dùng `info@ottimo.vn` cho thư bảo mật (SEC `reviews/SEC-on-B2-readiness.md` mục 1.4). Thay vào đó, biện pháp bù B1–B6 của SEC (mục 1.3) bắt đầu từ sáng 29/10: OWN kiểm "Tài khoản nhận chuyển khoản", chuông, nhật ký 24 giờ, đối soát ngân hàng, ghi sổ giao ca.
 
 **Song song 09:30–10:25 (QA, SEC, từ ngoài, không đăng nhập):**
 - QA chạy smoke production phần không cần tài khoản: Desk, PWA `staff`, trang khách `g` mở được; header; `/health` và `/v1/*` lạ trả 404; `http` → `https`.
@@ -176,12 +183,7 @@ Diễn tập trên **bản sao lưu chụp ngay sau phần 1–4**, để bản 
 2. Kéo về Mac bằng lệnh `v1-production.md` 19.2 (container `alpine:3.20`, khóa `ottimo_backup_pull`). Đạt khi in `pull-backups: N encrypted files`, không có `checksum mismatch`.
 3. Gửi **thư thử 8b** ngay lúc này để thư kịp tới trước phần 6 (lệnh ở 2.6).
 
-**10:13 – INV mở khóa và chạy:**
-- Nếu tệp `~/.ottimo/backup/ottimo-prod-backup-identity.txt` đã xóa sau A8:
-  1. tạo lại từ trình quản lý mật khẩu (TextEdit → Format → Make Plain Text → dán → lưu đúng tên ở `~/.ottimo/backup`);
-  2. chạy `chmod 600 ~/.ottimo/backup/ottimo-prod-backup-identity.txt`;
-  3. xóa lại sau bước dưới.
-- Chạy một lệnh (chép nguyên khối):
+**10:13 – INV mở khóa và chạy.** B2 dùng **tệp khóa hiện có** `~/.ottimo/backup/ottimo-prod-backup-identity.txt` (SEC 27/10 mục 2.2 bước 1). Chạy một lệnh (chép nguyên khối):
   ```bash
   mkdir -p ~/.ottimo/drills && chmod 700 ~/.ottimo/drills
   cd ~/Desktop/hotel-app && bash -c 'P=$PWD/product; B=$HOME/.ottimo/backups/ottimo-prod; K=$HOME/.ottimo/backup/ottimo-prod-backup-identity.txt
@@ -205,6 +207,39 @@ Diễn tập trên **bản sao lưu chụp ngay sau phần 1–4**, để bản 
 - `data_keys_live` ≥ 1 (sau khi bật 2 bước / lưu tài khoản nhận tiền; số chính xác lấy từ tệp counts, script so khớp tự động).
 
 G4-5 đạt cùng lúc: timer chạy (bản đêm 27/10 và 28/10) + bản kéo ra ngoài máy chủ.
+
+**Sau khi diễn tập ĐẠT – INV làm trong ngày 28/10** (có thể sau buổi). Thứ tự bắt buộc; mỗi bước đạt mới sang bước sau (SEC mục 2.2 bước 3):
+1. **Kiểm bản trong trình quản lý mật khẩu là đúng khóa** (không lộ khóa):
+   - mở mục "OTTIMO – khóa sao lưu production", bấm chép;
+   - trong Terminal chạy:
+     ```bash
+     pbpaste | docker run -i --rm ottimo-drill-runner:local age-keygen -y | cmp -s - <(grep '^age1' ~/.ottimo/backup/ottimo-prod-backup-recipient.txt) && echo "KHOP" || echo "KHAC"; pbcopy </dev/null
+     ```
+   - `age-keygen -y` chỉ in **khóa công khai** `age1…` và so với tệp khóa công khai trên Mac. OPS đã đối chiếu 27/10: tệp này trùng `recipients.txt` trên máy chủ (mục 21.6). `pbcopy </dev/null` xóa clipboard.
+   - In `KHOP` mới sang bước 2. `KHAC` → **không xóa gì**, báo ORC: bản trong trình quản lý mật khẩu sai hoặc thiếu dòng.
+2. **Bản ngoại tuyến A8** (giấy niêm phong hoặc USB mã hóa) cất két, trong **phong bì riêng, không chung với KEK**. Lý do: KEK cộng khóa sao lưu là mở được cả ảnh giấy tờ.
+3. Time Machine (nếu có): đã `tmutil addexclusion ~/.ottimo` ở 1.3 bước 4.
+4. **Xóa khóa khỏi Mac:**
+   ```bash
+   rm ~/.ottimo/backup/ottimo-prod-backup-identity.txt && ls ~/.ottimo/backup
+   ```
+   Danh sách in ra không còn `ottimo-prod-backup-identity.txt`. INV báo trong chat "đã xóa khóa khỏi Mac".
+   - Bản sao lưu đã mã hóa trên Mac vẫn giữ (FileVault bật). Kéo bản sao lưu hằng ngày không cần khóa này.
+   - FileVault **tắt** mà chưa bật được trong ngày: xóa thêm `~/.ottimo/backups/ottimo-prod`.
+   - Không đặt passphrase cho tệp khóa (SEC 2.2 bước 5).
+
+**Lần diễn tập sau (khóa đã rời Mac): khóa đi qua stdin vào tmpfs của container, không ghi xuống đĩa.** Không tạo lại tệp bằng TextEdit: TextEdit tự lưu phiên bản vào kho Versions của macOS, xóa tệp không xóa được các bản đó.
+- Đã thử 27/10 trên khóa và bản sao lưu **tổng hợp**: ĐẠT, khớp 100 %, 65 migration, 7 giây. Kiểm khóa công khai `age-keygen -y` cũng đạt (mục 21.6).
+- INV chép khóa từ trình quản lý mật khẩu, rồi chạy:
+```bash
+mkdir -p ~/.ottimo/drills && chmod 700 ~/.ottimo/drills
+cd ~/Desktop/hotel-app && pbpaste | bash -c 'P=$PWD/product; B=$HOME/.ottimo/backups/ottimo-prod
+docker run -i --rm --tmpfs /tmp -v /var/run/docker.sock:/var/run/docker.sock -v "$P:$P:ro" -v "$B:/backups:ro" -w "$P" \
+  ottimo-drill-runner:local bash -c "umask 077; cat > /tmp/id && infra/server/bin/restore-drill.sh --identity /tmp/id --from /backups \
+  --api-image ghcr.io/anhvh93-tech/ottimo-api:<tag đang chạy>"' 2>&1 | grep -v "requested image" | tee ~/.ottimo/drills/restore-prod-$(date +%Y%m%d).txt; pbcopy </dev/null
+```
+- Khóa chỉ nằm trong `/tmp` (RAM) của container chạy một lần. `pbcopy </dev/null` xóa clipboard ngay sau đó.
+- Trình quản lý mật khẩu có thể tự xóa clipboard sau vài chục giây: nếu lệnh báo không đọc được khóa thì chép lại rồi chạy ngay.
 
 ### 2.6 Phần 6 – 10:25–10:40: thư thử, đăng nhập lại, QA + SEC (G4-9, G5-5, G7-5)
 
@@ -256,6 +291,9 @@ Nguyên tắc: **phần 1–3 phải xong trong ngày 28/10** (tài khoản nh�
 | P4 | Quản lý không đăng ký được 2 bước | Như P1-d/P1-e cho tài khoản quản lý. Tài khoản quản lý chưa 2 bước chỉ vào được màn đăng ký: không rủi ro | Hoàn tất trước D; OPS kiểm lại |
 | P5-a | `restore-drill`: `KHÔNG ĐẠT` / `checksum mismatch` / api không lên | Không ảnh hưởng production (môi trường dùng một lần). OPS lưu tệp biên bản, chạy lại sau buổi với `--keep` để điều tra | G4-7 còn mở → QC có thể chấm ĐẠT CÓ ĐIỀU KIỆN; phải đạt trước D. Không xóa bản sao lưu nào |
 | P5-b | Không có khóa sao lưu (không trên Mac, không trong trình quản lý mật khẩu) | **Dừng phần 5.** Mọi bản sao lưu production hiện có coi như không đọc được. OPS: INV sinh cặp khóa mới (như 26/10), thay `recipients.txt`, sao lưu ngay, diễn tập lại | G4-6 và G4-7 không đạt. ORC báo INV ngay trong buổi |
+| P5-d | Tệp khóa đã bị xóa khỏi Mac trước buổi | Dùng đường "khóa qua stdin" ở cuối mục 2.5 (đã thử 27/10). **Không** tạo lại tệp bằng TextEdit | – |
+| P5-e | Sau diễn tập, kiểm khóa trong trình quản lý mật khẩu ra `KHAC` | **Không xóa** tệp khóa trên Mac. INV chép lại khóa đúng (từ tệp trên Mac) vào trình quản lý mật khẩu, rồi kiểm lại. Vẫn `KHAC` → SEC xem | Tệp khóa chỉ được xóa khi `KHOP` và đã có bản A8 |
+| F | `fdesetup status` in FileVault tắt | B2 vẫn làm. INV bật FileVault trong ngày 28/10 (System Settings → Privacy & Security → FileVault). Không bật được thì sau diễn tập xóa cả khóa lẫn `~/.ottimo/backups/ottimo-prod` | Đĩa Mac không mã hóa thì không giữ dữ liệu khách (SEC 2.2 bước 2) |
 | P5-c | Kéo bản sao lưu lỗi | Thử lại 1 lần. Nếu vẫn lỗi: diễn tập trên bản 27/10 10:43 đã có trên Mac (DB trống, đúng lược đồ) để chứng minh đường ống, rồi làm lại trên bản có dữ liệu sau buổi | Ghi rõ trong biên bản bản nào được dùng |
 | P6-a | `mail-test: failed (<mã>)`, hoặc 15 phút không có thư (cả Spam) | OPS chạy lại chế độ chỉ kiểm. Mã `550 … relay`: kiểm IP trong cài đặt relay (8a) | G4-9 còn mở, không chặn phần khác. Thử lại chiều 28/10 |
 | P6-b | Đăng nhập lại không đòi mã 6 số | **Dừng, báo SEC** (2 bước bắt buộc phải chạy) | Chặn D tới khi SEC xác nhận |
@@ -267,11 +305,13 @@ Nguyên tắc: **phần 1–3 phải xong trong ngày 28/10** (tài khoản nh�
 | Khi nào | Ai | Việc | Gỡ dòng |
 |---|---|---|---|
 | 28/10, 10:40–11:30 | OPS | Ghi biên bản B2 vào `v1-production.md` mục 22: giờ từng phần, kết quả truy vấn đếm, biên bản diễn tập, `mail-test`. Không ghi tên, số, mã. README `infra/server` mục 12: "Diễn tập khôi phục production: 28/10/2026" | G4-7 |
+| 28/10, trong ngày | INV | Sau diễn tập ĐẠT: kiểm khóa trong trình quản lý mật khẩu (`KHOP`), cất A8 phong bì riêng (không chung KEK), **xóa tệp khóa khỏi Mac** (mục 2.5). FileVault tắt thì bật trong ngày. Báo "đã xóa khóa khỏi Mac" | G4-6 |
 | 28/10 chiều | ORC → QC | **QC chấm cổng v1.0** bằng bằng chứng của buổi: biên bản OPS, báo cáo QA smoke, SEC-G1/G2, xác nhận của INV (KEK, mã khôi phục, thư thử) | Cổng v1.0 |
 | 28/10 chiều | ORC | Cập nhật `inv-golive-checklist.md`: tick B2 phần đã đạt; dòng chưa đạt kèm hạn | – |
 | 29/10 sáng | OPS | Bản sao lưu đêm 29/10 03:0x có dữ liệu B2 (`ops-check` 7/7). Kéo về Mac. **J16 đã chạy lần đầu** cho cơ sở mới: `ops-check j16` ok trước ~11:00 29/10 (26 giờ sau phần 1) | G4-5 |
+| Mỗi sáng từ 29/10 tới khi thư bảo mật tới được chủ | INV (OWN), MGR | Biện pháp bù SEC B1–B6 (`reviews/SEC-on-B2-readiness.md` mục 1.3): kiểm "Tài khoản nhận chuyển khoản" + chuông + nhật ký 24 giờ, đối soát ngân hàng, ghi sổ giao ca trước 09:00. Lễ tân: QR "vừa đổi tài khoản nhận" → dừng, gọi OWN (đưa vào C3a) | BUG-R3-032 |
 | **29/10** | INV | **C1 – kiểm VietQR**: tạo một đơn thử ghi chú "TEST", quét QR bằng app ngân hàng, xem **tên chủ tài khoản đúng**, **không chuyển tiền**, hủy đơn. Tên sai → `/feedback P0`. Đơn "TEST" đã hủy vẫn nằm trong dữ liệu (chỉ ghi thêm). DATA loại khỏi báo cáo | G7-6 (xác nhận cuối) |
 | 29/10–01/11 | INV + đội | Đào tạo C3a **trên staging**, tài khoản tập riêng. Desk thật: nhân viên chỉ đăng nhập / đổi mật khẩu / đăng xuất | – |
 | Trước D | INV + OPS | A7 báo động (G4-10, chặn D). A10 danh sách chuyển đổi. A12 phần (1) OTA 12:00. Quản lý chưa đăng ký 2 bước thì đăng ký | G4-10 |
-| Trước D | ORC/SEC/BE | Quyết lỗ hổng email "Security notice" không có người nhận (mục 21.4) | – |
+| v1.0.1 (04/11), chậm nhất 09/11 | BE-A + ARC; OPS | BUG-R3-032: trường email người dùng (có S2 + audit + thư tới cả địa chỉ cũ lẫn mới). Sau khi INV nhập **email cá nhân** (không dùng `info@`): OPS/QA xác nhận thư "Security notice" thật tới. `ops-check` đếm `dead NO_RECIPIENT` (nhánh `ops-check-no-recipient`) bật cảnh báo khi số > 0 | BUG-R3-032 |
 | Sau B2, ngoài giờ khách (không phải D−1/D) | OPS | Làm mới bundle `infra/` production lên `main` (có bước `appconfig`, mục 21.5); xóa 2 bản `state/env.before-*` cũ khi SEC-G1/G2 xong (mục 19.1) | – |
