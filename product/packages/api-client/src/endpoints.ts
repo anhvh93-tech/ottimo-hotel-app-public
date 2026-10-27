@@ -622,6 +622,7 @@ export function createEndpoints(api: ApiClient) {
       body: EarlyDepartureBody,
       version?: number,
       idem?: string,
+      signal?: AbortSignal,
     ) =>
       r<EarlyDepartureResult>('POST', `${RES}/actions/early-departure`, {
         path: { propertyId, reservationId },
@@ -629,6 +630,7 @@ export function createEndpoints(api: ApiClient) {
         ifMatch: body.dryRun ? undefined : version,
         idempotencyKey: body.dryRun ? undefined : idem,
         local: body.dryRun,
+        signal,
       }),
     previewChangeRoom: ({ propertyId, reservationId }: R, body: ChangeRoomBody) =>
       r<ChangeRoomPreview>('POST', `${RES}/actions/change-room`, {
