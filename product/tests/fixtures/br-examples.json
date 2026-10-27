@@ -8081,10 +8081,7 @@
       "br": "BR-428",
       "case": "Trần số dư, đơn Trực tiếp: 4 đêm × 700.000 đã trả 2.800.000, phụ thu người 150.000/đêm đã ghi chưa thu; báo 21/10 rời 22/10 → chia số dư 400.000: phụ thu người trước, rồi phần hoàn BR-428 (v0.4.8 – FB-R3-BE-B-BE-A-01)",
       "origin": "example",
-      "labels": [
-        "INV-006",
-        "NGÀNH"
-      ],
+      "labels": ["INV-006", "NGÀNH"],
       "calc": null,
       "input": {
         "channel": "direct",
@@ -8117,10 +8114,7 @@
       "br": "BR-428",
       "case": "Trần số dư, đơn OTA đổi phòng theo yêu cầu khách: Agoda trả trước, 202 → 401 từ đêm 21/10 (chênh lệch 250.000/đêm × 3 = 750.000 đã ghi, đã thu 300.000); rời 22/10, OTA giữ 0 → chênh lệch được hoàn 50.000, đã đảo không hoàn 450.000 (v0.4.8 – FB-R3-BE-B-BE-A-01)",
       "origin": "example",
-      "labels": [
-        "INV-006",
-        "NGÀNH"
-      ],
+      "labels": ["INV-006", "NGÀNH"],
       "calc": null,
       "pendingFix": "FB-R3-BE-B-BE-A-01",
       "input": {
@@ -8141,10 +8135,7 @@
         "otaRetainedVnd": 0
       },
       "expected": {
-        "droppedNights": [
-          "2026-10-22",
-          "2026-10-23"
-        ],
+        "droppedNights": ["2026-10-22", "2026-10-23"],
         "roomChangeDifferenceDroppedVnd": 500000,
         "unhandledCreditAfterVnd": 50000,
         "refundVnd": 50000,
@@ -8162,10 +8153,7 @@
       "br": "BR-428",
       "case": "Nhãn dòng \"Phí trả phòng sớm\" trên bill: phần Trực tiếp ghi số ngày báo trước, phần OTA giữ lại không ghi (v0.4.8 – FB-R3-BE-B-BE-A-02)",
       "origin": "rule-boundary",
-      "labels": [
-        "INV-006",
-        "NGÀNH"
-      ],
+      "labels": ["INV-006", "NGÀNH"],
       "calc": null,
       "pendingFix": "FB-R3-BE-B-BE-A-02",
       "input": {

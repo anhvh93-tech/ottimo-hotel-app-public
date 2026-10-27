@@ -689,3 +689,83 @@ Kịch bản B2 phần 1 (OPS chạy, INV ngồi cạnh):
 **Kiểm từ ngoài:** `ottimo.vn/` và `/vi/` 200; câu "Check-in from 12:00 when your room is ready; it always is by 14:00. Check-out by 12:00." (VI: "Nhận phòng từ 12:00 khi phòng đã sẵn sàng – và phòng luôn sẵn sàng lúc 14:00. Trả phòng trước 12:00.") ở Tiện nghi và FAQ; JSON-LD `checkinTime` 12:00, `checkoutTime` 12:00; không `<form`; CSP, HSTS, `X-Frame-Options DENY` như cũ. Từ nay landing phát hành qua tag `landing-v*` + INV duyệt (khóa CI production đã có).
 
 **Quay lui landing:** `sudo -u ottimo /opt/ottimo-prod/infra/server/bin/deploy-landing.sh --rollback` → `sha-d67d20440a1a`.
+
+## 21. 27/10 – kiểm sẵn sàng B2
+
+Buổi B2 trên bản thật: 09:00 thứ Tư 28/10 (INV chốt); kịch bản ở `b2-runbook.md` (cùng thư mục). Kiểm từ Mac INV qua SSH `ottimo-admin` (khóa `ottimo_ops`), 10:41–10:52 giờ VN. Không in `.env`, mật khẩu, khóa; không ghi IP. **Không** chạy `production-bootstrap`.
+
+### 21.1 Production – chỉ đọc
+
+| Kiểm | Kết quả |
+|---|---|
+| Container `ottimo-prod-*` | api, web, landing **healthy** (Up 2 giờ, từ lượt Release rc.3); worker Up; postgres healthy (Up 20 giờ). Edge Up 3 ngày, healthy. Staging api/web/postgres healthy |
+| Tag / image | `state/current_tag` = `sha-70fe734e9077`; `deploy-history.log` dòng cuối `2026-10-27T01:36:26Z sha-70fe734e9077` và `01:39:12Z landing sha-70fe734e9077`. Image container api/worker `sha256:18145bc2…`, web `sha256:ee026394…` = đúng `state/digests/sha-70fe734e9077` = RepoDigest GHCR. Landing `sha-70fe734e9077` |
+| Cờ trong container (api = worker) | `APP_ENV=production`, **`MFA_ENFORCED=true`**, `CLOCK_MODE=system`, `INCLUDE_TEST_SUPPORT=0`, `EMAIL_PROVIDER=smtp`, `EMAIL_SMTP_MODE=relay` |
+| `/health` nội bộ | `{"status":"ok","db":"ok"}` |
+| DB | `app_user` 0, `property` 0, `room` 0 – **trống**, đúng điều kiện bootstrap. Migration **65** (rc.1 là 64) |
+| Edge / TLS (từ Mac) | `https://desk|staff|g.ottimo.vn/` 200 / 200 / 200 (~0,26 s), `ottimo.vn` 200. Chứng chỉ Let's Encrypt (YE1/YE2) tới 24/01/2027. Header Desk: CSP `default-src 'self'; script-src 'self'…`, HSTS `max-age=31536000; includeSubDomains`, `X-Frame-Options DENY`, `X-Robots-Tag: noindex, nofollow`. `/health`, `/v1/x`, `/.env` 404; `http://` 308 → https. DNS `desk/staff/g`: 1 bản ghi A, không AAAA |
+| Timer | `ottimo-backup@ottimo-prod` (lần cuối 27/10 03:02, kế tiếp 28/10 03:03), `ottimo-ops-check@ottimo-prod` mỗi 30 phút; staging 2 timer như cũ |
+| Sao lưu gần nhất (trước kiểm) | 27/10 03:02:49, `OK: 8 encrypted files`, thoát 0 – nhưng chụp **trước** rc.3 (64 migration) nên không dùng cho diễn tập với image rc.3 |
+| `ops-check` production | **7/7 ok**: containers, j16 (0 cơ sở), backup, disk 16 %, mem 76 %, tls, http5xx 0 |
+| RAM / đĩa | RAM khả dụng 3.843 / 4.917 MB (78 %), swap 0; đĩa `/` 16 % (8,2 / 55 GB) |
+| SMTP relay | `mail-test.mjs` chế độ chỉ kiểm (`MAIL_TEST_VERIFY_ONLY=1`, container worker tạm) → **`mail-test: verified`**. **Không gửi thư** – thư thử 8b gửi tại B2 phần 5–6 |
+| `production-bootstrap` | Wrapper máy chủ sha256 `d3da078c…` = `main`. Image rc.3 có `dist/admin/production-bootstrap-cli.js`, `production-defaults.js`, `mfa-operator-reset-cli.js`. `git diff 70fe734 HEAD` trên `product/services`, `product/apps`: **không khác** → giá trị mặc định trong image = `main` |
+| KEK | `secrets/data_kek_current` có, 0400, 44 byte. Chưa có bản ngoại tuyến (B2 phần 2). Lệnh fingerprint của B2 phần 2 thử trên tệp KEK **staging** (chỉ in 8 ký tự băm) |
+| Báo động A7 | `HEARTBEAT_URL`, `ALERT_WEBHOOK_URL` trong `.env` production **rỗng** → G4-10 còn mở (chặn D, không chặn B2) |
+| GitHub | Không có lượt Release/deploy nào đang chờ duyệt |
+
+### 21.2 Bản sao lưu chạy sẵn + kéo về Mac (B2 phần 5)
+
+| Giờ | Việc | Kết quả |
+|---|---|---|
+| 10:43:35 | `systemctl start ottimo-backup@ottimo-prod.service` | `OK: 12 encrypted files`. Bản `20261027T034335Z`: dump 689.619 byte (lược đồ 65 migration, DB trống), counts, blobs, purge_journal |
+| 10:43:52 | `pull-backups.sh` trong container `alpine:3.20` (lệnh 19.2, khóa `ottimo_backup_pull` `rrsync -ro`) | `pull-backups: 12 encrypted files`, mọi checksum khớp; `~/.ottimo/backups/ottimo-prod` 0700, tệp 0600; `.last_pull` 2026-10-27T03:43:52Z |
+| 10:47 | Kiểm lại checksum 4 tệp `20261027T034335Z` trên Mac | OK cả 4 |
+
+**Không giải mã.** Khóa `~/.ottimo/backup/ottimo-prod-backup-identity.txt` không được đọc hay dùng. Diễn tập thật ở B2 làm trên bản chụp **sau** phần 1–4, có dữ liệu của buổi. Bản 10:43 là đường dự phòng (đúng lược đồ rc.3, DB trống).
+
+### 21.3 Đường diễn tập trên Mac – đã thử trọn bằng dữ liệu tổng hợp
+
+- Mac là **arm64**, không có `age`; rsync là `openrsync`. Image api là **amd64**, chạy giả lập (`node` x64 v22.23.3 trả lời ngay).
+- **Runner `ottimo-drill-runner:local`** dựng trên Mac: `alpine:3.20` + `bash age openssl coreutils diffutils docker-cli`. Nó chạy `restore-drill.sh` thật của repo qua docker socket của Mac.
+  - Thư mục `product/` được gắn **cùng đường dẫn tuyệt đối**, để lệnh gắn `02-roles.sh` mà script truyền cho Docker trỏ đúng tệp trên Mac.
+  - Giải mã nằm trong tmpfs của container.
+- Image `ghcr.io/anhvh93-tech/ottimo-api:sha-70fe734e9077` đã kéo về Mac (digest `18145bc2…`, đúng bản đang chạy).
+- **Thử trọn 10:51**, không dùng dữ liệu hay khóa production:
+  - khóa `age` dùng một lần;
+  - PostgreSQL 17 (cùng digest) + `02-roles.sh`;
+  - migrate bằng image rc.3;
+  - `pg_dump` + counts + blobs rỗng + purge_journal, mã hóa và checksum như `backup.sh`;
+  - chạy `restore-drill.sh` qua runner.
+
+  Kết quả: **ĐẠT – /health ok, 5 giây, khớp 100 %**, `migrations 65`, các bảng khác 0. Môi trường tự xóa. Không còn container, volume, mạng `ottimo-syn*` / `ottimo-restore*`; thư mục tạm trong scratchpad đã xóa.
+- Bẫy đã gặp: Terminal macOS chạy **zsh**, mà zsh hiểu `$P:ro` là modifier `:r` → gắn sai thư mục. Lệnh trong `b2-runbook.md` 2.5 chạy qua `bash -c` và đặt biến trong dấu nháy.
+
+### 21.4 Lỗ hổng: thư "Security notice" không có người nhận
+
+- Cách bộ gửi thư nhân viên chọn người nhận (`jobs/email-dispatch.ts`): chỉ gửi tới `app_user.email` khác rỗng.
+  - `production-bootstrap` không đặt email cho chủ.
+  - API người dùng (`users.controller.ts`) chỉ có `phone`, không có `email`.
+  - Desk không có ô nhập email.
+- Đọc **staging** 27/10 (chỉ đếm):
+  - 0/27 người dùng có email;
+  - outbox `staff.email`: `receiving_account_changed` **dead `NO_RECIPIENT`** ×3, `mfa_reset_by_operator` dead `NO_RECIPIENT` ×1.
+- Hệ quả trên production: thư bảo mật theo SEC 06.15 / 06.33 / Q51-6 (đổi tài khoản nhận tiền, khôi phục 2 bước, dùng mã khôi phục, khóa tài khoản) **không tới ai**. Thông báo trong app vẫn có.
+- Thư thử 8b (B2 phần 6) chỉ chứng minh đường gửi `info@ottimo.vn` thông, **không** chứng minh thư bảo mật tới chủ.
+- **Đề xuất cho ORC/SEC/BE**, cần quyết trước 09:00 28/10 nếu muốn vá tạm trong buổi:
+  - (A) BE thêm `--owner-email` cho bootstrap hoặc ô email trong "Người dùng & vai" ở v1.0.1, trước D nếu kịp;
+  - (B) tạm thời: tại B2, INV tự gõ một lệnh SQL đặt email chủ = `info@ottimo.vn` (địa chỉ công khai). Lệnh này có audit tay, BE soạn và SEC duyệt;
+  - (C) chấp nhận đến v1.0.1; kênh dự phòng là điện thoại (06.33 mục báo).
+
+  OPS nghiêng về **A + C**: không ghi thẳng vào DB production ngoài app. Đây là việc kỹ thuật/bảo mật, không có chi phí, nên **không lập ESC**.
+
+### 21.5 Chưa sẵn sàng / cần biết (không chặn B2)
+
+| # | Việc | Ảnh hưởng | Đề xuất |
+|---|---|---|---|
+| 1 | CI `main` **đỏ**: lượt 40445386390 (`3219cc0`) – Prettier báo `product/tests/fixtures/br-examples.json` (commit DOM BR v0.4.8). Lượt 40442832436 (`25042ae`) – `playwright install-deps` lỗi apt (chập chờn) | Không có image mới để vá nóng cho tới khi xanh. Không ảnh hưởng B2 (không deploy) | ORC giao tác giả chạy `prettier --write` tệp fixture; chạy lại job E2E. OPS không sửa tệp của vai khác |
+| 2 | Bundle `infra/` production: `deploy.sh` cũ, **chưa có bước `appconfig`** (sha `c4d8d7df…` ≠ `main` `949ac32a…`). `backup.sh`, `restore-drill.sh`, `ops-check.sh`, `backup-counts.sql`, `production-bootstrap.sh` = `main` | Lần deploy sau vẫn chạy, chỉ thiếu chốt bắt lỗi cấu hình sớm | Làm mới bundle sau B2, ngoài giờ khách, không vào D−1/D (mục 17.6) |
+| 3 | Báo động A7 chưa gắn (`HEARTBEAT_URL`, `ALERT_WEBHOOK_URL` rỗng); UptimeRobot chưa có xác nhận | G4-10 – chặn ngày D | INV tạo tài khoản. Gắn bằng lệnh `b2-runbook.md` 2.7 (dấu nhắc ẩn) |
+| 4 | Khóa giải mã sao lưu production (`ottimo-prod-backup-identity.txt`, 184 byte, **không có passphrase**) nằm **cùng Mac** với các bản sao lưu đã kéo về | Mất/lộ Mac là lộ cả bản sao lưu (ảnh giấy tờ còn lớp mã hóa KEK; phần dữ liệu không mã hóa riêng trong DB thì đọc được) | SEC xem. OPS đề xuất: sau B2, khi INV đã có 2 bản (A8), xóa khóa khỏi Mac; mỗi lần diễn tập thì đặt lại tạm (cách ở `b2-runbook.md` 2.5). Kéo bản sao lưu không cần khóa này |
+| 5 | Tệp bí mật production thuộc `ottimo-admin` (uid 1000 trùng uid `node` của container – cách `init-secrets.sh` cấp quyền cho container) | `ottimo-admin` đọc được bí mật không cần `sudo`. Tài khoản này vốn đã có `sudo` không mật khẩu, nên không mở thêm quyền | Để biết; SEC ghi nhận |
+| 6 | Diễn tập trên Mac phụ thuộc Docker Desktop + runner dựng tại chỗ | Mất image thì dựng lại 1 lệnh (~10 giây, cần mạng) | Lệnh dựng lại ở `b2-runbook.md` 2.5 |
