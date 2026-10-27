@@ -431,6 +431,9 @@ export class ApprovalService {
   // ───────────────────────── A1 / A2 ─────────────────────────
 
   async submit(tx: Tx, actor: Actor, input: SubmitInput): Promise<ApprovalRow> {
+    // ADR-015 / FB-R3-SEC-BE-A-03: a preview never creates a request (code, notification) – fail closed at the source.
+    if (tx.ctx.simulation)
+      throw new Error('approval requests cannot be submitted inside a simulation (ADR-015)');
     if (!APPROVAL_TYPES.includes(input.type)) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'type', code: 'NOT_IN_LIST' }] });
     }

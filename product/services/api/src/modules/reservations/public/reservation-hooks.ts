@@ -336,6 +336,10 @@ export class ReservationHooks {
   }
 
   async emit(tx: Tx, event: ReservationEvent): Promise<void> {
+    // ADR-015 / FB-R3-SEC-BE-A-03: listeners (guest-link revocation, registration purge → DEK destruction…) never run
+    // inside a simulation – fail closed at the source, whatever the order of a use case's lines.
+    if (tx.ctx.simulation)
+      throw new Error('reservation hooks cannot run inside a simulation (ADR-015)');
     for (const hook of this.hooks.get(event.kind) ?? []) await hook(tx, event);
   }
 }

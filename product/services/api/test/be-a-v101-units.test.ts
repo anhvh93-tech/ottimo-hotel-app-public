@@ -30,6 +30,14 @@ describe('simulation tx – transaction control (FB-R3-SEC-ARC-01 (4))', () => {
     'SELECT 1;commit',
     '/* x */ COMMIT',
     '-- note\nCOMMIT',
+    // SEC FB-R3-SEC-BE-A-01 (2): a quote holding `--` no longer hides the next statement
+    "SELECT '--x'; COMMIT",
+    "SELECT '/*'; ROLLBACK",
+    // BE-B FB-R3-BE-B-BE-A-03 (b): session advisory locks outlive the rollback
+    'SELECT pg_advisory_lock(42)',
+    'SELECT pg_try_advisory_lock(1, 2)',
+    'SELECT pg_advisory_lock_shared($1)',
+    'select PG_TRY_ADVISORY_LOCK_SHARED (7)',
   ])('refuses %j', (sql) => {
     expect(isForbiddenInSimulation(sql)).toBe(true);
   });
@@ -46,6 +54,9 @@ describe('simulation tx – transaction control (FB-R3-SEC-ARC-01 (4))', () => {
     'INSERT INTO folio_line (description) VALUES ($1)',
     "SELECT 'commit' AS word",
     'WITH x AS (SELECT 1) UPDATE stay_night SET night_state = $1',
+    // transaction-level advisory locks end with the transaction (approvals, minibar use them)
+    'SELECT pg_advisory_xact_lock($1)',
+    'SELECT pg_try_advisory_xact_lock(1, 2)',
   ])('allows %j', (sql) => {
     expect(isForbiddenInSimulation(sql)).toBe(false);
   });
@@ -67,6 +78,35 @@ describe('B16 dry run wiring (ADR-015)', () => {
     expect(run).toBeGreaterThan(sim);
     // the dry branch returns before the write
     expect(handler.slice(sim, run)).toMatch(/return preview;/);
+  });
+
+  it('SEC-BE-A-01: the guard row is inserted before the handler runs (no savepoint can come before it)', () => {
+    const d = src('db/database.ts');
+    const body = d.slice(d.indexOf('async simulate<T>('), d.indexOf('async entry<T>('));
+    const guard = body.indexOf('INSERT INTO simulation_guard');
+    const handler = body.indexOf('await fn(');
+    expect(guard).toBeGreaterThan(0);
+    expect(handler).toBeGreaterThan(guard);
+    expect(body.slice(0, guard)).not.toMatch(/SAVEPOINT/i);
+  });
+
+  it('SEC-BE-A-04 (2): only src/db (and the SSE listener) open pool / client connections', () => {
+    const hits: string[] = [];
+    const walk = (dir: string) => {
+      for (const f of readdirSync(dir)) {
+        const p = join(dir, f);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (
+          p.endsWith('.ts') &&
+          /\.connect\(\)|new Pool\(|new Client\(/.test(readFileSync(p, 'utf8'))
+        )
+          hits.push(p.slice(p.indexOf('/src/') + 5));
+      }
+    };
+    walk(join(__dirname, '..', 'src'));
+    for (const h of hits) {
+      expect(h.startsWith('db/') || h === 'modules/events/internal/sse-hub.ts', h).toBe(true);
+    }
   });
 
   it('Database.simulate has no commit path; uow.simulate is used by B16 only (ADR-015 point 5: a second user needs ARC)', () => {

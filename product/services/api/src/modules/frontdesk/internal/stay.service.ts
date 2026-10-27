@@ -76,7 +76,12 @@ export interface EarlyDepartureOutcome {
   }>;
   droppedNetVnd: number;
   refundableVnd: number;
+  /** After the cap (option A): refunded part of the reversed room change difference. */
   roomChangeDifferenceVnd: number;
+  /** Reversed but not refunded (more than the overpayment). */
+  roomChangeDifferenceReversedVnd: number;
+  /** The BR-428 part actually in the refund request (= refundableVnd when not capped). */
+  refundablePaidVnd: number;
   refundCapped: boolean;
   otaRetainedMaxVnd?: number;
   otaRetainedRequired: boolean;
@@ -88,6 +93,36 @@ export interface EarlyDepartureOutcome {
     cancelled: boolean;
   }>;
   registrationNeedsUpdate: boolean;
+}
+
+/**
+ * BR-428 v0.4.8 / OpenAPI 0.3.9 add 2 (option A, oracle BR-428-07/08): the refund (already capped by the folio's
+ * overpayment) is split in the order extra-person fee → room change difference → BR-428 part. Invariants:
+ * (a) the three refunded parts add up to `refundVnd`; (b) refunded + reversed-only = reversed, per item.
+ */
+export function splitEarlyDepartureRefund(i: {
+  refundVnd: number;
+  extraPersonVnd: number;
+  roomChangeDifferenceVnd: number;
+}): {
+  extraPersonRefundVnd: number;
+  extraPersonReversedVnd: number;
+  roomChangeDifferenceVnd: number;
+  roomChangeDifferenceReversedVnd: number;
+  refundablePaidVnd: number;
+} {
+  const extraPersonRefundVnd = Math.min(i.extraPersonVnd, i.refundVnd);
+  const roomChangeDifferenceVnd = Math.min(
+    i.roomChangeDifferenceVnd,
+    i.refundVnd - extraPersonRefundVnd,
+  );
+  return {
+    extraPersonRefundVnd,
+    extraPersonReversedVnd: i.extraPersonVnd - extraPersonRefundVnd,
+    roomChangeDifferenceVnd,
+    roomChangeDifferenceReversedVnd: i.roomChangeDifferenceVnd - roomChangeDifferenceVnd,
+    refundablePaidVnd: i.refundVnd - extraPersonRefundVnd - roomChangeDifferenceVnd,
+  };
 }
 
 export interface LateCheckoutOutcome {
@@ -1667,14 +1702,18 @@ export class StayService {
               reservationId: x.reservationId,
               category: 'early_departure_fee',
               revenueGroup: 'other',
-              description: `early_departure ${refund.noticeDays}d`,
+              // BR-428 v0.4.8 (oracle BR-428-09): the OTA part follows the OTA's policy – no notice days on
+              // its line; the direct/agent part says "(N days' notice)" (BR-011).
+              description: x.ota ? 'early_departure' : `early_departure ${shownNoticeDays}d`,
               quantity: 1,
               unitPriceVnd: x.amountVnd,
               amountVnd: x.amountVnd,
               serviceDate: nd,
               source: 'system',
               ...(x.ota ? { chargeCode: 'ota_retained' } : {}),
-              labelParams: { noticeDays: refund.noticeDays, nights: x.nights },
+              labelParams: x.ota
+                ? { nights: x.nights }
+                : { noticeDays: shownNoticeDays, nights: x.nights },
             },
           ],
           who,
@@ -1686,8 +1725,15 @@ export class StayService {
       // request (unhandled credit – never OTA money). Not collected → the reversed lines are enough.
       const credit = (await this.s.folios.balance(tx, row.folio_id)).unhandledCreditVnd;
       refundVnd = Math.min(refund.refundVnd + droppedFeesVnd + differenceReversedVnd, credit);
-      extraPersonRefundVnd = Math.min(droppedFeesVnd, refundVnd);
     }
+    // BR-428 v0.4.8 / OpenAPI 0.3.9 add 2 (option A): the request is split over the WHOLE folio's overpayment in the
+    // order extra-person fee → room change difference → BR-428 part; each item = refunded + reversed only.
+    const split = splitEarlyDepartureRefund({
+      refundVnd,
+      extraPersonVnd: droppedFeesVnd,
+      roomChangeDifferenceVnd: differenceReversedVnd,
+    });
+    extraPersonRefundVnd = split.extraPersonRefundVnd;
     const earlyDepartureFeeVnd = Math.max(0, feeVnd);
     // 0.3.9 (ADR-015 point 4): the write recomputes under the locks; what the desk confirmed must still hold.
     if (
@@ -1733,7 +1779,9 @@ export class StayService {
       droppedNights,
       droppedNetVnd: directNetVnd,
       refundableVnd: refund.refundVnd,
-      roomChangeDifferenceVnd: differenceReversedVnd,
+      roomChangeDifferenceVnd: split.roomChangeDifferenceVnd,
+      roomChangeDifferenceReversedVnd: split.roomChangeDifferenceReversedVnd,
+      refundablePaidVnd: split.refundablePaidVnd,
       refundCapped: refundVnd < refund.refundVnd + droppedFeesVnd + differenceReversedVnd,
       ...(otaParts.length > 0 ? { otaRetainedMaxVnd: otaGrossVnd } : {}),
       otaRetainedRequired,
@@ -1746,7 +1794,7 @@ export class StayService {
       refundVnd,
       refundRequestId,
       extraPersonRefundVnd,
-      extraPersonReversedVnd: Math.max(0, droppedFeesVnd - extraPersonRefundVnd),
+      extraPersonReversedVnd: split.extraPersonReversedVnd,
     };
     if (dryRun) {
       // Everything written so far is rolled back by UnitOfWork.simulate; nothing below runs in a preview.
@@ -1764,7 +1812,12 @@ export class StayService {
         ...(otaParts.length > 0 ? { droppedOtaGrossVnd: otaGrossVnd } : {}),
         refundableVnd: refund.refundVnd,
         droppedExtraPersonVnd: droppedFeesVnd,
-        ...(differenceReversedVnd > 0 ? { roomChangeDifferenceVnd: differenceReversedVnd } : {}),
+        // BR-428 v0.4.8 (e): the same three pairs as the answer and the refund request.
+        extraPersonRefundVnd: split.extraPersonRefundVnd,
+        extraPersonReversedVnd: split.extraPersonReversedVnd,
+        roomChangeDifferenceVnd: split.roomChangeDifferenceVnd,
+        roomChangeDifferenceReversedVnd: split.roomChangeDifferenceReversedVnd,
+        refundablePaidVnd: split.refundablePaidVnd,
         retainedVnd: feeVnd,
         refundRequestedVnd: refundVnd,
         ...(childBookings.length > 0
@@ -1787,7 +1840,7 @@ export class StayService {
             }
           : {}),
       },
-      reason: `BR-428 notice ${refund.noticeDays}d${evidence ? ` – ${evidence.note}` : ''}`,
+      reason: `BR-428 notice ${shownNoticeDays}d${evidence ? ` – ${evidence.note}` : ''}`,
       ...this.s.req(ctx),
     });
     await outboxAvailability(tx, released, 'reservation.early_departure');

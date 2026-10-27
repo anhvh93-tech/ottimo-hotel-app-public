@@ -147,8 +147,11 @@ export class Database {
    *   the database refuses to end this transaction with a commit whatever the code does (the stand-in for READ ONLY
    *   of the SEC A3 dry runs);
    * - `fn` gets a Tx with `ctx.simulation = true` whose `query` refuses transaction control (end/abort/begin, SET
-   *   without LOCAL, RESET, DISCARD); SAVEPOINT / RELEASE / ROLLBACK TO stay allowed – they cannot end the
-   *   transaction and the occupancy writes use them (23P01 handling);
+   *   without LOCAL, RESET, DISCARD, session advisory locks) and whose `db` (drizzle) throws; SAVEPOINT / RELEASE /
+   *   ROLLBACK TO stay allowed – the guard row is inserted at the top level BEFORE `fn`, so no savepoint can undo it,
+   *   they cannot end the transaction, and the occupancy writes use them (23P01 handling – SEC FB-R3-SEC-BE-A-01);
+   * - FB-R3-SEC-BE-A-02 (b): the transaction id read right after the guard must still be the current one when `fn`
+   *   returns – a transaction ended by any path the statement filter missed is reported (500), never answered;
    * - ROLLBACK in `finally`, success or not; a failed ROLLBACK destroys the connection (never back to the pool).
    * The caller keeps the "inside a unit of work" marker (UnitOfWork.simulate) so no second connection is opened.
    */
@@ -180,7 +183,15 @@ export class Database {
         'INSERT INTO simulation_guard (organization_id, property_id) VALUES ($1, $2)',
         [ctx.organizationId, ctx.propertyId],
       );
-      return await fn(makeSimulationTx(client, { ...ctx, simulation: true }));
+      const before = await client.query<{ id: string }>('SELECT txid_current()::text AS id');
+      const result = await fn(makeSimulationTx(client, { ...ctx, simulation: true }));
+      const after = await client.query<{ id: string | null }>(
+        'SELECT txid_current_if_assigned()::text AS id',
+      );
+      if (after.rows[0]?.id !== before.rows[0]?.id) {
+        throw new Error('simulation transaction was ended inside the handler (ADR-015)');
+      }
+      return result;
     } finally {
       try {
         await client.query('ROLLBACK');
@@ -215,20 +226,37 @@ function makeTx(client: PoolClient, ctx: TenantContext): Tx {
 
 /**
  * Transaction control a simulation tx refuses (FB-R3-SEC-ARC-01 (4)): anything that could end the transaction or
- * leak a setting to the pooled connection. Checked at the start of the text and after every `;`.
+ * leak a setting to the pooled connection. Checked at the start of the text and after every `;`, on the raw text AND
+ * with comments removed (a quote holding `--` cannot hide a statement – SEC FB-R3-SEC-BE-A-01 (2)).
+ * This is a REMINDER for developers, not the security boundary: the boundary is the `simulation_guard` row (the
+ * database refuses the commit) plus the transaction-id check of Database.simulate.
  */
 const SIMULATION_FORBIDDEN =
   /(^|;)\s*(commit\b|end\b|abort\b|begin\b|start\s+transaction\b|prepare\s+transaction\b|rollback\b(?!\s+to\b)|reset\b|discard\b|set\b(?!\s+local\b))/i;
+/** BE-B FB-R3-BE-B-BE-A-03 (b): a SESSION advisory lock outlives the rollback (the pooled connection keeps it). */
+const SESSION_ADVISORY_LOCK = /\bpg_(try_)?advisory_lock(_shared)?\s*\(/i;
 
 export function isForbiddenInSimulation(text: string): boolean {
-  return SIMULATION_FORBIDDEN.test(text.replace(/--[^\n]*|\/\*[\s\S]*?\*\//g, ' '));
+  const bare = text.replace(/--[^\n]*|\/\*[\s\S]*?\*\//g, ' ');
+  return (
+    SIMULATION_FORBIDDEN.test(text) ||
+    SIMULATION_FORBIDDEN.test(bare) ||
+    SESSION_ADVISORY_LOCK.test(text)
+  );
 }
+
+/** FB-R3-SEC-BE-A-02 (a) / BE-B 03 (a): drizzle on a simulation tx could send BEGIN/COMMIT itself – refused. */
+const NO_DRIZZLE_IN_SIMULATION = new Proxy({} as NodePgDatabase<Schema>, {
+  get() {
+    throw new Error('drizzle (tx.db) is not available inside a simulation (ADR-015)');
+  },
+});
 
 function makeSimulationTx(client: PoolClient, ctx: TenantContext): Tx {
   const inner = makeTx(client, ctx);
   return {
     ctx,
-    db: inner.db,
+    db: NO_DRIZZLE_IN_SIMULATION,
     query: <R extends QueryResultRow>(text: string, params?: readonly unknown[]) => {
       if (isForbiddenInSimulation(text)) {
         return Promise.reject(

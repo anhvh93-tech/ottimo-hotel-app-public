@@ -586,6 +586,8 @@ function earlyDepartureBody(
     droppedNetVnd: r.droppedNetVnd,
     refundableVnd: r.refundableVnd,
     roomChangeDifferenceVnd: r.roomChangeDifferenceVnd,
+    roomChangeDifferenceReversedVnd: r.roomChangeDifferenceReversedVnd,
+    refundablePaidVnd: r.refundablePaidVnd,
     refundCapped: r.refundCapped,
     ...(r.otaRetainedMaxVnd !== undefined ? { otaRetainedMaxVnd: r.otaRetainedMaxVnd } : {}),
     otaRetainedRequired: r.otaRetainedRequired,

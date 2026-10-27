@@ -23,7 +23,10 @@ import { Client as PgClient, type Notification } from 'pg';
 import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database, Tx } from '../../src/db/database';
+import { ApprovalService } from '../../src/modules/approvals/public/approval.service';
 import { SSE_CHANNEL } from '../../src/modules/events/public/events.service';
+import { AttachmentService } from '../../src/modules/files/public/attachment.service';
+import { ReservationHooks } from '../../src/modules/reservations/public/reservation-hooks';
 import { NoMinibarPort } from '../../src/modules/frontdesk/internal/default-ports';
 import { StaySupport, FrontdeskPorts } from '../../src/modules/frontdesk/internal/stay-support';
 import { StayService } from '../../src/modules/frontdesk/internal/stay.service';
@@ -52,7 +55,7 @@ import {
   seedGuestRow,
   touchSessions,
 } from '../helpers/reservations-fixture';
-import { HAS_DB, type TestTenant, appDatabase, createTenant } from '../helpers/tenant';
+import { HAS_DB, type TestTenant, appDatabase, createTenant, setParam } from '../helpers/tenant';
 
 /** The real registration port, except that check-in does not wait for the documents (not under test here). */
 function docsOkOver(real: FrontdeskRegistrationPort): FrontdeskRegistrationPort {
@@ -294,21 +297,70 @@ describe.skipIf(!HAS_DB)('B16 early departure – dry run preview (OpenAPI 0.3.9
       await owner.query('ROLLBACK');
     }
   };
+  /**
+   * BR-428 v0.4.8 / OpenAPI 0.3.9 add 2 – invariants of EVERY B16 answer (preview and write):
+   * (a) the three refunded parts add up to `refundVnd`; (b) per item refunded + reversed-only = reversed (both ≥ 0,
+   * split in the order extra-person → room change → BR-428 part); `refundablePaidVnd` ≤ `refundableVnd`;
+   * `refundCapped` ⇔ refundVnd < everything that could have been refunded.
+   */
+  const invariants = (r: Res) => {
+    if (r.statusCode !== 200) return;
+    const j = r.json() as Record<string, number | boolean>;
+    const n = (k: string) => j[k] as number;
+    for (const k of [
+      'extraPersonRefundVnd',
+      'extraPersonReversedVnd',
+      'roomChangeDifferenceVnd',
+      'roomChangeDifferenceReversedVnd',
+      'refundablePaidVnd',
+    ]) {
+      expect(n(k), k).toBeGreaterThanOrEqual(0);
+    }
+    expect(n('extraPersonRefundVnd') + n('roomChangeDifferenceVnd') + n('refundablePaidVnd')).toBe(
+      n('refundVnd'),
+    );
+    expect(n('refundablePaidVnd')).toBeLessThanOrEqual(n('refundableVnd'));
+    const wanted =
+      n('refundableVnd') +
+      n('extraPersonRefundVnd') +
+      n('extraPersonReversedVnd') +
+      n('roomChangeDifferenceVnd') +
+      n('roomChangeDifferenceReversedVnd');
+    expect(j.refundCapped).toBe(n('refundVnd') < wanted);
+    // order: a later item gets money only when every earlier one is refunded in full
+    if (n('roomChangeDifferenceVnd') > 0) expect(n('extraPersonReversedVnd')).toBe(0);
+    if (n('refundablePaidVnd') > 0) {
+      expect(n('extraPersonReversedVnd')).toBe(0);
+      expect(n('roomChangeDifferenceReversedVnd')).toBe(0);
+    }
+  };
   /** Dry run that must leave every row of the tenant as it was. */
   const cleanPreview = async (id: string, body: Record<string, unknown>, who = 'fd') => {
     const before = await snapshot();
     const res = await preview(id, body, who);
     expect(res.statusCode, res.body).toBe(200);
     expect(await snapshot()).toEqual(before);
+    invariants(res);
     return res;
   };
   /** Write with the numbers of the preview (the desk's flow). */
-  const commit = async (id: string, body: Record<string, unknown>, shown: Res) =>
-    act(id, 'early-departure', {
+  const commit = async (id: string, body: Record<string, unknown>, shown: Res) => {
+    const res = await act(id, 'early-departure', {
       ...body,
       expectedRefundVnd: shown.json().refundVnd,
       expectedFeeVnd: shown.json().earlyDepartureFeeVnd,
     });
+    invariants(res);
+    return res;
+  };
+  /** The early departure fee lines written by B16 (description + labelParams – oracle BR-428-09). */
+  const feeLines = (b: Booking) =>
+    q<{ description: string; label_params: Record<string, unknown>; charge_code: string | null }>(
+      `SELECT description, label_params, charge_code FROM folio_line
+        WHERE folio_id = $1 AND category = 'early_departure_fee' AND reversal_of_id IS NULL
+        ORDER BY charge_code NULLS FIRST`,
+      [b.folioId],
+    );
   /** Preview and write give the same numbers (ADR-015 test (2)). */
   const NUMBERS = [
     'earlyDepartureFeeVnd',
@@ -321,6 +373,8 @@ describe.skipIf(!HAS_DB)('B16 early departure – dry run preview (OpenAPI 0.3.9
     'droppedNetVnd',
     'refundableVnd',
     'roomChangeDifferenceVnd',
+    'roomChangeDifferenceReversedVnd',
+    'refundablePaidVnd',
     'refundCapped',
     'otaRetainedMaxVnd',
     'otaRetainedRequired',
@@ -810,6 +864,291 @@ describe.skipIf(!HAS_DB)('B16 early departure – dry run preview (OpenAPI 0.3.9
     expect(after).toEqual(before);
   });
 
+  /** Two companions: the first fills the booked 2nd adult, the second pays BR-110 from `from` (amount from the dry run). */
+  const thirdAdult = async (b: Booking, from: string) => {
+    const g1 = await seedGuestRow(db, t, { name: `Bạn Đi Cùng ${randomUUID().slice(0, 4)}` });
+    const g2 = await seedGuestRow(db, t, { name: `Người Thứ Ba ${randomUUID().slice(0, 4)}` });
+    const add = (guestId: string, more: Record<string, unknown> = {}) =>
+      c.fd!.send('POST', url(`/reservations/${b.id}/party`), {
+        role: 'companion',
+        guestId,
+        effectiveFrom: from,
+        ...more,
+      });
+    expect((await add(g1)).statusCode).toBe(201);
+    const dry = await add(g2, { dryRun: true });
+    expect(dry.statusCode, dry.body).toBe(200);
+    const fee = dry.json().occupancyChange.surchargeVnd as number;
+    const ok = await add(g2, { applyExtraPersonSurcharge: true, expectedSurchargeVnd: fee });
+    expect(ok.statusCode, ok.body).toBe(201);
+    return fee;
+  };
+
+  it('BR-428-07: direct, extra-person fee posted but not collected, capped – 400.000 = 300.000 extra + 100.000 BR-428', async () => {
+    const o = oracle('BR-428-07');
+    const i = o.input as Record<string, unknown>;
+    await at('2026-10-20T15:00:00+07:00');
+    await vacant('203');
+    const b = await direct(
+      '203',
+      i.arrivalDate as string,
+      i.departureDate as string,
+      i.paidVnd as number,
+      i.nightRateVnd as number,
+    );
+    await checkIn(b);
+    expect(await thirdAdult(b, '2026-10-20')).toBe(4 * (i.extraPersonPerNightVnd as number));
+    await at(i.notifiedAt as string);
+    const body = {
+      newDepartureDate: i.newDepartureDate as string,
+      noticeGivenAt: i.notifiedAt as string,
+    };
+    const dry = await cleanPreview(b.id, body);
+    const exp = { ...o.expected } as Record<string, unknown>;
+    delete exp.unhandledCreditAfterVnd;
+    expect(dry.json()).toMatchObject(exp);
+    const wr = await commit(b.id, body, dry);
+    expect(wr.statusCode, wr.body).toBe(200);
+    expect(numbers(wr)).toEqual(numbers(dry));
+    expect(await refunds(b.id)).toEqual([{ amount_vnd: exp.refundVnd }]);
+    // BR-428 v0.4.8 (e): the money log line carries the same three pairs.
+    const [audit] = await q<{ after: Record<string, unknown>; reason: string }>(
+      `SELECT after, reason FROM audit_event WHERE entity_id = $1 AND action = 'reservation.early_departure'`,
+      [b.id],
+    );
+    expect(audit!.after).toMatchObject({
+      refundableVnd: exp.refundableVnd,
+      extraPersonRefundVnd: exp.extraPersonRefundVnd,
+      extraPersonReversedVnd: exp.extraPersonReversedVnd,
+      roomChangeDifferenceVnd: 0,
+      roomChangeDifferenceReversedVnd: 0,
+      refundablePaidVnd: exp.refundablePaidVnd,
+      refundRequestedVnd: exp.refundVnd,
+    });
+    expect(audit!.reason).toMatch(/^BR-428 notice 1d/);
+    // BR-428-09 line 1: the direct part says the notice days.
+    expect(await feeLines(b)).toEqual([
+      {
+        description: 'early_departure 1d',
+        label_params: { noticeDays: 1, nights: 2 },
+        charge_code: null,
+      },
+    ]);
+  });
+
+  it('BR-428-08: Agoda moved 202 → 401 (difference collected in part), capped – 50.000 refunded, the rest only reversed', async () => {
+    const o = oracle('BR-428-08');
+    const i = o.input as Record<string, unknown> & {
+      roomChange: { from: string; to: string; fromNight: string; differencePerNightVnd: number };
+    };
+    // Oracle input: 250.000 per night on all three nights (21–23/10). The B14 difference uses the direct calendar and
+    // DS-E uplifts Friday 23/10 by 15 % (287.000), so from 20/10 to 23/10 the weekend uplift is limited to agents
+    // (BR-103 parameter, effective-dated), then back to 'all'. The earlier cases of this file on those dates are
+    // already finished (typed rates); the later ones are in November/December.
+    await setParam(db, t, 'weekend_uplift_channels', ['agent'], '2026-10-20');
+    await setParam(db, t, 'weekend_uplift_channels', 'all', '2026-10-24');
+    await at('2026-10-20T15:00:00+07:00');
+    await vacant('202');
+    await vacant('401');
+    const b = await ota('202', i.arrivalDate as string, i.departureDate as string, 3_200_000);
+    await checkIn(b);
+    await at(`${i.roomChange.fromNight}T10:00:00+07:00`);
+    const move = {
+      newRoomId: ids.rooms[i.roomChange.to],
+      effectiveDate: i.roomChange.fromNight,
+      cause: 'guest_request',
+      reason: 'Khách muốn căn rộng hơn',
+    };
+    const mdry = await act(b.id, 'change-room', { ...move, dryRun: true });
+    expect(mdry.statusCode, mdry.body).toBe(200);
+    const moved = await act(b.id, 'change-room', {
+      ...move,
+      applyDifference: true,
+      expectedDeltaVnd: mdry.json().folioDeltaVnd,
+    });
+    expect(moved.statusCode, moved.body).toBe(200);
+    const diffs = await q<{ d: string; a: number }>(
+      `SELECT service_date::text AS d, amount_vnd AS a FROM folio_line
+        WHERE folio_id = $1 AND category = 'room_change_difference' AND reversal_of_id IS NULL ORDER BY 1`,
+      [b.folioId],
+    );
+    expect(diffs.map((x) => x.d)).toEqual(['2026-10-21', '2026-10-22', '2026-10-23']);
+    // Collected 300.000 of the difference (oracle) – the folio's other charges are covered by the OTA.
+    await pay(b, i.roomChangeDifferenceCollectedVnd as number);
+    await at(`${i.newDepartureDate as string}T10:00:00+07:00`);
+    const body = {
+      newDepartureDate: i.newDepartureDate as string,
+      noticeGivenAt: `${i.newDepartureDate as string}T10:00:00+07:00`,
+      otaRetainedVnd: i.otaRetainedVnd as number,
+    };
+    const dry = await cleanPreview(b.id, body);
+    const droppedDiff = diffs
+      .filter((x) => x.d >= (i.newDepartureDate as string))
+      .reduce((a, x) => a + x.a, 0);
+    const credit = (i.roomChangeDifferenceCollectedVnd as number) - diffs[0]!.a;
+    expect(dry.json()).toMatchObject({
+      refundVnd: credit,
+      roomChangeDifferenceVnd: credit,
+      roomChangeDifferenceReversedVnd: droppedDiff - credit,
+      extraPersonRefundVnd: 0,
+      earlyDepartureFeeVnd: 0,
+      refundablePaidVnd: 0,
+      refundCapped: true,
+    });
+    expect(dry.json().droppedNights.map((n: { date: string }) => n.date)).toEqual(
+      o.expected.droppedNights,
+    );
+    // 202 → 401 at the plain list prices = the oracle's 250.000 on every night → the exact oracle numbers.
+    expect(diffs.map((x) => x.a)).toEqual(
+      [250_000, 250_000, 250_000].map(() => i.roomChange.differencePerNightVnd),
+    );
+    expect(droppedDiff).toBe(o.expected.roomChangeDifferenceDroppedVnd);
+    expect(dry.json()).toMatchObject({
+      refundVnd: o.expected.refundVnd,
+      roomChangeDifferenceVnd: o.expected.roomChangeDifferenceVnd,
+      roomChangeDifferenceReversedVnd: o.expected.roomChangeDifferenceReversedVnd,
+      extraPersonRefundVnd: o.expected.extraPersonRefundVnd,
+      earlyDepartureFeeVnd: o.expected.earlyDepartureFeeVnd,
+      refundCapped: o.expected.refundCapped,
+    });
+    const wr = await commit(b.id, body, dry);
+    expect(wr.statusCode, wr.body).toBe(200);
+    expect(numbers(wr)).toEqual(numbers(dry));
+    expect(await refunds(b.id)).toEqual([{ amount_vnd: credit }]);
+  });
+
+  it('BR-428-09 + BE-B 04: OTA stay + direct child, extra person + room change difference + 50 %, OTA keeps a part – all three parts, then capped; fee lines', async () => {
+    await at('2026-12-21T15:00:00+07:00');
+    await vacant('102');
+    await vacant('202');
+    const b = await ota('102', '2026-12-21', '2026-12-24', 2_400_000);
+    await checkIn(b);
+    await thirdAdult(b, '2026-12-21');
+    await at('2026-12-22T10:00:00+07:00');
+    const move = {
+      newRoomId: ids.rooms['202'],
+      effectiveDate: '2026-12-22',
+      cause: 'guest_request',
+      reason: 'Khách muốn đổi căn',
+    };
+    const mdry = await act(b.id, 'change-room', { ...move, dryRun: true });
+    expect(mdry.statusCode, mdry.body).toBe(200);
+    const moved = await act(b.id, 'change-room', {
+      ...move,
+      applyDifference: true,
+      expectedDeltaVnd: mdry.json().folioDeltaVnd,
+    });
+    expect(moved.statusCode, moved.body).toBe(200);
+    const ext = await act(b.id, 'extend', { nights: 1 });
+    expect(ext.statusCode, ext.body).toBe(200);
+    const childId = ext.json().childReservation.id as string;
+    // ARC 0.3.9 add 1: the stay departs with the child booking.
+    const primary = (await c.fd!.get(url(`/reservations/${b.id}`))).json();
+    expect(primary).toMatchObject({ departureDate: '2026-12-24', stayDepartureDate: '2026-12-25' });
+    const child = (await c.fd!.get(url(`/reservations/${childId}`))).json();
+    expect(child.stayDepartureDate).toBeUndefined();
+    expect(child.allowedActions.map((a: { event: string }) => a.event)).not.toContain(
+      'early_departure',
+    );
+    const due = (await folio(b)).totals.balanceDueVnd as number;
+    if (due > 0) await pay(b, due);
+    const body = { newDepartureDate: '2026-12-23', noticeGivenAt: '2026-12-22T10:00:00+07:00' };
+    const first = await cleanPreview(b.id, body);
+    const half = Math.floor((first.json().otaRetainedMaxVnd as number) / 2 / 1000) * 1000;
+    const full = { ...body, otaRetainedVnd: half };
+    const open = await cleanPreview(b.id, full);
+    // Not capped: the three parts are all there, each refunded in full.
+    expect(open.json()).toMatchObject({
+      refundCapped: false,
+      extraPersonReversedVnd: 0,
+      roomChangeDifferenceReversedVnd: 0,
+    });
+    for (const k of ['extraPersonRefundVnd', 'roomChangeDifferenceVnd', 'refundablePaidVnd']) {
+      expect(open.json()[k], k).toBeGreaterThan(0);
+    }
+    expect(open.json().refundablePaidVnd).toBe(open.json().refundableVnd);
+    expect(open.json().childBookings).toEqual([
+      { reservationId: childId, code: expect.any(String), droppedNightCount: 1, cancelled: true },
+    ]);
+    // An unpaid charge eats the BR-428 part and half the difference → capped in the BR-428 order.
+    const rcd = open.json().roomChangeDifferenceVnd as number;
+    const eaten = (open.json().refundableVnd as number) + Math.floor(rcd / 2);
+    const f = await c.fd!.get(url(`/folios/${b.folioId}`));
+    const fnb = await c.fd!.send(
+      'POST',
+      url(`/folios/${b.folioId}/lines`),
+      { category: 'fnb', description: 'Tiệc tối', quantity: 1, unitPriceVnd: eaten },
+      { 'if-match': f.headers.etag as string },
+    );
+    expect(fnb.statusCode, fnb.body).toBe(201);
+    const capped = await cleanPreview(b.id, full);
+    expect(capped.json()).toMatchObject({
+      refundCapped: true,
+      refundVnd: (open.json().refundVnd as number) - eaten,
+      extraPersonRefundVnd: open.json().extraPersonRefundVnd,
+      extraPersonReversedVnd: 0,
+      roomChangeDifferenceVnd: rcd - Math.floor(rcd / 2),
+      roomChangeDifferenceReversedVnd: Math.floor(rcd / 2),
+      refundablePaidVnd: 0,
+      refundableVnd: open.json().refundableVnd,
+    });
+    const wr = await commit(b.id, full, capped);
+    expect(wr.statusCode, wr.body).toBe(200);
+    expect(numbers(wr)).toEqual(numbers(capped));
+    expect(await refunds(b.id)).toEqual([{ amount_vnd: capped.json().refundVnd }]);
+    // BR-428-09: the direct part says its notice days, the OTA part does not.
+    const days = capped.json().noticeDays as number;
+    expect(await feeLines(b)).toEqual([
+      {
+        description: `early_departure ${days}d`,
+        label_params: { noticeDays: days, nights: 1 },
+        charge_code: null,
+      },
+      { description: 'early_departure', label_params: { nights: 1 }, charge_code: 'ota_retained' },
+    ]);
+  });
+
+  it('ARC 0.3.9 add 1: early_departure only while a new departure exists (child extends the window; departure day; 1 night)', async () => {
+    const events = async (id: string) =>
+      (
+        (await c.fd!.get(url(`/reservations/${id}`))).json().allowedActions as Array<{
+          event: string;
+        }>
+      ).map((a) => a.event);
+    await at('2026-12-14T15:00:00+07:00');
+    await vacant('401');
+    const b = await ota('401', '2026-12-14', '2026-12-16', 1_800_000);
+    await checkIn(b);
+    // arrival day of a 2-night stay: 15/12 is a valid new departure
+    expect(await events(b.id)).toContain('early_departure');
+    await at('2026-12-15T10:00:00+07:00');
+    const ext = await act(b.id, 'extend', { nights: 1 });
+    expect(ext.statusCode, ext.body).toBe(200);
+    expect((await c.fd!.get(url(`/reservations/${b.id}`))).json().stayDepartureDate).toBe(
+      '2026-12-17',
+    );
+    // the primary's own departure day, the stay goes on with the child: still offered (16/12 < 17/12)
+    await at('2026-12-16T09:00:00+07:00');
+    expect(await events(b.id)).toContain('early_departure');
+    // 1-night stay arriving today: no valid new departure
+    await vacant('103');
+    const one = await direct('103', '2026-12-16', '2026-12-17', 1_000_000);
+    const due = (await folio(one)).totals.balanceDueVnd as number;
+    if (due > 0) await pay(one, due);
+    await at('2026-12-16T15:00:00+07:00');
+    await checkIn(one);
+    const oneEvents = await events(one.id);
+    expect(oneEvents).not.toContain('early_departure');
+    expect((await c.fd!.get(url(`/reservations/${one.id}`))).json().stayDepartureDate).toBe(
+      '2026-12-17',
+    );
+    // the day the whole stay departs: not offered any more, check-out is
+    await at('2026-12-17T09:00:00+07:00');
+    expect(await events(b.id)).not.toContain('early_departure');
+    expect(await events(one.id)).toEqual(expect.arrayContaining(['check_out']));
+    expect(await events(one.id)).not.toContain('early_departure');
+  });
+
   describe('Database.simulate (FB-R3-SEC-ARC-01)', () => {
     const someReservation = async () =>
       (
@@ -896,6 +1235,80 @@ describe.skipIf(!HAS_DB)('B16 early departure – dry run preview (OpenAPI 0.3.9
         'SELECT count(*)::int AS n FROM simulation_guard',
       );
       expect(guard.rows[0]!.n).toBe(0);
+    });
+
+    it('SEC-BE-A-01: a savepoint rolled back after the guard row cannot remove it – the commit is still refused', async () => {
+      await expect(
+        db.withContext(t.ctx(), async (tx) => {
+          await tx.query(
+            'INSERT INTO simulation_guard (organization_id, property_id) VALUES ($1, $2)',
+            [t.organizationId, t.propertyIds[0]],
+          );
+          await tx.query('SAVEPOINT a');
+          await tx.query(`SELECT set_config('lock_timeout', '900ms', true)`);
+          await tx.query('ROLLBACK TO SAVEPOINT a');
+          await tx.query('RELEASE SAVEPOINT a');
+        }),
+      ).rejects.toThrow(/must never be committed/);
+    });
+
+    it('SEC-BE-A-02: tx.db (drizzle) throws; a transaction ended by the raw connection is reported, never answered', async () => {
+      const opts = { lockTimeoutMs: 1000, statementTimeoutMs: 5000 };
+      await expect(
+        db.simulate(
+          t.ctx(),
+          async (tx) => (tx.db as unknown as { select(): unknown }).select(),
+          opts,
+        ),
+      ).rejects.toThrow(/drizzle \(tx\.db\) is not available inside a simulation/);
+      let raw: { query(sql: string): Promise<unknown> } | null = null;
+      const grab = (client: { query(sql: string): Promise<unknown> }) => {
+        raw = client;
+      };
+      db.pool.on('acquire', grab as never);
+      try {
+        await expect(
+          db.simulate(
+            t.ctx(),
+            async () => {
+              await raw!.query('ROLLBACK'); // past the statement filter (it only sees tx.query)
+              return 'answer';
+            },
+            opts,
+          ),
+        ).rejects.toThrow(/ended inside the handler/);
+      } finally {
+        db.pool.off('acquire', grab as never);
+      }
+    });
+
+    it('SEC-BE-A-03: reservation hooks, approval requests and attachment binding refuse a simulation tx at the source', async () => {
+      const opts = { lockTimeoutMs: 1000, statementTimeoutMs: 5000 };
+      const hooks = fa.app.get(ReservationHooks);
+      const approvals = fa.app.get(ApprovalService);
+      const attachments = fa.app.get(AttachmentService);
+      await expect(
+        db.simulate(t.ctx(), (tx) => hooks.emit(tx, { kind: 'transitioned' } as never), opts),
+      ).rejects.toThrow(/reservation hooks cannot run inside a simulation/);
+      await expect(
+        db.simulate(
+          t.ctx(),
+          (tx) =>
+            approvals.submit(
+              tx,
+              { userId: t.users.fd!.id, roles: ['front_desk'] } as never,
+              {} as never,
+            ),
+          opts,
+        ),
+      ).rejects.toThrow(/cannot be submitted inside a simulation/);
+      await expect(
+        db.simulate(
+          t.ctx(),
+          (tx) => attachments.bindTo(tx, randomUUID(), { type: 'reservation', id: randomUUID() }),
+          opts,
+        ),
+      ).rejects.toThrow(/cannot be bound inside a simulation/);
     });
 
     it('(iv) a failed ROLLBACK destroys the connection (never back to the pool)', async () => {

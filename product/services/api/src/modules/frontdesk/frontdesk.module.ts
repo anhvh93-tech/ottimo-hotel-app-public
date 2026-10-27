@@ -76,6 +76,20 @@ defineAuditEntity('reservation', [
   'previewConfirmed',
   'expectedRefundVnd',
   'expectedFeeVnd',
+  // B16 `reservation.early_departure` (BR-428 v0.4.8 (e), numbers / booking codes only): the facts of the money log
+  // line – earlier keys were dropped by the allowlist.
+  'droppedNetVnd',
+  'droppedOtaGrossVnd',
+  'droppedExtraPersonVnd',
+  'extraPersonRefundVnd',
+  'extraPersonReversedVnd',
+  'roomChangeDifferenceVnd',
+  'roomChangeDifferenceReversedVnd',
+  'refundablePaidVnd',
+  'refundRequestedVnd',
+  'childBookings',
+  'noticeGivenAt',
+  'noticeEvidence',
 ]);
 
 @Module({

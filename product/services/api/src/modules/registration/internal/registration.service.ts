@@ -2929,11 +2929,6 @@ export class RegistrationService {
   }
 
   /**
-   * BUG-R2-037 (BR-605, US-050 AC2): earliest visa / temporary-residence validity of the foreign documents of
-   * the booking – read inside the transaction for the soft block of a new departure (never returned to a
-   * client, never logged: the caller only compares dates). Null = no foreign document with a validity.
-   */
-  /**
    * OpenAPI 0.3.9 (B16 `registrationNeedsUpdate`): the registration of the booking holds a foreign guest's document
    * that is not removed – the same condition as `onDepartureChanged` (BR-604). Read only (no lock, no decrypt, no
    * publish) so the B16 dry run can call it.
@@ -2949,6 +2944,11 @@ export class RegistrationService {
     return rows[0]?.found === true;
   }
 
+  /**
+   * BUG-R2-037 (BR-605, US-050 AC2): earliest visa / temporary-residence validity of the foreign documents of
+   * the booking – read inside the transaction for the soft block of a new departure (never returned to a
+   * client, never logged: the caller only compares dates). Null = no foreign document with a validity.
+   */
   async earliestVisaValidUntil(tx: Tx, reservationId: string): Promise<string | null> {
     const { rows } = await tx.query<{ id: string }>(
       'SELECT id FROM registration WHERE reservation_id = $1',
