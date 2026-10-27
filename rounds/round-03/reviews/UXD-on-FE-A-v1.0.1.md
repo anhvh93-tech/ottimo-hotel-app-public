@@ -152,3 +152,109 @@ Trình đọc màn hình đọc legend trước nhãn ("Khách báo lúc, nhóm 
 - Chặn đúng "không bao giờ ghi khi chưa xem trước". Phản hồi tính thử cũ không thể ghi đè phản hồi mới (`sig` + `tick`). Hai chỗ này dễ sai nhất của hộp.
 - G1 – FE-A thấy kẽ hở ghi giá hôm nay đè lên dòng D trong spec, và sửa theo cách an toàn hơn spec.
 - Có 24 ca test bám trạng thái ở bảng 2.2 của spec. Mock MSW tính lượt ở theo đơn con – nền tốt để thêm test cho thẻ 06.
+
+---
+
+## Lượt 2 (27/10) – duyệt chuỗi `74aca20`, chốt G7, lớp `ul.consequence`
+
+- Đối tượng:
+  - nhánh `fe-a-v1.0.1`, commit `74aca20` (gộp ARC 0.3.9 bổ sung 1–2, `55f3eeb`);
+  - danh sách khóa ở `rounds/round-03/responses/v1.0.1-FE-A.md` của nhánh.
+- Đọc diff của `gen_strings.py`, `EarlyDepartureDialog.tsx` (`Figures`, `Consequences`) và `packages/ui/src/styles/app.css`. Không chạy lại test (FE-A báo admin-web 664/664).
+- **Kết luận lượt 2: ĐẠT CÓ ĐIỀU KIỆN.** Thẻ 06–12 lượt 1 đã đóng (xem mục 2 dưới). Lượt này có 1 Minor (G7, đổi chữ một dòng), 1 Minor (CSS trùng), 1 Suggestion (thứ tự chữ). Không có Blocker/Major.
+
+### 1. Chuỗi dùng nguyên câu DOM ED-01…07 – duyệt
+
+| Khóa | Kết luận | Ghi chú UXD |
+|---|---|---|
+| `row_extra_refund` | Đạt | Ngắn, bỏ "đã thu" đúng theo cách phân bổ số dư của DOM. |
+| `row_extra_reversed` | Đạt | Phần trong ngoặc đúng với cách phân bổ BR-428. Xem ghi chú ARC ở mục 4. |
+| `row_room_change` | Đạt | – |
+| `row_room_change_reversed` (mới) | Đạt | Cùng mẫu với `row_extra_reversed`, dùng `tr.sub` (Stone, không cộng). |
+| `ota_room_note` | Đạt | "hoàn hay giữ theo chính sách của kênh" đúng hơn câu UXD cũ ("OTA hoàn cho khách"). |
+| `refund_capped` | Đạt | Dài (~150 ký tự VI) nhưng nằm trong alert riêng; "không trả ra bằng tiền" rõ với lễ tân. |
+| `refund_capped_zero` | Đạt | – |
+| `effect_door` (+`{date}`) | Đạt | Nêu ngày và việc xóa mã khi trả phòng – cụ thể hơn câu UXD (G3 lượt trước nay đã có DOM xác nhận). |
+| `effect_ota_reopen` (mới) | Đạt | Luôn hiện tới v1.1 là đúng, vì căn bán trên OTA bất kể đơn đi kênh nào. Giọng ngắn, nói rõ việc tay. |
+| `no_refund_notice` | Đạt có gợi ý | Xem thẻ 15 (thứ tự chữ). |
+
+Không có emoji, không "!", không viết cứng % hay số ngày ngưỡng. Mọi tham số tiền đi qua `{amount}`.
+
+### 2. Thẻ lượt 1 – xác nhận đóng
+
+| Thẻ | Kết quả |
+|---|---|
+| 06 (Major, đơn con) | **Đóng.** `maxDate`, `stay_now` dùng `stayDepartureDate ?? departureDate` (ARC 0.3.9 bổ sung 1). Nút chỉ theo `allowedActions`. Có 3 test đơn con. |
+| 07 | Đóng – `h3` mặc định. |
+| 08 | Đóng về hành vi – xem thẻ 14 về chỗ đặt CSS. |
+| 09 | Đóng – focus dòng kế tiếp hoặc tiêu đề mục; có 2 test. |
+| 10 (G2) | Đóng – "Khách báo lúc" / "Ngày" / "Giờ". |
+| 11 | Đóng – chỉ hai dòng "chỉ đảo dòng" giữ `tr.sub`. |
+| 12 | Đóng – skeleton sau 300 ms. |
+
+### 3. G7 – dòng chính sách khi bị trần: **giữ cách tách hai dòng, đổi chữ dòng mới**
+
+**Cách FE-A làm (theo DOM + ARC 10.2):**
+- `row_refundable` luôn hiện số **trước trần** (`refundableVnd`).
+- Khi `refundCapped`, thêm ngay dưới một dòng `refundablePaidVnd` (số của server).
+- Ba dòng "hoàn" cộng lại bằng "Sẽ xin hoàn": phụ thu người + chênh lệch đổi phòng + phần chính sách thực có.
+
+**Ý kiến UXD:**
+- Về cách làm: **đúng và nên giữ.**
+  - Lễ tân vẫn thấy khách "đáng được" bao nhiêu theo chính sách.
+  - Lễ tân cũng thấy thực sự được hoàn bao nhiêu.
+  - Client không tự trừ số nào.
+- Vấn đề là chữ. "Phần hoàn theo chính sách – trong số xin hoàn" đứng ngay dưới "Phần hoàn theo chính sách trả sớm":
+  - hai nhãn gần giống nhau mà hai số khác nhau (ví dụ 767.000 và 200.000);
+  - cụm "trong số xin hoàn" không nói **vì sao** số nhỏ hơn;
+  - lễ tân dễ đọc nhầm thành hai khoản cộng dồn.
+- Câu mới nên mở bằng **"Trong đó"**, cho thấy đây là một phần của dòng trên, và nêu giới hạn ngay trong nhãn.
+
+### FB-R3-UXD-FE-A-13
+- Mức độ: Minor
+- Vị trí: `gen_strings.py` – `early_departure.row_refundable_after_cap`; `EarlyDepartureDialog.tsx` `Figures`
+- Vấn đề: Xem G7 – nhãn mới gần trùng nhãn dòng trên, không nói lý do số nhỏ hơn.
+- Vì sao quan trọng: Đây là ca khách mới trả cọc rồi xin về sớm. Lễ tân phải giải thích vì sao "theo chính sách 767.000" mà chỉ hoàn 200.000.
+- Đề xuất sửa:
+  - VI: **"Trong đó hoàn được (tới mức khách đã trả thừa)"**
+  - EN: **"Of which refunded (up to what the guest overpaid)"**
+  - Giữ vị trí ngay dưới `row_refundable`, chữ Ink (không `tr.sub`), số trần canh phải.
+  - Không thêm dòng "phần còn lại" (sẽ phải trừ ở client). Phần còn lại đã được `refund_capped` giải thích.
+  - Ghi chú khóa: "UXD duyệt 27/10 (G7)".
+- Trạng thái: Open (FE-A đổi chuỗi; test đọc qua `tv()` nên không phải sửa kỳ vọng)
+
+### FB-R3-UXD-FE-A-14
+- Mức độ: Minor
+- Vị trí: `product/packages/ui/src/styles/app.css` – khối `.consequence` mới (dòng 468–478)
+- Vấn đề:
+  - `index.css` của `@ottimo/ui` đã `@import` `design/hifi/assets/hifi.css`, mà `hifi.css` đã có sẵn `.consequence` và `.consequence li` (dòng 350–351). Lớp này **đã có** trong app; ghi chú "trước đó lớp này chưa có trong app" ở phản hồi FE-A chưa đúng.
+  - Bản chép trong `app.css` lặp lại quy tắc và đổi `padding` thành `10px 12px 10px 30px`, nên khối hậu quả ở app lệch với hi-fi H15 (gia hạn, trả muộn) và các hộp khác.
+  - Đúng là chỉ dùng token có sẵn (`--surface-2`, `--r-md`), không có màu mới.
+- Vì sao quan trọng: DS quản lý style component ở `hifi.css` (UXD giữ). Bản chép trong `app.css` sẽ trôi khỏi DS khi UXD sửa `hifi.css`.
+- Đề xuất sửa:
+  - Xóa khối `.consequence` khỏi `app.css`, dùng lớp sẵn có của `hifi.css`.
+  - Nếu FE-A thấy dấu đầu dòng bị cắt ở 360 px, báo UXD. UXD sẽ chỉnh `padding-left` ngay trong `hifi.css` để mọi hộp cùng đổi.
+- Trạng thái: Open
+
+### FB-R3-UXD-FE-A-15
+- Mức độ: Suggestion
+- Vị trí: `early_departure.no_refund_notice` (VI)
+- Vấn đề: "khách báo chưa đủ số ngày trước theo chính sách" đọc hơi vấp ("số ngày trước").
+- Đề xuất sửa:
+  - VI: "Không hoàn: khách báo trước chưa đủ số ngày theo chính sách trả sớm."
+  - EN giữ nguyên.
+  - Ý không đổi so với câu DOM ED-07, nên không cần DOM duyệt lại; FE-A ghi chú "UXD sửa thứ tự chữ 27/10".
+- Trạng thái: Open
+
+### 4. Ghi cho ARC (không phải thẻ FE-A)
+
+- Mô tả `extraPersonReversedVnd` trong `openapi.yaml` vẫn là câu 0.3.6 "phụ thu người **chưa thu** … chỉ đảo dòng".
+- Theo cách phân bổ số dư của DOM ED-01 và BR-428, phần này là phụ thu **vượt số khách trả thừa**. Mô tả của `roomChangeDifferenceReversedVnd` đã viết đúng như vậy.
+- Đề nghị ARC sửa câu mô tả cho khớp, để BE/QA không hiểu hai nghĩa. Chuỗi UXD đã duyệt theo câu DOM.
+
+### 5. Spec UXD
+
+Đã cập nhật `rounds/round-03/outputs/UXD/v1.0.1-early-departure-and-prices.md`:
+- mục 2.5 – bảng "Cách tính" thêm dòng G7 và hai dòng "chỉ đảo dòng";
+- mục 4 – chuỗi nhận theo DOM ED-01…07, khóa mới `row_room_change_reversed`, `effect_ota_reopen`, `row_refundable_after_cap` (chữ theo thẻ 13), `no_refund_notice` (thẻ 15);
+- ghi chú "khối dán đã cũ – nguồn là `gen_strings.py` trên nhánh FE-A".
