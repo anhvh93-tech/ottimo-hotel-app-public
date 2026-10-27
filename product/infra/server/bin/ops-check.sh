@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Periodic checks of one server – systemd timer ottimo-ops-check.timer (every 30 min), as the deploy user.
 #   ops-check.sh            run every check, alert on failures
-#   ops-check.sh j16        one check only (j16 | backup | disk | mem | tls | containers | http5xx)
+#   ops-check.sh j16        one check only (j16 | backup | disk | mem | tls | containers | http5xx | email_dead)
 #
 #   j16         SEC C6 / SR-RET-03: for every active property, the last retention_run of policy J16 with
 #               status done must be < 26 h old (a property younger than 26 h without any run is fine), and no J16 run
@@ -16,6 +16,11 @@
 #               as "not running" (same for http5xx)
 #   http5xx     server errors answered by Caddy (web + landing) in the last 35 min < HTTP5XX_MAX (default 5): a
 #               crashing api, a 502 from a dead upstream – before guests or staff report it
+#   email_dead  staff e-mails (outbox topic staff.email: security notices – SEC 06.15 / 06.33 / Q51-6) that died with
+#               NO_RECIPIENT in the last 24 h (the user has no e-mail address, so the notice reached nobody). Count only,
+#               nothing from the payload is read. BUG-R3-032: until users can have an e-mail (v1.0.1) this is
+#               expected, so it only reports; set EMAIL_NO_RECIPIENT_ALERT=1 in .env after v1.0.1 and every such
+#               e-mail becomes a FAIL (SEC `SEC-on-B2-readiness.md` 1.5 OPS (a)).
 #
 # Alerts (no personal data – only check names, property ids, ages): always to the journal
 # (journalctl -t ottimo-alert -p err); plus ALERT_WEBHOOK_URL from /opt/ottimo/.env if set, sent when a check
@@ -59,7 +64,8 @@ TLS_MIN_DAYS="${TLS_MIN_DAYS:-14}"
 REMIND_SECONDS="${REMIND_SECONDS:-21600}"
 HTTP5XX_MAX="${HTTP5XX_MAX:-5}"
 MEM_MIN_AVAIL_PCT="${MEM_MIN_AVAIL_PCT:-10}"
-for v in J16_MAX_HOURS BACKUP_MAX_HOURS DISK_MAX_PCT TLS_MIN_DAYS REMIND_SECONDS HTTP5XX_MAX MEM_MIN_AVAIL_PCT; do
+EMAIL_DEAD_HOURS="${EMAIL_DEAD_HOURS:-24}"
+for v in J16_MAX_HOURS BACKUP_MAX_HOURS DISK_MAX_PCT TLS_MIN_DAYS REMIND_SECONDS HTTP5XX_MAX MEM_MIN_AVAIL_PCT EMAIL_DEAD_HOURS; do
   [[ "${!v}" =~ ^[0-9]+$ ]] || { echo "$v must be a number" >&2; exit 2; }
 done
 host_name=$(hostname -s 2>/dev/null || echo server)
@@ -202,7 +208,34 @@ check_http5xx() {
   notify http5xx OK "${n:-0} server errors (5xx) in 35 min"
 }
 
-if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx); full=1; fi
+check_email_dead() {
+  local out n armed
+  # .env wins over the environment only when set there (the timer has no environment of its own).
+  armed=$(envval EMAIL_NO_RECIPIENT_ALERT); armed="${armed:-${EMAIL_NO_RECIPIENT_ALERT:-0}}"
+  [[ "$armed" =~ ^[01]$ ]] || { notify email_dead FAIL "EMAIL_NO_RECIPIENT_ALERT must be 0 or 1"; return 1; }
+  if ! out=$(psql_admin <<SQL 2>&1
+SELECT count(*) FROM outbox_message
+ WHERE topic = 'staff.email' AND status = 'dead' AND last_error = 'NO_RECIPIENT'
+   AND created_at > now() - interval '$EMAIL_DEAD_HOURS hours';
+SQL
+  ); then
+    notify email_dead FAIL "query failed: $(head -n 1 <<<"$out")"
+    return 1
+  fi
+  n=$(tr -d '[:space:]' <<<"$out")
+  [[ "$n" =~ ^[0-9]+$ ]] || { notify email_dead FAIL "unexpected answer"; return 1; }
+  if [ "$n" -gt 0 ] && [ "$armed" = "1" ]; then
+    notify email_dead FAIL "$n staff e-mail(s) dead NO_RECIPIENT in ${EMAIL_DEAD_HOURS} h – a security notice reached nobody"
+    return 1
+  fi
+  if [ "$armed" = "1" ]; then
+    notify email_dead OK "$n staff e-mail(s) dead NO_RECIPIENT in ${EMAIL_DEAD_HOURS} h"
+  else
+    notify email_dead OK "$n staff e-mail(s) dead NO_RECIPIENT in ${EMAIL_DEAD_HOURS} h (report only until EMAIL_NO_RECIPIENT_ALERT=1, BUG-R3-032)"
+  fi
+}
+
+if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx email_dead); full=1; fi
 rc=0
 failed=""
 for c in "${checks[@]}"; do
@@ -215,6 +248,7 @@ for c in "${checks[@]}"; do
     tls) check_tls || ok=0 ;;
     containers) check_containers || ok=0 ;;
     http5xx) check_http5xx || ok=0 ;;
+    email_dead) check_email_dead || ok=0 ;;
     *) echo "unknown check: $c" >&2; rc=2; continue ;;
   esac
   if [ "$ok" -eq 0 ]; then failed+=" $c"; [ "$rc" -eq 2 ] || rc=1; fi
