@@ -234,3 +234,112 @@ Chưa chạy: test tích hợp API (cần Postgres). Chốt controller không đ
 ## 9. Việc chưa xong
 - Chưa có review bắt buộc của BE và SEC cho hợp đồng 0.3.9 và ADR-015.
 - QA cập nhật `br-examples.json` (thêm `expectedContract` hoặc ghi chú đối chiếu tên trường). Đó là file của QA, ARC không sửa.
+
+---
+
+## 10. Bổ sung 1 (27/10, ARC theo ORC) – 0.3.9 bổ sung 1
+
+Đầu vào:
+- UXD `reviews/UXD-on-FE-A-v1.0.1.md` thẻ FB-R3-UXD-FE-A-06 (Major);
+- BE-B `reviews/BE-B-on-BE-A-v1.0.1.md` thẻ 01 (Major), thẻ 06;
+- SEC `reviews/SEC-on-ADR-015.md` thẻ 07, `reviews/SEC-on-BE-A-v1.0.1.md` điều kiện 3;
+- báo cáo BE-A `outputs/BE/v1.0.1-be-a.md` (nhánh `be-a-v1.0.1`, `5e966a5`).
+
+Phiên bản giữ `0.3.9-draft` vì chưa phát hành. Mọi thay đổi chỉ cộng thêm, trừ một chỗ đổi nghĩa có chủ đích (10.2): trường đó mới có từ `22fe06d`, chưa client nào phát hành dùng.
+
+### 10.1 Ngày đi của cả lượt ở (UXD-06) – **chốt: thêm `Reservation.stayDepartureDate`**
+
+| Phương án | Kết luận |
+|---|---|
+| `allowedActions` đã đủ | **Không đủ**. Nút hiện/ẩn thì dùng được, nhưng ngày rời tối đa và dòng "Lượt ở hiện tại" vẫn cần ngày đi của cả lượt. Thêm nữa, server hiện trả `early_departure` cho **mọi** đơn `in_house`, kể cả khi không còn ngày rời hợp lệ (ngày đi của cả lượt = hôm nay) |
+| `maxDepartureDate` trong phản hồi tính thử | **Không chọn**. Phải gọi tính thử trước khi biết giới hạn của ô ngày; drawer (dòng lượt ở) không có số này |
+| **`Reservation.stayDepartureDate`** (chỉ đọc) | **Chọn**. Server đã tính bằng `effectiveStay` (B16, B18). Một trường dùng được cho cả ba chỗ |
+
+Hợp đồng:
+- **`Reservation.stayDepartureDate`**:
+  - `LocalDate`, `x-visible-to` FD+;
+  - = ngày đi lớn nhất của đơn chính và các đơn con gia hạn còn hiệu lực (BR-422); không có đơn con thì bằng `departureDate`;
+  - có ở đơn **chính** `confirmed`/`in_house`; vắng ở đơn con và trạng thái khác.
+- **`allowedActions.early_departure`** chỉ có khi đơn `in_house` **và** max(hôm nay, `arrivalDate` + 1) < `stayDepartureDate`. Đây là thu hẹp có chủ đích: trước đây có cả khi không còn ngày hợp lệ, bấm vào chỉ nhận 422.
+- **Khoảng chọn ngày rời** = [max(hôm nay, `arrivalDate` + 1), `stayDepartureDate` − 1], khớp đúng điều kiện server đang kiểm.
+
+### 10.2 Chênh lệch đổi phòng sau trần (BE-B thẻ 01) – **chốt: phương án A**
+- `roomChangeDifferenceVnd` = phần **được hoàn sau trần** = min(chênh lệch đã đảo, `refundVnd` − `extraPersonRefundVnd`).
+- Thêm `roomChangeDifferenceReversedVnd` = phần đã đảo nhưng không hoàn.
+- Thêm `refundableAfterCapVnd` = `refundVnd` − `extraPersonRefundVnd` − `roomChangeDifferenceVnd` (phần 50 % thực có trong yêu cầu hoàn). Desk hiện từng dòng mà không phải tự trừ.
+- Bất biến:
+  - `refundVnd` = `extraPersonRefundVnd` + `roomChangeDifferenceVnd` + `refundableAfterCapVnd`;
+  - `refundCapped` ⇔ `refundVnd` < `refundableVnd` + `extraPersonRefundVnd` + `extraPersonReversedVnd` + `roomChangeDifferenceVnd` + `roomChangeDifferenceReversedVnd` (giá trị không đổi so với trước).
+- Thứ tự trần theo BR-428: phụ thu người → chênh lệch → 50 %. DOM đang chốt; nếu DOM trả lời khác, ORC báo ARC sửa công thức. Hình dạng hợp đồng giữ nguyên.
+
+### 10.3 Số kỳ vọng phải cùng input (BE-B thẻ 06)
+- `expectedRefundVnd`/`expectedFeeVnd` phải lấy từ lần tính thử có **cùng toàn bộ input** (`newDepartureDate`, `noticeGivenAt`, `otaRetainedVnd`, `noticeEvidence`).
+- Lần tính thử còn `otaRetainedRequired = true` thì không dùng để ghi được. Gửi số của lần tính thử khác input thì luôn bị 409.
+- Desk tính thử lại mỗi khi một ô đổi, và khóa nút xác nhận tới khi có kết quả mới.
+
+### 10.4 Quyền xem trường tiền (SEC thẻ 07) – **chốt: FD được xem**
+- B16 chỉ cho FD+ (A17). Số tiền theo đêm và tiền OTA là "Giá bán phòng, folio của đơn"; rbac mục 6 ghi FD **Đầy**.
+- Đã gắn `x-visible-to` FD+ cho `droppedNights`, `droppedNetVnd`, `refundableVnd`, `refundableAfterCapVnd`, `roomChangeDifferenceVnd`, `roomChangeDifferenceReversedVnd`, `otaRetainedMaxVnd`. Mục đích là phòng khi `x-roles` mở rộng sau này.
+- Với vai hiện tại không có gì đổi: tính thử và lần ghi cùng vai ra cùng tập trường.
+- Lỗi `55P03` đi qua `ProblemFilter` → 409 `CONCURRENT_UPDATE`, không lộ SQL (BE-A đã xác nhận).
+
+### 10.5 ADR-015 và erd – viết lại theo bản BE-A đã cài
+- **ADR-015** chuyển trạng thái **Chấp nhận**. Bổ sung:
+  - `Database.simulate` và bảng `simulation_guard` (trigger hoãn luôn `RAISE`);
+  - bất biến thứ tự "guard trước handler", kèm hai test;
+  - ngoại lệ SAVEPOINT/RELEASE/ROLLBACK TO và lý do (a)–(c);
+  - "bộ lọc lệnh chỉ là lớp nhắc, ranh giới là guard"; cấm `tx.db.transaction` trên đường mô phỏng;
+  - quy tắc hook (mục 2.4);
+  - **khoảng trống id do sequence là bình thường** (mục 4);
+  - test ảnh chụp toàn tenant 72 bảng;
+  - việc dời v1.1: rate-limit `dryRun`, `previewToken`/`childVersions`.
+- **erd**: mục 4.12 thêm `simulation_guard`; mục lịch sử thêm một dòng.
+
+### 10.6 Việc thêm cho từng vai
+**BE-A** – trên `be-a-v1.0.1`, gộp/rebase lên commit ARC mới:
+1. `stayDepartureDate` trong DTO đơn chính `confirmed`/`in_house`:
+   - dùng `effectiveStay`, hoặc một truy vấn max `departure_date` của đơn con còn hiệu lực;
+   - danh sách đơn cũng phải có trường này, nên dùng truy vấn gộp, không truy vấn từng đơn.
+2. `allowedActions`: thêm `stayDepartureDate` vào `ActionContext`; chỉ thêm `early_departure` khi max(today, arrival + 1) < stayDepartureDate.
+3. Phương án A ở `earlyDeparture`:
+   - `roomChangeDifferenceVnd` = min(đã đảo, `refundVnd` − `extraPersonRefundVnd`);
+   - thêm `roomChangeDifferenceReversedVnd` và `refundableAfterCapVnd`;
+   - audit `after.roomChangeDifferenceVnd` dùng cùng nghĩa (thêm `roomChangeDifferenceReversedVnd`).
+4. Test:
+   - một ca có chênh lệch bị trần;
+   - bất biến tổng của 10.2;
+   - đơn có đơn con: `stayDepartureDate`, nút có từ ngày đi của đơn chính tới hết ngày trước `stayDepartureDate`;
+   - không có `early_departure` khi hôm nay = `stayDepartureDate` hoặc khi đến hôm nay mà lượt chỉ 1 đêm.
+5. Điều kiện SEC-BE-A-01: hai test bất biến thứ tự guard.
+
+**FE-A**:
+1. Thay `r.departureDate` bằng `r.stayDepartureDate ?? r.departureDate` cho `maxDate` và dòng `stay_now` (số đêm = hiệu hai ngày).
+2. `minDate` = max(ngày nghiệp vụ, `arrivalDate` + 1).
+3. Hiện/ẩn nút **chỉ** theo `allowedActions`; bỏ so `businessDay < r.departureDate`.
+4. Hộp xem trước:
+   - dòng chênh lệch dùng `roomChangeDifferenceVnd` (đã hoàn) và `roomChangeDifferenceReversedVnd` (chỉ đảo);
+   - dòng 50 % dùng `refundableAfterCapVnd` khi `refundCapped`;
+   - không tự trừ.
+5. Chỉ gửi `expected*` của lần tính thử khớp input hiện tại. Khóa nút xác nhận khi input đổi mà chưa có kết quả tính thử mới; debounce ≥ 400 ms, hủy request cũ.
+6. Mock MSW + test đơn con: chọn ngày trong khoảng của đơn con; `effect_child_cancelled`/`done_child_cancelled`.
+
+**UXD**:
+- Thêm nhãn cho `roomChangeDifferenceReversedVnd` ("đã đảo, không hoàn").
+- Nhãn dòng 6 giữ "đã thu – hoàn đủ", vì trường nay đúng nghĩa đó.
+- Dòng "Lượt ở hiện tại" theo ngày đi cả lượt.
+
+**QA**:
+- Kiểm bất biến 10.2 trên mọi ca B16.
+- Ca đơn OTA có chênh lệch 400.000, khách thừa 100.000: `roomChangeDifferenceVnd` 100.000, `roomChangeDifferenceReversedVnd` 300.000, `refundVnd` 100.000, `refundCapped` true.
+- Ca đơn con gia hạn (BR-422): nút, khoảng ngày, `stayDepartureDate`.
+
+### 10.7 Kiểm tra đã chạy (commit bổ sung)
+- Redocly: hợp lệ, 4 cảnh báo (như trước).
+- spec validator: OK / OK.
+- `gen_traceability --strict`: rc 0.
+- `gen_rbac_cases --check`: OK (không đổi ca).
+- no-test-surface: OK.
+- Đã sinh lại meta/schemas và api-client.
+- tsc api và 4 app: sạch.
+- vitest contract/serializer/http: 21/21; api-client: 32/32.
+- prettier: sạch.
