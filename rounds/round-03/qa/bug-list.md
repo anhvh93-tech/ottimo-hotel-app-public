@@ -9,10 +9,16 @@
 | Mức | Số lỗi | Open | Fixed | Closed |
 |---|---|---|---|---|
 | P0 | 3 | 0 | 0 | 3 |
-| P1 | 11 | 2 (BUG-R3-019, 032) | 0 | 9 |
-| P2 | 9 | 6 (BUG-R3-018 phần 1 – dời v1.0.1; 020–023; 033) | 0 | 3 |
-| P3 | 12 | 11 (016; 024–031; 034; 035) | 0 | 1 |
-| **Tổng** | **35** | **19** | **0** | **16** |
+| P1 | 11 | 1 (BUG-R3-032) | 0 | 10 |
+| P2 | 9 | 3 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn) | 0 | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
+| P3 | 13 | 12 (016; 024–031; 034; 035; 036) | 0 | 1 |
+| **Tổng** | **36** | **16** | **0** | **20** |
+
+Cập nhật 28/10 ~06:15 (rc.4 trên staging `d12cda6`, `qa3-rc1.md` mục 17):
+- **Closed**: BUG-R3-019 (P1), BUG-R3-020, BUG-R3-022, BUG-R3-033. **BUG-R3-021** và **BUG-R3-023**: phần sửa của v1.0.0 Closed, phần còn lại Open – dời v1.0.1 (như BUG-R3-018).
+- Thêm **BUG-R3-036 (P3, BE-B)**: phí hủy/không đến ghi sau 00:00 mang ngày lịch thay vì ngày nghiệp vụ.
+- Cần OPS/BE kiểm: J15 chưa đóng folio quá cửa sổ trên staging (OTM-00239 từ 25/10; OTM-00294, OTM-00297 hết cửa sổ 06:02 vẫn `settled` lúc 06:20) – `qa3-rc1.md` 17.8. Chưa ghi lỗi vì chưa rõ nguyên nhân.
+- Smoke-prod 9/9 trên rc.4. Không lỗi P0/P1/P2 mới.
 
 Cập nhật 28/10 ~00:20 (ESC-031 `postReview` + tiền mặt trên staging rc.3, `qa3-rc1.md` mục 16): ca **Đạt**. Thêm **BUG-R3-033 (P2, FE-A)**, **BUG-R3-034 (P3, BE-B)**, **BUG-R3-035 (P3, BE-B + UXD)**. Không lỗi nào chặn rc.4 hay B2.
 
@@ -61,11 +67,11 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-016 | P3 | Khách **đến hôm nay**: báo giá đã lưu không chuyển được thành đơn. H12 chỉ báo "Sale/CTV: nhắn lễ tân tạo đơn đã thu"; lễ tân nhập lại H09 từ đầu – mặc định 2 người lớn trong khi báo giá 1 người lớn, không mang khách/giá của báo giá, không nối báo giá với đơn | PO (+ FE-A, UXD) | Open |
 | BUG-R3-017 | **P1** | Trả phòng H16 bước 3, phụ thu trả muộn bằng 1 đêm (BR-416-06 – mọi lượt ESC-031 trên production): thu **tiền mặt** (hoặc thẻ POS) 792.000 → `recordPayment` 422 `note REASON_REQUIRED` (số > còn phải thu lúc đó vì phụ thu chỉ ghi khi B18); màn báo "Ghi lý do (ít nhất 3 ký tự)" nhưng không có ô ghi → không thu được, B18 tiếp theo 409 `BALANCE_DUE`. VietQR (gửi ngữ cảnh trả phòng) và chuyển khoản (có ô ghi chú) đi được | FE-A (+ BE-B) | **Closed** 26/10 – FE-A `64bf5c0` + `67fc853` gộp `main`, có trong `v1.0.0-rc.2` (`4629e6e`, CI push xanh); QA kiểm trên nhánh 4/4 (tiền mặt/thẻ POS, ESC-031 và đêm thêm) |
 | BUG-R3-018 | P2 | Desk "Danh mục căn" (FB-INV-005): giá đêm đã **lên lịch** cho ngày sau không hiện ở ngăn kéo/bảng. OWN gõ lại đúng giá đang dùng để hủy lịch thì ô ngày hiệu lực/lý do ẩn, nút Lưu khóa ("không đổi") → không gỡ được giá sai đã lên lịch trên Desk | FE-A (+ BE-A nếu cần API xem/hủy lịch) | **Phần 2 Closed** 27/10 – QA kiểm trên staging `v1.0.0-rc.3` (`70fe734`): Desk lưu lại được giá đang dùng với ngày hiệu lực sau hôm nay; toast ghi ngày áp dụng; báo giá về đúng giá (`qa3-rc1.md` mục 15). **Phần 1 Open – dời v1.0.1**: hiện danh sách giá đã lên lịch + hủy lịch (hợp đồng 0.3.9 `Room.scheduledListPrices`, ARC/BE-A/FE-A) |
-| BUG-R3-019 | **P1** | "Đơn dài hạn nhập tay" không tạo được: `createReservation` 422 `directSource REQUIRED` – form dài hạn không có/không gửi Nguồn, quy tắc từ US-155 (`5820a97`) | FE-A (+ BE-D) | Open |
-| BUG-R3-020 | P2 | "In phiếu" (`window.print()`) in cả khung Desk (danh sách, ngăn kéo, lớp mờ, nút) – admin-web không có CSS in | FE-A (+ UXD) | Open |
-| BUG-R3-021 | P2 | Không có chỗ nhập Wi-Fi trên Desk (`property.wifi_info_i18n` chỉ sửa được ở DB); trang khách báo "Hiện ở đây vào ngày nhận phòng (27/10)" ngay trong ngày 27/10 | PO + FE-A/BE-A (+ OPS) | Open |
-| BUG-R3-022 | P2 | Không ghi được phát sinh sau trả phòng trên Desk: "Thêm phát sinh" chỉ hiện khi `in_house`, dù máy chủ có cửa sổ BR-427 (c) | FE-A | Open |
-| BUG-R3-023 | P2 | Hộp Đổi phòng (đang ở) liệt kê căn **VD** (401 "Trống, cần dọn") trong "Căn mới (đã dọn hoặc đã kiểm)"; nhãn nhóm hiện mã nội bộ L12/N/NPLUS | FE-A / BE-A | Open |
+| BUG-R3-019 | **P1** | "Đơn dài hạn nhập tay" không tạo được: `createReservation` 422 `directSource REQUIRED` – form dài hạn không có/không gửi Nguồn, quy tắc từ US-155 (`5820a97`) | FE-A (+ BE-D) | **Closed** 28/10 – QA kiểm trên staging rc.4 `d12cda6`: rack và H09 ≥ 28 đêm đều tạo được (OTM-00363 `walk_in`, OTM-00364 `zalo_phone`), cờ HĐ ngoài hệ thống, không có "Sale nội bộ" (`qa3-rc1.md` 17.2) |
+| BUG-R3-020 | P2 | "In phiếu" (`window.print()`) in cả khung Desk (danh sách, ngăn kéo, lớp mờ, nút) – admin-web không có CSS in | FE-A (+ UXD) | **Closed** 28/10 – rc.4: 1 tờ A4 chỉ có phiếu, 11 pt / 9 pt, chỉ màu brand, VI và VI–EN (Chromium chế độ in + `page.pdf`; máy in quầy chưa thử) (17.4) |
+| BUG-R3-021 | P2 | Không có chỗ nhập Wi-Fi trên Desk (`property.wifi_info_i18n` chỉ sửa được ở DB); trang khách báo "Hiện ở đây vào ngày nhận phòng (27/10)" ngay trong ngày 27/10 | PO + FE-A/BE-A (+ OPS) | **Phần trang khách Closed** 28/10 – rc.4: ngày đến/đang ở hiện "hỏi lễ tân" EN/VI/RU, trước ngày đến giữ câu cũ (17.7). **Phần ô nhập Wi-Fi trên Desk Open – dời v1.0.1** (khóa tham số Wi-Fi, ARC/BE/FE-A) |
+| BUG-R3-022 | P2 | Không ghi được phát sinh sau trả phòng trên Desk: "Thêm phát sinh" chỉ hiện khi `in_house`, dù máy chủ có cửa sổ BR-427 (c) | FE-A | **Closed** 28/10 – rc.4: nút hiện ở folio `settled`; ghi thử Giặt ủi rồi MGR đảo, số dư về như cũ; folio quá cửa sổ → 409 `FOLIO_LOCKED`, không ghi (17.5). Ca `closed` chưa kiểm được trên staging (không có folio `closed`) |
+| BUG-R3-023 | P2 | Hộp Đổi phòng (đang ở) liệt kê căn **VD** (401 "Trống, cần dọn") trong "Căn mới (đã dọn hoặc đã kiểm)"; nhãn nhóm hiện mã nội bộ L12/N/NPLUS | FE-A / BE-A | **Phần nhãn nhóm + câu `ready_only` Closed** 28/10 – rc.4 (17.6); chọn căn VD → 409 `ROOM_NOT_READY`, không lưu. **Phần lọc căn chưa dọn Open – dời v1.0.1** (ARC chọn (a)/(b)) |
 | BUG-R3-024 | P3 | `/reservations/{id}/check-out` mở được trước ngày đi; mỗi lần qua bước Minibar ghi thêm một `minibar-checks`; hoàn tất 409 (B16) nhưng Desk báo sai "Đơn vừa chuyển sang 'Đang ở'…" | FE-A | Open |
 | BUG-R3-025 | P3 | Hộp "Xác nhận cọc" không có ô Mã giao dịch / ghi chú (form Đặt phòng mới và Thu công nợ có) → cột Mã giao dịch ở Chờ đối soát trống | FE-A (+ UXD) | Open |
 | BUG-R3-026 | P3 | App nhân viên "Báo sự cố" thiếu loại "Tắc thoát nước", "Wi-Fi" (Desk "Phiếu sửa mới" có 8 loại) | MOB | Open |
@@ -75,6 +81,10 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-030 | P3 | Folio ở màn Trả phòng hiện dòng miễn "Bị từ chối" kèm số âm −210.000 (không được trừ nhưng trông như đã trừ) | FE-A | Open |
 | BUG-R3-031 | P3 | Nút "Hoàn tác nhận phòng" (MGR) mở cả khi folio đã có dòng sau nhận phòng; xác nhận thì 409 "reverse the lines posted since check-in first" | FE-A | Open |
 | BUG-R3-032 | **P1** | Thư "Security notice" (đổi tài khoản nhận tiền, dùng mã khôi phục, đặt lại 2 bước) **không tới ai**: `production-bootstrap` không đặt email cho chủ, API/Desk không có trường email người dùng → outbox `staff.email` `dead NO_RECIPIENT` (staging 0/27 người có email). Thiếu kênh ngoài app của SEC Q51-6 / 06.15 | BE-A + ARC (hợp đồng), OPS (`ops-check`) | Open – sửa ở **v1.0.1** (04/11). SEC chấp nhận chạy D 02/11 với biện pháp bù B1–B6; quá 09/11 → ESC |
+| BUG-R3-033 | P2 | Trả phòng xong, khung Folio vẫn hiện số dự tính trước khi trả ("Còn phải thu 792.000 đ" dù máy chủ còn 0) | FE-A | **Closed** 28/10 – rc.4: sau B18 Desk đọc lại folio máy chủ, hiện "Đã thu −880.000 · Còn phải thu 0 đ" (OTM-00365, `qa3-rc1.md` 17.3). Đường `postReview` chưa chạy lại trên staging (chỉ sau 18:00) |
+| BUG-R3-034 | P3 | Đơn đã trả phòng, chi hoàn đủ mà mục "tiền dư đơn đã đóng" vẫn còn tới khi J15 đóng folio | BE-B | Open |
+| BUG-R3-035 | P3 | Phiếu ghi "Phụ thu trả muộn (00:15)" cho khoản phụ thu bằng 1 đêm | BE-B + UXD | Open |
+| BUG-R3-036 | P3 | Phí hủy / phí không đến ghi từ 00:00 đến 05:59 mang ngày lịch (`serviceDate` hôm sau), không theo ngày nghiệp vụ (Q-09) | BE-B | Open |
 
 ## 3. Chi tiết
 
@@ -577,7 +587,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Bằng chứng:** scratchpad `qa-r6/man/log.md` (lượt `walk lt3`); ảnh form `product/docs/manual/img/C2-09.png`.
 - **Vai:** FE-A (+ BE-D/ARC).
 - **Hạn:** bản vá trước 02/11.
-- **Trạng thái:** Open.
+- **Trạng thái:** **Closed** 28/10. QA kiểm trên staging rc.4 (`d12cda6`): Sơ đồ phòng → Đơn dài hạn nhập tay (402, 01/03–01/06/2027, nguồn Khách vãng lai) → 201 OTM-00363; Đặt phòng mới 62 đêm → Tạo đơn dài hạn nhập tay (401, nguồn mặc định) → 201 OTM-00364. Cả hai có `externalContract`, ô Nguồn không có "Sale nội bộ". Đường yêu cầu website dài hạn chưa kiểm trên staging (không có yêu cầu mở). Hai đơn đã hủy. `qa3-rc1.md` 17.2.
 
 ### BUG-R3-020 – "In phiếu" in cả khung Desk
 
@@ -593,7 +603,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Mong đợi:** chỉ in phần phiếu (logo/tên cơ sở, số phiếu, dòng, tổng, "Giá đã gồm thuế GTGT"), đúng ngôn ngữ chọn, khổ A4/A5.
 - **Bằng chứng:** scratchpad `qa-r6/man/raw/BILL-vi.pdf`, `BILL-vi-printmedia.png` (tên khách giả, không đưa repo).
 - **Vai:** FE-A (+ UXD mẫu in).
-- **Trạng thái:** Open.
+- **Trạng thái:** **Closed** 28/10. rc.4: bấm In phiếu gọi `window.print()` 1 lần; chế độ in chỉ còn `.print-root`; `page.pdf` A4 = 1 trang chỉ có tờ phiếu (VI và VI–EN); chữ 11 pt, tiêu đề cột 9 pt; Lora / Be Vietnam Pro / JetBrains Mono; chỉ màu brand. Chưa thử máy in quầy và Safari iPad. `qa3-rc1.md` 17.4.
 
 ### BUG-R3-021 – Wi-Fi: không có chỗ nhập trên Desk, trang khách báo sai
 
@@ -608,7 +618,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - (b) Khi chưa cấu hình, trang khách không hứa "hiện vào ngày nhận phòng". Ghi "Hỏi lễ tân" hoặc ẩn mục.
 - **Cần kiểm thêm:** production đã có `wifi_info_i18n` chưa (OPS).
 - **Vai:** PO (phạm vi) + FE-A/BE-A; OPS kiểm dữ liệu production.
-- **Trạng thái:** Open.
+- **Trạng thái:** (b) **Closed** 28/10 – rc.4: đơn trong ngày đến / đang ở hiện "Please ask reception for the network name and password." / "Vui lòng hỏi lễ tân tên mạng và mật khẩu." / bản RU; đơn đến 29/10 giữ "Shown here on your arrival day (29 Oct)." (`qa3-rc1.md` 17.7). (a) **Open – dời v1.0.1** (khóa tham số Wi-Fi; decision-log 27/10 không ghi DB production ngoài app).
 
 ### BUG-R3-022 – Không ghi được phát sinh sau trả phòng trên Desk
 
@@ -620,7 +630,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - Máy chủ có cửa sổ ghi dòng sau trả phòng (`folio-lines.service.ts`, BR-427 (c), `post_checkout_window_until`).
 - **Mong đợi:** lễ tân trở lên thấy **Thêm phát sinh** (kèm ảnh) trên đơn đã trả phòng trong cửa sổ BR-427 (c).
 - **Vai:** FE-A.
-- **Trạng thái:** Open.
+- **Trạng thái:** **Closed** 28/10. rc.4: nút có ở OTM-00357, OTM-00294, OTM-00365 (folio `settled`); OTM-00365 thêm Giặt ủi 30.000 → 201, còn phải thu 30.000; MGR đảo dòng → về như cũ (tổng 880.000, còn 0). Folio quá cửa sổ chưa đóng (OTM-00239) → 409 `FOLIO_LOCKED`, hộp báo lỗi, không ghi. Ca folio `closed` không kiểm được: staging không có folio `closed` (xem `qa3-rc1.md` 17.8 về J15).
 
 ### BUG-R3-023 – Hộp Đổi phòng đưa căn chưa dọn vào danh sách
 
@@ -633,7 +643,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - QA không bấm lưu, nên chưa biết máy chủ có chặn không.
 - **Mong đợi:** chỉ VC/VI không khóa; nhãn nhóm bằng tên hiển thị.
 - **Vai:** FE-A (lọc + nhãn) / BE-A (nếu danh sách từ API).
-- **Trạng thái:** Open.
+- **Trạng thái:** nhãn nhóm + câu `room_change.ready_only` **Closed** 28/10 – rc.4: "101 · Lầu 1–2", "401 · Căn N", "402 · Căn N+"; chọn 203 (VD) → 409 `ROOM_NOT_READY`, hộp báo "Căn 203 chưa sẵn sàng (VD · Trống, cần dọn)…", đơn và buồng không đổi (`qa3-rc1.md` 17.6). Lọc căn chưa dọn khỏi danh sách **Open – dời v1.0.1** (ARC chọn (a)/(b), `outputs/FE/v1.0.0-fixes-fe-a.md`).
 
 ### BUG-R3-024 – Trang Trả phòng mở được trước ngày đi, báo lỗi sai
 
@@ -766,7 +776,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Bằng chứng:** scratchpad `qa-r6/esc031n/screens/n07-tra-phong-xong.png`, `run-log.md` ("màn sau khi xong", "sau B18 folio").
 - **Chưa kiểm:** có xảy ra với trả phòng thường trả bằng `finalPayment` (không có phụ thu bằng 1 đêm) hay không.
 - **Vai:** FE-A.
-- **Trạng thái:** Open.
+- **Trạng thái:** **Closed** 28/10. rc.4: trả phòng thường OTM-00365 (còn 30.000, thu tiền mặt ở bước 3) → B18 200, Desk gọi `GET folio` ngay sau đó, khung Folio "Đã thu −880.000 · Còn phải thu 0 đ", không có chữ "dự tính", khớp máy chủ (`qa3-rc1.md` 17.3). Mã chỉ có một chỗ xử lý sau B18 cho mọi đường. Đường `postReview` + tiền mặt chưa chạy lại trên staging (chỉ dựng được sau 18:00); có test FE-A `bug-r3-033-fea.test.tsx`. Trả phòng thường không gửi `finalPayment` (tiền ≤ còn phải thu được ghi ngay ở bước 3).
 
 ### BUG-R3-034 – "Tiền dư đơn đã đóng" còn sau khi đã chi hoàn đủ (đơn đã trả phòng)
 
@@ -800,3 +810,19 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Vai:** BE-B (`line-labels.ts`) + UXD (chữ).
 - **Trạng thái:** Open.
 
+### BUG-R3-036 – Phí hủy / không đến ghi sau nửa đêm mang ngày lịch
+
+- **Mức:** P3. Không sai tổng tiền. Doanh thu khác theo ngày (K-22e) của ca đêm bị tính sang ngày hôm sau.
+- **Môi trường:** staging rc.3 và rc.4 (`d12cda6`), 28/10.
+- **Các bước:**
+  1. Trong khoảng 00:00–05:59 (ngày nghiệp vụ vẫn là hôm trước, BR-010), hủy một đơn trực tiếp có cọc bị giữ.
+  2. Xem folio của đơn.
+- **Thực tế:**
+  - OTM-00366 hủy 01:22 ngày 28/10 (ngày nghiệp vụ 27/10): dòng `cancellation_fee` 300.000, `serviceDate` **2026-10-28**.
+  - OTM-00358 hủy 00:18 ngày 28/10: dòng `cancellation_fee` 200.000, `serviceDate` **2026-10-28**.
+  - Mã: `folio.service.ts` (~dòng 1700) ghi dòng phí giữ lại với `serviceDate: localDate(now, tz)` – ngày lịch. Phí không đến (`no_show_fee`) đi cùng đoạn này; đánh dấu không đến thường làm sau 23:00 hoặc ca đêm.
+- **Mong đợi:** `metrics-definitions.md` dòng 32 (Q-09): phí hủy, phí không đến ghi theo **ngày nghiệp vụ** lúc hủy / đánh dấu → `serviceDate` 27/10 trong cả hai ca trên.
+- **Đề xuất sửa:** lấy ngày nghiệp vụ (như các chỗ đã dùng `business_day_rollover`) cho dòng phí giữ lại; DATA xác nhận lại K-22e.
+- **Bằng chứng:** scratchpad `qa-r6/man4/log.md` (lượt `r4-ops` 01:22, 01:22:54).
+- **Vai:** BE-B (+ DATA xác nhận).
+- **Trạng thái:** Open – đề xuất v1.0.1.

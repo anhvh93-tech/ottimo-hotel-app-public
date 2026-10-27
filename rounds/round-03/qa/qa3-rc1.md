@@ -518,3 +518,153 @@ Ghi chú (không ghi lỗi):
 - Căn 203 `VD`, có 1 việc dọn. Nên dọn trước UAT nếu dùng căn 203.
 - Từ giờ tới khi J15 đóng folio (sau 29/10 00:15), "Cần chú ý" của OWN, MGR, FD còn mục **"tiền dư đơn đã đóng – OTM-00357"** dù dư đã về 0 (BUG-R3-034). Nếu INV hỏi trong buổi B2, nói rõ đây là dữ liệu thử của QA.
 - Hàng "Cần duyệt" có yêu cầu hoàn 396.000 của OTM-00357 ở trạng thái đã chi; không còn việc chờ.
+
+## 17. rc.4 staging 28/10 – xác nhận bản sửa v1.0.0 (BUG-R3-019…023, 033) + smoke-prod
+
+- Người chạy: QA | 28/10/2026 01:03–06:22 giờ thật (ngày nghiệp vụ 27/10 tới 06:00, rồi 28/10). Round 3 – bước **Kiểm thử**.
+- Bản: staging = commit `d12cda6`, image `sha-d12cda6f26a4` (ứng viên `v1.0.0-rc.4`, tag gắn sau B2). Kiểm gói Desk đang phục vụ có đúng bản sửa: `LongStayDialog` gửi `directSource`, `print.css` có `@page { size: A4 }`, chuỗi `room_change.ready_only` mới, `listRoomGroups` trong hộp Đổi phòng.
+- Harness: `git archive d12cda6 product/tests product/design/copy` vào scratchpad `qa-r6/src-rc4/`; bộ chạy `qa-r6/run-staging-rc4.sh`, `qa-r6/run-man4.sh`; ca riêng `e2e/ui/man/r4-*.spec.ts`. `E2E_TOTP_DIR=~/.ottimo/staging/totp`, `E2E_LOCAL_CLOCK=1`. Mật khẩu `qa.*` đọc từ tệp ngoài repo, không in.
+- Không quét QR, không chuyển khoản. Tiền mặt chỉ là bản ghi staging. Không đụng production. Link khách lưu tạm ở scratchpad (quyền 600), đã thu hồi và xóa sau lượt.
+- Nhật ký và ảnh thô: scratchpad `qa-r6/man4/` (`log.md`, `raw/`, `img/`), `qa-r6/rc4/smoke.log`.
+
+### 17.1 Kết luận: **ĐẠT** – không lỗi P0/P1/P2 mới; 1 lỗi P3 mới (BUG-R3-036); 1 điểm cần OPS/BE kiểm (J15, 17.8)
+
+| # | Việc | Kết quả | Trạng thái lỗi |
+|---|---|---|---|
+| 1 | BUG-R3-019 (P1) Đơn dài hạn nhập tay | **Đạt** – cả hai đường tạo được, đúng nguồn, không có "Sale nội bộ" (17.2) | **Closed** |
+| 2 | BUG-R3-033 (P2) Folio sau "Hoàn tất" | **Đạt** đường trả phòng thường có thu tiền mặt ở bước 3. Đường `postReview` chưa chạy lại được (chỉ dựng được sau 18:00) (17.3) | **Closed** (ghi chú 17.3) |
+| 3 | BUG-R3-020 (P2) In phiếu | **Đạt** – 1 tờ A4 chỉ có phiếu, 11 pt / 9 pt, chỉ màu brand (17.4) | **Closed** |
+| 4 | BUG-R3-022 (P2) Thêm phát sinh sau trả phòng | **Đạt** – nút hiện ở folio `settled`; ghi thử rồi đảo, số dư về như cũ. Chưa kiểm được ca `closed` (17.5, 17.8) | **Closed** |
+| 5 | BUG-R3-023 (P2) Hộp Đổi phòng | **Đạt** phần sửa của v1.0.0: nhãn nhóm, câu mới, căn VD bị máy chủ chặn, không lưu gì (17.6) | Phần nhãn + câu **Closed**; lọc căn VD **Open – v1.0.1** |
+| 6 | BUG-R3-021 (P2) Wi-Fi trang khách EN/VI/RU | **Đạt** phần trang khách (17.7) | Phần trang khách **Closed**; ô nhập Wi-Fi trên Desk **Open – v1.0.1** |
+| 7 | Smoke-prod trên rc.4 | **Đạt 9/9** (01:17): PS-01 desk/staff/guest, PS-02…05, PS-06 `qa.fd`, PS-06 `qa.owner` (có 2FA) | – |
+| 8 | Ảnh sổ tay còn thiếu | **C2-13 đã chụp**. C1-15, C2-34 **chưa** – cần đường ESC-031 sau 18:00 (17.9) | – |
+
+Lỗi mới: **BUG-R3-036 (P3, BE-B)** – phí hủy (và phí không đến, cùng hàm) ghi sau 00:00 mang ngày lịch, không phải ngày nghiệp vụ (17.8).
+
+### 17.2 BUG-R3-019 – Đơn dài hạn nhập tay (Desk Chromium 1440×900, `qa.fd`, 01:08)
+
+| Bước | Đo được | Kết luận |
+|---|---|---|
+| A. Sơ đồ phòng → **Đơn dài hạn nhập tay**: căn 402, 01/03–01/06/2027, khách tạo nhanh (tên, SĐT giả), tiền thuê 12.000.000, ký quỹ 12.000.000, số HĐ, ghi chú, Nguồn **Khách vãng lai** | Ô **Nguồn** có 4 lựa chọn: Zalo / điện thoại (mặc định) · Website · Khách vãng lai · Khách quay lại. **Không có "Sale nội bộ"**. `POST reservations` → **201** `OTM-00363`, body `directSource` `walk_in`, `manualLongStay` {12.000.000, 12.000.000, số HĐ, ghi chú} | Đạt |
+| Đọc lại OTM-00363 | `confirmed`, `stayType` long, căn 402, `directSource` walk_in, `externalContract` true (cờ "HĐ ngoài hệ thống") | Đạt |
+| B. **Đặt phòng mới** 01/07–01/09/2027 (62 đêm) → **Tạo đơn dài hạn nhập tay** | Form dài hạn mang sẵn ngày từ H09; có ô Nguồn, cùng 4 lựa chọn. Chọn căn 401, để nguồn mặc định → **201** `OTM-00364`, `directSource` `zalo_phone`, `externalContract` true | Đạt |
+| C. Yêu cầu website dài hạn (ô Nguồn ẩn, máy chủ đặt Website) | Staging không có yêu cầu website nào đang mở. **Chưa kiểm trên staging**; dựa vào test của FE-A (`r3-v100-fea.test.tsx`) | Không kiểm |
+
+**Trả lời Q4 sổ tay (thu tiền thuê ghi ở đâu, folio có dòng tiền thuê không)** – đo trên OTM-00363:
+- Folio của đơn dài hạn nhập tay: `open`, **0 dòng**, tổng 0, không có khoản thu nào. Ký quỹ 12.000.000 chỉ là thông tin trên đơn (`manualLongStay.depositHeldVnd`), không thành khoản thu; folio `depositHeldVnd` = 0.
+- Khung đơn `confirmed` có: Tạo link check-in online · Thu hồi link · Folio & điều chỉnh · Thêm người đi cùng · Hủy đơn · Đổi căn / đổi ngày. Không có nút ghi thu.
+- Kết luận cho sổ tay 2.7: **tiền thuê và ký quỹ ghi ngoài app** (hợp đồng giấy, sổ thu), đúng câu trên form "Đơn này không sinh: hợp đồng, lịch kỳ thu, nhắc thu, hoa hồng". App không có dòng tiền thuê. Khi đơn đã nhận phòng, khoản phát sinh (giặt, dọn lẻ…) ghi được bằng **Thêm phát sinh** như đơn ngắn ngày; thu ở bước 3 trả phòng hoặc **Thu công nợ** sau trả phòng (Q11). Phần nhận phòng / trả phòng của đơn dài hạn chưa diễn tập (ngày 2027).
+- Dọn: OTM-00363, OTM-00364 **đã hủy** (lý do "Khác", không có tiền nên không phí, không yêu cầu hoàn).
+
+### 17.3 BUG-R3-033 – Folio sau "Hoàn tất" trả phòng
+
+Đơn thử **OTM-00365** (căn 103, 27→28/10, khách giả). Dựng lúc 01:10: tạo đơn, trả đủ tiền phòng 850.000 (cọc 300.000 + 550.000 tiền mặt), nhận phòng 01:16, thêm 1 dòng giặt ủi 30.000 để còn phải thu khi trả phòng.
+
+| Bước (06:03, Desk `qa.fd`) | Đo được | Kết luận |
+|---|---|---|
+| Bước 3 trước khi thu | Folio: tiền phòng 850.000 · giặt ủi 30.000 · Đã thu −850.000 · **Còn phải thu 30.000 đ** | Đúng |
+| Tiền mặt 30.000, khách đưa 50.000 → Ghi nhận | `POST payments` 201 (**PT-000464**). Số ≤ còn phải thu nên Desk ghi ngay, không giữ lại tới B18 | Đúng thiết kế |
+| Hoàn tất → xác nhận | B18 **200**, body `{"checkoutTime":"06:03","applyLateSurcharge":false}`, phiếu **F26-000005** | Đạt |
+| Ngay sau 200 | Desk gọi `GET folios/{id}` → 200. Khung Folio: tiền phòng 850.000 · giặt ủi 30.000 · **Đã thu −880.000 · Còn phải thu 0 đ**. Không có chữ "dự tính", không có khối "Thử lại" | **Đạt** |
+| Đối chiếu máy chủ | Folio `settled` v8, đã thu 880.000, còn 0 – khớp từng số trên màn | Đạt |
+
+- Ghi chú phạm vi: trả phòng thường **không gửi** `finalPayment` – tiền mặt ≤ còn phải thu được ghi ngay ở bước 3. `finalPayment` chỉ có khi B18 mới ghi thêm khoản (phụ thu trả muộn, đêm thêm, ESC-031), tức chỉ dựng được sau 12:00 / 18:00 ngày đi. Trước 08:30 không dựng được, nên **đường `postReview` + tiền mặt (16.3) chưa chạy lại trên staging**.
+- Vì sao vẫn đóng lỗi: mã rc.4 có **một** chỗ xử lý sau B18 200 (`CheckOutPage.tsx` `setDone` → `getFolio`), không rẽ theo đường trả phòng. Staging xác nhận chỗ đó đọc folio máy chủ và hiện đúng số; đường `postReview` + tiền mặt có test riêng của FE-A (`bug-r3-033-fea.test.tsx`, đỏ trước khi sửa). Nếu ORC muốn chắc trên staging: chạy lại 16.3 sau 18:00 một ngày bất kỳ trước 02/11 (dựng từ sáng hôm trước).
+- Ảnh (scratchpad, tên khách che): `man4/img/r4-033-buoc3-tien-mat.png`, `man4/img/r4-033-tra-phong-xong.png`.
+
+### 17.4 BUG-R3-020 – In phiếu (Desk Chromium, `qa.fd`, OTM-00294 F26-000002, chỉ đọc)
+
+| Bước | Đo được | Kết luận |
+|---|---|---|
+| Mở **Xem Phiếu thanh toán** | `body > .print-root` có 1 bản, `aria-hidden` true, ẩn trên màn hình | Đạt |
+| Bấm **In phiếu** (chặn `window.print`) | Gọi 1 lần; `.print-root` vẫn còn sau khi gọi (Ctrl+P in cùng tờ) | Đạt |
+| Chế độ in (`emulateMedia print`) | Mọi con của `body` khác `.print-root` là `display: none` | Đạt |
+| `page.pdf` A4, `preferCSSPageSize` | **1 trang**, MediaBox 595 × 842 pt (A4). Chỉ có tờ phiếu: tên cơ sở, số phiếu, lập lúc, tên khách · căn · ngày, 3 dòng, Tổng cộng 892.000, Đã thu, Còn phải thu 0, "Giá đã gồm thuế GTGT", dấu "ĐÃ THU ĐỦ" | Đạt |
+| Cỡ chữ, phông | Nội dung `td` **14,67 px = 11 pt**, tiêu đề cột `th` **12 px = 9 pt**; tên cơ sở Lora 14 pt, "Phiếu thanh toán" Lora 16 pt, nội dung Be Vietnam Pro, số phiếu JetBrains Mono | Đạt |
+| Màu | Chỉ 5 màu bảng brand + giấy trắng: Ink, Stone Grey, Light Oak, Sage, Earth Brown | Đạt |
+| Việt – Anh | Cùng 1 trang A4; mỗi dòng có dòng tiếng Anh ("Guest folio", "Room The Valley, night of 26/10", "Total", "Paid", "Balance due", "PAID IN FULL") | Đạt |
+| Đóng hộp | `.print-root` gỡ khỏi trang; 0 lệnh ghi trong lượt | Đạt |
+
+- Chưa kiểm: máy in thật ở quầy, Safari iPad (không có thiết bị). Đề nghị OPS/INV in thử 1 tờ trên máy quầy trước ngày D.
+- Ghi chú (không ghi lỗi): bản Việt – Anh của dòng minibar lặp lại tên tiếng Việt ("Minibar – Bia Larue lon × 2") vì danh mục minibar chỉ có tên tiếng Việt. Gợi ý PO/UXD thêm tên tiếng Anh cho danh mục ở v1.0.1.
+- Bằng chứng (scratchpad, tên khách giả): `man4/raw/r4-OTM-00294-vi.pdf`, `r4-OTM-00294-vien.pdf`, ảnh `r4-vien-pdf.png`.
+
+### 17.5 BUG-R3-022 – Thêm phát sinh sau trả phòng
+
+| Đơn | Trạng thái | "Thêm phát sinh" | Kết luận |
+|---|---|---|---|
+| OTM-00357 (trả 28/10 00:15) | `checked_out`, folio `settled` | Có (cạnh Folio & điều chỉnh, Xem Phiếu thanh toán) | Đạt |
+| OTM-00294 (trả 27/10 06:01) | `checked_out`, folio `settled` | Có | Đạt |
+| OTM-00365 lúc đang ở | `in_house`, folio `open` | Có (như cũ) | Đạt |
+| Folio `closed` | Staging **không có folio `closed` nào** (17.8) | Không kiểm được trên staging; dựa vào test FE-A | Không kiểm |
+
+Ghi thử trên OTM-00365 vừa trả phòng (06:04, `qa.fd`):
+
+| Bước | Đo được |
+|---|---|
+| Trước | Folio `settled` v8: tổng 880.000, đã thu 880.000, còn 0 |
+| **Thêm phát sinh** → Giặt ủi (theo kg) × 1, ghi chú | `POST lines` **201**. Folio v10: tổng 910.000, **còn phải thu 30.000**. Khung đơn hiện thêm **Thu công nợ** |
+| Đảo dòng thử | Lễ tân `voidLine` → **403** `FORBIDDEN_ACTION` (đúng: sau trả phòng chỉ quản lý điều chỉnh). Quản lý `voidLine` → **201**, dòng đảo −30.000 |
+| Sau | Folio `settled` v12: tổng 880.000, đã thu 880.000, **còn 0** – như trước. Không sinh "Cần chú ý", không sinh yêu cầu duyệt |
+
+Đơn quá cửa sổ mà folio chưa đóng – OTM-00239 (trả 25/10): nút **có**; bấm Thêm vào folio → máy chủ **409 `FOLIO_LOCKED`**, hộp báo "Phiếu thanh toán đã khóa sau khi trả phòng. Chỉ quản lý ghi được bút toán điều chỉnh.", không ghi gì. Đúng như FE-A mô tả cho khoảng hở; nhưng trên staging khoảng hở này kéo dài nhiều ngày (17.8).
+
+### 17.6 BUG-R3-023 – Hộp Đổi phòng (OTM-00365 đang ở, căn 103, 01:16)
+
+- Trạng thái buồng lúc thử: 203 **VD**, 202 VI, 101/102/301/401/402 VC.
+- Danh sách: "101 · Lầu 1–2", "202 · Lầu 1–2", "203 · Lầu 1–2", "401 · Căn N · Nâng hạng…", "402 · Căn N+ · Nâng hạng…". **Không còn mã L12 / N / NPLUS.**
+- Câu dưới danh sách đúng chuỗi mới `room_change.ready_only`: "Chỉ đổi được sang căn VI · Đã kiểm, sẵn sàng hoặc VC · Đã dọn, chờ kiểm. Danh sách có thể còn căn chưa dọn – chọn căn đó sẽ được báo, không lưu gì."
+- Chọn **203 (VD)**: máy chủ trả **409 `ROOM_NOT_READY`** (`roomStatus` VD) ngay khi xem trước; hộp hiện "Căn 203 chưa sẵn sàng (VD · Trống, cần dọn). Chọn căn đã kiểm sẵn sàng hoặc đã dọn." Bấm **Đổi sang căn 203** → lại 409.
+- Sau: đơn vẫn căn 103, `version` 2 như trước; trạng thái buồng không đổi. **Không lưu gì.** Đạt.
+- Ghi chú cho UXD (không ghi lỗi): tiêu đề nhóm vẫn là "CĂN MỚI (ĐÃ DỌN HOẶC ĐÃ KIỂM)" trong khi danh sách có căn VD; câu mới đã giải thích, có thể sửa tiêu đề cùng lúc làm phần lọc ở v1.0.1.
+
+### 17.7 BUG-R3-021 – Wi-Fi trên trang khách (điện thoại 390×844, đổi ngôn ngữ bằng ô chọn của trang)
+
+Staging chưa có Wi-Fi của cơ sở (`wifi` = `null` trong phản hồi trang khách).
+
+| Đơn | Lúc | Tình huống | EN | VI | RU |
+|---|---|---|---|---|---|
+| OTM-00365 | 01:11 | Đến 27/10, `confirmed`, trong ngày đến | "Please ask reception for the network name and password." | "Vui lòng hỏi lễ tân tên mạng và mật khẩu." | "Пожалуйста, узнайте имя сети и пароль у администратора." |
+| OTM-00365 | 01:17 | `in_house` | như trên | như trên | như trên |
+| OTM-00366 | 01:17 | Đến 29/10 (trước ngày đến) | "Shown here on your arrival day (29 Oct)." | "Hiện ở đây vào ngày nhận phòng (29/10)." | "Появится здесь в день заезда (29 окт.)." |
+
+- Kết luận: trong ngày đến / đang ở hiện câu "hỏi lễ tân" đúng ba ngôn ngữ; trước ngày đến giữ câu cũ. Đạt.
+- Chưa kiểm: trường hợp đã có Wi-Fi (staging chưa nhập; ô nhập trên Desk là v1.0.1).
+- Ghi chú: mở cùng một link khách 5 lần trong khoảng 30 giây thì trang báo "Bạn đã thử quá nhiều lần. Chờ 1 phút rồi thử lại." Đây là giới hạn chống dò link, không ghi lỗi; QA chạy lại bằng một phiên.
+- Dọn: OTM-00366 đã hủy (giữ cọc 300.000 theo BR-309, không có yêu cầu hoàn). Link của OTM-00365 đã thu hồi (204).
+
+### 17.8 Phát hiện thêm
+
+**BUG-R3-036 (P3, BE-B) – phí hủy ghi sau nửa đêm mang ngày lịch, không phải ngày nghiệp vụ.**
+- OTM-00366 hủy lúc 01:22 ngày 28/10 (ngày nghiệp vụ 27/10): dòng `cancellation_fee` 300.000 có `serviceDate` **28/10**. OTM-00358 hủy 00:18 ngày 28/10: dòng 200.000 cũng **28/10**.
+- `metrics-definitions.md` (dòng 32, Q-09): phí hủy / không đến ghi theo **ngày nghiệp vụ** hủy / đánh dấu. Mã `folio.service.ts` (~dòng 1700) dùng `localDate(now)` – ngày lịch. Phí không đến dùng cùng đoạn mã; việc đánh dấu không đến thường làm sau 23:00 hoặc ca đêm, nên dễ rơi sang ngày hôm sau.
+- Ảnh hưởng: doanh thu khác (K-22e) của ca đêm bị tính sang ngày sau. Không sai tổng tiền. Chi tiết ở `bug-list.md`.
+
+**Cần OPS/BE kiểm: J15 không đóng folio quá cửa sổ trên staging.**
+- OTM-00239 trả phòng 25/10, folio vẫn `settled` lúc 28/10 06:20. OTM-00294 (trả 27/10 06:01, còn 0) và OTM-00297 (trả 27/10 06:02, công nợ 150.000), cửa sổ 24 giờ hết khoảng 06:01–06:02 ngày 28/10: lúc 06:05, 06:09 và 06:20 cả hai vẫn `settled`, `version` không đổi.
+- Theo `folio-close-job.ts`, J15 chạy mỗi nhịp worker và đóng mọi folio `settled` có `post_checkout_window_until` ≤ giờ hiện tại. OTM-00239 không có tiền dư, không yêu cầu hoàn mở, còn 0 – đáng lẽ đã `closed`.
+- Hệ quả nếu production cũng vậy: nút **Thêm phát sinh** hiện mãi trên đơn cũ, lễ tân bấm sẽ gặp 409; khoản còn nợ sau cửa sổ không thành công nợ (BR-427 d); mục "tiền dư đơn đã đóng" của BUG-R3-034 không tự hết.
+- QA không xem được log worker. **Đề nghị OPS xem log `J15` / `folio.close` trên staging và production hôm nay**, BE-B xem cột `post_checkout_window_until` của hai folio trên. Chưa ghi lỗi vì chưa rõ nguyên nhân (job không chạy, hay dữ liệu cửa sổ rỗng).
+
+### 17.9 Ảnh sổ tay
+
+| Mã | Kết quả |
+|---|---|
+| **C2-13** Hộp **Đánh dấu … không đến?** | **Đã chụp** – `product/docs/manual/img/C2-13.png` (1440×900, 56 KB). Đơn mới OTM-00365, đến hôm nay, chụp 01:15 (sau 23:00 ngày đến). Che: tiêu đề hộp và tên khách ở đầu khung đơn (khối Ink đặc). Không có QR, tài khoản, SĐT, giấy tờ, mã cửa. Hộp **không** xác nhận (bấm Chờ thêm), 0 lệnh ghi. Chữ trên hộp: "Giữ cọc 300.000 theo chính sách. Căn 103 mở bán lại 27/10 → 28/10 trên mọi kênh. Khai báo và hoa hồng của đơn bị hủy.", ô **Kết quả liên lạc** (Gọi không nghe máy / Khách báo đến trễ / Chưa liên lạc), **Ghi chú**, nút **Chờ thêm** / **Đánh dấu không đến** |
+| C1-15 Cần chú ý – phụ thu bằng 1 đêm chờ xem lại | **Chưa chụp.** Cần một lượt trả phòng ESC-031 `postReview` (sau 18:00 ngày đi, đêm đó căn đã có khách). Mục của OTM-00357 đã được MGR "Đã xem" đêm 27/10 |
+| C2-34 Trả sau 18:00 – Ghi phụ thu, quản lý xem lại | **Chưa chụp**, cùng lý do. Ảnh `esc031n/screens/n03` (rc.3) có đúng màn này nhưng dùng đơn cấm chụp (OTM-00357) |
+
+Đề nghị: nếu cần đủ ảnh trước 02/11, ORC giao QA một lượt tối (dựng đơn ở căn trống từ ngày hôm trước + đơn đến đêm đó), làm luôn chạy lại 16.3 cho BUG-R3-033 và chụp C1-15, C2-34.
+
+### 17.10 Dữ liệu staging – trước / sau
+
+| Mục | Trước (01:03) | Trong lượt | Sau (06:20, kiểm lại bằng API) |
+|---|---|---|---|
+| Trạng thái buồng | 203 VD · 302 OD · 202 VI · 101, 102, 103, 301, 401, 402 VC · 201 OC | 103 OC (đơn thử) → VD sau trả phòng | 103 **VC** (`qa.hk` dọn trên PWA: VD → CL → VC, việc dọn xong). Còn lại như trước |
+| OTM-00363, OTM-00364 (dài hạn nhập tay, 2027) | – | Tạo | **Hủy**. Không có tiền |
+| OTM-00365 (103, 27→28/10) | – | Tạo, thu 850.000 (PT-000461 cọc 300.000, PT-000462 550.000), nhận phòng, giặt ủi 30.000, trả phòng (PT-000464 30.000, F26-000005), dòng thử sau trả phòng + đảo | `checked_out`, folio `settled` tổng 880.000 = đã thu, còn 0. Link khách thu hồi. Việc dọn căn 103 `done`; màn Hôm nay không còn việc mở của căn 103 |
+| OTM-00366 (402, 29→30/10) | – | Tạo, cọc 300.000 (PT-000463) | **Hủy**, giữ cọc 300.000 theo BR-309 (dòng `cancellation_fee`), không yêu cầu hoàn |
+| Khách | – | 4 hồ sơ khách giả (2 tạo nhanh trên Desk, 2 của harness) | Còn (không có thao tác xóa hồ sơ) |
+| Tham số, giá căn | – | Không đổi | Không đổi |
+| Đơn khác (OTM-00239, 294, 357) | – | Chỉ đọc; OTM-00239 một lần thêm dòng bị 409, không ghi | Không đổi |
