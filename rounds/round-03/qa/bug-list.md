@@ -9,10 +9,12 @@
 | Mức | Số lỗi | Open | Fixed | Closed |
 |---|---|---|---|---|
 | P0 | 3 | 0 | 0 | 3 |
-| P1 | 11 | 1 (BUG-R3-032) | 0 | 10 |
+| P1 | 12 | 2 (BUG-R3-032, BUG-R3-037) | 0 | 10 |
 | P2 | 9 | 3 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn) | 0 | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
 | P3 | 13 | 12 (016; 024–031; 034; 035; 036) | 0 | 1 |
-| **Tổng** | **36** | **16** | **0** | **20** |
+| **Tổng** | **37** | **17** | **0** | **20** |
+
+Cập nhật 28/10 ~06:40 (OPS, `rounds/round-03/outputs/OPS/j15-folio-close-check.md`): thêm **BUG-R3-037 (P1 đề xuất, BE-B)** – J15 `folio.close` không được đăng ký trong worker nên không bao giờ chạy; production cùng mã. Đề xuất sửa trong rc.5 trước tag v1.0.0.
 
 Cập nhật 28/10 ~06:15 (rc.4 trên staging `d12cda6`, `qa3-rc1.md` mục 17):
 - **Closed**: BUG-R3-019 (P1), BUG-R3-020, BUG-R3-022, BUG-R3-033. **BUG-R3-021** và **BUG-R3-023**: phần sửa của v1.0.0 Closed, phần còn lại Open – dời v1.0.1 (như BUG-R3-018).
@@ -85,6 +87,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-034 | P3 | Đơn đã trả phòng, chi hoàn đủ mà mục "tiền dư đơn đã đóng" vẫn còn tới khi J15 đóng folio | BE-B | Open |
 | BUG-R3-035 | P3 | Phiếu ghi "Phụ thu trả muộn (00:15)" cho khoản phụ thu bằng 1 đêm | BE-B + UXD | Open |
 | BUG-R3-036 | P3 | Phí hủy / phí không đến ghi từ 00:00 đến 05:59 mang ngày lịch (`serviceDate` hôm sau), không theo ngày nghiệp vụ (Q-09) | BE-B | Open |
+| BUG-R3-037 | P1 | J15 `folio.close` không được đăng ký trong worker: folio quá cửa sổ 24 giờ không bao giờ đóng, công nợ sau trả phòng không được ghi | BE-B (+ ARC, OPS) | Open |
 
 ## 3. Chi tiết
 
@@ -826,3 +829,41 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Bằng chứng:** scratchpad `qa-r6/man4/log.md` (lượt `r4-ops` 01:22, 01:22:54).
 - **Vai:** BE-B (+ DATA xác nhận).
 - **Trạng thái:** Open – đề xuất v1.0.1.
+
+### BUG-R3-037 – J15 `folio.close` không chạy: worker không đăng ký job
+
+- **Mức:** P1 (đề xuất của OPS, QA/QC chốt). Không sai số tiền, không mất dữ liệu. Nhưng quy tắc BR-427 (d) / BR-525 / A19 không chạy trên production:
+  - nợ sau trả phòng không thành công nợ;
+  - tiền dư sau cửa sổ không sinh "Cần chú ý".
+- **Môi trường:** staging rc.4 (`d12cda6`, image `sha-d12cda6f26a4`), kiểm 28/10 06:24. Mã giống nhau từ `v1.0.0-rc.1` tới `HEAD`, nên production (rc.3) cùng lỗi (suy từ repo, không kiểm máy chủ).
+- **Các bước:**
+  1. Trả phòng một đơn (folio `settled`, `post_checkout_window_until` = giờ trả + 24 giờ).
+  2. Chờ quá cửa sổ ít nhất một nhịp worker (60 giây).
+  3. Xem trạng thái folio và log worker.
+- **Thực tế:**
+  - OTM-00239 (hết cửa sổ 26/10 12:26), OTM-00294 (28/10 06:01), OTM-00297 (28/10 06:01) vẫn `settled`, `closed_at` trống.
+  - DB staging có 0 folio `closed` và 0 audit `folio.closed` từ trước tới nay.
+  - Log worker: dòng `worker started` liệt kê 19 job, **không có `folio.close`**; 72 giờ có 0 dòng J15.
+  - `/app/dist/worker.js` trong image không tham chiếu `folio-close`.
+- **Nguyên nhân:**
+  - `src/worker.ts` tự dựng `JobRegistry` và đăng ký từng job bằng tay, nhưng thiếu `folioCloseJob`.
+  - J15 chỉ được đăng ký trong `FolioModule.onModuleInit()` (registry Nest của tiến trình api). Tiến trình api không có vòng tick; registry đó chỉ phục vụ endpoint test-support. Vì vậy E2E/integration gọi `folio.close` qua test-support vẫn xanh.
+  - Điều kiện chọn folio và cách tính cửa sổ đều đúng.
+- **Mong đợi:** worker chạy J15 mỗi nhịp; folio quá cửa sổ thành `closed`, còn nợ thì ghi một công nợ `post_checkout_unpaid` (`folio-close-job.ts`, `FolioService.closeAfterWindow`).
+- **Ảnh hưởng ngày D:**
+  - Từ lượt trả phòng thật đầu tiên sau 02/11, mọi folio ở `settled` mãi.
+  - Khoản ghi sau trả phòng mà chưa thu không vào danh sách công nợ.
+  - Tiền dư không báo "Cần chú ý".
+  - Mục của BUG-R3-034 không tự hết.
+  - Nút Thêm phát sinh hiện mãi, bấm gặp 409.
+  - Giảm nhẹ: N-15 vẫn khóa ghi sau cửa sổ. Lần tick đầu sau khi sửa sẽ đóng hết folio tồn, nên lỗi tự lành.
+- **Đề xuất sửa:**
+  - **BE-B:** đăng ký J15 trong worker, nối đủ hooks công nợ của frontdesk. Thêm test so danh sách job của worker với registry Nest (đỏ trước khi sửa) và một test chạy J15 qua `JobRunner` của worker.
+  - **ARC:** một nguồn danh sách job chung (có thể v1.0.1).
+  - **OPS:** bước kiểm danh sách job của worker sau deploy.
+- **Kiểm lại (QA, staging sau bản sửa):**
+  - OTM-00239/294/297 thành `closed`. OTM-00297 có công nợ đúng số.
+  - Kiểm ca `closed` của BUG-R3-022 và BUG-R3-034.
+- **Bằng chứng:** `rounds/round-03/outputs/OPS/j15-folio-close-check.md` mục 3.
+- **Vai:** BE-B (+ ARC, OPS).
+- **Trạng thái:** Open – đề xuất sửa trong rc.5, trước tag v1.0.0.
