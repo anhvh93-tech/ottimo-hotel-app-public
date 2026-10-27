@@ -1,0 +1,92 @@
+/* BUG-R3-020 – printing "Phiếu thanh toán" from the Desk (H16 16.5, hifi.css §16).
+   hifi.css §16 already keeps only `body > .print-root` on paper; BillDialog now mounts that copy for as long as the
+   dialog is open (Ctrl+P and the "In phiếu" button print the same sheet). This file adds what the Desk needs on
+   top: A4 paper (ORC 27/10 – hifi §16 says A5, UXD to confirm), OTTIMO brand type and only the 80/15/5 palette
+   (brand guideline 17/10): Lora for the property name and title, Be Vietnam Pro for text, JetBrains Mono for the
+   bill number; Ink / Stone on white paper, Light Oak header rule, Sage hairlines, Earth Brown "paid" stamp.
+   Loaded after `@ottimo/ui/styles.css`, so these rules win over hifi §16 where both set a value. */
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm 18mm;
+  }
+
+  /* The page margins come from @page only (no body margin on top). */
+  body:has(> .print-root) {
+    margin: 0;
+  }
+
+  .print-root {
+    --surface: var(--brand-white);
+    --ink: var(--brand-ink);
+    --muted: var(--brand-stone);
+    --faint: var(--brand-stone);
+    --line: var(--brand-sage);
+    --line-strong: var(--brand-stone);
+    --ok: var(--brand-earth);
+    --ok-bg: var(--brand-white);
+    font-family: var(--sans);
+    font-size: 10.5pt;
+    line-height: 1.45;
+    color: var(--brand-ink);
+    background: var(--brand-white);
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .print-root .bill-paper {
+    font-size: 10.5pt;
+    max-width: 174mm;
+    margin: 0 auto;
+  }
+  .print-root .bill-paper .hdr {
+    border-bottom: 1.5px solid var(--brand-oak);
+    padding-bottom: 8pt;
+    margin-bottom: 12pt;
+  }
+  .print-root .bill-paper .hdr b {
+    font-family: var(--serif);
+    font-size: 14pt;
+    font-weight: 600;
+  }
+  .print-root .bill-paper h2 {
+    font-family: var(--serif);
+    font-size: 16pt;
+    font-weight: 600;
+    margin: 4pt 0 8pt;
+  }
+  .print-root .bill-paper .en {
+    font-size: 9pt;
+    color: var(--brand-stone);
+  }
+  .print-root .bill-paper th {
+    font-size: 8.5pt;
+    color: var(--brand-stone);
+    border-bottom: 1px solid var(--brand-stone);
+  }
+  .print-root .bill-paper td {
+    border-bottom: 0.5px dashed var(--brand-sage);
+  }
+  .print-root .bill-paper tr.total td {
+    border-top: 1.5px solid var(--brand-ink);
+  }
+  .print-root .bill-paper tr,
+  .print-root .bill-paper .hdr,
+  .print-root .bill-paper .foot {
+    break-inside: avoid;
+  }
+  .print-root .bill-paper .foot {
+    font-size: 9pt;
+    color: var(--brand-stone);
+  }
+  .print-root .mono {
+    font-family: var(--mono);
+  }
+  .print-root .chip {
+    background: transparent;
+    color: var(--brand-earth);
+    border: 1px solid var(--brand-earth);
+  }
+  .print-root .chip .ico {
+    display: none;
+  }
+}

@@ -1183,6 +1183,9 @@ export function createReservationMock(ctx: Ctx) {
       }
       if (body.directSource && ch && ch.channelGroup !== 'direct')
         errors.push({ field: 'directSource', code: 'DIRECT_SOURCE_NOT_ALLOWED' });
+      // US-155 (server `5820a97`, BUG-R3-019): a direct booking needs a source unless it comes from a website request.
+      if (ch?.channelGroup === 'direct' && !body.directSource && !webReq)
+        errors.push({ field: 'directSource', code: 'REQUIRED' });
       (body.nightlyRates ?? []).forEach((n, i) => {
         if (!(n.amountVnd > 0))
           errors.push({ field: `nightlyRates[${i}].amountVnd`, code: 'AMOUNT_NOT_POSITIVE' });

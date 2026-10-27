@@ -1471,6 +1471,7 @@ g("R2 hi-fi Sprint 3 – nhận/trả phòng, khai báo, lưu trú, duyệt, nh�
     ("gw.take_photo", "Chụp", "Take photo", None, "18-guest-checkin.html"),
     ("gw.take_photo_again", "Chụp lại bằng nút Chụp", "Retake with the Take photo button", None, "18-guest-checkin.html"),
     ("gw.wifi_later", "Hiện ở đây vào ngày nhận phòng ({date}).", "Shown here on your arrival day ({date}).", None, "18-guest-checkin.html"),
+    ("gw.wifi_ask_desk", "Vui lòng hỏi lễ tân tên mạng và mật khẩu.", "Please ask the front desk for the network name and password.", None, "BUG-R3-021: từ ngày nhận phòng mà máy chủ chưa có Wi-Fi (wifi null) – không hứa 'hiện vào ngày nhận phòng' nữa"),
     ("late.grace_off", "Căn có khách đến hôm nay – không áp ân hạn 12:30.", "A guest is arriving in this room today – the 12:30 grace period doesn't apply.", None, "15-stay.html"),
     ("late.std_zero", "Trả trước 12:00 – không phụ thu", "Leaving by 12:00 – no surcharge", None, "BA spec / hifi.js"),
     ("mlog.a_adjusted", "Điều chỉnh dòng folio (đảo + dòng mới)", "Folio line adjusted (reversal + new line)", None, "folio_line.adjusted – 17-approvals-moneylog.html (s3-UXD: bỏ ví dụ 'giặt ủi' khỏi chuỗi)"),

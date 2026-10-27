@@ -16,6 +16,7 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, ConfirmDialog, Field, Modal, Seg } from '@ottimo/ui';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { api } from '../../app/api';
+import { DIRECT_SOURCES } from './directSources';
 import { useCatalog } from '../../app/catalog';
 import { readDraft, removeDraft, writeDraft } from '../../app/clientData';
 import { useBusinessDay, useBusinessDayChange } from '../../app/businessDay';
@@ -67,13 +68,6 @@ interface Props {
 
 /** Draft key scoped to the signed-in user (FB-R2-SEC-FE-05, like the guest form). */
 const draftKey = (userId: string | undefined) => `booking.new.${userId ?? 'anon'}`;
-const SOURCES: Array<{ value: DirectSource; key: string }> = [
-  { value: 'zalo_phone', key: 'bk.src_zalo' },
-  { value: 'website', key: 'bk.src_web' },
-  { value: 'walk_in', key: 'bk.src_walkin' },
-  { value: 'returning', key: 'bk.src_return' },
-  { value: 'sales_staff', key: 'bk.src_sales' },
-];
 const METHODS: Array<{ value: PaymentMethod; key: string }> = [
   { value: 'vietqr', key: 'pay.vietqr' },
   { value: 'bank_transfer', key: 'pay.bank_transfer' },
@@ -1021,7 +1015,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                   value={form.directSource}
                   onChange={(e) => set({ directSource: e.target.value as DirectSource })}
                 >
-                  {SOURCES.map((s) => (
+                  {DIRECT_SOURCES.map((s) => (
                     <option key={s.value} value={s.value}>
                       {t(s.key)}
                     </option>

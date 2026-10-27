@@ -1556,6 +1556,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `gw.take_photo` | Chụp | Take photo | Сфотографировать | 18-guest-checkin.html |
 | `gw.take_photo_again` | Chụp lại bằng nút Chụp | Retake with the Take photo button | Переснимите кнопкой «Сфотографировать» | 18-guest-checkin.html |
 | `gw.wifi_later` | Hiện ở đây vào ngày nhận phòng ({date}). | Shown here on your arrival day ({date}). | Появится здесь в день заезда ({date}). | 18-guest-checkin.html |
+| `gw.wifi_ask_desk` | Vui lòng hỏi lễ tân tên mạng và mật khẩu. | Please ask the front desk for the network name and password. | ⟨chừa chỗ⟩ | BUG-R3-021: từ ngày nhận phòng mà máy chủ chưa có Wi-Fi (wifi null) – không hứa 'hiện vào ngày nhận phòng' nữa |
 | `late.grace_off` | Căn có khách đến hôm nay – không áp ân hạn 12:30. | A guest is arriving in this room today – the 12:30 grace period doesn't apply. | ⟨chừa chỗ⟩ | 15-stay.html |
 | `late.std_zero` | Trả trước 12:00 – không phụ thu | Leaving by 12:00 – no surcharge | ⟨chừa chỗ⟩ | BA spec / hifi.js |
 | `mlog.a_adjusted` | Điều chỉnh dòng folio (đảo + dòng mới) | Folio line adjusted (reversal + new line) | ⟨chừa chỗ⟩ | folio_line.adjusted – 17-approvals-moneylog.html (s3-UXD: bỏ ví dụ 'giặt ủi' khỏi chuỗi) |

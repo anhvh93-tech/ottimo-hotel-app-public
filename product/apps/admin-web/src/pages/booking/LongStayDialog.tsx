@@ -1,6 +1,7 @@
 import {
   isApiError,
   newIdempotencyKey,
+  type DirectSource,
   type GuestSummary,
   type Reservation,
 } from '@ottimo/api-client';
@@ -16,7 +17,7 @@ import { notifyChanged } from '../../app/live';
 import { isRetryable, useWrite } from '../../app/useWrite';
 import { parseVnd } from '../../app/money';
 import { fieldErrorText, problemView } from '../../app/problem';
-import { addDays, nightsBetween, rsvErrorText } from '../../app/reservations';
+import { addDays, dayMonth, nightsBetween, rsvErrorText } from '../../app/reservations';
 import { useRules } from '../../app/rules';
 import { useToast } from '../../app/toast';
 import { normalizePhone } from '../../app/validation';
@@ -26,6 +27,7 @@ import { useOnline } from '../../hooks/useOnline';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { monoArgs } from '../../app/mono';
 import { ContactMatches, type WebRequestLink } from '../webreq/ContactMatches';
+import { LONG_STAY_SOURCES } from './directSources';
 
 export interface LongStayPrefill {
   roomId?: string;
@@ -43,6 +45,8 @@ interface Form {
   occ: Occupancy;
   guest: GuestSummary | null;
   phone: string;
+  /** BUG-R3-019: the server requires a source on a direct booking (US-155) – same options as H09. */
+  directSource: DirectSource;
   rent: string;
   deposit: string;
   contractRef: string;
@@ -80,7 +84,9 @@ export function LongStayDialog({
   const today = useBusinessDay();
   const [form, setForm] = useState<Form>(() => {
     const draft = !prefill ? readDraft(DRAFT_KEY) : null;
-    if (draft) return JSON.parse(draft) as Form;
+    // A draft saved before BUG-R3-019 has no source → the H09 default.
+    if (draft)
+      return { directSource: 'zalo_phone', ...(JSON.parse(draft) as Partial<Form>) } as Form;
     const arrival = prefill?.arrivalDate ?? today;
     return {
       roomId: prefill?.roomId ?? '',
@@ -89,6 +95,7 @@ export function LongStayDialog({
       occ: prefill?.occ ?? { adults: 1, children6to11: 0, childrenUnder6: 0 },
       guest: null,
       phone: prefill?.webRequest?.contact?.phone ?? '',
+      directSource: 'zalo_phone',
       rent: '',
       deposit: '',
       contractRef: '',
@@ -104,6 +111,7 @@ export function LongStayDialog({
     ),
   );
   const [draftAt, setDraftAt] = useState<string | null>(null);
+  const [autoReturning, setAutoReturning] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [requestError, setRequestError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -182,6 +190,8 @@ export function LongStayDialog({
         childrenUnder6: form.occ.childrenUnder6,
         bookerGuestId: form.guest!.id,
         paymentModel: 'direct' as const,
+        // US-155 AC2: from a website request the server sets the source (Website) itself.
+        directSource: prefill?.webRequest ? undefined : form.directSource,
         allowUnassigned: false,
         manualLongStay: {
           monthlyRentVnd: parseVnd(form.rent) ?? 0,
@@ -343,7 +353,12 @@ export function LongStayDialog({
             required
             initialText={form.guest?.displayName}
             error={errors.bookerGuestId}
-            onSelect={(guest) => set({ guest })}
+            onSelect={(guest) => {
+              // Same as H09 (FB-R2-DOM-FE-02, D-6): a guest who stayed before → preselect "Khách quay lại".
+              const auto = !!guest.lastStayDate && form.directSource === 'zalo_phone';
+              set(auto ? { guest, directSource: 'returning' } : { guest });
+              setAutoReturning(auto ? guest.lastStayDate! : null);
+            }}
           />
           {form.guest && !form.guest.phoneMasked ? (
             <Field label={t('booking.field.phone')} required error={errors.phone}>
@@ -361,6 +376,35 @@ export function LongStayDialog({
             <Alert tone="bad">{errors.phone}</Alert>
           ) : null}
         </div>
+        {!prefill?.webRequest ? (
+          <div className="g-2">
+            <Field
+              label={t('bk.source')}
+              required
+              error={errors.directSource}
+              help={
+                autoReturning && form.directSource === 'returning'
+                  ? t('bk.source_auto_returning', { date: dayMonth(autoReturning) })
+                  : undefined
+              }
+            >
+              {(p) => (
+                <select
+                  {...p}
+                  className="input"
+                  value={form.directSource}
+                  onChange={(e) => set({ directSource: e.target.value as DirectSource })}
+                >
+                  {LONG_STAY_SOURCES.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {t(s.key)}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+          </div>
+        ) : null}
         <OccupancyField
           value={form.occ}
           onChange={(occ) => set({ occ })}

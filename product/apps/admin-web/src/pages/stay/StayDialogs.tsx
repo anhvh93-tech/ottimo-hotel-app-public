@@ -23,6 +23,7 @@ import { useBusinessDay } from '../../app/businessDay';
 import { timeHHmm } from '../../app/dates';
 import { useCatalog } from '../../app/catalog';
 import { channelName } from '../../app/reservations';
+import { useRoomGroupNames } from '../../app/roomGroups';
 import { useRules } from '../../app/rules';
 import { problemView } from '../../app/problem';
 import { LoadingBlock } from '../../components/states';
@@ -450,6 +451,7 @@ function ChangeRoomForm({
   const toast = useToast();
   const ids = useId();
   const R = { propertyId, reservationId: r.id };
+  const groupNames = useRoomGroupNames(propertyId);
   // BUG-R2-211: B14 applies from the BUSINESS day (`ctx.today`, BR-010) – 00:00–05:59 is still the day before.
   const today = useBusinessDay();
   // The stay ends at the latest departure of the primary and the child the drawer shows.
@@ -577,7 +579,8 @@ function ChangeRoomForm({
               onChange={() => setRoomId(x.roomId)}
             />
             {x.roomNo}
-            {x.roomGroupCode ? ` · ${x.roomGroupCode}` : ''}
+            {/* BUG-R3-023: the group's name, not its internal code (L12 / N / NPLUS). */}
+            {x.roomGroupCode ? ` · ${groupNames[x.roomGroupCode] ?? x.roomGroupCode}` : ''}
             {x.upgrade ? ` · ${t('rsv.upgrade_needs_lead')}` : ''}
           </label>
         ))}

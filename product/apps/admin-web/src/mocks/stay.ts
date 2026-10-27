@@ -3123,7 +3123,14 @@ export function createStayMock(ctx: Ctx) {
       const f = st.folios.get(String(params.folioId));
       if (!f) return problem(404, 'NOT_FOUND');
       const r = rsv().state.reservations.find((x) => x.id === f.reservationId)!;
-      if (f.status === 'settled') return problem(409, 'FOLIO_LOCKED');
+      // BR-427 (c) (server `lockForPosting({ allowPostCheckout: true })`, BUG-R3-022): `open`, or `settled` inside
+      // `post_checkout_window_until` (= settled + post_checkout_charge_hours); `closed` / past the window → 409.
+      if (f.status === 'closed') return problem(409, 'FOLIO_LOCKED');
+      if (f.status === 'settled') {
+        const settled = Date.parse(f.settledAt ?? `${r.departureDate}T11:00:00+07:00`);
+        if (Date.now() >= settled + POST_CHECKOUT_CHARGE_HOURS * 3_600_000)
+          return problem(409, 'FOLIO_LOCKED', { detail: 'post-checkout window over (BR-427 d)' });
+      }
       const body = (await request.json()) as Body;
       const item = CATALOG.find((c) => c.code === body.chargeCode);
       const errors: Array<{ field: string; code: string }> = [];

@@ -1357,6 +1357,7 @@
   "gw.take_photo": "Take photo",
   "gw.take_photo_again": "Retake with the Take photo button",
   "gw.wifi_later": "Shown here on your arrival day ({date}).",
+  "gw.wifi_ask_desk": "Please ask the front desk for the network name and password.",
   "late.grace_off": "A guest is arriving in this room today – the 12:30 grace period doesn't apply.",
   "late.std_zero": "Leaving by 12:00 – no surcharge",
   "mlog.a_adjusted": "Folio line adjusted (reversal + new line)",

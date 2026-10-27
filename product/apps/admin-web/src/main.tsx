@@ -1,4 +1,5 @@
 import '@ottimo/ui/styles.css';
+import './print.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
