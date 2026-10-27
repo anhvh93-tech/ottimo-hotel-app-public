@@ -453,7 +453,7 @@
   "room_change.cause.property_fault": "Sự cố của OTTIMO – giữ giá cũ",
   "room_change.cause.guest_request": "Khách yêu cầu – tính giá căn mới từ đêm đổi",
   "room_change.effective": "Đổi từ đêm",
-  "room_change.ready_only": "Chỉ hiện căn \"Sẵn sàng\" hoặc \"Trống, sạch\" và không bị khóa.",
+  "room_change.ready_only": "Chỉ đổi được sang căn VI · Đã kiểm, sẵn sàng hoặc VC · Đã dọn, chờ kiểm. Danh sách có thể còn căn chưa dọn – chọn căn đó sẽ được báo, không lưu gì.",
   "room_change.effects": "Căn {from_room} chuyển \"Cần dọn\"; mã cửa cũ bị hủy – nhập mã mới cho căn {to_room}. Không phải khai báo lại.",
   "room_change.submit": "Đổi sang căn {room}",
   "noshow.reminder": "Khách {guest} chưa đến căn {room}. Gọi hoặc nhắn khách rồi ghi kết quả.",

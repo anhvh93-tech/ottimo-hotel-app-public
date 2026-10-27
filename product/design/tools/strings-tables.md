@@ -505,7 +505,7 @@
 | `room_change.cause.property_fault` | Sự cố của OTTIMO – giữ giá cũ | OTTIMO issue – keep current rate | ⟨chừa chỗ⟩ | `property_fault` – BR-424 |
 | `room_change.cause.guest_request` | Khách yêu cầu – tính giá căn mới từ đêm đổi | Guest request – new room's rate from the move night | ⟨chừa chỗ⟩ | `guest_request` |
 | `room_change.effective` | Đổi từ đêm | Move from night of | ⟨chừa chỗ⟩ |  |
-| `room_change.ready_only` | Chỉ hiện căn "Sẵn sàng" hoặc "Trống, sạch" và không bị khóa. | Only rooms that are "Ready" or "Vacant clean" and not blocked are shown. | ⟨chừa chỗ⟩ |  |
+| `room_change.ready_only` | Chỉ đổi được sang căn VI · Đã kiểm, sẵn sàng hoặc VC · Đã dọn, chờ kiểm. Danh sách có thể còn căn chưa dọn – chọn căn đó sẽ được báo, không lưu gì. | You can only move to a room that is VI · Inspected, ready or VC · Cleaned, awaiting inspection. The list may still include rooms not yet cleaned – choosing one shows a message and nothing is saved. | ⟨chừa chỗ⟩ | v1.0.0: danh sách chưa lọc trạng thái buồng (BUG-R3-023) – đổi câu khi lọc ở v1.0.1 (UXD thẻ 17) |
 | `room_change.effects` | Căn {from_room} chuyển "Cần dọn"; mã cửa cũ bị hủy – nhập mã mới cho căn {to_room}. Không phải khai báo lại. | Room {from_room} becomes "Needs cleaning"; the old door code is revoked – enter a new code for room {to_room}. No re-registration needed. | ⟨chừa chỗ⟩ | BR-424, BR-403 |
 | `room_change.submit` | Đổi sang căn {room} | Move to room {room} | ⟨chừa chỗ⟩ |  |
 | `noshow.reminder` | Khách {guest} chưa đến căn {room}. Gọi hoặc nhắn khách rồi ghi kết quả. | {guest} hasn't arrived for room {room}. Call or message, then record the result. | ⟨chừa chỗ⟩ | BR-311 `no_show_call_time` |
@@ -1556,7 +1556,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `gw.take_photo` | Chụp | Take photo | Сфотографировать | 18-guest-checkin.html |
 | `gw.take_photo_again` | Chụp lại bằng nút Chụp | Retake with the Take photo button | Переснимите кнопкой «Сфотографировать» | 18-guest-checkin.html |
 | `gw.wifi_later` | Hiện ở đây vào ngày nhận phòng ({date}). | Shown here on your arrival day ({date}). | Появится здесь в день заезда ({date}). | 18-guest-checkin.html |
-| `gw.wifi_ask_desk` | Vui lòng hỏi lễ tân tên mạng và mật khẩu. | Please ask the front desk for the network name and password. | ⟨chừa chỗ⟩ | BUG-R3-021: từ ngày nhận phòng mà máy chủ chưa có Wi-Fi (wifi null) – không hứa 'hiện vào ngày nhận phòng' nữa |
+| `gw.wifi_ask_desk` | Vui lòng hỏi lễ tân tên mạng và mật khẩu. | Please ask reception for the network name and password. | Пожалуйста, узнайте имя сети и пароль у администратора. | BUG-R3-021 (UXD thẻ 16: 'reception' như các chuỗi trang khách khác): từ ngày nhận phòng mà máy chủ chưa có Wi-Fi (wifi null) – không hứa 'hiện vào ngày nhận phòng' nữa |
 | `late.grace_off` | Căn có khách đến hôm nay – không áp ân hạn 12:30. | A guest is arriving in this room today – the 12:30 grace period doesn't apply. | ⟨chừa chỗ⟩ | 15-stay.html |
 | `late.std_zero` | Trả trước 12:00 – không phụ thu | Leaving by 12:00 – no surcharge | ⟨chừa chỗ⟩ | BA spec / hifi.js |
 | `mlog.a_adjusted` | Điều chỉnh dòng folio (đảo + dòng mới) | Folio line adjusted (reversal + new line) | ⟨chừa chỗ⟩ | folio_line.adjusted – 17-approvals-moneylog.html (s3-UXD: bỏ ví dụ 'giặt ủi' khỏi chuỗi) |

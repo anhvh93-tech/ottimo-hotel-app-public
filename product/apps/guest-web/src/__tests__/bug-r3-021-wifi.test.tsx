@@ -50,8 +50,9 @@ describe('BUG-R3-021 – Wi-Fi block on the arrival day without Wi-Fi on file', 
   it('property date, not the device date: 27/10 00:30 in Đà Lạt is still 26/10 in UTC', () => {
     at('2026-10-26T17:30:00Z');
     show(stay({}), 'en');
+    // UXD FB-R3-UXD-FE-A-16: "reception", like every other guest-facing string.
     expect(
-      screen.getByText('Please ask the front desk for the network name and password.'),
+      screen.getByText('Please ask reception for the network name and password.'),
     ).toBeInTheDocument();
   });
 

@@ -214,6 +214,9 @@ describe('BUG-R3-020 – In phiếu prints the bill only', () => {
     const css = readFileSync(join(here, '../print.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     expect(css).toMatch(/@media print\s*{/);
     expect(css).toMatch(/@page\s*{[^}]*size:\s*A4/);
+    // UXD FB-R3-UXD-FE-A-18: body 11 pt, column labels 9 pt (guideline print scale).
+    expect(css).toMatch(/\.print-root \.bill-paper\s*{[^}]*font-size:\s*11pt/);
+    expect(css).toMatch(/\.print-root \.bill-paper th\s*{[^}]*font-size:\s*9pt/);
     expect(css).toMatch(/font-family:\s*var\(--serif\)/);
     expect(css).toMatch(/font-family:\s*var\(--sans\)/);
     expect(css).toMatch(/font-family:\s*var\(--mono\)/);

@@ -26,7 +26,7 @@
     --ok: var(--brand-earth);
     --ok-bg: var(--brand-white);
     font-family: var(--sans);
-    font-size: 10.5pt;
+    font-size: 11pt;
     line-height: 1.45;
     color: var(--brand-ink);
     background: var(--brand-white);
@@ -34,7 +34,8 @@
     -webkit-print-color-adjust: exact;
   }
   .print-root .bill-paper {
-    font-size: 10.5pt;
+    /* UXD FB-R3-UXD-FE-A-18: body 11 pt, column labels 9 pt (guideline print scale p22). */
+    font-size: 11pt;
     max-width: 174mm;
     margin: 0 auto;
   }
@@ -59,7 +60,7 @@
     color: var(--brand-stone);
   }
   .print-root .bill-paper th {
-    font-size: 8.5pt;
+    font-size: 9pt;
     color: var(--brand-stone);
     border-bottom: 1px solid var(--brand-stone);
   }
