@@ -306,6 +306,8 @@ info:
     **0.3.9 bổ sung 2 (ARC 27/10 – DOM BR v0.4.8, `reviews/DOM-on-v1.0.1-early-departure.md`)**: DOM đồng ý phương án A; ghi ràng buộc (a)–(e) ở `EarlyDepartureResult`; trường phần 50 % sau trần
     đổi tên `refundableAfterCapVnd` → **`refundablePaidVnd`** (khớp oracle BR-428-07; tên cũ chỉ tồn tại trên nhánh, chưa client nào dùng); dòng phí trả sớm phần OTA không có `noticeDays`
     (oracle BR-428-09); `noticeDays` chỉ hiện khi có đêm không OTA bị bỏ.
+    **0.3.9 bổ sung 3 (ARC 27/10 – UXD, DOM ED-01/ED-03)**: sửa mô tả cho một nghĩa duy nhất "được hoàn sau trần / đã đảo không hoàn vì vượt số khách trả thừa": `extraPersonRefundVnd`
+    (không còn "đã thu", không còn "OTA hoàn"), `extraPersonReversedVnd` (không còn "chưa thu"), `roomChangeDifferenceReversedVnd`, `refundableVnd`/`refundablePaidVnd`, `refundVnd`, `refundRequestId`. Không đổi hình dạng.
     **B16 `earlyDeparture` (US-137, US-135; FB-R3-DOM-BA-02 Blocker)**: thêm `dryRun` (tính thử – không header, không ghi gì, cùng hàm tính, chạy trong giao dịch luôn ROLLBACK;
     thiếu `otaRetainedVnd`/`noticeEvidence` ở tính thử → cờ `otaRetainedRequired`/`evidenceRequired` thay vì 422), `expectedRefundVnd` + `expectedFeeVnd` ở lần ghi (lệch → **409 `AMOUNT_CHANGED`**
     – mã mới, kèm `refundVnd`, `earlyDepartureFeeVnd`); `EarlyDepartureResult` thêm `noticeDays`, `noticeBusinessDate`, `droppedNights[]`, `droppedNetVnd`, `refundableVnd`,
@@ -11213,7 +11215,7 @@ components:
       properties:
         reservation: { $ref: '#/components/schemas/Reservation', description: 'Lần ghi: đơn sau khi đổi. `dryRun`: đơn **đang lưu** (chưa đổi) – `version` dùng cho `If-Match` lần ghi (0.3.9)' }
         earlyDepartureFeeVnd: { $ref: '#/components/schemas/MoneyVnd', description: 'Tổng các dòng `early_departure_fee` đã ghi (phần trực tiếp + phần OTA = `otaRetainedVnd`). `dryRun`: số sẽ ghi – gửi lại làm `expectedFeeVnd`. **0.3.9 bổ sung 2 (DOM BR v0.4.8, oracle BR-428-09)**: dòng phần OTA (`chargeCode = ota_retained`) **không** có `noticeDays` trong `labelParams` → bill "Phí trả phòng sớm"; dòng trực tiếp/CTV có `noticeDays` → "Phí trả phòng sớm (báo trước N ngày)". Chỉ áp cho dòng ghi mới (BR-008)' }
-        refundVnd: { $ref: '#/components/schemas/MoneyVnd', description: 'Số của yêu cầu hoàn vừa tạo (0 khi không có). `dryRun`: số sẽ xin hoàn – gửi lại làm `expectedRefundVnd`. Đã trần theo số dư thừa chưa xử lý (BR-428, `refundCapped`)' }
+        refundVnd: { $ref: '#/components/schemas/MoneyVnd', description: 'Số của **một** yêu cầu hoàn B16 (0 khi không có) = `extraPersonRefundVnd` + `roomChangeDifferenceVnd` + `refundablePaidVnd`, đã trần theo số dư thừa chưa xử lý của folio sau thay đổi (BR-428, `refundCapped`). `dryRun`: số sẽ xin hoàn – gửi lại làm `expectedRefundVnd`' }
         noticeDays: { type: integer, minimum: 0, description: '0.3.9 – số ngày báo trước BR-011 (ngày rời mới − ngày nghiệp vụ lúc khách báo); 0 → đơn trực tiếp không hoàn phần 50 %. Server luôn trả (cả khi chỉ có đêm OTA bị bỏ – số thật, dùng cho audit). **0.3.9 bổ sung 2 (DOM BR v0.4.8)**: số này **chỉ áp cho phần không OTA** – Desk chỉ hiện dòng "báo trước N ngày" khi có ít nhất một đêm không OTA bị bỏ; phần OTA giữ lại theo chính sách kênh, không phụ thuộc số ngày báo' }
         noticeBusinessDate: { $ref: '#/components/schemas/LocalDate', description: '0.3.9 – ngày nghiệp vụ lúc khách báo (BR-010: báo 01:00 ngày 22/10 → 21/10) để Desk giải thích `noticeDays`' }
         droppedNights:
@@ -11230,7 +11232,7 @@ components:
               ota: { type: boolean, description: 'Đêm của đơn kênh OTA – không vào cơ sở BR-428 của OTTIMO; tính vào `otaRetainedMaxVnd`' }
               netVnd: { $ref: '#/components/schemas/MoneyVnd', description: 'Đêm trực tiếp/CTV: tiền phòng **ròng** của đêm (sau bậc BR-107, FOC/giảm giá đã duyệt) – cơ sở BR-428. Đêm OTA: tiền phòng OTA của đêm (trần số OTA giữ lại). Không gồm phụ thu người' }
         droppedNetVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk], description: '0.3.9 – cơ sở BR-428 = Σ `netVnd` của các đêm **không** OTA bị bỏ (oracle `refundBaseVnd`)' }
-        refundableVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk], description: '0.3.9 – phần hoàn BR-428 trước trần: 50 % `droppedNetVnd` làm tròn 1.000 nửa lên khi `noticeDays` ≥ 1, ngược lại 0 (oracle BR-428-01…05 `refundVnd`)' }
+        refundableVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk], description: '0.3.9 – phần hoàn 50 % BR-428 **theo chính sách, trước trần**: 50 % `droppedNetVnd` làm tròn 1.000 nửa lên khi `noticeDays` ≥ 1, ngược lại 0 (oracle BR-428-01…05 `refundVnd`). Số thực có trong yêu cầu hoàn là `refundablePaidVnd`; `refundableVnd` − `refundablePaidVnd` chỉ làm giảm số khách đang nợ' }
         roomChangeDifferenceVnd:
           $ref: '#/components/schemas/MoneyVnd'
           x-visible-to: [owner, manager, front_desk_lead, front_desk]
@@ -11240,11 +11242,11 @@ components:
         roomChangeDifferenceReversedVnd:
           $ref: '#/components/schemas/MoneyVnd'
           x-visible-to: [owner, manager, front_desk_lead, front_desk]
-          description: '0.3.9 bổ sung 1 (BE-B thẻ 01, A) – phần chênh lệch đổi phòng đã đảo nhưng **không** hoàn (khách chưa trả / vượt số dư) = chênh lệch đã đảo − `roomChangeDifferenceVnd`; chỉ đảo dòng'
+          description: '0.3.9 bổ sung 1 (BE-B thẻ 01, A) – phần chênh lệch đổi phòng của các đêm bỏ **đã đảo nhưng không hoàn** vì vượt số khách trả thừa (sau khi đã chia cho phụ thu người) = chênh lệch đã đảo − `roomChangeDifferenceVnd`; chỉ đảo dòng (giảm số khách đang nợ), không cộng vào `refundVnd`'
         refundablePaidVnd:
           $ref: '#/components/schemas/MoneyVnd'
           x-visible-to: [owner, manager, front_desk_lead, front_desk]
-          description: '0.3.9 bổ sung 1 – phần hoàn 50 % BR-428 **thực có trong yêu cầu hoàn** sau trần = `refundVnd` − `extraPersonRefundVnd` − `roomChangeDifferenceVnd` (server tính); = `refundableVnd` khi `refundCapped = false`'
+          description: '0.3.9 bổ sung 1 (tên chốt ở bổ sung 2) – phần hoàn 50 % BR-428 **được hoàn sau trần**, đứng cuối thứ tự chia = `refundVnd` − `extraPersonRefundVnd` − `roomChangeDifferenceVnd` (server tính, ≤ `refundableVnd`); = `refundableVnd` khi `refundCapped = false`'
         refundCapped: { type: boolean, description: '0.3.9 – `true` khi số dư thừa chưa xử lý không đủ: phần vượt chỉ đảo dòng, không hoàn (Desk nói rõ "hoàn tối đa số khách đã trả thừa")' }
         otaRetainedMaxVnd: { $ref: '#/components/schemas/MoneyVnd', x-visible-to: [owner, manager, front_desk_lead, front_desk], description: '0.3.9 – Σ `netVnd` của các đêm OTA bị bỏ = trần của `otaRetainedVnd`; **vắng** khi không có đêm OTA bị bỏ' }
         otaRetainedRequired: { type: boolean, description: '0.3.9 – có đêm OTA bị bỏ mà thân chưa có `otaRetainedVnd` (chỉ xuất hiện `true` ở `dryRun`; lần ghi thì là 422). Desk hiện ô "Số OTA giữ lại"' }
@@ -11263,11 +11265,15 @@ components:
         registrationNeedsUpdate: { type: boolean, description: '0.3.9 – lượt ở có khai báo lưu trú khách nước ngoài sẽ (lần ghi: đã) chuyển `needs_update` vì đổi ngày đi (BR-604) – Desk nhắc và nối sang màn khai báo' }
         extraPersonRefundVnd:
           $ref: '#/components/schemas/MoneyVnd'
-          description: '0.3.6 bổ sung 4 (DOM luật OTA 17/10, ARC) (BR-428 v0.3.4): phụ thu người **đã thu** của các đêm bỏ – hoàn 100 %, nằm trong **một** yêu cầu hoàn duy nhất (`refundRequestId`); với đơn OTA đây là phần duy nhất OTTIMO hoàn (tiền phòng OTA do OTA hoàn)'
+          description: |
+            0.3.6 bổ sung 4 (DOM luật OTA 17/10, ARC) (BR-428 v0.3.4). **0.3.9 bổ sung 3 (DOM BR v0.4.8 – ED-01, ED-03)**: phần phụ thu người (BR-110) của các đêm bỏ **được hoàn sau trần**
+            = min(phụ thu người các đêm bỏ, `refundVnd`) – đứng đầu thứ tự chia số dư thừa của cả folio, **không** phải "số đã thu của dòng phụ thu" (BR-428-07: phụ thu chưa từng thu vẫn
+            được hoàn 300.000 vì khách trả thừa cả folio). Nằm trong **một** yêu cầu hoàn duy nhất (`refundRequestId`). Tiền phòng OTA của đêm bỏ không qua OTTIMO (OTA hoàn hay giữ theo
+            chính sách kênh). Desk: "Phụ thu người của các đêm bỏ – hoàn"'
         extraPersonReversedVnd:
           $ref: '#/components/schemas/MoneyVnd'
-          description: '0.3.6 bổ sung 4 (DOM luật OTA 17/10, ARC): phụ thu người **chưa thu** của các đêm bỏ – chỉ đảo dòng (không sinh hoàn)'
-        refundRequestId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }], description: 'Yêu cầu `refund` vừa tạo (null khi không có số dư thừa chưa xử lý)' }
+          description: '0.3.6 bổ sung 4 (DOM luật OTA 17/10, ARC). **0.3.9 bổ sung 3 (DOM BR v0.4.8 – ED-01)**: phần phụ thu người của các đêm bỏ **đã đảo nhưng không hoàn** vì vượt số khách trả thừa = phụ thu người các đêm bỏ − `extraPersonRefundVnd`; chỉ đảo dòng (giảm số khách đang nợ), không sinh hoàn, không cộng vào `refundVnd`. Không phải "phụ thu chưa thu" (nghĩa cũ 0.3.6 bỏ). Desk: "… – chỉ đảo dòng, không hoàn"'
+        refundRequestId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }], description: 'Yêu cầu `refund` vừa tạo (null khi `refundVnd` = 0, và luôn null ở `dryRun` – tính thử không tạo yêu cầu)' }
     CheckoutReminderEntry:
       type: object
       required: [at, channel]
