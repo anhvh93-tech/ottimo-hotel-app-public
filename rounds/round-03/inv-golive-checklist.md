@@ -11,7 +11,7 @@
 |---|---|---|
 | A. Việc lẻ, tự làm lúc tiện | Trước buổi B1 (A12: trước ngày chạy) | khoảng 2 giờ 20 phút, chia nhỏ |
 | **Buổi B1 – trên staging** | Sớm nhất 27–28/10, khi đội báo "B1 sẵn sàng" | **khoảng 3 giờ** (2 giờ 40 phút nếu đã trả lời trước mục A3, A4, A6, A11) |
-| **Buổi B2 – trên bản thật** | 30/10–01/11, ít nhất 1 ngày trước ngày chạy | **khoảng 1 giờ 40 phút** |
+| **Buổi B2 – trên bản thật** | **09:00 thứ Ba 28/10** (INV chốt 27/10), trước ngày chạy 02/11 | **khoảng 1 giờ 40 phút** |
 | C. Sau B2 | Hôm sau B2 và ngày chạy | 5 phút + buổi chuyển đổi (theo `day-one-guide.md`) |
 
 Đội đã chuyển ra khỏi hai buổi mọi việc không cần anh/chị có mặt. Phần "Đội làm trước" ở mỗi buổi là điều kiện để buổi bắt đầu.
@@ -68,7 +68,7 @@ Không bắt buộc, làm riêng: UAT việc 10 sau 00:00 (20 phút, anh/chị h
 
 ## B2. Buổi trên bản thật – khoảng 1 giờ 40 phút
 
-**Khi nào:** sau khi app production chạy và smoke đạt, SEC xác nhận các bản sửa OPS-01, QA-3 xong. **Ít nhất 1 ngày trước ngày chạy**, vì tài khoản nhận tiền có hiệu lực từ hôm sau. Dự kiến 30/10–01/11.
+**Khi nào:** sau khi app production chạy và smoke đạt, SEC xác nhận các bản sửa OPS-01, QA-3 xong. **Ít nhất 1 ngày trước ngày chạy**, vì tài khoản nhận tiền có hiệu lực từ hôm sau. **Chốt: 09:00 ngày 28/10** (INV 27/10); ngày chạy D = thứ Hai 02/11.
 
 **Ai có mặt:** anh/chị; quản lý thật (nếu có); ORC, OPS, SEC, QA.
 
