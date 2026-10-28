@@ -25,6 +25,7 @@ import { ReservationHooks } from '../reservations/public/reservation-hooks';
 import { FRONTDESK_ATTENTION_SOURCES, checkoutDebtSource } from './internal/attention-sources';
 import { CheckinService } from './internal/checkin.service';
 import { CheckoutService } from './internal/checkout.service';
+import { provideCheckoutDebtPorts } from './internal/checkout-debt-ports';
 import { lateFeeReviewOverdueJob } from './public/late-fee-review-job';
 import {
   NoGuestAccessPort,
@@ -203,13 +204,9 @@ export class FrontdeskModule implements OnModuleInit {
     this.events.registerAttentionSource(
       checkoutDebtSource((tx, folioId) => this.checkout.openDebtVndView(tx, folioId)),
     );
-    this.hooks.provideDebtAfterReversal((tx, input) => this.checkout.debtAfterReversal(tx, input));
-    // ARC 16.26: collecting the debt after check-out – payments `recordPayment` (debt branch) asks for the open debt
-    // and closes it when the folio owes nothing.
-    this.hooks.provideOpenDebt((tx, folioId) => this.checkout.openDebt(tx, folioId));
-    this.hooks.provideDebtSettled((tx, input) => this.checkout.debtSettled(tx, input));
-    // ARC 16.27: J15 `folio.close` turns what is still owed after the window into one debt.
-    this.hooks.provideDebtOnCheckout((tx, input) => this.checkout.debtOnCheckout(tx, input));
+    // Debt ports (G-4 reversal, ARC 16.26 collection, ARC 16.27 J15) – the same wiring as the worker's J15
+    // (public/worker-hooks.ts, BUG-R3-037).
+    provideCheckoutDebtPorts(this.hooks, this.checkout);
     // J24 payment.expire (VietQR shown at check-in/check-out – jobs are BE-A's, s3-contract 4.1).
     const j24 = paymentExpiryJob(this.audit);
     if (!this.jobs.get(j24.key)) this.jobs.register(j24);

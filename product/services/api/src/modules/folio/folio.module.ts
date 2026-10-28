@@ -27,6 +27,7 @@ import { FolioLinesService } from './internal/folio-lines.service';
 import { folioCloseJob } from './public/folio-close-job';
 import { FolioService } from './public/folio.service';
 import { resyncMinibarFocOnce } from './public/minibar-foc-resync';
+import { provideFolioRefundRouting } from './public/refund-routing';
 
 // Audit allowlists (SR-AUD-03) for money events written by this module (category money).
 defineAuditEntity('folio', [
@@ -183,17 +184,14 @@ export class FolioModule implements OnModuleInit, OnApplicationBootstrap {
     // 0.3.7 D1: ApprovalRequest.effectiveAmountVnd + current FOC line (same plan as the write).
     this.approvals.provideFocView((tx, rows) => this.folios.focViews(tx, rows));
     // BR-433 (e) / ADD3-01: ONE routing for every refund request (A32 makers never approve; owner when due).
-    this.approvals.provideRefundRouting(
-      (tx, input) => this.folios.refundRouting(tx, input),
-      (tx, row, userId) =>
-        this.folios.isA32Maker(tx, row.target_type ?? null, row.target_id ?? null, userId),
-      (tx, row) => this.folios.refundAboveFreeCredit(tx, row),
-    );
+    // Same wiring as the worker's J15 (public/worker-jobs.ts, BUG-R3-037).
+    provideFolioRefundRouting(this.approvals, this.folios);
     // US-032 AC4 / BR-512: damage outside the table, priced by MGR+.
     this.approvals.onDecided('damage_pricing', (tx, row) =>
       this.lineService.onDamageDecided(tx, row),
     );
-    // J15 `folio.close` (ARC 16.27 (1)): window over → what is owed becomes one debt, the folio is closed.
+    // J15 `folio.close` (ARC 16.27 (1)): window over → what is owed becomes one debt, the folio is closed. Here for
+    // the api registry (test-support runOnce); the worker ticks it from public/worker-jobs.ts (BUG-R3-037).
     const j15 = folioCloseJob(this.db, this.folios, this.hooks);
     if (!this.jobs.get(j15.key)) this.jobs.register(j15);
   }
