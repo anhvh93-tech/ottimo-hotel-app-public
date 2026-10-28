@@ -315,3 +315,22 @@ Nguyên tắc: **phần 1–3 phải xong trong ngày 28/10** (tài khoản nh�
 | Trước D | INV + OPS | A7 báo động (G4-10, chặn D). A10 danh sách chuyển đổi. A12 phần (1) OTA 12:00. Quản lý chưa đăng ký 2 bước thì đăng ký | G4-10 |
 | v1.0.1 (04/11), chậm nhất 09/11 | BE-A + ARC; OPS | BUG-R3-032: trường email người dùng (có S2 + audit + thư tới cả địa chỉ cũ lẫn mới). Sau khi INV nhập **email cá nhân** (không dùng `info@`): OPS/QA xác nhận thư "Security notice" thật tới. `ops-check` đếm `dead NO_RECIPIENT` (nhánh `ops-check-no-recipient`) bật cảnh báo khi số > 0 | BUG-R3-032 |
 | Sau B2, ngoài giờ khách (không phải D−1/D) | OPS | Làm mới bundle `infra/` production lên `main` (có bước `appconfig`, mục 21.5); xóa 2 bản `state/env.before-*` cũ khi SEC-G1/G2 xong (mục 19.1) | – |
+
+## 5. Kết quả kiểm trước buổi 28/10 (dời 11:30)
+
+- Buổi B2 dời từ 09:00 sang **11:30** (INV chốt 28/10). OPS (agent) chạy mục 1.1, **11:06–11:08** giờ VN, từ Mac INV qua SSH `ottimo-admin` (khóa `ottimo_ops`, host từ phân giải `desk.ottimo.vn`, khớp `known_hosts`, `StrictHostKeyChecking=yes`).
+- Chỉ đọc. Không ghi DB, không restart, deploy, bootstrap hay đổi cấu hình. `printenv` chỉ lọc 4 biến. Không ghi IP, tên máy hay bí mật.
+
+| # | Kiểm | Kết quả | Đạt? |
+|---|---|---|---|
+| 1 | `dc ps` production | api, web, landing, postgres **healthy**; worker Up (api/web/worker Up 27 giờ, landing 26 giờ, postgres 44 giờ). Image api/worker/web/landing `sha-70fe734e9077`; `state/current_tag` = `sha-70fe734e9077` | Đạt |
+| 2 | `printenv` api / worker (4 biến) | Cả hai: `APP_ENV=production`, `MFA_ENFORCED=true`, `CLOCK_MODE=system`, `INCLUDE_TEST_SUPPORT=0` | Đạt |
+| 3 | `/health` nội bộ; `https://desk|staff|g.ottimo.vn/` | `{"status":"ok","db":"ok",…}`; 200 / 200 / 200 (~0,18–0,20 s) | Đạt |
+| 4 | DB (`BEGIN READ ONLY … ROLLBACK`) | `app_user` **0**, `property` **0**, `room` **0** – trống, chưa ai chạy bootstrap | Đạt |
+| 5 | Sao lưu đêm 28/10 | `ottimo-backup@ottimo-prod` xong 03:04:20, `OK: 16 encrypted files`, thoát 0 (`Result=success`). `ops-check` lượt 10:56: **7/7 ok** (containers, j16 0 cơ sở, backup 7 giờ trước, disk 17 %, mem 77 %, tls, http5xx 0). Timer kế: sao lưu 29/10 03:03, ops-check mỗi 30 phút | Đạt |
+| 6 | RAM / đĩa | RAM khả dụng 3.839 / 4.917 MB (**78 %**), swap dùng 0; đĩa `/` **17 %** (8,5 / 55 GB) | Đạt |
+| 7 | SMTP | `mail-test.mjs` với `MAIL_TEST_VERIFY_ONLY=1` (worker tạm `--rm`) → **`mail-test: verified`**. Không gửi thư | Đạt |
+| 8 | GitHub | Một lượt chờ duyệt: CI `40615225724` (rc.5 `1078b5b`), job **deploy staging**, môi trường `staging`. **Staging đang chờ, không ảnh hưởng production** – ORC giữ, duyệt sau B2. Không có lượt Release/production nào đang chờ (Release gần nhất `40433751349` 27/10 đã xong) | Đạt |
+| 9 | Mac | Docker chạy qua **OrbStack** (server 29.8.2), không phải Docker Desktop như runbook ghi – lệnh `docker` dùng được như nhau. Có `ghcr.io/anhvh93-tech/ottimo-api:sha-70fe734e9077` (ID `18145bc2…` = digest đang chạy) và `ottimo-drill-runner:local` (dựng 27/10) | Đạt |
+
+**Kết luận: B2 sẵn sàng** cho 11:30. Ghi chú: mục 0.5 và 1.3 bước 6 vẫn giữ – trong buổi không duyệt lượt `deploy staging` 40615225724; mục 1.2/1.3 nói "Docker Desktop" thì hiểu là OrbStack đang chạy trên Mac.
