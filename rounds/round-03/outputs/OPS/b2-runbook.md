@@ -334,3 +334,9 @@ Nguyên tắc: **phần 1–3 phải xong trong ngày 28/10** (tài khoản nh�
 | 9 | Mac | Docker chạy qua **OrbStack** (server 29.8.2), không phải Docker Desktop như runbook ghi – lệnh `docker` dùng được như nhau. Có `ghcr.io/anhvh93-tech/ottimo-api:sha-70fe734e9077` (ID `18145bc2…` = digest đang chạy) và `ottimo-drill-runner:local` (dựng 27/10) | Đạt |
 
 **Kết luận: B2 sẵn sàng** cho 11:30. Ghi chú: mục 0.5 và 1.3 bước 6 vẫn giữ – trong buổi không duyệt lượt `deploy staging` 40615225724; mục 1.2/1.3 nói "Docker Desktop" thì hiểu là OrbStack đang chạy trên Mac.
+
+**Phần 1 – OPS kiểm sau bootstrap (mục 2.1), 16:30 giờ VN 28/10.** Chỉ đọc, 3 truy vấn của 2.1 + đếm tổng `app_user`, trong `BEGIN READ ONLY … ROLLBACK`, lệnh B1 mục 2.3 bước 6 với `/opt/ottimo-prod`. Không in tên, hash, secret hay mã.
+- `property` **1**, `room` **10** – Đạt.
+- Vai đang hiệu lực: `owner|1|1|0` (1 chủ, 2 bước bật, không còn mật khẩu tạm); không có vai nào khác; tổng `app_user` **1** – Đạt.
+- Audit: `production.bootstrapped` **1**, `user.created_by_operator` **1**, `mfa.enrolled` **1** – Đạt.
+- **Kết luận Phần 1: Đạt (G2-7 phần chủ).** Ghi chú: giờ kiểm thực tế 16:30, trễ so với lịch 11:30; không ảnh hưởng kết quả.
