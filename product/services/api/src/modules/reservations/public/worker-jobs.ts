@@ -25,6 +25,7 @@ import { RoomBlocksService } from '../internal/room-blocks.service';
 import { OccupancyService } from './occupancy.service';
 import { PricingService } from './pricing.service';
 import { ReservationHooks } from './reservation-hooks';
+import { ReservationStayPort } from './stay-port';
 import { StayNightAllocationService } from './stay-night-allocation';
 
 export function reservationWorkerJobs(deps: {
@@ -58,4 +59,37 @@ export function reservationWorkerJobs(deps: {
     roomBlockActivationJob(new RoomBlocksService(occupancy, deps.audit), deps.parameters),
     leaseNightsJob(reservations, deps.parameters),
   ];
+}
+
+/**
+ * BUG-R3-037 (BE-B): the front desk's stay port for a worker composition (frontdesk/public/worker-hooks.ts – the
+ * J15 debt ports read the booking context through it). Built on the caller's shared instances (one ApprovalService,
+ * one ReservationHooks, one FolioService per composition), like the api container.
+ */
+export function reservationStayPortForWorker(deps: {
+  clock: Clock;
+  audit: AuditService;
+  parameters: ParameterService;
+  approvals: ApprovalService;
+  hooks: ReservationHooks;
+  folios: FolioService;
+  payments: PaymentService;
+  docNumbers: DocNumberService;
+  occupancy: OccupancyService;
+  pricing: PricingService;
+}): ReservationStayPort {
+  return new ReservationStayPort(
+    new ReservationsService(
+      new PropertyContextService(deps.clock, deps.parameters),
+      deps.pricing,
+      deps.parameters,
+      deps.occupancy,
+      deps.docNumbers,
+      deps.audit,
+      deps.approvals,
+      deps.hooks,
+      new MoneyBridge(deps.folios, deps.payments, deps.folios),
+      new LeadsService(deps.clock, deps.audit),
+    ),
+  );
 }
