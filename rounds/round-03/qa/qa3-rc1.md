@@ -710,3 +710,84 @@ Tổng: spec `smoke-prod` **7 đạt, 1 bỏ qua (PS-06), 0 lỗi** (903 ms); ki
 - Phần cần đăng nhập (G5-5 ý "đăng nhập", Desk hiện **10 căn**, cờ 2 bước khi đăng nhập lại): INV làm trong buổi, ORC ghi vào biên bản B2.
 - Header/TLS sâu, giới hạn kết nối ở edge, cổng mở: SEC-G1/G2 (G7-5), không lặp ở đây.
 - Không kiểm luồng ghi nào trên production (đặt phòng, thanh toán, VietQR, gửi form) theo ràng buộc của buổi.
+
+## 19. rc.6 staging – J1 `hold.expire` (BUG-R3-039)
+
+- Người chạy: QA | 29/10/2026 19:00–19:06 (+07), Round 3 – bước **Kiểm thử**, checklist rc.6 mục F (`bug-list.md`, cuối tệp). Bản staging: `main` `8b3aec8` (rc.6), deploy xong 18:58 theo ORC.
+- Cách làm: gọi API Desk staging bằng `qa.fd` (lễ tân, không 2FA), mật khẩu đọc từ `~/.ottimo/staging/qa_seed_password.txt`, không in. Helper ở scratchpad phiên `qa-r6/j1/api.mjs`, kết quả thô `qa-r6/j1/*.json`.
+- 19:00–19:01: chỉ đọc, dừng vì hạn tối thiểu > 60 phút (19.2, 19.3). 19:03–19:05: ORC duyệt phương án A + B, QA tạo 2 hold trên staging (19.4). Không sửa tham số, không đụng DB, không VietQR, không chuyển tiền, không đụng production, không commit.
+
+### 19.1 Kết luận: **CHƯA KIỂM XONG** – đã tạo ca, chờ hết hạn 07:03 30/10
+
+BUG-R3-039 giữ **Open**. Hai hold đã tạo lúc 19:03, hết hạn 07:03:46 và 07:03:47 ngày 30/10. Phần kiểm sau hạn ORC giao lại sáng 30/10 (19.5).
+
+### 19.2 Tham số staging (GET `booking-rules`, 19:00:22, business date 2026-10-29)
+
+| Tham số | Giá trị staging |
+|---|---|
+| `hold_hours_options` | 12, 24, 48 |
+| `hold_hours_default` | 24 |
+| `hold_latest_time_on_arrival` | 12:00 |
+| `hold_extension_max_hours` | 24 |
+
+Quy tắc trong mã rc.6 (`reservations/public/pricing.ts` `holdDeadline`, BR-302; `reservations.service.ts` ~970):
+- `holdHours` phải nằm trong `hold_hours_options` (ngoài danh sách → 422 `NOT_IN_LIST`).
+- Không giữ chỗ cho ngày đến hôm nay (`HOLD_NOT_ALLOWED_TODAY`): ngày đến ≥ business date + 1.
+- Hạn = min(lúc tạo + `holdHours`, 12:00 ngày đến). Báo giá → đơn (`quotes.service.ts`) dùng cùng hàm và cùng danh sách. Không có đường tạo hold nào khác cho hạn ngắn hơn.
+
+Hạn ngắn nhất làm được lúc 19:00 29/10: 12 giờ, ngày đến 30/10 → hết hạn **≈ 07:00 30/10**. Trường hợp ngắn nhất có thể trong ngày (tạo trước 06:00 khi business date còn là hôm trước, ngày đến là hôm đó) vẫn còn ~6 giờ. Tất cả đều > 60 phút → dừng.
+
+Mốc đối chiếu: danh sách đơn `status=hold` lúc **19:00:45** = **0 đơn** (khớp số ORC báo; phần "N hold ở A" của mục F = 0, OPS xác nhận bằng DB).
+
+### 19.3 Đề xuất cách khác (ORC chọn)
+
+| | Cách | Ưu | Nhược |
+|---|---|---|---|
+| **A (QA đề xuất)** | Tạo hold thật trên staging với `holdHours = 12`, ngày đến 30/10, 1 đêm, kênh trực tiếp, khách giả rõ ràng (tên "QA J1 Test", SĐT giả), không cọc, không FOC/giảm giá, có tạo link khách. Tạo lúc T, hết hạn T+12h (vd. tạo 20:00 → hết hạn 08:00 30/10). Kiểm sau hạn + 2 nhịp | Đúng tham số, không sửa gì, kiểm đúng worker rc.6 thật; còn 2 ngày trước Day D 02/11 | Chờ ~12 giờ; căn đó bị giữ đêm 30/10 tới lúc hết hạn – chọn căn không dùng cho UAT; J2 sẽ gửi nhắc hạn cho nhân viên trước giờ hết hạn (đúng thiết kế) |
+| B | Gộp vào A: cùng lúc tạo hold thứ 2 có ghi cọc tiền mặt (chỉ bản ghi staging) để kiểm "hold có cọc không bị hủy" (`kept_paid`), và sau hạn ghi cọc vào hold thứ nhất để kiểm `HOLD_EXPIRED` | Phủ đủ 2 ý còn lại của mục F trong cùng một lượt chờ | Giữ thêm 1 căn đêm 30/10 |
+| C | Chạy test (d) J1 trong tiến trình chỉ nạp worker, có đồng hồ giả, trên stack dùng một lần dựng từ `8b3aec8` | Có kết quả trong ~30 phút | Không phải staging; CI đã chạy đúng test này (run 40858172485) – không thay được bằng chứng staging theo checklist |
+| D | OWN/MGR thêm 1 vào `hold_hours_options` trên staging | Hạn ~1 giờ | ORC đã cấm sửa tham số; vẫn = 60 phút, không < 60; đổi hành vi form giữ chỗ trong lúc UAT. Không đề xuất |
+| E | OPS sửa `hold_expires_at` trực tiếp trong DB | Nhanh | ORC đã cấm ghi DB thủ công; bỏ qua kiểm `holdDeadline`. Không đề xuất |
+
+QA đề xuất **A + B**, tạo ngay khi ORC đồng ý (càng sớm hạn càng sớm), kiểm lúc hạn + 2–5 phút. Việc cần OPS sau đó (ORC chuyển): DB `reservation` (status, `cancel_reason_code`, `cancelled_by_type`), `room_occupancy.active`, audit `reservation.hold_expired`, `registration` của đơn, `job done` của `hold.expire` có `failed: 0` ở nhịp hết hạn.
+
+### 19.4 Đã tạo 29/10 (ORC duyệt A + B)
+
+Chọn căn: Rack 29/10 → 11/11 **không có đơn nào trên cả 10 căn** (GET `rack` 19:01, không bar nào). Chọn **101** và **102** (cùng nhóm L12, VC). Không đơn UAT/QA nào khác trên các đêm này.
+
+| | Hold 1 | Hold 2 |
+|---|---|---|
+| Mã đơn | **OTM-00367** | **OTM-00368** |
+| Căn | **101** | **102** |
+| Khách (giả) | "QA Hold Test A", KH-0447, SĐT 0900000131, `qa.hold.test1@example.test` | "QA Hold Test B", KH-0448, SĐT 0900000132, `qa.hold.test2@example.test` |
+| Báo giá | BG-00048 | BG-00049 |
+| Ở | 30/10 → 01/11, **2 đêm**, 2 người lớn, kênh Trực tiếp | như hold 1 |
+| Giá | 920.000 × 2 = 1.840.000, giá lịch, giảm 0%, không FOC | 978.000 × 2 = 1.956.000, giá lịch, giảm 0%, không FOC |
+| `create-hold` | `holdHours = 12`, `depositMethod = cash` (để không sinh payment VietQR) | như hold 1 |
+| Giờ tạo (máy chủ) | **19:03:46.792** 29/10 | **19:03:47.160** 29/10 |
+| `hold_expires_at` | **2026-10-30T07:03:46.792+07:00** | **2026-10-30T07:03:47.160+07:00** |
+| Cọc yêu cầu | 600.000 | 600.000 |
+| Cọc đã ghi | 0 | **200.000 tiền mặt** (19:05:03, bản ghi staging, ghi chú "QA J1 rc.6 test"); đơn vẫn `hold` (US-086 AC2), kỳ vọng J1 trả `kept_paid` |
+| Đăng ký lưu trú | `none` | `none` |
+| Link khách | **Không cấp được – đúng thiết kế**: `POST …/guest-link` → 409 `INVALID_TRANSITION` (EP06 8.2: chỉ cấp cho `confirmed`/`in_house`, không cho hold) | không thử |
+
+Lệch so với giao việc (không đổi được nếu không sửa tham số hay override):
+- **2 đêm thay vì 1**: 30/10 là thứ Sáu, báo giá 1 đêm bị 422 `MIN_STAY_NOT_MET` (`minStayNights: 2`, BR-113). Giữ ngày đến 30/10, không dùng `minStayOverrideReason`. Không ảnh hưởng hạn giữ chỗ.
+- **Không có link khách trên hold**: ý "link khách bị thu hồi (B-13)" của mục F không dựng được bằng hold. B-13 cần kiểm bằng ca hủy đơn `confirmed` có link (ngoài phạm vi J1) – đề nghị ORC ghi vào checklist F là "không áp dụng cho hold".
+
+Mốc trước hạn (19:05:13): `status=hold` = 2 đơn (OTM-00367, OTM-00368). `availability` 30/10 → 01/11, 2 người: 103, 201, 202, 203, 301, 401 – **không có 101, 102** (bị giữ, đúng).
+
+### 19.5 Kiểm sau hạn (sáng 30/10, từ 07:06) – kỳ vọng
+
+Chạy `qa-r6/j1/check-after.sh` (scratchpad phiên; GET + 1 lần ghi cọc kỳ vọng bị từ chối), sau đó nhờ OPS phần DB/log.
+
+| # | Kiểm | Kỳ vọng đạt |
+|---|---|---|
+| 1 | OTM-00367 qua API | `cancelled`, lý do `hold_expired`; lịch sử có B6 hold → cancelled; ghi giờ thấy hủy |
+| 2 | Căn 101 | `availability` 30/10 → 01/11 có lại 101; Rack không còn bar OTM-00367; đặt lại được (QA chỉ kiểm bằng `availability`, không tạo đơn thứ 3 trừ khi ORC yêu cầu) |
+| 3 | Đăng ký lưu trú OTM-00367 | `none` → `void` (K11) |
+| 4 | Ghi cọc tiền mặt vào OTM-00367 sau hạn | Bị từ chối, không ghi tiền. **Lưu ý mã lỗi:** khi J1 đã hủy đơn, `deposits.service.ts` kiểm trạng thái trước nên trả 409 **`INVALID_TRANSITION`** (`currentState: cancelled`); `HOLD_EXPIRED` chỉ xuất hiện nếu đơn còn `hold` sau hạn (J1 chưa chạy hoặc lỗi). Vì vậy `INVALID_TRANSITION`/`cancelled` = đạt; `HOLD_EXPIRED` lúc 07:06 trở đi = J1 **không** hủy = không đạt |
+| 5 | OTM-00368 (có cọc 200.000) | Vẫn `hold`, 102 vẫn bị giữ (`kept_paid`, DOM D-9); nhân viên nhận thông báo `hold_overdue_with_deposit` |
+| 6 | OPS (DB/log, chỉ đọc) | OTM-00367: `cancelled_by_type = 'system'`, `cancel_reason_code = 'hold_expired'`, `room_occupancy.active = false` cả 2 đêm, 1 audit `reservation.hold_expired`, registration `void`; `job done` `hold.expire` nhịp 07:04 có `expired: 1, keptPaid: 1, failed: 0`, các nhịp sau `expired: 0`; 0 dòng `ERROR [` / `job failed` |
+
+Dọn sau khi kiểm xong: hủy OTM-00368 và xử lý khoản 200.000 tiền mặt theo đường hoàn của Desk (bản ghi staging), để căn 102 trống lại trước UAT.
