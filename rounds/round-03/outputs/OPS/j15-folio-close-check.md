@@ -168,3 +168,48 @@ J15 nay **đã đăng ký và chạy** trong worker (BUG-R3-037 phần "không �
 - Worker không có healthcheck trong `docker-compose.prod.yml`; "healthy" của worker hiểu là `running`, không restart, có dòng `worker started`.
 - Trạng thái công nợ đọc từ các cột `reservation.debt_*`; không đọc lý do ghi nợ hay dữ liệu khách ra báo cáo ngoài trạng thái/số tiền.
 - Mức P1 cho lỗi `payment.expire` là đề xuất của OPS; QA/QC chốt.
+
+## 11. rc.6 – mốc trước deploy staging
+
+- Người kiểm: OPS | Round 3 – bước **Kiểm thử** | 29/10/2026 18:07–18:10 giờ VN, staging còn chạy rc.5, **trước** deploy rc.6.
+- Làm theo thẻ FB-R3-ARC-BEB-WA-01 (a) và checklist rc.6 phần A (`qa/bug-list.md`).
+- Cách làm như mục 10: SSH `ottimo-admin`, khóa `~/.ssh/ottimo_ops`, `StrictHostKeyChecking=yes`, host lấy từ phân giải `desk.staging.ottimo.vn` (khớp `known_hosts`); `dc ps`, `docker inspect`, `dc logs worker`; SQL trong `BEGIN READ ONLY … ROLLBACK`, `ON_ERROR_STOP`.
+- Không ghi DB, không restart, không deploy, không chạy job tay. **Không đụng `/opt/ottimo-prod`.** Không in env, bí mật, IP hay dữ liệu khách; chỉ in mã đơn, mã phiếu thu, số đếm.
+
+### 11.1 Bảng mốc (DB lúc 18:08:28 giờ VN)
+
+| Hạng mục | Số | Mã | Kỳ vọng ARC/QA | Ghi chú |
+|---|---|---|---|---|
+| Hold quá hạn (`status='hold' AND hold_expires_at <= now()`) | **0** | – | ghi N | Staging hiện **không có đơn `hold` nào** (cả chưa quá hạn: 0). Hold tạo gần nhất lúc 27/10 10:48 nay không còn `hold`; chưa đơn nào bị hủy vì hết hạn (mọi đơn hủy đều do người dùng) |
+| – nhóm 1: đã có tiền/cọc (`kept_paid`) | 0 | – | – | Cùng công thức `FolioService.depositPaid` |
+| – nhóm 2: có yêu cầu FOC/giảm giá (`pending`/`escalated` hoặc `approved` còn hiệu lực) | 0 | – | 0 | Cùng điều kiện `reductionRequests`, nhóm này sẽ `failed` trên rc.6 (BUG-R3-039, giới hạn còn lại) |
+| – nhóm 3: còn lại (sẽ bị hủy ở nhịp đầu) | 0 | – | – | – |
+| Folio `settled` quá `post_checkout_window_until` | **5** | OTM-00239 (hết cửa sổ 26/10 12:26, v11), OTM-00294 (28/10 06:01, v9), OTM-00297 (28/10 06:01, v7), OTM-00357 (29/10 00:15, v11), OTM-00365 (29/10 06:03, v12) | 5 | **Khớp.** Toàn DB: `open` 361, `settled` 5, `closed` 0 |
+| Payment `pending` có `expires_at <= now()` | **2** | PT-000444 (OTM-00352, VietQR, hết hạn 27/10 06:00), PT-000458 (OTM-00361, VietQR, hết hạn 28/10 06:00) | 2 | **Khớp** |
+| Audit `folio.closed` | **0** | – | 0 | Từ trước tới nay. Cùng lúc: `payment.expired` 0, `reservation.hold_expired` 0 |
+| Công nợ OTM-00297 | 1 khoản | mở 27/10 06:01, 150.000, hạn 30/10, chưa tất toán | đúng 1 khoản | Không đổi so với mục 10.1 |
+| Đơn theo trạng thái | – | `cancelled` 353, `confirmed` 6, `in_house` 2, `checked_out` 5, `hold` 0 | – | Lý do hủy: 0 đơn `hold_expired` |
+
+### 11.2 Image và worker đang chạy
+
+| Container | Image | Tạo lúc (UTC) | Restart |
+|---|---|---|---|
+| api | `ottimo-api:sha-1078b5b5574a` (rc.5) | 29/10 10:00:55 | 0, `healthy` |
+| worker | `ottimo-api:sha-1078b5b5574a` (rc.5) | 29/10 10:00:55 | 0, `running` |
+| web | `ottimo-web:sha-1078b5b5574a` (rc.5) | 29/10 10:00:55 | 0, `healthy` |
+| postgres | `postgres:17-alpine` (digest cố định) | – | Up 3 ngày, `healthy` |
+
+Log worker 3 phút gần nhất (18:05–18:08): mỗi nhịp `job done` cho `folio.close` và `hold.expire`; `job failed` cho `payment.expire` (BUG-R3-038); 5 dòng `ERROR [J15] … AuditEntityNotRegisteredError` mỗi nhịp (BUG-R3-037). Đúng tình trạng rc.5 ở mục 10.
+
+### 11.3 Điều cần biết khi kiểm sau deploy (WA-01 (b), checklist B–F)
+
+1. **Lọc `ERROR [` phải bỏ mã màu trước.** Nest logger trong worker in mã màu ANSI giữa `ERROR` và `[J15]`, nên `grep -c "ERROR \["` trên `dc logs --no-color` cho **0** dù có 15 dòng lỗi (đã thử lúc 18:08). Lệnh đúng: `dc logs --no-color --since <mốc> worker | sed 's/\x1b\[[0-9;]*m//g' | grep -cE 'ERROR \[|job failed'`. OPS sẽ dùng cách này cho mọi job ở 2 nhịp đầu.
+2. **Số `expired`/`failed` của `hold.expire` không có trong log.** `worker.ts` (cả trên nhánh rc.6 `fix/worker-audit-registry`) chỉ log `{"msg":"job done","job":…,"properties":n}`; kết quả của handler tick bị bỏ, không ghi `job_run`. Lỗi từng hold rollback trong savepoint và **không** in dòng nào. Vì vậy mục C "đọc `failed` trong `job done`" không làm được: OPS/QA lấy bằng chứng từ DB (trạng thái đơn, `cancel_reason_code`, audit `reservation.hold_expired`, `room_occupancy.active`). Đề xuất BE-B/ARC cho worker log `stats` của job tick (v1.0.1, gộp thẻ FB-R3-ARC-BEB-J15-05), OPS không tự sửa mã.
+3. **Hold: N = 0 nên nhịp đầu rc.6 sẽ không hủy đơn nào.** Kỳ vọng sau deploy: audit `reservation.hold_expired` mới = 0, không đơn nào đổi trạng thái vì J1. BUG-R3-039 trên staging chỉ chứng minh được qua ca tạo hold mới (checklist F, dữ liệu giả, hạn ngắn) – ca này là bằng chứng duy nhất cho J1.
+4. Kỳ vọng còn lại giữ như ARC: 5 folio trên thành `closed`, 5 audit `folio.closed`, OTM-00297 không có công nợ thứ hai; PT-000444, PT-000458 thành `expired`, 2 audit `payment.expired`.
+
+### 11.4 Giả định
+
+- Nhóm "đã có tiền" tính đúng công thức `FolioService.depositPaid` (biên lai `deposit` `succeeded`, không tính dòng đảo, giới hạn bởi tiền còn giữ); nhóm FOC tính đúng điều kiện `FolioService.reductionRequests` (gồm cả yêu cầu đã duyệt còn hiệu lực, không chỉ "chờ duyệt"), xét sau nhóm 1 vì J1 trả `kept_paid` trước khi đụng folio. Với N = 0 hai cách tính không ảnh hưởng kết quả.
+- Giờ "hết cửa sổ" và "hết hạn" đổi sang giờ VN (`Asia/Ho_Chi_Minh`).
+- Mốc chỉ đúng tại 18:08:28. Nếu QA/E2E tạo hold hay VietQR trên staging trước khi deploy rc.6, OPS chạy lại cùng truy vấn ngay trước deploy.
