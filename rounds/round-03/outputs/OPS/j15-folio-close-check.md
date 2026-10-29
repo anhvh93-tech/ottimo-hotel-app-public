@@ -254,3 +254,130 @@ Nhịp đầu sau deploy (18:57:57) J15 đóng đủ 5 folio, J24 chuyển 2 pay
 - Mốc deploy lấy theo `StartedAt` worker 11:57:55Z; log đọc `--since 11:57:50Z`, bao trọn từ lúc khởi động.
 - Công nợ đọc từ các cột `reservation.debt_*` (mỗi đơn chỉ một khoản); "không có bản thứ hai" kiểm bằng `debt_opened_at`/`debt_recorded_vnd` không đổi và không có audit `*debt*` mới.
 - Audit `folio.closed` mang `entity_code` là số bill (F26-…), không phải mã đơn; nối về đơn qua `folio.primary_reservation_id`.
+
+## 13. Production trước deploy rc.6 (WA-02)
+
+- Người kiểm: OPS | Round 3 – bước **Kiểm thử** | 29/10/2026 22:32–22:36 giờ VN. Production đang chạy rc.3 (`sha-70fe734e9077`), **trước** deploy rc.6.
+- Tiêu chí: thẻ FB-R3-ARC-BEB-WA-02 (2) trong `reviews/ARC-on-BE-B-worker-audit-fix.md`. INV đã đồng ý đưa rc.6 lên production (ORC ghi). OPS chỉ kiểm, **không** đẩy tag, **không** deploy.
+- Cách làm như mục 11 nhưng với `/opt/ottimo-prod`: SSH `ottimo-admin`, khóa `~/.ssh/ottimo_ops`, `StrictHostKeyChecking=yes`, host lấy từ phân giải `desk.ottimo.vn` (khớp `known_hosts`); `dc ps`, `docker inspect`, `dc logs --no-color --timestamps worker` qua `sudo -u ottimo`.
+- SQL: cùng các câu đếm của mục 11 (WA-01 (a)), thêm đếm outbox. Chạy hai lớp chỉ đọc:
+  - `PGOPTIONS='-c default_transaction_read_only=on'`;
+  - `BEGIN TRANSACTION READ ONLY … ROLLBACK`, `ON_ERROR_STOP`, giờ `Asia/Ho_Chi_Minh`.
+  - Phiên in `transaction_read_only = on`. Bộ câu đã chạy thử trên staging ngay trước đó (22:34:08) để chắc cú pháp đúng.
+- Không ghi DB, không restart, không chạy job tay, không sao lưu tay. Không in env, bí mật, IP hay dữ liệu khách. Production chưa có đơn nào, nên bảng dưới không có mã đơn nào.
+
+### 13.1 Kết luận: **ĐƯỢC deploy** rc.6 lên production, kèm 3 điều kiện ở 13.6
+
+- Không có hold, folio hay payment nào trên production, nên nhịp đầu rc.6 không có gì để hủy, đóng hay cho hết hạn.
+- Không có migration mới (65 = 65).
+- Máy còn đủ đĩa và RAM; 4 container đang chạy ổn.
+- Log worker rc.3 sạch. Có 1 dòng lỗi đã biết (BUG-R3-032).
+- Không có hold quá hạn, nên **không có danh sách mã đơn** cần gửi lễ tân/chủ xác nhận (WA-02 (3) không phát sinh).
+
+### 13.2 Số đếm WA-01 (a) trên production (DB lúc 22:34:19 giờ VN)
+
+| Hạng mục | Số | Mã | Ghi chú |
+|---|---|---|---|
+| Hold quá hạn (`status='hold' AND hold_expires_at <= now()`) | **0** | – | Tổng đơn `hold` (cả chưa quá hạn): **0**. Bảng `reservation` **0 dòng**: chưa có đơn nào, kể cả đơn thử "TEST" của C1 (dời sang 30/10, xem `b2-runbook.md` Phần 3) |
+| – nhóm 1: đã có tiền (`kept_paid`) | 0 | – | Cùng công thức `FolioService.depositPaid` như mục 11 |
+| – nhóm 2: có yêu cầu FOC/giảm giá đang chờ hoặc còn hiệu lực | 0 | – | Cùng điều kiện `FolioService.reductionRequests` |
+| – nhóm 3: còn lại (nhịp đầu sẽ hủy) | 0 | – | – |
+| `room_occupancy` đang giữ bởi hold | 0 | – | – |
+| Folio `settled` quá `post_checkout_window_until` | **0** | – | Bảng `folio` **0 dòng** |
+| Payment `pending` có `expires_at <= now()` | **0** | – | Bảng `payment` **0 dòng** |
+| Audit `folio.closed` / `payment.expired` / `reservation.hold_expired` | **0 / 0 / 0** | – | Từ trước tới nay |
+| Outbox, tổng | **3** | – | `staff.email` `dead` 1: thư `receiving_account_changed`, `NO_RECIPIENT`, đã biết (BUG-R3-032, b2-runbook Phần 3). `staff.push` `pending` 2 |
+| Outbox `channel.availability_changed` | **0** | – | Chủ đề outbox mà J1 ghi khi nhả căn (`reservation-store.ts`). Mốc so sánh sau deploy: vẫn 0 |
+
+**Kỳ vọng sau deploy** (để kiểm WA-02 (4) = WA-01 (b)):
+- nhịp đầu J1, J15, J24 không xử lý gì;
+- audit mới của 3 loại trên = 0;
+- outbox `channel.availability_changed` = 0, tổng outbox chỉ tăng nếu có người dùng thao tác.
+
+Nếu có người tạo đơn trên production trước giờ deploy, kỳ vọng này không còn đúng. Xem điều kiện 2 ở 13.6.
+
+### 13.3 Migration khi lên rc.6 từ rc.3
+
+| Nguồn | Kết quả |
+|---|---|
+| `git diff --name-status 70fe734 8b3aec8 -- product/services/api/src/db/migrations` | **Rỗng**: không thêm, sửa hay xóa tệp `.sql` hay `meta/` nào. Toàn bộ diff rc.3 → rc.6 cũng không có tệp nào chứa `migrat`, `.sql` hay `schema` |
+| Journal của image | rc.3 và rc.6 đều **65 mục**, mục cuối `0088_late_fee_post_review` (`when` 1792782165681) |
+| `drizzle.__drizzle_migrations` trên production | **65** dòng, `max(created_at)` = 1792782165681, khớp mục cuối của journal |
+
+Khi deploy rc.6:
+- **0 migration sẽ chạy**. Bước `migrate` của `deploy.sh` vẫn chạy nhưng không làm gì; kiểm số migration sẽ là 65 = 65.
+- **Không có migration khóa bảng lâu hay xóa dữ liệu.**
+- Quay lui về rc.3 (`rollback.sh`, `state/digests/sha-70fe734e9077` có sẵn) chạy trên đúng lược đồ hiện tại.
+- Các thay đổi rc.3 → rc.6 nằm ở `services/api/src`: tách `audit-entities.ts`, `worker.ts`, `worker-jobs.ts` và test. Không đổi `config.ts`, compose, Dockerfile, `package.json` hay tệp env mẫu. Trong `product/infra` chỉ đổi `ci/playwright-deps.sh` (dùng cho CI, không lên máy chủ).
+
+### 13.4 Sao lưu trước migrate
+
+- **`deploy-from-ci.sh` và `deploy.sh` không sao lưu DB trước migrate.** Kiểm trên cả bản trong repo (rc.3 = rc.6 = HEAD) và bản đang nằm trên production. `grep -iE 'backup|pg_dump'` trên hai tệp của production: không có dòng nào. Thứ tự các bước: `config → pull → roles → migrate → switch → smoke → record`.
+- Bản sao lưu gần nhất của production:
+  - **`20261029T033257Z`** (29/10 10:33 giờ VN, chạy tay ở B2 Phần 5, `Result=success`, dump 705.787 byte). Bản này đã kéo về Mac và kiểm checksum.
+  - Bản đêm kế tiếp: 30/10 03:04 (timer `ottimo-backup@ottimo-prod`).
+- Đánh giá: rc.6 không có migration và DB chưa có đơn. Từ 10:33 tới giờ chỉ thêm đăng nhập/audit (INV đăng nhập lại ở Phần 6). Rủi ro mất dữ liệu khi deploy **rất thấp**.
+- Dù vậy, runbook dặn chụp tay trước nâng cấp. **OPS đề xuất, chưa chạy** (thủ tục giống B2 Phần 5 bước 1–2, khoảng 3 giây, không đụng DB ứng dụng):
+  1. Ngay trước khi ORC đẩy tag: `sudo systemctl start ottimo-backup@ottimo-prod.service`. Đạt khi `systemctl show … -p Result` ra `success` và trong `/var/backups/ottimo-prod` có `db-<mã giờ mới>.dump.age` kèm `.sha256`.
+  2. (Khuyến nghị) Kéo về Mac bằng lệnh của `v1-production.md` 19.2 (container `alpine:3.20`, khóa `ottimo_backup_pull`). Đạt khi không có `checksum mismatch`.
+
+  ORC giao thì OPS chạy. Bước này ghi tệp vào thư mục sao lưu, không ghi DB.
+
+### 13.5 Máy chủ và log "trước" (29/10 22:32–22:36)
+
+| Hạng mục | Kết quả |
+|---|---|
+| Image đang chạy | api, worker `ottimo-api:sha-70fe734e9077`; web `ottimo-web:sha-70fe734e9077`; landing `ottimo-landing:sha-70fe734e9077`. `state/current_tag` = `sha-70fe734e9077`, `previous_tag` = `sha-29636757822b`. Có sẵn `state/digests/sha-70fe734e9077` (dùng khi quay lui) |
+| Sức khỏe | api, web, landing, postgres `healthy`; worker `running` (không có healthcheck theo thiết kế). `RestartCount` = 0 cả bốn; api/worker/web chạy từ 27/10 01:36Z, postgres từ 26/10 07:57Z |
+| Đĩa | `/` 55 GB, đã dùng 8,8 GB (**18 %**), còn **43 GB**. Image docker 2,7 GB, trong đó 1,4 GB thu hồi được. Pull rc.6 cần khoảng vài trăm MB |
+| RAM | 4,9 GB; `available` 3,8 GB |
+| Timer | `ottimo-backup@ottimo-prod` lần cuối 29/10 03:03, kế 30/10 03:04; `ottimo-ops-check@ottimo-prod` mỗi 30 phút (lần cuối 22:26) |
+| Log worker production (rc.3), từ lúc khởi động 27/10 01:36Z tới 29/10 15:33Z | 27.381 dòng. Đã bỏ mã màu ANSI và kiểm lại còn 0 ký tự ESC. **0** `ERROR [`, **0** `job failed`. Có **1** dòng mức `error`: `email dead … receiving_account_changed … NO_RECIPIENT` (29/10 10:20, BUG-R3-032, đã biết) |
+| 24 giờ gần nhất (từ 28/10 15:35Z) | 18.728 dòng: 0 `ERROR [`, 0 `job failed`, 1 dòng `error` (dòng trên). api: 0 `ERROR [` |
+| `worker started` (rc.3) | **19 job**, không có `folio.close`. Sau rc.6 phải là **20 job** |
+
+Ghi chú:
+- Log rc.3 sạch **không** có nghĩa J15/J24 chạy đúng. Production chưa có folio hay payment nào cần xử lý, nên lỗi BUG-R3-037/038 chưa có dịp lộ ra (giống staging trước 29/10, mục 10.3).
+- **Bundle `infra/` trên production cũ hơn repo một bậc.** `deploy.sh` trên production có sha `c4d8d7df…` = bản `751ce79`; repo là `949ac32a…` = bản `6e2ecc0`. Bản production chỉ thiếu bước `appconfig` (kiểm cấu hình của image mới trước khi đổi container). `deploy-from-ci.sh` và `backup.sh` thì khớp repo.
+  - Với rc.6, cấu hình không đổi so với rc.3, nên thiếu bước này không chặn.
+  - Nếu image mới không chạy được, `deploy.sh` vẫn tự đưa rc.3 về ở bước `switch`/`smoke`.
+  - Đã ghi rủi ro này ở `v1-production.md` 17.6 mục 2: làm mới bundle ngoài giờ khách, không vào D−1/D. Không làm chung lần deploy này.
+
+### 13.6 Điều kiện kèm theo khi deploy
+
+1. **Tag `v1.0.0-rc.6` phải trỏ vào `8b3aec8`** (bản staging đã đạt WA-01, image `sha-8b3aec89486f`). Không trỏ vào `HEAD` (`5b77a87`, gồm thêm commit tài liệu).
+   - `release.yml` lấy image theo commit của tag (`sha-${GITHUB_SHA::12}`).
+   - Commit khác thì chạy image khác với bản staging đã kiểm.
+   - `8b3aec8` đã có trên `origin/main` (đã kiểm).
+2. **Nếu có đơn được tạo trên production trước giờ deploy** (ví dụ đơn "TEST" của C1, dự kiến từ 30/10), ORC gọi OPS chạy lại đúng bộ câu 13.2 ngay trước khi đẩy tag.
+   - Nếu lúc đó có hold quá hạn, OPS gửi ORC danh sách mã đơn (không kèm dữ liệu khách) để chủ/lễ tân xác nhận trước (WA-02 (3)).
+   - Đơn giản nhất là deploy **trước** C1: khi đó VietQR thử của C1 chạy luôn trên rc.6 (có J24).
+3. **Sao lưu tay theo 13.4** ngay trước khi đẩy tag. Đây là khuyến nghị: thiếu bước này không làm sai deploy, vì 0 migration và có bản sao lưu 29/10 10:33.
+
+Sau deploy, OPS kiểm WA-02 (4) theo cách của mục 12:
+- image `sha-8b3aec89486f`;
+- `worker started` 20 job;
+- 2–3 nhịp đầu: 0 `ERROR [` / `job failed` (sau khi bỏ ANSI);
+- audit mới `folio.closed`/`payment.expired`/`reservation.hold_expired` = 0;
+- outbox `channel.availability_changed` = 0;
+- `ops-check` 7/7.
+
+### 13.7 Giả định
+
+- "Hold có yêu cầu giảm giá/FOC đang chờ" tính như mục 11.4 (gồm cả yêu cầu đã duyệt còn hiệu lực). Production có 0 hold nên cách tính không ảnh hưởng kết quả.
+- Outbox availability lấy theo chủ đề `channel.availability_changed`, chủ đề duy nhất mà luồng nhả căn ghi.
+- Mốc chỉ đúng tại 22:34:19 ngày 29/10.
+- 6 job theo lịch (`hk.daily`, `lease.nights`…) đã chạy 2 lần trên production rc.3, 0 lỗi. Nhận xét "log sạch" bao gồm cả 6 job này.
+
+### 13.8 Sao lưu tay và đếm lại (29/10 22:37, ORC giao theo điều kiện 3 ở 13.6)
+
+Cùng cách làm như 13.2–13.5. Không đẩy tag, không deploy, không ghi DB.
+
+| # | Việc | Kết quả | Đạt? |
+|---|---|---|---|
+| 1 | `sudo systemctl start ottimo-backup@ottimo-prod.service` (22:37:19–22:37:22 giờ VN) | `Result=success`, `ExecMainStatus=0`. Nhật ký in `OK: 28 encrypted files in /var/backups/ottimo-prod` | Đạt |
+| 2 | Bản mới **`20261029T153719Z`** | 4 tệp `.age`: `db-…dump.age` 706.362 byte, `counts-…`, `blobs-…`, `purge-journal-…`. Mỗi tệp kèm `.sha256`. Quyền 0600, chủ `ottimo` | Đạt |
+| 3 | Đếm lại `wa02.sql`, chỉ đọc (22:37:32), thêm câu đếm số dòng của 3 bảng | `transaction_read_only = on`. `reservation` / `folio` / `payment` = **0 / 0 / 0**. Hold 0 (quá hạn 0), occupancy giữ bởi hold 0, migration 65 (mục cuối khớp journal), outbox tổng 3 (`staff.email` dead 1, `staff.push` pending 2, availability 0), 3 loại audit 0. **Không đổi so với 13.2** | Đạt |
+
+- Chưa kéo bản này về Mac. Lệnh kéo về ở `v1-production.md` 19.2, nên chạy nếu ORC giao.
+- Kỳ vọng sau deploy ở 13.6 giữ nguyên.
