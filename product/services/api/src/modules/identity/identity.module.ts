@@ -34,21 +34,7 @@ import { IdentityParamsService } from './public/identity-params';
 import { CloserCandidatesController } from './internal/closer-candidates.controller';
 import { PasswordReauth } from './public/password-reauth';
 import { assertCommonPasswordList } from './public/passwords';
-import { defineAuditEntity } from '../audit/public/audit-fields';
-
-// Audit allowlists (SR-AUD-03) of the entities this module writes.
-defineAuditEntity('app_user', [
-  'clientOrigin',
-  'lockCount',
-  'until',
-  'lockedUntil',
-  'username',
-  'roles',
-  'displayName',
-  'status',
-  'passwordReset',
-]);
-defineAuditEntity('trusted_device', ['name', 'deviceKind', 'expiresAt', 'revokedAt']);
+import './audit-entities';
 
 /** SR-AUTH-02 start-up check: staging/production stop without the ≥ 10.000-entry offline list. */
 @Injectable()

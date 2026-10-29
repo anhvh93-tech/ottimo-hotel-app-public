@@ -11,26 +11,7 @@ import { RoomsService } from './internal/rooms.service';
 import { ChannelsService } from './public/channels';
 import { ParameterHooks } from './public/parameter-hooks';
 import { PropertyContextService } from './public/property-context';
-import { defineAuditEntity } from '../audit/public/audit-fields';
-
-// Audit allowlists (SR-AUD-03): room catalogue changes (category config).
-defineAuditEntity('room', [
-  'roomNo',
-  'name',
-  'roomGroupId',
-  'baseOccupancy',
-  'maxOccupancy',
-  'bedSetup',
-  'bedCount',
-  'areaM2',
-  'isSellable',
-  'activeFrom',
-  'activeTo',
-  'monthlyListPriceVnd',
-  'nightlyListPriceVnd',
-  'listPrice',
-]);
-defineAuditEntity('dataset', ['rooms', 'channels']);
+import './audit-entities';
 
 @Global()
 @Module({

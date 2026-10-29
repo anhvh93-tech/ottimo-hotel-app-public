@@ -28,6 +28,18 @@ export function auditFieldsOf(entityType: string): ReadonlySet<string> | undefin
   return registry.get(entityType);
 }
 
+/**
+ * Every allowlist registered in THIS process, fields sorted (test/worker-audit-registry.test.ts compares what the
+ * worker process registers with what the api process registers).
+ */
+export function auditEntitySnapshot(): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const [type, fields] of [...registry.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    out[type] = [...fields].sort();
+  }
+  return out;
+}
+
 export class AuditEntityNotRegisteredError extends Error {
   constructor(entityType: string | undefined) {
     super(

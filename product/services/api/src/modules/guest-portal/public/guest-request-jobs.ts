@@ -11,18 +11,15 @@
 import type { Tx } from '../../../db/database';
 import type { JobDefinition } from '../../../jobs/job-runner';
 import type { AuditService } from '../../audit/public/audit.service';
-import { defineAuditEntity } from '../../audit/public/audit-fields';
 import type { EventsService } from '../../events/public/events.service';
 import { purgeGuestRequestText } from '../../housekeeping/public/guest-request-text-purge';
 import type { ParameterService } from '../../platform/public/parameter.service';
 import { SYSTEM_ACTOR, stayViews } from '../../reservations/public/stay-view';
 import { overdueRecipients } from '../internal/guest-request-rules';
+import '../audit-entities';
 
 export const GUEST_REQUEST_SLA_JOB_KEY = 'guest_request.sla';
 export const GUEST_REQUEST_PURGE_JOB_KEY = 'guest_request.purge';
-
-// Audit of a retention run: the policy and counts only (SEC B.7 – never the purged text).
-defineAuditEntity('retention_run', ['policyKey', 'count', 'linkedWork', 'arrivalNotes']);
 
 /** Rows per tick (technical batch – the next tick takes the rest). */
 const T13_BATCH = 500;

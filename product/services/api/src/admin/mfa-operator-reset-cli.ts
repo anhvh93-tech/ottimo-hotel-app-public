@@ -12,6 +12,8 @@ import { Database } from '../db/database';
 import { createPool } from '../db/pool';
 import { cryptoServiceFromEnv } from '../modules/crypto/public/factory';
 import { resetMfaByOperator } from '../modules/identity/public/operator-reset';
+// Every audit allowlist, as in the api (no Nest container in this process).
+import '../audit-entities';
 
 function arg(name: string): string {
   const i = process.argv.indexOf(`--${name}`);

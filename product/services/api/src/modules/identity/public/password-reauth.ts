@@ -11,13 +11,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
 import { DATABASE, Database, type TenantContext, type Tx } from '../../../db/database';
 import { problem } from '../../../shared/problem';
-import { defineAuditEntity } from '../../audit/public/audit-fields';
 import { AuditService } from '../../audit/public/audit.service';
 import { verifyPassword } from './passwords';
-
-// verifyApprover (BR-416-06): a confirmation names the desk user it was typed for; a success records the failures
-// it cleared (BUG-R2-167, SEC 12.3).
-defineAuditEntity('app_user', ['confirmingFor', 'failedCountCleared']);
+import '../audit-entities';
 
 export const REAUTH_MAX_FAILURES = 5;
 export const REAUTH_LOCK_MS = 15 * 60_000;

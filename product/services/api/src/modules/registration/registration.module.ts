@@ -20,7 +20,6 @@ import { CLOCK, type Clock } from '../../clock';
 import { JobRegistry } from '../../jobs/job-runner';
 import { EventsService } from '../events/public/events.service';
 import { ParameterService } from '../platform/public/parameter.service';
-import { defineAuditEntity } from '../audit/public/audit-fields';
 import { FD_REGISTRATION_PORT } from '../frontdesk/public/ports';
 import { ReservationHooks } from '../reservations/public/reservation-hooks';
 import { registrationAttentionSources } from './internal/attention-sources';
@@ -28,24 +27,13 @@ import { C3LogService } from './internal/c3-log.service';
 import { RegistrationDeadlineJob } from './internal/deadline-job';
 import { RegistrationController } from './internal/registration.controller';
 import { RegistrationService } from './internal/registration.service';
+import { wireRegistrationReservationHooks } from './internal/reservation-hook-wiring';
 import { PORTAL_URLS, portalUrlsFromEnv } from './internal/portal-config';
 import { RetentionService } from './internal/retention.service';
 import { RegistrationPartyLink } from './public/party-port';
 import { RegistrationPortService } from './public/registration.port';
-import { registrationSummary } from './public/stay-facts';
 import { retentionJob } from './public/worker-jobs';
-
-// Audit allowlists (SR-AUD-03): state facts only – never a document field, name or note text.
-// BUG-R2-083: `unclaimedDocuments` = how many unlinked guest-link documents a party removal / claim touched.
-// S4-39: `guestUploadPersonIndex` = the desk's slot answer of removePartyMember (a number 2…20 or `none`).
-defineAuditEntity('registration', [
-  'checkCode',
-  'manualResult',
-  'imagesPurgeReason',
-  'unclaimedDocuments',
-  'guestUploadPersonIndex',
-]);
-defineAuditEntity('consent_record', ['purpose', 'decision', 'channel']);
+import './audit-entities';
 
 @Global()
 @Module({})
@@ -99,20 +87,7 @@ export class RegistrationModule implements OnModuleInit {
         this.events.registerAttentionSource(source);
       }
     }
-    this.hooks.on('created', async (tx, e) => {
-      await this.regs.ensure(tx, e.reservationId);
-    });
-    this.hooks.on('transitioned', async (tx, e) => {
-      if (e.status === 'cancelled' || e.status === 'no_show') {
-        await this.regs.onReservationVoided(tx, e.reservationId);
-      } else if (e.previousStatus === 'no_show' && e.status === 'confirmed') {
-        await this.regs.onReservationRestored(tx, e.reservationId);
-      }
-    });
-    this.hooks.on('stay_changed', async (tx, e) => {
-      await this.regs.onPartyChanged(tx, e.reservationId, e.personsTotal);
-    });
-    // BUG-R2-031 (BE-A): Reservation.registrationId/Status/DeadlineAt without reservations reading `registration`.
-    this.hooks.provideRegistrationSummary(registrationSummary);
+    // K1 / K11 / K12 / K9 listeners + BUG-R2-031 summary – the same wiring as the worker (J1 hold.expire cancels there).
+    wireRegistrationReservationHooks(this.hooks, this.regs);
   }
 }

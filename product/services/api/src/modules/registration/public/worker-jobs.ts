@@ -18,6 +18,8 @@ import type { Database } from '../../../db/database';
 import { RegistrationDeadlineJob } from '../internal/deadline-job';
 import { RegistrationService } from '../internal/registration.service';
 import { RetentionService } from '../internal/retention.service';
+import { wireRegistrationReservationHooks } from '../internal/reservation-hook-wiring';
+import type { ReservationHooks } from '../../reservations/public/reservation-hooks';
 
 export const J16_KEY = 'retention.purge';
 
@@ -31,14 +33,19 @@ export function retentionJob(retention: RetentionService): JobDefinition {
   };
 }
 
-/** Worker composition (same classes as the api module). */
-export function registrationWorkerJobs(deps: {
+/**
+ * Worker composition (same classes as the api module). With `hooks` (the worker's shared ReservationHooks), the
+ * registration listeners are wired on it by the SAME function as RegistrationModule – J1 `hold.expire` cancels holds
+ * in the worker, and the registration of a cancelled booking voids itself (K11).
+ */
+export function registrationWorkerComposition(deps: {
   clock: Clock;
   audit: AuditService;
   parameters: ParameterService;
   database: Database;
   env?: NodeJS.ProcessEnv;
-}): JobDefinition[] {
+  hooks?: ReservationHooks;
+}): { jobs: JobDefinition[]; regs: RegistrationService } {
   const env = deps.env ?? process.env;
   const crypto = cryptoServiceFromEnv(env, deps.clock);
   const blobs = new EncryptedBlobService(crypto, blobStoreFromEnv(env), deps.clock, deps.database);
@@ -55,11 +62,26 @@ export function registrationWorkerJobs(deps: {
     attachments,
   );
   const events = new EventsService();
-  return [
-    retentionJob(
-      new RetentionService(regs, deps.parameters, deps.clock, attachments, blobs, events),
-    ),
-    // J5 registration.deadline (BUG-R2-035): reminders before the deadline + BR-611 digest marks.
-    new RegistrationDeadlineJob(regs, deps.parameters, deps.clock, events).definition(),
-  ];
+  if (deps.hooks) wireRegistrationReservationHooks(deps.hooks, regs);
+  return {
+    jobs: [
+      retentionJob(
+        new RetentionService(regs, deps.parameters, deps.clock, attachments, blobs, events),
+      ),
+      // J5 registration.deadline (BUG-R2-035): reminders before the deadline + BR-611 digest marks.
+      new RegistrationDeadlineJob(regs, deps.parameters, deps.clock, events).definition(),
+    ],
+    regs,
+  };
+}
+
+/** Worker jobs only (no hook wiring). */
+export function registrationWorkerJobs(deps: {
+  clock: Clock;
+  audit: AuditService;
+  parameters: ParameterService;
+  database: Database;
+  env?: NodeJS.ProcessEnv;
+}): JobDefinition[] {
+  return registrationWorkerComposition(deps).jobs;
 }

@@ -14,22 +14,12 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import { CLOCK, type Clock } from '../../../clock';
 import { DATABASE, Database, type TenantContext, type Tx } from '../../../db/database';
-import { defineAuditEntity } from '../../audit/public/audit-fields';
 import { AuditService } from '../../audit/public/audit.service';
 import { CryptoService, type FieldAad } from '../../crypto/public/crypto.service';
 import { EventsService } from '../../events/public/events.service';
 import { notifyStaff } from '../../platform/public/staff-notify';
 import { matchTotp, normaliseRecoveryCode, recoveryCodeHash, RECOVERY_CODES_LOW } from './totp';
-
-defineAuditEntity('app_user', [
-  'amr',
-  'method',
-  'operationId',
-  'recoveryCodesRemaining',
-  'targetUserId',
-  'ticketRef',
-  'channel',
-]);
+import '../audit-entities';
 
 /** Columns the 2FA code reads (FOR UPDATE where it changes them). */
 export interface MfaUserRow {

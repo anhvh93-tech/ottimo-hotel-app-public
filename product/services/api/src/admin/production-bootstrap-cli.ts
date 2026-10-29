@@ -15,6 +15,9 @@ import { Database } from '../db/database';
 import { createPool } from '../db/pool';
 import { assertSafeDbRole } from '../db/startup-checks';
 import { BootstrapRefusedError, bootstrapProduction } from './production-bootstrap';
+// Every audit allowlist, as in the api (`dataset` rooms/channels are the platform module's – without them the
+// `production.bootstrapped` audit kept users/parameters/devices only).
+import '../audit-entities';
 
 function arg(name: string): string {
   const i = process.argv.indexOf(`--${name}`);

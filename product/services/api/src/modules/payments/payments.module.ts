@@ -12,7 +12,6 @@ import { Global, Inject, Module, type OnModuleInit, Optional } from '@nestjs/com
 import { FolioService } from '../folio/public/folio.service';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { ApprovalService } from '../approvals/public/approval.service';
-import { defineAuditEntity } from '../audit/public/audit-fields';
 import { EventsService } from '../events/public/events.service';
 import { ReservationHooks } from '../reservations/public/reservation-hooks';
 import { DepositsController } from './internal/deposits.controller';
@@ -25,29 +24,7 @@ import { wireRefundDecisionHooks } from './internal/refund-decision-hooks';
 import { type DepositNoticesReader, readDepositNotices } from './public/deposit-notices';
 import { PaymentService } from './public/payment.service';
 import { reconcileOverdueSource } from './public/reconcile-attention';
-
-defineAuditEntity('payment', [
-  // 0.3.7 bổ sung 4 (DOM (f)): a VietQR confirmed above what was due for its purpose.
-  'overVnd',
-  'code',
-  'type',
-  'method',
-  'amountVnd',
-  'status',
-  'reconciliation',
-  'recordedByRole',
-  'selfReconciled',
-  'receivedAmountVnd',
-  // PO 17/10 (SEC-37): an OWN approved and paid the same transfer refund ("OWN tự duyệt và chi").
-  'ownSelfApprovedAndPaid',
-  // BR-525 (G-4): the debt a reversal after check-out left (folio balance due, recorded by the front desk).
-  'debtVnd',
-  // ARC 16.26 (BR-525): a receipt collecting the debt of a checked-out stay.
-  'debtCollection',
-]);
-defineAuditEntity('deposit_notice', ['amountVnd', 'status']);
-// Refund destination events (no C3: method and the last 4 digits only – D15 masked).
-defineAuditEntity('approval_request', ['refundMethod', 'accountNoLast4']);
+import './audit-entities';
 
 @Global()
 @Module({

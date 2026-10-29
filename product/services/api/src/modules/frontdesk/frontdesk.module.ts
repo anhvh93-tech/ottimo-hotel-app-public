@@ -18,7 +18,6 @@ import { paymentExpiryJob } from '../../jobs/payment-jobs';
 import { AuditService } from '../audit/public/audit.service';
 import { ApprovalService } from '../approvals/public/approval.service';
 import { ApprovalsModule } from '../approvals/approvals.module';
-import { defineAuditEntity } from '../audit/public/audit-fields';
 import { EventsService } from '../events/public/events.service';
 import { ParameterService } from '../platform/public/parameter.service';
 import { ReservationHooks } from '../reservations/public/reservation-hooks';
@@ -26,6 +25,7 @@ import { FRONTDESK_ATTENTION_SOURCES, checkoutDebtSource } from './internal/atte
 import { CheckinService } from './internal/checkin.service';
 import { CheckoutService } from './internal/checkout.service';
 import { provideCheckoutDebtPorts } from './internal/checkout-debt-ports';
+import { wireCancelRevocation } from './internal/cancel-revocation';
 import { lateFeeReviewOverdueJob } from './public/late-fee-review-job';
 import {
   NoGuestAccessPort,
@@ -49,31 +49,7 @@ import {
   type FrontdeskRegistrationPort,
 } from './public/ports';
 import { RegistrationPartyLink } from '../registration/public/party-port';
-
-// Audit allowlist of the front desk facts (SR-AUD-03): no guest C2/C3, no door code (SEC D2).
-defineAuditEntity('reservation', [
-  'cardsIssued',
-  'doorAccessHandedOver',
-  'roomStatusBefore',
-  'agreedCheckoutTime',
-  'lateSurchargeVnd',
-  'tierPct',
-  'checkoutMode',
-  'debtVnd',
-  // ARC 16.31.2 (BUG-R2-209/210): open debt before/after a debt record (numbers only).
-  'openDebtVnd',
-  'actorRole',
-  'debtOutcome',
-  'balanceDueVnd',
-  'dueDate',
-  'replyType',
-  'channel',
-  'confirmedTime',
-  'partyRole',
-  'priceAgeBand',
-  // ESC-024 B / ESC-031 (BE-B): end of the post-checkout window the manager reviews a desk-recorded late charge in.
-  'reviewDueAt',
-]);
+import './audit-entities';
 
 @Module({
   imports: [ApprovalsModule],
@@ -176,19 +152,9 @@ export class FrontdeskModule implements OnModuleInit {
       );
       return rows[0]?.n ?? 0;
     });
-    this.hooks.on('transitioned', async (tx, e) => {
-      if (e.status !== 'cancelled' && e.status !== 'no_show') return;
-      // B-13 (SEC G4): every guest link/session of the booking dies with it – the ONLY place (guest-portal no
-      // longer hooks itself, ORC 16/10). The registration voids itself (BE-C hook, K11).
-      const reason =
-        e.status === 'no_show'
-          ? 'no_show'
-          : e.reasonCode === 'overbooking_relocated'
-            ? 'relocated'
-            : 'cancelled';
-      await this.ports.guestAccess.revokeAllForReservation(tx, e.reservationId, reason);
-      await this.events.publish(tx, 'reservation.changed', e.reservationId);
-    });
+    // B-13 (SEC G4): guest links/sessions revoked + `reservation.changed` on cancel / no-show – the same wiring as
+    // the worker (J1 hold.expire cancels there; public/worker-hooks.ts).
+    wireCancelRevocation(this.hooks, this.ports.guestAccess, this.events);
     // BUG-R2-198 (ARC 16.19 bổ sung 4 – L1 before L4): a decision on `late_checkout_conflict` locks the booking
     // BEFORE the request row (StayService.lockForLateCheckoutDecision).
     this.approvals.onBeforeDecide('late_checkout_conflict', (tx, approvalId) =>
