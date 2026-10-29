@@ -213,3 +213,44 @@ Log worker 3 phút gần nhất (18:05–18:08): mỗi nhịp `job done` cho `fo
 - Nhóm "đã có tiền" tính đúng công thức `FolioService.depositPaid` (biên lai `deposit` `succeeded`, không tính dòng đảo, giới hạn bởi tiền còn giữ); nhóm FOC tính đúng điều kiện `FolioService.reductionRequests` (gồm cả yêu cầu đã duyệt còn hiệu lực, không chỉ "chờ duyệt"), xét sau nhóm 1 vì J1 trả `kept_paid` trước khi đụng folio. Với N = 0 hai cách tính không ảnh hưởng kết quả.
 - Giờ "hết cửa sổ" và "hết hạn" đổi sang giờ VN (`Asia/Ho_Chi_Minh`).
 - Mốc chỉ đúng tại 18:08:28. Nếu QA/E2E tạo hold hay VietQR trên staging trước khi deploy rc.6, OPS chạy lại cùng truy vấn ngay trước deploy.
+
+## 12. rc.6 trên staging – sau deploy
+
+- Người kiểm: OPS | Round 3 – bước **Kiểm thử** | 29/10/2026 18:59–19:01 giờ VN, ngay sau CI run 40865799549 deploy staging.
+- Bản kiểm: rc.6 = `main` `8b3aec8` (`8b3aec89486f…`, gộp PR #14: BUG-R3-037/038/039). Tiêu chí: thẻ FB-R3-ARC-BEB-WA-01 (b) và checklist rc.6 phần B, C, D, E (phần DB) trong `qa/bug-list.md`. Mốc so sánh: mục 11.
+- Cách làm như mục 11: SSH `ottimo-admin`, khóa `~/.ssh/ottimo_ops`, `StrictHostKeyChecking=yes`; `dc ps`, `docker inspect` (qua `sudo -u ottimo`), `dc logs --no-color --timestamps worker` rồi **bỏ mã màu ANSI** (`sed 's/\x1b\[[0-9;]*m//g'`, kiểm lại còn 0 ký tự ESC) trước khi lọc; SQL trong `BEGIN READ ONLY … ROLLBACK`, `ON_ERROR_STOP`, giờ `Asia/Ho_Chi_Minh`.
+- Không ghi DB, không restart, không deploy, không chạy job tay. **Không đụng `/opt/ottimo-prod`.** Không in env, bí mật, IP hay dữ liệu khách; chỉ in mã đơn, mã phiếu thu, số bill, số đếm.
+
+### 12.1 Kết luận: **ĐẠT** (phần OPS của WA-01 (b), checklist B, C, D-DB, E-DB)
+
+Nhịp đầu sau deploy (18:57:57) J15 đóng đủ 5 folio, J24 chuyển 2 payment sang `expired`, mỗi việc có audit tương ứng. 3 nhịp đầu không có dòng lỗi nào ở mọi job. Nhịp 2 và 3 không xử lý lại gì.
+
+| Hạng mục | Kết quả | Đạt? |
+|---|---|---|
+| Image | api, worker `ottimo-api:sha-8b3aec89486f`; web `ottimo-web:sha-8b3aec89486f` (khớp `8b3aec89486f0f01…`); `state/current_tag` = `sha-8b3aec89486f`. Tạo 11:57:53Z (18:57:53 giờ VN) | Đạt |
+| Sức khỏe | api, web `healthy`; worker `running` (không có healthcheck theo thiết kế); `RestartCount` = 0 cả ba, kiểm lại lúc 19:00:48 | Đạt |
+| `worker started` | 18:57:57, **20 job**, có `folio.close`, `payment.expire`, `hold.expire` | Đạt |
+| Log worker 3 nhịp (18:57:57, 18:58:57, 18:59:57) | 43 dòng; mỗi nhịp 14 job tick `job done`. Sau khi bỏ ANSI: **0** `ERROR [`, **0** `job failed`, **0** dòng mức khác `info` | Đạt |
+| J15: 5 folio | OTM-00239/00294/00297/00357/00365 → `closed`, `closed_at` = 18:57:57.096, version +1 (12/10/8/12/13). Folio quá cửa sổ còn **0**. Toàn DB: `closed` 5, `open` 361, `settled` 0 | Đạt |
+| Audit `folio.closed` | **5** (F26-000001…000005, `actor_type=system`, 18:57:57), nối đúng 5 folio trên; trước deploy 0 | Đạt |
+| OTM-00297 công nợ | Vẫn **1** khoản: mở 27/10 06:01:50, 150.000, hạn 30/10, chưa tất toán (không đổi). Audit `debt` duy nhất là `reservation.debt_on_checkout` 27/10; audit loại `debt` sau deploy toàn DB: 0. Sau deploy đơn này chỉ có 1 audit `folio.closed` | Đạt |
+| J24: 2 payment | PT-000444, PT-000458 → `expired` (18:57:57.657, version 2); 2 audit `payment.expired` (`system`, before `pending`, after `expired`); 2 `state_transition` SM-12 `pending→expired`. Payment `pending` quá hạn còn **0** | Đạt |
+
+### 12.2 Đối chiếu khác với mốc mục 11
+
+- Audit sau deploy toàn DB (tới 19:00:40): `folio.closed` 5, `payment.expired` 2, `auth.login_succeeded` 1 (người dùng đăng nhập, không phải job). Không có audit nào khác do worker ghi.
+- Hold: 0 đơn `hold`, 0 quá hạn, audit `reservation.hold_expired` 0 – đúng kỳ vọng N = 0 ở 11.3 mục 3. Đơn theo trạng thái không đổi (`cancelled` 353, `confirmed` 6, `in_house` 2, `checked_out` 5).
+- Nhịp 2, 3 không đóng thêm folio, không thêm audit: mọi `closed_at` và audit đều thuộc nhịp 18:57:57.
+
+### 12.3 Giới hạn của lần kiểm này (chuyển QA)
+
+1. **6/20 job là job theo lịch (slot)**, không chạy trong 3 nhịp: `guest.document_profile_anonymize`, `hk.daily`, `lease.nights`, `log.partitions`, `web_request.purge`, `web_request.stale`. "0 lỗi ở mọi job" ở đây nghĩa là 14 job tick đã chạy. Đề xuất QA/OPS đọc lại log worker sau lần chạy slot kế tiếp của 6 job này (cùng lệnh lọc).
+2. `hold.expire` với N = 0 không chứng minh được BUG-R3-039; như 11.3 mục 2–3, chỉ ca hold mới (checklist F) mới là bằng chứng. Số `failed` của job tick vẫn không có trong log.
+3. Checklist D (ca BUG-R3-022, 034 trên giao diện), E (tạo VietQR mới hạn ngắn, nhả/giữ đơn), F (hold mới) cần QA thao tác trên staging; OPS chỉ đọc.
+4. Mục G (cập nhật trạng thái 037/038/039 trong `bug-list.md`, ghi `qa3-rc1.md`) là việc của QA; OPS không sửa.
+
+### 12.4 Giả định
+
+- Mốc deploy lấy theo `StartedAt` worker 11:57:55Z; log đọc `--since 11:57:50Z`, bao trọn từ lúc khởi động.
+- Công nợ đọc từ các cột `reservation.debt_*` (mỗi đơn chỉ một khoản); "không có bản thứ hai" kiểm bằng `debt_opened_at`/`debt_recorded_vnd` không đổi và không có audit `*debt*` mới.
+- Audit `folio.closed` mang `entity_code` là số bill (F26-…), không phải mã đơn; nối về đơn qua `folio.primary_reservation_id`.
