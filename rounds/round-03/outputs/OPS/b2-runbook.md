@@ -340,3 +340,9 @@ Nguyên tắc: **phần 1–3 phải xong trong ngày 28/10** (tài khoản nh�
 - Vai đang hiệu lực: `owner|1|1|0` (1 chủ, 2 bước bật, không còn mật khẩu tạm); không có vai nào khác; tổng `app_user` **1** – Đạt.
 - Audit: `production.bootstrapped` **1**, `user.created_by_operator` **1**, `mfa.enrolled` **1** – Đạt.
 - **Kết luận Phần 1: Đạt (G2-7 phần chủ).** Ghi chú: giờ kiểm thực tế 16:30, trễ so với lịch 11:30; không ảnh hưởng kết quả.
+
+**Phần 3 – OPS kiểm sau khi INV nhập tài khoản nhận tiền và giá (mục 2.3), 10:27 giờ VN 29/10.** Chỉ đọc, 2 truy vấn của 2.3 + đếm giá niêm yết theo căn (`room_list_price`), trong `BEGIN READ ONLY … ROLLBACK`, cùng lệnh như Phần 1. Chỉ lấy key, ngày, trạng thái, số đếm; không SELECT số tài khoản, tên chủ tài khoản hay số tiền.
+- `payment_receiving_account`: **1 dòng**, `effective_from` **2026-10-30**. Runbook ghi 29/10 vì viết cho buổi 28/10; Phần 3 làm ngày 29/10 nên hiệu lực "từ ngày mai" = 30/10 là đúng – Đạt. Hôm nay QR chưa trỏ về tài khoản này là đúng; C1 (kiểm VietQR) phải làm **từ 30/10**.
+- Outbox `staff.email`: **1** dòng `receiving_account_changed|dead|NO_RECIPIENT`, không dòng nào khác – đúng dự kiến (BUG-R3-032), không tính là lỗi mới.
+- Giá niêm yết: **10/10 căn** có giá đang hiệu lực (cùng `effective_from` 2026-10-29), **0** căn có giá lên lịch sau hôm nay; cả 10 dòng do người dùng nhập (không dòng nào thiếu `changed_by`) – Đạt.
+- **Kết luận Phần 3 (phần OPS): Đạt.** Còn chờ DOM đọc lại bảng tham số với INV (khớp A3/A4) – chưa thuộc lượt kiểm này.
