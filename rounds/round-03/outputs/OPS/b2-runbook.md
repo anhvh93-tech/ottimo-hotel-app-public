@@ -366,7 +366,7 @@ Nguyên tắc: **phần 1–3 phải xong trong ngày 28/10** (tài khoản nh�
 **Phần 6 – INV và QA, 29/10 (ORC ghi).**
 - Khóa sao lưu (sau Phần 5): INV tạo mục "OTTIMO – khóa sao lưu production" trong ứng dụng Passwords trên Mac. Lần kiểm đầu ra `KHAC` vì mục này **chưa từng được tạo** (A8 chưa làm trước buổi). Lệnh kiểm `pbpaste` bị lệnh vừa chép đè lên clipboard, nên ORC đổi sang lệnh `read -rs` (dán khóa ở dấu nhắc, không qua clipboard). Kiểm lại: **`KHOP`**. Bản giấy A8 đã niêm phong riêng, không chung phong bì với KEK, cất két (INV xác nhận). `ottimo-prod-backup-identity.txt` **đã xóa khỏi Mac**. `~/.ottimo/backup` còn `ottimo-prod-backup-recipient.txt` và cặp khóa staging. – G4-6 **Đạt**.
 - Thư thử 8b: INV xác nhận "có thư" trong hộp thư chính `info@ottimo.vn`, không vào Spam. – G4-9 **Đạt**.
-- Đăng nhập lại: INV đăng xuất Desk, đăng nhập lại bằng mật khẩu mới, Desk đòi mã 6 số, vào được, Desk hiện **10 căn**. – G2-7 phần chủ **Đạt**.
+- Đăng nhập lại: INV đăng nhập lại bằng mật khẩu mới, Desk đòi mã 6 số, vào được, Desk hiện **10 căn**. – G2-7 phần chủ **Đạt**. **Sửa theo SEC (`reviews/SEC-G7-5-production.md`):** log 72 giờ không có `POST /v1/auth/logout`. Lần này là đăng nhập lại sau khi phiên tự hết hạn, không phải sau đăng xuất. Bước đăng xuất khi phiên còn sống (L-1) INV làm lại trước D.
 - QA smoke production không đăng nhập, 16:58–17:00: **Đạt**, không có lỗi mới (`rounds/round-03/qa/qa3-rc1.md` mục 18). – G5-5 **Đạt** (phần QA).
 - Còn mở:
   - G2-7 phần MGR: tài khoản giữ 6 vai phải đăng nhập, đổi mật khẩu, đăng ký 2 bước trước D (02/11), rồi OPS chạy lại truy vấn vai.
