@@ -7,7 +7,6 @@
  */
 import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { JobRegistry } from '../../jobs/job-runner';
-import { defineAuditEntity } from '../audit/public/audit-fields';
 import { EventsService } from '../events/public/events.service';
 import { ParameterService } from '../platform/public/parameter.service';
 import { housekeepingAttentionSources } from './internal/attention-sources';
@@ -18,11 +17,7 @@ import { WorkOrdersService } from './internal/work-orders.service';
 import { GUEST_REQUEST_WORK_PORT } from './public/guest-request-work.port';
 import { RoomStatusService } from './public/room-status.service';
 import { housekeepingJobs } from './public/worker-jobs';
-
-// Audit allowlists (SR-AUD-03): values of the work-order history (WorkOrder.history[] – erd 4.9) and the
-// inspection result – never a guest name or a free note in before/after (notes go to `reason`).
-defineAuditEntity('work_order', ['change', 'from', 'to']);
-defineAuditEntity('inspection', ['result', 'selfInspection', 'checklistVersion']);
+import './audit-entities';
 
 @Global()
 @Module({

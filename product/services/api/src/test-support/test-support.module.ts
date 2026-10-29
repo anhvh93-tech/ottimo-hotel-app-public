@@ -33,7 +33,6 @@ import { z } from 'zod';
 import { CLOCK, type Clock, MutableClock } from '../clock';
 import { DATABASE, Database } from '../db/database';
 import { JobRegistry, JobRunner, type JobRunResult } from '../jobs/job-runner';
-import { defineAuditEntity } from '../modules/audit/public/audit-fields';
 import { AuditService } from '../modules/audit/public/audit.service';
 import { RATE_LIMITER, type RateLimiter } from '../modules/identity/public/rate-limiter';
 import {
@@ -44,6 +43,7 @@ import {
 } from '../shared/http/auth.guard';
 import { PublicRoute } from '../shared/http/operation';
 import { problem } from '../shared/problem';
+import './audit-entities';
 
 export const TEST_SUPPORT_TOKEN = Symbol('TEST_SUPPORT_TOKEN');
 
@@ -207,8 +207,6 @@ export class TestJobsController {
     return { status: result.status, stats: result.stats };
   }
 }
-
-defineAuditEntity('rate_limit', ['usernamePrefix', 'users']);
 
 const rateLimitBody = z
   .object({

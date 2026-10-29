@@ -32,6 +32,12 @@ export function reservationWorkerJobs(deps: {
   clock: Clock;
   audit: AuditService;
   parameters: ParameterService;
+  /**
+   * The worker's shared ReservationHooks with the other modules' listeners (worker-jobs.ts): J1 `hold.expire` emits
+   * `transitioned` (cancelled) – the registration voids itself (K11), guest links die (B-13), as in the api. A bare
+   * instance when omitted (tests of the job alone).
+   */
+  hooks?: ReservationHooks;
 }): JobDefinition[] {
   const occupancy = new OccupancyService();
   const docNumbers = new DocNumberService(deps.clock, deps.parameters);
@@ -50,7 +56,7 @@ export function reservationWorkerJobs(deps: {
     docNumbers,
     deps.audit,
     new ApprovalService(deps.clock, deps.parameters, deps.audit),
-    new ReservationHooks(),
+    deps.hooks ?? new ReservationHooks(),
     new MoneyBridge(folios, new PaymentService(deps.clock, deps.audit, docNumbers), folios),
     new LeadsService(deps.clock, deps.audit),
   );

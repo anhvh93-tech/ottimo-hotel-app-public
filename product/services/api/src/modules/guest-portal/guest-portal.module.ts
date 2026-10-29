@@ -11,7 +11,6 @@
  * until then).
  */
 import { type DynamicModule, Global, Module } from '@nestjs/common';
-import { defineAuditEntity } from '../audit/public/audit-fields';
 import { FD_GUEST_ACCESS_PORT } from '../frontdesk/public/ports';
 import { GUEST_SESSION_RESOLVER } from '../../shared/http/guest-session';
 import { GuestController } from './internal/guest.controller';
@@ -28,9 +27,7 @@ import { GuestRequestLifecycle } from './internal/guest-request-lifecycle';
 import { GuestRequestsService } from './internal/guest-requests.service';
 import { GUEST_REQUEST_STATUS_PORT } from './public/guest-request-ports';
 import { GuestRequestStatusPort } from './public/guest-request-status.port';
-
-defineAuditEntity('guest_access_token', []);
-defineAuditEntity('online_checkin', ['hasNote', 'fields']);
+import './audit-entities';
 
 export interface GuestPortalOptions {
   env?: NodeJS.ProcessEnv;

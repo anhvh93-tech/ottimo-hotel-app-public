@@ -19,7 +19,11 @@
 import type { Tx } from '../../../db/database';
 import type { EventsService } from '../../events/public/events.service';
 import { MGR_PLUS } from '../../events/public/events.service';
-import type { ReservationEvent } from '../../reservations/public/reservation-hooks';
+import type {
+  ReservationEvent,
+  ReservationHooks,
+} from '../../reservations/public/reservation-hooks';
+import type { Clock } from '../../../clock';
 
 const KIND = 'ota_no_show_report' as const;
 
@@ -138,4 +142,16 @@ export async function onNoShowTransition(
     }
     if (!st.open && st.channelNoShow) await openReport(tx, events, e, 'revoke', now);
   }
+}
+
+/**
+ * The no-show notices listener – ONE wiring for the api (ReportingModule) and the worker (public/worker-hooks.ts),
+ * so a `transitioned` event emitted by a worker job reaches the same listeners as in the api.
+ */
+export function wireNoShowNotices(
+  hooks: ReservationHooks,
+  events: EventsService,
+  clock: Clock,
+): void {
+  hooks.on('transitioned', (tx, e) => onNoShowTransition(tx, events, e, clock.now()));
 }

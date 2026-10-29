@@ -6,15 +6,13 @@
  *   proofs, penalty evidence – replaces the UnverifiedAttachmentUsage stand-in).
  */
 import { type DynamicModule, Global, Module } from '@nestjs/common';
-import { defineAuditEntity } from '../audit/public/audit-fields';
 import { ATTACHMENT_USAGE } from '../payments/public/attachment-usage';
 import { AttachmentsController } from './internal/attachments.controller';
 import { BLOB_STORE, type BlobStore, blobStoreFromEnv } from './internal/blob-store';
 import { UploadSessionCheck } from './internal/upload-session.check';
 import { AttachmentService } from './public/attachment.service';
 import { EncryptedBlobService } from './public/encrypted-blob.service';
-
-defineAuditEntity('attachment', ['purpose', 'sizeBytes']);
+import './audit-entities';
 
 export interface FilesModuleOptions {
   env?: NodeJS.ProcessEnv;

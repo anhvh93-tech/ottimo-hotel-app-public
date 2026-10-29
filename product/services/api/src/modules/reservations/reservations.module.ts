@@ -9,7 +9,6 @@
 import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { JobRegistry } from '../../jobs/job-runner';
 import { holdExpiryJob, leaseNightsJob, roomBlockActivationJob } from '../../jobs/reservation-jobs';
-import { defineAuditEntity } from '../audit/public/audit-fields';
 import { ApprovalService } from '../approvals/public/approval.service';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { ParameterService } from '../platform/public/parameter.service';
@@ -30,42 +29,7 @@ import { StayNightAllocationService } from './public/stay-night-allocation';
 import { StayNightPricingPort } from './public/stay-night-pricing';
 import { ReservationStayPort } from './public/stay-port';
 import { ReservationReadPort } from './public/read-port';
-
-// Audit allowlists (SR-AUD-03): booking state/money facts only – no guest C2/C3 values.
-defineAuditEntity('reservation', [
-  'status',
-  'roomNo',
-  'arrivalDate',
-  'departureDate',
-  'channelCode',
-  'conflictState',
-  'externalContract',
-  'totalRoomVnd',
-  'depositRequiredVnd',
-  'extraPersonFeeVnd',
-  'nightlyRates',
-  'rateSource',
-  'monthlyRentVnd',
-  'adults',
-  'children6to11',
-  'childrenUnder6',
-  'reasonCode',
-  'depositPaidVnd',
-  'retainedVnd',
-  'refundableVnd',
-  'otaPenaltyVnd',
-  'costVnd',
-  // 0.3.7 bổ sung 4 (BR-416-06): `reservation.late_fee_instead_of_night` – the charge and both people.
-  'amountVnd',
-  'checkoutTime',
-  'date',
-  'confirmedBy',
-  'channel',
-  'authMethod',
-  'approverRole',
-  'focVnd',
-]);
-defineAuditEntity('room_block', ['status', 'startDate', 'endDatePlanned']);
+import './audit-entities';
 
 @Global()
 @Module({

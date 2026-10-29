@@ -13,7 +13,6 @@ import { type DynamicModule, Global, Inject, Module, type OnModuleInit } from '@
 import type { Tx } from '../../db/database';
 import { JobRegistry } from '../../jobs/job-runner';
 import { problem } from '../../shared/problem';
-import { defineAuditEntity } from '../audit/public/audit-fields';
 import { EventsService } from '../events/public/events.service';
 import { ParameterService } from '../platform/public/parameter.service';
 import { ParameterHooks } from '../platform/public/parameter-hooks';
@@ -25,14 +24,7 @@ import { WebsiteRequestsController } from './internal/website-requests.controlle
 import { WebsiteRequestsService } from './internal/website-requests.service';
 import { WEBSITE_REQUEST_PORT, WebsiteRequestPort } from './public/website-request.port';
 import { publicSiteWorkerJobs, websiteRequestNewSource } from './public/worker-jobs';
-
-// Audit allowlist: state and codes only – never C2 (SEC ARC-21 (3)).
-defineAuditEntity('website_booking_request', [
-  'status',
-  'reasonCode',
-  'verificationMethod',
-  'resultCount',
-]);
+import './audit-entities';
 
 export interface PublicSiteModuleOptions {
   env?: NodeJS.ProcessEnv;

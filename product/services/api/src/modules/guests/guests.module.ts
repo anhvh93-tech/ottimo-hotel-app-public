@@ -5,16 +5,12 @@
  */
 import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { JobRegistry } from '../../jobs/job-runner';
-import { defineAuditEntity } from '../audit/public/audit-fields';
 import { ParameterService } from '../platform/public/parameter.service';
 import { GuestsController } from './internal/guests.controller';
 import { GuestsService } from './internal/guests.service';
 import { DocumentProfileService } from './public/document-profile.service';
 import { documentProfileAnonymizeJob } from './public/worker-jobs';
-
-// Audit allowlists (SR-AUD-03): profile code, changed field NAMES and lookup counts only – no C2 values.
-// 0.3.7: `source` of a profile created from a document (never the name or the document).
-defineAuditEntity('guest', ['code', 'fields', 'by', 'matches', 'source']);
+import './audit-entities';
 
 @Global()
 @Module({

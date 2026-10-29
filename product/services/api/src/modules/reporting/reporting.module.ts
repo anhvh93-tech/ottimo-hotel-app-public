@@ -23,7 +23,7 @@ import { ReservationHooks } from '../reservations/public/reservation-hooks';
 import { REPORTING_ATTENTION_SOURCES } from './internal/attention-sources';
 import { DashboardController } from './internal/dashboard.controller';
 import { DashboardService } from './internal/dashboard.service';
-import { onNoShowTransition } from './internal/no-show-notices';
+import { wireNoShowNotices } from './internal/no-show-notices';
 import { holdReminderJob } from './public/hold-reminder-job';
 
 /** C5: every table the reporting module reads (SELECT only). Adding one needs ARC review. */
@@ -58,9 +58,8 @@ export class ReportingModule implements OnModuleInit {
 
   onModuleInit(): void {
     for (const source of REPORTING_ATTENTION_SOURCES) this.events.registerAttentionSource(source);
-    this.hooks.on('transitioned', (tx, e) =>
-      onNoShowTransition(tx, this.events, e, this.clock.now()),
-    );
+    // Same wiring as the worker (public/worker-hooks.ts).
+    wireNoShowNotices(this.hooks, this.events, this.clock);
     const j2 = holdReminderJob(this.events, this.params);
     if (!this.jobs.get(j2.key)) this.jobs.register(j2);
   }

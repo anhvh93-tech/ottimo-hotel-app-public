@@ -21,6 +21,7 @@ import { OccupancyService } from '../../reservations/public/occupancy.service';
 import { PricingService } from '../../reservations/public/pricing.service';
 import type { ReservationHooks } from '../../reservations/public/reservation-hooks';
 import { reservationStayPortForWorker } from '../../reservations/public/worker-jobs';
+import { wireCancelRevocation } from '../internal/cancel-revocation';
 import { CheckinService } from '../internal/checkin.service';
 import { provideCheckoutDebtPorts } from '../internal/checkout-debt-ports';
 import { CheckoutService } from '../internal/checkout.service';
@@ -32,6 +33,7 @@ import {
 } from '../internal/default-ports';
 import { StayService } from '../internal/stay.service';
 import { FrontdeskPorts, StaySupport } from '../internal/stay-support';
+import type { FrontdeskGuestAccessPort } from './ports';
 import { RoomStatusService } from './room-status.service';
 
 export function frontdeskWorkerHooks(deps: {
@@ -81,4 +83,17 @@ export function frontdeskWorkerHooks(deps: {
     new DocumentProfileService(deps.docNumbers, deps.audit),
   );
   provideCheckoutDebtPorts(deps.hooks, checkout);
+}
+
+/**
+ * B-13 (SEC G4) for the worker: J1 `hold.expire` cancels bookings there, so the cancel listener (guest links and
+ * sessions revoked, `reservation.changed`) is wired on the worker's shared ReservationHooks by the SAME function as
+ * FrontdeskModule. `guestAccess` = the guest portal's port (guest-portal/public/worker-hooks.ts).
+ */
+export function frontdeskCancelHooksForWorker(deps: {
+  hooks: ReservationHooks;
+  guestAccess: FrontdeskGuestAccessPort;
+  events: EventsService;
+}): void {
+  wireCancelRevocation(deps.hooks, deps.guestAccess, deps.events);
 }

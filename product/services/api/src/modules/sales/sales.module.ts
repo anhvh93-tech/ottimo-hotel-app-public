@@ -6,22 +6,12 @@
 import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { ApprovalService } from '../approvals/public/approval.service';
-import { defineAuditEntity } from '../audit/public/audit-fields';
 import { CommissionsService } from './internal/commissions.service';
 import { QuotePricingService } from './internal/quote-pricing';
 import { QuotesController } from './internal/quotes.controller';
 import { QuotesService } from './internal/quotes.service';
 import { LeadsService } from './public/leads.service';
-
-defineAuditEntity('quote', [
-  'status',
-  'totalVnd',
-  'depositVnd',
-  'nights',
-  'reservationCode',
-  'expiresAt',
-]);
-defineAuditEntity('lead', ['status', 'source', 'lostReasonCode']);
+import './audit-entities';
 
 @Global()
 @Module({
