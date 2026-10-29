@@ -9,10 +9,17 @@
 | Mức | Số lỗi | Open | Fixed | Closed |
 |---|---|---|---|---|
 | P0 | 3 | 0 | 0 | 3 |
-| P1 | 12 | 2 (BUG-R3-032, BUG-R3-037) | 0 | 10 |
+| P1 | 13 | 3 (BUG-R3-032, BUG-R3-037 mở lại, BUG-R3-038) | 0 | 10 |
 | P2 | 9 | 3 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn) | 0 | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
 | P3 | 13 | 12 (016; 024–031; 034; 035; 036) | 0 | 1 |
-| **Tổng** | **37** | **17** | **0** | **20** |
+| **Tổng** | **38** | **18** | **0** | **20** |
+
+Cập nhật 29/10 ~17:30 (rc.5 `1078b5b` trên staging, OPS kiểm 17:02–17:06, `rounds/round-03/outputs/OPS/j15-folio-close-check.md` mục 10):
+- **BUG-R3-037 (P1) – mở lại.** Bản sửa trong rc.5 **không đạt** trên staging. J15 đã đăng ký và chạy (20 job, có `folio.close`), nhưng mỗi nhịp lỗi `AuditEntityNotRegisteredError` ở cả 5 folio, rollback từng folio: **0/5 folio đóng**, 0 audit `folio.closed`.
+- Thêm **BUG-R3-038 (P1, BE-B)**: `payment.expire` `job failed` mỗi nhịp trong worker (có từ rc.4, không do rc.5 sinh ra). Payment `pending` quá hạn không chuyển `expired`. Cùng gốc với 037: allowlist audit chỉ được đăng ký khi nạp tệp `*.module.ts` của Nest, mà worker không nạp tệp nào.
+- **Production (rc.3) có nguy cơ cùng gốc** với mọi job worker có ghi audit (suy từ mã, không kiểm máy chủ).
+- Sửa chung đang giao **BE-B**, nhánh `fix/worker-audit-registry`. QA xác nhận lại trên **rc.6 staging**, đúng bảng 10.1 của OPS.
+- **Lỗ hổng quy trình:** test (b) của BUG-R3-037 xanh giả, vì registry allowlist là biến toàn cục trong tiến trình vitest (chi tiết ở mục BUG-R3-037). Bản sửa rc.6 chỉ được tính khi test chạy trong tiến trình chỉ nạp mã worker.
 
 Cập nhật 28/10 ~06:40 (OPS, `rounds/round-03/outputs/OPS/j15-folio-close-check.md`): thêm **BUG-R3-037 (P1 đề xuất, BE-B)** – J15 `folio.close` không được đăng ký trong worker nên không bao giờ chạy; production cùng mã. Đề xuất sửa trong rc.5 trước tag v1.0.0.
 
@@ -87,7 +94,8 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-034 | P3 | Đơn đã trả phòng, chi hoàn đủ mà mục "tiền dư đơn đã đóng" vẫn còn tới khi J15 đóng folio | BE-B | Open |
 | BUG-R3-035 | P3 | Phiếu ghi "Phụ thu trả muộn (00:15)" cho khoản phụ thu bằng 1 đêm | BE-B + UXD | Open |
 | BUG-R3-036 | P3 | Phí hủy / phí không đến ghi từ 00:00 đến 05:59 mang ngày lịch (`serviceDate` hôm sau), không theo ngày nghiệp vụ (Q-09) | BE-B | Open |
-| BUG-R3-037 | P1 | J15 `folio.close` không được đăng ký trong worker: folio quá cửa sổ 24 giờ không bao giờ đóng, công nợ sau trả phòng không được ghi | BE-B (+ ARC, OPS) | Open |
+| BUG-R3-037 | P1 | J15 `folio.close` không đóng được folio nào trong worker. rc.4: không đăng ký job. rc.5: đã đăng ký và chạy, nhưng lỗi `AuditEntityNotRegisteredError` ở mọi folio. Folio quá cửa sổ 24 giờ không đóng, công nợ sau trả phòng không được ghi | BE-B (+ ARC, OPS) | **Open – mở lại 29/10**: rc.5 không đạt trên staging (0/5 folio đóng). Sửa ở nhánh `fix/worker-audit-registry`, kiểm lại trên rc.6 |
+| BUG-R3-038 | P1 | `payment.expire` `job failed` mỗi nhịp trong worker (từ rc.4): allowlist audit `payment` không có trong tiến trình worker → payment `pending` quá `expires_at` không bao giờ thành `expired`. Cùng gốc BUG-R3-037; production rc.3 có nguy cơ | BE-B (+ ARC, OPS) | Open – sửa ở nhánh `fix/worker-audit-registry`, kiểm lại trên rc.6 |
 
 ## 3. Chi tiết
 
@@ -866,4 +874,80 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - Kiểm ca `closed` của BUG-R3-022 và BUG-R3-034.
 - **Bằng chứng:** `rounds/round-03/outputs/OPS/j15-folio-close-check.md` mục 3.
 - **Vai:** BE-B (+ ARC, OPS).
-- **Trạng thái:** Open – đề xuất sửa trong rc.5, trước tag v1.0.0.
+- **Trạng thái:** **Open – mở lại 29/10.** Bản sửa trong rc.5 không đạt trên staging (lịch sử và chi tiết ở dưới).
+
+#### Kiểm lại trên rc.5 staging 29/10 – KHÔNG ĐẠT
+
+- **Bản:** rc.5 = `1078b5b` (rc.4 + bản sửa BE-B `d810561`, ARC duyệt có điều kiện ở `reviews/ARC-on-BE-B-j15-fix.md`). Image api/web/worker `sha-1078b5b5574a`, deploy 17:00:55 qua CI run 40615225724.
+- **Người kiểm:** OPS, 17:02–17:06, chỉ đọc (log worker, SQL `BEGIN READ ONLY … ROLLBACK`). QA chưa tự kiểm trên staging. QA mở lại dựa trên bằng chứng DB của OPS, đúng thủ tục thẻ FB-R3-ARC-BEB-J15-02 (lấy DB làm bằng chứng, không chỉ dựa vào log).
+- **Phần đã hết:** `worker started` liệt kê 20 job, có `folio.close`. J15 chạy 2 nhịp (17:00:58, 17:01:58), mỗi nhịp log `job done`.
+- **Phần chưa đạt:**
+  - 10 dòng `ERROR [J15] folio <id>: AuditEntityNotRegisteredError` (5 folio × 2 nhịp).
+  - Mỗi folio rollback giao dịch riêng. Dữ liệu không sai, nhưng không đổi.
+  - OTM-00239/00294/00297 vẫn `settled`, `closed_at` trống, version không đổi so với 28/10.
+  - 0 audit `folio.closed`.
+  - Folio `settled` quá cửa sổ: **5** (thêm OTM-00357, OTM-00365), kỳ vọng 0.
+  - OTM-00297: công nợ 150.000 có từ B18, không có công nợ thứ hai (đạt).
+- **Lỗi im lặng:** job vẫn trả `done`, không có dòng `job failed`. Nếu chỉ lọc `job failed` thì sẽ báo đạt sai (đúng cảnh báo của thẻ 02).
+- **Nguyên nhân (OPS đọc mã, QA đối chiếu):**
+  - `pickAuditFields` (`modules/audit/public/audit-fields.ts`) ném `AuditEntityNotRegisteredError` khi loại thực thể chưa có allowlist.
+  - Allowlist được đăng ký bằng `defineAuditEntity(...)`, chạy khi nạp tệp module: `folio.module.ts` (`folio`, `folio_line`, `approval_request`…), `payments.module.ts` (`payment`, `deposit_notice`…). Tổng cộng 16 tệp `*.module.ts` có `defineAuditEntity`; chỉ 4 chỗ nằm ngoài tệp module (`guest-request-jobs.ts`, `mfa-store.ts`, `operator-reset.ts`, `password-reauth.ts`).
+  - `src/worker.ts` và `src/worker-jobs.ts` không import tệp `*.module.ts` nào. Trong tiến trình worker, loại `folio` không có allowlist → J15 ghi audit `folio.closed` là ném lỗi → rollback.
+- **Kiểm lại trên rc.6 staging (QA, cùng OPS):** đúng bảng 10.1 của OPS.
+  - Tick đầu đóng **5** folio, có 5 audit `folio.closed`.
+  - 0 dòng `ERROR [J15]`, 0 `job failed` trong 2 nhịp đầu.
+  - OTM-00297 không có công nợ thứ hai.
+  - Kiểm ca `closed` của BUG-R3-022 (Thêm phát sinh ẩn hoặc 409 đúng) và BUG-R3-034 (mục tiền dư tự hết).
+  - Kèm điều kiện của BUG-R3-038.
+
+#### Lỗ hổng quy trình: test (b) xanh giả
+
+- **Test:** `test/integration/s438-r8/r3-bug-037-worker-j15.test.ts` (test (b), điều kiện FB-R3-ARC-BEB-J15-01). Chạy J15 qua `JobRunner` và `buildWorkerJobs()` của worker trên Postgres thật, assert `stats.failed = 0`. Kết quả 4/4 xanh, trong khi trên staging J15 hỏng 5/5.
+- **Vì sao xanh giả:**
+  - Registry allowlist trong `audit-fields.ts` là một `Map` toàn cục của tiến trình.
+  - Tệp test import `../../helpers/feature-app` và `./fixture` (`startFixture`). Hai tệp này dựng app Nest, nên nạp đủ các tệp `*.module.ts` và điền registry trước khi J15 chạy.
+  - Vì vậy test không tái hiện được tiến trình worker thật, vốn chỉ nạp `worker.ts` / `worker-jobs.ts`.
+- **Hệ quả:** "đỏ trước khi sửa" chỉ chứng minh được phần đăng ký job. Không test nào ở mức tiến trình chứng minh worker chạy được job có ghi audit. Kiểm thử bản sửa dựa trên giả định sai: chung một tiến trình với Nest thì giống worker.
+- **Yêu cầu cho bản sửa rc.6 (QA chỉ tính đạt khi có):**
+  1. Test chạy J15 và `payment.expire` trong **tiến trình con chỉ nạp mã worker** (ví dụ spawn `node` với entry chỉ import `worker-jobs.ts`), hoặc trong vitest có `isolate` riêng và **không** import helper dựng Nest. Có bằng chứng test **đỏ trên rc.5** trước khi sửa.
+  2. Test "mọi `entity_type` mà job worker ghi audit đều có allowlist khi chỉ nạp worker", liệt kê từ registry job.
+  3. Kiểm sau deploy trên staging lấy **DB làm bằng chứng** (thẻ 02) và lọc thêm `ERROR [` lẫn `job failed` của mọi job, không chỉ của job đang sửa (đề xuất OPS 10.4 (3)).
+- **QA tự nhận:** ở mục 17.8 (28/10) QA chỉ kiểm triệu chứng J15. QA không yêu cầu đọc log `job failed` của các job khác, nên không bắt được BUG-R3-038 sớm hơn. Từ nay, mỗi lần kiểm trên staging, QA kèm bước đọc log worker trọn 2 nhịp, cho mọi job.
+
+### BUG-R3-038 – `payment.expire` lỗi mỗi nhịp trong worker: payment quá hạn không chuyển `expired`
+
+- **Mức:** P1 (OPS đề xuất, QA chốt).
+  - Không sai số tiền đã thu, không mất dữ liệu: job rollback, payment giữ `pending`.
+  - Nhưng một job tiền chạy theo lịch hỏng hoàn toàn và im lặng với người dùng:
+    - mã VietQR `pending` không tự hết hạn;
+    - đơn giữ chỗ chờ cọc có thể không được nhả đúng lúc, nếu luồng nhả phụ thuộc trạng thái payment (chưa kiểm).
+  - Không hạ xuống P2, vì cùng gốc với BUG-R3-037 (P1) và chạm luồng tiền.
+  - Chưa nâng lên P0, vì chưa có bằng chứng sai tiền hay đặt trùng. Nếu kiểm ra khách trả được vào mã đã quá hạn, hoặc căn bị giữ sai làm mất bán / đặt trùng, QA nâng lên P0.
+- **Môi trường:** staging rc.5 (`1078b5b`), OPS kiểm 29/10 17:02–17:06. Có từ rc.4 (`d12cda6`): `worker.ts` ở rc.4 cũng không import `payments.module.ts`.
+- **Các bước:**
+  1. Tạo một payment VietQR `pending` có `expires_at` (ví dụ cọc của đơn trực tiếp).
+  2. Chờ quá `expires_at` ít nhất một nhịp worker (60 giây).
+  3. Xem trạng thái payment, audit hết hạn và log worker.
+- **Thực tế:**
+  - Log worker mỗi nhịp: `{"level":"error","msg":"job failed","job":"payment.expire","err":"audit before/after for entity type payment without an allowlist – call defineAuditEntity()"}`.
+  - DB staging: **2 payment `pending` đã quá `expires_at`**, cũ nhất từ 27/10 06:00, chưa bao giờ thành `expired`.
+  - Audit hết hạn payment: 0 bản ghi từ trước tới nay.
+- **Mong đợi:** mỗi nhịp, `payment.expire` chuyển payment `pending` quá `expires_at` sang `expired`, ghi audit, chạy các bước nối sau hết hạn (nếu có). Log worker không có `job failed`.
+- **Nguyên nhân:** cùng gốc BUG-R3-037 (mục "Kiểm lại trên rc.5" ở trên). Allowlist `payment` chỉ được đăng ký trong `payments.module.ts`; worker không nạp tệp này.
+- **Vì sao chưa thấy trước đây:** lỗi chỉ lộ khi có payment cần hết hạn. Báo cáo OPS 28/10 mục 3.2 chỉ đếm dòng tick, không lọc `job failed` của job khác (OPS đã ghi nhận ở 10.3). QA ở mục 17.8 cũng không đọc log worker.
+- **Nguy cơ trên production (rc.3):**
+  - Suy từ mã, **không kiểm máy chủ**. `worker.ts` của rc.3 cũng không nạp tệp module nào.
+  - Mọi job worker ghi audit cho loại thực thể chỉ đăng ký trong `*.module.ts` đều có nguy cơ hỏng cùng kiểu: `payment.expire` chắc chắn; J15 chưa đăng ký ở rc.3; các job khác chưa rà.
+  - Đề nghị OPS, khi ORC giao, đọc log worker production (chỉ đọc) tìm `job failed` / `ERROR [`. Đề nghị BE-B lập danh sách job worker có ghi audit.
+- **Đề xuất sửa (BE-B, nhánh `fix/worker-audit-registry`):**
+  - Tách các `defineAuditEntity(...)` của từng module ra tệp không phụ thuộc Nest (ví dụ `audit-entities.ts`). Import tệp đó từ cả `*.module.ts` lẫn mã worker, hoặc cho `worker.ts` import một tệp gom mọi allowlist.
+  - Test theo 3 yêu cầu ở mục "Lỗ hổng quy trình" của BUG-R3-037.
+  - ARC: thẻ FB-R3-ARC-BEB-J15-05 (worker dựng bằng `NestFactory.createApplicationContext`) chặn tận gốc; cân nhắc kéo sớm nếu bản sửa phình to.
+- **Kiểm lại (QA, rc.6 staging):**
+  - 2 payment `pending` quá hạn thành `expired`, có audit hết hạn.
+  - Log worker 2 nhịp đầu: 0 `job failed`, 0 `ERROR [` cho mọi job.
+  - Tạo một payment `pending` mới với hạn ngắn, chờ qua hạn, xác nhận chuyển `expired`.
+  - Xem đơn giữ chỗ liên quan có được nhả / giữ đúng quy tắc không.
+- **Bằng chứng:** `rounds/round-03/outputs/OPS/j15-folio-close-check.md` mục 10.3.
+- **Vai:** BE-B (+ ARC thẻ 05, OPS kiểm sau deploy).
+- **Trạng thái:** Open – đang sửa ở nhánh `fix/worker-audit-registry`, xác nhận lại trên rc.6 staging. Theo DoD (không còn P1 mở), QA đề nghị giữ tag v1.0.0 tới khi cả BUG-R3-037 và 038 đạt trên rc.6; QC quyết.

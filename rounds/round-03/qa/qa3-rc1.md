@@ -646,6 +646,7 @@ Staging chưa có Wi-Fi của cơ sở (`wifi` = `null` trong phản hồi trang
 - Theo `folio-close-job.ts`, J15 chạy mỗi nhịp worker và đóng mọi folio `settled` có `post_checkout_window_until` ≤ giờ hiện tại. OTM-00239 không có tiền dư, không yêu cầu hoàn mở, còn 0 – đáng lẽ đã `closed`.
 - Hệ quả nếu production cũng vậy: nút **Thêm phát sinh** hiện mãi trên đơn cũ, lễ tân bấm sẽ gặp 409; khoản còn nợ sau cửa sổ không thành công nợ (BR-427 d); mục "tiền dư đơn đã đóng" của BUG-R3-034 không tự hết.
 - QA không xem được log worker. **Đề nghị OPS xem log `J15` / `folio.close` trên staging và production hôm nay**, BE-B xem cột `post_checkout_window_until` của hai folio trên. Chưa ghi lỗi vì chưa rõ nguyên nhân (job không chạy, hay dữ liệu cửa sổ rỗng).
+- **Theo dõi 29/10:** nguyên nhân đã rõ. rc.4: J15 không đăng ký trong worker → **BUG-R3-037 (P1)**. rc.5 (`1078b5b`, OPS kiểm 29/10): J15 chạy nhưng `AuditEntityNotRegisteredError`, 0/5 folio đóng → 037 **mở lại**. Thêm **BUG-R3-038 (P1)**: `payment.expire` `job failed` mỗi nhịp, cùng gốc. Lượt này QA không đọc log worker của các job khác nên bỏ sót 038; từ nay mỗi lần kiểm staging có bước đọc log worker trọn 2 nhịp, cho mọi job. Chi tiết, lỗ hổng test (b) và điều kiện kiểm lại trên rc.6: `bug-list.md` mục BUG-R3-037, BUG-R3-038; `outputs/OPS/j15-folio-close-check.md` mục 10.
 
 ### 17.9 Ảnh sổ tay
 

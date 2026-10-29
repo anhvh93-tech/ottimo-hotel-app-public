@@ -117,3 +117,54 @@ Không khuyến nghị. Nếu ORC/QC chọn phát hành rc.4 làm v1.0.0:
 - Production đang chạy image rc.3 như `v1-production.md` ghi; không kiểm trên máy chủ (theo lệnh).
 - Mức P1 là đề xuất của OPS; QA/QC chốt.
 - Lệnh SSH dùng host đã có sẵn trong `known_hosts` (kiểm khóa máy chủ nghiêm ngặt). `~/.ssh/config` không có mục cho staging. Không ghi IP vào repo.
+
+## 10. rc.5 trên staging 29/10
+
+- Người kiểm: OPS | Round 3 – bước **Kiểm thử** | 29/10/2026 17:02–17:06 giờ VN, ngay sau CI run 40615225724 deploy staging.
+- Bản kiểm: rc.5 = `1078b5b` (rc.4 + BUG-R3-037). Điều kiện kiểm theo `reviews/ARC-on-BE-B-j15-fix.md` thẻ FB-R3-ARC-BEB-J15-02.
+- Cách làm như mục 3: SSH `ottimo-admin`, khóa `~/.ssh/ottimo_ops`, `StrictHostKeyChecking=yes`; `dc ps`, `dc logs worker`, `docker inspect`; SQL trong `BEGIN READ ONLY … ROLLBACK`. Không ghi DB, không restart, không deploy, không chạy job tay. **Không đụng `/opt/ottimo-prod`.** Không in env, bí mật, IP hay dữ liệu khách.
+
+### 10.1 Kết luận: **CHƯA ĐẠT**
+
+J15 nay **đã đăng ký và chạy** trong worker (BUG-R3-037 phần "không đăng ký" đã hết), nhưng **không đóng được folio nào**. Mỗi nhịp, J15 lỗi ở cả 5 folio với `AuditEntityNotRegisteredError`, mỗi folio rollback giao dịch riêng, nên dữ liệu không sai nhưng cũng không đổi. Đúng kiểu lỗi im lặng ARC cảnh báo ở thẻ 02: job vẫn log `job done`, không có `job failed`.
+
+| Hạng mục | Kết quả | Đạt? |
+|---|---|---|
+| Image api/worker | api, web, worker cùng `ottimo-api`/`ottimo-web:sha-1078b5b5574a` (khớp `1078b5b5574a…`), tạo 17:00:55 | Đạt |
+| Sức khỏe | api, web `healthy`; worker `running`, `RestartCount=0` (worker không có healthcheck theo thiết kế compose) | Đạt |
+| `worker started` | 20 job, **có `folio.close`** (rc.4: 19 job) | Đạt |
+| J15 chạy | 2 nhịp (17:00:58, 17:01:58), mỗi nhịp `{"msg":"job done","job":"folio.close"}` | Đạt |
+| Không có `ERROR [J15]` | **10 dòng** `ERROR [J15] folio <id>: AuditEntityNotRegisteredError` (5 folio × 2 nhịp) | **Chưa** |
+| 3 folio thành `closed` | OTM-00239/00294/00297 vẫn `settled`, `closed_at` trống, version 11/9/7 (không đổi so với 28/10) | **Chưa** |
+| 3 audit `folio.closed` | 0 | **Chưa** |
+| OTM-00297 công nợ | Đã có từ B18: mở 27/10 06:01:51, ghi 150.000, hạn 30/10, chưa tất toán. Không có công nợ thứ hai | Đạt |
+| Folio `settled` quá cửa sổ | **5** (kỳ vọng 0): 3 đơn trên + OTM-00357 (hết cửa sổ 29/10 00:15) + OTM-00365 (29/10 06:03) | **Chưa** |
+
+### 10.2 Nguyên nhân (đọc mã, chỉ đọc)
+
+- `pickAuditFields` (`modules/audit/public/audit-fields.ts` dòng 41–47) ném `AuditEntityNotRegisteredError` khi loại thực thể chưa có allowlist.
+- Allowlist được đăng ký bằng lệnh `defineAuditEntity(...)` chạy **khi nạp tệp module**: `folio.module.ts` dòng 33–91 (`folio`, `folio_line`, `approval_request`, `reservation` phần tiền…), `payments.module.ts` dòng 29–50 (`payment`, `deposit_notice`, `approval_request`).
+- Worker không dựng Nest và **không import** `folio.module.ts` hay `payments.module.ts` (`worker.ts`, `worker-jobs.ts`, `folio/public/worker-jobs.ts`, `payments/public/worker-hooks.ts` chỉ import service). Nên trong tiến trình worker, loại `folio` (và `payment`) không có allowlist → J15 ghi audit `folio.closed` là ném lỗi → rollback.
+- Test (b) của BE-B xanh vì registry allowlist là biến toàn cục của tiến trình test: tiến trình vitest có nạp các tệp module (qua app Nest/fixture), nên che mất lỗi. Đây là cùng gốc với thẻ FB-R3-ARC-BEB-J15-05 (worker dựng tay, lệch với container Nest).
+
+### 10.3 Phát hiện thêm: `payment.expire` cũng lỗi cùng gốc (có từ trước rc.5)
+
+- Log worker rc.5: mỗi nhịp `{"level":"error","msg":"job failed","job":"payment.expire","err":"audit before/after for entity type payment without an allowlist – call defineAuditEntity()"}`.
+- DB staging: **2 payment `pending` đã quá `expires_at`** (cũ nhất từ 27/10 06:00) chưa bao giờ thành `expired`; audit hết hạn payment = 0 bản ghi từ trước tới nay.
+- `worker.ts` ở rc.4 (`d12cda6`) cũng không import `payments.module.ts`, nên lỗi này **không do rc.5 sinh ra**; nó chỉ lộ khi có payment cần hết hạn. Báo cáo 28/10 mục 3.2 ghi `payment.expire` "chạy đều" là đúng về lịch, nhưng không thấy lỗi vì lúc đó OPS chỉ đếm dòng tick, không lọc `job failed` của job khác. OPS ghi nhận thiếu sót này.
+- Tác động production (suy từ mã, không kiểm): mã VietQR `pending` không tự hết hạn; đơn giữ chỗ chờ cọc có thể không được nhả đúng lúc nếu luồng nhả phụ thuộc trạng thái payment. Đề xuất QA ghi lỗi mới (đề xuất **P1**, cùng gốc BUG-R3-037) và BE kiểm các job worker khác có ghi audit loại thực thể chỉ đăng ký trong tệp `*.module.ts`.
+
+### 10.4 Đề xuất (OPS không tự sửa mã)
+
+1. **BE-B:** cho worker nạp allowlist audit. Cách gọn nhất: tách các `defineAuditEntity(...)` của từng module ra tệp `audit-entities.ts` (không phụ thuộc Nest) và import tệp đó từ cả `*.module.ts` lẫn `worker-jobs.ts`/`worker-hooks.ts`; hoặc `worker.ts` import một tệp gom tất cả allowlist.
+   - Test bắt buộc: chạy J15 và `payment.expire` trong **tiến trình con chỉ nạp `worker-jobs.ts`** (hoặc reset registry allowlist trước test), kiểm folio thành `closed` và có `folio.closed`; thêm test "mọi `entity_type` mà job worker ghi audit đều có allowlist khi chỉ nạp worker".
+2. **ARC:** thẻ 05 (worker khởi động bằng `NestFactory.createApplicationContext`) chặn tận gốc cả hai lỗi; nên cân nhắc kéo sớm nếu sửa ở bước 1 phình to.
+3. **OPS (khi ORC giao):** kiểm sau deploy bổ sung: (a) `worker started` có đủ job bắt buộc; (b) 2 nhịp đầu không có `ERROR [` hay `job failed` trong log worker; báo đỏ nếu có.
+4. **Sau bản sửa (rc.6), kiểm lại đúng bảng 10.1.** Kỳ vọng tick đầu đóng 5 folio (không chỉ 3), có 5 audit `folio.closed`, OTM-00297 không có công nợ thứ hai; 2 payment `pending` quá hạn thành `expired`.
+
+### 10.5 Giả định
+
+- Thời gian deploy lấy theo `CreatedAt` container (17:00:55) và `StartedAt` worker (10:00:56Z); log worker đọc 30 phút gần nhất (39 dòng, bao trọn từ lúc khởi động).
+- Worker không có healthcheck trong `docker-compose.prod.yml`; "healthy" của worker hiểu là `running`, không restart, có dòng `worker started`.
+- Trạng thái công nợ đọc từ các cột `reservation.debt_*`; không đọc lý do ghi nợ hay dữ liệu khách ra báo cáo ngoài trạng thái/số tiền.
+- Mức P1 cho lỗi `payment.expire` là đề xuất của OPS; QA/QC chốt.
