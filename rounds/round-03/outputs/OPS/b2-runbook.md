@@ -346,3 +346,17 @@ Nguyên tắc: **phần 1–3 phải xong trong ngày 28/10** (tài khoản nh�
 - Outbox `staff.email`: **1** dòng `receiving_account_changed|dead|NO_RECIPIENT`, không dòng nào khác – đúng dự kiến (BUG-R3-032), không tính là lỗi mới.
 - Giá niêm yết: **10/10 căn** có giá đang hiệu lực (cùng `effective_from` 2026-10-29), **0** căn có giá lên lịch sau hôm nay; cả 10 dòng do người dùng nhập (không dòng nào thiếu `changed_by`) – Đạt.
 - **Kết luận Phần 3 (phần OPS): Đạt.** Còn chờ DOM đọc lại bảng tham số với INV (khớp A3/A4) – chưa thuộc lượt kiểm này.
+
+**Phần 4 – OPS kiểm sau khi INV tạo tài khoản nhân viên (mục 2.4), 10:32 giờ VN 29/10.** Chỉ đọc, truy vấn vai của 2.1 + đếm tổng `app_user` và người không có vai, trong `BEGIN READ ONLY … ROLLBACK`, cùng lệnh như Phần 1. Chỉ in vai và số đếm.
+- Vai đang hiệu lực: `owner|1|1|0`; `manager|1|0|1`; `front_desk|1|0|1`, `front_desk_lead|1|0|1`, `housekeeping|1|0|1`, `maintenance|1|0|1`, `sales_staff|1|0|1`. Tổng `app_user` **2**, người không có vai **0** → cả 6 vai ngoài chủ nằm trên **cùng 1 tài khoản**, chưa đăng nhập.
+- **Kết luận Phần 4: Đạt** theo 2.4 (chủ giữ nguyên; các vai khác `temp_pw` = số người). G2-7 phần MGR **chưa xong**: quản lý chưa đổi mật khẩu/đăng ký 2 bước (nhánh 2.4 bước 4 – kiểm lại trước D). Cần INV xác nhận 1 tài khoản giữ 6 vai (gồm cả `manager`) là đúng A2, không phải thiếu tài khoản nhân viên.
+
+**Phần 5 – OPS (agent) 3 bước của mục 2.5, 10:32–10:34 giờ VN 29/10.** Từ Mac INV, SSH `ottimo-admin` (khóa `ottimo_ops`, `StrictHostKeyChecking=yes`). Không ghi DB, không restart, không deploy. Không đọc, in hay dùng khóa giải mã `~/.ottimo/backup/ottimo-prod-backup-identity.txt`. Không ghi IP, tên máy hay bí mật.
+
+| # | Việc | Kết quả | Đạt? |
+|---|---|---|---|
+| 1 | `sudo systemctl start ottimo-backup@ottimo-prod.service` (10:32:57–10:33:00) | Nhật ký: `OK: 24 encrypted files in /var/backups/ottimo-prod`; `Result=success`, thoát 0. Bản mới **`20261029T033257Z`**: `db-20261029T033257Z.dump.age` (705.787 byte), `counts-…`, `blobs-…`, `purge-journal-…` + 4 tệp `.sha256` | Đạt |
+| 2 | Kéo về Mac, lệnh `v1-production.md` 19.2 (container `alpine:3.20`, khóa `ottimo_backup_pull`) | `pull-backups: 24 encrypted files in /out`, thoát 0, không có `checksum mismatch`. `~/.ottimo/backups/ottimo-prod` có đủ 4 tệp `.age` + 4 `.sha256` mã giờ `20261029T033257Z`; kiểm lại `shasum -a 256 -c` trên Mac: OK cả 4; thư mục 0700, tệp 0600; `.last_pull` 2026-10-29T03:33:19Z | Đạt |
+| 3 | Thư thử 8b tới `info@ottimo.vn` (lệnh 2.6), 10:33:33–10:33:40 | Script in **`mail-test: sent`**. Chờ INV mở hộp thư `info@ottimo.vn` (xem cả Spam) – G4-9 đạt khi **có thư** | Đạt (phần OPS) |
+
+**Cho bước 10:13 của INV:** `Bản sao lưu:` trong biên bản diễn tập phải là `20261029T033257Z` (bản mới nhất trong `~/.ottimo/backups/ottimo-prod`). Tên tệp biên bản trong lệnh 2.5 ghi `restore-prod-20261028.txt` vì runbook viết cho 28/10; chạy 29/10 vẫn dùng được, chỉ là tên tệp.
