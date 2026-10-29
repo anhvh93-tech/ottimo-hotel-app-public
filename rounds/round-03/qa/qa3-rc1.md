@@ -668,3 +668,44 @@ Staging chưa có Wi-Fi của cơ sở (`wifi` = `null` trong phản hồi trang
 | Khách | – | 4 hồ sơ khách giả (2 tạo nhanh trên Desk, 2 của harness) | Còn (không có thao tác xóa hồ sơ) |
 | Tham số, giá căn | – | Không đổi | Không đổi |
 | Đơn khác (OTM-00239, 294, 357) | – | Chỉ đọc; OTM-00239 một lần thêm dòng bị 409, không ghi | Không đổi |
+
+## 18. B2 Phần 6 – smoke production 29/10
+
+- Người chạy: QA | 29/10/2026 16:58–17:00 (+07), Round 3 – bước **Kiểm thử**, B2 phần 6, G5-5. Từ Mac ngoài máy chủ (đường Internet của người dùng thật).
+- Bản trên production: image `sha-70fe734e9077` (= `v1.0.0-rc.3`, theo biên bản OPS `b2-runbook.md` mục kiểm trước buổi). `smoke-prod/readonly.prod.spec.ts`, `playwright.config.ts`, `support/env.ts`, `global-setup.ts`, `infra/caddy/` không đổi giữa `70fe734` và HEAD, nên chạy thẳng từ repo.
+- **Không đăng nhập, chỉ đọc.** Chỉ GET/HEAD và bắt tay TLS. Không đặt `E2E_SMOKE_USER` nên PS-06 tự bỏ qua. Không tạo tài khoản, không gửi form, không đặt phòng, không quét VietQR, không thử tải.
+- Lệnh: đúng lệnh ở `product/tests/README.md` (project `smoke-prod`, `--no-deps`), thêm `--output` ra scratchpad để không sinh `test-results/` trong repo. Kiểm bổ sung bằng `curl`/`openssl` cho các ý runbook 2.3 và G5-5 mà spec chưa phủ (`http` → `https`, `/v1/*` lạ, chứng chỉ, TLS cũ).
+- Nhật ký thô ngoài repo: scratchpad phiên `b2-smoke/smoke.log`, `b2-smoke/curl.log`. Không ghi IP máy chủ, không có bí mật.
+
+### 18.1 Kết luận: **ĐẠT** phần không đăng nhập của G5-5 – không lỗi mới
+
+| # | Ca | Kết quả |
+|---|---|---|
+| PS-01 desk | `https://desk.ottimo.vn/` 200 `text/html`; CSP, HSTS, Referrer-Policy `same-origin`, nosniff, X-Frame-Options DENY, Permissions-Policy, COOP, Cache-Control `no-cache` đúng từng giá trị `expected-headers.sh`; `Server` không lộ phiên bản | **Đạt** |
+| PS-01 staff | `https://staff.ottimo.vn/` 200, header như trên, `worker-src 'self'` | **Đạt** |
+| PS-01 guest | `https://g.ottimo.vn/` 200, header như trên, Referrer-Policy `no-referrer`, Cache-Control `no-store` | **Đạt** |
+| PS-02 | `/health` và `/__test__/clock` từ Internet → 404 (desk; kiểm thêm bằng curl trên staff, g: cũng 404) | **Đạt** |
+| PS-03 | `/v1/me`, `/v1/users` không phiên → 401, thân không có `username/phone/email` (staff, g: `/v1/me` cũng 401 `problem+json`) | **Đạt** |
+| PS-04 | Desk hiện màn đăng nhập OTTIMO (nút Đăng nhập), tải trang không có request ghi, không lỗi JS | **Đạt** |
+| PS-05 | PWA nhân viên và trang khách mở trong Chromium, thân trang có nội dung, không lỗi JS | **Đạt** |
+| PS-06 | Đăng nhập tài khoản smoke | **Bỏ qua (cố ý)** – phần đăng nhập do INV tự làm trong buổi (Desk hiện 10 căn), ORC ghi |
+| C-1 | `http://` → `https://` cho desk, staff, g, `ottimo.vn`: 308 về đúng host `https` | **Đạt** |
+| C-2 | `/v1/<đường lạ>` (`/v1/does-not-exist`, `/v1/`, `/v1/properties`) trên desk, staff, g → 404 `application/problem+json`, thân chỉ có `type/title/status/code/requestId`, không stack | **Đạt** |
+| C-3 | Chứng chỉ: 4 host Let's Encrypt, CN đúng host, xác minh chuỗi OK, TLS 1.3, HTTP/2; hết hạn 22/01/2027 (`ottimo.vn`) và 24/01/2027 (desk, staff, g) | **Đạt** |
+| C-4 | TLS 1.0 và 1.1 bị từ chối (alert `protocol version`) trên cả 4 host | **Đạt** |
+| C-5 | `/.env`, `/.git/config` → 404; GET ẩn danh 3 trang không đặt cookie | **Đạt** |
+| C-6 | Landing `https://ottimo.vn/` 200, có HSTS, CSP, X-Frame-Options DENY – không bị ảnh hưởng bởi B2 | **Đạt** |
+
+Tổng: spec `smoke-prod` **7 đạt, 1 bỏ qua (PS-06), 0 lỗi** (903 ms); kiểm bổ sung C-1…C-6 **đạt hết**.
+
+### 18.2 Ghi nhận (không phải lỗi)
+
+- `/v1` (không dấu `/`), `/api`, `/metrics` trên desk trả 200 `text/html`: đây là trang `index.html` của SPA (cùng băm với `/`), không phải API hay số liệu thật. Đúng cấu hình SPA fallback của Caddy, không lộ gì. SEC xem thêm trong SEC-G1/G2 nếu muốn trả 404 cho `/metrics`.
+- CSP của landing khác CSP ba SPA (có `frame-src 'none'`, `upgrade-insecure-requests`, không có `blob:`): landing có chính sách riêng, nằm ngoài `expected-headers.sh`. Không đổi kết luận.
+- Chứng chỉ do Caddy tự gia hạn; hạn gần nhất 22/01/2027. Giám sát hạn chứng chỉ thuộc G4-10 (OPS), không thuộc smoke.
+
+### 18.3 Chưa kiểm / phần của người khác
+
+- Phần cần đăng nhập (G5-5 ý "đăng nhập", Desk hiện **10 căn**, cờ 2 bước khi đăng nhập lại): INV làm trong buổi, ORC ghi vào biên bản B2.
+- Header/TLS sâu, giới hạn kết nối ở edge, cổng mở: SEC-G1/G2 (G7-5), không lặp ở đây.
+- Không kiểm luồng ghi nào trên production (đặt phòng, thanh toán, VietQR, gửi form) theo ràng buộc của buổi.

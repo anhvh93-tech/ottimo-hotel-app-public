@@ -360,3 +360,17 @@ Nguyên tắc: **phần 1–3 phải xong trong ngày 28/10** (tài khoản nh�
 | 3 | Thư thử 8b tới `info@ottimo.vn` (lệnh 2.6), 10:33:33–10:33:40 | Script in **`mail-test: sent`**. Chờ INV mở hộp thư `info@ottimo.vn` (xem cả Spam) – G4-9 đạt khi **có thư** | Đạt (phần OPS) |
 
 **Cho bước 10:13 của INV:** `Bản sao lưu:` trong biên bản diễn tập phải là `20261029T033257Z` (bản mới nhất trong `~/.ottimo/backups/ottimo-prod`). Tên tệp biên bản trong lệnh 2.5 ghi `restore-prod-20261028.txt` vì runbook viết cho 28/10; chạy 29/10 vẫn dùng được, chỉ là tên tệp.
+
+**Phần 6 – OPS kiểm lại 2 bước của quản lý (mục 2.4 bước 4), 16:58 giờ VN 29/10.** Chỉ đọc, cùng truy vấn vai của Phần 4, trong `BEGIN READ ONLY … ROLLBACK`, cùng lệnh như Phần 1 (SSH `ottimo-admin`, khóa `ottimo_ops`, `StrictHostKeyChecking=yes`). Chỉ in vai và số đếm (cột: vai|số người|2 bước bật|mật khẩu tạm). Kết quả: `owner|1|1|0`; `manager|1|0|1`; `front_desk`, `front_desk_lead`, `housekeeping`, `maintenance`, `sales_staff` đều `|1|0|1`. Tổng `app_user` **2**, người không có vai **0** – không đổi so với Phần 4. **Kết luận Phần 6: chủ Đạt; quản lý Chưa đạt** – tài khoản giữ 6 vai vẫn chưa đăng nhập lần đầu (còn mật khẩu tạm, chưa bật 2 bước). G2-7 phần MGR vẫn mở, kiểm lại bằng cùng truy vấn sau khi người dùng tài khoản này đăng nhập, đổi mật khẩu và đăng ký 2 bước (trước D).
+
+**Phần 6 – INV và QA, 29/10 (ORC ghi).**
+- Khóa sao lưu (sau Phần 5): INV tạo mục "OTTIMO – khóa sao lưu production" trong ứng dụng Passwords trên Mac. Lần kiểm đầu ra `KHAC` vì mục này **chưa từng được tạo** (A8 chưa làm trước buổi). Lệnh kiểm `pbpaste` bị lệnh vừa chép đè lên clipboard, nên ORC đổi sang lệnh `read -rs` (dán khóa ở dấu nhắc, không qua clipboard). Kiểm lại: **`KHOP`**. Bản giấy A8 đã niêm phong riêng, không chung phong bì với KEK, cất két (INV xác nhận). `ottimo-prod-backup-identity.txt` **đã xóa khỏi Mac**. `~/.ottimo/backup` còn `ottimo-prod-backup-recipient.txt` và cặp khóa staging. – G4-6 **Đạt**.
+- Thư thử 8b: INV xác nhận "có thư" trong hộp thư chính `info@ottimo.vn`, không vào Spam. – G4-9 **Đạt**.
+- Đăng nhập lại: INV đăng xuất Desk, đăng nhập lại bằng mật khẩu mới, Desk đòi mã 6 số, vào được, Desk hiện **10 căn**. – G2-7 phần chủ **Đạt**.
+- QA smoke production không đăng nhập, 16:58–17:00: **Đạt**, không có lỗi mới (`rounds/round-03/qa/qa3-rc1.md` mục 18). – G5-5 **Đạt** (phần QA).
+- Còn mở:
+  - G2-7 phần MGR: tài khoản giữ 6 vai phải đăng nhập, đổi mật khẩu, đăng ký 2 bước trước D (02/11), rồi OPS chạy lại truy vấn vai.
+  - G7-5 (SEC-G1/G2 trên production): đã giao SEC sau buổi.
+  - C1 (kiểm VietQR) từ 30/10.
+
+**Chốt B2 (29/10, ORC):** phần 1, 2, 3, 5, 6 Đạt; phần 4 Đạt theo 2.4, riêng MGR còn mở như trên. B2 kết thúc.
