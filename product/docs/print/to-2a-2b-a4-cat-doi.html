@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light">
+<title>Tờ 2a + 2b – in chung A4, cắt đôi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600&amp;family=JetBrains+Mono:wght@400&amp;family=Lora:wght@500&amp;display=swap">
+<style>@page{size:A4 landscape;margin:0}
+:root{--ivory:#F4F0E8;--cream:#EDE6D8;--stone:#6B6760;--ink:#2B2B28;--oak:#B08D57;--earth:#7A5C44;--paper:#FFFFFF;
+  --sans:'Be Vietnam Pro',Arial,Helvetica,sans-serif;--serif:'Lora',Georgia,'Times New Roman',serif;
+  --mono:'JetBrains Mono','Courier New',monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact;-webkit-text-size-adjust:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-weight:400;
+  font-kerning:normal;text-rendering:optimizeLegibility;hyphens:manual}
+.page{width:var(--pw);height:var(--ph);display:flex;overflow:hidden;position:relative;background:var(--paper)}
+.sheet{flex:0 0 auto;width:var(--sw);height:var(--sh);position:relative;overflow:hidden}
+.sheet.a4{--sw:210mm;--sh:297mm}
+.sheet.a5{--sw:148mm;--sh:210mm}
+.page.two .sheet.a5{--sw:148.5mm}
+.page.two::after{content:"";position:absolute;left:148.5mm;top:0;bottom:0;border-left:0.3pt dashed var(--stone)}
+.inner{position:absolute;inset:0;display:flex;flex-direction:column}
+.nb{white-space:nowrap}
+strong{font-weight:600}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.92em;font-weight:400;letter-spacing:0}
+
+/* ---- tờ nhân viên (1, 2a, 2b, 3) ---- */
+.staff{font-size:var(--fs);line-height:var(--lh,1.42)}
+.staff.a4 .inner{padding:var(--pad,11mm 12mm 8mm)}
+.dense{--lh:1.3;--pad:7mm 6mm 5mm}
+.dense .flow h3{font-size:1.22em}
+.dense .flow p{margin-bottom:.8mm}.dense .flow li{margin-bottom:.3mm}.dense .flow h3{margin:2mm 0 1mm}
+.dense .sfoot{margin-top:1.2mm;padding-top:1mm}
+.dense .flow th,.dense .flow td{padding:.35mm .8mm}.dense.c2 .flow{column-gap:5.5mm}
+.dense .shead{padding-bottom:1.8mm;margin-bottom:2mm}
+.staff.a4.dense .shead h2{font-size:15pt}.dense .intro{margin-top:1.4mm}
+.staff.a5 .inner{padding:var(--pad,11mm 11mm 8mm)}
+.snug{--lh:1.3}
+.staff.frame .inner{inset:6mm;border:0.8pt solid var(--oak);padding:3.5mm 4mm 1.5mm}
+.eyebrow{font-family:var(--sans);font-size:8pt;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--stone);line-height:1.2}
+.shead h2{font-family:var(--serif);font-weight:500;color:var(--ink);letter-spacing:.02em;line-height:1.15;
+  margin-top:0}
+.staff.a4 .shead h2{font-size:17pt}
+.staff.a5 .shead h2{font-size:calc(var(--fs) * 1.25)}
+.hrow{display:flex;justify-content:space-between;align-items:baseline;gap:5mm}
+.shead h2{text-wrap:balance}
+.hrow .eyebrow,.hrow .side{flex:0 0 auto;text-align:right}
+.shead h2 .paren{font-size:.72em;color:var(--stone)}
+.intro{margin-top:2mm}
+.intro p+p{margin-top:1.2mm}
+.shead{padding-bottom:2.4mm;margin-bottom:2.6mm;border-bottom:0.6pt solid var(--oak)}
+.fit{flex:1 1 auto;min-height:0;overflow:hidden}
+.c2 .flow{column-count:2;column-gap:7mm;column-fill:balance}
+.flow h3{font-family:var(--serif);font-weight:500;font-size:1.3em;line-height:1.2;color:var(--ink);
+  padding-bottom:.6mm;border-bottom:0.4pt solid var(--oak);margin:2.6mm 0 1.4mm;break-after:avoid}
+.flow h3:first-child{margin-top:0}
+.flow p{margin:0 0 1.15mm}
+.flow ul,.flow ol{margin:0 0 1.2mm;padding-left:1.15em}
+.flow ul{list-style:none}
+.flow ul>li{position:relative}
+.flow ul>li::before{content:"";position:absolute;left:-.85em;top:.62em;width:.32em;height:.32em;border-radius:50%;
+  background:var(--oak)}
+.flow ul ul{margin:.4mm 0 .4mm}
+.flow li{margin-bottom:.55mm}
+.flow ol{padding-left:1.5em}
+.flow ol>li::marker{font-weight:600;color:var(--earth)}
+.flow table{width:100%;border-collapse:collapse;margin:0 0 1.6mm;break-inside:avoid}
+.flow th,.flow td{text-align:left;vertical-align:top;padding:.55mm 1.4mm;border-bottom:0.3pt solid #CFC8BA}
+.flow th{background:var(--cream);font-weight:600}
+.flow td:first-child{white-space:nowrap;font-weight:600}
+.flow li,.flow p,.flow tr{orphans:2;widows:2}
+.note{border-left:0.8pt solid var(--oak);padding-left:2mm}
+.sfoot{flex:0 0 auto;display:flex;justify-content:space-between;gap:6mm;margin-top:2mm;padding-top:1.4mm;
+  border-top:0.3pt solid #CFC8BA;font-size:8pt;line-height:1.3;color:var(--stone)}
+.a5 .sfoot{font-size:7.5pt}
+.sfoot span:last-child{text-align:right}
+
+/* ---- tờ 4: Your ID details (khách đọc) ---- */
+.notice .inner{padding:16mm 14mm 12mm}
+.notice .eyebrow{font-size:9pt;letter-spacing:.1em}
+.notice h2{font-family:var(--serif);font-weight:500;font-size:24pt;letter-spacing:.02em;line-height:1.15;
+  color:var(--ink);margin-top:5mm}
+.notice .sub{font-family:var(--serif);font-weight:500;font-size:13pt;line-height:1.3;color:var(--stone);
+  margin-top:1.2mm;margin-bottom:5mm}
+.notice .en p{font-size:var(--fs);line-height:1.5;margin-bottom:.62em}
+.notice .vi p{font-size:var(--fs-vi);line-height:1.5;margin-bottom:.62em}
+.notice .en p:last-child,.notice .vi p:last-child{margin-bottom:0}
+.notice .rule{border:0;border-top:0.6pt solid var(--oak);width:22mm;margin:4.5mm 0}
+.notice .fit{flex:1 1 auto}
+.nfoot{flex:0 0 auto;display:flex;justify-content:space-between;font-size:8pt;line-height:1.2;color:var(--stone);
+  padding-top:3mm}
+
+/* ---- màn hình: xem trước trên nền Ivory; khi in chỉ còn tờ trắng ---- */
+@media screen{
+  body{background:var(--ivory);padding:16px}
+  .howto{max-width:var(--pw);margin:0 auto 16px;font-size:13px;line-height:1.5;color:var(--ink)}
+  .howto b{font-weight:600}
+  .page{margin:0 auto;box-shadow:0 1px 3px rgba(43,43,40,.18),0 8px 24px rgba(43,43,40,.08)}
+}
+@media screen and (max-width:900px){body{padding:16px 0}.howto{padding:0 16px}.page{zoom:.42}}
+@media print{.howto{display:none}body{background:none}}
+</style>
+</head>
+<body style="--pw:297mm;--ph:210mm">
+<p class="howto"><b>Tờ 2a + 2b – in chung A4, cắt đôi</b> · In: khổ A4 ngang, tỉ lệ Thực tế (100%), một mặt, giấy trắng hoặc ngà. Không bật Vừa trang. In xong cắt đôi theo nét đứt giữa tờ.</p>
+<div class="page two">
+<section class="sheet staff a5 c1 frame snug" data-sheet="2a" style="--fs:10.0pt"><div class="inner"><header class="shead"><div class="hrow"><h2>Tạm tới bản v1.0.1</h2><p class="eyebrow">OTTIMO Desk · Tờ 2a</p></div></header><div class="fit flow"><p><strong>Gỡ tờ này khi chủ đầu tư báo cả hai việc dưới đây đã hết tạm.</strong></p><p><strong>Rà giữ chỗ – 3 mốc mỗi ngày</strong> (Desk chưa báo giữ chỗ quá hạn vào <strong>Cần chú ý</strong>)</p><ul><li><strong>Khi nào:</strong> lúc mở quầy (muộn nhất 09:00) · <strong>11:00</strong> · trước khi rời quầy (muộn nhất 21:00) · mỗi lần thấy <strong>Giữ chỗ sắp hết hạn</strong>.</li><li><strong>Ở đâu:</strong> <strong>Đơn đặt phòng</strong> → lọc <strong>Đang hiệu lực</strong> → mở từng dòng <strong>Giữ chỗ · chờ cọc</strong>. (<strong>Hôm nay</strong> chỉ có đơn đến hôm nay; <strong>Sơ đồ phòng</strong> chỉ <span class="nb">14 ngày</span>.)</li><li><strong>Còn dưới <span class="nb">2 giờ</span>:</strong> xử lý <strong>trước hạn</strong> – thu đủ rồi xác nhận, gia hạn 1 lần, hoặc hủy (Tờ 1, dòng Cọc).</li><li><strong>Đã "còn <span class="nb">0 giờ</span> 00 phút" màu đỏ</strong> (gọi tắt "0h00"): sau hạn Desk chỉ còn <strong>Hủy giữ chỗ</strong>. Không bấm xác nhận cọc, không tạo đơn mới chồng lên. Khung đơn ghi "đơn đã tự hủy" mà trạng thái vẫn <strong>Giữ chỗ · chờ cọc</strong>: đơn <strong>chưa</strong> hủy.<ul><li><strong>Chưa cọc:</strong> <strong>Hủy giữ chỗ</strong> ngay, lý do <strong>Khác (ghi rõ)</strong> "Hết hạn giữ chỗ". Rồi báo khách (đơn CTV: báo CTV trước). Khách còn muốn: đến từ ngày mai → tạo giữ chỗ mới <strong>12 h</strong>, chỉ một lần; đến hôm nay → gửi VietQR, tạo đơn khi tiền về.</li><li><strong>Đã có cọc:</strong> gọi khách. Không đi, hoặc không liên lạc được tới 11:<span class="nb">00 ngày</span> đến → <strong>Hủy giữ chỗ</strong>, lý do <strong>Khác (ghi rõ)</strong> "Hết hạn giữ chỗ – có cọc". Hộp hủy ghi "không thu phí" nhưng Desk vẫn tạo yêu cầu hoàn đủ số đã nhận: duyệt hoàn, chủ đầu tư chi. Vẫn đi → <strong>để nguyên đơn</strong>, báo khách phần còn lại trả khi nhận phòng. Khi khách đến: hủy đơn cũ → đặt đơn mới cùng căn, cùng giá → thu đủ → nhận phòng → chủ đầu tư hoàn cọc cũ (sổ tay 2.4).</li></ul></li><li><strong>Sổ giao ca:</strong> mỗi đơn đã xử lý một dòng: mã đơn, đã làm gì. Đơn để nguyên: "OTM-… Giữ – cọc thiếu …, thu khi đến – [người quyết] dd/mm". Không ghi tên khách.</li><li><strong>Trước khi rời quầy:</strong> mọi giữ chỗ 0h00 đỏ đã hủy, hoặc đã có dòng "Giữ – …" trong sổ giao ca.</li></ul><p><strong>Check-in online – tạm dừng từ 02/11</strong></p><ul><li><strong>Không tạo, không gửi</strong> link check-in online cho khách thật. Mọi khách làm giấy tờ tại quầy. Khách muốn gửi yêu cầu trong lúc ở: nhắn Zalo hoặc gọi lễ tân.</li><li><strong>Lỡ gửi link:</strong> mở đơn → <strong>Thu hồi link</strong> ngay. Ghi <strong>mã đơn</strong> vào sổ giao ca (không ghi tên khách), báo chủ đầu tư trong ngày. Khách tới quầy thì chỉ tờ <strong>Your ID details</strong> như mọi khách.</li></ul></div><footer class="sfoot"><span>OTTIMO Desk · Tờ 2a · Tạm tới bản v1.0.1</span><span>Bản 30/10/2026 · v1.0.0</span></footer></div></section>
+<section class="sheet staff a5 c1" data-sheet="2b" style="--fs:12.0pt"><div class="inner"><header class="shead"><div class="hrow"><h2>Khách ở quá 18:00 mà đêm đó căn đã bán</h2><p class="eyebrow">OTTIMO Desk · Tờ 2b</p></div></header><div class="fit flow"><ol><li>Phòng trước: từ 12:00, chốt giờ đi với khách đi hôm nay nếu căn có khách đến tối nay.</li><li>Khách vẫn ở quá 18:00: đổi căn cho <strong>khách sắp đến</strong> sang căn trống khác (quyền lễ tân trưởng, quản lý; cùng hạng trước, lý do "OTTIMO đổi căn"). Khi đó Desk tính thêm 1 đêm cho khách ở quá giờ như thường.</li><li>Không còn căn trống: <strong>gọi chủ đầu tư</strong> báo trước. Không chờ duyệt, không xin mật khẩu. Trên Desk chọn <strong>"Ghi phụ thu – quản lý xem lại"</strong>: Desk hiện số bằng giá 1 đêm của đêm đó, không sửa được, không có ô miễn. Ghi lý do (ví dụ "Rời 20:30, căn có khách đến tối nay"), thu đủ số Desk hiện, hoàn tất trả phòng.</li><li>Khách xin giảm: không hứa. Nói OTTIMO xem lại trong <span class="nb">24 giờ</span>, nếu được giảm OTTIMO sẽ hoàn lại. Khách không chịu trả: không hoàn tất trả phòng, gọi chủ đầu tư.</li><li>Xem lại (chủ đầu tư, hoặc quản lý): trong <span class="nb">24 giờ</span> mở <strong>Cần chú ý</strong>. Đồng ý thì bấm "Đã xem". Nên giảm thì sửa dòng phụ thu trên bill, Desk tự tạo yêu cầu hoàn; chủ đầu tư duyệt hoàn. Quá <span class="nb">24 giờ</span>, bill đóng, không sửa được nữa.</li></ol></div><footer class="sfoot"><span>OTTIMO Desk · Tờ 2b · Khách ở quá 18:00 mà đêm đó căn đã bán</span><span>Bản 30/10/2026 · v1.0.0</span></footer></div></section>
+</div>
+<script>
+window.__measure = function(){
+  function over(el){return el.scrollHeight>el.clientHeight+1||el.scrollWidth>el.clientWidth+1}
+  var out=[];
+  document.querySelectorAll('.sheet').forEach(function(s,i){
+    var fit=s.querySelector('.fit'), base=parseFloat(getComputedStyle(s).getPropertyValue('--fs'));
+    var vi=parseFloat(getComputedStyle(s).getPropertyValue('--fs-vi'))||null, d=vi?base-vi:0;
+    function setfs(v){s.style.setProperty('--fs',v+'pt');if(vi)s.style.setProperty('--fs-vi',(v-d)+'pt');}
+    var r={sheet:s.dataset.sheet,index:i,basePt:base,viPt:vi,overflow:over(fit)};
+    var p=s.querySelector('.flow p, .flow li, .en p');
+    r.measuredPt=p?Math.round(parseFloat(getComputedStyle(p).fontSize)*0.75*100)/100:null;
+    var pv=s.querySelector('.vi p');
+    if(pv)r.measuredViPt=Math.round(parseFloat(getComputedStyle(pv).fontSize)*0.75*100)/100;
+    var max=base;for(var v=base+0.25;v<=base+4;v+=0.25){setfs(v);if(over(fit))break;max=v;}
+    var min=null;if(r.overflow){for(var w=base-0.25;w>=7;w-=0.25){setfs(w);if(!over(fit)){min=w;break;}}}
+    setfs(base);
+    r.maxFitPt=r.overflow?null:max;r.minFitPt=min;
+    // Chỗ trống còn lại: bớt chiều cao vùng thân từng 0,5 mm tới khi tràn (tờ 2 cột: mỗi cột còn chừng đó).
+    var slack=0;if(!r.overflow){var h0=fit.clientHeight,mm=96/25.4;fit.style.flex='0 0 auto';
+      for(var k=1;k<=400;k++){fit.style.height=(h0-k*0.5*mm)+'px';if(over(fit))break;slack=k*0.5;}
+      fit.style.height='';fit.style.flex='';}
+    r.slackMm=slack;var lp=s.querySelector('.flow p, .flow li, .en p');
+    r.slackLines=lp?Math.floor(slack*96/25.4/parseFloat(getComputedStyle(lp).lineHeight)):null;
+    var seen={};document.fonts.forEach(function(f){if(f.status==='loaded')seen[f.family.replace(/"/g,'')+' '+f.weight]=1;});
+    r.fonts=Object.keys(seen).sort();
+    out.push(r);
+  });
+  return out;
+};
+</script>
+</body>
+</html>

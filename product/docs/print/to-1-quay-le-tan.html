@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light">
+<title>Tờ 1 – Quầy lễ tân</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600&amp;family=JetBrains+Mono:wght@400&amp;family=Lora:wght@500&amp;display=swap">
+<style>@page{size:A4;margin:0}
+:root{--ivory:#F4F0E8;--cream:#EDE6D8;--stone:#6B6760;--ink:#2B2B28;--oak:#B08D57;--earth:#7A5C44;--paper:#FFFFFF;
+  --sans:'Be Vietnam Pro',Arial,Helvetica,sans-serif;--serif:'Lora',Georgia,'Times New Roman',serif;
+  --mono:'JetBrains Mono','Courier New',monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact;-webkit-text-size-adjust:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-weight:400;
+  font-kerning:normal;text-rendering:optimizeLegibility;hyphens:manual}
+.page{width:var(--pw);height:var(--ph);display:flex;overflow:hidden;position:relative;background:var(--paper)}
+.sheet{flex:0 0 auto;width:var(--sw);height:var(--sh);position:relative;overflow:hidden}
+.sheet.a4{--sw:210mm;--sh:297mm}
+.sheet.a5{--sw:148mm;--sh:210mm}
+.page.two .sheet.a5{--sw:148.5mm}
+.page.two::after{content:"";position:absolute;left:148.5mm;top:0;bottom:0;border-left:0.3pt dashed var(--stone)}
+.inner{position:absolute;inset:0;display:flex;flex-direction:column}
+.nb{white-space:nowrap}
+strong{font-weight:600}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.92em;font-weight:400;letter-spacing:0}
+
+/* ---- tờ nhân viên (1, 2a, 2b, 3) ---- */
+.staff{font-size:var(--fs);line-height:var(--lh,1.42)}
+.staff.a4 .inner{padding:var(--pad,11mm 12mm 8mm)}
+.dense{--lh:1.3;--pad:7mm 6mm 5mm}
+.dense .flow h3{font-size:1.22em}
+.dense .flow p{margin-bottom:.8mm}.dense .flow li{margin-bottom:.3mm}.dense .flow h3{margin:2mm 0 1mm}
+.dense .sfoot{margin-top:1.2mm;padding-top:1mm}
+.dense .flow th,.dense .flow td{padding:.35mm .8mm}.dense.c2 .flow{column-gap:5.5mm}
+.dense .shead{padding-bottom:1.8mm;margin-bottom:2mm}
+.staff.a4.dense .shead h2{font-size:15pt}.dense .intro{margin-top:1.4mm}
+.staff.a5 .inner{padding:var(--pad,11mm 11mm 8mm)}
+.snug{--lh:1.3}
+.staff.frame .inner{inset:6mm;border:0.8pt solid var(--oak);padding:3.5mm 4mm 1.5mm}
+.eyebrow{font-family:var(--sans);font-size:8pt;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--stone);line-height:1.2}
+.shead h2{font-family:var(--serif);font-weight:500;color:var(--ink);letter-spacing:.02em;line-height:1.15;
+  margin-top:0}
+.staff.a4 .shead h2{font-size:17pt}
+.staff.a5 .shead h2{font-size:calc(var(--fs) * 1.25)}
+.hrow{display:flex;justify-content:space-between;align-items:baseline;gap:5mm}
+.shead h2{text-wrap:balance}
+.hrow .eyebrow,.hrow .side{flex:0 0 auto;text-align:right}
+.shead h2 .paren{font-size:.72em;color:var(--stone)}
+.intro{margin-top:2mm}
+.intro p+p{margin-top:1.2mm}
+.shead{padding-bottom:2.4mm;margin-bottom:2.6mm;border-bottom:0.6pt solid var(--oak)}
+.fit{flex:1 1 auto;min-height:0;overflow:hidden}
+.c2 .flow{column-count:2;column-gap:7mm;column-fill:balance}
+.flow h3{font-family:var(--serif);font-weight:500;font-size:1.3em;line-height:1.2;color:var(--ink);
+  padding-bottom:.6mm;border-bottom:0.4pt solid var(--oak);margin:2.6mm 0 1.4mm;break-after:avoid}
+.flow h3:first-child{margin-top:0}
+.flow p{margin:0 0 1.15mm}
+.flow ul,.flow ol{margin:0 0 1.2mm;padding-left:1.15em}
+.flow ul{list-style:none}
+.flow ul>li{position:relative}
+.flow ul>li::before{content:"";position:absolute;left:-.85em;top:.62em;width:.32em;height:.32em;border-radius:50%;
+  background:var(--oak)}
+.flow ul ul{margin:.4mm 0 .4mm}
+.flow li{margin-bottom:.55mm}
+.flow ol{padding-left:1.5em}
+.flow ol>li::marker{font-weight:600;color:var(--earth)}
+.flow table{width:100%;border-collapse:collapse;margin:0 0 1.6mm;break-inside:avoid}
+.flow th,.flow td{text-align:left;vertical-align:top;padding:.55mm 1.4mm;border-bottom:0.3pt solid #CFC8BA}
+.flow th{background:var(--cream);font-weight:600}
+.flow td:first-child{white-space:nowrap;font-weight:600}
+.flow li,.flow p,.flow tr{orphans:2;widows:2}
+.note{border-left:0.8pt solid var(--oak);padding-left:2mm}
+.sfoot{flex:0 0 auto;display:flex;justify-content:space-between;gap:6mm;margin-top:2mm;padding-top:1.4mm;
+  border-top:0.3pt solid #CFC8BA;font-size:8pt;line-height:1.3;color:var(--stone)}
+.a5 .sfoot{font-size:7.5pt}
+.sfoot span:last-child{text-align:right}
+
+/* ---- tờ 4: Your ID details (khách đọc) ---- */
+.notice .inner{padding:16mm 14mm 12mm}
+.notice .eyebrow{font-size:9pt;letter-spacing:.1em}
+.notice h2{font-family:var(--serif);font-weight:500;font-size:24pt;letter-spacing:.02em;line-height:1.15;
+  color:var(--ink);margin-top:5mm}
+.notice .sub{font-family:var(--serif);font-weight:500;font-size:13pt;line-height:1.3;color:var(--stone);
+  margin-top:1.2mm;margin-bottom:5mm}
+.notice .en p{font-size:var(--fs);line-height:1.5;margin-bottom:.62em}
+.notice .vi p{font-size:var(--fs-vi);line-height:1.5;margin-bottom:.62em}
+.notice .en p:last-child,.notice .vi p:last-child{margin-bottom:0}
+.notice .rule{border:0;border-top:0.6pt solid var(--oak);width:22mm;margin:4.5mm 0}
+.notice .fit{flex:1 1 auto}
+.nfoot{flex:0 0 auto;display:flex;justify-content:space-between;font-size:8pt;line-height:1.2;color:var(--stone);
+  padding-top:3mm}
+
+/* ---- màn hình: xem trước trên nền Ivory; khi in chỉ còn tờ trắng ---- */
+@media screen{
+  body{background:var(--ivory);padding:16px}
+  .howto{max-width:var(--pw);margin:0 auto 16px;font-size:13px;line-height:1.5;color:var(--ink)}
+  .howto b{font-weight:600}
+  .page{margin:0 auto;box-shadow:0 1px 3px rgba(43,43,40,.18),0 8px 24px rgba(43,43,40,.08)}
+}
+@media screen and (max-width:900px){body{padding:16px 0}.howto{padding:0 16px}.page{zoom:.42}}
+@media print{.howto{display:none}body{background:none}}
+</style>
+</head>
+<body style="--pw:210mm;--ph:297mm">
+<p class="howto"><b>Tờ 1 – Quầy lễ tân</b> · In: khổ A4, tỉ lệ Thực tế (100%), một mặt, giấy trắng hoặc ngà. Không bật Vừa trang.</p>
+<div class="page">
+<section class="sheet staff a4 c2 dense" data-sheet="1" style="--fs:9.0pt"><div class="inner"><header class="shead"><div class="hrow"><h2>Quầy lễ tân</h2><p class="side">Desk (máy quầy): <code>desk.ottimo.vn</code> · App buồng phòng (điện thoại): <code>staff.ottimo.vn</code></p></div><div class="intro"><p><strong>Hiện OTTIMO có một người trực quầy, giữ cả 6 vai.</strong> Chỗ nào ghi "lễ tân trưởng" hay "quản lý" là chính bạn, làm bằng quyền của vai đó và luôn ghi lý do. Chủ đầu tư xem lại mỗi sáng. Khi OTTIMO có thêm lễ tân, việc rà làm ở đầu mỗi ca và việc quyết đơn có cọc thiếu chuyển về quản lý.</p></div></header><div class="fit flow"><h3>Luôn nhớ</h3><ul><li><strong>Mỗi người một tài khoản.</strong> Không dùng chung, không đọc mật khẩu qua điện thoại, không gõ mật khẩu cho người khác. Rời máy thì đăng xuất.</li><li><strong>Giấy tờ khách chỉ nằm trên Desk.</strong> Không chụp, không gửi qua Zalo, không lưu trên điện thoại cá nhân.</li><li><strong>Mã cửa không gửi qua Zalo, tin nhắn, email hay ảnh</strong>, kể cả gõ tay. Chỉ đọc tại quầy, hoặc lễ tân <strong>tự gọi ra</strong> số điện thoại trên đơn – khi khách đã nhận phòng trên Desk, có giấy tờ, đã thu đủ. Không đọc mã cho người gọi đến. Không mở cửa căn cho người tự nhận là khách.</li><li><strong>Ngày trên Desk đổi lúc 06:00</strong>, không phải 00:00. Từ 00:00 đến 05:59 vẫn là ngày hôm trước.</li><li>Ba ngày đầu: ghi thêm <strong>sổ giấy</strong> (đơn, thu tiền), đối chiếu lúc 22:00.</li></ul><h3>Giờ cần nhớ</h3><table><thead><tr><th scope="col">Giờ</th><th scope="col">Việc</th></tr></thead><tbody><tr><td>06:00</td><td>Ngày mới trên Desk</td></tr><tr><td>12:00</td><td>Giờ trả phòng. Trả muộn: Desk tự tính phụ thu theo giờ</td></tr><tr><td>12:00</td><td><strong>Nhận phòng từ 12:00</strong> nếu căn đã sẵn sàng (đã dọn hoặc đã kiểm – <code>VC</code>/<code>VI</code>), <strong>không</strong> phụ thu. Nhận trước 12:00: Desk tự tính phụ thu (khách OTA: chỉ thu khi kênh đó đã đăng giờ nhận 12:00 – xem danh sách kênh chủ đầu tư đưa)</td></tr><tr><td>14:00</td><td>Mọi căn có khách đến hôm nay <strong>chắc chắn sẵn sàng</strong></td></tr><tr><td>18:00</td><td>Khách chưa đến, chưa báo giờ: gọi hoặc nhắn khách</td></tr><tr><td>23:00</td><td>Vẫn không liên lạc được: đánh dấu "Không đến". Hạn khai báo lưu trú khách Việt Nam (đến từ 23:00 thì trước 08:00 hôm sau)</td></tr><tr><td>+<span class="nb">12 giờ</span></td><td>Hạn khai báo khách nước ngoài, tính từ giờ nhận phòng</td></tr></tbody></table><h3>Lễ tân</h3><p><strong>Mở quầy:</strong> mở <strong>Hôm nay</strong> → xem khách đến, khách đi, <strong>Cần chú ý</strong>. Xử lý từ dòng đỏ trở xuống. Tới v1.0.1: rà giữ chỗ theo <strong>Tờ 2a</strong>.</p><p><strong>Đặt phòng:</strong> từ <strong>Sơ đồ phòng</strong> hoặc <strong>Đơn đặt phòng</strong>. Đơn Trực tiếp, CTV bắt buộc có số điện thoại và nguồn. Đơn OTA mới: nhập Desk <strong>ngay</strong>, rồi đóng phòng trên extranet các kênh khác.</p><p><strong>Cọc:</strong> gửi khách mã VietQR từ đơn, <strong>từ điện thoại của cơ sở</strong> (không mở Zalo trên máy quầy). Nội dung chuyển khoản là mã đơn. Chỉ bấm <strong>Xác nhận đã nhận cọc</strong> khi thấy tiền về tài khoản của OTTIMO, và bấm <strong>trước giờ hạn</strong> giữ chỗ. Khách chuyển thiếu: gọi ngay xin phần còn lại trước hạn. Thấy <strong>Giữ chỗ sắp hết hạn</strong>: gọi khách; cần thêm giờ thì <strong>Gia hạn giữ chỗ (1 lần)</strong> ngay – sau hạn không gia hạn được.</p><p><strong>Mã VietQR hiện dòng "Tài khoản nhận vừa đổi":</strong> <strong>chưa cho khách chuyển</strong>. Gọi điện cho chủ đầu tư (số đã lưu ở điện thoại cơ sở) xác nhận trước; chủ đầu tư đồng ý mới tiếp. Không gọi được thì mời khách trả tiền mặt hoặc thẻ.</p><p><strong>Giờ nhận phòng nói với khách:</strong> "Nhận phòng từ 12:00. Phòng luôn sẵn sàng lúc 14:00." (EN: "Check-in is from 12:00. Your room is always ready by 14:00."). <strong>Không</strong> hứa "phòng sẵn sàng từ 12:00". Khách tới 12:00–14:00 mà căn chưa xong: giữ hành lý, mời chờ ở sảnh hoặc đi dạo, hẹn giờ; không phụ thu, không giảm giá. Quá 14:00 vẫn chưa xong: đổi căn sẵn sàng hoặc nâng hạng (quyền lễ tân trưởng, quản lý), ghi lý do.</p><p><strong>Nhận phòng:</strong> buồng đã sạch; đã thu đủ phần còn lại (đơn trực tiếp); có giấy tờ người đứng tên <strong>trước khi</strong> giao mã cửa. <strong>Trước khi nhận giấy tờ</strong>, chỉ khách tờ <strong>Your ID details</strong> trên quầy: "Before I take your ID, please read this note on how we use it." / "Trước khi nhận giấy tờ, mời anh/chị đọc tờ này về cách chúng tôi dùng thông tin." Rồi nhập giấy tờ ở bước Giấy tờ, khai báo lưu trú và đánh dấu "đã khai" ở <strong>Giấy tờ &amp; khai báo</strong> trước hạn.</p><p><strong>Hỏi khách đồng ý lưu ảnh giấy tờ</strong> – ở Khối 1 "Đối chiếu và đồng ý lưu ảnh". Chỉ hỏi khi có chụp ảnh giấy tờ, hỏi từng người lớn được chụp. Khách đang ở lúc chuyển đổi ngày D không chụp lại ảnh, không hỏi. Đọc đúng số ngày N Desk hiện. Gọi khách là "anh" hoặc "chị", không đọc "anh/chị".</p><ul><li>EN: "May we keep photos of your ID for <span class="nb">N days</span> after <span class="nb">check-out</span>? They are then deleted automatically. If you'd rather not, that's fine – we use them only to register your stay, then delete them."</li><li>VI: "Anh/chị có đồng ý cho OTTIMO lưu ảnh giấy tờ <span class="nb">N ngày</span> sau khi trả phòng không? Sau đó ảnh tự xóa. Anh/chị không đồng ý cũng không sao, chúng tôi chỉ dùng ảnh để khai báo lưu trú rồi xóa."</li><li>Ghi câu trả lời trên Desk. Khách không đồng ý vẫn ở bình thường. Khách không đọc được tờ EN/VI: đọc to câu hạn lưu (đoạn 3 của tờ).</li></ul><p><strong>Trả phòng – 3 bước:</strong> minibar (nhập <strong>số còn lại</strong> từng món theo số buồng phòng báo) → phụ phí → bill &amp; thu tiền. Khách chưa trả đủ: ghi công nợ bằng quyền quản lý.</p><p><strong>Phiếu thanh toán:</strong> khung đơn đã trả phòng → <strong>Xem Phiếu thanh toán</strong> → chọn <strong>Tiếng Việt</strong> hoặc <strong>Việt – Anh</strong>. Bấm <strong>In phiếu</strong> → hộp in của trình duyệt in một tờ A4. Khách cần bản điện tử: chọn "Lưu dưới dạng PDF" trong hộp in rồi gửi riêng 1–1 cho khách. Không chụp màn hình phiếu gửi qua chat.</p><p><strong>Miễn, giảm, xóa nợ, hoàn tiền:</strong> trong hạn mức của bạn thì Desk áp ngay, luôn ghi lý do. Vượt hạn mức: gửi yêu cầu, người có quyền duyệt ở <strong>Cần duyệt</strong> bằng tài khoản của chính mình. <strong>Không</strong> gõ mật khẩu người khác vào màn của bạn: Desk sẽ từ chối.</p><p><strong>Kiểm phòng (vai lễ tân trưởng):</strong> đăng nhập <code>staff.ottimo.vn</code> trên điện thoại. Nhận thông báo <strong>Căn đã dọn – chờ kiểm</strong> → mở căn → <strong>Kiểm phòng</strong> → đi hết danh mục → <strong>Kiểm đạt – sẵn sàng</strong>, hoặc <strong>Chưa đạt</strong> (ghi chỗ chưa đạt; căn quay về cần dọn). Căn trống từ đêm qua có khách đến hôm nay: kiểm xong <strong>trước 12:00</strong>.</p><p><strong>Trước khi rời quầy:</strong> "Cần chú ý" không còn dòng đỏ chưa xử lý. Ba ngày đầu: so sổ giấy với Desk lúc 22:00.</p><h3>Khi có sự cố</h3><ul><li><strong>Mất mạng:</strong> thử 4G điện thoại của cơ sở phát Wi-Fi cho máy quầy → app trên điện thoại cơ sở → sổ giấy. Chưa xem được phòng trống thì không nhận đơn mới, ghi số điện thoại và hẹn gọi lại. Có mạng lại thì nhập bù trong <span class="nb">24 giờ</span>, ghi giờ thật.</li><li><strong>Desk báo lỗi, tính sai tiền, không làm tiếp được:</strong> ghi bằng lời căn, mã đơn, giờ, đã bấm gì, Desk báo gì và mã tham chiếu. <strong>Không</strong> ghi tên, số điện thoại, số giấy tờ của khách; <strong>không</strong> chụp màn hình có dữ liệu khách để gửi đi. Báo chủ đầu tư. Không đặt được, không nhận/trả phòng được hay sai tiền là lỗi "P0", đội sửa trong ngày; trong lúc chờ, ghi sổ giấy.</li></ul></div><footer class="sfoot"><span>OTTIMO Desk · Tờ 1 · Quầy lễ tân</span><span>Bản 30/10/2026 · v1.0.0 · Hướng dẫn đầy đủ: Sổ tay OTTIMO Desk v1.0</span></footer></div></section>
+</div>
+<script>
+window.__measure = function(){
+  function over(el){return el.scrollHeight>el.clientHeight+1||el.scrollWidth>el.clientWidth+1}
+  var out=[];
+  document.querySelectorAll('.sheet').forEach(function(s,i){
+    var fit=s.querySelector('.fit'), base=parseFloat(getComputedStyle(s).getPropertyValue('--fs'));
+    var vi=parseFloat(getComputedStyle(s).getPropertyValue('--fs-vi'))||null, d=vi?base-vi:0;
+    function setfs(v){s.style.setProperty('--fs',v+'pt');if(vi)s.style.setProperty('--fs-vi',(v-d)+'pt');}
+    var r={sheet:s.dataset.sheet,index:i,basePt:base,viPt:vi,overflow:over(fit)};
+    var p=s.querySelector('.flow p, .flow li, .en p');
+    r.measuredPt=p?Math.round(parseFloat(getComputedStyle(p).fontSize)*0.75*100)/100:null;
+    var pv=s.querySelector('.vi p');
+    if(pv)r.measuredViPt=Math.round(parseFloat(getComputedStyle(pv).fontSize)*0.75*100)/100;
+    var max=base;for(var v=base+0.25;v<=base+4;v+=0.25){setfs(v);if(over(fit))break;max=v;}
+    var min=null;if(r.overflow){for(var w=base-0.25;w>=7;w-=0.25){setfs(w);if(!over(fit)){min=w;break;}}}
+    setfs(base);
+    r.maxFitPt=r.overflow?null:max;r.minFitPt=min;
+    // Chỗ trống còn lại: bớt chiều cao vùng thân từng 0,5 mm tới khi tràn (tờ 2 cột: mỗi cột còn chừng đó).
+    var slack=0;if(!r.overflow){var h0=fit.clientHeight,mm=96/25.4;fit.style.flex='0 0 auto';
+      for(var k=1;k<=400;k++){fit.style.height=(h0-k*0.5*mm)+'px';if(over(fit))break;slack=k*0.5;}
+      fit.style.height='';fit.style.flex='';}
+    r.slackMm=slack;var lp=s.querySelector('.flow p, .flow li, .en p');
+    r.slackLines=lp?Math.floor(slack*96/25.4/parseFloat(getComputedStyle(lp).lineHeight)):null;
+    var seen={};document.fonts.forEach(function(f){if(f.status==='loaded')seen[f.family.replace(/"/g,'')+' '+f.weight]=1;});
+    r.fonts=Object.keys(seen).sort();
+    out.push(r);
+  });
+  return out;
+};
+</script>
+</body>
+</html>
