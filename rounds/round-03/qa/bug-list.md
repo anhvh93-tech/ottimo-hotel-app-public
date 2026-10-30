@@ -9,10 +9,18 @@
 | Mức | Số lỗi | Open | Fixed | Closed |
 |---|---|---|---|---|
 | P0 | 3 | 0 | 0 | 3 |
-| P1 | 14 | 1 (BUG-R3-032 – v1.0.1) | 0 | 13 (gồm BUG-R3-037, 038, 039 Closed 30/10 trên rc.6) |
-| P2 | 10 | 4 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn; BUG-R3-041) | 0 | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
-| P3 | 14 | 13 (016; 024–031; 034; 035; 036; 040) | 0 | 1 |
-| **Tổng** | **41** | **18** | **0** | **23** |
+| P1 | 15 | 2 (BUG-R3-032, BUG-R3-042 – v1.0.1) | 0 | 13 (gồm BUG-R3-037, 038, 039 Closed 30/10 trên rc.6) |
+| P2 | 12 | 6 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn; BUG-R3-041, 043, 044) | 0 | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
+| P3 | 15 | 14 (016; 024–031; 034; 035; 036; 040; 045) | 0 | 1 |
+| **Tổng** | **45** | **22** | **0** | **23** |
+
+Cập nhật 30/10 chiều (QA, bước Kiểm thử – ghi lỗi từ review tài liệu ngày D: `reviews/BA-on-PO-manual-1.3.md` thẻ M13-01, M13-03, M13-04; `reviews/DOM-on-PO-v1.0.0-docs.md` A.3a V1–V5). Xác minh bằng **đọc mã trên `v1.0.0` (`8b3aec8`)**; `product/apps`, `product/services`, `product/design/copy` ở HEAD không khác `8b3aec8` (`git diff --stat` rỗng). **Chưa tái hiện trên staging:** OTM-00368 đã hủy ở 19.8, hold mới cần ≥ 12 giờ mới quá hạn → **xác minh bằng mã, tái hiện staging sau** (ca thử ở cuối từng lỗi). Riêng câu `FOLIO_LOCKED` (045) đã thấy trên staging rc.4 ở 17.5. Không VietQR, không tiền thật, không SQL tay.
+- Thêm **BUG-R3-042 (P1, BE-B + ARC; FE-A)** – V1: giữ chỗ có cọc đã quá hạn không xác nhận được trên Desk (`HOLD_EXPIRED`), trái BR-303 (1). Khách không nhận phòng được trên đơn gốc.
+- Thêm **BUG-R3-043 (P2, FE-A + UXD)** – V2: Desk không có "Chấp nhận cọc thiếu" (BR-303 (2)) dù API có `acceptShortfallReason`.
+- Thêm **BUG-R3-044 (P2, FE-A + UXD)** – M13-03 + V3: Desk trình bày giữ chỗ có cọc như giữ chỗ chưa cọc ("đơn đã tự hủy", "căn đã mở bán lại", "Không thu phí (giữ chỗ chưa cọc)").
+- Thêm **BUG-R3-045 (P3, UXD + FE-A)** – M13-04: câu `error.FOLIO_LOCKED` nói "Chỉ quản lý ghi được bút toán điều chỉnh" trong khi quản lý cũng bị chặn; Desk vẫn hiện nút **Điều chỉnh** cho quản lý trên folio đã khóa.
+- **V5 không ghi là lỗi**: thiếu tính năng (BR-303 và danh mục "Cần chú ý" không yêu cầu liệt kê hold quá hạn). Ghi **ĐX-R3-QA-01** ở mục 4 cho PO, gộp với bản sửa BUG-R3-041.
+- Cả 4 lỗi đích **v1.0.1**. 042 và 043 là hai vá DOM ghi "Bắt buộc v1.0.1" (A.3a). Tới khi có v1.0.1, cách tạm là DOM A.2 + A.3 (phòng trước; để nguyên đơn; khi khách đến thì hủy – đặt lại – thu đủ – hoàn cọc cũ).
 
 Cập nhật 30/10 ~08:10 (QA, theo ORC; rc.6 `8b3aec8` trên staging và production):
 - **Closed BUG-R3-037, BUG-R3-038, BUG-R3-039.** Bằng chứng:
@@ -120,6 +128,10 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-039 | P1 | J1 `hold.expire` không hủy được hold nào trong worker: ghi audit `reservation` ném `AuditEntityNotRegisteredError`, từng hold rollback; worker thiếu 3 listener `transitioned` (registration K11, front desk B-13, reporting). Hold quá hạn giữ căn mãi → mất bán. Cùng gốc BUG-R3-037/038; production rc.3 cùng mã | BE-B (+ ARC thẻ 05, OPS) | **Closed** 30/10 – rc.6 staging (`qa3-rc1.md` 19.6 OPS DB/log + 19.7 QA): OTM-00367 hủy 07:04:15 bởi `system`, căn 101 nhả 2 đêm, `stay_night` và registration `void`, 1 audit, cọc sau hạn 409 `INVALID_TRANSITION`; OTM-00368 có cọc vẫn giữ; log 0 lỗi. Production rc.6 mới chứng minh chạy sạch (0 hold). Thông báo J1 tách thành BUG-R3-041 |
 | BUG-R3-040 | P3 | CLI `production-bootstrap` ghi audit `production.bootstrapped` thiếu trường `rooms`/`channels` (CLI không nạp allowlist của platform). Bản ghi B2 28/10 trên production đã thiếu, không sửa được (audit chỉ ghi thêm); dữ liệu phòng/kênh đúng | BE-B | Open – ghi nhận. Ngăn tái phát trong PR #14; bản ghi cũ giữ nguyên |
 | BUG-R3-041 | P2 | Thông báo của J1 (`hold_expired`, `hold_overdue_with_deposit`, `hold_overdue_cap`) chỉ ghi outbox `staff.push`. Topic này không có bộ phát, nên không vào hộp thư, không phát SSE, không lên "Cần chú ý". Hold có cọc quá hạn chỉ còn đồng hồ "0h00" đỏ trên Rack/Hôm nay | BE-B + ARC | Open (30/10, staging rc.6) |
+| BUG-R3-042 | **P1** | Giữ chỗ **có cọc** đã quá hạn không xác nhận được: `confirm` trả 409 `HOLD_EXPIRED` khi giờ nhận tiền ≥ hạn, áp cho mọi hold (US-085 AC4/SEC-BE-22 viết cho hold chưa cọc); Desk không gửi `receivedAt` nên ghi tay sau hạn luôn bị từ chối, nút **Xác nhận đã nhận cọc** vẫn hiện. Trái BR-303 (1); đơn không thành Đã xác nhận → không nhận phòng được trên đơn gốc (V1) | BE-B + ARC (FE-A ô giờ nhận tiền; SEC xem SEC-BE-22) | Open – xác minh bằng mã `8b3aec8`, tái hiện staging sau. Đích **v1.0.1** |
+| BUG-R3-043 | P2 | Desk không có ô/nút **"Chấp nhận cọc thiếu – lý do"** cho OWN/MGR, dù API `confirmDeposit` nhận `acceptShortfallReason` (B-29): `grep acceptShortfallReason product/apps` = 0. BR-303 (2) không làm được ở v1.0.0, trước hay sau hạn (V2) | FE-A + UXD | Open – xác minh bằng mã. Đích **v1.0.1** |
+| BUG-R3-044 | P2 | Desk trình bày giữ chỗ có cọc như chưa cọc: khung đơn quá hạn hiện "Giữ chỗ đã hết hạn lúc … – **đơn đã tự hủy**" (đơn vẫn `hold`, căn vẫn giữ); `error.HOLD_EXPIRED` nói "căn đã **mở bán lại**"; hộp Hủy giữ chỗ ghi "Không thu phí (giữ chỗ chưa cọc)" và không hiện số sẽ hoàn (M13-03, V3) | FE-A + UXD | Open – xác minh bằng mã. Đích **v1.0.1** |
+| BUG-R3-045 | P3 | `error.FOLIO_LOCKED` ghi "Chỉ quản lý ghi được bút toán điều chỉnh" nhưng folio khóa thì quản lý cũng bị 409; **Folio & điều chỉnh** vẫn hiện nút **Điều chỉnh** cho MGR trên folio `closed`/quá cửa sổ (M13-04) | UXD + FE-A | Open – câu đã thấy trên staging rc.4 (17.5); phần nút xác minh bằng mã. Đích **v1.0.1** |
 
 ## 3. Chi tiết
 
@@ -1080,6 +1092,82 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Đề xuất:** sửa ở v1.0.1. Trước đó, ghi vào hướng dẫn vận hành Day D: lễ tân rà Rack/Hôm nay đầu mỗi ca và xử lý mọi hold "0h00" đỏ.
 - **Trạng thái:** Open.
 
+### BUG-R3-042 – Giữ chỗ có cọc đã quá hạn không xác nhận được (`HOLD_EXPIRED`)
+
+- **Mức:** P1. Lý do:
+  - Luồng chính sai quy tắc nghiệp vụ. BR-303 (v0.3.2): giữ chỗ **đã nhận cọc một phần** khi tới hạn thì không tự hủy, xử lý trước trần 12:00 ngày đến bằng (1) thu đủ → xác nhận, (2) quản lý chấp nhận cọc thiếu, (3) hủy và hoàn 100 %. Trên `v1.0.0`, sau hạn chỉ (3) làm được.
+  - Đơn không thành **Đã xác nhận** thì không **Nhận phòng** được (`allowed-actions.ts` dòng 60–71: `check_in` chỉ từ `confirmed`). Cách vòng rất tốn công và chạm tới khách: hủy, đặt đơn mới, thu đủ, hoàn cọc cũ (DOM A.3).
+  - Không P0: không sai tiền, không đặt trùng. Máy chủ từ chối, không ghi tiền. Hold cũ vẫn giữ `room_occupancy` nên đơn mới cùng căn bị chặn tới khi hủy hold cũ (ADR-009). Có cách vòng (DOM A.3).
+- **Môi trường:** `v1.0.0` (`8b3aec8`), cùng mã trên staging và production. Đọc mã 30/10. Chưa tái hiện trên staging (xem cuối mục).
+- **Các bước (theo mã):**
+  1. FD tạo giữ chỗ có cọc yêu cầu 700.000, ghi cọc 300.000 tiền mặt trước hạn. Đơn vẫn **Giữ chỗ · chờ cọc**.
+  2. Chờ quá hạn. J1 giữ đơn (`kept_paid`).
+  3. FD mở khung đơn → **Xác nhận đã nhận cọc** (nút vẫn hiện: `allowed-actions.ts` dòng 53–54 không xét `holdExpired`) → nhập 400.000, Chuyển khoản hoặc Tiền mặt → Xác nhận.
+- **Thực tế (đọc mã):**
+  - Desk gửi `payment` không có `receivedAt` (`ReservationDialogs.tsx` dòng 585–598). Máy chủ lấy `receivedAt = now` (`deposits.service.ts` dòng 131).
+  - `deposits.service.ts` dòng 174–180: hold có `holdExpiresAt ≤ now` mà `receivedAt ≥ holdExpiresAt` (hoặc người gọi không phải FD+) → 409 `HOLD_EXPIRED`. Điều kiện **không xét** số đã nhận, nên áp cho cả hold có cọc.
+  - Desk hiện `error.HOLD_EXPIRED` (sai nội dung, xem BUG-R3-044). Không có đường nào khác trên Desk: **Gia hạn** đã ẩn sau hạn (`allowed-actions.ts` dòng 55) và máy chủ cũng chặn; **Chấp nhận cọc thiếu** không có (BUG-R3-043).
+  - Cũng bị từ chối: tiền về **trước** hạn nhưng lễ tân bấm **sau** hạn (ví dụ tiền về 09:50, hạn 10:00, bấm 10:30). API cho FD+ ghi lùi giờ (`receivedAt` ≥ lúc tạo hold, dòng 134–145), nhưng hộp Xác nhận cọc không có ô giờ nhận tiền. Vì vậy chính quy tắc US-085 AC4 ("tiền về trước hạn thì cứu được") cũng không dùng được trên Desk với khoản ghi tay.
+  - Chỉ qua được khi dùng `existingPaymentId` của một khoản đã có `received_at` trước hạn (VietQR đã "về" trước hạn). QA **chưa kiểm** đường VietQR (ORC cấm VietQR).
+- **Mong đợi:**
+  - (BE-B, ARC) Theo BR-303 và DOM A.3a V1 / A.6: hold đã nhận **> 0 đ** thì FD+ ghi thêm tiền và xác nhận được sau hạn. Hold **chưa cọc** giữ quy tắc "tiền về trước hạn" (US-085 AC4, SEC-BE-22). ARC chốt mốc cuối: BR-303 ghi "trần 12:00 ngày đến", DOM A.6 ghi "tới khi nhận phòng". Hai mốc này phải khớp nhau trước khi BE code.
+  - (FE-A) Hộp Xác nhận cọc có ô **Giờ nhận tiền** cho FD+ (mặc định giờ hiện tại, không cho giờ tương lai). Có ô này thì hold chưa cọc mà tiền về trước hạn vẫn cứu được, đúng US-085 AC4.
+  - Hold chưa cọc đã quá hạn: Desk không mời một thao tác chắc chắn bị từ chối. Ẩn nút **Xác nhận đã nhận cọc**, hoặc báo trước trong hộp.
+- **Vai:** BE-B + ARC (hợp đồng, BR-303 ↔ US-085 AC4), FE-A (ô giờ nhận tiền), SEC xem lại SEC-BE-22. DOM đã chốt nghiệp vụ (A.3a, A.6).
+- **Bằng chứng:** đọc mã `8b3aec8`: `product/services/api/src/modules/payments/internal/deposits.service.ts` dòng 129–180; `product/apps/admin-web/src/pages/reservations/ReservationDialogs.tsx` dòng 580–599; `product/services/api/src/modules/reservations/internal/allowed-actions.ts` dòng 52–71. Review: BA M13-01, DOM DOC-01, DOM A.3a V1.
+- **Tái hiện staging (sau):** tạo hold 12 giờ trên căn trống, ghi cọc tiền mặt một phần (dữ liệu staging, không VietQR). Sau hạn, đọc lại đơn (vẫn `hold`), rồi ghi tiền mặt phần còn lại qua Desk. Kỳ vọng ở `v1.0.0`: 409 `HOLD_EXPIRED`. Kỳ vọng ở v1.0.1: 200, `confirmed`, rồi **Nhận phòng** mở vào ngày đến. Ca phụ cho v1.0.1: hold chưa cọc quá hạn, ghi tiền với `receivedAt` trước hạn → 200; sau hạn → `HOLD_EXPIRED`. Dọn: hủy và hoàn trên Desk như 19.8.
+- **Đề xuất:** sửa ở **v1.0.1** (04/11), cùng BUG-R3-041. Tới lúc đó dùng cách tạm DOM A.2 + A.3. Release notes "Giới hạn đã biết" cần một dòng cho lỗi này (DOM DOC-01 (3), PO).
+- **Trạng thái:** Open.
+
+### BUG-R3-043 – Desk không có "Chấp nhận cọc thiếu" (BR-303 (2))
+
+- **Mức:** P2. Lý do:
+  - Một lối xử lý BR-303 cho phép (quản lý trở lên chấp nhận cọc thiếu, có lý do) không làm được trên Desk. Tình huống "khách chuyển trước một ít, phần còn lại trả khi đến" xảy ra thường ngày (DOM DOC-02).
+  - Không P1 vì có cách vòng không chạm tiền: trước hạn, khách chuyển nốt hoặc lễ tân **Gia hạn giữ chỗ (1 lần)**. Khi BUG-R3-042 đã sửa, giữ đơn tới ngày đến rồi thu nốt tại quầy. Ở `v1.0.0`, khi chưa có bản sửa 042, hệ quả nặng nhất (hoàn rồi thu lại) đã tính vào mức P1 của 042. Nếu v1.0.1 có 043 mà không có 042, QA sẽ xét lại mức.
+- **Môi trường:** `v1.0.0` (`8b3aec8`). Đọc mã 30/10.
+- **Thực tế:**
+  - API: `confirmSchema` có `acceptShortfallReason` (`deposits.controller.ts` dòng 39–43). `deposits.service.ts` dòng 107–111 chỉ cho OWN/MGR; dòng 228–234 xác nhận khi đã nhận > 0 và < cọc yêu cầu.
+  - Desk: hộp **Xác nhận cọc** chỉ có Số tiền đã nhận, Cách thanh toán, VietQR (`ReservationDialogs.tsx` dòng 480–613). Hai lệnh gọi `confirmDeposit` (dòng 571–576, 586–598) không gửi trường này. `git grep acceptShortfallReason 8b3aec8 -- product/apps` = 0 kết quả. Desk chỉ **hiển thị** "đã chấp nhận cọc thiếu" khi dữ liệu có sẵn.
+- **Mong đợi:** OWN/MGR thấy ô **"Chấp nhận cọc thiếu – lý do"** (bắt buộc ≥ 3 ký tự) khi đã nhận > 0 và < cọc yêu cầu. Gửi kèm `acceptShortfallReason` và xác nhận được. FD/FDL/SAL không thấy ô này (máy chủ trả 403). Áp cả trước và sau hạn, sau hạn thì cần bản sửa của BUG-R3-042.
+- **Vai:** FE-A (+ UXD đặt chữ). API đã sẵn, ARC chỉ cần xác nhận hợp đồng không đổi.
+- **Bằng chứng:** đọc mã như trên. Review: BA M13-01 gạch 2, DOM DOC-02, DOM A.3a V2.
+- **Tái hiện staging (sau):** hold có cọc thiếu, đăng nhập `qa.mgr`, mở **Xác nhận cọc**: kỳ vọng ở `v1.0.0` không có ô; ở v1.0.1 có ô, xác nhận được, Nhật ký tiền ghi "đã chấp nhận cọc thiếu". Kiểm thêm `qa.fd` không thấy ô.
+- **Trạng thái:** Open – đích **v1.0.1**.
+
+### BUG-R3-044 – Desk trình bày giữ chỗ có cọc như giữ chỗ chưa cọc
+
+- **Mức:** P2. UX gây nhầm ở đúng chỗ đang là biện pháp bù cho BUG-R3-041. Lễ tân rà đầu ca mở đơn, đọc "đơn đã tự hủy" rồi bỏ qua. Căn bị giữ im lặng, tiền khách nằm trên đơn treo. Câu "căn đã mở bán lại" dễ khiến lễ tân đặt đơn mới trước khi hủy đơn cũ (DOM A.3). Có cách khắc phục là đọc trạng thái đơn, nên không P1. Không sai tiền, vì máy chủ vẫn tạo yêu cầu hoàn khi hủy.
+- **Môi trường:** `v1.0.0` (`8b3aec8`). Đọc mã 30/10. OTM-00368 (19.7 mục 5a) là đúng trường hợp này nhưng đã hủy ở 19.8, và lúc đó QA không chụp khung đơn.
+- **Thực tế (3 chỗ):**
+  1. **Khung đơn**: hold có `left.ms = 0` luôn hiện hộp đỏ `drawer.hold.expired` "Giữ chỗ đã hết hạn lúc {time} – đơn đã tự hủy" (`ReservationDrawer.tsx` dòng 465–481), không xét cọc. Đơn có cọc thì **chưa** hủy, trạng thái vẫn **Giữ chỗ · chờ cọc** (J1 `kept_paid`, BR-303).
+  2. **Câu lỗi** `error.HOLD_EXPIRED` (`strings-vi.json` dòng 397; `_notime` dòng 1941; EN dòng 397/1941): "Giữ chỗ đã hết hạn lúc … và căn đã mở bán lại. Tạo giữ chỗ mới nếu căn còn trống." Với hold có cọc, căn **không** mở bán, và tạo đơn mới cùng căn sẽ bị chặn.
+  3. **Hộp Hủy giữ chỗ**: hold luôn hiện `cancel.fee_none` "Không thu phí (giữ chỗ chưa cọc)" (`ReservationDialogs.tsx` dòng 350). Thân hộp với hold chỉ dùng `cancel.consequence*`, không nêu tiền (dòng 298–302). Dòng `cancel.refund_request` chỉ hiện khi `refundRequestVnd ≠ refundableVnd` (dòng 351–355). Kết quả: hủy hold có cọc mà hộp không nói gì về khoản sẽ hoàn. Máy chủ vẫn tạo yêu cầu hoàn đủ số đã nhận (BA M13-01, DOM A.3). Điểm này áp cả **trước** hạn.
+- **Mong đợi:**
+  - Khung đơn: hold quá hạn **có cọc** hiện "Giữ chỗ đã quá hạn lúc {time} – đã nhận {paid}/{required}, đơn **chưa** hủy, căn vẫn giữ. Xử lý trước 12:00 {ngày đến}". Hold chưa cọc giữ câu cũ.
+  - `HOLD_EXPIRED` của hold có cọc: câu riêng, không nói "mở bán lại". Desk biết `depositPaidVnd` của đơn nên chọn được câu.
+  - Hộp hủy hold có cọc: "Không thu phí. Sẽ tạo yêu cầu hoàn {số đã nhận} – cần quản lý duyệt." Bỏ vế "(giữ chỗ chưa cọc)" khỏi câu chung.
+  - EN đi cùng VI. Chữ do UXD đặt theo giọng brand.
+- **Vai:** FE-A + UXD. BE không phải đổi, trừ khi FE cần thêm `extras` trong `HOLD_EXPIRED` (ARC xem).
+- **Bằng chứng:** đọc mã `8b3aec8`: `ReservationDrawer.tsx` dòng 465–481; `ReservationDialogs.tsx` dòng 297–355; `product/design/copy/strings-vi.json` dòng 117, 159, 397, 1941, 2444. Review: BA M13-03, M13-01 gạch 1 và 4; DOM A.3a V3.
+- **Tái hiện staging (sau):** cùng hold của ca BUG-R3-042. Sau hạn mở khung đơn và chụp hộp đỏ (chụp xong che tên khách). Ghi tiền để thấy câu `HOLD_EXPIRED`. Mở **Hủy giữ chỗ** để chụp hộp. Rồi hủy, vào **Nhật ký tiền → Hoàn tiền** xem yêu cầu hoàn đúng số đã nhận.
+- **Trạng thái:** Open – đích **v1.0.1** (DOM: "Nên có v1.0.1"). Tới lúc đó, sổ tay 2.4 và 5.6 phải nói rõ ba câu này sai với đơn có cọc (BA M13-03 đề xuất).
+
+### BUG-R3-045 – Câu `FOLIO_LOCKED` nói "chỉ quản lý" trong khi quản lý cũng bị khóa
+
+- **Mức:** P3. Câu chữ sai, kèm nút mở một thao tác máy chủ luôn chặn. Máy chủ chặn đúng (BR-427 (d)), không sai tiền, không mất dữ liệu. Cùng loại với BUG-R3-024 và BUG-R3-031.
+- **Môi trường:** staging rc.4 (`d12cda6`), 28/10, OTM-00239 (`qa3-rc1.md` 17.5). Đọc lại mã `v1.0.0` (`8b3aec8`) 30/10: chuỗi và các điều kiện không đổi.
+- **Thực tế:**
+  - Thêm phát sinh trên folio quá cửa sổ 24 giờ: 409 `FOLIO_LOCKED`. Desk báo "Phiếu thanh toán đã khóa sau khi trả phòng. Chỉ quản lý ghi được bút toán điều chỉnh." (`strings-vi.json` dòng 410; EN dòng 410). Đã thấy trên staging ở 17.5.
+  - Vế "chỉ quản lý" sai. `folio-lines.service.ts` `adjust` dòng 489 (folio `closed`) và 492–499 (`settled` quá `post_checkout_window_until`) trả `FOLIO_LOCKED` cho **mọi vai**, trước bước kiểm quyền quản lý ở dòng 501. `FOLIO_LOCKED` còn dùng cho nhiều trường hợp khác (hóa đơn điện tử đã phát hành `bill.service.ts` dòng 315; folio không `open` khi ghi cọc, thu tiền, FOC…). Không trường hợp nào để quản lý "ghi bút toán điều chỉnh" được.
+  - **Folio & điều chỉnh**: `settled = f?.status !== 'open'`, `canAdjust = settled ? mgr : fd` (`FolioDialog.tsx` dòng 62–63). MGR vẫn thấy nút **Điều chỉnh** trên folio `closed` hoặc `settled` quá cửa sổ, bấm thì 409. Nút **Thêm phát sinh** còn hiện trên folio `settled` quá cửa sổ cho tới khi J15 (mỗi giờ) đóng folio (`ReservationDrawer.tsx` dòng 221–228, 337). Khoảng hở này tối đa 1 giờ trên rc.6, vì J15 đã chạy (BUG-R3-037 Closed).
+- **Mong đợi:**
+  - Câu `FOLIO_LOCKED` cho trường hợp sau trả phòng: "Phiếu thanh toán đã khóa (quá 24 giờ sau trả phòng). Không ai thêm hay điều chỉnh được. Khoản còn nợ: Thu công nợ hoặc quản lý Xóa công nợ." UXD đặt chữ. Nếu cần câu theo từng ngữ cảnh khác, FE dùng `detail`/ngữ cảnh gọi.
+  - Ẩn **Điều chỉnh** và **Thêm phát sinh** khi folio `closed`, hoặc `settled` đã qua `postCheckoutWindowUntil`. FE-A xem `Folio` đã có trường này chưa. Chưa có thì ARC thêm vào hợp đồng.
+- **Vai:** UXD (chữ) + FE-A (ẩn nút).
+- **Bằng chứng:** `qa3-rc1.md` 17.5 (câu trên staging). Đọc mã `8b3aec8`: `folio-lines.service.ts` dòng 481–501; `FolioDialog.tsx` dòng 62–63; `strings-vi.json` dòng 410. Review: BA M13-04.
+- **Tái hiện staging (sau):** đơn đã trả phòng quá 24 giờ, folio `closed` (staging có OTM-00239, 00294, 00297, 00357, 00365 đã `closed` từ 30/10). `qa.mgr` mở **Folio & điều chỉnh** → **Điều chỉnh** một dòng → kỳ vọng ở `v1.0.0`: nút hiện, 409, câu "chỉ quản lý…". Chỉ thao tác trên dữ liệu staging.
+- **Trạng thái:** Open – đích **v1.0.1**. Sổ tay 1.11 sửa theo BA M13-04 (PO), không chờ bản vá.
+
 ### Checklist QA xác nhận rc.6 trên staging (BUG-R3-037, 038, 039)
 
 Người làm: QA cùng OPS (OPS thao tác máy chủ, QA đọc bằng chứng). SQL chỉ đọc (`BEGIN READ ONLY … ROLLBACK`). Lấy DB làm bằng chứng, log là phụ (thẻ FB-R3-ARC-BEB-J15-02). Không mục nào được tính đạt chỉ vì CI xanh.
@@ -1120,3 +1208,17 @@ Người làm: QA cùng OPS (OPS thao tác máy chủ, QA đọc bằng chứng)
 **G. Kết luận**
 - [x] Ghi kết quả vào `rounds/round-03/qa/qa3-rc1.md` (mục mới) và cập nhật trạng thái 037/038/039 trong tệp này. Mục nào không đạt thì giữ Open và ghi bằng chứng.
 - [x] Production: sau khi rc.6 lên production, OPS chạy lại B và C (chỉ đọc), và đếm hold quá hạn trước/sau. QA đọc bằng chứng trước Day D. *(OPS 14: đạt, 0 hold/folio/payment. QA đã đọc 30/10)*
+
+## 4. Đề xuất backlog từ kiểm thử (không tính là lỗi)
+
+### ĐX-R3-QA-01 – "Cần chú ý" liệt kê mọi giữ chỗ quá hạn, mọi ngày đến (DOM A.3a V5)
+
+- **Nguồn:** `reviews/DOM-on-PO-v1.0.0-docs.md` A.3a V5 và A.5; BA M13-02. Ghi 30/10, QA.
+- **Vì sao không phải lỗi:** chưa có quy tắc hay AC nào yêu cầu "Cần chú ý" có mục cho giữ chỗ **đã** quá hạn. Nguồn `holdsExpiring` (`frontdesk/internal/attention-sources.ts` dòng 117–135, `8b3aec8`) làm đúng thiết kế BR-303: chỉ lấy hold **chưa** tới hạn trong `hold_expiry_reminder_hours`. Khối **Giữ chỗ chưa cọc (n)** ở Hôm nay chỉ lấy hold có ngày đến hôm nay (`reporting/internal/stay-lists.ts` dòng 70–79). Đây là màn theo ngày, không phải lỗi. Phần "báo đỏ" mà BR-303 yêu cầu đã ghi ở **BUG-R3-041**.
+- **Khoảng hở thực tế:** ở `v1.0.0`, hold quá hạn có ngày đến **sau hôm nay** chỉ thấy trên Sơ đồ phòng (14 ngày, `RackPage.tsx` `DAYS = 14`) hoặc trong danh sách **Đơn đặt phòng**. Hold có ngày đến xa hơn 14 ngày mà quá hạn thì không màn nào báo.
+- **Đề xuất cho PO (đích v1.0.1, gộp với bản sửa BUG-R3-041, BE-B + ARC):** thêm nguồn "Cần chú ý" `hold_overdue` (màu đỏ). Nguồn lấy mọi đơn `status = 'hold'` có `hold_expires_at ≤ now`, mọi ngày đến, và giữ mục tới khi đơn rời `hold`. Người nhận theo DOM A.5. Người nhận không tắt được bằng "Đã xử lý". Thêm mục riêng `hold_overdue_cap` cho MGR/OWN sau 12:00 ngày đến. AC đề xuất:
+  1. Hold có cọc quá hạn, ngày đến +20 ngày → FD/FDL/MGR thấy mục đỏ trong "Cần chú ý", bấm **Mở** tới khung đơn.
+  2. Hold chưa cọc mà quá hạn và còn `hold` (WA-04: có yêu cầu giảm giá/FOC) → cũng có mục.
+  3. Đơn được xác nhận hoặc hủy → mục tự mất ở lần đọc kế tiếp.
+- **Kèm (chữ, UXD):** khối **Giữ chỗ chưa cọc (n)** ở Hôm nay có cả hold đã nhận một phần cọc, nên đổi tên, ví dụ "Giữ chỗ chờ cọc (n)" (BA M13-02).
+- **Trạng thái:** chờ PO xếp vào backlog v1.0.1.
