@@ -339,7 +339,10 @@ def inline(text, ctx, xref=True):
 
     t = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", link, t)
 
-    if xref and ctx is not None:
+    hook = getattr(ctx, "xref_hook", None) if (xref and ctx is not None) else None
+    if hook is not None:  # bộ dựng khác (build_guides.py) tự nối mục, nối tệp
+        t = hook(t, codes)
+    elif xref and ctx is not None:
         def ref(m):
             before = t_holder[0][: m.start()].rstrip()
             if before.endswith("\x00"):
@@ -535,7 +538,7 @@ def render_blocks(blocks, ctx):
             while i < len(blocks) and blocks[i]["t"] == "img":
                 group.append(blocks[i])
                 i += 1
-            out.append(render_shots(group, ctx))
+            out.append((getattr(ctx, "render_shots", None) or render_shots)(group, ctx))
             continue
         if t == "p":
             nxt = blocks[i + 1] if i + 1 < len(blocks) else None
@@ -550,7 +553,7 @@ def render_blocks(blocks, ctx):
         elif t == "table":
             out.append(render_table(b, ctx))
         elif t == "quote":
-            out.append(render_quote(b, ctx))
+            out.append((getattr(ctx, "render_quote", None) or render_quote)(b, ctx))
         elif t == "hr":
             out.append("<hr>")
         elif t == "h":
