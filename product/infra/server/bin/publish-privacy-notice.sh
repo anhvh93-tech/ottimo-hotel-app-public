@@ -42,6 +42,12 @@ if [ "$app_env" = "production" ] || [ "$(cat "$OTTIMO_HOME/.ottimo-home" 2>/dev/
 if [ -n "${PN_TEST_DC:-}${PN_TEST_NO_DIGEST:-}" ] && [ "$is_prod" -eq 1 ]; then
   echo "refused: PN_TEST_* variables are not allowed on production" >&2; exit 2
 fi
+# SEC FB-R3-SEC-OPS-US155-03: on production the live pages are fetched from this host's edge with the real
+# certificate – the smoke overrides of deploy-landing.sh (other address, --insecure) are refused there.
+if [ "$is_prod" -eq 1 ] && { [ -n "${SMOKE_INSECURE:-}" ] && [ "${SMOKE_INSECURE}" != "0" ] \
+  || { [ -n "${SMOKE_ADDR:-}" ] && [ "${SMOKE_ADDR}" != "127.0.0.1" ]; }; }; then
+  echo "refused: SMOKE_INSECURE / SMOKE_ADDR overrides are not allowed on production" >&2; exit 2
+fi
 dc() { "${PN_TEST_DC:-$here/dc}" "$@"; }
 log() { echo "[privacy-notice $(date -u +%Y-%m-%dT%H:%M:%SZ)] $*"; logger -t ottimo-deploy -- "privacy-notice: $*" 2>/dev/null || true; }
 die() { log "REFUSED: $*"; exit 1; }
@@ -76,6 +82,10 @@ if command -v flock >/dev/null; then
 elif [ "$is_prod" -eq 1 ]; then
   die "flock missing"
 fi  # (test harness on macOS: no flock; the SQL also takes a table lock)
+# ARC FB-R3-ARC-OPS-US155-05: hold the landing deploy lock too, so no landing release can replace the container between
+# hashing (steps 2–4) and the database write (step 5).
+exec 8>"$state/landing.lock"
+if command -v flock >/dev/null; then flock -n 8 || die "a landing deploy is in progress – run again after it"; fi
 
 # ── 1. the live landing release ──
 live_tag=$(cat "$state/landing_tag" 2>/dev/null || true)

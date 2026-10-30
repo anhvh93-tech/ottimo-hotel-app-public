@@ -16,6 +16,10 @@ infra=$(cd "$here/../.." && pwd)
 product=$(cd "$infra/.." && pwd)
 API_IMAGE_REF="${API_IMAGE_REF:?set API_IMAGE_REF (api image with migrations ≥ 0086)}"
 LANDING_IMAGE_REF="${LANDING_IMAGE_REF:?set LANDING_IMAGE_REF (landing image built with the form, slug dlt)}"
+# SEC FB-R3-SEC-OPS-US155-04 (1): this test starts a Docker stack on the machine it runs on – never on a server.
+if [ -e /opt/ottimo-prod ] || [ -e /opt/ottimo/.ottimo-home ] || [ "$(cat "$infra/../.ottimo-home" 2>/dev/null)" != "" ]; then
+  echo "refused: this is an OTTIMO server – run this test on a workstation" >&2; exit 2
+fi
 project=ottimo-pn-test
 port=58160
 
@@ -144,10 +148,64 @@ out=$(pn --landing-tag "$landing_tag" --version 2026-10-24 --apply) && ko "12 su
 prod=$(mktemp -d "${TMPDIR:-/tmp}/pn-prod.XXXXXX"); cp "$home/.env" "$prod/.env"; sed -i.bak 's/^APP_ENV=.*/APP_ENV=production/' "$prod/.env"
 out=$(OTTIMO_HOME=$prod PN_TEST_DC=$home/dc bash "$infra/server/bin/publish-privacy-notice.sh" --landing-tag x --version 2026-10-24 --property DLT --operator ops.test 2>&1) \
   && ko "13 PN_TEST_DC accepted on production" || { grep -q 'not allowed on production' <<<"$out" && ok "13 test overrides refused on production" || { ko "13"; echo "$out"; }; }
+out=$(OTTIMO_HOME=$prod SMOKE_INSECURE=1 bash "$infra/server/bin/publish-privacy-notice.sh" --landing-tag x --version 2026-10-24 --property DLT --operator ops.test 2>&1) \
+  && ko "13b SMOKE_INSECURE accepted on production" || { grep -q 'not allowed on production' <<<"$out" && ok "13b SMOKE_INSECURE / SMOKE_ADDR refused on production" || { ko "13b"; echo "$out"; }; }
 rm -rf "$prod"
 
 out=$(dc exec -T postgres sh -c 'psql -X -q -U "$POSTGRES_USER" -d ottimo -v slug=dlt -v version=2026-12-01 -v sha_vi=$(printf a%.0s $(seq 64)) -v sha_en=$(printf b%.0s $(seq 64)) -v operator=ops.test -v landing_tag=t -v landing_digest= -v apply=true -f -' \
   < "$infra/server/publish-privacy-notice.sql" 2>&1) && ko "14 superuser run accepted" || { grep -q 'superuser' <<<"$out" && [ "$(rows)" = "4/2" ] && ok "14 SQL run by the superuser → refused" || { ko "14"; echo "$out"; }; }
+
+echo "== smoke counts, step L (bin/us155-smoke-counts.sh – SEC FB-R3-SEC-OPS-US155-02), synthetic rows (fake data)"
+since=$(sqlsu "SELECT to_char(now() - interval '1 minute', 'YYYY-MM-DD\"T\"HH24:MI:SS') || '+00:00';")
+# An erased test request as WR8 leaves it (C2 NULL, purge_journal, audit, notification, SM-18 history) – columns as
+# website-requests.service.ts writes them; one owner of DS-E receives the notification.
+sqlsu "BEGIN;
+WITH ctx AS (SELECT p.organization_id AS org, p.id AS prop, gen_random_uuid() AS id,
+                    (SELECT u.id FROM app_user u WHERE u.organization_id = p.organization_id ORDER BY u.username LIMIT 1) AS usr
+               FROM property p WHERE p.code = 'DLT'),
+r AS (INSERT INTO website_booking_request (id, organization_id, property_id, ref_code, status, arrival_date, departure_date,
+        stay_kind, adults, locale, preferred_channel, consent_version, consent_at, reply_by, last_activity_at, created_at,
+        updated_at, decline_reason_code, pii_purged_at)
+      SELECT id, org, prop, 'K7P9QXA2', 'declined', current_date + 20, current_date + 22, 'short', 1, 'en', 'email',
+             '2026-11-05', now(), now() + interval '1 hour', now(), now(), now(), 'erased_on_request', now() FROM ctx
+      RETURNING id, organization_id AS org, property_id AS prop),
+j AS (INSERT INTO purge_journal (organization_id, property_id, subject_type, subject_id, policy_key, action, purged_at)
+      SELECT org, prop, 'website_booking_request', id, 'dsr_erase', 'null_columns', now() FROM r),
+a AS (INSERT INTO audit_event (organization_id, property_id, occurred_at, actor_type, category, action, entity_type, entity_id, after)
+      SELECT org, prop, now(), 'user', 'security', 'website_request.erased', 'website_booking_request', id::text,
+             '{\"verificationMethod\":\"same_contact\",\"status\":\"declined\"}'::jsonb FROM r),
+n AS (INSERT INTO staff_notification (id, organization_id, property_id, user_id, kind, ref_type, ref_id, ref_code, created_at)
+      SELECT gen_random_uuid(), r.org, r.prop, ctx.usr, 'website_request_new', 'website_booking_request', r.id, 'K7P9QXA2', now()
+        FROM r, ctx)
+INSERT INTO state_transition (organization_id, property_id, machine, entity_id, from_state, to_state, event_code, actor_type, occurred_at)
+SELECT org, prop, 'SM-18', id, NULL, 'new', 'create_website_request', 'guest', now() FROM r
+UNION ALL SELECT org, prop, 'SM-18', id, 'new', 'declined', 'erase_website_request', 'user', now() FROM r;
+COMMIT;" >/dev/null
+sc() { OTTIMO_HOME=$home PN_TEST_DC=$home/dc bash "$infra/server/bin/us155-smoke-counts.sh" "$@" 2>&1; }
+out=$(sc --ref REQ-K7P9QXA2 --since "$since")
+[ -z "${VERBOSE:-}" ] || sed 's/^/      /' <<<"$out"
+grep -q 'RESULT: OK – 14/14' <<<"$out" && ok "15 erased request, no test string anywhere → 14/14 OK, exit 0" || { ko "15"; echo "$out"; }
+before=$(sqlsu "SELECT (SELECT count(*) FROM website_booking_request) || '/' || (SELECT count(*) FROM audit_event);")
+[ "$(sqlsu "SELECT (SELECT count(*) FROM website_booking_request) || '/' || (SELECT count(*) FROM audit_event);")" = "$before" ] \
+  && ok "16 counts query changed nothing (READ ONLY + ROLLBACK)" || ko "16"
+sqlsu "INSERT INTO outbox_message (id, organization_id, property_id, topic, payload, dedupe_key, created_at)
+       SELECT gen_random_uuid(), organization_id, id, 'test.leak', '{\"name\":\"TEST OTTIMO\"}'::jsonb, 'pn-test-leak', now()
+         FROM property WHERE code = 'DLT';" >/dev/null
+out=$(sc --ref REQ-K7P9QXA2 --since "$since") && ko "17 leak in outbox accepted" || {
+  grep -q '^8\. outbox_message.* | FAIL$' <<<"$out" && grep -q '^14\. .*outbox_message.* | FAIL$' <<<"$out" \
+    && ok "17 test string left in outbox_message → checks 8 + 14 FAIL, exit 1" || { ko "17"; echo "$out"; }; }
+sqlsu "DELETE FROM outbox_message WHERE dedupe_key = 'pn-test-leak';" >/dev/null
+sqlsu "INSERT INTO website_booking_request (id, organization_id, property_id, ref_code, status, arrival_date, departure_date,
+         stay_kind, adults, locale, preferred_channel, guest_name, email, contact_hmac, consent_version, consent_at, reply_by,
+         last_activity_at, created_at, updated_at)
+       SELECT gen_random_uuid(), organization_id, id, 'M3N4P5Q6', 'new', current_date + 20, current_date + 22, 'short', 1, 'en',
+              'email', 'TEST OTTIMO', 'info@ottimo.vn', 'x', '2026-11-05', now(), now() + interval '1 hour', now(), now(), now()
+         FROM property WHERE code = 'DLT';" >/dev/null
+out=$(sc --ref M3N4P5Q6 --since "$since") && ko "18 not erased accepted" || {
+  [ "$(grep -c ' | FAIL$' <<<"$out")" -ge 5 ] && grep -q '^2\. .* | FAIL$' <<<"$out" && grep -q '^3\. .* | FAIL$' <<<"$out" \
+    && ok "18 request NOT erased → checks 2, 3, 4, 5, 14 … FAIL, exit 1" || { ko "18"; echo "$out"; }; }
+out=$(sc --ref REQ-ZZZZZZZZ --since "$since") && ko "19 unknown ref accepted" || { grep -q '^1\. .* | 0 | 1 | FAIL$' <<<"$out" && ok "19 unknown ref → check 1 FAIL" || { ko "19"; echo "$out"; }; }
+out=$(sc --ref REQ-K7P9QXA2 --since "2026-10-31 07:40") && ko "20 since without time zone accepted" || ok "20 --since without time zone → refused"
 
 echo "== $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

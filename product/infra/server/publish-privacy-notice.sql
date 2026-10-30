@@ -163,7 +163,8 @@ BEGIN
                       WHERE p.organization_id = v_org AND p.locale = l AND p.superseded_at IS NULL);
   IF v_missing IS NOT NULL THEN RAISE EXCEPTION 'refused: readiness still misses privacy_notice_version.%', v_missing; END IF;
   SELECT count(*) INTO v_cnt FROM privacy_notice_version p
-   WHERE p.organization_id = v_org AND p.superseded_at IS NULL AND p.version <> v_version;
+   WHERE p.organization_id = v_org AND p.locale IN ('vi', 'en') AND p.superseded_at IS NULL AND p.version <> v_version;
+  -- (ARC FB-R3-ARC-OPS-US155-06 (a): vi/en only – a future `ru` row follows its own version until this tool writes ru)
   IF v_cnt > 0 THEN RAISE EXCEPTION 'refused: % other active version row(s) left – check the table', v_cnt; END IF;
   RAISE NOTICE 'readiness: privacy_notice_version vi+en active = % (PUBLIC_FORM_NOT_READY no longer lists them)', v_version;
   RAISE NOTICE 'RESULT: % (inserted: %, already present: %)',
