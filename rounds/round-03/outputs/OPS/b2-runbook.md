@@ -436,3 +436,87 @@ Tài khoản không có vai owner (tức tài khoản giữ 6 vai):
 - "Tài khoản chủ" là người dùng có vai `owner` đang hiệu lực trong `user_property_role`. Production chỉ có 1 người như vậy.
 - Cửa sổ ±3 phút quanh 12:46 lấy theo `revoked_at` và `occurred_at` (giờ máy chủ DB, `Asia/Ho_Chi_Minh`). Log Caddy lấy theo `ts` của bản ghi access log, đổi sang UTC+7. Ba nguồn lệch nhau dưới 1 giây.
 - "Tài khoản giữ 6 vai" là người dùng duy nhất không có vai `owner` (tổng `app_user` 2, như Phần 4/6).
+
+## 7. C1 – kiểm VietQR production 30/10
+
+- Người kiểm: OPS | Round 3 – bước **Kiểm thử** | 30/10/2026 14:00–14:03 giờ VN. Điều kiện **D-INV-3** (`qc/v1-gate.md`), cách làm theo phân xử ORC 30/10 trong `decision-log.md` (giữ chỗ 12 giờ, ngày 17/11, khách "TEST OTTIMO", quét QR không chuyển tiền, hủy "Khách đổi ý").
+- INV (ORC ghi): tạo giữ chỗ thử, quét VietQR bằng app ngân hàng (tên chủ tài khoản và 4 số cuối đúng, **không** chuyển tiền), hủy với lý do "Khách đổi ý". INV báo "đã hủy OTM", không ghi số.
+- Production chạy rc.6 (`state/current_tag` = `sha-8b3aec89486f`).
+- Cách làm như mục 13 của `j15-folio-close-check.md` và Phần 6:
+  - SSH `ottimo-admin`, khóa `~/.ssh/ottimo_ops`, `StrictHostKeyChecking=yes`, `BatchMode`. Host lấy từ phân giải `desk.ottimo.vn`, không ghi lại.
+  - SQL hai lớp chỉ đọc: `PGOPTIONS='-c default_transaction_read_only=on'` + `BEGIN TRANSACTION READ ONLY … ROLLBACK`, `ON_ERROR_STOP`, giờ `Asia/Ho_Chi_Minh`. Phiên in `transaction_read_only = on` (14:01:21, 14:01:56, 14:02:24). Bộ câu chạy thử trên staging trước (14:00:44) để chắc cú pháp.
+- Không ghi DB, không restart, không chạy job tay. Không in tên khách, số điện thoại, số tài khoản, IP. Tên khách chỉ so bằng biểu thức true/false.
+
+### 7.1 Kết luận: **ĐẠT** phần tiền và tồn phòng – kèm **3 điểm lệch** so với cách làm ORC (7.3) cần ORC xem
+
+| # | Tiêu chí | Kết quả production | Đạt? |
+|---|---|---|---|
+| 1 | Đúng 1 reservation, `cancelled`, lý do khách đổi ý | `reservation` tổng **1** (trước C1: 0, WA-02 29/10): **OTM-00001**, `status = cancelled`, `status_before_cancel = hold`, `cancel_reason_code = guest_changed_mind`, `cancelled_by_type = user`. Tạo 13:55:41, hủy 13:57:55. SM-01 `hold → cancelled` (B5, `guest_changed_mind`). Người tạo và người hủy là tài khoản **owner** | Đạt |
+| 2 | `room_occupancy` của đơn `active = false`, căn trống lại | 1 dòng `kind = hold`, **`active = false`** (cập nhật 13:57:55). `room_occupancy` đang hiệu lực trên toàn production: **0**. 2 dòng `stay_night` của đơn chuyển **`void`** (SM-05 `none → void`, K11) | Đạt |
+| 3 | Payment VietQR: trạng thái, 0 succeeded | `payment` tổng **1**: **PT-000001**, `vietqr`, `deposit`, **`pending`**, đối soát `pending`, số tiền 500.000, tạo 13:55:42. Chưa có `received_at`, chưa có mã giao dịch ngân hàng. `payment` `succeeded` trên toàn production: **0** | Đạt |
+| 4 | 0 dòng tiền trên folio, folio dư 0 | Folio của OTM-00001: `open`, chưa có số bill. `folio_line`: **0** dòng. Σ dòng `posted` = 0, Σ đã thu = 0 → **dư 0** | Đạt |
+| 5 | Không hold nào khác, không yêu cầu hoàn | `reservation` `hold`: **0**. Đơn tạo sau 13:57:55: **0**. `approval_request` `refund`: **0** (bảng `approval_request` không có dòng nào) | Đạt |
+
+**Payment còn `pending` – giờ hết hạn và J24:**
+- `expires_at` = **31/10/2026 06:00** (mốc đổi ngày nghiệp vụ hôm sau, như `payments.service.ts`).
+- Lúc kiểm (14:01) chưa quá hạn, nên J24 `payment.expire` chưa xử lý: audit `payment.expired` = **0**.
+- J24 chạy mỗi nhịp worker. Điều kiện của nó là `status = 'pending' AND expires_at <= now`, và đơn bị hủy không loại payment khỏi điều kiện này. Vậy nhịp đầu sau 06:00 ngày 31/10 sẽ chuyển PT-000001 sang **`expired`**, ghi 1 audit `payment.expired` và 1 dòng SM-12 `pending → expired` (actor `system`).
+- OPS **không** tự sửa. Đề xuất kiểm lại bằng cùng bộ câu sau 06:05 ngày 31/10; đạt khi `pay_status` = `vietqr|deposit|expired|1` và audit `payment.expired` = 1.
+- Trước giờ đó, nếu có người vô tình xác nhận "đã nhận tiền" cho PT-000001, Desk vẫn cho làm. Rủi ro thấp vì đơn đã hủy và không có tiền vào. Lễ tân/chủ không thao tác gì trên PT-000001.
+
+Chuỗi audit của lượt C1 (category `data`/`state`/`money`, giờ VN, không ghi nội dung):
+- 13:53:31 `guest.created`
+- 13:55:36 `lead.quoted`, `quote.saved`
+- 13:55:41 `reservation.priced`, `lead.holding`, `quote.converted`
+- 13:55:42 `payment.qr_created`
+- 13:57:55 `reservation.cancelled`, `lead.hold_ended`
+
+Outbox:
+- `channel.availability_changed` `pending` **2**, từ lúc giữ và lúc nhả căn. Chủ đề này hiện **không có bộ xử lý** (mock channel manager, BR-905), nên không có gì gửi ra OTA.
+- `staff.push` `pending` **3** (29/10 là 2, tăng 1).
+- `staff.email` `dead` **1** (BUG-R3-032, đã biết).
+
+### 7.2 Điều OPS không kiểm được
+
+- Tên chủ tài khoản và 4 số cuối trên QR: chỉ INV thấy trong app ngân hàng. OPS dựa vào lời INV (ORC ghi). D-INV-3 phần "tên đúng" là xác nhận của INV.
+- "Không chuyển tiền": DB chỉ chứng minh **chưa có khoản nào được ghi nhận**. Production không có webhook ngân hàng, nên tiền vào tài khoản chỉ hiện trên DB khi có người xác nhận tay. Câu "không chuyển tiền" là lời INV. Sao kê ngân hàng do INV tự xem nếu cần.
+
+### 7.3 Lệch so với cách làm ORC 30/10 – ORC xem, OPS không tự xử lý
+
+| # | ORC dặn | Thực tế trên DB | Tác động |
+|---|---|---|---|
+| L1 | Ngày đến **17/11**, **1 đêm** | Ngày đến **31/10**, đi **02/11** (**2 đêm**), căn 101 | Đã hủy, 2 đêm đã `void`, căn 101 trống lại cho 31/10 và 01/11. Không có gì gửi ra OTA (7.1). Không còn tác động tồn phòng. Chỉ đáng lưu ý vì đơn thử rơi sát ngày D |
+| L2 | Giữ **12 giờ** | `hold_hours` = **24** (sau khi hủy, `hold_expires_at` đã xóa) | Không còn tác động vì đơn đã hủy |
+| L3 | Khách **"TEST OTTIMO"**, không dữ liệu thật | Production có **1** khách (`guest`, nguồn `desk`, tạo 13:53:31) và đó là người đặt OTM-00001. Tên **không** chứa "TEST" hay "OTTIMO" (so trên `full_name` và `name_search`, true/false), dài 12 ký tự. Không có email, kênh nhắn, giấy tờ, tên công ty | **Có thể là tên người thật** trong production. OPS không đọc tên. Đề xuất: ORC hỏi INV tên đã nhập có phải người thật không. Nếu phải, xử lý bằng chức năng ẩn danh/sửa hồ sơ khách trên Desk theo quy trình SEC, không sửa thẳng DB. Không chặn kết quả C1 về tiền |
+
+Ghi thêm: lượt C1 chạy **song song** lượt đăng nhập lần đầu của tài khoản 6 vai (13:54–14:01, xem 7.4). Mọi thao tác trên đơn do tài khoản **owner** làm. Tài khoản 6 vai chỉ có sự kiện đăng nhập và bảo mật của chính nó.
+
+### 7.4 D-INV-2 – tài khoản 6 vai đăng nhập lần đầu (cùng phiên chỉ đọc 14:01:21)
+
+Cùng truy vấn vai của Phần 4/6 (cột: vai|số người|2 bước bật|mật khẩu tạm):
+- `owner|1|1|0`;
+- `manager|1|1|0`;
+- `front_desk`, `front_desk_lead`, `housekeeping`, `maintenance`, `sales_staff` đều `|1|1|0`.
+
+Tổng `app_user` **2**, người không có vai **0**. So với Phần 6.3 (12:48): `manager` và 5 vai còn lại đổi từ `|1|0|1` sang **`|1|1|0`** → **ĐẠT** theo tiêu chí Phần 6.3.
+
+Chuỗi của tài khoản 6 vai trong ngày 30/10 (audit và `user_session`, giờ VN; không ghi tên, email, IP, mã phiên):
+- 13:38:35 `user.updated`, do owner làm trên tài khoản này.
+- 13:54:32 `auth.login_succeeded`, phiên `pwd`, `enrollment_only = true`.
+- 13:55:40 và 13:55:52 `stepup.s2_granted`.
+- 13:55:52 `user.password_changed`. Phiên đăng ký bị thu hồi `password_changed`, mở phiên đăng ký mới.
+- 13:56:10 `mfa.setup_started`.
+- 13:56:27 `mfa.verify_failed` (1 lần, nhập sai mã).
+- 13:57:25 `mfa.enrolled`. Phiên đăng ký bị thu hồi `mfa_enrolled`.
+- 13:57:25 mở phiên `totp` đầy đủ. 13:59:57 `auth.logout`, phiên thu hồi `logout`.
+- 14:01:07 `auth.login_succeeded`, phiên `totp`, `enrollment_only = false`, **đang sống** (đăng nhập lại bằng mật khẩu mới + 2 bước).
+
+Tổng `user_session` của tài khoản 6 vai: **4**, đang sống **1**. G2-7 phần MGR hết chặn về mặt số liệu. QC/SEC chấm.
+
+### 7.5 Giả định
+
+- "Đơn thử C1" là reservation duy nhất trên production (tổng 1, trước đó 0). INV không ghi số đơn.
+- "Lý do khách đổi ý" = mã `guest_changed_mind` trong `CANCEL_REASON_CODES`.
+- "Folio dư 0" tính như `moneyPosition`: Σ dòng `posted` − Σ payment `succeeded` không phải đảo, không phải cọc an ninh. Cả hai đều 0.
+- "Tài khoản giữ 6 vai" là người dùng duy nhất không có vai `owner` (tổng `app_user` 2).
+- Truy vấn tạm nằm trong scratchpad của phiên (`c1.sql`, `c1b.sql`, `c1c.sql`). Đầu ra không có dữ liệu cá nhân.
