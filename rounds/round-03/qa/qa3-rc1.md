@@ -791,3 +791,109 @@ Chạy `qa-r6/j1/check-after.sh` (scratchpad phiên; GET + 1 lần ghi cọc k�
 | 6 | OPS (DB/log, chỉ đọc) | OTM-00367: `cancelled_by_type = 'system'`, `cancel_reason_code = 'hold_expired'`, `room_occupancy.active = false` cả 2 đêm, 1 audit `reservation.hold_expired`, registration `void`; `job done` `hold.expire` nhịp 07:04 có `expired: 1, keptPaid: 1, failed: 0`, các nhịp sau `expired: 0`; 0 dòng `ERROR [` / `job failed` |
 
 Dọn sau khi kiểm xong: hủy OTM-00368 và xử lý khoản 200.000 tiền mặt theo đường hoàn của Desk (bản ghi staging), để căn 102 trống lại trước UAT.
+
+### 19.6 OPS xác nhận DB/log J1 (30/10, 07:55–07:58 +07)
+
+- Người kiểm: OPS | Round 3 – bước **Kiểm thử**. Staging rc.6: api, worker `ottimo-api:sha-8b3aec89486f`, web `ottimo-web:sha-8b3aec89486f`, chạy từ 29/10 11:57:55Z, `RestartCount` 0 cả bốn container (api, web, postgres `healthy`; worker `running`).
+- Cách làm như `outputs/OPS/j15-folio-close-check.md` mục 12: SSH `ottimo-admin`, `StrictHostKeyChecking=yes`; SQL trong `BEGIN READ ONLY … ROLLBACK`, phiên in `transaction_read_only = on`, giờ `Asia/Ho_Chi_Minh`; log worker `dc logs --no-color --timestamps --since 00:02Z --until 00:12Z` (07:02–07:12 giờ VN), bỏ mã màu ANSI, kiểm lại còn 0 ký tự ESC.
+- Không ghi DB, không chạy job tay, không chạy `check-after.sh`, **không dọn OTM-00368**. Không in dữ liệu khách: chỉ mã đơn, mã phiếu thu, số căn, số đếm.
+
+**Kết luận: ĐẠT** phần DB/log của BUG-R3-039. Số đếm cho BUG-R3-041 ở bảng 2.
+
+**Bảng 1 – J1 trên DB và log**
+
+| # | Kiểm | Thực tế (DB lúc 07:55:34) | KQ |
+|---|---|---|---|
+| 1 | OTM-00367 | `status = cancelled`, `status_before_cancel = hold`, `cancelled_by_type = system`, `cancel_reason_code = hold_expired`, `cancelled_at` 07:04:15.170 (hạn 07:03:46.792), `version` 2 | Đạt |
+| 2 | `room_occupancy` căn 101 | 1 dòng `[2026-10-30, 2026-11-01)` (bao cả 2 đêm), `active = false`, cập nhật 07:04:15.170 | Đạt |
+| 3 | Đêm | 2 dòng `stay_night` (30/10, 31/10): `void`, `void_reason = hold_expired`, `prev_state = hold`, `voided_at` 07:04:15.170 | Đạt |
+| 4 | Folio | Folio của OTM-00367 vẫn `open` (folio chỉ có `open/settled/closed`), **0 dòng `folio_line`** và 0 payment: hold chưa ghi dòng tiền phòng nên `voidStay` không có gì để đảo. Không sinh dòng mới | Đạt |
+| 5 | Đăng ký lưu trú | `registration.status = void`, `voided_at` 07:04:15.292 | Đạt |
+| 6 | Audit | **1** `reservation.hold_expired` (`actor_type = system`, 07:04:15.223, after `{"status":"cancelled","reasonCode":"hold_expired"}`). Kèm 1 `lead.hold_ended` (system) cho báo giá BG-00048 (SM-09). Audit `reservation.hold_expired` toàn DB = 1 (chỉ đơn này). Audit 07:00–07:15 toàn DB: chỉ 2 dòng trên | Đạt |
+| 7 | Chuyển trạng thái | `state_transition` SM-01 `hold → cancelled`, sự kiện `B6`, `system`, lý do `hold_expired`, 07:04:15.170 | Đạt |
+| 8 | Outbox availability | **1** dòng `channel.availability_changed` 07:04:15, `cause = hold.expired`, 1 khoảng 30/10 → 01/11, căn **101**. Trạng thái `pending`: bình thường trên staging (topic này chưa có bộ phát; toàn bộ 814 dòng của topic đều `pending`) | Đạt |
+| 9 | OTM-00368 (`kept_paid`) | Vẫn `hold`, `version` 1, không có `cancelled_*`. `room_occupancy` căn 102 `active = true`; 2 đêm vẫn `hold`; registration `none`. Phiếu thu PT-000465 `deposit` `cash` `succeeded` 200.000. Audit không có dòng nào sau 19:05:03 29/10 (nhánh `kept_paid` không ghi audit, đúng mã). Đơn `hold` toàn DB: 1 (chính đơn này, đã quá hạn) | Đạt |
+| 10 | Log worker 07:02–07:12 | 140 dòng, 10 nhịp (07:02:15 … 07:11:15), mỗi nhịp 14 job tick `job done`. **0** `ERROR [`, **0** `job failed`, **0** `AuditEntityNotRegisteredError`; 140/140 dòng mức `info`. Nhịp 07:04:15 có `job done` `hold.expire` (00:04:15.317Z), khớp `cancelled_at` | Đạt |
+| 11 | Các nhịp sau không xử lý lại | OTM-00367 giữ `version` 2; không có audit, transition, outbox nào khác cho 2 đơn sau 07:04:15 | Đạt |
+
+Lưu ý về 19.5 mục 6 (`job done` có `expired: 1, keptPaid: 1, failed: 0`): **không đọc được từ log**. Worker rc.6 chỉ log `{"msg":"job done","job":…,"properties":n}`, không in kết quả của job (đã ghi ở `j15-folio-close-check.md` 11.3 mục 2, đề xuất v1.0.1). Thay bằng bằng chứng DB: expired = 1 (dòng 1–8), keptPaid = 1 (dòng 9 và outbox `hold_overdue_partial` ở bảng 2), failed = 0 (không đơn `hold` quá hạn nào ngoài đơn có cọc; 0 dòng lỗi).
+
+**Bảng 2 – Bằng chứng cho BUG-R3-041** (DB lúc 07:56–07:58)
+
+| Kiểm | Kết quả |
+|---|---|
+| `outbox_message` topic `staff.push`, tạo từ 07:03 30/10, dedupe bắt đầu `hold_expired:` | **1** dòng, 07:04:15, kind `hold_expired`, `refCode` OTM-00367. `status = pending`, `attempts = 0`, `dispatched_at` NULL (chưa gửi) |
+| Như trên, dedupe bắt đầu `hold_overdue_partial:` | **1** dòng, 07:04:15, kind `hold_overdue_with_deposit`, `refCode` OTM-00368. `pending`, `attempts = 0`, chưa gửi |
+| Toàn bộ topic `staff.push` trên staging | 506 dòng, **0** dòng từng được gửi (không dòng nào `done/in_flight/failed/dead` hay có `dispatched_at`): topic này không có bộ phát |
+| `staff_notification` cho OTM-00367/00368 (theo `ref_code` hoặc `ref_id`) | **Không có dòng `hold_expired` hay `hold_overdue_with_deposit` nào.** Chỉ có 2 dòng `hold_expiring` lúc 05:04:12 (mỗi đơn 1, chưa đọc) do J2 ghi qua `events.notify` – khớp QA 19.7 mục 5b |
+| `staff_notification` toàn DB tạo từ 07:03 30/10 | **0** dòng |
+
+Như vậy thông báo của J1 dừng ở outbox `staff.push`, không vào hộp thư nhân viên; thông báo J2 thì vào. Khớp nguyên nhân QA nêu ở 19.7. `hold_overdue_cap` (12:00 hôm nay) chưa tới giờ; nếu ORC cần, OPS đếm lại cùng câu sau 12:00.
+
+Còn để lại trên staging: OTM-00368 (hold, căn 102, cọc 200.000 tiền mặt). OPS đã xong phần đọc; việc dọn chờ ORC cho phép (QA làm theo 19.7).
+
+### 19.7 QA kết quả J1 sau hết hạn (30/10, 07:52–07:55 +07)
+
+- Người chạy: QA | Round 3 – bước **Kiểm thử**. Staging rc.6 (`8b3aec8`). API Desk bằng `qa.fd`. Chạy `qa-r6/j1/check-after.sh` (scratchpad phiên) lúc 07:52:45, rồi GET bổ sung tới 07:54:45: thông báo của `qa.fd`, "Cần chú ý", `availability` theo từng căn, lịch sử OTM-00368, đọc lại OTM-00367 sau lần thử ghi cọc. Kết quả thô ở `qa-r6/j1/after-*.json`.
+- Ghi duy nhất 1 lần: thử ghi cọc 600.000 tiền mặt vào OTM-00367 (kỳ vọng bị từ chối, và đã bị từ chối). Không đụng DB, không VietQR, không chuyển tiền, không đụng production. **Không dọn OTM-00368** (OPS đang đọc DB/log, mục 19.6).
+
+**Kết luận: ĐẠT phần J1 hủy hold (BUG-R3-039).** Thêm 1 lỗi mới **BUG-R3-041 (P2)**: thông báo của J1 không tới nhân viên nào. Lỗi này không chặn việc xác nhận 039. Phần DB/log chờ OPS (19.6).
+
+| # | Kiểm (19.5) | Thực tế | KQ |
+|---|---|---|---|
+| 1 | OTM-00367 qua API | `status: cancelled`, `cancellation.reasonCode: hold_expired`, `cancelledAt` **07:04:15.170** (hạn 07:03:46.792, tức nhịp worker đầu sau hạn, trễ 28 giây). `version` 1 → 2 và giữ 2 tới 07:54: các nhịp sau không xử lý lại. Lịch sử có `reservation.transition.B6` hold → cancelled, `actorType: system`, và 1 audit `reservation.hold_expired` (07:04:15.223) | Đạt |
+| 2 | Căn 101 trống lại 30/10 → 01/11 | `availability` (2 người lớn) có **101**. `availability` hỏi riêng căn 101: `available: true`. Rack 30/10, 3 ngày: 101 không còn bar nào. Ghi chú: 401 không còn trong danh sách gợi ý vì API chỉ trả tối đa 6 căn (`MAX_SUGGESTIONS`), 101 chiếm một chỗ; Rack cho thấy 401 vẫn trống. Không phải lỗi | Đạt |
+| 3 | Đăng ký lưu trú OTM-00367 | `registrationStatus: void` (trước đó `none`) – K11 | Đạt |
+| 4 | Ghi cọc vào OTM-00367 sau hạn | **409 `INVALID_TRANSITION`**, `currentState: cancelled` (requestId `c5cd4db6-…`). Không phải `HOLD_EXPIRED`. Đọc lại đơn: `depositPaidVnd` 0, `version` 2, lịch sử vẫn 4 dòng, không có dòng tiền | Đạt |
+| 5a | OTM-00368 (cọc 200.000) không bị hủy | `status: hold`, `depositPaidVnd` 200.000, `version` 1, lịch sử không có dòng nào sau 19:05:03 (nhánh `kept_paid` không ghi audit, đúng thiết kế). Căn 102 vẫn bị giữ: Rack có bar `hold` OTM-00368; `availability` hỏi riêng 102: `available: false`, `reason: booked`; danh sách `status=hold` chỉ còn OTM-00368 | Đạt |
+| 5b | Nhân viên nhận thông báo `hold_overdue_with_deposit` | Hộp thư `qa.fd` (người tạo hold, vai front_desk) lấy 100 dòng mới nhất: **không có** `hold_overdue_with_deposit`, cũng không có `hold_expired` cho OTM-00367. Chỉ có 2 dòng `hold_expiring` lúc 05:04:12 (J2 nhắc trước hạn, đúng). "Cần chú ý": **không có** mục nào cho OTM-00368. Desk chỉ còn đồng hồ đếm "0h00" màu đỏ trên Rack và Hôm nay (`remaining()` chặn ở 0). Xem BUG-R3-041 | **Không đạt** → BUG-R3-041 (P2) |
+| 6 | Link khách | N/A với hold: link chỉ cấp cho `confirmed`/`in_house` (19.4). B-13 cần ca hủy đơn `confirmed` có link, ngoài phạm vi J1 | N/A |
+| 7 | Desk đang mở tự làm mới (`reservation.changed`) | **Chưa kiểm**: lúc 07:04 không có Desk nào mở. Có thể kiểm qua log/SSE nếu OPS cần | Chưa kiểm |
+| 8 | DB/log (OPS, 19.6) | Chờ OPS: `cancelled_by_type = 'system'`, `room_occupancy.active = false` cả 2 đêm, `job done` `hold.expire` nhịp 07:04 có `expired: 1, keptPaid: 1, failed: 0`, các nhịp sau `expired: 0`, 0 dòng `ERROR [` / `job failed`. Nhờ OPS đếm thêm `outbox_message` topic `staff.push` cho `hold_expired:01a1878b-7812-…` và `hold_overdue_partial:01a1878b-7988-…` (bằng chứng cho BUG-R3-041) | Chờ OPS |
+
+**Nguyên nhân 5b (đọc mã rc.6):** `expireOne` (`reservations.service.ts` ~4654, ~4667, ~4718) gửi `hold_overdue_with_deposit`, `hold_overdue_cap` và `hold_expired` bằng `outboxStaffPush`. Hàm này chỉ ghi `outbox_message` topic `staff.push`, mà topic này không có bộ phát nào (push vẫn là Mock). Hàm không đi qua `EventsService.notify`, nên không ghi `staff_notification` (hộp thư) và không phát SSE. `hold_overdue_with_deposit` và `hold_overdue_cap` cũng không có trong danh sách kind của `staff_notification`. Đối chiếu: J2 `hold_expiring` đi qua `events.notify` nên có trong hộp thư.
+
+**Việc tiếp:**
+- 12:00 hôm nay (`hold_latest_time_on_arrival` của ngày đến 30/10), J1 sẽ gửi `hold_overdue_cap` cho MGR, cũng chỉ qua `staff.push`. QA không kiểm thêm. OPS có thể đếm outbox sau 12:00 nếu ORC cần.
+- Dọn OTM-00368 (hủy + hoàn 200.000 tiền mặt, bản ghi staging) sau khi OPS xong 19.6 và ORC cho phép.
+
+### 19.8 Dọn OTM-00368 trên staging (30/10, 08:00–08:05 +07)
+
+- Người làm: QA | Round 3 – bước **Kiểm thử**. ORC giao sau khi OPS xong 19.6. Đây là bản ghi thử, không có tiền thật.
+- Không SQL tay, không VietQR, không chuyển tiền, không đụng production.
+- Thao tác bằng API Desk staging:
+  - `qa.fd` (lễ tân).
+  - `qa.mgr` đăng nhập bằng mật khẩu thử và TOTP thử trong `~/.ottimo/staging/totp/`, không in ra; đã cập nhật `qa.mgr.laststep`.
+  - Helper và kết quả thô: `qa-r6/j1/login-mfa.mjs`, `cleanup-368.sh`, `c-*.json` (scratchpad phiên).
+
+**Chọn đường xử lý tiền: đảo phiếu thu (A34, MGR), không hoàn.**
+- Thử hủy (dry run, không ghi): BR-308 cho hold → hoàn 100 %, tự sinh 1 yêu cầu hoàn 200.000.
+- Nếu đi đường hoàn, phải qua 3 bước: OWN/MGR duyệt, FD đặt nơi nhận, FD chi tiền mặt. Bước chi bắt buộc có ảnh biên nhận (`EVIDENCE_REQUIRED`), tức phải tạo thêm 1 phiếu chi và 1 ảnh giả.
+- Phiếu thu PT-000465 vốn là bản ghi thử, không có tiền thật. Vì vậy đảo phiếu đúng bản chất hơn ("ghi nhầm") và để lại ít dữ liệu hơn.
+- Thứ tự: đảo trước, hủy ngay sau. Hủy trước rồi mới đảo sẽ sinh rồi lại tự giảm một yêu cầu hoàn.
+- Chạy ngay sau nhịp J1 (:15) để J1 không kịp tự hủy hold sau khi cọc về 0.
+
+| # | Giờ | Thao tác | Kết quả |
+|---|---|---|---|
+| 0 | 08:00 | FD `cancel` dry run (`reasonCode: other`) | 200: `depositPaidVnd` 200.000, `refundableVnd` 200.000, `retainedVnd` 0, `refundRequestVnd` 200.000. Không ghi |
+| 1 | 08:02:18 | MGR `POST payments/PT-000465/actions/reverse` (lý do "QA J1 rc.6 staging test record cleanup - not real money (ORC 30/10)") | 200. PT-000465 → `reversed`; phiếu đảo **PT-000466** `deposit` `cash` −200.000 `succeeded`; audit `payment.reversed` (QA MGR) |
+| 2 | 08:02:19 | FD `GET` đơn rồi `cancel` (`If-Match` v1, `reasonCode: other`, ghi chú "QA J1 rc.6 test data cleanup (ORC 30/10)") | 200. `cancelled` v2, B5, `cancelledAt` 08:02:19.417. Báo giá: cọc 0, hoàn 0, giữ 0, `refundRequestVnd` 0, không sinh yêu cầu hoàn |
+
+**Kiểm sau dọn (08:03–08:05, API chỉ đọc)**
+
+| Kiểm | Kết quả | KQ |
+|---|---|---|
+| OTM-00368 | `cancelled` / `other` (người hủy QA FD), registration `void`, `depositPaidVnd` 0. Lịch sử: B1 → priced → `payment.recorded` → `payment.reversed` (MGR) → B5 → `reservation.cancelled` | Đạt |
+| Folio | `open`, 0 dòng; PT-000465 `reversed` 200.000 và PT-000466 −200.000. Tổng: đã thu 0, giữ cọc 0, `balanceDueVnd` 0, `creditVnd` 0, `unhandledCreditVnd` 0, `pendingApprovals` 0 | Đạt (không còn số dư) |
+| Căn 102, 30/10 → 01/11 | `availability` hỏi riêng 102: `available: true`. Rack 30/10, 3 ngày: không còn bar nào trên cả 10 căn | Đạt |
+| Hold trên staging | `status=hold`: 0 đơn | Đạt |
+| "Cần chú ý" của MGR | Không có mục nào cho OTM-00368 | Đạt |
+
+**Dữ liệu thử còn lại của J1 trên staging** (chỉ là bản ghi, không giữ căn nào):
+- OTM-00367 và OTM-00368 `cancelled`.
+- Khách giả KH-0447, KH-0448; báo giá BG-00048, BG-00049 (về `quoted` theo SM-09).
+- PT-000465 (`reversed`) và PT-000466.
+- Folio của 2 đơn để `open`, 0 dòng, dư 0. Đây cũng là trạng thái folio của hold bị J1 hủy (OPS 19.6 dòng 4).
+- 2 thông báo `hold_expiring` chưa đọc trong hộp thư `qa.fd`.
+- 2 dòng outbox `staff.push` (BUG-R3-041).
+- Vì OTM-00368 đã hủy, mục "12:00 `hold_overdue_cap`" ở 19.7 không còn áp dụng: không có gì để đếm.

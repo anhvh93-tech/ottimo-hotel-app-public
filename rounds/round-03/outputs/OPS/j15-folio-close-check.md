@@ -381,3 +381,39 @@ Cùng cách làm như 13.2–13.5. Không đẩy tag, không deploy, không ghi 
 
 - Chưa kéo bản này về Mac. Lệnh kéo về ở `v1-production.md` 19.2, nên chạy nếu ORC giao.
 - Kỳ vọng sau deploy ở 13.6 giữ nguyên.
+
+## 14. Production sau deploy rc.6
+
+- Người kiểm: OPS | Round 3 – bước **Kiểm thử** | 30/10/2026 07:54–07:57 giờ VN, ngay sau release run 40903554902 (tag `v1.0.0-rc.6` → `sha-8b3aec89486f`, báo `deploy sha-8b3aec89486f: ok` lúc 07:51:44). INV đã đồng ý deploy này (ORC ghi).
+- Tiêu chí: thẻ FB-R3-ARC-BEB-WA-02 (4) = WA-01 (b) trong `reviews/ARC-on-BE-B-worker-audit-fix.md`, kỳ vọng ở 13.2 và 13.6.
+- Cách làm như mục 13: SSH `ottimo-admin`, khóa `~/.ssh/ottimo_ops`, `StrictHostKeyChecking=yes`, host lấy từ phân giải `desk.ottimo.vn`; `dc ps`, `docker inspect`, `dc logs --no-color --timestamps worker` qua `sudo -u ottimo`, **bỏ mã màu ANSI** rồi kiểm lại còn 0 ký tự ESC trước khi lọc. SQL: đúng bộ câu `wa02.sql` của 13.2/13.8, thêm đếm số dòng 3 bảng, audit và outbox tạo sau 07:51. Hai lớp chỉ đọc (`PGOPTIONS default_transaction_read_only=on` + `BEGIN TRANSACTION READ ONLY … ROLLBACK`), phiên in `transaction_read_only = on`.
+- Không ghi DB, không restart, không chạy job tay, không chạy tay `ops-check.sh` (chỉ đọc nhật ký của timer). Không in env, bí mật, IP hay dữ liệu khách.
+
+### 14.1 Kết luận: **ĐẠT** (WA-02 (4))
+
+| Hạng mục | Kết quả | Đạt? |
+|---|---|---|
+| Image | api, worker `ottimo-api:sha-8b3aec89486f`; web `ottimo-web:sha-8b3aec89486f`. `state/current_tag` = `sha-8b3aec89486f`, `previous_tag` = `sha-70fe734e9077` (có sẵn `state/digests/sha-70fe734e9077` để quay lui). `deploy-history.log`: `2026-10-30T00:51:43Z sha-8b3aec89486f`. Container tạo 00:51:24Z, chạy từ 00:51:25Z (07:51:25 giờ VN). Landing giữ `ottimo-landing:sha-70fe734e9077` (đúng: release không đổi landing) | Đạt |
+| Sức khỏe | api, web, landing, postgres `healthy`; worker `running` (không có healthcheck theo thiết kế, như 13.5). `RestartCount` = **0** cả năm container. Kiểm 07:54:23 | Đạt |
+| `worker started` | **1** dòng, **20 job**, có `folio.close`, `payment.expire`, `hold.expire` (rc.3 là 19) | Đạt |
+| Log worker 07:51:25 → 07:56:23 | 72 dòng, 0 ký tự ESC còn lại. **5 nhịp** (07:51:29, 07:52:29, 07:53:29, 07:54:29, 07:55:29), mỗi nhịp 14 job tick `job done`. **0** `ERROR [`, **0** `job failed`, **0** `AuditEntityNotRegisteredError`; 72/72 dòng mức `info` | Đạt |
+| Log api từ 07:51 | 291 dòng: 0 `ERROR [`, 0 dòng mức `error` | Đạt |
+| DB (07:54:59, đếm lại 07:57:03 sau 5 nhịp, giống nhau) | `reservation` / `folio` / `payment` = **0 / 0 / 0**. Migration **65**, mục cuối 1792782165681 (khớp journal, không migration mới). Hold 0 (quá hạn 0), occupancy giữ bởi hold 0. Outbox `channel.availability_changed` **0**; tổng outbox 3 (`staff.email` dead 1 = BUG-R3-032, `staff.push` pending 2), **không đổi so với 13.2/13.8**. Audit `folio.closed` / `payment.expired` / `reservation.hold_expired` = 0 / 0 / 0. Không có audit hay outbox nào tạo từ 07:51 | Đạt |
+| api `/health` (trong container) | `{"status":"ok","db":"ok"}` | Đạt |
+| Từ Internet (Mac, 07:56) | `desk`, `staff`, `g`, `ottimo.vn` trả 200 `text/html`; `desk/health` 404 (đúng, chặn từ ngoài); `desk/v1/me` 401 `problem+json`; `desk/v1/does-not-exist` 404 `problem+json` | Đạt |
+| `ops-check` (timer, lần 07:56:30 – lần đầu sau deploy) | **7/7 ok**: containers (postgres, api, worker, web, landing running, api healthy), j16, backup (4 giờ trước), disk 17 %, mem 77 % (3.825 MB), tls, http5xx 0 trong 35 phút. `Result=success`, `ExecMainStatus=0`. Nhật ký `ottimo-alert` từ 07:00: không có dòng nào | Đạt |
+| Máy | `/` 55 GB, dùng 8,6 GB (17 %); RAM `available` 3,8 GB | – |
+
+Kỳ vọng ở 13.2 giữ đúng: production chưa có đơn nên nhịp đầu J1, J15, J24 không xử lý gì, không sinh audit hay outbox.
+
+### 14.2 Giới hạn
+
+- Như 12.3: 6/20 job là job theo lịch (`guest.document_profile_anonymize`, `hk.daily`, `lease.nights`, `log.partitions`, `web_request.purge`, `web_request.stale`), chưa tới giờ chạy trong 5 nhịp này. Trên rc.3 production 6 job này đã chạy sạch (13.7); mã của chúng không đổi ở rc.6. Nên đọc lại log worker sau lần chạy slot kế tiếp (cùng lệnh lọc).
+- Production có 0 hold/folio/payment, nên lần này chỉ chứng minh rc.6 chạy sạch trên production, **không** chứng minh J1/J15/J24 xử lý đúng dữ liệu thật. Bằng chứng xử lý đúng nằm ở staging: J15/J24 mục 12, J1 ở `qa/qa3-rc1.md` 19.6.
+- Từ giờ mọi đơn/VietQR thử trên production (ví dụ C1) chạy trên rc.6.
+
+### 14.3 Giả định
+
+- "Cả 4 healthy" hiểu là api, web, postgres, landing `healthy` và worker `running`: worker không có healthcheck theo thiết kế (13.5, 12.1).
+- Mốc deploy lấy theo `StartedAt` của worker (00:51:25Z); log đọc `--since 00:51:00Z`, bao trọn từ lúc khởi động.
+- "Health web" kiểm bằng trang gốc 200 qua Caddy; `/health` không mở ra Internet theo thiết kế, nên kiểm trong container api.

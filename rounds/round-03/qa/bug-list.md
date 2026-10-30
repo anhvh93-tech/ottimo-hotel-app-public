@@ -9,10 +9,24 @@
 | Mức | Số lỗi | Open | Fixed | Closed |
 |---|---|---|---|---|
 | P0 | 3 | 0 | 0 | 3 |
-| P1 | 14 | 4 (BUG-R3-032, BUG-R3-037 mở lại, BUG-R3-038, BUG-R3-039) | 0 | 10 |
-| P2 | 9 | 3 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn) | 0 | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
+| P1 | 14 | 1 (BUG-R3-032 – v1.0.1) | 0 | 13 (gồm BUG-R3-037, 038, 039 Closed 30/10 trên rc.6) |
+| P2 | 10 | 4 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn; BUG-R3-041) | 0 | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
 | P3 | 14 | 13 (016; 024–031; 034; 035; 036; 040) | 0 | 1 |
-| **Tổng** | **40** | **20** | **0** | **20** |
+| **Tổng** | **41** | **18** | **0** | **23** |
+
+Cập nhật 30/10 ~08:10 (QA, theo ORC; rc.6 `8b3aec8` trên staging và production):
+- **Closed BUG-R3-037, BUG-R3-038, BUG-R3-039.** Bằng chứng:
+  - 037/038: `outputs/OPS/j15-folio-close-check.md` mục 12 (staging rc.6: 5/5 folio `closed` + 5 audit `folio.closed`, 2/2 payment `expired` + 2 audit `payment.expired`, 3 nhịp 0 lỗi) và mục 14 (production rc.6 chạy sạch).
+  - 039: `qa3-rc1.md` 19.6 (OPS, DB/log) và 19.7 (QA, API).
+- **Giới hạn khi đóng:**
+  - Production chưa có hold/folio/payment, nên J1/J15/J24 trên production mới chứng minh "chạy sạch", chưa chứng minh xử lý đúng dữ liệu thật. Bằng chứng xử lý đúng nằm trên staging.
+  - 6/20 job chạy theo lịch (`guest.document_profile_anonymize`, `hk.daily`, `lease.nights`, `log.partitions`, `web_request.purge`, `web_request.stale`) chưa chạy trên rc.6, ở cả staging lẫn production lúc kiểm. Cần đọc lại log worker sau lượt chạy kế tiếp (OPS, cùng lệnh lọc). Có lỗi thì mở lại theo job.
+  - Log worker rc.6 không in `expired/keptPaid/failed` của job (đề xuất v1.0.1, OPS 11.3). Thay bằng bằng chứng DB.
+- **Dọn OTM-00368** trên staging (`qa3-rc1.md` 19.8): MGR đảo PT-000465 → PT-000466 −200.000; FD hủy hold. Căn 102 trống 30/10 → 01/11; folio dư 0; không còn hold nào trên staging.
+
+Cập nhật 30/10 ~07:55 (QA, J1 sau hạn trên staging rc.6 `8b3aec8`, `qa3-rc1.md` mục 19.7; trạng thái 037/038 không đổi ở lượt này, ORC gom và đóng):
+- **BUG-R3-039 – Đã sửa, QA xác nhận trên staging rc.6, chờ OPS 19.6.** Kết quả: hold không cọc OTM-00367 bị hủy lúc 07:04:15 (`hold_expired`, `actorType: system`, B6, 1 audit `reservation.hold_expired`). Registration `void`. Căn 101 trống lại 30/10 → 01/11. Ghi cọc sau đó bị 409 `INVALID_TRANSITION` (`cancelled`), không ghi tiền. Hold có cọc OTM-00368 vẫn `hold`, căn 102 vẫn giữ (`kept_paid`). Link khách N/A với hold.
+- Thêm **BUG-R3-041 (P2, BE-B + ARC)**: thông báo của J1 (`hold_expired`, `hold_overdue_with_deposit`, `hold_overdue_cap`) chỉ ghi vào outbox `staff.push`. Topic này không có bộ phát, nên không vào hộp thư, không phát SSE và không lên "Cần chú ý". Hold có cọc quá hạn chỉ còn hiện đồng hồ "0h00" đỏ trên Desk. Lỗi riêng, không chặn việc xác nhận 039.
 
 Cập nhật 29/10 tối (BE-B rà 20 job worker, PR #14 nhánh `fix/worker-audit-registry`, báo cáo `rounds/round-03/outputs/BE/v1.0.0-worker-audit-fix-be-b.md` trên nhánh, mục 3):
 - Thêm **BUG-R3-039 (P1, BE-B)**: J1 `hold.expire` không hủy được hold nào trong worker. Cùng gốc 037/038: ghi audit `reservation` ném `AuditEntityNotRegisteredError`, từng hold rollback. Worker cũng thiếu 3 listener `transitioned` (registration K11, front desk B-13, reporting). Hold quá hạn giữ căn mãi. **Production rc.3 cùng mã** (suy từ mã, không kiểm máy chủ).
@@ -101,10 +115,11 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-034 | P3 | Đơn đã trả phòng, chi hoàn đủ mà mục "tiền dư đơn đã đóng" vẫn còn tới khi J15 đóng folio | BE-B | Open |
 | BUG-R3-035 | P3 | Phiếu ghi "Phụ thu trả muộn (00:15)" cho khoản phụ thu bằng 1 đêm | BE-B + UXD | Open |
 | BUG-R3-036 | P3 | Phí hủy / phí không đến ghi từ 00:00 đến 05:59 mang ngày lịch (`serviceDate` hôm sau), không theo ngày nghiệp vụ (Q-09) | BE-B | Open |
-| BUG-R3-037 | P1 | J15 `folio.close` không đóng được folio nào trong worker. rc.4: không đăng ký job. rc.5: đã đăng ký và chạy, nhưng lỗi `AuditEntityNotRegisteredError` ở mọi folio. Folio quá cửa sổ 24 giờ không đóng, công nợ sau trả phòng không được ghi | BE-B (+ ARC, OPS) | **Open – mở lại 29/10**: rc.5 không đạt trên staging (0/5 folio đóng). Sửa ở nhánh `fix/worker-audit-registry`, kiểm lại trên rc.6 |
-| BUG-R3-038 | P1 | `payment.expire` `job failed` mỗi nhịp trong worker (từ rc.4): allowlist audit `payment` không có trong tiến trình worker → payment `pending` quá `expires_at` không bao giờ thành `expired`. Cùng gốc BUG-R3-037; production rc.3 có nguy cơ | BE-B (+ ARC, OPS) | Open – sửa ở nhánh `fix/worker-audit-registry`, kiểm lại trên rc.6 |
-| BUG-R3-039 | P1 | J1 `hold.expire` không hủy được hold nào trong worker: ghi audit `reservation` ném `AuditEntityNotRegisteredError`, từng hold rollback; worker thiếu 3 listener `transitioned` (registration K11, front desk B-13, reporting). Hold quá hạn giữ căn mãi → mất bán. Cùng gốc BUG-R3-037/038; production rc.3 cùng mã | BE-B (+ ARC thẻ 05, OPS) | Open – sửa trong PR #14 (rc.6), kiểm lại trên rc.6 staging |
+| BUG-R3-037 | P1 | J15 `folio.close` không đóng được folio nào trong worker. rc.4: không đăng ký job. rc.5: đã đăng ký và chạy, nhưng lỗi `AuditEntityNotRegisteredError` ở mọi folio. Folio quá cửa sổ 24 giờ không đóng, công nợ sau trả phòng không được ghi | BE-B (+ ARC, OPS) | **Closed** 30/10 – rc.6: staging 5/5 folio `closed` + 5 audit `folio.closed`, OTM-00297 không thêm công nợ, 3 nhịp 0 lỗi (OPS `j15-folio-close-check.md` mục 12); production rc.6 chạy sạch (mục 14, chưa có folio). Lịch sử: mở lại 29/10 vì rc.5 không đạt |
+| BUG-R3-038 | P1 | `payment.expire` `job failed` mỗi nhịp trong worker (từ rc.4): allowlist audit `payment` không có trong tiến trình worker → payment `pending` quá `expires_at` không bao giờ thành `expired`. Cùng gốc BUG-R3-037; production rc.3 có nguy cơ | BE-B (+ ARC, OPS) | **Closed** 30/10 – rc.6: staging PT-000444, PT-000458 → `expired` + 2 audit `payment.expired` + 2 SM-12, 0 `job failed` (OPS mục 12); production rc.6 chạy sạch (mục 14, chưa có payment). Chưa tạo VietQR mới để thử (ORC cấm VietQR) |
+| BUG-R3-039 | P1 | J1 `hold.expire` không hủy được hold nào trong worker: ghi audit `reservation` ném `AuditEntityNotRegisteredError`, từng hold rollback; worker thiếu 3 listener `transitioned` (registration K11, front desk B-13, reporting). Hold quá hạn giữ căn mãi → mất bán. Cùng gốc BUG-R3-037/038; production rc.3 cùng mã | BE-B (+ ARC thẻ 05, OPS) | **Closed** 30/10 – rc.6 staging (`qa3-rc1.md` 19.6 OPS DB/log + 19.7 QA): OTM-00367 hủy 07:04:15 bởi `system`, căn 101 nhả 2 đêm, `stay_night` và registration `void`, 1 audit, cọc sau hạn 409 `INVALID_TRANSITION`; OTM-00368 có cọc vẫn giữ; log 0 lỗi. Production rc.6 mới chứng minh chạy sạch (0 hold). Thông báo J1 tách thành BUG-R3-041 |
 | BUG-R3-040 | P3 | CLI `production-bootstrap` ghi audit `production.bootstrapped` thiếu trường `rooms`/`channels` (CLI không nạp allowlist của platform). Bản ghi B2 28/10 trên production đã thiếu, không sửa được (audit chỉ ghi thêm); dữ liệu phòng/kênh đúng | BE-B | Open – ghi nhận. Ngăn tái phát trong PR #14; bản ghi cũ giữ nguyên |
+| BUG-R3-041 | P2 | Thông báo của J1 (`hold_expired`, `hold_overdue_with_deposit`, `hold_overdue_cap`) chỉ ghi outbox `staff.push`. Topic này không có bộ phát, nên không vào hộp thư, không phát SSE, không lên "Cần chú ý". Hold có cọc quá hạn chỉ còn đồng hồ "0h00" đỏ trên Rack/Hôm nay | BE-B + ARC | Open (30/10, staging rc.6) |
 
 ## 3. Chi tiết
 
@@ -883,7 +898,16 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - Kiểm ca `closed` của BUG-R3-022 và BUG-R3-034.
 - **Bằng chứng:** `rounds/round-03/outputs/OPS/j15-folio-close-check.md` mục 3.
 - **Vai:** BE-B (+ ARC, OPS).
-- **Trạng thái:** **Open – mở lại 29/10.** Bản sửa trong rc.5 không đạt trên staging (lịch sử và chi tiết ở dưới).
+- **Trạng thái:** **Closed 30/10 trên rc.6** (`8b3aec8`). Lịch sử: mở lại 29/10 vì bản sửa trong rc.5 không đạt trên staging (chi tiết ở dưới).
+  - **Bằng chứng (QA đọc):**
+    - OPS `j15-folio-close-check.md` mục 12, staging rc.6: nhịp đầu 18:57:57 đóng 5/5 folio (OTM-00239/00294/00297/00357/00365), có 5 audit `folio.closed`, không còn folio quá cửa sổ. OTM-00297 vẫn đúng 1 khoản công nợ. 3 nhịp: 0 `ERROR [`, 0 `job failed`. Nhịp 2, 3 không xử lý lại.
+    - Mục 14, production rc.6 07:51 30/10: 20 job, 5 nhịp 0 lỗi, `ops-check` 7/7.
+  - **QA kiểm thêm 30/10 08:05 (API, chỉ đọc):**
+    - Folio OTM-00357 (F26-000004) `closed`, dư 0. Desk ẩn "Thêm phát sinh" với folio `closed` (`ReservationDrawer.tsx`: nút chỉ hiện khi folio `settled`/`open`). Máy chủ trả `FOLIO_LOCKED` cho folio `closed` (`folio-lines.service.ts` ~489). QA không thử ghi.
+    - "Cần chú ý" của MGR không còn mục `closed_reservation_credit` của OTM-00357/00294/00297/00239/00365: mục tiền dư tự hết khi J15 đóng folio (checklist D). BUG-R3-034 vẫn Open cho phần trước khi J15 đóng.
+  - **Giới hạn:**
+    - Production chưa có folio, nên J15 trên production mới chứng minh "chạy sạch".
+    - 6 job theo lịch chưa chạy trên rc.6 lúc kiểm. Cần đọc lại log sau lượt chạy kế tiếp.
 
 #### Kiểm lại trên rc.5 staging 29/10 – KHÔNG ĐẠT
 
@@ -959,7 +983,13 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - Xem đơn giữ chỗ liên quan có được nhả / giữ đúng quy tắc không.
 - **Bằng chứng:** `rounds/round-03/outputs/OPS/j15-folio-close-check.md` mục 10.3.
 - **Vai:** BE-B (+ ARC thẻ 05, OPS kiểm sau deploy).
-- **Trạng thái:** Open – đang sửa ở nhánh `fix/worker-audit-registry`, xác nhận lại trên rc.6 staging. Theo DoD (không còn P1 mở), QA đề nghị giữ tag v1.0.0 tới khi cả BUG-R3-037 và 038 đạt trên rc.6; QC quyết.
+- **Trạng thái:** **Closed 30/10 trên rc.6** (`8b3aec8`).
+  - **Bằng chứng (QA đọc):**
+    - OPS `j15-folio-close-check.md` mục 12, staging rc.6: PT-000444 và PT-000458 chuyển `pending` → `expired` lúc 18:57:57.657. Có 2 audit `payment.expired` (`system`, before/after đúng) và 2 `state_transition` SM-12. Không còn payment `pending` quá hạn. 0 `job failed`.
+    - Mục 14, production rc.6: chạy sạch, chưa có payment.
+  - **Giới hạn:**
+    - Mục E "tạo VietQR mới hạn ngắn, sau hạn thành `expired`, đơn nhả/giữ đúng" **chưa làm**, vì ORC cấm VietQR trong lượt này. Thay bằng 2 payment có sẵn trên staging và test (d) của BE-B trên CI.
+    - Production chưa có payment, nên mới chứng minh "chạy sạch". Nên kiểm lại lần VietQR thật đầu tiên trên production (C1).
 
 ### BUG-R3-039 – J1 `hold.expire` không hủy được hold quá hạn trong worker
 
@@ -991,6 +1021,27 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Bằng chứng:** báo cáo BE-B (trên nhánh PR #14) mục 2.2, 3, 4.
 - **Vai:** BE-B (+ ARC thẻ 05, OPS kiểm sau deploy).
 - **Trạng thái:** Open – sửa trong PR #14 (rc.6), xác nhận trên rc.6 staging. Cùng đề nghị như BUG-R3-038: giữ tag v1.0.0 tới khi 037, 038, 039 đạt trên rc.6; QC quyết. Production phải lên rc.6 trước khi nhận hold, VietQR hay trả phòng thật.
+- **Xác nhận QA 30/10 07:52–07:55 (staging rc.6 `8b3aec8`, `qa3-rc1.md` 19.4–19.7):**
+  - OTM-00367 (101, không cọc, hạn 07:03:46.792): `cancelled` / `hold_expired` lúc 07:04:15.170, tức nhịp đầu sau hạn. Lịch sử có B6 hold → cancelled (`actorType: system`) và 1 audit `reservation.hold_expired`. `version` giữ 2 tới 07:54, các nhịp sau không xử lý lại.
+  - Registration `none` → `void` (K11).
+  - Căn 101 trống lại 30/10 → 01/11, kiểm trên cả `availability` (gợi ý và hỏi riêng căn) và Rack.
+  - Ghi cọc 600.000 tiền mặt vào OTM-00367 sau hạn: 409 `INVALID_TRANSITION` (`currentState: cancelled`), không ghi tiền. Đây là mã đúng khi J1 đã hủy; `HOLD_EXPIRED` mới là dấu hiệu J1 không chạy.
+  - OTM-00368 (102, cọc 200.000): vẫn `hold`, 102 vẫn bị giữ (`kept_paid`).
+  - Link khách: N/A với hold (EP06 8.2). Desk tự làm mới: chưa kiểm (không có Desk mở lúc 07:04).
+  - Thông báo J1 không tới nhân viên: tách thành BUG-R3-041 (P2). Lỗi này không thuộc phạm vi sửa của 039.
+  - Còn chờ OPS 19.6 (DB/log): `cancelled_by_type`, `room_occupancy.active`, `job done` `hold.expire` `failed: 0`, 0 `ERROR [` / `job failed`.
+- **Trạng thái (30/10):** **Closed trên rc.6** (`8b3aec8`). Lượt QA lúc 07:55 ghi "Đã sửa, chờ OPS 19.6". Sau đó OPS 19.6 đạt:
+  - OTM-00367: `cancelled_by_type = system`.
+  - `room_occupancy` 101 `active = false` cả 2 đêm; 2 `stay_night` `void`; registration `void`.
+  - 1 audit `reservation.hold_expired` và 1 outbox `channel.availability_changed` cho 101.
+  - OTM-00368 vẫn `hold` (`kept_paid`).
+  - Log worker 07:02–07:12: 10 nhịp, 0 `ERROR [`, 0 `job failed`, 0 `AuditEntityNotRegisteredError`.
+  - **Giới hạn:**
+    - Production rc.6 (mục 14) có 0 hold, nên J1 trên production mới chứng minh "chạy sạch".
+    - Log không in `expired/keptPaid/failed`; thay bằng bằng chứng DB.
+    - Desk tự làm mới (`reservation.changed`) chưa kiểm.
+    - Thông báo J1 không tới nhân viên: BUG-R3-041.
+  - OTM-00368 đã dọn (19.8).
 
 ### BUG-R3-040 – CLI `production-bootstrap` ghi audit thiếu trường `rooms`/`channels` (ghi nhận)
 
@@ -1003,43 +1054,69 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Vai:** BE-B.
 - **Trạng thái:** Open – ghi nhận. Đóng khi PR #14 vào `main` và test (a) xanh; bản ghi production giữ nguyên.
 
+### BUG-R3-041 – Thông báo của J1 không tới nhân viên (chỉ ghi outbox `staff.push`)
+
+- **Mức:** P2. Lý do:
+  - Hold có cọc mà quá hạn (DOM D-9) cần người phụ trách xử lý: xác nhận nhận cọc thiếu, gia hạn, hoặc hủy và hoàn. Nhưng không ai được báo, nên căn bị giữ im lặng. Đây là đúng tình huống D-9 muốn tránh.
+  - Không P1 vì: không sai tiền, không đặt trùng, và vẫn có cách tạm. Desk hiện đồng hồ "0h00" màu đỏ trên Rack và trong danh sách hold ở Hôm nay, nên lễ tân rà Rack mỗi ca sẽ thấy.
+- **Môi trường:** staging rc.6 (`8b3aec8`), 30/10/2026. Kiểm bằng API Desk (`qa.fd`) và đọc mã. Production cùng mã sau khi lên rc.6.
+- **Các bước:**
+  1. `qa.fd` tạo hold OTM-00368 (căn 102, hạn 12 giờ) và ghi cọc 200.000 tiền mặt. Cũng tạo hold OTM-00367 (căn 101, không cọc).
+  2. Chờ quá hạn (07:03:47 30/10). J1 chạy lúc 07:04:15: hủy OTM-00367, giữ OTM-00368 (`kept_paid`).
+  3. 07:53: GET `/v1/me/notifications?limit=100` của `qa.fd` (người tạo cả 2 hold, vai front_desk). GET `/v1/properties/{id}/attention`.
+- **Thực tế:**
+  - Hộp thư không có `hold_overdue_with_deposit` (OTM-00368) và không có `hold_expired` (OTM-00367). Chỉ có 2 dòng `hold_expiring` lúc 05:04 (J2).
+  - "Cần chú ý" không có mục nào cho OTM-00368: `holdsExpiring` chỉ lấy hold chưa tới hạn.
+  - Rack và Hôm nay chỉ hiện "0h00" đỏ.
+- **Mong đợi:** người tạo hold, người chốt đơn và FD/FDL nhận `hold_overdue_with_deposit` trong hộp thư Desk/app nhân viên, có SSE `notification.created`. MGR nhận `hold_overdue_cap` sau 12:00 ngày đến. Người tạo nhận `hold_expired` khi hold không cọc bị hủy. Nên có thêm một mục "Cần chú ý" cho hold có cọc đã quá hạn.
+- **Nguyên nhân (đọc mã rc.6):**
+  - `reservations.service.ts` `expireOne` (~4654, ~4667, ~4718) gọi `outboxStaffPush` (`reservation-store.ts` ~470). Hàm này chỉ `INSERT outbox_message` topic `staff.push`.
+  - Không có bộ phát nào cho topic `staff.push` (push vẫn là Mock), và hàm không đi qua `EventsService.notify`. Vì vậy không có dòng `staff_notification` và không có SSE.
+  - `hold_overdue_with_deposit`, `hold_overdue_cap` cũng không có trong CHECK kind của `staff_notification` (`db/schema/frontdesk.ts` ~286).
+  - Đối chiếu: J2 `hold_expiring` (`hold-reminder-job.ts`) dùng `events.notify` nên có trong hộp thư.
+  - Cùng cách gửi còn ở `capacity_conflict` (~817, ~1638) và `overbooking` (~2024). QA chưa kiểm hai loại này. Chúng có mục "Cần chú ý" tính sẵn, nên ảnh hưởng có thể nhỏ hơn.
+- **Bằng chứng:** `qa3-rc1.md` 19.7 dòng 5b. Kết quả thô `qa-r6/j1/after-notif100.json` và `after-attention.json` (scratchpad phiên QA). OPS có thể xác nhận dòng outbox `staff.push` với dedupe `hold_overdue_partial:01a1878b-7988-…` và `hold_expired:01a1878b-7812-…` (19.6).
+- **Vai:** BE-B (đổi sang `events.notify` hoặc `notifyStaff`, thêm kind vào CHECK `staff_notification`, thêm mục "Cần chú ý" nếu DOM đồng ý) + ARC (hợp đồng kind thông báo). DOM xác nhận ai nhận.
+- **Đề xuất:** sửa ở v1.0.1. Trước đó, ghi vào hướng dẫn vận hành Day D: lễ tân rà Rack/Hôm nay đầu mỗi ca và xử lý mọi hold "0h00" đỏ.
+- **Trạng thái:** Open.
+
 ### Checklist QA xác nhận rc.6 trên staging (BUG-R3-037, 038, 039)
 
 Người làm: QA cùng OPS (OPS thao tác máy chủ, QA đọc bằng chứng). SQL chỉ đọc (`BEGIN READ ONLY … ROLLBACK`). Lấy DB làm bằng chứng, log là phụ (thẻ FB-R3-ARC-BEB-J15-02). Không mục nào được tính đạt chỉ vì CI xanh.
 
 **A. Trước deploy (trên rc.5, ghi số làm mốc)**
-- [ ] Folio `settled` quá `post_checkout_window_until`: kỳ vọng 5 (OTM-00239, 00294, 00297, 00357, 00365) hoặc nhiều hơn; ghi danh sách.
-- [ ] Payment `pending` quá `expires_at`: kỳ vọng 2; ghi id.
-- [ ] Hold quá hạn: `SELECT count(*) FROM reservation WHERE status='hold' AND hold_expires_at <= now()`; ghi số N và id. Trong N, đếm hold có yêu cầu FOC (kỳ vọng 0).
-- [ ] Công nợ của OTM-00297: đúng 1 khoản 150.000.
+- [x] Folio `settled` quá `post_checkout_window_until`: kỳ vọng 5 (OTM-00239, 00294, 00297, 00357, 00365) hoặc nhiều hơn; ghi danh sách. *(OPS 11.1: 5, khớp)*
+- [x] Payment `pending` quá `expires_at`: kỳ vọng 2; ghi id. *(OPS 11.1: PT-000444, PT-000458)*
+- [x] Hold quá hạn: `SELECT count(*) FROM reservation WHERE status='hold' AND hold_expires_at <= now()`; ghi số N và id. Trong N, đếm hold có yêu cầu FOC (kỳ vọng 0). *(OPS 11.1: N = 0, FOC 0)*
+- [x] Công nợ của OTM-00297: đúng 1 khoản 150.000. *(OPS 11.1)*
 
 **B. Deploy và khởi động worker**
-- [ ] Image api/worker đúng sha của rc.6 (commit chứa `6d78ec8`); ghi run CI deploy.
-- [ ] Dòng `worker started` liệt kê đủ 20 job, có `folio.close`, `payment.expire`, `hold.expire`.
+- [x] Image api/worker đúng sha của rc.6 (commit chứa `6d78ec8`); ghi run CI deploy. *(OPS 12.1: `sha-8b3aec89486f`, run 40865799549)*
+- [x] Dòng `worker started` liệt kê đủ 20 job, có `folio.close`, `payment.expire`, `hold.expire`. *(OPS 12.1)*
 
 **C. Hai nhịp đầu – mọi job**
-- [ ] Lọc log worker trọn 2 nhịp đầu: **0** dòng `ERROR [`, **0** dòng `job failed`, cho **mọi** job (không chỉ 3 job đang sửa).
-- [ ] `job done` của `folio.close`, `payment.expire`, `hold.expire`: `failed: 0` (với `hold.expire`: `failed` = số hold FOC đếm ở A).
-- [ ] Nhịp 2 không xử lý lại gì: `expired: 0` / không đóng thêm folio đã đóng.
+- [x] Lọc log worker trọn 2 nhịp đầu: **0** dòng `ERROR [`, **0** dòng `job failed`, cho **mọi** job (không chỉ 3 job đang sửa). *(OPS 12.1: 3 nhịp, 14 job tick, 0 lỗi. 6 job theo lịch chưa chạy → đọc lại sau lượt chạy kế tiếp)*
+- [x] `job done` của `folio.close`, `payment.expire`, `hold.expire`: `failed: 0` (với `hold.expire`: `failed` = số hold FOC đếm ở A). *(Log rc.6 không in `failed`; thay bằng DB: mọi folio/payment/hold đến hạn đều được xử lý, 0 dòng lỗi – OPS 12, 19.6)*
+- [x] Nhịp 2 không xử lý lại gì: `expired: 0` / không đóng thêm folio đã đóng. *(OPS 12.2; J1: OPS 19.6 dòng 11)*
 
 **D. BUG-R3-037 (J15)**
-- [ ] Các folio ở A thành `closed`, `closed_at` có giá trị; số audit `folio.closed` mới = số folio ở A.
-- [ ] OTM-00297 không có công nợ thứ hai.
-- [ ] Ca BUG-R3-022: đơn đã `closed` không còn nút Thêm phát sinh, hoặc bấm nhận 409 đúng thông báo.
-- [ ] Ca BUG-R3-034: mục "Tiền dư đơn đã đóng" của đơn đã chi hoàn đủ tự hết.
+- [x] Các folio ở A thành `closed`, `closed_at` có giá trị; số audit `folio.closed` mới = số folio ở A. *(OPS 12.1: 5/5, 5 audit)*
+- [x] OTM-00297 không có công nợ thứ hai. *(OPS 12.1)*
+- [x] Ca BUG-R3-022: đơn đã `closed` không còn nút Thêm phát sinh, hoặc bấm nhận 409 đúng thông báo. *(QA 30/10: folio OTM-00357 `closed`; đọc mã: Desk ẩn nút, máy chủ `FOLIO_LOCKED`. Chưa mở Desk, chưa thử ghi)*
+- [x] Ca BUG-R3-034: mục "Tiền dư đơn đã đóng" của đơn đã chi hoàn đủ tự hết. *(QA 30/10: "Cần chú ý" của MGR không còn mục của OTM-00357)*
 
 **E. BUG-R3-038 (J24)**
-- [ ] 2 payment ở A thành `expired`, mỗi payment có audit `payment.expired` (before/after đúng).
-- [ ] Tạo 1 payment VietQR `pending` mới, hạn ngắn; sau hạn một nhịp thành `expired`.
-- [ ] Đơn giữ chỗ gắn với payment đó được nhả / giữ đúng quy tắc.
+- [x] 2 payment ở A thành `expired`, mỗi payment có audit `payment.expired` (before/after đúng). *(OPS 12.1)*
+- [ ] Tạo 1 payment VietQR `pending` mới, hạn ngắn; sau hạn một nhịp thành `expired`. *(Không làm: ORC cấm VietQR. Kiểm khi có VietQR thật đầu tiên trên production)*
+- [ ] Đơn giữ chỗ gắn với payment đó được nhả / giữ đúng quy tắc. *(Như trên)*
 
 **F. BUG-R3-039 (J1)**
-- [ ] N hold ở A thành `cancelled`, `cancel_reason_code = 'hold_expired'`, `cancelled_by_type = 'system'`; số audit `reservation.hold_expired` mới = N.
-- [ ] Các đêm của những hold đó `active = false`; căn trống lại trên Rack và trên tìm phòng cho đúng các đêm đó.
-- [ ] Tạo 1 hold mới không cọc, hạn ngắn (dữ liệu giả); sau hạn một nhịp: hủy đúng như trên, registration `none` → `void` (K11), link khách (nếu có) bị thu hồi `cancelled` (B-13), Desk đang mở tự làm mới (`reservation.changed`).
-- [ ] Ghi cọc cho hold vừa hết hạn bị từ chối `HOLD_EXPIRED`.
-- [ ] Hold có cọc (`kept_paid`) không bị hủy.
+- [x] N hold ở A thành `cancelled`, `cancel_reason_code = 'hold_expired'`, `cancelled_by_type = 'system'`; số audit `reservation.hold_expired` mới = N. *(N = 0 lúc deploy. Ca mới OTM-00367: OPS 19.6 đạt)*
+- [x] Các đêm của những hold đó `active = false`; căn trống lại trên Rack và trên tìm phòng cho đúng các đêm đó. *(OTM-00367: OPS 19.6 + QA 19.7)*
+- [x] Tạo 1 hold mới không cọc, hạn ngắn (dữ liệu giả); sau hạn một nhịp: hủy đúng như trên, registration `none` → `void` (K11), link khách (nếu có) bị thu hồi `cancelled` (B-13), Desk đang mở tự làm mới (`reservation.changed`). *(QA 30/10, `qa3-rc1.md` 19.7: OTM-00367 hủy 07:04:15, 101 trống lại, registration `void`. Link khách N/A với hold. Desk tự làm mới: chưa kiểm. DB: OPS 19.6 đạt.)*
+- [x] Ghi cọc cho hold vừa hết hạn bị từ chối `HOLD_EXPIRED`. *(QA 30/10: bị từ chối 409 `INVALID_TRANSITION` / `cancelled`. Đây là mã đúng vì J1 đã hủy đơn trước; xem 19.5 dòng 4.)*
+- [x] Hold có cọc (`kept_paid`) không bị hủy. *(QA 30/10: OTM-00368 vẫn `hold`, 102 vẫn giữ. Thông báo cho nhân viên không tới → BUG-R3-041.)*
 
 **G. Kết luận**
-- [ ] Ghi kết quả vào `rounds/round-03/qa/qa3-rc1.md` (mục mới) và cập nhật trạng thái 037/038/039 trong tệp này. Mục nào không đạt thì giữ Open và ghi bằng chứng.
-- [ ] Production: sau khi rc.6 lên production, OPS chạy lại B và C (chỉ đọc), và đếm hold quá hạn trước/sau. QA đọc bằng chứng trước Day D.
+- [x] Ghi kết quả vào `rounds/round-03/qa/qa3-rc1.md` (mục mới) và cập nhật trạng thái 037/038/039 trong tệp này. Mục nào không đạt thì giữ Open và ghi bằng chứng.
+- [x] Production: sau khi rc.6 lên production, OPS chạy lại B và C (chỉ đọc), và đếm hold quá hạn trước/sau. QA đọc bằng chứng trước Day D. *(OPS 14: đạt, 0 hold/folio/payment. QA đã đọc 30/10)*
