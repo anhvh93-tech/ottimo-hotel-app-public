@@ -10,9 +10,12 @@
 |---|---|---|---|---|
 | P0 | 3 | 0 | 0 | 3 |
 | P1 | 15 | 2 (BUG-R3-032, BUG-R3-042 – v1.0.1) | 0 | 13 (gồm BUG-R3-037, 038, 039 Closed 30/10 trên rc.6) |
-| P2 | 15 | 9 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn; BUG-R3-041, 043, 044, 046, 052, 053) | 0 | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
+| P2 | 16 | 10 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn; BUG-R3-041, 043, 044, 046, 052, 053, 056) | 0 | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
 | P3 | 22 | 21 (016; 024–031; 034; 035; 036; 040; 045; 047; 048; 049; 050; 051; 054; 055) | 0 | 1 |
-| **Tổng** | **55** | **32** | **0** | **23** |
+| **Tổng** | **56** | **33** | **0** | **23** |
+
+Cập nhật 30/10 tối (SEC ghi thay QA theo lệnh ORC, bước Kiểm thử – khói L US-155 production, `rounds/round-03/reviews/SEC-on-us155-smoke-L.md`):
+- Thêm **BUG-R3-056 (P2, FE-B + UXD, QA tái hiện)**: trên production, sau **Đóng – không thành đơn** chủ đầu tư không tìm thấy **Xóa theo yêu cầu người gửi** cho REQ-84EKR1V6. Đọc mã `main`: máy chủ và Desk **vẫn cho** OWN/MGR/FDL xóa yêu cầu đã đóng (chưa xóa dữ liệu). Nghi lỗi nằm ở chỗ khó tìm: yêu cầu đã đóng rời danh sách mặc định, nút xóa nằm giữa thân ngăn chứ không ở chân ngăn. Chưa có test nào xóa từ trạng thái **Đã đóng**. Nếu QA tái hiện được "OWN không có nút" thì nâng **P1**.
 
 Cập nhật 30/10 14:28–15:00 (QA, bước Kiểm thử – bộ hướng dẫn theo bộ phận, câu Q2–Q4 của BA, staging `v1.0.0` `8b3aec8`, `qa3-rc1.md` mục 22):
 - Thêm **BUG-R3-052 (P2, MOB + UXD)**: app nhân viên nhận đăng nhập bằng **mật khẩu tạm** (và tài khoản vai quản lý **chưa bật 2 bước**) nhưng không có màn đổi mật khẩu / bật 2 bước. Mọi màn báo "Chưa tải được … Có thể do mạng yếu" trong khi máy chủ trả 403 `PASSWORD_CHANGE_REQUIRED` / `MFA_ENROLLMENT_REQUIRED`. Nhân viên buồng phòng, bảo trì mới không tự vào app được; cách tạm: đổi mật khẩu tạm trên Desk trước.
@@ -164,6 +167,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-055 | P3 | Sau **Xóa theo yêu cầu người gửi**, ngăn chi tiết ghi "Thông tin liên hệ đã xóa theo hạn lưu ({ngày})" – sai lý do (đầu ngăn ghi đúng "Đã xóa theo yêu cầu của người gửi") | UXD + FE-B | Open – thấy trên stack thử ảnh `v1.0.0` 30/10 15:05. Đích v1.0.1 |
 | BUG-R3-052 | P2 | App nhân viên: đăng nhập bằng mật khẩu tạm (hoặc vai quản lý chưa bật 2 bước) vào được nhưng không có màn đổi mật khẩu / bật 2 bước; mọi màn báo "Chưa tải được … Có thể do mạng yếu" (máy chủ 403 `PASSWORD_CHANGE_REQUIRED` / `MFA_ENROLLMENT_REQUIRED`) | MOB + UXD | Open – thấy trên staging `v1.0.0` 30/10. Cách tạm: đổi mật khẩu tạm trên Desk. Đích v1.0.1 |
 | BUG-R3-053 | P2 | Desk, vai **chỉ Bảo trì**: hộp **Phiếu sửa mới** và **Khóa phòng có kế hoạch** có ô **Căn** trống (GET `rooms` 403 `FORBIDDEN_ACTION`) → không tạo được phiếu hay khóa phòng, dù API cho vai bảo trì khóa phòng | FE-A + BE-A (ARC chọn cách) | Open – thấy trên staging `v1.0.0` 30/10. Cách tạm: lễ tân/người trực khóa trên Desk. Đích v1.0.1 |
+| BUG-R3-056 | P2 | S35, yêu cầu **Đã đóng**: chủ đầu tư không tìm thấy **Xóa theo yêu cầu người gửi** (quyền xóa của người gửi sau khi đóng). Mã `main` vẫn cho xóa; nghi do khó tìm (rời danh sách mặc định, nút giữa thân ngăn). Thiếu test xóa từ **Đã đóng** | FE-B + UXD (QA tái hiện, BE thêm test) | Open – báo từ production 30/10 ~17:50 (khói L, REQ-84EKR1V6). Chưa tái hiện. Cách tạm: tìm theo mã hoặc **Tìm theo liên hệ**. Đích v1.0.1; nâng P1 nếu tái hiện được "OWN không có nút" |
 
 ## 3. Chi tiết
 
@@ -1330,6 +1334,31 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Mong đợi:** câu theo lý do: xóa theo yêu cầu → "Thông tin liên hệ đã xóa theo yêu cầu của người gửi ({ngày})"; xóa theo hạn → giữ câu cũ.
 - **Vai:** UXD + FE-B. **Bằng chứng:** `us155-e2e/46-da-xoa-theo-yeu-cau.png`; `qa3-rc1.md` 21.3 dòng 13.
 - **Trạng thái:** Open – đích v1.0.1.
+
+### BUG-R3-056 – Yêu cầu website đã đóng: không tìm thấy "Xóa theo yêu cầu người gửi"
+
+- **Mức:** P2, chờ QA tái hiện.
+  - Đây là quyền của người gửi: xin xóa dữ liệu sau khi khách sạn đã đóng yêu cầu. Nếu nhân viên không tìm ra nút, việc xóa bị chậm. Hạn trả lời yêu cầu xóa theo luật cần luật sư xác nhận.
+  - Không lên P1 vì đọc mã `main` thấy chức năng có: máy chủ cho xóa, Desk hiện nút, và có hai đường tìm ra yêu cầu đã đóng.
+  - **Nâng P1** nếu QA tái hiện được: tài khoản OWN/MGR/FDL mở đúng yêu cầu đã đóng (chưa xóa dữ liệu) mà không có nút.
+- **Môi trường:** production 30/10 ~17:46–17:52, Desk, tài khoản chủ đầu tư (OWN), REQ-84EKR1V6. Khói L của US-155 (`outputs/OPS/b2-runbook.md` 8.7).
+- **Các bước (theo lời INV):** mở yêu cầu → **Đóng – không thành đơn** → tìm **Xóa theo yêu cầu người gửi**.
+- **Thực tế:** INV báo "không còn thấy nút xóa". Lệnh đếm L5 xác nhận chưa có WR8 (kiểm 2, 4, 5 FAIL).
+- **Đọc mã (`main`):**
+  - `website-requests.service.ts` `allowed()`: `erase` có khi `status !== 'converted' && !pii_purged_at && isLead`. `transition('erase')` chỉ chặn `converted` hoặc `pii_purged_at`. Nên yêu cầu `declined` vẫn xóa được.
+  - `WebRequestDrawer.tsx`: nút hiện theo `allowedActions`. Sau khi đóng, ngăn vẫn mở và nhận DTO mới (có `erase`). Nút nằm **giữa thân ngăn**, dưới khối **Liên hệ**, không ở chân ngăn. Chân ngăn của yêu cầu đã đóng chỉ còn **Mở lại**.
+  - `WebRequestsPage.tsx`: danh sách mặc định chỉ có **Mới** và **Đang xử lý**. Đóng ngăn thì yêu cầu biến khỏi danh sách.
+  - Còn hai đường tìm: gõ mã yêu cầu (bỏ qua bộ lọc trạng thái), hoặc **Tìm theo liên hệ** (`lookup` lấy cả `declined` còn dữ liệu).
+  - Test: `public-site-r3-bed.test.ts` (WR8) và `r3-v1-feb-webreq.test.tsx` chỉ xóa từ `in_progress` hoặc `new`. **Không ca nào xóa từ `declined`** do nhân viên đóng.
+- **Mong đợi:**
+  - (1) OWN/MGR/FDL mở yêu cầu **Đã đóng** (chưa xóa dữ liệu) thấy ngay nút xóa. UXD quyết vị trí: đưa vào chân ngăn cạnh **Mở lại**, hoặc giữ chỗ cũ kèm một dòng hướng dẫn.
+  - (2) Thêm test: BE tích hợp `decline` → `erase` (200, `dsr_erase`, audit `website_request.erased`); FE `declined` + owner → có nút; E2E đóng → xóa.
+  - (3) Sổ tay/hướng dẫn lễ tân: "người gửi xin xóa sau khi đã đóng: tìm theo mã hoặc **Tìm theo liên hệ**".
+- **Vai:** FE-B + UXD. BE thêm test tích hợp. QA tái hiện trên stack thử `v1.0.0` bằng tài khoản `qa.owner`. Không dùng production.
+- **Cách tạm:**
+  - Tìm theo mã hoặc **Tìm theo liên hệ**, mở yêu cầu, cuộn xuống dưới khối **Liên hệ** để bấm nút.
+  - Lưới an toàn: job `web_request.purge` (03:10 hằng ngày) xóa dữ liệu liên hệ của yêu cầu đã đóng sau `retention.web_request_declined_days`. Mặc định 90 ngày, khoảng 30–90 (migration 0086), ghi `purge_journal` `T19`.
+- **Trạng thái:** Open – đích v1.0.1. Chi tiết: `rounds/round-03/reviews/SEC-on-us155-smoke-L.md`.
 
 ### Checklist QA xác nhận rc.6 trên staging (BUG-R3-037, 038, 039)
 
