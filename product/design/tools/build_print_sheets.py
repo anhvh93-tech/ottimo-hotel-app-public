@@ -5,6 +5,8 @@
 Chạy từ gốc repo (UXD, Round 3):
     python3 -I product/design/tools/build_print_sheets.py            # chỉ dựng HTML
     python3 -I product/design/tools/build_print_sheets.py --pdf      # dựng + đo + in PDF bằng Chrome headless
+    python3 -I product/design/tools/build_print_sheets.py --pdf --only to-4-your-id-details-a4
+                                                                      # chỉ dựng/đo một lần in (không ghi đè tệp khác)
 
 Nguồn:  product/docs/staff-one-pager.md – các phần "## Tờ 1 …", "## Tờ 2a …", "## Tờ 2b …",
         "## Tờ 3 …", "## Tờ 4 …". Phần "## Cách in và dán" không in (chỉ cho chủ đầu tư).
@@ -52,6 +54,10 @@ JOBS = [
      "title": "Tờ 4 – Your ID details (A5)"},
     {"file": "to-4-your-id-details-a4-2-ban", "page": "A4 landscape", "w": 297, "h": 210, "sheets": ["4", "4"],
      "title": "Tờ 4 – Your ID details (2 bản trên A4, cắt đôi)"},
+    # INV 30/10 (decision-log): bỏ bộ tờ nhân viên; riêng Tờ 4 in khổ A4 đặt ở quầy. Chữ y hệt bản A5,
+    # chỉ phóng cỡ để đọc được từ 60–80 cm (khung mica A4 hoặc dán phía khách).
+    {"file": "to-4-your-id-details-a4", "page": "A4", "w": 210, "h": 297, "sheets": ["4"], "notice": "a4",
+     "title": "Tờ 4 – Your ID details (A4, đặt ở quầy)", "paper": "giấy trắng hoặc ngà 120–160 gsm"},
 ]
 
 # Quy cách từng tờ (UXD-on-PO-v1.0.0-docs.md mục 1.3 và mục 2).
@@ -62,6 +68,8 @@ SPEC = {
     "3": {"size": "a4", "fs": 12.0, "cols": 2, "where": "Phòng buồng / kho đồ vải"},
     "4": {"size": "a5", "fs": 11.5, "fs_vi": 11.0, "where": "Khung mica trên quầy, mặt quay ra khách"},
 }
+# Tờ 4 khổ A4 dọc (cùng chữ, cùng nguồn "## Tờ 4"): thân EN = VI, tiêu đề Lora 36 pt.
+NOTICE_A4 = {"size": "a4", "fs": 16.0, "fs_vi": 16.0}
 
 SHEET_RE = re.compile(r"^##\s+Tờ\s+(\w+)\s+[–-]\s+(.+?)\s*$")
 NOBREAK_RE = re.compile(r"\b(\d+|N) (months?|days?|tháng|ngày|giờ|hours?)\b")
@@ -184,9 +192,9 @@ def staff_sheet(sid, sheet, meta):
     )
 
 
-def notice_sheet(sheet):
-    """Tờ 4: nhãn OTTIMO · tiêu đề · dòng phụ · EN · nét Oak · VI · chân trang."""
-    spec = SPEC["4"]
+def notice_sheet(sheet, size="a5"):
+    """Tờ 4: nhãn OTTIMO · tiêu đề · dòng phụ · EN · nét Oak · VI · chân trang. size: "a5" hoặc "a4"."""
+    spec = NOTICE_A4 if size == "a4" else SPEC["4"]
     paras, cur = [], []
     for line in sheet["lines"] + [""]:
         s = line.strip()
@@ -214,8 +222,8 @@ def notice_sheet(sheet):
     en, vi = paras[:cut], [p for p in paras[cut + 1:] if p != "---"]
     fl, _, fr = foot.rpartition(" · ")
     return (
-        '<section class="sheet notice a5" data-sheet="4" style="--fs:%spt;--fs-vi:%spt">'
-        % (spec["fs"], spec["fs_vi"])
+        '<section class="sheet notice %s" data-sheet="4" style="--fs:%spt;--fs-vi:%spt">'
+        % (spec["size"], spec["fs"], spec["fs_vi"])
         + '<div class="inner"><div class="fit">'
         + '<p class="eyebrow">%s</p>' % esc(label)
         + '<h2 lang="en">%s</h2>' % il(title)
@@ -315,6 +323,14 @@ code{font-family:var(--mono);font-size:.92em;font-weight:400;letter-spacing:0}
 .notice .fit{flex:1 1 auto}
 .nfoot{flex:0 0 auto;display:flex;justify-content:space-between;font-size:8pt;line-height:1.2;color:var(--stone);
   padding-top:3mm}
+/* Tờ 4 khổ A4 dọc: đọc từ 60–80 cm. Tỉ lệ giữ như A5, phóng theo khổ (≈ ×1,4) rồi làm tròn. */
+.notice.a4 .inner{padding:18mm 18mm 12mm}
+.notice.a4 .eyebrow{font-size:12pt;letter-spacing:.12em}
+.notice.a4 h2{font-size:36pt;margin-top:6mm}
+.notice.a4 .sub{font-size:20pt;margin-top:1.5mm;margin-bottom:7mm}
+.notice.a4 .en p,.notice.a4 .vi p{line-height:1.45;margin-bottom:.6em;text-wrap:pretty}
+.notice.a4 .rule{border-top-width:1pt;width:32mm;margin:6mm 0}
+.notice.a4 .nfoot{font-size:11pt;padding-top:4mm}
 
 /* ---- màn hình: xem trước trên nền Ivory; khi in chỉ còn tờ trắng ---- */
 @media screen{
@@ -384,21 +400,27 @@ PAGE = """<!doctype html>
 
 def howto(job):
     size = "A4 ngang" if job["page"] == "A4 landscape" else job["page"]
-    s = "In: khổ %s, tỉ lệ Thực tế (100%%), một mặt, giấy trắng hoặc ngà. Không bật Vừa trang." % size
+    s = "In: khổ %s, tỉ lệ Thực tế (100%%), một mặt, %s. Không bật Vừa trang." % (
+        size, job.get("paper", "giấy trắng hoặc ngà"))
     if len(job["sheets"]) == 2:
         s += " In xong cắt đôi theo nét đứt giữa tờ."
     return s
 
 
-def build(md_path, out_dir):
+def build(md_path, out_dir, only=None):
     meta, sheets = read_source(md_path)
-    missing = [k for k in SPEC if k not in sheets]
+    jobs = [j for j in JOBS if not only or j["file"] in only]
+    unknown = sorted(set(only or []) - {j["file"] for j in JOBS})
+    if unknown:
+        raise SystemExit("Không có lần in: %s" % ", ".join(unknown))
+    missing = sorted({k for j in jobs for k in j["sheets"] if k not in sheets})
     if missing:
         raise SystemExit("Thiếu phần '## Tờ %s' trong %s" % (", ".join(missing), md_path))
     out_dir.mkdir(parents=True, exist_ok=True)
     written = []
-    for job in JOBS:
-        parts = [notice_sheet(sheets[k]) if k == "4" else staff_sheet(k, sheets[k], meta) for k in job["sheets"]]
+    for job in jobs:
+        parts = [notice_sheet(sheets[k], job.get("notice", "a5")) if k == "4" else staff_sheet(k, sheets[k], meta)
+                 for k in job["sheets"]]
         html_text = PAGE.format(title=esc(job["title"]), fonts=esc(FONTS), page=job["page"], css=CSS,
                                 w=job["w"], h=job["h"], two=" two" if len(parts) == 2 else "",
                                 howto=esc(howto(job)), sheets="\n".join(parts), js=MEASURE_JS)
@@ -487,9 +509,11 @@ def main(argv=None):
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
     ap.add_argument("--pdf", action="store_true", help="đo bằng Chrome headless và in PDF vào <out>/pdf")
     ap.add_argument("--json", type=Path, help="ghi kết quả đo ra tệp JSON (không đưa vào repo)")
+    ap.add_argument("--only", nargs="+", metavar="FILE",
+                    help="chỉ dựng các lần in này (tên tệp không đuôi, ví dụ to-4-your-id-details-a4)")
     a = ap.parse_args(argv)
     print("Nguồn: %s" % a.md)
-    files = build(a.md, a.out)
+    files = build(a.md, a.out, a.only)
     if not a.pdf:
         return 0
     code, report = render_pdfs(files, a.out / "pdf")

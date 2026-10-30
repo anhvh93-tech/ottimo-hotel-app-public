@@ -132,3 +132,11 @@ Dòng decision-log đề xuất (ORC ghi khi gom commit):
 - Thời điểm đo, Google Fonts tải được. HTML có fallback, nhưng **chỉ PDF** là bản đã đo vừa. In thẳng từ HTML khi máy không có mạng sẽ ra Arial/Georgia, và có thể tràn.
 - Không tạo ESC: mọi quyết định ở đây thuộc quyền UXD (dàn trang trong khuôn khổ thương hiệu).
 - Không commit, theo yêu cầu ORC.
+
+## 7. Bổ sung 30/10 – Tờ 4 khổ A4 (INV quyết: bỏ tờ nhân viên, riêng Tờ 4 in A4 đặt ở quầy)
+
+- Tệp: `product/docs/print/to-4-your-id-details-a4.html` → `product/docs/print/pdf/to-4-your-id-details-a4.pdf` (A4 dọc 210 × 297 mm). Dựng riêng, không ghi đè tệp khác: `python3 -I product/design/tools/build_print_sheets.py --pdf --only to-4-your-id-details-a4`. Chữ **nguyên văn** bản A5 (cùng nguồn `## Tờ 4`; so chữ hai HTML: giống hệt). Các tệp A5 / 2 bản giữ nguyên, không dùng nữa.
+- Cỡ đo bằng Chrome headless: tiêu đề "Your ID details" Lora 500 **36 pt**; dòng phụ Lora 500 20 pt, Stone Grey; thân EN và VI Be Vietnam Pro **16 pt**, cách dòng 1,45; nhãn "OTTIMO" 12 pt; chân "OTTIMO · ID notice" / "11/2026" 11 pt; nét Light Oak 1 pt × 32 mm; lề 18 / 18 / 12 mm. Chữ Ink trên giấy trắng, không emoji.
+- Kết quả đo: **1 trang, vừa**, còn trống 15,5 mm; cỡ lớn nhất còn vừa 16,25 pt. Font nhúng: Lora Medium, Be Vietnam Pro Regular/SemiBold.
+- Cách in: từ PDF, **tỉ lệ 100% (Thực tế)**, không bật "Vừa trang", **một mặt**, giấy trắng hoặc ngà **120–160 gsm**. In thử và xem dưới đèn quầy 2700K.
+- Chỗ đặt: **khung mica A4 đứng** trên quầy, hoặc **dán phía khách** của quầy, chỗ khách đứng làm thủ tục, không bị che. Hạn đặt giữ như mục 4 (muộn nhất 06:00 ngày 02/11).
