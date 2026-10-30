@@ -897,3 +897,175 @@ Còn để lại trên staging: OTM-00368 (hold, căn 102, cọc 200.000 tiền 
 - 2 thông báo `hold_expiring` chưa đọc trong hộp thư `qa.fd`.
 - 2 dòng outbox `staff.push` (BUG-R3-041).
 - Vì OTM-00368 đã hủy, mục "12:00 `hold_overdue_cap`" ở 19.7 không còn áp dụng: không có gì để đếm.
+
+## 20. Cách tạm giữ chỗ quá hạn – thử luồng (rc.6 staging, 30/10)
+
+- Người chạy: QA | Round 3 – bước **Kiểm thử** | 30/10/2026 11:40–12:01 (+07). Theo ORC, kiểm các giả định PO ở `responses/PO-to-v1.0.0-docs-reviews.md` mục 8 cho cách tạm DOM A.3 (`reviews/DOM-on-PO-v1.0.0-docs.md`) và sổ tay `product/docs/manual/user-manual-v1.0.md` mục 2.4. Hạn: trước buổi đào tạo C3a 31/10.
+- Đích: `desk.staging.ottimo.vn`, rc.6 `8b3aec8` (= `v1.0.0`), business date 2026-10-30.
+- Cách làm:
+  - API Desk bằng `qa.fd` (lễ tân), `qa.mgr` và `qa.owner` (mật khẩu thử + TOTP thử trong `~/.ottimo/staging/`, không in).
+  - Lệnh cần máy tin cậy gửi cookie thiết bị seed `qa-desk-01`.
+  - Desk thật (Chromium 1440×900, phiên `qa.fd`) để xem khung đơn và hộp hủy. Hộp hủy lần 3 bấm thật.
+  - Helper và kết quả thô: `qa-r6/hf/` (scratchpad phiên, ngoài repo): `api.mjs`, `api2.mjs`, `ui*.mjs`, `*.json`, `shots/`.
+- Dữ liệu đều giả:
+  - Khách giả KH-0447 "QA Hold Test A" (tạo ở 19.4).
+  - Tiền chỉ là bản ghi tiền mặt trên staging, ghi chú "QA … not real money".
+  - Ảnh biên nhận hoàn là ảnh thử "QA TEST IMAGE – NOT A REAL RECEIPT".
+  - Giấy tờ khách nhập tay: CCCD giả `000000000131`, không ảnh.
+- Không VietQR, không chuyển tiền, không SQL tay, không đụng production, không in khóa TOTP, không commit.
+- **Không cần chờ quá hạn.** Theo mã rc.6, các bước hủy – đặt lại – hoàn của cách tạm A.3 (khách tới quầy) giống nhau trước và sau hạn:
+  - Hủy giữ chỗ không xét hạn: `allowed-actions.ts` dòng 52–58, `cancel` cho `hold` không có điều kiện `holdExpired`.
+  - Hoàn 100 % số đã nhận theo BR-308 cho giữ chỗ.
+  - Đặt đơn mới, thu tiền, nhận phòng và hoàn tiền nằm trên đơn khác, không đụng hạn của đơn cũ.
+  - Sau hạn chỉ khác ở các chỗ Desk **từ chối** (xác nhận cọc, gia hạn – BUG-R3-042) và ở chữ khung đơn (BUG-R3-044 phần 1–2). Hai chỗ này chưa thử được (20.5).
+
+### 20.1 Kết luận
+
+| # | Giả định / câu trong tài liệu | Kết quả | Bằng chứng |
+|---|---|---|---|
+| G1 | PO: "Khung đơn đã tạo **không có** ô ghi chú cho lễ tân" | **Đạt** (giả định đúng). Khung đơn giữ chỗ không có ô nhập nào. Mã Desk: `internalNote` chỉ có ở **Đặt phòng mới** khi kênh **Nội bộ** (`BookingDialog.tsx` dòng 1099–1112). Khung đơn không hiện cũng không sửa ghi chú nội bộ; không hộp nào gọi `updateReservation` với `internalNote`. Dùng sổ giao ca là đúng | 20.2 dòng 5, `shots/a1-drawer.png` |
+| G2 | PO: "Đặt phòng mới ở quầy (Trực tiếp) lưu thành **Đã xác nhận** và nhận phòng được khi thu đủ ở bước nhận phòng" | **Đạt, kèm 1 điều kiện tài liệu thiếu**. Đơn mới lưu `confirmed`. Nhận phòng bị chặn khi chưa thu đủ (409 `balance_paid`), thu cùng lệnh nhận phòng thì vào `in_house`. **Nhưng** đơn mới **phải thu đủ cọc yêu cầu ngay lúc đặt** (422 `DEPOSIT_INSUFFICIENT`), nên "thu đủ 2.376.000 ở bước nhận phòng" là sai bước: cọc thu ở (b), phần còn lại ở (c) | 20.2 dòng 8–9, 20.4 |
+| G3 | PO/DOM: "Người tạo yêu cầu hoàn không tự chi tiền mặt được" | **Đạt**. 403 `SELF_REFUND_FORBIDDEN` cho FD và cả MGR là người tạo. Người khác chi được; OWN vừa duyệt vừa chi tiền mặt được | 20.2 dòng 13–14, 18–19 |
+| G4 | DOM A.3 / sổ tay 2.4: "Người trực hủy **và duyệt**" (tài khoản 6 vai tự duyệt) | **Không đạt**. Người tạo yêu cầu hoàn **không duyệt được** khoản hoàn của mình: 403 `SELF_APPROVAL_FORBIDDEN`, không có ngoại lệ cho quản lý hay chủ đầu tư (SEC F8). Người trực hủy đơn → chủ đầu tư phải **duyệt và chi**. Không phải lỗi sản phẩm: quy tắc tách nhiệm đã chốt. Đây là **lỗi tài liệu** | 20.2 dòng 15–16 |
+| G5 | Sổ tay 2.4: "Không tạo đơn mới trước khi hủy đơn cũ (Desk chặn trùng)" | **Đạt**. 409 `ROOM_UNAVAILABLE`, xung đột với giữ chỗ cũ, không ghi tiền | 20.2 dòng 4 |
+| G6 | BUG-R3-044: hộp hủy giữ chỗ có cọc ghi "Không thu phí (giữ chỗ chưa cọc)", không hiện dòng hoàn | **Tái hiện trên staging** (phần 3, trước hạn). Máy chủ vẫn tạo yêu cầu hoàn đủ 200.000 | 20.3 |
+| G7 | Sổ tay 2.4: hủy với lý do **Khác (ghi rõ)** | **Không làm được trên Desk** → **BUG-R3-046 (P2, mới)** | 20.3 |
+| G8 | Tái hiện BUG-R3-042 và 044 phần 1–2 bằng đồng hồ giả | **Bỏ qua.** Staging không có đồng hồ giả (20.5) | – |
+
+- **Lỗi mới:** **BUG-R3-046 (P2)** – hủy với "Khác (ghi rõ)" bị khóa. **BUG-R3-047 (P3)** – khung đơn giữ chỗ hiện nút link check-in online mà máy chủ luôn từ chối. Không có P0/P1 mới.
+- **Tài liệu phải sửa trước C3a 31/10** (PO; DOM duyệt nghiệp vụ): G2 (thu cọc ở bước (b)), G4 (chủ đầu tư duyệt), G7 (không dùng "Khác") – chi tiết 20.7.
+- Dọn xong (20.6): không còn đơn treo; căn 202 và 103 trống; 3 folio dư 0.
+
+### 20.2 Luồng A.3 "Khách đó tới quầy" – từng bước (căn 202, 09/11 → 11/11, 2 đêm, giá 750.000/đêm)
+
+| # | Giờ | Bước theo sổ tay | Ai | Thao tác | Kết quả |
+|---|---|---|---|---|---|
+| 1 | 11:40:47 | (dựng ca) Báo giá | FD | `saveQuote` căn 202, 2 người lớn, Trực tiếp | 201 BG-00050: 1.500.000, cọc yêu cầu 500.000 |
+| 2 | 11:40:52 | (dựng ca) Giữ chỗ | FD | `create-hold` 12 h, cọc tiền mặt | 201 **OTM-00369** `hold`, hạn 23:40 30/10 |
+| 3 | 11:40:59 | (dựng ca) Cọc **thiếu** | FD | `confirm-deposit` 200.000 tiền mặt (PT-000467) | 200, đơn vẫn `hold`, đã cọc 200.000 / 500.000 (A-13) |
+| 4 | 11:41:20 | Cảnh báo "không đặt đơn mới trước khi hủy" | FD | `createReservation` cùng căn, cùng ngày, kèm cọc 500.000 | **409 `ROOM_UNAVAILABLE`**, xung đột `kind: hold` OTM-00369. Không ghi đơn, không ghi tiền. `availability` căn 202: `available: false`, `booked` → **câu sổ tay đúng** |
+| 5 | 11:42 | Khung đơn: có ô ghi chú cho lễ tân không? | FD (Desk) | Mở khung đơn OTM-00369 | **Không có ô nhập nào** trong khung đơn (0 `input/textarea/select`). Nút: Tạo link check-in online, Thu hồi link, Hủy giữ chỗ, Gia hạn giữ chỗ (1 lần), Xác nhận đã nhận cọc (20.3) |
+| 6 | 11:42–11:43 | (a) Hủy giữ chỗ, **Khác (ghi rõ)** | FD (Desk) | Hộp **Hủy giữ chỗ** | Hộp ghi sai với đơn có cọc (BUG-R3-044 phần 3). **Không hủy được với "Khác (ghi rõ)"** → **BUG-R3-046** (20.3) |
+| 7 | 11:43:47 | (a) Hủy giữ chỗ – lý do khác | FD (Desk) | **Không liên lạc được** → **Hủy giữ chỗ** | 200, OTM-00369 `cancelled`, registration `void`; toast "Đã hủy đơn OTM-00369". Máy chủ tạo **yêu cầu hoàn 200.000** (`unreachable`, người tạo **QA FD**, `requiredRole: manager`). Hộp không báo khoản hoàn này |
+| 8 | 11:46:04 | (b) Đặt phòng mới cùng căn, cùng giá | FD | `createReservation` 202, 09–11/11, `walk_in`, 2 đêm 750.000 (`edited: true`) | **Không kèm cọc → 422 `DEPOSIT_INSUFFICIENT`** (cần 500.000; thử trên căn 102, không ghi gì). **Kèm cọc 500.000 tiền mặt → 201 OTM-00370 `confirmed`** (PT-000468). Nút: `move`, `cancel` (chưa tới ngày đến nên chưa có `check-in`) |
+| 9 | 11:46 | (c) Thu đủ ở bước nhận phòng | FD | `check-in-preview` OTM-00370 | `balance_paid` chưa đạt, **còn thu 1.000.000** = 1.500.000 − 500.000 cọc lúc đặt. Nhận phòng thật: xem 20.4 (đơn đến hôm nay) |
+| 10 | 11:45:13 | (d) Duyệt hoàn – lễ tân | FD | `approve` yêu cầu hoàn | 403 `FORBIDDEN_ACTION` (FD không có quyền duyệt) |
+| 11 | 11:45:36 | (d) Nơi nhận tiền hoàn | FD | `refund-destination` = tiền mặt | 200 (cần máy tin cậy; không có cookie máy → 403 `DEVICE_NOT_TRUSTED`) |
+| 12 | 11:46:23 | (d) Duyệt hoàn | **OWN** | `approve` (mật khẩu) | 200 `approved`, người duyệt QA OWNER |
+| 13 | 11:46:32 | (d) Chi tiền mặt – **người tạo yêu cầu** | FD (người tạo) | `execute-cash-refund` 200.000 + ảnh biên nhận thử | **403 `SELF_REFUND_FORBIDDEN`** → giả định PO **đúng** |
+| 14 | 11:46:41 | (d) Chi tiền mặt | **OWN** (cũng là người duyệt) | `execute-cash-refund` 200.000 | 201 **PT-000469** −200.000 `refund` `cash`. Folio OTM-00369: đã thu 200.000, đã hoàn 200.000, **còn thu 0, tiền dư 0** |
+
+**Ca "tài khoản 6 vai tự duyệt"** (người trực có quyền quản lý, chính người đó hủy đơn). Dựng bằng `qa.mgr` khi dọn OTM-00370:
+
+| # | Giờ | Thao tác | Kết quả |
+|---|---|---|---|
+| 15 | 11:48:35 | MGR hủy OTM-00370 (`guest_changed_mind`) | 200 `cancelled`, BR-309: giữ lại 0, **yêu cầu hoàn 500.000**, người tạo **QA MGR** |
+| 16 | 11:48:41 | **MGR tự duyệt** yêu cầu hoàn của chính mình | **403 `SELF_APPROVAL_FORBIDDEN`**. Chữ Desk cho mã này (`strings-vi.json` dòng 411, chưa mở trên Desk): "Bạn không tự duyệt yêu cầu của chính mình được. Yêu cầu vẫn chờ người duyệt khác." |
+| 17 | 11:48:57 | MGR đặt nơi nhận tiền mặt → **OWN duyệt** | 200 / 200 `approved` |
+| 18 | 11:48:58 | **MGR (người tạo) chi** tiền mặt | **403 `SELF_REFUND_FORBIDDEN`** (có quyền quản lý vẫn bị chặn) |
+| 19 | 11:48:58 | **OWN chi** tiền mặt 500.000 | 201 PT-000471. Folio OTM-00370: còn thu 0, tiền dư 0 |
+
+Quy tắc trong mã khớp kết quả:
+- `approval.service.ts` dòng 1352–1356: không ai duyệt khoản hoàn do mình tạo, "no owner/manager exception" (SEC F8).
+- Dòng 1369–1374: người **đặt nơi nhận** cũng không được duyệt khoản hoàn tiền mặt, kể cả OWN.
+- `refunds.service.ts` dòng 495: người tạo yêu cầu không chi tiền mặt, không ngoại lệ.
+- Dòng 498–503: người duyệt **được** chi tiền mặt; với hoàn chuyển khoản thì người duyệt hoặc người đặt nơi nhận không chi được, trừ OWN.
+
+### 20.3 Khung đơn và hộp hủy trên Desk (OTM-00369, giữ chỗ có cọc 200.000, **trước hạn**)
+
+- **Khung đơn** (`shots/a1-drawer.png`):
+  - Không có ô ghi chú hay ô nhập nào. Hiện "Hết hạn giữ chỗ sau 11 giờ 58 phút (23:40 30/10) – Quá hạn chưa cọc → hệ thống tự hủy và mở bán lại căn."
+  - Folio: Tiền phòng 1.500.000 · Cọc cần thu 300.000 · Đã thu −200.000.
+  - Có nút link check-in online, máy chủ không cấp cho giữ chỗ → **BUG-R3-047** (P3).
+- **Hộp Hủy giữ chỗ** (`shots/a1-cancel.png`), đối chiếu BUG-R3-044 phần 3:
+  - Hộp ghi: "Căn 202 sẽ mở bán lại từ 09/11 đến 11/11 trên mọi kênh. Khách tiềm năng QA Hold Test A trở về 'Đã báo giá'." và "**Không thu phí (giữ chỗ chưa cọc)**".
+  - **Không có dòng nào về khoản sẽ hoàn.** Bản tính thử trả `refundableVnd` = `refundRequestVnd` = 200.000, nên dòng `cancel.refund_request` bị ẩn (`ReservationDialogs.tsx` dòng 351).
+  - Hủy xong, máy chủ tạo yêu cầu hoàn 200.000 (20.2 dòng 7). Toast chỉ báo "Đã hủy đơn OTM-00369".
+  - **Khớp BUG-R3-044 phần 3, tái hiện trên staging.** Câu cảnh báo của sổ tay ("đừng tin dòng này – Desk vẫn tạo yêu cầu hoàn đủ số đã nhận") đúng.
+- **Lý do "Khác (ghi rõ)"** (`shots/a1-cancel-other.png`, `a2-cancel-other-note.png`):
+  - Chọn xong, hộp báo ngay "Chưa tính được phí hủy nên chưa hủy được. Bấm Thử lại." Nút **Hủy giữ chỗ** khóa.
+  - Gõ ghi chú "QA test - het han giu cho co coc" rồi bấm **Thử lại**: vẫn khóa. Bản tính thử gửi lại `{"reasonCode":"other","dryRun":true}` không có `note`, 422 `note` `REASON_REQUIRED`.
+  - Các lý do khác tính thử 200, hủy được ("Không liên lạc được" đã hủy thật ở dòng 7).
+  - → **BUG-R3-046 (P2)**. Sổ tay 2.4 hiện dặn **Khác (ghi rõ)** ở 3 chỗ: hủy giữ chỗ chưa cọc quá hạn, dòng "Không đi nữa", và bước (a) của dòng "Khách đó tới quầy". Làm theo sổ tay thì kẹt ở hộp hủy.
+
+### 20.4 Nhận phòng khi thu đủ ở bước nhận phòng (OTM-00371, căn 103, đến hôm nay 30/10 → 01/11, 1 người lớn)
+
+Đơn ở 20.2 đến ngày 09/11 nên chưa nhận phòng được: nút `check-in` chỉ có khi hôm nay là ngày đến (`allowed-actions.ts` dòng 63). Phần "thu đủ → nhận phòng" vì vậy thử trên một đơn Trực tiếp đến hôm nay, cùng cách đặt.
+
+| # | Giờ | Thao tác | Kết quả |
+|---|---|---|---|
+| 1 | 11:47:45 | FD `createReservation` không kèm cọc | 422 `DEPOSIT_INSUFFICIENT`, cần 600.000. Không ghi gì |
+| 2 | 11:47:51 | FD đặt lại, kèm cọc 600.000 tiền mặt (PT-000470) | 201 **OTM-00371** `confirmed`, nút `check-in` có. Tổng 1.956.000 (978.000 × 2) |
+| 3 | 11:48:13 | FD nhập tay giấy tờ khách chính (CCCD giả, không ảnh) → hoàn tất kiểm (`complete-review`) | 201 / 200 `scanned`. Các mục kiểm `pass` hoặc `not_applicable` |
+| 4 | 11:48:23 | FD nhận phòng trước 12:00 | 422 `applyEarlySurcharge` `SURCHARGE_DECISION_REQUIRED` (phụ thu nhận sớm, đúng BR-414). QA chờ tới 12:00 để không ghi phụ thu |
+| 5 | 12:00:22 | `check-in-preview` | Chỉ còn `balance_paid` chưa đạt; **còn thu 1.356.000** = 1.956.000 − 600.000; phụ thu sớm 0 |
+| 6 | 12:00:22 | FD nhận phòng **không thu** | **409 `CHECKIN_CONDITIONS_NOT_MET`**, `unmet: [balance_paid]`, `balanceDueVnd` 1.356.000. Không ghi gì |
+| 7 | 12:00:23 | FD nhận phòng **kèm thu** 1.356.000 tiền mặt (`payment.type = charge`) | **200 `in_house`**; PT-000472; folio tổng 1.956.000, đã thu 1.956.000, còn 0; Rack căn 103 = OC |
+
+Kết luận: nhận phòng được khi thu đủ ở bước nhận phòng (BR-402 (2), thu và nhận phòng trong cùng một giao dịch). Bước 1 cho thấy G2: đơn Trực tiếp mới không lưu được nếu chưa có cọc.
+
+Ghi chú:
+- Nhận phòng qua API, không qua màn H13 trên Desk. H13 gửi đúng lệnh này với `payment` (BUG-R2-038; A1 26/10 ở 3.1 đã chạy trên Desk).
+- Bước 4 là hành vi đúng. Sổ tay nên nhắc rằng khách tới trước 12:00 sẽ có hỏi phụ thu nhận sớm (đã có ở mục nhận phòng).
+
+### 20.5 Đồng hồ giả trên staging – không có, bỏ qua tái hiện quá hạn
+
+- `GET https://desk.staging.ottimo.vn/v1/__test__/clock` → **404 `NOT_FOUND`** (JSON của API). Đường `/api/__test__/clock` trả 200 chỉ vì là trang SPA.
+- Staging chạy cấu hình production: `docker-compose.prod.yml` `CLOCK_MODE=system`, `INCLUDE_TEST_SUPPORT=0`. Image production bỏ thư mục `test-support` (`Dockerfile.api` dòng 28–30).
+- Hold quá hạn ngắn nhất trên staging cần ≥ 12 giờ (19.2). ORC cấm sửa tham số và ghi DB.
+- Vì vậy **chưa tái hiện trên staging**:
+  - BUG-R3-042 (xác nhận cọc sau hạn → `HOLD_EXPIRED`);
+  - BUG-R3-044 phần 1 (khung đơn "đơn đã tự hủy") và phần 2 (câu `HOLD_EXPIRED` "căn đã mở bán lại").
+  - Cả hai vẫn **xác minh bằng mã**. Muốn tái hiện: tạo hold 12 h có cọc thiếu lúc ~20:00, kiểm lúc ~08:00 hôm sau (như 19.4), hoặc chạy trên stack dùng một lần có `CLOCK_MODE=mutable`.
+- Phần **không** phụ thuộc hạn đã thử đủ: hủy, đặt lại, thu, nhận phòng, hoàn (giải thích ở đầu mục).
+
+### 20.6 Dữ liệu staging – trước / sau
+
+| | Trước (11:40) | Sau (12:01) |
+|---|---|---|
+| Đơn `hold` | 0 | 0 |
+| Rack 30/10 → 12/11, 10 căn | Không bar nào | Không bar nào; 101, 102, 103, 202, 301, 401, 402 `VC`; 203 `VD`; 201, 302 `OD` – như lúc đầu |
+| Căn 202, 09–11/11 | Trống | `availability`: `available: true` |
+| Căn 103, 30/10 → 01/11 | `VC`, trống | Hoàn tác nhận phòng (MGR, B17, 12:00:39) → `VC`; `available: true` |
+
+Bản ghi thử còn lại (chỉ là bản ghi, không giữ căn nào, không còn tiền dư):
+- **OTM-00369** `cancelled` (`unreachable`, FD).
+  - Folio `open`: PT-000467 cọc 200.000, PT-000469 hoàn −200.000. Còn thu 0, tiền dư 0.
+  - Yêu cầu hoàn đã chi đủ (`approved`, `refundedVnd` 200.000, OWN).
+- **OTM-00370** `cancelled` (`guest_changed_mind`, MGR).
+  - Folio: PT-000468 cọc 500.000, PT-000471 hoàn −500.000. Còn thu 0, tiền dư 0.
+  - Yêu cầu hoàn đã chi đủ (OWN).
+- **OTM-00371** `cancelled` (`guest_changed_mind`, FD), registration `void`.
+  - MGR đảo PT-000470 (cọc 600.000) → PT-000474, và PT-000472 (thu 1.356.000) → PT-000473, lý do "test record cleanup – not real money".
+  - Folio: tổng 0, đã thu 0, còn thu 0, tiền dư 0.
+  - Giấy tờ giả (CCCD `000000000131`, không ảnh) nằm trong registration `void`.
+- Báo giá BG-00050 (về `quoted` theo SM-09). 2 ảnh biên nhận thử (`refund_proof`).
+- Thông báo `refund_ready` trong hộp thư `qa.fd`/`qa.mgr` (nếu có).
+- "Cần chú ý" của MGR không có mục nào cho 3 đơn. Khách giả KH-0447 dùng lại, không tạo khách mới.
+- Đối chiếu tiền: đã ghi 2.656.000 tiền mặt thử. Hoàn 700.000, đảo 1.956.000. Mọi folio dư 0.
+
+### 20.7 Việc cho PO/DOM trước buổi C3a 31/10 (QA đề nghị, PO quyết chữ)
+
+1. **Bỏ "Khác (ghi rõ)" khỏi hướng dẫn hủy** tới khi có bản sửa BUG-R3-046. Chỗ cần đổi:
+   - Sổ tay 2.4, khung "Giữ chỗ quá hạn": bước 2 (chưa cọc), dòng "Không đi nữa", dòng "Khách đó tới quầy" bước (a).
+   - Sổ tay mục Hủy (dòng ~772) liệt kê "Khác (ghi rõ)" như một lựa chọn dùng được.
+   - `staff-one-pager.md` dòng 81–82.
+   - Thay bằng lý do có sẵn: **Không liên lạc được** (gọi không được), **Khách đổi ý** (khách không đi hoặc làm lại đơn). Câu cần ghi ("Hết hạn giữ chỗ – có cọc", "Tạo lại khi khách đến – thay bằng OTM-…") chuyển sang sổ giao ca.
+2. **Người trực không tự duyệt được khoản hoàn do chính mình tạo** khi hủy đơn: 403 `SELF_APPROVAL_FORBIDDEN`, không có ngoại lệ cho quản lý hay chủ đầu tư. OTTIMO có một người trực giữ 6 vai, nên mọi khoản hoàn sinh ra khi người trực hủy đơn đều cần **chủ đầu tư duyệt**. Chỗ cần sửa:
+   - Sổ tay 2.4, dòng "Không đi nữa": cột "Ai" ghi "Người trực hủy và duyệt" → "Người trực hủy, chọn nơi nhận; chủ đầu tư duyệt và chi (tiền mặt)". Bỏ "Mở **Cần duyệt** để duyệt hoàn" khỏi việc của người trực.
+   - Dòng "Khách đó tới quầy" bước (d): "chủ đầu tư **duyệt và** chi".
+   - Sổ tay 1.1 dòng ~212: "chi hoàn tiền mặt mà người trực đã duyệt" → "duyệt và chi các khoản hoàn người trực tạo".
+   - Sổ tay mục Hủy (dòng ~776): "duyệt ở **Cần duyệt**" → ghi rõ ai duyệt.
+   - DOM A.3: câu "Tài khoản 6 vai tự duyệt được" không đúng với Desk.
+   - Nói thêm cho đúng thứ tự: người trực đặt **nơi nhận** trước, rồi chủ đầu tư mới duyệt. Nếu chủ đầu tư tự đặt nơi nhận tiền mặt thì cũng không duyệt được (đọc mã, dòng 1369–1374). Với hoàn **chuyển khoản**, chủ đầu tư được tự đặt nơi nhận, duyệt và chi.
+   - Hệ quả vận hành, DOM xem: khách đến quầy lúc chủ đầu tư vắng thì người trực **không** trả lại cọc cũ tại quầy được, kể cả có quyền quản lý. Lúc đó chỉ còn cách chủ đầu tư duyệt (Desk, mật khẩu) rồi chuyển khoản trong ngày, đúng như sổ tay đã ghi ở (d). Nếu INV muốn người trực tự xử lý hoàn tại quầy, đó là đổi quy tắc tách nhiệm SEC F8 → SEC + INV quyết, không sửa trong v1.0.1.
+3. **Bước (b) phải thu cọc ngay lúc đặt đơn mới.** Đơn Trực tiếp/CTV không lưu được nếu chưa đủ cọc yêu cầu (422 `DEPOSIT_INSUFFICIENT`; Desk cũng bắt ô **Số tiền đã nhận** > 0). Vì vậy:
+   - Câu "(c) Thu đủ 2.376.000 ở bước nhận phòng" nên thành: "(b) … nhập **Số tiền đã nhận** ít nhất bằng **cọc yêu cầu** (ví dụ 700.000) và cách trả; (c) thu phần còn lại ở bước nhận phòng".
+   - Tổng khách trả không đổi. Phần đã chuyển sau hạn (dòng cuối bảng) ghi vào ô này ở bước (b), không phải bước (c).
+4. Các phần còn lại của cách tạm **đúng trên staging**:
+   - Phải hủy đơn cũ trước khi đặt đơn mới (409 `ROOM_UNAVAILABLE`).
+   - Đơn mới lưu thành **Đã xác nhận**.
+   - Nhận phòng bị chặn khi chưa thu đủ, và thu cùng lệnh nhận phòng thì vào được (20.4).
+   - Người tạo yêu cầu không tự chi tiền mặt.
+   - Chủ đầu tư vừa duyệt vừa chi tiền mặt được.
+   - Folio cũ về 0.

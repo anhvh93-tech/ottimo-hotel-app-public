@@ -10,9 +10,14 @@
 |---|---|---|---|---|
 | P0 | 3 | 0 | 0 | 3 |
 | P1 | 15 | 2 (BUG-R3-032, BUG-R3-042 – v1.0.1) | 0 | 13 (gồm BUG-R3-037, 038, 039 Closed 30/10 trên rc.6) |
-| P2 | 12 | 6 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn; BUG-R3-041, 043, 044) | 0 | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
-| P3 | 15 | 14 (016; 024–031; 034; 035; 036; 040; 045) | 0 | 1 |
-| **Tổng** | **45** | **22** | **0** | **23** |
+| P2 | 13 | 7 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn; BUG-R3-041, 043, 044, 046) | 0 | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
+| P3 | 16 | 15 (016; 024–031; 034; 035; 036; 040; 045; 047) | 0 | 1 |
+| **Tổng** | **47** | **24** | **0** | **23** |
+
+Cập nhật 30/10 trưa (QA, bước Kiểm thử – thử luồng cách tạm giữ chỗ quá hạn trên staging rc.6 `8b3aec8`, `qa3-rc1.md` mục 20; theo PO `responses/PO-to-v1.0.0-docs-reviews.md` mục 8):
+- Thêm **BUG-R3-046 (P2, FE-A; BE-B xem)**: hộp hủy đơn trên Desk không hủy được với lý do **Khác (ghi rõ)**. Bản tính thử gửi `reasonCode: other` mà không gửi `note`, máy chủ trả 422 `note` `REASON_REQUIRED`, hộp báo "Chưa tính được phí hủy…" và khóa nút. Gõ ghi chú rồi bấm **Thử lại** vẫn khóa. Sổ tay 2.4 đang dặn dùng đúng lý do này. **Tài liệu phải đổi trước buổi C3a 31/10.**
+- Thêm **BUG-R3-047 (P3, FE-A)**: khung đơn giữ chỗ hiện **Tạo link check-in online** / **Thu hồi link**, nhưng máy chủ chỉ cấp link cho đơn `confirmed`/`in_house` (409 `INVALID_TRANSITION`, đã thấy ở 19.4).
+- **BUG-R3-044 phần 3 (hộp hủy) đã tái hiện trên staging** (trước hạn, OTM-00369 có cọc 200.000): hộp ghi "Căn 202 sẽ mở bán lại…" và "Không thu phí (giữ chỗ chưa cọc)", không có dòng hoàn. Hủy xong máy chủ vẫn tạo yêu cầu hoàn 200.000. Phần 1–2 và BUG-R3-042 vẫn chỉ xác minh bằng mã: staging không có đồng hồ giả (`/v1/__test__/clock` → 404).
 
 Cập nhật 30/10 chiều (QA, bước Kiểm thử – ghi lỗi từ review tài liệu ngày D: `reviews/BA-on-PO-manual-1.3.md` thẻ M13-01, M13-03, M13-04; `reviews/DOM-on-PO-v1.0.0-docs.md` A.3a V1–V5). Xác minh bằng **đọc mã trên `v1.0.0` (`8b3aec8`)**; `product/apps`, `product/services`, `product/design/copy` ở HEAD không khác `8b3aec8` (`git diff --stat` rỗng). **Chưa tái hiện trên staging:** OTM-00368 đã hủy ở 19.8, hold mới cần ≥ 12 giờ mới quá hạn → **xác minh bằng mã, tái hiện staging sau** (ca thử ở cuối từng lỗi). Riêng câu `FOLIO_LOCKED` (045) đã thấy trên staging rc.4 ở 17.5. Không VietQR, không tiền thật, không SQL tay.
 - Thêm **BUG-R3-042 (P1, BE-B + ARC; FE-A)** – V1: giữ chỗ có cọc đã quá hạn không xác nhận được trên Desk (`HOLD_EXPIRED`), trái BR-303 (1). Khách không nhận phòng được trên đơn gốc.
@@ -130,8 +135,10 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-041 | P2 | Thông báo của J1 (`hold_expired`, `hold_overdue_with_deposit`, `hold_overdue_cap`) chỉ ghi outbox `staff.push`. Topic này không có bộ phát, nên không vào hộp thư, không phát SSE, không lên "Cần chú ý". Hold có cọc quá hạn chỉ còn đồng hồ "0h00" đỏ trên Rack/Hôm nay | BE-B + ARC | Open (30/10, staging rc.6) |
 | BUG-R3-042 | **P1** | Giữ chỗ **có cọc** đã quá hạn không xác nhận được: `confirm` trả 409 `HOLD_EXPIRED` khi giờ nhận tiền ≥ hạn, áp cho mọi hold (US-085 AC4/SEC-BE-22 viết cho hold chưa cọc); Desk không gửi `receivedAt` nên ghi tay sau hạn luôn bị từ chối, nút **Xác nhận đã nhận cọc** vẫn hiện. Trái BR-303 (1); đơn không thành Đã xác nhận → không nhận phòng được trên đơn gốc (V1) | BE-B + ARC (FE-A ô giờ nhận tiền; SEC xem SEC-BE-22) | Open – xác minh bằng mã `8b3aec8`, tái hiện staging sau. Đích **v1.0.1** |
 | BUG-R3-043 | P2 | Desk không có ô/nút **"Chấp nhận cọc thiếu – lý do"** cho OWN/MGR, dù API `confirmDeposit` nhận `acceptShortfallReason` (B-29): `grep acceptShortfallReason product/apps` = 0. BR-303 (2) không làm được ở v1.0.0, trước hay sau hạn (V2) | FE-A + UXD | Open – xác minh bằng mã. Đích **v1.0.1** |
-| BUG-R3-044 | P2 | Desk trình bày giữ chỗ có cọc như chưa cọc: khung đơn quá hạn hiện "Giữ chỗ đã hết hạn lúc … – **đơn đã tự hủy**" (đơn vẫn `hold`, căn vẫn giữ); `error.HOLD_EXPIRED` nói "căn đã **mở bán lại**"; hộp Hủy giữ chỗ ghi "Không thu phí (giữ chỗ chưa cọc)" và không hiện số sẽ hoàn (M13-03, V3) | FE-A + UXD | Open – xác minh bằng mã. Đích **v1.0.1** |
+| BUG-R3-044 | P2 | Desk trình bày giữ chỗ có cọc như chưa cọc: khung đơn quá hạn hiện "Giữ chỗ đã hết hạn lúc … – **đơn đã tự hủy**" (đơn vẫn `hold`, căn vẫn giữ); `error.HOLD_EXPIRED` nói "căn đã **mở bán lại**"; hộp Hủy giữ chỗ ghi "Không thu phí (giữ chỗ chưa cọc)" và không hiện số sẽ hoàn (M13-03, V3) | FE-A + UXD | Open – phần 3 (hộp hủy) tái hiện staging 30/10 (`qa3-rc1.md` 20); phần 1–2 xác minh bằng mã. Đích **v1.0.1** |
 | BUG-R3-045 | P3 | `error.FOLIO_LOCKED` ghi "Chỉ quản lý ghi được bút toán điều chỉnh" nhưng folio khóa thì quản lý cũng bị 409; **Folio & điều chỉnh** vẫn hiện nút **Điều chỉnh** cho MGR trên folio `closed`/quá cửa sổ (M13-04) | UXD + FE-A | Open – câu đã thấy trên staging rc.4 (17.5); phần nút xác minh bằng mã. Đích **v1.0.1** |
+| BUG-R3-046 | P2 | Desk: hủy đơn với lý do **Khác (ghi rõ)** không làm được – bản tính thử của hộp hủy không gửi `note`, máy chủ trả 422 `note` `REASON_REQUIRED`, nút hủy khóa kể cả khi đã gõ ghi chú và bấm **Thử lại**. Sổ tay 2.4 dặn dùng lý do này | FE-A (BE-B xem phía máy chủ) | Open – tái hiện staging rc.6 30/10. Đích **v1.0.1**; tài liệu đổi trước C3a |
+| BUG-R3-047 | P3 | Khung đơn **giữ chỗ** hiện nút **Tạo link check-in online** và **Thu hồi link**, máy chủ chỉ cấp link cho `confirmed`/`in_house` (409 `INVALID_TRANSITION`) | FE-A | Open – thấy trên staging rc.6 30/10. Đích v1.0.1 |
 
 ## 3. Chi tiết
 
@@ -1151,6 +1158,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Bằng chứng:** đọc mã `8b3aec8`: `ReservationDrawer.tsx` dòng 465–481; `ReservationDialogs.tsx` dòng 297–355; `product/design/copy/strings-vi.json` dòng 117, 159, 397, 1941, 2444. Review: BA M13-03, M13-01 gạch 1 và 4; DOM A.3a V3.
 - **Tái hiện staging (sau):** cùng hold của ca BUG-R3-042. Sau hạn mở khung đơn và chụp hộp đỏ (chụp xong che tên khách). Ghi tiền để thấy câu `HOLD_EXPIRED`. Mở **Hủy giữ chỗ** để chụp hộp. Rồi hủy, vào **Nhật ký tiền → Hoàn tiền** xem yêu cầu hoàn đúng số đã nhận.
 - **Trạng thái:** Open – đích **v1.0.1** (DOM: "Nên có v1.0.1"). Tới lúc đó, sổ tay 2.4 và 5.6 phải nói rõ ba câu này sai với đơn có cọc (BA M13-03 đề xuất).
+- **Tái hiện staging 30/10 (`qa3-rc1.md` 20.3):** phần 3 đúng như mô tả, **trước hạn**. OTM-00369 (giữ chỗ, cọc 200.000 tiền mặt, bản ghi thử) – hộp **Hủy giữ chỗ** ghi "Căn 202 sẽ mở bán lại từ 09/11 đến 11/11 trên mọi kênh…" và "Không thu phí (giữ chỗ chưa cọc)", không có dòng hoàn (bản tính thử: `refundRequestVnd` = `refundableVnd` = 200.000 nên dòng `cancel.refund_request` ẩn). Hủy xong, máy chủ tạo yêu cầu hoàn 200.000 (`requiredRole: manager`). Ảnh `qa-r6/hf/shots/a1-cancel.png` (scratchpad). Phần 1–2 cần hold quá hạn: staging không có đồng hồ giả (`/v1/__test__/clock` → 404), chưa tái hiện.
 
 ### BUG-R3-045 – Câu `FOLIO_LOCKED` nói "chỉ quản lý" trong khi quản lý cũng bị khóa
 
@@ -1167,6 +1175,44 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Bằng chứng:** `qa3-rc1.md` 17.5 (câu trên staging). Đọc mã `8b3aec8`: `folio-lines.service.ts` dòng 481–501; `FolioDialog.tsx` dòng 62–63; `strings-vi.json` dòng 410. Review: BA M13-04.
 - **Tái hiện staging (sau):** đơn đã trả phòng quá 24 giờ, folio `closed` (staging có OTM-00239, 00294, 00297, 00357, 00365 đã `closed` từ 30/10). `qa.mgr` mở **Folio & điều chỉnh** → **Điều chỉnh** một dòng → kỳ vọng ở `v1.0.0`: nút hiện, 409, câu "chỉ quản lý…". Chỉ thao tác trên dữ liệu staging.
 - **Trạng thái:** Open – đích **v1.0.1**. Sổ tay 1.11 sửa theo BA M13-04 (PO), không chờ bản vá.
+
+### BUG-R3-046 – Hủy đơn với lý do "Khác (ghi rõ)" không làm được trên Desk
+
+- **Mức:** P2. Lý do:
+  - Một lựa chọn của hộp hủy (dùng chung cho giữ chỗ và đơn đã xác nhận) không dùng được. Có cách khắc phục: chọn lý do khác trong danh sách. Vì vậy không P1.
+  - Ảnh hưởng thật ngay ngày D: sổ tay 2.4 (khung "Giữ chỗ quá hạn") và DOM A.3, A.4 dặn **Khác (ghi rõ)** cho mọi ca hủy giữ chỗ quá hạn. Người trực làm theo sẽ bị kẹt ở hộp hủy. Mã lý do bị ghi lệch (K-22a của DATA đọc mã lý do).
+  - Không sai tiền: không hủy được thì không ghi gì.
+- **Môi trường:** staging `v1.0.0-rc.6` (`8b3aec8`), Desk Chromium 1440×900, `qa.fd`, 30/10 11:43 (+07). OTM-00369 (giữ chỗ, căn 202, cọc 200.000 tiền mặt – bản ghi thử).
+- **Các bước:**
+  1. Mở khung đơn giữ chỗ → **Hủy giữ chỗ**.
+  2. **Lý do hủy** = **Khác (ghi rõ)**.
+  3. Gõ **Ghi chú** "QA test - het han giu cho co coc" (≥ 3 ký tự) → bấm **Thử lại**.
+- **Thực tế:**
+  - Ngay khi chọn **Khác**, hộp báo "Chưa tính được phí hủy nên chưa hủy được. Bấm Thử lại." Nút **Hủy giữ chỗ** khóa (`disabled`) ở cả 3 lúc: chưa gõ ghi chú, đã gõ ghi chú, sau **Thử lại**.
+  - Mạng: `POST …/actions/cancel` `{"reasonCode":"other","dryRun":true}` → **422** `VALIDATION_FAILED`, `errors: [{field: "note", code: "REASON_REQUIRED"}]` (2 lần, requestId `69c4a20b-…`, `15975fb5-…`). Lý do **Không liên lạc được** tính thử 200 và hủy được.
+  - Gốc: `ReservationDialogs.tsx` dòng 205–245, bản tính thử chỉ gửi `reasonCode`, `otaPenaltyVnd`, `retainLines`, **không gửi `note`**; `note` cũng không nằm trong khóa tính lại (`inputNow`). Máy chủ `reservations.service.ts` dòng 2876–2881 bắt `note` (≥ 3) khi `reasonCode = other` **cả khi `dryRun`**. Nút bị khóa khi `!quoteCurrent` (dòng 336). Hai đoạn mã có từ R2 (`cf6c557`, 16/10). Chưa có ca E2E nào hủy bằng **Khác** trên Desk.
+- **Mong đợi:** chọn **Khác (ghi rõ)**, gõ ghi chú ≥ 3 ký tự thì tính thử được và hủy được, ghi `reasonCode: other` + `note`.
+- **Đề xuất sửa (một trong hai, ARC chọn):**
+  - (a) BE-B: chỉ bắt `note` khi lưu, không bắt khi `dryRun` (cùng cách `noteRequired = !preview && …` ở dòng 3237);
+  - (b) FE-A: gửi `note` trong bản tính thử và đưa `note` vào khóa tính lại (có debounce).
+  - Thêm ca E2E Desk: hủy giữ chỗ và hủy đơn đã xác nhận với **Khác (ghi rõ)**.
+- **Cách tạm tới v1.0.1 (PO/DOM chốt chữ trong sổ tay trước C3a):** chọn một lý do có sẵn, ví dụ **Không liên lạc được** khi gọi không được, **Khách đổi ý** khi khách đổi ý. Ghi điều cần nói ("Hết hạn giữ chỗ – có cọc", "Tạo lại khi khách đến – thay bằng OTM-…") vào sổ giao ca.
+- **Vai:** FE-A (hoặc BE-B theo phương án ARC chọn).
+- **Bằng chứng:** ảnh `qa-r6/hf/shots/a2-cancel-other-note.png`, `a1-cancel-other.png`; mạng `qa-r6/hf/a2-other.json` (scratchpad, ngoài repo; tên khách trên ảnh là khách giả). `qa3-rc1.md` 20.3.
+- **Trạng thái:** Open – đích **v1.0.1**.
+
+### BUG-R3-047 – Khung đơn giữ chỗ hiện nút link check-in online mà máy chủ luôn từ chối
+
+- **Mức:** P3. Nút mời một thao tác chắc chắn bị từ chối. Không sai tiền, không lộ dữ liệu. Cùng loại với BUG-R3-045 (phần nút).
+- **Môi trường:** staging rc.6 `8b3aec8`, Desk Chromium, `qa.fd`, 30/10 11:42. OTM-00369 (giữ chỗ).
+- **Thực tế:**
+  - Khung đơn giữ chỗ có **Tạo link check-in online** và **Thu hồi link**, vì `ReservationDrawer.tsx` dòng 542 hiện `GuestLinkPanel` cho `hold` hoặc `confirmed`.
+  - Máy chủ chỉ cấp cho `confirmed`/`in_house`: `guest-portal.service.ts` dòng 117 (EP06 8.2). Trên staging, `POST …/guest-link` cho hold trả 409 `INVALID_TRANSITION` (`qa3-rc1.md` 19.4).
+  - QA không bấm nút lần này.
+- **Mong đợi:** ẩn khối link khi đơn là `hold`. Nếu PO muốn khách khai trước khi xác nhận cọc thì đổi EP06 8.2 (ARC), không đổi riêng Desk.
+- **Vai:** FE-A.
+- **Bằng chứng:** `qa-r6/hf/shots/a1-drawer.png`, nút liệt kê ở `a1-ui.json` (scratchpad).
+- **Trạng thái:** Open – đích v1.0.1.
 
 ### Checklist QA xác nhận rc.6 trên staging (BUG-R3-037, 038, 039)
 
