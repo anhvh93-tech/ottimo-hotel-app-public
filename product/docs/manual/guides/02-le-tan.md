@@ -3,11 +3,11 @@
 - Dành cho: **lễ tân (FD)**, **lễ tân trưởng (FDL)**, người trực đêm
 - Thiết bị: **máy quầy đã được cấp quyền**, địa chỉ `desk.ottimo.vn`. Lễ tân trưởng dùng thêm app nhân viên `staff.ottimo.vn` trên điện thoại để kiểm phòng.
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.1 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10)
+- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.2 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; thêm phòng Google Chat và xóa theo yêu cầu người gửi theo SEC, ESC-041, ESC-042)
 - Tài liệu không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi học, anh/chị cũng không ghi những thứ này lên giấy.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
-<!-- Nguồn: product/docs/manual/user-manual-v1.0.md bản 1.5 (Desk v1.0.0 = 8b3aec8) mục 0.2–0.9, 2.1–2.22, 3.6, 5.1, 5.4–5.6, 5.8; staff-one-pager.md Tờ 1, 2a, 2b, 4; day-one-guide.md mục 10. Chữ nói với khách giữ nguyên văn đã duyệt (UXD-on-PO-v1.0.0-docs.md mục 1.1–1.2, SEC-on-PO-v1.0.0-docs.md mục B). Tệp này thay các tờ in 1, 2a, 2b cho lễ tân (INV 30/10: "ko cần in 5 tờ hướng dẫn"). Tờ 4 "Your ID details" vẫn là thông báo cho khách – xem mục 7.2. -->
+<!-- Nguồn: product/docs/manual/user-manual-v1.0.md bản 1.5 (Desk v1.0.0 = 8b3aec8) mục 0.2–0.9, 2.1–2.22, 3.6, 5.1, 5.4–5.6, 5.8; staff-one-pager.md Tờ 1, 2a, 2b, 4; day-one-guide.md mục 10. Chữ nói với khách giữ nguyên văn đã duyệt (UXD-on-PO-v1.0.0-docs.md mục 1.1–1.2, SEC-on-PO-v1.0.0-docs.md mục B). Tệp này thay các tờ in 1, 2a, 2b cho lễ tân (INV 30/10: "ko cần in 5 tờ hướng dẫn"). Tờ 4 "Your ID details" vẫn là thông báo cho khách – xem mục 7.2. Bản 1.2: mục 13.1a–13.1b theo rounds/round-03/outputs/SEC/esc041-gchat-full-details.md mục L2.2, L2.4 (★4, ★7), N5; ARC gchat-booking-request-notify.md mục 8.1; SEC-on-us155-smoke-L.md (cách tìm nút WR8); chuỗi Desk webreq.erase*. -->
 
 ## Cách đọc tệp này
 
@@ -588,7 +588,7 @@ Khách nhờ gửi mã cửa qua Zalo, tin nhắn: **không gửi**. Trả lời
    - Dữ liệu điền sẵn cho khách quay lại giữ **3 tháng** sau lần trả phòng cuối. Quá hạn thì nhập lại giấy tờ; đó là đúng thiết kế.
 6. **Không ghi** số giấy tờ, số thẻ thanh toán, thông tin sức khỏe vào ô ghi chú, lời nhắn cho khách hay lý do. Desk chặn một số dãy số dài.
 7. Trẻ em: chỉ nhập **số định danh** (nếu có) và **năm sinh**, **không chụp** giấy tờ của trẻ. Với dữ liệu cá nhân, khách **dưới 16 tuổi** là trẻ em (khác mốc 12 tuổi của phụ thu).
-8. Khách xin xem, sửa, xóa dữ liệu của mình: ghi lại yêu cầu, **chuyển chủ đầu tư**. Không hứa ngày. Khách xin xóa sớm ảnh: chỉ quản lý, chủ đầu tư làm (**Xóa ảnh**).
+8. Khách xin xem, sửa, xóa dữ liệu của mình: ghi lại yêu cầu, **chuyển chủ đầu tư**. Không hứa ngày. Người gửi form website chưa thành đơn xin xóa: mục 13.1b. Khách xin xóa sớm ảnh: chỉ quản lý, chủ đầu tư làm (**Xóa ảnh**).
 
 ### 8.2 Câu hỏi đồng ý lưu ảnh (Khối 1)
 
@@ -906,7 +906,7 @@ Tiền mặt sale/CTV thu hộ nộp quầy: lễ tân bấm **Đã nhận tiề
 
 ### 13.1 Yêu cầu từ website
 
-Form "Yêu cầu đặt phòng" trên ottimo.vn **dự kiến bật sáng 31/10** (luật sư đã đồng ý 30/10, đội đang chuẩn bị). **Chủ đầu tư báo khi đã bật.** Chưa bật thì màn **Yêu cầu từ website** hiện "Form đặt phòng trên website đang tắt". Khách liên hệ qua Zalo, điện thoại: tạo đơn như mục 5.1, **Nguồn** = **Website** nếu khách nói tìm thấy OTTIMO qua website.
+Form "Yêu cầu đặt phòng" trên ottimo.vn **đã bật từ chiều 30/10**. Khi chủ đầu tư tắt form, màn **Yêu cầu từ website** hiện "Form đặt phòng trên website đang tắt". Khách liên hệ qua Zalo, điện thoại: tạo đơn như mục 5.1, **Nguồn** = **Website** nếu khách nói tìm thấy OTTIMO qua website.
 
 Khi form bật: yêu cầu mới hiện ở menu **Yêu cầu từ website** kèm số. Mở yêu cầu → **Nhận xử lý** → **Báo giá** hoặc **Tạo đơn**; không thành đơn thì **Đóng – không thành đơn**.
 
@@ -914,8 +914,83 @@ Khi form bật: yêu cầu mới hiện ở menu **Yêu cầu từ website** kè
 > - Desk mở trên máy quầy và điện thoại người trực **07:00–22:00**. Xem **Yêu cầu từ website** mỗi lần cầm máy, và ngay sau mỗi việc ở quầy.
 > - Hạn trả lời 15 phút áp trong **08:00–21:00**. Trả lời khách từ tài khoản OTTIMO (mục 4.1).
 > - Yêu cầu tới ngoài giờ: bấm **Nhận xử lý** khi thấy, nhắn khách từ 08:00 sáng hôm sau.
+>
+> Từ v1.0.1 vẫn giữ Desk mở như trên. Tin Google Chat (mục 13.1a) chỉ giúp thấy yêu cầu nhanh hơn; **Desk vẫn là nguồn chính**.
 
 [ẢNH: C2-39-Yêu cầu từ website, form tắt]
+
+### 13.1a Tin báo yêu cầu qua Google Chat (từ v1.0.1)
+
+**Áp dụng từ bản v1.0.1** (dự kiến khoảng 04/11/2026), khi chủ đầu tư báo bản đã lên. Từ bản này, tin Chat **có chi tiết khách**: tên, liên hệ, lời nhắn. Trước đó chưa có tin Chat: người trực giữ Desk mở 07:00–22:00 (mục 13.1).
+
+- **Phòng:** **"OTTIMO – Yêu cầu đặt phòng"** trên Google Chat, tài khoản `@ottimo.vn`.
+- **Thành viên:** chủ đầu tư, quản lý, lễ tân trưởng, lễ tân. Chủ đầu tư và quản lý là **quản lý phòng** (người được xóa tin, thêm, bớt người).
+- **Không mở Google Chat trên máy quầy đã cấp quyền.** Chỉ dùng ứng dụng Google Chat trên điện thoại (cùng luật với Zalo ở mục 4.1: máy quầy không cài, không mở ứng dụng chat).
+
+Desk tự đăng tin vào phòng khi:
+
+| Khi nào | Tin có gì |
+|---|---|
+| Có yêu cầu mới, **mọi giờ, kể cả ban đêm** | Tin đầu: mã yêu cầu `REQ-…`, giờ nhận, hạn phản hồi, mức gấp (ví dụ "cần gọi ngay"), ngày ở, số khách, **tên, liên hệ, kênh khách chọn, lời nhắn**. Dòng cuối luôn là **Mở Desk** |
+| Yêu cầu quá hạn mà chưa ai **Nhận xử lý** | Tin nhắc trong cùng luồng: chỉ mã và giờ |
+| 07:30 sáng | Tin nhắc trong cùng luồng cho yêu cầu ban đêm còn chưa ai nhận |
+| Yêu cầu vừa bị xóa theo yêu cầu người gửi (mục 13.1b) | Tin trong cùng luồng: "Đã xóa dữ liệu của … theo yêu cầu của khách…". Chỉ có mã |
+
+Cách dùng:
+1. Thấy tin: mở Desk, **Nhận xử lý** như mục 13.1. Trả lời khách từ tài khoản OTTIMO (mục 4.1), **không** trả lời khách từ Chat.
+2. Báo đồng nghiệp trong phòng: chỉ ghi **mã yêu cầu** và việc ("đã nhận", "đã gọi"). **Không** gõ lại tên, số điện thoại, lời nhắn của khách.
+3. **Tin thật từ Desk** luôn kết thúc bằng một dòng **Mở Desk** tới `desk.ottimo.vn`; lời nhắn của khách nằm trong khung chữ đơn sắc và mọi link trong đó đã bị vô hiệu. Tin khác dạng này, hoặc có link lạ: không bấm, báo chủ đầu tư.
+4. Bấm **Mở Desk** chỉ trên điện thoại **đã đăng nhập Desk**. Trang mở ra mà hỏi mật khẩu, hoặc địa chỉ không đúng `desk.ottimo.vn`: đóng lại, vào Desk bằng dấu trang (mục 1.1).
+5. Không chụp, không chép, không chuyển tiếp tin sang Zalo hay nơi khác.
+6. Muốn yên tĩnh ban đêm: dùng **Không làm phiền** của Google Chat hoặc của điện thoại. Không rời phòng, không tắt hẳn thông báo của phòng.
+
+**Tài khoản vào phòng:**
+- Chỉ tài khoản **@ottimo.vn** đã bật **xác minh 2 bước của Google** (khác với 2 bước của Desk). Không dùng Gmail cá nhân, không dùng tài khoản chung.
+- **Không mời** sale nội bộ, CTV, buồng phòng, bảo trì hay người ngoài OTTIMO vào phòng. Ai xin vào: báo chủ đầu tư.
+- Mất điện thoại có Google Chat: báo chủ đầu tư ngay, như mất điện thoại có Desk (mục 19).
+
+**Cài đặt bắt buộc trên điện thoại của mọi thành viên** – làm **trước khi** được thêm vào phòng; chủ đầu tư xem tận mắt:
+
+| Việc | iPhone | Android |
+|---|---|---|
+| Máy có khóa màn hình | **Cài đặt → Face ID/Touch ID & Mật mã** → bật mật mã | **Cài đặt → Bảo mật → Khóa màn hình**: mã PIN, mật khẩu hoặc hình vẽ. Không chọn "Vuốt" hay "Không" |
+| Ẩn nội dung thông báo trên màn hình khóa | **Cài đặt → Thông báo → Chat → Hiển thị bản xem trước → Khi được mở khóa** | **Cài đặt → Thông báo → Thông báo trên màn hình khóa → Ẩn nội dung nhạy cảm**. Tên mục khác nhau theo hãng ("Ẩn nội dung", "Chỉ hiện biểu tượng"): chọn mục không hiện chữ của tin |
+| Tắt email thông báo của Google Chat | Làm một lần cho tài khoản, trên máy tính: mở `chat.google.com` → bánh răng **Cài đặt** → **Thông báo qua email** → **Tắt** | Như iPhone |
+
+- Kiểm sau khi cài: nhờ người khác nhắn thử vào phòng khi máy đang khóa. Màn hình khóa chỉ hiện "Chat" hoặc "Tin nhắn mới", **không** hiện chữ của tin.
+- Lỡ nhận thư "tin chưa đọc" của Google Chat trong Gmail: tự xóa thư đó.
+
+### 13.1b Người gửi form xin xóa dữ liệu (xóa theo yêu cầu – WR8)
+
+Khách đã gửi form trên website nhắn hoặc gọi xin xóa yêu cầu của họ.
+
+- **Ai làm:** chủ đầu tư, quản lý, lễ tân trưởng (Desk chỉ hiện nút cho 3 vai này). Lễ tân: ghi mã yêu cầu hoặc giờ khách báo, chuyển lễ tân trưởng hoặc quản lý trong ca. Người trực hiện nay giữ vai quản lý: tự làm đủ các bước.
+- **Phần trên Desk áp dụng ngay.** **Phần xóa trong Google Chat áp dụng từ v1.0.1.**
+
+**Trên Desk:**
+1. **Yêu cầu từ website** → gõ mã yêu cầu vào ô tìm, hoặc bấm **Tìm theo liên hệ** và nhập đúng một SĐT hoặc email khách đã dùng. Yêu cầu đã đóng vẫn tìm được.
+2. Mở yêu cầu, cuộn xuống dưới khối **Liên hệ** → **Xóa theo yêu cầu người gửi**.
+3. Chọn **Cách xác minh người xin xóa**:
+   - **Họ liên hệ từ chính SĐT hoặc email trên yêu cầu**: nhập SĐT hoặc email họ đã dùng để liên hệ (Desk chỉ so khớp, không lưu); hoặc
+   - **Tôi đã gọi lại đúng SĐT trên yêu cầu và người nghe xác nhận muốn xóa**.
+   Không xác minh được: không xóa, ghi sổ giao ca **chỉ mã yêu cầu**, báo chủ đầu tư.
+4. **Chép mã yêu cầu `REQ-…`** ra giấy nháp (chỉ mã) trước khi bấm **Xóa ngay**. Xóa xong không khôi phục được, yêu cầu đóng và không mở lại được.
+5. Người gửi xin bản sao dữ liệu: chỉ gửi tới đúng liên hệ trên yêu cầu.
+6. Yêu cầu đã thành đơn: Desk không xóa ở đây. Ghi lại, chuyển chủ đầu tư (mục 8.1).
+
+**Trong Google Chat (từ v1.0.1):**
+
+| Bước | Ai | Khi nào | Làm gì |
+|---|---|---|---|
+| 1 | Người xóa trên Desk | Như trên | Xóa trên Desk, đã chép mã yêu cầu |
+| 2 | Người xóa trên Desk | Ngay sau bước 1 | Là chủ đầu tư hoặc quản lý: tự làm bước 3. Là lễ tân trưởng: nhắn quản lý (quản lý vắng thì chủ đầu tư) **chỉ mã yêu cầu** và chữ "xóa Chat theo WR8". **Không** chép tên, SĐT, lời nhắn |
+| 3 | Quản lý phòng (quản lý; dự phòng chủ đầu tư) | **Trong 24 giờ** từ lúc xóa trên Desk | Trong phòng **"OTTIMO – Yêu cầu đặt phòng"**, tìm theo mã: gõ 8 ký tự sau "REQ-". Xóa **mọi tin của luồng đó**: tin đầu (có chi tiết khách), các tin nhắc, tin "Đã xóa dữ liệu…", và **mọi tin nhân viên trả lời** trong luồng. Tìm lại lần nữa để chắc không còn |
+| 4 | Quản lý phòng | Ngay sau bước 3 | Ghi **sổ xóa Chat** (trang riêng cuối sổ giao ca): mã yêu cầu · ngày xóa trên Desk · ngày xóa Chat · người làm · "đã xóa" hoặc "không còn trong Chat". **Chỉ mã, không tên, không SĐT.** Không nhắn gì trong phòng Chat về việc xóa |
+| 5 | Chủ đầu tư | Mỗi tháng, cùng lúc rà thành viên phòng | Đối chiếu sổ xóa Chat với các yêu cầu đóng lý do "Đã xóa theo yêu cầu của người gửi" trong tháng trên Desk. Mã nào chưa có dòng "đã xóa": làm ngay bước 3 |
+
+- Cả quản lý và chủ đầu tư vắng, không ai xóa được trong 24 giờ: chủ đầu tư làm khi về, ghi lý do chậm vào sổ xóa Chat.
+- Quản lý phòng không thấy nút xóa ở tin do Desk đăng: báo chủ đầu tư ngay, chủ đầu tư báo đội.
+- Yêu cầu bị đánh dấu spam sau khi tin đã đăng: nên xóa luồng trong Chat như bước 3 (không bắt buộc).
 
 ### 13.2 Điều phối buồng phòng trên Desk
 
@@ -1050,6 +1125,8 @@ Không ai tự duyệt yêu cầu của chính mình, trừ khoản nằm trong 
 | Khách hỏi phòng sẵn sàng lúc mấy giờ | "Check-in is from 12:00. Your room is always ready by 14:00." / "Nhận phòng từ 12:00. Phòng luôn sẵn sàng lúc 14:00." |
 | Khách hỏi Wi-Fi | Đọc tên mạng và mật khẩu trên thẻ Wi-Fi trong căn. Đừng nói khách "xem Wi-Fi trên trang khách" (mục 17.6) |
 | Khách muốn xem/xóa dữ liệu của mình | Ghi yêu cầu, chuyển chủ đầu tư |
+| Người gửi form website xin xóa yêu cầu của họ | Mục 13.1b |
+| Tin lạ trong phòng Google Chat (không có dòng **Mở Desk** cuối tin, có link lạ) | Không bấm, báo chủ đầu tư (mục 13.1a) |
 | Đơn OTA về khi căn đã kín | Lưu chưa gán căn, báo quản lý; gán căn hoặc đổi phòng khách khác (mục 5.3) |
 | Hoàn tác nhận phòng bị Desk từ chối | Folio đã có dòng mới; nhờ quản lý (mục 7.4) |
 | Lỡ bấm sai một khoản thu | Báo quản lý **Đảo giao dịch**. Lễ tân không xóa được giao dịch |
@@ -1077,6 +1154,7 @@ Không ai tự duyệt yêu cầu của chính mình, trừ khoản nằm trong 
 - Không bán căn của đơn đã trả đủ/OTA đã thu trong đêm đánh dấu không đến, trước 06:00.
 - Không thu tiền ngoài Desk.
 - Không tạo, không gửi link check-in online cho khách thật (tới khi chủ đầu tư báo mở lại).
+- Không chép tên, SĐT, lời nhắn của khách từ phòng Google Chat sang Zalo hay nơi khác. Không mở Google Chat trên máy quầy. Không mời ai vào phòng Chat (mục 13.1a).
 
 ---
 
@@ -1210,6 +1288,7 @@ Desk chưa trả phòng được trước ngày đi. Khi khách báo rời sớm
 |---|---|
 | **06:00** | Ngày mới trên Desk. Trước 06:00 vẫn là ngày hôm trước |
 | 07:00 | Bắt đầu trả lời yêu cầu của khách; Desk chuyển căn có khách sang "cần dọn". Từ 07:00 hỏi chủ đầu tư/quản lý để kiểm tiền về. Form website đã bật: Desk mở trên máy quầy và điện thoại người trực tới 22:00 (mục 13.1) |
+| 07:30 (từ v1.0.1) | Google Chat nhắc các yêu cầu website ban đêm còn chưa ai nhận (mục 13.1a) |
 | Sáng (từ 08:00) | Nhắn khách đi hôm nay xác nhận giờ trả. Hạn khai báo khách Việt Nam đến từ 23:00 hôm trước |
 | Mở quầy, muộn nhất **09:00** | Rà giữ chỗ mốc 1 |
 | 09:00 | Quản lý đối soát xong khoản chuyển khoản ghi ban đêm |
@@ -1225,6 +1304,7 @@ Desk chưa trả phòng được trước ngày đi. Khi khách báo rời sớm
 | **23:00** | Đánh dấu "Không đến" nếu vẫn không liên lạc được. Hạn khai báo khách Việt Nam. Xong thì đăng xuất máy quầy |
 | +12 giờ từ giờ nhận | Hạn khai báo khách nước ngoài |
 | +24 giờ từ trả phòng | Hạn ghi phát sinh sau trả phòng |
+| +24 giờ từ khi xóa yêu cầu website trên Desk (từ v1.0.1) | Hạn quản lý phòng xóa tin trong Google Chat (mục 13.1b) |
 | Thứ Tư 09:30–10:30 | Bản vá hằng tuần (Desk có thể chậm vài phút) |
 
 ---

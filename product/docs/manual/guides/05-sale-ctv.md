@@ -3,7 +3,7 @@
 - Dành cho: **sale nội bộ (SAL)** – nhân viên bán hàng của OTTIMO; **CTV / môi giới** – cộng tác viên ngoài
 - Thiết bị: **điện thoại hoặc máy tính**, địa chỉ `desk.ottimo.vn`
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.1 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10)
+- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.2 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; form website đã bật, sale không ở trong phòng Google Chat)
 - Tài liệu không chứa mật khẩu, số tài khoản hay thông tin khách.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -108,7 +108,7 @@ Rời máy thì đăng xuất, nhất là máy dùng chung hoặc máy quầy. M
 | Khách báo đã chuyển cọc | **Sale nội bộ**: kiểm tiền về rồi **Xác nhận đã nhận cọc** (mục 5.1). **CTV**: **Báo đã chuyển cọc** (mục 5.2) |
 | Người trực quầy nhắn về giữ chỗ quá hạn của mình | Liên hệ khách và trả lời người trực **trong 1 giờ** (mục 8.1) |
 | Thu hộ tiền mặt | Nộp quầy trong ngày (mục 5.3) |
-| **Sale nội bộ**, khi chủ đầu tư bật form website (dự kiến sáng 31/10) | **Yêu cầu từ website**: trả lời trong 15 phút, trong 08:00–21:00 (mục 6.3) |
+| **Sale nội bộ**, khi form website bật (đã bật từ chiều 30/10) | **Yêu cầu từ website**: trả lời trong 15 phút, trong 08:00–21:00 (mục 6.3) |
 | Nhắn khách | Chỉ trong **08:00–21:00** |
 | Rời máy | **Đăng xuất** |
 
@@ -253,7 +253,7 @@ Trang **Khách hàng** (menu **Khách của tôi**) trống tới khi tìm: gõ 
 
 ### 6.3 Yêu cầu từ website (sale nội bộ)
 
-Form "Yêu cầu đặt phòng" trên ottimo.vn **dự kiến bật sáng 31/10** (luật sư đã đồng ý 30/10, đội đang chuẩn bị). **Chủ đầu tư báo khi đã bật.** Chưa bật thì màn hiện "Form đặt phòng trên website đang tắt"; khách liên hệ qua Zalo, điện thoại.
+Form "Yêu cầu đặt phòng" trên ottimo.vn **đã bật từ chiều 30/10**. Khi chủ đầu tư tắt form, màn hiện "Form đặt phòng trên website đang tắt"; khách liên hệ qua Zalo, điện thoại.
 
 Khi form bật: yêu cầu mới hiện ở menu kèm số. Mở yêu cầu → **Nhận xử lý** → **Báo giá**; không thành đơn thì **Đóng – không thành đơn**.
 
@@ -261,6 +261,8 @@ Khi form bật: yêu cầu mới hiện ở menu kèm số. Mở yêu cầu → 
 > - Desk mở trên máy quầy và điện thoại người trực **07:00–22:00**. Sale nội bộ đang làm việc thì xem **Yêu cầu từ website** mỗi lần cầm máy.
 > - Hạn trả lời 15 phút áp trong **08:00–21:00**. Trả lời khách từ tài khoản OTTIMO trên điện thoại cơ sở (mục 5.1).
 > - Yêu cầu tới ngoài giờ: bấm **Nhận xử lý** khi thấy, nhắn khách từ 08:00 sáng hôm sau.
+
+Từ v1.0.1 (dự kiến khoảng 04/11), Desk đăng tin báo yêu cầu mới vào một phòng Google Chat của quầy, có chi tiết khách. **Sale nội bộ và CTV không ở trong phòng này** và không xin vào: anh/chị xem yêu cầu trên Desk như trên. Không nhờ người trong phòng chép tin cho mình.
 
 [ẢNH: C2-39-Yêu cầu từ website, form tắt]
 

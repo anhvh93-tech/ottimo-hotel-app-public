@@ -1,7 +1,7 @@
 # Bộ hướng dẫn OTTIMO Desk v1.0 theo bộ phận
 
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bản 1.1 (sửa theo review DOM, SEC, UXD, QA ngày 30/10) · Theo yêu cầu của chủ đầu tư ngày 30/10: thay 5 tờ in bằng bộ hướng dẫn cho từng bộ phận, gồm cách đăng nhập và sử dụng
+- Lập: BA · 30/10/2026 · Bản 1.2 (bản 1.1 sửa theo review DOM, SEC, UXD, QA ngày 30/10; bản 1.2 thêm phòng Google Chat và xóa theo yêu cầu người gửi theo SEC, ESC-041, ESC-042) · Theo yêu cầu của chủ đầu tư ngày 30/10: thay 5 tờ in bằng bộ hướng dẫn cho từng bộ phận, gồm cách đăng nhập và sử dụng
 - Nguồn nội dung: Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5 (đã duyệt 30/10). Quy tắc, con số, tên nút và câu nói với khách giữ nguyên.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không chụp, không đăng lên mạng.**
 
@@ -10,8 +10,8 @@
 | Tệp | Dành cho | Thiết bị, địa chỉ | Nội dung chính |
 |---|---|---|---|
 | `00-index.md` (tệp này) | Chủ đầu tư, người đào tạo | – | Ai đọc tệp nào, lịch đào tạo |
-| `01-chu-dau-tu-quan-ly.md` | Chủ đầu tư (OWN), quản lý (MGR), kế toán/đối soát | Máy riêng · `desk.ottimo.vn` | Đăng nhập 2 bước, cấp tài khoản và máy quầy, duyệt, đối soát, hoàn tiền, giá, tham số, tài khoản nhận VietQR, kế toán |
-| `02-le-tan.md` | Lễ tân (FD), lễ tân trưởng (FDL), người trực đêm | Máy quầy đã cấp quyền · `desk.ottimo.vn`; lễ tân trưởng thêm `staff.ottimo.vn` | Báo giá, giữ chỗ, đặt phòng, nhận phòng, giấy tờ và khai báo, thu tiền, trả phòng, kiểm phòng |
+| `01-chu-dau-tu-quan-ly.md` | Chủ đầu tư (OWN), quản lý (MGR), kế toán/đối soát | Máy riêng · `desk.ottimo.vn` | Đăng nhập 2 bước, cấp tài khoản và máy quầy, duyệt, đối soát, hoàn tiền, giá, tham số, tài khoản nhận VietQR, kế toán; phòng Google Chat (cài đặt, xóa tin theo yêu cầu người gửi), phòng Báo động |
+| `02-le-tan.md` | Lễ tân (FD), lễ tân trưởng (FDL), người trực đêm | Máy quầy đã cấp quyền · `desk.ottimo.vn`; lễ tân trưởng thêm `staff.ottimo.vn`; điện thoại có Google Chat (từ v1.0.1) | Báo giá, giữ chỗ, đặt phòng, nhận phòng, giấy tờ và khai báo, thu tiền, trả phòng, kiểm phòng; yêu cầu từ website, tin Google Chat, xóa theo yêu cầu người gửi |
 | `03-buong-phong.md` | Buồng phòng (HK) | Điện thoại · `staff.ottimo.vn` | Việc dọn, minibar, bộ đồ dùng thêm, báo sự cố, mất mạng |
 | `04-bao-tri.md` | Bảo trì, kỹ thuật (MT) | Điện thoại · `staff.ottimo.vn`; Desk để xem phiếu | Phiếu sửa, báo khóa phòng, chốt công tơ |
 | `05-sale-ctv.md` | Sale nội bộ (SAL), CTV / môi giới | Điện thoại hoặc máy tính · `desk.ottimo.vn` | Báo giá, giữ chỗ, cọc, hoa hồng |
@@ -69,7 +69,14 @@ Mỗi người **một tài khoản, đúng vai của mình**, và đọc tệp 
 | `desk.ottimo.vn` | **OTTIMO Desk** | Chủ đầu tư, quản lý, lễ tân, sale, CTV; buồng phòng, bảo trì lần đầu đổi mật khẩu tạm | Máy quầy, laptop; sale/CTV dùng được trên điện thoại |
 | `staff.ottimo.vn` | **App nhân viên** | Buồng phòng, bảo trì, lễ tân trưởng (kiểm phòng) | Điện thoại |
 | `g.ottimo.vn` | **Trang khách** | Khách của từng đơn | Điện thoại của khách. **Từ 02/11 tới v1.0.1 chưa gửi link cho khách thật** |
-| `ottimo.vn` | **Website** | Khách tìm hiểu | Form đặt phòng **dự kiến bật sáng 31/10**, chủ đầu tư báo khi đã bật. Khi bật: Desk mở trên máy quầy và điện thoại người trực 07:00–22:00 (`02` mục 13.1) |
+| `ottimo.vn` | **Website** | Khách tìm hiểu | Form đặt phòng **đã bật từ chiều 30/10**. Desk mở trên máy quầy và điện thoại người trực 07:00–22:00 (`02` mục 13.1) |
+
+**Phòng Google Chat** (tài khoản `@ottimo.vn`, trên điện thoại, không mở trên máy quầy):
+
+| Phòng | Ai ở trong phòng | Từ khi nào | Ở đâu trong bộ hướng dẫn |
+|---|---|---|---|
+| **"OTTIMO – Yêu cầu đặt phòng"** | Chủ đầu tư, quản lý (hai người này là quản lý phòng), lễ tân trưởng, lễ tân. Không sale, CTV, buồng phòng, bảo trì | **v1.0.1** (dự kiến khoảng 04/11/2026): tin có chi tiết khách. Trước đó chưa có tin, người trực giữ Desk mở 07:00–22:00 | `02` mục 13.1a, 13.1b; `01` mục 12.1, 12.2 |
+| **"OTTIMO – Báo động"** | Chỉ chủ đầu tư | Đang chạy | `01` mục 17.1 |
 
 Luật chung cho mọi người:
 - **Mỗi người một tài khoản.** Không dùng chung, không đọc mật khẩu qua điện thoại, không gõ mật khẩu cho người khác.
@@ -104,7 +111,7 @@ Chủ đầu tư in **2 bản A4** (một trong khung mica, một trong ngăn qu
 - Tập trên **Desk tập** (dữ liệu giả) bằng **tài khoản tập** đội tạo sẵn cho từng người. Địa chỉ và tài khoản tập: chủ đầu tư đưa tận tay trong buổi đào tạo. Mật khẩu tập **khác** mật khẩu thật.
 - **Người trực 6 vai hiện nay** (khoảng 5 giờ, chia 31/10 và 01/11):
   - `02` toàn bộ (3 giờ, bài tập mục 20.3).
-  - `01` mục 1.3–1.7, 2, 4, 5, 6, 7, 8.3–8.5, 15 (1 giờ).
+  - `01` mục 1.3–1.7, 2, 4, 5, 6, 7, 8.3–8.5, 12.1–12.2 (người trực là quản lý phòng Google Chat), 15 (1 giờ).
   - `03` mục 3, 4 (giờ cần xong), 7, 8, 11.2.
   - `04` mục 3, 4.2, 4.4, 5, 8.2.
   - `05` mục 3 (chính sách hủy), 4.2, 5.1, 8 (tổng 03–05 khoảng 1 giờ).
@@ -129,3 +136,4 @@ Chủ đầu tư in **2 bản A4** (một trong khung mica, một trong ngăn qu
 |---|---|---|---|
 | 1.0 | 30/10/2026 | BA | Tách sổ tay 1.5 và các tờ in thành 5 tệp theo bộ phận; thêm chương Đăng nhập riêng cho từng vai, việc mỗi ngày theo giờ, phần "Tạm thời tới v1.0.1". Chờ DOM, SEC, UXD xem |
 | 1.1 | 30/10/2026 | BA | Sửa theo DOM (16 thẻ), SEC (9 thẻ), UXD (B1–B6), QA (mục 22.6, BUG-R3-052/053): kiểm bằng mắt trước **Làm xong** (`02` 13.2a); bảng việc mỗi ngày theo đúng trình tự (đóng quầy 21:00, việc 22:00, 23:00); rà mốc 3 gồm giữ chỗ hết hạn trong đêm; nhận phòng ban đêm đủ bước; tờ Your ID details A4, 2 bản, máy tính bảng chỉ dự phòng có điều kiện; khôi phục tài khoản (chủ đầu tư quên mật khẩu chưa có đường khôi phục; người trực mất cả điện thoại lẫn mã: tài khoản mới); sale/CTV hủy và gửi mã cọc; form website dự kiến bật 31/10; lộ trình người trực ~5 giờ; tên nút theo giao diện thật |
+| 1.2 | 30/10/2026 | BA | Theo SEC (ESC-041 Lượt 2, mục L2.2, ★4, ★7), ESC-041 = C, ESC-042 = B: phòng Google Chat **"OTTIMO – Yêu cầu đặt phòng"** áp dụng **từ v1.0.1** (dự kiến khoảng 04/11), khi tin bắt đầu có chi tiết khách; trước đó người trực giữ Desk mở 07:00–22:00. `02` mục 13.1a (tin Chat, cách dùng, nhận biết tin thật, cài đặt điện thoại: khóa màn hình, ẩn nội dung trên màn hình khóa iPhone/Android, tắt email thông báo Chat; chỉ tài khoản @ottimo.vn có xác minh 2 bước, không mời sale/CTV), 13.1b (xóa theo yêu cầu người gửi trên Desk + 5 bước xóa tin Chat trong 24 giờ, sổ xóa Chat chỉ ghi mã). `01` mục 12.1 (cài đặt phòng, quản lý phòng là chủ đầu tư và quản lý, rà thành viên mỗi tháng, xóa cả phòng mỗi năm), 12.2 (5 bước WR8), 17.1 (phòng **"OTTIMO – Báo động"**: tin FAIL/OK, email Healthchecks.io và UptimeRobot, làm gì khi nhận FAIL). Form website ghi đã bật 30/10 (`00`, `01`, `02`, `05`). `05` thêm: sale không ở trong phòng Chat. `03`, `04` không đổi (vẫn ghi bản 1.1) |
