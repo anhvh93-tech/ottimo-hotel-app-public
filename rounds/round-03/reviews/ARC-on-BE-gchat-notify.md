@@ -176,3 +176,55 @@ Dòng decision-log đề nghị ORC ghi:
 - **Mức hiệu lực tính lúc gửi, và có hai lớp khóa.** Hằng phiên bản không cấu hình được; SQL liên hệ chỉ được gọi ở C và bị khóa bằng spy. Đây đúng là cách để "C ngay từ v1.0.1" mà không lộ dữ liệu khi landing, api và `.env` lệch thời điểm.
 - **Bộ phát chép đúng mẫu email**, kể cả SAVEPOINT cho lỗi render và giảm lỗi undici về mã. Có thêm test log canh trên toàn bộ bộ test. Đường đua "xóa WR8 trong lúc tin đầu đang gửi" được nghĩ tới và xử lý bằng `staffChatState` ở cả hai phía.
 - **Tách commit PN-01 ngay từ đầu, và nêu rõ phụ thuộc thứ tự gộp.** Nhờ vậy quyết định ở mục 3 chỉ cần một lệnh revert.
+
+---
+
+## Lượt 2 – xác nhận bản sửa (30/10/2026)
+
+- Người review: ARC | Round 3 – bước **Phản hồi & sửa** | Đối tượng: PR #16 head `9520cec1` (so với `main` `e1b9f311`, `main` là tổ tiên của head). Trả lời của BE: `rounds/round-03/responses/BE-gchat-notify.md`.
+- Commit mới: `0d13aed8`, `cac5c9cc` (revert PN-01) · `9e0e889c` (sửa theo ARC + SEC) · `9520cec1` (merge `main`, chỉ mang hồ sơ review).
+- Cách kiểm: đọc diff `origin/main..9520cec1` (32 tệp, +3622/−14); chạy lại `test/gchat-units.test.ts` cục bộ (58/58); chạy thử `chatSafeText`/`chatSafeEmail` với 23 chuỗi biên (tệp test tạm, đã xóa, nhánh sạch); xem CI của PR. **Không chạy** bộ test cần DB (dựa vào CI và số BE báo). Không gộp, không đăng lên PR, không commit.
+
+### Kết luận lượt 2: **Duyệt – phía ARC, PR #16 gộp được**
+
+Major GC-01 đã xử lý đúng. GC-02, GC-03, GC-05, GC-06 sửa đúng đề xuất. CI xanh trên head `9520cec1`. Điều kiện còn lại để gộp không thuộc ARC (SEC xác nhận lượt 2, QA theo ma trận review).
+
+### Đối chiếu từng thẻ
+
+| Thẻ | Kiểm gì | Kết quả |
+|---|---|---|
+| GC-01 (Major) | `git diff origin/main 9520cec1 -- src/db` **rỗng**: thư mục migration dừng ở `0088`, không còn `0090_*.sql` / `0090_snapshot.json`; `_journal.json` **giống hệt** `main` (0 dòng diff). Không còn `privacy_notice_version` trong allowlist audit, không còn `privacy-notice-append-only.test.ts`, `worker-audit-registry.test.ts` không đổi so với `main`. Revert bằng 2 commit mới, không force-push. Báo cáo BE mục 1.6/5 và decision-log ý (7) ghi "PN-01 tách, PR riêng sau BE-A 0089" | **Closed** |
+| GC-02 (Minor) | `FORMAT = /\p{Cf}/gu` bỏ trước bước 4, giữ U+200D chỉ giữa hai pictograph; `LINE_BREAKS` U+2028/2029/0085 → `\n`; `DOMAIN_DOT` lookbehind `[\p{L}\p{N}\p{M}]`. Chạy thử: `evil<ZWSP>.example/login` → `evil[.]example/login`; `evil.<ZWSP>example`, `evil<WJ>.<BOM>example`, `evil<SHY>.com`, `evil.c<ZWSP>om` → `[.]`; `x̃.com` → `x̃[.]com`; tên có U+2028 → một dòng; U+061C bị bỏ; `http:/<ZWSP>/evil.com` → `http[:]//evil[.]com`; dấu chấm toàn/nửa độ rộng → `[.]`; emoji gia đình ZWJ nguyên vẹn; `1.5` giữ nguyên. Test 3a có đủ 4 chuỗi ARC nêu | **Closed** |
+| GC-03 (Minor) | Chú thích đầu `chat-message.ts` trỏ `test/gchat-units.test.ts` ("chat-message.ts is wired by src/worker-chat.ts") và `test/integration/gchat-worker-only.test.ts` – cả hai tồn tại. Báo cáo + decision-log khớp mục 3 | **Closed** |
+| GC-04 (Minor, OPS) | Không có mã; BE ghi vào mô tả PR mục "For OPS". Vẫn là điều kiện **trước lượt deploy v1.0.1**, không chặn gộp | Chuyển OPS (Open) |
+| GC-05 (Suggestion) | `umask 077` là dòng đầu nhánh `--set-booking-chat` (nhánh `exit 0` ở cuối, nên không ảnh hưởng các tệp mặc định phía sau); `rc` khác 0/3 in `checked: bash rule only (image tool not available)`. shellcheck xanh trong CI | **Closed** |
+| GC-06 (Suggestion) | `resolveChatConfig`: `dev`/`test` dùng `ADMIN_BASE_URL \|\| APP_BASE_URL`, mọi `APP_ENV` khác chỉ `ADMIN_BASE_URL`. Có test "production chỉ có `APP_BASE_URL` → `off` + `CHAT_LINK_BASE_INVALID`" | **Closed** |
+| GC-07 (Suggestion) | BE + OPS làm sau v1.0.1 – ARC đồng ý, giữ trong nợ kỹ thuật | Deferred |
+
+Các sửa theo SEC (GCHAT-01 email mẫu chặt, `://` và `<>` luôn vô hiệu; 02 IPv4 + bỏ `*_~` ở tên; 04 kiểm lại `pii_purged_at` ngay trước POST mức C) ARC đã xem về mặt kiến trúc: `recheck` chỉ gắn ở mức C, chạy trong giao dịch riêng ngay trước `deliver`, câu SELECT không có cột C2 – đúng mẫu bộ phát, không thêm truy vấn cho A/B. Kết luận về nội dung bảo mật là của SEC.
+
+Thay đổi ngoài phạm vi thẻ: `infra/server/test/publish-privacy-notice.test.sh` thêm `booking_request_chat_webhook` vào danh sách secret rỗng của stack test – cần thiết vì compose production nay khai báo secret này. Hợp lệ.
+
+### Ghi chú mới (không chặn, không tạo thẻ)
+
+- `x.<dấu kết hợp>com` (dấu kết hợp **sau** dấu chấm) giữ nguyên vì lookahead chỉ nhận `\p{L}`. Linkifier của Chat không coi `.̃com` là tên miền, nên ARC không đòi sửa. INT có thể thêm ca này vào lượt kiểm ★5 trên phòng thử cho chắc; nếu Chat biến nó thành link thì đổi lookahead thành `(?=\p{M}*\p{L})`.
+- `http：//evil.com` (dấu hai chấm toàn độ rộng) giữ `：//` nhưng tên miền đã thành `evil[.]com`, không bấm được. Không cần sửa.
+
+### Điều kiện còn lại
+
+**Để gộp PR #16:**
+1. ~~GC-01, GC-03, CI xanh~~ – xong (phía ARC).
+2. SEC xác nhận lượt 2 cho GCHAT-01/02/04 (quyền SEC).
+3. QA đã xem theo ma trận review.
+
+**Để đặt `BOOKING_REQUEST_CHAT_DETAIL_LEVEL=C` trên production:**
+- GC-02 – xong trong PR này (gộp là đủ);
+- INT kiểm trên phòng thử: ★1, ★5 + 2 ca ARC (ZWSP, dấu kết hợp) + 2 ca SEC (`1.2.3.4/login`, `*TEST*`), `threadKey`, `<users/all>`, `messageId` (SEC 05);
+- ★1–★8 của SEC; phiên bản thông báo `2026-10-31` đã ghi bằng `publish-privacy-notice.sh`.
+
+**Trước lượt deploy v1.0.1:** GC-04 (OPS chạy `init-secrets.sh` không cờ trên staging rồi production, kiểm `uid 1000, 0400, 0 byte`, `appconfig` thấy `chat: off {reason: NOT_CONFIGURED}`).
+
+**PR PN-01** (`be/privacy-notice-append-only`): theo mục 3, cắt sau khi BE-A 0089 gộp; ARC + SEC review rút gọn.
+
+Dòng decision-log đề nghị ORC ghi:
+`| 2026-10-30 | 3 | ARC – lượt 2 PR #16 (Chat, head 9520cec1): Duyệt phía ARC. GC-01 revert sạch (không migration, journal = main); GC-02/03/05/06 đóng; GC-04 chuyển OPS trước deploy v1.0.1; GC-07 sau v1.0.1. PN-01 vẫn PR riêng sau BE-A 0089 | ARC | Quyền ARC (kỹ thuật) |`
