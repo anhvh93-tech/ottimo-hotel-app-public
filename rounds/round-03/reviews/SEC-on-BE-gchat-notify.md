@@ -168,3 +168,88 @@ SEC chỉ ghi dòng decision-log "đủ điều kiện đặt C" khi có bằng 
 ### Dòng decision-log đề xuất (lượt 2)
 
 | 2026-10-30 | 3 | **SEC – PR #16 (BE tin Google Chat, v1.0.1) lượt 2: gộp được (phía SEC)** (`rounds/round-03/reviews/SEC-on-BE-gchat-notify.md` mục Lượt 2, head `9520cec1`, CI xanh). Đóng GCHAT-01 (`chatSafeEmail` theo mẫu chặt, `://` và `<>` luôn bị vô hiệu ở mọi trường, có test email độc), GCHAT-02 (IPv4 + bỏ `*_~` trong tên), GCHAT-03 phần mã, GCHAT-04 (kiểm lại `status`/`pii_purged_at` trước POST ở mức C, có test tích hợp). ARC GC-02 (bỏ mọi `\p{Cf}`, U+2028/2029/0085 là xuống dòng) và GC-06 đạt. Migration 0090 đã rút khỏi PR. Thẻ mới GCHAT-06 (Minor, dấu kết hợp ngay sau dấu chấm lọt `DOMAIN_DOT`) không chặn gộp. Production **chưa** được đặt C cho tới khi đủ ★1, ★2-bis (PN-01 hoặc `ottimo_app` chỉ SELECT + runbook), ★3 runbook, ★4, ★5 lượt INT phòng thử (gồm ca thẻ 06 và `mailto:`), ★7, ★8, và v1.0.1 đã lên production. | SEC | Quyền SEC (yêu cầu bảo mật kỹ thuật) |
+
+---
+
+## Lượt 3 – xác nhận BUG-R3-057 (98ff43bb)
+
+- Người review: SEC | Round 3 – Review (xác nhận bản sửa ★5) | 31/10/2026
+- Đọc: `git diff 9520cec1 98ff43bb` (5 tệp: `chat-message.ts`, `gchat-units.test.ts`, `gchat-notify.test.ts`, báo cáo và trả lời BE), toàn bộ `chatSafeText` / `looksLikeSensitiveNumber` tại `98ff43bb`, cùng `looksLikeCard` / `looksLikeIdNumber` / `withoutDatesAndTimes` (`website-request-rules.ts`). Đối chiếu QA FB-01, esc041 L2.4.
+- SEC chép nguyên các hàm trên ra một tệp thử ở scratchpad (không vào repo) và chạy 50 chuỗi biên bằng Node 22. Chỉ dùng dữ liệu giả: CCCD `079203012345`, CMND `123456789`, thẻ thử `4111…`, hộ chiếu `C1234567`. SEC không chạy lại bộ test của BE. CI của PR trên `98ff43bb`: gitleaks, shellcheck, OpenAPI, API contract, landing đã xanh. Job `format · lint · audit · test · build` **đang chạy** lúc SEC viết.
+
+### Kết quả kiểm bản sửa
+
+| Điểm | Kết quả | Bằng chứng |
+|---|---|---|
+| 5 ca bảng FB-01 + chữ số toàn độ rộng | **Đóng** | Cả 6 ca bị thay bằng `CHAT_ID_REPLACEMENT`, ở cả tên (`plain`) và lời nhắn. SEC chạy thêm: dấu bidi giữa các nhóm số, số nằm cuối lời nhắn dài gần 500 ký tự. Cả hai bị thay. |
+| Vị trí 3 lần kiểm | **Đúng** | (1) Chữ gốc. (2) Sau Cc, `\p{Cf}`, `plain`, gộp dòng, backtick, `<>`, và **trước** `[.]`/IPv4. Thứ tự này cần thiết, vì nếu kiểm sau thì `079.203.012.345` thành `079[.]203[.]…` và luật số không đọc được nữa. (3) Trên chữ in ra sau khi cắt, `[.]`/`[:]` đọc lại như `.`/`:`. Không còn bước nào chạy sau lần kiểm cuối mà vẫn bỏ được ký tự. |
+| `looksLikeSensitiveNumber` | **Đạt** | Chạy luật cũ trên 3 bản: gốc, NFKC + `\p{Nd}` → ASCII, rồi bản coi **một** `_` `/` `,` giữa hai chữ số là dấu tách (ngày, giờ che trước). Bản chuẩn hóa chỉ dùng để kiểm, không in ra. Bắt được NBSP, U+202F, U+2009, U+3000, `，`, chữ số khoanh tròn, chỉ số trên, chữ số Ả Rập. `asciiDigits` đúng với các dải `Nd` liền nhau, vì có `% 10`. Hiệu năng: lời nhắn 500 chữ số (Ả Rập, ASCII hoặc chữ số toán học) mất ≤ 2,4 ms mỗi lần gọi. Không có biểu thức nào bị quay lui theo cấp số mũ. |
+| SĐT 10–11 số không bị che | **Đạt** | `0905 111 222`, `01205111222`, `+84 905 111 222` vẫn hiện. SĐT toàn độ rộng cũng hiện như khách gõ. Dòng `Liên hệ:` không đi qua `chatSafeText`. |
+| Test | **Đủ cho phạm vi lỗi** | TC-GC-01 (18 chuỗi × 3 kiểu gọi), TC-GC-02 (render C), SĐT ở mức C, 7 ca không che nhầm, TC-GC-06 (≤ 4 KB). BE báo 20 ca đỏ trên mã cũ. |
+
+### Đánh đổi che thừa: chấp nhận
+
+Các trường hợp bị che thừa mà SEC thấy là: hai SĐT nối bằng `/` hoặc `,` không dấu cách (`0905111222/0912333444`), danh sách phòng `201,202,203`, số tiền 9 chữ số không có đơn vị (`150,000,000`), mã OTA 9 chữ số. Khi đó **cả trường** thành câu "xem trên Desk".
+
+SEC chấp nhận đánh đổi này vì 3 lý do:
+- Đây là hỏng theo hướng an toàn. Dòng "Mở Desk" luôn có, và cờ "cần gọi ngay" lấy từ trường có cấu trúc, không lấy từ lời nhắn.
+- `150.000.000` (dấu chấm) vốn đã bị che từ BUG-R3-009. Dấu phẩy chỉ làm cho hai cách viết xử lý giống nhau.
+- Chỉ ảnh hưởng mức C.
+
+Đề nghị BA ghi một dòng vào sổ tay: "Lời nhắn hiện câu *có dãy số giống giấy tờ…* thì mở Desk đọc bản gốc".
+
+### Đường lách còn lại
+
+Đáng kể là những chuỗi **khách gõ tự nhiên** mà vẫn lọt. Các cách che cố ý (dấu kết hợp như `0̲7̲9̲…`, U+034F, VS16 giữa các chữ số; dấu `·`; viết từng cặp `07-92-03-01-23-45`, bị coi là ngày; tách số ra tên và lời nhắn) SEC coi là rủi ro còn lại thấp. Người có giấy tờ không có lý do che số của chính mình. Người ngoài chèn số của người khác thì không lộ thêm gì so với thứ họ đã có.
+
+Các chuỗi tự nhiên vẫn lọt (chạy trên `98ff43bb`, cả lời nhắn lẫn tên trừ khi ghi chú khác):
+
+| Khách gõ | Kết quả |
+|---|---|
+| `CCCD 079203012345 2 người lớn` / `CCCD 079 203 012 345 2 người` / `Phòng 2 079203012345` | Lọt. `GROUPED_DIGITS` nối với số đứng cạnh thành 13 chữ số, nên không còn đúng 9 hoặc 12. |
+| `079 - 203 - 012 - 345`, `079–203–012–345` (gạch ngang dài do tự sửa chữ), U+2010, U+2011, U+2212 | Lọt |
+| `079  203  012  345` (hai dấu cách), `4111  1111  1111  1111` | Lọt ở lời nhắn. Tên bị che, vì `plain` gộp dấu cách. |
+| `079⏎203⏎012⏎345` (mỗi nhóm một dòng) | Lọt ở lời nhắn |
+| `Hộ chiếu c1234567`, `Hộ chiếu C 1234567` | Lọt. Luật hộ chiếu phân biệt chữ hoa/thường và không cho dấu cách. |
+
+Tất cả các khe này nằm trong **luật chung V-09 / SR-LOG-04**, không do PR #16 tạo ra. Vì vậy form cũng nhận và lưu những chuỗi này vào DB, cùng nhóm với BUG-R3-058.
+
+### Thẻ mới
+
+### FB-R3-SEC-BE-GCHAT-07
+- Mức độ: Minor (không chặn gộp PR #16). **Là điều kiện trước khi đặt C**: xem ★5 dưới.
+- Vị trí: `website-request-rules.ts` `looksLikeIdNumber` / `GROUPED_DIGITS` (luật chung); `chat-message.ts` `looksLikeSensitiveNumber` (bản chuẩn hóa dùng để kiểm).
+- Vấn đề: xem bảng "Đường lách còn lại". Khe nặng nhất là một số giấy tờ đứng cạnh một số khác (`079203012345 2 người`). Đây là cách viết tự nhiên, và nó lọt cả form lẫn tin Chat mức C.
+- Vì sao quan trọng: ở mức C, số CCCD sẽ có một bản sao ở bên thứ ba và nằm tới 180 ngày (RR9). Khả năng xảy ra thấp, nhưng sửa rẻ.
+- Đề xuất sửa (chỉ trên bản dùng để kiểm, chữ in ra không đổi):
+  1. NFKD, bỏ `\p{M}`, rồi NFKC.
+  2. Đổi `\p{Pd}` và `·` thành `-`. Gộp `\s*-\s*` thành `-`. Gộp `\s+` thành một dấu cách. Coi `\n` là dấu cách.
+  3. Trong một cụm số có nhiều nhóm, nếu một **dãy nhóm liền nhau** có tổng đúng 9 hoặc 12 chữ số thì coi là giấy tờ. Vẫn giữ ngoại lệ `+`, `$` và đơn vị tiền.
+  4. Luật hộ chiếu nhận chữ thường và nhận một dấu cách giữa chữ và số.
+
+  SEC đã thử phác thảo này ở scratchpad. Nó bắt được mọi ca trong bảng trên. `0905 111 222`, `0905111222 2 người`, `+84 905 111 222 3 người`, `Gọi … sau 18:00`, `Đến 12/11 - 15/11/2026, 2 phòng`, `1 500 000 đ/đêm`, `iPhone 15 Pro 256GB`, mã `7K3P9QXA` vẫn hiện bình thường.
+
+  Lưu ý: cách cộng nhóm sẽ che thừa `84 905 111 222` (SĐT quốc tế thiếu `+`), vì nhóm cuối `905 111 222` có đúng 9 chữ số. Nếu BE chọn cách khác thì giữ được ca này. Che thừa ca này vẫn chấp nhận được.
+
+  Cách làm gọn nhất: BE-D sửa luật chung cùng BUG-R3-058, rồi `looksLikeSensitiveNumber` dùng lại. Nếu BUG-R3-058 trễ hơn ngày đặt C, BE thêm bước này riêng vào `looksLikeSensitiveNumber`. Test: các ca trong bảng phải bị che. Các ca SĐT, ngày, giờ, tiền và các ca "không che nhầm" hiện có phải vẫn hiện.
+- Trạng thái: Open
+
+### Kết luận lượt 3
+
+**BUG-R3-057: Đạt.** Phía SEC đồng ý đóng sau khi job `format · lint · audit · test · build` trên `98ff43bb` xanh. QA vẫn chạy lại theo lịch của QA. PR #16 gộp được (phía SEC).
+
+**★5 trước khi đặt production mức C: Đạt có điều kiện.**
+- Phần chống chèn cú pháp Chat (link, `<users/all>`, định dạng) đã đạt từ lượt 2.
+- Phần lọc số giấy tờ/thẻ nay đạt với mọi khe **do các bước làm sạch tạo ra**.
+- Điều kiện thêm: FB-R3-SEC-BE-GCHAT-07, bước 1–3, phải lên cùng hoặc trước lúc đặt C. Bước 4 (hộ chiếu) nên làm, không bắt buộc.
+- Các điều kiện cũ của ★5 giữ nguyên: lượt INT trên phòng thử, gồm TC-GC-14 và các ca thẻ 06.
+
+Bảng "Điều kiện còn lại trước khi production đặt mức C" (lượt 2) cập nhật dòng ★5:
+
+| # | Điều kiện | Ai | Trạng thái |
+|---|---|---|---|
+| ★5 | Mã chống chèn: **Đạt**. Lọc số sau làm sạch (BUG-R3-057): **Đạt** (`98ff43bb`, chờ CI xanh). Còn: (a) GCHAT-07 bước 1–3 (số cạnh số, gạch Unicode, nhiều dấu cách, xuống dòng) lên production; (b) lượt INT trên phòng thử như lượt 2 cộng TC-GC-14 của QA; (c) v1.0.1 chứa `98ff43bb` lên production. | BE / BE-D, INT | Chưa |
+
+### Dòng decision-log đề xuất (lượt 3)
+
+| 2026-10-31 | 3 | **SEC – PR #16 lượt 3: BUG-R3-057 Đạt** (`rounds/round-03/reviews/SEC-on-BE-gchat-notify.md` mục Lượt 3, `98ff43bb`). `chatSafeText` kiểm số giấy tờ/thẻ ở 3 điểm: chữ gốc, sau mọi bước bỏ ký tự và trước `[.]`, rồi trên chữ in ra. `looksLikeSensitiveNumber` dùng NFKC, `\p{Nd}` → ASCII và coi một `_` `/` `,` là dấu tách. SĐT 10–11 số vẫn hiện. Chấp nhận che thừa (hai SĐT nối `/` hoặc `,`, danh sách phòng, số 9 chữ số không đơn vị): hỏng theo hướng an toàn, Desk có bản gốc. Thẻ mới GCHAT-07 (Minor): luật chung V-09 vẫn lọt số giấy tờ đứng cạnh số khác, gạch Unicode, nhiều dấu cách, xuống dòng, hộ chiếu chữ thường. Không chặn gộp. Là điều kiện ★5 trước khi đặt C (bước 1–3). Đóng 057 phía SEC khi CI của `98ff43bb` xanh. | SEC | Quyền SEC (yêu cầu bảo mật kỹ thuật) |
