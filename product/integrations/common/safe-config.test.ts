@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { IntegrationError } from '../contracts/common.js';
-import { assertSafeConfig, findUnsafeIntegrationConfig } from './safe-config.js';
+import {
+  assertSafeConfig,
+  findUnsafeIntegrationConfig,
+  parseBookingChatWebhook,
+} from './safe-config.js';
 
 // Values copied from product/.env.example (integration part).
 const devExample = {
@@ -198,5 +202,68 @@ describe('findUnsafeIntegrationConfig / assertSafeConfig (README 1.3)', () => {
       expect((e as IntegrationError).retryable).toBe(false);
       expect((e as Error).message).not.toContain('topsecretvalue');
     }
+  });
+});
+
+// ARC gchat-booking-request-notify 3.3 + 8.7 G1, 8.11 test 1 (SEC GCHAT-02): fake ids/keys only.
+describe('parseBookingChatWebhook', () => {
+  const ok =
+    'https://chat.googleapis.com/v1/spaces/AAAAbcd_-12/messages?key=fakeKey123&token=fakeTok%3D';
+  it('accepts the standard URL (and keeps it as written)', () => {
+    expect(parseBookingChatWebhook(ok)).toEqual({ mode: 'on', url: ok });
+    expect(parseBookingChatWebhook(`  ${ok}\n`)).toEqual({ mode: 'on', url: ok });
+  });
+  it('empty or unset → off', () => {
+    expect(parseBookingChatWebhook(undefined)).toEqual({ mode: 'off' });
+    expect(parseBookingChatWebhook('')).toEqual({ mode: 'off' });
+    expect(parseBookingChatWebhook('  \n')).toEqual({ mode: 'off' });
+  });
+  it.each([
+    ['http', ok.replace('https:', 'http:')],
+    ['other host', ok.replace('chat.googleapis.com', 'chat.example.com')],
+    ['suffix host', ok.replace('chat.googleapis.com', 'chat.googleapis.com.evil.test')],
+    ['host in path', 'https://evil.test/chat.googleapis.com/v1/spaces/AAAA/messages?key=k&token=t'],
+    ['upper-case host', ok.replace('chat.googleapis.com', 'CHAT.googleapis.com')],
+    ['trailing dot', ok.replace('chat.googleapis.com', 'chat.googleapis.com.')],
+    ['user info', ok.replace('https://', 'https://user:pw@')],
+    ['port', ok.replace('chat.googleapis.com', 'chat.googleapis.com:8443')],
+    ['explicit 443', ok.replace('chat.googleapis.com', 'chat.googleapis.com:443')],
+    ['IP', 'https://142.250.0.1/v1/spaces/AAAA/messages?key=k&token=t'],
+    ['wrong path', ok.replace('/messages', '/members')],
+    ['path traversal', 'https://chat.googleapis.com/v1/spaces/AAAA/../x/messages?key=k&token=t'],
+    ['missing key', 'https://chat.googleapis.com/v1/spaces/AAAA/messages?token=t'],
+    ['missing token', 'https://chat.googleapis.com/v1/spaces/AAAA/messages?key=k'],
+    ['empty token', 'https://chat.googleapis.com/v1/spaces/AAAA/messages?key=k&token='],
+    ['extra threadKey', `${ok}&threadKey=x`],
+    ['key twice', 'https://chat.googleapis.com/v1/spaces/AAAA/messages?key=a&key=b&token=t'],
+    ['extra foo', `${ok}&foo=1`],
+    ['fragment', `${ok}#x`],
+    ['too long', `${ok}${'A'.repeat(520)}`],
+    ['not a URL', 'chat.googleapis.com/v1/spaces/AAAA/messages?key=k&token=t'],
+  ])('refuses %s', (_name, url) => {
+    expect(parseBookingChatWebhook(url)).toEqual({
+      mode: 'invalid',
+      code: 'CHAT_WEBHOOK_URL_INVALID',
+    });
+  });
+  it('staging/production: the URL only from the _FILE secret', () => {
+    const env = { ...prodOk, BOOKING_REQUEST_CHAT_WEBHOOK_URL: ok };
+    const p = findUnsafeIntegrationConfig(env, 'production');
+    expect(p).toEqual([
+      'BOOKING_REQUEST_CHAT_WEBHOOK_URL must come from BOOKING_REQUEST_CHAT_WEBHOOK_URL_FILE (secret file), not the environment',
+    ]);
+    expect(p.join()).not.toContain('fakeKey123');
+    expect(
+      findUnsafeIntegrationConfig(
+        {
+          ...env,
+          BOOKING_REQUEST_CHAT_WEBHOOK_URL_FILE: '/run/secrets/booking_request_chat_webhook',
+        },
+        'production',
+      ),
+    ).toEqual([]);
+    expect(
+      findUnsafeIntegrationConfig({ ...devExample, BOOKING_REQUEST_CHAT_WEBHOOK_URL: ok }, 'dev'),
+    ).toEqual([]);
   });
 });

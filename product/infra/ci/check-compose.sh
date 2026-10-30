@@ -6,7 +6,9 @@
 #   - web (Caddy) gets any volume other than its Caddyfile (+ certificate volumes in prod), or any secret
 #   - prod: a service other than web publishes a port; web publishes anything but 80/443; postgres is not only on
 #     the internal `db` network; a container is not read_only / cap_drop ALL / no-new-privileges; api/worker get a
-#     secret as a plain variable instead of *_FILE; a retired PAYMENT_VIETQR_* account variable is passed
+#     secret as a plain variable instead of *_FILE; a retired PAYMENT_VIETQR_* account variable is passed; the
+#     worker-only secrets (email_smtp_password, booking_request_chat_webhook – Google Chat) are missing in the worker
+#     or given to another service; a service other than the worker gets BOOKING_REQUEST_CHAT_*
 #   - dev + demo (UXR 17/10 #1): api and worker do not receive the same key material (DATA_KEK_CURRENT,
 #     DATA_KEK_VERSION, ID_HASH_KEY, SESSION_SECRET, LOG_IP_HMAC_KEY, GUEST_CODE_SIGNING_KEY) from the env file, seed
 #     not the same keyring (KEK + ID_HASH_KEY); the demo overlay resolves although the keys are missing; prod api/worker
@@ -66,7 +68,10 @@ BLOB = 'blobdata'
 BLOB_USERS = {'api', 'worker'}
 PLAIN_SECRETS = {'DATABASE_URL', 'MIGRATION_DATABASE_URL', 'SESSION_SECRET', 'DATA_KEK_CURRENT', 'ID_HASH_KEY',
                  'LOG_IP_HMAC_KEY', 'GUEST_CODE_SIGNING_KEY', 'QA_SEED_PASSWORD', 'POSTGRES_PASSWORD',
-                 'OTTIMO_APP_DB_PASSWORD', 'OTTIMO_MIGRATOR_DB_PASSWORD', 'EMAIL_SMTP_PASSWORD'}
+                 'OTTIMO_APP_DB_PASSWORD', 'OTTIMO_MIGRATOR_DB_PASSWORD', 'EMAIL_SMTP_PASSWORD',
+                 'BOOKING_REQUEST_CHAT_WEBHOOK_URL'}
+# Secrets only the worker may receive (it alone sends): e-mail app password, Google Chat webhook URL (ARC gchat 3.2).
+WORKER_ONLY_SECRETS = {'email_smtp_password', 'booking_request_chat_webhook'}
 RETIRED = {'PAYMENT_VIETQR_BANK_BIN', 'PAYMENT_VIETQR_ACCOUNT_NO', 'PAYMENT_VIETQR_ACCOUNT_NAME', 'EMAIL_SMTP_URL'}
 
 def check_blob(label, cfg):
@@ -175,6 +180,19 @@ for name, svc in prod['services'].items():
         no_file = [k for k in KEYS if k != 'DATA_KEK_VERSION' and not env.get(f'{k}_FILE')]
         if no_file:
             bad(f'prod: {name} lacks {[k + "_FILE" for k in no_file]}')
+    got = {x.get('source') for x in (svc.get('secrets') or [])}
+    if name == 'worker':
+        missing = sorted(WORKER_ONLY_SECRETS - got)
+        if missing:
+            bad(f'prod: worker lacks the worker-only secrets {missing}')
+        if env.get('BOOKING_REQUEST_CHAT_WEBHOOK_URL_FILE') != '/run/secrets/booking_request_chat_webhook':
+            bad('prod: worker BOOKING_REQUEST_CHAT_WEBHOOK_URL_FILE must be /run/secrets/booking_request_chat_webhook')
+    else:
+        leaked = sorted(WORKER_ONLY_SECRETS & got)
+        if leaked:
+            bad(f'prod: {name} gets worker-only secrets {leaked} (only the worker sends)')
+        if any(k.startswith('BOOKING_REQUEST_CHAT_') for k in env):
+            bad(f'prod: {name} gets BOOKING_REQUEST_CHAT_* (worker only – ARC gchat 8.3)')
 pg = prod['services'].get('postgres', {})
 if sorted((pg.get('networks') or {}).keys()) != ['db']:
     bad(f'prod: postgres networks {sorted((pg.get("networks") or {}).keys())} (only db)')
@@ -188,5 +206,5 @@ if fails:
     print(f'::error::compose rules: {len(fails)} problem(s)')
     sys.exit(1)
 print('OK: compose rules (blob volume only in api/worker, web without blob/secrets, prod hardening, no plain secrets, '
-      'one keyring for api/worker/seed in dev + demo, demo refuses missing keys)')
+      'e-mail + Google Chat secrets worker-only, one keyring for api/worker/seed in dev + demo, demo refuses missing keys)')
 PY

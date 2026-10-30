@@ -562,7 +562,8 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
       `SELECT id, reply_by FROM website_booking_request WHERE phone_e164 = '84905444555'`,
     );
     await at(new Date(row!.reply_by.getTime() + 14 * 60_000));
-    expect((await runner.runOnce(WEB_REQUEST_SLA_JOB_KEY, property())).stats).toEqual({
+    // `morning` = the 07:30 Google Chat nudge of the same job (gchat-booking-request-notify 8.4).
+    expect((await runner.runOnce(WEB_REQUEST_SLA_JOB_KEY, property())).stats).toMatchObject({
       escalated: 0,
     });
     await at(new Date(row!.reply_by.getTime() + 15 * 60_000));
@@ -570,7 +571,8 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
       escalated: number;
     };
     expect(first.escalated).toBeGreaterThanOrEqual(1);
-    expect((await runner.runOnce(WEB_REQUEST_SLA_JOB_KEY, property())).stats).toEqual({
+    // `morning` = the 07:30 Google Chat nudge of the same job (gchat-booking-request-notify 8.4).
+    expect((await runner.runOnce(WEB_REQUEST_SLA_JOB_KEY, property())).stats).toMatchObject({
       escalated: 0,
     });
     expect(await notified('website_request_overdue', row!.id)).toEqual(['fdl', 'mgr']);
