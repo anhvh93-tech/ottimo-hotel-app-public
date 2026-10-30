@@ -232,6 +232,7 @@ jobs:
           shellcheck --version | head -2
           shellcheck -x -S warning product/infra/server/bootstrap-vps.sh product/infra/server/bin/dc \
             product/infra/server/bin/*.sh product/infra/postgres/init/02-roles.sh product/infra/ci/*.sh \
+            product/infra/server/test/deploy-landing-privacy.test.sh product/infra/server/test/ops-check-cwd.test.sh \
             product/infra/caddy/*.sh product/infra/demo/*.sh product/infra/docker/*.sh \
             product/services/api/scripts/production-bootstrap.sh product/services/api/scripts/mfa-operator-reset.sh
       # UXR P-15: demo/production web builds refuse a missing, malformed or placeholder desk phone; dev only warns.
@@ -251,6 +252,12 @@ jobs:
       # R3 v1.0: staging + production on one VPS behind one edge (SNI routing, PROXY protocol, landing preview auth).
       - name: Shared edge (render guards, routing, client address, no spoofing)
         run: bash product/infra/ci/test-edge.sh
+      # ARC FB-R3-ARC-OPS-US155-01: a landing release may not change the privacy page bytes of a published version.
+      - name: deploy-landing privacy byte check (same version + other bytes refused)
+        run: bash product/infra/server/test/deploy-landing-privacy.test.sh
+      # 30/10: ops-check / bin/dc run by hand from a directory the deploy user cannot enter; compose error ≠ not running.
+      - name: ops-check + bin/dc from any directory
+        run: bash product/infra/server/test/ops-check-cwd.test.sh
 
   test-surface-guard:
     # BUG-R1-SEC-08 / SR-SECR-05: the production contract must not contain /__test__ paths

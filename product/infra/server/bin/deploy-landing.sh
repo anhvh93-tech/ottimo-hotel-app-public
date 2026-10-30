@@ -2,13 +2,23 @@
 # Deploy one landing image tag (ADR-014; image ottimo-landing built by CI – infra/docker/Dockerfile.landing) to this
 # stack – run as the deploy user. Independent of the app (deploy.sh): staging = preview for INV (basic auth, noindex),
 # production = ottimo.vn / www.ottimo.vn.
-#   deploy-landing.sh <tag> [--digest sha256:<64 hex>] [--no-pull]
+#   deploy-landing.sh <tag> [--digest sha256:<64 hex>] [--no-pull] [--check-only]
 #   deploy-landing.sh --rollback          previous landing tag (state/landing_previous_tag)
+#   --check-only  config + pull + digest + privacy checks, then stop: nothing switched or recorded (OPS runs it on the
+#                 server before INV approves a landing release).
 # Production (APP_ENV=production) needs --digest (CI release job) unless the tag was deployed before with one.
 # Requires EDGE_MODE=edge (the landing publishes no port; the shared edge routes LANDING_HOST/LANDING_WWW_HOST).
 # Smoke: HTTPS through the edge on this host with the real certificate: home page 200 + exact landing headers
 # (staging: 401 without the preview password, X-Robots-Tag present; production: 200, no X-Robots-Tag), /en/ → 301,
 # /health and /v1/x → 404, www → 301 to the main host. A failed smoke puts the previous landing tag back.
+# Privacy notice (ARC FB-R3-ARC-OPS-US155-01, erd 4.14: one (version, locale) = one byte string), before switching:
+# sha256 of /srv/landing/privacy/index.html (en) and /srv/landing/vi/privacy/index.html (vi) in the NEW image, and the
+# version printed on each page, are compared with every successful `apply` line of state/privacy-notice.log
+# (publish-privacy-notice.sh). Same version + other bytes → refused (also for --rollback): body_sha256 stored for that
+# version would no longer be the page guests consent on – bump the notice version (pages + form) instead. While the
+# form proxy is closed (LANDING_PUBLIC_API not `on` – no consent can be given, README 12.3 rollback (c)) the same
+# finding is a WARNING only. A version not recorded yet passes with a reminder to run publish-privacy-notice.sh; an
+# image without the two pages passes with a note.
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -22,18 +32,19 @@ log() { echo "[landing $(date -u +%Y-%m-%dT%H:%M:%SZ)] $*"; logger -t ottimo-dep
 dc() { "$here/dc" "$@"; }
 envval() { sed -n "s/^$1=//p" "$OTTIMO_HOME/.env" | tail -n 1 | tr -d '\r' | sed -e 's/^"//' -e 's/"$//'; }
 
-tag="" digest="" pull=1
+tag="" digest="" pull=1 check_only=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --rollback) [ -r "$state/landing_previous_tag" ] || { echo "no previous landing tag" >&2; exit 2; }
                 tag=$(cat "$state/landing_previous_tag"); shift ;;
     --digest) digest="${2:-}"; shift 2 || true ;;
     --no-pull) pull=0; shift ;;
+    --check-only) check_only=1; shift ;;
     -*) echo "unknown option: $1" >&2; exit 2 ;;
     *) tag="$1"; shift ;;
   esac
 done
-[[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] || { echo "usage: $0 <tag> [--digest sha256:…] [--no-pull] | --rollback" >&2; exit 2; }
+[[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] || { echo "usage: $0 <tag> [--digest sha256:…] [--no-pull] [--check-only] | --rollback" >&2; exit 2; }
 [ -z "$digest" ] || [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "digest must be sha256:<64 hex>" >&2; exit 2; }
 
 step lock
@@ -80,6 +91,53 @@ if [ -n "$digest" ]; then
   docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$ref" | grep -q "@$digest\$" \
     || { log "FAIL: $ref does not have the released digest"; exit 1; }
 fi
+
+step privacy
+ptmp=$(mktemp -d); trap 'rm -rf "$ptmp"' EXIT
+sha() { if command -v sha256sum >/dev/null; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
+one() { sort -u | awk 'NR == 1 { v = $0 } END { if (NR == 1) print v }'; }  # exactly one distinct value, else empty
+privacy_check() { # 0 = pass, 1 = refuse. Reads the new image offline: no network, no pull.
+  local rc=0 loc file v h rec want bad="" seen="" new=0
+  local ver_re='[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[0-9]{1,2})?'
+  # shellcheck disable=SC2016  # $f expands inside the container
+  docker run --rm --pull never --network none --entrypoint sh "$ref" -c \
+    'cd /srv/landing && for f in privacy/index.html vi/privacy/index.html; do [ -f "$f" ] || exit 4; done
+     tar -cf - privacy/index.html vi/privacy/index.html' > "$ptmp/pages.tar" 2>/dev/null || rc=$?
+  if [ "$rc" -eq 4 ]; then log "privacy: $tag has no /privacy/ + /vi/privacy/ pages – nothing to compare"; return 0; fi
+  if [ "$rc" -ne 0 ] || ! tar -C "$ptmp" -xf "$ptmp/pages.tar"; then log "FAIL: cannot read the privacy pages of $ref"; return 1; fi
+  for loc in en vi; do
+    # Same version patterns as publish-privacy-notice.sh ("Version …" / "Phiên bản …").
+    if [ "$loc" = en ]; then file="$ptmp/privacy/index.html"; v=$(grep -oE "Version $ver_re" "$file" | sed 's/^Version //' | one)
+    else file="$ptmp/vi/privacy/index.html"; v=$(grep -oE "Phiên bản $ver_re" "$file" | sed 's/^Phiên bản //' | one); fi
+    h=$(sha "$file")
+    if [ -z "$v" ]; then log "WARNING: privacy $loc: not exactly one version printed on the page (publish-privacy-notice.sh will refuse it)"; continue; fi
+    # Successful writes only (a dry run writes nothing): "<time> apply … version=<v> sha_en=<h> sha_vi=<h> rc=0".
+    rec=$(awk -v v="$v" -v k="sha_$loc" '$2 == "apply" && $NF == "rc=0" {
+            ver = ""; s = ""
+            for (i = 3; i <= NF; i++) { p = index($i, "="); if (substr($i, 1, p - 1) == "version") ver = substr($i, p + 1)
+                                         if (substr($i, 1, p - 1) == k) s = substr($i, p + 1) }
+            if (ver == v && s != "") print s }' "$state/privacy-notice.log" 2>/dev/null | sort -u)
+    if [ -z "$rec" ]; then seen+=" $loc $v (not published yet)"; new=1; continue; fi
+    while IFS= read -r want; do
+      [ "$want" = "$h" ] || bad+=" $loc $v: published sha256 ${want:0:12}…, image ${h:0:12}…;"
+    done <<<"$rec"
+    seen+=" $loc $v (same bytes as published)"
+  done
+  if [ -n "$bad" ]; then
+    bad="${bad# }"; bad="${bad%;}"
+    if [ "$(envval LANDING_PUBLIC_API)" = "on" ]; then
+      log "FAIL: privacy page bytes changed for a published notice version ($bad) – bump the notice version (pages + form), nothing switched"
+      return 1
+    fi
+    log "WARNING: privacy page bytes changed for a published notice version ($bad) – allowed only because LANDING_PUBLIC_API is not on; bump the version before the form proxy is opened again"
+    return 0
+  fi
+  log "privacy:${seen:- no version found}"
+  [ "$new" -eq 0 ] || log "privacy: after this deploy run publish-privacy-notice.sh for the new version (README 12.3 step 6) before the form is used"
+  return 0
+}
+privacy_check || exit 1
+if [ "$check_only" -eq 1 ]; then log "CHECK ONLY: $tag passes the config, digest and privacy checks – nothing switched or recorded"; exit 0; fi
 
 restore() {
   if [ -n "$prev" ] && [ "$prev" != "$tag" ]; then

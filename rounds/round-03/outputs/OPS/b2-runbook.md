@@ -264,9 +264,10 @@ Chỉ làm khi INV đã tạo Healthchecks.io + Google Chat **và** buổi còn 
 
 INV gõ (địa chỉ dán vào dấu nhắc ẩn, không hiện lên màn hình, không vào chat):
 ```bash
-ssh -t -i ~/.ssh/ottimo_ops ottimo-admin@<IP-VPS> 'read -rsp "Healthchecks ping URL: " hb; echo; read -rsp "Google Chat webhook URL: " wh; echo; sudo -u ottimo cp -p /opt/ottimo-prod/.env /opt/ottimo-prod/state/env.before-alerts.$(date +%Y%m%d-%H%M%S) && printf "HEARTBEAT_URL=%s\nALERT_WEBHOOK_URL=%s\n" "$hb" "$wh" | sudo -u ottimo tee -a /opt/ottimo-prod/.env >/dev/null && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/ops-check.sh | tail -3'
+ssh -t -i ~/.ssh/ottimo_ops ottimo-admin@<IP-VPS> 'cd / && read -rsp "Healthchecks ping URL: " hb; echo; read -rsp "Google Chat webhook URL: " wh; echo; sudo -u ottimo cp -p /opt/ottimo-prod/.env /opt/ottimo-prod/state/env.before-alerts.$(date +%Y%m%d-%H%M%S) && printf "HEARTBEAT_URL=%s\nALERT_WEBHOOK_URL=%s\n" "$hb" "$wh" | sudo -u ottimo tee -a /opt/ottimo-prod/.env >/dev/null && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/ops-check.sh | tail -3'
 ```
 - Chỉ thêm 2 dòng vào cuối `.env`. `ops-check` đọc dòng cuối cùng nên dòng trống cũ không ảnh hưởng.
+- `cd /` ở đầu (sửa 30/10): lệnh SSH bắt đầu trong home của `ottimo-admin`, user `ottimo` không vào được. Bản `ops-check.sh`/`bin/dc` cũ trên máy chủ gọi `docker compose` ở đó → `stat .: permission denied` → `containers` FAIL giả (đã gửi tin FAIL vào webhook và ping `/fail` lúc 23:39 30/10; timer systemd không bị). Bản sửa (`ops-check.sh` tự `cd /`, `bin/dc` tự đổi sang `/` khi thư mục hiện tại không đọc được) chỉ có hiệu lực sau khi làm mới bundle `infra/`; tới lúc đó vẫn gõ `cd /` trước mọi lệnh `sudo -u ottimo …`. Lượt timer kế tiếp (≤ 30 phút) tự gửi tin `containers OK` và ping thường, Healthchecks về "up".
 - Không cần dựng lại container.
 - Đạt khi Healthchecks.io hiện "up" sau ≤ 30 phút.
 - UptimeRobot (5 địa chỉ) INV tự tạo trên web, không đụng máy chủ.

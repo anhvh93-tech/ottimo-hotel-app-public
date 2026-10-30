@@ -11,7 +11,9 @@
 #   disk        root filesystem < 80 % (hosting-plan 8)
 #   mem         MemAvailable ≥ MEM_MIN_AVAIL_PCT (default 10 %) of RAM – staging + production share 4.8 GB (v1-production 3)
 #   tls         certificate of DESK/STAFF/GUEST host valid > 14 days (Caddy renews at 30 days; this means renewal fails)
-#   containers  postgres, api, worker, web running (api healthy); + landing when a landing tag is deployed
+#   containers  postgres, api, worker, web running (api healthy); + landing when a landing tag is deployed. A failing
+#               `docker compose` itself is reported as "docker compose failed, container state unknown: <category>", not
+#               as "not running" (same for http5xx)
 #   http5xx     server errors answered by Caddy (web + landing) in the last 35 min < HTTP5XX_MAX (default 5): a
 #               crashing api, a 502 from a dead upstream – before guests or staff report it
 #
@@ -26,12 +28,28 @@
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
+# Run by hand as `sudo -u ottimo …/ops-check.sh` the cwd is often a home the deploy user cannot enter: docker compose
+# then fails with "stat .: permission denied" and every container looked "not running" (false FAIL alert 30/10 23:39).
+# Nothing here uses a relative path – always start from /.
+cd /
 if [ -z "${OTTIMO_HOME:-}" ] && [ -f "$here/../../../.ottimo-home" ]; then OTTIMO_HOME=$(cd "$here/../../.." && pwd); fi
 OTTIMO_HOME="${OTTIMO_HOME:-/opt/ottimo}"
 export OTTIMO_HOME
 state="$OTTIMO_HOME/state/ops-check"
 mkdir -p "$state"
 dc() { "$here/dc" "$@"; }
+compose_err="$state/compose.stderr"
+: > "$compose_err"; chmod 600 "$compose_err"
+# Why a docker compose call failed, as a fixed category: its raw message is never forwarded (an .env parse error can
+# quote a line of .env, e.g. a webhook URL). Details: run `…/bin/dc ps` by hand.
+compose_failed() {
+  local why="other error – run bin/dc ps by hand"
+  if grep -qi 'permission denied' "$compose_err" 2>/dev/null; then why="permission denied (current directory or stack files)"
+  elif grep -qiE 'cannot connect to the docker daemon|docker\.sock' "$compose_err" 2>/dev/null; then why="Docker daemon unreachable"
+  elif grep -qiE 'no such file|not found' "$compose_err" 2>/dev/null; then why="stack file missing"
+  fi
+  echo "docker compose failed, container state unknown: $why"
+}
 envval() { sed -n "s/^$1=//p" "$OTTIMO_HOME/.env" | tail -n 1 | tr -d '\r' | sed -e 's/^"//' -e 's/"$//'; }
 
 J16_MAX_HOURS="${J16_MAX_HOURS:-26}"
@@ -150,17 +168,20 @@ check_tls() {
 }
 
 check_containers() {
-  local s missing=""
+  local s ids missing="" n_api=0
   local services=(postgres api worker web)
   [ -s "$OTTIMO_HOME/state/landing_tag" ] && services+=(landing)
+  # A failing `docker compose` (cwd, daemon, .env) is NOT "container not running": report it as such, with its error.
   for s in "${services[@]}"; do
-    [ -n "$(dc ps --status running --quiet "$s" 2>/dev/null)" ] || missing+=" $s"
+    if ! ids=$(dc ps --status running --quiet "$s" 2>"$compose_err"); then
+      notify containers FAIL "$(compose_failed)"; return 1
+    fi
+    [ -n "$ids" ] || missing+=" $s"
+    [ "$s" != api ] || n_api=$(grep -c . <<<"$ids" || true)
   done
   if [ -n "$missing" ]; then notify containers FAIL "not running:$missing"; return 1; fi
   # US155-04 / SEC FB-R3-SEC-US155-04: the public form limits (step 0 counters, in-flight cap) live in the api
   # process – exactly ONE api replica (README infra/server 12.2 "API chạy 1 bản").
-  local n_api
-  n_api=$(dc ps --status running --quiet api 2>/dev/null | wc -l | tr -d ' ')
   if [ "$n_api" != "1" ]; then notify containers FAIL "$n_api api replicas running (must be exactly 1)"; return 1; fi
   if ! dc exec -T api wget -qO- http://127.0.0.1:3000/health 2>/dev/null | grep -q '"status":"ok"'; then
     notify containers FAIL "api /health not ok"; return 1
@@ -172,7 +193,11 @@ check_http5xx() {
   local svc=(web) n
   [ -s "$OTTIMO_HOME/state/landing_tag" ] && svc+=(landing)
   # Caddy access log lines are JSON with "status":<code>; count 5xx answers of the last 35 minutes.
-  n=$(dc logs --no-color --no-log-prefix --since 35m "${svc[@]}" 2>/dev/null | grep -c '"status":5[0-9][0-9]' || true)
+  local logs
+  if ! logs=$(dc logs --no-color --no-log-prefix --since 35m "${svc[@]}" 2>"$compose_err"); then
+    notify http5xx FAIL "$(compose_failed)"; return 1
+  fi
+  n=$(grep -c '"status":5[0-9][0-9]' <<<"$logs" || true)
   if [ "${n:-0}" -ge "$HTTP5XX_MAX" ]; then notify http5xx FAIL "$n server errors (5xx) in 35 min"; return 1; fi
   notify http5xx OK "${n:-0} server errors (5xx) in 35 min"
 }
