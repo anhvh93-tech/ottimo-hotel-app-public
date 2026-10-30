@@ -1157,6 +1157,146 @@ Bản ghi thử còn lại (chỉ là bản ghi, không giữ căn, không còn 
 - Đối chiếu tiền: ghi 1.100.000 tiền mặt thử; hoàn 500.000, đảo 600.000. Mọi folio dư 0.
 - Chưa kiểm lượt này: hộp thư thông báo `qa.fd`/`qa.owner` (thông báo `refund_ready` nếu có), "Cần chú ý" của MGR.
 
+## 21. US-155 đầu-cuối – từ form trên landing tới Desk và thông báo (30/10, 14:18–15:08)
+
+- Người chạy: QA | Round 3 – bước **Kiểm thử** | ORC giao 30/10 chiều: chủ đầu tư muốn xem "flow đặt trên landing page, nó hiện về desk ntn, và noti ntn", chuẩn bị bật form trên ottimo.vn. ORC bổ sung câu hỏi của chủ đầu tư: "lỡ nhân viên đang không log in vào web thì sao".
+- Không VietQR, không tiền, không SQL tay trên staging/production, không đụng production, không in khóa TOTP, không commit. Dữ liệu đều giả: tên "QA Test Anna", "QA Thu Thang"; SĐT `+1 202 555 0123` (dải số giả 555-01xx); email `qa.thang@example.com`.
+
+### 21.0 Môi trường – staging chưa nhận được form, nên luồng đầy đủ chạy trên stack thử dùng đúng image staging
+
+| Đích | Thấy gì | Hệ quả |
+|---|---|---|
+| api staging `v1.0.0` (`sha-8b3aec89486f`) | `LANDING_BASE_URL` của container api và worker **rỗng** (đọc tên biến bằng `docker inspect`, không đọc bí mật). Khóa ký form có. `EMAIL_PROVIDER=mock` | Mọi lệnh công khai `/v1/public/properties/dlt/form-token` và `/booking-requests` trả **404**, kể cả khi bật công tắc (`public-site.controller.ts`: không có landing origin → `NOT_FOUND`). Staging **không** nhận được yêu cầu từ form |
+| Công tắc staging | `public_booking_requests_enabled = false` từ 22/10, chưa có lịch sử | QA **không bật**: bật cũng không nhận (dòng trên); bật rồi tắt thì không bật lại được trong ngày (thiết kế BUG-R3-008) |
+| Landing staging | Không còn từ 24/10 (OPS `v1-production.md` 13) | Đúng ghi chú của `outputs/FE/us155-enable-readiness.md` mục 3 và bước G: "staging" của US-155 = stack thử |
+
+Vì vậy QA làm hai phần:
+
+1. **Staging thật** (chỉ đọc, không ghi gì):
+   - Landing **bản có form** (image dựng từ HEAD, `LANDING_BOOKING_FORM=true`, slug `dlt`) chạy trên máy QA. Proxy nhỏ chỉ chuyển đúng 2 đường công khai sang `desk.staging.ottimo.vn`, giống `Caddyfile.landing`. Dùng cho ca **công tắc tắt**: khách thấy gì.
+   - Desk staging, S35 **Yêu cầu từ website**, với `qa.fd` (máy quầy đã cấp quyền `qa-desk-01`) và `qa.owner`.
+2. **Stack thử `ottimo-qa155e`** (dùng một lần, máy QA) cho luồng gửi → Desk → thông báo:
+   - api/worker/migrate/seed = **đúng image staging** `ghcr.io/anhvh93-tech/ottimo-api:sha-8b3aec89486f-test` (bản `-test` của cùng commit, có `/__test__`); web = `ottimo-web:sha-8b3aec89486f`.
+   - Landing = image dựng từ HEAD với `infra/docker/Dockerfile.landing`, `LANDING_BOOKING_FORM=true`, `LANDING_PROPERTY_SLUG=dlt`; mount nguyên `infra/caddy/Caddyfile.landing` (`LANDING_PUBLIC_API=on`) qua overlay `tests/e2e/support/us155-stack/compose.us155.yml`. `product/apps/landing-web`, `services`, `apps/admin-web`, `infra` ở HEAD **không khác** `8b3aec8` (`git diff --stat` rỗng).
+   - DB mới, migrate, seed DS-E, đồng hồ thật. `LANDING_BASE_URL=https://landing.localhost:58150`, khóa ký form ngẫu nhiên.
+   - Khác staging: `MFA_ENFORCED=false`; chưa cài tài khoản nhận chuyển khoản nên không có VietQR (không có gì phải che).
+   - Bước dữ liệu: đăng `privacy_notice_version` `2026-10-24` (vi, en) bằng psql **trên stack thử** – giống bước phát hành landing; không có API cho việc này (OPS đang làm `publish-privacy-notice.sh`). `qa.owner` bật công tắc qua API: 200, `reason` bắt buộc (thiếu → 422 `reason REQUIRED`).
+   - Helper và kết quả thô: scratchpad phiên `qa-r6/wr/` (ngoài repo): `lapi.mjs`, `land.mjs`, `watch.mjs`, `wr-ui.mjs`, `pwa.mjs`, `desk.mjs`, `stgproxy.mjs`, `*.json`, `shots/`.
+
+### 21.1 Kết luận
+
+**ĐẠT** luồng US-155 đầu-cuối trên image `v1.0.0`: khách gửi → Desk hiện ngay → nhân viên nhận xử lý → báo giá → giữ chỗ → yêu cầu "Đã thành đơn", nguồn Website. 5 lỗi mới đều **P3**, không P0/P1/P2.
+
+Với câu hỏi "lỡ nhân viên không đăng nhập web thì sao":
+- **Hiện tại (v1.0.0) không có kênh nào báo ra ngoài app.** Khi không ai mở Desk:
+  - không đẩy thông báo về điện thoại (`staff.push` nằm trong outbox, không có bộ phát – như BUG-R3-041);
+  - không email, không Zalo, không Google Chat;
+  - chủ đầu tư không nhận gì, kể cả khi yêu cầu quá hạn.
+- Yêu cầu **không mất**. Khi có người mở Desk, menu **Yêu cầu từ website** có số, **Cần chú ý** có dòng "chưa ai nhận". Quá hạn 30 phút mà chưa ai nhận thì máy chủ ghi thêm thông báo cho trưởng lễ tân + quản lý. Thông báo này chỉ hiện trong **app nhân viên**, mà tài khoản có 2 bước (chủ đầu tư, quản lý, tài khoản 6 vai của người trực) không đăng nhập được app này.
+- Khách **không** nhận email/tin xác nhận nào. Đây là thiết kế, AC7. Khách chỉ có màn cảm ơn với mã yêu cầu, giờ hứa trả lời và số gọi nếu quá giờ hứa.
+- Nghĩa là trước v1.0.1 (Google Chat, ARC `gchat-booking-request-notify.md`), cách tạm INV đã chọn 30/10 – **Desk luôn mở trên máy quầy và điện thoại người trực 07:00–22:00** – là cách **duy nhất** để biết có yêu cầu mới. Khi Desk đang mở, menu có số sau ~1,4 giây, không cần tải lại. Đề nghị ORC trình INV thêm 2 điểm, kèm phương án:
+  - (1) Google Chat v1.0.1 nên báo cả tin "chưa ai nhận" quá hạn tới chủ đầu tư; hiện `website_request_overdue` chỉ tới FDL + MGR.
+  - (2) Ngoài giờ trực (22:00–07:00) khách vẫn gửi được. Câu hứa "trước 09:00 sáng hôm sau" vẫn đúng, nhưng máy chủ chỉ báo quá hạn lúc ~07:30.
+  - Lưu ý cho cách tạm: Desk **không có âm báo, không có thông báo trình duyệt**; số trên menu chỉ đổi khi tab Desk đang mở. Trên điện thoại, tab trình duyệt chạy nền hoặc màn hình tắt thì không có gì kêu – người trực phải tự mở Desk xem (đọc mã; không có mã `Notification`/âm thanh trong `apps/admin-web`).
+- **Staging chưa nhận được form** (21.0): `LANDING_BASE_URL` api staging rỗng. Không phải lỗi sản phẩm. OPS đặt cùng lúc với production (bước H của `us155-enable-readiness.md`) nếu muốn thử trên staging.
+
+### 21.2 Phía khách – form và màn cảm ơn (stack thử, landing có form)
+
+| # | Giờ | Bước | Thấy gì | Ảnh | Đạt? |
+|---|---|---|---|---|---|
+| 1 | 14:30:04 | (a) EN, **By the night** 09/11 → 12/11, 2 người lớn, **Reply on: Zalo**, SĐT giả, lời nhắn "Late arrival around 22:00…", tích đồng ý – điện thoại 390×844 | Form đủ ô theo AC1: kỳ ở, ngày, số người, hạng phòng (không bắt buộc), tên, kênh (Zalo đứng đầu), số, lời nhắn, ô đồng ý không tích sẵn, link **Privacy notice**. Không hỏi quốc tịch/giấy tờ/thẻ. Chạm form lần đầu → 1 lệnh `GET form-token` 200 | `01`, `02`; máy tính: `04`, `05` | Đạt |
+| 2 | 14:30:08 | (a) **Send booking request** | 1 lệnh `POST booking-requests` 202 (`Idempotency-Key`), mã **QRH7ATJ0**. Màn **Request sent**: "Thank you, QA Test Anna. This is a request, not yet a booking." · mã `QRH7 ATJ0` (JetBrains Mono) · "For the fastest reply, open Zalo and send us this number." · "We reply within 1 hour (07:00–22:00, Da Lat time)." · "If you have not heard from us by 15:30, call 08.4444.0909 or message us on Zalo with this number." · nút **Open Zalo**, **Send another request**. Không giá, không giữ phòng, không thu tiền (AC7) | `03` | Đạt |
+| 3 | 14:31:12 | (b) VI, **Theo tháng** từ 20/11, **3 tháng**, 1 người lớn, **Trả lời qua: Email**, email giả, lời nhắn – máy tính 1440×900 | Form tiếng Việt, ô **Thời gian ở** thay ô ngày đi. 202, mã **KNJ6F2Z1**. Màn **Đã gửi yêu cầu**: "Cảm ơn QA Thu Thang. Đây là yêu cầu, chưa phải đặt phòng." · mã · "Chúng tôi sẽ trả lời qua email." · "Chúng tôi trả lời trong 1 giờ (07:00–22:00, giờ Đà Lạt)." · "Nếu đến 15:31 chúng tôi chưa liên hệ, vui lòng gọi 08.4444.0909 hoặc nhắn Zalo kèm mã này." | `07`, `08`, `09`; điện thoại: `06` | Đạt |
+| 4 | – | Khách có nhận xác nhận qua email/Zalo không? | **Không.** Không có dòng outbox nào gửi khách (chỉ `staff.push`, 21.4). Đúng thiết kế: AC7 "hệ thống **không** tự gửi email/Zalo tới liên hệ khách nhập" (ADR-014 4.3, chống dùng form để spam người khác). Khách chỉ có màn cảm ơn với mã yêu cầu | – | Đúng thiết kế |
+
+Giọng chữ khách: tiếng Anh dẫn, tiếng Việt đủ bản, không emoji, không "!", màu và chữ đúng bảng thương hiệu (nút gửi Earth Brown, nền Ivory/Cream, Lora tiêu đề, mã JetBrains Mono).
+
+### 21.3 Phía Desk – lễ tân `qa.fd`, máy quầy đã cấp quyền (Chromium 1440×900)
+
+| # | Giờ | Bước | Thấy gì | Ảnh | Đạt? |
+|---|---|---|---|---|---|
+| 1 | 14:30:09 | Desk mở sẵn ở **Hôm nay** trước khi khách gửi (a), **không tải lại** | Menu **Yêu cầu từ website** hiện số **1** sau **1,4 giây** (SSE `website_request.changed` → Desk tự gọi lại danh sách). Khối **CẦN CHÚ Ý 1**: "Yêu cầu đặt phòng từ website QRH7ATJ0 chưa ai nhận · Trả lời trước 14:45 · **Mở**" hiện sau **20,8 giây** (khối này chờ nhịp tải lại, không nghe SSE của yêu cầu website) | `10`, `11` | Đạt |
+| 2 | 14:32 | **Yêu cầu từ website** – danh sách | Cột: Mã yêu cầu · Gửi lúc · Ngày ở · Số khách · Hạng phòng · Trả lời qua · Nguồn (**Website**) · Hạn trả lời · Cần xem · Người xử lý · Trạng thái. (b) có dòng "Ở dài ngày – báo giá dài hạn". Lọc theo trạng thái: Mới · Đang xử lý · Đã thành đơn · Đã đóng · Spam | `20` | Đạt |
+| 3 | 14:32 | Mở (a) | Ngăn chi tiết: **LƯU TRÚ KHÁCH HỎI** (ngày, số khách, hạng, **Ngôn ngữ khách dùng: Tiếng Anh**, gửi lúc, người xử lý) · **LIÊN HỆ KHÁCH** (tên, SĐT, "Khách muốn được trả lời qua Zalo", **Sao chép SĐT**, **Gọi**, nhắc dùng Zalo OA của cơ sở) · **LỜI NHẮN CỦA KHÁCH** · **Chi tiết nguồn**. Nút: **Đánh dấu spam**, **Đóng – không thành đơn**, **Báo giá**, **Tạo đơn**, **Nhận xử lý**. SĐT hiện "+120 255 501 23" → **BUG-R3-049** | `21` | Đạt, kèm BUG-R3-049 (P3) |
+| 4 | 14:33 | **Nhận xử lý** | Toast "Đã nhận yêu cầu QRH7ATJ0"; trạng thái **Đang xử lý**, "Bạn · nhận lúc 14:33"; số menu còn 1 (chỉ đếm yêu cầu chưa ai nhận). Nút **Nhận xử lý** đổi thành **Trả lại hàng chờ**. Không có nút riêng "đã liên hệ": **Nhận xử lý** chính là dấu "đã có người lo", dừng nhắc quá hạn | `22` | Đạt |
+| 5 | 14:34 | **Báo giá** | Hộp **Báo giá cho yêu cầu QRH7ATJ0** điền sẵn ngày, số đêm, số khách; "Chưa có hồ sơ cùng liên hệ – tìm hoặc tạo hồ sơ mới bên dưới" (không tự gộp hồ sơ – BR-951). Giá 3 đêm × 667.000 = 2.001.000, cọc 30% 600.000 | `23` | Đạt |
+| 6 | 14:35 | **Khách đứng tên** → **Tạo nhanh khách** → **Lưu hồ sơ** | Hộp **Hồ sơ khách mới** chỉ điền sẵn tên; SĐT/kênh trống, ngôn ngữ Tiếng Việt, quốc tịch Việt Nam → **BUG-R3-050**. QA gõ SĐT giả rồi lưu: KH-0001 | – | Đạt, kèm BUG-R3-050 (P3) |
+| 7 | 14:35 | **Lưu báo giá** | BG-00001, bước gửi khách chọn đúng **English**, mẫu tin tiếng Anh, nút **Sao chép gửi Zalo**, **Khách đồng ý – Giữ chỗ**. Yêu cầu hiện "Đã có báo giá"; máy chủ gắn `quoteId` | `24a` | Đạt |
+| 8 | 14:36 | Mở lại BG-00001 từ **Báo giá & giữ chỗ** → tab **Báo giá** | **Ngôn ngữ gửi khách: Tiếng Việt**, mẫu tin tiếng Việt (lấy từ hồ sơ ở bước 6) → BUG-R3-050 | `24` | Không đạt (P3) |
+| 9 | 14:36:55 | **Khách đồng ý – Giữ chỗ** → **12 h** → **Tạo giữ chỗ** | 201 **OTM-00001** `hold` căn 101, hạn 02:36 31/10; "Gửi mã QR cho khách. Bạn sẽ được nhắc 2 giờ trước khi hết hạn." VietQR 409 vì stack thử chưa cài tài khoản nhận ("Chưa cài tài khoản nhận chuyển khoản…") – không có QR, không tiền | `25`, `26` | Đạt |
+| 10 | 14:37 | Yêu cầu (a) sau khi giữ chỗ | Máy chủ: `converted`, `reservationCode OTM-00001`, tên/SĐT/lời nhắn đã xóa (C2 = NULL). Desk: lọc **Đã thành đơn** → "Đã thành đơn OTM-00001 · **Mở đơn**", không còn nút thao tác. Đơn: kênh `direct`, nguồn **`website`** (AC2, WR6) | `27` | Đạt |
+| 11 | 14:38 | Danh sách sau ca gửi trùng (21.5 dòng 3) | (b) KNJ6F2Z1 và bản gửi lại WR45Q6DQ đều gắn "Có thể trùng yêu cầu khác"; ngăn chi tiết "Có thể trùng với: KNJ6F2Z1" | `28` | Đạt |
+| 12 | 15:03 | Mở (b) KNJ6F2Z1 (ở dài) → **Tạo đơn** | Mở hộp **Đặt phòng cho yêu cầu KNJ6F2Z1 – Hợp đồng dài hạn** (HĐ ngoài hệ thống): điền sẵn ngày vào, 3 tháng · 92 đêm, 1 người lớn; "Đơn tạo ra có nguồn Website; yêu cầu chuyển sang Đã thành đơn và thông tin liên hệ trên yêu cầu được xóa". QA **không** tạo, bấm đóng | `44` | Đạt |
+| 13 | 15:05 | **Xóa theo yêu cầu người gửi** (WR45Q6DQ, `qa.fdl`) | Hộp "Xóa dữ liệu của yêu cầu WR45Q6DQ?", nói rõ xóa ngay, không khôi phục, không mở lại; nút **Xóa ngay** khóa tới khi chọn cách xác minh và nhập liên hệ. Nhập đúng email → 200, "Đã xóa dữ liệu…", lý do "Đã xóa theo yêu cầu của người gửi". Mục liên hệ ghi "đã xóa **theo hạn lưu**" → **BUG-R3-055**. Lễ tân `qa.fd` không có nút này (đúng quyền) | `45`, `46` | Đạt, kèm BUG-R3-055 (P3) |
+| 14 | 15:06 | **Đóng – không thành đơn** (KNJ6F2Z1) | Hộp chọn lý do (Hết phòng · Khách chưa chọn vì giá · Khách không đặt nữa · Không liên lạc được · Trùng yêu cầu / đã có đơn · Không phù hợp quy định · Lý do khác) + ghi chú nội bộ; nút khóa tới khi chọn lý do. **Khách không đặt nữa** → "Đã đóng yêu cầu KNJ6F2Z1." | `47`, `48` | Đạt |
+| 15 | 15:06 | Dọn: **Hủy giữ chỗ** OTM-00001 trên Desk, lý do **Khách đổi ý** | Hộp "Hủy giữ chỗ căn 101? … mở bán lại từ 09/11 đến 12/11… Không thu phí (giữ chỗ chưa cọc)" – đúng vì chưa cọc. → `cancelled` | `49` | Đạt |
+
+### 21.4 Thông báo – ai được báo, bằng gì, sau bao lâu
+
+**Đọc mã `v1.0.0`:**
+- Khi lưu yêu cầu mới (`public-booking.service.ts` `store()`), trong cùng giao dịch:
+  - `events.notify(kind 'website_request_new', roles FDL + FD + SAL)` → mỗi người có vai đó được **1 dòng hộp thư `staff_notification`** (chỉ mã yêu cầu, không tên/SĐT/email) + sự kiện SSE `notification.created` riêng người đó + **1 dòng outbox `staff.push`**.
+  - `events.publish('website_request.changed')` → SSE cho FD+ và SAL: Desk đang mở tự cập nhật số trên menu.
+  - **Không** báo OWN, MGR khi có yêu cầu mới. OWN/MGR chỉ thấy nếu đang mở Desk (số trên menu, "Cần chú ý").
+- Job `web_request.sla` (mỗi nhịp worker ~60 giây): yêu cầu vẫn **Mới** (chưa ai **Nhận xử lý**) sau `reply_by` + (`web_request_escalate_minutes` − `web_request_response_minutes`) = hạn trả lời + 15 phút → **một** thông báo `website_request_overdue` cho **FDL + MGR** (hộp thư + outbox `staff.push`). Trong giờ trực: hạn trả lời = lúc gửi + 15 phút → báo quá hạn ở phút ~30. Ngoài giờ trực (22:00–07:00): hạn trả lời = 07:00 + 15 phút, báo quá hạn ~07:30 sáng hôm sau.
+- Desk web **không có chuông/hộp thư**. Desk không gọi `GET /v1/me/notifications`. Tín hiệu trên Desk chỉ có: số trên menu **Yêu cầu từ website** (yêu cầu chưa ai nhận, cập nhật qua SSE) và dòng **Cần chú ý** `website_request_new` (tính lúc đọc; mức `warning` khi quá hạn trả lời).
+- Hộp thư `staff_notification` chỉ hiện ở **app nhân viên** (PWA `staff.…`): chuông + trang **Thông báo**, chữ chung "Thông báo mới – xem chi tiết trên OTTIMO Desk" + mã yêu cầu. App nhân viên **không đăng nhập được với tài khoản có 2 bước** (`LoginPage.tsx`: `MFA_REQUIRED` → báo lỗi). Ở OTTIMO, tài khoản người trực giữ 6 vai và có 2 bước (DOM `DOM-on-BA-department-guides.md`), nên người trực thật **không** xem được hộp thư này.
+- `staff.push` (đẩy về điện thoại khi app đóng): **không có bộ phát** – cùng gốc BUG-R3-041 (không mã nào đọc topic này; không có mã Web Push dù máy chủ có khóa VAPID). Trên stack thử: 3 dòng `staff.push` ở trạng thái `pending`, `attempts 0` suốt lượt kiểm.
+- Email nhân viên: `staff.email` chỉ dùng cho 2 bước và đổi tham số (`mfa-store.ts`, `platform.controller.ts`); **không** có email cho yêu cầu website. (Staging còn `EMAIL_PROVIDER=mock`; BUG-R3-032: người dùng không có email.)
+- Zalo, Google Chat: **chưa có**. Google Chat đã có thiết kế ARC (`outputs/ARC/gchat-booking-request-notify.md`, topic `staff.chat`, nhắc lại qua `web_request.sla`), đích v1.0.1.
+- Khách: không nhận gì ngoài màn cảm ơn (21.2 dòng 4).
+
+**Đo trên stack thử:**
+
+| # | Giờ | Ca | Thấy gì | Thời gian | Ảnh | Đạt? |
+|---|---|---|---|---|---|---|
+| 1 | 14:30:08 | Có người đang mở: Desk `qa.fd` ở **Hôm nay** + app nhân viên `qa.fdl` (điện thoại), khách gửi (a) | Desk: số **1** trên menu không cần tải lại. App nhân viên: chuông có số **1**, dòng "Có thông báo mới". Desk **Cần chú ý** thêm dòng QRH7ATJ0 | Menu Desk **1,4 giây**; chuông app **1,4 giây**; **Cần chú ý** 20,8 giây | `10`, `11`, `12a`, `12b` | Đạt |
+| 2 | 14:31:12 | **Không ai đăng nhập**: QA đăng xuất cả 3 phiên (204), DB còn **0** phiên hiệu lực; khách gửi (b) | Máy chủ ghi 5 dòng hộp thư `website_request_new` (qa.fd, qa.fd2, qa.fdl, qa.fdsal, qa.sal) + 1 dòng `staff.push` `pending`. **Không có gì đi ra ngoài**: không đẩy về điện thoại, không email, không Zalo, không Chat. Chủ đầu tư, quản lý: không có dòng hộp thư nào | Không ai biết cho tới khi mở app | – | Đúng mã; là **khoảng trống** (21.1) |
+| 3 | 14:32 | Đăng nhập lại sau ca 2 | Desk `qa.fd` → **Hôm nay**: menu **2** ("2 yêu cầu mới chưa ai nhận"), **CẦN CHÚ Ý 1** "Yêu cầu đặt phòng từ website chưa ai nhận: 2 · Trả lời trước 14:45 · Mở". App nhân viên `qa.fdl`: **Thông báo** 2 dòng "Thông báo mới – xem chi tiết trên OTTIMO Desk" KNJ6F2Z1 14:31, QRH7ATJ0 14:30. Chủ đầu tư: hộp thư chỉ có "đổi công tắc form" | Ngay khi mở | `13`, `14` | Đạt |
+| 4 | 15:02:01 | **Quá hạn, vẫn không ai đăng nhập**: KNJ6F2Z1 (gửi 14:31, hạn trả lời 14:46) để nguyên **Mới**, 0 phiên hiệu lực | Job `web_request.sla` đặt `overdue_notified_at` 15:02:01 (hạn 14:46:12 + 15 phút = 15:01:12, trễ < 1 nhịp worker) → 2 dòng hộp thư `website_request_overdue` (**qa.fdl, qa.mgr**) + 1 dòng `staff.push` `pending`. Chủ đầu tư: **không** có. Không có gì đi ra ngoài | ~31 phút sau khi khách gửi | – | Đúng mã |
+| 5 | 15:03 | Đăng nhập lại sau ca 4 | Desk `qa.fd` **Hôm nay** và `qa.owner` **Tổng quan**: menu **2**, **Cần chú ý** "Yêu cầu đặt phòng từ website chưa ai nhận: 2 · **Trả lời trước 14:46**" – chỉ viền đổi màu, không có chữ "quá hạn" → **BUG-R3-054**. Danh sách S35: "Quá hạn 17 phút", "Quá hạn 9 phút". App nhân viên `qa.fdl`: dòng mới 15:02 "Thông báo mới – xem chi tiết trên OTTIMO Desk · KNJ6F2Z1" – **cùng chữ** với thông báo yêu cầu mới, không nói là quá hạn. Hộp thư `qa.mgr` có `website_request_overdue` (xem qua API; quản lý thật có 2 bước nên không mở được app nhân viên) | Ngay khi mở | `40`, `41`, `42`, `43` | Đạt, kèm BUG-R3-054 (P3) |
+| 6 | 15:07 | Chủ đầu tư **tắt công tắc cùng ngày** (kill switch) | 200, `value false`. Khách chạm form ngay sau đó: token 404, dòng "Online requests are paused right now…", không `POST` | Tức thì | `36` | Đạt |
+
+### 21.5 Ca lỗi chính
+
+| # | Giờ | Ca | Thấy gì | Ảnh | Đạt? |
+|---|---|---|---|---|---|
+| 1 | 14:27:38–14:27:57 | **Công tắc tắt – staging thật** (landing có form gọi api staging qua proxy 2 đường): EN máy tính, VI điện thoại | Chạm form → `GET form-token` **404** → ngay dưới form: "Online requests are paused right now. Please message us on **Zalo** or call **08.4444.0909**. We will reply as soon as we can." (VI: "Yêu cầu trực tuyến đang tạm dừng. Vui lòng nhắn chúng tôi qua Zalo hoặc gọi 08.4444.0909…"). Bấm gửi: hỏi lại token (404), **không** `POST`, không màn cảm ơn giả (AC5, AC11). Dữ liệu khách nhập giữ nguyên | `30`, `31` | Đạt |
+| 2 | 14:27:04 | Công tắc tắt – stack thử (trước khi OWN bật) | Như dòng 1 | `31b` | Đạt |
+| 3 | 14:38:24 | **Gửi trùng**: gửi lại (b) cùng email, **bấm đúp** nút gửi (điện thoại) | Bấm đúp → đúng **1** `POST` (202). Khách nhận mã mới WR45Q6DQ như bình thường (không cho biết liên hệ đã từng gửi – AC5). Desk: cả hai yêu cầu gắn "Có thể trùng yêu cầu khác" và trỏ nhau (21.3 dòng 11). Quá 3 lần/ngày cùng liên hệ thì máy chủ trả 202 giống hệt nhưng không tạo yêu cầu mới, chỉ tăng đếm trên yêu cầu cũ (đọc mã `public-booking.service.ts` bước 10; không thử để giữ hạn mức IP 5/giờ của stack) | `28` | Đạt |
+| 4 | 14:38:38 | **Thiếu trường bắt buộc** (EN, máy tính): không ngày, không tên, không số, không tích đồng ý → gửi | Không gửi lên máy chủ (0 `POST`). Hộp "Please check 5 fields" liệt kê 5 link tới ô lỗi; dưới từng ô: "Choose your check-in date." · "Choose your check-out date." · "Tell us your name." · "Enter a Zalo number we can reach." · "Please tick the box so we can reply." (chữ, có biểu tượng, không chỉ màu – AC11) | `32` | Đạt |
+| 5 | 14:38:47 | **Số giấy tờ trong lời nhắn** (VI): lời nhắn có số CCCD giả viết cách nhóm | Máy chủ 422 `note` `ID_NUMBER_DETECTED` (chỉ `field` + `code`, không lặp số). Form: "Vui lòng kiểm tra 1 mục – Không cần gửi số giấy tờ ở bước này. Vui lòng xóa số đó." Không lưu yêu cầu | `33` (số giả nằm ngoài khung ảnh) | Đạt |
+
+### 21.6 Ảnh (`rounds/round-03/qa/us155-e2e/`, 43 tệp, dữ liệu giả)
+
+- Khách: `01`–`09` (EN điện thoại/máy tính, VI điện thoại/máy tính, màn cảm ơn EN điện thoại, VI máy tính).
+- Thông báo: `10`, `11` (Desk trước/sau 1,4 giây), `12a`, `12b` (app nhân viên), `13`, `14` (đăng nhập lại sau khi không ai trực), `40`–`43` (quá hạn).
+- Desk: `20`–`28` (danh sách, chi tiết, nhận xử lý, báo giá, giữ chỗ, đã thành đơn, có thể trùng), `44`–`49` (tạo đơn dài hạn, xóa theo yêu cầu, đóng, hủy giữ chỗ).
+- Lỗi: `30`, `31` (công tắc tắt – **staging thật**), `31b`, `36` (stack thử), `32`, `33`, `34`, `35` (Desk staging khi form tắt: chủ đầu tư, lễ tân).
+- Kiểm che theo `product/docs/manual/screenshot-list.md`:
+  - không có mã QR: VietQR không tạo được trên stack thử;
+  - không có số tài khoản, giấy tờ, mã 2 bước;
+  - số CCCD giả của ca `33` nằm ngoài khung ảnh;
+  - tên, SĐT `+1 202 555 0123`, email `example.com` đều giả; số 08.4444.0909 là số công khai của OTTIMO.
+- Lệch quy tắc 1 ("chỉ chụp trên staging"): ảnh `01`–`29` và `36`–`49` chụp trên stack thử chạy **đúng image staging `v1.0.0`**, vì staging không nhận form (21.0). Ảnh `41` có băng "nên bật xác thực 2 bước" do stack thử tắt `MFA_ENFORCED`. Không dùng các ảnh này cho sổ tay.
+
+### 21.7 Dọn dữ liệu
+
+| Nơi | Trước | Sau |
+|---|---|---|
+| Staging | Công tắc tắt; 0 yêu cầu website | **Không đổi gì.** Chỉ đọc + 6 lần `GET form-token` (404). Không bật công tắc. 2 phiên QA (`qa.fd`, `qa.owner`) đã đăng xuất (204) |
+| Stack thử `ottimo-qa155e` | – | Lúc kết thúc: QRH7ATJ0 `converted` (C2 đã xóa), KNJ6F2Z1 `declined`, WR45Q6DQ `declined` (đã xóa theo yêu cầu); OTM-00001 `cancelled` (không cọc, không tiền); công tắc **tắt**. Sau đó `docker compose down -v`: xóa toàn bộ container, DB, volume. Xóa tệp `.env` của stack (khóa thử). Còn trên máy QA: image `ottimo-landing:qa155`, 2 image GHCR đã kéo |
+| Production | – | Không đụng |
+
+- Lưu ý: lệnh seed của stack thử ghi đè `product/tests/fixtures/seed/.out/ds-e.map.json` (gitignore, mã thiết bị thử). Stack khác đang chạy trên máy QA (`ottimo-esc031`, `ottimo-demo`) cần mã máy quầy thì chạy lại seed của stack đó.
+
+### 21.8 Chưa kiểm / giới hạn
+
+- Chưa chạy trên staging thật phần gửi → Desk (21.0). Lần kiểm trên production sau bước H/J của `us155-enable-readiness.md` (SEC xác nhận mốc, khói L) vẫn cần.
+- Chưa thử ngoài giờ trực, ngày đến hôm nay (câu hứa "call now"), chạm trần ngày (503) và quá 3 lần/ngày cùng liên hệ. Lý do: không đổi giờ máy để giữ đồng hồ thật cho phép đo thông báo, và giới hạn 5 lần gửi/giờ/IP của stack. Phần này đã có ở TC-WR-* (`s1-us155-e2e.md`) và đọc mã.
+- Không thử SAL (vai sale) và CTV. Đã có ở TC-WR-000/004.
+- "Cần chú ý" chậm ~20 giây so với số trên menu, vì khối Hôm nay không nghe SSE `website_request.changed` (`useDashboard.ts`). Không ghi lỗi: số trên menu hiện ngay.
+
 ## 22. Bộ hướng dẫn theo bộ phận (staging `v1.0.0`, 30/10)
 
 - Người chạy: QA | Round 3 – bước **Kiểm thử** | 30/10/2026 14:28–15:00 (+07). Giao việc ORC: câu Q2–Q4 của BA (`outputs/BA/department-guides.md` mục 4), app nhân viên với vai quản lý, chụp ảnh G + C1-15, C2-34 (`product/docs/manual/guides/screenshot-additions.md`). Hạn: trước buổi C3a tối 31/10.

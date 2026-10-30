@@ -11,8 +11,8 @@
 | P0 | 3 | 0 | 0 | 3 |
 | P1 | 15 | 2 (BUG-R3-032, BUG-R3-042 – v1.0.1) | 0 | 13 (gồm BUG-R3-037, 038, 039 Closed 30/10 trên rc.6) |
 | P2 | 15 | 9 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn; BUG-R3-041, 043, 044, 046, 052, 053) | 0 | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
-| P3 | 20 | 19 (016; 024–031; 034; 035; 036; 040; 045; 047; 048; 049; 050; 051) | 0 | 1 |
-| **Tổng** | **53** | **30** | **0** | **23** |
+| P3 | 22 | 21 (016; 024–031; 034; 035; 036; 040; 045; 047; 048; 049; 050; 051; 054; 055) | 0 | 1 |
+| **Tổng** | **55** | **32** | **0** | **23** |
 
 Cập nhật 30/10 14:28–15:00 (QA, bước Kiểm thử – bộ hướng dẫn theo bộ phận, câu Q2–Q4 của BA, staging `v1.0.0` `8b3aec8`, `qa3-rc1.md` mục 22):
 - Thêm **BUG-R3-052 (P2, MOB + UXD)**: app nhân viên nhận đăng nhập bằng **mật khẩu tạm** (và tài khoản vai quản lý **chưa bật 2 bước**) nhưng không có màn đổi mật khẩu / bật 2 bước. Mọi màn báo "Chưa tải được … Có thể do mạng yếu" trong khi máy chủ trả 403 `PASSWORD_CHANGE_REQUIRED` / `MFA_ENROLLMENT_REQUIRED`. Nhân viên buồng phòng, bảo trì mới không tự vào app được; cách tạm: đổi mật khẩu tạm trên Desk trước.
@@ -23,6 +23,8 @@ Cập nhật 30/10 chiều (QA, bước Kiểm thử – US-155 đầu-cuối, `
 - Thêm **BUG-R3-049 (P3, FE-B)**: Desk hiển thị SĐT nước ngoài sai nhóm số (`+12025550123` → "+120 255 501 23", `+7…` → "+791 …"), dễ đọc nhầm mã nước khi gọi lại.
 - Thêm **BUG-R3-050 (P3, FE-B)**: từ yêu cầu tiếng Anh, **Báo giá** không mang ngôn ngữ/kênh/liên hệ sang hồ sơ tạo nhanh (chỉ có tên; ngôn ngữ Tiếng Việt, quốc tịch Việt Nam); mở lại báo giá sau đó thì mẫu tin là **Tiếng Việt** (US-155 AC2 "điền sẵn … ngôn ngữ, kênh liên hệ").
 - Thêm **BUG-R3-051 (P3, UXD + FE-B)**: banner "Form đặt phòng trên website đang tắt" nói "Khách bấm Đặt phòng sẽ mở chat Zalo" – sai khi ottimo.vn đã có bản landing có form mà công tắc tắt (khách thấy form + dòng "Online requests are paused…").
+- Thêm **BUG-R3-054 (P3, UXD + FE-B)**: dòng **Cần chú ý** của yêu cầu website quá hạn vẫn ghi "Trả lời trước 14:46" lúc 15:03, chỉ đổi màu viền – không có chữ "quá hạn" (danh sách S35 thì có "Quá hạn 17 phút").
+- Thêm **BUG-R3-055 (P3, UXD + FE-B)**: sau **Xóa theo yêu cầu người gửi**, ngăn chi tiết ghi "Thông tin liên hệ đã xóa **theo hạn lưu**" – sai lý do.
 - Không lỗi P0/P1/P2 mới. Kênh báo ngoài app (đẩy về điện thoại, email, Zalo, Google Chat) **chưa có** – đúng phạm vi v1.0 (AC8 chỉ đòi thông báo trong app), đã có quyết định INV 30/10 (Google Chat v1.0.1 + cách tạm "Desk luôn mở"); không ghi là lỗi. `staff.push` của `website_request_new` cũng nằm trong outbox không bộ phát như BUG-R3-041.
 
 Cập nhật 30/10 12:16–12:24 (QA, bước Kiểm thử – xác nhận 2 giả định PO 10.6 trên **giao diện Desk** staging rc.6 `8b3aec8`, `qa3-rc1.md` mục 20.8):
@@ -158,6 +160,8 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-049 | P3 | Desk S35: SĐT nước ngoài hiển thị sai nhóm số – `phoneDisplay` lấy mã nước 1–3 số "tham lam" (`+12025550123` → "+120 255 501 23"); giá trị sao chép và nút **Gọi** vẫn đúng E.164 | FE-B | Open – thấy trên stack thử ảnh `v1.0.0` 30/10. Đích v1.0.1 |
 | BUG-R3-050 | P3 | Yêu cầu website tiếng Anh → **Báo giá**: hồ sơ khách tạo nhanh chỉ điền tên – SĐT/kênh trống, ngôn ngữ Tiếng Việt, quốc tịch **Việt Nam**; mở lại báo giá sau đó thì mẫu tin là **Tiếng Việt** – trái US-155 AC2 | FE-B | Open – thấy trên stack thử ảnh `v1.0.0` 30/10. Đích v1.0.1 |
 | BUG-R3-051 | P3 | S35 khi công tắc tắt: banner ghi "Khách bấm Đặt phòng sẽ mở chat Zalo" – sai khi landing đã có form (khách thấy form và dòng "tạm dừng") | UXD + FE-B | Open – thấy trên staging `v1.0.0` 30/10. Đích: trước khi phát hành landing có form, hoặc v1.0.1 |
+| BUG-R3-054 | P3 | **Cần chú ý** (Hôm nay/Tổng quan): yêu cầu website đã quá hạn trả lời vẫn ghi "Trả lời trước {giờ}", chỉ khác màu viền – báo quá hạn chỉ bằng màu | UXD + FE-B | Open – thấy trên stack thử ảnh `v1.0.0` 30/10 15:03. Đích v1.0.1 |
+| BUG-R3-055 | P3 | Sau **Xóa theo yêu cầu người gửi**, ngăn chi tiết ghi "Thông tin liên hệ đã xóa theo hạn lưu ({ngày})" – sai lý do (đầu ngăn ghi đúng "Đã xóa theo yêu cầu của người gửi") | UXD + FE-B | Open – thấy trên stack thử ảnh `v1.0.0` 30/10 15:05. Đích v1.0.1 |
 | BUG-R3-052 | P2 | App nhân viên: đăng nhập bằng mật khẩu tạm (hoặc vai quản lý chưa bật 2 bước) vào được nhưng không có màn đổi mật khẩu / bật 2 bước; mọi màn báo "Chưa tải được … Có thể do mạng yếu" (máy chủ 403 `PASSWORD_CHANGE_REQUIRED` / `MFA_ENROLLMENT_REQUIRED`) | MOB + UXD | Open – thấy trên staging `v1.0.0` 30/10. Cách tạm: đổi mật khẩu tạm trên Desk. Đích v1.0.1 |
 | BUG-R3-053 | P2 | Desk, vai **chỉ Bảo trì**: hộp **Phiếu sửa mới** và **Khóa phòng có kế hoạch** có ô **Căn** trống (GET `rooms` 403 `FORBIDDEN_ACTION`) → không tạo được phiếu hay khóa phòng, dù API cho vai bảo trì khóa phòng | FE-A + BE-A (ARC chọn cách) | Open – thấy trên staging `v1.0.0` 30/10. Cách tạm: lễ tân/người trực khóa trên Desk. Đích v1.0.1 |
 
@@ -1257,7 +1261,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Các bước:** khách gửi form với SĐT `+1 202 555 0123` (số giả dải 555-01xx) → Desk **Yêu cầu từ website** → mở yêu cầu.
 - **Thực tế:** mục **SĐT** hiện "+120 255 501 23". Mã `apps/admin-web/src/pages/webreq/labels.ts` `phoneDisplay`: ngoài `+84`, regex `^(\+\d{1,3})(\d{3})(\d{3})(\d+)$` lấy mã nước dài nhất có thể, nên `+7 912 345 6789` sẽ thành "+791 234 567 89", `+82 10 1234 5678` thành "+821 012 345 678".
 - **Mong đợi:** nhóm số không làm sai mã nước. Cách đơn giản: chỉ nhóm cho `+84`; số khác hiện nguyên E.164, hoặc tách đúng mã nước theo bảng mã quốc gia.
-- **Vai:** FE-B. **Bằng chứng:** `rounds/round-03/qa/us155-e2e/21-desk-chi-tiet-yeu-cau-a.png`; `qa3-rc1.md` 21.3 dòng 4.
+- **Vai:** FE-B. **Bằng chứng:** `rounds/round-03/qa/us155-e2e/21-desk-chi-tiet-yeu-cau-a.png`; `qa3-rc1.md` 21.3 dòng 3.
 - **Trạng thái:** Open – đích v1.0.1.
 
 ### BUG-R3-050 – Báo giá từ yêu cầu tiếng Anh không mang ngôn ngữ, kênh, liên hệ sang hồ sơ và mẫu tin
@@ -1268,7 +1272,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Thực tế:** hộp **Hồ sơ khách mới** chỉ điền sẵn tên đã gõ: SĐT trống, **Liên hệ ưu tiên** "–", **Ngôn ngữ giao tiếp** mặc định Tiếng Việt, **Quốc tịch** mặc định Việt Nam (đơn hiện `nationalityCode: VN`). Mã: `GuestPicker` chỉ truyền `prefillName`; `GuestFormDialog` `EMPTY` = `nationalityCode: 'VN'`, `preferredLocale: 'vi'`. Ngay sau **Lưu báo giá**, bước gửi trong hộp chọn đúng **English** (lấy từ yêu cầu). Nhưng mở lại BG-00001 từ **Báo giá & giữ chỗ** thì **Ngôn ngữ gửi khách** là **Tiếng Việt** (lấy từ hồ sơ), mẫu tin tiếng Việt, dù yêu cầu ghi "Ngôn ngữ khách dùng: Tiếng Anh".
 - **Mong đợi (US-155 AC2):** "mở US-080/US-084 điền sẵn ngày, số người, hạng phòng, **ngôn ngữ, kênh liên hệ**". Hồ sơ tạo nhanh từ yêu cầu điền sẵn SĐT/email, kênh và ngôn ngữ của yêu cầu; quốc tịch để trống thay vì Việt Nam; mẫu tin báo giá theo ngôn ngữ yêu cầu (`en`).
 - **Vai:** FE-B (đường **Tạo đơn** đã điền SĐT/email theo báo cáo FE-B, đường **Báo giá** thì chưa).
-- **Bằng chứng:** `us155-e2e/23-desk-bao-gia-tu-yeu-cau.png`, `24-bao-gia-tieng-viet-mac-dinh.png`; `qa3-rc1.md` 21.3 dòng 6–9.
+- **Bằng chứng:** `us155-e2e/23-desk-bao-gia-tu-yeu-cau.png`, `24-bao-gia-tieng-viet-mac-dinh.png`; `qa3-rc1.md` 21.3 dòng 6–8.
 - **Trạng thái:** Open – đích v1.0.1.
 
 ### BUG-R3-051 – Banner "form đang tắt" trên S35 nói sai điều khách thấy khi landing đã có form
@@ -1305,6 +1309,26 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Vai:** FE-A + BE-A (ARC chọn cách).
 - **Bằng chứng:** `qa3-rc1.md` 22.4; `qa-r6/g/raw/q4c-qa.g.mt1-*.png`, `q4-qa.g.mt1-*.txt` (scratchpad, ngoài repo).
 - **Cách tạm (ngày D):** hướng dẫn 04 mục 1.1, 1.3 (phần Desk), 5 và 01 mục 1.9 (bảng vai): khóa phòng có kế hoạch do lễ tân/người trực làm; bảo trì báo bằng app.
+- **Trạng thái:** Open – đích v1.0.1.
+
+### BUG-R3-054 – "Cần chú ý" báo yêu cầu website quá hạn chỉ bằng màu
+
+- **Mức:** P3. Số trên menu và danh sách S35 vẫn đúng ("Quá hạn 17 phút"). Nhưng màn đầu tiên người trực nhìn (Hôm nay, Tổng quan của chủ đầu tư) không nói là đã trễ; người mù màu hoặc màn quầy chói nắng dễ bỏ qua. Trái nguyên tắc "không chỉ bằng màu" (WCAG 1.4.1).
+- **Môi trường:** stack thử `ottimo-qa155e` (image staging `v1.0.0`), Desk 1440×900, `qa.fd` và `qa.owner`, 30/10 15:03. KNJ6F2Z1 gửi 14:31, hạn trả lời 14:46, chưa ai nhận.
+- **Các bước:** để yêu cầu website **Mới** quá hạn trả lời → mở **Hôm nay** (lễ tân) hoặc **Tổng quan** (chủ đầu tư).
+- **Thực tế:** "Yêu cầu đặt phòng từ website chưa ai nhận: 2 · Trả lời trước 14:46" – giống hệt lúc chưa quá hạn, chỉ viền trái đổi màu (`severity: warning`). `apps/admin-web/src/app/attention.ts` dòng ~236–239 luôn dùng `webreq.reply_by`.
+- **Mong đợi:** khi `dueAt` đã qua, dòng phụ dùng chữ quá hạn, ví dụ "Quá hạn 17 phút – gọi khách ngay" (có sẵn `webreq.overdue` "Quá hạn {m} phút"; UXD quyết chữ).
+- **Vai:** UXD + FE-B. **Bằng chứng:** `us155-e2e/40-desk-hom-nay-qua-han.png`, `41-chu-dau-tu-tong-quan-qua-han.png`, `43-danh-sach-qua-han.png`; `qa3-rc1.md` 21.4 dòng 5.
+- **Trạng thái:** Open – đích v1.0.1.
+
+### BUG-R3-055 – Sau khi xóa theo yêu cầu người gửi, Desk ghi "đã xóa theo hạn lưu"
+
+- **Mức:** P3. Chữ nội bộ. Khi người gửi hỏi lại hoặc khi đối chiếu quyền riêng tư, nhân viên đọc sai lý do xóa.
+- **Môi trường:** như BUG-R3-052, `qa.fdl`, 30/10 15:05, WR45Q6DQ.
+- **Các bước:** mở yêu cầu → **Xóa theo yêu cầu người gửi** → chọn "Họ liên hệ từ chính SĐT hoặc email trên yêu cầu" → nhập email giả → **Xóa ngay**.
+- **Thực tế:** 200 `erase`; toast "Đã xóa dữ liệu của yêu cầu WR45Q6DQ"; đầu ngăn "Lý do đóng: Đã xóa theo yêu cầu của người gửi" (đúng); mục **LIÊN HỆ KHÁCH**: "Thông tin liên hệ đã xóa theo hạn lưu (30/10/2026)." (`webreq.pii_purged`, dùng chung cho job xóa theo hạn và lệnh xóa).
+- **Mong đợi:** câu theo lý do: xóa theo yêu cầu → "Thông tin liên hệ đã xóa theo yêu cầu của người gửi ({ngày})"; xóa theo hạn → giữ câu cũ.
+- **Vai:** UXD + FE-B. **Bằng chứng:** `us155-e2e/46-da-xoa-theo-yeu-cau.png`; `qa3-rc1.md` 21.3 dòng 13.
 - **Trạng thái:** Open – đích v1.0.1.
 
 ### Checklist QA xác nhận rc.6 trên staging (BUG-R3-037, 038, 039)
