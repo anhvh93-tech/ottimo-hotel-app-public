@@ -36,7 +36,7 @@ printf '%s' "postgres://ottimo_migrator:${mig_pw}@postgres:5432/ottimo" > "$home
 printf '%s' "$(rnd)" > "$home/secrets/qa_seed_password"
 printf '# production: public site – no access restriction\n' > "$home/secrets/landing_access"
 for s in session_secret data_kek_current id_hash_key log_ip_hmac_key guest_code_signing_key web_push_vapid_public_key \
-  web_push_vapid_private_key public_form_signing_key email_smtp_password; do : > "$home/secrets/$s"; done
+  web_push_vapid_private_key public_form_signing_key email_smtp_password booking_request_chat_webhook; do : > "$home/secrets/$s"; done
 chmod 0644 "$home/secrets/"*   # test-only random values; Docker Desktop file sharing must let uid 70/1000/10001 read them
 unset app_pw mig_pw
 

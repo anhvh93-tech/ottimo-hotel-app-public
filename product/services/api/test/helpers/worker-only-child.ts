@@ -11,6 +11,8 @@
  *   build the job list; `"load": "api"` – import what src/main.ts imports (AppModule + feature modules).
  * - `{ "cmd": "run-job", "key", "propertyId", "now" }` – the worker's composition (buildWorkerJobs) and JobRunner on
  *   DATABASE_URL, fixed clock `now`: `runOnce(key)` for that property only (other test files share the database).
+ * - `{ "cmd": "run-chat", "propertyId", "now", "jobs"?, "chatEnv"?, "fakeUrl"? }` – Google Chat: worker composition +
+ *   buildWorkerChat (src/worker-chat.ts), jobs then one dispatcher run, posts to a local fake webhook.
  * Prints ONE line `RESULT <json>`; fake data only, no secret in the output.
  */
 import 'reflect-metadata';
@@ -107,6 +109,71 @@ async function main(): Promise<unknown> {
           moduleFiles: loadedModuleFiles(),
         };
       }
+    } finally {
+      await database.close();
+    }
+  }
+  if (cmd.cmd === 'run-chat') {
+    // Google Chat (ARC gchat-booking-request-notify 5.2 tests 7–8): the worker's composition (buildWorkerJobs +
+    // buildWorkerChat, as src/worker.ts) on DATABASE_URL. `chatEnv` = the worker variables (BOOKING_REQUEST_CHAT_*,
+    // *_FILE resolved like bootstrap); `jobs` run first (runOnce, this property); then ONE dispatcher run. Posts go to
+    // `fakeUrl` (a local fake webhook) – never to Google. Returns the log lines the composition wrote.
+    const { buildWorkerJobs } =
+      load<typeof import('../../src/worker-jobs')>('../../src/worker-jobs');
+    const { buildWorkerChat } =
+      load<typeof import('../../src/worker-chat')>('../../src/worker-chat');
+    const { resolveFileSecrets } = load<typeof import('../../src/config')>('../../src/config');
+    const { postChatText } = load<typeof import('@ottimo/integrations/notification')>(
+      '@ottimo/integrations/notification',
+    );
+    const { FixedClock } = load<typeof import('../../src/clock')>('../../src/clock');
+    const { JobRunner } = load<typeof import('../../src/jobs/job-runner')>(
+      '../../src/jobs/job-runner',
+    );
+    const { createPool } = load<typeof import('../../src/db/pool')>('../../src/db/pool');
+    const { Database } = load<typeof import('../../src/db/database')>('../../src/db/database');
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error('DATABASE_URL missing');
+    const database = new Database(createPool(url));
+    const c = cmd as unknown as {
+      propertyId: string;
+      now: string;
+      jobs?: string[];
+      chatEnv?: Record<string, string>;
+      fakeUrl?: string;
+    };
+    try {
+      const clock = new FixedClock(new Date(c.now));
+      const { registry, parameters } = buildWorkerJobs({ clock, database, env });
+      const runner = new JobRunner(database, clock, registry, parameters);
+      const property = (await runner.listProperties()).find((p) => p.propertyId === c.propertyId);
+      if (!property) throw new Error('property not found');
+      const logs: Array<{ level: string; msg: string; extra: Record<string, unknown> }> = [];
+      const chatEnv = resolveFileSecrets({ ...(c.chatEnv ?? {}) });
+      const fakeUrl = c.fakeUrl;
+      const chat = buildWorkerChat({
+        database,
+        clock,
+        env: chatEnv,
+        appEnv: 'test',
+        parameters,
+        log: (level, msg, extra) => logs.push({ level, msg, extra }),
+        ...(fakeUrl ? { post: (_u, text, o) => postChatText(fakeUrl, text, o) } : {}),
+      });
+      const jobs: Record<string, unknown> = {};
+      for (const key of c.jobs ?? []) {
+        const out = await runner.runOnce(key, property);
+        jobs[key] = { status: out.status, stats: out.stats };
+      }
+      const stats = await chat.dispatcher.runForProperty(property);
+      return {
+        ok: true,
+        mode: chat.config.target.mode,
+        jobs,
+        stats,
+        logs,
+        moduleFiles: loadedModuleFiles(),
+      };
     } finally {
       await database.close();
     }

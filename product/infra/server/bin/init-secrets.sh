@@ -24,18 +24,26 @@
 #                                                echoed, not in shell history, not an argument).
 # Replace the app password (Google revokes it when the mailbox password changes):
 #   sudo /opt/ottimo-prod/infra/server/bin/init-secrets.sh --reset-email-password   then   bin/dc restart worker
+#   uid 1000 (worker only)                       booking_request_chat_webhook – Google Chat incoming-webhook URL of the
+#                                                room "OTTIMO – Yêu cầu đặt phòng" (key + token inside). Created EMPTY
+#                                                (= Chat off) – enough for deploy.sh. Set / replace / clear it with
+#   sudo /opt/ottimo-prod/infra/server/bin/init-secrets.sh --set-booking-chat   then   bin/dc restart worker
+#   (hidden prompt, umask 077, checked with the worker's own rule before anything is written, tmp file + mv, prints
+#   only "set (<length> chars)"; staging: empty or a TEST room – never the production room; ARC gchat 3.2, SEC G2).
 # New files are added on re-run (R3: run it on staging before the first deploy that needs them – deploy.sh says so).
 # Docker (non-swarm) bind-mounts each file read-only at /run/secrets/<name>; the app reads it through X_FILE.
 # Host users other than root cannot reach the files (the directory is not traversable for them) – keep it that
 # way: no backup job and no snapshot may include this directory (SR-KEY-10, SR-BAK-03).
 set -Eeuo pipefail
-set +x # never trace: the e-mail app password passes through a variable below
+set +x # never trace: the e-mail app password and the Chat webhook URL pass through variables below
 
 reset_email=0
+set_chat=0
 case "${1:-}" in
   '') ;;
   --reset-email-password) reset_email=1 ;;
-  *) echo "usage: init-secrets.sh [--reset-email-password]" >&2; exit 2 ;;
+  --set-booking-chat) set_chat=1 ;;
+  *) echo "usage: init-secrets.sh [--reset-email-password | --set-booking-chat]" >&2; exit 2 ;;
 esac
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -168,6 +176,61 @@ ASK
   unset smtp_pw
 fi
 
+# Google Chat webhook of the booking-request room (ARC gchat-booking-request-notify 3.2 + 8.7 G2; SEC GCHAT-02).
+# Same rule as the worker (integrations/common parseBookingChatWebhook): https://chat.googleapis.com/v1/spaces/<id>/
+# messages?key=…&token=… – exact host, no port/user info, query = exactly key and token, ≤ 512 characters.
+chat_url_ok() {
+  local u="$1" re='^https://chat\.googleapis\.com/v1/spaces/[A-Za-z0-9_-]{1,64}/messages\?([A-Za-z]+)=[^#&[:space:]]+&([A-Za-z]+)=[^#&[:space:]]+$'
+  [ "${#u}" -le 512 ] || return 1
+  [[ "$u" =~ $re ]] || return 1
+  { [ "${BASH_REMATCH[1]}" = key ] && [ "${BASH_REMATCH[2]}" = token ]; } \
+    || { [ "${BASH_REMATCH[1]}" = token ] && [ "${BASH_REMATCH[2]}" = key ]; }
+}
+# The worker image's own check (dist/tools/check-chat-webhook.js, from v1.0.1): 0 valid, 3 invalid, other = no tool.
+chat_url_image_check() {
+  local img tag
+  img=$(sed -n 's/^API_IMAGE=//p' "$OTTIMO_HOME/.env" 2>/dev/null | tail -n 1 | tr -d '\r"')
+  tag=$(cat "$OTTIMO_HOME/state/current_tag" 2>/dev/null || true)
+  { [ -n "$img" ] && [ -n "$tag" ] && command -v docker >/dev/null; } || return 2
+  docker image inspect "$img:$tag" >/dev/null 2>&1 || return 2
+  printf '%s' "$1" | docker run --rm -i --network none --entrypoint node "$img:$tag" dist/tools/check-chat-webhook.js \
+    >/dev/null 2>&1
+}
+if [ "$set_chat" -eq 1 ]; then
+  [ -t 0 ] || { echo "--set-booking-chat needs an interactive terminal (sudo, no pipe)" >&2; exit 2; }
+  cat <<'ASK'
+
+Google Chat room "OTTIMO – Yêu cầu đặt phòng": paste the webhook URL of "Desk OTTIMO" (Chat → room → Apps &
+integrations → Webhooks), then press Enter. Nothing appears while you type. An EMPTY line turns Chat off.
+Never paste this URL into a chat, an e-mail or a document (it lets anyone post into the staff room).
+ASK
+  [ "$app_env" = "production" ] || echo "Staging: a TEST room only – never the production room."
+  IFS= read -rs -p 'Webhook URL: ' chat_url; echo
+  chat_url=${chat_url//[[:space:]]/}
+  if [ -n "$chat_url" ]; then
+    if ! chat_url_ok "$chat_url"; then
+      unset chat_url; echo "URL không hợp lệ (invalid URL) – nothing written." >&2; exit 1
+    fi
+    rc=0; chat_url_image_check "$chat_url" || rc=$?
+    if [ "$rc" -eq 3 ]; then
+      unset chat_url; echo "URL không hợp lệ (worker rule) – nothing written." >&2; exit 1
+    fi
+  fi
+  file="$dir/booking_request_chat_webhook"
+  printf '%s' "$chat_url" > "$file.tmp"
+  chown "$APP_UID:$APP_UID" "$file.tmp"
+  chmod 0400 "$file.tmp"
+  mv -f "$file.tmp" "$file"
+  if [ -n "$chat_url" ]; then echo "chat webhook: set (${#chat_url} chars)"; else echo "chat webhook: empty (Chat off)"; fi
+  unset chat_url
+  echo "Now: $here/dc restart worker   – then check the log line 'chat: on' (or 'chat: off')."
+  exit 0
+fi
+# Default: an EMPTY file (Chat off) so the compose project has every secret (deploy.sh refuses a missing file – R1).
+if [ ! -e "$dir/booking_request_chat_webhook" ]; then
+  put booking_request_chat_webhook "$APP_UID" ''
+fi
+
 # Landing access snippet (Caddyfile.landing imports it).
 if [ ! -e "$dir/landing_access" ]; then
   if [ "$app_env" = "production" ]; then
@@ -190,6 +253,9 @@ fi
 cat <<NOTE
 Next:
   - Staging: the landing preview password for INV: sudo cat $dir/landing_preview_password (user: ottimo).
+  - Google Chat (booking requests): booking_request_chat_webhook is EMPTY (Chat off) until INV/OPS run
+    sudo $here/init-secrets.sh --set-booking-chat and $here/dc restart worker. Level: BOOKING_REQUEST_CHAT_DETAIL_LEVEL
+    in .env (A default; production C only after SEC confirms ESC-041 ★1–★8 – tell INV before changing .env).
   - E-mail: production needs EMAIL_PROVIDER=smtp + EMAIL_FROM. Default EMAIL_SMTP_MODE=relay: allow this VPS IP in the
     Google Admin console (SMTP relay service) – no password. Fallback app_password: set EMAIL_SMTP_MODE=app_password
     + EMAIL_SMTP_USER, then sudo $here/init-secrets.sh --reset-email-password and bin/dc restart worker.

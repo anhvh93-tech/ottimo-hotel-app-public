@@ -106,6 +106,18 @@ export function findUnsafeIntegrationConfig(env: Env, appEnv: string): string[] 
     );
   }
 
+  // Google Chat webhook of the booking-request room (ARC gchat-booking-request-notify 3.2): the URL carries `key` +
+  // `token` (anyone holding it posts into the staff room) – only from the worker-only secret file.
+  if (
+    (appEnv === 'staging' || appEnv === 'production') &&
+    val(env, 'BOOKING_REQUEST_CHAT_WEBHOOK_URL') !== '' &&
+    val(env, 'BOOKING_REQUEST_CHAT_WEBHOOK_URL_FILE') === ''
+  ) {
+    problems.push(
+      'BOOKING_REQUEST_CHAT_WEBHOOK_URL must come from BOOKING_REQUEST_CHAT_WEBHOOK_URL_FILE (secret file), not the environment',
+    );
+  }
+
   const enabledRaw = val(env, 'PAYMENT_METHODS_ENABLED');
   const enabled = enabledRaw === '' ? [] : enabledRaw.split(',').map((s) => s.trim());
   for (const method of enabled) {
@@ -163,4 +175,52 @@ export function assertSafeConfig(env: Env, appEnv: string): void {
       `Unsafe integration configuration: ${problems.join('; ')}`,
     );
   }
+}
+
+// ───────────────────────── Google Chat webhook (booking-request room) ─────────────────────────
+
+/** Longest webhook URL accepted (a real one is ≈ 180 characters). */
+export const CHAT_WEBHOOK_MAX_LENGTH = 512;
+const CHAT_WEBHOOK_PATH = /^\/v1\/spaces\/[A-Za-z0-9_-]{1,64}\/messages$/;
+
+export type BookingChatWebhook =
+  | { mode: 'off' }
+  | { mode: 'on'; url: string }
+  | { mode: 'invalid'; code: 'CHAT_WEBHOOK_URL_INVALID' };
+
+/**
+ * The booking-request Chat webhook (ARC gchat-booking-request-notify 3.3 + 8.7 G1; SEC GCHAT-02): empty → off;
+ * accepted only as `https://chat.googleapis.com/v1/spaces/<id>/messages?key=…&token=…` – exact host (lower case),
+ * no user info, no port, query = exactly `key` and `token`, once each, non-empty, ≤ 512 characters. Anything else
+ * → `invalid` (the caller turns it off and logs the code – never the value). `threadKey`, `messageId`,
+ * `messageReplyOption` are added by the code at send time, never taken from the file.
+ */
+export function parseBookingChatWebhook(raw: string | undefined): BookingChatWebhook {
+  const v = (raw ?? '').trim();
+  if (v === '') return { mode: 'off' };
+  const invalid = { mode: 'invalid', code: 'CHAT_WEBHOOK_URL_INVALID' } as const;
+  if (v.length > CHAT_WEBHOOK_MAX_LENGTH || /\s/.test(v)) return invalid;
+  let u: URL;
+  try {
+    u = new URL(v);
+  } catch {
+    return invalid;
+  }
+  if (u.protocol !== 'https:') return invalid;
+  if (u.hostname !== 'chat.googleapis.com') return invalid;
+  // The literal itself must read exactly so (no upper case, trailing dot, dot segments or encoded path the URL
+  // parser would normalise away).
+  if (
+    !/^https:\/\/chat\.googleapis\.com\/v1\/spaces\/[A-Za-z0-9_-]{1,64}\/messages\?[^#]*$/.test(v)
+  ) {
+    return invalid;
+  }
+  if (u.username !== '' || u.password !== '' || u.port !== '' || u.hash !== '') return invalid;
+  if (!CHAT_WEBHOOK_PATH.test(u.pathname)) return invalid;
+  const keys = [...u.searchParams.keys()];
+  if (keys.length !== 2 || [...keys].sort().join(',') !== 'key,token') return invalid;
+  if ((u.searchParams.get('key') ?? '') === '' || (u.searchParams.get('token') ?? '') === '') {
+    return invalid;
+  }
+  return { mode: 'on', url: u.toString() };
 }
