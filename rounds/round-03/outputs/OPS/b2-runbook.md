@@ -374,3 +374,65 @@ Nguyên tắc: **phần 1–3 phải xong trong ngày 28/10** (tài khoản nh�
   - C1 (kiểm VietQR) từ 30/10.
 
 **Chốt B2 (29/10, ORC):** phần 1, 2, 3, 5, 6 Đạt; phần 4 Đạt theo 2.4, riêng MGR còn mở như trên. B2 kết thúc.
+
+## 6. L-1 – kiểm đăng xuất production 30/10
+
+- Người kiểm: OPS | Round 3 – bước **Kiểm thử** | 30/10/2026 12:47–12:51 giờ VN. Điều kiện SEC-G2 ý 1b / **D-INV-1** (`qc/v1-gate.md`), thủ tục L-1 ở `reviews/SEC-G7-5-production.md` mục 5.
+- INV (ORC ghi): đăng nhập `desk.ottimo.vn`, bấm **Đăng xuất** lúc **12:46**; bấm Back rồi tải lại vẫn ở màn đăng nhập, không vào được Desk.
+- Production đang chạy rc.6 (`state/current_tag` = `sha-8b3aec89486f`).
+- Cách làm như `j15-folio-close-check.md` mục 13–14:
+  - SSH `ottimo-admin`, khóa `~/.ssh/ottimo_ops`, `StrictHostKeyChecking=yes`, `BatchMode`. Host lấy từ phân giải `desk.ottimo.vn`, không ghi lại.
+  - SQL hai lớp chỉ đọc: `PGOPTIONS='-c default_transaction_read_only=on'` + `BEGIN TRANSACTION READ ONLY … ROLLBACK`, `ON_ERROR_STOP`, giờ `Asia/Ho_Chi_Minh`. Phiên in `transaction_read_only = on` (12:48:23 và 12:50:50).
+  - Log: `dc logs --no-color` của `web` (Caddy) 12:40–12:50:32 và của `api` 12:46:15–12:47:00. Đọc trên Mac, chỉ lấy giờ, host, method, đường dẫn (đã thay mã cơ sở bằng `<id>`) và mã trạng thái. Tệp tạm đã xóa sau khi đọc.
+- Không ghi DB, không restart, không đăng nhập, không chạy tay `ops-check`. Không in email, tên, IP, token, cookie, mã phiên hay `user_id`. Vai lấy bằng `EXISTS` trên `user_property_role`, chỉ in true/false.
+
+### 6.1 Kết luận: **ĐẠT** (L-1 / D-INV-1)
+
+| # | Bằng chứng | Kết quả | Đạt? |
+|---|---|---|---|
+| 1 | `user_session` có `revoked_reason = 'logout'` trong 12:43–12:49 | **1** dòng, thu hồi lúc **12:46:28**. Phiên tạo 12:46:17, `amr = totp` (phiên đầy đủ đã qua 2 bước, không phải phiên `enrollment_only`). Người dùng có vai **owner** (vai đang hiệu lực: chỉ `owner`). Từ trước tới nay chỉ có **1** dòng `logout`, chính là dòng này. Phiên này không có hoạt động nào sau giờ thu hồi (`last_active_at > revoked_at`: **0**) | Đạt |
+| 2 | `audit_event` có `auth.logout` đúng giờ | **1** dòng lúc **12:46:28**, `category = access`, `actor_type = user`, `entity_type = app_user`. Người thao tác là **owner**; `entity_id` = người thao tác; `session_id` trỏ đúng dòng phiên thu hồi `logout` ở #1. Từ trước tới nay chỉ có 1 dòng `auth.logout`. Audit `access`/`security` từ 12:00: `auth.login_succeeded` 12:46:17 → `auth.logout` 12:46:28, không có gì khác | Đạt |
+| 3 | Log Caddy có `POST /v1/auth/logout` trả 2xx | **12:46:28** `desk.ottimo.vn` `POST /v1/auth/logout` **204** (28 ms). Log api khớp: cùng giây, 204, 27 ms. Đây là lần `POST /v1/auth/logout` đầu tiên trên production (SEC 29/10: 72 giờ trước đó không có lần nào) | Đạt |
+
+Chuỗi request trên `desk.ottimo.vn` (Caddy, giờ VN):
+- 12:45:50: `GET /` 200, `GET /v1/me` **401** (chưa đăng nhập).
+- 12:45:58: `POST /v1/auth/login` **401**, tức bước đòi mã 2 bước, giống chuỗi SEC ghi 29/10.
+- 12:46:17: `POST /v1/auth/login/mfa` **200**. Desk tải `rooms`, `dashboard/tonight`, `attention`, `channels`, yêu cầu duyệt, yêu cầu web; mở luồng `events`.
+- 12:46:22–12:46:24: một lượt tải lại dữ liệu bảng điều khiển, thêm `arrivals-departures`, `guest-requests` – "thao tác một việc" của bước 1.
+- 12:46:28: `POST /v1/auth/logout` **204**.
+  - Ngay sau đó trình duyệt tự đóng 2 luồng `events` (Caddy ghi `context canceled`).
+  - Log api cho thấy 3 luồng `events` đều mở lúc 12:46:17–12:46:24, **trước** đăng xuất. **Không** có luồng `events` hay request API nào mở sau 12:46:28.
+- 12:46:28–12:50:32: chỉ có `GET /favicon.ico` 304 (12:46:28, 12:46:31). **0** request `/v1/*` sau đăng xuất.
+
+Đối chiếu thêm (12:50:50): phiên đang sống trên production (`revoked_at IS NULL`, chưa hết hạn idle và tuyệt đối) = **0**. Tổng `user_session` 6, đã thu hồi 3: `logout` 1, `mfa_enrolled` 1, `password_changed` 1 (2 dòng sau là chuỗi đăng ký 28/10, SEC đã ghi). 3 phiên còn lại đã hết hạn theo thời gian.
+
+### 6.2 Ghi chú cho SEC
+
+- Bước 3 của L-1 (Back rồi tải lại) **không để lại request nào** tới máy chủ trong 12:46:29–12:50:32: không có `GET /` và cũng không có `GET /v1/me`.
+  - Desk phục vụ HTML với `Cache-Control: no-cache` và không có service worker. Vì vậy một lần tải lại đầy đủ phải có `GET /` (200 hoặc 304) trong log.
+  - Có thể trình duyệt lấy trang từ bộ nhớ đệm Back/Forward, hoặc INV tải lại trước khi Desk kịp chuyển trang. OPS không xác định được.
+  - Kết quả L-1 **không phụ thuộc** điểm này: thu hồi phía máy chủ đã chứng minh bằng #1–#3, và không có phiên nào còn sống. Nếu cookie cũ còn trong trình duyệt và được gửi lại, request sẽ nhận 401.
+  - SEC quyết có cần INV tải lại một lần nữa (Cmd+R trên `desk.ottimo.vn`) để thấy `GET /v1/me` 401 trong log hay không. OPS đề xuất **không cần**.
+- Luồng `events` (SSE) mở trước đăng xuất đã được trình duyệt đóng ngay. Lần này **không** kiểm được máy chủ có tự cắt luồng SSE đang mở khi phiên bị thu hồi hay không. Đây không thuộc tiêu chí L-1. Nếu SEC cần, kiểm trên staging.
+- Mục 5 của L-1 (cookie `__Host-ottimo_sid` qua DevTools) không bắt buộc. INV không báo, OPS không kiểm được từ log vì Caddy đã bỏ header khỏi log.
+
+### 6.3 D-T6 – tài khoản giữ 6 vai (số đếm, cùng truy vấn vai của Phần 4/6)
+
+Kết quả lúc 12:48:23 30/10 (cột: vai|số người|2 bước bật|mật khẩu tạm):
+- `owner|1|1|0`;
+- `manager|1|0|1`;
+- `front_desk`, `front_desk_lead`, `housekeeping`, `maintenance`, `sales_staff` đều `|1|0|1`.
+
+Tổng `app_user` **2**, người không có vai **0**. **Không đổi so với Phần 6 (29/10 16:58).**
+
+Tài khoản không có vai owner (tức tài khoản giữ 6 vai):
+- `user_session` **0** dòng từ trước tới nay;
+- `audit_event` có người thao tác là tài khoản này: **0** dòng.
+
+→ Tài khoản giữ 6 vai **chưa đăng nhập lần nào**: vẫn còn mật khẩu tạm, chưa bật 2 bước. **D-INV-2 còn mở**, G2-7 phần MGR vẫn **chặn D**. Sau khi người giữ tài khoản làm D-INV-2, OPS chạy lại đúng truy vấn này. Đạt khi `manager|1|1|0` và 5 vai còn lại cùng `|1|1|0`.
+
+### 6.4 Giả định
+
+- "Tài khoản chủ" là người dùng có vai `owner` đang hiệu lực trong `user_property_role`. Production chỉ có 1 người như vậy.
+- Cửa sổ ±3 phút quanh 12:46 lấy theo `revoked_at` và `occurred_at` (giờ máy chủ DB, `Asia/Ho_Chi_Minh`). Log Caddy lấy theo `ts` của bản ghi access log, đổi sang UTC+7. Ba nguồn lệch nhau dưới 1 giây.
+- "Tài khoản giữ 6 vai" là người dùng duy nhất không có vai `owner` (tổng `app_user` 2, như Phần 4/6).
