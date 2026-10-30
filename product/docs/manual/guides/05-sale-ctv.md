@@ -3,15 +3,15 @@
 - Dành cho: **sale nội bộ (SAL)** – nhân viên bán hàng của OTTIMO; **CTV / môi giới** – cộng tác viên ngoài
 - Thiết bị: **điện thoại hoặc máy tính**, địa chỉ `desk.ottimo.vn`
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.0 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5)
+- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.1 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10)
 - Tài liệu không chứa mật khẩu, số tài khoản hay thông tin khách.
-- **Tài liệu nội bộ OTTIMO – không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác thì trả lại.**
+- **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
 <!-- Nguồn: product/docs/manual/user-manual-v1.0.md bản 1.5 mục 0.2, 0.4, 0.7, 0.8, 2.4 (báo giá, giữ chỗ, câu chống giả danh, giữ chỗ quá hạn – đơn CTV), 2.8 (hủy giữ chỗ), 2.13, 4.2, 5.2, 5.3, 5.8. -->
 
 ## Cách đọc tệp này
 
-- Chữ **in đậm** là tên nút, tên màn hình đúng như trên Desk. `[ẢNH: mã-mô tả]` là chỗ chèn ảnh.
+- Chữ **in đậm** là tên nút, tên màn hình đúng như trên Desk. Ảnh màn hình có mã ở dưới ảnh (ví dụ C2-05). Khung nét đứt ghi **Chưa có ảnh** hoặc **Ảnh mới · chờ chụp** là ảnh đang chờ chụp: cứ làm theo chữ.
 - Mục ghi **Sale nội bộ** hoặc **CTV** là việc riêng của vai đó. Không ghi gì là cả hai vai.
 - Khung **Tạm ở v1.0** là việc Desk chưa làm được và cách làm thay. Cách tạm tới bản v1.0.1 gom ở **mục 8**.
 - Con số (giá, %, giờ) theo tham số ngày 27/10/2026. **Báo giá cho khách luôn lấy số Desk tính**, không lấy số trong tệp này.
@@ -88,7 +88,7 @@ Rời máy thì đăng xuất, nhất là máy dùng chung hoặc máy quầy. M
 | Tình huống | Làm gì |
 |---|---|
 | Quên mật khẩu | **Báo chủ đầu tư.** Desk không có nút "quên mật khẩu". Chủ đầu tư **Đặt lại mật khẩu**, đưa mật khẩu tạm tận tay |
-| Tài khoản bị tạm khóa do sai nhiều lần | Chờ hết thời gian khóa, hoặc nhờ chủ đầu tư đặt lại mật khẩu |
+| Tài khoản bị khóa do sai nhiều lần | Chờ đúng số phút Desk báo, hoặc nhờ chủ đầu tư **Mở khóa**. Bị khóa mà mình **không** gõ sai: báo chủ đầu tư ngay (có thể có người dò mật khẩu) |
 | **Mất điện thoại** đang đăng nhập Desk | **Báo chủ đầu tư ngay** để đặt lại mật khẩu (Desk đăng xuất trên mọi máy) hoặc khóa tài khoản |
 | Nghi người khác biết mật khẩu | Đổi mật khẩu ngay (**tên của mình → Đổi mật khẩu**) và báo chủ đầu tư |
 | Nghỉ việc, hết hợp tác | Đăng xuất, báo chủ đầu tư khóa tài khoản |
@@ -103,12 +103,12 @@ Rời máy thì đăng xuất, nhất là máy dùng chung hoặc máy quầy. M
 |---|---|
 | Đầu ngày | Mở **Đơn của tôi**: xem giữ chỗ nào sắp hết hạn, đơn nào khách đã chuyển cọc |
 | Khi khách hỏi giá | Báo giá trên Desk, sao chép gửi khách (mục 3) |
-| Khi khách đồng ý | Giữ chỗ (mục 4). Gửi mã VietQR cọc: **sale nội bộ** tự gửi; **CTV** nhờ lễ tân hoặc sale nội bộ |
+| Khi khách đồng ý | Giữ chỗ (mục 4). Gửi mã VietQR cọc: **sale nội bộ** gửi từ tài khoản OTTIMO trên điện thoại cơ sở (ngoài quầy thì nhờ người trực, mục 5.1); **CTV** báo khách mã cọc do OTTIMO gửi, nhờ lễ tân gửi thẳng cho khách (mục 5.2) |
 | Desk nhắc **Giữ chỗ sắp hết hạn** (2 giờ trước hạn) | Liên hệ khách ngay. Cần thêm giờ: **Gia hạn giữ chỗ (1 lần)** trước hạn |
 | Khách báo đã chuyển cọc | **Sale nội bộ**: kiểm tiền về rồi **Xác nhận đã nhận cọc** (mục 5.1). **CTV**: **Báo đã chuyển cọc** (mục 5.2) |
 | Người trực quầy nhắn về giữ chỗ quá hạn của mình | Liên hệ khách và trả lời người trực **trong 1 giờ** (mục 8.1) |
 | Thu hộ tiền mặt | Nộp quầy trong ngày (mục 5.3) |
-| **Sale nội bộ**, khi chủ đầu tư bật form website | **Yêu cầu từ website**: trả lời trong 15 phút (mục 6.3) |
+| **Sale nội bộ**, khi chủ đầu tư bật form website (dự kiến sáng 31/10) | **Yêu cầu từ website**: trả lời trong 15 phút, trong 08:00–21:00 (mục 6.3) |
 | Nhắn khách | Chỉ trong **08:00–21:00** |
 | Rời máy | **Đăng xuất** |
 
@@ -154,7 +154,7 @@ Quy tắc giá Desk tự tính (để trả lời khách, không tự tính tay)
 ### 4.1 Tạo giữ chỗ
 
 1. Trong báo giá, bấm **Khách đồng ý – Giữ chỗ**.
-2. Hộp **Giữ chỗ**: chọn **Giữ trong** 12 h, 24 h hoặc 48 h (mặc định 24). Hạn giữ không vượt 12:00 ngày đến.
+2. Hộp **Giữ chỗ**: chọn **Giữ trong** 12 h, 24 h hoặc 48 h (mặc định 24). Hạn giữ không vượt 12:00 ngày đến. Tới v1.0.1: chọn thời hạn để giờ hết hạn rơi vào **09:00–21:00**. Ví dụ tạo lúc 15:00: chọn **24 h** (hạn 15:00 hôm sau), không chọn 12 h (hạn 03:00 sáng).
 3. Bấm **Tạo giữ chỗ**. Desk tạo đơn **Giữ chỗ · chờ cọc** và mã **VietQR** đúng số cọc, nội dung chuyển khoản là **mã đơn**.
 4. Gửi mã cọc cho khách theo mục 5.
 
@@ -169,8 +169,13 @@ Quy tắc giá Desk tự tính (để trả lời khách, không tự tính tay)
 Khung đơn giữ chỗ của mình có **Hủy giữ chỗ** và **Gia hạn giữ chỗ (1 lần)**.
 - **Gia hạn giữ chỗ (1 lần)**: tối đa thêm 24 giờ, không quá 12:00 ngày đến. **Chỉ làm trước hạn**; sau hạn nút này không còn.
 - **Hủy giữ chỗ**: hộp **Hủy giữ chỗ căn …?** → **Lý do hủy** → **Hủy giữ chỗ**. Ở v1.0 **không chọn Khác (ghi rõ)** (mục 8.2).
-- Giữ chỗ đã có cọc (khách đã chuyển một phần hoặc đủ): **không tự hủy**. Nhắn lễ tân xử lý, vì Desk tạo yêu cầu hoàn tiền và nơi nhận hoàn chỉ nhập được trên máy quầy đã cấp quyền.
-<!-- DOM xem (BA-GUIDES D2): sổ tay không cấm sale/CTV hủy giữ chỗ có cọc; BA thêm vì bước Nhập nơi nhận hoàn chỉ làm được ở máy quầy. -->
+- **Chỉ tự hủy** giữ chỗ của mình khi trên đơn **Đã nhận** là **0 đ** **và không có** dòng **CTV/sale đã báo chuyển cọc**.
+- Mọi trường hợp khác **không tự hủy**: khách đã chuyển một phần hay đủ, anh/chị đã **Báo đã chuyển cọc**, khách nói "đã chuyển" mà Desk chưa thấy, hoặc đơn đã **Đã xác nhận**. Nhắn lễ tân ngay:
+  - **mã đơn**;
+  - khách báo hủy **ngày nào, mấy giờ, qua kênh nào** (Zalo, điện thoại);
+  - lý do khách nói (không ghi tên khách).
+- Không hứa số tiền hoàn. Nói với khách: lễ tân OTTIMO sẽ báo số hoàn theo chính sách hủy.
+- Vì sao: hủy đơn có tiền tạo yêu cầu hoàn. Nơi nhận hoàn chỉ nhập được trên máy quầy đã cấp quyền, chủ đầu tư duyệt và chi. Mức hoàn tính theo ngày khách báo, nên giờ khách báo phải tới lễ tân sớm nhất.
 - Khung đơn giữ chỗ hiện **Tạo link check-in online**: **không bấm**. Sale/CTV không cấp hay gửi link check-in online (mục 8.3).
 
 ### 4.3 Giữ chỗ tới hạn – Desk tự làm gì
@@ -189,8 +194,7 @@ Khung đơn giữ chỗ của mình có **Hủy giữ chỗ** và **Gia hạn gi
 2. Gửi kèm câu:
    - "OTTIMO only messages you from this account and your OTA inbox, and never changes bank details by message."
    - "OTTIMO chỉ nhắn từ tài khoản này và hộp thư OTA, không bao giờ đổi số tài khoản qua tin nhắn."
-3. Nhắn từ tài khoản Zalo/số điện thoại của OTTIMO trên điện thoại của cơ sở. Không nhắn khách từ Zalo cá nhân.
-<!-- DOM/SEC xem (BA-GUIDES S3): sổ tay 4.2 dẫn về 2.4 (chỉ nhắn từ tài khoản OTTIMO trên điện thoại cơ sở). Sale nội bộ làm việc ngoài quầy thì gửi mã cọc từ đâu – cần quyết. -->
+3. Nhắn từ tài khoản Zalo/số điện thoại của OTTIMO **trên điện thoại của cơ sở**. Không nhắn khách từ Zalo cá nhân. Không đăng nhập Zalo của OTTIMO trên điện thoại hay máy tính cá nhân (kể cả Zalo PC, Zalo Web). **Làm việc ngoài quầy:** gọi hoặc nhắn người trực **chỉ mã đơn** (không kèm tên, số điện thoại của khách); người trực gửi mã cọc từ tài khoản OTTIMO. Không tự gửi.
 4. Không gửi ảnh QR cũ, không gõ số tài khoản bằng tay.
 5. Mã hiện dòng **"Tài khoản nhận vừa đổi"**: **chưa gửi**, **gọi điện** (không nhắn) chủ đầu tư xác nhận trước. Chủ đầu tư xác nhận thì mới gửi.
 
@@ -208,7 +212,12 @@ Khung đơn giữ chỗ của mình có **Hủy giữ chỗ** và **Gia hạn gi
 
 ### 5.2 CTV
 
-- **Không gửi mã VietQR, không xác nhận cọc.** Nhắn lễ tân hoặc sale nội bộ gửi mã VietQR cho khách.
+- Khi khách đồng ý giữ chỗ, báo khách trước: mã cọc sẽ do **OTTIMO gửi từ tài khoản OTTIMO**, nội dung chuyển khoản là mã đơn, và **không chuyển tiền cọc cho CTV**. Không gửi số tài khoản, không chụp lại hay chuyển tiếp mã QR cho khách. Câu nói với khách:
+  - EN: "Your deposit QR will come from the official OTTIMO account, with your booking code as the reference. Please pay only to that QR, not to me."
+  - VI: "Mã QR đặt cọc sẽ do tài khoản chính thức của OTTIMO gửi, nội dung là mã đặt phòng. Anh/chị vui lòng chỉ chuyển theo mã đó, không chuyển cho tôi."
+- **Không gửi mã VietQR, không xác nhận cọc.** Nhắn lễ tân **mã đơn** để lễ tân gửi mã VietQR thẳng cho khách từ tài khoản OTTIMO.
+
+<!-- Câu EN/VI ở trên là bản nháp SEC (SEC G06), chờ UXD chốt theo brand guideline (DOM G16). -->
 - Khách báo đã chuyển:
   1. Mở đơn → **Báo đã chuyển cọc**.
   2. Nhập **Số tiền khách chuyển**, **Ghi chú**.
@@ -234,19 +243,24 @@ Xem trạng thái đơn mình chốt: **Giữ chỗ · chờ cọc**, **Đã xá
 
 [ẢNH: C4-08-Đơn của tôi, hoa hồng dự kiến]
 
-> **Tạm ở v1.0:** chưa có màn hoa hồng theo đợt chi (dự kiến v1.3); chủ đầu tư chi như hiện nay. Chưa có bảng theo dõi khách tiềm năng, chưa có mẫu tin nhắn (dự kiến v1.2): nhắn tay bằng câu chuẩn, trong 08:00–21:00.
+> **Tạm ở v1.0:** chưa có màn hoa hồng theo đợt chi (dự kiến v1.3); chủ đầu tư chi như hiện nay. Chưa có bảng theo dõi khách tiềm năng, chưa có mẫu tin nhắn (dự kiến v1.2): nhắn tay trong 08:00–21:00 (câu giờ nhận phòng ở mục 3, câu chống giả danh ở mục 5.1).
 
 ### 6.2 Khách của tôi
 
-Hồ sơ khách mình đã tạo: họ tên, số điện thoại, ngôn ngữ giao tiếp. Không có giấy tờ. Không ghi số giấy tờ, số thẻ, thông tin sức khỏe vào ghi chú.
+Trang **Khách hàng** (menu **Khách của tôi**) trống tới khi tìm: gõ ít nhất 2 ký tự của tên, mã KH hoặc SĐT vào ô **Tìm khách**. Kết quả có **MÃ KH**, **HỌ TÊN**, **LIÊN HỆ** (số điện thoại che giữa), **QUỐC TỊCH**, **NHÓM KHÁCH**; nút **Thêm khách**. Chỉ thấy khách mình đã tạo. Không có giấy tờ. Không ghi số giấy tờ, số thẻ, thông tin sức khỏe vào ghi chú.
 
 [ẢNH: G5-02-Khách của tôi]
 
 ### 6.3 Yêu cầu từ website (sale nội bộ)
 
-> **Tạm ở v1.0:** form "Yêu cầu đặt phòng" trên ottimo.vn **đang tắt** (chủ đầu tư bật khi luật sư trả lời). Màn hiện "Form đặt phòng trên website đang tắt". Khách liên hệ qua Zalo, điện thoại.
+Form "Yêu cầu đặt phòng" trên ottimo.vn **dự kiến bật sáng 31/10** (luật sư đã đồng ý 30/10, đội đang chuẩn bị). **Chủ đầu tư báo khi đã bật.** Chưa bật thì màn hiện "Form đặt phòng trên website đang tắt"; khách liên hệ qua Zalo, điện thoại.
 
-Khi chủ đầu tư bật form: yêu cầu mới hiện ở menu kèm số, hạn trả lời 15 phút. Mở yêu cầu → **Nhận xử lý** → **Báo giá**; không thành đơn thì **Đóng – không thành đơn**.
+Khi form bật: yêu cầu mới hiện ở menu kèm số. Mở yêu cầu → **Nhận xử lý** → **Báo giá**; không thành đơn thì **Đóng – không thành đơn**.
+
+> **Tạm ở v1.0 (tới v1.0.1 có tin báo qua Google Chat):** Desk chưa báo yêu cầu mới ra ngoài màn hình. Khi form bật:
+> - Desk mở trên máy quầy và điện thoại người trực **07:00–22:00**. Sale nội bộ đang làm việc thì xem **Yêu cầu từ website** mỗi lần cầm máy.
+> - Hạn trả lời 15 phút áp trong **08:00–21:00**. Trả lời khách từ tài khoản OTTIMO trên điện thoại cơ sở (mục 5.1).
+> - Yêu cầu tới ngoài giờ: bấm **Nhận xử lý** khi thấy, nhắn khách từ 08:00 sáng hôm sau.
 
 [ẢNH: C2-39-Yêu cầu từ website, form tắt]
 
@@ -278,7 +292,8 @@ Khi chủ đầu tư bật form: yêu cầu mới hiện ở menu kèm số, h�
 - Không gửi ảnh QR cũ, không gõ số tài khoản bằng tay. CTV không gửi QR, không xác nhận cọc.
 - Không xác nhận cọc khi chưa chắc tiền về; không tin ảnh chụp, SMS của khách.
 - Không nhận số thẻ thanh toán.
-- Không tự hủy giữ chỗ đã có cọc.
+- Không tự hủy đơn của mình khi đơn đã có tiền hoặc đã báo chuyển cọc (mục 4.2).
+- Không nhận tiền cọc, tiền phòng vào tài khoản của mình; không đưa khách số tài khoản nào.
 - Không tạo, không gửi link check-in online.
 - Không gửi thông tin khách vào nhóm Zalo; không chụp màn hình có dữ liệu khách để gửi ai.
 - Không nhắn khách ngoài 08:00–21:00.
@@ -291,10 +306,11 @@ Các việc dưới đây làm theo cách tạm tới khi chủ đầu tư báo 
 
 ### 8.1 Giữ chỗ của anh/chị quá hạn – người trực sẽ nhắn
 
-Desk chưa báo giữ chỗ quá hạn, nên người trực quầy rà **3 mốc mỗi ngày** (mở quầy muộn nhất 09:00 · 11:00 · trước khi rời quầy muộn nhất 21:00).
+Desk chưa báo giữ chỗ quá hạn, nên người trực quầy rà **3 mốc mỗi ngày** (mở quầy muộn nhất 09:00 · 11:00 · đóng quầy muộn nhất 21:00).
+- Giữ chỗ của anh/chị hết hạn trong đêm (21:00–09:00): xử lý **trước 21:00**. Xác nhận cọc nếu tiền đã về, hoặc **Gia hạn giữ chỗ (1 lần)** sang sau 09:00. Không để khách chuyển cọc sau 21:00 cho giữ chỗ hết hạn trong đêm.
 - Giữ chỗ **chưa cọc** đã quá hạn (thường là đơn có yêu cầu giảm giá/FOC): người trực **hủy ngay**, rồi nhắn anh/chị.
 - **CTV**: người trực nhắn anh/chị trước. Anh/chị liên hệ khách và trả lời người trực **trong 1 giờ**. Quá 1 giờ, hoặc đã 11:00 ngày đến, người trực gọi thẳng số khách trên đơn.
-- Khách còn muốn đến từ ngày mai: tạo **giữ chỗ mới**, chọn **12 h**. Báo giá cũ còn hiệu lực (3 ngày): bấm lại **Khách đồng ý – Giữ chỗ** từ báo giá đó; hết hiệu lực thì **Lập báo giá mới**. **Chỉ tạo lại một lần** cho cùng khách, cùng kỳ ở.
+- Khách còn muốn đến từ ngày mai: tạo **giữ chỗ mới**, chọn **12 h** nếu hạn rơi trước 21:00; nếu không thì chọn **24 h** (mục 4.1). Báo giá cũ còn hiệu lực (3 ngày): bấm lại **Khách đồng ý – Giữ chỗ** từ báo giá đó; hết hiệu lực thì **Lập báo giá mới**. **Chỉ tạo lại một lần** cho cùng khách, cùng kỳ ở.
 - Khách muốn đến hôm nay: nhắn lễ tân.
 - Giữ chỗ **đã có cọc** quá hạn: người trực gọi khách và xử lý. Desk chỉ còn **Hủy giữ chỗ**; không gia hạn, không xác nhận cọc được sau hạn. Vì vậy **xác nhận cọc và gia hạn trước hạn**.
 
@@ -315,6 +331,7 @@ Không ai tạo hay gửi link check-in online cho khách thật. Mọi khách l
 | **08:00–21:00** | Khung giờ được nhắn khách |
 | 07:00–22:00 | Sale nội bộ hỏi chủ đầu tư/quản lý kiểm tiền về |
 | Hạn giữ chỗ − 2 giờ | Desk nhắc **Giữ chỗ sắp hết hạn**: liên hệ khách |
+| **Trước 21:00** | Giữ chỗ của mình hết hạn trong đêm (21:00–09:00) đã xác nhận cọc hoặc gia hạn (mục 8.1) |
 | **12:00 ngày đến** | Trần hạn giữ chỗ. Nhận phòng từ 12:00 |
 | **14:00** | Phòng luôn sẵn sàng |
 | 3 ngày từ khi báo giá | Báo giá hết hiệu lực |

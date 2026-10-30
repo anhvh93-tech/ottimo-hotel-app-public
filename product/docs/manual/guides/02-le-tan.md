@@ -3,19 +3,19 @@
 - Dành cho: **lễ tân (FD)**, **lễ tân trưởng (FDL)**, người trực đêm
 - Thiết bị: **máy quầy đã được cấp quyền**, địa chỉ `desk.ottimo.vn`. Lễ tân trưởng dùng thêm app nhân viên `staff.ottimo.vn` trên điện thoại để kiểm phòng.
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.0 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5)
+- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.1 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10)
 - Tài liệu không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi học, anh/chị cũng không ghi những thứ này lên giấy.
-- **Tài liệu nội bộ OTTIMO – không chụp, không đăng lên mạng. Nghỉ việc thì trả lại.**
+- **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
 <!-- Nguồn: product/docs/manual/user-manual-v1.0.md bản 1.5 (Desk v1.0.0 = 8b3aec8) mục 0.2–0.9, 2.1–2.22, 3.6, 5.1, 5.4–5.6, 5.8; staff-one-pager.md Tờ 1, 2a, 2b, 4; day-one-guide.md mục 10. Chữ nói với khách giữ nguyên văn đã duyệt (UXD-on-PO-v1.0.0-docs.md mục 1.1–1.2, SEC-on-PO-v1.0.0-docs.md mục B). Tệp này thay các tờ in 1, 2a, 2b cho lễ tân (INV 30/10: "ko cần in 5 tờ hướng dẫn"). Tờ 4 "Your ID details" vẫn là thông báo cho khách – xem mục 7.2. -->
 
 ## Cách đọc tệp này
 
 - Chữ **in đậm** là tên nút, tên màn hình, tên ô đúng như trên Desk. Bản vá hằng tuần có thể đổi vị trí nút hoặc vài chữ nhỏ; việc phải làm thì giữ nguyên.
-- `[ẢNH: mã-mô tả]` là chỗ chèn ảnh chụp màn hình.
+- Ảnh màn hình có mã ở dưới ảnh (ví dụ C2-05). Khung nét đứt ghi **Chưa có ảnh** hoặc **Ảnh mới · chờ chụp** là ảnh đang chờ chụp: cứ làm theo chữ.
 - Khung **Tạm ở v1.0** là việc Desk chưa làm được và cách làm thay. Khung **Lỗi đang sửa** là lỗi đội đã biết; làm theo cách tạm trong khung. Mọi cách tạm tới bản v1.0.1 gom ở **mục 17**.
 - Con số (giờ, phần trăm, tiền) theo tham số ngày 27/10/2026. Khi số trên Desk khác số trong tệp: làm theo Desk. Không rõ vì sao khác, nhất là **số tiền**: vẫn làm theo Desk, nhưng **báo lễ tân trưởng ngay trong ca** kèm mã đơn (mục 19).
-- **Hiện OTTIMO có một người trực quầy giữ cả 6 vai** (quản lý, lễ tân trưởng, lễ tân, buồng phòng, bảo trì, sale). Chỗ ghi "lễ tân trưởng", "quản lý" là chính người trực, làm bằng quyền của vai đó và luôn ghi lý do. "Báo quản lý" nghĩa là ghi sổ giao ca để chủ đầu tư xem lại sáng hôm sau. "Đầu ca" là lúc mở quầy, "cuối ca" là trước khi rời quầy.
+- **Hiện OTTIMO có một người trực quầy giữ cả 6 vai** (quản lý, lễ tân trưởng, lễ tân, buồng phòng, bảo trì, sale). Chỗ ghi "lễ tân trưởng", "quản lý" là chính người trực, làm bằng quyền của vai đó và luôn ghi lý do. "Báo quản lý" nghĩa là ghi sổ giao ca để chủ đầu tư xem lại sáng hôm sau. "Đầu ca" là lúc mở quầy, "cuối ca" là lúc đóng quầy (muộn nhất 21:00); sau đóng quầy người trực vẫn trực điện thoại và làm việc 22:00, 23:00 (mục 2).
 
 ---
 
@@ -36,7 +36,9 @@
 
 Chủ đầu tư tạo tài khoản và **đưa mật khẩu tạm tận tay**. Mật khẩu tạm không gửi qua chat.
 
-1. Mở trình duyệt trên máy quầy. Gõ `desk.ottimo.vn`.
+**Tài khoản có vai quản lý (người trực hiện nay):** làm lần đăng nhập đầu trên **laptop hoặc máy tính riêng** (của mình, hoặc của chủ đầu tư sau khi chủ đầu tư đã đăng xuất), **không làm trên máy quầy**. Ngay sau bước 6, Desk mở bật 2 bước và hiện 10 mã khôi phục (mục 1.3). Quét mã QR bằng điện thoại của mình.
+
+1. Mở trình duyệt trên máy quầy (tài khoản có vai quản lý: trên laptop riêng, như trên). Gõ `desk.ottimo.vn`.
 2. Nhập **Tên đăng nhập** và **Mật khẩu** (mật khẩu tạm). Bấm **Đăng nhập**.
 3. Desk mở màn **Đặt mật khẩu của bạn**. Nhập **Mật khẩu hiện tại** (mật khẩu tạm).
 4. Nhập **Mật khẩu mới**.
@@ -81,7 +83,7 @@ Tài khoản có vai quản lý **chưa đăng nhập được app nhân viên**
 4. Desk mở **Hôm nay**.
 5. Nhìn góc trái màn hình: phải thấy **Máy quầy đã cấp quyền** (mục 1.5).
 
-Gõ sai nhiều lần: Desk báo "Bạn đã thử quá nhiều lần. Chờ … phút rồi thử lại." Chờ đúng số phút. Vẫn không vào được: báo chủ đầu tư.
+Gõ sai nhiều lần (5 lần liền): Desk báo "Bạn đã thử quá nhiều lần. Chờ … phút rồi thử lại." (thường 15 phút) và nút **Đăng nhập** mờ. Chờ đúng số phút. Vẫn không vào được: báo chủ đầu tư.
 
 [ẢNH: G2-01-Desk báo thử quá nhiều lần]
 
@@ -111,9 +113,9 @@ Menu dưới tên của mình gồm: **Đổi mật khẩu** · **Xác thực 2 
 
 Desk báo "Phiên đăng nhập đã hết. Đăng nhập lại – thông tin đang nhập vẫn được giữ trên máy này.": đăng nhập lại, làm tiếp.
 
-**Đổi mật khẩu khi muốn:** **tên của mình → Đổi mật khẩu** → nhập mật khẩu hiện tại và mật khẩu mới → lưu. Nghi người khác biết mật khẩu: đổi ngay và báo chủ đầu tư.
+**Đổi mật khẩu khi muốn:** **tên của mình → Đổi mật khẩu** → màn **Đổi mật khẩu** → **Mật khẩu hiện tại**, **Mật khẩu mới**, **Nhập lại mật khẩu mới** → **Lưu và vào ứng dụng** (đổi ý thì **Quay lại**). Nghi người khác biết mật khẩu: đổi ngay và báo chủ đầu tư.
 
-[ẢNH: G2-02-Hộp Đổi mật khẩu]
+[ẢNH: G2-02-Màn Đổi mật khẩu]
 
 ### 1.7 Quên mật khẩu, bị khóa, mất điện thoại
 
@@ -121,9 +123,9 @@ Desk báo "Phiên đăng nhập đã hết. Đăng nhập lại – thông tin �
 |---|---|
 | Quên mật khẩu | **Báo chủ đầu tư.** Desk không có nút "quên mật khẩu". Chủ đầu tư **Đặt lại mật khẩu**, đưa mật khẩu tạm tận tay. Lần đăng nhập tới làm lại như mục 1.2 |
 | Desk báo "Tên đăng nhập hoặc mật khẩu không đúng. Quên mật khẩu? Nhờ chủ đầu tư đặt lại." | Gõ lại chậm, kiểm phím viết hoa. Vẫn sai: báo chủ đầu tư |
-| Tài khoản bị tạm khóa do sai nhiều lần | Chờ hết thời gian khóa, hoặc nhờ chủ đầu tư đặt lại mật khẩu |
-| Tài khoản có vai quản lý, mất điện thoại, còn mã khôi phục | Ở màn nhập mã, bấm **Mất điện thoại? Dùng mã khôi phục**, nhập một mã, bấm **Đăng nhập bằng mã khôi phục**. Desk mở **Đăng ký lại trên điện thoại mới**: làm lại như mục 1.3. Rồi **báo chủ đầu tư** để **Đặt lại mật khẩu** (Desk đăng xuất trên mọi máy, kể cả máy bị mất) |
-| Mất cả điện thoại lẫn mã khôi phục | **Báo chủ đầu tư.** Không xin mã của người khác |
+| Tài khoản bị khóa do sai nhiều lần | Chờ đúng số phút Desk báo, hoặc nhờ chủ đầu tư **Mở khóa**. Bị khóa mà mình **không** gõ sai: báo chủ đầu tư ngay (có thể có người dò mật khẩu) |
+| Tài khoản có vai quản lý, mất điện thoại, còn mã khôi phục | Ở màn nhập mã, bấm **Mất điện thoại? Dùng mã khôi phục**, nhập một mã, bấm **Đăng nhập bằng mã khôi phục**. Desk mở **Đăng ký lại trên điện thoại mới**: làm lại như mục 1.3, trên laptop riêng. **Làm xong đăng ký lại ngay, không bỏ dở.** Rồi **báo chủ đầu tư** để **Đặt lại mật khẩu** (Desk đăng xuất trên mọi máy, kể cả máy bị mất) |
+| Mất cả điện thoại lẫn mã khôi phục | **Báo chủ đầu tư.** Chủ đầu tư khóa tài khoản cũ và tạo cho anh/chị tài khoản mới (tên đăng nhập mới); đăng nhập lần đầu như mục 1.2 trên laptop riêng. Không xin mã của người khác, không dùng tài khoản người khác trong lúc chờ |
 | Mất điện thoại có đăng nhập app nhân viên (lễ tân trưởng) | **Báo chủ đầu tư ngay** để khóa tài khoản và đặt lại mật khẩu |
 | Mất **điện thoại của cơ sở** hoặc máy tính bảng có **app khóa cửa** | **Báo chủ đầu tư ngay** để đổi mật khẩu tài khoản app khóa và thu hồi quyền của máy đó |
 | Nghi lộ mật khẩu, thấy tài khoản lạ đăng nhập | **Báo chủ đầu tư ngay** |
@@ -132,7 +134,7 @@ Desk báo "Phiên đăng nhập đã hết. Đăng nhập lại – thông tin �
 
 ### 1.8 Lễ tân trưởng: đăng nhập app nhân viên để kiểm phòng
 
-Chỉ cho tài khoản **Lễ tân trưởng không có vai quản lý**. Tài khoản có vai quản lý (như người trực hiện nay) bị app chặn: app báo "Nhập mã trong ứng dụng xác thực để hoàn tất đăng nhập. Đăng nhập 2 bước sẽ có ở bản sau. Nhờ chủ đầu tư hỗ trợ đăng nhập." và không có ô nhập mã. Khi đó không ai kiểm phòng được: nhận khách vào căn **Đã dọn – chờ kiểm** (`VC`) như thường (mục 14.2).
+Chỉ cho tài khoản **Lễ tân trưởng không có vai quản lý**. Tài khoản có vai quản lý (như người trực hiện nay) bị app chặn: app báo "Nhập mã trong ứng dụng xác thực để hoàn tất đăng nhập. Đăng nhập 2 bước sẽ có ở bản sau. Nhờ chủ đầu tư hỗ trợ đăng nhập." và không có ô nhập mã. Khi đó không ai bấm kiểm phòng được: người trực tự đi kiểm căn rồi mới bấm **Làm xong** (mục 13.2a), và nhận khách vào căn **Đã dọn – chờ kiểm** (`VC`) như thường (mục 14.2).
 
 1. Mở trình duyệt điện thoại, gõ `staff.ottimo.vn`. (Nên chọn "Thêm vào Màn hình chính" để mở nhanh lần sau.)
 2. Nhập **Tên đăng nhập**, **Mật khẩu** (cùng tài khoản với Desk). Bấm **Đăng nhập**.
@@ -142,8 +144,7 @@ Chỉ cho tài khoản **Lễ tân trưởng không có vai quản lý**. Tài k
 [ẢNH: C0-09-Đăng nhập app nhân viên]
 [ẢNH: C3-09-Tôi, đăng xuất]
 
-<!-- QA kiểm (BA-GUIDES Q2): app nhân viên v1.0.0 không có màn đổi mật khẩu tạm (product/apps/mobile/src/pages không có ChangePassword; API chặn mọi thao tác trừ changeMyPassword khi mustChangePassword). Vì vậy lễ tân trưởng đổi mật khẩu tạm trên Desk (mục 1.2) trước khi mở app. -->
-Lần đầu: đổi mật khẩu tạm trên Desk trước (mục 1.2), rồi mới đăng nhập app nhân viên.
+Lần đầu, và sau mỗi lần chủ đầu tư **Đặt lại mật khẩu**: đổi mật khẩu tạm trên Desk trước (mục 1.2), rồi mới đăng nhập app nhân viên. App chưa có màn đổi mật khẩu tạm: còn mật khẩu tạm mà vào app thì mọi màn báo "Chưa tải được … Có thể do mạng yếu" (mục 17.6).
 
 ### 1.9 Luôn nhớ về tài khoản
 
@@ -158,26 +159,26 @@ Lần đầu: đổi mật khẩu tạm trên Desk trước (mục 1.2), rồi m
 
 | Khi nào | Việc | Ở đâu |
 |---|---|---|
-| **Mở quầy (muộn nhất 09:00)** | Đăng nhập, kiểm chip **Máy quầy đã cấp quyền** | Mục 1.4 |
-| Mở quầy | Đọc **Cần chú ý** trước, xử lý từ dòng đỏ trở xuống | **Hôm nay** (mục 3.1) |
-| Mở quầy | Xem **Khách đến (n)**, **Khách đi (n)**, **Giữ chỗ chưa cọc (n)**, **Yêu cầu của khách** | **Hôm nay** |
-| Mở quầy | **Rà giữ chỗ – mốc 1** (tới v1.0.1) | **Đơn đặt phòng** → **Đang hiệu lực** (mục 17.1) |
-| Mở quầy | Bàn giao với ca trước: tiền mặt trong két, việc dở dang | Sổ giao ca |
-| Mở quầy, 12:00, 18:00, cuối ca | Kiểm extranet mọi kênh OTA; đơn mới thì nhập Desk ngay | Mục 5.3 |
+| **07:00** | Bắt đầu trả lời tin, yêu cầu của khách. Desk chuyển căn có khách sang "cần dọn". Khi chủ đầu tư đã bật form website: Desk mở trên máy quầy và điện thoại người trực 07:00–22:00, xem **Yêu cầu từ website** (mục 13.1) | Điện thoại cơ sở, **Hôm nay** |
+| Trước giờ mở quầy | Khách nhận phòng sớm đã hẹn (từ 06:00, có phụ thu): ra quầy đúng giờ hẹn, làm trên máy quầy | Mục 7.1 |
 | Từ 08:00 | Nhắn khách đi hôm nay xác nhận giờ trả; ghi **Xác nhận giờ trả** | Mục 9.6 |
+| **Mở quầy (muộn nhất 09:00)** | Đăng nhập, kiểm chip **Máy quầy đã cấp quyền**. Tờ **Your ID details** đúng chỗ, mặt quay ra khách | Mục 1.4, 7.2 |
+| Mở quầy | Đọc **Cần chú ý** trước, xử lý từ dòng đỏ trở xuống. Xem **Khách đến (n)**, **Khách đi (n)**, **Giữ chỗ chưa cọc (n)**, **Yêu cầu của khách** | **Hôm nay** (mục 3.1) |
+| Mở quầy | **Rà giữ chỗ – mốc 1** (tới v1.0.1) | Mục 17.1 |
+| Mở quầy | Đọc sổ giao ca tối qua và dòng chủ đầu tư ghi trong lượt kiểm sáng. Đếm tiền mặt trong két. Khi có nhiều người: bàn giao với ca trước | Sổ giao ca |
+| Mở quầy, 12:00, 18:00, đóng quầy | Kiểm extranet mọi kênh OTA; đơn mới thì nhập Desk ngay | Mục 5.3 |
+| **Trước 11:00** | Căn trống từ đêm qua có khách đến hôm nay đã rà xong. Người trực hiện nay: tự kiểm rồi bấm **Làm xong** (mục 13.2a). Khi có lễ tân trưởng: kiểm trên app xong trước 12:00 (mục 14.2) | **Buồng phòng** |
 | **11:00** | **Rà giữ chỗ – mốc 2** (trước trần 12:00 ngày đến) | Mục 17.1 |
-| Trước 12:00 | Lễ tân trưởng kiểm xong căn trống từ đêm qua có khách đến hôm nay | App nhân viên (mục 14.2) |
-| **12:00** | Giờ trả phòng. Nhận phòng từ 12:00 nếu căn `VC`/`VI` | Mục 7, 11 |
-| Từ 12:00 | Chốt giờ đi với khách đi hôm nay nếu căn có khách đến tối nay | Mục 11.4 |
-| **14:00** | Mọi căn có khách đến hôm nay **chắc chắn sẵn sàng** | **Buồng phòng** trên Desk |
+| **12:00** | Giờ trả phòng. Nhận phòng từ 12:00 nếu căn `VC`/`VI`. Khách đi chưa trả mà căn có khách đến tối nay: chốt giờ đi | Mục 7, 11, 11.4 |
+| Ngay khi khách trả | Căn có khách đến cùng ngày: dọn, kiểm, bấm **Làm xong** | Mục 13.2a |
+| **14:00** | Mọi căn có khách đến hôm nay **chắc chắn sẵn sàng** | **Buồng phòng** |
 | **18:00** | Khách chưa đến, chưa báo giờ: gọi hoặc nhắn khách | Mục 6.3 |
-| Trước 21:00 | Nhắn khách đi ngày mai xác nhận giờ trả. Sau 21:00 không nhắn khách | – |
-| 22:00 | Chép tay danh sách khách đến/đi ngày mai (mục 15). Ba ngày đầu (02, 03, 04/11): so sổ giấy với Desk | Sổ giấy |
-| **23:00** | Không liên lạc được khách chưa đến: **Đánh dấu không đến**. Hạn khai báo khách Việt Nam | Mục 6.3, 8 |
-| **Trước khi rời quầy (muộn nhất 21:00)** | **Rà giữ chỗ – mốc 3**. **Cần chú ý** không còn dòng đỏ chưa xử lý (hoặc đã ghi chú, bàn giao). Mọi giữ chỗ "còn 0 giờ 00 phút" đỏ đã hủy, hoặc đã có dòng "Giữ – …" trong sổ giao ca | Mục 17.1 |
-| Trước khi rời quầy | Ghi sổ giao ca mọi phiếu thanh toán đã cấp trong ca (mục 11.7). Đối chiếu tiền mặt (mục 12.4) | Sổ giao ca |
-| Trước khi rời quầy | **Đăng xuất** | Mục 1.6 |
-| Mỗi lần thấy **Giữ chỗ sắp hết hạn** | Gọi khách ngay, xử lý trước hạn | Mục 4.3 |
+| **Đóng quầy (muộn nhất 21:00)** | Nhắn khách đi ngày mai xác nhận giờ trả (sau 21:00 không nhắn khách). **Rà giữ chỗ – mốc 3**, gồm cả giữ chỗ hết hạn trước 09:00 sáng mai (mục 17.1). **Cần chú ý** không còn dòng đỏ chưa xử lý (hoặc đã ghi sổ giao ca). Ghi sổ giao ca các phiếu thanh toán đã cấp (mục 11.7). Đối chiếu tiền mặt (mục 12.4) | Mục 17.1, 11.7, 12.4 |
+| Sau đóng quầy | **Người trực vẫn trực** điện thoại cơ sở, bật chuông. Chỉ trả lời khách nhắn tới. Khách đến muộn gọi: ra quầy, làm trên máy quầy (mục 13.3) | Điện thoại cơ sở |
+| **22:00** | Trên máy quầy: chép tay danh sách khách đến/đi ngày mai (mục 15). Ba ngày đầu (02, 03, 04/11): so sổ giấy với Desk, báo chủ đầu tư qua điện thoại. Từ 22:00 không xác nhận chuyển khoản qua điện thoại | Sổ giấy |
+| **23:00** | Khách chưa đến, vẫn không liên lạc được: **Đánh dấu không đến** (đơn OTA kiểm extranet trước; khách đã báo đến muộn thì không đánh dấu). Hạn khai báo khách Việt Nam | Mục 6.3, 8.3 |
+| Xong việc 23:00 | **Đăng xuất** máy quầy | Mục 1.6 |
+| Mỗi lần thấy **Giữ chỗ sắp hết hạn** | Gọi khách ngay, xử lý trước hạn | Mục 4.5 |
 
 Luôn nhớ trong ca:
 - **Giấy tờ khách chỉ nằm trên Desk.** Không chụp, không gửi Zalo.
@@ -237,6 +238,8 @@ Lễ tân thấy: **Hôm nay**, **Sơ đồ phòng**, **Đơn đặt phòng**, *
   - "OTTIMO only messages you from this account and your OTA inbox, and never changes bank details by message."
   - "OTTIMO chỉ nhắn từ tài khoản này và hộp thư OTA, không bao giờ đổi số tài khoản qua tin nhắn."
 - Không gửi ảnh QR cũ, không gõ số tài khoản bằng tay.
+- Đơn của CTV: gửi mã cọc **thẳng cho khách** từ tài khoản OTTIMO (số điện thoại trên đơn). Không gửi mã cho CTV để chuyển tiếp.
+- Sale nội bộ làm việc ngoài quầy gọi hoặc nhắn **chỉ mã đơn** nhờ gửi mã cọc: mở đơn trên Desk ở điện thoại cơ sở, gửi mã cho khách từ tài khoản OTTIMO kèm câu trên.
 
 ### 4.2 Báo giá
 
@@ -254,7 +257,7 @@ Lễ tân thấy: **Hôm nay**, **Sơ đồ phòng**, **Đơn đặt phòng**, *
 ### 4.3 Giữ chỗ khi khách đồng ý
 
 1. Trong báo giá, bấm **Khách đồng ý – Giữ chỗ**.
-2. Hộp **Giữ chỗ**: chọn **Giữ trong** 12 h, 24 h hoặc 48 h (mặc định 24). Hạn giữ không vượt 12:00 ngày đến.
+2. Hộp **Giữ chỗ**: chọn **Giữ trong** 12 h, 24 h hoặc 48 h (mặc định 24). Hạn giữ không vượt 12:00 ngày đến. Tới v1.0.1: chọn thời hạn để giờ hết hạn rơi vào **09:00–21:00**. Ví dụ tạo lúc 15:00: chọn **24 h** (hạn 15:00 hôm sau), không chọn 12 h (hạn 03:00 sáng).
 3. Bấm **Tạo giữ chỗ**. Desk tạo đơn **Giữ chỗ · chờ cọc** và mã **VietQR** đúng số cọc, nội dung chuyển khoản là **mã đơn**.
 4. Gửi mã QR cho khách theo mục 4.1 (**Sao chép số tiền**, **Sao chép nội dung** nếu khách tự gõ).
 5. Mã có dòng **"Tài khoản nhận vừa đổi"**: chưa gửi, gọi chủ đầu tư xác nhận trước (mục 10.2).
@@ -411,6 +414,7 @@ Mở đơn (từ **Sơ đồ phòng**, **Đơn đặt phòng** hoặc **Hôm nay
    - Đọc số trên hộp **Hủy đơn OTM-… của …?** trước khi bấm **Hủy đơn**. Đổi ý thì bấm **Giữ lại đơn**.
 3. **Đơn OTA:** nhập **Tiền phạt theo kênh** đúng số kênh báo (0 nếu kênh miễn phạt).
 4. **Có khoản hoàn:** Desk tạo yêu cầu hoàn. Người hủy nhập nơi nhận hoàn (mục 12.2). **Người hủy không tự duyệt, không tự chi được**, kể cả có quyền quản lý. Hiện một người trực: **chủ đầu tư duyệt và chi**. Hộp hủy ghi "… – cần quản lý duyệt": ở OTTIMO hiện chủ đầu tư duyệt, không đi tìm quản lý.
+   - **4a. Sale/CTV nhắn khách báo hủy:** hủy **trong ngày khách báo** (ngày trên Desk, đổi lúc 06:00). Tin tới sau giờ quầy thì hủy ngay ở lượt mở quầy sáng hôm sau. Nếu bậc hoàn Desk tính thấp hơn bậc theo ngày khách báo, ghi sổ giao ca: "OTM-… khách báo hủy dd/mm hh:mm qua CTV/sale, Desk tính theo ngày hủy dd/mm". Chủ đầu tư xem trong lượt kiểm sáng và quyết phần chênh. Không hứa với khách trước khi chủ đầu tư quyết.
 5. Khách muốn đổi ngày thay vì hủy: **Dời ngày thay vì hủy** (chỉ quản lý).
 
 [ẢNH: C2-12-Hủy đơn]
@@ -449,11 +453,19 @@ Câu trả lời khi khách hỏi chính sách hủy: đọc đúng mục này. 
 
 ### 7.2 Tờ "Your ID details" – cho khách xem trước khi nhận giấy tờ
 
-**Mọi khách làm giấy tờ tại quầy phải được xem tờ "Your ID details" trước khi anh/chị nhận giấy tờ.** Đây là thông báo bắt buộc cho khách về việc dùng thông tin giấy tờ. Không có tờ này ở quầy thì **không nhận giấy tờ**: báo chủ đầu tư.
+**Mọi khách làm giấy tờ tại quầy phải được xem tờ "Your ID details" trước khi anh/chị nhận giấy tờ.** Đây là thông báo bắt buộc cho khách về việc dùng thông tin giấy tờ.
 
-Cho khách xem bằng một trong hai cách:
-- **Bản in** trong khung mica trên quầy, mặt quay ra khách, chỗ khách đứng làm thủ tục, không bị che (cách chính).
-- **Bản trên màn hình**: mở đúng tờ này trên máy tính bảng hoặc màn hình ở quầy, quay về phía khách. Màn hình lúc đó **chỉ hiện tờ thông báo**: không hiện Desk, không hiện thông tin của khách khác.
+Cho khách xem theo thứ tự:
+1. **Bản in khổ A4** trong khung mica trên quầy, mặt quay ra khách, chỗ khách đứng làm thủ tục, không bị che (cách chính, theo quyết định của chủ đầu tư 30/10).
+2. **Bản in dự phòng** trong ngăn quầy. Tờ trên quầy hỏng hay mất thì thay ngay bằng bản này, ghi sổ giao ca để chủ đầu tư in lại trong ngày.
+3. **Máy tính bảng của cơ sở** – chỉ khi chưa thay được bản in, và chỉ khi máy đạt đủ điều kiện dưới đây:
+   - Máy **dành riêng** cho tờ này. **Không** dùng máy quầy hay màn hình máy quầy, điện thoại cơ sở, máy cá nhân, máy có app khóa cửa.
+   - Máy **không** được cấp quyền thiết bị và **không** đăng nhập Desk, app nhân viên, Zalo, email, app khóa cửa.
+   - Máy có mật mã màn hình. Trên máy chỉ có tệp **`your-id-details-tablet.html`** (hoặc bản PDF A4 của tờ), mở từ máy, không cần mạng.
+   - Trước khi quay về phía khách: bật **Không làm phiền**, mở tờ, chạm một lần cho toàn màn hình, rồi khóa vào tờ (iPad: **Truy cập được hướng dẫn**; Android: **Ghim ứng dụng**). Nhìn lại: màn hình chỉ có tờ, dòng chân "OTTIMO · ID notice · 11/2026".
+   - Máy không đạt đủ điều kiện: **không dùng**.
+
+Không có bản in nào và không có máy đạt điều kiện: không nhận giấy tờ, gọi chủ đầu tư.
 
 Câu mời khách đọc (trước khi nhận giấy tờ):
 - EN: "Before I take your ID, please read this note on how we use it."
@@ -488,9 +500,9 @@ Nội dung tờ (nguyên văn, không sửa chữ):
 >
 > OTTIMO · ID notice · 11/2026
 
-[ẢNH: G2-03-Tờ Your ID details trong khung mica trên quầy]
+[ẢNH: G2-03-Tờ Your ID details khổ A4 trong khung mica trên quầy]
 
-<!-- SEC xem (BA-GUIDES S1): cách "bản trên màn hình" do ORC giao 30/10; điều kiện SEC D-T4 trước đây chỉ nêu khung mica (SEC S2). Bản điện tử phải đúng chữ và đúng dòng chân "OTTIMO · ID notice · 11/2026" (SEC D08). -->
+<!-- SEC S1 (SEC-on-BA-department-guides.md, 30/10): máy tính bảng chỉ là cách dự phòng thứ 3, đủ điều kiện mới dùng. Bản điện tử đúng chữ và dòng chân "OTTIMO · ID notice · 11/2026" (SEC D08). Bản in A4: product/docs/print/pdf/to-4-your-id-details-a4.pdf. -->
 
 ### 7.3 Các bước nhận phòng
 
@@ -894,9 +906,14 @@ Tiền mặt sale/CTV thu hộ nộp quầy: lễ tân bấm **Đã nhận tiề
 
 ### 13.1 Yêu cầu từ website
 
-> **Tạm ở v1.0:** form "Yêu cầu đặt phòng" trên ottimo.vn **đang tắt** (theo quyết định của chủ đầu tư, bật khi luật sư trả lời). Màn **Yêu cầu từ website** hiện "Form đặt phòng trên website đang tắt". Khách liên hệ qua Zalo, điện thoại: tạo đơn như mục 5.1, **Nguồn** = **Website** nếu khách nói tìm thấy OTTIMO qua website.
+Form "Yêu cầu đặt phòng" trên ottimo.vn **dự kiến bật sáng 31/10** (luật sư đã đồng ý 30/10, đội đang chuẩn bị). **Chủ đầu tư báo khi đã bật.** Chưa bật thì màn **Yêu cầu từ website** hiện "Form đặt phòng trên website đang tắt". Khách liên hệ qua Zalo, điện thoại: tạo đơn như mục 5.1, **Nguồn** = **Website** nếu khách nói tìm thấy OTTIMO qua website.
 
-Khi chủ đầu tư bật form: yêu cầu mới hiện ở menu kèm số, hạn trả lời 15 phút. Mở yêu cầu → **Nhận xử lý** → **Báo giá** hoặc **Tạo đơn**; không thành đơn thì **Đóng – không thành đơn**.
+Khi form bật: yêu cầu mới hiện ở menu **Yêu cầu từ website** kèm số. Mở yêu cầu → **Nhận xử lý** → **Báo giá** hoặc **Tạo đơn**; không thành đơn thì **Đóng – không thành đơn**.
+
+> **Tạm ở v1.0 (tới v1.0.1 có tin báo qua Google Chat):** Desk chưa báo yêu cầu mới ra ngoài màn hình. Khi form bật:
+> - Desk mở trên máy quầy và điện thoại người trực **07:00–22:00**. Xem **Yêu cầu từ website** mỗi lần cầm máy, và ngay sau mỗi việc ở quầy.
+> - Hạn trả lời 15 phút áp trong **08:00–21:00**. Trả lời khách từ tài khoản OTTIMO (mục 4.1).
+> - Yêu cầu tới ngoài giờ: bấm **Nhận xử lý** khi thấy, nhắn khách từ 08:00 sáng hôm sau.
 
 [ẢNH: C2-39-Yêu cầu từ website, form tắt]
 
@@ -904,24 +921,45 @@ Khi chủ đầu tư bật form: yêu cầu mới hiện ở menu kèm số, h�
 
 1. **Vận hành → Buồng phòng**: **Việc buồng phòng hôm nay** (tiến độ **… xong**) và **Trạng thái buồng** từng căn.
 2. Thêm việc: **Việc mới** → hộp **Tạo việc buồng phòng**: **Căn**, **Loại việc**, **Ngày làm**, **Ghi chú cho buồng phòng** → bấm **Việc mới** ở cuối hộp.
-3. Hủy việc: **Hủy việc** → **Lý do**.
+3. Hủy việc: **Hủy việc** → **Lý do** (**Treo biển "Không làm phiền"**, **Khách nói không cần dọn**, **Lý do khác** – lý do khác phải ghi **Ghi chú**) → **Hủy việc**.
 4. Làm thay buồng phòng: **Làm xong** ở dòng việc. Người trực hiện nay đánh dấu việc dọn ở đây (tài khoản có vai quản lý chưa vào được app nhân viên).
 
 Trạng thái buồng: `VD` trống, cần dọn · `CL` đang dọn · `VC` đã dọn, chờ kiểm · `VI` đã kiểm, sẵn sàng · `OC` có khách, sạch · `OD` có khách, cần dọn · `OOO` khóa phòng, đang sửa. Nhận khách vào căn `VC` hoặc `VI`. Mỗi sáng 07:00, Desk chuyển các căn có khách sang "cần dọn".
 
 [ẢNH: C2-40-Buồng phòng trên Desk, việc mới]
 
+### 13.2a Khi chưa ai kiểm phòng được (người trực hiện nay)
+
+Tài khoản giữ 6 vai chưa vào được app nhân viên, nên không ai bấm **Kiểm phòng** (`VC` → `VI`). Desk vẫn cho nhận khách vào căn `VC`. Việc kiểm bằng mắt **vẫn phải làm**, chỉ là không ghi trên app:
+1. **Chỉ bấm Làm xong khi căn đã đạt.** Dọn xong căn trống (tự dọn, hoặc người dọn báo xong): đi một vòng căn theo 12 mục kiểm (ga gối, phòng tắm, khăn, đồ dùng, bếp, bàn làm việc, Wi-Fi, rèm/cửa sổ, mùi, remote/điều hòa/sưởi, thẻ chào…). Mở thử nước nóng và sưởi. Đạt hết mới bấm **Làm xong** ở dòng việc. Chưa đạt: dọn lại, chưa bấm.
+2. **Căn trống từ đêm qua, có khách đến hôm nay:** rà xong **trước 11:00**, còn 1 giờ để xử lý trước giờ nhận phòng 12:00. **Căn khách trả mà có khách mới đến cùng ngày:** dọn ngay khi khách trả, bấm **Làm xong** **trước 14:00**.
+3. **Căn trống quá 3 ngày:** rà lại trong ngày khách đến dù Desk đang hiện `VC`. Mở cửa sổ cho thoáng, xả nước nóng 1–2 phút, xem côn trùng, ẩm mốc, mùi. Ghi sổ giao ca: "Rà lại căn … – hh:mm".
+4. **Căn khách trả mà chưa bấm Làm xong** vẫn là `VD`, Desk coi căn chưa sẵn sàng. Dọn và kiểm xong thì bấm ngay, đừng để cuối ngày.
+5. **Khách đang ở không muốn dọn** (treo biển, khách nói không cần): **Hủy việc** → hộp **Hủy việc "…" – căn …?** → **Lý do**: **Treo biển "Không làm phiền"** hoặc **Khách nói không cần dọn** → **Hủy việc** (đổi ý: **Không, quay lại**). Ngày mai vẫn có việc dọn như thường.
+6. Người dọn thuê theo giờ, không có tài khoản: người trực bấm **Làm xong** thay, sau khi tự đi kiểm theo bước 1.
+7. Thứ tự dọn khi nhiều việc: như tệp 03 mục 2.
+
+Khi OTTIMO có lễ tân trưởng không giữ vai quản lý: người đó kiểm trên app nhân viên (mục 14.2), bỏ mục này.
+
 ### 13.3 Ca đêm (00:00–05:59)
 
 - Desk và app vẫn tính **ngày hôm trước**. Khách đến muộn của đơn hôm qua: nhận phòng như thường.
 - Khách vãng lai đến ở luôn: tạo đơn, ngày đến là **ngày hôm trước**, tính 1 đêm. Ví dụ 02:00 sáng ngày 03/11: Desk tạo đơn ngày đến **02/11**, tính 1 đêm, trả phòng 12:00 ngày 03/11.
 - Khách của đơn **hôm nay** đến trước 06:00: Desk thêm đêm trước (mục 7.4).
-- Khách đến sau 22:00: người trực đối chiếu giấy tờ gốc, cho xem tờ **Your ID details** như mọi khách, giao mã.
+- Khách báo sẽ đến sau 22:00: hỏi giờ đến dự kiến và số điện thoại liên lạc lúc đến. Ghi sổ giao ca "OTM-… đến khoảng hh:mm". Đơn này **không** đánh dấu không đến lúc 23:00.
+- Khách đến sau 22:00: người trực ra quầy, làm **đủ các bước nhận phòng như ban ngày** trên **máy quầy đã cấp quyền** (mục 7.3):
+  1. Cho xem tờ **Your ID details** trước khi nhận giấy tờ.
+  2. Nhận giấy tờ gốc.
+  3. Hỏi đồng ý lưu ảnh (mục 8.2).
+  4. Thu tiền: từ 22:00 mời tiền mặt hoặc thẻ (mục 18).
+  5. **Nhận phòng**, rồi mới giao mã. Không giao mã trước khi xong giấy tờ. Không làm nhận phòng trên điện thoại.
 - Hạn khai báo tính theo **giờ đồng hồ thật**. Khách Việt Nam đến 23:00–23:59: khai trước 08:00 sáng hôm sau. Đến 00:00–05:59: khai ngay trong ca, muộn nhất 08:00 sáng.
 
 ### 13.4 Báo hỏng hóc, khóa phòng
 
 Khách báo hỏng: tạo phiếu ở **Vận hành → Bảo trì** → tab **Phiếu sửa** → **Phiếu sửa mới** → căn, **Tiêu đề**, **Mô tả**, **Mức độ**, ảnh. Căn không ở được: tích **Khóa căn – không bán đến khi sửa xong** → **Khóa từ**, **Dự kiến xong**, **Lý do khóa** → **Tạo phiếu và khóa căn**. Căn đang có khách: đổi phòng cho khách trước rồi mới khóa. Chi tiết: tệp 04.
+
+> **Tạm ở v1.0 (tới v1.0.1):** tài khoản chỉ có vai Bảo trì chưa chọn được căn trên Desk, nên **không tạo phiếu, không khóa phòng được trên Desk**. Bảo trì báo sự cố trên app (tích **Đề nghị khóa căn**) hoặc nhắn lễ tân ngày, căn, lý do. **Lễ tân hoặc người trực** tạo phiếu và khóa phòng (cả **Khóa phòng có kế hoạch**) trên Desk theo mục này.
 
 [ẢNH: C4-05-Phiếu sửa mới và khóa căn trên Desk]
 
@@ -955,7 +993,7 @@ Khách báo hỏng: tạo phiếu ở **Vận hành → Bảo trì** → tab **P
 
 - Căn trống quá 3 ngày cần kiểm lại trước khi nhận khách.
 - Kiểm phòng cần có mạng.
-- Ngày lễ tân trưởng nghỉ, hoặc tài khoản có vai quản lý (người trực hiện nay), thì **không ai kiểm được**. Lễ tân vẫn nhận khách vào căn **Đã dọn – chờ kiểm** (`VC`) như thường.
+- Ngày lễ tân trưởng nghỉ, hoặc tài khoản có vai quản lý (người trực hiện nay), thì **không ai bấm kiểm được**. Lễ tân vẫn nhận khách vào căn **Đã dọn – chờ kiểm** (`VC`), sau khi căn đã được kiểm bằng mắt theo mục 13.2a.
 
 ### 14.3 Duyệt yêu cầu trong hạn mức
 
@@ -1052,7 +1090,14 @@ Các việc dưới đây làm theo cách tạm từ **02/11** tới khi **chủ
 
 **Desk ghi sai với giữ chỗ có cọc:** khung đơn ghi "Giữ chỗ đã hết hạn lúc … – **đơn đã tự hủy**", câu lỗi ghi "căn đã **mở bán lại**". Thực tế đơn **chưa** hủy (trạng thái vẫn **Giữ chỗ · chờ cọc**), căn vẫn bị giữ, tiền khách vẫn trên đơn. Hộp hủy ghi "**Không thu phí (giữ chỗ chưa cọc)**" và không hiện dòng hoàn: **đừng tin dòng này** – Desk vẫn tạo yêu cầu hoàn đủ số đã nhận.
 
-**Khi nào rà:** lúc mở quầy (muộn nhất 09:00) · **11:00** · trước khi rời quầy (muộn nhất 21:00) · mỗi lần thấy **Giữ chỗ sắp hết hạn**.
+**Khi nào rà:** lúc mở quầy (muộn nhất 09:00) · **11:00** · lúc đóng quầy (muộn nhất 21:00) · mỗi lần thấy **Giữ chỗ sắp hết hạn**.
+
+**Ở mốc 3 (đóng quầy):** mọi giữ chỗ có hạn **trước 09:00 sáng mai** coi như "còn dưới 2 giờ" và xử lý ngay theo (1):
+- tiền đã về thì xác nhận;
+- khách cần thêm thời gian thì **Gia hạn giữ chỗ (1 lần)** để hạn mới rơi sau 09:00 (không quá 12:00 ngày đến);
+- khách không đi nữa thì hủy.
+
+Lý do: sau 22:00 không ai xác nhận được tiền về, và sau hạn Desk chỉ còn **Hủy giữ chỗ**.
 
 **Rà ở đâu:**
 1. **Vận hành → Đơn đặt phòng**.
@@ -1072,7 +1117,7 @@ Các việc dưới đây làm theo cách tạm từ **02/11** tới khi **chủ
 - **Hủy giữ chỗ** ngay khi thấy, không chờ gọi khách. **Lý do hủy**: **Không liên lạc được** (khách không cọc tới hạn). Không chọn **Khác (ghi rõ)** (mục 17.2).
 - Ghi sổ giao ca "OTM-… hủy – hết hạn giữ chỗ, chưa cọc". Không phí. Căn mở lại.
 - Nhắn hoặc gọi khách (đơn CTV: nhắn CTV trước; CTV liên hệ khách trong 1 giờ, quá 1 giờ hoặc đã 11:00 ngày đến thì gọi thẳng số khách trên đơn). Khách còn muốn:
-  - **Đến từ ngày mai:** tạo **giữ chỗ mới**, chọn **12 h**. Báo giá cũ còn hiệu lực (3 ngày): bấm lại **Khách đồng ý – Giữ chỗ** từ báo giá đó; hết hiệu lực thì **Lập báo giá mới** theo giá hiện hành. Giảm giá hoặc FOC của đơn cũ không tự sang đơn mới: xin lại trên từng đêm của đơn mới, ghi lý do. Trong hạn mức quản lý (mỗi lần không quá giá 1 đêm), Desk áp ngay bằng quyền quản lý của người trực. Desk báo phải chờ chủ đầu tư duyệt: nhắn chủ đầu tư mã đơn và số tiền. Ghi sổ giao ca "Tạo lại từ OTM-… (hết hạn dd/mm)".
+  - **Đến từ ngày mai:** tạo **giữ chỗ mới**, chọn **12 h** nếu hạn rơi trước 21:00; nếu không thì chọn **24 h** (mục 4.3). Báo giá cũ còn hiệu lực (3 ngày): bấm lại **Khách đồng ý – Giữ chỗ** từ báo giá đó; hết hiệu lực thì **Lập báo giá mới** theo giá hiện hành. Giảm giá hoặc FOC của đơn cũ không tự sang đơn mới: xin lại trên từng đêm của đơn mới, ghi lý do. Trong hạn mức quản lý (mỗi lần không quá giá 1 đêm), Desk áp ngay bằng quyền quản lý của người trực. Desk báo phải chờ chủ đầu tư duyệt: nhắn chủ đầu tư mã đơn và số tiền. Ghi sổ giao ca "Tạo lại từ OTM-… (hết hạn dd/mm)".
   - **Đến hôm nay:** không giữ chỗ được. Gửi VietQR, tạo đơn khi tiền về. Khách đang trên đường: căn còn thì nhận khi tới, như khách vãng lai.
 - **Chỉ tạo lại một lần** cho cùng khách, cùng kỳ ở. Giữ chỗ tạo lại mà lại quá hạn: hủy, không giữ nữa.
 - Không cần báo ai. Báo chủ đầu tư chỉ khi khách đòi giữ giá cũ mà báo giá đã hết hiệu lực và giá hiện hành cao hơn.
@@ -1091,7 +1136,7 @@ Ví dụ: căn 202, 3 đêm 05–08/11 = 2.376.000 đ, cọc yêu cầu 700.000 
 **Khách tới quầy, đơn vẫn Giữ chỗ · chờ cọc:**
 - **Nếu chủ đầu tư đã báo v1.0.1 lên**: **Xác nhận đã nhận cọc** phần còn lại → **Nhận phòng**.
 - **Nếu chưa**:
-  - **(a)** **Hủy giữ chỗ** đơn cũ, **Lý do hủy**: **Khách đổi ý** → Desk tạo yêu cầu hoàn 300.000. **Nhập nơi nhận hoàn** ngay: **Chuyển khoản** (mặc định). **Tiền mặt** chỉ khi chủ đầu tư đang ở quầy, hoặc đã hẹn qua điện thoại một giờ cụ thể tới quầy trong thời gian khách ở. (Hộp **Nhập nơi nhận hoàn** chọn sẵn **Tiền mặt**: chọn đúng **Cách hoàn** rồi bấm **Lưu**.)
+  - **(a)** **Hủy giữ chỗ** đơn cũ, **Lý do hủy**: **Khách đổi ý** → Desk tạo yêu cầu hoàn 300.000. **Nhập nơi nhận hoàn** ngay: **Chuyển khoản** (cách nên dùng). **Tiền mặt** chỉ khi chủ đầu tư đang ở quầy, hoặc đã hẹn qua điện thoại một giờ cụ thể tới quầy trong thời gian khách ở. (Hộp **Nhập nơi nhận hoàn** chọn sẵn **Tiền mặt**: chọn đúng **Cách hoàn** rồi bấm **Lưu**.)
   - **(b)** **Đặt phòng mới** cùng căn, nhập đúng giá từng đêm đã chốt, **cùng Kênh và Nguồn / CTV chốt đơn** như đơn cũ (không chọn **Khách vãng lai**). **Thu cọc ngay lúc đặt**: **Số tiền đã nhận** ít nhất bằng **Cọc cần thu** (ví dụ 700.000), chọn **Cách thanh toán** – Desk không lưu đơn khi chưa đủ cọc. Desk chọn sẵn **Chuyển khoản VietQR**: đổi đúng cách khách đã trả trước khi bấm **Tạo đơn**. Ghi sổ giao ca "OTM-mới thay OTM-cũ". Đơn cũ có giảm giá hoặc FOC: xin lại trên đơn mới như ở (2) "Đến từ ngày mai", trước khi thu ở bước (c).
   - **(c)** Ở bước nhận phòng thu **phần còn lại** (ví dụ 2.376.000 − 700.000 = **1.676.000**) → **Nhận phòng**.
   - **(d)** **Chủ đầu tư duyệt và chi** 300.000: tiền mặt tại quầy (khách thực trả 2.076.000), hoặc chuyển khoản lại. **Chủ đầu tư vắng thì khách chưa nhận lại cọc cũ tại quầy được**, kể cả khi người trực có quyền quản lý. Nói thật với khách:
@@ -1101,7 +1146,7 @@ Ví dụ: căn 202, 3 đêm 05–08/11 = 2.376.000 đ, cọc yêu cầu 700.000 
 
 Không hạ giá đêm để cọc yêu cầu thấp xuống cho đủ: làm sai giá và doanh thu.
 
-**Sổ giao ca:** mỗi đơn đã xử lý một dòng – mã đơn, đã làm gì, lý do thật (không ghi tên khách). **Trước khi rời quầy**: mọi giữ chỗ 0h00 đỏ đã hủy, hoặc đã có dòng "Giữ – …". Đơn đã có dòng đó không phải xử lý lại ở lượt rà sau. Chủ đầu tư xem lại các dòng có chữ "giữ chỗ" và các yêu cầu hoàn mới trong lượt kiểm sáng.
+**Sổ giao ca:** mỗi đơn đã xử lý một dòng – mã đơn, đã làm gì, lý do thật (không ghi tên khách). **Lúc đóng quầy**: mọi giữ chỗ 0h00 đỏ đã hủy, hoặc đã có dòng "Giữ – …". Đơn đã có dòng đó không phải xử lý lại ở lượt rà sau. Chủ đầu tư xem lại các dòng có chữ "giữ chỗ" và các yêu cầu hoàn mới trong lượt kiểm sáng.
 
 Khi OTTIMO có thêm lễ tân: rà ở đầu mỗi ca, và việc quyết đơn có cọc thiếu chuyển về quản lý.
 
@@ -1138,7 +1183,7 @@ Desk chưa trả phòng được trước ngày đi. Khi khách báo rời sớm
 1. Ghi vào **sổ giao ca**: "OTM-…: khách báo rời ngày dd/mm lúc hh:mm, báo qua (Zalo/điện thoại/tại quầy)". Giờ báo quyết định tiền hoàn. **Không hứa số hoàn**, không hoàn tiền tại quầy. **Không mở màn Trả phòng trước ngày đi** (Desk sẽ báo lỗi khi hoàn tất).
 2. Khi khách rời: thu thẻ (ghi số thẻ trả), **xóa mã trên app khóa ngay**, nhờ buồng phòng đếm minibar, kiểm hư hỏng. Món đã dùng và hư hỏng: **Thêm phát sinh** vào folio.
 3. Khách nước ngoài: **cập nhật ngày đi trên cổng khai báo trong ngày khách rời**. Desk chưa nhắc việc này.
-4. Buồng phòng: **Hủy việc** dọn khách ở lại các ngày sau, lý do "Khách đã rời sớm". Tạo **Việc mới → Dọn trả phòng** cho ngày khách rời (mục 13.2).
+4. Buồng phòng: **Hủy việc** dọn khách ở lại các ngày sau, **Lý do**: **Lý do khác**, **Ghi chú** "Khách đã rời sớm". Tạo **Việc mới → Dọn trả phòng** cho ngày khách rời (mục 13.2).
 5. Báo quản lý trong ca. Căn vẫn hiện **Đang ở** tới ngày đi: **không** nhận khách khác vào căn này ngoài Desk. Có khách mới cần căn thì gọi quản lý.
 6. Đúng ngày đi trên đơn: bấm **Trả phòng** như thường (giờ trả là giờ bấm, không ghi lùi), sổ giao ca ghi "đã rời ngày dd/mm". Quản lý giảm tiền phòng các đêm chưa ở trong 24 giờ (tệp 01). Chính sách: đơn Trực tiếp/CTV báo trước từ 1 ngày hoàn 50 % tiền các đêm chưa ở (phụ thu người các đêm đó hoàn 100 %); báo trong ngày rời không hoàn; đơn OTA theo kênh.
 
@@ -1154,6 +1199,8 @@ Desk chưa trả phòng được trước ngày đi. Khi khách báo rời sớm
 | Dòng miễn **Bị từ chối** vẫn hiện số âm ở màn Trả phòng | Đọc **Còn phải thu** |
 | **Hoàn tác nhận phòng** bấm được nhưng bị từ chối khi folio có dòng mới | Nhờ quản lý (mục 7.4) |
 | Một số chữ trên màn chưa đúng ("Khách đứng tên" ở người đi cùng, "Giờ trả phòng thực tế" ở xác nhận giờ trả, "Round 3 / R2", gợi ý mã cửa theo ngày sinh) | Làm theo tệp này |
+| App nhân viên chưa có màn đổi mật khẩu tạm: còn mật khẩu tạm mà vào app thì mọi màn báo "Chưa tải được … Có thể do mạng yếu" (BUG-R3-052) | Đổi mật khẩu tạm trên Desk trước (mục 1.2), rồi đăng nhập lại app. Áp cả sau mỗi lần chủ đầu tư **Đặt lại mật khẩu** |
+| Tài khoản chỉ có vai Bảo trì không chọn được căn trên Desk: không tạo phiếu, không khóa phòng được (BUG-R3-053) | Bảo trì báo trên app hoặc nhắn ngày, căn, lý do; lễ tân hoặc người trực tạo phiếu, khóa phòng trên Desk (mục 13.4) |
 
 ---
 
@@ -1162,19 +1209,20 @@ Desk chưa trả phòng được trước ngày đi. Khi khách báo rời sớm
 | Giờ | Việc |
 |---|---|
 | **06:00** | Ngày mới trên Desk. Trước 06:00 vẫn là ngày hôm trước |
-| 07:00 | Bắt đầu trả lời yêu cầu của khách; Desk chuyển căn có khách sang "cần dọn". Từ 07:00 hỏi chủ đầu tư/quản lý để kiểm tiền về |
-| Mở quầy, muộn nhất **09:00** | Rà giữ chỗ mốc 1 |
+| 07:00 | Bắt đầu trả lời yêu cầu của khách; Desk chuyển căn có khách sang "cần dọn". Từ 07:00 hỏi chủ đầu tư/quản lý để kiểm tiền về. Form website đã bật: Desk mở trên máy quầy và điện thoại người trực tới 22:00 (mục 13.1) |
 | Sáng (từ 08:00) | Nhắn khách đi hôm nay xác nhận giờ trả. Hạn khai báo khách Việt Nam đến từ 23:00 hôm trước |
+| Mở quầy, muộn nhất **09:00** | Rà giữ chỗ mốc 1 |
 | 09:00 | Quản lý đối soát xong khoản chuyển khoản ghi ban đêm |
+| **Trước 11:00** | Căn trống từ đêm qua có khách đến đã rà xong (mục 13.2a) |
 | **11:00** | Rà giữ chỗ mốc 2 |
 | **12:00** | **Giờ trả phòng.** **Nhận phòng từ 12:00** nếu căn `VC`/`VI`, không phụ thu. Trần hạn giữ chỗ ngày đến. Hạn kiểm phòng căn trống từ đêm qua có khách đến |
 | 12:30 | Hết ân hạn trả muộn (chỉ khi căn không có khách đến cùng ngày) |
 | **14:00** | Mọi căn có khách đến hôm nay **chắc chắn sẵn sàng** |
 | 15:00 | Trả muộn từ 30 % lên 50 % |
 | **18:00** | Gọi khách chưa đến. Sau 18:00 trả phòng: thêm 1 đêm, hoặc phụ thu bằng giá 1 đêm nếu căn đã bán |
-| Trước **21:00** | Nhắn khách đi ngày mai xác nhận giờ trả. Rà giữ chỗ mốc 3 (trước khi rời quầy). Sau 21:00 không nhắn khách |
+| **Đóng quầy, muộn nhất 21:00** | Nhắn khách đi ngày mai xác nhận giờ trả. Rà giữ chỗ mốc 3, gồm giữ chỗ hết hạn trước 09:00 sáng mai. Sau 21:00 không nhắn khách; người trực vẫn trực điện thoại |
 | 22:00 | Chép danh sách khách đến/đi ngày mai. Ba ngày đầu: đối chiếu sổ giấy với Desk. Từ 22:00 không xác nhận chuyển khoản qua điện thoại: mời tiền mặt/thẻ |
-| **23:00** | Đánh dấu "Không đến" nếu vẫn không liên lạc được. Hạn khai báo khách Việt Nam |
+| **23:00** | Đánh dấu "Không đến" nếu vẫn không liên lạc được. Hạn khai báo khách Việt Nam. Xong thì đăng xuất máy quầy |
 | +12 giờ từ giờ nhận | Hạn khai báo khách nước ngoài |
 | +24 giờ từ trả phòng | Hạn ghi phát sinh sau trả phòng |
 | Thứ Tư 09:30–10:30 | Bản vá hằng tuần (Desk có thể chậm vài phút) |
@@ -1191,13 +1239,13 @@ Số điện thoại của chủ đầu tư và người liên quan: **lưu sẵ
 | Mất điện | Lễ tân trưởng → quản lý | Khóa cửa chạy pin vẫn mở bằng mã/thẻ. Đi một vòng các căn có khách, ưu tiên khách có trẻ nhỏ, người lớn tuổi. Báo khách thời gian dự kiến (nếu biết). Máy quầy chạy pin, dùng 4G điện thoại cơ sở, ghi sổ giấy. Mất điện riêng một căn có khách: báo sự cố mức **Gấp**, đổi phòng nếu cần. Quá 4 giờ: quản lý báo chủ đầu tư |
 | Desk báo lỗi, không đặt / nhận / trả phòng / thu tiền được, hoặc **sai tiền** | Lễ tân trưởng → quản lý → **chủ đầu tư**. Lỗi "P0", đội sửa trong ngày | Ghi sổ giấy, nhập bù khi Desk chạy lại |
 | Lỗi nhỏ, chữ sai, góp ý | Ghi sổ giao ca, chủ đầu tư chuyển đội | Làm tiếp |
-| Quên mật khẩu, mất điện thoại, tài khoản bị khóa | Chủ đầu tư | – |
+| Quên mật khẩu, mất điện thoại, tài khoản bị khóa | Chủ đầu tư | Mục 1.7. Không dùng tài khoản người khác trong lúc chờ |
 | Nghi lộ mật khẩu hoặc tài khoản lạ đăng nhập | **Chủ đầu tư ngay** | Đổi mật khẩu nếu còn vào được |
 | Khách khiếu nại về dữ liệu cá nhân | Chủ đầu tư | Ghi lại yêu cầu, không hứa |
 | Hỏng hóc trong căn | Phiếu sửa trên Desk; Gấp thì gọi bảo trì | Đổi phòng cho khách nếu cần |
 | Mã VietQR hiện "Tài khoản nhận vừa đổi" mà chưa nghe chủ đầu tư nói | **Gọi chủ đầu tư ngay** | Chưa cho khách chuyển; mời trả tiền mặt hoặc thẻ |
 | Mất điện thoại hoặc máy tính bảng có app khóa cửa | **Chủ đầu tư ngay** | – |
-| Không có tờ **Your ID details** ở quầy | Chủ đầu tư | Không nhận giấy tờ tới khi có tờ (bản in hoặc trên màn hình) |
+| Tờ **Your ID details** trên quầy hỏng hoặc mất | Chủ đầu tư (in lại trong ngày) | Thay ngay bằng bản dự phòng trong ngăn quầy, ghi sổ giao ca. Không có bản in nào và không có máy tính bảng đạt điều kiện: không nhận giấy tờ (mục 7.2) |
 
 **Khi báo lỗi: mô tả bằng lời** – căn, mã đơn, giờ, đã bấm gì, Desk báo gì, và **mã tham chiếu** Desk hiện trong câu báo lỗi. **Không** ghi tên, số điện thoại, email, số giấy tờ của khách. **Không chụp màn hình có dữ liệu khách để gửi đội.** Không gửi mã cửa bằng chữ hay ảnh, kể cả khi đang có sự cố.
 
@@ -1264,3 +1312,4 @@ Bài tập:
 7. Rà giữ chỗ ở **Đơn đặt phòng** → **Đang hiệu lực** → **Giữ chỗ · chờ cọc**; nói được 3 mốc rà, việc trước hạn, và cách xử lý sau hạn cho giữ chỗ chưa cọc (hủy ngay, tạo lại 1 lần) và có cọc (hủy – hoàn, hoặc để nguyên rồi làm lại khi khách đến); nhận ra dòng "đơn đã tự hủy" và "Không thu phí" sai với đơn có cọc; chọn đúng lý do hủy (không chọn **Khác**); **Nhập nơi nhận hoàn** với **Cùng cách khách đã trả**; nói được vì sao chủ đầu tư phải duyệt và chi khoản hoàn người trực tạo, và hẹn khách thế nào khi chủ đầu tư vắng.
 8. Nói được việc phải làm khi lỡ gửi link check-in online.
 9. Lễ tân trưởng thêm: duyệt một yêu cầu, kiểm phòng trên app nhân viên.
+10. Người trực hiện nay thêm (trên Desk tập): dọn và kiểm một căn rồi bấm **Làm xong** (mục 13.2a); hủy một việc dọn với lý do **Khách nói không cần dọn**; tạo, nhận và đóng một phiếu sửa trên Desk (tệp 04 mục 4.4); nói được việc 22:00, 23:00 sau khi đóng quầy và cách nhận phòng khách đến sau 22:00 (mục 13.3).

@@ -11,7 +11,7 @@ Theo đúng `product/docs/manual/screenshot-list.md` mục "Quy tắc chung khi 
 1. **Chỉ chụp trên staging** (`desk.staging.ottimo.vn`, `staff.staging.ottimo.vn`), dữ liệu giả. Không chụp production.
 2. Tên khách giả dễ đọc, không trùng người thật. SĐT, email giả.
 3. **Luôn che** bằng hộp đặc màu Ink #2B2B28 (không làm mờ): mã QR, số tài khoản kể cả 4 số cuối, tên chủ tài khoản, số giấy tờ, ảnh giấy tờ, mã khôi phục, mật khẩu tạm, khóa nhập tay 2 bước, mã cửa, mã chuẩn chi POS, mã giao dịch ngân hàng, mã hồ sơ khai báo, mã tham chiếu lỗi.
-4. Không để lộ thanh địa chỉ có tham số, tab khác, thông báo hệ điều hành, tên/mật khẩu Wi-Fi thật.
+4. Không để lộ thanh địa chỉ có tham số, tab khác, thông báo hệ điều hành, tên/mật khẩu Wi-Fi thật. **Ảnh G:** mọi ảnh chụp trên staging phải che toàn bộ thanh địa chỉ, hoặc chỉ cắt phần trang (SEC G08). Cột "Màn hình" không ghi địa chỉ staging (bộ dựng in cột này vào bản phát tay khi ảnh chưa có).
 5. Không dùng đơn đội đang kiểm thử. Tạo đơn mới cho ảnh. Không quét VietQR trên staging để chuyển tiền.
 6. Desk khung **1440 × 900**; ảnh "điện thoại" **390 × 844**. Giao diện **Sáng**, **Tiếng Việt**.
 7. Tài khoản thử theo vai của QA (`qa.*`). Vai có 2 bước: mã 6 số nhập ngoài khung chụp.
@@ -35,8 +35,8 @@ Theo đúng `product/docs/manual/screenshot-list.md` mục "Quy tắc chung khi 
 | Mã | Mục | Màn hình | Vai đăng nhập | Dữ liệu mẫu cần có | Che / ghi chú |
 |---|---|---|---|---|---|
 | G2-01 | 1.4 | Desk báo "Bạn đã thử quá nhiều lần. Chờ … phút rồi thử lại." ở màn **Đăng nhập** | Tài khoản lễ tân thử | Gõ sai mật khẩu tới khi bị chặn (tài khoản dùng riêng cho ảnh) | Tên đăng nhập giả |
-| G2-02 | 1.6 | Hộp **Đổi mật khẩu** (từ menu tên của mình) | Lễ tân | – | Ô mật khẩu trống hoặc dạng chấm |
-| G2-03 | 7.2 | **Ảnh chụp tờ in** "Your ID details" trong khung mica trên quầy, mặt quay ra khách (không phải ảnh màn hình) | – | Bản in thật của UXD (A5 dọc) | Không có người, không có giấy tờ, không có màn hình Desk trong khung |
+| G2-02 | 1.6 | Màn **Đổi mật khẩu** (từ menu tên của mình) | Lễ tân | – | Ô mật khẩu trống hoặc dạng chấm |
+| G2-03 | 7.2 | **Ảnh chụp tờ in** "Your ID details" trong khung mica trên quầy, mặt quay ra khách (không phải ảnh màn hình) | – | Bản in A4 dọc của UXD (`to-4-your-id-details-a4.pdf`) | Không có người, không có giấy tờ, không có màn hình Desk trong khung |
 | G2-04 | 12.2 | **Nhật ký tiền → Hoàn tiền** → hộp **Nhập nơi nhận hoàn**: **Cách hoàn** (chọn sẵn **Tiền mặt**), nút **Cùng cách khách đã trả**, **Lưu** | Lễ tân, **máy đã cấp quyền** | Một yêu cầu hoàn chờ nơi nhận (hủy giữ chỗ có cọc) | **Che** số tài khoản, tên chủ tài khoản, mã ngân hàng nếu nhập |
 | G2-05 | 17.1 | **Đơn đặt phòng**, lọc **Đang hiệu lực**, có ≥ 2 dòng **Giữ chỗ · chờ cọc** (1 còn hạn, 1 quá hạn) | Lễ tân | Giữ chỗ có yêu cầu FOC đã quá hạn (không tự hủy) + 1 giữ chỗ có cọc thiếu đã quá hạn | – |
 | G2-06 | 17.1 | Khung đơn giữ chỗ **có cọc** đã quá hạn: đồng hồ **còn 0 giờ 00 phút** đỏ, dòng "Giữ chỗ đã hết hạn lúc … – đơn đã tự hủy" trong khi trạng thái vẫn **Giữ chỗ · chờ cọc** | Lễ tân | Như G2-05 | Mục đích ảnh: cho thấy chữ sai cạnh trạng thái đúng. **Che** mã giao dịch |
@@ -47,13 +47,13 @@ Theo đúng `product/docs/manual/screenshot-list.md` mục "Quy tắc chung khi 
 | Mã | Mục | Màn hình | Vai đăng nhập | Dữ liệu mẫu cần có | Che / ghi chú |
 |---|---|---|---|---|---|
 | G3-01 | 1.2 bước A | Desk ngay sau **Lưu và vào ứng dụng** với tài khoản **chỉ có vai Buồng phòng** (khung 1440 hoặc điện thoại 390) | Tài khoản buồng phòng mới, mật khẩu tạm | Tài khoản dùng một lần | Chụp cùng lúc QA kiểm câu hỏi Q2 (báo cáo BA). Màn khác chữ "Bạn không có quyền mở trang này": ghi lại chữ thật gửi BA |
-| G3-02 | 1.2 bước B | Điện thoại: hộp **Thêm vào Màn hình chính** của trình duyệt khi đang mở `staff.staging.ottimo.vn` | Buồng phòng | – | Che thanh địa chỉ nếu có tham số; không lộ thông báo hệ điều hành |
+| G3-02 | 1.2 bước B | Điện thoại: hộp **Thêm vào Màn hình chính** của trình duyệt khi đang mở app nhân viên | Buồng phòng | – | **Che toàn bộ thanh địa chỉ**; không lộ thông báo hệ điều hành |
 
 ### G4 – Bảo trì (`04-bao-tri.md`)
 
 | Mã | Mục | Màn hình | Vai đăng nhập | Dữ liệu mẫu cần có | Che / ghi chú |
 |---|---|---|---|---|---|
-| G4-01 | 1.3 | Desk của tài khoản **chỉ có vai Bảo trì**: thanh menu và trang **Bảo trì** | Bảo trì (Desk) | ≥ 1 phiếu đang mở | Ghi lại menu thật nếu khác chữ hướng dẫn |
+| G4-01 | 1.3 | Desk của tài khoản **chỉ có vai Bảo trì**: thanh menu (**Phiếu sửa**) và trang **Bảo trì** | Bảo trì (Desk) | ≥ 1 phiếu đang mở | Ghi lại menu thật nếu khác chữ hướng dẫn |
 | G4-02 | 4.4 | Desk **Vận hành → Bảo trì** → khung một phiếu: nút **Nhận việc**, **Sửa xong**, hộp **Sửa xong WO-…** với **Đã làm gì?**, **Ảnh sau khi sửa** | Quản lý (tài khoản có 2 bước, đúng như người trực) | Phiếu Trong ngày, có khóa phòng | Ảnh đồ vật, không người. Ghi lại tên nút thật (câu Q3) |
 
 ### G5 – Sale, CTV (`05-sale-ctv.md`)

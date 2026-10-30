@@ -1,9 +1,9 @@
 # Bộ hướng dẫn OTTIMO Desk v1.0 theo bộ phận
 
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bản 1.0 · Theo yêu cầu của chủ đầu tư ngày 30/10: thay 5 tờ in bằng bộ hướng dẫn cho từng bộ phận, gồm cách đăng nhập và sử dụng
+- Lập: BA · 30/10/2026 · Bản 1.1 (sửa theo review DOM, SEC, UXD, QA ngày 30/10) · Theo yêu cầu của chủ đầu tư ngày 30/10: thay 5 tờ in bằng bộ hướng dẫn cho từng bộ phận, gồm cách đăng nhập và sử dụng
 - Nguồn nội dung: Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5 (đã duyệt 30/10). Quy tắc, con số, tên nút và câu nói với khách giữ nguyên.
-- **Tài liệu nội bộ OTTIMO – không chụp, không đăng lên mạng.**
+- **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không chụp, không đăng lên mạng.**
 
 ## 1. Bộ hướng dẫn gồm gì
 
@@ -13,7 +13,7 @@
 | `01-chu-dau-tu-quan-ly.md` | Chủ đầu tư (OWN), quản lý (MGR), kế toán/đối soát | Máy riêng · `desk.ottimo.vn` | Đăng nhập 2 bước, cấp tài khoản và máy quầy, duyệt, đối soát, hoàn tiền, giá, tham số, tài khoản nhận VietQR, kế toán |
 | `02-le-tan.md` | Lễ tân (FD), lễ tân trưởng (FDL), người trực đêm | Máy quầy đã cấp quyền · `desk.ottimo.vn`; lễ tân trưởng thêm `staff.ottimo.vn` | Báo giá, giữ chỗ, đặt phòng, nhận phòng, giấy tờ và khai báo, thu tiền, trả phòng, kiểm phòng |
 | `03-buong-phong.md` | Buồng phòng (HK) | Điện thoại · `staff.ottimo.vn` | Việc dọn, minibar, bộ đồ dùng thêm, báo sự cố, mất mạng |
-| `04-bao-tri.md` | Bảo trì, kỹ thuật (MT) | Điện thoại · `staff.ottimo.vn`; Desk khi khóa phòng | Phiếu sửa, khóa phòng, chốt công tơ |
+| `04-bao-tri.md` | Bảo trì, kỹ thuật (MT) | Điện thoại · `staff.ottimo.vn`; Desk để xem phiếu | Phiếu sửa, báo khóa phòng, chốt công tơ |
 | `05-sale-ctv.md` | Sale nội bộ (SAL), CTV / môi giới | Điện thoại hoặc máy tính · `desk.ottimo.vn` | Báo giá, giữ chỗ, cọc, hoa hồng |
 | `screenshot-additions.md` | Đội (QA chụp ảnh) | – | Ảnh còn thiếu cho bộ hướng dẫn |
 
@@ -25,7 +25,7 @@ Mỗi tệp **đọc độc lập được**: người đọc chỉ cần cầm 
 5. **Bảng giờ** và **Khi có sự cố – gọi ai**.
 6. Bài tập đào tạo.
 
-Sổ tay đầy đủ (`product/docs/manual/user-manual-v1.0.md`) vẫn là bản gốc. Khi sổ tay đổi, bộ hướng dẫn đổi theo.
+Sổ tay đầy đủ (`product/docs/manual/user-manual-v1.0.md`) vẫn là bản gốc. Khi sổ tay đổi, bộ hướng dẫn đổi theo. Bộ hướng dẫn bản 1.1 có thêm các điểm DOM, SEC, QA chốt ngày 30/10 mà sổ tay 1.5 chưa có (ví dụ `02` mục 13.2a, bảng việc mỗi ngày, khôi phục tài khoản): khi hai bên khác nhau, làm theo bộ hướng dẫn.
 
 ## 2. Ai đọc tệp nào
 
@@ -36,14 +36,14 @@ OTTIMO hiện có **chủ đầu tư** và **một người trực quầy giữ 
 | Người | Đọc | Ghi chú |
 |---|---|---|
 | Chủ đầu tư | `01` (toàn bộ); `02` mục 7.2, 10, 17; `00` | Duyệt và chi mọi khoản hoàn người trực tạo; kiểm bảo mật mỗi sáng trước 09:00 |
-| Người trực (6 vai) | `02` (chính), `01` (phần quản lý: mục 1, 4, 5, 6, 7, 15), `03`, `04`, `05` | Đăng nhập Desk **2 bước** vì tài khoản có vai quản lý |
+| Người trực (6 vai) | `02` (chính), các phần của `01`, `03`, `04`, `05` theo lộ trình ở mục 5 | Đăng nhập Desk **2 bước** vì tài khoản có vai quản lý. Lần đăng nhập đầu làm trên laptop riêng, không trên máy quầy (`02` mục 1.2) |
 
 Ba điều riêng cho tài khoản 6 vai hiện nay:
 - **Đăng nhập 2 bước bắt buộc** (vì có vai quản lý): làm theo `02` mục 1.3 hoặc `01` mục 1.3.
 - **Chưa vào được app nhân viên** `staff.ottimo.vn` (tài khoản có 2 bước bị app chặn ở v1.0). Vì vậy:
   - Việc dọn: đánh dấu trên Desk, **Vận hành → Buồng phòng → Làm xong** (`02` mục 13.2).
   - Phiếu sửa: xử lý trên Desk, **Vận hành → Bảo trì** (`04` mục 4.4).
-  - **Không ai kiểm phòng được** (`VC` → `VI`). Lễ tân nhận khách vào căn **Đã dọn – chờ kiểm** (`VC`) như thường.
+  - **Không ai bấm kiểm phòng được** (`VC` → `VI`). Người trực tự đi kiểm căn theo 12 mục rồi mới bấm **Làm xong** (`02` mục 13.2a). Lễ tân nhận khách vào căn `VC` như thường.
 - **Hoàn tiền**: người trực tạo yêu cầu và nhập nơi nhận; **chủ đầu tư duyệt và chi** (Desk không cho người tạo tự duyệt, tự chi).
 
 ### 2.2 Khi có nhân viên riêng
@@ -66,10 +66,10 @@ Mỗi người **một tài khoản, đúng vai của mình**, và đọc tệp 
 
 | Địa chỉ | Tên | Ai dùng | Thiết bị |
 |---|---|---|---|
-| `desk.ottimo.vn` | **OTTIMO Desk** | Chủ đầu tư, quản lý, lễ tân, sale, CTV; bảo trì khi khóa phòng | Máy quầy, laptop; sale/CTV dùng được trên điện thoại |
+| `desk.ottimo.vn` | **OTTIMO Desk** | Chủ đầu tư, quản lý, lễ tân, sale, CTV; buồng phòng, bảo trì lần đầu đổi mật khẩu tạm | Máy quầy, laptop; sale/CTV dùng được trên điện thoại |
 | `staff.ottimo.vn` | **App nhân viên** | Buồng phòng, bảo trì, lễ tân trưởng (kiểm phòng) | Điện thoại |
 | `g.ottimo.vn` | **Trang khách** | Khách của từng đơn | Điện thoại của khách. **Từ 02/11 tới v1.0.1 chưa gửi link cho khách thật** |
-| `ottimo.vn` | **Website** | Khách tìm hiểu | Form đặt phòng **đang tắt** |
+| `ottimo.vn` | **Website** | Khách tìm hiểu | Form đặt phòng **dự kiến bật sáng 31/10**, chủ đầu tư báo khi đã bật. Khi bật: Desk mở trên máy quầy và điện thoại người trực 07:00–22:00 (`02` mục 13.1) |
 
 Luật chung cho mọi người:
 - **Mỗi người một tài khoản.** Không dùng chung, không đọc mật khẩu qua điện thoại, không gõ mật khẩu cho người khác.
@@ -85,10 +85,10 @@ Luật chung cho mọi người:
 Bộ hướng dẫn này thay **các tờ in cho nhân viên** (Tờ 1 Quầy lễ tân, Tờ 2a Tạm tới v1.0.1, Tờ 2b Khách ở quá 18:00, Tờ 3 Buồng phòng). Nội dung các tờ đó nằm trong `02` và `03`.
 
 Riêng **Tờ 4 "Your ID details"** **không phải** hướng dẫn cho nhân viên. Đây là **thông báo cho khách** về cách OTTIMO dùng thông tin giấy tờ, điều kiện bảo mật bắt buộc từ ngày D. Lễ tân **phải cho khách xem tờ này trước khi nhận giấy tờ**:
-- Bản in trong khung mica trên quầy, mặt quay ra khách (cách chính); hoặc
-- Bản trên màn hình máy tính bảng/màn hình ở quầy, quay về phía khách, chỉ hiện tờ thông báo.
+- **Bản in khổ A4** trong khung mica trên quầy, mặt quay ra khách (cách chính, chủ đầu tư quyết 30/10).
+- Bản in dự phòng trong ngăn quầy; máy tính bảng của cơ sở chỉ khi chưa thay được bản in và máy đạt đủ điều kiện ở `02` mục 7.2.
 
-Chủ đầu tư đặt tờ ở quầy **tối 01/11 sau buổi đào tạo, muộn nhất 06:00 ngày 02/11**. Nguyên văn tờ: `02-le-tan.md` mục 7.2. Bản in đã dàn trang: `staff-one-pager.md` Tờ 4 và bản in của UXD.
+Chủ đầu tư in **2 bản A4** (một trong khung mica, một trong ngăn quầy) và đặt ở quầy **tối 01/11 sau buổi đào tạo, muộn nhất 06:00 ngày 02/11**. Nguyên văn tờ: `02-le-tan.md` mục 7.2. Bản in A4: `product/docs/print/pdf/to-4-your-id-details-a4.pdf`. Bản cho máy tính bảng: `guides/html/your-id-details-tablet.html` (chỉ chép riêng tệp này lên máy tính bảng, không chép cả bộ hướng dẫn).
 
 ## 5. Đào tạo
 
@@ -102,7 +102,15 @@ Chủ đầu tư đặt tờ ở quầy **tối 01/11 sau buổi đào tạo, mu
 | Kế toán | `01` mục 8, 11 | 1 giờ | `01` mục 18.2 |
 
 - Tập trên **Desk tập** (dữ liệu giả) bằng **tài khoản tập** đội tạo sẵn cho từng người. Địa chỉ và tài khoản tập: chủ đầu tư đưa tận tay trong buổi đào tạo. Mật khẩu tập **khác** mật khẩu thật.
-- Người trực 6 vai hiện nay: học `02` (3 giờ), rồi `01` phần quản lý, `03`, `04`, `05` (mỗi phần làm bài tập của phần đó).
+- **Người trực 6 vai hiện nay** (khoảng 5 giờ, chia 31/10 và 01/11):
+  - `02` toàn bộ (3 giờ, bài tập mục 20.3).
+  - `01` mục 1.3–1.7, 2, 4, 5, 6, 7, 8.3–8.5, 15 (1 giờ).
+  - `03` mục 3, 4 (giờ cần xong), 7, 8, 11.2.
+  - `04` mục 3, 4.2, 4.4, 5, 8.2.
+  - `05` mục 3 (chính sách hủy), 4.2, 5.1, 8 (tổng 03–05 khoảng 1 giờ).
+  - Bỏ phần đăng nhập và mất mạng của app nhân viên.
+  - Bài tập thêm trên Desk tập: dọn và kiểm một căn rồi bấm **Làm xong** (`02` mục 13.2a); hủy một việc dọn với lý do **Khách nói không cần dọn**; tạo, nhận và đóng một phiếu sửa trên Desk.
+- Gửi bộ hướng dẫn: chủ đầu tư gửi **riêng từng người** (không gửi nhóm), mỗi người **đúng tệp của vai mình**. CTV chỉ nhận `05`. Tệp `01` chỉ cho chủ đầu tư và người giữ vai quản lý. Người trực 6 vai nhận `01`–`05`. Ai hết hợp tác: **Khóa tài khoản** là việc chính; tệp không thu hồi được.
 - Bảng **Xác nhận đã học**: `01` mục 18.2 (chủ đầu tư giữ ở OTTIMO, không gửi đội).
 
 <!-- Desk tập = staging. Không in địa chỉ staging vào bản phát tay (PO thẻ 03). -->
@@ -110,7 +118,8 @@ Chủ đầu tư đặt tờ ở quầy **tối 01/11 sau buổi đào tạo, mu
 ## 6. Ký hiệu trong các tệp
 
 - Chữ **in đậm**: tên nút, tên màn hình, tên ô đúng như trên Desk/app.
-- `[ẢNH: Cx-yy-…]`: ảnh đã có trong `product/docs/manual/img/` (cùng mã với sổ tay). `[ẢNH: Gx-yy-…]`: ảnh mới của bộ hướng dẫn, còn chờ chụp (`screenshot-additions.md`).
+- `[ẢNH: Cx-yy-…]`: ảnh đã có trong `product/docs/manual/img/` (cùng mã với sổ tay). `[ẢNH: Gx-yy-…]`: ảnh mới của bộ hướng dẫn (`screenshot-additions.md`).
+- Người đọc bản HTML: ảnh màn hình có mã ở dưới ảnh (ví dụ C2-05). Khung nét đứt ghi **Chưa có ảnh** hoặc **Ảnh mới · chờ chụp** là ảnh đang chờ chụp: cứ làm theo chữ.
 - Khung **Tạm ở v1.0**: việc Desk chưa làm được và cách làm thay. **Lỗi đang sửa**: lỗi đội đã biết, làm theo cách tạm.
 - Con số theo tham số ngày 27/10/2026. Desk khác tệp: làm theo Desk; khác về **tiền** mà không rõ vì sao thì báo ngay (có thể là lỗi "P0").
 
@@ -119,3 +128,4 @@ Chủ đầu tư đặt tờ ở quầy **tối 01/11 sau buổi đào tạo, mu
 | Bản | Ngày | Người | Thay đổi |
 |---|---|---|---|
 | 1.0 | 30/10/2026 | BA | Tách sổ tay 1.5 và các tờ in thành 5 tệp theo bộ phận; thêm chương Đăng nhập riêng cho từng vai, việc mỗi ngày theo giờ, phần "Tạm thời tới v1.0.1". Chờ DOM, SEC, UXD xem |
+| 1.1 | 30/10/2026 | BA | Sửa theo DOM (16 thẻ), SEC (9 thẻ), UXD (B1–B6), QA (mục 22.6, BUG-R3-052/053): kiểm bằng mắt trước **Làm xong** (`02` 13.2a); bảng việc mỗi ngày theo đúng trình tự (đóng quầy 21:00, việc 22:00, 23:00); rà mốc 3 gồm giữ chỗ hết hạn trong đêm; nhận phòng ban đêm đủ bước; tờ Your ID details A4, 2 bản, máy tính bảng chỉ dự phòng có điều kiện; khôi phục tài khoản (chủ đầu tư quên mật khẩu chưa có đường khôi phục; người trực mất cả điện thoại lẫn mã: tài khoản mới); sale/CTV hủy và gửi mã cọc; form website dự kiến bật 31/10; lộ trình người trực ~5 giờ; tên nút theo giao diện thật |

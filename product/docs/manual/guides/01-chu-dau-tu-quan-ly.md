@@ -3,15 +3,15 @@
 - Dành cho: **chủ đầu tư (OWN)**, **quản lý (MGR)**, và người làm **kế toán/đối soát** cùng chủ đầu tư
 - Thiết bị: **máy tính hoặc laptop riêng** của anh/chị, địa chỉ `desk.ottimo.vn`. Máy quầy chỉ dùng khi duyệt tại quầy, xong đăng xuất ngay.
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.0 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5)
+- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.1 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10)
 - Tài liệu không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi đào tạo, anh/chị cũng không ghi những thứ này lên bảng hay vào tài liệu phát tay.
-- **Tài liệu nội bộ OTTIMO – không chụp, không đăng lên mạng.**
+- **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
 <!-- Nguồn: product/docs/manual/user-manual-v1.0.md bản 1.5 mục 0.2–0.9, chương 1, 2.4 (phần OWN), 2.14a bước 6, 4.3, 5.1–5.8; day-one-guide.md mục 6, 9, 10; decision-log 29/10 (1 tài khoản giữ 6 vai), 30/10 (ESC-040 A; ORC phân xử C1). -->
 
 ## Cách đọc tệp này
 
-- Chữ **in đậm** là tên nút, tên màn hình, tên ô đúng như trên Desk. `[ẢNH: mã-mô tả]` là chỗ chèn ảnh.
+- Chữ **in đậm** là tên nút, tên màn hình, tên ô đúng như trên Desk. Ảnh màn hình có mã ở dưới ảnh (ví dụ C2-05). Khung nét đứt ghi **Chưa có ảnh** hoặc **Ảnh mới · chờ chụp** là ảnh đang chờ chụp: cứ làm theo chữ.
 - Mục ghi **Chỉ chủ đầu tư** thì quản lý không thấy menu.
 - Khung **Tạm ở v1.0** là việc Desk chưa làm được và cách làm thay. Mọi cách tạm tới bản v1.0.1 gom ở **mục 15**.
 - Con số theo tham số ngày 27/10/2026. Anh/chị đổi được ở **Tham số quy tắc**. Khi số trên Desk khác số trong tệp: vừa đổi tham số thì làm theo Desk; không rõ vì sao, nhất là **số tiền**, thì coi là có thể lỗi ("P0" nếu sai tiền, mục 17).
@@ -49,7 +49,9 @@ Mật khẩu tạm: quản lý nhận **tận tay** từ chủ đầu tư. Khôn
 
 Quy tắc mật khẩu: ít nhất 10 ký tự, không chứa tên hoặc số điện thoại của mình, không phải mật khẩu phổ biến.
 
-> **Trước ngày chạy 02/11:** trên Desk thật chỉ **đăng nhập, đổi mật khẩu tạm, bật 2 bước, đăng xuất**. Không tạo đơn, không thu tiền thử: dữ liệu tiền trên Desk thật chỉ ghi thêm, không xóa được. Tập thao tác trên **Desk tập** (mục 18.2). Ngoại lệ duy nhất: chủ đầu tư làm **một lượt kiểm VietQR** theo checklist ngày D (mục 13).
+**Chủ đầu tư:** lưu mật khẩu Desk mới trong **trình quản lý mật khẩu** ngay khi đặt (không lưu trên trình duyệt). Ở v1.0 chưa có cách khôi phục khi chủ đầu tư quên mật khẩu (mục 1.7).
+
+> **Trước ngày chạy 02/11:** trên Desk thật chỉ **đăng nhập, đổi mật khẩu tạm, bật 2 bước, đăng xuất**. Không tạo đơn, không thu tiền thử: dữ liệu tiền trên Desk thật chỉ ghi thêm, không xóa được. Tập thao tác trên **Desk tập** (mục 18.2). Lượt kiểm VietQR trước ngày D **đã làm 30/10** (mục 13): **không tạo thêm đơn thử**.
 
 ### 1.3 Bật đăng nhập 2 bước (bắt buộc)
 
@@ -75,7 +77,7 @@ Bước thứ hai là **mã 6 số trong ứng dụng xác thực** trên điệ
 [ẢNH: C0-05-Nhập mã xác thực]
 
 - Mã báo sai: "Mã chưa đúng hoặc đã đổi. Nhập mã đang hiện trong ứng dụng." Chờ mã mới, nhập lại.
-- Gõ sai nhiều lần: "Bạn đã thử quá nhiều lần. Chờ … phút rồi thử lại."
+- Gõ sai nhiều lần: "Bạn đã thử quá nhiều lần. Chờ … phút rồi thử lại." **Chủ đầu tư: gõ sai mật khẩu 2 lần thì dừng**, mở trình quản lý mật khẩu xem lại (mục 1.7).
 - "Phiên đăng nhập đã hết": đăng nhập lại; thông tin đang nhập vẫn được giữ trên máy đó.
 
 **Thao tác nhạy cảm** (thêm người dùng, đổi tài khoản nhận tiền, cấp quyền máy, khóa tài khoản…): Desk mở hộp **Xác nhận bằng mật khẩu và mã xác thực**. Mỗi mã chỉ dùng một lần; vừa dùng thì chờ ứng dụng hiện mã mới.
@@ -112,9 +114,10 @@ Menu gồm: **Đổi mật khẩu** · **Xác thực 2 bước** · **Ngôn ng�
 | Tình huống | Làm gì |
 |---|---|
 | Quản lý quên mật khẩu | **Báo chủ đầu tư.** Desk không có nút "quên mật khẩu". Chủ đầu tư **Đặt lại mật khẩu**, đưa mật khẩu tạm tận tay |
-| Chủ đầu tư hoặc quản lý mất điện thoại, còn mã khôi phục | Ở màn nhập mã, bấm **Mất điện thoại? Dùng mã khôi phục**, nhập một mã, bấm **Đăng nhập bằng mã khôi phục**. Desk mở **Đăng ký lại trên điện thoại mới**: làm lại như mục 1.3. Quản lý: rồi **báo chủ đầu tư** để **Đặt lại mật khẩu** cho mình (Desk đăng xuất trên mọi máy, kể cả máy bị mất) |
-| Quản lý mất cả điện thoại lẫn mã khôi phục | **Báo chủ đầu tư.** Không xin mã của người khác |
-| Chủ đầu tư quên mật khẩu, hoặc mất cả điện thoại lẫn mã khôi phục | Chủ đầu tư làm theo thủ tục khôi phục riêng đã diễn tập với đội kỹ thuật (không ghi trong tài liệu này) |
+| Chủ đầu tư hoặc quản lý mất điện thoại, còn mã khôi phục | Ở màn nhập mã, bấm **Mất điện thoại? Dùng mã khôi phục**, nhập một mã, bấm **Đăng nhập bằng mã khôi phục**. Desk mở **Đăng ký lại trên điện thoại mới**: làm lại như mục 1.3, trên máy riêng. **Làm xong đăng ký lại ngay, không bỏ dở.** Quản lý: rồi **báo chủ đầu tư** để **Đặt lại mật khẩu** cho mình (Desk đăng xuất trên mọi máy, kể cả máy bị mất) |
+| Quản lý (người trực) mất cả điện thoại lẫn mã khôi phục | Người đó **báo chủ đầu tư**, không xin mã của người khác. Chủ đầu tư, trên máy riêng: (1) **Khóa tài khoản** của người đó ngay; (2) **Thêm người dùng** mới cho chính người đó, **tên đăng nhập mới**, đúng các vai cũ (mục 1.9); (3) đưa mật khẩu tạm tận tay; người đó đăng nhập lần đầu trên laptop riêng và bật 2 bước trên điện thoại mới. Desk v1.0 chưa có nút đặt lại 2 bước cho người khác; **Đặt lại mật khẩu không gỡ 2 bước**. Tài khoản cũ để khóa, không xóa (giữ nhật ký) |
+| Chủ đầu tư mất cả điện thoại lẫn mã khôi phục | Làm theo thủ tục khôi phục riêng đã diễn tập với đội kỹ thuật (không ghi trong tài liệu này) |
+| Chủ đầu tư quên mật khẩu | Ở v1.0 **chưa có cách khôi phục**: không ai trong Desk đặt lại được mật khẩu cho chủ đầu tư, thủ tục khôi phục riêng cũng không đổi mật khẩu. Vì vậy: lưu mật khẩu Desk trong **trình quản lý mật khẩu** ngay khi đặt (không lưu trên trình duyệt). Gõ sai **2 lần** thì dừng, mở trình quản lý mật khẩu xem lại: gõ sai tiếp Desk sẽ khóa, và chỉ một chủ đầu tư khác mới mở được. Đã quên hẳn: gọi đội kỹ thuật, không tự thử tiếp. |
 | Mất điện thoại hoặc máy tính bảng có **app khóa cửa** | Chủ đầu tư **ngay** đổi mật khẩu tài khoản app khóa và thu hồi quyền của máy đó |
 | Nghi lộ mật khẩu | Đổi mật khẩu ngay (**tên của mình → Đổi mật khẩu**), tạo bộ mã khôi phục mới, báo chủ đầu tư |
 
@@ -123,13 +126,13 @@ Menu gồm: **Đổi mật khẩu** · **Xác thực 2 bước** · **Ngôn ng�
 
 **Không ai** – chủ đầu tư, quản lý, đội kỹ thuật, ngân hàng hay OTA – hỏi mật khẩu, mã 6 số hay mã khôi phục của anh/chị. Ai hỏi thì không đưa và báo chủ đầu tư.
 
-<!-- SEC xem (BA-GUIDES S2): dòng "Chủ đầu tư quên mật khẩu" – sổ tay 1.5 chỉ ghi thủ tục riêng cho trường hợp mất cả điện thoại lẫn mã; BA gộp quên mật khẩu của chủ đầu tư vào cùng thủ tục vì Desk không có "quên mật khẩu" và chỉ có 1 chủ đầu tư. -->
+Không ai trong Desk đặt lại được mật khẩu hay 2 bước cho chủ đầu tư. Ai nhắn hay gọi nói "đặt lại giúp" rồi xin mật khẩu, mã 6 số hay mã khôi phục là lừa đảo, kể cả khi xưng đội kỹ thuật.
 
 ### 1.8 App nhân viên
 
 Chủ đầu tư và quản lý (có 2 bước) **chưa đăng nhập được app nhân viên** `staff.ottimo.vn` ở v1.0. App báo "Đăng nhập 2 bước sẽ có ở bản sau" (cùng lúc hiện câu "Nhập mã…" nhưng không có ô nhập mã – lỗi chữ, đang sửa).
 
-Hệ quả cho OTTIMO hiện nay: tài khoản người trực giữ vai quản lý nên **không vào được app nhân viên**. Việc dọn đánh dấu trên Desk (**Vận hành → Buồng phòng → Làm xong**), phiếu sửa làm trên Desk (**Vận hành → Bảo trì**). Không ai kiểm phòng được (`VC` → `VI`); lễ tân vẫn nhận khách vào căn **Đã dọn – chờ kiểm** (`VC`) như thường.
+Hệ quả cho OTTIMO hiện nay: tài khoản người trực giữ vai quản lý nên **không vào được app nhân viên**. Việc dọn đánh dấu trên Desk (**Vận hành → Buồng phòng → Làm xong**), phiếu sửa làm trên Desk (**Vận hành → Bảo trì**). **Không ai bấm kiểm phòng được** (`VC` → `VI`). Người trực tự đi kiểm căn theo 12 mục rồi mới bấm **Làm xong** (`02` mục 13.2a). Lễ tân nhận khách vào căn `VC` như thường.
 
 ### 1.9 Cấp đăng nhập cho nhân viên (chỉ chủ đầu tư)
 
@@ -142,11 +145,11 @@ Hệ quả cho OTTIMO hiện nay: tài khoản người trực giữ vai quản 
 | **Lễ tân trưởng** | Thêm quyền duyệt trong hạn mức, nhận phòng ngoại lệ, kiểm phòng | Chưa | Desk + app nhân viên |
 | **Lễ tân** | Lễ tân, người trực đêm | Chưa | Desk |
 | **Buồng phòng** | Nhân viên buồng phòng | Chưa | App nhân viên |
-| **Bảo trì** | Kỹ thuật | Chưa | App nhân viên (+ Desk khi khóa phòng) |
+| **Bảo trì** | Kỹ thuật | Chưa | App nhân viên |
 | **Sale nội bộ** | Nhân viên bán hàng của OTTIMO | Chưa | Desk (điện thoại hoặc máy tính) |
 | **CTV / môi giới** | Cộng tác viên ngoài | Chưa | Desk (điện thoại hoặc máy tính) |
 
-Một người có thể có nhiều vai. Không có vai "Kế toán" riêng (mục 11). Khi có nhân viên thật: **mỗi người một tài khoản, đúng vai của mình**.
+Một người có thể có nhiều vai. Không có vai "Kế toán" riêng (mục 11). Khi có nhân viên thật: **mỗi người một tài khoản, đúng vai của mình**. Tới v1.0.1, tài khoản chỉ có vai Bảo trì vào Desk chỉ xem được phiếu, chưa tạo phiếu, chưa khóa phòng được: lễ tân hoặc người trực làm (mục 15.6).
 
 **Thêm người dùng:**
 1. **Quản trị → Người dùng & vai → Thêm người dùng**.
@@ -155,20 +158,19 @@ Một người có thể có nhiều vai. Không có vai "Kế toán" riêng (m�
 4. Chọn một hoặc nhiều vai. Bấm **Tạo tài khoản**.
 5. Xác nhận bằng mật khẩu và mã 6 số.
 6. Desk hiện **Mật khẩu tạm của …** **một lần**. Đưa tận tay người dùng. Không gửi qua chat.
-7. Ngồi cùng người đó lần đăng nhập đầu: đổi mật khẩu tạm; quản lý thì bật 2 bước trên điện thoại riêng của họ.
+7. Ngồi cùng người đó lần đăng nhập đầu: đổi mật khẩu tạm. Người có vai quản lý: làm trên laptop riêng (không phải máy quầy), bật 2 bước trên điện thoại riêng của họ, cất mã khôi phục như mục 1.3 bước 5.
 
 [ẢNH: C1-07-Người dùng và vai]
 [ẢNH: C1-08-Thêm người dùng]
 [ẢNH: C1-09-Mật khẩu tạm hiện một lần]
 
-<!-- QA kiểm (BA-GUIDES Q2): buồng phòng/bảo trì mới – app nhân viên v1.0.0 không có màn đổi mật khẩu tạm; hướng dẫn tệp 03/04 cho đổi mật khẩu tạm trên Desk trước. -->
-Nhân viên buồng phòng, bảo trì mới: lần đầu đổi mật khẩu tạm trên `desk.ottimo.vn`, rồi mới đăng nhập app nhân viên (tệp 03, 04 mục 1).
+Nhân viên buồng phòng, bảo trì (và lễ tân trưởng dùng app): lần đầu, và sau mỗi lần **Đặt lại mật khẩu**, đổi mật khẩu tạm trên `desk.ottimo.vn` trước, rồi mới đăng nhập app nhân viên (tệp 03, 04 mục 1). App chưa có màn đổi mật khẩu tạm: còn mật khẩu tạm mà vào app thì mọi màn báo "Chưa tải được … Có thể do mạng yếu" (mục 15.6).
 
 **Các việc khác** (cột **Thao tác** ở dòng người dùng):
 - **Sửa vai** → chọn vai → **Lưu vai**. Người đó bị đăng xuất ngay trên mọi máy.
-- **Đặt lại mật khẩu**: dùng khi nhân viên quên mật khẩu, nghi lộ mật khẩu, mất điện thoại. Người đó bị đăng xuất trên mọi máy và phải đổi mật khẩu tạm ở lần đăng nhập tới.
+- **Đặt lại mật khẩu**: dùng khi nhân viên quên mật khẩu, nghi lộ mật khẩu, mất điện thoại. Desk hỏi **Mật khẩu đăng nhập** và **Mã trong ứng dụng xác thực (6 số)**. Người đó bị đăng xuất trên mọi máy và phải đổi mật khẩu tạm ở lần đăng nhập tới. **Đặt lại mật khẩu không gỡ khóa và không gỡ 2 bước**: tài khoản đang bị khóa thì bấm **Mở khóa**; quản lý mất cả điện thoại lẫn mã khôi phục thì làm theo mục 1.7.
 - **Khóa tài khoản**: dùng khi nghỉ việc, hết hợp tác CTV, hoặc mất điện thoại. Desk hỏi **Mật khẩu đăng nhập** và **Mã trong ứng dụng xác thực (6 số)**. **Mở khóa** khi cần dùng lại.
-- Trạng thái **Tạm khóa do sai mật khẩu**: chờ hết thời gian khóa, hoặc đặt lại mật khẩu.
+- Trạng thái **Tạm khóa do sai mật khẩu**: chờ hết thời gian khóa, hoặc bấm **Mở khóa**. Người đó nói không gõ sai: hỏi lại, rồi đổi mật khẩu cho họ (**Đặt lại mật khẩu**) và xem **Cần chú ý**.
 - Trạng thái **Chờ đổi mật khẩu tạm**: người đó chưa đăng nhập lần đầu.
 
 [ẢNH: G1-04-Hộp Khóa tài khoản]
@@ -570,12 +572,14 @@ Chủ đầu tư/quản lý làm, kế toán cùng xem:
 
 ## 13. Việc riêng của chủ đầu tư trong tuần đầu
 
-- **Trước ngày D – kiểm VietQR một lần** (checklist ngày D mục C1, Điều phối viên quyết 30/10): tạo một giữ chỗ 12 giờ, ngày 17/11 (xa ngày D), khách "TEST OTTIMO" không dữ liệu thật; quét mã VietQR bằng ứng dụng ngân hàng, **xem tên chủ tài khoản, không chuyển tiền**; **hủy ngay** với lý do **Khách đổi ý** (không dùng **Khác**). Chấp nhận nhảy 1 số đơn. Các lần đổi tài khoản sau: làm theo mục 10.1 (không tạo đơn thử).
+- **Kiểm VietQR trước ngày D: đã làm 30/10** (giữ chỗ thử OTM-00001, đã hủy, không chuyển tiền). **Không tạo thêm đơn thử.** Lần đổi tài khoản nhận sau: làm theo mục 10.1, kiểm ở đơn thật đầu tiên.
 - Đổi giờ nhận phòng 12:00 trên Booking.com, Agoda, Airbnb, Google Maps, fanpage, thẻ trong căn trước 02/11. Câu chuẩn: "Check-in from 12:00 (your room is always ready by 14:00) · Check-out by 12:00" / "Nhận phòng từ 12:00 (phòng luôn sẵn sàng lúc 14:00) · Trả phòng trước 12:00". Không viết "phòng sẵn sàng từ 12:00".
 - **Báo lễ tân trưởng danh sách kênh OTA đã đăng giờ nhận/trả và mức phụ thu trong nội quy.** Kênh chưa đăng thì lễ tân chưa thu phụ thu nhận sớm/trả muộn của khách đặt qua kênh đó.
 - Ghi rõ ai được đóng/mở phòng trên extranet từng kênh.
 - Đặt số **quỹ lẻ** trong két (mục 11.5).
-- In tờ **Your ID details** và đặt trong khung mica trên quầy, mặt quay ra khách: **tối 01/11 sau buổi đào tạo, muộn nhất 06:00 ngày 02/11** (trước lần nhận giấy tờ đầu tiên trên Desk thật). In thử dưới đèn quầy trước khi đặt.
+- In **2 bản** tờ **Your ID details** khổ **A4** (bản in của UXD, `product/docs/print/pdf/to-4-your-id-details-a4.pdf`): một bản trong khung mica trên quầy, mặt quay ra khách; một bản dự phòng trong ngăn quầy. Làm **tối 01/11 sau buổi đào tạo, muộn nhất 06:00 ngày 02/11** (trước lần nhận giấy tờ đầu tiên trên Desk thật). In thử dưới đèn quầy trước khi đặt. Người trực báo tờ hỏng hay mất: in lại trong ngày. Nếu dùng máy tính bảng dự phòng: chuẩn bị máy theo tệp 02 mục 7.2 (không cấp quyền thiết bị, có mật mã, chỉ chép tệp `your-id-details-tablet.html`).
+- Gửi bộ hướng dẫn: **riêng từng người**, đúng tệp của vai (`00` mục 5). Không gửi vào nhóm chat.
+- Form "Yêu cầu đặt phòng" trên ottimo.vn (dự kiến bật sáng 31/10): báo người trực ngay khi đã bật, để Desk mở trên máy quầy và điện thoại người trực 07:00–22:00 (tệp 02 mục 13.1).
 - Lưu số điện thoại của chủ đầu tư (và quản lý nếu có) vào danh bạ **điện thoại cơ sở**, để lễ tân gọi xác nhận tiền về và tài khoản nhận.
 - Chuyển đổi dữ liệu ngày D theo hướng dẫn chuyển đổi ngày đầu (chủ đầu tư giữ).
 - Yêu cầu của khách về dữ liệu cá nhân: xử lý bằng tay.
@@ -599,7 +603,9 @@ Chủ đầu tư/quản lý làm, kế toán cùng xem:
 | Đơn OTA về khi căn đã kín | Desk báo anh/chị; gán căn hoặc đổi phòng khách khác |
 | Khách yêu cầu xem/xóa dữ liệu | Xử lý tay, không hứa ngày (mục 12) |
 | Lễ tân lỡ gửi link check-in online | Ghi nhận mã đơn từ sổ giao ca; đội đối chiếu mỗi sáng (mục 15.3) |
-| Nhân viên quên mật khẩu, mất điện thoại | **Đặt lại mật khẩu** hoặc **Khóa tài khoản** (mục 1.9) |
+| Nhân viên quên mật khẩu | **Đặt lại mật khẩu** (mục 1.9) |
+| Nhân viên mất điện thoại | Không có 2 bước: **Đặt lại mật khẩu** hoặc **Khóa tài khoản**. Có 2 bước (quản lý) mà mất cả mã khôi phục: làm theo mục 1.7 |
+| Nhân viên bị khóa do sai mật khẩu | **Mở khóa** (mục 1.9). Người đó nói không gõ sai: **Đặt lại mật khẩu**, xem **Cần chú ý** |
 
 ### 14.2 Không được làm
 
@@ -608,7 +614,8 @@ Chủ đầu tư/quản lý làm, kế toán cùng xem:
 - Không gửi mật khẩu tạm qua chat.
 - Không cấp quyền máy cho điện thoại cá nhân.
 - Không bấm link đăng nhập trong email, tin nhắn – kể cả thư báo bảo mật.
-- Không tạo đơn thử, không chuyển tiền thử trên Desk thật (trừ lượt kiểm VietQR C1 trước ngày D, mục 13).
+- Không tạo đơn thử, không chuyển tiền thử trên Desk thật (lượt kiểm VietQR C1 đã làm 30/10, không làm thêm – mục 13).
+- Không cho nhân viên, CTV biết **tên đăng nhập của chủ đầu tư**; không ghi tên này vào sổ giao ca, nhóm chat, tài liệu phát tay.
 - Không ghi số tài khoản vào lý do, sổ giao ca, `/feedback`.
 - Không chụp màn hình có dữ liệu khách, không gõ tên khách vào `/feedback`.
 - Không vừa duyệt vừa chi cùng một khoản hoàn chuyển khoản (quản lý).
@@ -632,7 +639,7 @@ Theo mục 2.2, kể cả ngày nghỉ. Hết tạm khi thư "Security notice" v
 
 ### 15.3 Rà giữ chỗ và lý do hủy
 
-- Người trực rà giữ chỗ **3 mốc mỗi ngày** (mở quầy muộn nhất 09:00 · 11:00 · trước khi rời quầy muộn nhất 21:00) vì Desk chưa báo giữ chỗ quá hạn vào **Cần chú ý**, và sau hạn Desk chỉ còn **Hủy giữ chỗ**. Chi tiết ở tệp 02 mục 17.1.
+- Người trực rà giữ chỗ **3 mốc mỗi ngày** (mở quầy muộn nhất 09:00 · 11:00 · đóng quầy muộn nhất 21:00, gồm giữ chỗ hết hạn trước 09:00 sáng mai) vì Desk chưa báo giữ chỗ quá hạn vào **Cần chú ý**, và sau hạn Desk chỉ còn **Hủy giữ chỗ**. Chi tiết ở tệp 02 mục 17.1.
 - Desk ghi sai với giữ chỗ có cọc quá hạn ("đơn đã tự hủy", "Không thu phí"): đơn chưa hủy; hủy thì Desk vẫn tạo yêu cầu hoàn đủ số đã nhận.
 - Không dùng lý do hủy **Khác (ghi rõ)** (Desk khóa nút hủy). Chọn **Không liên lạc được** hoặc **Khách đổi ý**; lý do thật ghi sổ giao ca.
 - Anh/chị xem lại các dòng có chữ "giữ chỗ" trong sổ giao ca cùng lượt kiểm sáng. Báo người trực khi v1.0.1 lên.
@@ -658,7 +665,9 @@ Quản lý giảm tiền phòng các đêm chưa ở trong 24 giờ theo mục 7
 | Folio đã khóa: câu báo ghi "Chỉ quản lý ghi được…" (sai) | Bỏ qua vế đó; không ai sửa được sau 24 giờ |
 | **Hoàn tác nhận phòng** bị từ chối khi folio có dòng mới | Bỏ dòng mới và đảo khoản thu trước (mục 7.1) |
 | Cột lý do trong Nhật ký tiền hiện mã thô | Đọc phần lý do người làm tự ghi |
-| Chủ đầu tư/quản lý chưa đăng nhập được app nhân viên | Đánh dấu dọn và phiếu sửa trên Desk (mục 1.8) |
+| Chủ đầu tư/quản lý chưa đăng nhập được app nhân viên | Đánh dấu dọn và phiếu sửa trên Desk; người trực tự kiểm căn rồi mới bấm **Làm xong** (mục 1.8) |
+| App nhân viên chưa có màn đổi mật khẩu tạm (BUG-R3-052) | Nhân viên mới, và sau mỗi lần **Đặt lại mật khẩu**: đổi mật khẩu tạm trên Desk trước rồi mới vào app (mục 1.9) |
+| Tài khoản chỉ có vai Bảo trì không chọn được căn trên Desk: không tạo phiếu, không khóa phòng được (BUG-R3-053) | Lễ tân hoặc người trực tạo phiếu, khóa phòng trên Desk; bảo trì báo trên app hoặc nhắn ngày, căn, lý do |
 
 ---
 
@@ -667,13 +676,16 @@ Quản lý giảm tiền phòng các đêm chưa ở trong 24 giờ theo mục 7
 | Giờ | Việc |
 |---|---|
 | **06:00** | Ngày mới trên Desk. Trước 06:00 vẫn là ngày hôm trước |
-| 07:00 | Bắt đầu nhận câu hỏi "tiền về chưa" của lễ tân (tới 22:00) |
+| 07:00 | Bắt đầu nhận câu hỏi "tiền về chưa" của lễ tân (tới 22:00). Form website đã bật: Desk mở trên máy quầy và điện thoại người trực tới 22:00 |
 | **Trước 09:00** | Kiểm bảo mật buổi sáng; đối soát khoản chuyển khoản ghi ban đêm; duyệt và chi khoản hoàn người trực tạo |
+| **09:00** | Người trực mở quầy muộn nhất, rà giữ chỗ mốc 1 |
 | 11:00 | Người trực rà giữ chỗ mốc 2 |
 | **12:00** | Giờ trả phòng; nhận phòng từ 12:00 |
 | **14:00** | Mọi căn có khách đến hôm nay chắc chắn sẵn sàng. Mốc chuyển sổ ngày D |
 | **18:00** | Sau 18:00 trả phòng: thêm 1 đêm, hoặc phụ thu bằng giá 1 đêm nếu căn đã bán (anh/chị nhận cuộc gọi báo trước) |
+| **21:00** | Người trực đóng quầy muộn nhất, rà mốc 3 |
 | 22:00 | Ba ngày đầu: nhận kết quả đối chiếu sổ giấy qua điện thoại; ghi công suất đêm |
+| **23:00** | Người trực đánh dấu không đến; hạn khai báo khách Việt Nam |
 | +24 giờ từ trả phòng | Hạn xem lại phụ thu bằng giá 1 đêm; hạn điều chỉnh folio, giảm tiền trả sớm; folio khóa |
 | +24 giờ từ khi khách nhận phòng | Hạn hoàn cọc cũ đã hẹn khách |
 | Thứ Tư 09:30–10:30 | Bản vá hằng tuần |
@@ -688,7 +700,7 @@ Quản lý giảm tiền phòng các đêm chưa ở trong 24 giờ theo mục 7
 | Desk báo lỗi, không đặt / nhận / trả phòng / thu tiền được, hoặc **sai tiền** | Lễ tân trưởng → quản lý → chủ đầu tư | Chủ đầu tư gõ `/feedback` với chữ **"P0"** ở đầu, **chỉ ghi mã đơn**, không ghi tên khách – đội sửa trong ngày. Lễ tân ghi sổ giấy, nhập bù |
 | Lỗi nhỏ, chữ sai, góp ý | Ai cũng được, qua chủ đầu tư | Chủ đầu tư gõ `/feedback <mô tả>`. Bản vá hằng tuần thứ Tư 09:30–10:30 |
 | Mất điện quá 4 giờ | Quản lý → chủ đầu tư | Quyết đổi phòng hoặc bù (**Bù sự cố**) |
-| Quên mật khẩu, mất điện thoại, tài khoản bị khóa (nhân viên) | Nhân viên → chủ đầu tư | **Đặt lại mật khẩu** / **Khóa tài khoản** (mục 1.9) |
+| Quên mật khẩu, mất điện thoại, tài khoản bị khóa (nhân viên) | Nhân viên → chủ đầu tư | **Đặt lại mật khẩu** / **Mở khóa** / **Khóa tài khoản** (mục 1.9). Quản lý mất cả điện thoại lẫn mã khôi phục: khóa tài khoản cũ, tạo tài khoản mới (mục 1.7) |
 | Nghi lộ mật khẩu hoặc tài khoản lạ đăng nhập | Bất kỳ ai → chủ đầu tư ngay | **Đặt lại mật khẩu** người đó (Desk đăng xuất trên mọi máy) hoặc **Khóa tài khoản** |
 | Dòng **Đã lên lịch** lạ ở tài khoản nhận, dấu hiệu ai dùng mã khôi phục của mình | Chủ đầu tư | Mục 10.2, gọi đội ngay |
 | Mã VietQR hiện "Tài khoản nhận vừa đổi" mà chưa báo lễ tân | Lễ tân → chủ đầu tư | Xác nhận hoặc làm theo mục 10.2 |
@@ -735,7 +747,7 @@ Khi báo lỗi cho đội: theo mục 12 – mô tả bằng lời, mã đơn, m
 | Người dùng & vai, thiết bị được cấp, tài khoản nhận tiền | ✔ | – | – | – | – | – | – | – |
 | Xem Nhật ký tiền | ✔ | ✔ | M | M | – | – | – | – |
 
-Quy tắc tách nhiệm hoàn tiền (mục 4) áp lên trên bảng này: người tạo yêu cầu hoàn không tự duyệt, không tự chi.
+Quy tắc tách nhiệm hoàn tiền (mục 4) áp lên trên bảng này: người tạo yêu cầu hoàn không tự duyệt, không tự chi. Tới v1.0.1, vai chỉ có Bảo trì chưa tạo phiếu, chưa khóa phòng được trên Desk (mục 15.6).
 
 ### 18.2 Tập ở đâu, bài tập (2 giờ; kế toán 1 giờ)
 
@@ -743,12 +755,12 @@ Quy tắc tách nhiệm hoàn tiền (mục 4) áp lên trên bảng này: ngư�
 - Trên Desk tập: mã VietQR không dùng để chuyển tiền; không nhập giấy tờ, số điện thoại hay tài khoản thật.
 
 Bài tập chủ đầu tư, quản lý:
-1. Đăng nhập 2 bước, tạo bộ mã khôi phục mới (trên máy riêng). Chủ đầu tư: làm thử một lượt kiểm bảo mật buổi sáng (mục 2.2).
+1. Đăng nhập 2 bước, tạo bộ mã khôi phục mới (trên máy riêng). Chủ đầu tư: làm thử một lượt kiểm bảo mật buổi sáng (mục 2.2); nói được vì sao lưu mật khẩu Desk trong trình quản lý mật khẩu và dừng sau 2 lần gõ sai (mục 1.7).
 2. Đổi giá đêm một căn có ngày hiệu lực.
 3. Duyệt và từ chối một yêu cầu miễn phí ở **Cần duyệt**.
 4. Xem lại một phụ thu trả muộn bằng giá 1 đêm: **Mở folio** → **Đã xem**.
 5. Đối soát một khoản ở **Chờ đối soát**.
-6. Chủ đầu tư: thêm một người dùng giả, **Đặt lại mật khẩu**, **Khóa tài khoản**.
+6. Chủ đầu tư: thêm một người dùng giả, **Đặt lại mật khẩu**, **Mở khóa** tài khoản bị khóa tạm, **Khóa tài khoản**. Nói được cách làm khi người trực mất cả điện thoại lẫn mã khôi phục (mục 1.7).
 7. Duyệt và chi một khoản hoàn do người khác tạo.
 
 Bài tập kế toán: cùng chủ đầu tư đọc **Nhật ký tiền** một ngày trên Desk tập; đối chiếu theo cách thanh toán.
