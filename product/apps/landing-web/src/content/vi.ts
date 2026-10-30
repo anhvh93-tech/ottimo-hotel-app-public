@@ -254,7 +254,7 @@ export const vi: Copy = {
       yourName: 'Tên của bạn',
       replyOn: 'Trả lời qua',
       phoneCall: 'Gọi điện',
-      number: { zalo: 'Số Zalo', whatsapp: 'Số WhatsApp', phone: 'Số điện thoại' },
+      phoneNumber: 'Số điện thoại',
       phoneHint: 'Số nước ngoài, thêm mã quốc gia, ví dụ +44.',
       note: 'Bạn muốn nhắn thêm gì?',
       optional: '(không bắt buộc)',

@@ -254,7 +254,7 @@ export const en: Copy = {
       yourName: 'Your name',
       replyOn: 'Reply on',
       phoneCall: 'Phone call',
-      number: { zalo: 'Zalo number', whatsapp: 'WhatsApp number', phone: 'Phone number' },
+      phoneNumber: 'Phone number',
       phoneHint: 'Add the country code if outside Viet Nam, e.g. +44.',
       note: 'Anything we should know?',
       optional: '(optional)',
