@@ -106,14 +106,12 @@ function init(form: HTMLFormElement) {
     updateNights();
   }
   function syncChannel() {
-    const c = channel();
-    const mail = c === 'email';
+    const mail = channel() === 'email';
     $('fld-phone').hidden = mail;
     $<HTMLInputElement>('f-phone').disabled = mail;
     $('fld-email').hidden = !mail;
     $<HTMLInputElement>('f-email').disabled = !mail;
     $<HTMLInputElement>('f-email').required = mail;
-    form.querySelectorAll<HTMLElement>('.c-lab').forEach((s) => (s.hidden = s.dataset.k !== c));
   }
   function roomHint() {
     const o = room.selectedOptions[0];

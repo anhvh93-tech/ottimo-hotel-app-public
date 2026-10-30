@@ -204,11 +204,8 @@ const counts = (from: number, to: number) => Array.from({ length: to - from + 1 
       </div>
     </fieldset>
     <div class="field" id="fld-phone">
-      <label for="f-phone"
-        ><span class="c-lab" data-k="zalo">{f.number.zalo}</span><span class="c-lab" data-k="whatsapp" hidden
-          >{f.number.whatsapp}</span
-        ><span class="c-lab" data-k="phone" hidden>{f.number.phone}</span></label
-      >
+      {/* One label for Zalo, WhatsApp and phone call: guests often give one number for every app (FB-INV-007) */}
+      <label for="f-phone">{f.phoneNumber}</label>
       <input
         class="input"
         id="f-phone"
