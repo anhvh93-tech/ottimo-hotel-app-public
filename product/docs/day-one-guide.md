@@ -32,7 +32,7 @@ Ký hiệu: **D** = ngày chạy. **Mốc chuyển** = 14:00 ngày D (mốc sổ
 | D−5 → D−2 | OWN + FDL | Lập **danh sách chuyển đổi** theo mẫu mục 3, từ sổ đặt phòng, sổ thu tiền, extranet OTA, hợp đồng dài hạn | Đủ 5 nhóm, mỗi dòng có số đã thu |
 | D−5 → D−2 | Đội (DOM + QA) | **Diễn tập chuyển đổi trên staging** bằng dữ liệu giả, đúng các bước mục 4; sửa hướng dẫn nếu Desk chặn | Mục 8 có câu trả lời |
 | D−2 | OWN | Liên hệ khách đang **giữ chỗ chưa cọc**: xin cọc trước D−1, hoặc báo hủy | Nhóm "giữ chỗ" còn ít nhất có thể |
-| D−1 trước 12:00 | OWN | Kiểm VietQR thật (checklist C1). Phát `staff-one-pager.md`, mỗi nhân viên đăng nhập thử một lần, đổi mật khẩu tạm | Mọi người vào được; quản lý đã có 2 bước |
+| D−1 trước 12:00 | OWN | Kiểm VietQR thật (checklist C1). Nhận bản in của UXD và **in 4 tờ một mặt** của `staff-one-pager.md` (Tờ 1, Tờ 2a+2b, Tờ 3, Tờ 4 – bảng "Cách in và dán" cuối tệp). Mỗi nhân viên đăng nhập thử một lần, đổi mật khẩu tạm | Mọi người vào được; quản lý đã có 2 bước; đủ 4 tờ |
 | **D−1 14:00–17:00** | FDL nhập, OWN ngồi cạnh để duyệt | Nhập **nhóm 1, 2, 3, 4** (mục 4). Ghi cọc đã thu | Mọi dòng danh sách có mã đơn `OTM-…` |
 | **D−1 17:00–17:30** | FDL + OWN | **Đối chiếu 1** (mục 5). OWN ký vào danh sách | Khớp hết, hoặc có ghi chú xử lý |
 | D−1 17:30 → mốc | Lễ tân ca | Đơn **mới** nhận: nhập Desk trước, ghi sổ cũ sau | – |
@@ -84,7 +84,7 @@ Một dòng cho một đơn (đơn nhiều căn: một dòng mỗi căn). Bảng
 
 ### 4.3 Nhóm G – giữ chỗ chưa cọc
 - Tốt nhất xử lý xong ở D−2 (xin cọc hoặc hủy).
-- Còn lại: tạo lại ở **Báo giá & giữ chỗ** (báo giá → giữ chỗ), thời hạn bằng phần còn lại của hạn cũ. Hạn giữ không vượt 12:00 ngày đến (BR-302). Hết hạn chưa cọc thì Desk tự hủy và mở lại căn.
+- Còn lại: tạo lại ở **Báo giá & giữ chỗ** (báo giá → giữ chỗ), chọn **12 h** (hộp chỉ có 12/24/48 giờ, không đặt được "phần còn lại"). Hạn mới có thể dài hơn hạn cũ vài giờ, chấp nhận được. Khách đến ngày D thì Desk tự cắt hạn ở 12:00 ngày D (BR-302). Hết hạn chưa cọc thì Desk tự hủy và mở lại căn; riêng giữ chỗ có yêu cầu giảm giá/FOC thì không tự hủy – rà theo mục 10.
 
 ### 4.4 Nhóm 3 – khách ngắn ngày đang ở, còn ở qua đêm D
 Nhập ở D−1 như một **đơn đến ngày D**, rồi nhận phòng lúc 14:00 ngày D.
@@ -181,10 +181,12 @@ Không ai đọc mật khẩu qua điện thoại hay đưa mật khẩu cho ng�
 
 ## 10. Từ ngày D tới bản v1.0.1 (dự kiến 04/11) – ba việc khác thường
 
-Thêm 30/10 (PO, theo bản `v1.0.0` và cổng QC v1.0 mục 4.2). Chi tiết ở `release-notes.md` mục "Giới hạn đã biết", sổ tay mục 1.1, 2.1, 2.4, 2.9 và `staff-one-pager.md`.
+Thêm 30/10 (PO, theo bản `v1.0.0` và cổng QC v1.0 mục 4.2). Sửa 30/10 tối theo review DOM, SEC, UXD, BA (`rounds/round-03/responses/PO-to-v1.0.0-docs-reviews.md`). Chi tiết ở `release-notes.md` mục "Giới hạn đã biết", sổ tay mục 0.8, 1.1, 2.4, 2.9 và `staff-one-pager.md` Tờ 2a, Tờ 4.
+
+Hiện OTTIMO có **một người trực quầy giữ cả 6 vai** (decision-log 29/10). "Người trực" dưới đây là người đó; OWN xem lại mỗi sáng. Khi có thêm lễ tân, việc rà làm ở đầu mỗi ca.
 
 | Việc | Ai | Khi nào | Tới khi nào |
 |---|---|---|---|
-| **Không tạo, không gửi link check-in online** cho khách thật, kể cả các đơn nhập ở mục 4.1–4.3. Mọi khách làm giấy tờ tại quầy, lễ tân hỏi đồng ý lưu ảnh bằng câu chuẩn và chỉ tờ thông báo giấy tờ ở quầy. In và dán tờ thông báo **trước 12:00 ngày D** | Lễ tân; OWN in tờ thông báo | Mọi ca | Chủ đầu tư báo "mở lại" sau khi v1.0.1 lên production (quyết định D-T4 của PO) |
-| **Rà giữ chỗ "0h00" đỏ** trên Sơ đồ phòng và Hôm nay, xử lý hết trước 12:00 ngày đến. Lần rà đầu tiên: ngay sau khi nhập xong nhóm G (mục 4.3) | Lễ tân, lễ tân trưởng; quản lý quyết đơn có cọc thiếu | Đầu mỗi ca | Bản v1.0.1 (BUG-R3-041, WA-04) |
-| **Kiểm bảo mật buổi sáng B1–B6** | OWN; quản lý đối soát cùng | Mỗi sáng trước 09:00, kể cả ngày nghỉ | Bản v1.0.1 sửa BUG-R3-032 (chậm nhất 09/11, ESC-040 A) |
+| **Không tạo, không gửi link check-in online** cho khách thật, kể cả các đơn nhập ở mục 4.1–4.3. Mọi khách làm giấy tờ tại quầy. **Trước khi nhận giấy tờ**, chỉ khách tờ **Your ID details** (Tờ 4); tới Khối 1 thì hỏi đồng ý lưu ảnh bằng câu chuẩn. Lỡ gửi: **Thu hồi link**, ghi mã đơn vào sổ giao ca, báo OWN. Khách nhóm 3, 4 không chụp lại ảnh nên không hỏi đồng ý (mục 4.6) | Người trực; OWN in và đặt Tờ 4 trong khung mica phía khách **tối D−1 sau buổi đào tạo, muộn nhất 06:00 ngày D** (trước lần nhận giấy tờ đầu tiên trên Desk thật – Desk nhận phòng sớm từ 06:00) | Mỗi khách làm giấy tờ tại quầy | Chủ đầu tư báo "mở lại" sau khi v1.0.1 lên production và SEC kiểm xong (quyết định D-T4 của PO; điều kiện SEC-on-PO-v1.0.0-docs.md mục C.1) |
+| **Rà giữ chỗ**: **Đơn đặt phòng** → lọc **Đang hiệu lực** → mở từng dòng **Giữ chỗ · chờ cọc**. Còn dưới 2 giờ: xử lý trước hạn. Đã "còn 0 giờ 00 phút" đỏ: chưa cọc thì hủy ngay; có cọc thì gọi khách, hủy – hoàn hoặc để nguyên đơn và làm lại khi khách đến (Tờ 2a, sổ tay 2.4). Lượt đầu tiên: **trước khi rời quầy tối D−1** (sau khi nhập nhóm G) | Người trực (quyền quản lý để quyết đơn có cọc thiếu, duyệt hoàn); OWN chi hoàn tiền mặt và xem lại các dòng "giữ chỗ" trong sổ giao ca cùng lượt B1–B6 | **3 mốc mỗi ngày từ ngày D**: mở quầy (muộn nhất 09:00) · **11:00** · trước khi rời quầy (muộn nhất 21:00); thêm mỗi lần thấy **Giữ chỗ sắp hết hạn** | Bản v1.0.1 có đủ BUG-R3-041, WA-04, BUG-R3-042, BUG-R3-043 và QA thử lại cả ba lối ra BR-303 trước và sau hạn |
+| **Kiểm bảo mật buổi sáng B1–B6** | OWN; người trực đối soát cùng | Mỗi sáng trước 09:00, kể cả ngày nghỉ | Bản v1.0.1 sửa BUG-R3-032 (chậm nhất 09/11, ESC-040 A) |
