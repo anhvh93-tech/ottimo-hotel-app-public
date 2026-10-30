@@ -670,3 +670,38 @@ RESULT: FAIL
   - ORC hướng dẫn INV mở `REQ-84EKR1V6` trên Desk và chạy **"Xóa theo yêu cầu người gửi"** (WR8, `same_contact` = `info@ottimo.vn`), nếu Desk còn cho xóa ở trạng thái hiện tại.
   - Sau đó OPS chạy lại **đúng lệnh L5**, cùng `--ref` và `--since`. Đạt khi in `RESULT: OK – 14/14`.
   - Nếu Desk không cho xóa (ví dụ dòng đã bị xóa dữ liệu cá nhân theo lối khác), ORC/SEC quyết có chấp nhận kiểm 2/4/5 hay không. OPS không tự sửa DB.
+
+### 8.8 L5 chạy lại sau WR8 (20:08) – **ĐẠT 14/14**
+
+- **SEC không chấp nhận 11/14** của 8.7 (`reviews/SEC-on-us155-smoke-L.md`). INV đã chạy WR8 "Xóa theo yêu cầu người gửi" cho `REQ-84EKR1V6` trên Desk.
+- OPS chạy lại **đúng lệnh L5**, chỉ đọc: `us155-smoke-counts.sh --ref REQ-84EKR1V6 --since 2026-10-30T17:45:59+07:00`, lúc 20:08:19. Không truy vấn tay.
+- Kết quả: **`RESULT: OK – 14/14`**, thoát 0.
+- So với 8.7:
+  - kiểm 2, 4, 5 chuyển từ 0 thành **1**: dòng đã xóa theo WR8, có `purge_journal` `dsr_erase`, có audit `website_request.erased`;
+  - kiểm 12 tăng từ 4 lên **5** dòng SM-18, thêm một bước chuyển của WR8;
+  - các kiểm khác không đổi.
+
+Đầu ra nguyên văn:
+```
+US-155 smoke counts – ref 84EKR1V6 since 2026-10-30T17:45:59+07:00 – 2026-10-30T13:08:19Z
+1. website_booking_request: rows with this ref | 1 | 1 | OK
+2. website_booking_request: erased (name/phone/email/note/decline_note/contact_hmac/ip_hmac NULL, pii_purged_at set, declined/erased_on_request) | 1 | 1 | OK
+3. website_booking_request: this row contains a test string | 0 | 0 | OK
+4. purge_journal: dsr_erase null_columns for this request | 1 | 1 | OK
+5. audit_event: security website_request.erased for this request | 1 | 1 | OK
+6. audit_event since: test string in a row | 0 | 0 | OK
+7. idempotency_key since: test string (response_body or row) | 0 | 0 | OK
+8. outbox_message since: test string (payload or row) | 0 | 0 | OK
+9. staff_notification: notifications for this request (website_request_new …) | 1 | >=1 | OK
+10. staff_notification since: test string in a row | 0 | 0 | OK
+11. attention_event since: test string in a row | 0 | 0 | OK
+12. state_transition SM-18: history rows of this request | 5 | >=1 | OK
+13. state_transition SM-18 of this request: test string in a row | 0 | 0 | OK
+14. all public tables: rows containing test string 1 – none | 0 | 0 | OK
+RESULT: OK – 14/14
+```
+
+Còn lại cho bước M:
+- `ops-check` cuối và đọc log api/landing 30 phút.
+- Sau 24 giờ ổn định, xóa `state/env.before-us155.*` và `/root/ottimo-bundle-432a8741` (8.4 #2).
+- `REQ-84EKR1V6` vẫn phải loại khỏi chỉ số (8.7).
