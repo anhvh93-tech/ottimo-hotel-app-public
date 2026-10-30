@@ -417,3 +417,96 @@ Kỳ vọng ở 13.2 giữ đúng: production chưa có đơn nên nhịp đầu
 - "Cả 4 healthy" hiểu là api, web, postgres, landing `healthy` và worker `running`: worker không có healthcheck theo thiết kế (13.5, 12.1).
 - Mốc deploy lấy theo `StartedAt` của worker (00:51:25Z); log đọc `--since 00:51:00Z`, bao trọn từ lúc khởi động.
 - "Health web" kiểm bằng trang gốc 200 qua Caddy; `/health` không mở ra Internet theo thiết kế, nên kiểm trong container api.
+
+## 15. T3 – 6 job theo lịch trên staging rc.6
+
+- Người kiểm: OPS | Round 3 – bước **Kiểm thử** | 30/10/2026 08:27–08:30 giờ VN. Điều kiện **T3** của cổng QC v1.0 (`qc/v1-gate.md` mục 4.1), câu hỏi QC-G7.
+- Bản kiểm: staging rc.6 `sha-8b3aec89486f` (`state/current_tag` khớp). api, web `healthy`, worker `running`, `RestartCount` = 0 cả ba. Worker chạy từ 29/10 11:57:55Z (18:57:55 giờ VN), không khởi động lại lần nào.
+- Cách làm như mục 12:
+  - SSH `ottimo-admin`, khóa `~/.ssh/ottimo_ops`, `StrictHostKeyChecking=yes`.
+  - Log: `dc logs --no-color --timestamps --since 2026-10-29T11:57:50Z worker`, rồi **bỏ mã màu ANSI** (`sed 's/\x1b\[[0-9;]*m//g'`). Kiểm lại còn 0 ký tự ESC trước khi lọc. Tệp tạm trên máy chủ đã xóa sau khi đọc.
+  - SQL: hai lớp chỉ đọc (`PGOPTIONS default_transaction_read_only=on` + `BEGIN TRANSACTION READ ONLY … ROLLBACK`), `ON_ERROR_STOP`, giờ `Asia/Ho_Chi_Minh`. Phiên in `transaction_read_only = on`.
+- Không ghi DB, không restart, không chạy job tay. **Không đụng `/opt/ottimo-prod`.** Không in env, bí mật, IP hay dữ liệu khách; chỉ in số đếm và tên job.
+
+### 15.1 Kết luận: **ĐẠT**
+
+Cả 6 job đã chạy lượt theo lịch đầu tiên trên mã rc.6, mỗi job đúng 1 lần, trong slot ngày 30/10.
+
+Toàn bộ log worker từ lúc khởi động tới 08:27 30/10 (11.347 dòng) sạch:
+- **0** `ERROR [`;
+- **0** `job failed`;
+- **0** `AuditEntityNotRegisteredError`;
+- **0** dòng không phải mức `info`, không có dòng stack trace.
+
+Không có job nào phải chờ tới giờ chạy.
+
+| Job | Lịch (giờ VN, `catchUp: always`) | Chạy trên rc.6 (log `job done`) | `job_run` 30/10 (DB) | Lỗi trong log | Đạt? |
+|---|---|---|---|---|---|
+| `log.partitions` | 03:00 | 30/10 03:00:09 | `done` 03:00:09, `partitions` = `audit_event_p202611`, `c3_access_log_p202611` | 0 | Đạt |
+| `lease.nights` | 03:10 | 30/10 03:10:09 | `done` 03:10:09, `bookings` 0, `nights` 0 | 0 | Đạt |
+| `web_request.purge` | 03:10 | 30/10 03:10:09 | `done` 03:10:09, `aged` 0, `purged` 0, `ipCleared` 0, `spamDeleted` 0 | 0 | Đạt |
+| `guest.document_profile_anonymize` | 03:30 | 30/10 03:30:09 | `done` 03:30:09, `anonymized` 0 | 0 | Đạt |
+| `web_request.stale` | 06:05 | 30/10 06:05:13 | `done` 06:05:13, `closed` 0 | 0 | Đạt |
+| `hk.daily` | `daily_clean_status_time` = 07:00 | 30/10 07:00:15 | `done` 07:00:15, `dayEnded` 0, `carriedOver` 0, `stayover` 0, `markedDirty` 0, `returnPrepared` 0 | 0 | Đạt |
+
+### 15.2 Đối chiếu
+
+- **Đây là lượt rc.6 đầu tiên của cả 6 job.** Slot ngày 29/10 của 6 job đã được rc.5 chạy lúc 03:00–07:00 29/10, trước deploy rc.6 (18:57). `job_run` khóa mỗi slot một lần, nên rc.6 không chạy lại slot 29/10. Slot ngày 30/10 là slot đầu của rc.6. Mỗi job có đúng 1 dòng `job done` trong log rc.6. Log khớp `job_run`, `run_at` lệch dưới 1 giây.
+- **Số 0 ở các job là đúng dữ liệu, không phải job bỏ qua:**
+  - `log.partitions`: partition tháng 11 của `audit_event` và `c3_access_log` đã có từ trước. Hàm tạo partition không tạo trùng, chỉ trả lại tên. Cả hai bảng có sẵn partition tới 12/2027, kèm partition `default`.
+  - `hk.daily`: staging có 2 đơn `in_house`, đều ngắn ngày và đến hạn trả phòng ≤ 30/10. Không đơn nào ở qua đêm 30/10, nên `stayover` = 0 (BR-807-01). Không có việc `stayover_clean`/`long_stay_clean` nào còn mở từ 29/10, nên `dayEnded` = 0. Bảng `hk_task` không có việc nào tạo trong 07:00–07:02 30/10.
+  - Rc.5 cũng ra số 0 tương tự ở slot 29/10 với 5 job còn lại. Riêng `hk.daily` 28/10 ra `stayover` 2, `carriedOver` 2. Tức job có xử lý khi có dữ liệu.
+- **Audit:** audit `system` từ lúc deploy rc.6 tới 08:28 30/10 gồm:
+  - `folio.closed` 5 và `payment.expired` 2, cùng lúc 18:57:57 (J15/J24, mục 12);
+  - `reservation.hold_expired` 1 và `lead.hold_ended` 1, cùng lúc 07:04:15 30/10 (J1, hold thử của QA, checklist F).
+  
+  6 job này không ghi audit nào, khớp với số 0 ở bảng trên.
+
+### 15.3 Giới hạn
+
+1. **Nhánh ghi audit của 6 job chưa được chạy thật trên staging**, vì không có dữ liệu cần xử lý:
+   - `guest.document_profile_anonymize` chưa ẩn danh hồ sơ nào;
+   - `web_request.purge` và `web_request.stale` chưa xóa hay đóng yêu cầu nào;
+   - `lease.nights` chưa điền đêm dài hạn nào.
+   
+   "0 lỗi" nghĩa là job khởi chạy, mở giao dịch, ghi `job_run` và kết thúc sạch trên rc.6. Nó **không** chứng minh nhánh có ghi audit chạy đúng.
+   
+   Phần đó được che bằng đọc mã: `audit-entities.ts` của worker import allowlist của `guests`, `public-site`, `reservations`, `housekeeping`… Test `worker-audit-registry` (PR #14, CI xanh trên `8b3aec8`) so registry của worker với registry của api. Đây chính là gốc của BUG-R3-037/038/039.
+   
+   Nếu QC cần bằng chứng chạy thật, phải tạo dữ liệu thử đến hạn (ví dụ yêu cầu web đã từ chối quá hạn lưu). Việc này cần chạy job hoặc chờ slot kế, nên OPS **không** làm khi chưa có lệnh của ORC.
+2. Kết quả chỉ đúng cho slot 30/10. Slot kế tiếp trên staging (31/10):
+   - `log.partitions` 03:00;
+   - `lease.nights` và `web_request.purge` 03:10;
+   - `guest.document_profile_anonymize` 03:30;
+   - `web_request.stale` 06:05;
+   - `hk.daily` 07:00.
+
+### 15.4 Giả định
+
+- "Lượt chạy theo lịch đầu tiên trên rc.6" là slot ngày 30/10. Slot 29/10 đã do rc.5 chạy (`job_run` 29/10 03:00:33 … 07:00:38, trước 18:57).
+- Giờ `hk.daily` lấy từ `config_parameter.daily_clean_status_time` = `"07:00"` (hiệu lực từ 01/10). Trên staging không có bản ghi đổi giờ nào sau đó.
+- Số liệu DB đọc lúc 08:28:44 30/10.
+
+### 15.5 Khung D-T6 – production, sau lượt theo lịch đầu tiên trên rc.6 (**chưa đọc**)
+
+- Thời điểm đọc: **sau 07:05 ngày 31/10**, không phải 03:00.
+  - Production lên rc.6 lúc 07:51 30/10. Lúc đó cả 6 slot ngày 30/10 (03:00–07:00) đã do rc.3 chạy (13.7). Vậy lượt rc.6 đầu tiên của cả 6 job là slot 31/10.
+  - Trong 6 job có `web_request.stale` chạy 06:05 và `hk.daily` chạy 07:00. Giờ `hk.daily` sẽ đọc lại từ `daily_clean_status_time` trên production.
+  - Nếu chỉ đọc sau 03:30 thì mới kiểm được 4/6 job.
+- Cách làm như mục 14, với `/opt/ottimo-prod`, host `desk.ottimo.vn`. Log `--since 2026-10-30T00:51:00Z`, bỏ ANSI, kiểm lại còn 0 ký tự ESC. SQL hai lớp chỉ đọc. Không ghi DB, không chạy job tay.
+- Câu SQL: `rounds/round-03/outputs/OPS/t3-scheduled-jobs.sql` (đã chạy trên staging 30/10, đổi ngày theo ghi chú đầu tệp): `job_run` 6 job theo `business_date`, partition, `hk_task` theo `due_date`, audit `system` theo `action`.
+
+| Job | Slot rc.6 đầu tiên (31/10, giờ VN) | Log `job done` | `job_run` 31/10 (`run_at`, `stats`) | `ERROR [` / `job failed` / `AuditEntityNotRegisteredError` | Đạt? |
+|---|---|---|---|---|---|
+| `log.partitions` | 03:00 | _chưa đọc_ | _chưa đọc_ (kỳ vọng `audit_event_p202611`, `c3_access_log_p202611`) | _chưa đọc_ | – |
+| `lease.nights` | 03:10 | _chưa đọc_ | _chưa đọc_ | _chưa đọc_ | – |
+| `web_request.purge` | 03:10 | _chưa đọc_ | _chưa đọc_ | _chưa đọc_ | – |
+| `guest.document_profile_anonymize` | 03:30 | _chưa đọc_ | _chưa đọc_ | _chưa đọc_ | – |
+| `web_request.stale` | 06:05 | _chưa đọc_ | _chưa đọc_ | _chưa đọc_ | – |
+| `hk.daily` | `daily_clean_status_time` (mặc định production 07:00) | _chưa đọc_ | _chưa đọc_ | _chưa đọc_ | – |
+
+Kèm theo khi đọc D-T6:
+- Toàn log worker từ 07:51 30/10: số dòng, 0 ký tự ESC, đếm `ERROR [` / `job failed` / `AuditEntityNotRegisteredError` / dòng không phải `info`. Dòng BUG-R3-032 (`email dead … NO_RECIPIENT`) đã biết, tách riêng.
+- Kiểm `job_run` slot 30/10 của 6 job có `run_at` trước 07:51. Nếu có slot nào `run_at` sau 07:51 (rc.3 chưa chạy kịp), thì slot đó là lượt rc.6 đầu và được tính luôn.
+- Truy vấn vai sau D-INV-2; truy vấn `logout` sau D-INV-1 (SEC chủ trì). Hai việc này ghi ở mục riêng khi tới lượt.
+- Số đếm đơn, folio, payment trên production lúc đọc. Từ 30/10 có thể đã có đơn thử C1, nên số 0 ở `hk.daily`/`lease.nights` không còn mặc nhiên.
