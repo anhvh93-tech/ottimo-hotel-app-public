@@ -1429,3 +1429,120 @@ Khớp, không phải sửa: 01 mục 1.4 (trang **Xác thực 2 bước**, **T�
 
 - Không VietQR, không chuyển tiền thật; mọi khoản là "tiền mặt" thử có ghi chú "QA test record - not real money".
 - Lượt chụp G2-05/G2-06 sáng 31/10 (sau 02:50) cần ORC giao lại cho QA, kèm dọn OTM-00374/00375.
+
+## 23. D1 – landing có form trên digest CI (30/10, 15:48–15:59)
+
+- Người chạy: QA | Round 3 – bước **Kiểm thử** | Điều kiện **D1** của SEC (`reviews/SEC-on-OPS-us155-enable.md`) và bước **P4** của `outputs/OPS/us155-enable-plan.md` (mục 3 "QA thử landing có form").
+- Ứng viên `landing-v1.1.0` = commit `8f1265e0` trên `main` (có PR #15 gộp ở `4aadbb4`). CI run **41025960284**: **success**, xong 15:48:54. Mọi job xanh: shellcheck, landing Playwright, lint/test/build, gitleaks, OpenAPI, contract, no test endpoints, docker E2E smoke, publish images, deploy staging. Chỉ "deploy landing preview" bị bỏ qua (skipped).
+- Không đụng production, không đụng staging VPS. Không SQL tay ngoài stack thử. Không commit. Dữ liệu đều giả. Dùng đúng chuỗi của khói L: "TEST OTTIMO", `info@ottimo.vn` là hộp thư chung công khai.
+
+### 23.1 Kết luận: **ĐẠT**
+
+| Mục | Kết quả |
+|---|---|
+| Image landing CI | `ghcr.io/anhvh93-tech/ottimo-landing:sha-8f1265e0e878` = **`sha256:2a284a7d6f7cea5a9a6e7dfeb6b0193461b03a4af94fd7a9cd681cb1eb5c2af6`** (artifact `image-digests` của run; tag và digest trỏ cùng image) |
+| **Băm `/privacy/` (en)** | **`d35d2810f341c1cf6d4b9079ba1d21281902f259f9ca6b05a4673c188d3c327a`** |
+| **Băm `/vi/privacy/` (vi)** | **`940bd18b6701e93dfa520ee87463a776ae0bb98c8d964b2dbd1276767a88776a`** |
+| Test OPS `publish-privacy-notice.test.sh` trên image này | **22 passed, 0 failed** (15:51:25–15:51:57) |
+| Công cụ thật trên stack `ottimo-qa155` (kiểm cả digest) | chạy thử `DRY RUN OK` → `--apply` `RESULT: published (inserted: vi,en)` |
+| Trang privacy `2026-10-24` nguyên văn | Đạt (23.3) |
+| Form gửi được (K → L2) | Đạt: OWN bật 200; form gửi 202; consentVersion `2026-10-24` |
+| WR8 + `us155-smoke-counts.sh` trên dòng do api ghi | **`RESULT: OK – 14/14`**, exit 0 |
+| TC-WR-* + C-1 trên cùng digest (bổ sung P4) | **13/13 passed** (1,1 phút) |
+
+**Số đối chiếu cho bước J (SEC D1):** 2 băm ở trên là băm của image CI theo digest `2a284a7d…2af6`. Có 4 nguồn đo khác nhau và cả 4 trùng nhau:
+- (a) `sha256sum` chạy trong image (`docker run`);
+- (b) dòng `image:` mà công cụ in ra trong test OPS;
+- (c) công cụ chạy trên stack `ottimo-qa155`. Trên stack này công cụ có kiểm digest: image của container landing đang chạy phải mang `@sha256:2a284a7d…`;
+- (d) `curl -H 'Accept-Encoding: identity'` từ Mac qua Caddy landing của stack: `/privacy/` và `/vi/privacy/` trả 200 `text/html`, đúng 2 băm.
+
+Ở bước J (VPS) và khi băm từ Mac qua mạng ngoài, 2 băm phải trùng 2 số này. Lệch thì dừng, không sang K.
+
+### 23.2 Môi trường
+
+- Stack `ottimo-qa155` dựng trên Mac QA theo đầu tệp `tests/e2e/support/us155-stack/compose.us155.yml`:
+  - landing = **đúng image CI**: `docker pull …@sha256:2a284a7d…`, gắn tag `ottimo-landing:qa155`, `pull_policy: never`, kèm `infra/caddy/Caddyfile.landing` thật (`LANDING_PUBLIC_API=on`, `https://landing.localhost:58150`);
+  - api/worker/migrate/seed = `ghcr.io/anhvh93-tech/ottimo-api:sha-8b3aec89486f-test` (`v1.0.0` + hỗ trợ test, `sha256:04b2f857…8b91`), web = `ottimo-web:sha-8b3aec89486f` (`sha256:c85e8874…4755`) – cùng image api staging `v1.0.0`;
+  - DB mới, migrate, seed DS-E. `.env` tạo bằng `infra/ci/make-ci-env.sh`, khóa ký form ngẫu nhiên. Tệp này nằm ở scratchpad và **đã xóa**.
+- Image CI chỉ có bản `linux/amd64`. Trên Mac (arm64) image chạy qua giả lập và chạy bình thường. VPS là amd64.
+- Đặc điểm image (đọc trong image):
+  - trang chủ EN/VI có `<form>` và `data-consent-version="2026-10-24"`, `data-property="dlt"`;
+  - `/privacy/` có "Version 2026-10-24", `/vi/privacy/` có "Phiên bản 2026-10-24";
+  - canonical trỏ `https://ottimo.vn/…`, tức image dựng với `LANDING_SITE_URL=https://ottimo.vn`, đúng bản sẽ deploy.
+- Công cụ OPS chạy trên stack qua `PN_TEST_DC` (wrapper compose của stack) và `SMOKE_HTTPS_PORT=58150 SMOKE_INSECURE=1` (CA nội bộ của Caddy, không phải production). **Không** dùng `PN_TEST_NO_DIGEST`: `state/digests/landing-qa155` = digest CI, nên công cụ kiểm được digest như trên VPS. Dòng log: `landing container image 2a284a7d6f7c ok (digest 2a284a7d6f7c…)`.
+
+### 23.3 Trang privacy `2026-10-24` – nguyên văn
+
+| Kiểm | Kết quả |
+|---|---|
+| Nguồn chữ không đổi từ lúc tạo version | `git diff 5d6701a6 8f1265e0` (5d6701a6 = commit FE-B 24/10 tạo version `2026-10-24`) **rỗng** cho `content/privacy.ts`, `pages/[privacy].astro`, `pages/vi/[privacy].astro`. Câu đồng ý A.1/A.2 trong `en.ts`/`vi.ts` không đổi. `site.json` chỉ đổi `checkinTime`/`roomReadyBy`, privacy không dùng 2 trường này. Có một câu báo lỗi ô đồng ý trong `booking-strings.ts` đổi "OTTIMO" → "chúng tôi" (24/10, CPY); câu này không thuộc văn bản thông báo hay câu đồng ý |
+| Trang phục vụ = nguồn | Lấy mọi chuỗi trong `privacy.ts`, thay `${VERSION}`, tên pháp nhân, mã số thuế, địa chỉ, email, Zalo theo `site.json`, rồi so với trang lấy từ stack: **74/74 chuỗi có nguyên văn** trên `/privacy/` + `/vi/privacy/`, 0 thiếu |
+| Version 3 nơi khớp | Trang "Version 2026-10-24" / "Phiên bản 2026-10-24"; form 2 trang chủ `data-consent-version="2026-10-24"`; yêu cầu do api lưu: `consent_version = 2026-10-24` |
+
+### 23.4 K → L2 → L4 → L5 trên stack (diễn tập đúng kịch bản production)
+
+| # | Giờ | Bước | Thấy gì | Đạt? |
+|---|---|---|---|---|
+| 1 | 15:52:21 | J chạy thử: `publish-privacy-notice.sh --landing-tag qa155 --version 2026-10-24 --property DLT --operator qa.test` | Kiểm digest OK. Băm image = băm trang thật. In các dòng INSERT "would" vi/en và audit. `readiness: … vi+en active = 2026-10-24`, `DRY RUN OK – nothing written` | Đạt |
+| 2 | 15:52:29 | J `--apply` | `RESULT: published (inserted: vi,en, already present: -)`, `OK: version 2026-10-24 published (vi + en)` | Đạt |
+| 3 | 15:54:45 | K: OWN (`qa.owner`) `PUT …/parameters/public_booking_requests_enabled` `true`, hôm nay | **200**, không còn 422 `PUBLIC_FORM_NOT_READY`. Dòng tham số được ghi trên dòng do công cụ ghi | Đạt |
+| 4 | 15:55:03 | L0 `since` = `2026-10-30T15:55:03+07:00`, lấy ngay trước khi gửi | – | – |
+| 5 | 15:55:0x | L2: Chromium, landing EN, ngày đến +20 ngày, 2 đêm, tên **TEST OTTIMO**, kênh **Email**, `info@ottimo.vn`, **không SĐT** (ô SĐT trống), lời nhắn "Smoke test – please erase", tích đồng ý → **Send** | 1 `GET form-token`, đúng 1 `POST …/dlt/booking-requests` (202). **0 request ra ngoài origin landing (C-1)**. Mã **DNWFFR5W**. Màn **Request sent**: "Thank you, TEST OTTIMO. This is a request, not yet a booking." · "We will reply by email." · "We reply within 1 hour (07:00–22:00, Da Lat time)." · "If you have not heard from us by 16:55, call 08.4444.0909…". DB: `status new`, `consent_version 2026-10-24` | Đạt |
+| 6 | 15:55:1x | L4: Desk `qa.fdl` → **Yêu cầu từ website** → tìm DNWFFR5W → mở (thấy "TEST OTTIMO") → **Xóa theo yêu cầu người gửi** → cách xác minh **cùng liên hệ** = `info@ottimo.vn` → **Xóa ngay** | Toast "Đã xóa dữ liệu…" | Đạt |
+| 7 | 15:55:22 | L5: `bin/us155-smoke-counts.sh --ref REQ-DNWFFR5W --since 2026-10-30T15:55:03+07:00` (`PN_TEST_DC` = compose của stack) | 14 dòng OK, **`RESULT: OK – 14/14`**, exit 0 (chạy lại lần 2: exit 0) | Đạt |
+
+Đầu ra nguyên văn của L5. Chỉ có mã REQ và số, không dữ liệu cá nhân:
+
+```
+US-155 smoke counts – ref DNWFFR5W since 2026-10-30T15:55:03+07:00 – 2026-10-30T08:55:22Z
+1. website_booking_request: rows with this ref | 1 | 1 | OK
+2. website_booking_request: erased (name/phone/email/note/decline_note/contact_hmac/ip_hmac NULL, pii_purged_at set, declined/erased_on_request) | 1 | 1 | OK
+3. website_booking_request: this row contains a test string | 0 | 0 | OK
+4. purge_journal: dsr_erase null_columns for this request | 1 | 1 | OK
+5. audit_event: security website_request.erased for this request | 1 | 1 | OK
+6. audit_event since: test string in a row | 0 | 0 | OK
+7. idempotency_key since: test string (response_body or row) | 0 | 0 | OK
+8. outbox_message since: test string (payload or row) | 0 | 0 | OK
+9. staff_notification: notifications for this request (website_request_new …) | 5 | >=1 | OK
+10. staff_notification since: test string in a row | 0 | 0 | OK
+11. attention_event since: test string in a row | 0 | 0 | OK
+12. state_transition SM-18: history rows of this request | 2 | >=1 | OK
+13. state_transition SM-18 of this request: test string in a row | 0 | 0 | OK
+14. all public tables: rows containing test string 1 – none | 0 | 0 | OK
+RESULT: OK – 14/14
+```
+
+Khác với ca 15 của OPS (dòng giả dựng bằng SQL): ở đây dòng yêu cầu, outbox, thông báo, lịch sử SM-18, purge và audit đều do **api `v1.0.0` thật** ghi. Đường đi là form trên image CI → Caddy landing → api, rồi WR8 trên Desk.
+
+### 23.5 Test OPS – 22 ca trên image CI
+
+`VERBOSE=1 API_IMAGE_REF=ghcr.io/anhvh93-tech/ottimo-api:sha-8b3aec89486f-test LANDING_IMAGE_REF=ottimo-landing:qa155 bash product/infra/server/test/publish-privacy-notice.test.sh` (`ottimo-landing:qa155` lúc chạy = digest `2a284a7d…`). Kết quả: **22 passed, 0 failed**, khoảng 32 giây. Gồm ca 1–14, 3b, 13b, 15–20. Bốn ca SEC yêu cầu QA đều Đạt: chạy thử không ghi (1), `--apply` ghi đúng 2 dòng + 1 audit (2), chạy lại không đổi (5), khác băm → dừng (9). Dòng `image:` của ca 1–2 in đúng 2 băm ở 23.1. Stack thử `ottimo-pn-test` tự xóa: 0 container, 0 volume.
+
+### 23.6 TC-WR-* + C-1 trên cùng digest (P4)
+
+`e2e/ui/us155-website-requests.r3.spec.ts` (`desk-chromium`) trên stack `ottimo-qa155`, sau L5: **13/13 passed**. Gồm:
+- TC-WR-000…012: công tắc 422/404, Desk S35, gửi EN, nhận xử lý + Tạo đơn, Kênh/Nguồn chỉ đọc, WR8 có `CONTACT_MISMATCH`, tên/lời nhắn độc hại, U+202E, CCCD 422 kể cả viết cách nhóm, kill switch, công tắc tắt → Zalo/gọi, FDL thấy dòng "form đang tắt";
+- C-1 trong TC-WR-002: không request nào ra ngoài origin landing.
+
+Phiên đăng nhập của harness lưu ở thư mục riêng trong scratchpad (`E2E_AUTH_DIR`), không ghi đè phiên của stack khác.
+
+### 23.7 Ghi chú (không phải lỗi mới)
+
+- **Bật công tắc lần hai trong cùng ngày khi công tắc đang bật → 422.** Lượt chạy lại script diễn tập của QA gặp trường hợp này. Lượt đầu (bước 3) đã 200. Hướng dẫn cho bước K: OWN bấm bật **một lần**; nếu thấy 422 thì xem Desk H05 trước, có thể công tắc đã bật. Cùng thiết kế BUG-R3-008 (bật lại trong ngày bị từ chối). QA không đọc mã lỗi của lượt này, chỉ ghi số 422.
+- Trên production, công cụ chạy với chứng chỉ thật, `SMOKE_*` mặc định và có kiểm digest. Stack thử khác ở hai điểm:
+  - `SMOKE_INSECURE=1` vì Caddy dùng CA nội bộ;
+  - `PN_TEST_DC`.
+
+  Băm không phụ thuộc hai điểm này.
+- Image landing chỉ có `linux/amd64`. Nếu sau này cần chạy trên máy arm64 thì sẽ chạy qua giả lập, chậm hơn nhưng kết quả băm không đổi.
+
+### 23.8 Dọn
+
+| Nơi | Sau |
+|---|---|
+| Stack `ottimo-qa155` | `docker compose down -v --remove-orphans`: 0 container, 0 volume, mạng đã xóa. Dữ liệu (DNWFFR5W đã xóa C2, các yêu cầu của TC-WR, công tắc) mất cùng volume |
+| Stack `ottimo-pn-test` | Test tự xóa |
+| Tệp tạm | `.env` stack (khóa thử), thư mục home giả của công cụ, phiên harness, trang tải về: **đã xóa**. Script diễn tập tạm (`tests/e2e/ui/zz-qa155-d1-smoke.tmp.spec.ts`) **đã xóa**, không vào repo |
+| `tests/fixtures/seed/.out/ds-e.map.json` | Lệnh seed của stack ghi đè tệp này. QA đã sao lưu trước và **chép lại bản cũ** sau khi dọn, nên stack `ottimo-esc031`, `ottimo-demo` không bị ảnh hưởng |
+| Image trên Mac | Còn `ghcr.io/anhvh93-tech/ottimo-landing:sha-8f1265e0e878` (digest CI). Tag `ottimo-landing:qa155` đã trả về bản dựng cục bộ trước đó (`6c0645fe`). Đã gỡ tag tạm `ottimo-api:qa155`, `ottimo-web:qa155` (image GHCR gốc vẫn giữ) |
+| Production, staging VPS | Không đụng |
