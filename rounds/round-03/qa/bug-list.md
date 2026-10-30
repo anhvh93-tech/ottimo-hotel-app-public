@@ -11,8 +11,12 @@
 | P0 | 3 | 0 | 0 | 3 |
 | P1 | 15 | 2 (BUG-R3-032, BUG-R3-042 – v1.0.1) | 0 | 13 (gồm BUG-R3-037, 038, 039 Closed 30/10 trên rc.6) |
 | P2 | 13 | 7 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn; BUG-R3-041, 043, 044, 046) | 0 | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
-| P3 | 16 | 15 (016; 024–031; 034; 035; 036; 040; 045; 047) | 0 | 1 |
-| **Tổng** | **47** | **24** | **0** | **23** |
+| P3 | 17 | 16 (016; 024–031; 034; 035; 036; 040; 045; 047; 048) | 0 | 1 |
+| **Tổng** | **48** | **25** | **0** | **23** |
+
+Cập nhật 30/10 12:16–12:24 (QA, bước Kiểm thử – xác nhận 2 giả định PO 10.6 trên **giao diện Desk** staging rc.6 `8b3aec8`, `qa3-rc1.md` mục 20.8):
+- Thêm **BUG-R3-048 (P3, UXD + FE-A)**: trên máy chưa cấp quyền, **Nhập nơi nhận hoàn → Lưu** bị từ chối đúng (403 `DEVICE_NOT_TRUSTED`) nhưng Desk báo "Máy này chưa được cấp quyền xem giấy tờ và mã cửa…" – sai việc đang làm. Nút và hộp vẫn hiện trên máy chưa cấp quyền.
+- Hai giả định PO đều **đạt** trên Desk; không lỗi P0/P1/P2 mới.
 
 Cập nhật 30/10 trưa (QA, bước Kiểm thử – thử luồng cách tạm giữ chỗ quá hạn trên staging rc.6 `8b3aec8`, `qa3-rc1.md` mục 20; theo PO `responses/PO-to-v1.0.0-docs-reviews.md` mục 8):
 - Thêm **BUG-R3-046 (P2, FE-A; BE-B xem)**: hộp hủy đơn trên Desk không hủy được với lý do **Khác (ghi rõ)**. Bản tính thử gửi `reasonCode: other` mà không gửi `note`, máy chủ trả 422 `note` `REASON_REQUIRED`, hộp báo "Chưa tính được phí hủy…" và khóa nút. Gõ ghi chú rồi bấm **Thử lại** vẫn khóa. Sổ tay 2.4 đang dặn dùng đúng lý do này. **Tài liệu phải đổi trước buổi C3a 31/10.**
@@ -139,6 +143,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-045 | P3 | `error.FOLIO_LOCKED` ghi "Chỉ quản lý ghi được bút toán điều chỉnh" nhưng folio khóa thì quản lý cũng bị 409; **Folio & điều chỉnh** vẫn hiện nút **Điều chỉnh** cho MGR trên folio `closed`/quá cửa sổ (M13-04) | UXD + FE-A | Open – câu đã thấy trên staging rc.4 (17.5); phần nút xác minh bằng mã. Đích **v1.0.1** |
 | BUG-R3-046 | P2 | Desk: hủy đơn với lý do **Khác (ghi rõ)** không làm được – bản tính thử của hộp hủy không gửi `note`, máy chủ trả 422 `note` `REASON_REQUIRED`, nút hủy khóa kể cả khi đã gõ ghi chú và bấm **Thử lại**. Sổ tay 2.4 dặn dùng lý do này | FE-A (BE-B xem phía máy chủ) | Open – tái hiện staging rc.6 30/10. Đích **v1.0.1**; tài liệu đổi trước C3a |
 | BUG-R3-047 | P3 | Khung đơn **giữ chỗ** hiện nút **Tạo link check-in online** và **Thu hồi link**, máy chủ chỉ cấp link cho `confirmed`/`in_house` (409 `INVALID_TRANSITION`) | FE-A | Open – thấy trên staging rc.6 30/10. Đích v1.0.1 |
+| BUG-R3-048 | P3 | Máy **chưa** cấp quyền: **Nhật ký tiền → Hoàn tiền → Nhập nơi nhận hoàn → Lưu** bị 403 `DEVICE_NOT_TRUSTED` (đúng), nhưng toast dùng câu chung "Máy này chưa được cấp quyền **xem giấy tờ và mã cửa**…"; nút và hộp vẫn hiện như máy đã cấp | UXD + FE-A | Open – thấy trên staging rc.6 30/10 12:19. Đích v1.0.1 |
 
 ## 3. Chi tiết
 
@@ -1212,6 +1217,21 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Mong đợi:** ẩn khối link khi đơn là `hold`. Nếu PO muốn khách khai trước khi xác nhận cọc thì đổi EP06 8.2 (ARC), không đổi riêng Desk.
 - **Vai:** FE-A.
 - **Bằng chứng:** `qa-r6/hf/shots/a1-drawer.png`, nút liệt kê ở `a1-ui.json` (scratchpad).
+- **Trạng thái:** Open – đích v1.0.1.
+
+### BUG-R3-048 – Lưu nơi nhận hoàn trên máy chưa cấp quyền báo sai lý do ("xem giấy tờ và mã cửa")
+
+- **Mức:** P3. Máy chủ chặn đúng, không ghi gì, không sai tiền, không lộ dữ liệu. Chỉ là câu báo sai việc và nút mời một thao tác chắc chắn bị từ chối. Cùng loại với BUG-R3-045, 047.
+- **Môi trường:** staging rc.6 `8b3aec8`, Desk Chromium 1440×900, `qa.fd` (Lễ tân), **không** có cookie thiết bị (máy chưa cấp quyền), 30/10 12:19:37. Yêu cầu hoàn của OTM-00372 (dữ liệu thử, đã dọn).
+- **Các bước:**
+  1. Đăng nhập Desk bằng tài khoản lễ tân trên máy chưa được chủ đầu tư cấp quyền (góc trái không có **Máy quầy đã cấp quyền**).
+  2. **Quản trị → Nhật ký tiền** → tab **Hoàn tiền** → dòng có **Chờ duyệt** → **Nhập nơi nhận hoàn**.
+  3. Chọn **Tiền mặt** → **Lưu**.
+- **Thực tế:** menu, tab, nút **Nhập nơi nhận hoàn** và hộp đều hiện như trên máy đã cấp. **Lưu** → `PUT …/approval-requests/{id}/refund-destination` 403 `DEVICE_NOT_TRUSTED`; nơi nhận không đổi. Toast: "Máy này chưa được cấp quyền xem giấy tờ và mã cửa. Dùng máy quầy đã cấp, hoặc nhờ chủ đầu tư cấp quyền cho máy này." (`strings-vi.json` `error.DEVICE_NOT_TRUSTED`, câu chung cho mọi lệnh cần máy tin cậy).
+- **Mong đợi:** câu nói đúng việc, ví dụ "Máy này chưa được cấp quyền cho thao tác này (giấy tờ, mã cửa, nơi nhận hoàn). Dùng máy quầy đã cấp…" (UXD quyết chữ; tiếng Anh tương ứng). Tốt hơn: trên máy chưa cấp quyền, nút **Nhập nơi nhận hoàn** khóa kèm câu giải thích, như bước giấy tờ khi nhận phòng (sổ tay 0.5).
+- **Vai:** UXD (chữ) + FE-A (khóa nút theo trạng thái máy).
+- **Bằng chứng:** `qa-r6/hf2/shots/d3-row.png`, `d3-after.png`; mạng `qa-r6/hf2/d3-net.json` (scratchpad, ngoài repo; chỉ dữ liệu giả). `qa3-rc1.md` 20.8.2 dòng 7.
+- **Cách tạm (ngày D):** sổ tay 0.5 thêm **Nhập nơi nhận hoàn** vào danh sách việc chỉ làm trên máy đã cấp quyền (đề nghị B2 ở `qa3-rc1.md` 20.8.4).
 - **Trạng thái:** Open – đích v1.0.1.
 
 ### Checklist QA xác nhận rc.6 trên staging (BUG-R3-037, 038, 039)

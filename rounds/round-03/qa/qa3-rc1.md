@@ -1069,3 +1069,90 @@ Bản ghi thử còn lại (chỉ là bản ghi, không giữ căn nào, không 
    - Người tạo yêu cầu không tự chi tiền mặt.
    - Chủ đầu tư vừa duyệt vừa chi tiền mặt được.
    - Folio cũ về 0.
+
+### 20.8 Xác nhận 2 giả định PO trên giao diện Desk (rc.6 staging, 30/10 12:16–12:24)
+
+- Người chạy: QA | Round 3 – bước **Kiểm thử** | theo ORC, cho `responses/PO-to-v1.0.0-docs-reviews.md` mục 10.6 (và việc "QA (nếu kịp trước C3a)" ở 10.4). Đích: `desk.staging.ottimo.vn`, rc.6 `8b3aec8` (= `v1.0.0`), business date 30/10.
+- Cách làm: **Desk thật** (Chromium 1440×900, `vi-VN`) với phiên `qa.fd` (Lễ tân) và cookie thiết bị seed `qa-desk-01` (máy quầy đã cấp quyền). Mọi bước của lễ tân bấm trên giao diện: đặt đơn, hủy đơn, nhập nơi nhận hoàn. API chỉ dùng để dọn (OWN duyệt + chi, MGR đảo khoản) và để đọc kiểm. Helper, ảnh, mạng: `qa-r6/hf2/` (scratchpad phiên, ngoài repo).
+- Dữ liệu đều giả: khách giả KH-0447 "QA Hold Test A"; tiền chỉ là bản ghi tiền mặt trên staging, ghi chú "QA test record - not real money"; ảnh biên nhận hoàn là ảnh thử "QA TEST IMAGE – NOT A REAL RECEIPT". Không VietQR (không bấm **Tạo VietQR**), không chuyển tiền, không SQL, không in khóa TOTP, không commit.
+
+#### 20.8.1 Kết luận
+
+| # | Giả định PO (10.6) | Kết quả | Bằng chứng |
+|---|---|---|---|
+| 1 | Lễ tân mở được **Nhật ký tiền → Hoàn tiền → Nhập nơi nhận hoàn** trên Desk (máy tin cậy) cho khoản do mình tạo, đúng sổ tay 1.4 mục 2.8 | **Đạt.** Tên mục, tab, nút đúng chữ sổ tay. Thứ tự đúng: hủy đơn → Desk tạo yêu cầu hoàn → **Nhật ký tiền** (nhóm **Quản trị**) → tab **Hoàn tiền** → dòng của đơn → **Nhập nơi nhận hoàn** → **Cách hoàn** → **Lưu**. Lưu xong dòng ghi "Cách hoàn: Tiền mặt", vẫn **Chờ duyệt**. Có 3 chỗ sổ tay nên bổ sung (20.8.4) | 20.8.2 dòng 1–6; `shots/u0-refund-tab.png`, `d2-dialog.png`, `d2-after.png` |
+| 2 | Khi **đặt đơn** và khi **nhận phòng**, Desk chỉ nhận **một** cách thanh toán mỗi lần thu | **Đạt.** Đặt đơn: một ô **Số tiền đã nhận** + một danh sách **Cách thanh toán**; lệnh gửi một `initialPayment`. Nhận phòng: khối **Thu tiền trước khi giao mã** chọn đúng một trong 4 cách, thu đúng **Cần thu để nhận phòng**; không có nút thêm cách thứ hai. Cách ghi gộp ở sổ tay 2.4 (dòng "lỡ chuyển nốt sau hạn") khớp Desk. Câu "Thu nhiều lần, nhiều cách được" ở sổ tay 2.13 **không đúng** cho hai bước này (20.8.4) | 20.8.3; `shots/b2-pay.png`, `ci2-pay-default.png`, `ci2-pay-cash.png`, `ci3-transfer.png`, `ci3-pos.png` |
+
+- **Lỗi mới:** **BUG-R3-048 (P3, UXD + FE-A)**: trên máy **chưa** cấp quyền, **Lưu** nơi nhận hoàn bị từ chối đúng (403 `DEVICE_NOT_TRUSTED`) nhưng Desk báo "Máy này chưa được cấp quyền **xem giấy tờ và mã cửa**…". Lễ tân không hiểu vì sao việc hoàn tiền bị chặn. Không có P0/P1/P2 mới.
+- **Tên nút sai trong sổ tay:** không có. Mọi chữ sổ tay 2.8 và 1.12 dùng cho luồng này khớp Desk từng chữ (bảng 20.8.4 phần A).
+- Dọn xong (20.8.5): không còn đơn treo, không còn giữ chỗ; căn 202 và 103 trống; 2 folio dư 0; yêu cầu hoàn mới đã chi đủ.
+
+#### 20.8.2 Ý 1 – từng bước trên Desk (OTM-00372, căn 202, 17/11 → 19/11, 2 đêm, 750.000/đêm)
+
+| # | Giờ | Bước | Ai | Thao tác trên Desk | Kết quả |
+|---|---|---|---|---|---|
+| 1 | 12:17:54 | (dựng ca) Đặt đơn có cọc | FD | **Đơn đặt phòng → Đặt phòng mới**: căn 202, 17/11–19/11, **Trực tiếp**, **Khách vãng lai**, khách KH-0447. **Số tiền đã nhận** để nguyên 500.000, **Cách thanh toán** đổi sang **Tiền mặt** → **Tạo đơn** | 201 **OTM-00372** `confirmed`, PT-000475 cọc 500.000 tiền mặt. Toast "Đã tạo đơn OTM-00372" |
+| 2 | 12:18:34 | Hủy đơn (sổ tay 2.8 **Hủy** bước 2) | FD | Khung đơn → **Hủy đơn** → **Lý do hủy**: **Khách đổi ý** → đọc hộp → **Hủy đơn** | Hộp **Hủy đơn OTM-00372 của QA Hold Test A?** ghi "Không giữ phí hủy; hoàn đủ 500.000 cho khách – cần quản lý duyệt" (báo trước 18 ngày → hoàn 100 %). 200 `cancelled`. Máy chủ tạo yêu cầu hoàn 500.000, người tạo **QA FD**, `pending` |
+| 3 | 12:19 | Mở Nhật ký tiền | FD | Menu trái, nhóm **Quản trị** → **Nhật ký tiền** (`/audit`) | Mở được. 3 tab: **Nhật ký thao tác tiền**, **Chờ đối soát**, **Hoàn tiền** |
+| 4 | 12:19 | Tab Hoàn tiền | FD | Bấm **Hoàn tiền** | Danh sách mới nhất ở trên. Dòng đầu: "OTM-00372 · 500.000 / QA FD gửi lúc 30/10/2026 12:18 / —", nhãn **Chờ duyệt**, nút **Nhập nơi nhận hoàn**. Không có nút **Chi hoàn tiền mặt** (chưa duyệt) |
+| 5 | 12:19 | Mở hộp | FD | **Nhập nơi nhận hoàn** | Hộp **Nhập nơi nhận hoàn**, nhóm **CÁCH HOÀN** gồm 3 nút chọn một: **Tiền mặt** (chọn sẵn) · **Chuyển khoản** · **Cùng cách khách đã trả**. Nút **Hủy**, **Lưu** |
+| 6 | 12:19:17 | Lưu nơi nhận | FD | **Tiền mặt** → **Lưu** | 200 `PUT …/refund-destination` `{"method":"cash"}`. Dòng đổi thành "Cách hoàn: Tiền mặt", vẫn **Chờ duyệt**, nút **Nhập nơi nhận hoàn** vẫn còn (sửa lại được) |
+| 7 | 12:19:37 | Cùng thao tác trên máy **chưa** cấp quyền | FD | Như dòng 3–6, không có cookie thiết bị | Nhật ký tiền, tab, nút, hộp **vẫn hiện**. Bấm **Lưu** → 403 `DEVICE_NOT_TRUSTED`, không đổi gì. Toast: "Máy này chưa được cấp quyền xem giấy tờ và mã cửa. Dùng máy quầy đã cấp, hoặc nhờ chủ đầu tư cấp quyền cho máy này." → **BUG-R3-048** |
+
+Ghi chú:
+- Câu "Desk tạo yêu cầu hoàn" ở sổ tay 2.8 đúng: dòng xuất hiện ngay ở tab **Hoàn tiền**, không cần làm thêm gì ở khung đơn.
+- Hộp hủy ghi "cần **quản lý** duyệt". Sổ tay đã nói rõ ở OTTIMO là chủ đầu tư duyệt và chi. Người dạy C3a nên nhắc chữ này để lễ tân không đi tìm "quản lý".
+- Trên staging tab **Hoàn tiền** dài (khoảng 50 yêu cầu cũ của các lượt E2E). Trên production ngày D danh sách sẽ ngắn. Tab không có ô tìm theo mã đơn, nên lễ tân tìm dòng bằng **mã đơn** (OTM-…) và giờ gửi.
+
+#### 20.8.3 Ý 2 – một cách thanh toán mỗi lần thu
+
+**Đặt đơn** (`shots/b1-pay.png`, `b2-pay.png`; mạng `b2-net.json`):
+- Khối tiền dưới **Giá mỗi đêm** chỉ có: **Số tiền đã nhận \*** (một ô, điền sẵn bằng **Cọc cần thu**), **Cách thanh toán** (một danh sách: **Chuyển khoản VietQR** · **Chuyển khoản** · **Tiền mặt** · **Thẻ (máy POS tại quầy)**), **Mã giao dịch / ghi chú (không ghi số thẻ)**. Không có nút thêm khoản hay thêm cách.
+- Danh sách **Cách thanh toán** **mặc định là Chuyển khoản VietQR**. QA phải đổi sang **Tiền mặt** trước khi bấm **Tạo đơn**.
+- Lệnh gửi máy chủ có đúng một `initialPayment` `{type: deposit, method: cash, amountVnd: 500000}` (OTM-00372) và `600.000` (OTM-00373).
+
+**Nhận phòng** (OTM-00373, căn 103, đến hôm nay 30/10 → 01/11, đặt trên Desk 12:20:01 với cọc 600.000 tiền mặt; `shots/ci1-ci.png`, `ci2-*.png`, `ci3-*.png`, `ci4-transfer-short.png`):
+- **Nhận phòng** → dòng điều kiện **Đã thu đủ hoặc OTA đã trả/đảm bảo** "Còn phải thu 1.356.000 đ – thu ở bước 4, trước khi giao mã cửa." → nút **Thu tiền (VietQR / tiền mặt)** mở khối **THU TIỀN TRƯỚC KHI GIAO MÃ**.
+- Khối có **Cần thu để nhận phòng 1.356.000 đ** và **CÁCH THANH TOÁN** là 4 nút chọn một (`aria-pressed`, đúng một nút bật): **Chuyển khoản VietQR** (bật sẵn) · **Tiền mặt** · **Chuyển khoản** · **Thẻ (máy POS tại quầy)**.
+  - **Tiền mặt**: một ô **Tiền khách đưa \***.
+  - **Chuyển khoản**: một ô **Số tiền đã nhận \*** + **Mã giao dịch / ghi chú**, nhãn **Chờ đối soát**.
+  - **Thẻ (máy POS tại quầy)**: một ô **Số tiền đã nhận \*** + **Mã chuẩn chi trên phiếu POS \***.
+  - Đổi nút thì ô của cách cũ mất. Câu chân khối: "Khoản thu 1.356.000 đ được ghi cùng lúc với nhận phòng – nhận phòng không thành thì không ghi tiền."
+- Không có nút thêm cách thứ hai. Đọc mã `CheckInPayment.tsx` `inlinePayment` (dòng 50–70, rc.6): chuyển khoản/POS phải **bằng đúng** số cần thu (thiếu hoặc thừa đều khóa nút); tiền mặt phải **≥** số cần thu (thừa thì tính tiền thối). Vậy ở bước nhận phòng cũng **không thu một phần** rồi đổi cách.
+- **Folio & điều chỉnh** của đơn đã xác nhận chỉ có **Điều chỉnh**, **Mở form miễn phí / giảm giá**. Không có nút thu tiền riêng trước khi nhận phòng.
+- QA **không** bấm **Nhận phòng**, **không** bấm **Tạo VietQR**. Không có lệnh ghi nào trong lúc xem (mạng: 0 lệnh POST/PUT ở `ci1`–`ci4`).
+- Thu nhiều lần, mỗi lần một cách, chỉ có ở **trả phòng** (`PaymentPanel` chỉ dùng ở `CheckOutPage.tsx`; đọc mã, chưa thử trên Desk lượt này).
+
+#### 20.8.4 Đối chiếu với sổ tay 1.4 – việc cho PO
+
+**A. Chữ trên Desk khớp sổ tay (không phải sửa):** **Quản trị → Nhật ký tiền** · tab **Hoàn tiền** · **Nhập nơi nhận hoàn** · **Cách hoàn**: **Tiền mặt**, **Chuyển khoản**, **Cùng cách khách đã trả** · **Chờ duyệt** · **Hủy đơn** · **Lý do hủy** · **Khách đổi ý** · **Giữ lại đơn** · **Số tiền đã nhận** · **Cách thanh toán** · **Cọc cần thu** · **Tạo đơn** · **Tiền khách đưa** · **Mã chuẩn chi trên phiếu POS** · **Mã giao dịch / ghi chú**.
+
+**B. Đề nghị bổ sung (PO quyết chữ):**
+
+| # | Chỗ | Thiếu / sai | Đề nghị |
+|---|---|---|---|
+| B1 | Sổ tay 2.8 **Hủy** bước 1 và 4; 2.4 dòng "Không đi nữa"; 1.12 bước 1 | Không ghi nút cuối. Hộp có **Tiền mặt** chọn sẵn | Viết đủ: "… → **Nhập nơi nhận hoàn** → chọn **Cách hoàn** (Desk chọn sẵn **Tiền mặt**; khách nhận lại theo cách đã trả thì bấm **Cùng cách khách đã trả**) → **Lưu**". Dòng đơn ghi "Cách hoàn: …" là xong. Riêng 2.4 dòng "Không đi nữa" dặn **Cùng cách khách đã trả**: nhắc đổi khỏi mặc định |
+| B2 | Sổ tay 0.5 (danh sách việc chỉ làm được trên máy đã cấp quyền) | Chỉ ghi giấy tờ, ảnh giấy tờ, **Nhận phòng**. **Nhập nơi nhận hoàn** cũng cần máy đã cấp quyền (dòng 7), mà Desk vẫn hiện nút trên máy chưa cấp | Thêm "**Nhập nơi nhận hoàn**" vào gạch đầu dòng 1 của 0.5. Ở 2.8 bước 1 và 4 thêm "(trên máy quầy đã cấp quyền)". Tới khi có bản sửa BUG-R3-048: "Gặp câu 'Máy này chưa được cấp quyền xem giấy tờ và mã cửa' khi lưu nơi nhận hoàn: chuyển sang máy quầy" |
+| B3 | Sổ tay 2.13 gạch đầu dòng "Thu nhiều lần, nhiều cách được: ghi phần đã nhận, chọn cách khác cho phần còn lại" | Sai ở **đặt đơn** và **nhận phòng** (20.8.3): mỗi lần thu một cách; ở nhận phòng phải thu đúng đủ số cần thu bằng một cách | Giới hạn câu: "Ở **trả phòng**: thu nhiều lần, mỗi lần một cách. Khi **đặt đơn** và khi **nhận phòng**: Desk nhận **một** cách cho mỗi lần thu, và ở nhận phòng thu **đủ** **Cần thu để nhận phòng** bằng cách đó. Khách muốn trả hai cách lúc nhận phòng: chưa làm được ở v1.0, mời khách trả một cách (thường tiền mặt hoặc thẻ)." DOM duyệt câu mời khách |
+| B4 | Sổ tay 2.5 bước 10; 2.4 dòng "Khách đó tới quầy" (b) | Không nói **Cách thanh toán** mặc định là **Chuyển khoản VietQR** | Thêm "Desk chọn sẵn **Chuyển khoản VietQR** – đổi đúng cách khách đã trả trước khi bấm **Tạo đơn**." (Cùng kiểu với khối nhận phòng: VietQR bật sẵn, sổ tay 2.10 bước 6 đã dẫn sang 2.13) |
+
+- Giả định 10.6 dòng 2 (ca "lỡ chuyển nốt sau hạn" ghi gộp một khoản chuyển khoản ở bước (b)) **khớp** Desk. QA không thử ghi gộp với số lẻ (không cần: ô **Số tiền đã nhận** nhận số bất kỳ ≥ cọc cần thu).
+
+#### 20.8.5 Dữ liệu staging – trước / sau
+
+| | Trước (12:16) | Sau (12:24) |
+|---|---|---|
+| Đơn `hold` | 0 | 0 |
+| Rack 30/10 → 26/11 (2 lượt 14 ngày), 10 căn | Không bar nào | Không bar nào; trạng thái buồng như lúc đầu (101, 102, 103, 202, 301, 401, 402 `VC`; 203 `VD`; 201, 302 `OD`) |
+| Căn 202 17–19/11, căn 103 30/10–01/11 | Trống | Trống |
+
+Bản ghi thử còn lại (chỉ là bản ghi, không giữ căn, không còn tiền dư):
+- **OTM-00372** `cancelled` (`guest_changed_mind`, FD, trên Desk).
+  - Yêu cầu hoàn 500.000: nơi nhận tiền mặt (FD, Desk) → **OWN duyệt** 12:22:34 (mật khẩu) → **OWN chi** tiền mặt 12:22:46, PT-000477 −500.000, ảnh biên nhận thử (`refund_proof`). `approved`, `refundedVnd` 500.000.
+  - Folio `open`: PT-000475 cọc 500.000, PT-000477 hoàn −500.000. Đã thu 500.000, đã hoàn 500.000, **còn thu 0, tiền dư 0**, `pendingApprovals` 0. (`depositHeldVnd` vẫn 500.000 – cùng cách hiển thị như OTM-00369 ở 20.6, không phải số dư.)
+- **OTM-00373** `cancelled` (`guest_changed_mind`, FD, ghi chú "QA 20.8 test data cleanup", 12:23:36).
+  - MGR đảo PT-000476 (cọc 600.000) → PT-000478, lý do "test record cleanup – not real money" (12:23:09), rồi mới hủy: giữ lại 0, hoàn 0, không sinh yêu cầu hoàn.
+  - Folio: tổng 0, đã thu 0, còn thu 0, tiền dư 0. Không có giấy tờ, không nhận phòng.
+- Khách giả KH-0447 dùng lại, không tạo khách mới. 1 ảnh biên nhận thử.
+- Đối chiếu tiền: ghi 1.100.000 tiền mặt thử; hoàn 500.000, đảo 600.000. Mọi folio dư 0.
+- Chưa kiểm lượt này: hộp thư thông báo `qa.fd`/`qa.owner` (thông báo `refund_ready` nếu có), "Cần chú ý" của MGR.
