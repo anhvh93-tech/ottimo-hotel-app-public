@@ -240,3 +240,62 @@ Chạy `python3 -I product/design/tools/build_print_sheets.py --pdf`: **thoát m
 - [GIẢ ĐỊNH] Lễ tân nhập được nơi nhận hoàn trên Desk ở **Nhật ký tiền → Hoàn tiền** (QA thử bằng API với cookie máy tin cậy: 200; sổ tay 1.12 ghi tab này có **Nhập nơi nhận hoàn**).
 - [GIẢ ĐỊNH] Ô **Số tiền đã nhận** khi đặt đơn và khoản thu khi nhận phòng chỉ nhận **một** cách thanh toán (đọc mã FE `initialPayment`, `InlinePay`), nên ca chuyển sau hạn chưa đủ cọc ghi gộp một khoản chuyển khoản.
 - Ví dụ số tiền giữ theo sổ tay (2.376.000, cọc 700.000, đã chuyển 300.000).
+
+## 11. Lượt cuối tài liệu ngày D trước C3a – trả lời SEC mục F, DOM mục D, QA 20.8.4 – PO, 30/10 khuya
+
+Bước **Phản hồi & sửa**. Nguồn: `reviews/SEC-on-PO-v1.0.0-docs.md` mục F (D09, D10); `reviews/DOM-on-PO-v1.0.0-docs.md` mục D (D.1–D.8); `qa/qa3-rc1.md` mục 20.8.4 (B1–B4, ghi chú hộp hủy) và `qa/bug-list.md` BUG-R3-048 (HEAD `c799d41`). Không đổi chính sách: SEC F8, ESC-006, BR-303/308/432/433 giữ nguyên; PO chỉ sửa tài liệu cho đúng Desk và đúng quyết định nghiệp vụ của DOM. Sổ tay lên **bản nội dung 1.5**.
+
+### 11.1 Trả lời từng thẻ
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R3-SEC-PO-D09 | Done | Sổ tay 1.8 gạch đầu dòng 2: thay **nguyên văn** chữ SEC ("Hoàn tiền – không tự duyệt, không ngoại lệ… Riêng chủ đầu tư được chi khoản chuyển khoản do mình tạo, sau khi người khác đã duyệt"). Thêm nửa câu vào gạch đầu dòng 4 ("và được chi khoản do mình tạo sau khi người khác đã duyệt") để hai dòng không còn trái nhau. Release notes dòng "Người trực không tự duyệt…": "không có ngoại lệ cho quản lý hay chủ đầu tư" → "phần duyệt không có ngoại lệ". Tờ 1 không đổi (SEC: chặt hơn, không sai về an toàn). Lưu ý: DOM D.2 viết "không tự chi, không ngoại lệ (kể cả OWN)" – PO theo SEC vì SEC đã đối chiếu mã (`ownerTransfer`); với luồng người trực tạo thì hai câu cho cùng kết quả |
+| FB-R3-SEC-PO-D10 | Done | 2.8 bước 4: thay câu "… duyệt và chi" bằng **nguyên văn** SEC ("… duyệt. Tiền mặt: người duyệt chi được. Chuyển khoản: quản lý đã duyệt thì người khác chi; chủ đầu tư được vừa duyệt vừa chi (mục 1.8)"), giữ hai câu sau. 2.17: thay **nguyên văn** "Hoàn chuyển khoản do quản lý hoặc chủ đầu tư làm, người chi khác người tạo yêu cầu và khác quản lý đã duyệt (mục 1.8). Báo khách thời hạn." |
+| D-QA-1 (DOM D.1) | Done | Đồng ý DOM. Thêm câu tùy chọn **nguyên văn** vào khung "Lỗi đang sửa (v1.0.1) – lý do Khác" ở 2.8: "Nhập nhầm hoặc trùng đơn: chọn **Khách đổi ý**, sổ giao ca ghi "OTM-… nhập nhầm"." Lý do áp: tuần đầu có nhập nhóm G, DATA cần lọc các đơn này khỏi K-22a. Ghi chú cho DATA (K-22a không lệch tỉ lệ, chỉ lệch phần chia theo lý do; quy tắc tách S7) để ở DOM D.1 – ORC chuyển DATA khi lập việc v1.0.1 |
+| D-QA-2 (DOM D.2) | Done (DOM) | DOM đã sửa trong tệp của DOM. PO không sửa thêm |
+| D-QA-3 (DOM D.3) | Done | "trong ngày" → **"trong 24 giờ"** ở mọi chỗ DOM liệt kê: sổ tay 2.4 Lưu ý "Khách chuyển thiếu"; 2.4 bước (a) (chữ DOM **nguyên văn**: "Chuyển khoản (mặc định). Tiền mặt chỉ khi chủ đầu tư đang ở quầy, hoặc đã hẹn qua điện thoại một giờ cụ thể…"); 2.4 bước (d) (chữ DOM **nguyên văn**, câu nói với khách **EN dẫn, VI hỗ trợ**: "We will transfer your 300,000 VND deposit back to you within 24 hours." / "OTTIMO sẽ chuyển khoản lại 300.000 đ tiền cọc cho anh/chị trong vòng 24 giờ.", bước OWN đối soát cọc cũ ở **Chờ đối soát** trước khi chi); `release-notes.md` dòng 121–122; `day-one-guide.md` mục 10 dòng "Rà giữ chỗ". Thêm (PO): sổ tay 1.1 dòng lượt kiểm sáng ghi hạn 24 giờ và việc đối soát trước, để OWN thấy cam kết ở đúng chỗ việc của mình. Tờ 2a không đổi phần này (đã chỉ sang sổ tay 2.4) |
+| D-QA-4 (DOM D.4) | Done | 2.4 bước 2 "Đến từ ngày mai": thay **nguyên văn** chữ DOM (Desk áp ngay trong hạn mức quản lý ≤ giá 1 đêm/lần; vượt mức nhắn chủ đầu tư mã đơn và số tiền). 2.4 bước (b): thêm câu "Đơn cũ có giảm giá hoặc FOC: xin lại trên đơn mới như bước 2 ở trên ("Đến từ ngày mai"), trước khi thu ở bước (c)" – PO đổi "như trên" thành chỉ rõ bước 2 vì hai chỗ cách nhau một bảng. Việc QA thử `qa.mgr` tự áp (DOM D.4) chưa làm: chỉ là đọc mã, xem 11.4 |
+| D-QA-5 (DOM D.5) | Done | 2.4 bảng, ô "Làm gì" của dòng "Khách đã lỡ chuyển nốt sau hạn": thay **toàn bộ** bằng chữ DOM **nguyên văn** (kiểm tiền về theo 2.13; mở đơn cũ xem **Đã thu** để tránh ghi hai lần; ghi **Chuyển khoản** không chọn VietQR; một khoản 700.000; khách không chuyển thêm được thì không gộp tiền mặt/thẻ, OWN chuyển trả về đúng tài khoản trong 24 giờ). Cột "Ai, hạn" giữ nguyên. Việc QA về hộp **Xác nhận cọc** VietQR làm một nửa sau hạn: QA quyết có ghi lỗi không (xem 11.4) |
+| D.6 (DOM) | Done | 2.4 bước (b): thêm **nguyên văn** "cùng Kênh và Nguồn / CTV chốt đơn như đơn cũ (không chọn Khách vãng lai)". **Tờ 2a: áp** chữ ngắn hơn của DOM ("đặt đơn mới cùng căn, cùng giá," → "đặt mới cùng căn, giá, kênh,") trong `staff-one-pager.md`, vì lỗi chọn sai kênh làm CTV mất hoa hồng và người trực chủ yếu nhìn Tờ 2a khi khách đứng ở quầy. Release notes dòng 121 đổi theo ("cùng căn, cùng giá, cùng kênh và CTV") |
+| B1 (QA) | Done | Viết đủ nút cuối và mặc định của hộp: "… **Nhập nơi nhận hoàn** → chọn **Cách hoàn** (Desk chọn sẵn **Tiền mặt**; khách nhận lại theo cách đã trả thì bấm **Cùng cách khách đã trả**) → **Lưu**. Dòng ghi "Cách hoàn: …" là xong" ở sổ tay 1.12 bước 1 (thêm: tìm dòng theo mã đơn và giờ gửi), 2.8 **Hủy** bước 1 và bước 4, 2.17. 2.4 dòng "Không đi nữa": "bấm **Cùng cách khách đã trả** (Desk chọn sẵn **Tiền mặt** – phải đổi) → **Lưu**". 2.4 bước (a): giữ chữ DOM "Chuyển khoản (mặc định)" (nghĩa: cách hẹn mặc định của OTTIMO) và thêm ngoặc "Hộp Nhập nơi nhận hoàn chọn sẵn Tiền mặt: chọn đúng Cách hoàn rồi bấm Lưu" để không lẫn với mặc định của Desk. Ghi chú QA về hộp hủy "cần quản lý duyệt": thêm vào 2.8 bước 4 "Hộp hủy ghi "… – cần quản lý duyệt": ở OTTIMO hiện chủ đầu tư duyệt và chi, không đi tìm quản lý" |
+| B2 (QA) | Done | Sổ tay 0.5 gạch đầu dòng 1: thêm **Nhập nơi nhận hoàn** vào việc chỉ làm trên máy đã cấp quyền. Thêm gạch đầu dòng "Lỗi nhỏ đang sửa (v1.0.1)": nút vẫn hiện trên máy chưa cấp quyền, **Lưu** báo "Máy này chưa được cấp quyền xem giấy tờ và mã cửa…" → chuyển sang máy quầy. 2.4 dòng "Không đi nữa", 2.8 bước 1 và 4, 2.17 ghi "trên máy quầy đã cấp quyền"; 1.12 bước 1 ghi "Chỉ lưu được trên máy quầy đã cấp quyền (mục 0.5)" |
+| B3 (QA) | Done | Sổ tay 2.13: thay câu "Thu nhiều lần, nhiều cách được…" bằng chữ QA (trả phòng: nhiều lần, mỗi lần một cách; đặt đơn và nhận phòng: một cách mỗi lần thu, nhận phòng thu **đủ** **Cần thu để nhận phòng**; khách muốn hai cách lúc nhận phòng: chưa làm được ở v1.0, mời khách trả một cách). PO thêm ngoặc theo QA 20.8.3: chuyển khoản/thẻ đúng bằng số cần thu, tiền mặt từ số cần thu trở lên. Thêm một dòng: khối thu khi nhận phòng chọn sẵn **Chuyển khoản VietQR** – bấm đúng cách trước khi nhập số. Câu mời khách chỉ là hướng dẫn, chưa có câu nói nguyên văn: DOM duyệt khi rảnh (11.4), không chặn C3a |
+| B4 (QA) | Done | Sổ tay 2.5 bước 10 và 2.4 bước (b): "Desk chọn sẵn **Chuyển khoản VietQR** – đổi đúng cách khách đã trả trước khi bấm **Tạo đơn**." |
+| BUG-R3-048 | Done (tài liệu) | Release notes: thêm vào "Lỗi nhỏ còn mở" (Giới hạn đã biết) và bảng "Chưa có trong bản này" (v1.0.1). Sổ tay 0.5 (B2) |
+
+### 11.2 Tệp đã sửa
+
+- `product/docs/manual/user-manual-v1.0.md` – bản nội dung **1.5**: dòng đầu tệp; 0.5; 1.1; 1.8; 1.12; 2.4 (Lưu ý "Khách chuyển thiếu", bước 2 "Đến từ ngày mai", bảng: dòng "Không đi nữa", "Khách đó tới quầy" (a) (b) (d), "lỡ chuyển nốt sau hạn"); 2.5 bước 10; 2.8 (Hủy bước 1, bước 4, khung lý do Khác); 2.13; 2.17; 5.7 (dòng 1.5). Đã thử dựng HTML bằng `build_manual.py` ra thư mục tạm: thoát mã 0, đọc đủ 6 chương, 73 mục.
+- `product/docs/release-notes.md` – dòng trạng thái, tham chiếu sổ tay 1.5, dòng 121–122, bảng "Chưa có trong bản này", "Lỗi nhỏ còn mở" (BUG-R3-048).
+- `product/docs/day-one-guide.md` – mục 10 dòng "Rà giữ chỗ".
+- `product/docs/staff-one-pager.md` – Tờ 2a dòng "Đã có cọc" (D.6).
+- `product/docs/print/to-2a-2b-a4-cat-doi.html`, `product/docs/print/pdf/to-2a-2b-a4-cat-doi.pdf` – dựng lại.
+
+### 11.3 Bản in
+
+Chạy `python3 -I product/design/tools/build_print_sheets.py --pdf`: **thoát mã 0**, mọi tờ 1 trang, **cỡ chữ không đổi** (Tờ 1: 9 pt, 2a: 10 pt, 2b: 12 pt, 3: 12 pt, 4: 11,5 pt).
+
+| Tờ | Đổi chữ? | Kết quả |
+|---|---|---|
+| 1 | Không | Vừa, trống 0,5 mm. PDF khôi phục về bản đã commit (bộ dựng ghi lại byte khác, nội dung như cũ) |
+| **2a** | **Có** – "đặt mới cùng căn, giá, kênh," (ngắn hơn 3 ký tự) | Vừa, 10 pt, trống 0 mm như trước (chữ ngắn hơn nên không thể tràn) |
+| 2b | Không (in chung tệp với 2a) | Vừa, trống 49 mm |
+| 3, 4 | Không | Vừa. PDF khôi phục về bản đã commit |
+
+**OWN in lại Tờ 2a/2b** từ PDF mới ngày 01/11 (cùng lượt in Tờ 1 đã hẹn ở 10.3). Tờ 3, 4 không đổi.
+
+### 11.4 Việc còn lại (không chặn C3a)
+
+- **UXD/BA:** dựng lại HTML sổ tay (`product/docs/manual/ottimo-manual-v1.0.html`, hiện chưa commit) theo bản nội dung 1.5 nếu bản HTML dùng cho C3a; ảnh không đổi. UXD xem câu EN nói với khách ở 2.4 (d) theo brand (giữ cam kết 24 giờ).
+- **DOM:** đọc lại câu 2.13 "mời khách trả một cách" (QA B3 đề nghị DOM duyệt). Nếu muốn có câu nói nguyên văn EN/VI thì gửi PO, PO thêm ở lượt v1.0.1.
+- **QA (nếu kịp, hoặc khi thử v1.0.1):** (1) `qa.mgr` gửi giảm giá 10 % một đêm trên giữ chỗ → kỳ vọng tự áp (DOM D.4); (2) quyết có ghi lỗi hộp **Xác nhận cọc** VietQR sau hạn làm một nửa (DOM D.5) không.
+- **ORC:** chuyển DOM D.1 ghi chú K-22a/S7 cho DATA; nói với INV ở C3a theo DOM D.7 (phần "tự duyệt hoàn tiền" của dòng 29/10 không áp được; INV duyệt và chi mọi khoản hoàn, hẹn khách 24 giờ). Không lập ESC.
+
+### 11.5 Dòng decision-log đề xuất (ORC ghi khi commit)
+
+`| 2026-10-30 | 3 | **PO – Lượt cuối tài liệu ngày D trước C3a** (PO-to-v1.0.0-docs-reviews.md mục 11; SEC F D09/D10, DOM mục D, QA 20.8.4): hẹn khách hoàn cọc khi OWN vắng là chuyển khoản **trong 24 giờ** (tiền mặt chỉ khi OWN đã hẹn giờ), OWN đối soát cọc cũ trước khi chi; giảm giá/FOC xin lại tự áp trong hạn mức quản lý, vượt mức OWN duyệt; đơn đặt lại cùng kênh/CTV; cọc chuyển sau hạn ghi một khoản Chuyển khoản, không gộp tiền mặt; tách nhiệm hoàn tiền viết đúng Desk (không tự duyệt, không ngoại lệ; OWN chi được khoản chuyển khoản do mình tạo sau khi người khác duyệt); đủ bước Nhập nơi nhận hoàn → Cách hoàn → Lưu, chỉ trên máy đã cấp quyền (BUG-R3-048 vào Giới hạn đã biết); một cách thanh toán mỗi lần thu khi đặt đơn và nhận phòng. Sổ tay 1.5; Tờ 2a dựng lại vừa một mặt 10 pt, Tờ 1, 2b, 3, 4 không đổi | PO | Quyền PO (tài liệu vận hành theo quy tắc đã chốt; không đổi chính sách hoàn tiền, ESC-006 hay SEC F8) |`
+
+### 11.6 Giả định
+
+- [GIẢ ĐỊNH] D-QA-4 và `REFUND_SOURCE_NOT_RECONCILED` dựa trên đọc mã của DOM/SEC, chưa thử trên staging (như DOM D.10).
+- [GIẢ ĐỊNH] Ngoại lệ "chủ đầu tư chi được khoản chuyển khoản do mình tạo" theo SEC đối chiếu mã `8b3aec8` (`ownerTransfer`), chưa thử trên Desk; không ảnh hưởng luồng ngày D vì khoản hoàn ngày D do người trực tạo.
