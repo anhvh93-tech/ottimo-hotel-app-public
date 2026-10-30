@@ -1,6 +1,6 @@
 # FB-INV-007 – Form đặt phòng: ô số liên hệ ghi "Số điện thoại", không ghi "Số Zalo"
 
-- Ngày: 30/10/2026 | Người gửi: INV | Ghi: ORC | Loại: câu chữ giao diện (landing ottimo.vn, form US-155) | Ưu tiên: P2 | Đích: landing kế tiếp (cùng hoặc trước v1.0.1)
+- Ngày: 30/10/2026 | Người gửi: INV | Ghi: ORC | Loại: câu chữ giao diện (landing ottimo.vn, form US-155) | Ưu tiên: P2 | Đích: landing kế tiếp (cùng hoặc trước v1.0.1) | **Trạng thái: Xong 30/10 – landing-v1.1.1 trên ottimo.vn**
 
 ## Nguyên văn
 > chỗ này nên để là số điện thoại thôi, đừng ghi là số zalo, do nhiều khách họ để lạ sđt để contact qua whatapps thì sao
