@@ -7,12 +7,12 @@ Ghi chép thay đổi theo từng phiên bản, viết cho chủ đầu tư và 
 
 ## v1.0.0 – Bản vận hành đầu tiên
 
-- Trạng thái: **ĐÃ PHÁT HÀNH – tag `v1.0.0` trên commit `8b3aec8`** (cùng mã với `v1.0.0-rc.6`). Gắn tag ngày **30/10/2026** sau cổng QC v1.0 (ĐẠT CÓ ĐIỀU KIỆN, `rounds/round-03/qc/v1-gate.md`) và quyết định ESC-040 A của anh/chị (30/10). Cập nhật lần cuối: PO, 30/10/2026.
+- Trạng thái: **ĐÃ PHÁT HÀNH – tag `v1.0.0` trên commit `8b3aec8`** (cùng mã với `v1.0.0-rc.6`). Gắn tag ngày **30/10/2026** sau cổng QC v1.0 (ĐẠT CÓ ĐIỀU KIỆN, `rounds/round-03/qc/v1-gate.md`) và quyết định ESC-040 A của anh/chị (30/10). Cập nhật lần cuối: PO, 30/10/2026 (tối, sau khi đội thử luồng giữ chỗ quá hạn trên bản thử).
 - Bản đang chạy: **production chạy đúng mã này từ 07:51 ngày 30/10/2026** (anh/chị đồng ý 29/10). Gắn tag không cài lại gì: lượt Release tự sinh khi gắn tag bị từ chối vì cùng một bản.
 - Ngày chạy với khách thật: **thứ Hai 02/11/2026** (anh/chị chốt 26/10), sau khi xong các việc "Chặn D" trong `rounds/round-03/qc/v1-gate.md` mục 4.2–4.3.
 - Bản vá kế tiếp: **v1.0.1, dự kiến 04/11/2026** (thư báo bảo mật, trả phòng sớm, thông báo xử lý dữ liệu bản 2, giữ chỗ quá hạn – báo và xác nhận cọc sau hạn – xem "Chưa có trong bản này").
 - Địa chỉ: Desk `desk.ottimo.vn` · app nhân viên (buồng phòng, bảo trì, lễ tân trưởng) `staff.ottimo.vn` · trang khách `g.ottimo.vn` · website `ottimo.vn`
-- Hướng dẫn dùng cho từng bộ phận: **Sổ tay sử dụng OTTIMO Desk v1.0** (`product/docs/manual/user-manual-v1.0.md`, bản nội dung 1.3, 30/10). Bản tóm tắt dán quầy: `product/docs/staff-one-pager.md`. Chuyển đổi ngày đầu: `product/docs/day-one-guide.md`.
+- Hướng dẫn dùng cho từng bộ phận: **Sổ tay sử dụng OTTIMO Desk v1.0** (`product/docs/manual/user-manual-v1.0.md`, bản nội dung 1.4, 30/10). Bản tóm tắt dán quầy: `product/docs/staff-one-pager.md`. Chuyển đổi ngày đầu: `product/docs/day-one-guide.md`.
 
 ### Thay đổi từ `rc.3` (27/10) đến `v1.0.0` (= `rc.6`, 29/10)
 
@@ -116,8 +116,10 @@ Ghi chép thay đổi theo từng phiên bản, viết cho chủ đầu tư và 
   Cách tạm (chuyên gia nghiệp vụ chốt 30/10):
   - **Phòng trước:** khách chuyển thiếu thì xin phần còn lại ngay trong ngày; cần thêm giờ thì **Gia hạn giữ chỗ (1 lần)** trước hạn; tiền về thì bấm xác nhận **trước giờ hạn**.
   - **Rà 3 mốc mỗi ngày** (mở quầy, muộn nhất 09:00 · 11:00 · trước khi rời quầy, muộn nhất 21:00): **Đơn đặt phòng** → lọc **Đang hiệu lực** → mở từng dòng **Giữ chỗ · chờ cọc**. Trên màn, đơn quá hạn hiện "còn 0 giờ 00 phút" màu đỏ.
-  - **Chưa cọc mà quá hạn:** hủy ngay (lý do **Khác (ghi rõ)** "Hết hạn giữ chỗ"), báo khách; khách còn muốn thì tạo giữ chỗ mới 12 giờ, chỉ một lần.
-  - **Có cọc mà quá hạn:** khách không đi → hủy, Desk tạo yêu cầu hoàn đủ, người trực duyệt, anh/chị chi. Khách vẫn đi → **để nguyên đơn** (căn vẫn giữ), ghi sổ giao ca. Khi khách đến: hủy đơn cũ → đặt đơn mới cùng căn, cùng giá → thu đủ → nhận phòng → **anh/chị hoàn phần cọc cũ** (tiền mặt tại quầy hoặc chuyển khoản lại trong ngày; Desk không cho người tạo yêu cầu tự chi). Khách phải nhận lại tiền rồi trả lại, nên chỉ dùng tới khi v1.0.1 có BUG-R3-042 và 043.
+  - **Lý do hủy:** chọn **Không liên lạc được** hoặc **Khách đổi ý**, không chọn **Khác (ghi rõ)** (Desk khóa nút hủy, xem dòng BUG-R3-046 bên dưới). Lý do thật ghi sổ giao ca.
+  - **Chưa cọc mà quá hạn:** hủy ngay, báo khách; khách còn muốn thì tạo giữ chỗ mới 12 giờ, chỉ một lần.
+  - **Có cọc mà quá hạn:** khách không đi → hủy, Desk tạo yêu cầu hoàn đủ; người trực nhập nơi nhận hoàn, **anh/chị duyệt và chi**. Khách vẫn đi → **để nguyên đơn** (căn vẫn giữ), ghi sổ giao ca. Khi khách đến: hủy đơn cũ → đặt đơn mới cùng căn, cùng giá, **thu đủ cọc ngay lúc đặt** (Desk không lưu đơn thiếu cọc) → nhận phòng, thu phần còn lại → **anh/chị duyệt và hoàn phần cọc cũ** (tiền mặt tại quầy hoặc chuyển khoản lại trong ngày). Khách phải nhận lại tiền rồi trả lại, nên chỉ dùng tới khi v1.0.1 có BUG-R3-042 và 043.
+  - **Người trực không tự duyệt, không tự chi khoản hoàn do mình tạo** khi hủy đơn, kể cả có quyền quản lý: đây là quy tắc tách nhiệm đã chốt, không có ngoại lệ cho quản lý hay chủ đầu tư. Hiện một người trực giữ 6 vai, nên **mọi khoản hoàn sinh ra khi người trực hủy đơn đều chờ anh/chị duyệt và chi**. Anh/chị vắng thì khách chưa nhận lại cọc tại quầy được: người trực nói thật với khách và hẹn chuyển khoản lại trong ngày sau khi anh/chị duyệt, hoặc nhận tiền mặt khi anh/chị có mặt. Muốn người trực tự hoàn tại quầy là đổi quy tắc tách nhiệm, cần đội bảo mật xem và anh/chị quyết; không làm trong v1.0.1.
   - Anh/chị xem lại các dòng "giữ chỗ" trong sổ giao ca và các yêu cầu hoàn mới trong lượt kiểm sáng B1–B6.
 
   Bỏ cách tạm khi v1.0.1 có đủ BUG-R3-041, WA-04, 042, 043 và đội đã thử lại cả ba lối ra (xác nhận cọc, chấp nhận cọc thiếu, hủy hoàn) trước và sau hạn. Cách làm đầy đủ: Sổ tay mục 2.4.
@@ -146,6 +148,7 @@ Ghi chép thay đổi theo từng phiên bản, viết cho chủ đầu tư và 
 - **Hóa đơn GTGT** vẫn xuất ngoài app. Desk ghi thông tin công ty để xuất.
 - **Mất mạng:** chưa có bảng dự phòng in sẵn. Ba ngày đầu giữ sổ giấy song song (hướng dẫn `product/docs/day-one-guide.md`).
 - **Yêu cầu của khách về dữ liệu cá nhân** (xem, sửa, xóa): khách hỏi lễ tân (tờ ở quầy ghi vậy); lễ tân ghi lại, chuyển anh/chị; anh/chị xử lý bằng tay.
+- **Hủy đơn với lý do "Khác (ghi rõ)" chưa làm được** (BUG-R3-046, P2, sửa ở v1.0.1). Ở hộp **Hủy giữ chỗ** và **Hủy đơn**, chọn **Khác (ghi rõ)** thì hộp báo "Chưa tính được phí hủy nên chưa hủy được" và khóa nút, kể cả khi đã gõ ghi chú và bấm **Thử lại**. Không sai tiền (không hủy được thì không ghi gì). Cách làm: chọn lý do có sẵn gần nhất, thường là **Không liên lạc được** hoặc **Khách đổi ý**; điều cần giải thích ghi vào sổ giao ca kèm mã đơn. Sổ tay mục 2.4, 2.8.
 - **Folio đã khóa sau 24 giờ** (BUG-R3-045, P3): câu báo trên Desk ghi "Chỉ quản lý ghi được bút toán điều chỉnh" nhưng thực tế không ai ghi được, kể cả quản lý; nút **Thêm phát sinh** còn hiện tới khoảng 1 giờ sau khi khóa. Khoản còn nợ: **Thu công nợ** hoặc **Xóa công nợ**. Phát hiện mới sau 24 giờ: ghi sổ giao ca, báo anh/chị. Sổ tay mục 1.11.
 - **Email:** đường gửi thư đã thử ở buổi B2 (thư thử tới hộp thư của chủ đầu tư, không vào Spam). **Thư báo bảo mật chưa tới ai** (BUG-R3-032): xem đầu mục này. Hộp `info@ottimo.vn` là hộp thư chung, không dùng để nhận thư bảo mật.
 
@@ -155,6 +158,7 @@ Ghi chép thay đổi theo từng phiên bản, viết cho chủ đầu tư và 
 - Desk, khung đơn đang ở: dòng "Còn phải thu" hiện hai lần, cùng một số (v1.0.1).
 - Desk, sau khi chi hoàn: thông báo có dấu trừ thừa, ví dụ "Đã ghi hoàn -500.000 đ" (v1.0.1). Số tiền ghi sổ đúng.
 - Desk, "Cần chú ý": dòng giữ chỗ sắp hết hạn chưa ghi mã đơn (v1.0.1).
+- Desk, khung đơn **giữ chỗ**: hiện nút **Tạo link check-in online** và **Thu hồi link**, nhưng Desk chỉ cấp link cho đơn đã xác nhận nên luôn từ chối (BUG-R3-047, v1.0.1). Không bấm; check-in online đang tạm dừng (xem đầu mục).
 - Desk, nhận phòng: chip "Cần nhập thông tin" đè nút "Xem đủ số / ảnh" trên màn 1366 px (v1.0.1).
 - Desk, đặt phòng mới: sau "Tạo nhanh khách", ô "Khách đứng tên" đôi khi vẫn đỏ tới lần bấm sau (v1.0.1).
 - App buồng phòng: việc "Bổ sung minibar" còn nằm dưới "Khách đang ở" sau khi khách đã trả phòng (v1.0.1).

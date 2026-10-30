@@ -2,7 +2,7 @@
 
 - Dành cho: Chủ đầu tư dùng để đào tạo từng bộ phận trước ngày chạy thật **thứ Hai 02/11/2026**
 - Áp dụng cho: **OTTIMO Desk v1.0** – bản phát hành `v1.0.0`, chạy trên Desk thật từ 30/10/2026
-- Lập: BA · 27/10/2026 · Bản nội dung 1.3 (30/10/2026: Product Owner cập nhật theo bản `v1.0.0`; trước đó đã sửa theo góp ý của chuyên gia nghiệp vụ, Product Owner, bảo mật và kết quả kiểm trên bản thật)
+- Lập: BA · 27/10/2026 · Bản nội dung 1.4 (30/10/2026: Product Owner cập nhật theo bản `v1.0.0` và kết quả thử luồng giữ chỗ quá hạn trên bản thật; trước đó đã sửa theo góp ý của chuyên gia nghiệp vụ, Product Owner, bảo mật và kết quả kiểm trên bản thật)
 - Sổ tay không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi đào tạo, anh/chị cũng không ghi những thứ này lên bảng hay vào tài liệu phát tay.
 - **Tài liệu nội bộ OTTIMO – không chụp, không đăng lên mạng. Nghỉ việc thì trả lại.**
 
@@ -209,7 +209,7 @@ Menu dưới tên của mình gồm: **Đổi mật khẩu** · **Xác thực 2 
 |---|---|---|
 | **Mỗi sáng trước 09:00, kể cả ngày nghỉ** (chủ đầu tư) | Kiểm bảo mật buổi sáng (khung bên dưới) | **Tham số quy tắc**, **Tổng quan**, **Nhật ký tiền**, app ngân hàng |
 | Sáng | Xem **Cần chú ý** và **Cần duyệt** | **Tổng quan** |
-| Sáng, cùng lượt kiểm bảo mật (tới v1.0.1) | Xem lại các dòng có chữ "giữ chỗ" trong sổ giao ca và các yêu cầu hoàn mới; chi hoàn tiền mặt mà người trực đã duyệt (mục 2.4). Xem lại các khoản người trực tự duyệt bằng quyền quản lý | Sổ giao ca, **Cần duyệt**, **Nhật ký tiền → Hoàn tiền** |
+| Sáng, cùng lượt kiểm bảo mật (tới v1.0.1) | Xem lại các dòng có chữ "giữ chỗ" trong sổ giao ca và các yêu cầu hoàn mới; **duyệt và chi các khoản hoàn người trực tạo** (người trực không tự duyệt, không tự chi được – mục 2.4). Xem lại các khoản miễn/giảm người trực làm bằng quyền quản lý | Sổ giao ca, **Cần duyệt**, **Nhật ký tiền → Hoàn tiền** |
 | Trong ngày | Duyệt yêu cầu miễn/giảm, hoàn tiền, xóa công nợ | **Cần duyệt** |
 | Trong 24 giờ sau mỗi lần trả muộn quá 18:00 | Xem lại phụ thu bằng giá 1 đêm (mục 1.9) | **Tổng quan → Cần chú ý** |
 | Mỗi ngày | Đối chiếu chuyển khoản với sao kê | **Nhật ký tiền → Chờ đối soát** |
@@ -375,7 +375,7 @@ Yêu cầu đi tới **mọi người có quyền duyệt**. Người gửi khô
 | Loại yêu cầu | Ai gửi | Ai duyệt |
 |---|---|---|
 | Miễn phí (FOC) khoản phát sinh, giảm giá đặc biệt tiền phòng | Lễ tân, lễ tân trưởng | Lễ tân trưởng ≤ 300.000 đ/lần và ≤ 1.500.000 đ/tháng · Quản lý ≤ giá 1 đêm/lần · Chủ đầu tư không giới hạn |
-| Hoàn tiền (cọc, trả thừa, hủy, trả sớm) | Lễ tân trở lên | Quản lý, chủ đầu tư (mọi số tiền) |
+| Hoàn tiền (cọc, trả thừa, hủy, trả sớm) | Lễ tân trở lên | Quản lý, chủ đầu tư (mọi số tiền), **không phải người tạo yêu cầu**. Hiện một người trực: chủ đầu tư duyệt |
 | Xóa công nợ | Quản lý (vượt giá 1 đêm) | Chủ đầu tư |
 | Nhận phòng khi buồng chưa sẵn sàng | Lễ tân | Lễ tân trưởng trở lên |
 | Trả muộn khi có khách đến cùng ngày, không còn căn thay | Lễ tân trở lên | Quản lý, chủ đầu tư |
@@ -397,6 +397,8 @@ Yêu cầu đi tới **mọi người có quyền duyệt**. Người gửi khô
 
 Quy tắc tách nhiệm (Desk tự kiểm):
 - Không ai tự duyệt yêu cầu của chính mình, trừ khoản nằm trong hạn mức tự áp của vai.
+- **Hoàn tiền không có ngoại lệ:** người tạo yêu cầu hoàn (hủy đơn, sửa dòng…) không tự duyệt và không tự chi, kể cả quản lý, chủ đầu tư. Desk từ chối, yêu cầu vẫn chờ người duyệt khác.
+- Hoàn **tiền mặt**: người nhập nơi nhận không duyệt được khoản đó, kể cả chủ đầu tư. Vì vậy người tạo yêu cầu nhập nơi nhận trước, rồi người khác duyệt. Người duyệt được chi tiền mặt.
 - Hoàn chuyển khoản: người chi ≠ người tạo yêu cầu ≠ người duyệt ≠ người nhập nơi nhận. **Riêng chủ đầu tư** được vừa duyệt vừa chi cùng một khoản. **Quản lý không bao giờ** vừa duyệt vừa chi cùng một khoản.
 - Tổng miễn trên một lượt ở vượt ngưỡng: Desk báo chủ đầu tư (không chặn).
 
@@ -472,7 +474,7 @@ Ví dụ: căn 203 đêm thường giá 792.000 đ. Khách rời 20:30, đêm đ
 "Chờ đối soát" vẫn tính là đã thu: lễ tân nhận phòng, trả phòng bình thường.
 
 **Hoàn tiền chuyển khoản (sau khi đã duyệt):**
-1. Tab **Hoàn tiền**. Khoản chưa có nơi nhận: **Nhập nơi nhận hoàn** (**Cách hoàn**: Tiền mặt, Chuyển khoản, Cùng cách khách đã trả).
+1. Tab **Hoàn tiền**. Khoản chưa có nơi nhận: **Nhập nơi nhận hoàn** (**Cách hoàn**: Tiền mặt, Chuyển khoản, Cùng cách khách đã trả). Thường người tạo yêu cầu nhập trước khi duyệt; người nhập nơi nhận **tiền mặt** không duyệt được khoản đó (mục 1.8).
 2. Chuyển tiền bằng ứng dụng ngân hàng của OTTIMO.
 3. Khi ngân hàng báo thành công: **Ghi đã hoàn chuyển khoản / qua máy POS** → **Mã giao dịch ngân hàng / mã hoàn POS** → **Ảnh chứng từ** → xác nhận.
 
@@ -617,12 +619,13 @@ Tin có số tiền hoặc mã VietQR: chỉ gửi mã **Desk vừa tạo cho đ
 
 Lưu ý:
 - **Xử lý trước hạn.** Trước hạn, Desk làm được cả ba việc: xác nhận cọc, gia hạn, hủy. Sau hạn, ở v1.0 chỉ còn hủy (khung "Giữ chỗ quá hạn" bên dưới). Tiền đã về thì bấm xác nhận **trước giờ hạn**: ghi tay sau hạn thì Desk từ chối, kể cả khi tiền về trước hạn (hộp chưa có ô giờ nhận tiền).
-- Khách chuyển thiếu: vẫn ghi được số đã nhận; đơn giữ **Giữ chỗ · chờ cọc** và hiện số còn thiếu. **Gọi hoặc nhắn khách ngay trong ngày** xin phần còn lại trước hạn. Ở v1.0 Desk **chưa có** "Chấp nhận cọc thiếu": giữ chỗ cọc thiếu không thành **Đã xác nhận** được. Khách nói "trả phần còn lại khi đến": nói thật với khách và chọn (a) khách chuyển nốt trước hạn, hoặc (b) giữ đơn theo khung bên dưới, báo khách khi nhận phòng sẽ thanh toán đủ và khoản đã chuyển được hoàn lại tại quầy hoặc trong ngày.
+- Khách chuyển thiếu: vẫn ghi được số đã nhận; đơn giữ **Giữ chỗ · chờ cọc** và hiện số còn thiếu. **Gọi hoặc nhắn khách ngay trong ngày** xin phần còn lại trước hạn. Ở v1.0 Desk **chưa có** "Chấp nhận cọc thiếu": giữ chỗ cọc thiếu không thành **Đã xác nhận** được. Khách nói "trả phần còn lại khi đến": nói thật với khách và chọn (a) khách chuyển nốt trước hạn, hoặc (b) giữ đơn theo khung bên dưới, báo khách khi nhận phòng sẽ thanh toán đủ và khoản đã chuyển được chủ đầu tư hoàn lại (tại quầy hoặc chuyển khoản trong ngày).
 - Thấy **Giữ chỗ sắp hết hạn** (Desk nhắc 2 giờ trước hạn ở **Cần chú ý** và hộp thông báo): gọi khách ngay.
 - Khách chuyển dư: ghi **Lý do thu vượt**; phần dư thành tiền thừa của khách.
 - Mã VietQR hết hạn: bấm **Tạo mã VietQR mới** (mã cũ hết hiệu lực), hoặc ghi như chuyển khoản tay (**Chờ đối soát**).
 - Gia hạn giữ chỗ: **Gia hạn giữ chỗ (1 lần)**, tối đa thêm 24 giờ, không quá 12:00 ngày đến. **Chỉ làm trước hạn**; sau hạn nút này không còn.
 - Sale/CTV đã báo khách chuyển cọc: khung đơn hiện **CTV/sale đã báo chuyển cọc** kèm **Xem ảnh biên nhận**. Vẫn kiểm sao kê trước khi xác nhận.
+- Khung đơn giữ chỗ hiện **Tạo link check-in online** và **Thu hồi link**: **không bấm**. Desk chỉ cấp link cho đơn đã xác nhận nên luôn từ chối (lỗi nhỏ, dự kiến sửa ở v1.0.1); check-in online cũng đang tạm dừng (mục 2.9).
 
 > **Lỗi nhỏ đã biết (sửa ở v1.0.1):** hộp "Giữ chỗ" hiện số cọc và nội dung chuyển khoản hai lần; khách đến hôm nay vẫn hiện ô chọn thời hạn giữ dù không giữ được.
 
@@ -638,7 +641,7 @@ Lưu ý:
 > **Rà ở đâu, khi nào.** Người trực rà **3 mốc mỗi ngày**: lúc mở quầy (muộn nhất 09:00), **11:00** (trước trần 12:00 ngày đến), trước khi rời quầy (muộn nhất 21:00); thêm mỗi lần thấy **Giữ chỗ sắp hết hạn**. Lượt rà đủ: **Đơn đặt phòng** → lọc **Đang hiệu lực** → mở từng dòng **Giữ chỗ · chờ cọc** (10 căn, 1–2 phút). **Hôm nay** chỉ có giữ chỗ đến hôm nay; **Sơ đồ phòng** chỉ hiện 14 ngày – hai màn này chỉ để nhìn nhanh. Xử lý theo thứ tự:
 > 1. **Còn dưới 2 giờ:** xử lý **trước hạn** (Lưu ý ở trên). Đây là việc chính.
 > 2. **Chưa cọc mà đã "còn 0 giờ 00 phút"** (thường là đơn có yêu cầu giảm giá/FOC):
->    - **Hủy giữ chỗ** ngay khi thấy, không chờ gọi khách. **Lý do hủy**: **Khác (ghi rõ)**, gõ "Hết hạn giữ chỗ" (danh sách không có lựa chọn này). Không phí. Căn mở lại.
+>    - **Hủy giữ chỗ** ngay khi thấy, không chờ gọi khách. **Lý do hủy**: **Không liên lạc được** (khách không cọc tới hạn). Không chọn **Khác (ghi rõ)** (khung "Hủy với lý do Khác" bên dưới). Ghi sổ giao ca "OTM-… hủy – hết hạn giữ chỗ, chưa cọc". Không phí. Căn mở lại.
 >    - Nhắn hoặc gọi khách (đơn CTV: nhắn CTV trước; CTV liên hệ khách trong 1 giờ, quá 1 giờ hoặc đã 11:00 ngày đến thì gọi thẳng số khách trên đơn). Khách còn muốn:
 >      - **Đến từ ngày mai:** tạo **giữ chỗ mới**, chọn **12 h**. Báo giá cũ còn hiệu lực (3 ngày): bấm lại **Khách đồng ý – Giữ chỗ** từ báo giá đó; hết hiệu lực thì **Lập báo giá mới** theo giá hiện hành. Giảm giá hoặc FOC của đơn cũ phải xin lại (người trực tự duyệt bằng quyền quản lý, có lý do). Ghi sổ giao ca "Tạo lại từ OTM-… (hết hạn dd/mm)".
 >      - **Đến hôm nay:** không giữ chỗ được. Gửi VietQR, tạo đơn khi tiền về. Khách đang trên đường: căn còn thì nhận khi tới, như khách vãng lai.
@@ -650,17 +653,19 @@ Lưu ý:
 >
 > | Khách nói | Làm gì ở v1.0 | Ai, hạn |
 > |---|---|---|
-> | "Không đi nữa", hoặc không liên lạc được tới **11:00 ngày đến** | **Hủy giữ chỗ**, **Lý do hủy**: **Khác (ghi rõ)** "Hết hạn giữ chỗ – có cọc" (gọi không được thì **Không liên lạc được**). Desk giữ lại 0 đ, tạo yêu cầu hoàn **300.000 đ**. Mở **Cần duyệt** để duyệt hoàn, xem khoản ở **Nhật ký tiền → Hoàn tiền**. Hoàn theo cách khách đã trả | Người trực hủy và duyệt; tiền mặt thì chủ đầu tư chi (Desk không cho người tạo yêu cầu tự chi). Muộn nhất 12:00 ngày đến |
+> | "Không đi nữa", hoặc không liên lạc được tới **11:00 ngày đến** | **Hủy giữ chỗ**, **Lý do hủy**: **Khách đổi ý** (khách báo không đi) hoặc **Không liên lạc được** (gọi không được). Không chọn **Khác (ghi rõ)**. Desk giữ lại 0 đ, tạo yêu cầu hoàn **300.000 đ** (hộp hủy không hiện dòng này). Người trực mở **Nhật ký tiền → Hoàn tiền** → **Nhập nơi nhận hoàn**, **Cách hoàn**: **Cùng cách khách đã trả**. Ghi sổ giao ca "OTM-… hủy – hết hạn giữ chỗ, có cọc – chờ chủ đầu tư hoàn 300.000". **Chủ đầu tư duyệt** ở **Cần duyệt** rồi **chi** | Người trực hủy và nhập nơi nhận; **chủ đầu tư duyệt và chi**. Desk không cho người tạo yêu cầu hoàn tự duyệt hay tự chi, kể cả có quyền quản lý. Hủy muộn nhất 12:00 ngày đến |
 > | "Vẫn đi, trả nốt" (chuyển nốt hoặc trả khi đến) | **Không** nhận thêm chuyển khoản vào đơn cũ (Desk không ghi được sau hạn). **Để nguyên đơn**: Desk không tự hủy đơn có cọc, căn vẫn giữ. Ghi sổ giao ca: "OTM-… Giữ – cọc thiếu 400.000, thu khi đến – [người quyết] dd/mm". Báo khách: phần còn lại thanh toán khi nhận phòng | Người trực, bằng quyền quản lý. Quyết trước 12:00 ngày đến |
-> | Khách đó tới quầy (đơn vẫn **Giữ chỗ · chờ cọc**) | **Nếu chủ đầu tư đã báo v1.0.1 lên**: **Xác nhận đã nhận cọc** phần còn lại → **Nhận phòng**. **Nếu chưa**: (a) **Hủy giữ chỗ** đơn cũ, **Khác (ghi rõ)** "Tạo lại khi khách đến – cọc thiếu" → Desk tạo yêu cầu hoàn 300.000. (b) **Đặt phòng mới** cùng căn, nhập đúng giá từng đêm đã chốt; ghi sổ giao ca "OTM-mới thay OTM-cũ". (c) Thu đủ **2.376.000** ở bước nhận phòng → **Nhận phòng**. (d) Duyệt hoàn 300.000; chủ đầu tư chi tiền mặt tại quầy (khách thực trả 2.076.000), hoặc chủ đầu tư chuyển khoản lại trong ngày và báo khách trước | Người trực (a–c); chủ đầu tư chi hoàn (d). Khi khách đến |
-> | Khách đã lỡ chuyển nốt **sau** hạn | Tiền đã ở tài khoản OTTIMO nhưng Desk không ghi được vào đơn cũ. Ghi sổ giao ca: mã đơn, số tiền, giờ tiền về. Khi khách đến, làm như dòng trên; ở bước (c) ghi phần đã chuyển là chuyển khoản, ghi chú "chuyển dd/mm hh:mm" | Người trực; chủ đầu tư đối chiếu sao kê sáng hôm sau |
+> | Khách đó tới quầy (đơn vẫn **Giữ chỗ · chờ cọc**) | **Nếu chủ đầu tư đã báo v1.0.1 lên**: **Xác nhận đã nhận cọc** phần còn lại → **Nhận phòng**. **Nếu chưa**: (a) **Hủy giữ chỗ** đơn cũ, **Lý do hủy**: **Khách đổi ý** → Desk tạo yêu cầu hoàn 300.000. **Nhập nơi nhận hoàn** ngay: **Tiền mặt** nếu chủ đầu tư có mặt hoặc sẽ tới quầy trong thời gian khách ở; **Chuyển khoản** nếu không. (b) **Đặt phòng mới** cùng căn, nhập đúng giá từng đêm đã chốt. **Thu cọc ngay lúc đặt**: **Số tiền đã nhận** ít nhất bằng **Cọc cần thu** (ví dụ 700.000), chọn **Cách thanh toán** – Desk không lưu đơn khi chưa đủ cọc. Ghi sổ giao ca "OTM-mới thay OTM-cũ". (c) Ở bước nhận phòng thu **phần còn lại** (ví dụ 2.376.000 − 700.000 = **1.676.000**) → **Nhận phòng**. (d) **Chủ đầu tư duyệt và chi** 300.000: tiền mặt tại quầy (khách thực trả 2.076.000), hoặc chuyển khoản lại. **Chủ đầu tư vắng thì khách chưa nhận lại cọc cũ tại quầy được**, kể cả khi người trực có quyền quản lý. Nói thật với khách và hẹn một trong hai cách: OTTIMO chuyển khoản lại trong ngày sau khi chủ đầu tư duyệt; hoặc khách nhận tiền mặt ở quầy khi chủ đầu tư có mặt trong thời gian ở. Ghi cách đã hẹn vào sổ giao ca, báo chủ đầu tư | Người trực (a–c); chủ đầu tư duyệt và chi (d). Khi khách đến |
+> | Khách đã lỡ chuyển nốt **sau** hạn | Tiền đã ở tài khoản OTTIMO nhưng Desk không ghi được vào đơn cũ. Ghi sổ giao ca: mã đơn, số tiền, giờ tiền về. Khi khách đến, làm như dòng trên. Phần đã chuyển ghi ở **bước (b)**, vào **Số tiền đã nhận**, **Cách thanh toán** chuyển khoản, ghi chú "chuyển dd/mm hh:mm". Chưa đủ **Cọc cần thu** (ví dụ đã chuyển 400.000, cọc 700.000): khách chuyển thêm phần thiếu ngay, ghi chung một khoản chuyển khoản, ghi chú cả hai lần chuyển. Bước (c) chỉ thu phần còn lại | Người trực; chủ đầu tư đối chiếu sao kê sáng hôm sau |
 >
 > Không hạ giá đêm để cọc yêu cầu thấp xuống cho đủ: làm sai giá và doanh thu.
+>
+> **Hủy với lý do Khác – lỗi đang sửa (tới v1.0.1):** chọn **Khác (ghi rõ)** thì hộp hủy báo "Chưa tính được phí hủy nên chưa hủy được" và khóa nút, kể cả khi đã gõ ghi chú và bấm **Thử lại**. Chọn lý do có sẵn: **Không liên lạc được** (gọi không được, khách không cọc tới hạn) hoặc **Khách đổi ý** (khách không đi, hoặc làm lại đơn khi khách đến). Điều cần giải thích ghi vào sổ giao ca, không ghi tên khách.
 >
 > **Sổ giao ca:** mỗi đơn đã xử lý một dòng – mã đơn, đã làm gì (không ghi tên khách). **Trước khi rời quầy**: mọi giữ chỗ "còn 0 giờ 00 phút" đã hủy, hoặc đã có dòng "Giữ – …". Chủ đầu tư xem lại các dòng có chữ "giữ chỗ" và các yêu cầu hoàn mới trong lượt kiểm sáng (mục 1.1).
 >
 > Khi OTTIMO có thêm lễ tân: rà ở đầu mỗi ca, và việc quyết đơn có cọc thiếu chuyển về quản lý. Khi chủ đầu tư báo v1.0.1 đã lên đủ bản sửa: bỏ khung này, làm theo Desk mới.
-<!-- Quyết định DOM 30/10: rounds/round-03/reviews/DOM-on-PO-v1.0.0-docs.md mục A.1–A.4 (thẻ DOC-01…08), BA M13-01, M13-02, M13-03, M13-06. Lỗi: BUG-R3-041 (P2), WA-04, BUG-R3-042 (P1, V1), 043 (P2, V2), 044 (P2, V3 + M13-03) – đích v1.0.1 (backlog 5.6). Điều kiện bỏ khung: v1.0.1 có V1, V2, V4 + QA thử lại ba lối ra BR-303 trước và sau hạn (DOM-09). Lệch với DOM A.3: DOM ghi "Ghi chú nội bộ" trên đơn, nhưng khung đơn đã tạo chưa có ô ghi chú cho lễ tân (cùng lý do mục 2.14a; ô "Ghi chú nội bộ" chỉ có khi đặt đơn kênh Nội bộ) → PO dùng sổ giao ca. -->
+<!-- Quyết định DOM 30/10: rounds/round-03/reviews/DOM-on-PO-v1.0.0-docs.md mục A.1–A.4 (thẻ DOC-01…08), BA M13-01, M13-02, M13-03, M13-06. Lỗi: BUG-R3-041 (P2), WA-04, BUG-R3-042 (P1, V1), 043 (P2, V2), 044 (P2, V3 + M13-03) – đích v1.0.1 (backlog 5.6). Điều kiện bỏ khung: v1.0.1 có V1, V2, V4 + QA thử lại ba lối ra BR-303 trước và sau hạn (DOM-09). Lệch với DOM A.3: DOM ghi "Ghi chú nội bộ" trên đơn, nhưng khung đơn đã tạo chưa có ô ghi chú cho lễ tân (cùng lý do mục 2.14a; ô "Ghi chú nội bộ" chỉ có khi đặt đơn kênh Nội bộ) → PO dùng sổ giao ca. QA thử luồng trên staging 30/10 (rounds/round-03/qa/qa3-rc1.md mục 20, việc 20.7): không dùng lý do Khác (BUG-R3-046, P2, v1.0.1); người tạo yêu cầu hoàn không tự duyệt (SELF_APPROVAL_FORBIDDEN) và không tự chi tiền mặt (SELF_REFUND_FORBIDDEN), không ngoại lệ – sửa câu "người trực hủy và duyệt" của DOM A.3; người nhập nơi nhận tiền mặt không duyệt được khoản đó, kể cả OWN; đơn Trực tiếp mới phải đủ cọc lúc đặt (422 DEPOSIT_INSUFFICIENT); nút link check-in online trên giữ chỗ (BUG-R3-047, P3). -->
 
 ### 2.5 Đặt phòng ngắn ngày (khách trực tiếp, CTV)
 
@@ -769,8 +774,8 @@ Mở đơn (từ **Sơ đồ phòng**, **Đơn đặt phòng** hoặc **Hôm nay
 [ẢNH: C2-11-Đổi căn, đổi ngày, tính thử]
 
 **Hủy:**
-1. Đơn giữ chỗ chưa cọc: **Hủy giữ chỗ** → hộp **Hủy giữ chỗ căn …?** → **Lý do hủy** (Khách đổi ý · Khách tìm được chỗ khác · Giá chưa phù hợp · Đổi ngày · Không liên lạc được · Khác (ghi rõ)) → **Hủy giữ chỗ** (hoặc **Giữ lại đơn**). Không thu phí.
-   - Giữ chỗ **đã nhận một phần cọc** cũng hủy bằng nút này. Ở v1.0 hộp vẫn ghi "Không thu phí (giữ chỗ chưa cọc)" và không hiện dòng hoàn (lỗi đang sửa), nhưng Desk **vẫn tạo yêu cầu hoàn đủ số đã nhận**: duyệt ở **Cần duyệt**, xem ở **Nhật ký tiền → Hoàn tiền**.
+1. Đơn giữ chỗ chưa cọc: **Hủy giữ chỗ** → hộp **Hủy giữ chỗ căn …?** → **Lý do hủy** (Khách đổi ý · Khách tìm được chỗ khác · Giá chưa phù hợp · Đổi ngày · Không liên lạc được · Khác (ghi rõ)) → **Hủy giữ chỗ** (hoặc **Giữ lại đơn**). Không thu phí. **Ở v1.0 không chọn Khác (ghi rõ)** (khung bên dưới).
+   - Giữ chỗ **đã nhận một phần cọc** cũng hủy bằng nút này. Ở v1.0 hộp vẫn ghi "Không thu phí (giữ chỗ chưa cọc)" và không hiện dòng hoàn (lỗi đang sửa), nhưng Desk **vẫn tạo yêu cầu hoàn đủ số đã nhận**. Người hủy **Nhập nơi nhận hoàn** ở **Nhật ký tiền → Hoàn tiền**; **người khác người hủy** duyệt ở **Cần duyệt** và chi (hiện một người trực: chủ đầu tư duyệt và chi – mục 2.4).
 2. Đơn đã xác nhận: **Hủy đơn** → **Lý do hủy**. Desk tính **phí hủy** và **khoản hoàn** theo chính sách kênh Trực tiếp/CTV. Số ngày báo trước = ngày đến − ngày khách báo (ngày trên Desk):
    - Từ 7 ngày: hoàn 100 % cọc.
    - 3–6 ngày: hoàn 50 %.
@@ -780,10 +785,12 @@ Mở đơn (từ **Sơ đồ phòng**, **Đơn đặt phòng** hoặc **Hôm nay
    - Bất khả kháng (đèo vào Đà Lạt đóng, chuyến bay hủy do thời tiết, có giấy báo của cơ quan hoặc hãng bay): không hoàn tiền mặt. Quản lý cho **dời ngày** miễn phí trong 3 tháng, áp cả ngày đặc biệt.
    - Đọc số trên hộp **Hủy đơn OTM-… của …?** trước khi bấm **Hủy đơn**. Đổi ý thì bấm **Giữ lại đơn**.
 3. Đơn OTA: nhập **Tiền phạt theo kênh** đúng số kênh báo (0 nếu kênh miễn phạt).
-4. Có khoản hoàn: Desk tạo yêu cầu hoàn, **cần quản lý duyệt**.
+4. Có khoản hoàn: Desk tạo yêu cầu hoàn. Người hủy nhập nơi nhận hoàn; **quản lý hoặc chủ đầu tư khác người hủy** duyệt và chi. Người hủy không tự duyệt, không tự chi được, kể cả có quyền quản lý. Hiện một người trực: chủ đầu tư duyệt và chi.
 5. Khách muốn đổi ngày thay vì hủy: **Dời ngày thay vì hủy** (chỉ quản lý).
 
 [ẢNH: C2-12-Hủy đơn]
+
+> **Lỗi đang sửa (v1.0.1) – lý do Khác (ghi rõ):** ở cả **Hủy giữ chỗ** và **Hủy đơn**, chọn **Khác (ghi rõ)** thì hộp báo "Chưa tính được phí hủy nên chưa hủy được" và khóa nút, kể cả khi đã gõ ghi chú và bấm **Thử lại**. Chọn lý do có sẵn gần nhất (thường là **Khách đổi ý** hoặc **Không liên lạc được**). Điều cần giải thích ghi vào sổ giao ca kèm mã đơn, không ghi tên khách.
 
 **Khách không đến:**
 1. **18:00** khách chưa đến, chưa báo giờ: gọi hoặc nhắn khách.
@@ -799,10 +806,11 @@ Mở đơn (từ **Sơ đồ phòng**, **Đơn đặt phòng** hoặc **Hôm nay
 > **Tạm dừng với khách thật từ 02/11 tới bản v1.0.1:** trang khách của bản `v1.0.0` còn thông báo xử lý dữ liệu bản cũ, chưa nêu hạn lưu thông tin giấy tờ. **Không tạo, không gửi link check-in online cho khách thật**, kể cả đơn chuyển đổi ngày D. Mọi khách làm giấy tờ tại quầy (mục 2.10): chỉ tờ **Your ID details** trước khi nhận giấy tờ, rồi hỏi đồng ý lưu ảnh ở Khối 1 (mục 0.8 điểm 4). Khách muốn gửi yêu cầu trong lúc ở: nhắn Zalo hoặc gọi lễ tân.
 > - **Lỡ gửi link:** mở đơn → **Thu hồi link** ngay (bước 6). Ghi **mã đơn** vào sổ giao ca (không ghi tên khách), báo chủ đầu tư trong ngày. Khách tới quầy thì chỉ tờ **Your ID details** như mọi khách. Không xóa ảnh khách đã gửi (cần cho khai báo lưu trú).
 > - Đội kiểm mỗi sáng số link mới tạo trên Desk thật; khác 0 thì đội báo chủ đầu tư **mã đơn** để đối chiếu với sổ giao ca.
+> - Đơn **giữ chỗ** cũng hiện nút **Tạo link check-in online**: không bấm (Desk luôn từ chối với đơn giữ chỗ – lỗi nhỏ, v1.0.1).
 > - Chỉ dùng lại mục này khi chủ đầu tư báo "mở lại check-in online". Trên Desk tập vẫn tập các bước dưới với dữ liệu giả.
 <!-- Quyết định PO 30/10 (D-T4 phương án a, QC v1-gate.md mục 4.2): rounds/round-03/outputs/PO/v1.0.0-docs-update.md. SEC đồng ý 30/10 (SEC-on-PO-v1.0.0-docs.md mục A, S4, S5; thẻ D05). Mở lại khi: v1.0.1 có privacy-2026-10-v2 trên production ở mọi ngôn ngữ trang khách (gồm RU), cùng chữ với tờ Your ID details, OWN/OPS đặt privacy_notice_version mới, SEC kiểm 4 việc ở mục C.1. -->
 
-1. Mở đơn (giữ chỗ hoặc đã xác nhận). Mục **Link check-in online** → **Tạo link check-in online**.
+1. Mở đơn **đã xác nhận**. Mục **Link check-in online** → **Tạo link check-in online**. (Đơn giữ chỗ ở v1.0 cũng hiện mục này nhưng Desk không cấp link; xác nhận cọc trước.)
 2. Hộp **Link check-in online · đơn …** hiện link, **mã QR của link** và hạn link. Bấm **Sao chép link**. **Link chỉ hiện một lần.** Đóng hộp là không xem lại được; cần thì **Tạo link mới** (link cũ ngừng hoạt động). **Không chụp màn hình hộp này** (mã QR là link).
 3. Gửi **riêng 1–1** cho khách của đơn, từ tài khoản của OTTIMO trên điện thoại cơ sở (mục 2.4) hoặc email. Không gửi vào nhóm chat. Không kèm mã cửa hay số căn.
 4. Khách mở link trên điện thoại: đọc thông báo xử lý dữ liệu (**Tôi đã đọc**) → **Giấy tờ** (chọn CCCD/Hộ chiếu rồi **Chụp**, hoặc **Bổ sung tại quầy**) → **Giờ đến** → **Xác nhận** (đồng ý lưu ảnh hay không) → **Gửi thủ tục**.
@@ -1110,7 +1118,7 @@ Khách dài hạn: trả tới 15:00 không phụ thu nếu căn không có khá
 
 - **Thu công nợ**: khung đơn hoặc **Cần chú ý** → **Thu công nợ** → **Cách thanh toán**, **Tiền** → **Ghi nhận đã thu …**.
 - **Ghi công nợ**, **xóa công nợ**: chỉ quản lý, chủ đầu tư (mục 1.10).
-- **Đề nghị hoàn** (trả thừa, hủy, trả sớm): lễ tân tạo, ghi **Cách hoàn** và nơi nhận. Quản lý hoặc chủ đầu tư duyệt.
+- **Đề nghị hoàn** (trả thừa, hủy, trả sớm): lễ tân tạo, ghi **Cách hoàn** và nơi nhận. Quản lý hoặc chủ đầu tư **khác người tạo** duyệt (hiện một người trực: chủ đầu tư).
 - **Chi hoàn tiền mặt** (khoản đã duyệt, nơi nhận là tiền mặt): **Nhật ký tiền → Hoàn tiền** → **Chi hoàn tiền mặt** → **Ảnh chứng từ** (biên nhận có chữ ký khách) → xác nhận. Không chi được khoản do chính mình tạo yêu cầu.
 - Hoàn chuyển khoản do quản lý làm. Báo khách thời hạn.
 
@@ -1675,8 +1683,10 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 |---|---|---|
 | Thư báo bảo mật chưa gửi tới chủ đầu tư | Chủ đầu tư kiểm bảo mật mỗi sáng trước 09:00 (quản lý cùng đối soát) | 1.1 |
 | Giữ chỗ quá hạn có cọc chưa báo vào **Cần chú ý**; giữ chỗ có yêu cầu giảm giá/FOC không tự hủy | Rà 3 mốc mỗi ngày (mở quầy ≤ 09:00, 11:00, trước khi rời quầy ≤ 21:00) ở **Đơn đặt phòng** → **Đang hiệu lực** → **Giữ chỗ · chờ cọc**; xử lý trước 12:00 ngày đến | 2.1, 2.4 |
-| Giữ chỗ **có cọc** đã quá hạn: Desk từ chối **Xác nhận đã nhận cọc**, không gia hạn được; chỉ còn **Hủy giữ chỗ** | Phòng trước (xác nhận, gia hạn trước hạn). Sau hạn: hủy – hoàn, hoặc để nguyên đơn rồi hủy – đặt lại – thu đủ – hoàn cọc cũ khi khách đến | 2.4 |
+| Giữ chỗ **có cọc** đã quá hạn: Desk từ chối **Xác nhận đã nhận cọc**, không gia hạn được; chỉ còn **Hủy giữ chỗ** | Phòng trước (xác nhận, gia hạn trước hạn). Sau hạn: hủy – hoàn, hoặc để nguyên đơn rồi hủy – đặt lại (thu đủ cọc lúc đặt) – thu phần còn lại khi nhận phòng – chủ đầu tư hoàn cọc cũ khi khách đến | 2.4 |
 | Giữ chỗ có cọc quá hạn: khung đơn ghi "**đơn đã tự hủy**", câu lỗi ghi "căn đã **mở bán lại**", hộp hủy ghi "**Không thu phí**" | Tin trạng thái **Giữ chỗ · chờ cọc**: đơn chưa hủy, căn vẫn giữ. Hủy thì Desk vẫn tạo yêu cầu hoàn đủ số đã nhận | 2.4, 2.8 |
+| Hủy với lý do **Khác (ghi rõ)**: hộp hủy khóa nút | Chọn **Không liên lạc được** hoặc **Khách đổi ý**; điều cần giải thích ghi sổ giao ca | 2.4, 2.8 |
+| Khung đơn giữ chỗ hiện nút link check-in online, Desk luôn từ chối | Không bấm (check-in online đang tạm dừng) | 2.4, 2.9 |
 | Folio đã khóa: câu báo ghi "Chỉ quản lý ghi được bút toán điều chỉnh" (sai – không ai ghi được); nút **Thêm phát sinh** / **Điều chỉnh** còn hiện tới khoảng 1 giờ | Bỏ qua vế "chỉ quản lý". Thu công nợ hoặc Xóa công nợ; phát hiện mới ghi sổ giao ca, báo chủ đầu tư | 1.11 |
 | Chưa nhập được **Wi-Fi** trên Desk; trang khách ghi "hỏi lễ tân" | Khách xem thẻ Wi-Fi trong căn; lễ tân đọc khi khách hỏi | 1.4 |
 | Hộp **Đổi phòng** lẫn căn chưa dọn (`VD`); chọn thì Desk báo, không lưu | Kiểm trạng thái căn trên Buồng phòng/Sơ đồ phòng trước khi chọn | 2.12 |
@@ -1693,6 +1703,7 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 
 | Bản | Ngày | Người | Thay đổi |
 |---|---|---|---|
+| 1.4 | 30/10/2026 | PO theo QA thử luồng trên staging 30/10 (qa3-rc1.md mục 20); chờ DOM xác nhận nghiệp vụ | Giữ chỗ quá hạn và hủy: không dùng lý do **Khác (ghi rõ)** (lỗi BUG-R3-046), dùng **Không liên lạc được** / **Khách đổi ý**, giải thích ghi sổ giao ca (2.4, 2.8, 5.6); người tạo yêu cầu hoàn không tự duyệt, không tự chi – người trực nhập nơi nhận, chủ đầu tư duyệt và chi; chủ đầu tư vắng thì hẹn khách (1.1, 1.8, 1.12, 2.4, 2.8, 2.17); đặt đơn mới khi khách đến phải thu đủ cọc ngay, bước nhận phòng chỉ thu phần còn lại (2.4); không bấm nút link check-in online trên đơn giữ chỗ (BUG-R3-047; 2.4, 2.9); bài tập 5.8 (6) |
 | 1.3 | 30/10/2026 | PO; BA rà 30/10; DOM, UXD, SEC review 30/10 | Theo bản phát hành `v1.0.0` (`8b3aec8`): bỏ khung lỗi đã sửa ở rc.4 – đơn dài hạn nhập tay (2.7), In phiếu (2.14), tên nhóm ở hộp Đổi phòng (2.12); phát sinh sau trả phòng và folio khóa sau 24 giờ (1.11); tạm dừng check-in online tới v1.0.1 (2.9). Sửa theo review 30/10: giữ chỗ quá hạn theo quyết định chuyên gia nghiệp vụ – rà 3 mốc ở **Đơn đặt phòng**, sau hạn Desk chỉ còn Hủy, có cọc thì để nguyên đơn và làm lại khi khách đến (2.1, 2.2, 2.4, 2.8); tờ **Your ID details** trước khi nhận giấy tờ, câu đồng ý mới (0.8, 2.10, 2.11, 5.4); chỉ in phiếu sau khi hoàn tất (2.14); một người trực giữ 6 vai (Cách đọc); cập nhật 5.6, 5.8 |
 | 1.2 | 27/10/2026 | BA | Sửa theo kết quả QA kiểm trên staging rc.3 (Q1–Q14, D14–D19, M1–M64), lỗi BUG-R3-019…032 (khung "Lỗi đang sửa"), review SEC (18 thẻ: báo lỗi không kèm dữ liệu khách, giao mã cửa có điều kiện, danh sách giấy 22:00, mã khôi phục, nhắn khách từ tài khoản OTTIMO, kiểm tiền, thẻ thanh toán) và biện pháp bù SEC B1–B6 (kiểm bảo mật mỗi sáng, QR "vừa đổi tài khoản nhận"). Thêm ảnh C0-08b |
 | 1.1 | 27/10/2026 | BA | Sửa theo review DOM (23 thẻ) và PO (14 thẻ): mã cửa không gửi qua tin nhắn, trả phòng sớm tạm (2.14a), kiểm tiền chuyển khoản tạm, đóng ca có quỹ lẻ, khách OTA trả trước, nhiều căn (2.5a), dài hạn (lịch thu, điện nước, công tơ), hóa đơn mọi phiếu, dự phòng mất mạng, từ ngữ (5.0), đào tạo (5.8), việc riêng lễ tân trưởng (2.22). Còn chờ QA (Q1–Q19), ESC-038, ESC-039, ESC-035 |
@@ -1712,7 +1723,7 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 | Bộ phận | Đọc | Bài tập (trên Desk tập) | Thời lượng |
 |---|---|---|---|
 | Chủ đầu tư, quản lý | Chương 0, 1, mục 2.13–2.15, 5 | (1) Đăng nhập 2 bước, tạo bộ mã khôi phục mới (trên máy riêng). Chủ đầu tư: làm thử một lượt kiểm bảo mật buổi sáng (mục 1.1). (2) Đổi giá đêm một căn có ngày hiệu lực. (3) Duyệt và từ chối một yêu cầu miễn phí ở **Cần duyệt**. (4) Xem lại một phụ thu trả muộn bằng giá 1 đêm: **Mở folio** → **Đã xem**. (5) Đối soát một khoản ở **Chờ đối soát** | 2 giờ |
-| Lễ tân, lễ tân trưởng | Chương 0, 2, mục 3.2, 5 | (1) Báo giá → giữ chỗ → xác nhận cọc; nhận diện mã VietQR có dòng "Tài khoản nhận vừa đổi" và nói được việc phải làm. (2) Đặt phòng Trực tiếp và đơn OTA nhập tay. (3) Nhận phòng đủ 4 bước, có khách nhận sớm; nói được điều kiện giao mã cửa và câu từ chối gửi mã qua tin nhắn. (4) Thêm phát sinh, gia hạn 1 đêm. (5) Trả phòng 3 bước, xem và in phiếu thanh toán. (6) Rà giữ chỗ ở **Đơn đặt phòng** → **Đang hiệu lực** → **Giữ chỗ · chờ cọc**; nói được 3 mốc rà, việc trước hạn, và cách xử lý sau hạn cho giữ chỗ chưa cọc (hủy ngay, tạo lại 1 lần) và có cọc (hủy – hoàn, hoặc để nguyên rồi làm lại khi khách đến); nhận ra dòng "đơn đã tự hủy" và "Không thu phí" sai với đơn có cọc (mục 2.4). (7) Chỉ tờ **Your ID details** trước khi nhận giấy tờ, rồi đọc câu hỏi đồng ý lưu ảnh (EN và VI) ở Khối 1; nói được việc phải làm khi lỡ gửi link check-in online. Lễ tân trưởng thêm: duyệt một yêu cầu, kiểm phòng trên app nhân viên | 3 giờ |
+| Lễ tân, lễ tân trưởng | Chương 0, 2, mục 3.2, 5 | (1) Báo giá → giữ chỗ → xác nhận cọc; nhận diện mã VietQR có dòng "Tài khoản nhận vừa đổi" và nói được việc phải làm. (2) Đặt phòng Trực tiếp và đơn OTA nhập tay. (3) Nhận phòng đủ 4 bước, có khách nhận sớm; nói được điều kiện giao mã cửa và câu từ chối gửi mã qua tin nhắn. (4) Thêm phát sinh, gia hạn 1 đêm. (5) Trả phòng 3 bước, xem và in phiếu thanh toán. (6) Rà giữ chỗ ở **Đơn đặt phòng** → **Đang hiệu lực** → **Giữ chỗ · chờ cọc**; nói được 3 mốc rà, việc trước hạn, và cách xử lý sau hạn cho giữ chỗ chưa cọc (hủy ngay, tạo lại 1 lần) và có cọc (hủy – hoàn, hoặc để nguyên rồi làm lại khi khách đến); nhận ra dòng "đơn đã tự hủy" và "Không thu phí" sai với đơn có cọc; chọn đúng lý do hủy (không chọn **Khác**); nói được vì sao chủ đầu tư phải duyệt và chi khoản hoàn người trực tạo, và hẹn khách thế nào khi chủ đầu tư vắng (mục 2.4). (7) Chỉ tờ **Your ID details** trước khi nhận giấy tờ, rồi đọc câu hỏi đồng ý lưu ảnh (EN và VI) ở Khối 1; nói được việc phải làm khi lỡ gửi link check-in online. Lễ tân trưởng thêm: duyệt một yêu cầu, kiểm phòng trên app nhân viên | 3 giờ |
 | Buồng phòng | Chương 0 (0.2, 0.8), 3 | (1) Bắt đầu dọn → Dọn xong. (2) Khách không muốn dọn. (3) Báo sự cố có ảnh, đề nghị khóa căn. (4) Bấm một việc khi tắt mạng, xem **Thao tác trên máy**, bật mạng lại | 1 giờ |
 | Bảo trì | Chương 0 (0.2, 0.8), 3.9, 4.1 | (1) Nhận việc phiếu Gấp. (2) Chờ vật tư rồi Sửa tiếp. (3) Sửa xong có ảnh, xem căn mở bán lại | 45 phút |
 | Sale, CTV | Chương 0 (0.2, 0.8), 4.2 | (1) Báo giá, sao chép gửi Zalo. (2) Giữ chỗ. (3) CTV: báo đã chuyển cọc kèm ảnh biên nhận giả | 45 phút |

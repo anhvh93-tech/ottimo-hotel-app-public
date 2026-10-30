@@ -175,3 +175,68 @@ DOM mục A.3a (vá v1.0.1) và A.5 (người nhận thông báo): PO nhận và
 - QA: chụp ảnh M13-09 ở D-T2; nếu kịp, thử luồng làm lại đơn có cọc trên staging (mục 8).
 - SEC: quyết dòng decision-log UXD S02; duyệt việc UXD tách câu sao lưu ở Tờ 4.
 - Buổi C3a 31/10 dạy theo sổ tay 2.4 mới và bài tập 5.8 (6), (7) đã sửa.
+
+## 10. Trả lời QA thử luồng giữ chỗ quá hạn (`qa/qa3-rc1.md` mục 20.7) – PO, 30/10 khuya
+
+Bước **Phản hồi & sửa**, trước buổi đào tạo C3a 31/10. Nguồn: `qa/qa3-rc1.md` mục 20.1–20.7, `qa/bug-list.md` BUG-R3-046, 047 (commit `441c159`). Không đổi chính sách: quy tắc tách nhiệm hoàn tiền (SEC F8) giữ nguyên, PO chỉ sửa tài liệu cho đúng Desk.
+
+### 10.1 Kết quả các giả định ở mục 8
+
+| Giả định PO (mục 8) | QA | PO xử lý |
+|---|---|---|
+| Khung đơn đã tạo không có ô ghi chú cho lễ tân | **Đúng** (G1) | Giữ sổ giao ca. Không sửa |
+| Đơn Trực tiếp mới lưu **Đã xác nhận**, nhận phòng được khi thu đủ ở bước nhận phòng | **Đúng một phần** (G2): đơn mới phải đủ **cọc yêu cầu ngay lúc đặt** (422 `DEPOSIT_INSUFFICIENT`) | Sửa: bước (b) thu cọc, bước (c) chỉ thu phần còn lại (việc 3 dưới) |
+| Người tạo yêu cầu không tự chi tiền mặt | **Đúng** (G3) | Giữ, nói rõ thêm |
+| (DOM A.3, sổ tay 2.4) Người trực hủy **và duyệt** | **Sai** (G4): 403 `SELF_APPROVAL_FORBIDDEN`, không ngoại lệ | Sửa: OWN duyệt và chi (việc 2 dưới) |
+
+### 10.2 Bốn việc ở 20.7 – đã sửa
+
+| # | Việc QA đề nghị | Quyết định PO | Chỗ đã sửa |
+|---|---|---|---|
+| 1 | Bỏ "Khác (ghi rõ)" khỏi hướng dẫn hủy (BUG-R3-046) | **Đồng ý.** Tới v1.0.1 dùng **Không liên lạc được** (gọi không được; giữ chỗ chưa cọc tới hạn) hoặc **Khách đổi ý** (khách không đi; làm lại đơn khi khách đến). Điều cần giải thích ghi sổ giao ca kèm mã đơn, không ghi tên khách. Áp cho cả **Hủy giữ chỗ** và **Hủy đơn** (hộp dùng chung) | Sổ tay 2.4 (bước 2 chưa cọc, dòng "Không đi nữa", dòng "Khách đó tới quầy" (a), khung mới "Hủy với lý do Khác"), 2.8 (bước 1 + khung "Lỗi đang sửa"), 5.6 (dòng mới). One-pager Tờ 2a (dòng "Lý do hủy" mới, bỏ "Khác" ở "Chưa cọc" và "Đã có cọc"; lý do thật vào dòng "Sổ giao ca"). Day-one mục 10. Release notes: khối giữ chỗ + mục mới BUG-R3-046 trong "Giới hạn đã biết" |
+| 2 | Người trực không tự duyệt khoản hoàn do mình tạo | **Đồng ý.** Câu chuẩn: "người trực hủy và **nhập nơi nhận hoàn**; **chủ đầu tư duyệt và chi**". Người trực nhập nơi nhận **trước** (nếu OWN tự nhập nơi nhận tiền mặt thì OWN không duyệt được khoản đó). Bỏ "mở **Cần duyệt** để duyệt hoàn" khỏi việc của người trực. **OWN vắng thì khách chưa nhận lại cọc tại quầy được**, kể cả người trực có quyền quản lý: người trực nói thật với khách và hẹn một trong hai cách – OTTIMO chuyển khoản lại trong ngày sau khi OWN duyệt, hoặc khách nhận tiền mặt ở quầy khi OWN có mặt trong thời gian ở; ghi cách đã hẹn vào sổ giao ca | Sổ tay 1.1 (dòng ~212: "duyệt và chi các khoản hoàn người trực tạo"), 1.8 (bảng: "không phải người tạo yêu cầu"; thêm 2 quy tắc tách nhiệm: hoàn không ngoại lệ, người nhập nơi nhận tiền mặt không duyệt), 1.12 bước 1, 2.4 (dòng "Không đi nữa", dòng "Khách đó tới quầy" (a), (d) + câu OWN vắng; Lưu ý "khách chuyển thiếu"), 2.8 (bước 1 gạch đầu dòng, bước 4), 2.17, 5.8 bài (6). One-pager Tờ 1 (tách **Hoàn tiền** khỏi dòng hạn mức: "người tạo yêu cầu không tự duyệt, không tự chi – hiện chủ đầu tư duyệt và chi"), Tờ 2a "Đã có cọc". Day-one mục 9 dòng 1, mục 10 dòng "Rà giữ chỗ". Release notes: khối giữ chỗ + gạch đầu dòng "Người trực không tự duyệt…" |
+| 3 | Bước (b) phải thu cọc ngay khi đặt đơn mới | **Đồng ý.** (b) **Số tiền đã nhận** ít nhất bằng **Cọc cần thu** (ví dụ 700.000), chọn cách thanh toán; (c) ở bước nhận phòng thu phần còn lại (ví dụ 1.676.000). Tổng khách trả không đổi. Dòng "lỡ chuyển nốt sau hạn": phần đã chuyển ghi ở (b); chưa đủ cọc thì khách chuyển thêm phần thiếu ngay, ghi chung một khoản chuyển khoản, ghi chú cả hai lần chuyển (Desk chỉ nhận một cách thanh toán khi đặt và khi nhận phòng) | Sổ tay 2.4 (dòng "Khách đó tới quầy" (b), (c); dòng "lỡ chuyển nốt sau hạn"), 5.6. One-pager Tờ 2a ("thu đủ cọc ngay → nhận phòng, thu phần còn lại"). Day-one mục 10. Release notes khối giữ chỗ |
+| 4 | Các phần còn lại của cách tạm đúng trên staging | **Ghi nhận.** Không sửa | – |
+| (047) | BUG-R3-047: khung đơn giữ chỗ hiện nút link check-in online | **Thêm nhắc "không bấm"** (check-in online đằng nào cũng tạm dừng theo D-T4). One-pager Tờ 2a **không** thêm: khối "Check-in online – tạm dừng" đã ghi "Không tạo, không gửi link" cho mọi đơn | Sổ tay 2.4 (Lưu ý), 2.9 (khung tạm dừng + bước 1 "Mở đơn **đã xác nhận**"), 5.6. Day-one mục 10 dòng check-in. Release notes "Lỗi nhỏ còn mở" |
+
+Sổ tay lên **bản nội dung 1.4** (dòng đầu tệp, 5.7, release notes). Ghi chú nguồn ở cuối khung 2.4 đã thêm tham chiếu QA 20.
+
+### 10.3 Bản in (Tờ 1, 2a đã hết chỗ – theo `outputs/UXD/print-sheets-v1.0.0.md`)
+
+Chạy `python3 -I product/design/tools/build_print_sheets.py --pdf`: **thoát mã 0, cả 4 tờ vừa một mặt, cỡ chữ không đổi.**
+
+| Tờ | Kết quả | Chỗ trống còn lại | Cắt chữ để bù (cùng tờ) |
+|---|---|---|---|
+| 1 – Quầy lễ tân (9 pt) | Vừa | 0,5 mm (như trước) | Rút câu khách tới 12:00–14:00 thành "giữ hành lý, hẹn giờ; không phụ thu, không giảm giá" (gợi ý của UXD); bỏ vế "Desk sẽ từ chối" ở câu mật khẩu |
+| 2a – Tạm tới v1.0.1 (10 pt) | Vừa (lần đầu tràn, thoát mã 1; cắt tiếp tới khi vừa) | **0 mm** – không thêm được chữ nào nữa | Bỏ chú thích "(Hôm nay chỉ có đơn đến hôm nay; Sơ đồ phòng chỉ 14 ngày)" – đã có ở sổ tay 2.4; rút "màu đỏ (gọi tắt…) sau hạn" thành "đỏ ("0h00")"; rút câu hoàn ở "Đã có cọc"; gộp "lý do thật" vào dòng Sổ giao ca |
+| 2b, 3 | Vừa, không đổi chữ | 49 mm, 60,5 mm | – |
+| 4 – Your ID details | Vừa, **không đổi chữ** (không qua SEC D08) | 2 mm | – |
+
+- PDF mới: `product/docs/print/pdf/to-1-quay-le-tan.pdf`, `to-2a-2b-a4-cat-doi.pdf` (HTML cùng tên trong `product/docs/print/`). PDF Tờ 3, 4 khôi phục về bản đã commit vì chữ không đổi (bộ dựng ghi lại byte khác nhưng nội dung như cũ).
+- PO đã xem ảnh trang 2a + 2b: chữ đủ, chân tờ còn nguyên.
+- **OWN in lại Tờ 1 và Tờ 2a/2b** từ PDF mới ngày 01/11 (Tờ 3, 4 không đổi).
+
+### 10.4 Việc cần xác nhận
+
+**DOM (nghiệp vụ, trước C3a):**
+- D-QA-1: duyệt cách chọn lý do tạm: chưa cọc quá hạn → **Không liên lạc được**; có cọc khách không đi → **Khách đổi ý** / **Không liên lạc được**; làm lại khi khách đến → **Khách đổi ý**. Báo DATA: K-22a (lý do hủy) lệch tới v1.0.1, đọc kèm sổ giao ca.
+- D-QA-2: sửa câu "Tài khoản 6 vai tự duyệt được" trong `reviews/DOM-on-PO-v1.0.0-docs.md` mục A.3 (tệp của DOM) cho khớp sổ tay.
+- D-QA-3: duyệt câu hẹn khách khi OWN vắng ("chuyển khoản lại trong ngày sau khi OWN duyệt" hoặc "tiền mặt khi OWN có mặt trong thời gian ở"). Câu "trong ngày" là cam kết của OWN – nếu OWN không chắc làm được, DOM đổi thành "trong 24 giờ".
+- D-QA-4 (PO thấy thêm, **chưa sửa**): sổ tay 2.4 bước 2 "Đến từ ngày mai" ghi "Giảm giá hoặc FOC của đơn cũ phải xin lại (người trực tự duyệt bằng quyền quản lý, có lý do)". Mục 1.8 ghi "không ai tự duyệt yêu cầu của chính mình, trừ khoản nằm trong hạn mức tự áp của vai". Cần DOM (đọc BR-433/436) và QA (nếu kịp) xác nhận người trực có tự duyệt được giảm giá/FOC do chính mình gửi không. Nếu không: đổi thành "chủ đầu tư duyệt".
+- D-QA-5: duyệt cách ghi ca "lỡ chuyển nốt sau hạn" khi phần đã chuyển chưa đủ cọc (gộp với phần chuyển thêm thành một khoản chuyển khoản ở bước (b)).
+
+**SEC:** không đổi quy tắc, không cần duyệt lại. Đề nghị SEC đọc 2 câu mới ở sổ tay 1.8 (hoàn tiền không ngoại lệ; người nhập nơi nhận tiền mặt không duyệt được, kể cả OWN) cho khớp F8. Nếu ở buổi C3a chủ đầu tư muốn người trực tự hoàn tại quầy: đó là đổi F8, SEC + INV quyết, không vào v1.0.1. PO **không** tạo ESC lúc này.
+
+**QA (nếu kịp trước C3a):** xác nhận trên Desk (không chỉ API) lễ tân mở được **Nhật ký tiền → Hoàn tiền → Nhập nơi nhận hoàn** trên máy quầy cho khoản do mình tạo.
+
+**UXD / BA:** dựng lại HTML sổ tay theo bản nội dung 1.4 nếu bản HTML dùng cho C3a; ảnh không đổi.
+
+### 10.5 Dòng decision-log đề xuất (ORC ghi khi commit)
+
+`| 2026-10-30 | 3 | **PO – Sửa tài liệu ngày D theo QA thử luồng giữ chỗ quá hạn** (qa3-rc1.md 20.7; PO-to-v1.0.0-docs-reviews.md mục 10): tới v1.0.1 không dùng lý do hủy "Khác (ghi rõ)" (BUG-R3-046) – chọn "Không liên lạc được"/"Khách đổi ý", lý do thật ghi sổ giao ca; người tạo yêu cầu hoàn không tự duyệt, không tự chi (SELF_APPROVAL_FORBIDDEN/SELF_REFUND_FORBIDDEN, không ngoại lệ) → người trực hủy và nhập nơi nhận, **OWN duyệt và chi**, OWN vắng thì hẹn khách; đặt lại đơn khi khách đến phải thu đủ cọc ngay (DEPOSIT_INSUFFICIENT), nhận phòng thu phần còn lại; không bấm link check-in online trên giữ chỗ (BUG-R3-047). Sổ tay 1.4; bản in Tờ 1, 2a dựng lại vừa một mặt, Tờ 4 không đổi | PO | Quyền PO (tài liệu vận hành theo quy tắc đã chốt; không đổi chính sách hoàn tiền, không đổi SEC F8) |`
+
+### 10.6 Giả định
+
+- [GIẢ ĐỊNH] Lễ tân nhập được nơi nhận hoàn trên Desk ở **Nhật ký tiền → Hoàn tiền** (QA thử bằng API với cookie máy tin cậy: 200; sổ tay 1.12 ghi tab này có **Nhập nơi nhận hoàn**).
+- [GIẢ ĐỊNH] Ô **Số tiền đã nhận** khi đặt đơn và khoản thu khi nhận phòng chỉ nhận **một** cách thanh toán (đọc mã FE `initialPayment`, `InlinePay`), nên ca chuyển sau hạn chưa đủ cọc ghi gộp một khoản chuyển khoản.
+- Ví dụ số tiền giữ theo sổ tay (2.376.000, cọc 700.000, đã chuyển 300.000).
