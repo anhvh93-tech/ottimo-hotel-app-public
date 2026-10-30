@@ -160,3 +160,64 @@ Lệnh đếm ở ý 5 FE-B 3.1 phải có nguyên văn trong kế hoạch → t
 1. Kiểm `--version` với **cả** `data-consent-version` của form trên trang chủ, không chỉ trang thông báo. Nhờ vậy không thể ghi một version mà form sẽ gửi khác đi.
 2. Kiểm DB "phòng thủ hai lớp": SQL tự kiểm lại định dạng, vai, superuser, và readiness. Có cả ca test chạy SQL bằng superuser để chứng minh bị từ chối.
 3. Kế hoạch sản xuất có giờ, đường lùi cho từng bước, và tách rõ "OPS ghi phiên bản" với "OWN bật công tắc".
+
+---
+
+## Lượt 2 – 30/10/2026 (Phản hồi & sửa): xác nhận D2, FB-03, FB-04
+
+- Đối tượng: commit `c126b1d4` nhánh `ops/us155-enable`:
+  - `product/infra/server/bin/us155-smoke-counts.sh`, `product/infra/server/us155-smoke-counts.sql`;
+  - phần sửa `publish-privacy-notice.sh` / `.sql` / test (ca 13b, 15–20);
+  - kế hoạch 2.5, G1, J; `responses/OPS-us155-enable.md`.
+- Đọc thêm để đối chiếu: `website-requests.service.ts` (audit của WR8 và lookup), `public-booking.service.ts` (`response_body` của khóa idempotency chỉ có `refCode`, `promise`), schema `public-site.ts` (C2 lưu thường, không mã hóa cột, nên tìm chuỗi trên `row::text` là có nghĩa), `psql_admin` của `deploy.sh`.
+- SEC không chạy lại 22 ca. QA chạy lệnh đếm trên dòng do api ghi ở P4 (kế hoạch 2.5).
+
+### Kết luận: **D2 Đạt.** Không còn điều kiện nào của SEC chặn bước L.
+
+### D2 – câu chữ SQL/script: Đạt
+
+| Điểm kiểm | Kết quả |
+|---|---|
+| Chỉ đọc | `BEGIN TRANSACTION READ ONLY` … `ROLLBACK`, `ON_ERROR_STOP` ở cả `-v` lẫn `\set`. `statement_timeout 60s`, `lock_timeout 5s`: gặp migration đang chạy thì lỗi, không chờ. Ca 16 chứng minh không đổi số dòng. |
+| Chỉ in số | Đầu ra mỗi dòng là `số. tên kiểm \| giá trị \| kỳ vọng \| OK/FAIL`. Không chọn cột dữ liệu nào. Kiểm 14 chỉ in **tên bảng** có dòng trúng. Nhánh lỗi chỉ in tối đa 3 dòng `ERROR` (lỗi cú pháp/khóa, không chứa giá trị dòng). |
+| Tham số hóa | `ref`, `since` được kiểm bằng regex (mã Crockford 8 ký tự; thời điểm bắt buộc có múi giờ, ca 20). Chuỗi tìm là hằng trong script. Mọi giá trị đi `sh -c … "$1"…` → `psql -v` → `:'var'`. SQL động duy nhất (kiểm 14) dựng bằng `format('%I', relname)` và `%L`. Không có đường chèn. |
+| Phạm vi | Đủ các bảng thẻ 02 yêu cầu: dòng yêu cầu (C2 + `contact_hmac` + `ip_hmac` NULL, `pii_purged_at`), `purge_journal`, audit `security website_request.erased`, audit/idempotency/outbox/staff_notification/attention_event từ `since`, lịch sử SM-18. Thêm kiểm 14 quét mọi bảng `public` (bảng cha phân vùng tính một lần). Ngoài `public` chỉ có schema `drizzle` (sổ migration), không có dữ liệu khách. |
+| Tự đánh giá đúng | Exit 0 chỉ khi đủ 14 dòng OK. Ca 17 (rò ở outbox → kiểm 8 và 14 FAIL), 18 (chưa xóa), 19 (mã sai) chứng minh có bắt lỗi. |
+| Không chạy test trên production | `PN_TEST_DC` bị từ chối khi `is_prod=1`. |
+
+**Kiểm 14 chỉ tìm "TEST OTTIMO": chấp nhận.** `info@ottimo.vn` là hộp thư chung, có thể có hợp lệ ở bảng tài khoản/cấu hình. Đếm nó toàn DB sẽ báo FAIL giả. Chuỗi này vẫn được tìm ở các kiểm 3, 6–8, 10, 11, 13 (các dòng sinh từ `since`). Đây là các nơi mà lần gửi thử có thể để lại dấu vết.
+
+### Vai DB: chấp nhận superuser qua socket, trong giao dịch READ ONLY
+
+Lý do:
+1. Kiểm 14 phải thấy **mọi** dòng của mọi bảng. `ottimo_owner` có `app.organization_id` chỉ thấy tenant của mình, nên có thể bỏ sót bản sao lạc tenant. Superuser bỏ qua RLS (kể cả FORCE): đó đúng là điều cần cho phép kiểm "không còn ở đâu".
+2. Hiện chưa có vai đọc riêng (BYPASSRLS, chỉ SELECT). Tạo vai mới ngay trước khung giờ là thay đổi hạ tầng không cần thiết.
+3. Rủi ro được giữ bởi: câu SQL cố định trong repo và có test, giao dịch READ ONLY, chỉ in số. Đăng nhập qua socket của container, không mật khẩu trên dòng lệnh. Cùng tiền lệ `psql_admin` của `deploy.sh`.
+
+Điều kiện dùng (ghi để OPS làm đúng, không phải điều kiện mới):
+- Chỉ chạy qua `us155-smoke-counts.sh` đúng như kế hoạch 2.5. Không mở `psql` tương tác trên production.
+- Nếu có kiểm FAIL: **không** tự truy vấn để xem dòng. Dừng và gửi SEC nguyên đầu ra (số kiểm, tên bảng). SEC quyết cách dọn. Mọi việc dọn đi qua WR8 hoặc công cụ có review, không SQL tay.
+- `--since` lấy theo đồng hồ **ngay trước khi bấm gửi** yêu cầu thử. Mốc `07:45` trong kế hoạch chỉ là ví dụ. Nếu `since` muộn hơn lúc gửi: kiểm 5 FAIL (an toàn, không lọt) và kiểm 6–11 có thể bỏ sót. Kiểm 14 không lọc theo thời gian nên vẫn bao "TEST OTTIMO".
+
+### Thẻ cũ
+
+| Thẻ | Kiểm lại | Trạng thái |
+|---|---|---|
+| FB-R3-SEC-OPS-US155-02 | Như trên | **Verified** |
+| FB-R3-SEC-OPS-US155-03 | `publish-privacy-notice.sh` dòng 47–49, đặt trước mọi chỗ đọc `SMOKE_*` (dòng 138–140). Khi `is_prod=1`, script từ chối nếu `SMOKE_INSECURE` khác rỗng/`0` hoặc `SMOKE_ADDR` khác `127.0.0.1`. Thứ tự `&&`/`\|\|` đúng. Ca 13b đạt. `SMOKE_HTTPS_PORT` vẫn nhận, nhưng chứng chỉ vẫn được kiểm và vẫn đi `127.0.0.1`, nên chấp nhận. | **Verified** |
+| FB-R3-SEC-OPS-US155-04 | (1) test tự từ chối trên máy chủ, G1 có `rsync --exclude 'server/test/'` và kiểm "không có `infra/server/test/`"; (2) bước J có băm từ Mac qua mạng ngoài; (3) công cụ giữ `state/landing.lock` | **Verified** |
+
+### Thẻ mới
+
+#### FB-R3-SEC-OPS-US155-05
+- Mức độ: Suggestion (v1.0.1, không chặn khung)
+- Vị trí: `us155-smoke-counts.sh` dòng 30–31; `publish-privacy-notice.sh` dòng 58–62; `test/publish-privacy-notice.test.sh` ca 13b.
+- Vấn đề / đề xuất:
+  1. `shift 2 || true` khi cờ cuối thiếu giá trị (ví dụ `--ref` không có số): `shift 2` thất bại mà không dịch, nên vòng `while` lặp mãi. Script treo, không ghi gì, Ctrl-C là thoát. Sửa: `[ $# -ge 2 ] || usage`.
+  2. Ca 13b mới thử `SMOKE_INSECURE`. Thêm một ca `SMOKE_ADDR=10.0.0.1` cho đủ hai nhánh.
+- Trạng thái: Open
+
+### Còn lại trước bật form (không thuộc D2)
+- D1: QA ghi 2 băm trên đúng digest CI ở P4, OPS so ở J.
+- D3: ARC đã duyệt có điều kiện (`f58bfd67`).
+- Mốc M: SEC ghi decision-log "bật form" khi có đủ bằng chứng VPS (G0/G2/I), băm J (VPS = QA = Mac) và đầu ra `RESULT: OK – 14/14` của bước L.

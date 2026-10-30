@@ -151,3 +151,27 @@
 - Công cụ "người chạy không gõ dữ liệu": băm, tổ chức, locale, đường dẫn đều tự suy và đối chiếu ba nguồn (image theo digest, trang thật, form `data-consent-version`). Đây là mẫu đúng cho mọi lần ghi dữ liệu vận hành sau này.
 - SQL viết như một migration dữ liệu có chốt: kiểm hết rồi mới ghi, `ON_ERROR_STOP`, tự từ chối superuser và sai vai, kiểm lại readiness ngay trong giao dịch. Chạy thử không tốn số sequence của audit.
 - Kịch bản production có giờ, cách kiểm và đường lùi cho từng bước. Đã dò lại `v1-production.md` để biết bundle cũ và tránh khung giờ nhận/trả phòng.
+
+## Lượt 2 – xác nhận bản sửa (30/10/2026, commit `c126b1d4` trên `ops/us155-enable`)
+
+Đọc diff `c126b1d4` (plan 2.3/2.4/6, README 12.3, `publish-privacy-notice.sh`/`.sql`) và `responses/OPS-us155-enable.md`. Đối chiếu `deploy-landing.sh` (khóa, `--rollback`, `up --detach`), `Caddyfile.landing` (`LANDING_PUBLIC_API`), `Dockerfile.landing` (`/srv/landing`), `deploy-from-ci.sh`. `bash -n` sạch cho 3 script; không chạy lại test 22 ca (cần image CI) và máy này không có `shellcheck` – CI job "infra scripts" phải xanh trên PR. Nhánh gộp vào `main` hiện tại không xung đột (`git merge-tree`), không tệp nào trùng.
+
+| Thẻ | Kết quả | Ghi chú |
+|---|---|---|
+| FB-02 (G3) | **Verified** | Đủ 3 nhánh: dừng trước `switch` = không đổi gì, báo ORC; sau `switch` xem log, chỉ chép `.env` cũ khi log nêu `LANDING_*`/`TRUST_PROXY`, rồi `dc up -d --wait --wait-timeout 180`; mốc 07:22 bỏ I–M, quy trình giấy, sự cố 17. Đã ghi lần đầu `deploy.sh` mới chạy production và dấu hiệu landing sau `--remove-orphans` (19.3). |
+| FB-03 (thứ tự lùi landing) | **Verified** | `off` → `--rollback` → kiểm `form-token` 404 HTML Caddy, sửa đủ 3 chỗ: plan dòng I, 2.4 mức 3, README 12.3 (c). Đúng cơ chế: Caddy đọc `{$LANDING_PUBLIC_API:off}` lúc khởi động, Caddyfile mount từ bundle, nên bản `sha-70fe734e9077` dựng lại với `.env` mới sẽ đóng `/v1/public/*`. |
+| FB-05 (`landing.lock`) | **Verified** | Khóa fd 8 sau khóa riêng fd 9, giữ tới hết script; cùng tệp `$state/landing.lock` và cùng user deploy với `deploy-landing.sh` (fd 9, `flock -n`). Thứ tự khóa một chiều, không có deadlock (`deploy-landing` không lấy `privacy-notice.lock`). |
+| FB-06 (a) | **Verified** | Đếm "version khác còn hiệu lực" chỉ trên vi/en; lệnh `UPDATE superseded_at` vốn theo từng locale nên dòng `ru` sau này không bị đụng. |
+| FB-01 (Major) | Deferred – **chấp nhận** | Tạm thời: dòng I băm 2 tệp trong image mới so với `state/privacy-notice.log` trước khi INV duyệt; README 12.3 ghi cho mọi lượt sau. Đường dẫn `/srv/landing/...` khớp `Dockerfile.landing`. Việc thật (`deploy-landing.sh` tự từ chối cùng version khác byte + 2 ca test) vẫn là điều kiện trước lượt landing kế tiếp sau `landing-v1.1.0`. |
+| FB-04 | Deferred `v1.0.1` – chấp nhận | `--candidate-digest`. Tới lúc đó: ghi ngay sau deploy landing, cùng phiên SSH, ngoài giờ cao điểm (README 12.3 cần thêm câu này khi làm FB-01). |
+| FB-06 (b) | Deferred – chấp nhận | Job `workflow_dispatch` sau khung. |
+
+Ghi chú nhỏ (không phải thẻ mới): dòng I ghi "2 băm phải trùng số QA đo ở P4" ngay từ bước kiểm trước duyệt – tốt, bắt lệch digest sớm hơn J 10 phút. Lệnh đếm khói `us155-smoke-counts.*` thuộc phần SEC duyệt (D2); ARC chỉ xem tính khả thi: READ ONLY + ROLLBACK, tham số qua `-v`, kiểm 14 quét mọi bảng `public` – DB production nhỏ nên chạy trong vài giây, chấp nhận.
+
+### Kết luận lượt 2: **DUYỆT – gộp PR #15 được** (về phía ARC)
+
+Điều kiện còn lại:
+1. **Trước khi gộp:** CI trên PR xanh (đặc biệt job "infra scripts" – shellcheck cho `us155-smoke-counts.sh` mới); SEC duyệt lượt 2 (smoke-counts D2, FB-02/03/04 của SEC) – đó là cổng của SEC, ARC không thay.
+2. **Trước khung 31/10 07:00:** bundle rsync ở G1 lấy từ `main` **sau** khi gộp (có `c126b1d4`), so sha256 cả `us155-smoke-counts.*`.
+3. **Trước lượt landing kế tiếp sau `landing-v1.1.0`:** FB-01 (kiểm byte trong `deploy-landing.sh` + 2 ca test). ORC theo dõi trong backlog như việc OPS có hạn, vì CI đã dựng image landing có form cho mỗi commit main.
+4. **`v1.0.1`:** FB-04 (OPS), trigger chỉ-thêm-dòng `privacy_notice_version` + đăng ký audit allowlist (BE, theo mục "Trả lời OPS" 1–2).
