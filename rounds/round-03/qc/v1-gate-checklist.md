@@ -1,8 +1,13 @@
 # Cổng v1.0 – Bảng kiểm chuẩn bị (QC)
 
+> **Cập nhật 30/10/2026 – ĐÃ CHẤM.** Kết quả ở **`rounds/round-03/qc/v1-gate.md`**: **ĐẠT CÓ ĐIỀU KIỆN** trên `v1.0.0-rc.6` = `8b3aec8` (không còn là `rc.1` / `2963675` như bên dưới).
+> - Chặn gắn tag `v1.0.0`: T1 (SEC xác nhận trên `8b3aec8` + ca A.7 #16), T2 (INV trả lời ESC-040 – BUG-R3-032 P1 còn mở), T3 (OPS đọc log staging 6 job theo lịch trên rc.6).
+> - Chặn ngày D 02/11: tài liệu theo rc.6 (release notes, one-pager, sổ tay), thông báo dữ liệu v2 hoặc tạm không gửi link check-in online, báo động A7, log 6 job trên production; INV: L-1 đăng xuất, tài khoản 6 vai đăng nhập + 2 bước, C1 VietQR, danh sách chuyển đổi.
+> - Trạng thái từng dòng G1…G8 bên dưới là bản 26/10, giữ để đối chiếu; trạng thái mới nằm ở `v1-gate.md` mục 2–3. Quy tắc chấm mục 6 vẫn áp dụng.
+
 - Người lập: QC | Ngày: 26/10/2026 (chiều) | Round 3 – Bước **QC (chuẩn bị cổng v1.0, đường nhanh)**
 - Bản ứng viên: tag `v1.0.0-rc.1` (tag có chú thích) = commit `2963675` – cùng commit đang chạy trên staging (`sha-29636757822b`, OPS `v1-production.md` 16.1).
-- **Trạng thái cổng: CHƯA CHẤM.** Đây là bảng kiểm, không phải quyết định. QC **không chấm ĐẠT** lúc này: production chưa chạy được app, chưa smoke, chưa diễn tập khôi phục.
+- **Trạng thái cổng (26/10): CHƯA CHẤM** – đã chấm 30/10, xem khung đầu tệp. Đây là bảng kiểm, không phải quyết định. QC **không chấm ĐẠT** lúc này: production chưa chạy được app, chưa smoke, chưa diễn tập khôi phục.
 - Căn cứ: `rounds/round-03/release-v1-plan.md` (mục 3 – 5 điều kiện, mục 4, 5); `rounds/round-03/inv-golive-checklist.md`; `product/docs/uat-script.md`; `rounds/round-03/reviews/SEC-sprint1.md` (mục 2, 3); `rounds/round-03/qa/bug-list.md`; `rounds/round-02/qa/bug-list.md`; `rounds/round-02/qa/staging-run.md`; `rounds/round-03/outputs/OPS/v1-production.md` mục 12–16; decision-log 23–26/10.
 - Cách QC kiểm: đọc tệp và lịch sử git; tự đọc CI bằng `gh run list/view -R anhvh93-tech/ottimo-hotel-app-public` (26/10 ~15:00); `git grep` trên `2963675`; `git diff 880ea19 2963675`; `curl` trang công khai (chỉ đọc mã trạng thái). QC **không** SSH vào máy chủ, không đăng nhập staging/production, không chạy stack.
 - Repo công khai: tệp này không ghi IP, bí mật, số tài khoản, vân tay khóa hay thủ tục khôi phục.
