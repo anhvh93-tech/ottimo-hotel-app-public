@@ -157,3 +157,161 @@ Dòng decision-log đề nghị ORC ghi:
 - **Bộ test đặt khóa đúng chỗ.** Có spy trên mọi câu SQL ("A/B không bao giờ đọc C2"), có khóa tĩnh cho hằng phiên bản, và có test log canh trên **toàn bộ** bộ test. Ba khóa này giữ cho lỗi nặng nhất (lộ chi tiết ở mức A, lộ URL webhook) không quay lại khi có người sửa về sau.
 - **Test SLA viết theo đúng bảng mốc ARC 8.4**, gồm cả ca khó: gọi ngay ban đêm, kênh `phone` ở 08:30, worker trở lại lúc 10:00. QA chạy ở 4 múi giờ tiến trình đều xanh, nên mốc 07:30 không phụ thuộc máy chủ.
 - **Client Chat giảm mọi lỗi về mã ngắn và kiểm thử được bằng webhook giả** (treo, đóng kết nối, 3xx, 4xx, 5xx, thân > 4 KB). QA kiểm được toàn bộ PR mà không cần đụng tới Google Chat thật.
+
+---
+
+## Lượt 2 – test lại 98ff43bb
+
+- Người test: QA | Round 3 – bước **Kiểm thử** (test lại bản sửa) | 31/10/2026 00:00–00:15
+- Đối tượng: PR #16 head `98ff43bb` (một commit trên `9520cec1`; 5 tệp: `chat-message.ts`, `gchat-units.test.ts`, `gchat-notify.test.ts`, `outputs/BE/gchat-booking-notify.md` mục 2b, `responses/BE-gchat-notify.md` lượt 3). Đã đọc thêm `reviews/SEC-on-BE-gchat-notify.md` mục Lượt 3 (SEC đã duyệt 057, mở GCHAT-07).
+- Cách test:
+  - `git fetch`, checkout detached `98ff43bb` trong worktree QA, `pnpm install --frozen-lockfile --offline`, build `@ottimo/contracts` + `@ottimo/integrations`.
+  - DB: container Postgres 17 tạm `qa-r057-pg`, cổng 55433 (không trùng stack khác), chạy `infra/postgres/init/02-roles.sh` như CI, test chạy với vai `ottimo_app`. Đã dừng và xóa container sau khi xong.
+  - Webhook: chỉ webhook giả trong bộ test. Không gửi tin ra ngoài.
+  - Chuỗi biên: tệp thử ở scratchpad (không vào repo), gọi thẳng `chatSafeText` (lời nhắn: `maxChars 500`; tên: `singleLine + plain`) và luật form (`normalizeFreeText` → `looksLikeIdNumber` / `looksLikeCard`). Chỉ dữ liệu giả: CCCD `079203012345`, thẻ thử `4111…`, SĐT `0905 111 222`, `*.example`.
+
+### Kết luận lượt 2: **BUG-R3-057 Đã sửa – đã xác nhận.** FB-R3-QA-BE-GCHAT-01 = Done
+
+Mọi chuỗi của FB-01, cùng 24 chuỗi mới nhắm đúng lỗi "bước làm sạch ghép số lại", nay đều bị thay bằng `CHAT_ID_REPLACEMENT`. SĐT hợp lệ vẫn hiện ở mức C. Các chuỗi còn lọt **không do bước làm sạch tạo ra**. Chúng là khe của luật số chung V-09 (form cũng nhận và lưu y nguyên), nên QA ghi vào BUG-R3-058 và FB-R3-SEC-BE-GCHAT-07 chứ không mở lại 057. Chi tiết ở thẻ 06 dưới.
+
+QA đổi BUG-R3-057 sang **Đã sửa – đã xác nhận** (cột Fixed). Lỗi sang **Closed** khi PR #16 gộp vào `main` với job CI `format · lint · audit · test · build` xanh. Lúc 00:12 job này **đang chạy**; 6 job khác của PR đã xanh.
+
+### 1. Kết quả chạy test (head `98ff43bb`)
+
+| Bộ | Phạm vi | Kết quả |
+|---|---|---|
+| Unit Chat | `gchat-units.test.ts` (không DB) | **91/91** đạt (lượt 1: 58) |
+| Tích hợp Chat | `gchat-units` + `gchat-notify` + `gchat-worker-only` (DB thật) | **116/116** đạt ở 4 múi giờ tiến trình: `Asia/Ho_Chi_Minh`, `UTC`, `America/Los_Angeles`, `Pacific/Kiritimati` |
+| Toàn bộ api | `vitest run` (DB thật, có `BOOTSTRAP_*`) | **141 tệp đạt, 2 bỏ qua; 3387 ca đạt, 19 bỏ qua; 0 lỗi** (116 s). Khớp số BE báo |
+
+Chưa chạy: lint, typecheck, format, integrations (không đổi trong commit này). Phần này dựa vào CI của PR.
+
+### 2. Chuỗi biên – kết quả trên `98ff43bb`
+
+"Che" = cả trường thành `(có dãy số giống giấy tờ hoặc thẻ – xem trên Desk)`. Lời nhắn thử dạng `CCCD <chuỗi> nhé`.
+
+**2a. Chuỗi lượt 1 – tất cả bị che (tên và lời nhắn)**
+
+| Chuỗi | Form | Tin mức C |
+|---|---|---|
+| `0790<ZWSP>12345678`, `079<WJ>203<WJ>012<WJ>345`, `079203<SHY>012345`, `4111<ZWSP>1111<ZWSP>1111<ZWSP>1111` | Nhận | Che |
+| `079_203_012_345`, `4111_1111_1111_1111`, `079,203,012,345`, `079/203/012/345`, `079<NBSP>203<NBSP>012<NBSP>345` | Nhận | Che |
+| `０７９２０３０１２３４５` (toàn độ rộng) | Nhận | Che |
+| Đối chứng `079203012345` | Từ chối | Che |
+
+**2b. Chuỗi mới cố lách – bị che (tên và lời nhắn)**
+
+| Nhóm | Chuỗi | Tin mức C |
+|---|---|---|
+| Trộn ZWSP và `_` | `079_<ZWSP>203_<ZWSP>012_<ZWSP>345`, `079<ZWSP>_203<ZWSP>_012<ZWSP>_345`, `079.<ZWSP>203.<ZWSP>…` | Che (lần kiểm sau khi bỏ Cf bắt được) |
+| Tách từng chữ số | ZWSP giữa mỗi chữ số; `_` giữa mỗi chữ số (CCCD và thẻ 16 số) | Che |
+| Chữ số hệ khác | Devanagari `०७९२०३०१२३४५`, Thái `๐๗๙…`, Bengal `০৭৯…`, trộn `0७9२03०12३45`, Devanagari + ZWSP, Devanagari `_`, Ả Rập `_` | Che |
+| Chữ số tương thích | Toán học đậm `𝟎𝟕𝟗…`, đơn cách (thẻ) `𝟺𝟷𝟷𝟷…`, chỉ số trên `⁰⁷⁹…`, khoanh tròn `⓪⑦⑨…` | Che |
+| Khoảng trắng lạ | U+2009, U+3000 giữa các nhóm | Che |
+| Số trong URL | `https://pay.example/?card=4111111111111111`, `…/c/4111-1111-1111-1111/x`, `…/cccd/079203012345`, `https://visa.example/B1234567/` | Che (form cũng từ chối) |
+| Số thẻ trong URL có ZWSP | `https://pay.example/?c=4111<ZWSP>1111<ZWSP>1111<ZWSP>1111` | Che (form nhận) |
+| Tên có `__`, hai dấu cách, xuống dòng | `0790__12345678`, `079__203__012__345`, `079  203  012  345`, `079⏎203⏎012⏎345` (cả `\r\n`, U+2028) ở **tên** | Che (`plain` gộp dấu cách, tên một dòng) |
+| Lời nhắn > 8 dòng | (ca của BE) dòng 9 nối vào dòng 8 thành `079 203 012 345` | Che |
+
+**2c. SĐT và chữ thường ở mức C**
+
+| Lời nhắn | Tin mức C |
+|---|---|
+| `Gọi em số 0905 111 222 nhé`, `0905111222`, `0905.111.222`, `0905-111-222`, `0905_111_222`, `+84 905 111 222`, `+84905111222`, `84905111222`, `０９０５１１１２２２` | **Hiện như khách gõ** |
+| `0905 111 222, 0905 333 444`, `Zalo 0905111222 hoặc 0283 822 1234`, `Đến 12/11/2026, đi 15/11/2026, 2 người lớn 1 trẻ 5 tuổi`, `Ngân sách 1,500,000 đ/đêm`, `Gọi sau 18:00 ngày 12.11`, `Phòng 101, 102`, `Mã đặt Agoda 1234567890` | Hiện như khách gõ |
+| `0905111222,0905333444` (hai SĐT nối `,` không dấu cách) | Che thừa (20 chữ số, có đoạn qua Luhn). Form nhận. Đúng đánh đổi SEC đã chấp nhận ở lượt 3 |
+| `(+84) 905-111-222` | Che. Nhưng **form đã từ chối** chuỗi này từ trước (`905-111-222` có 9 chữ số, dấu `)` chắn ngoại lệ `+`). Lỗi che thừa có sẵn ở luật form, không do PR. Ghi vào thẻ 06 |
+
+Test tích hợp BE "render C: a valid guest phone is printed" (dòng `Liên hệ: +84905111222 · kênh: Zalo` và lời nhắn lặp lại SĐT) chạy xanh trong 116/116. Dòng `Liên hệ:` không đi qua `chatSafeText`.
+
+**2d. Còn lọt – khe của luật chung V-09, không do bước làm sạch tạo ra**
+
+| Chuỗi | Form | Tin mức C | Nhóm |
+|---|---|---|---|
+| `0790__12345678`, `079__203__012__345`, `079_/203_/012_/345` (lời nhắn) | Nhận | Lọt (y nguyên) | Nhiều ký tự tách |
+| `079 - 203 - 012 - 345`, `079  203  012  345` (lời nhắn), tên `079_/203…` → `079 /203 /012 /345` | Nhận | Lọt | Nhiều ký tự tách (SEC GCHAT-07 đã ghi) |
+| `079⏎203⏎012⏎345`, `4111⏎1111⏎1111⏎1111`, `079203⏎012345` (lời nhắn, cả `\r\n`, U+2028) | Nhận | Lọt (mỗi nhóm một dòng trong khối mã) | Xuống dòng (SEC GCHAT-07 đã ghi) |
+| `079–203–012–345`, U+2011, `079·203·012·345`, `4111'1111'1111'1111` | Nhận | Lọt | Dấu tách hiện được ngoài bộ `[ .-_/,]` (SEC đã ghi gạch Unicode và `·`) |
+| `079<CGJ U+034F>203…`, `079<VS1 U+FE00>203…`, `0790<VS16>12345678` | Nhận | Lọt. **Chat hiện liền như `079203012345`**, vì các ký tự này vô hình mà không thuộc `\p{Cf}` | Ký tự vô hình loại Mn |
+| `0️⃣7️⃣9️⃣…` (keycap), `0̃7̃9̃…` (dấu kết hợp trên mỗi chữ số) | Nhận | Lọt | Dấu kết hợp (Mn/Me) |
+| `079<U+3164>203…` (Hangul filler), `079<U+2800>203…` (Braille trống) | Nhận | Lọt | Ký tự trống không phải khoảng trắng |
+| `pay.example/?c=4111%201111%201111%201111`, `…/079%E2%80%8B203%E2%80%8B…` | Nhận | Lọt | Mã hóa URL |
+
+Vì sao QA **không mở lại** 057:
+- Kỳ vọng của 057 là: không bước làm sạch nào được ghép ra một số mà luật không còn thấy. Ba lần kiểm, trong đó lần cuối chạy trên chính chữ in ra, giữ đúng điều này. QA không tìm được chuỗi nào mà chữ in ra **khớp** luật số nhưng vẫn lọt.
+- Các chuỗi ở 2d lọt vì luật số chung không đọc được chúng, ở cả form, DB và Desk. Chat chỉ in lại y nguyên.
+- SEC lượt 3 đã đánh giá các dạng cố ý che (dấu kết hợp, U+034F, VS16, `·`) là rủi ro còn lại thấp: người có giấy tờ không có lý do che số của chính mình. QA đồng ý. QA giữ mức P2 cho BUG-R3-058, và theo SEC, GCHAT-07 bước 1–3 là điều kiện trước khi đặt C.
+- Ba nhóm SEC chưa liệt kê thì QA bổ sung vào thẻ 06: ký tự vô hình Mn/Default_Ignorable, ký tự trống Hangul/Braille, và mã hóa URL.
+
+### 3. TC-GC-10 – cách BE viết ca 07:00
+
+BE thêm ca `edges (QA TC-GC-10)` vào `gchat-notify.test.ts`. Ca này dùng kênh `phone`, ngày đến +3, và kiểm như sau:
+- tick 07:29:59: cả ba yêu cầu chưa có tin;
+- tick 07:30:00: 22:00:00 và 06:59:59 có `web_request_morning`, còn 07:00:00 thì `not.toContain('web_request_morning')`;
+- tick 07:31: không có tin trùng.
+
+Đánh giá: **hợp lý và đúng mã**.
+- Cửa sổ ca đêm của `morningNudge` là `created_at >= hôm qua front_desk_hours.to AND < hôm nay .from`, tức [22:00, 07:00).
+- `replyPlan` coi giờ trực là `within = t >= from && t < to`, tức [07:00, 22:00).
+- Hai mốc khớp nhau, nửa mở cùng chiều. Vì vậy 22:00:00 là ca đêm, 07:00:00 là trong giờ, và không có yêu cầu nào vừa được nhắc sáng vừa được tính SLA trong giờ.
+- `hhmm` cắt giây, nên 06:59:59 là `06:59`, ngoài giờ.
+
+Điểm yếu nhỏ: với ca 07:00, `not.toContain` vẫn đạt nếu yêu cầu bị gửi nhầm **tin quá hạn** lúc 07:30. QA thử sửa tạm trong worktree (không commit, đã hoàn tác), thêm 3 kiểm:
+- 07:30: `toEqual([])`;
+- 08:29:59: `toEqual([])`;
+- 08:30:00: ca 07:00 = `['web_request_overdue']`, vì `phone` trong giờ nhưng trước khung gọi 08:00, nên `reply_by` = 08:00 + 30 phút. Ca 22:00 = `['web_request_morning', 'web_request_overdue']`.
+
+Kết quả: **đạt**. Mã đúng, chỉ cần khóa chặt hơn (thẻ 05).
+
+### 4. Thẻ feedback mới
+
+### FB-R3-QA-BE-GCHAT-05
+- Mức độ: Suggestion
+- Vị trí: `product/services/api/test/integration/gchat-notify.test.ts`, ca `edges (QA TC-GC-10)`, dòng `expect(await kinds(at0700.id)).not.toContain('web_request_morning')`
+- Vấn đề: kiểm "không chứa" vẫn đạt nếu ca 07:00 bị gửi nhầm `web_request_overdue` lúc 07:30. Ca này cũng chưa khóa mốc quá hạn trong giờ của kênh `phone` (08:30).
+- Vì sao quan trọng: mốc nửa mở [07:00, 22:00) phải khớp giữa `replyPlan` và `morningNudge`. Nếu sau này ai đổi một bên thành `<=`, ca này nên đỏ.
+- Đề xuất sửa: 07:30 dùng `toEqual([])`; thêm tick 08:29:59 (`[]`) và 08:30:00 (`['web_request_overdue']`); khi đó ca 22:00 = `['web_request_morning', 'web_request_overdue']`. QA đã chạy thử bản này: xanh. Làm khi PR có commit kế tiếp, không cần commit riêng.
+- Trạng thái: Open
+
+### FB-R3-QA-BE-GCHAT-06
+- Mức độ: Minor (không chặn gộp PR #16; đi cùng FB-R3-SEC-BE-GCHAT-07, là điều kiện trước khi đặt C)
+- Vị trí: luật chung `website-request-rules.ts` (`looksLikeIdNumber`, `looksLikeCard`, `GROUPED_DIGITS`) và bản kiểm `looksLikeSensitiveNumber` trong `chat-message.ts`. Gắn với BUG-R3-058.
+- Vấn đề: bảng 2d. Ngoài các nhóm SEC đã ghi trong GCHAT-07, còn 3 nhóm lọt cả form lẫn tin C:
+  - (a) ký tự vô hình không thuộc `\p{Cf}`: U+034F, U+FE00–FE0F. Chat hiện số liền mạch, giống hệt ca ZWSP của 057;
+  - (b) ký tự trống không phải khoảng trắng: U+3164 Hangul filler (là Default_Ignorable nhưng loại Lo, nên bước "bỏ `\p{M}`" của SEC không bắt), U+2800;
+  - (c) mã hóa URL `%20`, `%E2%80%8B` giữa các nhóm.
+  - Ngoài ra, luật form đang **che thừa** `(+84) 905-111-222`: form từ chối 422, khách không gửi được.
+- Vì sao quan trọng: (a) là đúng dạng "vô hình rồi ghép" của 057, chỉ khác loại ký tự. Rủi ro thấp vì phải cố ý chèn (đồng ý SEC). Sửa rẻ, nên làm cùng GCHAT-07.
+- Đề xuất sửa (chỉ trên bản dùng để kiểm, chữ in ra không đổi):
+  - Thêm vào GCHAT-07 bước 1: bỏ `[\p{Default_Ignorable_Code_Point}\p{M}]` sau NFKC.
+    - QA đã thử ở scratchpad: `looksLikeSensitiveNumber(s) || looksLikeSensitiveNumber(strip(s))` che được U+034F, VS1, VS16, keycap, dấu kết hợp, U+3164, thẻ có U+034F, U+034F + `_`.
+    - Vẫn giữ nguyên: `0905 111 222 nhé`, emoji có tông da, emoji gia đình ZWJ, tên tiếng Việt, ngày, số tiền, `+84 905 111 222`, `Zalo 0905111222`.
+  - Coi U+2800 là khoảng trắng.
+  - Giải mã `%XX` trên bản kiểm khi chuỗi có dạng URL (không bắt buộc, rủi ro thấp nhất).
+  - Ca test "không che nhầm" của BE-D: thêm `(+84) 905-111-222`; ca này phải **qua** form.
+  - Khi BE-D sửa luật chung (BUG-R3-058), nên để form và Chat dùng **một** hàm kiểm duy nhất. Nếu không, hai bên sẽ lệch nhau: hiện Chat hiểu `_ / ,`, form thì không.
+- Trạng thái: Open
+
+### 5. Trạng thái thẻ lượt 1
+
+| Thẻ | Trạng thái sau lượt 2 |
+|---|---|
+| FB-R3-QA-BE-GCHAT-01 (BUG-R3-057) | **Done – QA xác nhận** trên `98ff43bb` |
+| FB-R3-QA-BE-GCHAT-02 (BUG-R3-058) | Chuyển BE-D (đồng ý). Bổ sung bởi thẻ 06 |
+| FB-R3-QA-BE-GCHAT-03 | Chuyển PO/BA (đồng ý). Vẫn là điều kiện trước khi đặt C |
+| FB-R3-QA-BE-GCHAT-04 | Chuyển OPS/INT (đồng ý) |
+| TC-GC-01, 02, 06, 10 | Có trong PR, xanh. TC-GC-10 xem thẻ 05 |
+| TC-GC-03–05, 07–09, 11–14 | Chưa có. Giữ ưu tiên như mục 4 lượt 1 |
+
+### 6. Điều kiện (cập nhật)
+
+**Gộp PR #16 (phía QA):** đạt. Còn chờ job CI `format · lint · audit · test · build` trên `98ff43bb` xanh. Không còn thẻ Major mở từ QA.
+
+**Trước khi đặt `BOOKING_REQUEST_CHAT_DETAIL_LEVEL=C` trên production:**
+- `98ff43bb` nằm trong bản v1.0.1 đã lên production; BUG-R3-057 chuyển Closed;
+- FB-R3-SEC-BE-GCHAT-07 bước 1–3, kèm thẻ 06 (a) và (b), lên cùng lúc hoặc trước đó;
+- TC-GC-14 có trong lượt kiểm INT trên phòng thử;
+- FB-03 đã chọn dạng mã, và sổ tay WR8 ghi đúng dạng đó.
+
+Dòng decision-log đề nghị ORC ghi:
+`| 2026-10-31 | 3 | QA – test lại PR #16 head 98ff43bb: BUG-R3-057 Đã sửa – đã xác nhận (Closed khi gộp main + CI xanh). Test: gchat-units 91/91, Chat 116/116 ở 4 múi giờ tiến trình, api 3387 đạt / 0 lỗi (141 tệp). 11 chuỗi lượt 1 + 24 chuỗi mới (trộn ZWSP và _, chữ số Devanagari/Thái/Bengal/toán học, số thẻ trong URL, tên có __ hoặc xuống dòng) đều bị che; SĐT hợp lệ vẫn hiện. Còn lọt là khe của luật chung V-09 (nhiều ký tự tách, xuống dòng ở lời nhắn, gạch Unicode, U+034F/VS, U+3164, %20), không do bước làm sạch: ghi vào BUG-R3-058 + FB-06, đi cùng SEC GCHAT-07 trước khi đặt C. TC-GC-10 đúng mốc [07:00, 22:00); đề nghị khóa chặt hơn (FB-05) | QA | Quyền QA (mức lỗi, kết luận kiểm thử) |`
