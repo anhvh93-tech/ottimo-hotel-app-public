@@ -11,8 +11,8 @@
 |---|---|
 | Blocker | 0 |
 | Major | 1 |
-| Minor | 4 |
-| Suggestion | 3 |
+| Minor | 5 (gồm D09 ở mục F) |
+| Suggestion | 4 (gồm D10 ở mục F) |
 
 Kết luận ngắn:
 - **SEC đồng ý D-T4 (a).** Phương án này đáp ứng điều kiện SEC 5.2 "trước khách thật đầu tiên dùng check-in online": khi không có link thì không khách thật nào dùng check-in online. SEC đã kiểm mã: link chỉ sinh ở một chỗ (`issueLink`, do nhân viên bấm trên Desk), không job hay tin tự động nào tạo link. Vì vậy PO-G1 đúng, và một quy tắc thao tác là đủ. Điều kiện mở lại ở mục 2.1 dùng được, SEC bổ sung ở mục C.
@@ -159,6 +159,47 @@ Kết luận: **không thẻ** cho release notes về mặt lộ thông tin. Ch�
 - Vấn đề: Sau review này, chữ "chờ SEC xác nhận" đã cũ. Tờ thông báo in ra cũng chưa có dấu phiên bản. Khi chữ đổi ở v1.0.1, sẽ khó biết khách ở quầy đã thấy bản nào.
 - Vì sao quan trọng: Thủ tục, và bằng chứng về thông báo (bên kiểm soát dữ liệu phải chứng minh được đã thông báo gì, lúc nào).
 - Đề xuất sửa: Đổi thành "đội bảo mật đã đồng ý 30/10 (`reviews/SEC-on-PO-v1.0.0-docs.md`)". Thêm chân tờ thông báo một dòng nhỏ, ví dụ "OTTIMO · ID notice · 11/2026". Đổi chữ thì đổi dòng này và giữ bản cũ trong lịch sử repo.
+- Trạng thái: Open
+
+---
+
+## F. Sổ tay 1.4 – tách nhiệm hoàn tiền (SEC, 30/10 khuya, trước C3a)
+
+Đọc: sổ tay bản nội dung 1.4 (commit `3482f82`) mục 1.8, 1.12, 2.4, 2.8, 2.17; `responses/PO-to-v1.0.0-docs-reviews.md` mục 10.4. Đối chiếu mã trên `8b3aec8` (không đổi tới `HEAD` ở `modules/payments`, `modules/approvals`, migrations): `approval.service.ts` `assertNotSelf`; `refunds.service.ts` `payOut`, `assertNotA32Maker`; CHECK `approval_request_refund_no_self_approval` (0040), `approval_request_refund_destination_not_approver` và `payment_refund_not_requester_check` (0042); quy tắc F8 (`round-02/outputs/SEC/s3-checklist.md`) và SEC-37 / PO 17/10.
+
+**Kết luận: Đạt, kèm một câu sửa chữ (D09, Minor) và một câu nên sửa (D10, Suggestion). Không chặn C3a.** Không có câu nào dạy vòng qua tách nhiệm. Mọi chỗ sổ tay sai đều sai theo hướng **chặt hơn** Desk. Không chỗ nào cho phép điều Desk cấm.
+
+| Câu trong sổ tay | Mã `8b3aec8` | Kết quả |
+|---|---|---|
+| 1.8 câu 1: người tạo yêu cầu hoàn **không tự duyệt**, kể cả quản lý, chủ đầu tư | `assertNotSelf`: refund + `requested_by = actor` → 403 `SELF_APPROVAL_FORBIDDEN`, không ngoại lệ; CHECK 0040 | **Khớp** F8 |
+| 1.8 câu 1: người tạo yêu cầu hoàn **không tự chi**, kể cả chủ đầu tư | Tiền mặt: người tạo không bao giờ chi (403 `SELF_REFUND_FORBIDDEN`, CHECK 0042 `method <> 'cash'`). **Chuyển khoản: chủ đầu tư chi được khoản do mình tạo** (`ownerTransfer`, có hỏi xác thực lại, Nhật ký tiền đánh dấu `ownSelfApprovedAndPaid`) | **Lệch, sổ tay chặt hơn mã.** Mâu thuẫn với câu "Riêng chủ đầu tư…" hai dòng dưới. Có thể gây tắc: chủ đầu tư tạo yêu cầu hoàn chuyển khoản, quản lý duyệt. Theo sổ tay thì không ai chi được (quản lý không vừa duyệt vừa chi, chủ đầu tư "không tự chi"), dù Desk cho chủ đầu tư chi → thẻ D09 |
+| 1.8 câu 2: hoàn **tiền mặt**, người nhập nơi nhận không duyệt được, kể cả chủ đầu tư; người duyệt chi được tiền mặt | CHECK 0042: người nhập nơi nhận ≠ người duyệt, trừ chủ đầu tư với khoản không phải tiền mặt. `payOut` tiền mặt chỉ cấm người tạo yêu cầu (và người giảm A32), không cấm người duyệt | **Khớp** |
+| 1.8 dòng chuyển khoản; 1.12 bước 1; 2.4 bảng (dòng "Không đi nữa", "Khách đó tới quầy" (a), (d)); 2.17 "không chi được khoản do chính mình tạo" | Người trực (vai quản lý) tạo yêu cầu + nhập nơi nhận → chủ đầu tư duyệt → chủ đầu tư chi (tiền mặt: chủ đầu tư không phải người tạo; chuyển khoản: ngoại lệ chủ đầu tư) | **Khớp**, luồng chạy được trên Desk |
+| 2.8 bước 4: "**quản lý hoặc chủ đầu tư** khác người hủy duyệt **và chi**" | Quản lý đã duyệt khoản **chuyển khoản** thì không chi được khoản đó (403) | **Lệch nhẹ**: Desk chặn, không phải lỗ hổng, nhưng dạy một việc sẽ bị từ chối → D10 |
+
+Kiểm "vòng qua": sổ tay không bảo ai dùng tài khoản người khác, không bảo gõ hộ mật khẩu (1.8 cấm rõ), không bảo tách khoản hoàn cho dưới hạn mức. Không có lối hoàn ngoài Desk: khung 2.4 cấm nhận thêm tiền vào đơn cũ sau hạn, khoản dư đi qua yêu cầu hoàn. Câu "người tạo nhập nơi nhận **trước**, rồi người khác duyệt" là thứ tự đúng để giữ tách nhiệm, không phải mẹo lách.
+
+Ghi chú cho DOM (D-QA-4 của PO, chỉ là dữ kiện mã, DOM quyết nghiệp vụ): với yêu cầu **không phải hoàn tiền** (giảm giá, FOC), `assertNotSelf` cho quản lý và chủ đầu tư tự duyệt yêu cầu của chính mình, rồi mới kiểm hạn mức của vai. Lễ tân và lễ tân trưởng tự duyệt thì nhận 403. Vì vậy câu 2.4 "người trực tự duyệt bằng quyền quản lý" chạy được trên Desk khi số tiền ≤ hạn mức quản lý (giá 1 đêm/lần). Câu này không chạm tách nhiệm hoàn tiền.
+
+### FB-R3-SEC-PO-D09
+- Mức độ: Minor
+- Vị trí: `product/docs/manual/user-manual-v1.0.md` mục 1.8, "Quy tắc tách nhiệm", gạch đầu dòng 2
+- Vấn đề: Câu "không tự chi, kể cả quản lý, chủ đầu tư" chặt hơn F8 / SEC-37 trên mã. Desk cho chủ đầu tư chi khoản **chuyển khoản** do chính mình tạo, sau khi người khác duyệt. Câu này mâu thuẫn với dòng "Riêng chủ đầu tư…" ngay dưới. Với khoản chủ đầu tư tạo và quản lý duyệt, sổ tay không để lại ai được chi.
+- Vì sao quan trọng: Danh sách này có nhãn "Desk tự kiểm", nên không được ghi điều Desk không kiểm. Học viên C3a sẽ hỏi đúng chỗ mâu thuẫn này. Phần **duyệt** (không ngoại lệ) giữ nguyên, vì đó là lõi F8.
+- Đề xuất sửa: PO thay nguyên gạch đầu dòng bằng:
+  > - **Hoàn tiền – không tự duyệt, không ngoại lệ:** người tạo yêu cầu hoàn (hủy đơn, sửa dòng…) không duyệt được khoản đó, kể cả quản lý, chủ đầu tư. Desk từ chối, yêu cầu vẫn chờ người duyệt khác. Người tạo yêu cầu cũng không chi khoản đó. Riêng chủ đầu tư được chi khoản **chuyển khoản** do mình tạo, sau khi người khác đã duyệt.
+
+  Không cần sửa bản in: Tờ 1 ghi "người tạo yêu cầu không tự duyệt, không tự chi – hiện chủ đầu tư duyệt và chi", đúng với luồng người trực tạo. Bản in chặt hơn, không sai về an toàn.
+- Trạng thái: Open
+
+### FB-R3-SEC-PO-D10
+- Mức độ: Suggestion
+- Vị trí: sổ tay mục 2.8 bước 4; 2.17 dòng "Hoàn chuyển khoản do quản lý làm"
+- Vấn đề: "quản lý hoặc chủ đầu tư khác người hủy duyệt **và chi**" đúng với tiền mặt, nhưng sai với chuyển khoản khi người duyệt là quản lý (Desk 403). 2.17 "do quản lý làm" bỏ sót chủ đầu tư, và bỏ sót điều kiện người chi khác người duyệt.
+- Vì sao quan trọng: Không phải lỗ hổng, vì Desk chặn. Chỉ tránh dạy một thao tác sẽ bị từ chối.
+- Đề xuất sửa:
+  - 2.8 bước 4, thay câu thứ ba: "Người hủy nhập nơi nhận hoàn; **quản lý hoặc chủ đầu tư khác người hủy** duyệt. Tiền mặt: người duyệt chi được. Chuyển khoản: quản lý đã duyệt thì người khác chi; chủ đầu tư được vừa duyệt vừa chi (mục 1.8)." Giữ nguyên hai câu sau ("Người hủy không tự duyệt…", "Hiện một người trực…").
+  - 2.17: "Hoàn chuyển khoản do quản lý hoặc chủ đầu tư làm, người chi khác người tạo yêu cầu và khác quản lý đã duyệt (mục 1.8). Báo khách thời hạn."
 - Trạng thái: Open
 
 ---

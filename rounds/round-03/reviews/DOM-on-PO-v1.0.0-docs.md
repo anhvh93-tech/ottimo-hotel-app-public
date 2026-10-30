@@ -1,6 +1,7 @@
 # DOM review PO – Tài liệu vận hành theo `v1.0.0` (D-T1): giữ chỗ "0h00", one-pager, day-one mục 10
 
 - Người review: DOM | Round 3 – bước **Review** (điều kiện D-T1 của cổng QC v1.0, `rounds/round-03/qc/v1-gate.md` mục 4.2) | Ngày: 30/10/2026 | Ngày D: thứ Hai 02/11
+- Sửa 30/10 (khuya) theo QA mục 20 (`qa/qa3-rc1.md`): A.1, A.2, A.3, A.4, thẻ 07 sửa tại chỗ (ghi *Sửa 30/10 theo QA mục 20*). Thêm mục **D** (xác nhận D-QA-1…5). "Điểm làm tốt" chuyển thành mục **E**.
 - Đối tượng: `rounds/round-03/outputs/PO/v1.0.0-docs-update.md` (mục 2.4, 4 – phần chờ DOM); `product/docs/staff-one-pager.md` (phần Lễ tân); `product/docs/day-one-guide.md` mục 10 (và mục 4.3 mà mục 10 trỏ tới); `product/docs/manual/user-manual-v1.0.md` mục 0.8, 2.1, 2.4. `release-notes.md` dòng 107–108 nêu ở các thẻ vì cùng câu chữ.
 - Căn cứ: `business-rules.md` v0.4.8 (BR-301, 302, 303, 304, 305, 308, 309, 402, 522); `qa/bug-list.md` BUG-R3-039, BUG-R3-041; `reviews/ARC-on-BE-B-worker-audit-fix.md` thẻ WA-04; decision-log 29/10 (**1 tài khoản nhân viên giữ 6 vai**, INV chấp nhận tự ghi – tự duyệt, OWN rà mỗi ngày) và 30/10; ESC-039 (chờ INV).
 - Cùng phát hiện với BA (`reviews/BA-on-PO-manual-1.3.md` M13-01 Blocker, M13-02), do ORC chuyển. DOM tự kiểm độc lập và kết quả khớp. Thẻ 01–02 dưới đây là phần nghiệp vụ của cùng lỗi; PO trả lời chung một lần.
@@ -52,8 +53,8 @@ Thuộc quyền DOM: cách áp BR-302/303 ở quầy, không đổi giá, cọc 
 | Ai | Việc | Khi nào |
 |---|---|---|
 | **Người trực quầy** (hiện là tài khoản 6 vai; khi có lễ tân riêng thì lễ tân ca) | Rà theo thứ tự trên | **3 mốc cố định mỗi ngày**: (1) lúc mở quầy, muộn nhất 09:00; (2) **11:00**, trước trần 12:00 ngày đến; (3) trước khi rời quầy buổi tối, muộn nhất 21:00. Thêm: mỗi lần hộp thư hoặc **Cần chú ý** hiện "Giữ chỗ sắp hết hạn" (J2 nhắc 2 giờ trước hạn, có chạy ở v1.0) |
-| Người trực quầy, với quyền quản lý của tài khoản 6 vai | Quyết đơn có cọc thiếu, duyệt hoàn | Ngay khi gặp; ghi lý do trên Desk và một dòng sổ giao ca |
-| **OWN** | Xem lại các dòng sổ giao ca có chữ "giữ chỗ" và các yêu cầu hoàn mới | Cùng lượt kiểm sáng B1–B6, trước 09:00 |
+| Người trực quầy, với quyền quản lý của tài khoản 6 vai | Quyết đơn có cọc thiếu; hủy đơn và **nhập nơi nhận hoàn**. **Không duyệt, không chi** khoản hoàn do mình tạo (*Sửa 30/10 theo QA mục 20* – xem D-QA-2) | Ngay khi gặp; ghi lý do trên Desk và một dòng sổ giao ca |
+| **OWN** | Xem lại các dòng sổ giao ca có chữ "giữ chỗ"; **duyệt và chi** các yêu cầu hoàn mới (*Sửa 30/10 theo QA mục 20*) | Cùng lượt kiểm sáng B1–B6, trước 09:00; khách đang chờ ở quầy thì theo D-QA-3 |
 | CTV chốt đơn | Nhận báo từ người trực, liên hệ khách của mình | Trong 1 giờ kể từ khi người trực nhắn. Quá 1 giờ, hoặc đã 11:00 ngày đến, người trực gọi thẳng số khách trên đơn |
 
 Không gọi là "đầu mỗi ca" vì OTTIMO chưa chia ca. Mốc 11:00 là mốc quan trọng nhất: giữ chỗ của khách đến hôm nay hết hạn muộn nhất 12:00 (BR-302).
@@ -64,7 +65,7 @@ Từ thẻ 01–02: ở v1.0, cách duy nhất để một giữ chỗ có cọc
 1. Khách chuyển thiếu: ghi số đã nhận (đơn vẫn **Giữ chỗ · chờ cọc**), **gọi hoặc nhắn khách ngay trong ngày** xin phần còn lại trước hạn.
 2. Khách cần thêm thời gian: bấm **Gia hạn giữ chỗ (1 lần)** **trước** hạn (tối đa +24 giờ, không quá 12:00 ngày đến). Sau hạn, nút này không còn.
 3. Tiền về trước hạn nhưng chưa kịp bấm: **bấm trước giờ hạn**. Ghi tay (chuyển khoản, tiền mặt) sau hạn thì Desk từ chối, kể cả khi tiền đã về lúc trước hạn: hộp Xác nhận cọc không có ô giờ nhận tiền (thẻ 01). Sau hạn, chỉ khoản **VietQR mà Desk đã ghi "đã về" trước hạn** mới xác nhận được.
-4. Khách nói "trả phần còn lại khi đến": ở v1.0 **không giữ chỗ cọc thiếu tới ngày đến được**. Nói thật với khách và chọn một trong hai: (a) khách chuyển nốt trước hạn; (b) giữ đơn theo A.3 và báo khách rằng **khi nhận phòng sẽ thanh toán đủ, khoản đã chuyển được hoàn lại ngay tại quầy hoặc trong ngày**.
+4. Khách nói "trả phần còn lại khi đến": ở v1.0 **không giữ chỗ cọc thiếu tới ngày đến được**. Nói thật với khách và chọn một trong hai: (a) khách chuyển nốt trước hạn; (b) giữ đơn theo A.3 và báo khách rằng **khi nhận phòng sẽ thanh toán đủ, khoản đã chuyển được hoàn lại ~~ngay tại quầy hoặc trong ngày~~ bằng chuyển khoản trong 24 giờ, hoặc tiền mặt tại quầy nếu chủ đầu tư có mặt** (*Sửa 30/10 theo QA mục 20* – D-QA-3).
 
 ### A.3 Giữ chỗ **đã có cọc** hiện 0h00 đỏ – ba lối ra BR-303 ở v1.0
 
@@ -72,10 +73,12 @@ Từ thẻ 01–02: ở v1.0, cách duy nhất để một giữ chỗ có cọc
 
 | Khách nói | Làm gì ở v1.0 | Ai | Hạn |
 |---|---|---|---|
-| "Không đi nữa", hoặc không liên lạc được tới **11:00 ngày đến** | **Hủy giữ chỗ**, lý do **Khác**, ghi chú "Hết hạn giữ chỗ – có cọc". Desk giữ lại 0 đ, sinh yêu cầu hoàn **300.000 đ**. Duyệt hoàn, hoàn theo cách khách đã trả (BR-303 (3), BR-522) | Người trực hủy và duyệt; tiền mặt thì OWN chi (Desk không cho người tạo yêu cầu tự chi) | Muộn nhất 12:00 ngày đến |
-| "Vẫn đi, trả nốt" (chuyển nốt, hoặc trả khi đến) | **Không** nhận thêm chuyển khoản vào đơn cũ: Desk không ghi được sau hạn. **Để nguyên đơn** (Desk không tự hủy đơn có cọc, căn vẫn giữ). Ghi **Ghi chú nội bộ**: "Giữ – cọc thiếu 400.000, thu khi đến – [tên] dd/mm". Báo khách: "Phần còn lại anh/chị thanh toán khi nhận phòng" | Người trực (quyền quản lý), có lý do | Quyết trước 12:00 ngày đến |
-| Khách đó tới quầy (đơn vẫn **Giữ chỗ**) | **Nếu v1.0.1 đã lên**: **Xác nhận đã nhận cọc** phần còn lại → **Nhận phòng**. **Nếu chưa**: (a) **Hủy giữ chỗ** (lý do **Khác**, ghi chú "Tạo lại khi khách đến – cọc thiếu") → Desk sinh yêu cầu hoàn 300.000. (b) **Đặt phòng mới** cùng căn, cùng giá đã chốt, ghi chú "Thay OTM-…". (c) Thu **đủ 2.376.000** → **Nhận phòng**. (d) Duyệt hoàn 300.000: OWN chi tiền mặt tại quầy (khách thực trả 2.076.000), hoặc OWN chuyển khoản lại trong ngày | Người trực (a–c); OWN chi hoàn (d) | Khi khách đến |
-| Khách đã lỡ chuyển nốt **sau** hạn | Tiền đã ở tài khoản OTTIMO nhưng Desk không ghi được vào đơn cũ. Ghi sổ giao ca: số tiền, giờ về, mã đơn. Khi khách đến, làm như dòng trên, ghi phần đã chuyển ở bước (c) với ghi chú "chuyển dd/mm hh:mm" | Người trực; OWN đối chiếu sao kê sáng hôm sau | Khi khách đến |
+| "Không đi nữa", hoặc không liên lạc được tới **11:00 ngày đến** | **Hủy giữ chỗ**, lý do ~~**Khác**, ghi chú "Hết hạn giữ chỗ – có cọc"~~ **Khách đổi ý** (khách báo không đi) hoặc **Không liên lạc được**; điều cần giải thích ghi sổ giao ca. Desk giữ lại 0 đ, sinh yêu cầu hoàn **300.000 đ**. Người trực **nhập nơi nhận hoàn**; OWN duyệt, hoàn theo cách khách đã trả (BR-303 (3), BR-522) | ~~Người trực hủy và duyệt; tiền mặt thì OWN chi~~ Người trực hủy và nhập nơi nhận; **OWN duyệt và chi** (Desk không cho người tạo yêu cầu hoàn tự duyệt hay tự chi, kể cả quản lý) | Muộn nhất 12:00 ngày đến |
+| "Vẫn đi, trả nốt" (chuyển nốt, hoặc trả khi đến) | **Không** nhận thêm chuyển khoản vào đơn cũ: Desk không ghi được sau hạn. **Để nguyên đơn** (Desk không tự hủy đơn có cọc, căn vẫn giữ). Ghi ~~**Ghi chú nội bộ**~~ **sổ giao ca** (khung đơn không có ô ghi chú – QA G1): "OTM-… Giữ – cọc thiếu 400.000, thu khi đến – [người quyết] dd/mm". Báo khách: "Phần còn lại anh/chị thanh toán khi nhận phòng" | Người trực (quyền quản lý), có lý do | Quyết trước 12:00 ngày đến |
+| Khách đó tới quầy (đơn vẫn **Giữ chỗ**) | **Nếu v1.0.1 đã lên**: **Xác nhận đã nhận cọc** phần còn lại → **Nhận phòng**. **Nếu chưa**: (a) **Hủy giữ chỗ** (lý do ~~**Khác**~~ **Khách đổi ý**; sổ giao ca "Tạo lại khi khách đến – thay bằng OTM-…") → Desk sinh yêu cầu hoàn 300.000; nhập nơi nhận hoàn. (b) **Đặt phòng mới** cùng căn, cùng giá đã chốt, **cùng kênh và CTV/nguồn** như đơn cũ; **thu đủ cọc ngay** (≥ 700.000 – Desk không lưu đơn thiếu cọc, `DEPOSIT_INSUFFICIENT`). (c) Ở bước nhận phòng thu ~~**đủ 2.376.000**~~ **phần còn lại 1.676.000** → **Nhận phòng**. (d) **OWN duyệt và chi** 300.000: tiền mặt tại quầy (khách thực trả 2.076.000), hoặc chuyển khoản lại **trong 24 giờ** (D-QA-3) | Người trực (a–c); **OWN duyệt và chi** (d) | Khi khách đến |
+| Khách đã lỡ chuyển nốt **sau** hạn | Tiền đã ở tài khoản OTTIMO nhưng Desk không ghi được vào đơn cũ. Ghi sổ giao ca: số tiền, giờ về, mã đơn. Khi khách đến, làm như dòng trên, ghi phần đã chuyển ở bước ~~(c)~~ **(b)** với ghi chú "chuyển dd/mm hh:mm" (chưa đủ cọc: xem D-QA-5) | Người trực; OWN đối chiếu sao kê sáng hôm sau | Khi khách đến |
+
+*Sửa 30/10 theo QA mục 20* (`qa/qa3-rc1.md` 20.1 G1, G2, G4, G7): bảng trên đã sửa lý do hủy (BUG-R3-046), người duyệt hoàn (`SELF_APPROVAL_FORBIDDEN`), bước thu cọc (`DEPOSIT_INSUFFICIENT`) và chỗ ghi chú. Chi tiết ở mục D.
 
 Vì sao chọn "để nguyên đơn rồi làm lại khi khách đến" thay vì làm lại ngay:
 - Căn vẫn được giữ, không ai bán mất.
@@ -88,7 +91,7 @@ Không dùng "sửa giá đêm cho cọc yêu cầu thấp xuống để xác nh
 Ba điều tài liệu phải nói rõ (từ BA M13-01):
 - **Hủy đơn cũ trước, đặt đơn mới sau.** Thông báo lỗi `HOLD_EXPIRED` nói "căn đã mở bán lại", nhưng với đơn có cọc thì **sai**: đơn cũ vẫn giữ căn và giữ tiền. Đặt đơn mới trước sẽ bị chặn trùng, hoặc ghi cọc hai lần.
 - Hộp hủy của đơn có cọc vẫn ghi "Không thu phí (giữ chỗ chưa cọc)" và không hiện dòng hoàn. **Desk vẫn tạo yêu cầu hoàn đủ số đã nhận**. Sau khi hủy, mở **Nhật ký tiền → Hoàn tiền** để thấy và duyệt.
-- **Duyệt hoàn ≠ chi hoàn.** Tài khoản 6 vai tự duyệt được. Nhưng Desk không cho người tạo yêu cầu tự chi tiền mặt, nên chi tiền mặt tại quầy cần OWN. OWN không ở cơ sở thì OWN chuyển khoản lại cho khách trong ngày, và báo khách trước.
+- **Duyệt hoàn ≠ chi hoàn.** ~~Tài khoản 6 vai tự duyệt được. Nhưng Desk không cho người tạo yêu cầu tự chi tiền mặt, nên chi tiền mặt tại quầy cần OWN. OWN không ở cơ sở thì OWN chuyển khoản lại cho khách trong ngày, và báo khách trước.~~ **Sửa 30/10 theo QA mục 20:** người tạo yêu cầu hoàn (người hủy đơn) **không tự duyệt và không tự chi** được, kể cả có quyền quản lý hay là OWN (SEC F8; QA 20.2 dòng 16, 18: 403 `SELF_APPROVAL_FORBIDDEN`, `SELF_REFUND_FORBIDDEN`). Ở OTTIMO hiện nay: người trực hủy và **nhập nơi nhận trước**; **OWN duyệt và chi**. OWN vắng thì khách chưa nhận lại cọc tại quầy được; người trực hẹn khách theo D-QA-3.
 
 ### A.3a Có cần ARC/BE vá ở v1.0.1 không – **Có, bắt buộc**
 
@@ -108,19 +111,19 @@ Nếu V1 hoặc V2 **không kịp** v1.0.1: ORC nêu với INV trong tóm tắt 
 
 **Quy tắc:** giữ chỗ quá hạn thì **không cứu**, chỉ **tạo lại một lần**. Desk đã chặn gia hạn và ghi cọc sau hạn (BR-303, US-085 AC4, SEC-BE-22). Desk lẽ ra đã tự hủy đơn này; chỉ lỗi WA-04 làm nó còn.
 
-1. **Hủy ngay** khi thấy, không chờ gọi khách: **Hủy giữ chỗ**, lý do **Khác**, ghi chú "Hết hạn giữ chỗ" (Desk không cho chọn lý do "Hết hạn giữ chỗ", xem thẻ 07). Không phí (BR-308). Căn mở lại.
+1. **Hủy ngay** khi thấy, không chờ gọi khách: **Hủy giữ chỗ**, lý do ~~**Khác**, ghi chú "Hết hạn giữ chỗ"~~ **Không liên lạc được**, sổ giao ca "OTM-… hủy – hết hạn giữ chỗ, chưa cọc" (Desk không cho chọn lý do "Hết hạn giữ chỗ", xem thẻ 07; "Khác" bị khóa – BUG-R3-046; *Sửa 30/10 theo QA mục 20*). Không phí (BR-308). Căn mở lại.
 2. Nhắn hoặc gọi khách (đơn CTV thì báo CTV trước, theo A.1). Khách còn muốn:
    - **Ngày đến từ ngày mai:** tạo **giữ chỗ mới**.
      - Báo giá cũ còn hiệu lực (3 ngày, BR-304): bấm lại **Khách đồng ý – Giữ chỗ** từ báo giá đó. Hết hiệu lực: **Lập báo giá mới** theo giá hiện hành.
      - Chọn **12 h** (ngắn nhất).
-     - Giảm giá hoặc FOC của đơn cũ phải xin lại. Tài khoản 6 vai tự duyệt, có lý do; OWN rà sáng hôm sau.
+     - Giảm giá hoặc FOC của đơn cũ phải xin lại. Tài khoản 6 vai tự ~~duyệt~~ áp **trong hạn mức quản lý** (tổng giảm trên một dòng ≤ giá 1 đêm của dòng đó), có lý do; vượt mức thì OWN duyệt; OWN rà sáng hôm sau (*Sửa 30/10 theo QA mục 20* – D-QA-4).
      - Ghi chú nội bộ: "Tạo lại từ OTM-… (hết hạn dd/mm)".
    - **Ngày đến hôm nay:** không giữ chỗ được (BR-302). Gửi VietQR, tạo đơn khi tiền về. Khách đang trên đường: căn còn thì nhận khi tới, như khách vãng lai.
 3. **Chỉ tạo lại một lần** cho cùng khách và cùng kỳ ở. Giữ chỗ tạo lại mà lại quá hạn: hủy, không giữ nữa. Chỉ đặt khi tiền cọc đã về.
 4. **Không cần báo quản lý.** Lễ tân được hủy giữ chỗ chưa cọc và không bị giới hạn số giữ chỗ (BR-302). Báo OWN chỉ khi khách đòi **giữ giá cũ** mà báo giá đã hết hiệu lực và giá hiện hành cao hơn.
 
 Ví dụ: giữ chỗ căn 301 có giảm giá đặc biệt 10 %, đến 08/11, hạn 20:00 04/11. Lúc 08:30 05/11 vẫn 0h00 đỏ:
-- 08:30 hủy (Khác – "Hết hạn giữ chỗ").
+- 08:30 hủy (~~Khác – "Hết hạn giữ chỗ"~~ **Không liên lạc được**; sổ giao ca "hết hạn giữ chỗ, chưa cọc").
 - 08:35 nhắn khách. 09:10 khách xin giữ: báo giá lập 03/11 còn hiệu lực tới 23:59 06/11 → tạo giữ chỗ 12 h, hạn 21:10 05/11, xin lại giảm 10 %.
 - 21:10 chưa cọc: lần này không tạo lại.
 
@@ -230,6 +233,7 @@ Ví dụ: giữ chỗ căn 301 có giảm giá đặc biệt 10 %, đến 08/11,
 - Vấn đề: lễ tân không chọn được lý do "Hết hạn giữ chỗ". `USER_CANCEL_REASONS` (`reservations.service.ts` ~108) chỉ có: khách đổi ý, tìm được chỗ khác, giá, đổi ngày, không liên lạc được, khác, OTA báo hủy. Mã `hold_expired` dành cho hệ thống.
 - Vì sao quan trọng: nhân viên tìm một mục không có. Báo cáo hủy (BR-308) cũng sẽ lẫn đơn hủy tay vì quá hạn với lý do "Khác".
 - Đề xuất sửa: tài liệu ghi "lý do **Khác**, ghi chú 'Hết hạn giữ chỗ'". Không liên lạc được thì chọn **Không liên lạc được**. Không cần sửa mã: khi WA-04 sửa ở v1.0.1, Desk tự hủy với đúng mã.
+  - *Sửa 30/10 theo QA mục 20:* "Khác (ghi rõ)" bị Desk khóa (BUG-R3-046, P2). Đề xuất "lý do Khác" ở trên **bỏ**; dùng cách chọn ở D-QA-1.
 - Trạng thái: Open
 
 ### FB-R3-DOM-PO-DOC-08
@@ -284,7 +288,202 @@ Ví dụ: giữ chỗ căn 301 có giảm giá đặc biệt 10 %, đến 08/11,
 - Day-one mục 10 dòng 3 (B1–B6 mỗi sáng trước 09:00): thuộc SEC. DOM chỉ đề nghị gộp lượt rà giữ chỗ buổi sáng vào cùng lượt này (A.1).
 - Sổ tay 0.8 điểm 4–5: đúng về nghiệp vụ, khớp câu ở one-pager. Hạn 30 ngày ở v1.0 và 3 tháng ở bản vá nói rõ "đọc số Desk hiện". Chữ để UXD, SEC.
 
-## D. Điểm làm tốt
+## D. Xác nhận sau QA mục 20
+
+- Người viết: DOM | Round 3 – bước **Review** (xác nhận nhanh trước buổi đào tạo C3a 31/10) | Ngày: 30/10/2026 (khuya).
+- Đối tượng: `responses/PO-to-v1.0.0-docs-reviews.md` mục 10 (10.4 D-QA-1…5); `qa/qa3-rc1.md` mục 20 (commit `3482f82`). Đối chiếu sổ tay bản nội dung 1.4 (mục 1.8, 2.4, 2.8, 2.13), `staff-one-pager.md` Tờ 1, 2a, `day-one-guide.md` mục 10, `release-notes.md` dòng 121–122.
+- Đọc thêm mã `v1.0.0` (chỉ đọc, chưa thử trên staging):
+  - `approvals/public/approval.service.ts`: `selfApplication` (~593–650), `assertNotSelf` (~1352–1378);
+  - `approvals/internal/limits.ts`: `approverRoleOf`, `requiredRoleFor`, `MONEY_LIMITED`;
+  - `payments/internal/refunds.service.ts` (~515–533 `REFUND_SOURCE_NOT_RECONCILED`; đầu tệp: xem số tài khoản hoàn cần máy được cấp quyền);
+  - `payments/internal/deposits.service.ts` ~174–179; `payments.service.ts` ~495–600 (xác nhận VietQR);
+  - `reservations.service.ts` ~108 (`USER_CANCEL_REASONS`), ~830–841 (`DEPOSIT_INSUFFICIENT`); `BookingDialog.tsx` ~484 (`initialPayment`: một cách thanh toán); `CheckInPayment.tsx` (chuyển khoản/POS phải bằng đúng số phải thu).
+- Căn cứ: BR-303, BR-308, BR-431–433, BR-436, BR-522, BR-527; `metrics-definitions.md` K-22a, K-22d, S7; decision-log 29/10 (tài khoản 6 vai).
+- Mục A ở trên đã sửa theo QA mục 20 (các chỗ ghi *Sửa 30/10 theo QA mục 20*).
+
+### D.0 Kết luận
+
+| # | Việc | Kết luận DOM | Sổ tay | Bản in |
+|---|---|---|---|---|
+| D-QA-1 | Lý do hủy thay "Khác" (BUG-R3-046) | **Đồng ý** cách chọn của PO. Chỉ thêm (tùy chọn) một dòng cho đơn nhập nhầm. Sửa ghi chú cho DATA: **K-22a không lệch về tỉ lệ**, chỉ lệch phần chia theo lý do; S7 lệch | Tùy chọn 1 câu ở 2.8 | Không đổi |
+| D-QA-2 | Câu "tài khoản 6 vai tự duyệt được" (DOM A.3) | **Đã sửa** trong tệp này (A.1, A.2, A.3, A.4, thẻ 07) | – | – |
+| D-QA-3 | Câu hẹn khách khi OWN vắng | **Đổi "trong ngày" thành "trong 24 giờ"**. Chuyển khoản là cách hẹn mặc định; chỉ hẹn tiền mặt khi OWN đã hẹn giờ tới quầy. Thêm bước OWN đối soát khoản cọc cũ trước khi chi | 2.4 (2 chỗ) | Không đổi |
+| D-QA-4 | Giảm giá/FOC đơn cũ "xin lại" | **Câu PO đúng hướng nhưng thiếu hạn mức.** Người trực **tự áp được** giảm giá/FOC do chính mình gửi **trong hạn mức quản lý** (mỗi lần ≤ giá 1 đêm của dòng). Với tiền phòng tính theo đêm thì gần như luôn trong mức. Vượt mức thì **OWN duyệt**, người trực không duyệt được | 2.4 (1 câu, thêm 1 câu ở bước (b)) | Không đổi |
+| D-QA-5 | Khách đã chuyển sau hạn một phần cọc | **Đồng ý**, thêm 3 điều: (1) kiểm tiền về, và kiểm khoản đó **chưa nằm trên đơn cũ** (đường VietQR sau hạn vẫn ghi được tiền vào đơn cũ – tránh ghi hai lần); (2) ghi **Chuyển khoản** (tay), không VietQR; (3) khách không chuyển thêm được thì không gộp tiền mặt vào | 2.4 (1 ô bảng) | Không đổi |
+| Thêm | Bước (b) "Đặt phòng mới" thiếu **kênh/CTV** | Đơn mới phải **cùng kênh và CTV/nguồn** như đơn cũ (hoa hồng CTV, báo cáo kênh) | 2.4 (b) | Tờ 2a: đổi chữ **ngắn hơn** (D.6), không bắt buộc |
+
+Không có ESC mới. Một việc ORC nên nói với INV ở buổi C3a (D.7).
+
+### D.1 D-QA-1 – Lý do hủy tới v1.0.1 (BUG-R3-046): **Đồng ý**
+
+| Tình huống | Lý do chọn trên Desk | Sổ giao ca (không ghi tên khách) |
+|---|---|---|
+| Giữ chỗ **chưa cọc** đã "còn 0 giờ 00 phút" | **Không liên lạc được** (dùng cố định cho mọi đơn loại này, kể cả khi khách vẫn nghe máy) | "OTM-… hủy – hết hạn giữ chỗ, chưa cọc" |
+| **Có cọc**, khách báo không đi | **Khách đổi ý** | "OTM-… hủy – hết hạn giữ chỗ, có cọc – chờ chủ đầu tư hoàn …" |
+| **Có cọc**, gọi không được tới 11:00 ngày đến | **Không liên lạc được** | như trên |
+| Làm lại khi khách đến (bước (a)) | **Khách đổi ý** | "OTM-cũ hủy – tạo lại khi khách đến – thay bằng OTM-mới" |
+
+Vì sao đồng ý:
+- Lý do hủy **không đổi tiền**. Giữ chỗ luôn hoàn 100 % số đã nhận (BR-308). Đơn đã xác nhận tính phí theo số ngày báo trước (BR-309), không theo lý do. Chỉ **OTA báo hủy** có xử lý riêng, và lý do này chỉ dùng cho đơn OTA.
+- Mỗi tình huống chỉ dùng **một** lý do cố định, nên DATA tách lại được (dưới đây). Đổi "làm lại" sang **Đổi ngày** cũng không đúng hơn (ngày không đổi), lại phải sửa Tờ 2a. Giữ như PO.
+
+Tùy chọn (PO quyết): sổ tay 2.8, khung "Lỗi đang sửa (v1.0.1) – lý do Khác (ghi rõ)", thêm vào cuối câu:
+> Nhập nhầm hoặc trùng đơn: chọn **Khách đổi ý**, sổ giao ca ghi "OTM-… nhập nhầm".
+
+Mục đích: tuần đầu sẽ có đơn nhập nhầm khi chuyển dữ liệu (nhóm G). Có câu này, DATA loại được các đơn đó khỏi tỉ lệ hủy.
+
+**Ghi chú cho DATA** (sửa câu "K-22a lệch" ở PO 10.4):
+1. **Tỉ lệ K-22a không lệch.** K-22a chỉ đếm đơn có `status_before_cancel = confirmed`, và `other`, `guest_changed_mind`, `unreachable` đều là mã **được tính**. Đổi "Khác" sang hai mã kia không làm đổi tử số. Lệch chỉ ở **phần chia theo lý do** từ 02/11 tới v1.0.1: `other` = 0, còn `guest_changed_mind` và `unreachable` bị cộng thêm. Phần chia theo lý do kỳ này phải đọc kèm sổ giao ca.
+2. Đơn **nhập nhầm** (nếu PO thêm câu tùy chọn) cũng rơi vào `guest_changed_mind` và **làm tăng** K-22a. DATA loại các đơn này theo sổ giao ca ("nhập nhầm").
+3. **S7 và phân tích giữ chỗ bị lệch.** Giữ chỗ quá hạn bị người trực hủy tay với mã `unreachable`/`guest_changed_mind`, `cancelled_by` = người, thay vì `hold_expired`/`system`. Quy tắc tách lại cho kỳ 02/11 → v1.0.1: `status_before_cancel = hold` **và** `cancelled_at ≥ hold_expires_at` → coi là **hết hạn giữ chỗ**, mã nào cũng vậy. S7 kỳ này không dùng để đánh giá job J1, vì lỗi BUG-R3-041/WA-04 đã làm lệch S7.
+4. **Cặp "làm lại khi khách đến"** gồm giữ chỗ cũ (`hold` → hủy) và đơn mới cùng căn, cùng ngày, cùng khách đứng tên, tạo trong khoảng 60 phút sau khi hủy. Đây **không** phải nhu cầu mất và **không** phải khách vãng lai mới. K-22a, K-22d không bị ảnh hưởng (đơn cũ là `hold`, đêm `hold` chưa bán). Báo cáo kênh chỉ đúng khi bước (b) chọn đúng kênh (D.6).
+
+### D.2 D-QA-2 – Câu "tài khoản 6 vai tự duyệt được": **Đã sửa**
+
+Sửa ngay trong tệp này, mỗi chỗ có dòng *Sửa 30/10 theo QA mục 20*:
+- A.1, bảng "Ai": người trực **hủy và nhập nơi nhận**, không duyệt, không chi; OWN **duyệt và chi**.
+- A.2 bước 4: "hoàn ngay tại quầy hoặc trong ngày" → theo D-QA-3.
+- A.3: bảng 4 dòng (lý do, người duyệt, bước (b)/(c), sổ giao ca thay "Ghi chú nội bộ"), và gạch đầu dòng "Duyệt hoàn ≠ chi hoàn".
+- A.4 bước 1 và ví dụ: "Khác" → **Không liên lạc được**. Dòng giảm giá/FOC: thêm hạn mức (D-QA-4).
+- Thẻ 07: bỏ đề xuất "lý do Khác".
+
+Câu đúng, khớp sổ tay 1.8: **người tạo yêu cầu hoàn không tự duyệt và không tự chi, không có ngoại lệ** (kể cả quản lý, OWN). Khoản hoàn sinh ra khi người trực hủy đơn đều cần **OWN duyệt và chi**. Decision-log dòng DOM 30/10 không có câu sai này, không cần sửa.
+
+### D.3 D-QA-3 – Câu hẹn khách khi OWN vắng: **"trong 24 giờ"**
+
+Chọn "trong 24 giờ", không chọn "trong ngày". Lý do:
+- **OWN làm được mỗi lần.** Khách đến quầy thường vào chiều hoặc tối (nhận phòng từ 12:00). Cam kết "trong ngày" với khách đến lúc 21:00 buộc OWN chuyển tiền trước 24:00. Cam kết 24 giờ khớp với **lượt kiểm sáng hôm sau trước 09:00** mà OWN đã làm mỗi ngày (sổ tay 1.1: "duyệt và chi các khoản hoàn người trực tạo").
+- **Hoàn chuyển khoản cần máy được cấp quyền.** Xem đủ số tài khoản nhận hoàn cần OWN/MGR, máy được cấp quyền, xác thực lại (`refunds.service.ts`, đầu tệp: `getRefundDestination`). OWN ở ngoài cơ sở mà không có laptop được cấp quyền thì không chuyển được ngay.
+- **Tiền gốc phải đối soát trước khi chi.** Desk chặn chi hoàn (tiền mặt hay chuyển khoản) khi khoản thu tạo ra số dư chưa đối soát: `REFUND_SOURCE_NOT_RECONCILED` (BR-522 "chỉ chi khi khoản thu đã đối soát", `refunds.service.ts` ~525). Cọc cũ khách chuyển khoản mà OWN chưa đối soát thì OWN phải đối soát trước. QA mục 20 dùng cọc **tiền mặt** nên chưa gặp lỗi này.
+- Nói "24 giờ" rồi làm xong sáng hôm sau thì khách hài lòng. Nói "trong ngày" mà trễ thì khách sẽ khiếu nại. Chuẩn chung của ngành: hứa thời hạn chắc chắn làm được.
+- Hẹn "tiền mặt khi OWN có mặt trong thời gian ở" không có mốc giờ: OWN không tới thì khách trả phòng mà chưa nhận tiền. Chỉ hẹn tiền mặt khi OWN đã hẹn giờ cụ thể.
+
+**Chữ đề xuất cho PO** – sổ tay 2.4, bảng "Giữ chỗ quá hạn", dòng "Khách đó tới quầy":
+
+(1) Bước (a), thay:
+> **Nhập nơi nhận hoàn** ngay: **Tiền mặt** nếu chủ đầu tư có mặt hoặc sẽ tới quầy trong thời gian khách ở; **Chuyển khoản** nếu không.
+
+bằng:
+> **Nhập nơi nhận hoàn** ngay: **Chuyển khoản** (mặc định). **Tiền mặt** chỉ khi chủ đầu tư đang ở quầy, hoặc đã hẹn qua điện thoại một giờ cụ thể tới quầy trong thời gian khách ở.
+
+(2) Bước (d), thay:
+> Nói thật với khách và hẹn một trong hai cách: OTTIMO chuyển khoản lại trong ngày sau khi chủ đầu tư duyệt; hoặc khách nhận tiền mặt ở quầy khi chủ đầu tư có mặt trong thời gian ở. Ghi cách đã hẹn vào sổ giao ca, báo chủ đầu tư
+
+bằng:
+> Nói thật với khách: "We will transfer your 300,000 VND deposit back to you within 24 hours." / "OTTIMO sẽ chuyển khoản lại 300.000 đ tiền cọc cho anh/chị trong vòng 24 giờ." Chỉ hẹn tiền mặt khi chủ đầu tư đã hẹn giờ tới quầy. Ghi cách hẹn và giờ hẹn vào sổ giao ca, nhắn chủ đầu tư ngay mã đơn và số tiền (không ghi tên khách). Chủ đầu tư hoàn trong lượt kiểm sáng hôm sau, muộn nhất 24 giờ sau khi khách nhận phòng. Desk báo khoản thu chưa đối soát: chủ đầu tư đối soát khoản cọc cũ ở **Nhật ký tiền → Chờ đối soát** trước, rồi mới chi
+
+(UXD được chỉnh câu nói với khách theo brand guideline, nhưng **giữ cam kết 24 giờ**.)
+
+Các chỗ khác cùng câu "trong ngày" (đổi theo):
+- Sổ tay 2.4 "Lưu ý", ý "Khách chuyển thiếu": "(tại quầy hoặc chuyển khoản trong ngày)" → "(tiền mặt tại quầy khi chủ đầu tư có mặt, hoặc chuyển khoản trong 24 giờ)".
+- `release-notes.md` dòng 121: "(tiền mặt tại quầy hoặc chuyển khoản lại trong ngày)" → "(tiền mặt tại quầy hoặc chuyển khoản lại trong 24 giờ)".
+- `release-notes.md` dòng 122: "hẹn chuyển khoản lại trong ngày sau khi anh/chị duyệt, hoặc nhận tiền mặt khi anh/chị có mặt" → "hẹn chuyển khoản lại trong 24 giờ (anh/chị làm trong lượt kiểm sáng), hoặc nhận tiền mặt khi anh/chị đã hẹn giờ tới quầy".
+- `day-one-guide.md` mục 10 dòng "Rà giữ chỗ": "người trực hẹn chuyển khoản lại trong ngày sau khi OWN duyệt, hoặc nhận tiền mặt khi OWN có mặt" → "người trực hẹn chuyển khoản lại trong 24 giờ, hoặc nhận tiền mặt khi OWN đã hẹn giờ tới quầy".
+- Tờ 2a chỉ ghi "chủ đầu tư hoàn cọc cũ, vắng thì hẹn khách (sổ tay 2.4)": **không đổi**.
+
+Hoàn tiền mặt cho khoản cọc khách đã **chuyển khoản**: chấp nhận được trong cách tạm này. Lý do: cùng khách, cùng kỳ ở; thực chất là trừ vào tiền khách trả ở bước (c); Desk chỉ cho chi khi khoản chuyển khoản đã đối soát. Đây là cách DOM áp BR-522 "hoàn cùng phương thức", không phải ngoại lệ mới.
+
+### D.4 D-QA-4 – Giảm giá/FOC của đơn cũ phải "xin lại": **Người trực tự áp được trong hạn mức quản lý; vượt mức thì OWN duyệt**
+
+Quy tắc:
+- BR-432: "Không ai duyệt yêu cầu của chính mình, **trừ khi giá trị nằm trong hạn mức tự áp của vai mình** (… quản lý, chủ đầu tư: theo BR-433)".
+- BR-433: hạn mức quản lý = **giá 1 đêm/lần**, không giới hạn tháng. Với giảm giá đặc biệt hay FOC trên một dòng: tổng cộng dồn trên cùng khóa ≤ giá 1 đêm **của dòng đó** (BR-433 (b), cơ sở được bảo vệ BR-433 (d)).
+- BR-436 (lễ tân tự miễn minibar) không liên quan ở đây.
+- Decision-log 29/10: INV chấp nhận tài khoản 6 vai tự duyệt giảm giá.
+
+Mã khớp quy tắc (`approval.service.ts`):
+- `selfApplication` (a): người gửi có vai cao nhất là `manager` (tài khoản 6 vai: `approverRoleOf` lấy vai cao nhất). Khi tổng **≤ hạn mức lần của quản lý**, yêu cầu **tự áp ngay** (`approval.self_applied`), không vào **Cần duyệt**. Hạn mức tháng của quản lý không giới hạn.
+- Vượt mức: yêu cầu được chuyển tới `owner`. Tài khoản 6 vai mở yêu cầu đó thì bị chặn (`APPROVAL_LIMIT_EXCEEDED`). Chỉ OWN duyệt được.
+- `assertNotSelf`: quy tắc "không có ngoại lệ" chỉ áp cho **hoàn tiền** (`type === 'refund'`). Giảm giá/FOC thì quản lý và OWN được quyết yêu cầu của mình trong hạn mức.
+- Tổng miễn/giảm trên lượt ở vượt ngưỡng: Desk báo OWN, không chặn (BR-433 (c)).
+- **Chưa QA thử.** DOM đọc mã, khớp sổ tay 1.8 và Tờ 1 ("trong hạn mức của bạn thì Desk áp ngay").
+
+Trong thực tế: giảm giá đặc biệt và FOC tiền phòng tính **theo từng đêm** (một dòng một đêm, `folio_line_id`; BR-434). Một đêm giảm tối đa bằng chính giá đêm đó, nên gần như luôn **nằm trong hạn mức quản lý**, và người trực tự áp được. Ví dụ: đơn cũ căn 301, 3 đêm 720.000 đ, giảm 10 % = 72.000 đ/đêm, hoặc tặng trọn 1 đêm 720.000 đ: Desk áp ngay. Chỉ chờ OWN khi:
+- khoản giảm nằm trên dòng **lớn hơn giá 1 đêm** (khoản phát sinh như bồi thường; không có trên giữ chỗ);
+- hoặc giá đêm đã nhập tay **cao hơn giá tham chiếu**: cơ sở hạn mức lấy số nhỏ hơn (BR-433 (d)), nên FOC trọn đêm đó có thể vượt mức.
+
+**Chữ đề xuất cho PO** – sổ tay 2.4, khung "Giữ chỗ quá hạn", bước 2 (chưa cọc), ý "Đến từ ngày mai", thay:
+> Giảm giá hoặc FOC của đơn cũ phải xin lại (người trực tự duyệt bằng quyền quản lý, có lý do).
+
+bằng:
+> Giảm giá hoặc FOC của đơn cũ không tự sang đơn mới: xin lại trên từng đêm của đơn mới, ghi lý do. Trong hạn mức quản lý (mỗi lần không quá giá 1 đêm), Desk áp ngay bằng quyền quản lý của người trực. Desk báo phải chờ chủ đầu tư duyệt: nhắn chủ đầu tư mã đơn và số tiền.
+
+Và cùng dòng bảng "Khách đó tới quầy", bước (b), thêm câu:
+> Đơn cũ có giảm giá hoặc FOC: xin lại trên đơn mới như trên, trước khi thu ở bước (c).
+
+**Việc cho QA** (nếu kịp trước C3a): dùng `qa.mgr` gửi giảm giá đặc biệt trên một dòng tiền phòng của giữ chỗ. (1) giảm 10 % một đêm → kỳ vọng tự áp (`approval.self_applied`), không vào **Cần duyệt**. (2) Nếu dựng được ca vượt mức (đêm nhập tay cao hơn giá tham chiếu rồi FOC trọn đêm) → kỳ vọng `required_role = owner`, `qa.mgr` duyệt bị 403 `APPROVAL_LIMIT_EXCEEDED`. Không dựng được thì chỉ cần (1).
+
+### D.5 D-QA-5 – Khách đã chuyển sau hạn một phần cọc: **Đồng ý**, thêm 3 điều
+
+Cách của PO đúng với Desk:
+- Ghi tay (chuyển khoản, tiền mặt) vào giữ chỗ quá hạn bị chặn (`deposits.service.ts` ~174: `HOLD_EXPIRED`), nên Desk không ghi khoản này vào đơn cũ.
+- **Có một ngoại lệ.** Hộp **Xác nhận cọc** khi chọn VietQR chạy 2 lệnh (`ReservationDialogs.tsx` ~530–575): lệnh 1 `confirmPaymentReceived` **không xét hạn giữ chỗ**, nên ghi khoản VietQR thành "đã thu" trên folio đơn cũ; lệnh 2 `confirmDeposit` mới bị `HOLD_EXPIRED`. Mã VietQR của giữ chỗ còn hiệu lực tới 06:00 hôm sau ngày tạo, nên khách có thể quét **sau hạn giữ chỗ**. Nếu người trực lỡ bấm (trái với "Không bấm xác nhận cọc" ở Tờ 2a), tiền **đã nằm trên đơn cũ**. Ghi lại lần nữa ở (b) là **ghi hai lần**. Vì vậy phải mở đơn cũ kiểm **Đã thu** trước khi ghi (điều 1 dưới).
+- Đặt đơn mới chỉ nhận **một** cách thanh toán (`initialPayment`), và phải ≥ **Cọc cần thu** (`DEPOSIT_INSUFFICIENT`). Bước nhận phòng nhận chuyển khoản/POS bằng **đúng** số phải thu.
+- Ví dụ: cọc yêu cầu 700.000, đơn cũ đã ghi 300.000, khách lỡ chuyển nốt 400.000 sau hạn. Ở (b) khách chuyển thêm 300.000 → ghi một khoản chuyển khoản 700.000. Ở (c) thu 1.676.000. Ở (d) OWN hoàn 300.000. Tổng khách trả: 300.000 + 400.000 + 300.000 + 1.676.000 − 300.000 = **2.376.000**, đúng bằng tổng đơn.
+
+Thêm 3 điều:
+1. **Kiểm trước khi ghi.** (a) Kiểm tiền về theo mục 2.13 (gọi OWN/quản lý xác nhận mã giao dịch và số tiền; 22:00–07:00 ghi chuyển khoản tay, chờ đối soát). (b) Mở **đơn cũ**, xem **Đã thu**. Nếu khoản chuyển sau hạn **đã có** trên đơn cũ (ai đó đã bấm Xác nhận cọc qua VietQR), **không ghi lại** ở bước (b): hủy đơn cũ thì Desk hoàn cả khoản này, và đơn mới thu đủ cọc như khách mới.
+2. Ghi bằng **Chuyển khoản** (tay), không chọn VietQR. **Mã giao dịch / ghi chú** ghi cả hai lần chuyển. OWN đối soát **một** dòng Desk với **tổng hai** dòng sao kê.
+3. **Khách không chuyển thêm được** (ví dụ không có tài khoản ngân hàng Việt Nam): **không** gộp tiền mặt hay thẻ vào khoản chuyển khoản, vì sẽ làm lệch két và sổ ngân hàng. Thu đủ cọc ở (b) bằng tiền mặt hoặc thẻ. Khoản chuyển sau hạn để ngoài Desk: ghi sổ giao ca, báo OWN. OWN **chuyển trả về đúng tài khoản đã chuyển** trong 24 giờ, như một khoản chuyển nhầm, và ghi vào đối soát. Ca này rất hiếm: cọc thiếu, quá hạn, chuyển sau hạn, khách không chuyển thêm được, và khách đến trước v1.0.1.
+
+**Chữ đề xuất cho PO** – sổ tay 2.4, bảng, ô "Làm gì" của dòng "Khách đã lỡ chuyển nốt **sau** hạn", thay toàn bộ bằng:
+> Tiền đã ở tài khoản OTTIMO nhưng Desk không ghi được vào đơn cũ. Kiểm tiền về như mục 2.13, rồi ghi sổ giao ca: mã đơn, số tiền, giờ tiền về. Mở đơn cũ xem **Đã thu**: khoản này đã có trên đơn cũ (lỡ bấm xác nhận qua VietQR) thì không ghi lại ở bước (b) – Desk hoàn cả khoản này khi hủy đơn cũ. Khi khách đến, làm như dòng trên. Phần đã chuyển ghi ở **bước (b)**, vào **Số tiền đã nhận**, **Cách thanh toán** **Chuyển khoản** (không chọn VietQR), ghi chú "chuyển dd/mm hh:mm". Chưa đủ **Cọc cần thu** (ví dụ đã chuyển 400.000, cọc 700.000): khách chuyển thêm 300.000 ngay, ghi chung **một** khoản chuyển khoản 700.000, ghi chú cả hai lần chuyển. Khách không chuyển thêm được: không gộp tiền mặt hay thẻ vào khoản này. Thu đủ cọc bằng tiền mặt hoặc thẻ; khoản đã chuyển sau hạn ghi sổ giao ca, chủ đầu tư chuyển trả về đúng tài khoản đã chuyển trong 24 giờ. Bước (c) chỉ thu phần còn lại
+
+Cột "Ai, hạn" giữ nguyên. OWN đối chiếu sao kê sáng hôm sau: một dòng Desk khớp tổng hai dòng sao kê.
+
+**Việc cho QA** (đọc mã, chưa thử – QA quyết có ghi lỗi không và mức nào): sau hạn giữ chỗ, **Xác nhận cọc** chọn VietQR ghi khoản thành "đã thu" trên đơn cũ rồi mới báo `HOLD_EXPIRED`, tức là làm được một nửa. Hộp không nói tiền đã được ghi. DOM đề xuất: ghi tiền vẫn đúng (tiền đã về thật), nhưng hộp phải báo rõ "Đã ghi … vào đơn; đơn chưa xác nhận được". Nên gộp vào bản sửa BUG-R3-042/044 ở v1.0.1. Kiểm được khi có VietQR thật, hoặc trên stack có đồng hồ giả.
+
+### D.6 Thêm – Bước (b) phải cùng kênh và CTV
+
+QA đặt đơn thay bằng kênh **Khách vãng lai** (20.2 dòng 8). Sổ tay 2.4 (b) chỉ ghi "cùng căn, nhập đúng giá". Nếu đơn cũ do **CTV** chốt mà đơn mới chọn Trực tiếp/Khách vãng lai:
+- CTV mất hoa hồng (ESC-017);
+- báo cáo kênh ghi sai một khách vãng lai mới.
+
+Tình huống này hay gặp vì CTV giữ chỗ hộ khách (A.1).
+
+**Chữ đề xuất cho PO** – sổ tay 2.4, bước (b), thay:
+> (b) **Đặt phòng mới** cùng căn, nhập đúng giá từng đêm đã chốt.
+
+bằng:
+> (b) **Đặt phòng mới** cùng căn, nhập đúng giá từng đêm đã chốt, **cùng Kênh và Nguồn / CTV chốt đơn** như đơn cũ (không chọn **Khách vãng lai**).
+
+**Tờ 2a** (tùy PO, không bắt buộc). Đổi chữ cho **ngắn hơn** (31 → 28 ký tự), không thể tràn tờ 0 mm. Trong `staff-one-pager.md` và `print/to-2a-2b-a4-cat-doi.html`, thay "đặt đơn mới cùng căn, cùng giá," bằng "đặt mới cùng căn, giá, kênh,". Câu thành: "Khách đến: hủy đơn cũ → đặt mới cùng căn, giá, kênh, **thu đủ cọc ngay** → …". PO chạy lại bộ dựng để kiểm. Nếu PO không đổi: Tờ 2a đã trỏ sổ tay 2.4, chấp nhận được.
+
+`release-notes.md` dòng 121 cũng có "đặt đơn mới cùng căn, cùng giá": đổi theo nếu PO đổi Tờ 2a.
+
+### D.7 Việc ORC nói với INV ở buổi C3a (thông tin, không lập ESC)
+
+- Decision-log 29/10 ghi INV chấp nhận người trực "tự ghi và tự duyệt giảm giá/**hoàn tiền**". Phần **hoàn tiền** không làm được ở v1.0: quy tắc tách nhiệm SEC F8 chặn, không có ngoại lệ (QA 20.2).
+- Hệ quả cho INV:
+  - **mọi** khoản hoàn (hủy đơn có cọc, trả sớm, khách trả thừa) chờ INV duyệt và chi;
+  - INV cần đối soát chuyển khoản mỗi sáng thì mới chi được;
+  - hoàn chuyển khoản cần máy được cấp quyền;
+  - khách được hẹn hoàn trong 24 giờ.
+- Phần **giảm giá/FOC** vẫn đúng như INV chấp nhận, trong hạn mức quản lý.
+- Đồng ý với PO: chưa lập ESC. INV muốn người trực tự hoàn tại quầy thì đó là đổi F8 (SEC + INV), không vào v1.0.1.
+- Đề nghị ORC thêm một dòng decision-log ghi rõ phần "hoàn tiền" của dòng 29/10 không áp được (D.9).
+
+### D.8 Ảnh hưởng bản in
+
+| Tờ | Đổi? | Ghi chú |
+|---|---|---|
+| 1 – Quầy lễ tân | **Không** | Dòng "Miễn, giảm…" và "Hoàn tiền…" đã đúng với D-QA-2, D-QA-4 |
+| 2a – Tạm tới v1.0.1 | **Không bắt buộc** | D-QA-1, 3, 4, 5 chỉ sửa sổ tay. Tùy chọn D.6: đổi chữ ngắn hơn 3 ký tự; nếu đổi, chạy lại `build_print_sheets.py --pdf` |
+| 2b, 3, 4 | Không | – |
+
+OWN in lại Tờ 1, 2a/2b ngày 01/11 như PO 10.3. Nếu PO áp D.6 thì in từ PDF dựng lại sau khi sửa.
+
+### D.9 Dòng decision-log đề xuất (ORC ghi khi commit, nhãn DOM)
+
+`| 2026-10-30 | 3 | **DOM – xác nhận tài liệu ngày D sau QA thử luồng giữ chỗ quá hạn** (DOM-on-PO-v1.0.0-docs.md mục D): (1) lý do hủy tạm "Không liên lạc được"/"Khách đổi ý" – đồng ý; K-22a không lệch tỉ lệ, chỉ lệch phần chia theo lý do; S7 kỳ 02/11 → v1.0.1 tách lại bằng status_before_cancel = hold và cancelled_at ≥ hold_expires_at; (2) người tạo yêu cầu hoàn không tự duyệt, không tự chi – OWN duyệt và chi (sửa DOM A.3); (3) hẹn khách hoàn cọc khi OWN vắng: chuyển khoản **trong 24 giờ** (không "trong ngày"), tiền mặt chỉ khi OWN đã hẹn giờ; OWN đối soát cọc cũ trước khi chi (REFUND_SOURCE_NOT_RECONCILED); (4) giảm giá/FOC xin lại: tài khoản 6 vai tự áp trong hạn mức quản lý (≤ giá 1 đêm của dòng), vượt mức OWN duyệt; (5) cọc chuyển sau hạn ghi một khoản Chuyển khoản ở bước đặt đơn mới, không gộp tiền mặt; (6) đơn đặt lại cùng kênh/CTV như đơn cũ. Phần "tự duyệt hoàn tiền" của dòng INV 29/10 không áp được ở v1.0 (SEC F8) | DOM | Quyền DOM (tính đúng nghiệp vụ); không đổi chính sách ESC-006, không đổi SEC F8 |`
+
+### D.10 Giả định
+
+- [GIẢ ĐỊNH] D-QA-4 và phần `REFUND_SOURCE_NOT_RECONCILED` ở D-QA-3 dựa trên đọc mã `v1.0.0`, chưa thử trên staging.
+- [GIẢ ĐỊNH] OWN chưa có laptop được cấp quyền dùng ngoài cơ sở. Nếu có, OWN hoàn được sớm hơn, nhưng vẫn giữ câu hẹn 24 giờ với khách.
+- [GIẢ ĐỊNH] Trả lại một khoản chuyển khoản chưa ghi trên Desk về đúng tài khoản người chuyển là việc của OWN trên ứng dụng ngân hàng, ngoài Desk (D-QA-5 điều 3). Nhật ký nằm ở sổ giao ca và ghi chú đối soát.
+
+## E. Điểm làm tốt
 
 1. PO **không cho lễ tân tự hủy đơn có cọc** và giữ trần 12:00 ngày đến. Đây đúng là điều cốt lõi của BR-303 / D-9.
 2. Mỗi biện pháp tạm (rà 0h00, tạm dừng link, B1–B6) gắn với **bản sửa** chứ không gắn với ngày. Cách viết này nên giữ cho mọi known issue.
