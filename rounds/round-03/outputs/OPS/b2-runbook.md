@@ -520,3 +520,72 @@ Tổng `user_session` của tài khoản 6 vai: **4**, đang sống **1**. G2-7 
 - "Folio dư 0" tính như `moneyPosition`: Σ dòng `posted` − Σ payment `succeeded` không phải đảo, không phải cọc an ninh. Cả hai đều 0.
 - "Tài khoản giữ 6 vai" là người dùng duy nhất không có vai `owner` (tổng `app_user` 2).
 - Truy vấn tạm nằm trong scratchpad của phiên (`c1.sql`, `c1b.sql`, `c1c.sql`). Đầu ra không có dữ liệu cá nhân.
+
+## 8. Bật form US-155 production 30/10
+
+- Người làm: OPS | Round 3 – bước **Kiểm thử** | 30/10/2026 **16:07–16:16** giờ VN. INV đồng ý làm ngay chiều 30/10, thay khung 31/10 07:00 (decision-log 30/10). Production chưa có khách thật, chưa có nhân viên dùng Desk.
+- Kịch bản: `us155-enable-plan.md` mục 2.3 (bản trên `main`, PR #15), bước **G0 → G1 → G2 → G3**. **Dừng sau G3**: chưa làm I/J/K/L (ORC đẩy tag `landing-v1.1.0`, INV duyệt Release, rồi mới tới J).
+- Cách làm như mục 6–7:
+  - SSH `ottimo-admin`, khóa `~/.ssh/ottimo_ops`, `StrictHostKeyChecking=yes`, `BatchMode`. Host lấy từ phân giải `desk.ottimo.vn`, không ghi lại.
+  - Lệnh stack chạy qua `sudo -u ottimo /opt/ottimo-prod/infra/server/bin/…`.
+- Không in `.env` hay bí mật: chỉ đếm dòng bằng `grep -c`/`grep -qx`, in quyền tệp. Không SQL, không ghi DB, không đụng staging hay `/opt/ottimo-edge`. Không ghi IP vào tệp này.
+
+### 8.1 Kết luận: **G0–G3 ĐẠT**. Desk gián đoạn **khoảng 4 giây**. Có thể sang bước I.
+
+| Bước | Giờ | Việc | Kết quả | Đạt? |
+|---|---|---|---|---|
+| G0 | 16:07–16:12 | Kiểm trước | (1) `dc ps`: api, web, landing, postgres **healthy**; worker Up (worker không có healthcheck, như trước). (2) `state/current_tag` = **`sha-8b3aec89486f`**, `state/landing_tag` = `sha-70fe734e9077`. (3) `ops-check@ottimo-prod` lượt 15:56: **7/7 ok**. (4) Đĩa `/` **18 %**, RAM khả dụng 77 %. (5) Sao lưu gần nhất là bản đêm 03:02. Lúc 16:08 bản này đã **13 giờ**, quá ngưỡng 12 giờ, nên chạy sao lưu tay như 29/10 | Đạt |
+| G0 | 16:08:20–16:08:23 | Sao lưu tay `systemctl start ottimo-backup@ottimo-prod.service` | `OK: 36 encrypted files`, `Result=success`, thoát 0. Bản mới **`20261030T090820Z`** (db, counts, blobs, purge-journal + 4 `.sha256`). `state/backup.last_ok` = 2026-10-30T09:08:23Z | Đạt |
+| G0 | 16:11 | Kéo về Mac (lệnh `v1-production.md` 19.2, container `alpine:3.20`, khóa `ottimo_backup_pull`) | `pull-backups: 36 encrypted files`, không có `checksum mismatch`. `shasum -a 256 -c` trên Mac OK cả 4 tệp `20261030T090820Z`. Thư mục 0700. `.last_pull` 2026-10-30T09:11:48Z | Đạt |
+| G1 | 16:12–16:13:07 | Làm mới bundle `infra/` từ `main` | Nguồn: `git archive main product/infra` tại **`432a8741`** (có `c126b1d4` / PR #15). Đóng gói bỏ `infra/server/test`, `.env*`, `.out`, `.work`, `.DS_Store`, `COPYFILE_DISABLE=1`. Bundle cũ (`47ad517`, 25/10) chép sang `/root/ottimo-prod-bundles/infra-47ad517-20261030-161307`. `rsync -a --delete --delete-excluded --chown=root:root` (cờ như `bootstrap-vps.sh`) **thêm `--exclude 'server/test/'`**, **chỉ vào** `/opt/ottimo-prod/infra`. Sau đó `chmod -R go-w`, `chmod 0755 server/bin/* postgres/init/02-roles.sh`. Chạy thử trước (`--dry-run --itemize`): nội dung chỉ khác ở **13 tệp** đúng như `git diff 47ad517 main -- product/infra`. `docker-compose.prod.yml`, `caddy/*` không đổi | Đạt |
+| G1 | 16:13 | Kiểm sau rsync | sha256 trên VPS **trùng repo 7/7**: `deploy.sh` `949ac32a…`, `deploy-landing.sh` `2a52c9f7…`, `publish-privacy-notice.sh` `9d8b7df9…`, `publish-privacy-notice.sql` `18a23ac5…`, `us155-smoke-counts.sh` `a0acb748…`, `us155-smoke-counts.sql` `524a033c…`, `docker-compose.prod.yml` `e155d7cc…`. Không có `infra/server/test/`. 0 tệp AppleDouble `._*` (bundle cũ có, nay đã xóa). `diff -rq` bundle tải lên với `/opt/ottimo-prod/infra`: trùng. `dc config -q` và `dc --profile landing config -q`: OK. Container không đổi | Đạt |
+| G2 | 16:13:37 | Sửa `.env` | Trước khi sửa: `LANDING_BASE_URL=` (rỗng, 1 dòng), `LANDING_PUBLIC_API=off` (1 dòng), `LANDING_HOST=ottimo.vn`, `LANDING_IP=172.30.1.11` (đã có). Đã sao lưu `.env` sang `state/env.before-us155.20261030-161337` (**0600 `ottimo:ottimo`**, `cmp` trùng). Sửa tại chỗ hai dòng thành `LANDING_BASE_URL=https://ottimo.vn` và `LANDING_PUBLIC_API=on`. Đếm sau sửa: mỗi biến đúng **1** dòng, khác bản sao lưu đúng **2** dòng. `.env` vẫn `600 ottimo:ottimo`. `secrets/public_form_signing_key`: `400 1000 44` | Đạt |
+| G3 | 16:14:09–16:14:33 (24 giây) | `deploy.sh sha-8b3aec89486f --no-pull --api-digest <api= trong state/digests> --web-digest <web=…>` | `image digests match the release`. **`appconfig`: `api/worker configuration accepted`** (lần đầu bước này chạy trên production). `02-roles.sh applied`. `migrations: 65 applied / 65`. `switch`: chỉ **api + worker Recreate**, web và postgres `Running`, landing không bị đụng. `smoke` → **`OK: sha-8b3aec89486f is live`**, thoát 0. `deploy-history.log` thêm dòng `2026-10-30T09:14:33Z sha-8b3aec89486f`. Không phải dùng đường lùi | Đạt |
+
+Ghi chú G3: hai dòng `WARNING: role "ottimo_app"/"ottimo_readonly" has not been granted membership…` của `02-roles.sh` cũng có trong log deploy production 27/10 và sáng 30/10. Không phải lỗi mới.
+
+### 8.2 Thời gian gián đoạn Desk
+
+- Đo từ Mac bằng `GET https://desk.ottimo.vn/v1/me` mỗi khoảng 0,58 giây, 16:13:59–16:14:46, tổng 79 lần. Api còn sống thì trả 401 (chưa đăng nhập).
+- Kết quả: **7 lần 502**, từ 16:14:16.10 tới 16:14:19.58. Lần 401 cuối trước đó lúc 16:14:15.51, lần 401 đầu sau đó lúc 16:14:20.22.
+- **Desk gián đoạn khoảng 3,5 giây, chắc chắn dưới 4,7 giây.** Kịch bản ước 15–30 giây; thực tế ngắn hơn nhiều.
+- ottimo.vn không gián đoạn: container landing không bị dựng lại.
+
+### 8.3 Trạng thái sau G3 (16:14:46–16:16)
+
+| Kiểm | Kết quả | Đạt? |
+|---|---|---|
+| Container | api, web, landing, postgres **healthy** (4/4). Worker Up, cùng image api `sha-8b3aec89486f`. web vẫn "Up 8 hours" (không bị dựng lại). landing `sha-70fe734e9077` vẫn "Up 3 days" | Đạt |
+| Worker | `worker started` với **20 job** (`folio.close`, `guest.document_profile_anonymize`, `guest_request.purge`, `guest_request.sla`, `hk.daily`, `hold.expire`, `hold.remind`, `idempotency.purge`, `late_fee.post_review_overdue`, `lease.nights`, `log.partitions`, `ooo.activate`, `payment.expire`, `public_site.cleanup`, `registration.deadline`, `retention.purge`, `web_request.purge`, `web_request.sla`, `web_request.stale`, `work_order.sla`). `email smtp check: ok`. 14 `job done` trong phút đầu | Đạt |
+| Log api/worker từ 09:14Z (UTC) | Mức `error`: **0**, mức `warn`: **0**. Chữ error/exception/fatal: 0 (api và worker) | Đạt |
+| Biến đã nhận | Trong api và worker: `LANDING_BASE_URL` = `https://ottimo.vn`. `TRUST_PROXY` có 2 địa chỉ (web + landing). Container landing (cũ) vẫn `LANDING_PUBLIC_API=off`. Đúng dự kiến: landing chỉ đọc `on` khi được dựng lại ở bước I | Đạt |
+| URL công khai | `ottimo.vn/` 200; `desk`, `staff`, `g.ottimo.vn` 200. `ottimo.vn/privacy/` **404**: bản landing hiện tại `sha-70fe734e9077` chưa có trang này, đúng dự kiến | Đạt |
+| `form-token` trên ottimo.vn | `GET https://ottimo.vn/v1/public/properties/dlt/form-token` → **404 `text/html`** (trang 404 của landing, Caddy). `POST …/booking-requests` (thân rỗng) → 404 `text/html`. Đường proxy chưa mở vì landing cũ, không chạm api. Đúng dự kiến tới bước I | Ghi nhận |
+| `form-token` qua desk.ottimo.vn | 404 `application/problem+json`: api trả lời, công tắc chưa bật | Ghi nhận |
+| `ops-check` chạy tay lúc 16:15:31 | 6/7 ok (containers, j16, backup 0 giờ, disk 18 %, mem 77 %, tls). **`http5xx` FAIL: 14 trong 35 phút.** Đã đọc log Caddy: cả 14 dòng là **7 request đo của OPS** (`desk.ottimo.vn GET /v1/me` 502, 16:14:16–16:14:19); mỗi request Caddy ghi 2 dòng. Landing 0 lỗi 5xx | Xem 8.4 |
+
+### 8.4 Việc ORC cần biết
+
+1. **Cảnh báo `http5xx` do chính phép đo OPS gây ra.**
+   - Cảnh báo chỉ ghi vào journal (`ottimo-alert`): production chưa đặt `ALERT_WEBHOOK_URL` và `HEARTBEAT_URL`, nên không có thư hay tin nào gửi đi.
+   - Cảnh báo tự hết khi 16:14 ra khỏi cửa sổ 35 phút, tức từ lượt timer khoảng 16:56.
+   - Bước I/M (đọc log 30 phút "không có 5xx"): nếu chạy trước 16:50 thì trừ 7 request này ra.
+   - Bài học: lượt dựng lại api có người đang dùng sẽ có vài 502, đủ chạm ngưỡng 5. Lần sau đo bằng `HEAD` thưa hơn (2 giây/lần) hoặc ghi trước giờ deploy vào báo cáo.
+2. **Đường lùi còn sẵn:**
+   - Bundle cũ: `/root/ottimo-prod-bundles/infra-47ad517-20261030-161307`.
+   - `.env` cũ: `state/env.before-us155.20261030-161337`.
+   - Bản sao lưu DB: `20261030T090820Z`, trên VPS và trên Mac.
+   - Theo SEC 3.2, xóa `state/env.before-us155.*` sau khi L đạt và qua 24 giờ ổn định. Bản giải nén `/root/ottimo-bundle-432a8741` (root 0700) cũng xóa lúc đó.
+3. **Sẵn sàng cho bước I** về phía OPS. Còn chờ:
+   - ORC đẩy tag `landing-v1.1.0` (`8f1265e`, image `sha-8f1265e0e878`).
+   - Trước khi INV duyệt Release, OPS băm 2 tệp privacy trong image mới và so với `state/privacy-notice.log`. **Tệp này hiện chưa có trên VPS (lần ghi đầu)**, nên ghi "chưa có dòng". Hai băm phải trùng số QA D1: `/privacy/` `d35d2810…327a`, `/vi/privacy/` `940bd18b…776a`.
+   - Sau I: `form-token` trên ottimo.vn phải đổi thành **404 `application/problem+json`** (api trả lời, công tắc còn tắt). Đường lùi I theo ARC FB-03: `LANDING_PUBLIC_API=off` trước, rồi `deploy-landing.sh --rollback`.
+4. `/opt/ottimo-edge` và staging `/opt/ottimo` **không** làm mới bundle trong lượt này: ngoài phạm vi G1.
+
+### 8.5 Giả định
+
+- "Sao lưu gần nhất" tính theo `state/backup.last_ok`, cũng là mốc `ops-check` dùng.
+- "Như hôm qua" là quy trình mục 5, Phần 5, bước 1–2 (29/10): chạy service sao lưu rồi kéo về Mac. Không chạy diễn tập khôi phục: chỉ INV mở được khóa.
+- "Bundle từ `main`" lấy bằng `git archive main` ở commit `432a8741`, không lấy từ thư mục làm việc, để tránh tệp chưa commit. Chỉ dữ liệu cấu hình và script: production không cần `tests/fixtures/seed`.
+- "4 container healthy" là api, web, landing, postgres. Worker không khai báo healthcheck trong compose.
+- Tệp tạm của phiên (bundle, nhật ký G1/G3, dữ liệu đo) nằm trong scratchpad, không có IP hay bí mật.
