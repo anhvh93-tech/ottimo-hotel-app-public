@@ -21,7 +21,11 @@ import {
   type StaffChatKind,
   isStaffChatKind,
 } from '../modules/events/public/staff-chat';
-import type { ChatDetailLevel, ChatRenderer } from '../modules/public-site/public/chat-message';
+import type {
+  ChatDetailLevel,
+  ChatRecheck,
+  ChatRenderer,
+} from '../modules/public-site/public/chat-message';
 import type { PropertyRef } from './job-runner';
 
 export const CHAT_BACKOFF_MINUTES = [1, 5, 15, 60, 180] as const;
@@ -68,7 +72,14 @@ export interface ChatDispatchStats {
 }
 
 type Decision =
-  | { kind: 'send'; text: string; threadKey: string; levelCapped: boolean }
+  | {
+      kind: 'send';
+      text: string;
+      threadKey: string;
+      levelCapped: boolean;
+      /** Level C: re-read the request right before the POST (SEC FB-R3-SEC-BE-GCHAT-04). */
+      recheck?: ChatRecheck;
+    }
   | { kind: 'skip'; code: string }
   | { kind: 'retry'; code: string }
   | { kind: 'dead'; code: string };
@@ -137,11 +148,15 @@ export class ChatDispatcher {
             ? { status: 'dead', code: d.code }
             : { status: 'failed', code: d.code };
       else if (overBudget()) final = { status: 'deferred' };
-      else final = await this.deliver(row, d);
+      else {
+        // Guest data in the text: a WR8 erase / spam mark since the claim stops the post (SEC GCHAT-04).
+        const gone = d.recheck ? await this.db.withContext(ctx, (tx) => d.recheck!(tx)) : null;
+        final = gone ? { status: 'done', code: gone } : await this.deliver(row, d);
+      }
       const recorded = await this.db.withContext(ctx, (tx) => this.finish(tx, row, final));
       if (!recorded) continue;
       if (final.status === 'done') {
-        if (d.kind === 'skip') stats.skipped += 1;
+        if (d.kind === 'skip' || final.code?.startsWith('SKIPPED_')) stats.skipped += 1;
         else {
           stats.sent += 1;
           stats.done += 1;
@@ -212,6 +227,7 @@ export class ChatDispatcher {
                 text: rendered.text,
                 threadKey: rendered.threadKey,
                 levelCapped: rendered.levelCapped,
+                ...(rendered.recheck ? { recheck: rendered.recheck } : {}),
               }
             : { kind: 'skip', code: rendered.code },
         });

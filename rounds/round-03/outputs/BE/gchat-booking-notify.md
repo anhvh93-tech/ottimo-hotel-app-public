@@ -48,11 +48,18 @@ Theo mẫu `StaffEmailDispatcher`: claim ≤ 5 dòng `FOR UPDATE SKIP LOCKED` th
 - `check-compose.sh`: `BOOKING_REQUEST_CHAT_WEBHOOK_URL` vào `PLAIN_SECRETS`; worker phải có `email_smtp_password` + `booking_request_chat_webhook` và đúng đường `_FILE`; dịch vụ khác có các secret đó hoặc biến `BOOKING_REQUEST_CHAT_*` → FAIL (đã thử bản compose sai: 3 FAIL đúng).
 - `env.example`, `env.production.example`, `.env.example`: dòng `BOOKING_REQUEST_CHAT_DETAIL_LEVEL` + chú thích (không giá trị bí mật). `server/test/publish-privacy-notice.test.sh`: thêm tệp secret rỗng.
 
-### 1.6 Commit riêng: `privacy_notice_version` chỉ-thêm-dòng (SEC FB-R3-SEC-ARC-PN-01)
+### 1.6 PN-01 (`privacy_notice_version` chỉ-thêm-dòng) – **đã tách khỏi PR #16**
 
-- Migration **0090** `privacy_notice_append_only` (snapshot = 0088, không đổi schema): trigger hàng BEFORE UPDATE/DELETE + trigger câu lệnh BEFORE TRUNCATE; chỉ cho "đặt `superseded_at` từ NULL" với mọi cột khác không đổi; áp cả `ottimo_owner`. Câu UPDATE của `publish-privacy-notice.sql` đúng dạng được phép.
-- `defineAuditEntity('privacy_notice_version', ['version','locales','shaVi','shaEn','landingTag','landingDigest','superseded'])` trong `modules/public-site/audit-entities.ts` (worker và api cùng registry – test kiểm).
-- **Thứ tự gộp**: số 0089 thuộc BE-A v1.0.1 (chưa lên `main`). 0090 có `when` mới hơn 0089. **Gộp PR BE-A trước PR này**, hoặc ORC đổi số/bỏ commit này (commit tách riêng để dễ bỏ). Người gộp sau sửa `prevId` của snapshot và vị trí trong `_journal.json`.
+- Theo quyết định ARC (`reviews/ARC-on-BE-gchat-notify.md` mục 3, thẻ GC-01): hai commit PN-01 (`db29b4ca`, `1420521e`) đã **revert** trên nhánh này (`0d13aed8`, `cac5c9cc` – revert, không force-push). PR #16 **không còn migration nào**; phần Chat theo thiết kế 8.14 vốn không cần migration.
+- PN-01 (migration chỉ-thêm-dòng + `defineAuditEntity('privacy_notice_version', …)` + test) sẽ làm lại ở nhánh riêng `be/privacy-notice-append-only`, cắt từ `main` **sau khi PR BE-A (0089) đã gộp**: cherry-pick 2 commit, snapshot = **nội dung 0089** (đổi `id`, `prevId` = id 0089), idx 66, `when` = 0089 + 2000, CI "drizzle-kit generate creates no file" xanh, chạy `infra/server/test/publish-privacy-notice.test.sh` với trigger. Chưa làm ở lượt này.
+
+## 2a. Lượt 2 – sửa theo review ARC + SEC (30/10)
+
+Bảng trả lời đủ thẻ: `rounds/round-03/responses/BE-gchat-notify.md`. Tóm tắt:
+- **SEC GCHAT-01 (Major)**: email mức C chỉ in khi khớp mẫu chặt `CHAT_EMAIL` (`^[a-z0-9._%+-]{1,64}@` + nhãn tên miền như `normalizeEmail`); không khớp → `(email có ký tự đặc biệt – xem trên Desk)`. `://` và `<>` nay luôn bị vô hiệu ở mọi trường (kể cả email); ngoại lệ duy nhất của email là giữ dấu chấm tên miền (SEC Q3).
+- **ARC GC-02 + SEC 02**: `chatSafeText` bỏ mọi `\p{Cf}` (giữ U+200D giữa hai pictograph – emoji ghép); U+2028/U+2029/U+0085 = xuống dòng; `DOMAIN_DOT` nhận `\p{M}` trước dấu chấm; dấu chấm của cụm IPv4 → `[.]`; tên (ngoài khối mã) bỏ `*` `_` `~`.
+- **SEC 04**: tin mức C mang hàm `recheck`; dispatcher đọc lại `status, pii_purged_at` ngay trước POST, đã xóa/spam → `SKIPPED_GONE`, không gửi.
+- **ARC GC-06**: staging/production chỉ đọc `ADMIN_BASE_URL` (dev/test giữ dự phòng `APP_BASE_URL`). **GC-05**: `umask 077` trong nhánh `--set-booking-chat`, in `checked: bash rule only (image tool not available)` khi image chưa có lệnh kiểm. **GC-03**: sửa chú thích trỏ test. **SEC 03**: chú thích trên hằng phiên bản (thông báo bỏ Google Chat → hạ mức trước khi đăng).
 
 ## 2. Test (ARC 8.11)
 
@@ -62,7 +69,7 @@ Theo mẫu `StaffEmailDispatcher`: claim ≤ 5 dòng `FOR UPDATE SKIP LOCKED` th
 | Unit 3, 3a, 3b, khóa tĩnh | `services/api/test/gchat-units.test.ts` | Render A/B/C × ngắn/dài hạn/không rõ × trong giờ/ngoài giờ/cần gọi ngay (cả qua nửa đêm trước rollover) × cờ × kênh phone/email/zalo; spy: A/B và mọi ca bị chặn ★2 không gửi câu SQL có cột C2; C chỉ đúng `CHAT_CONTACT_SQL`; tin nhắc luôn A, `<users/all>` chỉ tin quá hạn; tin xóa; `chatSafeText` đủ ca SEC (CCCD, CMND, hộ chiếu, thẻ Luhn, `<users/all>`, `<https://evil.example\|Mở Desk>`, `evil.example/login`, `https://x.y`, backtick, `*x*`, bidi, 9 dòng → 8, 501 ký tự, emoji ghép); cấu hình mức, `ADMIN_BASE_URL`, `resolveChatConfig`; renderer chỉ được `worker-chat.ts` nối | 41/41 |
 | Tích hợp 4, 5, 6, 6a, log canh | `services/api/test/integration/gchat-notify.test.ts` | Form → đúng 1 dòng (payload chỉ 3 khóa), replay vẫn 1, honeypot/422 → 0; dispatcher: done + `dispatched_at` + `threadKey`, 500→200 (attempts 2), 404 dead, 6 lần → dead, lease hết hạn lấy lại, ngân sách → deferred, off → `SKIPPED_DISABLED`, > 12 giờ → `SKIPPED_STALE`, đã nhận → `SKIPPED_HANDLED`, spam → `SKIPPED_GONE`; ★2: C + thông báo mới chưa đăng → A + `levelCapped`, sau khi đăng: yêu cầu `2026-10-24` vẫn A, `2026-10-31` ra C đúng mẫu; hạ C → A áp cho dòng đang chờ; B dài hạn; `web_request.sla` (giờ VN, qua nửa đêm): phút 30 trong giờ, 23:00 cần gọi ngay → 23:45, ngoài giờ zalo → quá hạn 07:30 không có morning, ngoài giờ phone → morning 07:30 + quá hạn 08:30, 21:30 phone → không morning, đã nhận → 0, mỗi tick vẫn 1 dòng/kind, worker trở lại 10:00 vẫn morning, sau 22:00 không morning; WR8: tin đầu đã đăng → tin xóa trong luồng (gửi được dù đã purge), Chat tắt → 0 dòng, tin đầu đang chờ → `SKIPPED_GONE` + `SKIPPED_NOT_POSTED`; **toàn bộ log của bộ test không chứa** tên/SĐT/email/lời nhắn canh, `chat.googleapis`, `key=`, `token=` | 21/21 |
 | Chỉ worker 7, 8 | `services/api/test/integration/gchat-worker-only.test.ts` (+ lệnh `run-chat` trong `test/helpers/worker-only-child.ts`) | Tiến trình con chỉ nạp worker (không `*.module.ts`): URL từ **tệp** bí mật, `web_request.sla` ghi `web_request_morning`, dispatcher gửi tới máy chủ giả, log `chat: on` + `chat detail level {C}`, không lỗi; tệp rỗng → `chat: off {reason: NOT_CONFIGURED}`; URL sai + mức sai → 2 dòng error có mã, `chat: off`, `public_site.cleanup` vẫn `done` | 2/2 |
-| PN-01 | `test/integration/privacy-notice-append-only.test.ts`, `test/worker-audit-registry.test.ts` | Đặt `superseded_at` 1 lần được; lần 2, xóa NULL, đổi sha, vừa đặt vừa đổi sha, đổi `published_at`, DELETE → `check_violation` với `ottimo_owner`; 2 trigger có trong catalogue; registry worker có `privacy_notice_version` | 8/8 + 4/4 |
+| ~~PN-01~~ (đã tách, mục 1.6) | `test/integration/privacy-notice-append-only.test.ts`, `test/worker-audit-registry.test.ts` | Đặt `superseded_at` 1 lần được; lần 2, xóa NULL, đổi sha, vừa đặt vừa đổi sha, đổi `published_at`, DELETE → `check_violation` với `ottimo_owner`; 2 trigger có trong catalogue; registry worker có `privacy_notice_version` | 8/8 + 4/4 |
 | Hồi quy | `public-site-r3-bed`, `module-boundaries`, `worker-audit-registry`, `worker-jobs`, `config`, `email-dispatch`, `s438-r8`, `architecture`, `migrations-journal` | Sửa 2 kỳ vọng `{escalated: 0}` → `toMatchObject` vì job trả thêm `morning` | xanh |
 | Hạ tầng 9 | `infra/ci/check-compose.sh` | OK; bản compose cố tình sai → 3 FAIL đúng | OK |
 
@@ -77,8 +84,8 @@ Tạo:
 - `product/services/api/src/jobs/chat-dispatch.ts`
 - `product/services/api/src/worker-chat.ts`
 - `product/services/api/src/tools/check-chat-webhook.ts`
-- `product/services/api/test/gchat-units.test.ts`, `test/helpers/fake-chat-webhook.ts`, `test/integration/gchat-notify.test.ts`, `test/integration/gchat-worker-only.test.ts`, `test/integration/privacy-notice-append-only.test.ts`
-- `product/services/api/src/db/migrations/0090_privacy_notice_append_only.sql`, `meta/0090_snapshot.json`
+- `product/services/api/test/gchat-units.test.ts`, `test/helpers/fake-chat-webhook.ts`, `test/integration/gchat-notify.test.ts`, `test/integration/gchat-worker-only.test.ts` (`privacy-notice-append-only.test.ts` đã revert)
+- ~~`product/services/api/src/db/migrations/0090_privacy_notice_append_only.sql`, `meta/0090_snapshot.json`~~ (revert – mục 1.6)
 
 Sửa:
 - `product/integrations/common/safe-config.ts` (+ test), `product/integrations/notification/index.ts`
@@ -104,7 +111,7 @@ Không đổi OpenAPI, Desk (FE), landing.
 ## 5. Rủi ro / vướng mắc
 
 - **R1 deploy**: thiếu tệp `booking_request_chat_webhook` → `deploy.sh` từ chối. OPS chạy `sudo …/init-secrets.sh` trên **cả staging và production** trước lượt deploy v1.0.1 (tệp rỗng là đủ).
-- **Số migration 0090** phụ thuộc thứ tự gộp với BE-A v1.0.1 (0089) – mục 1.6.
+- Migration: PR #16 không còn migration (PN-01 tách – mục 1.6). PN-01 chờ BE-A 0089 gộp.
 - Lịch: phần mã đã xong; còn phụ thuộc INT kiểm trên phòng thử (★1, `threadKey`, `messageId`, `<users/all>`, ★5) trước khi đặt C.
 
 ## 6. Việc cho vai khác

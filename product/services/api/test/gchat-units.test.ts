@@ -15,9 +15,12 @@ import {
   CHAT_BASE_SQL,
   CHAT_CONTACT_SQL,
   CHAT_DETAILS_MIN_NOTICE_VERSION,
+  CHAT_EMAIL_REPLACEMENT,
   CHAT_ID_REPLACEMENT,
+  CHAT_RECHECK_SQL,
   type ChatDetailLevel,
   type ChatRender,
+  chatSafeEmail,
   chatSafeText,
   parseChatDetailLevel,
   websiteRequestChatRenderer,
@@ -322,6 +325,32 @@ describe('renderer – levels B and C', () => {
     expect(text.split('\n').at(-1)).toBe(DESK);
   });
 
+  it('C e-mail that is not a plain address → replaced, never a link (SEC FB-R3-SEC-BE-GCHAT-01)', async () => {
+    const { text } = await run(
+      'C',
+      baseRow(),
+      phoneContact({
+        phone_e164: null,
+        email: 'https://evil.example/login@ottimo.vn',
+        preferred_channel: 'email',
+      }),
+    );
+    expect(text).toContain(`Liên hệ: ${CHAT_EMAIL_REPLACEMENT} · kênh: Email`);
+    expect(text).not.toContain('evil');
+    // The only link left in the whole message is the Desk line.
+    expect(text.split('\n').filter((l) => l.includes('://'))).toEqual([DESK]);
+  });
+
+  it('C: the text carries a pre-POST re-check (SEC GCHAT-04); A/B do not', async () => {
+    const c = await run('C', baseRow());
+    expect(c.r.send && typeof c.r.recheck).toBe('function');
+    for (const level of ['A', 'B'] as const) {
+      const x = await run(level, baseRow());
+      expect(x.r.send && x.r.recheck).toBeUndefined();
+    }
+    expect(CHAT_RECHECK_SQL).not.toMatch(C2);
+  });
+
   it('C without a message: no message block; phone channel label', async () => {
     const { text } = await run(
       'C',
@@ -441,6 +470,69 @@ describe('chatSafeText (SEC ★5, ARC 8.5 – test 3a)', () => {
   });
 });
 
+describe('review fixes – chatSafeEmail (SEC GCHAT-01), Cf / separators / marks / IPv4 / name marks (ARC GC-02, SEC 02)', () => {
+  const note = (s: string) => chatSafeText(s, { maxChars: 500, singleLine: false });
+  const name = (s: string) => chatSafeText(s, { maxChars: 80, singleLine: true, plain: true });
+
+  it.each([
+    'https://evil.example/login@ottimo.vn',
+    'x|y@example.invalid',
+    '*a*@example.invalid',
+    '‹users/all›@example.invalid',
+    '<users/all>@example.invalid',
+    'a@evil.example/login',
+    'a@b',
+    'a b@example.invalid',
+  ])('e-mail %j → the whole field replaced, no `://`', (e) => {
+    const out = chatSafeEmail(e);
+    expect(out).toBe(CHAT_EMAIL_REPLACEMENT);
+    expect(out).not.toContain('://');
+  });
+
+  it('plain addresses are printed (lower case, domain dots kept – SEC Q3)', () => {
+    expect(chatSafeEmail('Canary.Guest+1@Example.Invalid')).toBe('canary.guest+1@example.invalid');
+    expect(chatSafeEmail('a_b%c-d@mail.example.co')).toBe('a_b%c-d@mail.example.co');
+  });
+
+  it('zero-width and other format characters cannot protect a domain dot', () => {
+    expect(note('evil\u200b.example/login')).toBe('evil[.]example/login');
+    expect(note('evil.\u200bexample')).toBe('evil[.]example');
+    expect(note('evil\u2060.\ufeffexample')).toBe('evil[.]example');
+    expect(name('Ann\u061cA\u00ad')).toBe('AnnA');
+  });
+
+  it('a combining mark before the dot is still a domain dot', () => {
+    expect(note('x\u0303.com')).toBe('x\u0303[.]com');
+  });
+
+  it('U+2028 / U+2029 / U+0085 are line breaks: a name stays one line, a message gets real lines', () => {
+    expect(name('Ann\u2028Mở Desk: https://evil.example')).toBe(
+      'Ann Mở Desk: https[:]//evil[.]example',
+    );
+    expect(name('A\u2029B\u0085C')).toBe('A B C');
+    expect(note('one\u2028two')).toBe('one\ntwo');
+  });
+
+  it('IPv4 dots disabled (name outside the code block); prices and times unchanged', () => {
+    expect(name('1.2.3.4/login')).toBe('1[.]2[.]3[.]4/login');
+    expect(note('http://10.0.0.1:8080/x')).toBe('http[:]//10[.]0[.]0[.]1:8080/x');
+    expect(note('giá 1.5 triệu lúc 22.30, ngày 1.2.2026')).toBe(
+      'giá 1.5 triệu lúc 22.30, ngày 1.2.2026',
+    );
+  });
+
+  it('name: Chat formatting marks removed; the message keeps them (inside the code block)', () => {
+    expect(name('*TEST*')).toBe('TEST');
+    expect(name('_Ann_ ~Le~ *B*')).toBe('Ann Le B');
+    expect(note('*x* _y_ ~z~')).toBe('*x* _y_ ~z~');
+  });
+
+  it('emoji ZWJ sequences survive the Cf removal', () => {
+    const family = '👨‍👩‍👧';
+    expect(name(`Ann ${family}`)).toBe(`Ann ${family}`);
+  });
+});
+
 describe('configuration (★3, G1, G3 – tests 1, 3b)', () => {
   it.each([
     [undefined, 'A', false],
@@ -500,6 +592,19 @@ describe('configuration (★3, G1, G3 – tests 1, 3b)', () => {
       problems: ['CHAT_DETAIL_LEVEL_INVALID', 'CHAT_WEBHOOK_URL_INVALID'],
     });
     expect(JSON.stringify(bad)).not.toContain('Canary');
+    // ARC GC-06: staging/production read ADMIN_BASE_URL only (no APP_BASE_URL fallback).
+    expect(
+      resolveChatConfig(
+        { BOOKING_REQUEST_CHAT_WEBHOOK_URL: WEBHOOK, APP_BASE_URL: 'https://desk.ottimo.vn' },
+        'production',
+      ),
+    ).toMatchObject({ target: { mode: 'off' }, problems: ['CHAT_LINK_BASE_INVALID'] });
+    expect(
+      resolveChatConfig(
+        { BOOKING_REQUEST_CHAT_WEBHOOK_URL: WEBHOOK, APP_BASE_URL: 'http://localhost:5173' },
+        'dev',
+      ),
+    ).toMatchObject({ target: { mode: 'on', linkBase: 'http://localhost:5173' } });
     const link = resolveChatConfig(
       { BOOKING_REQUEST_CHAT_WEBHOOK_URL: WEBHOOK, ADMIN_BASE_URL: 'https://evil.test' },
       'production',

@@ -77,7 +77,13 @@ export function resolveChatConfig(env: NodeJS.ProcessEnv, appEnv: string): ChatC
       offReason: webhook.mode === 'off' ? 'NOT_CONFIGURED' : webhook.code,
     };
   }
-  const linkBase = parseChatLinkBase(env.ADMIN_BASE_URL || env.APP_BASE_URL, appEnv);
+  // ARC GC-06: staging/production read ADMIN_BASE_URL only (the older APP_BASE_URL may name another host);
+  // dev/test keep the fallback.
+  const local = appEnv === 'dev' || appEnv === 'test';
+  const linkBase = parseChatLinkBase(
+    local ? env.ADMIN_BASE_URL || env.APP_BASE_URL : env.ADMIN_BASE_URL,
+    appEnv,
+  );
   if (!linkBase) {
     problems.push('CHAT_LINK_BASE_INVALID');
     return { target: { mode: 'off' }, level, problems, offReason: 'CHAT_LINK_BASE_INVALID' };

@@ -197,6 +197,7 @@ chat_url_image_check() {
     >/dev/null 2>&1
 }
 if [ "$set_chat" -eq 1 ]; then
+  umask 077 # ARC GC-05 / SEC G2: the .tmp file below is never readable by others, even before chmod 0400
   [ -t 0 ] || { echo "--set-booking-chat needs an interactive terminal (sudo, no pipe)" >&2; exit 2; }
   cat <<'ASK'
 
@@ -214,6 +215,8 @@ ASK
     rc=0; chat_url_image_check "$chat_url" || rc=$?
     if [ "$rc" -eq 3 ]; then
       unset chat_url; echo "URL không hợp lệ (worker rule) – nothing written." >&2; exit 1
+    elif [ "$rc" -ne 0 ]; then
+      echo "checked: bash rule only (image tool not available)"
     fi
   fi
   file="$dir/booking_request_chat_webhook"

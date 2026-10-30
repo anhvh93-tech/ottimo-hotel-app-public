@@ -2,7 +2,8 @@
  * Google Chat text of a website booking request (ARC gchat-booking-request-notify 2, 8.1–8.5; SEC ESC-041 ★2, ★3,
  * ★5, ★6; SEC-on-us155-enable 4.1). Built by the WORKER at send time (ChatDispatcher) – nothing here is stored or
  * logged. Lives in public-site because only this module reads its tables (module boundaries); the worker gets it
- * through src/worker-chat.ts (never through public-site.module.ts – test/worker-chat-composition.test.ts).
+ * through src/worker-chat.ts (never through public-site.module.ts – locked by test/gchat-units.test.ts "chat-message.ts
+ * is wired by src/worker-chat.ts" and by the worker-only process test test/integration/gchat-worker-only.test.ts).
  *
  * Levels (configured by the worker variable BOOKING_REQUEST_CHAT_DETAIL_LEVEL, missing/invalid → A):
  *   A  code, received at (+ "ngoài giờ trực"), reply deadline, "cần gọi ngay", "cần xem kỹ", Desk link;
@@ -27,7 +28,9 @@ export const CHAT_DETAIL_LEVELS: readonly ChatDetailLevel[] = ['A', 'B', 'C'];
 
 /**
  * First notice version that names Google Chat (SEC esc041-gchat-full-details 1). A constant, not a variable, so a
- * configuration can never widen it. SEC fixes another date → change it here before the release tag.
+ * configuration can never widen it. SEC fixes another date → change it here before the release tag (PR + SEC review).
+ * The gate only works "from this version on": a LATER notice that drops Google Chat from the recipients needs the
+ * level lowered to A or B BEFORE it is published (SEC FB-R3-SEC-BE-GCHAT-03).
  */
 export const CHAT_DETAILS_MIN_NOTICE_VERSION = '2026-10-31';
 
@@ -99,6 +102,9 @@ export interface ChatRenderContext {
 
 export type ChatSkipCode = 'SKIPPED_GONE' | 'SKIPPED_HANDLED' | 'SKIPPED_NOT_POSTED';
 
+/** Re-check right before the POST (level C): null = still sendable, else the skip code (SEC FB-R3-SEC-BE-GCHAT-04). */
+export type ChatRecheck = (tx: Tx) => Promise<ChatSkipCode | null>;
+
 export type ChatRender =
   | {
       send: true;
@@ -107,6 +113,8 @@ export type ChatRender =
       level: ChatDetailLevel;
       /** B/C configured but the request's notice is older (or the new notice is not published yet). */
       levelCapped: boolean;
+      /** Set when the text carries guest data (C): WR8 erase / spam in the claim→POST gap must stop the post. */
+      recheck?: ChatRecheck;
     }
   | { send: false; code: ChatSkipCode };
 
@@ -139,9 +147,27 @@ export function parseChatDetailLevel(raw: string | undefined): {
 
 /** Control characters (Cc); `\n` is kept by the replacer. */
 const CONTROL = /\p{Cc}/gu;
-const BIDI = /[‎‏‪-‮⁦-⁩]/g;
-/** A dot (ASCII or full-width / ideographic) between a letter-or-digit and a letter: a domain-looking dot. */
-const DOMAIN_DOT = /(?<=[\p{L}\p{N}])[.．。｡](?=\p{L})/gu;
+/** Line and paragraph separators and NEL: treated as a line break (ARC GC-02 – a name cannot fake a second line). */
+const LINE_BREAKS = /[\u2028\u2029\u0085]/g;
+/**
+ * Every format character (Cf: zero-width space/joiner, bidi marks and embeddings, U+061C, soft hyphen…) is dropped
+ * (ARC GC-02, SEC 02) – the bidi marks below are only the documented subset. Kept: U+200D between two pictographs
+ * (emoji ZWJ sequences such as a family), so a cut never splits them and they stay readable.
+ */
+const FORMAT = /\p{Cf}/gu;
+export const BIDI_MARKS = /[\u200e\u200f\u202a-\u202e\u2066-\u2069\u061c]/;
+const PICTO_BEFORE = /\p{Extended_Pictographic}\ufe0f?$/u;
+const PICTO_AFTER = /^\p{Extended_Pictographic}/u;
+/**
+ * A dot (ASCII or full-width / ideographic) between a letter, digit or combining mark and a letter: a domain-looking
+ * dot (`x̃.com` has a mark before the dot). Format characters are gone before this runs, so `evil<ZWSP>.example` is
+ * caught too.
+ */
+const DOMAIN_DOT = /(?<=[\p{L}\p{N}\p{M}])[.．。｡](?=\p{L})/gu;
+/** IPv4-looking runs (`1.2.3.4/login`): their dots are disabled too (SEC 02 – a bare IP can become a link). */
+const IPV4 = /(?<![\d.])\d{1,3}(?:[.．。｡]\d{1,3}){3}(?![\d])/g;
+/** Chat formatting marks, removed from a NAME (outside the code block): `*bold*`, `_italic_`, `~strike~` (SEC 02). */
+const NAME_FORMATTING = /[*_~]/g;
 
 const segmenter = new Intl.Segmenter('vi', { granularity: 'grapheme' });
 const graphemes = (s: string): string[] => Array.from(segmenter.segment(s), (x) => x.segment);
@@ -149,21 +175,29 @@ const graphemes = (s: string): string[] => Array.from(segmenter.segment(s), (x) 
 /**
  * Guest-typed text made inert for a Google Chat message (SEC ★5, ARC 8.5), in this order:
  * 1. a card-like or ID-like digit run → the WHOLE field is replaced (looksLikeCard / looksLikeIdNumber re-run);
- * 2. control and bidi characters dropped; one line for a name, blank lines collapsed and ≤ 8 lines for a message;
+ * 2. control and format (Cf) characters dropped (U+2028/2029/0085 = line break); one line for a name (Chat formatting
+ *    marks `*` `_` `~` removed – `plain`), blank lines collapsed and ≤ 8 lines for a message;
  * 3. `<` `>` → `‹` `›` (no `<users/all>`, `<url|text>`), backticks dropped (cannot leave the code block);
- * 4. links and domains disabled: `://` → `[:]//`, domain dots → `[.]` (email addresses keep theirs – `domains: false`);
+ * 4. links disabled: `://` → `[:]//` ALWAYS; domain dots and IPv4 dots → `[.]` (an e-mail address keeps its domain dots –
+ *    `domains: false`, SEC Q3);
  * 5. cut by grapheme (never half an emoji) to maxChars, "… (xem đủ trên Desk)" added.
  */
 export function chatSafeText(
   text: string,
-  opts: { maxChars: number; singleLine: boolean; domains?: boolean },
+  opts: { maxChars: number; singleLine: boolean; domains?: boolean; plain?: boolean },
 ): string {
   if (looksLikeCard(text) || looksLikeIdNumber(text)) return CHAT_ID_REPLACEMENT;
   let t = text
     .normalize('NFC')
     .replace(/\r\n?/g, '\n')
-    .replace(BIDI, '')
+    .replace(LINE_BREAKS, '\n')
     .replace(CONTROL, (c) => (c === '\n' ? '\n' : ''));
+  t = t.replace(FORMAT, (c, at: number, all: string) =>
+    c === '\u200d' && PICTO_BEFORE.test(all.slice(0, at)) && PICTO_AFTER.test(all.slice(at + 1))
+      ? c
+      : '',
+  );
+  if (opts.plain) t = t.replace(NAME_FORMATTING, ' ').replace(/ {2,}/g, ' ');
   if (opts.singleLine) {
     t = t.replace(/\s*\n\s*/g, ' ');
   } else {
@@ -180,8 +214,9 @@ export function chatSafeText(
         : lines.join('\n');
   }
   t = t.replace(/</g, '‹').replace(/>/g, '›').replace(/`/g, '');
+  t = t.replace(/:\/\//g, '[:]//');
   if (opts.domains !== false) {
-    t = t.replace(/:\/\//g, '[:]//').replace(DOMAIN_DOT, '[.]');
+    t = t.replace(IPV4, (ip) => ip.replace(/[.．。｡]/g, '[.]')).replace(DOMAIN_DOT, '[.]');
   }
   t = t.trim();
   const g = graphemes(t);
@@ -223,17 +258,32 @@ function guestsLine(r: BaseRow): string {
   return parts.join(', ');
 }
 
+/**
+ * E-mail printed only in a strict, link-free shape (SEC FB-R3-SEC-BE-GCHAT-01): local part `[a-z0-9._%+-]{1,64}`,
+ * domain = the labels normalizeEmail accepts (`[a-z0-9-]{1,63}`, ≥ 2 labels, letters-only TLD). The form lets through
+ * `:` `/` `|` `*`… before the `@` (`https://evil.example/login@ottimo.vn` is "valid"), so anything else is replaced.
+ */
+export const CHAT_EMAIL = /^[a-z0-9._%+-]{1,64}@(?:[a-z0-9-]{1,63}\.)+[a-z]{2,63}$/;
+export const CHAT_EMAIL_REPLACEMENT = '(email có ký tự đặc biệt – xem trên Desk)';
+
+export function chatSafeEmail(email: string): string {
+  const e = email.trim().toLowerCase();
+  if (e.length > 254 || !CHAT_EMAIL.test(e)) return CHAT_EMAIL_REPLACEMENT;
+  // Defence in depth: the strict shape has no `://`, `<`, `>` – still run the same steps (domain dots kept, SEC Q3).
+  return chatSafeText(e, { maxChars: 254, singleLine: true, domains: false });
+}
+
 function contactLines(c: ChatContact, flags: readonly string[]): string[] {
   const out: string[] = [];
   const name = c.guest_name
-    ? chatSafeText(c.guest_name, { maxChars: CHAT_NAME_MAX, singleLine: true })
+    ? chatSafeText(c.guest_name, { maxChars: CHAT_NAME_MAX, singleLine: true, plain: true })
     : '';
   out.push(`Khách: ${name || '(không có)'}`);
   // One contact only (ARC-14): the e-mail for the e-mail channel, the phone otherwise – exactly what the guest gave.
   const contact =
     c.preferred_channel === 'email'
       ? c.email
-        ? chatSafeText(c.email, { maxChars: 254, singleLine: true, domains: false })
+        ? chatSafeEmail(c.email)
         : ''
       : c.phone_e164
         ? `+${c.phone_e164.replace(/\D/g, '')}`
@@ -281,6 +331,21 @@ async function effectiveLevel(
     return { level: 'A', capped: true };
   }
   return { level: configured, capped: false };
+}
+
+/**
+ * SEC FB-R3-SEC-BE-GCHAT-04: a level-C text is built in the claim transaction and posted up to ~65 s later. A WR8 erase
+ * (or a spam mark) in between must stop the post – one cheap read right before it (no C2 column).
+ */
+export const CHAT_RECHECK_SQL = `SELECT status, pii_purged_at FROM website_booking_request WHERE id = $1`;
+
+async function stillSendable(tx: Tx, id: string): Promise<ChatSkipCode | null> {
+  const { rows } = await tx.query<{ status: string; pii_purged_at: Date | null }>(
+    CHAT_RECHECK_SQL,
+    [id],
+  );
+  const r = rows[0];
+  return !r || r.status === 'spam' || r.pii_purged_at ? 'SKIPPED_GONE' : null;
 }
 
 /** Renderer of the website-request kinds (injected into ChatDispatcher by src/worker-chat.ts). */
@@ -331,6 +396,13 @@ export function websiteRequestChatRenderer(deps: { params: ParameterService }): 
       if (c) lines.push(...contactLines(c, flags));
     }
     lines.push(deskLine); // always last (★5 point 5)
-    return { send: true, text: lines.join('\n'), threadKey: r.id, level, levelCapped: capped };
+    return {
+      send: true,
+      text: lines.join('\n'),
+      threadKey: r.id,
+      level,
+      levelCapped: capped,
+      ...(level === 'C' ? { recheck: (t2: Tx) => stillSendable(t2, r.id) } : {}),
+    };
   };
 }

@@ -591,6 +591,46 @@ describe.skipIf(!HAS_DB)('Google Chat – booking requests (outbox staff.chat)',
       expect(server.requests[0]!.text.split('\n')).toHaveLength(3);
     });
 
+    it('C: an erase between the claim and the POST stops the post (SEC GCHAT-04 re-check)', async () => {
+      const now = at('2026-11-02T17:25:00');
+      await setNow(now);
+      const r = await insertRequest({
+        createdAt: now,
+        arrival: '2026-11-06',
+        consent: CHAT_NOTICE,
+      });
+      await enqueue('web_request_new', r.id, now);
+      // The text is built in the claim transaction; WR8 commits right after it (separate connection).
+      const racing = {
+        ...renderers,
+        web_request_new: async (...args: Parameters<(typeof renderers)['web_request_new']>) => {
+          const out = await renderers.web_request_new(...args);
+          await q(
+            `UPDATE website_booking_request SET status = 'declined', decline_reason_code = 'erased_on_request',
+                    guest_name = NULL, phone_e164 = NULL, email = NULL, note = NULL, contact_hmac = NULL,
+                    pii_purged_at = $2
+              WHERE id = $1`,
+            [r.id, now],
+          );
+          return out;
+        },
+      };
+      const d = new ChatDispatcher(
+        db,
+        fa.clock,
+        target('C'),
+        racing,
+        (_url, text, o) => postChatText(server.url, text, o),
+        log,
+      );
+      expect(await d.runForProperty(property)).toMatchObject({ sent: 0, skipped: 1 });
+      expect(server.requests).toHaveLength(0);
+      expect((await chatRows(r.id))[0]).toMatchObject({
+        status: 'done',
+        last_error: 'SKIPPED_GONE',
+      });
+    });
+
     it('B: trip details, no guest data', async () => {
       const now = at('2026-11-02T17:30:00');
       await setNow(now);
