@@ -107,3 +107,64 @@ Việc đặt **C trên production** vẫn theo esc041 mục 3: SEC chỉ ghi d�
 ## Dòng decision-log đề xuất
 
 | 2026-10-30 | 3 | **SEC – review PR #16 (BE tin Google Chat, v1.0.1): Duyệt có điều kiện** (`rounds/round-03/reviews/SEC-on-BE-gchat-notify.md`). Phần mã đạt GCHAT-02 (bí mật tệp chỉ worker, kiểm URL chống SSRF, không log URL/token/chữ), ★2 (cổng `published_at` + bảng thông báo chỉ-thêm-dòng), ★3 (thiếu/sai → A), ★6 và A/B không đọc C2. Điều kiện gộp: sửa FB-R3-SEC-BE-GCHAT-01 (Major – email mức C chưa vô hiệu `://`, có thể thành link lừa) kèm test. Chưa sửa thì production không được đặt C. Q1 đồng ý (biến môi trường cho mức + hằng phiên bản, đổi mức ghi decision-log). Q3 chấp nhận `mailto:` khi đã sửa thẻ 01 và INT xác nhận Chat không tạo link web cho tên miền. Đặt C vẫn chờ SEC xác nhận đủ ★1–★8. | SEC | Quyền SEC (yêu cầu bảo mật kỹ thuật) |
+
+---
+
+## Lượt 2 – xác nhận bản sửa (head `9520cec1`)
+
+- Người review: SEC | Round 3 – Phản hồi & sửa | 30/10/2026
+- Đọc tại worktree `agent-ad2aa6ee3eefa95e9`, nhánh `be/gchat-booking-notify`, chỉ đọc. Đối chiếu `git diff 1420521e 9e0e889c` (bản sửa) và `git diff main...9520cec1` (toàn PR). Trả lời của BE: `rounds/round-03/responses/BE-gchat-notify.md`.
+- CI của PR trên head `9520cec1`: xanh (format · lint · audit · test · build, E2E smoke, gitleaks, shellcheck, API contract, landing Playwright). SEC không chạy lại bộ test. SEC chạy thử riêng các biểu thức chính quy mới trên vài chuỗi biên (chỉ dùng `evil.example`, không dữ liệu thật).
+
+### Kết quả theo thẻ
+
+| Thẻ | Kết quả | Bằng chứng |
+|---|---|---|
+| GCHAT-01 (Major) – email mức C | **Đóng** | `chatSafeEmail` (`chat-message.ts`): `trim().toLowerCase()`, dài ≤ 254, khớp `CHAT_EMAIL` `^[a-z0-9._%+-]{1,64}@(?:[a-z0-9-]{1,63}\.)+[a-z]{2,63}$`. Không khớp thì cả trường thành `(email có ký tự đặc biệt – xem trên Desk)`. Mẫu không cho `:` `/` `<` `>` `*` `\|` `~`. Phòng thủ thêm: `chatSafeText` nay **luôn** đổi `://` → `[:]//` và `<>` → `‹›` ở mọi trường, email chỉ giữ dấu chấm tên miền. Test `gchat-units.test.ts` dòng 478–482 có đủ 4 ca SEC đề xuất cộng `<users/all>@…`, `a@evil.example/login`, `a@b`, `a b@…`. Ca render C kênh Email với email độc (dòng 334): chữ tin không có `evil`, dòng duy nhất có `://` là "Mở Desk". Điểm 4 (siết `normalizeEmail` ở form) chưa làm, chuyển BE-A/ORC – chấp nhận, vì phía Chat đã chặn đủ. |
+| GCHAT-02 (Minor) – IPv4 và định dạng trong tên | **Đóng** | `IPV4` đổi dấu chấm cụm `d.d.d.d` → `[.]` (giá `1.5`, giờ `22.30`, ngày `1.2.2026` giữ). Tên dùng `plain: true`, bỏ `*` `_` `~`. Test dòng 517, 525. INT thêm 2 ca vào lượt ★5 trên phòng thử. |
+| GCHAT-03 (Minor) – dấu vết đổi mức | **Đóng phần mã** | Chú thích trên `CHAT_DETAILS_MIN_NOTICE_VERSION` có đủ hai ý: đổi hằng phải qua PR có SEC review; thông báo sau bỏ Google Chat thì hạ mức về A/B **trước** khi đăng. Phần runbook (decision-log mỗi lần đổi + lưu dòng log `chat detail level`) còn ở OPS/ORC, là điều kiện trước C bên dưới. |
+| GCHAT-04 (Suggestion) – kiểm lại trước POST | **Đóng** | Renderer mức C trả `recheck`. Dispatcher chạy `CHAT_RECHECK_SQL` = `SELECT status, pii_purged_at FROM website_booking_request WHERE id = $1` trong giao dịch riêng ngay trước `deliver`. Không thấy dòng (kể cả do RLS), `spam` hoặc đã purge → `done` + `SKIPPED_GONE`, không gửi. Câu SQL không có cột C2. Nếu câu kiểm lỗi thì ngoại lệ thoát ra trước `deliver`: không gửi, dòng outbox chờ lần sau. Đây là hướng an toàn. Mức A/B không có `recheck` (test dòng 346–349). Test tích hợp `gchat-notify.test.ts` dòng 594: purge commit giữa claim và POST → 0 request tới webhook giả, outbox `SKIPPED_GONE`. Khe còn lại chỉ là vài mili giây giữa câu kiểm và POST. SEC chấp nhận. |
+| GCHAT-05 (Suggestion) – `messageId` | Chuyển INT, đồng ý | `CHAT_USE_MESSAGE_ID` vẫn `false`. Thành điều kiện ★5-bis bên dưới. |
+| ARC GC-02 (phần bảo mật) – ký tự định dạng | **Đạt, còn một khe nhỏ (thẻ 06)** | `FORMAT = /\p{Cf}/gu` bỏ mọi ký tự định dạng (ZWSP, WJ, BOM, soft hyphen, U+061C, mọi dấu bidi). Chỉ giữ U+200D khi nằm giữa hai pictograph. U+2028/U+2029/U+0085 coi như xuống dòng, nên tên không giả được dòng "Mở Desk" thứ hai (test dòng 508–513). `DOMAIN_DOT` nhận `\p{M}` **trước** dấu chấm (`x̃.com`). Thứ tự đúng: bỏ Cf rồi mới vô hiệu dấu chấm, nên `evil<ZWSP>.example` và `evil<WJ>.<BOM>example` đều thành `[.]` (test dòng 498–501). |
+| ARC GC-06 – gốc link Desk | **Đạt** | `resolveChatConfig`: staging/production chỉ đọc `ADMIN_BASE_URL`. Production chỉ có `APP_BASE_URL` → `off` + `CHAT_LINK_BASE_INVALID`. Tránh link "Mở Desk" trỏ nhầm host. |
+| Migration 0090 rút khỏi PR (ARC GC-01) | **Đạt** | Hai commit revert `0d13aed8`, `cac5c9cc`. `git diff main...9520cec1` không có tệp nào trong `src/db/migrations/` hay `meta/`. Cây của head không có `0089`/`0090`. API GitHub của PR #16 cũng không liệt kê tệp migration. Tệp duy nhất còn nhắc tới thông báo trong hạ tầng là `publish-privacy-notice.test.sh`, và chỉ thêm tệp bí mật rỗng `booking_request_chat_webhook` cho compose của test. Đúng phạm vi. |
+
+### Hệ quả của việc rút 0090 với ★2
+
+Ở lượt 1, SEC tính bảng thông báo "chỉ thêm dòng" (0090) là một phần bằng chứng ★2: không ai sửa lùi được `published_at` để mở cổng. Nay 0090 chưa lên main. Cổng ★2 trong mã vẫn đúng. Vai `ottimo_app` vẫn chỉ có `SELECT` trên `privacy_notice_version` (`0086_public_site_us155.sql:178`), nên app và worker không sửa được. Còn lại vai migrator/owner. Vì vậy SEC thêm điều kiện ★2-bis trước khi đặt C (xem dưới). Điều kiện này không chặn gộp PR #16.
+
+### Thẻ mới
+
+### FB-R3-SEC-BE-GCHAT-06
+- Mức độ: Minor
+- Vị trí: `chat-message.ts` `DOMAIN_DOT` (`(?<=[\p{L}\p{N}\p{M}])[.．。｡](?=\p{L})`), tên khách ở dòng `Khách:` (ngoài khối mã); `CHAT_EMAIL` phần trước `@`.
+- Vấn đề: SEC chạy thử biểu thức trên chuỗi biên. (a) Dấu kết hợp hoặc bộ chọn biến thể đứng **ngay sau** dấu chấm thì lọt: `evil.<U+FE0F>example/x`, `evil.<U+034F>example`, `evil.<U+0301>example` giữ nguyên dấu chấm. Nguyên nhân: điều kiện nhìn sau chỉ nhận chữ cái (`\p{L}`), còn các ký tự này là `\p{M}`, không phải `Cf` nên không bị bỏ ở bước trước. (b) Email `www.evil.example@example.invalid` khớp `CHAT_EMAIL` và giữ dấu chấm (đúng thiết kế Q3). Chưa xác minh Google Chat có biến các chuỗi này thành link hay không. Với (a) khả năng thấp, vì nhãn tên miền mở đầu bằng dấu kết hợp là không hợp lệ.
+- Vì sao quan trọng: tên khách nằm ngoài khối mã. ★5 yêu cầu "không link nào bấm được ngoài link Desk" và phải chứng minh được, không dựa vào phỏng đoán cách Chat tự nhận link.
+- Đề xuất sửa: (1) BE đổi điều kiện nhìn sau thành `(?=\p{M}*\p{L})`, kèm 3 ca test ở (a). Sửa một dòng, nên làm trong v1.0.1 nếu kịp, không thì v1.0.2. (2) INT thêm vào lượt ★5 trên phòng thử: tên `evil.<U+FE0F>example/x` (nếu chưa có bản sửa 1) và email `www.evil.example@example.invalid` ở mức C. Nếu Chat tạo link web cho phần trước `@` hoặc cho tên miền email thì áp điều kiện 2 của Q3: vô hiệu luôn dấu chấm của email.
+- Trạng thái: Open
+
+### Kết luận lượt 2 (phía SEC)
+
+**PR #16 gộp được (phía SEC).** Không còn Blocker hay Major. Điều kiện gộp ở lượt 1 đã xong: thẻ 01 đã sửa, có test. Migration 0090 đã rút ra khỏi PR, nên thứ tự 0089 → 0090 không còn là việc của PR này mà chuyển sang PR PN-01. Thẻ 06 (Minor) không chặn gộp, vì mặc định là mức A và production chưa đặt C.
+
+### Điều kiện còn lại trước khi production đặt mức C
+
+SEC chỉ ghi dòng decision-log "đủ điều kiện đặt C" khi có bằng chứng cho **tất cả** các mục dưới đây.
+
+| # | Điều kiện | Ai | Trạng thái |
+|---|---|---|---|
+| ★1 | Tin trong phòng tự xóa: phòng tắt lịch sử (24 giờ) và khóa trong Admin console, hoặc phương án 2/3. Kết quả kiểm ghi trong báo cáo INT. Nếu phải nâng gói (Vault) thì ORC mở ESC. | INT kiểm, INV cài | Chưa |
+| ★2 | Cổng `published_at` trong mã | BE | **Đạt** (lượt 1, giữ nguyên) |
+| ★2-bis | PN-01 (bảng thông báo chỉ thêm dòng) lên production theo thứ tự ARC: sau BE-A 0089. Nếu PN-01 trễ hơn ngày đặt C: OPS chụp `\dp privacy_notice_version` trên production cho thấy `ottimo_app` chỉ có `SELECT`, đồng thời runbook ghi "không chạy UPDATE/DELETE tay trên bảng này". Khi đó SEC chấp nhận tạm. | BE, OPS | Chưa |
+| ★3 | Mức thiếu/sai → A, chỉ worker đọc | BE | **Đạt** về mã. Còn phần runbook ở thẻ 03: mỗi lần đổi mức trên production thì ORC ghi decision-log (cũ → mới, giờ, người làm, dòng SEC căn cứ) và lưu dòng log `chat detail level`. Đổi `.env` production thì báo INV trước. | 
+| ★4 | Phòng chỉ có tài khoản @ottimo.vn của OWN/MGR/FDL/FD, bật 2 bước, không người ngoài, không app/webhook khác. Có checklist nghỉ việc, OWN rà hằng tháng. | INV làm, OPS ghi runbook | Chưa |
+| ★5 | Phần mã **Đạt** (sau GCHAT-01, 02, ARC GC-02). Còn lượt kiểm INT trên phòng thử (dữ liệu giả, chụp chữ không có dữ liệu thật): các ca esc041 ★5, 2 ca GC-02 (ZWSP, dấu kết hợp), 2 ca GCHAT-02 (`1.2.3.4/login`, `*TEST*`), các ca thẻ 06, và Q3 điều kiện 2 (Chat chỉ tạo `mailto:`, không tạo link web cho tên miền email). Kết quả bắt buộc: không ai bị nhắc, không link nào bấm được ngoài link Desk. | INT (BE nếu phải sửa) | Chưa |
+| ★5-bis | `messageId` (thẻ 05): Chat nhận thì bật `CHAT_USE_MESSAGE_ID = true` trước C. Không nhận thì ghi rõ trong báo cáo INT. Không chặn C. | INT, BE | Chưa |
+| ★6 | Chỉ tin đầu có chi tiết | BE | **Đạt** |
+| ★7 | Ẩn nội dung thông báo trên màn hình khóa, tắt email thông báo tin chưa đọc, bật quản lý thiết bị, sổ tay ghi luật không chép chi tiết ra ngoài | INV phổ biến, BA ghi sổ tay | Chưa |
+| ★8 | Landing production có thông báo `2026-10-31`. `publish-privacy-notice --apply` đã ghi `vi` + `en`, mã băm khớp trang thật. Câu `{chatRetention…}` khớp kết quả ★1. | FE-B, OPS | Chưa |
+| v1.0.1 | api/worker chứa PR #16 đã lên production. `appconfig` thấy `chat: on`, mức A chạy ổn ít nhất một tin thật. Tệp bí mật webhook đúng quyền: uid 1000, 0400 (ARC GC-04, checklist OPS). | OPS | Chưa |
+
+### Dòng decision-log đề xuất (lượt 2)
+
+| 2026-10-30 | 3 | **SEC – PR #16 (BE tin Google Chat, v1.0.1) lượt 2: gộp được (phía SEC)** (`rounds/round-03/reviews/SEC-on-BE-gchat-notify.md` mục Lượt 2, head `9520cec1`, CI xanh). Đóng GCHAT-01 (`chatSafeEmail` theo mẫu chặt, `://` và `<>` luôn bị vô hiệu ở mọi trường, có test email độc), GCHAT-02 (IPv4 + bỏ `*_~` trong tên), GCHAT-03 phần mã, GCHAT-04 (kiểm lại `status`/`pii_purged_at` trước POST ở mức C, có test tích hợp). ARC GC-02 (bỏ mọi `\p{Cf}`, U+2028/2029/0085 là xuống dòng) và GC-06 đạt. Migration 0090 đã rút khỏi PR. Thẻ mới GCHAT-06 (Minor, dấu kết hợp ngay sau dấu chấm lọt `DOMAIN_DOT`) không chặn gộp. Production **chưa** được đặt C cho tới khi đủ ★1, ★2-bis (PN-01 hoặc `ottimo_app` chỉ SELECT + runbook), ★3 runbook, ★4, ★5 lượt INT phòng thử (gồm ca thẻ 06 và `mailto:`), ★7, ★8, và v1.0.1 đã lên production. | SEC | Quyền SEC (yêu cầu bảo mật kỹ thuật) |
