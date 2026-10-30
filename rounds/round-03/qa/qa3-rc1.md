@@ -1156,3 +1156,136 @@ Bản ghi thử còn lại (chỉ là bản ghi, không giữ căn, không còn 
 - Khách giả KH-0447 dùng lại, không tạo khách mới. 1 ảnh biên nhận thử.
 - Đối chiếu tiền: ghi 1.100.000 tiền mặt thử; hoàn 500.000, đảo 600.000. Mọi folio dư 0.
 - Chưa kiểm lượt này: hộp thư thông báo `qa.fd`/`qa.owner` (thông báo `refund_ready` nếu có), "Cần chú ý" của MGR.
+
+## 22. Bộ hướng dẫn theo bộ phận (staging `v1.0.0`, 30/10)
+
+- Người chạy: QA | Round 3 – bước **Kiểm thử** | 30/10/2026 14:28–15:00 (+07). Giao việc ORC: câu Q2–Q4 của BA (`outputs/BA/department-guides.md` mục 4), app nhân viên với vai quản lý, chụp ảnh G + C1-15, C2-34 (`product/docs/manual/guides/screenshot-additions.md`). Hạn: trước buổi C3a tối 31/10.
+- Đích: `desk.staging.ottimo.vn`, `staff.staging.ottimo.vn` – `v1.0.0` (`8b3aec8`). Desk Chromium 1440×900, điện thoại 390×844 DPR 2, `vi-VN`, giao diện Sáng.
+- Cách làm: Playwright thao tác thật trên giao diện; API chỉ để tạo/khóa tài khoản dùng một lần, dựng dữ liệu mẫu và dọn. Mã, chữ từng màn, ảnh thô ở scratchpad phiên `qa-r6/g/` (ngoài repo). Mật khẩu, khóa TOTP, mã khôi phục chỉ nằm trong tệp 0600 ở scratchpad và **đã xóa** sau khi khóa tài khoản.
+- Tài khoản dùng một lần (đều **đã khóa** 14:56): `qa.g.hk1` (chỉ Buồng phòng), `qa.g.mt1` (chỉ Bảo trì), `qa.g.six` (6 vai: Quản lý, Lễ tân trưởng, Lễ tân, Buồng phòng, Bảo trì, Sale nội bộ – như tài khoản người trực production), `qa.g.fd1` (Lễ tân, chỉ để thử khóa do sai mật khẩu). Tên hiển thị giả.
+- Không VietQR (không bấm **Tạo VietQR**), không chuyển tiền, không SQL, không sửa tham số, không sửa hướng dẫn, không commit.
+
+### 22.1 Kết luận
+
+| Câu | Kết quả | Hệ quả cho hướng dẫn |
+|---|---|---|
+| **Q2** Buồng phòng mới, còn mật khẩu tạm | App nhân viên **cho đăng nhập** nhưng **không có màn đổi mật khẩu tạm**; mọi màn báo "Chưa tải được … Có thể do mạng yếu" (máy chủ 403 `PASSWORD_CHANGE_REQUIRED`) → **BUG-R3-052 (P2)**. Đổi mật khẩu tạm trên Desk (**Đặt mật khẩu của bạn → Lưu và vào ứng dụng**) rồi vào app: **được**, app mở **Việc** bình thường. Desk của vai chỉ có Buồng phòng: mở thẳng trang **Buồng phòng**, **không** báo "Bạn không có quyền mở trang này" | Giả định A1 của BA **đúng**: giữ bước A (Desk trước). Sửa bước A.5 của tệp 03 (22.6 dòng 1). Thêm dòng câu báo "mạng yếu" vào bảng 1.3 của 03, 04 |
+| **Q3** Tên nút khung phiếu sửa trên Desk | Gần khớp, **thiếu một bước**: khung phiếu có **Nhận việc** (kèm **Hủy phiếu**); sau khi nhận có **Chờ vật tư** và **Sửa xong**. **Lưu – chờ vật tư** là nút **trong hộp** **Chờ vật tư – WO-…**, không nằm trên khung. Hộp **Sửa xong WO-…**: **Đã làm gì?**, **Ảnh sau khi sửa** (bắt buộc), câu "Ảnh sau sửa: chụp bằng app kỹ thuật hoặc chọn ảnh ở đây.", **Xác nhận sửa xong** → thêm **hộp xác nhận thứ hai** (mở khóa, "Cần dọn (khách đã đi)", "Dọn sau sửa chữa") với **Không, quay lại** / **Xác nhận sửa xong** | Sửa 04 mục 4.4 bước 3 và 5 (22.6 dòng 5) |
+| **Q4** Desk của vai chỉ có Bảo trì | Desk mở thẳng trang **Bảo trì** (`/maintenance`). Menu chỉ có nhóm **VẬN HÀNH**: **Các căn** (sơ đồ trạng thái, không có đơn), **Buồng phòng**, **Phiếu sửa** – mục tên **Phiếu sửa**, không phải **Bảo trì** như menu của quản lý. Thấy và nhận phiếu (**Nhận việc**), xem tab **Khóa phòng**, có nút **Phiếu sửa mới**, **Khóa phòng có kế hoạch**, **Đổi ngày mở bán**. **Nhưng ô Căn trống** trong cả hai hộp (GET `rooms` 403) → **không tạo được phiếu, không khóa phòng được trên Desk** → **BUG-R3-053 (P2)**. Mở `/today`, `/reservations`, `/overview`: "Bạn không có quyền mở trang này" + **Về trang chủ của tôi** | Giả định A9 **sai ở phần khóa phòng**: sửa 04 mục 1.1, 1.3 (Desk), 5 và 01 mục 1.9 bảng vai (22.6 dòng 3, 4) |
+| **App + vai quản lý** (tài khoản 6 vai) | **Bị chặn** đúng như BA giả định (A2). Đã bật 2 bước: app báo "Nhập mã trong ứng dụng xác thực để hoàn tất đăng nhập. Đăng nhập 2 bước sẽ có ở bản sau. Nhờ chủ đầu tư hỗ trợ đăng nhập." (401 `MFA_REQUIRED`, không có ô mã – BUG-R3-029 còn nguyên). Còn mật khẩu tạm, hoặc đã đổi mật khẩu mà chưa bật 2 bước: app vào được nhưng mọi màn báo "mạng yếu" (403 `MFA_ENROLLMENT_REQUIRED`, BUG-R3-052) | Giữ chữ 01 mục 1.8, 00 mục 2.1, đầu tệp 03, 04. Không đổi |
+| **Ảnh** | **15/21** đã chụp và kiểm che, đã lưu `product/docs/manual/img/` (22.5). **Chưa có 6**: G2-05, G2-06 (cần giữ chỗ quá hạn – đã dựng ca, hạn 02:44 31/10, chụp sáng 31/10), G2-03 (ảnh chụp tờ in thật), G3-02 (hộp của trình duyệt trên điện thoại thật), C1-15, C2-34 (ca ESC-031 sau 18:00) | Không kịp thì bản dựng giữ mô tả chữ (theo `screenshot-additions.md`) |
+
+- **Lỗi mới:** BUG-R3-052 (P2, MOB + UXD), BUG-R3-053 (P2, FE-A + BE-A). Không có P0/P1 mới. Chi tiết ở `bug-list.md`.
+- QA không tạo ESC: hai lỗi P2 đều có cách tạm ngày D, ORC/PO xếp vào v1.0.1.
+
+### 22.2 Q2 – tài khoản chỉ có vai Buồng phòng (`qa.g.hk1`, 14:28)
+
+| # | Bước | Kết quả |
+|---|---|---|
+| 1 | Chủ đầu tư tạo tài khoản, vai **Buồng phòng**, mật khẩu tạm (API, xác nhận mật khẩu + mã 6 số) | 201 |
+| 2 | App nhân viên (390×844), đăng nhập bằng **mật khẩu tạm** | `POST /v1/auth/login` 200. App vào **Việc của tôi**: "Chưa tải được việc hôm nay – Có thể do mạng yếu. Việc bạn đã bấm không bị mất. Bấm Thử lại; vẫn lỗi thì gọi lễ tân." + **Thử lại**, **Gọi lễ tân**. **Các căn**: "Chưa tải được trạng thái các căn" cùng câu. **Tôi**: tên, "Buồng phòng · OTTIMO Đà Lạt", **Ngôn ngữ giao diện**, **Thao tác trên máy**, **Đăng xuất**. Không có màn hay nút đổi mật khẩu. Lượt cùng bước với `qa.g.mt1` ghi được mạng: `work-orders`, `room-statuses`, `me/notifications`, `events` đều 403 `PASSWORD_CHANGE_REQUIRED` |
+| 3 | Desk (1440×900), đăng nhập bằng mật khẩu tạm | Màn **Đặt mật khẩu của bạn**: "Bạn đang dùng mật khẩu tạm do chủ đầu tư cấp. Đặt mật khẩu riêng để tiếp tục." · **Mật khẩu hiện tại** · **Mật khẩu mới** (3 dòng quy tắc) · **Nhập lại mật khẩu mới** · **Lưu và vào ứng dụng** · **Đăng xuất**. Khớp tệp 03 bước A.1–4 |
+| 4 | **Lưu và vào ứng dụng** | `POST /v1/me/password` 204. Desk mở `/housekeeping` – trang **Buồng phòng** ("Việc buồng phòng hôm nay", "Trạng thái buồng"), toast "Đã lưu". Menu: **VẬN HÀNH** – **Các căn**, **Buồng phòng**, **Phiếu sửa**; **QUẢN TRỊ** – **Minibar**. Chip "Máy chưa cấp quyền giấy tờ". **Không** có câu "Bạn không có quyền mở trang này". Ảnh **G3-01** |
+| 5 | App nhân viên, đăng nhập bằng mật khẩu mới | Vào **Việc của tôi** bình thường: "Hôm nay 30/10 · 0/3 xong", nhóm **Làm trước**, **Khách đang ở**, thanh dưới **Việc · Các căn · Báo sự cố · Tôi** |
+
+Kết luận Q2: bước A (đổi trên Desk) là **bắt buộc** cho buồng phòng, bảo trì mới và sau mỗi lần **Đặt lại mật khẩu**. Lặp lại với `qa.g.mt1` (chỉ Bảo trì): cùng kết quả, Desk mở `/maintenance` (trang **Bảo trì**), app mở **Phiếu sửa** sau khi đổi.
+
+### 22.3 Q3 – khung phiếu sửa trên Desk (`qa.mgr`, WO-00004, 14:30–14:35)
+
+Dựng ca: `qa.mgr` tạo **WO-00004** trên Desk – căn 301 (trống, `VC`), "Đèn đầu giường không sáng", **Điện / đèn**, **Trong ngày**, 1 ảnh thử, tích **Khóa căn – không bán đến khi sửa xong** (Khóa từ 30/10, Dự kiến xong 31/10) → **Tạo phiếu**. Desk ghi "Căn khóa đêm 30/10 – 31/10, mở bán lại từ 01/11".
+
+| Chỗ | Chữ thật trên Desk |
+|---|---|
+| Menu (quản lý) | **VẬN HÀNH → Bảo trì** (`/maintenance`), tab **Phiếu sửa** / **Khóa phòng**, lọc **Đang mở (n)**, **Gấp (n)**, **Chờ vật tư (n)**, **Đã xong (n)** |
+| Khung phiếu, trạng thái **Mới** | Tiêu đề "WO-… · …", căn, chip **Mới**, **Trong ngày**, loại; "Xong trước …"; mô tả; "Người báo: …"; "Ảnh lúc báo: n"; dòng khóa căn; **MỨC ĐỘ** **Gấp / Trong ngày / Không gấp**; nút **Hủy phiếu**, **Nhận việc** |
+| Sau **Nhận việc** | Chip **Đang sửa**, "Người xử lý: …"; nút **Chờ vật tư**, **Sửa xong** |
+| Hộp **Chờ vật tư – WO-…** | **Cần vật tư gì?** \*, **Ngày dự kiến có vật tư** \*, câu "Hạn của phiếu tạm dừng đến ngày này. Quá ngày mà chưa có, phiếu vào 'Cần chú ý'." · **Hủy**, **Lưu – chờ vật tư** (QA mở rồi **Hủy**, không lưu) |
+| Hộp **Sửa xong WO-…** | **Đã làm gì?** \*, **Ảnh sau khi sửa** \* (ô chọn tệp), câu "Chụp ít nhất 1 ảnh sau khi sửa làm bằng chứng. Ảnh sau sửa: chụp bằng app kỹ thuật hoặc chọn ảnh ở đây." · **Hủy**, **Xác nhận sửa xong**. Ảnh **G4-02** |
+| Hộp xác nhận thứ hai | Tiêu đề **Sửa xong WO-…**, "Khi bấm Xác nhận: Căn 301 · The Velvet mở khóa và mở bán lại trên mọi kênh · Căn chuyển 'Cần dọn (khách đã đi)' · Buồng phòng nhận việc 'Dọn sau sửa chữa'" · **Không, quay lại**, **Xác nhận sửa xong** |
+| Kết quả | `actions/accept` 200, `actions/complete` 200; phiếu rời **Đang mở**, căn 301 `OOO` → `VD`, có việc **Dọn sau sửa chữa** |
+
+- Toast "Đã mở bán lại căn …" chưa ghi được (QA đọc chữ trang sau 3,5 giây, toast đã tắt). Không ảnh hưởng chữ hướng dẫn.
+
+### 22.4 Q4 – Desk của tài khoản chỉ có vai Bảo trì (`qa.g.mt1`, 14:31–14:34)
+
+| Việc | Kết quả |
+|---|---|
+| Sau đăng nhập | Mở thẳng `/maintenance`, tiêu đề trang **Bảo trì**, góc phải "… · Bảo trì" |
+| Menu | Chỉ nhóm **VẬN HÀNH**: **Các căn** (`/rack`), **Buồng phòng** (`/housekeeping`), **Phiếu sửa** (`/maintenance`). Không có nhóm Quản trị. Ảnh **G4-01** |
+| Trang Bảo trì | Nút **Khóa phòng có kế hoạch**, **Phiếu sửa mới**; tab **Phiếu sửa**, **Khóa phòng**; lọc như quản lý. Thấy WO-00004 kèm "Đang khóa – mở bán lại 01/11" |
+| Khung phiếu | Mở được, nút **Nhận việc** (không có **Hủy phiếu**, không chọn **MỨC ĐỘ**). QA không bấm |
+| Tab **Khóa phòng** | Thấy danh sách khóa, **Đổi ngày mở bán**, "Khóa gắn phiếu WO-… – đóng phiếu để mở khóa." |
+| **Phiếu sửa mới** | Hộp mở, **ô Căn không có lựa chọn nào** → không tạo được |
+| **Khóa phòng có kế hoạch** | Hộp mở (**Căn**, **Khóa từ**, **Dự kiến xong**, **Lý do khóa**), **ô Căn không có lựa chọn nào** → không khóa được. Mạng: `GET …/rooms` 403 `FORBIDDEN_ACTION`, `GET …/channels` 403 → **BUG-R3-053** |
+| **Các căn** | Sơ đồ 10 căn với trạng thái buồng (VC, OD, OOO "Mở bán lại 01/11"…), không có đơn, không tên khách |
+| **Buồng phòng** | Thấy việc buồng phòng hôm nay và trạng thái buồng (chỉ xem; QA không bấm) |
+| `/today`, `/reservations`, `/overview` | "Bạn không có quyền mở trang này – Trang này dành cho vai khác. Nếu bạn cần dùng, nhờ chủ đầu tư thêm vai cho tài khoản." + **Về trang chủ của tôi** |
+
+Đối chiếu thêm vai chỉ Buồng phòng trên `/maintenance`: thấy danh sách phiếu, **không** có **Phiếu sửa mới**, **Khóa phòng có kế hoạch**.
+
+### 22.5 Ảnh – đã chụp và kiểm che
+
+Quy tắc theo `screenshot-list.md`. Ảnh lưu thẳng `product/docs/manual/img/<mã>.png` **sau khi QA xem từng ảnh ở cỡ thật**. PNG 8-bit, tổng 652 KB. Desk 1440×900; điện thoại 390×844 DPR 2 (tệp 780×1688). Che bằng hộp Ink #2B2B28.
+
+| Mã | Có | Vai / dữ liệu | Kiểm che |
+|---|---|---|---|
+| G1-01 | Có | `qa.g.six` (quản lý thử), trang **Xác thực 2 bước**: "Đang bật từ 30/10/2026 14:39", "Còn 10 mã khôi phục", **Tạo bộ mã mới** (không bấm) | Không có mã nào trên màn |
+| G1-02 | Có | Màn **Dùng mã khôi phục**, ô trống | Ô trống |
+| G1-03 | Có | **Đăng ký lại trên điện thoại mới**, bước **Quét mã** (sau khi vào bằng 1 mã khôi phục) | **QR và khóa nhập tay che kín**; ô mã 6 số trống |
+| G1-04 | Có | Chủ đầu tư, hộp **Khóa tài khoản của Trần Ngọc Mai?** (`qa.g.hk1`), bấm **Hủy** | Ô trống. Tên hiển thị các tài khoản thử của INV/E2E ở nền (danh sách người dùng) **che** |
+| G1-05 | Có | Như G1-04, hộp **Đặt lại mật khẩu cho Trần Ngọc Mai?**, bấm **Hủy** | Như G1-04. Hộp xác nhận không hiện mật khẩu tạm |
+| G1-06 | Có | `qa.mgr`, **Trả phòng** OTM-00359 (Emma Laurent, đơn thử của QA) bước **Bill & thu tiền**, bật **Ghi công nợ – khách trả sau**, **Hạn thanh toán** 02/11/2026, **Lý do** trống, nút **Ghi công nợ 210.000 đ – hoàn tất** (khóa). Không bấm hoàn tất | Không có mã giao dịch, QR chưa tạo |
+| G2-01 | Có | `qa.g.fd1`, 5 lần sai → lần 6: "Bạn đã thử quá nhiều lần. Chờ 15 phút rồi thử lại." | Ô mật khẩu trống, tên đăng nhập giả |
+| G2-02 | Có | `qa.fd`, **tên của mình → Đổi mật khẩu** | 3 ô trống |
+| G2-04 | Có | `qa.fd` trên máy đã cấp quyền, **Nhật ký tiền → Hoàn tiền → Nhập nơi nhận hoàn** (OTM-00376, **Tiền mặt** chọn sẵn) | **Dòng nơi nhận chuyển khoản có 4 số cuối (••xxxx) của đơn khác ở nền đã che** |
+| G2-07 | Có | `qa.fd`, hộp **Hủy giữ chỗ căn 402?** (OTM-00375), đóng hộp, không hủy (bản tính thử `dryRun`, đơn vẫn `hold`) | Danh sách **Lý do hủy** là ô chọn của trình duyệt, không chụp mở được bằng trình duyệt tự động; chữ các lựa chọn ghi ở 22.6 dòng 12 |
+| G3-01 | Có | `qa.g.hk1` ngay sau **Lưu và vào ứng dụng** | Không có dữ liệu khách (trang buồng phòng chỉ có số căn) |
+| G4-01 | Có | `qa.g.mt1`, trang **Bảo trì**, WO-00004 đang mở | – |
+| G4-02 | Có | `qa.mgr`, khung WO-00004 (**Chờ vật tư**, **Sửa xong**) + hộp **Sửa xong WO-00004** có chữ "Đã làm gì?" và ảnh thử | Ảnh thử là ảnh chữ "QA TEST IMAGE", không người. Nút chọn tệp hiện "Choose File" (Chromium tiếng Anh, như C4-02) |
+| G5-01 | Có | Desk **Đăng nhập** trên điện thoại | Ô trống |
+| G5-02 | Có | `qa.ctv1` trên điện thoại, **Khách của tôi** tìm "Phan": 2 khách giả do QA tạo bằng CTV (KH-0450, KH-0451) | SĐT giả, Desk tự che giữa (0900\*\*\*141) |
+| G2-05 | **Chưa** | Cần ≥ 1 giữ chỗ quá hạn. Đã dựng (22.7): OTM-00374 (cọc thiếu, hạn **02:44 31/10**) + OTM-00375 (còn hạn tới 01/11 14:44) | Chụp sáng 31/10 sau 02:50 |
+| G2-06 | **Chưa** | Khung OTM-00374 sau hạn | Như trên |
+| G2-03 | **Không làm được** | Ảnh chụp tờ in thật trong khung mica ở quầy | Cần UXD/INV chụp bằng máy ảnh tại OTTIMO |
+| G3-02 | **Không làm được** | Hộp **Thêm vào Màn hình chính** là giao diện của trình duyệt trên điện thoại, không có trong Chromium tự động | Cần chụp trên điện thoại thật (che thanh địa chỉ, thông báo); hoặc giữ mô tả chữ |
+| C1-15, C2-34 | **Chưa** | Cần ca ESC-031: đơn đi đúng ngày, trả sau 18:00, đêm đó căn đã có đơn đến. Staging hôm nay không có đơn nào đi 30/10 (2 đơn đang ở đều đi 29/10). Dựng ca hôm nay thì sớm nhất chụp được sau 18:00 31/10 – trùng buổi C3a | Giữ mô tả chữ |
+
+- Không ảnh nào lọt QR, số tài khoản, tên chủ tài khoản, số giấy tờ, mã cửa, mã 2 bước, mã khôi phục, mật khẩu, link có token, SĐT hay email thật. **QA xác nhận 15 ảnh G mới trong `img/` đã kiểm che, ORC commit được.**
+- Ảnh ứng viên và ảnh thô ở `qa-r6/g/shots/`, `qa-r6/g/raw/` (scratchpad). Ảnh thô màn đăng ký 2 bước không được lưu.
+
+### 22.6 Chỗ hướng dẫn BA viết khác giao diện (BA sửa, QA không sửa tệp)
+
+| # | Tệp, mục | Hướng dẫn ghi | Giao diện thật | Đề nghị |
+|---|---|---|---|---|
+| 1 | 03 mục 1.2 bước A.5 (và chú thích G3-01) | "Desk có thể báo 'Bạn không có quyền mở trang này'… Bấm tên của mình → Đăng xuất" | Desk mở trang **Buồng phòng**, không báo gì | "Desk mở trang **Buồng phòng**. Không cần làm gì thêm: bấm **tên của mình → Đăng xuất**." Xóa chú thích `<!-- QA kiểm (BA-GUIDES Q2) -->` ở 03, 04, 01 mục 1.9 (đã có kết quả) |
+| 2 | 03, 04 mục 1.3 (bảng câu báo) | Không có câu "mạng yếu" | Nếu chưa đổi mật khẩu tạm, app vẫn vào nhưng báo "Chưa tải được việc hôm nay – Có thể do mạng yếu…" (bảo trì: "Chưa tải được phiếu sửa") | Thêm dòng: "Ngay lần đăng nhập đầu, hoặc sau khi chủ đầu tư đặt lại mật khẩu, app báo 'Chưa tải được … Có thể do mạng yếu': chưa đổi mật khẩu tạm. Làm bước A trên Desk rồi đăng nhập lại app" (tới khi sửa BUG-R3-052) |
+| 3 | 04 mục 1.1 (bảng), 1.3 phần **Desk**, mục 5; 01 mục 1.9 bảng vai ("Bảo trì: App nhân viên (+ Desk khi khóa phòng)") | Bảo trì khóa phòng có kế hoạch, tạo phiếu sửa trên Desk | Vai chỉ Bảo trì không chọn được căn → không khóa, không tạo phiếu được trên Desk (BUG-R3-053) | Tới v1.0.1: "Khóa phòng có kế hoạch do lễ tân hoặc người trực làm trên Desk. Bảo trì báo sự cố trên app (tích **Đề nghị khóa căn**) hoặc nhắn lễ tân ngày, căn, lý do." Bảng 01 mục 1.9: cột "Đăng nhập ở" của Bảo trì → "App nhân viên". Mục 5 "Bảo trì hoặc lễ tân" → "Lễ tân hoặc người trực" |
+| 4 | 04 mục 1.3 phần Desk bước 2 | "Mở **Vận hành → Bảo trì**" | Với vai chỉ Bảo trì, mục menu tên **Phiếu sửa**; Desk mở sẵn trang **Bảo trì** sau đăng nhập. Với quản lý/người trực, mục tên **Bảo trì** | "Desk mở sẵn trang **Bảo trì** (menu: **Vận hành → Phiếu sửa**)". Nếu áp dòng 3 thì phần này chỉ còn để xem |
+| 5 | 04 mục 4.4 bước 3, 5 | "Các nút cùng tên như trên app: **Nhận việc**, **Lưu – chờ vật tư**, **Sửa xong**" · bước 5 "Bấm **Xác nhận sửa xong**" | Khung: **Nhận việc** (và **Hủy phiếu**); sau khi nhận: **Chờ vật tư**, **Sửa xong**. **Lưu – chờ vật tư** nằm trong hộp **Chờ vật tư – WO-…**. **Xác nhận sửa xong** mở thêm hộp xác nhận, bấm **Xác nhận sửa xong** lần nữa | Bước 3: "Bấm **Nhận việc**. Sau đó khung có **Chờ vật tư** (hộp **Chờ vật tư – WO-…**: **Cần vật tư gì?**, **Ngày dự kiến có vật tư** → **Lưu – chờ vật tư**) và **Sửa xong**." Bước 5: "Bấm **Xác nhận sửa xong**, đọc hộp 'Khi bấm Xác nhận…' rồi bấm **Xác nhận sửa xong** lần nữa." |
+| 6 | 02 mục 1.6 "Đổi mật khẩu khi muốn" + nhãn ảnh G2-02 "Hộp Đổi mật khẩu" | "… → nhập mật khẩu hiện tại và mật khẩu mới → lưu" | Là **màn** (trang `/change-password`), không phải hộp: **Mật khẩu hiện tại**, **Mật khẩu mới**, **Nhập lại mật khẩu mới**, nút **Lưu và vào ứng dụng**, **Quay lại** | "… → màn **Đổi mật khẩu** → **Mật khẩu hiện tại**, **Mật khẩu mới**, **Nhập lại mật khẩu mới** → **Lưu và vào ứng dụng**". Nhãn ảnh: "Màn Đổi mật khẩu" |
+| 7 | 02 mục 1.4 (G2-01) | "Gõ sai nhiều lần: Desk báo …" | Đúng chữ. Khóa sau **5** lần sai, lần thứ 6 báo "Chờ 15 phút", nút **Đăng nhập** mờ | Có thể ghi rõ "5 lần sai – chờ 15 phút" (tùy BA) |
+| 8 | 01 mục 1.7 dòng "mất điện thoại, còn mã khôi phục" | "Desk mở **Đăng ký lại trên điện thoại mới**: làm lại như mục 1.3" | Đúng chữ. Bước 2 hỏi **Mật khẩu hiện tại** rồi **Tạo mã QR**. **Nếu bỏ dở** (đóng trình duyệt trước khi xong), lần đăng nhập sau Desk vẫn nhận mã của **ứng dụng trên điện thoại cũ** và vào thẳng **Tổng quan**, không bắt đăng ký lại (QA thử 14:40) | Thêm: "Làm xong đăng ký lại ngay, không bỏ dở." **SEC xem** (S2/S4): đây là cách hợp đồng 0.3.8 mô tả (phiên hạn chế chỉ cho lượt vào bằng mã khôi phục), không ghi là lỗi; nhưng với người mất điện thoại, mã trên máy bị mất vẫn dùng được tới khi đăng ký lại hoặc chủ đầu tư **Đặt lại mật khẩu** |
+| 9 | 01 mục 1.9 **Đặt lại mật khẩu** | Chỉ ghi Desk hỏi mật khẩu + mã 6 số ở **Khóa tài khoản** | **Đặt lại mật khẩu** cũng hỏi **Mật khẩu đăng nhập** và **Mã trong ứng dụng xác thực (6 số)** (hộp "Đặt lại mật khẩu cho …?") | Thêm câu này vào gạch **Đặt lại mật khẩu** |
+| 10 | 05 mục 6.2 **Khách của tôi** | "Hồ sơ khách mình đã tạo: họ tên, số điện thoại, ngôn ngữ giao tiếp" | Trang tiêu đề **Khách hàng**, **trống** tới khi gõ: "Tìm khách để bắt đầu – Gõ ít nhất 2 ký tự của tên, mã KH hoặc SĐT/email." Kết quả: **MÃ KH**, **HỌ TÊN**, **LIÊN HỆ** (SĐT che giữa), **QUỐC TỊCH**, **NHÓM KHÁCH**; nút **Thêm khách** | Thêm bước: "Gõ ít nhất 2 ký tự của tên, mã KH hoặc SĐT vào ô **Tìm khách**." Ghi "trang **Khách hàng**" |
+| 11 | 02 mục 17.1 bảng, (a) | "**Nhập nơi nhận hoàn** ngay: **Chuyển khoản** (mặc định)" | Hộp chọn sẵn **Tiền mặt** (câu trong ngoặc ngay sau đã nói đúng) | Đổi "(mặc định)" thành "(cách nên dùng)" để khỏi hiểu là Desk chọn sẵn |
+| 12 | 02 mục 17.2 (G2-07) | Lý do **Khách đổi ý**, **Không liên lạc được**, **Khác (ghi rõ)** | Đúng. Danh sách đủ: **Khách đổi ý**, **Khách tìm được chỗ khác**, **Giá chưa phù hợp**, **Đổi ngày**, **Không liên lạc được**, **Khác (ghi rõ)**. Hộp **Hủy giữ chỗ căn …?**, nút **Giữ lại đơn** / **Hủy giữ chỗ** | Không phải sửa |
+
+Khớp, không phải sửa: 01 mục 1.4 (trang **Xác thực 2 bước**, **Tạo bộ mã mới**), 1.7 (**Mất điện thoại? Dùng mã khôi phục**, **Mã khôi phục (16 ký tự)**, **Đăng nhập bằng mã khôi phục**), 1.8 (chữ app với vai quản lý), 1.9 (**Khóa tài khoản**, **Sửa vai**, **Đặt lại mật khẩu**, **Mở khóa**), mục 6 (**Ghi công nợ – khách trả sau**, **Hạn thanh toán** mặc định +3 ngày, **Lý do ghi công nợ**, **Ghi công nợ … – hoàn tất**); 02 mục 12.2 (**Nhập nơi nhận hoàn**, **Cách hoàn** chọn sẵn **Tiền mặt**, **Cùng cách khách đã trả**, **Lưu**); 03 mục 1.2 bước A.1–4, B, 1.3 (thanh dưới); 04 mục 1.2, 1.3 phần app; 05 mục 1.2 (CTV vào thẳng **Báo giá & giữ chỗ**).
+
+### 22.7 Dữ liệu staging – trước / sau
+
+| Đối tượng | Trước | Sau |
+|---|---|---|
+| Tài khoản `qa.g.hk1`, `qa.g.mt1`, `qa.g.six`, `qa.g.fd1` | Không có | Tạo 14:28–14:49, **khóa** 14:56 (owner, xác nhận 2 bước). `qa.g.six` đã bật 2 bước, dùng 2 mã khôi phục, đăng ký lại 1 lần. Khóa nhập tay lần đăng ký lại của `qa.g.six` lọt **một lần** vào nhật ký chạy của QA (scratchpad, không vào repo): đã xóa khỏi nhật ký, tài khoản đã khóa nên khóa đó vô dụng. Tệp mật khẩu/khóa/mã ở scratchpad **đã xóa**. Desk không có nút xóa người dùng |
+| WO-00004 (301, Điện / đèn, Trong ngày, khóa 30/10–31/10) | Không có | Tạo (MGR) → nhận → **Sửa xong** (ảnh thử) → khóa mở. 1 khóa phòng `WO-00004` đã đóng |
+| Căn 301 | `VC` | `OOO` → `VD` → QA (`qa.g.hk1`) **Bắt đầu dọn → Dọn xong** → **`VC`** như trước |
+| **Căn 203** | `VD`, việc "Dọn trả phòng" từ hôm trước | **`VC`** – **QA bấm nhầm**: lượt dọn căn 301 trên app nhân viên bấm vào nút **Bắt đầu dọn** của dòng đầu (203) rồi **Dọn xong** (14:36). Không đơn nào gắn với 203 hôm nay. Nếu ca ESC-031 (C1-15/C2-34) cần 203 ở trạng thái cũ: MGR/FDL đổi về "cần dọn" (`needs_cleaning`) – QA chưa làm để khỏi ghi thêm |
+| OTM-00374 (401, 24/11→26/11, giữ chỗ 12 giờ, khách giả KH-0447) | Không có | **Còn `hold`**, cọc 100.000 tiền mặt thử (PT-000479, cọc cần 600.000), hạn **02:44 31/10** – để chụp G2-05/G2-06. Dọn sau khi chụp: MGR đảo PT-000479, rồi **Hủy giữ chỗ** lý do **Khách đổi ý** (như dọn OTM-00368, 19.8) |
+| OTM-00375 (402, 24/11→26/11, giữ chỗ 48 giờ, KH-0447) | Không có | **Còn `hold`**, chưa cọc, hạn 14:44 01/11 – dòng "còn hạn" của G2-05. Dọn sau khi chụp: **Hủy giữ chỗ**, **Khách đổi ý** |
+| OTM-00376 (103, 25/11→27/11, Trực tiếp) | Không có | Tạo có cọc 500.000 tiền mặt thử → **hủy** (Khách đổi ý) → yêu cầu hoàn 500.000 → FD nhập nơi nhận **Tiền mặt** → OWN **duyệt** → OWN **chi** PT-000481 (ảnh biên nhận thử). Folio: đã thu 500.000, đã hoàn 500.000, **còn thu 0, tiền dư 0** |
+| OTM-00359 (201, Emma Laurent – đơn thử QA từ 27/10, đi 29/10, vẫn **Đang ở**) | Folio 1.610.000/1.610.000 | QA mở **Trả phòng** để chụp G1-06 (không hoàn tất). Desk ghi thêm: 3 bản ghi `minibar-checks` (BUG-R3-024) và **đặt trả muộn 14:53** (`late-checkout` 200) → dòng **Phụ thu trả muộn (14:53)** 210.000, còn phải thu 210.000. Đơn vẫn **Đang ở**. Việc trả phòng đơn này (tồn từ 27/10) cần làm khi dọn: xử lý dòng 210.000 (MGR đảo) rồi trả phòng, hoặc ORC quyết |
+| Khách giả KH-0450 "Phan Minh Khang", KH-0451 "Phan Thu Trang" (SĐT 0900000141/142) | Không có | Tạo bằng `qa.ctv1` cho G5-02. Desk không có nút xóa hồ sơ |
+| BG-00051, BG-00052 | Không có | Báo giá của OTM-00374/00375 (đã chuyển giữ chỗ) |
+
+- Không VietQR, không chuyển tiền thật; mọi khoản là "tiền mặt" thử có ghi chú "QA test record - not real money".
+- Lượt chụp G2-05/G2-06 sáng 31/10 (sau 02:50) cần ORC giao lại cho QA, kèm dọn OTM-00374/00375.

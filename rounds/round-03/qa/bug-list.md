@@ -10,9 +10,20 @@
 |---|---|---|---|---|
 | P0 | 3 | 0 | 0 | 3 |
 | P1 | 15 | 2 (BUG-R3-032, BUG-R3-042 – v1.0.1) | 0 | 13 (gồm BUG-R3-037, 038, 039 Closed 30/10 trên rc.6) |
-| P2 | 13 | 7 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn; BUG-R3-041, 043, 044, 046) | 0 | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
-| P3 | 17 | 16 (016; 024–031; 034; 035; 036; 040; 045; 047; 048) | 0 | 1 |
-| **Tổng** | **48** | **25** | **0** | **23** |
+| P2 | 15 | 9 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn; BUG-R3-041, 043, 044, 046, 052, 053) | 0 | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
+| P3 | 20 | 19 (016; 024–031; 034; 035; 036; 040; 045; 047; 048; 049; 050; 051) | 0 | 1 |
+| **Tổng** | **53** | **30** | **0** | **23** |
+
+Cập nhật 30/10 14:28–15:00 (QA, bước Kiểm thử – bộ hướng dẫn theo bộ phận, câu Q2–Q4 của BA, staging `v1.0.0` `8b3aec8`, `qa3-rc1.md` mục 22):
+- Thêm **BUG-R3-052 (P2, MOB + UXD)**: app nhân viên nhận đăng nhập bằng **mật khẩu tạm** (và tài khoản vai quản lý **chưa bật 2 bước**) nhưng không có màn đổi mật khẩu / bật 2 bước. Mọi màn báo "Chưa tải được … Có thể do mạng yếu" trong khi máy chủ trả 403 `PASSWORD_CHANGE_REQUIRED` / `MFA_ENROLLMENT_REQUIRED`. Nhân viên buồng phòng, bảo trì mới không tự vào app được; cách tạm: đổi mật khẩu tạm trên Desk trước.
+- Thêm **BUG-R3-053 (P2, FE-A + BE-A)**: tài khoản **chỉ có vai Bảo trì** mở được **Phiếu sửa mới** và **Khóa phòng có kế hoạch** trên Desk, nhưng ô **Căn** trống (GET `rooms` 403 cho vai bảo trì) → không tạo được phiếu sửa hay khóa phòng trên Desk. API `createRoomBlock` cho phép vai bảo trì; sổ tay 4.1 và hướng dẫn 04 mục 5 dặn bảo trì khóa trên Desk.
+- Không lỗi P0/P1 mới. BUG-R3-029 thấy lại nguyên chữ với tài khoản 6 vai (quản lý đã bật 2 bước).
+
+Cập nhật 30/10 chiều (QA, bước Kiểm thử – US-155 đầu-cuối, `qa3-rc1.md` mục 21; stack thử `ottimo-qa155e` chạy **đúng image staging `v1.0.0`** `sha-8b3aec89486f` + landing có form, vì staging không nhận form: `LANDING_BASE_URL` của api staging rỗng):
+- Thêm **BUG-R3-049 (P3, FE-B)**: Desk hiển thị SĐT nước ngoài sai nhóm số (`+12025550123` → "+120 255 501 23", `+7…` → "+791 …"), dễ đọc nhầm mã nước khi gọi lại.
+- Thêm **BUG-R3-050 (P3, FE-B)**: từ yêu cầu tiếng Anh, **Báo giá** không mang ngôn ngữ/kênh/liên hệ sang hồ sơ tạo nhanh (chỉ có tên; ngôn ngữ Tiếng Việt, quốc tịch Việt Nam); mở lại báo giá sau đó thì mẫu tin là **Tiếng Việt** (US-155 AC2 "điền sẵn … ngôn ngữ, kênh liên hệ").
+- Thêm **BUG-R3-051 (P3, UXD + FE-B)**: banner "Form đặt phòng trên website đang tắt" nói "Khách bấm Đặt phòng sẽ mở chat Zalo" – sai khi ottimo.vn đã có bản landing có form mà công tắc tắt (khách thấy form + dòng "Online requests are paused…").
+- Không lỗi P0/P1/P2 mới. Kênh báo ngoài app (đẩy về điện thoại, email, Zalo, Google Chat) **chưa có** – đúng phạm vi v1.0 (AC8 chỉ đòi thông báo trong app), đã có quyết định INV 30/10 (Google Chat v1.0.1 + cách tạm "Desk luôn mở"); không ghi là lỗi. `staff.push` của `website_request_new` cũng nằm trong outbox không bộ phát như BUG-R3-041.
 
 Cập nhật 30/10 12:16–12:24 (QA, bước Kiểm thử – xác nhận 2 giả định PO 10.6 trên **giao diện Desk** staging rc.6 `8b3aec8`, `qa3-rc1.md` mục 20.8):
 - Thêm **BUG-R3-048 (P3, UXD + FE-A)**: trên máy chưa cấp quyền, **Nhập nơi nhận hoàn → Lưu** bị từ chối đúng (403 `DEVICE_NOT_TRUSTED`) nhưng Desk báo "Máy này chưa được cấp quyền xem giấy tờ và mã cửa…" – sai việc đang làm. Nút và hộp vẫn hiện trên máy chưa cấp quyền.
@@ -144,6 +155,11 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-046 | P2 | Desk: hủy đơn với lý do **Khác (ghi rõ)** không làm được – bản tính thử của hộp hủy không gửi `note`, máy chủ trả 422 `note` `REASON_REQUIRED`, nút hủy khóa kể cả khi đã gõ ghi chú và bấm **Thử lại**. Sổ tay 2.4 dặn dùng lý do này | FE-A (BE-B xem phía máy chủ) | Open – tái hiện staging rc.6 30/10. Đích **v1.0.1**; tài liệu đổi trước C3a |
 | BUG-R3-047 | P3 | Khung đơn **giữ chỗ** hiện nút **Tạo link check-in online** và **Thu hồi link**, máy chủ chỉ cấp link cho `confirmed`/`in_house` (409 `INVALID_TRANSITION`) | FE-A | Open – thấy trên staging rc.6 30/10. Đích v1.0.1 |
 | BUG-R3-048 | P3 | Máy **chưa** cấp quyền: **Nhật ký tiền → Hoàn tiền → Nhập nơi nhận hoàn → Lưu** bị 403 `DEVICE_NOT_TRUSTED` (đúng), nhưng toast dùng câu chung "Máy này chưa được cấp quyền **xem giấy tờ và mã cửa**…"; nút và hộp vẫn hiện như máy đã cấp | UXD + FE-A | Open – thấy trên staging rc.6 30/10 12:19. Đích v1.0.1 |
+| BUG-R3-049 | P3 | Desk S35: SĐT nước ngoài hiển thị sai nhóm số – `phoneDisplay` lấy mã nước 1–3 số "tham lam" (`+12025550123` → "+120 255 501 23"); giá trị sao chép và nút **Gọi** vẫn đúng E.164 | FE-B | Open – thấy trên stack thử ảnh `v1.0.0` 30/10. Đích v1.0.1 |
+| BUG-R3-050 | P3 | Yêu cầu website tiếng Anh → **Báo giá**: hồ sơ khách tạo nhanh chỉ điền tên – SĐT/kênh trống, ngôn ngữ Tiếng Việt, quốc tịch **Việt Nam**; mở lại báo giá sau đó thì mẫu tin là **Tiếng Việt** – trái US-155 AC2 | FE-B | Open – thấy trên stack thử ảnh `v1.0.0` 30/10. Đích v1.0.1 |
+| BUG-R3-051 | P3 | S35 khi công tắc tắt: banner ghi "Khách bấm Đặt phòng sẽ mở chat Zalo" – sai khi landing đã có form (khách thấy form và dòng "tạm dừng") | UXD + FE-B | Open – thấy trên staging `v1.0.0` 30/10. Đích: trước khi phát hành landing có form, hoặc v1.0.1 |
+| BUG-R3-052 | P2 | App nhân viên: đăng nhập bằng mật khẩu tạm (hoặc vai quản lý chưa bật 2 bước) vào được nhưng không có màn đổi mật khẩu / bật 2 bước; mọi màn báo "Chưa tải được … Có thể do mạng yếu" (máy chủ 403 `PASSWORD_CHANGE_REQUIRED` / `MFA_ENROLLMENT_REQUIRED`) | MOB + UXD | Open – thấy trên staging `v1.0.0` 30/10. Cách tạm: đổi mật khẩu tạm trên Desk. Đích v1.0.1 |
+| BUG-R3-053 | P2 | Desk, vai **chỉ Bảo trì**: hộp **Phiếu sửa mới** và **Khóa phòng có kế hoạch** có ô **Căn** trống (GET `rooms` 403 `FORBIDDEN_ACTION`) → không tạo được phiếu hay khóa phòng, dù API cho vai bảo trì khóa phòng | FE-A + BE-A (ARC chọn cách) | Open – thấy trên staging `v1.0.0` 30/10. Cách tạm: lễ tân/người trực khóa trên Desk. Đích v1.0.1 |
 
 ## 3. Chi tiết
 
@@ -1232,6 +1248,63 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 - **Vai:** UXD (chữ) + FE-A (khóa nút theo trạng thái máy).
 - **Bằng chứng:** `qa-r6/hf2/shots/d3-row.png`, `d3-after.png`; mạng `qa-r6/hf2/d3-net.json` (scratchpad, ngoài repo; chỉ dữ liệu giả). `qa3-rc1.md` 20.8.2 dòng 7.
 - **Cách tạm (ngày D):** sổ tay 0.5 thêm **Nhập nơi nhận hoàn** vào danh sách việc chỉ làm trên máy đã cấp quyền (đề nghị B2 ở `qa3-rc1.md` 20.8.4).
+- **Trạng thái:** Open – đích v1.0.1.
+
+### BUG-R3-049 – Desk hiển thị SĐT nước ngoài sai nhóm số
+
+- **Mức:** P3. Không sai dữ liệu: nút **Sao chép SĐT** và **Gọi** dùng đúng E.164. Nhưng lễ tân đọc số trên màn để bấm tay vào Zalo/điện thoại dễ bấm sai mã nước. Đà Lạt có nhiều khách Nga, Hàn.
+- **Môi trường:** stack thử `ottimo-qa155e` (image staging `v1.0.0` `sha-8b3aec89486f`), Desk Chromium 1440×900, `qa.fd`, 30/10 14:32. Yêu cầu QRH7ATJ0 (dữ liệu giả).
+- **Các bước:** khách gửi form với SĐT `+1 202 555 0123` (số giả dải 555-01xx) → Desk **Yêu cầu từ website** → mở yêu cầu.
+- **Thực tế:** mục **SĐT** hiện "+120 255 501 23". Mã `apps/admin-web/src/pages/webreq/labels.ts` `phoneDisplay`: ngoài `+84`, regex `^(\+\d{1,3})(\d{3})(\d{3})(\d+)$` lấy mã nước dài nhất có thể, nên `+7 912 345 6789` sẽ thành "+791 234 567 89", `+82 10 1234 5678` thành "+821 012 345 678".
+- **Mong đợi:** nhóm số không làm sai mã nước. Cách đơn giản: chỉ nhóm cho `+84`; số khác hiện nguyên E.164, hoặc tách đúng mã nước theo bảng mã quốc gia.
+- **Vai:** FE-B. **Bằng chứng:** `rounds/round-03/qa/us155-e2e/21-desk-chi-tiet-yeu-cau-a.png`; `qa3-rc1.md` 21.3 dòng 4.
+- **Trạng thái:** Open – đích v1.0.1.
+
+### BUG-R3-050 – Báo giá từ yêu cầu tiếng Anh không mang ngôn ngữ, kênh, liên hệ sang hồ sơ và mẫu tin
+
+- **Mức:** P3. Lễ tân sửa tay được; sai mặc định dễ dẫn tới gửi báo giá tiếng Việt cho khách nước ngoài và hồ sơ khách sai quốc tịch.
+- **Môi trường:** như BUG-R3-049, 30/10 14:34–14:36. Yêu cầu QRH7ATJ0 (EN, kênh Zalo, SĐT giả) → BG-00001 → OTM-00001 (đã dọn).
+- **Các bước:** mở yêu cầu → **Nhận xử lý** → **Báo giá** → ô **Khách đứng tên** gõ tên → **Tạo nhanh khách** → **Lưu hồ sơ** → **Lưu báo giá** → **Báo giá & giữ chỗ** → tab **Báo giá** → mở BG-00001.
+- **Thực tế:** hộp **Hồ sơ khách mới** chỉ điền sẵn tên đã gõ: SĐT trống, **Liên hệ ưu tiên** "–", **Ngôn ngữ giao tiếp** mặc định Tiếng Việt, **Quốc tịch** mặc định Việt Nam (đơn hiện `nationalityCode: VN`). Mã: `GuestPicker` chỉ truyền `prefillName`; `GuestFormDialog` `EMPTY` = `nationalityCode: 'VN'`, `preferredLocale: 'vi'`. Ngay sau **Lưu báo giá**, bước gửi trong hộp chọn đúng **English** (lấy từ yêu cầu). Nhưng mở lại BG-00001 từ **Báo giá & giữ chỗ** thì **Ngôn ngữ gửi khách** là **Tiếng Việt** (lấy từ hồ sơ), mẫu tin tiếng Việt, dù yêu cầu ghi "Ngôn ngữ khách dùng: Tiếng Anh".
+- **Mong đợi (US-155 AC2):** "mở US-080/US-084 điền sẵn ngày, số người, hạng phòng, **ngôn ngữ, kênh liên hệ**". Hồ sơ tạo nhanh từ yêu cầu điền sẵn SĐT/email, kênh và ngôn ngữ của yêu cầu; quốc tịch để trống thay vì Việt Nam; mẫu tin báo giá theo ngôn ngữ yêu cầu (`en`).
+- **Vai:** FE-B (đường **Tạo đơn** đã điền SĐT/email theo báo cáo FE-B, đường **Báo giá** thì chưa).
+- **Bằng chứng:** `us155-e2e/23-desk-bao-gia-tu-yeu-cau.png`, `24-bao-gia-tieng-viet-mac-dinh.png`; `qa3-rc1.md` 21.3 dòng 6–9.
+- **Trạng thái:** Open – đích v1.0.1.
+
+### BUG-R3-051 – Banner "form đang tắt" trên S35 nói sai điều khách thấy khi landing đã có form
+
+- **Mức:** P3. Chữ nội bộ, không ảnh hưởng dữ liệu. Nhưng khi chủ đầu tư dùng công tắc để **tạm dừng** form (kill switch), nhân viên đọc banner sẽ tưởng khách đang được chuyển sang Zalo, trong khi khách thấy form và một dòng "tạm dừng".
+- **Môi trường:** staging `v1.0.0`, `qa.owner`, S35, 30/10 14:39 (công tắc staging tắt). Đối chiếu landing bản có form gọi API staging: `qa3-rc1.md` 21.5.
+- **Thực tế:** banner "Form đặt phòng trên website đang tắt – Khách bấm Đặt phòng sẽ mở chat Zalo, nên yêu cầu mới chưa vào đây…". Landing có form + công tắc tắt: khách vẫn thấy form; chạm vào form thì hiện "Online requests are paused right now. Please message us on Zalo or call 08.4444.0909…" (bản VI tương ứng), bấm gửi không gửi gì.
+- **Mong đợi:** câu đúng cả hai trường hợp, ví dụ "Khách bấm Đặt phòng sẽ thấy lời mời nhắn Zalo hoặc gọi, nên yêu cầu mới chưa vào đây." (UXD quyết chữ).
+- **Vai:** UXD (chữ) + FE-B. **Bằng chứng:** `us155-e2e/34-desk-staging-form-tat-chu-dau-tu.png`, `30-…`, `31-…`.
+- **Trạng thái:** Open – đích: cùng bản phát hành landing có form, hoặc v1.0.1.
+
+### BUG-R3-052 – App nhân viên không có màn đổi mật khẩu tạm / bật 2 bước, báo nhầm "mạng yếu"
+
+- **Mức:** P2. Không sai dữ liệu, không lộ dữ liệu (máy chủ chặn đúng). Nhưng nhân viên buồng phòng, bảo trì mới (và mỗi lần chủ đầu tư **Đặt lại mật khẩu**) không tự vào app được, và câu báo đẩy họ đi kiểm mạng, gọi lễ tân. Có cách tạm (đổi trên Desk), nên không P1.
+- **Môi trường:** staging `v1.0.0` (`8b3aec8`), app nhân viên `staff.staging.ottimo.vn`, Chromium 390×844 DPR 2, 30/10 14:28–14:39. Tài khoản dùng một lần (đã khóa): `qa.g.hk1` (chỉ Buồng phòng), `qa.g.mt1` (chỉ Bảo trì), `qa.g.six` (6 vai như tài khoản người trực production).
+- **Các bước:**
+  1. Chủ đầu tư tạo tài khoản, vai **Buồng phòng**, mật khẩu tạm.
+  2. Trên điện thoại mở app nhân viên, đăng nhập bằng mật khẩu tạm.
+- **Thực tế:** `POST /v1/auth/login` 200, app vào **Việc của tôi**: "Chưa tải được việc hôm nay – Có thể do mạng yếu. Việc bạn đã bấm không bị mất. Bấm Thử lại; vẫn lỗi thì gọi lễ tân." **Các căn** cũng vậy; **Tôi** hiện tên và vai. Mọi lệnh đọc: `work-orders`/`hk-tasks`, `room-statuses`, `me/notifications`, `events` → 403 `PASSWORD_CHANGE_REQUIRED`. App không có màn **Đặt mật khẩu của bạn** (`apps/mobile/src/pages/` không có trang này, `LoginPage.tsx` không đọc `mustChangePassword`). Bảo trì: cùng hiện tượng ở **Phiếu sửa**. Tài khoản 6 vai còn mật khẩu tạm, hoặc đã đổi mật khẩu nhưng chưa bật 2 bước: cùng câu "mạng yếu", lỗi 403 `MFA_ENROLLMENT_REQUIRED`.
+  - Đổi mật khẩu tạm trên Desk (**Đặt mật khẩu của bạn → Lưu và vào ứng dụng**) rồi đăng nhập app: vào bình thường (buồng phòng thấy **Việc**, bảo trì thấy **Phiếu sửa**).
+- **Mong đợi:** sau đăng nhập, `Me.mustChangePassword = true` → app mở màn đặt mật khẩu như Desk (US-001, `error.PASSWORD_CHANGE_REQUIRED` ghi "403 – sang màn đổi mật khẩu" ở `content-guide.md`). Tối thiểu: app nhận 403 `PASSWORD_CHANGE_REQUIRED` / `MFA_ENROLLMENT_REQUIRED` thì báo đúng ("Bạn đang dùng mật khẩu tạm. Mở desk.ottimo.vn để đặt mật khẩu riêng, rồi đăng nhập lại." – UXD quyết chữ), không báo mạng yếu. Vai quản lý chưa bật 2 bước: báo bật trên Desk.
+- **Vai:** MOB (màn + xử lý mã lỗi), UXD (chữ).
+- **Bằng chứng:** `qa3-rc1.md` 22.2; ảnh `qa-r6/g/shots/Q2-qa.g.mt1-staff-temp.png`, chữ `qa-r6/g/raw/q2-*.txt`, `q6-staff-*.txt` (scratchpad phiên, ngoài repo, dữ liệu giả).
+- **Cách tạm (ngày D):** hướng dẫn 03, 04 mục 1.2 bước A (đổi trên Desk trước) – giữ, và thêm dòng "App báo 'Chưa tải được … mạng yếu' ngay lần đầu: chưa đổi mật khẩu tạm – làm bước A".
+- **Trạng thái:** Open – đích v1.0.1.
+
+### BUG-R3-053 – Vai Bảo trì không chọn được căn trên Desk (Phiếu sửa mới, Khóa phòng có kế hoạch)
+
+- **Mức:** P2. Một việc sổ tay giao cho bảo trì (sổ tay 4.1 "bảo trì hoặc lễ tân, trên Desk"; hướng dẫn 04 mục 1.1, 1.3, 5) không làm được. Có cách tạm: lễ tân hoặc người trực khóa phòng; bảo trì báo sự cố trên app (có **Đề nghị khóa căn**). Ngày D OTTIMO chưa có nhân viên bảo trì riêng.
+- **Môi trường:** staging `v1.0.0`, Desk Chromium 1440×900, `qa.g.mt1` (chỉ vai Bảo trì, dùng một lần, đã khóa), 30/10 14:31–14:34.
+- **Các bước:** đăng nhập Desk bằng tài khoản chỉ có vai Bảo trì → Desk mở **Bảo trì** → bấm **Phiếu sửa mới** (hoặc **Khóa phòng có kế hoạch**) → mở ô **Căn**.
+- **Thực tế:** ô **Căn** không có lựa chọn nào; nút **Tạo phiếu** / **Khóa phòng có kế hoạch** không dùng được. Mạng: `GET …/rooms` 403 `FORBIDDEN_ACTION`, `GET …/channels` 403 (cả ở **Các căn**). `openapi.yaml`: `listRooms` `x-roles` không có `maintenance`, trong khi `createRoomBlock` có `maintenance`. Vai Quản lý cùng hộp: ô **Căn** có đủ 10 căn.
+- **Mong đợi:** vai Bảo trì chọn được căn và tạo phiếu, khóa phòng có kế hoạch trên Desk (như API cho phép), hoặc Desk ẩn hai nút này với vai Bảo trì và tài liệu ghi rõ. ARC chọn: cho `maintenance` đọc danh sách căn tối thiểu (số, tên) hoặc Desk lấy căn từ `room-statuses` như app nhân viên.
+- **Vai:** FE-A + BE-A (ARC chọn cách).
+- **Bằng chứng:** `qa3-rc1.md` 22.4; `qa-r6/g/raw/q4c-qa.g.mt1-*.png`, `q4-qa.g.mt1-*.txt` (scratchpad, ngoài repo).
+- **Cách tạm (ngày D):** hướng dẫn 04 mục 1.1, 1.3 (phần Desk), 5 và 01 mục 1.9 (bảng vai): khóa phòng có kế hoạch do lễ tân/người trực làm; bảo trì báo bằng app.
 - **Trạng thái:** Open – đích v1.0.1.
 
 ### Checklist QA xác nhận rc.6 trên staging (BUG-R3-037, 038, 039)
