@@ -178,3 +178,13 @@ Bản thật bật **đăng nhập 2 bước bắt buộc** cho quản lý và c
 
 Không ai đọc mật khẩu qua điện thoại hay đưa mật khẩu cho người khác gõ hộ, kể cả trong ngày chuyển đổi.
 
+
+## 10. Từ ngày D tới bản v1.0.1 (dự kiến 04/11) – ba việc khác thường
+
+Thêm 30/10 (PO, theo bản `v1.0.0` và cổng QC v1.0 mục 4.2). Chi tiết ở `release-notes.md` mục "Giới hạn đã biết", sổ tay mục 1.1, 2.1, 2.4, 2.9 và `staff-one-pager.md`.
+
+| Việc | Ai | Khi nào | Tới khi nào |
+|---|---|---|---|
+| **Không tạo, không gửi link check-in online** cho khách thật, kể cả các đơn nhập ở mục 4.1–4.3. Mọi khách làm giấy tờ tại quầy, lễ tân hỏi đồng ý lưu ảnh bằng câu chuẩn và chỉ tờ thông báo giấy tờ ở quầy. In và dán tờ thông báo **trước 12:00 ngày D** | Lễ tân; OWN in tờ thông báo | Mọi ca | Chủ đầu tư báo "mở lại" sau khi v1.0.1 lên production (quyết định D-T4 của PO) |
+| **Rà giữ chỗ "0h00" đỏ** trên Sơ đồ phòng và Hôm nay, xử lý hết trước 12:00 ngày đến. Lần rà đầu tiên: ngay sau khi nhập xong nhóm G (mục 4.3) | Lễ tân, lễ tân trưởng; quản lý quyết đơn có cọc thiếu | Đầu mỗi ca | Bản v1.0.1 (BUG-R3-041, WA-04) |
+| **Kiểm bảo mật buổi sáng B1–B6** | OWN; quản lý đối soát cùng | Mỗi sáng trước 09:00, kể cả ngày nghỉ | Bản v1.0.1 sửa BUG-R3-032 (chậm nhất 09/11, ESC-040 A) |
