@@ -533,6 +533,110 @@ describe('review fixes – chatSafeEmail (SEC GCHAT-01), Cf / separators / marks
   });
 });
 
+describe('BUG-R3-057 – ID / card numbers checked AFTER normalisation (QA FB-01, TC-GC-01, TC-GC-02, TC-GC-06)', () => {
+  const note = (s: string) => chatSafeText(s, { maxChars: 500, singleLine: false });
+  const name = (s: string) => chatSafeText(s, { maxChars: 80, singleLine: true, plain: true });
+  const ZWSP = '\u200b';
+  const WJ = '\u2060';
+  /** ≥ 9 digits in a row, or digit groups joined by one space / dot / dash / `_` / `/` / `,`. */
+  const LONG_DIGITS = /\d(?:[ .\-_/,]?\d){8,}/;
+
+  it.each([
+    ['ZWSP inside a CCCD', `0790${ZWSP}12345678`],
+    ['word joiners between groups', `079${WJ}203${WJ}012${WJ}345`],
+    ['soft hyphen', '079203\u00ad012345'],
+    ['ZWSP between card groups (Luhn test card)', `4111${ZWSP}1111${ZWSP}1111${ZWSP}1111`],
+    ['underscores (a name loses them – plain)', '079_203_012_345'],
+    ['underscores in a card', '4111_1111_1111_1111'],
+    ['full-width digits', '０７９２０３０１２３４５'],
+    [
+      'full-width card digits with full-width spaces',
+      '４１１１\u3000１１１１\u3000１１１１\u3000１１１１',
+    ],
+    ['Arabic-Indic digits', '٠٧٩٢٠٣٠١٢٣٤٥'],
+    ['slashes', '079/203/012/345'],
+    ['commas in a card', '4111,1111,1111,1111'],
+    ['NBSP groups', '079\u00a0203\u00a0012\u00a0345'],
+    ['16-digit card in 4 groups, dashes', '4111-1111-1111-1111'],
+    ['tab (a control character, dropped)', '079\t203\t012\t345'],
+    ['backticks (dropped)', '079`203`012`345'],
+    ['ZWSP in an IPv4-shaped CCCD (would print 079[.]203[.]012[.]345)', `07${ZWSP}9.203.012.345`],
+    ['CMND split by ZWSP', `123${ZWSP}456${ZWSP}789`],
+    ['passport split by ZWSP', `B${ZWSP}1234567`],
+  ])('%s → the WHOLE field replaced (name and message)', (_n, s) => {
+    expect(note(`CCCD ${s} nhé`)).toBe(CHAT_ID_REPLACEMENT);
+    expect(name(s)).toBe(CHAT_ID_REPLACEMENT);
+    expect(chatSafeText(s, { maxChars: 80, singleLine: true })).toBe(CHAT_ID_REPLACEMENT);
+  });
+
+  it('a name whose double space only collapses after `plain` is still caught', () => {
+    expect(name('079_ 203_ 012_ 345')).toBe(CHAT_ID_REPLACEMENT);
+    expect(name('*079*203*012*345*')).toBe(CHAT_ID_REPLACEMENT);
+  });
+
+  it('a message whose 9th line is joined to the 8th cannot join a number', () => {
+    const lines = ['l1', 'l2', 'l3', 'l4', 'l5', 'l6', 'l7', '079 203', '012 345'];
+    expect(note(lines.join('\n'))).toBe(CHAT_ID_REPLACEMENT);
+  });
+
+  it.each([
+    ['a phone number', 'Gọi em số 0905 111 222 nhé', 'Gọi em số 0905 111 222 nhé'],
+    ['an international phone', 'WhatsApp +84 905 111 222', 'WhatsApp +84 905 111 222'],
+    ['two phones (comma + space)', '0905.111.222, 0905 333 444', '0905.111.222, 0905 333 444'],
+    ['a full-width phone (shown as typed)', '０９０５１１１２２２', '０９０５１１１２２２'],
+    ['dates with slashes', 'Đến 12/11/2026, đi 15/11/2026', 'Đến 12/11/2026, đi 15/11/2026'],
+    ['an amount with its currency', 'Ngân sách 1,500,000 đ/đêm', 'Ngân sách 1,500,000 đ/đêm'],
+    ['room numbers and guests', 'Phòng 2, 3 người, 1_2 tuổi', 'Phòng 2, 3 người, 1_2 tuổi'],
+  ])('not an ID: %s stays readable', (_n, s, out) => {
+    expect(note(s)).toBe(out);
+  });
+
+  it('render C (TC-GC-02): split ID in the name, split card in the message → no long digit run; phone kept', async () => {
+    const { text } = await run(
+      'C',
+      baseRow(),
+      phoneContact({
+        guest_name: '079_203_012_345',
+        note: `Số thẻ 4111${ZWSP}1111${ZWSP}1111${ZWSP}1111`,
+      }),
+    );
+    const lines = text.split('\n');
+    expect(lines).toContain(`Khách: ${CHAT_ID_REPLACEMENT}`);
+    expect(lines).toContain(CHAT_ID_REPLACEMENT);
+    expect(lines.filter((l) => l !== DESK && LONG_DIGITS.test(l))).toEqual([
+      `Liên hệ: +${PHONE} · kênh: Zalo`,
+    ]);
+    expect(lines.at(-1)).toBe(DESK);
+  });
+
+  it('render C: a valid guest phone is printed, also when the message repeats it', async () => {
+    const { text } = await run(
+      'C',
+      baseRow(),
+      phoneContact({ phone_e164: '84905111222', note: 'Gọi 0905 111 222 sau 18:00' }),
+    );
+    const lines = text.split('\n');
+    expect(lines).toContain('Liên hệ: +84905111222 · kênh: Zalo');
+    expect(lines).toContain('Gọi 0905 111 222 sau 18:00');
+    expect(text).not.toContain(CHAT_ID_REPLACEMENT);
+  });
+
+  it.each([
+    ['`<` everywhere', '<'.repeat(80), '<'.repeat(500)],
+    ['domain dots', 'a.b'.repeat(26), 'a.b '.repeat(125)],
+    ['links', 'x://y.z '.repeat(10), 'h://a.b '.repeat(62)],
+    ['4-byte emoji and combining marks', '😀ạ̃'.repeat(20), `${'😀'.repeat(125)}${'ạ̃'.repeat(83)}`],
+  ])('largest level-C text (TC-GC-06, %s) fits the 4 KB body', async (_n, guestName, msg) => {
+    const { text } = await run(
+      'C',
+      baseRow({ suspicious_flags: ['contains_url', 'possible_duplicate'] }),
+      phoneContact({ guest_name: guestName.slice(0, 80), note: msg.slice(0, 500) }),
+    );
+    expect(text.split('\n').at(-1)).toBe(DESK);
+    expect(Buffer.byteLength(JSON.stringify({ text }), 'utf8')).toBeLessThanOrEqual(4096);
+  });
+});
+
 describe('configuration (★3, G1, G3 – tests 1, 3b)', () => {
   it.each([
     [undefined, 'A', false],

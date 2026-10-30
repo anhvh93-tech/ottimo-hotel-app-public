@@ -61,6 +61,14 @@ Bảng trả lời đủ thẻ: `rounds/round-03/responses/BE-gchat-notify.md`. 
 - **SEC 04**: tin mức C mang hàm `recheck`; dispatcher đọc lại `status, pii_purged_at` ngay trước POST, đã xóa/spam → `SKIPPED_GONE`, không gửi.
 - **ARC GC-06**: staging/production chỉ đọc `ADMIN_BASE_URL` (dev/test giữ dự phòng `APP_BASE_URL`). **GC-05**: `umask 077` trong nhánh `--set-booking-chat`, in `checked: bash rule only (image tool not available)` khi image chưa có lệnh kiểm. **GC-03**: sửa chú thích trỏ test. **SEC 03**: chú thích trên hằng phiên bản (thông báo bỏ Google Chat → hạ mức trước khi đăng).
 
+## 2b. Lượt 3 – sửa theo review QA (31/10, BUG-R3-057)
+
+- **QA FB-01 / BUG-R3-057 (Major, P1)**: `chatSafeText` kiểm số giấy tờ/thẻ bằng hàm mới `looksLikeSensitiveNumber` ở **3 chỗ**: (1) trên chữ gốc như cũ; (2) **sau** mọi bước bỏ ký tự (Cc, `\p{Cf}`, `_` `*` `~` của tên, gộp dòng, backtick) và **trước** bước `[.]`/`[:]` (bước này làm `079.203.012.345` dạng IPv4 thành `079[.]203[.]012[.]345`, luật số không còn đọc được); (3) trên chữ in ra cuối cùng, đọc `[.]` như dấu chấm.
+- `looksLikeSensitiveNumber` = luật V-09/SR-LOG-04 có sẵn (`looksLikeCard`, `looksLikeIdNumber`, không đổi) chạy trên chữ gốc, rồi trên bản **NFKC** (chữ số và khoảng trắng toàn độ rộng, NBSP) có mọi chữ số `\p{Nd}` đổi về ASCII (Ả Rập, Devanagari…), rồi trên bản coi **một** ký tự `_` `/` `,` giữa hai chữ số là dấu tách nhóm (ngày/giờ được che trước, giống luật form). Bản chuẩn hóa chỉ dùng để kiểm, không in ra.
+- Không che nhầm: SĐT 10–11 số (cả dạng toàn độ rộng), số sau `+`, hai SĐT cách nhau `, `, ngày `12/11/2026`, số tiền có đơn vị (`1,500,000 đ`) vẫn hiện như khách gõ. Dòng `Liên hệ: +…` không đi qua `chatSafeText` nên không đổi.
+- Không đụng `website-request-rules.ts` (luật form, BUG-R3-058 là việc riêng của BE-D).
+- Test thêm: `gchat-units.test.ts` khối "BUG-R3-057" (TC-GC-01: 18 chuỗi × tên/lời nhắn; TC-GC-02 render C; SĐT hợp lệ ở mức C; 7 ca không che nhầm; TC-GC-06 tin C lớn nhất ≤ 4 KB, 4 biến thể) – 20 ca đỏ trên mã cũ, xanh trên mã mới. `gchat-notify.test.ts`: TC-GC-10 (22:00:00 và 06:59:59 là ca đêm, 07:00:00 trong giờ; 07:29:59 chưa nhắc, 07:30:00 nhắc).
+
 ## 2. Test (ARC 8.11)
 
 | Nhóm | Tệp | Nội dung | Kết quả |

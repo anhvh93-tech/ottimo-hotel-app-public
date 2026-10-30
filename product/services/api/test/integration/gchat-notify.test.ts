@@ -739,6 +739,33 @@ describe.skipIf(!HAS_DB)('Google Chat – booking requests (outbox staff.chat)',
       expect(await kinds(tooLate.id)).not.toContain('web_request_morning');
     });
 
+    it('edges (QA TC-GC-10): 22:00:00 and 06:59:59 are night, 07:00:00 is in hours; nothing before 07:30:00', async () => {
+      const at2200 = await insertRequest({
+        createdAt: at('2026-11-06T22:00:00'),
+        arrival: '2026-11-10',
+        channel: 'phone',
+      });
+      const at0659 = await insertRequest({
+        createdAt: at('2026-11-07T06:59:59'),
+        arrival: '2026-11-10',
+        channel: 'phone',
+      });
+      const at0700 = await insertRequest({
+        createdAt: at('2026-11-07T07:00:00'),
+        arrival: '2026-11-10',
+        channel: 'phone',
+      });
+      await sla('2026-11-07T07:29:59');
+      for (const r of [at2200, at0659, at0700]) expect(await kinds(r.id)).toEqual([]);
+      await sla('2026-11-07T07:30:00');
+      expect(await kinds(at2200.id)).toEqual(['web_request_morning']);
+      expect(await kinds(at0659.id)).toEqual(['web_request_morning']);
+      // In hours: never a morning nudge (its own SLA applies).
+      expect(await kinds(at0700.id)).not.toContain('web_request_morning');
+      await sla('2026-11-07T07:31:00');
+      expect(await kinds(at2200.id)).toEqual(['web_request_morning']);
+    });
+
     it('the reminders go out as template A in the thread, `<users/all>` on the overdue one only', async () => {
       await clearQueue();
       const now = at('2026-11-06T07:30:00');
