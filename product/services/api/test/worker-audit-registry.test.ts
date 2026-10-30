@@ -65,6 +65,18 @@ describe('audit allowlists in the worker process (only src/worker-jobs.ts loaded
     // The two entity types of OPS 10.2/10.3 by name.
     expect(worker.registry.folio).toEqual(expect.arrayContaining(['status', 'balanceDueVnd']));
     expect(worker.registry.payment).toEqual(expect.arrayContaining(['status', 'amountVnd']));
+    // SEC FB-R3-SEC-ARC-PN-01 / ARC-on-OPS-us155-enable: the notice versions of OPS publish-privacy-notice (S27).
+    expect(worker.registry.privacy_notice_version).toEqual(
+      expect.arrayContaining([
+        'version',
+        'locales',
+        'shaVi',
+        'shaEn',
+        'landingTag',
+        'landingDigest',
+        'superseded',
+      ]),
+    );
   });
 });
 

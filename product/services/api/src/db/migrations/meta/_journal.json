@@ -456,6 +456,13 @@
       "when": 1792782165681,
       "tag": "0088_late_fee_post_review",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1792782169681,
+      "tag": "0090_privacy_notice_append_only",
+      "breakpoints": true
     }
   ]
 }
