@@ -589,3 +589,37 @@ Ghi chú G3: hai dòng `WARNING: role "ottimo_app"/"ottimo_readonly" has not bee
 - "Bundle từ `main`" lấy bằng `git archive main` ở commit `432a8741`, không lấy từ thư mục làm việc, để tránh tệp chưa commit. Chỉ dữ liệu cấu hình và script: production không cần `tests/fixtures/seed`.
 - "4 container healthy" là api, web, landing, postgres. Worker không khai báo healthcheck trong compose.
 - Tệp tạm của phiên (bundle, nhật ký G1/G3, dữ liệu đo) nằm trong scratchpad, không có IP hay bí mật.
+
+### 8.6 Bước J – ghi phiên bản thông báo (17:34–17:35): **chạy thử ĐẠT, `--apply` CHƯA chạy**
+
+- Đầu vào: ORC báo bước I đã xong. INV duyệt Release run 41032377467 (`landing sha-8f1265e0e878: ok`).
+- Không SQL tay: chỉ dùng `publish-privacy-notice.sh`.
+- Lệnh: `publish-privacy-notice.sh --landing-tag sha-8f1265e0e878 --version 2026-10-24 --property DLT --operator ops.agent`. `--operator` là mã vai OPS, không phải email hay tên người.
+
+| # | Kiểm | Kết quả | Đạt? |
+|---|---|---|---|
+| J0 | Trạng thái sau I (17:34:24) | `state/landing_tag` = `sha-8f1265e0e878`, `landing_previous_tag` = `sha-70fe734e9077`. Digest đã ghi `sha256:2a284a7d…2af6` (trùng QA D1). `deploy-history.log`: `2026-10-30T10:33:28Z landing sha-8f1265e0e878`. Container landing healthy, `LANDING_PUBLIC_API=on`. api/web/postgres healthy, worker Up | Đạt |
+| J0 | URL ottimo.vn | `/`, `/vi/`, `/privacy/`, `/vi/privacy/` 200. `/v1/me`, `/v1/auth/login` → 404 `text/html` (Caddy chặn). **`form-token` → 404 `application/problem+json`** (`code: NOT_FOUND`): đường proxy đã thông, api trả lời, công tắc còn tắt. Đúng dự kiến trước bước K | Đạt |
+| J0 | `state/privacy-notice.log` trước J | **Chưa có tệp** (chưa có dòng nào), tức lần ghi đầu | Ghi nhận |
+| J1 | Chạy thử 17:34:34–17:34:36 | Image container landing đúng digest `2a284a7d6f7c…`. Version `2026-10-24` khớp ở trang và form. Trang thật `https://ottimo.vn/privacy/` và `/vi/privacy/` trả 200, trùng từng byte với image. Sẽ INSERT vi + en và audit `security` `privacy_notice.published`. `readiness: vi+en active = 2026-10-24`. **`RESULT: dry-run-ok`**, `DRY RUN OK – nothing written`, thoát 0 | Đạt |
+| J2 | Băm trên VPS (trong image) | `/privacy/` **`d35d2810f341c1cf6d4b9079ba1d21281902f259f9ca6b05a4673c188d3c327a`**; `/vi/privacy/` **`940bd18b6701e93dfa520ee87463a776ae0bb98c8d964b2dbd1276767a88776a`**. **Trùng QA D1 2/2** (so cả chuỗi) | Đạt |
+| J3 | Băm từ Mac qua mạng ngoài (17:34:43, `curl -sH 'Accept-Encoding: identity' … \| shasum -a 256`) | `/privacy/` `d35d2810…c327a`, `/vi/privacy/` `940bd18b…88776a`. **Trùng VPS và QA D1 2/2** | Đạt |
+| J4 | `--apply` | **Chưa chạy.** Hệ thống phân quyền của phiên agent chặn lệnh ghi DB production (`--apply`). OPS không tìm đường vòng | **Chờ** |
+
+Sau khi bị chặn, kiểm lại lúc 17:35:13 (chỉ đọc):
+- `state/privacy-notice.log` chỉ có **1** lượt `dry-run … rc=0`, không có lượt apply.
+- `form-token` vẫn 404 `application/problem+json`.
+- Bảng `privacy_notice_version` chưa có dòng nào: đây là suy ra từ log của công cụ, vì OPS không SQL.
+
+Ghi chú: `state/privacy-notice.log` có quyền `664 ottimo:ottimo`. Nội dung không có bí mật (chỉ tag, digest, băm, mã vai). Có thể siết về 0600 ở lượt sửa công cụ sau.
+
+**Việc còn lại của J** (sau khi được cho phép chạy ghi DB production, hoặc INV tự chạy qua SSH `ottimo-admin`):
+
+```sh
+cd /tmp
+sudo -u ottimo /opt/ottimo-prod/infra/server/bin/publish-privacy-notice.sh \
+  --landing-tag sha-8f1265e0e878 --version 2026-10-24 --property DLT --operator ops.agent --apply
+# đạt: "RESULT: published (inserted: vi,en …)"; chạy lại lần nữa phải ra "already present"
+```
+
+Băm đã đối chiếu xong ở J2–J3, không cần đo lại nếu `landing_tag` vẫn là `sha-8f1265e0e878`. Công cụ tự kiểm lại digest và trang thật trước khi ghi. **Bước K (INV bật công tắc trên Desk) chỉ làm sau khi apply in `published`.**
