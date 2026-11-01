@@ -1110,6 +1110,10 @@
 | `rooms.night_auto` | Đêm ngày thường, kênh Trực tiếp, đã gồm VAT. Cuối tuần, ngày đặc biệt do lịch giá cộng thêm. | Weekday night, Direct channel, VAT included. The rate calendar adds weekend and special-date increases. | ⟨chừa chỗ⟩ | 04-rooms.html – chữ phụ dưới ô giá đêm (nay nhập được). FB-INV-005: BR-101 v0.4.7 (2) (VAT – BR-523), BR-104 + ESC-036 A. UXD duyệt R3 Review 26/10: bỏ số +15 %/+30 % viết cứng (tham số lịch giá, BR §0.2 – đổi tham số thì chữ sai mà không ai biết); "ngày lễ" → "ngày đặc biệt" đúng BR-104 (gồm Tết, cao điểm, sự kiện); bỏ "Giá đêm" lặp nhãn ô; 4 → 3 dòng ở cột 1366 px. Key giữ tên cũ để không đổi hi-fi |
 | `rooms.ooo_until` | Khóa sửa chữa đến {date} | Blocked for repair until {date} | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.price` | Giá niêm yết | List price | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.public_type` | Hạng phòng công khai | Public room type | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `rooms.public_type_none` | Chưa gán | Not assigned | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `rooms.public_type_help` | Hạng khách thấy trên web và trong tin nhắn khi chưa báo căn. Web tính giá ước tính theo hạng này; căn chưa gán thì web ghi "giá theo yêu cầu". | The type guests see on the website and in messages before a room is assigned. Website estimates use it; an unassigned room shows "rate on request". | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `rooms.public_type_owner_only` | Chỉ chủ đầu tư đổi được hạng này. | Only the owner can change this. | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
 | `rooms.reason` | Lý do đổi giá | Reason for price change | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.rule_note` | Khách vượt định mức ngủ sofa, trả phụ thu người thêm (BR-110) và được chuẩn bị thêm 1 bộ đồ dùng: 1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân (không gối). | Guests over the standard occupancy sleep on the sofa, pay the extra-guest charge (BR-110) and get an extra amenity kit: 1 blanket, 1 bath towel, 1 face towel, toothbrush, toiletries (no pillow). | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.selling` | Đang bán | On sale | ⟨chừa chỗ⟩ | 04-rooms.html |
@@ -3588,6 +3592,16 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `webreq.locale.vi` | Tiếng Việt | Vietnamese | ⟨chừa chỗ⟩ |  |
 | `webreq.locale.en` | Tiếng Anh | English | ⟨chừa chỗ⟩ |  |
 | `webreq.locale.ru` | Tiếng Nga | Russian | ⟨chừa chỗ⟩ |  |
+| `webreq.locale.ko` | Tiếng Hàn | Korean | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `webreq.locale.zh` | Tiếng Trung (giản thể) | Chinese (Simplified) | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `webreq.estimate_seen` | Giá ước tính khách đã thấy | Estimate the guest saw | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `webreq.estimate_seen_value` | {amount} – tính lúc {time} | {amount} – calculated at {time} | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `webreq.estimate_none` | Khách chưa thấy giá | The guest saw no price | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `webreq.estimate_at_submit` | Lúc khách gửi, hệ thống tính lại: {amount} | Recalculated when the guest sent it: {amount} | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `webreq.estimate_changed` | Đã đổi: {from} → {to} | Changed: {from} → {to} | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `webreq.estimate_changed_hint` | Giá Desk tính bây giờ khác số khách đã thấy trên web. Giải thích cho khách khi gửi báo giá. | Desk's rate now differs from what the guest saw on the website. Explain it to the guest when you send the quote. | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `webreq.estimate_same` | Khớp giá ước tính khách đã thấy ({amount}). | Matches the estimate the guest saw ({amount}). | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `webreq.estimate_other` | Khách đã thấy {amount} cho ngày, số khách hoặc hạng phòng khác – không so sánh. | The guest saw {amount} for other dates, guests or room type – not compared. | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
 | `webreq.preferred` | Khách muốn được trả lời qua {channel} | Guest prefers a reply via {channel} | ⟨chừa chỗ⟩ |  |
 | `webreq.copy_phone` | Sao chép SĐT | Copy phone | ⟨chừa chỗ⟩ |  |
 | `webreq.copy_email` | Sao chép email | Copy email | ⟨chừa chỗ⟩ |  |
