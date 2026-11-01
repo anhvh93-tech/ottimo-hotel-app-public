@@ -4699,6 +4699,10 @@ export interface paths {
      *         `DirectSubSource`; cờ `suspiciousFlags`; (NÊN – DOM Q-W10) cùng liên hệ với yêu cầu còn mở có ngày giao nhau hoặc gửi cách ≤ `web_request_duplicate_window_hours` → cờ
      *         `possible_duplicate` + `relatedRefCodes` ở cả hai) + `state_transition` + bộ đếm giới hạn + outbox thông báo `website_request_new` (FDL, FD, SAL – không tên/SĐT) + SSE
      *         `website_request.changed`. Phản hồi 202 có `refCode` và **câu hứa công khai** `promise` (BR-912 (4), DOM-S4-18) – **không** trả `replyBy` (hạn nội bộ).
+     *     **0.3.9 (R4 – LP-v2)**: (a) `locale` ∈ `LandingLocale` (`en, vi, ko, zh, ru`); phải có `privacy_notice_version` của (`consentVersion`, `locale`) như cũ. (b) Ở bước 12, nếu có
+     *     `priceEstimateToken`: kiểm chữ ký (so sánh thời gian hằng), hạn `exp`, cơ sở, và khớp `roomType`, `stayType`, `arrival`, `departure`/`months`, `adults`, `children`, `infants` của yêu cầu →
+     *     đạt: lưu payload đã giải mã vào `price_estimate` (Desk: `WebsiteBookingRequest.priceEstimate`); không đạt: không lưu, cờ `offer_unverified`. Token giá **không bao giờ** làm
+     *     yêu cầu bị từ chối – phản hồi 202 không đổi. (c) Cờ `unexpected_script` xét theo bảng chữ của `locale`; nhận diện số thẻ/số giấy tờ chạy trên bản NFKC (chữ số toàn khổ).
      *     **Không** gửi email/Zalo/SMS tự động tới liên hệ khách nhập (chưa xác minh – ADR-014 4.3); nhân viên liên hệ qua kênh khách chọn bằng tài khoản của cơ sở (BR-913 (4)).
      *     Log ứng dụng chỉ method/route/mã/thời gian; log Postgres không có tham số câu lệnh (`log_parameter_max_length = 0` – OPS, ARC-21 điểm 5).
      *     **Bật trên trang công khai** chỉ khi đạt các điều kiện [CHẶN] của SEC – C-1, C-2, C-3 (mở rộng), C-11, C-12, C-13, SEC-G1/G2 (`landing-booking-SEC.md` mục 1) – US-155 AC4; trước đó
@@ -4758,6 +4762,49 @@ export interface paths {
      *     (BR-916 (2)). Lưu ý cho INV khi chọn B: lịch còn/hết theo hạng cho đối thủ thấy mức lấp đầy theo ngày (ESC-020 L7-B).
      */
     get: operations['getPublicOffers'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/public/properties/{propertySlug}/price-estimate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Định danh cơ sở trong URL webhook (ADR-011) – chọn bí mật theo cơ sở */
+        propertySlug: components['parameters']['PropertySlug'];
+      };
+      cookie?: never;
+    };
+    /**
+     * Giá niêm yết ước tính cho form "Plan your stay" theo hạng căn + ngày (hoặc số tháng) + số khách – không phòng trống, không giữ chỗ (R4 – FB-INV-009)
+     * @description **0.3.9 (R4 – gói LP-v2; `rounds/round-04/outputs/ARC/lp-v2-design.md` mục 2).** Trang gọi khi khách đã chọn hạng căn + ngày đến + (ngày đi hoặc `stayType = long`) + số người lớn;
+     *     chờ 400 ms sau thay đổi cuối, hủy request cũ, quá 3 giây thì bỏ. Luật giá chi tiết: DOM `rounds/round-04/outputs/DOM/web-price-estimate-rules.md` (điểm cần khớp: design mục 8).
+     *     **Cách tính**: cổng `reservations/public` `PublicRatePort` dùng **chung** `PricingService` với `calculateQuote`/`createReservation` – kênh `direct`, nguồn `website`: giá đêm niêm yết
+     *     từng căn (BR-101), lịch giá cuối tuần/ngày đặc biệt (BR-104), giảm theo số đêm (BR-107), làm tròn (BR-005), phụ thu người (BR-110). Xét các căn có `publicRoomType` khớp slug,
+     *     `is_sellable`, sức chứa vừa đoàn; giá của hạng = căn có **tổng thấp nhất** [GIẢ ĐỊNH A2 – DOM chốt]. **Không** xét căn có trống hay không. Không mã khách quay lại (BR-111),
+     *     không FOC, không giá thỏa thuận. Dài hạn (`stayType = long`, hoặc `short` ≥ 28 đêm – BR-108): `longStay.monthlyFromVnd` = giá tháng niêm yết thấp nhất (BR-101 (3)).
+     *     **Không lộ dữ liệu nội bộ** (FB-INV-009; test hợp đồng): phản hồi theo danh sách cho phép (`additionalProperties: false`) – **không** số căn, `roomId`/`roomNo`/mã nhóm,
+     *     còn/hết hay số phòng còn lại, giá OTA nền (BR-103), hoa hồng, phí kênh, `ottimoRemainingVnd`, biên, giá sàn/trần (BR-105). Slug lạ và hạng không có căn bán cùng trả
+     *     `priceAvailable: false` + `on_request`.
+     *     **Thứ tự kiểm**: (0) RAM, trước DB – bucket **riêng** `pubest:` theo IP (IPv6 /64) 40/10 phút và 300/ngày, tính cả 4xx → 429; bulkhead **riêng** 2 request, không xếp hàng → 503
+     *     `SERVICE_UNAVAILABLE` + `Retry-After: 5`; trần 600 lần tính mới (cache miss)/giờ/cơ sở → 503. Không tiêu bucket 30/giờ và 4 chỗ đồng thời của form (`createWebsiteBookingRequest`).
+     *     (1) Có header `Sec-Fetch-Site` mà khác `same-origin` → 403 `FORBIDDEN_ACTION` (như `getPublicFormToken`); bỏ qua mọi cookie. (2) Cơ sở không có / không `active` /
+     *     `public_booking_requests_enabled = false` / `public_show_prices = false` → 404 cùng hình dạng. (3) Query: tham số lạ, lặp, hoặc query > 512 byte → 422 `VALIDATION_FAILED`;
+     *     mã trường như form (`REQUIRED`, `NOT_ALLOWED`, `DATE_IN_PAST`, `DATE_ORDER`, `OUTSIDE_BOOKING_WINDOW` – BR-112, `VALUE_OUT_OF_RANGE`). Ở tối thiểu (BR-113) **không** là lỗi:
+     *     200 + `notes[{code: min_stay, minNights}]`. `SET LOCAL statement_timeout = '2s'`.
+     *     **Cache**: RAM LRU ≤ 1.000 mục, khóa = (cơ sở, ngày nghiệp vụ, tham số đã chuẩn hóa), sống 300 giây, xóa khi `NOTIFY config_changed` của cơ sở. HTTP `Cache-Control: private, max-age=60`.
+     *     Ngân sách p95 < 150 ms khi chưa cache, < 20 ms khi có cache.
+     *     **Ước tính, không cam kết**: `estimate: true` luôn có; trang ghi rõ giá cuối nằm trong báo giá. Không "giữ giá chụp" (BR-916 (2) chỉ phương án B) [GIẢ ĐỊNH A1 – DOM chốt].
+     *     **`estimateToken`** (`pe1.` + base64url(payload JSON) + `.` + base64url(HMAC-SHA256(khóa HKDF `keyedHash('public_estimate')`, `pe1|<propertyId>|<payload base64url>`))): payload chỉ
+     *     có đầu vào đã chuẩn hóa, số đã trả, `priceVersion`, `iat`, `exp` (24 giờ) – không dữ liệu cá nhân, không `propertyId`. Form gửi lại ở `WebsiteBookingRequestInput.priceEstimateToken`.
+     *     **Khi lỗi**: mọi phản hồi khác 200 (và quá 3 giây) → trang **ẩn** giá; form vẫn gửi được; khách bấm gửi khi giá đang tải → gửi ngay không kèm token.
+     */
+    get: operations['getPublicPriceEstimate'];
     put?: never;
     post?: never;
     delete?: never;
@@ -4956,6 +5003,13 @@ export interface components {
     Percent: number;
     /** @enum {string} */
     Locale: 'vi' | 'en' | 'ru';
+    /**
+     * @description **0.3.9 (R4 – FB-INV-008)**: ngôn ngữ của **website ottimo.vn** (landing) – chỉ dùng cho form "Yêu cầu đặt phòng" (`WebsiteBookingRequestInput.locale`), hàng chờ Desk
+     *     (`WebsiteBookingRequest.locale`) và `privacy_notice_version.locale`. `zh` = tiếng Trung **giản thể** (trang `/zh/`, `<html lang="zh-Hans">`). Không dùng cho app khách, app
+     *     nhân viên, mẫu tin (vẫn `Locale` – G4 của `plan-lp-v2.md`). Thêm ngôn ngữ = thêm giá trị (chỉ thêm) + migration CHECK + `LANDING_LOCALES`.
+     * @enum {string}
+     */
+    LandingLocale: 'en' | 'vi' | 'ko' | 'zh' | 'ru';
     /** @enum {string} */
     Role:
       | 'owner'
@@ -8533,7 +8587,8 @@ export interface components {
       preferredChannel: 'zalo' | 'whatsapp' | 'telegram' | 'viber' | 'phone' | 'email';
       /** @description Lời nhắn. Trang ghi dưới ô: "Không ghi số thẻ, số giấy tờ hay thông tin sức khỏe" (SR-INP-05). Số thẻ → `CARD_NUMBER_DETECTED`; số giấy tờ → `ID_NUMBER_DETECTED` – không lưu, không vào log */
       note?: string;
-      locale: components['schemas']['Locale'];
+      /** @description 0.3.9 (R4): `LandingLocale` (trước: `Locale`) – thêm `ko`, `zh`. Ngôn ngữ của trang gửi form; Desk hiện "Ngôn ngữ khách dùng" */
+      locale: components['schemas']['LandingLocale'];
       /**
        * @description Ô đồng ý đã tích (không tích sẵn) – khác `true` → mã trường `CONSENT_REQUIRED` (SEC C-3). Câu chữ: SEC Phụ lục A.1/A.2 (luật sư duyệt – ESC-001)
        * @constant
@@ -8550,6 +8605,12 @@ export interface components {
       pow?: string;
       /** @description **Contract-ahead phương án B** – server phương án A bỏ qua (không lưu) */
       offerSnapshot?: components['schemas']['PublicOfferSnapshot'];
+      /**
+       * @description **0.3.9 (R4 – FB-INV-009)**: `PublicPriceEstimate.estimateToken` của con số **đang hiện** trên form. Trang chỉ gửi khi số đó được tính cho đúng hạng, ngày, số khách
+       *     đang chọn; đổi lựa chọn sau khi có số → không gửi. Server kiểm và lưu số đã giải mã (mô tả `createWebsiteBookingRequest` 0.3.9 (b)); sai/hết hạn/không khớp → vẫn 202,
+       *     cờ `offer_unverified`. Không phải dữ liệu cá nhân.
+       */
+      priceEstimateToken?: string;
     };
     /**
      * @description 0.3.7 bổ sung 2 – phản hồi 202 duy nhất (cả khi bị ô bẫy hay giới hạn liên hệ chặn im lặng). Không có dữ liệu khách nhập. **DOM-S4-18 (BR-912 (4) v0.3.8)**: trả **câu hứa
@@ -8667,7 +8728,8 @@ export interface components {
       /** @enum {string} */
       preferredChannel: 'zalo' | 'whatsapp' | 'telegram' | 'viber' | 'phone' | 'email';
       note?: string;
-      locale: components['schemas']['Locale'];
+      /** @description 0.3.9 (R4): thêm `ko`, `zh` (chỉ thêm giá trị ở phản hồi). Desk hiện nhãn `webreq.locale.<mã>`; mẫu trả lời gợi ý: `vi` → tiếng Việt, ngôn ngữ khác → tiếng Anh */
+      locale: components['schemas']['LandingLocale'];
       /** @description Nguồn phụ suy từ UTM/refHost – đơn chuyển từ yêu cầu mang `directSubSource` này; null = không rõ (gồm đi từ trang của chính OTTIMO – DOM-S4-18) */
       subSource?: components['schemas']['DirectSubSource'] | null;
       utmSource?: string | null;
@@ -8678,7 +8740,8 @@ export interface components {
       /**
        * @description Cờ để nhân viên lọc, không chặn: lời nhắn có URL; chữ ngoài bảng chữ của 3 ngôn ngữ; ngày đến xa (> 180 ngày); liên hệ gửi lặp (bị giới hạn chặn); hạng phòng không khớp;
        *     `possible_duplicate` – cùng liên hệ với một yêu cầu còn mở, ngày giao nhau hoặc gửi cách ≤ `web_request_duplicate_window_hours` (NÊN – DOM Q-W10, BR-914 (3); không tự gộp);
-       *     `offer_unverified` – phương án B: ảnh chụp giá thiếu/sai chữ ký nên không lưu (SEC ARC-18)
+       *     `offer_unverified` – phương án B: ảnh chụp giá thiếu/sai chữ ký nên không lưu (SEC ARC-18); **0.3.9 (R4)** cũng dùng khi `priceEstimateToken` sai chữ ký/hết hạn/không khớp yêu cầu
+       *     (số ước tính không lưu). **0.3.9**: "chữ ngoài bảng chữ" (`unexpected_script`) xét theo `locale` – Latin luôn được; thêm Hangul cho `ko`, Han cho `zh`, Cyrillic cho `ru`
        */
       suspiciousFlags?: (
         | 'contains_url'
@@ -8719,6 +8782,12 @@ export interface components {
       convertedAt?: components['schemas']['Instant'] | null;
       /** @description Contract-ahead phương án B – luôn null ở A; ở B chỉ lưu khi `offerToken` đúng (SEC ARC-18) */
       offerSnapshot?: components['schemas']['PublicOfferSnapshot'] | null;
+      /**
+       * @description **0.3.9 (R4 – FB-INV-009)**: giá ước tính khách **đã thấy** trên form lúc gửi (từ `priceEstimateToken` đã kiểm chữ ký). null = form không hiện giá, khách gửi trước khi có số,
+       *     hoặc token không đạt (khi đó có cờ `offer_unverified`). Desk S35 hiện "Giá ước tính khách đã thấy lúc gửi" + `computedAt`; báo giá vẫn tính bằng `calculateQuote`. Không
+       *     phải C2 – giữ sau khi xóa C2 (DATA). Mọi vai thấy được yêu cầu đều thấy trường này (kể cả SAL với yêu cầu chưa giao)
+       */
+      priceEstimate?: components['schemas']['PublicPriceEstimateRecord'] | null;
       createdAt: components['schemas']['Instant'];
       updatedAt: components['schemas']['Instant'];
       /** @description Lúc xóa trường C2 (chuyển thành đơn, xóa theo yêu cầu `erase`, hoặc job hạn lưu – erd 4.14) */
@@ -8782,6 +8851,102 @@ export interface components {
       longStayHint?: {
         fromMonthlyVnd?: components['schemas']['MoneyVnd'];
       };
+    };
+    /**
+     * @description **0.3.9 (R4 – FB-INV-009)** – phản hồi `getPublicPriceEstimate`. **Danh sách cho phép**: không thêm trường nào ngoài schema (test hợp đồng kiểm khóa và chuỗi cấm –
+     *     `lp-v2-design.md` mục 2.4). Số là VND nguyên; trang định dạng theo ngôn ngữ của trang. `priceAvailable = true` → có đúng một trong `shortStay` / `longStay` theo `stayKind`.
+     */
+    PublicPriceEstimate: {
+      /**
+       * @description Cờ "ước tính" – luôn true; trang ghi rõ giá cuối nằm trong báo giá OTTIMO gửi
+       * @constant
+       */
+      estimate: true;
+      /** @enum {string} */
+      currency: 'VND';
+      /** @description Giá niêm yết đã gồm VAT (BR-101 (2), BR-523) */
+      taxIncluded: boolean;
+      /** @description Slug đã nhận (không trả nhãn, không số căn) */
+      roomType: string;
+      /**
+       * @description `long` khi `stayType = long` hoặc `short` ≥ 28 đêm (BR-108) – khi đó trả `longStay`, không trả `shortStay`
+       * @enum {string}
+       */
+      stayKind: 'short' | 'long';
+      arrival: components['schemas']['LocalDate'];
+      /** @description Có khi khách gửi `departure` */
+      departure?: components['schemas']['LocalDate'];
+      priceAvailable: boolean;
+      /**
+       * @description Chỉ khi `priceAvailable = false`: `on_request` – hạng không có căn đang bán, slug lạ hoặc thiếu giá niêm yết (không phân biệt – không lộ cấu hình); `party_exceeds_room` – số người
+       *     tính (người lớn + trẻ 6–11) vượt sức chứa mọi căn của hạng (BR-110) – yêu cầu vẫn gửi được, sale tư vấn nhiều căn
+       * @enum {string}
+       */
+      unavailableReason?: 'on_request' | 'party_exceeds_room';
+      shortStay?: {
+        nights: number;
+        /** @description Tổng giá lịch các đêm (BR-104) **trước** giảm theo số đêm */
+        roomSubtotalVnd: components['schemas']['MoneyVnd'];
+        /** @description Số đêm có tăng giá (thứ Sáu/thứ Bảy hoặc ngày đặc biệt – BR-104). Không trả danh sách ngày, không trả mức % */
+        upliftNights: number;
+        /** @description BR-107 (0, 10, 15) */
+        losDiscountPct: components['schemas']['Percent'];
+        losDiscountVnd: components['schemas']['MoneyVnd'];
+        /** @description Tổng phụ thu người cả chuyến (BR-110) */
+        extraPersonFeeVnd: components['schemas']['MoneyVnd'];
+        /** @description = `roomSubtotalVnd` − `losDiscountVnd` + `extraPersonFeeVnd` (bộ tính chung, làm tròn BR-005) */
+        totalVnd: components['schemas']['MoneyVnd'];
+        /** @description `totalVnd` ÷ `nights`, làm tròn gần nhất 1 đồng – chỉ để hiện "≈ X/đêm" (cách làm tròn khi hiện: DOM K11) */
+        nightlyAvgVnd: components['schemas']['MoneyVnd'];
+      };
+      longStay?: {
+        /** @description Số tháng khách chọn; null = chưa biết */
+        months: number | null;
+        /** @description Giá tháng niêm yết thấp nhất của hạng (BR-101 (3)) – "từ X/tháng". Chưa gồm điện nước, phí dịch vụ, ký quỹ, phụ thu BR-109 (câu điều kiện theo `notes` – DOM chốt) */
+        monthlyFromVnd: components['schemas']['MoneyVnd'];
+      };
+      /** @description Ngắn ngày 15–27 đêm (BR-108): giá thuê tháng để khách so – có hay không do DOM chốt (K7); vắng = không hiện */
+      longStayAlternative?: {
+        monthlyFromVnd: components['schemas']['MoneyVnd'];
+      };
+      /** @description Mã để trang hiện câu điều kiện (chữ của CPY). Thêm mã = chỉ thêm giá trị enum; trang bỏ qua mã chưa biết */
+      notes: {
+        /** @enum {string} */
+        code: 'min_stay' | 'long_stay_required' | 'monthly_excludes_utilities';
+        /** @description Chỉ `min_stay` (BR-113) */
+        minNights?: number;
+      }[];
+      computedAt: components['schemas']['Instant'];
+      /** @description Chỉ khi `priceAvailable = true`. Định dạng ở mô tả `getPublicPriceEstimate`; form gửi lại ở `WebsiteBookingRequestInput.priceEstimateToken`. Trang giữ trong bộ nhớ, không lưu trình duyệt */
+      estimateToken?: string;
+      /** @description Hạn của `estimateToken` (24 giờ) */
+      expiresAt?: components['schemas']['Instant'];
+    };
+    /**
+     * @description **0.3.9 (R4)** – bản Desk của số ước tính khách đã thấy (`WebsiteBookingRequest.priceEstimate`), do server giải mã từ token đã kiểm chữ ký – không phải số client tự khai.
+     *     `priceVersion` khác bản tính hiện tại → giá trên Desk đã đổi từ lúc khách xem (lễ tân xử lý theo luật DOM).
+     */
+    PublicPriceEstimateRecord: {
+      roomType: string;
+      /** @enum {string} */
+      stayKind: 'short' | 'long';
+      arrival: components['schemas']['LocalDate'];
+      departure?: components['schemas']['LocalDate'] | null;
+      months?: number | null;
+      adults: number;
+      children: number;
+      infants: number;
+      nights?: number | null;
+      /** @description Ngắn ngày */
+      totalVnd?: components['schemas']['MoneyVnd'] | null;
+      losDiscountPct?: components['schemas']['Percent'] | null;
+      extraPersonFeeVnd?: components['schemas']['MoneyVnd'] | null;
+      /** @description Dài hạn */
+      monthlyFromVnd?: components['schemas']['MoneyVnd'] | null;
+      /** @enum {string} */
+      currency: 'VND';
+      computedAt: components['schemas']['Instant'];
+      priceVersion: string;
     };
   };
   responses: {
@@ -17888,6 +18053,59 @@ export interface operations {
       404: components['responses']['NotFound'];
       422: components['responses']['ValidationFailed'];
       429: components['responses']['RateLimited'];
+    };
+  };
+  getPublicPriceEstimate: {
+    parameters: {
+      query: {
+        /** @description Slug của `Room.publicRoomType` (như `WebsiteBookingRequestInput.roomType`) */
+        roomType: string;
+        stayType?: 'short' | 'long';
+        /** @description ≥ hôm nay (giờ cơ sở), ≤ hôm nay + `booking_window_days` (BR-112) */
+        arrival: components['schemas']['LocalDate'];
+        /** @description Bắt buộc khi `short` (> `arrival`, ≤ 366 đêm); gửi khi `long` → `NOT_ALLOWED` */
+        departure?: components['schemas']['LocalDate'];
+        /** @description Chỉ `long`; vắng = chưa biết bao lâu */
+        months?: number;
+        adults: number;
+        /** @description Trẻ 6–11 tuổi (BR-110) */
+        children?: number;
+        /** @description Trẻ dưới 6 tuổi (BR-110) – không tính định mức/sức chứa */
+        infants?: number;
+      };
+      header?: never;
+      path: {
+        /** @description Định danh cơ sở trong URL webhook (ADR-011) – chọn bí mật theo cơ sở */
+        propertySlug: components['parameters']['PropertySlug'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK – có số (`priceAvailable: true`) hoặc "giá theo yêu cầu" (`priceAvailable: false`) */
+      200: {
+        headers: {
+          'Cache-Control'?: 'private, max-age=60';
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicPriceEstimate'];
+        };
+      };
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      422: components['responses']['ValidationFailed'];
+      429: components['responses']['RateLimited'];
+      /** @description SERVICE_UNAVAILABLE – bulkhead đầy, chạm trần tính mới, hoặc bộ tính lỗi (thiếu tham số giá…) – trang ẩn giá, form vẫn gửi */
+      503: {
+        headers: {
+          'Retry-After'?: number;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
     };
   };
   listWebsiteBookingRequests: {

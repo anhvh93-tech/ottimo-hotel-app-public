@@ -297,6 +297,7 @@ export class PlatformController {
         if (hook?.after) await hook.after(tx, input.value);
         return { status: 200, body: dto };
       });
+      if (result.status === 200) this.hooks.changed(tenantOf(p).propertyId as string, key);
       return applyResult(reply, result);
     } catch (err) {
       // Owner-only keys (A102/A119): a manager is refused per key – log the denial (rbac 8.5, US-002 AC2).
@@ -348,6 +349,7 @@ export class PlatformController {
         if (hook?.after) await hook.after(tx, undefined);
         return { status: 204, body: undefined };
       });
+      this.hooks.changed(tenantOf(p).propertyId as string, key);
       return applyResult(reply, result);
     } catch (err) {
       if (err instanceof ProblemError && err.code === 'FORBIDDEN_ACTION') {

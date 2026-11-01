@@ -2,7 +2,8 @@
  * reservations module (architecture 5.1; EP02 + EP11 R2 + US-139; SM-01, SM-02; ADR-009) – BE-A Sprint 2.
  * Global exports for the other modules: OccupancyService (the only inventory writer), PricingService (one
  * price engine for bookings and quotes), ReservationHooks (same-transaction extension points),
- * RESERVATION_SALES_PORT (quotes/folio/payments – BE-B), ROOM_CAPACITY_CHECK (ReservationCapacityCheck – US-004/BR-110, QC-S2-01).
+ * RESERVATION_SALES_PORT (quotes/folio/payments – BE-B), ROOM_CAPACITY_CHECK (ReservationCapacityCheck – US-004/BR-110, QC-S2-01),
+ * PublicRatePort (R4 LP-v2 – website price estimate, BR-115/116).
  * Jobs: J1 hold expiry + O2 block activation (jobs/reservation-jobs.ts). Approval hook: an approved
  * `no_show_restore` request (SM-10) performs B12 in the approver's transaction.
  */
@@ -22,6 +23,7 @@ import { RoomBlockPort } from './public/room-block.port';
 import { ReservationSalesAdapter } from './internal/sales-port.adapter';
 import { OccupancyService } from './public/occupancy.service';
 import { PricingService } from './public/pricing.service';
+import { PublicRatePort } from './public/public-rate.port';
 import { ReservationHooks } from './public/reservation-hooks';
 import { ReservationCapacityCheck } from './public/room-capacity-check';
 import { RESERVATION_SALES_PORT } from './public/sales-port';
@@ -56,6 +58,8 @@ import './audit-entities';
     StayNightPricingPort,
     // 0.3.7 nhóm H (BE-C): OOO blocks of a work order (O1 with createWorkOrder, O4/O5 when it closes).
     RoomBlockPort,
+    // R4 LP-v2 (BE): public price estimate of a room type (BR-115/116) – public-site getPublicPriceEstimate.
+    PublicRatePort,
   ],
   exports: [
     ReservationStayPort,
@@ -69,6 +73,7 @@ import './audit-entities';
     StayNightPricingPort,
     ROOM_CAPACITY_CHECK,
     RoomBlockPort,
+    PublicRatePort,
   ],
 })
 export class ReservationsModule implements OnModuleInit {

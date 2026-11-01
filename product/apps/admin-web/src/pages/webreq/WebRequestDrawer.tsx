@@ -481,7 +481,8 @@ export function WebRequestDrawer({
             webRequest: {
               id: r.id,
               code: r.refCode,
-              locale: r.locale,
+              // LP-v2 (0.3.9 LandingLocale): quote templates exist in vi/en/ru – ko/zh guests get English.
+              locale: r.locale === 'ko' || r.locale === 'zh' ? 'en' : r.locale,
               contact: r.phone || r.email ? { phone: r.phone, email: r.email } : undefined,
             },
           }}

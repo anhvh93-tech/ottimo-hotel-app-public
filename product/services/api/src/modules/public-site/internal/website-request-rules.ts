@@ -59,11 +59,18 @@ function withoutDatesAndTimes(text: string): string {
 const GROUPED_DIGITS = /\d(?:[ .-]?\d)*/g;
 
 /**
+ * R4 LP-v2 (ARC lp-v2-design 3.4): the number rules read the NFKC form, so full-width digits and separators typed
+ * by Chinese / Korean input methods (`１２３４ ５６７８`, ideographic space) are caught like ASCII ones. The stored text
+ * stays NFC (normalizeFreeText).
+ */
+const nfkc = (text: string) => text.normalize('NFKC');
+
+/**
  * Luhn-valid 13–19 digit run (spaces / dots / dashes between digits – BUG-R3-009) – the V-09 card rule.
  * Compared on the digits only.
  */
 export function looksLikeCard(text: string): boolean {
-  const candidates = (withoutDatesAndTimes(text).match(GROUPED_DIGITS) ?? []).filter(
+  const candidates = (withoutDatesAndTimes(nfkc(text)).match(GROUPED_DIGITS) ?? []).filter(
     (c) => c.replace(/\D/g, '').length >= 13,
   );
   for (const c of candidates) {
@@ -97,7 +104,13 @@ function luhn(digits: string): boolean {
  * `079.203.012.345` are caught like `079203012345`. Not an ID: a run right after `+` (international phone, also
  * `+84 905 111 222`), or an amount with its currency (`100.000.000 đ`, `150.000.000 VND`, `$ 100 000 000`).
  */
-export function looksLikeIdNumber(text: string): boolean {
+export function looksLikeIdNumber(raw: string): boolean {
+  const text = nfkc(raw);
+  // SEC lp-v2 mục 10 (ko/zh/ru pages): Korean resident number YYMMDD-NNNNNNN, Chinese ID (17 digits + digit/X),
+  // Russian internal passport "NN NN NNNNNN".
+  if (/(?<!\d)\d{6}-\d{7}(?!\d)/.test(text)) return true;
+  if (/(?<![\dA-Za-z])\d{17}[\dXx](?![\dA-Za-z])/.test(text)) return true;
+  if (/(?<!\d)\d{2} \d{2} \d{6}(?!\d)/.test(text)) return true;
   const t = withoutDatesAndTimes(text);
   for (const m of t.matchAll(GROUPED_DIGITS)) {
     const digits = m[0].replace(/\D/g, '');
@@ -118,9 +131,29 @@ export function containsUrl(text: string): boolean {
   );
 }
 
-/** Characters outside the scripts of the three site languages (Latin incl. Vietnamese, Cyrillic) + common marks. */
-export function hasUnexpectedScript(text: string): boolean {
-  return /[^\p{Script=Latin}\p{Script=Cyrillic}\p{M}\p{N}\p{P}\p{Zs}\n\p{S}]/u.test(text);
+/**
+ * R4 LP-v2 (OpenAPI 0.3.9 `unexpected_script`, ARC lp-v2-design 3.4): characters outside the scripts of the
+ * LANGUAGE OF THE PAGE. Latin (incl. Vietnamese and full-width Latin), marks, digits, punctuation, symbols and
+ * spaces are always fine; `ko` adds Hangul, `zh` adds Han (CJK punctuation is already \p{P}), `ru` adds Cyrillic.
+ * Korean on an `en` page is flagged (filter only – never blocks).
+ */
+const LOCALE_SCRIPT: Readonly<Record<string, string>> = {
+  ko: '\\p{Script=Hangul}',
+  zh: '\\p{Script=Han}',
+  ru: '\\p{Script=Cyrillic}',
+};
+const scriptRule = new Map<string, RegExp>();
+
+export function hasUnexpectedScript(text: string, locale: string): boolean {
+  let re = scriptRule.get(locale);
+  if (!re) {
+    re = new RegExp(
+      `[^\\p{Script=Latin}${LOCALE_SCRIPT[locale] ?? ''}\\p{M}\\p{N}\\p{P}\\p{Zs}\\n\\p{S}]`,
+      'u',
+    );
+    scriptRule.set(locale, re);
+  }
+  return re.test(text);
 }
 
 // ───────────────────────── source (DirectSubSource, BR-911) ─────────────────────────

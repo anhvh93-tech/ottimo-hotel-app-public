@@ -86,9 +86,38 @@ export interface WebsiteRequestRow {
   converted_at: Date | null;
   last_activity_at: Date;
   pii_purged_at: Date | null;
+  /** R4 LP-v2: { v, seen, atSubmit } – PriceEstimateService.forRequest (not C2, kept after the purge). */
+  price_estimate: { seen?: Record<string, unknown> } | null;
   created_at: Date;
   updated_at: Date;
   version: number;
+}
+
+/** OpenAPI PublicPriceEstimateRecord from the stored `seen` part (explicit fields – the serializer is the 2nd net). */
+export function priceEstimateRecord(
+  stored: { seen?: Record<string, unknown> } | null,
+): Record<string, unknown> | null {
+  const s = stored?.seen;
+  if (!s || typeof s !== 'object') return null;
+  const pick = (k: string) => (s[k] === undefined ? null : s[k]);
+  return {
+    roomType: s.roomType,
+    stayKind: s.stayKind,
+    arrival: s.arrival,
+    departure: pick('departure'),
+    months: pick('months'),
+    adults: s.adults,
+    children: s.children,
+    infants: s.infants,
+    nights: pick('nights'),
+    totalVnd: pick('totalVnd'),
+    losDiscountPct: pick('losDiscountPct'),
+    extraPersonFeeVnd: pick('extraPersonFeeVnd'),
+    monthlyFromVnd: pick('monthlyFromVnd'),
+    currency: 'VND',
+    computedAt: s.computedAt,
+    priceVersion: s.priceVersion,
+  };
 }
 
 export interface Actor {
@@ -356,6 +385,8 @@ export class WebsiteRequestsService {
       reservationCode: r.reservation_id ? (look.resCodes.get(r.reservation_id) ?? null) : null,
       convertedAt: r.converted_at ? c.iso(r.converted_at) : null,
       offerSnapshot: null,
+      // 0.3.9 (R4): what the guest saw on the form (PublicPriceEstimateRecord) – every role that sees the request.
+      priceEstimate: priceEstimateRecord(r.price_estimate),
       createdAt: c.iso(r.created_at),
       updatedAt: c.iso(r.updated_at),
       piiPurgedAt: r.pii_purged_at ? c.iso(r.pii_purged_at) : null,
