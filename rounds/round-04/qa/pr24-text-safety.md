@@ -309,3 +309,54 @@ Cùng nhánh này, `CMND 201 000 000` (R2P) cũng qua. Đây đúng là ca số 
 
 **Dòng decision-log đề nghị ORC ghi:**
 `| 2026-11-01 | 4 | QA – PR #24 lượt 2 (f8080499): ĐẠT, không hồi quy. BUG-R4-016 Đã sửa – đã xác nhận (Closed khi #16 + #24 gộp main + CI xanh). 215 ca (167 ca lượt 1 + 48 mới) qua form và Chat C: form và Chat không lệch ca nào; 10 ca lượt 1 đổi 422 → 202 (đúng hướng), 0 ca đổi xấu; 70/70 CCCD/thẻ vẫn chặn; 10/10 chuỗi 016 và 6/6 G2 ngân sách qua; 13/13 ca SEC PR24-01/02 bị chặn. api 3615/0 lỗi; 375/375 ở 2 múi giờ. Ghi nhận: CCCD nối "000 000" hoặc "00 " phía trước lọt (như main, SEC xếp Thấp) – đề xuất BE-D bịt rẻ (nhóm đầu không bắt đầu bằng 0). | QA | Quyền QA (kết luận kiểm thử) |`
+
+---
+
+## Lượt 3 – 80a73367
+
+- Người test: QA | Round 4 – Bước: **Kiểm thử** (test lại bản sửa) | 01/11/2026 ~22:50–23:10
+- Đối tượng: PR #24 head `80a73367`, một commit trên `f8080499` (`sensitive-number.ts`, test, báo cáo BE). Commit sửa ba chỗ:
+  - `amountSpans` bỏ qua số bắt đầu bằng `0`;
+  - sau tiền tố `00`, nhóm số kế không được bắt đầu bằng `0`;
+  - đơn vị tiền chỉ tha số tận cùng `000` **và** không bắt đầu bằng `0`;
+  - `NUMBER_SIGN` không phân biệt hoa/thường và cho phép `:` (SEC PR24-01).
+- Cách test giống lượt 2:
+  - Worktree tách rời ở `80a73367`. Postgres 17 tạm `qa-pr24r3-pg`, cổng 55543. **Đã xóa container.**
+  - Chạy lại **215 ca lượt 2, giữ nguyên ID**, cộng **18 ca mới** (R3S: 10 ca phải chặn; R3P: 8 ca dò thêm), tổng **233**. Mỗi ca chạy qua form (POST, 422/202) và tin Chat mức C bắn tới webhook giả.
+  - Tệp test tạm không commit, đã xóa. Chỉ dữ liệu giả.
+
+### L3.0. Kết luận lượt 3: **ĐẠT. Suggestion lượt 2 đã làm và đã xác nhận. Không hồi quy.**
+
+| # | Việc | Kết quả |
+|---|---|---|
+| 1 | Toàn bộ api | **142 tệp đạt, 2 bỏ qua; 3624 ca đạt, 19 bỏ qua; 0 lỗi** |
+| 2 | 233 ca, form và Chat C | Form và Chat cho cùng kết quả ở **233/233** ca. Ca 422 không tạo dòng `staff.chat` nào; ca 202 có đúng 1 dòng yêu cầu |
+| 3 | So với lượt 2 (215 ca) | **Đúng 5 ca đổi kết quả, cả 5 là các ca Suggestion, đều đổi 202 → 422 và Chat che:** `CCCD 079 203 012 345 000 000`, cùng dạng viết với `.` và `,`; `CCCD 00 079203012345`; `CCCD 00 079 203 012 345`. Không ca nào khác đổi |
+| 4 | Không hồi quy BUG-R4-016 / G2 | 10/10 chuỗi 016 (R2B) và 6/6 ca G2 ngân sách (R2G) **vẫn 202**, tin C in nguyên. 70/70 CCCD/thẻ (2a/2b/2d) và 13/13 ca SEC PR24-01/02 vẫn bị chặn |
+| 5 | Ca mới R3S (10) | **10/10 bị chặn (422 `ID_NUMBER_DETECTED`), Chat che.** Gồm 5 ca Suggestion; `CCCD 079 203 000 000` (rủi ro 1/1.000.000 SEC đã nhận ở lượt 2, nay bị bắt với CCCD); `CCCD 079203012000 đ`; ba ca Nga SEC PR24-01 `Серия: 45 06 Номер: 123456`, `серия 45 06 №: 123456`, `серия 45 06 Номер 123456` |
+
+### L3.1. Ca dò thêm (R3P) – phần còn lại theo thiết kế, không mở lỗi
+
+| Chuỗi | Kết quả | Đánh giá |
+|---|---|---|
+| `CMND 123 456 789 000 000`, `CMND 201 000 000` | 202 | CMND 9 số không bắt đầu bằng `0` vẫn có thể bị đọc là tiền. Ca thứ nhất cần khách cố ý viết thêm `000 000`. Ca thứ hai là rủi ro ~1/1.000.000 SEC đã nhận. Phần "tổng ≤ 12 chữ số" trong đề xuất lượt 2 chưa làm; chỉ bịt được ca thứ nhất, ít giá trị. Không cần làm thêm |
+| `CCCD 00 123 456 789` | 202 | `00` + nhóm không bắt đầu bằng `0` vẫn được coi là SĐT quốc tế. Cần cố ý viết. Rủi ro Thấp như các ca `00`/`(+84)` SEC đã nhận |
+| `00 65 9123 4567`, `Ngân sách 50.000.000 - 80.000.000`, `No 12 Nguyễn Du, phòng 201`, `Căn số 202 No 3` | 202, tin C in nguyên | Đúng ý. Cờ `i` của `NUMBER_SIGN` không gây che thừa với "No" trong địa chỉ hay số căn |
+| `00 1 415 555 0123` | 422 `CARD_NUMBER_DETECTED` | Che thừa do trùng Luhn (dãy 13 chữ số liền đạt Luhn), cùng loại với `0086 138 0013 8000` từ lượt 1. Không do commit này. Viết `+1 (415) 555-0123` thì qua. Đã được chấp nhận |
+
+Các ghi nhận khác của lượt 2 giữ nguyên: `120,500,000` không đơn vị bị chặn; `T123A4567` bị chặn; `1.500.000.000` trong tin C hiện thành `1[.]500[.]000[.]000`.
+
+### L3.2. Trạng thái
+
+| Mục | Trạng thái |
+|---|---|
+| Suggestion QA lượt 2 (L2.4 (3)) | **Done – QA xác nhận** trên `80a73367` |
+| SEC PR24-01, phần `Номер` / `№:` | Mã đã bắt được 3 ca SEC nêu, QA đã kiểm qua form và Chat. SEC đóng thẻ |
+| BUG-R4-016 | Vẫn **Đã sửa – đã xác nhận**, không hồi quy. Closed khi #16 và #24 gộp `main` với CI xanh |
+| BUG-R3-058 | Vẫn **Đã sửa – đã xác nhận** (70/70) |
+| Gộp PR #24 (phía QA) | **Đạt.** Điều kiện: PR #16 gộp trước; job CI `format · lint · audit · test · build` của `80a73367` xanh |
+
+Nhánh `qa-pr24-r3` đã gồm commit lượt 2 (cherry-pick `ef30b78a`, vì commit này chưa có trên `main`). ORC chỉ cần gộp `qa-pr24-r3`.
+
+**Dòng decision-log đề nghị ORC ghi:**
+`| 2026-11-01 | 4 | QA – PR #24 lượt 3 (80a73367): ĐẠT, không hồi quy. 233 ca (215 ca lượt 2 + 18 mới) qua form và Chat C, form và Chat không lệch ca nào. Đúng 5 ca đổi so với lượt 2, đều là Suggestion QA (CCCD nối "000 000", CCCD sau "00 "), nay bị chặn và che. BUG-R4-016 10/10 và G2 ngân sách 6/6 vẫn 202. Ba ca Nga "Номер"/"№:" (SEC PR24-01) bị bắt. api 3624/0 lỗi. Còn theo thiết kế: CMND không bắt đầu bằng 0 kèm "000 000", "00" + nhóm không bắt đầu bằng 0 (cần cố ý viết, rủi ro Thấp). | QA | Quyền QA (kết luận kiểm thử) |`
