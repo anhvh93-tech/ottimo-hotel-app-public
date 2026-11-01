@@ -8,16 +8,18 @@
 - **Cập nhật lượt 3** (01/11 17:00–18:10, `origin/lp-v2` @ `0a25716a` = `20afedff` + `lp-v2-fe3` 73a80804 + `lp-v2-be3` 2f7b55f7, ee375e6d + `lp-v2-fe4` 0a25716a; stack thử `ottimo-qalp4`, hạng công khai dạng nhãn): BUG-R4-001, 006, 007, 008, 009 **đã sửa – đã xác nhận**; BUG-R4-010 **mở lại**; mới BUG-R4-011 (P2), BUG-R4-012 (P3). Chi tiết: báo cáo mục 12.
 - **v1.0.1 đợt 1b – PR #21** (01/11 ~21:00, `fe-b/notice-2026-10-31` @ `5474b6e1`): PR đạt, không lỗi trong phạm vi PR; mới BUG-R4-013 (P2, CI – có sẵn trên `main`). Chi tiết: `rounds/round-04/qa/pr21-notice-2026-10-31.md`.
 - **v1.0.1 đợt 2 – PR #22** (01/11 ~20:55–21:25, `v1.0.2-ed` @ `99734cda`, stack thử `ottimo-qapr22`): oracle BR-428-01…09 đạt (tính thử = ghi thật, 76/76 bảng không đổi khi tính thử); giá hẹn đạt. Mới BUG-R4-014 (P2) và BUG-R4-015 (P3). ORC giao số "BUG-R4-013…" nhưng 013 đã dùng ở PR #21. Chi tiết: `rounds/round-04/qa/pr22-v1.0.2-ed.md`.
+- **v1.0.1 đợt 2 – PR #24** (01/11 ~21:40, `be-d/v1.0.1-text-safety` @ `b89dbde4`, gồm PR #16): PR đạt, BUG-R3-058 đã sửa – đã xác nhận; mới BUG-R4-016 (P3, che thừa mới so với `main`). Chi tiết: `rounds/round-04/qa/pr24-text-safety.md`.
+- **PR #24 lượt 2** (01/11 ~22:00–22:40, `f8080499`): BUG-R4-016 **đã sửa – đã xác nhận**. 215 ca qua form và Chat C, không hồi quy. Không lỗi mới. Chi tiết: `rounds/round-04/qa/pr24-text-safety.md` mục "Lượt 2". QA cũng dọn bản chép trùng do lần gộp trước để lại: bản BUG-R4-016 mang số cũ 014, và mục 3 bị lặp.
 
-## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22)
+## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
 | P2 | 7 | 3 (BUG-R4-011, BUG-R4-013, BUG-R4-014 – mới) | 0 | 4 (BUG-R4-001, 002, 003, 004) |
-| P3 | 8 | 3 (BUG-R4-010 – mở lại, BUG-R4-012, BUG-R4-015 – mới) | 0 | 5 (BUG-R4-005, 006, 007, 008, 009) |
-| **Tổng** | **15** | **6** | **0** | **9** |
+| P3 | 9 | 3 (BUG-R4-010 – mở lại, BUG-R4-012, BUG-R4-015 – mới) | 1 (BUG-R4-016 – đã sửa, QA xác nhận trên PR #24 `f8080499`; Closed khi #16 + #24 gộp `main` + CI xanh) | 5 (BUG-R4-005, 006, 007, 008, 009) |
+| **Tổng** | **16** | **6** | **1** | **9** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -277,53 +279,6 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Vai:** BE-A (luật hủy) + ARC (mã lỗi, hợp đồng 0.3.10) · FE-A (chữ lỗi nếu có mã mới).
 - **Trạng thái:** Open. Đề xuất đích v1.0.3 cùng FB-R4-ARC-BE-A-ED-02, không chặn PR #22.
 
-### BUG-R4-014 – Form chặn nhầm số tiền có đơn vị đứng trước, số tiền ≥ 1 tỷ không đơn vị và SĐT viết với tiền tố `00` (mới so với `main`)
-
-- **Mức:** P3.
-  - Không sai tiền, không lộ dữ liệu. Fail-safe: chặn thừa chứ không lọt.
-  - Khách sửa chữ là gửi được, và chữ đã gõ vẫn còn trong ô.
-  - Nhưng câu báo lỗi nói "Không cần gửi số giấy tờ", nên khách không biết số nào bị nói tới. Lỗi trúng tệp khách dài hạn (ngân sách 9–10 chữ số).
-- **Vai:** BE-D (`product/services/api/src/modules/public-site/internal/sensitive-number.ts`). SEC duyệt vì đổi luật V-09.
-- **Môi trường:** PR #24 `be-d/v1.0.1-text-safety` head `b89dbde4`.
-  - Postgres 17 tạm (cổng 55541, đã xóa). App thật trong tiến trình (`app.inject`) và `ChatDispatcher` mức C bắn tới webhook giả.
-  - So với `main` `b941d219` bằng cách chép nguyên luật cũ ra script ở scratchpad. Dữ liệu giả.
-- **Liên quan:** US-155 AC5 · V-09 · BUG-R3-058 · giả định G2/G3 của BE (`rounds/round-04/outputs/BE/text-safety.md`) · `rounds/round-04/qa/pr24-text-safety.md` mục 3e, 5.
-- **Các bước:** gửi form website (thông báo `2026-10-31`) với lời nhắn là một trong các chuỗi `₫150,000,000`, `₫ 150,000,000`, `VND 150,000,000`, `budget VND 150,000,000`, `USD 150,000,000`, `Ngân sách 1.500.000.000`, `Ngân sách 1,500,000,000`, `ngân sách 1 500 000 000`, `0084 905 111 222`, `00 84 905 111 222`.
-- **Thực tế:**
-  - 422 `note:ID_NUMBER_DETECTED`. Luật số trên `main` không chặn chuỗi nào trong 10 chuỗi này.
-  - Dòng lưu sẵn có các chuỗi này thì tin Chat C che cả lời nhắn.
-  - Nguyên nhân (đọc mã):
-    - `MONEY_BEFORE = /[$€£¥₩]\s?$/` thiếu `₫` và các mã chữ `VND`/`VNĐ`/`USD`;
-    - luật "các nhóm liền nhau cộng đúng 9/12 chữ số" đọc phần đuôi `500.000.000` của `1.500.000.000` như CMND;
-    - ngoại lệ SĐT chỉ nhận `+` hoặc nhóm đầu `84`, không nhận `0084` hay `00 84`. Phần đuôi `905 111 222` có 9 chữ số.
-- **Mong đợi:**
-  - 202 như `main`, và tin C in nguyên.
-  - Chú thích đầu `sensitive-number.ts` cũng ghi "an amount next to its currency" không phải giấy tờ.
-- **Đề xuất (cho BE-D):**
-  - `MONEY_BEFORE` nhận thêm `₫`, `đ`, và `VND`/`VNĐ`/`USD`/`EUR` có dấu cách sau.
-  - Coi `00` + mã nước như `+`.
-  - Coi dãy tách nhóm nghìn mà hai nhóm cuối đều là `000` là tiền, ví dụ `150,000,000`, `1.500.000.000`. Cách này cũng gỡ phần lớn ca G2 về ngân sách. Rủi ro bỏ sót: một CMND/CCCD tận cùng `000000`, khoảng 1 phần triệu.
-  - Thêm 10 chuỗi trên vào nhóm "không được che nhầm" của `text-safety-units.test.ts`.
-  - PO chọn hướng trong PA1–PA3 (báo cáo mục 5.3).
-- **Bằng chứng:** bảng 167 ca và bảng so `main`/PR trong `rounds/round-04/qa/pr24-text-safety.md` mục 3e, 5.1.
-- **Trạng thái:** Mới. Không chặn gộp PR #24. Đích v1.0.1 nếu kịp, không thì v1.0.2.
-
-## 3. Ghi nhận (không phải lỗi)
-
-- Trong ~1 giây đầu khi một IP dồn lượt, 30 lượt hợp lệ đầu tiên của IP đó có thể làm khách khác nhận 503 (bộ đếm chung 10/giây). Sau lượt 30 thì không còn. Đây là rủi ro PE-RR4 SEC đã chấp nhận (báo cáo 4.1).
-- Desk S35 cột "Hạng phòng" hiện slug (`standard-studio-garden-view`) vì nhãn = `publicRoomType`. Đây là hành vi US-155 có từ trước, không thuộc LP-v2; UXD xem có cần nhãn đẹp hơn. *Lượt 2:* khi căn mang nhãn (gán bằng ô Desk mới) cột hiện "Standard Studio · Garden View" – hết vấn đề.
-- *Lượt 2:* API `updateRoom` nhận `publicRoomType` tự do (QA đặt được `qa-test-type`, web tính giá cho hạng đó ngay). Đúng hợp đồng, chỉ OWN gọi được, Desk khóa bằng danh sách – ARC cân nhắc kiểm danh sách phía server (Suggestion).
-- *Lượt 2:* ảnh FE `lp-v2-fe2-*` dùng SĐT mock `+84 905 123 456` – đúng định dạng số thật. Không vi phạm (dữ liệu mock ghi "test-only"), nhưng nên đổi mock sang dải `+84 900 000 xxx` như DS-E (Suggestion cho FE).
-- `state/privacy-notice.log`: dòng NOTICE thứ 2 trở đi không thụt lề. Thẩm mỹ, `deploy-landing` vẫn đọc đúng.
-- *Lượt 3:* mở lại báo giá từ **Báo giá & giữ chỗ**, Desk lấy chữ tiếng Việt trước (`text?locale=vi`) rồi đổi sang English/Русский trong dưới 1 giây. Khung chữ chớp một lần; nhân viên bấm "Sao chép" ngay lập tức có thể chép bản tiếng Việt. Gợi ý FE: chờ biết ngôn ngữ rồi mới gọi chữ.
-- *Lượt 3:* giới hạn gửi form theo IP nằm trong bảng `rate_limit_counter` (không mất khi khởi động lại api). Khi bộ đếm đầy, form vẫn gửi được nhưng không mang giá ước tính → Desk "Khách chưa thấy giá" – đúng US-131 AC9.
-- *Lượt 3:* bảng S35 ở 1366 px vẫn cuộn ngang trong khung (1215/1084 px; cột Ngôn ngữ 93 px) – UXD xác nhận bố cục (FE đã nêu). Xem BUG-R4-007.
-- *PR #22:* hộp "Trả sớm" lấy giờ máy trình duyệt cho ô "Khách báo lúc" (giá trị mặc định và `max`). Trên stack dùng đồng hồ giả (server 24/12, trình duyệt 01/11), hộp ra "báo trước 54 ngày", đòi bằng chứng giờ báo và không chọn được ngày nghiệp vụ của server. Production không gặp. Nếu E2E Desk chạy với đồng hồ giả, FE-A nên lấy "bây giờ" từ server (ví dụ header `Date` hoặc `Me`). Gợi ý, không phải lỗi.
-- *PR #22:* đơn Trực tiếp báo cùng ngày (0 ngày) ghi dòng phí `noticeDays: 0`, nên bill hiện "Phí trả phòng sớm (báo trước 0 ngày)". Đúng BR-428-09 theo chữ. UXD xem có muốn câu "báo cùng ngày" không.
-- *PR #22:* bộ Vitest api trên máy QA: 3334 đạt, 24 bỏ qua. BE báo 19 bỏ qua; 5 ca chênh là ca bootstrap cần `BOOTSTRAP_DATABASE_URL`, QA không đặt biến này.
-
-- **v1.0.1 đợt 2 – PR #24** (01/11 ~21:40, `be-d/v1.0.1-text-safety` @ `b89dbde4`, gồm PR #16): PR đạt, BUG-R3-058 đã sửa – đã xác nhận; mới BUG-R4-016 (P3, che thừa mới so với `main`). Chi tiết: `rounds/round-04/qa/pr24-text-safety.md`.
-
 ### BUG-R4-016 – Form chặn nhầm số tiền có đơn vị đứng trước, số tiền ≥ 1 tỷ không đơn vị và SĐT viết với tiền tố `00` (mới so với `main`)
 
 - **Mức:** P3.
@@ -353,7 +308,27 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
   - Thêm 10 chuỗi trên vào nhóm "không được che nhầm" của `text-safety-units.test.ts`.
   - PO chọn hướng trong PA1–PA3 (báo cáo mục 5.3).
 - **Bằng chứng:** bảng 167 ca và bảng so `main`/PR trong `rounds/round-04/qa/pr24-text-safety.md` mục 3e, 5.1.
-- **Trạng thái:** Mới. Không chặn gộp PR #24. Đích v1.0.1 nếu kịp, không thì v1.0.2.
+- **Trạng thái:** **Đã sửa – đã xác nhận** (01/11 22:40, QA, trên PR #24 `f8080499`). Closed khi PR #16 và PR #24 gộp `main` và job CI `format · lint · audit · test · build` xanh.
+- **Test lại 01/11 (PR #24 head `f8080499`):**
+  - **Bản sửa (BE-D):**
+    - `MONEY_BEFORE` nhận `₫`, `đ`, `VND`/`VNĐ`/`USD`/`EUR` đứng trước số;
+    - `00` + mã nước được coi như `+` (`phonePrefixDigits`);
+    - `amountSpans`: dãy tách nhóm nghìn có hai nhóm cuối `000` là tiền;
+    - đơn vị tiền chỉ tha số tận cùng `000` (SEC PR24-02).
+  - **Cách test:** Postgres 17 tạm (cổng 55542, đã xóa). App thật trong tiến trình. `ChatDispatcher` mức C bắn tới webhook giả. Chạy 215 ca: 167 ca lượt 1 giữ nguyên ID, cộng 48 ca mới.
+  - **Kết quả:**
+    - **10/10 chuỗi ở bước tái hiện** được 202, tin C in nguyên.
+    - 6/6 ca G2 ngân sách được 202: `Ngân sách 150,000,000`, `budget 150,000,000 for 6 months`, `tổng 120,000,000 cho 8 tháng`, `100,000,000-150,000,000`, `ngân sách 150.000.000`, `VNĐ 150.000.000`.
+    - Không hồi quy: trong 167 ca lượt 1, chỉ 10 ca đổi kết quả, cả 10 đều từ 422 sang 202 đúng hướng. 70/70 chuỗi CCCD/thẻ vẫn bị chặn và che.
+    - 13/13 ca SEC PR24-01/02 bị chặn: `%2B`, `đồng ý`, `dong`, `- 500k`, `VND`/`đ` + CCCD, CCCD Hà Nội `001…`/`008…`, `№`/`номер`, hộ chiếu Hàn mẫu mới, CCCD cạnh số tiền.
+    - api 3615 đạt / 0 lỗi (142 tệp). Năm bộ text-safety/Chat/form 375/375 ở 2 múi giờ tiến trình.
+  - **Ghi nhận, không mở lỗi:**
+    - `CCCD 079 203 012 345 000 000` và `CCCD 00 079203012345` qua. `b89dbde4` chặn hai chuỗi này, còn `main` vốn cũng không chặn. Cả hai cần khách cố ý viết như vậy; SEC lượt 2 xếp rủi ro Thấp.
+    - QA đề xuất BE-D bịt rẻ, mức Suggestion: nhóm đầu của số tiền không bắt đầu bằng `0`; sau tiền tố `00`, nhóm kế không bắt đầu bằng `0`.
+    - Che thừa còn lại: `120,500,000` không đơn vị (giới hạn có chủ ý), `T123A4567` (luật hộ chiếu Hàn mẫu mới, SEC đã chấp nhận).
+    - Chi tiết: `rounds/round-04/qa/pr24-text-safety.md` mục "Lượt 2", L2.4.
+
+> ORC 01/11: QA ghi lỗi này là BUG-R4-014 nhưng số 014 đã dùng ở PR #22 → đổi thành **BUG-R4-016**. Bảng tổng hợp chưa cộng lỗi này; QA cập nhật ở lượt tới. *(QA 01/11 22:40: đã cộng vào bảng mục 1.)*
 
 ## 3. Ghi nhận (không phải lỗi)
 
@@ -365,5 +340,6 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - *Lượt 3:* mở lại báo giá từ **Báo giá & giữ chỗ**, Desk lấy chữ tiếng Việt trước (`text?locale=vi`) rồi đổi sang English/Русский trong dưới 1 giây. Khung chữ chớp một lần; nhân viên bấm "Sao chép" ngay lập tức có thể chép bản tiếng Việt. Gợi ý FE: chờ biết ngôn ngữ rồi mới gọi chữ.
 - *Lượt 3:* giới hạn gửi form theo IP nằm trong bảng `rate_limit_counter` (không mất khi khởi động lại api). Khi bộ đếm đầy, form vẫn gửi được nhưng không mang giá ước tính → Desk "Khách chưa thấy giá" – đúng US-131 AC9.
 - *Lượt 3:* bảng S35 ở 1366 px vẫn cuộn ngang trong khung (1215/1084 px; cột Ngôn ngữ 93 px) – UXD xác nhận bố cục (FE đã nêu). Xem BUG-R4-007.
-
-> ORC 01/11: QA ghi lỗi này là BUG-R4-014 nhưng số 014 đã dùng ở PR #22 → đổi thành **BUG-R4-016**. Bảng tổng hợp chưa cộng lỗi này; QA cập nhật ở lượt tới.
+- *PR #22:* hộp "Trả sớm" lấy giờ máy trình duyệt cho ô "Khách báo lúc" (giá trị mặc định và `max`). Trên stack dùng đồng hồ giả (server 24/12, trình duyệt 01/11), hộp ra "báo trước 54 ngày", đòi bằng chứng giờ báo và không chọn được ngày nghiệp vụ của server. Production không gặp. Nếu E2E Desk chạy với đồng hồ giả, FE-A nên lấy "bây giờ" từ server (ví dụ header `Date` hoặc `Me`). Gợi ý, không phải lỗi.
+- *PR #22:* đơn Trực tiếp báo cùng ngày (0 ngày) ghi dòng phí `noticeDays: 0`, nên bill hiện "Phí trả phòng sớm (báo trước 0 ngày)". Đúng BR-428-09 theo chữ. UXD xem có muốn câu "báo cùng ngày" không.
+- *PR #22:* bộ Vitest api trên máy QA: 3334 đạt, 24 bỏ qua. BE báo 19 bỏ qua; 5 ca chênh là ca bootstrap cần `BOOTSTRAP_DATABASE_URL`, QA không đặt biến này.

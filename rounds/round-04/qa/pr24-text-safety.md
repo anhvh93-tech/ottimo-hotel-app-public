@@ -201,3 +201,111 @@ QA không còn thẻ Major mở.
 
 **Dòng decision-log đề nghị ORC ghi:**
 `| 2026-11-01 | 4 | QA – kiểm thử PR #24 (text safety, head b89dbde4, gồm PR #16): ĐẠT, không chặn gộp. BUG-R3-058 Đã sửa – đã xác nhận (Closed khi #16 + #24 gộp main + CI xanh). 167 chuỗi chạy qua form (POST → 422/202) và tin Chat mức C (webhook giả): form và Chat không lệch ca nào; 70 chuỗi CCCD/thẻ (2a/2b/2d) bị chặn và che; (+84) 905-111-222 và 55/58 chuỗi SĐT/ngày/giờ/tiền/mã đặt qua. api 3542/0 lỗi; 302/302 ở 3 múi giờ. Lỗi mới BUG-R4-016 (P3): chặn nhầm VND/₫ đứng trước số, tiền ≥ 1 tỷ không đơn vị, SĐT 0084. G2: đề xuất PO chọn PA1 (đổi câu báo lỗi + BE-D sửa 014 + đếm 422) | QA | Quyền QA (mức lỗi, kết luận kiểm thử) |`
+
+---
+
+## Lượt 2 – f8080499
+
+- Người test: QA | Round 4 – Bước: **Kiểm thử** (test lại bản sửa) | 01/11/2026 ~22:00–22:40
+- Đối tượng: PR #24 head `f8080499`, một commit trên `b89dbde4`. Commit sửa `sensitive-number.ts`, `log-line.ts`, các test và báo cáo BE mục 7. Mục tiêu sửa: BUG-R4-016, SEC PR24-01/02/04. Đã đọc thêm `rounds/round-04/reviews/SEC-on-PR24-text-safety.md` mục "Lượt 2" (SEC vẫn duyệt).
+- Cách test giống lượt 1:
+  - Worktree tách rời ở `f8080499`. Postgres 17 tạm `qa-pr24r2-pg`, cổng 55542, chạy `02-roles.sh`. **Đã xóa container.**
+  - Bảng chuỗi chạy qua app thật trong tiến trình. Mỗi chuỗi đi hai đường: POST form (422/202), rồi `ChatDispatcher` mức C bắn tới webhook giả, cho cả dòng tạo từ form lẫn dòng lưu sẵn y như chuỗi gốc.
+  - Tệp test tạm không commit, đã xóa. Chỉ dữ liệu giả.
+- Bộ chuỗi: **167 ca lượt 1, giữ nguyên ID và thứ tự**, cộng **48 ca mới**, tổng **215**:
+  - R2G: 6 ca G2 ngân sách BE đưa vào "không che nhầm";
+  - R2B: đủ 10 chuỗi của BUG-R4-016;
+  - R2S: 13 ca SEC PR24-01/02 và số giấy tờ đứng cạnh số tiền, phải chặn;
+  - R2P: 19 ca QA dò thêm quanh `amountSpans` và tiền tố `00`.
+- So sánh: so từng ca với kết quả lượt 1 trên `b89dbde4`. Ngoài ra chạy script ở scratchpad so ba bản `main`, `b89dbde4` và `f8080499` trên chuỗi nghi vấn.
+
+### L2.0. Kết luận lượt 2: **ĐẠT. BUG-R4-016 Đã sửa – đã xác nhận. Không hồi quy.**
+
+| # | Việc | Kết quả |
+|---|---|---|
+| 1 | Toàn bộ api | **142 tệp đạt, 2 bỏ qua; 3615 ca đạt, 19 bỏ qua; 0 lỗi**, khớp số BE báo. Năm bộ text-safety/Chat/form: **375/375** ở `UTC` và `Pacific/Kiritimati` (máy QA là +07) |
+| 2 | 215 ca, form và Chat C | Form và Chat cho cùng kết quả ở **215/215** ca. Ca 422 không tạo dòng `staff.chat` nào. Ca 202 có đúng 1 dòng yêu cầu |
+| 3 | Hồi quy trên 167 ca lượt 1 | **10 ca đổi kết quả, cả 10 đều đổi đúng hướng (422 → 202).** 70/70 chuỗi CCCD/thẻ (2a/2b/2d) vẫn bị chặn và che. Không ca nào trước được 202 nay bị chặn |
+| 4 | BUG-R4-016: 10 chuỗi | **10/10 được 202**, tin C in nguyên |
+| 5 | 6 ca G2 ngân sách | **6/6 được 202**, tin C in nguyên |
+| 6 | SEC PR24-01/02 và số giấy tờ cạnh số tiền | **13/13 bị chặn và che** |
+| 7 | Dò thêm (R2P) | Không lỗi mới. 2 ghi nhận và 1 đề xuất (mục L2.4) |
+
+### L2.1. 10 ca lượt 1 đổi kết quả (422 → 202, tin C in nguyên)
+
+| ID | Chuỗi | Nhóm |
+|---|---|---|
+| PH-094 | `0084 905 111 222` | BUG-R4-016 |
+| MN-129 | `₫150,000,000` | BUG-R4-016 |
+| MN-140 | `budget VND 150,000,000` | BUG-R4-016 |
+| G2-160 | `Ngân sách 150,000,000` | G2 |
+| G2-161 | `ngân sách 150.000.000` | G2, `main` cũng chặn |
+| G2-162 | `ngân sách 150 000 000` | G2, `main` cũng chặn |
+| G2-163 | `budget 150,000,000 for 6 months` | G2 |
+| G2-164 | `ngân sách 100,000,000-150,000,000` | G2 |
+| G2-165 | `Ngân sách 1,500,000,000` | G2 / BUG-R4-016 |
+| G2-167 | `ngân sách 150,000,000 cho 6 tháng` | G2 |
+
+Còn bị chặn và đã được chấp nhận:
+- số phòng: `Căn 201,202,203`, `căn 201 202 203`, `căn 201-202-203`, `căn 201/202/203`, `căn 201,202,203,302`;
+- `905 111 222`, `0905111222 0912333444`, `Agoda booking ID 562378912`: giống `main`.
+
+Câu báo lỗi theo PA1 (a) thuộc CPY/FE.
+
+### L2.2. Ca mới
+
+| Nhóm | Chuỗi | Kết quả |
+|---|---|---|
+| R2G (6) | `Ngân sách 150,000,000`, `budget 150,000,000 for 6 months`, `tổng 120,000,000 cho 8 tháng`, `100,000,000-150,000,000`, `ngân sách 150.000.000`, `VNĐ 150.000.000` | 202, Chat in nguyên |
+| R2B (10) | `₫150,000,000`, `₫ 150,000,000`, `VND 150,000,000`, `budget VND 150,000,000`, `USD 150,000,000`, `Ngân sách 1.500.000.000`, `Ngân sách 1,500,000,000`, `ngân sách 1 500 000 000`, `0084 905 111 222`, `00 84 905 111 222` | 202. Chat in nguyên, trừ ghi nhận L2.4 (2) |
+| R2S (13) | `CCCD %2B079203012345`, `CCCD 079203012345 đồng ý nhận phòng sớm`, `số 079203012345 dong`, `CCCD 079203012345 - 500k`, `VND 079203012345`, `đ 079203012345`, `CCCD 001 203 012 345`, `008212345678`, `паспорт 45 06 № 123456`, `серия 4506 номер 123456`, `passport M123A4567` | 422 `ID_NUMBER_DETECTED`, Chat che |
+| | `CCCD 079-203-012-345 150,000,000`, `079203012345 1.500.000.000` | 422 `CARD_NUMBER_DETECTED` (dãy dài đạt Luhn), Chat che. Vẫn bị chặn, chỉ khác mã lỗi |
+| R2P – vẫn qua, đúng ý | `Ngân sách 150.000.000, phòng 201`, `budget 2,400,000,000 VND cho 12 tháng`, `tổng 1.200.000.000 / 12 tháng`, `Đặt cọc 30,000,000, còn lại 120,000,000`, `SĐT 0084905111222`, `0082 10 1234 5678` | 202 |
+| R2P – vẫn bị chặn, đúng ý | `Ngân sách 150,000,000 VND, CCCD 079 203 012 345`, `Ngân sách 150.000.000 079.203.012.345`, `CCCD 0084 079 203 012 345` | 422, Chat che |
+
+### L2.3. Hồi quy
+
+- Không ca nào trong 167 ca lượt 1 đổi theo hướng xấu.
+- 70 chuỗi phải chặn lượt 1 vẫn bị chặn đúng mã. 2c, SĐT, ngày, giờ, mã đặt vẫn qua.
+- Tin C vẫn đủ 11 dòng.
+- `logLine` (SEC PR24-04) có test trong bộ api, xanh. QA không kiểm thêm.
+
+### L2.4. Ghi nhận (không mở lỗi mới)
+
+**(1) Che thừa còn lại, cho PO và CPY. Không phải lỗi.**
+- `ngân sách 120,500,000` và `ngân sách 150,000,500` vẫn 422, vì `amountSpans` chỉ tha số có **hai** nhóm cuối là `000`. Khách dài hạn ghi tổng lẻ, ví dụ 120,5 triệu không đơn vị, vẫn gặp. Đây là giới hạn có chủ ý (SEC giữ rủi ro ~1/1.000.000). Câu báo lỗi mới theo PA1 (a) hướng dẫn khách ghi kèm đơn vị hoặc chữ "triệu".
+- Che thừa mới do luật hộ chiếu Hàn mẫu mới: `Mã voucher T123A4567` → 422. SEC đã ghi và chấp nhận (`A123B4567`, `X100S2000`).
+- `0086 138 0013 8000` → 422 `CARD_NUMBER_DETECTED`, giống `main`.
+
+**(2) Hiển thị trong tin C, không phải lỗi.** `Ngân sách 1.500.000.000` hiện thành `Ngân sách 1[.]500[.]000[.]000`, vì bốn nhóm số nối bằng dấu chấm bị bước chống link coi như địa chỉ IPv4. Lễ tân vẫn đọc được, và Desk giữ chữ gốc. Trên `b89dbde4` chuỗi này bị chặn ngay ở form nên chưa thấy. Gợi ý cho BE-D, mức Suggestion, làm khi tiện: không coi là IPv4 khi có nhóm lớn hơn 255.
+
+**(3) Lỗ mới so với `b89dbde4`, nhưng không mới so với `main`. SEC đã đánh giá Thấp và chấp nhận. QA đồng ý mức, kèm đề xuất bịt rẻ.**
+
+So ba bản trên cùng chuỗi:
+
+| Chuỗi | `main` | `b89dbde4` | `f8080499` |
+|---|---|---|---|
+| `CCCD 079 203 012 345 000 000` (cả `.` và `,`) | qua | chặn | **qua, tin C in nguyên** |
+| `CMND 123 456 789 000 000` | qua | chặn | qua |
+| `CCCD 00 079203012345`, `CCCD 00 079 203 012 345`, `CCCD 00 123 456 789` | qua | chặn | qua |
+
+Cùng nhánh này, `CMND 201 000 000` (R2P) cũng qua. Đây đúng là ca số giấy tờ tận cùng `000000` SEC đã nhận (~1/1.000.000).
+
+- Nguyên nhân 1: `amountSpans` coi cả dãy là tiền khi hai nhóm cuối là `000`.
+- Nguyên nhân 2: `phonePrefixDigits` coi `00` là tiền tố quốc tế dù nhóm sau bắt đầu bằng `0`.
+- Cả hai đều cần khách **cố ý** nối thêm `000 000` hoặc `00 ` vào số của chính mình. SEC lượt 2 đã nêu hai dạng này và xếp Thấp, không mở thẻ. QA giữ đúng cách xử lý như ca `(+84) 079 203 012 345` ở lượt 1: **không mở lỗi**.
+- Đề xuất cho BE-D và SEC, mức Suggestion, làm cùng phần còn lại của PR24-01. Hai sửa này gần như không làm tăng che thừa, vì số tiền và mã nước không bao giờ bắt đầu bằng `0`, còn CCCD luôn bắt đầu bằng `0`:
+  - `amountSpans`: nhóm đầu của số tiền không bắt đầu bằng `0`, và tổng chữ số ≤ 12 (≤ 999 tỷ). Cách này cũng thu hẹp rủi ro 1/1.000.000 SEC đã nhận (`079 203 000 000`) về chỉ còn CMND 9 số.
+  - `phonePrefixDigits`: sau `00`, nhóm kế không bắt đầu bằng `0`, và phần số sau `00` dài 10–15 chữ số (E.164).
+  - Thêm 6 chuỗi ở bảng trên vào test "phải bắt".
+
+### L2.5. Trạng thái
+
+| Mục | Trạng thái |
+|---|---|
+| BUG-R4-016 | **Đã sửa – đã xác nhận** trên `f8080499`. Closed khi PR #16 và #24 gộp `main` và CI xanh |
+| BUG-R3-058 | Vẫn **Đã sửa – đã xác nhận** (đã kiểm lại trên `f8080499`: 70/70) |
+| Gộp PR #24 (phía QA) | **Đạt.** Điều kiện: PR #16 gộp trước, job CI `format · lint · audit · test · build` của `f8080499` xanh. Lúc QA chạy, CI chưa có kết quả (theo SEC) |
+
+**Dòng decision-log đề nghị ORC ghi:**
+`| 2026-11-01 | 4 | QA – PR #24 lượt 2 (f8080499): ĐẠT, không hồi quy. BUG-R4-016 Đã sửa – đã xác nhận (Closed khi #16 + #24 gộp main + CI xanh). 215 ca (167 ca lượt 1 + 48 mới) qua form và Chat C: form và Chat không lệch ca nào; 10 ca lượt 1 đổi 422 → 202 (đúng hướng), 0 ca đổi xấu; 70/70 CCCD/thẻ vẫn chặn; 10/10 chuỗi 016 và 6/6 G2 ngân sách qua; 13/13 ca SEC PR24-01/02 bị chặn. api 3615/0 lỗi; 375/375 ở 2 múi giờ. Ghi nhận: CCCD nối "000 000" hoặc "00 " phía trước lọt (như main, SEC xếp Thấp) – đề xuất BE-D bịt rẻ (nhóm đầu không bắt đầu bằng 0). | QA | Quyền QA (kết luận kiểm thử) |`
