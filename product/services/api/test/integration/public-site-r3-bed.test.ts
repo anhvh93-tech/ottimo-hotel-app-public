@@ -1277,6 +1277,8 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
       ['note', 'CCCD 079–203–012–345', 'ID_NUMBER_DETECTED'],
       ['note', 'the 4111_1111_1111_1111', 'CARD_NUMBER_DETECTED'],
       ['guestName', 'Anna c1234567', 'ID_NUMBER_DETECTED'],
+      ['note', 'CCCD %2B079203012345', 'ID_NUMBER_DETECTED'],
+      ['note', 'CCCD 079203012345 đồng ý', 'ID_NUMBER_DETECTED'],
     ];
     for (const [i, [field, value, code]] of refused.entries()) {
       const ip = fixedIp(150 + i);
@@ -1298,6 +1300,9 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
       'Zalo (+84) 905-111-222, 2 người lớn',
       'Gọi 0905111222 2 người, đến 12/11 - 15/11/2026',
       'Ngân sách 15 000 000 - 20 000 000 đồng/tháng',
+      'budget VND 150,000,000 for 6 months',
+      'Ngân sách 1.500.000.000',
+      'Gọi 0084 905 111 222',
     ].entries()) {
       const ip = fixedIp(170 + i);
       const ok = await submit(

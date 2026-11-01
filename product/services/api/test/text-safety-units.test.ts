@@ -249,6 +249,64 @@ describe('not a card or an ID: phones, dates, times, amounts and counts stay (fo
     '안녕하세요, 2명 3박 예약하고 싶습니다',
     '我们2个人住3晚',
     'Здравствуйте, 2 взрослых, 3 ночи',
+    // BUG-R4-016 (QA PR #24): currency before the number, ≥ 1 billion without a unit, `00` + country code
+    '₫150,000,000',
+    '₫ 150,000,000',
+    'VND 150,000,000',
+    'budget VND 150,000,000',
+    'USD 150,000,000',
+    'Ngân sách 1.500.000.000',
+    'Ngân sách 1,500,000,000',
+    'ngân sách 1 500 000 000',
+    '0084 905 111 222',
+    '00 84 905 111 222',
+    // G2 (QA PR #24 5.1): budgets with thousands separators, no unit
+    'Ngân sách 150,000,000',
+    'budget 150,000,000 for 6 months',
+    'tổng 120,000,000 cho 8 tháng',
+    '100,000,000-150,000,000',
+    'ngân sách 150.000.000',
+    'VNĐ 150.000.000',
+    // QA PR #24 3e: phones, dates, amounts and booking codes that must stay
+    '0905 111 222 hoặc 0912 333 444',
+    '(+84)905111222',
+    '028 3822 1234',
+    '(028) 3822 1234',
+    'Hotline 1900 1234',
+    '1800 5888 99',
+    '8 (912) 345-67-89',
+    '+1 (415) 555-0123',
+    '+44 20 7946 0958',
+    '+61 412 345 678',
+    '+65 9123 4567',
+    '+33 6 12 34 56 78',
+    'WhatsApp +84 905 111 222, Zalo 0905 111 222',
+    '12-15/11/2026',
+    'từ 12.11 đến 15.11.2026',
+    '2026-11-12 → 2026-11-15',
+    'check-in 14:00, check-out 12h',
+    '12/11/2026 14:00 – 15/11/2026 12:00',
+    '12/11, 13/11, 14/11, 15/11',
+    'bay VN1234 hạ cánh 13:45 ngày 12/11',
+    '1.500.000đ/đêm',
+    '1,500,000 VND',
+    '150.000.000 đ',
+    '150,000,000 VND',
+    '150 000 000 VNĐ',
+    '$1,200',
+    'USD 1,200',
+    '15 triệu/tháng',
+    '100.000.000-150.000.000đ',
+    'khoảng 150tr',
+    '150.000.000 đồng',
+    '150,000,000 VND/6 tháng',
+    'budget 150,000,000 vnd',
+    'REQ-7K3P9QXA',
+    'Booking.com 4012.345.678',
+    'Booking.com 4012345678 PIN 1234',
+    'Traveloka 1234567890',
+    'Airbnb HMABCD1234',
+    'Xuất hóa đơn MST 0312345678',
   ])('%s', (s) => {
     expect(sensitiveNumberKind(s), s).toBeNull();
     // A name is one line: two phones on two lines are not a name (their one-line form is the accepted case below).
@@ -275,13 +333,52 @@ describe('currency words only next to an amount', () => {
   it('an ID before a range of amounts is still read', () => {
     expect(sensitiveNumberKind(`CCCD ${CCCD} 2 người, 15 000 000 - 20 000 000 đ`)).toBe('id');
   });
+  it.each([
+    ['`đồng ý` is not a currency', `CCCD ${CCCD} đồng ý nhận phòng sớm`],
+    ['a bare `dong` is not a currency', `số ${CCCD} dong`],
+    ['a currency only excuses an amount ending in 000 (G3)', `CCCD ${CCCD} - 500k`],
+    ['nor a currency before it', `VND ${CCCD}`],
+    ['an encoded `+` is not a phone prefix', `%2B${CCCD}`],
+    ['an encoded `+` with a space', `%2B ${groups(' ')}`],
+  ])('SEC PR24-02: %s', (_n, s) => {
+    expect(sensitiveNumberKind(s), s).toBe('id');
+    expect(note(s)).toBe(CHAT_ID_REPLACEMENT);
+  });
+  it('an ID next to an amount with thousands separators is still read', () => {
+    expect(sensitiveNumberKind(`CCCD ${groups('-')} 150,000,000`)).not.toBeNull();
+    expect(sensitiveNumberKind(`${CCCD} 1.500.000.000`)).not.toBeNull();
+  });
+  it('a CCCD of province 001/008 is not read as an international `00` prefix', () => {
+    for (const s of ['001203012345', '001 203 012 345', '008212345678', '0082 1234 5678']) {
+      expect(sensitiveNumberKind(s), s).toBe('id');
+    }
+  });
+});
+
+describe('SEC FB-R4-SEC-BE-PR24-01 – Russian `№` and the new Korean passport', () => {
+  it.each([
+    ['серия 45 06 № 123456', `серия ${'45'} ${'06'} № ${'123456'}`],
+    ['паспорт 45 06 № 123456', `паспорт ${'45'} ${'06'} № ${'123456'}`],
+    ['4506 № 123456', `${'4506'} № ${'123456'}`],
+    ['серия 4506 номер 123456', `серия ${'4506'} номер ${'123456'}`],
+    ['серия, one group', `серия ${'4506123456'}`],
+    ['Korean passport, new model', `${'M'}${'123'}${'A'}${'4567'}`],
+    ['Korean passport, new model after the keyword', `여권 ${'M'}${'123'}${'A'}${'4567'}`],
+    ['Korean passport, small letters after the keyword', `passport ${'m'}${'123'}${'a'}${'4567'}`],
+  ])('%s → caught (form) and replaced (Chat)', (_n, s) => {
+    expect(sensitiveNumberKind(s), s).toBe('id');
+    expect(note(s)).toBe(CHAT_ID_REPLACEMENT);
+    expect(name(s)).toBe(CHAT_ID_REPLACEMENT);
+  });
 });
 
 describe('over-masking accepted by SEC (lượt 3: fails safe, Desk keeps the original)', () => {
   it.each([
     ['two phones joined by one space', '0905111222 0912333444'],
     ['three room numbers', '201,202,203'],
-    ['a 9-digit amount without its currency', '150,000,000'],
+    ['a 9-digit number without separators or currency', '150000000'],
+    ['a Chinese phone with its country code but no +', '86 138 0013 8000'],
+    ['a Russian phone with a leading 8, spaces only', '8 912 345 67 89'],
   ])('%s → masked', (_n, s) => {
     expect(sensitiveNumberKind(s)).not.toBeNull();
   });

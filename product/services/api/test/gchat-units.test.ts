@@ -784,5 +784,7 @@ describe('worker log line (OPS: `chat detail level` logged "level":"A")', () => 
     const line = logLine('error', 'x', { level: 'A', msg: 'y', code: 'Z' });
     expect(JSON.parse(line)).toEqual({ level: 'error', msg: 'x', code: 'Z' });
     expect(line.startsWith('{"level":"error","msg":"x"')).toBe(true);
+    const hijack = logLine('info', 'm', { toJSON: () => ({ level: 'evil' }), code: 'Z' });
+    expect(JSON.parse(hijack)).toEqual({ level: 'info', msg: 'm', code: 'Z' });
   });
 });

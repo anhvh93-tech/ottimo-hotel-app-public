@@ -4,5 +4,8 @@
  * replaced the log level; that field is `detailLevel` now).
  */
 export function logLine(level: string, msg: string, extra: Record<string, unknown> = {}): string {
-  return JSON.stringify(Object.assign({ level, msg }, extra, { level, msg }));
+  // A `toJSON` key would replace the whole line (SEC FB-R4-SEC-BE-PR24-04): never copied.
+  const rest: Record<string, unknown> = { ...extra };
+  delete rest.toJSON;
+  return JSON.stringify(Object.assign({ level, msg }, rest, { level, msg }));
 }

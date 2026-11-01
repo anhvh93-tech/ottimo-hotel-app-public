@@ -67,3 +67,21 @@ Log worker (ORC/OPS):
 
 ## 6. Dòng decision-log đề xuất (BE tự quyết – chi tiết cài đặt)
 `| 2026-11-01 | 4 | BE-D – V-09 một luật: sensitiveNumberKind (sensitive-number.ts) dùng cho form, lời nhắn từ chối và chatSafeText; kiểm trên bản chuẩn hóa (giải mã %XX, NFKD bỏ dấu/ký tự bỏ qua, NFKC, chữ số ASCII, gạch Unicode); nhóm số liền nhau 9/12 chữ số; số Hàn/Trung/Nga; hộ chiếu chữ thường; ngoại lệ SĐT sau + hoặc 84 và tiền có đơn vị; chữ lưu không đổi. Log worker: detailLevel. | BE-D | Quyền BE (cài đặt phía server theo chuẩn ARC) |`
+
+## 7. Lượt 2 – Phản hồi & sửa (QA BUG-R4-016, SEC PR24-01/02/04)
+
+| Thẻ | Đã sửa |
+|---|---|
+| BUG-R4-016 | `MONEY_BEFORE` nhận thêm `₫`, `đ`, `VND`/`VNĐ`/`USD`/`EUR` (đứng riêng, có thể có dấu cách sau). Tiền tố `00` + mã nước được tính như `+` (`00 84 …`, `0084 …`). Riêng `0084`, chọn vì CCCD tỉnh 008 có thể bắt đầu `0082`/`0086`, còn `0084` thì không. Dãy tách nhóm nghìn (một dấu `.` `,` hoặc dấu cách) có hai nhóm cuối `000` là tiền, kể cả hai vế của một khoảng `100,000,000-150,000,000`. 10 chuỗi QA cùng 6 chuỗi G2 đã vào nhóm "không che nhầm". |
+| SEC PR24-02 | (1) Mọi luật chạy trên cả bản đã giải mã `%XX` lẫn bản giữ nguyên, rồi lấy OR: `%2B079203012345` bị bắt lại. (2) Đơn vị tiền chỉ tha cho số tận cùng `000`. `đồng ý` và `dong` trần không còn là đơn vị. `ID - 500k` (G3) bị bắt. |
+| SEC PR24-01 | `№` (NFKC thành `No`), `номер`, `N°` giữa hai chữ số được đọc như dấu cách. Thêm từ khóa `серия`. Thêm hộ chiếu Hàn mẫu mới `[A-Z]\d{3}[A-Z]\d{4}`, và bản không phân biệt hoa/thường sau từ khóa. |
+| SEC PR24-04 | `logLine` bỏ khóa `toJSON` trước khi ghép, có test. |
+| SEC PR24-03 | Phần BE: ghi `86 138 0013 8000` và `8 912 345 67 89` vào danh sách che thừa đã chấp nhận (test). Câu báo lỗi thuộc CPY/UXD. |
+
+Test:
+- `text-safety-units` 225 ca (thêm 57 chuỗi không che nhầm từ QA 3e/G2/BUG-R4-016, 6 ca PR24-02, 8 ca PR24-01, ca CCCD tỉnh 001/008 không bị coi là tiền tố `00`).
+- Tích hợp form: 10 chuỗi bị 422, 6 chuỗi được 202.
+- Toàn bộ api trên Postgres tạm: **142 tệp đạt, 3615 ca đạt, 0 lỗi**.
+- `eslint .`: 0 lỗi. `prettier --check`: đạt. `turbo run typecheck`: 13/13.
+
+Không chạy lại được nguyên bộ chạy tạm của QA (167 ca) và của SEC (63 + 61 chuỗi): các bộ này ở scratchpad của QA/SEC, không có trong repo. BE đã đưa vào test mọi chuỗi được ghi trong `qa/pr24-text-safety.md` và `SEC-on-PR24-text-safety.md`. Đề nghị QA và SEC chạy lại bộ của mình trên commit mới.
