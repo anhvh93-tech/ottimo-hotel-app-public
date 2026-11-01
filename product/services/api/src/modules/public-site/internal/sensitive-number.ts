@@ -31,7 +31,7 @@
  *     or `NNNN NNNNNN` (also `45 06 № 123456`);
  *   - not an ID: the phone part of a run after `+`, `00` + country code (`0084`, `00 84`) or starting with `84` (the
  *     first ≥ 11 digits after the prefix: `+84 905 111 222`, `(+84) 905-111-222`, `84 905 111 222`); an amount with
- *     thousands separators whose last two groups are `000` (`150,000,000`, `1.500.000.000` – BUG-R4-016); an amount
+ *     thousands separators, not starting with 0, whose last two groups are `000` (`150,000,000`, `1.500.000.000` – BUG-R4-016); an amount
  *     ending in `000` next to its currency, before or after (`150 000 000 VND`, `VND 150,000,000`, `₫150.000.000`, also
  *     each side of a range `100 000 000 - 150 000 000 đ`). `đồng ý` and a bare `dong` are not currencies.
  * Passport: 1–2 Latin letters + 7–8 digits, capital or small (`c1234567`), one space allowed after capitals
@@ -61,9 +61,10 @@ const PHONE_CC_IN_PARENS = /\(\s*\+\s*(\d{1,4})\s*\)/g;
 const PHONE_TRUNK_ZERO = /(\+\s?\d{1,4})\s*\(\s*0\s*\)/g;
 /**
  * A number sign between series and number of a Russian passport (`45 06 № 123456`, `4506 номер 123456` – SEC
- * FB-R4-SEC-BE-PR24-01): NFKC has made `№` into `No`; read as a space so the groups stay one run.
+ * FB-R4-SEC-BE-PR24-01): NFKC has made `№` into `No`; any case, a `:` after it (`45 06 Номер: 123456`); read as a
+ * space so the groups stay one run.
  */
-const NUMBER_SIGN = /(?<=\d)\s*(?:No\.?|NO\.?|N[o°º]|номер|nr\.?)\s*(?=\d)/gu;
+const NUMBER_SIGN = /(?<=\d)\s*(?:No\.?|N[o°º]|номер|nr\.?)\s*:?\s*(?=\d)/giu;
 const DATE = /(?<!\d)\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?(?!\d)/g;
 const TIME = /(?<!\d)\d{1,2}[:h]\d{2}(?!\d)/g;
 /** What a blanked date or time becomes: `|` is not a join, so it ends a run. */
@@ -255,7 +256,8 @@ function amountSpans(r: Run): Array<[number, number]> {
   const spans: Array<[number, number]> = [];
   const n = r.g.length;
   for (let i = 0; i < n - 2; i += 1) {
-    if (r.g[i]!.length > 3) continue;
+    // An amount never starts with 0 (QA PR #24 lượt 2: `079 203 012 345 000 000` stays an ID).
+    if (r.g[i]!.length > 3 || r.g[i]![0] === '0') continue;
     const sep = r.gap[i];
     if (sep !== '.' && sep !== ',' && sep !== ' ') continue;
     let k = i + 1;
@@ -280,8 +282,10 @@ function phonePrefixDigits(r: Run): number | null {
   if (PLUS_BEFORE.test(r.before) || g0 === '84' || (g0.startsWith('84') && g0.length === 11)) {
     return 0;
   }
+  // After `00` the country code never starts with 0 (`00 079203012345` stays an ID – QA PR #24 lượt 2).
+  const g1 = r.g[1] ?? '';
   if (
-    (g0 === '00' && r.g.length > 1) ||
+    (g0 === '00' && g1 !== '' && g1[0] !== '0') ||
     g0 === '0084' ||
     (g0.startsWith('0084') && g0.length === 13)
   ) {
@@ -345,7 +349,7 @@ function idIn(r: Run): boolean {
       if ((moneyBefore || moneyAfter) && k > i && r.dash[k - 1] === true) break;
       const d = r.g.slice(i, k + 1).join('');
       // Currency next to it only excuses what looks like money: ending in 000 (SEC PR24-02: `ID - 500k`, `ID dong`).
-      const money = d.endsWith('000');
+      const money = d.endsWith('000') && d[0] !== '0';
       if (moneyBefore && segmentStart(i) && money) continue;
       if (moneyAfter && segmentEnd(k) && money) continue;
       if (inAmount(i, k)) continue;

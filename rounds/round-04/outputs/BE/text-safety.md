@@ -85,3 +85,15 @@ Test:
 - `eslint .`: 0 lỗi. `prettier --check`: đạt. `turbo run typecheck`: 13/13.
 
 Không chạy lại được nguyên bộ chạy tạm của QA (167 ca) và của SEC (63 + 61 chuỗi): các bộ này ở scratchpad của QA/SEC, không có trong repo. BE đã đưa vào test mọi chuỗi được ghi trong `qa/pr24-text-safety.md` và `SEC-on-PR24-text-safety.md`. Đề nghị QA và SEC chạy lại bộ của mình trên commit mới.
+
+## 8. Lượt 3 – Phản hồi & sửa (QA Suggestion lượt 2, SEC PR24-01 phần còn lại)
+
+- QA:
+  - Số được coi là tiền không được bắt đầu bằng `0`. Quy tắc áp cho cả dãy có dấu tách nghìn lẫn số có đơn vị tiền đi kèm.
+  - Nhóm số ngay sau tiền tố `00` không được bắt đầu bằng `0`.
+  - Nhờ vậy, `CCCD 079 203 012 345 000 000`, `CCCD 079.203.012.345.000.000`, `CCCD 00 079203012345` và `CCCD 079203012000 đ` bị bắt lại.
+- SEC PR24-01: `NUMBER_SIGN` thêm cờ `i` và cho phép `:`. Các chuỗi sau nay bị bắt: `Серия: 45 06 Номер: 123456`, `серия 45 06 №: 123456`, `серия 45 06 Номер 123456`, `4506 №: 123456`, `Серия: 4506123456`.
+- Test:
+  - `text-safety-units` cùng 3 bộ unit khác: 392/392 đạt.
+  - Toàn bộ api trên Postgres tạm: **142 tệp đạt, 3624 ca đạt, 0 lỗi**.
+  - `eslint .` 0 lỗi; `prettier --check` đạt; `turbo run typecheck` 13/13.

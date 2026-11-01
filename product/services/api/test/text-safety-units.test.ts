@@ -348,6 +348,15 @@ describe('currency words only next to an amount', () => {
     expect(sensitiveNumberKind(`CCCD ${groups('-')} 150,000,000`)).not.toBeNull();
     expect(sensitiveNumberKind(`${CCCD} 1.500.000.000`)).not.toBeNull();
   });
+  it.each([
+    ['an ID followed by 000 000 is not an amount', `CCCD ${groups(' ')} 000 000`],
+    ['an ID with dots followed by .000.000', `CCCD ${groups('.')}.000.000`],
+    ['an ID after a lone `00` is not a phone', `CCCD 00 ${CCCD}`],
+    ['an ID ending in 000 with a currency still starts with 0', `CCCD 079203012000 đ`],
+  ])('QA PR #24 lượt 2: %s', (_n, s) => {
+    expect(sensitiveNumberKind(s), s).not.toBeNull();
+    expect(note(s)).toBe(CHAT_ID_REPLACEMENT);
+  });
   it('a CCCD of province 001/008 is not read as an international `00` prefix', () => {
     for (const s of ['001203012345', '001 203 012 345', '008212345678', '0082 1234 5678']) {
       expect(sensitiveNumberKind(s), s).toBe('id');
@@ -362,6 +371,11 @@ describe('SEC FB-R4-SEC-BE-PR24-01 – Russian `№` and the new Korean passport
     ['4506 № 123456', `${'4506'} № ${'123456'}`],
     ['серия 4506 номер 123456', `серия ${'4506'} номер ${'123456'}`],
     ['серия, one group', `серия ${'4506123456'}`],
+    ['Серия: … Номер: … (copied from the form)', `Серия: ${'45'} ${'06'} Номер: ${'123456'}`],
+    ['серия … №: …', `серия ${'45'} ${'06'} №: ${'123456'}`],
+    ['серия … Номер … (capital)', `серия ${'45'} ${'06'} Номер ${'123456'}`],
+    ['№: after the series, one group', `${'4506'} №: ${'123456'}`],
+    ['Серия: one group', `Серия: ${'4506123456'}`],
     ['Korean passport, new model', `${'M'}${'123'}${'A'}${'4567'}`],
     ['Korean passport, new model after the keyword', `여권 ${'M'}${'123'}${'A'}${'4567'}`],
     ['Korean passport, small letters after the keyword', `passport ${'m'}${'123'}${'a'}${'4567'}`],
