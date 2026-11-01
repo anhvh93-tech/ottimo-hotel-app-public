@@ -113,7 +113,6 @@ export function priceEstimateRecord(
     totalVnd: pick('totalVnd'),
     losDiscountPct: pick('losDiscountPct'),
     extraPersonFeeVnd: pick('extraPersonFeeVnd'),
-    monthlyFromVnd: pick('monthlyFromVnd'),
     currency: 'VND',
     computedAt: s.computedAt,
     priceVersion: s.priceVersion,

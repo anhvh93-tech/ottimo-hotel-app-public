@@ -4787,7 +4787,8 @@ export interface paths {
      *     **Cách tính**: cổng `reservations/public` `PublicRatePort` dùng **chung** `PricingService` với `calculateQuote`/`createReservation` – kênh `direct`, nguồn `website`: giá đêm niêm yết
      *     từng căn (BR-101), lịch giá cuối tuần/ngày đặc biệt (BR-104), giảm theo số đêm (BR-107), làm tròn (BR-005), phụ thu người (BR-110). Xét các căn có `publicRoomType` khớp slug,
      *     `is_sellable`, sức chứa vừa đoàn; giá của hạng = căn có **tổng thấp nhất** [GIẢ ĐỊNH A2 – DOM chốt]. **Không** xét căn có trống hay không. Không mã khách quay lại (BR-111),
-     *     không FOC, không giá thỏa thuận. Dài hạn (`stayType = long`, hoặc `short` ≥ 28 đêm – BR-108): `longStay.monthlyFromVnd` = giá tháng niêm yết thấp nhất (BR-101 (3)).
+     *     không FOC, không giá thỏa thuận. Dài hạn (`stayType = long`, hoặc `short` ≥ 28 đêm – BR-108): **không có số** – `priceAvailable: false` + `unavailableReason: monthly_offer`
+     *     (ESC-043 câu 2, INV 01/11: chỉ lời mời ưu đãi/báo giá riêng; không token).
      *     **Không lộ dữ liệu nội bộ** (FB-INV-009; test hợp đồng): phản hồi theo danh sách cho phép (`additionalProperties: false`) – **không** số căn, `roomId`/`roomNo`/mã nhóm,
      *     còn/hết hay số phòng còn lại, giá OTA nền (BR-103), hoa hồng, phí kênh, `ottimoRemainingVnd`, biên, giá sàn/trần (BR-105). Slug lạ và hạng không có căn bán cùng trả
      *     `priceAvailable: false` + `on_request`.
@@ -8854,7 +8855,7 @@ export interface components {
     };
     /**
      * @description **0.3.9 (R4 – FB-INV-009)** – phản hồi `getPublicPriceEstimate`. **Danh sách cho phép**: không thêm trường nào ngoài schema (test hợp đồng kiểm khóa và chuỗi cấm –
-     *     `lp-v2-design.md` mục 2.4). Số là VND nguyên; trang định dạng theo ngôn ngữ của trang. `priceAvailable = true` → có đúng một trong `shortStay` / `longStay` theo `stayKind`.
+     *     `lp-v2-design.md` mục 2.4). Số là VND nguyên; trang định dạng theo ngôn ngữ của trang. `priceAvailable = true` → có `shortStay` (chỉ ngắn ngày – thuê tháng không bao giờ có số, ESC-043).
      */
     PublicPriceEstimate: {
       /**
@@ -8869,7 +8870,7 @@ export interface components {
       /** @description Slug đã nhận (không trả nhãn, không số căn) */
       roomType: string;
       /**
-       * @description `long` khi `stayType = long` hoặc `short` ≥ 28 đêm (BR-108) – khi đó trả `longStay`, không trả `shortStay`
+       * @description `long` khi `stayType = long` hoặc `short` ≥ 28 đêm (BR-108) – khi đó `priceAvailable: false` + `monthly_offer` (không số), không trả `shortStay`
        * @enum {string}
        */
       stayKind: 'short' | 'long';
@@ -8879,10 +8880,11 @@ export interface components {
       priceAvailable: boolean;
       /**
        * @description Chỉ khi `priceAvailable = false`: `on_request` – hạng không có căn đang bán, slug lạ hoặc thiếu giá niêm yết (không phân biệt – không lộ cấu hình); `party_exceeds_room` – số người
-       *     tính (người lớn + trẻ 6–11) vượt sức chứa mọi căn của hạng (BR-110) – yêu cầu vẫn gửi được, sale tư vấn nhiều căn
+       *     tính (người lớn + trẻ 6–11) vượt sức chứa mọi căn của hạng (BR-110) – yêu cầu vẫn gửi được, sale tư vấn nhiều căn; `monthly_offer` (0.3.9 bổ sung 1 – ESC-043) – thuê theo
+       *     tháng (hoặc ngắn ngày ≥ 28 đêm): web không hiện giá, trang mời gửi yêu cầu để nhận ưu đãi/báo giá riêng
        * @enum {string}
        */
-      unavailableReason?: 'on_request' | 'party_exceeds_room';
+      unavailableReason?: 'on_request' | 'party_exceeds_room' | 'monthly_offer';
       shortStay?: {
         nights: number;
         /** @description Tổng giá lịch các đêm (BR-104) **trước** giảm theo số đêm */
@@ -8899,20 +8901,10 @@ export interface components {
         /** @description `totalVnd` ÷ `nights`, làm tròn gần nhất 1 đồng – chỉ để hiện "≈ X/đêm" (cách làm tròn khi hiện: DOM K11) */
         nightlyAvgVnd: components['schemas']['MoneyVnd'];
       };
-      longStay?: {
-        /** @description Số tháng khách chọn; null = chưa biết */
-        months: number | null;
-        /** @description Giá tháng niêm yết thấp nhất của hạng (BR-101 (3)) – "từ X/tháng". Chưa gồm điện nước, phí dịch vụ, ký quỹ, phụ thu BR-109 (câu điều kiện theo `notes` – DOM chốt) */
-        monthlyFromVnd: components['schemas']['MoneyVnd'];
-      };
-      /** @description Ngắn ngày 15–27 đêm (BR-108): giá thuê tháng để khách so – có hay không do DOM chốt (K7); vắng = không hiện */
-      longStayAlternative?: {
-        monthlyFromVnd: components['schemas']['MoneyVnd'];
-      };
       /** @description Mã để trang hiện câu điều kiện (chữ của CPY). Thêm mã = chỉ thêm giá trị enum; trang bỏ qua mã chưa biết */
       notes: {
         /** @enum {string} */
-        code: 'min_stay' | 'long_stay_required' | 'monthly_excludes_utilities';
+        code: 'min_stay' | 'long_stay_required';
         /** @description Chỉ `min_stay` (BR-113) */
         minNights?: number;
       }[];
@@ -8941,8 +8933,6 @@ export interface components {
       totalVnd?: components['schemas']['MoneyVnd'] | null;
       losDiscountPct?: components['schemas']['Percent'] | null;
       extraPersonFeeVnd?: components['schemas']['MoneyVnd'] | null;
-      /** @description Dài hạn */
-      monthlyFromVnd?: components['schemas']['MoneyVnd'] | null;
       /** @enum {string} */
       currency: 'VND';
       computedAt: components['schemas']['Instant'];

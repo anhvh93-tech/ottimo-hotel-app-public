@@ -15,7 +15,6 @@ import { type LocalDate, addDays } from '../../../shared/time';
 import {
   type Party,
   applyNightDiscount,
-  applyPct,
   calendarRate,
   countedPersons,
   extraPersons,
@@ -35,8 +34,8 @@ export interface PublicRateRoom {
   groupCode: string;
   baseOccupancy: number;
   maxOccupancy: number;
-  /** room_list_price rows ordered by effectiveFrom (BR-101: nightly and monthly entered separately). */
-  listPrices: ReadonlyArray<{ effectiveFrom: LocalDate; nightlyVnd: number; monthlyVnd: number }>;
+  /** Nightly list prices (room_list_price) ordered by effectiveFrom (BR-101). Monthly prices are never read here. */
+  listPrices: ReadonlyArray<{ effectiveFrom: LocalDate; nightlyVnd: number }>;
   /** An OOO block (planned/active) overlaps a night of the stay → the room does not take part (DOM 2). */
   blocked: boolean;
 }
@@ -46,10 +45,6 @@ export interface PublicRateParams {
   parityMode: ParityMode;
   /** `web_estimate.open_until` – last night with a confirmed calendar (BR-115 (6)); null = no limit. */
   openUntil: LocalDate | null;
-  /** `lease_terms` (BR-201/202): the tier of the nearest LOWER term applies. */
-  leaseTerms: ReadonlyArray<{ months: number; discountPct: number }>;
-  /** `rounding.monthly_rent` (BR-005). */
-  monthlyUnit: number;
 }
 
 export interface PublicRateRequest {
@@ -62,7 +57,12 @@ export interface PublicRateRequest {
   party: Party;
 }
 
-export type PublicRateStatus = 'ok' | 'min_stay' | 'over_capacity' | 'not_open' | 'unavailable';
+/**
+ * `monthly_offer` (ESC-043 câu 2, INV 01/11): a monthly stay – or a short one of ≥ 28 nights (BR-108) – never gets a
+ * number on the web; the page invites the guest to ask for the special offer / private quote.
+ */
+export type PublicRateStatus =
+  'ok' | 'min_stay' | 'over_capacity' | 'not_open' | 'unavailable' | 'monthly_offer';
 
 export interface ShortStayEstimate {
   nights: number;
@@ -81,22 +81,12 @@ export interface ShortStayEstimate {
   lines: Array<{ nights: number; nightlyVnd: number }>;
 }
 
-export interface LongStayEstimate {
-  months: number | null;
-  /** Term discount of BR-201 applied (0 when the term is unknown). */
-  termDiscountPct: number;
-  monthlyFromVnd: number;
-  /** INTERNAL (Desk snapshot only). */
-  monthlyToVnd: number;
-}
-
 export interface PublicRateEstimate {
   status: PublicRateStatus;
   stayKind: 'short' | 'long';
   /** BR-113 minimum when `status = min_stay`. */
   minNights?: number;
   shortStay?: ShortStayEstimate;
-  longStay?: LongStayEstimate;
   /** Short stay ≥ 28 nights answered as a long stay (BR-108). */
   longStayRequired?: boolean;
   /** Rooms skipped because a night has no list price (BR-115 (6)) – for the OWN warning, never public. */
@@ -120,24 +110,10 @@ export function stayRangeOf(r: PublicRateRequest): { from: LocalDate; to: LocalD
   return { from: r.arrival, to: addMonthsLocal(r.arrival, r.months ?? 1) };
 }
 
-function listOn(
-  room: PublicRateRoom,
-  date: LocalDate,
-): { nightlyVnd: number; monthlyVnd: number } | null {
-  let found: { nightlyVnd: number; monthlyVnd: number } | null = null;
+function listOn(room: PublicRateRoom, date: LocalDate): { nightlyVnd: number } | null {
+  let found: { nightlyVnd: number } | null = null;
   for (const p of room.listPrices) if (p.effectiveFrom <= date) found = p;
   return found;
-}
-
-/** BR-201/202: the discount of the nearest lower term (unknown term → none). */
-export function termDiscountPct(
-  months: number | null,
-  terms: ReadonlyArray<{ months: number; discountPct: number }>,
-): number {
-  if (months === null) return 0;
-  let best: { months: number; discountPct: number } | null = null;
-  for (const t of terms) if (t.months <= months && (!best || t.months > best.months)) best = t;
-  return best ? Number(best.discountPct) : 0;
 }
 
 interface RoomShort {
@@ -228,33 +204,8 @@ export function estimatePublicRate(
   const fitting = rooms.filter((x) => x.maxOccupancy >= persons);
   if (fitting.length === 0) return { ...base, status: 'over_capacity' };
 
-  if (long) {
-    const months = r.stayType === 'long' ? r.months : null;
-    const pct = termDiscountPct(months, p.leaseTerms);
-    const gaps: string[] = [];
-    const rents: number[] = [];
-    for (const room of fitting) {
-      if (room.blocked) continue;
-      const list = listOn(room, r.arrival);
-      if (!list || !(list.monthlyVnd > 0)) {
-        gaps.push(room.roomId);
-        continue;
-      }
-      rents.push(applyPct(list.monthlyVnd, 100 - pct, p.monthlyUnit));
-    }
-    if (rents.length === 0) return { ...base, priceGapRoomIds: gaps, status: 'unavailable' };
-    return {
-      ...base,
-      priceGapRoomIds: gaps,
-      status: 'ok',
-      longStay: {
-        months,
-        termDiscountPct: pct,
-        monthlyFromVnd: Math.min(...rents),
-        monthlyToVnd: Math.max(...rents),
-      },
-    };
-  }
+  // ESC-043 câu 2 (INV 01/11): no monthly number on the web – the page shows the special-offer invitation.
+  if (long) return { ...base, status: 'monthly_offer' };
 
   const departure = r.departure as LocalDate;
   const n = nights as number;

@@ -5,7 +5,7 @@
  *
  * Reads, in the caller's transaction (read only on the public route): the pricing parameters ONCE as of the
  * business date (`PricingService.load` – the same engine as `calculateQuote` / `createReservation`, channel DIRECT),
- * `web_estimate.parity_mode`, `web_estimate.open_until`, `lease_terms`, `rounding.monthly_rent`, the sellable rooms
+ * `web_estimate.parity_mode`, `web_estimate.open_until`, the sellable rooms
  * of the type with their list prices, and the OOO blocks overlapping the stay. NEVER reads reservations, holds,
  * occupancy or room statuses (SEC SR-PE-04: the estimate does not depend on bookings).
  *
@@ -71,23 +71,11 @@ export class PublicRatePort {
     const pricing = await this.pricing.load(tx, asOf);
     const mode = await this.optional<string>(tx, 'web_estimate.parity_mode', asOf, 'ota_floor');
     const openUntil = await this.optional<string | null>(tx, 'web_estimate.open_until', asOf, null);
-    const terms = await this.optional<Array<{ months: number; discountPct: number | string }>>(
-      tx,
-      'lease_terms',
-      asOf,
-      [],
-    );
-    const monthlyUnit = await this.params.get<number>(tx, 'rounding.monthly_rent', asOf);
     return {
       pricing,
       // BR-116 (3): anything but an explicit `direct` is the safe mode.
       parityMode: mode === 'direct' ? 'direct' : 'ota_floor',
       openUntil: typeof openUntil === 'string' && DATE.test(openUntil) ? openUntil : null,
-      leaseTerms: (Array.isArray(terms) ? terms : []).map((t) => ({
-        months: Number(t.months),
-        discountPct: Number(t.discountPct),
-      })),
-      monthlyUnit: Number(monthlyUnit),
     };
   }
 
@@ -116,10 +104,9 @@ export class PublicRatePort {
       room_id: string;
       effective_from: string;
       nightly: string | number;
-      monthly: string | number;
     }>(
-      `SELECT room_id, effective_from::text AS effective_from, nightly_list_price_vnd AS nightly,
-              monthly_list_price_vnd AS monthly
+      // Nightly prices only: the web never shows a monthly price (ESC-043 câu 2).
+      `SELECT room_id, effective_from::text AS effective_from, nightly_list_price_vnd AS nightly
          FROM room_list_price WHERE room_id = ANY($1::uuid[]) ORDER BY room_id, effective_from`,
       [rows.map((r) => r.id)],
     );
@@ -134,7 +121,6 @@ export class PublicRatePort {
         .map((x) => ({
           effectiveFrom: x.effective_from,
           nightlyVnd: Number(x.nightly),
-          monthlyVnd: Number(x.monthly),
         })),
     }));
   }
@@ -158,8 +144,6 @@ export class PublicRatePort {
           pricing: p.pricing,
           parityMode: p.parityMode,
           openUntil: p.openUntil,
-          leaseTerms: p.leaseTerms,
-          monthlyUnit: p.monthlyUnit,
           rooms: rooms.map((r) => ({
             g: r.groupCode,
             b: r.baseOccupancy,

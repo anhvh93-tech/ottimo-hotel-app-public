@@ -307,6 +307,10 @@ info:
       `PUBLIC_FORM_NOT_READY` kiểm theo `LANDING_LOCALES`. Cờ `unexpected_script` xét theo bảng chữ của `locale` (Hangul cho `ko`, Han cho `zh`, Cyrillic cho `ru`).
     - erd (BE làm migration, ARC cập nhật `erd.md` 4.14 ở bước Phản hồi & sửa): CHECK locale của `privacy_notice_version`, `website_booking_request` nới thêm `ko`, `zh`;
       cột `website_booking_request.price_estimate jsonb NULL`; khóa `public_show_prices` (bool, OWN, audit `config`); mục đích HKDF `public_estimate`.
+    - **0.3.9 bổ sung 1 (BE theo lệnh ORC, INV quyết ESC-043 01/11 – bản nháp chưa phát hành nên sửa thẳng)**: thuê theo tháng (`stayType = long`, hoặc `short` ≥ 28 đêm)
+      **không có số tiền** trên web – `priceAvailable: false` + `unavailableReason: monthly_offer` (trang hiện lời mời ưu đãi/báo giá riêng). Bỏ `PublicPriceEstimate.longStay`,
+      `PublicPriceEstimate.longStayAlternative`, mã ghi chú `monthly_excludes_utilities` và `PublicPriceEstimateRecord.monthlyFromVnd` (không còn token cho thuê tháng). Không dòng giá
+      tháng hộ chiếu nước ngoài; khóa `web_estimate.show_foreigner_monthly` không tạo. Câu 1 = C: `web_estimate.parity_mode` giữ `ota_floor` mặc định, không đổi mã.
 
     ## Thay đổi phiên bản 0.3.8-draft (R3 Sprint 1 – hợp đồng trước code; chi tiết `rounds/round-03/outputs/ARC/s1-contracts.md`)
     **0.3.8 bổ sung 8 (ARC 26/10, ESC-031 – INV 26/10 "vá luôn", ESC-024 B)**: `checkOut.lateFeeInsteadOfNight.postReview` (boolean, mặc định `false`) – cách (4) "lễ tân ghi, quản lý hậu kiểm" cho v1.0 (chưa có US-164): đúng số server tính, lý do bắt buộc, không mật khẩu/PIN/TOTP của ai, không FOC trong lệnh; audit `after.channel = post_review`; `late_fee_post_review` (thông báo + "Cần chú ý") hạn = ghi + `post_checkout_charge_hours` (thay `late_fee_post_review_hours` – khóa này **bỏ**, cả cách (3)). Chỉ thêm trường tùy chọn – không đổi response, `x-roles`, không mã lỗi mới. v1.1 (US-164): cách (4) **thôi nhận** (422 `NOT_ALLOWED`), thay bằng (3) – `s1-contracts.md` mục 13.5.
@@ -9101,7 +9105,8 @@ paths:
         **Cách tính**: cổng `reservations/public` `PublicRatePort` dùng **chung** `PricingService` với `calculateQuote`/`createReservation` – kênh `direct`, nguồn `website`: giá đêm niêm yết
         từng căn (BR-101), lịch giá cuối tuần/ngày đặc biệt (BR-104), giảm theo số đêm (BR-107), làm tròn (BR-005), phụ thu người (BR-110). Xét các căn có `publicRoomType` khớp slug,
         `is_sellable`, sức chứa vừa đoàn; giá của hạng = căn có **tổng thấp nhất** [GIẢ ĐỊNH A2 – DOM chốt]. **Không** xét căn có trống hay không. Không mã khách quay lại (BR-111),
-        không FOC, không giá thỏa thuận. Dài hạn (`stayType = long`, hoặc `short` ≥ 28 đêm – BR-108): `longStay.monthlyFromVnd` = giá tháng niêm yết thấp nhất (BR-101 (3)).
+        không FOC, không giá thỏa thuận. Dài hạn (`stayType = long`, hoặc `short` ≥ 28 đêm – BR-108): **không có số** – `priceAvailable: false` + `unavailableReason: monthly_offer`
+        (ESC-043 câu 2, INV 01/11: chỉ lời mời ưu đãi/báo giá riêng; không token).
         **Không lộ dữ liệu nội bộ** (FB-INV-009; test hợp đồng): phản hồi theo danh sách cho phép (`additionalProperties: false`) – **không** số căn, `roomId`/`roomNo`/mã nhóm,
         còn/hết hay số phòng còn lại, giá OTA nền (BR-103), hoa hồng, phí kênh, `ottimoRemainingVnd`, biên, giá sàn/trần (BR-105). Slug lạ và hạng không có căn bán cùng trả
         `priceAvailable: false` + `on_request`.
@@ -9157,8 +9162,8 @@ paths:
                     computedAt: '2026-11-03T10:00:00+07:00'
                     estimateToken: 'pe1.eyJydCI6InN0YW5kYXJk…'
                     expiresAt: '2026-11-04T10:00:00+07:00'
-                longStay:
-                  summary: Ở 3 tháng – "từ X/tháng"
+                monthlyOffer:
+                  summary: Thuê theo tháng – không có số, trang hiện lời mời ưu đãi/báo giá riêng (ESC-043 câu 2)
                   value:
                     estimate: true
                     currency: VND
@@ -9166,12 +9171,10 @@ paths:
                     roomType: standard-studio-garden-view
                     stayKind: long
                     arrival: '2026-12-01'
-                    priceAvailable: true
-                    longStay: { months: 3, monthlyFromVnd: 8000000 }
-                    notes: [{ code: monthly_excludes_utilities }]
+                    priceAvailable: false
+                    unavailableReason: monthly_offer
+                    notes: []
                     computedAt: '2026-11-03T10:00:00+07:00'
-                    estimateToken: 'pe1.eyJydCI6InN0YW5kYXJk…'
-                    expiresAt: '2026-11-04T10:00:00+07:00'
                 onRequest:
                   summary: Đoàn vượt sức chứa mọi căn của hạng – vẫn gửi yêu cầu được
                   value:
@@ -13602,7 +13605,7 @@ components:
       required: [estimate, currency, taxIncluded, roomType, stayKind, arrival, priceAvailable, notes, computedAt]
       description: |
         **0.3.9 (R4 – FB-INV-009)** – phản hồi `getPublicPriceEstimate`. **Danh sách cho phép**: không thêm trường nào ngoài schema (test hợp đồng kiểm khóa và chuỗi cấm –
-        `lp-v2-design.md` mục 2.4). Số là VND nguyên; trang định dạng theo ngôn ngữ của trang. `priceAvailable = true` → có đúng một trong `shortStay` / `longStay` theo `stayKind`.
+        `lp-v2-design.md` mục 2.4). Số là VND nguyên; trang định dạng theo ngôn ngữ của trang. `priceAvailable = true` → có `shortStay` (chỉ ngắn ngày – thuê tháng không bao giờ có số, ESC-043).
       properties:
         estimate: { type: boolean, const: true, description: 'Cờ "ước tính" – luôn true; trang ghi rõ giá cuối nằm trong báo giá OTTIMO gửi' }
         currency: { type: string, enum: [VND] }
@@ -13611,16 +13614,17 @@ components:
         stayKind:
           type: string
           enum: [short, long]
-          description: '`long` khi `stayType = long` hoặc `short` ≥ 28 đêm (BR-108) – khi đó trả `longStay`, không trả `shortStay`'
+          description: '`long` khi `stayType = long` hoặc `short` ≥ 28 đêm (BR-108) – khi đó `priceAvailable: false` + `monthly_offer` (không số), không trả `shortStay`'
         arrival: { $ref: '#/components/schemas/LocalDate' }
         departure: { $ref: '#/components/schemas/LocalDate', description: 'Có khi khách gửi `departure`' }
         priceAvailable: { type: boolean }
         unavailableReason:
           type: string
-          enum: [on_request, party_exceeds_room]
+          enum: [on_request, party_exceeds_room, monthly_offer]
           description: |
             Chỉ khi `priceAvailable = false`: `on_request` – hạng không có căn đang bán, slug lạ hoặc thiếu giá niêm yết (không phân biệt – không lộ cấu hình); `party_exceeds_room` – số người
-            tính (người lớn + trẻ 6–11) vượt sức chứa mọi căn của hạng (BR-110) – yêu cầu vẫn gửi được, sale tư vấn nhiều căn
+            tính (người lớn + trẻ 6–11) vượt sức chứa mọi căn của hạng (BR-110) – yêu cầu vẫn gửi được, sale tư vấn nhiều căn; `monthly_offer` (0.3.9 bổ sung 1 – ESC-043) – thuê theo
+            tháng (hoặc ngắn ngày ≥ 28 đêm): web không hiện giá, trang mời gửi yêu cầu để nhận ưu đãi/báo giá riêng
         shortStay:
           type: object
           additionalProperties: false
@@ -13634,20 +13638,6 @@ components:
             extraPersonFeeVnd: { $ref: '#/components/schemas/MoneyVnd', description: 'Tổng phụ thu người cả chuyến (BR-110)' }
             totalVnd: { $ref: '#/components/schemas/MoneyVnd', description: '= `roomSubtotalVnd` − `losDiscountVnd` + `extraPersonFeeVnd` (bộ tính chung, làm tròn BR-005)' }
             nightlyAvgVnd: { $ref: '#/components/schemas/MoneyVnd', description: '`totalVnd` ÷ `nights`, làm tròn gần nhất 1 đồng – chỉ để hiện "≈ X/đêm" (cách làm tròn khi hiện: DOM K11)' }
-        longStay:
-          type: object
-          additionalProperties: false
-          required: [months, monthlyFromVnd]
-          properties:
-            months: { type: [integer, 'null'], minimum: 1, maximum: 24, description: 'Số tháng khách chọn; null = chưa biết' }
-            monthlyFromVnd: { $ref: '#/components/schemas/MoneyVnd', description: 'Giá tháng niêm yết thấp nhất của hạng (BR-101 (3)) – "từ X/tháng". Chưa gồm điện nước, phí dịch vụ, ký quỹ, phụ thu BR-109 (câu điều kiện theo `notes` – DOM chốt)' }
-        longStayAlternative:
-          type: object
-          additionalProperties: false
-          required: [monthlyFromVnd]
-          description: 'Ngắn ngày 15–27 đêm (BR-108): giá thuê tháng để khách so – có hay không do DOM chốt (K7); vắng = không hiện'
-          properties:
-            monthlyFromVnd: { $ref: '#/components/schemas/MoneyVnd' }
         notes:
           type: array
           maxItems: 5
@@ -13657,7 +13647,7 @@ components:
             additionalProperties: false
             required: [code]
             properties:
-              code: { type: string, enum: [min_stay, long_stay_required, monthly_excludes_utilities] }
+              code: { type: string, enum: [min_stay, long_stay_required] }
               minNights: { type: integer, minimum: 2, description: 'Chỉ `min_stay` (BR-113)' }
         computedAt: { $ref: '#/components/schemas/Instant' }
         estimateToken:
@@ -13687,7 +13677,6 @@ components:
         totalVnd: { oneOf: [{ $ref: '#/components/schemas/MoneyVnd' }, { type: 'null' }], description: 'Ngắn ngày' }
         losDiscountPct: { oneOf: [{ $ref: '#/components/schemas/Percent' }, { type: 'null' }] }
         extraPersonFeeVnd: { oneOf: [{ $ref: '#/components/schemas/MoneyVnd' }, { type: 'null' }] }
-        monthlyFromVnd: { oneOf: [{ $ref: '#/components/schemas/MoneyVnd' }, { type: 'null' }], description: 'Dài hạn' }
         currency: { type: string, enum: [VND] }
         computedAt: { $ref: '#/components/schemas/Instant' }
         priceVersion: { type: string, pattern: '^[0-9a-f]{16}$' }

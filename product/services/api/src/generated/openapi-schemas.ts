@@ -3634,23 +3634,6 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
             open: false,
           },
         },
-        longStay: {
-          s: {
-            k: 'object',
-            props: {
-              months: { s: { k: 'scalar' } },
-              monthlyFromVnd: { s: { k: 'ref', name: 'MoneyVnd' } },
-            },
-            open: false,
-          },
-        },
-        longStayAlternative: {
-          s: {
-            k: 'object',
-            props: { monthlyFromVnd: { s: { k: 'ref', name: 'MoneyVnd' } } },
-            open: false,
-          },
-        },
         notes: {
           s: {
             k: 'array',
@@ -3682,9 +3665,6 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         totalVnd: { s: { k: 'union', of: [{ k: 'ref', name: 'MoneyVnd' }, { k: 'scalar' }] } },
         losDiscountPct: { s: { k: 'union', of: [{ k: 'ref', name: 'Percent' }, { k: 'scalar' }] } },
         extraPersonFeeVnd: {
-          s: { k: 'union', of: [{ k: 'ref', name: 'MoneyVnd' }, { k: 'scalar' }] },
-        },
-        monthlyFromVnd: {
           s: { k: 'union', of: [{ k: 'ref', name: 'MoneyVnd' }, { k: 'scalar' }] },
         },
         currency: { s: { k: 'scalar' } },

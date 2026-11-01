@@ -323,21 +323,35 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
     expect(unknown).toMatchObject({ priceAvailable: false, unavailableReason: 'on_request' });
   });
 
-  it('long stay (ca 5): from 8.280.000/month, monthly_excludes_utilities', async () => {
-    const r = await estimate({
-      roomType: GARDEN,
-      stayType: 'long',
-      arrival: '2026-12-01',
-      months: 6,
-      adults: 2,
-    });
-    expect(r.statusCode, r.body).toBe(200);
-    expect(r.json()).toMatchObject({
-      stayKind: 'long',
-      priceAvailable: true,
-      longStay: { months: 6, monthlyFromVnd: 8_280_000 },
-      notes: [{ code: 'monthly_excludes_utilities' }],
-    });
+  it('monthly (ESC-043 câu 2): 200 monthly_offer with NO amount and no token – 6 months, unknown length, ≥ 28 nights', async () => {
+    for (const query of <Array<Record<string, string | number>>>[
+      { roomType: GARDEN, stayType: 'long', arrival: '2026-12-01', months: 6, adults: 2 },
+      { roomType: GARDEN, stayType: 'long', arrival: '2026-12-01', adults: 2 },
+      { roomType: GARDEN, arrival: '2026-11-10', departure: '2026-12-10', adults: 2 },
+    ]) {
+      const r = await estimate(query);
+      expect(r.statusCode, r.body).toBe(200);
+      const b = r.json();
+      expect(b).toMatchObject({
+        stayKind: 'long',
+        priceAvailable: false,
+        unavailableReason: 'monthly_offer',
+      });
+      expect(b).not.toHaveProperty('estimateToken');
+      expect(b).not.toHaveProperty('longStay');
+      expect(b).not.toHaveProperty('shortStay');
+      // No money anywhere in the body: not the DS-E monthly prices, not any "…Vnd" key.
+      expect(r.body).not.toMatch(/Vnd|8280000|8550000|9000000|9110000/);
+    }
+    const long28 = (
+      await estimate({
+        roomType: GARDEN,
+        arrival: '2026-11-10',
+        departure: '2026-12-10',
+        adults: 2,
+      })
+    ).json();
+    expect(long28.notes).toEqual([{ code: 'long_stay_required' }]);
   });
 
   it('422 field codes; unknown / repeated parameter; Sec-Fetch-Site cross-site → 403; POST → 404', async () => {
@@ -417,7 +431,6 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
       totalVnd: 2_250_000,
       losDiscountPct: 0,
       extraPersonFeeVnd: 0,
-      monthlyFromVnd: null,
       currency: 'VND',
       computedAt: shown.computedAt,
       priceVersion: expect.stringMatching(/^[0-9a-f]{16}$/),

@@ -62,3 +62,11 @@ Giới hạn tần suất (SR-PE-07, RAM, không ghi `rate_limit_counter`): HMAC
 
 ## 7. Việc chưa xong
 - Mục 10 SEC về `chatSafeText` (dấu chấm `。`, tên miền Kirin) thuộc nhánh Google Chat (`be/gchat-*`) – không có trên nhánh này.
+
+## 8. Phản hồi & sửa – ESC-043 (INV 01/11)
+- Câu 1 = C (nâng giá trực tiếp bằng OTA): không đổi mã; `web_estimate.parity_mode` giữ `ota_floor` mặc định.
+- Câu 2 – thuê tháng không hiện giá: `stayType = long` và ngắn ngày ≥ 28 đêm trả **200, `priceAvailable: false`, `unavailableReason: monthly_offer`**, không có số tiền, không token (≥ 28 đêm kèm `notes: [{code: long_stay_required}]`). Vượt sức chứa vẫn `party_exceeds_room`; hạng không có căn bán vẫn `on_request`. Bộ tính không đọc giá tháng nữa (`monthly_list_price_vnd`, `lease_terms`, `rounding.monthly_rent` không còn được đọc ở route công khai).
+- OpenAPI 0.3.9-draft (bản nháp chưa phát hành, sửa theo lệnh ORC – ARC xem lại): thêm enum `monthly_offer`; bỏ `PublicPriceEstimate.longStay`, `longStayAlternative`, mã ghi chú `monthly_excludes_utilities`, `PublicPriceEstimateRecord.monthlyFromVnd`; ví dụ `monthlyOffer`. Sinh lại meta/schemas/api-client.
+- Migration 0090: bỏ khóa `web_estimate.show_foreigner_monthly` (chưa phát hành nên sửa thẳng file).
+- Mục 3 L10 (giá tháng hộ chiếu nước ngoài, phí dịch vụ tháng) và giả định G3/G5 (giá tháng) không còn áp dụng.
+- Kiểm: toàn bộ test api 3321 đạt / 24 bỏ qua / 0 lỗi; `pnpm lint` xanh; admin-web 644, api-client 32 đạt.

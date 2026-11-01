@@ -27,8 +27,6 @@ export interface EstimatePayload {
   i: number;
   /** total of the "from" room (short stay) */
   tot?: number;
-  /** monthly "from" (long stay) */
-  mf?: number;
   /** nights (short) */
   n?: number;
   /** BR-107 % shown */
@@ -80,7 +78,6 @@ function wellFormed(p: unknown): p is EstimatePayload {
     isInt(o.c) &&
     isInt(o.i) &&
     (o.tot === undefined || isInt(o.tot)) &&
-    (o.mf === undefined || isInt(o.mf)) &&
     typeof o.pv === 'string' &&
     isInt(o.iat) &&
     isInt(o.exp)

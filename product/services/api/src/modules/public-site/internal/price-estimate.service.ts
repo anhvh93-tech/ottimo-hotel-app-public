@@ -184,7 +184,8 @@ export const requestOf = (q: EstimateQuery): PublicRateRequest => ({
 
 /**
  * SR-PE-01: the public answer, field by field (OpenAPI PublicPriceEstimate, additionalProperties: false).
- * `toTotalVnd`, `lines`, `monthlyToVnd`, `termDiscountPct`, `priceGapRoomIds` and the status names never leave.
+ * `toTotalVnd`, `lines`, `priceGapRoomIds` and the status names never leave. A monthly stay never has a number
+ * (`monthly_offer` – ESC-043 câu 2).
  */
 export function publicEstimateDto(
   q: EstimateQuery,
@@ -198,9 +199,7 @@ export function publicEstimateDto(
     notes.push({ code: 'min_stay', minNights: e.minNights });
   }
   if (e.longStayRequired) notes.push({ code: 'long_stay_required' });
-  if (e.stayKind === 'long') notes.push({ code: 'monthly_excludes_utilities' });
   const s = e.shortStay;
-  const l = e.longStay;
   return {
     estimate: true,
     currency: 'VND',
@@ -211,7 +210,14 @@ export function publicEstimateDto(
     ...(q.departure !== null ? { departure: q.departure } : {}),
     priceAvailable: ok,
     ...(!ok
-      ? { unavailableReason: e.status === 'over_capacity' ? 'party_exceeds_room' : 'on_request' }
+      ? {
+          unavailableReason:
+            e.status === 'over_capacity'
+              ? 'party_exceeds_room'
+              : e.status === 'monthly_offer'
+                ? 'monthly_offer'
+                : 'on_request',
+        }
       : {}),
     ...(ok && e.stayKind === 'short' && s
       ? {
@@ -226,9 +232,6 @@ export function publicEstimateDto(
             nightlyAvgVnd: s.nightlyAvgVnd,
           },
         }
-      : {}),
-    ...(ok && e.stayKind === 'long' && l
-      ? { longStay: { months: l.months, monthlyFromVnd: l.monthlyFromVnd } }
       : {}),
     notes,
     computedAt: c.computedAt,
@@ -444,7 +447,6 @@ export class PriceEstimateService {
       const iat = Math.floor(c.computedAt.getTime() / 1000);
       const exp = iat + ESTIMATE_TOKEN_TTL_SECONDS;
       const s = c.estimate.shortStay;
-      const l = c.estimate.longStay;
       const payload: EstimatePayload = {
         rt: q.roomType,
         st: q.stayType,
@@ -457,7 +459,6 @@ export class PriceEstimateService {
         ...(s
           ? { tot: s.totalVnd, n: s.nights, los: s.losDiscountPct, xp: s.extraPersonFeeVnd }
           : {}),
-        ...(l ? { mf: l.monthlyFromVnd } : {}),
         pv: c.priceVersion,
         iat,
         exp,
@@ -505,7 +506,6 @@ export class PriceEstimateService {
       totalVnd: t.tot ?? null,
       losDiscountPct: t.los ?? null,
       extraPersonFeeVnd: t.xp ?? null,
-      monthlyFromVnd: t.mf ?? null,
       currency: 'VND',
       computedAt: pc.iso(new Date(t.iat * 1000)),
       priceVersion: t.pv,
@@ -516,7 +516,6 @@ export class PriceEstimateService {
       const x = await this.compute(tx, p, pc.today, { ...r, roomType: t.rt });
       await tx.query('RELEASE SAVEPOINT price_estimate');
       const s = x.estimate.shortStay;
-      const l = x.estimate.longStay;
       atSubmit = {
         status: x.estimate.status,
         stayKind: x.estimate.stayKind,
@@ -530,14 +529,6 @@ export class PriceEstimateService {
               losDiscountVnd: s.losDiscountVnd,
               extraPersonFeeVnd: s.extraPersonFeeVnd,
               lines: s.lines,
-            }
-          : {}),
-        ...(l
-          ? {
-              months: l.months,
-              termDiscountPct: l.termDiscountPct,
-              monthlyFromVnd: l.monthlyFromVnd,
-              monthlyToVnd: l.monthlyToVnd,
             }
           : {}),
         ...(x.estimate.minNights ? { minNights: x.estimate.minNights } : {}),
