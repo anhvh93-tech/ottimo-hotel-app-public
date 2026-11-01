@@ -58,7 +58,9 @@ const strings: BookingStrings = {
   notSent: 'Bản xem trước: yêu cầu chưa được gửi. Vui lòng nhắn chúng tôi qua Zalo.',
   estimate: {
     label: 'Giá ước tính',
-    final: 'Giá chính thức có trong báo giá chúng tôi gửi bạn.',
+    // CPY lp-v2-copy 14.1 (BUG-R4-003)
+    final: 'Chưa giữ phòng cho bạn. Giá chính thức và phòng trống được xác nhận trong báo giá.',
+    guests: (n) => `Cho ${n}\u00a0khách.`,
     prompt: 'Chọn hạng phòng và ngày ở để xem giá ước tính.',
     anyRoom: 'Chọn một hạng phòng để xem giá ước tính, hoặc để chúng tôi gợi ý trong báo giá.',
     loading: 'Đang tính giá…',

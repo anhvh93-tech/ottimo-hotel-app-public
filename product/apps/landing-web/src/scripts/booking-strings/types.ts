@@ -69,8 +69,13 @@ export interface BookingStrings {
 export interface EstimateStrings {
   /** Box title (all states with a number). */
   label: string;
-  /** Always under the number: the final rate is in our quote. */
+  /** Always under the number: no room is held yet; the quote confirms the final rate and availability (CPY 14.1). */
   final: string;
+  /**
+   * First sentence of the S3 note (CPY lp-v2-copy 14.1–14.2, BUG-R4-003): the figure is for this party. n = every
+   * guest declared in the form (adults + children 6–11 + under 6). U+00A0 between the number and its word.
+   */
+  guests: (n: number) => string;
   /** S0: room type or dates missing. */
   prompt: string;
   /** S1: "Any room" chosen. */

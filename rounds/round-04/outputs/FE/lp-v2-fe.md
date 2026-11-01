@@ -106,3 +106,35 @@ Trả lời từng thẻ: `rounds/round-04/responses/FE-B-LP-v2.md`. Chữ: CPY 
 - SEC FE-02: nhãn version thật. ARC FE-03: lấy chữ `2026-10-31` của `main` khi gộp. ARC FE-04: QA đo LCP/CLS trên staging.
 - Người bản xứ: thêm câu mới CPY mục 13 + Δ5 L3 vào lượt đọc (SEC D4, CPY 9).
 - UXD FE-11 (Suggestion "VND" nhỏ hơn): làm khi UXD cập nhật design system D2.
+
+## 8. Kiểm thử – sửa lỗi QA (01/11/2026, nhánh `lp-v2-fe2` từ `lp-v2` + `lp-v2-be2` 7d9e306f)
+
+### 8.1 Đã làm
+- **BUG-R4-001 (FE-A, US-131 AC10):** ngăn S35 thêm dòng "Giá ước tính khách đã thấy: {số} – tính lúc {ngày giờ}" từ `priceEstimate` (phần `seen` server đã kiểm chữ ký); không có số (null, theo tháng) → "Khách chưa thấy giá". Nếu API có `priceEstimate.atSubmit.fromTotalVnd` khác số đã thấy thì thêm dòng "Lúc khách gửi, hệ thống tính lại: {số}" (hợp đồng 0.3.10 chưa có trường này – chỉ đọc khi có). Báo giá từ yêu cầu: cùng ngày đến, số đêm, số khách (và cùng hạng công khai nếu căn có) mà tổng khác → cảnh báo "Đã đổi: {cũ} → {mới}" + câu nhắc giải thích với khách; trùng → "Khớp giá ước tính…"; đầu vào khác → chỉ ghi số khách đã thấy, không nói "đã đổi".
+- **BUG-R4-002 (FE-A):** `webreq.locale.ko` "Tiếng Hàn"/"Korean", `webreq.locale.zh` "Tiếng Trung (giản thể)"/"Chinese (Simplified)"; `ru` đã có. Test 5 locale × vi/en.
+- **BUG-R4-003 (FE-B):** áp chữ CPY mục 14: `estimate.final` mới, khóa mới `estimate.guests(n)` (en 1/còn lại, ru `gen()` sau "для", U+00A0 sau số; ko viết liền). Ghi chú S3: `guests(n)` → `currency` (trừ vi) → `taxIn/taxOut` → `final`, ghép `joinSentences`. n = người lớn + trẻ 6–11 + dưới 6, **đọc lại từ query của chính con số** (`guestsOfSearch`) nên câu số khách luôn khớp số trên màn hình. `live`, `done`, `extraGuest` giữ nguyên. Chạy lại `sync:fonts:cjk` (font zh đổi; ko đã phủ đủ).
+- **AC4 cỡ chữ:** `.est-note` 13 px → **15 px** (bằng nhãn ô `.f-label`, bằng các dòng khác của khối giá; lớn hơn gợi ý/lỗi 14 px).
+- **BUG-R4-004 phần Desk (FE-A, lệnh ORC):** ngăn sửa căn (H04 `RoomDrawer`) thêm "Hạng phòng công khai": chọn 1 trong 4 hạng đúng chữ `production-defaults.ts` + "Chưa gán" (gửi `null`); chỉ owner sửa, manager xem chỉ đọc kèm "Chỉ chủ đầu tư đổi được hạng này."; chỉ gửi `publicRoomType` khi owner đổi. Mock MSW: manager gửi trường → 403. Desk chưa có màn "thêm căn" nên chỉ làm ở ngăn sửa. Cột "Hạng phòng" S35 đã dùng `roomTypeLabel` khi server có nhãn (slug chỉ hiện khi không khớp hạng) – không đổi.
+
+### 8.2 Đo khối giá 360 px (TC-LP-063, 29 đêm, 2 người lớn + 1 trẻ dưới 6 → "3 khách")
+| | Cao khối | Cao ghi chú | Tràn ngang |
+|---|---|---|---|
+| en | 273 px | 122 px | 0 |
+| vi | 250 px | 99 px | 0 |
+| ko | 268 px | 111 px | 0 |
+| zh | 273 px | 114 px | 0 |
+| ru | 294 px | 122 px | 0 |
+Khối giá nằm dưới ô hạng phòng, chỉ cao lên sau khi khách chọn → không xô phần phía trên (CLS); UXD xem ảnh để chốt.
+
+### 8.3 Kiểm
+- admin-web vitest 63 file / 657 test đạt (gồm 13 test mới `r4-lp-v2-fea.test.tsx`); landing vitest 12 file / 281 đạt; `pnpm lint` (eslint + typecheck 13 workspace) xanh; `format:check` xanh; `check:dist` dist / preview / live sạch; Playwright landing 149/149 (thêm TC-LP-063 × 5, sửa TC-LP-050, TC-LP-060 zh).
+- Ảnh (dữ liệu giả): `screenshots/lp-v2-fe2-estimate-{en,vi,ko,zh,ru}-360.png`; Desk `lp-v2-fe2-desk-drawer-seen-ko.png`, `lp-v2-fe2-desk-drawer-noprice-zh.png`, `lp-v2-fe2-desk-quote-changed.png`, `lp-v2-fe2-desk-room-public-type-{owner,manager}.png`; TC-LP-061 chụp lại `lp-v2-*-form.png` với ghi chú mới.
+
+### 8.4 Giả định
+- "Chữ nội dung form" (AC4) = nhãn ô 15 px (ô nhập 16 px là cỡ chống iOS phóng to, không phải chữ đọc). Nếu PO/UXD hiểu là 16 px thì đổi một dòng CSS. `[GIẢ ĐỊNH – FE; UXD/PO xác nhận]`
+- `atSubmit` ra API: đọc `priceEstimate.atSubmit.fromTotalVnd` nếu ARC thêm (SEC FB-R4-SEC-BE-03); chưa có thì chỉ hiện `seen`.
+- So sánh "Đã đổi" bỏ qua hạng khi căn chưa trả `publicRoomType`.
+
+### 8.5 Còn chờ
+- ARC: thêm `atSubmit` chỉ đọc vào `PublicPriceEstimateRecord` (nếu chọn) – FE đã sẵn.
+- UXD/CPY: duyệt chữ Desk mới (`webreq.estimate_*`, `rooms.public_type*`) và chiều cao khối giá; người bản xứ đọc câu mới (CPY 14.7).

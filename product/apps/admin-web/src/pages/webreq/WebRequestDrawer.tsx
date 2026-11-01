@@ -31,6 +31,7 @@ import {
   guestsText,
   phoneDisplay,
   phoneLinks,
+  seenEstimate,
   sourceText,
   stayText,
 } from './labels';
@@ -75,7 +76,7 @@ export function WebRequestDrawer({
   onClose: () => void;
   onChanged: () => void;
 }) {
-  const { t, dateTime } = useI18n();
+  const { t, dateTime, vnd } = useI18n();
   const propertyId = usePropertyId();
   const { me, roles, property } = useSession();
   const { online } = useOnline();
@@ -103,6 +104,7 @@ export function WebRequestDrawer({
   const [notice, setNotice] = useState<string | null>(null);
 
   const r = res.state.data;
+  const seen = r ? seenEstimate(r) : null;
   const notFound = isApiError(res.state.error) && res.state.error.code === 'NOT_FOUND';
   const can = (a: WebsiteBookingRequestAction) => !!r?.allowedActions?.some((x) => x.action === a);
 
@@ -324,6 +326,29 @@ export function WebRequestDrawer({
               <dd>{guestsText(t, r)}</dd>
               <dt>{t('webreq.col.room_type')}</dt>
               <dd>{r.roomTypeLabel ?? r.roomType ?? t('webreq.room_any')}</dd>
+              <dt>{t('webreq.estimate_seen')}</dt>
+              <dd>
+                {seen ? (
+                  <>
+                    {t('webreq.estimate_seen_value', {
+                      amount: `${vnd(seen.totalVnd)} ${t('common.vnd_unit')}`,
+                      time: dateTime(seen.computedAt),
+                    })}
+                    {seen.atSubmitVnd !== undefined ? (
+                      <>
+                        <br />
+                        <span className="li-s">
+                          {t('webreq.estimate_at_submit', {
+                            amount: `${vnd(seen.atSubmitVnd)} ${t('common.vnd_unit')}`,
+                          })}
+                        </span>
+                      </>
+                    ) : null}
+                  </>
+                ) : (
+                  t('webreq.estimate_none')
+                )}
+              </dd>
               <dt>{t('webreq.locale')}</dt>
               <dd>{t(`webreq.locale.${r.locale}`)}</dd>
               <dt>{t('webreq.col.sent')}</dt>
@@ -484,6 +509,8 @@ export function WebRequestDrawer({
               // LP-v2 (0.3.10 LandingLocale): quote templates exist in vi/en/ru – ko/zh guests get English.
               locale: r.locale === 'ko' || r.locale === 'zh' ? 'en' : r.locale,
               contact: r.phone || r.email ? { phone: r.phone, email: r.email } : undefined,
+              // US-131 AC10: the quote shows "Changed: seen → now" when Desk's total differs
+              seen: seen ?? undefined,
             },
           }}
           onClose={() => {

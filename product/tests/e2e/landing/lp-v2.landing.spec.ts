@@ -4,7 +4,8 @@
 // public API – getPublicFormToken, createWebsiteBookingRequest and the new getPublicPriceEstimate (OpenAPI
 // 0.3.9-draft) – is answered by page.route on the landing origin, where the landing Caddy proxies it, so the real CSP
 // (connect-src 'self') applies. All numbers and names are made up (no guest data).
-// Test ids: TC-LP-050…059 price estimate, TC-LP-060 ko/zh/ru form, TC-LP-061 screenshots for UXD/QA review.
+// Test ids: TC-LP-050…059 price estimate, TC-LP-060 ko/zh/ru form, TC-LP-061 screenshots for UXD/QA review,
+// TC-LP-063 estimate note at 360 px in every language (BUG-R4-003).
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -180,8 +181,9 @@ test('TC-LP-050 estimate shown (S3): total, nights, average, VAT + final-rate li
   await expect(box(page).locator('.est-main + .est-nights')).toHaveText('for 3 nights');
   await expect(box(page).locator('data.est-amt')).toHaveAttribute('value', '2201001');
   await expect(box(page).locator('.est-line')).toHaveCount(0); // no average a night (DOM, BE lp-v2 6)
+  // BUG-R4-003 (CPY 14.1–14.2): guests(n) first, then currency, tax, "no room is held" + quote confirms rate and availability
   await expect(box(page).locator('.est-note')).toHaveText(
-    'Rates in Vietnamese dong (VND). Taxes included. Your final rate is in the quote we send.',
+    'For 2 guests. Rates in Vietnamese dong (VND). Taxes included. No room is held yet. Your quote confirms the final rate and availability.',
   );
   await expect(page.locator('#bk-est-live')).toHaveText(
     'Estimated rate updated: 2,201,001 VND for 3 nights',
@@ -492,7 +494,7 @@ for (const lang of ['ko', 'zh', 'ru'] as const) {
     if (lang === 'ru') await expect(page.locator('#f-nights')).toHaveText('3 ночи');
     if (lang === 'zh')
       await expect(box(page).locator('.est-note')).toHaveText(
-        '价格以越南盾（VND）计。含税。最终价格以我们发送的报价为准。',
+        '适用于 2 位客人。价格以越南盾（VND）计。含税。尚未为您保留房间。最终价格及是否有房，以我们发送的报价为准。',
       );
     const v = await axeViolations(page, info, `estimate-${lang}`);
     expect(v, JSON.stringify(v, null, 2)).toEqual([]);
@@ -569,6 +571,92 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
       await context.close();
     });
   }
+}
+
+// BUG-R4-003 (US-131 AC4, AC13; CPY lp-v2-copy 14): the note under the figure in every language at 360 px – the
+// party sentence first (n = every guest of the form: 2 adults + 1 under 6 = 3, CPY W9), "no room held" last; the
+// note is never smaller than the form's own text (field labels); no horizontal scroll, nothing spills out of the box,
+// with the longest figure (29 nights, ru the longest text). Box height and a shot of the box for UXD/QA.
+const GUESTS_3: Record<Lang, string> = {
+  en: 'For 3\u00a0guests.',
+  vi: 'Cho 3\u00a0khách.',
+  ko: '3인 기준.',
+  zh: '适用于 3\u00a0位客人。',
+  ru: 'Для 3\u00a0гостей.',
+};
+const NO_ROOM_HELD: Record<Lang, string> = {
+  en: 'No room is held yet.',
+  vi: 'Chưa giữ phòng cho bạn.',
+  ko: '객실은 아직 확보되지 않았습니다.',
+  zh: '尚未为您保留房间。',
+  ru: 'Это ещё не бронирование.',
+};
+for (const lang of Object.keys(PAGES) as Lang[]) {
+  test(`TC-LP-063 ${lang.toUpperCase()} 360px: estimate note = guests(n) … no room held, not smaller than the form text, no overflow (BUG-R4-003)`, async ({
+    browser,
+  }, info) => {
+    mkdirSync(SHOTS, { recursive: true });
+    const context = await browser.newContext({
+      locale: LOCALE[lang],
+      viewport: { width: 360, height: 800 },
+      deviceScaleFactor: 1,
+    });
+    const page = await context.newPage();
+    await recordCsp(page);
+    const errors = watchErrors(page);
+    const m = await mockApi(page);
+    const iso = await openForm(page, lang);
+    await page.locator('#f-infants').selectOption('1');
+    await pickStay(page, iso, 29);
+    const note = box(page).locator('.est-note');
+    await expect(note).toBeVisible();
+    const text = (await note.textContent())!;
+    expect(text.startsWith(GUESTS_3[lang])).toBe(true); // U+00A0 kept between the number and its word
+    expect(text).toContain(NO_ROOM_HELD[lang]);
+    expect(text).not.toMatch(/Your final rate is in the quote we send/);
+    // n is read back from the query the figure answers (adults 2 + children 0 + infants 1)
+    const q = m.estimates.at(-1)!.searchParams;
+    expect([q.get('adults'), q.get('children'), q.get('infants')]).toEqual(['2', '0', '1']);
+    const sizes = await page.evaluate(() => {
+      // CSS pixels, not money: "15px" → 15
+      const px = (sel: string) =>
+        Number(getComputedStyle(document.querySelector(sel)!).fontSize.replace('px', ''));
+      return {
+        note: px('#bk-est .est-note'),
+        label: px('.f-label, .field > label'),
+        hint: px('.hint'),
+      };
+    });
+    expect(sizes.note).toBeGreaterThanOrEqual(sizes.label);
+    expect(sizes.note).toBeGreaterThanOrEqual(sizes.hint);
+    await page.evaluate(() => {
+      document.querySelector<HTMLElement>('.site-h')?.style.setProperty('position', 'static');
+      document.querySelector<HTMLElement>('.stickybar')?.style.setProperty('display', 'none');
+    });
+    await page.evaluate(() => document.fonts.ready);
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+    const fit = await page.evaluate(() =>
+      Array.from(document.querySelectorAll<HTMLElement>('#bk-est, #bk-est > *')).map((e) => ({
+        cls: e.className,
+        over: e.scrollWidth - e.clientWidth,
+      })),
+    );
+    expect(fit.filter((f) => f.over > 0)).toEqual([]);
+    const h = await box(page).evaluate((e) => Math.round(e.getBoundingClientRect().height));
+    const noteH = await note.evaluate((e) => Math.round(e.getBoundingClientRect().height));
+    await info.attach(`estimate-height-${lang}-360.json`, {
+      body: JSON.stringify({ lang, width: 360, boxHeight: h, noteHeight: noteH, ...sizes }),
+      contentType: 'application/json',
+    });
+    console.log(
+      `[TC-LP-063] ${lang} 360px box ${h}px, note ${noteH}px, note ${sizes.note}px / label ${sizes.label}px`,
+    );
+    await box(page).scrollIntoViewIfNeeded();
+    await box(page).screenshot({ path: path.join(SHOTS, `lp-v2-fe2-estimate-${lang}-360.png`) });
+    expect(await cspViolations(page)).toEqual([]);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
 }
 
 // FB-R4-UXD-FE-12: screenshots at 360/390/1024/1280 px for UXD/QA review. The form shot hides the sticky header and

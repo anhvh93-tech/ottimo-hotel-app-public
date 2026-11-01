@@ -63,7 +63,9 @@ const strings: BookingStrings = {
   notSent: 'Preview: this request was not sent. Please chat with us on Zalo.',
   estimate: {
     label: 'Estimated rate',
-    final: 'Your final rate is in the quote we send.',
+    // CPY lp-v2-copy 14.1 (BUG-R4-003): no room held + final rate and availability in the quote
+    final: 'No room is held yet. Your quote confirms the final rate and availability.',
+    guests: (n) => (n === 1 ? 'For 1\u00a0guest.' : `For ${n}\u00a0guests.`),
     prompt: 'Choose a room and your dates to see an estimate.',
     anyRoom: 'Choose a room to see an estimate, or let us suggest one in your quote.',
     loading: 'Checking rates…',

@@ -6,6 +6,7 @@ import {
   estimateQuery,
   estimateSearch,
   estimateView,
+  guestsOfSearch,
   formatVnd,
   joinSentences,
   monthlyProbeQuery,
@@ -533,12 +534,12 @@ describe('price estimate – what the box shows (UXD 3.3, CPY 2)', () => {
   });
 
   it('S3 by the night: total for N nights, VAT line and the final-rate sentence – no average a night (BE lp-v2 6, DOM)', () => {
-    const view = estimateView(est(), BOOKING_STRINGS.en, 'en');
+    const view = estimateView(est(), BOOKING_STRINGS.en, 'en', { guests: 2 });
     expect(view.kind).toBe('price');
     expect(view.main).toEqual(['', '2,201,000 VND', ' for 3\u00a0nights']);
     expect(view.lines).toEqual([]);
     expect(joinSentences(view.note, 'en')).toBe(
-      'Rates in Vietnamese dong (VND). Taxes included. Your final rate is in the quote we send.',
+      'For 2\u00a0guests. Rates in Vietnamese dong (VND). Taxes included. No room is held yet. Your quote confirms the final rate and availability.',
     );
     expect(view.live).toBe('Estimated rate updated: 2,201,000 VND for 3\u00a0nights');
     expect(view.done).toBe('Estimated rate: 2,201,000 VND for 3\u00a0nights');
@@ -577,9 +578,89 @@ describe('price estimate – what the box shows (UXD 3.3, CPY 2)', () => {
     );
   });
 
+  it('BUG-R4-003 / CPY 14.2: S3 note = guests(n) → currency (not vi) → tax → final; n = adults + 6–11 + under 6', () => {
+    // n is read back from the query the figure was computed for (2 adults + 1 child 6–11 + 1 under 6 = 4)
+    const search = estimateSearch({
+      roomType: 'garden-studio',
+      stayType: 'short',
+      arrival: '2026-11-10',
+      departure: '2026-11-13',
+      adults: 2,
+      children: 1,
+      infants: 1,
+    });
+    expect(guestsOfSearch(search)).toBe(4);
+    expect(guestsOfSearch('adults=2&children=0&infants=1')).toBe(3); // W9: 2 adults + a 4-year-old → 3 guests
+    expect(guestsOfSearch('adults=x&children=-1')).toBe(0);
+    for (const l of ['en', 'ko', 'zh', 'ru'] as const) {
+      const S = BOOKING_STRINGS[l];
+      const note = estimateView(est(), S, l, { guests: 3 }).note;
+      expect(note).toEqual([
+        S.estimate.guests(3),
+        S.estimate.currency,
+        S.estimate.taxIn,
+        S.estimate.final,
+      ]);
+    }
+    const vi = BOOKING_STRINGS.vi.estimate;
+    expect(
+      estimateView(est({ taxIncluded: false }), BOOKING_STRINGS.vi, 'vi', { guests: 3 }).note,
+    ).toEqual([
+      'Cho 3\u00a0khách.',
+      vi.taxOut,
+      'Chưa giữ phòng cho bạn. Giá chính thức và phòng trống được xác nhận trong báo giá.',
+    ]);
+    expect(
+      joinSentences(estimateView(est(), BOOKING_STRINGS.ru, 'ru', { guests: 2 }).note, 'ru'),
+    ).toBe(
+      'Для 2\u00a0гостей. Цены во вьетнамских донгах (VND). Налоги включены. Это ещё не бронирование. Итоговую цену и наличие подтвердим в предложении.',
+    );
+    expect(
+      joinSentences(estimateView(est(), BOOKING_STRINGS.ko, 'ko', { guests: 2 }).note, 'ko'),
+    ).toBe(
+      '2인 기준. 요금은 베트남 동(VND) 기준입니다. 세금 포함. 객실은 아직 확보되지 않았습니다. 최종 요금과 예약 가능 여부는 견적에서 안내해 드립니다.',
+    );
+    // the spoken line and the thank-you line stay as they were (CPY 14.2)
+    const en = estimateView(est(), BOOKING_STRINGS.en, 'en', { guests: 2 });
+    expect(en.live).toBe('Estimated rate updated: 2,201,000\u00a0VND for 3\u00a0nights');
+    expect(en.done).toBe('Estimated rate: 2,201,000\u00a0VND for 3\u00a0nights');
+    // no figure → no note at all (offer, S6)
+    expect(
+      estimateView(
+        est({ priceAvailable: false, unavailableReason: 'on_request' }),
+        BOOKING_STRINGS.en,
+        'en',
+        { guests: 2 },
+      ).note,
+    ).toEqual([]);
+  });
+
+  it('CPY 14.5: guests(n) per language – U+00A0 after the number, en 1/other, ru genitive after "для"', () => {
+    const G = (l: 'en' | 'vi' | 'ko' | 'zh' | 'ru', n: number) =>
+      BOOKING_STRINGS[l].estimate.guests(n);
+    expect(G('en', 1)).toBe('For 1\u00a0guest.');
+    expect(G('en', 2)).toBe('For 2\u00a0guests.');
+    expect(G('vi', 2)).toBe('Cho 2\u00a0khách.');
+    expect(G('ko', 2)).toBe('2인 기준.');
+    expect(G('zh', 2)).toBe('适用于 2\u00a0位客人。');
+    expect(G('ru', 1)).toBe('Для 1\u00a0гостя.');
+    for (const n of [2, 3, 5, 11]) expect(G('ru', n)).toBe(`Для ${n}\u00a0гостей.`);
+    expect(G('ru', 21)).toBe('Для 21\u00a0гостя.');
+    for (const l of ['en', 'vi', 'zh', 'ru'] as const) {
+      expect(G(l, 2)).toContain('2\u00a0');
+      expect(G(l, 2)).not.toMatch(/2 /);
+    }
+    for (const l of ['en', 'vi', 'ko', 'zh', 'ru'] as const) {
+      expect(G(l, 4)).not.toMatch(/!/);
+      expect(BOOKING_STRINGS[l].estimate.final).not.toMatch(/\d|!/);
+    }
+  });
+
   it('FB-R4-UXD-FE-08 / CPY 13.2: Chinese sentences joined without a space, the others with one space', () => {
-    expect(joinSentences(estimateView(est(), BOOKING_STRINGS.zh, 'zh').note, 'zh')).toBe(
-      '价格以越南盾（VND）计。含税。最终价格以我们发送的报价为准。',
+    expect(
+      joinSentences(estimateView(est(), BOOKING_STRINGS.zh, 'zh', { guests: 2 }).note, 'zh'),
+    ).toBe(
+      '适用于 2\u00a0位客人。价格以越南盾（VND）计。含税。尚未为您保留房间。最终价格及是否有房，以我们发送的报价为准。',
     );
     expect(joinSentences(['A.', 'B.'], 'ru')).toBe('A. B.');
     expect(joinSentences(['가.', '나.'], 'ko')).toBe('가. 나.');

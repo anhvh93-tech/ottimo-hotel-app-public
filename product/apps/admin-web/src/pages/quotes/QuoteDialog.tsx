@@ -26,6 +26,7 @@ import { useOnline } from '../../hooks/useOnline';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { DepositQr } from '../reservations/DepositQr';
 import { ContactMatches } from '../webreq/ContactMatches';
+import { compareWithSeen, type SeenEstimate } from '../webreq/labels';
 
 export interface QuotePrefill {
   roomId?: string;
@@ -46,6 +47,8 @@ export interface QuotePrefill {
     code: string;
     locale: 'vi' | 'en' | 'ru';
     contact?: { phone?: string; email?: string };
+    /** US-131 AC10 (BUG-R4-001): the website estimate the guest saw – "Changed: seen → now" next to the total. */
+    seen?: SeenEstimate;
   };
 }
 
@@ -139,6 +142,7 @@ export function QuoteDialog({
   };
 
   const room = catalog.rooms.find((r) => r.id === roomId);
+  const seen = prefill.webRequest?.seen;
   const direct = catalog.channels.find((c) => c.channelGroup === 'direct' && c.isActive);
   const agent = catalog.channels.find((c) => c.channelGroup === 'agent' && c.isActive);
   const channel = ctv ? (agent ?? direct) : direct;
@@ -570,6 +574,19 @@ export function QuoteDialog({
                   </tr>
                 </tbody>
               </table>
+              {seen && calc.totalVnd !== undefined && calc.totalVnd !== null ? (
+                <SeenLine
+                  vs={compareWithSeen(seen, {
+                    arrival,
+                    nights,
+                    ...occ,
+                    publicRoomType: room?.publicRoomType,
+                    totalVnd: calc.totalVnd,
+                  })}
+                  from={`${vnd(seen.totalVnd)} ${t('common.vnd_unit')}`}
+                  to={`${vnd(calc.totalVnd)} ${t('common.vnd_unit')}`}
+                />
+              ) : null}
               {calc.commission?.amountVnd !== undefined ? (
                 <>
                   <hr className="hr my-8" />
@@ -734,5 +751,33 @@ export function QuoteDialog({
         )
       ) : null}
     </Modal>
+  );
+}
+
+/**
+ * US-131 AC10 (BUG-R4-001): the quote total against the estimate the guest saw on the website. Same stay and a
+ * different total → "Changed: {seen} → {now}" so staff can explain it to the guest; same → a quiet line; a different
+ * stay (dates, nights, party or public room type) → the seen figure for reference only, never "changed".
+ */
+function SeenLine({
+  vs,
+  from,
+  to,
+}: {
+  vs: 'same' | 'changed' | 'other';
+  from: string;
+  to: string;
+}) {
+  const { t } = useI18n();
+  if (vs === 'changed')
+    return (
+      <Alert tone="warn" title={t('webreq.estimate_changed', { from, to })}>
+        {t('webreq.estimate_changed_hint')}
+      </Alert>
+    );
+  return (
+    <p className="li-s mt-8">
+      {t(vs === 'same' ? 'webreq.estimate_same' : 'webreq.estimate_other', { amount: from })}
+    </p>
   );
 }

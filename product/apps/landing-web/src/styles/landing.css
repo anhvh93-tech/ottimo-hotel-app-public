@@ -2160,11 +2160,13 @@ legend.f-label:not(.sr) {
   color: var(--brand-stone);
   align-self: center;
 }
+/* US-131 AC4 (BUG-R4-003): the conditions next to the figure are never smaller than the form's own text – 15 px, the
+   size of the field labels (.f-label) and of the other lines of this box; was 13 px. */
 .est-note {
   margin-top: var(--s2);
   padding-top: var(--s2);
   border-top: 1px solid var(--brand-cream);
-  font-size: 0.8125rem;
+  font-size: 0.9375rem;
   color: var(--brand-stone);
 }
 .est-skel {

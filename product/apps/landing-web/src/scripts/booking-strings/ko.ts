@@ -64,7 +64,10 @@ const strings: BookingStrings = {
   notSent: '미리보기: 이 요청은 전송되지 않았습니다. Zalo로 문의해 주세요.',
   estimate: {
     label: '예상 요금',
-    final: '최종 요금은 보내 드리는 견적에서 확인하실 수 있습니다.',
+    // CPY lp-v2-copy 14.1 (BUG-R4-003); 2인 is written solid – no space to keep
+    final:
+      '객실은 아직 확보되지 않았습니다. 최종 요금과 예약 가능 여부는 견적에서 안내해 드립니다.',
+    guests: (n) => `${n}인 기준.`,
     prompt: '객실과 날짜를 선택하시면 예상 요금을 보여 드립니다.',
     anyRoom:
       '객실을 선택하시면 예상 요금을 볼 수 있습니다. 고르기 어려우시면 견적과 함께 추천해 드립니다.',

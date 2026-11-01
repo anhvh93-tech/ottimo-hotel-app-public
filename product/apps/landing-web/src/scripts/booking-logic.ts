@@ -334,6 +334,19 @@ export function monthlyProbeQuery(
   };
 }
 
+/**
+ * Every guest an estimate was asked for, read back from its query string (adults + children 6–11 + under 6 – CPY
+ * lp-v2-copy 14.2): the "For n guests" sentence always matches the figure on screen, never a later edit of the form.
+ */
+export function guestsOfSearch(search: string): number {
+  const p = new URLSearchParams(search);
+  const n = (k: string) => {
+    const v = Number(p.get(k) ?? 0);
+    return Number.isInteger(v) && v > 0 ? v : 0;
+  };
+  return n('adults') + n('children') + n('infants');
+}
+
 /** Query string in a fixed order (cache key in the page, URL of the request). */
 export function estimateSearch(q: EstimateQuery): string {
   const p = new URLSearchParams();
@@ -407,6 +420,7 @@ export function estimateView(
     estimate: Pick<
       EstimateStrings,
       | 'final'
+      | 'guests'
       | 'total'
       | 'longStay'
       | 'unavailable'
@@ -423,7 +437,11 @@ export function estimateView(
     priceMonthlyOffer: { label: string; text: string; live: string };
   },
   lang: Lang,
-  opts: { capacity?: number | null } = {},
+  /**
+   * capacity: data-cap of the room type (S6 party message). guests: every guest the estimate was asked for – adults
+   * + children 6–11 + under 6 (CPY 14.2, ORC: everyone declared in the form) – first sentence of the S3 note.
+   */
+  opts: { capacity?: number | null; guests?: number } = {},
 ): EstimateView {
   const E = S.estimate;
   const sep = lang === 'zh' ? '：' : ': ';
@@ -456,7 +474,13 @@ export function estimateView(
     main: split(E.total(MARK, nights), amount),
     value: st.totalVnd,
     lines,
-    note: [...(lang === 'vi' ? [] : [E.currency]), r.taxIncluded ? E.taxIn : E.taxOut, E.final],
+    // S3 note order (CPY 14.2, BUG-R4-003): guests(n) → currency (not vi) → taxIn/taxOut → final (no room held)
+    note: [
+      ...(opts.guests && opts.guests > 0 ? [E.guests(opts.guests)] : []),
+      ...(lang === 'vi' ? [] : [E.currency]),
+      r.taxIncluded ? E.taxIn : E.taxOut,
+      E.final,
+    ],
     live: E.live(amount, nights),
     done: `${E.done}${sep}${E.total(amount, nights)}`,
   };

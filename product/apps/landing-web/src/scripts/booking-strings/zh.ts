@@ -56,7 +56,9 @@ const strings: BookingStrings = {
   notSent: '预览：此申请未发送。请通过 Zalo 联系我们。',
   estimate: {
     label: '预估价格',
-    final: '最终价格以我们发送的报价为准。',
+    // CPY lp-v2-copy 14.1 (BUG-R4-003)
+    final: '尚未为您保留房间。最终价格及是否有房，以我们发送的报价为准。',
+    guests: (n) => `适用于 ${n}\u00a0位客人。`,
     prompt: '选择房型和日期，即可查看预估价格。',
     anyRoom: '选择房型即可查看预估价格；也可由我们在报价中为您推荐。',
     loading: '正在计算价格…',

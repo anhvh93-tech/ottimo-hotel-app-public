@@ -20,6 +20,7 @@ import {
   estimateQuery,
   estimateSearch,
   estimateView,
+  guestsOfSearch,
   joinSentences,
   monthlyOfferView,
   monthlyProbeQuery,
@@ -174,7 +175,10 @@ export function initEstimate(d: EstimateDeps): EstimateBox {
       search,
       long: body.unavailableReason === 'monthly_offer' || body.stayKind === 'long',
     };
-    const view = estimateView(body, d.strings, d.lang, { capacity: d.ctx().capacity });
+    const view = estimateView(body, d.strings, d.lang, {
+      capacity: d.ctx().capacity,
+      guests: guestsOfSearch(search),
+    });
     if (view.kind === 'offer') return showOffer();
     if (view.kind === 'unavailable') {
       shown = null;

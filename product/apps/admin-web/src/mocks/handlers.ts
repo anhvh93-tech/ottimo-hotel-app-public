@@ -790,9 +790,17 @@ export const handlers = [
     const body = (await request.json()) as Record<string, unknown> & {
       listPrice?: Record<string, unknown>;
     };
+    // BUG-R4-004 (lp-v2-be2 7d9e306f): only the owner may send publicRoomType – a manager → 403, nothing saved.
+    if ('publicRoomType' in body && !g.roles.includes('owner'))
+      return problem(403, 'FORBIDDEN_ACTION');
     const base = (body.baseOccupancy as number | undefined) ?? room.baseOccupancy ?? 1;
     const max = (body.maxOccupancy as number | undefined) ?? room.maxOccupancy ?? base + 1;
     const errors: Array<{ field: string; code: string }> = [];
+    if ('publicRoomType' in body && body.publicRoomType !== null) {
+      const v = String(body.publicRoomType).trim().replace(/\s+/g, ' ');
+      if (typeof body.publicRoomType !== 'string' || v.length < 1 || v.length > 60)
+        errors.push({ field: 'publicRoomType', code: 'VALIDATION_FAILED' });
+    }
     if (max !== base && max !== base + 1)
       errors.push({ field: 'maxOccupancy', code: 'MAX_OCCUPANCY_RANGE' });
     if (body.listPrice) {
@@ -819,6 +827,12 @@ export const handlers = [
       baseOccupancy: base,
       maxOccupancy: max,
       isSellable: (body.isSellable as boolean | undefined) ?? room.isSellable,
+      publicRoomType:
+        'publicRoomType' in body
+          ? body.publicRoomType === null
+            ? null
+            : String(body.publicRoomType).trim().replace(/\s+/g, ' ')
+          : (room.publicRoomType ?? null),
       version: room.version + 1,
     });
     if (body.listPrice && String(body.listPrice.effectiveFrom) > businessDayLocal()) {
