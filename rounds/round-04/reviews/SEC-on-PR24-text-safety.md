@@ -162,3 +162,67 @@ Production **chưa** được đặt C cho tới khi đủ các điều kiện �
 ## Dòng decision-log đề xuất
 
 | 2026-11-01 | 4 | **SEC – PR #24 (BE-D, một bộ dò V-09 cho form và Chat): duyệt phía SEC** (`rounds/round-04/reviews/SEC-on-PR24-text-safety.md`, head `b89dbde4`). Gộp sau PR #16, khi CI xanh. GCHAT-07 bước 1–4 và lp-v2 mục 10 đạt trong mã: 63 chuỗi lượt 3 (44/44 bị bắt) và 61 chuỗi cố lách mới, hiệu năng ≤ 2,5 ms. Chấp nhận G2 (form từ chối thêm `201,202,203`, `150,000,000`, SĐT CN/RU thiếu `+`): hỏng theo hướng an toàn, không lưu, không nhắc lại chữ. Thẻ Minor PR24-01 (`№` Nga, hộ chiếu Hàn mẫu mới) là điều kiện trước khi mở LP-v2 ru/ko. Thẻ Minor PR24-02 (ngoại lệ `+`/tiền xét trên bản đã giải mã `%XX`; `đồng ý`, G3) nên sửa trong v1.0.1/v1.0.2. ★5: phần mã đủ; production vẫn chưa đặt C cho tới khi gộp, triển khai và có lượt INT phòng thử. | SEC | Quyền SEC (yêu cầu bảo mật kỹ thuật) |
+
+---
+
+## Lượt 2 – f8080499
+
+- Người review: SEC | Round 4 – Review lượt 2 | 01/11/2026
+- Đọc: `git diff b89dbde4..f8080499` của `sensitive-number.ts` và `log-line.ts`; báo cáo BE mục 7 (trên nhánh). Các phần đã đọc: OR giữa bản giải mã và bản giữ nguyên `%XX`, điều kiện `000`, `amountSpans`, `phonePrefixDigits`, `NUMBER_SIGN`, `MONEY_BEFORE`/`MONEY_AFTER` mới, luật hộ chiếu Hàn.
+- Cách kiểm: như lượt 1. Bộ chạy thử ở scratchpad `sec24`, chỉ thay tệp `sensitive-number.ts` và `log-line.ts` bằng bản `f8080499`. Chạy 63 chuỗi lượt 3, 61 chuỗi cố lách, 27 chuỗi che thừa, 15 chuỗi hiệu năng, cộng 35 chuỗi mới nhắm vào các ngoại lệ vừa thêm. Chỉ dùng số giả.
+- CI của `f8080499` lúc viết: các job đang chạy, chưa có kết quả.
+
+### Kết quả chạy lại
+
+| Bộ | Kết quả trên `f8080499` |
+|---|---|
+| 63 chuỗi lượt 3 | 44/44 chuỗi phải bắt vẫn bị bắt ở form và Chat. `150,000,000` và `150.000.000` nay **hiện** (BUG-R4-016), đúng ý. `201,202,203` và Agoda 9 số vẫn bị che (đã chấp nhận). `Phòng 101 102 103` vẫn bị che như luật cũ. |
+| 61 chuỗi cố lách | So với `b89dbde4`: **10 chuỗi trước lọt nay bị bắt**, không chuỗi nào trước bị bắt nay lọt. Gồm 4 ca `№`/`номер` Nga, 2 ca hộ chiếu Hàn mẫu mới, `ID - 500k` (G3), `… đồng ý`, `… dong`, `%2B079203012345`. Các ca cố ý che (`:` `|` `+` `~` `*` `#`, `O` thay `0`, dingbat, chữ số Hán, `%2520`…) vẫn lọt, mức thấp như lượt 1. |
+| 27 chuỗi che thừa | Che thừa giảm: `150,000,000`, `150.000.000`, `4.500.000 x 30 đêm = 135.000.000`, `100 000 000 000` nay hiện. Không có chuỗi nào mới bị che. |
+| Hiệu năng | Chạy hai bản kiểm nên chậm hơn: chậm nhất **6,6 ms** mỗi lần gọi (`ﷺ` ×500, cả bộ dò lẫn `chatSafeText`). Vẫn rất xa ngưỡng 500 ms của test. |
+| `logLine` | Trường thêm có khóa `toJSON` nay bị bỏ: kết quả là `{"level":"info","msg":"m"}`. `level`/`msg` đè và `__proto__` vẫn không lọt. |
+
+### 35 chuỗi nhắm vào ngoại lệ mới
+
+| Nhóm | Kết quả |
+|---|---|
+| Đơn vị tiền chỉ tha số tận cùng `000` | `CCCD 079203012345 đồng ý`, `… đồng`, `… dong`, `VND 079203012345`, `USD079203012345` đều bị bắt. `VND 150,000,000` hiện. Đạt. |
+| Số giấy tờ cạnh số tiền | `CCCD 079 203 012 345 1 500 000`, `CCCD 079203012345 150 000 000 đ`, `Ngân sách 1 000 000 079 203 012 345` đều bị bắt. Lý do: `amountSpans` chỉ phủ các nhóm của số tiền, cửa sổ chứa nhóm ngoài số tiền vẫn bị xét. Đạt. |
+| Tiền tố `00` | `00 84 905 111 222` và `0084905111222` hiện. CCCD Hà Nội `001 203 012 345` và `0012 0301 2345` vẫn bị bắt. Còn lọt `00 079203012345` và `00 12 03 01 23 45` (CCCD Hà Nội viết từng cặp, cách bằng dấu cách). Hai cách viết này không tự nhiên. Cách viết từng cặp bằng `.`/`-` vốn đã lọt vì bị đọc là ngày. Rủi ro thấp, không mở thẻ. |
+| `№` Nga | `45 06 № 123456`, `4506 номер 123456` bị bắt. **Còn lọt:** `Серия: 45 06 Номер: 123456`, `серия 45 06 №: 123456`, `серия 45 06 Номер 123456`. Hai lý do: `NUMBER_SIGN` phân biệt chữ hoa/thường (`Номер`), và không cho dấu `:` sau ký hiệu. Kiểu "Серия … Номер …" có dấu hai chấm là cách người Nga chép từ mẫu giấy tờ, nên khá tự nhiên. → giữ thẻ 01. |
+| Hộ chiếu Hàn | `M123A4567`, `여권 m123a4567` bị bắt. `VN123A4567` (hai chữ đầu) hiện. Che thừa mới: mã có dạng `A123B4567`, `X100S2000`. Hiếm, hỏng theo hướng an toàn, chấp nhận. |
+
+### Đánh giá rủi ro: số giấy tờ tận cùng `000000` bị coi là tiền
+
+`amountSpans` tha mọi dãy có dạng nhóm nghìn: nhóm đầu 1–3 chữ số, tiếp theo ≥ 2 nhóm 3 chữ số, cùng một dấu tách, hai nhóm cuối là `000`. Việc này không cần đơn vị tiền. Đã xác nhận lọt: `079.203.000.000`, `079 203 000 000`, `CCCD 079,203,000,000`, `CMND 123 000 000`. Cũng lọt khi số giấy tờ bị nối thêm `000 000` (`CCCD 079 203 012 345 000 000`), nhưng đó là cách viết cố ý.
+
+Để lọt, phải đủ cả hai điều kiện:
+- 6 chữ số cuối của số giấy tờ đều là `0`. Với CCCD và CMND, đây là phần số thứ tự, xác suất khoảng 1/1.000.000.
+- Khách viết số theo nhóm 3 bằng `.`, `,` hoặc dấu cách. Viết liền `079203000000` vẫn bị bắt.
+
+Một biến thể nhẹ hơn: số tận cùng `000` đứng sát đơn vị tiền (`CCCD 079203012000 đ`). Xác suất khoảng 1/1.000, nhưng cần khách gõ đơn vị tiền ngay sau số giấy tờ, một cách viết không tự nhiên.
+
+Hộ chiếu, số Hàn/Trung/Nga và luật thẻ (Luhn) không đi qua nhánh này.
+
+Với vài trăm yêu cầu website mỗi năm, số ca lọt kỳ vọng gần bằng 0. Đổi lại, đội bỏ được nhóm che thừa lớn nhất mà QA ghi ở BUG-R4-016: khách ghi ngân sách không có đơn vị.
+
+**Mức: Thấp, chấp nhận.** Không mở thẻ. Comment trong mã đã ghi rõ ca bỏ sót này (`Missed ID: one ending in 000000`).
+
+### Trạng thái thẻ
+
+| Thẻ | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R4-SEC-BE-PR24-01 (Minor) | **Open, phần lớn đã xong** | Hộ chiếu Hàn mẫu mới: **đóng**. `№`/`номер` thường: **đóng**. Còn: `NUMBER_SIGN` thêm cờ `i` và cho phép `:` (đề xuất `(?<=\d)\s*(?:№|No\.?|N[o°º]|номер|nr\.?)\s*:?\s*(?=\d)` với cờ `iu`), kèm 3 ca test ở trên. Vẫn là điều kiện trước khi mở LP-v2 tiếng Nga. Phần tiếng Hàn đã đủ. |
+| FB-R4-SEC-BE-PR24-02 (Minor) | **Closed** | OR giữa hai bản kiểm, điều kiện `000`, `đồng ý`/`dong`, G3: đều kiểm lại đạt. |
+| FB-R4-SEC-BE-PR24-03 (Suggestion) | Phần BE **Done** (2 ca SĐT CN/RU vào danh sách che thừa đã chấp nhận) | Câu báo lỗi vẫn chờ CPY/UXD. Nay ít gấp hơn, vì số tiền không đơn vị đã hết bị từ chối. |
+| FB-R4-SEC-BE-PR24-04 (Suggestion) | **Closed** | `toJSON` bị bỏ, có test. |
+
+### Kết luận lượt 2
+
+**PR #24 vẫn duyệt (phía SEC).** Không có Blocker/Major. Điều kiện gộp như lượt 1: PR #16 gộp trước, và CI của `f8080499` xanh.
+
+**★5 không đổi so với mục 6.** Phần mã đủ: GCHAT-07 bước 1–4 và mục 10 đạt trên `f8080499`. Còn gộp, triển khai v1.0.1 (thay `b89dbde4` bằng `f8080499` trong điều kiện (b)) và lượt kiểm INT trên phòng Chat thử. Thẻ 01 phần còn lại chỉ chặn việc mở LP-v2 tiếng Nga, không chặn mức C.
+
+### Dòng decision-log đề xuất (lượt 2)
+
+| 2026-11-01 | 4 | **SEC – PR #24 lượt 2 (`f8080499`): vẫn duyệt phía SEC** (`rounds/round-04/reviews/SEC-on-PR24-text-safety.md` mục Lượt 2). Đóng PR24-02 (OR bản giải mã/giữ nguyên `%XX`; đơn vị tiền chỉ tha số tận cùng `000`) và PR24-04 (`toJSON`). PR24-01 còn phần `Номер`/`№:` (chữ hoa, dấu hai chấm): điều kiện trước khi mở LP-v2 ru. Chấp nhận rủi ro Thấp: số giấy tờ tận cùng `000000` viết theo nhóm nghìn bị coi là tiền (≈ 1/1.000.000), để bỏ che thừa số tiền không đơn vị (BUG-R4-016). Chạy lại 63 + 61 + 27 + 35 chuỗi: không chuỗi nào trước bị bắt nay lọt; chậm nhất 6,6 ms. ★5: phần mã đủ; còn gộp, triển khai và lượt INT. | SEC | Quyền SEC (mức rủi ro, yêu cầu bảo mật kỹ thuật) |
