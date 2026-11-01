@@ -21,3 +21,40 @@ Chưa chạy staging; nhãn version thông báo tạm; chưa có điểm Lightho
 
 ## Việc chưa xong
 US-175 AC4–AC6; test lại khi BUG-R4-001…004 được sửa; chạy lại C8 + Lighthouse trên staging trước phát hành; C7 (nhánh Google Chat).
+
+---
+
+# QA – v1.0.1 smoke staging (QC ĐK5), 01/11/2026 23:43–23:58
+
+- Bản kiểm: staging `sha-755cad1642ca` (= `main` `755cad16`). Chi tiết: `rounds/round-04/qa/v1.0.1-staging-smoke.md`.
+
+## Đã làm
+1. `smoke-prod` chỉ đọc trên staging: 9/9 (PS-06 với `qa.fd` và `qa.owner` 2FA).
+2. Log worker (SSH chỉ đọc, `/opt/ottimo`): `chat: off NOT_CONFIGURED`, mức A, 20 job chạy, 0 error.
+3. Desk:
+   - Đăng nhập form, 8 màn chính.
+   - Nhận phòng thật OTM-00377 qua 4 bước.
+   - Báo giá trên Desk BG-00058, đọc chữ vi/en/ru.
+   - Mở màn trả phòng OTM-00359 (không hoàn tất).
+4. BUG-R4-009: 15/15 câu báo giá API đúng, Desk 3/3 đúng, trang khách en/ru/vi đúng.
+5. 5xx: 0 phía trình duyệt; log api/web 30 phút cũng 0.
+
+## Kết luận
+Đạt. Lỗi mới: BUG-R4-017 (P3, có sẵn từ v1.0.0).
+
+## File tạo/sửa
+- `rounds/round-04/qa/v1.0.1-staging-smoke.md`
+- `rounds/round-04/qa/bug-list.md`
+- `01-decisions/decision-log.md`
+- tệp này
+
+## Giả định
+- Tài khoản thử DS-E `qa.*` của staging là dữ liệu thử, không phải tài khoản thật.
+- Tiền mặt ghi trên staging là bản ghi thử.
+
+## Rủi ro
+Chưa chạy trọn trả phòng B18 trên image này. v1.0.1 không đổi mã trả phòng, ngoài chữ bill OTA.
+
+## Việc chưa xong
+- Trả phòng OTM-00377 ngày 02/11.
+- `smoke-prod` trên production sau Release (ĐK6).

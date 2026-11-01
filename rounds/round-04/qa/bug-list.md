@@ -10,16 +10,17 @@
 - **v1.0.1 đợt 2 – PR #22** (01/11 ~20:55–21:25, `v1.0.2-ed` @ `99734cda`, stack thử `ottimo-qapr22`): oracle BR-428-01…09 đạt (tính thử = ghi thật, 76/76 bảng không đổi khi tính thử); giá hẹn đạt. Mới BUG-R4-014 (P2) và BUG-R4-015 (P3). ORC giao số "BUG-R4-013…" nhưng 013 đã dùng ở PR #21. Chi tiết: `rounds/round-04/qa/pr22-v1.0.2-ed.md`.
 - **v1.0.1 đợt 2 – PR #24** (01/11 ~21:40, `be-d/v1.0.1-text-safety` @ `b89dbde4`, gồm PR #16): PR đạt, BUG-R3-058 đã sửa – đã xác nhận; mới BUG-R4-016 (P3, che thừa mới so với `main`). Chi tiết: `rounds/round-04/qa/pr24-text-safety.md`.
 - **PR #24 lượt 2** (01/11 ~22:00–22:40, `f8080499`): BUG-R4-016 **đã sửa – đã xác nhận**. 215 ca qua form và Chat C, không hồi quy. Không lỗi mới. Chi tiết: `rounds/round-04/qa/pr24-text-safety.md` mục "Lượt 2". QA cũng dọn bản chép trùng do lần gộp trước để lại: bản BUG-R4-016 mang số cũ 014, và mục 3 bị lặp.
+- **v1.0.1 – smoke staging (QC ĐK5)**, 01/11 23:43–23:58, staging `sha-755cad1642ca` (`main` `755cad16`): **đạt**. `smoke-prod` 9/9; worker `chat: off` mức A; Desk nhận phòng và báo giá không lỗi; 0 phản hồi 5xx. BUG-R4-009 đạt ở báo giá EN/VI/RU (API + Desk) và trang khách. Mới **BUG-R4-017** (P3, có sẵn từ v1.0.0). Chi tiết: `rounds/round-04/qa/v1.0.1-staging-smoke.md`.
 
-## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2)
+## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
 | P2 | 7 | 3 (BUG-R4-011, BUG-R4-013, BUG-R4-014 – mới) | 0 | 4 (BUG-R4-001, 002, 003, 004) |
-| P3 | 9 | 3 (BUG-R4-010 – mở lại, BUG-R4-012, BUG-R4-015 – mới) | 1 (BUG-R4-016 – đã sửa, QA xác nhận trên PR #24 `f8080499`; Closed khi #16 + #24 gộp `main` + CI xanh) | 5 (BUG-R4-005, 006, 007, 008, 009) |
-| **Tổng** | **16** | **6** | **1** | **9** |
+| P3 | 10 | 4 (BUG-R4-010 – mở lại, BUG-R4-012, BUG-R4-015, BUG-R4-017 – mới) | 1 (BUG-R4-016 – đã sửa, QA xác nhận trên PR #24 `f8080499`; Closed khi #16 + #24 gộp `main` + CI xanh) | 5 (BUG-R4-005, 006, 007, 008, 009 – 009 đã kiểm lại trên staging `sha-755cad1642ca`) |
+| **Tổng** | **17** | **7** | **1** | **9** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -329,6 +330,26 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
     - Chi tiết: `rounds/round-04/qa/pr24-text-safety.md` mục "Lượt 2", L2.4.
 
 > ORC 01/11: QA ghi lỗi này là BUG-R4-014 nhưng số 014 đã dùng ở PR #22 → đổi thành **BUG-R4-016**. Bảng tổng hợp chưa cộng lỗi này; QA cập nhật ở lượt tới. *(QA 01/11 22:40: đã cộng vào bảng mục 1.)*
+
+### BUG-R4-017 – Font `data:` bị CSP `font-src 'self'` chặn trên Desk, PWA nhân viên và trang khách
+
+- **Mức:** P3. Không ảnh hưởng chức năng hay dữ liệu.
+  - Tập Kirin của JetBrains Mono không tải được, nên chữ Nga trong ô mã/Wi-Fi dùng font dự phòng.
+  - Console đầy lỗi giả, dễ che lỗi thật khi soi sự cố.
+- **Môi trường:** staging `sha-755cad1642ca` (smoke v1.0.1, 01/11 23:5x). **Có sẵn từ v1.0.0**: production phục vụ cùng `assets/index-Bs4Br91X.css` và cùng CSP (QA chỉ `GET` công khai để so).
+- **Các bước:** mở `https://desk.staging.ottimo.vn/` (hoặc `staff.`, `g.`) bằng Chromium, xem console.
+- **Thực tế:**
+  - Mỗi lần tải trang có 6 lỗi console: "Loading the font 'data:font/woff2;base64,…' violates … font-src 'self'".
+  - CSS của cả 3 ứng dụng có 4 `data:font/woff2` và 2 `data:font/woff`. Đây là các mặt chữ JetBrains Mono nhỏ: Kirin 400/500, và bản woff2 của tập tiếng Việt 400/500. Vite nhúng các tệp dưới 4 KB thành `data:`.
+  - Tập tiếng Việt vẫn tải được nhờ bản `.woff` dự phòng là tệp `/assets/…`.
+- **Mong đợi:** không lỗi CSP; font tự host đều là tệp dưới `/assets/`.
+- **Đề xuất:**
+  - FE: tắt nhúng font (`build.assetsInlineLimit` dạng hàm, trả `false` cho `.woff`/`.woff2`) ở `admin-web`, `staff-pwa`, `guest-web`.
+  - Thêm kiểm `check:dist` để CSS không còn `data:font`.
+  - **Không** nới CSP thành `font-src 'self' data:` (SEC xem).
+- **Bằng chứng:** `rounds/round-04/qa/v1.0.1-staging-smoke.md` mục 5. Nhật ký scratchpad `qa-r6/v101/log.md` (`csp-data-font` 12–18 dòng mỗi lượt Desk).
+- **Vai:** FE (+ SEC duyệt cách sửa).
+- **Trạng thái:** Open – v1.0.2 hoặc sau. Không chặn v1.0.1.
 
 ## 3. Ghi nhận (không phải lỗi)
 
