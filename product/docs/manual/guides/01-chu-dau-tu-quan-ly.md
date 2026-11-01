@@ -3,7 +3,7 @@
 - Dành cho: **chủ đầu tư (OWN)**, **quản lý (MGR)**, và người làm **kế toán/đối soát** cùng chủ đầu tư
 - Thiết bị: **máy tính hoặc laptop riêng** của anh/chị, địa chỉ `desk.ottimo.vn`. Máy quầy chỉ dùng khi duyệt tại quầy, xong đăng xuất ngay.
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.2 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; thêm phòng Google Chat, xóa theo yêu cầu người gửi, phòng Báo động theo SEC, ESC-041, ESC-042)
+- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.3 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; thêm phòng Google Chat, xóa theo yêu cầu người gửi, phòng Báo động theo SEC, ESC-041, ESC-042; bản 1.3 ngày 01/11 thêm giá ước tính trên website và đếm yêu cầu theo ngôn ngữ – mục 9.1a – áp dụng khi gói website LP-v2 phát hành)
 - Tài liệu không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi đào tạo, anh/chị cũng không ghi những thứ này lên bảng hay vào tài liệu phát tay.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -438,6 +438,18 @@ Theo quyết định của chủ đầu tư ngày 26/10:
 
 **Định mức và tối đa**: trong **Sửa**, mục **Số người**. **Tối đa** chỉ bằng định mức hoặc định mức + 1 (người thứ thêm ngủ sofa). Không tính trẻ dưới 6 tuổi.
 
+### 9.1a Giá ước tính trên website (khi gói LP-v2 phát hành)
+
+**Áp dụng khi gói website LP-v2 đã lên.** Form đặt phòng trên ottimo.vn hiện **giá ước tính** cho khách sau khi khách chọn hạng phòng, ngày, số khách.
+- **Một nguồn giá:** web dùng chính **Giá đêm niêm yết**, lịch ngày đặc biệt và phụ thu người trên Desk, kênh Trực tiếp. Anh/chị đổi giá ở mục 9.1 thì web dùng giá mới trong khoảng **10 phút**, không cần sửa website. Không ai gõ giá vào website.
+- **Theo hạng:** web tính theo **Hạng phòng công khai** của từng căn (trong **Sửa** căn; chỉ chủ đầu tư đổi). Căn chưa gán hạng: web ghi "giá theo yêu cầu" cho căn đó.
+- Chỉ ngắn ngày **1–29 đêm**. Theo tháng hoặc từ 30 đêm: web **không hiện số** (anh/chị chốt 01/11), chỉ mời khách nhận báo giá riêng.
+- Con số luôn đi kèm: ước tính, đã gồm thuế, cho số khách đã chọn, chưa giữ phòng; giá cuối và phòng trống nằm trong báo giá. Thân trang vẫn không ghi giá.
+- **Bật, tắt:** tham số `public_show_prices` ở **Tham số quy tắc** (mục 9.2), chỉ chủ đầu tư. Mặc định tắt; bật sau khi đội kiểm giá web khớp giá Desk. Cần tắt gấp (ví dụ giá vừa nhập nhầm): đặt `false`, khoảng 2 phút sau web hết hiện giá; form vẫn nhận yêu cầu.
+- **Trên Desk:** mỗi yêu cầu có dòng **Giá ước tính khách đã thấy**. Khi lễ tân lập báo giá mà giá Desk khác số khách đã thấy, hộp báo giá hiện cảnh báo **"Đã đổi: {cũ} → {mới}"** để lễ tân giải thích với khách (tệp 02 mục 13.1c). Lễ tân không hứa giữ số cũ; khách xin giữ thì người trực báo anh/chị hoặc quản lý quyết.
+
+**Đếm khách theo ngôn ngữ** (khi trang tiếng Hàn, Trung, Nga đã lên): **Yêu cầu từ website** → lọc theo **Ngôn ngữ**, kết hợp lọc trạng thái (gồm cả đã thành đơn, đã đóng) → Desk hiện tổng số yêu cầu khớp lọc. Số chỉ gồm yêu cầu còn trên Desk. Báo cáo, xuất dữ liệu theo ngôn ngữ: dự kiến v1.2. Cách lễ tân trả lời khách tiếng Hàn, Trung, Nga (tiếng Anh, được dùng Google Dịch trên mọi màn hình Desk theo quyết định của anh/chị ngày 01/11): tệp 02 mục 13.1d.
+
 ### 9.2 Tham số quy tắc
 
 1. **Quản trị → Tham số quy tắc**. Tham số chia nhóm: **Giữ chỗ, cọc, hủy** · **Số người & phụ thu** · **Giờ nhận/trả** · **FOC, hoa hồng, phí kênh** · **Bảo mật** · **Khác**.
@@ -451,7 +463,7 @@ Theo quyết định của chủ đầu tư ngày 26/10:
 - Thay đổi áp cho đơn tạo **sau** ngày hiệu lực.
 - Quản lý **không** sửa được hạn mức miễn phí (FOC), tỷ lệ hoa hồng, phí kênh và nhóm **Bảo mật**. Chỉ chủ đầu tư.
 - Dòng ghi **Chờ chủ đầu tư xác nhận** hoặc **Chờ luật sư/kế toán xác nhận** là giá trị tạm, vẫn đang áp.
-- **Form "Yêu cầu đặt phòng" trên website**: công tắc ở nhóm **Khác**, dòng `public_booking_requests_enabled` (chưa có tên tiếng Việt), giá trị `false` là tắt. Chỉ chủ đầu tư bật. Theo quyết định của chủ đầu tư ngày 26/10, **giữ tắt** tới khi luật sư trả lời.
+- **Form "Yêu cầu đặt phòng" trên website**: công tắc ở nhóm **Khác**, dòng `public_booking_requests_enabled` (chưa có tên tiếng Việt), giá trị `false` là tắt. Chỉ chủ đầu tư bật, tắt. Form **đã bật từ chiều 30/10**.
 - Đổi tham số làm số trên Desk khác số lễ tân đã học: báo người trực.
 
 > **Lỗi đang sửa – Wi-Fi (sửa ở v1.0.1):** Desk chưa có chỗ nhập Wi-Fi của cơ sở, nên trang khách chưa hiện Wi-Fi (trang ghi "hỏi lễ tân"). Tới khi sửa xong: khách xem **thẻ Wi-Fi trong căn**; lễ tân đọc khi khách hỏi.
