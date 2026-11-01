@@ -891,3 +891,78 @@ Ví dụ với n = 2: en "a minimum stay of 2 nights" · vi "tối thiểu là 2
 - zh dùng dấu toàn khổ. ru dùng "—", không «» vì câu không trích nhãn.
 - Chữ mới ko/zh làm thêm ký tự cho bộ font cắt (ví dụ 지, 워, 졌, 최, 소, 늘, 清, 除, 延, 长 nếu chưa có). FE chạy lại `sync:fonts:cjk` sau khi áp chữ, nếu không test glyph sẽ đỏ (FE mục 6).
 - Người bản xứ chưa đọc các câu ở mục 13. Gộp vào lượt đọc của mục 9.
+
+---
+
+## 14. Lượt 4 – BUG-R4-003 (Kiểm thử – sửa lỗi, 01/11/2026)
+
+- Căn cứ: `rounds/round-04/qa/bug-list.md` BUG-R4-003; `rounds/round-04/qa/lp-v2-test-report.md` mục 3.2 và bảng AC (US-131 AC4 không đạt); `rounds/round-04/outputs/PO/lp-v2-stories.md` US-131 AC4; `product/docs/business-rules.md` v0.5.0 BR-115 (5) ("ước tính · gồm thuế · cho số khách đã chọn · giá cuối và phòng trống trong báo giá").
+- Mã đang chạy (đọc `origin/lp-v2`, chỉ đọc): `booking-logic.ts` `estimateView` ghép ghi chú S3 là `note = [currency (trừ vi), taxIn | taxOut, final]`. Hai ý còn thiếu: (4) "chưa giữ phòng" của AC4, và "cho số khách đã chọn" + "phòng trống trong báo giá" của BR-115 (5).
+- Cách sửa: **1 khóa đổi chữ** (`estimate.final`) và **1 khóa mới** (`estimate.guests(n)`). Không thêm khóa nào khác, không đổi `total`, `live`, `done`, `currency`, `taxIn`/`taxOut`.
+
+### 14.1 Khóa đổi và khóa mới
+
+| Khóa | Loại | EN (dẫn) | VI | KO | ZH | RU |
+|---|---|---|---|---|---|---|
+| `estimate.guests(n)` | **Mới** – hàm `(n: number) => string` | n = 1: `For 1 guest.` · n ≥ 2: `For {n} guests.` | `Cho {n} khách.` | `{n}인 기준.` | `适用于 {n} 位客人。` | `Для {n} гостя.` (1, 21, 31…) · `Для {n} гостей.` (còn lại) |
+| `estimate.final` | **Đổi chữ** (string) | No room is held yet. Your quote confirms the final rate and availability. | Chưa giữ phòng cho bạn. Giá chính thức và phòng trống được xác nhận trong báo giá. | 객실은 아직 확보되지 않았습니다. 최종 요금과 예약 가능 여부는 견적에서 안내해 드립니다. | 尚未为您保留房间。最终价格及是否有房，以我们发送的报价为准。 | Это ещё не бронирование. Итоговую цену и наличие подтвердим в предложении. |
+
+Chữ cũ của `estimate.final` (để FE/QA đối chiếu): EN "Your final rate is in the quote we send." · VI "Giá chính thức có trong báo giá chúng tôi gửi bạn." · KO "최종 요금은 보내 드리는 견적에서 확인하실 수 있습니다." · ZH "最终价格以我们发送的报价为准。" · RU "Окончательная цена — в предложении, которое мы пришлём."
+
+Vì sao gộp vào `final` thay vì thêm câu riêng: hai ý "giá cuối" và "phòng trống" cùng nằm trong báo giá, nên một câu nói được cả hai ("Your quote confirms the final rate and availability"). Ý "chưa giữ phòng" là câu ngắn đứng ngay trước. Cách này thêm ít chữ nhất và FE chỉ phải đổi một chuỗi.
+
+### 14.2 Cách FE ghép (chữ CPY, mã FE-B)
+
+- Thứ tự ghi chú S3: **`guests(n)` → `currency` (trừ vi) → `taxIn`/`taxOut` → `final`**. Câu số khách đứng đầu để gần con số nhất.
+- Ghép bằng `joinSentences` hiện có: zh nối liền, các ngôn ngữ khác một dấu cách (mục 13.2).
+- **n = tổng số người khách đã chọn trong form: người lớn + trẻ 6–11 + trẻ dưới 6.** Lý do: con số là giá cho đúng đoàn khách đã khai. Trẻ dưới 6 không tính phụ thu (BR-110) nhưng vẫn là khách ở. Nếu chỉ đếm người tính tiền, khách có em bé sẽ thấy "For 2 guests" và tưởng form bỏ sót con mình. `[GIẢ ĐỊNH – CPY; PO/DOM xác nhận]`
+- Khoảng trắng không ngắt U+00A0 giữa số và chữ, giống `nights(n)` (mục 13.5): en `For 2 guests.`, vi `Cho 2 khách.`, zh `适用于 2 位客人。`, ru `Для 2 гостей.`. ko `2인` viết liền, không cần.
+- RU dùng hàm `gen()` đã có trong `booking-strings/ru.ts` (cách 2 sau "для"): `gen(n, 'гостя', 'гостей')`. Ví dụ: 1 → "Для 1 гостя", 2 → "Для 2 гостей", 3 → "Для 3 гостей", 5 → "Для 5 гостей", 11 → "Для 11 гостей", 21 → "Для 21 гостя". Không dùng `plural()` 3 dạng ở đây: sau "для" chỉ có 2 dạng.
+- EN chỉ 2 dạng (1 / còn lại). VI, KO, ZH không chia số nhiều.
+- Viết hàm, ví dụ EN: `guests: (n) => \`For ${n} ${n === 1 ? 'guest' : 'guests'}.\``; RU: `guests: (n) => \`Для ${n} ${gen(n, 'гостя', 'гостей')}.\``.
+- `estimate.live` (vùng `role="status"`) và `done` (thư cảm ơn) **giữ nguyên**. AC4 là yêu cầu về khối nhìn thấy. Câu đọc cho trình đọc màn hình nên ngắn, chỉ báo con số mới.
+- Dòng `extraGuest` ("Includes one more guest.") giữ nguyên. Nó nói phụ thu người (BR-110), khác ý với câu số khách.
+- Lời mời tháng (`priceMonthlyOffer`) không có con số nên không thêm hai câu này. Câu `text` đã nói giá nằm trong báo giá.
+
+### 14.3 Ghi chú S3 sau khi sửa (ví dụ 2 người lớn) và độ dài
+
+Đo ý thức, không chạy trình duyệt: ô giá ở 360 px còn khoảng 250 px chữ (trừ lề trang, lề thẻ form và lề hộp 20 px mỗi bên); `.est-note` cỡ 13 px. Ước lượng khoảng 37 ký tự Latin, 34 ký tự Kirin, 19 chữ Hàn/Hán mỗi dòng.
+
+| | Ghi chú đầy đủ sau sửa | Ký tự cũ → mới | Dòng ở 360 px (ước) |
+|---|---|---|---|
+| en | For 2 guests. Rates in Vietnamese dong (VND). Taxes included. No room is held yet. Your quote confirms the final rate and availability. | 88 → 135 | 3 → 4 |
+| vi | Cho 2 khách. Đã gồm thuế. Chưa giữ phòng cho bạn. Giá chính thức và phòng trống được xác nhận trong báo giá. | 63 → 108 | 2 → 3 |
+| ko | 2인 기준. 요금은 베트남 동(VND) 기준입니다. 세금 포함. 객실은 아직 확보되지 않았습니다. 최종 요금과 예약 가능 여부는 견적에서 안내해 드립니다. | 60 → 86 | 3 → 4 |
+| zh | 适用于 2 位客人。价格以越南盾（VND）计。含税。尚未为您保留房间。最终价格及是否有房，以我们发送的报价为准。 | 31 → 56 | 2 → 3 |
+| ru | Для 2 гостей. Цены во вьетнамских донгах (VND). Налоги включены. Это ещё не бронирование. Итоговую цену и наличие подтвердим в предложении. | 106 → 139 | 4 → 4–5 |
+
+- Mỗi ngôn ngữ thêm khoảng 1 dòng; ru có thể thêm 1–2 dòng tùy chỗ ngắt. Chữ không có từ dài liền khối (từ dài nhất ru "бронирование", 12 ký tự), nên không có nguy cơ tràn ngang ở 320–360 px. Chỉ khối cao hơn. Khối giá nằm trong form, phía trên ô liên hệ, và có `min-height`. Thêm chiều cao sau khi khách chọn ngày không làm trang nhảy (CLS) phía trên, nhưng UXD/QA nên đo lại AC13 (360 px, ru, số dài nhất 29 đêm).
+- Đã cắt chữ để giữ ngắn. EN bỏ "for you" sau "held" (ngữ cảnh form đã rõ). RU dùng "Итоговую" thay "Окончательную" (ngắn hơn 4 ký tự, quen trên trang đặt phòng tiếng Nga) và "наличие" không kèm "номеров".
+- **Phương án dự phòng nếu UXD thấy khối quá cao** (không đề xuất lúc này): đưa số khách vào dòng phụ dưới con số ("for 3 nights · 2 guests"), bỏ câu `guests(n)` khỏi ghi chú. Tiết kiệm 1 dòng nhưng phải đổi `total`, `live`, `done` và trật tự từ ko/zh. CPY sẽ viết riêng nếu UXD chọn.
+
+### 14.4 Lý do chọn chữ
+
+- **EN "No room is held yet."**: sát ý AC4 (4) "chưa giữ phòng". Chữ "yet" báo trước bước sau là báo giá, nên điềm tĩnh và không làm khách lo. Không dùng "This is not a booking", vì chữ "booking" dễ va với nút "Send booking request".
+- **"availability" / "phòng trống" / "예약 가능 여부" / "是否有房" / "наличие"**: ý "phòng trống được xác nhận trong báo giá" của BR-115 (5). Chỉ hứa điều có thật: phòng trống được xác nhận ở báo giá (US-176 chưa làm, web không biết phòng trống – AC7).
+- **RU "Это ещё не бронирование."**: tránh "Номер ещё не забронирован". Câu đó đọc được thành "phòng chưa ai đặt, tức là còn trống", ngược với ý cần nói. "Это" chỉ con số ước tính ngay trên.
+- **ZH "尚未为您保留房间。"**: có "为您" để rõ là chưa giữ cho khách. Dùng "是否有房" thay thuật ngữ ngành "房态" (khách không quen). Câu cuối giữ khung "以…为准" của bản cũ.
+- **KO "2인 기준."**: cách ghi quen trên trang lưu trú Hàn ("2인 기준 요금"). Lặp chữ "기준" với câu tiền tệ ngay sau ("…VND 기준입니다"). Người bản xứ xem có cần đổi câu tiền tệ thành "요금은 베트남 동(VND)으로 표시됩니다." không (dài thêm 2 chữ).
+- **VI "Chưa giữ phòng cho bạn."**: có "cho bạn" để không bị hiểu thành "phòng chưa có ai giữ". "Giá chính thức" giữ đúng chữ của bản cũ.
+- Không "!", không emoji, không từ cấm mục 6. Không con số giá, không "%". Chữ số chỉ có ở `{n}`.
+
+### 14.5 Test đề xuất (FE-B, QA)
+
+- `copy.test.ts`: với mỗi ngôn ngữ, `estimate.guests(2)` chứa "2" và U+00A0; ru `guests(1)` kết thúc "гостя.", `guests(2)`/`guests(5)`/`guests(11)` kết thúc "гостей.", `guests(21)` kết thúc "гостя."; en `guests(1)` = "For 1 guest.".
+- `booking.test.ts` (`estimateView`): `note` có 4 phần (3 phần với vi), phần đầu là `guests(n)` với n = người lớn + trẻ 6–11 + trẻ dưới 6, phần cuối là `final`.
+- QA kiểm lại AC4 trên ảnh 5 ngôn ngữ × W1, W4 (M1 nay là lời mời tháng, không con số, nên không áp). Kiểm thêm ca có trẻ dưới 6 (W9: 2 người lớn + 1 trẻ 4 tuổi → "For 3 guests").
+- ko/zh có chữ mới cho bộ font cắt (ví dụ 인, 확, 되, 않, 았, 여, 부, 안, 내; 适, 于, 位, 客, 尚, 未, 为, 保, 留, 否). FE chạy lại `sync:fonts:cjk` sau khi áp chữ, nếu không test glyph sẽ đỏ.
+
+### 14.6 Ngoài chữ, ghi lại cho UXD/QA
+
+- AC4 yêu cầu chữ điều kiện "cùng cỡ chữ không nhỏ hơn chữ nội dung của form". `.est-note` đang là 13 px (`0.8125rem`). Nếu chữ nội dung form lớn hơn 13 px thì đây là lệch AC4 riêng, không thuộc chữ. QA chưa ghi lỗi này. CPY chỉ nêu để UXD/QA xem, không tự kết luận.
+
+### 14.7 Người bản xứ (thêm vào lượt đọc mục 9)
+
+- ko: "2인 기준." có tự nhiên ở đầu ghi chú không, có cần đổi câu tiền tệ để bớt lặp "기준" không. "확보되지 않았습니다" có đủ rõ là "chưa giữ cho bạn" không.
+- zh: "适用于 2 位客人。" và "是否有房" có tự nhiên không.
+- ru: "Для 2 гостей." / "Для 21 гостя."; "Это ещё не бронирование." có làm khách hiểu đúng "con số này chưa giữ phòng" không; "наличие" không kèm "номеров" có đủ rõ không.
