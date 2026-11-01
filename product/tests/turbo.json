@@ -1,0 +1,13 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/docs/business-rules.md",
+        "$TURBO_ROOT$/../02-escalations/ESC-*.md"
+      ]
+    }
+  }
+}
