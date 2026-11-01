@@ -1,6 +1,6 @@
 # FB-INV-008 – Website ottimo.vn thêm tiếng Hàn, tiếng Trung, tiếng Nga
 
-- Ngày: 01/11/2026 | Người gửi: INV | Ghi: ORC | Loại: tính năng mới (landing ottimo.vn, đa ngôn ngữ) | Ưu tiên: P2 | Đích: Round 4 – sau ngày D 02/11, không đụng production trước ngày D | **Trạng thái: Chờ INV xác nhận phạm vi**
+- Ngày: 01/11/2026 | Người gửi: INV | Ghi: ORC | Loại: tính năng mới (landing ottimo.vn, đa ngôn ngữ) | Ưu tiên: P2 | Đích: Round 4 – sau ngày D 02/11, không đụng production trước ngày D | **Trạng thái: Đang làm – gộp vào gói LP-v2 (`rounds/round-04/plan-lp-v2.md`)**
 
 ## Nguyên văn
 > Tôi đề xuất bạn thêm 3 loại ngôn ngữ là tiếng Hàn Quốc, Tiếng Trung, và Tiếng Nga giúp tôi
