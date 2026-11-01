@@ -16,6 +16,8 @@ if [ -e /opt/ottimo-prod ] || [ -e /opt/ottimo/.ottimo-home ]; then
 fi
 if [ "$(id -u)" -eq 0 ]; then  # ARC CWD-04 3: a visible SKIP line on stdout (CI log), not a silent pass
   echo "SKIP  ops-check-cwd: running as root – root ignores directory permissions, nothing tested; run as a normal user"
+  # SEC FB-R4-SEC-OPS-PR26-04: in CI a skipped test is a failure, not a green tick.
+  [ "${CI:-}" = true ] && { echo "FAIL  CI=true: run this test as a normal user"; exit 1; }
   exit 0
 fi
 

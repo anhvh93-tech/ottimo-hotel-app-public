@@ -37,3 +37,12 @@
 | FB-R4-ARC-OPS-PR23-S1 | Deferred | Hiện không gặp được, vì `psql_admin` chạy bằng superuser. Làm cùng lần đầu có kiểm chạy bằng vai thấp hơn, kèm ca test `ERROR: … permission denied` → `query error (permission)` |
 | FB-R4-ARC-OPS-PR23-S2 | Deferred | Sửa README 13.8 (2 lệnh xem lỗi thật, dặn không chụp dòng `.env`) trong lượt làm mới gói đợt 2. Không đổi hành vi |
 | FB-R4-ARC-OPS-PR23-S3 | Deferred | Loại `stack .env invalid` và `trap … ERR` cho `backup.sh` sẽ làm ở đợt 2, kèm test. Hiện lỗi vẫn lộ ra: `other error – run it by hand`, và `ops-check backup` FAIL sau 26 giờ |
+
+## Thẻ SEC duyệt PR #26 (`rounds/round-04/reviews/SEC-on-PR26-rollback.md`, 02/11)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R4-SEC-OPS-PR26-01 | Done | R4 đổi thành `{ … rollback.sh sha-8b3aec89486f 2>&1; echo "MA THOAT: $?"; } \| grep -E "…"`. Bộ lọc giữ các dòng `[deploy`, `another deploy`, `usage:`, `unknown option`, `no previous tag`, `digest must`, `Error`/`ERROR` và `MA THOAT:`. Dùng nhóm lệnh `{ …; }` của POSIX, nên không phụ thuộc `PIPESTATUS`/`pipefail` của shell đăng nhập. Lệnh luôn kết thúc bằng `MA THOAT: <n>`. Cách đọc kết quả, trong mục "Khi không đúng như trên": mã 1 kèm dòng guard thì chạy lại; mã 3 kèm `another deploy` thì đợi rồi chạy lại; mọi trường hợp khác thì không chạy lại, chụp gửi đội, chạy R6. "Mọi trường hợp khác" gồm mã khác 0, dòng ngay trên `MA THOAT` không phải `OK: …`, hoặc có dòng lạ, kể cả khi không có dòng `FAIL`. `rollback.test.sh` ca (i) đọc đúng lệnh R4 từ tệp lệnh rồi chạy 4 trường hợp: thành công (6 dòng + `MA THOAT: 0`); có deploy khác (dòng `another deploy` + `MA THOAT: 3`); kéo image lỗi, script dừng do `set -e` (dòng `Error response …` + `MA THOAT: 1`); gõ nhầm `v1.0.0` (dòng guard + `MA THOAT: 1`) |
+| FB-R4-SEC-OPS-PR26-02 | Done | R5 thêm câu: "không bao giờ chạy `rollback.sh` mà không ghi tên bản". README, dòng "Quay lui về bản trước", thêm: sau một lần quay lui, `previous_tag` là bản vừa bị gỡ |
+| FB-R4-SEC-OPS-PR26-03 | Done | README 13.4 thêm gạch "Quay lui app khi đang ở mức B/C": OWN rà các yêu cầu đã bị xóa trong thời gian chạy bản cũ, rồi tự xóa tin Chat tương ứng. Tệp lệnh INV, ở gạch "không đụng webhook Chat", ghi rõ mức A không cần làm gì thêm, kèm lưu ý cho mức B/C |
+| FB-R4-SEC-OPS-PR26-04 | Done | Hai test có thể bị `SKIP`: `rollback.test.sh` (khi thiếu `jq` hoặc thiếu tệp lệnh INV) và `ops-check-cwd.test.sh` (khi chạy bằng root). Khi `CI=true`, cả hai in `SKIP`, rồi `FAIL`, và thoát với mã 1. Trên máy trạm vẫn thoát 0. Đã kiểm trong `ubuntu:24.04` với `CI=true` |

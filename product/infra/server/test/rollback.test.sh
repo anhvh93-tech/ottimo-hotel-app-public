@@ -15,7 +15,11 @@
 #   (e) registry digest ≠ recorded digest → FAIL at pull, nothing switched;
 #   (f) no previous tag recorded and no argument → exit 2, deploy.sh not started;
 #   (g) smoke fails during a rollback → FAIL, and deploy.sh does NOT switch back to the v1.0.1 image by itself;
-#   (h) extra options reach deploy.sh (`--no-pull` → nothing pulled).
+#   (h) extra options reach deploy.sh (`--no-pull` → nothing pulled);
+#   (i) the INV sheet's R4 command (read from the sheet): success → 6 [deploy] lines + "MA THOAT: 0"; another deploy
+#       running → that line + "MA THOAT: 3"; registry error (set -e stop, no FAIL line) → error + "MA THOAT: 1";
+#       "v1.0.0" typed → guard FAIL + "MA THOAT: 1" (SEC FB-R4-SEC-OPS-PR26-01).
+# CI=true: a SKIP (no jq, no INV sheet) is a failure (SEC PR26-04).
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -24,7 +28,10 @@ if [ -e /opt/ottimo-prod ] || [ -e /opt/ottimo/.ottimo-home ]; then
   echo "refused: this is an OTTIMO server – run this test on a workstation or in CI" >&2; exit 2
 fi
 if ! command -v jq >/dev/null; then  # deploy.sh reads the compose secrets with jq (GitHub runners and the VPS have it)
-  echo "SKIP  rollback.sh rehearsal: jq is not installed – nothing tested"; exit 0
+  echo "SKIP  rollback.sh rehearsal: jq is not installed – nothing tested"
+  # SEC FB-R4-SEC-OPS-PR26-04: in CI a skipped rehearsal is a failure (ĐK7 relies on this step), not a green tick.
+  [ "${CI:-}" = true ] && { echo "FAIL  CI=true: this rehearsal must run in CI – install jq on the runner"; exit 1; }
+  exit 0
 fi
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/rollback-test.XXXXXX")
@@ -65,11 +72,16 @@ ENV
 
 # ---- stubs ----
 # bin/dc: every call is logged with the IMAGE_TAG it would use. STUB_APPLIED / STUB_JOURNAL = migration counts,
-# STUB_WORKER_DOWN=1 = the worker is not running after the switch.
+# STUB_WORKER_DOWN=1 = the worker is not running after the switch; STUB_PULL_FAIL=1 = the registry pull fails
+# (deploy.sh stops through `set -e`, without a FAIL line).
 cat > "$home/infra/server/bin/dc" <<'DC'
 #!/usr/bin/env bash
 echo "dc[IMAGE_TAG=${IMAGE_TAG:-}] $*" >> "$STUB_CALLS"
 a=" $* "
+if [ "${STUB_PULL_FAIL:-0}" = 1 ] && [[ "$a" == *" pull "* ]]; then
+  echo "Error response from daemon: Head \"https://ghcr.io/v2/example/ottimo-api/manifests/x\": dial tcp: i/o timeout" >&2
+  exit 1
+fi
 case "$a" in
   *" config --format json "*) echo '{"secrets":{"booking_request_chat_webhook":{"file":"/dev/null"}}}' ;;
   *" --entrypoint node migrate "*) printf '%s' "${STUB_JOURNAL:-39}" ;;
@@ -120,7 +132,8 @@ exit 0
 CU
 printf '#!/usr/bin/env bash\nexit 0\n' > "$stubs/sleep"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$stubs/logger"
-command -v flock >/dev/null 2>&1 || printf '#!/usr/bin/env bash\nexit 0\n' > "$stubs/flock"
+# flock stub on every OS: STUB_LOCKED=1 = another deploy holds state/deploy.lock.
+printf '#!/usr/bin/env bash\n[ "${STUB_LOCKED:-0}" = 1 ] && exit 1\nexit 0\n' > "$stubs/flock"
 chmod +x "$home/infra/server/bin/"* "$stubs/"*
 
 registry="$work/registry"
@@ -221,6 +234,44 @@ run "$rb" "$OLD" --no-pull
 if [ "$rc" -eq 0 ] && grep -q "pull=0, rollback=1" <<<"$out" && ! pulled; then
   ok "(h) rollback.sh $OLD --no-pull → nothing pulled (digests still checked)"
 else ko "(h) rc=$rc: $out"; fi
+
+# ---------- (i) the INV sheet's R4 command itself (SEC FB-R4-SEC-OPS-PR26-01) ----------
+# The remote part of R4 is read from the sheet (so the test follows the document), the server path replaced by this
+# fake stack's rollback.sh and `sudo -u ottimo` dropped. Every outcome must end with "MA THOAT: <n>", and the lines
+# INV needs (another deploy, registry error) must survive the filter.
+sheet="$here/../../../../rounds/round-04/outputs/OPS/v1.0.1-inv-commands.md"
+if [ -r "$sheet" ]; then
+  r4=$(grep -F 'rollback.sh sha-8b3aec89486f 2>&1' "$sheet" | grep -F 'ssh -t' | head -n 1)
+  r4=${r4#*\'}; r4=${r4%\'}
+  r4=${r4//sudo -u ottimo \/opt\/ottimo-prod\/infra\/server\/bin\/rollback.sh/$rb}
+  r4run() { rc=0; out=$(env -u OTTIMO_HOME PATH="$stubs:$PATH" STUB_CALLS="$calls" STUB_REGISTRY="$registry" bash -c "$r4" 2>&1) || rc=$?; }
+  if [[ "$r4" == *"$rb sha-8b3aec89486f"* ]] && [[ "$r4" == *'MA THOAT: $?'* ]]; then ok "(i) R4 read from the INV sheet"
+  else ko "(i) R4 not found / not rewritten: $r4"; fi
+  reset_state
+  r4run
+  if [ "$(printf '%s\n' "$out" | tail -n 2 | head -n 1 | sed 's/^\[deploy [^]]*\] //')" = "OK: $OLD is live" ] \
+    && [ "$(printf '%s\n' "$out" | tail -n 1)" = "MA THOAT: 0" ] && [ "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" = 7 ]; then
+    ok "(i) R4 success → the 6 [deploy] lines, then 'MA THOAT: 0'"
+  else ko "(i) R4 success: $out"; fi
+  reset_state
+  STUB_LOCKED=1 r4run
+  if grep -qx 'another deploy is running' <<<"$out" && [ "$(printf '%s\n' "$out" | tail -n 1)" = "MA THOAT: 3" ] && ! switched; then
+    ok "(i) R4 while another deploy runs → 'another deploy is running' + 'MA THOAT: 3' (shown, not filtered)"
+  else ko "(i) R4 locked: $out"; fi
+  reset_state
+  STUB_PULL_FAIL=1 r4run
+  if grep -q '^Error response from daemon' <<<"$out" && ! grep -q 'FAIL\|OK:' <<<"$out" \
+    && [ "$(printf '%s\n' "$out" | tail -n 1)" = "MA THOAT: 1" ] && ! switched; then
+    ok "(i) R4 pull error (set -e stop, no FAIL line) → registry error + 'MA THOAT: 1'"
+  else ko "(i) R4 pull error: $out"; fi
+  reset_state
+  r4=${r4//sha-8b3aec89486f/v1.0.0}
+  r4run
+  if grep -q 'FAIL: production guard' <<<"$out" && [ "$(printf '%s\n' "$out" | tail -n 1)" = "MA THOAT: 1" ]; then
+    ok "(i) R4 with v1.0.0 typed → production guard FAIL + 'MA THOAT: 1'"
+  else ko "(i) R4 v1.0.0: $out"; fi
+elif [ "${CI:-}" = true ]; then ko "(i) INV sheet not found at $sheet"
+else echo "SKIP  (i) INV sheet not found (only product/infra mounted?) – R4 command not tested"; fi
 
 echo "rollback.sh rehearsal: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
