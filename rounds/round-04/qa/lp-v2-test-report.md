@@ -5,7 +5,7 @@
 - Căn cứ: PO `outputs/PO/lp-v2-stories.md` (US-131, US-174, US-175); DOM `web-price-estimate-rules.md` mục 11 + `pricing-spec-2026-11-01-reconcile.md`; `product/docs/business-rules.md` v0.5.0 (BR-101, 104, 107, 110, 113, 114, 115, 116); review `reviews/ARC-on-LP-v2-code.md`, `SEC-on-LP-v2-code.md` (C1–C9), `SEC-on-LP-v2-ops.md`, `UXD-on-LP-v2-fe.md`; decision-log 01/11 (ESC-043: tháng không hiện giá; một mức giá; mốc 30 đêm).
 - Lỗi mới: `rounds/round-04/qa/bug-list.md` (BUG-R4-001 … 005). Ảnh (dữ liệu giả): `rounds/round-04/qa/lp-v2/`.
 - **Chỉ dữ liệu giả** (DS-E, tên/SĐT giả `+84 900 000 1xx`). Không gửi gì ra ngoài, không đụng staging/production, không khóa thật.
-- **Lượt 2** (kiểm lại bản sửa trên `lp-v2` @ `20afedff`): mục 11 cuối báo cáo. Mục 0–10 là lượt 1, giữ nguyên.
+- **Lượt 2** (kiểm lại bản sửa trên `lp-v2` @ `20afedff`): mục 11. **Lượt 3** (`lp-v2` @ `0a25716a`): mục 12 cuối báo cáo. Mục 0–10 là lượt 1, giữ nguyên.
 
 ## 0. Kết luận
 
@@ -414,3 +414,196 @@ Ngăn chi tiết: ko → "Tiếng Hàn", zh → "Tiếng Trung (giản thể)" (
 ### 11.13 Dọn dẹp lượt 2
 
 Stack `ottimo-qalp3` đã dừng và xóa kèm volume (`down -v`), mạng đã xóa; image tạm `ottimo-*:qalp3` và `ottimo-landing:qalp3-nometa` đã xóa; tệp biến môi trường tạm (khóa ngẫu nhiên) đã xóa. Script và kết quả thô ở scratchpad phiên QA (ngoài repo). Không có dữ liệu thật, không khóa thật, không gửi gì ra ngoài.
+
+---
+
+## 12. Lượt 3 – 0a25716a
+
+- Bước **Kiểm thử lượt 3** | 01/11/2026 17:00–18:10 | QA.
+- Bản kiểm: `origin/lp-v2` @ `0a25716a` = lượt 2 `20afedff` + `lp-v2-fe3` `73a80804` (BUG-R4-001, 006, UXD minors) + `lp-v2-be3` `2f7b55f7`, `ee375e6d` (BUG-R4-009) + `lp-v2-fe4` `0a25716a` (BUG-R4-007, 008, BUG-R3-050). Mã lấy bằng `git archive 0a25716a` ra thư mục tạm. Sổ tay (BUG-R4-010) đọc trên `main` `38ced860`.
+- Căn cứ: PO `lp-v2-stories.md` mục 9 + AC đã sửa (US-131 AC4, AC10; US-175 AC3–AC6); `02-le-tan.md` 13.1c, 13.1d; FE `lp-v2-fe.md` mục 9–10.
+- Lỗi: `rounds/round-04/qa/bug-list.md` (cập nhật BUG-R4-001, 006–010; mới BUG-R4-011, 012). Ảnh mới (dữ liệu giả): `rounds/round-04/qa/lp-v2/42`–`56`.
+
+### 12.0 Kết luận lượt 3
+
+| Phần | Kết quả |
+|---|---|
+| BUG-R4-001, 006, 007, 008, 009 | **Đã sửa – đã xác nhận** (đóng). 009: câu báo giá và trang khách kiểm trên stack; dòng bill OTA chỉ đọc mã (12.6) |
+| BUG-R4-010 | **Mở lại (P3)**. Sổ tay đủ 6 ý AC6, khớp tên cột, câu ko/zh, 3 câu mẫu CPY, BR-912. Còn ghi cảnh báo **"Đã đổi: {cũ} → {mới}"**, trong khi Desk nay hiện **"Khác giá web khách đã thấy: {cũ} → {mới}"** (FE3 đổi chữ theo UXD FE-13). Chưa nói câu ghi chú cho khách tiếng Nga |
+| **Mới BUG-R4-011 (P2)** | "Tạo nhanh khách" từ yêu cầu khách chọn **Zalo** (kênh mặc định của form) **không lưu được**. Desk điền sẵn "Liên hệ ưu tiên: Zalo", server trả 422 `CONTACT_CHANNEL_EMPTY` (đòi `messagingHandles.zalo`, Desk không gửi). Desk hiện "Nhập **{channel}** trước khi chọn làm liên hệ ưu tiên." (biến chưa thay). Lễ tân phải tự đổi ô về "–" mới lưu được |
+| **Mới BUG-R4-012 (P3)** | Hồ sơ tạo nhanh hiện Quốc tịch "–" nhưng server **lưu `VN`** (`isForeigner=false`). Phần "quốc tịch để trống" của BUG-R3-050 chưa đạt |
+| BUG-R3-050 (R3, đích v1.0.1) | **Đã sửa phần chính**: ngôn ngữ gửi tin, SĐT, WhatsApp vào hồ sơ; mở lại báo giá không về tiếng Việt; ca EN hồi quy đạt (kênh WhatsApp). Còn: kênh Zalo (BUG-R4-011), quốc tịch (BUG-R4-012) |
+| Hồi quy | **Đạt**: 13/13 ca giá lệch 0 đ (hạng dạng nhãn), 5/5 ca không số, tháng/30 đêm không số; C8 qua Caddy; ma trận route 13/13; 15 trang × 5 ngôn ngữ tràn 0 px ở 320/360/375/1024, axe 0, hreflang hai chiều, 0 mẫu tiền |
+| Image api | Có `node_modules/@ottimo/contracts/dist` (`index.js`, `public-room-type.js`); gọi `require('@ottimo/contracts').publicRoomTypeSlug` trong image ra đúng 4 slug |
+
+Lỗi sau lượt 3: **0 P0 · 0 P1 · 1 P2 mở (BUG-R4-011) · 2 P3 mở (BUG-R4-010, 012)**; 9 lỗi đã đóng (001–009). Không có ESC mới.
+
+Đề xuất của QA cho QC: US-131 đạt trọn (AC4, AC10 nay đạt). US-175 AC3, AC5 đạt. AC4 **chưa đạt trọn** vì đường chính (khách chọn Zalo) không tạo nhanh hồ sơ được – BUG-R4-011 (P2) nên sửa trước khi phát hành LP-v2 (PO 9.1 B5 đặt "hồ sơ lưu ngôn ngữ gửi tin" là bắt buộc). AC6 đạt về nội dung, còn 2 chỗ lệch chữ với Desk (BUG-R4-010) – sửa nhanh trong sổ tay. BUG-R4-012 có thể đi v1.0.1 cùng BUG-R3-050 nếu PO chấp nhận.
+
+### 12.1 Môi trường
+
+| Hạng mục | Giá trị |
+|---|---|
+| Stack | Dùng một lần `ottimo-qalp4` (compose dev + overlay QA, mạng `172.31.44.0/24`). Cổng chỉ `127.0.0.1`: landing 58420 (HTTPS, `Caddyfile.landing` thật của `0a25716a`), Desk 58421–58423, api 53422, PostgreSQL 55422. Đã dừng và xóa (`down -v`) |
+| Image (dựng tại chỗ từ `0a25716a`) | `ottimo-api:qalp4` (`INCLUDE_TEST_SUPPORT=1`), `ottimo-web:qalp4`, `ottimo-landing:qalp4` (`LANDING_BOOKING_FORM=true`, slug `dlt`; `check:dist` 14/14 nhóm đạt). Đã xóa |
+| Api | `LANDING_LOCALES=en,vi,ko,zh,ru`, `TRUST_PROXY` = IP landing, khóa ký form ngẫu nhiên tạm (đã xóa) |
+| Dữ liệu | Seed DS-E; bảng giá 01/11 nhập bằng API OWN; **hạng công khai dạng nhãn** ("Standard Studio · Garden View"…) gán bằng API OWN như production; thông báo `2026-11-01` đăng bằng `publish-privacy-notice.sh` (chạy thử rồi `--apply`, chỉ stack thử); bật `public_booking_requests_enabled`, `public_show_prices` |
+| Yêu cầu website | Gửi qua landing thật (Caddy): `8F1TBJR8` (ko), `JXEV8FYX` (zh), `05E19A2G` (ru), `DT518MDK` (en, WhatsApp), `MP9FMEMT` (vi), `Y78H8PZA` (en), `N4AVY1MY` (zh, dùng so giá), `6TW4ZT5C` (ko, hồ sơ có sẵn), `FHYZRJS0` (ru, theo tháng), `CR4PQT7K` (vi). Tên "QA …", "김큐에이 테스트", "测试…", "Тест…"; SĐT `+84 900 000 12x`. Thêm 56 dòng ru nhân bản bằng SQL trên stack thử (46 mới, 10 đã đóng, SĐT `+84 900 000 2xx`) để có bộ lọc vượt một trang (Desk tải 50 dòng/trang) |
+| Trình duyệt | Chromium Playwright 1.63 (headless), axe-core 4.13 |
+
+Ghi chú dữ liệu: giới hạn gửi form theo IP lưu trong bảng `rate_limit_counter` (không mất khi khởi động lại api). QA xóa bảng này trên stack thử trước mỗi lần gửi. `CR4PQT7K` (vi) và `6TW4ZT5C` (ko) gửi lúc bộ đếm đã đầy nên không mang giá ước tính; gửi lại với bộ đếm sạch (`MP9FMEMT`, `Y78H8PZA`) thì có. Không ghi lỗi (đúng US-131 AC9: lỗi giá không chặn gửi).
+
+### 12.2 BUG-R4-001 – "Khớp" / "Khác giá web khách đã thấy" với hạng dạng nhãn
+
+Mọi căn mang **nhãn** (giá trị Desk ghi, như production). Khách thấy 800.000 (Garden, 2 người lớn, 10→11/11).
+
+| Ca | Desk hiện | KQ |
+|---|---|---|
+| Ngăn chi tiết 7 yêu cầu (ko/zh/ru/en/vi có giá; ru theo tháng) | "Giá ước tính khách đã thấy: 800.000 đ – tính lúc 01/11/2026 17:12" / "Khách chưa thấy giá" (`FHYZRJS0`); dòng vẫn còn sau khi yêu cầu "Đã thành đơn" | Đạt |
+| Báo giá `N4AVY1MY`, căn 102 (nhãn Garden), giá chưa đổi | "Khớp giá ước tính khách đã thấy (800.000 đ)." (ảnh `44`) | **Đạt** (lượt 2: "không so sánh") |
+| Căn 101 (City – hạng khác) | "Khách đã thấy 800.000 đ cho ngày, số khách hoặc hạng phòng khác – không so sánh." | Đạt |
+| Căn 103 tạm **Chưa gán** (`publicRoomType: null`) | "…không so sánh." (ảnh `46`); gán lại nhãn sau ca | Đạt (đúng giả định FE 9.4) |
+| OWN đổi giá 4 căn Garden thành 870.000 từ 10/11 → báo giá căn 103 | Khung cảnh báo "**Khác giá web khách đã thấy: 800.000 đ → 870.000 đ**" + "Giá theo lịch giá hôm nay khác số khách thấy trên web. Nói rõ lý do với khách khi gửi báo giá." (ảnh `45`) | **Đạt** |
+| Cùng lúc, căn 101 (hạng khác, 800.000) | "…không so sánh." | Đạt |
+| Các ca ở 12.4 (ko/zh/ru, căn 102/202/203, giá chưa đổi) | "Khớp giá ước tính khách đã thấy (800.000 đ)." | Đạt |
+
+Web sau khi đổi giá: 10→11/11 = 870.000 ngay lượt kế tiếp; 09→11/11 = 1.670.000 = Desk; 08→09/11 giữ 800.000 = Desk (AC6 hồi quy). **BUG-R4-001: đã sửa – đã xác nhận.**
+
+### 12.3 BUG-R4-006 – nhãn "ước tính" ≥ 15 px
+
+`est.spec.ts`, trang thật qua Caddy, đo `getComputedStyle` của `.est-lbl`, `.est-note` và nhãn ô `.f-label`:
+
+| Ngôn ngữ | Nhãn (360 / 1280 px) | Câu điều kiện | Nhãn ô form | Nhãn xuống dòng / bị cắt | Tràn trang 360 px | Cao khối 29 đêm, 3 khách |
+|---|---|---|---|---|---|---|
+| en "ESTIMATED RATE" | 15 / 15 px | 15 px | 15 px | 1 dòng / 0 | 0 | 251 px |
+| vi "GIÁ ƯỚC TÍNH" | 15 / 15 | 15 | 15 | 1 / 0 | 0 | 228 px |
+| ko "예상 요금" | 15 / 15 | 15 | 15 | 1 / 0 | 0 | 243 px |
+| zh "预估价格" | 15 / 15 | 15 | 15 | 1 / 0 | 0 | 247 px |
+| ru "ОРИЕНТИРОВОЧНАЯ ЦЕНА" | 15 / 15 | 15 | 15 | 1 / 0 (ảnh `54`) | 0 | 251 px |
+
+Tiêu đề lời mời 30 đêm ("A SPECIAL OFFER FOR LONGER STAYS", "ОСОБОЕ ПРЕДЛОЖЕНИЕ ДЛЯ ДОЛГОГО ПРОЖИВАНИЯ"…) cũng 15 px, một dòng, **không số** ở 5/5. Mọi dòng chữ trong khối 15 px (`.est-line` 14 → 15 px theo UXD FE-16). Ru: "за 29 ночей", "Для 1 гостя / 2 гостей / 3 гостей", "за 1 ночь". **BUG-R4-006: đã sửa – đã xác nhận.**
+
+### 12.4 BUG-R4-008 + BUG-R3-050 – câu Desk, hồ sơ tạo nhanh, mở lại báo giá (US-175 AC4)
+
+`desk3.spec.ts`, `qa.fd`, 1366 px. Mỗi yêu cầu: **Báo giá** → chọn căn → ô "Khách đứng tên" gõ tên → **Tạo nhanh khách** → đọc hộp hồ sơ → **Lưu hồ sơ** → **Lưu báo giá** → bước gửi → **Khách đồng ý – Giữ chỗ** → **Tạo giữ chỗ** → mở lại từ **Báo giá & giữ chỗ → Báo giá**.
+
+| Yêu cầu | Hộp hồ sơ điền sẵn | Lưu hồ sơ | Ô "Ngôn ngữ gửi khách" + câu Desk | Giữ chỗ (trước / sau khi tạo) | Mở lại báo giá | Hồ sơ trong DB |
+|---|---|---|---|---|---|---|
+| `8F1TBJR8` ko → `BG-00001`, `OTM-00001` | SĐT `+84900000121`, Liên hệ **Zalo**, Ngôn ngữ **English**, Quốc tịch "–" (ảnh `47`) | **422** → phải đổi Liên hệ về "–" (BUG-R4-011, ảnh `48`) | English + "Khách viết bằng tiếng Hàn – gửi tin bằng tiếng Anh." (ảnh `49`) | có / có (ảnh `50`) | English + câu, chữ báo giá EN (ảnh `51`) | `en`, quốc tịch **VN** |
+| `JXEV8FYX` zh → `BG-00002`, `OTM-00002` | như trên, English | 422 → như trên | English + "…tiếng Trung – gửi tin bằng tiếng Anh." | có / có | English + câu | `en`, VN |
+| `05E19A2G` ru → `BG-00003`, `OTM-00003` | Zalo, **Русский** | 422 → như trên | Русский + "Khách viết bằng tiếng Nga – gửi tin bằng tiếng Nga." (ảnh `52`) | có / có | Русский + câu | `ru`, VN |
+| `DT518MDK` en (WhatsApp) → `BG-00004`, `OTM-00004` – **ca EN hồi quy BUG-R3-050** | SĐT và **WhatsApp** điền cùng số, Liên hệ WhatsApp, English | **201** | English, không có câu (đúng) | không câu | English | `en`, liên hệ WhatsApp, VN |
+| `MP9FMEMT` vi → `BG-00005` | Zalo, Tiếng Việt | 422 → như trên | Tiếng Việt, không câu | – | Tiếng Việt | `vi`, VN |
+| `6TW4ZT5C` ko, **hồ sơ có sẵn** cùng SĐT (`KH-0008`, ngôn ngữ `vi`, quốc tịch KR), chọn qua "Hồ sơ có cùng liên hệ → Chọn" → `BG-00006` | – | – (không có `PATCH /guests`) | English + câu tiếng Hàn | – | English + câu (ảnh `53`) – theo yêu cầu liên kết, không theo hồ sơ `vi` | **không đổi** (`vi`, KR, `version` 1) – PO P8 |
+
+- Câu Desk đúng chữ CPY 15.1 ở hộp báo giá (dưới ô ngôn ngữ) và hộp giữ chỗ (dưới thẻ cọc, cả trước và sau khi tạo). Đạt ý 2.
+- Mở lại báo giá: Desk gọi `quotes/{id}/text?locale=vi` trước rồi `locale=en`/`ru` ngay sau (khung chữ đổi trong dưới 1 giây). Ghi nhận, không ghi lỗi.
+- Ý 4: ngăn chi tiết yêu cầu đã thành đơn vẫn hiện "Ngôn ngữ khách dùng: Tiếng Hàn"; báo giá mở lại đọc ngôn ngữ gốc từ yêu cầu liên kết. Đạt.
+- **Ý 3 chưa đạt trọn:** ngôn ngữ gửi tin được lưu đúng (`en`/`ru`/`vi`) **khi lưu được**. Nhưng với kênh Zalo (mặc định của form, 4/5 yêu cầu lượt này) lưu hồ sơ luôn 422 – BUG-R4-011. Quốc tịch hiện "–" nhưng lưu `VN` – BUG-R4-012.
+- Gốc BUG-R4-011 (gọi thẳng API, `qa.fd`): `createGuest {phone, preferredContact: zalo}` → 422 `CONTACT_CHANNEL_EMPTY`; `{phone, preferredContact: phone}` → 201; `{phone, messagingHandles: {zalo}, preferredContact: zalo}` → 201. Desk coi Zalo dùng ô "Số điện thoại / Zalo" (kiểm phía máy cho qua) và không có ô Zalo riêng. Vì vậy lỗi đã có từ trước với hồ sơ tạo tay chọn Zalo; lượt này LP-v2 làm nó thành **mặc định** cho mọi yêu cầu Zalo. Đường "Tạo đơn" / "Ở dài ngày" dùng cùng `GuestPicker` + điền sẵn nên nhiều khả năng cùng lỗi (chưa chạy).
+
+**BUG-R4-008: đã sửa – đã xác nhận** (phạm vi của lỗi: câu Desk + ngôn ngữ vào hồ sơ + mở lại). Phần chặn mới tách thành BUG-R4-011, 012.
+
+### 12.5 BUG-R4-007 – S35: cột, lọc, tổng số (US-175 AC3, AC5)
+
+`desk3.spec.ts` stage `list`, `qa.owner`, 1366 và 1280 px. Tổng Desk so với `listWebsiteBookingRequests` (`total`, gọi với `limit=50` và `limit=1`):
+
+| Bộ lọc trạng thái | Mọi ngôn ngữ | en | vi | ko | zh | ru |
+|---|---|---|---|---|---|---|
+| Mới + Đang xử lý (mặc định) | 52 (tải 50 + "xem thêm") | 1 | 2 | 1 | 1 | 47 |
+| Mọi trạng thái (gồm Đã thành đơn, Đã đóng, Spam) | 66 (tải 50) | 2 | 2 | 2 | 2 | **58 (tải 50)** |
+| Chỉ Đã thành đơn + Đã đóng | 14 | 1 | 0 | 1 | 1 | 11 |
+
+- 18/18 ô: số Desk "{n} yêu cầu khớp bộ lọc" = `total` API, và `total` không đổi giữa `limit=50` và `limit=1` → không phụ thuộc trang đã tải. Đạt AC5 (ảnh `42`, `43`).
+- Cột "Ngôn ngữ" (thứ 7) hiện đúng nhãn VI: Tiếng Anh · Tiếng Việt · Tiếng Hàn · Tiếng Trung (giản thể) · Tiếng Nga; lọc từng ngôn ngữ chỉ còn dòng ngôn ngữ đó; kết hợp được với nút trạng thái. Đạt AC3.
+- Bật "Chỉ yêu cầu tôi đang xử lý": không hiện số (đúng ghi chú FE 10.1 – tránh số sai).
+- API: `locale=ja` / `locale=KO` → 422 `NOT_IN_LIST`; `locale=ko,zh` → 4.
+- **1366 px:** trang không tràn ngang (0 px). Bảng vẫn cuộn ngang trong khung: `scrollWidth` 1215 / khung 1084. Ẩn tạm cột Ngôn ngữ trên cùng bản → 1122 (cột rộng 93 px). So với số FE đo trước lượt này (1440) thì bảng cuộn ít hơn; so với "cùng bản, không có cột" thì cột làm cuộn thêm 93 px. AC3 "không cuộn ngang thêm vì cột mới" phụ thuộc mốc so – FE đã nhờ UXD xác nhận bố cục; QA không ghi lỗi.
+- Không kiểm Desk giao diện tiếng Anh ("Language", "Matching requests: {n}") – chỉ đọc chuỗi `strings-en.json`.
+
+**BUG-R4-007: đã sửa – đã xác nhận.**
+
+### 12.6 BUG-R4-009 – số ít/nhiều trong chữ gửi khách
+
+Báo giá tạo bằng API (`qa.fd`, khách giả), `getQuoteText` 3 ngôn ngữ:
+
+| Ca | en | ru | vi |
+|---|---|---|---|
+| 1 đêm, 1 người lớn (`BG-00007`) | (1 night), 1 adult | (1 ночь), 1 взрослый | (1 đêm), 1 người lớn |
+| 2 đêm, 2 người lớn (`BG-00008`) | (2 nights), 2 adults | (2 ночи), 2 взрослых | (2 đêm), 2 người lớn |
+| 5 đêm, 5 người lớn (`BG-00009`) | (5 nights), 5 adults | (5 ночей), 5 взрослых | (5 đêm), 5 người lớn |
+| 21 đêm, 2 người lớn (`BG-00010`) | (21 nights), 2 adults | **(21 ночь)**, 2 взрослых | (21 đêm), 2 người lớn |
+| Báo giá từ yêu cầu (12.4) | "Room 102 The Fern, 10/11/2026 → 11/11/2026 (1 night), 2 adults." | "(1 ночь), 2 взрослых" | "(1 đêm), 2 người lớn" |
+
+- **Trang khách** (guest-web, link khách cấp cho đơn đã cọc, dữ liệu giả): `OTM-00005` ru "1 дек. → 2 дек. · 1 ночь"; `OTM-00006` ru "3 дек. → 5 дек. · 2 ночи" (ảnh `55`); `OTM-00009` en "8 Dec → 9 Dec · 1 night" (ảnh `56`); `OTM-00007` en "14 Dec → 16 Dec · 2 nights"; `OTM-00008` vi "17/12 → 19/12 · 2 đêm". Trang theo ngôn ngữ hồ sơ, không theo trình duyệt (như trước).
+- Khối giá landing ru (12.3): "за 1 ночь", "за 29 ночей" – đúng.
+- **Hóa đơn in (dòng OTA trả trước): chưa kiểm trên stack.** Nhận phòng cần giấy tờ khách chính (409 `CHECKIN_CONDITIONS_NOT_MET: main_guest_document`); QA không tạo giấy tờ giả qua luồng ảnh trong lượt này. Đọc mã `CheckOutPage.tsx` `Lcount`: mỗi ngôn ngữ của bill (vi, và en khi song ngữ) tự chọn dạng `_one/_few/_many/_other` qua `pluralForm`; chuỗi en "Room charge, 1 night / {n} nights – paid via {channel}". Đề nghị QC hoặc lượt sau kiểm trên Desk tập có máy được cấp quyền.
+
+**BUG-R4-009: đã sửa – đã xác nhận** (câu báo giá – phạm vi của lỗi; trang khách đạt; bill chỉ đọc mã).
+
+### 12.7 BUG-R4-010 – sổ tay đối chiếu với Desk thật (US-175 AC6)
+
+Đọc `product/docs/manual/guides/02-le-tan.md` (bản 1.3) mục 4.2, 13.1c, 13.1d, bảng tra cứu, bài tập 11; `guides/05-sale-ctv.md` 6.3a; `user-manual-v1.0.md` 2.18 (bản 1.6). So với Desk `0a25716a` và CPY `lp-v2-copy.md`:
+
+| Điểm đối chiếu | Sổ tay | Desk thật / nguồn | KQ |
+|---|---|---|---|
+| AC6 ý 1 – cột, nhãn, lọc, tổng số | "cột **Ngôn ngữ**: Tiếng Anh · Tiếng Việt · Tiếng Hàn · Tiếng Trung (giản thể) · Tiếng Nga", lọc + trạng thái, "Desk hiện tổng số yêu cầu khớp lọc" | đúng (12.5) | Đạt |
+| Ngăn chi tiết | "Ngôn ngữ khách dùng", "Giá ước tính khách đã thấy", "{số} – tính lúc {giờ}", "Khách chưa thấy giá" | đúng chữ | Đạt |
+| AC6 ý 2 – mặc định tiếng Anh, Русский cho ru | đúng; câu "Khách viết bằng tiếng Hàn/Trung – gửi tin bằng tiếng Anh." ở báo giá và giữ chỗ (dưới phần cọc) | đúng chữ, đúng vị trí | Đạt |
+| Câu cho khách tiếng Nga | bảng 13.1d dòng Tiếng Nga và câu dưới bảng chỉ nói ko/zh có câu | Desk **cũng** hiện "Khách viết bằng tiếng Nga – gửi tin bằng tiếng Nga." | **Lệch nhỏ** |
+| Cảnh báo chênh giá | **"Đã đổi: {cũ} → {mới}"** kèm "Giá Desk tính bây giờ khác số khách đã thấy trên web…" (`02-le-tan.md` dòng 1015, 1221, 1490; `05-sale-ctv.md` dòng 273–274; `user-manual-v1.0.md` dòng 1142–1143 và lịch sử 1725) | **"Khác giá web khách đã thấy: {cũ} → {mới}"** + "Giá theo lịch giá hôm nay khác số khách thấy trên web. Nói rõ lý do với khách khi gửi báo giá." (ảnh `45`) | **Lệch** – lễ tân tìm chữ "Đã đổi" sẽ không thấy |
+| "Khớp giá ước tính…" / "…không so sánh." | đúng chữ | đúng | Đạt |
+| AC6 ý 3 – Google Dịch mọi màn hình, khuyên dịch trên ngăn một yêu cầu | có | ESC-044, INV 01/11 câu 9 | Đạt |
+| AC6 ý 4 – 3 câu mẫu EN | trùng từng chữ CPY `lp-v2-copy.md` dòng 1106–1135 (câu 1 hai biến thể + câu thêm cho ko/zh, câu 2 hai biến thể, câu 3) | – | Đạt |
+| AC6 ý 5 – câu hứa | 07:00–22:00 → 60 phút ("within 1 hour"); ngoài giờ → trước 09:00 | BR-912 (4) | Đạt |
+| AC6 ý 6 – 2.18 trạng thái form | đã bỏ "form đang tắt" | – | Đạt |
+| 13.1d: "Mở lại báo giá cũ mà ô đang là Tiếng Việt: chọn lại English…" | lời dặn dự phòng | Desk nay tự mở lại đúng ngôn ngữ (12.4) | Không sai, có thể rút gọn |
+
+**BUG-R4-010: mở lại (P3)** – 2 chỗ lệch chữ (bảng trên). Đề xuất sửa trong bug-list.
+
+### 12.8 Hồi quy nhanh
+
+| Mục | Kết quả |
+|---|---|
+| 13 ca giá P01–P13 + N01–N05 + M01–M02 (`parity.mjs` lượt `run3`, hạng dạng nhãn, trước khi đổi giá) | 20/20 đạt, 13/13 lệch **0 đ** web = Desk từng căn |
+| Tháng / 30 đêm | Web `monthly_offer` không số, không token; trang 5 ngôn ngữ: lời mời 30 đêm không số (12.3) |
+| C8 qua Caddy (`c8.sh`) | IP A 200 lượt + XFF giả: 10 × 200, 20 × 503, **170 × 429 từ lượt 31**, `Retry-After: 600`; IP B trong lúc A dồn: 7 × 200, 3 × 503 (khoảng 1 giây đầu); sau đợt: A 429, IP C mới 200 có giá. Như lượt 1–2 (PE-RR4) |
+| Ma trận route (`caddy.mjs`) | 13/13 đúng; 200 chỉ 13 trường cho phép, `no-store`, `noindex`, không cookie, không ETag; token không có dữ liệu cá nhân |
+| 15 trang × 5 ngôn ngữ (`pages.spec.ts`) | Tràn ngang **0 px** ở 320/360/375/1024 (60/60); **axe 0** ở 1280 và 360; hreflang 5 + x-default, hai chiều, 0 lệch; `html lang` đúng; 0 mẫu tiền trong HTML; thông báo `2026-11-01` + Δ5 có ở 5/5; EN/VI 0 tệp font Hàn/Trung; 0 yêu cầu ra ngoài; console chỉ có dòng 404 của chính trang 404 |
+| `check:dist` (lúc dựng landing) | 14/14 nhóm đạt |
+| Image api có `packages/contracts/dist` | Có; `publicRoomTypeSlug` chạy trong image: "Standard Studio · Garden View" → `standard-studio-garden-view`, "Premium · One Bedroom + 1" → `premium-one-bedroom-1`, "Signature · Two Bedrooms" → `signature-two-bedrooms`, slug giữ nguyên |
+| US-131 AC6 (đổi giá) | 12.2 – web theo ngay, đêm trước ngày hiệu lực giữ giá cũ |
+
+### 12.9 Rà ảnh mới theo quy tắc che dữ liệu
+
+- Ảnh QA `42`–`56`: chỉ dữ liệu giả (tên "QA …", "김큐에이 테스트", "测试…", "Тест…", SĐT `+84 900 000 1xx`, mã yêu cầu/đơn của stack thử). Không QR (stack thử không có tài khoản nhận – VietQR 409), không mã cửa, không số giấy tờ, không link khách (ảnh trang khách chụp nội dung trang, không có URL/token).
+- Ảnh FE `lp-v2-fe3-*`, `lp-v2-fe4-*` (theo FE: MSW + "Test Guest") – QA không rà lại từng ảnh lượt này.
+
+### 12.10 Độ bao phủ AC sau lượt 3
+
+| AC | Lượt 2 | Lượt 3 |
+|---|---|---|
+| US-131 AC4 | Đạt có điều kiện | **Đạt** – 4 ý + số khách, cả 4 ý ≥ 15 px ở 5 ngôn ngữ × 360/1280 px |
+| US-131 AC10 | Không đạt | **Đạt** – "Khớp", "Khác giá web khách đã thấy: 800.000 → 870.000", khác hạng / chưa gán → không so sánh, trên hạng dạng nhãn |
+| US-131 các AC khác | đạt | đạt (hồi quy) |
+| US-175 AC3 | Đạt một phần | **Đạt** (ghi chú bảng cuộn ngang ở 1366 px – UXD) |
+| US-175 AC4 | Đạt một phần | **Đạt một phần** – ý 1, 2, 4 đạt; ý 3 đạt khi lưu được, nhưng yêu cầu Zalo không tạo nhanh hồ sơ được (BUG-R4-011); quốc tịch lưu VN (BUG-R4-012) |
+| US-175 AC5 | Không đạt | **Đạt** – 18/18 tổng số = API, kể cả đã thành đơn/đã đóng và bộ lọc hơn một trang |
+| US-175 AC6 | Không đạt | **Đạt một phần** – đủ 6 ý; 2 chỗ lệch chữ với Desk (BUG-R4-010) |
+| PO 9.1 B6 (BUG-R4-009, không có AC) | – | Đạt (báo giá, trang khách); bill chỉ đọc mã |
+
+### 12.11 Chưa kiểm ở lượt 3 và vì sao
+
+- Dòng bill OTA trả trước trên Desk (12.6) – cần giấy tờ khách chính để nhận phòng.
+- Desk giao diện tiếng Anh (cột "Language", "Matching requests", câu "Guest wrote in…") – chỉ đọc chuỗi.
+- "Tạo đơn" / "Ở dài ngày" từ yêu cầu với hồ sơ tạo nhanh (cùng `GuestPicker`) – không chạy; nhiều khả năng cùng BUG-R4-011.
+- Không chạy lại vitest/Playwright của FE/BE (FE báo admin-web 674, api 3350 đạt) – QA kiểm hành vi trên stack thật.
+- Staging, Lighthouse thật, thiết bị thật, người bản xứ (US-174 AC10) – ngoài lượt này.
+
+### 12.12 Đề nghị ORC ghi decision-log (quyền QA)
+
+`| 2026-11-01 | 4 | QA – kiểm thử lượt 3 LP-v2 trên lp-v2@0a25716a (stack thử, Caddy thật, hạng công khai dạng nhãn): BUG-R4-001, 006, 007, 008, 009 đã sửa – đã xác nhận; BUG-R4-010 mở lại (P3: sổ tay ghi "Đã đổi", Desk ghi "Khác giá web khách đã thấy"; thiếu câu cho khách tiếng Nga); mới BUG-R4-011 (P2: tạo nhanh hồ sơ từ yêu cầu Zalo bị 422 CONTACT_CHANNEL_EMPTY, chữ lỗi lộ "{channel}") và BUG-R4-012 (P3: hồ sơ tạo nhanh lưu quốc tịch VN). Hồi quy đạt (13/13 ca giá lệch 0 đ, C8, route 13/13, 15 trang × 5 ngôn ngữ tràn 0 / axe 0); image api có @ottimo/contracts/dist. AC chưa đạt trọn: US-175 AC4 (ý 3), AC6 (chữ) | QA | Quyền QA (kết luận kiểm thử, mức lỗi) |`
+
+### 12.13 Dọn dẹp lượt 3
+
+Stack `ottimo-qalp4` đã dừng và xóa kèm volume (`down -v`), mạng đã xóa; image tạm `ottimo-*:qalp4` đã xóa; tệp biến môi trường tạm (khóa ngẫu nhiên) và token máy tin cậy tạm đã xóa. Dữ liệu nhân bản (56 dòng ru), máy tin cậy tạm và đồng hồ thử chỉ có trên stack thử đã xóa. Script và kết quả thô ở scratchpad phiên QA (ngoài repo). Không có dữ liệu thật, không khóa thật, không gửi gì ra ngoài.
