@@ -28,6 +28,7 @@
 - Phần **(a)**: US-175 + US-131 ở EN/VI – phát hành khi QC đạt và đủ AC cổng của US-131 (AC12).
 - Phần **(b)**: mỗi ngôn ngữ `ko`, `zh`, `ru` phát hành **riêng** khi ngôn ngữ đó qua cổng của US-174 (AC10, AC11). Ngôn ngữ chưa qua cổng thì **không** có đường dẫn, không có trong nút chọn ngôn ngữ, không có trong `hreflang` và sơ đồ trang.
 - Hai phần có thể ra cùng một lần nếu cùng sẵn sàng.
+- *(01/11 – thay bởi quyết định INV "Lên cùng một lần", decision-log 01/11: giá ước tính + `ko`/`zh`/`ru` phát hành **một lượt** khi đủ mọi cổng. Các cổng US-131 AC12 và US-174 AC10–AC11 giữ nguyên, chỉ không phát hành lẻ. Một ngôn ngữ chậm cổng thì ORC hỏi INV có tách ra không – đó là quyết định của INV, không phải của PO. Phân loại lỗi trước phát hành: mục 9.)*
 
 ## 3. User story và tiêu chí nghiệm thu
 
@@ -66,7 +67,7 @@ Nguồn: FB-INV-009 (INV 01/11), G1–G3; FB-INV-002 ý 3 (L7-B, phần giá); B
   | M2 theo tháng, chưa chắc số tháng | như M1, "Not sure yet" | như M1 | G2 |
 
   Thêm một ca **giá lẫn trong hạng** trên dữ liệu khởi tạo thật của Desk (102, 103 = 750.000; 202, 203 = 792.000): con số web = "Desk tính" theo căn đại diện BR-WEB chọn, lệch 0 đ. QA lưu bảng so sánh (đầu vào · số web · số Desk) vào báo cáo kiểm thử.
-- **AC4 – Chữ "ước tính" và điều kiện đi liền con số.** Given khối giá có con số, ở **mọi locale đã phát hành**, Then trong cùng khối, cùng cỡ chữ không nhỏ hơn chữ nội dung của form, luôn có đủ 4 ý (chữ cuối do CPY viết, EN dẫn): (1) nhãn **"ước tính"** (EN "Estimated" hoặc tương đương CPY chọn) ngay trên/cạnh con số; (2) "giá cuối cùng nằm trong báo giá OTTIMO gửi bạn"; (3) "đã gồm thuế" (giá niêm yết gồm VAT – BR-101 (2)); (4) "chưa giữ phòng". Theo tháng thêm: chưa gồm phí dịch vụ (BR-204), điện nước theo công tơ (BR-501), giảm theo kỳ hạn (BR-201) và khách nước ngoài +10 % (BR-109) – form không hỏi quốc tịch nên không tự cộng. Kiểm: QA đối chiếu 4 ý trên ảnh chụp của từng locale × ca W1, W4, M1; thiếu một ý ở một locale = không đạt. **Không** dùng "giá sốc", "rẻ nhất", đồng hồ đếm ngược, "chỉ còn x phòng" (BR-114 (4), US-147 AC6).
+- **AC4 – Chữ "ước tính" và điều kiện đi liền con số.** *(sửa 01/11 sau QA lượt 2 – mục 9: làm rõ mốc cỡ chữ, thêm ý BR-115 (5))* Given khối giá có con số, ở **mọi locale đã phát hành**, Then trong cùng khối luôn có đủ 4 ý (chữ cuối do CPY viết, EN dẫn): (1) nhãn **"ước tính"** (EN "Estimated" hoặc tương đương CPY chọn) ngay trên/cạnh con số; (2) "giá cuối cùng nằm trong báo giá OTTIMO gửi bạn"; (3) "đã gồm thuế" (giá niêm yết gồm VAT – BR-101 (2)); (4) "chưa giữ phòng"; kèm "cho {n} khách" và "phòng trống được xác nhận trong báo giá" (BR-115 (5)). **Cỡ chữ của cả 4 ý, kể cả nhãn ý (1), không nhỏ hơn nhãn ô của form** (15 px – UXD 01/11; ô nhập 16 px là cỡ chống iOS phóng to, không dùng làm mốc); kiểu chữ hoa/giãn do UXD chọn, miễn không tràn ở 360 px với nhãn tiếng Nga. Theo tháng thêm: chưa gồm phí dịch vụ (BR-204), điện nước theo công tơ (BR-501), giảm theo kỳ hạn (BR-201) và khách nước ngoài +10 % (BR-109) – form không hỏi quốc tịch nên không tự cộng. Kiểm: QA đối chiếu 4 ý trên ảnh chụp của từng locale × ca W1, W4, M1 và đo cỡ chữ tính toán của từng ý ở 360 và 1280 px; thiếu một ý hoặc một ý nhỏ hơn nhãn ô ở một locale = không đạt. **Không** dùng "giá sốc", "rẻ nhất", đồng hồ đếm ngược, "chỉ còn x phòng" (BR-114 (4), US-147 AC6).
 - **AC5 – Thân trang không có giá (G1, decision-log 24/10).** Given bản dựng của **mọi trang × mọi locale đã phát hành** (trang chủ, privacy, 404) **trước khi** khách chọn gì trong form, Then số lần xuất hiện của mẫu tiền (chữ số kèm `đ`, `₫`, `VND`, `dong`, `원`, `元`, `руб`, `$`, `USD`, hoặc kèm "/night", "/đêm", "/month", "/tháng" và bản dịch ko/zh/ru) trong HTML, chữ hiển thị, mô tả ảnh, tiêu đề/mô tả trang, ảnh chia sẻ, JSON-LD (`price`, `priceRange`, `offers`) = **0**. Con số chỉ xuất hiện **bên trong khối giá của form** sau khi khách chọn (AC1) và không nằm sẵn trong HTML tĩnh. Kiểm: script quét `dist` + Playwright đọc DOM trước khi tương tác. *Ngoại lệ duy nhất:* con số "chỉ từ" BR-114 nếu INV cho phát hành riêng (FB-INV-004, nhánh `landing-f9-from-price` đang giữ) – không thuộc LP-v2; LP-v2 không thêm số nào ở thân trang.
 - **AC6 – Một nguồn giá: đổi trên Desk, web đổi theo (G3).** Given `owner` đổi giá đêm niêm yết (BR-101) hoặc lịch ngày đặc biệt (BR-104) trên Desk, có hiệu lực từ một ngày, Then ước tính trên web cho các đêm từ ngày đó dùng giá mới trong vòng **10 phút** `[GIẢ ĐỊNH – PO; ARC đề xuất số khác nếu có lý do]`, không cần dựng lại hay phát hành lại landing; đêm trước ngày hiệu lực giữ giá cũ. Kiểm trên LP2-F1: đổi giá đêm hạng Garden View thành 800.000 từ 10/11 → ca W1 hiện **800.000 đ** trong 10 phút; không có giá nào gõ cứng trong mã landing (QA quét mã: 0 con số giá trong `src/content`).
 - **AC7 – Không phụ thuộc phòng trống (chưa làm phòng trống).** Given cùng đầu vào, When một hay mọi căn của hạng đã có đơn trong khoảng ngày đó, Then con số web **không đổi** và trang không hiện còn/hết phòng; hạng đã kín vẫn cho gửi yêu cầu. (Lý do: phòng trống thuộc US-176; con số thay đổi theo đơn sẽ để lộ mức lấp đầy – SEC ARC-18, ESC-020 L7-B.)
@@ -104,14 +105,26 @@ Nguồn: FB-INV-008 (INV 01/11), G4, G5; US-152 (khung đa ngôn ngữ), US-153 
 
 > **Là sale / lễ tân** (`sales_staff`, `front_desk`), tôi muốn yêu cầu đặt phòng gửi từ trang tiếng Hàn, tiếng Trung hay tiếng Nga vào Desk đầy đủ như yêu cầu EN/VI và ghi rõ khách dùng ngôn ngữ nào, để trả lời đúng ngôn ngữ (bằng công cụ dịch nếu cần) và không mất khách vì lỗi hệ thống.
 
-Nguồn: FB-INV-008 ("Desk hiện ngôn ngữ khách đã dùng"), G4; US-155 AC1, AC2, AC8; BUG-R3-055 (ngôn ngữ/liên hệ không sang hồ sơ khi báo giá – P3, đích v1.0.1).
+Nguồn: FB-INV-008 ("Desk hiện ngôn ngữ khách đã dùng"), G4; US-155 AC1, AC2, AC8; BUG-R3-050 (ngôn ngữ/liên hệ không sang hồ sơ khi báo giá – P3, đích v1.0.1) *(01/11: trước đây dẫn nhầm "BUG-R3-055")*; ESC-044 (INV 01/11 – công cụ dịch bên ngoài được phép, không giới hạn). AC3–AC6 sửa 01/11 sau QA lượt 2 (mục 9).
 
 - **AC1 – Nhận đủ.** Given khách gửi form hợp lệ từ `/ko/`, `/zh/` hoặc `/ru/`, Then yêu cầu vào hàng chờ "Yêu cầu từ website" như yêu cầu EN/VI (cùng trạng thái, nguồn `website` + nguồn phụ, thông báo cho nhân viên – US-155 AC6, AC8); **0** yêu cầu bị từ chối chỉ vì ngôn ngữ (kiểm: mỗi locale một ca đầu-cuối + test API với mỗi giá trị ngôn ngữ).
 - **AC2 – Chữ không Latinh giữ nguyên.** Given tên và lời nhắn viết bằng chữ Hàn, chữ Hán, chữ Kirin (kể cả trộn với tiếng Anh, emoji khách tự gõ), Then Desk hiện đúng từng ký tự (không lỗi mã hóa, không cắt giữa ký tự), giới hạn độ dài tính theo ký tự như hiện hành; kiểm tra "lời nhắn có số giấy tờ/số thẻ" (US-155 AC5) vẫn chạy.
-- **AC3 – Desk hiện ngôn ngữ khách.** Given một yêu cầu, Then danh sách và chi tiết yêu cầu hiện nhãn ngôn ngữ bằng tiếng Việt cho nhân viên (Tiếng Anh · Tiếng Việt · **Tiếng Hàn** · **Tiếng Trung (giản thể)** · **Tiếng Nga**); thông báo trong app vẫn **không** chứa tên, SĐT, email (US-155 AC8). Giao diện Desk **không** dịch sang ko/zh/ru (G4).
-- **AC4 – Chuyển thành báo giá không lỗi, không mất ngôn ngữ.** Given yêu cầu `ko`/`zh`, When nhân viên "Chuyển thành báo giá" hoặc "Giữ chỗ" (US-155 AC2), Then thao tác thành công (không lỗi do hồ sơ khách chỉ nhận vi/en/ru); hồ sơ/đơn ghi lại ngôn ngữ khách đã dùng; mẫu tin, bill, trang khách dùng **tiếng Anh** cho `ko`/`zh` (vì G4 chưa làm mẫu tin các ngôn ngữ này) và Desk ghi rõ "Khách dùng tiếng Hàn – tin gửi bằng tiếng Anh"; yêu cầu `ru` dùng tiếng Nga ở nơi Desk đã có bản tiếng Nga. Cách lưu do ARC chọn. Phần "ngôn ngữ sang hồ sơ" gộp sửa cùng BUG-R3-055.
-- **AC5 – Đếm được.** Given báo cáo/xuất dữ liệu yêu cầu website hiện có, Then cột ngôn ngữ có đủ 5 giá trị để INV đếm khách theo ngôn ngữ (không thêm báo cáo mới ở gói này).
-- **AC6 – Hướng dẫn trả lời.** Given sổ tay Desk (`product/docs/manual/`), Then có 3–5 dòng cho lễ tân/sale: trả lời khách ko/zh/ru bằng tiếng Anh hoặc công cụ dịch; khi dán lời nhắn vào công cụ dịch thì bỏ tên, SĐT, email (SEC xác nhận công cụ dịch được phép); cùng câu hứa thời gian trả lời BR-912. (BA viết, SEC duyệt câu về dữ liệu.)
+- **AC3 – Desk hiện ngôn ngữ khách.** *(sửa 01/11 sau QA lượt 2: nói rõ phần danh sách)* Given một yêu cầu, Then **danh sách S35 có cột "Ngôn ngữ"** và ngăn chi tiết có dòng ngôn ngữ, nhãn bằng tiếng Việt cho nhân viên (Tiếng Anh · Tiếng Việt · **Tiếng Hàn** · **Tiếng Trung (giản thể)** · **Tiếng Nga**; Desk tiếng Anh dùng bản EN của nhãn); danh sách **lọc được theo ngôn ngữ**, kết hợp với bộ lọc trạng thái hiện có; thông báo trong app vẫn **không** chứa tên, SĐT, email (US-155 AC8). Giao diện Desk **không** dịch sang ko/zh/ru (G4). Kiểm: mỗi ngôn ngữ một yêu cầu → đúng nhãn ở cột và ngăn chi tiết; lọc từng ngôn ngữ chỉ còn yêu cầu ngôn ngữ đó; ở 1366 px bảng không cuộn ngang thêm vì cột mới (UXD chọn bố cục cột).
+- **AC4 – Chuyển thành báo giá không lỗi, không mất ngôn ngữ.** *(sửa 01/11 sau QA lượt 2: nói rõ "ghi lại ngôn ngữ" ở mức gói này, nơi hiện câu Desk)* Given yêu cầu `ko`/`zh`/`ru`, When nhân viên "Báo giá" hoặc "Giữ chỗ" (US-155 AC2), Then:
+  1. Thao tác thành công (không lỗi do hồ sơ khách chỉ nhận vi/en/ru).
+  2. Ô "Ngôn ngữ gửi khách" chọn sẵn **tiếng Anh** cho `ko`/`zh`, **tiếng Nga** cho `ru`; ngay cạnh ô, với `ko`/`zh`, Desk hiện câu kiểu "Khách viết bằng tiếng Hàn – tin gửi bằng tiếng Anh" (bản EN của Desk có câu tương ứng; CPY/UXD chốt chữ) ở **cả** hộp báo giá **và** hộp giữ chỗ.
+  3. Hồ sơ khách tạo từ yêu cầu (tạo nhanh) lưu **ngôn ngữ gửi tin** = `en` cho `ko`/`zh`, `ru` cho `ru` (và `en`/`vi` như yêu cầu EN/VI); mở lại báo giá hay gửi tin sau đó **không** quay về tiếng Việt. Hồ sơ có sẵn mà nhân viên đã đặt ngôn ngữ khác thì không tự đổi.
+  4. **Ngôn ngữ gốc** (`ko`/`zh`/`ru`) tra được từ yêu cầu website đã liên kết với báo giá/đơn; gói này **không** bắt buộc thêm giá trị `ko`/`zh` vào hồ sơ khách (Desk chưa có mẫu tin các ngôn ngữ này – G4).
+  Cách lưu do ARC chọn. Phần 3 sửa cùng **BUG-R3-050** (cùng gốc cho yêu cầu EN; đích v1.0.1). Kiểm: mỗi ngôn ngữ ko/zh/ru: báo giá → giữ chỗ → mở lại báo giá → tin vẫn đúng tiếng Anh/tiếng Nga; một ca EN hồi quy BUG-R3-050.
+- **AC5 – Đếm được trên S35.** *(sửa 01/11 sau QA lượt 2: bỏ "báo cáo/xuất", đếm bằng lọc S35)* Given `owner` mở S35, When chọn lọc một ngôn ngữ (kết hợp bộ lọc trạng thái, gồm cả yêu cầu đã thành đơn và đã đóng), Then Desk hiện **tổng số yêu cầu khớp bộ lọc**, không phụ thuộc số trang đã tải. Kiểm: 5 ngôn ngữ, số Desk hiện = số đếm từ API cho cùng bộ lọc, có ca hơn một trang. Số chỉ gồm yêu cầu còn trên Desk; báo cáo/xuất dữ liệu yêu cầu website theo ngôn ngữ **không** thuộc gói (dời v1.2 cùng US-104 – backlog mục 5.6).
+- **AC6 – Hướng dẫn trả lời.** *(sửa 01/11 sau QA lượt 2 theo ESC-044 – INV cho phép công cụ dịch, không giới hạn)* Given sổ tay Desk (`product/docs/manual/user-manual-v1.0.md` mục 2.18, `guides/02-le-tan.md`, `guides/05-sale-ctv.md`), Then có một mục ngắn cho lễ tân/sale gồm đủ:
+  1. Nhận ra khách ko/zh/ru: cột và lọc "Ngôn ngữ" (AC3).
+  2. Mặc định trả lời bằng **tiếng Anh**; báo giá, tin gửi tiếng Anh cho ko/zh, tiếng Nga cho ru (AC4).
+  3. Được dùng công cụ dịch bên ngoài (Google Dịch…) để đọc và soạn trả lời (ESC-044), **trên mọi màn hình Desk, kể cả giấy tờ và thanh toán** (INV 01/11 câu 9 = B, chấp nhận SEC RR-T2/RR-T3); sổ tay chỉ *khuyên* dịch trên ngăn một yêu cầu cho gọn, không cấm. *(ORC sửa 01/11 theo quyết định INV.)*
+  4. **3 câu mẫu tiếng Anh** (CPY viết – ngắn, lịch sự, điềm tĩnh, không emoji): đã nhận yêu cầu và hẹn gửi báo giá; gửi báo giá; mời khách viết thêm bằng tiếng Anh khi bản dịch chưa rõ.
+  5. Câu hứa thời gian trả lời đúng giá trị BR-912 hiện hành.
+  6. Mục 2.18 tả đúng trạng thái form lúc LP-v2 phát hành (bỏ câu "form đang tắt" nếu form đã bật).
+  BA viết, CPY câu mẫu, SEC duyệt ý 3. Bản HTML của sổ tay (nếu đang phát cho nhân viên) dựng lại cùng lượt. Kiểm: QA đối chiếu đủ 6 ý trên `lp-v2` trước QC.
 
 ---
 
@@ -176,3 +189,58 @@ Nguồn: phần "phòng trống" của US-131 cũ; ESC-020 L7-B; SEC ARC-18 (l�
 - [x] Không vượt phạm vi gói: Desk/app/mẫu tin/phồn thể/phòng trống ghi ở "Không có trong gói".
 - [x] Không chỉ định giải pháp kỹ thuật: cách lưu ngôn ngữ, cơ chế xác nhận giá, cách cập nhật giá để ARC chọn; AC chỉ nêu kết quả đo được.
 - [x] Không tự đặt chính sách: giá, ngang giá OTA, nội dung chính sách theo BR hiện hành và cổng INV (US-131 AC12, US-174 AC10).
+
+## 9. Phân loại sau QA lượt 2 (PO – Round 4, bước Kiểm thử, 01/11/2026 tối)
+
+Nguồn: `rounds/round-04/qa/lp-v2-test-report.md` mục 11 (`lp-v2` @ `20afedff`), `rounds/round-04/qa/bug-list.md`; decision-log 01/11 (INV "Lên cùng một lần"; UXD mốc AC4 = nhãn ô 15 px); ESC-044 (INV cho phép công cụ dịch, không giới hạn); SEC `lp-v2-privacy-and-api.md` L2.5 (RR-T2, RR-T3).
+
+**Cách PO xếp.** INV phát hành LP-v2 **một lần**, còn chờ người bản xứ + luật sư, nên thời gian không phải ràng buộc chính. PO chọn: (1) mọi AC **Must** của gói phải đạt trước phát hành – AC nào không thật sự cần thì **sửa AC** cho đúng nhu cầu chứ không dời im lặng; (2) ưu tiên việc giúp **lễ tân xử lý khách ko/zh/ru từ ngày đầu**; (3) việc lớn không cần cho ngày đầu (báo cáo/xuất, giá trị ngôn ngữ mới trong hồ sơ khách) thì dời có đích. Mức lỗi P2/P3 giữ như QA chấm; PO chỉ quyết đích phát hành.
+
+### 9.1 Bắt buộc trước phát hành LP-v2
+
+| # | Lỗi | Việc phải xong | Vai | AC | Mức |
+|---|---|---|---|---|---|
+| B1 | **BUG-R4-001** | So hạng của căn với hạng khách đã thấy theo cùng một dạng (nhãn ↔ slug) để "Khớp…" / "Đã đổi: {cũ} → {mới}" hiện đúng trên dữ liệu nhãn như production; thêm test chống tái phát với hạng dạng nhãn (ba ca: đổi giá → "Đã đổi", cùng giá → "Khớp", khác hạng → "không so sánh") | FE-A (ARC chỉ khi chọn để server trả slug) | US-131 AC10 – không đổi | P2 – đang sửa |
+| B2 | **BUG-R4-006** | Nhãn "Estimated rate / Giá ước tính / …" ≥ 15 px ở 5 ngôn ngữ; UXD chọn giữ hay bỏ chữ hoa/giãn để nhãn Nga không tràn ở 360 px; FE-B sửa CSS | UXD → FE-B | US-131 AC4 – **làm rõ** (mục 9.3) | P3 |
+| B3 | **BUG-R4-007** (phần danh sách) | S35: cột "Ngôn ngữ" (nhãn VI, bản EN cho Desk tiếng Anh), lọc theo ngôn ngữ kết hợp lọc trạng thái, hiện **tổng số yêu cầu khớp lọc** | FE-A + UXD (bố cục cột ở 1366 px); ARC nếu cần thêm lọc/đếm ở API | US-175 AC3, AC5 – **sửa** | P3 |
+| B4 | **BUG-R4-008** (câu Desk) | Câu "Khách viết bằng tiếng Hàn/Trung – tin gửi bằng tiếng Anh" cạnh ô "Ngôn ngữ gửi khách" ở **hộp báo giá và hộp giữ chỗ** (VI + EN của Desk) | CPY/UXD (chữ) → FE-A/FE-B | US-175 AC4 ý 2 | P3 |
+| B5 | **BUG-R4-008** (hồ sơ) + **BUG-R3-050** | Hồ sơ khách tạo nhanh từ yêu cầu lưu ngôn ngữ gửi tin (`en` cho ko/zh, `ru` cho ru, như EN/VI cho en/vi); mở lại báo giá không quay về tiếng Việt. Đích chính **v1.0.1** (BUG-R3-050 đã xếp); v1.0.1 không kịp thì làm trong LP-v2 – LP-v2 **không** phát hành khi chưa có | FE-B (+ ARC xác nhận cách lưu) | US-175 AC4 ý 3 | P3 |
+| B6 | **BUG-R4-009** | Câu báo giá gửi khách đúng số ít/nhiều: EN "1 night / 2 nights", "2 adults" (chữ thường); kiểm luôn bản Nga (1 ночь / 2 ночи / 5 ночей) và VI. Có từ v1.0 nên **đề nghị ORC đưa vào v1.0.1** nếu xếp được | CPY (câu) + BE/FE (nơi dựng câu) | Không có AC riêng – chữ hướng khách, giọng Brand; mọi khách ko/zh nhận câu này | P3 |
+| B7 | **BUG-R4-010** | Mục hướng dẫn trả lời khách ko/zh/ru trong sổ tay theo AC6 mới (6 ý), 3 câu mẫu EN; dựng lại bản HTML của sổ tay nếu đang phát cho nhân viên | BA (viết) + CPY (câu mẫu) + SEC (duyệt ý dịch) | US-175 AC6 – **sửa** theo ESC-044 | P3 |
+
+Sau B1–B7: QA kiểm lượt 3 (các AC đã sửa + hồi quy 13 ca giá), rồi QC LP-v2. B5 và B6 nếu đi v1.0.1 thì QA lượt 3 chỉ kiểm hồi quy trên ko/zh/ru.
+
+Thứ tự đề nghị trong lượt sửa (cùng FE nên có thể gộp một nhánh): B1 → B5 → B4 → B3 → B2; song song CPY (B4, B6, câu mẫu B7) và BA (B7).
+
+### 9.2 Dời (có đích)
+
+| Việc | Đích | Lý do |
+|---|---|---|
+| Báo cáo / xuất dữ liệu yêu cầu website theo ngôn ngữ (BUG-R4-007 phần "báo cáo/xuất") | **v1.2**, cùng US-104 (xuất báo cáo và dữ liệu theo kỳ) – DATA, BE | INV cần **đếm** khách theo ngôn ngữ; lọc + tổng số trên S35 đáp ứng ở gói này. Làm báo cáo riêng cho một bảng là làm hai lần khi US-104 tới |
+| Lưu giá trị `ko`/`zh` riêng trong hồ sơ khách | Chưa xếp – khi INV mở mẫu tin ko/zh cho Desk (hiện ngoài phạm vi, G4) – ARC, BE | Hồ sơ chỉ cần ngôn ngữ **gửi tin**; ngôn ngữ gốc tra được từ yêu cầu liên kết (AC4 ý 4). Đổi ràng buộc dữ liệu hồ sơ khách lúc này không thêm gì cho lễ tân |
+| `translate="no"` cho vùng giấy tờ / thanh toán trên Desk | v1.1 – FE-A (đề xuất của SEC RR-T3) | Sổ tay (AC6 ý 3) giữ luật trước; không cản dịch lời nhắn |
+
+### 9.3 AC đã sửa (cả ở đây và `03-backlog/backlog.md` mục 4)
+
+| AC | Trước | Sau | Lý do |
+|---|---|---|---|
+| US-131 AC4 | "cùng cỡ chữ không nhỏ hơn chữ nội dung của form" | Cỡ chữ cả 4 ý, **kể cả nhãn ý (1)**, ≥ **nhãn ô form (15 px)**; thêm "cho {n} khách" + "phòng trống xác nhận trong báo giá" (BR-115 (5)); QA đo cỡ chữ ở 360/1280 px | Dùng mốc UXD đã chốt; không miễn cho nhãn vì "ước tính" là ý chống hiểu nhầm quan trọng nhất (R6). Ghi nhận BUG-R4-003 đã gộp BR-115 (5) |
+| US-175 AC3 | "danh sách và chi tiết hiện nhãn ngôn ngữ" | Danh sách có **cột** "Ngôn ngữ" + **lọc theo ngôn ngữ**; kiểm 1366 px | Nói rõ phần danh sách; lọc là nền cho AC5 |
+| US-175 AC4 | "hồ sơ/đơn ghi lại ngôn ngữ khách đã dùng"; câu Desk không nói ở đâu; gộp với "BUG-R3-055" | 4 ý: (1) thao tác thành công; (2) câu Desk ở hộp báo giá **và** giữ chỗ; (3) hồ sơ tạo nhanh lưu **ngôn ngữ gửi tin**, không quay về tiếng Việt; (4) ngôn ngữ gốc tra từ yêu cầu liên kết, không bắt buộc thêm `ko`/`zh` vào hồ sơ. Sửa cùng **BUG-R3-050** | Đúng nhu cầu thật (khách nhận đúng tiếng); sửa mã lỗi dẫn nhầm |
+| US-175 AC5 | "báo cáo/xuất dữ liệu… cột ngôn ngữ có đủ 5 giá trị" | **Đếm bằng lọc S35**: lọc ngôn ngữ + trạng thái (gồm đã thành đơn/đã đóng) → Desk hiện tổng số khớp lọc, không phụ thuộc trang đã tải; báo cáo/xuất dời v1.2 | Desk chưa có báo cáo/xuất yêu cầu website nào – AC cũ giả định sai hiện trạng; INV chỉ cần đếm |
+| US-175 AC6 | "bỏ tên, SĐT, email khi dán vào công cụ dịch (SEC xác nhận công cụ dịch được phép)" | 6 ý: nhận ra khách (cột/lọc), mặc định tiếng Anh, **được dùng công cụ dịch** (ESC-044) – dịch trên ngăn một yêu cầu, không dịch trang danh sách, không dịch màn giấy tờ/thanh toán (SEC RR-T2, RR-T3), 3 câu mẫu EN, câu hứa BR-912, mục 2.18 đúng trạng thái form | INV quyết ESC-044 "cho phép, không giới hạn" sau khi AC viết – AC cũ trái quyết định INV |
+| US-175 Nguồn | "BUG-R3-055" | "BUG-R3-050" (+ ESC-044) | QA chỉ ra dẫn nhầm (BUG-R3-055 là chữ "xóa theo hạn lưu") |
+
+Không thêm story, không đổi MoSCoW; tổng giữ **176**. Không ESC mới: đích phát hành và AC nằm trong quyền PO; chính sách dịch đã có quyết định INV (ESC-044). Một điểm ORC cần xác nhận với INV (đã có trong SEC RR-T3, không phải ESC mới): sổ tay ghi "không dịch màn giấy tờ/thanh toán" theo cách hiểu của SEC về ESC-044.
+
+### 9.4 Giả định PO (đổi được không cần INV)
+
+- P7: "Đếm được" = tổng số yêu cầu khớp lọc trên S35 trong phạm vi yêu cầu còn trên Desk; INV không cần số lũy kế dài hạn trước v1.2.
+- P8: Hồ sơ khách **có sẵn** mà nhân viên đã đặt ngôn ngữ khác thì Desk không tự đổi khi báo giá từ yêu cầu (tránh ghi đè lựa chọn của nhân viên).
+- P9: BUG-R4-009 bắt buộc dù không thuộc AC nào vì là chữ hướng khách mà mọi khách ko/zh nhận (Brand Guidelines: giọng văn với khách).
+
+### 9.5 Đề xuất dòng decision-log (ORC ghi khi commit)
+
+| Ngày | Round | Quyết định | Người quyết | Lý do |
+|---|---|---|---|---|
+| 2026-11-01 | 4 | **PO – phân loại LP-v2 sau QA lượt 2**: bắt buộc trước phát hành (một lần) – BUG-R4-001 (P2, FE-A), BUG-R4-006 (UXD → FE-B), BUG-R4-007 phần cột + lọc + tổng số S35 (FE-A + UXD), BUG-R4-008 câu Desk (CPY/UXD → FE) + ngôn ngữ gửi tin vào hồ sơ cùng BUG-R3-050 (đích v1.0.1, không kịp thì trong LP-v2), BUG-R4-009 (CPY + BE/FE; đề nghị đi v1.0.1), BUG-R4-010 (BA + CPY + SEC). Dời: báo cáo/xuất theo ngôn ngữ → v1.2 cùng US-104; giá trị `ko`/`zh` trong hồ sơ khách → khi INV mở mẫu tin ko/zh. Sửa AC: US-131 AC4 (≥ nhãn ô 15 px gồm cả nhãn "ước tính", thêm BR-115 (5)), US-175 AC3 (cột + lọc), AC4 (ngôn ngữ gửi tin vào hồ sơ, ngôn ngữ gốc tra từ yêu cầu), AC5 (đếm bằng lọc S35, bỏ báo cáo/xuất), AC6 (theo ESC-044); sửa dẫn BUG-R3-055 → BUG-R3-050. Tổng 176 story | PO | Quyền PO (phạm vi trong gói, AC, đích phát hành); INV phát hành LP-v2 một lần và còn chờ người bản xứ + luật sư; ưu tiên lễ tân xử lý khách ko/zh/ru từ ngày đầu; `rounds/round-04/outputs/PO/lp-v2-stories.md` mục 9 |
