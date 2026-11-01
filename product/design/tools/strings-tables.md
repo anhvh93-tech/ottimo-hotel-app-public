@@ -3852,6 +3852,16 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `rooms.next_price` | Từ {date}: {amount} | From {date}: {amount} | ⟨chừa chỗ⟩ | Nên có: dòng phụ trong ô Giá đêm niêm yết của bảng 4.1 – lịch giá gần nhất (OWN/MGR) |
 | `rooms.next_price_more` | +{n} lịch khác | +{n} more | ⟨chừa chỗ⟩ | Nên có: khi có > 1 dòng lên lịch |
 
+#### R4 BUG-R4-014 – FE-A: Trả sớm B16 với HĐ thuê tháng (BR-313 v0.5.1, ESC-045 câu 4)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `early_departure.lease_title` | Trả trước hạn hợp đồng thuê tháng | Leaving before the monthly lease ends | ⟨chừa chỗ⟩ | Tiêu đề Alert warn thay khối Cách tính BR-428 khi stayType = long |
+| `early_departure.lease_rule` | Vi phạm HĐ: khách mất toàn bộ ký quỹ {amount} (giữ ngoài app). Không truy thu chênh lệch giảm giá kỳ hạn. | This breaks the lease: the guest forfeits the full security deposit of {amount} (held outside the app). No clawback of the lease-term discount. | ⟨chừa chỗ⟩ | {amount} = manualLongStay.depositHeldVnd đã định dạng. BR-313, BR-206 |
+| `early_departure.lease_rule_no_amount` | Vi phạm HĐ: khách mất toàn bộ ký quỹ (giữ ngoài app). Không truy thu chênh lệch giảm giá kỳ hạn. | This breaks the lease: the guest forfeits the full security deposit (held outside the app). No clawback of the lease-term discount. | ⟨chừa chỗ⟩ | Khi đơn không ghi depositHeldVnd |
+| `early_departure.lease_still_due` | Vẫn thu điện nước, dọn lẻ, hư hỏng còn nợ – không trừ vào ký quỹ. Tiền thuê đã thu cho tháng lịch chưa bắt đầu thì hoàn (làm ngoài app). | Unpaid utilities, extra cleaning and damage are still collected – not taken from the deposit. Rent already paid for calendar months not yet started is refunded (outside the app). | ⟨chừa chỗ⟩ | BR-313 + BR-214 (v0.5.1) |
+| `early_departure.told_guest_lease` | Đã báo khách: mất toàn bộ ký quỹ, không truy thu | I've told the guest: the deposit is forfeited, no clawback | ⟨chừa chỗ⟩ | Checkbox thay early_departure.told_guest khi stayType = long |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |

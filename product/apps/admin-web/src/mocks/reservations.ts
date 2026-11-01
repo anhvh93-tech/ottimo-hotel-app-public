@@ -780,9 +780,10 @@ export function createReservationMock(ctx: Ctx) {
       add('change_room', 'B14', 'change-room');
       if (r.departureDate <= today()) add('check_out', 'B18', 'check-out');
       // 0.3.9 B16 (A17, FD+; bổ sung 1 mục 10.1): the primary booking, while max(today, arrival + 1) <
-      // stayDepartureDate (the whole stay, child extensions included – BR-422).
+      // stayDepartureDate (the whole stay, child extensions included – BR-422). Like the real server (QA PR #22,
+      // BUG-R4-014) a long stay gets it too: the Desk shows BR-313 instead of BR-428 for it.
       const from = addDays(r.arrivalDate, 1) > today() ? addDays(r.arrivalDate, 1) : today();
-      if (!r.parentReservationId && r.stayType !== 'long' && from < stayDeparture(r))
+      if (!r.parentReservationId && from < stayDeparture(r))
         add('early_departure', 'B16', 'early-departure');
       if (
         has(roles, OWN_MGR) &&

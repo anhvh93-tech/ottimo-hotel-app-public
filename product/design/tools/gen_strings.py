@@ -3879,6 +3879,16 @@ g("R3 v1.0.1 – UXD: giá đã lên lịch trên ngăn kéo căn (H04 4.2, Open
     ("rooms.next_price_more", "+{n} lịch khác", "+{n} more", None, "Nên có: khi có > 1 dòng lên lịch"),
 ])
 
+# R4 BUG-R4-014 (phương án b, ORC 01/11): đơn dài hạn (stayType = long) mở B16 để kết thúc lượt ở trên Desk, nhưng hộp
+# KHÔNG hiện các dòng BR-428 (hoàn/phí/báo trước) – thay bằng câu BR-313 v0.5.1 (ESC-045 câu 4). FE-A viết, chờ UXD/DOM duyệt.
+g("R4 BUG-R4-014 – FE-A: Trả sớm B16 với HĐ thuê tháng (BR-313 v0.5.1, ESC-045 câu 4)", [
+    ("early_departure.lease_title", "Trả trước hạn hợp đồng thuê tháng", "Leaving before the monthly lease ends", None, "Tiêu đề Alert warn thay khối Cách tính BR-428 khi stayType = long"),
+    ("early_departure.lease_rule", "Vi phạm HĐ: khách mất toàn bộ ký quỹ {amount} (giữ ngoài app). Không truy thu chênh lệch giảm giá kỳ hạn.", "This breaks the lease: the guest forfeits the full security deposit of {amount} (held outside the app). No clawback of the lease-term discount.", None, "{amount} = manualLongStay.depositHeldVnd đã định dạng. BR-313, BR-206"),
+    ("early_departure.lease_rule_no_amount", "Vi phạm HĐ: khách mất toàn bộ ký quỹ (giữ ngoài app). Không truy thu chênh lệch giảm giá kỳ hạn.", "This breaks the lease: the guest forfeits the full security deposit (held outside the app). No clawback of the lease-term discount.", None, "Khi đơn không ghi depositHeldVnd"),
+    ("early_departure.lease_still_due", "Vẫn thu điện nước, dọn lẻ, hư hỏng còn nợ – không trừ vào ký quỹ. Tiền thuê đã thu cho tháng lịch chưa bắt đầu thì hoàn (làm ngoài app).", "Unpaid utilities, extra cleaning and damage are still collected – not taken from the deposit. Rent already paid for calendar months not yet started is refunded (outside the app).", None, "BR-313 + BR-214 (v0.5.1)"),
+    ("early_departure.told_guest_lease", "Đã báo khách: mất toàn bộ ký quỹ, không truy thu", "I've told the guest: the deposit is forfeited, no clawback", None, "Checkbox thay early_departure.told_guest khi stayType = long"),
+])
+
 def build():
     vi, en, ru = {}, {}, {}
     for grp, k, a, b, c, n in S:

@@ -70,6 +70,9 @@ export function EarlyDepartureDialog({
   const minDate = today > r.arrivalDate ? today : addDays(r.arrivalDate, 1);
   // 0.3.9 bổ sung 1 (FB-R3-UXD-FE-A-06): the whole stay, child extensions included (BR-422); absent = old server.
   const stayEnd = r.stayDepartureDate ?? r.departureDate;
+  // BUG-R4-014 (ORC phương án b): a monthly lease keeps B16 to end the stay on the Desk, but BR-428 (refund / fee /
+  // notice) is not its rule – BR-313 v0.5.1 is (ESC-045 câu 4): the guest forfeits the whole deposit, no clawback.
+  const lease = r.stayType === 'long';
   const maxDate = addDays(stayEnd, -1);
   const [opened] = useState(nowLocal);
   const [newDate, setNewDate] = useState(minDate);
@@ -321,6 +324,7 @@ export function EarlyDepartureDialog({
       leaving === today &&
       (result.reservation.allowedActions ?? []).some((a) => a.event === 'check_out');
     const nights = result.droppedNights ?? [];
+    const leaseOnly = lease && !hasMoney(result);
     const finish = () => onDone(result.reservation);
     return (
       <Modal
@@ -372,7 +376,7 @@ export function EarlyDepartureDialog({
                   <Link to="/audit?tab=refund">{t('early_departure.view_refund')}</Link>
                 ) : null}
               </li>
-            ) : (
+            ) : leaseOnly ? null : (
               <li>{t('early_departure.no_refund')}</li>
             )}
             {(result.childBookings ?? [])
@@ -398,10 +402,13 @@ export function EarlyDepartureDialog({
             {t('early_departure.reg_reminder', { date: date(leaving) })}
           </Alert>
         ) : null}
-        <details>
-          <summary>{t('early_departure.show_calc')}</summary>
-          <Figures p={result} otaRetained={draft.otaRetainedVnd} />
-        </details>
+        {lease ? <LeaseRule reservation={r} /> : null}
+        {leaseOnly ? null : (
+          <details>
+            <summary>{t('early_departure.show_calc')}</summary>
+            <Figures p={result} otaRetained={draft.otaRetainedVnd} />
+          </details>
+        )}
         <p className="li-s">
           {canCheckOut
             ? t('early_departure.checkout_now_hint')
@@ -512,10 +519,19 @@ export function EarlyDepartureDialog({
             </>
           ) : (
             <>
-              <Figures p={p} otaRetained={draft.otaRetainedVnd} was={was} />
+              {/* BUG-R4-014: a lease shows BR-313 instead of the BR-428 rows. Should the server ever put money on a
+                  lease (not in v1.0 – manual lease nights carry 0), its figures stay visible: never confirm unseen money. */}
+              {lease && !hasMoney(p) ? null : (
+                <Figures p={p} otaRetained={draft.otaRetainedVnd} was={was} />
+              )}
+              {lease ? <LeaseRule reservation={r} /> : null}
               <Consequences p={p} newDate={newDate} />
               <Checkbox checked={told} onChange={setTold}>
-                {t('early_departure.told_guest')}
+                {t(
+                  lease && !hasMoney(p)
+                    ? 'early_departure.told_guest_lease'
+                    : 'early_departure.told_guest',
+                )}
               </Checkbox>
             </>
           )}
@@ -588,7 +604,8 @@ export function EarlyDepartureDialog({
                 )}
               </Field>
             </div>
-            {p?.noticeDays !== undefined ? (
+            {/* BR-428 notice days mean nothing for a lease (BR-313 v0.5.1: forfeit whatever the notice). */}
+            {p?.noticeDays !== undefined && !lease ? (
               <p className="li-s">
                 {t('early_departure.notice_days', {
                   n: p.noticeDays,
@@ -688,6 +705,25 @@ export function EarlyDepartureDialog({
         </>
       )}
     </Modal>
+  );
+}
+
+/** The server's preview / result carries a refund or a fee. */
+const hasMoney = (x: EarlyDepartureResult) => (x.refundVnd ?? 0) > 0 || x.earlyDepartureFeeVnd > 0;
+
+/** BUG-R4-014: BR-313 v0.5.1 (ESC-045 câu 4) for a monthly lease – the deposit is held outside the app. */
+function LeaseRule({ reservation: r }: { reservation: StayDialogProps['reservation'] }) {
+  const { t, money } = useI18n();
+  const deposit = r.manualLongStay?.depositHeldVnd;
+  return (
+    <Alert tone="warn" role="note" title={t('early_departure.lease_title')}>
+      <p>
+        {deposit
+          ? t('early_departure.lease_rule', { amount: money(deposit) })
+          : t('early_departure.lease_rule_no_amount')}
+      </p>
+      <p>{t('early_departure.lease_still_due')}</p>
+    </Alert>
   );
 }
 
