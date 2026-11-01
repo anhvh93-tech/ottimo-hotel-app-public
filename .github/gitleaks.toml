@@ -38,4 +38,10 @@ regexes = [
   # wrong test password and a made-up mfaToken example. Neither is valid anywhere.
   '''^Wrong-pass-2026$''',
   '''^q8Zr1vX0bW6mN3pL5tY7uI9oA2sD4fG6hJ8kK0lQ$''',
+  # Fake price-estimate token in the LP-v2 landing unit test (product/apps/landing-web/src/scripts/booking.test.ts
+  # line 452, commit a29f7395 on lp-v2-fe; QC M1 of round 4). Its parts decode to `{"rt":"standard` (cut off)
+  # and the literal word `sig`, so it is not a signed token and is accepted by nothing; real estimate tokens are
+  # HMAC-signed by the API at run time and never stored in the repo. Exact value only (anchored), so any other
+  # `pe1.` string is still scanned by generic-api-key.
+  '''^pe1\.eyJydCI6InN0YW5kYXJk\.c2ln$''',
 ]
