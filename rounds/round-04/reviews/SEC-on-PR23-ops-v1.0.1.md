@@ -189,3 +189,34 @@ Hai thẻ Major không chặn gộp phần mã, vì phần A (staging, Chat tắ
 - Phân loại lỗi một chỗ (`cmd_failed`) cho cả docker compose lẫn psql, xếp thứ tự có chủ đích (lỗi socket psql trước "no such file"). Test chủ động nhét `token=secret-token` vào lỗi `.env` để chứng minh không lọt, và kiểm luôn tệp trạng thái mà webhook đọc.
 - Sao lưu `privacy-notice.log` đi qua đúng đường mã hóa và giữ của bộ sao lưu chung, không mở đường riêng. Diễn tập khôi phục đối chiếu log với DB nhưng chỉ báo, không chặn bản sao lưu cũ.
 - Tài liệu INV cẩn thận: mọi lệnh có `cd /` và `ssh -t`, bản sao bundle cũ dưới `set -e`, có `diff -rq` đối chiếu, không chạy `bootstrap-vps.sh`, và nói rõ không chụp màn hình bước webhook.
+
+---
+
+## Lượt 2 – 88119369
+
+- Người duyệt: SEC · 01/11/2026 · Round 4, bước Phản hồi & sửa (xác nhận bản sửa, QC v1.0.1 ĐK2)
+- Đã đọc: commit sửa `88119369` (6 file). PR #23 đã gộp vào `main` bằng `755cad16`.
+- Đối chiếu: `git diff 88119369 755cad16` không chạm `product/infra/server/bin/ops-check.sh`, `backup.sh`, README mục 13 phần OPS hay `v1.0.1-inv-commands.md`. Khác biệt chỉ là phần PR #16 (`init-secrets.sh`, compose, `check-compose.sh`, env example). Vì vậy bản trên `main` là đúng bản SEC đã rà.
+- Test:
+  - SEC chạy lại `test-ops-check.sh` từ `git archive 755cad16` trên macOS: **31/31**. Hai ca mới là tệp `cmd-stderr` cũ hơn 60 phút bị xóa và `SIGTERM` không để lại tệp.
+  - `backup-privacy-log.test.sh` có ca 4 mới (psql chết ngay → `FAIL: psql did not start`, không còn "unbound variable"). Ca này cần GNU date và flock nên SEC không chạy trên Mac; dựa vào CI.
+- CI PR #23 ở head `88119369`: 8/8 job xanh, gồm `docker images build · E2E smoke` (lượt 1 còn pending), `gitleaks` và `infra scripts (shellcheck)`. 3 job deploy/publish `skipping` đúng với PR.
+
+### Trạng thái thẻ
+
+| Thẻ | Mức | Trạng thái | Căn cứ |
+|---|---|---|---|
+| PR23-01 | Major | **Đóng** | Luật chung 7: URL chỉ dán ở đúng dấu nhắc `Webhook URL:`. A9 và B8 có bước **kiểm trước** `grep -c set-booking-chat` trên bundle **đang chạy**, ra `0` thì không chạy lệnh dán; bước này chặn đúng gốc trường hợp B8 trước B5. B8 nói sudo hỏi mật khẩu trước ("chưa dán URL") và liệt kê 4 dấu hiệu không được dán (`usage:`, sai mật khẩu, mất kết nối, dấu nhắc `%`). Có mục mới "Lỡ dán URL ra ngoài": **xóa webhook trước** (vô hiệu ngay), đóng cửa sổ rồi xóa dòng trong `~/.zsh_history`, `~/.zsh_sessions`, `~/.bash_history`, thay bộ nhớ tạm, báo đội mà không gửi URL. SEC đã rà lệnh dọn: dùng `sed -i ''` của macOS. Đóng cửa sổ trước nên phiên Terminal của Apple ghi xong lịch sử rồi mới dọn, và phiên mới chỉ thêm dòng mới, không ghi lại dòng đã xóa. Biện pháp chính vẫn là đổi webhook. |
+| PR23-02 | Major | **Đóng** | Có mục "Quay lui cấu hình (CHỈ khi đội bảo)" Q1–Q3. Đường dẫn phải khớp mẫu `case` chặt (`/root/ottimo-<stack>-bundles/infra-2YYYYMMDD-HHMMSS`). Quên thay `YYYYMMDD-HHMMSS` thì báo `SAI DUONG DAN` và không đổi gì. Lệnh kiểm bản cũ có `server/bin/dc` và `docker-compose.prod.yml`, in đường dẫn, đòi gõ đúng `YES` rồi mới `rsync --checksum --delete`, sau đó chạy `diff -rq` và `dc config -q`. Mọi nhánh lỗi đều dừng **trước** rsync. Nếu shell đăng nhập không hỗ trợ `read -p` thì chuỗi `&&` cũng dừng trước rsync, tức hỏng theo hướng an toàn. Ghi rõ: quay lui sau Release thì phải hỏi đội; tệp secret để nguyên. README 13.1 trỏ về các khối này, "không gõ tay". |
+| PR23-03 | Minor | **Đóng** | Đối chiếu 6 ký tự đầu của sha256 giữa Mac (A2/B3) và máy chủ (A4/B4), lệch thì dừng. Mức này đủ chặn lắp nhầm gói; đây là kiểm nhầm lẫn, không phải chống giả mạo. A5/B5 in `CAC BAN CU DANG CO` và ghi rõ bản quay lui là bản **cũ nhất hôm nay**. Rsync thêm `--checksum`. |
+| PR23-04 | Minor | **Đóng** (phần tài liệu) | B9 đổi `tail -4` thành `grep -E "WARNING\|FAIL\|same bytes\|not published\|CHECK ONLY"`, và có `WARNING` hay `FAIL` thì gửi ảnh, đội xử lý trước lượt landing kế tiếp. Ý đưa WARNING vào dòng tóm tắt CI là đề xuất "về sau", không theo dõi ở thẻ này. |
+| PR23-05 | Minor | **Đóng** | README 13.4: `umask 077;` trong `sh -c`. Bước 6 mới chỉ giữ bản `env.before-chat-level.*` mới nhất, và việc dọn được ghi vào decision-log. |
+| PR23-06 | Minor | **Đóng** | `ops-check.sh`: `find … 'cmd-stderr.*' -mmin +60 -delete`, nên không đụng lượt chạy tay song song. `trap 'exit 143' TERM` và `trap 'exit 130' INT` làm `EXIT` trap chạy. systemd gửi `SIGTERM` cho cả cgroup, nên lệnh con cũng dừng và trap chạy ngay. Có 2 test mới. |
+| PR23-S1 | Suggestion | **Đóng** | `${PSQL_PID:-}` và `${PSQL[i]:-}`, kèm `die "psql did not start"`. Test ca 4. |
+| PR23-S2 | Suggestion | **Đóng** | Luật chung 4: chỉ gõ `yes` khi thấy "This host key is known by the following other names/addresses", không thấy thì `no` và báo đội. B8 có bước thay bộ nhớ tạm (Universal Clipboard). |
+| PR23-S3 | Suggestion | **Đóng** | B11 có lệnh sửa `dc up -d --no-deps worker` cho production. |
+| PR23-S4 | Suggestion (PR #16) | **Mở – chuyển BE/OPS** | Trên `755cad16`, nhánh `--set-booking-chat` của `init-secrets.sh` vẫn `exit 0` trước dòng in `init-secrets: created …`. Không thuộc diff PR #23 và không chặn. Giảm thiểu tạm: bước B6 (có in danh sách) luôn đứng trước B8, và B8 có bước kiểm trước. |
+
+### Kết luận lượt 2: **DUYỆT** (điều kiện lượt 1 đã đạt)
+
+Hai thẻ Major đã đóng. 4 thẻ Minor và S1–S3 cũng đã đóng. CI xanh đủ, gồm E2E. Phía SEC, ĐK2 của QC v1.0.1 cho PR #23 đã đạt. INV có thể dùng `v1.0.1-inv-commands.md` trên `main` cho A9/B8 và phần B. Chỉ còn S4, thuộc PR #16 và không chặn.
