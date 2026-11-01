@@ -3,11 +3,11 @@
   "schemaVersion": 1,
   "source": {
     "file": "product/docs/business-rules.md",
-    "version": "0.4.8",
-    "date": "2026-10-27"
+    "version": "0.5.1",
+    "date": "2026-11-01"
   },
-  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp); v0.4.3 QA 24/10: BR-433-22…25 (FZ02-1, 2, 4, 8 – pendingFix R3-SEC-FZ-02), BR-525-44 (FZ08-1, không pendingFix – mã đúng), BR-525-45 (FZ08-2 – pendingFix R3-FZ-08); id DOM đề xuất trùng → đánh tiếp; v0.4.6 DOM 26/10 (CI): thêm BR-114-01…05 (giá \"chỉ từ\", FB-INV-004 ý 2), BR-401-01…05 (nhận phòng từ 12:00, FB-INV-004 ý 1); BR-901-01 bỏ nhãn GIẢ ĐỊNH (tỷ lệ phí kênh INV 26/10 dùng tạm); validator earlyPct mốc 0 % từ 12:00 theo BR-411 v0.4.6; v0.4.7 DOM 26/10 (FB-INV-005, ESC-036 A): BR-101-01…10 thành bảng giá khởi tạo nhập riêng (calc null, nhãn INV-004), thêm BR-101-11…13 (lịch giá trên giá đêm nhập 650.000, INV-036), BR-101-14 (giá tháng độc lập), BR-101-15 (cảnh báo mềm), BR-101-16 (đường tạm ÷ 12 tới v1.0.1); v0.4.8 DOM 27/10 (review v1.0.1 trả sớm B16, FB-R3-BE-B-BE-A-01/02): thêm BR-428-07 (trần số dư, đơn Trực tiếp), BR-428-08 (trần số dư, chênh lệch đổi phòng OTA – pendingFix FB-R3-BE-B-BE-A-01), BR-428-09 (nhãn phí trả sớm OTA không ghi số ngày – pendingFix FB-R3-BE-B-BE-A-02)",
-  "updated": "2026-10-27",
+  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp); v0.4.3 QA 24/10: BR-433-22…25 (FZ02-1, 2, 4, 8 – pendingFix R3-SEC-FZ-02), BR-525-44 (FZ08-1, không pendingFix – mã đúng), BR-525-45 (FZ08-2 – pendingFix R3-FZ-08); id DOM đề xuất trùng → đánh tiếp; v0.4.6 DOM 26/10 (CI): thêm BR-114-01…05 (giá \"chỉ từ\", FB-INV-004 ý 2), BR-401-01…05 (nhận phòng từ 12:00, FB-INV-004 ý 1); BR-901-01 bỏ nhãn GIẢ ĐỊNH (tỷ lệ phí kênh INV 26/10 dùng tạm); validator earlyPct mốc 0 % từ 12:00 theo BR-411 v0.4.6; v0.4.7 DOM 26/10 (FB-INV-005, ESC-036 A): BR-101-01…10 thành bảng giá khởi tạo nhập riêng (calc null, nhãn INV-004), thêm BR-101-11…13 (lịch giá trên giá đêm nhập 650.000, INV-036), BR-101-14 (giá tháng độc lập), BR-101-15 (cảnh báo mềm), BR-101-16 (đường tạm ÷ 12 tới v1.0.1); v0.4.8 DOM 27/10 (review v1.0.1 trả sớm B16, FB-R3-BE-B-BE-A-01/02): thêm BR-428-07 (trần số dư, đơn Trực tiếp), BR-428-08 (trần số dư, chênh lệch đổi phòng OTA – pendingFix FB-R3-BE-B-BE-A-01), BR-428-09 (nhãn phí trả sớm OTA không ghi số ngày – pendingFix FB-R3-BE-B-BE-A-02); v0.5.1 DOM 01/11 (bảng giá INV 01/11 + ESC-045): BR-101-01…10 thành giá khởi tạo cũ (tới S), BR-101-11…13 giá hiệu lực 01/11, bỏ BR-101-14 (lịch giá +15 % trên 650.000 – ESC-036 A hết hiệu lực); BR-103-04, BR-104-10…11, BR-107-07, BR-108-02…03, BR-110-18…20 (số v0.5.1, calc null tới khi DS-E chuyển bảng 01/11); BR-114 viết lại (800.000); thêm BR-115-01…08, BR-116-01; BR-201…208, 210 theo bảng thuê tháng 01/11 (validator nhận params.lease_terms); bỏ BR-208-02…03 (hoa hồng – bảng nội bộ, không ghi repo); BR-313-02 (mất ký quỹ khi trả trước hạn); nhãn INV-043 = bảng giá INV 01/11 gửi theo ESC-043 C",
+  "updated": "2026-11-01",
   "conventions": {
     "money": "Số nguyên VND, khóa kết thúc bằng 'Vnd' (ADR-002, BR-004)",
     "percent": "Basis point số nguyên (khóa kết thúc 'Bp'): 10% = 1000. Tham số giữ đơn vị như BR mục 13; số lẻ (15,5) ghi dạng chuỗi",
@@ -712,7 +712,7 @@
     {
       "id": "BR-101-01",
       "br": "BR-101",
-      "case": "Giá khởi tạo căn 101: tháng 8.000.000 · đêm 667.000 – nhập riêng, lưu đúng số nhập",
+      "case": "Giá khởi tạo cũ (tới ngày chuyển S, để tra đơn cũ – BR-101 v0.5.0): căn 101: tháng 8.000.000 · đêm 667.000 – nhập riêng, lưu đúng số nhập",
       "origin": "example",
       "labels": ["INV-004"],
       "params": {
@@ -728,12 +728,12 @@
         "monthlyListPriceVnd": 8000000,
         "nightlyListPriceVnd": 667000
       },
-      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+      "note": "BR v0.5.1: số cũ của BL 4.1 (INV quyết ESC-004 16/10), dùng tới ngày chuyển S và để tra đơn cũ; giá hiệu lực 01/11 ở BR-101-11. calc null: hệ thống lưu đúng số nhập, không tính lại"
     },
     {
       "id": "BR-101-02",
       "br": "BR-101",
-      "case": "Giá khởi tạo căn 102: tháng 9.000.000 · đêm 750.000 – nhập riêng, lưu đúng số nhập",
+      "case": "Giá khởi tạo cũ (tới ngày chuyển S, để tra đơn cũ – BR-101 v0.5.0): căn 102: tháng 9.000.000 · đêm 750.000 – nhập riêng, lưu đúng số nhập",
       "origin": "example",
       "labels": ["INV-004"],
       "params": {
@@ -749,12 +749,12 @@
         "monthlyListPriceVnd": 9000000,
         "nightlyListPriceVnd": 750000
       },
-      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+      "note": "BR v0.5.1: số cũ của BL 4.1 (INV quyết ESC-004 16/10), dùng tới ngày chuyển S và để tra đơn cũ; giá hiệu lực 01/11 ở BR-101-11. calc null: hệ thống lưu đúng số nhập, không tính lại"
     },
     {
       "id": "BR-101-03",
       "br": "BR-101",
-      "case": "Giá khởi tạo căn 103: tháng 9.000.000 · đêm 750.000 – nhập riêng, lưu đúng số nhập",
+      "case": "Giá khởi tạo cũ (tới ngày chuyển S, để tra đơn cũ – BR-101 v0.5.0): căn 103: tháng 9.000.000 · đêm 750.000 – nhập riêng, lưu đúng số nhập",
       "origin": "example",
       "labels": ["INV-004"],
       "params": {
@@ -770,12 +770,12 @@
         "monthlyListPriceVnd": 9000000,
         "nightlyListPriceVnd": 750000
       },
-      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+      "note": "BR v0.5.1: số cũ của BL 4.1 (INV quyết ESC-004 16/10), dùng tới ngày chuyển S và để tra đơn cũ; giá hiệu lực 01/11 ở BR-101-11. calc null: hệ thống lưu đúng số nhập, không tính lại"
     },
     {
       "id": "BR-101-04",
       "br": "BR-101",
-      "case": "Giá khởi tạo căn 201: tháng 8.500.000 · đêm 708.000 – nhập riêng, lưu đúng số nhập",
+      "case": "Giá khởi tạo cũ (tới ngày chuyển S, để tra đơn cũ – BR-101 v0.5.0): căn 201: tháng 8.500.000 · đêm 708.000 – nhập riêng, lưu đúng số nhập",
       "origin": "example",
       "labels": ["INV-004"],
       "params": {
@@ -791,12 +791,12 @@
         "monthlyListPriceVnd": 8500000,
         "nightlyListPriceVnd": 708000
       },
-      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+      "note": "BR v0.5.1: số cũ của BL 4.1 (INV quyết ESC-004 16/10), dùng tới ngày chuyển S và để tra đơn cũ; giá hiệu lực 01/11 ở BR-101-11. calc null: hệ thống lưu đúng số nhập, không tính lại"
     },
     {
       "id": "BR-101-05",
       "br": "BR-101",
-      "case": "Giá khởi tạo căn 202: tháng 9.500.000 · đêm 792.000 – nhập riêng, lưu đúng số nhập",
+      "case": "Giá khởi tạo cũ (tới ngày chuyển S, để tra đơn cũ – BR-101 v0.5.0): căn 202: tháng 9.500.000 · đêm 792.000 – nhập riêng, lưu đúng số nhập",
       "origin": "example",
       "labels": ["INV-004"],
       "params": {
@@ -812,12 +812,12 @@
         "monthlyListPriceVnd": 9500000,
         "nightlyListPriceVnd": 792000
       },
-      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+      "note": "BR v0.5.1: số cũ của BL 4.1 (INV quyết ESC-004 16/10), dùng tới ngày chuyển S và để tra đơn cũ; giá hiệu lực 01/11 ở BR-101-11. calc null: hệ thống lưu đúng số nhập, không tính lại"
     },
     {
       "id": "BR-101-06",
       "br": "BR-101",
-      "case": "Giá khởi tạo căn 203: tháng 9.500.000 · đêm 792.000 – nhập riêng, lưu đúng số nhập",
+      "case": "Giá khởi tạo cũ (tới ngày chuyển S, để tra đơn cũ – BR-101 v0.5.0): căn 203: tháng 9.500.000 · đêm 792.000 – nhập riêng, lưu đúng số nhập",
       "origin": "example",
       "labels": ["INV-004"],
       "params": {
@@ -833,12 +833,12 @@
         "monthlyListPriceVnd": 9500000,
         "nightlyListPriceVnd": 792000
       },
-      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+      "note": "BR v0.5.1: số cũ của BL 4.1 (INV quyết ESC-004 16/10), dùng tới ngày chuyển S và để tra đơn cũ; giá hiệu lực 01/11 ở BR-101-11. calc null: hệ thống lưu đúng số nhập, không tính lại"
     },
     {
       "id": "BR-101-07",
       "br": "BR-101",
-      "case": "Giá khởi tạo căn 301: tháng 11.500.000 · đêm 958.000 – nhập riêng, lưu đúng số nhập",
+      "case": "Giá khởi tạo cũ (tới ngày chuyển S, để tra đơn cũ – BR-101 v0.5.0): căn 301: tháng 11.500.000 · đêm 958.000 – nhập riêng, lưu đúng số nhập",
       "origin": "example",
       "labels": ["INV-004"],
       "params": {
@@ -854,12 +854,12 @@
         "monthlyListPriceVnd": 11500000,
         "nightlyListPriceVnd": 958000
       },
-      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+      "note": "BR v0.5.1: số cũ của BL 4.1 (INV quyết ESC-004 16/10), dùng tới ngày chuyển S và để tra đơn cũ; giá hiệu lực 01/11 ở BR-101-11. calc null: hệ thống lưu đúng số nhập, không tính lại"
     },
     {
       "id": "BR-101-08",
       "br": "BR-101",
-      "case": "Giá khởi tạo căn 302: tháng 11.000.000 · đêm 917.000 – nhập riêng, lưu đúng số nhập",
+      "case": "Giá khởi tạo cũ (tới ngày chuyển S, để tra đơn cũ – BR-101 v0.5.0): căn 302: tháng 11.000.000 · đêm 917.000 – nhập riêng, lưu đúng số nhập",
       "origin": "example",
       "labels": ["INV-004"],
       "params": {
@@ -875,12 +875,12 @@
         "monthlyListPriceVnd": 11000000,
         "nightlyListPriceVnd": 917000
       },
-      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+      "note": "BR v0.5.1: số cũ của BL 4.1 (INV quyết ESC-004 16/10), dùng tới ngày chuyển S và để tra đơn cũ; giá hiệu lực 01/11 ở BR-101-11. calc null: hệ thống lưu đúng số nhập, không tính lại"
     },
     {
       "id": "BR-101-09",
       "br": "BR-101",
-      "case": "Giá khởi tạo căn 401: tháng 12.500.000 · đêm 1.042.000 – nhập riêng, lưu đúng số nhập",
+      "case": "Giá khởi tạo cũ (tới ngày chuyển S, để tra đơn cũ – BR-101 v0.5.0): căn 401: tháng 12.500.000 · đêm 1.042.000 – nhập riêng, lưu đúng số nhập",
       "origin": "example",
       "labels": ["INV-004"],
       "params": {
@@ -896,12 +896,12 @@
         "monthlyListPriceVnd": 12500000,
         "nightlyListPriceVnd": 1042000
       },
-      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+      "note": "BR v0.5.1: số cũ của BL 4.1 (INV quyết ESC-004 16/10), dùng tới ngày chuyển S và để tra đơn cũ; giá hiệu lực 01/11 ở BR-101-11. calc null: hệ thống lưu đúng số nhập, không tính lại"
     },
     {
       "id": "BR-101-10",
       "br": "BR-101",
-      "case": "Giá khởi tạo căn 402: tháng 12.000.000 · đêm 1.000.000 – nhập riêng, lưu đúng số nhập",
+      "case": "Giá khởi tạo cũ (tới ngày chuyển S, để tra đơn cũ – BR-101 v0.5.0): căn 402: tháng 12.000.000 · đêm 1.000.000 – nhập riêng, lưu đúng số nhập",
       "origin": "example",
       "labels": ["INV-004"],
       "params": {
@@ -917,109 +917,131 @@
         "monthlyListPriceVnd": 12000000,
         "nightlyListPriceVnd": 1000000
       },
-      "note": "BR v0.4.7 (FB-INV-005): giá đêm OWN nhập riêng, độc lập với giá tháng; bảng giá khởi tạo = số cũ của BL 4.1 (ESC-004) tới khi OWN nhập ở B2. calc null: hệ thống lưu đúng số nhập, không tính lại"
+      "note": "BR v0.5.1: số cũ của BL 4.1 (INV quyết ESC-004 16/10), dùng tới ngày chuyển S và để tra đơn cũ; giá hiệu lực 01/11 ở BR-101-11. calc null: hệ thống lưu đúng số nhập, không tính lại"
     },
     {
       "id": "BR-101-11",
       "br": "BR-101",
-      "case": "Căn 101 giá đêm nhập 650.000, Trực tiếp, đêm thứ Ba 10/11/2026 → 650.000",
+      "case": "Giá hiệu lực 01/11/2026 (từ ngày chuyển S) theo hạng: City 8.500.000 · 800.000; Garden 9.000.000 · 800.000; Premium 11.500.000 · 1.100.000; Signature 13.500.000 · 1.300.000 – mọi căn cùng hạng cùng giá",
       "origin": "example",
-      "labels": ["INV-036"],
+      "labels": ["INV-043"],
       "params": {
-        "weekend_uplift_pct": 15,
-        "weekend_nights": ["FRI", "SAT"],
-        "special_uplift_pct": 30
+        "rounding.night_rate": 1000
       },
-      "calc": "calendarRate",
+      "calc": null,
       "input": {
-        "roomNo": "101",
-        "monthlyListPriceVnd": 8000000,
-        "baseRateVnd": 650000,
-        "nightDate": "2026-11-10",
-        "channel": "direct"
+        "effectiveFrom": "S",
+        "monthlyListPriceVnd": {
+          "101": 8500000,
+          "201": 8500000,
+          "102": 9000000,
+          "103": 9000000,
+          "202": 9000000,
+          "203": 9000000,
+          "302": 11500000,
+          "402": 11500000,
+          "301": 13500000,
+          "401": 13500000
+        },
+        "nightlyListPriceVnd": {
+          "101": 800000,
+          "201": 800000,
+          "102": 800000,
+          "103": 800000,
+          "202": 800000,
+          "203": 800000,
+          "302": 1100000,
+          "402": 1100000,
+          "301": 1300000,
+          "401": 1300000
+        }
       },
       "expected": {
-        "rateVnd": 650000
+        "monthlyListPriceVnd": {
+          "101": 8500000,
+          "201": 8500000,
+          "102": 9000000,
+          "103": 9000000,
+          "202": 9000000,
+          "203": 9000000,
+          "302": 11500000,
+          "402": 11500000,
+          "301": 13500000,
+          "401": 13500000
+        },
+        "nightlyListPriceVnd": {
+          "101": 800000,
+          "201": 800000,
+          "102": 800000,
+          "103": 800000,
+          "202": 800000,
+          "203": 800000,
+          "302": 1100000,
+          "402": 1100000,
+          "301": 1300000,
+          "401": 1300000
+        },
+        "samePriceWithinInternalClass": true
       },
-      "note": "BR-101 v0.4.7 ví dụ độc lập: OWN đổi căn 101 giá đêm 650.000 từ 01/11/2026, giữ giá tháng 8.000.000; lịch giá BR-104 cộng trên giá nhập (ESC-036 A)"
+      "note": "Bảng giá INV 01/11 mục 1–3 (gửi theo ESC-043 C); một mức giá mọi kênh. calc null: OWN nhập, hệ thống lưu đúng số"
     },
     {
       "id": "BR-101-12",
       "br": "BR-101",
-      "case": "Căn 101 giá đêm nhập 650.000, Trực tiếp, đêm thứ Bảy 14/11/2026: 650.000 × 1,15 = 747.500 → 748.000",
+      "case": "Sau S: căn 102, 2 người lớn, thứ Năm 05/11 – Chủ nhật 08/11/2026 → 3 × 800.000 = 2.400.000 (không tăng đêm thứ Sáu, thứ Bảy)",
       "origin": "example",
-      "labels": ["INV-036"],
+      "labels": ["INV-043", "INV-045"],
       "params": {
-        "weekend_uplift_pct": 15,
+        "weekend_uplift_pct": 0,
         "weekend_nights": ["FRI", "SAT"],
-        "special_uplift_pct": 30
+        "special_uplift_pct": 0,
+        "los_discount": []
       },
-      "calc": "calendarRate",
+      "calc": null,
       "input": {
-        "roomNo": "101",
-        "monthlyListPriceVnd": 8000000,
-        "baseRateVnd": 650000,
-        "nightDate": "2026-11-14",
+        "roomNo": "102",
+        "nightlyListPriceVnd": 800000,
+        "arrivalDate": "2026-11-05",
+        "departureDate": "2026-11-08",
+        "adults": 2,
+        "childrenAges": [],
         "channel": "direct"
       },
       "expected": {
-        "rateVnd": 748000
+        "nightlyRatesVnd": [800000, 800000, 800000],
+        "roomTotalVnd": 2400000
       },
-      "note": "BR-101 v0.4.7 ví dụ độc lập: OWN đổi căn 101 giá đêm 650.000 từ 01/11/2026, giữ giá tháng 8.000.000; lịch giá BR-104 cộng trên giá nhập (ESC-036 A)"
+      "note": "ESC-045 câu 1 = A (BR-104 v0.5.1). calc null: test BE (reservations-pricing byCalc) tính bằng tham số DS-E (trước ngày chuyển S); bật calc khi DS-E chuyển sang bảng giá 01/11"
     },
     {
       "id": "BR-101-13",
       "br": "BR-101",
-      "case": "Căn 101 giá đêm nhập 650.000, Trực tiếp, đêm 31/12/2026 (ngày đặc biệt): 650.000 × 1,3 = 845.000",
+      "case": "Căn 101 giá tháng 8.500.000, giá đêm 800.000 → báo giá thuê dài hạn theo 8.500.000 (BR-203), không suy từ giá đêm",
       "origin": "example",
-      "labels": ["INV-036"],
-      "params": {
-        "weekend_uplift_pct": 15,
-        "weekend_nights": ["FRI", "SAT"],
-        "special_uplift_pct": 30
-      },
-      "calc": "calendarRate",
-      "input": {
-        "roomNo": "101",
-        "monthlyListPriceVnd": 8000000,
-        "baseRateVnd": 650000,
-        "nightDate": "2026-12-31",
-        "channel": "direct"
-      },
-      "expected": {
-        "rateVnd": 845000
-      },
-      "note": "BR-101 v0.4.7 ví dụ độc lập: OWN đổi căn 101 giá đêm 650.000 từ 01/11/2026, giữ giá tháng 8.000.000; lịch giá BR-104 cộng trên giá nhập (ESC-036 A)"
-    },
-    {
-      "id": "BR-101-14",
-      "br": "BR-101",
-      "case": "Căn 101 giữ giá tháng 8.000.000, đổi giá đêm 650.000 → báo giá thuê dài hạn vẫn theo 8.000.000 (BR-203), không đổi theo giá đêm",
-      "origin": "example",
-      "labels": ["INV-036"],
+      "labels": ["INV-043"],
       "params": {},
       "calc": null,
       "input": {
         "roomNo": "101",
-        "monthlyListPriceVnd": 8000000,
-        "nightlyListPriceVnd": 650000
+        "monthlyListPriceVnd": 8500000,
+        "nightlyListPriceVnd": 800000
       },
       "expected": {
-        "monthlyListPriceVnd": 8000000,
-        "leaseBaseMonthlyVnd": 8000000
+        "monthlyListPriceVnd": 8500000,
+        "leaseBaseMonthlyVnd": 8500000
       },
-      "note": "Hai giá độc lập (BR-101 (1), (3))"
+      "note": "Hai giá độc lập (BR-101 (1), (3); INV 26/10 FB-INV-005)"
     },
     {
       "id": "BR-101-15",
       "br": "BR-101",
-      "case": "Nhập giá đêm 260.000 cho căn giá tháng 8.000.000 (8.000.000 ÷ 30 = 266.667) → cảnh báo, vẫn lưu",
+      "case": "Nhập giá đêm 260.000 cho căn giá tháng 8.500.000 (8.500.000 ÷ 30 = 283.333) → cảnh báo, vẫn lưu",
       "origin": "example",
       "labels": ["NGÀNH"],
       "params": {},
       "calc": null,
       "input": {
-        "monthlyListPriceVnd": 8000000,
+        "monthlyListPriceVnd": 8500000,
         "nightlyListPriceVnd": 260000
       },
       "expected": {
@@ -1068,7 +1090,7 @@
     {
       "id": "BR-103-01",
       "br": "BR-103",
-      "case": "Giá OTA cuối tuần nhóm Lầu 1–2: 760.000 × 1.15",
+      "case": "Trước v0.5.0 (giá OTA nền riêng, +15 % cuối tuần – tham số DS-E): Giá OTA cuối tuần nhóm Lầu 1–2: 760.000 × 1.15",
       "origin": "example",
       "labels": ["INV-004"],
       "params": {
@@ -1090,7 +1112,7 @@
     {
       "id": "BR-103-02",
       "br": "BR-103",
-      "case": "Giá OTA cuối tuần nhóm Căn N: 1.050.000 × 1.15",
+      "case": "Trước v0.5.0 (giá OTA nền riêng, +15 % cuối tuần – tham số DS-E): Giá OTA cuối tuần nhóm Căn N: 1.050.000 × 1.15",
       "origin": "example",
       "labels": ["INV-004"],
       "params": {
@@ -1111,7 +1133,7 @@
     {
       "id": "BR-103-03",
       "br": "BR-103",
-      "case": "Giá OTA cuối tuần nhóm Căn N+: 980.000 × 1.15",
+      "case": "Trước v0.5.0 (giá OTA nền riêng, +15 % cuối tuần – tham số DS-E): Giá OTA cuối tuần nhóm Căn N+: 980.000 × 1.15",
       "origin": "example",
       "labels": ["INV-004"],
       "params": {
@@ -1128,6 +1150,34 @@
       "expected": {
         "otaRateVnd": 1130000
       }
+    },
+    {
+      "id": "BR-103-04",
+      "br": "BR-103",
+      "case": "Từ ngày chuyển: ota_base_rate = giá đêm của nhóm; đêm thứ Bảy 14/11/2026 Studio trên Booking = Trực tiếp = 800.000",
+      "origin": "example",
+      "labels": ["INV-043", "INV-045"],
+      "params": {
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0
+      },
+      "calc": null,
+      "input": {
+        "otaBaseRateVnd": {
+          "L12": 800000,
+          "N": 1300000,
+          "NPLUS": 1100000
+        },
+        "roomGroup": "L12",
+        "nightDate": "2026-11-14",
+        "channel": "booking"
+      },
+      "expected": {
+        "otaRateVnd": 800000,
+        "directRateVnd": 800000
+      },
+      "note": "Một mức giá mọi kênh (ESC-043 C); không tăng cuối tuần (ESC-045 câu 1 = A). calc null: test BE (reservations-pricing byCalc) tính bằng tham số DS-E (trước ngày chuyển S); bật calc khi DS-E chuyển sang bảng giá 01/11"
     },
     {
       "id": "BR-104-01",
@@ -1379,6 +1429,53 @@
         "rateVnd": 990000
       },
       "note": "Seed DS-E special_dates đã có 2 dòng ESC-015 (QA, 16/10) → calc calendarRate (BE test lấy ngày đặc biệt từ seed)"
+    },
+    {
+      "id": "BR-104-10",
+      "br": "BR-104",
+      "case": "Sau S: Studio 800.000, Trực tiếp, đêm thứ Bảy 14/11/2026 → 800.000 (không tăng cuối tuần)",
+      "origin": "rule-boundary",
+      "labels": ["INV-045"],
+      "params": {
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "baseRateVnd": 800000,
+        "nightDate": "2026-11-14",
+        "channel": "direct"
+      },
+      "expected": {
+        "rateVnd": 800000
+      },
+      "note": "Ví dụ trong câu quy tắc BR-104 v0.5.1 (ESC-045 câu 1 = A). calc null: test BE (reservations-pricing byCalc) tính bằng tham số DS-E (trước ngày chuyển S); bật calc khi DS-E chuyển sang bảng giá 01/11"
+    },
+    {
+      "id": "BR-104-11",
+      "br": "BR-104",
+      "case": "Sau S: Studio 800.000, Trực tiếp, đêm 31/12/2026 (ngày đặc biệt) → 800.000 (không tăng ngày lễ)",
+      "origin": "rule-boundary",
+      "labels": ["INV-045"],
+      "params": {
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "baseRateVnd": 800000,
+        "nightDate": "2026-12-31",
+        "channel": "direct"
+      },
+      "expected": {
+        "rateVnd": 800000,
+        "isSpecialDate": true
+      },
+      "note": "Danh sách ngày đặc biệt giữ cho BR-113, BR-309; chỉ phần giá bỏ. calc null: test BE (reservations-pricing byCalc) tính bằng tham số DS-E (trước ngày chuyển S); bật calc khi DS-E chuyển sang bảng giá 01/11"
     },
     {
       "id": "BR-105-01",
@@ -1674,9 +1771,35 @@
       "note": "(a) 3 × 792.000 + 700.000 + 2 × 911.000; (b) 4 × 713.000 + 630.000 + 2 × 820.000"
     },
     {
+      "id": "BR-107-07",
+      "br": "BR-107",
+      "case": "Sau S: căn 202 (Garden 800.000), 7 đêm 9/11–16/11/2026 → không giảm theo số đêm: 7 × 800.000 = 5.600.000",
+      "origin": "rule-boundary",
+      "labels": ["INV-043"],
+      "params": {
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0,
+        "los_discount": []
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "nightlyListPriceVnd": 800000,
+        "arrivalDate": "2026-11-09",
+        "nights": 7,
+        "channel": "direct"
+      },
+      "expected": {
+        "discountBp": 0,
+        "roomTotalVnd": 5600000
+      },
+      "note": "Bảng giá INV 01/11: \"không có giảm theo số đêm\" (los_discount = []). calc null: test BE (reservations-pricing byCalc) tính bằng tham số DS-E (trước ngày chuyển S); bật calc khi DS-E chuyển sang bảng giá 01/11"
+    },
+    {
       "id": "BR-108-01",
       "br": "BR-108",
-      "case": "Căn 202, khách VN, 20 đêm 9/11–29/11/2026 (6 đêm T6/T7): ngắn ngày 14.066.000 so với 1 tháng 9.800.000 (+ ký quỹ 4.800.000)",
+      "case": "Trước v0.5.0 (mốc 15/28 đêm, tham số DS-E): Căn 202, khách VN, 20 đêm 9/11–29/11/2026 (6 đêm T6/T7): ngắn ngày 14.066.000 so với 1 tháng 9.800.000 (+ ký quỹ 4.800.000)",
       "origin": "example",
       "labels": ["INV-004"],
       "params": {
@@ -1698,6 +1821,68 @@
         "oneMonthDepositVnd": 4800000
       },
       "note": "14 × 673.000 + 6 × 774.000 (BR-107 giảm 15% sau lịch giá BR-104)"
+    },
+    {
+      "id": "BR-108-02",
+      "br": "BR-108",
+      "case": "City Studio 20 đêm → báo 20 × 800.000 = 16.000.000, Desk không hiện \"So sánh: thuê 1 tháng\" (chỉ hiện từ 30 đêm)",
+      "origin": "rule-boundary",
+      "labels": ["INV-045"],
+      "params": {
+        "long_stay_compare_from_nights": 30,
+        "long_stay_required_from_nights": 30,
+        "short_stay_max_nights": 29,
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0,
+        "los_discount": []
+      },
+      "calc": null,
+      "input": {
+        "publicRoomType": "city_studio",
+        "nightlyListPriceVnd": 800000,
+        "nights": 20,
+        "channel": "direct"
+      },
+      "expected": {
+        "showLongStayOption": false,
+        "shortStayTotalVnd": 16000000
+      },
+      "note": "Ví dụ trong câu quy tắc BR-108 v0.5.1 (ESC-045 câu 6 = A). calc null"
+    },
+    {
+      "id": "BR-108-03",
+      "br": "BR-108",
+      "case": "City Studio 2 người: 29 đêm = 23.200.000 (ngắn ngày); 30 đêm → bắt buộc HĐ 1 tháng 8.500.000 + phí dịch vụ 200.000, ký quỹ 8.500.000",
+      "origin": "rule-boundary",
+      "labels": ["INV-045"],
+      "params": {
+        "long_stay_compare_from_nights": 30,
+        "long_stay_required_from_nights": 30,
+        "short_stay_max_nights": 29
+      },
+      "calc": null,
+      "input": {
+        "publicRoomType": "city_studio",
+        "guestClass": "vn",
+        "adults": 2,
+        "nightlyListPriceVnd": 800000,
+        "monthlyListPriceVnd": 8500000,
+        "nightsCases": [29, 30]
+      },
+      "expected": {
+        "29": {
+          "stayKind": "short",
+          "shortStayTotalVnd": 23200000
+        },
+        "30": {
+          "stayKind": "long",
+          "monthlyRentVnd": 8500000,
+          "serviceFeeMonthlyVnd": 200000,
+          "depositVnd": 8500000
+        }
+      },
+      "note": "Mốc 30 đêm (INV 01/11). Điện nước theo công tơ/người, không trong oracle. calc null"
     },
     {
       "id": "BR-109-01",
@@ -1769,7 +1954,8 @@
         "accepted": true,
         "extraPersonFeeVnd": 300000,
         "extraGuestKits": 1
-      }
+      },
+      "note": "Trước v0.5.1 (child_fee_6_11 = 100.000, tham số DS-E); số v0.5.1 ở BR-110-18/20"
     },
     {
       "id": "BR-110-03",
@@ -2067,7 +2253,7 @@
         "extraPersonFeePerNightVnd": 100000,
         "extraPersonFeeVnd": 200000
       },
-      "note": "Code HEAD tính theo người vừa thêm (người lớn) → 150.000/đêm · 18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-16)"
+      "note": "Code HEAD tính theo người vừa thêm (người lớn) → 150.000/đêm · 18/10: bỏ pendingFix – critic lượt 3 (r3regr) chạy thật khớp oracle trên `42fb458` (`reviews/s4-money-recheck3.md`, điều kiện 7) (trước: FB-R2-DOM-BE-16) Trước v0.5.1 (child_fee_6_11 = 100.000, tham số DS-E); số v0.5.1 ở BR-110-18/20"
     },
     {
       "id": "BR-110-13",
@@ -2221,6 +2407,101 @@
         }
       },
       "note": "Khớp lựa chọn BE-A (N1, N2) và cách đọc của người kiểm (A3, D4) – recheck3 mục Gaps"
+    },
+    {
+      "id": "BR-110-18",
+      "br": "BR-110",
+      "case": "v0.5.1: căn 301 (định mức 4), 4 người lớn + 1 trẻ 8 tuổi, 3 đêm: người vượt là trẻ → 150.000 × 3 = 450.000",
+      "origin": "example",
+      "labels": ["INV-004", "INV-014", "INV-045"],
+      "params": {
+        "room.301.base_occupancy": 4,
+        "room.301.max_occupancy": 5,
+        "extra_adult_fee": 150000,
+        "adult_from_age": 12,
+        "child_free_under_age": 6,
+        "child_fee_6_11": 150000
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "301",
+        "adults": 4,
+        "childrenAges": [8],
+        "nights": 3
+      },
+      "expected": {
+        "accepted": true,
+        "extraPersonFeeVnd": 450000,
+        "extraGuestKits": 1
+      },
+      "note": "ESC-045 câu 3: từ 6 tuổi tính như người lớn (trước 300.000 – BR-110-02). calc null: test BE (reservations-pricing byCalc) tính bằng tham số DS-E (trước ngày chuyển S); bật calc khi DS-E chuyển sang bảng giá 01/11"
+    },
+    {
+      "id": "BR-110-19",
+      "br": "BR-110",
+      "case": "v0.5.1: Premium 302 (định mức 3), 3 người lớn + 1 trẻ 8 tuổi, 2 đêm → 2 × 1.100.000 + 2 × 150.000 = 2.500.000",
+      "origin": "rule-boundary",
+      "labels": ["INV-004", "INV-014", "INV-045"],
+      "params": {
+        "room.302.base_occupancy": 3,
+        "room.302.max_occupancy": 4,
+        "extra_adult_fee": 150000,
+        "adult_from_age": 12,
+        "child_free_under_age": 6,
+        "child_fee_6_11": 150000,
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "302",
+        "nightlyListPriceVnd": 1100000,
+        "adults": 3,
+        "childrenAges": [8],
+        "nights": 2
+      },
+      "expected": {
+        "accepted": true,
+        "extraPersonFeeVnd": 300000,
+        "roomTotalVnd": 2200000,
+        "totalVnd": 2500000,
+        "extraGuestKits": 1
+      },
+      "note": "Ví dụ trong câu quy tắc BR-110 v0.5.1. calc null: test BE (reservations-pricing byCalc) tính bằng tham số DS-E (trước ngày chuyển S); bật calc khi DS-E chuyển sang bảng giá 01/11"
+    },
+    {
+      "id": "BR-110-20",
+      "br": "BR-110",
+      "case": "v0.5.1: căn 202 có 1 người lớn + 1 trẻ 8 tuổi, ngày 22/10 thêm 1 người lớn → người vượt là trẻ → 150.000/đêm",
+      "origin": "example",
+      "labels": ["INV-004", "INV-014", "INV-045"],
+      "params": {
+        "room.202.base_occupancy": 2,
+        "room.202.max_occupancy": 3,
+        "extra_adult_fee": 150000,
+        "adult_from_age": 12,
+        "child_free_under_age": 6,
+        "child_fee_6_11": 150000
+      },
+      "calc": null,
+      "input": {
+        "roomNo": "202",
+        "channel": "direct",
+        "arrivalDate": "2026-10-20",
+        "departureDate": "2026-10-24",
+        "adults": 1,
+        "childrenAges": [8],
+        "change": {
+          "addAdults": 1,
+          "effectiveFrom": "2026-10-22"
+        }
+      },
+      "expected": {
+        "extraPersonFeePerNightVnd": 150000,
+        "extraPersonFeeVnd": 300000
+      },
+      "note": "Như BR-110-12 (trước: 100.000/đêm). calc null"
     },
     {
       "id": "BR-111-01",
@@ -2460,137 +2741,427 @@
     {
       "id": "BR-114-01",
       "br": "BR-114",
-      "case": "Giá \"từ\": căn 101, Trực tiếp, đêm thứ Ba 10/11/2026 (ngày thường) → 667.000 = con số công bố",
+      "case": "Con số \"chỉ từ\" = min giá đêm niêm yết các căn đang bán (định mức, gồm VAT) → 800.000 – mọi căn Studio (City và Garden)",
       "origin": "example",
-      "labels": ["NGÀNH", "PHÁP LÝ"],
-      "params": {
-        "weekend_uplift_pct": 15,
-        "weekend_nights": ["FRI", "SAT"],
-        "special_uplift_pct": 30
-      },
-      "calc": "calendarRate",
-      "input": {
-        "roomNo": "101",
-        "baseRateVnd": 667000,
-        "nightDate": "2026-11-10",
-        "channel": "direct"
-      },
-      "expected": {
-        "rateVnd": 667000
-      },
-      "note": "Nhãn BR-114: con số + cách tính NGÀNH (DOM), chữ \"chỉ từ\" INV 26/10 (FB-INV-004, không qua ESC), quy định niêm yết giá PHÁP LÝ. Giá nền = giá đêm niêm yết BR-101 (FB-INV-005: sẽ là giá đêm INV nhập riêng – nếu đổi số căn 101 thì sửa dòng này)"
-    },
-    {
-      "id": "BR-114-02",
-      "br": "BR-114",
-      "case": "Căn 101, Trực tiếp, đêm thứ Bảy 14/11/2026: 667.000 × 1,15 = 767.050 → 767.000 (cuối tuần thấp nhất)",
-      "origin": "example",
-      "labels": ["NGÀNH", "PHÁP LÝ"],
-      "params": {
-        "weekend_uplift_pct": 15,
-        "weekend_nights": ["FRI", "SAT"],
-        "special_uplift_pct": 30
-      },
-      "calc": "calendarRate",
-      "input": {
-        "roomNo": "101",
-        "baseRateVnd": 667000,
-        "nightDate": "2026-11-14",
-        "channel": "direct"
-      },
-      "expected": {
-        "rateVnd": 767000
-      },
-      "note": "Nhãn BR-114: con số + cách tính NGÀNH (DOM), chữ \"chỉ từ\" INV 26/10 (FB-INV-004, không qua ESC), quy định niêm yết giá PHÁP LÝ. Giá nền = giá đêm niêm yết BR-101 (FB-INV-005: sẽ là giá đêm INV nhập riêng – nếu đổi số căn 101 thì sửa dòng này)"
-    },
-    {
-      "id": "BR-114-03",
-      "br": "BR-114",
-      "case": "Căn 201, Trực tiếp, đêm thứ Bảy 14/11/2026: 708.000 × 1,15 = 814.200 → 814.000",
-      "origin": "example",
-      "labels": ["NGÀNH", "PHÁP LÝ"],
-      "params": {
-        "weekend_uplift_pct": 15,
-        "weekend_nights": ["FRI", "SAT"],
-        "special_uplift_pct": 30
-      },
-      "calc": "calendarRate",
-      "input": {
-        "roomNo": "201",
-        "baseRateVnd": 708000,
-        "nightDate": "2026-11-14",
-        "channel": "direct"
-      },
-      "expected": {
-        "rateVnd": 814000
-      },
-      "note": "Nhãn BR-114: con số + cách tính NGÀNH (DOM), chữ \"chỉ từ\" INV 26/10 (FB-INV-004, không qua ESC), quy định niêm yết giá PHÁP LÝ. Giá nền = giá đêm niêm yết BR-101 (FB-INV-005: sẽ là giá đêm INV nhập riêng – nếu đổi số căn 101 thì sửa dòng này)"
-    },
-    {
-      "id": "BR-114-04",
-      "br": "BR-114",
-      "case": "Căn 101, Trực tiếp, đêm 31/12/2026 (ngày đặc biệt): 667.000 × 1,3 = 867.100 → 867.000",
-      "origin": "example",
-      "labels": ["NGÀNH", "PHÁP LÝ"],
-      "params": {
-        "weekend_uplift_pct": 15,
-        "weekend_nights": ["FRI", "SAT"],
-        "special_uplift_pct": 30
-      },
-      "calc": "calendarRate",
-      "input": {
-        "roomNo": "101",
-        "baseRateVnd": 667000,
-        "nightDate": "2026-12-31",
-        "channel": "direct"
-      },
-      "expected": {
-        "rateVnd": 867000
-      },
-      "note": "Nhãn BR-114: con số + cách tính NGÀNH (DOM), chữ \"chỉ từ\" INV 26/10 (FB-INV-004, không qua ESC), quy định niêm yết giá PHÁP LÝ. Giá nền = giá đêm niêm yết BR-101 (FB-INV-005: sẽ là giá đêm INV nhập riêng – nếu đổi số căn 101 thì sửa dòng này)"
-    },
-    {
-      "id": "BR-114-05",
-      "br": "BR-114",
-      "case": "Con số \"chỉ từ\" = min giá đêm niêm yết ngày thường Trực tiếp các căn đang bán (gồm VAT, không giảm số đêm/mã/FOC) → 667.000 (căn 101); không căn nào đúng 700.000",
-      "origin": "example",
-      "labels": ["NGÀNH", "PHÁP LÝ"],
+      "labels": ["INV-043", "NGÀNH", "PHÁP LÝ"],
       "params": {
         "rounding.night_rate": 1000
       },
       "calc": null,
       "input": {
         "channel": "direct",
-        "night": "weekday_non_special",
         "occupancy": "base",
         "nightlyListPriceVnd": {
-          "101": 667000,
-          "102": 750000,
-          "103": 750000,
-          "201": 708000,
-          "202": 792000,
-          "203": 792000,
-          "301": 958000,
-          "302": 917000,
-          "401": 1042000,
-          "402": 1000000
+          "101": 800000,
+          "201": 800000,
+          "102": 800000,
+          "103": 800000,
+          "202": 800000,
+          "203": 800000,
+          "302": 1100000,
+          "402": 1100000,
+          "301": 1300000,
+          "401": 1300000
         },
         "excludeOooLongerThanNights": 7
       },
       "expected": {
-        "fromPriceVnd": 667000,
-        "fromRoomNo": "101",
-        "anyRoomAt700000": false,
-        "weekendFromPriceVnd": 767000
+        "fromPriceVnd": 800000,
+        "fromRoomNos": ["101", "102", "103", "201", "202", "203"],
+        "oldFigures667000or760000Used": false
       },
-      "note": "Nhãn BR-114: con số + cách tính NGÀNH (DOM), chữ \"chỉ từ\" INV 26/10 (FB-INV-004, không qua ESC), quy định niêm yết giá PHÁP LÝ. Giá nền = giá đêm niêm yết BR-101 (FB-INV-005: sẽ là giá đêm INV nhập riêng – nếu đổi số căn 101 thì sửa dòng này). calc null: phép min chưa có hàm trong validator; số từng căn đã tính lại ở BR-101-01…10"
+      "note": "BR-114 v0.5.0: số cũ 667.000 / 760.000 bỏ (ESC-043 C). calc null"
+    },
+    {
+      "id": "BR-114-02",
+      "br": "BR-114",
+      "case": "Một mức giá mọi đêm (ESC-045 câu 1 = A): đêm thứ Bảy 14/11/2026 và 31/12/2026 Studio vẫn 800.000 – không thêm câu \"cuối tuần/ngày lễ cao hơn\"",
+      "origin": "rule-boundary",
+      "labels": ["INV-043", "NGÀNH"],
+      "params": {
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0
+      },
+      "calc": null,
+      "input": {
+        "nightlyListPriceVnd": 800000,
+        "nights": ["2026-11-14", "2026-12-31"],
+        "channel": "direct"
+      },
+      "expected": {
+        "ratesVnd": [800000, 800000],
+        "weekendFromPriceVnd": 800000,
+        "showHigherOnHolidaysClause": false
+      },
+      "note": "BR-114 (2): câu \"ngày lễ cao hơn\" chỉ khi ESC-045 câu 1 = B/C. calc null: test BE (reservations-pricing byCalc) tính bằng tham số DS-E (trước ngày chuyển S); bật calc khi DS-E chuyển sang bảng giá 01/11"
+    },
+    {
+      "id": "BR-115-01",
+      "br": "BR-115",
+      "case": "Garden Studio, 2 người lớn, 10–13/11/2026 (3 đêm) → từ 2.400.000 (toTotal 2.400.000)",
+      "origin": "example",
+      "labels": ["INV-045", "NGÀNH"],
+      "params": {
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0,
+        "los_discount": [],
+        "extra_adult_fee": 150000,
+        "child_fee_6_11": 150000,
+        "child_free_under_age": 6,
+        "long_stay_required_from_nights": 30,
+        "web_estimate.parity_mode": "direct",
+        "web_estimate.open_until": "2027-01-01"
+      },
+      "calc": null,
+      "input": {
+        "publicRoomType": "garden_studio",
+        "arrivalDate": "2026-11-10",
+        "departureDate": "2026-11-13",
+        "adults": 2,
+        "childrenAges": []
+      },
+      "expected": {
+        "priceShown": true,
+        "fromTotalVnd": 2400000,
+        "toTotalVnd": 2400000,
+        "participatingRoomNos": ["102", "103", "202", "203"]
+      },
+      "note": "BR-115 v0.5.1 (sau ngày chuyển, ESC-045 câu 1 = A, câu 3 = A). calc null: động cơ giá Desk, kênh Trực tiếp. Trước v0.5.0: 2.250.000"
+    },
+    {
+      "id": "BR-115-02",
+      "br": "BR-115",
+      "case": "City Studio, 3 người lớn, thứ Sáu 13 – Chủ nhật 15/11/2026 → 2 × 800.000 + 2 × 150.000 = 1.900.000",
+      "origin": "example",
+      "labels": ["INV-045", "NGÀNH"],
+      "params": {
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0,
+        "los_discount": [],
+        "extra_adult_fee": 150000,
+        "child_fee_6_11": 150000,
+        "child_free_under_age": 6,
+        "long_stay_required_from_nights": 30,
+        "web_estimate.parity_mode": "direct",
+        "web_estimate.open_until": "2027-01-01"
+      },
+      "calc": null,
+      "input": {
+        "publicRoomType": "city_studio",
+        "arrivalDate": "2026-11-13",
+        "departureDate": "2026-11-15",
+        "adults": 3,
+        "childrenAges": []
+      },
+      "expected": {
+        "priceShown": true,
+        "fromTotalVnd": 1900000,
+        "toTotalVnd": 1900000,
+        "extraPersonFeeVnd": 300000
+      },
+      "note": "BR-115 v0.5.1 (sau ngày chuyển, ESC-045 câu 1 = A, câu 3 = A). calc null: động cơ giá Desk, kênh Trực tiếp. Trước v0.5.0: 1.834.000"
+    },
+    {
+      "id": "BR-115-03",
+      "br": "BR-115",
+      "case": "Signature, 4 người lớn + trẻ 8 tuổi + trẻ 3 tuổi, 16–23/11/2026 (7 đêm) → 7 × 1.300.000 + 7 × 150.000 = 10.150.000",
+      "origin": "example",
+      "labels": ["INV-045", "NGÀNH"],
+      "params": {
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0,
+        "los_discount": [],
+        "extra_adult_fee": 150000,
+        "child_fee_6_11": 150000,
+        "child_free_under_age": 6,
+        "long_stay_required_from_nights": 30,
+        "web_estimate.parity_mode": "direct",
+        "web_estimate.open_until": "2027-01-01"
+      },
+      "calc": null,
+      "input": {
+        "publicRoomType": "signature",
+        "arrivalDate": "2026-11-16",
+        "departureDate": "2026-11-23",
+        "adults": 4,
+        "childrenAges": [8, 3]
+      },
+      "expected": {
+        "priceShown": true,
+        "fromTotalVnd": 10150000,
+        "toTotalVnd": 10150000,
+        "roomTotalVnd": 9100000,
+        "extraPersonFeeVnd": 1050000
+      },
+      "note": "BR-115 v0.5.1 (sau ngày chuyển, ESC-045 câu 1 = A, câu 3 = A). calc null: động cơ giá Desk, kênh Trực tiếp. Trẻ 3 tuổi không tính; trẻ 8 tuổi vượt định mức 4 → 150.000/đêm (v0.5.1; trước 9.800.000 với 100.000/đêm; trước v0.5.0: 6.994.000)"
+    },
+    {
+      "id": "BR-115-04",
+      "br": "BR-115",
+      "case": "Premium, 2 người lớn, 31/12/2026–02/01/2027 (2 đêm) → 2 × 1.100.000 = 2.200.000",
+      "origin": "example",
+      "labels": ["INV-045", "NGÀNH"],
+      "params": {
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0,
+        "los_discount": [],
+        "extra_adult_fee": 150000,
+        "child_fee_6_11": 150000,
+        "child_free_under_age": 6,
+        "long_stay_required_from_nights": 30,
+        "web_estimate.parity_mode": "direct",
+        "web_estimate.open_until": "2027-01-01"
+      },
+      "calc": null,
+      "input": {
+        "publicRoomType": "premium",
+        "arrivalDate": "2026-12-31",
+        "departureDate": "2027-01-02",
+        "adults": 2,
+        "childrenAges": []
+      },
+      "expected": {
+        "priceShown": true,
+        "fromTotalVnd": 2200000,
+        "toTotalVnd": 2200000
+      },
+      "note": "BR-115 v0.5.1 (sau ngày chuyển, ESC-045 câu 1 = A, câu 3 = A). calc null: động cơ giá Desk, kênh Trực tiếp. Trước v0.5.0: 2.384.000"
+    },
+    {
+      "id": "BR-115-05",
+      "br": "BR-115",
+      "case": "Premium, 2 người lớn, đến 31/12/2026, 1 đêm → không hiện số, \"tối thiểu 2 đêm\" (BR-113)",
+      "origin": "example",
+      "labels": ["INV-045", "NGÀNH"],
+      "params": {
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0,
+        "los_discount": [],
+        "extra_adult_fee": 150000,
+        "child_fee_6_11": 150000,
+        "child_free_under_age": 6,
+        "long_stay_required_from_nights": 30,
+        "web_estimate.parity_mode": "direct",
+        "web_estimate.open_until": "2027-01-01"
+      },
+      "calc": null,
+      "input": {
+        "publicRoomType": "premium",
+        "arrivalDate": "2026-12-31",
+        "departureDate": "2027-01-01",
+        "adults": 2,
+        "childrenAges": []
+      },
+      "expected": {
+        "priceShown": false,
+        "noPriceReason": "below_min_stay",
+        "minStayNights": 2,
+        "inquiryAllowed": true
+      },
+      "note": "BR-115 v0.5.1 (sau ngày chuyển, ESC-045 câu 1 = A, câu 3 = A). calc null: động cơ giá Desk, kênh Trực tiếp; mã lý do minh họa theo BR-115 (6); QA ánh xạ sang enum API của LP-v2 khi gộp"
+    },
+    {
+      "id": "BR-115-06",
+      "br": "BR-115",
+      "case": "Premium, 2 người lớn, 31/12/2026–03/01/2027 → đêm 02/01 sau web_estimate.open_until → không hiện số, \"giá chưa mở\"",
+      "origin": "example",
+      "labels": ["INV-045", "NGÀNH"],
+      "params": {
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0,
+        "los_discount": [],
+        "extra_adult_fee": 150000,
+        "child_fee_6_11": 150000,
+        "child_free_under_age": 6,
+        "long_stay_required_from_nights": 30,
+        "web_estimate.parity_mode": "direct",
+        "web_estimate.open_until": "2027-01-01"
+      },
+      "calc": null,
+      "input": {
+        "publicRoomType": "premium",
+        "arrivalDate": "2026-12-31",
+        "departureDate": "2027-01-03",
+        "adults": 2,
+        "childrenAges": []
+      },
+      "expected": {
+        "priceShown": false,
+        "noPriceReason": "after_open_until",
+        "inquiryAllowed": true
+      },
+      "note": "BR-115 v0.5.1 (sau ngày chuyển, ESC-045 câu 1 = A, câu 3 = A). calc null: động cơ giá Desk, kênh Trực tiếp; mã lý do minh họa theo BR-115 (6); QA ánh xạ sang enum API của LP-v2 khi gộp"
+    },
+    {
+      "id": "BR-115-07",
+      "br": "BR-115",
+      "case": "Garden Studio, 2 người lớn: 29 đêm → 23.200.000; 30 đêm (hoặc chọn \"theo tháng\") → không số, lời mời \"special offer\" (monthly_offer)",
+      "origin": "example",
+      "labels": ["INV-045", "NGÀNH"],
+      "params": {
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0,
+        "los_discount": [],
+        "extra_adult_fee": 150000,
+        "child_fee_6_11": 150000,
+        "child_free_under_age": 6,
+        "long_stay_required_from_nights": 30,
+        "web_estimate.parity_mode": "direct",
+        "web_estimate.open_until": "2027-01-01"
+      },
+      "calc": null,
+      "qaAssumption": "Ngày đến 02/11/2026 do DOM chọn (BR không ghi ngày) – không đổi kết quả vì một giá mọi đêm",
+      "input": {
+        "publicRoomType": "garden_studio",
+        "adults": 2,
+        "childrenAges": [],
+        "arrivalDate": "2026-11-02",
+        "nightsCases": [29, 30]
+      },
+      "expected": {
+        "29": {
+          "priceShown": true,
+          "fromTotalVnd": 23200000,
+          "toTotalVnd": 23200000
+        },
+        "30": {
+          "priceShown": false,
+          "noPriceReason": "monthly_offer",
+          "monthlyFigureShown": false
+        }
+      },
+      "note": "BR-115 v0.5.1 (sau ngày chuyển, ESC-045 câu 1 = A, câu 3 = A). calc null: động cơ giá Desk, kênh Trực tiếp. Không hiện giá tháng (ESC-043 câu 2); mốc 30 đêm (INV 01/11)"
+    },
+    {
+      "id": "BR-115-08",
+      "br": "BR-115",
+      "case": "Garden Studio, 4 người lớn → không hiện số, \"tối đa 3 khách\" (vượt sức chứa tối đa, BR-110)",
+      "origin": "example",
+      "labels": ["INV-045", "NGÀNH"],
+      "params": {
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0,
+        "los_discount": [],
+        "extra_adult_fee": 150000,
+        "child_fee_6_11": 150000,
+        "child_free_under_age": 6,
+        "long_stay_required_from_nights": 30,
+        "web_estimate.parity_mode": "direct",
+        "web_estimate.open_until": "2027-01-01"
+      },
+      "calc": null,
+      "qaAssumption": "Ngày 10–13/11/2026 do DOM chọn (BR không ghi ngày) – không đổi kết quả",
+      "input": {
+        "publicRoomType": "garden_studio",
+        "arrivalDate": "2026-11-10",
+        "departureDate": "2026-11-13",
+        "adults": 4,
+        "childrenAges": []
+      },
+      "expected": {
+        "priceShown": false,
+        "noPriceReason": "over_max_occupancy",
+        "maxGuests": 3,
+        "inquiryAllowed": true
+      },
+      "note": "BR-115 v0.5.1 (sau ngày chuyển, ESC-045 câu 1 = A, câu 3 = A). calc null: động cơ giá Desk, kênh Trực tiếp; mã lý do minh họa theo BR-115 (6); QA ánh xạ sang enum API của LP-v2 khi gộp"
+    },
+    {
+      "id": "BR-116-01",
+      "br": "BR-116",
+      "case": "Garden Studio 10–13/11/2026, 2 người lớn: direct = ota_floor = 3 × 800.000 = 2.400.000 → sàn OTA thừa (một mức giá)",
+      "origin": "example",
+      "labels": ["INV-043", "NGÀNH"],
+      "params": {
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0,
+        "web_estimate.parity_mode": "direct"
+      },
+      "calc": null,
+      "input": {
+        "publicRoomType": "garden_studio",
+        "arrivalDate": "2026-11-10",
+        "departureDate": "2026-11-13",
+        "adults": 2,
+        "otaBaseRateVnd": {
+          "L12": 800000,
+          "N": 1300000,
+          "NPLUS": 1100000
+        }
+      },
+      "expected": {
+        "parityModeAtRelease": "direct",
+        "directTotalVnd": 2400000,
+        "otaFloorTotalVnd": 2400000,
+        "floorChangesFigure": false
+      },
+      "note": "BR-116 v0.5.0: thừa – INV chốt 01/11 một mức giá (ESC-043 C); gỡ tham số và nhánh ota_floor ở hotfix H6 (v1.1). Trước v0.5.0: 2.250.000 / 2.280.000. calc null"
     },
     {
       "id": "BR-201-01",
       "br": "BR-201",
-      "case": "Bảng kỳ hạn mặc định",
+      "case": "Bảng kỳ hạn từ 01/11/2026: 1–3 tháng 0 % · 4–6 tháng 3 % · 7–9 tháng 5 % · 10–23 tháng 7 % · từ 24 tháng 10 %; ký quỹ 1 tháng (từ 24 tháng: 2); thu từng tháng lịch",
       "origin": "example",
-      "labels": ["INV-005"],
+      "labels": ["INV-043", "INV-045", "GIẢ ĐỊNH"],
+      "params": {
+        "lease_terms": [
+          {
+            "months": 1,
+            "discountBp": 0,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 4,
+            "discountBp": 300,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 7,
+            "discountBp": 500,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 10,
+            "discountBp": 700,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 24,
+            "discountBp": 1000,
+            "dep": {
+              "vn": "2",
+              "foreign": "2"
+            },
+            "cycle": 1
+          }
+        ]
+      },
       "calc": null,
       "input": {
         "table": "lease_terms"
@@ -2598,134 +3169,661 @@
       "expected": {
         "leaseTerms": [
           {
-            "months": 1,
+            "fromMonths": 1,
+            "toMonths": 3,
             "discountBp": 0,
-            "depositFactorVn": "0.5",
-            "depositFactorForeign": "1",
-            "billingCycleMonths": 1,
-            "commissionStaffBp": 300,
-            "commissionCollaboratorBp": 500
+            "depositMonths": "1",
+            "billing": "calendar_month"
           },
           {
-            "months": 3,
+            "fromMonths": 4,
+            "toMonths": 6,
+            "discountBp": 300,
+            "depositMonths": "1",
+            "billing": "calendar_month"
+          },
+          {
+            "fromMonths": 7,
+            "toMonths": 9,
             "discountBp": 500,
-            "depositFactorVn": "1",
-            "depositFactorForeign": "1",
-            "billingCycleMonths": 3,
-            "commissionStaffBp": 400,
-            "commissionCollaboratorBp": 600
+            "depositMonths": "1",
+            "billing": "calendar_month"
           },
           {
-            "months": 6,
-            "discountBp": 800,
-            "depositFactorVn": "1",
-            "depositFactorForeign": "1.5",
-            "billingCycleMonths": 3,
-            "commissionStaffBp": 500,
-            "commissionCollaboratorBp": 700
+            "fromMonths": 10,
+            "toMonths": 23,
+            "discountBp": 700,
+            "depositMonths": "1",
+            "billing": "calendar_month"
           },
           {
-            "months": 12,
-            "discountBp": 1200,
-            "depositFactorVn": "1",
-            "depositFactorForeign": "2",
-            "billingCycleMonths": 3,
-            "commissionStaffBp": 600,
-            "commissionCollaboratorBp": 830
-          },
-          {
-            "months": 24,
-            "discountBp": 1500,
-            "depositFactorVn": "2",
-            "depositFactorForeign": "2",
-            "billingCycleMonths": 3,
-            "commissionStaffBp": 400,
-            "commissionCollaboratorBp": 600
+            "fromMonths": 24,
+            "toMonths": null,
+            "discountBp": 1000,
+            "depositMonths": "2",
+            "billing": "calendar_month"
           }
-        ]
+        ],
+        "sameForVnAndForeign": true,
+        "commissionInPublicDocs": false
       },
-      "note": "Hệ số ký quỹ ghi dạng chuỗi thập phân để không qua số thực"
+      "note": "Bảng giá INV 01/11 mục 3.2, 3.4 (gửi theo ESC-043 C); 13–23 tháng 7 %, trên 24 tháng 10 %: ESC-045 câu 2 = A; ký quỹ trên 24 tháng = 2 tháng: [GIẢ ĐỊNH]. Hoa hồng: bảng nội bộ INV, không ghi ở repo. Bảng cũ (5 mốc 0/5/8/12/15 %) hết hiệu lực từ 01/11. calc null"
     },
     {
       "id": "BR-202-01",
       "br": "BR-202",
-      "case": "HĐ 4 tháng → áp mức 3 tháng (giảm 5%)",
+      "case": "HĐ 4 tháng → khoảng 4–6 tháng, giảm 3 %",
       "origin": "example",
-      "labels": ["INV-005"],
+      "labels": ["INV-043"],
+      "params": {
+        "lease_terms": [
+          {
+            "months": 1,
+            "discountBp": 0,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 4,
+            "discountBp": 300,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 7,
+            "discountBp": 500,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 10,
+            "discountBp": 700,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 24,
+            "discountBp": 1000,
+            "dep": {
+              "vn": "2",
+              "foreign": "2"
+            },
+            "cycle": 1
+          }
+        ],
+        "rounding.monthly_rent": 1000
+      },
       "calc": "leaseTier",
       "input": {
         "termMonths": 4
       },
       "expected": {
-        "tierMonths": 3,
-        "discountBp": 500
-      }
+        "tierMonths": 4,
+        "discountBp": 300
+      },
+      "note": "tierMonths = tháng đầu của khoảng (v0.5.0: theo khoảng chứa kỳ hạn)"
     },
     {
       "id": "BR-202-02",
       "br": "BR-202",
-      "case": "HĐ 9 tháng → áp mức 6 tháng (giảm 8%)",
+      "case": "HĐ 9 tháng → khoảng 7–9 tháng, giảm 5 %",
       "origin": "example",
-      "labels": ["INV-005"],
+      "labels": ["INV-043"],
+      "params": {
+        "lease_terms": [
+          {
+            "months": 1,
+            "discountBp": 0,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 4,
+            "discountBp": 300,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 7,
+            "discountBp": 500,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 10,
+            "discountBp": 700,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 24,
+            "discountBp": 1000,
+            "dep": {
+              "vn": "2",
+              "foreign": "2"
+            },
+            "cycle": 1
+          }
+        ],
+        "rounding.monthly_rent": 1000
+      },
       "calc": "leaseTier",
       "input": {
         "termMonths": 9
       },
       "expected": {
-        "tierMonths": 6,
-        "discountBp": 800
+        "tierMonths": 7,
+        "discountBp": 500
       }
+    },
+    {
+      "id": "BR-202-03",
+      "br": "BR-202",
+      "case": "HĐ 18 tháng → khoảng 13–23 tháng, giảm 7 %",
+      "origin": "example",
+      "labels": ["INV-045"],
+      "params": {
+        "lease_terms": [
+          {
+            "months": 1,
+            "discountBp": 0,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 4,
+            "discountBp": 300,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 7,
+            "discountBp": 500,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 10,
+            "discountBp": 700,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 24,
+            "discountBp": 1000,
+            "dep": {
+              "vn": "2",
+              "foreign": "2"
+            },
+            "cycle": 1
+          }
+        ],
+        "rounding.monthly_rent": 1000
+      },
+      "calc": "leaseTier",
+      "input": {
+        "termMonths": 18
+      },
+      "expected": {
+        "tierMonths": 10,
+        "discountBp": 700
+      },
+      "note": "ESC-045 câu 2 = A: 13–23 tháng như 10–12 tháng (7 %)"
+    },
+    {
+      "id": "BR-202-04",
+      "br": "BR-202",
+      "case": "HĐ 30 tháng → trên 24 tháng, giảm 10 %",
+      "origin": "example",
+      "labels": ["INV-045"],
+      "params": {
+        "lease_terms": [
+          {
+            "months": 1,
+            "discountBp": 0,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 4,
+            "discountBp": 300,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 7,
+            "discountBp": 500,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 10,
+            "discountBp": 700,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 24,
+            "discountBp": 1000,
+            "dep": {
+              "vn": "2",
+              "foreign": "2"
+            },
+            "cycle": 1
+          }
+        ],
+        "rounding.monthly_rent": 1000
+      },
+      "calc": "leaseTier",
+      "input": {
+        "termMonths": 30
+      },
+      "expected": {
+        "tierMonths": 24,
+        "discountBp": 1000
+      },
+      "note": "ESC-045 câu 2 = A"
+    },
+    {
+      "id": "BR-202-05",
+      "br": "BR-202",
+      "case": "HĐ 6 tháng vào 20/11/2026 → kết thúc 20/05/2027, khoảng 4–6 tháng 3 % (dù trải trên 7 tháng lịch)",
+      "origin": "example",
+      "labels": ["INV-043"],
+      "params": {
+        "lease_terms": [
+          {
+            "months": 1,
+            "discountBp": 0,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 4,
+            "discountBp": 300,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 7,
+            "discountBp": 500,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 10,
+            "discountBp": 700,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 24,
+            "discountBp": 1000,
+            "dep": {
+              "vn": "2",
+              "foreign": "2"
+            },
+            "cycle": 1
+          }
+        ],
+        "rounding.monthly_rent": 1000
+      },
+      "calc": "leaseTier",
+      "input": {
+        "termMonths": 6,
+        "leaseStart": "2026-11-20"
+      },
+      "expected": {
+        "tierMonths": 4,
+        "discountBp": 300,
+        "checkoutDate": "2027-05-20"
+      },
+      "note": "Kỳ hạn = số tháng HĐ (BR-209), không phải số kỳ thu theo tháng lịch"
     },
     {
       "id": "BR-203-01",
       "br": "BR-203",
-      "case": "Daniel (301, NN, 1 năm): 11.500.000 × 1,1 × 0,88",
+      "case": "Garden, NN, 6 tháng: 9.000.000 × 1,1 × 0,97 = 9.603.000",
       "origin": "example",
-      "labels": ["INV-004", "INV-005"],
+      "labels": ["INV-043", "INV-004"],
+      "params": {
+        "lease_terms": [
+          {
+            "months": 1,
+            "discountBp": 0,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 4,
+            "discountBp": 300,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 7,
+            "discountBp": 500,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 10,
+            "discountBp": 700,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 24,
+            "discountBp": 1000,
+            "dep": {
+              "vn": "2",
+              "foreign": "2"
+            },
+            "cycle": 1
+          }
+        ],
+        "rounding.monthly_rent": 1000
+      },
       "calc": "leaseRent",
       "input": {
-        "monthlyListPriceVnd": 11500000,
+        "monthlyListPriceVnd": 9000000,
         "guestClass": "foreign",
-        "termMonths": 12
+        "termMonths": 6
       },
       "expected": {
-        "monthlyRentVnd": 11130000
+        "monthlyRentVnd": 9603000
       }
     },
     {
       "id": "BR-203-02",
       "br": "BR-203",
-      "case": "BL 5.2: căn 302, NN, 6 tháng",
-      "origin": "derived-table",
-      "labels": ["INV-004", "INV-005"],
+      "case": "City, VN, 12 tháng: 8.500.000 × 0,93 = 7.905.000",
+      "origin": "example",
+      "labels": ["INV-043"],
+      "params": {
+        "lease_terms": [
+          {
+            "months": 1,
+            "discountBp": 0,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 4,
+            "discountBp": 300,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 7,
+            "discountBp": 500,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 10,
+            "discountBp": 700,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 24,
+            "discountBp": 1000,
+            "dep": {
+              "vn": "2",
+              "foreign": "2"
+            },
+            "cycle": 1
+          }
+        ],
+        "rounding.monthly_rent": 1000
+      },
       "calc": "leaseRent",
       "input": {
-        "monthlyListPriceVnd": 11000000,
+        "monthlyListPriceVnd": 8500000,
+        "guestClass": "vn",
+        "termMonths": 12
+      },
+      "expected": {
+        "monthlyRentVnd": 7905000
+      }
+    },
+    {
+      "id": "BR-203-03",
+      "br": "BR-203",
+      "case": "Signature, NN, 24 tháng: 13.500.000 × 1,1 × 0,9 = 13.365.000",
+      "origin": "example",
+      "labels": ["INV-043", "INV-004"],
+      "params": {
+        "lease_terms": [
+          {
+            "months": 1,
+            "discountBp": 0,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 4,
+            "discountBp": 300,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 7,
+            "discountBp": 500,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 10,
+            "discountBp": 700,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 24,
+            "discountBp": 1000,
+            "dep": {
+              "vn": "2",
+              "foreign": "2"
+            },
+            "cycle": 1
+          }
+        ],
+        "rounding.monthly_rent": 1000
+      },
+      "calc": "leaseRent",
+      "input": {
+        "monthlyListPriceVnd": 13500000,
+        "guestClass": "foreign",
+        "termMonths": 24
+      },
+      "expected": {
+        "monthlyRentVnd": 13365000
+      }
+    },
+    {
+      "id": "BR-203-04",
+      "br": "BR-203",
+      "case": "Premium, NN, 6 tháng: 12.650.000 × 0,97 = 12.270.500 → 12.271.000 (làm tròn 1.000, đúng 500 lên)",
+      "origin": "example",
+      "labels": ["INV-043", "INV-004"],
+      "params": {
+        "lease_terms": [
+          {
+            "months": 1,
+            "discountBp": 0,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 4,
+            "discountBp": 300,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 7,
+            "discountBp": 500,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 10,
+            "discountBp": 700,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 24,
+            "discountBp": 1000,
+            "dep": {
+              "vn": "2",
+              "foreign": "2"
+            },
+            "cycle": 1
+          }
+        ],
+        "rounding.monthly_rent": 1000
+      },
+      "calc": "leaseRent",
+      "input": {
+        "monthlyListPriceVnd": 11500000,
         "guestClass": "foreign",
         "termMonths": 6
       },
       "expected": {
-        "monthlyRentVnd": 11130000
+        "monthlyRentVnd": 12271000
       },
-      "note": "Số liệu từ ví dụ BR-208 (thuê 11.130.000)"
+      "note": "rounding.monthly_rent = 1.000 từ v0.5.0 (trước 10.000)"
     },
     {
       "id": "BR-204-01",
       "br": "BR-204",
-      "case": "HĐ mới căn 302 dọn 2 lần/tuần, 200.000/lần: phí dịch vụ 350.000 + 1.733.000",
+      "case": "Garden, lịch dọn cố định 2 lượt/tuần × 120.000: 2 × 52/12 × 120.000 = 1.040.000 → phí tháng 200.000 + 1.040.000 = 1.240.000",
       "origin": "example",
-      "labels": ["INV-005"],
+      "labels": ["INV-043", "INV-016"],
+      "params": {},
       "calc": "leaseServiceFee",
       "input": {
-        "roomGroup": "Căn N+",
+        "publicRoomType": "garden_studio",
         "cleaningsPerWeek": 2,
-        "cleaningPriceVnd": 200000,
-        "serviceFeeFixedVnd": 350000
+        "cleaningPriceVnd": 120000,
+        "serviceFeeFixedVnd": 200000
       },
       "expected": {
-        "cleaningFeeMonthlyVnd": 1733000,
-        "serviceFeeMonthlyVnd": 2083000
-      }
+        "cleaningFeeMonthlyVnd": 1040000,
+        "serviceFeeMonthlyVnd": 1240000
+      },
+      "note": "Phí dịch vụ 200.000 mọi hạng; giá lượt theo hạng (bảng giá INV 01/11 mục 4); lịch dọn cố định tùy chọn (ESC-016)"
     },
     {
       "id": "BR-204-02",
@@ -2746,7 +3844,27 @@
         "serviceFeeMonthlyVnd": 0,
         "adhocCleaningVnd": 300000
       },
-      "note": "Dọn lẻ theo BR-506 (100.000/lần)"
+      "note": "HĐ nhập tay chạy trước khi dùng app (US-017 AC5a, Q-D1) – giữ ở BR-204 v0.5.0"
+    },
+    {
+      "id": "BR-204-03",
+      "br": "BR-204",
+      "case": "Signature gọi dọn 3 lượt trong tháng → 3 × 150.000 = 450.000 + phí dịch vụ 200.000",
+      "origin": "example",
+      "labels": ["INV-043"],
+      "params": {},
+      "calc": null,
+      "input": {
+        "publicRoomType": "signature",
+        "adhocCleanings": 3,
+        "cleaningPriceVnd": 150000,
+        "serviceFeeFixedVnd": 200000
+      },
+      "expected": {
+        "adhocCleaningVnd": 450000,
+        "serviceFeeMonthlyVnd": 200000
+      },
+      "note": "Desk v1.0 chỉ có một mức dọn lẻ adhoc_cleaning_fee 100.000 → hotfix H3. calc null"
     },
     {
       "id": "BR-205-01",
@@ -2770,97 +3888,358 @@
     {
       "id": "BR-206-01",
       "br": "BR-206",
-      "case": "Ký quỹ Daniel: 11.130.000 × 2",
+      "case": "Ký quỹ Garden, NN, 6 tháng = 1 tháng tiền thuê sau giảm = 9.603.000",
       "origin": "example",
-      "labels": ["INV-005", "NGÀNH"],
+      "labels": ["INV-043", "NGÀNH"],
+      "params": {
+        "lease_terms": [
+          {
+            "months": 1,
+            "discountBp": 0,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 4,
+            "discountBp": 300,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 7,
+            "discountBp": 500,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 10,
+            "discountBp": 700,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 24,
+            "discountBp": 1000,
+            "dep": {
+              "vn": "2",
+              "foreign": "2"
+            },
+            "cycle": 1
+          }
+        ],
+        "rounding.monthly_rent": 1000
+      },
       "calc": "leaseDeposit",
       "input": {
-        "monthlyRentVnd": 11130000,
+        "monthlyRentVnd": 9603000,
         "guestClass": "foreign",
-        "termMonths": 12
+        "termMonths": 6
       },
       "expected": {
-        "depositVnd": 22300000
+        "depositVnd": 9603000
+      },
+      "note": "v0.5.0: VN và NN như nhau; không làm tròn thêm (tiền thuê đã làm tròn 1.000)"
+    },
+    {
+      "id": "BR-206-02",
+      "br": "BR-206",
+      "case": "Ký quỹ Signature, NN, 24 tháng = 2 × 13.365.000 = 26.730.000",
+      "origin": "example",
+      "labels": ["INV-043", "NGÀNH"],
+      "params": {
+        "lease_terms": [
+          {
+            "months": 1,
+            "discountBp": 0,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 4,
+            "discountBp": 300,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 7,
+            "discountBp": 500,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 10,
+            "discountBp": 700,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 24,
+            "discountBp": 1000,
+            "dep": {
+              "vn": "2",
+              "foreign": "2"
+            },
+            "cycle": 1
+          }
+        ],
+        "rounding.monthly_rent": 1000
+      },
+      "calc": "leaseDeposit",
+      "input": {
+        "monthlyRentVnd": 13365000,
+        "guestClass": "foreign",
+        "termMonths": 24
+      },
+      "expected": {
+        "depositVnd": 26730000
+      }
+    },
+    {
+      "id": "BR-206-03",
+      "br": "BR-206",
+      "case": "Ký quỹ City, VN, 3 tháng = 8.500.000",
+      "origin": "example",
+      "labels": ["INV-043", "NGÀNH"],
+      "params": {
+        "lease_terms": [
+          {
+            "months": 1,
+            "discountBp": 0,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 4,
+            "discountBp": 300,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 7,
+            "discountBp": 500,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 10,
+            "discountBp": 700,
+            "dep": {
+              "vn": "1",
+              "foreign": "1"
+            },
+            "cycle": 1
+          },
+          {
+            "months": 24,
+            "discountBp": 1000,
+            "dep": {
+              "vn": "2",
+              "foreign": "2"
+            },
+            "cycle": 1
+          }
+        ],
+        "rounding.monthly_rent": 1000
+      },
+      "calc": "leaseDeposit",
+      "input": {
+        "monthlyRentVnd": 8500000,
+        "guestClass": "vn",
+        "termMonths": 3
+      },
+      "expected": {
+        "depositVnd": 8500000
       }
     },
     {
       "id": "BR-207-01",
       "br": "BR-207",
-      "case": "HĐ 6 tháng thu 3 tháng/lần, vào ở 1/11",
+      "case": "HĐ vào 01/12/2026: kỳ tháng 12 thu khi ký; kỳ tháng 1/2027 hạn 05/01, nhắc 29/12 và 05/01, cảnh báo đỏ 08/01, quản lý xử lý 15/01",
       "origin": "example",
-      "labels": ["INV-005", "GIẢ ĐỊNH"],
+      "labels": ["INV-045", "GIẢ ĐỊNH"],
       "params": {
         "rent_reminder_days": 7,
         "rent_overdue_alert_days": 3,
-        "rent_overdue_escalate_days": 10
+        "rent_overdue_escalate_days": 10,
+        "rent_due_day": 5
       },
       "calc": null,
       "input": {
-        "leaseStart": "2026-11-01",
+        "leaseStart": "2026-12-01",
         "termMonths": 6
       },
       "expected": {
-        "billingDates": ["2026-11-01", "2027-02-01"],
-        "period2ReminderDates": ["2027-01-25", "2027-02-01"],
-        "period2RedAlertDate": "2027-02-04"
+        "firstPeriod": {
+          "from": "2026-12-01",
+          "to": "2026-12-31",
+          "collected": "at_signing"
+        },
+        "period2": {
+          "from": "2027-01-01",
+          "to": "2027-01-31",
+          "dueDate": "2027-01-05"
+        },
+        "period2ReminderDates": ["2026-12-29", "2027-01-05"],
+        "period2RedAlertDate": "2027-01-08",
+        "period2EscalateDate": "2027-01-15"
       },
-      "qaAssumption": "Ví dụ BR chỉ ghi 'kỳ 1 ngày 1/11, kỳ 2 ngày 1/2; nhắc 25/1, cảnh báo đỏ 4/2'; nhắc lần 2 'đúng ngày hạn' lấy từ quy tắc"
+      "note": "Chu kỳ tháng lịch, hạn ngày 05: ESC-045 câu 5; mốc nhắc 7/3/10 ngày: [GIẢ ĐỊNH]. rent_due_day minh họa (mục 13 chưa có khóa riêng – hạn 05 theo BR-207). calc null"
+    },
+    {
+      "id": "BR-207-02",
+      "br": "BR-207",
+      "case": "HĐ City VN 3 tháng vào 20/11/2026 (8.500.000): kỳ đầu 20/11 → 31/12; 05/12 thu điện nước 20–30/11; 05/01 thu tháng 1; 05/02 thu kỳ cuối 01/02 → 19/02",
+      "origin": "example",
+      "labels": ["INV-045", "GIẢ ĐỊNH"],
+      "params": {
+        "rent_reminder_days": 7,
+        "rent_overdue_alert_days": 3,
+        "rent_overdue_escalate_days": 10,
+        "rent_due_day": 5
+      },
+      "calc": null,
+      "input": {
+        "leaseStart": "2026-11-20",
+        "termMonths": 3,
+        "monthlyRentVnd": 8500000,
+        "serviceFeeMonthlyVnd": 200000
+      },
+      "expected": {
+        "checkoutDate": "2027-02-20",
+        "periods": [
+          {
+            "from": "2026-11-20",
+            "to": "2026-12-31",
+            "rentVnd": 11613000,
+            "serviceFeeVnd": 273000,
+            "collected": "at_signing"
+          },
+          {
+            "from": "2027-01-01",
+            "to": "2027-01-31",
+            "rentVnd": 8500000,
+            "serviceFeeVnd": 200000,
+            "dueDate": "2027-01-05"
+          },
+          {
+            "from": "2027-02-01",
+            "to": "2027-02-19",
+            "rentVnd": 5387000,
+            "serviceFeeVnd": 127000,
+            "dueDate": "2027-02-05"
+          }
+        ],
+        "utilityDueDates": {
+          "2026-11": "2026-12-05",
+          "2026-12": "2027-01-05",
+          "2027-01": "2027-02-05",
+          "2027-02": "checkout"
+        },
+        "totalRentVnd": 25500000,
+        "totalServiceFeeVnd": 600000
+      },
+      "note": "Kỳ đầu = 3.113.000 + 8.500.000 (BR-210); thu kỳ đầu theo BR-208 (chờ ESC-047); kỳ cuối tính lẻ: [GIẢ ĐỊNH – DOM]. calc null"
     },
     {
       "id": "BR-208-01",
       "br": "BR-208",
-      "case": "Thu khi chốt (302, NN, 6 tháng)",
+      "case": "Thu khi ký – Garden, NN, 6 tháng, vào 01/12/2026: 9.603.000 + 9.603.000 + 200.000 = 19.406.000",
       "origin": "example",
-      "labels": ["INV-005"],
+      "labels": ["INV-043", "INV-045"],
+      "params": {},
       "calc": "dueAtSigning",
       "input": {
-        "depositVnd": 16700000,
-        "monthlyRentVnd": 11130000,
-        "serviceFeeMonthlyVnd": 2083000,
-        "billingCycleMonths": 3
+        "depositVnd": 9603000,
+        "monthlyRentVnd": 9603000,
+        "serviceFeeMonthlyVnd": 200000,
+        "billingCycleMonths": 1
       },
       "expected": {
-        "dueAtSigningVnd": 56339000
-      }
+        "dueAtSigningVnd": 19406000
+      },
+      "note": "Vào ngày 01 → kỳ đầu = trọn tháng (ESC-045 câu 5); bảng giá mục 3.4: ký quỹ + tiền thuê tháng đầu"
     },
     {
       "id": "BR-208-02",
       "br": "BR-208",
-      "case": "Hoa hồng HĐ 302 – CTV chốt: (7% + 1%) × 11.130.000 × 6, chi 2 đợt",
+      "case": "Thu khi ký – Signature, NN, 24 tháng, vào 01/12/2026: 26.730.000 + 13.365.000 + 200.000 = 40.295.000",
       "origin": "example",
-      "labels": ["INV-005"],
-      "calc": "leaseCommission",
+      "labels": ["INV-043", "INV-045"],
+      "params": {},
+      "calc": "dueAtSigning",
       "input": {
-        "monthlyRentVnd": 11130000,
-        "termMonths": 6,
-        "closer": "collaborator",
-        "guestClass": "foreign"
+        "depositVnd": 26730000,
+        "monthlyRentVnd": 13365000,
+        "serviceFeeMonthlyVnd": 200000,
+        "billingCycleMonths": 1
       },
       "expected": {
-        "commissionBp": 800,
-        "commissionVnd": 5342400,
-        "tranchesVnd": [2671200, 2671200]
+        "dueAtSigningVnd": 40295000
       }
     },
     {
       "id": "BR-208-03",
       "br": "BR-208",
-      "case": "Hoa hồng HĐ 302 – nhân viên chốt: (5% + 1%) × 66.780.000",
+      "case": "Thu khi ký – City VN 3 tháng, vào 20/11/2026: ký quỹ 8.500.000 + tiền thuê (3.113.000 + 8.500.000) + phí dịch vụ (73.000 + 200.000) = 20.386.000 (ESC-047 phương án A)",
       "origin": "example",
-      "labels": ["INV-005"],
-      "calc": "leaseCommission",
+      "labels": ["INV-045", "GIẢ ĐỊNH"],
+      "params": {},
+      "calc": null,
       "input": {
-        "monthlyRentVnd": 11130000,
-        "termMonths": 6,
-        "closer": "staff",
-        "guestClass": "foreign"
+        "depositVnd": 8500000,
+        "oddRentVnd": 3113000,
+        "monthlyRentVnd": 8500000,
+        "oddServiceFeeVnd": 73000,
+        "serviceFeeMonthlyVnd": 200000,
+        "leaseStart": "2026-11-20"
       },
       "expected": {
-        "commissionBp": 600,
-        "commissionVnd": 4006800,
-        "tranchesVnd": [2003400, 2003400]
+        "A": {
+          "dueAtSigningVnd": 20386000
+        },
+        "B": {
+          "dueAtSigningVnd": 11686000,
+          "due20261205Vnd": 8700000
+        },
+        "C": {
+          "dueAtSigningVnd": 8500000,
+          "due20261205Vnd": 11886000
+        }
       },
-      "note": "Hai đợt 50% QA tính theo BR-212; BR-208 chỉ ghi tổng"
+      "note": "Kỳ đầu thu khi ký: chờ INV ESC-047 (A là cách đội hiểu, sale ghi \"chờ chủ đầu tư duyệt\"); phí dịch vụ kỳ đầu: [GIẢ ĐỊNH]. Hoa hồng HĐ: bảng nội bộ INV 01/11 (BR-212), không ghi ở repo. Điện nước luôn thu sau. calc null"
     },
     {
       "id": "BR-209-01",
@@ -2898,19 +4277,83 @@
     {
       "id": "BR-210-01",
       "br": "BR-210",
-      "case": "Ở thêm 5 ngày ngoài kỳ HĐ (thuê 11.130.000, phí dịch vụ 350.000)",
+      "case": "Ở thêm 5 ngày ngoài kỳ HĐ (City VN 8.500.000 → giá ngày 283.000): 283.000 × 5 = 1.415.000 + phí dịch vụ 200.000 × 5/30 = 33.000",
       "origin": "example",
-      "labels": ["GIẢ ĐỊNH"],
+      "labels": ["INV-045", "NGÀNH"],
       "calc": "oddDays",
       "input": {
-        "longStayNightRateVnd": 371000,
+        "longStayNightRateVnd": 283000,
         "days": 5,
-        "serviceFeeMonthlyVnd": 350000
+        "serviceFeeMonthlyVnd": 200000
       },
       "expected": {
-        "rentVnd": 1855000,
-        "serviceFeeProratedVnd": 58000
+        "rentVnd": 1415000,
+        "serviceFeeProratedVnd": 33000
+      },
+      "note": "BR-210 v0.5.1: giá ngày = tiền thuê ÷ 30 làm tròn 1.000 (long_stay_daily_divisor). a7-lease-nights đọc dòng này (rate, days, rentVnd)"
+    },
+    {
+      "id": "BR-210-02",
+      "br": "BR-210",
+      "case": "City VN 8.500.000 vào 20/11/2026: giá ngày 283.000; 20/11–30/11 = 11 ngày → 3.113.000; phí dịch vụ 200.000 × 11/30 = 73.000",
+      "origin": "example",
+      "labels": ["INV-045", "NGÀNH"],
+      "calc": "oddDays",
+      "input": {
+        "longStayNightRateVnd": 283000,
+        "days": 11,
+        "serviceFeeMonthlyVnd": 200000,
+        "leaseStart": "2026-11-20",
+        "monthlyRentVnd": 8500000
+      },
+      "expected": {
+        "rentVnd": 3113000,
+        "serviceFeeProratedVnd": 73000
       }
+    },
+    {
+      "id": "BR-210-03",
+      "br": "BR-210",
+      "case": "Vào 20/12/2026 (tháng 31 ngày): 20/12–31/12 = 12 ngày × 283.000 = 3.396.000 (chia theo ngày thực sẽ là 3.290.000 – không dùng)",
+      "origin": "example",
+      "labels": ["INV-045", "NGÀNH"],
+      "calc": "oddDays",
+      "input": {
+        "longStayNightRateVnd": 283000,
+        "days": 12,
+        "serviceFeeMonthlyVnd": 200000,
+        "leaseStart": "2026-12-20",
+        "monthlyRentVnd": 8500000
+      },
+      "expected": {
+        "rentVnd": 3396000,
+        "serviceFeeProratedVnd": 80000,
+        "wrongActualDaysRentVnd": 3290000
+      },
+      "note": "Phí dịch vụ 200.000 × 12/30 = 80.000 suy từ công thức (BR không ghi số này)"
+    },
+    {
+      "id": "BR-210-04",
+      "br": "BR-210",
+      "case": "HĐ 3 tháng vào 20/11/2026 trả 20/02/2027: kỳ cuối 01–19/02 = 25.500.000 − 3.113.000 − 17.000.000 = 5.387.000; phí dịch vụ 600.000 − 73.000 − 400.000 = 127.000",
+      "origin": "example",
+      "labels": ["INV-045", "NGÀNH"],
+      "calc": null,
+      "input": {
+        "monthlyRentVnd": 8500000,
+        "serviceFeeMonthlyVnd": 200000,
+        "termMonths": 3,
+        "leaseStart": "2026-11-20",
+        "previousRentVnd": [3113000, 8500000, 8500000],
+        "previousServiceFeeVnd": [73000, 200000, 200000]
+      },
+      "expected": {
+        "finalRentVnd": 5387000,
+        "finalServiceFeeVnd": 127000,
+        "totalRentVnd": 25500000,
+        "totalServiceFeeVnd": 600000
+      },
+      "note": "Kỳ cuối khử lệch làm tròn (NGÀNH, DOM); tháng trả phòng tính lẻ [GIẢ ĐỊNH – DOM, BR-207]. calc null"
     },
     {
       "id": "BR-211-01",
@@ -4413,7 +5856,42 @@
         "forfeitedDepositVnd": 11150000,
         "refundedRentMonths": ["2027-01"],
         "refundedRentVnd": 11130000
-      }
+      },
+      "note": "Trước v0.5.1 (ESC-006 A: báo ≥ 30 ngày mất 50 %). Từ v0.5.1 xem BR-313-02"
+    },
+    {
+      "id": "BR-313-02",
+      "br": "BR-313",
+      "case": "v0.5.1: HĐ 12 tháng City VN 7.905.000, ký quỹ 7.905.000, vào 01/12/2026, báo 10/04/2027, trả phòng 30/04/2027 → mất 7.905.000, không truy thu giảm kỳ hạn",
+      "origin": "example",
+      "labels": ["INV-045", "NGÀNH"],
+      "params": {
+        "early_termination": [
+          {
+            "minDays": 0,
+            "forfeitPct": 100
+          }
+        ]
+      },
+      "calc": null,
+      "qaAssumption": "Giờ báo 10:00 và giả sử đã thu trước tháng 5 do DOM chọn để minh họa câu \"nếu đã thu trước tháng 5 thì hoàn\"",
+      "input": {
+        "leaseStart": "2026-12-01",
+        "termMonths": 12,
+        "monthlyRentVnd": 7905000,
+        "depositVnd": 7905000,
+        "notifiedAt": "2027-04-10T10:00:00+07:00",
+        "moveOutDate": "2027-04-30",
+        "prepaidMonths": ["2027-04", "2027-05"]
+      },
+      "expected": {
+        "forfeitedDepositVnd": 7905000,
+        "discountClawbackVnd": 0,
+        "refundedRentMonths": ["2027-05"],
+        "refundedRentVnd": 7905000,
+        "otherDebtsChargedSeparately": true
+      },
+      "note": "ESC-045 câu 4: trả trước hạn mất toàn bộ ký quỹ dù báo trước bao lâu; tháng 4 đang ở không hoàn; tháng 5 hoàn nếu đã thu trước. calc null"
     },
     {
       "id": "BR-314-01",
