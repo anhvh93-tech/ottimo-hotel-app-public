@@ -1,4 +1,4 @@
-import { roomLabel } from '@ottimo/i18n';
+import { pluralForm, roomLabel } from '@ottimo/i18n';
 import { Icon } from '@ottimo/ui';
 import type { GuestSession, GuestStay, OnlineCheckin } from '../app/api';
 import { nightsBetween, supportLocale, translateGuest, useT } from '../app/i18n';
@@ -53,7 +53,7 @@ export function HomePage({
         <p className="li-s">
           <span className="gw-code">{stay.reservationCode}</span>
           {' · '}
-          {t('guest.stay.dates', {
+          {t(`guest.stay.dates_${pluralForm(locale, nights)}`, {
             from: shortDate(stay.arrivalDate),
             to: shortDate(stay.departureDate),
             nights,
@@ -108,7 +108,9 @@ export function HomePage({
                 })}
           </p>
           {deferredN ? (
-            <p className="li-s m-0">{t('gw.oci_done_card_deferred', { k: deferredN })}</p>
+            <p className="li-s m-0">
+              {t(`gw.oci_done_card_deferred_${pluralForm(locale, deferredN)}`, { k: deferredN })}
+            </p>
           ) : null}
           <button type="button" className="btn block mt-8" onClick={onCheckin}>
             {t('gw.oci_done_card_view')}

@@ -1,3 +1,4 @@
+import { pluralForm } from '@ottimo/i18n';
 import { Alert, Button, Icon, Skeleton, StateView } from '@ottimo/ui';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
@@ -187,7 +188,9 @@ export function CheckinFlow({ stay, online, onExit, onFatal, onCheckinChange }: 
           <p>{t('guest.oci.done_body', { time: stay.checkinTime })}</p>
           {oci.deferredPeople?.length ? (
             <p className="li-s">
-              {t('gw.oci_done_card_deferred', { k: oci.deferredPeople.length })}
+              {t(`gw.oci_done_card_deferred_${pluralForm(locale, oci.deferredPeople.length)}`, {
+                k: oci.deferredPeople.length,
+              })}
             </p>
           ) : null}
           <p className="li-s">{t('gw.done_desk_check')}</p>
