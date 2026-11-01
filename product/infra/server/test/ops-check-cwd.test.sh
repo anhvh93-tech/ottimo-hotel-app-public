@@ -4,8 +4,9 @@
 # "containers FAIL not running" alert). Temp OTTIMO_HOME, a one-service compose file, no container started.
 #   bash infra/server/test/ops-check-cwd.test.sh        (workstation or CI; needs docker compose; not as root)
 # Cases: bin/dc from an unreadable cwd works · ops-check from an unreadable cwd · a failing docker compose is reported
-# as "docker compose failed" (containers + http5xx), never as "not running", without its raw message · a really
-# missing container is still "not running".
+# as "docker compose failed" (containers + http5xx), never as "not running", without its raw message · the same for
+# the database checks j16 / email_dead ("query failed: <category>", ARC CWD-03) · no stderr file left on disk
+# (ARC CWD-04 1) · a really missing container is still "not running".
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -69,8 +70,14 @@ out=$(oc)
 if grep -q 'docker compose failed, container state unknown: other error' <<<"$out" && ! grep -q 'secret-token' <<<"$out" \
   && ! grep -q 'secret-token' "$home/stack/state/ops-check/containers"; then
   ok "4 raw compose message (could quote .env) is not forwarded"; else ko "4 raw message"; echo "$out"; fi
-perm=$(ls -l "$home/stack/state/ops-check/compose.stderr" | cut -c1-10)
-[ "$perm" = "-rw-------" ] && ok "4b compose.stderr is 0600" || ko "4b compose.stderr mode $perm"
+left=$(find "$home/stack/state/ops-check" -name '*stderr*' | wc -l | tr -d ' ')
+[ "$left" = "0" ] && ok "4b no stderr file left in state/ops-check (raw message not kept on disk)" || ko "4b $left stderr file(s) left"
+out=$(OTTIMO_HOME="$home/stack" "$home/fake/infra/server/bin/ops-check.sh" j16 email_dead; echo "rc=$?")
+if grep -q '^FAIL j16: query failed: other error' <<<"$out" && grep -q '^FAIL email_dead: query failed: other error' <<<"$out" \
+  && ! grep -q 'secret-token' <<<"$out" && ! grep -q 'secret-token' "$home/stack/state/ops-check/j16" \
+  && ! grep -q 'secret-token' "$home/stack/state/ops-check/email_dead" && grep -q '^rc=1$' <<<"$out"; then
+  ok "4c broken .env → j16 / email_dead 'query failed: other error', raw message not forwarded (ARC CWD-03)"
+else ko "4c db checks raw message"; echo "$out"; fi
 
 fake_dc missing-worker
 out=$(oc)

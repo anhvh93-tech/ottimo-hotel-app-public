@@ -6,8 +6,10 @@
 #   bash infra/server/test/deploy-landing-privacy.test.sh        (workstation or CI; needs docker)
 # Cases: same version + same bytes → passes · same version + other bytes (en) → real deploy refused before switch ·
 # same version + other bytes (vi) → refused · --rollback to other bytes → refused · new version → passes + reminder ·
-# image without the pages → passes · other bytes while LANDING_PUBLIC_API=off → warning, passes · dry-run / failed
-# apply lines are not "published".
+# image without the pages: refused while LANDING_PUBLIC_API=on, passes with a note when off (ARC CWD-01) · a page
+# printing two versions: refused when on, warning when off (CWD-01) · other bytes while LANDING_PUBLIC_API=off →
+# warning, passes · dry-run / failed apply lines are not "published" · no privacy-notice.log while on → its own
+# WARNING, passes; while off → no such warning (ARC CWD-02).
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -64,6 +66,7 @@ img v1-en-other 2026-10-24 2026-10-24 "<footer>new footer</footer>" ""
 img v1-vi-other 2026-10-24 2026-10-24 "" "<footer>chân trang mới</footer>"
 img v2 2026-11-05 2026-11-05 "<p>new text</p>" "<p>chữ mới</p>"
 img nopages - - "" ""
+img twover 2026-10-24 2026-10-24 "<p>Version 2026-11-05</p>" ""
 sha_en=$(page_sha v1 privacy/index.html); sha_vi=$(page_sha v1 vi/privacy/index.html)
 other_en=$(page_sha v1-en-other privacy/index.html)
 
@@ -113,10 +116,24 @@ if [ "$rc" -eq 0 ] && grep -q 'en 2026-11-05 (not published yet)' <<<"$out" && g
   ok "5 new version → passes, reminder to publish it"; else ko "5 new version (rc=$rc)"; echo "$out"; fi
 
 out=$(dl nopages --no-pull --check-only) && rc=0 || rc=$?; show "$out"
-if [ "$rc" -eq 0 ] && grep -q 'has no /privacy/' <<<"$out"; then ok "6 image without privacy pages → passes with a note"
-else ko "6 no pages (rc=$rc)"; echo "$out"; fi
+if [ "$rc" -eq 1 ] && grep -q 'FAIL: privacy: nopages has no /privacy/.*while the form proxy is on' <<<"$out"; then
+  ok "6 image without privacy pages while the form proxy is on → refused (CWD-01)"
+else ko "6 no pages, proxy on (rc=$rc)"; echo "$out"; fi
+
+out=$(dl twover --no-pull --check-only) && rc=0 || rc=$?; show "$out"
+if [ "$rc" -eq 1 ] && grep -q 'FAIL: privacy en: not exactly one version printed' <<<"$out"; then
+  ok "6c page printing two versions while the form proxy is on → refused (CWD-01)"
+else ko "6c two versions, proxy on (rc=$rc)"; echo "$out"; fi
 
 write_env off
+out=$(dl nopages --no-pull --check-only) && rc=0 || rc=$?; show "$out"
+if [ "$rc" -eq 0 ] && grep -q 'has no /privacy/.*form proxy is not on' <<<"$out"; then ok "6b image without privacy pages, proxy off → passes with a note"
+else ko "6b no pages, proxy off (rc=$rc)"; echo "$out"; fi
+
+out=$(dl twover --no-pull --check-only) && rc=0 || rc=$?; show "$out"
+if [ "$rc" -eq 0 ] && grep -q 'WARNING: privacy en: not exactly one version' <<<"$out"; then ok "6d two versions, proxy off → warning, passes"
+else ko "6d two versions, proxy off (rc=$rc)"; echo "$out"; fi
+
 out=$(dl v1-en-other --no-pull --check-only) && rc=0 || rc=$?; show "$out"
 if [ "$rc" -eq 0 ] && grep -q 'WARNING: privacy page bytes changed' <<<"$out" && grep -q 'LANDING_PUBLIC_API is not on' <<<"$out"; then
   ok "7 other bytes while the form proxy is off (README 12.3 rollback c) → warning, passes"
@@ -131,8 +148,14 @@ else ko "8 dry-run lines (rc=$rc)"; echo "$out"; fi
 
 rm -f "$home/state/privacy-notice.log"
 out=$(dl v1-en-other --no-pull --check-only) && rc=0 || rc=$?; show "$out"
-if [ "$rc" -eq 0 ] && grep -q 'not published yet' <<<"$out"; then ok "9 no privacy-notice.log yet (first publish) → passes"
+if [ "$rc" -eq 0 ] && grep -q 'not published yet' <<<"$out" && grep -q 'WARNING: no .*privacy-notice.log while the form proxy is on' <<<"$out"; then
+  ok "9 no privacy-notice.log while the form proxy is on → passes with a lost-log WARNING (CWD-02)"
 else ko "9 no log (rc=$rc)"; echo "$out"; fi
+
+write_env off
+out=$(dl v1 --no-pull --check-only) && rc=0 || rc=$?; show "$out"
+if [ "$rc" -eq 0 ] && ! grep -q 'WARNING: no ' <<<"$out"; then ok "9b no privacy-notice.log, proxy off → no lost-log warning"
+else ko "9b no log, proxy off (rc=$rc)"; echo "$out"; fi
 
 echo "== $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
