@@ -130,3 +130,108 @@ BE nói cherry-pick được. ARC xác nhận bằng mô phỏng (K9, K10), vớ
 - Luật slug chuyển **nguyên văn** sang một chỗ duy nhất, có test 4 nhãn e-brochure thật, và ghi chú trong `slugOf` "do not copy it back here". Đúng cách xử lý gốc của BUG-R4-001 (hai luật lệch nhau).
 - `total` dùng chung một mệnh đề `where` với trang dữ liệu, kèm integration test so với `count(*)` trực tiếp trong DB qua nhiều trang và nhiều bộ lọc. Đây là cách chứng minh "đếm khớp bộ lọc" chắc nhất.
 - Bản tiếng Anh mang đủ 4 dạng số để làm lưới cho mọi ngôn ngữ còn thiếu bản dịch. `gen-quote-copy` ném lỗi khi thiếu, và có `--check` chạy trong test.
+
+---
+
+## Lượt 2 – c37a0a76
+
+- Người review: ARC · Ngày: 01/11/2026 · Bước: Review (lượt sửa 5 của FE trên LP-v2, nhánh `origin/lp-v2-fe5` @ `c37a0a76`, cha `0a25716a`)
+- Phạm vi: `git show c37a0a76` (31 tệp). Đọc mã ở commit bằng `git show`/`git grep`, không checkout. Không sửa mã, không commit.
+
+### L2.1 Đã kiểm gì (bằng chứng)
+
+| # | Kiểm | Kết quả |
+|---|---|---|
+| K11 | Ai đọc `guest.nationality_code` / `is_foreigner` của **hồ sơ** (`git grep` toàn bộ `services/api/src`, `apps/*/src`) | Chỉ `guests.service` (tính `is_foreigner`, mặc định `preferred_locale`, cảnh báo trùng BR-952), `party.service` (bỏ trường khi NULL), `bill.service` (chọn `vi_en`). Khai báo lưu trú (`registration.service`) đọc `guest_document.nationality_code` (alpha-3) và `guest_document.is_foreigner`. Phụ thu NN dài hạn (`quote-pricing.ts`) lấy `guestCategory` từ lệnh báo giá, không đọc hồ sơ. |
+| K12 | Module registration có ghi ngược quốc tịch giấy tờ vào hồ sơ đã có không | Không. Không có `UPDATE guest SET nationality_code` nào. Alpha-3 → alpha-2 chỉ chạy khi **tạo** hồ sơ từ giấy tờ (`document-profile.service`). Hồ sơ tạo nhanh để NULL sẽ vẫn NULL sau khi nhận phòng bằng hộ chiếu. |
+| K13 | Sinh lại chữ: `git archive c37a0a76 product/design`, chạy `python3 -I design/tools/gen_strings.py` trong bản giải nén (scratchpad) | rc 0, `git status` sạch. Bước CI mới sẽ xanh trên commit này. Job `build-test` có `defaults.run.working-directory: product`, nên đường dẫn `design/tools/...` đúng. |
+| K14 | `whereAt` (`website-requests.service.ts`) | Trang: `$1 status, $2 user, $4 ref, $5 locale` (`$3 today` dùng trong `DATES`/`rank`, `$6 limit`, `$7–9` cursor). Đếm: `$1–$4` với mảng `[statuses, userId, ref, locales]`. `scopeSql(actor, n)` chỉ dùng `$n`. Đúng, không còn mệnh đề giả. Test so `total` với `count(*)` (`lp-v2-price-estimate.test.ts`) xanh theo báo cáo FE 11.2. |
+| K15 | Bảng ca số ít/nhiều dùng chung | `translate.test.ts` import JSON (i18n có `resolveJsonModule` từ `tsconfig.base.json`). Test api đọc `__dirname/../../../packages/i18n/src/plural-forms.cases.json` = `product/packages/i18n/src/...`, đúng. **Hở:** `services/api/turbo.json` `test.inputs` không có tệp này, và api không phụ thuộc `@ottimo/i18n`. Vì CI giữ `product/.turbo` qua `actions/cache`, sửa bảng có thể không làm api test chạy lại. Lỗ này có từ trước với `design/copy/strings-*.json` (`gen-quote-copy --check` trong `be-b-s2-units.test.ts`). |
+| K16 | `turbo.json` `dev.dependsOn: ["^build"]` | Đúng đề xuất OPS-LPV2-02. Task `dev` persistent phụ thuộc task build không persistent, turbo cho phép. Giới hạn: contracts không tự build lại khi sửa trong lúc `dev` đang chạy (không có watch). Chấp nhận, ghi trong `dev-setup.md` khi ARC làm ARC-LPV2-01. |
+| K17 | Quy ước SĐT trong hợp đồng (`openapi.yaml` dòng 18–19) và `guests.service` dòng 193–208 | Quy ước: "response luôn là E.164 có dấu `+`", DB lưu không `+`, "thêm/bỏ `+` chỉ ở tầng API". `phone` đi qua `phoneForApi`. Riêng `messagingHandles.zalo/whatsapp` dạng SĐT được chuẩn hóa thành `84…` rồi trả nguyên. Người đọc duy nhất là `GuestFormDialog` (so theo chữ số). `webreq/labels.ts` (`wa.me`) đọc SĐT của yêu cầu, không đọc handle. |
+| K18 | Ví dụ request `createGuest` trong hợp đồng (dòng ~7880) | `preferredContact: zalo` mà không có `messagingHandles.zalo`. Theo luật vừa ghi rõ trong mô tả `preferredContact`, ví dụ này sẽ bị 422. |
+
+### L2.2 Kết luận theo 6 việc được giao
+
+1. **Hợp đồng 0.3.10 bổ sung 5: ARC XÁC NHẬN.**
+   - Chỉ nới, không gãy client: `type: [string, 'null']` hợp lệ với OAS 3.1.0. `pattern` chỉ áp cho chuỗi. Mặc định `VN` khi bỏ trường lúc tạo giữ nguyên. Server đã nhận `null` từ trước, integration test phủ đủ 4 nhánh (null, bỏ trường, sửa giữ NULL, `KR` rồi `null`). Client sinh lại đúng (`string | null`).
+   - **Khai báo lưu trú: không ảnh hưởng** (K11). BR-009 phân loại VN/NN theo giấy tờ, và cổng khai báo lấy alpha-3 từ `guest_document`.
+   - **Phụ thu NN: không ảnh hưởng.** Báo giá dùng `guestCategory` do sale nhập (BR-009 "lúc báo giá dùng thông tin sale nhập").
+   - **Bill:** `bill.service` vẫn ra `vi_en` vì `preferredLocale` ≠ `vi`.
+   - **Có ảnh hưởng tới báo cáo quốc tịch.** `metrics-definitions.md` dòng 442 lấy cơ cấu nội địa/nước ngoài từ `Guest.is_foreigner`. NULL → `false` nên khách chưa rõ quốc tịch bị đếm là nội địa. Đây là đếm sai theo hướng cũ (trước đây bị ghi hẳn `VN`) nhưng giờ có thể tách được. Giao **DATA** (thẻ DATA-LPV2-01).
+   - Kèm K12: **DOM** quyết có điền quốc tịch hồ sơ từ giấy tờ khi hồ sơ đang NULL hay không (thẻ DOM-LPV2-01).
+   - Nghĩa của `isForeigner = false` nay là "không biết là người nước ngoài", không phải "là người Việt". ARC ghi rõ câu này vào mô tả `Guest.isForeigner` khi sửa ví dụ (ARC-LPV2-02).
+2. **BUG-R4-011 cách (a): ARC CHỌN (a).**
+   - Luật 0.3.4 giữ nguyên nghĩa: kênh nhắn tin cần handle của chính kênh đó. Không thêm luật ngầm "Zalo = SĐT" ở server, vì luật ngầm đó sai khi tài khoản Zalo khác số điện thoại.
+   - Dữ liệu tường minh, sau này adapter Zalo/ZNS của INT đọc thẳng `messagingHandles.zalo`.
+   - Chỉ Desk ghi `preferred_contact` (K11: không module api hay app nào khác tạo hồ sơ có kênh nhắn tin), nên không có client khác bị kẹt.
+   - `messagingHandlesOf` giữ handle Desk không hiển thị, và Zalo trùng SĐT cũ thì đi theo SĐT mới. Đúng ý.
+   - Hai điểm nhỏ ghi ở thẻ FE-LPV2-08 (Suggestion).
+3. **Không gộp `pluralForm`, dùng bảng ca chung: ARC CHẤP NHẬN.** Đúng đề xuất BE-LPV2-10. Bảng 15 số × 3 ngôn ngữ phủ các nhánh `%10`/`%100` của tiếng Nga (1/21/101, 2–4/22, 11–14/111–112, 0/5/25). Còn hở cache turbo (K15), giao OPS ở thẻ OPS-LPV2-03. Đóng BE-LPV2-10.
+4. **BE-08 `whereAt`: ĐẠT** (K14). Đóng BE-LPV2-08. Đề xuất đưa `total` vào `required` vẫn để lần nâng hợp đồng sau. BE-LPV2-09 đã đổi chữ trong changelog: đóng.
+5. **CI "Copy is generated": ĐẠT** (K13). Bước này bắt cả tệp sinh mới chưa commit (`--untracked-files=all`) và in lệnh sửa. Đóng UXD-LPV2-01. **`turbo.json` dev: ĐẠT** (K16). Đóng OPS-LPV2-02.
+6. **`messagingHandles` trả `849…` không có `+`.**
+   - Xếp loại: **lệch hợp đồng có từ 0.3.4**, thuộc **BE**, mức **Minor**. Không chặn LP-v2 hay v1.0.1, vì người đọc duy nhất (Desk) đã so theo chữ số.
+   - Không cần nâng hợp đồng: quy ước chung đã nói response SĐT có `+`, nên đây là sửa mã cho đúng hợp đồng.
+   - Lo ngại "ảnh hưởng client khác" không có cơ sở hiện tại (K17). Sửa sớm thì rẻ hơn sửa sau khi INT dựng adapter Zalo.
+   - Lịch: **v1.1** (hoặc lượt LP-v2 kế nếu BE còn chỗ). Ghi vào nợ kỹ thuật. Thẻ BE-LPV2-11.
+
+Các thẻ lượt 1 đóng ở lượt này: **FE-LPV2-05 (Major) đóng**. Cũng đóng FE-LPV2-06, BE-LPV2-08/09/10, OPS-LPV2-02, UXD-LPV2-01. Còn mở: ARC-LPV2-01 (việc của ARC, chưa thấy trong `architecture.md` và `decision-log.md`) và FE-LPV2-07 (v1.1).
+
+### L2.3 Thẻ feedback mới
+
+#### FB-R4-ARC-BE-LPV2-11
+- Mức độ: Minor
+- Vị trí: `services/api/src/modules/guests/internal/guests.service.ts` dòng 203–206 (handle `zalo`/`whatsapp` dạng SĐT lưu `r.e164` = `84…`); `guest-mapper.ts` dòng 58 (`messagingHandles: row.messaging_handles` trả nguyên); `docs/api/openapi.yaml` "Quy ước chung – SĐT".
+- Vấn đề: `phone` trả `+84…` nhưng `messagingHandles.zalo/whatsapp` trả `84…`. Hai trường cùng là SĐT mà mỗi trường một dạng, trái quy ước "response luôn E.164 có `+`".
+- Vì sao quan trọng: client nào so hay hiển thị handle cũng phải tự đoán dạng (Desk đã phải so theo chữ số). Adapter INT theo hợp đồng nhận dạng có `+`.
+- Đề xuất sửa: trong mapper, với khóa `zalo`/`whatsapp` có giá trị toàn chữ số (đúng thứ `normalizePhone` lưu), trả `phoneForApi(v)`. Giữ nguyên dạng lưu trong DB, không cần migration. Sửa MSW mock cho cùng dạng. Sửa kỳ vọng `84900000121` trong `bug-r4-012-guest-nationality-null.test.ts` thành `+84900000121`. ARC thêm một câu vào mô tả `messagingHandles` ("handle dạng SĐT trả E.164 có `+`"). `messagingHandlesOf` của FE vẫn đúng vì so theo chữ số. Lịch: v1.1.
+- Trạng thái: Open
+
+#### FB-R4-ARC-OPS-LPV2-03
+- Mức độ: Minor
+- Vị trí: `services/api/turbo.json` `tasks.test.inputs`.
+- Vấn đề: api test đọc hai nguồn nằm ngoài gói api mà turbo không băm: `packages/i18n/src/plural-forms.cases.json` (mới, BE-LPV2-10) và `design/copy/strings-*.json` (`gen-quote-copy --check`, có từ trước). api không phụ thuộc `@ottimo/i18n`. Hash của api test không đổi khi hai nguồn này đổi, và CI phát lại kết quả xanh từ `product/.turbo` (cache qua `actions/cache`).
+- Vì sao quan trọng: bảng ca chung sinh ra để chặn lệch giữa hai bản `pluralForm`. Nếu có người sửa bảng cùng `translate.ts` thì i18n test chạy lại, còn api test có thể không chạy, và lệch lọt qua. Với chữ báo giá cũng vậy: sửa chữ trong `gen_strings.py` mà quên chạy `gen-quote-copy` thì có thể không bị bắt.
+- Đề xuất sửa: thêm `"$TURBO_ROOT$/packages/i18n/src/plural-forms.cases.json"` và `"$TURBO_ROOT$/design/copy/strings-*.json"` vào `inputs`. Kiểm bằng `turbo run test --filter=@ottimo/api --dry=json` sau khi sửa tệp JSON: hash phải đổi. Chủ trì: OPS (BE làm cũng được). Đóng được cùng lượt LP-v2 kế.
+- Trạng thái: Open
+
+#### FB-R4-ARC-DATA-LPV2-01
+- Mức độ: Minor
+- Vị trí: `docs/metrics-definitions.md` dòng 381 và 442 (cơ cấu khách nội địa/nước ngoài lấy từ `Guest.nationality`, `is_foreigner`).
+- Vấn đề: từ 0.3.10 bổ sung 5, hồ sơ có thể có quốc tịch NULL (tạo nhanh từ yêu cầu website, phần lớn là khách nói tiếng nước ngoài). Khi đó `is_foreigner = false`, nên công thức hiện tại đếm họ là khách nội địa.
+- Vì sao quan trọng: cơ cấu khách là số INV dùng để quyết kênh bán (landing đa ngôn ngữ). Lệch dồn về phía "nội địa" đúng ở nhóm khách mà LP-v2 nhắm tới.
+- Đề xuất sửa: với lượt lưu trú có giấy tờ, lấy cơ cấu theo `guest_document.is_foreigner` của người đứng tên (đúng nguồn của BR-009). Chỉ dùng hồ sơ khi không có giấy tờ, và tách nhóm thứ ba "Chưa rõ" khi `nationality_code IS NULL`. Cập nhật định nghĩa và truy vấn mẫu. DATA làm, DOM xác nhận cách gọi tên nhóm.
+- Trạng thái: Open
+
+#### FB-R4-ARC-DOM-LPV2-01
+- Mức độ: Suggestion
+- Vị trí: `modules/registration` (không ghi ngược quốc tịch vào hồ sơ có sẵn, K12); `docs/specs/EP06-registration.md` mục hồ sơ "từ giấy tờ".
+- Vấn đề: khách Hàn tạo nhanh từ yêu cầu website (quốc tịch NULL), nhận phòng bằng hộ chiếu KOR, mà hồ sơ vẫn "–" mãi nếu lễ tân không tự sửa.
+- Vì sao quan trọng: CRM và báo cáo theo hồ sơ thiếu đúng phần dữ liệu đã có trong tay. Không ảnh hưởng khai báo lưu trú.
+- Đề xuất sửa: DOM quyết luật. Đề xuất của ARC: khi giấy tờ **chính** được lưu đủ và hồ sơ người đứng tên đang NULL, server điền alpha-2 từ giấy tờ (chỉ điền khi NULL, không ghi đè giá trị lễ tân đã chọn, có audit). BA ghi vào EP06, BE-C làm ở v1.1. Nếu DOM không muốn tự điền thì Desk hiện nhắc "Cập nhật quốc tịch hồ sơ theo giấy tờ".
+- Trạng thái: Open
+
+#### FB-R4-ARC-ARC-LPV2-02 (việc của ARC)
+- Mức độ: Minor
+- Vị trí: `docs/api/openapi.yaml` ví dụ request `createGuest` (`preferredContact: zalo`, không có `messagingHandles`); mô tả `Guest.isForeigner`.
+- Vấn đề: ví dụ chính thức nay trái luật mà chính bổ sung 5 vừa ghi rõ. Ai làm theo ví dụ sẽ nhận 422. `isForeigner = false` chưa nói rõ trường hợp quốc tịch NULL.
+- Đề xuất sửa: thêm `messagingHandles: { zalo: '0901 234 567' }` vào ví dụ. Ghi "`false` khi quốc tịch là `VN` hoặc chưa biết – không dùng để phân loại VN/NN theo BR-009 (theo giấy tờ)". Thêm câu về dạng `+` của handle (BE-LPV2-11). Chỉ sửa mô tả và ví dụ, không đổi schema. ARC làm cùng ARC-LPV2-01 ở bước Phản hồi & sửa.
+- Trạng thái: Open
+
+#### FB-R4-ARC-FE-LPV2-08
+- Mức độ: Suggestion
+- Vị trí: `apps/admin-web/src/pages/GuestFormDialog.tsx` `messagingHandlesOf` và điều kiện gửi `messagingHandles` khi sửa.
+- Vấn đề:
+  - (a) Hồ sơ Zalo trùng SĐT: `h.zalo` luôn được thay bằng `form.phone` (dạng `+84…` hoặc dạng gõ), khác chuỗi `84…` gốc. Vì vậy mỗi lần sửa bất kỳ trường nào, `messagingHandles` cũng bị gửi, dù không đổi gì.
+  - (b) Hồ sơ đang dùng KakaoTalk, lễ tân đổi kênh sang WhatsApp: giá trị trong ô (ID KakaoTalk) bị ghi vào `whatsapp`, còn `kakaotalk` cũ vẫn giữ.
+- Vì sao quan trọng: (a) sinh bản ghi audit "đổi liên hệ" không có thật. (b) lưu một ID KakaoTalk như số WhatsApp. Cả hai ít gặp, không chặn.
+- Đề xuất sửa: (a) chỉ thay `h.zalo` khi `digits(phone) !== digits(h.zalo)`. (b) khi `preferredContact` đổi giữa `whatsapp` và `kakaotalk` mà ô không đổi, chuyển giá trị sang khóa mới và xóa khóa cũ, hoặc để UXD tách hai ô ở v1.1. Thêm 2 ca test.
+- Trạng thái: Open
+
+### L2.4 Kết luận lượt 2
+
+- **Blocker: 0. Major: 0.** Minor mới: 4 (BE-LPV2-11, OPS-LPV2-03, DATA-LPV2-01, ARC-LPV2-02). Suggestion mới: 2 (DOM-LPV2-01, FE-LPV2-08).
+- Major duy nhất của lượt 1 (FE-LPV2-05, quốc tịch) **đã đóng**. Hợp đồng 0.3.10 bổ sung 5 **được xác nhận**, và BUG-R4-011 **chốt cách (a)**.
+- **LP-v2 @ `c37a0a76` đủ điều kiện sang QA lượt 4** về mặt kỹ thuật. Không thẻ mới nào chặn. OPS-LPV2-03 nên đóng trước khi gộp `lp-v2` vào `main` để cache CI không che lệch bảng số ít/nhiều. Các thẻ còn lại vào v1.1, PO xếp.
+- Không có ESC. Toàn bộ nằm trong quyền kỹ thuật của đội. DATA/DOM tự quyết cách nhóm "Chưa rõ" và luật điền quốc tịch, không cần INV.
