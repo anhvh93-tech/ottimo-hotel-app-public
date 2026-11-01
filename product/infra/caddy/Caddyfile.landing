@@ -9,9 +9,11 @@
 #   LANDING_WWW_HOST  production: www.ottimo.vn        | staging preview: www.staging.ottimo.vn   (→ 301 to LANDING_HOST)
 #   ACME_EMAIL, PROXY_PROTOCOL_ALLOW (edge address)
 #   LANDING_PUBLIC_API  on | off (default off). US-155 website form (v1.0, SEC s1-SEC-on-us155 condition 2): `on` proxies
-#                       EXACTLY two public operations to the stack's api – GET  /v1/public/properties/<slug>/form-token
-#                       and POST /v1/public/properties/<slug>/booking-requests – every other /v1/* stays 404. Turn it on
-#                       only when the api of the same stack runs (production Desk) and LANDING_BASE_URL is set there.
+#                       EXACTLY three public operations to the stack's api – GET  /v1/public/properties/<slug>/form-token,
+#                       POST /v1/public/properties/<slug>/booking-requests and (R4 LP-v2, ARC lp-v2-design 2.6, SEC
+#                       SR-PE-10) GET /v1/public/properties/<slug>/price-estimate (query ≤ 256 bytes) – every other
+#                       /v1/* stays 404. Turn it on only when the api of the same stack runs (production Desk) and
+#                       LANDING_BASE_URL is set there. The price block also needs the Desk switch public_show_prices.
 #   LANDING_API_UPSTREAM  default api:3000 (the landing container joins the stack's `edge` network at LANDING_IP, which
 #                       the api trusts as a proxy next to WEB_IP – docker-compose.prod.yml TRUST_PROXY)
 # Access (/run/secrets/landing_access, written by infra/server/bin/init-secrets.sh): production = no restriction and
@@ -76,8 +78,8 @@
 	}
 }
 
-# Proxy of the two public form operations (US-155). The request body is buffered (≤ 16 KB, request_body above) before
-# the api sees it, so a chunked body over the limit ends in 413 here, never as a cut body at the api. Caddy overwrites
+# Proxy of the public form operations (US-155) and of the price estimate (LP-v2). The request body is buffered
+# (≤ 16 KB, request_body above) before the api sees it, so a chunked body over the limit ends in 413 here, never as a cut body at the api. Caddy overwrites
 # X-Forwarded-For with the client address it got from the edge (PROXY protocol); the api trusts this container's
 # fixed address (TRUST_PROXY). Responses of the api (no-store, its own headers) pass through.
 (public_api) {
@@ -146,8 +148,8 @@
 	handle @hidden {
 		error 404
 	}
-	# US-155: the only two operations of the api reachable from the landing origin (same origin – no CORS, CSP
-	# connect-src 'self'). Off unless LANDING_PUBLIC_API=on (substituted when Caddy reads this file).
+	# US-155 + LP-v2: the only three operations of the api reachable from the landing origin (same origin – no CORS,
+	# CSP connect-src 'self'). Off unless LANDING_PUBLIC_API=on (substituted when Caddy reads this file).
 	@public_form_token {
 		method GET
 		path_regexp ^/v1/public/properties/[a-z0-9-]{2,40}/form-token$
@@ -157,6 +159,14 @@
 		method POST
 		path_regexp ^/v1/public/properties/[a-z0-9-]{2,40}/booking-requests$
 		expression `"{$LANDING_PUBLIC_API:off}" == "on"`
+	}
+	# LP-v2 price estimate (ARC lp-v2-design 2.6, SEC SR-PE-10): GET only, exact path, query ≤ 256 bytes (the api
+	# refuses longer ones too – 422; real queries are < 130 bytes). A longer query, another method, a sub-path → 404
+	# below, nothing reaches the api. The api answers 404 itself while public_show_prices is off.
+	@public_price_estimate {
+		method GET
+		path_regexp ^/v1/public/properties/[a-z0-9-]{2,40}/price-estimate$
+		expression `"{$LANDING_PUBLIC_API:off}" == "on" && {http.request.uri.query}.matches('^[^#]{0,256}$')`
 	}
 	# A POST without Content-Length (chunked) is refused before the proxy: the reverse proxy would otherwise forward a
 	# request whose body it could not read in full. Browsers always send Content-Length for the form's JSON body.
@@ -174,8 +184,12 @@
 	handle @public_booking_request {
 		import public_api
 	}
-	# No API, no health, no test endpoints on the landing origin otherwise; Russian not released yet.
-	@closed path /v1/* /health /health/* /__test__/* /ru /ru/*
+	handle @public_price_estimate {
+		import public_api
+	}
+	# No API, no health, no test endpoints on the landing origin otherwise. Every language of the build is served
+	# (LP-v2: /ko/, /zh/, /ru/ – SR-LC-06): a language not in the image has no files, so it stays 404.
+	@closed path /v1/* /health /health/* /__test__/*
 	handle @closed {
 		error 404
 	}
@@ -205,9 +219,11 @@
 		# error responses get the same security headers (they are not covered by the site's header directives)
 		import landing_headers
 		header Cache-Control "no-store"
-		@vi path /vi /vi/*
-		handle @vi {
-			rewrite * /vi/404/index.html
+		# 404 page of the language of the path (LP-v2: pages/[lang]/404.astro, ARC lp-v2-design 3.2). A language whose
+		# 404 page is not in the image (older build) gets the English one.
+		@lang404 path_regexp lang404 ^/(vi|ko|zh|ru)(/|$)
+		handle @lang404 {
+			try_files /{re.lang404.1}/404/index.html /404.html
 			file_server
 		}
 		handle {
