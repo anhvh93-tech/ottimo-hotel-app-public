@@ -102,8 +102,11 @@ one() { sort -u | awk 'NR == 1 { v = $0 } END { if (NR == 1) print v }'; }  # ex
 privacy_check() { # 0 = pass, 1 = refuse. Reads the new image offline: no network, no pull.
   local rc=0 loc file v h rec want bad="" seen="" new=0
   local ver_re='[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[0-9]{1,2})?'
+  # Defence in depth (ARC CWD-04 2 / PR23-04): the image already passed the digest check; the reader still runs with no
+  # capability, no privilege gain, a read-only root and the nobody uid (tar writes to stdout only).
   # shellcheck disable=SC2016  # $f expands inside the container
-  docker run --rm --pull never --network none --entrypoint sh "$ref" -c \
+  docker run --rm --pull never --network none --cap-drop ALL --security-opt no-new-privileges --read-only --user 65534 \
+    --entrypoint sh "$ref" -c \
     'cd /srv/landing && for f in privacy/index.html vi/privacy/index.html; do [ -f "$f" ] || exit 4; done
      tar -cf - privacy/index.html vi/privacy/index.html' > "$ptmp/pages.tar" 2>/dev/null || rc=$?
   local proxy_on=0

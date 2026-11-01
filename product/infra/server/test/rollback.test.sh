@@ -23,6 +23,9 @@ bin=$(cd "$here/../bin" && pwd)
 if [ -e /opt/ottimo-prod ] || [ -e /opt/ottimo/.ottimo-home ]; then
   echo "refused: this is an OTTIMO server – run this test on a workstation or in CI" >&2; exit 2
 fi
+if ! command -v jq >/dev/null; then  # deploy.sh reads the compose secrets with jq (GitHub runners and the VPS have it)
+  echo "SKIP  rollback.sh rehearsal: jq is not installed – nothing tested"; exit 0
+fi
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/rollback-test.XXXXXX")
 trap 'rm -rf "$work"' EXIT
