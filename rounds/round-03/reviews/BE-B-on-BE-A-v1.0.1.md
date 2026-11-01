@@ -205,3 +205,61 @@ Các điểm đã xác nhận thêm:
 - Tính thử chạy **chính hàm ghi** trong giao dịch luôn rollback, có chốt ở tầng DB (`simulation_guard` + trigger hoãn). Nhờ vậy số tính thử bằng số ghi ngay từ cách dựng, không phải duy trì hai công thức.
 - Test "không để lại gì" so md5 toàn bộ bảng của tenant, có kiểm SSE, và tự chứng minh không mù (sau lần ghi thật thì ảnh chụp đổi). Đây là mẫu tốt cho mọi `dryRun` sau này.
 - `AMOUNT_CHANGED` đặt đúng chỗ, dùng `throw` (rollback cả khóa idempotency), có test dùng lại cùng khóa thành công và audit `previewConfirmed`.
+
+---
+
+## Lượt 2 – PR #22 (01/11/2026)
+
+- Người review: BE-B | Round 4 – Bước: Review (xác nhận lượt 2 thẻ 01, kế hoạch T5 (e)) | Ngày: 01/11/2026
+- Đối tượng: PR #22, nhánh `v1.0.2-ed` head `99734cda` (gộp `be-a-v1.0.1` @ `1552e495` + hợp đồng 0.3.9 bổ sung 1–3 + `main` `cfbbe3d4`). Đọc qua `git show origin/v1.0.2-ed:…`, không checkout nhánh trên `main`.
+- Đường dẫn code tính từ `product/services/api/src/`, số dòng theo `99734cda`.
+
+### Kết luận: **FB-R3-BE-B-BE-A-01 – Đóng (Closed).** Kèm theo: **thẻ 02 – Đóng** (cùng oracle BR-428-09). Đồng ý bỏ `pendingFix` ở BR-428-08 và BR-428-09.
+
+### 1. Mã đã sửa đúng phương án A
+
+| Điểm phương án A | Mã `99734cda` | Kết quả |
+|---|---|---|
+| `roomChangeDifferenceVnd` = phần hoàn **sau trần** = min(đã đảo, `refundVnd` − `extraPersonRefundVnd`) | `splitEarlyDepartureRefund` (`modules/frontdesk/internal/stay.service.ts:103-126`), gọi ở `:1731-1736` với `refundVnd` đã trần, `droppedFeesVnd`, `differenceReversedVnd` | Đúng |
+| Thêm `roomChangeDifferenceReversedVnd` = đã đảo − phần hoàn | cùng hàm, `:123` | Đúng |
+| `refundablePaidVnd` = `refundVnd` − phụ thu người − chênh lệch (đứng cuối thứ tự) | cùng hàm, `:124` | Đúng; luôn ≥ 0 vì hai phần trước đều lấy `min` trên phần còn lại |
+| `refundCapped` không đổi giá trị | `:1785` vẫn so `refundVnd` với `refund.refundVnd + droppedFeesVnd + differenceReversedVnd` = tổng 5 trường của A | Đúng |
+| Audit `after` cùng nghĩa với phản hồi | `:1816-1820` ghi đủ 3 cặp từ `split` | Đúng |
+| Hợp đồng | `openapi.yaml` `EarlyDepartureResult` (dòng 11236-11249): mô tả "sau trần", thêm `roomChangeDifferenceReversedVnd`, `refundablePaidVnd`; controller map đủ 3 trường mới | Khớp |
+
+- Phép so `AMOUNT_CHANGED` vẫn so `refundVnd`/`earlyDepartureFeeVnd` (tổng không đổi nghĩa), vị trí vẫn trước `approvals.submit`. Việc chia không ảnh hưởng số tiền của yêu cầu hoàn (vẫn 1 yêu cầu = `refundVnd`).
+- Thẻ 02: dòng phí OTA nay `description: 'early_departure'`, `labelParams: { nights }` (không `noticeDays`), dòng Trực tiếp giữ `early_departure ${shownNoticeDays}d`; audit `reason` dùng `shownNoticeDays` (`:1707`, `:1714-1716`, `:1843`). `line-labels.ts:118-123` trả `noticeDays: null` cho dòng OTA → admin-web `folio.ts:39` hiện "Phí trả phòng sớm" / "Early departure fee" (có test `folio-ed-label.test.ts`). Dòng cũ không đụng (BR-008).
+
+### 2. Test BR-428-08/09 kiểm đúng
+
+- **BR-428-08** (`test/integration/b16-preview-v101.test.ts:939-1018`): dựng đúng input oracle (Agoda trả trước, 202 → 401 từ 21/10, 3 × 250.000 đã ghi, thu 300.000, rời 22/10, OTA giữ 0); khóa thêm 250.000/đêm bằng tham số `weekend_uplift_channels` để số khớp oracle. So **cả** công thức (credit = 300.000 − dòng đêm 21/10) **và** số oracle: `refundVnd` 50.000, `roomChangeDifferenceVnd` 50.000, `roomChangeDifferenceReversedVnd` 450.000, `refundCapped` true, đêm bỏ 22–23/10; lần ghi = tính thử (`numbers`), đúng 1 yêu cầu hoàn 50.000. Tính thử qua `cleanPreview` (ảnh chụp 72 bảng) → phủ luôn nhánh `reverseLine` + trần của thẻ 04 (b).
+- **BR-428-09** (`:1020-1109`): đơn OTA + đơn con Trực tiếp, đủ 3 phần (phụ thu người + chênh lệch + 50 %), OTA giữ một nửa (phủ thẻ 04 (a): `syncOtaCollect` lần hai, mã phiếu `payment` trong ảnh chụp); ca không trần rồi ca bị trần đúng thứ tự BR-428; so dòng phí trong DB: dòng Trực tiếp `early_departure Nd` + `noticeDays`, dòng OTA `early_departure` không `noticeDays`. Chữ hiển thị thì kiểm ở admin-web (không lặp ở api – hợp lý vì api chỉ trả khóa + tham số).
+- Hàm `invariants` chạy trên **mọi** phản hồi tính thử và lần ghi: tổng 3 phần = `refundVnd`, từng trường ≥ 0, `refundCapped` ⇔ `refundVnd` < tổng 5 trường, và thứ tự (phần sau chỉ có tiền khi phần trước hoàn đủ). Đây đúng là chốt hồi quy BE-B muốn.
+- **Thử đột biến** (trong worktree tạm, đã hoàn lại):
+  - M1: trả lại nghĩa cũ `roomChangeDifferenceVnd: differenceReversedVnd` trong phản hồi → **BR-428-08 và BR-428-09 đỏ**.
+  - M2: dòng phí OTA ghi lại `early_departure ${shownNoticeDays}d` → **BR-428-09 đỏ**.
+  - Kết luận: test không mù với đúng hai lỗi của thẻ 01/02.
+
+### 3. Bỏ `pendingFix` ở `product/tests/fixtures/br-examples.json`
+
+- Diff `cfbbe3d4..99734cda` chỉ xóa 2 dòng `"pendingFix": "FB-R3-BE-B-BE-A-01"` (BR-428-08) và `"FB-R3-BE-B-BE-A-02"` (BR-428-09); `input`/`expected` không đổi. **Chấp nhận.**
+- Còn lại cho DOM/QA (không chặn): `note` của BR-428-08 vẫn ghi "Code nhánh … `5e966a5` trả 500.000 … → pendingFix tới khi BE-A áp đề xuất A" – nên sửa thành "đã sửa ở `1552e495`" lần tới DOM/QA chạm file. Ô `owner` dòng đầu cũng còn chữ "pendingFix FB-R3-BE-B-BE-A-01/02" ở mục v0.4.8 (lịch sử, có thể giữ).
+
+### 4. Chạy test (BE-B, 01/11)
+
+- Worktree tạm `git worktree add --detach … 99734cda` trong scratchpad; Postgres 17 tạm riêng (container `beb-pr22-pg`, cổng 127.0.0.1 riêng, `infra/postgres/init` với `OTTIMO_DATABASES=ottimo ottimo_test`, mật khẩu sinh ngẫu nhiên, không ghi ra). Không dùng DB/compose của QA (`qapr22`) hay `esc031`.
+- `b16-preview-v101.test.ts` **18/18**, `be-a-v101-units.test.ts` + `audit-record-db-only.test.ts` **47/47** – tổng **65/65 pass** (migrate từ đầu tới 0089).
+- Đã gỡ container và worktree tạm sau khi chạy. Không chạy toàn bộ bộ api (BE-A đã chạy 142 tệp), không chạy lint.
+
+### 5. Thẻ khác (ngoài phạm vi lượt này, chỉ ghi nhận)
+- Thẻ 03 (a): có test `SEC-BE-A-02: tx.db (drizzle) throws` → hướng sửa đã vào; BE-B chưa đọc kỹ phần (b) `pg_advisory_lock` – để ARC/SEC xác nhận khi review `database.ts` trên diff gộp.
+- Thẻ 04: (a) và (b) đã có ca `cleanPreview` như đề xuất (mục 2) → BE-B coi là **Đóng**.
+- Thẻ 05, 06 (Suggestion): không kiểm lại ở lượt này.
+
+| Thẻ | Trạng thái sau lượt 2 |
+|---|---|
+| FB-R3-BE-B-BE-A-01 (Major) | **Closed** |
+| FB-R3-BE-B-BE-A-02 (Minor) | **Closed** |
+| FB-R3-BE-B-BE-A-04 (Minor) | **Closed** |
+| FB-R3-BE-B-BE-A-03 (Minor) | Chờ ARC/SEC xác nhận phần (b) |
+| FB-R3-BE-B-BE-A-05/06 (Suggestion) | Không xét lượt này |
