@@ -82,11 +82,17 @@ const strings: BookingStrings = {
     sentWith: '이 예상 요금은 요청과 함께 전달됩니다.',
     live: (amount, nights) => `예상 요금이 변경되었습니다: ${nights} 기준 ${amount}`,
     done: '예상 요금',
+    // CPY lp-v2-copy 13.3 (Lượt 3, 01/11): minimum stay, status line when the estimate goes away
+    minStay: (n) =>
+      `선택하신 날짜는 최소 ${n}박부터 머무실 수 있습니다. 일정을 늘리시면 예상 요금을 보여 드리며, 이대로 요청을 보내 주셔도 맞는 일정을 안내해 드리겠습니다.`,
+    liveCleared: '예상 요금이 지워졌습니다.',
   },
-  // ESC-043 (INV 01/11): by the month or 28+ nights – no figure (CPY lp-v2-copy 12.1)
+  // ESC-043 (INV 01/11): by the month or from the BR-108 threshold (30 nights) – no figure (CPY lp-v2-copy 12.1)
   priceMonthlyOffer: {
     label: '장기 숙박 특별 제안',
     text: '한 달 이상 머무신다면 일정에 맞춘 요금을 따로 준비해 드립니다. 보내 드리는 견적에서 확인하실 수 있습니다.',
+    // CPY lp-v2-copy 13.2: spoken line of the offer (zh full stop "。", no digit)
+    live: '장기 숙박 특별 제안. 한 달 이상 머무신다면 일정에 맞춘 요금을 따로 준비해 드립니다. 보내 드리는 견적에서 확인하실 수 있습니다.',
   },
 };
 

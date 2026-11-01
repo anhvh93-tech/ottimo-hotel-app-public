@@ -227,13 +227,15 @@ h1 {
 :root:lang(zh-Hans) {
   font-synthesis: weight; /* no fake italic for Han/Hangul */
 }
-:root:lang(ko) h1,
-:root:lang(zh-Hans) h1 {
+/* Heading rules for Han/Hangul text only: `h1:lang(…)` reads the element's own language, so the English tagline
+   (lang="en") keeps the Latin line height and tracking on every page (FB-R4-UXD-FE-06). */
+h1:lang(ko),
+h1:lang(zh-Hans) {
   line-height: 1.3;
   letter-spacing: 0.02em;
 }
-:root:lang(ko) .h2,
-:root:lang(zh-Hans) .h2 {
+.h2:lang(ko),
+.h2:lang(zh-Hans) {
   line-height: 1.35;
 }
 :root:lang(ko) .label,
@@ -250,8 +252,13 @@ h1 {
 :root:lang(ru) .est-lbl {
   letter-spacing: 0.06em; /* Russian words are long */
 }
-:root:lang(ru) p {
+/* Hyphenation for running text only (UXD 1.5, FB-R4-UXD-FE-05): body paragraphs of the sections and the privacy
+   page – never labels, titles, hints, the hero lead or the price box. */
+:root:lang(ru) .sec p {
   hyphens: auto;
+}
+:root:lang(ru) .sec :is(.label, .f-title, .hint, .lead, .est > *, .est-sent) {
+  hyphens: manual;
 }
 /* Typed names and notes: system fonts for Han/Hangul (any character can be typed – a name never mixes two fonts) */
 :root:lang(ko) .input,
@@ -691,6 +698,13 @@ h1 {
   }
   .menu {
     display: none;
+  }
+}
+/* Russian menu words are long: between 1024 and 1159 px the four items sit 24 px apart (not 32) so the wordmark keeps
+   its clear space before "Номера" (FB-R4-UXD-FE-03; 15 → 27 px at 1024 px). Same type size. */
+@media (min-width: 1024px) and (max-width: 1159.98px) {
+  :root:lang(ru) .nav-d {
+    gap: var(--s5);
   }
 }
 
@@ -2054,7 +2068,11 @@ legend.f-label:not(.sr) {
   background: transparent;
   text-decoration: none;
   font: 500 0.9375rem/1.1 var(--sans);
-  white-space: nowrap;
+  /* Safety net (FB-R4-UXD-FE-02): a label that does not fit takes a second line inside the 48 px button instead of
+     spilling over its border – never a smaller type size. CPY's short labels (13.1) fit one line at 320–390 px. */
+  white-space: normal;
+  text-align: center;
+  text-wrap: balance;
 }
 .sb svg {
   width: 18px;
@@ -2110,15 +2128,25 @@ legend.f-label:not(.sr) {
   font-size: 0.9375rem;
   color: var(--brand-stone);
 }
+/* The amount alone on its line; the nights phrase is its own quieter line (.est-nights) above (ko/zh) or below
+   (en/vi/ru) – FB-R4-UXD-FE-04. */
 .est-amt {
-  display: inline-block;
-  margin-inline: 2px;
+  display: block;
   font: 400 1.75rem/1.2 var(--serif);
   font-variant-numeric: lining-nums tabular-nums;
   letter-spacing: 0.01em;
   color: var(--brand-ink);
 }
-.est-line {
+.est-line,
+.est-nights {
+  font-size: 0.875rem;
+  color: var(--brand-stone);
+}
+.est-nights {
+  font-size: 0.9375rem;
+}
+/* "Checking rates…" – never faded: Stone on Ivory stays at full contrast (FB-R4-UXD-FE-07) */
+.est-wait {
   font-size: 0.875rem;
   color: var(--brand-stone);
 }
@@ -2148,7 +2176,9 @@ legend.f-label:not(.sr) {
   border-radius: 2px;
   background: var(--brand-cream);
 }
+/* only the old number and its lines fade while a new one is computed (UXD S2) */
 .est.is-busy .est-main,
+.est.is-busy .est-nights,
 .est.is-busy .est-line {
   opacity: 0.45;
 }

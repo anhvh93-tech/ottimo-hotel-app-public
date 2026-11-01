@@ -182,6 +182,9 @@ importers:
       astro:
         specifier: 7.3.8
         version: 7.3.8(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
       prettier:
         specifier: ^3.4.2
         version: 3.9.10

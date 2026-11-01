@@ -30,6 +30,7 @@
     "@astrojs/sitemap": "3.7.4",
     "@types/node": "^22.10.2",
     "astro": "7.3.8",
+    "jsdom": "^26.1.0",
     "prettier": "^3.4.2",
     "subset-font": "2.9.0",
     "typescript": "~5.8.3",

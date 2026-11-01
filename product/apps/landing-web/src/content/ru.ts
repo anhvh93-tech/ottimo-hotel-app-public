@@ -28,9 +28,10 @@ export const ru: Copy = {
   langSwitch: { label: 'Язык' },
   langSuggest: { region: 'Язык', text: 'Открыть страницу на русском', close: 'Закрыть' },
   actions: {
-    requestToBook: 'Запланировать поездку',
-    chatOnZalo: 'Написать в Zalo',
-    chatOnPrefix: 'Написать в ',
+    // CPY lp-v2-copy 13.1 (FB-R4-UXD-FE-02/03): short labels – fit the phone bar at 320–375 px and the 1024 px header
+    requestToBook: 'Выбрать даты',
+    chatOnZalo: 'Чат в Zalo',
+    chatOnPrefix: 'Чат в ',
     newTab: ' (откроется в новой вкладке)',
   },
   photoAlt: {

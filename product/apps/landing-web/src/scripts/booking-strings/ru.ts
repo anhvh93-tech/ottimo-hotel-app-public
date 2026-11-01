@@ -14,7 +14,8 @@ export function gen(n: number, sg: string, pl: string): string {
   return rules.select(n) === 'one' ? sg : pl;
 }
 
-const nights = (n: number) => `${n} ${plural(n, 'ночь', 'ночи', 'ночей')}`;
+// U+00A0: the number never leaves its word (CPY 13.5, FB-R4-UXD-FE-04)
+const nights = (n: number) => `${n}\u00a0${plural(n, 'ночь', 'ночи', 'ночей')}`;
 const dur = (m: number) =>
   m % 60 === 0 ? `${m / 60} ${gen(m / 60, 'часа', 'часов')}` : `${m} ${gen(m, 'минуты', 'минут')}`;
 
@@ -97,11 +98,17 @@ const strings: BookingStrings = {
     sentWith: 'Эта оценка придёт к нам вместе с запросом.',
     live: (amount, n) => `Ориентировочная цена обновлена: ${amount} за ${n}`,
     done: 'Ориентировочная цена',
+    // CPY lp-v2-copy 13.3 (Lượt 3, 01/11): minimum stay, status line when the estimate goes away
+    minStay: (n) =>
+      `На эти даты минимальный срок проживания — ${nights(n)}. Выберите больше ночей, чтобы увидеть ориентировочную цену, или отправьте запрос как есть: мы предложим варианты.`,
+    liveCleared: 'Ориентировочная цена сброшена.',
   },
-  // ESC-043 (INV 01/11): by the month or 28+ nights – no figure (CPY lp-v2-copy 12.1)
+  // ESC-043 (INV 01/11): by the month or from the BR-108 threshold (30 nights) – no figure (CPY lp-v2-copy 12.1)
   priceMonthlyOffer: {
     label: 'Особое предложение для долгого проживания',
     text: 'Для проживания от месяца мы подготовим цену под ваши даты — она будет в предложении, которое мы пришлём.',
+    // CPY lp-v2-copy 13.2: spoken line of the offer (zh full stop "。", no digit)
+    live: 'Особое предложение для долгого проживания. Для проживания от месяца мы подготовим цену под ваши даты — она будет в предложении, которое мы пришлём.',
   },
 };
 

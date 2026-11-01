@@ -21,12 +21,13 @@ const strings: BookingStrings = {
     ', call ',
     ' or message us on Zalo with this number.',
   ],
-  nights: (n) => (n === 1 ? '1 night' : `${n} nights`),
+  // U+00A0: the number never leaves its word (CPY 13.5, FB-R4-UXD-FE-04)
+  nights: (n) => (n === 1 ? '1\u00a0night' : `${n}\u00a0nights`),
   roomHint: (lo, hi) =>
     lo
       ? `Sleeps ${lo}–${hi}. The higher number includes one more guest (sofa, or the 1.4 m extra bed in Premium), included in your quote.`
       : 'We suggest a room that suits your group.',
-  longHint: (n) => `${n} nights. We will quote our long-stay rate.`,
+  longHint: (n) => `${n}\u00a0nights. We will quote our long-stay rate.`,
   summary: (n) => (n === 1 ? 'Please check 1 field' : `Please check ${n} fields`),
   e: {
     inReq: 'Choose your check-in date.',
@@ -78,11 +79,17 @@ const strings: BookingStrings = {
     sentWith: 'This estimate is sent with your request.',
     live: (amount, nights) => `Estimated rate updated: ${amount} for ${nights}`,
     done: 'Estimated rate',
+    // CPY lp-v2-copy 13.3 (Lượt 3, 01/11): minimum stay, status line when the estimate goes away
+    minStay: (n) =>
+      `These dates have a minimum stay of ${n === 1 ? '1\u00a0night' : `${n}\u00a0nights`}. Choose a longer stay to see an estimate, or send your request and we will suggest options.`,
+    liveCleared: 'Estimated rate cleared.',
   },
-  // ESC-043 (INV 01/11): by the month or 28+ nights – no figure (CPY lp-v2-copy 12.1)
+  // ESC-043 (INV 01/11): by the month or from the BR-108 threshold (30 nights) – no figure (CPY lp-v2-copy 12.1)
   priceMonthlyOffer: {
     label: 'A special offer for longer stays',
     text: 'For a month or longer, we prepare a rate around your dates. You will find it in the quote we send.',
+    // CPY lp-v2-copy 13.2: spoken line of the offer (zh full stop "。", no digit)
+    live: 'A special offer for longer stays. For a month or longer, we prepare a rate around your dates. You will find it in the quote we send.',
   },
 };
 

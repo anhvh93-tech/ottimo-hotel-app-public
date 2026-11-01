@@ -18,12 +18,13 @@ const strings: BookingStrings = {
     callNow: (m) => `Bạn đến trong tối nay, chúng tôi sẽ liên hệ bạn trong ${m} phút.`,
   },
   fallback: ['Nếu đến ', ' chúng tôi chưa liên hệ, vui lòng gọi ', ' hoặc nhắn Zalo kèm mã này.'],
-  nights: (n) => `${n} đêm`,
+  // U+00A0: the number never leaves its word (CPY 13.5, FB-R4-UXD-FE-04)
+  nights: (n) => `${n}\u00a0đêm`,
   roomHint: (lo, hi) =>
     lo
       ? `${lo}–${hi} khách. Số lớn hơn là khi thêm một khách (ngủ sofa, hoặc giường phụ 1,4 m ở hạng Premium); chi phí đã gồm trong báo giá.`
       : 'Chúng tôi sẽ gợi ý phòng hợp với số khách.',
-  longHint: (n) => `${n} đêm. Chúng tôi sẽ báo giá ở dài ngày.`,
+  longHint: (n) => `${n}\u00a0đêm. Chúng tôi sẽ báo giá ở dài ngày.`,
   summary: (n) => `Vui lòng kiểm tra ${n} mục`,
   e: {
     inReq: 'Chọn ngày nhận phòng.',
@@ -74,11 +75,17 @@ const strings: BookingStrings = {
     sentWith: 'Giá ước tính này được gửi kèm yêu cầu của bạn.',
     live: (amount, nights) => `Giá ước tính mới: ${amount} cho ${nights}`,
     done: 'Giá ước tính',
+    // CPY lp-v2-copy 13.3 (Lượt 3, 01/11): minimum stay, status line when the estimate goes away
+    minStay: (n) =>
+      `Với ngày bạn chọn, thời gian ở tối thiểu là ${n}\u00a0đêm. Chọn ở dài hơn để xem giá ước tính, hoặc cứ gửi yêu cầu, chúng tôi sẽ gợi ý cho bạn.`,
+    liveCleared: 'Đã xóa giá ước tính.',
   },
-  // ESC-043 (INV 01/11): by the month or 28+ nights – no figure (CPY lp-v2-copy 12.1)
+  // ESC-043 (INV 01/11): by the month or from the BR-108 threshold (30 nights) – no figure (CPY lp-v2-copy 12.1)
   priceMonthlyOffer: {
     label: 'Ưu đãi riêng cho kỳ ở dài',
     text: 'Với kỳ ở từ một tháng, chúng tôi chuẩn bị mức giá riêng theo ngày ở của bạn, gửi kèm báo giá.',
+    // CPY lp-v2-copy 13.2: spoken line of the offer (zh full stop "。", no digit)
+    live: 'Ưu đãi riêng cho kỳ ở dài. Với kỳ ở từ một tháng, chúng tôi chuẩn bị mức giá riêng theo ngày ở của bạn, gửi kèm báo giá.',
   },
 };
 

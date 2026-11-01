@@ -263,7 +263,7 @@ export interface EstimateQuery {
 }
 
 /**
- * Why there is no query: S0 (dates/room missing or invalid), S1 ("Any room"), or a stay by the month / 28+ nights
+ * Why there is no query: S0 (dates/room missing or invalid), S1 ("Any room"), or a stay by the month
  * (ESC-043: no figure for monthly stays – the box invites to a monthly offer, nothing is asked).
  */
 export type EstimateWait = 'idle' | 'any-room' | 'monthly';
@@ -293,9 +293,9 @@ export function estimateQuery(
       ? inWindow(v.checkIn) && /^\d{4}-\d{2}-\d{2}$/.test(v.checkOut) && v.checkOut > v.checkIn
       : inWindow(v.arrival);
   if (!datesOk) return 'idle';
-  // By the month: never a figure (ESC-043) – the box shows the offer without asking. A long stay BY THE NIGHT is
-  // asked: the API owns the monthly threshold (28 nights today, may become 30 – INV price list) and answers
-  // monthly_offer, so the page has no second copy of that number.
+  // By the month: never a figure (ESC-043) – the box shows the offer (asking once only while the page does not know
+  // whether prices are on: monthlyProbeQuery). A long stay BY THE NIGHT is asked: the API owns the monthly threshold
+  // (BR-108 – 30 nights from INV 01/11) and answers monthly_offer, so the price box has no copy of that number.
   if (v.stayType === 'long') return 'monthly';
   if (!v.roomType) return 'any-room';
   if (overCapacity(ctx.capacity, v.adults, v.children)) return 'idle';
@@ -309,6 +309,29 @@ export function estimateQuery(
   };
   q.departure = v.checkOut;
   return q;
+}
+
+/**
+ * FB-R4-UXD-FE-01: a guest who opens "By the month" first must still see the monthly invitation. While the page does
+ * not know yet whether prices are on (no 200 so far), it asks ONCE with `stayType=long` (no departure, no months –
+ * OpenAPI 0.3.9: `departure` with `long` = NOT_ALLOWED): 200 `monthly_offer` → the invitation, 404 → the box stays off
+ * (ARC 2.8). Same inputs as any estimate (room type, arrival, party – no personal data). "Any room" asks with the
+ * first room type of the list: the answer only says whether prices are on, the invitation names no room.
+ */
+export function monthlyProbeQuery(
+  v: Pick<FormValues, 'arrival' | 'adults' | 'children' | 'infants' | 'roomType'>,
+  fallbackRoom: string,
+): EstimateQuery | null {
+  const roomType = v.roomType || fallbackRoom;
+  if (!roomType || !/^\d{4}-\d{2}-\d{2}$/.test(v.arrival)) return null;
+  return {
+    roomType,
+    stayType: 'long',
+    arrival: v.arrival,
+    adults: v.adults,
+    children: v.children,
+    infants: v.infants,
+  };
 }
 
 /** Query string in a fixed order (cache key in the page, URL of the request). */
@@ -364,6 +387,14 @@ export interface EstimateView {
   done: string;
 }
 
+/**
+ * Sentences of one block written one after the other (FB-R4-UXD-FE-08): Chinese closes each sentence with "。" and
+ * puts no space after it; the other languages separate sentences with a space.
+ */
+export function joinSentences(parts: readonly string[], lang: Lang): string {
+  return parts.join(lang === 'zh' ? '' : ' ');
+}
+
 const MARK = '\u0001';
 const split = (sentence: string, amount: string): [string, string, string] => {
   const [a = '', b = ''] = sentence.split(MARK);
@@ -389,7 +420,7 @@ export function estimateView(
     >;
     nights: (n: number) => string;
     e: { cap: (n: string) => string };
-    priceMonthlyOffer: { label: string; text: string };
+    priceMonthlyOffer: { label: string; text: string; live: string };
   },
   lang: Lang,
   opts: { capacity?: number | null } = {},
@@ -404,7 +435,7 @@ export function estimateView(
       r.unavailableReason === 'party_exceeds_room' && opts.capacity
         ? S.e.cap(String(opts.capacity))
         : minStay
-          ? (E.minStay?.(minStay.minNights ?? 2) ?? E.unavailable)
+          ? E.minStay(minStay.minNights ?? 2)
           : E.unavailable;
     return { kind: 'unavailable', lines: [], note: [], live, done: '' };
   }
@@ -420,6 +451,8 @@ export function estimateView(
   if (st.extraPersonFeeVnd > 0) lines.push(E.extraGuest);
   return {
     kind: 'price',
+    // the amount stands on its own line; the nights phrase is the line above (ko/zh) or below (en/vi/ru) – UXD FE-04
+    // (nights(n) already holds U+00A0 between the number and the word – CPY 13.5)
     main: split(E.total(MARK, nights), amount),
     value: st.totalVnd,
     lines,
@@ -430,12 +463,13 @@ export function estimateView(
 }
 
 /**
- * ESC-043 (INV 01/11): a stay by the month – or 28 nights or more by the night – shows no figure, only the invitation
- * to a monthly offer in our quote (CPY lp-v2-copy 12.1 `priceMonthlyOffer`); the "Estimated rate" title is hidden.
+ * ESC-043 (INV 01/11): a stay by the month – or a stay by the night from the monthly threshold on (BR-108, 30 nights
+ * from INV 01/11; the API decides) – shows no figure, only the invitation to a monthly offer in our quote (CPY
+ * lp-v2-copy 12.1 `priceMonthlyOffer`); the "Estimated rate" title is hidden. The spoken line is CPY's own sentence
+ * `priceMonthlyOffer.live` (13.2 – zh with "。", never a code-made "label. text" – FB-R4-UXD-FE-08).
  */
 export function monthlyOfferView(S: {
-  priceMonthlyOffer: { label: string; text: string };
+  priceMonthlyOffer: { label: string; text: string; live: string };
 }): EstimateView {
-  const { label, text } = S.priceMonthlyOffer;
-  return { kind: 'offer', lines: [], note: [], live: `${label}. ${text}`, done: '' };
+  return { kind: 'offer', lines: [], note: [], live: S.priceMonthlyOffer.live, done: '' };
 }

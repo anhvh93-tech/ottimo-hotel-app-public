@@ -20,12 +20,13 @@ const strings: BookingStrings = {
     callNow: (m) => `您今晚抵达，我们将在 ${m} 分钟内联系您。`,
   },
   fallback: ['如果到 ', ' 仍未收到我们的消息，请致电 ', '，或在 Zalo 上将此编号发给我们。'],
-  nights: (n) => `${n} 晚`,
+  // U+00A0: the number never leaves its word (CPY 13.5, FB-R4-UXD-FE-04)
+  nights: (n) => `${n}\u00a0晚`,
   roomHint: (lo, hi) =>
     lo
       ? `可住 ${lo}–${hi} 人。较大的人数含加住一人（睡沙发，或 Premium 房型的 1.4 米加床），已含在报价中。`
       : '我们会根据人数为您推荐合适的房型。',
-  longHint: (n) => `${n} 晚。我们将按长住价格为您报价。`,
+  longHint: (n) => `${n}\u00a0晚。我们将按长住价格为您报价。`,
   summary: (n) => `请检查 ${n} 项内容`,
   e: {
     inReq: '请选择入住日期。',
@@ -71,11 +72,17 @@ const strings: BookingStrings = {
     sentWith: '此预估价格将随申请一并发送。',
     live: (amount, nights) => `预估价格已更新：${nights}，共 ${amount}`,
     done: '预估价格',
+    // CPY lp-v2-copy 13.3 (Lượt 3, 01/11): minimum stay, status line when the estimate goes away
+    minStay: (n) =>
+      `所选日期最少需入住 ${n}\u00a0晚。延长住宿即可查看预估价格；也可直接提交申请，由我们为您推荐合适的安排。`,
+    liveCleared: '预估价格已清除。',
   },
-  // ESC-043 (INV 01/11): by the month or 28+ nights – no figure (CPY lp-v2-copy 12.1)
+  // ESC-043 (INV 01/11): by the month or from the BR-108 threshold (30 nights) – no figure (CPY lp-v2-copy 12.1)
   priceMonthlyOffer: {
     label: '长住专属优惠',
     text: '入住一个月或以上，我们会根据您的日期准备专属价格，随报价一并发送给您。',
+    // CPY lp-v2-copy 13.2: spoken line of the offer (zh full stop "。", no digit)
+    live: '长住专属优惠。入住一个月或以上，我们会根据您的日期准备专属价格，随报价一并发送给您。',
   },
 };
 

@@ -10,7 +10,7 @@
 //
 // LP-v2 (R4): text = SEC rounds/round-04/outputs/SEC/lp-v2-privacy-and-api.md – EN/VI = `2026-10-31` text (ESC-041 C,
 // ESC-042 B: Google Chat copy has no stated period; SEC-LP2-02 "These periods…" at the end) + Δ5 translation-service
-// sentence (ESC-044 = allowed without limit, INV 01/11 – SEC lp-v2 L2.2: the text may include name, contact, message); ko/zh/ru = SEC sections 4–6 + translation precedence note
+// sentence (ESC-044 + INV 01/11 question 9: any Desk screen – SEC review of LP-v2 code section 3 (L3): read and reply, name, contact, stay details, message); ko/zh/ru = SEC sections 4–6 + translation precedence note
 // (Δ7). The page carries the version for machines too: <meta name="ottimo-notice-version"> (ARC D11) and
 // data-notice-version on the notice body (SEC SR-LC-04) – both from VERSION below, read by OPS publish-privacy-notice.
 // Voice: Brand Guidelines (short, polite, calm; English leads, Vietnamese supports; no emoji).
@@ -98,7 +98,8 @@ const en: PrivacyCopy = {
         'Our server provider in Viet Nam (Nhân Hòa) stores the data for us.',
         'When we reply, the app you chose – Zalo (VNG) or WhatsApp (Meta) – or our email provider (Google Workspace) carries the messages under its own privacy policy. Their servers may be outside Viet Nam.',
         'When you send a request, we post your name, contact, preferred channel, dates, number of guests and message to a private chat used only by our managers and reception, on Google Chat (Google Workspace). We do this only so that the person on duty can reply to you quickly. Google stores these messages on its servers, which may be outside Viet Nam. Messages in this chat are not deleted automatically. We delete your copy when it is no longer needed to reply to you, or when you ask us to delete your request.',
-        'If you write in a language our team does not read, we may use a translation service, such as Google Translate, to understand your request. The text we translate may include your name, contact and message. The service’s servers may be outside Viet Nam.',
+        // Δ5 – ESC-044 + INV 01/11 câu 9 (mọi màn hình Desk) – SEC review LP-v2 code mục 3
+        'We may use a translation service, such as Google Translate, to read your request and reply to you. The text we translate may include your name, contact, stay details and message. The service’s servers may be outside Viet Nam.',
       ],
     },
     {
@@ -187,7 +188,8 @@ const vi: PrivacyCopy = {
         'Nhà cung cấp máy chủ tại Việt Nam (Nhân Hòa) lưu trữ dữ liệu cho OTTIMO.',
         'Khi OTTIMO trả lời, ứng dụng bạn chọn – Zalo (VNG) hoặc WhatsApp (Meta) – hoặc nhà cung cấp email của OTTIMO (Google Workspace) truyền tin nhắn theo chính sách riêng của họ. Máy chủ của họ có thể đặt ngoài Việt Nam.',
         'Khi bạn gửi yêu cầu, OTTIMO đăng tên, liên hệ, kênh bạn chọn, ngày ở, số khách và lời nhắn của bạn vào một phòng trò chuyện nội bộ chỉ dành cho quản lý và lễ tân, trên Google Chat (Google Workspace). Việc này chỉ để người đang trực trả lời bạn nhanh hơn. Google lưu các tin này trên máy chủ của họ, có thể đặt ngoài Việt Nam. Tin trong phòng này không tự xóa. OTTIMO xóa bản sao của bạn khi không còn cần để trả lời bạn, hoặc khi bạn yêu cầu xóa.',
-        'Nếu bạn viết bằng ngôn ngữ nhân viên OTTIMO không đọc được, OTTIMO có thể dùng một dịch vụ dịch, như Google Dịch, để hiểu yêu cầu của bạn. Nội dung được dịch có thể gồm tên, liên hệ và lời nhắn của bạn. Máy chủ của dịch vụ này có thể đặt ngoài Việt Nam.',
+        // Δ5 – ESC-044 + INV 01/11 câu 9 (mọi màn hình Desk) – SEC review LP-v2 code mục 3
+        'OTTIMO có thể dùng một dịch vụ dịch, như Google Dịch, để đọc yêu cầu và trả lời bạn. Nội dung được dịch có thể gồm tên, liên hệ, thông tin lưu trú và lời nhắn của bạn. Máy chủ của dịch vụ này có thể đặt ngoài Việt Nam.',
       ],
     },
     {
@@ -282,8 +284,8 @@ const ko: PrivacyCopy = {
         '답변을 보낼 때에는 고객님이 선택하신 앱인 Zalo(VNG) 또는 WhatsApp(Meta), 또는 OTTIMO의 이메일 제공업체(Google Workspace)가 각자의 개인정보 처리방침에 따라 메시지를 전달합니다. 이들의 서버는 베트남 밖에 있을 수 있습니다.',
         // Δ2
         '요청을 보내시면 고객님의 성함, 연락처, 선택하신 채널, 숙박 날짜, 인원수와 메시지를 Google Chat(Google Workspace)의 비공개 채팅방에 게시합니다. 이 채팅방은 OTTIMO의 관리자와 리셉션만 사용합니다. 이는 근무 중인 직원이 빠르게 답변드리기 위한 목적으로만 이루어집니다. Google은 이 메시지를 자사 서버에 저장하며, 서버는 베트남 밖에 있을 수 있습니다. 이 채팅방의 메시지는 자동으로 삭제되지 않습니다. 고객님께 답변하는 데 더 이상 필요하지 않을 때, 또는 요청 삭제를 원하실 때 고객님의 사본을 삭제합니다.',
-        // Δ5 – ESC-044 (INV 01/11: allowed without limit) – SEC lp-v2 L2.2
-        '저희 직원이 읽지 못하는 언어로 작성하신 경우, 요청 내용을 이해하기 위해 Google 번역 같은 번역 서비스를 이용할 수 있습니다. 번역하는 내용에는 고객님의 성함, 연락처, 메시지가 포함될 수 있습니다. 이 서비스의 서버는 베트남 밖에 있을 수 있습니다.',
+        // Δ5 – ESC-044 + INV 01/11 câu 9 (mọi màn hình Desk) – SEC review LP-v2 code mục 3
+        '요청 내용을 읽고 답변드리기 위해 Google 번역 같은 번역 서비스를 이용할 수 있습니다. 번역하는 내용에는 고객님의 성함, 연락처, 숙박 정보, 메시지가 포함될 수 있습니다. 이 서비스의 서버는 베트남 밖에 있을 수 있습니다.',
       ],
     },
     {
@@ -377,8 +379,8 @@ const zh: PrivacyCopy = {
         '我们回复时，您选择的应用——Zalo（VNG）或 WhatsApp（Meta）——或我们的电子邮件服务商（Google Workspace）将按照其各自的隐私政策传递消息。其服务器可能位于越南境外。',
         // Δ2
         '您提交申请后，我们会将您的姓名、联系方式、所选渠道、入住日期、人数和留言发布到 Google Chat（Google Workspace）上的一个内部聊天室，该聊天室仅供我们的管理人员和前台使用。此举仅为让当班人员尽快回复您。Google 将这些消息存储在其服务器上，服务器可能位于越南境外。该聊天室中的消息不会自动删除。当不再需要用于回复您时，或在您要求删除申请时，我们会删除您的副本。',
-        // Δ5 – ESC-044 (INV 01/11: allowed without limit) – SEC lp-v2 L2.2
-        '如果您使用我们的员工无法阅读的语言填写，我们可能会使用 Google 翻译等翻译服务来理解您的申请。翻译的内容可能包括您的姓名、联系方式和留言。该服务的服务器可能位于越南境外。',
+        // Δ5 – ESC-044 + INV 01/11 câu 9 (mọi màn hình Desk) – SEC review LP-v2 code mục 3
+        '我们可能会使用 Google 翻译等翻译服务来阅读您的申请并回复您。翻译的内容可能包括您的姓名、联系方式、入住信息和留言。该服务的服务器可能位于越南境外。',
       ],
     },
     {
@@ -471,8 +473,8 @@ const ru: PrivacyCopy = {
         'Когда мы отвечаем, выбранное вами приложение — Zalo (VNG) или WhatsApp (Meta) — либо наш почтовый сервис (Google Workspace) передаёт сообщения в соответствии со своей политикой конфиденциальности. Их серверы могут находиться за пределами Вьетнама.',
         // Δ2
         'Когда вы отправляете запрос, мы публикуем ваше имя, контакт, выбранный канал связи, даты, число гостей и сообщение в закрытом чате Google Chat (Google Workspace), которым пользуются только наши руководители и сотрудники стойки регистрации. Мы делаем это только для того, чтобы дежурный сотрудник смог быстро вам ответить. Google хранит эти сообщения на своих серверах, которые могут находиться за пределами Вьетнама. Сообщения в этом чате не удаляются автоматически. Мы удаляем вашу копию, когда она больше не нужна для ответа вам или когда вы просите удалить ваш запрос.',
-        // Δ5 – ESC-044 (INV 01/11: allowed without limit) – SEC lp-v2 L2.2
-        'Если вы пишете на языке, которого не знают наши сотрудники, мы можем воспользоваться сервисом перевода, например, Google Переводчиком, чтобы понять ваш запрос. Переводимый текст может включать ваше имя, контакт и сообщение. Серверы этого сервиса могут находиться за пределами Вьетнама.',
+        // Δ5 – ESC-044 + INV 01/11 câu 9 (mọi màn hình Desk) – SEC review LP-v2 code mục 3
+        'Мы можем пользоваться сервисом перевода, например Google Переводчиком, чтобы прочитать ваш запрос и ответить вам. Переводимый текст может включать ваше имя, контакт, сведения о проживании и сообщение. Серверы этого сервиса могут находиться за пределами Вьетнама.',
       ],
     },
     {

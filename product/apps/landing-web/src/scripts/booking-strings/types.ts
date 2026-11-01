@@ -55,10 +55,15 @@ export interface BookingStrings {
    */
   estimate: EstimateStrings;
   /**
-   * ESC-043 (INV 01/11; CPY lp-v2-copy 12.1): by the month, or 28 nights or more by the night, the box shows no figure –
+   * ESC-043 (INV 01/11; CPY lp-v2-copy 12.1): by the month, or by the night from the BR-108 threshold on (30 nights – INV 01/11), the box shows no figure –
    * this invitation instead (the "Estimated rate" title is hidden in this state). No digits, no %, no amount.
    */
-  priceMonthlyOffer: { label: string; text: string };
+  priceMonthlyOffer: {
+    label: string;
+    text: string;
+    /** role=status sentence of the offer (CPY 13.2) – written by CPY per language, no digit. */
+    live: string;
+  };
 }
 
 export interface EstimateStrings {
@@ -93,8 +98,11 @@ export interface EstimateStrings {
   live: (amount: string, nights: string) => string;
   /** Thank-you state, next to the request number. */
   done: string;
+  /** 200 + notes.min_stay (BE lp-v2 L12: no figure under the minimum stay) – CPY lp-v2-copy 13.3. Also the status line. */
+  minStay: (minNights: number) => string;
   /**
-   * 200 + notes.min_stay (BE lp-v2 L12: no figure under the minimum stay). CPY to write; until then the S6 sentence.
+   * Status line only (screen readers – CPY 13.3, FB-R4-UXD-FE-09): read when the box goes back to S0/S1 after a
+   * number was shown; the old price sentence is emptied first.
    */
-  minStay?: (minNights: number) => string;
+  liveCleared: string;
 }

@@ -28,8 +28,9 @@ export const vi: Copy = {
   langSuggest: { region: 'Ngôn ngữ', text: 'Xem trang này bằng tiếng Việt', close: 'Đóng' },
   actions: {
     requestToBook: 'Chọn ngày ở',
-    chatOnZalo: 'Nhắn qua Zalo',
-    chatOnPrefix: 'Nhắn qua ',
+    // CPY lp-v2-copy 13.1 (FB-R4-UXD-FE-02): fits the phone bar at 360 px
+    chatOnZalo: 'Nhắn Zalo',
+    chatOnPrefix: 'Nhắn ',
     newTab: ' (mở tab mới)',
   },
   photoAlt: {

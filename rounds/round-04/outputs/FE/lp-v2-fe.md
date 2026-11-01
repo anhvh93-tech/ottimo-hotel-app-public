@@ -74,3 +74,35 @@ Tệp font cắt (cả A+B, không phải tất cả tải lúc mở): KO 5 tệ
 - OPS: Caddy route `price-estimate`, 404 theo `/(ko|zh|ru)/`, bỏ chặn `/ru`; `publish-privacy-notice` đọc meta/`data-notice-version` cho 5 ngôn ngữ.
 - Admin-web (S35) hiện `priceEstimate` – việc FE-A, không thuộc nhánh này.
 - Chờ CPY: `estimate.minStay`, "Estimate cleared". Chờ SEC: nhãn version thật.
+
+## 7. Phản hồi & sửa sau review (01/11/2026)
+
+Trả lời từng thẻ: `rounds/round-04/responses/FE-B-LP-v2.md`. Chữ: CPY mục 13 "Lượt 3" (ORC duyệt áp bản ngắn ru/vi).
+
+### 7.1 Đã sửa
+- **Lời mời tháng khi chọn tháng trước (UXD FE-01)**: `monthlyProbeQuery` + `price-estimate.ts` – chưa biết giá bật/tắt thì gọi một lần `stayType=long` (không `departure`, không `months`; "Any room" dùng hạng đầu danh sách). 200 → lời mời; 404 → tắt; lỗi tạm → hỏi lại ở lần đổi sau; 429 → dừng.
+- **Chữ tràn (UXD FE-02/03)**: ru "Выбрать даты" / "Чат в Zalo" / "Чат в ", vi "Nhắn Zalo" / "Nhắn ". Nút thanh đáy được xuống 2 dòng (lưới an toàn, không đổi cỡ chữ/padding). Trang ru 1024–1159 px: khoảng giữa mục menu 24 px (thay 32) để logo cách "Номера" 27 px (trước 15 px).
+- **Dòng số tiền (UXD FE-04)**: số tiền một dòng (`.est-main`), cụm số đêm dòng phụ `.est-nights` (trên số ko/zh, dưới số en/vi/ru); `nights(n)` có U+00A0 (en/vi/zh/ru, cả `longHint`).
+- **Minor UXD**: `hyphens` chỉ `.sec p` trang ru (FE-05); `h1:lang()` thay `:root:lang() h1` (FE-06); dòng chờ `.est-wait` không mờ (FE-07); ghép câu zh không dấu cách + khóa `priceMonthlyOffer.live` (FE-08); xóa vùng status khi về S0/S1, đọc `estimate.liveCleared` nếu trước đó có số (FE-09); gợi ý dưới ô ngày theo câu trả lời API, `shortMaxNights` 29 khi chưa có (FE-10).
+- **CPY 13.3**: `estimate.minStay(n)` (bỏ đường lùi câu S6 – D8 xong), `estimate.liveCleared` (D7 xong). Chạy lại `sync:fonts:cjk` (4 tệp phần B ko/zh đổi).
+- **SEC FE-01**: Δ5 = chữ L3 của SEC, 5 ngôn ngữ (test `privacy.test.ts`). **SEC FE-03**: e2e kiểm `sessionStorage` và IndexedDB rỗng.
+- **ARC FE-01**: `site.json` `shortMaxNights` 27 → 29; chú thích "28+" → "mốc BR-108"; README.
+
+### 7.2 Kết quả kiểm
+- Vitest landing: **12 tệp, 279 test đạt** (mới: `price-estimate.test.ts` – ô giá trong DOM bằng jsdom, 9 ca; `privacy.test.ts` – Δ5, 5 ca; thêm ca `monthlyProbeQuery`, ghép câu zh, `minStay`, U+00A0). Thêm devDependency `jsdom@^26.1.0` (cùng bản admin-web/guest-web/mobile).
+- `typecheck` landing: 0 lỗi; `@ottimo/tests` typecheck xanh; eslint + prettier xanh.
+- `check:dist` (dist, dist-booking-preview, dist-booking-live): 14/14 nhóm đạt.
+- Playwright landing toàn bộ: **144 test đạt** (thêm TC-LP-056 × 5 + 056b, TC-LP-062 × 20, ảnh 40). TC-LP-050…056 và 060 chạy lặp 3 lần: không flaky. TC-LP-053 sửa cho ổn định: độ trễ giả gắn với truy vấn 6 đêm, không theo số thứ tự lượt gọi (các ô liên hệ cũng phát `change`).
+- Dung lượng (TC-LP-009, KB = 1024 B): không đổi so với mục 2 (±0,1 KB) – điện thoại EN DPR2 mở 282,2 / cuộn hết 426,7; máy tính ZH DPR2 mở 515,5 / cuộn hết 660,0 (trần 700); font ko 47,0 KB, zh 101,2 KB, ru 71,7 KB.
+- Ảnh: `screenshots/lp-v2-<lang>-<360|390|1024|1280>-{top,form}.png` (40 ảnh, dữ liệu giả); ảnh form không còn bị đầu trang dính/thanh đáy che.
+
+### 7.3 Giả định mới
+- G6: "Any room" + tab tháng → hỏi giá bằng slug hạng đầu tiên trong danh sách. Câu trả lời chỉ dùng để biết giá bật/tắt; lời mời không nêu hạng. Không có dữ liệu cá nhân trong truy vấn.
+- G7: Lời mời tháng hiện với mọi câu trả lời 200 cho `stayType=long` (kể cả `party_exceeds_room`/`on_request`), giống hành vi khi đã biết giá bật – theo tháng không bao giờ có số.
+- G8: Giãn menu riêng trang ru 1024–1159 px (32 → 24 px) là chi tiết bố cục trong quyền FE theo FB-03; UXD xem ảnh `lp-v2-ru-1024-top.png` và có thể chọn phương án (b) của UXD thay thế.
+
+### 7.4 Còn chờ
+- ARC FE-02: `lp-v2-be` vẫn OpenAPI 0.3.9-draft (`63c5731e`), chưa có 0.3.10-draft/api-client sinh mới trên nhánh này → giữ kiểu tạm trong `booking-logic.ts`, đổi khi gộp `lp-v2-be` vào `lp-v2`.
+- SEC FE-02: nhãn version thật. ARC FE-03: lấy chữ `2026-10-31` của `main` khi gộp. ARC FE-04: QA đo LCP/CLS trên staging.
+- Người bản xứ: thêm câu mới CPY mục 13 + Δ5 L3 vào lượt đọc (SEC D4, CPY 9).
+- UXD FE-11 (Suggestion "VND" nhỏ hơn): làm khi UXD cập nhật design system D2.

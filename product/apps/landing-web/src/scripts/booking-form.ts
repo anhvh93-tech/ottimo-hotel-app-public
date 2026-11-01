@@ -46,7 +46,10 @@ async function init(form: HTMLFormElement) {
     withinMinutes: Number(cfg.promiseMinutes ?? 60),
     callNowMinutes: Number(cfg.callNowMinutes ?? 60),
   };
-  const shortMax = Number(cfg.shortMax ?? 27);
+  // Last night count still priced by the night when the API has not answered for these dates (prices off, or not yet):
+  // site.json booking.shortMaxNights = BR-108 threshold − 1 (29 for 30 nights – INV 01/11). With prices on, the hint
+  // follows the API answer instead (monthly_offer – FB-R4-UXD-FE-10), so the two lines never disagree.
+  const shortMax = Number(cfg.shortMax ?? 29);
   const status = $('bk-status');
   const TODAY = todayIn(tz, new Date());
   const MAX = addDays(TODAY, Number(cfg.windowDays ?? 365));
@@ -78,6 +81,8 @@ async function init(form: HTMLFormElement) {
       const cap = room.selectedOptions[0]?.dataset.cap;
       return { today: TODAY, max: MAX, capacity: cap ? Number(cap) : null };
     },
+    firstRoom: () => [...room.options].find((o) => o.value)?.value ?? '',
+    onAnswer: () => updateNights(),
     fetchEstimate:
       cfg.transport === 'api' && cfg.property
         ? estimateTransport(base, {
@@ -121,7 +126,8 @@ async function init(form: HTMLFormElement) {
       return;
     }
     const n = diffDays(a, b);
-    out.textContent = n > shortMax ? S.longHint(n) : S.nights(n);
+    const long = estimate.longFor(values()) ?? n > shortMax;
+    out.textContent = long ? S.longHint(n) : S.nights(n);
   }
   function syncStay() {
     const t = stayType();

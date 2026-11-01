@@ -11,13 +11,18 @@
 // keeps no answer, every settled change asks again (BE lp-v2 L2).
 // The box stays hidden until the first answer with prices (a 404 = prices off: hidden for the rest of the visit,
 // exactly the LP-v1 form – ARC 2.8). After that, errors show S7 (neutral, no number); 429 stops further calls.
-// Screen readers: one role=status line, written 700 ms after the result settles and only when it changed (UXD 3.6).
+// By the month before any answer: one call with stayType=long tells whether prices are on (200 monthly_offer → the
+// invitation, 404 → off) – FB-R4-UXD-FE-01; once known, the month tab shows the invitation without asking.
+// Screen readers: one role=status line, written 700 ms after the result settles and only when it changed (UXD 3.6);
+// emptied at once when the estimate goes away, so it never holds an old price (FB-R4-UXD-FE-09).
 import type { Lang } from '../lib/langs';
 import {
   estimateQuery,
   estimateSearch,
   estimateView,
+  joinSentences,
   monthlyOfferView,
+  monthlyProbeQuery,
   type EstimateView,
   type FormValues,
   type PublicPriceEstimate,
@@ -35,6 +40,10 @@ export interface EstimateDeps {
   values: () => FormValues;
   /** Room capacity of the selected room type (data-cap), today and the last bookable day. */
   ctx: () => { today: string; max: string; capacity: number | null };
+  /** Slug of the first room type of the list ("Any room" by the month asks with it – monthlyProbeQuery). */
+  firstRoom: () => string;
+  /** Called after each answer the box shows (the nights hint under the dates follows the API – FB-R4-UXD-FE-10). */
+  onAnswer?: () => void;
   /** null = this build never asks for prices (review build). */
   fetchEstimate: ((search: string, signal: AbortSignal) => Promise<EstimateOutcome>) | null;
   now: () => number;
@@ -45,6 +54,11 @@ export interface EstimateBox {
   update(): void;
   /** Token of the number on screen, only if it was computed for exactly these values (ARC 2.7). */
   tokenFor(v: FormValues): string | undefined;
+  /**
+   * Whether the API answered "monthly offer" for exactly these values (true), a price by the night (false), or the
+   * page does not know (undefined – no answer for these values yet, prices off, or by the month).
+   */
+  longFor(v: FormValues): boolean | undefined;
   /** Thank-you line for the estimate sent with the request. */
   doneLine(): string;
   /** The form is not taking requests: hide the box and stop. */
@@ -68,6 +82,8 @@ export function initEstimate(d: EstimateDeps): EstimateBox {
   let lastLive = '';
   /** What is on screen: the search it was computed for + the answer. */
   let shown: { search: string; body: PublicPriceEstimate; view: EstimateView } | null = null;
+  /** Last 200 answer: its search and whether it was the monthly offer (longFor). */
+  let answered: { search: string; long: boolean } | null = null;
 
   if (d.sentWith) d.sentWith.textContent = E.sentWith;
 
@@ -94,6 +110,13 @@ export function initEstimate(d: EstimateDeps): EstimateBox {
     }, LIVE_DELAY_MS);
   }
 
+  /** Empty the status line now (no announcement): it must never keep a price that is gone. */
+  function silence() {
+    clearTimeout(liveTimer);
+    d.live.textContent = '';
+    lastLive = '';
+  }
+
   function render(
     state: string,
     children: HTMLElement[],
@@ -115,12 +138,16 @@ export function initEstimate(d: EstimateDeps): EstimateBox {
   }
 
   function showPrompt(kind: 'idle' | 'any-room') {
+    const hadNumber = !!d.box.querySelector('.est-amt');
     shown = null;
+    silence(); // the old price leaves the status line at once (FB-R4-UXD-FE-09)
+    if (hadNumber) say(E.liveCleared); // CPY 13.3: only after a number was on screen
     render(kind, [el('p', 'est-idle', kind === 'any-room' ? E.anyRoom : E.prompt)]);
   }
 
   function showBusy() {
-    render('busy', [label(), el('span', 'est-skel'), el('p', 'est-line', E.loading)], {
+    // est-wait is never faded: only an old number is (FB-R4-UXD-FE-07 – contrast of the waiting line)
+    render('busy', [label(), el('span', 'est-skel'), el('p', 'est-wait', E.loading)], {
       busy: true,
     });
     const skel = d.box.querySelector('.est-skel');
@@ -143,6 +170,10 @@ export function initEstimate(d: EstimateDeps): EstimateBox {
   }
 
   function showAnswer(search: string, body: PublicPriceEstimate) {
+    answered = {
+      search,
+      long: body.unavailableReason === 'monthly_offer' || body.stayKind === 'long',
+    };
     const view = estimateView(body, d.strings, d.lang, { capacity: d.ctx().capacity });
     if (view.kind === 'offer') return showOffer();
     if (view.kind === 'unavailable') {
@@ -151,14 +182,19 @@ export function initEstimate(d: EstimateDeps): EstimateBox {
       return;
     }
     shown = { search, body, view };
-    const main = el('p', 'est-main');
+    // The amount alone on its line; the nights phrase is a quieter line above it (ko/zh word order) or below it
+    // (en/vi/ru) – never "for 3 ↵ nights" next to a 28 px number (FB-R4-UXD-FE-04).
     const [before, amount, after] = view.main ?? ['', '', ''];
+    const main = el('p', 'est-main');
     const data = el('data', 'est-amt', amount) as HTMLDataElement;
     data.value = String(view.value ?? '');
-    main.append(before, data, after);
-    const parts: HTMLElement[] = [label(), main];
+    main.append(data);
+    const parts: HTMLElement[] = [label()];
+    if (before.trim()) parts.push(el('p', 'est-nights', before.trim()));
+    parts.push(main);
+    if (after.trim()) parts.push(el('p', 'est-nights', after.trim()));
     for (const line of view.lines) parts.push(el('p', 'est-line', line));
-    parts.push(el('p', 'est-note', view.note.join(' ')));
+    parts.push(el('p', 'est-note', joinSentences(view.note, d.lang)));
     render('price', parts, { live: view.live });
   }
 
@@ -176,15 +212,20 @@ export function initEstimate(d: EstimateDeps): EstimateBox {
     const q = estimateQuery(v, c);
     ctrl?.abort();
     clearTimeout(busyTimer);
-    if (typeof q === 'string') {
+    // By the month while the page does not know whether prices are on: ask once (FB-R4-UXD-FE-01)
+    const probe =
+      q === 'monthly' && !pricesOn && !blocked ? monthlyProbeQuery(v, d.firstRoom()) : null;
+    if (typeof q === 'string' && !probe) {
       seq++;
-      if (!pricesOn) shown = null;
-      else if (q === 'monthly') showOffer();
+      if (!pricesOn) {
+        shown = null;
+        silence();
+      } else if (q === 'monthly') showOffer();
       else showPrompt(q);
       if (d.sentWith) d.sentWith.hidden = true;
       return;
     }
-    const search = estimateSearch(q);
+    const search = estimateSearch(probe ?? (q as Exclude<typeof q, string>));
     if (blocked) {
       seq++;
       if (pricesOn) showError();
@@ -202,7 +243,11 @@ export function initEstimate(d: EstimateDeps): EstimateBox {
     switch (out.kind) {
       case 'ok':
         reveal();
-        showAnswer(search, out.body);
+        if (probe) {
+          answered = null; // asked for the month: says nothing about the nights hint
+          showOffer(); // any 200 by the month = prices are on → the invitation, never a figure (ESC-043)
+        } else showAnswer(search, out.body);
+        d.onAnswer?.();
         return;
       case 'off':
         box.off();
@@ -232,6 +277,12 @@ export function initEstimate(d: EstimateDeps): EstimateBox {
       if (shown.body.expiresAt && Date.parse(shown.body.expiresAt) <= d.now()) return undefined;
       return shown.body.estimateToken;
     },
+    longFor(v) {
+      if (!answered) return undefined;
+      const q = estimateQuery(v, d.ctx());
+      if (typeof q === 'string' || estimateSearch(q) !== answered.search) return undefined;
+      return answered.long;
+    },
     doneLine() {
       return shown?.view.done ?? '';
     },
@@ -241,6 +292,8 @@ export function initEstimate(d: EstimateDeps): EstimateBox {
       clearTimeout(debounce);
       clearTimeout(busyTimer);
       shown = null;
+      answered = null;
+      silence();
       d.box.hidden = true;
       d.box.replaceChildren();
       if (d.sentWith) d.sentWith.hidden = true;

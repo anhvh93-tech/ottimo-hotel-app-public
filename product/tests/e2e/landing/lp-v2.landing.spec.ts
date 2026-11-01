@@ -16,6 +16,7 @@ import {
   PAGES,
   axeViolations,
   cspViolations,
+  horizontalOverflow,
   recordCsp,
   watchErrors,
   watchForeignRequests,
@@ -62,7 +63,8 @@ function priced(url: URL): unknown {
     estimateToken: `pe1.${Buffer.from(url.search).toString('base64url')}.c2lnbmF0dXJl`,
     expiresAt: '2099-01-01T00:00:00+07:00',
   };
-  // contract lp-v2-be 63c5731e (ESC-043): by the month, or 28+ nights by the night → no figure, no token
+  // contract lp-v2-be 63c5731e (ESC-043): by the month, or from the BR-108 threshold by the night (30 nights – INV
+  // 01/11) → no figure, no token
   const monthlyOffer = (extra: object = {}) => ({
     ...base,
     stayKind: 'long',
@@ -74,7 +76,7 @@ function priced(url: URL): unknown {
   });
   if (!departure) return monthlyOffer();
   const nights = Math.round((Date.parse(departure) - Date.parse(arrival)) / 864e5);
-  if (nights >= 28) return monthlyOffer({ departure, notes: [{ code: 'long_stay_required' }] });
+  if (nights >= 30) return monthlyOffer({ departure, notes: [{ code: 'long_stay_required' }] });
   const subtotal = NIGHT * nights;
   const pct = nights >= 14 ? 15 : nights >= 7 ? 10 : 0;
   const disc = Math.round((subtotal * pct) / 100);
@@ -173,7 +175,9 @@ test('TC-LP-050 estimate shown (S3): total, nights, average, VAT + final-rate li
   await pickStay(page, iso);
   await expect(box(page)).toBeVisible();
   await expect(box(page).locator('.est-lbl')).toHaveText('Estimated rate');
-  await expect(box(page).locator('.est-main')).toHaveText('2,201,001 VND for 3 nights');
+  // FB-R4-UXD-FE-04: the amount alone on its line, the nights phrase a quieter line below it
+  await expect(box(page).locator('.est-main')).toHaveText('2,201,001 VND');
+  await expect(box(page).locator('.est-main + .est-nights')).toHaveText('for 3 nights');
   await expect(box(page).locator('data.est-amt')).toHaveAttribute('value', '2201001');
   await expect(box(page).locator('.est-line')).toHaveCount(0); // no average a night (DOM, BE lp-v2 6)
   await expect(box(page).locator('.est-note')).toHaveText(
@@ -209,6 +213,9 @@ test('TC-LP-050 estimate shown (S3): total, nights, average, VAT + final-rate li
     await page.evaluate(() => Object.keys(localStorage).filter((k) => k !== 'ottimo.lang')),
   ).toEqual([]);
   expect(await page.evaluate(() => document.cookie)).toBe('');
+  // FB-R4-SEC-FE-03: nor in sessionStorage or IndexedDB ("we only remember your language")
+  expect(await page.evaluate(() => sessionStorage.length)).toBe(0);
+  expect(await page.evaluate(async () => (await indexedDB.databases()).length)).toBe(0);
   expect(await cspViolations(page)).toEqual([]);
   expect(errors).toEqual([]);
   expect(foreign).toEqual([]);
@@ -274,19 +281,21 @@ test('TC-LP-053 a late answer never overwrites a newer one; a changed date drops
   page,
 }) => {
   const m = await mockApi(page, {
-    estimate: (n, url) => ({
-      status: 200,
-      body: priced(url),
-      delay: n === 1 ? 1500 : n === 3 ? 4000 : 0,
-    }),
+    // the 3-night answer is late (1.5 s), the 6-night one hangs (4 s) – keyed on the query, not the call number:
+    // the contact fields fire `change` too, and may or may not add a call for the same dates before (timing)
+    estimate: (n, url) => {
+      const q = url.searchParams;
+      const nights = (Date.parse(q.get('departure')!) - Date.parse(q.get('arrival')!)) / 864e5;
+      return { status: 200, body: priced(url), delay: n === 1 ? 1500 : nights === 6 ? 4000 : 0 };
+    },
   });
   const iso = await openForm(page);
   await pickStay(page, iso, 3);
   await expect.poll(() => m.estimates.length).toBe(1);
   await page.locator('#f-out').fill(iso(25)); // 5 nights, answered at once
-  await expect(box(page).locator('.est-main')).toContainText('for 5 nights');
+  await expect(box(page).locator('.est-nights')).toHaveText('for 5 nights');
   await page.waitForTimeout(1600); // the 3-night answer arrives late
-  await expect(box(page).locator('.est-main')).toContainText('for 5 nights');
+  await expect(box(page).locator('.est-nights')).toHaveText('for 5 nights');
   // change the dates and send before the new answer: no wait, no token of the old dates
   await fillContact(page);
   await page.locator('#f-out').fill(iso(26));
@@ -328,8 +337,8 @@ test('TC-LP-054 S1 "Any room", S0 missing dates, S6 no online figure, S4/S5 mont
     'No online estimate for these dates. We will include the rate in your quote.',
   );
   await page.locator('#f-room').selectOption('standard-studio-garden-view');
-  // ESC-043 (INV 01/11): 28+ nights by the night (API answers monthly_offer – it owns the threshold) or by the month
-  // (not asked) – no figure, no "Estimated rate", no token sent
+  // ESC-043 (INV 01/11): 30+ nights by the night (API answers monthly_offer – it owns the threshold) or by the month
+  // (not asked once prices are known to be on) – no figure, no "Estimated rate", no token sent
   const offer = async () => {
     await expect(box(page).locator('.est-lbl')).toHaveText('A special offer for longer stays');
     await expect(box(page).locator('.est-msg')).toHaveText(
@@ -338,9 +347,16 @@ test('TC-LP-054 S1 "Any room", S0 missing dates, S6 no online figure, S4/S5 mont
     await expect(box(page).locator('.est-amt')).toHaveCount(0);
     expect(await box(page).innerText()).not.toMatch(/\d|Estimated rate/);
   };
-  await page.locator('#f-out').fill(iso(48)); // 28 nights by the night
+  await page.locator('#f-out').fill(iso(49)); // 29 nights: still a price by the night, hint = nights only
+  await expect(box(page).locator('.est-nights')).toHaveText('for 29 nights');
+  await expect(page.locator('#f-nights')).toHaveText('29 nights');
+  await page.locator('#f-out').fill(iso(50)); // 30 nights by the night
   await offer();
-  expect(m.estimates.at(-1)!.searchParams.get('departure')).toBe(iso(48));
+  expect(m.estimates.at(-1)!.searchParams.get('departure')).toBe(iso(50));
+  // FB-R4-UXD-FE-10: the hint under the dates says the same as the box
+  await expect(page.locator('#f-nights')).toHaveText(
+    '30 nights. We will quote our long-stay rate.',
+  );
   const before = m.estimates.length;
   await page.locator('input[name="stayType"][value="long"]').check({ force: true });
   await page.locator('#f-arr').fill(iso(30));
@@ -353,6 +369,75 @@ test('TC-LP-054 S1 "Any room", S0 missing dates, S6 no online figure, S4/S5 mont
   await page.locator('#f-arr').fill('');
   await expect(box(page).locator('.est-idle')).toHaveText(
     'Choose a room and your dates to see an estimate.',
+  );
+});
+
+// FB-R4-UXD-FE-01: the long-stay guest opens "By the month" first – before any price was shown
+for (const lang of Object.keys(PAGES) as Lang[]) {
+  test(`TC-LP-056 ${lang.toUpperCase()} by the month first: one call with stayType=long, then the invitation (no figure)`, async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      locale: LOCALE[lang],
+      viewport: { width: 390, height: 844 },
+    });
+    const page = await context.newPage();
+    const m = await mockApi(page);
+    const iso = await openForm(page, lang);
+    await page.locator('input[name="stayType"][value="long"]').dispatchEvent('click'); // the radio is drawn as a tab: click it directly at any width
+    await page.locator('#f-room').selectOption('standard-studio-garden-view');
+    await page.locator('#f-arr').fill(iso(30));
+    await expect(box(page)).toBeVisible();
+    await expect(box(page)).toHaveAttribute('data-state', 'offer');
+    await expect(box(page).locator('.est-amt')).toHaveCount(0);
+    expect(await box(page).innerText()).not.toMatch(/\d/);
+    expect(m.estimates).toHaveLength(1);
+    const q = m.estimates[0]!.searchParams;
+    expect([...q.keys()]).toEqual([
+      'roomType',
+      'stayType',
+      'arrival',
+      'adults',
+      'children',
+      'infants',
+    ]);
+    expect(q.get('stayType')).toBe('long');
+    // prices are known to be on now: more month changes ask nothing
+    await page.locator('#f-arr').fill(iso(33));
+    await page.waitForTimeout(600);
+    expect(m.estimates).toHaveLength(1);
+    await expect(box(page)).toHaveAttribute('data-state', 'offer');
+    // nothing is sent with the request by the month (no token – ESC-043)
+    await fillContact(page);
+    await page.locator('#bk-submit').click();
+    await expect(page.locator('#bk-done')).toBeVisible();
+    expect(m.posts[0]).not.toHaveProperty('priceEstimateToken');
+    await context.close();
+  });
+}
+
+test('TC-LP-056b by the month first with prices off (404): the box stays hidden, nothing more is asked', async ({
+  page,
+}) => {
+  const m = await mockApi(page, { estimate: () => ({ status: 404 }) });
+  const iso = await openForm(page);
+  await page.locator('input[name="stayType"][value="long"]').check({ force: true });
+  await page.locator('#f-arr').fill(iso(30)); // "Any room": asked with the first room type of the list
+  await expect.poll(() => m.estimates.length).toBe(1);
+  expect(m.estimates[0]!.searchParams.get('roomType')).toMatch(/^[a-z0-9-]+$/);
+  await page.waitForTimeout(600);
+  await expect(box(page)).toBeHidden();
+  await page.locator('input[name="stayType"][value="short"]').check({ force: true });
+  await pickStay(page, iso, 3);
+  await page.waitForTimeout(700);
+  expect(m.estimates).toHaveLength(1);
+  await expect(box(page)).toBeHidden();
+  // prices off: the hint under the dates uses the page threshold (shortMaxNights 29 → long from 30 nights)
+  await page.locator('#f-out').fill(iso(49));
+  await expect(page.locator('#f-nights')).toHaveText('29 nights');
+  await page.locator('#f-out').fill(iso(50));
+  await expect(page.locator('#f-nights')).toHaveText(
+    '30 nights. We will quote our long-stay rate.',
   );
 });
 
@@ -394,11 +479,21 @@ for (const lang of ['ko', 'zh', 'ru'] as const) {
     await expect(page.locator('html')).toHaveAttribute('lang', HTML_LANG[lang]);
     await expect(page.locator('#f-note-lang')).toBeVisible();
     await pickStay(page, iso, 3);
+    // FB-R4-UXD-FE-04: amount alone; nights line above it (ko/zh word order) or below it (ru)
     const main = box(page).locator('.est-main');
-    if (lang === 'ko') await expect(main).toHaveText('3박 기준 2,201,001 VND');
-    if (lang === 'zh') await expect(main).toHaveText('3 晚，共 2,201,001 VND');
-    if (lang === 'ru') await expect(main).toHaveText(/^2\s201\s001\sVND за 3 ночи$/);
+    if (lang === 'ru') await expect(main).toHaveText(/^2\s201\s001\sVND$/);
+    else await expect(main).toHaveText('2,201,001 VND');
+    const nightsLine = box(page).locator(
+      lang === 'ru' ? '.est-main + .est-nights' : '.est-nights:has(+ .est-main)',
+    );
+    await expect(nightsLine).toHaveText({ ko: '3박 기준', zh: '3 晚，共', ru: 'за 3 ночи' }[lang]);
+    // the number never leaves its word (U+00A0 – CPY 13.5)
+    if (lang !== 'ko') expect(await nightsLine.textContent()).toMatch(/3\u00a0/);
     if (lang === 'ru') await expect(page.locator('#f-nights')).toHaveText('3 ночи');
+    if (lang === 'zh')
+      await expect(box(page).locator('.est-note')).toHaveText(
+        '价格以越南盾（VND）计。含税。最终价格以我们发送的报价为准。',
+      );
     const v = await axeViolations(page, info, `estimate-${lang}`);
     expect(v, JSON.stringify(v, null, 2)).toEqual([]);
     await page.locator('#bk-submit').click(); // empty name → the form's own errors, in the page language
@@ -417,8 +512,69 @@ for (const lang of ['ko', 'zh', 'ru'] as const) {
   });
 }
 
+// FB-R4-UXD-FE-02/03: no label spills out of its button – phone bar at 320/360/375 px, header at 1024 px – in every
+// language (CPY 13.1 short Russian/Vietnamese labels). The header CTA stays on one line at 1024 px and the wordmark
+// keeps its breathing space before the first menu item (logo clear space, guideline p12).
 for (const lang of Object.keys(PAGES) as Lang[]) {
-  for (const width of [390, 1280]) {
+  for (const width of [320, 360, 375, 1024]) {
+    test(`TC-LP-062 ${lang.toUpperCase()} ${width}px: no button text overflows (phone bar, header), no horizontal scroll`, async ({
+      browser,
+    }) => {
+      const context = await browser.newContext({
+        locale: LOCALE[lang],
+        viewport: { width, height: width < 768 ? 812 : 800 },
+      });
+      const page = await context.newPage();
+      await page.goto(PAGES[lang], { waitUntil: 'networkidle' });
+      await page.evaluate(() => document.fonts.ready);
+      await page.evaluate(() => window.scrollTo(0, 1500)); // the phone bar shows once the hero buttons are gone
+      await page.waitForTimeout(400);
+      const spill = await page.evaluate(() =>
+        Array.from(
+          document.querySelectorAll<HTMLElement>(
+            '.stickybar .sb, .site-h .h-zalo, .site-h .only-d, .site-h .nav-d a, .site-h summary, .hero a.btn',
+          ),
+        )
+          .filter((e) => e.checkVisibility({ visibilityProperty: true }))
+          .map((e) => ({
+            text: (e.textContent ?? '').trim().replace(/\s+/g, ' '),
+            over: e.scrollWidth - e.clientWidth,
+          }))
+          .filter((x) => x.over > 0),
+      );
+      expect(spill, JSON.stringify(spill)).toEqual([]);
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+      if (width < 768) {
+        await expect(page.locator('#stickybar')).toHaveAttribute('data-hidden', 'false');
+        for (const b of await page.locator('.stickybar .sb').all()) {
+          const h = (await b.boundingBox())!.height;
+          expect(h).toBeGreaterThanOrEqual(48);
+        }
+      } else {
+        const row = await page.evaluate(() => {
+          const r = document.querySelector('.h-row')!;
+          const cta = document.querySelector<HTMLElement>('.site-h .only-d')!;
+          const brand = document.querySelector('.site-h .brand')!.getBoundingClientRect();
+          const first = document.querySelector('.nav-d a')!.getBoundingClientRect();
+          return {
+            over: r.scrollWidth - r.clientWidth,
+            ctaTextHeight: cta.getBoundingClientRect().height,
+            gap: first.left - brand.right,
+          };
+        });
+        expect(row.over, 'header row overflow').toBeLessThanOrEqual(0);
+        expect(row.ctaTextHeight, 'header CTA on one line').toBeLessThanOrEqual(48);
+        expect(row.gap, 'space between the wordmark and the menu').toBeGreaterThanOrEqual(24);
+      }
+      await context.close();
+    });
+  }
+}
+
+// FB-R4-UXD-FE-12: screenshots at 360/390/1024/1280 px for UXD/QA review. The form shot hides the sticky header and
+// the phone bar (CSS added in the test only) so neither covers the box; the box shows a made-up estimate.
+for (const lang of Object.keys(PAGES) as Lang[]) {
+  for (const width of [360, 390, 1024, 1280]) {
     test(`TC-LP-061 screenshots ${lang.toUpperCase()} ${width}px: top of the page with the language list, the form with an estimate (made-up data)`, async ({
       browser,
     }) => {
@@ -438,6 +594,11 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
       const iso = await openForm(page, lang);
       await pickStay(page, iso, 3);
       await expect(box(page).locator('.est-main')).toBeVisible();
+      // CSSOM, not a <style> tag: the real CSP of the page stays on
+      await page.evaluate(() => {
+        document.querySelector<HTMLElement>('.site-h')?.style.setProperty('position', 'static');
+        document.querySelector<HTMLElement>('.stickybar')?.style.setProperty('display', 'none');
+      });
       await page.evaluate(() => document.fonts.ready);
       await page.locator('#bk-est').scrollIntoViewIfNeeded();
       await page.locator('.bk-card').screenshot({

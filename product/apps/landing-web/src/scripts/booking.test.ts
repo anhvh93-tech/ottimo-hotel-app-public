@@ -7,6 +7,8 @@ import {
   estimateSearch,
   estimateView,
   formatVnd,
+  joinSentences,
+  monthlyProbeQuery,
   monthlyOfferView,
   isEstimate,
   type PublicPriceEstimate,
@@ -484,10 +486,29 @@ describe('price estimate – when the form asks (UXD 3.2, ARC 2.8)', () => {
     expect(estimateQuery(long, ctx)).toBe('monthly');
     expect(estimateQuery({ ...long, roomType: '' }, ctx)).toBe('monthly');
     expect(estimateQuery({ ...long, arrival: '' }, ctx)).toBe('idle');
-    // 28 or 30 nights: same request; the answer is monthly_offer (BE 63c5731e) – no second copy of the threshold
+    // 29 or 30 nights: same request; the answer is monthly_offer (BE 63c5731e) – no second copy of the threshold
     expect(
-      estimateQuery({ ...v, checkIn: '2026-11-02', checkOut: '2026-11-30' }, ctx),
-    ).toMatchObject({ stayType: 'short', departure: '2026-11-30' });
+      estimateQuery({ ...v, checkIn: '2026-11-02', checkOut: '2026-12-02' }, ctx),
+    ).toMatchObject({ stayType: 'short', departure: '2026-12-02' });
+  });
+
+  it('FB-R4-UXD-FE-01: the month probe = stayType long, arrival + party, no departure/months; "Any room" → first room', () => {
+    const long = { ...v, stayType: 'long' as const, arrival: '2026-12-01', months: '3' };
+    const q = monthlyProbeQuery(long, 'first-room');
+    expect(q).toEqual({
+      roomType: 'standard-studio-garden-view',
+      stayType: 'long',
+      arrival: '2026-12-01',
+      adults: 2,
+      children: 0,
+      infants: 0,
+    });
+    expect(estimateSearch(q!)).toBe(
+      'roomType=standard-studio-garden-view&stayType=long&arrival=2026-12-01&adults=2&children=0&infants=0',
+    );
+    expect(monthlyProbeQuery({ ...long, roomType: '' }, 'first-room')?.roomType).toBe('first-room');
+    expect(monthlyProbeQuery({ ...long, roomType: '' }, '')).toBeNull();
+    expect(monthlyProbeQuery({ ...long, arrival: '' }, 'first-room')).toBeNull();
   });
 
   it('query string: contract names only, fixed order, no personal data', () => {
@@ -514,13 +535,13 @@ describe('price estimate – what the box shows (UXD 3.3, CPY 2)', () => {
   it('S3 by the night: total for N nights, VAT line and the final-rate sentence – no average a night (BE lp-v2 6, DOM)', () => {
     const view = estimateView(est(), BOOKING_STRINGS.en, 'en');
     expect(view.kind).toBe('price');
-    expect(view.main).toEqual(['', '2,201,000 VND', ' for 3 nights']);
+    expect(view.main).toEqual(['', '2,201,000 VND', ' for 3\u00a0nights']);
     expect(view.lines).toEqual([]);
-    expect(view.note.join(' ')).toBe(
+    expect(joinSentences(view.note, 'en')).toBe(
       'Rates in Vietnamese dong (VND). Taxes included. Your final rate is in the quote we send.',
     );
-    expect(view.live).toBe('Estimated rate updated: 2,201,000 VND for 3 nights');
-    expect(view.done).toBe('Estimated rate: 2,201,000 VND for 3 nights');
+    expect(view.live).toBe('Estimated rate updated: 2,201,000 VND for 3\u00a0nights');
+    expect(view.done).toBe('Estimated rate: 2,201,000 VND for 3\u00a0nights');
     // no discount badge, no "save", no strike-through – a sentence only
     const long = estimateView(
       est({
@@ -545,15 +566,35 @@ describe('price estimate – what the box shows (UXD 3.3, CPY 2)', () => {
       '',
     ]);
     expect(estimateView(est(), BOOKING_STRINGS.zh, 'zh').main).toEqual([
-      '3 晚，共 ',
+      '3\u00a0晚，共 ',
       '2,201,000 VND',
       '',
     ]);
-    expect(estimateView(est(), BOOKING_STRINGS.ru, 'ru').main?.[2]).toBe(' за 3 ночи');
+    expect(estimateView(est(), BOOKING_STRINGS.ru, 'ru').main?.[2]).toBe(' за 3\u00a0ночи');
     expect(estimateView(est(), BOOKING_STRINGS.vi, 'vi').note).not.toContain('Giá tính bằng VND.');
     expect(estimateView(est({ taxIncluded: false }), BOOKING_STRINGS.en, 'en').note).toContain(
       'Before taxes.',
     );
+  });
+
+  it('FB-R4-UXD-FE-08 / CPY 13.2: Chinese sentences joined without a space, the others with one space', () => {
+    expect(joinSentences(estimateView(est(), BOOKING_STRINGS.zh, 'zh').note, 'zh')).toBe(
+      '价格以越南盾（VND）计。含税。最终价格以我们发送的报价为准。',
+    );
+    expect(joinSentences(['A.', 'B.'], 'ru')).toBe('A. B.');
+    expect(joinSentences(['가.', '나.'], 'ko')).toBe('가. 나.');
+    // the spoken offer is CPY's own sentence per language – zh with "。", never "label. text" made by the code
+    expect(monthlyOfferView(BOOKING_STRINGS.zh).live).toBe(
+      '长住专属优惠。入住一个月或以上，我们会根据您的日期准备专属价格，随报价一并发送给您。',
+    );
+    for (const l of ['en', 'vi', 'ko', 'zh', 'ru'] as const) {
+      const S = BOOKING_STRINGS[l];
+      expect(S.priceMonthlyOffer.live).not.toMatch(/\d|%|\{amount\}|!/);
+      expect(S.priceMonthlyOffer.live).toContain(S.priceMonthlyOffer.text);
+      expect(S.estimate.liveCleared).not.toMatch(/\d|!/);
+      expect(S.estimate.minStay(2)).not.toMatch(/!|VND/);
+      expect(S.nights(3)).not.toMatch(/\d /); // never a plain space after the number
+    }
   });
 
   it('ESC-043 offer (no figure, no "Estimated rate"), S6 on request / minimum stay / party too large', () => {
@@ -594,13 +635,21 @@ describe('price estimate – what the box shows (UXD 3.3, CPY 2)', () => {
       kind: 'unavailable',
       live: BOOKING_STRINGS.en.estimate.unavailable,
     });
-    // 200 + notes.min_stay (BE L12): no figure; CPY has no sentence yet → the S6 sentence
+    // 200 + notes.min_stay (BE L12): no figure; CPY 13.3 sentence (the temporary S6 fallback is gone – D8)
     const min = estimateView(
       est({ ...off, unavailableReason: 'on_request', notes: [{ code: 'min_stay', minNights: 2 }] }),
       BOOKING_STRINGS.en,
       'en',
     );
-    expect(min.live).toBe(BOOKING_STRINGS.en.estimate.unavailable);
+    expect(min.live).toBe(
+      'These dates have a minimum stay of 2 nights. Choose a longer stay to see an estimate, or send your request and we will suggest options.',
+    );
+    const minRu = estimateView(
+      est({ ...off, unavailableReason: 'on_request', notes: [{ code: 'min_stay', minNights: 5 }] }),
+      BOOKING_STRINGS.ru,
+      'ru',
+    );
+    expect(minRu.live).toContain('— 5 ночей.');
     const party = estimateView(
       est({ ...off, unavailableReason: 'party_exceeds_room' }),
       BOOKING_STRINGS.ko,
@@ -688,7 +737,7 @@ describe('the estimate token travels with the request (ARC 2.7)', () => {
 describe('Russian plurals (CPY 4.2, UXD 1.5)', () => {
   it('1 ночь · 3 ночи · 5 ночей · 21 ночь · 12 ночей; fields; hours', () => {
     const n = BOOKING_STRINGS.ru.nights;
-    expect([1, 3, 5, 21, 12, 22, 25].map(n)).toEqual([
+    expect([1, 3, 5, 21, 12, 22, 25].map((x) => n(x).replace(' ', ' '))).toEqual([
       '1 ночь',
       '3 ночи',
       '5 ночей',
