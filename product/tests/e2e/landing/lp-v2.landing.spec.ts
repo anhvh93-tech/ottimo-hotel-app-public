@@ -621,14 +621,22 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
       // CSS pixels, not money: "15px" → 15
       const px = (sel: string) =>
         Number(getComputedStyle(document.querySelector(sel)!).fontSize.replace('px', ''));
+      const lines = Array.from(document.querySelectorAll('#bk-est .est-line, #bk-est .est-nights'));
       return {
         note: px('#bk-est .est-note'),
+        // BUG-R4-006: the "Estimated rate" title is idea (1) of AC4 – same floor as the note
+        title: px('#bk-est .est-lbl'),
+        // FB-R4-UXD-FE-16: every line explaining the figure reads at one size
+        lines: lines.map((e) => Number(getComputedStyle(e).fontSize.replace('px', ''))),
         label: px('.f-label, .field > label'),
         hint: px('.hint'),
       };
     });
     expect(sizes.note).toBeGreaterThanOrEqual(sizes.label);
     expect(sizes.note).toBeGreaterThanOrEqual(sizes.hint);
+    expect(sizes.title).toBeGreaterThanOrEqual(sizes.label);
+    expect(sizes.lines.length).toBeGreaterThan(0);
+    for (const l of sizes.lines) expect(l).toBe(sizes.note);
     await page.evaluate(() => {
       document.querySelector<HTMLElement>('.site-h')?.style.setProperty('position', 'static');
       document.querySelector<HTMLElement>('.stickybar')?.style.setProperty('display', 'none');
@@ -652,7 +660,7 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
       `[TC-LP-063] ${lang} 360px box ${h}px, note ${noteH}px, note ${sizes.note}px / label ${sizes.label}px`,
     );
     await box(page).scrollIntoViewIfNeeded();
-    await box(page).screenshot({ path: path.join(SHOTS, `lp-v2-fe2-estimate-${lang}-360.png`) });
+    await box(page).screenshot({ path: path.join(SHOTS, `lp-v2-fe3-estimate-${lang}-360.png`) });
     expect(await cspViolations(page)).toEqual([]);
     expect(errors).toEqual([]);
     await context.close();

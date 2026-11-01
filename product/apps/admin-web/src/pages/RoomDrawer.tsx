@@ -313,14 +313,25 @@ export function RoomDrawer({
             )}
           </Field>
         ) : (
-          <dl className="webreq-kv">
-            <dt>{t('rooms.public_type')}</dt>
-            <dd>
-              {initialPublic || t('rooms.public_type_none')}
-              <br />
-              <span className="caption">{t('rooms.public_type_owner_only')}</span>
-            </dd>
-          </dl>
+          // FB-R4-UXD-FE-15: DS C3 read-only state (label above, value on --surface-2) like the other fields; when
+          // unassigned the manager also reads the consequence, so they know to tell the owner.
+          <Field
+            label={t('rooms.public_type')}
+            help={
+              initialPublic
+                ? t('rooms.public_type_owner_only')
+                : `${t('rooms.public_type_help')} ${t('rooms.public_type_owner_only')}`
+            }
+          >
+            {(p) => (
+              <input
+                {...p}
+                className="input"
+                readOnly
+                value={initialPublic || t('rooms.public_type_none')}
+              />
+            )}
+          </Field>
         )}
         <Field label={t('rooms.col_beds')} error={errors.bedSetup}>
           {(p) => (

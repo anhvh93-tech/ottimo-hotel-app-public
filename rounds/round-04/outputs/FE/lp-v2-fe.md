@@ -138,3 +138,43 @@ Khối giá nằm dưới ô hạng phòng, chỉ cao lên sau khi khách chọn
 ### 8.5 Còn chờ
 - ARC: thêm `atSubmit` chỉ đọc vào `PublicPriceEstimateRecord` (nếu chọn) – FE đã sẵn.
 - UXD/CPY: duyệt chữ Desk mới (`webreq.estimate_*`, `rooms.public_type*`) và chiều cao khối giá; người bản xứ đọc câu mới (CPY 14.7).
+
+## 9. Kiểm thử – sửa lỗi lượt 3 (01/11/2026, nhánh `lp-v2-fe3` từ `lp-v2` @ `20afedff`)
+
+### 9.1 Đã làm
+- **BUG-R4-001 mở lại (FE-A, P2):** `compareWithSeen` so nhãn căn ("Standard Studio · Garden View") với slug web (`standard-studio-garden-view`) nên không bao giờ ra "đã đổi". Sửa: cả hai vế đi qua **cùng một hàm slug** `publicRoomTypeSlug` trước khi so.
+  - Hàm slug không viết lại: luật `slugOf` của BE (`website-request-rules.ts`) chuyển nguyên văn sang `packages/contracts/src/public-room-type.ts` (`@ottimo/contracts` – gói hợp đồng dùng chung, build ra `dist`, api CommonJS đã `require()` gói ESM workspace như `@ottimo/integrations`). `slugOf` của BE nay gọi hàm này; Desk import cùng hàm. Landing không slug hóa lúc chạy (slug viết sẵn trong `content/*.ts`, test `production-bootstrap` của BE đã đối chiếu).
+  - `@ottimo/contracts` chuyển từ devDependencies sang dependencies của `@ottimo/api` (để `pnpm deploy --prod` trong `Dockerfile.api` mang theo); thêm vào dependencies `@ottimo/admin-web`. Lockfile chỉ đổi 2 importer, không thêm gói ngoài.
+  - Căn **chưa gán** (`publicRoomType: null`) nay ra "khác đầu vào" (không thuộc hạng nào trên web, BE `public-rate.port.ts` chỉ lấy căn `public_room_type = nhãn`); chỉ khi API không gửi trường (`undefined`, bản cũ trước BUG-R4-004) mới bỏ qua so hạng.
+- **FB-R4-UXD-FE-13:** `webreq.estimate_changed` vi "Khác giá web khách đã thấy: {from} → {to}" / en "Differs from the website estimate: {from} → {to}"; `webreq.estimate_changed_hint` dùng "lịch giá hôm nay" / "Today's rate" (đúng chữ UXD).
+- **FB-R4-UXD-FE-14:** `rooms.public_type_help` bỏ "giá theo yêu cầu" → vi "…web tính giá ước tính theo hạng này. Căn chưa gán không thuộc hạng nào trên web." / en "…website estimates use it. An unassigned room belongs to no type on the website." Đã kiểm hành vi BE khớp câu: `PublicRatePort.rooms` lọc `rm.public_room_type = $1`, `roomTypes()` bỏ `public_room_type IS NULL` → căn chưa gán không vào hạng nào.
+- **FB-R4-UXD-FE-15:** manager thấy ô theo trạng thái **chỉ đọc** DS C3 (`Field` + `input[readonly]` nền `--surface-2`, nhãn ở trên như các ô khác), trợ giúp dưới ô `rooms.public_type_owner_only`; khi "Chưa gán" thêm `rooms.public_type_help` trước câu đó. Không khóa chữ mới.
+- **FB-R4-UXD-FE-16:** `.est-line` 14 → 15 px (gộp với `.est-nights`); sửa chú thích CSS. `.est-wait` / `.est-idle` giữ 14 px.
+- **BUG-R4-006 (FE-B, P3):** `.est-lbl` ("Estimated rate" và tiêu đề ưu đãi theo tháng) 13 → **15 px**, giữ chữ hoa/giãn chữ. Thứ bậc: nhãn 15 px < con số Lora 28 px; ru "ОРИЕНТИРОВОЧНАЯ ЦЕНА" vẫn một dòng ở 360 px.
+- FB-R4-UXD-FE-17 (Suggestion – rút gọn `estimate_none` / `estimate_at_submit`): chưa làm lượt này (ngoài việc ORC giao); làm khi ORC xếp.
+
+### 9.2 Đo khối giá 360 px (TC-LP-063, 29 đêm, 3 khách) – sau BUG-R4-006 + FE-16
+| | Cao khối (lượt 2 → 3) | Cao ghi chú | Nhãn / ghi chú / dòng diễn giải | Tràn |
+|---|---|---|---|---|
+| en | 273 → 277 px | 122 px | 15 / 15 / 15 px | 0 |
+| vi | 250 → 255 px | 99 px | 15 / 15 / 15 px | 0 |
+| ko | 268 → 273 px | 111 px | 15 / 15 / 15 px | 0 |
+| zh | 273 → 277 px | 114 px | 15 / 15 / 15 px | 0 |
+| ru | 294 → 300 px | 122 px | 15 / 15 / 15 px | 0 |
+Dưới ngưỡng UXD (khối ≤ 320 px, ghi chú ≤ 6 dòng).
+
+### 9.3 Kiểm
+- `@ottimo/contracts` vitest 2 test mới (4 nhãn e-brochure → slug landing; dấu tiếng Việt; slug giữ nguyên).
+- admin-web vitest 63 file / 660 test đạt. `r4-lp-v2-fea.test.tsx` 16 test (thêm 3): ca **dữ liệu thật dạng nhãn** – căn "Standard Studio · Garden View" + seen `standard-studio-garden-view`, cùng ngày/khách: tổng bằng → `same`, khác → `changed`; nhãn khác / "Chưa gán" → `other`; Premium/Signature slug đúng; hộp báo giá căn 203 gán nhãn hiện "Khác giá web khách đã thấy: …", căn gán hạng khác chỉ hiện số tham khảo; manager có/không hạng (chỉ đọc, mô tả trợ giúp đúng).
+- api: `typecheck` + `build` xanh; `be-d-r3-s1-units` 45/45 (gồm `slugOf`); `node` nạp `dist` CommonJS → `slugOf('Standard Studio · Garden View')` = `standard-studio-garden-view` (đã kiểm require gói ESM chạy thật).
+- landing vitest 12 file / 281 đạt; `pnpm lint` (eslint + typecheck 13 workspace) xanh; `format:check` xanh.
+- Playwright landing `lp-v2.landing.spec.ts` 60/60 (TC-LP-063 thêm kiểm `.est-lbl` ≥ nhãn ô và mọi `.est-line`/`.est-nights` = cỡ ghi chú).
+- Ảnh (dữ liệu giả – MSW `mocks/seed.ts`, `mocks/webreq.ts`; API giả của Playwright): `screenshots/lp-v2-fe3-estimate-{en,vi,ko,zh,ru}-360.png`; Desk `lp-v2-fe3-desk-quote-changed-label.png` (căn mang nhãn, cảnh báo hiện), `lp-v2-fe3-desk-quote-other-type.png`, `lp-v2-fe3-desk-room-public-type-manager.png`, `lp-v2-fe3-desk-room-public-type-manager-unassigned.png`; TC-LP-061 chụp lại `lp-v2-*-form.png`.
+
+### 9.4 Giả định
+- Đặt hàm slug chung ở `@ottimo/contracts` (sửa 1 hàm BE + `package.json` api) thay vì để server trả slug của căn: không đổi hợp đồng API, không thêm trường. `[GIẢ ĐỊNH – FE; BE/ARC xác nhận khi review]`
+- Căn "Chưa gán" → không so ("khác đầu vào"), không báo "đã đổi". `[GIẢ ĐỊNH – FE; UXD/DOM xem]`
+
+### 9.5 Rủi ro / cần vai khác xem
+- BE/ARC: review `website-request-rules.ts` (`slugOf` gọi `@ottimo/contracts`) và việc chuyển `@ottimo/contracts` sang dependencies của api. OPS: image api cần `packages/contracts/dist` (đã có qua `turbo prune` + `build --filter=@ottimo/api...` + `pnpm deploy --prod`); QA dựng lại image để xác nhận.
+- Catalog căn của Desk được cache trong phiên: OWN đổi hạng xong, lễ tân đang mở Desk cần tải lại trang mới thấy hạng mới (như các trường căn khác – không đổi lượt này).

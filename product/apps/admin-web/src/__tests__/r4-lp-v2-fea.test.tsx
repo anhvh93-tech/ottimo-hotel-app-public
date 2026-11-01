@@ -79,21 +79,47 @@ describe('BUG-R4-001 – estimate the guest saw (US-131 AC10)', () => {
     expect(seenEstimate(same as never)?.atSubmitVnd).toBeUndefined();
   });
 
-  it('quote for the same stay with another total → "Đã đổi: seen → now" (QA step 4)', async () => {
+  it('quote for the same stay with another total → "Khác giá web khách đã thấy: seen → now" (QA step 4)', async () => {
     // Dates with no booking on 203 in the EP02 seed (as the US-155 quote test).
     Object.assign(req('W7K3QX9P'), {
       arrival: addDays(todayLocal(), 40),
       departure: addDays(todayLocal(), 42),
     });
     req('W7K3QX9P').priceEstimate = estimate({ totalVnd: 1_000 });
+    // as on production / the Desk select: the room holds the label, the estimate the slug (BUG-R4-001 reopened)
+    const room = mockControl.db.rooms.find((r) => r.roomNo === '203')!;
+    room.publicRoomType = 'Standard Studio · Garden View';
     const { user, drawer } = await openRequest('W7K3QX9P');
     await user.click(await within(drawer).findByRole('button', { name: tv('webreq.quote') }));
     const dlg = await screen.findByRole('dialog', { name: /Báo giá cho yêu cầu W7K3QX9P/ });
-    const room = mockControl.db.rooms.find((r) => r.roomNo === '203')!;
     await user.selectOptions(within(dlg).getByLabelText(/^Căn/), room.id);
     expect(await within(dlg).findByText('Tổng tiền đơn')).toBeInTheDocument();
-    expect(await within(dlg).findByText(/^Đã đổi: 1\.000 đ → [\d.]+ đ$/)).toBeInTheDocument();
+    expect(
+      await within(dlg).findByText(/^Khác giá web khách đã thấy: 1\.000 đ → [\d.]+ đ$/),
+    ).toBeInTheDocument();
     expect(within(dlg).getByText(tv('webreq.estimate_changed_hint'))).toBeInTheDocument();
+    expect(
+      within(dlg).queryByText(tv('webreq.estimate_other', { amount: '1.000 đ' })),
+    ).not.toBeInTheDocument();
+  });
+
+  it('quote on a room of another public type (label) → reference only, never "changed"', async () => {
+    Object.assign(req('W7K3QX9P'), {
+      arrival: addDays(todayLocal(), 40),
+      departure: addDays(todayLocal(), 42),
+    });
+    req('W7K3QX9P').priceEstimate = estimate({ totalVnd: 1_000 });
+    const room = mockControl.db.rooms.find((r) => r.roomNo === '203')!;
+    room.publicRoomType = 'Standard Studio · City View';
+    const { user, drawer } = await openRequest('W7K3QX9P');
+    await user.click(await within(drawer).findByRole('button', { name: tv('webreq.quote') }));
+    const dlg = await screen.findByRole('dialog', { name: /Báo giá cho yêu cầu W7K3QX9P/ });
+    await user.selectOptions(within(dlg).getByLabelText(/^Căn/), room.id);
+    expect(await within(dlg).findByText('Tổng tiền đơn')).toBeInTheDocument();
+    expect(
+      await within(dlg).findByText(tv('webreq.estimate_other', { amount: '1.000 đ' })),
+    ).toBeInTheDocument();
+    expect(within(dlg).queryByText(/^Khác giá web khách đã thấy:/)).not.toBeInTheDocument();
   });
 
   it('quote for another party → the seen figure for reference only, never "changed"', async () => {
@@ -109,7 +135,7 @@ describe('BUG-R4-001 – estimate the guest saw (US-131 AC10)', () => {
     expect(
       within(dlg).getByText(tv('webreq.estimate_other', { amount: '1.000 đ' })),
     ).toBeInTheDocument();
-    expect(within(dlg).queryByText(/^Đã đổi:/)).not.toBeInTheDocument();
+    expect(within(dlg).queryByText(/^Khác giá web khách đã thấy:/)).not.toBeInTheDocument();
   });
 
   it('compareWithSeen: same inputs → same/changed; other dates, party or public room type → other', () => {
@@ -129,8 +155,47 @@ describe('BUG-R4-001 – estimate the guest saw (US-131 AC10)', () => {
     expect(
       compareWithSeen(seen, { ...q, publicRoomType: 'standard-studio-city-view', totalVnd: 1 }),
     ).toBe('other');
-    // a room without a public type (not sent yet – BUG-R4-004) does not block the comparison
-    expect(compareWithSeen(seen, { ...q, publicRoomType: null, totalVnd: 1 })).toBe('changed');
+    // the field not sent by the room list (api older than BUG-R4-004) does not block the comparison
+    expect(compareWithSeen(seen, { ...q, publicRoomType: undefined, totalVnd: 1 })).toBe('changed');
+  });
+
+  // BUG-R4-001 reopened (QA lượt 2): the room holds the LABEL (Desk select, production-defaults.ts), the estimate
+  // the web SLUG. Real data shape, not slug mocks.
+  it('room label vs web slug: same type → same / changed; another label or no type → other', () => {
+    const seen = seenEstimate({ ...req('W7K3QX9P'), priceEstimate: estimate() } as never)!;
+    expect(seen.roomType).toBe('standard-studio-garden-view');
+    const q = {
+      arrival: seen.arrival,
+      nights: seen.nights ?? 2,
+      adults: seen.adults,
+      children6to11: seen.children,
+      childrenUnder6: seen.infants,
+      publicRoomType: 'Standard Studio · Garden View',
+      totalVnd: 1_600_000,
+    };
+    expect(compareWithSeen(seen, q)).toBe('same');
+    expect(compareWithSeen(seen, { ...q, totalVnd: 1_740_000 })).toBe('changed');
+    expect(compareWithSeen(seen, { ...q, publicRoomType: 'Standard Studio · City View' })).toBe(
+      'other',
+    );
+    expect(compareWithSeen(seen, { ...q, publicRoomType: 'Premium · One Bedroom + 1' })).toBe(
+      'other',
+    );
+    // unassigned room = no type on the website → never compared
+    expect(compareWithSeen(seen, { ...q, publicRoomType: null, totalVnd: 1 })).toBe('other');
+    // the other two shapes of the 4 e-brochure labels slug as the landing does
+    const premium = { ...seen, roomType: 'premium-one-bedroom-1' };
+    expect(compareWithSeen(premium, { ...q, publicRoomType: 'Premium · One Bedroom + 1' })).toBe(
+      'same',
+    );
+    const signature = { ...seen, roomType: 'signature-two-bedrooms' };
+    expect(
+      compareWithSeen(signature, {
+        ...q,
+        publicRoomType: 'Signature · Two Bedrooms',
+        totalVnd: 2,
+      }),
+    ).toBe('changed');
   });
 });
 
@@ -231,16 +296,30 @@ describe('BUG-R4-004 – public room type in the unit drawer (owner only)', () =
       'Standard Studio · City View';
     const cap = capturePatches();
     const { user, dlg } = await openRoom('qa.mgr', '101');
-    expect(
-      within(dlg).queryByLabelText(new RegExp(`^${tv('rooms.public_type')}`)),
-    ).not.toBeInTheDocument();
-    expect(within(dlg).getByText('Standard Studio · City View')).toBeInTheDocument();
-    expect(within(dlg).getByText(tv('rooms.public_type_owner_only'))).toBeInTheDocument();
+    // FB-R4-UXD-FE-15: DS C3 read-only field – label above, value in a read-only control, no select
+    const field = within(dlg).getByLabelText(new RegExp(`^${tv('rooms.public_type')}`));
+    expect(field.tagName).toBe('INPUT');
+    expect(field).toHaveAttribute('readonly');
+    expect(field).toHaveValue('Standard Studio · City View');
+    expect(field).toHaveAccessibleDescription(tv('rooms.public_type_owner_only'));
+    expect(within(dlg).queryByText(tv('rooms.public_type_help'))).not.toBeInTheDocument();
     await user.click(within(dlg).getByRole('switch'));
     await user.click(within(dlg).getByRole('button', { name: 'Lưu' }));
     await waitFor(() => expect(cap.sent).toHaveLength(1));
     expect(cap.sent[0]).not.toHaveProperty('publicRoomType');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     cap.stop();
+  });
+
+  it('manager, unassigned room: "Not assigned" read-only + the consequence to tell the owner', async () => {
+    mockControl.db.rooms.find((r) => r.roomNo === '101')!.publicRoomType = null;
+    const { dlg } = await openRoom('qa.mgr', '101');
+    const field = within(dlg).getByLabelText(new RegExp(`^${tv('rooms.public_type')}`));
+    expect(field).toHaveAttribute('readonly');
+    expect(field).toHaveValue(tv('rooms.public_type_none'));
+    expect(field).toHaveAccessibleDescription(
+      `${tv('rooms.public_type_help')} ${tv('rooms.public_type_owner_only')}`,
+    );
+    expect(tv('rooms.public_type_help')).toContain('Căn chưa gán không thuộc hạng nào trên web.');
   });
 });

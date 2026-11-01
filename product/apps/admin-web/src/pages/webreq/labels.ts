@@ -3,6 +3,7 @@ import type {
   WebsiteBookingRequestDeclineReason,
   WebsiteBookingRequestStatus,
 } from '@ottimo/api-client';
+import { publicRoomTypeSlug } from '@ottimo/contracts';
 import type { IconName } from '@ottimo/ui';
 import { dayMonth } from '../../app/reservations';
 
@@ -161,9 +162,13 @@ export function seenEstimate(r: WebsiteBookingRequest): SeenEstimate | null {
 }
 
 /**
- * Quote vs the estimate the guest saw (US-131 AC10 "Đã đổi: {cũ} → {mới}"): compared only when the quote is for the
- * same arrival, nights and party – and the same public room type when the room carries one (BR-012; the room list
- * may not send it yet – BUG-R4-004). Other inputs → `other`: never a "changed" claim for a different stay.
+ * Quote vs the estimate the guest saw (US-131 AC10 "Khác giá web khách đã thấy: {cũ} → {mới}"): compared only when the
+ * quote is for the same arrival, nights and party, and a room of the same public room type (BR-012). The room holds
+ * the type **label** ("Standard Studio · Garden View") while the estimate carries the website **slug**
+ * (`standard-studio-garden-view`, OpenAPI 0.3.10 bổ sung 3), so both go through the one slug rule the api uses
+ * (`publicRoomTypeSlug`, BUG-R4-001 reopened). A room with no public type (`null`) belongs to no type on the website
+ * → `other`. `undefined` = the room list did not send the field (an api older than BUG-R4-004) → not checked.
+ * Other inputs → `other`: never a "changed" claim for a different stay.
  */
 export function compareWithSeen(
   seen: SeenEstimate,
@@ -183,7 +188,9 @@ export function compareWithSeen(
     q.adults === seen.adults &&
     q.children6to11 === seen.children &&
     q.childrenUnder6 === seen.infants &&
-    (!q.publicRoomType || q.publicRoomType === seen.roomType);
+    (q.publicRoomType === undefined ||
+      (!!q.publicRoomType &&
+        publicRoomTypeSlug(q.publicRoomType) === publicRoomTypeSlug(seen.roomType)));
   if (!sameInputs) return 'other';
   return q.totalVnd === seen.totalVnd ? 'same' : 'changed';
 }
