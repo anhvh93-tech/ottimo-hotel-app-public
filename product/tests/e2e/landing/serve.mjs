@@ -110,9 +110,12 @@ createServer((req, res) => {
     send(req, res, 200, file, { 'Cache-Control': cacheControl(urlPath) });
     return;
   }
-  const notFound = urlPath.startsWith('/vi/')
-    ? path.join(ROOT, 'vi/404/index.html')
-    : path.join(ROOT, '404.html');
+  // 404 page by language prefix (ADR-014 1.4; LP-v2: /ko/, /zh/, /ru/ too – OPS Caddyfile.landing does the same)
+  const prefix = urlPath.match(/^\/(vi|ko|zh|ru)\//)?.[1];
+  const notFound =
+    prefix && existsSync(path.join(ROOT, prefix, '404/index.html'))
+      ? path.join(ROOT, prefix, '404/index.html')
+      : path.join(ROOT, '404.html');
   send(req, res, 404, notFound, { 'Cache-Control': 'no-store' });
 }).listen(PORT, '127.0.0.1', () => {
   console.log(`landing dist ${ROOT} on http://127.0.0.1:${PORT}`);

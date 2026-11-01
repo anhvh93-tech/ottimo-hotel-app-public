@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Public landing site at the root domain (ADR-014, EP19 LP-v1): static Astro build, EN at /, VI at /vi/, no third-party resources",
+  "description": "Public landing site at the root domain (ADR-014, EP19 LP-v1, LP-v2): static Astro build, EN at /, VI /vi/, KO /ko/, ZH /zh/, RU /ru/, no third-party resources",
   "scripts": {
     "dev": "ASTRO_TELEMETRY_DISABLED=1 astro dev --port 5176",
     "build": "ASTRO_TELEMETRY_DISABLED=1 astro build",
@@ -15,13 +15,15 @@
     "check:dist": "node scripts/check-dist.mjs",
     "sync:tokens": "node scripts/sync-tokens.mjs",
     "sync:fonts": "node scripts/sync-fonts.mjs",
+    "sync:fonts:cjk": "node scripts/subset-cjk.mjs",
     "og": "node scripts/make-og.mjs",
     "clean": "rm -rf dist dist-booking-preview dist-booking-live .astro"
   },
   "dependencies": {
     "@fontsource/be-vietnam-pro": "5.2.8",
     "@fontsource/jetbrains-mono": "5.2.8",
-    "@fontsource/lora": "5.2.8"
+    "@fontsource/lora": "5.2.8",
+    "@fontsource/onest": "5.2.8"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",
@@ -29,6 +31,7 @@
     "@types/node": "^22.10.2",
     "astro": "7.3.8",
     "prettier": "^3.4.2",
+    "subset-font": "2.9.0",
     "typescript": "~5.8.3",
     "vitest": "^4.1.12"
   },
