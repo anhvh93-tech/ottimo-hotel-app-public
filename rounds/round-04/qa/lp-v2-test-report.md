@@ -5,6 +5,7 @@
 - Căn cứ: PO `outputs/PO/lp-v2-stories.md` (US-131, US-174, US-175); DOM `web-price-estimate-rules.md` mục 11 + `pricing-spec-2026-11-01-reconcile.md`; `product/docs/business-rules.md` v0.5.0 (BR-101, 104, 107, 110, 113, 114, 115, 116); review `reviews/ARC-on-LP-v2-code.md`, `SEC-on-LP-v2-code.md` (C1–C9), `SEC-on-LP-v2-ops.md`, `UXD-on-LP-v2-fe.md`; decision-log 01/11 (ESC-043: tháng không hiện giá; một mức giá; mốc 30 đêm).
 - Lỗi mới: `rounds/round-04/qa/bug-list.md` (BUG-R4-001 … 005). Ảnh (dữ liệu giả): `rounds/round-04/qa/lp-v2/`.
 - **Chỉ dữ liệu giả** (DS-E, tên/SĐT giả `+84 900 000 1xx`). Không gửi gì ra ngoài, không đụng staging/production, không khóa thật.
+- **Lượt 2** (kiểm lại bản sửa trên `lp-v2` @ `20afedff`): mục 11 cuối báo cáo. Mục 0–10 là lượt 1, giữ nguyên.
 
 ## 0. Kết luận
 
@@ -231,3 +232,185 @@ Không chạy: `test/integration/lp-v2-price-estimate.test.ts` (cần PostgreSQL
 ## 10. Dọn dẹp
 
 Stack `ottimo-qalp2` đã dừng và xóa kèm volume (`down -v`); image tạm `ottimo-*:qalp2` đã xóa. Script và kết quả thô nằm ngoài repo (scratchpad của phiên QA), không có dữ liệu thật hay khóa thật.
+
+---
+
+## 11. Lượt 2 – 20afedff
+
+- Bước **Kiểm thử lượt 2** | 01/11/2026 15:50–16:25 | QA.
+- Bản kiểm: `origin/lp-v2` @ `20afedff` = bản lượt 1 `83c13990` + `lp-v2-be2` `7d9e306f` (BUG-R4-004, 005) + `lp-v2-fe2` `c9372e52` (BUG-R4-001, 002, 003 + ô "Hạng phòng công khai") + `lp-v2-ops2` `0185a935` (4 Minor SEC). Mã lấy bằng `git archive 20afedff` ra thư mục tạm (không checkout vào repo).
+- Lỗi: `rounds/round-04/qa/bug-list.md` (cập nhật BUG-R4-001…005, thêm BUG-R4-006…010). Ảnh mới (dữ liệu giả): `rounds/round-04/qa/lp-v2/28`–`41`.
+
+### 11.0 Kết luận lượt 2
+
+| Phần | Kết quả |
+|---|---|
+| BUG-R4-002, 003, 004, 005 | **Đã sửa – đã xác nhận** (đóng) |
+| BUG-R4-001 | **Mở lại (P2)**. Phần hiển thị "Giá ước tính khách đã thấy" / "Khách chưa thấy giá" đạt. Phần "Đã đổi: {cũ} → {mới}" **không hiện** khi căn có hạng công khai dạng nhãn ("Standard Studio · Garden View" – đúng giá trị Desk ghi và production đang có): Desk so nhãn với slug nên luôn ra "hạng phòng khác – không so sánh" |
+| Hồi quy | **Đạt**: 13/13 ca giá lệch 0 đ (cả khi hạng là nhãn), 5/5 ca không số, tháng/30 đêm không số ở 5 ngôn ngữ, C8 qua Caddy như lượt 1, Caddy chỉ nhận query ASCII, `deploy-landing` FAIL khi trang không đọc được version, `ops-check priceswitch` đúng 5 tình huống, 15 trang 0 mẫu tiền |
+| US-175 AC4–AC6 (phần thiếu lượt 1) | AC4 **đạt một phần** (báo giá + giữ chỗ từ yêu cầu ko/zh thành công, tin mặc định tiếng Anh, ru mặc định tiếng Nga; thiếu câu "Khách dùng tiếng Hàn – tin gửi bằng tiếng Anh" và ngôn ngữ không vào hồ sơ). AC5 **không đạt** (không có báo cáo/xuất, danh sách S35 không có cột ngôn ngữ). AC6 **không đạt** (sổ tay chưa có dòng nào) |
+| Ảnh FE `lp-v2-fe2-*` (10 ảnh) | **Đạt** quy tắc che dữ liệu: toàn dữ liệu mock MSW (`mocks/seed.ts`, `mocks/webreq.ts` – ghi rõ "test-only"), email `@example.com`, không QR, không mã cửa, không số tài khoản, không link khách |
+
+Lỗi sau lượt 2: **0 P0 · 0 P1 · 1 P2 mở (BUG-R4-001) · 5 P3 mở (BUG-R4-006…010)**; 4 lỗi đã đóng. Không có ESC mới.
+
+Đề xuất của QA cho QC: phần giá phía khách (US-131 AC1–AC9, AC11, AC13) và US-174 vẫn đạt; US-131 AC4 nay đạt (điều kiện nhỏ BUG-R4-006). **Chưa nên phát hành phần (a)** khi BUG-R4-001 chưa sửa xong: US-131 AC10 (Must) chỉ đạt nửa trên dữ liệu thật. Các P3 (006–010) có thể dời nếu PO chấp nhận; riêng US-175 AC5/AC6 là AC Must chưa có sản phẩm – PO quyết dời hay làm trong gói.
+
+### 11.1 Môi trường
+
+| Hạng mục | Giá trị |
+|---|---|
+| Stack | Dùng một lần `ottimo-qalp3` (compose dev + overlay QA như lượt 1, mạng `172.31.43.0/24`). Cổng chỉ `127.0.0.1`: landing 58410 (HTTPS, `Caddyfile.landing` thật của `20afedff`), Desk 58411–58413, api 53412, PostgreSQL 55412. Đã dừng và xóa (`down -v`), image tạm đã xóa |
+| Image (dựng tại chỗ từ `20afedff`) | `ottimo-api:qalp3` (`INCLUDE_TEST_SUPPORT=1`), `ottimo-web:qalp3`, `ottimo-landing:qalp3` (`LANDING_BOOKING_FORM=true`, slug `dlt`); biến thể `ottimo-landing:qalp3-nometa` cho ca `deploy-landing` (mục 11.6) |
+| Api | `LANDING_LOCALES=en,vi,ko,zh,ru`, `TRUST_PROXY` = IP landing, khóa ký form ngẫu nhiên tạm |
+| Dữ liệu | Seed DS-E; bảng giá 01/11 nhập bằng API OWN như lượt 1 (10 căn + tham số B1–B6, B9). **Hạng công khai gán bằng API/Desk OWN, không SQL** (mục 11.2). Thông báo xử lý dữ liệu `2026-11-01` đăng bằng `publish-privacy-notice.sh` (chạy thử rồi `--apply`, chỉ trên stack thử); bật `public_booking_requests_enabled`, `public_show_prices` |
+| Trình duyệt | Chromium Playwright 1.63 (headless) |
+
+### 11.2 BUG-R4-004 – hạng phòng công khai qua API/Desk OWN
+
+| Ca | Kết quả |
+|---|---|
+| `listRooms` với owner / manager / lễ tân | 200, **mọi** căn có khóa `publicRoomType` (`null` khi chưa gán) |
+| Manager `PATCH {publicRoomType: "standard-studio-garden-view"}` / `{publicRoomType: null}` / kèm trường khác | **403** `FORBIDDEN_ACTION` cả 3; DB không đổi, `version` giữ 1 |
+| Lễ tân gửi trường này | 403 |
+| Owner gửi `""`, `"   "`, 61 ký tự, số `42`, mảng | **422** `VALIDATION_FAILED` cả 5 |
+| Owner gửi `"  standard-studio-garden-view  "` | 200, trả và lưu chuỗi đã bỏ khoảng trắng; manager đọc lại thấy cùng giá trị |
+| Owner 60 ký tự / không gửi khóa / `null` | 200 lưu đủ 60 / giữ nguyên / xóa |
+| Bước gốc của lỗi: owner `PATCH` kèm `publicRoomType` + `listPrice` (10 căn) | 200 ×10, DB có đủ 10 hạng, giá niêm yết lưu |
+| Audit | `room.updated` (`config`) ghi `publicRoomType` trước/sau cho mỗi lần 200; không có dòng cho lượt 403/422 |
+| **Đổi hạng → web cập nhật ngay** (qua Caddy, không chờ TTL) | Web Garden 800.000 (đã cache) → owner bỏ gán 4 căn Garden → lượt gọi ngay sau (≈ 5 ms) ra `on_request` → gán lại → ngay 800.000. Chuyển 102 sang hạng thử `qa-test-type` → hạng đó có giá ngay; trả về → `on_request`. Manager thử bỏ gán (403) → web vẫn 800.000 |
+| Desk – ngăn sửa căn, **owner** (ảnh `39`) | Có ô chọn "Hạng phòng công khai": "Chưa gán" + 4 nhãn e-brochure; giá trị cũ ngoài danh sách vẫn hiện để không mất. Chọn "Standard Studio · Garden View" → Lưu → `PATCH {"publicRoomType":"Standard Studio · Garden View"}` 200 |
+| Desk – **manager** (ảnh `40`) | Chỉ đọc: nhãn hạng + "Chỉ chủ đầu tư đổi được hạng này."; sửa "Bố trí giường" rồi Lưu → `PATCH {"bedSetup":…}` 200, **không** mang `publicRoomType` |
+| Giá web với hạng **dạng nhãn** (giá trị Desk ghi, như production) | 13/13 ca giá lệch 0 đ (lượt `parity-run2`), slug của nhãn khớp landing |
+| Desk S35 cột "Hạng phòng" | Nay hiện nhãn "Standard Studio · Garden View" (lượt 1: slug) – ảnh `41` |
+
+Ghi nhận cho ARC (không ghi lỗi): API nhận chuỗi tự do (QA đặt được `qa-test-type`, web tính giá cho hạng đó ngay). Đúng hợp đồng (Desk khóa bằng danh sách); chỉ OWN gọi được nên rủi ro thấp.
+
+**Kết luận: BUG-R4-004 đã sửa – đã xác nhận.**
+
+### 11.3 BUG-R4-001 – Desk: giá khách đã thấy và "Đã đổi"
+
+Yêu cầu gửi từ landing thật (form 5 ngôn ngữ, mục 11.4): `AKKNTH8R` (ko), `C9GXC214` (zh), `DDYRBQA3` (ru) – Garden, 2 người lớn, 10→11/11, đều thấy 800.000; `3F97RZX0` (zh) – tab tháng, không thấy giá.
+
+| Ca | Kết quả |
+|---|---|
+| Ngăn chi tiết yêu cầu có giá | "Giá ước tính khách đã thấy: 800.000 đ – tính lúc 01/11/2026 16:07" (ko/zh/ru) – **đạt** (ảnh `33`) |
+| Yêu cầu không có giá | "Giá ước tính khách đã thấy: Khách chưa thấy giá" – **đạt** (ảnh `34`) |
+| Báo giá cùng ngày/số khách, căn 102, **trước** khi đổi giá (102 = nhãn "Standard Studio · Garden View") | Tổng 800.000 nhưng Desk ghi "Khách đã thấy 800.000 đ cho ngày, số khách **hoặc hạng phòng khác** – không so sánh" – **sai**, mong đợi "Khớp giá ước tính…" |
+| OWN đổi giá đêm 4 căn Garden thành 870.000 từ 10/11 → báo giá căn 102 | Tổng 870.000, vẫn "…hạng phòng khác – không so sánh", **không** có "Đã đổi: 800.000 → 870.000" – **không đạt** (ảnh `35`). Cùng kết quả ở `C9GXC214` (căn 202) và `DDYRBQA3` (căn 203) |
+| Đối chứng: OWN đặt tạm căn 103 = slug `standard-studio-garden-view` → báo giá căn 103 | Hiện cảnh báo "**Đã đổi: 800.000 đ → 870.000 đ** – Giá Desk tính bây giờ khác số khách đã thấy trên web…" (ảnh `36`) → phần giao diện chạy đúng, chỉ sai phép so hạng |
+
+Nguyên nhân (đọc mã `apps/admin-web/src/pages/webreq/labels.ts` `compareWithSeen`): so `q.publicRoomType === seen.roomType` – bên trái là **nhãn** của căn (`Room.publicRoomType`, ví dụ "Standard Studio · Garden View"), bên phải là **slug** web (`priceEstimate.roomType` = "standard-studio-garden-view"). Hợp đồng 0.3.10 bổ sung 3 ghi rõ `Room.publicRoomType` là nhãn và web dùng **slug của nhãn**. Test FE (`r4-lp-v2-fea.test.tsx`) và ảnh FE `lp-v2-fe2-desk-quote-changed.png` dùng mock có hạng dạng slug nên không bắt được. Production có 10 căn dạng nhãn (BE mục 10.2) → trên dữ liệu thật "Đã đổi" không bao giờ hiện.
+
+**Kết luận: BUG-R4-001 mở lại (P2)** – chi tiết và đề xuất sửa trong bug-list.
+
+### 11.4 BUG-R4-003 – khối giá: số khách + "chưa giữ phòng", cỡ chữ, 360 px (`est.spec.ts`)
+
+Mỗi ngôn ngữ chạy trên trang thật qua Caddy (api khởi động lại trước mỗi ngôn ngữ để bộ đếm 30/10 phút theo IP về 0). Ca: Garden 29 đêm 2 người lớn + 1 trẻ dưới 6 (360 px) → đổi còn 1 người lớn → 1 đêm 2 người lớn → 3 người lớn → 1280 px → 30 đêm.
+
+| Ngôn ngữ | Câu ghi chú đi liền con số (ca 1 đêm, 2 khách) | Số khách đổi theo form | Ý (4) chưa giữ phòng | Ý phòng trống trong báo giá |
+|---|---|---|---|---|
+| en | `For 2 guests. Rates in Vietnamese dong (VND). Taxes included. No room is held yet. Your quote confirms the final rate and availability.` | 3 / 1 / 2 / 3 guest(s) đúng | có | có |
+| vi | `Cho 2 khách. Đã gồm thuế. Chưa giữ phòng cho bạn. Giá chính thức và phòng trống được xác nhận trong báo giá.` | đúng | có | có |
+| ko | `2인 기준. 요금은 베트남 동(VND) 기준입니다. 세금 포함. 객실은 아직 확보되지 않았습니다. 최종 요금과 예약 가능 여부는 견적에서 안내해 드립니다.` | đúng | có | có |
+| zh | `适用于 2 位客人。价格以越南盾（VND）计。含税。尚未为您保留房间。最终价格及是否有房，以我们发送的报价为准。` | đúng | có | có |
+| ru | `Для 2 гостей. Цены во вьетнамских донгах (VND). Налоги включены. Это ещё не бронирование. Итоговую цену и наличие подтвердим в предложении.` | đúng (`1 гостя`, `3 гостей`) | có | có |
+
+- Đủ 4 ý AC4 ở 5/5 ngôn ngữ: (1) nhãn ước tính, (2) giá cuối trong báo giá, (3) gồm thuế, (4) chưa giữ phòng; thêm "cho n khách" và "phòng trống trong báo giá" của BR-115 (5). Số khách tính cả trẻ dưới 6 (29 đêm, 2 NL + 1 trẻ 4 tuổi → "3 khách", giá vẫn 23.200.000 – đúng BR-110).
+- 3 người lớn: tổng 950.000 + dòng "Includes one more guest." + "For 3 guests." – khớp.
+- **Cỡ chữ** (CSS tính toán): câu điều kiện `.est-note` **15 px** = nhãn ô form `.f-label` 15 px ở 5/5 ngôn ngữ, 360 và 1280 px – đạt phần câu điều kiện. Nhãn "ESTIMATED RATE / GIÁ ƯỚC TÍNH / 예상 요금 / 预估价格 / ОРИЕНТИРОВОЧНАЯ ЦЕНА" (chính là ý (1)) vẫn **13 px** (`.est-lbl`, chữ hoa giãn – theo UXD `lp-v2-design.md` 220) → BUG-R4-006 (P3).
+- **360 px**: tràn ngang trang 0 px, không phần tử nào trong khối giá bị cắt ở 5/5 ngôn ngữ; khối cao 225–248 px (29 đêm, số dài nhất), mép phải 328/360 px. Ảnh `28`–`32`: không ô vuông/ký tự thay thế ở ko/zh/ru.
+- 30 đêm và tab tháng: lời mời, **không số** ở 5/5 (hồi quy).
+- Trang cảm ơn sau khi gửi (ko/zh/ru): "예상 요금: 1박 기준 800,000 VND" / "预估价格：1 晚，共 800,000 VND" / "Ориентировочная цена: 800 000 VND за 1 ночь".
+
+**Kết luận: BUG-R4-003 đã sửa – đã xác nhận.** (Câu mới cần người bản xứ đọc cùng lượt D4 – cổng US-174 AC10, ngoài QA.)
+
+### 11.5 BUG-R4-002 – nhãn ngôn ngữ trong Desk
+
+Ngăn chi tiết: ko → "Tiếng Hàn", zh → "Tiếng Trung (giản thể)" (cả `C9GXC214` và `3F97RZX0`), ru → "Tiếng Nga" (ảnh `33`, `34`). `strings-en.json` có "Korean", "Chinese (Simplified)". **Đã sửa – đã xác nhận.** Danh sách S35 vẫn chưa có cột ngôn ngữ → BUG-R4-007 (mới, khác phạm vi lỗi 002).
+
+### 11.6 BUG-R4-005 – OpenAPI 0.3.10 bổ sung 3
+
+Đối chiếu mô tả mới của `getPublicPriceEstimate` với đo thật lượt này:
+
+| Mô tả mới | Đo được | KQ |
+|---|---|---|
+| 30/10 phút/IP → 429 + `Retry-After` | 429 từ lượt **31**, `Retry-After: 600` | khớp |
+| 10 lượt/giây cả api (sau bucket theo IP) → 503 | 20–21 lượt 503 trong ~0,4 s đầu của IP dồn | khớp |
+| Query > 256 byte → Caddy 404; api 422 | 257 byte → 404; 256 byte có tham số lạ → 422 (tới api) | khớp |
+| `Cache-Control: no-store`, `X-Robots-Tag: noindex` | đúng ở 200 | khớp |
+| Cache 60 s; xóa ngay khi `updateRoom` | đổi hạng / đổi giá niêm yết lên web ngay lượt kế tiếp | khớp |
+| `RoomPatch.publicRoomType` chỉ owner, manager 403 | mục 11.2 | khớp |
+
+`statement_timeout '1s'` không đo lại (đọc mã ở lượt 1). **Đã sửa – đã xác nhận** phía QA; ARC vẫn phải xác nhận mục "0.3.10 bổ sung 3" (BE ghi chờ ARC).
+
+### 11.7 US-175 AC4–AC6 (phần chưa kiểm ở lượt 1)
+
+**AC4 – Chuyển thành báo giá / giữ chỗ (`desk2.spec.ts`, `qa.fd`)**
+
+| Yêu cầu | Báo giá | Ngôn ngữ tin mặc định | Giữ chỗ | Ghi chú |
+|---|---|---|---|---|
+| `AKKNTH8R` (ko), căn 102, khách "QA Kim Test" | `POST quotes` 201 → `BG-00001` | **English** (ảnh `37`) | `create-hold` 201 → `OTM-00001`, cọc 300.000 (ảnh `38`) | VietQR 409 vì stack thử chưa cài tài khoản nhận – đúng, không phải lỗi |
+| `C9GXC214` (zh), căn 202, "QA Zhang Test" | 201 → `BG-00002` | **English** | 201 → `OTM-00002` | |
+| `DDYRBQA3` (ru), căn 203, "QA Ivanova Test" | 201 → `BG-00003` | **Русский** | – | |
+
+- Đạt: thao tác không lỗi ở ko/zh; tin gửi tiếng Anh cho ko/zh, tiếng Nga cho ru; yêu cầu `AKKNTH8R` chuyển "Đã thành đơn", báo giá giữ liên kết `website_booking_request_id` (yêu cầu vẫn mang `locale = ko`).
+- Không đạt:
+  - Desk **không** có câu "Khách dùng tiếng Hàn – tin gửi bằng tiếng Anh" ở hộp báo giá hay giữ chỗ (chỉ tự chọn "English"; chuỗi này không có trong `strings-vi.json`).
+  - Hồ sơ khách **không** ghi ngôn ngữ đã dùng: `guest.preferred_locale` vẫn `vi` sau khi báo giá từ yêu cầu ko/zh/ru; cột này chỉ nhận `vi`/`en`/`ru` (CHECK). Mở lại báo giá sau đó sẽ theo hồ sơ (đúng BUG-R3-050 – PO dẫn nhầm "BUG-R3-055" ở US-175 AC4).
+  - → **BUG-R4-008** (P3).
+- Ghi nhận thêm: câu báo giá tiếng Anh gửi khách ghi "**(1 nights)**, 2 **Adults**" – sai số ít/nhiều, nay khách ko/zh cũng nhận bản này → **BUG-R4-009** (P3, có từ trước LP-v2).
+
+**AC5 – Đếm được**: API `listWebsiteBookingRequests` trả `locale` (đã thấy `ko`, `zh`, `ru`; `en`/`vi` ở lượt 1). Nhưng Desk **không** có báo cáo hay xuất dữ liệu yêu cầu website nào (không có CSV/xuất ở `admin-web`, module `reporting` không đọc yêu cầu website), và danh sách S35 **không** có cột hay bộ lọc ngôn ngữ (ảnh `41`). INV không đếm được khách theo ngôn ngữ trên Desk → **không đạt** – **BUG-R4-007** (P3; PO chọn: thêm cột/lọc ở S35 hay sửa AC5).
+
+**AC6 – Hướng dẫn trả lời**: `product/docs/manual/` (`user-manual-v1.0.md`, `guides/02-le-tan.md`, `05-sale-ctv.md`) **chưa có** dòng nào về khách ko/zh/ru, công cụ dịch hay bỏ tên/SĐT/email trước khi dán. Mục 2.18 vẫn ghi form "đang tắt". Không có trên `lp-v2` lẫn `main` → **không đạt** – **BUG-R4-010** (P3, BA viết, SEC duyệt câu dữ liệu).
+
+### 11.8 Hồi quy nhanh
+
+| Mục | Kết quả |
+|---|---|
+| 13 ca giá (P01–P13) + 5 ca không số (N01–N05) + tháng (M01, M02) | 20/20 đạt, 13/13 lệch **0 đ** – cả khi hạng là slug (lượt `parity`) và khi là nhãn (lượt `parity-run2`) |
+| Tháng / 30 đêm | Web `monthly_offer` không số, không token; form 5 ngôn ngữ: 30 đêm và tab tháng không số; "month first" ko/zh/ru không số, 390 px không tràn |
+| US-131 AC6 (đổi giá) | OWN đổi Garden 870.000 từ 10/11 → web 10→11/11 = **870.000 ngay lượt kế tiếp** (lượt 1: sau 60 s); 09→11/11 = 1.670.000 = Desk; 08→09/11 giữ 800.000 = Desk |
+| AC1 thời gian hiện số | 537–553 ms (ko/zh/ru, máy cục bộ) |
+| AC5 thân trang | 15 trang × 5 ngôn ngữ: **0** mẫu tiền |
+| C8 qua Caddy (`c8.sh`) | IP A 200 lượt + XFF giả: 9 × 200, 21 × 503, **170 × 429 từ lượt 31**, `Retry-After: 600`; IP B trong lúc A dồn: 8 × 200, 2 × 503 (~0,5 s đầu); sau đợt: A 429, IP C mới **200 có giá**. Giống lượt 1 |
+| Ma trận route (`caddy.mjs`) | 13/13 như lượt 1 (POST/HEAD/đường con/slug lạ/257 byte → 404; tham số lạ/lặp → 422; cross-site → 403; hạng lạ → 200 không số); 200 chỉ 13 trường cho phép, `no-store`, `noindex`, không cookie, không ETag |
+| **Caddy chỉ nhận query ASCII** (SEC LPV2-03, `ascii.mjs`, gửi byte thô qua TLS) | "ệ" thô ×100 (102 ký tự, 302 byte) → **404**; 1 ký tự "ệ" thô trong query 127 byte → **404**; trộn `%E1%BB%87` + "ệ" thô → **404**; cùng chữ mã hóa `%xx` → tới api (422 tham số lạ); query đúng 256 byte → tới api; 257 byte → 404; tab thô → 400 |
+| `publish-privacy-notice.sh` | Chạy thử: DRY RUN OK 5 ngôn ngữ, DB 0 dòng; `--version 2026-11-01.01` → từ chối "must be YYYY-MM-DD or YYYY-MM-DD.N" (S1); `--apply` (stack thử) → published 5 |
+| **`deploy-landing` khi trang không đọc được version** (SEC LPV2-02) | Image `qalp3`: CHECK ONLY đạt, 5 ngôn ngữ "same bytes as published". Biến thể `qalp3-nometa` (bỏ thẻ meta của `/ko/privacy/`), proxy mở: **FAIL** "privacy page without exactly one notice version … for ko … nothing switched", **rc 1**. Proxy tắt: WARNING, rc 0. `--rollback` về `qalp3-nometa`: WARNING, rc 0 |
+| **`ops-check priceswitch`** (SEC LPV2-04, `ops-check.sh` của `20afedff` chạy với OTTIMO_HOME giả + `dc` trỏ stack thử, **không** webhook) | Lần đầu: OK, lấy mốc id 33. Không đổi: OK. OWN đổi `public_show_prices` (false từ 05/11): **FAIL** "changed 1 time(s) … (now: false)", mốc 111. Lần sau: OK (phục hồi). Hai lần đổi (true 06/11, false 07/11): **FAIL** "changed 2 time(s) … (now: false)", mốc 115. Tệp mốc hỏng (`bad`): coi như lần đầu, không vào SQL |
+
+### 11.9 Rà ảnh FE mới theo quy tắc che dữ liệu
+
+10 ảnh `rounds/round-04/outputs/FE/screenshots/lp-v2-fe2-*` (5 khối giá 360 px, 3 ảnh S35/báo giá, 2 ảnh ngăn sửa căn):
+- Dữ liệu từ mock MSW của admin-web (`mocks/seed.ts` ghi "Test-only values"; `mocks/webreq.ts`): tên "Trần Linh", "Đỗ Mai Anh", "Anna Keller", email `@example.com`, mã yêu cầu/khách giả. Không QR, không link khách/check-in, không số tài khoản/chủ tài khoản, không mã cửa, không mã 2 bước, không số giấy tờ. Ảnh khối giá chỉ có số tiền mock.
+- **Đạt.** Gợi ý (không chặn): SĐT mock `+84 905 123 456` / `0905***456` đúng định dạng số di động thật – nên đổi mock sang dải `+84 900 000 xxx` như DS-E để ảnh không bao giờ trông như số thật.
+- Ảnh QA mới `28`–`41`: chỉ dữ liệu giả (tên "QA …", "김큐에이 테스트", "测试长住 QA", SĐT `+84 900 000 10x`); ảnh giữ chỗ không có VietQR (stack thử không có tài khoản nhận).
+
+### 11.10 Độ bao phủ AC sau lượt 2
+
+| AC | Lượt 1 | Lượt 2 |
+|---|---|---|
+| US-131 AC4 | Không đạt | **Đạt có điều kiện** – đủ 4 ý + số khách ở 5 ngôn ngữ; nhãn ý (1) 13 px (BUG-R4-006, P3) |
+| US-131 AC6 | Đạt | Đạt (nay tức thì khi sửa căn) |
+| US-131 AC10 | Không đạt | **Không đạt** – hiện số đã thấy / chưa thấy: đạt; "Đã đổi" không hiện với hạng dạng nhãn (BUG-R4-001 mở lại) |
+| US-131 các AC khác | như lượt 1 | không đổi (hồi quy đạt) |
+| US-175 AC3 | Không đạt | **Đạt một phần** – chi tiết đạt; danh sách chưa có cột ngôn ngữ (BUG-R4-007) |
+| US-175 AC4 | Chưa kiểm xong | **Đạt một phần** – thao tác + ngôn ngữ tin đạt; thiếu câu Desk, hồ sơ không ghi ngôn ngữ (BUG-R4-008, BUG-R3-050) |
+| US-175 AC5 | Không kiểm | **Không đạt** (BUG-R4-007) |
+| US-175 AC6 | Không kiểm | **Không đạt** (BUG-R4-010) |
+
+### 11.11 Chưa kiểm ở lượt 2 và vì sao
+
+- Không chạy lại vitest/Playwright của FE/BE (FE báo 657 + 281 + 149 đạt, BE 3347 đạt) – QA kiểm hành vi trên stack thật thay vào.
+- `atSubmit` ("Lúc khách gửi, hệ thống tính lại") – API chưa trả trường này (chờ ARC), FE chỉ đọc khi có; không kiểm được.
+- Staging, Lighthouse thật, thiết bị thật – như lượt 1 (mục 8).
+- `deploy-landing` chạy thật (đổi container) với biến thể thiếu meta – chỉ chạy `--check-only` (OPS đã test đổi thật trong `deploy-landing-privacy.test.sh` 15b).
+
+### 11.12 Đề nghị ORC ghi decision-log (quyền QA)
+
+`| 2026-11-01 | 4 | QA – kiểm thử lượt 2 LP-v2 trên lp-v2@20afedff (stack thử, Caddy thật, hạng công khai gán qua API/Desk OWN): BUG-R4-002, 003, 004, 005 đã sửa – đã xác nhận; BUG-R4-001 mở lại (P2: Desk so nhãn hạng với slug web nên "Đã đổi" không hiện trên dữ liệu thật); hồi quy đạt (13/13 ca giá lệch 0 đ, C8, Caddy query ASCII, deploy-landing FAIL khi thiếu version, ops-check priceswitch). Lỗi mới 5 P3 (BUG-R4-006…010). AC chưa đạt: US-131 AC10, US-175 AC3 (danh sách), AC4 (một phần), AC5, AC6 | QA | Quyền QA (kết luận kiểm thử, mức lỗi) |`
+
+### 11.13 Dọn dẹp lượt 2
+
+Stack `ottimo-qalp3` đã dừng và xóa kèm volume (`down -v`), mạng đã xóa; image tạm `ottimo-*:qalp3` và `ottimo-landing:qalp3-nometa` đã xóa; tệp biến môi trường tạm (khóa ngẫu nhiên) đã xóa. Script và kết quả thô ở scratchpad phiên QA (ngoài repo). Không có dữ liệu thật, không khóa thật, không gửi gì ra ngoài.
