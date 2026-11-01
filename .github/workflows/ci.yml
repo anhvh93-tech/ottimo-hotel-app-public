@@ -233,6 +233,7 @@ jobs:
           shellcheck -x -S warning product/infra/server/bootstrap-vps.sh product/infra/server/bin/dc \
             product/infra/server/bin/*.sh product/infra/postgres/init/02-roles.sh product/infra/ci/*.sh \
             product/infra/server/test/deploy-landing-privacy.test.sh product/infra/server/test/ops-check-cwd.test.sh \
+            product/infra/server/test/ops-check-price.test.sh product/infra/server/test/publish-privacy-notice.test.sh \
             product/infra/caddy/*.sh product/infra/demo/*.sh product/infra/docker/*.sh \
             product/services/api/scripts/production-bootstrap.sh product/services/api/scripts/mfa-operator-reset.sh
       # UXR P-15: demo/production web builds refuse a missing, malformed or placeholder desk phone; dev only warns.
@@ -243,8 +244,9 @@ jobs:
         run: bash product/infra/ci/check-compose.sh
       - name: Caddyfile.prod rules on the stock caddy image (exact headers, real-file probes, 413, log masking)
         run: bash product/infra/ci/check-caddy-prod.sh --stub
-      # US-155 (SEC s1-SEC-on-us155 condition 2): only the two public form operations reach the api, ≤ 16 KB.
-      - name: Caddyfile.landing form proxy (2 operations only, 413 over 16 KB incl. chunked, rest 404)
+      # US-155 (SEC s1-SEC-on-us155 condition 2) + LP-v2 (SEC SR-PE-10, SR-LC-06): only the two public form operations
+      # and GET price-estimate (query ≤ 256 bytes) reach the api, form ≤ 16 KB; /ru open, 404 page by language.
+      - name: Caddyfile.landing proxy (form + price-estimate only, 413 over 16 KB incl. chunked, 404 by language, rest 404)
         run: bash product/infra/ci/check-caddy-landing.sh
       # SEC E.8 / R5-01: the CI deploy key gets one summary line back (public Actions log); other commands → exit 2.
       - name: deploy-from-ci.sh (one summary line, full log on the server, refused commands)
@@ -258,6 +260,9 @@ jobs:
       # 30/10: ops-check / bin/dc run by hand from a directory the deploy user cannot enter; compose error ≠ not running.
       - name: ops-check + bin/dc from any directory
         run: bash product/infra/server/test/ops-check-cwd.test.sh
+      # R4 LP-v2 (SEC SR-PE-16, ARC L9): price-estimate refusals, public_price_missing, public_show_prices changes.
+      - name: ops-check LP-v2 price alerts (counts only, no log text forwarded)
+        run: bash product/infra/server/test/ops-check-price.test.sh
 
   test-surface-guard:
     # BUG-R1-SEC-08 / SR-SECR-05: the production contract must not contain /__test__ paths

@@ -99,6 +99,12 @@ systemctl list-timers 'ottimo-*'
 - Sao lưu 03:30 giờ VN: `pg_dump` + kho tệp mã hóa + `purge_journal`, mã hóa `age` bằng khóa công khai, giữ 7 ngày + bản Chủ nhật tới 35 ngày (SR-BAK-03), ở `/var/backups/ottimo`. Bản sao off-site do **máy phụ kéo về** (R3, SR-BAK-04).
 - Kiểm tra 30 phút/lần (`ops-check.sh`): **J16 không chạy trong 26 giờ** (hoặc có lượt `failed`) cho từng cơ sở (SEC C6, SR-RET-03), sao lưu > 26 giờ, đĩa ≥ 80 %, chứng chỉ < 14 ngày, container dừng. Cảnh báo: `journalctl -t ottimo-alert -p err`, `systemctl --failed`, và webhook nếu đặt `ALERT_WEBHOOK_URL` trong `.env` (chỉ gửi khi đổi trạng thái + nhắc mỗi 6 giờ; không có dữ liệu cá nhân).
 - Chạy tay: `/opt/ottimo/infra/server/bin/ops-check.sh` hoặc `ops-check.sh j16`. Qua SSH `ottimo-admin` thì `cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/ops-check.sh`. Từ 30/10, `ops-check.sh` và `bin/dc` tự chạy được từ thư mục bất kỳ (trước đó chạy trong home của `ottimo-admin` thì `docker compose` lỗi `stat .: permission denied`, ra cảnh báo giả "containers FAIL"). `docker compose` lỗi thì `containers`/`http5xx` báo `docker compose failed, container state unknown: <loại lỗi>`, không báo "not running"; không gửi nguyên văn lỗi đi (lỗi đọc `.env` có thể chứa một dòng `.env`). Test: `infra/server/test/ops-check-cwd.test.sh`.
+- Từ LP-v2 (R4, SEC SR-PE-16 / C9, ARC L9), thêm 3 mục. Mỗi cảnh báo chỉ gửi một câu cố định kèm số đếm, không gửi nguyên văn log (không đường dẫn, slug, IP, mã căn).
+  - `pricelimit`: số lần route giá trên landing (`GET /v1/public/properties/<slug>/price-estimate`) trả 429 + 503 trong 60 phút ≥ `PRICE_REFUSED_MAX` (mặc định 200). Nghĩa là có người quét hoặc dội, khách thật có thể không thấy giá; form vẫn gửi được. Đếm từ log Caddy của landing (query đã che). Chỉ chạy khi stack có landing.
+  - `pricegap`: api ghi `public_price_missing` trong 24 giờ, tức có căn thiếu giá niêm yết một đêm nên bị bỏ khỏi giá ước tính trên web. Cảnh báo chỉ nêu số căn. Việc của OWN: rà giá niêm yết trên Desk, nhất là sau khi nhập lại bảng giá 01/11.
+  - `priceswitch`: công tắc `public_show_prices` bị đổi trong 35 phút (audit `config.changed`). Cảnh báo nêu giá trị mới để OPS/INV xác nhận việc đổi là chủ ý.
+  - `http5xx` không đếm 503 của route giá: bulkhead của route này trả 503 khi bận, đó là thiết kế. 502/500 của route giá vẫn được đếm.
+  - Test: `infra/server/test/ops-check-price.test.sh`.
 
 ## 8. Deploy tự động từ CI (tùy chọn, sau khi bước 6 chạy tay thành công)
 
@@ -151,7 +157,7 @@ Thiết kế, lý do, DNS, RAM, kiểm thử: `rounds/round-03/outputs/OPS/v1-pr
 | Bản sao lưu ngoài máy | trên Mac: `pull-backups.sh --host <IP> --key ~/.ssh/ottimo_backup_pull --to ~/.ottimo/backups/ottimo-prod`. Cần rsync 3: rsync có sẵn của macOS (openrsync) bị `rrsync` máy chủ từ chối, script dừng và báo. Cách 1: `brew install rsync`. Cách 2 (đã chạy 26/10): chạy script trong container `alpine` có `rsync openssh-client bash coreutils`, gắn khóa (chỉ đọc), `known_hosts`, thư mục đích – lệnh mẫu `rounds/round-03/outputs/OPS/v1-production.md` 19.2 |
 | Thêm một `owner` dùng thử trên **staging** (DB đã có cơ sở – bootstrap từ chối) | từ Mac: `[ -t 1 ] && ssh … 'cd /tmp && sudo -u ottimo /opt/ottimo/infra/server/bin/dc exec -T -e ADD_OWNER_USERNAME=… -e ADD_OWNER_NAME="…" -e ADD_OWNER_OPERATOR="…" [-e ADD_OWNER_DRY_RUN=1] api node --input-type=module -' < product/infra/server/staging-add-owner.mjs` – chỉ staging, mật khẩu tạm in một lần trên Terminal người chạy (`rounds/round-03/outputs/OPS/b1-runbook.md` mục 2) |
 | Đếm khói US-155 (READ ONLY) | `…/bin/us155-smoke-counts.sh --ref REQ-… --since <giờ+07:00>` – mục 12.3 bước 8 |
-| Ghi phiên bản thông báo website (US-155) | `…/bin/publish-privacy-notice.sh --landing-tag <sha-… đang chạy> --version <YYYY-MM-DD> --property DLT --operator <id> [--apply]` – mục 12.3 bước 6 |
+| Ghi phiên bản thông báo website (US-155; LP-v2: mọi ngôn ngữ của image) | `…/bin/publish-privacy-notice.sh --landing-tag <sha-… đang chạy> --version <YYYY-MM-DD> --property DLT --operator <id> [--apply]` – mục 12.3 bước 6, thứ tự LP-v2 cuối mục 12.3 |
 | Diễn tập khôi phục | `restore-drill.sh --identity <khóa prod> --from ~/.ottimo/backups/ottimo-prod --api-image ghcr.io/<owner>/ottimo-api:<tag>` – so khớp tệp `counts` |
 
 Mọi script trong `/opt/ottimo-prod/infra/server/bin` tự hiểu là production (tệp mốc), không cần `OTTIMO_HOME`. Khôi phục 2FA bằng lệnh quản trị (SEC 06.33): có thủ tục, lưu ngoài repo. SEC duyệt ngày: (chưa – chờ diễn tập staging). Diễn tập staging ngày: (chưa).
@@ -233,7 +239,18 @@ Kịch bản chạy thật theo phút, khung giờ, đường lùi: `rounds/roun
      --landing-tag "$(cat /opt/ottimo-prod/state/landing_tag)" --version 2026-10-24 --property DLT --operator <mã nhân viên>   # chạy thử
    sudo -u ottimo /opt/ottimo-prod/infra/server/bin/publish-privacy-notice.sh … --apply                  # ghi thật
    ```
-   Công cụ tự lấy sha256 hai trang trong container landing đang chạy (đúng digest phát hành), đối chiếu chữ "Version …"/"Phiên bản …" và `data-consent-version` của form với `--version`, tải `https://ottimo.vn/privacy/` và `/vi/privacy/` (phải 200, cùng sha256), rồi ghi vi + en trong **một giao dịch** bằng vai `ottimo_migrator` → `ottimo_owner` (không superuser), audit `security` `privacy_notice.published`. Mặc định chạy thử (ROLLBACK). Chạy lại an toàn: cùng băm → "already present"; khác băm → từ chối. Kết quả mỗi lần: `state/privacy-notice.log`. **Đường duy nhất** được ghi bảng `privacy_notice_version` – không SQL tay (SEC FB-R3-SEC-OPS-US155-01). Test: `infra/server/test/publish-privacy-notice.test.sh` (22 ca, gồm lệnh đếm khói).
+   Công cụ làm các việc sau:
+   - Lấy danh sách ngôn ngữ từ **chính image** đang chạy (đúng digest phát hành): mỗi trang `/privacy/` (en) và `/<xx>/privacy/` là một ngôn ngữ. Danh sách hreflang của `/privacy/` phải khớp đúng các trang đó.
+   - Mọi ngôn ngữ trong `LANDING_LOCALES` của `.env` phải có trang. Thiếu một ngôn ngữ là từ chối cả lượt, không ghi gì.
+   - Lấy sha256 từng trang trong container. Các băm phải khác nhau từng đôi.
+   - Đọc version của từng trang từ **một** thẻ `<meta name="ottimo-notice-version">`. Bản dựng trước LP-v2 không có thẻ này: đọc chữ "Version …"/"Phiên bản …" (chỉ en/vi). Đối chiếu thêm `data-consent-version` của form trên trang chủ từng ngôn ngữ. Tất cả phải bằng `--version`.
+   - Tải từng trang thật qua edge (phải 200, cùng sha256).
+   - Ghi mọi ngôn ngữ trong **một giao dịch** bằng vai `ottimo_migrator` → `ottimo_owner` (không superuser), audit `security` `privacy_notice.published` (danh sách ngôn ngữ + băm).
+   - DB chưa có migration LP-v2 (0090) thì từ chối, báo deploy api trước.
+   - Mặc định chạy thử (ROLLBACK). Chạy lại an toàn: cùng băm → "already present"; khác băm → từ chối.
+   - Kết quả mỗi lần: một dòng trong `state/privacy-notice.log`, có `sha_<xx>=` cho từng ngôn ngữ (dòng cũ chỉ có `sha_en`/`sha_vi` vẫn đọc được).
+   - **Đường duy nhất** được ghi bảng `privacy_notice_version` – không SQL tay (SEC FB-R3-SEC-OPS-US155-01).
+   - Test: `infra/server/test/publish-privacy-notice.test.sh` (32 ca, gồm 10 ca 5 ngôn ngữ và lệnh đếm khói).
    - **Không nhầm** với tham số Desk `privacy_notice_version` (H05, `privacy-2026-10-v1`/`v2`): đó là thông báo khách lưu trú, OWN đặt; công cụ này không đụng tới.
 7. Chỉ sau khi bước 6 in `OK: version … published` (băm khớp): OWN bật `public_booking_requests_enabled` trên Desk (H05). Thiếu dòng phiên bản thì server trả 422 `PUBLIC_FORM_NOT_READY`.
 
@@ -242,14 +259,40 @@ Kịch bản chạy thật theo phút, khung giờ, đường lùi: `rounds/roun
 Quay lui: (a) OWN tắt công tắc trên Desk (ngay); (b) đặt `LANDING_PUBLIC_API=off` rồi `deploy-landing.sh <tag hiện tại> --no-pull` – mọi `/v1/*` trên `ottimo.vn` trả 404, form tự hướng khách sang Zalo / gọi điện; (c) gỡ form – **đúng thứ tự** (ARC FB-R3-ARC-OPS-US155-03): đặt `LANDING_PUBLIC_API=off` trong `.env` **trước**, rồi `deploy-landing.sh --rollback` về bản không form, rồi kiểm `/v1/public/properties/dlt/form-token` trên `ottimo.vn` trả 404 HTML của Caddy (không phải JSON). Làm ngược thì bản cũ được dựng lại với proxy còn mở. Dòng `privacy_notice_version` đã ghi **giữ nguyên** (yêu cầu đã nhận trỏ FK tới nó) – không xóa.
 
 **Mỗi lượt landing sau này – `deploy-landing.sh` tự kiểm byte trang privacy** (ARC FB-R3-ARC-OPS-US155-01, erd 4.14: một (`version`, `locale`) ứng với đúng một chuỗi byte):
-- Bước `privacy`, sau `pull` + kiểm digest, **trước** khi đổi container: đọc `/srv/landing/privacy/index.html` (en) và `/srv/landing/vi/privacy/index.html` (vi) trong image **mới** (`docker run --network none --pull never`), lấy sha256 và version in trên trang ("Version …" / "Phiên bản …", cùng mẫu với `publish-privacy-notice.sh`).
-- So với mọi dòng **`apply … rc=0`** trong `state/privacy-notice.log` (dòng chạy thử và lượt ghi lỗi không tính):
+- Bước `privacy`, sau `pull` + kiểm digest, **trước** khi đổi container: đọc **mọi** trang privacy trong image **mới** (`/srv/landing/privacy/index.html` = en, `/srv/landing/<xx>/privacy/index.html` = vi, ko, zh, ru – `docker run --network none --pull never`), lấy sha256 và version. Version đọc từ thẻ `<meta name="ottimo-notice-version">`; image cũ không có thẻ (ví dụ `--rollback` về bản 2 ngôn ngữ) thì đọc chữ "Version …" / "Phiên bản …".
+- So với mọi dòng **`apply … rc=0`** trong `state/privacy-notice.log` (dòng chạy thử và lượt ghi lỗi không tính), từng ngôn ngữ theo khóa `sha_<xx>`:
   - cùng version, cùng băm → cho qua;
-  - **cùng version, khác băm → từ chối** (`FAIL: privacy page bytes changed for a published notice version …`, CI báo `step=privacy`), không đổi container, không ghi `landing_tag`. Áp dụng cả `--rollback`. Cách sửa: tăng version thông báo (2 trang + `data-consent-version` của form), phát hành lại, rồi chạy bước 6 cho version mới;
+  - **cùng version, khác băm → từ chối** (`FAIL: privacy page bytes changed for a published notice version …`, CI báo `step=privacy`), không đổi container, không ghi `landing_tag`. Áp dụng cả `--rollback`. Cách sửa: tăng version thông báo (mọi trang + `data-consent-version` của form), phát hành lại, rồi chạy bước 6 cho version mới;
+  - **version cũ hơn version đã đăng** của cùng ngôn ngữ → từ chối (SEC FB-R4-SEC-FE-02). Với `--rollback` chỉ là WARNING (bản cũ còn được nhận 7 ngày – mục LP-v2 dưới đây);
+  - ngôn ngữ có trong `LANDING_LOCALES` mà image không có trang → từ chối (api vẫn coi ngôn ngữ đó đang bán). Với `--rollback` chỉ là WARNING, nhắc sửa `LANDING_LOCALES`;
   - version chưa có trong log → cho qua, in nhắc chạy bước 6 sau deploy;
-  - image không có 2 trang privacy → cho qua, ghi chú.
-- Ngoại lệ: khi `LANDING_PUBLIC_API` **khác `on`** (proxy form đóng, khách không gửi được đồng ý – ví dụ quay lui (c) ở trên), cùng version khác băm chỉ là **WARNING**. Phải tăng version trước khi mở lại proxy.
+  - trang không có đúng một version (hai thẻ meta, hoặc ko/zh/ru thiếu thẻ) → WARNING, `publish-privacy-notice.sh` sẽ từ chối;
+  - image không có trang privacy nào → cho qua, ghi chú.
+- Ngoại lệ: khi `LANDING_PUBLIC_API` **khác `on`** (proxy form đóng, khách không gửi được đồng ý – ví dụ quay lui (c) ở trên), mọi lỗi trên chỉ là **WARNING**. Phải sửa trước khi mở lại proxy.
 - Trước khi INV duyệt một lượt landing: OPS chạy `cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/deploy-landing.sh <sha-…> --digest sha256:… --check-only` (kéo image, kiểm cấu hình + digest + privacy, **không đổi gì**). Thay cho việc băm tay trước đây.
 - **Sau mỗi lượt deploy landing có version mới** (tới khi có `--candidate-digest`, FB-04, `v1.0.1`): chạy bước 6 (`publish-privacy-notice.sh` chạy thử rồi `--apply`) **ngay sau deploy landing, trong cùng phiên SSH, ngoài giờ cao điểm** (tránh khung nhận/trả phòng), để khoảng trống giữa trang mới và dòng phiên bản ngắn nhất.
 - Nguồn so sánh là `state/privacy-notice.log` trên chính stack (mọi lần ghi bảng đều qua `publish-privacy-notice.sh`, mỗi lần một dòng). Mất tệp này thì kiểm coi như "chưa có version nào" – không xóa, không sửa tay tệp này.
-- Test: `infra/server/test/deploy-landing-privacy.test.sh` (9 ca: image giả `FROM alpine`, không cần stack; chạy trong CI job `infra-scripts`).
+- Test: `infra/server/test/deploy-landing-privacy.test.sh` (17 ca, gồm 8 ca 5 ngôn ngữ: image giả `FROM alpine`, không cần stack; chạy trong CI job `infra-scripts`).
+
+#### LP-v2 – phát hành landing 5 ngôn ngữ + giá ước tính (R4, ARC lp-v2-design 3.6 (5)(6), ARC FB-R4-ARC-OPS-LPV2-01, SEC C3–C6)
+
+Điều kiện trước: SEC duyệt phát hành LP-v2 (C1–C8 của `rounds/round-04/reviews/SEC-on-LP-v2-code.md`). Bundle `infra/` của stack có bản `Caddyfile.landing`, `publish-privacy-notice.sh/.sql`, `deploy-landing.sh`, `ops-check.sh` của gói này (làm mới bundle như bước 1). Làm ngoài giờ đông khách, trong **một phiên SSH**. Chạy trên staging trước, QA ký, rồi mới làm production.
+
+**Thứ tự (không đảo):**
+0. **v1.0.1 trước.** Landing v1.0.1 (version thông báo `2026-10-31`, en + vi) đã chạy và đã đăng bằng bước 6 (`OK: version 2026-10-31 published`). Version của LP-v2 phải **lớn hơn** `2026-10-31` (SEC đặt nhãn thật sau người bản xứ đọc, không dùng nhãn tạm `2026-11-01` của FE). Công cụ từ chối version nhỏ hơn version đang hiệu lực; `deploy-landing.sh` cũng từ chối image có version cũ hơn version đã đăng.
+1. **(a) api có migration LP-v2** (deploy app bình thường, `deploy.sh`). `LANDING_LOCALES` **vẫn** `en,vi`. Compose truyền biến này vào api (mặc định `en,vi`).
+2. **(b) Kiểm rồi deploy landing LP-v2**: `deploy-landing.sh <sha-…> --digest sha256:… --check-only`, rồi bỏ `--check-only`. Bước `privacy` phải in 5 dòng `… (not published yet)` cho en, vi, ko, zh, ru. Caddy mới đã mở `/ko/`, `/zh/`, `/ru/`, trả trang 404 theo ngôn ngữ, và mở route `GET …/price-estimate` (chỉ khi `LANDING_PUBLIC_API=on`).
+3. **(c) Ngay sau đó** ghi version thông báo cho cả 5 ngôn ngữ (bước 6): chạy thử, rồi `--apply`. Phải thấy `OK: version <V2> published (en vi ko zh ru)`, các dòng `2026-10-31` của en/vi bị `superseded`.
+   - Giữa (b) và (c) (vài phút), trang mới gửi `V2` mà DB chưa có. Server trả `NOTICE_VERSION_INVALID`, trang hiện khối Zalo/gọi. Không có dữ liệu sai.
+4. **(d)** Sửa `.env` của stack: `LANDING_LOCALES=en,vi,ko,zh,ru`. Deploy lại app **cùng tag đang chạy** để api nhận biến (Desk gián đoạn khoảng 15–30 giây). Api không khởi động nếu biến có mã lạ.
+5. **(e)** QA kiểm form 5 ngôn ngữ trên trang thật **qua Caddy thật** (gồm SEC 9.5 ca 6: IP khách tới được api qua `TRUST_PROXY`; nếu sai, mọi khách dùng chung một bộ đếm).
+6. **(f)** OWN bật `public_show_prices` trên Desk (H05) khi QA so giá web = giá Desk đạt. Trước đó route giá trả 404 và trang không hiện khối giá. `ops-check` (`priceswitch`) báo mỗi lần công tắc đổi.
+7. **Đổi mốc thuê tháng (BR-108).** Khi OWN đổi `long_stay_required_from_nights` trên Desk (bảng giá 01/11: 30), landing phải phát hành lại cùng ngày với `shortMaxNights` = mốc − 1 (ARC FB-R4-ARC-FE-LPV2-01: mốc 30 → 29). Lệch nhau thì form hiện hai thông điệp trái nhau. Đây là một lượt landing bình thường (bước b; không đổi version thông báo nếu trang privacy không đổi byte).
+
+**Quay lui sau khi đã đăng `V2`** (ARC 3.6 (6)):
+- Chỉ tắt giá: OWN đặt `public_show_prices = false` (lâu nhất khoảng 2 phút là trang hết hiện giá).
+- Quay landing về bản 2 ngôn ngữ:
+  1. Đặt `LANDING_LOCALES=en,vi` và deploy lại app cùng tag **trước**.
+  2. Rồi `deploy-landing.sh --rollback`. Bước `privacy` in WARNING "older privacy notice version" (bản cũ in `2026-10-31`) – được phép với `--rollback`.
+  3. Trong **7 ngày** sau khi `2026-10-31` bị thay, form của bản cũ vẫn được nhận. **Quá 7 ngày**: SQL không cho đăng lại version cũ, nên phải dựng lại bản 2 ngôn ngữ với version mới (> `V2`) rồi chạy bước 6 cho version đó.
+- Dòng `privacy_notice_version` đã ghi **giữ nguyên**, không xóa.

@@ -9,6 +9,12 @@
 # Cases: dry run writes nothing · apply writes 2 rows + 1 audit · the api role sees them (RLS) · re-run = already present · wrong tag · version on the
 # page ≠ --version · same version with another text (hash) refused · next version supersedes the old one once ·
 # superseded version cannot come back · operator e-mail refused · PN_TEST_* refused on production · superuser refused.
+# R4 LP-v2 (ARC lp-v2-design 3.6, SEC SR-LC-04, ARC FB-R4-ARC-OPS-LPV2-01) – variants built locally from the given
+# landing image with ko/zh/ru pages and <meta name="ottimo-notice-version">: database before migration 0090 → refused
+# with a clear message · (CHECK widened exactly like 0090) 5 languages in ONE transaction, en/vi superseded, one audit
+# with the 5 hashes, url_path per language, sha_<xx> in the log · re-run already present · a ko page without the meta
+# tag → refused · hreflang lists ru but the build has no ru page → refused · two languages with the same bytes →
+# refused · LANDING_LOCALES has a language the running build lacks → refused. Nothing written by any refused run.
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -75,7 +81,8 @@ DC
 chmod +x "$home/dc"
 dc() { "$home/dc" "$@"; }
 cleanup() { dc --profile landing --profile deploy --profile seed down --volumes --remove-orphans >/dev/null 2>&1 || true
-  rm -rf "$home"; docker image rm ottimo-landing:pn-other ottimo-landing:pn-next >/dev/null 2>&1 || true; }
+  rm -rf "$home"; docker image rm ottimo-landing:pn-other ottimo-landing:pn-next ottimo-landing:pn-v5 ottimo-landing:pn-v5-nometa \
+    ottimo-landing:pn-v5-noru ottimo-landing:pn-v5-dup >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 pass=0 fail=0
@@ -118,7 +125,7 @@ app_view=$(sqlsu "BEGIN; SELECT set_config('app.organization_id', (SELECT organi
 SET LOCAL ROLE ottimo_app; SELECT string_agg(DISTINCT locale, ',' ORDER BY locale) FROM privacy_notice_version WHERE superseded_at IS NULL; ROLLBACK;")
 grep -qx 'en,vi' <<<"$app_view" && ok "3b api role (ottimo_app, RLS) sees an active row for vi + en → readiness no longer lists them" || { ko "3b app view"; echo "$app_view"; }
 aud=$(sqlsu "SELECT actor_type || ' ' || entity_type || ' ' || entity_id || ' ' || (after->>'landingTag') || ' ' || (after->'locales')::text || ' ' || reason FROM audit_event WHERE action = 'privacy_notice.published';")
-grep -q '^system privacy_notice_version 2026-10-24 .* \["vi", "en"\] operator: ops.test' <<<"$aud" && ok "4 audit row: system, version, locales, operator" || { ko "4 audit"; echo "$aud"; }
+grep -q '^system privacy_notice_version 2026-10-24 .* \["en", "vi"\] operator: ops.test' <<<"$aud" && ok "4 audit row: system, version, locales, operator" || { ko "4 audit"; echo "$aud"; }
 
 out=$(pn --landing-tag "$landing_tag" --version 2026-10-24 --apply)
 if grep -q 'already present' <<<"$out" && [ "$(rows)" = "2/2" ] && [ "$(audits)" = "1" ]; then ok "5 re-run: already present, nothing written"; else ko "5 re-run"; echo "$out"; fi
@@ -152,8 +159,87 @@ out=$(OTTIMO_HOME=$prod SMOKE_INSECURE=1 bash "$infra/server/bin/publish-privacy
   && ko "13b SMOKE_INSECURE accepted on production" || { grep -q 'not allowed on production' <<<"$out" && ok "13b SMOKE_INSECURE / SMOKE_ADDR refused on production" || { ko "13b"; echo "$out"; }; }
 rm -rf "$prod"
 
-out=$(dc exec -T postgres sh -c 'psql -X -q -U "$POSTGRES_USER" -d ottimo -v slug=dlt -v version=2026-12-01 -v sha_vi=$(printf a%.0s $(seq 64)) -v sha_en=$(printf b%.0s $(seq 64)) -v operator=ops.test -v landing_tag=t -v landing_digest= -v apply=true -f -' \
+out=$(dc exec -T postgres sh -c 'psql -X -q -U "$POSTGRES_USER" -d ottimo -v slug=dlt -v version=2026-12-01 -v locales=en,vi -v required=en,vi -v shas=$(printf b%.0s $(seq 64)),$(printf a%.0s $(seq 64)) -v operator=ops.test -v landing_tag=t -v landing_digest= -v apply=true -f -' \
   < "$infra/server/publish-privacy-notice.sql" 2>&1) && ko "14 superuser run accepted" || { grep -q 'superuser' <<<"$out" && [ "$(rows)" = "4/2" ] && ok "14 SQL run by the superuser → refused" || { ko "14"; echo "$out"; }; }
+
+echo "== LP-v2: 5 languages (variants of $LANDING_IMAGE_REF: ko/zh/ru pages + meta tag, version 2026-11-20)"
+# pn-v5: what an LP-v2 build looks like to the tool – 5 privacy pages, one meta tag each, hreflang of the 5 languages,
+# the form's data-consent-version on the 5 home pages. Built locally from the given image (no download).
+cat > "$home/v5.Dockerfile" <<DF
+FROM $LANDING_IMAGE_REF
+USER root
+RUN set -e; cd /srv/landing; sed -i 's/2026-10-24/2026-11-20/g' index.html vi/index.html privacy/index.html vi/privacy/index.html; \
+  for l in ko zh ru; do mkdir -p \$l/privacy; sed "s/lang=\"vi\"/lang=\"\$l\"/" vi/privacy/index.html > \$l/privacy/index.html; \
+    echo "<!-- \$l -->" >> \$l/privacy/index.html; sed "s/lang=\"vi\"/lang=\"\$l\"/" vi/index.html > \$l/index.html; done; \
+  for f in privacy/index.html vi/privacy/index.html ko/privacy/index.html zh/privacy/index.html ru/privacy/index.html; do \
+    sed -i 's#</head>#<meta name="ottimo-notice-version" content="2026-11-20"><link rel="alternate" hreflang="ko" href="/ko/privacy/"><link rel="alternate" hreflang="zh" href="/zh/privacy/"><link rel="alternate" hreflang="ru" href="/ru/privacy/"></head>#' \$f; done
+USER 10001:10001
+DF
+docker build -q -t ottimo-landing:pn-v5 - < "$home/v5.Dockerfile" >/dev/null
+v5var() { # tag RUN-commands – version 2026-11-25 + one change
+  printf 'FROM ottimo-landing:pn-v5\nUSER root\nRUN set -e; cd /srv/landing; for f in index.html */index.html privacy/index.html */privacy/index.html; do sed -i "s/2026-11-20/2026-11-25/g" $f; done; %s\nUSER 10001:10001\n' "$2" \
+    | docker build -q -t "ottimo-landing:$1" - >/dev/null
+}
+v5var pn-v5-nometa "sed -i 's#<meta name=\"ottimo-notice-version\"[^>]*>##' ko/privacy/index.html"
+v5var pn-v5-noru 'rm -rf ru'
+v5var pn-v5-dup 'cp ko/privacy/index.html zh/privacy/index.html'
+deploy_landing pn-v5
+
+chk=$(sqlsu "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'privacy_notice_version_locale_check';")
+if grep -q "'ko'" <<<"$chk"; then
+  ok "21 (skipped: the api image already has migration 0090 – ko/zh/ru accepted)"
+else
+  out=$(pn --landing-tag pn-v5 --version 2026-11-20 --apply) && ko "21 ko accepted by a database without 0090" || {
+    grep -q 'does not accept language ko yet' <<<"$out" && [ "$(rows)" = "4/2" ] \
+      && ok "21 database before migration 0090 → refused, says to deploy the api first, nothing written" || { ko "21"; echo "$out"; }; }
+  # What migration 0090 (lp-v2-be) does to this table – widen the CHECK only.
+  sqlsu "ALTER TABLE privacy_notice_version DROP CONSTRAINT privacy_notice_version_locale_check;
+         ALTER TABLE privacy_notice_version ADD CONSTRAINT privacy_notice_version_locale_check CHECK (locale IN ('vi', 'en', 'ru', 'ko', 'zh'));" >/dev/null
+fi
+
+out=$(pn --landing-tag pn-v5 --version 2026-11-20)
+[ -z "${VERBOSE:-}" ] || sed 's/^/      /' <<<"$out"
+if grep -q 'DRY RUN OK' <<<"$out" && grep -q 'in 5 language(s): en .* vi .* ko .* zh .* ru ' <<<"$out" && [ "$(rows)" = "4/2" ]; then
+  ok "22 dry run, 5 languages from the image: checks pass, nothing written"; else ko "22 dry run 5"; echo "$out"; fi
+out=$(pn --landing-tag pn-v5 --version 2026-11-20 --apply)
+[ -z "${VERBOSE:-}" ] || sed 's/^/      /' <<<"$out"
+active=$(sqlsu "SELECT string_agg(locale || '=' || version, ',' ORDER BY locale) FROM privacy_notice_version WHERE superseded_at IS NULL;")
+if grep -q 'OK: version 2026-11-20 published (en vi ko zh ru)' <<<"$out" && [ "$(rows)" = "9/5" ] && [ "$(audits)" = "3" ] \
+  && [ "$active" = "en=2026-11-20,ko=2026-11-20,ru=2026-11-20,vi=2026-11-20,zh=2026-11-20" ] \
+  && grep -q 'supersede version 2026-11-05 (en)' <<<"$out" && grep -q 'supersede version 2026-11-05 (vi)' <<<"$out"; then
+  ok "23 apply: 5 rows in one transaction, 2026-11-05 en/vi superseded, 1 audit"; else ko "23 apply 5"; echo "$out"; echo "$active"; fi
+sha_db=$(sqlsu "SELECT string_agg(locale || '=' || body_sha256 || '@' || url_path, ' ' ORDER BY locale) FROM privacy_notice_version WHERE version = '2026-11-20';")
+sha_img=""
+for l in en ko ru vi zh; do
+  f=$([ "$l" = en ] && echo privacy/index.html || echo "$l/privacy/index.html")
+  sha_img+="$l=$(docker run --rm --entrypoint sha256sum ottimo-landing:pn-v5 "/srv/landing/$f" | cut -d' ' -f1)@/${f%index.html} "
+done
+[ "$sha_db" = "${sha_img% }" ] && ok "24 body_sha256 + url_path of the 5 rows = the files in the image" || { ko "24 hashes 5"; echo "db: $sha_db"; echo "img: $sha_img"; }
+aud=$(sqlsu "SELECT (after->'locales')::text || ' ' || (SELECT count(*) FROM jsonb_object_keys(after->'hashes')) FROM audit_event WHERE action = 'privacy_notice.published' AND entity_id = '2026-11-20';")
+logl=$(grep ' apply .* version=2026-11-20 ' "$home/state/privacy-notice.log" | tail -n 1)
+if [ "$aud" = '["en", "vi", "ko", "zh", "ru"] 5' ] && grep -q 'sha_en=[0-9a-f]\{64\} sha_vi=[0-9a-f]\{64\} sha_ko=[0-9a-f]\{64\} sha_zh=[0-9a-f]\{64\} sha_ru=[0-9a-f]\{64\} rc=0$' <<<"$logl"; then
+  ok "25 audit lists the 5 languages + 5 hashes; log line has sha_<xx> for each (deploy-landing.sh reads it)"; else ko "25 audit/log"; echo "$aud"; echo "$logl"; fi
+out=$(pn --landing-tag pn-v5 --version 2026-11-20 --apply)
+if grep -q 'already present' <<<"$out" && [ "$(rows)" = "9/5" ] && [ "$(audits)" = "3" ]; then ok "26 re-run (5 languages): already present, nothing written"; else ko "26"; echo "$out"; fi
+
+deploy_landing pn-v5-nometa
+out=$(pn --landing-tag pn-v5-nometa --version 2026-11-25 --apply) && ko "27 page without meta tag accepted" || {
+  grep -q '/ko/privacy/ has no <meta name="ottimo-notice-version">' <<<"$out" && [ "$(rows)" = "9/5" ] \
+    && ok "27 ko page without the meta tag → refused, nothing written" || { ko "27"; echo "$out"; }; }
+deploy_landing pn-v5-noru
+out=$(pn --landing-tag pn-v5-noru --version 2026-11-25 --apply) && ko "28 missing ru page accepted" || {
+  grep -q "lists the languages 'en ko ru vi zh' (hreflang of /privacy/) but has privacy pages for 'en ko vi zh'" <<<"$out" && [ "$(rows)" = "9/5" ] \
+    && ok "28 hreflang lists ru, no /ru/privacy/ in the build → refused (whole run)" || { ko "28"; echo "$out"; }; }
+deploy_landing pn-v5-dup
+out=$(pn --landing-tag pn-v5-dup --version 2026-11-25 --apply) && ko "29 identical pages accepted" || {
+  grep -q 'byte-identical privacy pages' <<<"$out" && [ "$(rows)" = "9/5" ] \
+    && ok "29 two languages with the same bytes → refused" || { ko "29"; echo "$out"; }; }
+deploy_landing "$landing_tag"
+sed -i.bak 's/^LANDING_LOCALES=.*//' "$home/.env"; echo 'LANDING_LOCALES=en,vi,ko,zh,ru' >> "$home/.env"
+out=$(pn --landing-tag "$landing_tag" --version 2026-12-01 --apply) && ko "30 LANDING_LOCALES without pages accepted" || {
+  grep -q "LANDING_LOCALES has 'ko' but the running landing has no /ko/privacy/ page" <<<"$out" && [ "$(rows)" = "9/5" ] \
+    && ok "30 LANDING_LOCALES has ko,zh,ru, running build has en+vi only → refused" || { ko "30"; echo "$out"; }; }
+sed -i.bak 's/^LANDING_LOCALES=.*//' "$home/.env"
 
 echo "== smoke counts, step L (bin/us155-smoke-counts.sh – SEC FB-R3-SEC-OPS-US155-02), synthetic rows (fake data)"
 since=$(sqlsu "SELECT to_char(now() - interval '1 minute', 'YYYY-MM-DD\"T\"HH24:MI:SS') || '+00:00';")
