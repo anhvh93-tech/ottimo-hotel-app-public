@@ -58,6 +58,7 @@ export class AuditService {
     @Inject(DATABASE) private readonly db: Database,
   ) {}
 
+  /** Database-only, like recordMoney (ADR-015: also runs inside the B16 dry-run transaction). */
   async record(tx: Tx, entry: AuditEntry): Promise<void> {
     // 0.3.6 bổ sung 2: `money` actions are a closed set (the money log has one sentence per action). Outside
     // production an unlisted action fails loudly (tests catch it); production keeps the audit row.
@@ -102,6 +103,9 @@ export class AuditService {
   /**
    * Money operation (category `money`): who (from the transaction context), when (Clock), before/after,
    * reason and the document code (BR-008, US-006 AC1). Same transaction as the money write.
+   * MUST stay database-only (`tx.query` and nothing else – no logger, no events, no `db.withContext`): it is called
+   * inside the B16 dry-run transaction, which always rolls back (ADR-015; SEC-on-BE-A-v1.0.1 lượt 2, deviation of
+   * card 03). test/audit-record-db-only.test.ts enforces it.
    */
   async recordMoney(
     tx: Tx,
