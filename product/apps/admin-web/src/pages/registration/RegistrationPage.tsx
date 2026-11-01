@@ -41,7 +41,11 @@ function RegistrationList() {
   const navigate = useNavigate();
   const ids = useId();
   const now = useNow(60_000);
-  const [view, setView] = useState<View>('action_needed');
+  // v1.0.1: B16 "Mở danh sách cần cập nhật" opens this list on the needs-update view.
+  const [search] = useSearchParams();
+  const [view, setView] = useState<View>(
+    search.get('view') === 'needs_update' ? 'needs_update' : 'action_needed',
+  );
   const { state, reload } = useResource(
     async () => (await api.listRegistrations({ propertyId }, view)).data.data,
     [propertyId, view],

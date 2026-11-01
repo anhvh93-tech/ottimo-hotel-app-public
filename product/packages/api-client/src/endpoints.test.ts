@@ -377,3 +377,64 @@ describe('S35 website requests (US-155 Desk, OpenAPI 0.3.8)', () => {
     expect(JSON.parse(String(init.body))).toEqual({ phone: '+79123456789' });
   });
 });
+
+describe('v1.0.1 endpoints (OpenAPI 0.3.9)', () => {
+  it('B16 preview sends dryRun=true without Idempotency-Key / If-Match; the write sends both', async () => {
+    const { api, call } = setup();
+    await api.earlyDeparture(
+      R,
+      { newDepartureDate: '2026-11-14', noticeGivenAt: '2026-11-12T10:00:00+07:00', dryRun: true },
+      5,
+      'ignored',
+    );
+    const [url, init] = call(0);
+    expect(url).toBe('http://x/v1/properties/p/reservations/r/actions/early-departure');
+    expect(JSON.parse(String(init.body))).toMatchObject({ dryRun: true });
+    expect(init.headers).not.toHaveProperty('If-Match');
+    expect(init.headers).not.toHaveProperty('Idempotency-Key');
+    await api.earlyDeparture(
+      R,
+      {
+        newDepartureDate: '2026-11-14',
+        noticeGivenAt: '2026-11-12T10:00:00+07:00',
+        expectedRefundVnd: 767_000,
+        expectedFeeVnd: 766_000,
+        dryRun: false,
+      },
+      5,
+      'key-ed',
+    );
+    expect(call(1)[1].headers).toMatchObject({ 'If-Match': '"5"', 'Idempotency-Key': 'key-ed' });
+  });
+
+  it('B16 preview passes an AbortSignal through (an older preview is cancelled – ARC 0.3.9 add 1, 10.3)', async () => {
+    const { api, call } = setup();
+    const ctl = new AbortController();
+    await api.earlyDeparture(
+      R,
+      { newDepartureDate: '2026-11-14', noticeGivenAt: '2026-11-12T10:00:00+07:00', dryRun: true },
+      undefined,
+      undefined,
+      ctl.signal,
+    );
+    expect(call(0)[1].signal).toBe(ctl.signal);
+  });
+
+  it('cancel a scheduled list price posts the date + reason with If-Match (Room.version) and a key', async () => {
+    const { api, call } = setup();
+    await api.cancelScheduledRoomListPrice(
+      { propertyId: 'p', roomId: 'u1' },
+      { effectiveFrom: '2026-10-28', reason: 'Nhập nhầm' },
+      9,
+      'key-c',
+    );
+    const [url, init] = call(0);
+    expect(url).toBe('http://x/v1/properties/p/rooms/u1/list-prices/actions/cancel-scheduled');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({
+      effectiveFrom: '2026-10-28',
+      reason: 'Nhập nhầm',
+    });
+    expect(init.headers).toMatchObject({ 'If-Match': '"9"', 'Idempotency-Key': 'key-c' });
+  });
+});
