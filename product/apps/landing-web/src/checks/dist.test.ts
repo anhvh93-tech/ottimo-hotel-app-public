@@ -9,9 +9,13 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import * as checks from '../../scripts/dist-checks.mjs';
+import { en as copyEn } from '../content/en';
 import { PRIVACY_NOTICE } from '../content/privacy';
+import { vi as copyVi } from '../content/vi';
 import { BOOKING_REQUEST_ENABLED, PUBLIC_FORM_API_BASE } from '../lib/booking-request';
 import { INDEXABLE, LANGS, SITE_URL } from '../lib/i18n';
+
+const COPY = { en: copyEn, vi: copyVi } as const;
 
 const builds = [
   { name: 'dist', form: BOOKING_REQUEST_ENABLED, live: BOOKING_REQUEST_ENABLED },
@@ -64,6 +68,35 @@ describe.each(builds)('$name', ({ name, form, live }) => {
       expect(home.source).toContain(`href="/privacy/#${PRIVACY_NOTICE.en.anchor}"`);
       for (const p of d.html.filter((x) => !/404/.test(x.path)))
         expect(p.source, p.path).toMatch(/<a href="(\/vi)?\/privacy\/">/);
+    });
+  if (form)
+    it('privacy notice: every sentence of PRIVACY_NOTICE and consentMore is on the built page verbatim (SEC notice 2026-10-31 1.4)', () => {
+      const text = (src: string) =>
+        src
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/&#(\d+);/g, (_, n: string) => String.fromCodePoint(Number(n)))
+          .replace(/&#x([0-9a-f]+);/gi, (_, n: string) => String.fromCodePoint(parseInt(n, 16)))
+          .replace(/&quot;/g, '"')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&amp;/g, '&')
+          .replace(/\s+/g, ' ');
+      for (const [lang, path, home] of [
+        ['en', '/privacy/', '/'],
+        ['vi', '/vi/privacy/', '/vi/'],
+      ] as const) {
+        const page = text(d.html.find((p) => p.path === path)!.source);
+        const copy = PRIVACY_NOTICE[lang];
+        for (const s of [
+          copy.h1,
+          copy.intro,
+          ...copy.sections.flatMap((x) => [x.h, ...x.p]),
+          copy.version,
+        ])
+          expect(page, `${path}: ${s.slice(0, 60)}`).toContain(s);
+        const homeText = text(d.html.find((p) => p.path === home)!.source);
+        expect(homeText, `${home} consentMore`).toContain(COPY[lang].book.form.consentMore);
+      }
     });
   it('has no inline script/style, no style= or on*= attribute (CSP, ADR-014 2.4)', () => {
     expect(checks.checkInlineCode(d)).toEqual([]);

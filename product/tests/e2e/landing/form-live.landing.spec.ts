@@ -17,7 +17,7 @@ import {
 test.use({ baseURL: LIVE_URL });
 
 const API = '/v1/public/properties/dl01';
-const NOTICE_VERSION = '2026-10-24';
+const NOTICE_VERSION = '2026-10-31';
 const TOKEN = {
   token: `v1.${'e2e'.padEnd(40, 'x')}`,
   notBefore: '2026-10-24T00:00:00Z',

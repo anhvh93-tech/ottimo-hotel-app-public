@@ -4,8 +4,15 @@
 // v1.0, shortest retention – so every period below is the UPPER bound of the SEC parameter range (erd 4.14), which
 // keeps the sentence true whatever value the owner sets inside the range.
 //
+// Version 2026-10-31 (SEC rounds/round-04/outputs/SEC/notice-2026-10-31-final.md): ESC-041 C – Google Chat staff room
+// receives the guest's details (Δ1, Δ2); ESC-042 B – no deletion period stated for the Chat copy, the 180-day promise
+// covers our server only (Δ2 last sentence, Δ3); hashed IP 30 days (Δ3); withdrawal also deletes the Chat copy (Δ4);
+// ESC-044 + INV 01/11 Q9 – external translation service on any Desk screen (Δ5); consentMore "from our server" (Δ6).
+//
 // `version` is what the form sends as `consentVersion`; the server must publish the same `privacy_notice_version` for
-// vi and en (SEC ARC-17). Change any sentence below (or A.1/A.2 consent text in en.ts/vi.ts) → new version.
+// vi and en (SEC ARC-17). It is also CHAT_DETAILS_MIN_NOTICE_VERSION (SEC ★2): only requests sent under this version
+// or later may carry guest details to Google Chat. Change any sentence below (or A.1/A.2 consent text in en.ts/vi.ts)
+// → new version.
 // Voice: Brand Guidelines (short, polite, calm; English leads, Vietnamese supports; no emoji).
 import type { Lang } from '../lib/i18n';
 import { site } from './site';
@@ -30,7 +37,7 @@ export interface PrivacyCopy {
   back: string;
 }
 
-const VERSION = '2026-10-24';
+const VERSION = '2026-10-31';
 const { legal, contact, phone } = site;
 const email = contact.email;
 
@@ -72,7 +79,7 @@ const en: PrivacyCopy = {
     {
       h: 'How we handle it',
       p: [
-        'Your details are stored on our server in Viet Nam. Only our reception, our managers and the sales staff assigned to your request can see them.',
+        'Your details are stored on our server in Viet Nam. Only our reception, our managers and the sales staff assigned to your request can see them. To alert the team on duty, a copy of your request is also posted to our private staff chat, as described below.',
         'Nothing is sent to you automatically when you press Send. We reply ourselves, through the channel you chose, from the official OTTIMO accounts listed on this website.',
       ],
     },
@@ -81,20 +88,23 @@ const en: PrivacyCopy = {
       p: [
         'Our server provider in Viet Nam (Nhân Hòa) stores the data for us.',
         'When we reply, the app you chose – Zalo (VNG) or WhatsApp (Meta) – or our email provider (Google Workspace) carries the messages under its own privacy policy. Their servers may be outside Viet Nam.',
+        'When you send a request, we post your name, contact, preferred channel, dates, number of guests and message to a private chat used only by our managers and reception, on Google Chat (Google Workspace). We do this only so that the person on duty can reply to you quickly. Google stores these messages on its servers, which may be outside Viet Nam. Messages in this chat are not deleted automatically. We delete your copy when it is no longer needed to reply to you, or when you ask us to delete your request.',
+        // Δ5 – translation service (ESC-044; INV 01/11 Q9: any Desk screen) – SEC notice-2026-10-31-final section 2
+        'We may use a translation service, such as Google Translate, to read your request and reply to you. The text we translate may include your name, contact, stay details and message. The service handles this text under its own privacy policy, and its servers may be outside Viet Nam.',
       ],
     },
     {
       h: 'How long we keep it',
       p: [
         'If you book, your details move to your guest profile, and the notice for staying guests applies.',
-        'If you do not book, the request closes after at most 60 days without contact, and your name, contact and message are deleted within 180 days of sending at the latest. Requests marked as spam are deleted within 7 days. Backups expire within 35 days.',
+        'If you do not book, the request closes after at most 60 days without contact, and your name, contact and message are deleted within 180 days of sending at the latest. Requests marked as spam are deleted within 7 days. Backups expire within 35 days. The one-way encrypted form of your IP address is deleted within 30 days. These periods apply to our server; the copy in our staff chat is handled as described under “Who else receives it”.',
       ],
     },
     {
       h: 'Your rights',
       p: [
         `You can ask to see, correct or delete your details, or withdraw your consent. Message us on Zalo or email ${email}, with your request number if you have it.`,
-        'Before we act, we check that the request comes from the phone number or email on your booking request, and we send copies only to that contact. If you withdraw your consent, we stop contacting you and delete the request.',
+        'Before we act, we check that the request comes from the phone number or email on your booking request, and we send copies only to that contact. If you withdraw your consent, we stop contacting you and delete the request, including any copy left in our staff chat.',
       ],
     },
     {
@@ -159,7 +169,7 @@ const vi: PrivacyCopy = {
     {
       h: 'Cách xử lý',
       p: [
-        'Thông tin được lưu trên máy chủ của OTTIMO tại Việt Nam. Chỉ lễ tân, quản lý và nhân viên bán phòng được giao yêu cầu của bạn mới xem được.',
+        'Thông tin được lưu trên máy chủ của OTTIMO tại Việt Nam. Chỉ lễ tân, quản lý và nhân viên bán phòng được giao yêu cầu của bạn mới xem được. Để báo cho nhân viên đang trực, một bản sao yêu cầu của bạn cũng được đăng vào phòng trò chuyện nội bộ của OTTIMO, như mô tả dưới đây.',
         'Hệ thống không tự gửi tin cho bạn khi bạn bấm gửi. OTTIMO tự trả lời qua kênh bạn chọn, từ các tài khoản chính thức ghi trên website này.',
       ],
     },
@@ -168,20 +178,23 @@ const vi: PrivacyCopy = {
       p: [
         'Nhà cung cấp máy chủ tại Việt Nam (Nhân Hòa) lưu trữ dữ liệu cho OTTIMO.',
         'Khi OTTIMO trả lời, ứng dụng bạn chọn – Zalo (VNG) hoặc WhatsApp (Meta) – hoặc nhà cung cấp email của OTTIMO (Google Workspace) truyền tin nhắn theo chính sách riêng của họ. Máy chủ của họ có thể đặt ngoài Việt Nam.',
+        'Khi bạn gửi yêu cầu, OTTIMO đăng tên, liên hệ, kênh bạn chọn, ngày ở, số khách và lời nhắn của bạn vào một phòng trò chuyện nội bộ chỉ dành cho quản lý và lễ tân, trên Google Chat (Google Workspace). Việc này chỉ để người đang trực trả lời bạn nhanh hơn. Google lưu các tin này trên máy chủ của họ, có thể đặt ngoài Việt Nam. Tin trong phòng này không tự xóa. OTTIMO xóa bản sao của bạn khi không còn cần để trả lời bạn, hoặc khi bạn yêu cầu xóa.',
+        // Δ5 – translation service (ESC-044; INV 01/11 Q9: any Desk screen) – SEC notice-2026-10-31-final section 2
+        'OTTIMO có thể dùng một dịch vụ dịch, như Google Dịch, để đọc yêu cầu và trả lời bạn. Nội dung được dịch có thể gồm tên, liên hệ, thông tin lưu trú và lời nhắn của bạn. Dịch vụ này xử lý nội dung đó theo chính sách riêng của họ, và máy chủ của họ có thể đặt ngoài Việt Nam.',
       ],
     },
     {
       h: 'Thời gian lưu',
       p: [
         'Nếu bạn đặt phòng, thông tin chuyển sang hồ sơ khách và áp dụng thông báo dành cho khách lưu trú.',
-        'Nếu bạn không đặt phòng, yêu cầu tự đóng sau tối đa 60 ngày không trao đổi; tên, liên hệ và lời nhắn bị xóa chậm nhất 180 ngày kể từ lúc gửi. Yêu cầu bị đánh dấu spam được xóa trong 7 ngày. Bản sao lưu tự hết hạn trong 35 ngày.',
+        'Nếu bạn không đặt phòng, yêu cầu tự đóng sau tối đa 60 ngày không trao đổi; tên, liên hệ và lời nhắn bị xóa chậm nhất 180 ngày kể từ lúc gửi. Yêu cầu bị đánh dấu spam được xóa trong 7 ngày. Bản sao lưu tự hết hạn trong 35 ngày. Địa chỉ IP ở dạng đã mã hóa một chiều được xóa trong 30 ngày. Các thời hạn này áp dụng cho máy chủ của OTTIMO; bản sao trong phòng trò chuyện nội bộ được xử lý như mô tả ở mục “Bên khác nhận thông tin”.',
       ],
     },
     {
       h: 'Quyền của bạn',
       p: [
         `Bạn có thể yêu cầu xem, sửa, xóa thông tin hoặc rút lại sự đồng ý. Vui lòng nhắn Zalo hoặc gửi email ${email}, kèm mã yêu cầu nếu bạn còn giữ.`,
-        'Trước khi thực hiện, OTTIMO kiểm tra yêu cầu đến từ đúng số điện thoại hoặc email ghi trên yêu cầu đặt phòng, và chỉ gửi bản sao tới liên hệ đó. Khi bạn rút lại sự đồng ý, OTTIMO ngừng liên hệ và xóa yêu cầu.',
+        'Trước khi thực hiện, OTTIMO kiểm tra yêu cầu đến từ đúng số điện thoại hoặc email ghi trên yêu cầu đặt phòng, và chỉ gửi bản sao tới liên hệ đó. Khi bạn rút lại sự đồng ý, OTTIMO ngừng liên hệ và xóa yêu cầu, kể cả bản sao còn lại trong phòng trò chuyện nội bộ.',
       ],
     },
     {
