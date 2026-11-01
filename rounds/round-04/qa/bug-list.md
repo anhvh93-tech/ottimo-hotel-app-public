@@ -6,16 +6,17 @@
 - Môi trường chung: stack thử `ottimo-qalp2` (compose dev + `Caddyfile.landing` thật, `LANDING_PUBLIC_API=on`, `LANDING_LOCALES=en,vi,ko,zh,ru`), DS-E, bảng giá 01/11 nhập như "ngày chuyển S" của DOM. Chi tiết: `rounds/round-04/qa/lp-v2-test-report.md` mục 1. Chỉ dữ liệu giả.
 - **Cập nhật lượt 2** (01/11 15:50–16:25, `origin/lp-v2` @ `20afedff` = `83c13990` + `lp-v2-be2` 7d9e306f + `lp-v2-fe2` c9372e52 + `lp-v2-ops2` 0185a935; stack thử `ottimo-qalp3`, hạng công khai gán qua API/Desk OWN): BUG-R4-002, 003, 004, 005 **đã sửa – đã xác nhận**; BUG-R4-001 **mở lại**; mới BUG-R4-006…010. Chi tiết: báo cáo mục 11.
 - **Cập nhật lượt 3** (01/11 17:00–18:10, `origin/lp-v2` @ `0a25716a` = `20afedff` + `lp-v2-fe3` 73a80804 + `lp-v2-be3` 2f7b55f7, ee375e6d + `lp-v2-fe4` 0a25716a; stack thử `ottimo-qalp4`, hạng công khai dạng nhãn): BUG-R4-001, 006, 007, 008, 009 **đã sửa – đã xác nhận**; BUG-R4-010 **mở lại**; mới BUG-R4-011 (P2), BUG-R4-012 (P3). Chi tiết: báo cáo mục 12.
+- **v1.0.1 đợt 1b – PR #21** (01/11 ~21:00, `fe-b/notice-2026-10-31` @ `5474b6e1`): PR đạt, không lỗi trong phạm vi PR; mới BUG-R4-013 (P2, CI – có sẵn trên `main`). Chi tiết: `rounds/round-04/qa/pr21-notice-2026-10-31.md`.
 
-## 1. Tổng hợp (sau lượt 3)
+## 1. Tổng hợp (sau lượt 3 + PR #21)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
-| P2 | 5 | 1 (BUG-R4-011 – mới) | 0 | 4 (BUG-R4-001, 002, 003, 004) |
+| P2 | 6 | 2 (BUG-R4-011, BUG-R4-013 – mới) | 0 | 4 (BUG-R4-001, 002, 003, 004) |
 | P3 | 7 | 2 (BUG-R4-010 – mở lại, BUG-R4-012 – mới) | 0 | 5 (BUG-R4-005, 006, 007, 008, 009) |
-| **Tổng** | **12** | **3** | **0** | **9** |
+| **Tổng** | **13** | **4** | **0** | **9** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -210,6 +211,22 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Bằng chứng:** báo cáo 12.4 (cột "Hồ sơ trong DB"); ảnh `lp-v2/47` (hộp hiện "–").
 - **Vai:** BE (giá trị mặc định khi tạo) + ARC/DOM (quy tắc quốc tịch trống) · FE-B nếu đổi cách hiện.
 - **Trạng thái:** Open. Có thể đi v1.0.1 cùng BUG-R3-050 nếu PO chấp nhận.
+
+### BUG-R4-013 – `validate-fixtures` đỏ: oracle `br-examples.json` lệch BR v0.5.x; `main` vẫn xanh vì cache turbo không theo dõi BR/ESC
+
+- **Mức:** P2.
+  - Không ảnh hưởng sản phẩm đang chạy. Nhưng oracle giá (bộ ví dụ số dùng để kiểm bộ tính giá) đang lệch với BR đúng lúc bảng giá vừa đổi (INV 01/11, ESC-045), và BR-115/116 mới chưa có dòng oracle.
+  - CI của mọi PR đụng `product/tests/` sẽ đỏ (PR #21 là PR đầu tiên gặp), còn `main` báo xanh giả. QC không nên nhận "CI xanh" của `main` làm bằng chứng cho phần fixture khi lỗi này còn mở.
+- **Môi trường:** GitHub Actions run `41313291275` (PR #21, merge với `main` @ `cfbbe3d4`), job "format · lint · audit · test · build", bước "Test (Vitest, real PostgreSQL)". Tái hiện tại máy: `node product/tests/tools/validate-fixtures.mjs` trên `5474b6e1` → 31 lỗi; trên `main` @ `cfbbe3d4` → 32 lỗi.
+- **Các bước:** sửa bất kỳ tệp nào trong `product/tests/` (để turbo mất cache `@ottimo/tests:test`) → chạy CI; hoặc chạy thẳng validator.
+- **Thực tế:**
+  - 30 lỗi "nhãn INV-004/INV-005/INV-036 nhưng BR ghi 'Bảng giá: INV 01/11…'" (BR-101-01…14, BR-103-01…03, BR-201-01, BR-202-01/02, BR-203-01/02, BR-204-01/02, BR-206-01, BR-207-01, BR-208-01…03) và "nhãn GIẢ ĐỊNH nhưng BR ghi 'Tính lẻ theo ngày: INV quyết ESC-045…'" (BR-210-01).
+  - 2 lỗi "BR-115 / BR-116 có ví dụ số trong BR nhưng chưa có dòng oracle hay lý do notCovered".
+  - CI `main` @ `0e4ca928` (đã có BR v0.5.0) và @ `cfbbe3d4` (BR v0.5.1) báo job test **success**: `turbo.json` task `test` không khai `inputs`, nên `@ottimo/tests:test` được "cache hit" khi chỉ `docs/business-rules.md` hay `02-escalations/` đổi – validator không chạy lại.
+- **Mong đợi:** validator 0 lỗi trên `main`; đổi BR/ESC thì task test của `@ottimo/tests` chạy lại.
+- **Bằng chứng:** log run `41313291275` (dòng "cache miss, executing 1b3ff81f3887e791" chỉ ở `@ottimo/tests:test`, "32 lỗi"); `rounds/round-04/qa/pr21-notice-2026-10-31.md` mục 5.
+- **Vai:** QA (cập nhật nhãn oracle theo BR v0.5.1, thêm dòng hoặc `notCovered` cho BR-115/116) + DOM (xác nhận nhãn và ví dụ số BR-1xx/2xx sau ESC-045) + OPS (thêm `inputs` cho task `test` của `@ottimo/tests`, ví dụ `$TURBO_DEFAULT$`, `../docs/business-rules.md`, `../../02-escalations/ESC-*.md`).
+- **Trạng thái:** Open. Chặn "CI xanh" của PR #21 (nội dung PR #21 không gây ra lỗi này).
 
 ## 3. Ghi nhận (không phải lỗi)
 
