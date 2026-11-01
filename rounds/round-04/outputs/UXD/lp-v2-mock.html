@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>LP-v2 mock – OTTIMO</title>
+<!-- MOCK NỘI BỘ (UXD, Round 4 – LP-v2). Font tải từ Google Fonts CHỈ để xem thử; production tự host bản subset
+     theo lp-v2-design.md mục 1 (không tải gì từ tên miền khác – ADR-014 2.6). Chữ trong ngoặc [..] là chỗ giữ cho CPY. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&family=Lora:ital,wght@0,400;1,400&family=Onest:wght@400;500;600&family=Noto+Sans+KR:wght@400;600&family=Noto+Serif+KR:wght@400&family=Noto+Sans+SC:wght@400;600&family=Noto+Serif+SC:wght@400&family=JetBrains+Mono&display=swap">
+<style>
+:root{
+  --ivory:#F4F0E8;--cream:#EDE6D8;--stone:#6B6760;--ink:#2B2B28;--oak:#B08D57;--earth:#7A5C44;--sage:#8A9079;--white:#FFFFFF;
+  /* Ngăn xếp font theo ngôn ngữ (mục 1.4). Trên trang EN/VI: tên ngôn ngữ trong bảng chọn rơi xuống
+     bộ "UI" nhỏ (ở mock là Noto/Onest đầy đủ). */
+  --serif:'Lora',Georgia,'Times New Roman',serif;
+  --sans:'Be Vietnam Pro','Onest','Noto Sans KR','Noto Sans SC',Arial,sans-serif;
+  --mono:'JetBrains Mono','Courier New',monospace;
+  --lh-body:1.5;--lh-h:1.2;--track-label:.1em;--case-label:uppercase;
+  --r:4px;
+}
+:lang(ru){--sans:'Onest','Be Vietnam Pro',Arial,sans-serif;--track-label:.06em}
+:lang(ko){--sans:'Be Vietnam Pro','Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  --serif:'Lora','Noto Serif KR',serif;--lh-body:1.7;--lh-h:1.35;--track-label:.04em;--case-label:none}
+:lang(zh-Hans){--sans:'Be Vietnam Pro','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+  --serif:'Lora','Noto Serif SC',serif;--lh-body:1.75;--lh-h:1.35;--track-label:.04em;--case-label:none}
+:lang(ko),:lang(zh-Hans){font-synthesis:none}
+:lang(ko) p,:lang(ko) h2,:lang(ko) h3{word-break:keep-all}
+:lang(zh-Hans) p{line-break:strict}
+:lang(ru) p{hyphens:auto}
+
+*,*::before,*::after{box-sizing:border-box}
+html{background:var(--ivory)}
+body{margin:0;background:var(--ivory);color:var(--ink);font:400 16px/var(--lh-body) var(--sans)}
+a{color:inherit}
+h1,h2,h3,p{margin:0}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;margin:-1px;padding:0;border:0}
+.page{max-width:1280px;margin:0 auto;padding:32px 16px 96px}
+@media(min-width:768px){.page{padding-inline:32px}}
+.doc-h{font:400 clamp(1.75rem,1.4rem + 1.4vw,2.5rem)/1.2 var(--serif);letter-spacing:.02em;margin-bottom:8px}
+.doc-sub{color:var(--stone);max-width:760px;margin-bottom:8px}
+.part{margin-top:56px;padding-top:24px;border-top:1px solid var(--oak)}
+.part-h{font:400 1.75rem/1.25 var(--serif);margin-bottom:8px}
+.note{font-size:14px;color:var(--stone);max-width:820px}
+.note b{color:var(--ink);font-weight:600}
+.tag{display:inline-block;font:500 12px/1.4 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--earth);margin:24px 0 8px}
+.ph{text-decoration:underline dotted var(--oak);text-underline-offset:3px}
+
+/* ---------- Header (bản sao landing, rút gọn) ---------- */
+.frame{border:1px solid var(--cream);background:var(--ivory);position:relative}
+.frame-desk{max-width:1280px;overflow-x:auto}
+.frame-desk .site-h{min-width:1100px}
+.frame-phone{width:390px;max-width:100%;min-height:420px}
+.frame-phone.w320{width:320px}
+.frames{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start}
+.site-h{position:relative;background:var(--ivory);border-bottom:1px solid var(--cream)}
+.h-row{display:flex;align-items:center;justify-content:space-between;gap:16px;height:64px;padding-inline:16px}
+.frame-desk .h-row{padding-inline:32px}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;min-height:44px}
+.brand svg{width:40px;height:auto}
+.brand-div{width:1px;align-self:stretch;margin-block:12px;background:var(--oak)}
+.wm{display:inline-grid;justify-items:center;line-height:1}
+.wm-name{font:400 1.625rem/1 'Lora',Georgia,serif;letter-spacing:.12em;margin-right:-.12em}
+.wm-sub{font:500 .5625rem/1 'Be Vietnam Pro',Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase;margin-top:8px;color:var(--stone);margin-right:-.2em}
+.w320 .brand svg,.w320 .brand-div{display:none}
+.nav-d{display:flex;gap:32px}
+.nav-d a{text-decoration:none;font-weight:500;font-size:15px;min-height:44px;display:inline-flex;align-items:center}
+.h-tools{display:flex;align-items:center;gap:8px}
+.h-zalo{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding-inline:8px;font-weight:500;font-size:15px;text-decoration:none;white-space:nowrap}
+.h-zalo svg,.btn svg{width:18px;height:18px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 24px;border:1px solid transparent;border-radius:var(--r);font:500 16px/1.2 var(--sans);letter-spacing:.02em;text-decoration:none;cursor:pointer;background:none}
+.btn-sm{min-height:44px;padding:8px 16px;font-size:15px}
+.btn-ghost{border-color:var(--ink);color:var(--ink)}
+.btn-primary{background:var(--earth);color:var(--white)}
+.menu-btn{display:grid;place-items:center;width:44px;height:44px;border-radius:var(--r)}
+.menu-btn svg{width:22px;height:22px}
+
+/* ---------- Bảng chọn ngôn ngữ (mục 2) ---------- */
+.lp{position:static}
+.frame-desk .lp{position:relative}
+.lp>summary{list-style:none;display:inline-flex;align-items:center;gap:6px;min-height:44px;min-width:44px;padding:0 10px;border:1px solid var(--ink);border-radius:var(--r);cursor:pointer;font:500 14px/1 'Be Vietnam Pro',Arial,sans-serif;letter-spacing:.06em;user-select:none}
+.lp>summary::-webkit-details-marker{display:none}
+.lp>summary svg{width:16px;height:16px;flex:0 0 auto}
+.lp>summary .chev{width:12px;height:12px;transition:transform .15s}
+.lp[open]>summary{background:var(--ink);color:var(--ivory)}
+.lp[open]>summary .chev{transform:rotate(180deg)}
+.lp-panel{position:absolute;z-index:5;background:var(--ivory);margin:0;padding:4px 0;list-style:none}
+.frame-desk .lp-panel{right:0;top:calc(100% + 6px);min-width:212px;border:1px solid var(--oak);border-radius:var(--r)}
+.frame-phone .lp-panel{left:0;right:0;top:100%;border-bottom:1px solid var(--oak);padding:8px 16px 16px}
+.lp-h{font:500 12px/1.4 'Be Vietnam Pro',Arial,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--earth);padding:8px 0}
+.frame-desk .lp-h{display:none}
+.lp-panel a{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 16px;text-decoration:none;font-weight:500;font-size:15px}
+.frame-phone .lp-panel a{min-height:48px;padding:0;font-size:17px;border-bottom:1px solid var(--cream)}
+.frame-phone .lp-panel li:last-child a{border-bottom:0}
+.lp-panel a:hover{background:var(--cream)}
+.frame-phone .lp-panel a:hover{background:none;color:var(--earth)}
+.lp-panel .ck{width:16px;height:16px;flex:0 0 auto;visibility:hidden}
+.lp-panel a[aria-current="page"] .ck{visibility:visible}
+.lp-panel a[aria-current="page"]{font-weight:600}
+.lp-code{margin-left:auto;font:400 12px/1 'Be Vietnam Pro',Arial,sans-serif;letter-spacing:.08em;color:var(--stone)}
+
+/* ---------- Mẫu font (mục 1) ---------- */
+.specs{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(min(100%,232px),1fr))}
+.spec{background:var(--white);border:1px solid var(--cream);border-radius:var(--r);padding:20px}
+.spec .lbl{display:block;font:500 13px/1.4 var(--sans);letter-spacing:var(--track-label);text-transform:var(--case-label);color:var(--earth);margin-bottom:12px}
+.spec h2{font:400 28px/var(--lh-h) var(--serif);letter-spacing:.02em;margin-bottom:12px}
+.spec h3{font:600 18px/1.35 var(--sans);margin-bottom:8px}
+.spec p{font-size:15px;color:var(--ink);margin-bottom:12px}
+.spec .amt{font:400 24px/1.2 var(--serif);font-variant-numeric:lining-nums tabular-nums}
+.spec .meta{font-size:12px;color:var(--stone);border-top:1px solid var(--cream);padding-top:8px;margin-top:12px;font-family:'Be Vietnam Pro',Arial,sans-serif}
+.spec .btn{margin-top:4px;font-size:15px;min-height:44px;padding:8px 16px}
+
+/* ---------- Form + ô giá ước tính (mục 3) ---------- */
+.form-wrap{display:grid;gap:32px;grid-template-columns:1fr}
+@media(min-width:1024px){.form-wrap{grid-template-columns:minmax(0,560px) minmax(0,1fr)}}
+.bk-card{background:var(--cream);border-radius:var(--r);padding:24px 16px}
+@media(min-width:400px){.bk-card{padding:24px}}
+@media(min-width:768px){.bk-card{padding:32px}}
+.form{display:grid;gap:24px}
+.form-sec{display:grid;gap:16px}
+.form-sec+.form-sec{padding-top:24px;border-top:1px solid var(--oak)}
+.f-title{font:500 13px/1.4 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--earth)}
+.seg{display:grid;gap:8px;grid-template-columns:1fr 1fr}
+.seg label{position:relative;display:flex}
+.seg input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer;width:100%;height:100%}
+.opt-box{flex:1;display:flex;align-items:center;justify-content:center;min-height:48px;border:1px solid var(--ink);border-radius:var(--r);background:var(--white);font-weight:500}
+.seg input:checked+.opt-box{background:var(--ink);color:var(--ivory)}
+.seg input:focus-visible+.opt-box{outline:2px solid var(--ink);outline-offset:2px}
+.row2{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,156px),1fr))}
+.row3{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,88px),1fr))}
+.field{display:grid;gap:8px;align-content:start}
+.field>label{font:500 15px/1.35 var(--sans)}
+.input{width:100%;min-height:48px;padding:12px 16px;font:400 16px/1.4 var(--sans);color:var(--ink);background:var(--white);border:1px solid var(--stone);border-radius:var(--r);appearance:none}
+.hint{font-size:14px;color:var(--stone)}
+
+.est{background:var(--ivory);border-radius:var(--r);padding:16px 20px;min-height:76px;display:grid;gap:4px;align-content:start}
+.est-lbl{font:500 13px/1.4 var(--sans);letter-spacing:var(--track-label);text-transform:var(--case-label);color:var(--earth)}
+.est-amt{font:400 28px/1.2 var(--serif);font-variant-numeric:lining-nums tabular-nums;letter-spacing:.01em;margin-top:2px}
+.est-amt .per{font:400 15px/1 var(--sans);color:var(--stone);letter-spacing:0;margin-left:6px}
+.est-line{font-size:14px;color:var(--stone)}
+.est-line b{font-weight:500;color:var(--ink)}
+.est-msg{font-size:15px;color:var(--ink)}
+.est-idle{font-size:14px;color:var(--stone);align-self:center}
+.est-note{font-size:13px;color:var(--stone);border-top:1px solid var(--cream);padding-top:8px;margin-top:8px}
+.est-skel{display:block;width:180px;max-width:60%;height:28px;border-radius:2px;background:var(--cream);margin-top:4px}
+.est details{margin-top:4px}
+.est summary{cursor:pointer;font-size:14px;font-weight:500;color:var(--earth);min-height:44px;display:inline-flex;align-items:center;gap:6px;list-style:none;text-decoration:underline;text-underline-offset:3px}
+.est summary::-webkit-details-marker{display:none}
+.nights{list-style:none;margin:4px 0 0;padding:0;font-size:14px;color:var(--ink)}
+.nights li{display:flex;justify-content:space-between;gap:16px;padding:4px 0;border-bottom:1px solid var(--cream);font-variant-numeric:tabular-nums}
+.nights li:last-child{border-bottom:0}
+.linkbtn{background:none;border:0;padding:0;min-height:44px;font:500 14px/1 var(--sans);color:var(--earth);text-decoration:underline;text-underline-offset:3px;cursor:pointer;justify-self:start}
+.est.is-busy .est-amt,.est.is-busy .est-line{opacity:.45}
+.est>*{transition:opacity .15s}
+@media (prefers-reduced-motion:reduce){.est>*{transition:none}}
+
+.switch{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 16px}
+.switch button{min-height:44px;padding:8px 12px;border:1px solid var(--ink);border-radius:var(--r);background:var(--white);font:500 14px/1.2 var(--sans);cursor:pointer}
+.switch button[aria-pressed="true"]{background:var(--ink);color:var(--ivory)}
+.states{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))}
+.state{background:var(--cream);border-radius:var(--r);padding:16px}
+.state>.tag{margin-top:0}
+.live-log{font:400 13px/1.5 var(--mono);background:var(--white);border:1px solid var(--cream);padding:12px;border-radius:var(--r);min-height:48px;white-space:pre-wrap}
+.dont{display:grid;gap:8px;padding:0;margin:8px 0 0;list-style:none;font-size:14px;max-width:820px}
+.dont li{padding-left:16px;border-left:2px solid var(--oak)}
+</style>
+</head>
+<body>
+<div class="page">
+  <p class="tag">Round 4 · LP-v2 · UXD · mock tĩnh nội bộ</p>
+  <h1 class="doc-h">Đa ngôn ngữ và giá ước tính – mock</h1>
+  <p class="doc-sub">Ba phần: (1) bảng chọn ngôn ngữ, (2) mẫu font cho 5 ngôn ngữ, (3) ô giá ước tính trong form “Plan your stay”. Đọc kèm <code>lp-v2-design.md</code>. Chữ gạch chân chấm là chữ tạm – CPY thay. Số tiền là số minh họa, không phải giá thật.</p>
+
+  <!-- ============ 1. LANGUAGE PICKER ============ -->
+  <section class="part" aria-labelledby="p1">
+    <h2 class="part-h" id="p1">1. Bảng chọn ngôn ngữ</h2>
+    <p class="note">Một nút <b>quả địa cầu + mã ngôn ngữ hiện tại</b> thay cho nhóm “EN | VI”. Bấm mở danh sách 5 ngôn ngữ, mỗi dòng viết bằng chính ngôn ngữ đó. Không cờ. Dùng <code>&lt;details&gt;</code> nên chạy cả khi không có JavaScript. Bấm thử các nút bên dưới.</p>
+
+    <p class="tag">Máy tính ≥ 1024 px – trang EN</p>
+    <div class="frame frame-desk" lang="en">
+      <header class="site-h">
+        <div class="h-row">
+          <a class="brand" href="#"><svg viewBox="0 0 40 28" aria-hidden="true"><path d="M2 26 14 8l8 11 5-6 11 13" fill="none" stroke="#6B6760" stroke-width="1.5"/><path d="M2 26 14 8l8 11" fill="none" stroke="#2B2B28" stroke-width="1.5"/></svg><span class="brand-div"></span><span class="wm"><span class="wm-name">OTTIMO</span><span class="wm-sub">Boutique Stay</span></span></a>
+          <nav class="nav-d" aria-label="Main"><a href="#">Rooms</a><a href="#">Amenities</a><a href="#">Location</a><a href="#">FAQ</a></nav>
+          <div class="h-tools">
+            <details class="lp" data-lp>
+              <summary aria-label="EN – Language: English"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.6 5.2 3.6 8.5s-1.2 6.1-3.6 8.5M12 3.5C9.6 5.9 8.4 8.7 8.4 12s1.2 6.1 3.6 8.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span>EN</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.75"/></svg></summary>
+              <ul class="lp-panel">
+                <li class="lp-h" aria-hidden="true">Language</li>
+                <li><a href="#" lang="en" hreflang="en" aria-current="page"><svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>English</a></li>
+                <li><a href="#" lang="vi" hreflang="vi"><svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>Tiếng Việt</a></li>
+                <li><a href="#" lang="ko" hreflang="ko"><svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>한국어</a></li>
+                <li><a href="#" lang="zh-Hans" hreflang="zh-Hans"><svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>简体中文</a></li>
+                <li><a href="#" lang="ru" hreflang="ru"><svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>Русский</a></li>
+              </ul>
+            </details>
+            <a class="h-zalo" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18.5V6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H8z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>Chat on Zalo</a>
+            <a class="btn btn-ghost btn-sm" href="#">Plan your stay</a>
+          </div>
+        </div>
+      </header>
+      <div style="height:250px" aria-hidden="true"></div>
+    </div>
+
+    <p class="tag">Điện thoại – trang RU (390 px) và KO (320 px, chữ dài nhất / màn hẹp nhất)</p>
+    <div class="frames">
+      <div class="frame frame-phone" lang="ru">
+        <header class="site-h">
+          <div class="h-row">
+            <a class="brand" href="#"><svg viewBox="0 0 40 28" aria-hidden="true"><path d="M2 26 14 8l8 11 5-6 11 13" fill="none" stroke="#6B6760" stroke-width="1.5"/><path d="M2 26 14 8l8 11" fill="none" stroke="#2B2B28" stroke-width="1.5"/></svg><span class="brand-div"></span><span class="wm"><span class="wm-name">OTTIMO</span><span class="wm-sub">Boutique Stay</span></span></a>
+            <div class="h-tools">
+              <details class="lp" data-lp open>
+                <summary aria-label="RU – Язык: русский"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.6 5.2 3.6 8.5s-1.2 6.1-3.6 8.5M12 3.5C9.6 5.9 8.4 8.7 8.4 12s1.2 6.1 3.6 8.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span>RU</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.75"/></svg></summary>
+                <ul class="lp-panel">
+                  <li class="lp-h" aria-hidden="true"><span class="ph">Язык</span></li>
+                  <li><a href="#" lang="en" hreflang="en"><svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>English</a></li>
+                  <li><a href="#" lang="vi" hreflang="vi"><svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>Tiếng Việt</a></li>
+                  <li><a href="#" lang="ko" hreflang="ko"><svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>한국어</a></li>
+                  <li><a href="#" lang="zh-Hans" hreflang="zh-Hans"><svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>简体中文</a></li>
+                  <li><a href="#" lang="ru" hreflang="ru" aria-current="page"><svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>Русский</a></li>
+                </ul>
+              </details>
+              <span class="menu-btn" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span>
+            </div>
+          </div>
+        </header>
+      </div>
+      <div class="frame frame-phone w320" lang="ko">
+        <header class="site-h">
+          <div class="h-row">
+            <a class="brand" href="#"><svg viewBox="0 0 40 28" aria-hidden="true"><path d="M2 26 14 8l8 11 5-6 11 13" fill="none" stroke="#6B6760" stroke-width="1.5"/></svg><span class="brand-div"></span><span class="wm"><span class="wm-name">OTTIMO</span><span class="wm-sub">Boutique Stay</span></span></a>
+            <div class="h-tools">
+              <details class="lp" data-lp>
+                <summary aria-label="KO – 언어: 한국어"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.6 5.2 3.6 8.5s-1.2 6.1-3.6 8.5M12 3.5C9.6 5.9 8.4 8.7 8.4 12s1.2 6.1 3.6 8.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span>KO</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.75"/></svg></summary>
+                <ul class="lp-panel">
+                  <li class="lp-h" aria-hidden="true"><span class="ph">언어</span></li>
+                  <li><a href="#" lang="en" hreflang="en"><svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>English</a></li>
+                  <li><a href="#" lang="vi" hreflang="vi"><svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>Tiếng Việt</a></li>
+                  <li><a href="#" lang="ko" hreflang="ko" aria-current="page"><svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>한국어</a></li>
+                  <li><a href="#" lang="zh-Hans" hreflang="zh-Hans"><svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>简体中文</a></li>
+                  <li><a href="#" lang="ru" hreflang="ru"><svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>Русский</a></li>
+                </ul>
+              </details>
+              <span class="menu-btn" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span>
+            </div>
+          </div>
+        </header>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2. FONT SPECIMENS ============ -->
+  <section class="part" aria-labelledby="p2">
+    <h2 class="part-h" id="p2">2. Mẫu font theo ngôn ngữ</h2>
+    <p class="note">Câu mẫu chỉ để thử font – <b>không phải bản dịch cuối</b> (CPY viết, người bản xứ đọc lại). Số tiền trên mọi trang dùng Lora (chữ số Latin); mã, số Latin trong câu dùng Be Vietnam Pro, trừ trang RU (cả thân chữ là Onest để chữ Latin và Kirin cùng một nét).</p>
+    <div class="specs">
+      <article class="spec" lang="en">
+        <span class="lbl">Rooms</span>
+        <h2>A refined stay inspired by the calm spirit of Dalat.</h2>
+        <h3>City Studio</h3>
+        <p>Quiet rooms, a proper desk and fast Wi-Fi, a short walk from the market.</p>
+        <p class="amt">VND 2,363,000</p>
+        <a class="btn btn-primary" href="#">Send booking request</a>
+        <p class="meta">Lora · Be Vietnam Pro (giữ nguyên)</p>
+      </article>
+      <article class="spec" lang="vi">
+        <span class="lbl">Hạng phòng</span>
+        <h2>Một kỳ lưu trú chỉn chu, mang tinh thần an yên của Đà Lạt.</h2>
+        <h3>City Studio</h3>
+        <p>Phòng yên tĩnh, bàn làm việc đúng nghĩa, Wi-Fi nhanh, đi bộ ra chợ.</p>
+        <p class="amt">2.363.000 ₫</p>
+        <a class="btn btn-primary" href="#">Gửi yêu cầu đặt phòng</a>
+        <p class="meta">Lora · Be Vietnam Pro (giữ nguyên)</p>
+      </article>
+      <article class="spec" lang="ko">
+        <span class="lbl">객실</span>
+        <h2>달랏의 고요함을 담은 세련된 머무름.</h2>
+        <h3>City Studio</h3>
+        <p>조용한 객실, 제대로 된 책상과 빠른 Wi-Fi. 시장까지 걸어서 몇 분입니다.</p>
+        <p class="amt">VND 2,363,000</p>
+        <a class="btn btn-primary" href="#">예약 요청 보내기</a>
+        <p class="meta">Lora → Noto Serif KR · Be Vietnam Pro → Noto Sans KR</p>
+      </article>
+      <article class="spec" lang="zh-Hans">
+        <span class="lbl">客房</span>
+        <h2>承袭大叻的宁静，一处精致的栖居。</h2>
+        <h3>City Studio</h3>
+        <p>安静的客房、真正好用的书桌和高速 Wi-Fi，步行即可到达市场。</p>
+        <p class="amt">VND 2,363,000</p>
+        <a class="btn btn-primary" href="#">发送预订请求</a>
+        <p class="meta">Lora → Noto Serif SC · Be Vietnam Pro → Noto Sans SC</p>
+      </article>
+      <article class="spec" lang="ru">
+        <span class="lbl">Номера</span>
+        <h2>Утончённое пребывание в спокойном духе Далата.</h2>
+        <h3>City Studio</h3>
+        <p>Тихие номера, удобный рабочий стол и быстрый Wi-Fi, рынок в нескольких минутах пешком.</p>
+        <p class="amt">2 363 000 VND</p>
+        <a class="btn btn-primary" href="#">Отправить запрос</a>
+        <p class="meta">Lora (có Kirin – giữ) · Be Vietnam Pro → Onest</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============ 3. PRICE ESTIMATE ============ -->
+  <section class="part" aria-labelledby="p3">
+    <h2 class="part-h" id="p3">3. Giá ước tính trong form “Plan your stay”</h2>
+    <p class="note">Ô giá nằm <b>ngay dưới “Room type”</b>, cuối nhóm “Your stay” – nơi khách vừa chọn xong. Một vùng <code>role="status"</code> riêng (ẩn) đọc kết quả cuối cho trình đọc màn hình; “đang tính” không đọc. Bấm các nút để xem từng trạng thái trong form thật; nhật ký bên phải ghi những gì trình đọc màn hình sẽ nghe.</p>
+
+    <div class="switch" role="group" aria-label="Trạng thái mock" id="sw">
+      <button type="button" data-s="idle" aria-pressed="false">Chưa đủ</button>
+      <button type="button" data-s="any" aria-pressed="false">Hạng nào cũng được</button>
+      <button type="button" data-s="busy" aria-pressed="false">Đang tính</button>
+      <button type="button" data-s="price" aria-pressed="true">Có giá</button>
+      <button type="button" data-s="longnights" aria-pressed="false">≥ 28 đêm</button>
+      <button type="button" data-s="month" aria-pressed="false">Theo tháng</button>
+      <button type="button" data-s="norate" aria-pressed="false">Không có giá ngày đó</button>
+      <button type="button" data-s="error" aria-pressed="false">Lỗi mạng</button>
+    </div>
+
+    <div class="form-wrap">
+      <div class="bk-card" lang="en">
+        <form class="form" onsubmit="return false">
+          <div class="form-sec">
+            <p class="f-title">Your stay</p>
+            <div class="seg" role="radiogroup" aria-label="Length of stay">
+              <label><input type="radio" name="st" value="short" checked><span class="opt-box">By the night</span></label>
+              <label><input type="radio" name="st" value="long"><span class="opt-box">By the month</span></label>
+            </div>
+            <div class="row2">
+              <div class="field"><label for="m-in">Check-in</label><input class="input" id="m-in" value="Fri, Nov 13" readonly></div>
+              <div class="field"><label for="m-out">Check-out</label><input class="input" id="m-out" value="Mon, Nov 16" readonly></div>
+            </div>
+            <p class="hint">3 nights</p>
+            <div class="row3">
+              <div class="field"><label for="m-a">Adults</label><input class="input" id="m-a" value="2" readonly></div>
+              <div class="field"><label for="m-c">Ages 6–11</label><input class="input" id="m-c" value="0" readonly></div>
+              <div class="field"><label for="m-u">Under 6</label><input class="input" id="m-u" value="0" readonly></div>
+            </div>
+            <div class="field">
+              <label for="m-room">Room type</label>
+              <input class="input" id="m-room" value="City Studio" readonly>
+              <p class="hint">Sleeps 2–3. The higher number uses the sofa.</p>
+            </div>
+            <!-- ESTIMATE: visual block (not live) + separate polite status for screen readers -->
+            <div class="est" id="est" aria-labelledby="est-lbl"></div>
+            <p class="sr" role="status" id="est-live"></p>
+          </div>
+          <div class="form-sec">
+            <p class="f-title">How we reach you</p>
+            <div class="field"><label for="m-name">Your name</label><input class="input" id="m-name"></div>
+          </div>
+        </form>
+      </div>
+      <div>
+        <p class="tag" style="margin-top:0">Trình đọc màn hình nghe (role=status, polite, sau 700 ms)</p>
+        <div class="live-log" id="log" aria-hidden="true"></div>
+        <p class="tag">Không làm (để form không giống trang bán rẻ)</p>
+        <ul class="dont">
+          <li>Không gạch giá, không “Save 10%”, không nhãn % màu, không đỏ/xanh lá.</li>
+          <li>Không “Only 1 left”, không đồng hồ đếm ngược, không “Best price”, không so với OTA.</li>
+          <li>Không đếm số chạy lên, không nhấp nháy khi đổi số; chuyển mờ 150 ms, tắt khi giảm chuyển động.</li>
+          <li>Không in đậm số tiền; Lora 400, cùng tông Ink, cỡ 28 px – bằng tiêu đề nhỏ, nhỏ hơn H2.</li>
+          <li>Giảm giá theo thời gian ở nói bằng chữ trong dòng phụ, không thành huy hiệu.</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="tag">Tất cả trạng thái cạnh nhau</p>
+    <div class="states" id="states"></div>
+  </section>
+</div>
+
+<script>
+// Mock only. Production: FE-B writes this in src/scripts (CSP: no inline script). Strings = CPY placeholders.
+const S = {
+  idle: {busy:false, html:`<p class="est-idle"><span class="ph">Choose your dates and a room type to see an estimated price.</span></p>`, live:''},
+  any: {busy:false, html:`<p class="est-idle"><span class="ph">Choose a room type to see an estimated price. Or leave it to us – we will suggest one in our quote.</span></p>`, live:''},
+  busy: {busy:true, html:`<p class="est-lbl" id="est-lbl"><span class="ph">Estimated total</span></p><span class="est-skel" aria-hidden="true"></span><p class="est-line"><span class="ph">Calculating…</span></p>`, live:null},
+  price: {busy:false, html:`<p class="est-lbl" id="est-lbl"><span class="ph">Estimated total</span></p>
+    <p class="est-amt">VND 2,363,000</p>
+    <p class="est-line"><b>3 nights</b> · City Studio · <span class="ph">about VND 788,000 a night</span></p>
+    <details><summary><span class="ph">Nightly rates</span></summary>
+      <ul class="nights"><li><span>Fri, Nov 13</span><span>VND 750,000</span></li><li><span>Sat, Nov 14</span><span>VND 863,000</span></li><li><span>Sun, Nov 15</span><span>VND 750,000</span></li></ul></details>
+    <p class="est-note"><span class="ph">Our listed rate, VAT included. This is an estimate – your final price is in our quote. No payment on this website.</span></p>`,
+    live:'Estimated total VND 2,363,000 for 3 nights, City Studio. Final price in our quote.'},
+  longnights: {busy:false, html:`<p class="est-lbl" id="est-lbl"><span class="ph">Monthly rate, from</span></p>
+    <p class="est-amt">VND 8,000,000<span class="per"><span class="ph">/ month</span></span></p>
+    <p class="est-line"><b>30 nights</b> · City Studio · <span class="ph">For 28 nights or more we quote our long-stay rate.</span></p>
+    <p class="est-note"><span class="ph">Listed monthly rate, VAT included. Utilities, deposit and your final price are in our quote.</span></p>`,
+    live:'Monthly rate from VND 8,000,000, City Studio. For 28 nights or more we quote our long-stay rate.'},
+  month: {busy:false, html:`<p class="est-lbl" id="est-lbl"><span class="ph">Monthly rate, from</span></p>
+    <p class="est-amt">VND 8,000,000<span class="per"><span class="ph">/ month</span></span></p>
+    <p class="est-line"><b><span class="ph">3 months</span></b> · City Studio · <span class="ph">from Nov 13</span></p>
+    <p class="est-note"><span class="ph">Listed monthly rate, VAT included. Utilities, deposit and your final price are in our quote.</span></p>`,
+    live:'Monthly rate from VND 8,000,000, City Studio, 3 months.'},
+  norate: {busy:false, html:`<p class="est-lbl" id="est-lbl"><span class="ph">Estimated total</span></p>
+    <p class="est-msg"><span class="ph">We do not have a listed rate for these dates yet.</span></p>
+    <p class="est-line"><span class="ph">Send your request and we will quote you.</span></p>`,
+    live:'No listed rate for these dates yet. Send your request and we will quote you.'},
+  error: {busy:false, html:`<p class="est-lbl" id="est-lbl"><span class="ph">Estimated total</span></p>
+    <p class="est-msg"><span class="ph">The estimate is not available right now.</span></p>
+    <p class="est-line"><span class="ph">You can still send your request.</span></p>
+    <button type="button" class="linkbtn"><span class="ph">Try again</span></button>`,
+    live:'The estimate is not available right now. You can still send your request.'},
+};
+const est = document.getElementById('est'), live = document.getElementById('est-live'), log = document.getElementById('log');
+let t, last = '';
+function show(k){
+  const s = S[k];
+  est.classList.toggle('is-busy', s.busy);
+  est.setAttribute('aria-busy', s.busy ? 'true' : 'false');
+  est.innerHTML = s.html;
+  clearTimeout(t);
+  if (s.live === null) return;                 // "calculating" is never announced
+  const msg = s.live || (last ? 'Estimate cleared.' : '');
+  t = setTimeout(() => { if (msg && msg !== last) { live.textContent = msg; log.textContent = msg; } last = s.live || ''; }, 700);
+  document.querySelectorAll('#sw button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.s === k)));
+}
+document.getElementById('sw').addEventListener('click', e => { const b = e.target.closest('button'); if (b) show(b.dataset.s); });
+show('price');
+// gallery of all states
+const names = {idle:'Chưa chọn đủ ngày + hạng', any:'Chọn “Any room”', busy:'Đang tính (> 300 ms mới hiện)', price:'Có giá – theo đêm', longnights:'Theo đêm nhưng ≥ 28 đêm', month:'Theo tháng', norate:'Không có giá cho ngày đó', error:'Lỗi mạng / 429 / 5xx'};
+const box = document.getElementById('states');
+for (const k of Object.keys(S)) {
+  const d = document.createElement('div'); d.className = 'state'; d.lang = 'en';
+  d.innerHTML = `<p class="tag" lang="vi">${names[k]}</p><div class="est${S[k].busy?' is-busy':''}">${S[k].html.replace(/ id="est-lbl"/g,'')}</div>`;
+  box.appendChild(d);
+}
+// one picker open at a time (production: src/scripts/main.ts; also closes the menu, Esc and outside click)
+document.querySelectorAll('[data-lp]').forEach(d => d.addEventListener('toggle', () => {
+  if (d.open) document.querySelectorAll('[data-lp]').forEach(o => { if (o !== d) o.open = false; });
+}));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('[data-lp][open]').forEach(d => { d.open = false; d.querySelector('summary').focus(); }); });
+</script>
+</body>
+</html>
