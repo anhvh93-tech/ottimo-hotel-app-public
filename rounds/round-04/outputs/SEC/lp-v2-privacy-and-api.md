@@ -4,6 +4,58 @@
 - Căn cứ: `rounds/round-04/plan-lp-v2.md` (G1–G5); FB-INV-008, FB-INV-009; ESC-041 (C, chạy từ v1.0.1), ESC-042 (B); `rounds/round-03/outputs/SEC/esc041-gchat-full-details.md` mục 1.2 và L2; `product/apps/landing-web/src/content/privacy.ts` (version `2026-10-24` đang chạy); `product/infra/server/bin/publish-privacy-notice.sh` + `.sql`; migration `0086_public_site_us155.sql`; `Caddyfile.landing`; DOM `rounds/round-04/outputs/DOM/web-price-estimate-rules.md` và DOM ESC-043 (đọc lúc 01/11, bản đang soạn song song).
 - Không sửa mã, không commit. Không có dữ liệu khách thật, URL webhook, khóa hay mật khẩu trong tệp này. Mọi câu về luật là **câu hỏi cho luật sư**, không phải kết luận pháp lý. Thiết kế ARC `rounds/round-04/outputs/ARC/lp-v2-design.md` chưa có lúc viết; mục 9 là yêu cầu độc lập để ARC đối chiếu.
 
+> **Lượt 2 (01/11, Phản hồi & sửa) thay các chỗ mâu thuẫn bên dưới.** INV quyết ESC-044 = cho phép dịch **không giới hạn**, và ESC-043 = **không hiện giá tháng** trên web. Chỗ nào ở mục 0, 3 (Δ5), 4–6 (câu Δ5), 8 (thư luật sư), 9 (giá tháng) nói khác thì đọc theo mục **L2** ngay dưới.
+
+## L2. Lượt 2 – theo quyết định INV ngày 01/11
+
+### L2.1 Quyết định đầu vào
+- **ESC-044:** INV chọn "Cho phép, ko giới hạn". Lễ tân được dùng công cụ dịch bên ngoài (Google Dịch…) cho nội dung khách gửi. Không bắt buộc bỏ tên/liên hệ. INV chịu trách nhiệm. Câu Δ5 nay là **bắt buộc** trong `V3` (không còn "chỉ khi A") và phải nói đúng: nội dung đem dịch có thể gồm tên, liên hệ và lời nhắn.
+- **ESC-043:** web **không hiện giá tháng**. Bỏ dòng "khách hộ chiếu nước ngoài". Bỏ câu hỏi luật sư về giá theo giấy tờ.
+
+### L2.2 Câu Δ5 mới – thay câu Δ5 ở mục 3 và ở mục 4, 5, 6
+Vị trí giữ nguyên: đoạn cuối mục "Who else receives it" (sau đoạn Google Chat), ở cả 5 ngôn ngữ của `V3`.
+
+| Ngôn ngữ | Câu |
+|---|---|
+| EN | `If you write in a language our team does not read, we may use a translation service, such as Google Translate, to understand your request. The text we translate may include your name, contact and message. The service's servers may be outside Viet Nam.` |
+| VI | `Nếu bạn viết bằng ngôn ngữ nhân viên OTTIMO không đọc được, OTTIMO có thể dùng một dịch vụ dịch, như Google Dịch, để hiểu yêu cầu của bạn. Nội dung được dịch có thể gồm tên, liên hệ và lời nhắn của bạn. Máy chủ của dịch vụ này có thể đặt ngoài Việt Nam.` |
+| ko | `저희 직원이 읽지 못하는 언어로 작성하신 경우, 요청 내용을 이해하기 위해 Google 번역 같은 번역 서비스를 이용할 수 있습니다. 번역하는 내용에는 고객님의 성함, 연락처, 메시지가 포함될 수 있습니다. 이 서비스의 서버는 베트남 밖에 있을 수 있습니다.` |
+| zh | `如果您使用我们的员工无法阅读的语言填写，我们可能会使用 Google 翻译等翻译服务来理解您的申请。翻译的内容可能包括您的姓名、联系方式和留言。该服务的服务器可能位于越南境外。` |
+| ru | `Если вы пишете на языке, которого не знают наши сотрудники, мы можем воспользоваться сервисом перевода, например, Google Переводчиком, чтобы понять ваш запрос. Переводимый текст может включать ваше имя, контакт и сообщение. Серверы этого сервиса могут находиться за пределами Вьетнама.` |
+
+Trong khối `ts` ở mục 4–6, comment `// Δ5 – chỉ khi ESC-044 = A` đổi thành `// Δ5 – ESC-044 (INV 01/11)`, câu thay bằng câu ở bảng trên. Các câu khác của thông báo **không đổi**. Câu "Only our reception, our managers and the sales staff… can see them" vẫn đúng: câu này nói về máy chủ OTTIMO; bên ngoài nhận dữ liệu được liệt kê ở "Who else receives it".
+
+Không chọn cách viết "we never translate your name…": INV không giới hạn, nên câu đó sẽ hứa quá việc làm thật.
+
+### L2.3 API giá ước tính – sửa theo ESC-043 (thay chỗ tương ứng ở mục 9)
+- 9.2 cột "Được trả": **bỏ** "phí dịch vụ tháng", "mức 'từ' giá tháng (và dòng hộ chiếu nước ngoài…)". Cột "Không bao giờ trả": **thêm** "mọi giá tháng (tiền thuê, phí dịch vụ, giảm kỳ hạn, phụ thu +10 % BR-109)".
+- **SR-PE-19 (Must, mới):** phản hồi công khai không có số nào cho thuê theo tháng. Yêu cầu `stayKind = long`/có `months` → trả một trạng thái không có số (ARC đặt tên, ví dụ `quote_only`), hoặc 400 nếu ARC chọn không nhận tham số tháng. Không tính giá tháng phía server cho route này. Snapshot của POST yêu cầu dài hạn không lưu giá tháng (nếu DOM vẫn muốn lưu cho lễ tân thì tính trong Desk, không qua route công khai).
+- SR-PE-02: bỏ vế "(ESC-043 câu 2 A hiện cả hai dòng, không cần hỏi)". Luật "không bao giờ hỏi quốc tịch/giấy tờ" **giữ**.
+- 9.5 thêm **ca 12:** gọi với `months=6` → không có trường tiền nào trong JSON.
+
+### L2.4 Thư luật sư – bản thay mục 8 (bỏ câu 5 cũ, sửa câu 4, đánh số lại)
+
+Ghi chú cho INV ở đầu mục 8: bỏ câu "DOM có câu hỏi về giá theo giấy tờ… đã gộp ở câu 5". Phần thân thư giữ đoạn mở, câu 1–3 như mục 8; **câu 4 thay bằng**:
+
+4. **Công cụ dịch.** Khi khách viết bằng ngôn ngữ nhân viên không đọc được, nhân viên dùng dịch vụ dịch bên ngoài (ví dụ Google Dịch, bản dành cho người dùng phổ thông, không có hợp đồng xử lý dữ liệu riêng) để hiểu yêu cầu. Nội dung đem dịch có thể gồm tên, liên hệ và lời nhắn. Nhân viên có thể dịch cả trang bằng tính năng dịch của trình duyệt. Máy chủ của dịch vụ có thể ngoài Việt Nam. Thông báo thêm câu đính kèm (5 ngôn ngữ). (a) Việc này có thuộc diện chuyển dữ liệu cá nhân ra nước ngoài, cần đưa vào hồ sơ (nếu có) cùng Google Workspace không? (b) Câu thông báo đã đủ chưa? (c) Dùng bản dịch vụ không có hợp đồng xử lý dữ liệu có vướng nghĩa vụ của bên kiểm soát dữ liệu không?
+
+**Câu 5 cũ (giá theo giấy tờ) bỏ.** **Câu 6 cũ (luật nước ngoài) thành câu 5**, giữ nguyên chữ. Câu "giá chỉ bằng VND" trong câu đó vẫn đúng. Phần "Đính kèm" giữ nguyên.
+
+### L2.5 Rủi ro còn lại INV chấp nhận (ESC-044, 01/11)
+| # | Rủi ro | Mức | Ghi chú |
+|---|---|---|---|
+| RR-T1 | Tên, liên hệ, lời nhắn của khách được gửi tới dịch vụ dịch bên ngoài, máy chủ có thể ngoài Việt Nam. Bản phổ thông không có hợp đồng xử lý dữ liệu, nên bên cung cấp xử lý theo chính sách của họ (có thể lưu hoặc dùng để cải thiện dịch vụ). OTTIMO không xóa được bản đó khi khách xin xóa (WR8). | Trung bình | **INV chấp nhận 01/11.** Thông báo `V3` nêu việc này (L2.2). Pháp lý: luật sư xem (thư câu 4). |
+| RR-T2 | Tính năng "Dịch trang này" của trình duyệt trên các màn hình **danh sách** của Desk gửi dữ liệu của **nhiều khách cùng lúc**, kể cả khách OTA và khách đang ở, những người không đọc thông báo website. | Trung bình | **INV chấp nhận** trong phạm vi "nội dung khách gửi". SEC khuyến nghị (không bắt buộc, sổ tay): dịch trên màn hình **một yêu cầu**, không dịch trang danh sách. |
+| RR-T3 | Màn hình **giấy tờ tùy thân / thanh toán** của Desk (dữ liệu rất nhạy cảm) bị dịch cả trang. | Cao nếu xảy ra | **SEC hiểu quyết định ESC-044 chỉ áp cho nội dung khách gửi, không gồm giấy tờ và thanh toán.** Sổ tay giữ luật: không dịch các màn hình này. FE-A nên thêm `translate="no"` cho các vùng đó ở v1.1. Việc này không cản dịch lời nhắn. **ORC xác nhận cách hiểu này với INV**; nếu INV muốn bao cả giấy tờ thì SEC mở ESC riêng. |
+| RR-T4 | Thông báo cho khách lưu trú (`privacy-2026-10-v2`, trên Desk/app) chưa nêu việc dịch. Áp dụng nếu nhân viên dịch tin nhắn của khách đang ở qua Zalo. | Thấp | Đưa vào version kế tiếp của thông báo khách lưu trú (v1.1, SEC). |
+
+Mục 0 dòng "ESC mới" và mục 11 phần ESC-044 nay đọc là: **ESC-044 đã quyết 01/11 – cho phép không giới hạn, INV chấp nhận RR-T1, RR-T2.**
+
+### L2.6 Dòng decision-log đề xuất (Lượt 2)
+| 2026-11-01 | 4 | **SEC – LP-v2 Lượt 2 theo ESC-044 và ESC-043 (INV 01/11)**. Thông báo `V3` (5 ngôn ngữ) có câu bắt buộc về dịch vụ dịch: nội dung đem dịch có thể gồm tên, liên hệ, lời nhắn; máy chủ có thể ngoài Việt Nam. Thư luật sư: câu 4 sửa theo thực tế mới, bỏ câu giá theo giấy tờ. INV chấp nhận RR-T1 (bên dịch không có hợp đồng xử lý dữ liệu, không xóa được khi khách xin xóa) và RR-T2 (dịch cả trang danh sách). SEC giữ luật: không dịch cả trang các màn hình giấy tờ/thanh toán (RR-T3, chờ ORC xác nhận với INV). API giá: SR-PE-19, không trả giá tháng. | SEC | ESC-044, ESC-043 do INV quyết; phần còn lại thuộc quyền SEC |
+
+---
+
 ## 0. Kết luận nhanh
 
 | Câu | SEC chốt |
