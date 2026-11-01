@@ -966,3 +966,189 @@ Vì sao gộp vào `final` thay vì thêm câu riêng: hai ý "giá cuối" và 
 - ko: "2인 기준." có tự nhiên ở đầu ghi chú không, có cần đổi câu tiền tệ để bớt lặp "기준" không. "확보되지 않았습니다" có đủ rõ là "chưa giữ cho bạn" không.
 - zh: "适用于 2 位客人。" và "是否有房" có tự nhiên không.
 - ru: "Для 2 гостей." / "Для 21 гостя."; "Это ещё не бронирование." có làm khách hiểu đúng "con số này chưa giữ phòng" không; "наличие" không kèm "номеров" có đủ rõ không.
+
+---
+
+## 15. Lượt 5 – B4/B6/B7 (Kiểm thử – sửa lỗi, 01/11/2026)
+
+- Người viết: CPY | Round 4 – bước Kiểm thử, lượt sửa sau QA lượt 2 | Ngày: 01/11/2026
+- Nguồn: `rounds/round-04/outputs/PO/lp-v2-stories.md` mục 9.1 (B4, B6, B7) và US-175 AC4, AC6; `rounds/round-04/qa/bug-list.md` (BUG-R4-008, 009, 010); BR-912 (4) (câu hứa công khai), BR-913 (4), (6), (7); chữ Desk hiện có trên `lp-v2` @ `20afedff` (`webreq.locale.*`, `webreq.reply.*`, `sale.text_lang`).
+- CPY không sửa mã, không commit. Chữ Desk (B4) do UXD duyệt khung; nguồn chuỗi là `product/design/tools/gen_strings.py` (UXD) → `product/design/copy/strings-*.json`.
+
+### 15.1 B4 – BUG-R4-008: câu Desk "khách viết bằng… – gửi tin bằng…"
+
+Desk chỉ có VI và EN (`strings-ru.json` không có khóa `webreq.*`), nên câu này chỉ cần hai bản. Mỗi ngôn ngữ gốc một khóa riêng, câu viết đủ, không ghép nhãn: nhãn `webreq.locale.ko` = "Tiếng Hàn" viết hoa chữ T, ghép vào giữa câu sẽ sai chính tả tiếng Việt.
+
+| Khóa (mới) | VI (Desk) | EN (Desk) | Hiện khi |
+|---|---|---|---|
+| `sale.text_lang_note.ko` | Khách viết bằng tiếng Hàn – gửi tin bằng tiếng Anh. | Guest wrote in Korean – send messages in English. | yêu cầu liên kết có `locale = ko` |
+| `sale.text_lang_note.zh` | Khách viết bằng tiếng Trung – gửi tin bằng tiếng Anh. | Guest wrote in Chinese – send messages in English. | `locale = zh` |
+| `sale.text_lang_note.ru` | Khách viết bằng tiếng Nga – gửi tin bằng tiếng Nga. | Guest wrote in Russian – send messages in Russian. | `locale = ru` (đề xuất, xem dưới) |
+
+Không hiện với `en`/`vi` (ngôn ngữ gốc trùng ngôn ngữ gửi, câu thừa).
+
+**Vì sao "gửi tin bằng tiếng Anh" thay cho "tin gửi bằng tiếng Anh" (chữ trong AC4).** Câu AC4 tả trạng thái của ô chọn. Nếu nhân viên đổi ô sang tiếng Việt, câu "tin gửi bằng tiếng Anh" thành sai ngay trên màn hình. "Gửi tin bằng tiếng Anh" là lời dặn, vẫn đúng khi ô đổi, và cũng dùng được ở hộp giữ chỗ (hộp này không có ô ngôn ngữ, xem dưới). Ý AC4 giữ nguyên. Nếu PO/QA muốn đúng từng chữ AC thì dùng bản AC: VI "Khách viết bằng tiếng Hàn – tin gửi bằng tiếng Anh." / EN "Guest wrote in Korean – messages go out in English." – chỉ áp được cho hộp báo giá.
+
+**"Tiếng Trung" không kèm "(giản thể)".** Cột và ngăn chi tiết đã ghi đủ "Tiếng Trung (giản thể)". Trong câu dặn, chữ "giản thể" không giúp gì cho việc gửi tin, chỉ làm câu dài.
+
+**ru.** AC4 ý 2 chỉ đòi câu cho ko/zh. CPY đề xuất hiện cả với ru vì hai lý do: khách Nga nhận báo giá tiếng Nga nhưng câu gợi ý trả lời trong ngăn yêu cầu (`webreq.reply.*`) ra tiếng Anh (`guestLang` chỉ có vi/en), nhân viên dễ lẫn; và một câu cho cả ba ngôn ngữ mới thì dễ dạy hơn. FE-A/PO bỏ dòng ru nếu muốn giữ đúng phạm vi AC – không ảnh hưởng ko/zh.
+
+**Vị trí (UXD chốt, FE-A/FE-B làm).**
+- Hộp báo giá, bước "Gửi khách": dòng `help` ngay dưới ô "Ngôn ngữ gửi khách" (`Seg` `labelledBy="q-lang"`), trên khối văn bản báo giá. Cùng kiểu chữ `help` của `sale.hold_until`.
+- Hộp giữ chỗ (bước `hold`): hộp này **không** có ô ngôn ngữ. Đặt câu ngay dưới thẻ cọc (thẻ `sale.deposit_due_short`), ở cả trạng thái chưa tạo và đã tạo giữ chỗ – vì tin tiếp theo nhân viên gửi khách là tin cọc + VietQR.
+- Nếu Desk có đường "Giữ chỗ" thẳng từ yêu cầu không qua `QuoteDialog` (US-155 AC2), câu cũng hiện ở hộp đó. CPY không thấy đường này trong `QuoteDialog.tsx` @ `20afedff`; FE-A xác nhận.
+- Điều kiện hiện dựa vào ngôn ngữ **gốc** của yêu cầu (`prefill.webRequest` cần mang thêm `locale` gốc; hiện `WebRequestDrawer.tsx` dòng 510 đã đổi ko/zh → `en` trước khi chuyển vào hộp nên hộp không còn biết ngôn ngữ gốc). Đây là việc mã của FE-A, ghi để khỏi sót.
+
+Độ dài: bản EN dài nhất 50 ký tự, VI 52 ký tự – một dòng ở hộp báo giá trên điện thoại sale (~360 px, chữ `help` 13–14 px, khoảng 45–50 ký tự mỗi dòng) có thể xuống 2 dòng. Không cần rút gọn; nếu UXD muốn một dòng: VI "Khách viết tiếng Hàn – gửi tin tiếng Anh." (42), EN "Wrote in Korean – reply in English." (35).
+
+### 15.2 B6 – BUG-R4-009: câu báo giá gửi khách sai số ít/nhiều
+
+**Nơi sinh câu (đã lần theo mã, nhánh hiện tại và `20afedff` giống nhau).**
+
+| Lớp | File | Chỗ cần đổi |
+|---|---|---|
+| Nguồn chữ (UXD) | `product/design/tools/gen_strings.py` dòng ~1164–1165 | Hàng `sale.quote_text`, `sale.quote_text_extra_guest`; thêm hàng khóa mới mục dưới |
+| Chuỗi sinh ra | `product/design/copy/strings-{vi,en,ru}.json` (en/vi dòng 1059–1060, ru dòng 74–75) | Sinh lại từ `gen_strings.py`, không sửa tay |
+| Danh sách khóa server đọc | `product/services/api/scripts/gen-quote-copy.mjs` – mảng `KEYS` | Thêm khóa mới; bỏ `occ.adults_short`, `occ.children_short`, `occ.under6_short` khỏi danh sách |
+| Bản chép cho server | `product/services/api/src/generated/quote-copy.ts` | Sinh lại: `node scripts/gen-quote-copy.mjs` (test `--check` sẽ đỏ nếu quên) |
+| Nơi ghép câu | `product/services/api/src/modules/sales/internal/quotes.service.ts`, hàm `text()` (operation `getQuoteText`), dòng ~311–335 | `nights: String(calc.nights)` và `guests` ghép từ `occ.*_short`; dòng phụ thu `{n} guest(s)` |
+| Desk | `product/apps/admin-web/src/pages/quotes/QuoteDialog.tsx` | **Không đổi** – chỉ hiện chuỗi server trả |
+| Bảng chữ (tài liệu) | `product/design/content-guide.md` dòng ~1431–1444, `product/design/tools/strings-tables.md` dòng ~1226–1239 | Sinh lại cùng `gen_strings.py` |
+
+Gốc lỗi có hai phần: (1) `{nights} nights` gõ cứng số nhiều; (2) `guests` ghép số với **nhãn ô** `occ.adults_short` = "Adults" (nhãn cột, viết hoa), ra "2 Adults". Bản Nga cùng gốc: "2 Взрослые" sai cách (đúng: "2 взрослых"); bản Việt ra "2 Người lớn", "1 Dưới 6". **Không sửa `occ.*_short`** – các khóa này là nhãn ô trong `OccupancyField.tsx` và `ReservationDrawer.tsx`, phải giữ chữ hoa đầu. Server dùng khóa riêng cho câu gửi khách.
+
+**Cách chọn dạng số ít/nhiều (đề xuất cho BE).** Dùng `Intl.PluralRules(locale).select(n)` sẵn trong Node, không thêm thư viện. Mỗi khóa có 4 dạng `_one`, `_few`, `_many`, `_other`, cấp đủ cho cả 3 ngôn ngữ để `gen-quote-copy.mjs` không phải rơi về `en` (nó rơi về `en` khi thiếu khóa – với vi/ru như vậy là sai). Kết quả `select()`: en → `one`/`other`; ru → `one`/`few`/`many` (`other` chỉ cho số lẻ thập phân, không xảy ra); vi → luôn `other`.
+
+```ts
+// quotes.service.ts – text(); copy = QUOTE_COPY[locale]
+const pr = new Intl.PluralRules(locale);
+const count = (key: string, n: number) => fill(copy[`${key}_${pr.select(n)}`], { n: String(n) });
+const guests = [count('sale.quote_adults', row.adults)];
+if (bands.children6to11) guests.push(count('sale.quote_kids', bands.children6to11));
+if (bands.childrenUnder6) guests.push(count('sale.quote_under6', bands.childrenUnder6));
+// …fill(copy['sale.quote_text'], { …, nights_text: count('sale.quote_nights', calc.nights), guests: guests.join(', ') })
+// extra-guest line: fill(copy[`sale.quote_text_extra_guest_${pr.select(extraGuests)}`], { n, amount })
+```
+
+Chỗ giữ chỗ đổi tên `{nights}` → `{nights_text}` có chủ ý: `fill()` để nguyên chỗ giữ chỗ lạ, nên nếu chuỗi cũ còn sót, câu sẽ hiện "{nights_text}" thấy ngay khi test, thay vì lặng lẽ ra "1 nights".
+
+**Câu khung `sale.quote_text` (chỉ đổi dòng 2; dòng 1, 3–5 giữ nguyên chữ đã duyệt).**
+
+| | Dòng 2 cũ | Dòng 2 mới |
+|---|---|---|
+| en | `Room {room} {room_name}, {from} → {to} ({nights} nights), {guests}.` | `Room {room} {room_name}, {from} → {to} ({nights_text}), {guests}.` |
+| ru | `Апартаменты {room} {room_name}, {from} → {to} (ночей: {nights}), {guests}.` | `Апартаменты {room} {room_name}, {from} → {to} ({nights_text}), {guests}.` |
+| vi | `Căn {room} {room_name}, {from} → {to} ({nights} đêm), {guests}.` | `Căn {room} {room_name}, {from} → {to} ({nights_text}), {guests}.` |
+
+Bản Nga "(ночей: 1)" vốn không sai ngữ pháp (cách viết né số nhiều kiểu biểu mẫu) nhưng đọc như phiếu máy in. Có `PluralRules` rồi thì viết tự nhiên "(1 ночь)", cùng kiểu EN.
+
+**Khóa mới (mỗi khóa 4 dạng; `{n}` là số nguyên, cách số – chữ bằng dấu cách thường vì văn bản dán vào Zalo/email).**
+
+| Khóa | Dạng | en | ru | vi |
+|---|---|---|---|---|
+| `sale.quote_nights_*` | one | `{n} night` | `{n} ночь` | `{n} đêm` |
+| | few | `{n} nights` | `{n} ночи` | `{n} đêm` |
+| | many | `{n} nights` | `{n} ночей` | `{n} đêm` |
+| | other | `{n} nights` | `{n} ночи` | `{n} đêm` |
+| `sale.quote_adults_*` | one | `{n} adult` | `{n} взрослый` | `{n} người lớn` |
+| | few | `{n} adults` | `{n} взрослых` | `{n} người lớn` |
+| | many | `{n} adults` | `{n} взрослых` | `{n} người lớn` |
+| | other | `{n} adults` | `{n} взрослых` | `{n} người lớn` |
+| `sale.quote_kids_*` (trẻ 6–11) | one | `{n} child aged 6–11` | `{n} ребёнок 6–11 лет` | `{n} trẻ 6–11 tuổi` |
+| | few | `{n} children aged 6–11` | `{n} ребёнка 6–11 лет` | `{n} trẻ 6–11 tuổi` |
+| | many | `{n} children aged 6–11` | `{n} детей 6–11 лет` | `{n} trẻ 6–11 tuổi` |
+| | other | `{n} children aged 6–11` | `{n} ребёнка 6–11 лет` | `{n} trẻ 6–11 tuổi` |
+| `sale.quote_under6_*` | one | `{n} child under 6` | `{n} ребёнок до 6 лет` | `{n} trẻ dưới 6 tuổi` |
+| | few | `{n} children under 6` | `{n} ребёнка до 6 лет` | `{n} trẻ dưới 6 tuổi` |
+| | many | `{n} children under 6` | `{n} детей до 6 лет` | `{n} trẻ dưới 6 tuổi` |
+| | other | `{n} children under 6` | `{n} ребёнка до 6 лет` | `{n} trẻ dưới 6 tuổi` |
+| `sale.quote_text_extra_guest_*` (thay `sale.quote_text_extra_guest`) | one | `Includes the extra-guest charge for {n} guest on the sofa: {amount}.` | `Включена доплата за {n} гостя на диване: {amount}.` | `Gồm phụ thu {n} người ngủ sofa: {amount}.` |
+| | few | `Includes the extra-guest charge for {n} guests on the sofa: {amount}.` | `Включена доплата за {n} гостей на диване: {amount}.` | `Gồm phụ thu {n} người ngủ sofa: {amount}.` |
+| | many | như few | như few | như few |
+| | other | như few | như few | như few |
+
+Ghi chú: RU `other` lấy dạng `few` (dạng sinh cách số ít dùng cho số thập phân); không bao giờ được chọn với số nguyên, chỉ để khóa không thiếu. RU sau "за" (cách 4, danh từ chỉ người): 1/21 → "гостя", 2–4 và 5+ → "гостей" – nên `few` = `many`. Bản Việt giữ "phụ thu", "sofa" như chữ đã duyệt (chi tiết phụ thu thuộc phần báo giá sale, không phải thân landing).
+
+**Câu ra sau khi sửa (để QA đối chiếu).**
+
+| Ca | en | ru | vi |
+|---|---|---|---|
+| BG-00001: 1 đêm, 2 người lớn | Room 102 The Fern, 10/11/2026 → 11/11/2026 (1 night), 2 adults. | … (1 ночь), 2 взрослых. | … (1 đêm), 2 người lớn. |
+| 7 đêm, 1 người lớn | (7 nights), 1 adult. | (7 ночей), 1 взрослый. | (7 đêm), 1 người lớn. |
+| 3 đêm, 2 người lớn + 1 trẻ 6–11 + 1 trẻ dưới 6 | (3 nights), 2 adults, 1 child aged 6–11, 1 child under 6. | (3 ночи), 2 взрослых, 1 ребёнок 6–11 лет, 1 ребёнок до 6 лет. | (3 đêm), 2 người lớn, 1 trẻ 6–11 tuổi, 1 trẻ dưới 6 tuổi. |
+| 21 đêm, 2 người lớn + 2 trẻ 6–11 | (21 nights), 2 adults, 2 children aged 6–11. | (21 ночь), 2 взрослых, 2 ребёнка 6–11 лет. | (21 đêm), 2 người lớn, 2 trẻ 6–11 tuổi. |
+| Phụ thu 1 người | Includes the extra-guest charge for 1 guest on the sofa: 250,000 VND. | Включена доплата за 1 гостя на диване: 250,000 VND. | Gồm phụ thu 1 người ngủ sofa: 250.000 đ. |
+
+(Số tiền phụ thu trong bảng chỉ minh họa định dạng, không phải giá.)
+
+**Test đề xuất (BE).**
+- `test/integration/sales.test.ts` (khối `getQuoteText`, dòng ~360–380): thêm `expect(en.text).toContain('(7 nights), 2 adults')` cho `salQuote`; ru chứa `(7 ночей)`; vi chứa `(7 đêm), 2 người lớn`; cả ba **không** chứa `Adults`, `Взрослые`, `Người lớn` (viết hoa).
+- Test đơn vị cho hàm `count`: en 1/2; ru 1, 2, 4, 5, 11, 12, 14, 21, 22, 25, 111 (→ ночь, ночи, ночи, ночей, ночей, ночей, ночей, ночь, ночи, ночей, ночей); vi 1, 2.
+- Ca 1 đêm 1 người lớn có phụ thu 1 khách (nếu dữ liệu thử cho phép) để kiểm dòng `_one`.
+- `gen-quote-copy.mjs --check` xanh, `QUOTE_COPY_MISSING` rỗng.
+
+**Cùng loại lỗi, ngoài B6 (ghi để ORC/PO xếp, CPY chưa viết chữ).** Các chuỗi hướng khách khác cũng gõ cứng số nhiều, sẽ ra "1 nights" / "guest(s)" với đơn 1 đêm:
+- `msg.booking_confirmed` (en `({nights} nights)`, ru `апартаменты…`) – **tin xác nhận đặt phòng gửi khách**, nặng nhất trong nhóm.
+- `guest.stay.dates` (en `{nights} nights`, ru `ночей: {nights}`), `guest.bill.line.room` (`Room {nights} nights × {rate}`) – web khách `g.ottimo.vn`.
+- `bill.ota_prepaid` (`Room charge, {n} nights – …`) – bill in.
+- `gw.oci_done_card_deferred` (`{k} guest(s)`) – web khách.
+Đề xuất: cùng đợt v1.0.1 với B6, dùng chung hàm `count` (server) và một hàm tương đương ở `guest-web`. CPY viết chữ khi được giao. Chuỗi nội bộ Desk (`booking.field.nights`, `extend.submit`…) không hướng khách, để sau.
+
+### 15.3 B7 – BUG-R4-010: 3 câu mẫu tiếng Anh trả lời khách ko/zh/ru
+
+Dùng cho khách viết từ `/ko/`, `/zh/`, `/ru/` (và dùng được cho khách tiếng Anh). Nhân viên dán vào Zalo OA, WhatsApp, Telegram, Viber hoặc email – kênh khách đã chọn, tài khoản của cơ sở (BR-913 (4)). Câu cùng giọng với `webreq.reply.*` đang có trên Desk ("Thank you for request {code}…"). `{code}` là mã yêu cầu (chữ JetBrains Mono trên Desk; trong tin nhắn chỉ là chữ thường). Phần tiếng Việt là **nghĩa cho nhân viên**, không gửi khách.
+
+BA đưa vào sổ tay (mục 2.18, `guides/02-le-tan.md`, `guides/05-sale-ctv.md`) đúng chữ dưới đây.
+
+**Câu 1 – Đã nhận yêu cầu, hẹn gửi báo giá (BR-912 (4)).** Chỉ dùng khi chưa báo giá được ngay. Theo BR-912 (1), phản hồi đầu nên có luôn còn/hết phòng và giá trong 15 phút; câu này là lời hứa công khai, lỏng hơn, khớp chữ trên landing ("Within 1 hour… before 09:00 the next morning").
+
+- Trong giờ trực (07:00–22:00):
+  > Thank you for your request {code}. We have received it and will send your quote within 1 hour.
+- Ngoài giờ trực (người trực đêm trả lời):
+  > Thank you for your request {code}. We have received it and will send your quote before 09:00 tomorrow morning.
+- Thêm cho khách ko/zh (tùy chọn, cùng tin):
+  > We will write to you in English. You are welcome to reply in your own language.
+
+Nghĩa: "Cảm ơn bạn đã gửi yêu cầu {code}. Chúng tôi đã nhận và sẽ gửi báo giá trong vòng 1 giờ / trước 09:00 sáng mai." Câu thêm: "Chúng tôi sẽ viết bằng tiếng Anh. Bạn cứ trả lời bằng tiếng của bạn." (nhân viên dùng công cụ dịch để đọc – ESC-044). Không dùng câu thêm với khách ru vì báo giá gửi bằng tiếng Nga.
+
+Số "1 hour" và "09:00" lấy từ tham số `web_request_public_promise_minutes` (60) và `web_request_public_promise_next_morning_by` (09:00) – `site.json` `promiseMinutes`, `promiseNextMorningBy`. OWN đổi tham số thì BA sửa sổ tay theo (AC6 ý 5). Yêu cầu đến **đêm nay** (BR-912 (3)) không dùng câu này – gọi khách ngay.
+
+**Câu 2 – Hỏi lại thông tin thiếu / mời viết thêm bằng tiếng Anh khi bản dịch chưa rõ.**
+
+  > Thank you for your message. To prepare your quote, could you confirm {details}? A few words in English help us make sure we understand you correctly.
+
+Cụm điền vào `{details}` (chọn một hoặc nối bằng "and"):
+- `your arrival and departure dates`
+- `the number of adults and children`
+- `the ages of the children`
+- `which room type you prefer`
+
+Biến thể khi chỉ là bản dịch chưa rõ (không thiếu thông tin):
+  > Thank you for your message. We want to be sure we understand you correctly. Could you write it again in a few words of English?
+
+Nghĩa: "Cảm ơn tin nhắn của bạn. Để làm báo giá, bạn xác nhận giúp {…} nhé? Vài chữ tiếng Anh giúp chúng tôi hiểu đúng ý bạn." / "Chúng tôi muốn chắc là hiểu đúng ý bạn. Bạn viết lại giúp vài chữ tiếng Anh được không?"
+
+Câu không hỏi số giấy tờ, số thẻ, ảnh giấy tờ – các thứ đó không bao giờ hỏi qua chat ở bước này (BR-913 (4), US-155 AC5).
+
+**Câu 3 – Gửi báo giá.** Gửi ngay trước khối báo giá chép từ Desk ("Sao chép gửi Zalo"). Với khách ru, khối báo giá là tiếng Nga; câu dẫn vẫn tiếng Anh (hoặc nhân viên dịch câu dẫn bằng công cụ dịch).
+
+  > Here is your quote for request {code}. The room is not yet held. When you are ready, reply to this message and we will hold it for you and send the deposit details.
+
+Nghĩa: "Đây là báo giá cho yêu cầu {code}. Phòng chưa được giữ. Khi bạn sẵn sàng, trả lời tin này – chúng tôi sẽ giữ phòng và gửi thông tin đặt cọc."
+
+Lý do chữ: "The room is not yet held" khớp ý "Chưa giữ phòng" trên form (mục 14) và BR-913 (7) – giữ chỗ chỉ do nhân viên tạo sau khi khách đồng ý. Không ghi số giờ giữ (12/24/48 – BR-302) vì nhân viên chọn lúc tạo giữ chỗ; hạn hiệu lực báo giá đã có trong khối báo giá. Không gửi VietQR trong tin này (BR-913 (4): chưa gửi QR ở tin đầu; QR đi sau khi tạo giữ chỗ, kèm câu chống giả danh BR-978).
+
+**Kiểm giọng (cả ba câu).** Ngắn, lịch sự, điềm tĩnh; không "!", không emoji, không IN HOA; không "cheap", "best", "amazing"; không hứa điều ngoài BR (không hứa còn phòng trước khi kiểm). Câu dài nhất 26 từ (câu 3) – vừa một màn hình chat. Tên thương hiệu không cần nhắc trong câu vì tin đi từ tài khoản OTTIMO; với email, BA thêm chữ ký "OTTIMO Boutique Stay, Da Lat".
+
+**Cho SEC (duyệt cùng AC6 ý 3).** Ba câu không chứa tên, SĐT, email khách – chỉ mã yêu cầu. Khi nhân viên dán lời nhắn của khách vào công cụ dịch, câu mẫu không đổi gì; luật dịch do BA viết, SEC duyệt.
+
+### 15.4 Người bản xứ (thêm vào lượt đọc mục 9)
+
+- ru: các dạng ở 15.2 – "1 ночь / 2 ночи / 5 ночей / 21 ночь", "1 взрослый / 2 взрослых", "1 ребёнок 6–11 лет / 2 ребёнка 6–11 лет / 5 детей 6–11 лет", "доплата за 1 гостя / 2 гостей на диване". Thêm: chữ "Апартаменты {room}" ở dòng 2 báo giá (có từ R3) có làm khách hiểu là căn hộ cho thuê hơn là phòng boutique stay không; EN dùng "Room". Nếu có, đề xuất "Номер {room}" (đổi cả `msg.booking_confirmed`). CPY không đổi trong lượt này vì ngoài B6 và cần người bản xứ.
+
+### 15.5 Tự kiểm lượt 5
+
+- [x] B4: VI + EN, giọng Desk ngắn; biến thể ko, zh, ru; vị trí ở hộp báo giá **và** hộp giữ chỗ; không ghép nhãn viết hoa giữa câu.
+- [x] B6: lần ra file + khóa + hàm (`quotes.service.ts` → `text()`); en "1 night", "2 adults" chữ thường; ru 3 dạng; vi bỏ chữ hoa giữa câu; không đụng nhãn ô `occ.*_short`.
+- [x] B7: 3 câu EN (nhận + hẹn theo BR-912; hỏi thông tin thiếu / mời viết tiếng Anh; gửi báo giá), số hứa khớp tham số và landing; không emoji, không dữ liệu cá nhân.
+- [x] Không sửa mã, không commit.
