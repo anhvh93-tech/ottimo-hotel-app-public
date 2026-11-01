@@ -7,7 +7,8 @@
 #   - POST /v1/public/properties/<slug>/booking-requests → proxied
 #   - GET  /v1/public/properties/<slug>/price-estimate?… → proxied with its query; a client X-Forwarded-For is
 #     replaced by the address Caddy saw (the api trusts only this container – TRUST_PROXY); query of 256 bytes ok,
-#     257 bytes → 404; POST/HEAD, a sub-path, upper-case slug → 404 – none of these reach the api
+#     257 bytes → 404; raw UTF-8 in the query (≤ 256 characters, > 256 bytes) → 404, the same text %-encoded is
+#     proxied; POST/HEAD, a sub-path, upper-case slug → 404 – none of these reach the api
 #   - POST with Content-Length > 16 KB                   → 413, nothing reaches the api
 #   - POST chunked 64 KB (no Content-Length)             → 413, nothing reaches the api
 #   - any other /v1/* (other operation, wrong method, bad slug, /v1/me, /v1/public/…/availability) → 404
@@ -108,8 +109,14 @@ case "$out" in "200 api GET /v1/public/properties/dlt/price-estimate xff="*203.0
 q256="x=$(head -c 254 /dev/zero | tr '\0' 'a')"; q257="x=$(head -c 255 /dev/zero | tr '\0' 'a')"
 out=$(req "$port" GET "/v1/public/properties/dlt/price-estimate?$q256")
 [ "${out%% *}" = 200 ] && ok "price-estimate query of 256 bytes → proxied" || bad "query 256 bytes → ${out:0:80}"
+# Printable ASCII only (SEC FB-R4-SEC-OPS-LPV2-03): 100 × "ệ" raw = 102 characters but 302 bytes → 404; the same
+# text %-encoded (what a browser sends) is plain ASCII and goes through when ≤ 256 bytes.
+qutf="x=$(printf 'ệ%.0s' $(seq 1 100))"; qpct="x=$(printf '%%E1%%BB%%87%.0s' $(seq 1 20))"
+out=$(req "$port" GET "/v1/public/properties/dlt/price-estimate?$qpct")
+[ "${out%% *}" = 200 ] && ok "price-estimate %-encoded UTF-8 query (182 bytes) → proxied" || bad "%-encoded query → ${out:0:80}"
 before=$(price_hits)
-for c in "GET /v1/public/properties/dlt/price-estimate?$q257" "POST /v1/public/properties/dlt/price-estimate" \
+for c in "GET /v1/public/properties/dlt/price-estimate?$q257" "GET /v1/public/properties/dlt/price-estimate?$qutf" \
+  "GET /v1/public/properties/dlt/price-estimate?x=%E1%BB%87&y=ệ" "POST /v1/public/properties/dlt/price-estimate" \
   "HEAD /v1/public/properties/dlt/price-estimate" "GET /v1/public/properties/dlt/price-estimate/x" \
   "GET /v1/public/properties/DLT/price-estimate" "GET /v1/public/properties/dlt/price-estimates" \
   "GET /v1/public/properties/d/price-estimate"; do

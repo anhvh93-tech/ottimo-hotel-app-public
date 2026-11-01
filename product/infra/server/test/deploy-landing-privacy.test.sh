@@ -11,7 +11,9 @@
 # apply lines are not "published" · LP-v2 (5 languages, version from <meta name="ottimo-notice-version">): new version
 # → every language listed · log line with sha_<xx> for 5 languages, same bytes → passes · other bytes (zh) → refused ·
 # older version than the published one → refused, --rollback → warning · LANDING_LOCALES language missing in the image
-# → refused, --rollback → warning · two meta tags → warning (publish refuses it).
+# → refused, --rollback → warning · SEC FB-R4-SEC-OPS-LPV2-02: a page without exactly one version (two meta tags, ko
+# without the meta, a ".01" suffix – SEC LPV2-S1) → refused while the form proxy is on, warning with --rollback or the
+# proxy off · LANDING_LOCALES unset → en,vi like the api: an image without vi is refused.
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -35,7 +37,7 @@ LANDING_WWW_HOST=www.landing.dlp-test.invalid
 LANDING_IMAGE=$repo
 LANDING_BASE_URL=https://landing.dlp-test.invalid
 LANDING_PUBLIC_API=$1
-LANDING_LOCALES=${2:-en,vi}
+LANDING_LOCALES=${2-en,vi}
 ENV
 }
 # macOS has no flock: a stand-in that always gets the lock (the lock itself is not under test).
@@ -58,12 +60,13 @@ img() { # tag en-version vi-version en-extra vi-extra ("-" for en-version = no p
   docker build -q -t "$repo:$1" "$d" >/dev/null
   built+=("$repo:$1")
 }
-img5() { # tag version zh-extra ko-meta-count – LP-v2 build: 5 languages, version only in the meta tag (+ data-notice-version)
+img5() { # tag version zh-extra ko-meta-count (0 = none) – LP-v2 build: 5 languages, version only in the meta tag (+ data-notice-version)
   local d="$home/img/$1" l p m i
   for l in en vi ko zh ru; do
     if [ "$l" = en ]; then p="$d/srv/landing/privacy"; else p="$d/srv/landing/$l/privacy"; fi
     mkdir -p "$p"; m='<meta name="ottimo-notice-version" content="'"$2"'">'
     if [ "$l" = ko ]; then for ((i = 1; i < ${4:-1}; i++)); do m+='<meta name="ottimo-notice-version" content="'"$2"'">'; done; fi
+    if [ "$l" = ko ] && [ "${4:-1}" -eq 0 ]; then m=''; fi
     printf '<html lang="%s"><head>%s</head><body><h1>Notice %s</h1><div data-notice-version="%s">text %s</div>%s</body></html>\n' \
       "$l" "$m" "$l" "$2" "$l" "$([ "$l" = zh ] && echo "$3")" > "$p/index.html"
   done
@@ -85,6 +88,16 @@ img nopages - - "" ""
 img5 v5 2026-11-05 "" 1
 img5 v5-zh-other 2026-11-05 "<footer>新页脚</footer>" 1
 img5 v5-2meta 2026-11-05 "" 2
+img5 v5-ko-nometa 2026-11-20 "" 0
+img5 v5-dot01 2026-11-20.01 "" 1
+img_en_only() { # tag – an en-only build (vi page missing), printed version
+  local d="$home/img/$1"; mkdir -p "$d/srv/landing/privacy"
+  printf '<html><body><h1>Privacy notice</h1><p>Version 2026-11-20</p></body></html>\n' > "$d/srv/landing/privacy/index.html"
+  printf 'FROM %s\nCOPY srv /srv\n' "$base" > "$d/Dockerfile"
+  docker build -q -t "$repo:$1" "$d" >/dev/null
+  built+=("$repo:$1")
+}
+img_en_only v-en-only
 sha_en=$(page_sha v1 privacy/index.html); sha_vi=$(page_sha v1 vi/privacy/index.html)
 other_en=$(page_sha v1-en-other privacy/index.html)
 
@@ -192,8 +205,30 @@ if [ "$rc" -eq 0 ] && grep -q 'WARNING: LANDING_LOCALES has ko zh ru' <<<"$out";
   ok "14b same with --rollback → warning to set LANDING_LOCALES back, passes"; else ko "14b rollback missing (rc=$rc)"; echo "$out"; fi
 
 out=$(dl v5-2meta --no-pull --check-only) && rc=0 || rc=$?; show "$out"
-if [ "$rc" -eq 0 ] && grep -q 'WARNING: privacy ko: no single notice version' <<<"$out"; then
-  ok "15 two ottimo-notice-version meta tags (ko) → warning (publish-privacy-notice.sh refuses it)"; else ko "15 two meta (rc=$rc)"; echo "$out"; fi
+if [ "$rc" -eq 1 ] && grep -q 'FAIL: privacy page without exactly one notice version (<meta name="ottimo-notice-version">) for ko' <<<"$out"; then
+  ok "15 two ottimo-notice-version meta tags (ko), form proxy on → refused (SEC LPV2-02)"; else ko "15 two meta (rc=$rc)"; echo "$out"; fi
+out=$(dl v5-ko-nometa --no-pull) && rc=0 || rc=$?; show "$out"
+if [ "$rc" -eq 1 ] && grep -q 'FAIL: privacy page without exactly one notice version .* for ko –' <<<"$out" \
+  && [ "$(cat "$home/step")" = "privacy" ]; then
+  ok "15b ko page without the meta tag, form proxy on → real deploy refused at step privacy"; else ko "15b ko no meta (rc=$rc)"; echo "$out"; fi
+out=$(dl v5-dot01 --no-pull --check-only) && rc=0 || rc=$?; show "$out"
+if [ "$rc" -eq 1 ] && grep -q 'without exactly one notice version .* for en vi ko zh ru' <<<"$out"; then
+  ok "15c version 2026-11-20.01 (leading zero, SEC LPV2-S1) → not a version → refused"; else ko "15c .01 (rc=$rc)"; echo "$out"; fi
+echo v5-ko-nometa > "$home/state/landing_previous_tag"
+out=$(dl --rollback --no-pull --check-only) && rc=0 || rc=$?; show "$out"
+if [ "$rc" -eq 0 ] && grep -q 'WARNING: privacy page without exactly one notice version for ko' <<<"$out"; then
+  ok "15d same with --rollback → warning, passes"; else ko "15d rollback no meta (rc=$rc)"; echo "$out"; fi
+write_env off
+out=$(dl v5-ko-nometa --no-pull --check-only) && rc=0 || rc=$?; show "$out"
+if [ "$rc" -eq 0 ] && grep -q 'WARNING: privacy page without exactly one notice version for ko' <<<"$out"; then
+  ok "15e same with the form proxy off → warning, passes"; else ko "15e proxy off no meta (rc=$rc)"; echo "$out"; fi
+
+write_env on ""
+out=$(dl v-en-only --no-pull --check-only) && rc=0 || rc=$?; show "$out"
+if [ "$rc" -eq 1 ] && grep -q 'FAIL: LANDING_LOCALES (unset = en,vi) has vi but v-en-only has no privacy page' <<<"$out"; then
+  ok "16 LANDING_LOCALES unset → en,vi (the api's default): image without vi → refused (SEC LPV2-02)"; else ko "16 unset locales (rc=$rc)"; echo "$out"; fi
+out=$(dl v1 --no-pull --check-only) && rc=0 || rc=$?; show "$out"
+if [ "$rc" -eq 0 ]; then ok "16b LANDING_LOCALES unset, en+vi image → passes"; else ko "16b (rc=$rc)"; echo "$out"; fi
 
 echo "== $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

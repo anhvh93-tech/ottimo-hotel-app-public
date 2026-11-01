@@ -107,8 +107,9 @@ verkey() { # YYYY-MM-DD[.N] → sortable "YYYY-MM-DD.NN"
   printf '%s.%02d' "$d" "$((10#$n))"
 }
 privacy_check() { # 0 = pass, 1 = refuse. Reads the new image offline: no network, no pull.
-  local rc=0 loc file v h rec want bad="" seen="" new=0 older="" missing="" metas n_meta pub newest l
-  local ver_re='[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[0-9]{1,2})?' known="en vi ko zh ru" locs="" proxy_on=0
+  local rc=0 loc file v h rec want bad="" seen="" new=0 older="" missing="" noversion="" metas n_meta pub newest l ll lln
+  # Version suffix .1–.99 without a leading zero: ".1" and ".01" would be two strings with one order (SEC LPV2-S1).
+  local ver_re='[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[1-9][0-9]?)?' known="en vi ko zh ru" locs="" proxy_on=0
   [ "$(envval LANDING_PUBLIC_API)" = "on" ] && proxy_on=1
   # Every privacy page of the image: /privacy/ (en) + /<xx>/privacy/ (one per language of the build).
   # shellcheck disable=SC2016  # $f and $@ expand inside the container
@@ -124,8 +125,11 @@ privacy_check() { # 0 = pass, 1 = refuse. Reads the new image offline: no networ
     l=${file#"$ptmp"/}; l=${l%%/*}
     case " $known " in *" $l "*) ;; *) log "WARNING: privacy page for '$l' – not a landing language (publish-privacy-notice.sh will refuse it)" ;; esac
   done
-  # Languages on sale at the api (LANDING_LOCALES, default en,vi) need their page in this image.
-  for l in $(envval LANDING_LOCALES | tr ',' ' '); do
+  # Languages on sale at the api (LANDING_LOCALES, default en,vi – the api's and publish-privacy-notice.sh's default,
+  # SEC FB-R4-SEC-OPS-LPV2-02) need their page in this image.
+  ll=$(envval LANDING_LOCALES); lln="LANDING_LOCALES"
+  [ -n "$ll" ] || { ll=en,vi; lln="LANDING_LOCALES (unset = en,vi)"; }
+  for l in $(tr ',' ' ' <<<"$ll"); do
     case " $locs " in *" $l "*) ;; *) missing+=" $l" ;; esac
   done
   for loc in $locs; do
@@ -140,7 +144,9 @@ privacy_check() { # 0 = pass, 1 = refuse. Reads the new image offline: no networ
     elif [ "$loc" = vi ]; then v=$(grep -oE "Phiên bản $ver_re" "$file" | sed 's/^Phiên bản //' | one)
     else v=""; fi
     h=$(sha "$file")
-    if ! [[ "$v" =~ ^$ver_re$ ]]; then log "WARNING: privacy $loc: no single notice version on the page (publish-privacy-notice.sh will refuse it)"; continue; fi
+    # No single version = the page cannot be compared with the published bytes (SEC FB-R4-SEC-OPS-LPV2-02): FAIL below
+    # while the form proxy is open, WARNING on --rollback or with the proxy off.
+    if ! [[ "$v" =~ ^$ver_re$ ]]; then noversion+=" $loc"; continue; fi
     # Successful writes only (a dry run writes nothing): "<time> apply … version=<v> sha_en=<h> sha_vi=<h> … rc=0".
     pub=$(awk -v k="sha_$loc" '$2 == "apply" && $NF == "rc=0" {
             ver = ""; s = ""
@@ -161,6 +167,13 @@ privacy_check() { # 0 = pass, 1 = refuse. Reads the new image offline: no networ
     done <<<"$rec"
     seen+=" $loc $v (same bytes as published)"
   done
+  if [ -n "$noversion" ]; then
+    if [ "$proxy_on" -eq 1 ] && [ "$rollback" -eq 0 ]; then
+      log "FAIL: privacy page without exactly one notice version (<meta name=\"ottimo-notice-version\">) for${noversion} – its bytes cannot be checked against the published notice; fix the build, nothing switched"
+      return 1
+    fi
+    log "WARNING: privacy page without exactly one notice version for${noversion} – not compared with the published bytes (publish-privacy-notice.sh will refuse it)"
+  fi
   if [ -n "$bad" ]; then
     bad="${bad# }"; bad="${bad%;}"
     if [ "$proxy_on" -eq 1 ]; then
@@ -180,10 +193,10 @@ privacy_check() { # 0 = pass, 1 = refuse. Reads the new image offline: no networ
   fi
   if [ -n "$missing" ]; then
     if [ "$proxy_on" -eq 1 ] && [ "$rollback" -eq 0 ]; then
-      log "FAIL: LANDING_LOCALES has${missing} but $tag has no privacy page for it – the api keeps it on sale; take it out of LANDING_LOCALES first (README 12.3 LP-v2), nothing switched"
+      log "FAIL: $lln has${missing} but $tag has no privacy page for it – the api keeps it on sale; take it out of LANDING_LOCALES first (README 12.3 LP-v2), nothing switched"
       return 1
     fi
-    log "WARNING: LANDING_LOCALES has${missing} but $tag has no privacy page for it – set LANDING_LOCALES to the languages of this build and restart the api (README 12.3 LP-v2 rollback)"
+    log "WARNING: $lln has${missing} but $tag has no privacy page for it – set LANDING_LOCALES to the languages of this build and restart the api (README 12.3 LP-v2 rollback)"
   fi
   log "privacy:${seen:- no version found}"
   [ "$new" -eq 0 ] || log "privacy: after this deploy run publish-privacy-notice.sh for the new version (README 12.3 step 6) before the form is used"

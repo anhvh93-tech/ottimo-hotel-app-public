@@ -102,7 +102,7 @@ systemctl list-timers 'ottimo-*'
 - Từ LP-v2 (R4, SEC SR-PE-16 / C9, ARC L9), thêm 3 mục. Mỗi cảnh báo chỉ gửi một câu cố định kèm số đếm, không gửi nguyên văn log (không đường dẫn, slug, IP, mã căn).
   - `pricelimit`: số lần route giá trên landing (`GET /v1/public/properties/<slug>/price-estimate`) trả 429 + 503 trong 60 phút ≥ `PRICE_REFUSED_MAX` (mặc định 200). Nghĩa là có người quét hoặc dội, khách thật có thể không thấy giá; form vẫn gửi được. Đếm từ log Caddy của landing (query đã che). Chỉ chạy khi stack có landing.
   - `pricegap`: api ghi `public_price_missing` trong 24 giờ, tức có căn thiếu giá niêm yết một đêm nên bị bỏ khỏi giá ước tính trên web. Cảnh báo chỉ nêu số căn. Việc của OWN: rà giá niêm yết trên Desk, nhất là sau khi nhập lại bảng giá 01/11.
-  - `priceswitch`: công tắc `public_show_prices` bị đổi trong 35 phút (audit `config.changed`). Cảnh báo nêu giá trị mới để OPS/INV xác nhận việc đổi là chủ ý.
+  - `priceswitch`: công tắc `public_show_prices` bị đổi kể từ lượt kiểm trước (audit `config.changed`). Theo dõi bằng **id audit cuối đã báo** (`state/ops-check/priceswitch.last_id`), không theo cửa sổ thời gian, nên timer trễ hay máy khởi động lại cũng không sót (SEC FB-R4-SEC-OPS-LPV2-04). **Mỗi lượt có thay đổi mới gửi một webhook riêng** (không áp dụng khử trùng 6 giờ), nêu số lần đổi và giá trị mới nhất (`true`/`false`/`other`) để OPS/INV xác nhận việc đổi là chủ ý. Lần chạy đầu chỉ lấy mốc, không báo. Không xóa tay tệp mốc: mất tệp thì lượt sau coi như lần đầu (lấy mốc mới, không báo các thay đổi trước đó).
   - `http5xx` không đếm 503 của route giá: bulkhead của route này trả 503 khi bận, đó là thiết kế. 502/500 của route giá vẫn được đếm.
   - Test: `infra/server/test/ops-check-price.test.sh`.
 
@@ -246,11 +246,12 @@ Kịch bản chạy thật theo phút, khung giờ, đường lùi: `rounds/roun
    - Đọc version của từng trang từ **một** thẻ `<meta name="ottimo-notice-version">`. Bản dựng trước LP-v2 không có thẻ này: đọc chữ "Version …"/"Phiên bản …" (chỉ en/vi). Đối chiếu thêm `data-consent-version` của form trên trang chủ từng ngôn ngữ. Tất cả phải bằng `--version`.
    - Tải từng trang thật qua edge (phải 200, cùng sha256).
    - Ghi mọi ngôn ngữ trong **một giao dịch** bằng vai `ottimo_migrator` → `ottimo_owner` (không superuser), audit `security` `privacy_notice.published` (danh sách ngôn ngữ + băm).
-   - DB chưa có migration LP-v2 (0090) thì từ chối, báo deploy api trước.
+   - DB chưa có migration LP-v2 (tệp `0091_lp_v2_price_estimate_locales.sql`; số 0090 là của PN-01 – khi gộp lên main số có thể đổi, đối chiếu theo tên tệp) thì từ chối, báo deploy api trước.
    - Mặc định chạy thử (ROLLBACK). Chạy lại an toàn: cùng băm → "already present"; khác băm → từ chối.
    - Kết quả mỗi lần: một dòng trong `state/privacy-notice.log`, có `sha_<xx>=` cho từng ngôn ngữ (dòng cũ chỉ có `sha_en`/`sha_vi` vẫn đọc được).
    - **Đường duy nhất** được ghi bảng `privacy_notice_version` – không SQL tay (SEC FB-R3-SEC-OPS-US155-01).
-   - Test: `infra/server/test/publish-privacy-notice.test.sh` (32 ca, gồm 10 ca 5 ngôn ngữ và lệnh đếm khói).
+   - Bản dựng LP-v2 (có thẻ meta) mà `/privacy/` không có hreflang → từ chối (thiếu manifest ngôn ngữ, SEC LPV2-S3). Version chỉ nhận hậu tố `.1`–`.99` không có số 0 đầu (`.01` bị từ chối, SEC LPV2-S1).
+   - Test: `infra/server/test/publish-privacy-notice.test.sh` (34 ca, gồm 12 ca 5 ngôn ngữ và lệnh đếm khói).
    - **Không nhầm** với tham số Desk `privacy_notice_version` (H05, `privacy-2026-10-v1`/`v2`): đó là thông báo khách lưu trú, OWN đặt; công cụ này không đụng tới.
 7. Chỉ sau khi bước 6 in `OK: version … published` (băm khớp): OWN bật `public_booking_requests_enabled` trên Desk (H05). Thiếu dòng phiên bản thì server trả 422 `PUBLIC_FORM_NOT_READY`.
 
@@ -266,13 +267,14 @@ Quay lui: (a) OWN tắt công tắc trên Desk (ngay); (b) đặt `LANDING_PUBLI
   - **version cũ hơn version đã đăng** của cùng ngôn ngữ → từ chối (SEC FB-R4-SEC-FE-02). Với `--rollback` chỉ là WARNING (bản cũ còn được nhận 7 ngày – mục LP-v2 dưới đây);
   - ngôn ngữ có trong `LANDING_LOCALES` mà image không có trang → từ chối (api vẫn coi ngôn ngữ đó đang bán). Với `--rollback` chỉ là WARNING, nhắc sửa `LANDING_LOCALES`;
   - version chưa có trong log → cho qua, in nhắc chạy bước 6 sau deploy;
-  - trang không có đúng một version (hai thẻ meta, hoặc ko/zh/ru thiếu thẻ) → WARNING, `publish-privacy-notice.sh` sẽ từ chối;
+  - trang không có đúng một version (hai thẻ meta, ko/zh/ru thiếu thẻ, hoặc hậu tố có số 0 đầu như `.01`) → **từ chối** khi `LANDING_PUBLIC_API=on` (không so được byte với bản đã đăng – SEC FB-R4-SEC-OPS-LPV2-02). Với `--rollback` chỉ là WARNING;
+  - `LANDING_LOCALES` để trống → coi là `en,vi`, giống api và `publish-privacy-notice.sh`;
   - image không có trang privacy nào → cho qua, ghi chú.
 - Ngoại lệ: khi `LANDING_PUBLIC_API` **khác `on`** (proxy form đóng, khách không gửi được đồng ý – ví dụ quay lui (c) ở trên), mọi lỗi trên chỉ là **WARNING**. Phải sửa trước khi mở lại proxy.
 - Trước khi INV duyệt một lượt landing: OPS chạy `cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/deploy-landing.sh <sha-…> --digest sha256:… --check-only` (kéo image, kiểm cấu hình + digest + privacy, **không đổi gì**). Thay cho việc băm tay trước đây.
 - **Sau mỗi lượt deploy landing có version mới** (tới khi có `--candidate-digest`, FB-04, `v1.0.1`): chạy bước 6 (`publish-privacy-notice.sh` chạy thử rồi `--apply`) **ngay sau deploy landing, trong cùng phiên SSH, ngoài giờ cao điểm** (tránh khung nhận/trả phòng), để khoảng trống giữa trang mới và dòng phiên bản ngắn nhất.
 - Nguồn so sánh là `state/privacy-notice.log` trên chính stack (mọi lần ghi bảng đều qua `publish-privacy-notice.sh`, mỗi lần một dòng). Mất tệp này thì kiểm coi như "chưa có version nào" – không xóa, không sửa tay tệp này.
-- Test: `infra/server/test/deploy-landing-privacy.test.sh` (17 ca, gồm 8 ca 5 ngôn ngữ: image giả `FROM alpine`, không cần stack; chạy trong CI job `infra-scripts`).
+- Test: `infra/server/test/deploy-landing-privacy.test.sh` (23 ca, gồm 14 ca 5 ngôn ngữ: image giả `FROM alpine`, không cần stack; chạy trong CI job `infra-scripts`).
 
 #### LP-v2 – phát hành landing 5 ngôn ngữ + giá ước tính (R4, ARC lp-v2-design 3.6 (5)(6), ARC FB-R4-ARC-OPS-LPV2-01, SEC C3–C6)
 
@@ -281,7 +283,7 @@ Quay lui: (a) OWN tắt công tắc trên Desk (ngay); (b) đặt `LANDING_PUBLI
 **Thứ tự (không đảo):**
 0. **v1.0.1 trước.** Landing v1.0.1 (version thông báo `2026-10-31`, en + vi) đã chạy và đã đăng bằng bước 6 (`OK: version 2026-10-31 published`). Version của LP-v2 phải **lớn hơn** `2026-10-31` (SEC đặt nhãn thật sau người bản xứ đọc, không dùng nhãn tạm `2026-11-01` của FE). Công cụ từ chối version nhỏ hơn version đang hiệu lực; `deploy-landing.sh` cũng từ chối image có version cũ hơn version đã đăng.
 1. **(a) api có migration LP-v2** (deploy app bình thường, `deploy.sh`). `LANDING_LOCALES` **vẫn** `en,vi`. Compose truyền biến này vào api (mặc định `en,vi`).
-2. **(b) Kiểm rồi deploy landing LP-v2**: `deploy-landing.sh <sha-…> --digest sha256:… --check-only`, rồi bỏ `--check-only`. Bước `privacy` phải in 5 dòng `… (not published yet)` cho en, vi, ko, zh, ru. Caddy mới đã mở `/ko/`, `/zh/`, `/ru/`, trả trang 404 theo ngôn ngữ, và mở route `GET …/price-estimate` (chỉ khi `LANDING_PUBLIC_API=on`).
+2. **(b) Kiểm rồi deploy landing LP-v2**: `deploy-landing.sh <sha-…> --digest sha256:… --check-only`, rồi bỏ `--check-only`. Bước `privacy` phải in 5 dòng `… (not published yet)` cho en, vi, ko, zh, ru. Caddy mới đã mở `/ko/`, `/zh/`, `/ru/`, trả trang 404 theo ngôn ngữ, và mở route `GET …/price-estimate` (chỉ khi `LANDING_PUBLIC_API=on`; query chỉ nhận ký tự ASCII in được, tối đa 256 byte – SEC FB-R4-SEC-OPS-LPV2-03).
 3. **(c) Ngay sau đó** ghi version thông báo cho cả 5 ngôn ngữ (bước 6): chạy thử, rồi `--apply`. Phải thấy `OK: version <V2> published (en vi ko zh ru)`, các dòng `2026-10-31` của en/vi bị `superseded`.
    - Giữa (b) và (c) (vài phút), trang mới gửi `V2` mà DB chưa có. Server trả `NOTICE_VERSION_INVALID`, trang hiện khối Zalo/gọi. Không có dữ liệu sai.
 4. **(d)** Sửa `.env` của stack: `LANDING_LOCALES=en,vi,ko,zh,ru`. Deploy lại app **cùng tag đang chạy** để api nhận biến (Desk gián đoạn khoảng 15–30 giây). Api không khởi động nếu biến có mã lạ.

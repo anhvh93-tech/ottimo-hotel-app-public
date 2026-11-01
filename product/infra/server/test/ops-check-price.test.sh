@@ -7,8 +7,11 @@
 #   bash infra/server/test/ops-check-price.test.sh        (workstation or CI; needs jq)
 # Cases: 250 refusals in 60 min → FAIL with the count only · 20 → ok · no landing deployed → ok, not read · price 503
 # not counted as a server error, a 502 of the same route is · public_price_missing → FAIL with the number of rooms,
-# nothing of the log line (ids, property) in the alert or the state file · no such line → ok · switch changed → FAIL
-# with its new value · webhook payload is the fixed sentence only.
+# nothing of the log line (ids, property) in the alert or the state file · no such line → ok · priceswitch (SEC
+# FB-R4-SEC-OPS-LPV2-04): first run sets the audit-id mark without an alert · a change → FAIL with its new value,
+# webhook = that sentence, the query asks for ids above the mark · a second change while still FAIL → its own webhook
+# · no change → ok, recovery once · an empty window never moves the mark back · an odd value → "other" · a broken
+# mark file → never put into the SQL, treated as a first run.
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -41,7 +44,7 @@ cat > "$home/fake/infra/server/bin/dc" <<DC
 #!/usr/bin/env bash
 case "\$1" in
   logs) case "\${*: -1}" in api) cat "$home/api.log" ;; *) cat "$home/landing.log" ;; esac ;;
-  exec) cat >/dev/null; cat "$home/psql.out" ;;
+  exec) cat > "$home/psql.in"; cat "$home/psql.out" ;;
 esac
 DC
 chmod +x "$home/fake/infra/server/bin/dc"
@@ -54,7 +57,7 @@ reset() { rm -f "$home/stack/state/ops-check/"* "$home/webhook.jsonl"; }
 
 echo "== cases"
 echo sha-test > "$home/stack/state/landing_tag"
-: > "$home/api.log"; printf '0|-\n' > "$home/psql.out"
+: > "$home/api.log"; printf '0|0|-\n' > "$home/psql.out"
 { for _ in $(seq 150); do landing_line 429; done; for _ in $(seq 100); do landing_line 503; done; landing_line 200; } > "$home/landing.log"
 reset; out=$(oc pricelimit)
 if grep -q '^FAIL pricelimit: website price estimate refused 250 times (429/503) in 60 min' <<<"$out" && grep -q '^rc=1$' <<<"$out"; then
@@ -89,15 +92,44 @@ echo '{"level":30,"msg":"request completed"}' > "$home/api.log"
 reset; out=$(oc pricegap)
 grep -q '^ok   pricegap: every room had a list price' <<<"$out" && ok "6 no public_price_missing → ok" || { ko "6"; echo "$out"; }
 
-printf '1|false\n' > "$home/psql.out"
+mark="$home/stack/state/ops-check/priceswitch.last_id"
+host_s=$(hostname -s 2>/dev/null || echo server)
+printf '41|3|true\n' > "$home/psql.out"
 reset; out=$(oc priceswitch)
-if grep -q '^FAIL priceswitch: Desk switch public_show_prices changed 1 time(s) in 35 min (now: false)' <<<"$out" \
-  && [ "$(jq -r .text "$home/webhook.jsonl")" = "OTTIMO staging ($(hostname -s 2>/dev/null || echo server)): priceswitch FAIL – Desk switch public_show_prices changed 1 time(s) in 35 min (now: false) – check it was intended (Desk H05, OWN)" ]; then
-  ok "7 public_show_prices changed → FAIL with its new value, webhook = that sentence"; else ko "7"; echo "$out"; cat "$home/webhook.jsonl"; fi
-printf '0|-\n' > "$home/psql.out"
+if grep -q '^ok   priceswitch: public_show_prices: first run' <<<"$out" && grep -q '^rc=0$' <<<"$out" \
+  && [ "$(cat "$mark")" = 41 ] && [ ! -s "$home/webhook.jsonl" ] && grep -q 'id > 0' "$home/psql.in"; then
+  ok "7 first run → mark = newest audit id (41), no alert"; else ko "7"; echo "$out"; fi
+printf '42|1|false\n' > "$home/psql.out"
 out=$(oc priceswitch)
-grep -q '^ok   priceswitch: public_show_prices not changed' <<<"$out" && [ "$(wc -l < "$home/webhook.jsonl" | tr -d ' ')" = 2 ] \
-  && ok "8 next run unchanged → ok, recovery sent once" || { ko "8"; echo "$out"; }
+if grep -q '^FAIL priceswitch: Desk switch public_show_prices changed 1 time(s) since the last check (now: false)' <<<"$out" \
+  && grep -q '^rc=1$' <<<"$out" && grep -q 'id > 41' "$home/psql.in" && [ "$(cat "$mark")" = 42 ] \
+  && [ "$(jq -r .text "$home/webhook.jsonl")" = "OTTIMO staging ($host_s): priceswitch FAIL – Desk switch public_show_prices changed 1 time(s) since the last check (now: false) – check it was intended (Desk H05, OWN)" ]; then
+  ok "8 public_show_prices changed → FAIL with its new value, ids > mark asked, mark 42, webhook = that sentence"; else ko "8"; echo "$out"; cat "$home/webhook.jsonl"; fi
+printf '45|2|true\n' > "$home/psql.out"
+out=$(oc priceswitch)
+if grep -q '^FAIL priceswitch: Desk switch public_show_prices changed 2 time(s) since the last check (now: true)' <<<"$out" \
+  && grep -q 'id > 42' "$home/psql.in" && [ "$(cat "$mark")" = 45 ] && [ "$(wc -l < "$home/webhook.jsonl" | tr -d ' ')" = 2 ] \
+  && [ "$(tail -n 1 "$home/webhook.jsonl" | jq -r .text)" = "OTTIMO staging ($host_s): priceswitch FAIL – Desk switch public_show_prices changed 2 time(s) since the last check (now: true) – check it was intended (Desk H05, OWN)" ]; then
+  ok "9 second change while still FAIL (inside the 6 h reminder) → its own webhook, mark 45"; else ko "9"; echo "$out"; cat "$home/webhook.jsonl"; fi
+printf '45|0|-\n' > "$home/psql.out"
+out=$(oc priceswitch)
+grep -q '^ok   priceswitch: public_show_prices not changed since the last check' <<<"$out" && grep -q 'id > 45' "$home/psql.in" \
+  && [ "$(wc -l < "$home/webhook.jsonl" | tr -d ' ')" = 3 ] && [ "$(cat "$mark")" = 45 ] \
+  && ok "10 next run unchanged → ok, recovery sent once, mark kept" || { ko "10"; echo "$out"; }
+out=$(oc priceswitch)
+[ "$(wc -l < "$home/webhook.jsonl" | tr -d ' ')" = 3 ] && ok "11 still unchanged → no further webhook" || { ko "11"; echo "$out"; }
+# Old rows out of the 7-day bound (the window's max id 0, below the mark): the mark never goes back.
+printf '0|0|-\n' > "$home/psql.out"
+out=$(oc priceswitch)
+[ "$(cat "$mark")" = 45 ] && grep -q '^rc=0$' <<<"$out" && ok "12 empty window → mark stays 45" || { ko "12"; echo "$out"; }
+printf '46|1|{"x":"y"}\n' > "$home/psql.out"
+out=$(oc priceswitch)
+grep -q '(now: other)' <<<"$out" && ! grep -q '"x"' "$home/webhook.jsonl" && ok "13 a value other than true/false → \"other\"" \
+  || { ko "13"; echo "$out"; }
+printf '46|5|true\n' > "$home/psql.out"
+reset; printf '45; DROP TABLE x\n' > "$mark"; out=$(oc priceswitch)
+if grep -q 'first run' <<<"$out" && grep -q 'id > 0' "$home/psql.in" && ! grep -q 'DROP' "$home/psql.in" && [ "$(cat "$mark")" = 46 ]; then
+  ok "14 a broken mark file → not put into the SQL, treated as a first run (mark 46)"; else ko "14"; echo "$out"; cat "$home/psql.in"; fi
 
 echo "== $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

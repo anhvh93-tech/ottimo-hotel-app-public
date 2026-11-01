@@ -68,7 +68,7 @@ DECLARE
 BEGIN
   -- ── inputs (the wrapper checks them too; this is the last line of defence) ──
   IF v_slug !~ '^[a-z0-9-]{2,40}$' THEN RAISE EXCEPTION 'refused: slug invalid'; END IF;
-  IF v_version !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[0-9]{1,2})?$' THEN RAISE EXCEPTION 'refused: version invalid'; END IF;
+  IF v_version !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[1-9][0-9]?)?$' THEN RAISE EXCEPTION 'refused: version invalid'; END IF;
   IF coalesce(cardinality(v_locs), 0) = 0 OR cardinality(v_locs) > 5 OR cardinality(v_locs) <> coalesce(cardinality(v_shas), 0) THEN
     RAISE EXCEPTION 'refused: languages/hashes lists invalid (% languages, % hashes)', coalesce(cardinality(v_locs), 0), coalesce(cardinality(v_shas), 0);
   END IF;
@@ -90,7 +90,8 @@ BEGIN
   IF (SELECT rolsuper FROM pg_roles WHERE rolname = session_user) THEN
     RAISE EXCEPTION 'refused: connected as a superuser – use ottimo_migrator';
   END IF;
-  -- A database before the LP-v2 migration (0090) only takes vi/en/ru: say so instead of a constraint error.
+  -- A database before the LP-v2 migration (0091_lp_v2_price_estimate_locales; 0090 is PN-01) only takes vi/en/ru:
+  -- say so instead of a constraint error.
   SELECT pg_get_constraintdef(c.oid) INTO v_check FROM pg_constraint c
    WHERE c.conrelid = 'privacy_notice_version'::regclass AND c.conname = 'privacy_notice_version_locale_check';
   FOREACH v_loc IN ARRAY v_locs LOOP
