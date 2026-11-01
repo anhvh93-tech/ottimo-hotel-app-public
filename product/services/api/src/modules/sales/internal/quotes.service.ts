@@ -109,6 +109,38 @@ function fill(template: string, values: Record<string, string>): string {
   return template.replace(/\{([a-z_]+)\}/g, (m, k: string) => values[k] ?? m);
 }
 
+type PluralForm = 'one' | 'few' | 'many' | 'other';
+/** Counted phrases of the quote text, each in four CLDR forms (BUG-R4-009, CPY 15.2). */
+export type QuoteCountKey =
+  | 'sale.quote_nights'
+  | 'sale.quote_adults'
+  | 'sale.quote_kids'
+  | 'sale.quote_under6'
+  | 'sale.quote_text_extra_guest';
+
+const PLURAL_RULES = new Map<Locale, Intl.PluralRules>();
+
+/** CLDR form for a whole number: en one/other, ru one/few/many, vi other (zero/two never occur here). */
+export function pluralForm(locale: Locale, n: number): PluralForm {
+  let rules = PLURAL_RULES.get(locale);
+  if (!rules) {
+    rules = new Intl.PluralRules(locale);
+    PLURAL_RULES.set(locale, rules);
+  }
+  const f = rules.select(n);
+  return f === 'one' || f === 'few' || f === 'many' ? f : 'other';
+}
+
+/** "1 night", "2 adults", "5 ночей" – `{n}` plus any extra values in the right form. */
+export function quoteCount(
+  locale: Locale,
+  key: QuoteCountKey,
+  n: number,
+  extra: Record<string, string> = {},
+): string {
+  return fill(QUOTE_COPY[locale][`${key}_${pluralForm(locale, n)}`], { ...extra, n: String(n) });
+}
+
 @Injectable()
 export class QuotesService {
   constructor(
@@ -308,9 +340,14 @@ export class QuotesService {
     const s = row.pricing_snapshot as Record<string, unknown> & { calc: QuoteCalculation };
     const calc = s.calc;
     const bands = row.children_bands ?? {};
-    const guests = [`${row.adults} ${copy['occ.adults_short']}`];
-    if (bands.children6to11) guests.push(`${bands.children6to11} ${copy['occ.children_short']}`);
-    if (bands.childrenUnder6) guests.push(`${bands.childrenUnder6} ${copy['occ.under6_short']}`);
+    // Guest-facing counted phrases, not the Desk field labels occ.*_short (BUG-R4-009: "2 Adults").
+    const guests = [quoteCount(locale, 'sale.quote_adults', row.adults)];
+    if (bands.children6to11) {
+      guests.push(quoteCount(locale, 'sale.quote_kids', bands.children6to11));
+    }
+    if (bands.childrenUnder6) {
+      guests.push(quoteCount(locale, 'sale.quote_under6', bands.childrenUnder6));
+    }
     const roomTotal = Number(s.roomTotalVnd ?? calc.totalVnd);
     const expires = zonedParts(new Date(row.expires_at.getTime() - 60_000), timezone);
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -320,7 +357,7 @@ export class QuotesService {
       room_name: String(s.roomName ?? '').trim(),
       from: dmy(row.arrival_date),
       to: dmy(String(s.departureDate ?? row.arrival_date)),
-      nights: String(calc.nights),
+      nights_text: quoteCount(locale, 'sale.quote_nights', calc.nights),
       guests: guests.join(', '),
       room_total: money(roomTotal, locale),
       discount_note: calc.losDiscountPct > 0 ? ` (−${calc.losDiscountPct}%)` : '',
@@ -331,7 +368,7 @@ export class QuotesService {
     const extraGuests = Number(s.extraGuestCount ?? 0);
     const extraVnd = calc.totalVnd - roomTotal;
     if (extraGuests > 0 && extraVnd > 0) {
-      text += `\n${fill(copy['sale.quote_text_extra_guest'], { n: String(extraGuests), amount: money(extraVnd, locale) })}`;
+      text += `\n${quoteCount(locale, 'sale.quote_text_extra_guest', extraGuests, { amount: money(extraVnd, locale) })}`;
     }
     return { locale, text };
   }

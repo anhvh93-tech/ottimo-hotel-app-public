@@ -49,6 +49,25 @@ export function interpolate(text: string, args?: Args): string {
   );
 }
 
+/** The four CLDR forms the UXD copy carries for a counted phrase (`<key>_one|_few|_many|_other`). */
+export type PluralForm = 'one' | 'few' | 'many' | 'other';
+const PLURAL_RULES = new Map<string, Intl.PluralRules>();
+
+/**
+ * CLDR form of a whole number (BUG-R4-009, CPY lp-v2-copy 15.2): en one/other, ru one/few/many, vi other.
+ * Use it to pick the key: t(`guest.stay.dates_${pluralForm(locale, n)}`, …) – written as a template literal
+ * so guest-web's bundle filter (build/used-keys.ts) ships every form.
+ */
+export function pluralForm(locale: string, n: number): PluralForm {
+  let rules = PLURAL_RULES.get(locale);
+  if (!rules) {
+    rules = new Intl.PluralRules(locale);
+    PLURAL_RULES.set(locale, rules);
+  }
+  const f = rules.select(n);
+  return f === 'one' || f === 'few' || f === 'many' ? f : 'other';
+}
+
 /**
  * Locale → EN fallback (strings-vi `_meta.fallback`) → VI while EN is still loading → the key itself
  * (visible in QA, never blank).
