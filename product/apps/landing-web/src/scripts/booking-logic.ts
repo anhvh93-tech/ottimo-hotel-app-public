@@ -218,7 +218,11 @@ export function promiseText(
 
 // ---------- Price estimate in the form (LP-v2, FB-INV-009; OpenAPI 0.3.9 getPublicPriceEstimate) ----------
 
-/** `PublicPriceEstimate` of OpenAPI 0.3.9-draft (allowlist – nothing else is ever read). */
+/**
+ * `PublicPriceEstimate` of OpenAPI 0.3.9-draft as fixed on lp-v2-be (63c5731e, ESC-043): no monthly figure at all –
+ * `stayType = long` or a short stay over the monthly threshold → `priceAvailable: false` + `monthly_offer`
+ * (allowlist – nothing else is ever read).
+ */
 export interface PublicPriceEstimate {
   estimate: true;
   currency: 'VND';
@@ -228,7 +232,8 @@ export interface PublicPriceEstimate {
   arrival: string;
   departure?: string;
   priceAvailable: boolean;
-  unavailableReason?: 'on_request' | 'party_exceeds_room';
+  /** party_exceeds_room and on_request win over monthly_offer (BE). */
+  unavailableReason?: 'on_request' | 'party_exceeds_room' | 'monthly_offer';
   shortStay?: {
     nights: number;
     roomSubtotalVnd: number;
@@ -239,8 +244,6 @@ export interface PublicPriceEstimate {
     totalVnd: number;
     nightlyAvgVnd: number;
   };
-  longStay?: { months: number | null; monthlyFromVnd: number };
-  longStayAlternative?: { monthlyFromVnd: number };
   notes: { code: string; minNights?: number }[];
   computedAt: string;
   estimateToken?: string;
@@ -282,7 +285,7 @@ export function estimateQuery(
     | 'infants'
     | 'roomType'
   >,
-  ctx: { today: string; max: string; capacity: number | null; shortMax?: number },
+  ctx: { today: string; max: string; capacity: number | null },
 ): EstimateQuery | EstimateWait {
   const inWindow = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= ctx.today && d <= ctx.max;
   const datesOk =
@@ -290,9 +293,10 @@ export function estimateQuery(
       ? inWindow(v.checkIn) && /^\d{4}-\d{2}-\d{2}$/.test(v.checkOut) && v.checkOut > v.checkIn
       : inWindow(v.arrival);
   if (!datesOk) return 'idle';
-  const longNights =
-    v.stayType === 'short' && diffDays(v.checkIn, v.checkOut) > (ctx.shortMax ?? 27);
-  if (v.stayType === 'long' || longNights) return 'monthly';
+  // By the month: never a figure (ESC-043) – the box shows the offer without asking. A long stay BY THE NIGHT is
+  // asked: the API owns the monthly threshold (28 nights today, may become 30 – INV price list) and answers
+  // monthly_offer, so the page has no second copy of that number.
+  if (v.stayType === 'long') return 'monthly';
   if (!v.roomType) return 'any-room';
   if (overCapacity(ctx.capacity, v.adults, v.children)) return 'idle';
   const q: EstimateQuery = {
@@ -341,7 +345,7 @@ export function isEstimate(body: unknown): body is PublicPriceEstimate {
   const num = (x: unknown) => typeof x === 'number' && Number.isFinite(x) && x > 0;
   if (b.stayKind === 'short')
     return !!b.shortStay && num(b.shortStay.totalVnd) && b.shortStay.nights >= 1;
-  return b.stayKind === 'long'; // a monthly figure is never shown (ESC-043) – nothing to check
+  return b.stayKind === 'long'; // shown as the monthly offer, no figure (ESC-043)
 }
 
 /** What the estimate box shows for a 200 answer (UXD lp-v2 3.3 S3–S6, CPY lp-v2 2). */
@@ -392,8 +396,8 @@ export function estimateView(
 ): EstimateView {
   const E = S.estimate;
   const sep = lang === 'zh' ? '：' : ': ';
-  // ESC-043 (INV 01/11): by the month, or 28+ nights, no number – only the invitation to a monthly offer
-  if (r.stayKind === 'long') return monthlyOfferView(S);
+  // ESC-043 (INV 01/11): by the month, or over the monthly threshold, no number – only the monthly offer
+  if (r.unavailableReason === 'monthly_offer') return monthlyOfferView(S);
   if (!r.priceAvailable) {
     const minStay = r.notes.find((n) => n.code === 'min_stay');
     const live =
@@ -404,6 +408,7 @@ export function estimateView(
           : E.unavailable;
     return { kind: 'unavailable', lines: [], note: [], live, done: '' };
   }
+  if (r.stayKind === 'long') return monthlyOfferView(S); // never a monthly figure, whatever the body says
   if (!r.shortStay)
     return { kind: 'unavailable', lines: [], note: [], live: E.unavailable, done: '' };
   const st = r.shortStay;

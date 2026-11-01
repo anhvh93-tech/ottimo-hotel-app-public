@@ -76,7 +76,7 @@ async function init(form: HTMLFormElement) {
     values: () => values(),
     ctx: () => {
       const cap = room.selectedOptions[0]?.dataset.cap;
-      return { today: TODAY, max: MAX, capacity: cap ? Number(cap) : null, shortMax };
+      return { today: TODAY, max: MAX, capacity: cap ? Number(cap) : null };
     },
     fetchEstimate:
       cfg.transport === 'api' && cfg.property

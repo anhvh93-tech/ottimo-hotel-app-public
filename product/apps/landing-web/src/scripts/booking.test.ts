@@ -479,17 +479,15 @@ describe('price estimate – when the form asks (UXD 3.2, ARC 2.8)', () => {
     expect(estimateQuery({ ...v, adults: 3, infants: 2 }, ctx)).not.toBe('idle'); // under-6s not counted
   });
 
-  it('ESC-043: by the month, or more than 27 nights by the night = no query, the monthly offer instead', () => {
+  it('ESC-043: by the month = no query (offer); a long stay by the night IS asked – the API owns the threshold', () => {
     const long = { ...v, stayType: 'long' as const, arrival: '2026-12-01', months: '3' };
     expect(estimateQuery(long, ctx)).toBe('monthly');
     expect(estimateQuery({ ...long, roomType: '' }, ctx)).toBe('monthly');
-    expect(estimateQuery({ ...v, checkIn: '2026-11-02', checkOut: '2026-11-30' }, ctx)).toBe(
-      'monthly',
-    ); // 28
-    expect(
-      estimateQuery({ ...v, checkIn: '2026-11-02', checkOut: '2026-11-29' }, ctx),
-    ).toMatchObject({ departure: '2026-11-29' }); // 27 nights: a price
     expect(estimateQuery({ ...long, arrival: '' }, ctx)).toBe('idle');
+    // 28 or 30 nights: same request; the answer is monthly_offer (BE 63c5731e) – no second copy of the threshold
+    expect(
+      estimateQuery({ ...v, checkIn: '2026-11-02', checkOut: '2026-11-30' }, ctx),
+    ).toMatchObject({ stayType: 'short', departure: '2026-11-30' });
   });
 
   it('query string: contract names only, fixed order, no personal data', () => {
@@ -559,11 +557,17 @@ describe('price estimate – what the box shows (UXD 3.3, CPY 2)', () => {
   });
 
   it('ESC-043 offer (no figure, no "Estimated rate"), S6 on request / minimum stay / party too large', () => {
+    // contract (lp-v2-be 63c5731e): monthly requests = priceAvailable false + monthly_offer, no figure, no token
     const month = est({
       stayKind: 'long',
+      priceAvailable: false,
+      unavailableReason: 'monthly_offer',
       shortStay: undefined,
-      longStay: { months: 3, monthlyFromVnd: 8000000 },
+      estimateToken: undefined,
+      expiresAt: undefined,
+      notes: [{ code: 'long_stay_required' }],
     });
+    expect(isEstimate(month)).toBe(true);
     const m = estimateView(month, BOOKING_STRINGS.en, 'en');
     expect(m).toEqual(monthlyOfferView(BOOKING_STRINGS.en));
     expect(m.kind).toBe('offer');
@@ -571,7 +575,15 @@ describe('price estimate – what the box shows (UXD 3.3, CPY 2)', () => {
     expect(m.live).toBe(
       'A special offer for longer stays. For a month or longer, we prepare a rate around your dates. You will find it in the quote we send.',
     );
-    expect(JSON.stringify(m)).not.toMatch(/8,000,000|Estimated rate/);
+    expect(JSON.stringify(m)).not.toMatch(/\d|Estimated rate/);
+    // party too large wins over the monthly offer (BE order)
+    const party28 = estimateView(
+      { ...month, unavailableReason: 'party_exceeds_room' },
+      BOOKING_STRINGS.en,
+      'en',
+      { capacity: 3 },
+    );
+    expect(party28.live).toBe(BOOKING_STRINGS.en.e.cap('3'));
     const off = { priceAvailable: false, shortStay: undefined, estimateToken: undefined };
     const none = estimateView(
       est({ ...off, unavailableReason: 'on_request' }),

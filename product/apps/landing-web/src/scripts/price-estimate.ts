@@ -4,8 +4,9 @@
 // (no cookie, no storage – SEC SR-PE-11) and only ever shows "estimated" numbers with the final-rate sentence.
 //
 // States (UXD 3.3): S0 idle (dates/room missing) · S1 "Any room" · S2 calculating (after 300 ms) · S3 price by the
-// night · S4 28+ nights by the night and S5 by the month = the monthly special-offer invitation WITHOUT a figure and
-// without the "Estimated rate" title (ESC-043, INV 01/11; CPY 12.1 – nothing is asked) · S6 no online figure (on
+// night · S4 a long stay by the night (API `monthly_offer` – the API owns the threshold) and S5 by the month (not
+// asked) = the monthly special-offer invitation WITHOUT a figure and without the "Estimated rate" title (ESC-043,
+// INV 01/11; CPY 12.1; BE 63c5731e – no estimateToken, nothing sent with the request) · S6 no online figure (on
 // request, minimum stay, party too large – BE lp-v2 6) · S7 not available now. The API answers `no-store`: the page
 // keeps no answer, every settled change asks again (BE lp-v2 L2).
 // The box stays hidden until the first answer with prices (a 404 = prices off: hidden for the rest of the visit,
@@ -33,7 +34,7 @@ export interface EstimateDeps {
   /** Current values of the form. */
   values: () => FormValues;
   /** Room capacity of the selected room type (data-cap), today and the last bookable day. */
-  ctx: () => { today: string; max: string; capacity: number | null; shortMax: number };
+  ctx: () => { today: string; max: string; capacity: number | null };
   /** null = this build never asks for prices (review build). */
   fetchEstimate: ((search: string, signal: AbortSignal) => Promise<EstimateOutcome>) | null;
   now: () => number;

@@ -62,21 +62,19 @@ function priced(url: URL): unknown {
     estimateToken: `pe1.${Buffer.from(url.search).toString('base64url')}.c2lnbmF0dXJl`,
     expiresAt: '2099-01-01T00:00:00+07:00',
   };
-  if (!departure)
-    return {
-      ...base,
-      stayKind: 'long',
-      longStay: { months: Number(q.get('months')) || null, monthlyFromVnd: 8_000_000 },
-      notes: [{ code: 'monthly_excludes_utilities' }],
-    };
+  // contract lp-v2-be 63c5731e (ESC-043): by the month, or 28+ nights by the night → no figure, no token
+  const monthlyOffer = (extra: object = {}) => ({
+    ...base,
+    stayKind: 'long',
+    priceAvailable: false,
+    unavailableReason: 'monthly_offer',
+    estimateToken: undefined,
+    expiresAt: undefined,
+    ...extra,
+  });
+  if (!departure) return monthlyOffer();
   const nights = Math.round((Date.parse(departure) - Date.parse(arrival)) / 864e5);
-  if (nights >= 28)
-    return {
-      ...base,
-      departure,
-      stayKind: 'long',
-      longStay: { months: null, monthlyFromVnd: 8_000_000 },
-    };
+  if (nights >= 28) return monthlyOffer({ departure, notes: [{ code: 'long_stay_required' }] });
   const subtotal = NIGHT * nights;
   const pct = nights >= 14 ? 15 : nights >= 7 ? 10 : 0;
   const disc = Math.round((subtotal * pct) / 100);
@@ -330,8 +328,8 @@ test('TC-LP-054 S1 "Any room", S0 missing dates, S6 no online figure, S4/S5 mont
     'No online estimate for these dates. We will include the rate in your quote.',
   );
   await page.locator('#f-room').selectOption('standard-studio-garden-view');
-  // ESC-043 (INV 01/11): 28+ nights or by the month – no figure, no "Estimated rate", nothing asked
-  const before = m.estimates.length;
+  // ESC-043 (INV 01/11): 28+ nights by the night (API answers monthly_offer – it owns the threshold) or by the month
+  // (not asked) – no figure, no "Estimated rate", no token sent
   const offer = async () => {
     await expect(box(page).locator('.est-lbl')).toHaveText('A special offer for longer stays');
     await expect(box(page).locator('.est-msg')).toHaveText(
@@ -342,6 +340,8 @@ test('TC-LP-054 S1 "Any room", S0 missing dates, S6 no online figure, S4/S5 mont
   };
   await page.locator('#f-out').fill(iso(48)); // 28 nights by the night
   await offer();
+  expect(m.estimates.at(-1)!.searchParams.get('departure')).toBe(iso(48));
+  const before = m.estimates.length;
   await page.locator('input[name="stayType"][value="long"]').check({ force: true });
   await page.locator('#f-arr').fill(iso(30));
   await offer();
