@@ -754,3 +754,37 @@ Gửi kèm người đọc: brand là **boutique stay điềm tĩnh, cao cấp, 
 - Nhãn trích dẫn khớp nhau trong từng ngôn ngữ: `faq-long` ↔ `byMonth`, `e.cap` ↔ `anyRoom`, `overShortMax` ↔ `byMonth`.
 - `meta.title` ≤ 60 ký tự; `meta.description` ≤ 160 ký tự (ko ~75, zh ~55, ru ~140).
 - Giới hạn: CPY viết ba ngôn ngữ ở mức người viết thạo, **không thay người bản xứ** (G5). Mục 9 là chỗ dễ sai nhất.
+
+---
+
+## 12. Lượt 2 – ESC-043 (Phản hồi & sửa, 01/11/2026)
+
+INV quyết ESC-043 (01/11): khi khách chọn "theo tháng" **hoặc** ở theo đêm từ 28 đêm trở lên (`> shortMaxNights` 27), form **không hiện giá**. Thay vào đó là một lời mời nhận ưu đãi/báo giá riêng ("special offer"). Không hứa con số hay % giảm.
+
+### 12.1 Khóa mới `priceMonthlyOffer` (1 nhãn + 1 câu, chữ tĩnh, không chỗ giữ chỗ)
+
+| Khóa | EN (dẫn) | VI | KO | ZH | RU |
+|---|---|---|---|---|---|
+| `priceMonthlyOffer.label` | A special offer for longer stays | Ưu đãi riêng cho kỳ ở dài | 장기 숙박 특별 제안 | 长住专属优惠 | Особое предложение для долгого проживания |
+| `priceMonthlyOffer.text` | For a month or longer, we prepare a rate around your dates. You will find it in the quote we send. | Với kỳ ở từ một tháng, chúng tôi chuẩn bị mức giá riêng theo ngày ở của bạn, gửi kèm báo giá. | 한 달 이상 머무신다면 일정에 맞춘 요금을 따로 준비해 드립니다. 보내 드리는 견적에서 확인하실 수 있습니다. | 入住一个月或以上，我们会根据您的日期准备专属价格，随报价一并发送给您。 | Для проживания от месяца мы подготовим цену под ваши даты — она будет в предложении, которое мы пришлём. |
+
+- Hiện ở đúng ô giá (cùng vị trí `estimate.*`), thay cho con số. Giữ `estimate.label` ẩn trong trạng thái này để khách không thấy chữ "giá ước tính" mà không có giá.
+- Vùng `aria-live`: đọc `label` + `text` khi khách chuyển sang theo tháng hoặc vượt 27 đêm.
+- Có dùng chữ "offer"/"ưu đãi"/"특별 제안"/"优惠"/"предложение" theo đúng ý INV, nhưng **không** nêu mức giảm, không "best price", không "%". Câu `text` chỉ hứa điều chắc chắn có: giá riêng nằm trong báo giá.
+- RU: "предложение" vừa là "offer" vừa là "quote" ở bộ chữ này. Câu vẫn rõ nghĩa. Nếu người bản xứ thấy lặp thì đổi nhãn thành "Особые условия для долгого проживания".
+
+### 12.2 Bỏ khỏi bộ chữ giá (mục 2)
+| Khóa | Lý do |
+|---|---|
+| `estimate.monthly` ("From {amount} per month" và 4 bản dịch) | ESC-043: theo tháng không hiện giá |
+| `estimate.monthlyNote` ("The longer you stay, the kinder the rate.") | Đi cùng `monthly`; ý này đã có trong `priceMonthlyOffer` và FAQ `faq-long` |
+| `estimate.overShortMax` ("For a month or longer, choose "By the month" to see a monthly rate.") | Không còn giá tháng để mời khách xem. Từ 28 đêm, form hiện `priceMonthlyOffer` thay vào |
+| Dòng hộ chiếu nước ngoài | Bộ chữ giá lượt A **không có** dòng này. CPY xác nhận không có chuỗi nào về hộ chiếu/giấy tờ trong `estimate.*`. Chỉ còn `e.idNumber` và `noteHint` (nhắc **không** gửi số giấy tờ), là chữ form cũ – giữ nguyên |
+
+Các khóa giá còn lại không đổi: `estimate.label`, `final`, `prompt`, `anyRoom`, `loading`, `total`, `perNight`, `longStay`, `unavailable`, `error`, `currency`, `taxIn`/`taxOut`, `extraGuest`, `sentWith`, `live`, `done.estimate`.
+
+### 12.3 Kiểm chéo câu khác sau ESC-043
+- `estimate.longStay` ("Includes our longer-stay rate."): vẫn dùng cho chuyến theo đêm dưới 28 đêm nếu DOM có giảm theo thời gian ở. Nếu DOM không giảm dưới 28 đêm thì bỏ.
+- `longHint(n)` ("{n} nights. We will quote our long-stay rate.") khớp trạng thái mới, giữ nguyên.
+- FAQ `faq-long` ("kinder the longer you stay") là câu đã duyệt, không nêu con số, nên giữ nguyên.
+- Test (mục 7): bỏ dòng kiểm `overShortMax` chứa nhãn `byMonth`. Thêm: `priceMonthlyOffer.*` không chứa chữ số, "%" hay `{amount}`, ở cả 5 ngôn ngữ.
