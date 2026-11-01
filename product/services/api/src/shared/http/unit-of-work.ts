@@ -121,6 +121,13 @@ export function requestHash(method: string, path: string, body: unknown): string
     .digest('hex');
 }
 
+/**
+ * ADR-015 / FB-R3-SEC-ARC-04 (a): a preview (`simulate`) waits at most 1 s for a row lock (→ 409 CONCURRENT_UPDATE)
+ * and runs at most 5 s (→ 503) – both transaction-local, like every `withContext`.
+ */
+export const SIMULATE_LOCK_TIMEOUT_MS = 1_000;
+export const SIMULATE_STATEMENT_TIMEOUT_MS = 5_000;
+
 /** Thrown inside the transaction to roll it back before the 403 + access.denied are written. */
 class DeniedAfterLookup extends Error {}
 
@@ -210,6 +217,38 @@ export class UnitOfWork {
       if (isFailure(outcome)) return outcome;
       return { ...(outcome as UseCaseResult<T>), replayed: false };
     });
+  }
+
+  /**
+   * ADR-015 (OpenAPI 0.3.9 – B16 `earlyDeparture` `dryRun`; FB-R3-SEC-ARC-01): run the WRITE use case in
+   * Database.simulate – its own connection, ROLLBACK in `finally`, a `simulation_guard` row that makes the database
+   * refuse any commit, `tx.ctx.simulation = true` and no transaction control through `tx.query`. The preview numbers
+   * whose inputs only exist after the writes (occupancy release → folio resync → credit cap) come from the very same
+   * function as the real write. Only for a request the guard accepted as a declared dry run (`operation.dryRun` +
+   * body `dryRun: true` – SEC-BE-21): no Idempotency-Key is read, claimed or stored, no If-Match. The guard already
+   * enforced the role decision for a dry run; this re-checks it (second line, like the controllers' `read()`).
+   * The handler reads its mode from `tx.ctx.simulation` and skips what is not part of the answer (B16: refund
+   * request, attachment binding, money audit, registration hook, outbox, SSE, reservation hooks).
+   */
+  async simulate<T>(req: GuardedRequest, handler: (tx: Tx) => Promise<T>): Promise<T> {
+    const auth = req.ottimoAuth;
+    if (!auth?.principal)
+      throw new Error('UnitOfWork.simulate() needs an authenticated staff request');
+    const body = req.body as { dryRun?: unknown } | undefined;
+    const dryRun =
+      auth.operation.dryRun === true && !!body && typeof body === 'object' && body.dryRun === true;
+    if (!dryRun) {
+      throw new Error(`UnitOfWork.simulate() is only for a declared dry run (${auth.operationId})`);
+    }
+    if (!auth.enforced || !auth.allowed) throw problem('FORBIDDEN_ACTION');
+    return this.db.simulate(
+      tenantOf(auth.principal),
+      (tx) => runInUnitOfWork(`${auth.operationId} (dryRun)`, () => handler(tx)),
+      {
+        lockTimeoutMs: SIMULATE_LOCK_TIMEOUT_MS,
+        statementTimeoutMs: SIMULATE_STATEMENT_TIMEOUT_MS,
+      },
+    );
   }
 
   /**

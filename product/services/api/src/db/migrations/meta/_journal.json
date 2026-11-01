@@ -456,6 +456,13 @@
       "when": 1792782165681,
       "tag": "0088_late_fee_post_review",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1792782167681,
+      "tag": "0089_simulation_guard_room_price_cancel",
+      "breakpoints": true
     }
   ]
 }

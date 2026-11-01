@@ -74,6 +74,11 @@ export interface DtoInput {
   balanceDueVnd?: number;
   /** 0.3.6 (BUG-R2-031): the booking's registration (registration module, through ReservationHooks). */
   registration?: { id: string; status: string; deadlineAt: Date | null } | null;
+  /**
+   * OpenAPI 0.3.9 add 1 (FB-R3-UXD-FE-A-06): departure of the whole stay (primary + extension children, BR-422) –
+   * only for a PRIMARY booking `confirmed`/`in_house`; absent otherwise.
+   */
+  stayDepartureDate?: LocalDate;
 }
 
 export function toReservationDto(d: DtoInput): Record<string, unknown> {
@@ -125,6 +130,7 @@ export function toReservationDto(d: DtoInput): Record<string, unknown> {
     })),
     arrivalDate: row.arrival_date,
     departureDate: row.departure_date,
+    ...(d.stayDepartureDate ? { stayDepartureDate: d.stayDepartureDate } : {}),
     nights: nightsOf(row.arrival_date, row.departure_date),
     adults: row.adults,
     children6to11: row.children_6_11,
