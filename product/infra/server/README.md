@@ -248,9 +248,170 @@ Quay lui: (a) OWN tắt công tắc trên Desk (ngay); (b) đặt `LANDING_PUBLI
   - cùng version, cùng băm → cho qua;
   - **cùng version, khác băm → từ chối** (`FAIL: privacy page bytes changed for a published notice version …`, CI báo `step=privacy`), không đổi container, không ghi `landing_tag`. Áp dụng cả `--rollback`. Cách sửa: tăng version thông báo (2 trang + `data-consent-version` của form), phát hành lại, rồi chạy bước 6 cho version mới;
   - version chưa có trong log → cho qua, in nhắc chạy bước 6 sau deploy;
-  - image không có 2 trang privacy → cho qua, ghi chú.
+  - image không có 2 trang privacy, hoặc trang không in đúng một version → **từ chối khi `LANDING_PUBLIC_API=on`** (ARC CWD-01, v1.0.1: form đang nhận đồng ý thì phải đối chiếu được); proxy đóng thì chỉ ghi chú / WARNING;
+  - không có `state/privacy-notice.log` mà `LANDING_PUBLIC_API=on` → **WARNING riêng** "no …/privacy-notice.log while the form proxy is on" (ARC CWD-02): nếu stack này từng ghi version thì khôi phục log từ bản sao lưu (`privacy-notice-<stamp>.log.age`, mục 13.6) hoặc chạy `publish-privacy-notice.sh` (chạy thử) để đối chiếu DB **trước** khi INV duyệt.
 - Ngoại lệ: khi `LANDING_PUBLIC_API` **khác `on`** (proxy form đóng, khách không gửi được đồng ý – ví dụ quay lui (c) ở trên), cùng version khác băm chỉ là **WARNING**. Phải tăng version trước khi mở lại proxy.
 - Trước khi INV duyệt một lượt landing: OPS chạy `cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/deploy-landing.sh <sha-…> --digest sha256:… --check-only` (kéo image, kiểm cấu hình + digest + privacy, **không đổi gì**). Thay cho việc băm tay trước đây.
 - **Sau mỗi lượt deploy landing có version mới** (tới khi có `--candidate-digest`, FB-04, `v1.0.1`): chạy bước 6 (`publish-privacy-notice.sh` chạy thử rồi `--apply`) **ngay sau deploy landing, trong cùng phiên SSH, ngoài giờ cao điểm** (tránh khung nhận/trả phòng), để khoảng trống giữa trang mới và dòng phiên bản ngắn nhất.
-- Nguồn so sánh là `state/privacy-notice.log` trên chính stack (mọi lần ghi bảng đều qua `publish-privacy-notice.sh`, mỗi lần một dòng). Mất tệp này thì kiểm coi như "chưa có version nào" – không xóa, không sửa tay tệp này.
-- Test: `infra/server/test/deploy-landing-privacy.test.sh` (9 ca: image giả `FROM alpine`, không cần stack; chạy trong CI job `infra-scripts`).
+- Nguồn so sánh là `state/privacy-notice.log` trên chính stack (mọi lần ghi bảng đều qua `publish-privacy-notice.sh`, mỗi lần một dòng). Mất tệp này thì kiểm coi như "chưa có version nào" – không xóa, không sửa tay tệp này. Từ v1.0.1 tệp nằm trong bản sao lưu hằng ngày (mục 13.6).
+- Test: `infra/server/test/deploy-landing-privacy.test.sh` (13 ca: image giả `FROM alpine`, không cần stack; chạy trong CI job `infra-scripts`).
+
+## 13. v1.0.1 – tin Google Chat (yêu cầu đặt phòng) và kiểm vận hành mới
+
+Căn cứ:
+- ARC `gchat-booking-request-notify` mục 3.2 và 8.7.
+- `rounds/round-03/reviews/ARC-on-BE-gchat-notify.md` (GC-04), `SEC-on-BE-gchat-notify.md` (bảng ★), `QA-on-BE-gchat-notify.md` (FB-04).
+- `rounds/round-03/outputs/SEC/esc041-gchat-full-details.md` mục L2.
+- `rounds/round-03/reviews/ARC-on-OPS-cwd-fb01.md` (CWD-01…04), `rounds/round-04/plan-v1.0.1.md` (T11–T16).
+
+Lệnh từng bước cho INV: `rounds/round-04/outputs/OPS/v1.0.1-inv-commands.md`.
+
+Chỉ worker đọc 2 cấu hình mới:
+- `BOOKING_REQUEST_CHAT_WEBHOOK_URL_FILE` = `/run/secrets/booking_request_chat_webhook`: tệp bí mật chứa URL webhook của phòng "OTTIMO – Yêu cầu đặt phòng". Trong URL có key và token. **Tệp rỗng = Chat tắt.** Tệp có uid 1000, quyền 0400, dài tối đa 512 ký tự.
+- `BOOKING_REQUEST_CHAT_DETAIL_LEVEL` trong `.env` (không phải bí mật): `A` (mặc định: mã, giờ nhận, hạn phản hồi, mức gấp, link Desk), `B` (thêm ngày, số khách) hoặc `C` (thêm tên, liên hệ, lời nhắn). Thiếu hoặc sai thì dùng `A`.
+
+### 13.1 Trước lượt deploy v1.0.1: làm mới bundle + tệp bí mật mới (GC-04)
+
+- `docker-compose.prod.yml` của v1.0.1 có thêm một secret. Thiếu tệp thì `deploy.sh` **từ chối sạch** ở bước `config`, trước khi kéo image (`FAIL: secret file(s) missing: booking_request_chat_webhook – run: sudo …/init-secrets.sh`). Dịch vụ không bị gián đoạn.
+- **CI không làm mới bundle.** Khóa CI chỉ chạy được `deploy-from-ci.sh`. Script này chỉ nhận `deploy sha-…` / `landing sha-…`, không chép tệp, không đổi compose, Caddy hay bí mật.
+  - Bundle `infra/` trên máy chủ chỉ đổi khi OPS hoặc INV làm tay.
+  - Với mỗi bản phát hành, chạy `git diff <tag đang chạy> <tag mới> -- product/infra`. Kết quả khác rỗng thì phải làm mới bundle **trước** khi INV duyệt deploy.
+- Thứ tự cho **mỗi stack** (staging trước, production sau):
+  1. Gói bundle trên Mac từ đúng commit sẽ phát hành: `git archive --format=tar.gz -o /tmp/ottimo-infra.tgz <ref> product/infra`. Gói chỉ có tệp đã commit, nên không lẫn `.env`, `.out`, `.work` hay `._*`.
+  2. `scp` lên home của `ottimo-admin`, rồi giải nén vào `~/ottimo-bundle` (quyền 0700).
+  3. Sao lưu bundle cũ vào `/root/ottimo-staging-bundles/infra-<giờ>` hoặc `/root/ottimo-prod-bundles/infra-<giờ>`.
+  4. `rsync` **chỉ vào** `/opt/ottimo/infra` hoặc `/opt/ottimo-prod/infra`:
+     - dùng cờ như `bootstrap-vps.sh`, thêm `--exclude 'server/test/'`;
+     - sau đó `chmod -R go-w`, rồi `chmod 0755 server/bin/* postgres/init/02-roles.sh`;
+     - **không** chạy cả `bootstrap-vps.sh`, vì script đó chạy `apt upgrade` và `ufw reset` (decision-log 25/10);
+     - kiểm bằng `diff -rq --exclude=test` giữa bản giải nén và bundle trên máy.
+  5. **Ngay sau đó** chạy `sudo …/init-secrets.sh` (không cờ). Lệnh tạo `booking_request_chat_webhook` **rỗng** và in `init-secrets: created booking_request_chat_webhook`. Nếu trên production lệnh in thêm tên nào khác thì **dừng**, báo OPS: production không được sinh khóa mới.
+  6. Kiểm:
+     - `sudo stat -c '%n uid=%u mode=%a size=%s' …/secrets/booking_request_chat_webhook` phải ra `uid=1000 mode=400 size=0`;
+     - `cd / && sudo -u ottimo …/bin/dc --profile deploy config -q` không in gì.
+- Sau deploy mà tệp vẫn rỗng: log worker có `{"level":"info","msg":"chat: off","reason":"NOT_CONFIGURED"}`.
+- Lỡ deploy **trước** khi làm mới bundle: bundle cũ không có secret nên deploy vẫn qua, nhưng Chat tắt. Sửa bằng cách làm bước 3–6, rồi `cd / && sudo -u ottimo …/bin/dc up -d --no-deps worker` để dựng lại worker với compose mới.
+- Quay lui bundle: `sudo rsync -a --delete /root/ottimo-prod-bundles/infra-<giờ>/ /opt/ottimo-prod/infra/`. Tệp bí mật rỗng để nguyên cũng không ảnh hưởng bản cũ.
+
+### 13.2 Dán / đổi / xóa URL webhook (`--set-booking-chat`)
+
+```sh
+# Từ Mac: ssh -t (cần terminal để có dấu nhắc ẩn). Production: phòng thật. Staging: phòng THỬ (ESC-046) hoặc để rỗng.
+ssh -t -i ~/.ssh/ottimo_ops ottimo-admin@desk.ottimo.vn 'cd / && sudo /opt/ottimo-prod/infra/server/bin/init-secrets.sh --set-booking-chat'
+```
+- Lấy URL: Google Chat → phòng → **Apps & integrations** → **Webhooks** → tạo webhook tên "Desk OTTIMO" → sao chép. Dán ở dấu nhắc `Webhook URL:`. Lúc dán, màn hình không hiện gì.
+- Script kiểm URL theo đúng luật của worker: chỉ nhận `https://chat.googleapis.com/v1/spaces/<id>/messages?key=…&token=…`.
+  - Image đang chạy có công cụ `dist/tools/check-chat-webhook.js` (từ v1.0.1) thì kiểm thêm bằng công cụ đó.
+  - Image cũ thì in `checked: bash rule only`.
+- Script ghi qua tệp tạm (umask 077) rồi `mv`. Màn hình chỉ in `chat webhook: set (<số> chars)`. Nhập dòng trống thì Chat tắt (`chat webhook: empty (Chat off)`).
+- Dán xong thì chạy `cd / && sudo -u ottimo …/bin/dc restart worker`, rồi xem log có `{"level":"info","msg":"chat: on"}`. Nếu dán trước lượt deploy v1.0.1 thì không cần restart: deploy tự dựng lại worker.
+- **Không bao giờ** dán URL vào chat, email, tài liệu hay issue. Ai có URL cũng đăng được vào phòng nhân viên. URL bị lộ thì xóa webhook trong Google Chat, tạo webhook mới, rồi chạy lại lệnh trên.
+- Lệnh xem log (dùng cho cả hai stack):
+  ```sh
+  cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc logs --no-color --no-log-prefix worker | grep '"msg":"chat' | tail -5
+  ```
+  Dòng báo mức có dạng `{"level":"A","msg":"chat detail level"}`. Lý do: logger của worker ghi đè trường `level` bằng mức A/B/C. Đây là lỗi nhỏ của BE (đã báo), không ảnh hưởng tin.
+
+### 13.3 Lọc log `chat dead` (QA FB-R3-QA-BE-GCHAT-04)
+
+Chạy sau deploy và mỗi sáng, cho tới khi `ops-check` có mục `chat_dead`.
+
+Tin Chat lỗi được gửi lại sau 1, 5, 15, 60 rồi 180 phút. Tin thành `dead` khi quá khoảng 4 giờ 20 phút mà vẫn lỗi, hoặc khi Google trả 4xx (ví dụ webhook bị xóa). Lúc đó chỉ còn lại một dòng log. Desk vẫn là nguồn chính, nhưng người trực không biết Chat đã im.
+```sh
+cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc logs --no-color --no-log-prefix --since 24h worker | grep -c '"msg":"chat dead"'
+```
+- Kết quả phải là `0`.
+  - Nếu lớn hơn 0: xem chi tiết bằng `… | grep '"msg":"chat dead"' | tail -5`, rồi báo INT/BE. Dòng log chỉ có `outboxId`, `kind`, `attempt`, `code`, không có dữ liệu khách.
+  - `code` là lỗi 4xx thì webhook đã bị xóa hoặc đổi: dán lại URL theo 13.2.
+  - Tin đã `dead` không tự gửi lại. Mở Desk (H03) để xem yêu cầu.
+- Cùng lúc, đếm `grep -c '"msg":"chat retry"'`. Số này tăng đều là dấu hiệu sắp có tin `dead`.
+
+### 13.4 Đổi mức tin A → B/C (SEC ESC-041 ★3) – production
+
+Chỉ làm khi đủ **cả 3** điều kiện:
+1. SEC đã ghi dòng decision-log "đủ điều kiện đặt C" (★1–★8, gồm K1 ở 13.5 và ★2-bis ở 13.7).
+2. **INV được báo trước và đồng ý**, vì đây là một lần đổi `.env` production.
+3. ORC có mặt để ghi decision-log.
+
+```sh
+cd /
+# 1. Lưu dòng log mức hiện tại (dán vào decision-log)
+sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc logs --no-color --no-log-prefix worker | grep '"msg":"chat detail level"' | tail -1
+# 2. Sao lưu .env
+sudo -u ottimo cp -p /opt/ottimo-prod/.env /opt/ottimo-prod/state/env.before-chat-level.$(date +%Y%m%d-%H%M%S)
+# 3. Đặt mức: bỏ dòng cũ (nếu có), thêm dòng mới; `cat >` giữ nguyên tệp .env (chủ ottimo, 0600) – không `sed -i`
+#    (sed -i cần quyền ghi thư mục /opt/ottimo-prod và tạo tệp mới)
+sudo -u ottimo sh -c 'f=/opt/ottimo-prod/.env t=/opt/ottimo-prod/state/env.level.tmp; grep -v "^BOOKING_REQUEST_CHAT_DETAIL_LEVEL=" "$f" > "$t" && echo BOOKING_REQUEST_CHAT_DETAIL_LEVEL=C >> "$t" && cat "$t" > "$f" && rm -f "$t"'
+sudo -u ottimo grep '^BOOKING_REQUEST_CHAT_DETAIL_LEVEL=' /opt/ottimo-prod/.env    # đúng 1 dòng
+# 4. Dựng lại CHỈ worker (`restart` KHÔNG đọc lại .env – phải `up -d`)
+sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc up -d --no-deps worker
+# 5. Kiểm: phải thấy mức mới và KHÔNG có "chat config invalid"
+sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc logs --no-color --no-log-prefix --since 5m worker | grep '"msg":"chat'
+```
+- ORC ghi decision-log: mức cũ → mới, giờ, người làm, dòng SEC làm căn cứ, kèm 2 dòng log ở bước 1 và bước 5.
+- Quay về A: làm lại các bước trên với `A`. Hạ mức thì không cần SEC, nhưng vẫn báo INV và ghi decision-log.
+- Yêu cầu gửi dưới thông báo cũ hơn `2026-10-31` **luôn** nhận mức A, dù `.env` đặt C. Đây là hằng số trong mã.
+- Staging chỉ được đặt C khi nối với **phòng thử** và dùng dữ liệu giả. Không bao giờ nối staging với phòng thật.
+
+### 13.5 K1 và xóa tin Chat khi khách xin xóa (WR8) – SEC L2.2
+
+**K1** – kiểm một lần trên phòng thật, ngay sau khi v1.0.1 chạy mức A, và **trước** khi đăng thông báo `2026-10-31`:
+1. INV gửi một yêu cầu thử trên ottimo.vn: tên đúng chuỗi `TEST OTTIMO`, email `info@ottimo.vn`, không SĐT, tắt tự điền.
+2. Tin mức A tới phòng.
+3. INV, với quyền quản lý phòng, **xóa tin do webhook "Desk OTTIMO" đăng**.
+4. Tìm `REQ-…` trong Chat: không còn kết quả.
+5. INT ghi lại từng câu có/không:
+   - xóa được tin webhook;
+   - xóa được tin người khác trả lời trong luồng;
+   - trước khi xóa, tìm kiếm có ra mã `REQ-…`.
+6. Xóa yêu cầu thử theo WR8 trên Desk, rồi chạy đếm khói 12.3 bước 8. Kết quả phải là `RESULT: OK – 14/14`.
+
+K1 **không đạt** (không xóa được tin webhook) thì: không đăng `2026-10-31`, không đặt C, INT báo SEC.
+
+**WR8 bằng tay** (sổ tay BA ghi đầy đủ):
+1. Người làm WR8 chép mã `REQ-…` **trước** khi xóa trên Desk.
+2. FDL chỉ nhắn MGR (MGR vắng thì OWN) mã yêu cầu và chữ "xóa Chat theo WR8".
+3. **Trong 24 giờ**, quản lý phòng tìm theo mã, rồi xóa tin đầu, mọi tin nhắc lại và mọi tin nhân viên trả lời trong luồng.
+4. Quản lý phòng ghi sổ xóa nội bộ, **chỉ ghi mã**.
+5. Mỗi tháng, OWN đối chiếu sổ xóa với các WR8 trên Desk, cùng lúc rà thành viên phòng (★4).
+
+OPS không có quyền xóa tin Chat. Máy chủ không giữ bản sao nào của tin đã gửi: dòng `staff.chat` chỉ có mã và trạng thái.
+
+### 13.6 Sao lưu `state/privacy-notice.log` (ARC CWD-02)
+
+- `backup.sh` thêm `privacy-notice-<stamp>.log.age` (kèm `.sha256`) vào bộ sao lưu hằng ngày, nếu stack có tệp này.
+  - Tệp chỉ chứa mã người chạy, tag landing và băm trang. Không có dữ liệu khách.
+  - Thời gian giữ như `db-*`.
+  - Bản sao ngoài máy có sẵn, vì `pull-backups.sh` kéo mọi tệp `*.age`.
+- `restore-drill.sh` giải mã tệp nếu có, rồi đối chiếu các version ghi `rc=0` với bảng `privacy_notice_version` trong DB vừa khôi phục. Biên bản in một dòng `privacy-notice.log:`. Dòng này chỉ để xem, không chặn, vì bộ sao lưu trước v1.0.1 chưa có tệp.
+- Dựng lại máy chủ từ sao lưu: giải mã `privacy-notice-<stamp>.log.age` mới nhất trên Mac, rồi chép vào `state/privacy-notice.log` (chủ `ottimo`, quyền 0600) **trước** lượt deploy landing đầu tiên. Thiếu tệp mà proxy form đang mở thì `deploy-landing.sh` in WARNING (12.3).
+- Test: `infra/server/test/backup-privacy-log.test.sh` (4 ca, stub `dc`/`age`, chạy trong CI).
+
+### 13.7 ★2-bis tạm – trước khi PN-01 (migration 0090) lên production
+
+Tới khi trigger chỉ-thêm-dòng của PN-01 lên production, SEC tạm chấp nhận hai điều sau:
+- **Ảnh chụp quyền**: `ottimo_app` chỉ có `SELECT` trên bảng.
+- Luật **"không chạy UPDATE/DELETE tay trên `privacy_notice_version`"**. Mọi lần ghi đều qua `publish-privacy-notice.sh` (12.3 bước 6).
+
+```sh
+cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc exec -T postgres sh -c 'psql -X -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "\dp privacy_notice_version"'
+```
+- Cột `Access privileges` phải có `ottimo_app=r/ottimo_owner`: chỉ có chữ `r`, không có `a`, `w` hay `d`.
+- Dán kết quả vào báo cáo OPS cho SEC (kết quả không chứa dữ liệu).
+- Chụp lại sau mỗi lần deploy có migration, cho tới khi PN-01 lên.
+
+### 13.8 `ops-check`: `email_dead` và lỗi truy vấn (v1.0.1)
+
+- `email_dead` (mục 7) đếm thư `staff.email` chết vì `NO_RECIPIENT`. Hiện chỉ báo số. Bật cảnh báo khi đủ hai điều kiện: BUG-R3-032 đã lên production (đợt 3, người dùng có email) **và** OWN/MGR đã nhập email. Cách bật: thêm `EMAIL_NO_RECIPIENT_ALERT=1` vào `.env` của stack. Timer đọc `.env` mỗi lượt, nên không cần dựng lại container.
+- Khi truy vấn của `j16` hoặc `email_dead` lỗi, kiểm báo `query failed: <loại>`. Có 7 loại cố định:
+  - `permission denied`
+  - `Docker daemon unreachable`
+  - `postgres container not running`
+  - `database unreachable`
+  - `query error`
+  - `stack file missing`
+  - `other error`
+
+  Nguyên văn lỗi không bao giờ được gửi ra journal hay webhook, vì lỗi đọc `.env` có thể trích nguyên một dòng `.env` (ARC CWD-03). Muốn xem lỗi thật: chạy tay `cd / && sudo -u ottimo …/bin/ops-check.sh j16`, rồi `…/bin/dc exec -T postgres psql …` trên terminal.
+- stderr của lệnh đang kiểm ghi vào một tệp riêng cho mỗi lượt (`mktemp`, quyền 0600) và bị xóa khi thoát. Tệp chung `state/ops-check/compose.stderr` của bản 30/10 tự được xóa (ARC CWD-04 mục 1).
+- Test: `infra/ci/test-ops-check.sh` (29 kiểm) và `infra/server/test/ops-check-cwd.test.sh` (7 ca).

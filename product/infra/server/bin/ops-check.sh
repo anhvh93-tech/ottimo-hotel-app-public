@@ -13,7 +13,8 @@
 #   tls         certificate of DESK/STAFF/GUEST host valid > 14 days (Caddy renews at 30 days; this means renewal fails)
 #   containers  postgres, api, worker, web running (api healthy); + landing when a landing tag is deployed. A failing
 #               `docker compose` itself is reported as "docker compose failed, container state unknown: <category>", not
-#               as "not running" (same for http5xx)
+#               as "not running" (same for http5xx); j16 / email_dead report "query failed: <category>" – never the
+#               raw error text (ARC CWD-03)
 #   http5xx     server errors answered by Caddy (web + landing) in the last 35 min < HTTP5XX_MAX (default 5): a
 #               crashing api, a 502 from a dead upstream – before guests or staff report it
 #   email_dead  staff e-mails (outbox topic staff.email: security notices – SEC 06.15 / 06.33 / Q51-6) that died with
@@ -43,18 +44,26 @@ export OTTIMO_HOME
 state="$OTTIMO_HOME/state/ops-check"
 mkdir -p "$state"
 dc() { "$here/dc" "$@"; }
-compose_err="$state/compose.stderr"
-: > "$compose_err"; chmod 600 "$compose_err"
-# Why a docker compose call failed, as a fixed category: its raw message is never forwarded (an .env parse error can
-# quote a line of .env, e.g. a webhook URL). Details: run `…/bin/dc ps` by hand.
-compose_failed() {
-  local why="other error – run bin/dc ps by hand"
-  if grep -qi 'permission denied' "$compose_err" 2>/dev/null; then why="permission denied (current directory or stack files)"
-  elif grep -qiE 'cannot connect to the docker daemon|docker\.sock' "$compose_err" 2>/dev/null; then why="Docker daemon unreachable"
-  elif grep -qiE 'no such file|not found' "$compose_err" 2>/dev/null; then why="stack file missing"
+# stderr of the docker compose / psql call being checked: a private file per run (mktemp = 0600), removed at exit –
+# the raw message (an .env parse error can quote a line of .env) never stays on disk or leaves the server (ARC CWD-03,
+# CWD-04 1). compose.stderr is the shared file of the 30/10 version: remove a leftover.
+rm -f "$state/compose.stderr"
+cmd_err=$(mktemp "$state/cmd-stderr.XXXXXX")
+trap 'rm -f "$cmd_err"' EXIT
+# Why a docker compose or psql call failed, as a fixed category (ARC FB-R3-ARC-OPS-CWD-03): its raw message is never
+# forwarded to the journal or the webhook. Order matters: the psql socket error also says "No such file or directory".
+# Details: run the check by hand (`…/bin/dc ps`, `…/ops-check.sh j16`) and read the error on the terminal.
+cmd_failed() {
+  if grep -qi 'permission denied' "$cmd_err" 2>/dev/null; then echo "permission denied (current directory or stack files)"
+  elif grep -qiE 'cannot connect to the docker daemon|docker\.sock' "$cmd_err" 2>/dev/null; then echo "Docker daemon unreachable"
+  elif grep -qiE 'service "?postgres"? is not running|no container found' "$cmd_err" 2>/dev/null; then echo "postgres container not running"
+  elif grep -qiE 'could not connect|connection to server .*failed|connection refused|database system is (starting up|shutting down|in recovery)|server closed the connection' "$cmd_err" 2>/dev/null; then echo "database unreachable"
+  elif grep -qE 'ERROR:' "$cmd_err" 2>/dev/null; then echo "query error"
+  elif grep -qiE 'no such file|not found' "$cmd_err" 2>/dev/null; then echo "stack file missing"
+  else echo "other error – run it by hand"
   fi
-  echo "docker compose failed, container state unknown: $why"
 }
+compose_failed() { echo "docker compose failed, container state unknown: $(cmd_failed)"; }
 envval() { sed -n "s/^$1=//p" "$OTTIMO_HOME/.env" | tail -n 1 | tr -d '\r' | sed -e 's/^"//' -e 's/"$//'; }
 
 J16_MAX_HOURS="${J16_MAX_HOURS:-26}"
@@ -101,7 +110,7 @@ psql_admin() {
 
 check_j16() {
   local out bad=""
-  if ! out=$(psql_admin <<SQL 2>&1
+  if ! out=$(psql_admin <<SQL 2>"$cmd_err"
 SELECT p.id,
        COALESCE(EXTRACT(EPOCH FROM now() - max(r.run_at) FILTER (WHERE r.status = 'done'))::bigint, -1),
        EXTRACT(EPOCH FROM now() - p.created_at)::bigint,
@@ -112,7 +121,7 @@ SELECT p.id,
  GROUP BY p.id, p.created_at;
 SQL
   ); then
-    notify j16 FAIL "query failed: $(head -n 1 <<<"$out")"
+    notify j16 FAIL "query failed: $(cmd_failed)"
     return 1
   fi
   local limit=$((J16_MAX_HOURS * 3600)) n=0
@@ -179,7 +188,7 @@ check_containers() {
   [ -s "$OTTIMO_HOME/state/landing_tag" ] && services+=(landing)
   # A failing `docker compose` (cwd, daemon, .env) is NOT "container not running": report it as such, with its error.
   for s in "${services[@]}"; do
-    if ! ids=$(dc ps --status running --quiet "$s" 2>"$compose_err"); then
+    if ! ids=$(dc ps --status running --quiet "$s" 2>"$cmd_err"); then
       notify containers FAIL "$(compose_failed)"; return 1
     fi
     [ -n "$ids" ] || missing+=" $s"
@@ -200,7 +209,7 @@ check_http5xx() {
   [ -s "$OTTIMO_HOME/state/landing_tag" ] && svc+=(landing)
   # Caddy access log lines are JSON with "status":<code>; count 5xx answers of the last 35 minutes.
   local logs
-  if ! logs=$(dc logs --no-color --no-log-prefix --since 35m "${svc[@]}" 2>"$compose_err"); then
+  if ! logs=$(dc logs --no-color --no-log-prefix --since 35m "${svc[@]}" 2>"$cmd_err"); then
     notify http5xx FAIL "$(compose_failed)"; return 1
   fi
   n=$(grep -c '"status":5[0-9][0-9]' <<<"$logs" || true)
@@ -213,13 +222,13 @@ check_email_dead() {
   # .env wins over the environment only when set there (the timer has no environment of its own).
   armed=$(envval EMAIL_NO_RECIPIENT_ALERT); armed="${armed:-${EMAIL_NO_RECIPIENT_ALERT:-0}}"
   [[ "$armed" =~ ^[01]$ ]] || { notify email_dead FAIL "EMAIL_NO_RECIPIENT_ALERT must be 0 or 1"; return 1; }
-  if ! out=$(psql_admin <<SQL 2>&1
+  if ! out=$(psql_admin <<SQL 2>"$cmd_err"
 SELECT count(*) FROM outbox_message
  WHERE topic = 'staff.email' AND status = 'dead' AND last_error = 'NO_RECIPIENT'
    AND created_at > now() - interval '$EMAIL_DEAD_HOURS hours';
 SQL
   ); then
-    notify email_dead FAIL "query failed: $(head -n 1 <<<"$out")"
+    notify email_dead FAIL "query failed: $(cmd_failed)"
     return 1
   fi
   n=$(tr -d '[:space:]' <<<"$out")

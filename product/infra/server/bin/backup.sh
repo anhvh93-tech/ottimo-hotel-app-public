@@ -8,6 +8,9 @@
 #                                      (SR-BAK-06), so it is kept longer than the rest (40 days)
 #   counts-<UTC stamp>.txt.age         row counts + money totals (infra/server/backup-counts.sql) read in the SAME
 #                                      snapshot as the dump – the restore drill must find exactly these numbers
+#   privacy-notice-<UTC stamp>.log.age state/privacy-notice.log (publish-privacy-notice.sh: operator ids, landing tags,
+#                                      page hashes – no guest data), the source deploy-landing.sh compares privacy page
+#                                      bytes with (ARC FB-R3-ARC-OPS-CWD-02). Only when the stack has the file.
 #   <file>.sha256                      checksum of the encrypted file
 # Every file is encrypted with `age` to the PUBLIC key(s) in $OTTIMO_HOME/backup/recipients.txt (SR-BAK-02). The
 # private key never lives on this server (INV + OPS password manager) – so nothing here can read a backup, and the
@@ -64,7 +67,9 @@ publish() { # name – checksum + atomic move into $BACKUP_DIR
 #    same snapshot (--snapshot), so the numbers describe exactly what is in the dump.
 [ -r "$counts_sql" ] || die "missing $counts_sql"
 coproc PSQL { dc exec -T postgres sh -c 'psql -X -q -tA -F " " -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' 2>&1; }
-psql_in=${PSQL[1]}; psql_out=${PSQL[0]}
+# Keep the pid now: bash unsets PSQL_PID once the coprocess has exited, and psql may exit right after `\q` – a later
+# "$PSQL_PID" under `set -u` would then stop the backup ("unbound variable", seen in the stub test).
+psql_in=${PSQL[1]}; psql_out=${PSQL[0]}; psql_pid=$PSQL_PID
 printf '%s\n' 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;' 'SELECT pg_export_snapshot();' >&"$psql_in"
 read -r -t 60 snap <&"$psql_out" || die "no snapshot from psql"
 [[ "$snap" =~ ^[0-9A-F-]+$ ]] || die "unexpected snapshot id"
@@ -79,7 +84,7 @@ done
 dc exec -T postgres sh -c "pg_dump -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" --snapshot=$snap --format=custom --compress=6" \
   | encrypt_to "db-$stamp.dump" || die "pg_dump"
 printf '%s\n' 'COMMIT;' '\q' >&"$psql_in"
-wait "$PSQL_PID" 2>/dev/null || true
+wait "$psql_pid" 2>/dev/null || true
 encrypt_to "counts-$stamp.txt" < "$tmp/counts-$stamp.txt"
 rm -f "$tmp/counts-$stamp.txt"
 publish "db-$stamp.dump"
@@ -98,10 +103,22 @@ dc run --rm --no-deps -T --entrypoint tar api -C /var/lib/ottimo/blobs -cf - . \
 publish "blobs-$stamp.tar"
 log "blobs archived"
 
-# 4. retention: < 7 days everything; Sunday (UTC) sets < 35 days; purge-journal < 40 days; nothing older.
+# 4. state/privacy-notice.log (ARC CWD-02): a server rebuilt from this backup has the privacy_notice_version rows in
+#    the database; without the log, deploy-landing.sh would treat every version as "not published yet" and let other
+#    page bytes of a published version through. No file = no notice version published on this stack yet.
+if [ -s "$state/privacy-notice.log" ]; then
+  encrypt_to "privacy-notice-$stamp.log" < "$state/privacy-notice.log" || die "privacy-notice.log"
+  publish "privacy-notice-$stamp.log"
+  log "privacy-notice.log saved ($(wc -l < "$state/privacy-notice.log" | tr -d ' ') lines)"
+else
+  log "no state/privacy-notice.log on this stack (no notice version published here yet) – nothing to save"
+fi
+
+# 5. retention: < 7 days everything; Sunday (UTC) sets < 35 days; purge-journal < 40 days; nothing older.
 now=$(date -u +%s)
 shopt -s nullglob
-for f in "$BACKUP_DIR"/db-*.age "$BACKUP_DIR"/blobs-*.age "$BACKUP_DIR"/counts-*.age "$BACKUP_DIR"/purge-journal-*.age; do
+for f in "$BACKUP_DIR"/db-*.age "$BACKUP_DIR"/blobs-*.age "$BACKUP_DIR"/counts-*.age "$BACKUP_DIR"/purge-journal-*.age \
+  "$BACKUP_DIR"/privacy-notice-*.age; do
   base=$(basename "$f")
   s=$(sed -E 's/^.*-([0-9]{8})T[0-9]{6}Z\..*$/\1/' <<<"$base")
   [[ "$s" =~ ^[0-9]{8}$ ]] || continue
