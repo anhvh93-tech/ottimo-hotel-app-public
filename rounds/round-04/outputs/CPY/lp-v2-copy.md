@@ -788,3 +788,106 @@ Các khóa giá còn lại không đổi: `estimate.label`, `final`, `prompt`, `
 - `longHint(n)` ("{n} nights. We will quote our long-stay rate.") khớp trạng thái mới, giữ nguyên.
 - FAQ `faq-long` ("kinder the longer you stay") là câu đã duyệt, không nêu con số, nên giữ nguyên.
 - Test (mục 7): bỏ dòng kiểm `overShortMax` chứa nhãn `byMonth`. Thêm: `priceMonthlyOffer.*` không chứa chữ số, "%" hay `{amount}`, ở cả 5 ngôn ngữ.
+
+---
+
+## 13. Lượt 3 – sau review (Phản hồi & sửa, 01/11/2026)
+
+- Căn cứ: `rounds/round-04/reviews/UXD-on-LP-v2-fe.md` (FB-02, FB-03, FB-08, FB-09, FB-10, D7, D8), báo cáo FE `origin/lp-v2-fe` `rounds/round-04/outputs/FE/lp-v2-fe.md` mục 4 và 6, decision-log 01/11 (INV: **từ 30 đêm** chuyển sang giá tháng).
+- Cách kiểm độ dài: CPY đo trên bản dựng sẵn của nhánh `lp-v2-fe` @ `5db7df80` (worktree có sẵn, chỉ đọc, chạy server tĩnh cục bộ). Dùng Playwright thay chữ ngay trên trang rồi đo `scrollWidth − clientWidth`. Không sửa mã, không dữ liệu khách. Số đo bản cũ trùng số của UXD (ru 320: 6 px; ru 360: 5 px; ru 375: 2 px; vi 360: 1 px; đầu trang ru 1024: tràn 8 px).
+
+### 13.1 Bản ngắn cho nút (FB-02, FB-03)
+
+**Đề xuất: đổi thẳng chữ của khóa hiện có, không thêm khóa "short".** Một chữ dùng chung cho hero, đầu trang, menu điện thoại và thanh đáy (UXD nghiêng về phương án này). Không đổi type, không đổi `StickyBar.astro`.
+
+| Khóa | Ngôn ngữ | Cũ | Mới | Ký tự |
+|---|---|---|---|---|
+| `actions.requestToBook` | ru | Запланировать поездку | **Выбрать даты** | 21 → 12 |
+| `actions.chatOnZalo` | ru | Написать в Zalo | **Чат в Zalo** | 15 → 10 |
+| `actions.chatOnPrefix` | ru | `'Написать в '` | **`'Чат в '`** (có dấu cách cuối) | |
+| `actions.chatOnZalo` | vi | Nhắn qua Zalo | **Nhắn Zalo** | 13 → 9 |
+| `actions.chatOnPrefix` | vi | `'Nhắn qua '` | **`'Nhắn '`** (có dấu cách cuối) | |
+| en, ko, zh | – | – | **Giữ nguyên** | |
+
+Kết quả đo với chữ mới (tràn tính bằng px, 0 là vừa):
+
+| Chỗ | Cỡ | ru cũ | ru mới | vi cũ | vi mới | en | ko | zh |
+|---|---|---|---|---|---|---|---|---|
+| Thanh đáy – nút chính | 320 | 6 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Thanh đáy – nút Zalo | 360 | 5 | 0 | 1 | 0 | 0 | 0 | 0 |
+| Thanh đáy – nút Zalo | 375 | 2 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Thanh đáy – cả hai nút | 390 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Đầu trang – tràn trang | 1024 | 8 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Đầu trang – nút chính xuống 2 dòng | 1024–1120 | có | **không** | không | không | không | không | không |
+| Đầu trang – khoảng logo tới mục menu đầu | 1024 | 8 px | **37 px** | 27 → 43 px | | 32 px | 65 px | 74 px |
+
+- Ở 1024 px **phải đổi cả hai** chữ ru. Chỉ đổi nút chính thì nút vẫn xuống 2 dòng. Chỉ đổi nút Zalo thì cũng vậy.
+- Ở 320 px, thanh đáy vẫn chỉ còn "Zalo" kèm biểu tượng như hiện nay (tiền tố ẩn dưới 360 px).
+- Kiểm thêm cả trang ru/vi ở 320/360/375/390/768/1024/1280: không nút nào tràn, trang không cuộn ngang.
+- ko/zh: không cần bản ngắn. Nút thanh đáy "예약 문의", "Zalo로 문의", "咨询预订", "通过 Zalo 联系" vừa ở 320–390 px. Đầu trang 1024 px vừa, logo cách menu 65–74 px.
+
+Lý do chọn chữ:
+- **"Выбрать даты"** ("Chọn ngày"): mềm, đúng việc khách làm khi bấm (mở form, chọn ngày), cùng ý với bản Việt "Chọn ngày ở". Không ép đặt ngay, không "Забронировать". Phương án dự phòng cho người bản xứ: "Подобрать даты" (14 ký tự). Bản này cũng vừa thanh đáy, nhưng ở đầu trang 1024 px logo chỉ cách menu 28 px.
+- **"Чат в Zalo"**: dạng nút quen trên web Nga ("Чат в Telegram", "Чат в WhatsApp"). Câu trong thân trang vẫn giữ "напишите нам в Zalo".
+- **"Nhắn Zalo"**: cách nói tự nhiên ("nhắn Zalo cho OTTIMO"). Chỉ thiếu 1 px nên mắt thường không thấy, nhưng test "không nút nào tràn" (FB-02 đề xuất 3) sẽ bắt lỗi. Lưu ý: chữ này **đổi trang /vi/ đang chạy** (hero, đầu trang, thanh đáy). PO duyệt. Nếu PO muốn giữ bản cũ thì phải chờ lưới an toàn 2 dòng của FE (FB-02 đề xuất 2).
+- Không có chuỗi ru/vi nào khác trích nguyên văn hai nhãn này (đã soát `ru.ts`, `vi.ts`). Không phải sửa câu khác.
+- Mục 9 (người bản xứ, ru điểm 4) đổi thành: "Nút chính «Выбрать даты» (trước là «Запланировать поездку»), nút Zalo «Чат в Zalo». Nghe có tự nhiên, có đủ mềm không? Nếu muốn thay, giữ tối đa 14 ký tự."
+
+### 13.2 Dấu câu tiếng Trung (FB-08)
+
+Quy tắc ghép câu cho FE (chữ không đổi, chỉ đổi cách ghép):
+
+| Chỗ | en / vi / ko / ru | zh |
+|---|---|---|
+| Ghi chú S3 `view.note` (`currency` + `taxIn`/`taxOut` + `final`) | nối bằng **một dấu cách** | nối **liền**, không dấu cách (mỗi câu đã kết thúc bằng "。") |
+| Câu đọc lời mời tháng | dùng khóa mới `priceMonthlyOffer.live` (bên dưới) | như trái |
+
+Kết quả zh: "价格以越南盾（VND）计。含税。最终价格以我们发送的报价为准。"
+
+Khóa mới **`priceMonthlyOffer.live`** (chữ tĩnh, không chữ số). FE đọc khóa này cho `role="status"`, thay cho ghép `` `${label}. ${text}` ``:
+
+| Khóa | EN | VI | KO | ZH | RU |
+|---|---|---|---|---|---|
+| `priceMonthlyOffer.live` | A special offer for longer stays. For a month or longer, we prepare a rate around your dates. You will find it in the quote we send. | Ưu đãi riêng cho kỳ ở dài. Với kỳ ở từ một tháng, chúng tôi chuẩn bị mức giá riêng theo ngày ở của bạn, gửi kèm báo giá. | 장기 숙박 특별 제안. 한 달 이상 머무신다면 일정에 맞춘 요금을 따로 준비해 드립니다. 보내 드리는 견적에서 확인하실 수 있습니다. | 长住专属优惠。入住一个月或以上，我们会根据您的日期准备专属价格，随报价一并发送给您。 | Особое предложение для долгого проживания. Для проживания от месяца мы подготовим цену под ваши даты — она будет в предложении, которое мы пришлём. |
+
+- Test "`priceMonthlyOffer.*` không chữ số, không %, không `{amount}`" (mục 12.3) áp cả cho `.live`.
+- Đã soát các chuỗi zh còn lại trong `booking-strings/zh.ts` và `zh.ts`: dấu câu đều toàn khổ (`，。：；（）“”`). Không còn chỗ nào mã ghép câu zh bằng ". " hay " ". Dòng cảm ơn đã dùng "：" (`sep` theo ngôn ngữ).
+- Khoảng cách giữa chữ Hán và chữ số/Latin ("3 晚", "通过 Zalo 联系") giữ như hiện nay. Đây vẫn là điểm 8 của người bản xứ (mục 9).
+
+### 13.3 Câu ở tối thiểu và câu "Estimate cleared" (D7, D8, FB-09)
+
+`estimate.minStay(minNights)`: hiện ở S6 khi API trả `notes.min_stay` (DOM: 2 đêm khi đến thứ Sáu, thứ Bảy hoặc ngày lễ). Câu này cũng là câu đọc `role="status"`. `{nights}` lấy từ `nights(minNights)` của ngôn ngữ đó: ru tự chia số nhiều (2 ночи, 5 ночей), en có "1 night/… nights".
+
+`estimate.liveCleared`: chỉ dành cho trình đọc màn hình. Đọc khi ô giá về S0/S1 **sau khi đã có giá**. Trước khi đọc, FE xóa câu giá cũ trong vùng status (FB-09). Câu ngắn, trung tính, không nói lý do.
+
+| Khóa | EN | VI | KO | ZH | RU |
+|---|---|---|---|---|---|
+| `estimate.minStay(n)` | These dates have a minimum stay of {nights}. Choose a longer stay to see an estimate, or send your request and we will suggest options. | Với ngày bạn chọn, thời gian ở tối thiểu là {nights}. Chọn ở dài hơn để xem giá ước tính, hoặc cứ gửi yêu cầu, chúng tôi sẽ gợi ý cho bạn. | 선택하신 날짜는 최소 {nights}부터 머무실 수 있습니다. 일정을 늘리시면 예상 요금을 보여 드리며, 이대로 요청을 보내 주셔도 맞는 일정을 안내해 드리겠습니다. | 所选日期最少需入住 {nights}。延长住宿即可查看预估价格；也可直接提交申请，由我们为您推荐合适的安排。 | На эти даты минимальный срок проживания — {nights}. Выберите больше ночей, чтобы увидеть ориентировочную цену, или отправьте запрос как есть: мы предложим варианты. |
+| `estimate.liveCleared` | Estimated rate cleared. | Đã xóa giá ước tính. | 예상 요금이 지워졌습니다. | 预估价格已清除。 | Ориентировочная цена сброшена. |
+
+Ví dụ với n = 2: en "a minimum stay of 2 nights" · vi "tối thiểu là 2 đêm" · ko "최소 2박부터" · zh "最少需入住 2 晚。" · ru "— 2 ночи."
+
+- Cách viết hàm cho FE: `minStay: (n) => \`These dates have a minimum stay of ${nights(n)}. …\`` (tương tự cho 4 ngôn ngữ còn lại, dùng `nights` cùng tệp).
+- EN dùng "Estimated rate cleared." chứ không "Estimate cleared." (chữ tạm của UXD) để cùng từ với nhãn ô giá "Estimated rate". Các bản dịch dùng đúng thuật ngữ mục 1.4.
+- Không hứa giữ phòng, không nhắc giá. "we will suggest options" / "предложим варианты" chỉ là lời mời gửi yêu cầu, khớp phễu.
+- Khi đã có `minStay`, FE bỏ đường lùi "dùng câu S6 tạm" (D8).
+
+### 13.4 Mốc 30 đêm cho gợi ý dưới ô ngày (FB-10)
+
+- **Không chuỗi chữ nào ghi số 28.** CPY đã soát `content/{en,vi,ko,zh,ru}.ts` và `booking-strings/*.ts`. Chữ "28" chỉ có ở khoảng cách sân bay (28 km) và diện tích (28–34 m²), không liên quan.
+- Mốc nằm ở dữ liệu: `site.json` `booking.shortMaxNights: 27` (từ 28 đêm thì hiện `longHint`). Theo INV 01/11 phải là **29**, để gợi ý ở dài hiện từ **30 đêm**. Đây là việc của FE/ORC (dữ liệu, không phải chữ). Đổi đúng lúc với hotfix Desk, như UXD FB-10 đề xuất.
+- Câu `longHint(n)` của cả 5 ngôn ngữ **giữ nguyên** ("{n} nights. We will quote our long-stay rate." …). Ở mốc 30 đêm, câu này còn khớp hơn với lời mời tháng ("For a month or longer…"), vì 30 đêm đúng là "một tháng".
+- Sửa chữ trong chính tài liệu này: mục 12 ghi "từ 28 đêm", "`> shortMaxNights` 27", "vượt 27 đêm", "dưới 28 đêm". Đọc lại thành **từ 30 đêm / `shortMaxNights` 29 / vượt 29 đêm / dưới 30 đêm**.
+- Gửi FE (chỉ là chú thích trong mã, không phải chữ cho khách): `booking-strings/types.ts` (`priceMonthlyOffer`) và `booking-logic.ts` (`monthlyOfferView`) còn ghi "28 nights or more". Đổi khi sửa FB-10. Chữ tạm của UXD `estimate.longNights` ("For 28 nights or more…") không dùng, nên bỏ khỏi thiết kế 3.9.
+
+### 13.5 Ghi chú cho FB-04 (dòng số tiền S3)
+
+- Không cần khóa mới. `estimate.total` đã chia quanh số tiền: en/vi/ru có phần "for 3 nights" / "cho 3 đêm" / "за 3 ночи" đứng **sau**, ko/zh có "3박 기준" / "3 晚，共" đứng **trước**. FE đưa phần này thành dòng phụ, đúng như UXD đề xuất. Câu đọc `estimate.live` và dòng cảm ơn giữ nguyên.
+- Đề xuất cho `nights(n)`: dùng khoảng trắng không ngắt (U+00A0) giữa số và chữ ở en, vi, zh, ru ("3 nights", "3 đêm", "3 晚", "3 ночи"). ko "3박" không có dấu cách nên không cần. Test đang so `'3 ночи'` bằng dấu cách thường thì QA/FE cập nhật.
+
+### 13.6 Tự kiểm lượt 3
+- Không "!", không emoji, không từ cấm (mục 6 và `BANNED`). Không nêu giá, không % trong thân câu mới. `priceMonthlyOffer.live` không chữ số.
+- Thuật ngữ khớp mục 1.4: "Estimated rate / Giá ước tính / 예상 요금 / 预估价格 / Ориентировочная цена".
+- zh dùng dấu toàn khổ. ru dùng "—", không «» vì câu không trích nhãn.
+- Chữ mới ko/zh làm thêm ký tự cho bộ font cắt (ví dụ 지, 워, 졌, 최, 소, 늘, 清, 除, 延, 长 nếu chưa có). FE chạy lại `sync:fonts:cjk` sau khi áp chữ, nếu không test glyph sẽ đỏ (FE mục 6).
+- Người bản xứ chưa đọc các câu ở mục 13. Gộp vào lượt đọc của mục 9.
