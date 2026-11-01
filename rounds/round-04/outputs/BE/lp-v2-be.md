@@ -97,3 +97,43 @@ Trả lời từng thẻ: `rounds/round-04/responses/BE-LP-v2.md`. Mục 1–8 �
 ### 9.2 Kết quả kiểm (lượt này)
 - Toàn bộ test api trên PostgreSQL 17 tạm riêng (docker, cổng 55441, roles theo `02-roles.sh`, đã dừng sau khi chạy): **140 file đạt, 2 bỏ qua; 3339 test đạt, 19 bỏ qua, 0 lỗi**. Mới/sửa: `lp-v2-be-units.test.ts` (ca DOM mục 11 cột trực tiếp + 9 ca bảng giá 01/11 + "không còn sàn OTA"), `lp-v2-price-estimate.test.ts` 20 test e2e (thêm: mốc 30 đêm từ tham số + `stay_kind`; một IP dồn dập, IP khác vẫn 200; trần 1 s khi tính lại).
 - `pnpm lint` (eslint + typecheck mọi workspace) xanh; `pnpm format:check` xanh; `drizzle-kit generate` "No schema changes"; api-client 32 test đạt; `gen_rbac_cases.py --check` OK.
+
+## 10. Kiểm thử – sửa lỗi QA: BUG-R4-004 (P2), BUG-R4-005 (P3) – nhánh `lp-v2-be2` (01/11/2026)
+
+### 10.1 BUG-R4-004 – `publicRoomType` không lưu, không trả
+- **Nguyên nhân**: zod `roomPatch`/`roomInput` trong `platform.controller.ts` không có khóa `publicRoomType` nên zod bỏ trường lạ; `RoomsService` không đọc/ghi cột `room.public_room_type` (có từ migration 0055).
+- **Đã sửa**:
+  - `createRoom` lưu `RoomInput.publicRoomType`; `updateRoom` lưu `RoomPatch.publicRoomType` (vắng = giữ, `null` = xóa); chuỗi được bỏ khoảng trắng đầu/cuối và gộp khoảng trắng giữa, sau đó 1–60 ký tự (rỗng/toàn khoảng trắng/61 ký tự/không phải chuỗi → 422 `VALIDATION_FAILED`).
+  - `Room.publicRoomType` **luôn** có trong `listRooms`/`createRoom`/`updateRoom` (`null` = chưa nhập).
+  - **Quyền: chỉ owner** (lệnh ORC). Manager vẫn gọi được `createRoom`/`updateRoom` cho các trường khác (rbac S25/A101 giữ nguyên), nhưng gửi `publicRoomType` (kể cả `null`) → 403 `FORBIDDEN_ACTION`, không ghi gì. Lý do ghi trong mã: hạng công khai quyết định căn bán ở hạng nào và giá web nào (BR-115), cùng loại với công tắc `public_show_prices` (chỉ OWN).
+  - Audit: `room.updated`/`room.created` (category `config`) ghi `publicRoomType` trước/sau; thêm `publicRoomType` vào allowlist audit `room` (`modules/platform/audit-entities.ts`).
+  - **Cache giá web**: sau khi `updateRoom` commit (200), gọi `ParameterHooks.changed(propertyId, 'room')` → `PriceEstimateService.invalidate` xóa cache kết quả của cơ sở. Trước đây đổi hạng/ngừng bán/giá niêm yết chỉ lên web sau TTL 60 s (lệch L2). Lượt bị từ chối (403/422/409) không xóa cache.
+- **Test**: `test/integration/bug-r4-004-public-room-type.test.ts` (8 test): list trả `null` cho OWN/MGR/FD; OWN PATCH lưu + trả + list + audit; PATCH kèm `listPrice` (đúng bước QA) lưu cả hai; PATCH không có khóa giữ giá trị, `null` xóa; 4 ca 422; MGR 403 (cả khi kèm trường khác), MGR không gửi trường → 200, FD → 403; `createRoom` OWN lưu, MGR gửi trường → 403 không tạo căn; cache bị xóa sau PATCH thành công, không xóa sau 403.
+
+### 10.2 Production có `public_room_type` cho 10 căn không? (đọc mã/migration/runbook, không SSH)
+- **Có, theo mã đã chạy.** `production-bootstrap.ts` chèn `room.public_room_type = r.publicRoomType` cho 10 căn từ `PRODUCTION_ROOMS` (`production-defaults.ts`): 101, 201 = `Standard Studio · City View`; 102, 103, 202, 203 = `Standard Studio · Garden View`; 302, 402 = `Premium · One Bedroom + 1`; 301, 401 = `Signature · Two Bedrooms` (BR-012 (6), INV 26/10; slug khớp landing `standard-studio-city-view`, `standard-studio-garden-view`, `premium-one-bedroom-1`, `signature-two-bedrooms`).
+- Bootstrap production chạy **một lần** ở buổi B2 28/10 bằng image `sha-70fe734e9077` (`rounds/round-03/outputs/OPS/b2-runbook.md` mục 0 và phần 1: audit `production.bootstrapped` = 1). Commit `d2716948` (26/10, gán đủ 10 hạng) là tổ tiên của `70fe734e9077`, và `production-defaults.ts` ở commit đó có đủ 10 dòng `publicRoomType` khác `null`.
+- Không migration nào sau 0055 đụng cột này; trước bản sửa này **không** có API nào ghi được cột → không ai đổi được sau bootstrap. Vậy production hiện có đủ 10 giá trị, trừ khi có người sửa DB tay (không có ghi nhận nào).
+- **Chưa xác minh trực tiếp trên DB production.** OPS nên chạy chỉ đọc trước khi bật `public_show_prices`: `SELECT room_no, public_room_type FROM room ORDER BY room_no;` (kỳ vọng 10 dòng như trên).
+- **Staging/demo/stack QA** dựng từ DS-E (`src/db/seed/ds-e.ts`, `tests/fixtures/seed/ds-e.json`): **không** có hạng nào → web luôn "giá theo yêu cầu". BE không sửa seed DS-E ở lượt này (đổi seed làm lệch nhiều test khách đang chờ `publicRoomType = null`). Sau khi bản này lên staging, OWN staging gán 10 hạng qua API (hoặc Desk khi FE-A có ô), hoặc OPS chạy SQL một lần như QA đã làm.
+
+### 10.3 BUG-R4-005 – mô tả OpenAPI 0.3.10-draft lệch hành vi
+Sửa mô tả `getPublicPriceEstimate` cho khớp mã (L1–L4, L11 ở mục 3), chỉ mô tả + header khai báo, không đổi schema thân:
+- 30/10 phút + 200/ngày theo HMAC IP (IPv6 /64), 400/ngày theo IPv6 /48, tính cả 4xx → 429; sau đó 10 lượt/giây cho cả api → 503 `Retry-After: 1`; bulkhead 2 → 503 `Retry-After: 5`; 600 lần tính mới/giờ/cơ sở → 503 (cả mô tả và `x-rate-limit`).
+- Query > 256 byte → 422 ở api; qua origin landing thì Caddy trả 404 trước (SR-PE-10).
+- READ ONLY, `statement_timeout = '1s'`.
+- Cache kết quả 60 giây; xóa khi đổi tham số hoặc `updateRoom`; cơ sở + công tắc giữ RAM ≤ 60 giây.
+- `Cache-Control: no-store` + `X-Robots-Tag: noindex` mọi phản hồi; header khai báo của 200 đổi `private, max-age=60` → `no-store`.
+- `Room.publicRoomType`, `RoomInput.publicRoomType`, `RoomPatch.publicRoomType`: ghi quyền chỉ owner, luôn trả, chuẩn hóa khoảng trắng.
+- Changelog: thêm mục **0.3.10 bổ sung 3**. Sinh lại: `openapi-meta.ts`/`openapi-schemas.ts` không đổi (chỉ mô tả); `packages/api-client/src/generated/openapi.ts` đổi mô tả + kiểu header `Cache-Control`.
+- **ARC cần xác nhận** mục 0.3.10 bổ sung 3, nhất là phần quyền "chỉ owner" của `publicRoomType` (thêm một trường hợp 403 theo trường cho manager – trước đây hợp đồng không nói).
+
+### 10.4 Việc cho FE-A (không sửa admin-web ở lượt này)
+- `apps/admin-web/src/pages/RoomDrawer.tsx` (Danh mục căn, S25/H04) **chưa có** ô hạng công khai; `admin-web/src` không có chỗ nào đọc `publicRoomType`.
+- Cần: ô "Hạng phòng công khai" trong ngăn sửa căn (và thêm căn), **chỉ hiện/sửa được với owner**; manager thấy chỉ đọc. Nên là **danh sách chọn 4 hạng** đúng chữ e-brochure (như `production-defaults.ts`) + "Chưa gán", không ô chữ tự do: nhãn khác chữ làm slug lệch landing → hạng đó "giá theo yêu cầu" trên web và yêu cầu web bị cờ `room_type_unmatched`.
+- Gửi `publicRoomType` chỉ khi đổi (manager gửi trường này sẽ bị 403 cả lượt lưu). `null` = bỏ gán. Cột danh sách căn có thể hiện hạng.
+- Cùng chỗ: QA ghi nhận Desk S35 hiện slug ở cột "Hạng phòng" – UXD/FE-A xem dùng nhãn `roomTypeLabel`.
+
+### 10.5 Kết quả kiểm (lượt này)
+- Toàn bộ test api trên PostgreSQL 17 tạm riêng (docker, cổng 55437, roles theo `02-roles.sh`, đã xóa sau khi chạy): **141 file đạt, 2 bỏ qua; 3347 test đạt, 19 bỏ qua, 0 lỗi** (gồm 8 test mới của BUG-R4-004).
+- `pnpm lint` (eslint + typecheck mọi workspace) xanh; `prettier --check` xanh; `drizzle-kit generate` "No schema changes" (không migration mới – cột có từ 0055); api-client 32 test đạt.

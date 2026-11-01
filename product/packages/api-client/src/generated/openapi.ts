@@ -4792,13 +4792,18 @@ export interface paths {
      *     **Không lộ dữ liệu nội bộ** (FB-INV-009; test hợp đồng): phản hồi theo danh sách cho phép (`additionalProperties: false`) – **không** số căn, `roomId`/`roomNo`/mã nhóm,
      *     còn/hết hay số phòng còn lại, giá OTA nền (BR-103), hoa hồng, phí kênh, `ottimoRemainingVnd`, biên, giá sàn/trần (BR-105). Slug lạ và hạng không có căn bán cùng trả
      *     `priceAvailable: false` + `on_request`.
-     *     **Thứ tự kiểm**: (0) RAM, trước DB – bucket **riêng** `pubest:` theo IP (IPv6 /64) 40/10 phút và 300/ngày, tính cả 4xx → 429; bulkhead **riêng** 2 request, không xếp hàng → 503
-     *     `SERVICE_UNAVAILABLE` + `Retry-After: 5`; trần 600 lần tính mới (cache miss)/giờ/cơ sở → 503. Không tiêu bucket 30/giờ và 4 chỗ đồng thời của form (`createWebsiteBookingRequest`).
+     *     **Thứ tự kiểm**: (0) RAM, trước DB – bucket **riêng** `pubest:` theo HMAC của IP (IPv6 /64) **30/10 phút** và **200/ngày**, thêm 400/ngày theo IPv6 /48, tính cả 4xx → 429
+     *     + `Retry-After`; chỉ lượt đã qua các bucket theo IP mới vào cửa sổ chung **10 lượt/giây cho cả api** → 503 `SERVICE_UNAVAILABLE` + `Retry-After: 1` (SEC FB-R4-SEC-BE-01);
+     *     bulkhead **riêng** 2 request, không xếp hàng → 503 + `Retry-After: 5`; trần 600 lần tính mới (cache miss)/giờ/cơ sở → 503. Không tiêu bucket 30/giờ và 4 chỗ đồng thời của form
+     *     (`createWebsiteBookingRequest`). Không có bộ đếm trong DB cho GET này.
      *     (1) Có header `Sec-Fetch-Site` mà khác `same-origin` → 403 `FORBIDDEN_ACTION` (như `getPublicFormToken`); bỏ qua mọi cookie. (2) Cơ sở không có / không `active` /
-     *     `public_booking_requests_enabled = false` / `public_show_prices = false` → 404 cùng hình dạng. (3) Query: tham số lạ, lặp, hoặc query > 512 byte → 422 `VALIDATION_FAILED`;
+     *     `public_booking_requests_enabled = false` / `public_show_prices = false` → 404 cùng hình dạng (cơ sở theo slug và hai công tắc giữ trong RAM ≤ 60 giây, xóa ngay khi đổi
+     *     tham số). (3) Query: tham số lạ, lặp, hoặc query > 256 byte → 422 `VALIDATION_FAILED` (qua origin landing, Caddy trả 404 trước khi tới api khi query > 256 byte – SR-PE-10);
      *     mã trường như form (`REQUIRED`, `NOT_ALLOWED`, `DATE_IN_PAST`, `DATE_ORDER`, `OUTSIDE_BOOKING_WINDOW` – BR-112, `VALUE_OUT_OF_RANGE`). Ở tối thiểu (BR-113) **không** là lỗi:
-     *     200 + `notes[{code: min_stay, minNights}]`. `SET LOCAL statement_timeout = '2s'`.
-     *     **Cache**: RAM LRU ≤ 1.000 mục, khóa = (cơ sở, ngày nghiệp vụ, tham số đã chuẩn hóa), sống 300 giây, xóa khi `NOTIFY config_changed` của cơ sở. HTTP `Cache-Control: private, max-age=60`.
+     *     200 + `notes[{code: min_stay, minNights}]`. Giao dịch READ ONLY, `SET LOCAL statement_timeout = '1s'` (SR-PE-08).
+     *     **Cache**: RAM LRU ≤ 1.000 mục, khóa = (cơ sở, ngày nghiệp vụ, tham số đã chuẩn hóa), sống **60 giây**; xóa toàn bộ mục của cơ sở ngay khi đổi tham số (`setParameter`/hủy lịch – cùng lúc
+     *     `NOTIFY config_changed`) hoặc sửa căn (`updateRoom` – hạng công khai, ngừng bán, giá niêm yết; BUG-R4-004). Thay đổi khác (ví dụ khối OOO) lên web chậm tối đa 60 giây.
+     *     HTTP `Cache-Control: no-store` và `X-Robots-Tag: noindex` ở **mọi** phản hồi (kể cả lỗi).
      *     Ngân sách p95 < 150 ms khi chưa cache, < 20 ms khi có cache.
      *     **Ước tính, không cam kết**: `estimate: true` luôn có; trang ghi rõ giá cuối nằm trong báo giá. Không "giữ giá chụp" (BR-916 (2) chỉ phương án B) [GIẢ ĐỊNH A1 – DOM chốt].
      *     **`estimateToken`** (`pe1.` + base64url(payload JSON) + `.` + base64url(HMAC-SHA256(khóa HKDF `keyedHash('public_estimate')`, `pe1|<propertyId>|<payload base64url>`))): payload chỉ
@@ -5510,7 +5515,8 @@ export interface components {
       /**
        * @description 0.3.7 bổ sung D1 (BR-012 (1), (4); S4-52): **hạng phòng công khai** `room.<no>.public_room_type` – một trong 4 hạng của e-brochure, chữ tiếng Anh như tên phòng.
        *     Khách thấy khi cần mô tả căn, và **thay tên phòng** khi đơn chưa báo căn (`Reservation.roomDisclosedToGuest = false`) hoặc trong tin Zalo tự động (SEC INT-10).
-       *     `null` = chưa nhập [GIẢ ĐỊNH – chờ bảng ghép INV 19/10]
+       *     Slug của nhãn (`roomType` của web, BR-115) phải khớp slug hạng trên landing – nhãn khác chữ e-brochure làm hạng đó "giá theo yêu cầu" trên web.
+       *     `listRooms`/`createRoom`/`updateRoom` luôn trả trường này (`null` = chưa nhập; BUG-R4-004). Bản production: `production-bootstrap` ghi đủ 10 căn (BR-012 (6)).
        * @example Standard Studio · Garden View
        */
       publicRoomType?: string | null;
@@ -5548,7 +5554,7 @@ export interface components {
       roomNo: string;
       /** @description Tên phòng (BR-012) – xem `Room.name` */
       name?: string;
-      /** @description 0.3.7 bổ sung D1 (BR-012, S4-52) – xem `Room.publicRoomType` */
+      /** @description 0.3.7 bổ sung D1 (BR-012, S4-52) – xem `Room.publicRoomType`. Chỉ owner gửi được (BUG-R4-004); vai khác gửi trường này → `403 FORBIDDEN_ACTION` */
       publicRoomType?: string;
       roomGroupId: components['schemas']['Uuid'];
       floor?: number;
@@ -5563,7 +5569,7 @@ export interface components {
     RoomPatch: {
       /** @description Tên phòng (BR-012) – đổi chỉ áp cho chữ hiển thị từ lúc lưu; bill đã chốt giữ tên cũ */
       name?: string;
-      /** @description 0.3.7 bổ sung D1 (BR-012, S4-52); `null` = xóa */
+      /** @description 0.3.7 bổ sung D1 (BR-012, S4-52); `null` = xóa. Chỉ owner gửi được (BUG-R4-004 – quyết định hạng bán công khai, như `public_show_prices`); manager gửi trường này → `403 FORBIDDEN_ACTION`, các trường khác manager vẫn sửa. Server bỏ khoảng trắng đầu/cuối, gộp khoảng trắng giữa; ghi audit `config` `room.updated` */
       publicRoomType?: string | null;
       /** @description 0.3.4 Q6; `null` = xóa */
       bedSetup?: string | null;
@@ -18075,7 +18081,7 @@ export interface operations {
       /** @description OK – có số (`priceAvailable: true`) hoặc "giá theo yêu cầu" (`priceAvailable: false`) */
       200: {
         headers: {
-          'Cache-Control'?: 'private, max-age=60';
+          'Cache-Control'?: 'no-store';
           [name: string]: unknown;
         };
         content: {

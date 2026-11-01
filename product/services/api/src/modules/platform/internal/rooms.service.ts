@@ -9,6 +9,8 @@
  *   future/today date is replaced. Existing bookings keep their snapshot (BR-006).
  * - Bed setup / bed count / area (OpenAPI 0.3.4 Q6, erd 4.1 columns from 0004): visible to every role
  *   that may list rooms, edited by OWN/MGR like the other fields; `null` in a patch clears them.
+ * - Public room type (OpenAPI 0.3.7 D1 `Room.publicRoomType`, BR-012 (6)): stored on create/update, `null` in a
+ *   patch clears it, always returned (`null` = not set) – BUG-R4-004. OWNER only (checked in the controller).
  * - audit_event category config for every change (before/after allowlisted fields).
  */
 import { randomBytes } from 'node:crypto';
@@ -40,6 +42,7 @@ export interface RoomDto {
   id: string;
   roomNo: string;
   name?: string;
+  publicRoomType: string | null;
   roomGroupId: string;
   floor?: number;
   baseOccupancy: number;
@@ -62,6 +65,7 @@ interface RoomRow {
   id: string;
   room_no: string;
   name: string | null;
+  public_room_type: string | null;
   room_group_id: string;
   floor: number | null;
   base_occupancy: number;
@@ -78,7 +82,7 @@ interface RoomRow {
   nightly: number | null;
 }
 
-const ROOM_SELECT = `SELECT r.id, r.room_no, r.name, r.room_group_id, r.floor, r.base_occupancy, r.max_occupancy,
+const ROOM_SELECT = `SELECT r.id, r.room_no, r.name, r.public_room_type, r.room_group_id, r.floor, r.base_occupancy, r.max_occupancy,
     r.bed_setup, r.bed_count, r.area_m2, r.is_sellable, r.active_from::text AS active_from, r.active_to::text AS active_to, r.version,
     lp.effective_from::text AS price_from, lp.monthly_list_price_vnd AS monthly, lp.nightly_list_price_vnd AS nightly
   FROM room r
@@ -90,6 +94,7 @@ const ROOM_SELECT = `SELECT r.id, r.room_no, r.name, r.room_group_id, r.floor, r
 export interface RoomCreateInput {
   roomNo: string;
   name?: string | undefined;
+  publicRoomType?: string | undefined;
   roomGroupId: string;
   floor?: number | undefined;
   baseOccupancy?: number | undefined;
@@ -103,6 +108,7 @@ export interface RoomCreateInput {
 
 export interface RoomPatchInput {
   name?: string | undefined;
+  publicRoomType?: string | null | undefined;
   roomGroupId?: string | undefined;
   baseOccupancy?: number | undefined;
   maxOccupancy?: number | null | undefined;
@@ -126,6 +132,7 @@ function toDto(r: RoomRow): RoomDto {
     id: r.id,
     roomNo: r.room_no,
     ...(r.name !== null ? { name: r.name } : {}),
+    publicRoomType: r.public_room_type,
     roomGroupId: r.room_group_id,
     ...(r.floor !== null ? { floor: r.floor } : {}),
     baseOccupancy: r.base_occupancy,
@@ -282,8 +289,8 @@ export class RoomsService {
       await tx.query(
         `INSERT INTO room (id, organization_id, property_id, room_group_id, room_no, name, floor,
            base_occupancy, max_occupancy, public_slug, is_sellable, active_from, created_at, created_by, updated_at,
-           bed_setup, bed_count, area_m2)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, $11, $12, $13, $12, $14, $15, $16)`,
+           bed_setup, bed_count, area_m2, public_room_type)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, $11, $12, $13, $12, $14, $15, $16, $17)`,
         [
           id,
           tx.ctx.organizationId,
@@ -301,6 +308,7 @@ export class RoomsService {
           input.bedSetup ?? null,
           input.bedCount ?? null,
           input.areaM2 ?? null,
+          input.publicRoomType ?? null,
         ],
       );
       await tx.query('RELEASE SAVEPOINT create_room');
@@ -328,6 +336,7 @@ export class RoomsService {
       after: {
         roomNo: input.roomNo,
         roomGroupId: g.id,
+        ...(input.publicRoomType !== undefined ? { publicRoomType: input.publicRoomType } : {}),
         baseOccupancy: base,
         maxOccupancy: max,
         ...(input.bedSetup !== undefined ? { bedSetup: input.bedSetup } : {}),
@@ -391,6 +400,9 @@ export class RoomsService {
     const isSellable = patch.isSellable ?? room.is_sellable;
     const activeTo = patch.activeTo !== undefined ? patch.activeTo : room.active_to;
     track('name', room.name, name);
+    const publicRoomType =
+      patch.publicRoomType !== undefined ? patch.publicRoomType : room.public_room_type;
+    track('publicRoomType', room.public_room_type, publicRoomType);
     track('roomGroupId', room.room_group_id, groupId);
     track('baseOccupancy', room.base_occupancy, base);
     track('maxOccupancy', room.max_occupancy, max);
@@ -406,9 +418,22 @@ export class RoomsService {
     await tx.query(
       `UPDATE room SET name = $2, room_group_id = $3, base_occupancy = $4, max_occupancy = $5,
            is_sellable = $6, active_to = $7, updated_at = $8, version = version + 1,
-           bed_setup = $9, bed_count = $10, area_m2 = $11
+           bed_setup = $9, bed_count = $10, area_m2 = $11, public_room_type = $12
         WHERE id = $1`,
-      [roomId, name, groupId, base, max, isSellable, activeTo, pc.now, bedSetup, bedCount, areaM2],
+      [
+        roomId,
+        name,
+        groupId,
+        base,
+        max,
+        isSellable,
+        activeTo,
+        pc.now,
+        bedSetup,
+        bedCount,
+        areaM2,
+        publicRoomType,
+      ],
     );
     let reason: string | undefined;
     if (patch.listPrice) {

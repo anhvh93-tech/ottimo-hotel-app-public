@@ -5,7 +5,7 @@
  * Public route, after the controller's RAM limits and bulkhead:
  *   Sec-Fetch-Site → 403; property by slug (RAM 60 s) → 404; switches `public_booking_requests_enabled` AND
  *   `public_show_prices` (RAM 60 s, dropped on change) → 404; query (allowlist, no duplicates, ≤ 256 bytes) and
- *   dates (BR-112) → 422; result cache (LRU ≤ 1.000, 60 s, dropped on any parameter change of the property);
+ *   dates (BR-112) → 422; result cache (LRU ≤ 1.000, 60 s, dropped on any parameter change or `updateRoom` of the property);
  *   miss → the fresh-computation cap (600/hour/property → 503) → READ ONLY transaction (statement_timeout 1 s)
  *   → PublicRatePort (the desk engine, channel direct). A cache hit touches no database.
  * The answer is built field by field (allowlist – SR-PE-01): never `toTotal`, room ids/numbers, OTA prices or a
