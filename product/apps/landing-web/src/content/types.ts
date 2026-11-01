@@ -58,7 +58,7 @@ export interface FormCopy {
   yourName: string;
   replyOn: string;
   phoneCall: string;
-  number: { zalo: string; whatsapp: string; phone: string };
+  phoneNumber: string;
   phoneHint: string;
   note: string;
   optional: string;

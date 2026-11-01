@@ -417,7 +417,7 @@ Làm từ máy Mac của INV, SSH `ottimo-admin` (khóa `ottimo_ops`). Giờ VN.
 - Ảnh chụp trang thật (EN, toàn trang): `landing-b-live-1440.jpg` (1440 px), `landing-b-live-390.jpg` (390 px, DPR 2).
 - Staging: container `ottimo-*` không bị dựng lại (uptime 37–42 giờ).
 
-**Quay lui** (khoảng 10 giây): `sudo -u ottimo /opt/ottimo-prod/infra/server/bin/deploy-landing.sh --rollback` → `sha-4fab25b81c45` (đã ghi `state/landing_previous_tag`, digest còn trong `state/digests`). Nếu cần trả cả bundle: `rsync -a --delete /root/ottimo-prod-bundles/infra-4fab25b-20261025-204638/ /opt/ottimo-prod/infra/` rồi chạy lệnh trên; dòng `LANDING_IP` để nguyên cũng không ảnh hưởng bundle cũ.
+**Quay lui** (khoảng 10 giây): `cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/deploy-landing.sh --rollback` → `sha-4fab25b81c45` (đã ghi `state/landing_previous_tag`, digest còn trong `state/digests`). Nếu cần trả cả bundle: `rsync -a --delete /root/ottimo-prod-bundles/infra-4fab25b-20261025-204638/ /opt/ottimo-prod/infra/` rồi chạy lệnh trên; dòng `LANDING_IP` để nguyên cũng không ảnh hưởng bundle cũ.
 
 **Không gắn tag `landing-v*`:** environment `production` của repo chưa có secret `PRODUCTION_SSH_KEY/HOST/KNOWN_HOSTS` (`gh secret list --env production` rỗng), nên `release.yml` sẽ dừng ở job deploy. Lần này deploy tay bằng đúng script và digest mà `release.yml` dùng. Khi INV làm xong `inv-production-steps.md` phần 2–3, phát hành landing sẽ qua tag + duyệt.
 
@@ -688,7 +688,7 @@ Kịch bản B2 phần 1 (OPS chạy, INV ngồi cạnh):
 
 **Kiểm từ ngoài:** `ottimo.vn/` và `/vi/` 200; câu "Check-in from 12:00 when your room is ready; it always is by 14:00. Check-out by 12:00." (VI: "Nhận phòng từ 12:00 khi phòng đã sẵn sàng – và phòng luôn sẵn sàng lúc 14:00. Trả phòng trước 12:00.") ở Tiện nghi và FAQ; JSON-LD `checkinTime` 12:00, `checkoutTime` 12:00; không `<form`; CSP, HSTS, `X-Frame-Options DENY` như cũ. Từ nay landing phát hành qua tag `landing-v*` + INV duyệt (khóa CI production đã có).
 
-**Quay lui landing:** `sudo -u ottimo /opt/ottimo-prod/infra/server/bin/deploy-landing.sh --rollback` → `sha-d67d20440a1a`.
+**Quay lui landing:** `cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/deploy-landing.sh --rollback` → `sha-d67d20440a1a`.
 
 ## 21. 27/10 – kiểm sẵn sàng B2
 

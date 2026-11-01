@@ -3,7 +3,7 @@
 - Dành cho: **sale nội bộ (SAL)** – nhân viên bán hàng của OTTIMO; **CTV / môi giới** – cộng tác viên ngoài
 - Thiết bị: **điện thoại hoặc máy tính**, địa chỉ `desk.ottimo.vn`
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.1 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10)
+- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.3 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; form website đã bật, sale không ở trong phòng Google Chat; bản 1.3 ngày 01/11 thêm mục 6.3a giá ước tính và khách viết tiếng Hàn, Trung, Nga – áp dụng khi gói website LP-v2 phát hành)
 - Tài liệu không chứa mật khẩu, số tài khoản hay thông tin khách.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -108,7 +108,7 @@ Rời máy thì đăng xuất, nhất là máy dùng chung hoặc máy quầy. M
 | Khách báo đã chuyển cọc | **Sale nội bộ**: kiểm tiền về rồi **Xác nhận đã nhận cọc** (mục 5.1). **CTV**: **Báo đã chuyển cọc** (mục 5.2) |
 | Người trực quầy nhắn về giữ chỗ quá hạn của mình | Liên hệ khách và trả lời người trực **trong 1 giờ** (mục 8.1) |
 | Thu hộ tiền mặt | Nộp quầy trong ngày (mục 5.3) |
-| **Sale nội bộ**, khi chủ đầu tư bật form website (dự kiến sáng 31/10) | **Yêu cầu từ website**: trả lời trong 15 phút, trong 08:00–21:00 (mục 6.3) |
+| **Sale nội bộ**, khi form website bật (đã bật từ chiều 30/10) | **Yêu cầu từ website**: trả lời trong 15 phút, trong 08:00–21:00 (mục 6.3) |
 | Nhắn khách | Chỉ trong **08:00–21:00** |
 | Rời máy | **Đăng xuất** |
 
@@ -253,7 +253,7 @@ Trang **Khách hàng** (menu **Khách của tôi**) trống tới khi tìm: gõ 
 
 ### 6.3 Yêu cầu từ website (sale nội bộ)
 
-Form "Yêu cầu đặt phòng" trên ottimo.vn **dự kiến bật sáng 31/10** (luật sư đã đồng ý 30/10, đội đang chuẩn bị). **Chủ đầu tư báo khi đã bật.** Chưa bật thì màn hiện "Form đặt phòng trên website đang tắt"; khách liên hệ qua Zalo, điện thoại.
+Form "Yêu cầu đặt phòng" trên ottimo.vn **đã bật từ chiều 30/10**. Khi chủ đầu tư tắt form, màn hiện "Form đặt phòng trên website đang tắt"; khách liên hệ qua Zalo, điện thoại.
 
 Khi form bật: yêu cầu mới hiện ở menu kèm số. Mở yêu cầu → **Nhận xử lý** → **Báo giá**; không thành đơn thì **Đóng – không thành đơn**.
 
@@ -262,7 +262,27 @@ Khi form bật: yêu cầu mới hiện ở menu kèm số. Mở yêu cầu → 
 > - Hạn trả lời 15 phút áp trong **08:00–21:00**. Trả lời khách từ tài khoản OTTIMO trên điện thoại cơ sở (mục 5.1).
 > - Yêu cầu tới ngoài giờ: bấm **Nhận xử lý** khi thấy, nhắn khách từ 08:00 sáng hôm sau.
 
+Từ v1.0.1 (dự kiến khoảng 04/11), Desk đăng tin báo yêu cầu mới vào một phòng Google Chat của quầy, có chi tiết khách. **Sale nội bộ và CTV không ở trong phòng này** và không xin vào: anh/chị xem yêu cầu trên Desk như trên. Không nhờ người trong phòng chép tin cho mình.
+
 [ẢNH: C2-39-Yêu cầu từ website, form tắt]
+
+### 6.3a Giá ước tính và khách viết tiếng Hàn, Trung, Nga (gói website LP-v2)
+
+**Giá ước tính trên website (áp dụng khi chủ đầu tư báo gói website LP-v2 đã lên và đã bật hiện giá).** Form trên ottimo.vn hiện giá ước tính cho ngắn ngày 1–29 đêm, ghi rõ: ước tính, đã gồm thuế, cho số khách đã chọn, chưa giữ phòng. Theo tháng hoặc từ 30 đêm: không có số. Số do Desk tính, cùng cách tính với **Báo giá**.
+- Ngăn chi tiết yêu cầu có dòng **Giá ước tính khách đã thấy** ("{số} – tính lúc {giờ}"), hoặc **Khách chưa thấy giá**.
+- Hộp báo giá hiện "Khớp giá ước tính khách đã thấy (…)", hoặc cảnh báo **"Khác giá web khách đã thấy: {cũ} → {mới}"** kèm câu "Giá theo lịch giá hôm nay khác số khách thấy trên web. Nói rõ lý do với khách khi gửi báo giá." khi giá theo lịch giá hôm nay khác số khách đã thấy trên web, hoặc "…không so sánh" khi khách xem cho ngày/số khách/hạng khác.
+- **Giá trong báo giá Desk là giá cuối.** Có cảnh báo "Khác giá web khách đã thấy": gửi báo giá kèm một câu giải thích ngắn (giá đã đổi từ lúc khách xem, hoặc căn giá thấp nhất của hạng đã có khách). Không hứa giữ số cũ; khách xin giữ thì báo người trực (quản lý) quyết.
+
+**Khách viết bằng tiếng Hàn, tiếng Trung, tiếng Nga (áp dụng từ khi chủ đầu tư báo trang ngôn ngữ đó trên ottimo.vn đã lên – gói LP-v2).** Giao diện Desk vẫn chỉ có tiếng Việt và tiếng Anh.
+1. **Nhận ra khách:** **Yêu cầu từ website** có cột **Ngôn ngữ** (Tiếng Anh · Tiếng Việt · Tiếng Hàn · Tiếng Trung (giản thể) · Tiếng Nga) và lọc được theo ngôn ngữ cùng lọc trạng thái; ngăn chi tiết có dòng **Ngôn ngữ khách dùng**.
+2. **Mặc định trả lời bằng tiếng Anh.** Báo giá lập từ yêu cầu: Desk chọn sẵn **Ngôn ngữ gửi khách** = **English** cho khách tiếng Hàn, tiếng Trung (kèm câu "Khách viết bằng tiếng Hàn – gửi tin bằng tiếng Anh." ở hộp báo giá và hộp giữ chỗ), **Русский** cho khách tiếng Nga (Desk có mẫu tiếng Nga, kèm câu "Khách viết bằng tiếng Nga – gửi tin bằng tiếng Nga." ở cùng hai chỗ; tin tự soạn vẫn bằng tiếng Anh). Không đổi sang Tiếng Việt; nhìn lại ô này trước khi bấm **Sao chép gửi Zalo**.
+3. **Được dùng Google Dịch** (hoặc công cụ dịch tương tự) để đọc tin khách và soạn trả lời, trên mọi màn hình Desk (chủ đầu tư cho phép 01/11). Nên dịch trong ngăn của một yêu cầu đang mở, không dịch cả trang danh sách – lời khuyên cho gọn, không phải lệnh cấm. Số tiền, ngày ở, cọc, chính sách hủy: chỉ dùng chữ Desk tạo, không qua máy dịch. Bản dịch chưa rõ: không đoán, gửi câu 2.
+4. **Ba câu mẫu** (thay `{code}` bằng mã yêu cầu; không emoji, không "!"; phần nghĩa tiếng Việt không gửi khách):
+   - Câu 1 – đã nhận, hẹn báo giá (chỉ khi chưa báo giá được ngay). Trong giờ trực 07:00–22:00: "Thank you for your request {code}. We have received it and will send your quote within 1 hour." Ngoài giờ: "Thank you for your request {code}. We have received it and will send your quote before 09:00 tomorrow morning." Thêm cho khách tiếng Hàn, tiếng Trung (không dùng với khách tiếng Nga): "We will write to you in English. You are welcome to reply in your own language."
+   - Câu 2 – hỏi lại, mời viết thêm tiếng Anh: "Thank you for your message. To prepare your quote, could you confirm {details}? A few words in English help us make sure we understand you correctly." (`{details}`: `your arrival and departure dates` · `the number of adults and children` · `the ages of the children` · `which room type you prefer`). Chỉ là bản dịch chưa rõ: "Thank you for your message. We want to be sure we understand you correctly. Could you write it again in a few words of English?"
+   - Câu 3 – gửi báo giá, đặt ngay trước khối chữ chép từ Desk: "Here is your quote for request {code}. The room is not yet held. When you are ready, reply to this message and we will hold it for you and send the deposit details." Không kèm mã VietQR trong tin này.
+5. **Hạn trả lời** như mọi yêu cầu website. Trang cảm ơn đã hứa với khách: gửi trong 07:00–22:00 → trả lời trong 60 phút; gửi ngoài giờ → trước 09:00 sáng hôm sau. Dịch không phải lý do trễ hạn: chưa báo giá kịp thì gửi câu 1 trong hạn.
+- Mọi luật nhắn khách vẫn giữ: chỉ nhắn từ tài khoản OTTIMO trên điện thoại cơ sở (mục 5.1).
 
 ---
 

@@ -376,8 +376,37 @@ describe.skipIf(!HAS_DB)('sales – quotes, holds, leads (EP11 R2)', () => {
       await Client.of(fa, t, 'sal').get(`${P(t)}/quotes/${salQuote.id}/text?locale=ru`)
     ).json();
     expect(ru.locale).toBe('ru');
+    // BUG-R4-009: counted phrases in the right form, never the Desk field labels ("2 Adults").
+    expect(vi.text).toContain('(7 đêm), 2 người lớn.');
+    expect(en.text).toContain('(7 nights), 2 adults.');
+    expect(ru.text).toContain('(7 ночей), 2 взрослых.');
+    for (const x of [vi.text, en.text, ru.text]) {
+      expect(x).not.toMatch(/Adults|Взрослые|Người lớn|\{nights_text\}|\{nights\}|ночей:/);
+    }
     const bad = await Client.of(fa, t, 'sal').get(`${P(t)}/quotes/${salQuote.id}/text?locale=fr`);
     expect(bad.statusCode).toBe(422);
+  });
+
+  it('getQuoteText BUG-R4-009: 1 night, 3 adults + children, 1 extra guest – singular forms in en/ru/vi', async () => {
+    const q = await Client.of(fa, t, 'sal').send('POST', `${P(t)}/quotes`, {
+      ...short({ arrivalDate: '2026-11-10', nights: 1, adults: 3, childrenUnder6: 1 }),
+      guestId: guestSal,
+    });
+    expect(q.statusCode, q.body).toBe(201);
+    const text = async (locale: string) =>
+      (
+        await Client.of(fa, t, 'sal').get(`${P(t)}/quotes/${q.json().id}/text?locale=${locale}`)
+      ).json().text as string;
+    const en = await text('en');
+    expect(en).toContain('(1 night), 3 adults, 1 child under 6.');
+    expect(en).toContain('Includes the extra-guest charge for 1 guest on the sofa: ');
+    const ru = await text('ru');
+    expect(ru).toContain('(1 ночь), 3 взрослых, 1 ребёнок до 6 лет.');
+    expect(ru).toContain('Включена доплата за 1 гостя на диване: ');
+    const vi = await text('vi');
+    expect(vi).toContain('(1 đêm), 3 người lớn, 1 trẻ dưới 6 tuổi.');
+    expect(vi).toContain('Gồm phụ thu 1 người ngủ sofa: ');
+    for (const x of [en, ru, vi]) expect(x).not.toMatch(/nights\)|guest\(s\)|гост\.|Dưới 6|До 6/);
   });
 
   it('lazy expiry (Q3/BR-304): after 00:00 19/10 the quote is expired, hold refused 409 QUOTE_EXPIRED', async () => {

@@ -264,9 +264,10 @@ Chỉ làm khi INV đã tạo Healthchecks.io + Google Chat **và** buổi còn 
 
 INV gõ (địa chỉ dán vào dấu nhắc ẩn, không hiện lên màn hình, không vào chat):
 ```bash
-ssh -t -i ~/.ssh/ottimo_ops ottimo-admin@<IP-VPS> 'read -rsp "Healthchecks ping URL: " hb; echo; read -rsp "Google Chat webhook URL: " wh; echo; sudo -u ottimo cp -p /opt/ottimo-prod/.env /opt/ottimo-prod/state/env.before-alerts.$(date +%Y%m%d-%H%M%S) && printf "HEARTBEAT_URL=%s\nALERT_WEBHOOK_URL=%s\n" "$hb" "$wh" | sudo -u ottimo tee -a /opt/ottimo-prod/.env >/dev/null && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/ops-check.sh | tail -3'
+ssh -t -i ~/.ssh/ottimo_ops ottimo-admin@<IP-VPS> 'cd / && read -rsp "Healthchecks ping URL: " hb; echo; read -rsp "Google Chat webhook URL: " wh; echo; sudo -u ottimo cp -p /opt/ottimo-prod/.env /opt/ottimo-prod/state/env.before-alerts.$(date +%Y%m%d-%H%M%S) && printf "HEARTBEAT_URL=%s\nALERT_WEBHOOK_URL=%s\n" "$hb" "$wh" | sudo -u ottimo tee -a /opt/ottimo-prod/.env >/dev/null && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/ops-check.sh | tail -3'
 ```
 - Chỉ thêm 2 dòng vào cuối `.env`. `ops-check` đọc dòng cuối cùng nên dòng trống cũ không ảnh hưởng.
+- `cd /` ở đầu (sửa 30/10): lệnh SSH bắt đầu trong home của `ottimo-admin`, user `ottimo` không vào được. Bản `ops-check.sh`/`bin/dc` cũ trên máy chủ gọi `docker compose` ở đó → `stat .: permission denied` → `containers` FAIL giả (đã gửi tin FAIL vào webhook và ping `/fail` lúc 23:39 30/10; timer systemd không bị). Bản sửa (`ops-check.sh` tự `cd /`, `bin/dc` tự đổi sang `/` khi thư mục hiện tại không đọc được) chỉ có hiệu lực sau khi làm mới bundle `infra/`; tới lúc đó vẫn gõ `cd /` trước mọi lệnh `sudo -u ottimo …`. Lượt timer kế tiếp (≤ 30 phút) tự gửi tin `containers OK` và ping thường, Healthchecks về "up".
 - Không cần dựng lại container.
 - Đạt khi Healthchecks.io hiện "up" sau ≤ 30 phút.
 - UptimeRobot (5 địa chỉ) INV tự tạo trên web, không đụng máy chủ.
@@ -623,3 +624,85 @@ sudo -u ottimo /opt/ottimo-prod/infra/server/bin/publish-privacy-notice.sh \
 ```
 
 Băm đã đối chiếu xong ở J2–J3, không cần đo lại nếu `landing_tag` vẫn là `sha-8f1265e0e878`. Công cụ tự kiểm lại digest và trang thật trước khi ghi. **Bước K (INV bật công tắc trên Desk) chỉ làm sau khi apply in `published`.**
+
+### 8.7 J (apply) – K – L: kiểm của OPS, 17:51–17:52
+
+**Mã yêu cầu thử: `REQ-84EKR1V6`.** Đây là yêu cầu "TEST OTTIMO", kênh Email, `info@ottimo.vn`, INV gửi ở bước L2. **DATA/PO loại mã này khỏi chỉ số "yêu cầu từ website"** tuần đầu.
+
+| Bước | Kết quả | Đạt? |
+|---|---|---|
+| J `--apply` (INV chạy) | `state/privacy-notice.log`: `2026-10-30T10:39:53Z apply operator=owner landing=sha-8f1265e0e878 digest=sha256:2a284a7d…2af6 version=2026-10-24 … rc=0`, **`RESULT: published (inserted: vi,en, already present: -)`**. Băm trong dòng log trùng J2–J3 (8.6). Không có lượt chạy lại "already present" trong log (không bắt buộc) | Đạt |
+| K (INV bật công tắc ~17:45) | `GET https://ottimo.vn/v1/public/properties/dlt/form-token` → **200 `application/json`** (17:51:49) | Đạt |
+| L0 | `since` = `2026-10-30T17:45:59+07:00` (ORC ghi) | – |
+| L1 `ops-check` | Lượt timer 17:45:46 và lượt chạy tay 17:52:08: **7/7 ok**, thoát 0. `http5xx` 0 trong 35 phút: cảnh báo ở 8.4 #1 đã tự hết | Đạt |
+| L5 `us155-smoke-counts.sh --ref REQ-84EKR1V6 --since 2026-10-30T17:45:59+07:00` (17:52:11) | **`RESULT: FAIL`** (thoát 1): **11/14 OK, 3 FAIL** (kiểm 2, 4, 5). Đầu ra nguyên văn ở dưới | **Không đạt** |
+
+Đầu ra L5 nguyên văn (chỉ có mã REQ và số đếm):
+```
+US-155 smoke counts – ref 84EKR1V6 since 2026-10-30T17:45:59+07:00 – 2026-10-30T10:52:11Z
+1. website_booking_request: rows with this ref | 1 | 1 | OK
+2. website_booking_request: erased (name/phone/email/note/decline_note/contact_hmac/ip_hmac NULL, pii_purged_at set, declined/erased_on_request) | 0 | 1 | FAIL
+3. website_booking_request: this row contains a test string | 0 | 0 | OK
+4. purge_journal: dsr_erase null_columns for this request | 0 | 1 | FAIL
+5. audit_event: security website_request.erased for this request | 0 | 1 | FAIL
+6. audit_event since: test string in a row | 0 | 0 | OK
+7. idempotency_key since: test string (response_body or row) | 0 | 0 | OK
+8. outbox_message since: test string (payload or row) | 0 | 0 | OK
+9. staff_notification: notifications for this request (website_request_new …) | 1 | >=1 | OK
+10. staff_notification since: test string in a row | 0 | 0 | OK
+11. attention_event since: test string in a row | 0 | 0 | OK
+12. state_transition SM-18: history rows of this request | 4 | >=1 | OK
+13. state_transition SM-18 of this request: test string in a row | 0 | 0 | OK
+14. all public tables: rows containing test string 1 – none | 0 | 0 | OK
+RESULT: FAIL
+```
+
+**Đọc kết quả.** Theo lệnh ORC, OPS không truy vấn tay và không xóa gì.
+- **3 kiểm FAIL đều là dấu vết của WR8** ("Xóa theo yêu cầu người gửi"):
+  - kiểm 2: dòng chưa ở trạng thái `declined/erased_on_request` với đủ cột C2 NULL và `pii_purged_at`;
+  - kiểm 4: không có `purge_journal` `dsr_erase`;
+  - kiểm 5: không có audit `website_request.erased`.
+- Ba kiểm này hỏng cùng lúc thì khớp với trường hợp INV **Đóng/Từ chối với lý do khác** (4 dòng lịch sử SM-18), **không chạy WR8**.
+- **Kiểm 3 và 14 = 0** (tìm không phân biệt hoa thường): chuỗi "TEST OTTIMO" không còn ở bảng nào, và dòng yêu cầu không còn "TEST OTTIMO" hay `info@ottimo.vn`. Có hai khả năng, OPS không phân biệt được bằng lệnh đếm cố định:
+  - (a) lối đóng/từ chối đã xóa một phần dữ liệu cá nhân;
+  - (b) tên hoặc email INV nhập khác chuỗi thử.
+- Không có rò chuỗi thử sang audit, idempotency, outbox, thông báo hay "Cần chú ý" (kiểm 6–8, 10–11, 13 = 0).
+- **Việc tiếp:**
+  - ORC hướng dẫn INV mở `REQ-84EKR1V6` trên Desk và chạy **"Xóa theo yêu cầu người gửi"** (WR8, `same_contact` = `info@ottimo.vn`), nếu Desk còn cho xóa ở trạng thái hiện tại.
+  - Sau đó OPS chạy lại **đúng lệnh L5**, cùng `--ref` và `--since`. Đạt khi in `RESULT: OK – 14/14`.
+  - Nếu Desk không cho xóa (ví dụ dòng đã bị xóa dữ liệu cá nhân theo lối khác), ORC/SEC quyết có chấp nhận kiểm 2/4/5 hay không. OPS không tự sửa DB.
+
+### 8.8 L5 chạy lại sau WR8 (20:08) – **ĐẠT 14/14**
+
+- **SEC không chấp nhận 11/14** của 8.7 (`reviews/SEC-on-us155-smoke-L.md`). INV đã chạy WR8 "Xóa theo yêu cầu người gửi" cho `REQ-84EKR1V6` trên Desk.
+- OPS chạy lại **đúng lệnh L5**, chỉ đọc: `us155-smoke-counts.sh --ref REQ-84EKR1V6 --since 2026-10-30T17:45:59+07:00`, lúc 20:08:19. Không truy vấn tay.
+- Kết quả: **`RESULT: OK – 14/14`**, thoát 0.
+- So với 8.7:
+  - kiểm 2, 4, 5 chuyển từ 0 thành **1**: dòng đã xóa theo WR8, có `purge_journal` `dsr_erase`, có audit `website_request.erased`;
+  - kiểm 12 tăng từ 4 lên **5** dòng SM-18, thêm một bước chuyển của WR8;
+  - các kiểm khác không đổi.
+
+Đầu ra nguyên văn:
+```
+US-155 smoke counts – ref 84EKR1V6 since 2026-10-30T17:45:59+07:00 – 2026-10-30T13:08:19Z
+1. website_booking_request: rows with this ref | 1 | 1 | OK
+2. website_booking_request: erased (name/phone/email/note/decline_note/contact_hmac/ip_hmac NULL, pii_purged_at set, declined/erased_on_request) | 1 | 1 | OK
+3. website_booking_request: this row contains a test string | 0 | 0 | OK
+4. purge_journal: dsr_erase null_columns for this request | 1 | 1 | OK
+5. audit_event: security website_request.erased for this request | 1 | 1 | OK
+6. audit_event since: test string in a row | 0 | 0 | OK
+7. idempotency_key since: test string (response_body or row) | 0 | 0 | OK
+8. outbox_message since: test string (payload or row) | 0 | 0 | OK
+9. staff_notification: notifications for this request (website_request_new …) | 1 | >=1 | OK
+10. staff_notification since: test string in a row | 0 | 0 | OK
+11. attention_event since: test string in a row | 0 | 0 | OK
+12. state_transition SM-18: history rows of this request | 5 | >=1 | OK
+13. state_transition SM-18 of this request: test string in a row | 0 | 0 | OK
+14. all public tables: rows containing test string 1 – none | 0 | 0 | OK
+RESULT: OK – 14/14
+```
+
+Còn lại cho bước M:
+- `ops-check` cuối và đọc log api/landing 30 phút.
+- Sau 24 giờ ổn định, xóa `state/env.before-us155.*` và `/root/ottimo-bundle-432a8741` (8.4 #2).
+- `REQ-84EKR1V6` vẫn phải loại khỏi chỉ số (8.7).

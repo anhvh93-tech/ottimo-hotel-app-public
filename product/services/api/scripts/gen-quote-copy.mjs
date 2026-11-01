@@ -17,13 +17,17 @@ const apiDir = join(here, '..');
 const copyDir = join(apiDir, '..', '..', 'design', 'copy');
 const outPath = join(apiDir, 'src', 'generated', 'quote-copy.ts');
 
-const KEYS = [
-  'sale.quote_text',
+// Counted phrases come in the four CLDR forms the server picks with Intl.PluralRules (BUG-R4-009, CPY 15.2):
+// en one/other, ru one/few/many, vi other. Every locale carries all four so nothing falls back to en.
+const PLURAL_FORMS = ['one', 'few', 'many', 'other'];
+const COUNTED = [
+  'sale.quote_nights',
+  'sale.quote_adults',
+  'sale.quote_kids',
+  'sale.quote_under6',
   'sale.quote_text_extra_guest',
-  'occ.adults_short',
-  'occ.children_short',
-  'occ.under6_short',
 ];
+const KEYS = ['sale.quote_text', ...COUNTED.flatMap((k) => PLURAL_FORMS.map((f) => `${k}_${f}`))];
 const LOCALES = ['vi', 'en', 'ru'];
 
 export async function build() {

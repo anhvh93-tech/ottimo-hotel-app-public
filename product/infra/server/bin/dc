@@ -8,6 +8,7 @@
 # From the stack's .env: OTTIMO_PROJECT (compose project, default `ottimo`), EDGE_MODE=edge (adds
 # docker-compose.edge-link.yml: no published port, reached through the shared edge – infra/edge).
 # Tags: IMAGE_TAG (default state/current_tag – deploy.sh), LANDING_TAG (default state/landing_tag – deploy-landing.sh).
+# Works from any current directory (an unreadable one is replaced by /).
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -33,6 +34,12 @@ files=(--file "$OTTIMO_HOME/infra/docker-compose.prod.yml")
 if [ "$(envval EDGE_MODE)" = "edge" ]; then
   files+=(--file "$OTTIMO_HOME/infra/docker-compose.edge-link.yml")
 fi
+
+# `docker compose` stats the current directory even with --project-directory: run by hand as
+# `sudo -u ottimo …/bin/dc` from a home the deploy user cannot enter (ottimo-admin's, 0750) it fails with
+# "stat .: permission denied" (30/10 23:39, ops-check run from the B2 runbook 2.7). Compose files, .env and secrets are
+# absolute paths, so only an unusable cwd is replaced – a usable one is kept for relative paths typed by hand.
+if ! [ -x . ] || ! [ -r . ]; then cd / || exit 1; fi
 
 exec docker compose \
   --project-name "$project" \

@@ -110,3 +110,37 @@ test('TC-LP-018 LP-v1.2.1 form without JavaScript: the form stays hidden and has
   await expect(page.locator('#book noscript, #book .bk-card')).not.toHaveCount(0);
   await context.close();
 });
+
+// FB-INV-007 (INV 30/10): guests often give one number for Zalo, WhatsApp and calls, so the number field is always
+// "Phone number" / "Số điện thoại"; the "Reply on" choice alone tells reception which app to use. 390 px phone.
+for (const [path, label, hint] of [
+  ['/', 'Phone number', 'Add the country code if outside Viet Nam, e.g. +44.'],
+  ['/vi/', 'Số điện thoại', 'Số nước ngoài, thêm mã quốc gia, ví dụ +44.'],
+] as const) {
+  test(`TC-LP-036 FB-INV-007 form ${path}: one phone label for Zalo, WhatsApp and call; 4 reply options; fits 390 px`, async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const page = await context.newPage();
+    await openForm(page, path);
+    await expect(page.locator('input[name="preferredChannel"]')).toHaveCount(4);
+    await expect(page.locator('input[name="preferredChannel"][value="zalo"]')).toBeChecked();
+    const lab = page.locator('label[for="f-phone"]');
+    for (const ch of ['zalo', 'whatsapp', 'phone'] as const) {
+      await page.locator(`label:has(input[name="preferredChannel"][value="${ch}"])`).click();
+      await expect(lab).toHaveText(label);
+      await expect(page.locator('#f-phone')).toBeEnabled();
+      await expect(page.locator('#f-phone-hint')).toHaveText(hint);
+    }
+    // the label and the hint stay inside the field column, no sideways scroll
+    const field = await page.locator('#fld-phone').boundingBox();
+    for (const sel of ['label[for="f-phone"]', '#f-phone-hint']) {
+      const b = await page.locator(sel).boundingBox();
+      expect(b!.x + b!.width, sel).toBeLessThanOrEqual(field!.x + field!.width + 0.5);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      390,
+    );
+    await context.close();
+  });
+}

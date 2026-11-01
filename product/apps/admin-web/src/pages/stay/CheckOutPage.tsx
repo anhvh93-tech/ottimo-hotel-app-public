@@ -6,7 +6,14 @@ import {
   type Folio,
   type FolioLine,
 } from '@ottimo/api-client';
-import { isLocaleLoaded, loadLocale, translate, useI18n, type Args } from '@ottimo/i18n';
+import {
+  isLocaleLoaded,
+  loadLocale,
+  pluralForm,
+  translate,
+  useI18n,
+  type Args,
+} from '@ottimo/i18n';
 import {
   Alert,
   Button,
@@ -1851,7 +1858,7 @@ export function BillDialog({
   channel?: string;
   onClose: () => void;
 }) {
-  const { t, vnd, money, date, dateTime } = useI18n();
+  const { t, vnd, money, date, dateTime, locale } = useI18n();
   const ids = useId();
   const [bilingual, setBilingual] = useState(bill.locale === 'vi_en');
   // EN strings are a lazy chunk – load them for the bilingual bill even when the UI is Vietnamese.
@@ -1875,6 +1882,17 @@ export function BillDialog({
       {both ? (
         <span className="en" lang="en">
           {translate('en', key, args)}
+        </span>
+      ) : null}
+    </>
+  );
+  /** A counted line (`<key>_one|_few|_many|_other`, BUG-R4-009): each language picks its own form. */
+  const Lcount = (key: string, n: number, args?: Args) => (
+    <>
+      {t(`${key}_${pluralForm(locale, n)}`, args)}
+      {both ? (
+        <span className="en" lang="en">
+          {translate('en', `${key}_${pluralForm('en', n)}`, args)}
         </span>
       ) : null}
     </>
@@ -1932,7 +1950,12 @@ export function BillDialog({
         <tbody>
           {bill.paymentModel === 'ota_prepaid' && bill.otaPrepaidVnd ? (
             <tr>
-              <td>{L('bill.ota_prepaid', { n: roomLines.length, channel: channel ?? '' })}</td>
+              <td>
+                {Lcount('bill.ota_prepaid', roomLines.length, {
+                  n: roomLines.length,
+                  channel: channel ?? '',
+                })}
+              </td>
               <td className="r">{vnd(bill.otaPrepaidVnd)}</td>
             </tr>
           ) : null}

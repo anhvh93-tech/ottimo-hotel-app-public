@@ -395,7 +395,8 @@ Triển khai: image Docker build trong CI → đẩy lên registry (GitHub Conta
     │       ├── src/db/{schema,migrations,seed}
     │       └── test/                 # Vitest: unit + integration với Postgres thật
     ├── packages/
-    │   ├── contracts/                # kiểu TS sinh từ docs/api/openapi.yaml + zod dùng chung
+    │   ├── contracts/                # @ottimo/contracts – kiểu + HÀM THUẦN dùng chung api ↔ client (luật: mục 17.1)
+    │   ├── api-client/               # client HTTP của admin-web/PWA + kiểu sinh từ docs/api/openapi.yaml (openapi-typescript)
     │   ├── ui/                       # token CSS từ design/tokens.json + component
     │   ├── i18n/                     # chuỗi vi/en/ru
     │   ├── config-eslint/            # cấu hình ESLint chung + quy tắc riêng (Clock, tiền)
@@ -418,11 +419,44 @@ Triển khai: image Docker build trong CI → đẩy lên registry (GitHub Conta
 
 Ghi chú cho OPS (Đợt 3):
 - Thư mục `product/apps/mobile` (đã có) **giữ tên** theo protocol, nội dung là PWA – không phải Flutter.
-- Khung R1 tối thiểu để CI xanh: `services/api` có endpoint `GET /health` (trả `{status:"ok", db:"ok", time:"<ISO +07:00>"}`) và 1 test Vitest; `apps/admin-web`, `apps/mobile`, `apps/guest-web` mỗi app 1 trang trống build được + 1 test; `packages/contracts` rỗng build được; `integrations` có interface + 1 Mock + 1 test.
+- Khung R1 tối thiểu để CI xanh: `services/api` có endpoint `GET /health` (trả `{status:"ok", db:"ok", time:"<ISO +07:00>"}`) và 1 test Vitest; `apps/admin-web`, `apps/mobile`, `apps/guest-web` mỗi app 1 trang trống build được + 1 test; `packages/contracts` rỗng build được (R1; từ R4 LP-v2 gói này có mã chạy – luật ở mục 17.1); `integrations` có interface + 1 Mock + 1 test.
 - `infra/docker-compose.yml` dev: `postgres:17-alpine` (có `btree_gist`), `api`, `worker`, `caddy` (tùy chọn ở dev); Vite dev server chạy ngoài container cho nhanh.
 - **Yêu cầu OPS (R1 bước 4 – ARC không sửa file OPS)**: (1) init Postgres tạo vai `ottimo_owner`, `ottimo_migrator`, `ottimo_app`, `ottimo_readonly` (erd 2.1), cho cả DB `ottimo_test` và CI; (2) tách `DATABASE_URL`/`MIGRATION_DATABASE_URL` trong compose, `.env.example`, CI; api/worker không dùng superuser; (3) `trustProxy` = IP/subnet Caddy qua `TRUST_PROXY` (đã làm – OPS R2 W1); (4) job CI `api-contract` (redocly + openapi-spec-validator + kiểm `x-roles`) và 2 bước migration (erd 16); (5) CI kiểm bundle production không chứa `__test__`; (6) Compose `secrets:` cho KEK/`ID_HASH_KEY`; (7) Caddy 3 origin + che `/g/*` và query `/v1/webhooks/*`; (8) đổi `src/db.ts` → `src/db/pinger.ts`; (9) `/health` trả `503 {status:error, db:down}` (OpenAPI đã khai); (10) backup ≤ 35 ngày + `purge_journal` riêng ≥ 36 ngày.
   - **Trạng thái sau R1 bước 5** (soát SEC Phần B): (1) **chưa xong** – `02-roles.sh` tạo `ottimo_owner` LOGIN, chưa có `ottimo_migrator`; ARC giữ mô hình 4 vai (erd 2.1, BUG-R1-SEC-06), OPS sửa **trước migration đầu tiên R2**. (5) **chưa có** bước CI chặn `__test__`/`TestSupportModule` trong bundle production – OPS thêm **trước khi** BE merge module kiểm thử (BUG-R1-SEC-08); `openapi.test.yaml` đã khai `testToken` **và** `staffSession`.
 - Lệnh và bước CI: xem ADR-012.
+
+### 17.1 Luật cho `@ottimo/contracts` (R4 LP-v2 – FB-R4-ARC-ARC-LPV2-01, 01/11/2026)
+
+Từ LP-v2, `packages/contracts` không còn chỉ là kiểu. Gói có mã chạy, và hai nơi dùng chung mã đó:
+- **api**: Node 22, CommonJS, nạp `dist` qua `require`.
+- **admin-web**: bundle trình duyệt của Vite.
+
+Hàm đầu tiên là `publicRoomTypeSlug` (BR-012, OpenAPI 0.3.10 bổ sung 3). api dùng nó để tạo slug, Desk dùng nó để so số ước tính khách đã thấy (US-131 AC10). Gói nằm giữa hai phía, nên mọi thứ đặt vào đây phải chạy đúng như nhau ở cả hai nơi.
+
+**Được đặt vào `@ottimo/contracts`:**
+1. Kiểu TypeScript (`type`, `interface`) của dữ liệu đi qua API mà cả hai phía cần, ví dụ `HealthResponse`.
+2. Hằng dữ liệu thuần (`as const`: danh sách mã, bảng ánh xạ).
+3. **Hàm thuần** mà hai phía bắt buộc phải cho cùng kết quả: chuẩn hóa, slug, định dạng mã, kiểm cú pháp. Nếu viết hai bản riêng thì sẽ lệch nhau (BUG-R4-001).
+
+**Hàm thuần nghĩa là:**
+- Kết quả chỉ phụ thuộc đối số.
+- Không I/O: không mạng, tệp, DB, `process.env`, log.
+- Không đọc đồng hồ (`Date.now()`, `new Date()` không đối số). Bên gọi truyền ngày giờ vào, theo `Clock` (mục 7).
+- Không ngẫu nhiên. Không có trạng thái cấp module mà lần gọi sau đọc được.
+
+**Không được đặt vào `@ottimo/contracts`:**
+- API riêng của Node (`node:*`, `Buffer`, `process`, `require`) hoặc riêng của trình duyệt (`window`, `document`, `localStorage`). Chỉ dùng ES2022 chuẩn, ví dụ `String.prototype.normalize` và RegExp `u`.
+- `Intl.*` trong hàm có kết quả dùng để **so khớp** giữa hai phía, vì Node và trình duyệt mang bản ICU khác nhau. Định dạng số và ngày để hiển thị thuộc client (`@ottimo/i18n`).
+- `dependencies` lúc chạy trong `package.json`. Chỉ được có `devDependencies`. Muốn thêm thư viện (ví dụ zod) thì ARC quyết và ghi decision-log.
+- Luật nghiệp vụ cần dữ liệu cơ sở hoặc trạng thái: giá, tồn phòng, tham số, quyền. Những luật này ở trong module của api (mục 5.1). Client không tự tính số chính thức: báo giá luôn là `calculateQuote` của server.
+- Mã chỉ một phía dùng. Mã đó ở lại trong app hoặc module của phía ấy.
+
+**Cách làm:**
+- Gói là ESM (`"type": "module"`). `tsc` dựng ra `dist`, và `exports` chỉ trỏ `dist`, vì api CommonJS cần `dist` (FB-R4-ARC-OPS-LPV2-02). **Không dùng top-level `await`**: api nạp gói bằng `require` của Node 22, mà `require` một module ESM có top-level `await` sẽ lỗi.
+- Mỗi hàm có test Vitest trong gói (`src/<tên>.test.ts`), gồm cả các ca biên. Nếu api hoặc client cũng test cùng luật thì hai bên đọc **một bảng ca chung**, như `packages/i18n/src/plural-forms.cases.json` (BE-LPV2-10). Bảng ca nằm ngoài gói nào thì phải khai trong `inputs` của task `test` trong turbo (FB-R4-ARC-OPS-LPV2-03).
+- Khi môi trường dev chạy, `turbo dev` dựng contracts một lần lúc khởi động (`dev.dependsOn: ["^build"]`) và không theo dõi thay đổi. Sửa contracts trong lúc `pnpm dev` đang chạy thì chạy `pnpm --filter @ottimo/contracts build`, hoặc khởi động lại `dev`.
+- Kiểu sinh từ OpenAPI **không** nằm ở đây. Phía client dùng `packages/api-client/src/generated/openapi.ts`, phía server dùng `services/api/src/generated/`. Kế hoạch R1 "contracts = kiểu sinh + zod" đã được thay bằng mục này.
+- Đổi chữ ký hoặc kết quả của một hàm đã có thì phải báo BE và FE, giống như đổi hợp đồng API.
 
 ## 18. Pha B (Đợt 3) cần gì từ các vai khác
 
@@ -464,3 +498,4 @@ Sản phẩm Pha B: `product/docs/erd.md` (bảng, khóa, constraint, RLS, cột
 | 16/10/2026 | 2 – Sprint 2 (phản hồi) | 9.1: chốt khóa job `hold.expire` (J1, tick 1 phút – bỏ job hẹn giờ) và `ooo.activate` (J9, theo ngày nghiệp vụ 06:00 BR-010, không 00:01); J1 xử lý giữ chỗ có cọc thiếu theo DOM D-9; mục 12 danh mục SSE 0.3.5 | ARC |
 | 16/10/2026 | 2 – Tuần 1 | Theo BE W10 (G1–G3): 9.1 J12, J13 dời **R3** theo R-C; J2 đổi từ job hẹn giờ sang **tick theo Clock** (ADR-008 điểm 4); mục 13 tên biến đúng như mã/OPS: `TRUST_PROXY` (IP/CIDR, không số bước), `DATA_KEK_CURRENT`(`_FILE`), `ID_HASH_KEY`(`_FILE`) | ARC |
 | 17/10/2026 | 2 – Sprint 4 (giữa sprint) | 5.1: quy tắc bảng thuộc một module + mô hình đọc `reporting` chấp nhận kèm điều kiện (review BE-D, OpenAPI 0.3.7 bổ sung 1); mục 12: người nhận SSE theo vai (gồm SAL/CTV, "chỉ cộng thêm") | ARC |
+| 01/11/2026 | 4 – LP-v2 (Review M5) | 17: cây thư mục thêm `packages/api-client`, sửa mô tả `contracts`; **17.1 mới – luật cho `@ottimo/contracts`**: chỉ kiểu, hằng dữ liệu và hàm thuần dùng chung api ↔ client; không I/O, không API riêng Node/trình duyệt, không `dependencies` lúc chạy, không top-level `await`; mỗi hàm có test trong gói; bảng ca dùng chung khai trong turbo `inputs` (FB-R4-ARC-ARC-LPV2-01) | ARC |

@@ -108,7 +108,10 @@ const LEASE_TIERS = [
     collaborator: 600,
   },
 ];
-const tierFor = (months) => [...LEASE_TIERS].reverse().find((t) => t.months <= months);
+// BR-201 v0.5.0+: dòng oracle mang bảng mới trong params.lease_terms (cùng cấu trúc, `months` = tháng đầu của khoảng);
+// không có params → bảng cũ trước 01/11 (DS-E). Ký quỹ bảng mới = n tháng tiền thuê, không làm tròn thêm (BR-206, mục 13).
+const tierFor = (months, tiers = LEASE_TIERS) =>
+  [...tiers].reverse().find((t) => t.months <= months);
 const pctOfRate = (rate, pct) => roundTo(rate * pct, 100, 1000);
 const earlyPct = (hm) => (hm >= '12:00' ? 0 : hm >= '10:00' ? 30 : hm >= '06:00' ? 50 : null);
 let MINIBAR = {};
@@ -280,17 +283,17 @@ const CALC = {
   bookingWindow: ({ today }, p) => ({
     lastBookableArrivalDate: addDays(today, p.booking_window_days - 1),
   }),
-  leaseTier: ({ termMonths }) => {
-    const t = tierFor(termMonths);
+  leaseTier: ({ termMonths }, p) => {
+    const t = tierFor(termMonths, p?.lease_terms);
     return { tierMonths: t.months, discountBp: t.discountBp };
   },
-  leaseRent: ({ monthlyListPriceVnd, guestClass, termMonths }) => {
+  leaseRent: ({ monthlyListPriceVnd, guestClass, termMonths }, p) => {
     const sur = guestClass === 'foreign' ? 110 : 100;
     return {
       monthlyRentVnd: roundTo(
-        monthlyListPriceVnd * sur * (10000 - tierFor(termMonths).discountBp),
+        monthlyListPriceVnd * sur * (10000 - tierFor(termMonths, p?.lease_terms).discountBp),
         1000000,
-        10000,
+        p?.['rounding.monthly_rent'] ?? 10000,
       ),
     };
   },
@@ -305,9 +308,10 @@ const CALC = {
         persons * (kwh * p.electricity_price) + roundDiv(persons * m3x10 * p.water_price, 10),
     };
   },
-  leaseDeposit: ({ monthlyRentVnd, guestClass, termMonths }) => {
-    const [n, d] = ratio(tierFor(termMonths).dep[guestClass === 'foreign' ? 'foreign' : 'vn']);
-    return { depositVnd: roundTo(monthlyRentVnd * n, d, 100000) };
+  leaseDeposit: ({ monthlyRentVnd, guestClass, termMonths }, p) => {
+    const t = tierFor(termMonths, p?.lease_terms);
+    const [n, d] = ratio(t.dep[guestClass === 'foreign' ? 'foreign' : 'vn']);
+    return { depositVnd: roundTo(monthlyRentVnd * n, d, p?.lease_terms ? 1 : 100000) };
   },
   dueAtSigning: ({ depositVnd, monthlyRentVnd, serviceFeeMonthlyVnd, billingCycleMonths }) => ({
     dueAtSigningVnd: depositVnd + (monthlyRentVnd + serviceFeeMonthlyVnd) * billingCycleMonths,

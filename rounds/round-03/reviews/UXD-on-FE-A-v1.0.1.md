@@ -258,3 +258,18 @@ Không có emoji, không "!", không viết cứng % hay số ngày ngưỡng. M
 - mục 2.5 – bảng "Cách tính" thêm dòng G7 và hai dòng "chỉ đảo dòng";
 - mục 4 – chuỗi nhận theo DOM ED-01…07, khóa mới `row_room_change_reversed`, `effect_ota_reopen`, `row_refundable_after_cap` (chữ theo thẻ 13), `no_refund_notice` (thẻ 15);
 - ghi chú "khối dán đã cũ – nguồn là `gen_strings.py` trên nhánh FE-A".
+
+---
+
+## Lượt 2 – PR #22 (Round 4 · Review · 01/11/2026)
+
+- Đối tượng: nhánh `origin/v1.0.2-ed` (PR #22), có `fe-a-v1.0.1` (`43a3a5a7`) gộp ở `188dacc0`. Đọc bằng `git show`/`git grep` trên nhánh, không checkout, không chạy test, không có ảnh v1.0.1 trong `rounds/round-03/outputs/FE/`.
+- **Kết luận: cả ba thẻ 13–15 đóng.** Không có thẻ mới, không có ESC.
+
+| Thẻ | Kết quả | Bằng chứng trên `v1.0.2-ed` |
+|---|---|---|
+| 13 (Minor, G7) | **Đóng** | `gen_strings.py:3791` và `strings-vi/en.json:3246`: VI "Trong đó hoàn được (tới mức khách đã trả thừa)", EN "Of which refunded (up to what the guest overpaid)", ghi chú dẫn thẻ 13. `EarlyDepartureDialog.tsx:813–819`: dòng ngay dưới `row_refundable`, `tr` thường (chữ Ink), số `r num` canh phải, chỉ khi `refundCapped`, dùng `refundablePaidVnd` của server, không có dòng "phần còn lại". Test `v101-early-departure-fea` có ca trần và ca không trần. |
+| 14 (Minor, CSS trùng) | **Đóng** | `packages/ui/src/styles/app.css` không còn khối `.consequence`, và khối này không có trong lịch sử đã gộp. `EarlyDepartureDialog.tsx:919` dùng `ul.consequence` lấy từ `hifi.css:350–351` (do `styles/index.css` import). Khối hậu quả nay giống H15. |
+| 15 (Suggestion) | **Đóng** | `gen_strings.py:3792` và `strings-vi.json:3247`: "Không hoàn: khách báo trước chưa đủ số ngày theo chính sách trả sớm.", EN giữ nguyên, ghi chú dẫn thẻ 15. Vẫn hiện dưới `row_refundable` (`.li-s`) khi `refundableVnd = 0` và `droppedNetVnd > 0`. |
+
+Ghi chú nhỏ, không mở thẻ: ghi chú của các khóa DOM ED-01…07 (ví dụ `row_extra_refund`, `row_extra_reversed`, `row_room_change`, `gen_strings.py:3793–3795`) vẫn ghi "chờ UXD duyệt". Các khóa này UXD đã duyệt ở lượt 2 ngày 27/10 (bảng mục 1). Lần sau sửa `gen_strings.py`, FE-A đổi ghi chú thành "UXD duyệt 27/10". Ghi chú này không đổi chữ hiển thị.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Periodic checks of one server – systemd timer ottimo-ops-check.timer (every 30 min), as the deploy user.
 #   ops-check.sh            run every check, alert on failures
-#   ops-check.sh j16        one check only (j16 | backup | disk | mem | tls | containers | http5xx)
+#   ops-check.sh j16        one check only (j16 | backup | disk | mem | tls | containers | http5xx | email_dead)
 #
 #   j16         SEC C6 / SR-RET-03: for every active property, the last retention_run of policy J16 with
 #               status done must be < 26 h old (a property younger than 26 h without any run is fine), and no J16 run
@@ -11,9 +11,17 @@
 #   disk        root filesystem < 80 % (hosting-plan 8)
 #   mem         MemAvailable ≥ MEM_MIN_AVAIL_PCT (default 10 %) of RAM – staging + production share 4.8 GB (v1-production 3)
 #   tls         certificate of DESK/STAFF/GUEST host valid > 14 days (Caddy renews at 30 days; this means renewal fails)
-#   containers  postgres, api, worker, web running (api healthy); + landing when a landing tag is deployed
+#   containers  postgres, api, worker, web running (api healthy); + landing when a landing tag is deployed. A failing
+#               `docker compose` itself is reported as "docker compose failed, container state unknown: <category>", not
+#               as "not running" (same for http5xx); j16 / email_dead report "query failed: <category>" – never the
+#               raw error text (ARC CWD-03)
 #   http5xx     server errors answered by Caddy (web + landing) in the last 35 min < HTTP5XX_MAX (default 5): a
 #               crashing api, a 502 from a dead upstream – before guests or staff report it
+#   email_dead  staff e-mails (outbox topic staff.email: security notices – SEC 06.15 / 06.33 / Q51-6) that died with
+#               NO_RECIPIENT in the last 24 h (the user has no e-mail address, so the notice reached nobody). Count only,
+#               nothing from the payload is read. BUG-R3-032: until users can have an e-mail (v1.0.1) this is
+#               expected, so it only reports; set EMAIL_NO_RECIPIENT_ALERT=1 in .env after v1.0.1 and every such
+#               e-mail becomes a FAIL (SEC `SEC-on-B2-readiness.md` 1.5 OPS (a)).
 #
 # Alerts (no personal data – only check names, property ids, ages): always to the journal
 # (journalctl -t ottimo-alert -p err); plus ALERT_WEBHOOK_URL from /opt/ottimo/.env if set, sent when a check
@@ -26,12 +34,41 @@
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
+# Run by hand as `sudo -u ottimo …/ops-check.sh` the cwd is often a home the deploy user cannot enter: docker compose
+# then fails with "stat .: permission denied" and every container looked "not running" (false FAIL alert 30/10 23:39).
+# Nothing here uses a relative path – always start from /.
+cd /
 if [ -z "${OTTIMO_HOME:-}" ] && [ -f "$here/../../../.ottimo-home" ]; then OTTIMO_HOME=$(cd "$here/../../.." && pwd); fi
 OTTIMO_HOME="${OTTIMO_HOME:-/opt/ottimo}"
 export OTTIMO_HOME
 state="$OTTIMO_HOME/state/ops-check"
 mkdir -p "$state"
 dc() { "$here/dc" "$@"; }
+# stderr of the docker compose / psql call being checked: a private file per run (mktemp = 0600), removed at exit –
+# the raw message (an .env parse error can quote a line of .env) never stays on disk or leaves the server (ARC CWD-03,
+# CWD-04 1). compose.stderr is the shared file of the 30/10 version: remove a leftover.
+# A run killed with SIGKILL cannot clean up: files of runs older than 60 min are removed (a parallel run by hand keeps
+# its own). SIGTERM/SIGINT (systemd stop, shutdown, Ctrl+C) end through exit, so the EXIT trap runs (SEC PR23-06).
+rm -f "$state/compose.stderr"
+find "$state" -maxdepth 1 -name 'cmd-stderr.*' -type f -mmin +60 -delete 2>/dev/null || true
+cmd_err=$(mktemp "$state/cmd-stderr.XXXXXX")
+trap 'rm -f "$cmd_err"' EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+# Why a docker compose or psql call failed, as a fixed category (ARC FB-R3-ARC-OPS-CWD-03): its raw message is never
+# forwarded to the journal or the webhook. Order matters: the psql socket error also says "No such file or directory".
+# Details: run the check by hand (`…/bin/dc ps`, `…/ops-check.sh j16`) and read the error on the terminal.
+cmd_failed() {
+  if grep -qi 'permission denied' "$cmd_err" 2>/dev/null; then echo "permission denied (current directory or stack files)"
+  elif grep -qiE 'cannot connect to the docker daemon|docker\.sock' "$cmd_err" 2>/dev/null; then echo "Docker daemon unreachable"
+  elif grep -qiE 'service "?postgres"? is not running|no container found' "$cmd_err" 2>/dev/null; then echo "postgres container not running"
+  elif grep -qiE 'could not connect|connection to server .*failed|connection refused|database system is (starting up|shutting down|in recovery)|server closed the connection' "$cmd_err" 2>/dev/null; then echo "database unreachable"
+  elif grep -qE 'ERROR:' "$cmd_err" 2>/dev/null; then echo "query error"
+  elif grep -qiE 'no such file|not found' "$cmd_err" 2>/dev/null; then echo "stack file missing"
+  else echo "other error – run it by hand"
+  fi
+}
+compose_failed() { echo "docker compose failed, container state unknown: $(cmd_failed)"; }
 envval() { sed -n "s/^$1=//p" "$OTTIMO_HOME/.env" | tail -n 1 | tr -d '\r' | sed -e 's/^"//' -e 's/"$//'; }
 
 J16_MAX_HOURS="${J16_MAX_HOURS:-26}"
@@ -41,7 +78,8 @@ TLS_MIN_DAYS="${TLS_MIN_DAYS:-14}"
 REMIND_SECONDS="${REMIND_SECONDS:-21600}"
 HTTP5XX_MAX="${HTTP5XX_MAX:-5}"
 MEM_MIN_AVAIL_PCT="${MEM_MIN_AVAIL_PCT:-10}"
-for v in J16_MAX_HOURS BACKUP_MAX_HOURS DISK_MAX_PCT TLS_MIN_DAYS REMIND_SECONDS HTTP5XX_MAX MEM_MIN_AVAIL_PCT; do
+EMAIL_DEAD_HOURS="${EMAIL_DEAD_HOURS:-24}"
+for v in J16_MAX_HOURS BACKUP_MAX_HOURS DISK_MAX_PCT TLS_MIN_DAYS REMIND_SECONDS HTTP5XX_MAX MEM_MIN_AVAIL_PCT EMAIL_DEAD_HOURS; do
   [[ "${!v}" =~ ^[0-9]+$ ]] || { echo "$v must be a number" >&2; exit 2; }
 done
 host_name=$(hostname -s 2>/dev/null || echo server)
@@ -77,7 +115,7 @@ psql_admin() {
 
 check_j16() {
   local out bad=""
-  if ! out=$(psql_admin <<SQL 2>&1
+  if ! out=$(psql_admin <<SQL 2>"$cmd_err"
 SELECT p.id,
        COALESCE(EXTRACT(EPOCH FROM now() - max(r.run_at) FILTER (WHERE r.status = 'done'))::bigint, -1),
        EXTRACT(EPOCH FROM now() - p.created_at)::bigint,
@@ -88,7 +126,7 @@ SELECT p.id,
  GROUP BY p.id, p.created_at;
 SQL
   ); then
-    notify j16 FAIL "query failed: $(head -n 1 <<<"$out")"
+    notify j16 FAIL "query failed: $(cmd_failed)"
     return 1
   fi
   local limit=$((J16_MAX_HOURS * 3600)) n=0
@@ -150,17 +188,20 @@ check_tls() {
 }
 
 check_containers() {
-  local s missing=""
+  local s ids missing="" n_api=0
   local services=(postgres api worker web)
   [ -s "$OTTIMO_HOME/state/landing_tag" ] && services+=(landing)
+  # A failing `docker compose` (cwd, daemon, .env) is NOT "container not running": report it as such, with its error.
   for s in "${services[@]}"; do
-    [ -n "$(dc ps --status running --quiet "$s" 2>/dev/null)" ] || missing+=" $s"
+    if ! ids=$(dc ps --status running --quiet "$s" 2>"$cmd_err"); then
+      notify containers FAIL "$(compose_failed)"; return 1
+    fi
+    [ -n "$ids" ] || missing+=" $s"
+    [ "$s" != api ] || n_api=$(grep -c . <<<"$ids" || true)
   done
   if [ -n "$missing" ]; then notify containers FAIL "not running:$missing"; return 1; fi
   # US155-04 / SEC FB-R3-SEC-US155-04: the public form limits (step 0 counters, in-flight cap) live in the api
   # process – exactly ONE api replica (README infra/server 12.2 "API chạy 1 bản").
-  local n_api
-  n_api=$(dc ps --status running --quiet api 2>/dev/null | wc -l | tr -d ' ')
   if [ "$n_api" != "1" ]; then notify containers FAIL "$n_api api replicas running (must be exactly 1)"; return 1; fi
   if ! dc exec -T api wget -qO- http://127.0.0.1:3000/health 2>/dev/null | grep -q '"status":"ok"'; then
     notify containers FAIL "api /health not ok"; return 1
@@ -172,12 +213,43 @@ check_http5xx() {
   local svc=(web) n
   [ -s "$OTTIMO_HOME/state/landing_tag" ] && svc+=(landing)
   # Caddy access log lines are JSON with "status":<code>; count 5xx answers of the last 35 minutes.
-  n=$(dc logs --no-color --no-log-prefix --since 35m "${svc[@]}" 2>/dev/null | grep -c '"status":5[0-9][0-9]' || true)
+  local logs
+  if ! logs=$(dc logs --no-color --no-log-prefix --since 35m "${svc[@]}" 2>"$cmd_err"); then
+    notify http5xx FAIL "$(compose_failed)"; return 1
+  fi
+  n=$(grep -c '"status":5[0-9][0-9]' <<<"$logs" || true)
   if [ "${n:-0}" -ge "$HTTP5XX_MAX" ]; then notify http5xx FAIL "$n server errors (5xx) in 35 min"; return 1; fi
   notify http5xx OK "${n:-0} server errors (5xx) in 35 min"
 }
 
-if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx); full=1; fi
+check_email_dead() {
+  local out n armed
+  # .env wins over the environment only when set there (the timer has no environment of its own).
+  armed=$(envval EMAIL_NO_RECIPIENT_ALERT); armed="${armed:-${EMAIL_NO_RECIPIENT_ALERT:-0}}"
+  [[ "$armed" =~ ^[01]$ ]] || { notify email_dead FAIL "EMAIL_NO_RECIPIENT_ALERT must be 0 or 1"; return 1; }
+  if ! out=$(psql_admin <<SQL 2>"$cmd_err"
+SELECT count(*) FROM outbox_message
+ WHERE topic = 'staff.email' AND status = 'dead' AND last_error = 'NO_RECIPIENT'
+   AND created_at > now() - interval '$EMAIL_DEAD_HOURS hours';
+SQL
+  ); then
+    notify email_dead FAIL "query failed: $(cmd_failed)"
+    return 1
+  fi
+  n=$(tr -d '[:space:]' <<<"$out")
+  [[ "$n" =~ ^[0-9]+$ ]] || { notify email_dead FAIL "unexpected answer"; return 1; }
+  if [ "$n" -gt 0 ] && [ "$armed" = "1" ]; then
+    notify email_dead FAIL "$n staff e-mail(s) dead NO_RECIPIENT in ${EMAIL_DEAD_HOURS} h – a security notice reached nobody"
+    return 1
+  fi
+  if [ "$armed" = "1" ]; then
+    notify email_dead OK "$n staff e-mail(s) dead NO_RECIPIENT in ${EMAIL_DEAD_HOURS} h"
+  else
+    notify email_dead OK "$n staff e-mail(s) dead NO_RECIPIENT in ${EMAIL_DEAD_HOURS} h (report only until EMAIL_NO_RECIPIENT_ALERT=1, BUG-R3-032)"
+  fi
+}
+
+if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx email_dead); full=1; fi
 rc=0
 failed=""
 for c in "${checks[@]}"; do
@@ -190,6 +262,7 @@ for c in "${checks[@]}"; do
     tls) check_tls || ok=0 ;;
     containers) check_containers || ok=0 ;;
     http5xx) check_http5xx || ok=0 ;;
+    email_dead) check_email_dead || ok=0 ;;
     *) echo "unknown check: $c" >&2; rc=2; continue ;;
   esac
   if [ "$ok" -eq 0 ]; then failed+=" $c"; [ "$rc" -eq 2 ] || rc=1; fi

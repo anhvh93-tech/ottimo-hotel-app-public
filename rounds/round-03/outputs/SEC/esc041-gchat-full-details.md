@@ -1,6 +1,6 @@
 # SEC – ESC-041 = C: tin Google Chat gửi đủ thông tin yêu cầu đặt phòng
 
-- Tác giả: SEC | Round 3 – Bước: Sản xuất | Ngày 30/10/2026
+- Tác giả: SEC | Round 3 – Bước: Sản xuất; Lượt 2: Phản hồi & sửa (mục L2) | Ngày 30/10/2026
 - Căn cứ: ESC-041 (đã quyết C, cập nhật 30/10: **chạy mức C ngay từ v1.0.1**, luật sư của INV lo phần pháp lý, INV giữ văn bản ngoài repo); decision-log 30/10 (hai dòng ESC-041); thiết kế ARC `rounds/round-03/outputs/ARC/gchat-booking-request-notify.md`; review SEC `rounds/round-03/reviews/SEC-on-us155-enable.md` mục 2.4 và 4; thông báo đang chạy `product/apps/landing-web/src/content/privacy.ts` version `2026-10-24`; thư luật sư `04-investor-feedback/lawyer-questions-2026-10-26.md`.
 - Tệp này không chứa dữ liệu thật, URL webhook, mật khẩu hay khóa. Không sửa mã. SEC không kết luận pháp lý: mọi câu về luật ở mục 2 là câu hỏi để luật sư trả lời.
 
@@ -13,7 +13,95 @@
 | Gửi luật sư | Đổi thành **ghi chú tham khảo** (mục 2). Không phải điều kiện bật C. |
 | Điều kiện bật C | Không còn điều kiện pháp lý. Còn **8 việc kỹ thuật/vận hành bắt buộc** (mục 3.1, ký hiệu ★). Đây là yêu cầu bảo mật thuộc quyền SEC, không phải chờ luật sư. Quan trọng nhất: (1) tin trong phòng Chat **tự xóa**, nếu không thì câu "xóa trong 180 ngày" đã đăng sẽ thành sai; (2) chi tiết khách **chỉ gửi cho yêu cầu khách gửi theo thông báo mới**; (3) chống chèn định dạng/link/@all từ tên và lời nhắn; (4) thành viên phòng chỉ gồm OWN/MGR/lễ tân, tài khoản @ottimo.vn có xác minh 2 bước. |
 | Thẻ cũ | FB-R3-SEC-ARC-GCHAT-01 (Major, cắt nội dung theo S1) **hết hiệu lực** vì INV đã quyết ESC-041 = C. Thay bằng các yêu cầu ở mục 3. FB-R3-SEC-ARC-GCHAT-02 (bí mật webhook, chống tin giả) **vẫn giữ**, nay quan trọng hơn. |
-| ESC mới | **Không.** Chỉ có thể phát sinh nếu phòng Chat không tắt được lịch sử và cách thay thế duy nhất tốn tiền (Google Vault) – xem 3.1 ★1. |
+| ESC mới | **Không.** Chỉ có thể phát sinh nếu phòng Chat không tắt được lịch sử và cách thay thế duy nhất tốn tiền (Google Vault) – xem 3.1 ★1. *(Lượt 2: ★1 bỏ; ESC-042 mới về thời hạn ghi trên thông báo.)* |
+
+> **Lượt 2 (30/10, Round 3 – Phản hồi & sửa) thay các chỗ mâu thuẫn bên dưới.** Chỗ nào ở mục 1–4 nói "tự xóa", "24 giờ / 7 ngày", `{chatRetention…}` thì đọc theo mục L2.
+
+---
+
+## L2. Lượt 2 – INV bỏ ★1 (tự xóa tin Chat)
+
+Căn cứ: decision-log 30/10, dòng "INV – bỏ yêu cầu phòng Google Chat tự xóa tin sau 24 giờ (SEC ★1)". INV chấp nhận rủi ro tin có dữ liệu khách nằm lại trong phòng. SEC giữ một nguyên tắc: **thông báo chỉ nói điều OTTIMO làm được thật**. Không còn tự xóa nên câu thông báo phải đổi, và việc xóa chuyển thành thao tác tay.
+
+### L2.1 Câu thông báo mới – thay mục 1.2 (2)
+
+Câu 1–3 của đoạn giữ như 1.2 (2), chỉ thêm chữ "nội bộ" ở VI. **Câu cuối** thay `{chatRetention…}` bằng một trong hai phương án. INV chọn ở **ESC-042**. Chưa có trả lời trước khi chốt chữ thì đội dùng **phương án 1**.
+
+**EN**
+`When you send a request, we post your name, contact, preferred channel, dates, number of guests and message to a private chat used only by our managers and reception, on Google Chat (Google Workspace). We do this only so that the person on duty can reply to you quickly. Google stores these messages on its servers, which may be outside Viet Nam.` + câu cuối:
+
+| Phương án | Câu cuối EN |
+|---|---|
+| **1 – có thời hạn (SEC đề xuất)** | `We delete this copy within 180 days of sending at the latest, and sooner if you ask us to delete your request.` |
+| 2 – không nêu thời hạn | `Messages in this chat are not deleted automatically. We delete your copy when it is no longer needed to reply to you, or when you ask us to delete your request.` |
+
+**VI**
+`Khi bạn gửi yêu cầu, OTTIMO đăng tên, liên hệ, kênh bạn chọn, ngày ở, số khách và lời nhắn của bạn vào một phòng trò chuyện nội bộ chỉ dành cho quản lý và lễ tân, trên Google Chat (Google Workspace). Việc này chỉ để người đang trực trả lời bạn nhanh hơn. Google lưu các tin này trên máy chủ của họ, có thể đặt ngoài Việt Nam.` + câu cuối:
+
+| Phương án | Câu cuối VI |
+|---|---|
+| **1 – có thời hạn (SEC đề xuất)** | `OTTIMO xóa bản sao này chậm nhất 180 ngày kể từ lúc gửi, và sớm hơn khi bạn yêu cầu xóa.` |
+| 2 – không nêu thời hạn | `Tin trong phòng này không tự xóa. OTTIMO xóa bản sao của bạn khi không còn cần để trả lời bạn, hoặc khi bạn yêu cầu xóa.` |
+
+Ghi chú cho từng phương án:
+- **Phương án 1** khớp câu đã đăng ở "How long we keep it" ("deleted within 180 days of sending at the latest"), nên **không phải sửa** câu đó. OTTIMO giữ được 180 ngày bằng thao tác tay **theo quý, không theo từng tin** (L2.3). Không dùng chữ "when no longer needed" ở phương án này: tin vẫn nằm trong phòng tới lúc xóa cả phòng, viết vậy là hứa quá việc thật.
+- **Phương án 2** buộc sửa thêm câu 180 ngày ở 1.2 (3), thêm cuối đoạn 2: EN `This period applies to our server; the copy in our staff chat is handled as described under "Who else receives it".` / VI `Thời hạn này áp dụng cho máy chủ của OTTIMO; bản sao trong phòng trò chuyện nội bộ được xử lý như mô tả ở mục "Bên khác nhận thông tin".` Vế "khi không còn cần" vẫn cần một việc tay tối thiểu để không thành sai: xóa cả phòng **mỗi năm một lần** (cùng cách L2.3, chu kỳ năm). Luật sư dễ hỏi "bao lâu".
+- Các câu khác giữ như mục 1: (1) đoạn "How we handle it" giữ; (3) IP băm 30 ngày giữ; (4) "Your rights": `…delete the request, including any copy left in our staff chat.` **giữ**, vì vẫn làm được bằng tay (L2.2) – **với điều kiện** INT kiểm xong K1 ở L2.2.
+- Version: vẫn theo ngày chốt chữ (dự kiến `2026-10-31`). INV chọn phương án 2 sau khi đã đăng phương án 1 thì version mới (thêm `.1` nếu cùng ngày).
+
+### L2.2 Quy trình tay khi khách xin xóa (WR8) – cho BA ghi sổ tay
+
+**Vai trong phòng Chat:** OWN và MGR là **quản lý phòng** (space manager). FDL, FD là thành viên. Thêm vào ★4.
+
+| Bước | Ai | Khi nào | Làm gì |
+|---|---|---|---|
+| 1 | Người làm WR8 trên Desk (OWN/MGR/FDL) | Như WR8 hiện có | Xác minh và xóa trên Desk như sổ tay. Chép **mã yêu cầu** (`REQ-…`) trước khi bấm xóa. |
+| 2 | Người làm WR8 | Ngay sau bước 1 | Là OWN/MGR: tự làm bước 3. Là FDL: nhắn MGR (MGR vắng thì OWN) **chỉ mã yêu cầu** và chữ "xóa Chat theo WR8". Không chép tên, SĐT, lời nhắn. |
+| 3 | Quản lý phòng (MGR, dự phòng OWN) | **Trong 24 giờ** kể từ WR8 trên Desk | Trong phòng "Desk OTTIMO", tìm theo mã `REQ-…`. Xóa **tin đầu** (có chi tiết), **mọi tin nhắc lại** trong luồng, và **mọi tin nhân viên trả lời** trong luồng (có thể chép lại chi tiết khách). Mở lại tìm kiếm để chắc không còn. Kiểm cả phòng quý trước nếu còn (L2.3). |
+| 4 | Quản lý phòng | Ngay sau bước 3 | Ghi vào sổ xóa nội bộ: mã yêu cầu · ngày WR8 · ngày xóa Chat · người làm · "đã xóa" hoặc "không còn trong Chat". **Chỉ mã, không tên/SĐT.** Không trả lời gì trong phòng Chat về việc xóa. |
+| 5 | OWN | Mỗi tháng, cùng lúc rà thành viên (★4) | Đối chiếu sổ xóa với các WR8 trong tháng trên Desk: WR8 nào chưa có dòng "đã xóa" thì làm ngay. |
+
+Thêm vào sổ tay:
+- Không có quản lý phòng nào làm được trong 24 giờ (cả MGR và OWN vắng): OWN làm khi về, ghi lý do chậm vào sổ xóa.
+- Thành viên nào lỡ bật email thông báo Chat (trái ★7) thì tự xóa thư tương ứng trong Gmail.
+- Yêu cầu bị đánh dấu spam sau khi tin đã gửi: nên xóa tin trong Chat như bước 3 (khuyến nghị, không bắt buộc; phương án 1 vẫn xóa theo quý).
+
+**K1 – điều kiện kỹ thuật, INT kiểm trên phòng thử (thay N1):** quản lý phòng **xóa được tin do webhook "Desk OTTIMO" đăng** và tin trong luồng của người khác; tìm kiếm Chat tìm ra mã `REQ-…`; xóa cả phòng thì mọi tin biến mất với thành viên. SEC chưa kiểm được trên Google Chat thật – đây là giả định. **Nếu quản lý phòng không xóa được tin webhook** thì câu (4) "Your rights" và câu cuối L2.1 đều sai: **không bật C**, INT báo SEC, đội cân nhắc ★1 cách 3 cũ (Chat app tự xóa tin của mình theo yêu cầu – ARC ước lượng công). K1 gộp vào ★8 (thông báo đúng thực tế lúc đăng).
+
+### L2.3 Cách giữ 180 ngày bằng tay (chỉ phương án 1)
+
+Xóa từng tin theo tuổi thì nặng và dễ quên. SEC đề xuất **đổi phòng theo quý**:
+1. Ngày 1 tháng 1/4/7/10: OWN tạo phòng mới ("Desk OTTIMO – Q1/2027"…) đủ cài đặt ★4 (chỉ @ottimo.vn, đúng thành viên, OWN + MGR là quản lý phòng), tạo webhook mới. OPS thay URL webhook trong `.env` production theo quy trình bí mật có sẵn (báo INV trước), gửi một tin thử mẫu A. URL cũ bị xóa trong phòng cũ cùng lúc. Việc này cũng là **xoay URL webhook mỗi quý** (giảm RR4, đáp ứng ý "khi nào xoay URL" của GCHAT-02).
+2. **Chậm nhất ngày 1 tháng thứ 3 của quý mới** (1/3, 1/6, 1/9, 1/12): OWN **xóa cả phòng quý trước**. Tin cũ nhất khi đó khoảng 151 ngày, còn dư khoảng 29 ngày nếu làm trễ.
+3. Hai phòng cùng tồn tại tối đa 2 tháng. Yêu cầu còn mở thì xem trên Desk (nguồn chính), không cần tin cũ.
+4. INT/ARC kiểm: tin nhắc lại của yêu cầu gửi trước khi đổi phòng sẽ vào phòng mới thành luồng mới (chỉ mẫu A, ★6) – chấp nhận được.
+- Công: khoảng 30 phút/quý cho OWN, 10 phút cho OPS. Không tốn tiền.
+- Phòng đầu tiên (từ v1.0.1, 04/11/2026) đổi lần đầu 01/01/2027, xóa chậm nhất 01/03/2027.
+
+### L2.4 Bảng ★ sau Lượt 2
+
+| ★ | Việc | Trạng thái | Chặn mức C? |
+|---|---|---|---|
+| ★1 | Tin trong phòng tự xóa | **INV chấp nhận rủi ro (30/10)** – bỏ. Thay bằng L2.2 (WR8 tay) và L2.3 (đổi phòng theo quý, nếu phương án 1) | **Không** |
+| ★2 | Chỉ gửi chi tiết khi `consent_version` ≥ version mới | Giữ | Có |
+| ★3 | Cấu hình mức nội dung, mặc định A | Giữ | Có |
+| ★4 | Thành viên phòng OWN/MGR/FDL/FD @ottimo.vn, 2 bước; **thêm: OWN + MGR là quản lý phòng** | Giữ (bổ sung) | Có |
+| ★5 | Chống chèn định dạng/link/@all | Giữ | Có |
+| ★6 | Chỉ tin đầu có chi tiết | Giữ | Có |
+| ★7 | Ẩn thông báo màn hình khóa, tắt email thông báo Chat, quản lý thiết bị. Nay **quan trọng hơn**: không có tự xóa thì bản sao trên máy giữ lâu hơn | Giữ | Có |
+| ★8 | Thông báo version mới đã đăng, câu cuối L2.1 khớp phương án INV chọn; **gộp K1** (quản lý phòng xóa được tin webhook) | Giữ (bổ sung) | Có |
+
+Rủi ro còn lại (mục 3.3) đổi: **RR6** bỏ phần "bật lại lịch sử"; thêm **RR9** – tin có dữ liệu khách nằm trong phòng Chat tới 180 ngày (phương án 1) hoặc không giới hạn (phương án 2), không tự xóa; mức: **Trung bình, INV chấp nhận 30/10**; giảm bằng ★4, ★7, L2.2, L2.3.
+
+### L2.5 Ghi chú luật sư (mục 2) – sửa theo Lượt 2
+
+- Đoạn "Thay đổi": thay câu `Tin trong phòng tự xóa sau {24 giờ / 7 ngày}.` bằng: `Tin trong phòng không tự xóa. OTTIMO xóa tay: xóa cả phòng mỗi quý, mọi tin bị xóa chậm nhất 180 ngày kể từ lúc gửi` (phương án 1) / `Tin trong phòng không tự xóa; OTTIMO xóa tay khi không còn cần và khi khách yêu cầu` (phương án 2) `; khi khách yêu cầu xóa, quản lý phòng xóa tin tương ứng trong 24 giờ.`
+- Câu hỏi 7: thay `bản sao trong Google Chat tự xóa trong {24 giờ / 7 ngày}` bằng `quản lý phòng xóa tay bản sao trong Google Chat trong 24 giờ`.
+- Phụ lục: đính kèm câu L2.1 theo phương án INV chọn.
+
+### L2.6 Dòng decision-log đề xuất (Lượt 2)
+
+| 2026-10-30 | 3 | **SEC – ESC-041 Lượt 2 sau khi INV bỏ ★1** (`rounds/round-03/outputs/SEC/esc041-gchat-full-details.md` mục L2): thông báo version mới không hứa tự xóa trong Chat; câu cuối đoạn Google Chat theo ESC-042 (đề xuất 1: "xóa chậm nhất 180 ngày kể từ lúc gửi, sớm hơn khi khách yêu cầu" – giữ bằng đổi phòng Chat theo quý, xóa phòng cũ chậm nhất ngày 1 tháng thứ 3; chưa trả lời thì dùng 1). WR8: quản lý phòng (MGR, dự phòng OWN) xóa tay tin đầu + luồng theo mã `REQ-…` trong 24 giờ, ghi sổ xóa chỉ mã; BA ghi sổ tay. ★1 = INV chấp nhận rủi ro, không chặn C; ★2–★8 giữ, ★4 thêm OWN + MGR là quản lý phòng, ★8 gộp K1 (INT kiểm quản lý phòng xóa được tin webhook – không được thì không bật C). Thêm RR9 (Trung bình, INV chấp nhận). | SEC | Quyền SEC (yêu cầu bảo mật kỹ thuật); bỏ tự xóa theo INV 30/10; thời hạn trên thông báo chờ INV (ESC-042) |
 
 ---
 
@@ -44,7 +132,7 @@ Câu cũ nói dữ liệu lưu ở Việt Nam và chỉ người được giao x
 - EN: `When you send a request, we post your name, contact, preferred channel, dates, number of guests and message to a private chat used only by our managers and reception, on Google Chat (Google Workspace). We do this only so that the person on duty can reply to you quickly. Google stores these messages on its servers, which may be outside Viet Nam. Messages in this chat are deleted within {chatRetentionEn}.`
 - VI: `Khi bạn gửi yêu cầu, OTTIMO đăng tên, liên hệ, kênh bạn chọn, ngày ở, số khách và lời nhắn của bạn vào một phòng trò chuyện chỉ dành cho quản lý và lễ tân, trên Google Chat (Google Workspace). Việc này chỉ để người đang trực trả lời bạn nhanh hơn. Google lưu các tin này trên máy chủ của họ, có thể đặt ngoài Việt Nam. Tin trong phòng này được xóa trong {chatRetentionVi}.`
 
-Giá trị `{chatRetention…}` (FE-B điền **sau** ★1):
+*(Lượt 2: bảng dưới hết hiệu lực – câu cuối lấy theo L2.1.)* Giá trị `{chatRetention…}` (FE-B điền **sau** ★1):
 
 | Kết quả kiểm ★1 | EN | VI |
 |---|---|---|
@@ -134,7 +222,7 @@ Mặc định mã v1.0.1 vẫn là **A** (ESC-041 điều kiện 1). OPS chỉ �
 
 ### 3.1 Bắt buộc (★)
 
-**★1 – Tin trong phòng tự xóa (INT kiểm, INV cài đặt). Mức: Blocker cho C.**
+**★1 – Tin trong phòng tự xóa (INT kiểm, INV cài đặt). Mức: Blocker cho C.** *(Lượt 2: INV bỏ, chấp nhận rủi ro 30/10 – không chặn C; xem L2.)*
 - Lý do: mặc định Google Chat **giữ tin vô thời hạn**. Thông báo đã đăng hứa "xóa chậm nhất 180 ngày" và "xóa khi khách rút đồng ý". Bản sao trong Chat không xóa thì cả hai câu thành sai.
 - Cách làm, theo thứ tự ưu tiên (INT kiểm trên **phòng thử**, có webhook thật, dữ liệu giả):
   1. **Tắt lịch sử của phòng** (history off: tin tự xóa sau 24 giờ), và trong Admin console khóa không cho thành viên bật lại. Kiểm: tin webhook có bị xóa sau 24 giờ không; tin nhắc lại trả lời trong luồng còn chạy không. **SEC đề xuất cách này**: nó cũng giải quyết luôn yêu cầu xóa WR8.
@@ -192,7 +280,7 @@ Mặc định mã v1.0.1 vẫn là **A** (ESC-041 điều kiện 1). OPS chỉ �
 
 | # | Việc | Ai |
 |---|---|---|
-| N1 | Xóa khi khách yêu cầu (WR8): nếu ★1 là 24 giờ, sổ tay ghi "bản sao trên Chat tự xóa trong 24 giờ"; nếu yêu cầu xóa tới trong 24 giờ đầu và quản lý phòng xóa được tin của webhook thì xóa tay ngay. INT kiểm quản lý phòng có xóa được tin webhook không. Nếu ★1 là 7 ngày: sổ tay thêm bước xóa tay tin `REQ-…` khi làm WR8. | INT, BA |
+| N1 | *(Lượt 2: thay bằng L2.2 và K1.)* Xóa khi khách yêu cầu (WR8): nếu ★1 là 24 giờ, sổ tay ghi "bản sao trên Chat tự xóa trong 24 giờ"; nếu yêu cầu xóa tới trong 24 giờ đầu và quản lý phòng xóa được tin của webhook thì xóa tay ngay. INT kiểm quản lý phòng có xóa được tin webhook không. Nếu ★1 là 7 ngày: sổ tay thêm bước xóa tay tin `REQ-…` khi làm WR8. | INT, BA |
 | N2 | Tắt Google Takeout cho Google Chat với nhóm tài khoản nhân viên, để không ai xuất lịch sử phòng ra ngoài. | INV |
 | N3 | INV chấp nhận Cloud Data Processing Addendum trong Admin console (Account settings → Legal and compliance) và lưu bản chấp nhận cùng hồ sơ luật sư. | INV |
 | N4 | Bản đồ dữ liệu (`product/docs/security-requirements.md`, phần bên nhận/nơi lưu): thêm Google Chat, dữ liệu, thời hạn. ESC-002 A ghi "ngoại lệ cho kênh này theo ESC-041 C". | SEC (round sau, khi sửa tài liệu) |
