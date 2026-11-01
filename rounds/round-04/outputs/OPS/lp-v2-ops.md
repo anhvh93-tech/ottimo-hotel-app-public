@@ -25,7 +25,7 @@
 - `LANDING_LOCALES` vẫn được kiểm: mọi ngôn ngữ trong đó phải có trang, và SQL kiểm readiness theo nó.
 - Version: **đúng một** thẻ `<meta name="ottimo-notice-version">` mỗi trang (ARC D11/D12). `data-notice-version` (nếu có) phải bằng. Image trước LP-v2 (không có thẻ) → đọc chữ "Version"/"Phiên bản" cho en/vi. ko/zh/ru thiếu thẻ → từ chối.
 - Băm trong container, so bản chép ra, so trang thật qua edge từng ngôn ngữ; băm khác nhau từng đôi (wrapper và SQL cùng kiểm).
-- SQL: biến `locales`, `shas`, `required` (danh sách cách dấu phẩy, dùng `:'var'`); **một giao dịch** cho mọi ngôn ngữ; supersede theo từng ngôn ngữ; audit `security` có `locales`, `hashes` (đối tượng `{xx: sha}`), vẫn giữ khóa `shaVi`/`shaEn`. DB chưa có 0090 (CHECK chưa nhận `ko`/`zh`) → từ chối với câu "deploy the api with the LP-v2 migration first", thay vì lỗi ràng buộc.
+- SQL: biến `locales`, `shas`, `required` (danh sách cách dấu phẩy, dùng `:'var'`); **một giao dịch** cho mọi ngôn ngữ; supersede theo từng ngôn ngữ; audit `security` có `locales`, `hashes` (đối tượng `{xx: sha}`), vẫn giữ khóa `shaVi`/`shaEn`. DB chưa có migration LP-v2 `0091_lp_v2_price_estimate_locales` (CHECK chưa nhận `ko`/`zh`; 0090 là PN-01) → từ chối với câu "deploy the api with the LP-v2 migration first", thay vì lỗi ràng buộc.
 - Log `state/privacy-notice.log`: `sha_<xx>=` cho từng ngôn ngữ, en và vi đứng đầu như dòng cũ.
 
 ## 3. `deploy-landing.sh` bước `privacy` (SR-LC-05, ARC 3.6 (4))
@@ -40,14 +40,14 @@
 |---|---|---|---|
 | `pricelimit` | log Caddy landing 60 phút, route giá, `status` 429/503 | ≥ `PRICE_REFUSED_MAX` (mặc định 200 – đúng SR-PE-16 "200/giờ") | Một câu kèm số lần. Không đường dẫn, slug, IP |
 | `pricegap` | log api 24 giờ, `public_price_missing` | ≥ 1 | Chỉ số căn. Không mã căn, mã cơ sở, nguyên văn log |
-| `priceswitch` | `audit_event` `config.changed` / `public_show_prices`, 35 phút | ≥ 1 lần đổi | Số lần + giá trị mới (`true`/`false`) |
+| `priceswitch` | `audit_event` `config.changed` / `public_show_prices`, theo id audit > mốc đã báo (sửa SEC LPV2-04, mục 10) | ≥ 1 lần đổi mới | Số lần + giá trị mới nhất (`true`/`false`/`other`), mỗi lượt có thay đổi một webhook |
 | `http5xx` (sửa) | như cũ | như cũ | Không đếm 503 của route giá (bulkhead trả 503 là thiết kế). 502/500 của route giá vẫn đếm |
 
 ## 5. Test (máy OPS, 01/11)
 | Test | Kết quả |
 |---|---|
 | `infra/ci/check-caddy-landing.sh` (caddy image ghim) | Đạt – **38/38** (16 ca cũ + 22 ca mới) |
-| `infra/server/test/publish-privacy-notice.test.sh` (stack thật: postgres + migrate + seed DS-E + landing với Caddyfile mới; api `sha-8b3aec89486f-test`, landing `qa155` + biến thể 5 ngôn ngữ dựng tại chỗ) | **32/32** (22 ca cũ + 10 ca LP-v2). DB của image api chưa có 0090: test kiểm ca "từ chối, báo deploy api trước", rồi nới CHECK y như 0090 để chạy tiếp |
+| `infra/server/test/publish-privacy-notice.test.sh` (stack thật: postgres + migrate + seed DS-E + landing với Caddyfile mới; api `sha-8b3aec89486f-test`, landing `qa155` + biến thể 5 ngôn ngữ dựng tại chỗ) | **32/32** (22 ca cũ + 10 ca LP-v2). DB của image api chưa có 0091: test kiểm ca "từ chối, báo deploy api trước", rồi nới CHECK y như 0091 để chạy tiếp |
 | `infra/server/test/deploy-landing-privacy.test.sh` | **17/17** (9 cũ + 8 mới) |
 | `infra/server/test/ops-check-price.test.sh` (mới) | **10/10** |
 | `infra/server/test/ops-check-cwd.test.sh` | 6/6 |
@@ -63,15 +63,38 @@
 - **[GIẢ ĐỊNH] G5** – `pricegap` cửa sổ 24 giờ, vì BE chỉ ghi một lần mỗi căn mỗi ngày nghiệp vụ. Cảnh báo có thể còn đỏ tới 24 giờ sau khi OWN đã nhập giá.
 
 ## 7. Rủi ro / vướng mắc
-- Chưa chạy với **image landing LP-v2 thật** và **image api có 0090** (hai nhánh chưa gộp vào `lp-v2`, chưa có image CI). Biến thể 5 ngôn ngữ trong test dựng từ `qa155` theo đúng dạng FE mô tả (thẻ meta, `data-notice-version`, hreflang). QA phải chạy lại `publish-privacy-notice` chạy thử trên staging với image thật trước bước (c).
+- Chưa chạy với **image landing LP-v2 thật** và **image api có 0091** (`0091_lp_v2_price_estimate_locales`) (hai nhánh chưa gộp vào `lp-v2`, chưa có image CI). Biến thể 5 ngôn ngữ trong test dựng từ `qa155` theo đúng dạng FE mô tả (thẻ meta, `data-notice-version`, hreflang). QA phải chạy lại `publish-privacy-notice` chạy thử trên staging với image thật trước bước (c).
 - `priceswitch` và `pricegap` FAIL làm heartbeat gửi `/fail` một lượt. Có chủ ý: đây là đường báo duy nhất cho OWN khi thiếu giá (ARC L9).
 - C8 (QA chạy 12 ca SEC 9.5 qua Caddy thật, ca 6 `TRUST_PROXY`) vẫn là việc QA trên staging. Phần OPS đã có: `TRUST_PROXY` của api có `LANDING_IP` (check-compose kiểm), và test Caddy chứng minh `X-Forwarded-For` giả của khách bị thay.
 
 ## 8. Việc chưa xong / cần vai khác
 - **ARC review**: 3 điểm lệch thiết kế – G1 (danh sách đăng từ image), luật mới "version cũ hơn → FAIL trừ `--rollback`", luật "ngôn ngữ đang bán thiếu trang → FAIL"; hreflang làm manifest (G2).
-- **SEC duyệt lại** (SR-LC-04/05 ghi "SEC duyệt lại"): SQL mới (biến danh sách, kiểm từng đôi, kiểm CHECK 0090, audit `hashes`), nội dung câu cảnh báo (không mang dữ liệu), ngưỡng 200/giờ.
+- **SEC duyệt lại** (SR-LC-04/05 ghi "SEC duyệt lại"): SQL mới (biến danh sách, kiểm từng đôi, kiểm CHECK của 0091, audit `hashes`), nội dung câu cảnh báo (không mang dữ liệu), ngưỡng 200/giờ.
 - ORC: gộp `lp-v2-ops` vào `lp-v2` cùng `lp-v2-be`/`lp-v2-fe`. `env.production.example` trùng dòng BE nên không xung đột.
 - Lighthouse CI (FE-04) để bản sau, không làm ở gói này (ARC nói không chặn LP-v2).
 
 ## 9. Đề nghị ORC ghi decision-log (quyền OPS)
 `| 2026-11-01 | 4 | OPS – hạ tầng LP-v2 (nhánh lp-v2-ops): Caddy mở đúng GET price-estimate (query ≤ 256 B) sau LANDING_PUBLIC_API, mở /ko /zh /ru, 404 theo ngôn ngữ; LANDING_LOCALES vào api (mặc định en,vi); publish-privacy-notice đăng mọi ngôn ngữ của image trong một giao dịch (manifest = hreflang /privacy/, version từ thẻ meta, LANDING_LOCALES phải có trang); deploy-landing từ chối version cũ hơn bản đã đăng và ngôn ngữ đang bán thiếu trang (trừ --rollback); ops-check thêm pricelimit (≥ 200 lần 429/503 mỗi 60 phút), pricegap (public_price_missing 24 h, chỉ số căn), priceswitch | OPS | Quyền OPS |`
+
+## 10. Phản hồi & sửa – 4 Minor của SEC (`reviews/SEC-on-LP-v2-ops.md`), nhánh `lp-v2-ops2` (từ `origin/lp-v2` `83c13990`)
+
+Trả lời từng thẻ: `rounds/round-04/responses/OPS-LP-v2.md`. Tóm tắt:
+- **LPV2-01** – mọi chỗ "0090" của migration LP-v2 trong README, comment wrapper/SQL, test 21 và báo cáo này → `0091_lp_v2_price_estimate_locales` (README ghi theo tên tệp vì số có thể đổi khi gộp lên main). "OpenAPI 0.3.9" → 0.3.10. Không đổi logic.
+- **LPV2-02** – `deploy-landing.sh`: trang privacy không có đúng một version khi proxy mở và không `--rollback` → **FAIL** trước khi đổi container (trước đây WARNING rồi bỏ qua so băm). `--rollback` hoặc proxy tắt → WARNING. `LANDING_LOCALES` trống → `en,vi` như api và wrapper publish; câu FAIL ghi rõ "(unset = en,vi)".
+- **LPV2-03** – `Caddyfile.landing`: query `^[!-~]{0,256}$` (ASCII in được, không khoảng trắng, không ký tự điều khiển, không UTF-8 thô) nên 256 ký tự = 256 byte.
+- **LPV2-04** – `ops-check.sh priceswitch`: theo dõi bằng id audit lớn nhất đã báo (`state/ops-check/priceswitch.last_id`), truy vấn `id > mốc` (thêm `entity_type = 'config_parameter'` và giới hạn 7 ngày để Postgres bỏ qua phân vùng cũ). Có dòng mới → webhook riêng mỗi lượt (`notify … force`, bỏ khử trùng 6 giờ), rồi cập nhật mốc. Lần đầu chỉ lấy mốc. Tệp mốc hỏng → coi như lần đầu, giá trị không bao giờ vào SQL (chỉ nhận chữ số).
+- **S1 (làm)** – regex version `(\.[1-9][0-9]?)?` ở cả wrapper, SQL, `deploy-landing.sh`: `.01` không còn là version.
+- **S3 (làm)** – wrapper: bản dựng có thẻ `ottimo-notice-version` (LP-v2) mà `/privacy/` không có hreflang → từ chối. Bản trước LP-v2 giữ hành vi cũ.
+- **S2 (chưa làm)** – cần image có trigger PN-01 (migration 0090, chưa có nhánh). Làm cùng lượt PN-01.
+
+| Test (máy OPS, 01/11) | Kết quả |
+|---|---|
+| `infra/ci/check-caddy-landing.sh` | **41/41** (+3: UTF-8 thô 102 ký tự/302 byte → 404; trộn %xx + UTF-8 thô → 404; cùng chữ mã hóa %xx 182 byte → 200). Đối chứng: chạy test mới với Caddyfile cũ → 3 FAIL (2 query UTF-8 thô được 200 và tới api, kèm ca "không tới api") |
+| `infra/server/test/publish-privacy-notice.test.sh` (stack thật, api `sha-8b3aec89486f-test`, landing `qa155`) | **34/34** (+31 bản LP-v2 không hreflang → từ chối; +32 `--version 2026-11-20.01` → từ chối) |
+| `infra/server/test/deploy-landing-privacy.test.sh` | **23/23** (15 đổi thành FAIL; +15b ko thiếu meta, deploy thật dừng ở `privacy`; +15c `.01`; +15d `--rollback` → WARNING; +15e proxy tắt → WARNING; +16/16b `LANDING_LOCALES` trống) |
+| `infra/server/test/ops-check-price.test.sh` | **16/16** (priceswitch 7–14: mốc lần đầu, đổi lần 1, đổi lần 2 khi còn FAIL có webhook riêng, phục hồi một lần, cửa sổ rỗng không lùi mốc, giá trị lạ → `other`, tệp mốc hỏng không vào SQL) |
+| Câu SQL `priceswitch` trên Postgres 17 (bảng phân vùng giả, 5 dòng) | Đúng: `5|2|other` với mốc 2, `5|0|-` với mốc 5 |
+| `ops-check-cwd.test.sh` 6/6 · `check-compose.sh` đạt · shellcheck 0.10.0 `-x -S warning` đúng danh sách CI | 0 cảnh báo |
+
+Rủi ro còn lại: `priceswitch` dựa vào id identity tăng dần. Hai giao dịch đổi công tắc chạy chồng nhau mà giao dịch id nhỏ commit sau lượt kiểm có thể bị sót. Thực tế rất hiếm (OWN đổi tay trên Desk). Chấp nhận, không sửa.
+

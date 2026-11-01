@@ -25,8 +25,12 @@
 #   pricegap    R4 LP-v2 (ARC L9 – no Desk notification in LP-v2): the api logged `public_price_missing` in the last
 #               24 h = a room without a list price for a night is left out of the website estimate (BE logs it once
 #               per room and business day). The alert says only how many rooms – no id, no log line is forwarded
-#   priceswitch R4 LP-v2 (SEC SR-PE-16, Should): the Desk switch `public_show_prices` was changed in the last 35 min
-#               (audit `config.changed`, category security) – one alert per change, with the new value only
+#   priceswitch R4 LP-v2 (SEC SR-PE-16, Should; SEC FB-R4-SEC-OPS-LPV2-04): the Desk switch `public_show_prices` was
+#               changed since the last run (audit `config.changed`, entity config_parameter, followed by audit id in
+#               state/ops-check/priceswitch.last_id – no time window, so a late or skipped timer run misses nothing).
+#               Every run that finds new changes sends its own webhook (the 6 h de-duplication does not apply): the
+#               number of changes and the newest value (true/false/other) only. First run: the newest id becomes the
+#               mark, nothing is reported. The next run without a change sends the recovery once
 #
 # Alerts (no personal data – only check names, property ids, ages): always to the journal
 # (journalctl -t ottimo-alert -p err); plus ALERT_WEBHOOK_URL from /opt/ottimo/.env if set, sent when a check
@@ -77,8 +81,8 @@ done
 host_name=$(hostname -s 2>/dev/null || echo server)
 app_env=$(envval APP_ENV)
 
-notify() { # check status message
-  local check="$1" status="$2" msg="$3" file="$state/$1" prev="" last=0 now
+notify() { # check status message [force – send the webhook even if the status did not change, e.g. a new event]
+  local check="$1" status="$2" msg="$3" force="${4:-}" file="$state/$1" prev="" last=0 now
   now=$(date -u +%s)
   if [ -r "$file" ]; then read -r prev last < "$file" || true; fi
   if [ "$status" = "FAIL" ]; then
@@ -89,6 +93,7 @@ notify() { # check status message
   fi
   local send=0
   if [ "$status" != "${prev:-OK}" ]; then send=1; fi
+  if [ "$force" = force ]; then send=1; fi
   if [ "$status" = "FAIL" ] && [ $((now - ${last:-0})) -ge "$REMIND_SECONDS" ]; then send=1; fi
   local url
   url=$(envval ALERT_WEBHOOK_URL)
@@ -248,25 +253,39 @@ check_pricegap() {
 }
 
 check_priceswitch() {
-  local out n val
-  if ! out=$(psql_admin <<'SQL' 2>&1
-SELECT count(*),
+  local out maxid n val mark="$state/priceswitch.last_id" last=""
+  [ -r "$mark" ] && read -r last < "$mark" || true
+  [[ "${last:-}" =~ ^[0-9]{1,18}$ ]] || last=""
+  # $last is digits only (checked above) – the one value put into the SQL text. The 7-day bound only lets Postgres
+  # skip old monthly partitions: a change older than that would have been seen by one of the ~336 runs since.
+  if ! out=$(psql_admin <<SQL 2>&1
+SELECT coalesce(max(id), 0),
+       count(*) FILTER (WHERE id > ${last:-0}),
        coalesce((array_agg(CASE WHEN after->>'value' IN ('true', 'false') THEN after->>'value' ELSE 'other' END
-                           ORDER BY occurred_at DESC))[1], '-')
+                           ORDER BY id DESC) FILTER (WHERE id > ${last:-0}))[1], '-')
   FROM audit_event
- WHERE action = 'config.changed' AND entity_id = 'public_show_prices' AND occurred_at > now() - interval '35 minutes';
+ WHERE action = 'config.changed' AND entity_type = 'config_parameter' AND entity_id = 'public_show_prices'
+   AND occurred_at > now() - interval '7 days';
 SQL
   ); then
     notify priceswitch FAIL "query failed"
     return 1
   fi
-  IFS='|' read -r n val <<<"$(tail -n 1 <<<"$out")"
-  [[ "${n:-}" =~ ^[0-9]+$ ]] || { notify priceswitch FAIL "query failed"; return 1; }
+  IFS='|' read -r maxid n val <<<"$(tail -n 1 <<<"$out")"
+  { [[ "${maxid:-}" =~ ^[0-9]+$ ]] && [[ "${n:-}" =~ ^[0-9]+$ ]]; } || { notify priceswitch FAIL "query failed"; return 1; }
+  case "${val:-}" in true | false | other | -) ;; *) val=other ;; esac
+  if [ -z "$last" ]; then
+    echo "$maxid" > "$mark"
+    notify priceswitch OK "public_show_prices: first run, changes are reported from now on"
+    return 0
+  fi
+  [ "$maxid" -gt "$last" ] || maxid=$last
   if [ "$n" -gt 0 ]; then
-    notify priceswitch FAIL "Desk switch public_show_prices changed $n time(s) in 35 min (now: ${val:--}) – check it was intended (Desk H05, OWN)"
+    notify priceswitch FAIL "Desk switch public_show_prices changed $n time(s) since the last check (now: $val) – check it was intended (Desk H05, OWN)" force
+    echo "$maxid" > "$mark"
     return 1
   fi
-  notify priceswitch OK "public_show_prices not changed in 35 min"
+  notify priceswitch OK "public_show_prices not changed since the last check"
 }
 
 if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else

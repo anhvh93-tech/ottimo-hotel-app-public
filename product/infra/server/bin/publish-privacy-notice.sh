@@ -75,7 +75,7 @@ while [ $# -gt 0 ]; do
 done
 usage="usage: $0 --landing-tag <tag> --version <YYYY-MM-DD[.N]> --property <CODE> --operator <staff id> [--digest sha256:…] [--apply]"
 [[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] || { echo "$usage" >&2; exit 2; }
-[[ "$version" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[0-9]{1,2})?$ ]] || { echo "version must be YYYY-MM-DD or YYYY-MM-DD.N" >&2; exit 2; }
+[[ "$version" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[1-9][0-9]?)?$ ]] || { echo "version must be YYYY-MM-DD or YYYY-MM-DD.N" >&2; exit 2; }
 [[ "$property" =~ ^[A-Za-z0-9-]{2,40}$ ]] || { echo "property must be the property code (e.g. DLT)" >&2; exit 2; }
 [[ "$operator" =~ ^[a-z0-9][a-z0-9._-]{1,39}$ ]] || { echo "operator must be a staff id (a-z 0-9 . _ -), not an e-mail" >&2; exit 2; }
 [ -z "$digest" ] || [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "digest must be sha256:<64 hex>" >&2; exit 2; }
@@ -117,7 +117,8 @@ fi
 log "landing container image ${img_id:7:12} ok ${digest:+(digest ${digest:7:12}…)}"
 
 # ── 2. languages: the build's own list ──
-# LandingLocale (OpenAPI 0.3.9) = CHECK of privacy_notice_version (migration 0090); the order of every list below.
+# LandingLocale (OpenAPI 0.3.10) = CHECK of privacy_notice_version (migration 0091_lp_v2_price_estimate_locales –
+# 0090 is PN-01, SEC FB-R4-SEC-OPS-LPV2-01); the order of every list below.
 known="en vi ko zh ru"
 is_known() { case " $known " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
 page_of() { if [ "$1" = en ]; then echo privacy/index.html; else echo "$1/privacy/index.html"; fi; }
@@ -156,10 +157,19 @@ for l in "${locs[@]}"; do
       || die "/srv/landing/$f missing in the image (built without the form?)"
   done
 done
-# Manifest = hreflang of /privacy/ (alternatesFor: one list for every page, x-default aside). A build without hreflang
-# on that page: the pages found are the list. A language listed without its page, or a page not listed → refused.
+# Manifest = hreflang of /privacy/ (alternatesFor: one list for every page, x-default aside). A build before LP-v2
+# (no <meta name="ottimo-notice-version"> on any page, en/vi printed version) without hreflang: the pages found are
+# the list. From LP-v2 on (the meta on at least one page) hreflang is required (SEC FB-R4-SEC-OPS-LPV2-S3).
+# A language listed without its page, or a page not listed → refused.
 manifest=$(grep -oE 'hreflang="[a-z]{2}"' "$tmp/privacy_index.html" | sed 's/.*="//; s/"$//' | sort -u | tr '\n' ' ' || true)
 have=$(printf '%s\n' "${locs[@]}" | sort -u | tr '\n' ' ')
+if [ -z "$manifest" ]; then
+  for l in "${locs[@]}"; do
+    if grep -qE '<meta [^>]*name="ottimo-notice-version"' "$tmp/$(fname "$(page_of "$l")")"; then
+      die "the build has <meta name=\"ottimo-notice-version\"> (LP-v2) but no hreflang list on /privacy/ – the language manifest is missing"
+    fi
+  done
+fi
 if [ -n "$manifest" ] && [ "$manifest" != "$have" ]; then
   die "the build lists the languages '${manifest% }' (hreflang of /privacy/) but has privacy pages for '${have% }'"
 fi
@@ -168,7 +178,7 @@ fi
 pages=(); for l in "${locs[@]}"; do pages+=("/srv/landing/$(page_of "$l")"); done
 in_sum=$(dc --profile landing exec -T landing sha256sum "${pages[@]}") || die "sha256sum inside the landing container failed"
 sha() { if command -v sha256sum >/dev/null; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
-ver_re='[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[0-9]{1,2})?'
+ver_re='[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[1-9][0-9]?)?'
 one() { sort -u | awk 'NR == 1 { v = $0 } END { if (NR == 1) print v }'; }  # exactly one distinct value, else empty
 shas=()   # same index as locs
 for l in "${locs[@]}"; do

@@ -10,11 +10,13 @@
 # page ≠ --version · same version with another text (hash) refused · next version supersedes the old one once ·
 # superseded version cannot come back · operator e-mail refused · PN_TEST_* refused on production · superuser refused.
 # R4 LP-v2 (ARC lp-v2-design 3.6, SEC SR-LC-04, ARC FB-R4-ARC-OPS-LPV2-01) – variants built locally from the given
-# landing image with ko/zh/ru pages and <meta name="ottimo-notice-version">: database before migration 0090 → refused
-# with a clear message · (CHECK widened exactly like 0090) 5 languages in ONE transaction, en/vi superseded, one audit
+# landing image with ko/zh/ru pages and <meta name="ottimo-notice-version">: database before migration 0091 → refused
+# with a clear message · (CHECK widened exactly like 0091_lp_v2_price_estimate_locales; 0090 is PN-01) 5 languages in ONE transaction, en/vi superseded, one audit
 # with the 5 hashes, url_path per language, sha_<xx> in the log · re-run already present · a ko page without the meta
 # tag → refused · hreflang lists ru but the build has no ru page → refused · two languages with the same bytes →
-# refused · LANDING_LOCALES has a language the running build lacks → refused. Nothing written by any refused run.
+# refused · LANDING_LOCALES has a language the running build lacks → refused · SEC LPV2-S3: an LP-v2 build (meta tag)
+# without hreflang on /privacy/ → refused · SEC LPV2-S1: --version with a leading-zero suffix (.01) → refused.
+# Nothing written by any refused run.
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -183,16 +185,17 @@ v5var() { # tag RUN-commands – version 2026-11-25 + one change
 v5var pn-v5-nometa "sed -i 's#<meta name=\"ottimo-notice-version\"[^>]*>##' ko/privacy/index.html"
 v5var pn-v5-noru 'rm -rf ru'
 v5var pn-v5-dup 'cp ko/privacy/index.html zh/privacy/index.html'
+v5var pn-v5-nohref "sed -i 's/hreflang=\"[a-z-]*\"//g' privacy/index.html"
 deploy_landing pn-v5
 
 chk=$(sqlsu "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'privacy_notice_version_locale_check';")
 if grep -q "'ko'" <<<"$chk"; then
-  ok "21 (skipped: the api image already has migration 0090 – ko/zh/ru accepted)"
+  ok "21 (skipped: the api image already has migration 0091 – ko/zh/ru accepted)"
 else
-  out=$(pn --landing-tag pn-v5 --version 2026-11-20 --apply) && ko "21 ko accepted by a database without 0090" || {
+  out=$(pn --landing-tag pn-v5 --version 2026-11-20 --apply) && ko "21 ko accepted by a database without 0091" || {
     grep -q 'does not accept language ko yet' <<<"$out" && [ "$(rows)" = "4/2" ] \
-      && ok "21 database before migration 0090 → refused, says to deploy the api first, nothing written" || { ko "21"; echo "$out"; }; }
-  # What migration 0090 (lp-v2-be) does to this table – widen the CHECK only.
+      && ok "21 database before migration 0091 → refused, says to deploy the api first, nothing written" || { ko "21"; echo "$out"; }; }
+  # What migration 0091 (lp-v2-be) does to this table – widen the CHECK only.
   sqlsu "ALTER TABLE privacy_notice_version DROP CONSTRAINT privacy_notice_version_locale_check;
          ALTER TABLE privacy_notice_version ADD CONSTRAINT privacy_notice_version_locale_check CHECK (locale IN ('vi', 'en', 'ru', 'ko', 'zh'));" >/dev/null
 fi
@@ -240,6 +243,14 @@ out=$(pn --landing-tag "$landing_tag" --version 2026-12-01 --apply) && ko "30 LA
   grep -q "LANDING_LOCALES has 'ko' but the running landing has no /ko/privacy/ page" <<<"$out" && [ "$(rows)" = "9/5" ] \
     && ok "30 LANDING_LOCALES has ko,zh,ru, running build has en+vi only → refused" || { ko "30"; echo "$out"; }; }
 sed -i.bak 's/^LANDING_LOCALES=.*//' "$home/.env"
+deploy_landing pn-v5-nohref
+out=$(pn --landing-tag pn-v5-nohref --version 2026-11-25 --apply) && ko "31 LP-v2 build without hreflang accepted" || {
+  grep -q 'no hreflang list on /privacy/' <<<"$out" && [ "$(rows)" = "9/5" ] \
+    && ok "31 LP-v2 build (meta tag) without hreflang on /privacy/ → refused, nothing written (SEC LPV2-S3)" || { ko "31"; echo "$out"; }; }
+deploy_landing "$landing_tag"
+out=$(pn --landing-tag "$landing_tag" --version 2026-11-20.01 --apply 2>&1) && ko "32 version .01 accepted" || {
+  grep -q 'version must be YYYY-MM-DD' <<<"$out" && [ "$(rows)" = "9/5" ] \
+    && ok "32 --version 2026-11-20.01 (leading zero) → refused (SEC LPV2-S1)" || { ko "32"; echo "$out"; }; }
 
 echo "== smoke counts, step L (bin/us155-smoke-counts.sh – SEC FB-R3-SEC-OPS-US155-02), synthetic rows (fake data)"
 since=$(sqlsu "SELECT to_char(now() - interval '1 minute', 'YYYY-MM-DD\"T\"HH24:MI:SS') || '+00:00';")
