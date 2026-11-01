@@ -7,16 +7,17 @@
 - **Cập nhật lượt 2** (01/11 15:50–16:25, `origin/lp-v2` @ `20afedff` = `83c13990` + `lp-v2-be2` 7d9e306f + `lp-v2-fe2` c9372e52 + `lp-v2-ops2` 0185a935; stack thử `ottimo-qalp3`, hạng công khai gán qua API/Desk OWN): BUG-R4-002, 003, 004, 005 **đã sửa – đã xác nhận**; BUG-R4-001 **mở lại**; mới BUG-R4-006…010. Chi tiết: báo cáo mục 11.
 - **Cập nhật lượt 3** (01/11 17:00–18:10, `origin/lp-v2` @ `0a25716a` = `20afedff` + `lp-v2-fe3` 73a80804 + `lp-v2-be3` 2f7b55f7, ee375e6d + `lp-v2-fe4` 0a25716a; stack thử `ottimo-qalp4`, hạng công khai dạng nhãn): BUG-R4-001, 006, 007, 008, 009 **đã sửa – đã xác nhận**; BUG-R4-010 **mở lại**; mới BUG-R4-011 (P2), BUG-R4-012 (P3). Chi tiết: báo cáo mục 12.
 - **v1.0.1 đợt 1b – PR #21** (01/11 ~21:00, `fe-b/notice-2026-10-31` @ `5474b6e1`): PR đạt, không lỗi trong phạm vi PR; mới BUG-R4-013 (P2, CI – có sẵn trên `main`). Chi tiết: `rounds/round-04/qa/pr21-notice-2026-10-31.md`.
+- **v1.0.1 đợt 2 – PR #22** (01/11 ~20:55–21:25, `v1.0.2-ed` @ `99734cda`, stack thử `ottimo-qapr22`): oracle BR-428-01…09 đạt (tính thử = ghi thật, 76/76 bảng không đổi khi tính thử); giá hẹn đạt. Mới BUG-R4-014 (P2) và BUG-R4-015 (P3). ORC giao số "BUG-R4-013…" nhưng 013 đã dùng ở PR #21. Chi tiết: `rounds/round-04/qa/pr22-v1.0.2-ed.md`.
 
-## 1. Tổng hợp (sau lượt 3 + PR #21)
+## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
-| P2 | 6 | 2 (BUG-R4-011, BUG-R4-013 – mới) | 0 | 4 (BUG-R4-001, 002, 003, 004) |
-| P3 | 7 | 2 (BUG-R4-010 – mở lại, BUG-R4-012 – mới) | 0 | 5 (BUG-R4-005, 006, 007, 008, 009) |
-| **Tổng** | **13** | **4** | **0** | **9** |
+| P2 | 7 | 3 (BUG-R4-011, BUG-R4-013, BUG-R4-014 – mới) | 0 | 4 (BUG-R4-001, 002, 003, 004) |
+| P3 | 8 | 3 (BUG-R4-010 – mở lại, BUG-R4-012, BUG-R4-015 – mới) | 0 | 5 (BUG-R4-005, 006, 007, 008, 009) |
+| **Tổng** | **15** | **6** | **0** | **9** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -227,6 +228,54 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Bằng chứng:** log run `41313291275` (dòng "cache miss, executing 1b3ff81f3887e791" chỉ ở `@ottimo/tests:test`, "32 lỗi"); `rounds/round-04/qa/pr21-notice-2026-10-31.md` mục 5.
 - **Vai:** QA (cập nhật nhãn oracle theo BR v0.5.1, thêm dòng hoặc `notCovered` cho BR-115/116) + DOM (xác nhận nhãn và ví dụ số BR-1xx/2xx sau ESC-045) + OPS (thêm `inputs` cho task `test` của `@ottimo/tests`, ví dụ `$TURBO_DEFAULT$`, `../docs/business-rules.md`, `../../02-escalations/ESC-*.md`).
 - **Trạng thái:** Open. Chặn "CI xanh" của PR #21 (nội dung PR #21 không gây ra lỗi này).
+  - *PR #22 (01/11):* `test:fixtures` trên `v1.0.2-ed` @ `99734cda` cũng ra đúng 32 lỗi này, **0 lỗi ở BR-428**. `business-rules.md` của nhánh trùng `main`; `br-examples.json` chỉ khác ở chỗ bỏ `pendingFix` BR-428-08/09. Đây là nguyên nhân của ARC FB-R4-ARC-BE-A-ED-01 (CI PR #22 đỏ).
+
+### BUG-R4-014 – Desk mở "Trả sớm" (B16) cho đơn dài hạn và hiện chính sách BR-428 ("không hoàn, phí 0 đ"), không nhắc BR-313 v0.5.1 mất ký quỹ
+
+- **Mức:** P2.
+  - Desk đưa cho lễ tân thông tin chính sách sai khi khách thuê tháng trả phòng trước hạn: hộp bắt tích "Đã báo khách số hoàn và phí trả phòng sớm" sau khi hiện "Không có khoản hoàn · Phí 0 đ". Theo BR-313 v0.5.1 (INV quyết ESC-045 câu 4, 01/11), khách **mất toàn bộ ký quỹ** và tiền thuê tháng lịch chưa bắt đầu được hoàn.
+  - Tiền trong app không sai: đêm thuê của đơn nhập tay không mang tiền, nên B16 ra 0/0; ký quỹ giữ ngoài app. Có cách vòng: lễ tân nắm BR-313 và tự báo khách.
+  - Lỗi mới về đường đi: trước PR #22, Desk không có nút B16 (API có từ v1.0.0). PR này đưa nút tới mọi đơn đang ở.
+- **Môi trường:** stack thử `ottimo-qapr22`, `v1.0.2-ed` @ `99734cda`, DS-E. Desk `http://127.0.0.1:58521` (`qa.fdl`), giờ thật 01/11/2026. Đơn OTM-00019 (căn 302, 01/11/2026 → 01/02/2027, `manualLongStay` 12.500.000/tháng, ký quỹ ngoài app 12.500.000, HĐ giấy `QA-HD-003`). Đơn OTM-00008 (căn 402, dùng đồng hồ giả).
+- **Các bước:**
+  1. Tạo đơn dài hạn nhập tay (`POST /reservations` có `manualLongStay`), thu tiền thuê tháng 1, nhận phòng.
+  2. Desk → Đơn đặt phòng → mở OTM-00019. Ngăn kéo có nhãn "Hợp đồng dài hạn · HĐ ngoài hệ thống – sẽ chuyển vào app" → bấm **Trả sớm**.
+  3. Ngày rời mới 01/12/2026 → **Xem trước số tiền**.
+- **Thực tế:**
+  - Hộp hiện 62 dòng đêm "Chính sách OTTIMO · 0", "Cơ sở … 0", "Báo trước 30 ngày", "Phần hoàn theo chính sách trả sớm 0", "Sẽ xin hoàn cho khách – Không có khoản hoàn. 0 đ", "Phí trả phòng sớm (ghi vào folio) 0 đ", rồi ô tích "Đã báo khách số hoàn và phí trả phòng sớm" và nút "Xác nhận trả sớm". Không có câu nào về ký quỹ hay HĐ.
+  - API: `allowedActions` của đơn dài hạn có `early_departure`. Tính thử OTM-00008 (rời 20/11, đơn tới 20/12): 200, `noticeDays` 30, 30 đêm `netVnd` 0, hoàn 0, phí 0. Ghi thật: 200, ngày đi đổi thành 20/11, nhật ký ghi "BR-428 notice 30d".
+  - Mã: `allowed-actions.ts` `earlyDepartureOpen` và `StayService.earlyDeparture` không xét `stayType = long` / `externalContract`.
+- **Mong đợi:** PO/DOM chọn một trong hai, rồi FE-A (và BE-A nếu chọn chặn) làm:
+  - (a) Không mở B16 cho đơn dài hạn (`allowedActions` bỏ `early_departure` khi `stayType = long`, server 409). Kết thúc sớm HĐ tháng đi đường khác, ví dụ đổi ngày đi có ghi chú BR-313, cho tới khi có hợp đồng trong app (H9 / v1.1 – ARC FB-03).
+  - (b) Giữ B16 để mở bán lại đêm, nhưng với đơn dài hạn thì hộp thay khối "Cách tính BR-428" bằng câu BR-313: "Khách thuê tháng trả trước hạn HĐ: mất toàn bộ ký quỹ ({depositHeldVnd} – giữ ngoài app), tiền thuê tháng lịch chưa bắt đầu được hoàn, không truy thu giảm giá kỳ hạn"; bỏ chữ "Phí trả phòng sớm" và "báo trước N ngày" theo BR-428.
+  - Test chống tái phát: đơn `manualLongStay` đang ở → (a) `allowedActions` không có `early_departure`, gọi B16 → 409; hoặc (b) hộp có câu BR-313 và không có dòng "Phần hoàn theo chính sách trả sớm".
+- **Bằng chứng:** báo cáo `rounds/round-04/qa/pr22-v1.0.2-ed.md` mục 4 (chữ hộp đọc từ DOM, kết quả API).
+- **Vai:** PO + DOM (chọn (a)/(b), câu chữ BR-313) · FE-A (hộp/nút) · BE-A (nếu (a): `allowedActions` + chặn server) · UXD (chữ).
+- **Trạng thái:** Open. Không chặn tiền; QC quyết có gộp PR #22 với điều kiện sửa ở bản kế tiếp hay không. INV chưa vận hành và Desk v1.0 không có HĐ tháng trong app.
+
+### BUG-R4-015 – Hủy giá hẹn đầu tiên của căn có `activeFrom` tương lai làm căn không có giá cho tới dòng sau (báo giá 422 `roomId NOT_IN_LIST`)
+
+- **Mức:** P3.
+  - Ca biên: căn mới tạo với `activeFrom` tương lai, OWN/MGR thêm một dòng giá hẹn sau đó, rồi hủy dòng đầu. Không sai tiền.
+  - Hậu quả: căn không bán, không báo giá được trong khoảng trống, và chữ lỗi không nói lý do. Desk không cảnh báo trước khi hủy.
+  - Có cách vòng: lên lịch lại giá ở `activeFrom`.
+- **Môi trường:** stack thử `ottimo-qapr22`, `v1.0.2-ed` @ `99734cda`, đồng hồ giả 24/12/2026, `qa.owner`.
+- **Các bước:**
+  1. `POST /rooms` căn 501, `activeFrom` 2026-12-30, giá tháng 10.000.000. Căn có đúng 1 dòng giá, là dòng hẹn 30/12.
+  2. `cancel-scheduled` 30/12 → 409 `only_price` (đúng).
+  3. `PATCH /rooms/{501}` `listPrice` từ 2027-01-10 (917.000 · 11.000.000).
+  4. `cancel-scheduled` 30/12 → **200**.
+  5. `calculateQuote` căn 501 từ 02/01/2027 2 đêm, hoặc 08/01 4 đêm.
+- **Thực tế:**
+  - Bước 4 cho hủy. Căn còn một dòng 10/01/2027; `currentListPrice` null từ 30/12 tới 09/01.
+  - Bước 5 → 422 `errors[{field: roomId, code: NOT_IN_LIST}]`. Báo giá từ 11/01 → 200 (1.834.000).
+  - Lên lịch lại dòng 30/12 → báo giá 02/01 → 200 (1.791.000).
+- **Mong đợi:** không hủy được dòng giá đang phủ ngày `activeFrom` của căn, tức dòng có `effective_from` nhỏ nhất khi `effective_from` ≤ ngày đầu căn bán. Trả 409 `INVALID_TRANSITION` với `currentState` riêng (ví dụ `first_price`) hoặc mở rộng `only_price`. Desk hiện câu như ca `only_price`. ARC chốt mã.
+  - Nên gộp với ARC FB-R4-ARC-BE-A-ED-02: trigger DB trên `room_list_price` cũng chặn khi đó là dòng đầu của căn.
+  - Test chống tái phát: các bước 1–4 ở trên, bước 4 phải trả 409.
+- **Bằng chứng:** báo cáo `rounds/round-04/qa/pr22-v1.0.2-ed.md` mục 3 (dòng "Căn tạo với `activeFrom` 30/12").
+- **Vai:** BE-A (luật hủy) + ARC (mã lỗi, hợp đồng 0.3.10) · FE-A (chữ lỗi nếu có mã mới).
+- **Trạng thái:** Open. Đề xuất đích v1.0.3 cùng FB-R4-ARC-BE-A-ED-02, không chặn PR #22.
 
 ## 3. Ghi nhận (không phải lỗi)
 
@@ -238,3 +287,6 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - *Lượt 3:* mở lại báo giá từ **Báo giá & giữ chỗ**, Desk lấy chữ tiếng Việt trước (`text?locale=vi`) rồi đổi sang English/Русский trong dưới 1 giây. Khung chữ chớp một lần; nhân viên bấm "Sao chép" ngay lập tức có thể chép bản tiếng Việt. Gợi ý FE: chờ biết ngôn ngữ rồi mới gọi chữ.
 - *Lượt 3:* giới hạn gửi form theo IP nằm trong bảng `rate_limit_counter` (không mất khi khởi động lại api). Khi bộ đếm đầy, form vẫn gửi được nhưng không mang giá ước tính → Desk "Khách chưa thấy giá" – đúng US-131 AC9.
 - *Lượt 3:* bảng S35 ở 1366 px vẫn cuộn ngang trong khung (1215/1084 px; cột Ngôn ngữ 93 px) – UXD xác nhận bố cục (FE đã nêu). Xem BUG-R4-007.
+- *PR #22:* hộp "Trả sớm" lấy giờ máy trình duyệt cho ô "Khách báo lúc" (giá trị mặc định và `max`). Trên stack dùng đồng hồ giả (server 24/12, trình duyệt 01/11), hộp ra "báo trước 54 ngày", đòi bằng chứng giờ báo và không chọn được ngày nghiệp vụ của server. Production không gặp. Nếu E2E Desk chạy với đồng hồ giả, FE-A nên lấy "bây giờ" từ server (ví dụ header `Date` hoặc `Me`). Gợi ý, không phải lỗi.
+- *PR #22:* đơn Trực tiếp báo cùng ngày (0 ngày) ghi dòng phí `noticeDays: 0`, nên bill hiện "Phí trả phòng sớm (báo trước 0 ngày)". Đúng BR-428-09 theo chữ. UXD xem có muốn câu "báo cùng ngày" không.
+- *PR #22:* bộ Vitest api trên máy QA: 3334 đạt, 24 bỏ qua. BE báo 19 bỏ qua; 5 ca chênh là ca bootstrap cần `BOOTSTRAP_DATABASE_URL`, QA không đặt biến này.
