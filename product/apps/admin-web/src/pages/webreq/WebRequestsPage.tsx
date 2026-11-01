@@ -1,5 +1,6 @@
 import {
   isApiError,
+  type LandingLocale,
   type Role,
   type WebsiteBookingRequest,
   type WebsiteBookingRequestRef,
@@ -24,6 +25,7 @@ import {
   CHANNEL_ICON,
   CHANNEL_KEY,
   DEFAULT_STATUSES,
+  LOCALES,
   STATUSES,
   WR_STATUS,
   cleanRefCode,
@@ -76,6 +78,8 @@ export function WebRequestsPage() {
   const formOn = useFormSwitch(propertyId, roles);
 
   const [statuses, setStatuses] = useState<WebsiteBookingRequestStatus[]>(DEFAULT_STATUSES);
+  // US-175 AC3 (BUG-R4-007): one language at a time ('' = every language), combined with the status chips.
+  const [locale, setLocale] = useState<LandingLocale | ''>('');
   const [refText, setRefText] = useState('');
   const [refCode, setRefCode] = useState<string | null>(null);
   const [refError, setRefError] = useState<string | undefined>();
@@ -90,10 +94,15 @@ export function WebRequestsPage() {
     setMore(null);
     const out = await api.listWebsiteBookingRequests(
       { propertyId },
-      { status: refCode ? undefined : statuses, refCode: refCode ?? undefined, limit: PAGE },
+      {
+        status: refCode ? undefined : statuses,
+        locale: refCode || !locale ? undefined : [locale],
+        refCode: refCode ?? undefined,
+        limit: PAGE,
+      },
     );
     return out.data;
-  }, [propertyId, statusKey, refCode]);
+  }, [propertyId, statusKey, locale, refCode]);
   const reload = list.reload;
   useLiveEvents(
     propertyId,
@@ -110,7 +119,10 @@ export function WebRequestsPage() {
   const all = [...(firstPage?.data ?? []), ...(more?.rows ?? [])];
   const rows = onlyMine ? all.filter((r) => r.assignedUserId === me?.id) : all;
   const newCount = all.filter((r) => r.status === 'new').length;
-  const filtered = !!refCode || onlyMine || statusKey !== DEFAULT_STATUSES.join(',');
+  const filtered = !!refCode || onlyMine || !!locale || statusKey !== DEFAULT_STATUSES.join(',');
+  // US-175 AC5: the server counts every request matching status + language (+ code) – not the loaded pages.
+  // "Only mine" is filtered here on the loaded rows, so the server total would not match it: no number then.
+  const total = !onlyMine && typeof firstPage?.total === 'number' ? firstPage.total : null;
 
   const loadMore = async () => {
     if (!nextCursor || moreBusy) return;
@@ -120,6 +132,7 @@ export function WebRequestsPage() {
         { propertyId },
         {
           status: refCode ? undefined : statuses,
+          locale: refCode || !locale ? undefined : [locale],
           refCode: refCode ?? undefined,
           cursor: nextCursor,
           limit: PAGE,
@@ -156,6 +169,7 @@ export function WebRequestsPage() {
   };
   const clearFilters = () => {
     setStatuses(DEFAULT_STATUSES);
+    setLocale('');
     setRefText('');
     setRefCode(null);
     setRefError(undefined);
@@ -197,6 +211,24 @@ export function WebRequestsPage() {
                 ))}
               </div>
             </div>
+            <Field label={t('webreq.filter_locale')}>
+              {(p) => (
+                <select
+                  {...p}
+                  className="input"
+                  value={locale}
+                  disabled={!!refCode}
+                  onChange={(e) => setLocale(e.target.value as LandingLocale | '')}
+                >
+                  <option value="">{t('webreq.locale_all')}</option>
+                  {LOCALES.map((l) => (
+                    <option key={l} value={l}>
+                      {t(`webreq.locale.${l}`)}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
             <form className="row wrap" onSubmit={search} role="search">
               <Field
                 label={t('webreq.search_label')}
@@ -233,6 +265,11 @@ export function WebRequestsPage() {
             ) : null}
           </div>
 
+          {total !== null ? (
+            <p className="li-s" role="status">
+              {t('webreq.total', { n: total })}
+            </p>
+          ) : null}
           {!firstPage && list.state.status === 'error' && !refInvalid ? (
             <ErrorBlock
               titleKey="webreq.error_title"
@@ -257,7 +294,7 @@ export function WebRequestsPage() {
             )
           ) : (
             <div className="table-wrap">
-              <table className="table">
+              <table className="table webreq-table">
                 <thead>
                   <tr>
                     <th scope="col">{t('webreq.col.code')}</th>
@@ -266,6 +303,7 @@ export function WebRequestsPage() {
                     <th scope="col">{t('webreq.col.guests')}</th>
                     <th scope="col">{t('webreq.col.room_type')}</th>
                     <th scope="col">{t('webreq.col.channel')}</th>
+                    <th scope="col">{t('webreq.col.locale')}</th>
                     <th scope="col">{t('webreq.col.source')}</th>
                     <th scope="col">{t('webreq.col.reply_by')}</th>
                     <th scope="col">{t('webreq.col.flags')}</th>
@@ -342,7 +380,7 @@ function Row({
         </button>
       </td>
       <td>{dateTime(r.createdAt)}</td>
-      <td>
+      <td className="chips-wrap">
         {stayText(t, r)}
         {r.stayKind === 'long' ? (
           <div>
@@ -357,6 +395,7 @@ function Row({
       <td>
         <Chip icon={CHANNEL_ICON[r.preferredChannel]}>{t(CHANNEL_KEY[r.preferredChannel])}</Chip>
       </td>
+      <td>{t(`webreq.locale.${r.locale}`)}</td>
       <td>{sourceText(t, r)}</td>
       <td>
         {open ? (
@@ -380,7 +419,7 @@ function Row({
           </div>
         ) : null}
       </td>
-      <td>
+      <td className="chips-wrap">
         <div className="row wrap">
           {flags.slice(0, 2).map((f) => (
             <Chip key={f} tone="warn">

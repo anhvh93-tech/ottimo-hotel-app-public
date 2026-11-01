@@ -32,6 +32,7 @@ import {
   phoneDisplay,
   phoneLinks,
   seenEstimate,
+  sendLocaleOf,
   sourceText,
   stayText,
 } from './labels';
@@ -161,6 +162,8 @@ export function WebRequestDrawer({
         id: r.id,
         code: r.refCode,
         contact: r.phone || r.email ? { phone: r.phone, email: r.email } : undefined,
+        locale: r.locale,
+        channel: r.preferredChannel,
       }
     : undefined;
   const occ = r
@@ -506,8 +509,11 @@ export function WebRequestDrawer({
             webRequest: {
               id: r.id,
               code: r.refCode,
-              // LP-v2 (0.3.10 LandingLocale): quote templates exist in vi/en/ru – ko/zh guests get English.
-              locale: r.locale === 'ko' || r.locale === 'zh' ? 'en' : r.locale,
+              // LP-v2 (0.3.10 LandingLocale): quote templates exist in vi/en/ru – ko/zh guests get English;
+              // the original language goes along for the "Guest wrote in…" note (US-175 AC4 (2), BUG-R4-008).
+              locale: sendLocaleOf(r.locale),
+              guestLocale: r.locale,
+              channel: r.preferredChannel,
               contact: r.phone || r.email ? { phone: r.phone, email: r.email } : undefined,
               // US-131 AC10: the quote shows "Changed: seen → now" when Desk's total differs
               seen: seen ?? undefined,

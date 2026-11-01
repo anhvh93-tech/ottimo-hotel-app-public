@@ -18110,6 +18110,8 @@ export interface operations {
         status?: components['schemas']['WebsiteBookingRequestStatus'][];
         /** @description Mã tham chiếu 8 ký tự – khớp mã chính hoặc `aliasRefCodes`; server bỏ `-`/khoảng trắng, chữ hoa, chuẩn hóa Crockford trước khi tìm (khách gõ `W7K3-QX9P` vẫn ra – SEC UXD-07) */
         refCode?: string;
+        /** @description 0.3.10 bổ sung 4 (US-175 AC3, AC5): chỉ yêu cầu gửi từ các ngôn ngữ landing này; vắng = mọi ngôn ngữ. Kết hợp với `status` (và `refCode` nếu có) */
+        locale?: components['schemas']['LandingLocale'][];
         /** @description Con trỏ mờ từ `page.nextCursor` */
         cursor?: components['parameters']['Cursor'];
         limit?: components['parameters']['Limit'];
@@ -18131,6 +18133,8 @@ export interface operations {
           'application/json': {
             data: components['schemas']['WebsiteBookingRequest'][];
             page: components['schemas']['PageInfo'];
+            /** @description 0.3.10 bổ sung 4 (US-175 AC5): số yêu cầu khớp `status`/`refCode`/`locale` trong phạm vi vai của người gọi (SAL: chưa giao + của mình) – không phụ thuộc `cursor`/`limit`; Desk hiện "tổng số khớp bộ lọc" */
+            total?: number;
           };
         };
       };

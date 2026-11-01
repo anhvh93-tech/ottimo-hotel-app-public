@@ -21,6 +21,7 @@ import { normalizeEmail, normalizePhone } from '../../guests/public/normalize';
 import { displayNamesOf } from '../../identity/public/staff-directory';
 import { ParameterService } from '../../platform/public/parameter.service';
 import { PropertyContextService } from '../../platform/public/property-context';
+import { isLandingLocale } from './public-site.options';
 import {
   looksLikeCard,
   looksLikeIdNumber,
@@ -187,10 +188,11 @@ export class WebsiteRequestsService {
   async list(
     tx: Tx,
     actor: Actor,
-    q: { status?: string; refCode?: string; cursor?: string; limit?: string },
+    q: { status?: string; locale?: string; refCode?: string; cursor?: string; limit?: string },
   ): Promise<{
     data: Array<Record<string, unknown>>;
     page: { nextCursor: string | null; limit: number };
+    total: number;
   }> {
     const c = await this.ctx(tx);
     let statuses: string[] = ['new', 'in_progress'];
@@ -199,6 +201,12 @@ export class WebsiteRequestsService {
       if (statuses.some((s) => !(WR_STATUSES as readonly string[]).includes(s))) {
         throw fieldError('status', 'NOT_IN_LIST');
       }
+    }
+    // 0.3.10 bổ sung 4 (US-175 AC3, AC5 – BUG-R4-007): filter by the landing language; null = every language.
+    let locales: string[] | null = null;
+    if (q.locale !== undefined && q.locale !== '') {
+      locales = q.locale.split(',').map((s) => s.trim());
+      if (locales.some((l) => !isLandingLocale(l))) throw fieldError('locale', 'NOT_IN_LIST');
     }
     let ref: string | null = null;
     if (q.refCode !== undefined && q.refCode !== '') {
@@ -212,19 +220,28 @@ export class WebsiteRequestsService {
                        WHEN w.status = 'new' THEN 1 ELSE 2 END`;
     const key = `CASE WHEN w.status = 'new' THEN extract(epoch FROM w.reply_by)
                       ELSE -extract(epoch FROM w.updated_at) END`;
-    const params: unknown[] = [statuses, actor.userId, c.today, ref, limit + 1];
+    // Same WHERE for the page and for `total` (status/refCode/locale + the caller's scope; never the cursor).
+    const where = `(w.status = ANY($1::text[]) OR $4::text IS NOT NULL)
+          AND ($4::text IS NULL OR w.ref_code = $4 OR $4 = ANY(w.alias_ref_codes))
+          AND ($5::text[] IS NULL OR w.locale = ANY($5::text[]))
+          AND ${this.scopeSql(actor, 2)}`;
+    const params: unknown[] = [statuses, actor.userId, c.today, ref, locales, limit + 1];
     let after = '';
     if (cursor) {
       params.push(cursor[0], cursor[1], cursor[2]);
-      after = `AND (${rank}, ${key}, w.id) > ($6::int, $7::numeric, $8::uuid)`;
+      after = `AND (${rank}, ${key}, w.id) > ($7::int, $8::numeric, $9::uuid)`;
     }
     const { rows } = await tx.query<WebsiteRequestRow & { r: number; k: string }>(
       `SELECT w.*, ${DATES}, ${rank} AS r, ${key}::numeric AS k FROM website_booking_request w
-        WHERE (w.status = ANY($1::text[]) OR $4::text IS NOT NULL)
-          AND ($4::text IS NULL OR w.ref_code = $4 OR $4 = ANY(w.alias_ref_codes))
-          AND ${this.scopeSql(actor, 2)} ${after}
-        ORDER BY r, k, w.id LIMIT $5`,
+        WHERE ${where} ${after}
+        ORDER BY r, k, w.id LIMIT $6`,
       params,
+    );
+    // US-175 AC5: the number of requests matching the filters, whatever page the Desk has loaded.
+    const { rows: counted } = await tx.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM website_booking_request w
+        WHERE ${where} AND $3::date IS NOT NULL`,
+      [statuses, actor.userId, c.today, ref, locales],
     );
     const more = rows.length > limit;
     const pageRows = more ? rows.slice(0, limit) : rows;
@@ -236,6 +253,7 @@ export class WebsiteRequestsService {
         nextCursor: more && last ? encodeCursor([Number(last.r), String(last.k), last.id]) : null,
         limit,
       },
+      total: Number(counted[0]?.n ?? 0),
     };
   }
 

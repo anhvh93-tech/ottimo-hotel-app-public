@@ -1,4 +1,5 @@
 import type {
+  LandingLocale,
   WebsiteBookingRequest,
   WebsiteBookingRequestDeclineReason,
   WebsiteBookingRequestStatus,
@@ -23,6 +24,16 @@ export const WR_STATUS: Record<
 };
 export const STATUSES = Object.keys(WR_STATUS) as WebsiteBookingRequestStatus[];
 export const DEFAULT_STATUSES: WebsiteBookingRequestStatus[] = ['new', 'in_progress'];
+/** US-175 AC3: the landing languages in the order of the AC (label `webreq.locale.<code>`, never translated to ko/zh/ru). */
+export const LOCALES: LandingLocale[] = ['en', 'vi', 'ko', 'zh', 'ru'];
+
+/**
+ * US-175 AC4 (BUG-R4-008, BUG-R3-050): the language Desk sends messages in for a request's language – quote/message
+ * templates exist in vi/en/ru only, so ko/zh guests get English (G4). Also the language a quick-created profile keeps.
+ */
+export function sendLocaleOf(locale: LandingLocale): 'vi' | 'en' | 'ru' {
+  return locale === 'ko' || locale === 'zh' ? 'en' : locale;
+}
 
 /** The 7 reasons staff choose (DOM Q-W01 v0.3.8, BR-913 (9)); `stale` / `erased_on_request` are system-only. */
 export const STAFF_DECLINE_REASONS: WebsiteBookingRequestDeclineReason[] = [

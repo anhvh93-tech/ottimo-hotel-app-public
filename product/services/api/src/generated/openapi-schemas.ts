@@ -4786,6 +4786,7 @@ export const OPENAPI_SCHEMAS: OpenApiSchemas = {
         props: {
           data: { s: { k: 'array', items: { k: 'ref', name: 'WebsiteBookingRequest' } } },
           page: { s: { k: 'ref', name: 'PageInfo' } },
+          total: { s: { k: 'scalar' } },
         },
         open: false,
       },

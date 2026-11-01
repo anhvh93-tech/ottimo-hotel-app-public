@@ -216,6 +216,8 @@ export type ItemInput = Schemas['ItemInput'];
 // ---------- R3 Sprint 1 FE-B – S35 "Yêu cầu từ website" (US-155 Desk, OpenAPI 0.3.7 bổ sung 2, frozen in 0.3.8) ----------
 export type WebsiteBookingRequest = Schemas['WebsiteBookingRequest'];
 export type WebsiteBookingRequestStatus = Schemas['WebsiteBookingRequestStatus'];
+/** OpenAPI 0.3.10 – language of the landing page the request came from (`zh` = simplified Chinese). */
+export type LandingLocale = Schemas['LandingLocale'];
 export type WebsiteBookingRequestDeclineReason = Schemas['WebsiteBookingRequestDeclineReason'];
 export type WebsiteBookingRequestTransition = Schemas['WebsiteBookingRequestTransition'];
 /** `lookupWebsiteBookingRequests` row – id, code, status, sent time; no C2 (SEC ARC-16). */

@@ -178,3 +178,36 @@ Dưới ngưỡng UXD (khối ≤ 320 px, ghi chú ≤ 6 dòng).
 ### 9.5 Rủi ro / cần vai khác xem
 - BE/ARC: review `website-request-rules.ts` (`slugOf` gọi `@ottimo/contracts`) và việc chuyển `@ottimo/contracts` sang dependencies của api. OPS: image api cần `packages/contracts/dist` (đã có qua `turbo prune` + `build --filter=@ottimo/api...` + `pnpm deploy --prod`); QA dựng lại image để xác nhận.
 - Catalog căn của Desk được cache trong phiên: OWN đổi hạng xong, lễ tân đang mở Desk cần tải lại trang mới thấy hạng mới (như các trường căn khác – không đổi lượt này).
+
+## 10. Kiểm thử – sửa lỗi lượt 4 (FE-A, 01/11/2026, nhánh `lp-v2-fe4` từ `lp-v2` @ `577eebb0`)
+
+Nguồn: PO `lp-v2-stories.md` mục 9.1 B3–B5 (US-175 AC3–AC5 sửa 01/11), CPY `lp-v2-copy.md` 15.1, ORC (câu "gửi tin bằng", có ru; chuỗi chỉ thêm qua `gen_strings.py`).
+
+### 10.1 Đã làm
+- **B3 – BUG-R4-007 (US-175 AC3, AC5).** S35 có cột **"Ngôn ngữ"** (nhãn `webreq.locale.*`, Desk EN dùng bản EN), ô **"Lọc theo ngôn ngữ"** (Mọi ngôn ngữ · Tiếng Anh · Tiếng Việt · Tiếng Hàn · Tiếng Trung (giản thể) · Tiếng Nga) kết hợp nút trạng thái (gồm Đã thành đơn, Đã đóng) và tìm theo mã; dòng **"{n} yêu cầu khớp bộ lọc"** lấy `total` của server – không phụ thuộc số trang đã tải. "Chỉ yêu cầu tôi đang xử lý" lọc trên dòng đã tải nên **không** hiện số khi bật (tránh số sai). "Xóa bộ lọc" xóa cả ngôn ngữ.
+  - API: thêm vào module `public-site` (nhỏ, có test): `listWebsiteBookingRequests?locale=` (mảng `LandingLocale`, sai giá trị → 422 `NOT_IN_LIST`) + trường phản hồi `total` (cùng điều kiện status/refCode/locale + phạm vi vai, đếm riêng không theo con trỏ). Hợp đồng ghi **0.3.10 bổ sung 4** trong `openapi.yaml` (chỉ thêm, `x-round: R4`), sinh lại `openapi-meta.ts`/`openapi-schemas.ts`/api-client. MSW mock lọc + đếm như server.
+  - 1366 px: bảng vốn đã cuộn ngang trước lượt này (`scrollWidth` 1440 / khung 1084). Để cột mới không làm cuộn thêm, hai chip dài ("Ở dài ngày – báo giá dài hạn", chip "Cần xem") được xuống 2–3 dòng trong ô (`.webreq-table td.chips-wrap`) → nay 1327 / 1084 (ít hơn trước). **UXD xác nhận** cách này hoặc chọn bố cục khác (AC3 "UXD chọn bố cục cột").
+- **B4 – BUG-R4-008 câu Desk (US-175 AC4 ý 2).** Khóa `sale.text_lang_note.{ko,zh,ru}` (VI/EN theo CPY 15.1, câu "gửi tin bằng"): hiện dưới ô "Ngôn ngữ gửi khách" (bước gửi) và **dưới thẻ cọc** ở bước giữ chỗ (cả trước và sau khi tạo giữ chỗ); không hiện với vi/en. `WebRequestDrawer` vẫn chuyển ko/zh → `en` cho ô ngôn ngữ nhưng truyền thêm `guestLocale` gốc. Không có đường "Giữ chỗ" thẳng từ yêu cầu ngoài `QuoteDialog` (Tạo đơn là đơn đã cọc – không phải giữ chỗ), nên không có hộp thứ ba.
+- **B5 – BUG-R4-008 hồ sơ + BUG-R3-050 (US-175 AC4 ý 3).**
+  - "Tạo nhanh khách" từ yêu cầu (Báo giá, Tạo đơn, Ở dài ngày): form hồ sơ mới điền sẵn **ngôn ngữ gửi tin** (`en` cho ko/zh/en, `ru` cho ru, `vi` cho vi), SĐT/email, liên hệ ưu tiên theo kênh khách chọn (Zalo/Gọi/Email; WhatsApp điền luôn số vào ô WhatsApp; Telegram/Viber để trống), **quốc tịch để trống** ("–") thay cho Việt Nam. Hồ sơ không có quốc tịch thì sửa sau vẫn để trống (trước đây tự hiện Việt Nam).
+  - Mở lại báo giá (Báo giá & giữ chỗ → Báo giá): ngôn ngữ lấy theo **yêu cầu website liên kết** (cùng mặc định như lúc lập), không đọc được (SAL ngoài phạm vi, không liên kết) thì theo **hồ sơ khách**; câu ghi chú cũng hiện lại. Nhân viên đã chọn tay thì không bị đổi.
+  - Hồ sơ có sẵn (chọn qua "Hồ sơ có cùng liên hệ" hoặc tìm) **không bị sửa** (PO P8) – không gửi PATCH.
+- **Chuỗi:** thêm 7 khóa vào `product/design/tools/gen_strings.py` rồi sinh lại (JSON + `wireframes/assets/strings.js` + `strings-tables.md`) theo lệnh ORC; không sửa tay JSON. Khi sinh lại phát hiện 3 khóa BE chuyển về generator còn chữ cũ (c9372e52) trong khi JSON đã theo `73a80804` (UXD minors): `rooms.public_type_help`, `webreq.estimate_changed`, `webreq.estimate_changed_hint` → sửa generator theo JSON đang phát hành. Kết quả: sinh lại chỉ đổi đúng 7 khóa mới ở JSON.
+
+### 10.2 Kiểm
+- admin-web vitest **64 file / 674 đạt** (file mới `r4-lp-v2-fea4.test.tsx` 14 ca: cột, lọc từng ngôn ngữ, tổng > 1 trang (56/58 khi thêm Đã thành đơn), "chỉ của tôi", ko/zh/ru → hồ sơ mới + câu ở bước gửi và giữ chỗ, en không có câu, mở lại báo giá giữ English + câu, mở lại không liên kết → ngôn ngữ hồ sơ (ru), hồ sơ có sẵn không bị PATCH).
+- api vitest toàn bộ trên Postgres 17 tạm (container riêng, đã xóa): **142 file / 3350 đạt** (24 bỏ qua như CI); ca mới trong `lp-v2-price-estimate.test.ts`: lọc ko, tổng không đổi giữa trang 1/2 (`limit=1`), kết hợp trạng thái + nhiều ngôn ngữ, `ja` → 422. `contract.test.ts` (meta khớp spec) xanh.
+- api-client 32/32 (URL `status=converted&locale=ko%2Czh`); `turbo typecheck` 13/13; eslint 0 lỗi (3 cảnh báo cũ ở `mockServiceWorker.js`); prettier xanh; Redocly lint hợp lệ (6 cảnh báo như trước); `gen_traceability.py --strict`, `gen_rbac_cases.py --check` xanh.
+- Ảnh (dữ liệu giả – MSW + yêu cầu "Test Guest", SĐT giả): `screenshots/lp-v2-fe4-list-all-1366.png`, `lp-v2-fe4-list-filter-zh-1366.png` (zh + Đã thành đơn → 3), `lp-v2-fe4-guest-quick-create-ko.png`, `lp-v2-fe4-quote-send-ko.png`, `lp-v2-fe4-hold-ko.png`, `lp-v2-fe4-hold-created-ko.png`, `lp-v2-fe4-quote-reopened-ko.png`.
+
+### 10.3 Giả định
+- Lọc ngôn ngữ chọn **một** ngôn ngữ một lúc (API nhận nhiều – để báo cáo sau). `[GIẢ ĐỊNH – FE]`
+- Chữ mới ngoài CPY (`webreq.col.locale`, `webreq.filter_locale`, `webreq.locale_all`, `webreq.total`) do FE viết theo content guide; EN "Matching requests: {n}" để tránh số nhiều. `[GIẢ ĐỊNH – FE; UXD duyệt]`
+- Mở lại báo giá: ưu tiên ngôn ngữ yêu cầu liên kết hơn hồ sơ (hồ sơ cũ thường mang `vi` mặc định – nếu ưu tiên hồ sơ sẽ "quay về tiếng Việt" mà AC4 cấm). `[GIẢ ĐỊNH – FE; PO/DOM xem]`
+- Quốc tịch trống cho hồ sơ tạo từ yêu cầu (theo "Mong đợi" của BUG-R3-050); nhân viên điền khi biết. `[GIẢ ĐỊNH – FE; DOM xem]`
+
+### 10.4 Cần vai khác
+- **ARC:** xác nhận hợp đồng 0.3.10 bổ sung 4 (`locale` + `total` của `listWebsiteBookingRequests`) và ghi `erd`/tài liệu nếu cần; đếm dùng truy vấn `count(*)` thứ hai trong cùng giao dịch đọc (bảng nhỏ – không thêm index).
+- **BE:** review đoạn sửa `website-requests.service.ts`/`controller.ts` + ca test mới.
+- **UXD:** bố cục cột 1366 px (chip xuống dòng) và 4 chuỗi FE viết.
+- **QA lượt 3:** US-175 AC3/AC4/AC5 theo PO mục 9; ca EN hồi quy BUG-R3-050.

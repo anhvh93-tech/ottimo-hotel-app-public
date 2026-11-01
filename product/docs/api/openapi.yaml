@@ -319,6 +319,9 @@ info:
       theo mã đã chạy và các lệch ARC đã chấp nhận L1–L3: 30/10 phút + 200/ngày/IP, 400/ngày/IPv6 /48, 10/giây toàn api → 503; `Cache-Control: no-store`; cache kết quả 60 giây;
       query ≤ 256 byte; `statement_timeout` 1 giây. (2) `updateRoom` lưu `RoomPatch.publicRoomType` (trước đây server bỏ qua mà vẫn trả 200), `createRoom` lưu `RoomInput.publicRoomType`,
       `Room.publicRoomType` luôn có trong phản hồi; **chỉ owner** gửi được trường này (manager → 403). Sửa căn xóa cache giá web của cơ sở.
+    - **0.3.10 bổ sung 4 (FE-A theo lệnh ORC, R4 bước Kiểm thử – BUG-R4-007, US-175 AC3/AC5 sửa 01/11; chờ ARC xác nhận – chỉ thêm, không gãy client)**:
+      `listWebsiteBookingRequests` thêm query `locale` (mảng `LandingLocale`, `form`, `explode: false`; giá trị ngoài danh sách → 422 mã trường `NOT_IN_LIST`) và trường phản hồi
+      `total` (số yêu cầu khớp `status`/`refCode`/`locale` trong phạm vi vai của người gọi, không phụ thuộc `cursor`/`limit`) để S35 lọc và đếm theo ngôn ngữ.
 
     ## Thay đổi phiên bản 0.3.8-draft (R3 Sprint 1 – hợp đồng trước code; chi tiết `rounds/round-03/outputs/ARC/s1-contracts.md`)
     **0.3.8 bổ sung 8 (ARC 26/10, ESC-031 – INV 26/10 "vá luôn", ESC-024 B)**: `checkOut.lateFeeInsteadOfNight.postReview` (boolean, mặc định `false`) – cách (4) "lễ tân ghi, quản lý hậu kiểm" cho v1.0 (chưa có US-164): đúng số server tính, lý do bắt buộc, không mật khẩu/PIN/TOTP của ai, không FOC trong lệnh; audit `after.channel = post_review`; `late_fee_post_review` (thông báo + "Cần chú ý") hạn = ghi + `post_checkout_charge_hours` (thay `late_fee_post_review_hours` – khóa này **bỏ**, cả cách (3)). Chỉ thêm trường tùy chọn – không đổi response, `x-roles`, không mã lỗi mới. v1.1 (US-164): cách (4) **thôi nhận** (422 `NOT_ALLOWED`), thay bằng (3) – `s1-contracts.md` mục 13.5.
@@ -9245,6 +9248,13 @@ paths:
           in: query
           description: 'Mã tham chiếu 8 ký tự – khớp mã chính hoặc `aliasRefCodes`; server bỏ `-`/khoảng trắng, chữ hoa, chuẩn hóa Crockford trước khi tìm (khách gõ `W7K3-QX9P` vẫn ra – SEC UXD-07)'
           schema: { type: string, pattern: '^[0-9A-Za-z][0-9A-Za-z -]{6,10}[0-9A-Za-z]$' }
+        - name: locale
+          in: query
+          style: form
+          explode: false
+          description: '0.3.10 bổ sung 4 (US-175 AC3, AC5): chỉ yêu cầu gửi từ các ngôn ngữ landing này; vắng = mọi ngôn ngữ. Kết hợp với `status` (và `refCode` nếu có)'
+          x-round: R4
+          schema: { type: array, items: { $ref: '#/components/schemas/LandingLocale' } }
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -9258,6 +9268,11 @@ paths:
                 properties:
                   data: { type: array, items: { $ref: '#/components/schemas/WebsiteBookingRequest' } }
                   page: { $ref: '#/components/schemas/PageInfo' }
+                  total:
+                    type: integer
+                    minimum: 0
+                    x-round: R4
+                    description: '0.3.10 bổ sung 4 (US-175 AC5): số yêu cầu khớp `status`/`refCode`/`locale` trong phạm vi vai của người gọi (SAL: chưa giao + của mình) – không phụ thuộc `cursor`/`limit`; Desk hiện "tổng số khớp bộ lọc"'
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/ValidationFailed' }

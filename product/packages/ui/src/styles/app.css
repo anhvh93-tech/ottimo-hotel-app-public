@@ -429,6 +429,14 @@ body:has(.app-mnav) .toasts {
   align-items: flex-end;
   gap: 12px;
 }
+/* US-175 AC3 (BUG-R4-007): S35 got a "Ngôn ngữ" column; at 1366 px the table must not scroll more than before.
+   The two long chips ("Ở dài ngày – báo giá dài hạn", "Cần xem" flags) wrap on 2–3 lines in their cell instead of
+   widening it; other chips stay on one line – FE-A, UXD to confirm. */
+.webreq-table td.chips-wrap .chip {
+  white-space: normal;
+  min-width: 8rem;
+  border-radius: var(--r-sm);
+}
 .webreq-filters .btn[aria-pressed='true'] {
   background: var(--ink);
   color: var(--ink-inverse);

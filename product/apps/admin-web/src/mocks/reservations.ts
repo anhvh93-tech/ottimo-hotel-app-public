@@ -1753,6 +1753,7 @@ export function createReservationMock(ctx: Ctx) {
         version: 1,
         createdBy: g.user.id,
         input: body,
+        ...(webReq ? { websiteBookingRequestId: webReq } : {}),
       };
       state.quotes.push(q);
       if (webReq) ctx.webRequests?.().linkQuote(webReq, g.user, q.id);

@@ -571,6 +571,62 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
     expect(card.body).not.toContain('１１１１');
   });
 
+  it('BUG-R4-007 (US-175 AC3, AC5 – 0.3.10 bổ sung 4): S35 filters by language and returns the total matching the filters, whatever the page', async () => {
+    const list = (qs: string) =>
+      staff(fa, tok('fdl'), null, 'GET', `${P(t)}/website-booking-requests?${qs}`);
+    const dbCount = async (locales: string[], statuses: string[]) =>
+      Number(
+        (
+          await q<{ n: string }>(
+            `SELECT count(*)::text AS n FROM website_booking_request
+              WHERE locale = ANY($1::text[]) AND status = ANY($2::text[])`,
+            [locales, statuses],
+          )
+        )[0]!.n,
+      );
+    // One more Korean request so "ko" has more than one row (the BE-5 case left one).
+    const ko2 = await submit(form(await formToken(), { locale: 'ko', landingPath: '/ko/' }));
+    expect(ko2.statusCode, ko2.body).toBe(202);
+    const open = ['new', 'in_progress'];
+    const all = ['new', 'in_progress', 'converted', 'declined', 'spam'];
+
+    const ko = await list('locale=ko');
+    expect(ko.statusCode, ko.body).toBe(200);
+    const koBody = ko.json() as { data: Array<{ locale: string }>; total: number };
+    expect(koBody.data.length).toBeGreaterThanOrEqual(2);
+    expect(koBody.data.every((r) => r.locale === 'ko')).toBe(true);
+    expect(koBody.total).toBe(await dbCount(['ko'], open));
+
+    // More than one page: the total does not depend on the page size or the cursor.
+    const en1 = (await list('locale=en&limit=1')).json() as {
+      data: unknown[];
+      page: { nextCursor: string | null };
+      total: number;
+    };
+    const enCount = await dbCount(['en'], open);
+    expect(enCount).toBeGreaterThan(1);
+    expect(en1.data).toHaveLength(1);
+    expect(en1.page.nextCursor).not.toBeNull();
+    expect(en1.total).toBe(enCount);
+    const en2 = (
+      await list(`locale=en&limit=1&cursor=${encodeURIComponent(en1.page.nextCursor!)}`)
+    ).json() as { total: number };
+    expect(en2.total).toBe(enCount);
+
+    // Combined with the status filter, closed/converted included; several languages at once; no filter = all.
+    const st = all.join('%2C');
+    expect((await list(`status=${st}&locale=ko%2Cen`)).json().total).toBe(
+      await dbCount(['ko', 'en'], all),
+    );
+    expect((await list(`status=${st}`)).json().total).toBe(
+      await dbCount(['en', 'vi', 'ko', 'zh', 'ru'], all),
+    );
+    // Unknown language → 422 field code like `status`.
+    const ja = await list('locale=ja');
+    expect(ja.statusCode).toBe(422);
+    expect(ja.json().errors).toEqual([{ field: 'locale', code: 'NOT_IN_LIST' }]);
+  });
+
   it('SR-PE-07: 31st call in 10 minutes from one IP → 429, while the form from that IP is still accepted (own buckets)', async () => {
     const ip = '198.51.100.77';
     for (let i = 0; i < 30; i += 1) {

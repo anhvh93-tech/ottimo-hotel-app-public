@@ -355,6 +355,14 @@ describe('S35 website requests (US-155 Desk, OpenAPI 0.3.8)', () => {
     );
     await api.listWebsiteBookingRequests({ propertyId: 'p' }, { refCode: 'W7K3QX9P', status: [] });
     expect(call(1)[0]).toBe('http://x/v1/properties/p/website-booking-requests?refCode=W7K3QX9P');
+    // 0.3.10 bổ sung 4 (BUG-R4-007): language filter joined like status; an empty list sends nothing.
+    await api.listWebsiteBookingRequests(
+      { propertyId: 'p' },
+      { status: ['converted'], locale: ['ko', 'zh'] },
+    );
+    expect(call(2)[0]).toBe(
+      'http://x/v1/properties/p/website-booking-requests?status=converted&locale=ko%2Czh',
+    );
     await api.transitionWebsiteBookingRequest(
       { propertyId: 'p', requestId: 'q' },
       'decline',
@@ -362,7 +370,7 @@ describe('S35 website requests (US-155 Desk, OpenAPI 0.3.8)', () => {
       3,
       'key-9',
     );
-    const [url, init] = call(2);
+    const [url, init] = call(3);
     expect(url).toBe('http://x/v1/properties/p/website-booking-requests/q/actions/decline');
     expect(JSON.parse(String(init.body))).toEqual({ reasonCode: 'no_availability' });
     expect(init.headers).toMatchObject({ 'If-Match': '"3"', 'Idempotency-Key': 'key-9' });

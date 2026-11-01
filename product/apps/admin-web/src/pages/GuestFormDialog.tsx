@@ -67,7 +67,7 @@ function fromGuest(g: Guest): FormState {
     whatsapp: g.messagingHandles?.whatsapp ?? '',
     preferredContact: (g.preferredContact as Contact | undefined) ?? '',
     dateOfBirth: g.dateOfBirth ?? '',
-    nationalityCode: g.nationalityCode ?? 'VN',
+    nationalityCode: g.nationalityCode ?? '',
     preferredLocale: (g.preferredLocale as FormState['preferredLocale'] | undefined) ?? 'vi',
     tag: g.tags?.[0] ?? '',
     companyName: g.companyName ?? '',
@@ -76,6 +76,17 @@ function fromGuest(g: Guest): FormState {
     freeNote: g.freeNote ?? '',
   };
 }
+
+/**
+ * Quick create from a website request (US-175 AC4 (3), BUG-R3-050): the request's contact, reply channel and the
+ * language Desk sends messages in; nationality left empty (the request does not say it – not "Viet Nam").
+ */
+export type GuestCreatePrefill = Partial<
+  Pick<
+    FormState,
+    'phone' | 'email' | 'whatsapp' | 'preferredContact' | 'preferredLocale' | 'nationalityCode'
+  >
+>;
 
 interface Duplicate {
   field: 'phone' | 'email';
@@ -87,6 +98,8 @@ export interface GuestFormDialogProps {
   guest?: Guest;
   /** Quick create from the guest picker: name typed in the search box. */
   prefillName?: string;
+  /** Quick create from a website request: its contact / channel / send language (BUG-R3-050). */
+  prefill?: GuestCreatePrefill;
   onClose: () => void;
   onSaved: (guest: Guest) => void;
   /** Open another existing profile (duplicate found). */
@@ -99,6 +112,7 @@ export interface GuestFormDialogProps {
 export function GuestFormDialog({
   guest,
   prefillName,
+  prefill,
   onClose,
   onSaved,
   onOpenGuest,
@@ -120,7 +134,7 @@ export function GuestFormDialog({
   const draftKey = `ottimo.draft.guest.${session.me?.id ?? 'anon'}`;
   const isCreate = !guest;
 
-  const initial = guest ? fromGuest(guest) : { ...EMPTY, fullName: prefillName ?? '' };
+  const initial = guest ? fromGuest(guest) : { ...EMPTY, ...prefill, fullName: prefillName ?? '' };
   const [form, setForm] = useState<FormState>(() => {
     if (!isCreate || prefillName) return initial;
     try {
@@ -233,9 +247,10 @@ export function GuestFormDialog({
   const buildBody = (): GuestInput => {
     const body: GuestInput = {
       fullName: form.fullName.trim().replace(/\s+/g, ' '),
-      nationalityCode: form.nationalityCode,
       preferredLocale: form.preferredLocale,
     };
+    // Empty only for a profile made from a website request until staff choose one (BUG-R3-050).
+    if (form.nationalityCode) body.nationalityCode = form.nationalityCode;
     if (form.phone.trim()) body.phone = form.phone.trim();
     if (form.email.trim()) body.email = form.email.trim().toLowerCase();
     if (form.whatsapp.trim()) body.messagingHandles = { whatsapp: form.whatsapp.trim() };
@@ -487,6 +502,7 @@ export function GuestFormDialog({
                 value={form.nationalityCode}
                 onChange={(e) => set('nationalityCode', e.target.value)}
               >
+                {form.nationalityCode === '' ? <option value="">–</option> : null}
                 {NATIONALITIES.map((c) => (
                   <option key={c} value={c}>
                     {countryName(c, locale)}
