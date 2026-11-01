@@ -374,6 +374,12 @@ export class FrontdeskController {
     @Body() raw: unknown,
   ) {
     const id = pathId(reservationId);
+    // OpenAPI 0.3.9 GATE (ARC contract v1.0.1): the contract now declares `dryRun` for B16, so the guard and the
+    // unit of work skip Idempotency-Key / If-Match when `dryRun: true`. Until BE-A ships the always-rolled-back
+    // preview path, a dry run must be refused here (fail closed, SEC-BE-21) – never run through `uow.run`.
+    if (isDryRun(raw)) {
+      throw problem('VALIDATION_FAILED', { errors: [{ field: 'dryRun', code: 'NOT_ALLOWED' }] });
+    }
     // OpenAPI 0.3.6 bổ sung 2 (E04-06): EarlyDepartureResult.
     const result = await this.uow.run(req, async (tx) => {
       const ctx = await this.ctx(tx, req);
