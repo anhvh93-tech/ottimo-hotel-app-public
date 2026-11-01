@@ -1012,7 +1012,7 @@ Khách đã gửi form trên website nhắn hoặc gọi xin xóa yêu cầu c�
 | Desk hiện | Nghĩa | Làm gì |
 |---|---|---|
 | "Khớp giá ước tính khách đã thấy (…)" | Báo giá bằng số khách đã thấy | Gửi như thường |
-| Khung cảnh báo **"Đã đổi: {cũ} → {mới}"** kèm câu "Giá Desk tính bây giờ khác số khách đã thấy trên web…" | **Khác giá web khách đã thấy**, cùng ngày, cùng số khách, cùng hạng | Gửi báo giá kèm một câu giải thích ngắn: giá đã đổi từ lúc khách xem, hoặc căn giá thấp nhất của hạng đã có khách nên báo căn khác cùng hạng. Không hứa giữ số cũ |
+| Khung cảnh báo **"Khác giá web khách đã thấy: {cũ} → {mới}"** kèm câu "Giá theo lịch giá hôm nay khác số khách thấy trên web. Nói rõ lý do với khách khi gửi báo giá." | Giá theo lịch giá hôm nay khác số khách đã thấy trên web, cùng ngày, cùng số khách, cùng hạng | Gửi báo giá kèm một câu giải thích ngắn: giá đã đổi từ lúc khách xem, hoặc căn giá thấp nhất của hạng đã có khách nên báo căn khác cùng hạng. Không hứa giữ số cũ |
 | "Khách đã thấy … cho ngày, số khách hoặc hạng phòng khác – không so sánh." | Khách xem giá cho chuyến khác với chuyến đang báo | Báo giá theo ngày, số khách đã thống nhất với khách |
 
 3. **Giá trong báo giá Desk là giá cuối.** Khách xin giữ đúng số đã thấy trên web: không hứa, báo lễ tân trưởng hoặc quản lý quyết trong ca.
@@ -1033,10 +1033,10 @@ Khách đã gửi form trên website nhắn hoặc gọi xin xóa yêu cầu c�
 |---|---|---|
 | Tiếng Hàn | Tiếng Anh | Desk chọn sẵn **English** và hiện câu "Khách viết bằng tiếng Hàn – gửi tin bằng tiếng Anh." |
 | Tiếng Trung | Tiếng Anh | Desk chọn sẵn **English** và hiện câu "Khách viết bằng tiếng Trung – gửi tin bằng tiếng Anh." |
-| Tiếng Nga | Tiếng Anh | Desk chọn sẵn **Русский** (Desk có sẵn mẫu báo giá tiếng Nga) |
+| Tiếng Nga | Tiếng Anh | Desk chọn sẵn **Русский** (Desk có sẵn mẫu báo giá tiếng Nga) và hiện câu "Khách viết bằng tiếng Nga – gửi tin bằng tiếng Nga." |
 
-- Câu "Khách viết bằng tiếng … – gửi tin bằng tiếng Anh." hiện ở **cả** hộp **Báo giá** (dưới ô **Ngôn ngữ gửi khách**) và hộp **Giữ chỗ** (dưới phần cọc). Chữ trên Desk có thể khác vài từ; nghĩa như trên.
-- Không đổi ô sang **Tiếng Việt**. Mở lại báo giá cũ mà ô đang là Tiếng Việt: chọn lại English hoặc Русский trước khi bấm **Sao chép gửi Zalo**.
+- Câu ghi chú "Khách viết bằng tiếng … – gửi tin bằng tiếng …" (tiếng Anh với khách tiếng Hàn, tiếng Trung; tiếng Nga với khách tiếng Nga) hiện ở **cả** hộp **Báo giá** (dưới ô **Ngôn ngữ gửi khách**) và hộp **Giữ chỗ** (dưới phần cọc). "Gửi tin bằng tiếng Nga" là nói khối chữ Desk tạo (báo giá, giữ chỗ); tin anh/chị tự soạn vẫn bằng tiếng Anh.
+- Không đổi ô sang **Tiếng Việt**. Nhìn lại ô trước khi bấm **Sao chép gửi Zalo**.
 - Khách tự viết bằng tiếng Anh: trả lời tiếng Anh như thường. Khách chọn "Gọi": nói tiếng Anh chậm, rõ; không hiểu nhau thì nhắn tin qua kênh khách đã chọn.
 
 **3. Dùng Google Dịch để đọc và soạn tin**
@@ -1218,7 +1218,7 @@ Không ai tự duyệt yêu cầu của chính mình, trừ khoản nằm trong 
 | Khách muốn xem/xóa dữ liệu của mình | Ghi yêu cầu, chuyển chủ đầu tư |
 | Người gửi form website xin xóa yêu cầu của họ | Mục 13.1b |
 | Yêu cầu website viết bằng tiếng Hàn, tiếng Trung, tiếng Nga | Trả lời bằng tiếng Anh, được dùng Google Dịch để đọc và soạn; báo giá theo ô **Ngôn ngữ gửi khách** Desk chọn sẵn (mục 13.1d) |
-| Hộp báo giá hiện **"Đã đổi: … → …"** | Giá khác số khách đã thấy trên web. Gửi báo giá kèm câu giải thích, không hứa giữ số cũ (mục 13.1c) |
+| Hộp báo giá hiện **"Khác giá web khách đã thấy: … → …"** | Giá theo lịch giá hôm nay khác số khách đã thấy trên web. Gửi báo giá kèm câu giải thích, không hứa giữ số cũ (mục 13.1c) |
 | Tin lạ trong phòng Google Chat (không có dòng **Mở Desk** cuối tin, có link lạ) | Không bấm, báo chủ đầu tư (mục 13.1a) |
 | Đơn OTA về khi căn đã kín | Lưu chưa gán căn, báo quản lý; gán căn hoặc đổi phòng khách khác (mục 5.3) |
 | Hoàn tác nhận phòng bị Desk từ chối | Folio đã có dòng mới; nhờ quản lý (mục 7.4) |
@@ -1487,4 +1487,4 @@ Bài tập:
 8. Nói được việc phải làm khi lỡ gửi link check-in online.
 9. Lễ tân trưởng thêm: duyệt một yêu cầu, kiểm phòng trên app nhân viên.
 10. Người trực hiện nay thêm (trên Desk tập): dọn và kiểm một căn rồi bấm **Làm xong** (mục 13.2a); hủy một việc dọn với lý do **Khách nói không cần dọn**; tạo, nhận và đóng một phiếu sửa trên Desk (tệp 04 mục 4.4); nói được việc 22:00, 23:00 sau khi đóng quầy và cách nhận phòng khách đến sau 22:00 (mục 13.3).
-11. Khi gói website LP-v2 đã lên (trên Desk tập): lọc **Yêu cầu từ website** theo **Tiếng Hàn**; dịch lời nhắn bằng Google Dịch; gửi câu mẫu 1; lập báo giá, chỉ ra ô **Ngôn ngữ gửi khách** là English và câu "Khách viết bằng tiếng Hàn – gửi tin bằng tiếng Anh."; gửi câu mẫu 3; đọc dòng **Giá ước tính khách đã thấy** và nói được việc phải làm khi hộp báo giá hiện "Đã đổi: … → …" (mục 13.1c, 13.1d).
+11. Khi gói website LP-v2 đã lên (trên Desk tập): lọc **Yêu cầu từ website** theo **Tiếng Hàn**; dịch lời nhắn bằng Google Dịch; gửi câu mẫu 1; lập báo giá, chỉ ra ô **Ngôn ngữ gửi khách** là English và câu "Khách viết bằng tiếng Hàn – gửi tin bằng tiếng Anh."; gửi câu mẫu 3; đọc dòng **Giá ước tính khách đã thấy** và nói được việc phải làm khi hộp báo giá hiện "Khác giá web khách đã thấy: … → …" (mục 13.1c, 13.1d).
