@@ -85,7 +85,7 @@ Tag do CI in ra ở job `publish images (GHCR)` (dạng `sha-<12 ký tự>`).
 |---|---|
 | Xem trạng thái | `/opt/ottimo/infra/server/bin/dc ps` |
 | Log | `/opt/ottimo/infra/server/bin/dc logs --tail 200 api worker web` |
-| Quay lui về bản trước | `/opt/ottimo/infra/server/bin/rollback.sh` (hoặc `rollback.sh <tag>`) |
+| Quay lui về bản trước | `/opt/ottimo/infra/server/bin/rollback.sh` (hoặc `rollback.sh <tag>`; `<tag>` là tên image `sha-<12 hex>`, **không** phải tag git `v…` – production từ chối vì không có `state/digests/v…`; v1.0.0 = `sha-8b3aec89486f`). Diễn tập: `infra/server/test/rollback.test.sh` |
 | Lịch sử triển khai | `cat /opt/ottimo/state/deploy-history.log` |
 | Cập nhật bundle (compose/Caddyfile/script đổi) | làm lại bước 2 + `bootstrap-vps.sh` (root), rồi `dc up -d --force-recreate web` nếu Caddyfile đổi |
 
