@@ -3,6 +3,15 @@ import { describe, expect, it } from 'vitest';
 import {
   addDays,
   buildDraft,
+  estimateQuery,
+  estimateSearch,
+  estimateView,
+  formatVnd,
+  joinSentences,
+  monthlyProbeQuery,
+  monthlyOfferView,
+  isEstimate,
+  type PublicPriceEstimate,
   diffDays,
   fmtDate,
   looksLikeCard,
@@ -15,8 +24,14 @@ import {
   validPhone,
   type FormValues,
 } from './booking-logic';
-import { BOOKING_STRINGS } from './booking-strings';
-import { apiTransport, previewTransport, type TransportDeps } from './booking-transport';
+import { BOOKING_STRINGS } from './booking-strings/all';
+import { plural } from './booking-strings/ru';
+import {
+  apiTransport,
+  estimateTransport,
+  previewTransport,
+  type TransportDeps,
+} from './booking-transport';
 
 const base: FormValues = {
   stayType: 'short',
@@ -104,6 +119,10 @@ describe('helpers', () => {
     expect(diffDays('2026-11-02', '2026-11-05')).toBe(3);
     expect(fmtDate('2026-11-02', 'vi')).toBe('2/11/2026');
     expect(fmtDate('2026-11-02', 'en')).toBe('2 Nov 2026');
+    // LP-v2 (CPY lp-v2 1.3): the page language writes the date
+    expect(fmtDate('2026-11-03', 'ko')).toMatch(/^2026년 11월 3일 \(?화\)?$/);
+    expect(fmtDate('2026-11-03', 'zh')).toMatch(/^2026年11月3日\s?周二$/);
+    expect(fmtDate('2026-11-03', 'ru')).toMatch(/3 ноября 2026/);
   });
   it('phone, email, card numbers, capacity (under-6s not counted – BR-110)', () => {
     expect(validPhone('+44 7700 900123')).toBe(true);
@@ -353,7 +372,7 @@ describe('live form answers (US-155 v1.0 – OpenAPI 0.3.7 add-on 2)', () => {
     expect(await previewTransport.prepare()).toBeNull();
   });
 
-  it('422 field errors come back as field + code only (no value); NOTICE_VERSION_INVALID → reload', async () => {
+  it('422 field errors come back as field + code only (no value); NOTICE_VERSION_INVALID → not-ready (ARC lp-v2 2.8: Zalo / call)', async () => {
     const invalid = {
       code: 'VALIDATION_FAILED',
       errors: [
@@ -388,7 +407,7 @@ describe('live form answers (US-155 v1.0 – OpenAPI 0.3.7 add-on 2)', () => {
           { status: 422, body: stale },
         ]).d,
       ).send(draft),
-    ).toEqual({ kind: 'reload' });
+    ).toEqual({ kind: 'not-ready' });
   });
 
   it('an API on another origin is called with its absolute base (PUBLIC_FORM_API_BASE)', async () => {
@@ -400,11 +419,337 @@ describe('live form answers (US-155 v1.0 – OpenAPI 0.3.7 add-on 2)', () => {
     ]);
   });
 
-  it('every new sentence exists in EN and VI, calm voice, no emoji or "!"', () => {
-    for (const lang of ['en', 'vi'] as const) {
+  it('every new sentence exists in every language, calm voice, no emoji or "!"', () => {
+    for (const lang of ['en', 'vi', 'ko', 'zh', 'ru'] as const) {
       const S = BOOKING_STRINGS[lang];
       for (const x of [S.reload, S.e.idNumber, S.e.phoneCountry, S.e.server, ...S.notReady])
         expect(x).not.toMatch(/!|\p{Extended_Pictographic}/u);
     }
+  });
+});
+
+// ---------- LP-v2: price estimate in the form (FB-INV-009; ARC lp-v2 2.7–2.8, UXD 3, CPY 2) ----------
+
+const est = (over: Partial<PublicPriceEstimate> = {}): PublicPriceEstimate => ({
+  estimate: true,
+  currency: 'VND',
+  taxIncluded: true,
+  roomType: 'standard-studio-garden-view',
+  stayKind: 'short',
+  arrival: '2026-11-12',
+  departure: '2026-11-15',
+  priceAvailable: true,
+  shortStay: {
+    nights: 3,
+    roomSubtotalVnd: 2201000,
+    upliftNights: 2,
+    losDiscountPct: 0,
+    losDiscountVnd: 0,
+    extraPersonFeeVnd: 0,
+    totalVnd: 2201000,
+    nightlyAvgVnd: 733667,
+  },
+  notes: [],
+  computedAt: '2026-11-03T10:00:00+07:00',
+  estimateToken: 'pe1.eyJydCI6InN0YW5kYXJk.c2ln',
+  expiresAt: '2026-11-04T10:00:00+07:00',
+  ...over,
+});
+
+describe('price estimate – when the form asks (UXD 3.2, ARC 2.8)', () => {
+  const ctx = { today: '2026-11-01', max: '2027-11-01', capacity: 3 };
+  const v = { ...base, roomType: 'standard-studio-garden-view', children: 0, infants: 0 };
+
+  it('needs a room type, valid dates and a party the room sleeps; "Any room" = S1, missing dates = S0', () => {
+    expect(estimateQuery(v, ctx)).toEqual({
+      roomType: 'standard-studio-garden-view',
+      stayType: 'short',
+      arrival: '2026-11-02',
+      departure: '2026-11-05',
+      adults: 2,
+      children: 0,
+      infants: 0,
+    });
+    expect(estimateQuery({ ...v, roomType: '' }, ctx)).toBe('any-room');
+    expect(estimateQuery({ ...v, checkOut: '' }, ctx)).toBe('idle');
+    expect(estimateQuery({ ...v, checkOut: '2026-11-02' }, ctx)).toBe('idle'); // not after check-in
+    expect(estimateQuery({ ...v, checkIn: '2026-10-30' }, ctx)).toBe('idle'); // in the past
+    expect(estimateQuery({ ...v, checkIn: '2027-12-01', checkOut: '2027-12-03' }, ctx)).toBe(
+      'idle',
+    );
+    expect(estimateQuery({ ...v, adults: 3, children: 1 }, ctx)).toBe('idle'); // over capacity – the form says so
+    expect(estimateQuery({ ...v, adults: 3, infants: 2 }, ctx)).not.toBe('idle'); // under-6s not counted
+  });
+
+  it('ESC-043: by the month = no query (offer); a long stay by the night IS asked – the API owns the threshold', () => {
+    const long = { ...v, stayType: 'long' as const, arrival: '2026-12-01', months: '3' };
+    expect(estimateQuery(long, ctx)).toBe('monthly');
+    expect(estimateQuery({ ...long, roomType: '' }, ctx)).toBe('monthly');
+    expect(estimateQuery({ ...long, arrival: '' }, ctx)).toBe('idle');
+    // 29 or 30 nights: same request; the answer is monthly_offer (BE 63c5731e) – no second copy of the threshold
+    expect(
+      estimateQuery({ ...v, checkIn: '2026-11-02', checkOut: '2026-12-02' }, ctx),
+    ).toMatchObject({ stayType: 'short', departure: '2026-12-02' });
+  });
+
+  it('FB-R4-UXD-FE-01: the month probe = stayType long, arrival + party, no departure/months; "Any room" → first room', () => {
+    const long = { ...v, stayType: 'long' as const, arrival: '2026-12-01', months: '3' };
+    const q = monthlyProbeQuery(long, 'first-room');
+    expect(q).toEqual({
+      roomType: 'standard-studio-garden-view',
+      stayType: 'long',
+      arrival: '2026-12-01',
+      adults: 2,
+      children: 0,
+      infants: 0,
+    });
+    expect(estimateSearch(q!)).toBe(
+      'roomType=standard-studio-garden-view&stayType=long&arrival=2026-12-01&adults=2&children=0&infants=0',
+    );
+    expect(monthlyProbeQuery({ ...long, roomType: '' }, 'first-room')?.roomType).toBe('first-room');
+    expect(monthlyProbeQuery({ ...long, roomType: '' }, '')).toBeNull();
+    expect(monthlyProbeQuery({ ...long, arrival: '' }, 'first-room')).toBeNull();
+  });
+
+  it('query string: contract names only, fixed order, no personal data', () => {
+    const q = estimateQuery(v, ctx);
+    if (typeof q === 'string') throw new Error('no query');
+    expect(estimateSearch(q)).toBe(
+      'roomType=standard-studio-garden-view&stayType=short&arrival=2026-11-02&departure=2026-11-05&adults=2&children=0&infants=0',
+    );
+    expect(estimateSearch(q)).not.toMatch(/name|phone|email|note|locale/);
+  });
+});
+
+describe('price estimate – what the box shows (UXD 3.3, CPY 2)', () => {
+  it('amounts: whole dong, grouped the page way, "VND" after the number, never ₫', () => {
+    expect(formatVnd(2363000, 'en')).toBe('2,363,000 VND');
+    expect(formatVnd(2363000, 'vi')).toBe('2.363.000 VND');
+    expect(formatVnd(2363000, 'ko')).toBe('2,363,000 VND');
+    expect(formatVnd(2363000, 'zh')).toBe('2,363,000 VND');
+    expect(formatVnd(2363000, 'ru').replace(/\s/g, ' ')).toBe('2 363 000 VND');
+    for (const l of ['en', 'vi', 'ko', 'zh', 'ru'] as const)
+      expect(formatVnd(1, l)).not.toMatch(/₫/);
+  });
+
+  it('S3 by the night: total for N nights, VAT line and the final-rate sentence – no average a night (BE lp-v2 6, DOM)', () => {
+    const view = estimateView(est(), BOOKING_STRINGS.en, 'en');
+    expect(view.kind).toBe('price');
+    expect(view.main).toEqual(['', '2,201,000 VND', ' for 3\u00a0nights']);
+    expect(view.lines).toEqual([]);
+    expect(joinSentences(view.note, 'en')).toBe(
+      'Rates in Vietnamese dong (VND). Taxes included. Your final rate is in the quote we send.',
+    );
+    expect(view.live).toBe('Estimated rate updated: 2,201,000 VND for 3\u00a0nights');
+    expect(view.done).toBe('Estimated rate: 2,201,000 VND for 3\u00a0nights');
+    // no discount badge, no "save", no strike-through – a sentence only
+    const long = estimateView(
+      est({
+        shortStay: {
+          ...est().shortStay!,
+          nights: 7,
+          losDiscountPct: 10,
+          losDiscountVnd: 500000,
+          extraPersonFeeVnd: 300000,
+        },
+      }),
+      BOOKING_STRINGS.en,
+      'en',
+    );
+    expect(long.lines).toEqual(['Includes our longer-stay rate.', 'Includes one more guest.']);
+  });
+
+  it('word order of each language: ko/zh put the nights first, ru declines "ночь"', () => {
+    expect(estimateView(est(), BOOKING_STRINGS.ko, 'ko').main).toEqual([
+      '3박 기준 ',
+      '2,201,000 VND',
+      '',
+    ]);
+    expect(estimateView(est(), BOOKING_STRINGS.zh, 'zh').main).toEqual([
+      '3\u00a0晚，共 ',
+      '2,201,000 VND',
+      '',
+    ]);
+    expect(estimateView(est(), BOOKING_STRINGS.ru, 'ru').main?.[2]).toBe(' за 3\u00a0ночи');
+    expect(estimateView(est(), BOOKING_STRINGS.vi, 'vi').note).not.toContain('Giá tính bằng VND.');
+    expect(estimateView(est({ taxIncluded: false }), BOOKING_STRINGS.en, 'en').note).toContain(
+      'Before taxes.',
+    );
+  });
+
+  it('FB-R4-UXD-FE-08 / CPY 13.2: Chinese sentences joined without a space, the others with one space', () => {
+    expect(joinSentences(estimateView(est(), BOOKING_STRINGS.zh, 'zh').note, 'zh')).toBe(
+      '价格以越南盾（VND）计。含税。最终价格以我们发送的报价为准。',
+    );
+    expect(joinSentences(['A.', 'B.'], 'ru')).toBe('A. B.');
+    expect(joinSentences(['가.', '나.'], 'ko')).toBe('가. 나.');
+    // the spoken offer is CPY's own sentence per language – zh with "。", never "label. text" made by the code
+    expect(monthlyOfferView(BOOKING_STRINGS.zh).live).toBe(
+      '长住专属优惠。入住一个月或以上，我们会根据您的日期准备专属价格，随报价一并发送给您。',
+    );
+    for (const l of ['en', 'vi', 'ko', 'zh', 'ru'] as const) {
+      const S = BOOKING_STRINGS[l];
+      expect(S.priceMonthlyOffer.live).not.toMatch(/\d|%|\{amount\}|!/);
+      expect(S.priceMonthlyOffer.live).toContain(S.priceMonthlyOffer.text);
+      expect(S.estimate.liveCleared).not.toMatch(/\d|!/);
+      expect(S.estimate.minStay(2)).not.toMatch(/!|VND/);
+      expect(S.nights(3)).not.toMatch(/\d /); // never a plain space after the number
+    }
+  });
+
+  it('ESC-043 offer (no figure, no "Estimated rate"), S6 on request / minimum stay / party too large', () => {
+    // contract (lp-v2-be 63c5731e): monthly requests = priceAvailable false + monthly_offer, no figure, no token
+    const month = est({
+      stayKind: 'long',
+      priceAvailable: false,
+      unavailableReason: 'monthly_offer',
+      shortStay: undefined,
+      estimateToken: undefined,
+      expiresAt: undefined,
+      notes: [{ code: 'long_stay_required' }],
+    });
+    expect(isEstimate(month)).toBe(true);
+    const m = estimateView(month, BOOKING_STRINGS.en, 'en');
+    expect(m).toEqual(monthlyOfferView(BOOKING_STRINGS.en));
+    expect(m.kind).toBe('offer');
+    expect(m.main).toBeUndefined();
+    expect(m.live).toBe(
+      'A special offer for longer stays. For a month or longer, we prepare a rate around your dates. You will find it in the quote we send.',
+    );
+    expect(JSON.stringify(m)).not.toMatch(/\d|Estimated rate/);
+    // party too large wins over the monthly offer (BE order)
+    const party28 = estimateView(
+      { ...month, unavailableReason: 'party_exceeds_room' },
+      BOOKING_STRINGS.en,
+      'en',
+      { capacity: 3 },
+    );
+    expect(party28.live).toBe(BOOKING_STRINGS.en.e.cap('3'));
+    const off = { priceAvailable: false, shortStay: undefined, estimateToken: undefined };
+    const none = estimateView(
+      est({ ...off, unavailableReason: 'on_request' }),
+      BOOKING_STRINGS.en,
+      'en',
+    );
+    expect(none).toMatchObject({
+      kind: 'unavailable',
+      live: BOOKING_STRINGS.en.estimate.unavailable,
+    });
+    // 200 + notes.min_stay (BE L12): no figure; CPY 13.3 sentence (the temporary S6 fallback is gone – D8)
+    const min = estimateView(
+      est({ ...off, unavailableReason: 'on_request', notes: [{ code: 'min_stay', minNights: 2 }] }),
+      BOOKING_STRINGS.en,
+      'en',
+    );
+    expect(min.live).toBe(
+      'These dates have a minimum stay of 2 nights. Choose a longer stay to see an estimate, or send your request and we will suggest options.',
+    );
+    const minRu = estimateView(
+      est({ ...off, unavailableReason: 'on_request', notes: [{ code: 'min_stay', minNights: 5 }] }),
+      BOOKING_STRINGS.ru,
+      'ru',
+    );
+    expect(minRu.live).toContain('— 5 ночей.');
+    const party = estimateView(
+      est({ ...off, unavailableReason: 'party_exceeds_room' }),
+      BOOKING_STRINGS.ko,
+      'ko',
+      { capacity: 3 },
+    );
+    expect(party.live).toBe(BOOKING_STRINGS.ko.e.cap('3'));
+  });
+
+  it('a body outside the contract shows no number', () => {
+    expect(isEstimate(est())).toBe(true);
+    expect(isEstimate({ ...est(), estimate: false })).toBe(false);
+    expect(isEstimate({ ...est(), shortStay: { ...est().shortStay!, totalVnd: 0 } })).toBe(false);
+    expect(isEstimate({ ...est(), shortStay: undefined })).toBe(false);
+    expect(isEstimate({ ...est(), stayKind: 'long', shortStay: undefined })).toBe(true);
+    expect(isEstimate(null)).toBe(false);
+  });
+});
+
+describe('price estimate – transport (GET, 3 s, no retry; ARC 2.8)', () => {
+  const run = async (
+    status: number,
+    body?: unknown,
+    opts: { hang?: boolean; abort?: boolean } = {},
+  ) => {
+    const urls: string[] = [];
+    const timers: (() => void)[] = [];
+    const t = estimateTransport('/v1/public/properties/dl01', {
+      fetch: (url, init) => {
+        urls.push(url);
+        if (opts.hang)
+          return new Promise((_, reject) =>
+            init?.signal?.addEventListener('abort', () =>
+              reject(new DOMException('aborted', 'AbortError')),
+            ),
+          );
+        return Promise.resolve(
+          new Response(body === undefined ? null : JSON.stringify(body), { status }),
+        );
+      },
+      setTimeout: (fn) => {
+        timers.push(fn);
+        return timers.length;
+      },
+      clearTimeout: () => undefined,
+    });
+    const ac = new AbortController();
+    const p = t('roomType=x', ac.signal);
+    if (opts.abort) ac.abort();
+    else if (opts.hang) timers[0]!(); // 3 s passed
+    return { out: await p, urls };
+  };
+
+  it('200 → the number; same-origin URL of the contract', async () => {
+    const r = await run(200, est());
+    expect(r.out).toEqual({ kind: 'ok', body: est() });
+    expect(r.urls).toEqual(['/v1/public/properties/dl01/price-estimate?roomType=x']);
+  });
+  it('404 = prices off (hide the box); 422 = no number; 429 = stop; 503/5xx and an odd body = error', async () => {
+    expect((await run(404)).out).toEqual({ kind: 'off' });
+    expect((await run(422, { code: 'VALIDATION_FAILED' })).out).toEqual({ kind: 'invalid' });
+    expect((await run(429)).out).toEqual({ kind: 'rate' });
+    expect((await run(503)).out).toEqual({ kind: 'error' });
+    expect((await run(500)).out).toEqual({ kind: 'error' });
+    expect((await run(200, { estimate: true })).out).toEqual({ kind: 'error' });
+  });
+  it('more than 3 s = error; a newer request aborts the old one (its answer is dropped)', async () => {
+    expect((await run(200, est(), { hang: true })).out).toEqual({ kind: 'error' });
+    expect((await run(200, est(), { hang: true, abort: true })).out).toEqual({ kind: 'aborted' });
+  });
+});
+
+describe('the estimate token travels with the request (ARC 2.7)', () => {
+  it('buildDraft sends priceEstimateToken only when the page passes one', () => {
+    expect(buildDraft(base)).not.toHaveProperty('priceEstimateToken');
+    expect(buildDraft({ ...base, priceEstimateToken: 'pe1.a.b' }).priceEstimateToken).toBe(
+      'pe1.a.b',
+    );
+  });
+  it('locale = the page language (LandingLocale)', () => {
+    expect(buildDraft({ ...base, locale: 'zh' }).locale).toBe('zh');
+  });
+});
+
+describe('Russian plurals (CPY 4.2, UXD 1.5)', () => {
+  it('1 ночь · 3 ночи · 5 ночей · 21 ночь · 12 ночей; fields; hours', () => {
+    const n = BOOKING_STRINGS.ru.nights;
+    expect([1, 3, 5, 21, 12, 22, 25].map((x) => n(x).replace(' ', ' '))).toEqual([
+      '1 ночь',
+      '3 ночи',
+      '5 ночей',
+      '21 ночь',
+      '12 ночей',
+      '22 ночи',
+      '25 ночей',
+    ]);
+    expect(BOOKING_STRINGS.ru.summary(2)).toBe('Проверьте 2 поля');
+    expect(BOOKING_STRINGS.ru.summary(5)).toBe('Проверьте 5 полей');
+    expect(plural(1, 'a', 'b', 'c')).toBe('a');
+    expect(BOOKING_STRINGS.ru.when.withinMinutes(60, '07:00', '22:00')).toContain('1 часа');
+    expect(BOOKING_STRINGS.ru.when.withinMinutes(120, '07:00', '22:00')).toContain('2 часов');
   });
 });

@@ -1,5 +1,7 @@
 ---
-// Privacy notice for the booking request form (US-155 AC4, SEC C-3 (a), UXD-04) – /privacy/ and /vi/privacy/.
+// Privacy notice for the booking request form (US-155 AC4, SEC C-3 (a), UXD-04) – /privacy/ and /<lang>/privacy/.
+// The version is on the page twice for machines (OPS publish-privacy-notice reads it; ARC lp-v2 D11, SEC SR-LC-04):
+// <meta name="ottimo-notice-version"> and data-notice-version on the notice body – one constant, content/privacy.ts.
 // Built only with the form (lib/booking-request.ts PRIVACY_PAGE_PUBLISHED); text and version in content/privacy.ts.
 // Plain document: one H1, H2 per topic, no script of its own, no third-party resource.
 import { PRIVACY_NOTICE } from '../content/privacy';
@@ -16,13 +18,20 @@ const { t } = Astro.props;
 const p = PRIVACY_NOTICE[t.lang];
 ---
 
-<Base t={t} slug="privacy" title={p.title} description={p.description}>
+<Base
+  t={t}
+  slug="privacy"
+  title={p.title}
+  description={p.description}
+  noticeVersion={PRIVACY_NOTICE.version}
+>
   <section class="sec privacy" aria-labelledby="pv-h">
     <div class="wrap">
       <p class="label">{p.label}</p>
       <h1 id="pv-h">{p.h1}</h1>
       <p class="lead">{p.intro}</p>
-      <div class="privacy-body" id={p.anchor}>
+      {p.translationNote && <p class="privacy-tr">{p.translationNote}</p>}
+      <div class="privacy-body" id={p.anchor} data-notice-version={PRIVACY_NOTICE.version}>
         {
           p.sections.map((s) => (
             <>

@@ -5,7 +5,10 @@
 import { expect, test } from '@playwright/test';
 import { knownBug } from '../support/known-bugs.js';
 import {
+  HTML_LANG,
+  LOCALE,
   PAGES,
+  PAGE_FONTS,
   WIDTHS,
   axeViolations,
   cspViolations,
@@ -25,7 +28,7 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
     }, info) => {
       const context = await browser.newContext({
         viewport: { width, height: width < 768 ? 812 : 800 },
-        locale: lang === 'vi' ? 'vi-VN' : 'en-US', // matches the page: no suggestion strip
+        locale: LOCALE[lang], // matches the page: no suggestion strip
       });
       const page = await context.newPage();
       await recordCsp(page);
@@ -34,7 +37,7 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
 
       const res = await page.goto(PAGES[lang], { waitUntil: 'networkidle' });
       expect(res?.status()).toBe(200);
-      expect(await page.locator('html').getAttribute('lang')).toBe(lang);
+      expect(await page.locator('html').getAttribute('lang')).toBe(HTML_LANG[lang]);
       expect(await horizontalOverflow(page), 'horizontal scroll at the top').toBeLessThanOrEqual(0);
       await expect(page.locator('h1')).toHaveCount(1);
 
@@ -76,7 +79,23 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
         );
         const menuViolations = await axeViolations(page, info, `${lang}-${width}-menu`);
         expect(menuViolations, JSON.stringify(menuViolations, null, 2)).toEqual([]);
+        await page.locator('details.menu summary').click();
       }
+      // LP-v2 language list (UXD lp-v2 2.2): open, 5 links, current one marked, axe clean, no overflow
+      await page.locator('details.lang-pick summary').click();
+      const list = page.locator('.lp-panel a');
+      await expect(list).toHaveCount(5);
+      await expect(list.first()).toBeVisible();
+      await expect(page.locator('.lp-panel a[aria-current="page"]')).toHaveAttribute(
+        'hreflang',
+        lang,
+      );
+      expect(
+        await horizontalOverflow(page),
+        'overflow with the language list open',
+      ).toBeLessThanOrEqual(0);
+      const langViolations = await axeViolations(page, info, `${lang}-${width}-languages`);
+      expect(langViolations, JSON.stringify(langViolations, null, 2)).toEqual([]);
 
       expect(errors, errors.join('\n')).toEqual([]);
       expect(await cspViolations(page)).toEqual([]);
@@ -87,10 +106,13 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
 }
 
 for (const lang of Object.keys(PAGES) as Lang[]) {
-  test(`TC-LP-002 LP-v1 ${lang.toUpperCase()}: every visible glyph comes from Lora or Be Vietnam Pro (concept 3.3)`, async ({
+  test(`TC-LP-002 ${lang.toUpperCase()}: every visible glyph comes from the self-hosted fonts of the page (concept 3.3, UXD lp-v2 1.2)`, async ({
     browser,
   }) => {
-    const context = await browser.newContext({ viewport: { width: 375, height: 800 } });
+    const context = await browser.newContext({
+      viewport: { width: 375, height: 800 },
+      locale: LOCALE[lang],
+    });
     const page = await context.newPage();
     await page.goto(PAGES[lang], { waitUntil: 'networkidle' });
     await scrollThrough(page);
@@ -109,7 +131,7 @@ for (const lang of Object.keys(PAGES) as Lang[]) {
         .send('CSS.getPlatformFontsForNode', { nodeId })
         .catch(() => ({ fonts: [] as { familyName: string; glyphCount: number }[] }));
       for (const f of fonts)
-        if (!/^(Lora|Be Vietnam Pro)/.test(f.familyName))
+        if (!PAGE_FONTS[lang].test(f.familyName))
           fallback.set(f.familyName, (fallback.get(f.familyName) ?? 0) + f.glyphCount);
     }
     expect(Object.fromEntries(fallback)).toEqual({});
@@ -125,6 +147,9 @@ test('TC-LP-003 LP-v1 404 pages: status 404, one H1, axe 0, page language from t
   for (const [path, lang] of [
     ['/no-such-page/', 'en'],
     ['/vi/no-such-page/', 'vi'],
+    ['/ko/no-such-page/', 'ko'],
+    ['/zh/no-such-page/', 'zh-Hans'],
+    ['/ru/no-such-page/', 'ru'],
   ] as const) {
     const res = await page.goto(path, { waitUntil: 'networkidle' });
     expect(res?.status()).toBe(404);

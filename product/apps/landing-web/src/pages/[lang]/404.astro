@@ -1,0 +1,15 @@
+---
+// /vi/404/, /ko/404/, /zh/404/, /ru/404/ – the 404 page Caddy serves by path prefix (ADR-014 1.4; OPS maps
+// /(vi|ko|zh|ru)/* → /<lang>/404/index.html). Never indexed, no hreflang.
+import NotFound from '../../components/NotFound.astro';
+import { COPY } from '../../content';
+import { PREFIXED_LANGS, type Lang } from '../../lib/i18n';
+
+export function getStaticPaths() {
+  return PREFIXED_LANGS.map((lang) => ({ params: { lang } }));
+}
+
+const lang = Astro.params.lang as Lang;
+---
+
+<NotFound t={COPY[lang]} />

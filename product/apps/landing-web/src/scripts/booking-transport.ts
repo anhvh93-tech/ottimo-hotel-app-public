@@ -7,7 +7,13 @@
 // Answers that mean "the form is not taking requests right now" – 404 from either endpoint (property not active or
 // `public_booking_requests_enabled = false`) and 422 PUBLIC_FORM_NOT_READY – become `not-ready`: the page points the
 // guest to Zalo or a call, never pretends the request was sent (US-155 AC5).
-import type { BookingAccepted, BookingDraft, PublicFormToken } from './booking-logic';
+import {
+  isEstimate,
+  type BookingAccepted,
+  type BookingDraft,
+  type PublicFormToken,
+  type PublicPriceEstimate,
+} from './booking-logic';
 
 /** Field error of a 422 VALIDATION_FAILED: `field` + `code` only – the server never echoes the value (ARC-21). */
 export interface FieldProblem {
@@ -20,8 +26,6 @@ export type Outcome =
   | { kind: 'not-sent' }
   | { kind: 'not-ready' }
   | { kind: 'invalid'; errors: FieldProblem[] }
-  /** NOTICE_VERSION_INVALID: the page is older than the published privacy notice – reload, then send again. */
-  | { kind: 'reload' }
   | { kind: 'busy' }
   | { kind: 'rate' }
   | { kind: 'network' };
@@ -157,7 +161,10 @@ export function apiTransport(base: string, deps: TransportDeps): Transport {
           const p = await problemOf(res);
           if (p.code === 'FORM_TOKEN_INVALID' && attempt === 0) continue;
           if (p.code === 'PUBLIC_FORM_NOT_READY') return { kind: 'not-ready' };
-          if (p.errors.some((e) => e.code === 'NOTICE_VERSION_INVALID')) return { kind: 'reload' };
+          // ARC lp-v2 2.8: the notice version of this page is not published yet (the few minutes between a landing deploy
+          // and publish-privacy-notice) – point to Zalo / a call, no technical error.
+          if (p.errors.some((e) => e.code === 'NOTICE_VERSION_INVALID'))
+            return { kind: 'not-ready' };
           if (p.code === 'VALIDATION_FAILED' && p.errors.length)
             return { kind: 'invalid', errors: p.errors };
         }
@@ -165,5 +172,67 @@ export function apiTransport(base: string, deps: TransportDeps): Transport {
       }
       return { kind: 'network' };
     },
+  };
+}
+
+// ---------- Price estimate (LP-v2, OpenAPI 0.3.9 getPublicPriceEstimate; ARC lp-v2 2.8) ----------
+
+export type EstimateOutcome =
+  | { kind: 'ok'; body: PublicPriceEstimate }
+  /** 404: prices switched off (`public_show_prices = false`) or the form is off – hide the whole box. */
+  | { kind: 'off' }
+  /** 422: inputs the server refuses – no number; the form's own field checks speak. */
+  | { kind: 'invalid' }
+  /** 429: no new call until the page is reloaded. */
+  | { kind: 'rate' }
+  /** 5xx, network, unreadable body, more than 3 s. */
+  | { kind: 'error' }
+  /** Superseded by a newer request (AbortController). */
+  | { kind: 'aborted' };
+
+export interface EstimateDeps {
+  fetch: (url: string, init?: RequestInit) => Promise<Response>;
+  setTimeout: (fn: () => void, ms: number) => unknown;
+  clearTimeout: (id: unknown) => void;
+}
+
+/** Give up after 3 seconds (ARC lp-v2 2.8 – the form never waits for a price). */
+export const ESTIMATE_TIMEOUT_MS = 3000;
+
+/**
+ * GET {base}/price-estimate?{query} – same origin through the landing proxy (one Caddy route, CSP connect-src 'self'),
+ * no cookie, no retry. `signal` aborts it when the guest changes the form again.
+ * @param base `{apiOrigin}/v1/public/properties/{propertySlug}`
+ */
+export function estimateTransport(base: string, deps: EstimateDeps) {
+  return async (search: string, signal: AbortSignal): Promise<EstimateOutcome> => {
+    const ctrl = new AbortController();
+    let timedOut = false;
+    const stop = () => ctrl.abort();
+    signal.addEventListener('abort', stop, { once: true });
+    const timer = deps.setTimeout(() => {
+      timedOut = true;
+      ctrl.abort();
+    }, ESTIMATE_TIMEOUT_MS);
+    try {
+      const res = await deps.fetch(`${base}/price-estimate?${search}`, {
+        credentials: 'omit',
+        headers: { Accept: 'application/json' },
+        signal: ctrl.signal,
+      });
+      if (res.status === 200) {
+        const body: unknown = await res.json();
+        return isEstimate(body) ? { kind: 'ok', body } : { kind: 'error' };
+      }
+      if (res.status === 404) return { kind: 'off' };
+      if (res.status === 422) return { kind: 'invalid' };
+      if (res.status === 429) return { kind: 'rate' };
+      return { kind: 'error' };
+    } catch {
+      return signal.aborted && !timedOut ? { kind: 'aborted' } : { kind: 'error' };
+    } finally {
+      deps.clearTimeout(timer);
+      signal.removeEventListener('abort', stop);
+    }
   };
 }

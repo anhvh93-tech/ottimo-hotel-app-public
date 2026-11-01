@@ -213,6 +213,63 @@ h1 {
 .small {
   font-size: var(--fs-small);
 }
+
+/* LP-v2 – type rules per language (UXD lp-v2 1.5). Font files and stacks: styles/fonts-<lang>.css (own page only). */
+:root:lang(ko) body {
+  line-height: 1.7;
+  word-break: keep-all; /* never break inside a Korean word */
+}
+:root:lang(zh-Hans) body {
+  line-height: 1.75;
+  line-break: strict; /* no closing punctuation at the start of a line */
+}
+:root:lang(ko),
+:root:lang(zh-Hans) {
+  font-synthesis: weight; /* no fake italic for Han/Hangul */
+}
+/* Heading rules for Han/Hangul text only: `h1:lang(…)` reads the element's own language, so the English tagline
+   (lang="en") keeps the Latin line height and tracking on every page (FB-R4-UXD-FE-06). */
+h1:lang(ko),
+h1:lang(zh-Hans) {
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+}
+.h2:lang(ko),
+.h2:lang(zh-Hans) {
+  line-height: 1.35;
+}
+:root:lang(ko) .label,
+:root:lang(ko) .f-title,
+:root:lang(ko) .est-lbl,
+:root:lang(zh-Hans) .label,
+:root:lang(zh-Hans) .f-title,
+:root:lang(zh-Hans) .est-lbl {
+  text-transform: none;
+  letter-spacing: 0.04em;
+}
+:root:lang(ru) .label,
+:root:lang(ru) .f-title,
+:root:lang(ru) .est-lbl {
+  letter-spacing: 0.06em; /* Russian words are long */
+}
+/* Hyphenation for running text only (UXD 1.5, FB-R4-UXD-FE-05): body paragraphs of the sections and the privacy
+   page – never labels, titles, hints, the hero lead or the price box. */
+:root:lang(ru) .sec p {
+  hyphens: auto;
+}
+:root:lang(ru) .sec :is(.label, .f-title, .hint, .lead, .est > *, .est-sent) {
+  hyphens: manual;
+}
+/* Typed names and notes: system fonts for Han/Hangul (any character can be typed – a name never mixes two fonts) */
+:root:lang(ko) .input,
+:root:lang(zh-Hans) .input {
+  font-family:
+    'Be Vietnam Pro',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+}
 .sec {
   padding-block: var(--section);
 }
@@ -428,27 +485,130 @@ h1 {
   align-items: center;
   gap: var(--s2);
 }
-.lang {
-  display: inline-flex;
-  border: 1px solid var(--brand-ink);
-  border-radius: var(--r);
-  overflow: hidden;
-}
-.lang a {
+.lang-pick > summary {
+  list-style: none;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  font: 500 0.875rem/1 var(--sans);
-  letter-spacing: 0.06em;
+  gap: 6px;
   min-width: 44px;
   min-height: 44px;
-  padding: 0 var(--s2);
+  padding: 0 10px;
+  border: 1px solid var(--brand-ink);
+  border-radius: var(--r);
   color: var(--brand-ink);
-  text-decoration: none;
+  font:
+    500 0.875rem/1 'Be Vietnam Pro',
+    Arial,
+    Helvetica,
+    sans-serif;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  user-select: none;
 }
-.lang a[aria-current='page'] {
+.lang-pick > summary::-webkit-details-marker {
+  display: none;
+}
+.lang-pick > summary svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+.lang-pick > summary .lp-chev {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.15s;
+}
+.lang-pick[open] > summary {
   background: var(--brand-ink);
   color: var(--brand-ivory);
+}
+.lang-pick[open] > summary .lp-chev {
+  transform: rotate(180deg);
+}
+/* Phone: a full-width sheet under the header, same build as the menu sheet (UXD lp-v2 2.2) */
+.lp-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 5;
+  background: var(--brand-ivory);
+  border-bottom: 1px solid var(--brand-oak);
+  padding: var(--s2) var(--gutter) var(--s4);
+}
+.lp-h {
+  font: 500 0.75rem/1.4 var(--sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--brand-earth);
+  padding-block: var(--s2);
+}
+.lp-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.lp-panel a {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 48px;
+  color: var(--brand-ink);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 1.0625rem;
+  border-bottom: 1px solid var(--brand-cream);
+}
+.lp-panel li:last-child a {
+  border-bottom: 0;
+}
+/* Language names of other languages: system fonts (ARC lp-v2 3.3 rule 3) – no Korean/Chinese/Cyrillic file on this page */
+.lp-panel a:not([aria-current='page']):not([lang='en']):not([lang='vi']),
+.lang-suggest:not([lang='en']):not([lang='vi']) {
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-family: var(--sans);
+}
+.lp-panel a:hover {
+  color: var(--brand-earth);
+}
+.lp-ck {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  visibility: hidden;
+}
+.lp-panel a[aria-current='page'] {
+  font-weight: 600;
+}
+.lp-panel a[aria-current='page'] .lp-ck {
+  visibility: visible;
+}
+@media (min-width: 768px) {
+  .lang-pick {
+    position: relative;
+  }
+  .lp-panel {
+    left: auto;
+    right: 0;
+    top: calc(100% + 6px);
+    min-width: 212px;
+    padding: 4px 0;
+    border: 1px solid var(--brand-oak);
+    border-radius: var(--r);
+  }
+  .lp-h {
+    display: none;
+  }
+  .lp-panel a {
+    min-height: 44px;
+    padding: 0 var(--s4);
+    font-size: 0.9375rem;
+    border-bottom: 0;
+  }
+  .lp-panel a:hover {
+    background: var(--brand-cream);
+    color: var(--brand-ink);
+  }
 }
 .only-d {
   display: none;
@@ -538,6 +698,13 @@ h1 {
   }
   .menu {
     display: none;
+  }
+}
+/* Russian menu words are long: between 1024 and 1159 px the four items sit 24 px apart (not 32) so the wordmark keeps
+   its clear space before "Номера" (FB-R4-UXD-FE-03; 15 → 27 px at 1024 px). Same type size. */
+@media (min-width: 1024px) and (max-width: 1159.98px) {
+  :root:lang(ru) .nav-d {
+    gap: var(--s5);
   }
 }
 
@@ -1901,7 +2068,11 @@ legend.f-label:not(.sr) {
   background: transparent;
   text-decoration: none;
   font: 500 0.9375rem/1.1 var(--sans);
-  white-space: nowrap;
+  /* Safety net (FB-R4-UXD-FE-02): a label that does not fit takes a second line inside the 48 px button instead of
+     spilling over its border – never a smaller type size. CPY's short labels (13.1) fit one line at 320–390 px. */
+  white-space: normal;
+  text-align: center;
+  text-wrap: balance;
 }
 .sb svg {
   width: 18px;
@@ -1926,6 +2097,97 @@ legend.f-label:not(.sr) {
 @media (min-width: 768px) {
   .stickybar {
     display: none;
+  }
+}
+
+/* Estimated price in the form (LP-v2, UXD lp-v2-design 3.4): Ivory box on the Cream card, brand tokens only. Calm –
+   no badge, no strike-through, no colour for "good price"; the amount in Lora 400, never bold. */
+.est {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  min-height: 76px;
+  padding: var(--s4) 20px;
+  background: var(--brand-ivory);
+  border-radius: var(--r);
+}
+.est[hidden] {
+  display: none;
+}
+.est > * {
+  margin: 0;
+  transition: opacity 0.15s;
+}
+.est-lbl {
+  font: 500 0.8125rem/1.4 var(--sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--brand-earth);
+}
+.est-main {
+  font-size: 0.9375rem;
+  color: var(--brand-stone);
+}
+/* The amount alone on its line; the nights phrase is its own quieter line (.est-nights) above (ko/zh) or below
+   (en/vi/ru) – FB-R4-UXD-FE-04. */
+.est-amt {
+  display: block;
+  font: 400 1.75rem/1.2 var(--serif);
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: 0.01em;
+  color: var(--brand-ink);
+}
+.est-line,
+.est-nights {
+  font-size: 0.875rem;
+  color: var(--brand-stone);
+}
+.est-nights {
+  font-size: 0.9375rem;
+}
+/* "Checking rates…" – never faded: Stone on Ivory stays at full contrast (FB-R4-UXD-FE-07) */
+.est-wait {
+  font-size: 0.875rem;
+  color: var(--brand-stone);
+}
+.est-msg {
+  font-size: 0.9375rem;
+  color: var(--brand-ink);
+  align-self: center;
+}
+.est-idle {
+  font-size: 0.875rem;
+  color: var(--brand-stone);
+  align-self: center;
+}
+.est-note {
+  margin-top: var(--s2);
+  padding-top: var(--s2);
+  border-top: 1px solid var(--brand-cream);
+  font-size: 0.8125rem;
+  color: var(--brand-stone);
+}
+.est-skel {
+  display: block;
+  width: 180px;
+  max-width: 60%;
+  height: 28px;
+  margin-top: 4px;
+  border-radius: 2px;
+  background: var(--brand-cream);
+}
+/* only the old number and its lines fade while a new one is computed (UXD S2) */
+.est.is-busy .est-main,
+.est.is-busy .est-nights,
+.est.is-busy .est-line {
+  opacity: 0.45;
+}
+.est-sent {
+  margin: var(--s2) 0 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .est > * {
+    transition: none;
   }
 }
 

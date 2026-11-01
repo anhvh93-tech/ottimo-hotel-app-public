@@ -14,7 +14,8 @@ export type PhotoFormat = 'avif' | 'webp';
 
 export interface Photo {
   id: string;
-  alt: Record<Lang, string>;
+  /** Alt text of UXD's manifest (EN, VI); other languages use the page copy (Copy.photoAlt), else English. */
+  alt: { en: string; vi: string } & Partial<Record<Lang, string>>;
   /** Intrinsic size of the largest file (width/height attributes – no layout shift). */
   width: number;
   height: number;
