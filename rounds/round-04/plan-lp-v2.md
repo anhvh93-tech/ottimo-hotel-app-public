@@ -1,7 +1,7 @@
 # Round 4 – Gói LP-v2: website ottimo.vn đa ngôn ngữ + giá ước tính trong form
 
 - Ngày mở: 01/11/2026 | Người mở: ORC | Nguồn: **FB-INV-008** (thêm tiếng Hàn, Trung giản thể, Nga) + **FB-INV-009** (form "Plan your stay" hiện giá niêm yết ước tính khi khách chọn căn). INV: "gộp chung hai yêu cầu này của tôi và làm luôn nhé" (01/11).
-- **Ràng buộc cứng:** không đụng production trước và trong ngày D 02/11. Phát hành sau khi QC đạt, INV duyệt Release; dự kiến cùng hoặc sau v1.0.1.
+- **Ràng buộc cứng:** không đụng production trước và trong ngày D 02/11. **Phát hành một lần cho cả gói (INV 01/11)** sau khi QC đạt, bảng giá mới đã nhập, người bản xứ + luật sư đọc xong; INV duyệt Release.
 - Brand guideline OTTIMO bắt buộc (màu 80/15/5, Lora + Be Vietnam Pro + JetBrains Mono, giọng ngắn – lịch sự – điềm tĩnh, EN dẫn, không emoji). Font cho chữ Hàn/Trung/Nga: UXD chọn và ghi lệch.
 
 ## Giả định ORC (INV chưa trả lời 3 điểm – dùng đề xuất của đội, báo INV cuối gói)
