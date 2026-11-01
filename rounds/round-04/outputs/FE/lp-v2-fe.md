@@ -211,3 +211,87 @@ Nguồn: PO `lp-v2-stories.md` mục 9.1 B3–B5 (US-175 AC3–AC5 sửa 01/11),
 - **BE:** review đoạn sửa `website-requests.service.ts`/`controller.ts` + ca test mới.
 - **UXD:** bố cục cột 1366 px (chip xuống dòng) và 4 chuỗi FE viết.
 - **QA lượt 3:** US-175 AC3/AC4/AC5 theo PO mục 9; ca EN hồi quy BUG-R3-050.
+
+## 11. Kiểm thử – sửa lỗi lượt 5 (FE, 01/11/2026, nhánh `lp-v2-fe5` từ `lp-v2` @ `0a25716a`)
+
+Nguồn: QA `bug-list.md` BUG-R4-011, 012 + báo cáo mục 12; ARC `ARC-on-LP-v2-fixes.md` (FE-LPV2-05 Major, FE-LPV2-06, BE-LPV2-08/09/10, OPS-LPV2-02, UXD-LPV2-01); UXD `UXD-on-LP-v2-fe4.md` (FE-18…23, BE-01). FE được sửa nhỏ phía api trong module liên quan, kèm test.
+
+### 11.1 Đã làm
+- **BUG-R4-011 (P2) – tạo nhanh hồ sơ từ yêu cầu Zalo bị 422.** Chọn cách (a) của QA, không đổi luật server. Desk không có ô Zalo riêng (Zalo đi theo ô "Số điện thoại / Zalo"), nên `GuestFormDialog` gửi `messagingHandles.zalo` = SĐT khi liên hệ ưu tiên là Zalo và hồ sơ chưa có tài khoản Zalo riêng.
+  - KakaoTalk dùng chung ô "WhatsApp / KakaoTalk": chọn KakaoTalk thì ô đó ghi vào `messagingHandles.kakaotalk` (trước đây cũng 422 như Zalo). WhatsApp giữ như cũ. Telegram/Viber không phải kênh của hồ sơ (`preferredContact` không có) – điền sẵn để "–" như lượt 4, lưu được.
+  - Khi sửa hồ sơ: giữ các tài khoản Desk không hiện (Zalo khác SĐT, KakaoTalk…); Zalo vốn trùng SĐT cũ thì đi theo SĐT mới (so theo chữ số, vì server trả handle dạng `849…` không có `+`); chỉ gửi `messagingHandles` khi có đổi. Trước đây sửa hồ sơ có WhatsApp sẽ ghi đè mất các handle khác.
+  - Câu lỗi 422 từ server: `fieldErrors` nay nhận `{channel}` = tên kênh đang chọn → "Nhập Zalo trước khi chọn làm liên hệ ưu tiên." – không còn "{channel}".
+  - Đã kiểm cả 3 đường: Báo giá, "Tạo đơn" (H09), "Ở dài ngày" (H10) – cùng `GuestPicker` → `GuestFormDialog`, cùng được sửa. Hồ sơ tạo tay chọn Zalo chỉ có SĐT cũng lưu được.
+  - MSW mock nay áp luật `CONTACT_CHANNEL_EMPTY` và mặc định quốc tịch như server (lý do test lượt 4 xanh mà stack thật lỗi).
+- **BUG-R4-012 / ARC FE-LPV2-05 (Major) – quốc tịch.** Hợp đồng **0.3.10 bổ sung 5** (ARC đã duyệt trước trong thẻ): `GuestInput.nationalityCode` nhận `null` (`type: [string, 'null']`).
+  - Mô tả: `null` = chưa biết → server lưu NULL, `Guest.nationalityCode` vắng, `isForeigner = false`. Bỏ trường khi tạo vẫn là `VN`; bỏ trường khi sửa giữ giá trị cũ.
+  - Sinh lại api-client (`openapi.ts`); meta/schemas api không đổi (chỉ khác mô tả).
+  - Desk gửi `nationalityCode: null` **chỉ khi tạo mới** mà ô trống; sửa hồ sơ với ô trống thì bỏ trường.
+  - Server đã nhận `null` từ trước nên không sửa mã server; thêm integration test.
+  - `is_foreigner`: chỉ module guests dùng (khai báo lưu trú tính theo giấy tờ, `registration/rules.ts`). NULL → `false`, và hồ sơ không còn bị ghi quốc tịch `VN`. `preferredLocale` không bị ảnh hưởng (Desk luôn gửi).
+- **ARC FE-LPV2-06:** có `prefill` từ yêu cầu thì bỏ bản nháp cũ (`if (!isCreate || prefillName || prefill)`). `GuestPicker` thực tế luôn truyền tên đang gõ (không rỗng), nhưng đường này nay an toàn; có test với bản nháp sẵn.
+- **ARC BE-LPV2-08:** `website-requests.service.ts` `list()` dựng `WHERE` theo số tham số của từng câu (`whereAt({ status, user, ref, locale })`). Câu đếm dùng mảng riêng `[statuses, userId, ref, locales]`, bỏ mệnh đề giả `$3::date IS NOT NULL`.
+- **ARC BE-LPV2-09:** changelog "0.3.10 bổ sung 4" đổi "chờ ARC xác nhận" → "ARC xác nhận 01/11 – `ARC-on-LP-v2-fixes.md`".
+- **ARC BE-LPV2-10: không gộp.** Gom về `@ottimo/i18n` không làm được (api CommonJS không đọc gói chỉ có nguồn TS). Gom vào `@ottimo/contracts` phải thêm phụ thuộc runtime cho i18n và guest-web, không gọn. Làm theo đề xuất của ARC: bảng chung `packages/i18n/src/plural-forms.cases.json` (vi/en/ru × 0, 1, 2, 3, 4, 5, 11, 12, 14, 21, 22, 25, 101, 111, 112). Cả `translate.test.ts` và api `bug-r4-009-plurals.test.ts` kiểm theo bảng này, nên hai bản không lệch được.
+- **UXD FE-18:** ô "Ngôn ngữ" hiển thị theo cụm không ngắt ("Tiếng Trung" / "(giản thể)"). Chỉ ở mức hiển thị, JSON giữ nguyên.
+- **UXD FE-19:** `min-width` và bo `--r-sm` chỉ áp cho chip có class `chip--wrap` (chip "Ở dài ngày…" và chip cờ `webreq.flag.*`); chip "+N" giữ dạng viên thuốc.
+  - Chip xuống dòng căn trái, `text-wrap: balance`, icon theo dòng đầu.
+  - `min-width` 8rem → 9rem để "Ở dài ngày – / báo giá dài hạn" còn 2 dòng.
+- **UXD FE-20:** số "{n} yêu cầu mới" đầu trang và huy hiệu menu dùng **một nguồn** `loadWebreqNewCount` (`status=new`, phạm vi vai; lấy `total` khi server trả), không đổi theo bộ lọc. Có sự kiện SSE thì tải lại cả hai.
+- **UXD FE-21:** nhãn nhóm trạng thái dùng kiểu nhãn của `Field` (`.lbl`, viết thường kiểu câu), giữ `role="group"` + `aria-labelledby`. Thanh lọc bỏ `margin-bottom` của `Field` và căn đáy (`align-items: flex-end`) cho cả form tìm, nên nút trạng thái, ô ngôn ngữ, ô mã và nút "Tìm" cùng đáy.
+- **UXD FE-22:** câu `sale.text_lang_note.*` cùng kiểu `help` ở bước gửi và bước giữ chỗ (giữ khoảng cách `mt-8`). `Seg` (`@ottimo/ui`) thêm prop `describedBy`, nên nhóm "Ngôn ngữ gửi khách" có `aria-describedby="q-lang-note"`.
+- **UXD FE-23:** mock `getQuoteText` dựng câu như server: `sale.quote_text` + cụm đếm `sale.quote_{nights,adults,kids,under6}_*` theo `pluralForm`, dòng phụ thu `sale.quote_text_extra_guest_*`, tiền như server (vi "đ", en/ru "VND"). Đã chụp lại báo giá.
+- **UXD BE-01:** `guest.bill.line.room_*` EN → "Room charge, {nights} night × {rate}" / "Room charge, {nights} nights × {rate}".
+  - Sửa trong `gen_strings.py` rồi sinh lại; VI/RU không đổi.
+  - Cập nhật 4 dòng bảng trong `content-guide.md` và test i18n.
+  - Ghi chú 4 khóa FE lượt 4 đổi thành "UXD duyệt 01/11 (UXD-on-LP-v2-fe4)".
+- **OPS-LPV2-02:** `turbo.json` task `dev` thêm `"dependsOn": ["^build"]`. `turbo run dev --filter=@ottimo/admin-web --dry` nay có `@ottimo/contracts#build` trước `admin-web#dev`.
+- **UXD-LPV2-01:** `.github/workflows/ci.yml` (job build-test, sau Lint) thêm bước "Copy is generated".
+  - Bước này chạy `python3 design/tools/gen_strings.py`. Nếu có thay đổi ở `design/copy`, `wireframes/assets/strings.js` hoặc `tools/strings-tables.md` thì báo lỗi và dừng.
+  - Đã chạy thử: sinh lại hai lần liền nhau cho cùng hash.
+
+### 11.2 Kiểm
+- admin-web vitest **65 file / 687 đạt**. File mới `r4-lp-v2-fe5.test.tsx` có 13 ca:
+  - Báo giá từ yêu cầu Zalo ko/en/ru: POST có `messagingHandles.zalo` và `nationalityCode: null`, lưu ở lần bấm đầu, hồ sơ không có quốc tịch, `isForeigner` false.
+  - "Tạo đơn" H09 (zh) và "Ở dài ngày" H10 (ru).
+  - 422 từ server → câu có "Zalo", không có "{channel}".
+  - Hồ sơ tạo tay chọn Zalo chỉ có SĐT (gửi `VN`).
+  - `messagingHandlesOf`: Zalo/KakaoTalk/WhatsApp, giữ handle khi sửa.
+  - Bản nháp không đè prefill.
+  - FE-18, FE-20, FE-22 (`help` + mô tả trợ năng), FE-23 (mock: trẻ em, số ít/nhiều, phụ thu).
+  - Chạy lại file này với `GuestFormDialog` bản `0a25716a`: 9/13 đỏ, đúng lỗi QA báo, nên test bắt được lỗi.
+  - `s4-money.test.tsx` đổi regex "Предложение" sang không phân biệt hoa thường (chữ RU của UXD là "предложение").
+- api vitest toàn bộ trên Postgres 17 tạm (container riêng, mật khẩu tạm, đã xóa):
+  - Lần 1: **3359 đạt, 2 đỏ**, cả hai ở file mới. Nguyên nhân: server trả `messagingHandles.zalo` dạng `849…` không có `+`; đã sửa kỳ vọng.
+  - Lần 2: **142 file đạt, 3356 ca đạt**. 1 file đỏ là `production-bootstrap`, vì DB bootstrap không còn rỗng sau lần 1. Tạo lại DB rỗng rồi chạy riêng: **11/11 đạt**.
+  - File mới `integration/bug-r4-012-guest-nationality-null.test.ts` có 5 ca:
+    - `null` → NULL trong DB, vắng trong `Guest`, `isForeigner` false, `preferredLocale` giữ nguyên; SAL cũng vậy.
+    - Bỏ trường → `VN`.
+    - Sửa hồ sơ: bỏ trường thì giữ NULL, `KR` → nước ngoài, `null` xóa lại.
+    - Zalo chỉ có SĐT → 422; có `messagingHandles.zalo` → 201.
+  - `lp-v2-price-estimate.test.ts` (đếm `total`) xanh sau khi đổi sang `whereAt`.
+- Kiểm tĩnh và gen:
+  - `turbo typecheck` (admin-web, api, ui, i18n, guest-web) xanh; eslint 0 lỗi (3 cảnh báo cũ `mockServiceWorker.js`); prettier xanh.
+  - Redocly lint hợp lệ (6 cảnh báo như trước).
+  - api-client `gen.mjs --check`, `gen-openapi-meta.mjs --check`, `gen-quote-copy.mjs --check`: "up to date". `gen_strings.py` sinh lại ổn định.
+  - i18n 22/22, ui 13/13, api-client 32/32, guest-web 73/73, contracts 2/2.
+  - `gen_traceability.py --strict`, `gen_rbac_cases.py --check` xanh.
+- Ảnh (MSW, dữ liệu giả, SĐT dải `+84 900 000 12x`):
+  - `screenshots/lp-v2-fe5-s35-list-1366.png`: bảng `scrollWidth` 1360 / khung 1084 (≤ 1440 như UXD đặt); "2 yêu cầu mới" = huy hiệu 2.
+  - `lp-v2-fe5-s35-filter-zh-1366.png`: lọc zh, đầu trang vẫn "2 yêu cầu mới", dòng "1 yêu cầu khớp bộ lọc", "Tiếng Trung / (giản thể)", thanh lọc cùng đáy.
+  - `lp-v2-fe5-guest-quick-create-zalo.png`: Zalo, English, quốc tịch "–". Lưu → `KH-0022`, có `messagingHandles.zalo`, không có quốc tịch.
+  - `lp-v2-fe5-quote-send-mock-text.png`: câu mock "(2 nights), 2 adults, 1 child aged 6–11" + dòng phụ thu; câu ghi chú kiểu `help`.
+  - `lp-v2-fe5-hold-note-help.png`.
+
+### 11.3 Giả định
+- BUG-R4-011 chọn cách (a) (Desk gửi `messagingHandles.zalo` = SĐT) thay vì (b) (server coi Zalo = SĐT). Cách này không đổi luật server, hợp đồng chỉ thêm mô tả. Hồ sơ tạo từ app hoặc tích hợp khác vẫn theo luật cũ. `[GIẢ ĐỊNH – FE; ARC xem – thẻ ARC chưa chọn (a)/(b)]`
+- KakaoTalk: ô "WhatsApp / KakaoTalk" ghi vào khóa của kênh đang chọn (KakaoTalk → `kakaotalk`, kênh khác → `whatsapp`). `[GIẢ ĐỊNH – FE]`
+- Hồ sơ có quốc tịch NULL thì `isForeigner = false` (server có sẵn luật này). "Khách nước ngoài" chỉ tính khi biết quốc tịch ≠ VN. `[GIẢ ĐỊNH – theo mã server; DOM/DATA xem nếu báo cáo quốc tịch cần nhóm "chưa biết"]`
+- `min-width` của chip xuống dòng là 9rem (2 dòng như UXD mong đợi); bảng 1360 px ≤ 1440. `[GIẢ ĐỊNH – FE; UXD xác nhận khi chụp lại]`
+
+### 11.4 Cần vai khác
+- **ARC:** xác nhận 0.3.10 bổ sung 5 như đã ghi (chỉ nới `nationalityCode`, thêm mô tả `preferredContact`). Ghi nhận thêm: `Guest.messagingHandles` trả dạng lưu `849…` (không có `+`), lệch với quy ước chung "response SĐT luôn E.164 có `+`". Lệch này có từ trước, chưa sửa, vì đổi phản hồi có thể ảnh hưởng client khác.
+- **BE:** review đoạn `whereAt` (`website-requests.service.ts`) và file test mới.
+- **UXD:** xem lại ảnh `lp-v2-fe5-*` cho FE-18…22, đặc biệt chip 9rem và thanh lọc cùng đáy.
+- **OPS:** bước CI mới "Copy is generated" cần `python3` trên runner (ubuntu-24.04 có sẵn).
+- **QA lượt 4:** BUG-R4-011 (Zalo, ko/zh/ru/vi, 3 đường); BUG-R4-012 (`GET /guests/{id}` không có quốc tịch, sửa hồ sơ sau vẫn "–").

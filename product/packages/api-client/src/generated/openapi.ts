@@ -7988,11 +7988,14 @@ export interface components {
       dateOfBirth?: components['schemas']['LocalDate'];
       /** @enum {string} */
       gender?: 'male' | 'female' | 'other';
-      /** @description ISO 3166-1 alpha-2 (hồ sơ khách; giấy tờ dùng alpha-3) – 0.3.4 */
-      nationalityCode?: string;
+      /**
+       * @description ISO 3166-1 alpha-2 (hồ sơ khách; giấy tờ dùng alpha-3) – 0.3.4. **0.3.10 bổ sung 5**: `null` = chưa biết quốc tịch (hồ sơ tạo nhanh từ yêu cầu website –
+       *     US-175 AC4 (3), BUG-R4-012): server lưu NULL, `Guest.nationalityCode` vắng, `isForeigner = false`. **Bỏ trường khi tạo = `VN`** như cũ; bỏ trường khi sửa = giữ giá trị cũ.
+       */
+      nationalityCode?: string | null;
       preferredLocale?: components['schemas']['Locale'];
       /**
-       * @description Kênh trỏ tới phải có giá trị – nếu không `CONTACT_CHANNEL_EMPTY` (0.3.4)
+       * @description Kênh trỏ tới phải có giá trị – nếu không `CONTACT_CHANNEL_EMPTY` (0.3.4): `phone` cần `phone`, `email` cần `email`, `zalo`/`whatsapp`/`kakaotalk` cần `messagingHandles.<kênh>` (Desk gửi `messagingHandles.zalo` = SĐT khi khách dùng Zalo bằng SĐT – 0.3.10 bổ sung 5, BUG-R4-011)
        * @enum {string}
        */
       preferredContact?: 'phone' | 'zalo' | 'whatsapp' | 'kakaotalk' | 'email';

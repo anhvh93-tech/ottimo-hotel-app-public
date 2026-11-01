@@ -21,6 +21,7 @@ import { useNow } from '../../hooks/useNow';
 import { useOnline } from '../../hooks/useOnline';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
+import { loadWebreqNewCount } from './newCount';
 import {
   CHANNEL_ICON,
   CHANNEL_KEY,
@@ -103,10 +104,17 @@ export function WebRequestsPage() {
     );
     return out.data;
   }, [propertyId, statusKey, locale, refCode]);
+  // FB-R4-UXD-FE-20: "n new requests" under the title is the menu badge's number (`status=new`, the caller's
+  // scope) – never the filtered list, which has its own "{n} matching" line.
+  const newCount = useResource(() => loadWebreqNewCount(propertyId), [propertyId]);
   const reload = list.reload;
+  const reloadCount = newCount.reload;
   useLiveEvents(
     propertyId,
-    useCallback(() => reload(), [reload]),
+    useCallback(() => {
+      reload();
+      reloadCount();
+    }, [reload, reloadCount]),
     {
       events: LIVE_EVENTS,
       debounceMs: 1000,
@@ -118,7 +126,6 @@ export function WebRequestsPage() {
   const hasMore = !!nextCursor;
   const all = [...(firstPage?.data ?? []), ...(more?.rows ?? [])];
   const rows = onlyMine ? all.filter((r) => r.assignedUserId === me?.id) : all;
-  const newCount = all.filter((r) => r.status === 'new').length;
   const filtered = !!refCode || onlyMine || !!locale || statusKey !== DEFAULT_STATUSES.join(',');
   // US-175 AC5: the server counts every request matching status + language (+ code) – not the loaded pages.
   // "Only mine" is filtered here on the loaded rows, so the server total would not match it: no number then.
@@ -182,7 +189,11 @@ export function WebRequestsPage() {
     <>
       <Topbar
         title={t('nav.website_requests')}
-        sub={firstPage ? t('webreq.count_new', { n: newCount }) : undefined}
+        sub={
+          typeof newCount.state.data === 'number'
+            ? t('webreq.count_new', { n: newCount.state.data })
+            : undefined
+        }
       />
       <Page>
         <div className="stack">
@@ -193,8 +204,9 @@ export function WebRequestsPage() {
             </Alert>
           ) : null}
           <div className="webreq-filters">
-            <div role="group" aria-labelledby={`${ids}-st`}>
-              <span className="label-h" id={`${ids}-st`}>
+            {/* FB-R4-UXD-FE-21: same sentence-case label as the Field boxes beside it (DS C3). */}
+            <div role="group" className="field" aria-labelledby={`${ids}-st`}>
+              <span className="lbl" id={`${ids}-st`}>
                 {t('webreq.filter_label')}
               </span>
               <div className="row wrap">
@@ -355,6 +367,21 @@ export function WebRequestsPage() {
   );
 }
 
+/**
+ * FB-R4-UXD-FE-18: "Tiếng Trung (giản thể)" may wrap only before the bracket – "Tiếng Trung / (giản thể)", never
+ * inside a group. Display only: the copy keeps plain spaces.
+ */
+function KeepTogether({ text }: { text: string }) {
+  const i = text.indexOf(' (');
+  if (i < 0) return <span className="nowrap">{text}</span>;
+  return (
+    <>
+      <span className="nowrap">{text.slice(0, i)}</span>{' '}
+      <span className="nowrap">{text.slice(i + 1)}</span>
+    </>
+  );
+}
+
 function Row({
   r,
   now,
@@ -384,7 +411,7 @@ function Row({
         {stayText(t, r)}
         {r.stayKind === 'long' ? (
           <div>
-            <Chip tone="long" icon="calendar">
+            <Chip tone="long" icon="calendar" className="chip--wrap">
               {t('webreq.long_stay')}
             </Chip>
           </div>
@@ -395,7 +422,9 @@ function Row({
       <td>
         <Chip icon={CHANNEL_ICON[r.preferredChannel]}>{t(CHANNEL_KEY[r.preferredChannel])}</Chip>
       </td>
-      <td>{t(`webreq.locale.${r.locale}`)}</td>
+      <td>
+        <KeepTogether text={t(`webreq.locale.${r.locale}`)} />
+      </td>
       <td>{sourceText(t, r)}</td>
       <td>
         {open ? (
@@ -422,7 +451,7 @@ function Row({
       <td className="chips-wrap">
         <div className="row wrap">
           {flags.slice(0, 2).map((f) => (
-            <Chip key={f} tone="warn">
+            <Chip key={f} tone="warn" className="chip--wrap">
               {t(`webreq.flag.${f}`)}
             </Chip>
           ))}

@@ -116,6 +116,22 @@ jobs:
       - name: Lint (ESLint once for the workspace + tsc per package)
         run: pnpm lint
 
+      # FB-R4-ARC-UXD-LPV2-01: design/tools/gen_strings.py is the only source of the UI copy – the JSON, strings.js
+      # and strings-tables.md are its output. Re-run it: any change means a generated file was edited by hand (the
+      # next run would silently undo approved CPY/UXD text) or the script changed without regenerating.
+      - name: Copy is generated (gen_strings.py writes no change)
+        timeout-minutes: 2
+        run: |
+          python3 design/tools/gen_strings.py
+          paths="design/copy design/wireframes/assets/strings.js design/tools/strings-tables.md"
+          drift=$(git status --porcelain --untracked-files=all -- $paths)
+          if [ -n "$drift" ]; then
+            echo "$drift"
+            git --no-pager diff --stat -- $paths
+            echo "::error::generated copy differs from design/tools/gen_strings.py – edit the script, run 'python3 design/tools/gen_strings.py' and commit the output"
+            exit 1
+          fi
+
       # erd 16.6 (b): the Drizzle schema must match the committed migrations. drizzle-kit generate needs no
       # database; if it writes anything (new SQL, snapshot, journal) the schema changed without a migration.
       - name: Schema matches migrations (drizzle-kit generate creates no file)

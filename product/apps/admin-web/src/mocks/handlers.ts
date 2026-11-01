@@ -523,6 +523,23 @@ function guestFieldErrors(body: Record<string, unknown>) {
   return errors;
 }
 
+/** Like guests.service (BUG-R4-011): a messaging channel needs `messagingHandles.<channel>`, not just the phone. */
+function contactChannelErrors(merged: Record<string, unknown>) {
+  const c = merged.preferredContact as string | null | undefined;
+  if (!c) return [];
+  const handles = (merged.messagingHandles ?? {}) as Record<string, string | undefined>;
+  const has =
+    c === 'phone' ? !!merged.phone : c === 'email' ? !!merged.email : !!handles[c]?.trim();
+  return has ? [] : [{ field: 'preferredContact', code: 'CONTACT_CHANNEL_EMPTY' }];
+}
+
+/** Like guests.service (BUG-R4-012): left out on create = VN; `null` = unknown (0.3.10 bổ sung 5). */
+function withNationality(guest: Record<string, unknown>, created: boolean) {
+  if (created && guest.nationalityCode === undefined) guest.nationalityCode = 'VN';
+  if (guest.nationalityCode === null) delete guest.nationalityCode;
+  guest.isForeigner = !!guest.nationalityCode && guest.nationalityCode !== 'VN';
+}
+
 function duplicateOf(body: Record<string, unknown>, selfId?: string) {
   const pk = phoneKey(body.phone as string | undefined);
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : null;
@@ -1104,10 +1121,11 @@ export const handlers = [
     if (isResponse(g)) return g;
     if (!request.headers.get('idempotency-key')) return problem(428, 'PRECONDITION_REQUIRED');
     const body = (await request.json()) as Record<string, unknown>;
-    const errors = guestFieldErrors(body);
+    const errors = [...guestFieldErrors(body), ...contactChannelErrors(body)];
     if (errors.length) return validation(errors);
     const dup = duplicateOf(body);
     if (dup) return duplicateGuest(dup, g.user, g.roles, body);
+    withNationality(body, true);
     const n = db.nextGuest++;
     const guest: MockGuest = {
       ...(body as Partial<MockGuest>),
@@ -1136,11 +1154,15 @@ export const handlers = [
     if (isResponse(g)) return g;
     if (!inScope(guest, g.user, g.roles)) return problem(404, 'NOT_FOUND');
     const body = (await request.json()) as Record<string, unknown>;
-    const errors = guestFieldErrors(body);
+    const errors = [
+      ...guestFieldErrors(body),
+      ...contactChannelErrors({ ...(guest as unknown as Record<string, unknown>), ...body }),
+    ];
     if (errors.length) return validation(errors);
     const dup = duplicateOf(body, guest.id);
     if (dup) return duplicateGuest(dup, g.user, g.roles, body);
     Object.assign(guest, body, { version: guest.version + 1 });
+    withNationality(guest as unknown as Record<string, unknown>, false);
     return HttpResponse.json(guestView(guest, g.roles));
   }),
 

@@ -319,9 +319,13 @@ info:
       theo mã đã chạy và các lệch ARC đã chấp nhận L1–L3: 30/10 phút + 200/ngày/IP, 400/ngày/IPv6 /48, 10/giây toàn api → 503; `Cache-Control: no-store`; cache kết quả 60 giây;
       query ≤ 256 byte; `statement_timeout` 1 giây. (2) `updateRoom` lưu `RoomPatch.publicRoomType` (trước đây server bỏ qua mà vẫn trả 200), `createRoom` lưu `RoomInput.publicRoomType`,
       `Room.publicRoomType` luôn có trong phản hồi; **chỉ owner** gửi được trường này (manager → 403). Sửa căn xóa cache giá web của cơ sở.
-    - **0.3.10 bổ sung 4 (FE-A theo lệnh ORC, R4 bước Kiểm thử – BUG-R4-007, US-175 AC3/AC5 sửa 01/11; chờ ARC xác nhận – chỉ thêm, không gãy client)**:
+    - **0.3.10 bổ sung 4 (FE-A theo lệnh ORC, R4 bước Kiểm thử – BUG-R4-007, US-175 AC3/AC5 sửa 01/11; ARC xác nhận 01/11 – `rounds/round-04/reviews/ARC-on-LP-v2-fixes.md`; chỉ thêm, không gãy client)**:
       `listWebsiteBookingRequests` thêm query `locale` (mảng `LandingLocale`, `form`, `explode: false`; giá trị ngoài danh sách → 422 mã trường `NOT_IN_LIST`) và trường phản hồi
       `total` (số yêu cầu khớp `status`/`refCode`/`locale` trong phạm vi vai của người gọi, không phụ thuộc `cursor`/`limit`) để S35 lọc và đếm theo ngôn ngữ.
+    - **0.3.10 bổ sung 5 (FE-A theo lệnh ORC, R4 bước Kiểm thử – BUG-R4-012, BUG-R4-011; ARC đã duyệt trước ở FB-R4-ARC-FE-LPV2-05 – chỉ nới, không gãy client)**:
+      `GuestInput.nationalityCode` nhận `null` = chưa biết (hồ sơ tạo nhanh từ yêu cầu website); server lưu NULL, `isForeigner = false`, `Guest.nationalityCode` vắng. Bỏ trường khi
+      tạo vẫn là `VN`. Server đã nhận `null` từ trước (controller `nullable`, CHECK cho phép NULL) – thêm integration test. Mô tả `preferredContact` nói rõ kênh nhắn tin cần
+      `messagingHandles.<kênh>`; Desk gửi `messagingHandles.zalo` = SĐT khi chọn Zalo (ô "Số điện thoại / Zalo").
 
     ## Thay đổi phiên bản 0.3.8-draft (R3 Sprint 1 – hợp đồng trước code; chi tiết `rounds/round-03/outputs/ARC/s1-contracts.md`)
     **0.3.8 bổ sung 8 (ARC 26/10, ESC-031 – INV 26/10 "vá luôn", ESC-024 B)**: `checkOut.lateFeeInsteadOfNight.postReview` (boolean, mặc định `false`) – cách (4) "lễ tân ghi, quản lý hậu kiểm" cho v1.0 (chưa có US-164): đúng số server tính, lý do bắt buộc, không mật khẩu/PIN/TOTP của ai, không FOC trong lệnh; audit `after.channel = post_review`; `late_fee_post_review` (thông báo + "Cần chú ý") hạn = ghi + `post_checkout_charge_hours` (thay `late_fee_post_review_hours` – khóa này **bỏ**, cả cách (3)). Chỉ thêm trường tùy chọn – không đổi response, `x-roles`, không mã lỗi mới. v1.1 (US-164): cách (4) **thôi nhận** (422 `NOT_ALLOWED`), thay bằng (3) – `s1-contracts.md` mục 13.5.
@@ -12758,9 +12762,15 @@ components:
         messagingHandles: { type: object, additionalProperties: { type: string } }
         dateOfBirth: { $ref: '#/components/schemas/LocalDate', x-rbac-field: D01 }
         gender: { type: string, enum: [male, female, other], x-rbac-field: D01 }
-        nationalityCode: { type: string, pattern: '^[A-Z]{2}$', x-rbac-field: D01, description: 'ISO 3166-1 alpha-2 (hồ sơ khách; giấy tờ dùng alpha-3) – 0.3.4' }
+        nationalityCode:
+          type: [string, 'null']
+          pattern: '^[A-Z]{2}$'
+          x-rbac-field: D01
+          description: |
+            ISO 3166-1 alpha-2 (hồ sơ khách; giấy tờ dùng alpha-3) – 0.3.4. **0.3.10 bổ sung 5**: `null` = chưa biết quốc tịch (hồ sơ tạo nhanh từ yêu cầu website –
+            US-175 AC4 (3), BUG-R4-012): server lưu NULL, `Guest.nationalityCode` vắng, `isForeigner = false`. **Bỏ trường khi tạo = `VN`** như cũ; bỏ trường khi sửa = giữ giá trị cũ.
         preferredLocale: { $ref: '#/components/schemas/Locale' }
-        preferredContact: { type: string, enum: [phone, zalo, whatsapp, kakaotalk, email], description: 'Kênh trỏ tới phải có giá trị – nếu không `CONTACT_CHANNEL_EMPTY` (0.3.4)' }
+        preferredContact: { type: string, enum: [phone, zalo, whatsapp, kakaotalk, email], description: 'Kênh trỏ tới phải có giá trị – nếu không `CONTACT_CHANNEL_EMPTY` (0.3.4): `phone` cần `phone`, `email` cần `email`, `zalo`/`whatsapp`/`kakaotalk` cần `messagingHandles.<kênh>` (Desk gửi `messagingHandles.zalo` = SĐT khi khách dùng Zalo bằng SĐT – 0.3.10 bổ sung 5, BUG-R4-011)' }
         companyName: { type: string, x-rbac-field: D16 }
         taxCode: { type: string, pattern: '^[0-9]{10}(-?[0-9]{3})?$', x-rbac-field: D16 }
         tags: { type: array, items: { type: string }, x-rbac-field: D12a }

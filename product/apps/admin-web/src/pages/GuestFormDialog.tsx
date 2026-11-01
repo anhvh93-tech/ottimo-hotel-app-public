@@ -64,7 +64,11 @@ function fromGuest(g: Guest): FormState {
     fullName: g.fullName,
     phone: g.phone ?? '',
     email: g.email ?? '',
-    whatsapp: g.messagingHandles?.whatsapp ?? '',
+    // The "WhatsApp / KakaoTalk" box shows the handle of the channel the guest prefers (BUG-R4-011).
+    whatsapp:
+      (g.preferredContact === 'kakaotalk'
+        ? g.messagingHandles?.kakaotalk
+        : g.messagingHandles?.whatsapp) ?? '',
     preferredContact: (g.preferredContact as Contact | undefined) ?? '',
     dateOfBirth: g.dateOfBirth ?? '',
     nationalityCode: g.nationalityCode ?? '',
@@ -75,6 +79,32 @@ function fromGuest(g: Guest): FormState {
     serviceNotes: g.serviceNotes ?? [],
     freeNote: g.freeNote ?? '',
   };
+}
+
+/**
+ * BUG-R4-011: the server checks `preferredContact` against `messagingHandles.<channel>` (zalo/whatsapp/kakaotalk).
+ * Desk has no separate Zalo box – Zalo goes by the phone ("Số điện thoại / Zalo") – and one box for WhatsApp /
+ * KakaoTalk. Handles Desk does not show (another Zalo account…) are kept on edit.
+ */
+export function messagingHandlesOf(
+  form: Pick<FormState, 'phone' | 'whatsapp' | 'preferredContact'>,
+  original?: Pick<Guest, 'phone' | 'messagingHandles'>,
+): Record<string, string> {
+  const h: Record<string, string> = { ...(original?.messagingHandles ?? {}) };
+  const box = form.whatsapp.trim();
+  const boxKey = form.preferredContact === 'kakaotalk' ? 'kakaotalk' : 'whatsapp';
+  if (box) h[boxKey] = box;
+  else delete h[boxKey];
+  const phone = form.phone.trim();
+  // A Zalo handle that only mirrored the old phone follows the phone. The server keeps handles as E.164 digits
+  // without "+" while `phone` comes back with it – compare the digits.
+  const digits = (v: string) => v.replace(/\D/g, '');
+  if (h.zalo && original?.phone && digits(h.zalo) === digits(original.phone)) {
+    if (phone) h.zalo = phone;
+    else delete h.zalo;
+  }
+  if (form.preferredContact === 'zalo' && !h.zalo && phone) h.zalo = phone;
+  return h;
 }
 
 /**
@@ -136,7 +166,8 @@ export function GuestFormDialog({
 
   const initial = guest ? fromGuest(guest) : { ...EMPTY, ...prefill, fullName: prefillName ?? '' };
   const [form, setForm] = useState<FormState>(() => {
-    if (!isCreate || prefillName) return initial;
+    // A website-request prefill (send language, channel, empty nationality) beats an old draft (FB-R4-ARC-FE-LPV2-06).
+    if (!isCreate || prefillName || prefill) return initial;
     try {
       const saved = readDraft(draftKey);
       return saved ? { ...EMPTY, ...(JSON.parse(saved) as Partial<FormState>) } : initial;
@@ -249,11 +280,20 @@ export function GuestFormDialog({
       fullName: form.fullName.trim().replace(/\s+/g, ' '),
       preferredLocale: form.preferredLocale,
     };
-    // Empty only for a profile made from a website request until staff choose one (BUG-R3-050).
+    // Empty only for a profile made from a website request until staff choose one (BUG-R3-050): `null` = unknown
+    // (0.3.10 bổ sung 5, BUG-R4-012) – leaving the field out would make the server store VN. On edit an empty box
+    // leaves the stored value alone.
     if (form.nationalityCode) body.nationalityCode = form.nationalityCode;
+    else if (isCreate) body.nationalityCode = null;
     if (form.phone.trim()) body.phone = form.phone.trim();
     if (form.email.trim()) body.email = form.email.trim().toLowerCase();
-    if (form.whatsapp.trim()) body.messagingHandles = { whatsapp: form.whatsapp.trim() };
+    const handles = messagingHandlesOf(form, guest);
+    if (
+      isCreate
+        ? Object.keys(handles).length
+        : JSON.stringify(handles) !== JSON.stringify(guest?.messagingHandles ?? {})
+    )
+      body.messagingHandles = handles;
     if (form.preferredContact) body.preferredContact = form.preferredContact;
     if (canTag) body.tags = form.tag ? [form.tag] : [];
     if (fdPlus) {
@@ -303,7 +343,10 @@ export function GuestFormDialog({
         isApiError(err) &&
         (err.code === 'VALIDATION_FAILED' || err.code === 'CARD_NUMBER_DETECTED')
       ) {
-        const fe = fieldErrors(t, err);
+        // BUG-R4-011: CONTACT_CHANNEL_EMPTY names the channel ("Nhập Zalo trước khi…"), never a raw "{channel}".
+        const fe = fieldErrors(t, err, {
+          channel: form.preferredContact ? contactLabel(form.preferredContact) : t('crm.f_pref'),
+        });
         if (err.code === 'CARD_NUMBER_DETECTED' && !Object.keys(fe).length)
           fe.freeNote = t('error.CARD_NUMBER_DETECTED');
         setErrors(fe);

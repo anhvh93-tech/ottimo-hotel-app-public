@@ -738,6 +738,7 @@ export function QuoteDialog({
             </span>
             <Seg
               labelledBy="q-lang"
+              describedBy={hasLangNote(guestLocale) ? 'q-lang-note' : undefined}
               value={lang}
               onChange={(l) => {
                 langPicked.current = true;
@@ -749,7 +750,7 @@ export function QuoteDialog({
                 { value: 'ru', label: <span lang="ru">Русский</span> },
               ]}
             />
-            <LangNote locale={guestLocale} />
+            <LangNote locale={guestLocale} id="q-lang-note" />
           </div>
           <pre className="quote-text" lang={lang} aria-live="polite">
             {text}
@@ -825,11 +826,21 @@ export function QuoteDialog({
  * hold step, for a guest who wrote in Korean / Chinese / Russian – "Guest wrote in Korean – send messages in English."
  * A reminder, still true when staff switch the box. Nothing for vi/en (same language).
  */
-function LangNote({ locale, block }: { locale?: LandingLocale; block?: boolean }) {
+function hasLangNote(locale?: LandingLocale): locale is 'ko' | 'zh' | 'ru' {
+  return locale === 'ko' || locale === 'zh' || locale === 'ru';
+}
+
+/** One type style everywhere (`help`, CPY 15.1 – FB-R4-UXD-FE-22); `id` ties it to the language box. */
+function LangNote({ locale, block, id }: { locale?: LandingLocale; block?: boolean; id?: string }) {
   const { t } = useI18n();
-  if (locale !== 'ko' && locale !== 'zh' && locale !== 'ru') return null;
-  const text = t(`sale.text_lang_note.${locale}`);
-  return block ? <p className="li-s mt-8">{text}</p> : <span className="help">{text}</span>;
+  if (!hasLangNote(locale)) return null;
+  const note = (
+    <span className="help" id={id}>
+      {t(`sale.text_lang_note.${locale}`)}
+    </span>
+  );
+  // Under the deposit card: the same `help` line, kept apart from the card.
+  return block ? <div className="field flush mt-8">{note}</div> : note;
 }
 
 /**

@@ -624,10 +624,10 @@
 | `guest.oci.uploading` | Đang gửi ảnh {n}/{total} – {pct}% | Sending photo {n}/{total} – {pct}% | Отправка фото {n}/{total} – {pct}% | Ảnh nén phía máy khách ≤ 1,5 MB trước khi gửi |
 | `guest.oci.upload_weak` | Mạng yếu – ảnh đã được thu nhỏ và sẽ tự thử lại. | Weak connection – the photo was compressed and will retry automatically. | Слабое соединение – фото сжато, отправка повторится автоматически. |  |
 | `guest.oci.upload_retry` | Gửi lại ảnh | Resend photo | Отправить фото снова |  |
-| `guest.bill.line.room_one` | Tiền phòng {nights} đêm × {rate} | Room {nights} night × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
-| `guest.bill.line.room_few` | Tiền phòng {nights} đêm × {rate} | Room {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
-| `guest.bill.line.room_many` | Tiền phòng {nights} đêm × {rate} | Room {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng many |
-| `guest.bill.line.room_other` | Tiền phòng {nights} đêm × {rate} | Room {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng other |
+| `guest.bill.line.room_one` | Tiền phòng {nights} đêm × {rate} | Room charge, {nights} night × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
+| `guest.bill.line.room_few` | Tiền phòng {nights} đêm × {rate} | Room charge, {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
+| `guest.bill.line.room_many` | Tiền phòng {nights} đêm × {rate} | Room charge, {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng many |
+| `guest.bill.line.room_other` | Tiền phòng {nights} đêm × {rate} | Room charge, {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng other |
 | `guest.bill.line.minibar` | Minibar | Minibar | Мини-бар |  |
 | `guest.bill.usd` | ≈ {usd} USD (tỷ giá ngày {date}, chỉ tham khảo) | ≈ {usd} USD (rate of {date}, for reference only) | ⟨chừa chỗ⟩ | BR-004 |
 | `guest.req.decline.fully_booked` | Đã hết chỗ vào thời gian bạn chọn | Fully booked for the time you chose | ⟨chừa chỗ⟩ | CŨ – mã nháp EP14, không có trong enum declinedReasonCode 0.3.7; không dùng, xóa ở v0.5 (UXD s4) |
@@ -3556,9 +3556,9 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `webreq.status.declined` | Đã đóng | Closed | ⟨chừa chỗ⟩ |  |
 | `webreq.status.spam` | Spam | Spam | ⟨chừa chỗ⟩ |  |
 | `webreq.filter_label` | Lọc theo trạng thái | Filter by status | ⟨chừa chỗ⟩ |  |
-| `webreq.filter_locale` | Lọc theo ngôn ngữ | Filter by language | ⟨chừa chỗ⟩ | US-175 AC3, AC5, BUG-R4-007 – FE-A lp-v2-fe4 viết theo content guide; chờ UXD duyệt |
-| `webreq.locale_all` | Mọi ngôn ngữ | All languages | ⟨chừa chỗ⟩ | US-175 AC3, AC5, BUG-R4-007 – FE-A lp-v2-fe4 viết theo content guide; chờ UXD duyệt |
-| `webreq.total` | {n} yêu cầu khớp bộ lọc | Matching requests: {n} | ⟨chừa chỗ⟩ | US-175 AC3, AC5, BUG-R4-007 – FE-A lp-v2-fe4 viết theo content guide; chờ UXD duyệt – {n} = page.total của server (không theo trang đã tải); EN tránh số nhiều |
+| `webreq.filter_locale` | Lọc theo ngôn ngữ | Filter by language | ⟨chừa chỗ⟩ | US-175 AC3, AC5, BUG-R4-007 – FE-A lp-v2-fe4 viết theo content guide; UXD duyệt 01/11 (UXD-on-LP-v2-fe4) |
+| `webreq.locale_all` | Mọi ngôn ngữ | All languages | ⟨chừa chỗ⟩ | US-175 AC3, AC5, BUG-R4-007 – FE-A lp-v2-fe4 viết theo content guide; UXD duyệt 01/11 (UXD-on-LP-v2-fe4) |
+| `webreq.total` | {n} yêu cầu khớp bộ lọc | Matching requests: {n} | ⟨chừa chỗ⟩ | US-175 AC3, AC5, BUG-R4-007 – FE-A lp-v2-fe4 viết theo content guide; UXD duyệt 01/11 (UXD-on-LP-v2-fe4) – {n} = page.total của server (không theo trang đã tải); EN tránh số nhiều |
 | `webreq.only_mine` | Chỉ yêu cầu tôi đang xử lý | Only requests I'm handling | ⟨chừa chỗ⟩ | Lọc ở client theo assignedUserId [GIẢ ĐỊNH BA] |
 | `webreq.search_label` | Tìm theo mã yêu cầu | Find by request code | ⟨chừa chỗ⟩ |  |
 | `webreq.search_btn` | Tìm | Find | ⟨chừa chỗ⟩ |  |
@@ -3579,7 +3579,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `webreq.col.guests` | Số khách | Guests | ⟨chừa chỗ⟩ |  |
 | `webreq.col.room_type` | Hạng phòng | Room type | ⟨chừa chỗ⟩ |  |
 | `webreq.col.channel` | Trả lời qua | Reply via | ⟨chừa chỗ⟩ |  |
-| `webreq.col.locale` | Ngôn ngữ | Language | ⟨chừa chỗ⟩ | US-175 AC3, AC5, BUG-R4-007 – FE-A lp-v2-fe4 viết theo content guide; chờ UXD duyệt |
+| `webreq.col.locale` | Ngôn ngữ | Language | ⟨chừa chỗ⟩ | US-175 AC3, AC5, BUG-R4-007 – FE-A lp-v2-fe4 viết theo content guide; UXD duyệt 01/11 (UXD-on-LP-v2-fe4) |
 | `webreq.col.source` | Nguồn | Source | ⟨chừa chỗ⟩ |  |
 | `webreq.col.reply_by` | Hạn trả lời | Reply by | ⟨chừa chỗ⟩ |  |
 | `webreq.col.flags` | Cần xem | Check | ⟨chừa chỗ⟩ |  |

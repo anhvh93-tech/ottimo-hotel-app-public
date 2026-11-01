@@ -220,11 +220,13 @@ export class WebsiteRequestsService {
                        WHEN w.status = 'new' THEN 1 ELSE 2 END`;
     const key = `CASE WHEN w.status = 'new' THEN extract(epoch FROM w.reply_by)
                       ELSE -extract(epoch FROM w.updated_at) END`;
-    // Same WHERE for the page and for `total` (status/refCode/locale + the caller's scope; never the cursor).
-    const where = `(w.status = ANY($1::text[]) OR $4::text IS NOT NULL)
-          AND ($4::text IS NULL OR w.ref_code = $4 OR $4 = ANY(w.alias_ref_codes))
-          AND ($5::text[] IS NULL OR w.locale = ANY($5::text[]))
-          AND ${this.scopeSql(actor, 2)}`;
+    // Same WHERE for the page and for `total` (status/refCode/locale + the caller's scope; never the cursor), built
+    // for the parameter numbers of each statement – the count has no `today` (FB-R4-ARC-BE-LPV2-08).
+    const whereAt = (p: { status: number; user: number; ref: number; locale: number }) =>
+      `(w.status = ANY($${p.status}::text[]) OR $${p.ref}::text IS NOT NULL)
+          AND ($${p.ref}::text IS NULL OR w.ref_code = $${p.ref} OR $${p.ref} = ANY(w.alias_ref_codes))
+          AND ($${p.locale}::text[] IS NULL OR w.locale = ANY($${p.locale}::text[]))
+          AND ${this.scopeSql(actor, p.user)}`;
     const params: unknown[] = [statuses, actor.userId, c.today, ref, locales, limit + 1];
     let after = '';
     if (cursor) {
@@ -233,15 +235,15 @@ export class WebsiteRequestsService {
     }
     const { rows } = await tx.query<WebsiteRequestRow & { r: number; k: string }>(
       `SELECT w.*, ${DATES}, ${rank} AS r, ${key}::numeric AS k FROM website_booking_request w
-        WHERE ${where} ${after}
+        WHERE ${whereAt({ status: 1, user: 2, ref: 4, locale: 5 })} ${after}
         ORDER BY r, k, w.id LIMIT $6`,
       params,
     );
     // US-175 AC5: the number of requests matching the filters, whatever page the Desk has loaded.
     const { rows: counted } = await tx.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM website_booking_request w
-        WHERE ${where} AND $3::date IS NOT NULL`,
-      [statuses, actor.userId, c.today, ref, locales],
+        WHERE ${whereAt({ status: 1, user: 2, ref: 3, locale: 4 })}`,
+      [statuses, actor.userId, ref, locales],
     );
     const more = rows.length > limit;
     const pageRows = more ? rows.slice(0, limit) : rows;

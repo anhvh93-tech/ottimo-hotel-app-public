@@ -829,10 +829,10 @@ Nguồn: `copy/strings-*.json` (sinh từ `tools/gen_strings.py`). Cột RU "⟨
 | `guest.oci.uploading` | Đang gửi ảnh {n}/{total} – {pct}% | Sending photo {n}/{total} – {pct}% | Отправка фото {n}/{total} – {pct}% | Ảnh nén phía máy khách ≤ 1,5 MB trước khi gửi |
 | `guest.oci.upload_weak` | Mạng yếu – ảnh đã được thu nhỏ và sẽ tự thử lại. | Weak connection – the photo was compressed and will retry automatically. | Слабое соединение – фото сжато, отправка повторится автоматически. |  |
 | `guest.oci.upload_retry` | Gửi lại ảnh | Resend photo | Отправить фото снова |  |
-| `guest.bill.line.room_one` | Tiền phòng {nights} đêm × {rate} | Room {nights} night × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
-| `guest.bill.line.room_few` | Tiền phòng {nights} đêm × {rate} | Room {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
-| `guest.bill.line.room_many` | Tiền phòng {nights} đêm × {rate} | Room {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng many |
-| `guest.bill.line.room_other` | Tiền phòng {nights} đêm × {rate} | Room {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng other |
+| `guest.bill.line.room_one` | Tiền phòng {nights} đêm × {rate} | Room charge, {nights} night × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
+| `guest.bill.line.room_few` | Tiền phòng {nights} đêm × {rate} | Room charge, {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
+| `guest.bill.line.room_many` | Tiền phòng {nights} đêm × {rate} | Room charge, {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng many |
+| `guest.bill.line.room_other` | Tiền phòng {nights} đêm × {rate} | Room charge, {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng other |
 | `guest.bill.line.minibar` | Minibar | Minibar | Мини-бар |  |
 | `guest.bill.usd` | ≈ {usd} USD (tỷ giá ngày {date}, chỉ tham khảo) | ≈ {usd} USD (rate of {date}, for reference only) | ⟨chừa chỗ⟩ | BR-004 |
 | `guest.req.decline.fully_booked` | Đã hết chỗ vào thời gian bạn chọn | Fully booked for the time you chose | ⟨chừa chỗ⟩ | CŨ – mã nháp EP14, không có trong enum declinedReasonCode 0.3.7; không dùng, xóa ở v0.5 (UXD s4) |
