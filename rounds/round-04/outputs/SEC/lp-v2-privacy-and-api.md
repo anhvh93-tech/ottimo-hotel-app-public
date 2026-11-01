@@ -4,6 +4,8 @@
 - Căn cứ: `rounds/round-04/plan-lp-v2.md` (G1–G5); FB-INV-008, FB-INV-009; ESC-041 (C, chạy từ v1.0.1), ESC-042 (B); `rounds/round-03/outputs/SEC/esc041-gchat-full-details.md` mục 1.2 và L2; `product/apps/landing-web/src/content/privacy.ts` (version `2026-10-24` đang chạy); `product/infra/server/bin/publish-privacy-notice.sh` + `.sql`; migration `0086_public_site_us155.sql`; `Caddyfile.landing`; DOM `rounds/round-04/outputs/DOM/web-price-estimate-rules.md` và DOM ESC-043 (đọc lúc 01/11, bản đang soạn song song).
 - Không sửa mã, không commit. Không có dữ liệu khách thật, URL webhook, khóa hay mật khẩu trong tệp này. Mọi câu về luật là **câu hỏi cho luật sư**, không phải kết luận pháp lý. Thiết kế ARC `rounds/round-04/outputs/ARC/lp-v2-design.md` chưa có lúc viết; mục 9 là yêu cầu độc lập để ARC đối chiếu.
 
+> **Lượt 3 (01/11, Review chéo mã):** INV chọn câu 9 = Google Dịch dùng trên mọi màn hình Desk. Câu Δ5 ở L2.2 và câu 4 thư luật sư ở L2.4 **được thay** bằng mục 3 của `rounds/round-04/reviews/SEC-on-LP-v2-code.md` (bỏ điều kiện "nếu bạn viết bằng ngôn ngữ…", thêm "trả lời bạn", "thông tin lưu trú"; thư thêm câu (d)). RR-T3 = INV chấp nhận; RR-T4 nâng Trung bình.
+>
 > **Lượt 2 (01/11, Phản hồi & sửa) thay các chỗ mâu thuẫn bên dưới.** INV quyết ESC-044 = cho phép dịch **không giới hạn**, và ESC-043 = **không hiện giá tháng** trên web. Chỗ nào ở mục 0, 3 (Δ5), 4–6 (câu Δ5), 8 (thư luật sư), 9 (giá tháng) nói khác thì đọc theo mục **L2** ngay dưới.
 
 ## L2. Lượt 2 – theo quyết định INV ngày 01/11

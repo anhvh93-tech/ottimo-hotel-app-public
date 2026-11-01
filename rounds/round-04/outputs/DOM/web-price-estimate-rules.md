@@ -1,5 +1,7 @@
 # Luật giá niêm yết ước tính trên web – form "Plan your stay" (ottimo.vn)
 
+> **Cập nhật 01/11 tối (BR v0.5.0):** bảng giá INV 01/11 và INV chốt 01/11 (một mức giá mọi kênh, từ 30 đêm là thuê tháng, web không hiện giá tháng) thay các con số, ngưỡng 28 đêm, phần giá tháng và chế độ ngang giá trong tài liệu này. Dùng **BR-114, BR-115, BR-116 v0.5.0** trong `product/docs/business-rules.md`; đối chiếu ở `pricing-spec-2026-11-01-reconcile.md`. Phần lý do, hạng ↔ căn, không hiện số, snapshot vẫn giữ.
+
 - Tác giả: DOM | Round 4 – gói LP-v2 – bước Sản xuất (lượt A) | Ngày: 01/11/2026
 - Nguồn việc: FB-INV-009; `rounds/round-04/plan-lp-v2.md` (G1–G3)
 - Quy tắc chính thức: **BR-115** (giá ước tính trên web) và **BR-116** (ngang giá OTA cho mọi giá công khai) trong `product/docs/business-rules.md` v0.4.9. File này giải thích, đưa ví dụ cho QA và nêu yêu cầu cho các vai. Mâu thuẫn giữa file này và BR → **BR thắng**.
