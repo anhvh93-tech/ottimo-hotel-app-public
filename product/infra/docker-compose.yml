@@ -67,7 +67,7 @@ x-api-env: &api-env
 
 services:
   postgres:
-    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ottimo_admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in product/.env}
@@ -93,7 +93,7 @@ services:
     # an older volume – a dev machine, a QA stack reusing its volume – to the current role model, including
     # `ALTER ROLE ottimo_app SET idle_in_transaction_session_timeout = '30s'` / `statement_timeout = '15s'`;
     # the script reads them back and exits 1 if missing. Superuser over the compose network, then exits 0.
-    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
     command: ['bash', '/ottimo-init/02-roles.sh']
     environment:
       PGHOST: postgres
