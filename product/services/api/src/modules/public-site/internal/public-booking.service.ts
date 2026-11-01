@@ -12,7 +12,8 @@
  *     IP over limit → 429; text normalisation + business checks → 422; contact over 3/day → identical 202 (the
  *     newest request of that contact gets `duplicateCount + 1`, `repeat_contact`, the returned code as alias);
  *     property daily cap → 503 SITE_BUSY (one OWN notification per day, the key is released); INSERT + WR0 history
- *     + possible duplicates + notification `website_request_new` (FDL, FD, SAL – no name/phone) + SSE.
+ *     + possible duplicates + notification `website_request_new` (FDL, FD, SAL – no name/phone) + SSE + outbox
+ *     `staff.chat` `web_request_new` (Google Chat room – ids only; the worker builds the text).
  * Nothing about existing guests, leads, bookings or availability is read before answering (ADR-014 4.3).
  * C2 never goes to logs: errors carry `field` + `code` only.
  */
@@ -754,6 +755,13 @@ export class PublicBookingService {
       },
       pc.now,
     );
+    // Google Chat room (ARC gchat-booking-request-notify 1.3): ids only, same transaction, one row per request.
+    await this.events.enqueueStaffChat(tx, {
+      kind: 'web_request_new',
+      refType: 'website_booking_request',
+      refId: id,
+      now: pc.now,
+    });
     const row = await this.requests.rowById(tx, id);
     if (row) await this.requests.publish(tx, null, row);
     return { id, refCode };

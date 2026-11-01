@@ -8,6 +8,7 @@ import { createRuntime } from './bootstrap';
 import { JobRunner } from './jobs/job-runner';
 import { createEmailAdapter } from './jobs/email-adapter';
 import { StaffEmailDispatcher } from './jobs/email-dispatch';
+import { buildWorkerChat } from './worker-chat';
 import { buildWorkerJobs } from './worker-jobs';
 
 const log = (level: string, msg: string, extra: Record<string, unknown> = {}): void =>
@@ -59,7 +60,21 @@ async function main(): Promise<void> {
       ...(h.detail ? { code: h.detail } : {}),
     });
   }
-  log('info', 'worker started', { jobs: registry.keys(), email: email.provider });
+  // Google Chat room of the website booking requests (outbox `staff.chat`, ARC gchat-booking-request-notify): a
+  // missing or invalid webhook / level / Desk link turns Chat off (logged with a code) – it never stops the worker.
+  const chat = buildWorkerChat({
+    database: rt.database,
+    clock: rt.clock,
+    env: rt.env,
+    appEnv: rt.config.appEnv,
+    parameters,
+    log,
+  });
+  log('info', 'worker started', {
+    jobs: registry.keys(),
+    email: email.provider,
+    chat: chat.config.target.mode,
+  });
 
   let running = false;
   const tick = async (): Promise<void> => {
@@ -91,6 +106,17 @@ async function main(): Promise<void> {
           // SEC S-1: name + code only – a DB/library message may carry values.
           log('error', 'email dispatch failed', errorTag(err));
         }
+      }
+      // After e-mail, in its own try/catch: a Chat problem never delays the e-mail outbox (and vice versa).
+      try {
+        for (const p of await runner.listProperties()) {
+          const st = await chat.dispatcher.runForProperty(p);
+          if (st.done + st.retry + st.dead + st.skipped + st.deferred > 0) {
+            log('info', 'chat dispatch', { ...st });
+          }
+        }
+      } catch (err) {
+        log('error', 'chat dispatch failed', errorTag(err));
       }
     } finally {
       running = false;

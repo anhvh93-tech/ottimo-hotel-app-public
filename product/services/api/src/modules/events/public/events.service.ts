@@ -22,6 +22,7 @@ import {
   STAFF_NOTIFICATION_KINDS,
   type StaffNotificationKind,
 } from '../../../db/schema/frontdesk';
+import { type StaffChatInput, enqueueStaffChat } from './staff-chat';
 
 export const SSE_CHANNEL = 'ottimo_sse';
 
@@ -441,6 +442,14 @@ export class EventsService {
       );
     }
     return recipients;
+  }
+
+  /**
+   * One `staff.chat` outbox row (Google Chat room of the booking requests – ARC gchat-booking-request-notify 1.3):
+   * ids only, one per (kind, request), in the caller's transaction. See staff-chat.ts.
+   */
+  enqueueStaffChat(tx: Tx, input: StaffChatInput): Promise<boolean> {
+    return enqueueStaffChat(tx, input);
   }
 
   /** One open attention row per dedupe key (re-opening an open key is a no-op). Returns its id. */

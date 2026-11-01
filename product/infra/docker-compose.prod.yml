@@ -195,7 +195,14 @@ services:
       # gets the password file. relay mode (default): the file stays EMPTY (a non-empty file is refused);
       # app_password mode: init-secrets.sh asks for it with a hidden prompt.
       EMAIL_SMTP_PASSWORD_FILE: /run/secrets/email_smtp_password
-    # = *api-secrets + email_smtp_password (YAML cannot merge lists – keep the two in sync).
+      # Google Chat room "OTTIMO – Yêu cầu đặt phòng" (ARC gchat-booking-request-notify 3.2, SEC GCHAT-02): the
+      # webhook URL carries key + token → worker-only secret file, EMPTY = Chat off (init-secrets.sh creates it empty;
+      # `--set-booking-chat` asks for it at a hidden prompt). Level A|B|C of the first message (SEC ESC-041 ★3):
+      # not a secret, from the server .env; unset/invalid = A (logged once at start). Changing it on production =
+      # .env change → tell INV first, then `bin/dc up -d worker`.
+      BOOKING_REQUEST_CHAT_WEBHOOK_URL_FILE: /run/secrets/booking_request_chat_webhook
+      BOOKING_REQUEST_CHAT_DETAIL_LEVEL: ${BOOKING_REQUEST_CHAT_DETAIL_LEVEL:-A}
+    # = *api-secrets + email_smtp_password + booking_request_chat_webhook (YAML cannot merge lists – keep in sync).
     secrets:
       - database_url
       - session_secret
@@ -207,6 +214,7 @@ services:
       - web_push_vapid_private_key
       - public_form_signing_key
       - email_smtp_password
+      - booking_request_chat_webhook
     volumes:
       # J16 deletes blobs (hủy DEK + xóa blob) – same volume as api.
       - blobdata:/var/lib/ottimo/blobs
@@ -379,6 +387,11 @@ secrets:
   # the relay (default). Worker only, uid 1000. Typed by INV on the server (hidden prompt).
   email_smtp_password:
     file: ${SECRETS_DIR:-/opt/ottimo/secrets}/email_smtp_password
+  # Google Chat incoming-webhook URL of the booking-request room (key + token inside). Worker only, uid 1000, 0400.
+  # EMPTY = Chat off. Pasted by INV/OPS on the server with init-secrets.sh --set-booking-chat (never in chat/repo).
+  # Staging: empty or a TEST room – never the production room.
+  booking_request_chat_webhook:
+    file: ${SECRETS_DIR:-/opt/ottimo/secrets}/booking_request_chat_webhook
   # Not a key: a Caddyfile snippet (staging = basic auth with a bcrypt hash; production = empty), uid 10001.
   landing_access:
     file: ${SECRETS_DIR:-/opt/ottimo/secrets}/landing_access

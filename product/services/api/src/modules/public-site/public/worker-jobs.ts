@@ -3,7 +3,8 @@
  * R3 Sprint 1. Registered by the public-site module (api + test-support job endpoint) and by the worker.
  * - `web_request.sla` (tick): a request still `new` at `reply_by` + (`web_request_escalate_minutes` −
  *   `web_request_response_minutes`) → ONE notification `website_request_overdue` to FDL + MGR (no name/phone),
- *   `overdue_notified_at` set in the same UPDATE that selects it (exactly once).
+ *   `overdue_notified_at` set in the same UPDATE that selects it (exactly once) + Google Chat `web_request_overdue`;
+ *   then the 07:30 Chat nudge `web_request_morning` for last night's requests still open (morningNudge).
  * - `web_request.stale` (daily 06:05, after the business-day change): WR7 – `new`/`in_progress` without activity
  *   for `retention.web_request_stale_days` → `declined` (`stale`).
  * - `web_request.purge` (daily 03:10, T19 [GIẢ ĐỊNH – SEC đặt mã]): runs on time, never waits for a transition:
@@ -15,9 +16,11 @@
  * "Cần chú ý" `website_request_new` is computed at read time (websiteRequestNewSource).
  */
 import type { Tx } from '../../../db/database';
+import { addDays, atLocal, localDate } from '../../../shared/time';
 import type { JobDefinition } from '../../../jobs/job-runner';
 import type { AttentionSource, EventsService } from '../../events/public/events.service';
 import type { ParameterService } from '../../platform/public/parameter.service';
+import { deskHoursOf } from '../internal/website-request-rules';
 
 export const WEB_REQUEST_SLA_JOB_KEY = 'web_request.sla';
 export const WEB_REQUEST_STALE_JOB_KEY = 'web_request.stale';
@@ -77,6 +80,50 @@ async function staleClose(
   return rows.length;
 }
 
+/**
+ * 07:30 nudge (`web_request_morning`, ARC gchat-booking-request-notify 8.4 – INV 30/10 "thêm cả hai"): every request
+ * received during last night's closed hours (front_desk_hours.to yesterday → .from today, property time) and still
+ * `new`, unassigned, not purged gets ONE Chat message at front_desk_hours.from + web_request_escalate_minutes (07:30),
+ * until front_desk_hours.to. Skipped when its overdue message was enqueued this morning already (an out-of-hours
+ * non-phone request is overdue at exactly 07:30 – one message, not two). The outbox dedupe key makes every later tick
+ * a no-op: no flag column, no migration. Runs after the overdue branch, in the same handler.
+ */
+async function morningNudge(
+  tx: Tx,
+  events: EventsService,
+  params: ParameterService,
+  ctx: { now: Date; timezone: string },
+): Promise<number> {
+  const tz = ctx.timezone;
+  const today = localDate(ctx.now, tz);
+  const hours = deskHoursOf(await params.get<unknown>(tx, 'front_desk_hours', today));
+  const escalate = Number(await params.get<number>(tx, 'web_request_escalate_minutes', today));
+  const open = atLocal(today, hours.from, tz);
+  const mark = new Date(open.getTime() + escalate * 60_000);
+  const close = atLocal(today, hours.to, tz);
+  if (ctx.now.getTime() < mark.getTime() || ctx.now.getTime() >= close.getTime()) return 0;
+  const nightStart = atLocal(addDays(today, -1), hours.to, tz);
+  const { rows } = await tx.query<{ id: string }>(
+    `SELECT id FROM website_booking_request
+      WHERE status = 'new' AND assigned_user_id IS NULL AND pii_purged_at IS NULL
+        AND created_at >= $1 AND created_at < $2
+        AND (overdue_notified_at IS NULL OR overdue_notified_at < $2)
+      ORDER BY created_at LIMIT ${BATCH}`,
+    [nightStart, open],
+  );
+  let n = 0;
+  for (const r of rows) {
+    const added = await events.enqueueStaffChat(tx, {
+      kind: 'web_request_morning',
+      refType: 'website_booking_request',
+      refId: r.id,
+      now: ctx.now,
+    });
+    if (added) n += 1;
+  }
+  return n;
+}
+
 export function publicSiteWorkerJobs(deps: {
   events: EventsService;
   params: ParameterService;
@@ -114,8 +161,16 @@ export function publicSiteWorkerJobs(deps: {
             },
             ctx.now,
           );
+          // Google Chat (INV 30/10 Must): same moment, reply in the request's thread, template A.
+          await events.enqueueStaffChat(tx, {
+            kind: 'web_request_overdue',
+            refType: 'website_booking_request',
+            refId: r.id,
+            now: ctx.now,
+          });
         }
-        return { escalated: rows.length };
+        const morning = await morningNudge(tx, events, params, ctx);
+        return { escalated: rows.length, morning };
       },
     },
     {
