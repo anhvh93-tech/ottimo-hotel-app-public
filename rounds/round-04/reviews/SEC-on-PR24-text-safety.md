@@ -226,3 +226,65 @@ Với vài trăm yêu cầu website mỗi năm, số ca lọt kỳ vọng gần 
 ### Dòng decision-log đề xuất (lượt 2)
 
 | 2026-11-01 | 4 | **SEC – PR #24 lượt 2 (`f8080499`): vẫn duyệt phía SEC** (`rounds/round-04/reviews/SEC-on-PR24-text-safety.md` mục Lượt 2). Đóng PR24-02 (OR bản giải mã/giữ nguyên `%XX`; đơn vị tiền chỉ tha số tận cùng `000`) và PR24-04 (`toJSON`). PR24-01 còn phần `Номер`/`№:` (chữ hoa, dấu hai chấm): điều kiện trước khi mở LP-v2 ru. Chấp nhận rủi ro Thấp: số giấy tờ tận cùng `000000` viết theo nhóm nghìn bị coi là tiền (≈ 1/1.000.000), để bỏ che thừa số tiền không đơn vị (BUG-R4-016). Chạy lại 63 + 61 + 27 + 35 chuỗi: không chuỗi nào trước bị bắt nay lọt; chậm nhất 6,6 ms. ★5: phần mã đủ; còn gộp, triển khai và lượt INT. | SEC | Quyền SEC (mức rủi ro, yêu cầu bảo mật kỹ thuật) |
+
+---
+
+## Lượt 3 – 80a73367
+
+- Người review: SEC | Round 4 – Review lượt 3 | 01/11/2026
+- Đọc: `git diff f8080499..80a73367` của `sensitive-number.ts`. Có 3 thay đổi:
+  - `NUMBER_SIGN` thêm cờ `i` và cho phép `:` sau ký hiệu;
+  - `amountSpans` và điều kiện `money` không nhận số bắt đầu bằng `0`;
+  - tiền tố `00` chỉ nhận khi nhóm sau không bắt đầu bằng `0`.
+
+  `log-line.ts` không đổi so với lượt 2.
+- Cách kiểm: bộ chạy thử `sec24` ở scratchpad, thay `sensitive-number.ts` bằng bản `80a73367`. Chạy lại 63 + 61 + 27 + 15 chuỗi và 35 chuỗi của lượt 2, thêm 11 chuỗi thử `NUMBER_SIGN` cờ `i`. Chỉ dùng số giả.
+
+### Kết quả
+
+| Bộ | Kết quả |
+|---|---|
+| 63 chuỗi lượt 3 | Giống lượt 2: 44/44 chuỗi phải bắt đều bị bắt ở form và Chat. Che thừa đã chấp nhận không đổi. |
+| 61 + 27 chuỗi (cố lách, che thừa) | Kết quả **trùng từng dòng** với `f8080499` (so bằng `diff`). |
+| `Номер` / `№:` (thẻ 01) | `Серия: 45 06 Номер: 123456`, `серия 45 06 №: 123456`, `серия 45 06 Номер 123456`, `4506 NO: 123456` đều bị bắt. |
+| Số giấy tờ tận cùng `000000` | Các ca CCCD trước lọt nay đều bị bắt: `079.203.000.000`, `079 203 000 000`, `CCCD 079,203,000,000`, `079 203 012 345 000 000`, `079.203.012.345.000.000`. Ca `CCCD 079203012000 đ` cũng bị bắt. CCCD luôn bắt đầu bằng `0`, nên nay **không CCCD nào** còn bị đọc nhầm là tiền. Còn lại CMND 9 chữ số không bắt đầu bằng `0` mà tận cùng `000000`, viết theo nhóm nghìn (`CMND 123 000 000`): xác suất khoảng 1/1.000.000, loại giấy tờ đang thôi dùng. Mức Thấp, giữ chấp nhận như lượt 2. |
+| Tiền tố `00` | `00 079203012345` nay bị bắt. `00 84 905 111 222` và `0084905111222` vẫn hiện. `00 12 03 01 23 45` (CCCD viết từng cặp) vẫn lọt. Rủi ro thấp như lượt 2, không mở thẻ. |
+| Hiệu năng | Chậm nhất 10,2 ms mỗi lần gọi (`ﷺ` ×500, cả bộ dò lẫn `chatSafeText`). Dao động do máy, mã không thêm vòng lặp. Vẫn xa ngưỡng 500 ms. |
+
+### Ca `0905111222 no 0912333444` – che thừa, chấp nhận
+
+Cờ `i` làm `no`, `No.`, `nó` (thành `no` sau khi bỏ dấu), `nr` giữa hai chữ số được đọc như dấu cách. Hai SĐT nối bằng các từ này trở thành một dãy 20 chữ số nối chặt. Với cửa sổ Luhn 13–19, dãy này gần như luôn bị đọc là thẻ:
+- `0905111222 no 0912333444`, `0905111222 No. 0912333444`, `0905 111 222 nó 0912 333 444`, `0905111222 nr 0912333444` đều bị che (`card`).
+
+Các ca sau vẫn hiện: `Phòng 2 nợ 500.000`, `Phòng 101 no 102`, `2 người no 3 trẻ`, `Room 12 No 5, floor 3`.
+
+SEC **chấp nhận** che thừa này, vì 3 lý do:
+- Đây cùng loại với `0905111222 0912333444` (hai SĐT cách một dấu cách), đã chấp nhận từ lượt 3 round 3.
+- Lỗi theo hướng an toàn: form trả 422 trước khi ghi DB; Chat thay cả trường, Desk vẫn có bản gốc.
+- Cách khách viết tự nhiên là `hoặc` / `or` / `/` / `, `, và các cách này vẫn hiện. Ghép hai SĐT bằng `no`/`nó` hiếm gặp.
+
+Không cần sửa. Nếu muốn, BE thêm ca này vào danh sách che thừa đã chấp nhận trong test để khóa hành vi.
+
+### Trạng thái thẻ
+
+| Thẻ | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R4-SEC-BE-PR24-01 (Minor) | **Closed** | `№`/`Номер`, mọi kiểu hoa/thường, có hoặc không `:`, và hộ chiếu Hàn mẫu mới đều bị bắt. Điều kiện số giấy tờ Nga/Hàn trước khi mở LP-v2 ru/ko: **đạt phía SEC**. |
+| FB-R4-SEC-BE-PR24-02 | Closed (lượt 2) | Giữ nguyên. Điều kiện "không bắt đầu bằng `0`" còn thu hẹp thêm ca bỏ sót. |
+| FB-R4-SEC-BE-PR24-03 | Phần BE Done | Câu báo lỗi vẫn chờ CPY/UXD (Suggestion). |
+| FB-R4-SEC-BE-PR24-04 | Closed (lượt 2) | – |
+
+### Kết luận lượt 3
+
+**PR #24 duyệt (phía SEC), không còn thẻ Minor nào mở.** Điều kiện gộp: PR #16 gộp trước, và CI của `80a73367` xanh.
+
+**★5:** phần mã đủ. Còn lại:
+- (a) gộp PR #16 rồi PR #24;
+- (b) v1.0.1 chứa `98ff43bb` và `80a73367` lên production;
+- (c) INT chạy lượt kiểm trên phòng Chat thử.
+
+Production chưa đặt C cho tới khi đủ ★1–★8.
+
+### Dòng decision-log đề xuất (lượt 3)
+
+| 2026-11-01 | 4 | **SEC – PR #24 lượt 3 (`80a73367`): duyệt phía SEC, đóng PR24-01** (`rounds/round-04/reviews/SEC-on-PR24-text-safety.md` mục Lượt 3). `NUMBER_SIGN` không phân biệt hoa/thường và cho phép `:`: bắt `Серия … Номер: …`. Số tiền và tiền tố `00` không bắt đầu bằng `0`: không CCCD nào còn bị đọc là tiền. Rủi ro còn lại Thấp: CMND không bắt đầu bằng `0` mà tận cùng `000000`, viết theo nhóm nghìn. Chấp nhận che thừa hai SĐT nối bằng `no`/`nó`/`nr` (cùng loại hai SĐT cách một dấu cách). Bộ chuỗi chạy lại trùng lượt 2, không chuỗi nào trước bị bắt nay lọt. ★5: phần mã đủ; còn gộp, triển khai và lượt INT. | SEC | Quyền SEC (mức rủi ro, yêu cầu bảo mật kỹ thuật) |
