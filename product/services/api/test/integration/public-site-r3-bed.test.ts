@@ -1267,6 +1267,47 @@ describe.skipIf(!HAS_DB)('US-155 website booking requests (BE-D R3 Sprint 1)', (
     expect(ok.statusCode, ok.body).toBe(202);
   });
 
+  it('BUG-R3-058 + SEC GCHAT-07: split / hidden / full-width ID and card numbers → 422, nothing stored; phones next to numbers and (+84) pass', async () => {
+    const refused: [string, string, string][] = [
+      ['note', 'CCCD 079\u00a0203\u00a0012\u00a0345', 'ID_NUMBER_DETECTED'],
+      ['note', 'CCCD 0790\u200b12345678', 'ID_NUMBER_DETECTED'],
+      ['note', 'CCCD ０７９２０３０１２３４５', 'ID_NUMBER_DETECTED'],
+      ['note', 'CCCD 079203012345 2 người lớn', 'ID_NUMBER_DETECTED'],
+      ['note', 'CCCD 079\n203\n012\n345', 'ID_NUMBER_DETECTED'],
+      ['note', 'CCCD 079–203–012–345', 'ID_NUMBER_DETECTED'],
+      ['note', 'the 4111_1111_1111_1111', 'CARD_NUMBER_DETECTED'],
+      ['guestName', 'Anna c1234567', 'ID_NUMBER_DETECTED'],
+    ];
+    for (const [i, [field, value, code]] of refused.entries()) {
+      const ip = fixedIp(150 + i);
+      const r = await submit(
+        form(await tokenFor(ip), {
+          phone: `0905 919 1${String(i).padStart(2, '0')}`,
+          [field]: value,
+        }),
+        { ip },
+      );
+      expect(r.statusCode, `${field}: ${JSON.stringify(value)} ${r.body}`).toBe(422);
+      expect(r.json().errors).toEqual([{ field, code }]);
+      expect(r.body).not.toMatch(/079.?.?203|012.?.?345|4111.?1111|c1234567/);
+    }
+    expect(
+      await q(`SELECT 1 FROM website_booking_request WHERE phone_e164 LIKE '8490591910%'`),
+    ).toEqual([]);
+    for (const [i, note] of [
+      'Zalo (+84) 905-111-222, 2 người lớn',
+      'Gọi 0905111222 2 người, đến 12/11 - 15/11/2026',
+      'Ngân sách 15 000 000 - 20 000 000 đồng/tháng',
+    ].entries()) {
+      const ip = fixedIp(170 + i);
+      const ok = await submit(
+        form(await tokenFor(ip), { phone: `0905 929 2${String(i).padStart(2, '0')}`, note }),
+        { ip },
+      );
+      expect(ok.statusCode, `${note} ${ok.body}`).toBe(202);
+    }
+  });
+
   it('BUG-R3-008 + 010: OWN turns the form OFF within the day (kill switch, audit, OWN + MGR told); ON again only by the normal rule; FDL reads the switch, cannot write', async () => {
     await at('2026-10-22T10:00:00+07:00');
     const put = (who: string, value: boolean, effectiveFrom: string) =>
