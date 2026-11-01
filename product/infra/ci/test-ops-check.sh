@@ -15,6 +15,7 @@ cat > "$T/bin/dc" <<'STUB'
 # stub: `dc exec -T postgres sh -c '<psql>'` – keep the SQL, answer FAKE_COUNT or fail
 [ "$1 $2 $3" = "exec -T postgres" ] || { echo "stub dc: unexpected $*" >&2; exit 9; }
 cat > "$OTTIMO_HOME/last.sql"
+[ -n "${FAKE_SLEEP:-}" ] && sleep "$FAKE_SLEEP"
 case "${FAKE_FAIL:-0}" in
   1) echo 'ERROR:  relation "outbox_message" does not exist' >&2; exit 3 ;;
   db) echo 'psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: No such file or directory' >&2; exit 2 ;;
@@ -65,6 +66,21 @@ for f in 1 db pg env; do
     else pass=$((pass + 1)); fi
   done
 done
+# SEC PR23-06: a stderr file left by a killed run (> 60 min old) is removed; a fresh one (parallel run) is kept.
+touch -t 202601010000 "$T/home/state/ops-check/cmd-stderr.KILLED"
+touch "$T/home/state/ops-check/cmd-stderr.PARALLEL"
+env -i PATH="$PATH" HOME="$T" OTTIMO_HOME="$T/home" FAKE_COUNT=0 bash "$T/bin/ops-check.sh" email_dead >/dev/null 2>&1 || true
+if [ ! -e "$T/home/state/ops-check/cmd-stderr.KILLED" ] && [ -e "$T/home/state/ops-check/cmd-stderr.PARALLEL" ]; then
+  pass=$((pass + 1)); echo "ok   stale stderr file of a killed run removed, a fresh one kept"
+else fail=$((fail + 1)); echo "FAIL stale stderr cleanup"; fi
+rm -f "$T/home/state/ops-check/cmd-stderr.PARALLEL"
+# SIGTERM while a command runs (systemd stop): the EXIT trap still removes this run's file.
+env -i PATH="$PATH" HOME="$T" OTTIMO_HOME="$T/home" FAKE_SLEEP=5 bash "$T/bin/ops-check.sh" email_dead >/dev/null 2>&1 &
+oc_pid=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do find "$T/home/state/ops-check" -name 'cmd-stderr.*' | grep -q . && break; sleep 0.2; done
+kill -TERM "$oc_pid" 2>/dev/null || true; wait "$oc_pid" 2>/dev/null || true
+if find "$T/home/state/ops-check" -name '*stderr*' | grep -q .; then fail=$((fail + 1)); echo "FAIL stderr file left after SIGTERM"
+else pass=$((pass + 1)); echo "ok   SIGTERM during a check → no stderr file left"; fi
 if find "$T/home/state/ops-check" -name '*stderr*' | grep -q .; then fail=$((fail + 1)); echo "FAIL a stderr file is left in state/ops-check"
 else pass=$((pass + 1)); echo "ok   no stderr file left behind"; fi
 

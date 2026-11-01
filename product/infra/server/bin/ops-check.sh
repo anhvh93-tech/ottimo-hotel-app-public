@@ -47,9 +47,14 @@ dc() { "$here/dc" "$@"; }
 # stderr of the docker compose / psql call being checked: a private file per run (mktemp = 0600), removed at exit –
 # the raw message (an .env parse error can quote a line of .env) never stays on disk or leaves the server (ARC CWD-03,
 # CWD-04 1). compose.stderr is the shared file of the 30/10 version: remove a leftover.
+# A run killed with SIGKILL cannot clean up: files of runs older than 60 min are removed (a parallel run by hand keeps
+# its own). SIGTERM/SIGINT (systemd stop, shutdown, Ctrl+C) end through exit, so the EXIT trap runs (SEC PR23-06).
 rm -f "$state/compose.stderr"
+find "$state" -maxdepth 1 -name 'cmd-stderr.*' -type f -mmin +60 -delete 2>/dev/null || true
 cmd_err=$(mktemp "$state/cmd-stderr.XXXXXX")
 trap 'rm -f "$cmd_err"' EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
 # Why a docker compose or psql call failed, as a fixed category (ARC FB-R3-ARC-OPS-CWD-03): its raw message is never
 # forwarded to the journal or the webhook. Order matters: the psql socket error also says "No such file or directory".
 # Details: run the check by hand (`…/bin/dc ps`, `…/ops-check.sh j16`) and read the error on the terminal.

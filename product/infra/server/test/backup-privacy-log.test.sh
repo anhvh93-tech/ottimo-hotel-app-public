@@ -6,7 +6,8 @@
 #   bash infra/server/test/backup-privacy-log.test.sh      (CI ubuntu runner; on macOS: needs bash ≥ 4, flock, GNU date –
 #   e.g. docker run --rm -v "$PWD/product/infra:/infra:ro" ubuntu:24.04 bash /infra/server/test/backup-privacy-log.test.sh)
 # Cases: log present → privacy-notice-<stamp>.log.age with the same bytes + valid checksum · no log → no file, backup ok
-# · a privacy-notice set older than 35 days is removed by retention, a recent one kept.
+# · a privacy-notice set older than 35 days is removed by retention, a recent one kept · psql dying at once ends the
+# backup with a clear FAIL line, not "unbound variable" (SEC PR23-S1).
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -36,6 +37,7 @@ cmd="${*: -1}"
 case "$cmd" in
   *pg_dump*) echo "FAKE-DUMP" ;;
   *"-tA -F"*)  # the coprocess: snapshot id, then the counts until the end marker
+    [ -n "${FAKE_PSQL_DEAD:-}" ] && { echo "service postgres is not running" >&2; exit 1; }
     while IFS= read -r line; do
       case "$line" in
         *pg_export_snapshot*) echo "00000003-0000001B-1" ;;
@@ -86,6 +88,11 @@ if [ "$rc" -eq 0 ] && [ ! -e "$T/backups/$old" ] && [ ! -e "$T/backups/$old.sha2
   && grep -q "retention: removed $old" <<<"$out"; then
   ok "3 retention: a privacy-notice set older than 35 days is removed, yesterday's kept"
 else ko "3 retention (rc=$rc)"; echo "$out"; fi
+
+out=$(FAKE_PSQL_DEAD=1 bk) && rc=0 || rc=$?
+if [ "$rc" -ne 0 ] && grep -qE 'FAIL: (psql did not start|no snapshot from psql|unexpected snapshot id)' <<<"$out" && ! grep -q 'unbound variable' <<<"$out"; then
+  ok "4 psql dies at once → clear FAIL line, no 'unbound variable'"
+else ko "4 psql dead (rc=$rc)"; echo "$out"; fi
 
 echo "== $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

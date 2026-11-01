@@ -281,7 +281,7 @@ Chỉ worker đọc 2 cấu hình mới:
   2. `scp` lên home của `ottimo-admin`, rồi giải nén vào `~/ottimo-bundle` (quyền 0700).
   3. Sao lưu bundle cũ vào `/root/ottimo-staging-bundles/infra-<giờ>` hoặc `/root/ottimo-prod-bundles/infra-<giờ>`.
   4. `rsync` **chỉ vào** `/opt/ottimo/infra` hoặc `/opt/ottimo-prod/infra`:
-     - dùng cờ như `bootstrap-vps.sh`, thêm `--exclude 'server/test/'`;
+     - dùng cờ như `bootstrap-vps.sh`, thêm `--checksum` (so nội dung, không chỉ cỡ + giờ) và `--exclude 'server/test/'`;
      - sau đó `chmod -R go-w`, rồi `chmod 0755 server/bin/* postgres/init/02-roles.sh`;
      - **không** chạy cả `bootstrap-vps.sh`, vì script đó chạy `apt upgrade` và `ufw reset` (decision-log 25/10);
      - kiểm bằng `diff -rq --exclude=test` giữa bản giải nén và bundle trên máy.
@@ -291,7 +291,8 @@ Chỉ worker đọc 2 cấu hình mới:
      - `cd / && sudo -u ottimo …/bin/dc --profile deploy config -q` không in gì.
 - Sau deploy mà tệp vẫn rỗng: log worker có `{"level":"info","msg":"chat: off","reason":"NOT_CONFIGURED"}`.
 - Lỡ deploy **trước** khi làm mới bundle: bundle cũ không có secret nên deploy vẫn qua, nhưng Chat tắt. Sửa bằng cách làm bước 3–6, rồi `cd / && sudo -u ottimo …/bin/dc up -d --no-deps worker` để dựng lại worker với compose mới.
-- Quay lui bundle: `sudo rsync -a --delete /root/ottimo-prod-bundles/infra-<giờ>/ /opt/ottimo-prod/infra/`. Tệp bí mật rỗng để nguyên cũng không ảnh hưởng bản cũ.
+- Quay lui bundle: dùng khối lệnh có sẵn Q1–Q3 trong `rounds/round-04/outputs/OPS/v1.0.1-inv-commands.md` (SEC FB-R4-SEC-OPS-PR23-02), không gõ tay. Khối lệnh kiểm đường dẫn đúng mẫu `/root/ottimo-<stack>-bundles/infra-YYYYMMDD-HHMMSS`, kiểm bản cũ có `server/bin/dc` + `docker-compose.prod.yml`, in đường dẫn và đòi gõ `YES` **trước** `rsync --checksum --delete`, rồi `diff -rq` + `dc --profile deploy config -q`. Bản dùng để quay lui là bản sao **của lần chạy đầu tiên** trong ngày (chạy lại bước làm mới thì lần sau sao lưu bản đã thay). Tệp bí mật rỗng để nguyên cũng không ảnh hưởng bản cũ. Quay lui **sau** khi đã deploy v1.0.1 thì worker mất secret Chat (Chat tắt): sau đó `dc up -d --no-deps worker`.
+- Gói tải lên được đối chiếu băm: Mac `shasum -a 256 /tmp/ottimo-infra.tgz` = máy chủ `sha256sum ~/ottimo-infra.tgz` (SEC 03), để không lắp nhầm gói staging cho production.
 
 ### 13.2 Dán / đổi / xóa URL webhook (`--set-booking-chat`)
 
@@ -337,18 +338,21 @@ Chỉ làm khi đủ **cả 3** điều kiện:
 cd /
 # 1. Lưu dòng log mức hiện tại (dán vào decision-log)
 sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc logs --no-color --no-log-prefix worker | grep '"msg":"chat detail level"' | tail -1
-# 2. Sao lưu .env
+# 2. Sao lưu .env (cp -p giữ 0600)
 sudo -u ottimo cp -p /opt/ottimo-prod/.env /opt/ottimo-prod/state/env.before-chat-level.$(date +%Y%m%d-%H%M%S)
 # 3. Đặt mức: bỏ dòng cũ (nếu có), thêm dòng mới; `cat >` giữ nguyên tệp .env (chủ ottimo, 0600) – không `sed -i`
 #    (sed -i cần quyền ghi thư mục /opt/ottimo-prod và tạo tệp mới)
-sudo -u ottimo sh -c 'f=/opt/ottimo-prod/.env t=/opt/ottimo-prod/state/env.level.tmp; grep -v "^BOOKING_REQUEST_CHAT_DETAIL_LEVEL=" "$f" > "$t" && echo BOOKING_REQUEST_CHAT_DETAIL_LEVEL=C >> "$t" && cat "$t" > "$f" && rm -f "$t"'
+sudo -u ottimo sh -c 'umask 077; f=/opt/ottimo-prod/.env t=/opt/ottimo-prod/state/env.level.tmp; grep -v "^BOOKING_REQUEST_CHAT_DETAIL_LEVEL=" "$f" > "$t" && echo BOOKING_REQUEST_CHAT_DETAIL_LEVEL=C >> "$t" && cat "$t" > "$f" && rm -f "$t"'
 sudo -u ottimo grep '^BOOKING_REQUEST_CHAT_DETAIL_LEVEL=' /opt/ottimo-prod/.env    # đúng 1 dòng
 # 4. Dựng lại CHỈ worker (`restart` KHÔNG đọc lại .env – phải `up -d`)
 sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc up -d --no-deps worker
 # 5. Kiểm: phải thấy mức mới và KHÔNG có "chat config invalid"
 sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc logs --no-color --no-log-prefix --since 5m worker | grep '"msg":"chat'
+# 6. Bước 5 đạt: chỉ giữ bản sao .env MỚI NHẤT (để quay lui), xóa các bản env.before-chat-level.* cũ hơn (SEC PR23-05)
+sudo -u ottimo sh -c 'ls -1t /opt/ottimo-prod/state/env.before-chat-level.* | tail -n +2 | xargs -r rm -f --; ls -l /opt/ottimo-prod/state/env.before-chat-level.*'
 ```
-- ORC ghi decision-log: mức cũ → mới, giờ, người làm, dòng SEC làm căn cứ, kèm 2 dòng log ở bước 1 và bước 5.
+- ORC ghi decision-log: mức cũ → mới, giờ, người làm, dòng SEC làm căn cứ, kèm 2 dòng log ở bước 1 và bước 5, và việc đã dọn bản sao `.env` cũ (bước 6).
+- Tệp tạm `env.level.tmp` tạo dưới `umask 077` (0600) và bị xóa ngay; không để bản sao `.env` nào khác ngoài `state/`.
 - Quay về A: làm lại các bước trên với `A`. Hạ mức thì không cần SEC, nhưng vẫn báo INV và ghi decision-log.
 - Yêu cầu gửi dưới thông báo cũ hơn `2026-10-31` **luôn** nhận mức A, dù `.env` đặt C. Đây là hằng số trong mã.
 - Staging chỉ được đặt C khi nối với **phòng thử** và dùng dữ liệu giả. Không bao giờ nối staging với phòng thật.
@@ -385,7 +389,7 @@ OPS không có quyền xóa tin Chat. Máy chủ không giữ bản sao nào c�
   - Bản sao ngoài máy có sẵn, vì `pull-backups.sh` kéo mọi tệp `*.age`.
 - `restore-drill.sh` giải mã tệp nếu có, rồi đối chiếu các version ghi `rc=0` với bảng `privacy_notice_version` trong DB vừa khôi phục. Biên bản in một dòng `privacy-notice.log:`. Dòng này chỉ để xem, không chặn, vì bộ sao lưu trước v1.0.1 chưa có tệp.
 - Dựng lại máy chủ từ sao lưu: giải mã `privacy-notice-<stamp>.log.age` mới nhất trên Mac, rồi chép vào `state/privacy-notice.log` (chủ `ottimo`, quyền 0600) **trước** lượt deploy landing đầu tiên. Thiếu tệp mà proxy form đang mở thì `deploy-landing.sh` in WARNING (12.3).
-- Test: `infra/server/test/backup-privacy-log.test.sh` (4 ca, stub `dc`/`age`, chạy trong CI).
+- Test: `infra/server/test/backup-privacy-log.test.sh` (5 ca, stub `dc`/`age`, chạy trong CI).
 
 ### 13.7 ★2-bis tạm – trước khi PN-01 (migration 0090) lên production
 
@@ -413,5 +417,5 @@ cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc exec -T postgres sh 
   - `other error`
 
   Nguyên văn lỗi không bao giờ được gửi ra journal hay webhook, vì lỗi đọc `.env` có thể trích nguyên một dòng `.env` (ARC CWD-03). Muốn xem lỗi thật: chạy tay `cd / && sudo -u ottimo …/bin/ops-check.sh j16`, rồi `…/bin/dc exec -T postgres psql …` trên terminal.
-- stderr của lệnh đang kiểm ghi vào một tệp riêng cho mỗi lượt (`mktemp`, quyền 0600) và bị xóa khi thoát. Tệp chung `state/ops-check/compose.stderr` của bản 30/10 tự được xóa (ARC CWD-04 mục 1).
-- Test: `infra/ci/test-ops-check.sh` (29 kiểm) và `infra/server/test/ops-check-cwd.test.sh` (7 ca).
+- stderr của lệnh đang kiểm ghi vào một tệp riêng cho mỗi lượt (`mktemp`, quyền 0600) và bị xóa khi thoát. Tệp chung `state/ops-check/compose.stderr` của bản 30/10 tự được xóa (ARC CWD-04 mục 1). Bị dừng bằng `SIGTERM` (systemd dừng unit, máy tắt) thì `trap` vẫn chạy; tệp `cmd-stderr.*` sót lại sau `SIGKILL` bị lượt sau xóa khi cũ hơn 60 phút (SEC PR23-06).
+- Test: `infra/ci/test-ops-check.sh` (31 kiểm) và `infra/server/test/ops-check-cwd.test.sh` (7 ca).

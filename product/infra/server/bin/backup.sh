@@ -69,7 +69,8 @@ publish() { # name – checksum + atomic move into $BACKUP_DIR
 coproc PSQL { dc exec -T postgres sh -c 'psql -X -q -tA -F " " -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' 2>&1; }
 # Keep the pid now: bash unsets PSQL_PID once the coprocess has exited, and psql may exit right after `\q` – a later
 # "$PSQL_PID" under `set -u` would then stop the backup ("unbound variable", seen in the stub test).
-psql_in=${PSQL[1]}; psql_out=${PSQL[0]}; psql_pid=$PSQL_PID
+psql_in=${PSQL[1]:-}; psql_out=${PSQL[0]:-}; psql_pid=${PSQL_PID:-}
+[ -n "$psql_pid" ] && [ -n "$psql_in" ] && [ -n "$psql_out" ] || die "psql did not start (docker compose / postgres)"
 printf '%s\n' 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;' 'SELECT pg_export_snapshot();' >&"$psql_in"
 read -r -t 60 snap <&"$psql_out" || die "no snapshot from psql"
 [[ "$snap" =~ ^[0-9A-F-]+$ ]] || die "unexpected snapshot id"
