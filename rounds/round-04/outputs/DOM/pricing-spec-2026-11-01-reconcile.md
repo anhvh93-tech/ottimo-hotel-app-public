@@ -107,6 +107,26 @@ Không có P0: mọi chỗ sai tiền với khách ngắn ngày sửa được b
 | H8 | P2 | Nhắc hạn tiền thuê theo ngày 5 (BR-207, ESC-045 câu 5) | Cùng phân hệ thu tiền thuê v1.3 | trong H7/US-064 | v1.3 |
 | H9 | P2 | Cập nhật `production-defaults.ts` + seed DS-E + `br-examples.json` theo v0.5.0 (chỉ cho lần dựng mới/test; production đã có giá trị do OWN nhập) | Nhất quán tài liệu – mã | BE 0,25 + QA 0,5 | v1.0.2 |
 
+### 3a. Cập nhật 01/11 khuya (BR v0.5.1 – INV quyết ESC-045 câu 1–6, chưa vận hành → OWN chuyển ngay)
+
+Ngày chuyển S = ngày OWN làm theo `inv-price-switch-guide.md` (không chờ 03/11 06:00). Mục 2 trên vẫn đúng, cộng thêm: B1, B2 = 0 (câu 1 A); B8 `child_fee_6_11` = 150.000 (câu 3); B9 `long_stay_compare_from_nights` = 30 (câu 6 A). Mục 4: HĐ 13–23 tháng dùng 7 %, trên 24 tháng 10 % (câu 2); thu ngày 05 theo tháng lịch, tháng đầu tính lẻ ÷ 30 gộp kỳ sau (câu 5, BR-210); thu khi ký chờ **ESC-047**; trả phòng trước hạn mất ký quỹ, không truy thu (câu 4). Bảng ưu tiên hotfix thay bảng mục 3:
+
+| ID | Mức mới | Thay đổi so với mục 3 | Hạn đề xuất |
+|---|---|---|---|
+| H1 | **P3** (từ P1) | Không có đơn nào tạo trước ngày chuyển (INV chưa vận hành, không có dữ liệu cũ) → không còn khách bị tính sai. Còn là lỗi tiềm ẩn: nếu sau này INV bật lại giảm theo số đêm rồi đổi bậc, đơn cũ gia hạn sẽ bị tính theo bậc mới. Điều kiện: OWN chuyển trước khi tạo đơn thật đầu tiên ≥ 7 đêm | Backlog (khi INV muốn bật lại `los_discount`) |
+| H2 | **P1** (giữ) | Hoa hồng theo bảng nội bộ: cơ sở tính, hủy/không đến đã thu, hoa hồng thuê tháng, lịch chi, thưởng quản lý. Tỷ lệ ngắn ngày OWN tự nhập (B10) – cấu trúc vẫn cần mã | Trước kỳ chốt hoa hồng đầu tiên 01/12 |
+| H3 | **P1** (giữ) | Phí dọn theo lượt cho khách thuê tháng theo hạng (100.000 / 120.000 / 130.000 / 150.000); `adhoc_cleaning_fee` dùng chung cho khách ngắn ngày nên không đổi tham số được. Tạm: lễ tân thêm dòng phí phần chênh | Trước khi khách thuê tháng đầu tiên gọi dọn |
+| H4 | **P2** (từ P1) | Chỉ vướng HĐ đúng 1 tháng có ít hơn 30 đêm (vào 01/02 → 01/03/2027 = 28 đêm; vào 31/01 → 28/02). HĐ ≥ 2 tháng và 1 tháng ở các tháng khác không vướng | Trước 15/01/2027 |
+| H5 | **P1** (gói LP-v2, giữ) | Thêm: dựng lại ví dụ/test giá ước tính có trẻ 6–11 tuổi theo 150.000 (BR-115 v0.5.1: Signature 4 người lớn + trẻ 8 tuổi + trẻ 3 tuổi, 7 đêm = **10.150.000**); `parity_mode` = `direct` | Cùng LP-v2 |
+| H6 | P2 (giữ) | Gỡ `ota_base_rate` / giá OTA nền khỏi mã | v1.1 |
+| H7 | P2 (giữ, phạm vi đổi) | Báo giá thuê tháng trên Desk theo v0.5.1: giảm theo khoảng 1–3/4–6/7–9/**10–23**/**từ 24**; ký quỹ 1 tháng (24 tháng: 2); **thu theo tháng lịch, hạn ngày 05**; **tính lẻ tháng vào ở ÷ 30 gộp kỳ sau, kỳ cuối khử lệch** (BR-210); thu khi ký theo ESC-047; **trả trước hạn mất ký quỹ, không truy thu** (BR-313) | Theo backlog (R4+) |
+| H8 | P2 (giữ) | Nhắc hạn tiền thuê nay đơn giản hơn: **một ngày hạn 05** cho mọi khách (nhắc trước 7 ngày, cảnh báo đỏ ngày 08, quản lý xử lý ngày 15) | v1.3 cùng US-064 |
+| H9 | P2 (giữ, thêm khóa) | `production-defaults.ts` + seed DS-E + `br-examples.json` theo v0.5.1: thêm `weekend_uplift_pct` 0, `special_uplift_pct` 0, `los_discount` [], `long_stay_compare_from_nights` 30, `child_fee_6_11` 150.000, `early_termination` `[{"minDays":0,"forfeitPct":100}]`, `early_checkin_tiers` [10:00, 11:00) | v1.0.2 |
+| **H10** | **P2 (mới)** | Chữ Desk còn số "28" viết cứng: `field.LONG_STAY_REQUIRES_CONTRACT` ("Từ 28 đêm là thuê dài hạn…"), `bk.long_body` ("Từ 28 đêm phải làm hợp đồng"), `stay.long_hint` ("tổng từ 28 đêm") → đọc ngưỡng từ tham số hoặc ghi 30; `rooms.night_auto` bỏ câu "Cuối tuần, ngày đặc biệt do lịch giá cộng thêm". Chỉ chữ, không đổi tiền; lễ tân có thể hiểu sai ngưỡng 28/30 | v1.0.1 nếu kịp, không thì v1.0.2 (UXD/CPY chữ → FE) |
+| **H11** | **P2 (mới, tài liệu)** | Sổ tay `product/docs/manual/user-manual-v1.0.md` dòng 242–244, 595, 694, 740, 1434, 1444, 1560, 1562, 1567 (+15 %/+30 %, giảm 7/14 đêm, 28 đêm, trẻ 6–11 tuổi 100.000) và tờ dán quầy | PO + UXD sửa, DOM duyệt số; ngay sau khi OWN báo "Desk đã chuyển" |
+
+Không có P0.
+
 ## 4. Ngày D và tới ngày chuyển – ghi chú cho sổ tay lễ tân
 
 INV chốt: **ngày D lễ tân dùng đúng số Desk tính, không sửa tay giá theo Bảng.** Chỉ chèn 3 dòng sau vào tờ dán quầy (mục giá):
