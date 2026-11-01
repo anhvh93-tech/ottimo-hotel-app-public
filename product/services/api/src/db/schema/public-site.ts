@@ -102,7 +102,7 @@ export const privacyNoticeVersion = pgTable(
       columns: [t.organizationId],
       foreignColumns: [organization.id],
     }),
-    // 0090 (R4 LP-v2, OpenAPI 0.3.9 LandingLocale): + ko, zh (widen only).
+    // 0091 (R4 LP-v2, OpenAPI 0.3.10 LandingLocale): + ko, zh (widen only).
     check(
       'privacy_notice_version_locale_check',
       sql`${t.locale} IN ('vi', 'en', 'ru', 'ko', 'zh')`,
@@ -228,7 +228,7 @@ export const websiteBookingRequest = pgTable(
       'website_booking_request_locale_check',
       sql`${t.locale} IN ('vi', 'en', 'ru', 'ko', 'zh')`,
     ),
-    // 0090 (R4 LP-v2): the estimate the guest saw + the server recomputation (not C2 – kept after the purge).
+    // 0091 (R4 LP-v2): the estimate the guest saw + the server recomputation (not C2 – kept after the purge).
     check(
       'website_booking_request_price_estimate_check',
       sql`${t.priceEstimate} IS NULL OR jsonb_typeof(${t.priceEstimate}) = 'object'`,

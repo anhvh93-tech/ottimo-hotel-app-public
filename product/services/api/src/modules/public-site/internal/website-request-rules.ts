@@ -132,7 +132,7 @@ export function containsUrl(text: string): boolean {
 }
 
 /**
- * R4 LP-v2 (OpenAPI 0.3.9 `unexpected_script`, ARC lp-v2-design 3.4): characters outside the scripts of the
+ * R4 LP-v2 (OpenAPI 0.3.10 `unexpected_script`, ARC lp-v2-design 3.4): characters outside the scripts of the
  * LANGUAGE OF THE PAGE. Latin (incl. Vietnamese and full-width Latin), marks, digits, punctuation, symbols and
  * spaces are always fine; `ko` adds Hangul, `zh` adds Han (CJK punctuation is already \p{P}), `ru` adds Cyrillic.
  * Korean on an `en` page is flagged (filter only – never blocks).

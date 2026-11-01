@@ -1,6 +1,6 @@
 /**
- * R4 gói LP-v2 – BE on the real PostgreSQL: getPublicPriceEstimate (OpenAPI 0.3.9-draft; ARC lp-v2-design 2, 4.1
- * BE-2…BE-6; DOM BR-115/116 mục 11; SEC SR-PE-01…14 / 9.5), the estimate stored with a website request, the new
+ * R4 gói LP-v2 – BE on the real PostgreSQL: getPublicPriceEstimate (OpenAPI 0.3.10-draft; ARC lp-v2-design 2, 4.1
+ * BE-2…BE-6; DOM BR-115/116 mục 11 – direct price only since INV 01/11 "one price for every channel"; SEC SR-PE-01…14 / 9.5), the estimate stored with a website request, the new
  * landing languages (LandingLocale, LANDING_LOCALES, PUBLIC_FORM_NOT_READY, unexpected_script by language) and the
  * `public_show_prices` switch. Fake clock: Sun 01/11/2026 09:00 VN (the "today" of DOM mục 11). FAKE data only.
  * Every public GET moves the fake clock 200 ms (the whole-api limit is 10 per second of that clock).
@@ -47,9 +47,10 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
       headers?: Record<string, string>;
       raw?: string;
       method?: 'GET' | 'POST';
+      tickMs?: number;
     } = {},
   ) => {
-    tick();
+    tick(opts.tickMs ?? 200);
     const qs =
       opts.raw ??
       Object.entries(query)
@@ -182,7 +183,7 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
         'privacy_notice_version.ko',
       ],
     });
-    // Landing release (OPS, owner role): en, vi, ko – NOT zh (migration 0090 accepts ko/zh in the CHECK).
+    // Landing release (OPS, owner role): en, vi, ko – NOT zh (migration 0091 accepts ko/zh in the CHECK).
     const pg = new PgClient({ connectionString: process.env.MIGRATION_DATABASE_URL });
     await pg.connect();
     try {
@@ -225,7 +226,7 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
     expect(audit.map((a) => a.category)).toEqual(['security']);
   });
 
-  it('ca 1 (ota_floor default): 200, numbers of DOM mục 11, contract keys only, no forbidden data, headers', async () => {
+  it('ca 1 (direct = Desk quote, no OTA floor): 200, numbers of DOM mục 11, contract keys only, no forbidden data, headers', async () => {
     const r = await estimate(garden);
     expect(r.statusCode, r.body).toBe(200);
     expect(r.headers['cache-control']).toBe('no-store');
@@ -240,7 +241,7 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
       arrival: '2026-11-10',
       departure: '2026-11-13',
       priceAvailable: true,
-      shortStay: { nights: 3, totalVnd: 2_280_000, losDiscountPct: 0, extraPersonFeeVnd: 0 },
+      shortStay: { nights: 3, totalVnd: 2_250_000, losDiscountPct: 0, extraPersonFeeVnd: 0 },
       notes: [],
     });
     expect(Object.keys(b).sort()).toEqual(
@@ -272,6 +273,7 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
       'ceiling',
       'roomId',
       'toTotal',
+      'parity',
       'L12',
       '2376000',
     ]) {
@@ -323,7 +325,7 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
     expect(unknown).toMatchObject({ priceAvailable: false, unavailableReason: 'on_request' });
   });
 
-  it('monthly (ESC-043 câu 2): 200 monthly_offer with NO amount and no token – 6 months, unknown length, ≥ 28 nights', async () => {
+  it('monthly (ESC-043 câu 2, UXD FB-01): 200 monthly_offer with NO amount and no token – 6 months, no departure and no length, ≥ BR-108 nights', async () => {
     for (const query of <Array<Record<string, string | number>>>[
       { roomType: GARDEN, stayType: 'long', arrival: '2026-12-01', months: 6, adults: 2 },
       { roomType: GARDEN, stayType: 'long', arrival: '2026-12-01', adults: 2 },
@@ -374,7 +376,7 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
     ]);
     const unknown = await estimate({ ...garden, channel: 'ota' });
     expect(unknown.statusCode).toBe(422);
-    expect(unknown.body).not.toContain('2280000');
+    expect(unknown.body).not.toContain('2250000');
     const dup = await estimate(
       {},
       { raw: `roomType=${GARDEN}&arrival=2026-11-10&departure=2026-11-13&adults=2&adults=3` },
@@ -385,20 +387,65 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
     expect((await estimate(garden, { method: 'POST' })).statusCode).toBe(404);
   });
 
-  it('cache: a second identical call touches no database; a price parameter change drops it (number changes at once)', async () => {
+  it('cache: a second identical call touches no database; a price parameter change drops it (answer changes at once)', async () => {
     await estimate(garden);
     const spy = vi.spyOn(db, 'withContext');
     const entry = vi.spyOn(db, 'entry');
     const again = await estimate(garden);
-    expect(again.json().shortStay.totalVnd).toBe(2_280_000);
+    expect(again.json().shortStay.totalVnd).toBe(2_250_000);
     expect(spy).not.toHaveBeenCalled();
     expect(entry).not.toHaveBeenCalled();
     spy.mockRestore();
     entry.mockRestore();
-    // BR-116 (3): OWN switches to `direct` (ESC-043 answered) – the next view shows the direct price (ca 1).
-    const put = await putParam('own', 'web_estimate.parity_mode', 'direct');
+  });
+
+  it('BR-108 from the parameter (ARC BE-LPV2-03): 28 in DS-E → 29 nights monthly; OWN sets 30 → 29 nights has a number + token at once, 30 still monthly; unknown slug same kind', async () => {
+    const n29 = { roomType: GARDEN, arrival: '2026-11-10', departure: '2026-12-09', adults: 2 };
+    const n30 = { ...n29, departure: '2026-12-10' };
+    const before = (await estimate(n29)).json();
+    expect(before).toMatchObject({ stayKind: 'long', unavailableReason: 'monthly_offer' });
+    expect((await estimate({ ...n29, roomType: 'penthouse-sea-view' })).json().stayKind).toBe(
+      'long',
+    );
+    const put = await putParam('own', 'long_stay_required_from_nights', 30);
     expect(put.statusCode, put.body).toBe(200);
-    expect((await estimate(garden)).json().shortStay.totalVnd).toBe(2_250_000);
+    const after = await estimate(n29);
+    expect(after.statusCode, after.body).toBe(200);
+    expect(after.json()).toMatchObject({
+      stayKind: 'short',
+      priceAvailable: true,
+      shortStay: { nights: 29 },
+    });
+    expect(after.json().estimateToken).toMatch(/^pe1\./);
+    expect(after.json().notes).toEqual([]);
+    expect((await estimate({ ...n29, roomType: 'penthouse-sea-view' })).json().stayKind).toBe(
+      'short',
+    );
+    const thirty = (await estimate(n30)).json();
+    expect(thirty).toMatchObject({ stayKind: 'long', unavailableReason: 'monthly_offer' });
+    expect(thirty.notes).toEqual([{ code: 'long_stay_required' }]);
+
+    // The request: 29 nights with the token → stay_kind short, the Desk snapshot says short too; 30 nights → long.
+    const r29 = await submit(
+      form(await formToken(), {
+        departure: '2026-12-09',
+        priceEstimateToken: after.json().estimateToken,
+      }),
+    );
+    expect(r29.statusCode, r29.body).toBe(202);
+    const row29 = await rowOf(r29.json().refCode);
+    expect(row29.suspicious_flags).not.toContain('offer_unverified');
+    expect(row29.price_estimate?.atSubmit).toMatchObject({ status: 'ok', stayKind: 'short' });
+    const d29 = (await desk(row29.id)).json();
+    expect(d29.stayKind).toBe('short');
+    expect(d29.priceEstimate).toMatchObject({
+      stayKind: 'short',
+      nights: 29,
+      totalVnd: after.json().shortStay.totalVnd,
+    });
+    const r30 = await submit(form(await formToken(), { departure: '2026-12-10' }));
+    expect(r30.statusCode, r30.body).toBe(202);
+    expect((await desk((await rowOf(r30.json().refCode)).id)).json().stayKind).toBe('long');
   });
 
   it('BE-4: a verified token → 202; the Desk sees what the guest saw; the server recomputation keeps from/to', async () => {
@@ -414,8 +461,9 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
       status: 'ok',
       fromTotalVnd: 2_250_000,
       toTotalVnd: 2_376_000,
-      parityMode: 'direct',
     });
+    // INV 01/11: one price for every channel – no parity mode is stored any more.
+    expect(row.price_estimate?.atSubmit).not.toHaveProperty('parityMode');
     const d = await desk(row.id);
     expect(d.statusCode, d.body).toBe(200);
     expect(d.json().priceEstimate).toEqual({
@@ -539,6 +587,42 @@ describe.skipIf(!HAS_DB)('LP-v2 BE – public price estimate + landing languages
     );
     expect(counters[0]?.n).toBe(0);
     fa.app.get(PublicSiteController).resetEstimateLimits();
+  });
+
+  it('SEC BE-01: one IP hammering the route (≈ 200 calls in 5 s, 429 after the 30th) never fills the api-wide window – another IP still gets 200', async () => {
+    fa.app.get(PublicSiteController).resetEstimateLimits();
+    const noisy = '198.51.100.91';
+    const codes: number[] = [];
+    for (let i = 0; i < 200; i += 1) {
+      codes.push((await estimate(garden, { ip: noisy, tickMs: 25 })).statusCode);
+    }
+    expect(codes.filter((c) => c === 429).length).toBeGreaterThanOrEqual(170);
+    expect(codes.slice(30).every((c) => c === 429)).toBe(true);
+    // A burst at the very same instant, then another guest at that instant: with the old order these refused calls
+    // filled the 10/s window and the guest got 503.
+    for (let i = 0; i < 15; i += 1) {
+      expect((await estimate(garden, { ip: noisy, tickMs: 0 })).statusCode).toBe(429);
+    }
+    const guest = await estimate(garden, { ip: '198.51.100.92', tickMs: 0 });
+    expect(guest.statusCode, guest.body).toBe(200);
+    expect(guest.json().priceAvailable).toBe(true);
+    fa.app.get(PublicSiteController).resetEstimateLimits();
+  });
+
+  it('SEC BE-04: the recomputation at submit has its own 1 s statement cap – a slow one is dropped (seen kept), the request is still 202', async () => {
+    const shown = (await estimate(garden)).json();
+    const real = service.compute.bind(service);
+    const spy = vi.spyOn(service, 'compute').mockImplementationOnce(async (tx, ...rest) => {
+      await tx.query('SELECT pg_sleep(1.5)');
+      return real(tx, ...rest);
+    });
+    const r = await submit(form(await formToken(), { priceEstimateToken: shown.estimateToken }));
+    spy.mockRestore();
+    expect(r.statusCode, r.body).toBe(202);
+    const row = await rowOf(r.json().refCode);
+    expect(row.suspicious_flags).not.toContain('offer_unverified');
+    expect(row.price_estimate).toMatchObject({ v: 1, atSubmit: null });
+    expect((await desk(row.id)).json().priceEstimate).toMatchObject({ totalVnd: 2_250_000 });
   });
 
   it('own bulkhead: 2 estimates in flight → the 3rd gets 503, the form still answers 202', async () => {

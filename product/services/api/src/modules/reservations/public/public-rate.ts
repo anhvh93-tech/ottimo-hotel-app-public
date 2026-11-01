@@ -1,10 +1,13 @@
 /**
- * Public price ESTIMATE of a room type (BR-115, BR-116 v0.4.9 – FB-INV-009, gói LP-v2; ARC lp-v2-design 2.3;
- * DOM rounds/round-04/outputs/DOM/web-price-estimate-rules.md) – pure, no I/O, no clock.
+ * Public price ESTIMATE of a room type (BR-115, BR-116 v0.5.0 – FB-INV-009, gói LP-v2; ARC lp-v2-design 2.3;
+ * DOM rounds/round-04/outputs/DOM/web-price-estimate-rules.md + pricing-spec-2026-11-01-reconcile.md) – pure, no
+ * I/O, no clock.
  *
- * Same engine as the desk (coding-standards 1.1): the calendar of the DIRECT channel (`calendarRate`, BR-104), the
- * BR-107 tier (`losDiscountPct`, `applyNightDiscount`), the BR-110 extra persons (`extraPersons`), the BR-005
- * rounding units of `PricingService.load`. Nothing about bookings, holds or room statuses is an input (SEC SR-PE-04:
+ * Same engine as the desk (coding-standards 1.1), channel DIRECT and nothing else: the calendar of the direct
+ * channel (`calendarRate`, BR-104), the BR-107 tier (`losDiscountPct`, `applyNightDiscount`), the BR-110 extra
+ * persons (`extraPersons`), the BR-005 rounding units of `PricingService.load`. INV 01/11 ("one price for every
+ * channel"; ARC FB-R4-ARC-BE-LPV2-04): there is NO OTA floor / parity mode any more – the web number is exactly the
+ * Desk direct quote of the cheapest room of the type. Nothing about bookings, holds or room statuses is an input (SEC SR-PE-04:
  * the estimate never depends on availability); only the OOO blocks of a room take it out of the type (DOM 2).
  *
  * The result is INTERNAL: it carries the "to" total and the room ids with a missing price (for the Desk snapshot
@@ -25,13 +28,8 @@ import {
 } from './pricing';
 import type { PricingParams } from './pricing.service';
 
-/** `web_estimate.parity_mode` (BR-116 (2)). */
-export type ParityMode = 'ota_floor' | 'direct';
-
 export interface PublicRateRoom {
   roomId: string;
-  /** room_group.code – key of `ota_base_rate` (BR-103) for the BR-116 floor. */
-  groupCode: string;
   baseOccupancy: number;
   maxOccupancy: number;
   /** Nightly list prices (room_list_price) ordered by effectiveFrom (BR-101). Monthly prices are never read here. */
@@ -42,7 +40,6 @@ export interface PublicRateRoom {
 
 export interface PublicRateParams {
   pricing: PricingParams;
-  parityMode: ParityMode;
   /** `web_estimate.open_until` – last night with a confirmed calendar (BR-115 (6)); null = no limit. */
   openUntil: LocalDate | null;
 }
@@ -58,7 +55,8 @@ export interface PublicRateRequest {
 }
 
 /**
- * `monthly_offer` (ESC-043 câu 2, INV 01/11): a monthly stay – or a short one of ≥ 28 nights (BR-108) – never gets a
+ * `monthly_offer` (ESC-043 câu 2, INV 01/11): a monthly stay – or a short one of ≥ `long_stay_required_from_nights`
+ * nights (BR-108; 30 from the 01/11 price table) – never gets a
  * number on the web; the page invites the guest to ask for the special offer / private quote.
  */
 export type PublicRateStatus =
@@ -66,7 +64,7 @@ export type PublicRateStatus =
 
 export interface ShortStayEstimate {
   nights: number;
-  /** Public price of the nights BEFORE the BR-107 tier (calendar, floored by BR-116 when ota_floor). */
+  /** Direct calendar price of the nights BEFORE the BR-107 tier. */
   roomSubtotalVnd: number;
   upliftNights: number;
   losDiscountPct: number;
@@ -87,7 +85,7 @@ export interface PublicRateEstimate {
   /** BR-113 minimum when `status = min_stay`. */
   minNights?: number;
   shortStay?: ShortStayEstimate;
-  /** Short stay ≥ 28 nights answered as a long stay (BR-108). */
+  /** Short stay ≥ `long_stay_required_from_nights` nights answered as a long stay (BR-108). */
   longStayRequired?: boolean;
   /** Rooms skipped because a night has no list price (BR-115 (6)) – for the OWN warning, never public. */
   priceGapRoomIds: string[];
@@ -133,8 +131,6 @@ function priceShortRoom(
   party: Party,
 ): RoomShort | 'gap' {
   const pr = p.pricing;
-  const otaBase = pr.otaBaseRates[room.groupCode];
-  if (p.parityMode === 'ota_floor' && (otaBase === undefined || otaBase <= 0)) return 'gap';
   const pre: number[] = [];
   const pub: number[] = [];
   let uplift = 0;
@@ -143,18 +139,21 @@ function priceShortRoom(
     if (!list || !(list.nightlyVnd > 0)) return 'gap';
     // 1–2. BR-101 list price of THAT night → BR-104 direct calendar, rounded (BR-005).
     const cal = calendarRate(list.nightlyVnd, date, 'direct', pr.calendar, pr.nightRateUnit);
-    if (cal.uplift !== 'none') uplift += 1;
-    // 3. BR-107 on the calendar price of the night.
+    // A weekend/special night counts only when its uplift is not 0 % (price table 01/11 may set both to 0 – the
+    // page must not say "includes weekend nights" for a flat price).
+    const pct =
+      cal.uplift === 'special'
+        ? pr.calendar.specialUpliftPct
+        : cal.uplift === 'weekend'
+          ? pr.calendar.weekendUpliftPct
+          : 0;
+    if (pct !== 0) uplift += 1;
+    // 3. BR-107 on the calendar price of the night (0 % when OWN sets no tier – price table 01/11).
     const disc = applyNightDiscount([cal.rateVnd], losPct, pr.nightRateUnit)[0] as number;
-    // 4. BR-116 floor (ota_floor): the OTA price of the group that night, with the same uplift.
-    const floor =
-      p.parityMode === 'ota_floor'
-        ? calendarRate(otaBase as number, date, 'ota', pr.calendar, pr.otaRateUnit).rateVnd
-        : 0;
-    pre.push(Math.max(cal.rateVnd, floor));
-    pub.push(Math.max(disc, floor));
+    pre.push(cal.rateVnd);
+    pub.push(disc);
   }
-  // 5. BR-110 per night, never discounted, never floored.
+  // 4. BR-110 per night, never discounted.
   const extra =
     extraPersons(party, room.baseOccupancy, {
       adultVnd: pr.extraAdultFeeVnd,

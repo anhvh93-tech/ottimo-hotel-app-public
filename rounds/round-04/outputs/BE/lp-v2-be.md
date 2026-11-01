@@ -70,3 +70,30 @@ Giới hạn tần suất (SR-PE-07, RAM, không ghi `rate_limit_counter`): HMAC
 - Migration 0090: bỏ khóa `web_estimate.show_foreigner_monthly` (chưa phát hành nên sửa thẳng file).
 - Mục 3 L10 (giá tháng hộ chiếu nước ngoài, phí dịch vụ tháng) và giả định G3/G5 (giá tháng) không còn áp dụng.
 - Kiểm: toàn bộ test api 3321 đạt / 24 bỏ qua / 0 lỗi; `pnpm lint` xanh; admin-web 644, api-client 32 đạt.
+
+## 9. Phản hồi & sửa – review ARC/SEC mã LP-v2 + bảng giá INV 01/11 (01/11/2026)
+
+Trả lời từng thẻ: `rounds/round-04/responses/BE-LP-v2.md`. Mục 1–8 ở trên là bản trước; chỗ nào khác thì mục này thắng.
+
+### 9.1 Đã sửa
+- **Thứ tự hạn mức (SEC BE-01)**: theo IP trước → bộ chung 10/giây → bulkhead. Lượt bị 429 theo IP không chiếm chỗ của khách khác.
+- **Một mức giá (ARC BE-04, BR-116 v0.5.0)**: bỏ hẳn `web_estimate.parity_mode`, sàn OTA, luật G4. Giá web = báo giá Desk kênh Trực tiếp. Giả định G4 (mục 4) và lệch L6 "chế độ ngang giá" hết hiệu lực.
+- **Mốc tháng từ tham số (ARC BE-03)**: không còn hằng 28; mọi chỗ đọc `long_stay_required_from_nights` theo ngày nghiệp vụ. Giả định G3 (mục 4) đổi thành "≥ tham số".
+- **`upliftNights`**: chỉ đếm đêm có mức tăng khác 0 % (bảng 01/11 đặt 0 thì trang không ghi "có đêm cuối tuần").
+- **Tính lại khi nhận yêu cầu (SEC BE-04)**: trần 1 s mỗi câu lệnh trong savepoint; quá trần → chỉ lưu `seen`.
+- **Migration 0091** (ARC BE-01, BE-07): đổi số, bỏ khóa `web_estimate.parity_mode` và `web_estimate.honor_hours`; snapshot sinh lại.
+- **OpenAPI 0.3.10-draft** (ARC BE-02): đổi số + "0.3.10 bổ sung 2" (chỉ mô tả); sinh lại meta/schemas/api-client.
+
+### 9.3 Gộp migration khi 0089 (BE-A v1.0.1) và/hoặc 0090 (PN-01) đã lên `main` trước – việc của ORC/BE lúc gộp `main` vào `lp-v2`
+1. `meta/_journal.json` xung đột (cả hai bên thêm sau 0088): giữ nguyên các dòng của `main` (0089 idx 65, 0090 idx 66 nếu có), thêm dòng `0091_lp_v2_price_estimate_locales` **cuối mảng**, `idx` = vị trí (66 hoặc 67), `when` = 1792782171681. Nếu `when` lớn nhất trên `main` ≥ số này thì dùng max + 2000 và sửa chú thích đầu file SQL.
+2. Sinh lại snapshot (bản trên nhánh trỏ về 0088, thiếu `simulation_guard`):
+   - xóa `meta/0091_snapshot.json`; tạm bỏ dòng 0091 khỏi journal và chuyển `0091_lp_v2_price_estimate_locales.sql` ra ngoài thư mục;
+   - `pnpm --filter @ottimo/api db:generate --name lp_v2_price_estimate_locales`. **Chú ý**: drizzle-kit đặt tên theo `idx` (`00NN_…sql`, `meta/00NN_snapshot.json` với NN = 66/67) và **ghi đè** `meta/0066_snapshot.json`/`0067_snapshot.json` cũ đang có trong kho;
+   - `mv meta/00NN_snapshot.json meta/0091_snapshot.json`, rồi `git checkout -- meta/00NN_snapshot.json` để trả lại tệp cũ; so `00NN_…sql` sinh ra với phần DDL của 0091 (phải giống 6 câu `ALTER TABLE`), xóa nó, đặt lại tệp 0091 viết tay; đặt lại dòng journal như bước 1; `prettier --write` snapshot;
+   - kiểm: `prevId` của `0091_snapshot.json` = `id` của snapshot mới nhất trên `main` (0089 hoặc 0090); `pnpm --filter @ottimo/api exec drizzle-kit generate` báo "No schema changes"; `test/migrations-journal.test.ts`, `test/integration/schema-parity.test.ts` xanh; chạy migrate trên một DB **đã có** 0089 (và 0090) rồi mới thêm 0091.
+3. PN-01 chưa lên mà LP-v2 lên trước: giữ 0091 (không đổi số), PN-01 khi lên sau phải lấy số > 0091 và `when` > 1792782171681 (không chèn trước mục đã có – decision-log 30/10).
+4. OpenAPI: changelog `0.3.9-draft` (v1.0.1) và `0.3.10-draft` (LP-v2) là hai mục riêng; `info.version` = 0.3.10-draft; sinh lại meta/schemas/api-client sau khi gộp (không gộp tay tệp sinh).
+
+### 9.2 Kết quả kiểm (lượt này)
+- Toàn bộ test api trên PostgreSQL 17 tạm riêng (docker, cổng 55441, roles theo `02-roles.sh`, đã dừng sau khi chạy): **140 file đạt, 2 bỏ qua; 3339 test đạt, 19 bỏ qua, 0 lỗi**. Mới/sửa: `lp-v2-be-units.test.ts` (ca DOM mục 11 cột trực tiếp + 9 ca bảng giá 01/11 + "không còn sàn OTA"), `lp-v2-price-estimate.test.ts` 20 test e2e (thêm: mốc 30 đêm từ tham số + `stay_kind`; một IP dồn dập, IP khác vẫn 200; trần 1 s khi tính lại).
+- `pnpm lint` (eslint + typecheck mọi workspace) xanh; `pnpm format:check` xanh; `drizzle-kit generate` "No schema changes"; api-client 32 test đạt; `gen_rbac_cases.py --check` OK.

@@ -1,5 +1,5 @@
 /**
- * Website price-estimate token `pe1` (OpenAPI 0.3.9 getPublicPriceEstimate.estimateToken; ARC lp-v2-design 2.7):
+ * Website price-estimate token `pe1` (OpenAPI 0.3.10 getPublicPriceEstimate.estimateToken; ARC lp-v2-design 2.7):
  *   `pe1.` + base64url(payload JSON) + `.` + base64url(HMAC-SHA256(K, `pe1|<propertyId>|<payload base64url>`))
  * K = the HKDF sub-key `keyedHash('public_estimate', …)` of the existing ID hash key – no new secret, no .env change.
  * The payload holds the normalised inputs, the number shown, `priceVersion`, `iat` and `exp` (24 h) – no personal

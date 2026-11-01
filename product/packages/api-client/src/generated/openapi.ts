@@ -4699,7 +4699,7 @@ export interface paths {
      *         `DirectSubSource`; cờ `suspiciousFlags`; (NÊN – DOM Q-W10) cùng liên hệ với yêu cầu còn mở có ngày giao nhau hoặc gửi cách ≤ `web_request_duplicate_window_hours` → cờ
      *         `possible_duplicate` + `relatedRefCodes` ở cả hai) + `state_transition` + bộ đếm giới hạn + outbox thông báo `website_request_new` (FDL, FD, SAL – không tên/SĐT) + SSE
      *         `website_request.changed`. Phản hồi 202 có `refCode` và **câu hứa công khai** `promise` (BR-912 (4), DOM-S4-18) – **không** trả `replyBy` (hạn nội bộ).
-     *     **0.3.9 (R4 – LP-v2)**: (a) `locale` ∈ `LandingLocale` (`en, vi, ko, zh, ru`); phải có `privacy_notice_version` của (`consentVersion`, `locale`) như cũ. (b) Ở bước 12, nếu có
+     *     **0.3.10 (R4 – LP-v2)**: (a) `locale` ∈ `LandingLocale` (`en, vi, ko, zh, ru`); phải có `privacy_notice_version` của (`consentVersion`, `locale`) như cũ. (b) Ở bước 12, nếu có
      *     `priceEstimateToken`: kiểm chữ ký (so sánh thời gian hằng), hạn `exp`, cơ sở, và khớp `roomType`, `stayType`, `arrival`, `departure`/`months`, `adults`, `children`, `infants` của yêu cầu →
      *     đạt: lưu payload đã giải mã vào `price_estimate` (Desk: `WebsiteBookingRequest.priceEstimate`); không đạt: không lưu, cờ `offer_unverified`. Token giá **không bao giờ** làm
      *     yêu cầu bị từ chối – phản hồi 202 không đổi. (c) Cờ `unexpected_script` xét theo bảng chữ của `locale`; nhận diện số thẻ/số giấy tờ chạy trên bản NFKC (chữ số toàn khổ).
@@ -4782,12 +4782,12 @@ export interface paths {
     };
     /**
      * Giá niêm yết ước tính cho form "Plan your stay" theo hạng căn + ngày (hoặc số tháng) + số khách – không phòng trống, không giữ chỗ (R4 – FB-INV-009)
-     * @description **0.3.9 (R4 – gói LP-v2; `rounds/round-04/outputs/ARC/lp-v2-design.md` mục 2).** Trang gọi khi khách đã chọn hạng căn + ngày đến + (ngày đi hoặc `stayType = long`) + số người lớn;
+     * @description **0.3.10 (R4 – gói LP-v2; `rounds/round-04/outputs/ARC/lp-v2-design.md` mục 2).** Trang gọi khi khách đã chọn hạng căn + ngày đến + (ngày đi hoặc `stayType = long`) + số người lớn;
      *     chờ 400 ms sau thay đổi cuối, hủy request cũ, quá 3 giây thì bỏ. Luật giá chi tiết: DOM `rounds/round-04/outputs/DOM/web-price-estimate-rules.md` (điểm cần khớp: design mục 8).
      *     **Cách tính**: cổng `reservations/public` `PublicRatePort` dùng **chung** `PricingService` với `calculateQuote`/`createReservation` – kênh `direct`, nguồn `website`: giá đêm niêm yết
      *     từng căn (BR-101), lịch giá cuối tuần/ngày đặc biệt (BR-104), giảm theo số đêm (BR-107), làm tròn (BR-005), phụ thu người (BR-110). Xét các căn có `publicRoomType` khớp slug,
      *     `is_sellable`, sức chứa vừa đoàn; giá của hạng = căn có **tổng thấp nhất** [GIẢ ĐỊNH A2 – DOM chốt]. **Không** xét căn có trống hay không. Không mã khách quay lại (BR-111),
-     *     không FOC, không giá thỏa thuận. Dài hạn (`stayType = long`, hoặc `short` ≥ 28 đêm – BR-108): **không có số** – `priceAvailable: false` + `unavailableReason: monthly_offer`
+     *     không FOC, không giá thỏa thuận. Dài hạn (`stayType = long`, hoặc `short` ≥ `long_stay_required_from_nights` đêm – BR-108): **không có số** – `priceAvailable: false` + `unavailableReason: monthly_offer`
      *     (ESC-043 câu 2, INV 01/11: chỉ lời mời ưu đãi/báo giá riêng; không token).
      *     **Không lộ dữ liệu nội bộ** (FB-INV-009; test hợp đồng): phản hồi theo danh sách cho phép (`additionalProperties: false`) – **không** số căn, `roomId`/`roomNo`/mã nhóm,
      *     còn/hết hay số phòng còn lại, giá OTA nền (BR-103), hoa hồng, phí kênh, `ottimoRemainingVnd`, biên, giá sàn/trần (BR-105). Slug lạ và hạng không có căn bán cùng trả
@@ -5005,7 +5005,7 @@ export interface components {
     /** @enum {string} */
     Locale: 'vi' | 'en' | 'ru';
     /**
-     * @description **0.3.9 (R4 – FB-INV-008)**: ngôn ngữ của **website ottimo.vn** (landing) – chỉ dùng cho form "Yêu cầu đặt phòng" (`WebsiteBookingRequestInput.locale`), hàng chờ Desk
+     * @description **0.3.10 (R4 – FB-INV-008)**: ngôn ngữ của **website ottimo.vn** (landing) – chỉ dùng cho form "Yêu cầu đặt phòng" (`WebsiteBookingRequestInput.locale`), hàng chờ Desk
      *     (`WebsiteBookingRequest.locale`) và `privacy_notice_version.locale`. `zh` = tiếng Trung **giản thể** (trang `/zh/`, `<html lang="zh-Hans">`). Không dùng cho app khách, app
      *     nhân viên, mẫu tin (vẫn `Locale` – G4 của `plan-lp-v2.md`). Thêm ngôn ngữ = thêm giá trị (chỉ thêm) + migration CHECK + `LANDING_LOCALES`.
      * @enum {string}
@@ -8544,7 +8544,7 @@ export interface components {
        */
       website?: string;
       /**
-       * @description `short` = vài đêm (ngày đến + ngày đi); `long` = từ một tháng (ngày đến + số tháng) – UXD v1.2. Server vẫn ghi `stayKind = long` khi `short` mà ≥ 28 đêm (BR-108)
+       * @description `short` = vài đêm (ngày đến + ngày đi); `long` = từ một tháng (ngày đến + số tháng) – UXD v1.2. Server vẫn ghi `stayKind = long` khi `short` mà ≥ `long_stay_required_from_nights` đêm (BR-108)
        * @default short
        * @enum {string}
        */
@@ -8588,7 +8588,7 @@ export interface components {
       preferredChannel: 'zalo' | 'whatsapp' | 'telegram' | 'viber' | 'phone' | 'email';
       /** @description Lời nhắn. Trang ghi dưới ô: "Không ghi số thẻ, số giấy tờ hay thông tin sức khỏe" (SR-INP-05). Số thẻ → `CARD_NUMBER_DETECTED`; số giấy tờ → `ID_NUMBER_DETECTED` – không lưu, không vào log */
       note?: string;
-      /** @description 0.3.9 (R4): `LandingLocale` (trước: `Locale`) – thêm `ko`, `zh`. Ngôn ngữ của trang gửi form; Desk hiện "Ngôn ngữ khách dùng" */
+      /** @description 0.3.10 (R4): `LandingLocale` (trước: `Locale`) – thêm `ko`, `zh`. Ngôn ngữ của trang gửi form; Desk hiện "Ngôn ngữ khách dùng" */
       locale: components['schemas']['LandingLocale'];
       /**
        * @description Ô đồng ý đã tích (không tích sẵn) – khác `true` → mã trường `CONSENT_REQUIRED` (SEC C-3). Câu chữ: SEC Phụ lục A.1/A.2 (luật sư duyệt – ESC-001)
@@ -8607,8 +8607,8 @@ export interface components {
       /** @description **Contract-ahead phương án B** – server phương án A bỏ qua (không lưu) */
       offerSnapshot?: components['schemas']['PublicOfferSnapshot'];
       /**
-       * @description **0.3.9 (R4 – FB-INV-009)**: `PublicPriceEstimate.estimateToken` của con số **đang hiện** trên form. Trang chỉ gửi khi số đó được tính cho đúng hạng, ngày, số khách
-       *     đang chọn; đổi lựa chọn sau khi có số → không gửi. Server kiểm và lưu số đã giải mã (mô tả `createWebsiteBookingRequest` 0.3.9 (b)); sai/hết hạn/không khớp → vẫn 202,
+       * @description **0.3.10 (R4 – FB-INV-009)**: `PublicPriceEstimate.estimateToken` của con số **đang hiện** trên form. Trang chỉ gửi khi số đó được tính cho đúng hạng, ngày, số khách
+       *     đang chọn; đổi lựa chọn sau khi có số → không gửi. Server kiểm và lưu số đã giải mã (mô tả `createWebsiteBookingRequest` 0.3.10 (b)); sai/hết hạn/không khớp → vẫn 202,
        *     cờ `offer_unverified`. Không phải dữ liệu cá nhân.
        */
       priceEstimateToken?: string;
@@ -8705,7 +8705,7 @@ export interface components {
       /** @description null khi `departure` null */
       nights?: number | null;
       /**
-       * @description `long` khi khách chọn `stayType = long` hoặc ≥ 28 đêm (BR-108) – báo giá dài hạn (R3 – US-081) / HĐ giấy (US-017 AC5a)
+       * @description `long` khi khách chọn `stayType = long` hoặc ≥ `long_stay_required_from_nights` đêm (BR-108) – báo giá dài hạn (R3 – US-081) / HĐ giấy (US-017 AC5a)
        * @enum {string}
        */
       stayKind: 'short' | 'long';
@@ -8729,7 +8729,7 @@ export interface components {
       /** @enum {string} */
       preferredChannel: 'zalo' | 'whatsapp' | 'telegram' | 'viber' | 'phone' | 'email';
       note?: string;
-      /** @description 0.3.9 (R4): thêm `ko`, `zh` (chỉ thêm giá trị ở phản hồi). Desk hiện nhãn `webreq.locale.<mã>`; mẫu trả lời gợi ý: `vi` → tiếng Việt, ngôn ngữ khác → tiếng Anh */
+      /** @description 0.3.10 (R4): thêm `ko`, `zh` (chỉ thêm giá trị ở phản hồi). Desk hiện nhãn `webreq.locale.<mã>`; mẫu trả lời gợi ý: `vi` → tiếng Việt, ngôn ngữ khác → tiếng Anh */
       locale: components['schemas']['LandingLocale'];
       /** @description Nguồn phụ suy từ UTM/refHost – đơn chuyển từ yêu cầu mang `directSubSource` này; null = không rõ (gồm đi từ trang của chính OTTIMO – DOM-S4-18) */
       subSource?: components['schemas']['DirectSubSource'] | null;
@@ -8741,8 +8741,8 @@ export interface components {
       /**
        * @description Cờ để nhân viên lọc, không chặn: lời nhắn có URL; chữ ngoài bảng chữ của 3 ngôn ngữ; ngày đến xa (> 180 ngày); liên hệ gửi lặp (bị giới hạn chặn); hạng phòng không khớp;
        *     `possible_duplicate` – cùng liên hệ với một yêu cầu còn mở, ngày giao nhau hoặc gửi cách ≤ `web_request_duplicate_window_hours` (NÊN – DOM Q-W10, BR-914 (3); không tự gộp);
-       *     `offer_unverified` – phương án B: ảnh chụp giá thiếu/sai chữ ký nên không lưu (SEC ARC-18); **0.3.9 (R4)** cũng dùng khi `priceEstimateToken` sai chữ ký/hết hạn/không khớp yêu cầu
-       *     (số ước tính không lưu). **0.3.9**: "chữ ngoài bảng chữ" (`unexpected_script`) xét theo `locale` – Latin luôn được; thêm Hangul cho `ko`, Han cho `zh`, Cyrillic cho `ru`
+       *     `offer_unverified` – phương án B: ảnh chụp giá thiếu/sai chữ ký nên không lưu (SEC ARC-18); **0.3.10 (R4)** cũng dùng khi `priceEstimateToken` sai chữ ký/hết hạn/không khớp yêu cầu
+       *     (số ước tính không lưu). **0.3.10**: "chữ ngoài bảng chữ" (`unexpected_script`) xét theo `locale` – Latin luôn được; thêm Hangul cho `ko`, Han cho `zh`, Cyrillic cho `ru`
        */
       suspiciousFlags?: (
         | 'contains_url'
@@ -8784,7 +8784,7 @@ export interface components {
       /** @description Contract-ahead phương án B – luôn null ở A; ở B chỉ lưu khi `offerToken` đúng (SEC ARC-18) */
       offerSnapshot?: components['schemas']['PublicOfferSnapshot'] | null;
       /**
-       * @description **0.3.9 (R4 – FB-INV-009)**: giá ước tính khách **đã thấy** trên form lúc gửi (từ `priceEstimateToken` đã kiểm chữ ký). null = form không hiện giá, khách gửi trước khi có số,
+       * @description **0.3.10 (R4 – FB-INV-009)**: giá ước tính khách **đã thấy** trên form lúc gửi (từ `priceEstimateToken` đã kiểm chữ ký). null = form không hiện giá, khách gửi trước khi có số,
        *     hoặc token không đạt (khi đó có cờ `offer_unverified`). Desk S35 hiện "Giá ước tính khách đã thấy lúc gửi" + `computedAt`; báo giá vẫn tính bằng `calculateQuote`. Không
        *     phải C2 – giữ sau khi xóa C2 (DATA). Mọi vai thấy được yêu cầu đều thấy trường này (kể cả SAL với yêu cầu chưa giao)
        */
@@ -8854,7 +8854,7 @@ export interface components {
       };
     };
     /**
-     * @description **0.3.9 (R4 – FB-INV-009)** – phản hồi `getPublicPriceEstimate`. **Danh sách cho phép**: không thêm trường nào ngoài schema (test hợp đồng kiểm khóa và chuỗi cấm –
+     * @description **0.3.10 (R4 – FB-INV-009)** – phản hồi `getPublicPriceEstimate`. **Danh sách cho phép**: không thêm trường nào ngoài schema (test hợp đồng kiểm khóa và chuỗi cấm –
      *     `lp-v2-design.md` mục 2.4). Số là VND nguyên; trang định dạng theo ngôn ngữ của trang. `priceAvailable = true` → có `shortStay` (chỉ ngắn ngày – thuê tháng không bao giờ có số, ESC-043).
      */
     PublicPriceEstimate: {
@@ -8870,7 +8870,7 @@ export interface components {
       /** @description Slug đã nhận (không trả nhãn, không số căn) */
       roomType: string;
       /**
-       * @description `long` khi `stayType = long` hoặc `short` ≥ 28 đêm (BR-108) – khi đó `priceAvailable: false` + `monthly_offer` (không số), không trả `shortStay`
+       * @description `long` khi `stayType = long` hoặc `short` ≥ `long_stay_required_from_nights` đêm (BR-108) – khi đó `priceAvailable: false` + `monthly_offer` (không số), không trả `shortStay`
        * @enum {string}
        */
       stayKind: 'short' | 'long';
@@ -8880,8 +8880,8 @@ export interface components {
       priceAvailable: boolean;
       /**
        * @description Chỉ khi `priceAvailable = false`: `on_request` – hạng không có căn đang bán, slug lạ hoặc thiếu giá niêm yết (không phân biệt – không lộ cấu hình); `party_exceeds_room` – số người
-       *     tính (người lớn + trẻ 6–11) vượt sức chứa mọi căn của hạng (BR-110) – yêu cầu vẫn gửi được, sale tư vấn nhiều căn; `monthly_offer` (0.3.9 bổ sung 1 – ESC-043) – thuê theo
-       *     tháng (hoặc ngắn ngày ≥ 28 đêm): web không hiện giá, trang mời gửi yêu cầu để nhận ưu đãi/báo giá riêng
+       *     tính (người lớn + trẻ 6–11) vượt sức chứa mọi căn của hạng (BR-110) – yêu cầu vẫn gửi được, sale tư vấn nhiều căn; `monthly_offer` (0.3.10 bổ sung 1 – ESC-043) – thuê theo
+       *     tháng (hoặc ngắn ngày ≥ `long_stay_required_from_nights` đêm): web không hiện giá, trang mời gửi yêu cầu để nhận ưu đãi/báo giá riêng
        * @enum {string}
        */
       unavailableReason?: 'on_request' | 'party_exceeds_room' | 'monthly_offer';
@@ -8915,7 +8915,7 @@ export interface components {
       expiresAt?: components['schemas']['Instant'];
     };
     /**
-     * @description **0.3.9 (R4)** – bản Desk của số ước tính khách đã thấy (`WebsiteBookingRequest.priceEstimate`), do server giải mã từ token đã kiểm chữ ký – không phải số client tự khai.
+     * @description **0.3.10 (R4)** – bản Desk của số ước tính khách đã thấy (`WebsiteBookingRequest.priceEstimate`), do server giải mã từ token đã kiểm chữ ký – không phải số client tự khai.
      *     `priceVersion` khác bản tính hiện tại → giá trên Desk đã đổi từ lúc khách xem (lễ tân xử lý theo luật DOM).
      */
     PublicPriceEstimateRecord: {

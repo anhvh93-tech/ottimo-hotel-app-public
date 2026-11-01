@@ -384,7 +384,7 @@ export class WebsiteRequestsService {
       reservationCode: r.reservation_id ? (look.resCodes.get(r.reservation_id) ?? null) : null,
       convertedAt: r.converted_at ? c.iso(r.converted_at) : null,
       offerSnapshot: null,
-      // 0.3.9 (R4): what the guest saw on the form (PublicPriceEstimateRecord) – every role that sees the request.
+      // 0.3.10 (R4): what the guest saw on the form (PublicPriceEstimateRecord) – every role that sees the request.
       priceEstimate: priceEstimateRecord(r.price_estimate),
       createdAt: c.iso(r.created_at),
       updatedAt: c.iso(r.updated_at),

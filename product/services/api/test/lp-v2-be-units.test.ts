@@ -1,7 +1,7 @@
 /**
  * R4 gói LP-v2 – BE units (no database): BR-115/116 public price estimate (the 12 numbered cases of DOM
  * `rounds/round-04/outputs/DOM/web-price-estimate-rules.md` mục 11 – expected numbers copied from that table, not
- * recomputed here), the public DTO allowlist (SEC SR-PE-01/05), the query rules (SR-PE-02/03), the `pe1` token
+ * recomputed here – plus the INV price table 01/11 cases of BR v0.5.0 / DOM pricing-spec-2026-11-01-reconcile), the public DTO allowlist (SEC SR-PE-01/05), the query rules (SR-PE-02/03), the `pe1` token
  * (ARC lp-v2-design 2.7), LANDING_LOCALES, `unexpected_script` by page language and NFKC number detection (3.4).
  * Prices = DS-E / BR-101 initial table (= DOM mục 2); parameters = DS-E (weekend +15 %, Giáng sinh – Năm mới +30 %,
  * 7/14 nights −10/−15 %, 150.000/100.000 extra persons, lease terms 1/3/6/12/24).
@@ -37,7 +37,6 @@ import {
 } from '../src/modules/public-site/internal/website-request-rules';
 import type { PricingParams } from '../src/modules/reservations/public/pricing.service';
 import {
-  type ParityMode,
   type PublicRateRoom,
   estimatePublicRate,
 } from '../src/modules/reservations/public/public-rate';
@@ -88,7 +87,6 @@ const ROOMS = Object.fromEntries(
     r.roomNo,
     {
       roomId: `room-${r.roomNo}`,
-      groupCode: r.group,
       baseOccupancy: r.baseOccupancy,
       maxOccupancy: r.maxOccupancy,
       blocked: false,
@@ -111,9 +109,8 @@ const TYPE: Record<string, string[]> = {
 const roomsOf = (t: string, patch: (r: PublicRateRoom) => PublicRateRoom = (r) => r) =>
   (TYPE[t] as string[]).map((no) => patch(ROOMS[no] as PublicRateRoom));
 
-const params = (parityMode: ParityMode) => ({
-  pricing: PRICING,
-  parityMode,
+const params = (pricing: PricingParams = PRICING) => ({
+  pricing,
   openUntil: '2027-01-01',
 });
 const short = (arrival: string, departure: string, adults: number, c = 0, i = 0) => ({
@@ -124,21 +121,22 @@ const short = (arrival: string, departure: string, adults: number, c = 0, i = 0)
   party: { adults, children6to11: c, childrenUnder6: i },
 });
 
-describe('BR-115/116 – DOM mục 11, the 12 QA cases (pure engine, same functions as the desk)', () => {
-  const run = (mode: ParityMode, t: string, r: ReturnType<typeof short>, rooms = roomsOf(t)) =>
-    estimatePublicRate(params(mode), rooms, r);
+// INV 01/11 "one price for every channel" (BR-116 v0.5.0, ARC FB-R4-ARC-BE-LPV2-04): no OTA floor, no parity mode –
+// the engine is the Desk DIRECT quote. The DOM mục 11 numbers below are the old `direct` column (engine check on the
+// DS-E table; the old `ota_floor` column no longer exists).
+describe('BR-115 – DOM mục 11 cases on the DS-E table (pure engine, same functions as the desk, direct only)', () => {
+  const run = (t: string, r: ReturnType<typeof short>, rooms = roomsOf(t)) =>
+    estimatePublicRate(params(), rooms, r);
 
-  it('ca 1 – Garden Studio, 2 NL, Tue 10/11 – Fri 13/11: direct 2.250.000 (to 2.376.000), ota_floor 2.280.000', () => {
-    const d = run('direct', 'garden', short('2026-11-10', '2026-11-13', 2));
+  it('ca 1 – Garden Studio, 2 NL, Tue 10/11 – Fri 13/11: 2.250.000 (to 2.376.000)', () => {
+    const d = run('garden', short('2026-11-10', '2026-11-13', 2));
     expect(d.status).toBe('ok');
     expect(d.shortStay).toMatchObject({ nights: 3, totalVnd: 2_250_000, toTotalVnd: 2_376_000 });
     expect(d.shortStay?.lines).toEqual([{ nights: 3, nightlyVnd: 750_000 }]);
-    const f = run('ota_floor', 'garden', short('2026-11-10', '2026-11-13', 2));
-    expect(f.shortStay?.totalVnd).toBe(2_280_000);
   });
 
-  it('ca 2 – City Studio, 3 NL, Fri 13 – Sun 15/11: direct 1.834.000 (to 1.928.000), ota_floor 2.040.000', () => {
-    const d = run('direct', 'city', short('2026-11-13', '2026-11-15', 3));
+  it('ca 2 – City Studio, 3 NL, Fri 13 – Sun 15/11: 1.834.000 (to 1.928.000)', () => {
+    const d = run('city', short('2026-11-13', '2026-11-15', 3));
     expect(d.shortStay).toMatchObject({
       totalVnd: 1_834_000,
       toTotalVnd: 1_928_000,
@@ -148,13 +146,10 @@ describe('BR-115/116 – DOM mục 11, the 12 QA cases (pure engine, same functi
       losDiscountPct: 0,
       losDiscountVnd: 0,
     });
-    expect(run('ota_floor', 'city', short('2026-11-13', '2026-11-15', 3)).shortStay?.totalVnd).toBe(
-      2_040_000,
-    );
   });
 
-  it('ca 3 – Signature, 4 NL + child 8 + child 3, 16–23/11 (7 nights): direct 6.994.000 (to 7.546.000), ota_floor 8.370.000', () => {
-    const d = run('direct', 'signature', short('2026-11-16', '2026-11-23', 4, 1, 1));
+  it('ca 3 – Signature, 4 NL + child 8 + child 3, 16–23/11 (7 nights): 6.994.000 (to 7.546.000)', () => {
+    const d = run('signature', short('2026-11-16', '2026-11-23', 4, 1, 1));
     expect(d.shortStay).toMatchObject({
       nights: 7,
       totalVnd: 6_994_000,
@@ -167,48 +162,37 @@ describe('BR-115/116 – DOM mục 11, the 12 QA cases (pure engine, same functi
       { nights: 5, nightlyVnd: 862_000 },
       { nights: 2, nightlyVnd: 992_000 },
     ]);
-    const f = run('ota_floor', 'signature', short('2026-11-16', '2026-11-23', 4, 1, 1));
-    expect(f.shortStay?.totalVnd).toBe(8_370_000);
-    // The floor beats the discount on every night: no discount shown (BR-116 – never under the floor).
-    expect(f.shortStay).toMatchObject({ losDiscountPct: 0, losDiscountVnd: 0 });
   });
 
-  it('ca 4 – Premium, 2 NL, 31/12/2026 – 02/01/2027 (2 special nights): direct 2.384.000 (to 2.600.000), ota_floor 2.540.000', () => {
-    const d = run('direct', 'premium', short('2026-12-31', '2027-01-02', 2));
+  it('ca 4 – Premium, 2 NL, 31/12/2026 – 02/01/2027 (2 special nights): 2.384.000 (to 2.600.000)', () => {
+    const d = run('premium', short('2026-12-31', '2027-01-02', 2));
     expect(d.shortStay).toMatchObject({ totalVnd: 2_384_000, toTotalVnd: 2_600_000 });
-    expect(
-      run('ota_floor', 'premium', short('2026-12-31', '2027-01-02', 2)).shortStay?.totalVnd,
-    ).toBe(2_540_000);
   });
 
-  it('ca 4b – same arrival, 1 night: no number, min stay 2 (BR-113), both modes', () => {
-    for (const mode of ['direct', 'ota_floor'] as const) {
-      const e = run(mode, 'premium', short('2026-12-31', '2027-01-01', 2));
-      expect(e).toMatchObject({ status: 'min_stay', minNights: 2 });
-      expect(e.shortStay).toBeUndefined();
-    }
+  it('ca 4b – same arrival, 1 night: no number, min stay 2 (BR-113)', () => {
+    const e = run('premium', short('2026-12-31', '2027-01-01', 2));
+    expect(e).toMatchObject({ status: 'min_stay', minNights: 2 });
+    expect(e.shortStay).toBeUndefined();
   });
 
   it('ca 4c – departure 03/01/2027 (night 02/01 after open_until 01/01/2027): no number', () => {
-    const e = run('direct', 'premium', short('2026-12-31', '2027-01-03', 2));
+    const e = run('premium', short('2026-12-31', '2027-01-03', 2));
     expect(e.status).toBe('not_open');
     expect(e.shortStay).toBeUndefined();
   });
 
   // ESC-043 câu 2 (INV 01/11): the web shows NO monthly price – DOM ca 5/5b (8.280.000 / 8.550.000) now answer
   // `monthly_offer` without any amount; the monthly numbers stay in the private quote only.
-  it('ca 5 / 5b – Garden Studio, 6 or 4 months: monthly_offer, no amount at all (both modes)', () => {
-    for (const mode of ['direct', 'ota_floor'] as const) {
-      for (const months of [6, 4, null]) {
-        const e = estimatePublicRate(params(mode), roomsOf('garden'), {
-          stayType: 'long',
-          arrival: '2026-12-01',
-          departure: null,
-          months,
-          party: { adults: 2, children6to11: 0, childrenUnder6: 0 },
-        });
-        expect(e).toEqual({ status: 'monthly_offer', stayKind: 'long', priceGapRoomIds: [] });
-      }
+  it('ca 5 / 5b – Garden Studio, 6 or 4 months or no length: monthly_offer, no amount at all', () => {
+    for (const months of [6, 4, null]) {
+      const e = estimatePublicRate(params(), roomsOf('garden'), {
+        stayType: 'long',
+        arrival: '2026-12-01',
+        departure: null,
+        months,
+        party: { adults: 2, children6to11: 0, childrenUnder6: 0 },
+      });
+      expect(e).toEqual({ status: 'monthly_offer', stayKind: 'long', priceGapRoomIds: [] });
     }
   });
 
@@ -220,13 +204,11 @@ describe('BR-115/116 – DOM mục 11, the 12 QA cases (pure engine, same functi
       months: 6,
       party: { adults: 4, children6to11: 0, childrenUnder6: 0 },
     };
-    expect(estimatePublicRate(params('direct'), roomsOf('garden'), base).status).toBe(
-      'over_capacity',
-    );
-    expect(estimatePublicRate(params('direct'), [], base).status).toBe('unavailable');
+    expect(estimatePublicRate(params(), roomsOf('garden'), base).status).toBe('over_capacity');
+    expect(estimatePublicRate(params(), [], base).status).toBe('unavailable');
   });
 
-  it('ca 6 – City Studio 30/11 – 02/12, OWN scheduled 101 = 650.000 from 01/12: direct 1.317.000 (to 1.416.000), ota_floor 1.520.000', () => {
+  it('ca 6 – City Studio 30/11 – 02/12, OWN scheduled 101 = 650.000 from 01/12: 1.317.000 (to 1.416.000)', () => {
     const scheduled = (r: PublicRateRoom): PublicRateRoom =>
       r.roomId === 'room-101'
         ? {
@@ -235,55 +217,170 @@ describe('BR-115/116 – DOM mục 11, the 12 QA cases (pure engine, same functi
           }
         : r;
     const rooms = roomsOf('city', scheduled);
-    const d = run('direct', 'city', short('2026-11-30', '2026-12-02', 2), rooms);
+    const d = run('city', short('2026-11-30', '2026-12-02', 2), rooms);
     expect(d.shortStay).toMatchObject({ totalVnd: 1_317_000, toTotalVnd: 1_416_000 });
-    expect(
-      run('ota_floor', 'city', short('2026-11-30', '2026-12-02', 2), rooms).shortStay?.totalVnd,
-    ).toBe(1_520_000);
   });
 
   it('ca 7 – Garden Studio, 4 NL: no number, "max 3 guests" (party_exceeds_room)', () => {
-    expect(run('direct', 'garden', short('2026-11-10', '2026-11-13', 4)).status).toBe(
-      'over_capacity',
-    );
+    expect(run('garden', short('2026-11-10', '2026-11-13', 4)).status).toBe('over_capacity');
   });
 
   it('ca 8 – City Studio, 2 NL, Sat 14/11, 1 night: no number, min stay 2 (no orphan-night exception on the web)', () => {
-    expect(run('direct', 'city', short('2026-11-14', '2026-11-15', 2))).toMatchObject({
+    expect(run('city', short('2026-11-14', '2026-11-15', 2))).toMatchObject({
       status: 'min_stay',
       minNights: 2,
     });
   });
 
-  it('ca 9 – Premium, 2 NL, 10–13/11, room 302 OOO 09–12/11: 3.000.000 (402 only), both modes', () => {
+  it('ca 9 – Premium, 2 NL, 10–13/11, room 302 OOO 09–12/11: 3.000.000 (402 only)', () => {
     const rooms = roomsOf('premium', (r) =>
       r.roomId === 'room-302' ? { ...r, blocked: true } : r,
     );
-    for (const mode of ['direct', 'ota_floor'] as const) {
-      const e = run(mode, 'premium', short('2026-11-10', '2026-11-13', 2), rooms);
-      expect(e.shortStay).toMatchObject({ totalVnd: 3_000_000, toTotalVnd: 3_000_000 });
-    }
+    const e = run('premium', short('2026-11-10', '2026-11-13', 2), rooms);
+    expect(e.shortStay).toMatchObject({ totalVnd: 3_000_000, toTotalVnd: 3_000_000 });
+  });
+
+  it('no OTA floor any more: an empty ota_base_rate changes nothing (old G4 rule gone)', () => {
+    const r = short('2026-11-16', '2026-11-23', 4, 1, 1);
+    const withBase = run('signature', r);
+    const noBase = estimatePublicRate(
+      params({ ...PRICING, otaBaseRates: {} }),
+      roomsOf('signature'),
+      r,
+    );
+    expect(noBase).toEqual(withBase);
+    expect(noBase.status).toBe('ok');
   });
 
   it('BR-115 (6): a room without a list price is left out (never "from 0") and reported; none left → unavailable', () => {
     const gap = roomsOf('city', (r) => (r.roomId === 'room-101' ? { ...r, listPrices: [] } : r));
-    const e = run('direct', 'city', short('2026-11-10', '2026-11-13', 2), gap);
+    const e = run('city', short('2026-11-10', '2026-11-13', 2), gap);
     expect(e.shortStay?.totalVnd).toBe(3 * 708_000);
     expect(e.priceGapRoomIds).toEqual(['room-101']);
-    const none = run('direct', 'city', short('2026-11-10', '2026-11-13', 2), [
+    const none = run('city', short('2026-11-10', '2026-11-13', 2), [
       { ...(ROOMS['101'] as PublicRateRoom), listPrices: [] },
     ]);
     expect(none).toMatchObject({ status: 'unavailable', priceGapRoomIds: ['room-101'] });
   });
 
-  it('≥ 28 nights is a long stay (BR-108): monthly_offer, no amount, flagged long_stay_required', () => {
-    const e = run('direct', 'garden', short('2026-11-10', '2026-12-10', 2));
+  it('≥ long_stay_required_from_nights (28 in DS-E) is a long stay (BR-108): monthly_offer, flagged', () => {
+    const e = run('garden', short('2026-11-10', '2026-12-10', 2));
     expect(e).toEqual({
       status: 'monthly_offer',
       stayKind: 'long',
       longStayRequired: true,
       priceGapRoomIds: [],
     });
+  });
+});
+
+// ───────── INV price table 01/11/2026 (BR v0.5.0 mục 2.0; DOM pricing-spec-2026-11-01-reconcile 2.2–2.4) ─────────
+// OWN parameters after the switch (DOM 2.3 B1–B6, ESC-045 câu 1 = A): no weekend/holiday uplift, no LOS tier,
+// 30 nights → monthly, extra adult 150.000, child 6–11 100.000. One nightly price per type for every channel:
+// Studio (City/Garden) 800.000 · Premium 1.100.000 · Signature 1.300.000; base/max = 2/3 · 3/4 · 4/5.
+const TABLE_0111: PricingParams = {
+  ...PRICING,
+  calendar: { ...PRICING.calendar, weekendUpliftPct: 0, specialUpliftPct: 0 },
+  losTiers: [],
+  extraAdultFeeVnd: 150_000,
+  child611FeeVnd: 100_000,
+  shortStayMaxNights: 29,
+  longStayRequiredFromNights: 30,
+  otaBaseRates: { L12: 800_000, N: 1_300_000, NPLUS: 1_100_000 },
+};
+const NIGHTLY_0111: Record<string, number> = {
+  city: 800_000,
+  garden: 800_000,
+  premium: 1_100_000,
+  signature: 1_300_000,
+};
+/** OWN enters the new price with "effective from" = the switch day 03/11 (DOM 2.1); earlier nights keep the old one. */
+const rooms0111 = (t: string) =>
+  roomsOf(t, (r) => ({
+    ...r,
+    listPrices: [
+      ...r.listPrices,
+      { effectiveFrom: '2026-11-03', nightlyVnd: NIGHTLY_0111[t] as number },
+    ],
+  }));
+
+describe('BR-115 on the INV price table 01/11 (ARC FB-R4-ARC-BE-LPV2-05)', () => {
+  const run = (t: string, r: ReturnType<typeof short>) =>
+    estimatePublicRate(params(TABLE_0111), rooms0111(t), r);
+
+  it('Garden Studio, 3 NL, Tue 10 – Fri 13/11 (3 nights): 3 × 800.000 + 3 × 150.000 = 2.850.000', () => {
+    const e = run('garden', short('2026-11-10', '2026-11-13', 3));
+    expect(e.status).toBe('ok');
+    expect(e.shortStay).toMatchObject({
+      nights: 3,
+      roomSubtotalVnd: 2_400_000,
+      extraPersonFeeVnd: 450_000,
+      totalVnd: 2_850_000,
+      toTotalVnd: 2_850_000,
+      losDiscountPct: 0,
+      losDiscountVnd: 0,
+      upliftNights: 0,
+    });
+    expect(e.shortStay?.lines).toEqual([{ nights: 3, nightlyVnd: 800_000 }]);
+  });
+
+  it('weekend parameter = 0: Studio Fri 06 – Sun 08/11, 2 NL → 1.600.000, no uplift night (DOM C2)', () => {
+    const e = run('city', short('2026-11-06', '2026-11-08', 2));
+    expect(e.shortStay).toMatchObject({
+      totalVnd: 1_600_000,
+      upliftNights: 0,
+      nightlyAvgVnd: 800_000,
+    });
+  });
+
+  it('no LOS discount: Signature, 5 NL, 7 nights 09 – 16/11 → 7 × 1.300.000 + 7 × 150.000 = 10.150.000 (DOM C3)', () => {
+    const e = run('signature', short('2026-11-09', '2026-11-16', 5));
+    expect(e.shortStay).toMatchObject({
+      nights: 7,
+      roomSubtotalVnd: 9_100_000,
+      extraPersonFeeVnd: 1_050_000,
+      totalVnd: 10_150_000,
+      losDiscountPct: 0,
+      losDiscountVnd: 0,
+    });
+  });
+
+  it('no LOS discount at 14 nights: Garden, 2 NL → 14 × 800.000 = 11.200.000 (DOM C4)', () => {
+    expect(run('garden', short('2026-11-04', '2026-11-18', 2)).shortStay?.totalVnd).toBe(
+      11_200_000,
+    );
+  });
+
+  it('Premium, 3 NL + 1 child 8, 2 nights → 2 × 1.100.000 + 2 × 100.000 = 2.400.000 (DOM 2.4 #4)', () => {
+    const e = run('premium', short('2026-11-10', '2026-11-12', 3, 1));
+    expect(e.shortStay).toMatchObject({ totalVnd: 2_400_000, extraPersonFeeVnd: 200_000 });
+  });
+
+  it('holiday parameter = 0: Premium 31/12 – 02/01, 2 NL → 2.200.000, no uplift night', () => {
+    const e = run('premium', short('2026-12-31', '2027-01-02', 2));
+    expect(e.shortStay).toMatchObject({ totalVnd: 2_200_000, upliftNights: 0 });
+  });
+
+  it('29 nights is still a short stay with a number: City Studio, 2 NL → 23.200.000 (DOM 2.4 #3)', () => {
+    const e = run('city', short('2026-11-10', '2026-12-09', 2));
+    expect(e).toMatchObject({ status: 'ok', stayKind: 'short' });
+    expect(e.longStayRequired).toBeUndefined();
+    expect(e.shortStay).toMatchObject({ nights: 29, totalVnd: 23_200_000 });
+  });
+
+  it('30 nights → monthly_offer, no amount, long_stay_required (BR-108 = 30)', () => {
+    expect(run('city', short('2026-11-10', '2026-12-10', 2))).toEqual({
+      status: 'monthly_offer',
+      stayKind: 'long',
+      longStayRequired: true,
+      priceGapRoomIds: [],
+    });
+  });
+
+  it('a stay across the switch day prices each night by its own list price (BR-101)', () => {
+    // Garden 102 old list price 750.000 on 02/11, the new 800.000 from 03/11.
+    const e = run('garden', short('2026-11-02', '2026-11-04', 2));
+    expect(e.shortStay?.totalVnd).toBe(750_000 + 800_000);
   });
 });
 
@@ -374,16 +471,12 @@ describe('public answer = allowlist (SR-PE-01, SR-PE-05)', () => {
   const cases: Array<[string, ReturnType<typeof estimatePublicRate>, EstimateQuery]> = [
     [
       'ok short',
-      estimatePublicRate(
-        params('ota_floor'),
-        roomsOf('garden'),
-        short('2026-11-10', '2026-11-13', 2),
-      ),
+      estimatePublicRate(params(), roomsOf('garden'), short('2026-11-10', '2026-11-13', 2)),
       q(),
     ],
     [
       'monthly offer',
-      estimatePublicRate(params('direct'), roomsOf('garden'), {
+      estimatePublicRate(params(), roomsOf('garden'), {
         stayType: 'long',
         arrival: '2026-12-01',
         departure: null,
@@ -394,28 +487,20 @@ describe('public answer = allowlist (SR-PE-01, SR-PE-05)', () => {
     ],
     [
       'min stay',
-      estimatePublicRate(params('direct'), roomsOf('city'), short('2026-11-14', '2026-11-15', 2)),
+      estimatePublicRate(params(), roomsOf('city'), short('2026-11-14', '2026-11-15', 2)),
       q(),
     ],
     [
       'over capacity',
-      estimatePublicRate(params('direct'), roomsOf('garden'), short('2026-11-10', '2026-11-13', 4)),
+      estimatePublicRate(params(), roomsOf('garden'), short('2026-11-10', '2026-11-13', 4)),
       q(),
     ],
     [
       'not open',
-      estimatePublicRate(
-        params('direct'),
-        roomsOf('premium'),
-        short('2026-12-31', '2027-01-03', 2),
-      ),
+      estimatePublicRate(params(), roomsOf('premium'), short('2026-12-31', '2027-01-03', 2)),
       q(),
     ],
-    [
-      'unavailable',
-      estimatePublicRate(params('direct'), [], short('2026-11-10', '2026-11-13', 2)),
-      q(),
-    ],
+    ['unavailable', estimatePublicRate(params(), [], short('2026-11-10', '2026-11-13', 2)), q()],
   ];
 
   it.each(cases)(

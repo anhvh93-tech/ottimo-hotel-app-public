@@ -14,7 +14,7 @@
  *     property daily cap → 503 SITE_BUSY (one OWN notification per day, the key is released); INSERT + WR0 history
  *     + possible duplicates + notification `website_request_new` (FDL, FD, SAL – no name/phone) + SSE.
  * Nothing about existing guests, leads, bookings or availability is read before answering (ADR-014 4.3).
- * R4 LP-v2 (OpenAPI 0.3.9): `locale` ∈ LandingLocale (en, vi, ko, zh, ru); a locale without any published privacy
+ * R4 LP-v2 (OpenAPI 0.3.10): `locale` ∈ LandingLocale (en, vi, ko, zh, ru); a locale without any published privacy
  * notice → 422 PUBLIC_FORM_NOT_READY (SEC SR-LC-02 – never an FK error); `unexpected_script` by the page language;
  * `priceEstimateToken` verified and the estimate recomputed by the server in the same transaction (SEC SR-PE-06) –
  * stored in `price_estimate`, or flag `offer_unverified`; never a refusal.
@@ -65,8 +65,8 @@ export const PUBLIC_LIMITS = {
   contactPerDay: 3,
 } as const;
 
-/** Long stay from 28 nights (BR-108); window and max nights of a short stay come from BR-112 parameters. */
-const LONG_STAY_NIGHTS = 28;
+// Long stay from `long_stay_required_from_nights` nights (BR-108 – parameter as of the business date, read through
+// PriceEstimateService.longStayFrom; ARC FB-R4-ARC-BE-LPV2-03); the window comes from BR-112 parameters.
 const FAR_FUTURE_DAYS = 180;
 
 export interface ResolvedProperty {
@@ -111,7 +111,7 @@ const ALLOWED_KEYS = new Set([
   'priceEstimateToken',
 ]);
 const CHANNELS = ['zalo', 'whatsapp', 'telegram', 'viber', 'phone', 'email'];
-/** OpenAPI 0.3.9 LandingLocale (R4 LP-v2 – FB-INV-008). */
+/** OpenAPI 0.3.10 LandingLocale (R4 LP-v2 – FB-INV-008). */
 const LOCALES: readonly string[] = LANDING_LOCALE_VALUES;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const isInt = (v: unknown) => typeof v === 'number' && Number.isInteger(v);
@@ -649,11 +649,10 @@ export class PublicBookingService {
   ): Promise<{ id: string; refCode: string }> {
     const departure =
       b.stayKind === 'long' ? (b.months ? addMonths(b.arrival, b.months) : null) : b.departure;
-    const stayKind =
-      b.stayKind === 'long' ||
-      (departure !== null && nightsBetween(b.arrival, departure) >= LONG_STAY_NIGHTS)
-        ? 'long'
-        : 'short';
+    const stayKind = PriceEstimateService.stayKindOf(
+      { stayType: b.stayKind, arrival: b.arrival, departure },
+      await this.estimates.longStayFrom(tx, pc.today),
+    );
     const flags: string[] = [];
     const text = `${b.guestName}\n${b.note ?? ''}`;
     if (containsUrl(text)) flags.push('contains_url');
@@ -689,18 +688,25 @@ export class PublicBookingService {
       [contactHmac, pc.now, windowHours, b.arrival, departure],
     );
     if (dup.length > 0) flags.push('possible_duplicate');
-    // R4 LP-v2 (0.3.9 (b)): the estimate the guest saw – verified token + server recomputation, else the flag.
+    // R4 LP-v2 (0.3.10 (b)): the estimate the guest saw – verified token + server recomputation, else the flag.
     const estimate: { stored: StoredPriceEstimate | null; unverified: boolean } =
-      await this.estimates.forRequest(tx, p, pc, b.priceEstimateToken, {
-        roomType: b.roomType,
-        stayType: b.stayKind,
-        arrival: b.arrival,
-        departure: b.departure,
-        months: b.months,
-        adults: b.adults,
-        children: b.children,
-        infants: b.infants,
-      });
+      await this.estimates.forRequest(
+        tx,
+        p,
+        pc,
+        b.priceEstimateToken,
+        {
+          roomType: b.roomType,
+          stayType: b.stayKind,
+          arrival: b.arrival,
+          departure: b.departure,
+          months: b.months,
+          adults: b.adults,
+          children: b.children,
+          infants: b.infants,
+        },
+        stayKind,
+      );
     if (estimate.unverified) flags.push('offer_unverified');
     const id = uuidv7();
     let refCode = '';
@@ -867,7 +873,7 @@ export class PublicBookingService {
       [tx.ctx.organizationId],
     );
     const have = new Set(rows.map((r) => r.locale));
-    // R4 (0.3.9): the languages on sale = LANDING_LOCALES (default en,vi) – order kept for the message.
+    // R4 (0.3.10): the languages on sale = LANDING_LOCALES (default en,vi) – order kept for the message.
     const order = ['vi', 'en', 'ko', 'zh', 'ru'].filter((l) =>
       (this.options.landingLocales as readonly string[]).includes(l),
     );

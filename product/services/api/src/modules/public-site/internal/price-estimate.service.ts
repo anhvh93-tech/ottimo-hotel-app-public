@@ -1,5 +1,5 @@
 /**
- * `getPublicPriceEstimate` (OpenAPI 0.3.9-draft, R4 LP-v2 – FB-INV-009; ARC lp-v2-design 2; DOM BR-115/116;
+ * `getPublicPriceEstimate` (OpenAPI 0.3.10-draft, R4 LP-v2 – FB-INV-009; ARC lp-v2-design 2; DOM BR-115/116;
  * SEC lp-v2-privacy-and-api 9.4 SR-PE-01…14) + the estimate stored with a website request (ARC 2.7, SEC SR-PE-06).
  *
  * Public route, after the controller's RAM limits and bulkhead:
@@ -8,8 +8,13 @@
  *   dates (BR-112) → 422; result cache (LRU ≤ 1.000, 60 s, dropped on any parameter change of the property);
  *   miss → the fresh-computation cap (600/hour/property → 503) → READ ONLY transaction (statement_timeout 1 s)
  *   → PublicRatePort (the desk engine, channel direct). A cache hit touches no database.
- * The answer is built field by field (allowlist – SR-PE-01): never `toTotal`, room ids/numbers, OTA prices, the
- * floor, the parity mode or a readable parameter version. A room without a list price is skipped and logged ONCE
+ * The answer is built field by field (allowlist – SR-PE-01): never `toTotal`, room ids/numbers, OTA prices or a
+ * readable parameter version. INV 01/11 (one price for every channel): the number is the Desk DIRECT quote – no OTA
+ * floor, no parity mode (ARC FB-R4-ARC-BE-LPV2-04).
+ * The BR-108 switch to a monthly stay is ONE source: the parameter `long_stay_required_from_nights` as of the
+ * business date (`longStayFrom` – 30 nights from the 01/11 price table), read by the engine, by the unknown-slug
+ * branch and by the request snapshot alike (ARC FB-R4-ARC-BE-LPV2-03, SEC FB-R4-SEC-BE-02).
+ * A room without a list price is skipped and logged ONCE
  * per room and business day for OWN (SR-PE-12) – the public cannot multiply that warning.
  */
 import { Inject, Injectable, Logger } from '@nestjs/common';
@@ -39,6 +44,11 @@ export const ESTIMATE_CACHE_TTL_MS = 60_000;
 export const ESTIMATE_CACHE_MAX = 1_000;
 /** ARC 2.5: fresh computations (cache misses) per property and hour → 503 beyond. */
 export const ESTIMATE_FRESH_RULE = { limit: 600, windowMs: 3_600_000 } as const;
+/**
+ * SEC FB-R4-SEC-BE-04: per-statement cap of the server recomputation inside the POST transaction (that transaction
+ * keeps its own 2 s). Same cap as the public GET; over it → the savepoint rolls back and only `seen` is stored.
+ */
+export const ESTIMATE_RECOMPUTE_STATEMENT_TIMEOUT = '1s';
 const SWITCH_TTL_MS = 60_000;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SLUG = /^[a-z0-9-]{2,60}$/;
@@ -369,28 +379,43 @@ export class PriceEstimateService {
     }
   }
 
+  /**
+   * BR-108: first number of nights that is a monthly stay – the parameter `long_stay_required_from_nights` as of
+   * `asOf` (the same key `PricingService.load` reads for the Desk). The only source of that threshold here.
+   */
+  async longStayFrom(tx: Tx, asOf: LocalDate): Promise<number> {
+    return Number(await this.params.get<number>(tx, 'long_stay_required_from_nights', asOf));
+  }
+
+  /** `long` when the form says so, or when the nights reach the BR-108 threshold. */
+  static stayKindOf(
+    r: { stayType: 'short' | 'long'; arrival: LocalDate; departure: LocalDate | null },
+    longFrom: number,
+  ): 'short' | 'long' {
+    return r.stayType === 'long' ||
+      (r.departure !== null && nightsBetween(r.arrival, r.departure) >= longFrom)
+      ? 'long'
+      : 'short';
+  }
+
   /** The estimate of a request (shared by the public route and the server recomputation). */
   async compute(
     tx: Tx,
     p: ResolvedProperty,
     today: LocalDate,
     q: EstimateQuery,
-  ): Promise<{ estimate: PublicRateEstimate; priceVersion: string; parityMode: string }> {
+  ): Promise<{ estimate: PublicRateEstimate; priceVersion: string }> {
     const label = (await this.requests.roomTypes(tx)).get(q.roomType);
-    // Unknown slug and a type without a sellable room answer the same (on_request – ARC 2.4).
+    // Unknown slug and a type without a sellable room answer the same (on_request – ARC 2.4), with the stay kind
+    // of the SAME threshold as a known type (SEC FB-R4-SEC-BE-02: no shape difference between the two).
     if (!label) {
       return {
         estimate: {
           status: 'unavailable',
-          stayKind:
-            q.stayType === 'long' ||
-            (q.departure !== null && nightsBetween(q.arrival, q.departure) >= 28)
-              ? 'long'
-              : 'short',
+          stayKind: PriceEstimateService.stayKindOf(q, await this.longStayFrom(tx, today)),
           priceGapRoomIds: [],
         },
         priceVersion: '0000000000000000',
-        parityMode: 'n/a',
       };
     }
     const r = await this.rates.estimate(tx, label, requestOf(q), today);
@@ -476,9 +501,11 @@ export class PriceEstimateService {
   }
 
   /**
-   * createWebsiteBookingRequest (0.3.9 (b)): `priceEstimateToken` given → signature, expiry, property and every input
+   * createWebsiteBookingRequest (0.3.10 (b)): `priceEstimateToken` given → signature, expiry, property and every input
    * of the request must match; then the server recomputes the estimate in the request transaction (SEC SR-PE-06) and
    * stores both. Not verified → nothing stored, flag `offer_unverified`. Never refuses the request.
+   * `stayKind` = the kind the caller stored on the request (BR-108 threshold read once by the caller – `longStayFrom`),
+   * so `seen.stayKind` and `website_booking_request.stay_kind` never disagree.
    */
   async forRequest(
     tx: Tx,
@@ -486,13 +513,12 @@ export class PriceEstimateService {
     pc: { now: Date; today: LocalDate; iso(d: Date): string },
     token: unknown,
     r: Omit<EstimateQuery, 'roomType'> & { roomType: string | null },
+    stayKind: 'short' | 'long',
   ): Promise<{ stored: StoredPriceEstimate | null; unverified: boolean }> {
     if (token === undefined || token === null) return { stored: null, unverified: false };
     const check = verifyEstimateToken(this.sign, p.propertyId, token, pc.now);
     if (!check.ok || !tokenMatches(check.payload, r)) return { stored: null, unverified: true };
     const t = check.payload;
-    const nights = r.departure ? nightsBetween(r.arrival, r.departure) : null;
-    const stayKind = r.stayType === 'long' || (nights !== null && nights >= 28) ? 'long' : 'short';
     const seen: Record<string, unknown> = {
       roomType: t.rt,
       stayKind,
@@ -513,7 +539,16 @@ export class PriceEstimateService {
     let atSubmit: Record<string, unknown> | null = null;
     try {
       await tx.query('SAVEPOINT price_estimate');
+      // SEC FB-R4-SEC-BE-04: a tighter per-statement cap for the recomputation only; the previous value of the
+      // request transaction is put back before the savepoint is released (a rollback restores it by itself).
+      const { rows } = await tx.query<{ v: string }>(
+        `SELECT current_setting('statement_timeout') AS v`,
+      );
+      await tx.query(`SELECT set_config('statement_timeout', $1, true)`, [
+        ESTIMATE_RECOMPUTE_STATEMENT_TIMEOUT,
+      ]);
       const x = await this.compute(tx, p, pc.today, { ...r, roomType: t.rt });
+      await tx.query(`SELECT set_config('statement_timeout', $1, true)`, [rows[0]?.v ?? '0']);
       await tx.query('RELEASE SAVEPOINT price_estimate');
       const s = x.estimate.shortStay;
       atSubmit = {
@@ -532,7 +567,6 @@ export class PriceEstimateService {
             }
           : {}),
         ...(x.estimate.minNights ? { minNights: x.estimate.minNights } : {}),
-        parityMode: x.parityMode,
         priceVersion: x.priceVersion,
         computedAt: pc.iso(pc.now),
       };

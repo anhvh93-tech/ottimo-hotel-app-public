@@ -4,8 +4,9 @@
  * server recomputation stored with a website request (SEC SR-PE-06).
  *
  * Reads, in the caller's transaction (read only on the public route): the pricing parameters ONCE as of the
- * business date (`PricingService.load` – the same engine as `calculateQuote` / `createReservation`, channel DIRECT),
- * `web_estimate.parity_mode`, `web_estimate.open_until`, the sellable rooms
+ * business date (`PricingService.load` – the same engine as `calculateQuote` / `createReservation`, channel DIRECT;
+ * INV 01/11 "one price for every channel" – no OTA floor, no parity mode), `web_estimate.open_until`, the sellable
+ * rooms
  * of the type with their list prices, and the OOO blocks overlapping the stay. NEVER reads reservations, holds,
  * occupancy or room statuses (SEC SR-PE-04: the estimate does not depend on bookings).
  *
@@ -20,7 +21,6 @@ import type { LocalDate } from '../../../shared/time';
 import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
 import { PricingService } from './pricing.service';
 import {
-  type ParityMode,
   type PublicRateEstimate,
   type PublicRateParams,
   type PublicRateRequest,
@@ -32,7 +32,6 @@ import {
 export interface PublicRateResult {
   estimate: PublicRateEstimate;
   priceVersion: string;
-  parityMode: ParityMode;
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -69,12 +68,9 @@ export class PublicRatePort {
   /** Parameters of the estimate as of the business date `asOf` (read once per call). */
   async loadParams(tx: Tx, asOf: LocalDate): Promise<PublicRateParams> {
     const pricing = await this.pricing.load(tx, asOf);
-    const mode = await this.optional<string>(tx, 'web_estimate.parity_mode', asOf, 'ota_floor');
     const openUntil = await this.optional<string | null>(tx, 'web_estimate.open_until', asOf, null);
     return {
       pricing,
-      // BR-116 (3): anything but an explicit `direct` is the safe mode.
-      parityMode: mode === 'direct' ? 'direct' : 'ota_floor',
       openUntil: typeof openUntil === 'string' && DATE.test(openUntil) ? openUntil : null,
     };
   }
@@ -83,17 +79,16 @@ export class PublicRatePort {
   async rooms(tx: Tx, label: string, range: { from: LocalDate; to: LocalDate }) {
     const { rows } = await tx.query<{
       id: string;
-      group_code: string;
       base_occupancy: number;
       max_occupancy: number;
       blocked: boolean;
     }>(
-      `SELECT rm.id, rg.code AS group_code, rm.base_occupancy, rm.max_occupancy,
+      `SELECT rm.id, rm.base_occupancy, rm.max_occupancy,
               EXISTS (SELECT 1 FROM room_block b
                        WHERE b.room_id = rm.id AND b.status IN ('planned', 'active')
                          AND daterange(b.start_date, COALESCE(b.end_date_actual, b.end_date_planned))
                              && daterange($2::date, $3::date)) AS blocked
-         FROM room rm JOIN room_group rg ON rg.id = rm.room_group_id
+         FROM room rm
         WHERE rm.public_room_type = $1 AND rm.is_sellable
           AND rm.active_from <= $2::date AND (rm.active_to IS NULL OR rm.active_to >= ($3::date - 1))
         ORDER BY rm.id`,
@@ -112,7 +107,6 @@ export class PublicRatePort {
     );
     return rows.map((r): PublicRateRoom => ({
       roomId: r.id,
-      groupCode: r.group_code,
       baseOccupancy: Number(r.base_occupancy),
       maxOccupancy: Number(r.max_occupancy),
       blocked: r.blocked,
@@ -142,10 +136,8 @@ export class PublicRatePort {
       .update(
         canonical({
           pricing: p.pricing,
-          parityMode: p.parityMode,
           openUntil: p.openUntil,
           rooms: rooms.map((r) => ({
-            g: r.groupCode,
             b: r.baseOccupancy,
             m: r.maxOccupancy,
             x: r.blocked,
@@ -155,6 +147,6 @@ export class PublicRatePort {
       )
       .digest('hex')
       .slice(0, 16);
-    return { estimate, priceVersion, parityMode: p.parityMode };
+    return { estimate, priceVersion };
   }
 }

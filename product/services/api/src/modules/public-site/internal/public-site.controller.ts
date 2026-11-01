@@ -8,7 +8,7 @@
  * Cookies are ignored (a staff or guest session changes nothing, no user id is written). `Cache-Control: no-store`.
  * Logs: method/route/status/time only (the global request log – no body, no query of these routes).
  *
- * R4 LP-v2 – getPublicPriceEstimate GET /v1/public/properties/{propertySlug}/price-estimate (OpenAPI 0.3.9; ARC
+ * R4 LP-v2 – getPublicPriceEstimate GET /v1/public/properties/{propertySlug}/price-estimate (OpenAPI 0.3.10; ARC
  * lp-v2-design 2.5, SEC SR-PE-07/08/14): its OWN RAM counters (HMAC of the IP with the `ip:pe:` label – 30 per
  * 10 minutes and 200 per day per IP (IPv6 /64), 400 per day per IPv6 /48, 10 per second for the whole api → 503) and
  * its OWN bulkhead (2 in flight, no queue → 503): looking prices up never uses the form's 30/hour or its 4 slots.
@@ -71,7 +71,12 @@ export class PublicSiteController {
     this.estimateRam.resetAll();
   }
 
-  /** Step 0 of the price route: its own counters (every call counts, 4xx included) + its own bulkhead. */
+  /**
+   * Step 0 of the price route: its own counters (every call counts, 4xx included) + its own bulkhead.
+   * Order (SEC FB-R4-SEC-BE-01): the PER-IP windows first (10 min, day, IPv6 /48) → only a call that passed them
+   * reaches the api-wide 10/s window → bulkhead. A call refused 429 for its IP never counts in the shared window,
+   * so one client hammering the route cannot keep that window full and switch the price block off for everyone.
+   */
   private async guardedEstimate<T>(
     req: GuardedRequest,
     reply: Reply,
@@ -80,9 +85,6 @@ export class PublicSiteController {
     reply.header('Cache-Control', 'no-store');
     reply.header('X-Robots-Tag', 'noindex');
     const r = ESTIMATE_RAM_RULES;
-    const global = this.estimateRam.retryAfter('pubest:all', r.globalPerSecond);
-    if (global > 0) throw problem('SERVICE_UNAVAILABLE', { headers: { 'Retry-After': '1' } });
-    this.estimateRam.hit('pubest:all', r.globalPerSecond);
     const b = ipBuckets((req as { ip?: string }).ip ?? '0.0.0.0');
     const host = hmacHex(this.options.ipHmacKey, `ip:pe:${b.host}`);
     this.estimateRam.consume(`pubest:10m:${host}`, r.ipPer10Min);
@@ -91,6 +93,9 @@ export class PublicSiteController {
       const range = hmacHex(this.options.ipHmacKey, `ip:pe48:${b.range48}`);
       this.estimateRam.consume(`pubest:48:${range}`, r.range48PerDay);
     }
+    const global = this.estimateRam.retryAfter('pubest:all', r.globalPerSecond);
+    if (global > 0) throw problem('SERVICE_UNAVAILABLE', { headers: { 'Retry-After': '1' } });
+    this.estimateRam.hit('pubest:all', r.globalPerSecond);
     if (this.estimateInFlight >= ESTIMATE_MAX_IN_FLIGHT) {
       throw problem('SERVICE_UNAVAILABLE', { headers: { 'Retry-After': '5' } });
     }
