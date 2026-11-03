@@ -87,3 +87,63 @@ Hướng (b) đúng nghiệp vụ: HĐ tháng không áp BR-428, hộp bỏ hoà
 - Server có đưa tiền vào HĐ thì hộp vẫn hiện số bên cạnh BR-313 (`hasMoney`). Đúng nguyên tắc "không xác nhận khoản tiền chưa thấy".
 - Bỏ hẳn "Không có khoản hoàn · Phí 0 đ" và "báo trước N ngày" với HĐ, đúng gốc lỗi QA nêu. Không đổi gì ở đường ngắn ngày (test ca 1 giữ nguyên bảng BR-428).
 - Giữ B16 cho HĐ (phương án b) là đúng vận hành: căn được trả về để bán lại ngay. Phương án (a) chặn B16 sẽ bắt lễ tân "giữ căn ảo" tới ngày ra theo HĐ.
+
+## Lượt 2 – xác nhận bản sửa FE-A (`9d4f0fa8`, 03/11/2026)
+
+- Đọc: `git diff ff16c1dd 9d4f0fa8` (`EarlyDepartureDialog.tsx`, `gen_strings.py` + JSON sinh lại, test `r4-bug014-early-departure-lease`), trả lời FE-A `rounds/round-04/outputs/FE/v1.0.2-dom-cards.md` @ `9d4f0fa8`, server B13 `stay.service.ts` @ `9d4f0fa8` (khoảng dòng 408–457). Đối chiếu ESC-048 = B (decision-log 03/11), BR-207, BR-214, BR-313 v0.5.1. Không checkout.
+
+### Kết luận lượt 2: **Đạt** điều kiện phát hành v1.0.2 cho FB-01 và FB-02 – kèm 1 điều kiện đi cùng bản phát hành: sổ tay (FB-05, nâng lên Major)
+
+| Thẻ | Kết quả | Trạng thái |
+|---|---|---|
+| FB-R4-DOM-FE-A-01 | Chấp nhận phần đã sửa + giới hạn đã biết cho v1.0.2. Phần còn lại (`leaseEndDate`) chuyển v1.0.3 | Closed cho v1.0.2 (phần còn lại theo dõi ở v1.0.3) |
+| FB-R4-DOM-FE-A-02 | Đạt | Closed |
+| FB-R4-DOM-FE-A-03 | Đạt | Closed |
+| FB-R4-DOM-BE-A-04 | Đồng ý dời v1.0.3, gộp với `leaseEndDate` | Deferred (v1.0.3) |
+| FB-R4-DOM-BA-05 | **Nâng Major – điều kiện phát hành v1.0.2** (lý do dưới) | Open – giao BA |
+
+### FB-01 – vì sao chấp nhận dù chỉ sửa một phần
+
+- Đã kiểm: server B13 trên HĐ nhập tay sửa thẳng `reservation.departure_date` và chỉ đồng bộ đêm HĐ (0 đ, không có dòng folio), không tạo đơn con. FE-A mô tả đúng. Sau B13, Desk không còn biết ngày kết thúc HĐ gốc. Vì vậy ca "rời trong phần gia hạn" vẫn hiện khối HĐ.
+- Rủi ro tiền đã hết: khối HĐ giờ chỉ là câu kiểm + 3 nhánh, không còn khẳng định "mất toàn bộ ký quỹ". Ô tích `told_guest_lease` trung tính. Khách đang ở phần gia hạn thì đã ở đủ HĐ, nên lễ tân kiểm theo HĐ giấy sẽ ra nhánh "đã thu đủ: không tính vi phạm" – đúng ESC-048 B. Không có số tiền sai nào hiện trên màn (đêm gia hạn HĐ = 0 đ, `hasMoney` = false).
+- Tần suất thực tế ở OTTIMO: 10 căn, INV chưa vận hành (01/11), HĐ tháng đầu tiên theo BR-313 v0.5.1 chưa tới tháng cuối. Ca cần đủ 3 điều kiện (HĐ + đã gia hạn B13 + rời trước ngày cuối gia hạn) rất hiếm trước v1.0.3.
+- Rủi ro còn lại (vận hành, không phải tiền trên màn): lễ tân không biết ngày kết thúc HĐ gốc nếu không có HĐ giấy trong tay; và lễ tân có thể đọc "Không hoàn các ngày không ở" cho cả đêm gia hạn chưa ở. Cả hai chặn bằng sổ tay (mục FB-05 dưới, ý 6–7) và bước "hỏi quản lý".
+- Ghi cho QA: ca test (a) của FE-A dựng đơn con gia hạn (`stayDepartureDate`), dạng mà server không tạo cho HĐ. Ca này khóa đúng quy tắc cho v1.0.3 nhưng không phản ánh đường thật. Khi thử lại trên staging, đường thật "HĐ → B13 → B16 rời trong phần gia hạn" **sẽ hiện khối HĐ (câu kiểm + 3 nhánh)**. Đây là giới hạn đã biết, không mở bug mới. Bug mới chỉ khi khối đó khẳng định mất ký quỹ hoặc hiện số tiền.
+- Điều kiện kèm: ORC/PO ghi việc v1.0.3 "`manualLongStay.leaseEndDate` (ARC hợp đồng + BE + FE 1 dòng + nhật ký FB-04)" vào backlog. Thiếu việc này thì FB-01 mở lại.
+
+### FB-02 – vì sao đạt
+
+- Câu kiểm `lease_check` + 3 nhánh đúng ý ESC-048 B và đúng giới hạn dữ liệu của Desk v1.0 (không có ngày ký HĐ, không có lịch kỳ thu). Desk không đoán, không hứa, không báo nhầm 8,5 triệu cho khách đã trả đủ. Đúng decision-log 03/11 "Desk không hiện cảnh báo mất ký quỹ cho ca này": mất ký quỹ chỉ còn là một nhánh có điều kiện.
+- Nội dung 3 nhánh khớp BR: chưa thu đủ → BR-313 (mất ký quỹ, không truy thu); đã thu đủ → BR-214 (trừ điện nước, hư hỏng, hoàn trong 7 ngày làm việc – khớp `deposit_refund_working_days` = 7), không hoàn ngày không ở; HĐ trước 01/11/2026 → HĐ giấy (BR-201). Phần mở đầu "Khi mất ký quỹ:" của `lease_still_due` là đúng và cần: ở nhánh đã thu đủ, điện nước **được** trừ vào ký quỹ.
+- "Hỏi quản lý trước khi báo khách" khả thi ở OTTIMO: khách thuê tháng thường báo rời trước vài ngày (Zalo), không phải tình huống 2 giờ sáng; quản lý liên lạc được trong ca. Không làm chậm quầy.
+- Góp ý chữ, không chặn (UXD/CPY biên tập ở v1.0.3 hoặc lần rà chữ kế tiếp): `lease_rule_paid` ghi "trừ điện nước, hư hỏng". BR-214 còn có dọn lẻ/minibar chưa thu và phí phạt (BR-511). Đề xuất VI "trừ điện nước, phát sinh chưa thu, hư hỏng" · EN "less utilities, unpaid extras and damage".
+
+### Ranh giới B / C – DOM chốt cách hiểu (cần đưa vào sổ tay và BR-313 lần tới)
+
+INV chọn B, **không chọn C** (C = cho khách trả nốt cả tháng **chưa bắt đầu** để giữ ký quỹ). Vì vậy "đã thu đủ tiền thuê tới hết HĐ" hiểu là:
+- Khách rời **trong tháng lịch cuối của HĐ** (tháng chứa ngày kết thúc HĐ, hoặc tháng liền trước nếu HĐ kết thúc ngày 01) và kỳ cuối đã thu. Kỳ cuối đến hạn ngày 05 mà khách rời trước ngày 05 thì thu kỳ cuối khi khách rời rồi áp nhánh B. Đây là thu đúng kỳ đang chạy, không phải C.
+- Khách rời **trước khi tháng lịch cuối bắt đầu** → nhánh mất ký quỹ (BR-313). Khách xin trả trước các tháng chưa tới để giữ ký quỹ → không nhận (đó là C), quản lý trả lời khách.
+- Ví dụ (HĐ City VN 3 tháng, 20/11/2026 → 20/02/2027, ký quỹ 8.500.000): rời 15/02, đã thu kỳ 05/02 → không vi phạm, quyết toán ký quỹ (giả sử điện nước 01–15/02 600.000 → hoàn 7.900.000), không hoàn 16–19/02. Rời 03/02, chưa tới hạn 05/02 → thu kỳ cuối 5.387.000 + 127.000 rồi quyết toán như trên. Rời 25/01 → mất 8.500.000; khách xin trả tháng 2 để giữ ký quỹ → không nhận.
+- Đây là cách hiểu của DOM từ chính 3 phương án INV đã xem (giả định, không phải chính sách mới) → ORC ghi decision-log; DOM đưa vào BR-313 ở lần cập nhật BR kế tiếp. Không mở ESC.
+
+### FB-05 – nâng Major: sổ tay phải cập nhật cùng ngày phát hành v1.0.2
+
+Lý do nâng: (1) Desk giờ đẩy quyết định cho quản lý ("hỏi quản lý trước khi báo khách"), nên quản lý và lễ tân phải có bảng quyết định trong sổ tay; (2) sổ tay 11.5/17.5 hiện ghi "Desk chưa trả phòng được trước ngày đi", "Không mở màn Trả phòng trước ngày đi" và chỉ có BR-428 – trái với Desk v1.0.2. Lễ tân làm theo sổ tay.
+
+BA viết lại `product/docs/manual/guides/02-le-tan.md` mục 11.5 và 17.5 (+ bản HTML) thành hai nhánh. Phần thao tác nút B16 BA lấy từ Desk. Nội dung nghiệp vụ nhánh **HĐ thuê tháng** DOM yêu cầu có đủ:
+1. Nhận diện: đơn dài hạn (HĐ giấy) và ngày rời **trước ngày kết thúc ghi trên HĐ giấy**. Nếu đơn đã gia hạn, không dựa vào "Ngày ra" trên Desk.
+2. HĐ ký **trước 01/11/2026**: làm theo điều khoản ký quỹ trong HĐ giấy, quản lý quyết.
+3. HĐ ký từ 01/11/2026: kiểm kỳ thu cuối trên sổ thu ngoài app, theo ranh giới B/C ở trên → nhánh "đã thu đủ" hoặc "mất ký quỹ". Báo khách **sau** khi quản lý xác nhận nhánh, rồi mới tích ô "Đã báo khách…".
+4. Nhánh mất ký quỹ: điện nước, dọn lẻ, hư hỏng còn nợ thu thêm, không trừ vào ký quỹ; tiền thuê + phí dịch vụ đã thu cho tháng lịch chưa bắt đầu thì hoàn (thường không có, vì thu theo ngày 05 từng tháng); tháng đang ở không hoàn; không truy thu giảm giá kỳ hạn. Làm ngoài app.
+5. Nhánh đã thu đủ (và mọi ca quyết toán): chốt công tơ ngày rời (BR-502), biên bản kiểm phòng có ảnh trong ngày rời (BR-214), quyết toán ký quỹ, hoàn trong 7 ngày làm việc, quản lý duyệt hoàn. Không hoàn ngày không ở.
+6. **Khi gia hạn (B13) một đơn HĐ:** trước khi bấm, ghi vào ghi chú đơn "HĐ kết thúc dd/mm/yyyy, gia hạn tới dd/mm/yyyy" (Desk sẽ dời Ngày ra và không giữ ngày kết thúc HĐ – sửa ở v1.0.3).
+7. **Khách rời trong phần gia hạn sau HĐ:** Desk vẫn hiện khối "Trả trước hạn hợp đồng" – đây là lỗi đã biết. HĐ đã xong: áp nhánh "đã thu đủ" cho ký quỹ. Các đêm gia hạn chưa ở xử lý như trả sớm đơn ngắn ngày Trực tiếp (BR-428: báo trước từ 1 ngày hoàn 50 %, báo trong ngày rời không hoàn), làm ngoài app, quản lý duyệt [giả định DOM, như FB-01 lượt 1].
+8. Nhật ký Desk của đơn HĐ có thể ghi "BR-428 notice …" – bỏ qua; ghi sổ giao ca nhánh đã áp và người quyết (FB-04 sửa ở v1.0.3).
+9. Việc chung khi khách rời: thu thẻ, xóa mã khóa cửa, kiểm hư hỏng; khách nước ngoài cập nhật ngày đi trên cổng khai báo trong ngày rời; buồng phòng hủy việc dọn các ngày sau.
+
+Nhánh **ngắn ngày** giữ chính sách BR-428 hiện có ở 17.5 bước 6, bỏ các câu "chưa trả phòng được trước ngày đi" và cách tạm "căn vẫn Đang ở tới ngày đi".
+
+### Giả định dùng ở lượt 2
+- Ranh giới B/C như trên (DOM diễn giải ESC-048 B).
+- Đêm gia hạn sau HĐ chưa ở theo BR-428 Trực tiếp (giữ từ lượt 1).
+- Chưa có HĐ giấy nào ký trước 01/11/2026 đang chạy (INV "chưa vận hành", 01/11) – nhánh HĐ cũ hiện để phòng, vô hại.

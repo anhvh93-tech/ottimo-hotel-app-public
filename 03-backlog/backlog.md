@@ -1588,6 +1588,7 @@ Nguồn: `rounds/round-02/qa/bug-list.md` (P3 Open), `rounds/round-03/qa/bug-lis
 | Critic Minor sau G1 | Khóa sắp xếp "mới nhất trước", ghi chú bản thay "other", độ phủ chi hoàn | **v1.0.x** (bản vá có QA tiền) | ORC 24/10 |
 | US-135 AC3 | VoiceOver cho hộp xác nhận | **v1.1** | Không chặn v1.0 (release-v1-plan 2.1) |
 | BUG-R2-221, 222 | Bộ test E2E chạy trên staging (https SSE, đọc giờ từ `/health`, chờ `Retry-After`) | Không gắn bản phát hành – QA sửa khi cần cho QA-3 | Lỗi của bộ test, không phải sản phẩm |
+| FB-R4-DOM-FE-A-01 (phần còn lại) + FB-R4-DOM-BE-A-04 | Thêm `manualLongStay.leaseEndDate` vào DTO `Reservation` (lấy từ `booked_departure_date` hoặc lần B13 đầu tiên); Desk hộp Trả sớm dùng trường này thay `departureDate`; nhật ký server chọn BR-313/BR-428 theo ngày kết thúc HĐ. Kèm góp ý chữ `lease_rule_paid` thêm "phát sinh chưa thu" (BR-214) | **v1.0.3** (ARC → BE-A → FE-A; UXD/CPY chữ) | DOM 03/11 lượt 2: điều kiện đóng FB-01 cho v1.0.2; thiếu dòng này thì FB-01 mở lại |
 
 Thứ tự trong bản vá tuần: lỗi P0/P1 mới từ `/feedback` luôn đi trước bảng này. v1.0.1 quá tải thì PO dời từ cuối bảng v1.0.1 lên v1.0.2, giữ năm dòng hiển thị tiền.
 
