@@ -44,4 +44,11 @@ regexes = [
   # HMAC-signed by the API at run time and never stored in the repo. Exact value only (anchored), so any other
   # `pe1.` string is still scanned by generic-api-key.
   '''^pe1\.eyJydCI6InN0YW5kYXJk\.c2ln$''',
+  # Public api image digests (printed in the public Release logs; a digest identifies an image, it grants nothing):
+  # v1.0.1 `ottimo-api@sha256:7ad36566…2d72` after `--api-digest` in rounds/round-04/outputs/OPS/v1.0.2-release-runbook.md
+  # and v1.0.2-rollback-drill-staging.md (commits 642e1947, b046363b), and v1.0.2 `sha256:f064700d…a9be` in the
+  # v1.0.3 runbook draft (commit 540411de, removed again in the next commit). The word "api" next to 64 hex trips
+  # generic-api-key. SEC/ARC FB-R4-*-OPS-PR30-01. Exact values only (anchored): any other 64-hex string is still
+  # scanned. Convention since then: runbooks never put a digest on a command line (README 13.1).
+  '''^(sha256:)?(7ad36566afebcca5c690aec80a0c821b10a7d04b65f377d39012f1b41a222d72|f064700d8c7eb59aedcfbdb514b3263143ebfb26a7c90e663e84f5bbdbdea9be)$''',
 ]
