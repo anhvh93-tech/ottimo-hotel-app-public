@@ -2,7 +2,7 @@
 
 - Dành cho: Chủ đầu tư dùng để đào tạo từng bộ phận trước ngày chạy thật **thứ Hai 02/11/2026**
 - Áp dụng cho: **OTTIMO Desk v1.0** – bản phát hành `v1.0.0`, chạy trên Desk thật từ 30/10/2026
-- Lập: BA · 27/10/2026 · Bản nội dung 1.6 (01/11/2026: BA thêm vào mục 2.18 giá ước tính trên website và khách viết tiếng Hàn, Trung, Nga, áp dụng khi gói website LP-v2 phát hành; form website ghi đã bật 30/10) · Bản 1.5 (30/10/2026: Product Owner cập nhật theo bản `v1.0.0`, kết quả thử luồng giữ chỗ quá hạn và kiểm từng nút hoàn tiền, đặt đơn, nhận phòng trên bản thật; trước đó đã sửa theo góp ý của chuyên gia nghiệp vụ, Product Owner, bảo mật và kết quả kiểm trên bản thật)
+- Lập: BA · 27/10/2026 · Bản nội dung 1.7 (03/11/2026: BA viết lại mục 2.14a khách trả phòng sớm theo nút **Trả sớm** của bản `v1.0.2`, hai nhánh ngắn ngày và HĐ thuê tháng; ghi ngày kết thúc HĐ trước khi gia hạn đơn HĐ – mục 2.12) · Bản 1.6 (01/11/2026: BA thêm vào mục 2.18 giá ước tính trên website và khách viết tiếng Hàn, Trung, Nga, áp dụng khi gói website LP-v2 phát hành; form website ghi đã bật 30/10) · Bản 1.5 (30/10/2026: Product Owner cập nhật theo bản `v1.0.0`, kết quả thử luồng giữ chỗ quá hạn và kiểm từng nút hoàn tiền, đặt đơn, nhận phòng trên bản thật; trước đó đã sửa theo góp ý của chuyên gia nghiệp vụ, Product Owner, bảo mật và kết quả kiểm trên bản thật)
 - Sổ tay không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi đào tạo, anh/chị cũng không ghi những thứ này lên bảng hay vào tài liệu phát tay.
 - **Tài liệu nội bộ OTTIMO – không chụp, không đăng lên mạng. Nghỉ việc thì trả lại.**
 
@@ -448,7 +448,7 @@ Ví dụ: căn 203 đêm thường giá 792.000 đ. Khách rời 20:30, đêm đ
   - Khoản còn nợ: **Thu công nợ**, hoặc quản lý **Xóa công nợ**.
   - Phát hiện mới sau 24 giờ (hư hỏng, minibar): ghi sổ giao ca kèm mã đơn, báo chủ đầu tư. Không thu ngoài Desk.
 <!-- BUG-R3-022 Closed 28/10 (rc.4, qa3-rc1.md 17.5). Sửa 30/10 theo BA M13-04, M13-05: folio-lines.service.ts chặn folio closed và settled quá post_checkout_window_until với mọi vai; FolioDialog canAdjust = settled ? mgr : fd; AddChargeDialog evidenceRequired, houseRulesMissing. Câu error.FOLIO_LOCKED sai vế sau = BUG-R3-045 (P3, v1.0.1). Ca folio `closed` chưa diễn tập trên staging. -->
-- Khách trả phòng sớm: quản lý điều chỉnh tiền phòng các đêm chưa ở theo mục 2.14a bước 6.
+- Khách trả phòng sớm: từ v1.0.2 Desk tính và ghi phí, tạo yêu cầu hoàn qua nút **Trả sớm** (mục 2.14a); quản lý không giảm tiền phòng trên folio bằng tay.
 
 ### 1.12 Nhật ký tiền, đối soát và hoàn tiền
 
@@ -748,7 +748,7 @@ Desk chặn và giải thích khi:
 
 > **Tạm ở v1.0:** hợp đồng, lịch kỳ thu, nhắc thu, ký quỹ và **điện nước** chưa có trong Desk (có ở v1.3). Làm như hiện nay:
 > - Hợp đồng và ký quỹ: giấy và sổ kế toán. **Không ghi ký quỹ vào Desk.**
-> - **Lịch thu**: lễ tân trưởng giữ bảng kỳ thu (giấy hoặc bảng tính trên máy quầy; không ghi số giấy tờ): căn, khách, kỳ, số tiền, hạn. Nhắn khách 7 ngày trước hạn và đúng ngày hạn, trong khung 08:00–21:00.
+> - **Lịch thu**: lễ tân trưởng giữ bảng kỳ thu (giấy hoặc bảng tính trên máy quầy; không ghi số giấy tờ): căn, khách, **ngày kết thúc HĐ** (theo HĐ giấy, không đổi khi gia hạn), kỳ, số tiền, hạn, **ngày đã thu**. Nhắn khách 7 ngày trước hạn và đúng ngày hạn, trong khung 08:00–21:00. Khi khách rời sớm, bảng này cho biết kỳ cuối đã thu chưa (mục 2.14a).
 > - **Khách trả trễ**: quá hạn 3 ngày báo quản lý. Quá hạn 10 ngày, quản lý xử lý theo hợp đồng. **Không** đổi mã cửa, **không** khóa cửa, **không** cắt điện nước, **không** mang đồ của khách ra để ép trả.
 > - **Điện**: (chỉ số cuối − chỉ số đầu) × **đơn giá trên hợp đồng giấy**. Hợp đồng không ghi đơn giá: báo quản lý trước khi gửi khách. Đơn giá 5.000 đ/kWh chưa in vào hợp đồng mới tới khi kế toán/luật sư xác nhận.
 > - **Nước**: 100.000 đ × số người × số ngày ở trong tháng ÷ số ngày của tháng, làm tròn 1.000 đ. Ngày vào tính, ngày trả không tính. Trẻ dưới 6 tuổi miễn (đang chờ chủ đầu tư xác nhận). Ví dụ 2 người vào 10/10, tháng 31 ngày: 100.000 × 2 × 22 ÷ 31 = **142.000 đ**.
@@ -952,6 +952,7 @@ Hồ sơ sắp hạn và quá hạn hiện ở **Cần chú ý** và cột **H�
 3. Đơn OTA: phần gia hạn thành đơn con kênh Trực tiếp, chung phiếu thanh toán.
 4. Bấm **Gia hạn … đêm · …**. Nhớ kéo dài hiệu lực mã cửa trên app khóa. Khách nước ngoài: cập nhật khai báo trong ngày.
 5. Desk chưa có ô thu tiền khi gia hạn và chưa có nút ghi thu giữa kỳ ở. Ghi vào sổ giao ca: mã đơn, số đêm gia hạn, số tiền. Thu ở bước **Bill & thu tiền** khi trả phòng. Khách gia hạn dài hoặc chưa trả các đêm trước: báo quản lý.
+6. **Đơn dài hạn nhập tay (HĐ thuê tháng):** **trước khi bấm Gia hạn**, ghi "OTM-…: HĐ kết thúc dd/mm/yyyy, gia hạn tới dd/mm/yyyy" vào bảng kỳ thu (dòng của căn) và sổ giao ca, lấy ngày từ HĐ giấy. Desk dời **Ngày ra (theo HĐ)** sang ngày cuối gia hạn và không giữ ngày kết thúc HĐ (sửa ở v1.0.3). Ngày ở thêm tính theo HĐ: tiền thuê tháng ÷ 30 (làm tròn 1.000) × số ngày + phí dịch vụ 200.000 × số ngày ÷ 30; Desk không ghi dòng tiền cho phần này – thu và ghi sổ kế toán như tiền thuê.
 <!-- DOM: Mốc thu "muộn nhất 14:00 ngày đầu phần gia hạn" (BR-423, giả định chờ INV) chưa làm được trên Desk v1.0 – DOM xem lại. -->
 
 [ẢNH: C2-25-Gia hạn]
@@ -1049,25 +1050,41 @@ Hồ sơ sắp hạn và quá hạn hiện ở **Cần chú ý** và cột **H�
 > **Tạm ở v1.0:** mẫu in chính thức, xuất PDF từ Desk, gửi bill qua email/Zalo và khách xem folio tạm tính trên trang khách có ở v1.2.
 <!-- BUG-R3-020 Closed 28/10 trên rc.4 (qa3-rc1.md 17.4): 1 tờ A4, VI và VI–EN. Máy in thật ở quầy chưa thử – INV/OPS in thử 1 tờ trước 02/11. -->
 
-### 2.14a Khách trả phòng sớm
+### 2.14a Khách trả phòng sớm (từ v1.0.2)
 
-> **Tạm ở v1.0:** Desk chưa trả phòng được trước ngày đi. **Từ bản v1.0.1 (dự kiến 04/11) có nút trên Desk**; khi đó làm theo nút và bỏ cách dưới đây. Từ 02/11 tới lúc có bản vá, khi khách báo rời sớm:
-> 1. Ghi vào **sổ giao ca** (khung đơn chưa có ô ghi chú cho lễ tân): "OTM-…: khách báo rời ngày dd/mm lúc hh:mm, báo qua (Zalo/điện thoại/tại quầy)". Giờ báo quyết định tiền hoàn. **Không hứa số hoàn**, không hoàn tiền tại quầy. **Không mở màn Trả phòng trước ngày đi** (Desk sẽ báo lỗi khi hoàn tất).
-> 2. Khi khách rời: thu thẻ (ghi số thẻ trả), **xóa mã trên app khóa ngay**, nhờ buồng phòng đếm minibar, kiểm hư hỏng. Món đã dùng và hư hỏng: **Thêm phát sinh** vào folio.
-> 3. Khách nước ngoài: **cập nhật ngày đi trên cổng khai báo trong ngày khách rời**. Desk chưa nhắc việc này.
-> 4. Buồng phòng: **Hủy việc** dọn khách ở lại các ngày sau, lý do "Khách đã rời sớm". Tạo **Việc mới → Dọn trả phòng** cho ngày khách rời (mục 2.19).
-> 5. Báo quản lý trong ca. Căn vẫn hiện **Đang ở** tới ngày đi: **không** nhận khách khác vào căn này ngoài Desk. Có khách mới cần căn thì gọi quản lý.
-> 6. Đúng ngày đi trên đơn: lễ tân bấm **Trả phòng** như thường (giờ trả là giờ bấm, không ghi lùi), sổ giao ca ghi "đã rời ngày dd/mm". Quản lý mở folio trong 24 giờ và giảm tiền phòng các đêm chưa ở theo chính sách:
->    - Đơn Trực tiếp/CTV báo trước từ 1 ngày: hoàn 50 % tiền các đêm chưa ở. Phụ thu người của các đêm đó hoàn 100 %.
->    - Báo trong ngày rời: không hoàn.
->    - Đơn OTA: theo kênh.
->    - Cách giảm: ở dòng tiền phòng đêm chưa ở, **Điều chỉnh** giá đêm. Giá mới thấp hơn **sàn** thì Desk không lưu: khi đó dùng **Mở form miễn phí / giảm giá** trên dòng đó (giảm giá đặc biệt), số tiền = phần hoàn, lý do "Khách rời sớm".
->    - Desk tự tạo yêu cầu hoàn. Người sửa dòng không tự duyệt khoản hoàn (mục 1.9).
->
-> Ví dụ: đơn căn 202 từ 9/11 đến 16/11, 5.205.000 đ. Ngày 12/11 khách báo sẽ rời 14/11, tức báo trước 2 ngày. Hai đêm bỏ là 14/11 (thứ Bảy) 820.000 đ và 15/11 713.000 đ, cộng 1.533.000 đ. Hoàn 50 % là 766.500 đ, **làm tròn lên 767.000 đ** (làm tròn có lợi cho khách). Các đêm đã ở **không** tính lại mức giảm 7 đêm.
->
-> Cho kế toán: theo cách tạm này, đêm khách bỏ vẫn hiện là đêm bán trong **Nhật ký tiền** tới khi quản lý điều chỉnh. Phần giữ lại nằm trong tiền phòng, không tách thành dòng "phí trả phòng sớm".
-<!-- QA D14: chưa diễn tập trọn (chỉ có khách đi đúng ngày là căn 203). Ngày 29/10 QA trả phòng OTM-00359 (ngày đi thật) để kiểm bước 6, nhất là đường giảm dưới sàn (giảm giá đặc biệt trên folio đã chốt có tạo yêu cầu hoàn không). DOM xác nhận cách giảm. BUG-R3-024: màn Trả phòng mở được bằng URL trước ngày đi, hoàn tất 409, câu báo sai. -->
+**Áp dụng từ khi chủ đầu tư báo bản v1.0.2 đã lên.** Khung đơn đang ở có nút **Trả sớm** (lễ tân trở lên) cho cả đơn ngắn ngày và đơn dài hạn nhập tay. Bỏ cách tạm cũ (để căn **Đang ở** tới ngày đi, quản lý giảm tiền trên folio). Vẫn **không mở màn Trả phòng trước ngày đi**. Không hứa số hoàn, không hoàn tiền tại quầy.
+
+<!-- Nguồn: Desk v1.0.2 (PR #22 @ 9d4f0fa8, chuỗi early_departure.*); BR-428, BR-313 v0.5.1, BR-207, BR-210, BR-214, BR-502; ESC-048 = B; DOM-on-PR22-BUG-R4-014.md Lượt 2; ORC 03/11 bỏ nhánh HĐ ký trước 01/11/2026. Bản chi tiết cho lễ tân: guides/02-le-tan.md mục 11.5; cho quản lý: guides/01-chu-dau-tu-quan-ly.md mục 7.3. -->
+
+**Thao tác chung:**
+1. Khách báo rời sớm: ghi ngay **sổ giao ca** "OTM-…: khách báo rời ngày dd/mm lúc hh:mm, báo qua (Zalo/điện thoại/tại quầy)".
+2. Mở đơn → **Trả sớm** → bước **Ngày rời và giờ báo**: **Ngày rời mới**; **Khách báo lúc** (Desk điền lúc mở hộp – sửa đúng giờ khách đã báo; báo sớm hơn thì ghi **Bằng chứng giờ báo**); đơn OTA nhập **Số OTA giữ lại** theo extranet. Bấm **Xem trước số tiền**.
+3. Bước **Xem trước**: đọc theo nhánh dưới đây, báo khách, tích ô "Đã báo khách…", bấm **Xác nhận trả sớm**.
+4. Bước **Kết quả**: ngày rời là hôm nay thì **Trả phòng ngay** (mục 2.14); ngày sau thì nút **Trả phòng** hiện vào ngày đó.
+5. Ngoài Desk: rút hiệu lực mã cửa về giờ trả ngày rời, xóa mã khi khách trả phòng; thu thẻ, đếm minibar, kiểm hư hỏng (**Thêm phát sinh**); khách nước ngoài cập nhật ngày đi trên cổng khai báo trong ngày rời; đơn OTA mở lại các đêm trên extranet; buồng phòng: hủy việc dọn các ngày sau còn lại, tạo **Dọn trả phòng** ngày rời nếu chưa có (mục 2.19).
+
+**Nhánh ngắn ngày:** Desk tính theo chính sách – đơn Trực tiếp/CTV báo trước từ 1 ngày hoàn 50 % tiền phòng các đêm chưa ở (phụ thu người các đêm đó hoàn 100 %), báo trong ngày rời không hoàn, đơn OTA theo kênh. Desk ghi **Phí trả phòng sớm** vào folio và tạo **một** yêu cầu hoàn; lễ tân **Nhập nơi nhận hoàn** (mục 2.17), quản lý/chủ đầu tư khác người tạo duyệt. Ví dụ: căn 202 từ 9/11 đến 16/11, 5.205.000 đ, báo 12/11 rời 14/11 → hoàn **767.000 đ**, phí **766.000 đ**.
+
+**Nhánh HĐ thuê tháng** (đơn dài hạn nhập tay, rời **trước ngày kết thúc ghi trên HĐ giấy** – không dựa vào **Ngày ra** trên Desk nếu đơn đã gia hạn): Desk không tính tiền, chỉ hiện khung **Trả trước hạn hợp đồng thuê tháng** theo thứ tự: câu kiểm "Desk chưa biết tiền thuê đã thu tới đâu. Kiểm kỳ thu cuối và hỏi quản lý rồi mới báo khách." → đã thu đủ "Đã thu tiền thuê tới hết HĐ: không vi phạm. Quyết toán ký quỹ như trả phòng đúng hạn HĐ: trừ điện nước, dọn lẻ, hư hỏng còn nợ, hoàn phần còn lại trong 7 ngày làm việc. Không hoàn các ngày không ở." → chưa thu đủ "Chưa thu đủ tiền thuê tới hết HĐ: vi phạm HĐ. Khách mất toàn bộ ký quỹ (giữ ngoài app), không truy thu giảm giá kỳ hạn." (có số ký quỹ thì câu ghi kèm số), lồng dưới: "Vẫn thu điện nước, dọn lẻ, hư hỏng còn nợ, không trừ vào ký quỹ. Tiền thuê và phí dịch vụ đã thu cho tháng lịch chưa bắt đầu thì hoàn, tháng đang ở thì không (làm ngoài app)."; ô tích **Đã báo khách về ký quỹ và các khoản còn thu, còn hoàn**. Bước **Kết quả** thay câu kiểm bằng "Ký quỹ và tiền thuê xử lý ngoài app, theo nhánh đã báo khách." Khung có thể không hiện số ký quỹ; số đúng theo HĐ giấy và sổ kế toán.
+1. Kiểm ngày kết thúc HĐ (HĐ giấy, bảng kỳ thu).
+2. Kiểm kỳ thu cuối trong bảng kỳ thu. **Tháng lịch cuối** = tháng chứa ngày kết thúc HĐ (HĐ kết thúc ngày 01 thì là tháng liền trước).
+   - Rời trong tháng lịch cuối, kỳ cuối đã thu → **đã thu đủ**.
+   - Rời trong tháng lịch cuối trước ngày 05, kỳ cuối chưa tới hạn → thu kỳ cuối khi khách rời, rồi **đã thu đủ**.
+   - Rời trong tháng lịch cuối sau ngày 05, kỳ cuối quá hạn chưa thu → quản lý quyết theo HĐ.
+   - Rời trước khi tháng lịch cuối bắt đầu → **chưa thu đủ**. Khách xin trả trước các tháng chưa tới để giữ ký quỹ: không nhận, quản lý trả lời.
+3. **Hỏi quản lý trước khi báo khách** (hiện một người trực: hỏi chủ đầu tư) – gửi mã đơn, ngày kết thúc HĐ, ngày rời, kỳ cuối, nhánh đề xuất, không ghi tên khách. Ghi sổ giao ca nhánh và người quyết.
+4. Báo khách theo nhánh đã xác nhận, tích ô, **Xác nhận trả sớm**.
+   - **Đã thu đủ** (ESC-048): không vi phạm; ký quỹ quyết toán như trả phòng đúng hạn HĐ (trừ điện nước kỳ cuối, dọn lẻ, minibar chưa thu, hư hỏng, phí phạt), còn dư hoàn trong **7 ngày làm việc**, quản lý duyệt; không hoàn các ngày không ở.
+   - **Chưa thu đủ**: mất toàn bộ ký quỹ, dù báo trước bao nhiêu ngày; không truy thu giảm giá kỳ hạn; điện nước, dọn lẻ, hư hỏng còn nợ thu thêm, không trừ vào ký quỹ; tiền thuê và phí dịch vụ đã thu cho tháng lịch chưa bắt đầu thì hoàn, tháng đang ở không hoàn.
+   - Mọi khoản làm ngoài app, ghi sổ kế toán.
+5. Khi khách rời: chốt công tơ điện ngày rời có ảnh (mục 4.1); biên bản kiểm phòng có ảnh trong ngày rời (bắt buộc trước khi trừ hư hỏng vào ký quỹ); nhận lại căn, thu thẻ, xóa mã cửa; **Trả phòng** trên Desk như thường.
+
+Ví dụ HĐ 3 tháng 20/11/2026 → 20/02/2027, ký quỹ 8.500.000: rời 15/02 đã thu kỳ 05/02 → hoàn 8.500.000 − điện nước 600.000 (giả sử) = **7.900.000**, không hoàn 16–19/02; rời 03/02 → thu kỳ cuối 5.387.000 + 127.000 rồi quyết toán như trên; rời 25/01 → mất 8.500.000, không nhận trả trước tháng 2 để giữ ký quỹ.
+
+> **Giới hạn tới v1.0.3 (đơn HĐ):**
+> - Gia hạn đơn HĐ làm Desk dời **Ngày ra (theo HĐ)** và mất ngày kết thúc HĐ gốc: **trước khi bấm Gia hạn**, ghi "OTM-…: HĐ kết thúc dd/mm/yyyy, gia hạn tới dd/mm/yyyy" vào bảng kỳ thu và sổ giao ca (mục 2.12).
+> - Khách đã ở hết HĐ, rời trong phần gia hạn: Desk vẫn hiện khung HĐ (lỗi đã biết). Ký quỹ theo **đã thu đủ**; các ngày gia hạn chưa ở như đơn ngắn ngày Trực tiếp (báo trước từ 1 ngày hoàn 50 %, trong ngày rời không hoàn), ngoài app, quản lý duyệt. Vẫn hỏi quản lý trước khi báo khách.
+> - Nhật ký đơn HĐ có thể ghi "BR-428 notice …": bỏ qua; nhánh và người quyết ghi sổ giao ca.
 
 ### 2.15 Trả muộn và khách ở quá 18:00
 
@@ -1185,7 +1202,7 @@ Yêu cầu mới hiện ở menu kèm số, hạn trả lời 15 phút. Mở yê
 | Có người gọi đến xin mã cửa, kể cả nói đúng tên và mã đơn | Không đọc. Cúp máy, tự gọi lại số trên đơn (mục 2.10) |
 | Mã VietQR hiện "Tài khoản nhận vừa đổi" | Chưa cho khách chuyển. Gọi chủ đầu tư xác nhận (mục 2.13) |
 | Khách đọc số thẻ qua điện thoại "cho nhanh" | Không nhận. Mời trả tại máy POS ở quầy |
-| Khách báo sẽ rời sớm | Mục 2.14a. Không hứa số hoàn |
+| Khách báo sẽ rời sớm | Mục 2.14a (nút **Trả sớm**, từ v1.0.2). Không hứa số hoàn. Khách thuê tháng: hỏi quản lý trước khi báo khách về ký quỹ |
 | Khách để quên đồ | Ghi sổ đồ thất lạc, báo quản lý với đồ giá trị |
 | Khách hỏi Wi-Fi | Đọc tên mạng và mật khẩu trên thẻ Wi-Fi trong căn (trang khách chưa hiện Wi-Fi – lỗi đang sửa, sửa ở v1.0.1) |
 | Hoàn tác nhận phòng bị Desk từ chối | Folio đã có dòng mới; nhờ quản lý (mục 2.10, Trường hợp đặc biệt) |
@@ -1676,7 +1693,7 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 | Kết nối OTA tự động | v1.1 | Nhập tay ngay, đóng phòng trên extranet |
 | Mã cửa trên app, báo tự động khi khách quá giờ trả | v1.1 | Tạo mã trên app khóa như hiện nay; lễ tân theo dõi giờ trả ở **Hôm nay** |
 | Bảng dự phòng in sẵn khi mất mạng | v1.1 | Chép tay danh sách khách đến/đi ngày mai lúc 22:00; sổ giấy 3 ngày đầu |
-| Nút trả phòng sớm | v1.0.1 (dự kiến 04/11) | Mục 2.14a: ghi sổ giao ca, quản lý giảm tiền phòng trên folio |
+| Giữ ngày kết thúc HĐ khi gia hạn đơn dài hạn nhập tay | v1.0.3 | Ghi ngày kết thúc HĐ vào bảng kỳ thu và sổ giao ca trước khi gia hạn (mục 2.12, 2.14a) |
 | Check-in online cho khách thật (chờ thông báo xử lý dữ liệu bản mới) | v1.0.1 | Khách làm giấy tờ tại quầy; tờ **Your ID details** trước khi nhận giấy tờ, câu đồng ý ở Khối 1 (mục 0.8, 2.9) |
 | "Chấp nhận cọc thiếu" trên Desk | v1.0.1 | Xin khách chuyển đủ trước hạn; không được thì giữ đơn và làm lại khi khách đến (mục 2.4) |
 | Danh sách giá đã lên lịch, nút hủy giá đã lên lịch | v1.0.1 | Ghi sổ mỗi lần lên lịch giá (mục 1.3) |
@@ -1710,7 +1727,8 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 | Chưa nhập được **Wi-Fi** trên Desk; trang khách ghi "hỏi lễ tân" | Khách xem thẻ Wi-Fi trong căn; lễ tân đọc khi khách hỏi | 1.4 |
 | Hộp **Đổi phòng** lẫn căn chưa dọn (`VD`); chọn thì Desk báo, không lưu | Kiểm trạng thái căn trên Buồng phòng/Sơ đồ phòng trước khi chọn | 2.12 |
 | Hộp **Xác nhận cọc** chưa có ô mã giao dịch | Ghi mã giao dịch vào sổ giao ca | 2.4 |
-| Màn **Trả phòng** mở được trước ngày đi rồi báo lỗi khi hoàn tất | Không mở màn Trả phòng trước ngày đi | 2.14a |
+| Màn **Trả phòng** mở được trước ngày đi rồi báo lỗi khi hoàn tất | Không mở màn Trả phòng trước ngày đi; khách rời sớm dùng **Trả sớm** | 2.14a |
+| Đơn HĐ đã gia hạn: khách rời trong phần gia hạn vẫn thấy khung **Trả trước hạn hợp đồng thuê tháng**; nhật ký ghi "BR-428 notice …" | Ký quỹ theo nhánh đã thu đủ, hỏi quản lý trước khi báo khách; bỏ qua dòng nhật ký, ghi nhánh vào sổ giao ca | 2.14a |
 | App nhân viên thiếu loại sự cố "Tắc thoát nước", "Wi-Fi" | Chọn **Khác**, ghi rõ trong mô tả | 3.9 |
 | Trang khách: mở lại link giữa chừng sau khi chọn "Bổ sung tại quầy" thì không gửi được | Làm giấy tờ tại quầy | 2.9 |
 | Dòng miễn **Bị từ chối** vẫn hiện số âm ở màn Trả phòng | Đọc **Còn phải thu** | 2.12 |
@@ -1722,6 +1740,7 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 
 | Bản | Ngày | Người | Thay đổi |
 |---|---|---|---|
+| 1.7 | 03/11/2026 | BA (FB-R4-DOM-BA-05, ESC-048 = B, ORC 03/11) | Mục 2.14a viết lại theo nút **Trả sớm** của Desk v1.0.2: thao tác chung, nhánh ngắn ngày (BR-428), nhánh HĐ thuê tháng (BR-313 v0.5.1, ESC-048: kiểm ngày kết thúc HĐ và kỳ thu cuối, ranh giới tháng lịch cuối, hỏi quản lý trước khi báo khách, quyết toán ký quỹ BR-214, chốt công tơ và biên bản kiểm phòng ngày rời), giới hạn tới v1.0.3; bỏ cách tạm cũ. 1.11 (quản lý không giảm tiền trên folio bằng tay); 2.7 bảng kỳ thu thêm ngày kết thúc HĐ và ngày đã thu; 2.12 Gia hạn bước 6 (ghi "HĐ kết thúc dd/mm/yyyy, gia hạn tới dd/mm/yyyy" trước khi bấm); 2.21; 5.6 (bỏ dòng "Nút trả phòng sớm", thêm giới hạn đơn HĐ tới v1.0.3). Chữ khung HĐ theo chuỗi Desk @ `52702857` (FE-A sửa theo UXD thẻ 26–31) |
 | 1.6 | 01/11/2026 | BA (BUG-R4-010, US-175 AC6 sửa theo ESC-044 và INV 01/11 câu 9; US-131 AC10; BR-912 (4); câu mẫu CPY lượt 5) | Mục 2.18: form website **đã bật từ chiều 30/10** (bỏ khung "đang tắt"); giá ước tính trên website và dòng **Giá ước tính khách đã thấy**, cảnh báo **"Khác giá web khách đã thấy: {cũ} → {mới}"** ở hộp báo giá; khách tiếng Hàn, Trung, Nga: cột và lọc **Ngôn ngữ**, mặc định tiếng Anh (Русский cho khách tiếng Nga, kèm câu "Khách viết bằng tiếng Nga – gửi tin bằng tiếng Nga."), được dùng Google Dịch trên mọi màn hình Desk, 3 câu mẫu, hạn trả lời. Áp dụng khi gói website LP-v2 phát hành. Tối 01/11 (BUG-R4-010 lượt 3): sửa tên cảnh báo chênh giá và thêm câu ghi chú khách tiếng Nga cho khớp chữ Desk `lp-v2` @ `0a25716a` |
 | 1.5 | 30/10/2026 | PO theo DOM, SEC xác nhận sau QA thử luồng và QA kiểm nút trên Desk (qa3-rc1.md mục 20.8) | Hẹn khách hoàn cọc khi chủ đầu tư vắng: chuyển khoản **trong 24 giờ** (không "trong ngày"), tiền mặt chỉ khi chủ đầu tư đã hẹn giờ; chủ đầu tư đối soát cọc cũ trước khi chi (2.4); giảm giá/FOC xin lại: Desk áp ngay trong hạn mức quản lý, vượt mức chờ chủ đầu tư (2.4); cọc chuyển sau hạn: kiểm **Đã thu** đơn cũ, ghi **Chuyển khoản** không chọn VietQR, không gộp tiền mặt (2.4); đơn đặt lại cùng **Kênh** và **Nguồn / CTV** (2.4); đủ bước **Nhập nơi nhận hoàn** → **Cách hoàn** (chọn sẵn Tiền mặt) → **Lưu**, chỉ trên máy đã cấp quyền (0.5, 1.12, 2.4, 2.8, 2.17); **Cách thanh toán** chọn sẵn Chuyển khoản VietQR (2.4, 2.5, 2.13); một cách thanh toán mỗi lần thu khi đặt đơn và nhận phòng (2.13); tách nhiệm hoàn tiền đúng Desk – chủ đầu tư chi được khoản chuyển khoản do mình tạo (1.8, 2.8, 2.17); lý do hủy cho đơn nhập nhầm (2.8) |
 | 1.4 | 30/10/2026 | PO theo QA thử luồng trên staging 30/10 (qa3-rc1.md mục 20); chờ DOM xác nhận nghiệp vụ | Giữ chỗ quá hạn và hủy: không dùng lý do **Khác (ghi rõ)** (lỗi BUG-R3-046), dùng **Không liên lạc được** / **Khách đổi ý**, giải thích ghi sổ giao ca (2.4, 2.8, 5.6); người tạo yêu cầu hoàn không tự duyệt, không tự chi – người trực nhập nơi nhận, chủ đầu tư duyệt và chi; chủ đầu tư vắng thì hẹn khách (1.1, 1.8, 1.12, 2.4, 2.8, 2.17); đặt đơn mới khi khách đến phải thu đủ cọc ngay, bước nhận phòng chỉ thu phần còn lại (2.4); không bấm nút link check-in online trên đơn giữ chỗ (BUG-R3-047; 2.4, 2.9); bài tập 5.8 (6) |

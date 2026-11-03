@@ -41,6 +41,8 @@ Theo đúng `product/docs/manual/screenshot-list.md` mục "Quy tắc chung khi 
 | G2-05 | 17.1 | **Đơn đặt phòng**, lọc **Đang hiệu lực**, có ≥ 2 dòng **Giữ chỗ · chờ cọc** (1 còn hạn, 1 quá hạn) | Lễ tân | Giữ chỗ có yêu cầu FOC đã quá hạn (không tự hủy) + 1 giữ chỗ có cọc thiếu đã quá hạn | – |
 | G2-06 | 17.1 | Khung đơn giữ chỗ **có cọc** đã quá hạn: đồng hồ **còn 0 giờ 00 phút** đỏ, dòng "Giữ chỗ đã hết hạn lúc … – đơn đã tự hủy" trong khi trạng thái vẫn **Giữ chỗ · chờ cọc** | Lễ tân | Như G2-05 | Mục đích ảnh: cho thấy chữ sai cạnh trạng thái đúng. **Che** mã giao dịch |
 | G2-07 | 17.2 | Hộp **Hủy giữ chỗ căn …?**, danh sách **Lý do hủy** mở | Lễ tân | Giữ chỗ chưa cọc | Không bấm **Hủy giữ chỗ** nếu đơn dùng cho G2-05 |
+| G2-08 | 11.5.1 | Hộp **Trả sớm · Căn … · …**, bước **Xem trước**: bảng **Đêm mở bán lại**, **Cách tính** (**Phí trả phòng sớm (ghi vào folio)**, **Sẽ xin hoàn cho khách**), ô tích **Đã báo khách số hoàn và phí trả phòng sớm** | Lễ tân (Desk tập v1.0.2) | Đơn Trực tiếp đang ở 4 đêm, khách báo trước 1 ngày | Chụp **trước** khi bấm **Xác nhận trả sớm** |
+| G2-09 | 11.5.3 | Hộp **Trả sớm**, bước **Xem trước** của đơn dài hạn nhập tay: khung **Trả trước hạn hợp đồng thuê tháng** (câu kiểm, nhánh đã thu đủ, nhánh chưa thu đủ) | Lễ tân (Desk tập v1.0.2) | Đơn dài hạn nhập tay đang ở, ngày rời trước **Ngày ra (theo HĐ)** | Chụp sau khi FE-A sửa chữ theo UXD thẻ 26–28. Không nhập số HĐ giấy, ký quỹ thật |
 
 ### G3 – Buồng phòng (`03-buong-phong.md`)
 
