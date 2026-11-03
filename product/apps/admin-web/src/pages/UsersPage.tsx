@@ -2,7 +2,9 @@ import { isApiError, type Role, type StrongReauth, type User } from '@ottimo/api
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, Chip, ConfirmDialog, Modal } from '@ottimo/ui';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../app/api';
+import { SECURITY_EMAIL_ANCHOR } from '../app/email';
 import { fieldErrors, problemView } from '../app/problem';
 import { useToast } from '../app/toast';
 import { Page, Topbar } from '../components/AppShell';
@@ -12,6 +14,7 @@ import { useOnline } from '../hooks/useOnline';
 import { useResource } from '../hooks/useResource';
 import { usePropertyId, useSession } from '../session/SessionProvider';
 import { AddUserDialog } from './AddUserDialog';
+import { UserEmailDialog } from './UserEmailDialog';
 
 /** Roles the owner can assign here – "owner" itself is granted by the tech team only (H07 7.1b `[GIẢ ĐỊNH UXD]`). */
 const ASSIGNABLE: Role[] = [
@@ -70,6 +73,8 @@ export function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [tempPw, setTempPw] = useState<{ name: string; value: string } | null>(null);
   const [adding, setAdding] = useState(false);
+  /** v1.0.3 BUG-R3-032: security email of someone else (owner only, S2 + If-Match). */
+  const [emailOf, setEmailOf] = useState<User | null>(null);
   // US-008 AC3: only the owner sees "Thêm người dùng" (the API answers 403 A100 to anyone else).
   const isOwner = session.roles.includes('owner');
 
@@ -176,6 +181,7 @@ export function UsersPage() {
                 <tr>
                   <th scope="col">{t('users.col_name')}</th>
                   <th scope="col">{t('users.col_roles')}</th>
+                  {isOwner ? <th scope="col">{t('users.col_email')}</th> : null}
                   <th scope="col">{t('users.col_status')}</th>
                   <th scope="col">{t('users.col_last')}</th>
                   <th scope="col">
@@ -186,6 +192,9 @@ export function UsersPage() {
               <tbody>
                 {(state.data ?? []).map((u) => {
                   const self = u.id === session.me?.id;
+                  // 0.3.10: each owner sets their own address (another owner's → 403, one's own → 422).
+                  const otherOwner = !self && u.roles.some((r) => r.role === 'owner');
+                  const emailNoteId = `user-email-note-${u.id}`;
                   return (
                     <tr key={u.id}>
                       <td>
@@ -203,6 +212,41 @@ export function UsersPage() {
                           ))}
                         </div>
                       </td>
+                      {isOwner ? (
+                        <td>
+                          <div>
+                            {u.email ? (
+                              <span className="mono">{u.email}</span>
+                            ) : (
+                              <span className="muted">{t('users.email_none')}</span>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={!online || self || otherOwner}
+                            aria-label={`${t('users.edit_email')}: ${u.displayName}`}
+                            aria-describedby={self || otherOwner ? emailNoteId : undefined}
+                            onClick={() => {
+                              setError(null);
+                              setEmailOf(u);
+                            }}
+                          >
+                            {t('users.edit_email')}
+                          </Button>
+                          {self ? (
+                            <div className="li-s" id={emailNoteId}>
+                              <Link to={`/security#${SECURITY_EMAIL_ANCHOR}`}>
+                                {t('users.email_self')}
+                              </Link>
+                            </div>
+                          ) : otherOwner ? (
+                            <div className="li-s" id={emailNoteId}>
+                              {t('users.email_other_owner')}
+                            </div>
+                          ) : null}
+                        </td>
+                      ) : null}
                       <td>{statusChip(u)}</td>
                       <td>{u.lastLoginAt ? dateTime(u.lastLoginAt) : t('users.never')}</td>
                       <td>
@@ -365,6 +409,28 @@ export function UsersPage() {
           busy={busy}
           onKeep={() => setPending(null)}
           onConfirm={() => void run(pending)}
+        />
+      ) : null}
+
+      {emailOf ? (
+        <UserEmailDialog
+          user={emailOf}
+          onClose={() => setEmailOf(null)}
+          onUnchanged={() => {
+            setEmailOf(null);
+            toast(t('secmail.unchanged'));
+          }}
+          onSaved={(u, removed) => {
+            setEmailOf(null);
+            replace(u);
+            toast(
+              t(removed ? 'users.email_removed' : 'users.email_saved', { name: u.displayName }),
+            );
+          }}
+          onFail={(err) => {
+            setEmailOf(null);
+            fail(err);
+          }}
         />
       ) : null}
 

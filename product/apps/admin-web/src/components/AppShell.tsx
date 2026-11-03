@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../app/api';
 import { timeHHmm } from '../app/dates';
+import { SECURITY_EMAIL_ANCHOR } from '../app/email';
 import { useLiveEvents } from '../app/live';
 import { readSession, writeSession } from '../app/storage';
 import { useNarrow } from '../hooks/useMedia';
@@ -312,6 +313,7 @@ export function Topbar({ title, sub, actions }: TopbarProps) {
         </OfflineBar>
       ) : null}
       <MfaNudge />
+      <SecurityEmailNudge />
     </>
   );
 }
@@ -358,6 +360,52 @@ function MfaNudge() {
         }
       >
         {t(missing ? 'mfa.nudge' : 'mfa.codes_low_short')}
+      </Alert>
+    </div>
+  );
+}
+
+const EMAIL_NUDGE_LATER_KEY = 'ottimo.securityEmailNudgeLater';
+
+/**
+ * v1.0.3 BUG-R3-032 (OpenAPI 0.3.10 `Me.securityEmailMissing`): owner/manager without a security email see a
+ * reminder on every screen of a full session, linking to the block on Bảo mật tài khoản. "Để sau" hides it
+ * for this tab session only (UI flag in sessionStorage, wiped at sign-out). Not on /security itself, where
+ * the block shows its own line. [CHỜ UXD] placement next to the 2FA reminder.
+ */
+function SecurityEmailNudge() {
+  const { t } = useI18n();
+  const { me } = useSession();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [later, setLater] = useState(() => readSession(EMAIL_NUDGE_LATER_KEY) === '1');
+  if (later || location.pathname === '/security') return null;
+  if (me?.securityEmailMissing !== true || me.mustChangePassword || me.mfaEnrollmentRequired)
+    return null;
+  return (
+    <div style={{ padding: '8px 16px 0' }}>
+      <Alert
+        tone="warn"
+        icon="shield"
+        actions={
+          <>
+            <Button size="sm" onClick={() => navigate(`/security#${SECURITY_EMAIL_ANCHOR}`)}>
+              {t('secmail.add')}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                writeSession(EMAIL_NUDGE_LATER_KEY, '1');
+                setLater(true);
+              }}
+            >
+              {t('mfa.nudge_later')}
+            </Button>
+          </>
+        }
+      >
+        {t('secmail.nudge')}
       </Alert>
     </div>
   );

@@ -3900,6 +3900,45 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `early_departure.lease_done_note` | Ký quỹ và tiền thuê xử lý ngoài app, theo nhánh đã báo khách. | The security deposit and rent are handled outside the app, as told to the guest. | ⟨chừa chỗ⟩ | Thay lease_check ở bước ③ Kết quả (đã báo khách xong). FB-R4-UXD-FE-29 |
 | `early_departure.told_guest_lease` | Đã báo khách về ký quỹ và các khoản còn thu, còn hoàn | I've told the guest about the security deposit and what is still due or refunded | ⟨chừa chỗ⟩ | Checkbox thay early_departure.told_guest khi trả trước ngày kết thúc HĐ. FB-R4-UXD-FE-30 |
 
+#### v1.0.3 BUG-R3-032 – FE-A: email nhận thư bảo mật (setMyEmail, updateUser.email – OpenAPI 0.3.10). **Chờ UXD/CPY duyệt**
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `shell.account_security` | Bảo mật tài khoản | Account security | ⟨chừa chỗ⟩ | Thay shell.security ở menu người dùng và tiêu đề trang /security: trang nay có cả xác thực 2 bước lẫn email nhận thư bảo mật. Khối 2FA giữ tiêu đề shell.security. [CHỜ UXD] |
+| `secmail.title` | Email nhận thư bảo mật | Security email | ⟨chừa chỗ⟩ | Tiêu đề khối trên Bảo mật tài khoản (SecurityPage) |
+| `secmail.lead` | OTTIMO gửi thư tới địa chỉ này khi tài khoản của bạn có thay đổi quan trọng, như mật khẩu, xác thực 2 bước hay tài khoản nhận tiền. Dùng email riêng của bạn. | OTTIMO writes to this address when something important changes on your account, such as your password, 2-step verification or the receiving account. Use your own email address. | ⟨chừa chỗ⟩ | Câu dẫn khối. Không nêu tên mẫu thư |
+| `secmail.current` | Địa chỉ đang dùng | Current address | ⟨chừa chỗ⟩ | Nhãn trên địa chỉ (JetBrains Mono) |
+| `secmail.none` | Chưa có email. | No email yet. | ⟨chừa chỗ⟩ |  |
+| `secmail.missing` | Vai chủ đầu tư và quản lý cần có email để nhận thư bảo mật. Nhập email riêng của bạn bên dưới. | Owner and manager accounts need an email for security notices. Enter your own address below. | ⟨chừa chỗ⟩ | Me.securityEmailMissing = true, trên chính khối (banner đầu trang ẩn ở /security) |
+| `secmail.field` | Email | Email | ⟨chừa chỗ⟩ | Nhãn ô nhập |
+| `secmail.purpose` | Chỉ dùng để gửi thư thông báo bảo mật cho tài khoản này. | Used only to send security notices for this account. | ⟨chừa chỗ⟩ | Câu mục đích xử lý dưới ô email (ND13 Đ.13 – FB-R4-SEC-ARC-EM-13). v1.0.3 không xác minh email: nói "thư thông báo", không nói "thư xác nhận" |
+| `secmail.field_help` | Không dùng hộp thư chung của cơ sở, như info@. | Don't use the property's shared mailbox, such as info@. | ⟨chừa chỗ⟩ | Gợi ý dưới ô – trước lỗi EMAIL_SHARED_MAILBOX |
+| `secmail.add` | Thêm email | Add email | ⟨chừa chỗ⟩ | Nút khi chưa có email; cũng là nút của banner nhắc |
+| `secmail.change` | Đổi email | Change email | ⟨chừa chỗ⟩ |  |
+| `secmail.remove` | Xóa email | Remove email | ⟨chừa chỗ⟩ |  |
+| `secmail.save` | Lưu email | Save email | ⟨chừa chỗ⟩ | Nút của form và của hộp S2 |
+| `secmail.s2_save_title` | Lưu email nhận thư bảo mật | Save security email | ⟨chừa chỗ⟩ | Tiêu đề hộp S2 khi lưu |
+| `secmail.s2_save_body` | Thư thông báo thay đổi sẽ gửi tới địa chỉ mới và địa chỉ cũ, nếu có. | A notice of the change goes to the new address and to the old one, if any. | ⟨chừa chỗ⟩ | Câu trong hộp S2 khi lưu |
+| `secmail.s2_remove_title` | Xóa email nhận thư bảo mật | Remove security email | ⟨chừa chỗ⟩ | Tiêu đề hộp S2 khi xóa |
+| `secmail.s2_remove_body` | Sau khi xóa, bạn không nhận thư bảo mật qua email nữa. Thư thông báo sẽ gửi tới địa chỉ cũ. | After this, you won't get security notices by email. A notice goes to the old address. | ⟨chừa chỗ⟩ | Câu trong hộp S2 khi xóa (null) |
+| `secmail.saved` | Đã lưu. Thư thông báo đã gửi tới địa chỉ mới và địa chỉ cũ. Không thấy thư sau 15 phút: kiểm tra mục Spam hoặc địa chỉ vừa nhập. | Saved. A notice has been sent to the new address and the old one. Nothing after 15 minutes? Check your spam folder or the address you entered. | ⟨chừa chỗ⟩ | Sau 200 khi đổi địa chỉ (cũ ≠ null). ARC mục 7 |
+| `secmail.saved_first` | Đã lưu. Thư thông báo đã gửi tới địa chỉ này. Không thấy thư sau 15 phút: kiểm tra mục Spam hoặc địa chỉ vừa nhập. | Saved. A notice has been sent to this address. Nothing after 15 minutes? Check your spam folder or the address you entered. | ⟨chừa chỗ⟩ | Sau 200 khi đặt lần đầu (cũ = null) – không có thư previous |
+| `secmail.removed` | Đã xóa email. Thư thông báo đã gửi tới địa chỉ cũ. | Email removed. A notice has been sent to the old address. | ⟨chừa chỗ⟩ | Sau 200 khi xóa |
+| `secmail.unchanged` | Đây là địa chỉ đang dùng. Không có gì thay đổi. | That's already your address. Nothing changed. | ⟨chừa chỗ⟩ | Client so trùng (không phân biệt hoa thường) – không gửi lệnh, không tiêu mã TOTP |
+| `secmail.invalid` | Email chưa đúng dạng, ví dụ ten@tenmien.vn. | Check the email format, e.g. name@domain.com. | ⟨chừa chỗ⟩ | Kiểm ở client và 422 EMAIL_INVALID (field email). Không dùng tên nhà cung cấp thật |
+| `field.EMAIL_SHARED_MAILBOX` | Đây là hộp thư chung của cơ sở. Dùng email riêng để thư bảo mật chỉ tới tay bạn. | This is the property's shared mailbox. Use a personal address so security notices reach only you. | ⟨chừa chỗ⟩ | 422 errors[].code (0.3.10) – setMyEmail, updateUser.email: trùng địa chỉ EMAIL_FROM |
+| `field.NOT_ALLOWED_FOR_SELF` | Thao tác này không làm cho chính tài khoản của bạn ở đây. | This can't be done on your own account here. | ⟨chừa chỗ⟩ | 422 errors[].code (0.3.10 ghi vào bảng mã) – email của mình đổi ở Bảo mật tài khoản |
+| `secmail.nudge` | Tài khoản của bạn chưa có email nhận thư bảo mật. Thêm email để được báo khi có thay đổi quan trọng. | Your account has no security email yet. Add one so you're told about important changes. | ⟨chừa chỗ⟩ | Banner đầu trang khi Me.securityEmailMissing (chỉ OWN/MGR, phiên đầy đủ). Để sau = mfa.nudge_later (ẩn trong phiên tab) |
+| `users.col_email` | Email | Email | ⟨chừa chỗ⟩ | Cột Người dùng & vai – chỉ OWN (User.email x-visible-to owner) |
+| `users.email_none` | Chưa có | None | ⟨chừa chỗ⟩ | Ô email trống |
+| `users.edit_email` | Sửa email | Edit email | ⟨chừa chỗ⟩ |  |
+| `users.email_title` | Email nhận thư bảo mật – {name} | Security email – {name} | ⟨chừa chỗ⟩ | Hộp sửa email người khác (OWN) |
+| `users.email_body` | Thư thông báo thay đổi sẽ gửi tới địa chỉ mới, địa chỉ cũ và chủ đầu tư. | A notice of the change goes to the new address, the old one and the owner. | ⟨chừa chỗ⟩ | Trong hộp sửa email và hộp S2 |
+| `users.email_saved` | Đã lưu email của {name}. Thư thông báo đã gửi tới địa chỉ mới, địa chỉ cũ và chủ đầu tư. | {name}'s email is saved. A notice has been sent to the new address, the old one and the owner. | ⟨chừa chỗ⟩ | Toast sau 200 (updateUser.email) |
+| `users.email_removed` | Đã xóa email của {name}. Thư thông báo đã gửi tới địa chỉ cũ và chủ đầu tư. | {name}'s email is removed. A notice has been sent to the old address and the owner. | ⟨chừa chỗ⟩ | Toast sau 200 (email: null) |
+| `users.email_self` | Email của bạn đổi ở Bảo mật tài khoản. | Change your own email under Account security. | ⟨chừa chỗ⟩ | Hàng của chính mình: nút tắt + câu này dẫn sang /security (422 NOT_ALLOWED_FOR_SELF) |
+| `users.email_other_owner` | Mỗi chủ đầu tư tự đặt email của mình. | Each owner sets their own email. | ⟨chừa chỗ⟩ | Hàng của OWN khác: nút tắt (403 FORBIDDEN_ACTION) |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |
