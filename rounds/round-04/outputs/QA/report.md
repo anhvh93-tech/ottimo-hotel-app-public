@@ -88,3 +88,34 @@ Chưa chạy trọn trả phòng B18 trên image này. v1.0.1 không đổi mã 
 - Smoke production: thử `info@ottimo.vn` với mật khẩu S2 sai.
 - Chụp lại C1-07, C1-22 sau khi sửa BUG-R4-023.
 - D3 phần Desk v1.0.2 sau khi lùi: chờ QC quyết.
+
+---
+
+# QA – ĐK10 QC v1.0.2 / ĐK1 QC v1.0.3: B18 sau B16 trên staging, 04/11/2026 06:10–06:21 (giờ thật)
+
+## Đã làm
+- Staging `sha-da6d6f3dc22b`, harness Playwright ở scratchpad. Desk H16 cho OTM-00378, 00381, 00380; API cho OTM-00379 (minibar 1 món tính tiền), 00382 (HĐ tháng). Ca âm `OVERPAYMENT_HANDLING_REQUIRED` cho 00380, 00382.
+- Chụp trạng thái trước và sau: folio, yêu cầu hoàn, `checkout-summary`, `getBill`, màn Hôm nay (nhắc trả phòng US-031).
+- Dựng OTM-00383 (căn 102, 04/11 → 07/11) cho BR-428-02 ngày 05/11. Tính thử đối chứng: noticeDays 1, hoàn 914.000.
+
+## Kết luận
+- **B18 đạt 5/5. 0 lỗi tiền (0 P0/P1).** `balanceDueVnd` 0 và tổng yêu cầu hoàn đang chờ = `creditVnd` ở cả 5 đơn.
+- 00380 có thêm 1 yêu cầu 800.000 cho đêm FOC đã thu, đúng E15-05 → **BUG-R4-025** (P3, tài liệu).
+- BR-428-02 chưa chạy được ở giờ thật 04/11, nên ĐK1 chưa đủ phần này. QC chọn chờ 05/11 hoặc chấp nhận kết quả trên stack.
+
+## File tạo/sửa
+- `rounds/round-04/qa/v1.0.2-dk10-b18.md` (mới)
+- `rounds/round-04/qa/bug-list.md` (BUG-R4-025, cập nhật bảng tổng hợp, dòng cập nhật)
+- `rounds/round-04/qa/dk10-img/dk10-S3-B18-tra-thua-800k.png`, `dk10-S1-B18-ket-qua.png` (mới, đã kiểm che)
+- tệp này
+
+## Giả định
+- "Đúng 1 yêu cầu hoàn mỗi đơn" hiểu là không trùng, không thiếu: tổng yêu cầu đang chờ = số dư, không có hai yêu cầu cho cùng một khoản. Yêu cầu `cancelled`/`superseded` không tính.
+- HĐ tháng OTM-00382: 0 yêu cầu hoàn là đúng (ESC-048 B). Tiền thuê 9.000.000 do harness ghi qua API được MGR đảo như ghi sai (sổ tay 2.7: tiền thuê HĐ giấy ghi ngoài Desk), rồi trả phòng.
+
+## Rủi ro
+- Yêu cầu hoàn B16 giữ số cũ sau phát sinh mới cho tới lúc duyệt (chốt chặn ở bước duyệt hoạt động). Đã ghi nhận cho ARC/UXD.
+
+## Việc chưa xong
+- BR-428-02 trên OTM-00383 ngày 05/11 sau 06:00 (nếu QC chọn), có thể kèm mốc nhắc 11:00.
+- MGR từ chối các yêu cầu hoàn thử để dọn staging, sau khi QC đọc biên bản.

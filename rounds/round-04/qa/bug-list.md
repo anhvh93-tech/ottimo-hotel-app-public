@@ -25,15 +25,17 @@
 
 - **Dọn trạng thái – QC v1.0.3 ĐK14** (03/11 tối, chỉ sửa tài liệu, không chạy lại test, không chạm staging/production): BUG-R4-011, 012 tách trạng thái theo nhánh (đã sửa trên `lp-v2`, QC LP-v2 xác nhận bằng test; `main`/production còn lỗi gốc); BUG-R4-017 đổi đích sang **v1.0.4** (v1.0.3 đã chốt phạm vi email, không có bản sửa này); BUG-R4-020, 023, 024 ghi đích **v1.0.4**. Không đổi mức lỗi, không đóng lỗi nào. Số đếm mục 1 giữ nguyên: 011, 012 vẫn tính "Open" vì `main` và production chưa có bản sửa.
 
-## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff` + smoke staging v1.0.3 + dọn trạng thái ĐK14)
+- **ĐK10 QC v1.0.2 / ĐK1 QC v1.0.3 – B18 sau B16 trên staging** (04/11 06:10–06:21 giờ thật, staging `sha-da6d6f3dc22b`; Desk H16 + API): **B18 đạt 5/5** trên OTM-00378…00382. Cả 5 `checked_out`, folio settled, `balanceDueVnd` 0, `unhandledCreditVnd` 0, tổng yêu cầu hoàn đang chờ = `creditVnd`. B18 không tạo trùng phần B16. **0 lỗi tiền (0 P0/P1).** Mới **BUG-R4-025** (P3, tài liệu). BR-428-02 ở giờ thật chưa chạy được hôm nay; đã dựng OTM-00383 để chạy 05/11. Chi tiết: `rounds/round-04/qa/v1.0.2-dk10-b18.md`.
+
+## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff` + smoke staging v1.0.3 + dọn trạng thái ĐK14 + ĐK10 B18 staging 04/11)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
 | P2 | 9 | 1 (BUG-R4-011 – **đã sửa trên `lp-v2`**, chờ gộp `main` + staging smoke P10; `main`/production còn lỗi gốc với hồ sơ tạo tay) | 0 | 8 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022** – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
-| P3 | 15 | 7 (BUG-R4-010 – mở lại, BUG-R4-012 – **đã sửa trên `lp-v2`**, chờ gộp + P10, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4) | 0 | 8 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`) |
-| **Tổng** | **24** | **8** | **0** | **16** |
+| P3 | 16 | 8 (BUG-R4-010 – mở lại, BUG-R4-012 – **đã sửa trên `lp-v2`**, chờ gộp + P10, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4, **025** – tài liệu, sửa cùng release notes v1.0.3) | 0 | 8 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`) |
+| **Tổng** | **25** | **9** | **0** | **16** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -493,6 +495,26 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Bằng chứng:** `rounds/round-04/qa/v1.0.3-staging-smoke.md` mục 2.3 (2 lần thử, `PUT /v1/me/email` 401).
 - **Vai:** UXD (chữ) + FE-A (chọn chuỗi theo hộp có ô mã hay không).
 - **Trạng thái:** Open. **Đích: v1.0.4** (QC v1.0.3 mục 2.3, 4). Không chặn v1.0.3. (Cập nhật 03/11, QC v1.0.3 ĐK14.)
+
+### BUG-R4-025 – Release notes v1.0.2 hứa "trả phòng sau đó không tạo thêm" yêu cầu hoàn, nhưng B18 tạo thêm một yêu cầu khi folio còn phần trả thừa khác (ví dụ đêm FOC đã thu)
+
+- **Mức:** P3 (tài liệu). Tiền trong app đúng: không trùng, không thiếu. Tổng 2 yêu cầu = số dư của folio, B18 chỉ lấy phần chưa có yêu cầu (hợp đồng `checkOut` E15-05). Nhưng câu hướng dẫn sai với một trường hợp có thật. Lễ tân hay quản lý đọc release notes có thể nghĩ yêu cầu thứ hai là hoàn trùng rồi từ chối nó, khi đó khách mất 800.000.
+- **Môi trường:** staging `sha-da6d6f3dc22b`, giờ thật 04/11/2026, Desk `qa.fd`. Đơn thử OTM-00380 (căn 101, Trực tiếp, 03/11 → 06/11 × 800.000, thu đủ 2.400.000; FOC 100 % đêm 05/11 đã duyệt; B16 ngày 03/11 rời 04/11, hoàn 400.000, phí 400.000).
+- **Các bước:**
+  1. Ngày 04/11: mở đơn → **Trả phòng** → ① Minibar → ② Phụ phí → ③ Bill.
+  2. Bước ③ hiện "Khách đã trả thừa 800.000 đ. Chọn cách xử lý." → ghi lý do → **Hoàn tất**.
+- **Thực tế:**
+  - Đơn có 2 yêu cầu hoàn `pending`: 400.000 (B16) và 800.000 (B18, phần khách đã trả cho đêm FOC).
+  - Release notes v1.0.2 (`product/docs/release-notes.md`, dòng "Nút Trả sớm – đơn ngắn ngày") viết: "Có khoản hoàn thì Desk tạo **một** yêu cầu hoàn … trả phòng sau đó không tạo thêm".
+  - Sổ tay 2.14a nhánh ngắn ngày chỉ nói "tạo **một** yêu cầu hoàn", không nêu ngoại lệ.
+  - ĐK10 của QC v1.0.2 cũng lấy câu này làm tiêu chí ("đúng 1 yêu cầu hoàn mỗi đơn").
+- **Mong đợi:**
+  - Release notes, sổ tay 2.14a và 2.14 (Trả phòng) ghi rõ ngoại lệ. Gợi ý: "Trả phòng không tạo lại khoản hoàn của Trả sớm. Nếu folio còn tiền thừa khác (ví dụ đêm đã thu rồi được miễn phí), bước Bill hỏi cách xử lý **phần đó**. Chọn hoàn thì có thêm một đề nghị hoàn cho đúng phần này, không trùng."
+  - BR-428 có thể thêm cùng câu.
+  - DOM xác nhận giữ 2 yêu cầu (đúng hợp đồng hiện tại), hoặc đề xuất gộp thành 1 cho v1.0.4+. Nếu chọn gộp thì đó là việc mới, không phải bản sửa lỗi này.
+- **Bằng chứng:** `rounds/round-04/qa/v1.0.2-dk10-b18.md` mục 2.3, 2.5; ảnh `rounds/round-04/qa/dk10-img/dk10-S3-B18-tra-thua-800k.png`.
+- **Vai:** PO (release notes) + BA (sổ tay 2.14/2.14a) + DOM (câu BR-428, chọn giữ 2 hay gộp).
+- **Trạng thái:** Open. Không chặn v1.0.3. Nên sửa cùng mục v1.0.3 của release notes (QC v1.0.3 ĐK5).
 
 ## 3. Ghi nhận (không phải lỗi)
 
