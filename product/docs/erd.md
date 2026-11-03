@@ -1563,6 +1563,8 @@ Quy tắc: cột `_enc` **không bao giờ** nằm trong DTO danh sách, audit, 
 | T18 | Bản sao lưu | Vòng đời cứng ≤ 35 ngày (ADR-010); `purge_journal` giữ ≥ 36 ngày |
 | – | `user_session`, `guest_session`, `guest_access_token`, `guest_verification_code`, `idempotency_key`, `staff_notification` (90 ngày) | Xóa dòng hết hạn |
 | – (0.3.10) | `user_email_change.old_email` | `NULL` ngay khi thư `email_changed` xong (job `staff.email`); chốt chặn hằng ngày: dòng > 7 ngày còn địa chỉ → `NULL` (không xóa dòng) – erd 4.16 |
+| – (0.3.10, SEC EM-10) | `idempotency_key.response_body` của `setMyEmail` (`{email}` – email của chính người gọi, C2; `request_hash` sha256 có email trong thân) | Xóa theo `idempotency_ttl_hours` (mặc định 48 giờ, trần 720 giờ) cùng mọi khóa khác – có thể giữ địa chỉ đã bị thay lâu hơn mốc 7 ngày của `old_email` nếu OWN nâng TTL; SEC chấp nhận (địa chỉ do chính người đó nhập), không đổi mã |
+| – (0.3.10, SEC EM-10) | `app_user.email`, `user_email_change.old_email` trong **bản sao lưu** | Còn trong bản sao lưu tới khi bản đó hết hạn (≤ 35 ngày, T18). Sau khôi phục: runbook chạy J16 trước khi mở hệ thống → chốt chặn 7 ngày dọn lại `old_email` của dòng quá hạn |
 Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩn danh ghi `purge_journal`** (chỉ ID); bỏ qua bản ghi có `legal_hold`. Rút đồng ý P02b từ app khách (`withdrawGuestConsent`) → `document_image.delete_after = now`.
 
 ## 13. Truy vết
@@ -1647,6 +1649,7 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 ## 15. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
+| 04/11/2026 | 4 – v1.0.3 (Review, SEC EM-10) | Mục 12 thêm 2 dòng còn giữ email: `idempotency_key.response_body` của `setMyEmail` (TTL 48 giờ, trần 720 giờ) và bản sao lưu (≤ 35 ngày) | ARC |
 | 03/11/2026 | 4 – v1.0.3 (Sản xuất, OpenAPI 0.3.10) | **4.16 mới**: `app_user.email` có đường ghi + CHECK `app_user_email_check`; bảng `user_email_change` (migration 0091, idx 67 – BE-A cài) giữ địa chỉ cũ tới khi thư `email_changed` xong; mục 12 thêm dòng dọn `old_email` | ARC |
 | 27/10/2026 | 3 – Phản hồi & sửa (v1.0.1, OpenAPI 0.3.9) | 4.1 `room_list_price`: giá đã lên lịch, xóa bằng `cancelScheduledRoomListPrice` (GRANT DELETE – migration 0089); 4.12 `simulation_guard` (ADR-015: chốt DB cho tính thử B16, khoảng trống id do sequence là bình thường). `Reservation.stayDepartureDate` là trường tính (`effectiveStay`), không phải cột | ARC |
 | 24/10/2026 | 3 – Sprint 1 (Phản hồi & sửa, sau gộp `43abb0b`) | 4.15 khớp bản cuối ADD3-01: `approval_request.origin_actor_ids` uuid[] + `refund_source`, ba CHECK, trigger `approval_request_refund_origin_immutable`, định tuyến `refundRouting` cho mọi yêu cầu `refund`, `isA32Maker` lúc duyệt, người làm A32 không tự hủy | ARC |
