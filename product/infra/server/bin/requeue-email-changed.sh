@@ -8,7 +8,7 @@
 #   requeue-email-changed.sh --tag <image tag now live>                         dry run: checks + counts, writes nothing
 #   requeue-email-changed.sh --tag <image tag now live> --apply --expect <n>    the same, then one UPDATE transaction
 # Checks, in a dry run too (any one failing → REFUSED, nothing written):
-#   1. no deploy / rollback is running (state/deploy.lock, the lock of deploy.sh);
+#   1. no deploy / rollback is running (state/deploy.lock, the lock of deploy.sh; no flock → REFUSED);
 #   2. --tag = state/current_tag, and the one running worker container uses that image tag;
 #   3. that worker's image knows the template `email_changed` (isStaffEmailTemplate of @ottimo/integrations, asked
 #      inside the container) – a v1.0.2 worker would kill the rows again;
@@ -89,7 +89,13 @@ SQL
 log "start ($mode) tag=$tag"
 mkdir -p "$state"
 exec 9>"$state/deploy.lock"
-if command -v flock >/dev/null; then flock -n 9 || die "a deploy or rollback is running (state/deploy.lock) – wait, then run again"; fi
+# SEC FB-R4-SEC-OPS-PR32-01: no flock = the lock of deploy.sh cannot be checked → refuse, as deploy.sh does. Only the
+# test harness (RQ_TEST_DC, itself refused on production above) may run without it, e.g. on a Mac.
+if command -v flock >/dev/null; then
+  flock -n 9 || die "a deploy or rollback is running (state/deploy.lock) – wait, then run again"
+elif [ -z "${RQ_TEST_DC:-}" ]; then
+  die "flock missing – cannot check state/deploy.lock (install util-linux)"
+fi
 
 # 2. the live tag and the running worker
 current=$(cat "$state/current_tag" 2>/dev/null || true)
