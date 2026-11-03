@@ -5,10 +5,16 @@
  *   `[a-z0-9-]{1,63}`, TLD `[a-z]{2,}`, total 3–254. null = invalid (→ EMAIL_INVALID). Chosen so that
  *   every accepted address is also accepted by the SMTP adapter (`isEmailAddress`) and fully masked by the log
  *   redactor (`redactText` → `[email]`) – test/be-a-v103-email-units.test.ts runs one case table through all three.
- *   (`nguyễn@x.vn`, `"x"@y.vn`, `a@b.c,d@e.f`, `a@localhost` → invalid.)
+ *   (`nguyễn@example.test`, `"x"@example.test`, `a@b.c,d@e.f`, `a@localhost` → invalid.)
  * - `mailboxAddress`: the address part of EMAIL_FROM (`Name <addr>` or a bare address), lower case.
  * - `maskEmail`: the only form an address may take in audit (`o***@e***.test`); never log or audit a full address.
+ * - `EMAIL_CHANGED_TEMPLATE`: the one name of the `email_changed` template, shared by the identity module (enqueue)
+ *   and `jobs/email-dispatch` (which may not import `identity/internal`). Typed against INT's real template list
+ *   (`StaffEmailTemplate` of `@ottimo/integrations/notification`), so a rename there fails `tsc` (ARC FB-R4-ARC-BE-31-05).
  */
+import type { StaffEmailTemplate } from '@ottimo/integrations/notification';
+
+export const EMAIL_CHANGED_TEMPLATE = 'email_changed' satisfies StaffEmailTemplate;
 
 export const SECURITY_EMAIL_MAX = 254;
 
@@ -32,7 +38,7 @@ export function normalizeSecurityEmail(raw: string): string | null {
   return email;
 }
 
-/** EMAIL_FROM → its address in lower case (`OTTIMO <info@x.vn>` → `info@x.vn`); '' / unset → null. */
+/** EMAIL_FROM → its address in lower case (`OTTIMO <info@example.test>` → `info@example.test`); '' / unset → null. */
 export function mailboxAddress(from: string | undefined | null): string | null {
   const v = (from ?? '').trim();
   if (!v) return null;

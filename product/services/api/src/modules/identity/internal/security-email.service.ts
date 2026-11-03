@@ -14,7 +14,12 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
-import { mailboxAddress, maskEmail, normalizeSecurityEmail } from '../../../shared/email';
+import {
+  EMAIL_CHANGED_TEMPLATE,
+  mailboxAddress,
+  maskEmail,
+  normalizeSecurityEmail,
+} from '../../../shared/email';
 import { problem } from '../../../shared/problem';
 import { AuditService } from '../../audit/public/audit.service';
 import { EventsService } from '../../events/public/events.service';
@@ -22,7 +27,6 @@ import { notifyStaff } from '../../platform/public/staff-notify';
 import { IDENTITY_OPTIONS, type IdentityOptions } from '../public/identity-options';
 import '../audit-entities';
 
-export const EMAIL_CHANGED_TEMPLATE = 'email_changed';
 export const EMAIL_CHANGED_EVENT = 'user.email_changed';
 
 export type EmailChangeVia = 'self' | 'owner';

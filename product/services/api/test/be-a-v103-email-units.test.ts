@@ -3,17 +3,24 @@
  * SEC FB-R4-SEC-ARC-EM-05: ONE rule for the API; every address it accepts must also be accepted by the SMTP adapter
  * (`isEmailAddress`) and fully masked by the log redactor (`redactText`). Fake addresses only (.test / example).
  */
-import { isEmailAddress } from '@ottimo/integrations/notification';
+import { STAFF_EMAIL_TEMPLATES, isEmailAddress } from '@ottimo/integrations/notification';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { STRONG_REAUTH_OPERATIONS } from '../src/modules/identity/public/strong-reauth';
-import { mailboxAddress, maskEmail, normalizeSecurityEmail } from '../src/shared/email';
+import {
+  EMAIL_CHANGED_TEMPLATE,
+  mailboxAddress,
+  maskEmail,
+  normalizeSecurityEmail,
+} from '../src/shared/email';
 import { redactText } from '../src/shared/redact';
 
 const VALID: Array<[string, string]> = [
   ['owner@example.test', 'owner@example.test'],
   ['  Owner@Example.TEST ', 'owner@example.test'],
-  ['fd.le+desk@mail.example.vn', 'fd.le+desk@mail.example.vn'],
-  ['a_b-c%d@sub-1.example.co', 'a_b-c%d@sub-1.example.co'],
+  ['fd.le+desk@mail.example.test', 'fd.le+desk@mail.example.test'],
+  ['a_b-c%d@sub-1.example.test', 'a_b-c%d@sub-1.example.test'],
   [`${'a'.repeat(64)}@example.test`, `${'a'.repeat(64)}@example.test`],
 ];
 
@@ -25,8 +32,8 @@ const INVALID = [
   'owner@',
   'owner@@example.test',
   'a@b.c,d@e.f',
-  '"x"@y.vn',
-  'nguyễn@x.vn',
+  '"x"@example.test',
+  'nguyễn@example.test',
   'owner@exämple.test',
   'a@localhost',
   'a b@example.test',
@@ -73,7 +80,7 @@ describe('normalizeSecurityEmail (V-03 for staff security e-mail, SEC EM-05)', (
 describe('maskEmail / mailboxAddress', () => {
   it('masks to the first letter of each part + the last suffix only', () => {
     expect(maskEmail('owner@example.test')).toBe('o***@e***.test');
-    expect(maskEmail('a@mail.example.vn')).toBe('a***@m***.vn');
+    expect(maskEmail('a@mail.example.test')).toBe('a***@m***.test');
     expect(maskEmail(null)).toBeNull();
     expect(maskEmail('')).toBeNull();
     expect(maskEmail('owner@example.test')).not.toContain('owner');
@@ -84,6 +91,22 @@ describe('maskEmail / mailboxAddress', () => {
     expect(mailboxAddress(' info@example.test ')).toBe('info@example.test');
     expect(mailboxAddress('')).toBeNull();
     expect(mailboxAddress(undefined)).toBeNull();
+  });
+});
+
+describe('EMAIL_CHANGED_TEMPLATE (ARC FB-R4-ARC-BE-31-05)', () => {
+  it('is one of the templates INT can render, and is declared once in src', () => {
+    expect(STAFF_EMAIL_TEMPLATES).toContain(EMAIL_CHANGED_TEMPLATE);
+    const src = join(__dirname, '..', 'src');
+    const walk = (d: string): string[] =>
+      readdirSync(d).flatMap((n) => {
+        const p = join(d, n);
+        return statSync(p).isDirectory() ? walk(p) : p.endsWith('.ts') ? [p] : [];
+      });
+    const declared = walk(src).filter((f) =>
+      /export const EMAIL_CHANGED_TEMPLATE\b/.test(readFileSync(f, 'utf8')),
+    );
+    expect(declared.map((f) => f.slice(src.length + 1))).toEqual(['shared/email.ts']);
   });
 });
 
