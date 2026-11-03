@@ -65,7 +65,7 @@ NOTICE_FONTS = [("Lora", "lora", 500), ("Be Vietnam Pro", "be-vietnam-pro", 400)
 CHAPTER_RE = re.compile(r"^(\d+)\.\s+(.+)$")
 SUB_RE = re.compile(r"^(\d+(?:\.\d+)+)\s+(.+)$")
 GUIDE_CODE_RE = re.compile(r"^(0\d)(?:-[a-z0-9-]+\.md)?$")
-MUC_RE = re.compile(r"(?<![\w])([mM]ục\s+)(\d+(?:\.\d+)?)((?:(?:\s*,\s*|\s+và\s+|\s+hoặc\s+)\d+(?:\.\d+)?(?![\d.]*\d))*)")
+MUC_RE = re.compile(r"(?<![\w])([mM]ục\s+)(\d+(?:\.\d+){0,2})((?:(?:\s*,\s*|\s+và\s+|\s+hoặc\s+)\d+(?:\.\d+){0,2}(?![\d.]*\d))*)")
 SHOT_CODE_RE = re.compile(r"^([A-Z]\d+-\d+)(?:\s*-\s*(.*))?$")
 
 FONT_CACHE = {}
@@ -211,6 +211,13 @@ class Guide:
             for sb in sec["subs"]:
                 while sb["blocks"] and sb["blocks"][-1]["t"] == "hr":
                     sb["blocks"].pop()
+                for b in sb["blocks"]:  # #### 11.5.1 … : có id để nối "mục 11.5.3"
+                    if b["t"] == "h" and b["level"] >= 4:
+                        hm = SUB_RE.match(b["text"])
+                        if hm:
+                            b["num"], b["title"] = hm.group(1), hm.group(2)
+                            b["id"] = uid("s-" + hm.group(1).replace(".", "-"))
+                            self.ids.setdefault(hm.group(1), b["id"])
             while sec["lead"] and sec["lead"][-1]["t"] == "hr":
                 sec["lead"].pop()
         self.chapters = [s for s in self.sections if s["num"]]
@@ -274,13 +281,15 @@ class Ctx:
 
             def link(num, text):
                 hid = target.ids.get(num)
+                if not hid and num.count(".") == 2:  # 11.5.9 chưa có tiêu đề -> về 11.5
+                    hid = target.ids.get(num.rsplit(".", 1)[0])
                 if not hid:
                     return text
                 return '<a class="xref" href="%s#%s">%s</a>' % (href_base, hid, text)
 
             out = link(m.group(2), m.group(1) + m.group(2))
             rest = m.group(3) or ""
-            out += re.sub(r"\d+(?:\.\d+)?", lambda k: link(k.group(0), k.group(0)), rest)
+            out += re.sub(r"\d+(?:\.\d+){0,2}", lambda k: link(k.group(0), k.group(0)), rest)
             return out
 
         t = MUC_RE.sub(mref, t)
@@ -642,6 +651,7 @@ mark.hit{box-shadow:0 0 0 2px var(--oak)}
 .ch-label{letter-spacing:.04em}
 .chapter{padding-top:40px}
 .ch-head h2{font-size:clamp(1.55rem,5.6vw,2rem)}
+h4 .n{font-family:var(--f-mono);font-weight:500;font-size:.85em;color:var(--earth);margin-right:8px}
 .ph{gap:6px}
 .ph-code{font-family:var(--f-mono);font-size:1.15rem;font-weight:500;color:var(--ink);letter-spacing:.02em}
 .notice-card{margin:1.25rem 0 1.5rem}
