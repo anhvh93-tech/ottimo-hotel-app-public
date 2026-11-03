@@ -118,6 +118,36 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/me/email': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Đặt / đổi / xóa email nhận thư bảo mật của chính mình (BUG-R3-032, SEC 06.15, SEC-on-B2-readiness 1.5) – S2
+     * @description **0.3.10 (R4 v1.0.3)**. Mọi vai nhân viên (rbac A112 – "của mình"); Desk có ô ở **Bảo mật tài khoản**, PWA không làm UI. Phiên hạn chế (mật khẩu tạm,
+     *     chưa đăng ký 2FA) bị guard chặn như mọi operation khác (`403 PASSWORD_CHANGE_REQUIRED` / `MFA_ENROLLMENT_REQUIRED`) – OWN chỉ nhập email **sau khi** đã bật 2FA.
+     *     **Thứ tự kiểm**: (1) dạng `email` – server cắt khoảng trắng và đổi chữ thường; sai → `422` `EMAIL_INVALID`; trùng `EMAIL_FROM` → `422` `EMAIL_SHARED_MAILBOX` (không ghi, không đếm);
+     *     (2) `reauth` S2 (`StrongReauthService.verify`, `operationId = setMyEmail`): thiếu → `422` `STRONG_REAUTH_REQUIRED` (`field` = `reauth` hoặc `reauth.totpCode`), sai → `401 REAUTH_FAILED`
+     *     (đếm SR-RL-02); (3) so với địa chỉ đang lưu (không phân biệt hoa thường): **trùng → 200, không ghi gì** (không audit, không thư, không tăng `version`).
+     *     **Ghi** (một giao dịch): `app_user.email` = giá trị mới (`null` = xóa), `app_user.version + 1`; một dòng `user_email_change` (`old_email` = địa chỉ cũ hoặc `null`, `via = self`);
+     *     audit `security` `user.email_changed` (`before.emailMasked`, `after.emailMasked`, `after.via = self` – không ghi địa chỉ đầy đủ); thông báo `account_security_change`
+     *     (`refCode = user.email_changed`) cho chính người gọi và mọi `owner` của các cơ sở của họ; outbox `staff.email` `{template: email_changed, userIds: [người gọi], owners: true, emailChangeId}`
+     *     – **không** có địa chỉ. Thư tới: địa chỉ mới (`self`, khi có), địa chỉ cũ (`previous`, khi có), mọi `owner` có email (`owner`); một địa chỉ chỉ nhận một bản. Không thu hồi phiên.
+     *     **`Idempotency-Key` bắt buộc**: mã TOTP chỉ dùng một lần – gửi lại vì mạng chập mà không có khóa sẽ nhận `401` dù lần đầu đã lưu. Không xác minh địa chỉ ở 0.3.10.
+     *     Không bao giờ đưa địa chỉ vào log, Problem hay URL.
+     */
+    put: operations['setMyEmail'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/me/approval-pin': {
     parameters: {
       query?: never;
@@ -351,10 +381,18 @@ export interface paths {
     options?: never;
     head?: never;
     /**
-     * Khóa/mở tài khoản, đổi tên hiển thị, đặt lại mật khẩu
+     * Khóa/mở tài khoản, đổi tên hiển thị, đặt lại mật khẩu, đặt email nhận thư bảo mật (0.3.10)
      * @description `status=disabled` hoặc `resetPassword` → **thu hồi ngay mọi phiên** của người đó (SR-SES-06), tăng `roles_version`,
      *     ghi `audit_event` security. `resetPassword` đặt mật khẩu tạm + `must_change_password=true` (SR-AUTH-05).
      *     Khóa (`status=disabled`) OWN `active` cuối cùng của một cơ sở → `422 VALIDATION_FAILED` mã trường `LAST_OWNER` (`field: status`; rbac 5.3).
+     *     `status`/`resetPassword` trên chính mình → `422` `NOT_ALLOWED_FOR_SELF` (đã cài từ R2).
+     *     **0.3.10 (R4 v1.0.3, BUG-R3-032) – `email`**: OWN đặt / đổi / xóa (`null`) email nhận thư bảo mật của **MGR và nhân viên**. Thứ tự kiểm (sau guard vai và `If-Match`):
+     *     (1) `userId` = người gọi → `422` `NOT_ALLOWED_FOR_SELF` (`field` = `email`; email của mình dùng `setMyEmail`); (2) người đích đang có vai `owner` chưa thu hồi ở **bất kỳ** cơ sở nào
+     *     → **`403 FORBIDDEN_ACTION`** + audit `access.denied` (mỗi OWN chỉ tự đặt email của mình – một OWN bị chiếm phiên không tắt được kênh báo của OWN khác); (3) phạm vi tài khoản:
+     *     người gọi phải sở hữu mọi cơ sở người đích còn vai (như `status`) → nếu không `403 FORBIDDEN_ACTION`; (4) dạng `email` → `EMAIL_INVALID` / `EMAIL_SHARED_MAILBOX` (như `setMyEmail`);
+     *     (5) `reauth` S2 bắt buộc khi có trường `email` (kể cả `null`); (6) trùng địa chỉ đang lưu (không phân biệt hoa thường) → phần email không ghi gì.
+     *     Ghi: như `setMyEmail` với `via = owner` (bảng `user_email_change`, audit `security` `user.email_changed` chỉ có `emailMasked`, thông báo `account_security_change` cho người được đổi
+     *     + mọi `owner`, outbox `email_changed` tới địa chỉ mới, địa chỉ cũ và mọi `owner`); `User.version + 1`. Không thu hồi phiên. MGR gọi → `403` ở guard vai (`x-roles: [owner]`), không ghi gì.
      */
     patch: operations['updateUser'];
     trace?: never;
@@ -5478,6 +5516,10 @@ export interface components {
       soleOwner?: boolean;
       /** @description 0.3.8 (SEC 06.15) – còn ≤ 3 mã khôi phục → nhắc tạo bộ mới mỗi lần đăng nhập */
       recoveryCodesLow?: boolean;
+      /** @description 0.3.10 (BUG-R3-032) – email nhận thư bảo mật của **chính** người gọi (đầy đủ, không che – dữ liệu của chính họ); `null` = chưa có. Đổi bằng `setMyEmail` */
+      email?: string | null;
+      /** @description 0.3.10 (BUG-R3-032, SEC-on-B2-readiness 1.5) – `true` khi người gọi có vai `owner` hoặc `manager` chưa thu hồi (ở bất kỳ cơ sở nào) mà `email` rỗng → Desk nhắc nhập email ở Bảo mật tài khoản. Vai khác luôn `false` */
+      securityEmailMissing?: boolean;
     };
     User: {
       id: components['schemas']['Uuid'];
@@ -5492,6 +5534,8 @@ export interface components {
       mfaEnabled?: boolean;
       /** @description 0.3.8 (SEC 06.35) */
       mfaRecoveryCodesRemaining?: number;
+      /** @description 0.3.10 (BUG-R3-032) – email nhận thư bảo mật (đầy đủ, OWN xem ở Người dùng & vai để rà); `null` = chưa có. Vắng với vai khác */
+      email?: string | null;
     };
     UserCreate: {
       /** @description 0.3.8 (SEC 06.26 – S2): bắt buộc từ khi BE + FE cài (CỔNG cùng PR) */
@@ -9416,6 +9460,63 @@ export interface operations {
       429: components['responses']['RateLimited'];
     };
   };
+  setMyEmail: {
+    parameters: {
+      query?: never;
+      header?: {
+        /**
+         * @description UUID do client sinh (PWA sinh khi xếp hàng offline). Giữ `idempotency_ttl_hours`. **Bắt buộc về nghiệp vụ** với mọi operation khai tham số này
+         *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
+         */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "email": "owner@example.test",
+         *       "reauth": {
+         *         "password": "********",
+         *         "totpCode": "123456"
+         *       }
+         *     }
+         */
+        'application/json': {
+          /**
+           * Format: email
+           * @description `null` = xóa email. Server cắt khoảng trắng, đổi chữ thường; trùng địa chỉ đang lưu (không phân biệt hoa thường) → 200, không ghi gì
+           */
+          email: string | null;
+          reauth: components['schemas']['StrongReauth'];
+        };
+      };
+    };
+    responses: {
+      /** @description Đã lưu (hoặc không đổi). Trả email đang lưu sau lệnh */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "email": "owner@example.test"
+           *     }
+           */
+          'application/json': {
+            email: string | null;
+          };
+        };
+      };
+      401: components['responses']['ReauthFailed'];
+      403: components['responses']['Forbidden'];
+      422: components['responses']['ValidationFailed'];
+      429: components['responses']['RateLimited'];
+    };
+  };
   setMyApprovalPin: {
     parameters: {
       query?: never;
@@ -9906,7 +10007,12 @@ export interface operations {
           status?: 'active' | 'disabled';
           /** @description V-10 (khớp `newPassword`); 0.3.1 nâng từ 8 */
           resetPassword?: string;
-          /** @description 0.3.8 (SEC 06.26 – S2): bắt buộc khi có `status` hoặc `resetPassword` (đổi tên hiển thị không cần) */
+          /**
+           * Format: email
+           * @description 0.3.10 (BUG-R3-032) – OWN đặt / đổi / xóa (`null`) email nhận thư bảo mật của MGR và nhân viên (không cho chính mình, không cho người đang có vai `owner`). Có trường này thì `reauth` (S2) bắt buộc
+           */
+          email?: string | null;
+          /** @description 0.3.8 (SEC 06.26 – S2): bắt buộc khi có `status`, `resetPassword` hoặc (0.3.10) `email` (đổi tên hiển thị không cần) */
           reauth?: components['schemas']['StrongReauth'];
         };
       };
@@ -9921,6 +10027,7 @@ export interface operations {
           'application/json': components['schemas']['User'];
         };
       };
+      401: components['responses']['ReauthFailed'];
       403: components['responses']['Forbidden'];
       412: components['responses']['VersionConflict'];
       422: components['responses']['ValidationFailed'];
