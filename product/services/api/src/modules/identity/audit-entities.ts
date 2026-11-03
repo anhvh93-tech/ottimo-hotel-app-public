@@ -37,3 +37,6 @@ defineAuditEntity('app_user', [
 // verifyApprover (BR-416-06): a confirmation names the desk user it was typed for; a success records the failures
 // it cleared (BUG-R2-167, SEC 12.3).
 defineAuditEntity('app_user', ['confirmingFor', 'failedCountCleared']);
+
+// 0.3.10 (R4 v1.0.3, BUG-R3-032): user.email_changed – the masked form only (`o***@e***.test`), never the address.
+defineAuditEntity('app_user', ['emailMasked', 'via']);

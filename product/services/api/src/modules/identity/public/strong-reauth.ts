@@ -75,6 +75,8 @@ export const STRONG_REAUTH_OPERATIONS = [
   'resetUser2fa',
   'cancelScheduledParameter',
   'setParameter',
+  // 0.3.10 (R4 v1.0.3, BUG-R3-032): own security e-mail.
+  'setMyEmail',
 ] as const;
 
 @Injectable()

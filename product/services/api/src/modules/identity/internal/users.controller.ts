@@ -24,7 +24,8 @@ import { parseBody } from '../../platform/public/validation';
 import { isValidName, normalizeName } from '../../guests/public/normalize';
 import { StrongReauthService, strongReauthSchema } from '../public/strong-reauth';
 import { type HttpRequest, type Reply, principalOf } from './auth.controller';
-import { type UserDto, UsersService } from './users.service';
+import { SecurityEmailService } from './security-email.service';
+import { TARGET_OWNER_DENIALS, type UserDto, UsersService } from './users.service';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -65,6 +66,8 @@ const updateSchema = z.object({
   displayName: displayName.optional(),
   status: z.enum(['active', 'disabled']).optional(),
   resetPassword: z.string().min(1).max(256).optional(),
+  // 0.3.10 (BUG-R3-032): shape only; the address rules answer EMAIL_INVALID (SecurityEmailService.check).
+  email: z.string().nullable().optional(),
   reauth: strongReauthSchema.optional(),
 });
 
@@ -102,7 +105,23 @@ export class UsersController {
     @Inject(UnitOfWork) private readonly uow: UnitOfWork,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(StrongReauthService) private readonly strong: StrongReauthService,
+    @Inject(SecurityEmailService) private readonly securityEmail: SecurityEmailService,
   ) {}
+
+  /** SEC-BE-07 / 0.3.10: a refused account-wide change is logged after its transaction (US-002 AC2). */
+  private async denied(req: HttpRequest, userId: string, err: unknown): Promise<void> {
+    if (!(err instanceof ProblemError) || err.code !== 'FORBIDDEN_ACTION') return;
+    const p = principalOf(req);
+    await this.audit.recordDenied(tenantOf(p), {
+      action: 'access.denied',
+      entityType: 'app_user',
+      entityId: userId,
+      reason: TARGET_OWNER_DENIALS.has(err) ? 'TARGET_OWNER' : 'OTHER_PROPERTY',
+      requestId: req.id,
+      sessionId: p.sessionId,
+      after: { operationId: 'updateUser', roles: p.roles },
+    });
+  }
 
   /** S2 before the unit of work (own transaction – counted although the request fails). */
   private s2(req: HttpRequest, reauth: z.infer<typeof strongReauthSchema> | undefined, op: string) {
@@ -150,34 +169,43 @@ export class UsersController {
     @Body() body: unknown,
   ): Promise<UserDto> {
     if (!UUID.test(userId)) throw problem('NOT_FOUND');
-    const { reauth, ...input } = parseBody(updateSchema, body);
+    const { reauth, email: rawEmail, ...rest } = parseBody(updateSchema, body);
     const version = expectedVersion(req);
     const p = principalOf(req);
+    const input: Parameters<UsersService['update']>[4] = { ...rest };
+    if (rawEmail !== undefined) {
+      // 0.3.10 order (ARC v1.0.3-contract-email 3.2): self 422 → owner target 403 → other property 403 →
+      // EMAIL_INVALID / EMAIL_SHARED_MAILBOX → S2. None of them burns a factor or counts a failure.
+      try {
+        await this.db.withContext(
+          tenantOf(p),
+          (tx) => this.users.precheckEmail(tx, p.userId, userId),
+          { readOnly: true },
+        );
+      } catch (err) {
+        await this.denied(req, userId, err);
+        throw err;
+      }
+      input.email = this.securityEmail.check('email', rawEmail);
+    }
     // Display name alone needs no S2 (OpenAPI 0.3.8).
     // On oneself the service answers 422 NOT_ALLOWED_FOR_SELF – no S2 asked for a refused change.
-    if (userId !== p.userId && (input.status !== undefined || input.resetPassword !== undefined)) {
+    if (
+      userId !== p.userId &&
+      (input.status !== undefined || input.resetPassword !== undefined || input.email !== undefined)
+    ) {
       await this.s2(req, reauth, 'updateUser');
     }
     let result;
     try {
       result = await this.uow.run(req, async (tx) => ({
         status: 200,
-        body: await this.users.update(tx, p.userId, userId, version, input, req.id),
+        body: await this.users.update(tx, p.userId, userId, version, input, req.id, p.sessionId),
       }));
     } catch (err) {
-      // SEC-BE-07: reset/status of a person with roles at a property the caller does not own. The
-      // transaction is rolled back and its connection returned – now the denial is logged (US-002 AC2).
-      if (err instanceof ProblemError && err.code === 'FORBIDDEN_ACTION') {
-        await this.audit.recordDenied(tenantOf(p), {
-          action: 'access.denied',
-          entityType: 'app_user',
-          entityId: userId,
-          reason: 'OTHER_PROPERTY',
-          requestId: req.id,
-          sessionId: p.sessionId,
-          after: { operationId: 'updateUser', roles: p.roles },
-        });
-      }
+      // SEC-BE-07: reset/status/email of a person with roles at a property the caller does not own (or, for email,
+      // an owner). The transaction is rolled back and its connection returned – now the denial is logged.
+      await this.denied(req, userId, err);
       throw err;
     }
     reply.header('etag', etag(result.body.version));
