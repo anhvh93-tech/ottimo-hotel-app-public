@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# One SMTP check of a stack through the worker's real path (infra/server/mail-test.mjs) – runs on the OPS/INV Mac, NOT
+# on the VPS. v1.0.3 (plan-v1.0.3 V3-05, ARC v1.0.3 tech plan 2.9): the recipient is never an argument.
+#   mail-test.sh --ssh ottimo-admin@desk.ottimo.vn --stack production --verify-only
+#       connect + EHLO + STARTTLS only, nothing is sent, no address asked (the default check)
+#   mail-test.sh --ssh ottimo-admin@desk.ottimo.vn --stack production --send
+#       asks for the recipient at a hidden prompt (read -rs: not echoed, not in shell history, not in any argv – Mac
+#       or VPS), then sends one test message. Only the person who owns the mailbox types it (INV for a private one).
+# The address travels as the FIRST LINE of the ssh stdin, followed by mail-test.mjs; on the VPS `read` takes that line
+# into MAIL_TEST_TO, and `dc run -e MAIL_TEST_TO` (no value) hands it to the one-off worker container from the
+# environment. Nothing is written to disk on either side. Output: the one line of mail-test.mjs
+# ("mail-test: verified" | "sent" | "failed (<code>)") – never the address.
+# --key (default ~/.ssh/ottimo_ops): the personal OPS key of the runbooks, not the CI key.
+# MAIL_TEST_READ_STDIN=1 (tests only): read the address from a non-terminal stdin.
+set -Eeuo pipefail
+
+here=$(cd "$(dirname "$0")" && pwd)
+mjs="$here/../mail-test.mjs"
+ssh_to="" stack="" mode="" key="${HOME}/.ssh/ottimo_ops"
+usage() { echo "usage: $0 --ssh <user@host> --stack production|staging --verify-only|--send [--key <file>]" >&2; exit 2; }
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --ssh) [ $# -ge 2 ] || usage; ssh_to="$2"; shift 2 ;;
+    --stack) [ $# -ge 2 ] || usage; stack="$2"; shift 2 ;;
+    --key) [ $# -ge 2 ] || usage; key="$2"; shift 2 ;;
+    --verify-only) mode=verify; shift ;;
+    --send) mode=send; shift ;;
+    *) usage ;;
+  esac
+done
+[ -n "$ssh_to" ] && [ -n "$mode" ] || usage
+case "$stack" in
+  production) home=/opt/ottimo-prod ;;
+  staging) home=/opt/ottimo ;;
+  *) usage ;;
+esac
+[[ "$ssh_to" =~ ^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+$ ]] || { echo "--ssh must be user@host" >&2; exit 2; }
+if [ -e /opt/ottimo-prod/.ottimo-home ] || [ -e /opt/ottimo/.ottimo-home ]; then
+  echo "refused: run this on the OPS/INV Mac, not on the server" >&2; exit 2
+fi
+[ -r "$mjs" ] || { echo "mail-test.mjs not found next to bin/" >&2; exit 2; }
+[ -r "$key" ] || { echo "ssh key not readable: $key" >&2; exit 2; }
+
+to="" verify_flag=""
+if [ "$mode" = send ]; then
+  if [ ! -t 0 ] && [ "${MAIL_TEST_READ_STDIN:-}" != 1 ]; then
+    echo "--send needs an interactive terminal (the address is typed at a hidden prompt)" >&2; exit 2
+  fi
+  IFS= read -rs -p 'Recipient address (not shown): ' to || true
+  echo >&2
+  # Shape only (the worker checks again with isEmailAddress). No newline, no space, one @, ≤ 254 characters.
+  if ! [[ "$to" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]] || [ "${#to}" -gt 254 ]; then
+    unset to; echo "mail-test: failed (address is missing or invalid) – nothing sent" >&2; exit 2
+  fi
+else
+  verify_flag=" -e MAIL_TEST_VERIFY_ONLY=1"
+fi
+
+# Remote: the deploy user reads line 1 (address or empty) and execs the one-off worker; stdin left = mail-test.mjs.
+remote="cd / && sudo -n -u ottimo sh -c 'IFS= read -r MAIL_TEST_TO; export MAIL_TEST_TO; exec $home/infra/server/bin/dc run --rm --no-deps -T -e MAIL_TEST_TO$verify_flag --entrypoint node worker --input-type=module -'"
+# stderr (docker compose progress, an ssh/sudo error) is dropped: only the fixed line of mail-test.mjs is shown.
+out=$({ printf '%s\n' "$to"; cat "$mjs"; } | ssh -i "$key" -o BatchMode=yes "$ssh_to" "$remote" 2>/dev/null \
+  | grep -E '^mail-test: (verified|sent|failed \([A-Za-z0-9_ .-]*\))$' | tail -n 1 || true)
+unset to
+case "$out" in
+  "mail-test: verified" | "mail-test: sent") echo "$out" ;;
+  "mail-test: failed ("*) echo "$out"; exit 1 ;;
+  *) echo "mail-test: no answer from the worker (ssh, sudo or docker failed – run it again with OPS)" >&2; exit 1 ;;
+esac

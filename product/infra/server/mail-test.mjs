@@ -1,9 +1,12 @@
 // One test e-mail through the worker's real SMTP path (OPS 8b, v1-production.md 19.6) – Google Workspace relay by the
 // VPS IP, same nodemailer options (TLS ≥ 1.2, STARTTLS required), same EMAIL_FROM, same `egress` network as the worker.
-// Not in the image and not on the server: piped from the OPS machine into a one-off worker container (stdin):
-//   ssh … 'cd /tmp && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc run --rm --no-deps -T \
-//     -e MAIL_TEST_TO=<address> [-e MAIL_TEST_VERIFY_ONLY=1] --entrypoint node worker --input-type=module -' \
-//     < product/infra/server/mail-test.mjs
+// Not in the image and not on the server: piped from the OPS machine into a one-off worker container (stdin).
+// Run it ONLY through bin/mail-test.sh (v1.0.3, plan-v1.0.3 V3-05) – on the Mac:
+//   product/infra/server/bin/mail-test.sh --ssh ottimo-admin@desk.ottimo.vn --stack production --verify-only
+//   product/infra/server/bin/mail-test.sh --ssh ottimo-admin@desk.ottimo.vn --stack production --send
+// --send asks for the recipient at a hidden prompt and passes it as the first stdin line → `read` on the VPS →
+// `dc run -e MAIL_TEST_TO` (no value, from the environment). Never type `-e MAIL_TEST_TO=<address>`: the address would
+// stay in the shell history of the Mac and in the process list of the VPS (ARC v1.0.3 tech plan 2.9).
 // MAIL_TEST_VERIFY_ONLY=1: connect + EHLO + STARTTLS only (transport.verify), nothing is sent.
 // Prints ONE line: "mail-test: verified" | "mail-test: sent" | "mail-test: failed (<code>)" – never an address,
 // never provider text (mapSmtpError). Exit 0 on success, 1 on failure, 2 on bad input.
