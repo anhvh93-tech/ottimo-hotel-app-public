@@ -31,6 +31,8 @@ async function bootstrap(): Promise<void> {
         ipHmacKey: rt.env.LOG_IP_HMAC_KEY ?? '',
         appEnv: config.appEnv,
         mfaEnforced: config.mfaEnforced,
+        // 0.3.10 (BUG-R3-032): EMAIL_SHARED_MAILBOX check (same variable as the worker's sender).
+        ...(rt.env.EMAIL_FROM ? { emailFrom: rt.env.EMAIL_FROM } : {}),
       },
       rt.env,
     ),

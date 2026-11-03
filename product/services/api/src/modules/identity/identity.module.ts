@@ -25,6 +25,8 @@ import { StrongReauthService } from './public/strong-reauth';
 import { DevicesService } from './internal/devices.service';
 import { MeService } from './internal/me.service';
 import { SessionPolicyInterceptor } from './internal/session-policy.interceptor';
+import { SecurityEmailController } from './internal/security-email.controller';
+import { SecurityEmailService } from './internal/security-email.service';
 import { UsersController } from './internal/users.controller';
 import { UsersService } from './internal/users.service';
 import { IDENTITY_OPTIONS, type IdentityOptions } from './public/identity-options';
@@ -57,6 +59,7 @@ export class IdentityModule {
         UsersController,
         DevicesController,
         CloserCandidatesController,
+        SecurityEmailController,
       ],
       providers: [
         { provide: IDENTITY_OPTIONS, useValue: options },
@@ -76,6 +79,7 @@ export class IdentityModule {
         StrongReauthService,
         MfaService,
         AuthService,
+        SecurityEmailService,
         UsersService,
         DevicesService,
         SessionPolicyInterceptor,

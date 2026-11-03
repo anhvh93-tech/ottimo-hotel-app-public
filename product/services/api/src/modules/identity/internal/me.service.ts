@@ -41,6 +41,10 @@ export interface Me {
   soleOwner?: boolean;
   /** 0.3.8 (SEC 06.15): ≤ 3 recovery codes left. */
   recoveryCodesLow: boolean;
+  /** 0.3.10 (BUG-R3-032): the caller's own security e-mail, in full (their own data); null = none. */
+  email: string | null;
+  /** 0.3.10: a live owner/manager role at ANY property and no e-mail → Desk reminds them to add one. */
+  securityEmailMissing: boolean;
 }
 
 interface RoleRow {
@@ -146,8 +150,13 @@ export class MeService {
       recovery_left: number;
       enrollment_only: boolean | null;
       other_owners: number;
+      email: string | null;
+      privileged: boolean;
     }>(
-      `SELECT u.display_name, u.must_change_password, u.mfa_enabled,
+      `SELECT u.display_name, u.must_change_password, u.mfa_enabled, u.email::text AS email,
+              EXISTS (SELECT 1 FROM user_property_role pr
+                       WHERE pr.user_id = u.id AND pr.revoked_at IS NULL
+                         AND pr.role IN ('owner', 'manager')) AS privileged,
               coalesce(cardinality(u.mfa_recovery_codes_hash), 0) AS recovery_left,
               (SELECT s.enrollment_only FROM user_session s WHERE s.id = $2) AS enrollment_only,
               (SELECT count(DISTINCT r.user_id)::int FROM user_property_role r JOIN app_user o ON o.id = r.user_id
@@ -206,6 +215,8 @@ export class MeService {
           (allRoles.has('owner') || allRoles.has('manager'))),
       ...(allRoles.has('owner') ? { soleOwner: u.other_owners === 0 } : {}),
       recoveryCodesLow: MfaStore.recoveryCodesLow(u.recovery_left, u.mfa_enabled),
+      email: u.email,
+      securityEmailMissing: u.privileged && !u.email,
     };
   }
 }

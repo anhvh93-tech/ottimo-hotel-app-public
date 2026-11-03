@@ -73,6 +73,11 @@ export const appUser = pgTable(
   (t) => [
     unique('app_user_org_id_key').on(t.organizationId, t.id),
     check('app_user_status_check', sql`${t.status} IN ('active', 'locked', 'disabled')`),
+    // 0091 (R4 v1.0.3, BUG-R3-032): security e-mail – length / shape guard (V-03 is checked by the API).
+    check(
+      'app_user_email_check',
+      sql`${t.email} IS NULL OR (char_length(${t.email}::text) BETWEEN 3 AND 254 AND position('@' in ${t.email}::text) > 1)`,
+    ),
   ],
 );
 
@@ -219,5 +224,42 @@ export const mfaLoginChallenge = pgTable(
     check('mfa_login_challenge_origin_check', sql`${t.clientOrigin} IN ('admin', 'staff_pwa')`),
     index('mfa_login_challenge_user_idx').on(t.userId),
     index('mfa_login_challenge_expires_idx').on(t.expiresAt),
+  ],
+);
+
+/**
+ * 0091 (R4 v1.0.3, BUG-R3-032, erd 4.16): one row per change of a staff security e-mail. Holds the OLD address
+ * only until the `email_changed` notice to it is sent (the outbox never holds an address – email-dispatch.ts):
+ * the dispatcher sets `old_email = NULL` when the outbox row ends; a daily job does it after 7 days at the latest.
+ * Organisation-level like app_user (RLS app_current_org()); ottimo_app has no DELETE.
+ */
+export const userEmailChange = pgTable(
+  'user_email_change',
+  {
+    id: uuid('id').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    // NULL: there was none, or already notified / purged.
+    oldEmail: citext('old_email'),
+    changedBy: uuid('changed_by').notNull(),
+    via: text('via').notNull(),
+    changedAt: instant('changed_at').notNull(),
+    oldNotifiedAt: instant('old_notified_at'),
+  },
+  (t) => [
+    foreignKey({
+      name: 'user_email_change_user_fk',
+      columns: [t.organizationId, t.userId],
+      foreignColumns: [appUser.organizationId, appUser.id],
+    }),
+    foreignKey({
+      name: 'user_email_change_changed_by_fk',
+      columns: [t.organizationId, t.changedBy],
+      foreignColumns: [appUser.organizationId, appUser.id],
+    }),
+    check('user_email_change_via_check', sql`${t.via} IN ('self', 'owner')`),
+    index('user_email_change_pending_idx')
+      .on(t.changedAt)
+      .where(sql`${t.oldEmail} IS NOT NULL`),
   ],
 );
