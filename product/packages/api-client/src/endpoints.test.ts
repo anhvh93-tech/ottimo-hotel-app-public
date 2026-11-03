@@ -438,3 +438,40 @@ describe('v1.0.1 endpoints (OpenAPI 0.3.9)', () => {
     expect(init.headers).toMatchObject({ 'If-Match': '"9"', 'Idempotency-Key': 'key-c' });
   });
 });
+
+describe('v1.0.3 endpoints (OpenAPI 0.3.10, BUG-R3-032)', () => {
+  it('setMyEmail: PUT /v1/me/email, the address only in the body, Idempotency-Key, no If-Match', async () => {
+    const { api, call } = setup();
+    await api.setMyEmail(
+      { email: 'owner@example.test', reauth: { password: 'pw', totpCode: '123456' } },
+      'k-1',
+    );
+    const [url, init] = call();
+    expect(url).toBe('http://x/v1/me/email');
+    expect(url).not.toContain('@');
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(String(init.body))).toEqual({
+      email: 'owner@example.test',
+      reauth: { password: 'pw', totpCode: '123456' },
+    });
+    expect(init.headers).toMatchObject({ 'Idempotency-Key': 'k-1', 'X-CSRF-Token': 'tok' });
+    expect(init.headers).not.toHaveProperty('If-Match');
+  });
+
+  it('setMyEmail null removes the address; updateUser carries email + reauth with If-Match', async () => {
+    const { api, call } = setup();
+    await api.setMyEmail({ email: null, reauth: { password: 'pw' } }, 'k-2');
+    expect(JSON.parse(String(call(0)[1].body))).toEqual({
+      email: null,
+      reauth: { password: 'pw' },
+    });
+    await api.updateUser('u1', { email: 'fd@example.test', reauth: { password: 'pw' } }, 4);
+    const [url, init] = call(1);
+    expect(url).toBe('http://x/v1/users/u1');
+    expect(init.headers).toMatchObject({ 'If-Match': '"4"' });
+    expect(JSON.parse(String(init.body))).toEqual({
+      email: 'fd@example.test',
+      reauth: { password: 'pw' },
+    });
+  });
+});

@@ -136,6 +136,8 @@ import type {
   TransferRefundBody,
   VietQrBody,
   VietQrResult,
+  SetMyEmailBody,
+  SetMyEmailResult,
   SetParameterBody,
   TrustDeviceBody,
   TrustedDevice,
@@ -230,6 +232,13 @@ export function createEndpoints(api: ApiClient) {
     /** S2 – voluntary roles only (owner/manager → 403); every session is revoked, this one too. */
     disableMy2fa: (reauth: StrongReauth) =>
       r<void>('DELETE', '/v1/me/2fa', { body: reauth, local: true }),
+    /**
+     * 0.3.10 (BUG-R3-032) – own security email (S2). `Idempotency-Key` is mandatory: a TOTP code works once,
+     * so a resend after a dropped connection must carry the SAME key and body to get the first answer back.
+     * The address never goes in the URL or a query.
+     */
+    setMyEmail: (body: SetMyEmailBody, idempotencyKey: string) =>
+      r<SetMyEmailResult>('PUT', '/v1/me/email', { body, idempotencyKey }),
 
     // rooms (S25)
     listRooms: ({ propertyId }: P) =>
@@ -1269,7 +1278,10 @@ export function createEndpoints(api: ApiClient) {
     /** US-008 – always S2 (SEC 06.26). The S26 "add user" screen is FE-B's. */
     createUser: (body: CreateUserBody, idempotencyKey: string) =>
       r<User>('POST', '/v1/users', { body, idempotencyKey }),
-    /** `status` / `resetPassword` on someone else need `body.reauth` (S2, 0.3.8 CỔNG). */
+    /**
+     * `status` / `resetPassword` on someone else need `body.reauth` (S2, 0.3.8 CỔNG); 0.3.10 `email` too
+     * (owner only; never one's own – 422 – nor another owner's – 403).
+     */
     updateUser: (userId: string, body: UpdateUserBody, version: number) =>
       r<User>('PATCH', '/v1/users/{userId}', {
         path: { userId },

@@ -72,7 +72,7 @@ export function UserMenu() {
           </Link>
           <Link className="rowlink" to="/security" onClick={() => setOpen(false)}>
             <Icon name="shield" />
-            <span>{t('shell.security')}</span>
+            <span>{t('shell.account_security')}</span>
           </Link>
           <div className="rowlink" style={{ cursor: 'default' }}>
             <Icon name="globe" />
