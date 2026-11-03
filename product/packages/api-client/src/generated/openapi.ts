@@ -135,8 +135,9 @@ export interface paths {
      *     (đếm SR-RL-02); (3) so với địa chỉ đang lưu (không phân biệt hoa thường): **trùng → 200, không ghi gì** (không audit, không thư, không tăng `version`).
      *     **Ghi** (một giao dịch): `app_user.email` = giá trị mới (`null` = xóa), `app_user.version + 1`; một dòng `user_email_change` (`old_email` = địa chỉ cũ hoặc `null`, `via = self`);
      *     audit `security` `user.email_changed` (`before.emailMasked`, `after.emailMasked`, `after.via = self` – không ghi địa chỉ đầy đủ); thông báo `account_security_change`
-     *     (`refCode = user.email_changed`) cho chính người gọi và mọi `owner` của các cơ sở của họ; outbox `staff.email` `{template: email_changed, userIds: [người gọi], owners: true, emailChangeId}`
-     *     – **không** có địa chỉ. Thư tới: địa chỉ mới (`self`, khi có), địa chỉ cũ (`previous`, khi có), mọi `owner` có email (`owner`); một địa chỉ chỉ nhận một bản. Không thu hồi phiên.
+     *     (`refCode = user.email_changed`) cho chính người gọi và mọi `owner` của **cơ sở đang mở trong phiên**; outbox `staff.email` `{template: email_changed, userIds: [người gọi], owners: true, emailChangeId}`
+     *     – **không** có địa chỉ. Thư tới: địa chỉ mới (`self`, khi có), địa chỉ cũ (`previous`, khi có), mọi `owner` có email của **mọi cơ sở người gọi còn vai** cộng cơ sở của phiên (`owner`);
+     *     một địa chỉ chỉ nhận một bản. Tập nhận thư ⊇ tập nhận thông báo trong app (bằng nhau khi chỉ có 1 cơ sở). Không thu hồi phiên.
      *     **`Idempotency-Key` bắt buộc**: mã TOTP chỉ dùng một lần – gửi lại vì mạng chập mà không có khóa sẽ nhận `401` dù lần đầu đã lưu. Không xác minh địa chỉ ở 0.3.10.
      *     Không bao giờ đưa địa chỉ vào log, Problem hay URL.
      */
@@ -392,7 +393,7 @@ export interface paths {
      *     người gọi phải sở hữu mọi cơ sở người đích còn vai (như `status`) → nếu không `403 FORBIDDEN_ACTION`; (4) dạng `email` → `EMAIL_INVALID` / `EMAIL_SHARED_MAILBOX` (như `setMyEmail`);
      *     (5) `reauth` S2 bắt buộc khi có trường `email` (kể cả `null`); (6) trùng địa chỉ đang lưu (không phân biệt hoa thường) → phần email không ghi gì.
      *     Ghi: như `setMyEmail` với `via = owner` (bảng `user_email_change`, audit `security` `user.email_changed` chỉ có `emailMasked`, thông báo `account_security_change` cho người được đổi
-     *     + mọi `owner`, outbox `email_changed` tới địa chỉ mới, địa chỉ cũ và mọi `owner`); `User.version + 1`. Không thu hồi phiên. MGR gọi → `403` ở guard vai (`x-roles: [owner]`), không ghi gì.
+     *     + mọi `owner` của cơ sở đang mở trong phiên, outbox `email_changed` tới địa chỉ mới, địa chỉ cũ và mọi `owner` của mọi cơ sở người được đổi còn vai); `User.version + 1`. Không thu hồi phiên. MGR gọi → `403` ở guard vai (`x-roles: [owner]`), không ghi gì.
      */
     patch: operations['updateUser'];
     trace?: never;
