@@ -15,15 +15,17 @@
 - **v1.0.2 – PR #22 lượt 3** (03/11 ~11:55–12:20, `v1.0.2-ed` @ `9d4f0fa8`, FE-A sửa thẻ DOM FB-01..03 + ESC-048 = B; stack thử `ottimo-qapr22c` trong worktree tạm mới): **ĐẠT**. Hộp "Trả sớm" của HĐ tháng trên Desk thật (VI/EN) hiện câu kiểm kỳ thu và 3 nhánh, ô tích trung tính. Ghi thật: 0 yêu cầu hoàn, 0 dòng phí. Đơn ngắn ngày BR-428 không đổi. CI `41579077681` xanh, gồm E2E smoke. Sau B13 Desk vẫn hiện BR-313: giới hạn đã biết (`leaseEndDate`, ARC/BE-A v1.0.3), không mở lỗi. Không lỗi mới. Chi tiết: `rounds/round-04/qa/pr22-v1.0.2-ed.md` mục "Lượt 3 @ 9d4f0fa8".
 - **v1.0.2 – smoke staging** (03/11 14:46–15:02, staging `sha-e5fffe05ed55` = `main` `e5fffe05`, CI `41594706912` xanh): **ĐẠT**. Migration 0089 + 0090 có, hash khớp; `smoke-prod` 9/9; B16 oracle BR-428 trên 4 đơn ngắn ngày, tính thử = ghi thật, 124 bảng không đổi khi tính thử; giá hẹn đạt; hộp HĐ tháng ESC-048 B đúng chữ VI/EN; PN-01 trigger chặn UPDATE/DELETE/TRUNCATE (BEGIN … ROLLBACK); 0 phản hồi 5xx. **BUG-R4-014 → Closed.** BUG-R4-017 vẫn tái hiện. Không lỗi mới. Chi tiết: `rounds/round-04/qa/v1.0.2-staging-smoke.md`.
 
-## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2)
+- **v1.0.2 – đóng lỗi trên `main` (QC ĐK7 (b) của `rounds/round-04/qc/v1.0.2-gate.md`)**, 03/11 15:10–15:25, `main` @ `e5fffe05` (staging `sha-e5fffe05ed55`): **BUG-R4-013 → Closed**, **BUG-R4-016 → Closed**; cùng lượt, BUG-R3-057 và BUG-R3-058 → Closed trong `rounds/round-03/qa/bug-list.md`. Bằng chứng: PR #25 (`74e8833f`), #16 (`8111d5d6`), #24 (`dea48d69`) là tổ tiên của `e5fffe05`; CI push run `41594706912` xanh 10/10, `@ottimo/tests:test` và `@ottimo/api:test` đều **cache miss** (chạy thật): validator "OK – 0 lỗi, 1 cảnh báo", api 3695 đạt / 24 bỏ qua / 0 lỗi. QA chạy lại tại máy trên mã `e5fffe05`: validator 0 lỗi; `text-safety-units` 235/235; 10 chuỗi BUG-R4-016 + 16 chuỗi BUG-R3-057/058 qua `sensitiveNumberKind`/`chatSafeText` đúng kỳ vọng. Không đụng staging/production ở lượt này, chỉ dữ liệu giả. Không lỗi mới. Không chặn v1.0.2.
+
+## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05`)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
-| P2 | 7 | 2 (BUG-R4-011, BUG-R4-013) | 0 | 5 (BUG-R4-001, 002, 003, 004, 014 – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`) |
-| P3 | 10 | 4 (BUG-R4-010 – mở lại, BUG-R4-012, BUG-R4-015, BUG-R4-017 – mới) | 1 (BUG-R4-016 – đã sửa, QA xác nhận trên PR #24 `f8080499`; Closed khi #16 + #24 gộp `main` + CI xanh) | 5 (BUG-R4-005, 006, 007, 008, 009 – 009 đã kiểm lại trên staging `sha-755cad1642ca`) |
-| **Tổng** | **17** | **6** | **1** | **10** |
+| P2 | 7 | 1 (BUG-R4-011) | 0 | 6 (BUG-R4-001, 002, 003, 004, 013, 014 – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`) |
+| P3 | 10 | 4 (BUG-R4-010 – mở lại, BUG-R4-012, BUG-R4-015, BUG-R4-017) | 0 | 6 (BUG-R4-005, 006, 007, 008, 009, 016 – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`) |
+| **Tổng** | **17** | **5** | **0** | **12** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -233,7 +235,13 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Mong đợi:** validator 0 lỗi trên `main`; đổi BR/ESC thì task test của `@ottimo/tests` chạy lại.
 - **Bằng chứng:** log run `41313291275` (dòng "cache miss, executing 1b3ff81f3887e791" chỉ ở `@ottimo/tests:test`, "32 lỗi"); `rounds/round-04/qa/pr21-notice-2026-10-31.md` mục 5.
 - **Vai:** QA (cập nhật nhãn oracle theo BR v0.5.1, thêm dòng hoặc `notCovered` cho BR-115/116) + DOM (xác nhận nhãn và ví dụ số BR-1xx/2xx sau ESC-045) + OPS (thêm `inputs` cho task `test` của `@ottimo/tests`, ví dụ `$TURBO_DEFAULT$`, `../docs/business-rules.md`, `../../02-escalations/ESC-*.md`).
-- **Trạng thái:** Open. Chặn "CI xanh" của PR #21 (nội dung PR #21 không gây ra lỗi này).
+- **Trạng thái:** ~~Open~~ → **Closed** (03/11 15:25, QA, trên `main` `e5fffe05`).
+  - *Bản sửa:* PR #25 (head `b5619e4e`, gộp `main` `74e8833f` 01/11, là tổ tiên của `e5fffe05`): `br-examples.json` theo BR v0.5.1 (nhãn INV-043, BR-101/103/201…210 viết lại, thêm BR-115-01…08 và BR-116-01) và `product/tests/turbo.json` khai `inputs` cho task `test`: `$TURBO_DEFAULT$`, `$TURBO_ROOT$/docs/business-rules.md`, `$TURBO_ROOT$/../02-escalations/ESC-*.md`.
+  - *QA kiểm lại:*
+    - `node tools/validate-fixtures.mjs` trên cây `e5fffe05` (giải nén `git archive` vào scratchpad) → **OK – 0 lỗi, 1 cảnh báo** (536 dòng, 145/154 BR có ví dụ được phủ, 9 `notCovered`). Trước bản sửa: 32 lỗi.
+    - `turbo run test --filter=@ottimo/tests --dry=json`: danh sách input của `@ottimo/tests#test` có `../docs/business-rules.md` và đủ 48 tệp `02-escalations/ESC-*.md`. Đổi BR hay ESC sẽ làm mất cache, validator chạy lại – phần "`main` xanh giả" đã hết.
+    - CI push `main` `e5fffe05` run `41594706912`: `@ottimo/tests:test` **cache miss, executing**, in "OK – 0 lỗi, 1 cảnh báo"; job xanh.
+  - *Còn lại, ngoài lỗi này:* PR #25 chưa có review theo ma trận (QA + BA/PO cho oracle và nhãn cột BR) – QC ĐK12 (a), hạn trước QC v1.0.3. Nếu review đó phát hiện sai số oracle thì QA mở lỗi mới, không mở lại 013.
   - *PR #22 (01/11):* `test:fixtures` trên `v1.0.2-ed` @ `99734cda` cũng ra đúng 32 lỗi này, **0 lỗi ở BR-428**. `business-rules.md` của nhánh trùng `main`; `br-examples.json` chỉ khác ở chỗ bỏ `pendingFix` BR-428-08/09. Đây là nguyên nhân của ARC FB-R4-ARC-BE-A-ED-01 (CI PR #22 đỏ).
 
 ### BUG-R4-014 – Desk mở "Trả sớm" (B16) cho đơn dài hạn và hiện chính sách BR-428 ("không hoàn, phí 0 đ"), không nhắc BR-313 v0.5.1 mất ký quỹ
@@ -327,7 +335,11 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
   - Thêm 10 chuỗi trên vào nhóm "không được che nhầm" của `text-safety-units.test.ts`.
   - PO chọn hướng trong PA1–PA3 (báo cáo mục 5.3).
 - **Bằng chứng:** bảng 167 ca và bảng so `main`/PR trong `rounds/round-04/qa/pr24-text-safety.md` mục 3e, 5.1.
-- **Trạng thái:** **Đã sửa – đã xác nhận** (01/11 22:40, QA, trên PR #24 `f8080499`). Closed khi PR #16 và PR #24 gộp `main` và job CI `format · lint · audit · test · build` xanh.
+- **Trạng thái:** ~~Đã sửa – đã xác nhận~~ (01/11 22:40, QA, trên PR #24 `f8080499`) → **Closed** (03/11 15:25, QA, trên `main` `e5fffe05`).
+  - PR #16 (`8111d5d6`) và PR #24 (`dea48d69`, head `ac86a772` = `80a73367` QA lượt 3 + merge `main` không xung đột + README) đều là tổ tiên của `e5fffe05`.
+  - CI push run `41594706912` xanh: `@ottimo/api:test` cache miss, 3695 đạt / 0 lỗi; `text-safety-units` 235/235, gồm khối "BUG-R4-016 (QA PR #24) …" (10 chuỗi ở bước tái hiện thuộc nhóm "không được che nhầm").
+  - QA chạy lại tại máy trên mã `e5fffe05`: `text-safety-units` 235/235; 10/10 chuỗi ở bước tái hiện qua `sensitiveNumberKind` ra `null` và `chatSafeText` in nguyên (`Ngân sách 1.500.000.000` in là `1[.]500[.]000[.]000` – dấu chấm bị chặn link theo thiết kế, không phải che số).
+  - Đường form trên môi trường thật chưa kiểm được (staging chưa nhận form): kiểm ở QC ĐK8 (7) sau Release.
 - **Test lại 01/11 (PR #24 head `f8080499`):**
   - **Bản sửa (BE-D):**
     - `MONEY_BEFORE` nhận `₫`, `đ`, `VND`/`VNĐ`/`USD`/`EUR` đứng trước số;
