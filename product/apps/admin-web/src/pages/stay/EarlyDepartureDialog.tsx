@@ -410,7 +410,7 @@ export function EarlyDepartureDialog({
             {t('early_departure.reg_reminder', { date: date(leaving) })}
           </Alert>
         ) : null}
-        {leaseDone ? <LeaseRule reservation={r} /> : null}
+        {leaseDone ? <LeaseRule reservation={r} step="result" /> : null}
         {leaseOnly ? null : (
           <details>
             <summary>{t('early_departure.show_calc')}</summary>
@@ -532,7 +532,7 @@ export function EarlyDepartureDialog({
               {lease && !hasMoney(p) ? null : (
                 <Figures p={p} otaRetained={draft.otaRetainedVnd} was={was} />
               )}
-              {lease ? <LeaseRule reservation={r} /> : null}
+              {lease ? <LeaseRule reservation={r} step="preview" /> : null}
               <Consequences p={p} newDate={newDate} />
               <Checkbox checked={told} onChange={setTold}>
                 {t(
@@ -722,25 +722,36 @@ const hasMoney = (x: EarlyDepartureResult) => (x.refundVnd ?? 0) > 0 || x.earlyD
 /**
  * BUG-R4-014: BR-313 v0.5.1 (ESC-045 câu 4) for a monthly lease left before its end – the deposit is held outside the
  * app. INV ESC-048 = B (03/11): rent paid up to the lease end → not a breach, the deposit is settled (BR-214). The
- * Desk v1.0 knows neither the lease signing date (older paper leases keep their own clause – BR-201) nor whether the
- * last rent period is paid (rent is recorded outside the app, no billing periods), so it never states one outcome:
- * a check line, then the three branches (FB-R4-DOM-FE-A-02).
+ * Desk v1.0 does not know whether the last rent period is paid (rent is recorded outside the app, no billing
+ * periods), so it never states one outcome: a check line, then the two branches in the order the desk checks them –
+ * paid, then not paid with what is still due nested under it (FB-R4-UXD-FE-26). ORC 03/11: no "signed before
+ * 01/11/2026" branch – OTTIMO has no older paper lease (BR-107 v0.5.1). On the result step the check line becomes a
+ * done note (FB-R4-UXD-FE-29); the branches stay as the reference.
  */
-function LeaseRule({ reservation: r }: { reservation: StayDialogProps['reservation'] }) {
+function LeaseRule({
+  reservation: r,
+  step,
+}: {
+  reservation: StayDialogProps['reservation'];
+  step: 'preview' | 'result';
+}) {
   const { t, money } = useI18n();
   const deposit = r.manualLongStay?.depositHeldVnd;
   return (
     <Alert tone="warn" role="note" title={t('early_departure.lease_title')}>
-      <p>{t('early_departure.lease_check')}</p>
+      <p>
+        {t(step === 'result' ? 'early_departure.lease_done_note' : 'early_departure.lease_check')}
+      </p>
       <ul className="list-plain">
+        <li>{t('early_departure.lease_rule_paid')}</li>
         <li>
           {deposit
             ? t('early_departure.lease_rule', { amount: money(deposit) })
             : t('early_departure.lease_rule_no_amount')}
+          <ul className="list-plain li-s">
+            <li>{t('early_departure.lease_still_due')}</li>
+          </ul>
         </li>
-        <li>{t('early_departure.lease_still_due')}</li>
-        <li>{t('early_departure.lease_rule_paid')}</li>
-        <li>{t('early_departure.lease_rule_old')}</li>
       </ul>
     </Alert>
   );

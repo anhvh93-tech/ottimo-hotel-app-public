@@ -11,8 +11,10 @@ import { renderApp, tv } from '../test/render';
  * says BR-313 v0.5.1 instead (ESC-045 câu 4): breaking the lease forfeits the whole deposit, no clawback of the
  * lease-term discount; unpaid utilities / damage are still collected. Short stays keep BR-428 unchanged.
  * DOM review (FB-R4-DOM-FE-A-01..03) + INV ESC-048 = B (03/11): only a date before the lease end shows BR-313; the
- * Desk cannot see the signing date nor the rent periods, so the box lists the branches (not paid / paid / older
- * lease) under a "check and ask the manager" line instead of stating one outcome.
+ * Desk cannot see the rent periods, so the box lists the branches (paid, then not paid with what is still due
+ * nested under it – UXD FB-R4-UXD-FE-26) under a "check and ask the manager" line instead of stating one outcome.
+ * ORC 03/11: no "signed before 01/11/2026" branch (no older paper lease – BR-107 v0.5.1). The result step swaps the
+ * check line for a done note (FB-R4-UXD-FE-29).
  */
 
 const res = (guest: string) => mockControl.rsv.reservations.find((r) => r.guestName === guest)!;
@@ -80,11 +82,23 @@ const BR428 = [
 ] as const;
 
 /** The lines a lease box always shows besides the amount line (FB-R4-DOM-FE-A-02, INV ESC-048 = B). */
-const LEASE_BRANCHES = [
-  'early_departure.lease_check',
-  'early_departure.lease_rule_paid',
-  'early_departure.lease_rule_old',
-] as const;
+const LEASE_BRANCHES = ['early_departure.lease_check', 'early_departure.lease_rule_paid'] as const;
+
+/**
+ * FB-R4-UXD-FE-26: check line first, then the branches in the order the desk checks them – paid, then not paid –
+ * with what is still due nested under "not paid" only (it says "not taken from the deposit", wrong for "paid").
+ */
+function expectLeaseOrder(note: HTMLElement, unpaid: string) {
+  const items = [...note.querySelector('ul.list-plain')!.querySelectorAll(':scope > li')];
+  expect(items).toHaveLength(2);
+  expect(items[0]).toHaveTextContent(tv('early_departure.lease_rule_paid'));
+  expect(items[0]!.querySelector('ul')).toBeNull();
+  expect(items[1]).toHaveTextContent(unpaid);
+  expect(within(items[1] as HTMLElement).getByRole('listitem')).toHaveTextContent(
+    tv('early_departure.lease_still_due'),
+  );
+  expect(note.textContent).not.toMatch(/01\/11\/2026|HĐ giấy/);
+}
 
 /**
  * Emma Laurent's lease (T−40 → T+50, ends T+50) + extension nights T+50 → T+53 held by a short child booking – the
@@ -162,9 +176,10 @@ describe('BUG-R4-014 – B16 on a monthly lease shows BR-313, not BR-428', () =>
       within(note).getByText(tv('early_departure.lease_rule', { amount: M(deposit) })),
     ).toBeInTheDocument();
     expect(within(note).getByText(tv('early_departure.lease_still_due'))).toBeInTheDocument();
-    // ESC-048 B + FB-R4-DOM-FE-A-02: the Desk cannot see the rent periods nor the signing date – a check line and
-    // the three branches, never one outcome for every lease.
+    // ESC-048 B + FB-R4-DOM-FE-A-02: the Desk cannot see the rent periods – a check line and the two branches,
+    // never one outcome for every lease.
     for (const k of LEASE_BRANCHES) expect(within(note).getByText(tv(k))).toBeInTheDocument();
+    expectLeaseOrder(note, tv('early_departure.lease_rule', { amount: M(deposit) }));
     for (const k of BR428) expect(within(dlg).queryByText(tv(k))).toBeNull();
     expect(within(dlg).queryByText(tv('early_departure.row_fee'))).toBeNull();
     expect(
@@ -184,6 +199,14 @@ describe('BUG-R4-014 – B16 on a monthly lease shows BR-313, not BR-428', () =>
     expect(
       within(dlg).getByText(tv('early_departure.lease_rule', { amount: M(deposit) })),
     ).toBeInTheDocument();
+    // FB-R4-UXD-FE-29: the guest has been told – a done note, not "ask the manager before telling the guest".
+    const done = within(dlg).getByText(tv('early_departure.lease_done_note'));
+    expect(done).toBeInTheDocument();
+    expect(within(dlg).queryByText(tv('early_departure.lease_check'))).toBeNull();
+    expectLeaseOrder(
+      done.closest('[role="note"]') as HTMLElement,
+      tv('early_departure.lease_rule', { amount: M(deposit) }),
+    );
     expect(within(dlg).queryByText(tv('early_departure.no_refund'))).toBeNull();
     expect(within(dlg).queryByText(tv('early_departure.show_calc'))).toBeNull();
   });
@@ -194,6 +217,12 @@ describe('BUG-R4-014 – B16 on a monthly lease shows BR-313, not BR-428', () =>
     const { user, dlg } = await openDialog('Emma Laurent');
     await goPreview(user, dlg);
     expect(within(dlg).getByText(tv('early_departure.lease_rule_no_amount'))).toBeInTheDocument();
+    expectLeaseOrder(
+      within(dlg)
+        .getByText(tv('early_departure.lease_check'))
+        .closest('[role="note"]') as HTMLElement,
+      tv('early_departure.lease_rule_no_amount'),
+    );
   });
 
   it('lease the server puts money on (not in v1.0): its figures stay visible next to BR-313 – never unseen money', async () => {
