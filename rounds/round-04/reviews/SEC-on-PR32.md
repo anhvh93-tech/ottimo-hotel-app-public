@@ -139,3 +139,146 @@ Ghi thêm: `psql_rw` chạy bằng `POSTGRES_USER`, tức superuser và bỏ qua
 - Bộ đọc kết quả `email_changes` dùng danh sách cho phép, và chỉ nhận mỗi loại dòng một lần. Một giá trị lạ, kể cả địa chỉ, không thể lọt ra journal hay webhook. Ngưỡng sai thì `FAIL` mà không in lại giá trị `.env`.
 - `requeue` an toàn khi lỗi ở mọi bước: chạy thử là mặc định, `--expect` khóa số dòng trong chính giao dịch, lệnh hỏi mẫu không xác định được thì từ chối.
 - OPS tự phát hiện và ghi lại chỗ sai của câu mẫu SEC (`count(*)`), đồng thời chỉ ra rằng thứ tự worker/api chưa nằm trong `deploy.sh`, không giấu vào thao tác tay.
+
+---
+
+# PR #33 – `ops/v1.0.3-runbook-r3` @ `37e27362` (runbook r3 + `flock` trong `requeue`)
+
+- Người review: SEC · Round 4 (v1.0.3), bước **Review** · 03/11/2026
+- Phạm vi: `git diff origin/main...origin/ops/v1.0.3-runbook-r3` (5 tệp, +249/−80), `rounds/round-04/responses/OPS-on-PR32.md` @ `37e27362`, toàn văn runbook r3 (đọc qua `git show`). Tôi không checkout nhánh.
+- SEC tự chạy lại trên bản `git archive 37e27362` tạm (đã xóa sau khi chạy):
+  - `requeue-email-changed.test.sh`: Mac (không có `flock`) 46/46; `ubuntu:24.04` (có `/usr/bin/flock`, không mạng) 48/48.
+  - Test mới chạy trên script của `origin/main`: 45/46, đỏ đúng ca `production without flock refuses`. Vậy test bắt đúng lỗi cũ.
+  - `shellcheck -x -S warning` (`v0.10.0`) trên script và test: 0 cảnh báo.
+  - gitleaks `v8.21.2` với `.github/gitleaks.toml` trên `origin/main..37e27362`: no leaks found.
+
+## Kết luận PR #33: **ĐẠT CÓ ĐIỀU KIỆN**
+
+- Gộp PR #33: **được**. Không có Blocker hay Major.
+- PR32-01 **Closed**. PR32-02 (a) **Closed**. PR32-02 (b) Deferred v1.0.4: SEC chấp nhận. PR32-S3 **Closed**.
+- Điều kiện SEC mục 6 (6.1–6.5) đã có đủ trong runbook r3.
+- Thẻ mới: 2 Minor (PR33-01, PR33-02), 2 Suggestion. Cả hai Minor chỉ sửa tài liệu. Sửa được bằng một commit tài liệu sau khi gộp, nên không làm đổi `SHA_V103` (P1 cho phép tệp `rounds/` sau `SHA_V103`). **Phải sửa xong trước P0 production.**
+
+## 1. PR32-01: thiếu `flock` thì `REFUSED`
+
+| Kiểm | Trên mã @ `37e27362` | Kết quả |
+|---|---|---|
+| Có `flock` | `flock -n 9 \|\| die …`, giữ như cũ | Đạt |
+| Không có `flock`, không có `RQ_TEST_DC` | `die "flock missing – cannot check state/deploy.lock (install util-linux)"`. Câu này chạy **trước** bước 2 (đọc `current_tag`, `dc ps`), nên không có lời gọi docker hay DB nào. Test kiểm cả hai ý: mã 1 + đúng câu, và không có `calls`/`sql.*` | Đạt |
+| Chỉ `RQ_TEST_DC` bỏ qua được | Điều kiện bỏ qua chỉ là `-n RQ_TEST_DC`. Không có biến hay cờ nào khác | Đạt |
+| Ca test độc lập với máy | `env -i PATH=<thư mục chỉ có 10 công cụ, không có flock>`. Trên ubuntu có `flock`, ca này vẫn chạy và vẫn xanh | Đạt |
+| Đồng bộ với `deploy.sh` | `deploy.sh` dòng 53 `flock -n 9` không điều kiện. Giờ hai script cùng mức chặt | Đạt |
+| Runbook | P2b bước 2 có `FLOCK: CO`, bảng dừng P2b có `FLOCK: CO`, R9 + bảng dừng R9 có `flock missing`, README 13.9 cập nhật | Đạt |
+
+**PR32-01: Closed.**
+
+## 2. PR32-02 (a): mục F tách nhánh `via=owner`
+
+- Mục F bước 2 có **Nhánh 1** (đổi bởi OWN mà INV không làm → tài khoản OWN bị lộ: đổi mật khẩu, đăng xuất phiên lạ, báo SEC ngay, SEC quyết `mfa-operator-reset`, **không** khóa người bị đổi) và **Nhánh 2** (`via = self` → INV khóa người đó). Có thêm nhánh "INV cố ý đổi hàng loạt → bước 5". Bảng dừng F và README 13.8 cùng nội dung. Đạt.
+- Dấu hiệu nhận nhánh là câu "Thay đổi do chủ cơ sở thực hiện." SEC đã đối chiếu: câu này có trong `email-templates.ts` dòng 148, và chỉ hiện khi `p.via === 'owner'` (dòng 142). Đúng.
+- Còn một ca biên chưa có nhánh: người bị đổi chính là **OWN**. Xem thẻ PR33-01.
+
+**PR32-02 (a): Closed** (ca biên tách thành PR33-01, Minor). **(b)** Deferred v1.0.4: SEC chấp nhận vì không đổi `ops-check.sh` sát giờ phát hành.
+
+## 3. Điều kiện SEC mục 6 trong runbook r3
+
+| # | Điều kiện | Chỗ trong r3 | Kết quả |
+|---|---|---|---|
+| 6.1 | #32 gộp trước khi chốt `SHA_V103` | P0 dòng đầu: #30, #31, #32 và r3 đều đã gộp, `SHA_V103` chứa cả bốn, chốt theo 0.2. P1 đếm merge ≥ 3 | Đạt |
+| 6.2 | P2b trên production trước P4/P5: số ≥ 6, `REQUEUE SCRIPT: CO`, `email_changes` có số / `table not present yet` | P2b (thứ tự P2b → P3 → P4 → P5). Bước 2 "Đúng là": số ≥ 6, `REQUEUE SCRIPT: CO`, `FLOCK: CO`. Bước 4: dòng `ok email_changes: … table not present yet …`. FAIL vì hàng đợi kẹt thì dừng | Đạt |
+| 6.3 | Staging: ca 6 lần → `FAIL`; R9 hai chiều, ghi số | P0 có 2 gạch đầu dòng. 5.0 "Biên bản bắt buộc" S1 (không `FAIL` thì dừng), S4 (v1.0.2 `REFUSED`), S11–S12 (v1.0.3 `requeued 1`). Có câu "một ô lệch thì diễn tập KHÔNG ĐẠT, P0 không qua" | Đạt |
+| 6.4 | K5 còn `table not present` thì dừng, báo SEC | K5 dòng cuối, bảng dừng K1–K7 | Đạt |
+| 6.5 | Runbook r3 sửa theo PR32-02 | Mục F (mục 2 ở trên) | Đạt |
+
+## 4. `RQ_TEST_DC` có bật được trên VPS không
+
+- **Production: không.** Kiểm `RQ_TEST_DC` + `is_prod` chạy trước mọi bước khác và thoát mã 2. `is_prod` nhận ra production bằng **một trong ba** dấu hiệu: `APP_ENV=production` trong `.env`, tệp mốc `.ottimo-home` = `production`, hoặc thư mục tên `ottimo-prod`.
+  - Bản script dưới `/opt/ottimo-prod` tự lấy `OTTIMO_HOME` từ tệp mốc. Vậy muốn né thì phải đặt `OTTIMO_HOME` khác. Nhưng khi đó cả `state/deploy.lock` lẫn `dc` đều trỏ sang stack khác, không phải production.
+  - Thử trỏ `RQ_TEST_DC` vào `dc` của production cũng không tới production: `dc` ưu tiên `OTTIMO_HOME` mà script đã `export`.
+  - Lệnh trong runbook là `sudo -n -u ottimo …`. Mặc định `env_reset` của sudo xóa `RQ_TEST_DC` khỏi môi trường người gọi.
+  - Có ca test `production refuses the test stub`.
+- **Staging (cùng VPS, `/opt/ottimo`): bật được.** `is_prod = 0` nên `RQ_TEST_DC` được nhận. Khi đó script bỏ qua `flock` và thay `dc` bằng một chương trình tùy ý. Ca này đúng với đề xuất gốc của SEC ở PR32-01 ("không phải production"), nên không phải lỗi của OPS. Rủi ro thấp:
+  - người làm được việc này đã là `ottimo`/admin;
+  - staging chỉ có dữ liệu giả;
+  - không có đường nào chạm tới production (xem ý trên).
+  
+  SEC vẫn đề xuất siết lại (PR33-S1), theo đúng khuôn `mail-test.sh` dòng 43 (từ chối khi thấy tệp mốc).
+
+## 5. Repo công khai: email, IP, bí mật, digest
+
+Tôi quét 254 dòng thêm của diff và đọc toàn văn runbook r3:
+- **Email:** chỉ có `info@ottimo.vn` (hộp thư chung công khai, đã có 2 lần ở r2, nhắc INV **không** dùng) và đích SSH `ottimo-admin@desk.ottimo.vn` (tên máy công khai, có từ các runbook trước). Không có địa chỉ cá nhân. Test chỉ dùng `…@example.test`. Đạt.
+- **IP VPS:** không có IPv4 nào. Đạt.
+- **Bí mật:** không có mật khẩu, khóa, token, URL webhook. Lệnh đổi `.env` (E2, F bước 5) giữ khuôn `umask 077`, không in `.env`. gitleaks sạch (SEC tự chạy). Đạt.
+- **Digest:** digest image chỉ ở dạng rút gọn 8 + 4 ký tự (`5138d1ac…1ccb`, `e9f928d9…248c`, `3966b756…45f9`). Không có `sha256:<64 hex>` nào trong lệnh hay văn bản.
+  - Hai chuỗi 64 hex còn lại là **băm tệp migration** (`HASH_0091`, và băm 0090 đã có từ r2), không phải digest. Chúng chỉ nằm ở bảng 0.1 và ở "Đúng là" của K2; lệnh K2 vẫn dùng ký hiệu `⟨HASH_0091⟩`.
+  - Chuỗi 40 hex là SHA commit (công khai).
+  - Lệnh 0.2 đọc artifact vào thư mục tạm, chỉ in rút gọn qua `sed`, rồi xóa thư mục.
+  
+  Đạt.
+- **Ghi chú nhỏ, không thành thẻ:** nếu một dòng của `image-digests.txt` không khớp regex của `sed` (ví dụ có `\r`), `sed` in nguyên dòng ra terminal của ORC. Digest là thông tin công khai và dòng đó không vào repo, nên không phải lộ bí mật. ORC chỉ cần không dán dòng đó vào tài liệu.
+
+## 6. Các bước cần INV đồng ý
+
+| Bước | Ghi trong r3 | Kết quả |
+|---|---|---|
+| Staging: duyệt `deploy staging` của đúng `CI_RUN` đã chốt | 0.2 bước 4 ("INV đồng ý"), "Việc còn lại" ý 3. Cấm duyệt lượt `351cf073`. P1/R5 dặn không duyệt lượt chỉ có tài liệu | Đạt |
+| Production: P2b, P3, P4, P5 | P0 "INV nhắn đồng ý: làm mới gói, sao lưu, Release". Tiêu đề P2b, P3, P5 ghi "sau khi INV đồng ý". Bảng mục 2 có dòng gắn tag + duyệt `production`. Lệnh duyệt P5 có comment `INV approved in chat` | Đạt |
+| R9 `--apply` trên production | Tiêu đề R9, bước 2 (ORC hỏi INV, có đồng ý mới làm bước 3), bảng mục 2, bảng dừng R9 ("Chưa có INV đồng ý → không `--apply`"), K2 dòng cuối, R7. Trên staging (5.0) không cần INV: SEC đồng ý, vì đó là dữ liệu giả và là diễn tập | Đạt |
+| Ngoài phạm vi hỏi, cũng có ghi rõ | Mục 5 quay lui (R3, R4, R8), mục E bật cảnh báo, F bước 5 đổi ngưỡng (SEC + INV) | Đạt |
+
+## 7. Thẻ feedback mới
+
+### FB-R4-SEC-OPS-PR33-01
+- Mức độ: Minor (tài liệu; **sửa trước P0 production**)
+- Vị trí: runbook r3 mục F bước 2, các nhánh 1 và 2. README 13.8 dòng "Khi `FAIL`".
+- Vấn đề: hai nhánh chỉ xét **ai đổi** (`via`), chưa xét **ai bị đổi**.
+  - Ca 1: loại "> 5 lần / một người" rơi vào chính tài khoản **OWN** (INV), `via = self` (không có câu "do chủ cơ sở"), mà INV không làm. Theo chữ hiện tại, ca này vào **Nhánh 2**: "INV khóa tài khoản đó". Tức INV tự khóa tài khoản OWN duy nhất. Thật ra đây là dấu hiệu tài khoản OWN bị lộ, kẻ đó đã qua được S2 (mật khẩu + 2 bước).
+  - Ca 2: INV không phân biệt được nhánh. Ví dụ INV chưa có email (trước K8) nên không có thư chứa câu "do chủ cơ sở", mà thông báo trong app không ghi `via`. Hiện runbook chưa nói phải làm gì trong ca này.
+- Vì sao quan trọng: làm sai bước ứng phó trong đúng ca nặng nhất (OWN bị chiếm). Cơ sở có thể mất quyền quản trị, hoặc kẻ chiếm tài khoản tiếp tục mà đội không biết.
+- Đề xuất sửa (2 câu):
+  - Nhánh 1 mở rộng: "đổi bởi OWN **hoặc đổi email của chính tài khoản OWN**, mà INV không làm → tài khoản OWN bị lộ".
+  - Thêm một dòng: "**Không chắc nhánh nào** → làm Nhánh 1 (đổi mật khẩu, đăng xuất phiên lạ, báo SEC). Chỉ khóa người khác khi SEC xác nhận." Các bước của Nhánh 1 không gây hại nếu báo nhầm.
+  - Sửa README 13.8 cùng nội dung.
+- Trạng thái: Open
+
+### FB-R4-SEC-OPS-PR33-02
+- Mức độ: Minor (tài liệu; **sửa trước 0.2**, ảnh hưởng tính toàn vẹn của việc chọn image phát hành)
+- Vị trí: runbook r3 mục 0.2 bước 3, `gh run list … --jq '.[] | select(.conclusion=="success") …'`.
+- Vấn đề: một lượt CI `push` trên `main` dừng ở job `deploy staging` chờ duyệt. Khi đó cả lượt có `status = waiting` và `conclusion` rỗng. SEC đã kiểm bằng `gh run view 41648829367`: `waiting`, conclusion rỗng, dù `gitleaks` và `publish images (GHCR)` đều `completed/success`. Vì vậy lượt CI của commit gộp r3 sẽ **không** hiện trong lệnh lọc. Mà 0.2 lại dặn chỉ duyệt staging **sau** bước này, nên lệnh sẽ ra một lượt cũ hơn, hoặc không ra gì.
+  - Phần "Đúng là" (diff từ `351cf073` chỉ có 3 tệp, băm 0091) gần như chắc chắn sẽ bắt được lượt sai. Nên đây là lỗi **an toàn khi hỏng** (runbook dừng), không phải lỗ hổng.
+  - Nhưng ORC có thể "sửa nhanh" cho chạy được, ví dụ duyệt staging trước rồi mới kiểm. Như vậy là ngược thứ tự 0.2.
+- Vì sao quan trọng: 0.2 là bước chốt image, gói `infra/` và tag cho production. Lệnh phải chọn đúng lượt CI ngay lần đầu, không cần ứng biến.
+- Đề xuất sửa: chọn lượt theo `headSha` = commit gộp r3 (`git rev-parse origin/main` ngay sau khi gộp, hoặc SHA merge do ORC ghi). **Không** lọc theo `conclusion` của cả lượt. Sau đó kiểm từng job theo tên như lệnh hiện có (`gitleaks`, `publish images (GHCR)` = `success`), và chấp nhận `deploy staging` = `waiting`. Ví dụ: `gh run list -R $R --branch main --event push -L 10 --json databaseId,headSha,status --jq '.[] | select(.headSha=="<SHA gộp>") | "\(.databaseId) \(.status)"'`. Lượt bị `concurrency` hủy (`cancelled`) thì lấy lượt kế tiếp có `publish images` `success`.
+- Trạng thái: Open
+
+### FB-R4-SEC-OPS-PR33-S1
+- Mức độ: Suggestion (v1.0.4, gom với PR32-S1/S2)
+- Vị trí: `requeue-email-changed.sh` dòng 35 (`RQ_TEST_DC` chỉ bị từ chối khi `is_prod`).
+- Vấn đề: trên stack staging cùng VPS (`/opt/ottimo`, tệp mốc `staging`), `RQ_TEST_DC` vẫn được nhận. Khi đó script bỏ qua `flock` và thay `dc` bằng chương trình tùy ý. Không chạm được production (mục 4).
+- Đề xuất sửa: từ chối `RQ_TEST_DC` khi `$OTTIMO_HOME/.ottimo-home` tồn tại, hoặc khi có `/opt/ottimo-prod/.ottimo-home` hay `/opt/ottimo/.ottimo-home`. Đây là khuôn của `mail-test.sh` dòng 43. Bộ test hiện dùng `OTTIMO_HOME` tạm không có tệp mốc, nên vẫn chạy được. Thêm 1 ca "staging marker refuses the stub".
+- Trạng thái: Open
+
+### FB-R4-SEC-OPS-PR33-S2
+- Mức độ: Suggestion (tài liệu)
+- Vị trí: runbook r3, ngay sau 0.2 (dòng bắt đầu `---|---|---|`, khoảng 9 dòng).
+- Vấn đề: còn sót phần đuôi bảng 0.1 của r2, gồm hướng dẫn cũ ("plan 6.2: **Tài khoản của tôi**", "Dòng log worker mới (nếu có) | PR-1"). Phần này nằm giữa 0.2 và mục 1, trông như một bảng thứ hai. ORC có thể đọc nhầm nguồn giá trị.
+- Đề xuất sửa: xóa khối này, hoặc đặt tiêu đề "Cách lấy giá trị (r2, tham khảo)".
+- Trạng thái: Open
+
+## 8. Trạng thái thẻ (cập nhật sau PR #33)
+
+| Thẻ | Trạng thái SEC |
+|---|---|
+| FB-R4-SEC-OPS-PR32-01 | **Closed** |
+| FB-R4-SEC-OPS-PR32-02 | (a) **Closed**; (b) Deferred v1.0.4, SEC chấp nhận |
+| FB-R4-SEC-OPS-PR32-S1, S2 | Deferred v1.0.4, SEC chấp nhận (rủi ro R8 đã có ở runbook mục 8) |
+| FB-R4-SEC-OPS-PR32-S3 | **Closed** |
+| SEC PR32 mục 6 (6.1–6.5) | Đã có trong runbook r3. Còn phải **làm** đúng các bước khi phát hành |
+| G12 (thứ tự gộp, `SHA_V103` = commit gộp r3) | SEC đồng ý: một commit cho image, gói và tag. Đúng ý 6.1 |
+| FB-R4-SEC-OPS-PR33-01, PR33-02 | Open. Sửa trước P0 / 0.2 |
+
+## 9. Điểm làm tốt
+- Ca test mới tự dựng `PATH` không có `flock`, nên chạy được ở mọi máy, kể cả CI ubuntu có `flock`. OPS còn chạy test mới trên script cũ để chứng minh test đỏ đúng chỗ. SEC chạy lại cũng ra như vậy.
+- OPS tự thấy r3 làm đổi `SHA_V103` (G12) và chọn "một commit cho cả image, gói và tag", thay vì nới P1. Phần "Đúng là" của 0.2 khóa luôn danh sách 3 tệp mã được phép khác.
+- Biên bản diễn tập 5.0 S1–S13 để trống cột "Số thật", và cấm ghi "như dự kiến". Nhờ vậy các điều kiện SEC kiểm được bằng số.
