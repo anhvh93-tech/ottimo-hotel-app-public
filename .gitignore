@@ -50,3 +50,6 @@ coverage/
 
 # R3-Q30 fuzz raw logs (critic reads them from the CI artifact / local run, never committed)
 product/services/api/fuzz-logs/
+
+# INV internal pricing/commission tables – never commit (SEC-on-commission-numbers G1)
+00-brief/context/pricing/
