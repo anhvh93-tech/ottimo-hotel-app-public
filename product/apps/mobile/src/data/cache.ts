@@ -1,7 +1,8 @@
 // Offline read copy (ADR-005 "đọc offline", EP07-08 8.1) with the SR-PWA-01 allow-list: today's tasks,
 // the 10 rooms, checklists, the maintenance list – never C3, phone/email, money, the guest's free-text
-// notes, or guest names outside today's tasks. Every snapshot is rebuilt field by field (allow-list, not
-// deny-list), so a field the server adds later is not cached until someone decides it may be.
+// notes, or guest names outside today's tasks; the profile without email or account flags (cacheableMe).
+// Every snapshot is rebuilt field by field (allow-list, not deny-list), so a field the server adds later
+// is not cached until someone decides it may be.
 import type { Checklist, HkTask, Me, RoomStatusEntry, WorkOrder } from '../app/api';
 import type { KvStore } from './store';
 
@@ -122,6 +123,44 @@ export function cacheableWorkOrder(w: WorkOrder): WorkOrder {
   return out;
 }
 
+/**
+ * Profile kept for an offline start (SR-PWA-01, FB-R4-SEC-ARC-EM-06): only what `sessionFromMe`, the header
+ * and the business day need – id, display name, active property and per property its id, name, timezone,
+ * roles, screens, business date and rollover. Never the CSRF token (SR-PWA-07, stored as ''), never
+ * `email` / `securityEmailMissing` (0.3.10), 2FA or password flags, device trust, or any field added later.
+ * Returns `undefined` for something that is not a profile (corrupt or foreign record).
+ */
+export function cacheableMe(me: Me): Me;
+export function cacheableMe(me: unknown): Me | undefined;
+export function cacheableMe(me: unknown): Me | undefined {
+  if (!me || typeof me !== 'object') return undefined;
+  const m = me as Partial<Me>;
+  if (typeof m.id !== 'string' || typeof m.displayName !== 'string') return undefined;
+  if (!Array.isArray(m.properties)) return undefined;
+  const out: Me = {
+    id: m.id,
+    displayName: m.displayName,
+    csrfToken: '',
+    properties: m.properties
+      .filter((p): p is Me['properties'][number] => !!p && typeof p.propertyId === 'string')
+      .map((p) => {
+        const prop: Me['properties'][number] = {
+          propertyId: p.propertyId,
+          name: String(p.name ?? ''),
+          timezone: String(p.timezone ?? ''),
+          roles: Array.isArray(p.roles) ? [...p.roles] : [],
+          screens: Array.isArray(p.screens) ? [...p.screens] : [],
+        };
+        if (typeof p.businessDate === 'string') prop.businessDate = p.businessDate;
+        if (typeof p.businessDayRollover === 'string')
+          prop.businessDayRollover = p.businessDayRollover;
+        return prop;
+      }),
+  };
+  if (typeof m.activePropertyId === 'string') out.activePropertyId = m.activePropertyId;
+  return out;
+}
+
 export class OfflineCache {
   constructor(private readonly store: KvStore) {}
 
@@ -134,14 +173,25 @@ export class OfflineCache {
     return owner ? 'switched' : 'same';
   }
 
-  /** Profile for an offline start (name, roles, property) – never the CSRF token (SR-PWA-07). */
+  /** Profile for an offline start (name, roles, property) – allow-listed by `cacheableMe`. */
   async saveMe(me: Me) {
-    const { csrfToken: _drop, ...rest } = me;
-    void _drop;
-    await this.store.put('snapshot', 'me', { ...rest, csrfToken: '' });
+    await this.store.put('snapshot', 'me', cacheableMe(me));
   }
-  loadMe() {
-    return this.store.get<Me>('snapshot', 'me');
+  /**
+   * Re-applies the allow-list on read: a profile cached by an older build (with `email` etc.) comes back
+   * clean and is rewritten on disk, so the extra fields do not stay on the phone until the next sign-in.
+   */
+  async loadMe(): Promise<Me | undefined> {
+    const raw = await this.store.get<unknown>('snapshot', 'me');
+    if (raw === undefined) return undefined;
+    const clean = cacheableMe(raw as Me);
+    if (!clean) {
+      await this.store.delete('snapshot', 'me');
+      return undefined;
+    }
+    if (JSON.stringify(clean) !== JSON.stringify(raw))
+      await this.store.put('snapshot', 'me', clean);
+    return clean;
   }
 
   async saveTasks(

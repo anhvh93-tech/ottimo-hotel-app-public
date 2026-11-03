@@ -2,7 +2,13 @@
 import { IDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
 import type { HkTask, Me, RoomStatusEntry, WorkOrder } from '../app/api';
-import { cacheableRoom, cacheableTask, cacheableWorkOrder, OfflineCache } from '../data/cache';
+import {
+  cacheableMe,
+  cacheableRoom,
+  cacheableTask,
+  cacheableWorkOrder,
+  OfflineCache,
+} from '../data/cache';
 import { IdbStore } from '../data/store';
 
 const task: HkTask = {
@@ -113,5 +119,97 @@ describe('allow-listed snapshots (SR-PWA-01)', () => {
     expect(await cache.bindUser('u-tung')).toBe('switched');
     expect(await cache.loadTasks()).toBeUndefined();
     expect(await store.keys('queue')).toEqual([]);
+  });
+});
+
+describe('profile allow-list (SR-PWA-01, FB-R4-SEC-ARC-EM-06 – OpenAPI 0.3.10 Me.email)', () => {
+  const fullMe = {
+    id: 'u-owner',
+    displayName: 'Chị Hà',
+    csrfToken: 'csrf-secret-value',
+    activePropertyId: 'p1',
+    email: 'owner@example.test',
+    securityEmailMissing: false,
+    mustChangePassword: false,
+    mfaEnabled: true,
+    mfaRequiredButMissing: false,
+    soleOwner: true,
+    recoveryCodesLow: true,
+    futureField: 'x-not-decided',
+    properties: [
+      {
+        propertyId: 'p1',
+        name: 'OTTIMO Boutique Stay',
+        timezone: 'Asia/Ho_Chi_Minh',
+        roles: ['owner'],
+        screens: ['S01'],
+        deviceTrusted: false,
+        businessDate: '2026-11-03',
+        businessDayRollover: '06:00',
+        contactEmail: 'desk@example.test',
+      },
+    ],
+  } as unknown as Me;
+  const kept = {
+    id: 'u-owner',
+    displayName: 'Chị Hà',
+    csrfToken: '',
+    activePropertyId: 'p1',
+    properties: [
+      {
+        propertyId: 'p1',
+        name: 'OTTIMO Boutique Stay',
+        timezone: 'Asia/Ho_Chi_Minh',
+        roles: ['owner'],
+        screens: ['S01'],
+        businessDate: '2026-11-03',
+        businessDayRollover: '06:00',
+      },
+    ],
+  };
+
+  it('cacheableMe keeps only the listed fields', () => {
+    expect(cacheableMe(fullMe)).toEqual(kept);
+    expect(cacheableMe(null)).toBeUndefined();
+    expect(cacheableMe({ id: 'u' })).toBeUndefined();
+  });
+
+  it('after saveMe the IndexedDB dump has no email (no "@"), no CSRF, no account flags', async () => {
+    const store = new IdbStore(new IDBFactory());
+    const cache = new OfflineCache(store);
+    await cache.bindUser('u-owner');
+    await cache.saveMe(fullMe);
+    const dump = JSON.stringify(await store.all('snapshot'));
+    expect(dump).not.toContain('@');
+    expect(dump).not.toContain('csrf-secret-value');
+    for (const k of [
+      'email',
+      'securityEmailMissing',
+      'mustChangePassword',
+      'mfa',
+      'soleOwner',
+      'recoveryCodesLow',
+      'deviceTrusted',
+      'futureField',
+    ]) {
+      expect(dump).not.toContain(k);
+    }
+    expect(await cache.loadMe()).toEqual(kept);
+  });
+
+  it('a profile cached by an older build (with email) loads clean and is rewritten on disk', async () => {
+    const store = new IdbStore(new IDBFactory());
+    const cache = new OfflineCache(store);
+    await store.put('snapshot', 'me', { ...fullMe, csrfToken: '' });
+    expect(await cache.loadMe()).toEqual(kept);
+    expect(JSON.stringify(await store.all('snapshot'))).not.toContain('@');
+  });
+
+  it('a corrupt profile record is dropped instead of starting a session', async () => {
+    const store = new IdbStore(new IDBFactory());
+    const cache = new OfflineCache(store);
+    await store.put('snapshot', 'me', { email: 'owner@example.test' });
+    expect(await cache.loadMe()).toBeUndefined();
+    expect(await store.keys('snapshot')).toEqual([]);
   });
 });
