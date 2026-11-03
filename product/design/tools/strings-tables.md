@@ -3945,6 +3945,17 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `users.email_self` | Đổi email của bạn ở Bảo mật tài khoản. | Change your own email under Account security. | ⟨chừa chỗ⟩ | Hàng của chính mình: chỉ có link này, dẫn sang /security#security-email (server trả 422 NOT_ALLOWED_FOR_SELF nếu sửa ở đây). Không có nút. UXD FB-R4-UXD-FE-EM-08 |
 | `users.email_other_owner` | Mỗi chủ đầu tư tự đặt email của mình. | Each owner sets their own email. | ⟨chừa chỗ⟩ | Hàng của OWN khác: chỉ có câu này, chữ muted, không có nút (server trả 403 FORBIDDEN_ACTION). UXD FB-R4-UXD-FE-EM-08 |
 
+#### v1.0.3 BUG-R4-021 – MOB: câu thông báo bảo mật tài khoản trên PWA (refType user). Chờ UXD duyệt
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `staff.notif.sec.email_changed_self` | Email nhận thông báo bảo mật của bạn đã thay đổi | Your notification email was changed | ⟨chừa chỗ⟩ | kind account_security_change, refType user, refCode user.email_changed, refId = chính người xem. Không hiện địa chỉ, không hiện mã |
+| `staff.notif.sec.email_changed_other` | Email nhận thông báo bảo mật của một nhân viên đã thay đổi | A staff member's notification email was changed | ⟨chừa chỗ⟩ | Như trên, refId là người khác (OWN nhận). Không tên, không địa chỉ – chi tiết xem ở Desk |
+| `staff.notif.sec.mfa_reset_self` | Xác thực 2 bước của bạn đã được đặt lại | Your 2-step verification was reset | ⟨chừa chỗ⟩ | refCode mfa.reset_by_owner hoặc mfa.reset_by_operator, refId = chính người xem |
+| `staff.notif.sec.mfa_reset_other` | Xác thực 2 bước của một nhân viên đã được đặt lại | A staff member's 2-step verification was reset | ⟨chừa chỗ⟩ | Như trên, refId là người khác (OWN nhận) |
+| `staff.notif.sec.other_self` | Tài khoản của bạn có thay đổi bảo mật | There was a security change on your account | ⟨chừa chỗ⟩ | Câu chung cho mọi refCode khác của refType user (mfa.disabled, mfa.locked, stepup.s2_failed, mã mới chưa có câu) – không hiện mã thô |
+| `staff.notif.sec.other_other` | Tài khoản của một nhân viên có thay đổi bảo mật | There was a security change on a staff member's account | ⟨chừa chỗ⟩ | Như trên, refId là người khác (OWN nhận) |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |
