@@ -12,8 +12,9 @@
 - **PR #24 lượt 2** (01/11 ~22:00–22:40, `f8080499`): BUG-R4-016 **đã sửa – đã xác nhận**. 215 ca qua form và Chat C, không hồi quy. Không lỗi mới. Chi tiết: `rounds/round-04/qa/pr24-text-safety.md` mục "Lượt 2". QA cũng dọn bản chép trùng do lần gộp trước để lại: bản BUG-R4-016 mang số cũ 014, và mục 3 bị lặp.
 - **v1.0.1 – smoke staging (QC ĐK5)**, 01/11 23:43–23:58, staging `sha-755cad1642ca` (`main` `755cad16`): **đạt**. `smoke-prod` 9/9; worker `chat: off` mức A; Desk nhận phòng và báo giá không lỗi; 0 phản hồi 5xx. BUG-R4-009 đạt ở báo giá EN/VI/RU (API + Desk) và trang khách. Mới **BUG-R4-017** (P3, có sẵn từ v1.0.0). Chi tiết: `rounds/round-04/qa/v1.0.1-staging-smoke.md`.
 - **v1.0.2 – PR #22 lượt 2** (03/11 ~11:15–11:30, `v1.0.2-ed` @ `ff16c1dd`, gồm `main` `00881a53`; stack thử `ottimo-qapr22b` trong worktree tạm mới): **ĐẠT**. Oracle BR-428-01…09 9/9, tính thử = ghi thật, 15 lần tính thử không đổi bảng nào trong 76; giá hẹn đạt. BUG-R4-014 **đã sửa – đã xác nhận** trên Desk thật; BUG-R4-015 vẫn Open (đích v1.0.3). Hồi quy từ `main`: form 202 / 422 `ID_NUMBER_DETECTED`, worker `chat: off` và `chat: on` (webhook giả, host bị chặn) không lỗi. CI `41574262425` xanh. Không lỗi mới. Chi tiết: `rounds/round-04/qa/pr22-v1.0.2-ed.md` mục "Lượt 2 @ ff16c1dd".
+- **v1.0.2 – PR #22 lượt 3** (03/11 ~11:55–12:20, `v1.0.2-ed` @ `9d4f0fa8`, FE-A sửa thẻ DOM FB-01..03 + ESC-048 = B; stack thử `ottimo-qapr22c` trong worktree tạm mới): **ĐẠT**. Hộp "Trả sớm" của HĐ tháng trên Desk thật (VI/EN) hiện câu kiểm kỳ thu và 3 nhánh, ô tích trung tính. Ghi thật: 0 yêu cầu hoàn, 0 dòng phí. Đơn ngắn ngày BR-428 không đổi. CI `41579077681` xanh, gồm E2E smoke. Sau B13 Desk vẫn hiện BR-313: giới hạn đã biết (`leaseEndDate`, ARC/BE-A v1.0.3), không mở lỗi. Không lỗi mới. Chi tiết: `rounds/round-04/qa/pr22-v1.0.2-ed.md` mục "Lượt 3 @ 9d4f0fa8".
 
-## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2)
+## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
@@ -265,6 +266,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
     - DB: ngày đi 03/12, nhật ký `previewConfirmed`, không có yêu cầu hoàn, không có dòng phí.
     - Đơn ngắn ngày đối chứng (OTM-00019) giữ nguyên hộp BR-428, không có câu BR-313.
   - *Còn lại, ngoài lỗi này:* server vẫn tính đơn dài hạn theo BR-428, ra 0/0. Việc đưa BR-313 vào server là ARC FB-03, đích v1.1.
+  - *Lượt 3 @ `9d4f0fa8`* (03/11): FE-A đổi câu chữ theo ESC-048 = B (thẻ DOM FB-01..03). Ô tích cũ "Đã báo khách: mất toàn bộ ký quỹ, không truy thu" được thay bằng câu trung tính. Khối BR-313 nay có câu kiểm kỳ thu và 3 nhánh. QA kiểm lại trên Desk thật VI/EN và ghi thật: **vẫn đạt**. Trạng thái giữ **Fixed – đã xác nhận**. Giới hạn đã biết sau B13 (Desk vẫn hiện BR-313 khi rời trong phần gia hạn) không tính là lỗi này: đã ghi chú, chờ `leaseEndDate` (ARC/BE-A v1.0.3).
 
 ### BUG-R4-015 – Hủy giá hẹn đầu tiên của căn có `activeFrom` tương lai làm căn không có giá cho tới dòng sau (báo giá 422 `roomId NOT_IN_LIST`)
 
