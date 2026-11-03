@@ -19,15 +19,17 @@
 
 - **v1.0.3 – PR #31 email nhận thông báo bảo mật** (03/11 18:40–19:35, `origin/v1.0.3-email` @ `fb6a281c`; PG 17 tạm `qa-v103-pg`, stack A `MFA_ENFORCED=true` và stack B `false`, đã dọn): chức năng chính **đạt**: S2, Idempotency, chặn dùng lại TOTP, outbox 3 bản và bỏ trùng, dọn 7 ngày, quay lui v1.0.2, migration 0091, PWA không lưu `@`, banner gộp, hồi quy 2FA, retry 409. Vitest chạy `--maxWorkers=3` vì máy quá tải. Mới **BUG-R4-018** (P2), **BUG-R4-022** (P2, có sẵn từ v1.0.2), **BUG-R4-019**, **020**, **021** (P3). Chi tiết: `rounds/round-04/qa/v1.0.3-test-report.md`.
 
-## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c`)
+- **v1.0.3 – PR #31 lượt 2** (03/11 19:55–20:50, `origin/v1.0.3-email` @ `b00972ff`; PG 17 tạm `qa-v103-pg` dựng lại, đã dọn): BUG-R4-018, 019, 021, 022 **đã sửa – đã xác nhận** (Closed). Vitest `--maxWorkers=3`: api 3777/0 lỗi, admin-web 756, mobile 132, notification 89, api-client 37. Hồi quy S2, outbox, bỏ trùng, quay lui, dọn 7 ngày, IndexedDB, banner gộp, 2FA cũ: đạt. `User.email` không tới vai không phải OWN. Không lỗi mới. Chi tiết: `rounds/round-04/qa/v1.0.3-test-report.md` mục 12.
+
+## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff`)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
-| P2 | 9 | 3 (BUG-R4-011, **018**, **022**) | 0 | 6 (BUG-R4-001, 002, 003, 004, 013, 014 – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`) |
-| P3 | 13 | 7 (BUG-R4-010 – mở lại, BUG-R4-012, BUG-R4-015, BUG-R4-017, **019**, **020**, **021**) | 0 | 6 (BUG-R4-005, 006, 007, 008, 009, 016 – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`) |
-| **Tổng** | **22** | **10** | **0** | **12** |
+| P2 | 9 | 1 (BUG-R4-011) | 0 | 8 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022** – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
+| P3 | 13 | 5 (BUG-R4-010 – mở lại, BUG-R4-012, BUG-R4-015, BUG-R4-017, **020**) | 0 | 8 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`) |
+| **Tổng** | **22** | **6** | **0** | **16** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -407,7 +409,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Đề xuất:** ARC chọn một trong hai cách: bỏ `x-rbac-field: D27` khỏi `Me.email` và phản hồi `setMyEmail` (dữ liệu của chính mình); hoặc thêm miễn trừ "chủ thể = người gọi" cho các op `/v1/me*`. Giữ D27 cho `User.email` trong danh sách người dùng. Thêm test cho từng vai trong `v103-security-email`: `PUT` rồi `GET /v1/me` với HK, MT, SAL, CTV.
 - **Bằng chứng:** `rounds/round-04/qa/v1.0.3-test-report.md` mục 4.3, 6, 7. Nhật ký scratchpad QA `evidence.log` (dòng R-qa.hk … R-qa.ctv1, A-off).
 - **Vai:** ARC (hợp đồng) + BE-A. FE-A không cần sửa nếu `Me.email` có giá trị.
-- **Trạng thái:** Open. Đích v1.0.3, QA đề xuất sửa trước khi phát hành.
+- **Trạng thái:** **Closed – đã sửa, đã xác nhận** (lượt 2, `b00972ff`, BE `ead8ac83` `SELF_DATA_FIELDS`). HK, MT, SAL, CTV, HK+MT: `login`, `getMe` và phản hồi `setMyEmail` có địa chỉ của chính mình. Đặt, đổi, xóa (`null`) đều đúng. Desk `qa.ctv2` hiện "Đã có" + địa chỉ + "Xóa email". `User.email` của người khác vẫn không tới vai không phải OWN (403 ở `listUsers`/`updateUser`; 0 địa chỉ trong closer-candidates, assignable-staff, audit-events, notifications). Báo cáo mục 12.2, 12.5. Lịch sử: Open @ `fb6a281c`.
 
 ### BUG-R4-019 – Thiếu `reauth.password` trả `422 REQUIRED` thay vì `STRONG_REAUTH_REQUIRED`; Desk hiện banner "Mật khẩu hoặc mã chưa đúng"
 
@@ -422,7 +424,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Đề xuất:** ARC quyết sửa mã (cho `password` optional trong zod, để `StrongReauthService.verify` trả `STRONG_REAUTH_REQUIRED` `field: reauth.password`) hay sửa hợp đồng. Nếu sửa mã, FE-A ánh xạ `STRONG_REAUTH_REQUIRED` ở `reauth.password` vào ô mật khẩu.
 - **Bằng chứng:** báo cáo mục 4.1 (C3b) và mục 6.
 - **Vai:** ARC + BE-A (+ FE-A).
-- **Trạng thái:** Open. Có thể dời v1.0.4.
+- **Trạng thái:** **Closed – đã sửa, đã xác nhận** (lượt 2, `b00972ff`). Thiếu hoặc rỗng mật khẩu → 422 `STRONG_REAUTH_REQUIRED`, không đếm. `field: reauth` ở `setMyEmail`, `updateUser`, `createUser`, `setUserRoles`, `resetUser2fa`, `revokeTrustedDevice`. `field: password` ở `disableMy2fa`, `regenerateMyRecoveryCodes`. `changeMyPassword`, `trustCurrentDevice` giữ `REQUIRED` `currentPassword`, như BE và ARC đã nêu. Desk đánh dấu và focus ô mật khẩu ở cả 2 dạng `field`. Báo cáo mục 12.3. Lịch sử: Open @ `fb6a281c`.
 
 ### BUG-R4-020 – Desk không có "Đặt lại xác thực 2 bước" cho người khác (menu "Khác…" của thiết kế chưa làm)
 
@@ -451,7 +453,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Mong đợi:** nhân viên không thấy mã nội bộ. Hoặc PWA có câu riêng cho `account_security_change` ("Email nhận thông báo bảo mật đã đổi"), hoặc không hiện `refCode` khi `refType = user`.
 - **Bằng chứng:** báo cáo mục 8.
 - **Vai:** MOB (+ BE-A nếu đổi `ref_code`, + UXD chữ).
-- **Trạng thái:** Open. Có thể dời v1.0.4.
+- **Trạng thái:** **Closed – đã sửa, đã xác nhận** (lượt 2, `b00972ff`, MOB `21a8e9a2`). PWA hiện "Email nhận thông báo bảo mật của bạn đã thay đổi" (`qa.fd`); "…của một tài khoản khác đã thay đổi" và "Xác thực 2 bước của một tài khoản khác đã được đặt lại" (`qa.owner2`). Không còn dòng mã thô, không có `.mono`. Báo cáo mục 12.4. Lịch sử: Open @ `fb6a281c`.
 
 ### BUG-R4-022 – Buồng phòng, Bảo trì, Sale nội bộ, CTV không tự bật được xác thực 2 bước: `otpauthUri` và `recoveryCodes` bị field policy D27 bỏ (có sẵn từ v1.0.2)
 
@@ -464,7 +466,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Đề xuất:** sửa cùng BUG-R4-018 (miễn trừ dữ liệu của chính người gọi trên `/v1/me*`). Thêm test bật 2FA cho một vai HK.
 - **Bằng chứng:** báo cáo mục 4.3. Nhật ký scratchpad QA (`S4 qa.mt 2fa/setup 200 keys= expiresAt`).
 - **Vai:** ARC + BE-A.
-- **Trạng thái:** Open. Đề xuất sửa cùng 018. QC quyết có chặn v1.0.3 không, vì lỗi có từ trước.
+- **Trạng thái:** **Closed – đã sửa, đã xác nhận** (lượt 2, `b00972ff`, cùng bản sửa với 018). 5 vai nhận `otpauthUri`, 10 `recoveryCodes` khi xác nhận và khi tạo bộ mới. Desk `qa.ctv2` thấy mã QR, khóa nhập tay, 10 mã khôi phục, "Tạo bộ mã mới" ra 10 mã. Báo cáo mục 12.2. Lịch sử: Open @ `fb6a281c`.
 
 ## 3. Ghi nhận (không phải lỗi)
 
