@@ -269,6 +269,8 @@ describe('US-143 enrollment (MFA_ENFORCED = true)', () => {
   });
 
   it('not enforced: owner without 2FA sees the nudge on every screen; "Để sau" hides it', async () => {
+    // v1.0.3: with an email on file only the 2FA reminder shows (no 2FA + no email = one merged banner).
+    userOf('qa.owner').email = 'owner@example.test';
     const { user } = renderApp('/settings/rooms', 'qa.owner');
     await screen.findByRole('heading', { name: /Danh mục căn/ });
     const nudge = screen.getByText(tv('mfa.nudge')).closest('.alert') as HTMLElement;

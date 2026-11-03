@@ -11,6 +11,7 @@ import {
   normalizeEmail,
   sameEmail,
 } from '../app/email';
+import { EmailConfirmBody } from '../components/SecurityEmailCard';
 import { isStrongReauthError, StrongReauthDialog } from '../components/StrongReauthDialog';
 
 /**
@@ -29,7 +30,8 @@ export function UserEmailDialog({
 }: {
   user: User;
   onClose: () => void;
-  onSaved: (u: User, removed: boolean) => void;
+  /** `first` = the person had no address before (no "old address" notice), `removed` = set to none. */
+  onSaved: (u: User, outcome: 'saved' | 'first' | 'removed') => void;
   onUnchanged: () => void;
   /** Anything the dialog has no field for (412 VERSION_CONFLICT, 403, 5xx…) – the page shows it. */
   onFail: (err: unknown) => void;
@@ -56,7 +58,8 @@ export function UserEmailDialog({
     try {
       const { data } = await api.updateUser(user.id, { email: target.email, reauth }, user.version);
       setConfirm(null);
-      onSaved(data, target.email === null);
+      // The server answers the stored (normalised) address; the outcome follows it and the address before.
+      onSaved(data, !data.email ? 'removed' : current ? 'saved' : 'first');
     } catch (err) {
       if (isStrongReauthError(err)) throw err;
       setConfirm(null);
@@ -133,12 +136,7 @@ export function UserEmailDialog({
         onClose={() => setConfirm(null)}
         onConfirm={save}
       >
-        <p style={{ margin: 0 }}>{t('users.email_body')}</p>
-        {confirm?.email ? (
-          <p className="mono" style={{ margin: '6px 0 0' }}>
-            {confirm.email}
-          </p>
-        ) : null}
+        <EmailConfirmBody email={confirm?.email ?? null} body={t('users.email_body')} />
       </StrongReauthDialog>
     </>
   );

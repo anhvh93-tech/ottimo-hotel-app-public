@@ -167,7 +167,7 @@ export function Enroll2faPage() {
             {banner.text}
             {session.me?.mfaEnabled && !session.enrollmentRequired && !codes ? (
               <div>
-                <Link to="/security">{t('shell.security')}</Link>
+                <Link to="/security">{t('shell.account_security')}</Link>
               </div>
             ) : null}
           </Alert>

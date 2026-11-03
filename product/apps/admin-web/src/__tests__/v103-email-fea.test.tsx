@@ -85,7 +85,9 @@ describe('Bảo mật tài khoản – security email block (setMyEmail)', () =>
     const sent = watch('/v1/me/email');
     const { user } = renderApp('/security', 'qa.owner');
     expect(await screen.findByText(tv('secmail.missing'))).toBeInTheDocument();
-    expect(within(section()).getByText(tv('secmail.none'))).toBeInTheDocument();
+    // UXD EM-06 (c): the warning replaces "Chưa có email."; EM-10 (a): status chip like the 2FA block.
+    expect(within(section()).queryByText(tv('secmail.none'))).not.toBeInTheDocument();
+    expect(within(section()).getByText(tv('secmail.status_unset'))).toBeInTheDocument();
     // ND13 Đ.13 (FB-R4-SEC-ARC-EM-13): purpose of processing under the field.
     expect(within(section()).getByText(new RegExp(esc(tv('secmail.purpose'))))).toBeInTheDocument();
     expect(emailInput()).toHaveClass('mono');
@@ -93,14 +95,17 @@ describe('Bảo mật tài khoản – security email block (setMyEmail)', () =>
     await user.type(emailInput(), '  Owner@Example.test ');
     await user.click(within(section()).getByRole('button', { name: tv('secmail.add') }));
     const dlg = await screen.findByRole('dialog', { name: tv('secmail.s2_save_title') });
-    // The dialog repeats the address to check (normalised) and carries the second factor field.
-    expect(within(dlg).getByText('owner@example.test')).toHaveClass('mono');
+    // UXD EM-07: the address to check comes first, labelled, normalised; then the second factor field.
+    expect(within(dlg).getByText(tv('secmail.new_label'))).toBeInTheDocument();
+    expect(within(dlg).getByTestId('s2-new-email')).toHaveTextContent('owner@example.test');
+    expect(within(dlg).getByTestId('s2-new-email')).toHaveClass('mono');
     expect(within(dlg).getByLabelText(label('auth.code_label.totp'))).toBeInTheDocument();
     await s2(user, tv('secmail.s2_save_title'), tv('secmail.save'), secret);
 
     expect(await screen.findByText(tv('secmail.saved_first'))).toBeInTheDocument();
     expect(screen.getByTestId('security-email-current')).toHaveTextContent('owner@example.test');
     expect(screen.queryByText(tv('secmail.missing'))).not.toBeInTheDocument();
+    expect(within(section()).getByText(tv('secmail.status_set'))).toBeInTheDocument();
     expect(userOf('qa.owner').email).toBe('owner@example.test');
     await waitFor(() => expect(sent).toHaveLength(1));
     expect(sent[0]!.method).toBe('PUT');
@@ -209,7 +214,7 @@ describe('Bảo mật tài khoản – security email block (setMyEmail)', () =>
     expect(userOf('qa.owner').email).toBeUndefined();
   });
 
-  it('401 REAUTH_FAILED and 422 STRONG_REAUTH_REQUIRED stay in the dialog with one sentence', async () => {
+  it('401 REAUTH_FAILED: one sentence; 422 STRONG_REAUTH_REQUIRED (reauth) marks the password field', async () => {
     const { user } = renderApp('/security', 'qa.owner');
     await user.type(await screen.findByLabelText(fieldLabel()), 'owner@example.test');
     await user.click(within(section()).getByRole('button', { name: tv('secmail.add') }));
@@ -229,11 +234,53 @@ describe('Bảo mật tài khoản – security email block (setMyEmail)', () =>
     });
     await user.type(within(dlg).getByLabelText(label('reauth.s2_password_label')), MOCK_PASSWORD);
     await user.click(within(dlg).getByRole('button', { name: tv('secmail.save') }));
-    await waitFor(() =>
-      expect(within(dlg).getByLabelText(label('reauth.s2_password_label'))).toHaveValue(''),
-    );
-    expect(within(dlg).getByText(tv('reauth.s2_failed'))).toBeInTheDocument();
+    const pw = within(dlg).getByLabelText(label('reauth.s2_password_label'));
+    await waitFor(() => expect(pw).toHaveAttribute('aria-invalid', 'true'));
+    expect(pw).toHaveValue('');
+    expect(pw).toHaveAccessibleDescription(tv('common.required'));
+    expect(within(dlg).queryByText(tv('reauth.s2_failed'))).not.toBeInTheDocument();
+    // Never on the email field behind the dialog.
+    expect(screen.queryByText(tv('secmail.invalid'))).not.toBeInTheDocument();
     expect(userOf('qa.owner').email).toBeUndefined();
+  });
+
+  it('422 STRONG_REAUTH_REQUIRED on reauth.totpCode marks the code field, not the email field (BE-A 6)', async () => {
+    mockControl.enableMfa('qa.owner');
+    mockControl.failNext(/\/v1\/me\/email:PUT/, 422, {
+      code: 'VALIDATION_FAILED',
+      errors: [{ field: 'reauth.totpCode', code: 'STRONG_REAUTH_REQUIRED' }],
+    });
+    const { user } = renderApp('/security', 'qa.owner');
+    await user.type(await screen.findByLabelText(fieldLabel()), 'owner@example.test');
+    await user.click(within(section()).getByRole('button', { name: tv('secmail.add') }));
+    const dlg = await screen.findByRole('dialog', { name: tv('secmail.s2_save_title') });
+    await user.type(within(dlg).getByLabelText(label('reauth.s2_password_label')), MOCK_PASSWORD);
+    await user.type(within(dlg).getByLabelText(label('auth.code_label.totp')), '123456');
+    await user.click(within(dlg).getByRole('button', { name: tv('secmail.save') }));
+    const code = within(dlg).getByLabelText(label('auth.code_label.totp'));
+    await waitFor(() => expect(code).toHaveAttribute('aria-invalid', 'true'));
+    expect(code).toHaveAccessibleDescription(tv('common.required'));
+    expect(within(dlg).getByLabelText(label('reauth.s2_password_label'))).not.toHaveAttribute(
+      'aria-invalid',
+    );
+    // The dialog stays; the email field behind it has no error.
+    expect(screen.getByRole('dialog', { name: tv('secmail.s2_save_title') })).toBeInTheDocument();
+    expect(emailInput()).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('shows the address the server answered (normalised by the server), not the typed one', async () => {
+    server.use(
+      http.put('*/v1/me/email', () => HttpResponse.json({ email: 'owner@example.test' }), {
+        once: true,
+      }),
+    );
+    const { user } = renderApp('/security', 'qa.fd');
+    await user.type(await screen.findByLabelText(fieldLabel()), 'Owner@Example.test');
+    await user.click(within(section()).getByRole('button', { name: tv('secmail.add') }));
+    await s2(user, tv('secmail.s2_save_title'), tv('secmail.save'));
+    expect(await screen.findByTestId('security-email-current')).toHaveTextContent(
+      /^owner@example\.test$/,
+    );
   });
 
   it('429: the wait sentence inside the dialog, nothing saved', async () => {
@@ -268,7 +315,8 @@ describe('Bảo mật tài khoản – security email block (setMyEmail)', () =>
 });
 
 describe('reminder banner (Me.securityEmailMissing)', () => {
-  it('owner without an email sees it on other screens; the button opens the block with the field focused', async () => {
+  it('owner with 2FA but no email sees it on other screens; the button opens the block with the field focused', async () => {
+    mockControl.enableMfa('qa.owner');
     const { user } = renderApp('/settings/rooms', 'qa.owner');
     const text = await screen.findByText(tv('secmail.nudge'));
     const alert = text.closest('.alert') as HTMLElement;
@@ -279,6 +327,7 @@ describe('reminder banner (Me.securityEmailMissing)', () => {
   });
 
   it('"Để sau" hides it for this tab session; staff roles and owners with an email never see it', async () => {
+    mockControl.enableMfa('qa.owner');
     const { user, unmount } = renderApp('/settings/rooms', 'qa.owner');
     const alert = (await screen.findByText(tv('secmail.nudge'))).closest('.alert') as HTMLElement;
     await user.click(within(alert).getByRole('button', { name: tv('mfa.nudge_later') }));
@@ -289,6 +338,35 @@ describe('reminder banner (Me.securityEmailMissing)', () => {
     renderApp('/today', 'qa.fd');
     await screen.findByRole('button', { name: /Hạnh · Lễ tân/ });
     expect(screen.queryByText(tv('secmail.nudge'))).not.toBeInTheDocument();
+  });
+
+  it('no 2FA and no email: ONE banner to Bảo mật tài khoản; its "Để sau" puts off both (UXD EM-04)', async () => {
+    const { user } = renderApp('/settings/rooms', 'qa.owner');
+    const text = await screen.findByText(tv('secnudge.both'));
+    expect(screen.queryByText(tv('secmail.nudge'))).not.toBeInTheDocument();
+    expect(screen.queryByText(tv('mfa.nudge'))).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: tv('mfa.nudge_later') })).toHaveLength(1);
+    const alert = text.closest('.alert') as HTMLElement;
+    await user.click(within(alert).getByRole('button', { name: tv('mfa.nudge_later') }));
+    expect(screen.queryByText(tv('secnudge.both'))).not.toBeInTheDocument();
+    expect(screen.queryByText(tv('secmail.nudge'))).not.toBeInTheDocument();
+    expect(screen.queryByText(tv('mfa.nudge'))).not.toBeInTheDocument();
+  });
+
+  it('merged banner opens /security at the top (2FA block first)', async () => {
+    const { user } = renderApp('/settings/rooms', 'qa.owner');
+    const alert = (await screen.findByText(tv('secnudge.both'))).closest('.alert') as HTMLElement;
+    await user.click(within(alert).getByRole('button', { name: tv('secnudge.open') }));
+    expect(await screen.findByRole('region', { name: tv('secmail.title') })).toBeInTheDocument();
+    expect(screen.queryByText(tv('secnudge.both'))).not.toBeInTheDocument();
+  });
+
+  it('few recovery codes + no email: two separate reminders (different asks)', async () => {
+    mockControl.enableMfa('qa.mgr', ['AAAABBBBCCCCDDDD', 'EEEEFFFFGGGGHHHH']);
+    renderApp('/settings/rooms', 'qa.mgr');
+    expect(await screen.findByText(tv('mfa.codes_low_short'))).toBeInTheDocument();
+    expect(screen.getByText(tv('secmail.nudge'))).toBeInTheDocument();
+    expect(screen.queryByText(tv('secnudge.both'))).not.toBeInTheDocument();
   });
 
   it('manager with an email: no reminder', async () => {
@@ -324,7 +402,16 @@ describe('Người dùng & vai – email column (owner, updateUser.email)', () =
     await user.type(within(dlg).getByLabelText(fieldLabel()), 'fd@example.test');
     await user.click(within(dlg).getByRole('button', { name: tv('secmail.save') }));
     await s2(user, title, tv('secmail.save'));
-    expect(await screen.findByText(tv('users.email_saved', { name: 'Hạnh' }))).toBeInTheDocument();
+    // UXD EM-02: Hạnh had no address → no "old address" in the sentence.
+    expect(
+      await screen.findByText(tv('users.email_saved_first', { name: 'Hạnh' })),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(tv('users.email_saved', { name: 'Hạnh' }))).not.toBeInTheDocument();
+    // UXD EM-10 (b): owner/manager without an email carry a warn chip; other roles plain text.
+    const mgrRow = screen.getByText('qa.mgr').closest('tr')!;
+    expect(within(mgrRow).getByText(tv('users.email_none')).closest('.chip')).not.toBeNull();
+    const hkRow = screen.getByText('qa.hk').closest('tr')!;
+    expect(within(hkRow).getByText(tv('users.email_none')).closest('.chip')).toBeNull();
     expect(
       within(screen.getByText('qa.fd').closest('tr')!).getByText('fd@example.test'),
     ).toHaveClass('mono');
@@ -336,6 +423,22 @@ describe('Người dùng & vai – email column (owner, updateUser.email)', () =
       reauth: { password: MOCK_PASSWORD },
     });
     expect(userOf('qa.fd').version).toBe(2);
+  });
+
+  it('change an existing address → "new and old address" sentence', async () => {
+    userOf('qa.fd').email = 'fd@example.test';
+    const { user } = renderApp('/settings/users', 'qa.owner');
+    const row = (await screen.findByText('qa.fd')).closest('tr')!;
+    await user.click(within(row).getByRole('button', { name: `${tv('users.edit_email')}: Hạnh` }));
+    const title = tv('users.email_title', { name: 'Hạnh' });
+    const dlg = await screen.findByRole('dialog', { name: title });
+    await user.clear(within(dlg).getByLabelText(fieldLabel()));
+    await user.type(within(dlg).getByLabelText(fieldLabel()), 'fd2@example.test');
+    await user.click(within(dlg).getByRole('button', { name: tv('secmail.save') }));
+    const s2dlg = await screen.findByRole('dialog', { name: title });
+    expect(within(s2dlg).getByTestId('s2-new-email')).toHaveTextContent('fd2@example.test');
+    await s2(user, title, tv('secmail.save'));
+    expect(await screen.findByText(tv('users.email_saved', { name: 'Hạnh' }))).toBeInTheDocument();
   });
 
   it('remove an employee email: email null, toast; shared mailbox comes back to the field', async () => {
@@ -360,24 +463,24 @@ describe('Người dùng & vai – email column (owner, updateUser.email)', () =
     expect(userOf('qa.mgr').email).toBeNull();
   });
 
-  it('own row and another owner row: button off with the reason; own row links to Bảo mật tài khoản', async () => {
+  it('own row and another owner row: no edit button, only the reason; own row links to Bảo mật tài khoản', async () => {
     mockControl.db.users.push(secondOwner());
     userOf('qa.owner').email = 'owner@example.test';
     const { user } = renderApp('/settings/users', 'qa.owner');
     const selfRow = (await screen.findByText('qa.owner')).closest('tr')!;
-    const selfBtn = within(selfRow).getByRole('button', {
-      name: `${tv('users.edit_email')}: Chủ đầu tư`,
-    });
-    expect(selfBtn).toBeDisabled();
-    expect(selfBtn).toHaveAccessibleDescription(tv('users.email_self'));
+    // UXD EM-08 (a): no switched-off button next to a link doing the same job.
+    expect(
+      within(selfRow).queryByRole('button', { name: `${tv('users.edit_email')}: Chủ đầu tư` }),
+    ).not.toBeInTheDocument();
     expect(within(selfRow).getByText('owner@example.test')).toHaveClass('mono');
 
     const otherRow = screen.getByText('qa.owner2').closest('tr')!;
-    const otherBtn = within(otherRow).getByRole('button', {
-      name: `${tv('users.edit_email')}: Đồng sở hữu`,
-    });
-    expect(otherBtn).toBeDisabled();
-    expect(otherBtn).toHaveAccessibleDescription(tv('users.email_other_owner'));
+    expect(
+      within(otherRow).queryByRole('button', { name: `${tv('users.edit_email')}: Đồng sở hữu` }),
+    ).not.toBeInTheDocument();
+    expect(within(otherRow).getByText(tv('users.email_other_owner'))).toBeInTheDocument();
+    // Last sign-in never breaks (EM-08 c).
+    expect(within(otherRow).getAllByRole('cell')[4]).toHaveClass('nowrap');
 
     await user.click(within(selfRow).getByRole('link', { name: tv('users.email_self') }));
     expect(await screen.findByRole('region', { name: tv('secmail.title') })).toBeInTheDocument();
@@ -413,26 +516,50 @@ describe('strings (VI + EN, brand voice)', () => {
     'shell.account_security',
     'secmail.title',
     'secmail.lead',
+    'secmail.current',
     'secmail.purpose',
     'secmail.missing',
     'secmail.nudge',
+    'secmail.new_label',
+    'secmail.s2_save_title',
+    'secmail.s2_save_body',
+    'secmail.s2_remove_title',
+    'secmail.s2_remove_body',
     'secmail.saved',
     'secmail.saved_first',
     'secmail.removed',
+    'secmail.unchanged',
     'secmail.invalid',
+    'secmail.status_unset',
+    'secnudge.both',
+    'secnudge.open',
     'field.EMAIL_SHARED_MAILBOX',
     'field.NOT_ALLOWED_FOR_SELF',
+    'users.email_none',
+    'users.email_title',
+    'users.email_body',
     'users.email_saved',
+    'users.email_saved_first',
+    'users.email_removed',
     'users.email_self',
     'users.email_other_owner',
   ];
-  it.each(KEYS)('%s has VI and EN, no emoji, no "thư xác nhận"', (key) => {
+  // UXD EM-03 + SEC EM-13: one term set – "Notification email" / "thông báo bảo mật", never "confirmation".
+  const BANNED =
+    /thư bảo mật|thư xác nhận|xác nhận email|confirmation|security email|domain\.com|tenmien/i;
+  it.each(KEYS)('%s has VI and EN, no emoji, no banned wording', (key) => {
     expect(hasKey(key)).toBe(true);
     const vi = translate('vi', key, { name: 'X' });
     const en = translate('en', key, { name: 'X' });
     expect(en).not.toBe(key);
     expect(en).not.toBe(vi);
-    for (const s of [vi, en]) expect(s).not.toMatch(/\p{Extended_Pictographic}/u);
-    expect(vi.toLowerCase()).not.toContain('thư xác nhận');
+    for (const x of [vi, en]) {
+      expect(x).not.toMatch(/\p{Extended_Pictographic}/u);
+      expect(x).not.toMatch(BANNED);
+    }
+  });
+  it('the block title matches the notice subject (CPY FB-R4-CPY-INT-04)', () => {
+    expect(translate('en', 'secmail.title')).toBe('Notification email');
+    expect(translate('vi', 'secmail.title')).toBe('Email nhận thông báo bảo mật');
   });
 });
