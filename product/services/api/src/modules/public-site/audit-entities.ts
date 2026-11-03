@@ -13,3 +13,15 @@ defineAuditEntity('website_booking_request', [
   'verificationMethod',
   'resultCount',
 ]);
+
+// The data-processing notice versions written by OPS `publish-privacy-notice` (S27 shows them; ARC-on-OPS-us155-enable
+// "Trả lời OPS" 2, SEC FB-R3-SEC-ARC-PN-01): version, hashes and the landing image – no guest data.
+defineAuditEntity('privacy_notice_version', [
+  'version',
+  'locales',
+  'shaVi',
+  'shaEn',
+  'landingTag',
+  'landingDigest',
+  'superseded',
+]);

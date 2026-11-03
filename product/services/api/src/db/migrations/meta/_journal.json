@@ -463,6 +463,13 @@
       "when": 1792782167681,
       "tag": "0089_simulation_guard_room_price_cancel",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1792782169681,
+      "tag": "0090_privacy_notice_append_only",
+      "breakpoints": true
     }
   ]
 }
