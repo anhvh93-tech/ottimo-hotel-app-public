@@ -11,6 +11,7 @@ export const STAFF_EMAIL_TEMPLATES = [
   'mfa_reset',
   'mfa_reset_by_operator',
   'receiving_account_changed',
+  'email_changed',
 ] as const;
 export type StaffEmailTemplate = (typeof STAFF_EMAIL_TEMPLATES)[number];
 
@@ -20,10 +21,14 @@ export function isStaffEmailTemplate(v: string): v is StaffEmailTemplate {
 
 /**
  * Parameters (all optional strings, already formatted by the caller):
- * - `audience`: 'self' (the person concerned) | 'owner' (copy to an owner)
+ * - `audience`: 'self' (the person concerned) | 'owner' (copy to an owner) |
+ *   'previous' (email_changed only: the address that was replaced or removed)
  * - `staffName`: display name of the person concerned (owner copy only)
  * - `occurredAt`: local time, e.g. '23/10/2026 14:05 (GMT+7)'
  * - `effectiveDate`: receiving_account_changed only, e.g. '25/10/2026'
+ * Any other parameter is ignored. email_changed never prints an address (new or old, full or masked) in any
+ * copy: the recipient already knows their own address, and the old address must not learn the new one
+ * (ARC v1.0.3-contract-email 4.3, least data).
  */
 export interface RenderedEmail {
   subject: string;
@@ -113,6 +118,56 @@ function copyFor(t: StaffEmailTemplate, p: Readonly<Record<string, string>>): Co
           'Mở OTTIMO Desk như thường lệ để xem lại. Nếu bạn không chờ thay đổi này, hãy kiểm tra trong hôm nay.',
         ],
       };
+    }
+    case 'email_changed': {
+      const subjectEn = 'Security notice: the security e-mail was changed';
+      const subjectVi = 'Thông báo bảo mật: email nhận thư bảo mật đã thay đổi';
+      switch (p.audience) {
+        case 'self':
+          return {
+            subjectEn,
+            subjectVi,
+            en: [
+              `This address will now receive security notices for your OTTIMO Desk account${at}.`,
+              notYouEn,
+            ],
+            vi: [
+              `Từ nay, địa chỉ này nhận thư bảo mật của tài khoản OTTIMO Desk của bạn${at}.`,
+              notYouVi,
+            ],
+          };
+        case 'previous':
+          return {
+            subjectEn,
+            subjectVi,
+            en: [
+              `The security e-mail of your OTTIMO Desk account was changed or removed${at}. This address will no longer receive security notices.`,
+              'If this was not you, tell the owner or the OTTIMO team immediately and change your password.',
+            ],
+            vi: [
+              `Email nhận thư bảo mật của tài khoản OTTIMO Desk của bạn vừa được đổi hoặc gỡ${at}. Địa chỉ này sẽ không nhận thư bảo mật nữa.`,
+              'Nếu không phải bạn, hãy báo ngay chủ cơ sở hoặc đội OTTIMO và đổi mật khẩu.',
+            ],
+          };
+        case 'owner':
+          return {
+            subjectEn,
+            subjectVi,
+            en: [`The security e-mail of ${who} was changed or removed${at}.`, ownerEn],
+            vi: [`Email nhận thư bảo mật của ${whoVi} vừa được đổi hoặc gỡ${at}.`, ownerVi],
+          };
+        default:
+          // The dispatcher always sets an audience; if not, say only what is true for every recipient.
+          return {
+            subjectEn,
+            subjectVi,
+            en: [`The security e-mail of an OTTIMO Desk account was changed${at}.`, notYouEn],
+            vi: [
+              `Email nhận thư bảo mật của một tài khoản OTTIMO Desk vừa thay đổi${at}.`,
+              notYouVi,
+            ],
+          };
+      }
     }
   }
 }
