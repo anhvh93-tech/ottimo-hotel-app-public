@@ -147,3 +147,49 @@ Nhánh **ngắn ngày** giữ chính sách BR-428 hiện có ở 17.5 bước 6,
 - Ranh giới B/C như trên (DOM diễn giải ESC-048 B).
 - Đêm gia hạn sau HĐ chưa ở theo BR-428 Trực tiếp (giữ từ lượt 1).
 - Chưa có HĐ giấy nào ký trước 01/11/2026 đang chạy (INV "chưa vận hành", 01/11) – nhánh HĐ cũ hiện để phòng, vô hại.
+
+## Lượt 3 – xác nhận sổ tay bộ 1.5 (FB-R4-DOM-BA-05, QC ĐK6 – 03/11/2026)
+
+- Đọc: `product/docs/manual/guides/02-le-tan.md` 5.4, 9.3, 11.5 (bước 0, 11.5.1–11.5.4), 17.5; `01-chu-dau-tu-quan-ly.md` 7.3, 15.5; `user-manual-v1.0.md` 2.14a; báo cáo BA `rounds/round-04/outputs/BA/v1.0.2-manual-fb05.md`. Ba tệp `.md` trùng `e5fffe05` trước khi DOM sửa (`git diff e5fffe05` rỗng). Đối chiếu: ESC-048 = B; chuỗi `early_departure.*` trong `strings-vi.json` @ `e5fffe05`; ảnh staging `img/G2-08.png`, `img/G2-09.png`; BR-207, 210, 214, 313, 428 v0.5.1.
+
+### Kết luận lượt 3: **Đóng FB-R4-DOM-BA-05** (Closed). ĐK6 đạt.
+
+| Ý DOM lượt 2 | Ở sổ tay | Kết quả |
+|---|---|---|
+| 1 Nhận diện theo ngày kết thúc trên HĐ giấy, không theo **Ngày ra** khi đã gia hạn | `02` 11.5 bước 0, 11.5.3 B1; `01` 7.3; gốc 2.14a | Đạt |
+| 2 HĐ ký trước 01/11/2026 | ORC bỏ | Chấp nhận (dòng cuối mục này) |
+| 3 Kiểm kỳ cuối theo ranh giới B/C → hỏi quản lý → báo khách → mới tích ô | `02` 11.5.3 B2–B4 (bảng 4 dòng) | Đạt. Ví dụ 15/02 · 03/02 · 25/01 khớp ESC-048 và BR-207 |
+| 4 Nhánh mất ký quỹ | `02` 11.5.3 bảng hai cột; `01` 7.3; gốc 2.14a | Đạt |
+| 5 Nhánh đã thu đủ: công tơ, biên bản ảnh, quyết toán, 7 ngày làm việc, quản lý duyệt, không hoàn ngày không ở | như trên + "Việc khi khách HĐ rời" | Đạt. Có thêm minibar, phí phạt theo góp ý chữ lượt 2 |
+| 6 Ghi ngày kết thúc HĐ trước khi Gia hạn | `02` 9.3 bước 6, 5.4, 17.5 (1); gốc 2.12 | Đạt. Chấp nhận BA ghi vào bảng kỳ thu + sổ giao ca thay "ghi chú đơn": khung đơn đang ở không có ô ghi chú, và bảng kỳ thu là nơi lễ tân tra ở B1 |
+| 7 Rời trong phần gia hạn sau HĐ | `02` 11.5.4, 17.5 (2); `01` 7.3; gốc 2.14a | Đạt. DOM bổ sung ca tiền gia hạn chưa thu (dưới) |
+| 8 Nhật ký "BR-428 notice …" | `02` 17.5 (3); gốc 5.6 | Đạt |
+| 9 Việc chung khi khách rời | `02` 11.5.1 bước 6 | Đạt. DOM sửa câu extranet (dưới) |
+| Nhánh ngắn ngày | `02` 11.5.2; `01` 7.3; gốc 2.14a | Đạt. Ví dụ căn 202 (1.533.000 → hoàn 767.000, phí 766.000) đúng BR-428. Đã bỏ câu "chưa trả phòng được trước ngày đi" và cách tạm "Đang ở tới ngày đi" |
+
+**Đối chiếu ảnh staging.** G2-08 (đơn Trực tiếp 301, rời 04/11, báo trước 1 ngày): cơ sở 3.018.000 → hoàn 1.509.000, phí 1.509.000. Đúng BR-428 50 %, khớp 11.5.2 (bảng **Đêm mở bán lại**, **Cách tính**, ô **Đã báo khách số hoàn và phí trả phòng sớm**). G2-09 (HĐ 202, 03/11 → 03/02, rời 03/12): khung HĐ không có bảng tiền, không có số ngày báo trước. Thứ tự câu kiểm → đã thu đủ → chưa thu đủ, và `lease_still_due` lồng dưới. Ô tích trung tính. Chữ trong sổ tay trùng từng chữ với `strings-vi.json` @ `e5fffe05` (8 khóa `lease_*` / `told_guest_lease`). Theo B2 thì ca G2-09 rời trước tháng lịch cuối (2/2027) → nhánh chưa thu đủ. Ảnh hiện số ký quỹ 9.000.000 vì đơn tập có ghi ô **Ký quỹ đang giữ (ngoài app)**. Sổ tay 11.5.3 đã dặn "số ký quỹ đúng lấy theo HĐ giấy và sổ kế toán". Đúng.
+
+**Chốt 2 giả định BA (theo QC ĐK6):**
+- (a) Rời trong tháng lịch cuối, sau ngày 05, kỳ cuối quá hạn chưa thu → "quản lý quyết theo HĐ": **chấp nhận**. Khớp BR-207 (quá hạn 3 ngày cảnh báo đỏ, quá hạn 10 ngày quản lý xử lý theo HĐ). Mặc định DOM sẽ ghi vào BR-313 ở lần cập nhật BR kế tiếp, theo NGÀNH và tinh thần ESC-048 B. Thu kỳ cuối khi khách rời: thu được thì áp nhánh **đã thu đủ**. Khách không trả thì kỳ cuối là nợ tiền thuê, quyết toán theo BR-214, quản lý quyết. Không tự áp "mất toàn bộ ký quỹ" chỉ vì trễ hạn.
+- (b) "Hỏi quản lý" = hỏi chủ đầu tư khi OTTIMO một người trực: **chấp nhận**. Khớp `02` 17.4 (chủ đầu tư duyệt và chi mọi khoản hoàn) và `01` 7.3, 15.5.
+- Các giả định BA 4–6 (tiền ngày gia hạn HĐ ÷ 30 thu ngoài app; buồng phòng hủy việc có điều kiện; khung HĐ hiện số hoàn/phí thì không xác nhận, báo quản lý): đúng nghiệp vụ, giữ.
+
+**DOM tự sửa chữ (lỗi nhỏ, không đổi chính sách). Chưa commit; UXD dựng lại HTML ở ĐK9 cần lấy bản này:**
+1. `02-le-tan.md` 11.5.1 bước 6 và `user-manual-v1.0.md` 2.14a bước 5, dòng extranet. Bản cũ "Đơn OTA: mở lại các đêm này trên extranet của kênh". Thiếu 2 ý: (i) đơn OTA khi về đã làm lễ tân đóng căn trên **các kênh khác** (5.3), nên trả sớm phải mở lại cả các kênh đó, không chỉ kênh của đơn; (ii) Desk hiện dòng "Mở lại các đêm này trên extranet OTA" cho mọi đơn, kể cả Trực tiếp và HĐ (G2-08, G2-09). Đã sửa thành: mở lại trên extranet **mọi kênh đang đóng căn này**, đơn OTA kiểm cả kênh của đơn, chỉ người chủ đầu tư giao mới mở. Vì sao: các đêm mở bán lại trên Desk mà vẫn đóng trên OTA thì mất doanh thu. HĐ rời sớm có thể nhả tới 62 đêm (G2-09).
+2. `02-le-tan.md` 11.5.4 và `user-manual-v1.0.md` 2.14a (khung "Giới hạn tới v1.0.3"): thêm ca **tiền gia hạn chưa thu**. Ca này không có gì để hoàn: thu các ngày đã ở cộng phần không hoàn của các ngày chưa ở. Ví dụ ở 11.5.4: gia hạn 20/02 → 27/02, 283.000/ngày, báo 22/02 rời 24/02. Đã thu thì hoàn 425.000. Chưa thu thì thu 1.556.000. Vì sao: 9.3 ghi "thu như tiền thuê" nhưng không nói thu trước hay sau. Nếu thiếu câu này, lễ tân chỉ thu ngày đã ở và bỏ mất phần không hoàn.
+
+**Thẻ mới (ngoài phạm vi BA-05, không chặn v1.0.2):**
+
+### FB-R4-DOM-BA-06
+- Mức độ: Major (không chặn v1.0.2: lỗi có từ sổ tay v1.0, không do v1.0.2 gây ra, INV chưa vận hành). Phải sửa trước khi OTTIMO mở bán OTA và trong Round 4.
+- Vị trí: `product/docs/manual/guides/02-le-tan.md` 5.1 (đặt ngắn ngày Trực tiếp/CTV), 5.2, 5.4 (đơn dài hạn nhập tay), bảng việc mỗi ngày dòng 169/188; mục tương ứng trong `user-manual-v1.0.md`.
+- Vấn đề: chỉ đơn OTA có bước "đóng phòng trên extranet các kênh khác" (5.3 bước 7). Đơn Trực tiếp, CTV, dài hạn nhập tay tạo trên Desk **không** có bước đóng căn trên extranet. Desk v1.0 chưa nối channel manager (tới v1.1). Ví dụ: lễ tân tạo đơn dài hạn căn 202 từ 03/11 đến 03/02. Căn vẫn mở trên Booking/Agoda/Airbnb, và OTA bán đêm 10/11 → overbooking. Cách tạm hiện có là "kiểm extranet đầu ca, 12:00, 18:00, cuối ca" (5.3). Cách này chỉ bắt được đơn OTA về sau, không chặn được việc bán trùng.
+- Vì sao quan trọng: 10 căn, mô hình lai ngắn + dài hạn có OTA (brief). Overbooking là tình huống ác mộng số 1 (dời khách, chịu chi phí BR-317, đánh giá xấu trên OTA). HĐ dài hạn khóa căn nhiều tuần nên rủi ro cao nhất.
+- Đề xuất sửa: BA thêm vào 5.1, 5.2, 5.4 (và lúc **Gia hạn** 9.3, **Đổi phòng**) bước "Tạo đơn xong: đóng căn các đêm của đơn trên extranet **mọi kênh OTA đang bán căn này**. Người chủ đầu tư giao mới đóng/mở. Ghi sổ giao ca 'OTM-…: đã đóng [kênh] [đêm]'." Ngược lại, khi hủy, no-show, trả sớm thì mở lại (đã có ở 11.5.1 bước 6 sau khi DOM sửa). Nếu INV giữ một số căn chỉ bán dài hạn, không đăng OTA, thì BA ghi rõ danh sách căn đó và bỏ bước này cho các căn đó. PO kiểm backlog xem v1.1 channel manager có giữ hạn không.
+- Trạng thái: Open
+
+**Bỏ nhánh "HĐ ký trước 01/11/2026" ở `52702857`: DOM chấp nhận.** BR-107 v0.5.1 ghi INV chưa vận hành và không có dữ liệu cũ. Vì vậy không có HĐ giấy nào ký theo điều khoản cũ (ESC-006). Nếu sau này phát hiện có HĐ như vậy, bước B3 (hỏi chủ đầu tư, người giữ HĐ giấy) vẫn bắt được trước khi lễ tân báo khách. Lưu ý kèm ESC-048 (HĐ đã ký giữ điều khoản của HĐ) vẫn còn hiệu lực trong `ESC-048.md` và BR-201.
+
+### Giả định dùng ở lượt 3
+- Mặc định xử lý kỳ cuối quá hạn (ý a) là cách hiểu NGÀNH của DOM. DOM ghi vào BR-313 lần tới, không mở ESC (không phải chính sách mới: thu đúng tiền thuê đã đến hạn).
+- Ca gia hạn chưa thu: dùng đúng BR-428 Trực tiếp như giả định lượt 1 và 2. Chỉ tính trên tiền thuê ngày. Phí dịch vụ của các ngày gia hạn chưa ở để quản lý quyết, DOM chốt khi cập nhật BR-210/BR-428.

@@ -1061,7 +1061,7 @@ Hồ sơ sắp hạn và quá hạn hiện ở **Cần chú ý** và cột **H�
 2. Mở đơn → **Trả sớm** → bước **Ngày rời và giờ báo**: **Ngày rời mới**; **Khách báo lúc** (Desk điền lúc mở hộp – sửa đúng giờ khách đã báo; báo sớm hơn thì ghi **Bằng chứng giờ báo**); đơn OTA nhập **Số OTA giữ lại** theo extranet. Bấm **Xem trước số tiền**.
 3. Bước **Xem trước**: đọc theo nhánh dưới đây, báo khách, tích ô "Đã báo khách…", bấm **Xác nhận trả sớm**.
 4. Bước **Kết quả**: ngày rời là hôm nay thì **Trả phòng ngay** (mục 2.14); ngày sau thì nút **Trả phòng** hiện vào ngày đó.
-5. Ngoài Desk: rút hiệu lực mã cửa về giờ trả ngày rời, xóa mã khi khách trả phòng; thu thẻ, đếm minibar, kiểm hư hỏng (**Thêm phát sinh**); khách nước ngoài cập nhật ngày đi trên cổng khai báo trong ngày rời; đơn OTA mở lại các đêm trên extranet; buồng phòng: hủy việc dọn các ngày sau còn lại, tạo **Dọn trả phòng** ngày rời nếu chưa có (mục 2.19).
+5. Ngoài Desk: rút hiệu lực mã cửa về giờ trả ngày rời, xóa mã khi khách trả phòng; thu thẻ, đếm minibar, kiểm hư hỏng (**Thêm phát sinh**); khách nước ngoài cập nhật ngày đi trên cổng khai báo trong ngày rời; mở lại các đêm khách bỏ trên extranet mọi kênh đang đóng căn này (Desk ghi dòng này cho mọi đơn; đơn OTA kiểm cả kênh của đơn), chỉ người chủ đầu tư giao mới mở; buồng phòng: hủy việc dọn các ngày sau còn lại, tạo **Dọn trả phòng** ngày rời nếu chưa có (mục 2.19).
 
 **Nhánh ngắn ngày:** Desk tính theo chính sách – đơn Trực tiếp/CTV báo trước từ 1 ngày hoàn 50 % tiền phòng các đêm chưa ở (phụ thu người các đêm đó hoàn 100 %), báo trong ngày rời không hoàn, đơn OTA theo kênh. Desk ghi **Phí trả phòng sớm** vào folio và tạo **một** yêu cầu hoàn; lễ tân **Nhập nơi nhận hoàn** (mục 2.17), quản lý/chủ đầu tư khác người tạo duyệt. Ví dụ: căn 202 từ 9/11 đến 16/11, 5.205.000 đ, báo 12/11 rời 14/11 → hoàn **767.000 đ**, phí **766.000 đ**.
 
@@ -1083,7 +1083,7 @@ Ví dụ HĐ 3 tháng 20/11/2026 → 20/02/2027, ký quỹ 8.500.000: rời 15/0
 
 > **Giới hạn tới v1.0.3 (đơn HĐ):**
 > - Gia hạn đơn HĐ làm Desk dời **Ngày ra (theo HĐ)** và mất ngày kết thúc HĐ gốc: **trước khi bấm Gia hạn**, ghi "OTM-…: HĐ kết thúc dd/mm/yyyy, gia hạn tới dd/mm/yyyy" vào bảng kỳ thu và sổ giao ca (mục 2.12).
-> - Khách đã ở hết HĐ, rời trong phần gia hạn: Desk vẫn hiện khung HĐ (lỗi đã biết). Ký quỹ theo **đã thu đủ**; các ngày gia hạn chưa ở như đơn ngắn ngày Trực tiếp (báo trước từ 1 ngày hoàn 50 %, trong ngày rời không hoàn), ngoài app, quản lý duyệt. Vẫn hỏi quản lý trước khi báo khách.
+> - Khách đã ở hết HĐ, rời trong phần gia hạn: Desk vẫn hiện khung HĐ (lỗi đã biết). Ký quỹ theo **đã thu đủ**; các ngày gia hạn chưa ở như đơn ngắn ngày Trực tiếp (báo trước từ 1 ngày hoàn 50 %, trong ngày rời không hoàn), ngoài app, quản lý duyệt; tiền gia hạn chưa thu thì không hoàn mà thu các ngày đã ở cộng phần không hoàn của các ngày chưa ở (ví dụ ở guides/02-le-tan.md mục 11.5.4). Vẫn hỏi quản lý trước khi báo khách.
 > - Nhật ký đơn HĐ có thể ghi "BR-428 notice …": bỏ qua; nhánh và người quyết ghi sổ giao ca.
 
 ### 2.15 Trả muộn và khách ở quá 18:00

@@ -867,7 +867,7 @@ Ngày kết thúc HĐ lấy từ **HĐ giấy** hoặc cột ngày kết thúc H
    - App khóa: rút hiệu lực mã cửa về giờ trả phòng ngày rời; khi khách trả phòng thì **xóa mã ngay**.
    - Khi khách rời: thu thẻ (ghi số thẻ trả), nhờ buồng phòng đếm minibar, kiểm hư hỏng. Món đã dùng và hư hỏng: **Thêm phát sinh** vào folio.
    - Khách nước ngoài: cập nhật ngày đi trên cổng khai báo **trong ngày khách rời**. Desk nhắc ở bước **Kết quả** và có nút **Mở danh sách cần cập nhật**.
-   - Đơn OTA: mở lại các đêm này trên extranet của kênh (Desk chưa tự mở).
+   - Extranet: Desk ghi "Mở lại các đêm này trên extranet OTA" cho **mọi** đơn. Mở lại các đêm khách bỏ trên extranet **mọi kênh đang đóng căn này** (đơn OTA: kiểm cả kênh của đơn lẫn các kênh đã đóng theo mục 5.3). Desk chưa tự mở. Chỉ người chủ đầu tư giao mới mở phòng trên extranet.
    - Buồng phòng: mở **Vận hành → Buồng phòng**, xem việc của căn. Việc dọn các ngày sau ngày rời còn thì **Hủy việc**, **Lý do**: **Lý do khác**, **Ghi chú** "Khách đã rời sớm". Chưa có việc **Dọn trả phòng** ngày rời thì tạo **Việc mới → Dọn trả phòng** (mục 13.2).
 
 [ẢNH: G2-08-Hộp Trả sớm, bước Xem trước]
@@ -945,6 +945,7 @@ Ví dụ: HĐ Studio City, khách Việt Nam, 3 tháng, vào **20/11/2026**, k�
 Khách đã ở hết HĐ rồi gia hạn thêm, nay rời trước ngày cuối gia hạn. Ở v1.0.2 Desk **vẫn hiện khung Trả trước hạn hợp đồng thuê tháng** (lỗi đã biết, mục 17.5).
 - HĐ đã xong: ký quỹ theo nhánh **đã thu đủ** (11.5.3).
 - Các ngày gia hạn chưa ở: như trả sớm đơn ngắn ngày Trực tiếp – báo trước từ 1 ngày hoàn 50 % tiền các ngày gia hạn chưa ở, báo trong ngày rời không hoàn. Làm ngoài app (tiền ngày gia hạn của đơn HĐ thu ngoài app – mục 9.3), quản lý duyệt hoàn.
+- Tiền gia hạn **chưa thu**: không có gì để hoàn. Thu tiền các ngày đã ở **cộng** phần không hoàn của các ngày chưa ở (50 %, hoặc 100 % nếu báo trong ngày rời). Ví dụ gia hạn 20/02 → 27/02, 283.000/ngày, khách báo 22/02 rời 24/02 (báo trước 2 ngày): 3 ngày chưa ở 849.000. Đã thu đủ 7 ngày → hoàn **425.000** (50 %, làm tròn lên). Chưa thu → thu 4 × 283.000 + 424.000 = **1.556.000**.
 - Vẫn làm B3: hỏi quản lý trước khi báo khách.
 
 ### 11.6 Khách để quên đồ
