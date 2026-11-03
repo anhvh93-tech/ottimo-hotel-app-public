@@ -45,6 +45,8 @@ function recoveryCodes(): string[] {
   });
 }
 const CP_FIELDS = { password: 'currentPassword', factor: 'totpCode' };
+/** Flat `StrongReauth` bodies (disableMy2fa, regenerateMyRecoveryCodes – BE ead8ac83): `password` / `totpCode`. */
+const FLAT_FIELDS = { password: 'password', factor: 'totpCode' };
 const normRecovery = (c: string) => c.replace(/[\s-]/g, '').toUpperCase();
 
 const SESSION_KEY = 'ottimo.mock.session';
@@ -811,7 +813,7 @@ export const handlers = [
   http.post(`${base}/me/2fa/recovery-codes`, async ({ request }) => {
     const g = guard(request, 'any');
     if (isResponse(g)) return g;
-    const bad = await strongReauth(g.user, await request.json());
+    const bad = await strongReauth(g.user, await request.json(), FLAT_FIELDS);
     if (bad) return bad;
     if (!g.user.mfa?.secret) return problem(409, 'INVALID_TRANSITION');
     const codes = recoveryCodes();
@@ -825,7 +827,7 @@ export const handlers = [
     const g = guard(request, 'any');
     if (isResponse(g)) return g;
     if (mfaRequired(g.user)) return problem(403, 'FORBIDDEN_ACTION');
-    const bad = await strongReauth(g.user, await request.json());
+    const bad = await strongReauth(g.user, await request.json(), FLAT_FIELDS);
     if (bad) return bad;
     g.user.mfa = undefined;
     db.sessionUserId = null; // every session revoked, this one too

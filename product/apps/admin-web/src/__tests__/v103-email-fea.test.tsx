@@ -1,10 +1,13 @@
 // v1.0.3 BUG-R3-032 (P1) – security email on the Desk (OpenAPI 0.3.10 `setMyEmail`, `updateUser.email`,
 // `Me.email`, `Me.securityEmailMissing`; ARC v1.0.3-contract-email mục 7). Test addresses only: example.test.
+import { ApiError } from '@ottimo/api-client';
 import { hasKey, translate } from '@ottimo/i18n';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
+import { api } from '../app/api';
 import { isEmailShape, normalizeEmail, RESEND, sameEmail } from '../app/email';
+import { missingFactor } from '../components/StrongReauthDialog';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { MOCK_PASSWORD, type MockUser } from '../mocks/seed';
@@ -630,6 +633,78 @@ describe('Người dùng & vai – email column (owner, updateUser.email)', () =
     expect(((await self.json()) as { errors: unknown[] }).errors).toEqual([
       { field: 'email', code: 'NOT_ALLOWED_FOR_SELF' },
     ]);
+  });
+});
+
+describe('S2 missing factor – field names per operation (ARC FB-R4-ARC-FE-018-01, BE ead8ac83)', () => {
+  const missing = (field: string) =>
+    new ApiError(422, {
+      type: '/problems/validation-failed',
+      title: 'VALIDATION_FAILED',
+      status: 422,
+      code: 'VALIDATION_FAILED',
+      requestId: 'mock-test',
+      errors: [{ field, code: 'STRONG_REAUTH_REQUIRED' }],
+    });
+
+  it.each([
+    ['reauth', 'password'],
+    ['reauth.password', 'password'],
+    ['body.reauth', 'password'],
+    ['password', 'password'],
+    ['currentPassword', 'password'],
+    ['reauth.totpCode', 'code'],
+    ['reauth.recoveryCode', 'code'],
+    ['totpCode', 'code'],
+    ['recoveryCode', 'code'],
+    ['reauth.secret', null],
+    ['email', null],
+  ] as const)('%s → %s', (field, want) => {
+    expect(missingFactor(missing(field), true)).toBe(want);
+  });
+
+  it('a code field name without the code field on screen (stale Me.mfaEnabled) → banner, not a field', () => {
+    expect(missingFactor(missing('totpCode'), false)).toBeNull();
+  });
+
+  it('regenerateMyRecoveryCodes answers field "password": the password field says Required, no banner', async () => {
+    mockControl.enableMfa('qa.owner');
+    mockControl.failNext(/\/v1\/me\/2fa\/recovery-codes:POST/, 422, {
+      code: 'VALIDATION_FAILED',
+      errors: [{ field: 'password', code: 'STRONG_REAUTH_REQUIRED' }],
+    });
+    const { user } = renderApp('/security', 'qa.owner');
+    await user.click(await screen.findByRole('button', { name: tv('mfa.regen') }));
+    const dlg = await screen.findByRole('dialog', { name: tv('mfa.regen') });
+    await user.type(within(dlg).getByLabelText(label('reauth.s2_password_label')), MOCK_PASSWORD);
+    await user.type(within(dlg).getByLabelText(label('auth.code_label.totp')), '123456');
+    await user.click(within(dlg).getByRole('button', { name: tv('mfa.regen') }));
+    const pw = within(dlg).getByLabelText(label('reauth.s2_password_label'));
+    await waitFor(() => expect(pw).toHaveAttribute('aria-invalid', 'true'));
+    expect(pw).toHaveAccessibleDescription(tv('common.required'));
+    expect(pw).toHaveFocus();
+    expect(within(dlg).getByLabelText(label('auth.code_label.totp'))).not.toHaveAttribute(
+      'aria-invalid',
+    );
+    expect(within(dlg).queryByText(tv('reauth.s2_failed'))).not.toBeInTheDocument();
+    expect(within(dlg).queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('the mock answers the flat names like the server (regenerateMyRecoveryCodes, disableMy2fa)', async () => {
+    // qa.fd: 2FA not mandatory for the role, so disableMy2fa reaches the S2 check.
+    mockControl.enableMfa('qa.fd');
+    renderApp('/security', 'qa.fd');
+    await screen.findByRole('region', { name: tv('secmail.title') });
+    for (const send of [
+      () => api.regenerateMyRecoveryCodes({ password: MOCK_PASSWORD }),
+      () => api.disableMy2fa({ password: MOCK_PASSWORD }),
+    ]) {
+      const err = await send().catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).fieldErrors).toEqual([
+        { field: 'totpCode', code: 'STRONG_REAUTH_REQUIRED' },
+      ]);
+    }
   });
 });
 
