@@ -29,4 +29,22 @@ defineAuditEntity('reservation', [
   'priceAgeBand',
   // ESC-024 B / ESC-031 (BE-B): end of the post-checkout window the manager reviews a desk-recorded late charge in.
   'reviewDueAt',
+  // OpenAPI 0.3.9 B16 (FB-R3-SEC-ARC-05): the amounts the desk confirmed in the preview (numbers only).
+  'previewConfirmed',
+  'expectedRefundVnd',
+  'expectedFeeVnd',
+  // B16 `reservation.early_departure` (BR-428 v0.4.8 (e), numbers / booking codes only): the facts of the money log
+  // line – earlier keys were dropped by the allowlist.
+  'droppedNetVnd',
+  'droppedOtaGrossVnd',
+  'droppedExtraPersonVnd',
+  'extraPersonRefundVnd',
+  'extraPersonReversedVnd',
+  'roomChangeDifferenceVnd',
+  'roomChangeDifferenceReversedVnd',
+  'refundablePaidVnd',
+  'refundRequestedVnd',
+  'childBookings',
+  'noticeGivenAt',
+  'noticeEvidence',
 ]);

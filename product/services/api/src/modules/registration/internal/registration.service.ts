@@ -2929,6 +2929,22 @@ export class RegistrationService {
   }
 
   /**
+   * OpenAPI 0.3.9 (B16 `registrationNeedsUpdate`): the registration of the booking holds a foreign guest's document
+   * that is not removed – the same condition as `onDepartureChanged` (BR-604). Read only (no lock, no decrypt, no
+   * publish) so the B16 dry run can call it.
+   */
+  async hasForeignGuestDocument(tx: Tx, reservationId: string): Promise<boolean> {
+    const { rows } = await tx.query<{ found: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM registration r JOIN guest_document d ON d.registration_id = r.id
+          WHERE r.reservation_id = $1 AND d.removed_at IS NULL AND d.is_foreigner
+       ) AS found`,
+      [reservationId],
+    );
+    return rows[0]?.found === true;
+  }
+
+  /**
    * BUG-R2-037 (BR-605, US-050 AC2): earliest visa / temporary-residence validity of the foreign documents of
    * the booking – read inside the transaction for the soft block of a new departure (never returned to a
    * client, never logged: the caller only compares dates). Null = no foreign document with a validity.

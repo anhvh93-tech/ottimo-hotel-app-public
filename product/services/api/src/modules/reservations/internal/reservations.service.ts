@@ -433,6 +433,7 @@ export class ReservationsService {
       );
       requestedGroup = g.rows[0] ?? null;
     }
+    const stayDepartureDate = await this.stayDepartureDate(tx, row);
     const actions = allowedActions(ctx.actor.roles, {
       status: row.status,
       conflictState: row.conflict_state,
@@ -448,6 +449,7 @@ export class ReservationsService {
       restoreWithinRules,
       rescheduleCount: row.reschedule_count,
       rescheduleMaxTimes: ctx.params.rescheduleMaxTimes,
+      ...(stayDepartureDate ? { stayDepartureDate } : {}),
     });
     // US-022: booker + active party members (people recorded on the booking – counted by frontdesk).
     const partyMembers = await this.hooks.partyCount(tx, row.id);
@@ -474,7 +476,27 @@ export class ReservationsService {
       noShowAvailableFrom: markAt,
       depositPaidVnd,
       requestedGroup,
+      ...(stayDepartureDate ? { stayDepartureDate } : {}),
     });
+  }
+
+  /**
+   * OpenAPI 0.3.9 add 1 (`Reservation.stayDepartureDate`): latest departure of the primary booking and its extension
+   * children still in force (BR-422) – the same children as `effectiveStay` of B16/B18 (in_house children of an
+   * in-house stay; confirmed/in_house children of a confirmed one). One aggregate query; null for a child booking or
+   * another status.
+   */
+  private async stayDepartureDate(tx: Tx, row: ReservationRow): Promise<LocalDate | null> {
+    if (row.parent_reservation_id) return null;
+    if (row.status !== 'confirmed' && row.status !== 'in_house') return null;
+    const live = row.status === 'in_house' ? ['in_house'] : ['confirmed', 'in_house'];
+    const { rows } = await tx.query<{ d: string | null }>(
+      `SELECT max(departure_date)::text AS d FROM reservation
+        WHERE parent_reservation_id = $1 AND status = ANY($2::text[])`,
+      [row.id, live],
+    );
+    const child = rows[0]?.d ?? null;
+    return child && child > row.departure_date ? child : row.departure_date;
   }
 
   // ─────────────────────────── B2 / B7b / AC5a – create ───────────────────────────

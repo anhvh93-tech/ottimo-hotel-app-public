@@ -67,4 +67,9 @@ export class RegistrationPortService implements FrontdeskRegistrationPort {
   earliestVisaValidUntil(tx: Tx, reservationId: string): Promise<string | null> {
     return this.regs.earliestVisaValidUntil(tx, reservationId);
   }
+
+  /** 0.3.9 B16 preview/result: `registrationNeedsUpdate` (read only). */
+  hasForeignGuestDocument(tx: Tx, reservationId: string): Promise<boolean> {
+    return this.regs.hasForeignGuestDocument(tx, reservationId);
+  }
 }

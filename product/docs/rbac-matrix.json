@@ -1890,6 +1890,7 @@
    }
   ],
   "operations_without_action_mapping": [
+   "cancelScheduledRoomListPrice",
    "createGuest",
    "createRoom",
    "deleteMyPushSubscription",
@@ -1939,7 +1940,7 @@
   "operations_without_action_mapping_note": "Endpoint đọc theo màn hình – quyền theo rbac-matrix.md mục 3 (màn hình) và mục 6 (trường); chưa gán mã hành động A-xx"
  },
  "screen_scope_notes": {
-  "S25": "listRooms/listRoomGroups: owner, manager đầy đủ; front_desk_lead, front_desk, sales_staff, collaborator x-scope catalog_only (số căn, tầng, nhóm, tên, sức chứa, giá niêm yết hiện hành); housekeeping, maintenance KHÔNG được gọi – dùng listHkTasks/listRoomStatuses/listWorkOrders/getRack; maxOccupancy, baseOccupancy, giá = K với HK/MT (rbac ghi chú 25a, BUG-R1-005)",
+  "S25": "listRooms/listRoomGroups: owner, manager đầy đủ; front_desk_lead, front_desk, sales_staff, collaborator x-scope catalog_only (số căn, tầng, nhóm, tên, sức chứa, giá niêm yết hiện hành); housekeeping, maintenance KHÔNG được gọi – dùng listHkTasks/listRoomStatuses/listWorkOrders/getRack; maxOccupancy, baseOccupancy, giá = K với HK/MT (rbac ghi chú 25a, BUG-R1-005). 0.3.9 (ARC, BUG-R3-018): Room.scheduledListPrices (giá đã lên lịch) chỉ owner, manager; cancelScheduledRoomListPrice owner, manager (sửa giá S25, như updateRoom)",
   "S23": "listApprovalRequests (0.3.7 + D1): front_desk own_or_refund_queue, front_desk_lead within_limit_or_own_or_refund_queue = phạm vi cũ + hàng chờ chi hoàn (S4-40) + yêu cầu refund chưa có nơi nhận (S4-43); chuyển khoản dạng che (D15), chỉ OWN/MGR chi (A47); FD/FDL chi tiền mặt (A47a) – rbac ghi chú 41",
   "S35": "Yêu cầu đặt phòng từ website (US-155): owner, manager, front_desk_lead, front_desk mọi yêu cầu; sales_staff unassigned_or_own; collaborator, housekeeping, maintenance 403 – rbac ghi chú 42"
  }

@@ -24,6 +24,8 @@ export interface RequestOptions {
    * browser with the PWA set to EN gets EN labels. Absent → no header (the browser's own is not forced).
    */
   acceptLanguage?: 'vi' | 'en' | 'ru';
+  /** v1.0.1 (ARC 0.3.9 bổ sung 1, 10.3): cancel a request whose answer is no longer wanted (an older preview). */
+  signal?: AbortSignal;
 }
 
 export interface ApiResult<T> {
@@ -100,6 +102,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
           body: req.form ?? (req.body === undefined ? undefined : JSON.stringify(req.body)),
           // C3 images (SR-C3-11): never kept in the browser's HTTP cache, whatever the response says.
           ...(req.blob ? { cache: 'no-store' as const } : {}),
+          ...(req.signal ? { signal: req.signal } : {}),
         });
       } catch {
         const err = networkError();

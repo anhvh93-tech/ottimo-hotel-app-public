@@ -9594,7 +9594,6 @@
       "origin": "example",
       "labels": ["INV-006", "NGÀNH"],
       "calc": null,
-      "pendingFix": "FB-R3-BE-B-BE-A-01",
       "input": {
         "channel": "agoda",
         "paymentModel": "ota_prepaid",
@@ -9633,7 +9632,6 @@
       "origin": "rule-boundary",
       "labels": ["INV-006", "NGÀNH"],
       "calc": null,
-      "pendingFix": "FB-R3-BE-B-BE-A-02",
       "input": {
         "lines": [
           {

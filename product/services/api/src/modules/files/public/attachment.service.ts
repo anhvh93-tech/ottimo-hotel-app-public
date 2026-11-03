@@ -259,6 +259,9 @@ export class AttachmentService {
     ref: { type: string; id: string },
     opts: { retentionAnchorAt?: Date; field?: string } = {},
   ): Promise<void> {
+    // ADR-015 / FB-R3-SEC-BE-A-03: a preview only checks an attachment (`assertUsable`), never binds it.
+    if (tx.ctx.simulation)
+      throw new Error('attachments cannot be bound inside a simulation (ADR-015)');
     const r = await tx.query(
       `UPDATE attachment SET bound_ref_type = $2, bound_ref_id = $3,
               retention_anchor_at = COALESCE($4, retention_anchor_at)

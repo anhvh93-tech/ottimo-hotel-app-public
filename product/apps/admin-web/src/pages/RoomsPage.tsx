@@ -4,6 +4,7 @@ import { Alert, Button, Chip } from '@ottimo/ui';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../app/api';
+import { dayMonth } from '../app/reservations';
 import { Page, Topbar } from '../components/AppShell';
 import { ErrorBlock, LoadingBlock } from '../components/states';
 import { useResource } from '../hooks/useResource';
@@ -17,7 +18,7 @@ export function canEditRooms(roles: string[]) {
 
 /** H04 4.1 – unit list with standard / maximum occupancy per unit (ESC-014). */
 export function RoomsPage() {
-  const { t, vnd } = useI18n();
+  const { t, vnd, money } = useI18n();
   const propertyId = usePropertyId();
   const { roles } = useSession();
   const editable = canEditRooms(roles);
@@ -130,6 +131,18 @@ export function RoomsPage() {
                       {r.currentListPrice?.nightlyListPriceVnd !== undefined
                         ? vnd(r.currentListPrice.nightlyListPriceVnd)
                         : '–'}
+                      {r.scheduledListPrices?.length ? (
+                        // UXD v1.0.1 §3.6 (BUG-R3-018): the next scheduled price is visible in the table (OWN/MGR).
+                        <div className="caption">
+                          {t('rooms.next_price', {
+                            date: dayMonth(r.scheduledListPrices[0]!.effectiveFrom),
+                            amount: money(r.scheduledListPrices[0]!.nightlyListPriceVnd),
+                          })}
+                          {r.scheduledListPrices.length > 1
+                            ? ` ${t('rooms.next_price_more', { n: r.scheduledListPrices.length - 1 })}`
+                            : ''}
+                        </div>
+                      ) : null}
                     </td>
                     <td>
                       {r.isSellable ? (
@@ -174,6 +187,10 @@ export function RoomsPage() {
             setEditing(null);
           }}
           onReload={reload}
+          // 0.3.9: a scheduled price cancelled (or the room read again) – the drawer stays open.
+          onRoomChanged={(room) =>
+            mutate((d) => ({ ...d, rooms: d.rooms.map((x) => (x.id === room.id ? room : x)) }))
+          }
         />
       ) : null}
     </>

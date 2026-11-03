@@ -70,6 +70,13 @@ export interface FrontdeskRegistrationPort {
    * documents of the booking; null = none known. Used only to compare with a new departure (B13).
    */
   earliestVisaValidUntil(tx: Tx, reservationId: string): Promise<string | null>;
+  /**
+   * OpenAPI 0.3.9 (B16 `EarlyDepartureResult.registrationNeedsUpdate`, ARC contract v1.0.1 4): the booking's
+   * registration holds a (not removed) document of a foreign guest – the condition under which
+   * `onDepartureChanged` asks for an update (BR-604). Plain read: no lock, no publish, no write (also called by
+   * the B16 dry run). Optional while other implementations catch up: absent = false.
+   */
+  hasForeignGuestDocument?(tx: Tx, reservationId: string): Promise<boolean>;
 }
 
 export interface FrontdeskGuestAccessPort {

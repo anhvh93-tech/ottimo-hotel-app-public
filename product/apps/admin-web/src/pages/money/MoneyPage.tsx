@@ -9,6 +9,7 @@ import {
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, ConfirmDialog, Field, Modal, Seg, StateView } from '@ottimo/ui';
 import { useId, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../../app/api';
 import { approvalStatusText, auditReasonText, autoCancelCode } from '../../app/auditReason';
 import { listApprovals } from '../../app/approvals';
@@ -60,7 +61,9 @@ const METHOD_KEY: Record<string, string> = {
 export function MoneyPage() {
   const { t } = useI18n();
   const ids = useId();
-  const [tab, setTab] = useState<Tab>('log');
+  // v1.0.1: B16 result "Xem yêu cầu hoàn" opens the refunds tab (`?tab=refund`).
+  const [search] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(search.get('tab') === 'refund' ? 'refund' : 'log');
   return (
     <>
       <Topbar title={t('nav.moneylog')} />

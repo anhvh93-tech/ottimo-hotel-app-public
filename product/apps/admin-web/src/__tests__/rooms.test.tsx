@@ -5,7 +5,7 @@ import { businessDayLocal } from '../app/dates';
 import { addDays } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
-import { renderApp } from '../test/render';
+import { renderApp, tv } from '../test/render';
 
 /** Every PATCH /rooms/{id} body, as the browser sent it. */
 function capturePatches() {
@@ -198,9 +198,10 @@ describe('H04 Danh mục căn (US-004, ESC-014)', () => {
     await waitFor(() => expect(nightly).toHaveAttribute('aria-invalid', 'true'));
   });
 
-  it('BUG-R3-018: a wrong price scheduled for tomorrow is replaced by re-saving the current price for that date', async () => {
+  it('BUG-R3-018: a wrong price scheduled for tomorrow is seen and replaced on its own date (v1.0.1 – 0.3.9)', async () => {
     // Business day, not calendar day (BR-010 / BUG-R3-006): rooms.service bounds effectiveFrom by ctx.today.
-    const tomorrow = addDays(businessDayLocal(), 1);
+    const today = businessDayLocal();
+    const tomorrow = addDays(today, 1);
     const cap = capturePatches();
     const { user } = renderApp('/settings/rooms', 'qa.owner');
 
@@ -214,36 +215,53 @@ describe('H04 Danh mục căn (US-004, ESC-014)', () => {
     await user.type(from, tomorrow);
     await user.type(within(dlg).getByLabelText(/Lý do đổi giá/), 'Giá B2');
     await user.click(within(dlg).getByRole('button', { name: 'Lưu' }));
-    // The catalog keeps today's price until that day, so the toast says when the new one applies.
+    // FB-R3-UXD-FE-A-04: the toast says it is the NEW price and from when.
     expect(
-      await screen.findByText(`Đã lưu căn 101. Giá áp dụng từ ${formatLocalDate(tomorrow)}.`),
+      await screen.findByText(
+        tv('rooms.saved_scheduled', { room: '101', date: formatLocalDate(tomorrow) }),
+      ),
     ).toBeInTheDocument();
     const row = screen.getByText('The Amber').closest('tr')!;
     expect(within(row).getByText('667.000')).toBeInTheDocument();
-    expect(mockControl.db.scheduledListPrices).toEqual([
-      expect.objectContaining({ effectiveFrom: tomorrow, nightlyListPriceVnd: 700_000 }),
-    ]);
+    // UXD §3.6: the table shows the next scheduled price.
+    expect(
+      within(row).getByText(
+        tv('rooms.next_price', {
+          date: tomorrow.slice(8, 10) + '/' + tomorrow.slice(5, 7),
+          amount: '700.000 đ',
+        }),
+      ),
+    ).toBeInTheDocument();
 
-    // 2. Typing the current price back: today it is no change – Save stays off, the help says what to do.
+    // 2. The drawer now lists that row. Typing today's price for today is no change – Save off, with the reason.
     dlg = await openRoom(user, '101');
+    expect(
+      within(dlg).getByText(tv('rooms.scheduled_from', { date: formatLocalDate(tomorrow) })),
+    ).toBeInTheDocument();
     nightly = within(dlg).getByLabelText(/Giá đêm niêm yết/);
     await user.clear(nightly);
     await user.type(nightly, '667000');
     const save = within(dlg).getByRole('button', { name: 'Lưu' });
     expect(save).toBeDisabled();
+    expect(save).toHaveAccessibleDescription(
+      tv('rooms.price_unchanged', { date: formatLocalDate(today) }),
+    );
     from = within(dlg).getByLabelText(/Hiệu lực từ/);
     expect(from).toHaveAccessibleDescription(
-      'Đây là giá đang dùng. Muốn thay một giá đã lên lịch, chọn đúng ngày hiệu lực của giá đó.',
+      tv('rooms.price_for_date', { date: formatLocalDate(today) }),
     );
-    // A reason alone sends nothing, so it does not unlock Save either.
     await user.type(within(dlg).getByLabelText(/Lý do đổi giá/), 'Nhập nhầm giá B2');
     expect(save).toBeDisabled();
 
-    // 3. Same price for tomorrow = a real change: it replaces the row scheduled for that date.
+    // 3. Tomorrow = the scheduled row's date: both of its prices are replaced – said before saving.
     await user.clear(from);
     await user.type(from, tomorrow);
     expect(from).toHaveAccessibleDescription(
-      `Lưu để giữ giá này từ ${formatLocalDate(tomorrow)}. Giá đã lên lịch đúng ngày đó sẽ được thay; giá lên lịch ngày khác giữ nguyên.`,
+      tv('rooms.price_replace_scheduled', {
+        date: formatLocalDate(tomorrow),
+        night: '700.000 đ',
+        month: '8.000.000 đ',
+      }),
     );
     expect(save).toBeEnabled();
     await user.click(save);

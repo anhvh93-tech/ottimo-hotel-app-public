@@ -3,7 +3,8 @@
  * Roles come from x-roles (AuthGuard, before anything here); checkIn also needs a trusted device
  * (x-requires-trusted-device, guard). Writes run in ONE UnitOfWork transaction (Idempotency-Key + If-Match);
  * reads and every `dryRun` run in a READ ONLY transaction without those headers (SEC A3 / A-30 – never
- * `uow.run` for a dry run).
+ * `uow.run` for a dry run). Exception (ADR-015, OpenAPI 0.3.9): the B16 preview runs the write function in
+ * `uow.simulate` – a transaction the database refuses to commit, always rolled back.
  */
 import {
   Body,
@@ -38,7 +39,7 @@ import {
 import { CheckinService } from './checkin.service';
 import { CheckoutService } from './checkout.service';
 import { PartyService } from './party.service';
-import { StayService } from './stay.service';
+import { type EarlyDepartureOutcome, StayService } from './stay.service';
 import { StaySupport } from './stay-support';
 
 interface Reply {
@@ -374,22 +375,26 @@ export class FrontdeskController {
     @Body() raw: unknown,
   ) {
     const id = pathId(reservationId);
-    // OpenAPI 0.3.6 bổ sung 2 (E04-06): EarlyDepartureResult.
+    const body = asBody(raw);
+    if (isDryRun(body)) {
+      // OpenAPI 0.3.9 / ADR-015: the preview runs the WRITE function in a transaction that is always rolled back
+      // (UnitOfWork.simulate – no Idempotency-Key, no If-Match, nothing kept). Never `uow.run` for a dry run.
+      reply.status(200);
+      const preview = await this.uow.simulate(req, async (tx) => {
+        const ctx = await this.ctx(tx, req);
+        const r = await this.stays.earlyDeparture(tx, ctx, id, null, body);
+        if (!r.storedDto) throw new Error('B16 dry run without the stored booking');
+        return earlyDepartureBody(r, r.storedDto);
+      });
+      const v = (preview.reservation as { version?: unknown }).version;
+      if (typeof v === 'number') setETag(reply, v);
+      return preview;
+    }
+    // OpenAPI 0.3.6 bổ sung 2 (E04-06) + 0.3.9: EarlyDepartureResult.
     const result = await this.uow.run(req, async (tx) => {
       const ctx = await this.ctx(tx, req);
-      const r = await this.stays.earlyDeparture(tx, ctx, id, expectedVersion(req), asBody(raw));
-      return {
-        status: 200,
-        body: {
-          reservation: await this.s.stay.dtoOf(tx, ctx, r.row),
-          earlyDepartureFeeVnd: r.earlyDepartureFeeVnd,
-          refundVnd: r.refundVnd,
-          // 0.3.6 bổ sung 4 (DOM 17/10 (4)): the collected / only-reversed BR-110 fee of the dropped nights.
-          extraPersonRefundVnd: r.extraPersonRefundVnd,
-          extraPersonReversedVnd: r.extraPersonReversedVnd,
-          refundRequestId: r.refundRequestId,
-        },
-      };
+      const r = await this.stays.earlyDeparture(tx, ctx, id, expectedVersion(req), body);
+      return { status: 200, body: earlyDepartureBody(r, await this.s.stay.dtoOf(tx, ctx, r.row)) };
     });
     const out = applyResult(reply, result) as { reservation?: { version?: number } };
     if (typeof out.reservation?.version === 'number') setETag(reply, out.reservation.version);
@@ -556,5 +561,38 @@ function childSummary(child: ReservationRow): Record<string, unknown> {
     nights: nightsOf(child.arrival_date, child.departure_date),
     channelCode: child.channel_code,
     conflictState: child.conflict_state,
+  };
+}
+
+/**
+ * OpenAPI 0.3.9 `EarlyDepartureResult` – the same body for the dry run (stored booking) and the write (booking after
+ * the change): FB-R3-SEC-ARC-02, the preview never answers the changed booking or its version.
+ */
+function earlyDepartureBody(
+  r: EarlyDepartureOutcome,
+  reservation: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    reservation,
+    earlyDepartureFeeVnd: r.earlyDepartureFeeVnd,
+    refundVnd: r.refundVnd,
+    // 0.3.6 bổ sung 4 (DOM 17/10 (4)): the collected / only-reversed BR-110 fee of the dropped nights.
+    extraPersonRefundVnd: r.extraPersonRefundVnd,
+    extraPersonReversedVnd: r.extraPersonReversedVnd,
+    refundRequestId: r.refundRequestId,
+    noticeDays: r.noticeDays,
+    noticeBusinessDate: r.noticeBusinessDate,
+    droppedNights: r.droppedNights,
+    droppedNetVnd: r.droppedNetVnd,
+    refundableVnd: r.refundableVnd,
+    roomChangeDifferenceVnd: r.roomChangeDifferenceVnd,
+    roomChangeDifferenceReversedVnd: r.roomChangeDifferenceReversedVnd,
+    refundablePaidVnd: r.refundablePaidVnd,
+    refundCapped: r.refundCapped,
+    ...(r.otaRetainedMaxVnd !== undefined ? { otaRetainedMaxVnd: r.otaRetainedMaxVnd } : {}),
+    otaRetainedRequired: r.otaRetainedRequired,
+    evidenceRequired: r.evidenceRequired,
+    childBookings: r.childBookings,
+    registrationNeedsUpdate: r.registrationNeedsUpdate,
   };
 }

@@ -57,8 +57,8 @@ function makeDb() {
     groups: seedGroups(),
     rooms: seedRooms(),
     /**
-     * BUG-R3-018: `room_list_price` rows dated after the business day. Server-side only – contract 0.3.8 returns
-     * just `currentListPrice`; kept here so tests can check a same-date save replaces the scheduled row.
+     * BUG-R3-018: `room_list_price` rows dated after the business day. 0.3.9 (phần 1): served to OWN/MGR as
+     * `Room.scheduledListPrices` (rows still after the business day), cancelled with `cancelScheduledRoomListPrice`.
      */
     scheduledListPrices: [] as Array<{
       roomId: string;
@@ -66,6 +66,8 @@ function makeDb() {
       monthlyListPriceVnd: number;
       nightlyListPriceVnd: number;
       reason: string;
+      changedBy?: string | null;
+      changedAt?: string;
     }>,
     params: seedParams(),
     history: new Map<string, Parameter[]>(),
@@ -459,8 +461,24 @@ function omit<T extends object>(o: T, keys: string[]): T {
 }
 
 function roomView(r: Room, roles: Role[]): Room {
-  if (FD_PLUS.some((x) => roles.includes(x)) || SALES.some((x) => roles.includes(x))) return r;
-  return omit(r, ['baseOccupancy', 'maxOccupancy', 'currentListPrice']);
+  // 0.3.9 `scheduledListPrices` (x-visible-to owner, manager): rows after the business day, ascending.
+  const out: Room = omit(r, ['scheduledListPrices']);
+  if (roles.includes('owner') || roles.includes('manager')) {
+    const today = businessDayLocal();
+    out.scheduledListPrices = db.scheduledListPrices
+      .filter((x) => x.roomId === r.id && x.effectiveFrom > today)
+      .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom))
+      .map((x) => ({
+        effectiveFrom: x.effectiveFrom,
+        monthlyListPriceVnd: x.monthlyListPriceVnd,
+        nightlyListPriceVnd: x.nightlyListPriceVnd,
+        changedBy: x.changedBy ?? null,
+        changedAt: x.changedAt ?? new Date().toISOString(),
+        reason: x.reason,
+      }));
+  }
+  if (FD_PLUS.some((x) => roles.includes(x)) || SALES.some((x) => roles.includes(x))) return out;
+  return omit(out, ['baseOccupancy', 'maxOccupancy', 'currentListPrice']);
 }
 
 /** x-visible-to filtering of Guest (rbac §6): absent, not null. */
@@ -830,6 +848,8 @@ export const handlers = [
         monthlyListPriceVnd: Number(lp.monthlyListPriceVnd),
         nightlyListPriceVnd: Number(lp.nightlyListPriceVnd),
         reason: String(lp.reason),
+        changedBy: g.user.displayName,
+        changedAt: new Date().toISOString(),
       };
       const at = db.scheduledListPrices.findIndex(
         (r) => r.roomId === row.roomId && r.effectiveFrom === row.effectiveFrom,
@@ -862,8 +882,38 @@ export const handlers = [
           ).length
         : 0;
     const warnings = keep ? [{ code: 'FUTURE_RESERVATIONS_KEEP_ROOM', count: keep }] : [];
-    return HttpResponse.json({ ...room, warnings }, { headers: { etag: `"${room.version}"` } });
+    return HttpResponse.json(
+      { ...roomView(room, g.roles), warnings },
+      { headers: { etag: `"${room.version}"` } },
+    );
   }),
+  // 0.3.9 cancelScheduledRoomListPrice (BUG-R3-018 phần 1): OWN/MGR, If-Match = Room.version.
+  http.post(
+    `${prop}/rooms/:roomId/list-prices/actions/cancel-scheduled`,
+    async ({ request, params }) => {
+      const room = db.rooms.find((r) => r.id === params.roomId);
+      if (!room) return problem(404, 'NOT_FOUND');
+      const g = guard(request, ['owner', 'manager'], { ifMatch: room.version });
+      if (isResponse(g)) return g;
+      const body = (await request.json()) as { effectiveFrom?: string; reason?: string };
+      if (String(body.reason ?? '').trim().length < 3)
+        return validation([{ field: 'reason', code: 'REASON_REQUIRED' }]);
+      const at = db.scheduledListPrices.findIndex(
+        (x) => x.roomId === room.id && x.effectiveFrom === body.effectiveFrom,
+      );
+      if (at < 0) return problem(404, 'NOT_FOUND');
+      if (db.scheduledListPrices[at]!.effectiveFrom <= businessDayLocal())
+        return problem(409, 'INVALID_TRANSITION', { currentState: 'effective' });
+      if (
+        !room.currentListPrice &&
+        db.scheduledListPrices.filter((x) => x.roomId === room.id).length === 1
+      )
+        return problem(409, 'INVALID_TRANSITION', { currentState: 'only_price' });
+      db.scheduledListPrices.splice(at, 1);
+      room.version += 1;
+      return HttpResponse.json(roomView(room, g.roles), { headers: { etag: `"${room.version}"` } });
+    },
+  ),
 
   // ---------- R3-Q51 receiving account (OpenAPI 0.3.8; SEC mục C) – before the generic handlers ----------
   http.get(`${prop}/parameters/${RECEIVING_KEY}`, ({ request }) => {

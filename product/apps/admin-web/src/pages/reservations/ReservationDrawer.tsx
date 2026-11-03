@@ -48,6 +48,7 @@ import {
   UndoCheckInDialog,
 } from '../stay/StayDialogs';
 import { BillDialog } from '../stay/CheckOutPage';
+import { EarlyDepartureDialog } from '../stay/EarlyDepartureDialog';
 import { FolioDialog } from '../stay/FolioDialog';
 
 type Open =
@@ -62,6 +63,7 @@ type Open =
   | 'notice'
   | 'extend_stay'
   | 'late'
+  | 'early'
   | 'change_room'
   | 'charge'
   | 'confirm_time'
@@ -362,6 +364,11 @@ export function ReservationDrawer({
       ) : null}
       {allowed.has('set_late_checkout') ? (
         <Button onClick={() => setOpen('late')}>{t('drawer.action.late_checkout')}</Button>
+      ) : null}
+      {allowed.has('early_departure') ? (
+        // 0.3.9 B16 (US-137; bổ sung 1 mục 10.1, FB-R3-UXD-FE-A-06): only `allowedActions` – the server offers it
+        // while max(today, arrival + 1) < stayDepartureDate (the whole stay, child extensions included).
+        <Button onClick={() => setOpen('early')}>{t('drawer.action.early_departure')}</Button>
       ) : null}
       {allowed.has('extend_stay') ? (
         <Button onClick={() => setOpen('extend_stay')}>{t('drawer.action.extend')}</Button>
@@ -795,6 +802,14 @@ export function ReservationDrawer({
       ) : null}
       {r && open === 'late' ? (
         <LateCheckoutDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />
+      ) : null}
+      {r && open === 'early' ? (
+        <EarlyDepartureDialog
+          reservation={r}
+          onClose={() => setOpen(null)}
+          onDone={done}
+          onReload={() => void reloadNow()}
+        />
       ) : null}
       {r && open === 'change_room' ? (
         <ChangeRoomDialog reservation={r} onClose={() => setOpen(null)} onDone={done} />

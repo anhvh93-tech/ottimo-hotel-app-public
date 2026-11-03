@@ -9,6 +9,9 @@ export type FieldError = Schemas['FieldError'];
 export type Role = Schemas['Role'];
 export type Room = Schemas['Room'];
 export type RoomPatch = Schemas['RoomPatch'];
+/** 0.3.9 (BUG-R3-018 phần 1): a `room_list_price` row dated after the business day (OWN/MGR only). */
+export type RoomScheduledListPrice = Schemas['RoomScheduledListPrice'];
+export type CancelScheduledRoomListPriceBody = BodyOf<'cancelScheduledRoomListPrice'>;
 export type RoomGroup = Schemas['RoomGroup'];
 export type Parameter = Schemas['Parameter'];
 export type Guest = Schemas['Guest'];
@@ -117,6 +120,11 @@ export type ExtendStayResult = ResponseOf<'extendStay'>;
 export type GuestLinkIssued = ResponseOf<'issueGuestLink'>;
 export type LateCheckoutBody = BodyOf<'setLateCheckout'>;
 export type LateCheckoutResult = Schemas['LateCheckoutResult'];
+/** 0.3.9 (US-137, US-135): B16 – the same body for the preview (`dryRun: true`) and the write. */
+export type EarlyDepartureBody = BodyOf<'earlyDeparture'>;
+/** 0.3.9: the same schema for the preview and the write (explanatory fields absent = a 0.3.8 server). */
+export type EarlyDepartureResult = Schemas['EarlyDepartureResult'];
+export type EarlyDepartureNight = NonNullable<EarlyDepartureResult['droppedNights']>[number];
 export type ChangeRoomBody = BodyOf<'changeRoom'>;
 export type ChangeRoomPreview = Schemas['ChangeRoomPreview'];
 export type CheckoutConfirmationBody = BodyOf<'recordCheckoutConfirmation'>;

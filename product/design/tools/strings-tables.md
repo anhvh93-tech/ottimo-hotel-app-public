@@ -1756,7 +1756,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `params.grp_security` | Bảo mật | Security | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
 | `params.grp_other` | Khác | Other | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
 | `params.saved` | Đã lưu {name}, hiệu lực từ {date}. | Saved {name}, effective {date}. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
-| `rooms.saved` | Đã lưu căn {room}. | Saved unit {room}. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
+| `rooms.saved` | Đã lưu căn {room}. | Room {room} saved. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt. v1.0.1: EN theo FB-R3-UXD-FE-A-04 (Suggestion) |
 | `rooms.view_only` | Bạn đang xem danh mục căn. Chỉ chủ đầu tư và quản lý sửa được. | You are viewing the unit list. Only the owner and managers can edit. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
 | `rooms.below_item` | {code} · {from} → {to} · {n} khách | {code} · {from} → {to} · {n} guests | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
 | `crm.prompt_title` | Tìm khách để bắt đầu | Search for a guest to start | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
@@ -3737,13 +3737,168 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `field_error.multiple_of_1000` | Nhập số tròn nghìn, ví dụ 650.000. | Use whole thousands, e.g. 650,000. | ⟨chừa chỗ⟩ | BR-005 – giá niêm yết bội 1.000; lỗi tại ô (listPrice.nightlyListPriceVnd). UXD duyệt R3 Review 26/10: EN "for example" → "e.g." như các lỗi trường khác |
 | `rooms.night_low` | Giá đêm đang thấp hơn giá tháng chia 30 ngày ({perDay} đ). Kiểm tra lại số; nếu đúng, vẫn lưu được. | The nightly price is below the monthly price per day ({perDay} VND). Check the figure – you can still save if it is right. | ⟨chừa chỗ⟩ | Cảnh báo mềm, không chặn lưu (BR-101 v0.4.7 (4): giá đêm < giá tháng ÷ 30). {perDay} = giá tháng ÷ 30, làm tròn 1.000, chỉ số (không đơn vị). UXD duyệt R3 Review 26/10: thêm đơn vị đ/VND sau {perDay}; câu sau nói rõ vẫn lưu được (cảnh báo mềm), bỏ "Please" |
 
-#### R3 v1.0 – FE-A BUG-R3-018: giá đã lên lịch (H04 4.2)
+#### R3 v1.0 – FE-A BUG-R3-018: giá đã lên lịch (H04 4.2) – UXD duyệt; v1.0.1 bỏ price_same_* (FB-R3-UXD-FE-A-05)
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
 |---|---|---|---|---|
-| `rooms.price_same_today` | Đây là giá đang dùng. Muốn thay một giá đã lên lịch, chọn đúng ngày hiệu lực của giá đó. | This is the current price. To replace a scheduled price, choose the date it takes effect. | ⟨chừa chỗ⟩ | Chữ phụ dưới ô Hiệu lực từ khi giá gõ lại trùng giá đang dùng và ngày = hôm nay (nút Lưu chưa mở). FE-A soạn – chờ UXD duyệt |
-| `rooms.price_same_future` | Lưu để giữ giá này từ {date}. Giá đã lên lịch đúng ngày đó sẽ được thay; giá lên lịch ngày khác giữ nguyên. | Save to keep this price from {date}. A price scheduled for that date is replaced; prices scheduled for other dates stay. | ⟨chừa chỗ⟩ | Chữ phụ dưới ô Hiệu lực từ khi giá trùng giá đang dùng và ngày > hôm nay (rooms.service upsert theo room_id + effective_from). {date} = dd/mm/yyyy. FE-A soạn – chờ UXD duyệt |
-| `rooms.saved_scheduled` | Đã lưu căn {room}. Giá áp dụng từ {date}. | Saved unit {room}. The price applies from {date}. | ⟨chừa chỗ⟩ | Toast sau khi lưu giá có ngày hiệu lực sau hôm nay (bảng vẫn hiện giá hôm nay đến ngày đó). FE-A soạn – chờ UXD duyệt |
+| `rooms.saved_scheduled` | Đã lưu căn {room}. Giá mới áp dụng từ {date}. | Room {room} saved. The new price applies from {date}. | ⟨chừa chỗ⟩ | Toast sau khi lưu giá có ngày hiệu lực sau hôm nay. v1.0.1: sửa theo FB-R3-UXD-FE-A-04 (UXD) |
+
+#### R3 v1.0.1 – UXD: Trả sớm B16 (H15 15.7, OpenAPI 0.3.9, US-137/US-135, BR-428). FE-A dán vào gen_strings.py
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `early_departure.title` | Trả sớm · Căn {room} · {guest} | Early departure · Room {room} · {guest} | ⟨chừa chỗ⟩ | Tiêu đề Modal lg. Mẫu như extend.title, late.title |
+| `early_departure.steps_label` | Các bước trả sớm | Early departure steps | ⟨chừa chỗ⟩ | aria-label của C17 Steps |
+| `early_departure.step_input` | Ngày rời và giờ báo | Date and notice | ⟨chừa chỗ⟩ | Bước 1 |
+| `early_departure.step_preview` | Xem trước | Preview | ⟨chừa chỗ⟩ | Bước 2 |
+| `early_departure.step_result` | Kết quả | Result | ⟨chừa chỗ⟩ | Bước 3 |
+| `early_departure.stay_now` | Lượt ở hiện tại: {range} | Current stay: {range} | ⟨chừa chỗ⟩ | {range} = khoảng ngày đã định dạng (content-guide 4), gồm đơn con gia hạn |
+| `early_departure.none_possible` | Không còn ngày rời nào sớm hơn ngày đi hiện tại. | There is no earlier departure date available. | ⟨chừa chỗ⟩ | Khi khoảng chọn rỗng (đến hôm nay, đi ngày mai). Desk ẩn nút Trả sớm; chuỗi này cho trường hợp mở từ liên kết cũ |
+| `early_departure.new_date` | Ngày rời mới | New departure date | ⟨chừa chỗ⟩ | C30 chọn một ngày |
+| `early_departure.new_date_help` | Từ {min} đến {max}. Các đêm từ ngày này trở đi được mở bán lại. | From {min} to {max}. Nights from this date on go back on sale. | ⟨chừa chỗ⟩ | {min} = max(hôm nay nghiệp vụ, ngày đến + 1); {max} = ngày đi − 1 |
+| `early_departure.notice_at` | Khách báo lúc | Guest told us at | ⟨chừa chỗ⟩ | Legend của nhóm ngày + giờ. Mặc định = lúc mở hộp. VI sửa 27/10 (UXD G2) |
+| `early_departure.notice_at_help` | Mặc định là lúc mở hộp. Sửa nếu khách đã báo sớm hơn (tin nhắn, cuộc gọi). | Defaults to when this box opened. Change it if the guest told us earlier (message, call). | ⟨chừa chỗ⟩ |  |
+| `early_departure.notice_days` | Báo trước {n} ngày (ngày nghiệp vụ lúc khách báo: {date}). | Notice: {n} day(s) (business date when the guest told us: {date}). | ⟨chừa chỗ⟩ | noticeDays + noticeBusinessDate của lần tính thử cuối – không tự đếm ở client |
+| `early_departure.notice_after_midnight` | Khách báo sau nửa đêm nên tính theo ngày nghiệp vụ {date}. | The guest told us after midnight, so business date {date} applies. | ⟨chừa chỗ⟩ | Hiện khi noticeBusinessDate khác ngày lịch của noticeGivenAt (BR-010, BR-428-03) |
+| `early_departure.evidence_title` | Bằng chứng giờ báo | Proof of notice time | ⟨chừa chỗ⟩ | Mục hiện khi giờ báo bị sửa lùi so với lúc mở hộp |
+| `early_departure.evidence_why` | Giờ báo sớm hơn lúc này nên cần bằng chứng (BR-011). | The notice time is earlier than now, so proof is needed (BR-011). | ⟨chừa chỗ⟩ | Khi evidenceRequired = true |
+| `early_departure.evidence_optional` | Chênh lệch nhỏ – bằng chứng không bắt buộc. | Small difference – proof is optional. | ⟨chừa chỗ⟩ | Khi đã sửa lùi nhưng evidenceRequired = false. Không ghi số phút (tham số manual_time_tolerance_minutes) |
+| `early_departure.evidence_note` | Khách báo qua đâu, lúc nào | How and when the guest told us | ⟨chừa chỗ⟩ | noticeEvidence.note 3–500 ký tự |
+| `early_departure.evidence_note_ph` | Ví dụ: Zalo 21/10 09:40, khách xin rời 22/10 | e.g. Zalo 21 Oct 09:40, guest asked to leave on 22 Oct | ⟨chừa chỗ⟩ | Placeholder – nhãn vẫn hiện phía trên |
+| `early_departure.evidence_photo` | Ảnh tin nhắn của khách (không bắt buộc) | Photo of the guest's message (optional) | ⟨chừa chỗ⟩ | Tải ảnh purpose=penalty_evidence, gửi attachmentId |
+| `early_departure.evidence_add` | Chọn ảnh | Choose photo | ⟨chừa chỗ⟩ | Nút C23 trong mục bằng chứng – một ảnh |
+| `early_departure.ota_retained` | Số OTA giữ lại | Amount kept by the OTA | ⟨chừa chỗ⟩ | Ô tiền VND – chỉ hiện khi có otaRetainedMaxVnd |
+| `early_departure.ota_retained_help` | Theo extranet {channel}. Tối đa {max} – tiền OTA của các đêm bỏ. Ghi 0 nếu OTA hoàn đủ cho khách. | As shown on the {channel} extranet. Up to {max} – the OTA amount for the dropped nights. Enter 0 if the OTA refunds the guest in full. | ⟨chừa chỗ⟩ | {max} = otaRetainedMaxVnd đã định dạng |
+| `early_departure.ota_needed` | Đơn {channel}: nhập số OTA giữ lại để xem trước. | {channel} booking: enter the amount kept by the OTA to see the preview. | ⟨chừa chỗ⟩ | Dòng trạng thái khi otaRetainedRequired = true |
+| `early_departure.evidence_needed` | Thêm bằng chứng giờ báo để xem trước. | Add proof of the notice time to see the preview. | ⟨chừa chỗ⟩ | Dòng trạng thái khi evidenceRequired = true và chưa có ghi chú |
+| `early_departure.preview_loading` | Đang tính thử… | Working out the figures… | ⟨chừa chỗ⟩ | dryRun đang chạy; nút Xem trước khóa |
+| `early_departure.preview_failed` | Chưa tính thử được nên chưa trả sớm được. Bấm Thử lại. | Couldn't work out the figures, so the early departure can't be recorded yet. Select Try again. | ⟨chừa chỗ⟩ | Mạng/5xx ở dryRun – kèm common.retry |
+| `early_departure.preview_unavailable` | Máy chủ chưa hỗ trợ xem trước trả sớm nên chưa làm được trên Desk. Báo quản lý. | The server can't preview early departures yet, so this can't be done on the Desk. Tell a manager. | ⟨chừa chỗ⟩ | 422 dryRun NOT_ALLOWED (server trước BE-A) hoặc phản hồi thiếu trường diễn giải 0.3.9 – không tự tính thay |
+| `early_departure.to_preview` | Xem trước số tiền | Preview amounts | ⟨chừa chỗ⟩ | Nút chính bước 1 |
+| `early_departure.to_preview_wait` | Chờ tính thử xong để xem trước. | Wait for the figures to be worked out. | ⟨chừa chỗ⟩ | Lý do nút khóa (aria-describedby) |
+| `early_departure.to_preview_needs` | Điền các ô còn thiếu ở trên để xem trước. | Fill in the missing fields above to see the preview. | ⟨chừa chỗ⟩ | Lý do nút khóa khi còn cờ otaRetainedRequired/evidenceRequired |
+| `early_departure.preview_question` | Trả sớm cho {guest}, rời {date}? | Early departure for {guest}, leaving {date}? | ⟨chừa chỗ⟩ | Tiêu đề bước 2 – câu hỏi có đối tượng (DS 6.1) |
+| `early_departure.preview_note` | Số do máy chủ tính. Chưa ghi gì. | Figures from the server. Nothing has been recorded yet. | ⟨chừa chỗ⟩ |  |
+| `early_departure.nights_title` | Đêm mở bán lại | Nights back on sale | ⟨chừa chỗ⟩ | Tiêu đề bảng droppedNights |
+| `early_departure.col_booking` | Đơn | Booking | ⟨chừa chỗ⟩ | reservationCode – JetBrains Mono |
+| `early_departure.col_basis` | Cách tính | Basis | ⟨chừa chỗ⟩ |  |
+| `early_departure.basis_ota` | Theo OTA | Per OTA | ⟨chừa chỗ⟩ | droppedNights[].ota = true – chip neutral |
+| `early_departure.basis_policy` | Chính sách OTTIMO | OTTIMO policy | ⟨chừa chỗ⟩ | ota = false – chip ink |
+| `early_departure.col_amount` | Tiền phòng (đ) | Room charge (VND) | ⟨chừa chỗ⟩ | netVnd – số trần, canh phải |
+| `early_departure.room_unassigned` | Chưa gán | Not assigned | ⟨chừa chỗ⟩ | roomNo = null |
+| `early_departure.nights_note` | Đêm chính sách OTTIMO: tiền ròng sau giảm giá, miễn phí đã duyệt. Đêm OTA: tiền OTA của đêm. Không gồm phụ thu người. | OTTIMO policy nights: net after discounts and approved waivers. OTA nights: the OTA amount for the night. Extra-guest charges not included. | ⟨chừa chỗ⟩ | Chú thích dưới bảng |
+| `early_departure.calc_title` | Cách tính | How it's worked out | ⟨chừa chỗ⟩ | Tiêu đề bảng .sum |
+| `early_departure.row_base` | Cơ sở: tiền phòng ròng các đêm bỏ (không gồm đêm OTA) | Basis: net room charge of the dropped nights (excluding OTA nights) | ⟨chừa chỗ⟩ | droppedNetVnd – ẩn dòng khi = 0 và mọi đêm là OTA |
+| `early_departure.row_notice` | Báo trước | Notice | ⟨chừa chỗ⟩ | Giá trị = early_departure.notice_value |
+| `early_departure.notice_value` | {n} ngày | {n} day(s) | ⟨chừa chỗ⟩ |  |
+| `early_departure.row_refundable` | Phần hoàn theo chính sách trả sớm | Refund under the early departure policy | ⟨chừa chỗ⟩ | refundableVnd. Không ghi % (tham số early_departure_refund) |
+| `early_departure.row_refundable_after_cap` | Trong đó hoàn được (tới mức khách đã trả thừa) | Of which refunded (up to what the guest overpaid) | ⟨chừa chỗ⟩ | refundablePaidVnd (ARC 0.3.9 bổ sung 1–2), chỉ khi refundCapped; chữ Ink. UXD duyệt lượt 2 (FB-R3-UXD-FE-A-13) |
+| `early_departure.no_refund_notice` | Không hoàn: khách báo trước chưa đủ số ngày theo chính sách trả sớm. | No refund: the guest didn't give enough notice under the early departure policy. | ⟨chừa chỗ⟩ | Dòng phụ khi refundableVnd = 0 và droppedNetVnd > 0. DOM ED-07; VI sửa theo UXD lượt 2 (FB-R3-UXD-FE-A-15) |
+| `early_departure.row_extra_refund` | Phụ thu người của các đêm bỏ – hoàn | Extra-guest charge for the dropped nights – refunded | ⟨chừa chỗ⟩ | extraPersonRefundVnd > 0. DOM 27/10 (FB-R3-DOM-UXD-ED-01, câu thay thế nguyên văn) – FE-A áp, chờ UXD duyệt |
+| `early_departure.row_extra_reversed` | Phụ thu người của các đêm bỏ – chỉ đảo dòng, không hoàn (vượt số khách trả thừa) | Extra-guest charge for the dropped nights – reversed, not refunded (more than the guest overpaid) | ⟨chừa chỗ⟩ | extraPersonReversedVnd > 0, chữ Stone, không cộng vào tổng. DOM 27/10 (FB-R3-DOM-UXD-ED-01, câu thay thế nguyên văn) – FE-A áp, chờ UXD duyệt |
+| `early_departure.row_room_change` | Chênh lệch đổi phòng của các đêm bỏ – hoàn | Room change difference for the dropped nights – refunded | ⟨chừa chỗ⟩ | roomChangeDifferenceVnd (sau trần, ARC 0.3.9 bổ sung 1 mục 10.2) > 0. DOM 27/10 (FB-R3-DOM-UXD-ED-01, câu thay thế nguyên văn) – FE-A áp, chờ UXD duyệt |
+| `early_departure.row_room_change_reversed` | Chênh lệch đổi phòng của các đêm bỏ – chỉ đảo dòng, không hoàn (vượt số khách trả thừa) | Room change difference for the dropped nights – reversed, not refunded (more than the guest overpaid) | ⟨chừa chỗ⟩ | MỚI. roomChangeDifferenceReversedVnd > 0, chữ Stone, không cộng vào tổng. DOM 27/10 (FB-R3-DOM-UXD-ED-01, câu thay thế nguyên văn) – FE-A áp, chờ UXD duyệt |
+| `early_departure.row_ota_retained` | Số OTA giữ lại (đã nhập) | Amount kept by the OTA (entered) | ⟨chừa chỗ⟩ | otaRetainedVnd của thân gửi |
+| `early_departure.ota_room_note` | Tiền phòng OTA của các đêm bỏ: OTA hoàn hay giữ theo chính sách của kênh, không qua OTTIMO. | OTA room charge for the dropped nights: refunded or kept by the OTA under its own policy, not through OTTIMO. | ⟨chừa chỗ⟩ | Có đêm OTA bị bỏ. DOM 27/10 (FB-R3-DOM-UXD-ED-03, câu thay thế nguyên văn) – FE-A áp, chờ UXD duyệt |
+| `early_departure.row_refund` | Sẽ xin hoàn cho khách | Refund to request for the guest | ⟨chừa chỗ⟩ | refundVnd – dòng tổng đậm |
+| `early_departure.row_refund_help` | Một yêu cầu hoàn, cần quản lý duyệt. Trả phòng sau đó không tạo thêm yêu cầu. | One refund request, needs manager approval. Check-out won't create another. | ⟨chừa chỗ⟩ |  |
+| `early_departure.row_fee` | Phí trả phòng sớm (ghi vào folio) | Early departure fee (posted to the folio) | ⟨chừa chỗ⟩ | earlyDepartureFeeVnd – dòng tổng đậm |
+| `early_departure.refund_capped` | Khách chưa trả đủ tiền của lượt ở, nên chỉ hoàn {amount} (số khách đã trả thừa). Phần còn lại chỉ làm giảm số khách đang nợ, không trả ra bằng tiền. | The guest hasn't paid for the whole stay, so only {amount} (the overpayment) is refunded. The rest only reduces what the guest owes; it isn't paid out. | ⟨chừa chỗ⟩ | refundCapped = true và refundVnd > 0. DOM 27/10 (FB-R3-DOM-UXD-ED-04, câu thay thế nguyên văn) – FE-A áp, chờ UXD duyệt |
+| `early_departure.refund_capped_zero` | Khách chưa trả thừa nên không có khoản hoàn. Phần hoàn chỉ làm giảm số khách đang nợ. | The guest hasn't overpaid, so there is no refund. The amount only reduces what the guest owes. | ⟨chừa chỗ⟩ | refundCapped = true và refundVnd = 0. DOM 27/10 (FB-R3-DOM-UXD-ED-04, câu thay thế nguyên văn) – FE-A áp, chờ UXD duyệt |
+| `early_departure.no_refund` | Không có khoản hoàn. | No refund. | ⟨chừa chỗ⟩ | refundVnd = 0, refundCapped = false |
+| `early_departure.effects_title` | Sau khi xác nhận | After you confirm | ⟨chừa chỗ⟩ | Tiêu đề khối hậu quả (.consequence) |
+| `early_departure.effect_nights` | Căn {room} mở bán lại: {range}. | Room {room} goes back on sale: {range}. | ⟨chừa chỗ⟩ | Một dòng cho mỗi căn; {range} gộp đêm liên tiếp |
+| `early_departure.effect_departure` | Ngày đi đổi thành {date}. | Departure becomes {date}. | ⟨chừa chỗ⟩ |  |
+| `early_departure.effect_fee` | Ghi dòng "Phí trả phòng sớm" {amount} vào folio. | Posts an "Early departure fee" line of {amount} to the folio. | ⟨chừa chỗ⟩ | earlyDepartureFeeVnd > 0. Tên dòng khớp bill.line.early_departure_fee |
+| `early_departure.effect_child_cancelled` | Đơn con {code} ({n} đêm) bị hủy vì mọi đêm của đơn đều bỏ. | Linked booking {code} ({n} night(s)) is cancelled – all its nights are dropped. | ⟨chừa chỗ⟩ | childBookings[].cancelled = true |
+| `early_departure.effect_child_shortened` | Đơn con {code} bớt {n} đêm. | Linked booking {code} loses {n} night(s). | ⟨chừa chỗ⟩ | childBookings[].cancelled = false |
+| `early_departure.effect_registration` | Khách nước ngoài: cần cập nhật ngày đi trên cổng khai báo trong ngày. | Foreign guests: the departure date must be updated on the registration portal today. | ⟨chừa chỗ⟩ | registrationNeedsUpdate = true |
+| `early_departure.effect_door` | Trên app khóa: rút hiệu lực mã cửa về giờ trả phòng ngày {date}; khi khách trả phòng thì xóa mã. | In the lock app: cut the door code's validity to check-out time on {date}; delete the code when the guest checks out. | ⟨chừa chỗ⟩ | {date} = ngày rời mới. BR-403. DOM 27/10 (FB-R3-DOM-UXD-ED-05, câu thay thế nguyên văn) – FE-A áp, chờ UXD duyệt |
+| `early_departure.effect_ota_reopen` | Mở lại các đêm này trên extranet OTA (Desk chưa tự mở). | Reopen these nights on the OTA extranets (Desk doesn't do this yet). | ⟨chừa chỗ⟩ | MỚI. Luôn hiện tới v1.1 (chưa có kết nối kênh). DOM 27/10 (FB-R3-DOM-UXD-ED-06, câu thay thế nguyên văn) – FE-A áp, chờ UXD duyệt |
+| `early_departure.told_guest` | Đã báo khách số hoàn và phí trả phòng sớm | I've told the guest the refund and the early departure fee | ⟨chừa chỗ⟩ | Checkbox bắt buộc trước khi xác nhận; bỏ tick khi số đổi |
+| `early_departure.confirm_needs_told` | Tick "Đã báo khách…" để bật nút Xác nhận trả sớm. | Tick "I've told the guest…" to enable Confirm early departure. | ⟨chừa chỗ⟩ | Lý do nút khóa |
+| `early_departure.confirm` | Xác nhận trả sớm | Confirm early departure | ⟨chừa chỗ⟩ | Nút danger (DS 6.1) |
+| `early_departure.amount_changed` | Số tiền vừa thay đổi: hoàn {refund}, phí {fee}. Chưa ghi gì. Xem số mới, báo lại khách rồi tick lại. | The amounts have just changed: refund {refund}, fee {fee}. Nothing was recorded. Check the new figures, tell the guest again, then tick again. | ⟨chừa chỗ⟩ | 409 AMOUNT_CHANGED – Desk tính thử lại rồi hiện số của lần tính thử mới |
+| `early_departure.changed_chip` | Vừa đổi | Just changed | ⟨chừa chỗ⟩ | Chip warn ở dòng số đổi |
+| `early_departure.was` | Trước: {amount} | Was {amount} | ⟨chừa chỗ⟩ | Dưới số mới, chữ Stone |
+| `early_departure.commit_failed` | Chưa nhận được kết quả từ máy chủ. Bấm Thử lại – thao tác không bị ghi hai lần. | No answer from the server yet. Select Try again – it won't be recorded twice. | ⟨chừa chỗ⟩ | Mạng/5xx ở lần ghi. Thử lại dùng lại Idempotency-Key cũ |
+| `early_departure.err.date_range` | Chọn ngày từ {min} đến {max}. | Choose a date from {min} to {max}. | ⟨chừa chỗ⟩ | newDepartureDate DATE_INVALID / kiểm ở client |
+| `early_departure.err.notice_future` | Giờ báo không được muộn hơn lúc này. | The notice time can't be later than now. | ⟨chừa chỗ⟩ | noticeGivenAt DATE_INVALID |
+| `early_departure.err.ota_over_max` | Không quá {max} – tiền OTA của các đêm bỏ. | No more than {max} – the OTA amount for the dropped nights. | ⟨chừa chỗ⟩ | otaRetainedVnd VALUE_OUT_OF_RANGE (+ max) |
+| `early_departure.err.ota_required` | Nhập số OTA giữ lại theo extranet; ghi 0 nếu OTA hoàn đủ. | Enter the amount kept by the OTA from the extranet; 0 if the OTA refunds in full. | ⟨chừa chỗ⟩ | otaRetainedVnd REQUIRED (lần ghi) |
+| `early_departure.err.evidence_required` | Ghi khách báo qua đâu, lúc nào (ít nhất 3 ký tự). | Note how and when the guest told us (at least 3 characters). | ⟨chừa chỗ⟩ | noticeEvidence EVIDENCE_REQUIRED / note < 3 ký tự |
+| `early_departure.err.version_conflict` | Đơn vừa được người khác thay đổi. Đã tải lại đơn – thông tin bạn nhập vẫn còn. Kiểm tra rồi xem trước lại. | Someone else just changed this booking. It has been reloaded – what you entered is kept. Check it, then preview again. | ⟨chừa chỗ⟩ | 412 ở lần ghi → về bước 1, tính thử lại |
+| `early_departure.done_title` | Đã ghi trả sớm – khách rời {date} | Early departure recorded – leaving {date} | ⟨chừa chỗ⟩ | Alert ok, role=status; focus vào tiêu đề |
+| `early_departure.done_nights` | Đã mở bán lại {n} đêm: {dates}. | {n} night(s) back on sale: {dates}. | ⟨chừa chỗ⟩ |  |
+| `early_departure.done_fee` | Đã ghi phí trả phòng sớm {amount} vào folio. | Early departure fee of {amount} posted to the folio. | ⟨chừa chỗ⟩ | earlyDepartureFeeVnd > 0 |
+| `early_departure.done_refund` | Đã tạo yêu cầu hoàn {amount}. | Refund request of {amount} created. | ⟨chừa chỗ⟩ | refundRequestId có; kèm chip approval.status.pending |
+| `early_departure.view_refund` | Xem yêu cầu hoàn | View refund request | ⟨chừa chỗ⟩ | Liên kết tới yêu cầu (màn Tiền › Hoàn tiền) |
+| `early_departure.done_child_cancelled` | Đã hủy đơn con {code}. | Linked booking {code} cancelled. | ⟨chừa chỗ⟩ |  |
+| `early_departure.reg_reminder` | Khách nước ngoài: cập nhật ngày đi {date} trên cổng khai báo trong hôm nay. | Foreign guests: update the departure date to {date} on the registration portal today. | ⟨chừa chỗ⟩ | Alert warn bền, không toast (HR-09) |
+| `early_departure.reg_open` | Mở danh sách cần cập nhật | Open the update list | ⟨chừa chỗ⟩ | Tới màn Giấy tờ & khai báo, tab reg2.tab_update |
+| `early_departure.checkout_now_hint` | Ngày rời là hôm nay. Làm tiếp trả phòng: minibar, phát sinh, phiếu thanh toán. | Departure is today. Continue to check-out: minibar, extra charges, guest folio. | ⟨chừa chỗ⟩ | newDepartureDate = hôm nay và allowedActions có check_out |
+| `early_departure.checkout_now` | Trả phòng ngay | Check out now | ⟨chừa chỗ⟩ | Nút chính – mở CheckOutPage |
+| `early_departure.later_hint` | Khách trả phòng ngày {date} như thường lệ – nút Trả phòng hiện vào ngày đó. | The guest checks out on {date} as usual – the Check out button appears that day. | ⟨chừa chỗ⟩ | newDepartureDate > hôm nay |
+| `early_departure.show_calc` | Xem cách tính | Show how it was worked out | ⟨chừa chỗ⟩ | <details> – bảng như bước 2 từ phản hồi lần ghi |
+
+#### R3 v1.0.1 – FE-A nhãn ô ngày/giờ khách báo (UXD duyệt 27/10, G2)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `early_departure.notice_date` | Ngày | Date | ⟨chừa chỗ⟩ | Nhãn ô ngày trong nhóm early_departure.notice_at. UXD duyệt 27/10 (G2) |
+| `early_departure.notice_time` | Giờ | Time | ⟨chừa chỗ⟩ | Nhãn ô giờ trong nhóm early_departure.notice_at (chữ phụ stay.late_help). UXD duyệt 27/10 (G2) |
+
+#### R3 v1.0.1 – UXD: mã lỗi API mới 0.3.9
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `error.AMOUNT_CHANGED` | Số tiền vừa thay đổi nên chưa ghi gì. Xem số mới rồi xác nhận lại. | The amount has just changed, so nothing was recorded. Check the new figures and confirm again. | ⟨chừa chỗ⟩ | 409 – mã mới 0.3.9 (câu chung; B16 dùng early_departure.amount_changed) |
+
+#### R3 v1.0.1 – UXD: giá đã lên lịch trên ngăn kéo căn (H04 4.2, OpenAPI 0.3.9, BUG-R3-018 phần 1). FE-A dán vào gen_strings.py
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `rooms.scheduled_title` | Giá đã lên lịch | Scheduled prices | ⟨chừa chỗ⟩ | Chỉ OWN/MGR – ẩn cả mục khi Room.scheduledListPrices vắng |
+| `rooms.scheduled_current` | Đang dùng từ {date} | Current since {date} | ⟨chừa chỗ⟩ | Dòng đầu = currentListPrice, chip ink |
+| `rooms.scheduled_from` | Từ {date} | From {date} | ⟨chừa chỗ⟩ | Mỗi dòng scheduledListPrices – có thứ: T7 01/11/2026 |
+| `rooms.scheduled_prices` | Giá đêm {night} · Giá tháng {month} | Nightly {night} · Monthly {month} | ⟨chừa chỗ⟩ | {night}, {month} đã định dạng kèm đơn vị |
+| `rooms.scheduled_reason` | Lý do: {reason} | Reason: {reason} | ⟨chừa chỗ⟩ | reason = null → bỏ dòng |
+| `rooms.scheduled_by` | {by} lên lịch lúc {at} | Scheduled by {by} at {at} | ⟨chừa chỗ⟩ | {at} = dd/mm HH:mm |
+| `rooms.scheduled_by_system` | Có từ dữ liệu ban đầu, {at} | From the initial data, {at} | ⟨chừa chỗ⟩ | changedBy = null |
+| `rooms.scheduled_empty` | Chưa có giá nào lên lịch. | No prices scheduled. | ⟨chừa chỗ⟩ | Mảng rỗng |
+| `rooms.cancel_scheduled` | Hủy lịch giá này | Cancel this scheduled price | ⟨chừa chỗ⟩ | Nút sm secondary trên mỗi dòng |
+| `rooms.cancel_scheduled_label` | Hủy lịch giá từ {date} | Cancel the price scheduled from {date} | ⟨chừa chỗ⟩ | aria-label của nút (nhiều dòng cùng chữ) |
+| `rooms.only_price_note` | Giá duy nhất của căn – sửa bằng ô giá ở trên, cùng ngày {date}. | The room's only price – change it in the price fields above, same date {date}. | ⟨chừa chỗ⟩ | Thay nút khi không có currentListPrice và chỉ có 1 dòng lên lịch (tránh 409 only_price) |
+| `rooms.cancel_sched_title` | Hủy lịch giá từ {date} của căn {room}? | Cancel the price scheduled from {date} for room {room}? | ⟨chừa chỗ⟩ | ConfirmDialog C16 |
+| `rooms.cancel_sched_body` | Từ {date}, căn {room} dùng lại giá đêm {night} · giá tháng {month}. Đơn, báo giá đã có giữ giá cũ. | From {date}, room {room} goes back to nightly {night} · monthly {month}. Existing bookings and quotes keep their price. | ⟨chừa chỗ⟩ | {night}/{month} = dòng liền trước (chọn dòng ở client – không tính tiền) |
+| `rooms.cancel_sched_body_until` | Từ {date} đến trước {next}, căn {room} dùng lại giá đêm {night} · giá tháng {month}; từ {next} theo lịch giá kế tiếp. Đơn, báo giá đã có giữ giá cũ. | From {date} until {next}, room {room} goes back to nightly {night} · monthly {month}; from {next} the next scheduled price applies. Existing bookings and quotes keep their price. | ⟨chừa chỗ⟩ | Còn dòng lên lịch sau dòng bị hủy |
+| `rooms.cancel_sched_reason` | Lý do hủy lịch giá | Reason for cancelling | ⟨chừa chỗ⟩ | Bắt buộc 3–500 ký tự |
+| `rooms.cancel_sched_reason_help` | Lưu vào nhật ký cấu hình. | Kept in the settings log. | ⟨chừa chỗ⟩ |  |
+| `rooms.cancel_sched_needs_reason` | Ghi lý do (ít nhất 3 ký tự) để hủy lịch giá. | Add a reason (at least 3 characters) to cancel. | ⟨chừa chỗ⟩ | Lý do nút khóa; cũng là lỗi 422 REASON_REQUIRED |
+| `rooms.cancel_sched_keep` | Giữ lịch giá | Keep scheduled price | ⟨chừa chỗ⟩ | Nút an toàn – nhận focus |
+| `rooms.cancel_sched_confirm` | Hủy lịch giá | Cancel scheduled price | ⟨chừa chỗ⟩ | Nút danger |
+| `rooms.cancel_sched_done` | Đã hủy lịch giá từ {date} của căn {room}. | Cancelled the price scheduled from {date} for room {room}. | ⟨chừa chỗ⟩ | Toast role=status |
+| `rooms.cancel_sched_effective` | Giá từ {date} đã bắt đầu áp dụng nên không hủy lịch được nữa. Muốn đổi giá đang dùng, nhập giá mới ở trên. | The price from {date} has already taken effect, so it can't be cancelled. To change the current price, enter a new one above. | ⟨chừa chỗ⟩ | 409 INVALID_TRANSITION currentState=effective → tải lại căn |
+| `rooms.cancel_sched_only` | Đây là giá duy nhất của căn nên không hủy được. Sửa bằng ô giá ở trên, cùng ngày {date}. | This is the room's only price, so it can't be cancelled. Change it in the price fields above, same date {date}. | ⟨chừa chỗ⟩ | 409 INVALID_TRANSITION currentState=only_price |
+| `rooms.cancel_sched_gone` | Lịch giá từ {date} không còn – có thể người khác vừa hủy. Danh sách đã tải lại. | The price scheduled from {date} is no longer there – someone may have just cancelled it. The list has been reloaded. | ⟨chừa chỗ⟩ | 404 → tải lại căn, alert info nhẹ |
+| `rooms.price_for_date` | Hai ô đang là giá áp dụng cho {date}. Đổi một ô để lưu giá mới từ ngày này. | Both fields show the price that applies on {date}. Change one to save a new price from that date. | ⟨chừa chỗ⟩ | Chữ phụ dưới Hiệu lực từ khi D không trùng dòng lên lịch – thay rooms.price_same_today |
+| `rooms.price_replace_scheduled` | Đã có giá lên lịch từ {date} (giá đêm {night} · giá tháng {month}). Lưu sẽ thay cả hai giá của lịch này. | A price is already scheduled from {date} (nightly {night} · monthly {month}). Saving replaces both prices of that schedule. | ⟨chừa chỗ⟩ | D trùng một dòng scheduledListPrices – thay rooms.price_same_future |
+| `rooms.price_unchanged` | Giá chưa đổi so với giá áp dụng cho {date}. | The price is the same as the one that applies on {date}. | ⟨chừa chỗ⟩ | Lý do nút Lưu khóa khi hai ô = dòng áp cho D |
+| `rooms.next_price` | Từ {date}: {amount} | From {date}: {amount} | ⟨chừa chỗ⟩ | Nên có: dòng phụ trong ô Giá đêm niêm yết của bảng 4.1 – lịch giá gần nhất (OWN/MGR) |
+| `rooms.next_price_more` | +{n} lịch khác | +{n} more | ⟨chừa chỗ⟩ | Nên có: khi có > 1 dòng lên lịch |
+
+#### R4 BUG-R4-014 – FE-A: Trả sớm B16 với HĐ thuê tháng (BR-313 v0.5.1, ESC-045 câu 4, ESC-048 B)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `early_departure.lease_title` | Trả trước hạn hợp đồng thuê tháng | Leaving before the monthly lease ends | ⟨chừa chỗ⟩ | Tiêu đề Alert warn thay khối Cách tính BR-428 khi stayType = long và ngày rời mới < ngày kết thúc HĐ (FB-R4-DOM-FE-A-01) |
+| `early_departure.lease_check` | Desk chưa biết tiền thuê đã thu tới đâu. Kiểm kỳ thu cuối và hỏi quản lý rồi mới báo khách. | Desk can't tell yet how far the rent is paid. Check the last rent period and ask the manager before telling the guest. | ⟨chừa chỗ⟩ | Câu đầu Alert, bước ② Xem trước. ESC-048 B: Desk v1.0 chưa có lịch kỳ thu (thu ghi ngoài app) nên không tự đoán. FB-R4-UXD-FE-26/28 |
+| `early_departure.lease_rule_paid` | Đã thu tiền thuê tới hết HĐ: không vi phạm. Quyết toán ký quỹ như trả phòng đúng hạn HĐ: trừ điện nước, dọn lẻ, hư hỏng còn nợ, hoàn phần còn lại trong 7 ngày làm việc. Không hoàn các ngày không ở. | Rent paid up to the lease end: not a breach. Settle the security deposit as at the lease end: deduct unpaid utilities, extra cleaning and damage, and refund the rest within 7 working days. Days not stayed are not refunded. | ⟨chừa chỗ⟩ | Nhánh 1. INV quyết ESC-048 = B (03/11). BR-214. FB-R4-UXD-FE-27/28 |
+| `early_departure.lease_rule` | Chưa thu đủ tiền thuê tới hết HĐ: vi phạm HĐ. Khách mất toàn bộ ký quỹ {amount} (giữ ngoài app), không truy thu giảm giá kỳ hạn. | Rent not paid up to the lease end: this breaks the lease. The guest forfeits the full security deposit of {amount} (held outside the app); no clawback of the lease-term discount. | ⟨chừa chỗ⟩ | Nhánh 2. {amount} = manualLongStay.depositHeldVnd đã định dạng. BR-313, BR-206; ESC-045 câu 4 + ESC-048 B. FB-R4-UXD-FE-28 |
+| `early_departure.lease_rule_no_amount` | Chưa thu đủ tiền thuê tới hết HĐ: vi phạm HĐ. Khách mất toàn bộ ký quỹ (giữ ngoài app), không truy thu giảm giá kỳ hạn. | Rent not paid up to the lease end: this breaks the lease. The guest forfeits the full security deposit (held outside the app); no clawback of the lease-term discount. | ⟨chừa chỗ⟩ | Nhánh 2 khi đơn không ghi depositHeldVnd (ca phổ biến – sổ tay: không ghi ký quỹ vào Desk) |
+| `early_departure.lease_still_due` | Vẫn thu điện nước, dọn lẻ, hư hỏng còn nợ, không trừ vào ký quỹ. Tiền thuê và phí dịch vụ đã thu cho tháng lịch chưa bắt đầu thì hoàn, tháng đang ở thì không (làm ngoài app). | Unpaid utilities, extra cleaning and damage are still collected, not taken from the deposit. Rent and service fee paid for calendar months not yet started are refunded; the current month is not (outside the app). | ⟨chừa chỗ⟩ | Danh sách con của nhánh 2 (chưa thu đủ). BR-313 + BR-214 + BR-204/207. FB-R4-DOM-FE-A-03, FB-R4-UXD-FE-26/27 |
+| `early_departure.lease_done_note` | Ký quỹ và tiền thuê xử lý ngoài app, theo nhánh đã báo khách. | The security deposit and rent are handled outside the app, as told to the guest. | ⟨chừa chỗ⟩ | Thay lease_check ở bước ③ Kết quả (đã báo khách xong). FB-R4-UXD-FE-29 |
+| `early_departure.told_guest_lease` | Đã báo khách về ký quỹ và các khoản còn thu, còn hoàn | I've told the guest about the security deposit and what is still due or refunded | ⟨chừa chỗ⟩ | Checkbox thay early_departure.told_guest khi trả trước ngày kết thúc HĐ. FB-R4-UXD-FE-30 |
 
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
