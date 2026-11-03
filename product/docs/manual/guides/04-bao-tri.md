@@ -1,7 +1,7 @@
 # Hướng dẫn Bảo trì – App nhân viên OTTIMO
 
 - Dành cho: **nhân viên bảo trì, kỹ thuật (MT)**
-- Thiết bị: **điện thoại**, địa chỉ `staff.ottimo.vn` (app nhân viên). Desk `desk.ottimo.vn` dùng để xem phiếu và lịch khóa phòng; tới v1.0.1, khóa phòng do lễ tân hoặc người trực làm trên Desk (mục 5).
+- Thiết bị: **điện thoại**, địa chỉ `staff.ottimo.vn` (app nhân viên). Desk `desk.ottimo.vn` dùng để xem phiếu và lịch khóa phòng; tới bản sửa (v1.0.3 hoặc v1.0.4), khóa phòng do lễ tân hoặc người trực làm trên Desk (mục 5).
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
 - Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.1 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10)
 - Tài liệu không chứa mật khẩu, mã cửa hay thông tin khách.
@@ -12,7 +12,7 @@
 ## Cách đọc tệp này
 
 - Chữ **in đậm** là tên nút, tên màn hình đúng như trên app và Desk. Ảnh màn hình có mã ở dưới ảnh (ví dụ C2-05). Khung nét đứt ghi **Chưa có ảnh** hoặc **Ảnh mới · chờ chụp** là ảnh đang chờ chụp: cứ làm theo chữ.
-- Khung **Tạm ở v1.0** là việc chưa làm được và cách làm thay. Cách tạm tới bản v1.0.1 gom ở **mục 9**.
+- Khung **Tạm ở v1.0** là việc chưa làm được và cách làm thay. Cách tạm tới v1.0.3 và các bản sau gom ở **mục 9**.
 - **Hiện OTTIMO có một người trực giữ cả 6 vai, trong đó có vai quản lý.** Tài khoản có vai quản lý **chưa đăng nhập được app nhân viên** ở v1.0. Vì vậy người trực hiện nay xử lý phiếu sửa trên Desk (mục 4.4). Phần còn lại dành cho nhân viên bảo trì có tài khoản riêng.
 
 ---
@@ -24,7 +24,7 @@
 | Việc | Địa chỉ | Thiết bị |
 |---|---|---|
 | Nhận và xử lý phiếu sửa, báo sự cố | `staff.ottimo.vn` (app nhân viên) | Điện thoại |
-| Xem phiếu, lịch khóa phòng trên Desk (tới v1.0.1 chưa tạo phiếu, chưa khóa phòng được trên Desk – mục 5) | `desk.ottimo.vn` (OTTIMO Desk) | Máy quầy hoặc máy tính; xong thì đăng xuất |
+| Xem phiếu, lịch khóa phòng trên Desk (tới v1.0.3 hoặc v1.0.4 chưa tạo phiếu, chưa khóa phòng được trên Desk – mục 5) | `desk.ottimo.vn` (OTTIMO Desk) | Máy quầy hoặc máy tính; xong thì đăng xuất |
 
 - Chỉ vào bằng cách **gõ địa chỉ**, dấu trang, hoặc biểu tượng trên màn hình chính. Không bấm link đăng nhập gửi qua Zalo, tin nhắn.
 - Mỗi người **một tài khoản** do chủ đầu tư tạo. App nhân viên và Desk dùng **cùng** tên đăng nhập và mật khẩu.
@@ -68,7 +68,7 @@ Quy tắc mật khẩu: ít nhất 10 ký tự, không chứa tên hoặc số �
 
 **Desk** (xem phiếu và lịch khóa phòng):
 1. Gõ `desk.ottimo.vn`. Nhập **Tên đăng nhập**, **Mật khẩu**. Bấm **Đăng nhập**.
-2. Desk mở sẵn trang **Bảo trì** (menu: **Vận hành → Phiếu sửa**). Menu có thêm **Các căn**, **Buồng phòng** (chỉ xem). Tới v1.0.1, hộp **Phiếu sửa mới** và **Khóa phòng có kế hoạch** không có căn để chọn: nhờ lễ tân (mục 5).
+2. Desk mở sẵn trang **Bảo trì** (menu: **Vận hành → Phiếu sửa**). Menu có thêm **Các căn**, **Buồng phòng** (chỉ xem). Tới bản sửa (v1.0.3 hoặc v1.0.4), hộp **Phiếu sửa mới** và **Khóa phòng có kế hoạch** không có căn để chọn: nhờ lễ tân (mục 5).
 3. Xong việc: **tên của mình → Đăng xuất**. Trên máy quầy, luôn đăng xuất trước khi rời máy.
 
 [ẢNH: G4-01-Desk của vai Bảo trì, menu Phiếu sửa]
@@ -200,7 +200,7 @@ Tài khoản có vai quản lý chưa vào được app nhân viên. Người tr
 
 Lễ tân hoặc người trực, trên Desk **Vận hành → Bảo trì**:
 
-> **Tạm ở v1.0 (tới v1.0.1):** tài khoản chỉ có vai Bảo trì mở được hộp **Phiếu sửa mới** và **Khóa phòng có kế hoạch** nhưng ô **Căn** không có lựa chọn nào, nên không tạo phiếu, không khóa phòng được trên Desk. Bảo trì báo sự cố trên app (tích **Đề nghị khóa căn**, mục 4.3) hoặc nhắn lễ tân **ngày, căn, lý do**; lễ tân hoặc người trực làm các bước dưới đây.
+> **Tạm ở v1.0 (tới v1.0.3 hoặc v1.0.4):** tài khoản chỉ có vai Bảo trì mở được hộp **Phiếu sửa mới** và **Khóa phòng có kế hoạch** nhưng ô **Căn** không có lựa chọn nào, nên không tạo phiếu, không khóa phòng được trên Desk. Bảo trì báo sự cố trên app (tích **Đề nghị khóa căn**, mục 4.3) hoặc nhắn lễ tân **ngày, căn, lý do**; lễ tân hoặc người trực làm các bước dưới đây.
 1. Tab **Phiếu sửa** → **Phiếu sửa mới** → căn, **Tiêu đề**, **Mô tả**, **Mức độ**, ảnh.
 2. Cần khóa: tích **Khóa căn – không bán đến khi sửa xong** → **Khóa từ**, **Dự kiến xong**, **Lý do khóa** → **Tạo phiếu và khóa căn**. Desk tính ngày mở bán lại (cộng thời gian dọn và kiểm).
 3. Căn đang có khách: chưa khóa được – lễ tân đổi phòng cho khách trước.
@@ -266,7 +266,7 @@ Căn đang khóa sửa (`OOO`) thì không bao giờ nhận khách được. H�
 
 ---
 
-## 9. Tạm thời tới v1.0.1
+## 9. Tạm thời tới v1.0.3 và các bản sau
 
 | Việc | Cách tạm |
 |---|---|
@@ -319,5 +319,5 @@ Tập trên **bản tập** bằng **tài khoản tập** chủ đầu tư đưa
 2. **Nhận việc** một phiếu **Gấp**.
 3. **Chờ vật tư** rồi **Sửa tiếp**.
 4. **Sửa xong** có ảnh, xem căn **Đã mở bán lại**.
-5. Trên app tập: **Báo sự cố** có tích **Đề nghị khóa căn**. Nói được cách nhắn lễ tân xin khóa phòng có kế hoạch (tới v1.0.1 bảo trì chưa khóa được trên Desk).
+5. Trên app tập: **Báo sự cố** có tích **Đề nghị khóa căn**. Nói được cách nhắn lễ tân xin khóa phòng có kế hoạch (tới v1.0.3 hoặc v1.0.4 bảo trì chưa khóa được trên Desk).
 6. Nói được: thời hạn 3 mức; vì sao không mở cửa cho người tự nhận là khách.

@@ -13,7 +13,7 @@
 
 - Chữ **in đậm** là tên nút, tên màn hình, tên ô đúng như trên Desk. Ảnh màn hình có mã ở dưới ảnh (ví dụ C2-05). Khung nét đứt ghi **Chưa có ảnh** hoặc **Ảnh mới · chờ chụp** là ảnh đang chờ chụp: cứ làm theo chữ.
 - Mục ghi **Chỉ chủ đầu tư** thì quản lý không thấy menu.
-- Khung **Tạm ở v1.0** là việc Desk chưa làm được và cách làm thay. Mọi cách tạm tới bản v1.0.1 gom ở **mục 15**.
+- Khung **Tạm ở v1.0** là việc Desk chưa làm được và cách làm thay. Mọi cách tạm tới v1.0.3 và các bản sau gom ở **mục 15**.
 - Con số theo tham số ngày 27/10/2026. Anh/chị đổi được ở **Tham số quy tắc**. Khi số trên Desk khác số trong tệp: vừa đổi tham số thì làm theo Desk; không rõ vì sao, nhất là **số tiền**, thì coi là có thể lỗi ("P0" nếu sai tiền, mục 17).
 - **Hiện OTTIMO có một người trực quầy giữ cả 6 vai** (quản lý, lễ tân trưởng, lễ tân, buồng phòng, bảo trì, sale). Chủ đầu tư đã chấp nhận người này tự ghi và tự duyệt giảm giá trong hạn mức quản lý; bù lại **chủ đầu tư rà Nhật ký tiền và Cần chú ý mỗi ngày** (mục 2). Riêng **hoàn tiền**, Desk không cho người tạo yêu cầu tự duyệt, tự chi, nên **chủ đầu tư duyệt và chi**. Người trực đọc tệp này ở phần "quản lý"; các tệp 02–05 cho phần việc còn lại.
 
@@ -149,7 +149,7 @@ Hệ quả cho OTTIMO hiện nay: tài khoản người trực giữ vai quản 
 | **Sale nội bộ** | Nhân viên bán hàng của OTTIMO | Chưa | Desk (điện thoại hoặc máy tính) |
 | **CTV / môi giới** | Cộng tác viên ngoài | Chưa | Desk (điện thoại hoặc máy tính) |
 
-Một người có thể có nhiều vai. Không có vai "Kế toán" riêng (mục 11). Khi có nhân viên thật: **mỗi người một tài khoản, đúng vai của mình**. Tới v1.0.1, tài khoản chỉ có vai Bảo trì vào Desk chỉ xem được phiếu, chưa tạo phiếu, chưa khóa phòng được: lễ tân hoặc người trực làm (mục 15.6).
+Một người có thể có nhiều vai. Không có vai "Kế toán" riêng (mục 11). Khi có nhân viên thật: **mỗi người một tài khoản, đúng vai của mình**. Tới bản sửa (v1.0.3 hoặc v1.0.4), tài khoản chỉ có vai Bảo trì vào Desk chỉ xem được phiếu, chưa tạo phiếu, chưa khóa phòng được: lễ tân hoặc người trực làm (mục 15.6).
 
 **Thêm người dùng:**
 1. **Quản trị → Người dùng & vai → Thêm người dùng**.
@@ -205,7 +205,7 @@ Máy quầy phải được cấp quyền thì lễ tân mới nhận phòng, xe
 |---|---|---|
 | **Mỗi sáng trước 09:00, kể cả ngày nghỉ** (chủ đầu tư) | Kiểm bảo mật buổi sáng (mục 2.2) | **Tham số quy tắc**, **Tổng quan**, **Nhật ký tiền**, app ngân hàng |
 | Sáng | Xem **Cần chú ý** và **Cần duyệt** | **Tổng quan** (mục 3) |
-| Sáng, cùng lượt kiểm bảo mật (tới v1.0.1) | Xem lại các dòng có chữ "giữ chỗ" trong sổ giao ca và các yêu cầu hoàn mới; **duyệt và chi các khoản hoàn người trực tạo** (mục 15.2). Khoản đã hẹn khách: hoàn muộn nhất 24 giờ sau khi khách nhận phòng; Desk báo khoản thu chưa đối soát thì đối soát cọc cũ ở **Chờ đối soát** trước. Xem lại các khoản miễn/giảm người trực làm bằng quyền quản lý | Sổ giao ca, **Cần duyệt**, **Nhật ký tiền → Hoàn tiền** |
+| Sáng, cùng lượt kiểm bảo mật (tới v1.0.3) | Xem lại các dòng có chữ "giữ chỗ" trong sổ giao ca và các yêu cầu hoàn mới; **duyệt và chi các khoản hoàn người trực tạo** (mục 15.2). Khoản đã hẹn khách: hoàn muộn nhất 24 giờ sau khi khách nhận phòng; Desk báo khoản thu chưa đối soát thì đối soát cọc cũ ở **Chờ đối soát** trước. Xem lại các khoản miễn/giảm người trực làm bằng quyền quản lý | Sổ giao ca, **Cần duyệt**, **Nhật ký tiền → Hoàn tiền** |
 | Trước 09:00 | Đối soát khoản chuyển khoản lễ tân ghi ban đêm | **Nhật ký tiền → Chờ đối soát** (mục 8.2) |
 | 07:00–22:00 | Trả lời lễ tân hỏi tiền chuyển khoản đã về chưa, **đúng mã đơn và số tiền** | Điện thoại (mục 8.5) |
 | Trong ngày | Duyệt yêu cầu miễn/giảm, hoàn tiền, xóa công nợ | **Cần duyệt** (mục 4) |
@@ -409,7 +409,7 @@ Tháng lịch cuối của HĐ = tháng chứa ngày kết thúc HĐ (HĐ kết 
 
 [ẢNH: C1-20-Hoàn tiền]
 
-### 8.4 Hoàn cọc cho khách giữ chỗ quá hạn (tới v1.0.1)
+### 8.4 Hoàn cọc cho khách giữ chỗ quá hạn (tới v1.0.3)
 
 Người trực hủy giữ chỗ có cọc và nhập nơi nhận; **chủ đầu tư duyệt và chi**. Khi khách đến quầy mà chủ đầu tư vắng, người trực hẹn khách: "We will transfer your 300,000 VND deposit back to you within 24 hours." / "OTTIMO sẽ chuyển khoản lại 300.000 đ tiền cọc cho anh/chị trong vòng 24 giờ." (số tiền thay theo đơn).
 1. Người trực nhắn anh/chị mã đơn và số tiền (không tên khách).
@@ -486,7 +486,7 @@ Theo quyết định của chủ đầu tư ngày 26/10:
 - **Form "Yêu cầu đặt phòng" trên website**: công tắc ở nhóm **Khác**, dòng `public_booking_requests_enabled` (chưa có tên tiếng Việt), giá trị `false` là tắt. Chỉ chủ đầu tư bật, tắt. Form **đã bật từ chiều 30/10**.
 - Đổi tham số làm số trên Desk khác số lễ tân đã học: báo người trực.
 
-> **Lỗi đang sửa – Wi-Fi (sửa ở v1.0.1):** Desk chưa có chỗ nhập Wi-Fi của cơ sở, nên trang khách chưa hiện Wi-Fi (trang ghi "hỏi lễ tân"). Tới khi sửa xong: khách xem **thẻ Wi-Fi trong căn**; lễ tân đọc khi khách hỏi.
+> **Lỗi đang sửa – Wi-Fi (sửa ở v1.0.3 hoặc v1.0.4):** Desk chưa có chỗ nhập Wi-Fi của cơ sở, nên trang khách chưa hiện Wi-Fi (trang ghi "hỏi lễ tân"). Tới khi sửa xong: khách xem **thẻ Wi-Fi trong căn**; lễ tân đọc khi khách hỏi.
 
 ### 9.3 Danh mục minibar
 
@@ -517,7 +517,7 @@ Mọi mã VietQR khách quét đều chuyển tiền vào tài khoản này.
 - Đổi ý trước ngày hiệu lực: bấm **Hủy lịch**.
 - Trong 24 giờ sau khi tài khoản mới có hiệu lực, mã VietQR hiện cảnh báo "Tài khoản nhận vừa đổi trong 24 giờ qua…". Khi đó lễ tân **chưa cho khách chuyển**, **gọi điện cho anh/chị** xác nhận đã tự đổi tài khoản; anh/chị đồng ý mới tiếp tục.
 
-> **Lỗi nhỏ đã biết (sửa ở v1.0.1):** câu gợi ý trên màn bảo "tạo một mã VietQR nhỏ và quét thử". Làm theo tệp này: **không tạo mã thử, không chuyển tiền**.
+> **Lỗi nhỏ đã biết (sửa ở bản vá sau):** câu gợi ý trên màn bảo "tạo một mã VietQR nhỏ và quét thử". Làm theo tệp này: **không tạo mã thử, không chuyển tiền**.
 
 > **Lỗi đang sửa:** ở v1.0 thư báo đổi tài khoản nhận **chưa gửi tới email** của chủ đầu tư. Vì vậy chủ đầu tư kiểm mỗi sáng (mục 2.2).
 
@@ -703,9 +703,9 @@ Trên Desk: **Yêu cầu từ website** → tìm mã hoặc **Tìm theo liên h�
 
 ---
 
-## 15. Tạm thời tới v1.0.1
+## 15. Tạm thời tới v1.0.3 và các bản sau
 
-Các việc dưới đây làm theo cách tạm từ **02/11** tới khi anh/chị (chủ đầu tư) báo bản v1.0.1 đã lên (dự kiến 04/11; thư bảo mật chậm nhất 09/11).
+Các việc dưới đây làm theo cách tạm từ **02/11** tới khi anh/chị (chủ đầu tư) báo bản có sửa đã lên. Thư bảo mật, giữ chỗ quá hạn, check-in online sửa ở **v1.0.3** (dự kiến 07/11; thư bảo mật chậm nhất 09/11). Các lỗi ở mục 15.6 sửa ở v1.0.3 hoặc bản vá sau. Bản v1.0.1 (đã lên 03/11) chỉ có tin Google Chat, chưa sửa các việc này.
 
 ### 15.1 Kiểm bảo mật mỗi sáng trước 09:00
 
@@ -722,13 +722,13 @@ Theo mục 2.2, kể cả ngày nghỉ. Hết tạm khi thư "Security notice" v
 - Người trực rà giữ chỗ **3 mốc mỗi ngày** (mở quầy muộn nhất 09:00 · 11:00 · đóng quầy muộn nhất 21:00, gồm giữ chỗ hết hạn trước 09:00 sáng mai) vì Desk chưa báo giữ chỗ quá hạn vào **Cần chú ý**, và sau hạn Desk chỉ còn **Hủy giữ chỗ**. Chi tiết ở tệp 02 mục 17.1.
 - Desk ghi sai với giữ chỗ có cọc quá hạn ("đơn đã tự hủy", "Không thu phí"): đơn chưa hủy; hủy thì Desk vẫn tạo yêu cầu hoàn đủ số đã nhận.
 - Không dùng lý do hủy **Khác (ghi rõ)** (Desk khóa nút hủy). Chọn **Không liên lạc được** hoặc **Khách đổi ý**; lý do thật ghi sổ giao ca.
-- Anh/chị xem lại các dòng có chữ "giữ chỗ" trong sổ giao ca cùng lượt kiểm sáng. Báo người trực khi v1.0.1 lên.
+- Anh/chị xem lại các dòng có chữ "giữ chỗ" trong sổ giao ca cùng lượt kiểm sáng. Báo người trực khi v1.0.3 lên.
 
 ### 15.4 Check-in online tạm dừng
 
 - Không tạo, không gửi link check-in online cho khách thật. Mọi khách làm giấy tờ tại quầy, được xem tờ **Your ID details** trước khi đưa giấy tờ.
 - Đội kiểm mỗi sáng số link mới tạo trên Desk thật; khác 0 thì đội báo anh/chị mã đơn để đối chiếu với sổ giao ca.
-- Anh/chị báo "mở lại check-in online" chỉ khi đội báo bản v1.0.1 đã có thông báo xử lý dữ liệu mới và bảo mật đã kiểm xong.
+- Anh/chị báo "mở lại check-in online" chỉ khi đội báo bản v1.0.3 đã có thông báo xử lý dữ liệu mới và bảo mật đã kiểm xong.
 
 ### 15.5 Khách trả phòng sớm
 
@@ -836,7 +836,7 @@ Khi báo lỗi cho đội: theo mục 12 – mô tả bằng lời, mã đơn, m
 | Người dùng & vai, thiết bị được cấp, tài khoản nhận tiền | ✔ | – | – | – | – | – | – | – |
 | Xem Nhật ký tiền | ✔ | ✔ | M | M | – | – | – | – |
 
-Quy tắc tách nhiệm hoàn tiền (mục 4) áp lên trên bảng này: người tạo yêu cầu hoàn không tự duyệt, không tự chi. Tới v1.0.1, vai chỉ có Bảo trì chưa tạo phiếu, chưa khóa phòng được trên Desk (mục 15.6).
+Quy tắc tách nhiệm hoàn tiền (mục 4) áp lên trên bảng này: người tạo yêu cầu hoàn không tự duyệt, không tự chi. Tới bản sửa (v1.0.3 hoặc v1.0.4), vai chỉ có Bảo trì chưa tạo phiếu, chưa khóa phòng được trên Desk (mục 15.6).
 
 ### 18.2 Tập ở đâu, bài tập (2 giờ; kế toán 1 giờ)
 

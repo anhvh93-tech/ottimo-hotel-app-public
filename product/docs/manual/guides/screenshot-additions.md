@@ -3,7 +3,7 @@
 - Đi kèm: `product/docs/manual/guides/0*.md` (mã ảnh `[ẢNH: Gx-yy-…]`; x = số tệp hướng dẫn: 1 chủ đầu tư/quản lý, 2 lễ tân, 3 buồng phòng, 4 bảo trì, 5 sale/CTV)
 - Lập: BA · 30/10/2026 · Người chụp: QA, trên **staging** bản `v1.0.0` (`8b3aec8`) · Người dựng: UXD
 - Tổng: **19 ảnh mới** (G1: 6 · G2: 7 · G3: 2 · G4: 2 · G5: 2) + **2 ảnh cũ còn thiếu** (C1-15, C2-34).
-- Ảnh dùng lại: 86 tệp có sẵn trong `product/docs/manual/img/` (mã `Cx-yy`, giữ nguyên mã). Không dùng: C0-10 (trang khách sau check-in online – check-in online đang tạm dừng tới v1.0.1).
+- Ảnh dùng lại: 86 tệp có sẵn trong `product/docs/manual/img/` (mã `Cx-yy`, giữ nguyên mã). Không dùng: C0-10 (trang khách sau check-in online – check-in online đang tạm dừng tới v1.0.3).
 
 ## Quy tắc chụp
 
@@ -74,7 +74,7 @@ Theo đúng `product/docs/manual/screenshot-list.md` mục "Quy tắc chung khi 
 
 ## Thứ tự ưu tiên chụp (nếu không kịp trước buổi đào tạo 31/10)
 
-1. G2-05, G2-06, G2-07, G2-04 – rà giữ chỗ và hoàn cọc (việc tạm hằng ngày tới v1.0.1).
+1. G2-05, G2-06, G2-07, G2-04 – rà giữ chỗ và hoàn cọc (việc tạm hằng ngày tới v1.0.3).
 2. G3-01 cùng lúc QA kiểm câu Q2 (đổi mật khẩu tạm của buồng phòng/bảo trì).
 3. G4-02 cùng lúc kiểm câu Q3.
 4. Còn lại.

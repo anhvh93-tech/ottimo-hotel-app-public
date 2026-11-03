@@ -12,7 +12,7 @@
 ## Cách đọc tệp này
 
 - Chữ **in đậm** là tên nút, tên màn hình đúng như trên app. Ảnh màn hình có mã ở dưới ảnh (ví dụ C2-05). Khung nét đứt ghi **Chưa có ảnh** hoặc **Ảnh mới · chờ chụp** là ảnh đang chờ chụp: cứ làm theo chữ.
-- Khung **Tạm ở v1.0** là việc app chưa làm được và cách làm thay. Cách tạm tới bản v1.0.1 gom ở **mục 12**.
+- Khung **Tạm ở v1.0** là việc app chưa làm được và cách làm thay. Cách tạm tới v1.0.3 và các bản sau gom ở **mục 12**.
 - **Hiện OTTIMO có một người trực giữ cả 6 vai, trong đó có vai quản lý.** Tài khoản có vai quản lý **chưa đăng nhập được app nhân viên** ở v1.0. Vì vậy người trực hiện nay đánh dấu việc dọn trên Desk (**Vận hành → Buồng phòng → Làm xong**, tệp 02 mục 13.2), sau khi tự đi kiểm căn (tệp 02 mục 13.2a). Tệp này dành cho nhân viên buồng phòng có tài khoản riêng.
 
 ---
@@ -299,9 +299,9 @@ Chuông **Thông báo**: **Phiếu sửa mới**, **Việc gấp đã lên đầ
 
 ---
 
-## 12. Tạm thời tới v1.0.1
+## 12. Tạm thời tới v1.0.3 và các bản sau
 
-Các việc dưới đây làm theo cách tạm tới khi chủ đầu tư báo bản v1.0.1 đã lên (dự kiến 04/11).
+Các việc dưới đây làm theo cách tạm tới khi chủ đầu tư báo bản có sửa đã lên (v1.0.3 hoặc bản sau). Bản v1.0.1 (đã lên 03/11) chưa sửa các việc này.
 
 | Việc | Cách tạm |
 |---|---|

@@ -13,7 +13,7 @@
 
 - Chữ **in đậm** là tên nút, tên màn hình đúng như trên Desk. Ảnh màn hình có mã ở dưới ảnh (ví dụ C2-05). Khung nét đứt ghi **Chưa có ảnh** hoặc **Ảnh mới · chờ chụp** là ảnh đang chờ chụp: cứ làm theo chữ.
 - Mục ghi **Sale nội bộ** hoặc **CTV** là việc riêng của vai đó. Không ghi gì là cả hai vai.
-- Khung **Tạm ở v1.0** là việc Desk chưa làm được và cách làm thay. Cách tạm tới bản v1.0.1 gom ở **mục 8**.
+- Khung **Tạm ở v1.0** là việc Desk chưa làm được và cách làm thay. Cách tạm tới v1.0.3 và các bản sau gom ở **mục 8**.
 - Con số (giá, %, giờ) theo tham số ngày 27/10/2026. **Báo giá cho khách luôn lấy số Desk tính**, không lấy số trong tệp này.
 
 ---
@@ -154,7 +154,7 @@ Quy tắc giá Desk tự tính (để trả lời khách, không tự tính tay)
 ### 4.1 Tạo giữ chỗ
 
 1. Trong báo giá, bấm **Khách đồng ý – Giữ chỗ**.
-2. Hộp **Giữ chỗ**: chọn **Giữ trong** 12 h, 24 h hoặc 48 h (mặc định 24). Hạn giữ không vượt 12:00 ngày đến. Tới v1.0.1: chọn thời hạn để giờ hết hạn rơi vào **09:00–21:00**. Ví dụ tạo lúc 15:00: chọn **24 h** (hạn 15:00 hôm sau), không chọn 12 h (hạn 03:00 sáng).
+2. Hộp **Giữ chỗ**: chọn **Giữ trong** 12 h, 24 h hoặc 48 h (mặc định 24). Hạn giữ không vượt 12:00 ngày đến. Tới v1.0.3: chọn thời hạn để giờ hết hạn rơi vào **09:00–21:00**. Ví dụ tạo lúc 15:00: chọn **24 h** (hạn 15:00 hôm sau), không chọn 12 h (hạn 03:00 sáng).
 3. Bấm **Tạo giữ chỗ**. Desk tạo đơn **Giữ chỗ · chờ cọc** và mã **VietQR** đúng số cọc, nội dung chuyển khoản là **mã đơn**.
 4. Gửi mã cọc cho khách theo mục 5.
 
@@ -320,9 +320,9 @@ Từ v1.0.1 (dự kiến khoảng 04/11), Desk đăng tin báo yêu cầu mới 
 
 ---
 
-## 8. Tạm thời tới v1.0.1
+## 8. Tạm thời tới v1.0.3 và các bản sau
 
-Các việc dưới đây làm theo cách tạm tới khi chủ đầu tư báo bản v1.0.1 đã lên (dự kiến 04/11).
+Các việc dưới đây làm theo cách tạm tới khi chủ đầu tư báo bản có sửa đã lên. Giữ chỗ quá hạn (8.1) và check-in online (8.3) sửa ở **v1.0.3** (dự kiến 07/11); lý do hủy "Khác" (8.2) sửa ở v1.0.3 hoặc v1.0.4. Bản v1.0.1 (đã lên 03/11) chưa sửa các việc này.
 
 ### 8.1 Giữ chỗ của anh/chị quá hạn – người trực sẽ nhắn
 
