@@ -151,3 +151,45 @@ Tùy chọn khi đã có `via` (INT tự cân nhắc): với `via = owner`, đ�
 - Bản `self` dùng "will now receive", nên đúng cho cả lần đặt đầu lẫn lần đổi. Bản `previous` không để lộ địa chỉ mới. Đây là cách ít dữ liệu nhất mà vẫn rõ.
 - Bản trung tính chỉ nói điều đúng với mọi người nhận, đúng tinh thần "không hứa điều không có".
 - Giữ nguyên `notYou*` / `owner*` của các mẫu cũ, nên giọng các thư "Security notice" thống nhất.
+
+---
+
+## Lượt 2 – xác nhận bản sửa trên `main` @ `da6d6f3d` (QC v1.0.3 ĐK4)
+
+- Người review: CPY | Round 4 – đợt v1.0.3 – bước **Review lượt 2** | 03/11/2026
+- Đối tượng: `product/integrations/notification/email-templates.ts` @ `da6d6f3d` (hàm `emailChangedCopy`, dòng 128–224; khung thư `renderStaffEmail`, dòng 250–324), `product/services/api/src/jobs/email-dispatch.ts` @ `da6d6f3d` dòng 259–304 (lấy và truyền `via`), phản hồi INT ở `rounds/round-04/outputs/INT/v1.0.3-email-templates.md` mục 3, khối test `email_changed` trong `email-templates.test.ts` (11 nhóm `it`, có vòng lặp nhiều tham số). Tệp mẫu thư trên `main` hiện tại (`92010000`) trùng `da6d6f3d`.
+- Cách kiểm: đọc mã, rồi dựng thử 12 tổ hợp `audience` (`self` / `previous` / `owner` / lạ) × `via` (`self` / `owner` / thiếu) bằng `renderStaffEmail` (chạy `tsx` từ thư mục scratchpad, không sửa mã, không ghi tệp trong repo). Tham số mẫu: `occurredAt = 23/10/2026 14:05 (GMT+7)`, `staffName = Lan`. Kết quả dựng: 0 ký tự `@`, 0 `http`, 0 `((`, 0 emoji ở cả 12 bản.
+
+### Kết luận lượt 2: ĐẠT
+
+Thẻ Major 01 đã đóng. Các thẻ 02, 04, 06 đóng. Thẻ 03 và 05 đóng trong phạm vi v1.0.3: phần còn lại (giờ lồng ngoặc ở các mẫu cũ, phương án A chân thư chung) đã được ghi dời sang v1.0.4. Mẫu `email_changed` dùng được cho P0 của v1.0.3.
+
+| Thẻ | Mức | Lượt 2 | Căn cứ trên mã @ `da6d6f3d` |
+|---|---|---|---|
+| FB-R4-CPY-INT-01 | Major | **Closed** | Dispatcher đọc `via` từ `user_email_change` và chỉ truyền khi giá trị là `self` hoặc `owner` (dòng 261–268, 303). Mẫu: `byOwner = p.via === 'owner'`; giá trị thiếu hoặc lạ ra bản `self` (đã dựng `via` thiếu: giống hệt `via = self`). Bản `self` + `via = owner`: "The change was made by the property owner." / "Thay đổi do chủ cơ sở thực hiện.", câu hành động "If you did not expect this, please contact the owner directly." / "Nếu bạn chưa được báo trước, vui lòng liên hệ trực tiếp chủ cơ sở." Không còn "change your password" / "đổi mật khẩu". Bản `previous` + `via = owner` cũng như vậy. Chữ trùng từng chữ với mục "Chữ đề xuất" của lượt 1. |
+| FB-R4-CPY-INT-02 | Minor | **Closed** | `previous`, cả hai `via`: câu hành động có "do not reply to this email" / "vui lòng không trả lời thư này". Chân thư giữ nguyên. |
+| FB-R4-CPY-INT-03 | Minor | **Closed** (phạm vi `email_changed`) | Giờ là dòng riêng "Time: …" / "Thời điểm: …", nằm sau câu "do chủ cơ sở thực hiện" và trước câu hành động. Dòng này bị bỏ khi thiếu `occurredAt` (có test). Không còn `((`. Các mẫu cũ (`mfa_*`, `receiving_account_changed`) vẫn lồng ngoặc: INT ghi Deferred v1.0.4, CPY đồng ý (ngoài phạm vi PR-1). |
+| FB-R4-CPY-INT-04 | Minor | **Closed** | Tiêu đề "Security notice: notification email changed" / "Thông báo bảo mật: email nhận thông báo đã thay đổi". Tiêu đề đầy đủ sau tiền tố 106 ký tự, cùng một tiêu đề cho mọi bản, không có tên người. Thân thư viết "email" không gạch nối, có "cho tài khoản OTTIMO Desk của bạn", không còn "của … của". Nhãn Desk EN "Notification email" thuộc UXD/FE-A (EM-13), không chặn thẻ này. |
+| FB-R4-CPY-INT-05 | Suggestion | **Closed – phương án B**; phương án A dời v1.0.4 | Câu "OTTIMO security notices never contain links and never ask for your password or sign-in codes." / "Thư bảo mật của OTTIMO không bao giờ có đường liên kết và không bao giờ hỏi mật khẩu hay mã đăng nhập." nằm cuối thân cả 3 bản và bản trung tính. Hằng `NO_LINK_*` không đổi, các mẫu cũ không có câu này (có test giữ). Lưu ý cho phương án A ở v1.0.4, xem "Ghi chú cho v1.0.4" bên dưới. |
+| FB-R4-CPY-INT-06 | Suggestion | **Closed** | `previous` dùng một câu: "This address no longer receives security notices for your OTTIMO Desk account." / "Địa chỉ này không còn nhận thông báo bảo mật cho tài khoản OTTIMO Desk của bạn." Bản `owner` giữ "changed or removed" / "đổi hoặc gỡ". |
+
+### Rà giọng và brand trên bản dựng
+
+- EN trước, VI sau, trong cả bản text lẫn HTML (khối VI nền Cream, `lang="vi"`). Câu ngắn, mỗi câu một việc. Giọng điềm tĩnh: "please contact the owner directly", không có chữ "urgent" hay "immediately". Không emoji, không IN HOA để hét (chữ in hoa duy nhất là dòng "Boutique Stay · Da Lat" 11 px trong khung chung, đã duyệt từ trước).
+- Bản `owner` + `via = owner`: "An owner changed or removed the notification email of Lan." / "Một chủ cơ sở vừa đổi hoặc gỡ email nhận thông báo bảo mật của Lan." Câu tùy chọn ở lượt 1 đã được nhận đúng chữ. Chủ trực tiếp đổi cũng nhận bản này kèm câu "If this was not expected…". Câu vẫn đúng với họ và không gây lo, nên giữ.
+- Bản trung tính (thiếu hoặc lạ `audience`) chỉ nói điều đúng với mọi người nhận và luôn dùng `notYou*`, kể cả khi `via = owner`. Đây là cách an toàn, giữ.
+- Không có địa chỉ (đầy đủ hay che), không link, không mã. Tên người chỉ có trong thân bản `owner`, đã escape.
+- Câu pháp lý / bảo mật: không đổi ý so với bản SEC đã xem ở lượt 1 (EM-12.1–12.4).
+
+### Ghi chú cho v1.0.4 (không chặn v1.0.3, không mở thẻ mới)
+
+1. **Câu chống lừa đảo đang lặp ý (hệ quả của phương án B).** Thư `email_changed` hiện có hai câu gần giống nhau: câu cuối thân thư và câu `NO_LINK_*` ở chân thư ("OTTIMO never asks for your password or codes by e-mail."). Chân thư cũ còn viết "e-mail" có gạch nối. Khi làm phương án A ở v1.0.4, làm cả hai việc trong cùng một commit:
+   - đổi `NO_LINK_EN` thành "OTTIMO security notices never contain links and never ask for your password or sign-in codes.", đổi `NO_LINK_VI` thành "Thư bảo mật của OTTIMO không bao giờ có đường liên kết và không bao giờ hỏi mật khẩu hay mã đăng nhập.";
+   - bỏ `antiPhishEn` / `antiPhishVi` khỏi thân `email_changed`, và sửa test "older templates … do not get the email_changed anti-phishing line" thành "every template's footer has 'never contain links'".
+
+   Mức: Suggestion, gộp vào việc tồn "CPY-INT-05 phương án A" đã có ở QC v1.0.3 mục việc dời. Câu `receiving_account_changed` không phải "security notice" theo tiêu đề. Nếu muốn chính xác tuyệt đối thì dùng "OTTIMO notices never contain links…" cho chân thư chung. CPY nghiêng về "security notices", vì cả 5 mẫu đều là thư cảnh báo an toàn tài khoản. INT chốt khi làm.
+2. **Giờ lồng ngoặc ở 4 mẫu cũ** (phần còn lại của thẻ 03). Áp cùng mẫu "Time:" / "Thời điểm:" khi làm phương án A, để cả 5 thư có cùng bố cục.
+
+### Câu cho Điều phối viên ghi decision-log (CPY không tự sửa decision-log)
+
+`| 2026-11-03 | 4 | **CPY – Review lượt 2 mẫu thư email_changed** @ da6d6f3d (QC v1.0.3 ĐK4): **ĐẠT**. Đóng FB-R4-CPY-INT-01 (Major, biến thể via=owner bỏ "đổi mật khẩu", dispatcher truyền via, thiếu/lạ = self), 02, 03 (phạm vi email_changed), 04, 05 (phương án B), 06. Dời v1.0.4: phương án A chân thư chung NO_LINK_* (kèm bỏ câu chống lừa đảo trùng trong thân email_changed) và dòng "Time:" cho 4 mẫu cũ | CPY | Quyền review chéo (chữ hướng người nhận); rounds/round-04/reviews/CPY-on-v1.0.3-email-changed.md mục "Lượt 2" |`

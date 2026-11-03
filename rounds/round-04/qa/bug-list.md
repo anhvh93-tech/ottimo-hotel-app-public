@@ -23,14 +23,16 @@
 
 - **v1.0.3 – smoke staging giao diện** (03/11 22:57–23:08 giờ VN, staging `sha-da6d6f3dc22b` = `main` `da6d6f3d`, `EMAIL_PROVIDER=mock`, `MFA_ENFORCED=true`; Desk 1440 + PWA 390 bằng Chromium Playwright): **ĐẠT**. Menu và trang "Bảo mật tài khoản" VI/EN, khối email, banner nhắc OWN/MGR; đặt/đổi/xóa qua S2; OWN sửa email nhân viên, không sửa được OWN khác hay chính mình; BUG-R4-018 và BUG-R4-021 đúng trên staging. Lỗi `info@` không kiểm được (staging không đặt `EMAIL_FROM`). Mới **BUG-R4-023**, **BUG-R4-024** (P3). Ảnh C0-06, G1-01, C1-07, C0-12, C0-13, C1-22. Chi tiết: `rounds/round-04/qa/v1.0.3-staging-smoke.md`.
 
-## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff` + smoke staging v1.0.3)
+- **Dọn trạng thái – QC v1.0.3 ĐK14** (03/11 tối, chỉ sửa tài liệu, không chạy lại test, không chạm staging/production): BUG-R4-011, 012 tách trạng thái theo nhánh (đã sửa trên `lp-v2`, QC LP-v2 xác nhận bằng test; `main`/production còn lỗi gốc); BUG-R4-017 đổi đích sang **v1.0.4** (v1.0.3 đã chốt phạm vi email, không có bản sửa này); BUG-R4-020, 023, 024 ghi đích **v1.0.4**. Không đổi mức lỗi, không đóng lỗi nào. Số đếm mục 1 giữ nguyên: 011, 012 vẫn tính "Open" vì `main` và production chưa có bản sửa.
+
+## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff` + smoke staging v1.0.3 + dọn trạng thái ĐK14)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
-| P2 | 9 | 1 (BUG-R4-011) | 0 | 8 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022** – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
-| P3 | 15 | 7 (BUG-R4-010 – mở lại, BUG-R4-012, BUG-R4-015, BUG-R4-017, **020**, **023**, **024**) | 0 | 8 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`) |
+| P2 | 9 | 1 (BUG-R4-011 – **đã sửa trên `lp-v2`**, chờ gộp `main` + staging smoke P10; `main`/production còn lỗi gốc với hồ sơ tạo tay) | 0 | 8 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022** – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
+| P3 | 15 | 7 (BUG-R4-010 – mở lại, BUG-R4-012 – **đã sửa trên `lp-v2`**, chờ gộp + P10, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4) | 0 | 8 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`) |
 | **Tổng** | **24** | **8** | **0** | **16** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
@@ -211,7 +213,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Mong đợi:** hồ sơ tạo nhanh từ yêu cầu Zalo lưu được ở lần bấm đầu, giữ kênh Zalo. Một trong hai (ARC chọn): (a) Desk gửi `messagingHandles.zalo` = SĐT khi chọn Zalo mà chưa có tài khoản Zalo riêng; hoặc (b) server chấp nhận Zalo khi có `phone` (đúng nhãn "Số điện thoại / Zalo"). Câu lỗi từ server phải thay `{channel}` (hoặc dùng câu không có biến). Test chống tái phát: tạo nhanh từ yêu cầu Zalo (ko, en) → 201, `preferredContact = zalo`, `preferredLocale` đúng; tạo tay chọn Zalo chỉ có SĐT → lưu được.
 - **Bằng chứng:** ảnh `lp-v2/47`, `48`; báo cáo 12.4.
 - **Vai:** FE-B (hộp hồ sơ, điền sẵn, câu lỗi) + BE (luật `CONTACT_CHANNEL_EMPTY`) · ARC chọn (a) hay (b).
-- **Trạng thái:** Open.
+- **Trạng thái:** Open trên `main`/production. **Đã sửa trên `lp-v2`** (QC LP-v2 xác nhận bằng test: admin-web vitest `r4-lp-v2-fe5` + đối chứng bản cũ + api integration trên Postgres thật – `rounds/round-04/qc/lp-v2-gate.md` mục 3). **Chờ gộp `lp-v2` vào `main` + staging smoke P10** (3 đường Báo giá / Tạo đơn / Ở dài ngày từ yêu cầu Zalo ko/zh/ru/vi; hồ sơ lưu `zalo`). **Production (v1.0.2, chưa có `lp-v2`) còn lỗi gốc với hồ sơ tạo tay** chọn Zalo chỉ có SĐT (có từ v1.0.0); cách vòng: "Liên hệ ưu tiên" = Gọi điện. QA chỉ đóng sau P10 đạt. (Cập nhật 03/11, QC v1.0.3 ĐK14.)
 
 ### BUG-R4-012 – Hồ sơ tạo nhanh từ yêu cầu hiện Quốc tịch "–" nhưng server lưu `VN`
 
@@ -225,7 +227,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Mong đợi:** hồ sơ tạo nhanh từ yêu cầu website lưu quốc tịch **trống** (`null`), Desk hiện "–" cả khi mở lại; hoặc ARC/DOM chốt quy tắc khác và FE bỏ ô "–" cho khớp. Kiểm ảnh hưởng tới chỗ đang dựa vào `VN` mặc định (BR-009, báo cáo khách nước ngoài).
 - **Bằng chứng:** báo cáo 12.4 (cột "Hồ sơ trong DB"); ảnh `lp-v2/47` (hộp hiện "–").
 - **Vai:** BE (giá trị mặc định khi tạo) + ARC/DOM (quy tắc quốc tịch trống) · FE-B nếu đổi cách hiện.
-- **Trạng thái:** Open. Có thể đi v1.0.1 cùng BUG-R3-050 nếu PO chấp nhận.
+- **Trạng thái:** Open trên `main`/production. **Đã sửa trên `lp-v2`** (QC LP-v2 xác nhận bằng test: api integration trên Postgres 17 thật, quốc tịch lưu NULL – `rounds/round-04/qc/lp-v2-gate.md` mục 3). **Chờ gộp `lp-v2` vào `main` + staging smoke P10** (hồ sơ tạo nhanh từ yêu cầu lưu quốc tịch NULL, Desk hiện "–" khi mở lại). **Production (v1.0.2, chưa có `lp-v2`) còn lỗi gốc với hồ sơ tạo tay**: server ghi `VN` khi không gửi quốc tịch. Đích cũ "v1.0.1 cùng BUG-R3-050" không còn hiệu lực. QA chỉ đóng sau P10 đạt. (Cập nhật 03/11, QC v1.0.3 ĐK14.)
 
 ### BUG-R4-013 – `validate-fixtures` đỏ: oracle `br-examples.json` lệch BR v0.5.x; `main` vẫn xanh vì cache turbo không theo dõi BR/ESC
 
@@ -385,7 +387,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
   - **Không** nới CSP thành `font-src 'self' data:` (SEC xem).
 - **Bằng chứng:** `rounds/round-04/qa/v1.0.1-staging-smoke.md` mục 5. Nhật ký scratchpad `qa-r6/v101/log.md` (`csp-data-font` 12–18 dòng mỗi lượt Desk).
 - **Vai:** FE (+ SEC duyệt cách sửa).
-- **Trạng thái:** Open – v1.0.2 hoặc sau. Không chặn v1.0.1.
+- **Trạng thái:** Open. **Đích: v1.0.4** (plan v1.0.3 mục V4-10 "nếu kịp"; backlog 5.6 "v1.0.3 nếu kịp, không thì v1.0.4" – v1.0.3 đã chốt phạm vi email, không có bản sửa này). Đích cũ "v1.0.2 hoặc sau" bỏ. Không chặn v1.0.1, v1.0.2, v1.0.3. (Cập nhật 03/11, QC v1.0.3 ĐK14.)
 
 ### BUG-R4-018 – Buồng phòng, Bảo trì, Sale nội bộ, CTV lưu được email nhưng không bao giờ thấy lại (field policy D27 ẩn email của chính họ)
 
@@ -441,7 +443,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Mong đợi:** theo `design/content-guide.md` (`users.more_help`, màn `07-users-devices`): "Khác…" có Đặt lại mật khẩu, Khóa tài khoản, Đặt lại xác thực 2 bước. Hộp S2 dùng `StrongReauthDialog`.
 - **Bằng chứng:** báo cáo mục 6 (ca BA (b)).
 - **Vai:** PO xếp lịch, FE-A làm, UXD chốt chữ.
-- **Trạng thái:** Open. Không chặn v1.0.3.
+- **Trạng thái:** Open. **Đích: v1.0.4** (QC v1.0.3 mục 2.3, 4). Không chặn v1.0.3. (Cập nhật 03/11, QC v1.0.3 ĐK14.)
 
 ### BUG-R4-021 – Hộp Thông báo của PWA hiện mã thô `user.email_changed` / `mfa.reset_by_owner`
 
@@ -479,7 +481,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Mong đợi:** địa chỉ ở trên một dòng, hoặc chỉ ngắt ngay sau `@`. Gợi ý: cột Email rộng hơn (bớt chỗ của cột Thao tác), hoặc chèn điểm ngắt sau `@` (`<wbr>`) với `overflow-wrap: normal`, hoặc rút gọn bằng dấu "…" kèm `title`.
 - **Bằng chứng:** `product/docs/manual/img/C1-07.png`, `C1-22.png`; `rounds/round-04/qa/v1.0.3-staging-smoke.md` mục 3.
 - **Vai:** FE-A (+ UXD chốt cách hiển thị). Sau khi sửa, QA chụp lại C1-07, C1-22.
-- **Trạng thái:** Open.
+- **Trạng thái:** Open. **Đích: v1.0.4** (QC v1.0.3 mục 2.3, 4). Không chặn v1.0.3. **Sau khi sửa phải chụp lại ảnh sổ tay `product/docs/manual/img/C1-07.png` và `C1-22.png`** (Desk 1440×900, dữ liệu giả, che theo luật ảnh) – QA chỉ đóng lỗi khi 2 ảnh mới đã thay và sổ tay HTML dựng lại. (Cập nhật 03/11, QC v1.0.3 ĐK14.)
 
 ### BUG-R4-024 – Hộp S2 chỉ có ô mật khẩu vẫn báo "Mật khẩu hoặc mã chưa đúng. Kiểm tra lại rồi nhập mã mới."
 
@@ -490,7 +492,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Mong đợi:** khi hộp không có ô mã, câu chỉ nói về mật khẩu, ví dụ "Mật khẩu chưa đúng. Kiểm tra lại rồi thử lại." (chuỗi mới, ví dụ `reauth.s2_failed_password`, VI/EN).
 - **Bằng chứng:** `rounds/round-04/qa/v1.0.3-staging-smoke.md` mục 2.3 (2 lần thử, `PUT /v1/me/email` 401).
 - **Vai:** UXD (chữ) + FE-A (chọn chuỗi theo hộp có ô mã hay không).
-- **Trạng thái:** Open.
+- **Trạng thái:** Open. **Đích: v1.0.4** (QC v1.0.3 mục 2.3, 4). Không chặn v1.0.3. (Cập nhật 03/11, QC v1.0.3 ĐK14.)
 
 ## 3. Ghi nhận (không phải lỗi)
 

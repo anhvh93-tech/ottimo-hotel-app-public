@@ -137,7 +137,7 @@ Brand đạt. Không có mã màu tự đặt (chỉ `Alert`/`Button`/`Chip` c�
 - Vấn đề: Menu và tiêu đề trang đã thành "Bảo mật tài khoản". Nhưng link "Xác thực 2 bước" ở trang bật 2FA vẫn dẫn về `/security`, và sổ tay vẫn chỉ đường "menu người dùng → Xác thực 2 bước".
 - Vì sao quan trọng: Tên chỉ đường không khớp tên trên màn, nên người làm theo sổ tay không tìm thấy mục.
 - Đề xuất sửa: FE-A đổi link ở `Enroll2faPage.tsx` sang `t('shell.account_security')`. Khối 2FA trong `SecurityPage.tsx` giữ `shell.security` làm tiêu đề khối. Sổ tay (người giữ manual, ORC phân) ghi "menu người dùng → Bảo mật tài khoản → khối Xác thực 2 bước" và thêm một đoạn về khối email. Ảnh sổ tay chụp lại sau khi QA kiểm che. Phần sổ tay có thể làm ở bước sau PR-1, nhưng phải xong trước khi phát hành v1.0.3.
-- Trạng thái: Open
+- Trạng thái: **Closed** (03/11/2026). Phần FE đóng ở lượt 2. Phần sổ tay đóng ở lượt 3 bên dưới: Markdown sổ tay 1.8 + bộ hướng dẫn 1.6 (BA) đúng chỉ đường, HTML đã dựng lại, 6 ảnh đã gắn, kiểm 1440/390 đạt
 
 ### FB-R4-UXD-FE-EM-10
 - Mức độ: Suggestion
@@ -362,3 +362,21 @@ Không có lệch giữa guideline và DS trong phạm vi lượt này.
 - `EmailConfirmBody` dùng chung cho hai hộp S2, nên sửa một lần là đúng cả khối của mình lẫn hộp OWN.
 - Câu báo và địa chỉ hiển thị đều theo địa chỉ server trả về (đã chuẩn hóa), không theo chuỗi người dùng gõ. Như vậy người dùng thấy đúng địa chỉ sẽ nhận thư.
 - Banner gộp giữ đúng ranh giới: chỉ gộp khi thiếu 2FA và thiếu email. Ca "còn ít mã khôi phục" vẫn để riêng, vì đó là việc khác.
+
+## Lượt 3 – 03/11/2026: phần sổ tay của thẻ 09 (QC v1.0.3 ĐK11a/b)
+
+- Người review: UXD | Round 4 – đợt v1.0.3 – bước **Sản xuất** (điều kiện QC ĐK11a/b, `rounds/round-04/qc/v1.0.3-gate.md` S7).
+- Đối tượng: Markdown của BA @ `0d12cbc5` (không sửa): `user-manual-v1.0.md` bản 1.8, `guides/0*.md` bản 1.6, `screenshot-list.md`, `guides/screenshot-additions.md`. 6 ảnh trong `product/docs/manual/img/` @ `8a399f17` (đã qua QA kiểm che). HTML dựng lại bằng `build_manual.py`, `build_guides.py`. Báo cáo: `rounds/round-04/outputs/UXD/manual-1.8-html-report.md`.
+
+| Yêu cầu của thẻ 09 | Kết quả | Bằng chứng |
+|---|---|---|
+| Chỉ đường "tên của mình → Bảo mật tài khoản → khối Xác thực 2 bước" | **Đạt** | Sổ tay 0.2, 0.3; `01` 1.4, 1.6; `02` 1.6; `05` 1.5. Không còn chỉ đường cũ "→ Xác thực 2 bước" nào thiếu chú "trước v1.0.3". Tên khớp chuỗi `shell.account_security` |
+| Đoạn về khối email | **Đạt** | Sổ tay 0.3a (mới), 1.5; `01` 1.6a, 1.9; `02` 1.6; `05` 1.5. Tên khối, chip "Đã có"/"Chưa có", câu lỗi theo `secmail.*`, `users.*email*` |
+| Ảnh chụp lại sau khi QA kiểm che | **Đạt** | C0-06, G1-01, C1-07, C0-12, C0-13, C1-22 đã gắn vào HTML (khớp từng byte tệp trong `img/`). HTML không chứa ảnh nào ngoài `img/` |
+| HTML sổ tay khớp Markdown | **Đạt** | `ottimo-manual-v1.0.html` có 9 lần "Bảo mật tài khoản"; `guides/html/01` 9, `02` 4, `05` 2, `00` 1. Không tràn ngang ở 390 px và 1440 px (7 trang HTML + tờ máy tính bảng vừa khung). Ảnh kiểm `rounds/round-04/outputs/UXD/manual-1.8-check-1440.png`, `…-390.png` |
+
+Sửa thêm trong công cụ dựng (không đụng Markdown): mục có chữ cái như **0.3a**, **1.6a** trước đây không có số ở mục lục và link "mục 0.3a" chỉ nối tới 0.3, chữ "a" lẻ ngoài link. Nay `build_manual.py` và `build_guides.py` nhận số mục có một chữ cái cuối, nên mục lục hiện `0.3a`, `1.6a` và link về đúng mục. Các mục cũ 2.5a, 2.14a, 9.1a, 13.1a–d, 13.2a, 6.3a cũng được sửa theo.
+
+Thẻ 09: **Closed** (chỉ đường, đoạn khối email, ảnh). Thẻ này không phụ thuộc 4 thẻ Major của DOM (`DOM-on-manual-1.8.md`, M18-01…04 về nội dung thư, `info@`, lúc dừng kiểm sáng, nơi mở hộp thư). Các thẻ đó BA sửa Markdown sau khi ARC review xong. Khi đó UXD dựng lại HTML bằng một lệnh:
+`python3 -I product/design/tools/rebuild_manual_html.py --out-dir rounds/round-04/outputs/UXD --tag manual-1.8`
+Việc còn lại thuộc người khác: DOM + ARC đọc phần sổ tay đổi ở 1.6/1.8 (ĐK11c). ORC quyết có commit HTML không. HTML ở lượt này là bản trước khi BA sửa theo DOM, nên chưa trình INV.

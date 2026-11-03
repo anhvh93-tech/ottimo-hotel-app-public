@@ -282,3 +282,83 @@ Tôi quét 254 dòng thêm của diff và đọc toàn văn runbook r3:
 - Ca test mới tự dựng `PATH` không có `flock`, nên chạy được ở mọi máy, kể cả CI ubuntu có `flock`. OPS còn chạy test mới trên script cũ để chứng minh test đỏ đúng chỗ. SEC chạy lại cũng ra như vậy.
 - OPS tự thấy r3 làm đổi `SHA_V103` (G12) và chọn "một commit cho cả image, gói và tag", thay vì nới P1. Phần "Đúng là" của 0.2 khóa luôn danh sách 3 tệp mã được phép khác.
 - Biên bản diễn tập 5.0 S1–S13 để trống cột "Số thật", và cấm ghi "như dự kiến". Nhờ vậy các điều kiện SEC kiểm được bằng số.
+
+---
+
+# PR #33 lượt 2 – đối chiếu runbook r3.1 (QC v1.0.3 ĐK3, phần SEC)
+
+- Người đối chiếu: SEC · 03/11/2026 · Round 4 (v1.0.3), bước **Review** (thực hiện điều kiện QC).
+- Đọc: trả lời OPS lượt 2 (`rounds/round-04/responses/OPS-on-PR32.md`, mục "Lượt 2 – review PR #33"); runbook `v1.0.3-release-runbook.md` r3.1 trên `main` (`68064cba`): ghi chú r3.1, mục 0.2, mục F, bảng dừng mục 6 dòng F và 0.2; README `infra/server` 13.8; `bin/requeue-email-changed.sh` + test; biên bản `v1.0.3-staging-drill.md` (S0, D1); QC `v1.0.3-gate.md` 2.6.
+- Phạm vi theo runbook: SEC chỉ đối chiếu mục F (và các thẻ SEC khác của PR #33), không duyệt lại cả tệp. `git diff da6d6f3d HEAD` không đổi `product/infra`. Mục F không đổi kể từ commit gộp PR #33 (`da6d6f3d` = `SHA_V103`), nên bản SEC đọc là bản sẽ dùng khi Release. Lúc SEC đọc, OPS đang sửa runbook (r3.2, ĐK8, chưa commit). SEC đã so: mục 0.2, mục F và dòng F của bảng dừng ở bản đang sửa giống hệt `HEAD`. Phần r3.2 SEC sẽ đọc ở lượt ĐK8.
+- SEC tự chạy trên `main` (máy trạm): `requeue-email-changed.test.sh` **47/47** (Mac, không `flock`), có ca `staging marker refuses the test stub`.
+
+## Kết luận từng thẻ
+
+| Thẻ | Đối chiếu trên `main` | Trạng thái SEC |
+|---|---|---|
+| **FB-R4-SEC-OPS-PR33-01** (Minor, nhánh OWN) | Mục F bước 2. **Nhánh 1** gồm hai ca, cả hai khi INV không làm: (a) đổi **bởi OWN**; (b) email **của chính tài khoản OWN** bị đổi, kể cả `via = self`. Có dòng **"Không chắc nhánh nào → làm Nhánh 1"**, kèm đúng ví dụ SEC nêu (INV chưa có email, thông báo trong app không ghi `via`). Chỉ khóa người khác khi SEC xác nhận. **Nhánh 2** chỉ còn cho nhân viên không phải OWN tự đổi. Có câu "**Không bao giờ** để INV tự khóa tài khoản OWN", việc với tài khoản OWN do SEC quyết. Bảng dừng mục 6 dòng F và README 13.8 cùng nội dung, không mâu thuẫn. Thông báo `account_security_change` đến ngay, không qua hàng đợi thư, nên INV vẫn có dấu hiệu nhận nhánh khi hàng đợi trễ | **Closed** |
+| **FB-R4-SEC-OPS-PR33-02** (Minor, chọn lượt CI ở 0.2) | 0.2 bước 3: ghim `mergeCommit` của PR #33 (`state == MERGED`, `merge-base --is-ancestor` trên `origin/main`). Chọn lượt bằng `gh run list … --commit "$S"`. Kiểm theo **job** (`gitleaks`, `publish images (GHCR)` = `completed success`, `deploy staging` = `waiting`), **không** lọc `conclusion` của cả lượt. `test -n` dừng chuỗi lệnh khi không có lượt. Bước 1 cấm push lên `main` tới khi `CI_RUN` `completed success`. Bước 5 xử lý lượt bị hủy (rerun, đọc lại digest). Digest chỉ in 8 + 4 qua `sed -nE …p`. QC 2.1 ghi 0.2 đã chạy đúng trên thực tế (`CI_RUN` 41660661788, `TAG12` của commit gộp) | **Closed** |
+| **FB-R4-SEC-OPS-PR33-S1** (Suggestion) | `requeue-email-changed.sh` từ chối `RQ_TEST_DC` (mã 2) khi có `$OTTIMO_HOME/.ottimo-home`, `/opt/ottimo-prod/.ottimo-home` hoặc `/opt/ottimo/.ottimo-home`, theo khuôn `mail-test.sh`. Kiểm này chạy trước `flock`, `dc` và mọi truy vấn. Vậy trên VPS (cả staging) biến này không còn bỏ qua được `flock` hay thay được `dc`. Ca test mới xanh | **Closed** |
+| **FB-R4-SEC-OPS-PR33-S2** (Suggestion) | Phần đuôi bảng 0.1 của r2 sau 0.2 đã xóa: `grep` không còn dòng "plan 6.2: **Tài khoản của tôi**" hay bảng thứ hai giữa 0.2 và mục 1 | **Closed** |
+
+Phần SEC của ĐK3 đã xong: 4 thẻ PR #33 của SEC đều **Closed**. Thẻ PR #32 giữ như mục 8 ở trên (01, 02a, S3 Closed; 02b, S1, S2 Deferred v1.0.4, SEC chấp nhận). OPS còn phải sửa dòng "Trạng thái" đầu runbook: dòng này vẫn ghi "chờ … SEC đối chiếu mục F". Việc này thuộc OPS (ĐK3), SEC không sửa.
+
+## Điểm lệch D1 (QC gate 2.6)
+
+**SEC đồng ý với quyết định "Chấp nhận" của QC cho D1.** Lần deploy staging đầu của `TAG12` không kiểm digest, vì job `deploy staging` không gửi digest. Nhưng OPS đã đối chiếu digest image trên máy với artifact `image-digests` của `CI_RUN` và bảng 0.1, và hai bên trùng nhau. Phép kiểm sau này có giá trị tương đương. Lần lên lại (S9b) cũng đã qua `deploy-from-ci.sh` có kiểm digest, rồi ghi `state/digests/⟨TAG12⟩`. Production không gặp ca này: production guard của `deploy.sh` từ chối khi không có digest, và Release luôn gửi kèm digest. SEC ủng hộ việc ở ĐK15: cho job `deploy staging` gửi kèm digest từ v1.0.4, để staging kiểm digest ngay từ lần đầu, không phụ thuộc vào việc tag trên GHCR có bị đổi hay không.
+
+## Thẻ mới (không chặn)
+
+### FB-R4-SEC-OPS-PR33-S3
+- Mức độ: Suggestion (tài liệu; gộp vào r3.2 nếu OPS đang sửa runbook cho ĐK8, nếu không thì để v1.0.4)
+- Vị trí: runbook mục F bước 2, Nhánh 1 ca (b); README 13.8 dòng "Khi `FAIL`".
+- Vấn đề: ca (b) là kẻ chiếm tài khoản OWN đã đổi email của OWN. Nhánh 1 hiện chỉ dặn đổi mật khẩu và đăng xuất phiên lạ. Có hai chỗ còn hở:
+  - Chưa dặn **đặt lại email của OWN** về địa chỉ đúng. Nếu không làm, các thư bảo mật sau đó (gồm thư báo đổi mật khẩu) vẫn đi tới địa chỉ do kẻ đó đặt.
+  - Chưa nói phải làm gì khi INV **không đăng nhập được** (kẻ đó đã đổi cả mật khẩu).
+- Vì sao quan trọng: đây là ca nặng nhất của mục F. Nếu thiếu hai bước này, kẻ chiếm vẫn nhận được thư bảo mật, còn INV thì không biết cần gọi ai.
+- Đề xuất sửa: thêm vào Nhánh 1 hai câu.
+  - "Ca (b): sau khi đổi mật khẩu, INV nhập lại email của mình ở **Bảo mật tài khoản**."
+  - "Không đăng nhập được: báo ORC ngay. SEC quyết việc đặt lại theo thủ tục xác minh danh tính (`mfa-operator-reset`, ESC-027 B). INV không tự thử nhiều lần."
+  - README 13.8 sửa cùng nội dung.
+- Trạng thái: Open
+
+---
+
+# Runbook r3.2 – SEC đọc lại (QC v1.0.3 ĐK8)
+
+- Người đọc: SEC · 03/11/2026 · Round 4 (v1.0.3), bước **Review** (thực hiện điều kiện QC).
+- Bản đọc: `v1.0.3-release-runbook.md` r3.2 **trong thư mục làm việc** (OPS chưa commit; `git diff` so với `HEAD` `68064cba`). Chỉ đọc các chỗ r3.2 đổi: ghi chú r3.2 + dòng "Trạng thái"; K5b; K8 bước 2a; E1 dòng 4b; mục F Nhánh 1 ca (b); R7 (D3). Đọc thêm `git diff` của `v1.0.2-rollback-drill-staging.md`.
+- Đối chiếu mã tại `main` (`product/` không đổi từ `SHA_V103`): `security-email.controller.ts` (`setMyEmail`), `security-email.service.ts` (`check`), `strong-reauth.ts`, `password-reauth.ts` (`REAUTH_MAX_FAILURES = 5`, `REAUTH_LOCK_MS = 15 phút`), `main.ts` (`emailFrom` lấy từ `EMAIL_FROM`), `ops-check.sh` (`email_dead`), `deploy.sh` / `deploy-from-ci.sh` (kiểm dạng digest).
+
+## Kết luận: **ĐẠT**. SEC đồng ý r3.2 cho P0, kể cả K8 bước 2a trên tài khoản OWN duy nhất
+
+Không có Blocker, Major hay Minor. Có 1 Suggestion mới (S4), sửa chữ, không chặn.
+
+| Chỗ | SEC kiểm | Kết quả |
+|---|---|---|
+| **K5b** | Giá trị `EMAIL_FROM` chỉ nằm trong biến `V` trên máy chủ. Lệnh chỉ in `EMAIL_FROM_SHARED=<số>`, không `echo` biến, không `docker inspect`, không `dc config`. `printenv` trả 1 (biến không có) thì đếm `0`. Mọi lỗi khác (`dc exec`, `sudo`) in `ERR`, không in `0`. Phép đếm giống gate 2.7, khớp cả dạng `Tên <…>`. `api` dùng đúng biến này cho luật hộp thư chung (`main.ts` → `IdentityOptions.emailFrom` → `mailboxAddress`). Nhánh `0` và `ERR` đều bỏ bước 2a và nhắc INV không nhập `info@`. Đó là hướng an toàn. Mà `info@ottimo.vn` là địa chỉ công khai của cơ sở, không phải bí mật | Đạt |
+| **K8 bước 2a – không ghi, không tiêu S2** (luật bật) | Thứ tự trong `setMyEmail`: replay khóa → `parseBody` → `securityEmail.check` (422 `EMAIL_SHARED_MAILBOX`) → **sau đó** mới đến `strong.verify`. Vậy với luật bật, mật khẩu sai và `000000` **không hề được kiểm**. Không tăng bộ đếm, không có dòng audit, không ghi `user_email_change`, không có thư. Lỗi ném ra trước `uow.run`, nên khóa idempotency không bị lưu và bước 3 không bị trả lời cũ | Đạt |
+| **K8 bước 2a – không thể khóa tài khoản OWN** (luật tắt, ra 401) | `strong-reauth.ts`: mật khẩu sai thì `consumeSecondFactor` **không chạy**, nên `000000` không tiêu bước TOTP nào. Ca này chỉ cộng 1 vào bộ đếm S2 và ghi 1 dòng audit `stepup.s2_failed`. Tới 5 lần sai thì **khóa tạm S2 15 phút** (`approval_pin_locked_until`). Khóa này chỉ chặn thao tác cần S2, không chặn đăng nhập: đường đăng nhập không đọc cột này. Tài khoản không bị vô hiệu hóa. Lần S2 đúng ở bước 3 đưa bộ đếm về 0. Runbook giới hạn **đúng một** lần thử, cấm thử `info@` với mật khẩu và mã đúng (bước 5), và có lựa chọn "bỏ qua" (bước 7). Vì vậy trường hợp xấu nhất là S2 bị khóa 15 phút, không phải mất tài khoản OWN | Đạt (xem S4 về chữ) |
+| K8 bước 2a – dữ liệu | INV chỉ nhắn một câu cố định, không gửi ảnh. Không có địa chỉ riêng nào trong lệnh hay chat. K9 giữ nguyên số kỳ vọng: đúng, vì `user_email_change` và `email_changes` không đổi trong cả hai ca | Đạt |
+| **E1 dòng 4b** | Chạy qua `SQLRO` (`default_transaction_read_only=on`, dòng đầu phải là `on`). Chỉ `SELECT count(*)`, không đọc `payload`, không chọn cột có địa chỉ hay id. Điều kiện giống `ops-check email_dead` (`topic`, `status = 'dead'`, `last_error = 'NO_RECIPIENT'`), chỉ thay cửa sổ 24 giờ bằng mốc `created_at >= ⟨GIO_T⟩`. Câu lỗi thì dừng, không coi là `0`. Kết quả > 0 thì không bật. Ý (c) (`email_changes` không `FAIL`, `email_ascii` = 0) có ở cùng lệnh | Đạt |
+| **Mục F Nhánh 1 ca (b)** (thẻ S3) | Có đủ hai bước SEC đề xuất. (1) Sau khi đổi mật khẩu, INV nhập lại email ở **Bảo mật tài khoản**, không dán địa chỉ vào chat, kèm lý do. (2) Không đăng nhập được thì báo ORC ngay, SEC quyết theo `mfa-operator-reset` (ESC-027 B), INV không tự thử nhiều lần. Các câu cũ giữ nguyên: không khóa người bị đổi, không bao giờ để INV tự khóa OWN, không chắc nhánh nào thì làm Nhánh 1 | Đạt |
+| **R7 (D3)** | Câu báo lễ tân đúng với quyết định QC 2.6. Mã thô `user.email_changed` trên PWA v1.0.2 chỉ là lỗi hiển thị, không lộ địa chỉ, không sai quyền. Lễ tân không chụp gửi ảnh | Đạt |
+| **Trạng thái đầu runbook** (ĐK3, phần OPS) | Đã ghi SEC đóng PR33-01, 02, S1, S2 và đồng ý D1. Phần "SEC đọc lại 2a và F (b): chờ" sẽ được đóng bằng mục này. ORC hoặc OPS sửa chữ khi commit | Ghi nhận |
+| **`v1.0.2-rollback-drill-staging.md`** | Hai lệnh cũ chuyển sang dạng 8 + 4 ký tự, có ghi chú "lúc chạy đã truyền digest đủ" và cách làm lần sau. Ai chép lại lệnh rút gọn thì cũng an toàn: `deploy.sh` (dòng 45) và `deploy-from-ci.sh` (`dg='sha256:[0-9a-f]{64}'`) từ chối trước khi làm gì. Lịch sử git vẫn còn bản đầy đủ. Digest image không phải bí mật, và `gitleaks.toml` đã cho phép đúng các giá trị lịch sử. Không cần viết lại lịch sử | Đạt |
+
+## Trạng thái thẻ
+
+| Thẻ | Trạng thái SEC |
+|---|---|
+| FB-R4-SEC-OPS-PR33-S3 | **Closed** cho phần runbook (bản dùng khi Release). Phần README 13.8 cùng nội dung chưa sửa, vì lượt này không đổi `product/`. Phần đó **Deferred v1.0.4** (hoặc PR tài liệu riêng), SEC chấp nhận: mục F của runbook là bản ORC/INV dùng khi có sự cố, README 13.8 chỉ trỏ về mục này |
+| FB-R4-SEC-OPS-PR33-S4 (mới) | Open, Suggestion, không chặn |
+
+### FB-R4-SEC-OPS-PR33-S4
+- Mức độ: Suggestion (chữ trong runbook; sửa ngay trong r3.2 nếu tiện, không cần SEC đọc lại)
+- Vị trí: runbook K8 bước 2a ý 4 (ca 401).
+- Vấn đề: ý 4 ghi "Không có gì được ghi, chỉ đếm 1 lần sai". Mã thật (`strong-reauth.ts`) còn ghi **1 dòng audit `stepup.s2_failed`**. Bộ đếm S2 cũng không reset theo thời gian, chỉ về 0 khi có một lần S2 đúng. Nếu trước đó INV đã có 4 lần sai S2 chưa được xóa bởi lần đúng nào, thì lần thử này gây **khóa tạm S2 15 phút** kèm thông báo `security_alert`. Khi đó bước 3 sẽ báo khóa, mà runbook chưa nói phải làm gì.
+- Vì sao quan trọng: không gây hại (chỉ là dấu vết audit, khóa tạm, đăng nhập vẫn được). Nhưng ORC hoặc INV có thể tưởng là sự cố, hoặc thử lại nhiều lần trong lúc S2 đang bị khóa.
+- Đề xuất sửa: ý 4 đổi thành "…không lưu email, không thư; chỉ ghi 1 dòng audit `stepup.s2_failed` và đếm 1 lần sai". Thêm một câu: "Bước 3 báo khóa tạm: đợi 15 phút rồi làm bước 3, không thử lại trong lúc khóa".
+- Trạng thái: Open
+
+**Dòng đồng ý (ĐK8):** SEC đồng ý runbook r3.2 (K5b, K8 bước 2a, E1 dòng 4b, mục F Nhánh 1 ca (b), R7) để vào P0. K8 bước 2a an toàn trên tài khoản OWN duy nhất: luật bật thì 422 trả về trước S2, không tiêu yếu tố nào, không ghi gì. Luật tắt thì xấu nhất là S2 bị khóa tạm 15 phút, không khóa đăng nhập hay tài khoản. S4 không phải điều kiện.

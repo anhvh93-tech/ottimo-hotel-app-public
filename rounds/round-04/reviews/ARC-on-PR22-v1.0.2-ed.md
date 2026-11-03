@@ -72,7 +72,9 @@ Bộ lọc câu lệnh (`isForbiddenInSimulation`) chỉ để nhắc lập trì
   - (a) **Ưu tiên:** gộp PR sửa nhãn của DOM vào `main` trước. BE-A merge `main` vào `v1.0.2-ed` rồi chờ CI xanh trọn job.
   - (b) Nếu DOM chưa xong: OPS chạy tay workflow trên head `99734cda` với `turbo run test --continue` (hoặc `--filter='!@ottimo/tests'`) và lưu link run vào PR làm bằng chứng api + admin-web xanh. ORC ghi ngoại lệ vào `decision-log.md` (CI đỏ chỉ vì `test:fixtures` có sẵn trên `main`).
   - Không được dùng "Merge without waiting for requirements" khi chưa có (a) hoặc (b).
-- Trạng thái: Open
+- Trạng thái: ~~Open~~ → **Resolved** (ARC, 03/11/2026, theo ĐK2(d) QC v1.0.3 = ĐK12(d) QC v1.0.2).
+  - Lý do: đã đi đúng phương án (a). PR #25 (DOM, sửa fixtures) gộp `main`; BE-A merge `main` vào `v1.0.2-ed`; CI PR run 41574262425 trên head `ff16c1dd` xanh trọn job `format · lint · audit · test · build`, `Tasks: 14 successful, 14 total` (lần trước 8/14), `@ottimo/api:test` cache miss 3687 đạt / 24 bỏ qua có chủ đích, `@ottimo/admin-web:test` cache miss 680 đạt. BE-B xác nhận lượt 2 **ĐẠT** (`rounds/round-04/reviews/BE-B-on-PR22-FB01-r2.md`). Sau khi gộp, CI push trên `main` @ `e5fffe05` (run 41594706912) cũng xanh 10/10, api và tests chạy thật (cache miss) – QA ghi ở `rounds/round-04/qa/bug-list.md` mục đóng lỗi v1.0.2.
+  - Không dùng phương án (b), không có ngoại lệ "merge without waiting".
 
 ### FB-R4-ARC-BE-A-ED-02
 - Mức độ: Minor

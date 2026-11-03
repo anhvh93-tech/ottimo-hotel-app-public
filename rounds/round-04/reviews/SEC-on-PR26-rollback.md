@@ -95,3 +95,33 @@ Mốc bật đã khớp README 13.8 và `SEC-on-B2-readiness.md` 1.5: chỉ bậ
 - Diễn tập chạy chính `deploy.sh` thật trên production giả, không viết lại logic, có cả ca bất lợi. Test (a) chứng minh nhầm `v1.0.0` không đổi gì, test (g) chứng minh không tự đưa bản lỗi lên lại.
 - Tệp lệnh INV lọc đầu ra để log app không lên màn hình hay ảnh chụp, và tách rõ quay lui app, quay lui cấu hình, tắt Chat, mỗi loại có điều kiện dùng riêng.
 - `privacy_log_report` tách thành hàm có test, phân biệt rõ "không đối chiếu được" với "khớp", và không chép lỗi psql.
+
+---
+
+## Lượt 2 – đối chiếu bản sửa `97938f9b` (QC v1.0.2 ĐK12c, QC v1.0.3 ĐK2c)
+
+- Người đối chiếu: SEC · 03/11/2026 · Round 4, bước **Review** (thực hiện điều kiện QC).
+- Đọc: `git show 97938f9b` (5 tệp: tệp lệnh INV R4/R5 + gạch "không đụng webhook Chat", README dòng "Quay lui về bản trước" + 13.4, `rollback.test.sh` ca (i), `ops-check-cwd.test.sh`, `responses/OPS-CWD.md` 4 dòng SEC). Đối chiếu tệp hiện tại trên `main` (`68064cba`): `git diff 97938f9b HEAD` không đổi `v1.0.1-inv-commands.md`, `rollback.test.sh`, `deploy.sh`, `rollback.sh`. README có đổi sau đó nhưng hai câu của PR26-02/03 vẫn còn nguyên.
+- SEC tự chạy trên `main` (máy trạm, không chạm VPS): `rollback.test.sh` **16/16**, gồm 5 dòng của ca (i). CI: job `infra scripts` vẫn gọi `rollback.test.sh` và `ops-check-cwd.test.sh` (`ci.yml` dòng 270, 276).
+
+### FB-R4-SEC-OPS-PR26-01 – lệnh R4 có `MA THOAT`: **Closed**
+
+| Ý của thẻ | Bản sửa trên `main` | Kết quả |
+|---|---|---|
+| (1) `another deploy is running` bị lọc mất | Bộ lọc thêm `^another deploy`. Ca (i) "lock held" chạy đúng lệnh R4 đọc từ tệp lệnh: dòng này hiện ra, rồi `MA THOAT: 3`, không switch | Đạt |
+| (2) Lỗi dừng do `set -e` không in `FAIL` | Lệnh bọc `{ rollback.sh … 2>&1; echo "MA THOAT: $?"; } \| grep …`, nên **luôn** có dòng cuối `MA THOAT: <n>`. `$?` nằm trong nháy đơn của `ssh` nên được tính trên máy chủ, đúng mã của `rollback.sh` (qua `sudo`). Nhóm `{ …; }` là POSIX, không phụ thuộc `pipefail`. Ca (i) "pull error": `Error response …` + `MA THOAT: 1`, không có `FAIL`/`OK:`, không switch | Đạt |
+| (c) Hướng dẫn khi không có `FAIL` | Mục "Khi không đúng như trên": chỉ hai ca được chạy lại (mã 1 + dòng guard; mã 3 + `another deploy`). Mọi ca khác (mã ≠ 0, dòng trên `MA THOAT` không phải `OK: …`, có dòng lạ, kể cả không có `FAIL`) thì không chạy lại, chụp gửi đội, chạy R6 | Đạt |
+| Test bám đúng tài liệu | Ca (i) đọc lệnh R4 **từ chính tệp lệnh INV**, chỉ thay đường dẫn máy chủ bằng stack giả. Sửa tài liệu mà làm hỏng lệnh thì CI đỏ. Thiếu tệp lệnh khi `CI=true` → `ko` | Đạt |
+| Không lộ dữ liệu ra màn hình INV | Bộ lọc mới chỉ thêm các dòng **bắt đầu** bằng `another deploy`, `usage:`, `unknown option`, `no previous tag`, `digest must`, `Error`/`ERROR`, `MA THOAT:`. Các câu này do script hoặc docker in, không có dữ liệu khách. Phần `dc logs --tail 80 api worker web` mà `fail()` in ra vẫn bị lọc, vì compose đặt tiền tố tên dịch vụ (`api-1  \| …`) ở đầu mỗi dòng | Đạt |
+
+Rủi ro còn lại (không thành thẻ): dòng không tiền tố bắt đầu bằng `Error` có thể đến từ lượt `migrate` một lần (`dc run`). Khi quay lui về bản không có migration mới, lượt này không làm gì. Lỗi của nó (nếu có) là lỗi schema/kết nối, không chứa dữ liệu khách. Dòng `DETAIL` của Postgres không khớp bộ lọc. Chấp nhận.
+
+### Ba thẻ còn lại (OPS cùng trả lời Done ở `97938f9b`)
+
+| Thẻ | Đối chiếu | Trạng thái SEC |
+|---|---|---|
+| FB-R4-SEC-OPS-PR26-02 | R5 có câu "không bao giờ chạy `rollback.sh` mà không ghi tên bản". README dòng "Quay lui về bản trước" có câu "`previous_tag` là bản vừa bị gỡ". Runbook v1.0.3 R4 vẫn ghi rõ tên bản | **Closed** |
+| FB-R4-SEC-OPS-PR26-03 | README 13.4 có gạch "Quay lui app khi đang ở mức B/C" (dòng 362 trên `main`). Tệp lệnh INV ghi mức A không cần làm gì | **Closed** |
+| FB-R4-SEC-OPS-PR26-04 | `rollback.test.sh` (thiếu `jq`, thiếu tệp lệnh) và `ops-check-cwd.test.sh` (chạy bằng root): khi `CI=true` thì in `FAIL` và thoát 1 | **Closed** |
+
+**Kết luận lượt 2:** PR #26 đóng hết thẻ SEC (01–04 Closed). ĐK12(c) của QC v1.0.2, tức ĐK2(c) của QC v1.0.3, đã xong. Khuôn lệnh có `MA THOAT` cũng đã được dùng lại ở runbook v1.0.3 (5.0, R4, R4b, R8) và chạy thật trên staging (`v1.0.3-staging-drill.md` S4b, S9b: `MA THOAT: 0`).

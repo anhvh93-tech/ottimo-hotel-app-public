@@ -148,7 +148,7 @@ Còn chờ PR-1 gộp (không điền được bây giờ): `SHA_V103`, `TAG12`,
   - K2: thêm `SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE oid = 'public.app_user'::regclass;` → **Đúng là** `t|t`. Lệch thì **dừng, không làm K8**, báo ARC + SEC + BE.
   - R6 (K2 rút gọn) giữ dòng này.
   - Diễn tập 5.0: ghi dòng này cả hai chiều.
-- Trạng thái: Open
+- Trạng thái: ~~Open~~ → **Closed** (ARC, PR #33 lượt 1, mục "1. Thẻ ARC PR32" bên dưới)
 
 ### FB-R4-ARC-OPS-PR32-02
 - Mức độ: Minor
@@ -156,7 +156,7 @@ Còn chờ PR-1 gộp (không điền được bây giờ): `SHA_V103`, `TAG12`,
 - Vấn đề: script xếp lại **mọi** dòng `BAD_TEMPLATE` `email_changed` trong 7 ngày, kể cả dòng đã có trong `BT_BASE` (của một lần lùi trước, trong 7 ngày). Khi `BT_BASE` > 0, `<n>` sẽ lớn hơn "dòng 2 − `BT_BASE`", và ORC tưởng là lệch.
 - Vì sao quan trọng: một câu "Đúng là" sai làm ORC dừng nhầm, hoặc đoán số cho `--expect`.
 - Đề xuất sửa: "Đúng là: `<n>` + `<m>` = số `BAD_TEMPLATE` đếm ngay lúc đó (câu R6 dòng 2). `<n>` ≥ dòng 2 − `BT_BASE` nếu các dòng mới còn trong 7 ngày." `--expect` luôn lấy đúng số chạy thử in ra.
-- Trạng thái: Open
+- Trạng thái: ~~Open~~ → **Closed** (ARC, PR #33 lượt 1, mục "1. Thẻ ARC PR32" bên dưới)
 
 ### FB-R4-ARC-OPS-PR32-03
 - Mức độ: Minor
@@ -166,7 +166,7 @@ Còn chờ PR-1 gộp (không điền được bây giờ): `SHA_V103`, `TAG12`,
 - Đề xuất sửa:
   - R3b, trước khi đếm: ORC nhắn INV "từ giờ tới khi đội báo xong (R5), anh/chị **không lưu hay đổi email** trên Desk". INV là OWN duy nhất và là người duy nhất đổi được email.
   - 1.3a: thêm lý do compose: `web` chờ `api` healthy, `worker` không có healthcheck. Ô email v1.0.3 vì vậy chỉ xuất hiện sau khi api lên, và chiều deploy gần như không có cửa sổ.
-- Trạng thái: Open
+- Trạng thái: ~~Open~~ → **Closed** (ARC, PR #33 lượt 1, mục "1. Thẻ ARC PR32" bên dưới)
 
 ### FB-R4-ARC-OPS-PR32-04
 - Mức độ: Minor
@@ -174,7 +174,7 @@ Còn chờ PR-1 gộp (không điền được bây giờ): `SHA_V103`, `TAG12`,
 - Vấn đề: khi `switch`/`smoke` lỗi, `restore_previous` đưa v1.0.2 lên lại. Đây là một lần quay lui ngoài kế hoạch: không có R3b, và worker v1.0.2 gặp mọi dòng `email_changed` còn chờ. Dòng này chỉ yêu cầu K1, không yêu cầu đếm `BAD_TEMPLATE`.
 - Vì sao quan trọng: ít khả năng có dòng như vậy (chưa ai đổi email trước K8), nhưng nếu có thì mất thư mà không ai biết. Đúng lỗ hổng mà `FB-R4-ARC-BE-31-02` muốn bịt.
 - Đề xuất sửa: thêm vào cột "Làm gì": "chạy câu `BAD_TEMPLATE` của 1.3a (READ ONLY). Khác 0: ghi số, R9 sau khi Release lại thành công".
-- Trạng thái: Open
+- Trạng thái: ~~Open~~ → **Closed** (ARC, PR #33 lượt 1, mục "1. Thẻ ARC PR32" bên dưới)
 
 ### FB-R4-ARC-OPS-PR32-05
 - Mức độ: Minor
@@ -182,14 +182,14 @@ Còn chờ PR-1 gộp (không điền được bây giờ): `SHA_V103`, `TAG12`,
 - Vấn đề: dòng được xếp lại giữ `created_at` cũ (giờ đổi email, có thể vài giờ tới vài ngày trước). Ngay sau `--apply`, `email_changes` thấy thư "đang chờ" cũ hơn 30 phút và ra `FAIL … oldest waiting staff e-mail … – security notices delayed` cho tới khi worker gửi xong (10 thư/phút/cơ sở). Nếu timer 30 phút chạy đúng lúc đó, webhook báo động, và ORC có thể làm mục F nhầm.
 - Vì sao quan trọng: cảnh báo giả ngay sau một thao tác ghi có chủ đích làm người vận hành mất tin vào cảnh báo.
 - Đề xuất sửa: R9 bước 4 và README 13.9: "Trong vài phút sau `--apply`, `email_changes` có thể `FAIL` vì tuổi hàng đợi. Đó là dự kiến, **không** làm mục F. Chạy lại sau 3 phút, phải `ok`." Mục F bước 1: "Nếu trong 30 phút trước có R9 `--apply`, chạy lại sau 3 phút trước khi kết luận." Không đổi mã.
-- Trạng thái: Open
+- Trạng thái: ~~Open~~ → **Closed** (ARC, PR #33 lượt 1, mục "1. Thẻ ARC PR32" bên dưới)
 
 ### FB-R4-ARC-OPS-PR32-06
 - Mức độ: Suggestion (v1.0.4)
 - Vị trí: `requeue-email-changed.sh` biến `probe`; `email-dispatch.ts:29`
 - Vấn đề: câu hỏi mẫu phụ thuộc đường xuất `@ottimo/integrations/notification` và tên hàm `isStaffEmailTemplate`. Nếu v1.0.4 đổi chỗ (ví dụ theo `FB-R4-ARC-BE-31-05`, gom tên mẫu về `STAFF_EMAIL_TEMPLATES`), script trả mã 3 và từ chối. Như vậy vẫn an toàn (fail-closed), nhưng R9 sẽ hỏng đúng lúc cần.
 - Đề xuất sửa: v1.0.4: thêm một test ở `@ottimo/integrations` khóa đường xuất này, ghi chú "dùng bởi `infra/server/bin/requeue-email-changed.sh`". Hoặc BE xuất một lệnh nhỏ `node dist/cli/known-templates.js` để script gọi.
-- Trạng thái: Open
+- Trạng thái: ~~Open~~ → **Deferred v1.0.4** (ARC chấp nhận, decision-log 1096; QC v1.0.3 ĐK13 đưa vào backlog)
 
 ## 6. Trả lời giả định OPS
 
@@ -320,7 +320,7 @@ Còn chờ PR-1 gộp (không điền được bây giờ): `SHA_V103`, `TAG12`,
   3. Bước 4: INV đồng ý → duyệt `deploy staging` của **chính** `CI_RUN`. Sau đó `gh run watch $CI_RUN -R $R --exit-status` phải ra mã 0 và `gh run view $CI_RUN --json conclusion` = `success`. **Chỉ sau đó** mới được push. Ghi chú `release.yml:57` để ORC biết vì sao.
   4. Nếu lượt bị hủy hoặc đỏ trước khi `success`: không gắn tag. Chạy `gh run rerun $CI_RUN` (cùng `S`), làm lại bước 3 (digest có thể đổi), deploy staging lại, rồi diễn tập 5.0 trên digest mới.
   5. Bảng dừng P0 và rủi ro R5 thêm ý "push lên `main` trước khi `CI_RUN` success".
-- Trạng thái: Open
+- Trạng thái: ~~Open~~ → **Closed** (ARC, "PR #33 lượt 2" cuối tệp)
 
 #### FB-R4-ARC-OPS-PR33-02
 - Mức độ: Minor
@@ -328,7 +328,7 @@ Còn chờ PR-1 gộp (không điền được bây giờ): `SHA_V103`, `TAG12`,
 - Vấn đề: còn sót phần cuối bảng ô chờ của r2: một dòng `---|---|---|` không có tiêu đề, và các dòng cũ, ví dụ "plan 6.2: **Tài khoản của tôi**", "Dòng log worker mới (nếu có) | PR-1", "(giả định)". Khi hiển thị, phần này dính vào mục 0.2 và mâu thuẫn với bảng 0.1.
 - Vì sao quan trọng: ORC đọc 0.1/0.2 lúc phát hành. Thấy hai giá trị cho một ô (tên mục Desk) thì phải dừng hỏi.
 - Đề xuất sửa: xóa dòng 89–98 (từ `---|---|---|` tới dòng "Tên tệp QC … (giả định)"), giữ `---` phân cách trước mục 1.
-- Trạng thái: Open
+- Trạng thái: ~~Open~~ → **Closed** (ARC, "PR #33 lượt 2" cuối tệp)
 
 #### FB-R4-ARC-OPS-PR33-03
 - Mức độ: Minor (làm trước diễn tập, cùng commit với thẻ 01)
@@ -345,14 +345,14 @@ Còn chờ PR-1 gộp (không điền được bây giờ): `SHA_V103`, `TAG12`,
   Sửa thêm:
   - S8: "Đúng là" = `FAIL` với số lần/người = số `user_email_change` của người thử ở S2 + 1. QA ghi trước người thử nào nhận lần đổi lúc dừng worker.
   - S5: ghi rõ câu `… AND payload->>'template' = 'email_changed' GROUP BY 1, 2`.
-- Trạng thái: Open
+- Trạng thái: ~~Open~~ → **Closed** (ARC, "PR #33 lượt 2" cuối tệp)
 
 #### FB-R4-ARC-OPS-PR33-04
 - Mức độ: Suggestion
 - Vị trí: runbook r3 mục 0.2 bước 3, lệnh `sed -E 's/…/…/'`
 - Vấn đề: `sed` không có `-n … p`, nên dòng nào của `image-digests.txt` không khớp mẫu (đổi định dạng, thêm dòng) sẽ được in nguyên, tức in digest đầy đủ ra terminal, rồi có thể bị dán vào chat.
 - Đề xuất sửa: dùng `sed -nE '…/p'` (đã có trong lệnh ở thẻ 01). Thiếu dòng thì "Đúng là" 3 dòng không đạt, và ORC dừng.
-- Trạng thái: Open
+- Trạng thái: ~~Open~~ → **Closed** (ARC, "PR #33 lượt 2" cuối tệp)
 
 ### 6. Dòng decision-log đề nghị (ORC ghi)
 
@@ -363,3 +363,32 @@ Còn chờ PR-1 gộp (không điền được bây giờ): `SHA_V103`, `TAG12`,
 1. OPS tự phát hiện G12, tức sửa mã sau khi đã chốt `SHA_V103` thì gói production thiếu bản sửa. OPS chọn một commit cho cả image, gói và tag, thay vì nới P1. Đúng hướng.
 2. Ca test "thiếu `flock`" chạy với `env -i` + `PATH` tối thiểu. Nó kiểm cả "không có lời gọi docker/DB". OPS còn chạy test mới trên script cũ để chứng minh test bắt đúng lỗi. Đây là cách viết test cho chốt an toàn nên theo.
 3. Bảng 0.1 ghi rõ nguồn và cách kiểm lại cho từng ô. Vì vậy ARC đối chiếu hết trong vài lệnh.
+
+---
+
+## PR #33 lượt 2 – đối chiếu runbook r3.1 mục 0.2 (QC v1.0.3 ĐK3, phần ARC)
+
+- Người duyệt: ARC | Round 4, v1.0.3, bước **Review** (lượt 2, xác nhận) | 03/11/2026.
+- Đọc: trả lời OPS "Lượt 2 – review PR #33" (`rounds/round-04/responses/OPS-on-PR32.md`); runbook `rounds/round-04/outputs/OPS/v1.0.3-release-runbook.md`: mục 0.1, 0.2, bảng dừng mục 6 (dòng 0.2, P0), rủi ro R5, bảng 5.0 S0–S15. Đối chiếu mục 0.2 r3.1 (commit `a814a508`) với bản trên `main`: chỉ đổi bảng 0.1 (`b87ff8c5`, điền giá trị đã chốt) và cột "Số thật" của 5.0 (`97d0ba14`); bản r3.2 đang sửa trong thư mục làm việc (ĐK8) không chạm mục 0.2. Biên bản `rounds/round-04/outputs/OPS/v1.0.3-staging-drill.md` (S0, mục 7 D1); QC `rounds/round-04/qc/v1.0.3-gate.md` 2.1, 2.6.
+- Kiểm thật (chỉ đọc, `gh` + `git`): `gh pr view 33` = `MERGED`, merge commit `da6d6f3d`, nằm trên `origin/main`; `CI_RUN` 41660661788 = `push`, `headSha` `da6d6f3d`, `completed success`, ba job `gitleaks` / `publish images (GHCR)` / `deploy staging` đều `completed success`; diff code `351cf073..da6d6f3d` đúng 3 tệp (`server/README.md`, `bin/requeue-email-changed.sh`, `test/requeue-email-changed.test.sh`); băm 0091 ở `da6d6f3d` bắt đầu bằng `e8bb6cb9` = `HASH_0091`. Lượt CI xong 15:35:33Z; push kế tiếp lên `main` (`b87ff8c5`) lúc 15:35:54Z, tức **sau** khi `CI_RUN` success: bước 1 của 0.2 đã được giữ đúng.
+
+### Trạng thái thẻ
+
+| Thẻ | Trạng thái | Đối chiếu |
+|---|---|---|
+| FB-R4-ARC-OPS-PR33-01 (Major) | **Closed** | 0.2 r3.1 có đủ 5 ý ARC đề xuất: (1) bước 1 cấm push lên `main` từ lúc gộp PR #33 tới khi `CI_RUN` `completed success`, commit tài liệu chỉ local, push ở P1; (2) bước 3 ghim `mergeCommit` của PR #33 (`state == MERGED`, `merge-base --is-ancestor`), chọn lượt bằng `--event push --branch main --commit "$S"`, kiểm theo **job**, không lọc theo `conclusion` của cả lượt; "Đúng là" đủ 7 dòng, thiếu dòng nào thì dừng; (3) bước 4 duyệt `deploy staging` của chính `CI_RUN`, `gh run watch --exit-status` = 0 và `completed success` mới push, có lý do `release.yml:57` + `cancel-in-progress`; (4) bước 5 hủy/đỏ → không tag, `gh run rerun`, đọc lại digest, deploy staging và diễn tập lại; (5) bảng dừng dòng 0.2 và rủi ro R5 có ý "push trước khi `CI_RUN` success". Lệnh trùng từng chữ lệnh mẫu của ARC. **Bằng chứng chạy thật:** 0.2 đã chạy đúng ở 03/11 (mục "Kiểm thật" trên), ra `SHA_V103` = `da6d6f3d`, `TAG12` = `sha-da6d6f3dc22b`, `CI_RUN` 41660661788 |
+| FB-R4-ARC-OPS-PR33-02 (Minor) | **Closed** | Phần bảng r2 còn sót sau 0.2 đã xóa: giữa câu "Dừng nếu…" của 0.2 và mục 1 chỉ còn `---`. Không còn dòng `---\|---\|---\|` mồ côi, không còn "Tài khoản của tôi", "Dòng log worker mới (nếu có)" |
+| FB-R4-ARC-OPS-PR33-03 (Minor) | **Closed** | Bảng 5.0 có S0, S4b, S9b, S14, S15 với "Đúng là" đúng chữ ARC đề xuất; S8 có chuẩn chấm (`<k>` = `max` của người thử S1 + 1, tổng = S2 + 1); S5 lọc `payload->>'template' = 'email_changed'`. Bảng P0 và bảng dừng đòi S0–S15. Biên bản diễn tập đã điền đủ S0–S15, tất cả "Đạt" (S0 kèm D1) |
+| FB-R4-ARC-OPS-PR33-04 (Suggestion) | **Closed** | 0.2 bước 3 dùng `sed -nE '…/p'`, có câu giải thích dòng lạ không bao giờ in nguyên digest. Bảng 0.1 và biên bản chỉ ghi digest dạng 8 + 4 ký tự |
+
+Kết luận lượt 2: **ĐẠT.** Cả 4 thẻ ARC trên PR #33 đóng. Kết luận PR #33 đổi từ "ĐẠT CÓ ĐIỀU KIỆN" sang **ĐẠT** về phía ARC. Phần SEC (PR33-01, 02, S1, S2, mục F) do SEC xác nhận trong `SEC-on-PR32.md`, ARC không thay.
+
+**D1 (gate 2.6): ARC đồng ý** với cách kiểm thay ở S0 (digest image trên máy staging, 8 + 4 ký tự, trùng artifact `image-digests` của `CI_RUN` và bảng 0.1): đó là cùng digest manifest đã kéo từ GHCR, nên đúng nghĩa "staging chạy image sẽ lên production"; bước lên lại qua `deploy-from-ci.sh` đã ghi `state/digests/sha-da6d6f3dc22b` cùng giá trị, và production đi qua `release.yml` → `deploy-from-ci.sh` có digest nên không gặp lại; việc cho job `deploy staging` gửi kèm digest nhận ở v1.0.4 (ĐK15, ARC + OPS).
+
+Ghi chú cho OPS/ORC (không mở thẻ):
+- Dòng "Trạng thái" đầu runbook (r3.2) còn ghi "ARC/SEC đối chiếu PR #33 lượt 2: **đang làm (ĐK3)**". Phần ARC nay xong: OPS/ORC đổi thành "ARC: ĐẠT (lượt 2, 03/11)" khi SEC cũng xong.
+- Lượt CI 41673854835 (`92010000`, tài liệu) đang chạy và sẽ dừng ở `deploy staging` chờ duyệt: **không duyệt** (QC ĐK7).
+
+Dòng decision-log đề nghị (ORC ghi):
+
+`| 2026-11-03 | 4 | ARC – PR #33 lượt 2 (runbook v1.0.3 r3.1 mục 0.2): FB-R4-ARC-OPS-PR33-01 (Major) … 04 Closed; 0.2 đã chạy đúng (PR #33 MERGED da6d6f3d; CI_RUN 41660661788 push completed success, gitleaks/publish/deploy staging success; diff code 351cf073..da6d6f3d đúng 3 tệp; HASH_0091 khớp; push kế tiếp sau khi CI_RUN success). ARC đồng ý D1 (S0 đối chiếu digest image trên máy thay cho state/digests; job deploy staging gửi digest → v1.0.4 ĐK15). Đóng phần ARC của ĐK3 QC v1.0.3 | ARC | Quyền ARC (quy trình phát hành) |`
