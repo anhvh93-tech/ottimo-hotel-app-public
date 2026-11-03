@@ -3,7 +3,7 @@
 - Dành cho: **nhân viên bảo trì, kỹ thuật (MT)**
 - Thiết bị: **điện thoại**, địa chỉ `staff.ottimo.vn` (app nhân viên). Desk `desk.ottimo.vn` dùng để xem phiếu và lịch khóa phòng; tới bản sửa (v1.0.3 hoặc v1.0.4), khóa phòng do lễ tân hoặc người trực làm trên Desk (mục 5).
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.1 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10)
+- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.1 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; bản 1.2 ngày 03/11: không bật đăng nhập 2 bước ở v1.0.x vì app nhân viên chưa đăng nhập được bằng 2 bước – mục 1.5, FB-R4-DOM-PO-RN103-02)
 - Tài liệu không chứa mật khẩu, mã cửa hay thông tin khách.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -102,6 +102,8 @@ Khi đăng nhập, app hoặc Desk có thể báo:
 | Nghi người khác biết mật khẩu | Báo chủ đầu tư ngay |
 
 **Không ai** hỏi mật khẩu của anh/chị. Ai hỏi thì không đưa và báo chủ đầu tư. Mỗi người một tài khoản; không dùng chung, không gõ mật khẩu cho người khác.
+
+**Không bật đăng nhập 2 bước ở v1.0.x.** Trên Desk, mục **tên của mình → Bảo mật tài khoản** có khối **Xác thực 2 bước**: không bấm bật. App nhân viên chưa đăng nhập được bằng 2 bước. Bật xong, app báo "Nhập mã trong ứng dụng xác thực để hoàn tất đăng nhập. Đăng nhập 2 bước sẽ có ở bản sau. Nhờ chủ đầu tư hỗ trợ đăng nhập." (không có ô nhập mã) và anh/chị không vào app được. **Lỡ bật:** đăng nhập Desk bằng mật khẩu và mã → **tên của mình → Bảo mật tài khoản → Tắt xác thực 2 bước** (xác nhận bằng mật khẩu và mã) → đăng nhập lại app bằng mật khẩu như cũ. Mất cả điện thoại lẫn mã khôi phục: **báo chủ đầu tư**. Chủ đầu tư gặp tận mặt anh/chị, khóa tài khoản cũ và tạo tài khoản mới (tên đăng nhập mới) theo `01` mục 1.7; ở tài khoản mới, không bật 2 bước. Đội kỹ thuật không đặt lại 2 bước cho anh/chị.
 
 ---
 

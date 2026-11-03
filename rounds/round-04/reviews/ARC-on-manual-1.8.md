@@ -106,3 +106,65 @@ Việc đề xuất (ORC giao; ARC không sửa tệp của vai khác):
 1. Sổ tay dùng đúng tên trên Desk ở mọi chỗ (menu, khối, nút, câu báo) và ghi nguồn chuỗi, nên ARC đối chiếu được bằng `git diff` thay vì mở Desk.
 2. Ghi rõ "Có từ v1.0.3" và tên cũ của menu, giúp người dùng không lạc trong giờ chuyển bản.
 3. Phần "Ai nhận thư" mô tả đúng cả ba loại người nhận mà không lộ địa chỉ mẫu thật nào (chỉ `name@example.com`).
+
+---
+
+## RN103-02 – ARC kiểm
+
+- Yêu cầu: ORC, 03/11/2026. Thẻ `FB-R4-DOM-PO-RN103-02` (Major) trong `rounds/round-04/reviews/DOM-on-release-notes-v1.0.3.md`. ARC chỉ đọc mã ở `da6d6f3d` (so với `e5fffe05` = v1.0.2), không chạy gì trên staging hay production.
+- Đã đọc: `services/api/src/shared/serialization/field-policy.ts` (D27, `SELF_DATA_FIELDS`) ở cả hai commit; `identity/internal/auth.service.ts` (nhánh `MFA_REQUIRED`); `identity/internal/mfa.service.ts` (`assertState`, `disable`); `identity/public/mfa-store.ts` (`MFA_REQUIRED_ROLES = ['owner', 'manager']`); `identity/public/operator-reset.ts` + `src/admin/mfa-operator-reset-cli.ts` + `services/api/scripts/mfa-operator-reset.sh`; `apps/mobile/src/pages/LoginPage.tsx`; `apps/admin-web/src/pages/SecurityPage.tsx`, `UsersPage.tsx`; chuỗi `auth.mfa_later`, `mfa.disable`, `mfa.disable_note`; `qa/bug-list.md` BUG-R4-020, 022; decision-log dòng 926 (diễn tập 06.33 trên staging).
+
+### (1) DOM nói đúng không
+
+**Đúng về hậu quả. Cần chỉnh phạm vi "mới ở đâu":**
+
+| Vai | Tự bật 2 bước trên Desk | Từ bản nào | Lý do trong mã |
+|---|---|---|---|
+| Buồng phòng (`housekeeping`), bảo trì (`maintenance`), sale nội bộ (`sales_staff`), CTV (`collaborator`) | **Được** | **Mới ở v1.0.3.** Ở v1.0.2 (production hiện nay) không được | v1.0.2: field policy `D27: [HK, MT, SAL, CTV]` bỏ `otpauthUri` và `recoveryCodes` khỏi trả lời của `/v1/me/2fa/*`, nên không lấy được khóa để quét. v1.0.3: bản sửa BUG-R4-018/022 (`SELF_DATA_FIELDS`, `b00972ff`, có trong `da6d6f3d`) cho người gọi thấy dữ liệu của chính mình |
+| Lễ tân trưởng (`front_desk_lead`), lễ tân (`front_desk`) | **Được** | **Từ v1.0.0**, không phải mới | D27 không ẩn với FDL/FD ở cả hai bản |
+| Chủ đầu tư, quản lý | Bắt buộc | – | `MFA_REQUIRED_ROLES` |
+
+Đường bật: Desk `desk.ottimo.vn` → **tên của mình → Bảo mật tài khoản → khối Xác thực 2 bước** → bật (`setup` → quét mã → `confirm`, 10 mã khôi phục). Desk không chặn các vai này đăng nhập. Không có lời nhắc nào đẩy các vai này bật: banner `secnudge`/`secmail.nudge` chỉ cho chủ đầu tư và quản lý.
+
+Hậu quả khi đã bật: `auth.service.ts` trả `401 MFA_REQUIRED` cho **mọi** tài khoản có `mfa_enabled`, không theo vai. App nhân viên (`LoginPage.tsx` dòng 48–49) chưa có bước 2, chỉ báo "…Đăng nhập 2 bước sẽ có ở bản sau. Nhờ chủ đầu tư hỗ trợ đăng nhập." Vậy người đó **mất app nhân viên**. Desk vẫn dùng được (Desk có bước nhập mã). Desk **không** có nút đặt lại 2 bước cho người khác (BUG-R4-020); API `resetUser2fa` chạy đúng nhưng chỉ gọi được bằng phiên chủ đầu tư qua API, INV không có công cụ.
+
+### (2) Đường khôi phục hiện có
+
+1. **Tự khôi phục, nhanh nhất, không cần ai.** Người đó vẫn có điện thoại hoặc mã khôi phục: đăng nhập **Desk** bằng mật khẩu + mã → **Bảo mật tài khoản → Tắt xác thực 2 bước** (nút có cho mọi vai không bắt buộc: `SecurityPage.tsx` hiện nút khi `!required`; API `disableMy2fa` chỉ cấm vai chủ đầu tư/quản lý) → nhập mật khẩu + mã (S2) → Desk kết thúc mọi phiên → đăng nhập lại app nhân viên bằng mật khẩu như cũ. Khoảng 2 phút.
+2. **Mất cả điện thoại lẫn mã khôi phục, hoặc không tự làm được: đội kỹ thuật.** Lệnh 06.33 `mfa-operator-reset-cli` **không giới hạn vai** (chỉ cần `--username`), chạy trên máy chủ: `dc exec -T api node dist/admin/mfa-operator-reset-cli.js --username … --operator … --ticket … --reason …` (vỏ `services/api/scripts/mfa-operator-reset.sh`). Kết quả: xóa 2 bước và mã khôi phục, thu hồi mọi phiên, ghi audit `mfa.reset_by_operator`, gửi thông báo cho người đó và các chủ đầu tư. Vai không bắt buộc thì lần sau đăng nhập bình thường, không bị buộc bật lại. Đã diễn tập trên staging (decision-log 26/10, 06.33 nhánh 3B). Điều kiện: INV đồng ý trong chat và xác nhận đúng người (thủ tục xác minh của SEC, ngoài repo). Đây là thao tác ghi trên production, ORC chạy qua SSH như các bước runbook. Không in tên đăng nhập thật vào chat.
+3. **Trong lúc chờ:** Desk trang **Buồng phòng** cho lễ tân thấy việc dọn, nhưng **đổi trạng thái căn vẫn ở app nhân viên**. Vì vậy một nhân viên buồng phòng khác trong ca bấm thay, hoặc dùng cách 1 ngay.
+
+### (3) Mức rủi ro và có cần chặn bằng mã trước Release v1.0.3 không
+
+**Rủi ro production: Thấp.**
+- Xác suất thấp: phải tự mở Desk, chủ động vào **Bảo mật tài khoản**, cài ứng dụng xác thực, quét mã, cất 10 mã. Không có lời nhắc nào cho các vai này. Ở OTTIMO hiện chỉ vài tài khoản buồng phòng/bảo trì.
+- Tác động: một người mất app nhân viên từ vài phút (cách 1) tới vài giờ (cách 2). Không sai tiền, không mất hay lộ dữ liệu, không ảnh hưởng người khác.
+- Lễ tân trưởng/lễ tân đã có rủi ro này từ v1.0.0 mà chưa xảy ra lần nào.
+
+**Không chặn bằng mã trước Release v1.0.3.** Mọi sửa mã đều đổi `SHA_V103`: phải chạy CI mới, deploy staging, diễn tập 5.0 và QC lại, sát hạn ESC-040 (09/11). Lợi ích chỉ là bỏ một rủi ro Thấp mà đã có cách khôi phục tại chỗ. **Sổ tay + release notes dặn là đủ cho v1.0.3.**
+- ARC đồng ý câu DOM đề xuất (tách sale/CTV "nên bật" khỏi buồng phòng/bảo trì/lễ tân trưởng "không bật ở v1.0.x"). Đề nghị thêm cách tự khôi phục để người lỡ bật không phải chờ đội: "**Lỡ bật:** đăng nhập Desk bằng mật khẩu và mã → **Bảo mật tài khoản → Tắt xác thực 2 bước** → đăng nhập lại app. Mất điện thoại và mã khôi phục: báo chủ đầu tư, chủ đầu tư báo đội." Cùng câu vào `03` mục 1, `04` mục 1, `02` (lễ tân trưởng) và `01` 1.9.
+- Release notes (PO) và sổ tay (BA) sửa trước khi ORC báo INV "v1.0.3 đã lên", cùng lượt ĐK5/ĐK11. Không phải điều kiện trước P0 về kỹ thuật.
+
+**Sửa thật ở v1.0.4** (PO đưa vào backlog 5.6, cùng BUG-R4-020):
+1. **Ưu tiên:** app nhân viên có bước 2 khi đăng nhập (`401 MFA_REQUIRED` → màn nhập mã → `loginMfa`; API và hợp đồng 0.3.8 đã có, Desk đã dùng). Đây là gốc của lỗi. Vai MOB, ARC review, SEC duyệt.
+2. BUG-R4-020: Desk có nút **Đặt lại xác thực 2 bước** cho chủ đầu tư ở **Người dùng & vai** (`resetUser2fa` đã có).
+3. ARC **không** đề xuất ẩn nút Bật với buồng phòng/bảo trì: khi ý 1 xong lại phải mở ra, và việc tự bật 2 bước là điều nên khuyến khích.
+
+### Dòng decision-log đề nghị (ORC ghi)
+
+`| 2026-11-03 | 4 | ARC – kiểm DOM RN103-02 (đọc mã da6d6f3d so với e5fffe05): đúng về hậu quả – tài khoản có 2 bước bị 401 MFA_REQUIRED, app nhân viên chưa có bước 2 nên mất app. Mới ở v1.0.3 cho buồng phòng/bảo trì/sale/CTV (bản sửa BUG-R4-022 bỏ ẩn D27 với dữ liệu của chính mình); lễ tân/lễ tân trưởng tự bật được từ v1.0.0. Khôi phục: (1) người đó tự đăng nhập Desk bằng mã → Bảo mật tài khoản → Tắt xác thực 2 bước (vai không bắt buộc) → đăng nhập lại app; (2) mất máy và mã: đội chạy mfa-operator-reset-cli (06.33, mọi vai, đã diễn tập staging 26/10) khi INV đồng ý. Rủi ro Thấp; KHÔNG chặn bằng mã trước Release v1.0.3 (đổi SHA_V103 = CI/staging/diễn tập/QC lại); release notes + sổ tay 01/02/03/04 dặn "không bật ở v1.0.x, lỡ bật thì tự tắt trên Desk". v1.0.4: app nhân viên có bước 2 (loginMfa đã có) + BUG-R4-020 nút đặt lại trên Desk | ARC | Quyền ARC (đánh giá kỹ thuật); PO/BA sửa chữ |`
+
+---
+
+## Phản hồi BA
+
+- Người trả lời: BA | Round 4 – Phản hồi & sửa (QC v1.0.3 ĐK11) | Ngày: 03/11/2026
+- Bản sau khi sửa: sổ tay **bản nội dung 1.9**, bộ hướng dẫn **bản 1.7**. Câu Desk chép từ `product/design/copy/strings-vi.json` (chuỗi ở `da6d6f3d`). HTML chưa sửa: UXD dựng lại sau.
+
+| Thẻ | Trạng thái | Đã làm / lý do |
+|---|---|---|
+| FB-R4-ARC-BA-M18-01 (Minor) | **Fixed (phần sổ tay)** | Bỏ câu "Desk từ chối" ở bước 2. Thêm gạch con ở bước 3 của sổ tay 0.3a, `01` 1.6a, `02` 1.6: **sau khi** bấm **Lưu email**, Desk báo dưới ô **Email** "Đây là hộp thư chung của cơ sở…". Mật khẩu và mã **không bị tính là sai**, mã chưa bị dùng, nhập email riêng khác. Sổ tay 1.5 / `01` 1.9 bước 4 ghi cùng ý. `05` 1.5 có câu ngắn "Desk chỉ chặn được `info@`". Phần mã (bỏ `+…`, danh sách hộp chung có `booking@`, ca test `info+x@`) là việc của BE-A/SEC ở v1.0.4. BA không sửa mã. Đề nghị ORC đưa vào backlog v1.0.4. Sổ tay chưa nói tới biến thể `info+…@`: câu "Không dùng hộp thư chung" đã bao trường hợp này, và nêu biến thể thì như chỉ cách lách luật |
+| FB-R4-ARC-BA-M18-02 (Minor) | **Fixed** | Thêm hai gạch ở sổ tay 0.3a, `01` 1.6a (bản cho chủ đầu tư/quản lý), `02` 1.6 bước 3. (1) Tài khoản không có 2 bước: câu "Mật khẩu hoặc mã chưa đúng…" nghĩa là mật khẩu chưa đúng. Bỏ gạch này khi BUG-R4-024 sửa. (2) Sai 5 lần: "Bạn đã thử quá nhiều lần. Chờ … phút rồi thử lại." (khoảng 15 phút). Trong lúc đó mọi thao tác cần mật khẩu và mã đều chờ. Không tự sai mà vẫn thấy câu này thì báo chủ đầu tư (chủ đầu tư gọi đội) |
+| FB-R4-ARC-BA-M18-03 (Minor) | **Fixed** | Chép đủ câu báo, hai biến thể lần đầu / đổi: `secmail.saved_first`, `secmail.saved` (sổ tay 0.3a, `01` 1.6a, `02` 1.6) và `users.email_saved_first`, `users.email_saved` (sổ tay 1.5, `01` 1.9 bước 5). Thêm gạch: Desk hiện **đủ** địa chỉ ở khối này và ở **Người dùng & vai**, **không chụp màn hình** để gửi chat hay báo lỗi, báo lỗi bằng lời và chép đủ câu Desk báo; thư báo và thông báo trong app không ghi địa chỉ |
+| FB-R4-ARC-BA-M18-04 (Suggestion) | **Fixed** | Thêm câu "tạm quay về bản trước" vào khung đầu sổ tay 0.3a và `01` 1.6a, chữ theo đề xuất (khớp R7). `02` 1.6 có bản ngắn. Khi R7 đổi, nhờ OPS báo BA để sửa cùng |
+| FB-R4-ARC-BA-M18-05 (Suggestion) | **Fixed** | Dòng lịch sử 1.9 (sổ tay 5.7) ghi "khớp chuỗi Desk ở `v1.0.3` (`da6d6f3d`; ARC đã đối chiếu không đổi so với `3aaa971c`)". Dòng 1.8 giữ nguyên, vì lịch sử bản ghi đúng lúc viết. Đổi ví dụ địa chỉ trong sổ tay, bộ hướng dẫn và `screenshot-list.md` từ `name@example.com` sang `@example.test`, khớp địa chỉ QA đã dùng khi chụp C0-12, C0-13, C1-22. Câu Desk "ví dụ ten@example.com" là chữ của Desk nên giữ |

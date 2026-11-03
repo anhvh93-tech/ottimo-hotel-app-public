@@ -3,7 +3,7 @@
 - Dành cho: **chủ đầu tư (OWN)**, **quản lý (MGR)**, và người làm **kế toán/đối soát** cùng chủ đầu tư
 - Thiết bị: **máy tính hoặc laptop riêng** của anh/chị, địa chỉ `desk.ottimo.vn`. Máy quầy chỉ dùng khi duyệt tại quầy, xong đăng xuất ngay.
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.5 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; thêm phòng Google Chat, xóa theo yêu cầu người gửi, phòng Báo động theo SEC, ESC-041, ESC-042; bản 1.3 ngày 01/11 thêm giá ước tính trên website và đếm yêu cầu theo ngôn ngữ – mục 9.1a – áp dụng khi gói website LP-v2 phát hành; bản 1.5 ngày 03/11 viết lại mục 7.3 khách trả phòng sớm theo nút **Trả sớm** của v1.0.2 và bảng quyết định ký quỹ HĐ thuê tháng theo ESC-048, mục 15.5; bản 1.6 ngày 04/11 thêm trang **Bảo mật tài khoản** và email nhận thông báo bảo mật của v1.0.3, mục 1.6, 1.6a, 1.9, 15.1)
+- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.5 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; thêm phòng Google Chat, xóa theo yêu cầu người gửi, phòng Báo động theo SEC, ESC-041, ESC-042; bản 1.3 ngày 01/11 thêm giá ước tính trên website và đếm yêu cầu theo ngôn ngữ – mục 9.1a – áp dụng khi gói website LP-v2 phát hành; bản 1.5 ngày 03/11 viết lại mục 7.3 khách trả phòng sớm theo nút **Trả sớm** của v1.0.2 và bảng quyết định ký quỹ HĐ thuê tháng theo ESC-048, mục 15.5; bản 1.6 ngày 04/11 thêm trang **Bảo mật tài khoản** và email nhận thông báo bảo mật của v1.0.3, mục 1.6, 1.6a, 1.9, 15.1; bản 1.7 ngày 03/11, áp dụng cùng 1.6 khi v1.0.3 lên: sửa theo review DOM và ARC – bảng **Thư nào – làm gì** cho 4 loại thư, chọn hộp thư riêng, Desk chỉ chặn `info@`, kiểm sáng tới khi đội bảo mật báo bỏ, thứ tự nhập email, vai dùng app nhân viên chưa bật 2 bước, mất cả điện thoại lẫn mã khôi phục thì gặp tận mặt và tạo tài khoản mới theo SEC – mục 1.6a, 1.7, 1.9, 2.2, 10.1, 15.1)
 - Tài liệu không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi đào tạo, anh/chị cũng không ghi những thứ này lên bảng hay vào tài liệu phát tay.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -113,25 +113,34 @@ Trang **Bảo mật tài khoản** có hai khối: **Xác thực 2 bước** (m�
 
 ### 1.6a Email nhận thông báo bảo mật (có từ v1.0.3)
 
-> **Có từ v1.0.3.** Tới khi v1.0.3 lên, Desk chưa có khối này, và chủ đầu tư vẫn kiểm bảo mật mỗi sáng (mục 2.2).
+> **Có từ v1.0.3.** Tới khi v1.0.3 lên, Desk chưa có khối này. **Sau khi lên, chủ đầu tư vẫn kiểm bảo mật mỗi sáng tới khi đội bảo mật báo bỏ** (mục 2.2). Thấy thư đầu tiên về hộp thư **chưa** phải lúc bỏ. Thứ tự nhập email ngày v1.0.3 lên: mục 15.1.
+>
+> Nếu đội báo **tạm quay về bản trước**: menu trở lại tên **Xác thực 2 bước** và khối email tạm ẩn. Email đã lưu vẫn dùng, thư báo bảo mật vẫn tới. Không cần nhập lại. Cần đổi email gấp thì báo chủ đầu tư.
 
-OTTIMO gửi thư **Security notice** (Thông báo bảo mật) tới địa chỉ này, ví dụ khi xác thực 2 bước của anh/chị được đặt lại hoặc email này thay đổi. **Chủ đầu tư và quản lý phải có email này.** Chưa có, Desk hiện dòng nhắc trên đầu trang: "Tài khoản của bạn chưa có email nhận thông báo bảo mật. Thêm email để được báo khi có thay đổi quan trọng." Bấm **Thêm email** để mở đúng khối. **Để sau** chỉ ẩn dòng nhắc trong lần làm việc này.
+OTTIMO gửi thư báo tới địa chỉ này khi có việc quan trọng với tài khoản: dùng mã khôi phục, đặt lại 2 bước, đổi tài khoản nhận cọc, đổi email. Đọc và xử lý theo bảng **Thư nào – làm gì** ở cuối mục. **Chủ đầu tư và quản lý phải có email này.** Chưa có, Desk hiện dòng nhắc trên đầu trang: "Tài khoản của bạn chưa có email nhận thông báo bảo mật. Thêm email để được báo khi có thay đổi quan trọng." Bấm **Thêm email** để mở đúng khối. **Để sau** chỉ ẩn dòng nhắc trong lần làm việc này.
+
+**Chọn hộp thư nào:**
+- Dùng **email riêng chỉ anh/chị đọc**, ví dụ `ten.rieng@example.test`.
+- **Không dùng hộp thư chung** của cơ sở: `info@ottimo.vn`, `booking@ottimo.vn`, Gmail dùng cho Booking.com/Agoda/Airbnb, hộp thư của quầy, email của người nhà. Lý do: ai đọc được hộp thư chung cũng đọc và xóa được thư báo của anh/chị.
+- **Desk chỉ chặn được `info@`.** Các hộp thư chung khác Desk không nhận ra, anh/chị phải tự tránh.
+- Hộp thư này **không đăng nhập trên máy quầy, máy tính bảng của cơ sở** hay máy dùng chung, và **không cài tự chuyển tiếp** sang hộp thư khác. Nên bật đăng nhập 2 bước cho chính hộp thư đó.
 
 **Tự nhập email của mình** (mỗi người tự làm, không nhờ người khác gõ hộ):
 1. Bấm **tên của mình → Bảo mật tài khoản**. Khối **Email nhận thông báo bảo mật** ở dưới khối **Xác thực 2 bước**. Góc phải khối ghi **Chưa có** hoặc **Đã có**.
 2. Chưa có email: nhập vào ô **Email**, rồi bấm **Thêm email**. Đã có: bấm **Đổi email**, nhập địa chỉ mới, bấm **Lưu email**.
-   - Dùng **email riêng của mình**, ví dụ `name@example.com`.
-   - **Không dùng hộp thư chung của cơ sở, như `info@`.** Desk từ chối: "Đây là hộp thư chung của cơ sở. Thông báo bảo mật cần tới một email riêng."
 3. Hộp **Lưu email nhận thông báo bảo mật** hiện **Địa chỉ mới**. Đọc lại từng ký tự. Nhập **Mật khẩu đăng nhập** và **Mã trong ứng dụng xác thực (6 số)**. Bấm **Lưu email**.
-4. Desk báo "Đã lưu. Thông báo đã gửi tới …". Mở hộp thư, tìm thư **OTTIMO – Security notice: notification email changed**. Sau 15 phút chưa thấy: xem mục Spam, rồi kiểm lại địa chỉ.
+   - Địa chỉ là `info@`: **sau khi** bấm **Lưu email**, Desk báo dưới ô **Email**: "Đây là hộp thư chung của cơ sở. Thông báo bảo mật cần tới một email riêng." Mật khẩu và mã **không bị tính là sai**, mã chưa bị dùng. Nhập một email riêng khác.
+4. Desk báo "Đã lưu. Thông báo đã gửi tới địa chỉ này. Sau 15 phút chưa thấy thư, hãy xem mục Spam hoặc kiểm tra lại địa chỉ." (lần đầu thêm) hoặc "Đã lưu. Thông báo đã gửi tới địa chỉ mới và địa chỉ cũ. Sau 15 phút chưa thấy thư, hãy xem mục Spam hoặc kiểm tra lại địa chỉ." (khi đổi). Mở hộp thư trên máy hoặc điện thoại riêng, tìm thư **OTTIMO – Security notice: notification email changed**. Thư nằm trong Spam: đánh dấu **Không phải thư rác**.
 
 [ẢNH: C0-12-Khối Email nhận thông báo bảo mật]
 [ẢNH: C0-13-Hộp Lưu email nhận thông báo bảo mật]
 
 - "Mật khẩu hoặc mã chưa đúng. Kiểm tra lại rồi nhập mã mới.": chờ ứng dụng hiện mã mới, nhập lại. Mỗi mã chỉ dùng một lần.
+- Sai **5 lần**, Desk báo "Bạn đã thử quá nhiều lần. Chờ … phút rồi thử lại." (khoảng 15 phút). Trong lúc đó **mọi thao tác cần mật khẩu và mã đều chờ** (duyệt, đổi tài khoản nhận, cấp quyền máy, khóa tài khoản…), không riêng khối email. Anh/chị không tự sai 5 lần mà vẫn thấy câu này: quản lý báo chủ đầu tư, chủ đầu tư gọi đội.
 - "Địa chỉ này đã được lưu. Không có gì thay đổi.": địa chỉ đã đúng, không cần làm gì.
 - "Email chưa đúng dạng, ví dụ ten@example.com.": gõ lại địa chỉ.
 - **Xóa email**: sau khi xóa, anh/chị không nhận thông báo bảo mật qua email nữa. Chủ đầu tư và quản lý phải có email này: muốn thay địa chỉ thì bấm **Đổi email**, không xóa.
+- Desk hiện **đủ** địa chỉ email ở khối này và ở **Người dùng & vai** (không che). **Không chụp màn hình** các màn này để gửi chat hay báo lỗi: báo lỗi bằng lời, chép đủ câu Desk báo. Thư báo và thông báo trong app không ghi địa chỉ.
 
 **Ai nhận thư khi email thay đổi.** Mỗi lần email của một tài khoản được thêm, đổi hoặc xóa, OTTIMO gửi thư **Security notice**:
 
@@ -141,10 +150,20 @@ OTTIMO gửi thư **Security notice** (Thông báo bảo mật) tới địa ch�
 | Địa chỉ cũ | Khi đổi hoặc xóa (lần đầu thêm thì không có địa chỉ cũ) |
 | Các chủ đầu tư | Mọi lần, kể cả khi chính người đó tự đổi hoặc chủ đầu tư đổi cho nhân viên |
 
-Thư không ghi địa chỉ email, không có link, không hỏi mật khẩu hay mã. Thư nào có link đăng nhập hoặc hỏi mã là thư giả: không bấm, báo chủ đầu tư.
+Thư không ghi địa chỉ email, không có link, không hỏi mật khẩu hay mã.
 
-- Nhận thư báo email của mình đã đổi mà mình không làm: không trả lời thư. Mở Desk bằng cách **gõ địa chỉ**, **đổi mật khẩu**, báo chủ đầu tư ngay trong ngày.
-- Chủ đầu tư nhận thư báo email của một nhân viên đã đổi mà không biết trước: hỏi lại người đó trong ngày.
+**Thư nào – làm gì.** Tiêu đề thư luôn bắt đầu bằng "OTTIMO – ", ghi tiếng Anh rồi tiếng Việt. Người có tài khoản đó và các chủ đầu tư đều nhận thư (dòng 3: các chủ đầu tư).
+
+| Tiêu đề thư | Gửi khi | Việc này mình **không** biết trước thì làm gì |
+|---|---|---|
+| **Security notice: a recovery code was used** / Thông báo bảo mật: đã dùng mã khôi phục | Một tài khoản (kể cả của mình) đăng nhập bằng mã khôi phục | **Thư về chính mình:** mở Desk bằng cách **gõ địa chỉ**, **đổi mật khẩu**, **Tạo bộ mã mới** (mục 1.4), rồi gọi chủ đầu tư (chủ đầu tư: gọi đội). **Thư về nhân viên** (chủ đầu tư): **gọi điện** cho người đó theo số đã lưu sẵn. Người đó nói không phải mình: **Khóa tài khoản** ngay (mục 1.9), xem **Tổng quan → Cần chú ý**, gọi đội |
+| **Security notice: two-step sign-in was reset** / Thông báo bảo mật: đăng nhập 2 bước đã được đặt lại | 2 bước của một tài khoản bị đặt lại. Thư có thể ghi "bởi đội kỹ thuật OTTIMO" | Làm như dòng trên. Thư ghi "bởi đội kỹ thuật OTTIMO" mà anh/chị không đang làm thủ tục khôi phục với đội: **gọi đội ngay theo số đã biết**, không theo số nào ghi trong thư |
+| **Notice: the deposit receiving account was changed** / Thông báo: tài khoản nhận cọc đã thay đổi | Tài khoản nhận chuyển khoản (VietQR) được đổi hoặc lên lịch đổi | Làm theo mục 10.2: chủ đầu tư **Hủy lịch**, đổi mật khẩu, tạo bộ mã khôi phục mới, báo đội. Lễ tân **ngừng gửi mã VietQR** tới khi chủ đầu tư xác nhận |
+| **Security notice: notification email changed** / Thông báo bảo mật: email nhận thông báo đã thay đổi | Email của một tài khoản được thêm, đổi hoặc xóa | **Thư về email của mình:** không trả lời thư. Mở Desk bằng cách **gõ địa chỉ**, **đổi mật khẩu**, báo chủ đầu tư ngay trong ngày. **Thư về email của nhân viên** (chủ đầu tư): **gọi điện** hỏi người đó. Không phải người đó làm: **Khóa tài khoản** như dòng đầu |
+
+- Thư về tài khoản nhận cọc **không có chữ "Security notice"** (tiêu đề bắt đầu bằng "Notice:"). **Đừng lọc thư theo chữ Security notice.** Thư đầu tiên của OTTIMO vào Spam thì đánh dấu **Không phải thư rác**.
+- Thư báo của OTTIMO **không có link**, không hỏi mật khẩu hay mã. Thư nào có link đăng nhập hoặc hỏi mã là thư giả: không bấm, báo chủ đầu tư.
+- Hỏi lại ai về một thư báo: **gọi điện** theo số đã lưu sẵn, **không hỏi qua Zalo hay tin nhắn** (tài khoản chat cũng có thể đã bị người khác chiếm).
 
 ### 1.7 Quên mật khẩu, mất điện thoại
 
@@ -152,7 +171,8 @@ Thư không ghi địa chỉ email, không có link, không hỏi mật khẩu h
 |---|---|
 | Quản lý quên mật khẩu | **Báo chủ đầu tư.** Desk không có nút "quên mật khẩu". Chủ đầu tư **Đặt lại mật khẩu**, đưa mật khẩu tạm tận tay |
 | Chủ đầu tư hoặc quản lý mất điện thoại, còn mã khôi phục | Ở màn nhập mã, bấm **Mất điện thoại? Dùng mã khôi phục**, nhập một mã, bấm **Đăng nhập bằng mã khôi phục**. Desk mở **Đăng ký lại trên điện thoại mới**: làm lại như mục 1.3, trên máy riêng. **Làm xong đăng ký lại ngay, không bỏ dở.** Quản lý: rồi **báo chủ đầu tư** để **Đặt lại mật khẩu** cho mình (Desk đăng xuất trên mọi máy, kể cả máy bị mất) |
-| Quản lý (người trực) mất cả điện thoại lẫn mã khôi phục | Người đó **báo chủ đầu tư**, không xin mã của người khác. Chủ đầu tư, trên máy riêng: (1) **Khóa tài khoản** của người đó ngay; (2) **Thêm người dùng** mới cho chính người đó, **tên đăng nhập mới**, đúng các vai cũ (mục 1.9); (3) đưa mật khẩu tạm tận tay; người đó đăng nhập lần đầu trên laptop riêng và bật 2 bước trên điện thoại mới. Desk v1.0 chưa có nút đặt lại 2 bước cho người khác; **Đặt lại mật khẩu không gỡ 2 bước**. Tài khoản cũ để khóa, không xóa (giữ nhật ký) |
+| Quản lý (người trực) mất cả điện thoại lẫn mã khôi phục | Người đó **báo chủ đầu tư**, không xin mã của người khác. Chủ đầu tư **gặp tận mặt** người đó rồi mới làm, **không làm theo tin nhắn** hay cuộc gọi (người giả danh cũng nhắn xin được). Chủ đầu tư, trên máy riêng: (1) **Khóa tài khoản** của người đó ngay; (2) **Thêm người dùng** mới cho chính người đó, **tên đăng nhập mới**, đúng các vai cũ (mục 1.9); (3) đưa mật khẩu tạm tận tay; người đó đăng nhập lần đầu trên laptop riêng và bật 2 bước trên điện thoại mới; (4) **ngay sau khi bật 2 bước**, người đó nhập **email nhận thông báo** ở **tên của mình → Bảo mật tài khoản** (mục 1.6a; vai quản lý bắt buộc có email). Đây là cách duy nhất ở v1.0.3, **không nhờ đội kỹ thuật đặt lại 2 bước**. Desk v1.0 chưa có nút đặt lại 2 bước cho người khác (dự kiến có ở v1.0.4); **Đặt lại mật khẩu không gỡ 2 bước**. Tài khoản cũ để khóa, không xóa (giữ nhật ký) |
+| Buồng phòng, bảo trì, lễ tân trưởng (dùng app nhân viên) lỡ bật 2 bước rồi mất cả điện thoại lẫn mã khôi phục | Làm như dòng trên: gặp tận mặt, bước (1)–(3), tên đăng nhập mới, đúng các vai cũ. Ở tài khoản mới, người đó **không bật 2 bước** (mục 1.9 bước 8) và đăng nhập app nhân viên bằng tên đăng nhập mới. Bước (4) không bắt buộc; lễ tân trưởng nên nhập email (mục 1.6a). Không nhờ đội đặt lại |
 | Chủ đầu tư mất cả điện thoại lẫn mã khôi phục | Làm theo thủ tục khôi phục riêng đã diễn tập với đội kỹ thuật (không ghi trong tài liệu này) |
 | Chủ đầu tư quên mật khẩu | Ở v1.0 **chưa có cách khôi phục**: không ai trong Desk đặt lại được mật khẩu cho chủ đầu tư, thủ tục khôi phục riêng cũng không đổi mật khẩu. Vì vậy: lưu mật khẩu Desk trong **trình quản lý mật khẩu** ngay khi đặt (không lưu trên trình duyệt). Gõ sai **2 lần** thì dừng, mở trình quản lý mật khẩu xem lại: gõ sai tiếp Desk sẽ khóa, và chỉ một chủ đầu tư khác mới mở được. Đã quên hẳn: gọi đội kỹ thuật, không tự thử tiếp. |
 | Mất điện thoại hoặc máy tính bảng có **app khóa cửa** | Chủ đầu tư **ngay** đổi mật khẩu tài khoản app khóa và thu hồi quyền của máy đó |
@@ -196,6 +216,7 @@ Một người có thể có nhiều vai. Không có vai "Kế toán" riêng (m�
 5. Xác nhận bằng mật khẩu và mã 6 số.
 6. Desk hiện **Mật khẩu tạm của …** **một lần**. Đưa tận tay người dùng. Không gửi qua chat.
 7. Ngồi cùng người đó lần đăng nhập đầu: đổi mật khẩu tạm. Người có vai quản lý: làm trên laptop riêng (không phải máy quầy), bật 2 bước trên điện thoại riêng của họ, cất mã khôi phục như mục 1.3 bước 5.
+8. **Buồng phòng, bảo trì, lễ tân trưởng dùng app nhân viên: dặn họ không bật đăng nhập 2 bước ở v1.0.x.** App nhân viên chưa đăng nhập được bằng 2 bước (app báo "…Đăng nhập 2 bước sẽ có ở bản sau. Nhờ chủ đầu tư hỗ trợ đăng nhập."): bật thì người đó mất app nhân viên. **Lỡ bật:** đăng nhập Desk bằng mật khẩu và mã → **tên của mình → Bảo mật tài khoản → Tắt xác thực 2 bước** (xác nhận bằng mật khẩu và mã) → đăng nhập lại app bằng mật khẩu như cũ. Người đó mất cả điện thoại lẫn mã khôi phục: anh/chị **gặp tận mặt**, khóa tài khoản cũ, tạo tài khoản mới (tên đăng nhập mới, không bật 2 bước) theo mục 1.7. Không nhờ đội đặt lại 2 bước, không làm theo tin nhắn. Sale nội bộ, CTV chỉ dùng Desk: tự bật được, nên bật.
 
 [ẢNH: C1-07-Người dùng và vai]
 [ẢNH: C1-08-Thêm người dùng]
@@ -217,9 +238,9 @@ Nhân viên buồng phòng, bảo trì (và lễ tân trưởng dùng app): lầ
 **Đặt email cho nhân viên** (có từ v1.0.3, chỉ chủ đầu tư, trên máy riêng):
 1. **Quản trị → Người dùng & vai**. Cột **Email** hiện địa chỉ của từng người hoặc **Chưa có**. Quản lý chưa có email: chữ **Chưa có** hiện trong khung cảnh báo.
 2. Ở dòng người đó, bấm **Sửa email**.
-3. Hộp **Email nhận thông báo bảo mật – {tên}**: nhập email riêng của người đó, ví dụ `name@example.com`. Hỏi tận miệng, đọc lại cho người đó nghe. Không dùng hộp thư chung như `info@`. Bấm **Lưu email**.
-4. Hộp xác nhận hiện **Địa chỉ mới** và câu "OTTIMO sẽ gửi thông báo tới địa chỉ mới, địa chỉ cũ (nếu có) và các chủ đầu tư." Nhập **Mật khẩu đăng nhập** và **Mã trong ứng dụng xác thực (6 số)**. Bấm **Lưu email**.
-5. Desk báo "Đã lưu email của {tên}. Thông báo đã gửi tới …". Nhờ người đó mở hộp thư xem đã có thư **Security notice** chưa.
+3. Hộp **Email nhận thông báo bảo mật – {tên}**: nhập email riêng của người đó, ví dụ `ten.rieng@example.test`. Hỏi tận miệng, đọc lại cho người đó nghe, và hỏi: "Hộp thư này chỉ mình em đọc phải không?" Không dùng hộp thư chung (`info@ottimo.vn`, `booking@ottimo.vn`, Gmail dùng cho OTA, hộp thư của quầy – mục 1.6a). Bấm **Lưu email**.
+4. Hộp xác nhận hiện **Địa chỉ mới** và câu "OTTIMO sẽ gửi thông báo tới địa chỉ mới, địa chỉ cũ (nếu có) và các chủ đầu tư." Nhập **Mật khẩu đăng nhập** và **Mã trong ứng dụng xác thực (6 số)**. Bấm **Lưu email**. Địa chỉ là `info@` thì Desk báo "Đây là hộp thư chung của cơ sở…" sau bước này; mật khẩu và mã không bị tính là sai.
+5. Desk báo "Đã lưu email của {tên}. Thông báo đã gửi tới địa chỉ này và các chủ đầu tư." (lần đầu) hoặc "Đã lưu email của {tên}. Thông báo đã gửi tới địa chỉ mới, địa chỉ cũ và các chủ đầu tư." (khi đổi). Nhờ người đó mở hộp thư trên máy hoặc điện thoại riêng, xem đã có thư **Security notice** chưa. Anh/chị cũng nhận một bản: đọc theo bảng **Thư nào – làm gì** (mục 1.6a).
 
 [ẢNH: C1-22-Hộp Sửa email của nhân viên]
 
@@ -227,6 +248,7 @@ Nhân viên buồng phòng, bảo trì (và lễ tân trưởng dùng app): lầ
 - Dòng của chính anh/chị không có nút: "Đổi email của bạn ở Bảo mật tài khoản." (mục 1.6a).
 - Dòng của chủ đầu tư khác không có nút: "Mỗi chủ đầu tư tự đặt email của mình."
 - Quản lý không thấy cột **Email** và không đặt email cho người khác. Quản lý tự nhập email của mình ở mục 1.6a.
+- Lễ tân trưởng: email không bắt buộc, nhưng **khuyến khích** thêm (vai này có quyền duyệt trong hạn mức, nhận phòng ngoại lệ).
 
 ### 1.10 Cấp quyền máy quầy (chỉ chủ đầu tư)
 
@@ -271,7 +293,7 @@ Máy quầy phải được cấp quyền thì lễ tân mới nhận phòng, xe
 
 ### 2.2 Kiểm bảo mật mỗi sáng
 
-> **Tạm ở v1.0** (tới khi thư "Security notice" về tới chủ đầu tư; lỗi đang sửa ở bản vá, chậm nhất 09/11): ở v1.0 thư báo đổi tài khoản nhận tiền, dùng mã khôi phục, đặt lại 2 bước **chưa gửi tới ai**. Vì vậy mỗi sáng trước 09:00:
+> **Tạm – kiểm mỗi sáng, tới khi đội bảo mật báo bỏ** (đội báo qua điều phối viên). Trước v1.0.3, thư báo đổi tài khoản nhận tiền, dùng mã khôi phục, đặt lại 2 bước **chưa gửi tới ai**. Từ v1.0.3 thư gửi tới email nhập ở mục 1.6a, nhưng **vẫn kiểm** cho tới khi đội xác nhận đường gửi thư ổn định: v1.0.3 lên, hay thấy thư đầu tiên, **chưa** phải lúc bỏ. Ngày v1.0.3 lên: làm theo mục 15.1. Mỗi sáng trước 09:00:
 > 1. **Chủ đầu tư** mở **Tham số quy tắc → Tài khoản nhận chuyển khoản (VietQR)**: đúng **một** dòng **Đang dùng**, tên chủ tài khoản đúng, **không** có dòng **Đã lên lịch** lạ. Có dòng lạ: **Hủy lịch** ngay và làm theo mục 10.2.
 > 2. **Chủ đầu tư** xem **Tổng quan → Cần chú ý** và **Nhật ký tiền** từ hôm qua tới hôm nay: có dòng **Đổi tài khoản nhận chuyển khoản** mà mình không làm, hay dấu hiệu ai đó dùng mã khôi phục/đặt lại 2 bước của mình, thì **gọi đội ngay**. Không đổi lại tài khoản trên chính phiên đó.
 > 3. **Chủ đầu tư hoặc quản lý** đối soát tiền chuyển khoản trên app ngân hàng với các khoản VietQR trên Desk của ngày hôm trước (mục 8.2). Khoản Desk ghi nhận mà ngân hàng không có: báo chủ đầu tư ngay.
@@ -573,7 +595,7 @@ Mọi mã VietQR khách quét đều chuyển tiền vào tài khoản này.
 
 > **Lỗi nhỏ đã biết (sửa ở bản vá sau):** câu gợi ý trên màn bảo "tạo một mã VietQR nhỏ và quét thử". Làm theo tệp này: **không tạo mã thử, không chuyển tiền**.
 
-> **Lỗi đang sửa:** ở v1.0 thư báo đổi tài khoản nhận **chưa gửi tới email** của chủ đầu tư. Vì vậy chủ đầu tư kiểm mỗi sáng (mục 2.2). Sửa ở v1.0.3: thư tới email chủ đầu tư nhập ở mục 1.6a.
+> **Lỗi đang sửa:** ở v1.0 thư báo đổi tài khoản nhận **chưa gửi tới email** của chủ đầu tư. Vì vậy chủ đầu tư kiểm mỗi sáng (mục 2.2), tới khi đội bảo mật báo bỏ. Sửa ở v1.0.3: thư tới email chủ đầu tư nhập ở mục 1.6a, tiêu đề **OTTIMO – Notice: the deposit receiving account was changed / Thông báo: tài khoản nhận cọc đã thay đổi**. Thư này **không có chữ "Security notice"**: đừng lọc thư theo chữ đó.
 
 ### 10.2 Thấy dòng "Đã lên lịch" lạ, hoặc thông báo đổi tài khoản mà mình không làm
 
@@ -763,9 +785,13 @@ Các việc dưới đây làm theo cách tạm từ **02/11** tới khi anh/ch�
 
 ### 15.1 Kiểm bảo mật mỗi sáng trước 09:00
 
-Theo mục 2.2, kể cả ngày nghỉ. Hết tạm khi thư "Security notice" về tới chủ đầu tư.
+Theo mục 2.2, kể cả ngày nghỉ. **Hết tạm khi đội bảo mật báo bỏ** (qua điều phối viên). v1.0.3 lên, hay thấy thư **Security notice** đầu tiên, **chưa** phải lúc bỏ.
 
-Khi v1.0.3 lên: anh/chị và quản lý nhập email ngay (mục 1.6a). Lưu xong, Desk gửi thư **Security notice** tới địa chỉ đó. Thư đã về hộp thư riêng thì báo đội. Vẫn kiểm mỗi sáng tới khi đội bảo mật báo bỏ.
+Ngày v1.0.3 lên (mục 1.6a):
+1. **Anh/chị (chủ đầu tư) nhập email của mình trước**, thấy thư của mình về hộp thư riêng rồi mới bảo quản lý (và người trực có vai quản lý) nhập.
+2. Khi quản lý nhập, anh/chị nhận một thư báo email của quản lý đã đổi. Thư này là bình thường: đây là lần tập đọc thư theo bảng **Thư nào – làm gì**.
+3. Thấy thư thì báo đội **"đã nhận"** qua điều phối viên. **Không dán địa chỉ email vào chat.**
+4. **Vẫn kiểm mỗi sáng** tới khi đội bảo mật báo bỏ.
 
 ### 15.2 Chủ đầu tư duyệt và chi mọi khoản hoàn người trực tạo
 

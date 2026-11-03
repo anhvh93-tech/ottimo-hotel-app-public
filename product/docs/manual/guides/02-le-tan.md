@@ -3,7 +3,7 @@
 - Dành cho: **lễ tân (FD)**, **lễ tân trưởng (FDL)**, người trực đêm
 - Thiết bị: **máy quầy đã được cấp quyền**, địa chỉ `desk.ottimo.vn`. Lễ tân trưởng dùng thêm app nhân viên `staff.ottimo.vn` trên điện thoại để kiểm phòng.
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**. Mục 9.3 bước 6, 11.5 và 17.5 áp dụng từ bản `v1.0.2` (nút **Trả sớm**)
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.6 – 04/11/2026: thêm trang **Bảo mật tài khoản** và email nhận thông báo bảo mật của v1.0.3 (mục 1.3, 1.6); bản 1.5 – 03/11/2026: viết lại mục 11.5 khách trả phòng sớm theo nút **Trả sớm** của v1.0.2, hai nhánh ngắn ngày và HĐ thuê tháng (ESC-048), ghi ngày kết thúc HĐ trước khi gia hạn đơn HĐ (9.3), giới hạn tới v1.0.3 (17.5); bản 1.4 ngày 01/11 sửa chữ cảnh báo chênh giá và câu ghi chú khách tiếng Nga (bản trước: 1.3 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; thêm phòng Google Chat và xóa theo yêu cầu người gửi theo SEC, ESC-041, ESC-042; bản 1.3 ngày 01/11 thêm giá ước tính trên website và khách viết bằng tiếng Hàn, Trung, Nga – mục 13.1c, 13.1d – áp dụng khi gói website LP-v2 phát hành))
+- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.7 – 03/11/2026, áp dụng cùng 1.6 khi v1.0.3 lên: sửa email nhận thông báo bảo mật theo review DOM và ARC – email riêng chỉ mình đọc, Desk chỉ chặn `info@`, không mở hộp thư riêng trên máy quầy, câu báo sai mật khẩu và khóa 5 lần, mọi thư báo về việc mình không làm, lễ tân trưởng khuyến khích có email và không bật 2 bước ở v1.0.x (mục 1.3, 1.5, 1.6, 1.8); bản 1.6 – 04/11/2026: thêm trang **Bảo mật tài khoản** và email nhận thông báo bảo mật của v1.0.3 (mục 1.3, 1.6); bản 1.5 – 03/11/2026: viết lại mục 11.5 khách trả phòng sớm theo nút **Trả sớm** của v1.0.2, hai nhánh ngắn ngày và HĐ thuê tháng (ESC-048), ghi ngày kết thúc HĐ trước khi gia hạn đơn HĐ (9.3), giới hạn tới v1.0.3 (17.5); bản 1.4 ngày 01/11 sửa chữ cảnh báo chênh giá và câu ghi chú khách tiếng Nga (bản trước: 1.3 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; thêm phòng Google Chat và xóa theo yêu cầu người gửi theo SEC, ESC-041, ESC-042; bản 1.3 ngày 01/11 thêm giá ước tính trên website và khách viết bằng tiếng Hàn, Trung, Nga – mục 13.1c, 13.1d – áp dụng khi gói website LP-v2 phát hành))
 - Tài liệu không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi học, anh/chị cũng không ghi những thứ này lên giấy.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -75,7 +75,7 @@ Các lần sau: sau mật khẩu, Desk mở **Nhập mã xác thực**. Mở ứ
 
 Tài khoản có vai quản lý **chưa đăng nhập được app nhân viên** ở v1.0 (mục 1.8).
 
-**Email nhận thông báo bảo mật** (có từ v1.0.3): tài khoản có vai quản lý **phải có**. Làm theo mục 1.6.
+**Email nhận thông báo bảo mật** (có từ v1.0.3): tài khoản có vai quản lý **phải có**. Nhập sau khi chủ đầu tư báo đã nhập email của mình. Làm theo mục 1.6.
 
 ### 1.4 Đăng nhập hằng ngày
 
@@ -95,7 +95,7 @@ Gõ sai nhiều lần (5 lần liền): Desk báo "Bạn đã thử quá nhiều
 - Góc trái màn hình Desk hiện **Máy quầy đã cấp quyền** hoặc **Máy chưa cấp quyền giấy tờ**.
 - Trên máy chưa cấp quyền, mục menu **Giấy tờ & khai báo** và bước giấy tờ khi nhận phòng đều bị ẩn; Desk báo "Máy này chưa được cấp quyền". Gặp vậy: chuyển sang máy quầy đã cấp quyền, hoặc nhờ chủ đầu tư cấp.
 - Điện thoại cá nhân **không bao giờ** được cấp quyền.
-- Máy quầy đã cấp quyền **không cài, không mở Zalo, Zalo Web hay ứng dụng chat** nào, và không dùng để nhắn khách (mục 4.1).
+- Máy quầy đã cấp quyền **không cài, không mở Zalo, Zalo Web hay ứng dụng chat** nào, **không đăng nhập hộp thư riêng** (Gmail hay email của ai), và không dùng để nhắn khách (mục 4.1, 1.6).
 
 > **Lỗi nhỏ đang sửa (v1.0.3 hoặc v1.0.4):** trên máy chưa cấp quyền, nút **Nhập nơi nhận hoàn** vẫn hiện, nhưng bấm **Lưu** thì Desk không lưu và báo "Máy này chưa được cấp quyền xem giấy tờ và mã cửa…". Gặp câu này: chuyển sang máy quầy đã cấp quyền, làm lại.
 
@@ -113,15 +113,21 @@ Menu dưới tên của mình gồm: **Đổi mật khẩu** · **Bảo mật t�
 
 [ẢNH: C0-06-Menu Tài khoản]
 
-**Email nhận thông báo bảo mật** (có từ v1.0.3). OTTIMO gửi thư **Security notice** tới email này, ví dụ khi xác thực 2 bước của anh/chị được đặt lại hoặc email này thay đổi.
-- Tài khoản có vai quản lý (người trực hiện nay): **bắt buộc**. Lễ tân, lễ tân trưởng không có vai quản lý: không bắt buộc.
+**Email nhận thông báo bảo mật** (có từ v1.0.3). OTTIMO gửi thư báo tới email này khi có việc quan trọng với tài khoản (dùng mã khôi phục, đặt lại 2 bước, đổi email).
+- Tài khoản có vai quản lý (người trực hiện nay): **bắt buộc**. Nhập **sau khi** chủ đầu tư báo đã nhập email của mình. Lễ tân trưởng không có vai quản lý: không bắt buộc, **khuyến khích** thêm email riêng. Lễ tân: không bắt buộc.
+- **Chọn hộp thư:** email riêng **chỉ mình đọc**, ví dụ `ten.rieng@example.test`. **Không dùng hộp thư chung** của cơ sở: `info@ottimo.vn`, `booking@ottimo.vn`, Gmail dùng cho Booking.com/Agoda/Airbnb, hộp thư của quầy. Ai đọc được hộp thư chung cũng đọc và xóa được thư báo của anh/chị. **Desk chỉ chặn được `info@`**, các hộp thư chung khác anh/chị phải tự tránh. **Không đăng nhập hộp thư này trên máy quầy** (mục 1.5), không cài tự chuyển tiếp sang hộp thư khác.
 - Cách nhập:
   1. **Tên của mình → Bảo mật tài khoản**, khối **Email nhận thông báo bảo mật**.
-  2. Nhập email riêng của mình vào ô **Email**, ví dụ `name@example.com`. **Không dùng hộp thư chung của cơ sở, như `info@`.** Bấm **Thêm email** (đã có email thì **Đổi email** → **Lưu email**).
+  2. Nhập email vào ô **Email**. Bấm **Thêm email** (đã có email thì **Đổi email** → **Lưu email**).
   3. Hộp xác nhận hiện **Địa chỉ mới**. Đọc lại. Nhập **Mật khẩu đăng nhập**, và **Mã trong ứng dụng xác thực (6 số)** nếu tài khoản có 2 bước. Bấm **Lưu email**.
-  4. Mở hộp thư, tìm thư **OTTIMO – Security notice**. Sau 15 phút chưa thấy: xem mục Spam, rồi kiểm lại địa chỉ.
+     - Địa chỉ là `info@`: sau khi bấm **Lưu email**, Desk báo dưới ô **Email**: "Đây là hộp thư chung của cơ sở. Thông báo bảo mật cần tới một email riêng." Mật khẩu và mã không bị tính là sai. Nhập email riêng khác.
+     - "Mật khẩu hoặc mã chưa đúng. Kiểm tra lại rồi nhập mã mới.": tài khoản có 2 bước thì chờ ứng dụng hiện mã mới, nhập lại. Tài khoản **không có** 2 bước (không có ô mã): câu này nghĩa là **mật khẩu chưa đúng**, nhập lại mật khẩu.
+     - Sai **5 lần**: "Bạn đã thử quá nhiều lần. Chờ … phút rồi thử lại." (khoảng 15 phút). Trong lúc đó mọi thao tác cần mật khẩu và mã đều chờ, không riêng khối email. Không tự sai 5 lần mà vẫn thấy câu này: báo chủ đầu tư.
+  4. Desk báo "Đã lưu. Thông báo đã gửi tới địa chỉ này. …" (lần đầu) hoặc "Đã lưu. Thông báo đã gửi tới địa chỉ mới và địa chỉ cũ. …" (khi đổi). Mở hộp thư trên **điện thoại riêng**, tìm thư **OTTIMO – Security notice**. Sau 15 phút chưa thấy: xem mục Spam, rồi kiểm lại địa chỉ.
 - Mỗi lần email đổi, thư gửi tới địa chỉ mới, địa chỉ cũ và các chủ đầu tư. Thư không có link, không hỏi mật khẩu hay mã.
-- Nhận thư báo email đã đổi mà mình không làm: không trả lời thư, báo chủ đầu tư ngay, đổi mật khẩu.
+- Desk hiện **đủ** địa chỉ email ở khối này: **không chụp màn hình** khối này để gửi chat hay báo lỗi, báo bằng lời.
+- Nhận **bất kỳ** thư báo nào của OTTIMO về việc mình không làm: không trả lời, không bấm gì trong thư. Mở Desk bằng cách **gõ địa chỉ**, **đổi mật khẩu**, **gọi điện** cho chủ đầu tư ngay (không nhắn Zalo). Người trực có vai quản lý còn nhận thư "đã dùng mã khôi phục" và "đặt lại 2 bước" cho tài khoản của mình: làm như trên. Bảng đủ 4 loại thư: `01` mục 1.6a.
+- Đội báo **tạm quay về bản trước**: menu trở lại tên **Xác thực 2 bước**, khối email tạm ẩn. Email đã lưu vẫn dùng, không cần nhập lại.
 
 [ẢNH: C0-12-Khối Email nhận thông báo bảo mật]
 
@@ -139,7 +145,7 @@ Desk báo "Phiên đăng nhập đã hết. Đăng nhập lại – thông tin �
 | Desk báo "Tên đăng nhập hoặc mật khẩu không đúng. Quên mật khẩu? Nhờ chủ đầu tư đặt lại." | Gõ lại chậm, kiểm phím viết hoa. Vẫn sai: báo chủ đầu tư |
 | Tài khoản bị khóa do sai nhiều lần | Chờ đúng số phút Desk báo, hoặc nhờ chủ đầu tư **Mở khóa**. Bị khóa mà mình **không** gõ sai: báo chủ đầu tư ngay (có thể có người dò mật khẩu) |
 | Tài khoản có vai quản lý, mất điện thoại, còn mã khôi phục | Ở màn nhập mã, bấm **Mất điện thoại? Dùng mã khôi phục**, nhập một mã, bấm **Đăng nhập bằng mã khôi phục**. Desk mở **Đăng ký lại trên điện thoại mới**: làm lại như mục 1.3, trên laptop riêng. **Làm xong đăng ký lại ngay, không bỏ dở.** Rồi **báo chủ đầu tư** để **Đặt lại mật khẩu** (Desk đăng xuất trên mọi máy, kể cả máy bị mất) |
-| Mất cả điện thoại lẫn mã khôi phục | **Báo chủ đầu tư.** Chủ đầu tư khóa tài khoản cũ và tạo cho anh/chị tài khoản mới (tên đăng nhập mới); đăng nhập lần đầu như mục 1.2 trên laptop riêng. Không xin mã của người khác, không dùng tài khoản người khác trong lúc chờ |
+| Mất cả điện thoại lẫn mã khôi phục | **Báo chủ đầu tư.** Chủ đầu tư **gặp tận mặt** anh/chị, khóa tài khoản cũ và tạo cho anh/chị tài khoản mới (tên đăng nhập mới; chủ đầu tư làm theo `01` mục 1.7). Đăng nhập lần đầu như mục 1.2 trên laptop riêng. Tài khoản có vai quản lý: bật 2 bước, rồi **nhập email nhận thông báo ngay** (mục 1.6). Không xin mã của người khác, không dùng tài khoản người khác trong lúc chờ |
 | Mất điện thoại có đăng nhập app nhân viên (lễ tân trưởng) | **Báo chủ đầu tư ngay** để khóa tài khoản và đặt lại mật khẩu |
 | Mất **điện thoại của cơ sở** hoặc máy tính bảng có **app khóa cửa** | **Báo chủ đầu tư ngay** để đổi mật khẩu tài khoản app khóa và thu hồi quyền của máy đó |
 | Nghi lộ mật khẩu, thấy tài khoản lạ đăng nhập | **Báo chủ đầu tư ngay** |
@@ -157,6 +163,8 @@ Chỉ cho tài khoản **Lễ tân trưởng không có vai quản lý**. Tài k
 
 [ẢNH: C0-09-Đăng nhập app nhân viên]
 [ẢNH: C3-09-Tôi, đăng xuất]
+
+**Không bật đăng nhập 2 bước ở v1.0.x** cho tài khoản lễ tân trưởng dùng app nhân viên. App chưa đăng nhập được bằng 2 bước (báo như câu ở đầu mục này, không có ô nhập mã): bật ở **tên của mình → Bảo mật tài khoản** thì mất app nhân viên. **Lỡ bật:** đăng nhập Desk bằng mật khẩu và mã → **tên của mình → Bảo mật tài khoản → Tắt xác thực 2 bước** (xác nhận bằng mật khẩu và mã) → đăng nhập lại app bằng mật khẩu như cũ. Mất cả điện thoại lẫn mã khôi phục: **báo chủ đầu tư**. Chủ đầu tư gặp tận mặt anh/chị, khóa tài khoản cũ và tạo tài khoản mới (tên đăng nhập mới) theo `01` mục 1.7; ở tài khoản mới, không bật 2 bước. Đội kỹ thuật không đặt lại 2 bước cho anh/chị.
 
 Lần đầu, và sau mỗi lần chủ đầu tư **Đặt lại mật khẩu**: đổi mật khẩu tạm trên Desk trước (mục 1.2), rồi mới đăng nhập app nhân viên. App chưa có màn đổi mật khẩu tạm: còn mật khẩu tạm mà vào app thì mọi màn báo "Chưa tải được … Có thể do mạng yếu" (mục 17.6).
 

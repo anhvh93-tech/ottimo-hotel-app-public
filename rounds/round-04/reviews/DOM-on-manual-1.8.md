@@ -131,3 +131,52 @@ Có thêm 3 thẻ Minor và 3 Suggestion, dời được. Không có ESC mới: 
 1. Phân vai rõ, đúng thực tế: mỗi người tự nhập email của mình; chủ đầu tư đặt hộ có "hỏi tận miệng, đọc lại cho người đó nghe"; quản lý không thấy cột Email; chủ đầu tư khác tự đặt. Như vậy không ai đặt được email của người có quyền cao hơn mình.
 2. Có bảng "Ai nhận thư khi email thay đổi" (địa chỉ mới / cũ / chủ đầu tư) và câu "thư không có link, không hỏi mã. Thư nào có link là thư giả". Người không rành kỹ thuật cũng làm theo được.
 3. Có mốc "sau 15 phút chưa thấy thì xem Spam, rồi kiểm lại địa chỉ", và dặn chủ đầu tư/quản lý dùng **Đổi email** thay cho **Xóa email**. Đây đúng là những tình huống quầy hay gặp.
+
+---
+
+## Phản hồi BA
+
+- Người trả lời: BA | Round 4 – Phản hồi & sửa (QC v1.0.3 ĐK11) | Ngày: 03/11/2026
+- Bản sau khi sửa: sổ tay **bản nội dung 1.9**, bộ hướng dẫn **bản 1.7** (`01` 1.7, `02` 1.7, `03`/`04` 1.2, `05` 1.4). Cả hai áp dụng cùng 1.8 / 1.6, tức từ khi chủ đầu tư báo v1.0.3 đã lên. HTML chưa sửa: UXD dựng lại từ Markdown này (ĐK11a).
+- Tiêu đề thư chép từ `product/integrations/notification/email-templates.ts`. Câu Desk chép từ `product/design/copy/strings-vi.json` (`secmail.*`, `users.email_*`, `field.EMAIL_SHARED_MAILBOX`, `reauth.s2_failed`, `error.RATE_LIMITED`). Menu ghi đúng như Desk: **tên của mình → Bảo mật tài khoản**.
+- Đề nghị DOM đọc lại phần diff: sổ tay 0.3a, 0.5, 1.1, 1.5, 1.7, 1.16, 5.0; `01` 1.6a, 1.9, 2.2, 10.1, 15.1; `02` 1.3, 1.5, 1.6, 1.8; `05` 1.5.
+
+| Thẻ | Trạng thái | Đã làm / lý do |
+|---|---|---|
+| FB-R4-DOM-BA-M18-01 (Major) | **Fixed** | Sổ tay 0.3a và `01` 1.6a có bảng **Thư nào – làm gì**, 4 dòng. Mỗi dòng ghi tiêu đề EN / VI đúng mẫu thư, thư gửi khi nào, và cách xử lý khi mình không biết trước. Thư về mình và thư về nhân viên tách riêng. Có bước **Khóa tài khoản**, xem **Cần chú ý**, gọi đội. Với thư "bởi đội kỹ thuật OTTIMO": gọi đội theo số đã biết, không theo số trong thư. Dòng tài khoản nhận cọc dẫn tới 1.7 / `01` 10.2, lễ tân ngừng gửi mã VietQR. Thêm 3 câu dưới bảng: tiêu đề "Notice:" không có chữ Security notice, đừng lọc thư theo chữ này, thư đầu vào Spam thì đánh dấu **Không phải thư rác**. Mọi thư không có link. Hỏi lại thì **gọi điện**, không hỏi qua Zalo. Khung lỗi ở 1.7 / `01` 10.1 cũng ghi đủ tiêu đề thư cọc. `02` 1.6 có một dòng dẫn tới bảng (xem M18-06) |
+| FB-R4-DOM-BA-M18-02 (Major) | **Fixed** | Thêm khối **Chọn hộp thư nào** ở 0.3a / `01` 1.6a. Nội dung: email riêng chỉ mình đọc. Không dùng `info@ottimo.vn`, `booking@ottimo.vn`, Gmail dùng cho OTA, hộp thư của quầy, email người nhà, và có ghi lý do. **Desk chỉ chặn được `info@`**, hộp chung khác phải tự tránh. Câu "Desk từ chối" ở bước 2 đã bỏ, thay bằng câu đúng thời điểm Desk báo (ARC-M18-01). Sổ tay 1.5 và `01` 1.9 bước 3 thêm câu hỏi "Hộp thư này chỉ mình em đọc phải không?" và danh sách hộp chung. `02` 1.6 và `05` 1.5 có bản ngắn cùng ý |
+| FB-R4-DOM-BA-M18-03 (Major) | **Fixed** | Mọi chỗ thống nhất một câu: kiểm sáng **tới khi đội bảo mật báo bỏ** (qua điều phối viên); v1.0.3 lên hay thấy thư đầu tiên **chưa** phải lúc bỏ. Đã sửa ở sổ tay 1.1 (khung), 0.3a (khung), 1.7 (khung lỗi); `01` 2.2, 1.6a, 10.1, 15.1. Thêm 4 bước cho ngày v1.0.3 lên vào sổ tay 1.16 và `01` 15.1, gồm "báo đội **đã nhận**, **không dán địa chỉ email vào chat**". Khung 1.1 / 2.2 dẫn tới các bước này. Sổ tay 5.6 và `01` 15.6 đã đúng từ trước, không đổi |
+| FB-R4-DOM-BA-M18-04 (Major) | **Fixed** | 0.3a / `01` 1.6a thêm câu: hộp thư không đăng nhập trên máy quầy, máy tính bảng của cơ sở hay máy dùng chung, không tự chuyển tiếp, nên bật 2 bước cho hộp thư. Luật máy quầy ở sổ tay 0.5 và `02` 1.5 thêm "**không đăng nhập hộp thư riêng**". Bước 4 đổi thành "mở hộp thư trên máy hoặc điện thoại riêng" (`02` 1.6: "điện thoại riêng") |
+| FB-R4-DOM-BA-M18-05 (Minor) | **Fixed** | Sổ tay 1.16 và `01` 15.1: chủ đầu tư nhập trước, thấy thư của mình rồi mới bảo quản lý và người trực nhập. Thư báo email của quản lý là lần tập đọc thư. `02` 1.3 và 1.6: người trực có vai quản lý nhập **sau khi** chủ đầu tư báo đã nhập. Đề nghị ORC/OPS kiểm thứ tự này có khớp giờ T và việc đếm 4b của runbook không. BA không sửa runbook |
+| FB-R4-DOM-BA-M18-06 (Minor) | **Fixed** | `02` 1.6 dùng đúng câu đề xuất: nhận **bất kỳ** thư báo nào về việc mình không làm thì không trả lời, không bấm, gõ địa chỉ Desk, đổi mật khẩu, **gọi điện** chủ đầu tư. Thêm: người trực có vai quản lý còn nhận thư mã khôi phục và thư đặt lại 2 bước. Bảng đủ ở `01` 1.6a |
+| FB-R4-DOM-BA-M18-07 (Minor) | **Fixed** | Bảng thuật ngữ sổ tay 5.0 thêm dòng **Security notice (Thông báo bảo mật)** theo câu đề xuất, có ý "Notice: …". Sửa luôn dòng **Email nhận thông báo bảo mật** (chỉ người đó đọc; Desk chỉ chặn `info@`) |
+| FB-R4-DOM-BA-M18-08 (Suggestion) | **Won't fix ở lượt này – dời v1.0.4, chờ SEC** | Đây là quy tắc xử lý dữ liệu khi nghỉ việc (giữ hay xóa email, Nghị định 13/2023), cần SEC chọn. BA không tự đặt quy tắc. Một chi tiết cho SEC: dispatcher gửi thư cho cả tài khoản trạng thái `locked` (`email-dispatch.ts`, điều kiện `status IN ('active','locked')`). Vì vậy khóa tài khoản mà giữ email thì người cũ vẫn nhận thư về tài khoản đó, đúng như DOM lo. SEC chọn xong thì BA thêm một dòng vào 1.5 / `01` 1.9 |
+| FB-R4-DOM-BA-M18-09 (Suggestion) | **Fixed** | Giữ "không bắt buộc" như Desk, thêm "**khuyến khích** lễ tân trưởng thêm email riêng" ở sổ tay 0.3a (bảng vai), 1.5, `01` 1.9, `02` 1.6 |
+| FB-R4-DOM-BA-M18-10 (Suggestion) | **Không đổi sổ tay** | ARC đã trả lời (ARC-on-manual-1.8 mục 4): việc này thuộc runbook/README do OPS và ORC làm. Sổ tay không đổi, đồng ý với DOM và ARC |
+
+---
+
+## Lượt 2 – DOM đọc lại
+
+- Người đọc: DOM | 03/11/2026 | Bước Review (QC v1.0.3 ĐK11c, lượt 2)
+- Đã đọc: `git diff product/docs/manual/` (sổ tay bản nội dung 1.9; `01` bản 1.7; `02` 1.7; `03`, `04` 1.2; `05` 1.4; `00-index`), mục "Phản hồi BA" ở trên, `ARC-on-manual-1.8.md` mục "RN103-02 – ARC kiểm", mục "RN103-05 – SEC chốt" trong `DOM-on-release-notes-v1.0.3.md`. Kiểm lại trên mã: nút **Tắt xác thực 2 bước** có thật (`SecurityPage.tsx`, chuỗi `mfa.disable`, API `disableMy2fa` chỉ cấm vai chủ đầu tư và quản lý). Vì vậy đường "lỡ bật thì tự tắt" trong sổ tay là đúng. Câu "Desk không có nút tắt" trong thẻ RN103-02 lượt 1 của DOM là **sai**; ARC đã chỉnh lại.
+
+| Thẻ | Kết quả lượt 2 | Ghi chú |
+|---|---|---|
+| FB-R4-DOM-BA-M18-01 (Major) | **Closed** | Có bảng **Thư nào – làm gì** 4 dòng ở sổ tay 0.3a và `01` 1.6a. Tiêu đề EN / VI khớp `email-templates.ts`. Cách xử lý tách thư về mình và thư về nhân viên, có bước **Khóa tài khoản**, và "gọi đội theo số đã biết". Ghi rõ thư "Notice:" không có chữ Security notice, đừng lọc theo chữ đó. Hỏi lại thì gọi điện, không hỏi qua Zalo. Khung lỗi 1.7 / `01` 10.1 ghi đủ tiêu đề thư cọc. `02` 1.6 có dòng dẫn tới bảng |
+| FB-R4-DOM-BA-M18-02 (Major) | **Closed** | Có khối **Chọn hộp thư nào**: nêu `info@`, `booking@`, Gmail dùng cho OTA, hộp thư quầy, email người nhà, kèm lý do. Ghi **Desk chỉ chặn được `info@`**. Câu Desk báo đặt đúng thời điểm (sau khi bấm **Lưu email**, không tính sai). Câu hỏi "chỉ mình em đọc phải không?" có ở 1.5 / `01` 1.9. `02`, `05` có bản ngắn |
+| FB-R4-DOM-BA-M18-03 (Major) | **Closed** | Mọi chỗ đều dùng một câu "tới khi đội bảo mật báo bỏ (qua điều phối viên)", kèm "v1.0.3 lên hay thấy thư đầu tiên chưa phải lúc bỏ": sổ tay 1.1, 0.3a, 1.7; `01` 2.2, 1.6a, 10.1, 15.1. Sổ tay 1.16 và `01` 15.1 có 4 bước cho ngày lên bản, có "không dán địa chỉ email vào chat". Không còn câu "hết tạm khi thư về" |
+| FB-R4-DOM-BA-M18-04 (Major) | **Closed** | Có câu: không đăng nhập trên máy quầy, máy tính bảng của cơ sở hay máy dùng chung; không tự chuyển tiếp; nên bật 2 bước cho hộp thư. Luật máy quầy 0.5 và `02` 1.5 có thêm "không đăng nhập hộp thư riêng". Bước 4 ghi mở hộp thư trên máy hoặc điện thoại riêng |
+| FB-R4-DOM-BA-M18-05 (Minor) | **Closed** | Thứ tự "chủ đầu tư nhập trước" có ở sổ tay 1.16, `01` 15.1, `02` 1.3 và 1.6. Còn một việc: ORC/OPS đối chiếu thứ tự này với giờ T và câu đếm 4b của runbook. Việc này không thuộc sổ tay |
+| FB-R4-DOM-BA-M18-06 (Minor) | **Closed** | `02` 1.6 dùng đúng câu đề xuất: "bất kỳ thư báo nào", gõ địa chỉ, gọi điện, kèm hai loại thư người trực nhận |
+| FB-R4-DOM-BA-M18-07 (Minor) | **Closed** | Bảng thuật ngữ có dòng **Security notice**, và dòng **Email nhận thông báo bảo mật** đã sửa |
+| FB-R4-DOM-BA-M18-08 (Suggestion) | **Deferred (chờ SEC, v1.0.4)** | DOM đồng ý không đặt quy tắc ở lượt này. BA phát hiện thêm: dispatcher vẫn gửi thư cho tài khoản `locked`, nên người đã nghỉ việc mà vẫn giữ email sẽ tiếp tục nhận thư. **Đề nghị ORC ghi một dòng backlog** (SEC chọn: xóa email khi khóa hay giữ), vì hiện backlog 5.6 chưa có dòng này |
+| FB-R4-DOM-BA-M18-09 (Suggestion) | **Closed** | Có câu "khuyến khích" lễ tân trưởng thêm email ở 0.3a, 1.5, `01` 1.9, `02` 1.6 |
+| FB-R4-DOM-BA-M18-10 (Suggestion) | **Closed** | Chuyển runbook (OPS/ORC) theo ARC. Sổ tay không đổi |
+
+Kiểm thêm phần sửa theo RN103-02 và RN103-05, vì hai phần này nằm trong cùng tệp:
+- Câu dặn "không bật 2 bước ở v1.0.x" có ở `03` 1.6, `04` 1.5, `02` 1.8 (lễ tân trưởng), `01` 1.9 bước 8, sổ tay 1.5 bước 7, 3.1, 3.6, 4.1. Câu app báo được chép đúng chuỗi `error.MFA_REQUIRED` + `auth.mfa_later`. Đường tự tắt đúng mã. Sale, CTV "tự bật được, nên bật". Đúng nghiệp vụ: buồng phòng không mất app trong ca.
+- Cách 1.7 (gặp tận mặt, khóa tài khoản cũ để khóa không xóa, tạo tài khoản mới, tên đăng nhập mới, đúng các vai cũ, nhập email ngay sau khi bật 2 bước) được ghi nhất quán ở sổ tay 0.4, `01` 1.7, `02` 1.7, 1.8, `03`, `04`. Người dùng app làm tài khoản mới thì không bật 2 bước. Không còn chỗ nào ghi "báo đội đặt lại". DOM đồng ý với SEC: lúc nửa đêm, chủ đầu tư tự làm trong vài phút, không cần đội.
+- Không thấy câu nào mâu thuẫn với release notes bản hiện tại.
+
+**Kết luận lượt 2: ĐẠT.** 4 Major và 3 Minor đã đóng. M18-08 dời có lý do và chờ backlog. Không còn Major. UXD dựng HTML từ bản Markdown này được (ĐK11a). ĐK11c phần DOM xong.

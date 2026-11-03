@@ -3,7 +3,7 @@
 - Đi kèm: `product/docs/manual/user-manual-v1.0.md` (mã ảnh `[ẢNH: Cx-yy-…]`)
 - Lập: BA · 27/10/2026 · Người chụp: QA, trên **staging** bản `v1.0.0-rc.3` (`70fe734`) · Người dựng HTML: UXD
 - Tổng: 89 ảnh (C0: 11 · C1: 21 · C2: 40 · C3: 9 · C4: 8). C2-19 dùng hai lần (mục 2.10 và 2.13). C0-11 thêm ngày 27/10 (bản 1.2). **Bản 1.8 sổ tay (04/11, Desk v1.0.3):** thêm C0-12, C0-13, C1-22 (dùng chung cho sổ tay và bộ hướng dẫn); **chụp lại** C0-06, C1-07 (và G1-01 ở `guides/screenshot-additions.md`).
-- **Ảnh v1.0.3:** chụp trên staging đã lên v1.0.3. Tài khoản `qa.*` chủ đầu tư và quản lý dùng cho ảnh khác phải **có sẵn email giả** (`name@example.com`), nếu không Desk hiện dòng nhắc email trên đầu mọi trang. Không dùng địa chỉ thật, không dùng `info@`.
+- **Ảnh v1.0.3:** chụp trên staging đã lên v1.0.3. Tài khoản `qa.*` chủ đầu tư và quản lý dùng cho ảnh khác phải **có sẵn email giả** (`qa.*@example.test`), nếu không Desk hiện dòng nhắc email trên đầu mọi trang. Không dùng địa chỉ thật, không dùng `info@`.
 
 ## Quy tắc chung khi chụp
 
@@ -32,8 +32,8 @@
 | C0-11 | Chip **Máy chưa cấp quyền giấy tờ** (góc dưới trái) và menu không có **Giấy tờ & khai báo** | Lễ tân trên máy chưa cấp quyền | – | – (QA chụp 27/10 dưới tên C0-08b, đổi mã thành C0-11 vì bộ dựng chỉ nhận mã dạng Cx-yy) |
 | C0-09 | App nhân viên – **Đăng nhập** (điện thoại) | Chưa đăng nhập | – | – |
 | C0-10 | Trang khách – trang lưu trú sau khi làm thủ tục trước (điện thoại) | Link khách của một đơn thử | Đơn đã xác nhận, đã check-in online | **Che Wi-Fi**, mã đơn trên URL |
-| C0-12 | **Bảo mật tài khoản** – khối **Email nhận thông báo bảo mật**: chip **Đã có**, **Địa chỉ đang dùng**, nút **Đổi email**, **Xóa email** (ảnh mới, v1.0.3) | Quản lý thử | Email giả `name@example.com` đã lưu | Không cần che (email giả). Không chụp khối 2FA đang hiện mã khôi phục |
-| C0-13 | Hộp **Lưu email nhận thông báo bảo mật**: **Địa chỉ mới**, câu báo, ô **Mật khẩu đăng nhập**, **Mã trong ứng dụng xác thực (6 số)** (ảnh mới, v1.0.3) | Quản lý thử | Đang đổi sang email giả khác, ví dụ `name2@example.com` | Ô mật khẩu và ô mã **để trống**. Bấm **Hủy**, không cần lưu |
+| C0-12 | **Bảo mật tài khoản** – khối **Email nhận thông báo bảo mật**: chip **Đã có**, **Địa chỉ đang dùng**, nút **Đổi email**, **Xóa email** (ảnh mới, v1.0.3) | Quản lý thử | Email giả `qa.*@example.test` đã lưu | Không cần che (email giả). Không chụp khối 2FA đang hiện mã khôi phục |
+| C0-13 | Hộp **Lưu email nhận thông báo bảo mật**: **Địa chỉ mới**, câu báo, ô **Mật khẩu đăng nhập**, **Mã trong ứng dụng xác thực (6 số)** (ảnh mới, v1.0.3) | Quản lý thử | Đang đổi sang email giả khác, ví dụ `qa.mgr.b@example.test` | Ô mật khẩu và ô mã **để trống**. Bấm **Hủy**, không cần lưu |
 
 ## Chương 1 – Chủ đầu tư và quản lý
 
@@ -45,7 +45,7 @@
 | C1-04 | Hộp **Sửa căn** khi chọn đúng ngày của giá đã lên lịch (câu "Lưu để giữ giá này từ …") | Chủ đầu tư | Căn có một giá tương lai đã lên lịch | – |
 | C1-05 | **Tham số quy tắc** – các nhóm | Chủ đầu tư | – | **Che** khối tài khoản nhận nếu lọt vào khung |
 | C1-06 | Hộp **Sửa: …** – **Giá trị mới**, **Hiệu lực từ**, **Lý do**, **Lịch sử thay đổi** | Quản lý | Tham số "Hạn giữ chỗ mặc định" có ≥ 1 dòng lịch sử | – |
-| C1-07 | **Người dùng & vai** – danh sách, cột **Email** và cột **Thao tác** (**chụp lại** trên v1.0.3: ảnh cũ chưa có cột **Email**; email giả dạng `name@example.com`) | Chủ đầu tư | ≥ 5 người dùng giả, đủ vai | Tên đăng nhập giả |
+| C1-07 | **Người dùng & vai** – danh sách, cột **Email** và cột **Thao tác** (**chụp lại** trên v1.0.3: ảnh cũ chưa có cột **Email**; email giả dạng `qa.*@example.test`) | Chủ đầu tư | ≥ 5 người dùng giả, đủ vai | Tên đăng nhập giả |
 | C1-08 | Hộp **Thêm người dùng** | Chủ đầu tư | – | **Che mật khẩu tạm** |
 | C1-09 | **Mật khẩu tạm của …** (hiện một lần) | Chủ đầu tư | – | **Che mật khẩu tạm** |
 | C1-10 | **Thiết bị được cấp** – form cấp quyền máy này + bảng thiết bị | Chủ đầu tư | ≥ 1 máy đã cấp | – |
@@ -60,7 +60,7 @@
 | C1-19 | **Nhật ký tiền** – tab **Chờ đối soát** | Chủ đầu tư | ≥ 2 khoản chuyển khoản chờ, 1 khoản tiền mặt sale | **Che** mã giao dịch |
 | C1-20 | **Nhật ký tiền** – tab **Hoàn tiền** | Chủ đầu tư | 1 khoản hoàn đã duyệt chưa chi | **Che** số tài khoản, tên chủ tài khoản |
 | C1-21 | **Minibar** – danh mục | Quản lý | Danh mục 17 món | Không cần che |
-| C1-22 | **Người dùng & vai** → **Sửa email** ở dòng một nhân viên giả: hộp **Email nhận thông báo bảo mật – {tên}**, ô **Email**, câu "OTTIMO sẽ gửi thông báo tới…", nút **Xóa email**, **Lưu email** (ảnh mới, v1.0.3) | Chủ đầu tư | Người dùng giả vai Lễ tân có email giả `name@example.com` | Tên đăng nhập giả. Bấm **Hủy**, không lưu |
+| C1-22 | **Người dùng & vai** → **Sửa email** ở dòng một nhân viên giả: hộp **Email nhận thông báo bảo mật – {tên}**, ô **Email**, câu "OTTIMO sẽ gửi thông báo tới…", nút **Xóa email**, **Lưu email** (ảnh mới, v1.0.3) | Chủ đầu tư | Người dùng giả vai Lễ tân có email giả `qa.*@example.test` | Tên đăng nhập giả. Bấm **Hủy**, không lưu |
 
 ## Chương 2 – Lễ tân
 
