@@ -1039,7 +1039,7 @@ Khi chủ đầu tư báo gói website mới (LP-v2) đã lên: web hiện giá 
 
 ### 13.1a Tin báo yêu cầu qua Google Chat (từ v1.0.1)
 
-**Áp dụng từ bản v1.0.1** (dự kiến khoảng 04/11/2026), khi chủ đầu tư báo bản đã lên. Từ bản này, tin Chat **có chi tiết khách**: tên, liên hệ, lời nhắn. Trước đó chưa có tin Chat: người trực giữ Desk mở 07:00–22:00 (mục 13.1).
+**Đã có từ 03/11 (v1.0.1).** Tin Chat ở **mức A**: chỉ mã yêu cầu, giờ nhận, hạn phản hồi, mức gấp và link **Mở Desk**. Tin **không có** tên, liên hệ, kênh, lời nhắn, ngày ở, số khách: mở Desk để xem. Mức có chi tiết khách (chủ đầu tư chọn ở ESC-041) **chưa bật**: chờ đội kiểm trên phòng Chat thử (ESC-046). Khi bật, chủ đầu tư báo và bộ hướng dẫn cập nhật mục này. Người trực vẫn giữ Desk mở 07:00–22:00 (mục 13.1).
 
 - **Phòng:** **"OTTIMO – Yêu cầu đặt phòng"** trên Google Chat, tài khoản `@ottimo.vn`.
 - **Thành viên:** chủ đầu tư, quản lý, lễ tân trưởng, lễ tân. Chủ đầu tư và quản lý là **quản lý phòng** (người được xóa tin, thêm, bớt người).
@@ -1049,15 +1049,25 @@ Desk tự đăng tin vào phòng khi:
 
 | Khi nào | Tin có gì |
 |---|---|
-| Có yêu cầu mới, **mọi giờ, kể cả ban đêm** | Tin đầu: mã yêu cầu `REQ-…`, giờ nhận, hạn phản hồi, mức gấp (ví dụ "cần gọi ngay"), ngày ở, số khách, **tên, liên hệ, kênh khách chọn, lời nhắn**. Dòng cuối luôn là **Mở Desk** |
-| Yêu cầu quá hạn mà chưa ai **Nhận xử lý** | Tin nhắc trong cùng luồng: chỉ mã và giờ |
-| 07:30 sáng | Tin nhắc trong cùng luồng cho yêu cầu ban đêm còn chưa ai nhận |
+| Có yêu cầu mới, **mọi giờ, kể cả ban đêm** | Tin đầu: "Yêu cầu đặt phòng mới", mã yêu cầu (8 ký tự), giờ nhận (thêm "ngoài giờ trực" khi gửi ngoài giờ quầy), hạn phản hồi. Thêm "cần gọi ngay" khi khách gửi ngoài giờ mà đến ngay hôm đó; thêm "cần xem kỹ" khi Desk thấy yêu cầu có điểm lạ. Dòng cuối luôn là **Mở Desk** |
+| Yêu cầu quá hạn mà chưa ai **Nhận xử lý** | Tin nhắc trong cùng luồng, nhắc cả phòng (@all): "Chưa có người nhận", mã, giờ nhận, "đã quá hạn phản hồi" |
+| 07:30 sáng | Tin nhắc trong cùng luồng cho yêu cầu ban đêm còn chưa ai nhận: "Chưa có người nhận", mã, giờ nhận, hạn phản hồi |
 | Yêu cầu vừa bị xóa theo yêu cầu người gửi (mục 13.1b) | Tin trong cùng luồng: "Đã xóa dữ liệu của … theo yêu cầu của khách…". Chỉ có mã |
+
+Mẫu tin đầu (dữ liệu giả):
+- `Yêu cầu đặt phòng mới · 7K3P9QXA`
+- `Nhận lúc 14:05 · hạn phản hồi 14:20`
+- `Mở Desk: https://desk.ottimo.vn/website-requests/…`
+
+Mẫu tin nhắc khi quá hạn (dữ liệu giả):
+- `@all Chưa có người nhận · 7K3P9QXA`
+- `Nhận lúc 14:05 · đã quá hạn phản hồi 14:20`
+- `Mở Desk: https://desk.ottimo.vn/website-requests/…`
 
 Cách dùng:
 1. Thấy tin: mở Desk, **Nhận xử lý** như mục 13.1. Trả lời khách từ tài khoản OTTIMO (mục 4.1), **không** trả lời khách từ Chat.
 2. Báo đồng nghiệp trong phòng: chỉ ghi **mã yêu cầu** và việc ("đã nhận", "đã gọi"). **Không** gõ lại tên, số điện thoại, lời nhắn của khách.
-3. **Tin thật từ Desk** luôn kết thúc bằng một dòng **Mở Desk** tới `desk.ottimo.vn`; lời nhắn của khách nằm trong khung chữ đơn sắc và mọi link trong đó đã bị vô hiệu. Tin khác dạng này, hoặc có link lạ: không bấm, báo chủ đầu tư.
+3. **Tin thật từ Desk** có đúng dạng mẫu trên và luôn kết thúc bằng một dòng **Mở Desk** tới `desk.ottimo.vn`. Ở mức A tin không có tên, số điện thoại hay lời nhắn của khách. Tin khác dạng này, hoặc có link lạ: không bấm, báo chủ đầu tư.
 4. Bấm **Mở Desk** chỉ trên điện thoại **đã đăng nhập Desk**. Trang mở ra mà hỏi mật khẩu, hoặc địa chỉ không đúng `desk.ottimo.vn`: đóng lại, vào Desk bằng dấu trang (mục 1.1).
 5. Không chụp, không chép, không chuyển tiếp tin sang Zalo hay nơi khác.
 6. Muốn yên tĩnh ban đêm: dùng **Không làm phiền** của Google Chat hoặc của điện thoại. Không rời phòng, không tắt hẳn thông báo của phòng.
@@ -1102,7 +1112,7 @@ Khách đã gửi form trên website nhắn hoặc gọi xin xóa yêu cầu c�
 |---|---|---|---|
 | 1 | Người xóa trên Desk | Như trên | Xóa trên Desk, đã chép mã yêu cầu |
 | 2 | Người xóa trên Desk | Ngay sau bước 1 | Là chủ đầu tư hoặc quản lý: tự làm bước 3. Là lễ tân trưởng: nhắn quản lý (quản lý vắng thì chủ đầu tư) **chỉ mã yêu cầu** và chữ "xóa Chat theo WR8". **Không** chép tên, SĐT, lời nhắn |
-| 3 | Quản lý phòng (quản lý; dự phòng chủ đầu tư) | **Trong 24 giờ** từ lúc xóa trên Desk | Trong phòng **"OTTIMO – Yêu cầu đặt phòng"**, tìm theo mã: gõ 8 ký tự sau "REQ-". Xóa **mọi tin của luồng đó**: tin đầu (có chi tiết khách), các tin nhắc, tin "Đã xóa dữ liệu…", và **mọi tin nhân viên trả lời** trong luồng. Tìm lại lần nữa để chắc không còn |
+| 3 | Quản lý phòng (quản lý; dự phòng chủ đầu tư) | **Trong 24 giờ** từ lúc xóa trên Desk | Trong phòng **"OTTIMO – Yêu cầu đặt phòng"**, tìm theo mã: gõ 8 ký tự sau "REQ-". Xóa **mọi tin của luồng đó**: tin đầu, các tin nhắc, tin "Đã xóa dữ liệu…", và **mọi tin nhân viên trả lời** trong luồng. Tìm lại lần nữa để chắc không còn |
 | 4 | Quản lý phòng | Ngay sau bước 3 | Ghi **sổ xóa Chat** (trang riêng cuối sổ giao ca): mã yêu cầu · ngày xóa trên Desk · ngày xóa Chat · người làm · "đã xóa" hoặc "không còn trong Chat". **Chỉ mã, không tên, không SĐT.** Không nhắn gì trong phòng Chat về việc xóa |
 | 5 | Chủ đầu tư | Mỗi tháng, cùng lúc rà thành viên phòng | Đối chiếu sổ xóa Chat với các yêu cầu đóng lý do "Đã xóa theo yêu cầu của người gửi" trong tháng trên Desk. Mã nào chưa có dòng "đã xóa": làm ngay bước 3 |
 

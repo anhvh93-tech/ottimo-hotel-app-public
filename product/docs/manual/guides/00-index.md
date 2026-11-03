@@ -75,7 +75,7 @@ Mỗi người **một tài khoản, đúng vai của mình**, và đọc tệp 
 
 | Phòng | Ai ở trong phòng | Từ khi nào | Ở đâu trong bộ hướng dẫn |
 |---|---|---|---|
-| **"OTTIMO – Yêu cầu đặt phòng"** | Chủ đầu tư, quản lý (hai người này là quản lý phòng), lễ tân trưởng, lễ tân. Không sale, CTV, buồng phòng, bảo trì | **v1.0.1** (dự kiến khoảng 04/11/2026): tin có chi tiết khách. Trước đó chưa có tin, người trực giữ Desk mở 07:00–22:00 | `02` mục 13.1a, 13.1b; `01` mục 12.1, 12.2 |
+| **"OTTIMO – Yêu cầu đặt phòng"** | Chủ đầu tư, quản lý (hai người này là quản lý phòng), lễ tân trưởng, lễ tân. Không sale, CTV, buồng phòng, bảo trì | Đã có từ **03/11 (v1.0.1)**, tin **mức A**: chỉ mã yêu cầu, giờ, hạn phản hồi, mức gấp, link Desk; không có tên, liên hệ, lời nhắn của khách. Mức có chi tiết khách chưa bật (chờ ESC-046), khi bật bộ hướng dẫn cập nhật. Desk vẫn mở 07:00–22:00 | `02` mục 13.1a, 13.1b; `01` mục 12.1, 12.2 |
 | **"OTTIMO – Báo động"** | Chỉ chủ đầu tư | Đang chạy | `01` mục 17.1 |
 
 Luật chung cho mọi người:

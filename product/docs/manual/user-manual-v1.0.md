@@ -261,7 +261,9 @@ Lưu ý:
 
 [ẢNH: C1-04-Sửa giá đã lên lịch]
 
-> **Tạm ở v1.0:** Desk chưa hiện danh sách giá đã lên lịch và chưa có nút hủy (dự kiến v1.0.2). Mỗi lần lên lịch giá cho ngày sau, ghi **căn, giá, ngày hiệu lực** vào sổ. Muốn bỏ một giá đã lên lịch: nhập lại giá hiện hành với **đúng ngày hiệu lực** đó.
+> **Có từ v1.0.2:** **Danh mục căn** → mở căn: danh sách giá đêm/giá tháng đã lên lịch cho các ngày sau (chủ đầu tư và quản lý thấy, lễ tân không thấy). Hủy được một dòng chưa tới ngày hiệu lực; không hủy được dòng đang áp dụng hay dòng giá duy nhất của căn. Không hủy dòng giá đầu tiên của căn mới (lỗi BUG-R4-015, sửa ở v1.0.3). Bỏ việc ghi sổ mỗi lần lên lịch giá.
+>
+> **Tạm ở v1.0 (tới khi v1.0.2 lên):** Desk chưa hiện danh sách giá đã lên lịch và chưa có nút hủy. Mỗi lần lên lịch giá cho ngày sau, ghi **căn, giá, ngày hiệu lực** vào sổ. Muốn bỏ một giá đã lên lịch: nhập lại giá hiện hành với **đúng ngày hiệu lực** đó.
 
 **Ngừng bán một căn** (ví dụ chủ đầu tư dùng riêng dài ngày): trong **Sửa**, tắt **Đang bán**. Căn không hiện trong form đặt phòng; sơ đồ phòng ghi **Ngừng bán**. Đơn đã có giữ nguyên. Hỏng hóc thì dùng **khóa phòng** (mục 4.1), không dùng ngừng bán.
 
@@ -1696,7 +1698,7 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 | Giữ ngày kết thúc HĐ khi gia hạn đơn dài hạn nhập tay | v1.0.3 | Ghi ngày kết thúc HĐ vào bảng kỳ thu và sổ giao ca trước khi gia hạn (mục 2.12, 2.14a) |
 | Check-in online cho khách thật (chờ thông báo xử lý dữ liệu bản mới) | v1.0.3 | Khách làm giấy tờ tại quầy; tờ **Your ID details** trước khi nhận giấy tờ, câu đồng ý ở Khối 1 (mục 0.8, 2.9) |
 | "Chấp nhận cọc thiếu" trên Desk | v1.0.3 | Xin khách chuyển đủ trước hạn; không được thì giữ đơn và làm lại khi khách đến (mục 2.4) |
-| Danh sách giá đã lên lịch, nút hủy giá đã lên lịch | v1.0.2 | Ghi sổ mỗi lần lên lịch giá (mục 1.3) |
+| Danh sách giá đã lên lịch, nút hủy giá đã lên lịch | Có từ v1.0.2 | Tới khi v1.0.2 lên: ghi sổ mỗi lần lên lịch giá (mục 1.3) |
 | Thông báo tiền chuyển khoản về tại quầy | Đang chờ chủ đầu tư quyết | Hỏi chủ đầu tư/quản lý; ban đêm mời trả tiền mặt/thẻ (mục 2.13) |
 | Đơn nhóm nhiều căn | Chưa xếp lịch | Mỗi căn một đơn (mục 2.5a) |
 | Chấm công qua Wi-Fi | v1.1 | Như hiện nay |

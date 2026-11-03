@@ -262,7 +262,7 @@ Khi form bật: yêu cầu mới hiện ở menu kèm số. Mở yêu cầu → 
 > - Hạn trả lời 15 phút áp trong **08:00–21:00**. Trả lời khách từ tài khoản OTTIMO trên điện thoại cơ sở (mục 5.1).
 > - Yêu cầu tới ngoài giờ: bấm **Nhận xử lý** khi thấy, nhắn khách từ 08:00 sáng hôm sau.
 
-Từ v1.0.1 (dự kiến khoảng 04/11), Desk đăng tin báo yêu cầu mới vào một phòng Google Chat của quầy, có chi tiết khách. **Sale nội bộ và CTV không ở trong phòng này** và không xin vào: anh/chị xem yêu cầu trên Desk như trên. Không nhờ người trong phòng chép tin cho mình.
+Từ 03/11 (v1.0.1), Desk đăng tin báo yêu cầu mới vào một phòng Google Chat của quầy. Tin chỉ có mã yêu cầu, giờ và link Desk, không có chi tiết khách (khi bật mức có chi tiết khách, tệp này cập nhật). **Sale nội bộ và CTV không ở trong phòng này** và không xin vào: anh/chị xem yêu cầu trên Desk như trên. Không nhờ người trong phòng chép tin cho mình.
 
 [ẢNH: C2-39-Yêu cầu từ website, form tắt]
 

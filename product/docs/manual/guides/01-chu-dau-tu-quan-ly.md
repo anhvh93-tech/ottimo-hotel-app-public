@@ -452,7 +452,9 @@ Theo quyết định của chủ đầu tư ngày 26/10:
 
 [ẢNH: C1-04-Sửa giá đã lên lịch]
 
-> **Tạm ở v1.0:** Desk chưa hiện danh sách giá đã lên lịch và chưa có nút hủy (dự kiến v1.0.2). Mỗi lần lên lịch giá cho ngày sau, ghi **căn, giá, ngày hiệu lực** vào sổ. Muốn bỏ một giá đã lên lịch: nhập lại giá hiện hành với **đúng ngày hiệu lực** đó.
+> **Có từ v1.0.2:** **Danh mục căn** → mở căn: danh sách giá đêm/giá tháng đã lên lịch cho các ngày sau (chủ đầu tư và quản lý thấy, lễ tân không thấy). Hủy được một dòng chưa tới ngày hiệu lực; không hủy được dòng đang áp dụng hay dòng giá duy nhất của căn. Không hủy dòng giá đầu tiên của căn mới (lỗi BUG-R4-015, sửa ở v1.0.3). Bỏ việc ghi sổ mỗi lần lên lịch giá.
+>
+> **Tạm ở v1.0 (tới khi v1.0.2 lên):** Desk chưa hiện danh sách giá đã lên lịch và chưa có nút hủy. Mỗi lần lên lịch giá cho ngày sau, ghi **căn, giá, ngày hiệu lực** vào sổ. Muốn bỏ một giá đã lên lịch: nhập lại giá hiện hành với **đúng ngày hiệu lực** đó.
 
 **Ngừng bán một căn** (ví dụ chủ đầu tư dùng riêng dài ngày): trong **Sửa**, tắt **Đang bán**. Căn không hiện trong form đặt phòng; sơ đồ phòng ghi **Ngừng bán**. Đơn đã có giữ nguyên. Hỏng hóc thì dùng **khóa phòng** (tệp 04), không dùng ngừng bán.
 
@@ -605,11 +607,11 @@ Chủ đầu tư/quản lý làm, kế toán cùng xem:
 
 ### 12.1 Phòng Google Chat "OTTIMO – Yêu cầu đặt phòng" (từ v1.0.1)
 
-**Áp dụng từ bản v1.0.1** (dự kiến khoảng 04/11/2026). Từ bản này, mỗi yêu cầu mới trên website được Desk đăng vào phòng **"OTTIMO – Yêu cầu đặt phòng"** kèm **chi tiết khách**: tên, liên hệ, kênh, lời nhắn, ngày ở, số khách (anh/chị chọn mức đầy đủ, ESC-041). Tin trong phòng **không tự xóa** (anh/chị chấp nhận 30/10). Trước v1.0.1 chưa có tin Chat: người trực giữ Desk mở 07:00–22:00 (tệp 02 mục 13.1). Từ v1.0.1, Desk vẫn là nguồn chính.
+**Đã có từ 03/11 (v1.0.1).** Mỗi yêu cầu mới trên website được Desk đăng vào phòng **"OTTIMO – Yêu cầu đặt phòng"** ở **mức A**: mã yêu cầu, giờ nhận, hạn phản hồi, mức gấp và link **Mở Desk**. Tin **không có** tên, liên hệ, kênh, lời nhắn, ngày ở, số khách: xem trên Desk. Mức có chi tiết khách (chủ đầu tư chọn ở ESC-041) **chưa bật**: chờ đội kiểm trên phòng Chat thử (ESC-046). Khi bật, chủ đầu tư báo và bộ hướng dẫn cập nhật mục này. Tin trong phòng **không tự xóa** (anh/chị chấp nhận 30/10). Desk vẫn là nguồn chính; người trực vẫn giữ Desk mở 07:00–22:00 (tệp 02 mục 13.1).
 
 Cách người trực dùng phòng và mẫu tin: tệp 02 mục 13.1a.
 
-**Cài đặt phòng và tài khoản (chủ đầu tư làm trước khi v1.0.1 lên):**
+**Cài đặt phòng và tài khoản (chủ đầu tư làm; giữ đúng mỗi khi thêm người hoặc tạo phòng mới):**
 - Phòng chỉ cho tài khoản **@ottimo.vn**; tắt cho người ngoài tổ chức tham gia.
 - Thành viên chỉ gồm **chủ đầu tư, quản lý, lễ tân trưởng, lễ tân**. **Không mời** sale nội bộ, CTV, buồng phòng, bảo trì; không tài khoản dùng chung. Mời sale vào thì câu trong thông báo cho khách ("chỉ quản lý và lễ tân") thành sai.
 - **Chủ đầu tư và quản lý là quản lý phòng** (space manager). Người trực hiện nay giữ vai quản lý: đặt làm quản lý phòng.
@@ -638,7 +640,7 @@ Trên Desk: **Yêu cầu từ website** → tìm mã hoặc **Tìm theo liên h�
 |---|---|---|---|
 | 1 | Người xóa trên Desk | Khi xóa | **Chép mã yêu cầu `REQ-…`** trước khi bấm **Xóa ngay** |
 | 2 | Người xóa trên Desk | Ngay sau bước 1 | Là chủ đầu tư hoặc quản lý: tự làm bước 3. Là lễ tân trưởng: nhắn quản lý (quản lý vắng thì chủ đầu tư) **chỉ mã yêu cầu** và chữ "xóa Chat theo WR8". Không chép tên, SĐT, lời nhắn |
-| 3 | Quản lý phòng (quản lý; dự phòng chủ đầu tư) | **Trong 24 giờ** từ lúc xóa trên Desk | Trong phòng **"OTTIMO – Yêu cầu đặt phòng"**, tìm theo mã (gõ 8 ký tự sau "REQ-"). Xóa **mọi tin của luồng**: tin đầu (có chi tiết khách), các tin nhắc, tin "Đã xóa dữ liệu…", và **mọi tin nhân viên trả lời**. Tìm lại để chắc không còn |
+| 3 | Quản lý phòng (quản lý; dự phòng chủ đầu tư) | **Trong 24 giờ** từ lúc xóa trên Desk | Trong phòng **"OTTIMO – Yêu cầu đặt phòng"**, tìm theo mã (gõ 8 ký tự sau "REQ-"). Xóa **mọi tin của luồng**: tin đầu, các tin nhắc, tin "Đã xóa dữ liệu…", và **mọi tin nhân viên trả lời**. Tìm lại để chắc không còn |
 | 4 | Quản lý phòng | Ngay sau bước 3 | Ghi **sổ xóa Chat** (trang riêng cuối sổ giao ca): mã yêu cầu · ngày xóa trên Desk · ngày xóa Chat · người làm · "đã xóa" hoặc "không còn trong Chat". **Chỉ mã, không tên, không SĐT.** Không nhắn gì trong phòng về việc xóa |
 | 5 | Chủ đầu tư | Mỗi tháng, cùng lúc rà thành viên | Trên Desk, **Yêu cầu từ website** → chip **Đã đóng**: các yêu cầu đóng lý do "Đã xóa theo yêu cầu của người gửi" trong tháng. Mã nào chưa có dòng "đã xóa" trong sổ: làm ngay bước 3 |
 
@@ -658,7 +660,7 @@ Trên Desk: **Yêu cầu từ website** → tìm mã hoặc **Tìm theo liên h�
 - In **2 bản** tờ **Your ID details** khổ **A4** (bản in của UXD, `product/docs/print/pdf/to-4-your-id-details-a4.pdf`): một bản trong khung mica trên quầy, mặt quay ra khách; một bản dự phòng trong ngăn quầy. Làm **tối 01/11 sau buổi đào tạo, muộn nhất 06:00 ngày 02/11** (trước lần nhận giấy tờ đầu tiên trên Desk thật). In thử dưới đèn quầy trước khi đặt. Người trực báo tờ hỏng hay mất: in lại trong ngày. Nếu dùng máy tính bảng dự phòng: chuẩn bị máy theo tệp 02 mục 7.2 (không cấp quyền thiết bị, có mật mã, chỉ chép tệp `your-id-details-tablet.html`).
 - Gửi bộ hướng dẫn: **riêng từng người**, đúng tệp của vai (`00` mục 5). Không gửi vào nhóm chat.
 - Form "Yêu cầu đặt phòng" trên ottimo.vn (đã bật chiều 30/10): người trực giữ Desk mở trên máy quầy và điện thoại 07:00–22:00 (tệp 02 mục 13.1).
-- Trước khi v1.0.1 lên (dự kiến khoảng 04/11): cài phòng Google Chat "OTTIMO – Yêu cầu đặt phòng" và tài khoản thành viên, xem tận mắt điện thoại từng người đã cài đặt (mục 12.1).
+- Phòng Google Chat "OTTIMO – Yêu cầu đặt phòng" đã có từ 03/11 (v1.0.1): xem tận mắt điện thoại từng thành viên đã cài đặt (mục 12.1).
 - Lưu số điện thoại của chủ đầu tư (và quản lý nếu có) vào danh bạ **điện thoại cơ sở**, để lễ tân gọi xác nhận tiền về và tài khoản nhận.
 - Chuyển đổi dữ liệu ngày D theo hướng dẫn chuyển đổi ngày đầu (chủ đầu tư giữ).
 - Yêu cầu của khách về dữ liệu cá nhân: xử lý bằng tay.
@@ -739,7 +741,7 @@ Từ v1.0.2 làm theo mục 7.3 (nút **Trả sớm**, không giảm tiền trê
 | Lỗi | Cách tạm |
 |---|---|
 | Thư báo bảo mật chưa gửi tới chủ đầu tư | Kiểm bảo mật mỗi sáng (mục 2.2) |
-| Chưa có danh sách và nút hủy giá đã lên lịch | Ghi sổ mỗi lần lên lịch giá (mục 9.1) |
+| Danh sách và nút hủy giá đã lên lịch: có từ v1.0.2 | Tới khi v1.0.2 lên: ghi sổ mỗi lần lên lịch giá (mục 9.1) |
 | Chưa nhập được Wi-Fi trên Desk | Thẻ Wi-Fi trong căn |
 | Câu gợi ý "tạo mã VietQR nhỏ và quét thử" | Không tạo mã thử (mục 10.1) |
 | Folio đã khóa: câu báo ghi "Chỉ quản lý ghi được…" (sai) | Bỏ qua vế đó; không ai sửa được sau 24 giờ |
