@@ -216,3 +216,149 @@ Không có lệch giữa guideline và DS trong phạm vi PR này.
 - Kiểm dạng và kiểm trùng ở client **trước** khi mở S2, nên không tốn mã TOTP. Gặp hộp thư chung thì đóng hộp và báo lỗi ngay dưới ô, giữ nguyên chữ đã nhập. Đây là chi tiết UX đúng chỗ.
 - Tách `saved` / `saved_first` / `removed` ở khối của mình, và câu 15 phút cho biết phải làm gì tiếp mà không hứa quá. Phía OWN chỉ cần làm theo cùng cách (thẻ 02).
 - Banner dẫn bằng neo và focus vào ô email, không đưa dữ liệu vào URL. "Để sau" chỉ ẩn trong phiên, giống cờ 2FA.
+
+---
+
+## Lượt 2 – 03/11/2026
+
+- Người review: UXD | Round 4 – đợt v1.0.3 – bước **Review lượt 2** (sau "Phản hồi & sửa" của FE-A).
+- Đối tượng: `git diff d0b2df3a 42876026` (16 tệp). Trả lời từng thẻ ở `rounds/round-04/responses/FE-on-UXD-v1.0.3-email.md` @ `42876026`. 14 ảnh dữ liệu giả mới (VI + EN, 7 màn, 1280×860, scratchpad FE-A, không commit). Không checkout, không sửa nhánh.
+- Ba trạng thái không có ảnh nên soát qua mã: hộp S2 khi tài khoản đã bật 2FA (có ô mã), lỗi `STRONG_REAUTH_REQUIRED` trong hộp, bảng Người dùng & vai khi mất mạng.
+
+### Kết luận lượt 2: ĐẠT
+
+Ba thẻ Major (01–03) đã đóng. Brand vẫn đạt. Còn 2 thẻ Minor (07 mở lại một phần, 13 mới) và 2 thẻ Suggestion (14, 15). Mỗi thẻ chỉ cần sửa vài dòng. Nên làm luôn trong PR-1. Nếu không kịp thì ghi backlog v1.0.4, không chặn gộp. Không có việc cần báo chủ đầu tư.
+
+### Trạng thái từng thẻ
+
+| Thẻ | Mức | Lượt 2 | Bằng chứng |
+|---|---|---|---|
+| 01 | Major | **Đóng** | `secmail.lead` đúng bảng, chỉ nêu thông báo có thật. Ghi chú khóa nhắc thêm "mật khẩu" khi có thư đổi mật khẩu. Ảnh vi-02, en-02 |
+| 02 | Major | **Đóng** | `UserEmailDialog` chọn `first` / `saved` / `removed` theo `user.email` trước khi lưu và `data.email` server trả về. `UsersPage` dùng `users.email_saved_first`. `users.email_body` có "(nếu có)" và "các chủ đầu tư". Có test hai ca. Ảnh vi-07 |
+| 03 | Major | **Đóng** | Tiêu đề khối, hai hộp S2, hộp OWN, `missing`, `nudge` đúng bộ thuật ngữ. Test cấm cụm từ và test tiêu đề khối khớp tiêu đề thư (CPY INT-04). Ảnh vi-03, en-03, en-04 |
+| 04 | Minor | **Đóng** | `SecurityNudges` hiện một banner khi thiếu cả hai, "Để sau" ghi cả hai cờ. Các ca khác giữ banner riêng. Banner gộp cao khoảng 80px, trước đây hai banner khoảng 180px. Ảnh vi-01, en-01 |
+| 05 | Minor | **Đóng** | 5 khóa đúng bảng. Câu hộp thư chung trung tính, dùng được cả trong hộp OWN. Ảnh vi-05 |
+| 06 | Minor | **Đóng** | (a) Tiêu đề nằm trong `.row`, câu dẫn cách 12px. (b) Alert trong khối dùng icon tam giác như khối 2FA. (c) Không còn dòng "Chưa có email." khi đã có cảnh báo. Ảnh vi-02 |
+| 07 | Minor | **Mở lại (một phần)** | Nhãn "Địa chỉ mới" và địa chỉ đứng đầu hộp: đạt, dùng chung `EmailConfirmBody` cho cả hai hộp. Còn lỗi: dòng "Thao tác này cần mật khẩu…" vẫn dính sát câu báo (ảnh vi-03, en-03). Lỗi nằm ở hộp dùng chung. Xem thẻ 07 bên dưới |
+| 08 | Minor | **Đóng** (kèm thẻ 13) | (a) Hàng của mình chỉ còn link, hàng OWN khác chỉ còn câu. Hàng không còn cao gấp đôi. (b) "Sửa email" thẳng hàng với địa chỉ và chip. (c) en-06: "Last sign-in" một dòng, địa chỉ không bị cắt. Trạng thái tắt của `.btn-inline` còn lỗi, tách sang thẻ 13 |
+| 09 | Minor | **Đóng phần FE**. Phần sổ tay vẫn mở | `Enroll2faPage` dùng `shell.account_security`. Sổ tay (7 tệp ở thẻ 09) chưa đổi. ORC giao người giữ sổ tay, phải xong trước khi phát hành v1.0.3 |
+| 10 | Suggestion | **Đóng** | Chip "Đã có" / "Chưa có" ở góc phải, cùng kiểu chip "Chưa bật" của khối 2FA. Hàng OWN/MGR chưa có email dùng chip warn, vai khác giữ chữ muted. Ảnh vi-02, vi-04, vi-06, en-06 |
+| 11 | Suggestion | **Đóng** | `.mono` 13px ở khối, hộp, bảng, địa chỉ màu Ink. Không còn `fontSize` inline |
+| 12 | Suggestion | **Mở**, chuyển CPY/INT | Không thuộc FE-A. Câu Desk mới đã dùng "chủ đầu tư" và "xác thực 2 bước" |
+
+### Soát 6 khóa chữ mới
+
+Sinh từ `gen_strings.py` và khớp `strings-{vi,en}.json` @ `42876026`.
+
+| Khóa | VI | EN | Kết quả |
+|---|---|---|---|
+| `secmail.new_label` | Địa chỉ mới | New address | Đạt. Hiện bằng `label-h` (IN HOA là kiểu nhãn của DS) |
+| `secmail.status_set` | Đã có | Set | Đạt. Chip ngắn, cùng nhịp với "Chưa bật" / "Off" của khối 2FA |
+| `secmail.status_unset` | Chưa có | Not set | Đạt. Trùng chữ với `users.email_none` nhưng tách khóa là đúng (hai chỗ dùng khác nhau) |
+| `secnudge.both` | Tài khoản của bạn chưa bật xác thực 2 bước và chưa có email nhận thông báo bảo mật. Từ khi có dữ liệu khách thật, xác thực 2 bước là bắt buộc. | Your account has no 2-step verification and no notification email yet. Once real guest data is in the app, 2-step verification becomes mandatory. | Đạt. Đúng bảng, đúng thuật ngữ thẻ 03, vế sau khớp `mfa.nudge` |
+| `secnudge.open` | Mở Bảo mật tài khoản | Open Account security | Đạt. Tên đích khớp menu và tiêu đề trang |
+| `users.email_saved_first` | Đã lưu email của {name}. Thông báo đã gửi tới địa chỉ này và các chủ đầu tư. | {name}'s notification email is saved. A notice has been sent to that address and all owners. | Đạt. Không còn "địa chỉ cũ" ở lần đầu |
+
+Cả 6 khóa ngắn, điềm tĩnh, không emoji, không đổ lỗi, không có cụm bị cấm. Chỉ có `secmail.status_set` chưa nằm trong danh sách test chuỗi (thẻ 15).
+
+### Soát `.btn.btn-inline` (`packages/ui/src/styles/app.css`)
+
+- Đạt:
+  - Chỉ đặt `padding-inline: 0`. Màu lấy từ `.btn.ghost` (`--oak-ink`), chiều cao lấy từ `.btn.sm` (32px, đủ chuẩn nút `sm` của Desk). Không có mã màu tự đặt.
+  - `app.css` nạp sau `hifi.css`, cùng độ ưu tiên (0,2,0), nên lớp mới thắng phần padding của `.sm`.
+  - Vòng focus chung (`:focus-visible` 2px, offset 2px) vẫn thấy rõ khi không có padding.
+  - Gạch chân khi hover khớp kiểu link ở hàng bên cạnh.
+  - `.nowrap` và `.users-email` đạt. Tên `.nowrap` không trùng tiện ích nào trong `hifi.css`.
+- Lỗi: trạng thái tắt (mất mạng, `disabled={!online}`) bị vỡ. Xem thẻ 13.
+- Việc của UXD sau khi gộp: ghi biến thể `btn-inline` vào DS (mục nút, C-button), kèm quy tắc "chỉ dùng trong ô bảng hoặc dòng dữ liệu, ngay dưới giá trị nó sửa". Sau này chuyển lớp sang `hifi.css` khi UXD phát hành DS. FE giữ ở `app.css` cho v1.0.3.
+
+### Soát `StrongReauthDialog` (hộp S2 dùng chung)
+
+- Hộp được dùng ở 9 chỗ: `SecurityPage` (Tạo bộ mã mới, Tắt 2FA), `UsersPage`, `AddUserDialog`, `DevicesPage`, `ReceivingAccount` (2 hộp), `SecurityEmailCard`, `UserEmailDialog`.
+- Lượt này hộp chỉ thay một chỗ: `missingFactor`. Phần thân email đi qua `children`, nên 7 hộp cũ không đổi bố cục.
+- Hành vi cũ giữ nguyên:
+  - 401 `REAUTH_FAILED` vẫn một câu chung, không nói yếu tố nào sai (SEC 06.20).
+  - Hai ô được xóa sau mỗi lần thử.
+  - Câu "Chờ mã mới" vẫn hiện khi đã bật 2FA.
+- UXD đồng ý đánh dấu ô bằng `common.required` khi server báo **thiếu** yếu tố: báo thiếu không cho biết yếu tố nào sai. Phần bảo mật do SEC xác nhận trong review SEC của PR #31.
+- Có 2 điểm:
+  - Dòng xác thực dính sát `children`. Lỗi có ở cả 9 hộp, kể cả hộp 2FA cũ. Sửa một dòng là cả 9 hộp đều đúng (thẻ 07).
+  - Không đưa focus về ô cần nhập khi server báo thiếu mã (thẻ 14).
+- UXD chốt bố cục hộp S2 làm chuẩn: `children` → dòng xác thực (`reauth.s2_help*`) → banner lỗi → Mật khẩu → Mã. Các khối cách nhau 12px nhờ `.stack`, dùng modal `sm` (C15). FE bỏ nhãn `[CHỜ UXD] hi-fi R3 of this dialog` trong JSDoc. UXD ghi bố cục này vào DS sau khi gộp.
+
+### FB-R4-UXD-FE-EM-07 (mở lại)
+- Mức độ: Minor
+- Vị trí: `StrongReauthDialog.tsx`, thẻ `<p className="muted" style={{ margin: 0 }}>` của dòng `reauth.s2_help` / `reauth.s2_help_password`. Ảnh vi-03, en-03
+- Vấn đề: `margin: 0` inline ghi đè `.stack>*+*{margin-top:12px}`. Vì vậy câu "Thao tác này cần mật khẩu đăng nhập của bạn." dính sát dưới câu "…tới địa chỉ cũ, nếu có.", đọc như một đoạn. Thẻ 07 lượt 1 yêu cầu các khối cách nhau 12px. Lỗi có ở cả 9 hộp S2, ví dụ hộp Tạo bộ mã mới: `mfa.regen_note` cũng dính sát dòng xác thực.
+- Vì sao quan trọng: Câu báo và câu hướng dẫn nhập là hai việc khác nhau. Khi dính nhau, người dùng dễ bỏ qua câu báo về địa chỉ.
+- Đề xuất sửa: Bỏ `style={{ margin: 0 }}` ở thẻ `<p>` đó. Chỉ một dòng, và cả 9 hộp đều đúng. `EmailConfirmBody` giữ nguyên `margin: 12px 0 0` của nó, vì nằm trong `<div>` bọc `children`, ngoài `.stack`. QA chụp lại 3 hộp để chắc bố cục không vỡ: Lưu email, Tạo bộ mã mới, Hủy lịch đổi tài khoản nhận tiền (hộp có ô lý do).
+- Trạng thái: Open
+
+### FB-R4-UXD-FE-EM-13
+- Mức độ: Minor
+- Vị trí: `packages/ui/src/styles/app.css` `.btn.btn-inline`; nút "Sửa email" ở `UsersPage.tsx` (`disabled={!online}`)
+- Vấn đề:
+  - `hifi.css` dòng 132 cho `.btn[disabled]` nền `--surface-2` và viền gạch. `.btn-inline` chỉ bỏ padding ngang, nên khi mất mạng mỗi hàng hiện một hộp xám viền gạch ôm sát chữ "Sửa email". Đó đúng là kiểu nút tắt mà thẻ 08 vừa bỏ, nay còn xấu hơn vì không có padding.
+  - Luật `:hover` cũng áp lên nút tắt, nên chữ được gạch chân như thể vẫn bấm được.
+- Vì sao quan trọng: Desk có chế độ chỉ đọc khi mất mạng (thanh offline ở đầu trang). Bảng 8 hàng với 8 hộp gạch đứt sẽ rối và lệch DS.
+- Đề xuất sửa:
+  ```css
+  .btn.btn-inline[disabled],
+  .btn.btn-inline[aria-disabled='true'] {
+    background: transparent;
+    border-color: transparent;
+  }
+  .btn.btn-inline:not([disabled]):not([aria-disabled='true']):hover {
+    background: transparent;
+    text-decoration: underline;
+  }
+  ```
+  - Giữ màu muted và con trỏ `not-allowed` từ DS. Thanh offline đã giải thích lý do.
+  - Test: render khi offline thì nút có `disabled`. QA chụp bảng khi mất mạng.
+- Trạng thái: Open
+
+### FB-R4-UXD-FE-EM-14
+- Mức độ: Suggestion
+- Vị trí: `StrongReauthDialog.tsx`, nhánh `missingFactor` trong `submit`
+- Vấn đề: Khi server báo thiếu `reauth.totpCode` / `reauth.recoveryCode`, hộp đánh dấu ô mã nhưng không chuyển focus. Chỉ ca mật khẩu mới có `pwRef.focus()`. Hai ô cũng vừa bị xóa, nên người dùng điền mã, bấm xác nhận, rồi mới thấy "Bắt buộc" ở ô mật khẩu. Họ phải sửa hai lượt.
+- Vì sao quan trọng: Người dùng bàn phím và trình đọc màn hình không biết lỗi nằm ở đâu. Trường hợp này hiếm, vì client đã bắt buộc cả hai ô, nên chỉ là Suggestion.
+- Đề xuất sửa: Trong nhánh này luôn focus `pwRef`, vì đó là ô đầu tiên vừa bị xóa, giống nhánh `REAUTH_FAILED`. Vẫn giữ dấu "Bắt buộc" ở ô server nêu. Thêm một assert focus vào test sẵn có (`reauth.totpCode` → ô mã).
+- Trạng thái: Open
+
+### FB-R4-UXD-FE-EM-15
+- Mức độ: Suggestion
+- Vị trí: `product/design/tools/gen_strings.py` (nhóm v1.0.3), `v103-email-fea.test.tsx`
+- Vấn đề:
+  - `secmail.status_set` chưa có trong `KEYS` của test chuỗi (5 trên 6 khóa mới đã có).
+  - Ghi chú khóa còn tả bản cũ:
+    - `users.email_self`: "nút tắt + câu này";
+    - `users.email_other_owner`: "nút tắt (403 FORBIDDEN_ACTION)";
+    - `secmail.purpose`: "nói \"thư thông báo\"".
+  - Tiêu đề nhóm vẫn ghi "**Chờ UXD/CPY duyệt**".
+  - Chú thích dòng 16 của test còn "Email nhận thư bảo mật".
+- Vì sao quan trọng: Ghi chú khóa là thứ CPY và người dịch đọc (`strings-tables.md`). Ghi chú sai sẽ dẫn họ sửa sai.
+- Đề xuất sửa:
+  - Thêm `secmail.status_set` vào `KEYS`.
+  - Sửa 3 ghi chú theo mã hiện tại.
+  - Đổi tiêu đề nhóm thành "UXD đã duyệt (lượt 2, 03/11/2026)". Phần CPY để CPY tự ghi.
+  - Sửa chú thích test thành "thông báo bảo mật".
+  - Chạy lại generator.
+- Trạng thái: Open
+
+### Brand OTTIMO – rà lại lượt 2
+
+| Mục | Kết quả |
+|---|---|
+| Màu | Đạt. CSS mới chỉ có `transparent`. Chip và Alert dùng tone `ok`, `neutral`, `warn` của DS |
+| Chữ | Đạt. Lora ở tiêu đề trang, khối, hộp. Be Vietnam Pro ở thân, nút, nhãn. JetBrains Mono 13px chỉ cho địa chỉ |
+| Giọng | Đạt. 6 khóa mới ngắn, điềm tĩnh. Chỉ dùng một bộ thuật ngữ: "Notification email" / "Email nhận thông báo bảo mật" |
+| Emoji / IN HOA | Không có emoji (có test). IN HOA chỉ ở `label-h` và tiêu đề cột của DS |
+| Dữ liệu cá nhân | Ảnh chỉ dùng `*@example.test`. Toast và URL không chứa địa chỉ |
+
+Không có lệch giữa guideline và DS trong phạm vi lượt này.
+
+### Điểm làm tốt lượt 2
+
+- `EmailConfirmBody` dùng chung cho hai hộp S2, nên sửa một lần là đúng cả khối của mình lẫn hộp OWN.
+- Câu báo và địa chỉ hiển thị đều theo địa chỉ server trả về (đã chuẩn hóa), không theo chuỗi người dùng gõ. Như vậy người dùng thấy đúng địa chỉ sẽ nhận thư.
+- Banner gộp giữ đúng ranh giới: chỉ gộp khi thiếu 2FA và thiếu email. Ca "còn ít mã khôi phục" vẫn để riêng, vì đó là việc khác.
