@@ -52,7 +52,7 @@ describe('staff e-mail templates (OTTIMO brand guideline)', () => {
     expect(r.text).not.toMatch(/\d{6,}/);
   });
 
-  describe('email_changed (BUG-R3-032, ARC v1.0.3-contract-email 4.3)', () => {
+  describe('email_changed (BUG-R3-032, ARC v1.0.3-contract-email 4.3, CPY-on-v1.0.3-email-changed)', () => {
     const base = { staffName: 'Lan', occurredAt: '03/11/2026 10:15 (GMT+7)' };
     // Extra keys a careless caller might pass: none of them may reach the message.
     const leaky = {
@@ -63,84 +63,151 @@ describe('staff e-mail templates (OTTIMO brand guideline)', () => {
       username: 'fd.lan',
     };
     const audiences = ['self', 'previous', 'owner'] as const;
+    const allCopies: Record<string, string>[] = [
+      ...audiences.flatMap((audience) =>
+        ['self', 'owner', undefined].map((via) => ({ audience, ...(via ? { via } : {}) })),
+      ),
+      {},
+      { audience: 'someone' },
+    ];
+    const SUBJECT =
+      'OTTIMO – Security notice: notification email changed / Thông báo bảo mật: email nhận thông báo đã thay đổi';
+    const render = (extra: Record<string, string>) =>
+      renderStaffEmail('email_changed', { ...base, ...extra });
 
-    for (const audience of audiences) {
-      it(`${audience}: renders, brand palette only, no link, no address of any kind`, () => {
-        const r = renderStaffEmail('email_changed', { ...base, ...leaky, audience });
+    // CPY test 1: every copy (3 audiences × via, and the neutral one) – no address, link, nested brackets.
+    for (const extra of allCopies) {
+      it(`${JSON.stringify(extra)}: no address, no link, no "((", palette only, name never in subject`, () => {
+        const r = render({ ...leaky, ...extra });
         for (const s of [r.subject, r.text, r.html]) {
           expect(s).not.toMatch(EMOJI);
           expect(s).not.toContain('@');
           expect(s).not.toContain('example.test');
           expect(s).not.toContain('***');
           expect(s).not.toContain('fd.lan');
+          expect(s).not.toMatch(/https?:|href=|<a\s|www\./i);
+          expect(s).not.toContain('((');
         }
-        expect(r.subject).toBe(
-          'OTTIMO – Security notice: the security e-mail was changed / Thông báo bảo mật: email nhận thư bảo mật đã thay đổi',
-        );
-        expect(r.text).toContain('03/11/2026 10:15 (GMT+7)');
+        expect(r.subject).toBe(SUBJECT);
+        expect(r.subject).not.toContain('Lan');
+        expect(r.text).toContain('Time: 03/11/2026 10:15 (GMT+7)');
+        expect(r.text).toContain('Thời điểm: 03/11/2026 10:15 (GMT+7)');
+        // Option B of FB-R4-CPY-INT-05: the anti-phishing line ends the body of every email_changed copy.
+        expect(r.text).toContain('OTTIMO security notices never contain links');
+        expect(r.text).toContain('không bao giờ có đường liên kết');
         for (const c of r.html.match(/#[0-9A-Fa-f]{6}\b/g) ?? []) {
           expect(ALLOWED_COLOURS.has(c.toUpperCase())).toBe(true);
         }
-        expect(r.html).not.toMatch(/<a\s|href=|https?:\/\//i);
-        expect(r.text).not.toMatch(/https?:\/\/|www\./);
         expect(r.html).toContain('lang="vi"');
+        // English block before the Vietnamese block.
+        expect(r.text.indexOf('Time:')).toBeLessThan(r.text.indexOf('Thời điểm:'));
       });
     }
 
-    it('self: tells the new address it now receives notices, EN then VI, no staff name', () => {
-      const r = renderStaffEmail('email_changed', { ...base, audience: 'self' });
+    it('self (via=self): new address now receives notices, "not you" action, no staff name', () => {
+      const r = render({ audience: 'self', via: 'self' });
       expect(r.text).toContain(
-        'This address will now receive security notices for your OTTIMO Desk account (03/11/2026 10:15 (GMT+7)).',
+        'This address will now receive security notices for your OTTIMO Desk account.',
       );
       expect(r.text).toContain(
-        'Từ nay, địa chỉ này nhận thư bảo mật của tài khoản OTTIMO Desk của bạn',
+        'Từ nay, địa chỉ này sẽ nhận thông báo bảo mật cho tài khoản OTTIMO Desk của bạn.',
       );
       expect(r.text).toContain('If this was not you');
-      expect(r.text.indexOf('This address will now')).toBeLessThan(r.text.indexOf('Từ nay'));
+      expect(r.text).not.toContain('property owner');
       expect(r.text).not.toContain('Lan');
     });
 
-    it('previous: tells the old address it no longer receives notices and to tell the owner immediately', () => {
-      const r = renderStaffEmail('email_changed', { ...base, audience: 'previous' });
-      expect(r.text).toContain('was changed or removed (03/11/2026 10:15 (GMT+7)).');
-      expect(r.text).toContain('This address will no longer receive security notices.');
-      expect(r.text).toContain('tell the owner or the OTTIMO team immediately');
-      expect(r.text).toContain('Địa chỉ này sẽ không nhận thư bảo mật nữa.');
-      expect(r.text).toContain('hãy báo ngay chủ cơ sở');
-      expect(r.text).not.toContain('will now receive');
-      expect(r.text).not.toContain('Lan');
+    // CPY test 2: owner made the change for a staff member – no "change your password".
+    it('self (via=owner): says the owner made it, no "change your password" / "đổi mật khẩu"', () => {
+      const r = render({ audience: 'self', via: 'owner' });
+      expect(r.text).toContain('The change was made by the property owner.');
+      expect(r.text).toContain('Thay đổi do chủ cơ sở thực hiện.');
+      expect(r.text).toContain('If you did not expect this, please contact the owner directly.');
+      expect(r.text).not.toMatch(/change your password|đổi mật khẩu|If this was not you/);
     });
 
-    it('owner: names the person (escaped), asks to check today, no address', () => {
-      const r = renderStaffEmail('email_changed', { ...base, audience: 'owner' });
-      expect(r.text).toContain('The security e-mail of Lan was changed or removed');
-      expect(r.text).toContain('Email nhận thư bảo mật của Lan vừa được đổi hoặc gỡ');
+    // CPY test 3: previous, both via – "do not reply" inside the action, never "will now receive".
+    it('previous (via=self and via=owner): "do not reply" in the action, never "will now receive"', () => {
+      for (const via of ['self', 'owner']) {
+        const r = render({ audience: 'previous', via });
+        expect(r.text).toContain(
+          'This address no longer receives security notices for your OTTIMO Desk account.',
+        );
+        expect(r.text).toContain('Địa chỉ này không còn nhận thông báo bảo mật');
+        expect(r.text).toContain('do not reply to this email');
+        expect(r.text).toContain('không trả lời thư này');
+        expect(r.text).not.toContain('will now receive');
+        expect(r.text).not.toContain('Lan');
+      }
+      const self = render({ audience: 'previous', via: 'self' });
+      expect(self.text).toContain(
+        'Contact the owner or the OTTIMO team right away and change your password.',
+      );
+      const byOwner = render({ audience: 'previous', via: 'owner' });
+      expect(byOwner.text).toContain('The change was made by the property owner.');
+      expect(byOwner.text).not.toMatch(/change your password|đổi mật khẩu/);
+    });
+
+    it('owner: names the person (escaped), asks to check today; via=owner says an owner made it', () => {
+      const r = render({ audience: 'owner' });
+      expect(r.text).toContain('The notification email of Lan was changed or removed.');
+      expect(r.text).toContain('Email nhận thông báo bảo mật của Lan vừa được đổi hoặc gỡ.');
       expect(r.text).toContain('check with them today');
+      const o = render({ audience: 'owner', via: 'owner' });
+      expect(o.text).toContain('An owner changed or removed the notification email of Lan.');
+      expect(o.text).toContain(
+        'Một chủ cơ sở vừa đổi hoặc gỡ email nhận thông báo bảo mật của Lan.',
+      );
       const x = renderStaffEmail('email_changed', { audience: 'owner', staffName: '<b>Lan</b>' });
       expect(x.html).not.toContain('<b>Lan');
       expect(x.html).toContain('&lt;b&gt;Lan');
+      const n = renderStaffEmail('email_changed', { audience: 'owner' });
+      expect(n.text).toContain('The notification email of a staff member was changed or removed.');
+      expect(n.text).toContain('của một nhân viên');
     });
 
-    it('owner without a name falls back to a neutral phrase', () => {
-      const r = renderStaffEmail('email_changed', { audience: 'owner' });
-      expect(r.text).toContain('The security e-mail of A staff member was changed');
-      expect(r.text).toContain('Một nhân viên');
+    // CPY test 4: no occurredAt – no time line at all.
+    it('without occurredAt there is no "Time:" / "Thời điểm:" line', () => {
+      for (const audience of [...audiences, 'someone']) {
+        const r = renderStaffEmail('email_changed', { audience, staffName: 'Lan' });
+        expect(r.text).not.toMatch(/Time:|Thời điểm:/);
+        expect(r.html).not.toMatch(/Time:|Thời điểm:/);
+      }
+    });
+
+    // CPY test 5: missing or unknown via reads as via=self.
+    it('missing or unknown via renders exactly like via=self', () => {
+      for (const audience of audiences) {
+        const self = render({ audience, via: 'self' });
+        expect(render({ audience })).toEqual(self);
+        expect(render({ audience, via: 'operator' })).toEqual(self);
+      }
     });
 
     it('missing or unknown audience: neutral copy that claims nothing about which address this is', () => {
       const cases: Record<string, string>[] = [{}, { audience: 'someone' }];
       for (const params of cases) {
         const r = renderStaffEmail('email_changed', params);
-        expect(r.text).toContain('The security e-mail of an OTTIMO Desk account was changed.');
+        expect(r.text).toContain('The notification email of an OTTIMO Desk account was changed.');
         expect(r.text).not.toMatch(/will now receive|no longer receive/);
       }
     });
 
-    it('the three copies differ from each other', () => {
-      const texts = audiences.map(
-        (audience) => renderStaffEmail('email_changed', { ...base, audience }).text,
-      );
+    // CPY test 6 (option B): the shared footer of the older templates is unchanged in v1.0.3.
+    it('older templates keep their footer and do not get the email_changed anti-phishing line', () => {
+      for (const t of STAFF_EMAIL_TEMPLATES.filter((x) => x !== 'email_changed')) {
+        const r = renderStaffEmail(t, { audience: 'self', occurredAt: '03/11/2026 10:15 (GMT+7)' });
+        expect(r.text).toContain('OTTIMO never asks for your password or codes by e-mail.');
+        expect(r.text).not.toContain('never contain links');
+      }
+    });
+
+    it('the three copies differ from each other, and via=owner differs from via=self', () => {
+      const texts = audiences.map((audience) => render({ audience }).text);
       expect(new Set(texts).size).toBe(3);
+      for (const audience of audiences) {
+        expect(render({ audience, via: 'owner' }).text).not.toBe(render({ audience }).text);
+      }
     });
   });
 
