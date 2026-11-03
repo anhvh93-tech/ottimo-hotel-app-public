@@ -2,7 +2,7 @@
 # Periodic checks of one server – systemd timer ottimo-ops-check.timer (every 30 min), as the deploy user.
 #   ops-check.sh            run every check, alert on failures
 #   ops-check.sh j16        one check only (j16 | backup | disk | mem | tls | containers | http5xx | email_dead |
-#                           email_missing)
+#                           email_missing | email_changes | email_ascii)
 #
 #   j16         SEC C6 / SR-RET-03: for every active property, the last retention_run of policy J16 with
 #               status done must be < 26 h old (a property younger than 26 h without any run is fine), and no J16 run
@@ -15,7 +15,7 @@
 #   containers  postgres, api, worker, web running (api healthy); + landing when a landing tag is deployed. A failing
 #               `docker compose` itself is reported as "docker compose failed, container state unknown: <category>", not
 #               as "not running" (same for http5xx); j16 / email_dead report "query failed: <category>" – never the
-#               raw error text (ARC CWD-03); email_missing the same
+#               raw error text (ARC CWD-03); email_missing, email_changes, email_ascii the same
 #   http5xx     server errors answered by Caddy (web + landing) in the last 35 min < HTTP5XX_MAX (default 5): a
 #               crashing api, a 502 from a dead upstream – before guests or staff report it
 #   email_dead  staff e-mails (outbox topic staff.email: security notices – SEC 06.15 / 06.33 / Q51-6) that died with
@@ -29,6 +29,20 @@
 #               v1.0.3 tech plan 2.10 condition 2): their security notices would die NO_RECIPIENT. READ ONLY
 #               transaction, count only – no address, name or id is selected or printed. Report only until
 #               EMAIL_NO_RECIPIENT_ALERT=1 (same switch as email_dead); armed, a count > 0 is a FAIL.
+#   email_changes  v1.0.3 (SEC FB-R4-SEC-OPS-PR31-01, condition of the production deploy): no hard limit on successful
+#               e-mail changes until v1.0.4, and the dispatcher sends 10 staff e-mails / min / property in FIFO order –
+#               a flood of changes delays every other security notice. Counts, in a READ ONLY transaction, from
+#               user_email_change (0091): changes in the last 24 h, in total and for the most-changed user; and from
+#               outbox_message: staff.email rows still waiting (pending | failed | in_flight) and the age of the oldest.
+#               FAIL (always, no switch) when one user > EMAIL_CHANGES_USER_MAX (5), or the total >
+#               EMAIL_CHANGES_TOTAL_MAX (20) in 24 h, or the oldest waiting staff e-mail > STAFF_EMAIL_QUEUE_MAX_MIN (30)
+#               min. The three limits can be tuned in .env (wins over the environment) but not switched off: each
+#               must be a whole number in its range (1-20, 1-200, 5-240), otherwise the check FAILs. Numbers only – no
+#               address, user id or payload is selected. Before 0091 (no table yet) the change counts read "not
+#               present" and only the queue is judged. What to do on FAIL: runbook v1.0.3 "email_changes FAIL".
+#   email_ascii  INT FB-R4-INT-BE-31-04: stored app_user.email values (not blank) outside the ASCII rule of the API
+#               (normalizeSecurityEmail: local [a-z0-9._%+-]{1,64}, >= 2 labels [a-z0-9-]{1,63}, letter TLD, 3-254).
+#               READ ONLY, count only, always report only: the SMTP adapter is tightened in v1.0.4 only at 0.
 #
 # Alerts (no personal data – only check names, property ids, ages): always to the journal
 # (journalctl -t ottimo-alert -p err); plus ALERT_WEBHOOK_URL from /opt/ottimo/.env if set, sent when a check
@@ -127,6 +141,14 @@ psql_ro() {
 email_alert_armed() {
   local armed
   armed=$(envval EMAIL_NO_RECIPIENT_ALERT); echo "${armed:-${EMAIL_NO_RECIPIENT_ALERT:-0}}"
+}
+
+# A limit of email_changes: .env wins over the environment, then the default; a whole number in [min, max] (SEC PR31-01:
+# tunable, never switched off – 0, a word or a huge number is refused, and the check FAILs instead of passing).
+email_limit() { # name default min max
+  local v
+  v=$(envval "$1"); v="${v:-${!1:-$2}}"
+  if [[ "$v" =~ ^[0-9]{1,4}$ ]] && [ "$((10#$v))" -ge "$3" ] && [ "$((10#$v))" -le "$4" ]; then echo "$((10#$v))"; else echo ERR; fi
 }
 
 check_j16() {
@@ -292,7 +314,87 @@ SQL
   fi
 }
 
-if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx email_dead email_missing); full=1; fi
+check_email_changes() {
+  local out umax tmax qmax v name val range line has=0 hasq=0 total=-1 top=-1 waiting=0 age=0 bad="" chg
+  umax=$(email_limit EMAIL_CHANGES_USER_MAX 5 1 20)
+  tmax=$(email_limit EMAIL_CHANGES_TOTAL_MAX 20 1 200)
+  qmax=$(email_limit STAFF_EMAIL_QUEUE_MAX_MIN 30 5 240)
+  for v in "EMAIL_CHANGES_USER_MAX|$umax|1-20" "EMAIL_CHANGES_TOTAL_MAX|$tmax|1-200" "STAFF_EMAIL_QUEUE_MAX_MIN|$qmax|5-240"; do
+    IFS='|' read -r name val range <<<"$v"
+    if [ "$val" = ERR ]; then notify email_changes FAIL "$name must be a whole number $range"; return 1; fi
+  done
+  # One READ ONLY session. user_email_change exists from 0091 on: \if keeps the script valid on DB 67 (v1.0.2).
+  # Only counts and an age in seconds leave the database – no address, id or payload.
+  if ! out=$(psql_ro <<'SQL' 2>"$cmd_err"
+SELECT to_regclass('public.user_email_change') IS NOT NULL AS has_uec \gset
+\if :has_uec
+SELECT 'changes', coalesce(sum(n), 0), coalesce(max(n), 0) FROM (
+  SELECT count(*) AS n FROM user_email_change
+   WHERE changed_at > now() - interval '24 hours' GROUP BY user_id) s;
+\else
+SELECT 'changes', -1, -1;
+\endif
+SELECT 'queue', count(*), coalesce(extract(epoch FROM now() - min(created_at))::bigint, 0) FROM outbox_message
+ WHERE topic = 'staff.email' AND status IN ('pending', 'failed', 'in_flight');
+SQL
+  ); then
+    notify email_changes FAIL "query failed: $(cmd_failed)"
+    return 1
+  fi
+  # Exactly one "changes" and one "queue" line of numbers; anything else (a stray value) is never printed.
+  while IFS= read -r line; do
+    line=$(tr -d '[:space:]' <<<"$line")
+    [ -n "$line" ] || continue
+    if [[ "$line" =~ ^changes\|(-1|[0-9]+)\|(-1|[0-9]+)$ ]] && [ "$has" -eq 0 ]; then
+      total=${BASH_REMATCH[1]}; top=${BASH_REMATCH[2]}; has=1
+    elif [[ "$line" =~ ^queue\|([0-9]+)\|(-?[0-9]+)$ ]] && [ "$hasq" -eq 0 ]; then
+      waiting=${BASH_REMATCH[1]}; age=${BASH_REMATCH[2]}; hasq=1
+    else
+      notify email_changes FAIL "unexpected answer"; return 1
+    fi
+  done <<<"$out"
+  if [ "$has" -ne 1 ] || [ "$hasq" -ne 1 ] || { [ "$total" = -1 ] && [ "$top" != -1 ]; } \
+    || { [ "$total" != -1 ] && [ "$top" = -1 ]; }; then
+    notify email_changes FAIL "unexpected answer"; return 1
+  fi
+  [ "$age" -ge 0 ] || age=0   # clock skew between created_at and now()
+  age=$((age / 60))
+  if [ "$total" -ge 0 ]; then
+    [ "$top" -gt "$umax" ] && bad+=" $top e-mail changes for one user in 24 h (limit $umax);"
+    [ "$total" -gt "$tmax" ] && bad+=" $total e-mail changes in 24 h (limit $tmax);"
+    chg="$total e-mail change(s) in 24 h, max $top for one user (limits $umax / user, $tmax total)"
+  else
+    chg="e-mail changes: table not present yet (before migration 0091)"
+  fi
+  [ "$waiting" -gt 0 ] && [ "$age" -gt "$qmax" ] && bad+=" oldest waiting staff e-mail $age min old (limit $qmax min) – security notices delayed;"
+  if [ -n "$bad" ]; then
+    bad="${bad# }"
+    notify email_changes FAIL "${bad%;} – runbook v1.0.3: lock the flooding account, tell SEC"
+    return 1
+  fi
+  notify email_changes OK "$chg; staff.email queue: $waiting waiting, oldest $age min (limit $qmax min)"
+}
+
+check_email_ascii() {
+  local out n
+  # Stored addresses the v1.0.3 API rule (shared/email.ts normalizeSecurityEmail: trim + lower case, then the shape)
+  # would refuse – what the adapter may still be handed (legacy rows, SQL by hand). Blank = no address (email_missing),
+  # not counted. Only count(*) leaves the database.
+  if ! out=$(psql_ro <<'SQL' 2>"$cmd_err"
+SELECT count(*) FROM (SELECT lower(btrim(email::text)) AS e FROM app_user WHERE email IS NOT NULL) a
+ WHERE a.e <> ''
+   AND NOT (char_length(a.e) BETWEEN 3 AND 254 AND a.e ~ '^[a-z0-9._%+-]{1,64}@([a-z0-9-]{1,63}\.)+[a-z]{2,63}$');
+SQL
+  ); then
+    notify email_ascii FAIL "query failed: $(cmd_failed)"
+    return 1
+  fi
+  n=$(tr -d '[:space:]' <<<"$out")
+  [[ "$n" =~ ^[0-9]+$ ]] || { notify email_ascii FAIL "unexpected answer"; return 1; }
+  notify email_ascii OK "$n stored e-mail address(es) outside the ASCII rule (report only – INT v1.0.4 tightens the adapter only at 0)"
+}
+
+if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx email_dead email_missing email_changes email_ascii); full=1; fi
 rc=0
 failed=""
 for c in "${checks[@]}"; do
@@ -307,6 +409,8 @@ for c in "${checks[@]}"; do
     http5xx) check_http5xx || ok=0 ;;
     email_dead) check_email_dead || ok=0 ;;
     email_missing) check_email_missing || ok=0 ;;
+    email_changes) check_email_changes || ok=0 ;;
+    email_ascii) check_email_ascii || ok=0 ;;
     *) echo "unknown check: $c" >&2; rc=2; continue ;;
   esac
   if [ "$ok" -eq 0 ]; then failed+=" $c"; [ "$rc" -eq 2 ] || rc=1; fi

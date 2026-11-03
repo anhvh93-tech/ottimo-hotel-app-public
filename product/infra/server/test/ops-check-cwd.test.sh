@@ -5,7 +5,8 @@
 #   bash infra/server/test/ops-check-cwd.test.sh        (workstation or CI; needs docker compose; not as root)
 # Cases: bin/dc from an unreadable cwd works · ops-check from an unreadable cwd · a failing docker compose is reported
 # as "docker compose failed" (containers + http5xx), never as "not running", without its raw message · the same for
-# the database checks j16 / email_dead / email_missing ("query failed: <category>", ARC CWD-03) · no stderr file left on disk
+# the database checks j16 / email_dead / email_missing / email_changes / email_ascii ("query failed: <category>",
+# ARC CWD-03) · no stderr file left on disk
 # (ARC CWD-04 1) · a really missing container is still "not running".
 set -Eeuo pipefail
 
@@ -77,13 +78,17 @@ if grep -q 'docker compose failed, container state unknown: other error' <<<"$ou
   ok "4 raw compose message (could quote .env) is not forwarded"; else ko "4 raw message"; echo "$out"; fi
 left=$(find "$home/stack/state/ops-check" -name '*stderr*' | wc -l | tr -d ' ')
 [ "$left" = "0" ] && ok "4b no stderr file left in state/ops-check (raw message not kept on disk)" || ko "4b $left stderr file(s) left"
-out=$(OTTIMO_HOME="$home/stack" "$home/fake/infra/server/bin/ops-check.sh" j16 email_dead email_missing; echo "rc=$?")
+out=$(OTTIMO_HOME="$home/stack" "$home/fake/infra/server/bin/ops-check.sh" j16 email_dead email_missing email_changes email_ascii; echo "rc=$?")
 if grep -q '^FAIL j16: query failed: other error' <<<"$out" && grep -q '^FAIL email_dead: query failed: other error' <<<"$out" \
   && grep -q '^FAIL email_missing: query failed: other error' <<<"$out" \
+  && grep -q '^FAIL email_changes: query failed: other error' <<<"$out" \
+  && grep -q '^FAIL email_ascii: query failed: other error' <<<"$out" \
   && ! grep -q 'secret-token' <<<"$out" && ! grep -q 'secret-token' "$home/stack/state/ops-check/j16" \
   && ! grep -q 'secret-token' "$home/stack/state/ops-check/email_dead" \
-  && ! grep -q 'secret-token' "$home/stack/state/ops-check/email_missing" && grep -q '^rc=1$' <<<"$out"; then
-  ok "4c broken .env → j16 / email_dead / email_missing 'query failed: other error', raw message not forwarded (ARC CWD-03)"
+  && ! grep -q 'secret-token' "$home/stack/state/ops-check/email_missing" \
+  && ! grep -q 'secret-token' "$home/stack/state/ops-check/email_changes" \
+  && ! grep -q 'secret-token' "$home/stack/state/ops-check/email_ascii" && grep -q '^rc=1$' <<<"$out"; then
+  ok "4c broken .env → j16 / email_dead / email_missing / email_changes / email_ascii 'query failed: other error', raw message not forwarded (ARC CWD-03)"
 else ko "4c db checks raw message"; echo "$out"; fi
 
 fake_dc missing-worker
