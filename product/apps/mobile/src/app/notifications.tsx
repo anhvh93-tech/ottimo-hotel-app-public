@@ -11,6 +11,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import type { Args } from '@ottimo/i18n';
 import { useQueue } from '../queue/QueueProvider';
 import { isApiError, staffApi, type StaffNotification } from './api';
 import { REFRESH_MS } from './config';
@@ -117,6 +118,50 @@ export const NOTIF_KEYS: Partial<Record<StaffNotification['kind'], string>> = {
   guest_request_overdue: 'staff.notif.k.guest_request_overdue',
 };
 
-export function notifText(n: StaffNotification, t: (k: string) => string): string {
+/**
+ * BUG-R4-021: `refType = user` (kinds `account_security_change` / `security_alert`) carries the internal event
+ * in `refCode` (`user.email_changed`, `mfa.reset_by_owner`…). The PWA words the event itself and never shows
+ * that code; any other event gets one plain account-security sentence. `_self` when the notice is about the
+ * person signed in, `_other` when an owner is told about someone else.
+ */
+type SelfOther = readonly [self: string, other: string];
+// Whole keys, not templates: the PWA ships only the keys its source names (scripts/used-keys.ts).
+const SEC_EMAIL: SelfOther = [
+  'staff.notif.sec.email_changed_self',
+  'staff.notif.sec.email_changed_other',
+];
+const SEC_MFA_RESET: SelfOther = [
+  'staff.notif.sec.mfa_reset_self',
+  'staff.notif.sec.mfa_reset_other',
+];
+const SEC_OTHER: SelfOther = ['staff.notif.sec.other_self', 'staff.notif.sec.other_other'];
+const USER_EVENT_KEYS: Record<string, SelfOther> = {
+  'user.email_changed': SEC_EMAIL,
+  'mfa.reset_by_owner': SEC_MFA_RESET,
+  'mfa.reset_by_operator': SEC_MFA_RESET,
+};
+
+export function notifText(n: StaffNotification, t: (k: string) => string, selfId?: string): string {
+  if (n.refType === 'user') {
+    const [self, other] = (n.refCode && USER_EVENT_KEYS[n.refCode]) || SEC_OTHER;
+    return t(n.refId && n.refId === selfId ? self : other);
+  }
   return t(NOTIF_KEYS[n.kind] ?? 'staff.notif.k.other');
+}
+
+/** Internal event codes look like `user.email_changed`; display codes are `OTM-00171`, `WO-00034`, `302`. */
+const INTERNAL_CODE = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/;
+
+/**
+ * The reference shown under the sentence (SR-PWA-06: room number / work order or booking code only), or
+ * nothing. Never for `refType = user`, and never anything shaped like an internal code (unknown refTypes).
+ */
+export function notifRef(
+  n: StaffNotification,
+  t: (k: string, args?: Args) => string,
+): string | undefined {
+  if (!n.refCode || n.refType === 'user' || INTERNAL_CODE.test(n.refCode)) return undefined;
+  return n.refType === 'hk_task' || n.refType === 'guest_request'
+    ? t('hk.room_title', { room: n.refCode })
+    : n.refCode;
 }
