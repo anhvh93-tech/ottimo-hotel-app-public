@@ -54,3 +54,18 @@
 - Câu đính chính ở dòng v1.0.2 viết đúng cơ chế (không tạo lại, chỉ hỏi phần trả thừa khác, không trùng) và giữ dấu vết "Đính chính 04/11" cùng câu cũ. Người đã đọc bản trước biết chỗ nào đổi.
 - Lý do của dòng 64 ("từ chối nhầm thì khách mất tiền") nói thẳng hậu quả, đúng thứ người duyệt cần nhớ.
 - Ví dụ đêm FOC đã thu khớp đúng ca OTM-00380 QA gặp, dễ hình dung.
+
+## Phản hồi PO
+
+- Người phản hồi: PO | Round 4 – Phản hồi & sửa (QC v1.0.3 mục 11.4, gộp ĐK5) | Ngày: 04/11/2026
+- Tệp đã sửa: `product/docs/release-notes.md` (v1.0.3 → Giới hạn đã biết, dòng "Duyệt hoàn: một đơn có thể có hơn một yêu cầu hoàn"; v1.0.2 → dòng **Nút Trả sớm – đơn ngắn ngày**), `03-backlog/backlog.md` mục 5.6 (bảng 04/11, thêm 1 dòng) và nhật ký thay đổi. Chưa commit; ORC commit cùng bước.
+- Căn cứ: phân xử của ORC trong decision-log 04/11 (`2b7d60b8`): tổng yêu cầu chờ **lớn hơn** số trả thừa thì vẫn bấm **Duyệt**, Desk tự đóng yêu cầu vượt và tạo lại đúng số; chỉ dừng, báo kỹ thuật khi bất thường. Đã đối chiếu chữ `approval.auto_cancel.other`, `checkout.step.bill`, `co.go_bill`, `bill.title`, `early_departure.row_refund_help` trong `product/design/copy/strings-vi.json` / `strings-en.json`, sổ tay 1.10 mục 1.8 (bước 1–6) và hướng dẫn `01` mục 4.
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R4-BA-PO-RN025-01 | **Accepted – Done** | Thêm nhánh tổng **lớn hơn** số trả thừa gần nguyên câu BA đề xuất: không từ chối, bấm **Duyệt**; Desk báo "Yêu cầu không còn cần duyệt nên đã tự đóng." và tạo yêu cầu mới đúng số. Nhánh bất thường đổi "chưa chi" thành "chưa duyệt, chưa chi" cho khớp sổ tay 1.8 bước 5 |
+| FB-R4-BA-PO-RN025-02 | **Accepted – Done** (1), (2); (3) chuyển QA | (1) Dòng giới hạn thêm: bước **Xem trước** của hộp **Trả sớm** vẫn ghi câu cũ, chữ Desk sửa ở v1.0.4, tới lúc đó làm theo release notes. (2) Backlog 5.6 thêm dòng **BUG-R4-025 – phần chữ Desk** (UXD → FE-A, v1.0.4 mục (5)). (3) Việc ghi vị trí vào BUG-R4-025 là của QA: đề nghị ORC chuyển; PO không mở lỗi riêng, dòng backlog đã đủ để đóng phần tài liệu không chờ v1.0.4 |
+| FB-R4-BA-PO-RN025-03 | **Accepted – Done** | (a) v1.0.2: "bước **Bill & thu tiền** hỏi cách xử lý phần đó". (b) v1.0.3: "(**Đã thu** trừ **Tổng cộng** trên **Phiếu thanh toán** của đơn)" |
+| FB-R4-BA-PO-RN025-04 | **Accepted – Done** | Cuối dòng: "Cách làm từng bước: sổ tay mục 1.8 **Đơn có hơn một yêu cầu hoàn**, hướng dẫn quản lý `01` mục 4." |
+
+Ghi chú cho BA (không phải thẻ): `product/docs/manual/guides/01-chu-dau-tu-quan-ly.md` dòng 423 vẫn ghi "bước **Bill** hỏi lễ tân cách xử lý", cùng lỗi chữ thẻ 03 (a). Đề nghị sửa thành **Bill & thu tiền** ở lượt dựng lại bộ hướng dẫn kế tiếp.
