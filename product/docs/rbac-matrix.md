@@ -1,6 +1,6 @@
 # Ma trận phân quyền (RBAC) – OTTIMO Desk
 
-- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: **0.2.5** (17/10, R2 Sprint 4: S23 hàng chờ hoàn tiền FD/FDL – S4-40, S4-43, ghi chú 41; **S35 + A64–A68** yêu cầu đặt phòng từ website – US-155, ghi chú 42–43; báo chuyển cọc `depositNotices` – ghi chú 44; mục 8 quy tắc 11 người nhận SSE theo vai; mục 5.1 giảm giá đặc biệt theo A36 sau BUG-R2-104). Bản 0.2.2 (R2 Sprint 2: S33 theo vai – ghi chú 33a; 0.2.1 đã xử lý review DOM, ARC, SEC, QA #12 – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-005, -006; thêm A119 theo BUG-R1-SEC-02)
+- Tác giả: BA | Round 1 – Bước 4 (Phản hồi & sửa) | Ngày: 15/10/2026 | Phiên bản: **0.2.6** (03/11, ARC theo giao việc ORC – A100/A112 email nhận thư bảo mật, ghi chú 45, OpenAPI 0.3.10). Bản 0.2.5 (17/10, R2 Sprint 4: S23 hàng chờ hoàn tiền FD/FDL – S4-40, S4-43, ghi chú 41; **S35 + A64–A68** yêu cầu đặt phòng từ website – US-155, ghi chú 42–43; báo chuyển cọc `depositNotices` – ghi chú 44; mục 8 quy tắc 11 người nhận SSE theo vai; mục 5.1 giảm giá đặc biệt theo A36 sau BUG-R2-104). Bản 0.2.2 (R2 Sprint 2: S33 theo vai – ghi chú 33a; 0.2.1 đã xử lý review DOM, ARC, SEC, QA #12 – xem `rounds/round-01/responses/BA-responses.md`; bước 5 sửa BUG-R1-005, -006; thêm A119 theo BUG-R1-SEC-02)
 - Bản máy đọc: `rbac-matrix.json` (vai × hành động × endpoint OpenAPI) – sinh từ tài liệu này; khi lệch, tài liệu này là nguồn sự thật.
 - Nguồn: BL mục 2 và 8.2 #27; `security/data-risk-assessment.md` mục 3 (thang C0–C3), mục 4 (kiểm kê D01–D28), mục 8 (R-REG), mục 11; `business-rules.md` (BR-432, 433, 610…); `PRD.md` mục 4; backlog US-002, 003, 007, 020, 048, 087; decision-log 15/10/2026.
 - Không chép con số nghiệp vụ: hạn mức duyệt, thời hạn lưu… ghi bằng mã BR.
@@ -229,7 +229,7 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 ### 4.6 Cấu hình, người dùng, báo cáo
 | # | Hành động | OWN | MGR | FDL | FD | Khác | Ghi chú |
 |---|---|:-:|:-:|:-:|:-:|:-:|---|
-| A100 | Tạo/khóa tài khoản, gán vai, đặt lại mật khẩu | ✔ | ✖ | ✖ | ✖ | ✖ | US-002, US-008; **có hiệu lực ngay, thu hồi mọi phiên** của người đó (SR-SES-06); mật khẩu tạm buộc đổi ở lần đăng nhập đầu |
+| A100 | Tạo/khóa tài khoản, gán vai, đặt lại mật khẩu, đặt email nhận thư bảo mật ⁴⁵ | ✔ | ✖ | ✖ | ✖ | ✖ | US-002, US-008; **có hiệu lực ngay, thu hồi mọi phiên** của người đó (SR-SES-06); mật khẩu tạm buộc đổi ở lần đăng nhập đầu. Email (0.3.10): chỉ của MGR và nhân viên – **không** của OWN khác, không của chính mình (A112) |
 | A101 | Sửa tham số vận hành (giờ, hạn, phụ thu, giá…) | ✔ | ✔ | ✖ | ✖ | ✖ | US-005; **không** gồm thông tin nhận tiền (A108) |
 | A102 | Sửa hạn mức FOC, tỷ lệ hoa hồng, phí kênh | ✔ | ✖ | ✖ | ✖ | ✖ | Tách người đặt hạn mức với người duyệt `[GIẢ ĐỊNH]` |
 | A103 | Sửa lịch giá, đẩy giá lên kênh | ✔ | ✔ | ✖ | ✖ | ✖ | BR-105 |
@@ -244,7 +244,7 @@ Cột "Duyệt" = vai duyệt khi hành động cần duyệt (SM-10). Hạn m�
 |---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|---|
 | A110 | Cấp / thu hồi thiết bị được cấp (danh sách ở S26) | ✔ | ✖ ²⁰ᵃ | ✖ | ✖ | ✖ | ✖ | ✖ | SR-DEV-01…09; chọn loại `desk`/`facility_mobile` (≤ 30 ngày, ký checklist); OWN rà danh sách hằng tháng; PWA và máy cá nhân không bao giờ được cấp |
 | A111 | Bật / đặt lại 2FA TOTP của **người khác** | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | 2FA bắt buộc OWN/MGR trước dữ liệu thật (R3) – SR-AUTH-06 |
-| A112 | Đặt/đổi PIN duyệt, mật khẩu, 2FA **của mình** | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | SR-AUTH-09 |
+| A112 | Đặt/đổi PIN duyệt, mật khẩu, 2FA, email nhận thư bảo mật **của mình** ⁴⁵ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | SR-AUTH-09; email (0.3.10 `setMyEmail`, S2) – Desk có ô cho mọi vai, PWA không làm UI |
 | A113 | Cấp mã xác minh cho khách (để lên GST2) | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | Ghi audit; mặc định đọc tại quầy/điện thoại (SR-GST-07b) |
 | A114 | Thu hồi link khách | ✔ | ✔ | ✔ | ✔ | ✖ | ✖ | ✖ | SR-GST-04 |
 | A115 | Xem / thu hồi phiên đăng nhập của người khác | ✔ | ✖ | ✖ | ✖ | ✖ | ✖ | ✖ | SR-SES-07; mỗi người xem/thu hồi phiên của mình (A112) |
@@ -270,6 +270,7 @@ Ghi chú hành động:
 36. CTV tạo nhóm từ báo giá nhiều căn cho khách của mình (giữ chỗ); không phân bổ cọc (không xác nhận tiền – ghi chú 20).
 32. HK tự kiểm chỉ khi đủ checklist + ảnh và cơ sở bật chế độ "1 người" (BR-802).
 33. HK chỉ hủy việc "dọn phòng khách đang ở" khi khách từ chối dọn (ghi lý do).
+45. **Email nhận thư bảo mật (BUG-R3-032, OpenAPI 0.3.10 – ARC 03/11 theo giao việc ORC; BA rà lại ở bước Review)**: mỗi người tự đặt/đổi/xóa email của mình (A112, `setMyEmail`, xác nhận lại S2); OWN đặt giúp email của MGR và nhân viên (A100, `updateUser.email`, S2); **không ai** đặt email của một OWN khác (403) – mỗi OWN tự đặt của mình; MGR ✖ với email người khác. Xem email người khác: chỉ OWN (`User.email`, D27 "Đầy"); email của mình: mọi vai (`Me.email`). Mỗi lần đổi: thư `email_changed` tới địa chỉ mới, địa chỉ cũ và mọi OWN; audit chỉ ghi dạng che. `User.email` khai `x-visible-to: [owner]` – **chặt hơn có chủ đích** cột OWN/MGR "Đầy" của D27 (MGR không gọi được `listUsers`/`updateUser`); `gen_traceability.py` báo dòng "thiếu vai manager" (P2, không làm `--strict` đỏ) – không mở lỗi.
 
 ## 5. Phê duyệt và hạn mức
 
@@ -446,3 +447,4 @@ Quyết định BA (cách trình bày đặc tả, thuộc quyền BA): tách **
 | 17/10/2026 | 2 (Sprint 3) | D10 + ghi chú 40: SAL/CTV không thấy hồ sơ khách nguồn "từ giấy tờ" (SEC 17/10, BUG-R2-033 b). Không đổi `rbac-matrix.json` (bản máy đọc chỉ có hành động; phạm vi do serializer/x-scope ARC 0.3.7) | BA |
 | 17/10/2026 | 2 (Sprint 4) | v0.2.5: **S23 + ghi chú 41** – hàng chờ hoàn tiền của FD/FDL theo x-scope 0.3.7 `own_or_refund_queue` / `within_limit_or_own_or_refund_queue` (S4-40: hàng chờ chi; S4-43: khoản chưa có nơi nhận, kể cả MGR tạo); A43 gồm nhập nơi nhận cho khoản người khác tạo; A47a trỏ hàng chờ. **S35 + A64–A68 + ghi chú 42–43** – yêu cầu đặt phòng từ website (US-155, 0.3.7 bổ sung 2: FD+ mọi yêu cầu, SAL `unassigned_or_own`, CTV/HK/MT ✖); D28 gồm trường C2 của yêu cầu website. **Ghi chú 44** – xác nhận giả định ARC 11.6: SAL/CTV thấy `depositNotices` của đơn mình trừ `note` (D12c) và `createdByName` (D27). **Mục 8 quy tắc 11** – người nhận SSE theo vai. **Mục 5.1** – giảm giá đặc biệt duyệt FDL/MGR/OWN theo hạn mức như FOC (A36, sau BUG-R2-104 – BE-B `s4-be-b.md` mục 6 (3)), người gửi FD/FDL (bỏ SAL – khớp A35); dòng hoàn tiền sửa theo ghi chú 39. `rbac-matrix.json` 0.2.5 | BA |
 | 27/10/2026 | 3 (Phản hồi & sửa – ARC, theo giao việc ORC) | Ghi chú 25a: giá đã lên lịch `Room.scheduledListPrices` chỉ OWN/MGR; `cancelScheduledRoomListPrice` OWN/MGR (S25, như `updateRoom`) – hợp đồng 0.3.9 (v1.0.1, BUG-R3-018 phần 1). Không đổi mã hành động, không đổi vai; `rbac-matrix.json` thêm operation vào `operations_without_action_mapping` + ghi chú S25. B16 (A17) thêm `dryRun` – không đổi quyền | ARC |
+| 03/11/2026 | 4 (v1.0.3 – Sản xuất, ARC theo giao việc ORC) | v0.2.6: A100 thêm "đặt email nhận thư bảo mật" (trừ OWN khác, trừ chính mình), A112 thêm "email của mình", ghi chú 45 – OpenAPI 0.3.10 (`setMyEmail`, `updateUser.email`, `User.email` OWN, `Me.email`). `rbac-matrix.json` 0.2.6: A112 `operationIds` + `setMyEmail` | ARC |

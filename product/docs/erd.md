@@ -468,7 +468,7 @@ Ký hiệu cột: **C** = mức dữ liệu (để trống = C1), **R** = phạm
 | Cột | Kiểu | C | Ghi chú |
 |---|---|---|---|
 | `username` | citext **UK toàn hệ thống** | C2 | Đăng nhập không cần mã tổ chức (BE-ARC-01b) |
-| `email` | citext null | C2 | Gửi thông báo bảo mật (SR-AUTH-07) |
+| `email` | citext null | C2 | Gửi thông báo bảo mật (SR-AUTH-07). 0.3.10: đường ghi `setMyEmail` / `updateUser.email`, CHECK độ dài – mục 4.16 |
 | `display_name`, `phone` | text | C2 | D27 |
 | `password_hash` | text | C3 | argon2id |
 | `must_change_password` | bool not null default false | | Mật khẩu tạm sau khi OWN đặt lại (SR-AUTH-05) |
@@ -1153,6 +1153,28 @@ Giữ sau khi xóa (không định danh – DATA, US-158): ngày, số khách, h
 
 **`config_parameter_def` thêm** (khóa thường, chỉ OWN): `remote_confirm_timeout_minutes` (5–60, 15), `late_fee_post_review_hours` (12–48, 24). Khóa `payment_receiving_account`: chỉ OWN đọc (server lọc), `effective_from` ≥ ngày kinh doanh + 1.
 
+### 4.16 R4 v1.0.3 – email nhận thư bảo mật của nhân viên (OpenAPI 0.3.10, BUG-R3-032; hướng dẫn `rounds/round-04/outputs/ARC/v1.0.3-contract-email.md`)
+
+**`app_user.email`** (có từ 0000, citext null, C2, D27) – nay có đường ghi: `setMyEmail` (của mình) và `updateUser.email` (OWN cho MGR/nhân viên). Server lưu dạng đã cắt khoảng trắng + chữ thường. **Không** unique (ARC 03/11). Migration 0091 thêm CHECK `app_user_email_check`: `email IS NULL OR (char_length(email::text) BETWEEN 3 AND 254 AND position('@' in email::text) > 1)` – chỉ chặn dữ liệu hỏng; dạng đầy đủ kiểm ở API (V-03 `EMAIL_INVALID`).
+
+**`user_email_change`** (module identity, cấp **tổ chức** như `app_user`; migration **0091**, journal idx 67, `when` = 0090 + 2000 = `1792782171681`; BE-A viết SQL + snapshot từ Drizzle `db/schema/identity.ts`) – giữ **địa chỉ cũ** tới khi thư báo `email_changed` tới địa chỉ đó đã xong (outbox không bao giờ chứa địa chỉ – `email-dispatch.ts` đọc địa chỉ lúc gửi).
+| Cột | Kiểu | C | Ghi chú |
+|---|---|---|---|
+| `id` | uuid PK (v7) | | Đi vào payload outbox `emailChangeId` |
+| `organization_id` | uuid not null | | RLS `tenant_isolation` (`organization_id = app_current_org()`), ENABLE + FORCE |
+| `user_id` | uuid not null | | FK (`organization_id`, `user_id`) → `app_user (organization_id, id)` – người được đổi email |
+| `old_email` | citext null | C2 | Địa chỉ trước lần đổi; `NULL` khi không có, hoặc **đã báo xong / đã dọn** |
+| `changed_by` | uuid not null | | FK (`organization_id`, `changed_by`) → `app_user` – người bấm (chính họ hoặc OWN) |
+| `via` | text not null | | CHECK `IN ('self', 'owner')` |
+| `changed_at` | timestamptz not null | | Giờ server |
+| `old_notified_at` | timestamptz null | | Lúc dòng outbox `email_changed` kết thúc (`done` hoặc `dead`) |
+
+- Chỉ mục `user_email_change_pending_idx (changed_at) WHERE old_email IS NOT NULL`.
+- Quyền `ottimo_app`: `SELECT, INSERT, UPDATE` – **không DELETE** (dọn = `SET old_email = NULL`). Test kiến trúc RLS thêm bảng này vào danh sách bảng cấp tổ chức.
+- Vòng đời `old_email`: đặt `NULL` + `old_notified_at = now()` trong **cùng** giao dịch kết thúc dòng outbox; chốt chặn hằng ngày: mọi dòng `changed_at < now() − 7 ngày` còn `old_email` → `NULL` (erd mục 12).
+- Không thêm vào `audit_event` địa chỉ đầy đủ: audit `user.email_changed` chỉ có `emailMasked` (allowlist `app_user` thêm `emailMasked`, `via`).
+- Lùi app về v1.0.2: bản cũ không đọc/ghi bảng này, không ghi `app_user.email` → không cần lùi migration (chỉ thêm bảng + CHECK).
+
 ## 5. Enum trạng thái ↔ máy trạng thái của BA
 
 | Máy | Bảng.cột | Giá trị (đúng tên BA) | Chuyển hợp lệ kiểm ở |
@@ -1540,6 +1562,7 @@ Quy tắc: cột `_enc` **không bao giờ** nằm trong DTO danh sách, audit, 
 | T16 | `inbox_message.filtered_payload` | NULL sau 90 ngày |
 | T18 | Bản sao lưu | Vòng đời cứng ≤ 35 ngày (ADR-010); `purge_journal` giữ ≥ 36 ngày |
 | – | `user_session`, `guest_session`, `guest_access_token`, `guest_verification_code`, `idempotency_key`, `staff_notification` (90 ngày) | Xóa dòng hết hạn |
+| – (0.3.10) | `user_email_change.old_email` | `NULL` ngay khi thư `email_changed` xong (job `staff.email`); chốt chặn hằng ngày: dòng > 7 ngày còn địa chỉ → `NULL` (không xóa dòng) – erd 4.16 |
 Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩn danh ghi `purge_journal`** (chỉ ID); bỏ qua bản ghi có `legal_hold`. Rút đồng ý P02b từ app khách (`withdrawGuestConsent`) → `document_image.delete_after = now`.
 
 ## 13. Truy vết
@@ -1624,6 +1647,7 @@ Mọi lần chạy ghi `retention_run`; **mọi hành động xóa/hủy DEK/ẩ
 ## 15. Lịch sử thay đổi
 | Ngày | Round | Thay đổi | Người |
 |---|---|---|---|
+| 03/11/2026 | 4 – v1.0.3 (Sản xuất, OpenAPI 0.3.10) | **4.16 mới**: `app_user.email` có đường ghi + CHECK `app_user_email_check`; bảng `user_email_change` (migration 0091, idx 67 – BE-A cài) giữ địa chỉ cũ tới khi thư `email_changed` xong; mục 12 thêm dòng dọn `old_email` | ARC |
 | 27/10/2026 | 3 – Phản hồi & sửa (v1.0.1, OpenAPI 0.3.9) | 4.1 `room_list_price`: giá đã lên lịch, xóa bằng `cancelScheduledRoomListPrice` (GRANT DELETE – migration 0089); 4.12 `simulation_guard` (ADR-015: chốt DB cho tính thử B16, khoảng trống id do sequence là bình thường). `Reservation.stayDepartureDate` là trường tính (`effectiveStay`), không phải cột | ARC |
 | 24/10/2026 | 3 – Sprint 1 (Phản hồi & sửa, sau gộp `43abb0b`) | 4.15 khớp bản cuối ADD3-01: `approval_request.origin_actor_ids` uuid[] + `refund_source`, ba CHECK, trigger `approval_request_refund_origin_immutable`, định tuyến `refundRouting` cho mọi yêu cầu `refund`, `isA32Maker` lúc duyệt, người làm A32 không tự hủy | ARC |
 | 24/10/2026 | 3 – Sprint 1 (Phản hồi & sửa) | **0.3.8 bổ sung 3 / BR-433 (e)**: 4.15 thêm `folio_settled_reduction`, `approval_request.origin_actor_ids` (đích – FB-R3-ARC-ADD3-01), định tuyến yêu cầu hoàn trên folio `settled` có A32 giảm | ARC |
