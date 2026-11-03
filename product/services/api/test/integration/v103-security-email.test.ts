@@ -69,6 +69,11 @@ describe.skipIf(!HAS_DB)('v1.0.3 security e-mail (BUG-R3-032)', () => {
     race: ['front_desk'],
     idem: ['front_desk_lead'],
     replay: ['front_desk_lead'],
+    nopw: ['front_desk'],
+    role_hk: ['housekeeping'],
+    role_mt: ['maintenance'],
+    role_sal: ['sales_staff'],
+    role_ctv: ['collaborator'],
     nomail: ['manager'],
   };
 
@@ -303,6 +308,55 @@ describe.skipIf(!HAS_DB)('v1.0.3 security e-mail (BUG-R3-032)', () => {
     );
     expect(stored.rows[0]!.email).toBe(addr('replay'));
   });
+
+  it('BUG-R4-019: password missing or empty → 422 STRONG_REAUTH_REQUIRED (field reauth), not zod REQUIRED, not counted', async () => {
+    for (const reauth of [{ totpCode: '123456' }, { password: '' }, {}]) {
+      const res = await putEmail('nopw', addr('nopw'), reauth);
+      expect({ reauth, status: res.statusCode }).toEqual({ reauth, status: 422 });
+      expect(res.json().errors).toEqual([{ field: 'reauth', code: 'STRONG_REAUTH_REQUIRED' }]);
+    }
+    expect(await failures('nopw')).toBe(0);
+    expect(await stepups('nopw')).toBe(0);
+    expect(await changes('nopw')).toBe(0);
+  });
+
+  for (const user of ['role_hk', 'role_mt', 'role_sal', 'role_ctv'] as const) {
+    it(`BUG-R4-018 + BUG-R4-022 (${user}): own e-mail in setMyEmail, getMe and login; own 2FA key and recovery codes`, async () => {
+      const set = await putEmail(user, addr(user));
+      expect(set.statusCode).toBe(200);
+      expect(set.json()).toEqual({ email: addr(user) });
+      const me = (await Client.of(fa, t, user).get('/v1/me')).json();
+      expect(me.email).toBe(addr(user));
+      expect(me.securityEmailMissing).toBe(false);
+      const login = await fa.app.inject({
+        method: 'POST',
+        url: '/v1/auth/login',
+        payload: { username: t.users[user]!.username, password: TEST_PASSWORD },
+      });
+      expect(login.statusCode).toBe(200);
+      expect(login.json().email).toBe(addr(user));
+      const c = new Client(fa, cookieValue(login, 'ottimo_sid')!);
+      // self enrolment (BUG-R4-022): the key and the recovery codes reach the caller
+      const setup = await c.send('POST', '/v1/me/2fa/setup', { currentPassword: TEST_PASSWORD });
+      expect(setup.statusCode).toBe(200);
+      expect(setup.json().otpauthUri).toMatch(/^otpauth:\/\/totp\//);
+      const uri = new URL(setup.json().otpauthUri.replace('otpauth://', 'https://'));
+      secrets.set(user, base32Decode(uri.searchParams.get('secret')!));
+      const conf = await c.send('POST', '/v1/me/2fa/confirm', { totpCode: code(user) });
+      expect(conf.statusCode).toBe(200);
+      expect(conf.json().recoveryCodes).toHaveLength(10);
+      // removal shows `null` to the caller, not an absent key
+      fa.clock.advance(30_000);
+      const full = new Client(fa, cookieValue(conf, 'ottimo_sid')!);
+      const cleared = await full.send('PUT', '/v1/me/email', {
+        email: null,
+        reauth: { password: TEST_PASSWORD, totpCode: code(user) },
+      });
+      expect(cleared.statusCode).toBe(200);
+      expect(cleared.json()).toEqual({ email: null });
+      expect((await full.get('/v1/me')).json().email).toBeNull();
+    });
+  }
 
   it('T8: same address, other case → 200, no audit, no change row, no e-mail, version unchanged', async () => {
     await setRaw(t, 'fd3', addr('fd3'));
