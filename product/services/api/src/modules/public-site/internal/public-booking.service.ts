@@ -38,12 +38,11 @@ import {
   hasUnexpectedScript,
   hmacHex,
   ipBuckets,
-  looksLikeCard,
-  looksLikeIdNumber,
   newRefCode,
   nightsBetween,
   normalizeFreeText,
   replyPlan,
+  sensitiveNumberKind,
   slugOf,
   subSourceOf,
 } from './website-request-rules';
@@ -508,8 +507,11 @@ export class PublicBookingService {
       guestName = normalizeFreeText(rawName).replace(/\s+/g, ' ');
       if (guestName.length < 1) err('guestName', 'REQUIRED');
       else if (guestName.length > 80) err('guestName', 'TOO_LONG');
-      else if (looksLikeCard(guestName)) err('guestName', 'CARD_NUMBER_DETECTED');
-      else if (looksLikeIdNumber(guestName)) err('guestName', 'ID_NUMBER_DETECTED');
+      else {
+        // V-09: one detector for the form and the Chat text (BUG-R3-058, SEC GCHAT-07).
+        const kind = sensitiveNumberKind(guestName);
+        if (kind) err('guestName', kind === 'card' ? 'CARD_NUMBER_DETECTED' : 'ID_NUMBER_DETECTED');
+      }
     }
     let note: string | null = null;
     if (b.note !== undefined && b.note !== null) {
@@ -517,8 +519,10 @@ export class PublicBookingService {
       else {
         note = normalizeFreeText(b.note);
         if (note.length > 500) err('note', 'TOO_LONG');
-        else if (looksLikeCard(note)) err('note', 'CARD_NUMBER_DETECTED');
-        else if (looksLikeIdNumber(note)) err('note', 'ID_NUMBER_DETECTED');
+        else {
+          const kind = sensitiveNumberKind(note);
+          if (kind) err('note', kind === 'card' ? 'CARD_NUMBER_DETECTED' : 'ID_NUMBER_DETECTED');
+        }
         if (note === '') note = null;
       }
     }

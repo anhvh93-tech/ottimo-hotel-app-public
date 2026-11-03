@@ -139,7 +139,7 @@ describe.skipIf(!HAS_DB)('Google Chat in the worker-only process (tests 7–8)',
     expect(r.stats).toMatchObject({ sent: 1, done: 1, dead: 0 });
     expect(msg(r, 'chat: on')).toHaveLength(1);
     expect(msg(r, 'chat detail level')).toEqual([
-      { level: 'info', msg: 'chat detail level', extra: { level: 'C' } },
+      { level: 'info', msg: 'chat detail level', extra: { detailLevel: 'C' } },
     ]);
     expect(r.logs.filter((l) => l.level === 'error')).toEqual([]);
     const sent = server.requests.find((x) => x.text.includes('W0RK3R0N'));
@@ -160,7 +160,7 @@ describe.skipIf(!HAS_DB)('Google Chat in the worker-only process (tests 7–8)',
     expect(msg(empty, 'chat: off')).toEqual([
       { level: 'info', msg: 'chat: off', extra: { reason: 'NOT_CONFIGURED' } },
     ]);
-    expect(msg(empty, 'chat detail level')[0]!.extra).toEqual({ level: 'A' });
+    expect(msg(empty, 'chat detail level')[0]!.extra).toEqual({ detailLevel: 'A' });
 
     const bad = await run({
       now: '2026-11-10T09:05:00+07:00',
@@ -182,7 +182,7 @@ describe.skipIf(!HAS_DB)('Google Chat in the worker-only process (tests 7–8)',
         extra: { code: 'CHAT_WEBHOOK_URL_INVALID' },
       },
     ]);
-    expect(msg(bad, 'chat detail level')[0]!.extra).toEqual({ level: 'A' });
+    expect(msg(bad, 'chat detail level')[0]!.extra).toEqual({ detailLevel: 'A' });
     expect(bad.jobs['public_site.cleanup']).toMatchObject({ status: 'done' });
   }, 180_000);
 });

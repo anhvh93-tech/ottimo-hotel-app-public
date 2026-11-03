@@ -25,6 +25,7 @@ import {
   parseChatDetailLevel,
   websiteRequestChatRenderer,
 } from '../src/modules/public-site/public/chat-message';
+import { logLine } from '../src/shared/log-line';
 import { parseChatLinkBase, resolveChatConfig } from '../src/worker-chat';
 
 const C2 = /guest_name|phone_e164|email|note|preferred_channel/;
@@ -770,5 +771,20 @@ describe('static locks (SEC ★6, ARC 8.2)', () => {
       expect(m[1]).not.toMatch(/\burl\b|\.text\b|target|payload|body/);
     }
     expect(ChatDispatcher).toBeTypeOf('function');
+  });
+});
+
+describe('worker log line (OPS: `chat detail level` logged "level":"A")', () => {
+  it('the Chat detail level is `detailLevel`; an extra field never overwrites level or msg', () => {
+    expect(JSON.parse(logLine('info', 'chat detail level', { detailLevel: 'A' }))).toEqual({
+      level: 'info',
+      msg: 'chat detail level',
+      detailLevel: 'A',
+    });
+    const line = logLine('error', 'x', { level: 'A', msg: 'y', code: 'Z' });
+    expect(JSON.parse(line)).toEqual({ level: 'error', msg: 'x', code: 'Z' });
+    expect(line.startsWith('{"level":"error","msg":"x"')).toBe(true);
+    const hijack = logLine('info', 'm', { toJSON: () => ({ level: 'evil' }), code: 'Z' });
+    expect(JSON.parse(hijack)).toEqual({ level: 'info', msg: 'm', code: 'Z' });
   });
 });

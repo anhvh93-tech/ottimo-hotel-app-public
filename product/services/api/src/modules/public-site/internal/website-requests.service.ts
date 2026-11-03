@@ -23,10 +23,9 @@ import { displayNamesOf } from '../../identity/public/staff-directory';
 import { ParameterService } from '../../platform/public/parameter.service';
 import { PropertyContextService } from '../../platform/public/property-context';
 import {
-  looksLikeCard,
-  looksLikeIdNumber,
   normalizeFreeText,
   normalizeRefCode,
+  sensitiveNumberKind,
   slugOf,
 } from './website-request-rules';
 
@@ -602,8 +601,9 @@ export class WebsiteRequestsService {
     }
     if (text.length < 3) throw fieldError('note', 'REASON_REQUIRED');
     if (text.length > 300) throw fieldError('note', 'TOO_LONG');
-    if (looksLikeCard(text)) throw fieldError('note', 'CARD_NUMBER_DETECTED');
-    if (looksLikeIdNumber(text)) throw fieldError('note', 'ID_NUMBER_DETECTED');
+    const kind = sensitiveNumberKind(text); // V-09: same detector as the form and Chat
+    if (kind === 'card') throw fieldError('note', 'CARD_NUMBER_DETECTED');
+    if (kind === 'id') throw fieldError('note', 'ID_NUMBER_DETECTED');
     return text;
   }
 

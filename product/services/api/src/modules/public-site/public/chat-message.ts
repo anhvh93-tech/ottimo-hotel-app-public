@@ -21,7 +21,10 @@ import type { Tx } from '../../../db/database';
 import { type LocalDate, businessDate, localDate, toZonedIso } from '../../../shared/time';
 import { type StaffChatKind, staffChatState } from '../../events/public/staff-chat';
 import type { ParameterService } from '../../platform/public/parameter.service';
-import { deskHoursOf, looksLikeCard, looksLikeIdNumber } from '../internal/website-request-rules';
+import { deskHoursOf, looksLikeSensitiveNumber } from '../internal/website-request-rules';
+
+/** The V-09 detector the form uses too (one rule – BUG-R3-058, SEC GCHAT-07, QA FB-06). */
+export { looksLikeSensitiveNumber };
 
 export type ChatDetailLevel = 'A' | 'B' | 'C';
 export const CHAT_DETAIL_LEVELS: readonly ChatDetailLevel[] = ['A', 'B', 'C'];
@@ -166,46 +169,13 @@ const PICTO_AFTER = /^\p{Extended_Pictographic}/u;
 const DOMAIN_DOT = /(?<=[\p{L}\p{N}\p{M}])[.．。｡](?=\p{L})/gu;
 /** IPv4-looking runs (`1.2.3.4/login`): their dots are disabled too (SEC 02 – a bare IP can become a link). */
 const IPV4 = /(?<![\d.])\d{1,3}(?:[.．。｡]\d{1,3}){3}(?![\d])/g;
+/** `<` `>` and their full-width / small forms (`＜users/all＞` – SEC lp-v2 10): all become `‹` `›`. */
+const ANGLE_OPEN = /[<\uff1c\ufe64]/g;
+const ANGLE_CLOSE = /[>\uff1e\ufe65]/g;
+/** `://` also written with full-width or small marks (`ｈｔｔｐｓ：／／` – SEC lp-v2 10). */
+const SCHEME_SEP = /[:\uff1a\ufe55\ufe13][/\uff0f]{2}/g;
 /** Chat formatting marks, removed from a NAME (outside the code block): `*bold*`, `_italic_`, `~strike~` (SEC 02). */
 const NAME_FORMATTING = /[*_~]/g;
-
-/** Any decimal digit that is not ASCII (Arabic-Indic, Devanagari, Thai…; full-width ones are already ASCII after NFKC). */
-const NON_ASCII_DIGIT = /(?![0-9])\p{Nd}/gu;
-const IS_DIGIT = /^\p{Nd}$/u;
-
-/** Its ASCII value: Unicode puts every Nd digit in a contiguous 0–9 run, so the run start gives the zero. */
-function asciiDigits(s: string): string {
-  return s.replace(NON_ASCII_DIGIT, (d) => {
-    const cp = d.codePointAt(0) ?? 0;
-    let zero = cp;
-    while (zero > 0 && IS_DIGIT.test(String.fromCodePoint(zero - 1))) zero -= 1;
-    return String((cp - zero) % 10);
-  });
-}
-
-/** Dates and times blanked before the extra separators below (same shapes as website-request-rules). */
-const DATE_OR_TIME =
-  /(?<!\d)\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?(?!\d)|(?<!\d)\d{1,2}[:h]\d{2}(?!\d)/g;
-/**
- * Separators a guest (or a cleaning step) can put between digit groups that the form rules do not read as one
- * (they take one space, dot or dash): `079_203_012_345`, `079/203/012/345`, `4111,1111,1111,1111`. One character
- * only – `0905 111 222, 0905 333 444` (comma + space) stays two phone numbers.
- */
-const EXTRA_DIGIT_SEP = /(?<=\d)[_/,](?=\d)/g;
-
-/**
- * BUG-R3-057: the V-09 / SR-LOG-04 rules (looksLikeCard, looksLikeIdNumber) on a NORMALISED copy – NFKC (full-width
- * digits `０７９…`, NBSP and other compatibility spaces), every Nd digit as ASCII, and `_` `/` `,` between digits read
- * as a group separator. The copy is only checked, never printed. Phone numbers (10–11 digits, or after `+`) and
- * amounts with a currency still pass – the rules themselves are unchanged (the form keeps its own, BUG-R3-058).
- */
-export function looksLikeSensitiveNumber(text: string): boolean {
-  if (looksLikeCard(text) || looksLikeIdNumber(text)) return true;
-  const k = asciiDigits(text.normalize('NFKC'));
-  if (looksLikeCard(k) || looksLikeIdNumber(k)) return true;
-  const w = k.replace(DATE_OR_TIME, ' / ').replace(EXTRA_DIGIT_SEP, ' ');
-  return looksLikeCard(w) || looksLikeIdNumber(w);
-}
 
 const segmenter = new Intl.Segmenter('vi', { granularity: 'grapheme' });
 const graphemes = (s: string): string[] => Array.from(segmenter.segment(s), (x) => x.segment);
@@ -215,11 +185,13 @@ const graphemes = (s: string): string[] => Array.from(segmenter.segment(s), (x) 
  * 1. a card-like or ID-like digit run → the WHOLE field is replaced (looksLikeSensitiveNumber, on the raw text);
  * 2. control and format (Cf) characters dropped (U+2028/2029/0085 = line break); one line for a name (Chat formatting
  *    marks `*` `_` `~` removed – `plain`), blank lines collapsed and ≤ 8 lines for a message;
- * 3. `<` `>` → `‹` `›` (no `<users/all>`, `<url|text>`), backticks dropped (cannot leave the code block);
+ * 3. `<` `>` (also full-width `＜` `＞` and small `﹤` `﹥`) → `‹` `›` (no `<users/all>`, `<url|text>`), backticks
+ *    dropped (cannot leave the code block);
  * 4. the number check of step 1 runs AGAIN on the cleaned text (BUG-R3-057): steps 2–3 drop characters (ZWSP, WJ,
  *    soft hyphen, tab, backtick…) and turn `_` into a space, so they can JOIN a split CCCD or card number. Run before
  *    step 5, whose `[.]` would hide `079.203.012.345` (an IPv4 shape) from the digit rules;
- * 5. links disabled: `://` → `[:]//` ALWAYS; domain dots and IPv4 dots → `[.]` (an e-mail address keeps its domain dots –
+ * 5. links disabled: `://` (also `：／／`) → `[:]//` ALWAYS; domain dots (`.` `．` `。` `｡`, after any letter: Latin,
+ *    Cyrillic look-alikes `оttimo.vn`, `xn--…`) and IPv4 dots → `[.]` (an e-mail address keeps its domain dots –
  *    `domains: false`, SEC Q3);
  * 6. cut by grapheme (never half an emoji) to maxChars, "… (xem đủ trên Desk)" added; the printed text is checked a
  *    last time (with `[.]` read as a dot) – the check is on what Chat would show.
@@ -255,9 +227,9 @@ export function chatSafeText(
           ].join('\n')
         : lines.join('\n');
   }
-  t = t.replace(/</g, '‹').replace(/>/g, '›').replace(/`/g, '');
+  t = t.replace(ANGLE_OPEN, '‹').replace(ANGLE_CLOSE, '›').replace(/`/g, '');
   if (looksLikeSensitiveNumber(t)) return CHAT_ID_REPLACEMENT; // BUG-R3-057: after every step that drops characters
-  t = t.replace(/:\/\//g, '[:]//');
+  t = t.replace(SCHEME_SEP, '[:]//');
   if (opts.domains !== false) {
     t = t.replace(IPV4, (ip) => ip.replace(/[.．。｡]/g, '[.]')).replace(DOMAIN_DOT, '[.]');
   }

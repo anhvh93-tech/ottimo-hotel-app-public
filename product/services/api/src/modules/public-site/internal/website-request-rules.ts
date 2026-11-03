@@ -46,71 +46,16 @@ export function normalizeFreeText(raw: string): string {
 }
 
 /**
- * Dates and times a guest writes in a note ("23.10.2026", "23/10", "22:30") – blanked before the number rules so
- * two dates side by side never read as a card or an ID (BUG-R3-009 widened the separators to dots).
+ * V-09 / SR-LOG-04 card and ID-number rules: ONE detector shared by the form, the decline note and the Google Chat
+ * text (BUG-R3-058, SEC GCHAT-07, QA FB-06) – see sensitive-number.ts. Callers use `sensitiveNumberKind`.
  */
-function withoutDatesAndTimes(text: string): string {
-  return text
-    .replace(/(?<!\d)\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?(?!\d)/g, ' / ')
-    .replace(/(?<!\d)\d{1,2}[:h]\d{2}(?!\d)/g, ' / ');
-}
-
-/** Digit runs with at most ONE separator (space, dot, dash) between two digits – how people group numbers. */
-const GROUPED_DIGITS = /\d(?:[ .-]?\d)*/g;
-
-/**
- * Luhn-valid 13–19 digit run (spaces / dots / dashes between digits – BUG-R3-009) – the V-09 card rule.
- * Compared on the digits only.
- */
-export function looksLikeCard(text: string): boolean {
-  const candidates = (withoutDatesAndTimes(text).match(GROUPED_DIGITS) ?? []).filter(
-    (c) => c.replace(/\D/g, '').length >= 13,
-  );
-  for (const c of candidates) {
-    const d = c.replace(/\D/g, '');
-    for (let len = 13; len <= Math.min(19, d.length); len += 1) {
-      for (let s = 0; s + len <= d.length; s += 1) if (luhn(d.slice(s, s + len))) return true;
-    }
-  }
-  return false;
-}
-
-function luhn(digits: string): boolean {
-  let sum = 0;
-  let dbl = false;
-  for (let i = digits.length - 1; i >= 0; i -= 1) {
-    let n = digits.charCodeAt(i) - 48;
-    if (dbl) {
-      n *= 2;
-      if (n > 9) n -= 9;
-    }
-    sum += n;
-    dbl = !dbl;
-  }
-  return sum % 10 === 0;
-}
-
-/**
- * SR-LOG-04 / ARC-08: an identity document number – CCCD (12 digits), old CMND (9 digits), passport style
- * (1–2 capital letters + 7–8 digits). Phone numbers (10–11 digits, or with +) do not match.
- * BUG-R3-009 (US-155 AC5): compared on the DIGITS of a grouped run – `079 203 012 345`, `079-203-012-345`,
- * `079.203.012.345` are caught like `079203012345`. Not an ID: a run right after `+` (international phone, also
- * `+84 905 111 222`), or an amount with its currency (`100.000.000 đ`, `150.000.000 VND`, `$ 100 000 000`).
- */
-export function looksLikeIdNumber(text: string): boolean {
-  const t = withoutDatesAndTimes(text);
-  for (const m of t.matchAll(GROUPED_DIGITS)) {
-    const digits = m[0].replace(/\D/g, '');
-    if (digits.length !== 9 && digits.length !== 12) continue;
-    const at = m.index ?? 0;
-    const before = t.slice(Math.max(0, at - 2), at);
-    if (/\+\s?$/.test(before) || /\$\s?$/.test(before)) continue;
-    const after = t.slice(at + m[0].length, at + m[0].length + 6);
-    if (/^\s?(đ|₫|vnd|vnđ|usd|k\b|tr\b|triệu)/i.test(after)) continue;
-    return true;
-  }
-  return /\b[A-Z]{1,2}\d{7,8}\b/.test(text);
-}
+export {
+  type SensitiveNumberKind,
+  looksLikeCard,
+  looksLikeIdNumber,
+  looksLikeSensitiveNumber,
+  sensitiveNumberKind,
+} from './sensitive-number';
 
 export function containsUrl(text: string): boolean {
   return /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|ru|vn|io|xyz|info|top|link|me)\b)/i.test(

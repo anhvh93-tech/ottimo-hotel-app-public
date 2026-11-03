@@ -311,7 +311,8 @@ ssh -t -i ~/.ssh/ottimo_ops ottimo-admin@desk.ottimo.vn 'cd / && sudo /opt/ottim
   ```sh
   cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc logs --no-color --no-log-prefix worker | grep '"msg":"chat' | tail -5
   ```
-  Dòng báo mức có dạng `{"level":"A","msg":"chat detail level"}`. Lý do: logger của worker ghi đè trường `level` bằng mức A/B/C. Đây là lỗi nhỏ của BE (đã báo), không ảnh hưởng tin.
+  Dòng báo mức có dạng `{"level":"info","msg":"chat detail level","detailLevel":"A"}`: mức A/B/C nằm ở trường `detailLevel`, còn `level` là mức log (PR #24).
+  - Image cũ hơn PR #24 (bản có PR #16 nhưng chưa có PR #24) ghi `{"level":"A","msg":"chat detail level"}`: mức A/B/C đè lên trường `level`. Đây là lỗi log đã sửa ở PR #24, không ảnh hưởng tin.
 
 ### 13.3 Lọc log `chat dead` (QA FB-R3-QA-BE-GCHAT-04)
 
@@ -348,9 +349,12 @@ sudo -u ottimo grep '^BOOKING_REQUEST_CHAT_DETAIL_LEVEL=' /opt/ottimo-prod/.env 
 sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc up -d --no-deps worker
 # 5. Kiểm: phải thấy mức mới và KHÔNG có "chat config invalid"
 sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc logs --no-color --no-log-prefix --since 5m worker | grep '"msg":"chat'
+#    Mức mới: đúng 1 dòng {"level":"info","msg":"chat detail level","detailLevel":"C"}
+sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc logs --no-color --no-log-prefix --since 5m worker | grep '"msg":"chat detail level"' | grep -c '"detailLevel":"C"'
 # 6. Bước 5 đạt: chỉ giữ bản sao .env MỚI NHẤT (để quay lui), xóa các bản env.before-chat-level.* cũ hơn (SEC PR23-05)
 sudo -u ottimo sh -c 'ls -1t /opt/ottimo-prod/state/env.before-chat-level.* | tail -n +2 | xargs -r rm -f --; ls -l /opt/ottimo-prod/state/env.before-chat-level.*'
 ```
+- Bước 5 đạt khi lệnh đếm in `1` (với mức A thì đổi `"detailLevel":"C"` thành `"detailLevel":"A"`). Image chưa có PR #24 thì dòng có dạng cũ `{"level":"C","msg":"chat detail level"}` và lệnh đếm in `0`: đọc dòng ở lệnh grep phía trên.
 - ORC ghi decision-log: mức cũ → mới, giờ, người làm, dòng SEC làm căn cứ, kèm 2 dòng log ở bước 1 và bước 5, và việc đã dọn bản sao `.env` cũ (bước 6).
 - Tệp tạm `env.level.tmp` tạo dưới `umask 077` (0600) và bị xóa ngay; không để bản sao `.env` nào khác ngoài `state/`.
 - Quay về A: làm lại các bước trên với `A`. Hạ mức thì không cần SEC, nhưng vẫn báo INV và ghi decision-log.

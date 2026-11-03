@@ -10,7 +10,7 @@
  *     {code: CHAT_DETAIL_LEVEL_INVALID}`.
  *   ADMIN_BASE_URL (Desk link): https, no user info, no port, path `/`; production = https://desk.ottimo.vn exactly.
  *     Invalid → off + `error … {code: CHAT_LINK_BASE_INVALID}` (a wrong value can never turn the link elsewhere).
- * Startup logs, once: `chat: on|off` (+ reason code) and `chat detail level {level}`.
+ * Startup logs, once: `chat: on|off` (+ reason code) and `chat detail level {detailLevel}`.
  */
 import { parseBookingChatWebhook } from '@ottimo/integrations/common';
 import { postChatText } from '@ottimo/integrations/notification';
@@ -128,7 +128,7 @@ export function buildWorkerChat(deps: {
     `chat: ${config.target.mode}`,
     config.offReason ? { reason: config.offReason } : {},
   );
-  deps.log('info', 'chat detail level', { level: config.level });
+  deps.log('info', 'chat detail level', { detailLevel: config.level });
   const dispatcher = new ChatDispatcher(
     deps.database,
     deps.clock,

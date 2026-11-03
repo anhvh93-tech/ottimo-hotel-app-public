@@ -8,11 +8,12 @@ import { createRuntime } from './bootstrap';
 import { JobRunner } from './jobs/job-runner';
 import { createEmailAdapter } from './jobs/email-adapter';
 import { StaffEmailDispatcher } from './jobs/email-dispatch';
+import { logLine } from './shared/log-line';
 import { buildWorkerChat } from './worker-chat';
 import { buildWorkerJobs } from './worker-jobs';
 
 const log = (level: string, msg: string, extra: Record<string, unknown> = {}): void =>
-  console.log(JSON.stringify({ level, msg, ...extra }));
+  console.log(logLine(level, msg, extra));
 
 /** Error fields safe to log: constructor name and a short code, never the message (SEC S-1). */
 function errorTag(err: unknown): { err: string; code?: string } {
