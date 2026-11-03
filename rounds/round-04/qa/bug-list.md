@@ -11,16 +11,17 @@
 - **v1.0.1 đợt 2 – PR #24** (01/11 ~21:40, `be-d/v1.0.1-text-safety` @ `b89dbde4`, gồm PR #16): PR đạt, BUG-R3-058 đã sửa – đã xác nhận; mới BUG-R4-016 (P3, che thừa mới so với `main`). Chi tiết: `rounds/round-04/qa/pr24-text-safety.md`.
 - **PR #24 lượt 2** (01/11 ~22:00–22:40, `f8080499`): BUG-R4-016 **đã sửa – đã xác nhận**. 215 ca qua form và Chat C, không hồi quy. Không lỗi mới. Chi tiết: `rounds/round-04/qa/pr24-text-safety.md` mục "Lượt 2". QA cũng dọn bản chép trùng do lần gộp trước để lại: bản BUG-R4-016 mang số cũ 014, và mục 3 bị lặp.
 - **v1.0.1 – smoke staging (QC ĐK5)**, 01/11 23:43–23:58, staging `sha-755cad1642ca` (`main` `755cad16`): **đạt**. `smoke-prod` 9/9; worker `chat: off` mức A; Desk nhận phòng và báo giá không lỗi; 0 phản hồi 5xx. BUG-R4-009 đạt ở báo giá EN/VI/RU (API + Desk) và trang khách. Mới **BUG-R4-017** (P3, có sẵn từ v1.0.0). Chi tiết: `rounds/round-04/qa/v1.0.1-staging-smoke.md`.
+- **v1.0.2 – PR #22 lượt 2** (03/11 ~11:15–11:30, `v1.0.2-ed` @ `ff16c1dd`, gồm `main` `00881a53`; stack thử `ottimo-qapr22b` trong worktree tạm mới): **ĐẠT**. Oracle BR-428-01…09 9/9, tính thử = ghi thật, 15 lần tính thử không đổi bảng nào trong 76; giá hẹn đạt. BUG-R4-014 **đã sửa – đã xác nhận** trên Desk thật; BUG-R4-015 vẫn Open (đích v1.0.3). Hồi quy từ `main`: form 202 / 422 `ID_NUMBER_DETECTED`, worker `chat: off` và `chat: on` (webhook giả, host bị chặn) không lỗi. CI `41574262425` xanh. Không lỗi mới. Chi tiết: `rounds/round-04/qa/pr22-v1.0.2-ed.md` mục "Lượt 2 @ ff16c1dd".
 
-## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1)
+## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
-| P2 | 7 | 3 (BUG-R4-011, BUG-R4-013, BUG-R4-014 – mới) | 0 | 4 (BUG-R4-001, 002, 003, 004) |
+| P2 | 7 | 2 (BUG-R4-011, BUG-R4-013) | 1 (BUG-R4-014 – đã sửa `d91cffae`, QA xác nhận trên PR #22 lượt 2 `ff16c1dd`; Closed khi PR #22 gộp `main` + CI xanh) | 4 (BUG-R4-001, 002, 003, 004) |
 | P3 | 10 | 4 (BUG-R4-010 – mở lại, BUG-R4-012, BUG-R4-015, BUG-R4-017 – mới) | 1 (BUG-R4-016 – đã sửa, QA xác nhận trên PR #24 `f8080499`; Closed khi #16 + #24 gộp `main` + CI xanh) | 5 (BUG-R4-005, 006, 007, 008, 009 – 009 đã kiểm lại trên staging `sha-755cad1642ca`) |
-| **Tổng** | **17** | **7** | **1** | **9** |
+| **Tổng** | **17** | **6** | **2** | **9** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -254,7 +255,16 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
   - Test chống tái phát: đơn `manualLongStay` đang ở → (a) `allowedActions` không có `early_departure`, gọi B16 → 409; hoặc (b) hộp có câu BR-313 và không có dòng "Phần hoàn theo chính sách trả sớm".
 - **Bằng chứng:** báo cáo `rounds/round-04/qa/pr22-v1.0.2-ed.md` mục 4 (chữ hộp đọc từ DOM, kết quả API).
 - **Vai:** PO + DOM (chọn (a)/(b), câu chữ BR-313) · FE-A (hộp/nút) · BE-A (nếu (a): `allowedActions` + chặn server) · UXD (chữ).
-- **Trạng thái:** Open. Không chặn tiền; QC quyết có gộp PR #22 với điều kiện sửa ở bản kế tiếp hay không. INV chưa vận hành và Desk v1.0 không có HĐ tháng trong app.
+- **Trạng thái:** ~~Open~~ → **Fixed – đã xác nhận** (03/11, PR #22 lượt 2 @ `ff16c1dd`). Closed khi PR #22 gộp `main` + CI xanh.
+  - *Bản sửa:* `d91cffae` (FE-A), phương án (b) của ORC. B16 vẫn mở cho HĐ tháng. Với `stayType = long`, hộp thay các dòng BR-428 bằng khối BR-313 v0.5.1, dùng 5 chuỗi mới `early_departure.lease_*` và `told_guest_lease`. Thêm test `r4-bug014-early-departure-lease` (4 ca).
+  - *QA test lại trên Desk thật* (FDL, OTM-00020, HĐ tháng 12.500.000, ký quỹ 12.500.000):
+    - Bước 1 không còn "Báo trước N ngày".
+    - Xem trước có khối "Trả trước hạn hợp đồng thuê tháng – khách mất toàn bộ ký quỹ 12.500.000 đ (giữ ngoài app)…". Không còn dòng hoàn, phí, cách tính hay "Không có khoản hoàn".
+    - Ô tích là "Đã báo khách: mất toàn bộ ký quỹ, không truy thu".
+    - Màn kết quả giữ khối BR-313.
+    - DB: ngày đi 03/12, nhật ký `previewConfirmed`, không có yêu cầu hoàn, không có dòng phí.
+    - Đơn ngắn ngày đối chứng (OTM-00019) giữ nguyên hộp BR-428, không có câu BR-313.
+  - *Còn lại, ngoài lỗi này:* server vẫn tính đơn dài hạn theo BR-428, ra 0/0. Việc đưa BR-313 vào server là ARC FB-03, đích v1.1.
 
 ### BUG-R4-015 – Hủy giá hẹn đầu tiên của căn có `activeFrom` tương lai làm căn không có giá cho tới dòng sau (báo giá 422 `roomId NOT_IN_LIST`)
 
@@ -279,6 +289,11 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Bằng chứng:** báo cáo `rounds/round-04/qa/pr22-v1.0.2-ed.md` mục 3 (dòng "Căn tạo với `activeFrom` 30/12").
 - **Vai:** BE-A (luật hủy) + ARC (mã lỗi, hợp đồng 0.3.10) · FE-A (chữ lỗi nếu có mã mới).
 - **Trạng thái:** Open. Đề xuất đích v1.0.3 cùng FB-R4-ARC-BE-A-ED-02, không chặn PR #22.
+  - *PR #22 lượt 2 (03/11, `ff16c1dd`):* tái hiện y hệt, với căn 501 `activeFrom` 30/12.
+    - Hủy dòng giá duy nhất → 409 `only_price`. Thêm dòng 10/01 rồi hủy dòng 30/12 → 200.
+    - Báo giá 02/01 và 08/01 → 422 `roomId NOT_IN_LIST`. Báo giá 11/01 → 200.
+    - Lên lịch lại dòng 30/12 thì báo giá 02/01 → 200.
+  - BE-A đã dời việc này sang v1.0.3 (`rounds/round-04/outputs/BE/v1.0.2-ed-merge-main.md` mục 6). Trạng thái giữ **Open**.
 
 ### BUG-R4-016 – Form chặn nhầm số tiền có đơn vị đứng trước, số tiền ≥ 1 tỷ không đơn vị và SĐT viết với tiền tố `00` (mới so với `main`)
 
