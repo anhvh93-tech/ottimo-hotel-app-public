@@ -158,3 +158,86 @@ Còn 3 Minor và 2 Suggestion, dời được. **Không có ESC mới**: không 
 ## Dòng đề xuất decision-log (ORC ghi khi commit)
 
 `| 2026-11-04 | 4 | DOM – review tài liệu BUG-R4-025 (sổ tay 1.10, guides 1.8, release notes v1.0.2/v1.0.3; QC v1.0.3 11.4, ĐK5 + ĐK11): **ĐẠT CÓ ĐK**. 2 Major phải sửa: (01) đối chiếu "Đã thu trừ Tổng cộng" không trừ Đã hoàn và bỏ yêu cầu đã duyệt chưa chi → ca Trả sớm đã chi tiền mặt + yêu cầu 800.000 bị coi "nhỏ hơn/bất thường", người duyệt có thể từ chối khoản đúng; sửa: cộng yêu cầu còn mở (chờ duyệt + đã duyệt chưa chi), so với dòng "Hoàn lại khách … đ" trên Phiếu thanh toán; (02) nhánh "lớn hơn": Desk đóng mọi yêu cầu đang chờ và gộp một yêu cầu mới, lý do "trả thừa", chưa có nơi nhận (SEC-BE-45) → nhập lại nơi nhận trước khi chi. Release notes (PO-RN025-01, 02) sửa trước P0; sổ tay/01 (BA-025-01, 02) sửa trước khi UXD dựng HTML và ORC báo INV v1.0.3 đã lên. 3 Minor (bằng = không trùng, vẫn đọc lý do; loại HĐ tháng khỏi bước 6 – ESC-048 B; lễ tân nhập nơi nhận và báo khách hai lần chuyển ở B18) + 2 Suggestion dời được. Không ESC mới. DOM sửa câu nhánh OTA BR-428 ở lượt BR kế tiếp; đề nghị backlog 5.6 thêm "giữ nơi nhận khi tạo yêu cầu thay thế" (ARC + SEC, v1.0.4); không gộp 2 yêu cầu | DOM | Quyền DOM (tính đúng nghiệp vụ); rounds/round-04/reviews/DOM-on-BUG-R4-025-docs.md |`
+
+---
+
+## Phản hồi PO (04/11/2026 – Round 4, Phản hồi & sửa)
+
+Sửa trên `product/docs/release-notes.md` v1.0.3 → Giới hạn đã biết, dòng "Duyệt hoàn: một đơn có thể có hơn một yêu cầu hoàn". Không sửa sổ tay và `01` (BA sửa song song thẻ BA-025-01, 02; dòng release notes vẫn dẫn tới sổ tay 1.8 **Đơn có hơn một yêu cầu hoàn** và `01` mục 4).
+
+### FB-R4-DOM-PO-RN025-01 – Accepted, đã sửa
+- Thay "cộng các yêu cầu đang chờ … (**Đã thu** trừ **Tổng cộng** trên **Phiếu thanh toán** của đơn)" bằng:
+  > cộng các yêu cầu hoàn **còn mở** của đơn (chờ duyệt và đã duyệt chưa chi), đối chiếu với dòng **Hoàn lại khách … đ** trên **Phiếu thanh toán** của đơn (Desk đã trừ khoản đã hoàn). Không tự lấy **Đã thu** trừ **Tổng cộng**.
+- Hai nhánh sau so với "số đó" (dòng **Hoàn lại khách**), không còn "số trả thừa" tự tính.
+- Cùng câu, PO nhận luôn ý của thẻ BA-025-03 (Minor) cho phần release notes: "các yêu cầu đều đúng" → "**không có hoàn trùng**". Phần "vẫn đọc lý do" để ở sổ tay (BA), release notes giữ ngắn.
+- Trạng thái: Fixed – chờ DOM xác nhận.
+
+### FB-R4-DOM-PO-RN025-02 – Accepted, đã sửa
+- Sau "duyệt yêu cầu mới đó" thêm:
+  > Desk có thể gộp mọi yêu cầu đang chờ của đơn thành **một** yêu cầu thay thế, lý do "trả thừa": đó không phải yêu cầu lạ. Trước khi chi, xem **Cách hoàn** của yêu cầu mới: trống thì nhập lại nơi nhận hoàn (**Nhật ký tiền → Hoàn tiền**, sổ tay mục 1.12).
+- Viết "xem Cách hoàn, trống thì nhập lại" thay cho "chưa có nơi nhận" khẳng định, để câu vẫn đúng nếu QA đọc staging (OTM-00379, yêu cầu 1.017.000) thấy có "Cách hoàn". Nhãn **Cách hoàn** khớp chuỗi Desk `refund.method`.
+- Việc gốc (giữ nơi nhận khi tạo yêu cầu thay thế) đã vào backlog 5.6 bảng 04/11: ARC + SEC → BE-A, v1.0.4 mục (5), nguồn thẻ BA-025-02, SEC-BE-45. PO đồng ý với DOM: không gộp 2 yêu cầu thành 1.
+- Trạng thái: Fixed – chờ DOM xác nhận.
+
+### Thẻ khác liên quan PO
+- **BA-025-07 (Suggestion):** PO thêm dòng ghi chú vào backlog 5.6 (DOM + UXD, v1.0.4, không bắt buộc): DOM ghi cách làm "duyệt lúc khách ở, chi sau trả phòng" vào ghi chú BR-522; UXD xem có hiện số Desk còn nợ khách ở khung đơn trước trả phòng không (gộp GN-R4-QA-03 nếu cùng chỗ). Release notes không thêm câu cho ý này, để dòng giữ ngắn; người đọc theo dẫn tới sổ tay 1.8.
+- Không ESC mới.
+
+---
+
+## Phản hồi BA (04/11/2026 – Round 4, Phản hồi & sửa)
+
+Sửa trên `product/docs/manual/user-manual-v1.0.md` (1.8, 2.14 bước 6, 2.14a nhánh ngắn ngày, lịch sử 1.10), `guides/01-chu-dau-tu-quan-ly.md` (mục 4, 7.3, dòng Lập), `guides/02-le-tan.md` (11.1 bước 6, 11.5.2, dòng Lập), `guides/00-index.md` (dòng Lập, lịch sử 1.8). Giữ số bản **1.10 / guides 1.8** (cùng ngày, chưa dựng HTML). Khối "Đơn có hơn một yêu cầu hoàn" ở sổ tay 1.8 và `01` mục 4 cùng chữ, chỉ khác số mục dẫn. Không sửa release notes, backlog, HTML.
+
+Đã kiểm nhãn và đường tiền trong mã:
+- Phiếu (`CheckOutPage.tsx` `BillDialog`; `strings-vi.json`): **Tổng cộng** (`bill.total`), **Đã thu** (`bill.paid`), **Đã hoàn {amount} ({method})** (`bill.refund`), **Còn phải thu** (`bill.balance`), **Hoàn lại khách {amount}** (`bill.refund_due`). Số này là `creditVnd` của `bill.service.ts` (`moneyPosition`, tính lại mỗi lần mở): đã thu của OTTIMO − đã hoàn − phần OTA không trả. Chưa trừ yêu cầu còn mở, nên so được với tổng yêu cầu còn mở.
+- Tab **Hoàn tiền** (`MoneyPage.tsx` `REFUND_QUEUE = pending, escalated, approved`): hiện yêu cầu **Chờ duyệt** và **Đã duyệt** chưa chi xong, dòng "Đã ghi hoàn …" khi chi một phần, "Cách hoàn: …" hoặc "—".
+- Nhập nơi nhận sau khi đã duyệt: `refunds.service.ts` gọi `reopenForRedecision` → yêu cầu về **Chờ duyệt** (SEC F8). Người nhập nơi nhận không duyệt được, trừ chủ đầu tư với khoản không phải tiền mặt (`approval.service.ts` `assertNotSelf`).
+- Đề nghị hoàn ở bước Bill được tạo khi bấm hoàn tất (`overpaymentHandling` gửi cùng lệnh trả phòng).
+
+### FB-R4-DOM-BA-025-01 (Major) – Accepted, đã sửa
+- Bước 1: cộng yêu cầu **còn mở** ở **Nhật ký tiền → Hoàn tiền** (Chờ duyệt + Đã duyệt chưa chi; đã chi một phần thì cộng phần chưa chi; đã chi xong không cộng). Ghi rõ yêu cầu đã duyệt không còn ở **Cần duyệt**.
+- Bước 2: so với dòng **Hoàn lại khách … đ** trên Phiếu. Desk đã trừ **Đã hoàn …** và phần OTA giữ. Không tự lấy **Đã thu** trừ **Tổng cộng**. Phiếu không có dòng này thì số là 0. Thêm ví dụ một dòng theo OTM-00380 (Đã hoàn 400.000 tiền mặt, chờ 800.000, Hoàn lại khách 800.000 → bằng → duyệt).
+- Bước 3–6 so với "số ở bước 2". Bước 6 thêm: khung đơn không hiện "Khách đã trả phòng và còn dư …" thì tính lại; vẫn lệch thì làm như bước 5.
+- Vị trí: sổ tay 1.8 khối mới (dòng 468–483); `01` mục 4 (dòng 345–360).
+- Trạng thái: Fixed – chờ DOM xác nhận.
+
+### FB-R4-DOM-BA-025-02 (Major) – Accepted, đã sửa
+- Bước 4 thêm 4 gạch: Desk có thể đóng cả các yêu cầu khác đang chờ và gộp thành **một yêu cầu thay thế**, lý do "trả thừa", không phải yêu cầu lạ, thứ tự nào tiền cũng đúng. **Trước khi duyệt yêu cầu thay thế**: kiểm **Cách hoàn** ở **Nhật ký tiền → Hoàn tiền**. Có thì đối chiếu, trống (—) thì **Nhập nơi nhận hoàn** trước (chuyển khoản: chủ đầu tư tự nhập, vẫn duyệt và chi được; tiền mặt: người tạo yêu cầu cũ nhập). Nhập hoặc đổi sau khi duyệt thì Desk đưa về **Chờ duyệt**. Khách đã về thì nhắn 1–1 từ tài khoản OTTIMO, không ghi số tài khoản vào sổ giao ca hay nhóm chat. Duyệt xong cộng lại theo bước 1–2.
+- Câu viết "kiểm Cách hoàn; trống thì nhập" nên đúng cho cả hai kết quả QA đọc staging (OTM-00379, yêu cầu 1.017.000). Nếu QA thấy có "Cách hoàn" thì câu vẫn đúng, không phải sửa lại.
+- BA chọn "trước khi **duyệt**", không chỉ "trước khi chi": nhập sau khi duyệt làm yêu cầu quay về Chờ duyệt (SEC F8), và người nhập nơi nhận tiền mặt không duyệt được. Release notes (PO) ghi "trước khi chi". Hai câu không trái nhau, nhưng câu của release notes thêm một lần duyệt lại. ORC/PO cân nhắc đổi theo nếu muốn, không bắt buộc.
+- Thêm cùng ý cho người tạo yêu cầu: sổ tay 2.14a nhánh ngắn ngày (dòng 1165), `02` 11.5.2 (dòng 909): Desk báo yêu cầu Trả sớm "đã tự đóng" và có yêu cầu thay thế thì kiểm **Cách hoàn**, trống thì nhập lại (người tạo nhận thông báo đóng).
+- Vị trí: sổ tay 1.8 bước 4 (dòng 474–479); `01` mục 4 bước 4 (dòng 351–356).
+- Trạng thái: Fixed – chờ DOM xác nhận.
+
+### FB-R4-DOM-BA-025-03 (Minor) – Accepted, đã sửa
+- Bước 3 theo đúng đề xuất: "bằng" = **không có hoàn trùng**; không từ chối chỉ vì có hai yêu cầu; vẫn đọc lý do từng yêu cầu; lý do không khớp folio thì hỏi người tạo trước khi duyệt.
+- Vị trí: sổ tay 1.8 bước 3 (dòng 473); `01` mục 4 bước 3 (dòng 350).
+- Trạng thái: Fixed – chờ DOM xác nhận.
+
+### FB-R4-DOM-BA-025-04 (Minor) – Accepted, đã sửa
+- Cuối khối (người duyệt): "**Đơn HĐ thuê tháng**: không hoàn theo khối này. Có yêu cầu hoàn hoặc hiện 'còn dư': không duyệt, không gửi Đề nghị hoàn; đối chiếu HĐ giấy và sổ kế toán, quản lý hỏi chủ đầu tư. Tiền thuê và ký quỹ ngoài app" (sổ tay dẫn 2.14a nhánh HĐ, 2.7; `01` dẫn 7.3 phần HĐ).
+- Bước 6 trả phòng (lễ tân): đơn HĐ thuê tháng Desk báo trả thừa thì **không** chọn **Hoàn lại khách**, chưa hoàn tất, hỏi chủ đầu tư (gửi mã đơn và số). Sổ tay dẫn 2.14a, 2.7; `02` dẫn 11.5.3, 5.4.
+- Vị trí: sổ tay dòng 483 và 1127; `01` dòng 360; `02` dòng 797.
+- Trạng thái: Fixed – chờ DOM xác nhận.
+
+### FB-R4-DOM-BA-025-05 (Minor) – Accepted, đã sửa
+- Gạch mới ở 2.14 / 11.1 bước 6: Desk tạo đề nghị hoàn khi bấm hoàn tất (bước 7). Xong bước 8 thì nhập nơi nhận ngay khi khách còn ở quầy, trên máy đã cấp quyền. Đơn còn khoản **Trả sớm** chưa chi thì báo khách tổng số và số lần chuyển, câu EN dẫn / VI hỗ trợ theo đề xuất DOM, không emoji. UXD/CPY chỉnh chữ nếu cần. Lễ tân xem khoản Trả sớm chưa chi ở **Nhật ký tiền → Hoàn tiền**, vì tới v1.0.4 (GN-R4-QA-03) bước Bill chưa hiện số này.
+- Vị trí: sổ tay dòng 1126; `02` dòng 796.
+- Trạng thái: Fixed – chờ DOM xác nhận.
+
+### FB-R4-DOM-BA-025-06 (Suggestion) – Accepted, đã sửa
+- Bước 5 thêm danh sách nguồn Desk tự ghi: Trả sớm, Trả phòng (lý do lễ tân ghi), hủy đơn có cọc, "Tự sinh từ khoản thu …", "Tự sinh từ A32 …", yêu cầu thay thế (lý do "trả thừa"). Ngoài các nguồn này mới là "không rõ từ đâu".
+- Vị trí: sổ tay 1.8 bước 5 (dòng 480); `01` mục 4 bước 5 (dòng 357).
+- Trạng thái: Fixed – chờ DOM xác nhận.
+
+### FB-R4-DOM-BA-025-07 (Suggestion) – Accepted, đã sửa
+- Bước 2 thêm gạch: đơn chưa trả phòng thì chưa có Phiếu; thường chỉ có một yêu cầu Trả sớm, duyệt bình thường, Desk không cho chi quá; nên chi sau khi khách trả phòng. `01` 7.3 nhánh ngắn ngày thêm một câu cùng ý (dẫn mục 4 bước 2).
+- Vị trí: sổ tay dòng 472; `01` dòng 349 và 7.3 (dòng 432).
+- Trạng thái: Fixed – chờ DOM xác nhận.
+
+### Lịch sử bản
+- Sổ tay: dòng Lập (dòng 5) và 5.7 dòng 1.10, thêm "sửa cùng ngày theo DOM FB-R4-DOM-BA-025-01…07 (chưa dựng HTML)". Bỏ cụm "Đã thu trừ Tổng cộng" ở dòng lịch sử.
+- `00-index.md` dòng Lập không đổi (vẫn đúng); lịch sử dòng 1.8 bỏ cụm cũ, thêm phần sửa cùng ngày. `01`, `02` dòng Lập cập nhật cùng ý.
+
+Không ESC mới. Không ghi số hoa hồng, không có PII (mã đơn OTM-00379/00380 chỉ ở phần phản hồi này, lấy từ báo cáo QA).
