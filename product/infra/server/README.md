@@ -97,8 +97,8 @@ systemctl list-timers 'ottimo-*'
 ```
 
 - Sao lưu 03:30 giờ VN: `pg_dump` + kho tệp mã hóa + `purge_journal`, mã hóa `age` bằng khóa công khai, giữ 7 ngày + bản Chủ nhật tới 35 ngày (SR-BAK-03), ở `/var/backups/ottimo`. Bản sao off-site do **máy phụ kéo về** (R3, SR-BAK-04).
-- Kiểm tra 30 phút/lần (`ops-check.sh`): **J16 không chạy trong 26 giờ** (hoặc có lượt `failed`) cho từng cơ sở (SEC C6, SR-RET-03), sao lưu > 26 giờ, đĩa ≥ 80 %, chứng chỉ < 14 ngày, container dừng, số 5xx, thư nhân viên chết `NO_RECIPIENT` (`email_dead`). Cảnh báo: `journalctl -t ottimo-alert -p err`, `systemctl --failed`, và webhook nếu đặt `ALERT_WEBHOOK_URL` trong `.env` (chỉ gửi khi đổi trạng thái + nhắc mỗi 6 giờ; không có dữ liệu cá nhân).
-- `email_dead` (BUG-R3-032, SEC `SEC-on-B2-readiness.md` 1.5): đếm thư nhân viên (`staff.email` – thư "Security notice") chết vì `NO_RECIPIENT` trong 24 giờ, chỉ đếm, không đọc nội dung. Hiện chỉ báo số, không cảnh báo. Chỉ bật khi đủ **cả hai** điều kiện: BUG-R3-032 đã lên production (**đợt 3**, `v1.0.3` – **không phải** v1.0.1; người dùng có email) **và** OWN/MGR đã nhập email (mục 13.8). Cách bật: thêm `EMAIL_NO_RECIPIENT_ALERT=1` vào `.env` của stack, khi đó mỗi thư như vậy là `FAIL`. Bật sớm thì `email_dead` FAIL kéo dài và nhắc lại mỗi 6 giờ (cảnh báo giả).
+- Kiểm tra 30 phút/lần (`ops-check.sh`): **J16 không chạy trong 26 giờ** (hoặc có lượt `failed`) cho từng cơ sở (SEC C6, SR-RET-03), sao lưu > 26 giờ, đĩa ≥ 80 %, chứng chỉ < 14 ngày, container dừng, số 5xx, thư nhân viên chết `NO_RECIPIENT` (`email_dead`), số OWN/MGR chưa có email (`email_missing`, từ v1.0.3). Cảnh báo: `journalctl -t ottimo-alert -p err`, `systemctl --failed`, và webhook nếu đặt `ALERT_WEBHOOK_URL` trong `.env` (chỉ gửi khi đổi trạng thái + nhắc mỗi 6 giờ; không có dữ liệu cá nhân).
+- `email_dead` (BUG-R3-032, SEC `SEC-on-B2-readiness.md` 1.5): đếm thư nhân viên (`staff.email` – thư "Security notice") chết vì `NO_RECIPIENT` trong 24 giờ, chỉ đếm, không đọc nội dung. Hiện chỉ báo số, không cảnh báo. Chỉ bật khi đủ **4 điều kiện** ở mục 13.8 (v1.0.3 chạy production; `email_missing` = 0; INV báo đã nhận thư; `email_dead` 24 giờ = 0). Cách bật: thêm `EMAIL_NO_RECIPIENT_ALERT=1` vào `.env` của stack (lệnh ở 13.8), khi đó mỗi thư như vậy là `FAIL`, và `email_missing` > 0 cũng là `FAIL`. Bật sớm thì `email_dead` FAIL kéo dài và nhắc lại mỗi 6 giờ (cảnh báo giả).
 - Chạy tay: `/opt/ottimo/infra/server/bin/ops-check.sh` hoặc `ops-check.sh j16`. Qua SSH `ottimo-admin` thì `cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/ops-check.sh`. Từ 30/10, `ops-check.sh` và `bin/dc` tự chạy được từ thư mục bất kỳ (trước đó chạy trong home của `ottimo-admin` thì `docker compose` lỗi `stat .: permission denied`, ra cảnh báo giả "containers FAIL"). `docker compose` lỗi thì `containers`/`http5xx` báo `docker compose failed, container state unknown: <loại lỗi>`, không báo "not running"; không gửi nguyên văn lỗi đi (lỗi đọc `.env` có thể chứa một dòng `.env`). Test: `infra/server/test/ops-check-cwd.test.sh`.
 
 ## 8. Deploy tự động từ CI (tùy chọn, sau khi bước 6 chạy tay thành công)
@@ -293,6 +293,7 @@ Chỉ worker đọc 2 cấu hình mới:
 - Lỡ deploy **trước** khi làm mới bundle: bundle cũ không có secret nên deploy vẫn qua, nhưng Chat tắt. Sửa bằng cách làm bước 3–6, rồi `cd / && sudo -u ottimo …/bin/dc up -d --no-deps worker` để dựng lại worker với compose mới.
 - Quay lui bundle: dùng khối lệnh có sẵn Q1–Q3 trong `rounds/round-04/outputs/OPS/v1.0.1-inv-commands.md` (SEC FB-R4-SEC-OPS-PR23-02), không gõ tay. Khối lệnh kiểm đường dẫn đúng mẫu `/root/ottimo-<stack>-bundles/infra-YYYYMMDD-HHMMSS`, kiểm bản cũ có `server/bin/dc` + `docker-compose.prod.yml`, in đường dẫn và đòi gõ `YES` **trước** `rsync --checksum --delete`, rồi `diff -rq` + `dc --profile deploy config -q`. Bản dùng để quay lui là bản sao **của lần chạy đầu tiên** trong ngày (chạy lại bước làm mới thì lần sau sao lưu bản đã thay). Tệp bí mật rỗng để nguyên cũng không ảnh hưởng bản cũ. Quay lui **sau** khi đã deploy v1.0.1 thì worker mất secret Chat (Chat tắt): sau đó `dc up -d --no-deps worker`.
 - Gói tải lên được đối chiếu băm: Mac `shasum -a 256 /tmp/ottimo-infra.tgz` = máy chủ `sha256sum ~/ottimo-infra.tgz` (SEC 03), để không lắp nhầm gói staging cho production.
+- **Quy ước digest trong runbook và README (từ v1.0.3, ARC/SEC FB-R4-*-OPS-PR30-01):** không dán digest image đầy đủ (`sha256:<64 hex>`) vào dòng lệnh hay văn bản. Lệnh đọc digest vào biến từ `state/digests/<tag>` trên máy chủ (`rollback.sh <tag>` tự đọc; `deploy.sh` thì `A=$(… sed -n "s/^api=//p")`) hoặc từ artifact `image-digests` của CI; khi cần ghi tay thì dùng ô `⟨API_DIGEST⟩`. Chỗ đối chiếu với log Release chỉ ghi dạng rút gọn `f064700d…a9be`. Lý do: gitleaks `generic-api-key` báo nhầm chữ `--api-digest sha256:…`, làm CI `main` đỏ, bỏ qua `publish images` và chặn Release. Allowlist trong `.github/gitleaks.toml` chỉ có các digest lịch sử, khớp đúng giá trị.
 
 ### 13.2 Dán / đổi / xóa URL webhook (`--set-booking-chat`)
 
@@ -396,7 +397,11 @@ OPS không có quyền xóa tin Chat. Máy chủ không giữ bản sao nào c�
 - Dựng lại máy chủ từ sao lưu: giải mã `privacy-notice-<stamp>.log.age` mới nhất trên Mac, rồi chép vào `state/privacy-notice.log` (chủ `ottimo`, quyền 0600) **trước** lượt deploy landing đầu tiên. Thiếu tệp mà proxy form đang mở thì `deploy-landing.sh` in WARNING (12.3).
 - Test: `infra/server/test/backup-privacy-log.test.sh` (5 ca, stub `dc`/`age`, chạy trong CI).
 
-### 13.7 ★2-bis tạm – trước khi PN-01 (migration 0090) lên production
+### 13.7 `privacy_notice_version`: ★2-bis tạm (trước 0090) và luật thường trực
+
+**Luật thường trực (SEC FB-R4-SEC-OPS-RB-04), mọi môi trường, mọi lúc:** không `UPDATE`, `DELETE`, `TRUNCATE` trên `privacy_notice_version`, và không `ALTER TABLE … DISABLE TRIGGER` / `DROP TRIGGER` / `CREATE OR REPLACE FUNCTION` lên trigger của bảng này bằng tay. Đăng bản thông báo mới **chỉ** qua `publish-privacy-notice.sh` (12.3 bước 6). Trigger 0090 chỉ chặn DML của vai thường; chủ bảng (`ottimo_owner`) và superuser vẫn tắt được trigger, nên luật này vẫn cần sau khi 0090 đã lên. Cũng không `SET session_replication_role = replica` trong phiên nào có đụng bảng này, và không `pg_restore --disable-triggers` vào DB có bảng này: hai cách đó vượt trigger mà `tgenabled` vẫn là `O`, nên kiểm K3 không thấy (SEC PR30-08). Thay thân hàm trigger chỉ qua migration có review ARC + SEC (ví dụ PN-01 Minor, 0094).
+
+Từ 03/11/2026 (v1.0.2, `decision-log`), production đã có 2 trigger 0090 (`tgenabled = 'O'`) và quyền `ottimo_app` = `t|f|f|f|f|f`, SEC đã đổi ★2-bis thành "Đã thay bằng 0090". Phần dưới chỉ còn dùng cho một DB **trước** 0090 (ví dụ khôi phục từ bản sao lưu 65 migration, runbook v1.0.2 P3) cho tới khi deploy lại đủ migration.
 
 Tới khi trigger chỉ-thêm-dòng của PN-01 lên production, SEC tạm chấp nhận hai điều sau:
 - **Ảnh chụp quyền**: `ottimo_app` chỉ có `SELECT` trên bảng.
@@ -409,10 +414,51 @@ cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc exec -T postgres sh 
 - Dán kết quả vào báo cáo OPS cho SEC (kết quả không chứa dữ liệu).
 - Chụp lại sau mỗi lần deploy có migration, cho tới khi PN-01 lên.
 
-### 13.8 `ops-check`: `email_dead` và lỗi truy vấn (v1.0.1)
+### 13.8 `ops-check`: `email_dead`, `email_missing`, `EMAIL_NO_RECIPIENT_ALERT` và lỗi truy vấn (v1.0.1, v1.0.3)
 
-- `email_dead` (mục 7) đếm thư `staff.email` chết vì `NO_RECIPIENT`. Hiện chỉ báo số. Bật cảnh báo khi đủ hai điều kiện: BUG-R3-032 đã lên production (đợt 3, người dùng có email) **và** OWN/MGR đã nhập email. Cách bật: thêm `EMAIL_NO_RECIPIENT_ALERT=1` vào `.env` của stack. Timer đọc `.env` mỗi lượt, nên không cần dựng lại container.
-- Khi truy vấn của `j16` hoặc `email_dead` lỗi, kiểm báo `query failed: <loại>`. Có 7 loại cố định:
+- `email_dead` (mục 7) đếm thư `staff.email` chết vì `NO_RECIPIENT` trong 24 giờ. Chỉ đếm, không đọc payload.
+- `email_missing` (v1.0.3, ARC `v1.0.3-tech-plan.md` 2.10 điều kiện 2) đếm người dùng `active` đang có vai `owner` hoặc `manager` chưa thu hồi (`user_property_role.revoked_at IS NULL`) mà **chưa có email** (`app_user.email` rỗng). Thư bảo mật gửi cho họ sẽ chết `NO_RECIPIENT`.
+  - Chạy trong giao dịch **READ ONLY** (`default_transaction_read_only=on`), chỉ `SELECT count(*)`: không đọc, không in địa chỉ, tên hay id. Đầu ra chỉ là một con số, ví dụ `ok   email_missing: 1 active OWN/MGR user(s) without e-mail (report only …)`.
+  - Chỉ dùng cột có từ 0000, nên chạy được cả trên DB v1.0.2 (67 migration) lẫn v1.0.3 (68, có 0091). Trên production trước khi INV nhập email, số này là `1` (INV là OWN duy nhất, chưa có email) – đúng như dự kiến, không phải lỗi.
+  - Chạy tay: `cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/ops-check.sh email_missing`.
+- **`EMAIL_NO_RECIPIENT_ALERT`** (một công tắc cho cả hai kiểm; `.env` thắng biến môi trường; chỉ nhận `0` hoặc `1`):
+  - `0` hoặc không đặt (mặc định): cả hai chỉ báo số, luôn `ok`, có chữ `report only until EMAIL_NO_RECIPIENT_ALERT=1`.
+  - `1`: `email_dead` > 0 → `FAIL` ("a security notice reached nobody"); `email_missing` > 0 → `FAIL` ("their security notices reach nobody"). Cảnh báo đi journal + webhook như các kiểm khác, nhắc lại mỗi 6 giờ.
+- **Chỉ bật khi đủ cả 4 điều kiện** (ARC 2.10; runbook `rounds/round-04/outputs/OPS/v1.0.3-release-runbook.md` mục E):
+  1. v1.0.3 (BUG-R3-032, migration 0091) đang chạy trên production (`current_tag` = image của tag `v1.0.3`);
+  2. `ops-check.sh email_missing` in **0**;
+  3. INV đã báo trong chat "đã nhận thư" (thư `email_changed` lúc INV lưu email trên Desk). INV **không** dán địa chỉ vào chat; đội không ghi địa chỉ vào repo hay tài liệu;
+  4. `ops-check.sh email_dead` in **0** cho 24 giờ gần nhất. Dòng chết trước lúc có email vẫn nằm trong cửa sổ 24 giờ, nên còn > 0 thì đợi qua cửa sổ, không bật sớm.
+- **Cách bật** (production; staging đổi `/opt/ottimo-prod` thành `/opt/ottimo`). Lệnh không in `.env`, chỉ in số dòng của công tắc; `cat >` giữ nguyên tệp `.env` (chủ `ottimo`, 0600), không `sed -i`:
+  ```sh
+  cd /
+  sudo -u ottimo cp -p /opt/ottimo-prod/.env /opt/ottimo-prod/state/env.before-email-alert.$(date +%Y%m%d-%H%M%S)
+  sudo -u ottimo sh -c 'umask 077; f=/opt/ottimo-prod/.env t=/opt/ottimo-prod/state/env.alert.tmp; trap "rm -f \"\$t\"" EXIT; grep -v "^EMAIL_NO_RECIPIENT_ALERT=" "$f" > "$t" && echo EMAIL_NO_RECIPIENT_ALERT=1 >> "$t" && cat "$t" > "$f" && rm -f "$t"'
+  sudo -u ottimo grep -c '^EMAIL_NO_RECIPIENT_ALERT=1$' /opt/ottimo-prod/.env      # đúng là: 1
+  sudo -u ottimo /opt/ottimo-prod/infra/server/bin/ops-check.sh email_dead email_missing
+  sudo -u ottimo test ! -e /opt/ottimo-prod/state/env.alert.tmp && echo "TMP: GONE"                # đúng là: TMP: GONE
+  # chỉ giữ bản sao .env mới nhất (như 13.4 bước 6)
+  sudo -u ottimo sh -c 'ls -1t /opt/ottimo-prod/state/env.before-email-alert.* | tail -n +2 | xargs -r rm -f --; ls -l /opt/ottimo-prod/state/env.before-email-alert.*'
+  ```
+  Đúng là: 2 dòng `ok`, **không** còn chữ `report only`; `TMP: GONE`; còn đúng một tệp `env.before-email-alert.*`. Timer đọc `.env` mỗi lượt, api/worker không đọc biến này, nên **không** dựng lại container. `trap … EXIT` xóa tệp tạm (bản sao đầy đủ `.env`) cả khi lệnh dừng giữa chừng (SEC PR30-07).
+- **Tắt lại** (ví dụ thêm MGR mới chưa có email, hoặc cảnh báo giả): làm như trên với `EMAIL_NO_RECIPIENT_ALERT=0`, báo SEC (SEC quyết có cần lượt kiểm tay mỗi sáng trong lúc cảnh báo tắt không). Lệnh dọn bản sao như trên.
+- **Thêm OWN/MGR mới sau khi đã bật:** OWN nhập email cho người đó ngay trên Desk (**Người dùng & vai**, cần mật khẩu + mã 2 bước). Chưa nhập thì `email_missing` FAIL ở lượt timer kế tiếp – đó là cảnh báo đúng.
+- **Thư thử SMTP** (`mail-test.mjs`): chỉ chạy qua `product/infra/server/bin/mail-test.sh` trên Mac.
+  - Mặc định `--verify-only`: chỉ kết nối + STARTTLS, không gửi, không hỏi địa chỉ.
+  - `--send`: hỏi địa chỉ ở **dấu nhắc ẩn** (`read -rs`), địa chỉ đi qua stdin, không nằm trong tham số lệnh nào trên Mac hay VPS, không vào lịch sử shell. Chỉ chủ hộp thư tự gõ (INV với hộp thư riêng), bằng khóa SSH quản trị trên chính Mac của mình (`--key`, mặc định `~/.ssh/ottimo_ops`); không chép khóa sang máy khác.
+  - Trước `--send`, sudo **không** được ghi I/O (nếu có `log_input`/`log_stdin`…, sudo ghi lại stdin, tức dòng địa chỉ, vào `/var/log/sudo-io`). Kiểm chỉ đếm, đúng là `SUDO_IO_LOG=0` (SEC PR30-04):
+    ```sh
+    ssh … 'cd / && echo "SUDO_IO_LOG=$(sudo -n grep -rhcE "^[^#]*(log_input|log_output|log_stdin|log_stdout|log_stderr|log_ttyin|log_ttyout|log_servers)" /etc/sudoers /etc/sudoers.d | awk "{s+=\$1} END {print s+0}")"'
+    ```
+  - Sau `--send` (hoặc khi lệnh bị ngắt giữa chừng), không được còn container one-off của worker: cấu hình container giữ biến `MAIL_TEST_TO` tới khi bị xóa (SEC PR30-05). Đếm, rồi xóa nếu có (không `docker inspect`, không in env):
+    ```sh
+    ssh … 'cd / && echo "ONEOFF=$(sudo -n -u ottimo docker ps -a -q --filter label=com.docker.compose.oneoff=True --filter label=com.docker.compose.service=worker | wc -l)"'
+    ssh … 'cd / && sudo -n -u ottimo sh -c "docker ps -a -q --filter label=com.docker.compose.oneoff=True --filter label=com.docker.compose.service=worker | xargs -r docker rm -f >/dev/null" && echo REMOVED'
+    ```
+  - `MAIL_TEST_READ_STDIN=1` chỉ cho test (cùng `MTS_DIR` của `ssh` giả); không dùng tay: địa chỉ đưa qua pipe sẽ nằm trong lịch sử shell.
+  - Không bao giờ gõ `-e MAIL_TEST_TO=<địa chỉ>`. Thư thật của v1.0.3 là thư `email_changed` khi INV lưu email trên Desk; `--send` chỉ dùng khi đội điều tra lỗi gửi.
+  - Test: `infra/server/test/mail-test-send.test.sh` (20 kiểm, `ssh` giả; gồm bit chạy và chạy trực tiếp không qua `bash`).
+- Khi truy vấn của `j16`, `email_dead` hoặc `email_missing` lỗi, kiểm báo `query failed: <loại>`. Có 7 loại cố định:
   - `permission denied`
   - `Docker daemon unreachable`
   - `postgres container not running`
@@ -423,4 +469,4 @@ cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc exec -T postgres sh 
 
   Nguyên văn lỗi không bao giờ được gửi ra journal hay webhook, vì lỗi đọc `.env` có thể trích nguyên một dòng `.env` (ARC CWD-03). Muốn xem lỗi thật: chạy tay `cd / && sudo -u ottimo …/bin/ops-check.sh j16`, rồi `…/bin/dc exec -T postgres psql …` trên terminal.
 - stderr của lệnh đang kiểm ghi vào một tệp riêng cho mỗi lượt (`mktemp`, quyền 0600) và bị xóa khi thoát. Tệp chung `state/ops-check/compose.stderr` của bản 30/10 tự được xóa (ARC CWD-04 mục 1). Bị dừng bằng `SIGTERM` (systemd dừng unit, máy tắt) thì `trap` vẫn chạy; tệp `cmd-stderr.*` sót lại sau `SIGKILL` bị lượt sau xóa khi cũ hơn 60 phút (SEC PR23-06).
-- Test: `infra/ci/test-ops-check.sh` (31 kiểm) và `infra/server/test/ops-check-cwd.test.sh` (7 ca).
+- Test: `infra/ci/test-ops-check.sh` (55 kiểm, gồm 24 kiểm `email_missing`: báo số / bật / công tắc sai / loại lỗi / câu SQL chỉ `count(*)` / READ ONLY / không in địa chỉ) và `infra/server/test/ops-check-cwd.test.sh` (7 ca).

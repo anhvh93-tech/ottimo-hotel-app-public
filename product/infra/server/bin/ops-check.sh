@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Periodic checks of one server – systemd timer ottimo-ops-check.timer (every 30 min), as the deploy user.
 #   ops-check.sh            run every check, alert on failures
-#   ops-check.sh j16        one check only (j16 | backup | disk | mem | tls | containers | http5xx | email_dead)
+#   ops-check.sh j16        one check only (j16 | backup | disk | mem | tls | containers | http5xx | email_dead |
+#                           email_missing)
 #
 #   j16         SEC C6 / SR-RET-03: for every active property, the last retention_run of policy J16 with
 #               status done must be < 26 h old (a property younger than 26 h without any run is fine), and no J16 run
@@ -14,15 +15,20 @@
 #   containers  postgres, api, worker, web running (api healthy); + landing when a landing tag is deployed. A failing
 #               `docker compose` itself is reported as "docker compose failed, container state unknown: <category>", not
 #               as "not running" (same for http5xx); j16 / email_dead report "query failed: <category>" – never the
-#               raw error text (ARC CWD-03)
+#               raw error text (ARC CWD-03); email_missing the same
 #   http5xx     server errors answered by Caddy (web + landing) in the last 35 min < HTTP5XX_MAX (default 5): a
 #               crashing api, a 502 from a dead upstream – before guests or staff report it
 #   email_dead  staff e-mails (outbox topic staff.email: security notices – SEC 06.15 / 06.33 / Q51-6) that died with
 #               NO_RECIPIENT in the last 24 h (the user has no e-mail address, so the notice reached nobody). Count only,
 #               nothing from the payload is read. BUG-R3-032: until users can have an e-mail this is expected, so
-#               it only reports. Set EMAIL_NO_RECIPIENT_ALERT=1 in .env only when BOTH hold: BUG-R3-032 is on
-#               production (wave 3, v1.0.3 – NOT v1.0.1) AND OWN/MGR have entered their e-mail; then every such
-#               e-mail becomes a FAIL (SEC `SEC-on-B2-readiness.md` 1.5 OPS (a); README 13.8; ARC PR23-02).
+#               it only reports. Set EMAIL_NO_RECIPIENT_ALERT=1 in .env only when ALL FOUR hold (ARC v1.0.3 tech plan
+#               2.10, README 13.8): v1.0.3 (BUG-R3-032) runs on production; email_missing = 0; INV confirmed the
+#               `email_changed` notice arrived; email_dead = 0 over the last 24 h. Then every such e-mail becomes a FAIL
+#               (SEC `SEC-on-B2-readiness.md` 1.5 OPS (a); ARC PR23-02).
+#   email_missing  active users holding a non-revoked OWN or MGR role who have no e-mail address (BUG-R3-032, ARC
+#               v1.0.3 tech plan 2.10 condition 2): their security notices would die NO_RECIPIENT. READ ONLY
+#               transaction, count only – no address, name or id is selected or printed. Report only until
+#               EMAIL_NO_RECIPIENT_ALERT=1 (same switch as email_dead); armed, a count > 0 is a FAIL.
 #
 # Alerts (no personal data – only check names, property ids, ages): always to the journal
 # (journalctl -t ottimo-alert -p err); plus ALERT_WEBHOOK_URL from /opt/ottimo/.env if set, sent when a check
@@ -112,6 +118,15 @@ notify() { # check status message
 
 psql_admin() {
   dc exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -F "|"'
+}
+# Same, in a READ ONLY transaction (any write is refused by the server): checks that only count.
+psql_ro() {
+  dc exec -T postgres sh -c 'PGOPTIONS="-c default_transaction_read_only=on" psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -F "|"'
+}
+# EMAIL_NO_RECIPIENT_ALERT: .env wins over the environment only when set there (the timer has no environment of its own).
+email_alert_armed() {
+  local armed
+  armed=$(envval EMAIL_NO_RECIPIENT_ALERT); echo "${armed:-${EMAIL_NO_RECIPIENT_ALERT:-0}}"
 }
 
 check_j16() {
@@ -225,8 +240,7 @@ check_http5xx() {
 
 check_email_dead() {
   local out n armed
-  # .env wins over the environment only when set there (the timer has no environment of its own).
-  armed=$(envval EMAIL_NO_RECIPIENT_ALERT); armed="${armed:-${EMAIL_NO_RECIPIENT_ALERT:-0}}"
+  armed=$(email_alert_armed)
   [[ "$armed" =~ ^[01]$ ]] || { notify email_dead FAIL "EMAIL_NO_RECIPIENT_ALERT must be 0 or 1"; return 1; }
   if ! out=$(psql_admin <<SQL 2>"$cmd_err"
 SELECT count(*) FROM outbox_message
@@ -250,7 +264,35 @@ SQL
   fi
 }
 
-if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx email_dead); full=1; fi
+check_email_missing() {
+  local out n armed
+  armed=$(email_alert_armed)
+  [[ "$armed" =~ ^[01]$ ]] || { notify email_missing FAIL "EMAIL_NO_RECIPIENT_ALERT must be 0 or 1"; return 1; }
+  # Columns of 0000 (app_user.email citext NULL, status; user_property_role.role, revoked_at): works before and after 0091.
+  if ! out=$(psql_ro <<'SQL' 2>"$cmd_err"
+SELECT count(*) FROM app_user u
+ WHERE u.status = 'active' AND (u.email IS NULL OR u.email::text = '')
+   AND EXISTS (SELECT 1 FROM user_property_role r
+                WHERE r.user_id = u.id AND r.role IN ('owner', 'manager') AND r.revoked_at IS NULL);
+SQL
+  ); then
+    notify email_missing FAIL "query failed: $(cmd_failed)"
+    return 1
+  fi
+  n=$(tr -d '[:space:]' <<<"$out")
+  [[ "$n" =~ ^[0-9]+$ ]] || { notify email_missing FAIL "unexpected answer"; return 1; }
+  if [ "$n" -gt 0 ] && [ "$armed" = "1" ]; then
+    notify email_missing FAIL "$n active OWN/MGR user(s) without e-mail – their security notices reach nobody"
+    return 1
+  fi
+  if [ "$armed" = "1" ]; then
+    notify email_missing OK "$n active OWN/MGR user(s) without e-mail"
+  else
+    notify email_missing OK "$n active OWN/MGR user(s) without e-mail (report only until EMAIL_NO_RECIPIENT_ALERT=1, BUG-R3-032)"
+  fi
+}
+
+if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx email_dead email_missing); full=1; fi
 rc=0
 failed=""
 for c in "${checks[@]}"; do
@@ -264,6 +306,7 @@ for c in "${checks[@]}"; do
     containers) check_containers || ok=0 ;;
     http5xx) check_http5xx || ok=0 ;;
     email_dead) check_email_dead || ok=0 ;;
+    email_missing) check_email_missing || ok=0 ;;
     *) echo "unknown check: $c" >&2; rc=2; continue ;;
   esac
   if [ "$ok" -eq 0 ]; then failed+=" $c"; [ "$rc" -eq 2 ] || rc=1; fi

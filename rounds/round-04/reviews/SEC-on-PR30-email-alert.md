@@ -103,3 +103,85 @@ Các điểm bảo mật chính của PR đều đạt (bảng dưới). Có 1 M
 - `mail-test.sh` thiết kế đúng hướng. Địa chỉ đi theo stdin; `-e KEY` không có giá trị; đầu ra lọc theo whitelist, `@` không lọt qua được; mặc định `--verify-only`; tự từ chối chạy trên máy chủ. Test kiểm cả argv lẫn stdin từng byte.
 - `email_missing` có nhiều lớp chặn: READ ONLY, chỉ `count(*)`, câu trả lời phải là số. Test cố tình đưa vào một địa chỉ để chứng minh địa chỉ không lọt ra.
 - Runbook giữ đúng nguyên tắc "chỉ số, không dán". SQL đọc đều mở bằng `SHOW default_transaction_read_only`, và có hướng xử lý `AT_IN_LOG > 0` như sự cố dữ liệu cá nhân.
+
+---
+
+## Lượt 2 – bản sửa `bd74ef86` (03/11/2026)
+
+Phạm vi: `git diff 540411de bd74ef86` (7 tệp, +227/−57) và `rounds/round-04/responses/OPS-on-PR30.md` (đọc bằng `git show`). Không checkout nhánh, không chạy gì trên máy chủ. Đối chiếu digest với log công khai của 2 lượt Release bằng `gh run view --log` (chỉ đọc).
+
+### Kết luận lượt 2: **ĐẠT**
+
+- 8/8 thẻ SEC (PR30-01…08) đã sửa đúng. Cả 8 thẻ **Closed**.
+- SEC **duyệt** dòng allowlist digest mới trong `.github/gitleaks.toml`, kể cả chỗ lệch có hai digest (xem bảng dưới).
+- Job `gitleaks` của CI trên `bd74ef86` (run 41621006301) đã **success**. CI checkout `fetch-depth: 0`, nên gitleaks quét đủ lịch sử. Job `docker images build · E2E smoke` còn đang chạy lúc viết (không thuộc phần SEC).
+- PR gộp được về phía SEC. Có 1 Minor mới (PR30-09) phải sửa ở runbook **r2**, trước khi chạy trên production; nó không chặn việc gộp. Có thêm 1 Suggestion (PR30-10) cho v1.0.4.
+- Điều kiện trước khi gắn tag vẫn còn hiệu lực: CI `main` của `SHA_V103` phải xanh **cả** gitleaks lẫn `publish images`. Điều kiện này đã có trong bảng P0 của runbook.
+
+### Trạng thái thẻ
+
+| ID | Mức | Trạng thái | Kiểm lại |
+|---|---|---|---|
+| PR30-01 | Major | **Closed** | (1) Runbook r1 không còn digest 64 hex nào. Mục 5.0 dùng `rollback.sh sha-e5fffe05ed55` trần, có `test -r state/digests/…`, và thiếu tệp thì dừng. Phần lên lại và R8 đọc digest vào biến, chỉ in 8 hex. Phần lên lại còn kiểm dạng `^sha256:[0-9a-f]{64} …$` trước khi dùng. (2) Có allowlist neo hai đầu (bảng dưới). (3) Quy ước "không dán digest" đã ghi ở README 13.1 và runbook mục 6. (4) P0 đã thêm điều kiện gitleaks + `publish images`. (5) gitleaks CI xanh |
+| PR30-02 | Minor | **Closed** | Cả hai tệp đã sang `100755` (`git diff --summary`). Test 8 kiểm `[ -x ]`, test 8b gọi thẳng `"$script"`. K8 bước 3–4 giờ chạy bằng `bash` từ `git archive origin/main`, nên không còn phụ thuộc bit chạy. `--key` là khóa trên chính Mac của người chạy, có câu cấm chép khóa sang máy khác |
+| PR30-03 | Minor | **Closed** | Mục 5.0 đếm `AT_IN_LOG` của worker + api từ giờ D, **sau khi lùi** và **sau khi lên lại**. Staging đòi đúng `0`. Nếu lớn hơn 0: không dán log, báo SEC, và Q1 thành điều kiện chặn mục 5 trên production. Biên bản chỉ ghi con số. Ngoài ra QA `dc stop worker` trước khi đổi email, để chắc chắn có dòng còn chờ khi lùi |
+| PR30-04 | Minor | **Closed** (xem PR30-09) | Có `SUDO_IO_LOG` ở P2b bước 4 và ở bước "Trước" của K8, chỉ đếm, không in sudoers. Danh sách tùy chọn rộng hơn đề xuất (`log_stdin`, `log_ttyin`, `log_servers`…). Nếu khác 0 thì cấm `--send`. Chú thích `mail-test.sh` đã bỏ câu "Nothing is written to disk" và ghi rõ hai giới hạn |
+| PR30-05 | Minor | **Closed** (xem PR30-09) | Có bước "Sau" ở K8 (chạy cả khi lệnh bị ngắt): `ONEOFF` lọc theo nhãn `oneoff=True` + `service=worker`. Nếu khác 0 thì `docker rm -f`, không `inspect`, không in env. Chú thích `mail-test.sh`, `mail-test.mjs` và README 13.8 đã sửa |
+| PR30-06 | Suggestion | **Closed** | Đường pipe chỉ mở khi có **cả** `MAIL_TEST_READ_STDIN=1` **và** `MTS_DIR` không rỗng. Test 4b: thiếu `MTS_DIR` thì vẫn từ chối, và không có lời gọi ssh (`! -e argv`). Trên VPS, cửa này không bật được: lệnh từ chối `.ottimo-home` (dòng 43–45) chạy **trước** nhánh `--send`. Hằng `remote` cũng không mang `MTS_DIR` sang máy chủ. Phần còn lại: xem PR30-10 |
+| PR30-07 | Suggestion | **Closed** | README 13.8 và runbook E2 có `trap "rm -f \"\$t\"" EXIT` trong `sh -c` (dấu `$` được giữ đúng, `$t` mở trong shell con). Có thêm kiểm `TMP: GONE`. README đã chép lệnh dọn `env.before-email-alert.*` |
+| PR30-08 | Suggestion | **Closed** | README 13.7 và runbook mục 6 đã thêm cấm `SET session_replication_role = replica` và `pg_restore --disable-triggers`, có nêu lý do K3 không thấy hai cách này |
+
+### Allowlist digest trong `.github/gitleaks.toml`: **SEC duyệt**
+
+Dòng được duyệt: `'''^(sha256:)?(7ad36566…2d72|f064700d…a9be)$'''`, dòng 53, có chú thích lý do và các commit 642e1947, b046363b, 540411de.
+
+| Câu hỏi | Kết quả | Bằng chứng |
+|---|---|---|
+| Regex có cho lọt chuỗi nào khác không? | **Không.** Chỉ đúng 4 chuỗi khớp: A, `sha256:`A, B, `sha256:`B | Cả `^…$` ôm trọn nhóm `(A\|B)`, nên không có lỗi ưu tiên kiểu `^A\|B$`. Không có ký tự đại diện, không có lượng từ trên phần hex. Gitleaks mặc định so allowlist với `secret`, là giá trị bị bắt, không phải cả dòng. Đã thử: 64 số `0`, A thêm 1 ký tự đầu hoặc cuối, A nối B, A viết hoa, `sha512:`A, A thiếu 1 ký tự, và digest web `720c4ffd…` đều **không** khớp. OPS đã thử âm bằng chính gitleaks (`--api-digest sha256:<64 hex ngẫu nhiên>` vẫn bị bắt). Nếu gitleaks bắt một giá trị dài hơn, dòng này không khớp và phát hiện vẫn được báo (fail-closed) |
+| Có đúng digest image công khai không? | **Đúng** | `gh run view 41330353710 --log` (Release v1.0.1, repo PUBLIC) in `api@sha256:7ad36566…2d72`. `gh run view 41607294860 --log` (Release v1.0.2) in `api@sha256:f064700d…a9be`. Cả hai khớp từng ký tự với dòng allowlist. Digest là băm nội dung của manifest image: nó định danh image chứ không cấp quyền gì, và không có bí mật thật nào trùng được với nó |
+| Có cần đủ hai giá trị không? | **Cần** | `f064700d…` nằm sau `--api-digest` ở `v1.0.3-release-runbook.md:519` của commit 540411de. Commit này đã push, gitleaks quét toàn bộ lịch sử, và viết lại lịch sử nhánh đã push thì rủi ro cao hơn để lại. `7ad36566…` nằm trên `main` (`v1.0.2-release-runbook.md:492`, `v1.0.2-rollback-drill-staging.md:68`) |
+| Phạm vi có đủ hẹp không? | Có | Không thêm `paths`. Không có regex hex trần. Không tạo `.gitleaksignore`. Digest web không bị gitleaks bắt (không có chữ "api"), nên không cần thêm |
+
+Ghi lại cho decision-log (SEC tự quyết theo quyền của vai): *03/11/2026 · R4 · SEC duyệt allowlist gitleaks neo hai đầu cho 2 digest api công khai (v1.0.1 `7ad36566…2d72`, v1.0.2 `f064700d…a9be`), đã đối chiếu log Release 41330353710 và 41607294860. Từ v1.0.3, không thêm digest nào vào allowlist: runbook không dán digest (README 13.1). Nếu có digest mới bị bắt thì sửa tài liệu, không nới allowlist.*
+
+### `mail-test.sh` (bản `bd74ef86`)
+
+| Điểm | Kết quả |
+|---|---|
+| Địa chỉ đọc bằng `IFS= read -rs` | Đạt. Dòng `read -rs -p …` giữ nguyên. Prompt ra stderr, không vọng chữ |
+| Không vào argv hay log | Đạt. Địa chỉ đi qua `printf '%s\n' "$to"` (builtin) vào stdin của ssh. Hằng `remote` chỉ có `$home` và `$verify_flag`, đều là giá trị cố định. Trên VPS, địa chỉ chỉ nằm trong biến `read`, rồi `-e MAIL_TEST_TO` không có giá trị. Đầu ra lọc whitelist, không có `@`. stderr của ssh bị bỏ. Câu lỗi không lặp lại địa chỉ. `unset to` chạy cả ở nhánh lỗi lẫn sau khi gửi |
+| Cửa test `MTS_DIR` không bật được trên production | Đạt (xem PR30-06 ở trên). Còn một chỗ hở trên **Mac**: người cố ý đặt cả hai biến vẫn dùng được cửa này với ssh thật. Rủi ro thấp: phải cố ý, ghi rõ là chỉ cho test, và chỉ đổi nguồn nhập (pipe thay cho dấu nhắc). Argv và đầu ra vẫn sạch. Xem PR30-10 |
+| Chú thích đúng thực tế | Đạt. Không còn câu "Nothing is written to disk". Đã nêu sudo I/O log và container one-off |
+
+### Runbook r1 + README + phản hồi OPS: không có dữ liệu thật hay bí mật
+
+- Email: chỉ còn `info@ottimo.vn` (địa chỉ công khai), `ottimo-admin@desk.ottimo.vn` (người dùng SSH + tên miền công khai, có từ v1.0.1), tên unit systemd `…@ottimo-prod.timer`, và `…@example.test` trong test. Không có địa chỉ của INV hay MGR.
+- IPv4: runbook và phản hồi OPS không có IP nào. README có `172.31.1.2` và `172.30.1.11`, là địa chỉ mạng nội bộ Docker, có từ trước và không thuộc diff này. Không có IP công khai của VPS.
+- Hex 64: runbook chỉ có băm migration drizzle `2c90ac33…1ccf`. Băm này công khai, có sẵn trên `main` (`v1.0.2-release-runbook.md:263`), và không phải bí mật. Digest đầy đủ chỉ còn ở dòng allowlist.
+- Không có URL webhook, token, khóa riêng hay mật khẩu. README 13.2 chỉ có mẫu `?key=…&token=…`.
+- Tên repo công khai `anhvh93-tech/ottimo-hotel-app-public` và đường dẫn Mac `/Users/anhvh/Desktop/hotel-app` đã có trên `main` từ trước. Hai thông tin này không phải bí mật.
+
+---
+
+### FB-R4-SEC-OPS-PR30-09
+- Mức độ: Minor
+- Vị trí: runbook r1 P2b bước 4 (`SUDO_IO_LOG=$(sudo -n grep -rhcE … | awk "{s+=\$1} END {print s+0}")`); K8 bước 4 "Sau" (`ONEOFF=$(sudo -n -u ottimo docker ps -a -q … | wc -l)`); README 13.8 (cùng hai lệnh).
+- Vấn đề: hai lệnh đếm này **fail-open**. Nếu lệnh bên trong lỗi thì kết quả vẫn ra đúng con số mong đợi. Ví dụ: `sudo -n` đòi mật khẩu, không đọc được `/etc/sudoers.d`, `docker` báo permission denied, hoặc daemon không trả lời. Khi đó `awk … END {print s+0}` in `0`, và `wc -l` cũng in `0`. Thông báo lỗi chỉ ra stderr, trong khi người chạy (ORC) đối chiếu theo dòng "Đúng là: `SUDO_IO_LOG=0`" / "`ONEOFF=0`". Kiểu lỗi này giống CWD-03: lỗi bị đọc thành "ok".
+- Vì sao quan trọng: đây là hai chốt duy nhất cho hai chỗ mà địa chỉ email thật của INV có thể nằm lại trên đĩa máy chủ (`/var/log/sudo-io`, cấu hình container).
+- Đề xuất sửa (ở r2, trước khi chạy production):
+  - `SUDO_IO_LOG`: `grep -c` với `-r` luôn in ít nhất một dòng cho mỗi tệp đọc được. Vì vậy: `awk "{s+=\$1} END {if (NR==0) print \"ERR\"; else print s+0}"`, và đổi thành `ERR` nếu `grep` thoát với mã lớn hơn 1 (ví dụ `{ sudo -n grep … ; [ $? -le 1 ] || echo X; }` rồi awk gặp `X` thì in `ERR`).
+  - `ONEOFF`: chạy `docker ps` trước vào biến và kiểm mã thoát: `L=$(sudo -n -u ottimo docker ps -a -q …) && echo "ONEOFF=$(printf %s "$L" | grep -c .)" || echo "ONEOFF=ERR"`.
+  - Ghi "Đúng là" thành: `ERR` thì coi như khác 0, cấm `--send` hoặc báo OPS dọn tay. Thêm vào bảng dừng mục 6.
+- Trạng thái: Open
+
+### FB-R4-SEC-OPS-PR30-10
+- Mức độ: Suggestion
+- Vị trí: `product/infra/server/bin/mail-test.sh` dòng 51 (điều kiện cửa test).
+- Vấn đề: cửa test chỉ đòi `MTS_DIR` không rỗng. Nó không kiểm `ssh` có đúng là ssh giả hay không, nên trên Mac vẫn dùng được với ssh thật nếu cố ý đặt cả hai biến.
+- Đề xuất sửa (v1.0.4, cùng đợt với ARC PR30-10): thêm điều kiện `[ "$(command -v ssh)" = "$MTS_DIR/bin/ssh" ]`. Test 4 và 4b giữ nguyên. Thêm ca 4c: có cả hai biến nhưng `PATH` không có ssh giả thì vẫn từ chối.
+- Trạng thái: Open
+
+### Điểm làm tốt (lượt 2)
+- Bỏ hẳn digest khỏi lệnh và đọc vào biến, thay vì chỉ nới allowlist. Lỗi được sửa tận gốc, và có quy ước để không tái diễn.
+- Thử âm allowlist bằng chính gitleaks và chạy đủ lịch sử, không chỉ thử dương.
+- Dùng `awk` thay `paste | bc`, và lọc container one-off theo cả nhãn `service=worker`: đúng ý thẻ và chặt hơn đề xuất.

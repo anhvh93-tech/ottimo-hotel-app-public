@@ -191,3 +191,94 @@ Kết luận: chạy đúng trên cả 67 và 68. Câu này khớp với cách d
 1. `email_missing` làm đúng khuôn kiểm sẵn có: chung `cmd_failed`, công tắc chung qua `email_alert_armed`, và câu trả lời không phải số không bao giờ ra stdout, tệp trạng thái hay webhook. Test chặn cả việc chọn thêm cột (chỉ `SELECT count(*)` và `SELECT 1`) lẫn việc in `@`.
 2. `mail-test.sh` thiết kế chặt: mặc định không gửi; `--send` từ chối khi không có TTY (agent không thể vô tình gửi); kiểm `--ssh`/`--stack`; chỉ để lọt đúng một dòng cố định của `mail-test.mjs`. Test giả `ssh` chứng minh địa chỉ không nằm trong argv, và phần stdin sau dòng đầu trùng `mail-test.mjs` từng byte.
 3. Runbook nhất quán với luật "không địa chỉ ở đâu cả": mọi SQL chỉ đếm, có khối `SQLRO` với dòng chốt `SHOW default_transaction_read_only`, và INV chỉ báo một trong ba câu cố định.
+
+---
+
+## Lượt 2 – 03/11/2026 (head `bd74ef86`)
+
+- Đối chiếu: `git diff 540411de bd74ef86` (7 tệp), `rounds/round-04/responses/OPS-on-PR30.md` @ `bd74ef86`, runbook r1 @ `bd74ef86`.
+- Cách kiểm:
+  - Chạy test trên bản `git archive bd74ef86 product/infra` trong scratchpad (bash macOS): `mail-test-send.test.sh` **20/20**, `test-ops-check.sh` **55/55**. `git archive` giữ bit chạy, nên ca 8/8b cũng đúng với cách K8 chạy bản `main`.
+  - `git ls-tree bd74ef86`: `bin/mail-test.sh` và `test/mail-test-send.test.sh` đều `100755`.
+  - Chạy gitleaks tại chỗ (image `v8.21.2` ghim đúng digest của `ci.yml`, image đã có sẵn trên máy, `detect --no-git`, config `bd74ef86`). Kết quả ở mục "Dòng allowlist".
+  - `gh pr checks 30` (run 41621006301, 10:42 UTC): **gitleaks pass**, shellcheck pass, build/test pass, Playwright pass, contract/lint pass. Còn `docker images build · E2E smoke` **pending**.
+  - Không sửa nhánh, không commit, không đăng lên PR.
+
+### Kết luận lượt 2: **ĐẠT CÓ ĐIỀU KIỆN**
+
+- Hai điều kiện gộp của lượt 1 đã xong: FB-01 (Blocker) và FB-02 (Major).
+- Còn một điều kiện: `docker images build · E2E smoke` xanh trên `bd74ef86`, hoặc trên commit cuối nếu OPS đẩy thêm. Khi đó gộp được, không cần ARC duyệt lại.
+- Sau khi gộp: ORC kiểm CI `main` xanh **cả** gitleaks và `publish images`. Việc này đã là điều kiện P0 của runbook.
+- Thẻ mới FB-11 (Minor) sửa ở runbook r2, không chặn gộp.
+
+### Trạng thái thẻ ARC
+
+| ID | Mức | Trạng thái | Ghi chú ARC |
+|---|---|---|---|
+| PR30-01 | Blocker | **Closed** | Đủ 5 ý. (1) 5.0 dùng `rollback.sh sha-e5fffe05ed55` không cờ digest. Phần lên lại đọc digest từ artifact vào biến, kiểm dạng `^sha256:[0-9a-f]{64}…$`, chỉ in 8 hex (`cut -c8-15` bỏ đúng 7 ký tự `sha256:`). (2) Allowlist: xem mục dưới. (3) gitleaks CI pass, kiểm âm ARC tự chạy lại. (4) Quy ước ở README 13.1 và runbook mục 6. (5) P0 và bảng dừng mục 6. Toàn bộ cây `bd74ef86`: digest đầy đủ `7ad36566…`/`f064700d…` chỉ còn ở `gitleaks.toml` và trong tài liệu lịch sử v1.0.2 |
+| PR30-02 | Major | **Closed** | `100755` cả hai tệp. Ca 8 (`-x`) và 8b (gọi thẳng) chạy được, 20/20. `FAKE=()` ở ca 8 không dùng tới, vô hại |
+| PR30-03 | Minor | **Closed** | 1.3, R6, R7, 5.0 đúng câu trả lời Q1. Bước `dc stop worker` trước khi đổi email làm chắc có dòng còn chờ. Bước mở thông báo `qa.owner` đã có. Chỗ nhỏ về khung thời gian ở R6 gom vào FB-11 |
+| PR30-04 | Minor | **Closed** | 1.3 ghi ngoại lệ A → B. R6 dòng 3 và K9 đếm `old_email IS NOT NULL`. Nhánh "> 0 và chạy v1.0.2 quá 7 ngày → ARC + SEC quyết, không SQL tay" đúng ý |
+| PR30-05 | Minor | **Closed** | Regex dạng email ở K4, K9, 5.0, R6. `AT_BASE` đo ở P2 trên v1.0.2. Staging vẫn đòi `0`, đúng vì staging chỉ có địa chỉ giả, và `.test` khớp `[A-Za-z]{2,}`. Trích dẫn trong `ssh '…'` đúng: `\.` trong ngoặc kép của `sh` giữ nguyên. Đã thử mẫu `@nestjs/core@10.3.1`: không khớp |
+| PR30-06 | Minor | **Closed** | K8 bước 3 và 4 dùng `git archive origin/main product/infra/server` ra thư mục tạm, chạy bằng `bash`, rồi `rm -rf`. Không còn `git pull` |
+| PR30-07 | Minor | **Closed** | Phần OPS: P2 dòng 4 ghi "phủ định đúng của CHECK", mục 8 có errata. Phần ARC làm ở lượt này: `rounds/round-04/outputs/ARC/v1.0.3-tech-plan.md` 2.4 đã thay câu đếm và ghi errata ở đầu tệp. Dòng decision-log ARC đưa ORC ghi |
+| PR30-08 | Suggestion | **Deferred v1.0.4 – ARC đồng ý** | Không đổi câu `email_missing` sát giờ phát hành. Errata đã ghi ở tech plan 2.10 (đích v1.0.4, có test và README 13.8). Kèm cách đọc G5 của điều kiện 4 |
+| PR30-09 | Suggestion | **Deferred v1.0.4 – ARC đồng ý** | Lý do của OPS hợp lý: việc này đổi hành vi của hai kiểm đang chạy trên production. Rủi ro hiện tại bằng không, vì ba kiểm đều chạy bằng `POSTGRES_USER`, là superuser. PO đưa vào backlog 5.6 nhóm v1.0.4 |
+| PR30-10 | Suggestion | **Một phần Closed, còn lại Deferred v1.0.4 – ARC đồng ý** | Phần ghi chú (README 13.8, chú thích `mail-test.sh`/`.mjs`) và kiểm `ONEOFF` sau `--send` đã xong. Kiểm `ONEOFF` còn bịt luôn ca container sót khi client chết, rộng hơn đề xuất gốc. Còn lại: `mail-test.mjs` đọc địa chỉ từ stdin, để v1.0.4 |
+
+### Dòng allowlist gitleaks: một regex neo hai đầu, hai digest
+
+```
+'''^(sha256:)?(7ad36566…2d72|f064700d…a9be)$'''   (giá trị đầy đủ ở .github/gitleaks.toml dòng 53)
+```
+
+**ARC chấp nhận cả hai giá trị trong một dòng.** Nhận xét kỹ thuật:
+
+1. **Cần cả giá trị thứ hai.**
+   - CI quét **toàn bộ lịch sử** (`fetch-depth: 0`, `detect --source=/repo`, không có `--log-opts`). `540411de` đã push lên nhánh PR, nên lượt CI của PR quét nó.
+   - Repo gộp PR bằng **merge commit** (PR #22, #29). Sau khi gộp, `540411de` vào lịch sử `main` mãi mãi.
+   - Viết lại lịch sử (force-push bỏ `540411de`) tệ hơn: review SEC/ARC đang trích `540411de`, và nhánh đã chia sẻ.
+   - Nếu sau này đổi sang squash thì giá trị thứ hai thừa nhưng vô hại.
+2. **Neo và phạm vi khớp đúng như mong muốn.**
+   - Allowlist `regexes` của gitleaks 8.21 mặc định so với **giá trị bắt được** (secret), không so với cả dòng. Tiền lệ `^sha-…$` và `^pe1\.…$` cũng dựa vào điều này.
+   - Với chữ `--api-digest sha256:<hex>`, rule `generic-api-key` bắt phần hex sau dấu `:`, vì `[\w.=-]` không chứa `:`. Vế `(sha256:)?` phủ cả hai cách bắt.
+   - Kiểm tại chỗ (image ghim digest của CI, `--no-git`, config `bd74ef86`):
+
+     | Ca | Mã thoát | Nghĩa |
+     |---|---|---|
+     | `--api-digest sha256:<v1.0.1>` | 0 | cho qua |
+     | `--api-digest sha256:<v1.0.2>` | 0 | cho qua |
+     | `--api-digest <v1.0.1>` (không tiền tố) | 0 | cho qua |
+     | `--api-digest sha256:<64 hex ngẫu nhiên>` | **1** | vẫn bắt |
+     | `<v1.0.1>` + `ab` (dài hơn) | **1** | vẫn bắt: neo `$` có tác dụng |
+     | `<v1.0.1>` bỏ 2 ký tự cuối | **1** | vẫn bắt: neo có tác dụng |
+     | digest v1.0.1 **và** `api_key=<40 hex ngẫu nhiên>` trên **cùng dòng** | **1** | khóa thật cùng dòng vẫn bị bắt |
+     | tệp không có gì | 0 | đối chứng |
+
+     Ca cùng dòng là ca quan trọng nhất: dòng allowlist không che một khóa thật nằm cạnh digest.
+3. **Rủi ro bỏ sót bằng không.** Một khóa thật chỉ bị cho qua nếu nó trùng từng bit với digest image công khai, mà điều đó không thể xảy ra. Đây là mục nằm trong `[allowlist]` chung nên áp cho mọi rule, nhưng vì khớp đúng giá trị nên không sao.
+4. **Bảo trì.**
+   - Mỗi lần lỡ dán digest mới thì phải thêm một giá trị. Quy ước "không dán digest vào lệnh hay văn bản" (README 13.1, runbook mục 6) giữ danh sách này đóng.
+   - Lần sau thêm thì **thêm vào cùng nhóm `( | )`** và ghi commit vào chú thích, không mở dòng mới.
+   - Không cần job CI riêng để bắt digest: digest đứng ngoài ngữ cảnh "api/key/token" không bị `generic-api-key` bắt, và cũng không phải bí mật.
+5. **Một chỗ chú thích chưa đủ (không cần sửa):** chữ `f064700d…` đầy đủ cũng có ở `v1.0.2-release-runbook.md` dòng 43 và 212 trên `main` (dạng `api@sha256:…`). gitleaks không bắt chỗ đó vì `@` không phải toán tử của rule. Chú thích "the v1.0.3 runbook draft" vẫn đúng ở chỗ nó là nơi duy nhất **gây** phát hiện. Quy ước chỉ áp từ v1.0.3, nên tài liệu lịch sử để nguyên.
+
+### FB-R4-ARC-OPS-PR30-11
+- Mức độ: Minor
+- Vị trí: runbook r1 mục 7 (dòng decision-log đề nghị của OPS); mục 0 dòng "CHECK 0091 có thể gãy không"; R6 gạch đầu dòng K7.
+- Vấn đề:
+  - (a) Dòng decision-log đề nghị ở mục 7 vẫn ghi "câu đếm CHECK 0091 ở P2 (thêm vế < 3 và chuỗi rỗng)". FB-07 đã chốt bỏ ý "chuỗi rỗng", vì câu cũ đã đếm `''`. Ghi như vậy vào decision-log là ghi sai lý do.
+  - (b) Mục 0 ghi "dòng `app_user.email` khác rỗng mà sai dạng hoặc là chuỗi rỗng `''`". Câu này tự mâu thuẫn ("khác rỗng" rồi lại "là chuỗi rỗng").
+  - (c) R6 so ba số đếm theo ba khung khác nhau: `WORKER_ERR` (K7, 15 phút), `LOG_BAD_TEMPLATE` (`--since 30m`), câu SQL (`24 hours`). Nếu R6 chạy muộn hơn 30 phút sau R4, hoặc có dòng `BAD_TEMPLATE` từ lần thử trước trong 24 giờ, ba số lệch nhau dù không có lỗi.
+- Vì sao quan trọng: (a) đi vào nhật ký quyết định lâu dài. (c) có thể làm ORC dừng nhầm lúc đang quay lui.
+- Đề xuất sửa (runbook r2):
+  - (a) Đổi thành "câu đếm CHECK 0091 ở P2 = phủ định đúng của CHECK (ARC chốt, errata tech plan 2.4)". ORC cũng có thể sửa chữ này lúc ghi decision-log.
+  - (b) Đổi thành "có dòng `app_user.email` không NULL mà CHECK từ chối (sai dạng, ngắn hơn 3, dài hơn 254, hoặc `''`)".
+  - (c) Dùng một mốc chung: giờ R4 (UTC, ghi ở R2) cho cả `dc logs --since` và `created_at >` trong câu SQL, như giờ D của 5.0. Hoặc ghi rõ R6 chạy trong 30 phút sau R4.
+- Trạng thái: Open
+
+### Điểm làm tốt lượt 2
+
+1. OPS kiểm âm dòng allowlist trước khi xin duyệt, không chỉ kiểm "no leaks found". Lần sau thêm allowlist nên giữ đúng cách này.
+2. Cửa test `MAIL_TEST_READ_STDIN` nay cần thêm `MTS_DIR`, và có ca 4b chứng minh. Ca 8b chạy thẳng script, bắt được đúng loại lỗi mà lượt 1 phát hiện bằng tay.
+3. Runbook r1 truy được tới từng thẻ (`ARC PR30-0x`, `SEC PR30-0x`) ngay ở chỗ sửa. Người review lượt 2 đối chiếu nhanh, không phải đọc lại cả tệp.
