@@ -3,6 +3,7 @@
 - Đi kèm: `product/docs/manual/guides/0*.md` (mã ảnh `[ẢNH: Gx-yy-…]`; x = số tệp hướng dẫn: 1 chủ đầu tư/quản lý, 2 lễ tân, 3 buồng phòng, 4 bảo trì, 5 sale/CTV)
 - Lập: BA · 30/10/2026 · Người chụp: QA, trên **staging** bản `v1.0.0` (`8b3aec8`) · Người dựng: UXD
 - Tổng: **19 ảnh mới** (G1: 6 · G2: 7 · G3: 2 · G4: 2 · G5: 2) + **2 ảnh cũ còn thiếu** (C1-15, C2-34).
+- **Desk v1.0.3 (bản 1.6 bộ hướng dẫn, 04/11):** **chụp lại** G1-01 (bảng G1), C0-06, C1-07; ảnh mới C0-12, C0-13, C1-22 định nghĩa ở `../screenshot-list.md` (dùng chung sổ tay). Tài khoản `qa.*` chủ đầu tư, quản lý cần email giả có sẵn để ảnh khác không có dòng nhắc email.
 - Ảnh dùng lại: 86 tệp có sẵn trong `product/docs/manual/img/` (mã `Cx-yy`, giữ nguyên mã). Không dùng: C0-10 (trang khách sau check-in online – check-in online đang tạm dừng tới v1.0.3).
 
 ## Quy tắc chụp
@@ -23,7 +24,7 @@ Theo đúng `product/docs/manual/screenshot-list.md` mục "Quy tắc chung khi 
 
 | Mã | Mục | Màn hình | Vai đăng nhập | Dữ liệu mẫu cần có | Che / ghi chú |
 |---|---|---|---|---|---|
-| G1-01 | 1.4 | Menu **tên của mình → Xác thực 2 bước**: trạng thái **Đang bật từ …**, **Còn … mã khôi phục**, nút **Tạo bộ mã mới** | Quản lý thử | Tài khoản đã bật 2 bước | Không bấm **Tạo bộ mã mới** trên tài khoản dùng chung; nếu bấm thì **che toàn bộ 10 mã** |
+| G1-01 | 1.4 | Menu **tên của mình → Bảo mật tài khoản**, khối **Xác thực 2 bước**: trạng thái **Đang bật từ …**, **Còn … mã khôi phục**, nút **Tạo bộ mã mới** (**chụp lại** trên v1.0.3: ảnh cũ ghi tiêu đề trang **Xác thực 2 bước**, chưa có khối email) | Quản lý thử | Tài khoản đã bật 2 bước | Không bấm **Tạo bộ mã mới** trên tài khoản dùng chung; nếu bấm thì **che toàn bộ 10 mã** |
 | G1-02 | 1.7 | Màn **Dùng mã khôi phục** (sau khi bấm **Mất điện thoại? Dùng mã khôi phục**): ô **Mã khôi phục (16 ký tự)**, nút **Đăng nhập bằng mã khôi phục** | Quản lý thử dùng một lần | Tài khoản dùng một lần, xóa sau khi chụp | Ô mã để trống |
 | G1-03 | 1.7 | **Đăng ký lại trên điện thoại mới** | Như G1-02 (sau khi dùng 1 mã khôi phục) | Như G1-02 | **Che mã QR và khóa nhập tay** |
 | G1-04 | 1.9 | Hộp **Khóa tài khoản** với ô **Mật khẩu đăng nhập**, **Mã trong ứng dụng xác thực (6 số)** | Chủ đầu tư | Người dùng giả vai Buồng phòng | Ô trống. Bấm hủy, không khóa người dùng của QA |

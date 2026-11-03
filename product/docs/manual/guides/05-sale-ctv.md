@@ -79,7 +79,7 @@ Sale/CTV chỉ thấy đơn và khách **của mình**. Không thấy giấy t�
 1. Bấm **tên của mình** ở góc trên bên phải.
 2. Bấm **Đăng xuất**.
 
-Rời máy thì đăng xuất, nhất là máy dùng chung hoặc máy quầy. Menu dưới tên của mình có thêm **Đổi mật khẩu**, **Ngôn ngữ giao diện**, **Giao diện**.
+Rời máy thì đăng xuất, nhất là máy dùng chung hoặc máy quầy. Menu dưới tên của mình có thêm **Đổi mật khẩu**, **Bảo mật tài khoản** (trước v1.0.3 có tên **Xác thực 2 bước**), **Ngôn ngữ giao diện**, **Giao diện**. Từ v1.0.3, ở **Bảo mật tài khoản** anh/chị có thể thêm **Email nhận thông báo bảo mật** (không bắt buộc với sale, CTV). Dùng email riêng, không dùng hộp thư chung như `info@`.
 
 [ẢNH: C0-06-Menu Tài khoản]
 

@@ -2,7 +2,7 @@
 
 - Dành cho: Chủ đầu tư dùng để đào tạo từng bộ phận trước ngày chạy thật **thứ Hai 02/11/2026**
 - Áp dụng cho: **OTTIMO Desk v1.0** – bản phát hành `v1.0.0`, chạy trên Desk thật từ 30/10/2026
-- Lập: BA · 27/10/2026 · Bản nội dung 1.7 (03/11/2026: BA viết lại mục 2.14a khách trả phòng sớm theo nút **Trả sớm** của bản `v1.0.2`, hai nhánh ngắn ngày và HĐ thuê tháng; ghi ngày kết thúc HĐ trước khi gia hạn đơn HĐ – mục 2.12) · Bản 1.6 (01/11/2026: BA thêm vào mục 2.18 giá ước tính trên website và khách viết tiếng Hàn, Trung, Nga, áp dụng khi gói website LP-v2 phát hành; form website ghi đã bật 30/10) · Bản 1.5 (30/10/2026: Product Owner cập nhật theo bản `v1.0.0`, kết quả thử luồng giữ chỗ quá hạn và kiểm từng nút hoàn tiền, đặt đơn, nhận phòng trên bản thật; trước đó đã sửa theo góp ý của chuyên gia nghiệp vụ, Product Owner, bảo mật và kết quả kiểm trên bản thật)
+- Lập: BA · 27/10/2026 · Bản nội dung 1.8 (04/11/2026: BA thêm trang **Bảo mật tài khoản** và email nhận thông báo bảo mật của bản `v1.0.3` – mục 0.2, 0.3, 0.3a, 1.5) · Bản 1.7 (03/11/2026: BA viết lại mục 2.14a khách trả phòng sớm theo nút **Trả sớm** của bản `v1.0.2`, hai nhánh ngắn ngày và HĐ thuê tháng; ghi ngày kết thúc HĐ trước khi gia hạn đơn HĐ – mục 2.12) · Bản 1.6 (01/11/2026: BA thêm vào mục 2.18 giá ước tính trên website và khách viết tiếng Hàn, Trung, Nga, áp dụng khi gói website LP-v2 phát hành; form website ghi đã bật 30/10) · Bản 1.5 (30/10/2026: Product Owner cập nhật theo bản `v1.0.0`, kết quả thử luồng giữ chỗ quá hạn và kiểm từng nút hoàn tiền, đặt đơn, nhận phòng trên bản thật; trước đó đã sửa theo góp ý của chuyên gia nghiệp vụ, Product Owner, bảo mật và kết quả kiểm trên bản thật)
 - Sổ tay không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi đào tạo, anh/chị cũng không ghi những thứ này lên bảng hay vào tài liệu phát tay.
 - **Tài liệu nội bộ OTTIMO – không chụp, không đăng lên mạng. Nghỉ việc thì trả lại.**
 
@@ -71,7 +71,9 @@ Luôn nhớ:
 - Quên mật khẩu: nhờ chủ đầu tư **Đặt lại mật khẩu** (mục 1.5). Desk không có nút "quên mật khẩu".
 - Gõ sai nhiều lần: Desk báo "Bạn đã thử quá nhiều lần. Chờ … phút rồi thử lại."
 
-Menu dưới tên của mình gồm: **Đổi mật khẩu** · **Xác thực 2 bước** · **Ngôn ngữ giao diện** · **Giao diện** (Theo máy / Sáng / Tối) · **Đăng xuất**.
+Menu dưới tên của mình gồm: **Đổi mật khẩu** · **Bảo mật tài khoản** · **Ngôn ngữ giao diện** · **Giao diện** (Theo máy / Sáng / Tối) · **Đăng xuất**. Trước v1.0.3, mục **Bảo mật tài khoản** có tên **Xác thực 2 bước**.
+
+Trang **Bảo mật tài khoản** có hai khối: **Xác thực 2 bước** (mục 0.3) và **Email nhận thông báo bảo mật** (mục 0.3a).
 
 [ẢNH: C0-06-Menu Tài khoản]
 
@@ -98,7 +100,40 @@ Menu dưới tên của mình gồm: **Đổi mật khẩu** · **Xác thực 2 
 
 **Thao tác nhạy cảm** (thêm người dùng, đổi tài khoản nhận tiền, cấp quyền máy…): Desk mở hộp **Xác nhận bằng mật khẩu và mã xác thực**. Mỗi mã chỉ dùng một lần; vừa dùng thì chờ ứng dụng hiện mã mới.
 
-**Sắp hết mã khôi phục:** Desk nhắc "Sắp hết mã khôi phục". Bấm **tên của mình → Xác thực 2 bước → Tạo bộ mã mới** (trên máy riêng). Bộ cũ hết hiệu lực ngay.
+**Sắp hết mã khôi phục:** Desk nhắc "Sắp hết mã khôi phục". Bấm **tên của mình → Bảo mật tài khoản → khối Xác thực 2 bước → Tạo bộ mã mới** (trên máy riêng; trước v1.0.3: **tên của mình → Xác thực 2 bước → Tạo bộ mã mới**). Bộ cũ hết hiệu lực ngay.
+
+### 0.3a Email nhận thông báo bảo mật (có từ v1.0.3)
+
+> **Có từ v1.0.3.** Tới khi v1.0.3 lên, Desk chưa có khối này, và chủ đầu tư vẫn kiểm bảo mật mỗi sáng (mục 1.1).
+
+OTTIMO gửi thư **Security notice** (Thông báo bảo mật) tới địa chỉ này, ví dụ khi xác thực 2 bước của anh/chị được đặt lại hoặc email này thay đổi.
+
+| Vai | Email nhận thông báo bảo mật |
+|---|---|
+| Chủ đầu tư, quản lý | **Bắt buộc.** Chưa có, Desk nhắc trên đầu trang: "Tài khoản của bạn chưa có email nhận thông báo bảo mật. Thêm email để được báo khi có thay đổi quan trọng." Bấm **Thêm email** |
+| Vai khác | Không bắt buộc. Muốn nhận thì thêm như dưới đây |
+
+**Mỗi người tự nhập email của mình:**
+1. Bấm **tên của mình → Bảo mật tài khoản**. Khối **Email nhận thông báo bảo mật** ở dưới khối **Xác thực 2 bước**. Góc phải khối ghi **Chưa có** hoặc **Đã có**.
+2. Chưa có email: nhập vào ô **Email**, bấm **Thêm email**. Đã có: bấm **Đổi email**, nhập địa chỉ mới, bấm **Lưu email**.
+   - Dùng **email riêng của mình**, ví dụ `name@example.com`.
+   - **Không dùng hộp thư chung của cơ sở, như `info@`.** Desk từ chối: "Đây là hộp thư chung của cơ sở. Thông báo bảo mật cần tới một email riêng."
+3. Hộp **Lưu email nhận thông báo bảo mật** hiện **Địa chỉ mới**. Đọc lại từng ký tự. Nhập **Mật khẩu đăng nhập**, và **Mã trong ứng dụng xác thực (6 số)** nếu tài khoản có 2 bước. Bấm **Lưu email**.
+4. Desk báo "Đã lưu. Thông báo đã gửi tới …". Mở hộp thư, tìm thư **OTTIMO – Security notice: notification email changed**. Sau 15 phút chưa thấy: xem mục Spam, rồi kiểm lại địa chỉ.
+
+[ẢNH: C0-12-Khối Email nhận thông báo bảo mật]
+[ẢNH: C0-13-Hộp Lưu email nhận thông báo bảo mật]
+
+- "Mật khẩu hoặc mã chưa đúng. Kiểm tra lại rồi nhập mã mới.": chờ ứng dụng hiện mã mới, nhập lại.
+- "Địa chỉ này đã được lưu. Không có gì thay đổi.": địa chỉ đã đúng, không cần làm gì.
+- "Email chưa đúng dạng, ví dụ ten@example.com.": gõ lại địa chỉ.
+- **Xóa email**: sau khi xóa, anh/chị không nhận thông báo bảo mật qua email nữa. Chủ đầu tư và quản lý muốn thay địa chỉ thì bấm **Đổi email**, không xóa.
+- Chủ đầu tư đặt email cho nhân viên ở **Người dùng & vai** (mục 1.5).
+
+**Ai nhận thư khi email thay đổi.** Mỗi lần email của một tài khoản được thêm, đổi hoặc xóa, OTTIMO gửi thư **Security notice** tới **địa chỉ mới** (khi thêm hoặc đổi), **địa chỉ cũ** (khi đổi hoặc xóa) và **các chủ đầu tư** (mọi lần). Thư không ghi địa chỉ email, không có link, không hỏi mật khẩu hay mã.
+
+- Nhận thư báo email của mình đã đổi mà mình không làm: không trả lời thư. Mở Desk bằng cách **gõ địa chỉ**, **đổi mật khẩu**, báo chủ đầu tư ngay trong ngày.
+- Chủ đầu tư nhận thư báo email của một nhân viên đã đổi mà không biết trước: hỏi lại người đó trong ngày.
 
 ### 0.4 Mất điện thoại, quên mật khẩu
 
@@ -326,6 +361,19 @@ Một người có thể có nhiều vai (ví dụ lễ tân kiêm sale). Không
 - **Khóa tài khoản**: dùng khi nghỉ việc hoặc mất điện thoại. Desk hỏi **Mật khẩu đăng nhập** và **Mã trong ứng dụng xác thực (6 số)**. **Mở khóa** khi cần dùng lại.
 - Trạng thái **Tạm khóa do sai mật khẩu**: chờ hết thời gian khóa, hoặc đặt lại mật khẩu.
 
+**Đặt email cho nhân viên** (có từ v1.0.3, chỉ chủ đầu tư, trên máy riêng):
+1. **Quản trị → Người dùng & vai**. Cột **Email** hiện địa chỉ của từng người hoặc **Chưa có**. Quản lý chưa có email: chữ **Chưa có** hiện trong khung cảnh báo.
+2. Ở dòng người đó, bấm **Sửa email**.
+3. Hộp **Email nhận thông báo bảo mật – {tên}**: nhập email riêng của người đó, ví dụ `name@example.com`. Hỏi tận miệng, đọc lại cho người đó nghe. Không dùng hộp thư chung như `info@`. Bấm **Lưu email**.
+4. Hộp xác nhận hiện **Địa chỉ mới** và câu "OTTIMO sẽ gửi thông báo tới địa chỉ mới, địa chỉ cũ (nếu có) và các chủ đầu tư." Nhập **Mật khẩu đăng nhập** và **Mã trong ứng dụng xác thực (6 số)**. Bấm **Lưu email**.
+5. Desk báo "Đã lưu email của {tên}. Thông báo đã gửi tới …". Nhờ người đó mở hộp thư xem đã có thư **Security notice** chưa.
+
+[ẢNH: C1-22-Hộp Sửa email của nhân viên]
+
+- Xóa email của một người: mở hộp như bước 3, bấm **Xóa email**, xác nhận như bước 4.
+- Dòng của chính anh/chị không có nút: "Đổi email của bạn ở Bảo mật tài khoản." (mục 0.3a). Dòng của chủ đầu tư khác: "Mỗi chủ đầu tư tự đặt email của mình."
+- Quản lý không thấy cột **Email** và không đặt email cho người khác.
+
 ### 1.6 Thiết bị được cấp (chỉ chủ đầu tư)
 
 Máy quầy phải được cấp quyền thì lễ tân mới nhận phòng và xem giấy tờ được.
@@ -355,7 +403,7 @@ Mọi mã VietQR khách quét đều chuyển tiền vào tài khoản này.
 6. Hộp **Kiểm tra trước khi lưu** hiện mã BIN, **Số tài khoản (che)**, tên chủ tài khoản, hiệu lực. Đối chiếu mã BIN, tên chủ tài khoản và 4 số cuối với ứng dụng ngân hàng. Sai thì **← Sửa lại**. Đúng thì bấm **Lưu tài khoản nhận**, xác nhận bằng mật khẩu và mã 6 số.
 7. Desk báo đã lên lịch. Chủ đầu tư và quản lý thấy thông báo trong Desk.
 
-> **Lỗi đang sửa:** ở v1.0 thư báo đổi tài khoản nhận **chưa gửi tới email** của chủ đầu tư. Vì vậy chủ đầu tư kiểm mỗi sáng theo khung ở mục 1.1.
+> **Lỗi đang sửa:** ở v1.0 thư báo đổi tài khoản nhận **chưa gửi tới email** của chủ đầu tư. Vì vậy chủ đầu tư kiểm mỗi sáng theo khung ở mục 1.1. Sửa ở v1.0.3: thư tới email chủ đầu tư nhập ở mục 0.3a.
 
 [ẢNH: C1-11-Tài khoản nhận đang dùng]
 
@@ -1547,6 +1595,8 @@ Luôn nhớ:
 | **Khai báo lưu trú** | Báo khách lưu trú với công an trên cổng khai báo, có hạn (mục 2.11) |
 | **Máy được cấp quyền** | Máy quầy chủ đầu tư cho phép xem giấy tờ khách (mục 0.5) |
 | **Xác thực 2 bước** | Đăng nhập thêm mã 6 số trong ứng dụng trên điện thoại (mục 0.3) |
+| **Bảo mật tài khoản** | Trang mở từ menu dưới tên của mình: khối Xác thực 2 bước và khối Email nhận thông báo bảo mật (mục 0.2; trước v1.0.3 tên là Xác thực 2 bước) |
+| **Email nhận thông báo bảo mật** | Email riêng nhận thư **Security notice** của OTTIMO; bắt buộc với chủ đầu tư, quản lý (mục 0.3a) |
 | **`VD`, `CL`, `VC`, `VI`, `OC`, `OD`, `OOO`** | Trạng thái buồng (mục 3.2) |
 | **Khóa phòng** | Căn tạm không bán để sửa chữa |
 | **Desk tập** | Bản Desk dùng để tập, dữ liệu giả, không chuyển tiền thật (mục 5.8) |
@@ -1719,7 +1769,7 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 
 | Lỗi | Cách tạm | Mục |
 |---|---|---|
-| Thư báo bảo mật chưa gửi tới chủ đầu tư | Chủ đầu tư kiểm bảo mật mỗi sáng trước 09:00 (quản lý cùng đối soát) | 1.1 |
+| Thư báo bảo mật chưa gửi tới chủ đầu tư (sửa ở v1.0.3: nhập email ở mục 0.3a) | Chủ đầu tư kiểm bảo mật mỗi sáng trước 09:00 (quản lý cùng đối soát), tới khi đội bảo mật báo bỏ | 1.1, 0.3a |
 | Giữ chỗ quá hạn có cọc chưa báo vào **Cần chú ý**; giữ chỗ có yêu cầu giảm giá/FOC không tự hủy | Rà 3 mốc mỗi ngày (mở quầy ≤ 09:00, 11:00, trước khi rời quầy ≤ 21:00) ở **Đơn đặt phòng** → **Đang hiệu lực** → **Giữ chỗ · chờ cọc**; xử lý trước 12:00 ngày đến | 2.1, 2.4 |
 | Giữ chỗ **có cọc** đã quá hạn: Desk từ chối **Xác nhận đã nhận cọc**, không gia hạn được; chỉ còn **Hủy giữ chỗ** | Phòng trước (xác nhận, gia hạn trước hạn). Sau hạn: hủy – hoàn, hoặc để nguyên đơn rồi hủy – đặt lại (thu đủ cọc lúc đặt) – thu phần còn lại khi nhận phòng – chủ đầu tư hoàn cọc cũ khi khách đến | 2.4 |
 | Giữ chỗ có cọc quá hạn: khung đơn ghi "**đơn đã tự hủy**", câu lỗi ghi "căn đã **mở bán lại**", hộp hủy ghi "**Không thu phí**" | Tin trạng thái **Giữ chỗ · chờ cọc**: đơn chưa hủy, căn vẫn giữ. Hủy thì Desk vẫn tạo yêu cầu hoàn đủ số đã nhận | 2.4, 2.8 |
@@ -1742,6 +1792,7 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 
 | Bản | Ngày | Người | Thay đổi |
 |---|---|---|---|
+| 1.8 | 04/11/2026 | BA (FB-R4-UXD-FE-EM-09, Desk v1.0.3 – BUG-R3-032) | **Áp dụng từ khi chủ đầu tư báo v1.0.3 đã lên.** Mục menu **Xác thực 2 bước** đổi tên thành **Bảo mật tài khoản** (0.2, 0.3). Mục 0.3a mới: email nhận thông báo bảo mật, mỗi người tự nhập (mật khẩu + mã), không dùng `info@`, ai nhận thư Security notice. Mục 1.5: chủ đầu tư **Sửa email** cho nhân viên. Mục 1.7, 5.6, bảng thuật ngữ: thêm chỗ dẫn. Chữ theo chuỗi Desk `shell.account_security`, `secmail.*`, `users.*email*`, `secnudge.*` (nhánh `v1.0.3-email` @ `3aaa971c`). Ảnh cần chụp lại: C0-06, C1-07; ảnh mới chờ chụp: C0-12, C0-13, C1-22 |
 | 1.7 | 03/11/2026 | BA (FB-R4-DOM-BA-05, ESC-048 = B, ORC 03/11) | Mục 2.14a viết lại theo nút **Trả sớm** của Desk v1.0.2: thao tác chung, nhánh ngắn ngày (BR-428), nhánh HĐ thuê tháng (BR-313 v0.5.1, ESC-048: kiểm ngày kết thúc HĐ và kỳ thu cuối, ranh giới tháng lịch cuối, hỏi quản lý trước khi báo khách, quyết toán ký quỹ BR-214, chốt công tơ và biên bản kiểm phòng ngày rời), giới hạn tới v1.0.3; bỏ cách tạm cũ. 1.11 (quản lý không giảm tiền trên folio bằng tay); 2.7 bảng kỳ thu thêm ngày kết thúc HĐ và ngày đã thu; 2.12 Gia hạn bước 6 (ghi "HĐ kết thúc dd/mm/yyyy, gia hạn tới dd/mm/yyyy" trước khi bấm); 2.21; 5.6 (bỏ dòng "Nút trả phòng sớm", thêm giới hạn đơn HĐ tới v1.0.3). Chữ khung HĐ theo chuỗi Desk @ `52702857` (FE-A sửa theo UXD thẻ 26–31) Bổ sung cùng ngày (BA, QC v1.0.2 ĐK9): đổi đích "tới v1.0.1" của cách tạm và lỗi đang sửa sang **v1.0.3**, **v1.0.3 hoặc v1.0.4** hoặc **bản vá sau** theo backlog 5.6 (PO 03/11) và release notes; v1.0.1 (đã lên 03/11) chỉ có tin Google Chat. Tên mục cách tạm thành "Tạm thời tới v1.0.3 và các bản sau" (`01` 15, `02` 17, `03` 12, `04` 9, `05` 8). Không đổi nghiệp vụ. |
 | 1.6 | 01/11/2026 | BA (BUG-R4-010, US-175 AC6 sửa theo ESC-044 và INV 01/11 câu 9; US-131 AC10; BR-912 (4); câu mẫu CPY lượt 5) | Mục 2.18: form website **đã bật từ chiều 30/10** (bỏ khung "đang tắt"); giá ước tính trên website và dòng **Giá ước tính khách đã thấy**, cảnh báo **"Khác giá web khách đã thấy: {cũ} → {mới}"** ở hộp báo giá; khách tiếng Hàn, Trung, Nga: cột và lọc **Ngôn ngữ**, mặc định tiếng Anh (Русский cho khách tiếng Nga, kèm câu "Khách viết bằng tiếng Nga – gửi tin bằng tiếng Nga."), được dùng Google Dịch trên mọi màn hình Desk, 3 câu mẫu, hạn trả lời. Áp dụng khi gói website LP-v2 phát hành. Tối 01/11 (BUG-R4-010 lượt 3): sửa tên cảnh báo chênh giá và thêm câu ghi chú khách tiếng Nga cho khớp chữ Desk `lp-v2` @ `0a25716a` |
 | 1.5 | 30/10/2026 | PO theo DOM, SEC xác nhận sau QA thử luồng và QA kiểm nút trên Desk (qa3-rc1.md mục 20.8) | Hẹn khách hoàn cọc khi chủ đầu tư vắng: chuyển khoản **trong 24 giờ** (không "trong ngày"), tiền mặt chỉ khi chủ đầu tư đã hẹn giờ; chủ đầu tư đối soát cọc cũ trước khi chi (2.4); giảm giá/FOC xin lại: Desk áp ngay trong hạn mức quản lý, vượt mức chờ chủ đầu tư (2.4); cọc chuyển sau hạn: kiểm **Đã thu** đơn cũ, ghi **Chuyển khoản** không chọn VietQR, không gộp tiền mặt (2.4); đơn đặt lại cùng **Kênh** và **Nguồn / CTV** (2.4); đủ bước **Nhập nơi nhận hoàn** → **Cách hoàn** (chọn sẵn Tiền mặt) → **Lưu**, chỉ trên máy đã cấp quyền (0.5, 1.12, 2.4, 2.8, 2.17); **Cách thanh toán** chọn sẵn Chuyển khoản VietQR (2.4, 2.5, 2.13); một cách thanh toán mỗi lần thu khi đặt đơn và nhận phòng (2.13); tách nhiệm hoàn tiền đúng Desk – chủ đầu tư chi được khoản chuyển khoản do mình tạo (1.8, 2.8, 2.17); lý do hủy cho đơn nhập nhầm (2.8) |
