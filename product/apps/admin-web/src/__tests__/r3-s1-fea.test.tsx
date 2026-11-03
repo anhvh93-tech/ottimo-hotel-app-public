@@ -269,10 +269,13 @@ describe('US-143 enrollment (MFA_ENFORCED = true)', () => {
   });
 
   it('not enforced: owner without 2FA sees the nudge on every screen; "Để sau" hides it', async () => {
+    // v1.0.3: with an email on file only the 2FA reminder shows (no 2FA + no email = one merged banner).
+    userOf('qa.owner').email = 'owner@example.test';
     const { user } = renderApp('/settings/rooms', 'qa.owner');
     await screen.findByRole('heading', { name: /Danh mục căn/ });
-    expect(screen.getByText(tv('mfa.nudge'))).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: tv('mfa.nudge_later') }));
+    const nudge = screen.getByText(tv('mfa.nudge')).closest('.alert') as HTMLElement;
+    // v1.0.3: the security email reminder has its own "Để sau" – this one is the 2FA reminder's.
+    await user.click(within(nudge).getByRole('button', { name: tv('mfa.nudge_later') }));
     expect(screen.queryByText(tv('mfa.nudge'))).not.toBeInTheDocument();
   });
 });
@@ -354,7 +357,8 @@ describe('S2 dialog and "Xác thực 2 bước"', () => {
     // FD without 2FA opening the security page – only "Bật ngay"; dialog shape checked through the menu link.
     const { user } = renderApp('/today', 'qa.fd');
     await user.click(await screen.findByRole('button', { name: /Hạnh · Lễ tân/ }));
-    await user.click(screen.getByRole('link', { name: tv('shell.security') }));
+    // v1.0.3: the menu entry is "Bảo mật tài khoản" (2FA + security email).
+    await user.click(screen.getByRole('link', { name: tv('shell.account_security') }));
     expect(await screen.findByText(tv('mfa.status_off'))).toBeInTheDocument();
     expect(screen.getByRole('link', { name: tv('mfa.nudge_cta') })).toHaveAttribute(
       'href',

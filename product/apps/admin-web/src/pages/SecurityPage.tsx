@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../app/api';
 import { Page, Topbar } from '../components/AppShell';
 import { RecoveryCodesPanel } from '../components/RecoveryCodes';
+import { SecurityEmailCard } from '../components/SecurityEmailCard';
 import { ErrorBlock, LoadingBlock } from '../components/states';
 import { StrongReauthDialog } from '../components/StrongReauthDialog';
 import { useResource } from '../hooks/useResource';
@@ -16,7 +17,8 @@ export const RECOVERY_LOW = 3;
 /**
  * "Xác thực 2 bước" (SEC 06.35, US-143 AC3): status, recovery codes left, create a new set (S2), turn off
  * for voluntary roles only (S2), the sole-owner reminder (ESC-027 B, AC3 c) and the notice after a sign-in
- * with a recovery code (AC3 a). Opened from the user menu; every role.
+ * with a recovery code (AC3 a). Opened from the user menu; every role. v1.0.3 (BUG-R3-032): the page is now
+ * "Bảo mật tài khoản" and also holds the security email block (`SecurityEmailCard`).
  * [CHỜ UXD] hi-fi R3 "Bảo mật của tôi" – built from DS cards/alerts for now.
  */
 export function SecurityPage() {
@@ -30,7 +32,7 @@ export function SecurityPage() {
   const s = state.data;
   return (
     <>
-      <Topbar title={t('shell.security')} />
+      <Topbar title={t('shell.account_security')} />
       <Page>
         <div className="stack" style={{ maxWidth: 640 }}>
           {state.status === 'error' && !s ? (
@@ -104,6 +106,8 @@ export function SecurityPage() {
               )}
             </section>
           )}
+          {/* v1.0.3 BUG-R3-032: own security email (every role; reminder for owner/manager). */}
+          {codes ? null : <SecurityEmailCard />}
         </div>
         <StrongReauthDialog
           open={dialog === 'regen'}

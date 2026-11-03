@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../app/api';
 import { timeHHmm } from '../app/dates';
+import { SECURITY_EMAIL_ANCHOR } from '../app/email';
 import { useLiveEvents } from '../app/live';
 import { readSession, writeSession } from '../app/storage';
 import { useNarrow } from '../hooks/useMedia';
@@ -311,55 +312,102 @@ export function Topbar({ title, sub, actions }: TopbarProps) {
           {t('shell.offline_readonly', { time: timeHHmm(since ?? new Date()) })}
         </OfflineBar>
       ) : null}
-      <MfaNudge />
+      <SecurityNudges />
     </>
   );
 }
 
 const NUDGE_LATER_KEY = 'ottimo.mfaNudgeLater';
+const EMAIL_NUDGE_LATER_KEY = 'ottimo.securityEmailNudgeLater';
 
 /**
- * SEC 06.3 / 06.15: owner/manager without 2FA while `MFA_ENFORCED = false` (`Me.mfaRequiredButMissing`) and
- * accounts with ≤ 3 recovery codes (`Me.recoveryCodesLow`) see a reminder on every screen. "Để sau" hides
- * it for this tab session only (UI flag, wiped at sign-out). Not on the 2FA screen itself.
- * [CHỜ UXD] placement in the R3 hi-fi (hi-fi 01-login 1.4 shows the banner, not where it sits).
+ * Account reminders on every screen except /security (each "Để sau" hides its reminder for this tab session
+ * only – UI flags in sessionStorage, wiped at sign-out):
+ * - SEC 06.3 / 06.15: owner/manager without 2FA while `MFA_ENFORCED = false` (`Me.mfaRequiredButMissing`), or
+ *   ≤ 3 recovery codes left (`Me.recoveryCodesLow`).
+ * - v1.0.3 BUG-R3-032 (OpenAPI 0.3.10): owner/manager without a notification email (`Me.securityEmailMissing`),
+ *   full sessions only, linking to the block on Bảo mật tài khoản.
+ * UXD FB-R4-UXD-FE-EM-04: no 2FA AND no email (neither put off) → ONE banner "Mở Bảo mật tài khoản" whose
+ * "Để sau" puts off both; otherwise each reminder on its own (low codes + no email stay two – different asks).
  */
-function MfaNudge() {
+function SecurityNudges() {
   const { t } = useI18n();
   const { me } = useSession();
   const location = useLocation();
   const navigate = useNavigate();
-  const [later, setLater] = useState(() => readSession(NUDGE_LATER_KEY) === '1');
-  if (later || location.pathname === '/security') return null;
-  const missing = me?.mfaRequiredButMissing === true;
+  const [mfaLater, setMfaLater] = useState(() => readSession(NUDGE_LATER_KEY) === '1');
+  const [emailLater, setEmailLater] = useState(() => readSession(EMAIL_NUDGE_LATER_KEY) === '1');
+  if (location.pathname === '/security') return null;
+  const mfaMissing = me?.mfaRequiredButMissing === true;
   const low = me?.recoveryCodesLow === true;
-  if (!missing && !low) return null;
-  return (
-    <div style={{ padding: '8px 16px 0' }}>
-      <Alert
-        tone="warn"
-        icon="shield"
-        actions={
-          <>
-            <Button size="sm" onClick={() => navigate(missing ? '/enroll-2fa' : '/security')}>
-              {t(missing ? 'mfa.nudge_cta' : 'mfa.regen')}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                writeSession(NUDGE_LATER_KEY, '1');
-                setLater(true);
-              }}
-            >
-              {t('mfa.nudge_later')}
-            </Button>
-          </>
+  const showMfa = !mfaLater && (mfaMissing || low);
+  const showEmail =
+    !emailLater &&
+    me?.securityEmailMissing === true &&
+    !me.mustChangePassword &&
+    !me.mfaEnrollmentRequired;
+  const later = (mfa: boolean, email: boolean) => (
+    <Button
+      size="sm"
+      variant="ghost"
+      onClick={() => {
+        if (mfa) {
+          writeSession(NUDGE_LATER_KEY, '1');
+          setMfaLater(true);
         }
-      >
-        {t(missing ? 'mfa.nudge' : 'mfa.codes_low_short')}
+        if (email) {
+          writeSession(EMAIL_NUDGE_LATER_KEY, '1');
+          setEmailLater(true);
+        }
+      }}
+    >
+      {t('mfa.nudge_later')}
+    </Button>
+  );
+  const banner = (text: string, action: ReactNode) => (
+    <div style={{ padding: '8px 16px 0' }}>
+      <Alert tone="warn" icon="shield" actions={action}>
+        {text}
       </Alert>
     </div>
+  );
+
+  if (showMfa && showEmail && mfaMissing) {
+    return banner(
+      t('secnudge.both'),
+      <>
+        <Button size="sm" onClick={() => navigate('/security')}>
+          {t('secnudge.open')}
+        </Button>
+        {later(true, true)}
+      </>,
+    );
+  }
+  return (
+    <>
+      {showMfa
+        ? banner(
+            t(mfaMissing ? 'mfa.nudge' : 'mfa.codes_low_short'),
+            <>
+              <Button size="sm" onClick={() => navigate(mfaMissing ? '/enroll-2fa' : '/security')}>
+                {t(mfaMissing ? 'mfa.nudge_cta' : 'mfa.regen')}
+              </Button>
+              {later(true, false)}
+            </>,
+          )
+        : null}
+      {showEmail
+        ? banner(
+            t('secmail.nudge'),
+            <>
+              <Button size="sm" onClick={() => navigate(`/security#${SECURITY_EMAIL_ANCHOR}`)}>
+                {t('secmail.add')}
+              </Button>
+              {later(false, true)}
+            </>,
+          )
+        : null}
+    </>
   );
 }
 

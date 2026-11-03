@@ -6,7 +6,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { OPENAPI_SCHEMAS } from '../src/generated/openapi-schemas';
-import { RBAC_FIELD_DENY, rbacFieldAllows } from '../src/shared/serialization/field-policy';
+import { OPENAPI_META } from '../src/generated/openapi-meta';
+import type { Shape } from '../src/shared/openapi-types';
+import {
+  RBAC_FIELD_DENY,
+  SELF_DATA_FIELDS,
+  rbacFieldAllows,
+} from '../src/shared/serialization/field-policy';
 import {
   UndeclaredResponseError,
   responseShapeFor,
@@ -145,6 +151,118 @@ describe('role serializer – x-rbac-field (rbac-matrix 6, cells K)', () => {
   it('public operations (no roles) never receive role-restricted or D-coded fields', () => {
     const out = ser('Guest', guest, []);
     expect(Object.keys(out).sort()).toEqual(['code', 'id', 'version']);
+  });
+});
+
+describe("role serializer – the caller's own data (SELF_DATA_FIELDS, BUG-R4-018 / BUG-R4-022)", () => {
+  const LOW = ['housekeeping', 'maintenance', 'sales_staff', 'collaborator'];
+  const me = {
+    id: '01890000-0000-7000-8000-000000000009',
+    displayName: 'hk',
+    csrfToken: 'c',
+    properties: [],
+    email: 'hk@example.test',
+    securityEmailMissing: false,
+  };
+
+  it('Me.email (getMe / login / loginMfa) and the setMyEmail answer reach every role', () => {
+    for (const r of [...LOW, 'front_desk', 'owner']) {
+      for (const op of ['getMe', 'login', 'loginMfa']) {
+        const out = serializeResponse(op, 200, me, { roles: [r] }) as Record<string, unknown>;
+        expect({ r, op, email: out.email }).toEqual({ r, op, email: 'hk@example.test' });
+        expect(out.securityEmailMissing).toBe(false);
+      }
+      expect(
+        serializeResponse('setMyEmail', 200, { email: 'hk@example.test' }, { roles: [r] }),
+      ).toEqual({
+        email: 'hk@example.test',
+      });
+    }
+  });
+
+  it('own 2FA secrets reach every role (C3 rule unchanged: only in x-c3-log answers)', () => {
+    const codes = Array.from({ length: 10 }, (_, i) => `AAAA-BBBB-CCCC-000${i}`);
+    for (const r of LOW) {
+      const setup = serializeResponse(
+        'startMy2faSetup',
+        200,
+        { otpauthUri: 'otpauth://totp/OTTIMO:hk?secret=X', expiresAt: '2026-11-03T10:00:00+07:00' },
+        { roles: [r], c3: OPENAPI_META.operations.startMy2faSetup!.c3Log },
+      ) as Record<string, unknown>;
+      expect(setup.otpauthUri).toBe('otpauth://totp/OTTIMO:hk?secret=X');
+      for (const op of ['confirmMy2fa', 'regenerateMyRecoveryCodes']) {
+        const out = serializeResponse(
+          op,
+          200,
+          { recoveryCodes: codes },
+          { roles: [r], c3: OPENAPI_META.operations[op]!.c3Log },
+        ) as Record<string, unknown>;
+        expect(out.recoveryCodes).toEqual(codes);
+      }
+      // C3 still gates: without x-c3-log the secret is dropped even for the caller
+      const noC3 = serializeResponse(
+        'startMy2faSetup',
+        200,
+        { otpauthUri: 'otpauth://x' },
+        { roles: [r] },
+      );
+      expect(noC3).toEqual({});
+    }
+  });
+
+  it('nothing else is relaxed: User.email stays OWN only, other D27 fields stay hidden, a nested `email` is not covered', () => {
+    const user = {
+      id: me.id,
+      username: 'u',
+      displayName: 'hk',
+      status: 'active',
+      roles: [],
+      version: 1,
+      email: 'hk@example.test',
+    };
+    for (const r of [...LOW, 'manager', 'front_desk']) {
+      expect('email' in ser('User', user, [r])).toBe(false);
+    }
+    expect(ser('User', user, ['owner']).email).toBe('hk@example.test');
+    // serializeSchema of Me (no operation) uses the same schema key – still the caller's own object
+    expect(ser('Me', me, ['housekeeping']).email).toBe('hk@example.test');
+    // AuditEvent.actorName (D27) unchanged for HK even inside any operation
+    const e = {
+      occurredAt: '2026-10-16T09:00:00+07:00',
+      actorType: 'user',
+      category: 'money',
+      action: 'x',
+      actorName: 'Hạnh',
+    };
+    expect('actorName' in ser('AuditEvent', e, ['housekeeping'])).toBe(false);
+  });
+
+  it('every SELF_DATA_FIELDS key is a D-tagged direct property of a self-only answer', () => {
+    const SELF_ONLY_SCHEMAS = { Me: ['getMe', 'login', 'loginMfa'] };
+    for (const key of SELF_DATA_FIELDS) {
+      const [owner, prop] = key.split('.') as [string, string];
+      let shape: Shape | undefined;
+      if (owner in SELF_ONLY_SCHEMAS) {
+        shape = OPENAPI_SCHEMAS.schemas[owner];
+      } else {
+        const op = OPENAPI_META.operations[owner];
+        expect(op?.path, key).toMatch(/^\/v1\/me(\/|$)/);
+        shape = OPENAPI_SCHEMAS.responses[owner]?.['200'];
+      }
+      expect(shape?.k, key).toBe('object');
+      const p = shape && shape.k === 'object' ? shape.props[prop] : undefined;
+      expect(p?.f, key).toBeDefined();
+    }
+    // `Me` is returned by exactly these operations (a new one must be reviewed here)
+    const usingMe = Object.entries(OPENAPI_SCHEMAS.responses)
+      .filter(([, byStatus]) => JSON.stringify(byStatus).includes('"name":"Me"'))
+      .map(([op]) => op)
+      .sort();
+    expect(usingMe).toEqual([...SELF_ONLY_SCHEMAS.Me].sort());
+    const refsToMe = Object.entries(OPENAPI_SCHEMAS.schemas)
+      .filter(([, s]) => JSON.stringify(s).includes('"name":"Me"'))
+      .map(([n]) => n);
+    expect(refsToMe).toEqual([]);
   });
 });
 

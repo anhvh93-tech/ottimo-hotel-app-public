@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OTTIMO Desk API
-  version: 0.3.9-draft
+  version: 0.3.10-draft
   summary: Hợp đồng API bản nháp cho các story Must Round 2 (R1 Pha B – ARC)
   description: |
     Bản nháp hợp đồng API (contract-first, ADR-001). Nguồn sự thật cho kiểu dữ liệu dùng chung
@@ -228,7 +228,8 @@ info:
     | TOO_LONG | Vượt độ dài tối đa | V-01, text |
     | NAME_INVALID | Họ tên sai ký tự | V-01 |
     | PHONE_INVALID · PHONE_COUNTRY_CODE_REQUIRED | SĐT sai dạng / số nước ngoài thiếu `+mã nước` | V-02 |
-    | EMAIL_INVALID | Email sai dạng | V-03 |
+    | EMAIL_INVALID | Email sai dạng. **0.3.10 (v1.0.3, BUG-R3-032)**: email nhận thư bảo mật của nhân viên – sau khi server cắt khoảng trắng: rỗng, > 254 ký tự, không đúng dạng `local@domain` hoặc có ký tự điều khiển (xóa email = gửi `null`, không gửi chuỗi rỗng) | V-03; `setMyEmail`, `updateUser` (trường `email`) |
+    | EMAIL_SHARED_MAILBOX | **0.3.10 (v1.0.3, BUG-R3-032, SEC-on-B2-readiness 1.4)** – email nhận thư bảo mật trùng địa chỉ gửi của máy chủ (`EMAIL_FROM`, hộp chung của cơ sở; so phần địa chỉ, không phân biệt hoa thường). Máy chủ không cấu hình `EMAIL_FROM` (dev/CI, staging `mock`) thì không kiểm. Kiểm **trước** xác nhận lại S2, không ghi gì, không đếm sai | `setMyEmail`, `updateUser` (trường `email`) |
     | TAX_CODE_INVALID | MST sai dạng | V-04 |
     | DATE_INVALID · DATE_ORDER · DATE_IN_PAST | Ngày sai lịch / ngày đi ≤ ngày đến / trước ngày nghiệp vụ. **0.3.6 bổ sung 2 (BA v0.3, ARC 17/10)**: `DATE_INVALID` là mã **chính thức** cho `changeRoom.effectiveDate` ≠ ngày nghiệp vụ hôm nay (không dùng `VALUE_OUT_OF_RANGE`) | V-05; `changeRoom.effectiveDate` |
     | DOB_FUTURE · DOB_MINOR · DOB_INVALID | Ngày sinh | V-06 |
@@ -241,6 +242,7 @@ info:
     | NOT_EDITABLE | Trường không đổi được sau khi tạo – `updateItem.code` (mã danh mục là khóa ổn định của nhãn folio/kiểm minibar – FB-R2-ARC-BE-S3-32) – 0.3.7 bổ sung 3 | `updateItem` |
     | MAX_OCCUPANCY_RANGE | `maxOccupancy` ∉ {`baseOccupancy`, `baseOccupancy` + 1} (ESC-014, BR-110 v0.3.1) | `createRoom`, `updateRoom` |
     | LAST_OWNER | Bỏ vai `owner` / khóa tài khoản của OWN `active` cuối cùng của cơ sở (rbac 5.3) – `field` = `roles` hoặc `status` | `setUserRoles`, `updateUser` |
+    | NOT_ALLOWED_FOR_SELF | Thao tác phạm vi tài khoản trên **chính** tài khoản người gọi qua `updateUser` – `field` = `status`, `resetPassword` (đã cài từ R2, FB-R2-SEC-BE-15; ghi vào bảng ở 0.3.10) hoặc **`email`** (0.3.10 – email của mình đổi bằng `setMyEmail`). Kiểm trước S2, không ghi gì | `updateUser` |
     | MIN_STAY_NOT_MET | Ngày đến có ở tối thiểu (BR-113) mà số đêm thấp hơn; FDL+ bỏ qua bằng `minStayOverrideReason` (đơn trực tiếp); không áp đơn OTA nhập tay. 0.3.5: kèm `minStayNights`; nhóm có căn mà khoảng ngày là đêm lẻ → kèm `suggestions[]` `orphanNight=true` (lễ tân chọn căn đó; quầy R2 không tự gán căn) | `createReservation`, `calculateQuote`, `saveQuote` |
     | OTA_REF_DUPLICATE | `otaRef` + kênh trùng đơn khác chưa hủy | `createReservation` |
     | RATE_OUT_OF_RANGE_WARNING | Kênh `ota`: giá đêm ngoài sàn–trần (BR-105) **và** thiếu `rateOverrideReason` → client hiện **cảnh báo** + ô lý do rồi gửi lại; có lý do thì lưu (kênh `direct`/`agent` vẫn là `RATE_OUT_OF_RANGE` chặn) | `createReservation` |
@@ -295,6 +297,23 @@ info:
     | REQUEST_TYPE_NOT_AVAILABLE | Loại yêu cầu không dùng được lúc này (`available=false` ở `listGuestRequestOptions`; loại có phí khi đơn chưa `in_house`; đã có 3 yêu cầu có phí đang mở) (B-14/B-16) – 0.3.6 | `createGuestRequest` |
     | PERFORMED_AT_OUT_OF_RANGE | `performedAt` ngoài [giờ server − 24 giờ, giờ server + 5 phút] (SR-PWA-05) hoặc trước mốc `since` của trạng thái hiện tại – lệnh từ hàng đợi offline quá cũ; PWA đưa mục vào "Không áp dụng được" (0.3.7, B-02/BA E07-02) | `transitionRoomStatus`, `transitionHkTask`, `recordInspection`, `recordMinibarCheck` |
     | FILE_TYPE · FILE_TOO_LARGE · TOO_MANY_FILES | Chi tiết của `422 FILE_REJECTED` (`errors[]`): sai loại theo magic bytes (không JPEG/PNG/WebP) · > 10 MB hoặc > 40 MP · vượt 4 ảnh/người hoặc 30 tệp/đơn (SR-FILE-01/02, SR-RL-05) – 0.3.3 E06-07 | `uploadGuestDocument`, `addGuestDocument`, `uploadAttachment` |
+
+    ## Thay đổi phiên bản 0.3.10-draft (R4 v1.0.3 – BUG-R3-032 email nhận thư bảo mật; SEC-on-B2-readiness 1.5; ARC 03/11; hướng dẫn `rounds/round-04/outputs/ARC/v1.0.3-contract-email.md`)
+    Chỉ cộng thêm, không đổi `x-roles` của operation đã có. **Trùng nhãn với nhánh `lp-v2`** (chưa gộp, cũng ghi 0.3.10-draft + migration 0091): theo luật gộp sau đổi số (tech plan v1.0.3 mục 5.2),
+    nhánh gộp vào `main` **sau** đổi nhãn thành 0.3.11-draft (giữ ghi chú "trước đây 0.3.10 trên nhánh …" để tra decision-log) và đổi số migration.
+    **Mới `setMyEmail`** (`PUT /v1/me/email`, mọi vai nhân viên, **S2**, `Idempotency-Key`): đặt / đổi / xóa (`null`) email nhận thư bảo mật của **chính mình**.
+    **`updateUser.email`** (OWN, **S2**): OWN đặt / đổi / xóa email của MGR và nhân viên; người đích đang có vai `owner` (chưa thu hồi, ở bất kỳ cơ sở nào) → `403 FORBIDDEN_ACTION`
+    + audit `access.denied`; chính mình → `422 NOT_ALLOWED_FOR_SELF` (`field` = `email`); phạm vi tài khoản → cần sở hữu mọi cơ sở của người đó (như `status`). `updateUser` khai thêm `401 ReauthFailed`.
+    **Danh sách S2 (`x-strong-reauth`) 0.3.10** = danh sách 0.3.8 + `setMyEmail`; `updateUser` cần `reauth` khi có `status`, `resetPassword` **hoặc `email`**. BE giữ `STRONG_REAUTH_OPERATIONS`
+    khớp spec (`be-c-r3-s1-units.test.ts`) → **CỔNG: hợp đồng + BE cùng PR** (PR-1 `v1.0.3-email`).
+    **Schema**: `Me.email` (email của chính người gọi, đầy đủ), `Me.securityEmailMissing` (người gọi có vai `owner`/`manager` chưa thu hồi mà chưa có email), `User.email` (`x-visible-to: [owner]`).
+    `UserCreate` **không** có `email` ở 0.3.10 (tạo xong rồi sửa). Không thêm email vào `staff-directory`, `listCloserCandidates` hay danh sách nào khác (D27 – chỉ tên hiển thị).
+    **Mã trường**: `EMAIL_INVALID` (mở rộng), `EMAIL_SHARED_MAILBOX` (mới), `NOT_ALLOWED_FOR_SELF` (đã cài từ R2, nay ghi vào bảng). Không có `Problem.code` mới. Email **không** unique.
+    **Sự kiện** (cả hai operation, chỉ khi giá trị thật sự đổi): audit `security` `user.email_changed` (`before.emailMasked`, `after.emailMasked` dạng `a***@g***.com` hoặc `null`,
+    `after.via` = `self|owner` – không bao giờ ghi địa chỉ đầy đủ); thông báo `account_security_change` (kind có sẵn, `refCode = user.email_changed`) cho người được đổi và mọi `owner` **của cơ sở đang mở trong phiên người thao tác**;
+    outbox `staff.email` mẫu **`email_changed`** tới địa chỉ **mới** (`self`), địa chỉ **cũ** (`previous`) và mọi `owner` có email của **mọi cơ sở người được đổi còn vai** cộng cơ sở của phiên (`owner`)
+    – tập nhận thư ⊇ tập nhận thông báo trong app (bằng nhau khi chỉ có 1 cơ sở; ARC FB-R4-ARC-BE-31-01, BE G-BE-1) – payload chỉ có id (`emailChangeId`), không có địa chỉ;
+    địa chỉ cũ giữ ở bảng `user_email_change` (migration **0091**, erd 4.16) tới khi thư báo xong. Không thu hồi phiên. Không xác minh email ở 0.3.10 (thư `self` là thư xác nhận đã nhận).
 
     ## Thay đổi phiên bản 0.3.9-draft (R3 Phản hồi & sửa – bản vá **v1.0.1** (04/11); chi tiết `rounds/round-03/outputs/ARC/contract-v1.0.1.md`, ADR-015)
     Chỉ cộng thêm, không đổi `x-roles`; v1.0.0 (B2 28/10) chạy hợp đồng 0.3.8 – không gộp 0.3.9 vào nhánh phát hành v1.0.0.
@@ -816,6 +835,58 @@ paths:
         '401': { $ref: '#/components/responses/ReauthFailed' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /v1/me/email:
+    put:
+      tags: [auth]
+      operationId: setMyEmail
+      summary: Đặt / đổi / xóa email nhận thư bảo mật của chính mình (BUG-R3-032, SEC 06.15, SEC-on-B2-readiness 1.5) – S2
+      description: |
+        **0.3.10 (R4 v1.0.3)**. Mọi vai nhân viên (rbac A112 – "của mình"); Desk có ô ở **Bảo mật tài khoản**, PWA không làm UI. Phiên hạn chế (mật khẩu tạm,
+        chưa đăng ký 2FA) bị guard chặn như mọi operation khác (`403 PASSWORD_CHANGE_REQUIRED` / `MFA_ENROLLMENT_REQUIRED`) – OWN chỉ nhập email **sau khi** đã bật 2FA.
+        **Thứ tự kiểm**: (1) dạng `email` – server cắt khoảng trắng và đổi chữ thường; sai → `422` `EMAIL_INVALID`; trùng `EMAIL_FROM` → `422` `EMAIL_SHARED_MAILBOX` (không ghi, không đếm);
+        (2) `reauth` S2 (`StrongReauthService.verify`, `operationId = setMyEmail`): thiếu → `422` `STRONG_REAUTH_REQUIRED` (`field` = `reauth` hoặc `reauth.totpCode`), sai → `401 REAUTH_FAILED`
+        (đếm SR-RL-02); (3) so với địa chỉ đang lưu (không phân biệt hoa thường): **trùng → 200, không ghi gì** (không audit, không thư, không tăng `version`).
+        **Ghi** (một giao dịch): `app_user.email` = giá trị mới (`null` = xóa), `app_user.version + 1`; một dòng `user_email_change` (`old_email` = địa chỉ cũ hoặc `null`, `via = self`);
+        audit `security` `user.email_changed` (`before.emailMasked`, `after.emailMasked`, `after.via = self` – không ghi địa chỉ đầy đủ); thông báo `account_security_change`
+        (`refCode = user.email_changed`) cho chính người gọi và mọi `owner` của **cơ sở đang mở trong phiên**; outbox `staff.email` `{template: email_changed, userIds: [người gọi], owners: true, emailChangeId}`
+        – **không** có địa chỉ. Thư tới: địa chỉ mới (`self`, khi có), địa chỉ cũ (`previous`, khi có), mọi `owner` có email của **mọi cơ sở người gọi còn vai** cộng cơ sở của phiên (`owner`);
+        một địa chỉ chỉ nhận một bản. Tập nhận thư ⊇ tập nhận thông báo trong app (bằng nhau khi chỉ có 1 cơ sở). Không thu hồi phiên.
+        **`Idempotency-Key` bắt buộc**: mã TOTP chỉ dùng một lần – gửi lại vì mạng chập mà không có khóa sẽ nhận `401` dù lần đầu đã lưu. Không xác minh địa chỉ ở 0.3.10.
+        Không bao giờ đưa địa chỉ vào log, Problem hay URL.
+      x-roles: [any_staff]
+      x-round: R4
+      x-stories: [US-143]
+      x-strong-reauth: true
+      x-rate-limit: 5 sai/người/15 phút (SR-RL-02 – chung bộ đếm S2)
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, reauth]
+              additionalProperties: false
+              properties:
+                email: { type: [string, 'null'], format: email, maxLength: 254, x-rbac-field: D27, description: '`null` = xóa email. Server cắt khoảng trắng, đổi chữ thường; trùng địa chỉ đang lưu (không phân biệt hoa thường) → 200, không ghi gì' }
+                reauth: { $ref: '#/components/schemas/StrongReauth' }
+            example: { email: owner@example.test, reauth: { password: '********', totpCode: '123456' } }
+      responses:
+        '200':
+          description: Đã lưu (hoặc không đổi). Trả email đang lưu sau lệnh
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [email]
+                properties:
+                  email: { type: [string, 'null'], x-rbac-field: D27 }
+              example: { email: owner@example.test }
+        '401': { $ref: '#/components/responses/ReauthFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /v1/me/approval-pin:
     put:
       tags: [auth]
@@ -1191,12 +1262,20 @@ paths:
     patch:
       tags: [users]
       operationId: updateUser
-      summary: Khóa/mở tài khoản, đổi tên hiển thị, đặt lại mật khẩu
+      summary: Khóa/mở tài khoản, đổi tên hiển thị, đặt lại mật khẩu, đặt email nhận thư bảo mật (0.3.10)
       x-strong-reauth: true
       description: |
         `status=disabled` hoặc `resetPassword` → **thu hồi ngay mọi phiên** của người đó (SR-SES-06), tăng `roles_version`,
         ghi `audit_event` security. `resetPassword` đặt mật khẩu tạm + `must_change_password=true` (SR-AUTH-05).
         Khóa (`status=disabled`) OWN `active` cuối cùng của một cơ sở → `422 VALIDATION_FAILED` mã trường `LAST_OWNER` (`field: status`; rbac 5.3).
+        `status`/`resetPassword` trên chính mình → `422` `NOT_ALLOWED_FOR_SELF` (đã cài từ R2).
+        **0.3.10 (R4 v1.0.3, BUG-R3-032) – `email`**: OWN đặt / đổi / xóa (`null`) email nhận thư bảo mật của **MGR và nhân viên**. Thứ tự kiểm (sau guard vai và `If-Match`):
+        (1) `userId` = người gọi → `422` `NOT_ALLOWED_FOR_SELF` (`field` = `email`; email của mình dùng `setMyEmail`); (2) người đích đang có vai `owner` chưa thu hồi ở **bất kỳ** cơ sở nào
+        → **`403 FORBIDDEN_ACTION`** + audit `access.denied` (mỗi OWN chỉ tự đặt email của mình – một OWN bị chiếm phiên không tắt được kênh báo của OWN khác); (3) phạm vi tài khoản:
+        người gọi phải sở hữu mọi cơ sở người đích còn vai (như `status`) → nếu không `403 FORBIDDEN_ACTION`; (4) dạng `email` → `EMAIL_INVALID` / `EMAIL_SHARED_MAILBOX` (như `setMyEmail`);
+        (5) `reauth` S2 bắt buộc khi có trường `email` (kể cả `null`); (6) trùng địa chỉ đang lưu (không phân biệt hoa thường) → phần email không ghi gì.
+        Ghi: như `setMyEmail` với `via = owner` (bảng `user_email_change`, audit `security` `user.email_changed` chỉ có `emailMasked`, thông báo `account_security_change` cho người được đổi
+        + mọi `owner` của cơ sở đang mở trong phiên, outbox `email_changed` tới địa chỉ mới, địa chỉ cũ và mọi `owner` của mọi cơ sở người được đổi còn vai); `User.version + 1`. Không thu hồi phiên. MGR gọi → `403` ở guard vai (`x-roles: [owner]`), không ghi gì.
       x-roles: [owner]
       x-rbac: [A100]
       x-stories: [US-002]
@@ -1212,13 +1291,15 @@ paths:
                 displayName: { type: string }
                 status: { type: string, enum: [active, disabled] }
                 resetPassword: { type: string, writeOnly: true, minLength: 10, maxLength: 256, description: 'V-10 (khớp `newPassword`); 0.3.1 nâng từ 8' }
-                reauth: { $ref: '#/components/schemas/StrongReauth', description: '0.3.8 (SEC 06.26 – S2): bắt buộc khi có `status` hoặc `resetPassword` (đổi tên hiển thị không cần)' }
+                email: { type: [string, 'null'], format: email, maxLength: 254, x-rbac-field: D27, description: '0.3.10 (BUG-R3-032) – OWN đặt / đổi / xóa (`null`) email nhận thư bảo mật của MGR và nhân viên (không cho chính mình, không cho người đang có vai `owner`). Có trường này thì `reauth` (S2) bắt buộc' }
+                reauth: { $ref: '#/components/schemas/StrongReauth', description: '0.3.8 (SEC 06.26 – S2): bắt buộc khi có `status`, `resetPassword` hoặc (0.3.10) `email` (đổi tên hiển thị không cần)' }
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/ReauthFailed' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '412': { $ref: '#/components/responses/VersionConflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
@@ -10103,6 +10184,8 @@ components:
         mfaEnrollmentRequired: { type: boolean, description: '0.3.8 (SEC 06.4) – phiên hạn chế: chỉ màn đăng ký 2FA; mọi API khác 403 `MFA_ENROLLMENT_REQUIRED`' }
         soleOwner: { type: boolean, description: '0.3.8 (ESC-027 B) – người gọi là `owner` duy nhất của tổ chức (câu `auth.enroll.single_owner`); vắng với vai khác' }
         recoveryCodesLow: { type: boolean, description: '0.3.8 (SEC 06.15) – còn ≤ 3 mã khôi phục → nhắc tạo bộ mới mỗi lần đăng nhập' }
+        email: { type: [string, 'null'], x-rbac-field: D27, description: '0.3.10 (BUG-R3-032) – email nhận thư bảo mật của **chính** người gọi (đầy đủ, không che – dữ liệu của chính họ); `null` = chưa có. Đổi bằng `setMyEmail`' }
+        securityEmailMissing: { type: boolean, description: '0.3.10 (BUG-R3-032, SEC-on-B2-readiness 1.5) – `true` khi người gọi có vai `owner` hoặc `manager` chưa thu hồi (ở bất kỳ cơ sở nào) mà `email` rỗng → Desk nhắc nhập email ở Bảo mật tài khoản. Vai khác luôn `false`' }
     User:
       type: object
       required: [id, username, displayName, status, roles, version]
@@ -10116,6 +10199,7 @@ components:
         version: { type: integer }
         mfaEnabled: { type: boolean, description: '0.3.8 (SEC 06.35) – OWN xem trạng thái 2FA của mọi người dùng (không xem bí mật)' }
         mfaRecoveryCodesRemaining: { type: integer, minimum: 0, maximum: 10, description: '0.3.8 (SEC 06.35)' }
+        email: { type: [string, 'null'], x-visible-to: [owner], x-rbac-field: D27, description: '0.3.10 (BUG-R3-032) – email nhận thư bảo mật (đầy đủ, OWN xem ở Người dùng & vai để rà); `null` = chưa có. Vắng với vai khác' }
     UserCreate:
       type: object
       required: [username, displayName, initialPassword, roles]

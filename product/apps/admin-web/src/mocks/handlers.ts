@@ -45,6 +45,8 @@ function recoveryCodes(): string[] {
   });
 }
 const CP_FIELDS = { password: 'currentPassword', factor: 'totpCode' };
+/** Flat `StrongReauth` bodies (disableMy2fa, regenerateMyRecoveryCodes – BE ead8ac83): `password` / `totpCode`. */
+const FLAT_FIELDS = { password: 'password', factor: 'totpCode' };
 const normRecovery = (c: string) => c.replace(/[\s-]/g, '').toUpperCase();
 
 const SESSION_KEY = 'ottimo.mock.session';
@@ -112,6 +114,12 @@ function makeDb() {
     ] as ReceivingRow[],
     /** Masked audit trail of the receiving account (tests check no full number). */
     receivingAudit: [] as Array<Record<string, unknown>>,
+    /** 0.3.10 (BUG-R3-032): address part of `EMAIL_FROM` – the property's shared mailbox (test value). */
+    emailFrom: 'info@example.test' as string | null,
+    /** `user_email_change` rows (old address kept only until the notice is sent – tests read it). */
+    emailChanges: [] as Array<{ userId: string; oldEmail: string | null; via: 'self' | 'owner' }>,
+    /** Idempotency-Key → first answer of `setMyEmail` (same key + same body → replay). */
+    emailIdem: new Map<string, { body: string; status: number; answer: unknown }>(),
   };
 }
 
@@ -353,7 +361,39 @@ function toMe(u: MockUser): Me {
       : [],
     mustChangePassword: u.mustChangePassword === true,
     ...mfaView(u),
+    // 0.3.10: own address in full; the reminder only for owner/manager without one.
+    email: u.email ?? null,
+    securityEmailMissing: !u.email && mfaRequired(u),
   };
+}
+
+/** 0.3.10 V-03 like the server: trim + lower case; `null` stays `null`. */
+function normEmail(v: unknown): string | null {
+  return v === null
+    ? null
+    : String(v ?? '')
+        .trim()
+        .toLowerCase();
+}
+
+/** `EMAIL_INVALID` / `EMAIL_SHARED_MAILBOX` – checked BEFORE S2 (no TOTP spent on a sure refusal). */
+function emailProblem(email: string | null): Response | null {
+  if (email === null) return null;
+  // eslint-disable-next-line no-control-regex
+  const control = /[\u0000-\u001f\u007f]/.test(email);
+  if (!email || email.length > 254 || control || !/^[^\s@]+@[^\s@]+$/.test(email))
+    return validation([{ field: 'email', code: 'EMAIL_INVALID' }]);
+  if (db.emailFrom && email === db.emailFrom.toLowerCase())
+    return validation([{ field: 'email', code: 'EMAIL_SHARED_MAILBOX' }]);
+  return null;
+}
+
+/** Write the address only when it really changes (one `user_email_change` row); true = written. */
+function writeEmail(u: MockUser, email: string | null, via: 'self' | 'owner'): boolean {
+  if ((u.email ?? null) === email) return false;
+  db.emailChanges.push({ userId: u.id, oldEmail: u.email ?? null, via });
+  u.email = email;
+  return true;
 }
 
 function mfaRequired(u: MockUser): boolean {
@@ -674,6 +714,36 @@ export const handlers = [
     const g = guard(request, 'any', { allowPasswordChange: true, allowEnrollment: true });
     return isResponse(g) ? g : HttpResponse.json(toMe(g.user));
   }),
+  // ---------- security email (0.3.10, BUG-R3-032) ----------
+  // Order as ARC v1.0.3-contract-email 3.1: guard → Idempotency-Key (428 / replay) → format / shared mailbox →
+  // S2 (missing 422, wrong 401) → same address = 200 without a write → write.
+  http.put(`${base}/me/email`, async ({ request }) => {
+    const g = guard(request, 'any');
+    if (isResponse(g)) return g;
+    const key = request.headers.get('idempotency-key');
+    if (!key) return problem(428, 'PRECONDITION_REQUIRED');
+    const raw = await request.text();
+    const idemKey = `${g.user.id}:${key}`;
+    const hit = db.emailIdem.get(idemKey);
+    if (hit) {
+      if (hit.body !== raw) return problem(422, 'IDEMPOTENCY_KEY_REUSED');
+      return HttpResponse.json(hit.answer as Record<string, unknown>, {
+        status: hit.status,
+        headers: { 'idempotent-replayed': 'true' },
+      });
+    }
+    const body = JSON.parse(raw || '{}') as { email?: string | null; reauth?: unknown };
+    if (body.email === undefined) return validation([{ field: 'email', code: 'REQUIRED' }]);
+    const email = normEmail(body.email);
+    const bad = emailProblem(email);
+    if (bad) return bad;
+    const s2 = await strongReauth(g.user, body.reauth);
+    if (s2) return s2;
+    if (writeEmail(g.user, email, 'self')) g.user.version += 1;
+    const answer = { email: g.user.email ?? null };
+    db.emailIdem.set(idemKey, { body: raw, status: 200, answer });
+    return HttpResponse.json(answer);
+  }),
   // ---------- 2FA (US-143, OpenAPI 0.3.8) ----------
   http.get(`${base}/me/2fa`, ({ request }) => {
     const g = guard(request, 'any', { allowEnrollment: true });
@@ -743,7 +813,7 @@ export const handlers = [
   http.post(`${base}/me/2fa/recovery-codes`, async ({ request }) => {
     const g = guard(request, 'any');
     if (isResponse(g)) return g;
-    const bad = await strongReauth(g.user, await request.json());
+    const bad = await strongReauth(g.user, await request.json(), FLAT_FIELDS);
     if (bad) return bad;
     if (!g.user.mfa?.secret) return problem(409, 'INVALID_TRANSITION');
     const codes = recoveryCodes();
@@ -757,7 +827,7 @@ export const handlers = [
     const g = guard(request, 'any');
     if (isResponse(g)) return g;
     if (mfaRequired(g.user)) return problem(403, 'FORBIDDEN_ACTION');
-    const bad = await strongReauth(g.user, await request.json());
+    const bad = await strongReauth(g.user, await request.json(), FLAT_FIELDS);
     if (bad) return bad;
     g.user.mfa = undefined;
     db.sessionUserId = null; // every session revoked, this one too
@@ -1277,12 +1347,25 @@ export const handlers = [
       status?: 'active' | 'disabled';
       resetPassword?: string;
       displayName?: string;
+      email?: string | null;
       reauth?: unknown;
     };
     if (body.status === 'disabled' && u.id === g.user.id)
       return validation([{ field: 'status', code: 'LAST_OWNER' }]);
+    // 0.3.10 (ARC 3.2): own email → 422 (setMyEmail instead); another owner's → 403; format before S2.
+    const hasEmail = body.email !== undefined;
+    const email = hasEmail ? normEmail(body.email) : null;
+    if (hasEmail) {
+      if (u.id === g.user.id) return validation([{ field: 'email', code: 'NOT_ALLOWED_FOR_SELF' }]);
+      if (u.roles.some((r) => r.role === 'owner')) return problem(403, 'FORBIDDEN_ACTION');
+      const bad = emailProblem(email);
+      if (bad) return bad;
+    }
     // CỔNG S2: status / resetPassword on someone else (display name alone needs none).
-    if (u.id !== g.user.id && (body.status !== undefined || body.resetPassword !== undefined)) {
+    if (
+      u.id !== g.user.id &&
+      (body.status !== undefined || body.resetPassword !== undefined || hasEmail)
+    ) {
       const bad = await strongReauth(g.user, body.reauth);
       if (bad) return bad;
     }
@@ -1292,7 +1375,10 @@ export const handlers = [
     if (body.status) u.status = body.status;
     if (body.displayName) u.displayName = body.displayName;
     if (body.resetPassword) u.mustChangePassword = true;
-    u.version += 1;
+    // Same address → the email part writes nothing (no version bump when nothing else is sent).
+    const emailWritten = hasEmail && writeEmail(u, email, 'owner');
+    const others = Object.keys(body).some((k) => k !== 'email' && k !== 'reauth');
+    if (others || emailWritten) u.version += 1;
     return HttpResponse.json(u);
   }),
   http.get(`${prop}/trusted-devices`, ({ request }) => {

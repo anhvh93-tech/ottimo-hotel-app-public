@@ -2,7 +2,9 @@ import { isApiError, type Role, type StrongReauth, type User } from '@ottimo/api
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, Chip, ConfirmDialog, Modal } from '@ottimo/ui';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../app/api';
+import { SECURITY_EMAIL_ANCHOR } from '../app/email';
 import { fieldErrors, problemView } from '../app/problem';
 import { useToast } from '../app/toast';
 import { Page, Topbar } from '../components/AppShell';
@@ -12,6 +14,7 @@ import { useOnline } from '../hooks/useOnline';
 import { useResource } from '../hooks/useResource';
 import { usePropertyId, useSession } from '../session/SessionProvider';
 import { AddUserDialog } from './AddUserDialog';
+import { UserEmailDialog } from './UserEmailDialog';
 
 /** Roles the owner can assign here – "owner" itself is granted by the tech team only (H07 7.1b `[GIẢ ĐỊNH UXD]`). */
 const ASSIGNABLE: Role[] = [
@@ -30,6 +33,10 @@ export function generateTempPassword(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(14));
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
 }
+
+/** 0.3.10 `Me.securityEmailMissing` roles: owner/manager without an email are flagged in the table (UXD EM-10 b). */
+const needsEmail = (u: User) =>
+  !u.email && u.roles.some((r) => r.role === 'owner' || r.role === 'manager');
 
 /** Roles whose grant needs S2 (SEC 06.26). */
 const S2_ROLES: Role[] = ['owner', 'manager'];
@@ -70,6 +77,8 @@ export function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [tempPw, setTempPw] = useState<{ name: string; value: string } | null>(null);
   const [adding, setAdding] = useState(false);
+  /** v1.0.3 BUG-R3-032: security email of someone else (owner only, S2 + If-Match). */
+  const [emailOf, setEmailOf] = useState<User | null>(null);
   // US-008 AC3: only the owner sees "Thêm người dùng" (the API answers 403 A100 to anyone else).
   const isOwner = session.roles.includes('owner');
 
@@ -176,6 +185,7 @@ export function UsersPage() {
                 <tr>
                   <th scope="col">{t('users.col_name')}</th>
                   <th scope="col">{t('users.col_roles')}</th>
+                  {isOwner ? <th scope="col">{t('users.col_email')}</th> : null}
                   <th scope="col">{t('users.col_status')}</th>
                   <th scope="col">{t('users.col_last')}</th>
                   <th scope="col">
@@ -186,6 +196,8 @@ export function UsersPage() {
               <tbody>
                 {(state.data ?? []).map((u) => {
                   const self = u.id === session.me?.id;
+                  // 0.3.10: each owner sets their own address (another owner's → 403, one's own → 422).
+                  const otherOwner = !self && u.roles.some((r) => r.role === 'owner');
                   return (
                     <tr key={u.id}>
                       <td>
@@ -203,8 +215,48 @@ export function UsersPage() {
                           ))}
                         </div>
                       </td>
+                      {isOwner ? (
+                        <td className="users-email">
+                          <div>
+                            {u.email ? (
+                              <span className="mono">{u.email}</span>
+                            ) : needsEmail(u) ? (
+                              // Owner/manager: the server reminds these roles too (Me.securityEmailMissing).
+                              <Chip tone="warn">{t('users.email_none')}</Chip>
+                            ) : (
+                              <span className="muted">{t('users.email_none')}</span>
+                            )}
+                          </div>
+                          {self ? (
+                            // UXD EM-08 (a): no switched-off button – the link does the job.
+                            <div className="li-s">
+                              <Link to={`/security#${SECURITY_EMAIL_ANCHOR}`}>
+                                {t('users.email_self')}
+                              </Link>
+                            </div>
+                          ) : otherOwner ? (
+                            <div className="li-s">{t('users.email_other_owner')}</div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="btn-inline"
+                              disabled={!online}
+                              aria-label={`${t('users.edit_email')}: ${u.displayName}`}
+                              onClick={() => {
+                                setError(null);
+                                setEmailOf(u);
+                              }}
+                            >
+                              {t('users.edit_email')}
+                            </Button>
+                          )}
+                        </td>
+                      ) : null}
                       <td>{statusChip(u)}</td>
-                      <td>{u.lastLoginAt ? dateTime(u.lastLoginAt) : t('users.never')}</td>
+                      <td className="nowrap">
+                        {u.lastLoginAt ? dateTime(u.lastLoginAt) : t('users.never')}
+                      </td>
                       <td>
                         <div className="row">
                           <Button
@@ -365,6 +417,32 @@ export function UsersPage() {
           busy={busy}
           onKeep={() => setPending(null)}
           onConfirm={() => void run(pending)}
+        />
+      ) : null}
+
+      {emailOf ? (
+        <UserEmailDialog
+          user={emailOf}
+          onClose={() => setEmailOf(null)}
+          onUnchanged={() => {
+            setEmailOf(null);
+            toast(t('secmail.unchanged'));
+          }}
+          onSaved={(u, outcome) => {
+            setEmailOf(null);
+            replace(u);
+            const key =
+              outcome === 'removed'
+                ? 'users.email_removed'
+                : outcome === 'first'
+                  ? 'users.email_saved_first'
+                  : 'users.email_saved';
+            toast(t(key, { name: u.displayName }));
+          }}
+          onFail={(err) => {
+            setEmailOf(null);
+            fail(err);
+          }}
         />
       ) : null}
 

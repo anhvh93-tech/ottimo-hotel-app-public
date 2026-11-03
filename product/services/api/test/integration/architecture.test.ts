@@ -77,6 +77,26 @@ describe.skipIf(!HAS_DB)('schema architecture (erd 2.3, 16)', () => {
     for (const r of rows) expect(r).toEqual({ t: r.t, u: false, d: false, tr: false, i: true });
   });
 
+  it('0091 user_email_change: RLS ENABLE + FORCE, tenant_isolation, ottimo_app without DELETE (purge = SET NULL)', async () => {
+    const { rows } = await db.pool.query<{
+      on: boolean;
+      forced: boolean;
+      d: boolean;
+      u: boolean;
+      i: boolean;
+      pol: number;
+    }>(
+      `SELECT c.relrowsecurity AS on, c.relforcerowsecurity AS forced,
+              has_table_privilege('ottimo_app', 'user_email_change', 'DELETE') AS d,
+              has_table_privilege('ottimo_app', 'user_email_change', 'UPDATE') AS u,
+              has_table_privilege('ottimo_app', 'user_email_change', 'INSERT') AS i,
+              (SELECT count(*)::int FROM pg_policies
+                WHERE tablename = 'user_email_change' AND policyname = 'tenant_isolation') AS pol
+         FROM pg_class c WHERE c.relname = 'user_email_change' AND c.relnamespace = 'public'::regnamespace`,
+    );
+    expect(rows).toEqual([{ on: true, forced: true, d: false, u: true, i: true, pol: 1 }]);
+  });
+
   it('logs are partitioned monthly with a DEFAULT partition (BE-ARC-18)', async () => {
     const { rows } = await db.pool.query<{ parent: string; n: number }>(
       `SELECT p.relname AS parent, count(*)::int AS n FROM pg_inherits i

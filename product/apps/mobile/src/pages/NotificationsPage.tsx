@@ -1,7 +1,7 @@
 import { Button, Icon, Skeleton, StateView, type IconName } from '@ottimo/ui';
 import { useI18n } from '@ottimo/i18n';
 import type { StaffNotification } from '../app/api';
-import { notifText, useInbox } from '../app/notifications';
+import { notifRef, notifText, useInbox } from '../app/notifications';
 import { navigate, type Route } from '../app/router';
 import type { StaffSession } from '../app/session';
 import { ddmm, hhmm } from '../app/time';
@@ -33,13 +33,6 @@ export function NotificationsPage({ session }: { session: StaffSession }) {
   const { t } = useI18n();
   const inbox = useInbox();
   if (!inbox) return null;
-
-  const ref = (n: StaffNotification) =>
-    !n.refCode
-      ? undefined
-      : n.refType === 'hk_task' || n.refType === 'guest_request'
-        ? t('hk.room_title', { room: n.refCode })
-        : n.refCode;
 
   return (
     <>
@@ -75,7 +68,7 @@ export function NotificationsPage({ session }: { session: StaffSession }) {
           <ul className="hk-list">
             {inbox.items.map((n) => {
               const to = target(n, session);
-              const code = ref(n);
+              const code = notifRef(n, t);
               return (
                 <li key={n.id}>
                   <button
@@ -88,7 +81,7 @@ export function NotificationsPage({ session }: { session: StaffSession }) {
                   >
                     <Icon name={ICON[n.kind] ?? 'bell'} />
                     <span className="grow">
-                      <b className="d-block">{notifText(n, t)}</b>
+                      <b className="d-block">{notifText(n, t, session.me.id)}</b>
                       <span className="meta">
                         {code ? <span className="mono">{code}</span> : null}
                         <span>

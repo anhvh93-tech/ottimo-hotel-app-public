@@ -83,6 +83,9 @@ export type CancelScheduledParameterBody = BodyOf<'cancelScheduledParameter'>;
 export type ParameterReauth = NonNullable<SetParameterBody['reauth']>;
 export type TrustDeviceBody = BodyOf<'trustCurrentDevice'>;
 export type UpdateUserBody = BodyOf<'updateUser'>;
+/** 0.3.10 (BUG-R3-032): own security email – `email: null` removes it; always S2 + Idempotency-Key. */
+export type SetMyEmailBody = BodyOf<'setMyEmail'>;
+export type SetMyEmailResult = ResponseOf<'setMyEmail'>;
 export type LookupGuestBody = BodyOf<'lookupGuestByContact'>;
 // R3 Sprint 1 – US-143 2FA (OpenAPI 0.3.8, SEC A)
 export type StrongReauth = Schemas['StrongReauth'];

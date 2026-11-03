@@ -3900,6 +3900,62 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `early_departure.lease_done_note` | Ký quỹ và tiền thuê xử lý ngoài app, theo nhánh đã báo khách. | The security deposit and rent are handled outside the app, as told to the guest. | ⟨chừa chỗ⟩ | Thay lease_check ở bước ③ Kết quả (đã báo khách xong). FB-R4-UXD-FE-29 |
 | `early_departure.told_guest_lease` | Đã báo khách về ký quỹ và các khoản còn thu, còn hoàn | I've told the guest about the security deposit and what is still due or refunded | ⟨chừa chỗ⟩ | Checkbox thay early_departure.told_guest khi trả trước ngày kết thúc HĐ. FB-R4-UXD-FE-30 |
 
+#### v1.0.3 BUG-R3-032 – FE-A: email nhận thông báo bảo mật (setMyEmail, updateUser.email – OpenAPI 0.3.10). UXD đã duyệt (lượt 2, 03/11/2026)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `shell.account_security` | Bảo mật tài khoản | Account security | ⟨chừa chỗ⟩ | Thay shell.security ở menu người dùng và tiêu đề trang /security: trang nay có cả xác thực 2 bước lẫn email nhận thông báo bảo mật. Khối 2FA giữ tiêu đề shell.security. UXD giữ tên (review v1.0.3, câu 1) |
+| `secmail.title` | Email nhận thông báo bảo mật | Notification email | ⟨chừa chỗ⟩ | Tiêu đề khối trên Bảo mật tài khoản (SecurityPage) UXD FB-R4-UXD-FE-EM-03 |
+| `secmail.lead` | OTTIMO gửi thông báo bảo mật tới địa chỉ này, ví dụ khi xác thực 2 bước của bạn được đặt lại hoặc email này thay đổi. Dùng email riêng của bạn. | OTTIMO sends security notices to this address, for example when your 2-step verification is reset or this email changes. Use your own address. | ⟨chừa chỗ⟩ | Câu dẫn khối. Không nêu tên mẫu thư UXD FB-R4-UXD-FE-EM-01 Chỉ nêu thông báo có thật (mfa_reset*, email_changed). Khi có thư đổi mật khẩu mới thêm "mật khẩu" vào câu. |
+| `secmail.current` | Địa chỉ đang dùng | Current address | ⟨chừa chỗ⟩ | Nhãn trên địa chỉ (JetBrains Mono) |
+| `secmail.none` | Chưa có email. | No email yet. | ⟨chừa chỗ⟩ |  |
+| `secmail.missing` | Tài khoản chủ đầu tư và quản lý cần có email nhận thông báo bảo mật. Nhập email riêng của bạn bên dưới. | Owner and manager accounts need a notification email. Enter your own address below. | ⟨chừa chỗ⟩ | Me.securityEmailMissing = true, trên chính khối (banner đầu trang ẩn ở /security) UXD FB-R4-UXD-FE-EM-03 |
+| `secmail.field` | Email | Email | ⟨chừa chỗ⟩ | Nhãn ô nhập |
+| `secmail.purpose` | Chỉ dùng để gửi thông báo bảo mật cho tài khoản này. | Used only to send security notices for this account. | ⟨chừa chỗ⟩ | Câu mục đích xử lý dưới ô email (ND13 Đ.13 – FB-R4-SEC-ARC-EM-13). v1.0.3 không xác minh email: nói "thông báo bảo mật", không nói "thư xác nhận" UXD FB-R4-UXD-FE-EM-03 |
+| `secmail.field_help` | Không dùng hộp thư chung của cơ sở, như info@. | Don't use the property's shared mailbox, such as info@. | ⟨chừa chỗ⟩ | Gợi ý dưới ô – trước lỗi EMAIL_SHARED_MAILBOX |
+| `secmail.add` | Thêm email | Add email | ⟨chừa chỗ⟩ | Nút khi chưa có email; cũng là nút của banner nhắc |
+| `secmail.change` | Đổi email | Change email | ⟨chừa chỗ⟩ |  |
+| `secmail.remove` | Xóa email | Remove email | ⟨chừa chỗ⟩ |  |
+| `secmail.save` | Lưu email | Save email | ⟨chừa chỗ⟩ | Nút của form và của hộp S2 |
+| `secmail.s2_save_title` | Lưu email nhận thông báo bảo mật | Save notification email | ⟨chừa chỗ⟩ | Tiêu đề hộp S2 khi lưu UXD FB-R4-UXD-FE-EM-03 |
+| `secmail.new_label` | Địa chỉ mới | New address | ⟨chừa chỗ⟩ | Nhãn trên địa chỉ sắp lưu trong hộp S2 (label-h + .mono), đứng đầu hộp – UXD FB-R4-UXD-FE-EM-07 |
+| `secmail.s2_save_body` | OTTIMO sẽ gửi thông báo tới địa chỉ mới và tới địa chỉ cũ, nếu có. | A notice will go to the new address, and to the old one if there is one. | ⟨chừa chỗ⟩ | Câu trong hộp S2 khi lưu UXD FB-R4-UXD-FE-EM-03 |
+| `secmail.s2_remove_title` | Xóa email nhận thông báo bảo mật | Remove notification email | ⟨chừa chỗ⟩ | Tiêu đề hộp S2 khi xóa UXD FB-R4-UXD-FE-EM-03 |
+| `secmail.s2_remove_body` | Sau khi xóa, bạn không nhận thông báo bảo mật qua email nữa. OTTIMO sẽ gửi một thông báo tới địa chỉ cũ. | After this, you won't get security notices by email. A notice will go to the old address. | ⟨chừa chỗ⟩ | Câu trong hộp S2 khi xóa (null) UXD FB-R4-UXD-FE-EM-03 |
+| `secmail.saved` | Đã lưu. Thông báo đã gửi tới địa chỉ mới và địa chỉ cũ. Sau 15 phút chưa thấy thư, hãy xem mục Spam hoặc kiểm tra lại địa chỉ. | Saved. A notice has been sent to the new address and the old one. If nothing arrives within 15 minutes, check your spam folder or the address. | ⟨chừa chỗ⟩ | Sau 200 khi đổi địa chỉ (cũ ≠ null). ARC mục 7 UXD FB-R4-UXD-FE-EM-03 |
+| `secmail.saved_first` | Đã lưu. Thông báo đã gửi tới địa chỉ này. Sau 15 phút chưa thấy thư, hãy xem mục Spam hoặc kiểm tra lại địa chỉ. | Saved. A notice has been sent to this address. If nothing arrives within 15 minutes, check your spam folder or the address. | ⟨chừa chỗ⟩ | Sau 200 khi đặt lần đầu (cũ = null) – không có thư previous UXD FB-R4-UXD-FE-EM-03 |
+| `secmail.removed` | Đã xóa email. Thông báo đã gửi tới địa chỉ cũ. | Email removed. A notice has been sent to the old address. | ⟨chừa chỗ⟩ | Sau 200 khi xóa UXD FB-R4-UXD-FE-EM-03 |
+| `secmail.unchanged` | Địa chỉ này đã được lưu. Không có gì thay đổi. | That address is already saved. Nothing has changed. | ⟨chừa chỗ⟩ | Client so trùng (không phân biệt hoa thường) – không gửi lệnh, không tiêu mã TOTP UXD FB-R4-UXD-FE-EM-05 |
+| `secmail.invalid` | Email chưa đúng dạng, ví dụ ten@example.com. | Check the email format, e.g. name@example.com. | ⟨chừa chỗ⟩ | Kiểm ở client và 422 EMAIL_INVALID (field email). Không dùng tên nhà cung cấp thật UXD FB-R4-UXD-FE-EM-05 |
+| `field.EMAIL_SHARED_MAILBOX` | Đây là hộp thư chung của cơ sở. Thông báo bảo mật cần tới một email riêng. | This is the property's shared mailbox. Security notices need a personal address. | ⟨chừa chỗ⟩ | 422 errors[].code (0.3.10) – setMyEmail, updateUser.email: trùng địa chỉ EMAIL_FROM UXD FB-R4-UXD-FE-EM-05 |
+| `field.NOT_ALLOWED_FOR_SELF` | Bạn không thể làm việc này cho chính tài khoản của mình tại đây. | You can't do this for your own account here. | ⟨chừa chỗ⟩ | 422 errors[].code (0.3.10 ghi vào bảng mã) – email của mình đổi ở Bảo mật tài khoản UXD FB-R4-UXD-FE-EM-05 |
+| `secmail.nudge` | Tài khoản của bạn chưa có email nhận thông báo bảo mật. Thêm email để được báo khi có thay đổi quan trọng. | Your account has no notification email yet. Add one to receive security notices. | ⟨chừa chỗ⟩ | Banner đầu trang khi Me.securityEmailMissing (chỉ OWN/MGR, phiên đầy đủ). Để sau = mfa.nudge_later (ẩn trong phiên tab) UXD FB-R4-UXD-FE-EM-03 |
+| `secnudge.both` | Tài khoản của bạn chưa bật xác thực 2 bước và chưa có email nhận thông báo bảo mật. Từ khi có dữ liệu khách thật, xác thực 2 bước là bắt buộc. | Your account has no 2-step verification and no notification email yet. Once real guest data is in the app, 2-step verification becomes mandatory. | ⟨chừa chỗ⟩ | Một banner gộp khi Me.mfaRequiredButMissing và Me.securityEmailMissing cùng true (chưa Để sau) – UXD FB-R4-UXD-FE-EM-04 |
+| `secnudge.open` | Mở Bảo mật tài khoản | Open Account security | ⟨chừa chỗ⟩ | Nút chính của banner gộp → /security (không neo) – UXD FB-R4-UXD-FE-EM-04 |
+| `secmail.status_set` | Đã có | Set | ⟨chừa chỗ⟩ | Chip ok góc phải tiêu đề khối email (như chip khối 2FA) – UXD FB-R4-UXD-FE-EM-10 |
+| `secmail.status_unset` | Chưa có | Not set | ⟨chừa chỗ⟩ | Chip neutral góc phải tiêu đề khối email – UXD FB-R4-UXD-FE-EM-10 |
+| `users.col_email` | Email | Email | ⟨chừa chỗ⟩ | Cột Người dùng & vai – chỉ OWN (User.email x-visible-to owner) |
+| `users.email_none` | Chưa có | Not set | ⟨chừa chỗ⟩ | Ô email trống UXD FB-R4-UXD-FE-EM-05 |
+| `users.edit_email` | Sửa email | Edit email | ⟨chừa chỗ⟩ |  |
+| `users.email_title` | Email nhận thông báo bảo mật – {name} | Notification email – {name} | ⟨chừa chỗ⟩ | Hộp sửa email người khác (OWN) UXD FB-R4-UXD-FE-EM-03 |
+| `users.email_body` | OTTIMO sẽ gửi thông báo tới địa chỉ mới, địa chỉ cũ (nếu có) và các chủ đầu tư. | A notice will go to the new address, the old one if there is one, and all owners. | ⟨chừa chỗ⟩ | Trong hộp sửa email và hộp S2 UXD FB-R4-UXD-FE-EM-02 |
+| `users.email_saved` | Đã lưu email của {name}. Thông báo đã gửi tới địa chỉ mới, địa chỉ cũ và các chủ đầu tư. | {name}'s notification email is saved. A notice has been sent to the new address, the old one and all owners. | ⟨chừa chỗ⟩ | Toast sau 200 (updateUser.email) UXD FB-R4-UXD-FE-EM-02 |
+| `users.email_saved_first` | Đã lưu email của {name}. Thông báo đã gửi tới địa chỉ này và các chủ đầu tư. | {name}'s notification email is saved. A notice has been sent to that address and all owners. | ⟨chừa chỗ⟩ | Toast khi người đó chưa có email trước khi lưu (không có bản previous) – UXD FB-R4-UXD-FE-EM-02 |
+| `users.email_removed` | Đã xóa email của {name}. Thông báo đã gửi tới địa chỉ cũ và các chủ đầu tư. | {name}'s notification email is removed. A notice has been sent to the old address and all owners. | ⟨chừa chỗ⟩ | Toast sau 200 (email: null) UXD FB-R4-UXD-FE-EM-02 |
+| `users.email_self` | Đổi email của bạn ở Bảo mật tài khoản. | Change your own email under Account security. | ⟨chừa chỗ⟩ | Hàng của chính mình: chỉ có link này, dẫn sang /security#security-email (server trả 422 NOT_ALLOWED_FOR_SELF nếu sửa ở đây). Không có nút. UXD FB-R4-UXD-FE-EM-08 |
+| `users.email_other_owner` | Mỗi chủ đầu tư tự đặt email của mình. | Each owner sets their own email. | ⟨chừa chỗ⟩ | Hàng của OWN khác: chỉ có câu này, chữ muted, không có nút (server trả 403 FORBIDDEN_ACTION). UXD FB-R4-UXD-FE-EM-08 |
+
+#### v1.0.3 BUG-R4-021 – MOB: câu thông báo bảo mật tài khoản trên PWA (refType user). UXD duyệt 03/11
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `staff.notif.sec.email_changed_self` | Email nhận thông báo bảo mật của bạn đã thay đổi | Your notification email was changed | ⟨chừa chỗ⟩ | kind account_security_change, refType user, refCode user.email_changed, refId = chính người xem. Không hiện địa chỉ, không hiện mã |
+| `staff.notif.sec.email_changed_other` | Email nhận thông báo bảo mật của một tài khoản khác đã thay đổi | Another account's notification email was changed | ⟨chừa chỗ⟩ | Như trên, refId là người khác (OWN nhận – có thể là OWN khác, nên không gọi "nhân viên"). Không tên, không địa chỉ – chi tiết xem ở Desk. FB-R4-UXD-MOB-021-01 |
+| `staff.notif.sec.mfa_reset_self` | Xác thực 2 bước của bạn đã được đặt lại | Your 2-step verification was reset | ⟨chừa chỗ⟩ | refCode mfa.reset_by_owner hoặc mfa.reset_by_operator, refId = chính người xem |
+| `staff.notif.sec.mfa_reset_other` | Xác thực 2 bước của một tài khoản khác đã được đặt lại | Another account's 2-step verification was reset | ⟨chừa chỗ⟩ | Như trên, refId là người khác (OWN nhận). FB-R4-UXD-MOB-021-01 |
+| `staff.notif.sec.other_self` | Thông báo bảo mật về tài khoản của bạn | Security notice for your account | ⟨chừa chỗ⟩ | Câu chung cho mọi refCode khác của refType user (mfa.disabled, mfa.locked, stepup.s2_failed, mfa.recovery_code_used, mfa.recovery_codes_regenerated, security_alert không có refCode, mã mới chưa có câu) – không hiện mã thô. Danh từ trung tính: đúng cho cả thay đổi lẫn cảnh báo. FB-R4-UXD-MOB-021-02 |
+| `staff.notif.sec.other_other` | Thông báo bảo mật về một tài khoản khác | Security notice for another account | ⟨chừa chỗ⟩ | Như trên, refId là người khác (OWN nhận). FB-R4-UXD-MOB-021-02 |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |

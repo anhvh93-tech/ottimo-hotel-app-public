@@ -24,7 +24,9 @@ import { verifyPassword } from './passwords';
 /** OpenAPI `StrongReauth` body (0.3.8) – parse it with the operation's schema, then call `verify`. */
 export const strongReauthSchema = z
   .object({
-    password: z.string().min(1).max(256),
+    // Optional in zod on purpose (BUG-R4-019, contract v1.0.3 3.1 #5): a missing / empty password is answered by
+    // `verify` as 422 STRONG_REAUTH_REQUIRED (not counted), never zod's REQUIRED.
+    password: z.string().max(256).optional(),
     totpCode: z
       .string()
       .regex(/^[0-9]{6}$/)
@@ -75,6 +77,8 @@ export const STRONG_REAUTH_OPERATIONS = [
   'resetUser2fa',
   'cancelScheduledParameter',
   'setParameter',
+  // 0.3.10 (R4 v1.0.3, BUG-R3-032): own security e-mail.
+  'setMyEmail',
 ] as const;
 
 @Injectable()

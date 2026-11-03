@@ -5,7 +5,8 @@
  * - only properties DECLARED in the schema are copied (undeclared keys are dropped unless the schema is
  *   open: `additionalProperties: true` or a free object);
  * - a property with `x-visible-to` is copied only when the caller has one of those roles;
- * - a property with `x-rbac-field` is copied only when rbac-matrix 6 does not say K for all caller roles;
+ * - a property with `x-rbac-field` is copied only when rbac-matrix 6 does not say K for all caller roles –
+ *   except the caller's own data listed in SELF_DATA_FIELDS (field-policy.ts, BUG-R4-018/022);
  * - `writeOnly` properties never leave the server;
  * - `x-classification: C3` properties only in responses of `x-c3-log` operations;
  * - a removed property is ABSENT from the JSON, never `null`.
@@ -15,7 +16,7 @@
  */
 import { OPENAPI_SCHEMAS } from '../../generated/openapi-schemas';
 import type { PropShape, Shape } from '../openapi-types';
-import { rbacFieldAllows, visibleToAllows } from './field-policy';
+import { SELF_DATA_FIELDS, rbacFieldAllows, visibleToAllows } from './field-policy';
 
 export interface SerializeContext {
   /** Roles of the caller at the property of the request (empty for public operations). */
@@ -61,16 +62,26 @@ function copyFree(v: unknown): Out {
   return DROP;
 }
 
-export function propertyAllowed(p: PropShape, ctx: SerializeContext): boolean {
+/** `selfKey` = `<owner>.<property>` when the property sits directly on a self-only answer (SELF_DATA_FIELDS). */
+export function propertyAllowed(p: PropShape, ctx: SerializeContext, selfKey?: string): boolean {
   if (p.w) return false;
   if (p.c3 && !ctx.c3) return false;
   if (p.g !== undefined && ctx.guestLevel !== undefined && p.g > ctx.guestLevel) return false;
   if (p.v && !visibleToAllows(p.v, ctx.roles)) return false;
-  if (p.f && !rbacFieldAllows(p.f, ctx.roles)) return false;
+  if (p.f && !rbacFieldAllows(p.f, ctx.roles)) {
+    if (!(selfKey && SELF_DATA_FIELDS.has(selfKey))) return false;
+  }
   return true;
 }
 
-function walk(value: unknown, shape: Shape, ctx: SerializeContext, depth: number): Out {
+/** `owner`: component schema name or operationId whose DIRECT properties are being walked (null below). */
+function walk(
+  value: unknown,
+  shape: Shape,
+  ctx: SerializeContext,
+  depth: number,
+  owner: string | null = null,
+): Out {
   if (value === undefined) return DROP;
   if (value === null) return null;
   if (depth > 64) return DROP;
@@ -81,7 +92,7 @@ function walk(value: unknown, shape: Shape, ctx: SerializeContext, depth: number
       return isScalar(value) ? value : DROP;
     case 'ref': {
       const target = OPENAPI_SCHEMAS.schemas[shape.name];
-      return target ? walk(value, target, ctx, depth + 1) : DROP;
+      return target ? walk(value, target, ctx, depth + 1, shape.name) : DROP;
     }
     case 'array':
       if (!Array.isArray(value)) return DROP;
@@ -89,7 +100,7 @@ function walk(value: unknown, shape: Shape, ctx: SerializeContext, depth: number
     case 'union': {
       const kind = Array.isArray(value) ? 'array' : isPlainObject(value) ? 'object' : 'scalar';
       const branch = shape.of.find((b) => resolveKind(b) === kind) ?? shape.of[0];
-      return branch ? walk(value, branch, ctx, depth + 1) : DROP;
+      return branch ? walk(value, branch, ctx, depth + 1, owner) : DROP;
     }
     case 'object': {
       if (!isPlainObject(value)) return DROP;
@@ -98,7 +109,9 @@ function walk(value: unknown, shape: Shape, ctx: SerializeContext, depth: number
         const p = shape.props[key];
         let c: Out = DROP;
         if (p) {
-          if (propertyAllowed(p, ctx)) c = walk(x, p.s, ctx, depth + 1);
+          if (propertyAllowed(p, ctx, owner ? `${owner}.${key}` : undefined)) {
+            c = walk(x, p.s, ctx, depth + 1);
+          }
         } else if (shape.extra) {
           c = walk(x, shape.extra, ctx, depth + 1);
         } else if (shape.open) {
@@ -120,8 +133,13 @@ function resolveKind(shape: Shape): string {
 }
 
 /** Serialize `value` against an inline shape. Returns undefined when nothing may be returned. */
-export function serializeShape(value: unknown, shape: Shape, ctx: SerializeContext): unknown {
-  const out = walk(value, shape, ctx, 0);
+export function serializeShape(
+  value: unknown,
+  shape: Shape,
+  ctx: SerializeContext,
+  owner: string | null = null,
+): unknown {
+  const out = walk(value, shape, ctx, 0, owner);
   return out === DROP ? undefined : out;
 }
 
@@ -173,7 +191,7 @@ export function serializeResponse(
   if (Buffer.isBuffer(body) || isStream(body)) return body;
   const shape = responseShapeFor(operationId, status);
   if (!shape) throw new UndeclaredResponseError(operationId);
-  return serializeShape(body, shape, ctx) ?? {};
+  return serializeShape(body, shape, ctx, operationId) ?? {};
 }
 
 function isStream(v: unknown): boolean {

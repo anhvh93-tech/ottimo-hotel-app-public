@@ -464,3 +464,27 @@ body:has(.app-mnav) .toasts {
 .g-2.top {
   align-items: start;
 }
+
+/* v1.0.3 UXD FB-R4-UXD-FE-EM-08 (Người dùng & vai): an action under data in a table cell lines up with the text
+   above it (Desk `sm` height kept for the touch target); the sign-in time never breaks; an address wraps
+   anywhere instead of being cut. */
+.btn.btn-inline {
+  padding-inline: 0;
+}
+.btn.btn-inline:not([disabled]):not([aria-disabled='true']):hover {
+  background: transparent;
+  text-decoration: underline;
+}
+/* UXD FB-R4-UXD-FE-EM-13: offline (read-only Desk) the inline action is plain muted text – no grey box, no
+   dashed border, no underline; muted colour and the not-allowed cursor come from the DS `.btn[disabled]`. */
+.btn.btn-inline[disabled],
+.btn.btn-inline[aria-disabled='true'] {
+  background: transparent;
+  border-color: transparent;
+}
+.nowrap {
+  white-space: nowrap;
+}
+.users-email {
+  overflow-wrap: anywhere;
+}

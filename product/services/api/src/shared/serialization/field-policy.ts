@@ -54,6 +54,24 @@ export const RBAC_FIELD_DENY: Readonly<Record<string, readonly string[]>> = {
   D29: [HK, MT, SAL, CTV], // guest warnings / blacklist
 };
 
+/**
+ * R4 v1.0.3 (BUG-R4-018 / BUG-R4-022, ORC decision, ARC to review): the caller's OWN data in an answer that is
+ * only ever about the caller. The D-code check (`x-rbac-field`) is skipped for exactly these properties – every
+ * role sees its own value. Nothing else is relaxed: `x-visible-to`, `writeOnly`, C3 (`x-c3-log`) and the guest
+ * level still apply, and `User.email` (listUsers / updateUser) stays OWN only through its `x-visible-to`.
+ * Key = `<owner>.<property>`; owner = a component schema returned only about the caller (`Me`: login,
+ * loginMfa, getMe) or the operationId of an inline `/v1/me*` response. Direct properties only (a nested object
+ * of the same name is not covered). test/serializer.test.ts pins that every key is a D-tagged property of a
+ * self-only answer, so the list cannot grow by accident.
+ */
+export const SELF_DATA_FIELDS: ReadonlySet<string> = new Set([
+  'Me.email', // getMe / login / loginMfa – the caller's own security e-mail (BUG-R4-018)
+  'setMyEmail.email', // 200 of PUT /v1/me/email (BUG-R4-018)
+  'startMy2faSetup.otpauthUri', // own enrolment key (BUG-R4-022)
+  'confirmMy2fa.recoveryCodes', // own recovery codes, shown once (BUG-R4-022)
+  'regenerateMyRecoveryCodes.recoveryCodes', // own new recovery codes (BUG-R4-022)
+]);
+
 /** True when at least one of `roles` may receive a property tagged with `code`. Unknown code → hidden. */
 export function rbacFieldAllows(code: string, roles: readonly string[]): boolean {
   const deny = RBAC_FIELD_DENY[code];

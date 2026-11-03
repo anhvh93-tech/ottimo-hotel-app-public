@@ -53,6 +53,8 @@ export async function startFeatureApp(
     staffRequestsPerMinute?: number;
     /** 0.3.8 MFA_ENFORCED (US-143) – guard + identity. */
     mfaEnforced?: boolean;
+    /** 0.3.10 EMAIL_FROM (EMAIL_SHARED_MAILBOX check) – default unset. */
+    emailFrom?: string;
     /** FB-R3-SEC-BEC-02: capture the request log (pino) at this level. Default silent. */
     logStream?: NodeJS.WritableStream;
     logLevel?: string;
@@ -86,6 +88,7 @@ export async function startFeatureApp(
           pwaOrigins: opts.pwaOrigins ?? [],
           ipHmacKey: 'test-ip-hmac-key-0123456789abcdefgh',
           mfaEnforced: opts.mfaEnforced === true,
+          ...(opts.emailFrom ? { emailFrom: opts.emailFrom } : {}),
         }),
       }),
     ],

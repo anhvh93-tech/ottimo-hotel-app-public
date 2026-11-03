@@ -12,6 +12,11 @@
  *   (FB-R2-SEC-BE-07). displayName stays editable by any owner of one of the person's properties.
  * - Not on oneself: resetPassword/status of the caller's own account → 422 NOT_ALLOWED_FOR_SELF (own
  *   password goes through changeMyPassword with the current password – SR-AUTH-05, FB-R2-SEC-BE-15).
+ * - 0.3.10 (R4 v1.0.3, BUG-R3-032) `email`: account-wide like status (caller owns every property of the person),
+ *   never on oneself (NOT_ALLOWED_FOR_SELF – own address via setMyEmail), never on a person holding a live `owner`
+ *   role at any property (403 FORBIDDEN_ACTION – an owner whose session is taken over cannot silence another
+ *   owner's notices). The controller runs the same checks before S2 (`precheckEmail`); here they run again inside
+ *   the write transaction. A real change → SecurityEmailService.recordChange (via `owner`); same address → nothing.
  * - `status` shown = effective status: a temporary login lock (locked_until in the future, status still
  *   active – FB-R2-SEC-BE-05) is shown as `locked`; updateUser status=active unlocks it.
  */
@@ -25,6 +30,7 @@ import { toZonedIso } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { hashPassword, passwordPolicyErrors } from '../public/passwords';
 import { SessionService } from '../public/session.service';
+import { SecurityEmailService } from './security-email.service';
 
 export interface PropertyRole {
   propertyId: string;
@@ -42,6 +48,8 @@ export interface UserDto {
   /** 0.3.8 (SEC 06.35): every users.* operation is owner-only (x-roles), so OWN sees the 2FA state. */
   mfaEnabled: boolean;
   mfaRecoveryCodesRemaining?: number;
+  /** 0.3.10 (D27, x-visible-to owner): every users.* operation is owner-only, so the address is shown in full. */
+  email: string | null;
 }
 
 interface UserRow {
@@ -54,13 +62,17 @@ interface UserRow {
   version: number;
   mfa_enabled: boolean;
   recovery_left: number;
+  email: string | null;
 }
 
 const USER_COLUMNS =
   'u.id, u.username, u.display_name, u.status, u.locked_until, u.last_login_at, u.version, u.mfa_enabled, ' +
-  'coalesce(cardinality(u.mfa_recovery_codes_hash), 0)::int AS recovery_left';
+  'coalesce(cardinality(u.mfa_recovery_codes_hash), 0)::int AS recovery_left, u.email::text AS email';
 
 const ROLE_SET = new Set<string>(STAFF_ROLES);
+
+/** 403s raised because the target holds a live `owner` role (updateUser.email) – read by the controller's audit. */
+export const TARGET_OWNER_DENIALS = new WeakSet<object>();
 
 @Injectable()
 export class UsersService {
@@ -68,6 +80,7 @@ export class UsersService {
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(SessionService) private readonly sessions: SessionService,
+    @Inject(SecurityEmailService) private readonly securityEmail: SecurityEmailService,
   ) {}
 
   async ownedProperties(tx: Tx, ownerId: string): Promise<string[]> {
@@ -109,6 +122,7 @@ export class UsersService {
       version: u.version,
       mfaEnabled: u.mfa_enabled,
       ...(u.mfa_enabled ? { mfaRecoveryCodesRemaining: u.recovery_left } : {}),
+      email: u.email,
     }));
   }
 
@@ -249,6 +263,38 @@ export class UsersService {
     if ((rows[0]?.n ?? 0) > 0) throw problem('FORBIDDEN_ACTION', { detail: 'other property' });
   }
 
+  /** 0.3.10: the security e-mail of a person holding a live `owner` role (any property) is theirs alone. */
+  private async assertNotOwnerAccount(tx: Tx, userId: string): Promise<void> {
+    const { rows } = await tx.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM user_property_role
+        WHERE user_id = $1 AND role = 'owner' AND revoked_at IS NULL`,
+      [userId],
+    );
+    if ((rows[0]?.n ?? 0) > 0) {
+      // SEC FB-R4-SEC-ARC-EM-14: the SAME Problem body as the other-property refusal (the answer must not tell that
+      // the person is an owner elsewhere); only access.denied.reason differs (TARGET_OWNER).
+      const err = problem('FORBIDDEN_ACTION', { detail: 'other property' });
+      TARGET_OWNER_DENIALS.add(err);
+      throw err;
+    }
+  }
+
+  /**
+   * updateUser.email checks that must answer BEFORE S2 (ARC v1.0.3-contract-email 3.2): visible (404), not
+   * oneself (422), target not an owner (403), caller owns every property of the person (403). Read only.
+   */
+  async precheckEmail(tx: Tx, ownerId: string, userId: string): Promise<void> {
+    const owned = await this.ownedProperties(tx, ownerId);
+    await this.load(tx, owned, userId);
+    if (userId === ownerId) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'email', code: 'NOT_ALLOWED_FOR_SELF' }],
+      });
+    }
+    await this.assertNotOwnerAccount(tx, userId);
+    await this.assertOwnsEveryProperty(tx, owned, userId);
+  }
+
   /** Lock owner rows of the properties, then count active owners if `exceptUserId` lost `owner`. */
   private async assertOwnersRemain(
     tx: Tx,
@@ -357,25 +403,36 @@ export class UsersService {
       displayName?: string | undefined;
       status?: 'active' | 'disabled' | undefined;
       resetPassword?: string | undefined;
+      /** Already normalised + checked by SecurityEmailService.check (null = remove). */
+      email?: string | null | undefined;
     },
     requestId: string,
+    sessionId?: string,
   ): Promise<UserDto> {
     const owned = await this.ownedProperties(tx, ownerId);
     const user = await this.load(tx, owned, userId, true);
     if (user.version !== expectedVersion) {
       throw problem('VERSION_CONFLICT', { extras: { currentVersion: user.version } });
     }
-    const accountWide = patch.resetPassword !== undefined || patch.status !== undefined;
+    const emailGiven = patch.email !== undefined;
+    const accountWide =
+      patch.resetPassword !== undefined || patch.status !== undefined || emailGiven;
     if (accountWide && userId === ownerId) {
       throw problem('VALIDATION_FAILED', {
         errors: [
           {
-            field: patch.resetPassword !== undefined ? 'resetPassword' : 'status',
+            field:
+              patch.resetPassword !== undefined
+                ? 'resetPassword'
+                : patch.status !== undefined
+                  ? 'status'
+                  : 'email',
             code: 'NOT_ALLOWED_FOR_SELF',
           },
         ],
       });
     }
+    if (emailGiven) await this.assertNotOwnerAccount(tx, userId);
     if (accountWide) await this.assertOwnsEveryProperty(tx, owned, userId);
     const now = this.clock.now();
     const sets: string[] = ['version = version + 1', 'updated_at = $2'];
@@ -427,8 +484,25 @@ export class UsersService {
       after.passwordReset = true;
       revokeReason = revokeReason ?? 'password_reset';
     }
+    const emailChanged =
+      emailGiven && !SecurityEmailService.same(user.email, patch.email as string | null);
+    if (emailChanged) {
+      params.push(patch.email);
+      sets.push(`email = $${params.length}`);
+    }
     if (revokeReason) sets.push('roles_version = roles_version + 1');
     await tx.query(`UPDATE app_user SET ${sets.join(', ')} WHERE id = $1`, params);
+    if (emailChanged) {
+      await this.securityEmail.recordChange(tx, {
+        userId,
+        oldEmail: user.email,
+        newEmail: patch.email as string | null,
+        changedBy: ownerId,
+        via: 'owner',
+        requestId,
+        ...(sessionId ? { sessionId } : {}),
+      });
+    }
     if (revokeReason) await this.sessions.revokeAll(tx, userId, revokeReason);
     if (Object.keys(after).length) {
       await this.audit.record(tx, {

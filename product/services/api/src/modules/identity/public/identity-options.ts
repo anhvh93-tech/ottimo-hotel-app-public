@@ -7,6 +7,8 @@
  * - ipHmacKey: LOG_IP_HMAC_KEY for user_session.ip_hmac / audit (SR-KEY-08); empty = not recorded.
  * - mfaEnforced: MFA_ENFORCED (0.3.8, SEC 06.3/06.4) – owner/manager without 2FA get a restricted session.
  * - appEnv: APP_ENV – staging/production refuse to start without the full common-password list (SR-AUTH-02).
+ * - emailFrom: EMAIL_FROM (0.3.10, BUG-R3-032) – the server's sending mailbox; a staff security e-mail equal to its
+ *   address → 422 EMAIL_SHARED_MAILBOX. Unset (dev/CI, staging mock) = not checked.
  */
 export const IDENTITY_OPTIONS = Symbol('IDENTITY_OPTIONS');
 
@@ -18,4 +20,5 @@ export interface IdentityOptions {
   ipHmacKey: string;
   appEnv?: string;
   mfaEnforced?: boolean;
+  emailFrom?: string;
 }

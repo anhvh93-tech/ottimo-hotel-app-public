@@ -12,6 +12,14 @@
  *         never e-mails them twice. A crash between tx 1 and tx 2 leaves the row in_flight: it is taken again
  *         when the lease ends (at-least-once; the deterministic Message-ID lets mail clients spot the copy).
  * Logs carry the outbox id, the template, the attempt and an error code – never an address, a name or a body.
+ *
+ * `email_changed` (R4 v1.0.3, BUG-R3-032, ARC v1.0.3-contract-email 4.2): payload `emailChangeId` → one more
+ * recipient, audience `previous` = `user_email_change.old_email` of that change (the OLD address – a later change
+ * cannot overwrite it); its tracking key in sent/skippedUserIds is the emailChangeId itself. Owners = every active
+ * owner of the properties where the person holds a live role (+ the row's property). One copy per ADDRESS (an owner
+ * changing their own address gets `self` + `previous` only). When the row ends (done / dead) tx 2 also sets
+ * `old_email = NULL, old_notified_at = now` – the old address lives no longer than its notice (daily
+ * `email_change.purge` is the 7-day safety net).
  */
 import type {
   IntegrationContext,
@@ -20,6 +28,7 @@ import type {
 } from '@ottimo/integrations/contracts';
 import { isStaffEmailTemplate } from '@ottimo/integrations/notification';
 import type { Clock } from '../clock';
+import { EMAIL_CHANGED_TEMPLATE } from '../shared/email';
 import type { Database, Tx } from '../db/database';
 import type { PropertyRef } from './job-runner';
 
@@ -50,12 +59,14 @@ interface Payload {
   effectiveDate?: unknown;
   sentUserIds?: unknown;
   skippedUserIds?: unknown;
+  emailChangeId?: unknown;
 }
 
 interface Recipient {
+  /** app_user id – or, for audience `previous`, the user_email_change id (tracking key). */
   userId: string;
   email: string;
-  audience: 'self' | 'owner';
+  audience: 'self' | 'owner' | 'previous';
 }
 
 interface Claimed {
@@ -66,6 +77,8 @@ interface Claimed {
   params: Record<string, string>;
   sentUserIds: string[];
   skippedUserIds: string[];
+  /** email_changed: the user_email_change row whose old address is cleared when this row ends. */
+  emailChangeId?: string;
   /** Set when the row cannot be sent at all (bad payload, nobody with an address). */
   deadReason?: string;
 }
@@ -188,6 +201,8 @@ export class StaffEmailDispatcher {
       const template = typeof payload.template === 'string' ? payload.template : '';
       const sentUserIds = ids(payload.sentUserIds);
       const skippedUserIds = ids(payload.skippedUserIds);
+      const emailChangeId =
+        template === EMAIL_CHANGED_TEMPLATE ? ids([payload.emailChangeId])[0] : undefined;
       const base: Claimed = {
         id: r.id,
         attempts,
@@ -196,6 +211,7 @@ export class StaffEmailDispatcher {
         params: {},
         sentUserIds,
         skippedUserIds,
+        ...(emailChangeId ? { emailChangeId } : {}),
       };
       if (!isStaffEmailTemplate(template)) {
         out.push({ ...base, deadReason: 'BAD_TEMPLATE' });
@@ -203,6 +219,22 @@ export class StaffEmailDispatcher {
       }
       const subjectIds = ids(payload.userIds);
       const owners = payload.owners === true;
+      // Owner scope: the row's property (NULL = every property). email_changed: the properties where the person
+      // holds a live role, plus the row's property (G-E3 – same people as the in-app notice).
+      let ownerScope: string[] | null = r.property_id ? [r.property_id] : null;
+      if (template === EMAIL_CHANGED_TEMPLATE) {
+        const { rows: props } = await tx.query<{ property_id: string }>(
+          `SELECT DISTINCT property_id FROM user_property_role
+            WHERE user_id = ANY($1::uuid[]) AND revoked_at IS NULL`,
+          [subjectIds],
+        );
+        ownerScope = [
+          ...new Set([
+            ...(r.property_id ? [r.property_id] : []),
+            ...props.map((x) => x.property_id),
+          ]),
+        ];
+      }
       const { rows: users } = await tx.query<{ id: string; email: string; display_name: string }>(
         `SELECT u.id, u.email::text AS email, u.display_name FROM app_user u
           WHERE u.email IS NOT NULL AND u.email::text <> ''
@@ -210,15 +242,45 @@ export class StaffEmailDispatcher {
               OR ($2 AND u.status = 'active' AND EXISTS (
                     SELECT 1 FROM user_property_role r
                      WHERE r.user_id = u.id AND r.role = 'owner' AND r.revoked_at IS NULL
-                       AND ($3::uuid IS NULL OR r.property_id = $3))))
+                       AND ($3::uuid[] IS NULL OR r.property_id = ANY($3::uuid[])))))
           ORDER BY u.id`,
-        [subjectIds, owners, r.property_id],
+        [subjectIds, owners, ownerScope],
       );
-      const recipients: Recipient[] = users.map((u) => ({
-        userId: u.id,
-        email: u.email,
-        audience: subjectIds.includes(u.id) ? 'self' : 'owner',
-      }));
+      const self: Recipient[] = [];
+      const ownerCopies: Recipient[] = [];
+      for (const u of users) {
+        const isSubject = subjectIds.includes(u.id);
+        (isSubject ? self : ownerCopies).push({
+          userId: u.id,
+          email: u.email,
+          audience: isSubject ? 'self' : 'owner',
+        });
+      }
+      const previous: Recipient[] = [];
+      // email_changed: who made the change (`self` | `owner` – CPY: the person's own copy reads differently).
+      let via: string | undefined;
+      if (emailChangeId && subjectIds[0]) {
+        const { rows: change } = await tx.query<{ old_email: string | null; via: string }>(
+          `SELECT old_email::text AS old_email, via FROM user_email_change WHERE id = $1 AND user_id = $2`,
+          [emailChangeId, subjectIds[0]],
+        );
+        const old = change[0]?.old_email;
+        via = change[0]?.via;
+        if (old) previous.push({ userId: emailChangeId, email: old, audience: 'previous' });
+      }
+      // One copy per address. The owner copy wins (SEC FB-R4-SEC-BE-PR31-02 / INT FB-R4-INT-BE-31-01): e-mail is
+      // neither unique nor verified, so a person may set (or have had) an owner's address – that owner must get
+      // the copy that names who changed, not a `self`/`previous` copy that reads as if their own account changed.
+      // Then self, then previous. No "same as an owner" check at save time (it would let anyone probe owner
+      // addresses).
+      const seen = new Set<string>();
+      const recipients: Recipient[] = [];
+      for (const rc of [...ownerCopies, ...self, ...previous]) {
+        const k = rc.email.trim().toLowerCase();
+        if (seen.has(k)) continue;
+        seen.add(k);
+        recipients.push(rc);
+      }
       if (recipients.length === 0) {
         out.push({ ...base, deadReason: 'NO_RECIPIENT' });
         continue;
@@ -238,6 +300,7 @@ export class StaffEmailDispatcher {
       };
       const eff = formatLocalDate(payload.effectiveDate);
       if (eff) params.effectiveDate = eff;
+      if (via === 'self' || via === 'owner') params.via = via;
       out.push({ ...base, recipients, params });
     }
     return out;
@@ -332,6 +395,13 @@ export class StaffEmailDispatcher {
         status === 'deferred',
       ],
     );
+    // email_changed: once the row has ended, the old address is no longer needed (ARC 4.2, erd 4.16).
+    if ((r.rowCount ?? 0) > 0 && row.emailChangeId && (status === 'done' || status === 'dead')) {
+      await tx.query(
+        `UPDATE user_email_change SET old_email = NULL, old_notified_at = $2 WHERE id = $1`,
+        [row.emailChangeId, now],
+      );
+    }
     const extra = {
       outboxId: row.id,
       template: row.template,
