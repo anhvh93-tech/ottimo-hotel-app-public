@@ -34,8 +34,8 @@
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
 | P2 | 9 | 1 (BUG-R4-011 – **đã sửa trên `lp-v2`**, chờ gộp `main` + staging smoke P10; `main`/production còn lỗi gốc với hồ sơ tạo tay) | 0 | 8 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022** – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
-| P3 | 16 | 8 (BUG-R4-010 – mở lại, BUG-R4-012 – **đã sửa trên `lp-v2`**, chờ gộp + P10, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4, **025** – tài liệu, sửa cùng release notes v1.0.3) | 0 | 8 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`) |
-| **Tổng** | **25** | **9** | **0** | **16** |
+| P3 | 16 | 7 (BUG-R4-010 – mở lại, BUG-R4-012 – **đã sửa trên `lp-v2`**, chờ gộp + P10, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4) | 1 (**BUG-R4-025** – PO sửa release notes 04/11, chờ QA xác nhận) | 8 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`) |
+| **Tổng** | **25** | **8** | **1** | **16** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -514,7 +514,12 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
   - DOM xác nhận giữ 2 yêu cầu (đúng hợp đồng hiện tại), hoặc đề xuất gộp thành 1 cho v1.0.4+. Nếu chọn gộp thì đó là việc mới, không phải bản sửa lỗi này.
 - **Bằng chứng:** `rounds/round-04/qa/v1.0.2-dk10-b18.md` mục 2.3, 2.5; ảnh `rounds/round-04/qa/dk10-img/dk10-S3-B18-tra-thua-800k.png`.
 - **Vai:** PO (release notes) + BA (sổ tay 2.14/2.14a) + DOM (câu BR-428, chọn giữ 2 hay gộp).
-- **Trạng thái:** Open. Không chặn v1.0.3. Nên sửa cùng mục v1.0.3 của release notes (QC v1.0.3 ĐK5).
+- **Trạng thái:** **Fixed – chờ QA xác nhận** (PO, 04/11, phần release notes). Không chặn v1.0.3.
+  - Sửa ở `product/docs/release-notes.md`:
+    - (1) mục **v1.0.2 → Có trong bản này**, dòng "Nút Trả sớm – đơn ngắn ngày": câu "trả phòng sau đó không tạo thêm" thay bằng câu ghi rõ ngoại lệ (không tạo lại khoản Trả sớm; folio còn tiền trả thừa khác thì bước Bill hỏi cách xử lý, chọn hoàn thì có thêm một đề nghị hoàn cho đúng phần đó, không trùng), kèm ghi chú "Đính chính 04/11, BUG-R4-025";
+    - (2) mục **v1.0.3 → Giới hạn đã biết**, dòng mới "Duyệt hoàn: một đơn có thể có hơn một yêu cầu hoàn": trước khi từ chối, cộng các yêu cầu đang chờ của đơn và đối chiếu với số khách trả thừa trên folio (Đã thu trừ Tổng cộng).
+  - **Chưa sửa (ngoài phần PO):** sổ tay gốc 2.14a và hướng dẫn bộ phận (`02` 11.5.2 có đúng câu "trả phòng sau đó không tạo thêm"; sổ tay 2.14a và `01` 7.3 ghi "tạo **một** yêu cầu hoàn", không nêu ngoại lệ). ORC quyết dựng lại bản HTML 1.9 hay để v1.0.4; BA sửa khi được giao. Câu BR-428 và việc giữ 2 yêu cầu hay gộp: DOM.
+  - QA xác nhận: đọc lại 2 vị trí trên, so với kết quả OTM-00380 (mục 2.3, 2.5 của `rounds/round-04/qa/v1.0.2-dk10-b18.md`).
 
 ## 3. Ghi nhận (không phải lỗi)
 
