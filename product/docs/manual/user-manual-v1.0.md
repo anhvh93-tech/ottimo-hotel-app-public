@@ -261,7 +261,7 @@ Lưu ý:
 
 [ẢNH: C1-04-Sửa giá đã lên lịch]
 
-> **Tạm ở v1.0:** Desk chưa hiện danh sách giá đã lên lịch và chưa có nút hủy (dự kiến v1.0.1). Mỗi lần lên lịch giá cho ngày sau, ghi **căn, giá, ngày hiệu lực** vào sổ. Muốn bỏ một giá đã lên lịch: nhập lại giá hiện hành với **đúng ngày hiệu lực** đó.
+> **Tạm ở v1.0:** Desk chưa hiện danh sách giá đã lên lịch và chưa có nút hủy (dự kiến v1.0.2). Mỗi lần lên lịch giá cho ngày sau, ghi **căn, giá, ngày hiệu lực** vào sổ. Muốn bỏ một giá đã lên lịch: nhập lại giá hiện hành với **đúng ngày hiệu lực** đó.
 
 **Ngừng bán một căn** (ví dụ chủ đầu tư dùng riêng dài ngày): trong **Sửa**, tắt **Đang bán**. Căn không hiện trong form đặt phòng; sơ đồ phòng ghi **Ngừng bán**. Đơn đã có giữ nguyên. Hỏng hóc thì dùng **khóa phòng** (mục 4.1), không dùng ngừng bán.
 
@@ -462,7 +462,7 @@ Ví dụ: căn 203 đêm thường giá 792.000 đ. Khách rời 20:30, đêm đ
 
 [ẢNH: C1-18-Nhật ký thao tác tiền]
 
-> **Lỗi nhỏ đã biết (sửa ở v1.0.2):** cột lý do có thể hiện **mã lý do thô** (chữ tiếng Anh nối bằng gạch dưới). Đọc phần lý do người làm tự ghi, bỏ qua mã.
+> **Lỗi nhỏ đã biết (sửa ở v1.0.4):** cột lý do có thể hiện **mã lý do thô** (chữ tiếng Anh nối bằng gạch dưới). Đọc phần lý do người làm tự ghi, bỏ qua mã.
 
 **Đối soát chuyển khoản (mỗi ngày, quản lý hoặc chủ đầu tư):**
 1. Mở tab **Chờ đối soát**. Mở sao kê ngân hàng cùng lúc.
@@ -940,7 +940,7 @@ Hồ sơ sắp hạn và quá hạn hiện ở **Cần chú ý** và cột **H�
 
 [ẢNH: C2-23-Thêm phát sinh]
 
-> **Lỗi nhỏ đã biết (sửa ở v1.0.2):** câu "Phí phạt không tính vào doanh thu phòng" hiện cả khi chọn giặt ủi. Giặt ủi không phải phí phạt; cứ thêm như thường.
+> **Lỗi nhỏ đã biết (sửa ở v1.0.4):** câu "Phí phạt không tính vào doanh thu phòng" hiện cả khi chọn giặt ủi. Giặt ủi không phải phí phạt; cứ thêm như thường.
 
 **Thêm người đi cùng:** khung đơn → mục **Người ở** → **Thêm người đi cùng** → chọn **Người lớn đi cùng** hoặc **Trẻ em** (trẻ chỉ cần **Năm sinh**). Ô chọn người hiện nhãn "Khách đứng tên" – nhãn nhầm, đang sửa; chọn đúng người đi cùng. Vượt định mức: Desk hiện phụ thu người (người lớn 150.000 đ/đêm, trẻ 6–11 tuổi 100.000 đ/đêm, dưới 6 tuổi miễn) → báo khách → tích **Ghi phụ thu … vào folio – tôi đã báo khách** → **Thêm vào đơn**. Nhớ báo buồng phòng chuẩn bị bộ đồ dùng thêm (Desk tự tạo việc).
 
@@ -1208,9 +1208,9 @@ Yêu cầu mới hiện ở menu kèm số, hạn trả lời 15 phút. Mở yê
 | Hoàn tác nhận phòng bị Desk từ chối | Folio đã có dòng mới; nhờ quản lý (mục 2.10, Trường hợp đặc biệt) |
 | Khách muốn xem/xóa dữ liệu của mình | Ghi yêu cầu, chuyển chủ đầu tư |
 | Đơn OTA về khi căn đã kín | Lưu chưa gán căn, báo quản lý; gán căn hoặc đổi phòng khách khác (mục 2.6) |
-| Phím Esc không đóng khung đơn | Bấm **Đóng** (sửa ở v1.0.2) |
-| Tìm đơn theo tên khách không ra | Tìm theo mã đơn, mã OTA hoặc SĐT ở **Khách hàng** (sửa ở v1.0.2) |
-| Báo giá thứ Sáu 1 đêm chỉ báo "tối thiểu 2 đêm" sau khi mở hộp | Đúng quy tắc; chọn 2 đêm (chữ sửa ở v1.0.2) |
+| Phím Esc không đóng khung đơn | Bấm **Đóng** (sửa ở v1.0.4) |
+| Tìm đơn theo tên khách không ra | Tìm theo mã đơn, mã OTA hoặc SĐT ở **Khách hàng** (sửa ở v1.0.4) |
+| Báo giá thứ Sáu 1 đêm chỉ báo "tối thiểu 2 đêm" sau khi mở hộp | Đúng quy tắc; chọn 2 đêm (chữ sửa ở v1.0.4) |
 | Desk lỗi, sai tiền, không làm tiếp được | Mục 5.5 |
 
 ### 2.22 Việc riêng của lễ tân trưởng
@@ -1696,7 +1696,7 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 | Giữ ngày kết thúc HĐ khi gia hạn đơn dài hạn nhập tay | v1.0.3 | Ghi ngày kết thúc HĐ vào bảng kỳ thu và sổ giao ca trước khi gia hạn (mục 2.12, 2.14a) |
 | Check-in online cho khách thật (chờ thông báo xử lý dữ liệu bản mới) | v1.0.1 | Khách làm giấy tờ tại quầy; tờ **Your ID details** trước khi nhận giấy tờ, câu đồng ý ở Khối 1 (mục 0.8, 2.9) |
 | "Chấp nhận cọc thiếu" trên Desk | v1.0.1 | Xin khách chuyển đủ trước hạn; không được thì giữ đơn và làm lại khi khách đến (mục 2.4) |
-| Danh sách giá đã lên lịch, nút hủy giá đã lên lịch | v1.0.1 | Ghi sổ mỗi lần lên lịch giá (mục 1.3) |
+| Danh sách giá đã lên lịch, nút hủy giá đã lên lịch | v1.0.2 | Ghi sổ mỗi lần lên lịch giá (mục 1.3) |
 | Thông báo tiền chuyển khoản về tại quầy | Đang chờ chủ đầu tư quyết | Hỏi chủ đầu tư/quản lý; ban đêm mời trả tiền mặt/thẻ (mục 2.13) |
 | Đơn nhóm nhiều căn | Chưa xếp lịch | Mỗi căn một đơn (mục 2.5a) |
 | Chấm công qua Wi-Fi | v1.1 | Như hiện nay |

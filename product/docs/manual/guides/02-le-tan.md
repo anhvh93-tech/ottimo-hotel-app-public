@@ -649,7 +649,7 @@ Folio là bảng tiền của lượt ở.
 
 [ẢNH: C2-23-Thêm phát sinh]
 
-> **Lỗi nhỏ đã biết (sửa ở v1.0.2):** câu "Phí phạt không tính vào doanh thu phòng" hiện cả khi chọn giặt ủi. Giặt ủi không phải phí phạt; cứ thêm như thường.
+> **Lỗi nhỏ đã biết (sửa ở v1.0.4):** câu "Phí phạt không tính vào doanh thu phòng" hiện cả khi chọn giặt ủi. Giặt ủi không phải phí phạt; cứ thêm như thường.
 
 ### 9.2 Thêm người đi cùng
 
@@ -1338,9 +1338,9 @@ Không ai tự duyệt yêu cầu của chính mình, trừ khoản nằm trong 
 | Đơn OTA về khi căn đã kín | Lưu chưa gán căn, báo quản lý; gán căn hoặc đổi phòng khách khác (mục 5.3) |
 | Hoàn tác nhận phòng bị Desk từ chối | Folio đã có dòng mới; nhờ quản lý (mục 7.4) |
 | Lỡ bấm sai một khoản thu | Báo quản lý **Đảo giao dịch**. Lễ tân không xóa được giao dịch |
-| Phím Esc không đóng khung đơn | Bấm **Đóng** (sửa ở v1.0.2) |
-| Tìm đơn theo tên khách không ra | Tìm theo mã đơn, mã OTA hoặc SĐT ở **Khách hàng** (sửa ở v1.0.2) |
-| Báo giá thứ Sáu 1 đêm chỉ báo "tối thiểu 2 đêm" sau khi mở hộp | Đúng quy tắc; chọn 2 đêm (chữ sửa ở v1.0.2) |
+| Phím Esc không đóng khung đơn | Bấm **Đóng** (sửa ở v1.0.4) |
+| Tìm đơn theo tên khách không ra | Tìm theo mã đơn, mã OTA hoặc SĐT ở **Khách hàng** (sửa ở v1.0.4) |
+| Báo giá thứ Sáu 1 đêm chỉ báo "tối thiểu 2 đêm" sau khi mở hộp | Đúng quy tắc; chọn 2 đêm (chữ sửa ở v1.0.4) |
 | Desk báo "Phiên đăng nhập đã hết" | Đăng nhập lại; thông tin đang nhập vẫn được giữ trên máy đó |
 | Vì sao 01:00 sáng Desk vẫn hiện ngày hôm qua? | Ngày trên Desk đổi lúc 06:00 |
 | Desk lỗi, sai tiền, không làm tiếp được | Mục 19 |

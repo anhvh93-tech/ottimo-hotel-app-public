@@ -380,7 +380,7 @@ Tháng lịch cuối của HĐ = tháng chứa ngày kết thúc HĐ (HĐ kết 
 
 [ẢNH: C1-18-Nhật ký thao tác tiền]
 
-> **Lỗi nhỏ đã biết (sửa ở v1.0.2):** cột lý do có thể hiện **mã lý do thô** (chữ tiếng Anh nối bằng gạch dưới). Đọc phần lý do người làm tự ghi, bỏ qua mã.
+> **Lỗi nhỏ đã biết (sửa ở v1.0.4):** cột lý do có thể hiện **mã lý do thô** (chữ tiếng Anh nối bằng gạch dưới). Đọc phần lý do người làm tự ghi, bỏ qua mã.
 
 ### 8.2 Đối soát chuyển khoản (mỗi ngày)
 
@@ -452,7 +452,7 @@ Theo quyết định của chủ đầu tư ngày 26/10:
 
 [ẢNH: C1-04-Sửa giá đã lên lịch]
 
-> **Tạm ở v1.0:** Desk chưa hiện danh sách giá đã lên lịch và chưa có nút hủy (dự kiến v1.0.1). Mỗi lần lên lịch giá cho ngày sau, ghi **căn, giá, ngày hiệu lực** vào sổ. Muốn bỏ một giá đã lên lịch: nhập lại giá hiện hành với **đúng ngày hiệu lực** đó.
+> **Tạm ở v1.0:** Desk chưa hiện danh sách giá đã lên lịch và chưa có nút hủy (dự kiến v1.0.2). Mỗi lần lên lịch giá cho ngày sau, ghi **căn, giá, ngày hiệu lực** vào sổ. Muốn bỏ một giá đã lên lịch: nhập lại giá hiện hành với **đúng ngày hiệu lực** đó.
 
 **Ngừng bán một căn** (ví dụ chủ đầu tư dùng riêng dài ngày): trong **Sửa**, tắt **Đang bán**. Căn không hiện trong form đặt phòng; sơ đồ phòng ghi **Ngừng bán**. Đơn đã có giữ nguyên. Hỏng hóc thì dùng **khóa phòng** (tệp 04), không dùng ngừng bán.
 
