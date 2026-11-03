@@ -17,15 +17,15 @@ import { decodeCursor, encodeCursor, parseLimit } from '../../../shared/http/pag
 import { AuditService } from '../../audit/public/audit.service';
 import { CryptoService } from '../../crypto/public/crypto.service';
 import { EventsService, FD_PLUS } from '../../events/public/events.service';
+import { staffChatState } from '../../events/public/staff-chat';
 import { normalizeEmail, normalizePhone } from '../../guests/public/normalize';
 import { displayNamesOf } from '../../identity/public/staff-directory';
 import { ParameterService } from '../../platform/public/parameter.service';
 import { PropertyContextService } from '../../platform/public/property-context';
 import {
-  looksLikeCard,
-  looksLikeIdNumber,
   normalizeFreeText,
   normalizeRefCode,
+  sensitiveNumberKind,
   slugOf,
 } from './website-request-rules';
 
@@ -521,6 +521,17 @@ export class WebsiteRequestsService {
         WHERE id = $1`,
       [r.id, c.now, to, ...vals],
     );
+    // WR8: the Google Chat copy cannot be deleted by the webhook – a notice in the request's thread tells the room
+    // manager to delete the first message (ARC gchat-booking-request-notify 8.6, SEC N1). Only when that first
+    // message was (or may still be) posted; the worker re-checks it was really posted before sending.
+    if (a === 'erase' && (await staffChatState(tx, 'web_request_new', r.id)) !== 'none') {
+      await this.events.enqueueStaffChat(tx, {
+        kind: 'web_request_erased',
+        refType: 'website_booking_request',
+        refId: r.id,
+        now: c.now,
+      });
+    }
     await this.history(tx, r.id, r.status, to, EVENT[a].event, c.now, 'user', actor.userId);
     await this.audit.record(tx, {
       category: 'state',
@@ -590,8 +601,9 @@ export class WebsiteRequestsService {
     }
     if (text.length < 3) throw fieldError('note', 'REASON_REQUIRED');
     if (text.length > 300) throw fieldError('note', 'TOO_LONG');
-    if (looksLikeCard(text)) throw fieldError('note', 'CARD_NUMBER_DETECTED');
-    if (looksLikeIdNumber(text)) throw fieldError('note', 'ID_NUMBER_DETECTED');
+    const kind = sensitiveNumberKind(text); // V-09: same detector as the form and Chat
+    if (kind === 'card') throw fieldError('note', 'CARD_NUMBER_DETECTED');
+    if (kind === 'id') throw fieldError('note', 'ID_NUMBER_DETECTED');
     return text;
   }
 

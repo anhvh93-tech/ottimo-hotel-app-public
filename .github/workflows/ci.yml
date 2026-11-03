@@ -233,6 +233,8 @@ jobs:
           shellcheck -x -S warning product/infra/server/bootstrap-vps.sh product/infra/server/bin/dc \
             product/infra/server/bin/*.sh product/infra/postgres/init/02-roles.sh product/infra/ci/*.sh \
             product/infra/server/test/deploy-landing-privacy.test.sh product/infra/server/test/ops-check-cwd.test.sh \
+            product/infra/server/test/backup-privacy-log.test.sh product/infra/server/test/rollback.test.sh \
+            product/infra/server/test/restore-drill-privacy.test.sh product/infra/server/privacy-log-check.sh \
             product/infra/caddy/*.sh product/infra/demo/*.sh product/infra/docker/*.sh \
             product/services/api/scripts/production-bootstrap.sh product/services/api/scripts/mfa-operator-reset.sh
       # UXR P-15: demo/production web builds refuse a missing, malformed or placeholder desk phone; dev only warns.
@@ -249,6 +251,10 @@ jobs:
       # SEC E.8 / R5-01: the CI deploy key gets one summary line back (public Actions log); other commands → exit 2.
       - name: deploy-from-ci.sh (one summary line, full log on the server, refused commands)
         run: bash product/infra/ci/test-deploy-from-ci.sh
+      # BUG-R3-032 / SEC SEC-on-B2-readiness 1.5 OPS (a): count of staff e-mails dead NO_RECIPIENT (report only → FAIL when armed).
+      # + ARC CWD-03: a failing query (j16, email_dead) is reported as a fixed category, never the raw error text.
+      - name: ops-check email_dead (count only, report-only until armed) + query error categories
+        run: bash product/infra/ci/test-ops-check.sh
       # R3 v1.0: staging + production on one VPS behind one edge (SNI routing, PROXY protocol, landing preview auth).
       - name: Shared edge (render guards, routing, client address, no spoofing)
         run: bash product/infra/ci/test-edge.sh
@@ -258,6 +264,15 @@ jobs:
       # 30/10: ops-check / bin/dc run by hand from a directory the deploy user cannot enter; compose error ≠ not running.
       - name: ops-check + bin/dc from any directory
         run: bash product/infra/server/test/ops-check-cwd.test.sh
+      # ARC CWD-02: state/privacy-notice.log goes into the encrypted backup set (source of the landing byte check).
+      - name: backup.sh keeps privacy-notice.log in the backup set
+        run: bash product/infra/server/test/backup-privacy-log.test.sh
+      # QC v1.0.1 ĐK7: production app rollback (rollback.sh → deploy.sh --rollback) on a stubbed production stack.
+      - name: rollback.sh rehearsal (image tag vs git tag, recorded digests, database ahead, no auto switch-back)
+        run: bash product/infra/server/test/rollback.test.sh
+      # ARC FB-R4-ARC-OPS-PR23-01: restore-drill step 7 never reports "khớp DB" when the database query failed.
+      - name: restore-drill privacy-notice.log vs database (query error = not compared)
+        run: bash product/infra/server/test/restore-drill-privacy.test.sh
 
   test-surface-guard:
     # BUG-R1-SEC-08 / SR-SECR-05: the production contract must not contain /__test__ paths

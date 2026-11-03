@@ -10,6 +10,9 @@
 # Counts (R3 v1.0): backup.sh stores counts-<stamp>.txt.age = row counts + money totals (reservations, folios,
 # folio lines, payments …) read in the dump's own snapshot; the drill runs the same SQL (infra/server/backup-counts.sql)
 # on the restored database and passes only when every number is equal (backups older than that file: counts shown only).
+# Privacy notice log (ARC FB-R3-ARC-OPS-CWD-02, v1.0.1): privacy-notice-<stamp>.log.age (state/privacy-notice.log,
+# the source of deploy-landing.sh's byte check) is decrypted when present and its published versions are compared with
+# privacy_notice_version in the restored database; the report says whether the log is in the set (shown, not a gate).
 # KEK: not needed for this drill (counts + health). Decrypting one sample document needs the environment's KEK in a
 # tmpfs secret only for the drill (hosting-plan 7.1 step 3) – R3 together with BE (verification command in the image).
 set -Eeuo pipefail
@@ -17,6 +20,7 @@ set -Eeuo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 roles_sh="$here/../../postgres/init/02-roles.sh"
 counts_sql="$here/../backup-counts.sql"
+pn_check="$here/../privacy-log-check.sh"
 PG_IMAGE="${PG_IMAGE:-postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24}"
 identity="" from="" api_image="" stamp="" keep=0
 while [ $# -gt 0 ]; do
@@ -34,6 +38,9 @@ done
 command -v age >/dev/null || { echo "age is required" >&2; exit 2; }
 [ -r "$roles_sh" ] || { echo "missing $roles_sh" >&2; exit 2; }
 [ -r "$counts_sql" ] || { echo "missing $counts_sql" >&2; exit 2; }
+[ -r "$pn_check" ] || { echo "missing $pn_check" >&2; exit 2; }
+# shellcheck source=../privacy-log-check.sh
+. "$pn_check"
 
 if [ -z "$stamp" ]; then
   stamp=$(ls "$from"/db-*.dump.age 2>/dev/null | sed -E 's/^.*db-([0-9]{8}T[0-9]{6}Z)\.dump\.age$/\1/' | sort | tail -n 1)
@@ -130,6 +137,22 @@ if [ -n "$expected" ]; then
 else
   verdict="ĐẠT – /health ok (bản sao lưu cũ: không có tệp counts để so)"
 fi
+# 7. privacy-notice.log (CWD-02): in the set? Versions written with rc=0 in the log vs rows in the restored database.
+#    The comparison lives in infra/server/privacy-log-check.sh (tested: test/restore-drill-privacy.test.sh). A failing
+#    database query is reported as "không đối chiếu được" – never as "khớp DB" (ARC FB-R4-ARC-OPS-PR23-01).
+pn_file="$from/privacy-notice-$stamp.log.age"
+pn_log=""
+if [ -r "$pn_file" ]; then
+  if [ -r "$pn_file.sha256" ]; then
+    (cd "$from" && { sha256sum -c "$(basename "$pn_file").sha256" >/dev/null 2>&1 || shasum -a 256 -c "$(basename "$pn_file").sha256" >/dev/null; }) \
+      || { log "checksum mismatch: $pn_file"; exit 1; }
+  fi
+  age --decrypt --identity "$identity" -o "$work/privacy-notice.log" "$pn_file"
+  pn_log="$work/privacy-notice.log"
+fi
+pn_rc=0
+pn_report=$(privacy_log_report "$name-pg" "$pn_log") || pn_rc=$?
+[ "$pn_rc" -ne 2 ] || log "WARNING: privacy_notice_version could not be read – privacy-notice.log NOT compared"
 pj_lines=$(( $(wc -l < "$work/purge-journal-$stamp.csv") - 1 ))
 t1=$(date +%s)
 echo "================ BIÊN BẢN DIỄN TẬP KHÔI PHỤC (dán vào report OPS) ================"
@@ -139,6 +162,7 @@ echo "Image api:              $api_image"
 echo "Kết quả:                $verdict"
 echo "Thời gian khôi phục:    $((t1 - t0)) giây (giải mã + DB + tệp + khởi động api)"
 echo "Số tệp blob:            $blob_files"
+echo "privacy-notice.log:     $pn_report"
 echo "purge_journal (tệp riêng): $pj_lines dòng – áp lại sau khôi phục theo SR-BAK-06 (lệnh áp lại: R3, BE + OPS)"
 echo "Đếm bảng (sau khôi phục; so với lúc sao lưu: $([ -n "$expected" ] && { [ -z "$diffs" ] && echo 'khớp 100 %' || echo 'LỆCH'; } || echo 'không có'))":
 sed 's/^/  /' <<<"$counts"

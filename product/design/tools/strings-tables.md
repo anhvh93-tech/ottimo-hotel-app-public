@@ -25,6 +25,10 @@
 | `common.unsaved_discard` | Bỏ thay đổi | Discard | ⟨chừa chỗ⟩ |  |
 | `common.error_generic_title` | Chưa tải được dữ liệu | Couldn't load data | Не удалось загрузить данные |  |
 | `common.error_generic_body` | Có thể do mạng chập chờn. Dữ liệu của bạn không bị mất. Bấm Thử lại; nếu vẫn lỗi, báo quản lý mã tham chiếu {request_id}. | This may be a network problem. Nothing has been lost. Tap Try again; if it keeps failing, give your manager the reference {request_id}. | ⟨chừa chỗ⟩ | Đợt 4: thay mã minh họa (RK-503…) bằng `Problem.requestId` của ARC |
+| `common.nights_one` | {n} đêm | {n} night | {n} ночь | {nights_text} trong msg.booking_confirmed (và câu gửi khách khác cần số đêm). BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
+| `common.nights_few` | {n} đêm | {n} nights | {n} ночи | {nights_text} trong msg.booking_confirmed (và câu gửi khách khác cần số đêm). BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
+| `common.nights_many` | {n} đêm | {n} nights | {n} ночей | {nights_text} trong msg.booking_confirmed (và câu gửi khách khác cần số đêm). BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng many |
+| `common.nights_other` | {n} đêm | {n} nights | {n} ночи | {nights_text} trong msg.booking_confirmed (và câu gửi khách khác cần số đêm). BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng other |
 | `common.currency_vnd` | {amount} đ | {amount} VND | {amount} VND |  |
 | `common.approx_usd` | ≈ {usd} USD (tỷ giá {rate}, cập nhật {date}) | ≈ {usd} USD (rate {rate}, updated {date}) | ⟨chừa chỗ⟩ |  |
 
@@ -335,7 +339,10 @@
 | `guest.lang.en` | English | English | English |  |
 | `guest.lang.ru` | Русский | Русский | Русский |  |
 | `guest.hello` | Xin chào, {name} | Hello, {name} | Здравствуйте, {name} |  |
-| `guest.stay.dates` | {from} → {to} · {nights} đêm | {from} → {to} · {nights} nights | {from} → {to} · ночей: {nights} |  |
+| `guest.stay.dates_one` | {from} → {to} · {nights} đêm | {from} → {to} · {nights} night | {from} → {to} · {nights} ночь | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
+| `guest.stay.dates_few` | {from} → {to} · {nights} đêm | {from} → {to} · {nights} nights | {from} → {to} · {nights} ночи | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
+| `guest.stay.dates_many` | {from} → {to} · {nights} đêm | {from} → {to} · {nights} nights | {from} → {to} · {nights} ночей | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng many |
+| `guest.stay.dates_other` | {from} → {to} · {nights} đêm | {from} → {to} · {nights} nights | {from} → {to} · {nights} ночи | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng other |
 | `guest.stay.room` | Căn {room} · {room_name} | Room {room} · {room_name} | ⟨chừa chỗ⟩ |  |
 | `guest.stay.checkin_time` | Nhận phòng từ {time} (phòng luôn sẵn sàng lúc 14:00) | Check-in from {time} (your room is always ready by 14:00) | Заезд с {time} (апартаменты всегда готовы к 14:00) | R3 FB-INV-004, BR-401 v0.4.6 (e) – DOM 8.3 #7; 14:00 viết trong chuỗi đến v1.0.1 (F8 room_ready_guaranteed_time). UXD duyệt R3 Review – đúng câu chuẩn content-guide mục Mẫu tin |
 | `guest.stay.checkout_time` | Trả phòng trước {time} | Check-out by {time} | Выезд до {time} |  |
@@ -617,7 +624,10 @@
 | `guest.oci.uploading` | Đang gửi ảnh {n}/{total} – {pct}% | Sending photo {n}/{total} – {pct}% | Отправка фото {n}/{total} – {pct}% | Ảnh nén phía máy khách ≤ 1,5 MB trước khi gửi |
 | `guest.oci.upload_weak` | Mạng yếu – ảnh đã được thu nhỏ và sẽ tự thử lại. | Weak connection – the photo was compressed and will retry automatically. | Слабое соединение – фото сжато, отправка повторится автоматически. |  |
 | `guest.oci.upload_retry` | Gửi lại ảnh | Resend photo | Отправить фото снова |  |
-| `guest.bill.line.room` | Tiền phòng {nights} đêm × {rate} | Room {nights} nights × {rate} | ⟨chừa chỗ⟩ |  |
+| `guest.bill.line.room_one` | Tiền phòng {nights} đêm × {rate} | Room {nights} night × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
+| `guest.bill.line.room_few` | Tiền phòng {nights} đêm × {rate} | Room {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
+| `guest.bill.line.room_many` | Tiền phòng {nights} đêm × {rate} | Room {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng many |
+| `guest.bill.line.room_other` | Tiền phòng {nights} đêm × {rate} | Room {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng other |
 | `guest.bill.line.minibar` | Minibar | Minibar | Мини-бар |  |
 | `guest.bill.usd` | ≈ {usd} USD (tỷ giá ngày {date}, chỉ tham khảo) | ≈ {usd} USD (rate of {date}, for reference only) | ⟨chừa chỗ⟩ | BR-004 |
 | `guest.req.decline.fully_booked` | Đã hết chỗ vào thời gian bạn chọn | Fully booked for the time you chose | ⟨chừa chỗ⟩ | CŨ – mã nháp EP14, không có trong enum declinedReasonCode 0.3.7; không dùng, xóa ở v0.5 (UXD s4) |
@@ -1224,19 +1234,38 @@
 | `sale.today_handoff` | Sale/CTV: nhắn lễ tân tạo đơn đã thu cho khách này. | Sales/agents: ask the front desk to create a paid booking for this guest. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.try_dates` | Xem ngày gợi ý | See suggested dates | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.quote_text` | OTTIMO Boutique Stay – Báo giá {code}
-Căn {room} {room_name}, {from} → {to} ({nights} đêm), {guests}.
+Căn {room} {room_name}, {from} → {to} ({nights_text}), {guests}.
 Tiền phòng: {room_total}{discount_note}.
 Cọc giữ phòng: {deposit}. Phần còn lại thanh toán khi nhận phòng.
 Báo giá có hiệu lực đến {expires}. | OTTIMO Boutique Stay – Quote {code}
-Room {room} {room_name}, {from} → {to} ({nights} nights), {guests}.
+Room {room} {room_name}, {from} → {to} ({nights_text}), {guests}.
 Room total: {room_total}{discount_note}.
 Deposit to hold the room: {deposit}. The rest is paid at check-in.
 This quote is valid until {expires}. | OTTIMO Boutique Stay – предложение {code}
-Апартаменты {room} {room_name}, {from} → {to} (ночей: {nights}), {guests}.
+Апартаменты {room} {room_name}, {from} → {to} ({nights_text}), {guests}.
 Стоимость проживания: {room_total}{discount_note}.
 Депозит для бронирования: {deposit}. Остальное оплачивается при заселении.
 Предложение действительно до {expires}. | US-083 AC2 – getQuoteText; RU ở R3 (US-115) |
-| `sale.quote_text_extra_guest` | Gồm phụ thu {n} người ngủ sofa: {amount}. | Includes extra-guest charge for {n} guest(s) on the sofa: {amount}. | Включена доплата за {n} гост. на диване: {amount}. | Dòng thêm khi vượt định mức (BR-110) |
+| `sale.quote_nights_one` | {n} đêm | {n} night | {n} ночь | {nights_text} trong sale.quote_text. BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
+| `sale.quote_nights_few` | {n} đêm | {n} nights | {n} ночи | {nights_text} trong sale.quote_text. BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
+| `sale.quote_nights_many` | {n} đêm | {n} nights | {n} ночей | {nights_text} trong sale.quote_text. BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng many |
+| `sale.quote_nights_other` | {n} đêm | {n} nights | {n} ночи | {nights_text} trong sale.quote_text. BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng other |
+| `sale.quote_adults_one` | {n} người lớn | {n} adult | {n} взрослый | Phần {guests} của sale.quote_text – không dùng nhãn ô occ.*_short. BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
+| `sale.quote_adults_few` | {n} người lớn | {n} adults | {n} взрослых | Phần {guests} của sale.quote_text – không dùng nhãn ô occ.*_short. BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
+| `sale.quote_adults_many` | {n} người lớn | {n} adults | {n} взрослых | Phần {guests} của sale.quote_text – không dùng nhãn ô occ.*_short. BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng many |
+| `sale.quote_adults_other` | {n} người lớn | {n} adults | {n} взрослых | Phần {guests} của sale.quote_text – không dùng nhãn ô occ.*_short. BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng other |
+| `sale.quote_kids_one` | {n} trẻ 6–11 tuổi | {n} child aged 6–11 | {n} ребёнок 6–11 лет | Phần {guests} – trẻ 6–11. BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
+| `sale.quote_kids_few` | {n} trẻ 6–11 tuổi | {n} children aged 6–11 | {n} ребёнка 6–11 лет | Phần {guests} – trẻ 6–11. BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
+| `sale.quote_kids_many` | {n} trẻ 6–11 tuổi | {n} children aged 6–11 | {n} детей 6–11 лет | Phần {guests} – trẻ 6–11. BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng many |
+| `sale.quote_kids_other` | {n} trẻ 6–11 tuổi | {n} children aged 6–11 | {n} ребёнка 6–11 лет | Phần {guests} – trẻ 6–11. BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng other |
+| `sale.quote_under6_one` | {n} trẻ dưới 6 tuổi | {n} child under 6 | {n} ребёнок до 6 лет | Phần {guests} – trẻ dưới 6. BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
+| `sale.quote_under6_few` | {n} trẻ dưới 6 tuổi | {n} children under 6 | {n} ребёнка до 6 лет | Phần {guests} – trẻ dưới 6. BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
+| `sale.quote_under6_many` | {n} trẻ dưới 6 tuổi | {n} children under 6 | {n} детей до 6 лет | Phần {guests} – trẻ dưới 6. BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng many |
+| `sale.quote_under6_other` | {n} trẻ dưới 6 tuổi | {n} children under 6 | {n} ребёнка до 6 лет | Phần {guests} – trẻ dưới 6. BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng other |
+| `sale.quote_text_extra_guest_one` | Gồm phụ thu {n} người ngủ sofa: {amount}. | Includes the extra-guest charge for {n} guest on the sofa: {amount}. | Включена доплата за {n} гостя на диване: {amount}. | Dòng thêm khi vượt định mức (BR-110). BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
+| `sale.quote_text_extra_guest_few` | Gồm phụ thu {n} người ngủ sofa: {amount}. | Includes the extra-guest charge for {n} guests on the sofa: {amount}. | Включена доплата за {n} гостей на диване: {amount}. | Dòng thêm khi vượt định mức (BR-110). BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
+| `sale.quote_text_extra_guest_many` | Gồm phụ thu {n} người ngủ sofa: {amount}. | Includes the extra-guest charge for {n} guests on the sofa: {amount}. | Включена доплата за {n} гостей на диване: {amount}. | Dòng thêm khi vượt định mức (BR-110). BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng many |
+| `sale.quote_text_extra_guest_other` | Gồm phụ thu {n} người ngủ sofa: {amount}. | Includes the extra-guest charge for {n} guests on the sofa: {amount}. | Включена доплата за {n} гостей на диване: {amount}. | Dòng thêm khi vượt định mức (BR-110). BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng other |
 
 #### R2 hi-fi – Khung ứng dụng (H02)
 
@@ -2352,7 +2381,10 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `mlog.date_from` | Từ ngày | From | ⟨chừa chỗ⟩ |  |
 | `mlog.date_to` | Đến ngày | To | ⟨chừa chỗ⟩ |  |
 | `rooms.future_keep` | Căn còn {n} đơn tương lai – các đơn này giữ nguyên, đổi căn nếu cần. | This room has {n} future booking(s) – they stay as they are; move them if needed. | ⟨chừa chỗ⟩ |  |
-| `bill.ota_prepaid` | Tiền phòng {n} đêm – đã thanh toán qua {channel} | Room charge, {n} nights – paid via {channel} | ⟨chừa chỗ⟩ | Đơn ota_prepaid (G-13) |
+| `bill.ota_prepaid_one` | Tiền phòng {n} đêm – đã thanh toán qua {channel} | Room charge, {n} night – paid via {channel} | ⟨chừa chỗ⟩ | Đơn ota_prepaid (G-13). BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
+| `bill.ota_prepaid_few` | Tiền phòng {n} đêm – đã thanh toán qua {channel} | Room charge, {n} nights – paid via {channel} | ⟨chừa chỗ⟩ | Đơn ota_prepaid (G-13). BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
+| `bill.ota_prepaid_many` | Tiền phòng {n} đêm – đã thanh toán qua {channel} | Room charge, {n} nights – paid via {channel} | ⟨chừa chỗ⟩ | Đơn ota_prepaid (G-13). BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng many |
+| `bill.ota_prepaid_other` | Tiền phòng {n} đêm – đã thanh toán qua {channel} | Room charge, {n} nights – paid via {channel} | ⟨chừa chỗ⟩ | Đơn ota_prepaid (G-13). BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng other |
 | `bill.refund` | Đã hoàn {amount} ({method}) | Refunded {amount} ({method}) | ⟨chừa chỗ⟩ |  |
 | `bill.refund_due` | Hoàn lại khách {amount} | Refund due to guest {amount} | ⟨chừa chỗ⟩ | Còn phải thu âm |
 | `folio.post_checkout_tag` | Phát sinh sau trả phòng | Added after check-out | ⟨chừa chỗ⟩ | BR-427 c |
@@ -2378,7 +2410,10 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `gw.docs_have_deferred` | Đã có giấy tờ của {n}/{m} khách · {k} khách bổ sung tại quầy | IDs received for {n}/{m} guests · {k} will show ID at reception | Документы получены: {n}/{m} гостей · {k} предъявят на стойке |  |
 | `gw.oci_done_card_title` | Đã làm thủ tục trước | Online check-in done | Онлайн-регистрация пройдена |  |
 | `gw.oci_done_card_body` | Đã gửi giấy tờ của {n}/{m} khách · dự kiến đến {eta}. Khi đến, lễ tân chỉ cần đối chiếu bản gốc. | IDs sent for {n}/{m} guests · arriving around {eta}. At reception, staff just check the originals. | Документы отправлены: {n}/{m} гостей · прибытие около {eta}. На стойке администратор только сверит оригиналы. |  |
-| `gw.oci_done_card_deferred` | {k} khách bổ sung giấy tờ tại quầy. | {k} guest(s) will show ID at reception. | Гостей, которые предъявят документы на стойке: {k}. |  |
+| `gw.oci_done_card_deferred_one` | {k} khách bổ sung giấy tờ tại quầy. | {k} guest will show ID at reception. | Гостей, которые предъявят документы на стойке: {k}. | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
+| `gw.oci_done_card_deferred_few` | {k} khách bổ sung giấy tờ tại quầy. | {k} guests will show ID at reception. | Гостей, которые предъявят документы на стойке: {k}. | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
+| `gw.oci_done_card_deferred_many` | {k} khách bổ sung giấy tờ tại quầy. | {k} guests will show ID at reception. | Гостей, которые предъявят документы на стойке: {k}. | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng many |
+| `gw.oci_done_card_deferred_other` | {k} khách bổ sung giấy tờ tại quầy. | {k} guests will show ID at reception. | Гостей, которые предъявят документы на стойке: {k}. | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng other |
 | `gw.oci_done_card_view` | Xem lại | View | Посмотреть |  |
 | `gw.error_server` | Hệ thống đang gặp sự cố. Thử lại sau ít phút; nếu vẫn lỗi, nhắn OTTIMO kèm mã {request_id}. | Something went wrong on our side. Try again in a few minutes; if it keeps happening, message OTTIMO with the code {request_id}. | У нас произошла ошибка. Попробуйте через несколько минут; если не получится, напишите OTTIMO и укажите код {request_id}. | Thay error.INTERNAL_ERROR ở guest-web (câu đó bảo 'báo quản lý' – dành cho nhân viên) |
 
@@ -3866,7 +3901,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |
 |---|---|---|---|---|
-| `msg.booking_confirmed` | Xác nhận đặt phòng | Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights} đêm). Nhận phòng từ {checkin_time} (phòng luôn sẵn sàng lúc 14:00), trả phòng trước {checkout_time}. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link} | Hi {name}, OTTIMO confirms booking {code}: room {room}, {from} → {to} ({nights} nights). Check-in from {checkin_time} (your room is always ready by 14:00), check-out by {checkout_time}. Deposit paid {deposit}, {balance} due at check-in. Cancellation: {cancel_policy_short}. Check in online for a faster arrival: {link} | Здравствуйте, {name}! OTTIMO подтверждает бронирование {code}: апартаменты {room}, {from} → {to} ({nights} ноч.). Заезд с {checkin_time} (апартаменты всегда готовы к 14:00), выезд до {checkout_time}. Предоплата {deposit}, остаток {balance} при заселении. Отмена: {cancel_policy_short}. Онлайн-регистрация для быстрого заселения: {link} |
+| `msg.booking_confirmed` | Xác nhận đặt phòng | Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights_text}). Nhận phòng từ {checkin_time} (phòng luôn sẵn sàng lúc 14:00), trả phòng trước {checkout_time}. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link} | Hi {name}, OTTIMO confirms booking {code}: room {room}, {from} → {to} ({nights_text}). Check-in from {checkin_time} (your room is always ready by 14:00), check-out by {checkout_time}. Deposit paid {deposit}, {balance} due at check-in. Cancellation: {cancel_policy_short}. Check in online for a faster arrival: {link} | Здравствуйте, {name}! OTTIMO подтверждает бронирование {code}: апартаменты {room}, {from} → {to} ({nights_text}). Заезд с {checkin_time} (апартаменты всегда готовы к 14:00), выезд до {checkout_time}. Предоплата {deposit}, остаток {balance} при заселении. Отмена: {cancel_policy_short}. Онлайн-регистрация для быстрого заселения: {link} |
 | `msg.deposit_received` | Đã nhận cọc (khách trực tiếp) | Chào {name}, OTTIMO đã nhận cọc {deposit} cho đơn {code} (căn {room}, {from} → {to}). Còn {balance} thanh toán khi nhận phòng. Chính sách hủy: {cancel_policy_short} | Hi {name}, OTTIMO has received your deposit of {deposit} for booking {code} (room {room}, {from} → {to}). {balance} is due at check-in. Cancellation: {cancel_policy_short} | Здравствуйте, {name}! OTTIMO получил предоплату {deposit} по бронированию {code} (апартаменты {room}, {from} → {to}). Остаток {balance} оплачивается при заселении. Отмена: {cancel_policy_short} |
 | `msg.checkin_link` | Link check-in online | Chào {name}, để nhận phòng nhanh, vui lòng gửi giấy tờ và giờ đến tại: {link} (khoảng 2 phút). | Hi {name}, to speed up your check-in, please send your IDs and arrival time here: {link} (about 2 minutes). | Здравствуйте, {name}! Чтобы заселение прошло быстрее, отправьте, пожалуйста, документы и время прибытия по ссылке: {link} (около 2 минут). |
 | `msg.checkout_reminder` | Nhắc trả phòng (20:00 hôm trước – BR-425) | Chào {name}, ngày mai {date} là ngày trả phòng (trước 12:00). Bạn muốn ở thêm hoặc trả muộn? Trả lời tại: {link} | Hi {name}, tomorrow {date} is your check-out day (by 12:00). Would you like to stay longer or check out late? Reply here: {link} | Здравствуйте, {name}! Завтра, {date}, день выезда (до 12:00). Хотите продлить проживание или выехать позже? Ответьте здесь: {link} |

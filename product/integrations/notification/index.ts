@@ -3,3 +3,4 @@
 export { MockNotificationAdapter, type MockSentRecord } from './mock.js';
 export * from './email-templates.js';
 export * from './smtp.js';
+export * from './google-chat.js';

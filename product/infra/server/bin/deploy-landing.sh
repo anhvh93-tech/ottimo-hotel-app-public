@@ -17,8 +17,11 @@
 # (publish-privacy-notice.sh). Same version + other bytes → refused (also for --rollback): body_sha256 stored for that
 # version would no longer be the page guests consent on – bump the notice version (pages + form) instead. While the
 # form proxy is closed (LANDING_PUBLIC_API not `on` – no consent can be given, README 12.3 rollback (c)) the same
-# finding is a WARNING only. A version not recorded yet passes with a reminder to run publish-privacy-notice.sh; an
-# image without the two pages passes with a note.
+# finding is a WARNING only. A version not recorded yet passes with a reminder to run publish-privacy-notice.sh.
+# Fail closed while the form proxy is on (ARC FB-R3-ARC-OPS-CWD-01): an image without the two pages, or a page that
+# does not print exactly one version, is refused (proxy closed: a note / WARNING, so rollback (c) is never blocked).
+# No state/privacy-notice.log while the proxy is on → a WARNING of its own (ARC CWD-02: lost log after a rebuild –
+# restore it from the backup, privacy-notice-<stamp>.log.age, before INV approves).
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -99,18 +102,38 @@ one() { sort -u | awk 'NR == 1 { v = $0 } END { if (NR == 1) print v }'; }  # ex
 privacy_check() { # 0 = pass, 1 = refuse. Reads the new image offline: no network, no pull.
   local rc=0 loc file v h rec want bad="" seen="" new=0
   local ver_re='[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[0-9]{1,2})?'
+  # Defence in depth (ARC CWD-04 2 / PR23-04): the image already passed the digest check; the reader still runs with no
+  # capability, no privilege gain, a read-only root and the nobody uid (tar writes to stdout only).
   # shellcheck disable=SC2016  # $f expands inside the container
-  docker run --rm --pull never --network none --entrypoint sh "$ref" -c \
+  docker run --rm --pull never --network none --cap-drop ALL --security-opt no-new-privileges --read-only --user 65534 \
+    --entrypoint sh "$ref" -c \
     'cd /srv/landing && for f in privacy/index.html vi/privacy/index.html; do [ -f "$f" ] || exit 4; done
      tar -cf - privacy/index.html vi/privacy/index.html' > "$ptmp/pages.tar" 2>/dev/null || rc=$?
-  if [ "$rc" -eq 4 ]; then log "privacy: $tag has no /privacy/ + /vi/privacy/ pages – nothing to compare"; return 0; fi
+  local proxy_on=0
+  [ "$(envval LANDING_PUBLIC_API)" = "on" ] && proxy_on=1
+  if [ "$rc" -eq 4 ]; then
+    if [ "$proxy_on" -eq 1 ]; then
+      log "FAIL: privacy: $tag has no /privacy/ + /vi/privacy/ pages while the form proxy is on (LANDING_PUBLIC_API=on) – nothing switched"
+      return 1
+    fi
+    log "privacy: $tag has no /privacy/ + /vi/privacy/ pages – nothing to compare (form proxy is not on)"; return 0
+  fi
   if [ "$rc" -ne 0 ] || ! tar -C "$ptmp" -xf "$ptmp/pages.tar"; then log "FAIL: cannot read the privacy pages of $ref"; return 1; fi
+  if [ "$proxy_on" -eq 1 ] && [ ! -s "$state/privacy-notice.log" ]; then
+    log "WARNING: no $state/privacy-notice.log while the form proxy is on – if this stack ever published a notice version, restore the log from the backup (privacy-notice-<stamp>.log.age) or run publish-privacy-notice.sh (dry run) to compare with the database before INV approves"
+  fi
   for loc in en vi; do
     # Same version patterns as publish-privacy-notice.sh ("Version …" / "Phiên bản …").
     if [ "$loc" = en ]; then file="$ptmp/privacy/index.html"; v=$(grep -oE "Version $ver_re" "$file" | sed 's/^Version //' | one)
     else file="$ptmp/vi/privacy/index.html"; v=$(grep -oE "Phiên bản $ver_re" "$file" | sed 's/^Phiên bản //' | one); fi
     h=$(sha "$file")
-    if [ -z "$v" ]; then log "WARNING: privacy $loc: not exactly one version printed on the page (publish-privacy-notice.sh will refuse it)"; continue; fi
+    if [ -z "$v" ]; then
+      if [ "$proxy_on" -eq 1 ]; then
+        log "FAIL: privacy $loc: not exactly one version printed on the page while the form proxy is on – nothing switched"
+        return 1
+      fi
+      log "WARNING: privacy $loc: not exactly one version printed on the page (publish-privacy-notice.sh will refuse it)"; continue
+    fi
     # Successful writes only (a dry run writes nothing): "<time> apply … version=<v> sha_en=<h> sha_vi=<h> rc=0".
     rec=$(awk -v v="$v" -v k="sha_$loc" '$2 == "apply" && $NF == "rc=0" {
             ver = ""; s = ""

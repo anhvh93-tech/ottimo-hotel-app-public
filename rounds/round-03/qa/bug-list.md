@@ -10,9 +10,18 @@
 |---|---|---|---|---|
 | P0 | 3 | 0 | 0 | 3 |
 | P1 | 16 | 2 (BUG-R3-032, BUG-R3-042 – v1.0.1) | 1 (BUG-R3-057 – đã sửa, QA xác nhận trên PR #16 `98ff43bb` 31/10; Closed khi gộp `main` + CI xanh) | 13 (gồm BUG-R3-037, 038, 039 Closed 30/10 trên rc.6) |
-| P2 | 17 | 11 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn; BUG-R3-041, 043, 044, 046, 052, 053, 056, 058) | 0 | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
+| P2 | 17 | 10 (phần còn lại dời v1.0.1: BUG-R3-018 phần 1, 021 ô nhập Wi-Fi trên Desk, 023 lọc căn chưa dọn; BUG-R3-041, 043, 044, 046, 052, 053, 056) | 1 (BUG-R3-058 – đã sửa, QA xác nhận trên PR #24 `b89dbde4` 01/11; Closed khi #16 + #24 gộp `main` + CI xanh) | 6 (+ phần v1.0.0 của 021, 023 đã Closed) |
 | P3 | 22 | 21 (016; 024–031; 034; 035; 036; 040; 045; 047; 048; 049; 050; 051; 054; 055) | 0 | 1 |
-| **Tổng** | **58** | **34** | **1** | **23** |
+| **Tổng** | **58** | **33** | **2** | **23** |
+
+Cập nhật 01/11 21:40 (QA, Round 4 bước Kiểm thử – PR #24 `be-d/v1.0.1-text-safety` head `b89dbde4`, gồm PR #16; `rounds/round-04/qa/pr24-text-safety.md`):
+- **BUG-R3-058 → Đã sửa – đã xác nhận** (Open → Fixed).
+  - Form và tin Chat nay dùng một hàm `sensitiveNumberKind`, chạy trên bản dùng để kiểm đã chuẩn hóa.
+  - 167 chuỗi chạy qua form (POST thật → 422/202) và qua tin Chat mức C (webhook giả). Form và Chat không lệch nhau ca nào.
+  - Mọi chuỗi của lỗi, kể cả phần bổ sung 31/10, đều nhận 422 đúng trường và mã. Không lưu dòng nào, không xếp tin Chat. `(+84) 905-111-222` nay qua.
+  - Test: api 3542 đạt / 0 lỗi (142 tệp); text-safety + Chat + form 302/302 ở 3 múi giờ tiến trình. Postgres 17 tạm, đã xóa.
+  - Chuyển **Closed** khi PR #16 và #24 gộp `main` với CI xanh.
+- Che thừa mới so với `main` (`VND`/`₫` đứng trước số, tiền ≥ 1 tỷ không đơn vị, SĐT `0084`) ghi thành **BUG-R4-014 (P3)** trong `rounds/round-04/qa/bug-list.md`. QA không mở lại 058.
 
 Cập nhật 31/10 00:15 (QA, bước Kiểm thử – test lại PR #16 head `98ff43bb`, `rounds/round-03/reviews/QA-on-BE-gchat-notify.md` mục "Lượt 2"):
 - **BUG-R3-057 → Đã sửa – đã xác nhận** (Open → Fixed).
@@ -183,7 +192,7 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
 | BUG-R3-053 | P2 | Desk, vai **chỉ Bảo trì**: hộp **Phiếu sửa mới** và **Khóa phòng có kế hoạch** có ô **Căn** trống (GET `rooms` 403 `FORBIDDEN_ACTION`) → không tạo được phiếu hay khóa phòng, dù API cho vai bảo trì khóa phòng | FE-A + BE-A (ARC chọn cách) | Open – thấy trên staging `v1.0.0` 30/10. Cách tạm: lễ tân/người trực khóa trên Desk. Đích v1.0.1 |
 | BUG-R3-056 | P2 | S35, yêu cầu **Đã đóng**: chủ đầu tư không tìm thấy **Xóa theo yêu cầu người gửi** (quyền xóa của người gửi sau khi đóng). Mã `main` vẫn cho xóa; nghi do khó tìm (rời danh sách mặc định, nút giữa thân ngăn). Thiếu test xóa từ **Đã đóng** | FE-B + UXD (QA tái hiện, BE thêm test) | Open – báo từ production 30/10 ~17:50 (khói L, REQ-84EKR1V6). Chưa tái hiện. Cách tạm: tìm theo mã hoặc **Tìm theo liên hệ**. Đích v1.0.1; nâng P1 nếu tái hiện được "OWN không có nút" |
 | BUG-R3-057 | **P1** | Tin Google Chat **mức C** (PR #16): `chatSafeText` kiểm số giấy tờ/thẻ trước khi bỏ ký tự Cf và đổi `_*~` → CCCD/số thẻ bị tách bằng ZWSP, WJ, gạch nối mềm hoặc `_` qua được form và hiện **liền mạch** trong tin. Chữ số toàn độ rộng cũng lọt. Dữ liệu C3 ra bên thứ ba | BE (PR #16 `chat-message.ts`) | **Đã sửa – đã xác nhận** 31/10 trên PR #16 `98ff43bb` (35 chuỗi bị che, SĐT vẫn hiện, api 3387/0 lỗi). Closed khi gộp `main` + CI xanh |
-| BUG-R3-058 | P2 | Form website (US-155 AC5) nhận và lưu CCCD/số thẻ tách bằng ZWSP, WJ, gạch nối mềm, NBSP (lời nhắn), `_`, `/`, `,` hoặc chữ số toàn độ rộng: `normalizeFreeText` chỉ bỏ Cc + bidi; `GROUPED_DIGITS` chỉ nhận 1 dấu cách, chấm hoặc gạch | BE-D (`website-request-rules.ts`) | Open – xác minh bằng hàm trên `main` 30/10; bổ sung chuỗi 31/10 (QA FB-06, SEC GCHAT-07). Đích v1.0.1 nếu kịp, không thì v1.0.2. Phần GCHAT-07 bước 1–3 + FB-06 (a)(b) phải có trước khi đặt Chat mức C |
+| BUG-R3-058 | P2 | Form website (US-155 AC5) nhận và lưu CCCD/số thẻ tách bằng ZWSP, WJ, gạch nối mềm, NBSP (lời nhắn), `_`, `/`, `,` hoặc chữ số toàn độ rộng: `normalizeFreeText` chỉ bỏ Cc + bidi; `GROUPED_DIGITS` chỉ nhận 1 dấu cách, chấm hoặc gạch | BE-D (`website-request-rules.ts` → `sensitive-number.ts`, PR #24) | **Đã sửa – đã xác nhận** 01/11 trên PR #24 `b89dbde4`: 167 chuỗi qua form + Chat C, form và Chat không lệch nhau; mọi chuỗi của lỗi bị 422 và che; `(+84) 905-111-222` qua. Closed khi #16 + #24 gộp `main` + CI xanh. Che thừa mới → BUG-R4-014 |
 
 ## 3. Chi tiết
 
@@ -1431,7 +1440,17 @@ Cập nhật 24/10 (luồng QA phụ – E2E US-155):
   - **Che thừa có sẵn:** form từ chối `(+84) 905-111-222` (422 `ID_NUMBER_DETECTED`), vì `)` chắn ngoại lệ `+`.
   - **Đề xuất thêm cho BE-D:** trên bản dùng để kiểm, bỏ `[\p{Default_Ignorable_Code_Point}\p{M}]` sau NFKC, và coi U+2800 là khoảng trắng. QA đã thử ở scratchpad: che hết nhóm "mới" ở trên, không che nhầm tên tiếng Việt, emoji ZWJ/tông da, SĐT, ngày, số tiền. `(+84) 905-111-222` phải qua. Form và Chat nên dùng **một** hàm kiểm (`looksLikeSensitiveNumber`), để hai bên không lệch nhau.
   - **Mức:** giữ **P2**. Phần lớn chuỗi là cố ý che: người có giấy tờ không có lý do che số của chính mình (đồng ý đánh giá SEC lượt 3). Tuy vậy, GCHAT-07 bước 1–3 cùng FB-06 (a)(b) là **điều kiện trước khi đặt Chat mức C**.
-- **Trạng thái:** Open – đích v1.0.1 nếu kịp. Không chặn PR #16.
+- **Trạng thái:** **Đã sửa – đã xác nhận** (01/11 21:40, QA). Closed khi PR #16 và PR #24 gộp `main` và job CI `format · lint · audit · test · build` xanh.
+- **Test lại 01/11 (PR #24 `be-d/v1.0.1-text-safety` head `b89dbde4`, gồm PR #16):**
+  - **Bản sửa:** một hàm `sensitiveNumberKind` (`sensitive-number.ts`) dùng chung cho form (`guestName`, `note`), lời nhắn từ chối và `chatSafeText`. Hàm kiểm trên bản dùng để kiểm: giải mã `%XX`; NFKD bỏ `\p{M}` và Default_Ignorable; NFKC; chữ số `\p{Nd}` đổi về ASCII; U+2800 thành dấu cách; gạch Unicode, `·`, `'` được chuẩn hóa. Các nhóm số nối nhau cộng 9 hoặc 12 chữ số thì là giấy tờ. Chữ lưu vào DB không đổi (G1).
+  - **Cách test:**
+    - Postgres 17 tạm (cổng 55541, đã xóa). App thật trong tiến trình (`app.inject`), có form token, rate-limit, ghi DB. `ChatDispatcher` mức C với client Chat thật, bắn tới webhook giả.
+    - Mỗi chuỗi đi hai đường: POST form, rồi dòng lưu sẵn đưa qua Chat C.
+  - **Kết quả:**
+    - 70 chuỗi CCCD/thẻ (bảng 2a, 2b, 2d lượt 2, gồm mọi chuỗi ở bước tái hiện và phần bổ sung 31/10) → 422 đúng trường và mã (`ID_NUMBER_DETECTED` / `CARD_NUMBER_DETECTED`). Không có dòng `website_booking_request`, không có dòng `staff.chat`. Tin C che.
+    - 18/18 chuỗi 2c → 202, tin C in nguyên, gồm `(+84) 905-111-222`. `0905111222,0905333444` trước bị Chat che thừa, nay cũng qua.
+    - SĐT VN/quốc tế, ngày, giờ, tiền có đơn vị, mã đặt: 55/58 qua. 3 ca che thừa mới chuyển sang BUG-R4-014.
+  - **Còn lại, không mở lại 058:** `(+84) 079 203 012 345` (`main` chặn, nay qua) và `CCCD 079203012345 - 100 000 đ` (G3 của BE). Cả hai phải cố ý mới viết, rủi ro thấp; đã ghi cho SEC trong `rounds/round-04/qa/pr24-text-safety.md` mục 4.
 
 ### Checklist QA xác nhận rc.6 trên staging (BUG-R3-037, 038, 039)
 

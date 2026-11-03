@@ -1152,3 +1152,91 @@ Lý do chữ: "The room is not yet held" khớp ý "Chưa giữ phòng" trên fo
 - [x] B6: lần ra file + khóa + hàm (`quotes.service.ts` → `text()`); en "1 night", "2 adults" chữ thường; ru 3 dạng; vi bỏ chữ hoa giữa câu; không đụng nhãn ô `occ.*_short`.
 - [x] B7: 3 câu EN (nhận + hẹn theo BR-912; hỏi thông tin thiếu / mời viết tiếng Anh; gửi báo giá), số hứa khớp tham số và landing; không emoji, không dữ liệu cá nhân.
 - [x] Không sửa mã, không commit.
+
+---
+
+## 16. Lượt 6 – câu lỗi ID_NUMBER_DETECTED (PA1)
+
+Round 4, bước Phản hồi & sửa, 01/11/2026. Nguồn: decision-log 01/11 (QA PR #24, ORC thay PO chọn **PA1 (a)**); `rounds/round-04/qa/pr24-text-safety.md` mục 5.1–5.3; BUG-R4-016.
+
+**Vấn đề.** Khách ghi số phòng (`201,202,203`) hoặc ngân sách (`150,000,000`) vào lời nhắn thì máy chủ trả 422 `note: ID_NUMBER_DETECTED`. Câu hiện tại ("No need to send ID numbers at this step. Please remove it.") nói về "số giấy tờ", nên khách không biết dãy số nào bị nhắc tới và sửa thế nào. Phần lớn là khách dài hạn, nhóm có giá trị cao.
+
+**Hướng viết.** Câu mới giữ ý đã duyệt (US-155 AC5: không nhận số giấy tờ ở bước này; nhắc thêm số thẻ cho khớp `noteHint`). Câu không nói khách sai, chỉ chỉ cách ghi: thêm chữ hoặc đơn vị cạnh con số. Hai ví dụ chọn sao cho **qua được cả luật đang chạy lẫn luật BE-D đang sửa**: chỉ có nhóm 3 chữ số, không ghép thành 9/12 chữ số, không phụ thuộc vào ngoại lệ tiền có đơn vị đứng trước hay nhóm `000`. Vì vậy câu không phải sửa lại khi bản vá BUG-R4-016 lên. Câu không gợi ý dạng `VND 150,000,000`, vì dạng này chỉ qua sau bản vá.
+
+### 16.1 Khóa – áp cho bản nào
+
+| Khóa | Trạng thái | Dùng khi | Bản đang chạy v1.0.x (en, vi) | LP-v2 (ko, zh, ru) |
+|---|---|---|---|---|
+| `e.idNumberNote` | **mới** | 422 `ID_NUMBER_DETECTED` ở trường `note` (FE nhận `note` hoặc `body.note`) | **Có**, thêm vào `booking-strings.ts` (en, vi) và interface `BookingStrings.e` | **Có**, thêm vào bảng 4.1 (ko, zh, ru) |
+| `e.idNumber` | **giữ nguyên chữ** | 422 `ID_NUMBER_DETECTED` ở trường `guestName` (`public-booking.service.ts` dòng 511), và mọi trường khác | Giữ chữ hiện tại | Giữ như mục 4.1 |
+| `noteHint` (content) | giữ | gợi ý dưới ô lời nhắn | Giữ ("Please no card or ID numbers." / "Vui lòng không ghi số thẻ, số giấy tờ.") | Giữ như mục 3 |
+
+**Lý do tách khóa, không đổi thẳng `e.idNumber`:** máy chủ trả cùng mã `ID_NUMBER_DETECTED` cho ô **tên** khách. Đặt câu "số phòng hoặc ngân sách" dưới ô tên thì sai ngữ cảnh. Cách ghép cho FE-B (chữ CPY, mã FE-B) ở `booking-form.ts` `message()`: `case 'ID_NUMBER_DETECTED': return isNoteField(fe.field) ? E.idNumberNote : E.idNumber;` (`note` / `body.note`).
+
+Không dính tới: câu lý do từ chối trên Desk (`website-requests.service.ts` `declineNote`), vì đó là chữ cho nhân viên, không phải form khách.
+
+### 16.2 Chữ – `e.idNumberNote`
+
+`·` = khoảng trắng không ngắt U+00A0, bắt buộc giữa số và đơn vị để ví dụ tiền không rơi dòng. Dấu ngoặc theo từng ngôn ngữ, như dưới đây.
+
+| Ngôn ngữ | Câu | Ký tự |
+|---|---|---|
+| **EN (gốc)** | No need to send ID or card numbers. For rooms or a budget, please add words: "rooms 201 and 202", "about 150·million·VND". | 122 |
+| **VI** | Không cần gửi số giấy tờ hay số thẻ. Số phòng hay ngân sách, vui lòng ghi kèm chữ: "phòng 201 và 202", "khoảng 150·triệu·đồng". | 127 |
+| KO | 신분증이나 카드 번호는 보내지 않으셔도 됩니다. 객실 번호나 예산은 ‘201호와 202호’, ‘약 1억·5천만·동’처럼 단위를 붙여 적어 주세요. | 81 |
+| ZH | 无需提供证件号码或银行卡号。房间号或预算请加上单位，例如“201 号房和 202 号房”“约 1.5·亿越南盾”。 | 57 |
+| RU | Номер документа или карты не нужен. К номеру комнаты или бюджету добавьте слова: «номера 201 и 202», «около 150·млн·донгов». | 124 |
+
+Ghi chú từng ngôn ngữ:
+- EN, VI: dùng ngoặc kép thẳng `"…"`, giống câu `e.cap` ("Any room"). Trong TS, chuỗi để trong nháy đơn.
+- KO: ví dụ tiền viết theo cách người Hàn đọc tiền lớn (억/만), không đổi sang `150,000,000동`. "단위를 붙여" = "kèm đơn vị" (호, 동), tự nhiên hơn "kèm chữ". Không viết hoa, dấu câu chuẩn.
+- ZH: dấu câu toàn khổ, nối liền. Hai ví dụ trong ngoặc kép liền nhau, không chèn "、" (GB/T 15834 cho phép bỏ). Khoảng cách giữa chữ Hán và chữ số giữ quy ước 13.2 ("201 号房", "1.5 亿"). "单位" khớp KO.
+- RU: "номер" ở đây là phòng khách sạn (nhất quán với mục 1–3); "млн" là cách viết tắt quen thuộc. Không dùng апартаменты/посуточно.
+
+### 16.3 Độ dài – đo bằng Playwright (chỉ đọc, ngoài repo)
+
+Cách đo: Chromium (playwright-core 1.63 trong `product/node_modules`), Be Vietnam Pro 500 lấy từ `dist/_astro`, 14 px / 1,5 (`.err`: `--fs-small`, `font-weight: 500`). Bề rộng chữ = khung lỗi trừ biểu tượng 16 px và khoảng cách 8 px:
+- màn 360 px: 360 − 2×16 (gutter) − 2×16 (`.bk-card`) − 24 = **272 px**;
+- màn 320 px: 320 − 32 − 2×12 − 24 = **240 px**.
+
+| | 360 px (272) | 320 px (240) | Desktop (520) |
+|---|---|---|---|
+| EN | 4 dòng | 4 dòng | 3 dòng |
+| VI | 4 | 4 | 2 |
+| KO | 3 | 4 | 2 |
+| ZH | 3 | 3 | 2 |
+| RU | 4 | 5 | 3 |
+| Câu cũ EN / VI (tham chiếu) | 2 / 2 | 2 / 2 | 1 / 1 |
+| `e.cap` EN (câu dài nhất hiện có) | 3 | 3 | 2 |
+
+Ở 360 px, mọi câu ≤ 4 dòng. RU ở 320 px lên 5 dòng (thường gặp với tiếng Nga). Chữ Hàn, Hán, Kirin hiện dùng phông dự phòng của hệ thống vì Be Vietnam Pro không có các bộ chữ này, nên số dòng sẽ khác một chút trên máy thật. QA đo lại khi LP-v2 chốt phông. Bản EN 3 dòng thì phải bỏ "please" ("For rooms or a budget, add words: …"). CPY **không chọn** bản này để giữ giọng lịch sự. Nếu UXD muốn trần 3 dòng thì đây là bản thay thế.
+
+UXD kiểm: khung lỗi 4 dòng dưới ô lời nhắn có đẩy nút gửi xuống dưới nếp màn hình không. Đây là chuyện bố cục, CPY không quyết.
+
+### 16.4 Test đề xuất (FE-B, QA)
+
+1. `booking.test.ts` ("every new sentence exists in EN and VI…"): thêm `S.e.idNumberNote` vào vòng lặp (không "!", không emoji).
+2. **Ví dụ trong câu không bị chặn:** với từng ngôn ngữ (en, vi; ko/zh/ru khi có LP-v2), tách các đoạn trong ngoặc của `e.idNumberNote` rồi cho qua `looksLikeIdNumber` và `looksLikeCard` của API. Cả hai phải trả `false`, trên cả luật hiện tại và luật sau bản vá BUG-R4-016. Như vậy khách chép đúng ví dụ thì gửi được.
+3. Form: 422 `{ field: 'note' | 'body.note', code: 'ID_NUMBER_DETECTED' }` thì `#f-note-err` hiện `e.idNumberNote`. 422 `{ field: 'guestName', code: 'ID_NUMBER_DETECTED' }` thì `#f-name-err` hiện `e.idNumber` (không đổi).
+4. Chuỗi có U+00A0 giữa số và đơn vị tiền ở cả 5 ngôn ngữ; không chứa `{`, không chứa `%`.
+5. Chữ khách gõ vẫn còn trong ô sau khi báo lỗi (giữ hành vi hiện tại, QA đã ghi ở 5.1).
+
+### 16.5 Người bản xứ (thêm vào lượt đọc mục 9)
+
+- **RU (rủi ro nhất):** câu có hai chữ "номер" với hai nghĩa ("Номер документа" = số giấy tờ; "номера 201 и 202" = phòng). Cần hỏi người đọc có nhầm không. Nếu nhầm, đổi ví dụ thành «комнаты 201 и 202». Cũng hỏi "К номеру комнаты или бюджету добавьте слова" có tự nhiên không, hay nên viết "Номер комнаты и бюджет пишите со словами".
+- **KO:** khách Hàn có ghi ngân sách tiền đồng bằng 억/만 (‘약 1억 5천만 동’) không, hay quen ghi `1억 5천만 VND`. Hỏi thêm "보내지 않으셔도 됩니다" có quá mềm cho một câu báo lỗi không.
+- **ZH:** "201 号房和 202 号房" có tự nhiên không (hay "201 和 202 号房")? Hai ngoặc kép liền nhau không có "、" có ổn không? "约 1.5 亿越南盾" hay "约 1.5 亿越南盾（VND）"?
+
+### 16.6 Cho SEC
+
+Ý pháp lý giữ nguyên: "không cần gửi số giấy tờ" (US-155 AC5, SEC ARC-08), thêm "số thẻ" cho khớp `noteHint` và SR-PAY-09. Câu **không** nhắc lại chữ khách đã gõ, không nói luật dò hoạt động thế nào ("9 chữ số", "nhóm 000"), nên không mở đường cho người cố lách. Ví dụ chỉ dạy cách ghi tự nhiên. SEC xem cùng lượt duyệt bản vá BUG-R4-016 / PR24-02. Không cần luật sư.
+
+### 16.7 Tự kiểm lượt 6
+
+- [x] Đúng guideline: không emoji, không "!", không IN HOA, giọng điềm tĩnh, EN dẫn.
+- [x] Không đổ lỗi; nói rõ (1) không cần số giấy tờ/số thẻ, (2) số phòng/ngân sách thì ghi kèm chữ hoặc đơn vị, có ví dụ.
+- [x] 0 từ cấm (không căn hộ/apartment/апартаменты/公寓/아파트, không nói số lượng phòng). Ví dụ số phòng là mã phòng, không phải số lượng.
+- [x] Ví dụ qua được cả luật cũ lẫn luật BE-D sửa; không gợi ý dạng chỉ qua sau bản vá.
+- [x] ZH toàn khổ, nối liền; KO không viết hoa; RU ≤ 4 dòng ở 360 px.
+- [x] Đã đo độ dài; đã liệt kê câu cần người bản xứ đọc và phần cho SEC.
+- [x] Không sửa mã, không commit.

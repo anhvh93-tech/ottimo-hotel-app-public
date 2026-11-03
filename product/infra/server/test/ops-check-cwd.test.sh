@@ -4,8 +4,9 @@
 # "containers FAIL not running" alert). Temp OTTIMO_HOME, a one-service compose file, no container started.
 #   bash infra/server/test/ops-check-cwd.test.sh        (workstation or CI; needs docker compose; not as root)
 # Cases: bin/dc from an unreadable cwd works · ops-check from an unreadable cwd · a failing docker compose is reported
-# as "docker compose failed" (containers + http5xx), never as "not running", without its raw message · a really
-# missing container is still "not running".
+# as "docker compose failed" (containers + http5xx), never as "not running", without its raw message · the same for
+# the database checks j16 / email_dead ("query failed: <category>", ARC CWD-03) · no stderr file left on disk
+# (ARC CWD-04 1) · a really missing container is still "not running".
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -13,7 +14,12 @@ bin=$(cd "$here/../bin" && pwd)
 if [ -e /opt/ottimo-prod ] || [ -e /opt/ottimo/.ottimo-home ]; then
   echo "refused: this is an OTTIMO server – run this test on a workstation or in CI" >&2; exit 2
 fi
-if [ "$(id -u)" -eq 0 ]; then echo "skipped: root ignores directory permissions – run as a normal user" >&2; exit 0; fi
+if [ "$(id -u)" -eq 0 ]; then  # ARC CWD-04 3: a visible SKIP line on stdout (CI log), not a silent pass
+  echo "SKIP  ops-check-cwd: running as root – root ignores directory permissions, nothing tested; run as a normal user"
+  # SEC FB-R4-SEC-OPS-PR26-04: in CI a skipped test is a failure, not a green tick.
+  [ "${CI:-}" = true ] && { echo "FAIL  CI=true: run this test as a normal user"; exit 1; }
+  exit 0
+fi
 
 home=$(mktemp -d "${TMPDIR:-/tmp}/occ-test.XXXXXX")
 mkdir -p "$home/stack/infra" "$home/stack/state" "$home/fake/infra/server/bin" "$home/locked"
@@ -69,8 +75,14 @@ out=$(oc)
 if grep -q 'docker compose failed, container state unknown: other error' <<<"$out" && ! grep -q 'secret-token' <<<"$out" \
   && ! grep -q 'secret-token' "$home/stack/state/ops-check/containers"; then
   ok "4 raw compose message (could quote .env) is not forwarded"; else ko "4 raw message"; echo "$out"; fi
-perm=$(ls -l "$home/stack/state/ops-check/compose.stderr" | cut -c1-10)
-[ "$perm" = "-rw-------" ] && ok "4b compose.stderr is 0600" || ko "4b compose.stderr mode $perm"
+left=$(find "$home/stack/state/ops-check" -name '*stderr*' | wc -l | tr -d ' ')
+[ "$left" = "0" ] && ok "4b no stderr file left in state/ops-check (raw message not kept on disk)" || ko "4b $left stderr file(s) left"
+out=$(OTTIMO_HOME="$home/stack" "$home/fake/infra/server/bin/ops-check.sh" j16 email_dead; echo "rc=$?")
+if grep -q '^FAIL j16: query failed: other error' <<<"$out" && grep -q '^FAIL email_dead: query failed: other error' <<<"$out" \
+  && ! grep -q 'secret-token' <<<"$out" && ! grep -q 'secret-token' "$home/stack/state/ops-check/j16" \
+  && ! grep -q 'secret-token' "$home/stack/state/ops-check/email_dead" && grep -q '^rc=1$' <<<"$out"; then
+  ok "4c broken .env → j16 / email_dead 'query failed: other error', raw message not forwarded (ARC CWD-03)"
+else ko "4c db checks raw message"; echo "$out"; fi
 
 fake_dc missing-worker
 out=$(oc)
