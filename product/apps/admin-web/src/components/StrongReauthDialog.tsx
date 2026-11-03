@@ -54,7 +54,8 @@ export interface StrongReauthDialogProps {
  * a recovery code). The fields are cleared after every attempt and when the dialog closes; nothing is kept.
  * Account without 2FA (only while `MFA_ENFORCED = false`): password only. A failure never says which
  * factor was wrong (SEC 06.20). Two S2 actions within 30 s need the NEXT code ("Chờ mã mới").
- * [CHỜ UXD] hi-fi R3 of this dialog – built on the DS modal (C15) for now.
+ * Layout set by UXD (v1.0.3 review, round 2): `children` → factor line (`reauth.s2_help*`) → error banner →
+ * password → code, 12 px apart through `.stack`, DS modal `sm` (C15).
  */
 export function StrongReauthDialog(props: StrongReauthDialogProps) {
   if (!props.open) return null;
@@ -115,7 +116,8 @@ function StrongReauthInner({
       const missingField = missingFactor(err, hasMfa);
       if (missingField) {
         setErrors({ [missingField]: t('common.required') });
-        if (missingField === 'password') pwRef.current?.focus();
+        // Both fields were just cleared: start again from the first one, as after REAUTH_FAILED (UXD EM-14).
+        pwRef.current?.focus();
       } else if (isStrongReauthError(err)) {
         setFailed(true);
         setBanner(t('reauth.s2_failed'));
@@ -153,9 +155,7 @@ function StrongReauthInner({
     >
       <form id="s2-form" onSubmit={submit} noValidate className="stack">
         {children ? <div>{children}</div> : null}
-        <p className="muted" style={{ margin: 0 }}>
-          {t(hasMfa ? 'reauth.s2_help' : 'reauth.s2_help_password')}
-        </p>
+        <p className="muted">{t(hasMfa ? 'reauth.s2_help' : 'reauth.s2_help_password')}</p>
         {banner ? (
           <Alert tone="bad">
             {banner}

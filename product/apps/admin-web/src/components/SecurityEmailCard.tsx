@@ -117,6 +117,8 @@ export function SecurityEmailCard() {
     const target = confirm!;
     const before = current;
     let saved: string | null;
+    /** `Me` was already reloaded to find out what is stored. */
+    let reloaded = false;
     try {
       const { data } = await sendWithOneKey((key) =>
         api.setMyEmail({ email: target.email, reauth }, key),
@@ -127,13 +129,21 @@ export function SecurityEmailCard() {
       // its own field – never the email field.
       if (isStrongReauthError(err)) throw err;
       const fe = emailFieldError(err);
-      if (!fe) throw err; // 429, 403, 5xx… – one sentence inside the dialog.
-      setConfirm(null);
-      setValue(target.email ?? before ?? '');
-      setEditing(true);
-      setError(emailErrorText(t, fe));
-      requestAnimationFrame(() => inputRef.current?.focus());
-      return;
+      if (fe) {
+        setConfirm(null);
+        setValue(target.email ?? before ?? '');
+        setEditing(true);
+        setError(emailErrorText(t, fe));
+        requestAnimationFrame(() => inputRef.current?.focus());
+        return;
+      }
+      // Still 409 IDEMPOTENCY_IN_PROGRESS after the resends, network, 5xx…: the first request may have been
+      // saved (ARC FB-R4-ARC-FE-31-03). Reload Me and go by what is really stored; otherwise one sentence
+      // inside the dialog as before.
+      const me = await session.refresh().catch(() => null);
+      if (!me || !sameEmail(me.email, target.email)) throw err;
+      saved = me.email ?? null;
+      reloaded = true;
     }
     setConfirm(null);
     setEditing(false);
@@ -146,7 +156,7 @@ export function SecurityEmailCard() {
       ),
     });
     // Me carries the new address and `securityEmailMissing` (reminder off once an address is on file).
-    await session.refresh().catch(() => undefined);
+    if (!reloaded) await session.refresh().catch(() => undefined);
     requestAnimationFrame(() => headRef.current?.focus());
   };
 

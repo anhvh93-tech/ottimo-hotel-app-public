@@ -1,10 +1,10 @@
 // v1.0.3 BUG-R3-032 (P1) – security email on the Desk (OpenAPI 0.3.10 `setMyEmail`, `updateUser.email`,
 // `Me.email`, `Me.securityEmailMissing`; ARC v1.0.3-contract-email mục 7). Test addresses only: example.test.
 import { hasKey, translate } from '@ottimo/i18n';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
-import { isEmailShape, normalizeEmail, sameEmail } from '../app/email';
+import { isEmailShape, normalizeEmail, RESEND, sameEmail } from '../app/email';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { MOCK_PASSWORD, type MockUser } from '../mocks/seed';
@@ -13,7 +13,7 @@ import { renderApp, tv } from '../test/render';
 
 const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const label = (key: string) => new RegExp(`^${esc(tv(key))}`);
-/** The email field only ("Email *") – not the block heading "Email nhận thư bảo mật". */
+/** The email field only ("Email *") – not the block heading "Email nhận thông báo bảo mật". */
 const fieldLabel = () => new RegExp(`^${esc(tv('secmail.field'))}\\s*\\*?$`);
 const userOf = (name: string) => mockControl.db.users.find((u) => u.username === name)!;
 type User = ReturnType<typeof renderApp>['user'];
@@ -164,6 +164,105 @@ describe('Bảo mật tài khoản – security email block (setMyEmail)', () =>
     expect(sent).toHaveLength(0);
   });
 
+  describe('resend while the first request is still running (ARC FB-R4-ARC-FE-31-03)', () => {
+    const delay = RESEND.inProgressDelayMs;
+    afterEach(() => {
+      RESEND.inProgressDelayMs = delay;
+    });
+    const inProgress = () =>
+      HttpResponse.json(
+        {
+          type: '/problems/idempotency-in-progress',
+          title: 'IDEMPOTENCY_IN_PROGRESS',
+          status: 409,
+          code: 'IDEMPOTENCY_IN_PROGRESS',
+          requestId: 'mock-409',
+        },
+        { status: 409, headers: { 'content-type': 'application/problem+json' } },
+      );
+    /** The first request reaches the server and is saved there; only its answer is lost. */
+    const saveFirst = async (request: Request) => {
+      const u = userOf('qa.fd');
+      u.email = 'fd@example.test';
+      u.version += 1;
+      mockControl.db.emailIdem.set(`${u.id}:${request.headers.get('idempotency-key')}`, {
+        body: await request.clone().text(),
+        status: 200,
+        answer: { email: 'fd@example.test' },
+      });
+    };
+    const addFd = async (user: User) => {
+      await user.type(await screen.findByLabelText(fieldLabel()), 'fd@example.test');
+      await user.click(within(section()).getByRole('button', { name: tv('secmail.add') }));
+      await s2(user, tv('secmail.s2_save_title'), tv('secmail.save'));
+    };
+
+    it('network drop, then 409 IDEMPOTENCY_IN_PROGRESS, then the replayed answer: saved, same key and body throughout', async () => {
+      RESEND.inProgressDelayMs = 20;
+      const sent = watch('/v1/me/email');
+      const replayed: string[] = [];
+      server.events.on('response:mocked', ({ request, response }) => {
+        if (new URL(request.url).pathname === '/v1/me/email')
+          replayed.push(response.headers.get('idempotent-replayed') ?? '');
+      });
+      let n = 0;
+      server.use(
+        http.put('*/v1/me/email', async ({ request }) => {
+          n += 1;
+          if (n === 1) {
+            await saveFirst(request);
+            return HttpResponse.error();
+          }
+          if (n === 2) return inProgress();
+          return undefined; // the real mock answers from the stored key (Idempotent-Replayed)
+        }),
+      );
+      const { user } = renderApp('/security', 'qa.fd');
+      await addFd(user);
+      expect(await screen.findByText(tv('secmail.saved_first'))).toBeInTheDocument();
+      expect(screen.getByTestId('security-email-current')).toHaveTextContent('fd@example.test');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      await waitFor(() => expect(sent).toHaveLength(3));
+      const keys = new Set(sent.map((x) => x.headers.get('idempotency-key')));
+      expect(keys.size).toBe(1);
+      expect(sent[2]!.body).toEqual(sent[0]!.body);
+      expect(sent[1]!.body).toEqual(sent[0]!.body);
+      await waitFor(() => expect(replayed.at(-1)).toBe('true'));
+      server.events.removeAllListeners('response:mocked');
+    });
+
+    it('still 409 after the resends but saved: Me is reloaded and the stored address is shown', async () => {
+      RESEND.inProgressDelayMs = 10;
+      const sent = watch('/v1/me/email');
+      let n = 0;
+      server.use(
+        http.put('*/v1/me/email', async ({ request }) => {
+          n += 1;
+          if (n === 1) await saveFirst(request);
+          return inProgress();
+        }),
+      );
+      const { user } = renderApp('/security', 'qa.fd');
+      await addFd(user);
+      expect(await screen.findByText(tv('secmail.saved_first'))).toBeInTheDocument();
+      expect(screen.getByTestId('security-email-current')).toHaveTextContent('fd@example.test');
+      // 1 + RESEND.inProgressRetries, all with one key.
+      expect(sent).toHaveLength(1 + RESEND.inProgressRetries);
+      expect(new Set(sent.map((x) => x.headers.get('idempotency-key'))).size).toBe(1);
+    });
+
+    it('still 409 after the resends and nothing stored: one sentence in the dialog, nothing claimed', async () => {
+      RESEND.inProgressDelayMs = 10;
+      server.use(http.put('*/v1/me/email', () => inProgress()));
+      const { user } = renderApp('/security', 'qa.fd');
+      await addFd(user);
+      const dlg = screen.getByRole('dialog', { name: tv('secmail.s2_save_title') });
+      expect(await within(dlg).findByText(tv('error.IDEMPOTENCY_IN_PROGRESS'))).toBeInTheDocument();
+      expect(screen.queryByText(tv('secmail.saved_first'))).not.toBeInTheDocument();
+      expect(userOf('qa.fd').email).toBeUndefined();
+    });
+  });
+
   it('connection drops: the SAME key and body are sent once more and the saved answer is shown', async () => {
     const sent = watch('/v1/me/email');
     server.use(http.put('*/v1/me/email', () => HttpResponse.error(), { once: true }));
@@ -260,6 +359,8 @@ describe('Bảo mật tài khoản – security email block (setMyEmail)', () =>
     const code = within(dlg).getByLabelText(label('auth.code_label.totp'));
     await waitFor(() => expect(code).toHaveAttribute('aria-invalid', 'true'));
     expect(code).toHaveAccessibleDescription(tv('common.required'));
+    // Both fields were cleared: focus goes back to the first one (UXD EM-14).
+    expect(within(dlg).getByLabelText(label('reauth.s2_password_label'))).toHaveFocus();
     expect(within(dlg).getByLabelText(label('reauth.s2_password_label'))).not.toHaveAttribute(
       'aria-invalid',
     );
@@ -386,6 +487,27 @@ describe('Người dùng & vai – email column (owner, updateUser.email)', () =
     roles: [{ propertyId: userOf('qa.owner').roles[0]!.propertyId, role: 'owner' }],
     email: 'owner2@example.test',
     version: 1,
+  });
+
+  it('offline (read-only Desk): "Sửa email" is disabled as plain inline text (UXD EM-13)', async () => {
+    renderApp('/settings/users', 'qa.owner');
+    const row = (await screen.findByText('qa.fd')).closest('tr')!;
+    const btn = within(row).getByRole('button', { name: `${tv('users.edit_email')}: Hạnh` });
+    expect(btn).toBeEnabled();
+    expect(btn).toHaveClass('btn-inline');
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+    act(() => {
+      window.dispatchEvent(new Event('offline'));
+    });
+    try {
+      await waitFor(() => expect(btn).toBeDisabled());
+    } finally {
+      Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+      act(() => {
+        window.dispatchEvent(new Event('online'));
+      });
+    }
+    await waitFor(() => expect(btn).toBeEnabled());
   });
 
   it('owner sets an employee email with S2 + If-Match; toast; the column shows it in mono', async () => {
@@ -530,6 +652,7 @@ describe('strings (VI + EN, brand voice)', () => {
     'secmail.removed',
     'secmail.unchanged',
     'secmail.invalid',
+    'secmail.status_set',
     'secmail.status_unset',
     'secnudge.both',
     'secnudge.open',

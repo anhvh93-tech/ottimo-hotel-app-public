@@ -46,3 +46,27 @@
 ## Điểm UXD khen – giữ
 
 Kiểm ở client trước S2, đóng hộp khi gặp hộp thư chung, bộ câu `saved` / `saved_first` / `removed`, neo `#security-email` không mang dữ liệu: giữ nguyên.
+
+---
+
+## Lượt 2 – 03/11/2026 (trả lời "Lượt 2" của `reviews/UXD-on-v1.0.3-email-desk.md`)
+
+Kết luận UXD lượt 2: ĐẠT. Các thẻ còn mở được sửa luôn trong PR-1, cùng commit với thẻ ARC FB-R4-ARC-FE-31-03 (xem `responses/FE-on-ARC-PR31.md`).
+
+| Thẻ | Mức | Trạng thái | Sửa |
+|---|---|---|---|
+| EM-07 (mở lại) | Minor | **Done** | Bỏ `style={{ margin: 0 }}` ở dòng `reauth.s2_help*` trong `StrongReauthDialog`. Dòng này nay cách khối phía trên 12px nhờ `.stack` (`p{margin:0 0 8px}` gộp với `margin-top:12px` thành 12px). Sửa một dòng nên cả 9 hộp S2 đều đúng. Ảnh `r2-01..03`. |
+| EM-13 | Minor | **Done** | Thêm vào `app.css` 2 luật UXD ghi trong thẻ: nút tắt có nền và viền `transparent`; chỉ gạch chân khi hover với nút **không** tắt. Màu muted và con trỏ `not-allowed` giữ theo `.btn[disabled]` của DS. Đo trong trình duyệt khi mất mạng: nền `rgba(0,0,0,0)`, viền trong suốt, hover không gạch chân, con trỏ `not-allowed`. Test mới: mất mạng thì "Sửa email" tắt, có mạng lại thì bật. Ảnh `r2-04`. |
+| EM-14 | Suggestion | **Done** | Nhánh `missingFactor` luôn đưa focus về ô mật khẩu, vì đó là ô đầu tiên vừa bị xóa, giống nhánh `REAUTH_FAILED`. Dấu "Bắt buộc" vẫn ở ô server nêu. Test `reauth.totpCode` thêm assert: ô mật khẩu có focus. |
+| EM-15 | Suggestion | **Done** | `secmail.status_set` đã vào `KEYS` của test chuỗi. Sửa 3 ghi chú khóa theo mã hiện tại: `users.email_self` (chỉ link, không nút), `users.email_other_owner` (chỉ câu muted, không nút), `secmail.purpose` ("thông báo bảo mật"). Tiêu đề nhóm đổi thành "UXD đã duyệt (lượt 2, 03/11/2026)", phần CPY để CPY tự ghi. Chú thích test đổi thành "thông báo bảo mật". Đã chạy lại generator: 3399 chuỗi, JSON không đổi, `strings-tables.md` cập nhật ghi chú. JSDoc `StrongReauthDialog` bỏ `[CHỜ UXD]` và ghi bố cục UXD đã chốt (children → dòng xác thực → banner lỗi → Mật khẩu → Mã, cách nhau 12px, modal `sm`). |
+
+### Ảnh dữ liệu giả lượt 2
+
+Không commit ảnh. Thư mục: `/private/tmp/claude-501/-Users-anhvh-Desktop-hotel-app/36df3adc-c586-471c-a039-340d2b696728/scratchpad/shots/`. Mỗi màn có bản VI và EN, khổ 1280×860. Tài khoản OWN đã bật 2FA nên có ô mã.
+
+- `{vi,en}-r2-01-s2-save-email.png`: hộp Lưu email nhận thông báo bảo mật.
+- `{vi,en}-r2-02-s2-regen-codes.png`: hộp Tạo bộ mã mới.
+- `{vi,en}-r2-03-s2-cancel-receiving.png`: hộp Hủy tài khoản nhận đã lên lịch (có ô lý do). Tài khoản thử, chỉ hiện 4 số cuối.
+- `{vi,en}-r2-04-users-offline.png`: bảng Người dùng & vai khi mất mạng.
+
+Ghi nhận ngoài phạm vi, không sửa: trong hộp Hủy lịch, dòng tài khoản hiện "Vietcombank•••• 8888", không có khoảng cách giữa tên ngân hàng và dấu chấm. Dòng này là `AccountLine` có sẵn từ R3-Q51. Đề nghị UXD xem có cần thêm khoảng cách không.
