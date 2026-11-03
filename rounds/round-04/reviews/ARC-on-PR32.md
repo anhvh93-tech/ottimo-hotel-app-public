@@ -205,3 +205,161 @@ Còn chờ PR-1 gộp (không điền được bây giờ): `SHA_V103`, `TAG12`,
 1. OPS phát hiện `deploy.sh` không bảo đảm thứ tự mà quyết định ARC giả định. OPS nói thẳng trong phản hồi, không lặng lẽ "đạt bằng giấy", và tự đề xuất thẻ sửa có test. Lần sau, khi một quyết định kiến trúc đụng tới đường deploy, cứ đọc mã như vậy.
 2. Dùng `\if` + `to_regclass` để một kiểm chạy được trên cả DB 67 lẫn 68 là cách gọn, đúng với kế hoạch làm mới gói `infra/` trước Release. Kiểm ngưỡng "chỉnh được nhưng không tắt được" cũng đúng tinh thần fail-closed.
 3. `requeue-email-changed.sh` đúng khuôn một thao tác ghi trên production: mặc định chạy thử; `--expect` lấy từ chính lần chạy thử; giao dịch tự hủy khi lệch số; hỏi chính image đang chạy chứ không tin tag. Các script ghi sau này nên theo khuôn này.
+
+---
+
+## PR #33 – `ops/v1.0.3-runbook-r3` @ `37e27362` (runbook r3, `flock` trong `requeue`)
+
+- Base `main` @ `351cf073`. Diff đọc: `git diff origin/main...origin/ops/v1.0.3-runbook-r3` (5 tệp, +249/−80). Đối chiếu `responses/OPS-on-PR32.md` @ `37e27362` và các thẻ ở trên.
+- Người duyệt: ARC. Round 4, v1.0.3, bước **Review**. Ngày 03/11/2026. Không checkout, không commit, không đăng lên PR.
+
+### Kết luận PR #33: **ĐẠT CÓ ĐIỀU KIỆN**
+
+- Mã (`requeue-email-changed.sh` + test) **đạt**.
+- Thẻ ARC PR32-01 (Major) và 02–05 **đã đóng**. Mọi ô đã điền **khớp `main` thật**.
+- G12: ARC **đồng ý** về nguyên tắc.
+- Điều kiện: mục 0.2, như đang viết, **không chạy được**, vì lọc lượt CI theo `conclusion == success` (thẻ PR33-01, Major). OPS sửa 0.2 bằng một commit tài liệu **trên chính nhánh PR #33, trước khi gộp**. Sửa sau khi gộp thì lần push tài liệu đó hủy chính lượt CI của `SHA_V103` (xem thẻ). ARC chỉ đối chiếu lại mục 0.2. Thẻ 02, 03 làm cùng commit đó.
+
+### Kiểm đã chạy
+
+| Kiểm | Kết quả |
+|---|---|
+| `requeue-email-changed.test.sh` từ `git archive 37e27362`: Mac (không `flock`) và `ubuntu:24.04` (`--network none`, có `flock`) | 46/46 và 48/48 |
+| Đọc mã khóa | `flock` có thì `flock -n 9` như cũ. Không có `flock` mà `RQ_TEST_DC` rỗng thì `REFUSED` trước mọi lệnh `dc`. `RQ_TEST_DC` đã bị từ chối khi `is_prod` (trên đoạn khóa), nên trên production thiếu `flock` luôn dừng. Khớp `deploy.sh:53` (gọi `flock` không điều kiện). Ca test mới chạy với `env -i` và `PATH` tối thiểu, kiểm cả "không có lời gọi docker/DB". Đạt |
+| PR #33 CI (`41654939930`) | `gitleaks` pass (bảng 0.1 có `HASH_0091` đủ 64 ký tự: không bị báo nhầm), `infra scripts` pass |
+| `gh run list --branch main --event push`; `gh run view` | Lượt `351cf073` (`41648829367`) đang **`waiting`**, `conclusion` rỗng (job `deploy staging` chờ duyệt). Lượt `bf1e0ae9` (`41639432861`): `publish images` success, `deploy staging` **cancelled** khi có push mới. Lượt `success` gần nhất là `e5fffe05` (v1.0.2) |
+| `release.yml:57` | `resolve` tìm lượt CI bằng `head_sha=<tag>&event=push&status=success`. Lượt CI của `SHA_V103` phải **xong và success**, kể cả job `deploy staging` |
+
+### 1. Thẻ ARC PR32
+
+| Thẻ | Trạng thái | Đối chiếu r3 |
+|---|---|---|
+| PR32-01 (Major) | **Done** | Mục 0 "Migration chạy ở đâu" đúng thứ tự 0091 thật: bảng → `NO FORCE`/`DISABLE` → `UPDATE … = ''` → `ENABLE`/`FORCE` → CHECK → RLS bảng mới. Bảng 1.3 có dòng mới. K2 có `relrowsecurity, relforcerowsecurity` của `app_user`, đúng là `t\|t`, lệch thì dừng, không K8, báo ARC + SEC + BE. R6 giữ dòng này. 5.0 có S3/S7/S13. Bảng dừng mục 6 có |
+| PR32-02 | **Done** | R9 bước 1: `<n>` + `<m>` = R6 dòng 2; `<n>` ≥ dòng 2 − `BT_BASE`; `--expect` lấy đúng số chạy thử |
+| PR32-03 | **Done** | R3b: ORC nhắn INV, chờ "đã rõ" (trừ sự cố gấp); R5: báo INV dùng lại Desk. 1.3a: có lý do compose. Bảng dừng có dòng R3b |
+| PR32-04 | **Done** | Mục 4 dòng `switch`/`smoke`: đếm `BAD_TEMPLATE` 1.3a, khác 0 thì R9 sau khi Release lại |
+| PR32-05 | **Done** | R9 bước 4, README 13.8/13.9, mục F bước 1, bảng dừng F. Không đổi mã |
+| PR32-06 | Deferred v1.0.4 | Chấp nhận |
+
+### 2. Ô đã điền so với `main` @ `351cf073`
+
+| Ô | Runbook r3 | ARC kiểm trên `main` | Khớp |
+|---|---|---|---|
+| `HASH_0091` | `e8bb6cb9…b33a3` | `git show 351cf073:…/0091_user_email_change.sql \| shasum -a 256`, ra đúng số này, trùng `fb6a281c` | Có |
+| `WHEN_0091` | `1792782171681` | `_journal.json`: 68 mục; idx 67 = `0091_user_email_change` `1792782171681`; 0090 = `1792782169681` | Có |
+| Câu CHECK (mục 0, 1.3) | `email IS NULL OR (char_length BETWEEN 3 AND 254 AND position('@') > 1)`; `UPDATE` trước CHECK | 0091 dòng 27–37: đúng thứ tự, đúng biểu thức | Có |
+| P2 dòng 4b | `btrim(email::text) <> '' AND (char_length(email::text) NOT BETWEEN 3 AND 254 OR position('@' in email::text) <= 1)` | Trùng từng chữ câu tiền kiểm ở dòng 7–8 tệp 0091. "Đúng là" và bảng dừng đúng chữ ARC duyệt trước. Thứ tự đầu ra `on, 67, t, 0, 0, 1, 1` khớp 7 câu | Có |
+| K4 `PURGE_JOB` | grep `"email_change.purge"` trong dòng `worker started` | `worker.ts:74` log `jobs: registry.keys()`; `builtin-jobs.ts:73` khóa `email_change.purge`. R6 trên v1.0.2 là `0` | Có |
+| Tên mục Desk | **Bảo mật tài khoản** → **Email nhận thông báo bảo mật**, nút **Lưu email**; câu `secmail.saved_first` | `strings-vi.json`/`strings-en.json`: `shell.account_security`, `secmail.title`, `secmail.save` = "Lưu email", `secmail.saved_first` bắt đầu đúng câu runbook | Có |
+| Tiêu đề thư | `OTTIMO – Security notice: notification email changed / Thông báo bảo mật: email nhận thông báo đã thay đổi` | `email-templates.ts`: `subject = \`OTTIMO – ${subjectEn} / ${subjectVi}\`` với hai chuỗi trên. Câu "Thay đổi do chủ cơ sở thực hiện." chỉ khi `via = owner` (dùng ở mục F): đúng | Có |
+| `git diff v1.0.2..main -- product/infra` | 9 tệp, +867/−30, danh sách ở bảng 1.2 | `git diff --stat v1.0.2 351cf073 -- product/infra` ra đúng 9 tệp, +867/−30. Ngoài `infra`: chỉ `.github/gitleaks.toml`, `.github/workflows/ci.yml`. Không có compose/env/Caddy/roles/Dockerfile. PR #33 không thêm tệp nào, nên P1 "đúng 9 tệp" vẫn đúng ở `SHA_V103` mới | Có |
+
+### 3. G12 và mục 0.2
+
+**Đồng ý G12**: `SHA_V103` = **commit gộp PR #33**. Một commit dùng chung cho image, gói `infra/` (có bản sửa `flock`) và tag. Không cho P1 nới lỏng. Không duyệt `deploy staging` của lượt `351cf073`. Lần gộp PR #33 sẽ tự hủy lượt đó, đúng ý.
+
+**Digest:** 0.2 không cần dán digest đầy đủ. **Đạt**:
+- `sed` chỉ in 8 + 4 ký tự;
+- `release.yml` tự đọc artifact;
+- lệnh lên lại ở 5.0 và R8 đọc digest vào biến.
+
+**Chọn đúng commit:** 0.2 **chưa đạt** (thẻ 01):
+- Câu `select(.conclusion=="success")` không thấy lượt CI của commit gộp. Lượt đó dừng ở `waiting` (chờ duyệt `deploy staging`) cho tới bước 4, nên bước 3 sẽ lấy `e5fffe05` (v1.0.2). Kiểm băm 0091 và diff sẽ lệch, nên ORC dừng: thủ tục an toàn nhưng **không đi tới được**.
+- 0.2 lấy "lượt xanh mới nhất", không ghim đúng commit gộp. Ý G12 cần đúng commit gộp.
+- 0.2 không cấm push lên `main` trong lúc lượt CI của `SHA_V103` còn chờ. `concurrency.cancel-in-progress` sẽ hủy lượt đó, như lượt `bf1e0ae9` ở trên. Khi đó `resolve` của Release (`status=success`) từ chối tag.
+
+### 4. Bảng biên bản S1–S13 (mục 5.0)
+
+- **Đủ cho phần mới của v1.0.3.** Mỗi dòng có lúc làm, lệnh, "Đúng là" cụ thể và cột số thật. Có luật: một ô lệch mà ARC/SEC chưa chấp nhận lý do thì KHÔNG ĐẠT. Các phần có trong bảng:
+  - 0091: `app_user` `t|t` cả ba thời điểm;
+  - Q1: `dead|BAD_TEMPLATE|1`, `BT_BASE` + 1, `WORKER_ERR_R4` = `LOG_BAD_TEMPLATE` = 1, không tự gửi lại;
+  - R9 hai chiều;
+  - ca 6 lần đổi email;
+  - `AT_IN_LOG`;
+  - `PURGE_JOB`.
+- ARC đã kiểm "đúng là `1`" ở S5/S11 với mã: mỗi lần đổi email chỉ tạo **một** dòng outbox (`security-email.service.ts:161–166`, khóa `email:email_changed:<changeId>`). Đúng.
+- **Chưa đủ để QC chấm cả diễn tập chỉ từ bảng** (thẻ 03). P0 đòi diễn tập "trên đúng `TAG12`" và các điều kiện sau, nhưng bảng không có dòng nào cho chúng:
+  - `MA THOAT: 0` hai chiều, `68 / 67` và `68 / 68`;
+  - số đếm và băm dữ liệu không đổi;
+  - `smoke-prod`, trigger PN-01 sau lùi.
+
+  Sau G12, dòng "staging chạy đúng `TAG12` của commit gộp" là dòng quan trọng nhất cho QC.
+
+### 5. Thẻ feedback
+
+#### FB-R4-ARC-OPS-PR33-01
+- Mức độ: Major
+- Vị trí: runbook r3 mục 0.2 bước 2–4; bảng dừng mục 6 dòng P0; rủi ro R5 mục 8
+- Vấn đề: như mục 3 ở trên:
+  - lọc lượt CI theo `conclusion == success`, trong khi lượt của commit gộp còn `waiting`;
+  - không ghim đúng commit gộp;
+  - không cấm push lên `main` khi lượt đó chưa xong. Bằng chứng: lượt `41648829367` đang `waiting`; lượt `41639432861` bị hủy ở `deploy staging`; `release.yml:57` đòi `status=success`.
+- Vì sao quan trọng: đây là mục chốt commit sẽ lên production. Viết như hiện tại thì ORC hoặc dừng (thủ tục an toàn nhưng trễ mốc), hoặc tự chế lệnh lúc phát hành. Chỉ một lần push tài liệu cũng làm Release bị từ chối, và phải dựng lại image, deploy lại staging, diễn tập lại 5.0.
+- Đề xuất sửa (commit tài liệu trên nhánh PR #33, **trước khi gộp**):
+  1. Bước 1 thêm câu: **từ lúc gộp PR #33 tới khi lượt CI của commit gộp `completed success` (sau khi duyệt `deploy staging`), không push gì lên `main`, kể cả gộp PR khác.** Commit tài liệu (bảng 0.1, biên bản) chỉ commit local, push ở P1.
+  2. Bước 3 thay bằng lệnh ghim commit gộp, chọn lượt theo `headSha` và kiểm theo **job**, không theo kết luận của cả lượt:
+     ```bash
+     cd /Users/anhvh/Desktop/hotel-app && R=anhvh93-tech/ottimo-hotel-app-public && git fetch origin \
+      && S=$(gh pr view 33 -R $R --json state,mergeCommit --jq 'select(.state=="MERGED") | .mergeCommit.oid') && test -n "$S" \
+      && git merge-base --is-ancestor "$S" origin/main && echo "SHA_V103=$S TAG12=sha-$(printf %s "$S" | cut -c1-12)" \
+      && CI_RUN=$(gh run list -R $R -w CI --event push --branch main --commit "$S" -L 1 --json databaseId --jq '.[0].databaseId') && test -n "$CI_RUN" && echo "CI_RUN=$CI_RUN" \
+      && gh run view $CI_RUN -R $R --json status,jobs --jq '"run: \(.status)", (.jobs[] | select(.name=="gitleaks" or .name=="publish images (GHCR)" or .name=="deploy staging") | "\(.name): \(.status) \(.conclusion)")' \
+      && d=$(mktemp -d) && gh run download $CI_RUN -R $R -n image-digests -D "$d" \
+      && sed -nE 's/^([a-z]+)=sha256:([0-9a-f]{8})[0-9a-f]{52}([0-9a-f]{4})$/\1=\2…\3/p' "$d/image-digests.txt"; rm -rf "${d:-/nonexistent}" \
+      ; git show "$S:product/services/api/src/db/migrations/0091_user_email_change.sql" | shasum -a 256 \
+      ; git diff --name-only 351cf0739d5eb6d5584606c60a0a5fd4b8d8db41 "$S" -- product/infra product/services product/apps product/packages product/integrations .github; echo "END CODE DIFF SINCE 351cf073"
+     ```
+     **Đúng là:**
+     - `run: waiting`;
+     - `gitleaks: completed success`, `publish images (GHCR): completed success`, `deploy staging: waiting`;
+     - 3 dòng 8 + 4 ký tự;
+     - băm = `HASH_0091`;
+     - diff có **đúng** ba tệp: `requeue-email-changed.sh`, test của nó, `server/README.md`.
+
+     Thiếu dòng nào, kể cả không có lượt CI cho `S`, thì **dừng**.
+  3. Bước 4: INV đồng ý → duyệt `deploy staging` của **chính** `CI_RUN`. Sau đó `gh run watch $CI_RUN -R $R --exit-status` phải ra mã 0 và `gh run view $CI_RUN --json conclusion` = `success`. **Chỉ sau đó** mới được push. Ghi chú `release.yml:57` để ORC biết vì sao.
+  4. Nếu lượt bị hủy hoặc đỏ trước khi `success`: không gắn tag. Chạy `gh run rerun $CI_RUN` (cùng `S`), làm lại bước 3 (digest có thể đổi), deploy staging lại, rồi diễn tập 5.0 trên digest mới.
+  5. Bảng dừng P0 và rủi ro R5 thêm ý "push lên `main` trước khi `CI_RUN` success".
+- Trạng thái: Open
+
+#### FB-R4-ARC-OPS-PR33-02
+- Mức độ: Minor
+- Vị trí: runbook r3, ngay sau mục 0.2 (dòng 89–98 của tệp)
+- Vấn đề: còn sót phần cuối bảng ô chờ của r2: một dòng `---|---|---|` không có tiêu đề, và các dòng cũ, ví dụ "plan 6.2: **Tài khoản của tôi**", "Dòng log worker mới (nếu có) | PR-1", "(giả định)". Khi hiển thị, phần này dính vào mục 0.2 và mâu thuẫn với bảng 0.1.
+- Vì sao quan trọng: ORC đọc 0.1/0.2 lúc phát hành. Thấy hai giá trị cho một ô (tên mục Desk) thì phải dừng hỏi.
+- Đề xuất sửa: xóa dòng 89–98 (từ `---|---|---|` tới dòng "Tên tệp QC … (giả định)"), giữ `---` phân cách trước mục 1.
+- Trạng thái: Open
+
+#### FB-R4-ARC-OPS-PR33-03
+- Mức độ: Minor (làm trước diễn tập, cùng commit với thẻ 01)
+- Vị trí: runbook r3 mục 5.0, bảng "Biên bản bắt buộc"
+- Vấn đề: như mục 4 ở trên. Các điều kiện P0 về tag, mã thoát, dữ liệu không đổi, `smoke-prod`, PN-01 chỉ nằm trong phần chữ. S8 có "hoặc số thật của QA", nên không có chuẩn chấm. S5 nói "chỉ dòng `email_changed`" nhưng câu K9 không lọc theo mẫu.
+- Vì sao quan trọng: QC chấm từ biên bản. Thiếu dòng tag thì QC không chứng minh được staging chạy đúng image sẽ lên production, mà đó là toàn bộ lý do của G12.
+- Đề xuất sửa: thêm các dòng:
+  - **S0** (trước tất cả): `current_tag` staging = `TAG12` ở 0.1 đã chốt theo 0.2; api/web 8 + 4 ký tự trùng 0.1; job `deploy staging` của `CI_RUN` = success.
+  - **S4b** (lệnh lùi): `migrations: 68 applied / 67`, `OK: sha-e5fffe05ed55 is live`, `MA THOAT: 0`.
+  - **S9b** (lên lại): `deploy ⟨TAG12⟩: ok`, `68 / 68`, `MA THOAT: 0`.
+  - **S14**: số đếm + băm OTM-00378…00382 trùng lúc trước, cả sau lùi lẫn sau lên lại.
+  - **S15** (sau lùi): `smoke-prod` 7 passed / 1 skipped; PN-01 2 trigger `O`.
+
+  Sửa thêm:
+  - S8: "Đúng là" = `FAIL` với số lần/người = số `user_email_change` của người thử ở S2 + 1. QA ghi trước người thử nào nhận lần đổi lúc dừng worker.
+  - S5: ghi rõ câu `… AND payload->>'template' = 'email_changed' GROUP BY 1, 2`.
+- Trạng thái: Open
+
+#### FB-R4-ARC-OPS-PR33-04
+- Mức độ: Suggestion
+- Vị trí: runbook r3 mục 0.2 bước 3, lệnh `sed -E 's/…/…/'`
+- Vấn đề: `sed` không có `-n … p`, nên dòng nào của `image-digests.txt` không khớp mẫu (đổi định dạng, thêm dòng) sẽ được in nguyên, tức in digest đầy đủ ra terminal, rồi có thể bị dán vào chat.
+- Đề xuất sửa: dùng `sed -nE '…/p'` (đã có trong lệnh ở thẻ 01). Thiếu dòng thì "Đúng là" 3 dòng không đạt, và ORC dừng.
+- Trạng thái: Open
+
+### 6. Dòng decision-log đề nghị (ORC ghi)
+
+`| 2026-11-03 | 4 | ARC – PR #33 runbook v1.0.3 r3: ARC PR32-01…05 đóng; ô 0.1 khớp main 351cf073 (HASH_0091, WHEN_0091, CHECK, P2 4b, PURGE_JOB, tên mục Desk, tiêu đề thư, v1.0.2..main -- product/infra 9 tệp). requeue thiếu flock → REFUSED đạt (46/48 test). G12 chấp nhận: SHA_V103 = commit gộp PR #33 (một commit cho image, gói infra, tag). Mục 0.2 sửa trước khi gộp: ghim mergeCommit, chọn lượt CI theo headSha và kiểm theo job, không push main tới khi lượt đó completed success (release.yml đòi status=success; cancel-in-progress hủy lượt đang chờ duyệt staging) | ARC | Quyền ARC (quy trình phát hành) |`
+
+### 7. Điểm làm tốt
+
+1. OPS tự phát hiện G12, tức sửa mã sau khi đã chốt `SHA_V103` thì gói production thiếu bản sửa. OPS chọn một commit cho cả image, gói và tag, thay vì nới P1. Đúng hướng.
+2. Ca test "thiếu `flock`" chạy với `env -i` + `PATH` tối thiểu. Nó kiểm cả "không có lời gọi docker/DB". OPS còn chạy test mới trên script cũ để chứng minh test bắt đúng lỗi. Đây là cách viết test cho chốt an toàn nên theo.
+3. Bảng 0.1 ghi rõ nguồn và cách kiểm lại cho từng ô. Vì vậy ARC đối chiếu hết trong vài lệnh.

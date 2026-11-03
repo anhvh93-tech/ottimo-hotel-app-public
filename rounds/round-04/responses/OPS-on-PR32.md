@@ -73,3 +73,23 @@ Một ô lệch mà ARC/SEC chưa chấp nhận lý do thì diễn tập KHÔNG 
 2. **Production:** P2b làm mới gói `infra/`, P3 sao lưu, P4 gắn tag `v1.0.3`, P5 duyệt Release; INV có mặt 15 phút sau K7 để làm K8.
 3. **R9 `--apply`** (thao tác ghi): chỉ khi có dòng `BAD_TEMPLATE` sau một lần quay lui (mục 4 `switch`/`smoke`, hoặc mục 5). Trên staging không cần INV.
 4. **Mục E** (bật `EMAIL_NO_RECIPIENT_ALERT`) sau ≥ 24 giờ, và **mục 5** quay lui nếu có sự cố.
+
+---
+
+# Lượt 2 – review PR #33 (r3.1, sửa trên nhánh PR trước khi gộp)
+
+- Review: phần "PR #33" ở cuối `rounds/round-04/reviews/ARC-on-PR32.md` và `rounds/round-04/reviews/SEC-on-PR32.md` (hai tệp chép nguyên vào commit này). Cùng nhánh `ops/v1.0.3-runbook-r3`. Một lần gộp vào `main`.
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R4-ARC-OPS-PR33-01 (Major) | Done | Runbook 0.2 viết lại theo lệnh mẫu ARC: ghim `gh pr view 33 --json state,mergeCommit` (phải `MERGED`, nằm trên `origin/main`); chọn lượt bằng `gh run list -w CI --event push --branch main --commit "$S"`; kiểm theo job (`gitleaks`, `publish images (GHCR)` = `completed success`, `deploy staging` = `waiting`, `run: waiting`); không lọc theo `conclusion` của cả lượt. Bước 1: **cấm push lên `main`** từ lúc gộp tới khi `CI_RUN` `completed success`; bảng 0.1 chỉ commit local, push ở P1. Bước 4: INV đồng ý → duyệt `deploy staging` của chính `CI_RUN`, `gh run watch --exit-status` = 0 và `completed success` mới được push. Bước 5: bị hủy/đỏ → không tag, `gh run rerun`, đọc lại digest (có thể đổi), deploy staging và diễn tập lại. Ghi lý do `release.yml:57` + `cancel-in-progress`. Bảng dừng mục 6 thêm dòng 0.2; rủi ro R5 viết lại. OPS chạy thử phần chọn lượt/kiểm job/`sed` trên lượt `41648829367` (`351cf073`): ra đúng `run: waiting`, 3 job như "Đúng là", 3 dòng rút gọn |
+| FB-R4-SEC-OPS-PR33-02 | Done | Trùng ARC PR33-01, cùng bản sửa |
+| FB-R4-ARC-OPS-PR33-02 | Done | Xóa phần bảng r2 còn sót sau 0.2 (dòng `---\|---\|---\|` tới "Tên tệp QC … (giả định)"); giữ `---` trước mục 1 |
+| FB-R4-SEC-OPS-PR33-S2 | Done | Trùng ARC PR33-02 |
+| FB-R4-ARC-OPS-PR33-03 | Done | Bảng 5.0: thêm S0 (staging `current_tag` = `TAG12` của commit gộp, digest trùng 0.1, `deploy staging` success), S4b (`68 / 67`, `OK: sha-e5fffe05ed55 is live`, `MA THOAT: 0`), S9b (`deploy ⟨TAG12⟩: ok`, `68 / 68`, `MA THOAT: 0`), S14 (số đếm + băm OTM-00378…00382 không đổi, hai lần), S15 (`smoke-prod` 7/1, PN-01 2 trigger `O`). S8: QA dùng cùng người thử S1, đúng là `<k>` = `max` của S1 + 1 (thường 7), tổng = S2 + 1. S5: câu đầy đủ lọc `payload->>'template' = 'email_changed'`, đúng là `dead\|BAD_TEMPLATE\|1` + `done\|-\|<n>`. P0 và bảng dừng đổi thành S0–S15 |
+| FB-R4-ARC-OPS-PR33-04 | Done | `sed -nE …p` trong 0.2 |
+| FB-R4-SEC-OPS-PR33-01 | Done | Mục F Nhánh 1 gồm (a) đổi bởi OWN và (b) email của chính tài khoản OWN bị đổi (kể cả `via = self`), mà INV không làm. Thêm dòng "Không chắc nhánh nào → làm Nhánh 1; chỉ khóa người khác khi SEC xác nhận". Nhánh 2 chỉ còn cho nhân viên không phải OWN tự đổi. Ghi rõ không bao giờ để INV tự khóa tài khoản OWN duy nhất. Bảng dừng F và README 13.8 cùng nội dung |
+| FB-R4-SEC-OPS-PR33-S1 | Done | `requeue-email-changed.sh`: `RQ_TEST_DC` bị từ chối (mã 2) khi có `$OTTIMO_HOME/.ottimo-home`, `/opt/ottimo-prod/.ottimo-home` hoặc `/opt/ottimo/.ottimo-home` (khuôn `mail-test.sh`). Ca test mới "staging marker refuses the test stub". Bộ test dùng `OTTIMO_HOME` tạm không có tệp mốc nên không vỡ. README 13.9 |
+| Decision-log | Done | Thêm đúng 2 dòng ORC giao vào cuối `01-decisions/decision-log.md` |
+
+**Kiểm lượt 2 (trên nhánh):** shellcheck v0.10.0 (danh sách tệp như CI) 0 cảnh báo; `test-ops-check.sh` 118/118; `requeue-email-changed.test.sh` Mac 47/47, `ubuntu:24.04` 49/49; `ops-check-cwd.test.sh` 7/7; `rollback.test.sh` 16/16; `mail-test-send.test.sh` 20/20; gitleaks v8.21.2 toàn lịch sử nhánh: 898 commit, no leaks found, mã thoát 0 (chạy trước lần sửa dòng này).

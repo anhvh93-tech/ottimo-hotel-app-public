@@ -31,9 +31,14 @@ envval() { sed -n "s/^$1=//p" "$OTTIMO_HOME/.env" 2>/dev/null | tail -n 1 | tr -
 is_prod=0
 if [ "$(envval APP_ENV)" = "production" ] || [ "$(cat "$OTTIMO_HOME/.ottimo-home" 2>/dev/null)" = "production" ] \
   || [ "$(basename "$OTTIMO_HOME")" = "ottimo-prod" ]; then is_prod=1; fi
-# Test harness only (infra/server/test/requeue-email-changed.test.sh): another compose wrapper.
+# Test harness only (infra/server/test/requeue-email-changed.test.sh): another compose wrapper. Refused on production
+# and wherever a stack marker .ottimo-home exists.
 if [ -n "${RQ_TEST_DC:-}" ] && [ "$is_prod" -eq 1 ]; then
   echo "refused: RQ_TEST_DC is not allowed on production" >&2; exit 2
+fi
+# SEC FB-R4-SEC-OPS-PR33-S1: nor on any server stack (staging shares the VPS) – same marker rule as mail-test.sh.
+if [ -n "${RQ_TEST_DC:-}" ] && { [ -e "$OTTIMO_HOME/.ottimo-home" ] || [ -e /opt/ottimo-prod/.ottimo-home ] || [ -e /opt/ottimo/.ottimo-home ]; }; then
+  echo "refused: RQ_TEST_DC is not allowed on a server stack (.ottimo-home present)" >&2; exit 2
 fi
 dc() { "${RQ_TEST_DC:-$here/dc}" "$@"; }
 log() { echo "[requeue-email $(date -u +%Y-%m-%dT%H:%M:%SZ)] $*"; logger -t ottimo-deploy -- "requeue-email: $*" 2>/dev/null || true; }

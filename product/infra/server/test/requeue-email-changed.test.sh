@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Test of bin/requeue-email-changed.sh (INT FB-R4-INT-BE-31-02 (b), ARC FB-R4-ARC-BE-31-02, runbook v1.0.3 R9) with a
 # stub `dc` (RQ_TEST_DC): no docker, no database. The stub records every psql script it is handed.
-# Cases: usage · production refuses the stub · lock held · no flock on production · current_tag / worker tag / worker template checks · no
+# Cases: usage · production / a stack marker refuses the stub · lock held · no flock on production · current_tag / worker tag / worker template checks · no
 # 0091 table · dry run writes nothing · --expect must match · the UPDATE (conditions, 7 days, one transaction, exact
 # row count) · a refused write says "nothing written" without the raw error · output has counts only.
 #   bash infra/server/test/requeue-email-changed.test.sh        (workstation or CI)
@@ -75,6 +75,11 @@ case_ "--expect without --apply"       2 'only used with --apply' -- --tag "$TAG
 reset; printf 'APP_ENV=production\n' > "$T/home/.env"; rc=0
 out=$(env -i PATH="$PATH" HOME="$T" OTTIMO_HOME="$T/home" RQ_TEST_DC="$T/bin/dc" bash "$script" --tag "$TAG" 2>&1) || rc=$?
 check "production refuses the test stub" 2 'RQ_TEST_DC is not allowed on production' "$out" "$rc"
+# SEC PR33-S1: a staging stack (marker .ottimo-home, not production) refuses the stub too, before any call.
+reset; echo staging > "$T/home/.ottimo-home"; rc=0
+out=$(rq FAKE_ROWS=1 -- --tag "$TAG") || rc=$?
+check "staging marker refuses the test stub" 2 'RQ_TEST_DC is not allowed on a server stack' "$out" "$rc"
+rm -f "$T/home/.ottimo-home"
 
 case_ "current_tag is another tag"     1 'REFUSED: state/current_tag is not sha-ffffffffffff – run this only on the tag that is live now' -- --tag sha-ffffffffffff
 nowrite "current_tag is another tag"
