@@ -17,15 +17,17 @@
 
 - **v1.0.2 – đóng lỗi trên `main` (QC ĐK7 (b) của `rounds/round-04/qc/v1.0.2-gate.md`)**, 03/11 15:10–15:25, `main` @ `e5fffe05` (staging `sha-e5fffe05ed55`): **BUG-R4-013 → Closed**, **BUG-R4-016 → Closed**; cùng lượt, BUG-R3-057 và BUG-R3-058 → Closed trong `rounds/round-03/qa/bug-list.md`. Bằng chứng: PR #25 (`74e8833f`), #16 (`8111d5d6`), #24 (`dea48d69`) là tổ tiên của `e5fffe05`; CI push run `41594706912` xanh 10/10, `@ottimo/tests:test` và `@ottimo/api:test` đều **cache miss** (chạy thật): validator "OK – 0 lỗi, 1 cảnh báo", api 3695 đạt / 24 bỏ qua / 0 lỗi. QA chạy lại tại máy trên mã `e5fffe05`: validator 0 lỗi; `text-safety-units` 235/235; 10 chuỗi BUG-R4-016 + 16 chuỗi BUG-R3-057/058 qua `sensitiveNumberKind`/`chatSafeText` đúng kỳ vọng. Không đụng staging/production ở lượt này, chỉ dữ liệu giả. Không lỗi mới. Không chặn v1.0.2.
 
-## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05`)
+- **v1.0.3 – PR #31 email nhận thông báo bảo mật** (03/11 18:40–19:35, `origin/v1.0.3-email` @ `fb6a281c`; PG 17 tạm `qa-v103-pg`, stack A `MFA_ENFORCED=true` và stack B `false`, đã dọn): chức năng chính **đạt**: S2, Idempotency, chặn dùng lại TOTP, outbox 3 bản và bỏ trùng, dọn 7 ngày, quay lui v1.0.2, migration 0091, PWA không lưu `@`, banner gộp, hồi quy 2FA, retry 409. Vitest chạy `--maxWorkers=3` vì máy quá tải. Mới **BUG-R4-018** (P2), **BUG-R4-022** (P2, có sẵn từ v1.0.2), **BUG-R4-019**, **020**, **021** (P3). Chi tiết: `rounds/round-04/qa/v1.0.3-test-report.md`.
+
+## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c`)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
-| P2 | 7 | 1 (BUG-R4-011) | 0 | 6 (BUG-R4-001, 002, 003, 004, 013, 014 – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`) |
-| P3 | 10 | 4 (BUG-R4-010 – mở lại, BUG-R4-012, BUG-R4-015, BUG-R4-017) | 0 | 6 (BUG-R4-005, 006, 007, 008, 009, 016 – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`) |
-| **Tổng** | **17** | **5** | **0** | **12** |
+| P2 | 9 | 3 (BUG-R4-011, **018**, **022**) | 0 | 6 (BUG-R4-001, 002, 003, 004, 013, 014 – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`) |
+| P3 | 13 | 7 (BUG-R4-010 – mở lại, BUG-R4-012, BUG-R4-015, BUG-R4-017, **019**, **020**, **021**) | 0 | 6 (BUG-R4-005, 006, 007, 008, 009, 016 – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`) |
+| **Tổng** | **22** | **10** | **0** | **12** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -381,6 +383,89 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Vai:** FE (+ SEC duyệt cách sửa).
 - **Trạng thái:** Open – v1.0.2 hoặc sau. Không chặn v1.0.1.
 
+### BUG-R4-018 – Buồng phòng, Bảo trì, Sale nội bộ, CTV lưu được email nhưng không bao giờ thấy lại (field policy D27 ẩn email của chính họ)
+
+- **Mức:** P2.
+  - Không mất dữ liệu, không lộ dữ liệu. Địa chỉ được lưu và thư bảo mật gửi đúng.
+  - Nhưng 4 trên 8 vai không làm được AC "xem, đổi, xóa email của mình". Sau khi lưu, Desk hiện "Chưa có". Người dùng sẽ nhập lại, hoặc nghĩ là chưa lưu. Họ không có nút "Xóa email" và không kiểm lại được địa chỉ đã nhập.
+- **Môi trường:** stack QA, `origin/v1.0.3-email` @ `fb6a281c`, cả `MFA_ENFORCED=true` và `false`. Tài khoản `qa.hk`, `qa.mt`, `qa.sal`, `qa.ctv1`, `qa.ctv2`, `qa.hkmt`.
+- **Các bước:**
+  1. Đăng nhập `qa.sal` (Sale nội bộ).
+  2. Bảo mật tài khoản → Thêm email `sal.role@example.test` → nhập mật khẩu → Lưu email.
+  3. Tải lại trang. Hoặc gọi `GET /v1/me`.
+- **Thực tế:**
+  - `PUT /v1/me/email` trả 200, thân `{}`. Với Lễ tân trưởng và Lễ tân, thân là `{ "email": … }`.
+  - `GET /v1/me` không có khóa `email`.
+  - Desk: "Email nhận thông báo bảo mật – Chưa có … Chưa có email", nút "Thêm email", không có "Xóa email".
+  - DB `app_user.email` có địa chỉ. Outbox `email_changed` gửi đúng.
+  - Cùng kết quả với Buồng phòng, Bảo trì, CTV, và tài khoản HK+MT.
+- **Mong đợi:** mỗi người luôn thấy email của chính mình trong `Me` và trong phản hồi `setMyEmail`, ở mọi vai. Hợp đồng `v1.0.3-contract-email.md` cho mọi vai tự đặt email của mình.
+- **Nguyên nhân:**
+  - `docs/api/openapi.yaml` gắn `x-rbac-field: D27` cho `email` của `setMyEmail` (dòng 872, 884) và `Me.email` (dòng 10187).
+  - `services/api/src/shared/serialization/field-policy.ts` dòng 52 có `D27: [HK, MT, SAL, CTV]`.
+  - D27 dùng cho danh bạ nhân viên ("chỉ tên hiển thị"). Field policy không miễn trừ dữ liệu của chính người gọi.
+- **Đề xuất:** ARC chọn một trong hai cách: bỏ `x-rbac-field: D27` khỏi `Me.email` và phản hồi `setMyEmail` (dữ liệu của chính mình); hoặc thêm miễn trừ "chủ thể = người gọi" cho các op `/v1/me*`. Giữ D27 cho `User.email` trong danh sách người dùng. Thêm test cho từng vai trong `v103-security-email`: `PUT` rồi `GET /v1/me` với HK, MT, SAL, CTV.
+- **Bằng chứng:** `rounds/round-04/qa/v1.0.3-test-report.md` mục 4.3, 6, 7. Nhật ký scratchpad QA `evidence.log` (dòng R-qa.hk … R-qa.ctv1, A-off).
+- **Vai:** ARC (hợp đồng) + BE-A. FE-A không cần sửa nếu `Me.email` có giá trị.
+- **Trạng thái:** Open. Đích v1.0.3, QA đề xuất sửa trước khi phát hành.
+
+### BUG-R4-019 – Thiếu `reauth.password` trả `422 REQUIRED` thay vì `STRONG_REAUTH_REQUIRED`; Desk hiện banner "Mật khẩu hoặc mã chưa đúng"
+
+- **Mức:** P3. Desk luôn gửi trường mật khẩu, và kiểm ô trống ở phía trình duyệt. Chỉ client khác, hoặc thân lệnh bị sửa, mới gặp.
+- **Môi trường:** stack A, `fb6a281c`, `qa.fd`. Desk `qa.fdsal`.
+- **Các bước:** `PUT /v1/me/email` với `reauth: { totpCode: "<mã đúng>" }`, không có `password`.
+- **Thực tế:**
+  - 422 `VALIDATION_FAILED`, `errors[{ field: "reauth.password", code: "REQUIRED" }]`.
+  - Desk (giả lập bằng cách bỏ mật khẩu khỏi thân) hiện banner chung "Mật khẩu hoặc mã chưa đúng…", không đánh dấu ô mật khẩu.
+  - Do `strongReauthSchema` dùng chung (`modules/identity/public/strong-reauth.ts`, `password: z.string().min(1)`), các op S2 khác có lẽ cũng như vậy.
+- **Mong đợi:** `v1.0.3-contract-email.md` mục 3.1 #5: thiếu `password` → `422 STRONG_REAUTH_REQUIRED`. Dòng 63 ghi rõ: "không để zod trả `REQUIRED`".
+- **Đề xuất:** ARC quyết sửa mã (cho `password` optional trong zod, để `StrongReauthService.verify` trả `STRONG_REAUTH_REQUIRED` `field: reauth.password`) hay sửa hợp đồng. Nếu sửa mã, FE-A ánh xạ `STRONG_REAUTH_REQUIRED` ở `reauth.password` vào ô mật khẩu.
+- **Bằng chứng:** báo cáo mục 4.1 (C3b) và mục 6.
+- **Vai:** ARC + BE-A (+ FE-A).
+- **Trạng thái:** Open. Có thể dời v1.0.4.
+
+### BUG-R4-020 – Desk không có "Đặt lại xác thực 2 bước" cho người khác (menu "Khác…" của thiết kế chưa làm)
+
+- **Mức:** P3. API `resetUser2fa` chạy đúng (204, thư `mfa_reset` gửi được). Chỉ thiếu đường bấm trên Desk. Sổ tay BA đang ghi "chưa có".
+- **Môi trường:** Desk `fb6a281c`, `qa.owner`, Người dùng & vai (`/settings/users`).
+- **Các bước:** mở Người dùng & vai, xem cột Thao tác của từng nhân viên.
+- **Thực tế:**
+  - Chỉ có Sửa vai, Đặt lại mật khẩu, Khóa tài khoản (hoặc Mở khóa).
+  - Không có menu "Khác…". Trang không có chữ "2 bước".
+  - `UsersPage.tsx` không gọi `resetUser2fa`. Chuỗi `users.more_help` có trong `design/copy/strings-vi.json` nhưng không được dùng.
+  - Bảo mật tài khoản (v1.0.3) ghi "OTTIMO gửi thông báo bảo mật tới địa chỉ này, ví dụ khi xác thực 2 bước của bạn được đặt lại". Trên Desk, OWN chưa có cách làm việc đó.
+- **Mong đợi:** theo `design/content-guide.md` (`users.more_help`, màn `07-users-devices`): "Khác…" có Đặt lại mật khẩu, Khóa tài khoản, Đặt lại xác thực 2 bước. Hộp S2 dùng `StrongReauthDialog`.
+- **Bằng chứng:** báo cáo mục 6 (ca BA (b)).
+- **Vai:** PO xếp lịch, FE-A làm, UXD chốt chữ.
+- **Trạng thái:** Open. Không chặn v1.0.3.
+
+### BUG-R4-021 – Hộp Thông báo của PWA hiện mã thô `user.email_changed` / `mfa.reset_by_owner`
+
+- **Mức:** P3. Chỉ là hiển thị. Không lộ địa chỉ.
+- **Môi trường:** PWA nhân viên `fb6a281c`, `qa.owner2`, `localhost:8392/#/notifications`.
+- **Các bước:** đổi email của một nhân viên rồi mở Thông báo trên PWA của OWN.
+- **Thực tế:**
+  - Dòng chính: "Thông báo mới – xem chi tiết trên OTTIMO Desk".
+  - Dòng phụ, chữ đơn cách: `user.email_changed`. Với `mfa.reset_by_owner` cũng vậy (có từ v1.0.2).
+  - DB: `staff_notification.kind = account_security_change`, `ref_type = user`, `ref_code = user.email_changed`. `NotificationsPage.tsx` hiện `refCode` nguyên văn cho mọi `refType` không phải `hk_task` hay `guest_request`.
+- **Mong đợi:** nhân viên không thấy mã nội bộ. Hoặc PWA có câu riêng cho `account_security_change` ("Email nhận thông báo bảo mật đã đổi"), hoặc không hiện `refCode` khi `refType = user`.
+- **Bằng chứng:** báo cáo mục 8.
+- **Vai:** MOB (+ BE-A nếu đổi `ref_code`, + UXD chữ).
+- **Trạng thái:** Open. Có thể dời v1.0.4.
+
+### BUG-R4-022 – Buồng phòng, Bảo trì, Sale nội bộ, CTV không tự bật được xác thực 2 bước: `otpauthUri` và `recoveryCodes` bị field policy D27 bỏ (có sẵn từ v1.0.2)
+
+- **Mức:** P2. 2FA không bắt buộc với 4 vai này, nhưng chức năng "tự bật 2FA" hỏng hẳn. Họ không lấy được khóa. Nếu bằng cách nào đó xác nhận được, họ cũng không thấy mã khôi phục. Đây là một nút bảo mật bị hỏng, không có cách vòng trên UI.
+- **Môi trường:** stack A, `fb6a281c`, `qa.mt`, `qa.ctv1`. OpenAPI của `v1.0.2` đã gắn D27 cho `otpauthUri`, nên **có sẵn từ v1.0.2**, không phải hồi quy của PR #31.
+- **Các bước:** đăng nhập `qa.mt` → `POST /v1/me/2fa/setup` với `currentPassword` đúng.
+- **Thực tế:** 200, thân chỉ có `expiresAt`. Không có `otpauthUri` (trường `required` trong OpenAPI). Cùng kết quả với `qa.ctv1`.
+- **Mong đợi:** người gọi nhận `otpauthUri` của chính mình. `confirm2fa` và tạo bộ mã mới trả `recoveryCodes`.
+- **Nguyên nhân:** cùng gốc với BUG-R4-018. `docs/api/openapi.yaml` dòng 1017 (`otpauthUri`), 1060 và 1094 (`recoveryCodes`) gắn `x-rbac-field: D27`. Field policy ẩn D27 với `[HK, MT, SAL, CTV]`.
+- **Đề xuất:** sửa cùng BUG-R4-018 (miễn trừ dữ liệu của chính người gọi trên `/v1/me*`). Thêm test bật 2FA cho một vai HK.
+- **Bằng chứng:** báo cáo mục 4.3. Nhật ký scratchpad QA (`S4 qa.mt 2fa/setup 200 keys= expiresAt`).
+- **Vai:** ARC + BE-A.
+- **Trạng thái:** Open. Đề xuất sửa cùng 018. QC quyết có chặn v1.0.3 không, vì lỗi có từ trước.
+
 ## 3. Ghi nhận (không phải lỗi)
 
 - Trong ~1 giây đầu khi một IP dồn lượt, 30 lượt hợp lệ đầu tiên của IP đó có thể làm khách khác nhận 503 (bộ đếm chung 10/giây). Sau lượt 30 thì không còn. Đây là rủi ro PE-RR4 SEC đã chấp nhận (báo cáo 4.1).
@@ -394,3 +479,6 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - *PR #22:* hộp "Trả sớm" lấy giờ máy trình duyệt cho ô "Khách báo lúc" (giá trị mặc định và `max`). Trên stack dùng đồng hồ giả (server 24/12, trình duyệt 01/11), hộp ra "báo trước 54 ngày", đòi bằng chứng giờ báo và không chọn được ngày nghiệp vụ của server. Production không gặp. Nếu E2E Desk chạy với đồng hồ giả, FE-A nên lấy "bây giờ" từ server (ví dụ header `Date` hoặc `Me`). Gợi ý, không phải lỗi.
 - *PR #22:* đơn Trực tiếp báo cùng ngày (0 ngày) ghi dòng phí `noticeDays: 0`, nên bill hiện "Phí trả phòng sớm (báo trước 0 ngày)". Đúng BR-428-09 theo chữ. UXD xem có muốn câu "báo cùng ngày" không.
 - *PR #22:* bộ Vitest api trên máy QA: 3334 đạt, 24 bỏ qua. BE báo 19 bỏ qua; 5 ca chênh là ca bootstrap cần `BOOTSTRAP_DATABASE_URL`, QA không đặt biến này.
+- *v1.0.3 PR #31:* sau khi tua đồng hồ +8 ngày rồi reset, mã TOTP hiện tại bị từ chối vì `mfa_last_used_step` còn ở ngày +8. Đây là chặn dùng lại đúng thiết kế, chỉ gặp với MutableClock. Gợi ý: `/__test__/clock` `op: reset` nên kèm cách hạ cột này cho E2E.
+- *v1.0.3 PR #31:* dòng outbox `email_changed` bị job dọn 7 ngày xóa `old_email` trước khi gửi thì chỉ gửi `self` + `owner`. Đúng thiết kế, chỉ xảy ra khi worker dừng quá 7 ngày.
+- *v1.0.3 PR #31:* trang Người dùng & vai ở 1024 px ngắt địa chỉ email giữa chữ. Gợi ý cho UXD/FE.
