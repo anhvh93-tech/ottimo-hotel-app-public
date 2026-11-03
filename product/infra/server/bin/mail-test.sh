@@ -8,10 +8,15 @@
 #       or VPS), then sends one test message. Only the person who owns the mailbox types it (INV for a private one).
 # The address travels as the FIRST LINE of the ssh stdin, followed by mail-test.mjs; on the VPS `read` takes that line
 # into MAIL_TEST_TO, and `dc run -e MAIL_TEST_TO` (no value) hands it to the one-off worker container from the
-# environment. Nothing is written to disk on either side. Output: the one line of mail-test.mjs
-# ("mail-test: verified" | "sent" | "failed (<code>)") – never the address.
-# --key (default ~/.ssh/ottimo_ops): the personal OPS key of the runbooks, not the CI key.
-# MAIL_TEST_READ_STDIN=1 (tests only): read the address from a non-terminal stdin.
+# environment. These scripts write nothing to disk. Two things outside them can, and must be checked (SEC PR30-04/05,
+# runbook v1.0.3 P2b + K8): sudo I/O logging (`log_input`/`log_stdin`… in sudoers would record the stdin with the
+# address – must stay off, README 12.1); and a one-off `worker-run` container left behind when the client dies
+# (ssh lost, Ctrl-C) – its config holds the variable until removed (`docker rm -f`, never `inspect`).
+# Output: the one line of mail-test.mjs ("mail-test: verified" | "sent" | "failed (<code>)") – never the address.
+# --key (default ~/.ssh/ottimo_ops): the personal admin key on THIS Mac (as in the v1.0.1 commands), never the CI
+# key; never copy a key to another machine to run this.
+# MAIL_TEST_READ_STDIN=1 + MTS_DIR (tests only, with the fake ssh of test/mail-test-send.test.sh): read the address
+# from a non-terminal stdin. Not for manual use – a piped address lands in the shell history.
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -43,7 +48,7 @@ fi
 
 to="" verify_flag=""
 if [ "$mode" = send ]; then
-  if [ ! -t 0 ] && [ "${MAIL_TEST_READ_STDIN:-}" != 1 ]; then
+  if [ ! -t 0 ] && { [ "${MAIL_TEST_READ_STDIN:-}" != 1 ] || [ -z "${MTS_DIR:-}" ]; }; then
     echo "--send needs an interactive terminal (the address is typed at a hidden prompt)" >&2; exit 2
   fi
   IFS= read -rs -p 'Recipient address (not shown): ' to || true

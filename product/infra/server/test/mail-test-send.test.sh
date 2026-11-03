@@ -66,6 +66,10 @@ done
 
 rc=0; out=$(printf '%s\n' "$addr" | env PATH="$T/bin:$PATH" MTS_DIR="$T" bash "$script" --ssh ottimo-admin@desk.example.test --key "$T/key" --stack production --send 2>&1) || rc=$?
 if [ "$rc" = 2 ] && grep -q 'interactive terminal' <<<"$out"; then ok "4 --send from a pipe (no tty) → refused"; else ko "4 no tty rc=$rc: $out"; fi
+# SEC PR30-06: the test door alone (MAIL_TEST_READ_STDIN=1 without the fake ssh dir MTS_DIR) does not open a pipe.
+rc=0; out=$(printf '%s\n' "$addr" | env -u MTS_DIR PATH="$T/bin:$PATH" MAIL_TEST_READ_STDIN=1 bash "$script" --ssh ottimo-admin@desk.example.test --key "$T/key" --stack production --send 2>&1) || rc=$?
+if [ "$rc" = 2 ] && grep -q 'interactive terminal' <<<"$out" && [ ! -e "$T/argv" ]; then
+  ok "4b MAIL_TEST_READ_STDIN=1 without MTS_DIR → still refused"; else ko "4b test door rc=$rc: $out"; fi
 
 run "$addr" --stack production --send --ssh 'x;rm -rf /'
 if [ "$rc" = 2 ]; then ok "5 --ssh not user@host → exit 2"; else ko "5 bad --ssh rc=$rc"; fi
@@ -81,6 +85,13 @@ run "$addr" --stack production --send
 if [ "$rc" = 1 ] && grep -qx 'mail-test: failed (SMTP_REJECTED)' <<<"$out" && ! grep -q 'Container' <<<"$out" \
   && ! grep -qF "$addr" <<<"$out"; then ok "7 SMTP refused → exit 1, the one mail-test line, no compose noise"
 else ko "7 smtp fail rc=$rc: $out"; fi
+
+# SEC PR30-02: the runbooks call the script directly – it must be executable and work without `bash`.
+FAKE=()
+if [ -x "$script" ]; then ok "8 bin/mail-test.sh is executable"; else ko "8 bin/mail-test.sh has no execute bit"; fi
+rm -f "$T/argv" "$T/stdin"
+rc=0; out=$(env PATH="$T/bin:$PATH" MTS_DIR="$T" "$script" --ssh ottimo-admin@desk.example.test --key "$T/key" --stack production --verify-only 2>&1 </dev/null) || rc=$?
+if [ "$rc" = 0 ] && grep -qx 'mail-test: verified' <<<"$out"; then ok "8b run directly (not via bash) → verified"; else ko "8b direct rc=$rc: $out"; fi
 
 echo "== $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

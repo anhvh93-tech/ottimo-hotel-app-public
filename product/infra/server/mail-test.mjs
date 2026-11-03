@@ -6,7 +6,9 @@
 //   product/infra/server/bin/mail-test.sh --ssh ottimo-admin@desk.ottimo.vn --stack production --send
 // --send asks for the recipient at a hidden prompt and passes it as the first stdin line → `read` on the VPS →
 // `dc run -e MAIL_TEST_TO` (no value, from the environment). Never type `-e MAIL_TEST_TO=<address>`: the address would
-// stay in the shell history of the Mac and in the process list of the VPS (ARC v1.0.3 tech plan 2.9).
+// stay in the shell history of the Mac and in the process list of the VPS (ARC v1.0.3 tech plan 2.9). The one-off
+// container's config holds MAIL_TEST_TO while it exists (`--rm` removes it; a killed client can leave it – runbook
+// v1.0.3 K8 removes leftovers), and sudo I/O logging must stay off (SEC PR30-04/05).
 // MAIL_TEST_VERIFY_ONLY=1: connect + EHLO + STARTTLS only (transport.verify), nothing is sent.
 // Prints ONE line: "mail-test: verified" | "mail-test: sent" | "mail-test: failed (<code>)" – never an address,
 // never provider text (mapSmtpError). Exit 0 on success, 1 on failure, 2 on bad input.
