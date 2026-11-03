@@ -27,15 +27,17 @@
 
 - **ĐK10 QC v1.0.2 / ĐK1 QC v1.0.3 – B18 sau B16 trên staging** (04/11 06:10–06:21 giờ thật, staging `sha-da6d6f3dc22b`; Desk H16 + API): **B18 đạt 5/5** trên OTM-00378…00382. Cả 5 `checked_out`, folio settled, `balanceDueVnd` 0, `unhandledCreditVnd` 0, tổng yêu cầu hoàn đang chờ = `creditVnd`. B18 không tạo trùng phần B16. **0 lỗi tiền (0 P0/P1).** Mới **BUG-R4-025** (P3, tài liệu). BR-428-02 ở giờ thật chưa chạy được hôm nay; đã dựng OTM-00383 để chạy 05/11. Chi tiết: `rounds/round-04/qa/v1.0.2-dk10-b18.md`.
 
-## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff` + smoke staging v1.0.3 + dọn trạng thái ĐK14 + ĐK10 B18 staging 04/11)
+- **Kiểm đọc yêu cầu hoàn thay thế – FB-R4-DOM-BA-025-02** (04/11 06:50–06:53 giờ VN, staging `sha-da6d6f3dc22b`; chỉ GET + xem Desk `qa.mgr`, không bấm nút): yêu cầu thay thế không có nơi nhận (xác nhận); đóng mọi yêu cầu chờ rồi gộp một (xác nhận bằng mã, staging không có ca nhiều yêu cầu); chữ tự đóng khớp sổ tay 1.8. Mới **BUG-R4-026** (P3). Chi tiết: `rounds/round-04/qa/v1.0.2-dk10-b18.md` mục 9.
+
+## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff` + smoke staging v1.0.3 + dọn trạng thái ĐK14 + ĐK10 B18 staging 04/11 + kiểm đọc yêu cầu thay thế 04/11)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
 | P2 | 9 | 1 (BUG-R4-011 – **đã sửa trên `lp-v2`**, chờ gộp `main` + staging smoke P10; `main`/production còn lỗi gốc với hồ sơ tạo tay) | 0 | 8 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022** – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
-| P3 | 16 | 7 (BUG-R4-010 – mở lại, BUG-R4-012 – **đã sửa trên `lp-v2`**, chờ gộp + P10, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4) | 1 (**BUG-R4-025** – PO sửa release notes 04/11, chờ QA xác nhận) | 8 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`) |
-| **Tổng** | **25** | **8** | **1** | **16** |
+| P3 | 17 | 8 (BUG-R4-010 – mở lại, BUG-R4-012 – **đã sửa trên `lp-v2`**, chờ gộp + P10, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4, **026** – v1.0.4) | 1 (**BUG-R4-025** – PO sửa release notes 04/11, chờ QA xác nhận) | 8 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`) |
+| **Tổng** | **26** | **9** | **1** | **16** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -520,6 +522,27 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
     - (2) mục **v1.0.3 → Giới hạn đã biết**, dòng mới "Duyệt hoàn: một đơn có thể có hơn một yêu cầu hoàn": trước khi từ chối, cộng các yêu cầu đang chờ của đơn và đối chiếu với số khách trả thừa trên folio (Đã thu trừ Tổng cộng).
   - **Chưa sửa (ngoài phần PO):** sổ tay gốc 2.14a và hướng dẫn bộ phận (`02` 11.5.2 có đúng câu "trả phòng sau đó không tạo thêm"; sổ tay 2.14a và `01` 7.3 ghi "tạo **một** yêu cầu hoàn", không nêu ngoại lệ). ORC quyết dựng lại bản HTML 1.9 hay để v1.0.4; BA sửa khi được giao. Câu BR-428 và việc giữ 2 yêu cầu hay gộp: DOM.
   - QA xác nhận: đọc lại 2 vị trí trên, so với kết quả OTM-00380 (mục 2.3, 2.5 của `rounds/round-04/qa/v1.0.2-dk10-b18.md`).
+
+### BUG-R4-026 – Yêu cầu hoàn thay thế (sau khi Desk tự đóng): Nhật ký thao tác tiền hiện mã thô `overpayment` ở cột Lý do; hàng Cần duyệt và Hoàn tiền không có lý do
+
+- **Mức:** P3 (chữ / i18n). Không sai tiền. Trái nguyên tắc UXR P-19 / BUG-R2-100 (Desk không bao giờ hiện mã). Người duyệt làm theo sổ tay 1.8 bước 4–5 tìm lý do "trả thừa" sẽ không thấy chữ này ở đâu. Họ có thể coi yêu cầu thay thế là "không rõ từ đâu" rồi dừng, làm chậm khoản hoàn cho khách.
+- **Môi trường:** staging `sha-da6d6f3dc22b`, Desk `qa.mgr`, vi-VN, 1440×900, 04/11/2026 06:51 giờ VN. Đơn thử OTM-00379 (căn 401) và OTM-00378 (căn 203), dữ liệu giả.
+- **Các bước:**
+  1. Đơn có yêu cầu hoàn đang chờ lớn hơn số còn nợ khách, ví dụ OTM-00379: yêu cầu B16 1.042.000, sau đó ghi minibar 25.000.
+  2. MGR bấm **Duyệt** → 409. Desk tự đóng yêu cầu cũ (`superseded`) và tạo yêu cầu thay thế 1.017.000 (`reasonCode` `overpayment`).
+  3. Mở **Nhật ký tiền → Nhật ký thao tác tiền**. Mở **Duyệt** và **Nhật ký tiền → Hoàn tiền**.
+- **Thực tế:**
+  - Nhật ký thao tác tiền: "04/11/2026 06:19 · QA MGR · Gửi yêu cầu duyệt · OTM-00379 · — → 1.017.000 · **overpayment**". Ngay dưới là "Đã tự đóng · — → 1.042.000 · Yêu cầu không còn cần duyệt nên đã tự đóng.". OTM-00378 (03/11 14:59, 732.000) giống hệt.
+  - Hàng Cần duyệt ("· QA FD gửi lúc 04/11/2026 06:19") và Hoàn tiền: không có dòng lý do, không có dấu hiệu đây là yêu cầu thay thế.
+  - Cột Người làm ghi "QA MGR", còn hàng chờ duyệt ghi "QA FD gửi" (người tạo đúng là QA FD).
+- **Mong đợi:**
+  - Cột Lý do hiện chữ VI/EN, ví dụ "Hoàn phần khách trả thừa (thay yêu cầu đã tự đóng)". Hàng Cần duyệt và Hoàn tiền có cùng nhãn. UXD chốt chữ.
+  - FE thêm `overpayment` vào bảng map mã → chữ. Xem luôn `early_departure`: hàng chờ duyệt cũng không có nhãn.
+  - BA chỉnh sổ tay 1.8 bước 4–5 theo chữ Desk sau khi sửa (hoặc ngay bây giờ theo chữ đang hiện).
+- **Nguyên nhân (đọc mã):** `apps/admin-web/src/app/auditReason.ts` (`CODE_KEYS`) và `FOC_REASON` của `pages/approvals/ApprovalsPage.tsx` không có `overpayment`. Lý do không có trong bảng thì `auditReasonText` trả nguyên mã.
+- **Bằng chứng:** `rounds/round-04/qa/v1.0.2-dk10-b18.md` mục 9.3, 9.6. Chữ Desk thô ở scratchpad QA `qa-dk10/out2/desk-qa.mgr-moneylog.txt` (dòng 15–16, 25–26) và `desk-qa.mgr-approvals.txt`. Không có ảnh.
+- **Vai:** FE (map mã) + UXD (chữ VI/EN). BA chỉnh sổ tay theo.
+- **Trạng thái:** **Open**. Đích **v1.0.4**. Không chặn v1.0.3.
 
 ## 3. Ghi nhận (không phải lỗi)
 
