@@ -3,7 +3,7 @@
 - Dành cho: **lễ tân (FD)**, **lễ tân trưởng (FDL)**, người trực đêm
 - Thiết bị: **máy quầy đã được cấp quyền**, địa chỉ `desk.ottimo.vn`. Lễ tân trưởng dùng thêm app nhân viên `staff.ottimo.vn` trên điện thoại để kiểm phòng.
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**. Mục 9.3 bước 6, 11.5 và 17.5 áp dụng từ bản `v1.0.2` (nút **Trả sớm**)
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.5 – 03/11/2026: viết lại mục 11.5 khách trả phòng sớm theo nút **Trả sớm** của v1.0.2, hai nhánh ngắn ngày và HĐ thuê tháng (ESC-048), ghi ngày kết thúc HĐ trước khi gia hạn đơn HĐ (9.3), giới hạn tới v1.0.3 (17.5); bản 1.4 ngày 01/11 sửa chữ cảnh báo chênh giá và câu ghi chú khách tiếng Nga (bản trước: 1.3 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; thêm phòng Google Chat và xóa theo yêu cầu người gửi theo SEC, ESC-041, ESC-042; bản 1.3 ngày 01/11 thêm giá ước tính trên website và khách viết bằng tiếng Hàn, Trung, Nga – mục 13.1c, 13.1d – áp dụng khi gói website LP-v2 phát hành))
+- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.6 – 04/11/2026: thêm trang **Bảo mật tài khoản** và email nhận thông báo bảo mật của v1.0.3 (mục 1.3, 1.6); bản 1.5 – 03/11/2026: viết lại mục 11.5 khách trả phòng sớm theo nút **Trả sớm** của v1.0.2, hai nhánh ngắn ngày và HĐ thuê tháng (ESC-048), ghi ngày kết thúc HĐ trước khi gia hạn đơn HĐ (9.3), giới hạn tới v1.0.3 (17.5); bản 1.4 ngày 01/11 sửa chữ cảnh báo chênh giá và câu ghi chú khách tiếng Nga (bản trước: 1.3 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; thêm phòng Google Chat và xóa theo yêu cầu người gửi theo SEC, ESC-041, ESC-042; bản 1.3 ngày 01/11 thêm giá ước tính trên website và khách viết bằng tiếng Hàn, Trung, Nga – mục 13.1c, 13.1d – áp dụng khi gói website LP-v2 phát hành))
 - Tài liệu không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi học, anh/chị cũng không ghi những thứ này lên giấy.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -75,6 +75,8 @@ Các lần sau: sau mật khẩu, Desk mở **Nhập mã xác thực**. Mở ứ
 
 Tài khoản có vai quản lý **chưa đăng nhập được app nhân viên** ở v1.0 (mục 1.8).
 
+**Email nhận thông báo bảo mật** (có từ v1.0.3): tài khoản có vai quản lý **phải có**. Làm theo mục 1.6.
+
 ### 1.4 Đăng nhập hằng ngày
 
 1. Mở trình duyệt trên máy quầy, vào `desk.ottimo.vn`.
@@ -107,9 +109,21 @@ Gõ sai nhiều lần (5 lần liền): Desk báo "Bạn đã thử quá nhiều
 
 Đăng xuất **mỗi lần rời máy**, kể cả rời một lát. Trước khi người khác dùng máy quầy, anh/chị phải đăng xuất.
 
-Menu dưới tên của mình gồm: **Đổi mật khẩu** · **Xác thực 2 bước** · **Ngôn ngữ giao diện** · **Giao diện** (Theo máy / Sáng / Tối) · **Đăng xuất**.
+Menu dưới tên của mình gồm: **Đổi mật khẩu** · **Bảo mật tài khoản** · **Ngôn ngữ giao diện** · **Giao diện** (Theo máy / Sáng / Tối) · **Đăng xuất**. Trước v1.0.3, mục **Bảo mật tài khoản** có tên **Xác thực 2 bước**.
 
 [ẢNH: C0-06-Menu Tài khoản]
+
+**Email nhận thông báo bảo mật** (có từ v1.0.3). OTTIMO gửi thư **Security notice** tới email này, ví dụ khi xác thực 2 bước của anh/chị được đặt lại hoặc email này thay đổi.
+- Tài khoản có vai quản lý (người trực hiện nay): **bắt buộc**. Lễ tân, lễ tân trưởng không có vai quản lý: không bắt buộc.
+- Cách nhập:
+  1. **Tên của mình → Bảo mật tài khoản**, khối **Email nhận thông báo bảo mật**.
+  2. Nhập email riêng của mình vào ô **Email**, ví dụ `name@example.com`. **Không dùng hộp thư chung của cơ sở, như `info@`.** Bấm **Thêm email** (đã có email thì **Đổi email** → **Lưu email**).
+  3. Hộp xác nhận hiện **Địa chỉ mới**. Đọc lại. Nhập **Mật khẩu đăng nhập**, và **Mã trong ứng dụng xác thực (6 số)** nếu tài khoản có 2 bước. Bấm **Lưu email**.
+  4. Mở hộp thư, tìm thư **OTTIMO – Security notice**. Sau 15 phút chưa thấy: xem mục Spam, rồi kiểm lại địa chỉ.
+- Mỗi lần email đổi, thư gửi tới địa chỉ mới, địa chỉ cũ và các chủ đầu tư. Thư không có link, không hỏi mật khẩu hay mã.
+- Nhận thư báo email đã đổi mà mình không làm: không trả lời thư, báo chủ đầu tư ngay, đổi mật khẩu.
+
+[ẢNH: C0-12-Khối Email nhận thông báo bảo mật]
 
 Desk báo "Phiên đăng nhập đã hết. Đăng nhập lại – thông tin đang nhập vẫn được giữ trên máy này.": đăng nhập lại, làm tiếp.
 
