@@ -471,9 +471,16 @@ body:has(.app-mnav) .toasts {
 .btn.btn-inline {
   padding-inline: 0;
 }
-.btn.btn-inline:hover {
+.btn.btn-inline:not([disabled]):not([aria-disabled='true']):hover {
   background: transparent;
   text-decoration: underline;
+}
+/* UXD FB-R4-UXD-FE-EM-13: offline (read-only Desk) the inline action is plain muted text – no grey box, no
+   dashed border, no underline; muted colour and the not-allowed cursor come from the DS `.btn[disabled]`. */
+.btn.btn-inline[disabled],
+.btn.btn-inline[aria-disabled='true'] {
+  background: transparent;
+  border-color: transparent;
 }
 .nowrap {
   white-space: nowrap;

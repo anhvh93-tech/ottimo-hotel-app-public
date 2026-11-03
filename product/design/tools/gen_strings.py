@@ -3932,8 +3932,8 @@ g("R4 BUG-R4-014 – FE-A: Trả sớm B16 với HĐ thuê tháng (BR-313 v0.5.1
 
 # v1.0.3 BUG-R3-032 (P1, PR-1 – ARC v1.0.3-contract-email mục 7, OpenAPI 0.3.10): email nhận thông báo bảo mật. Desk trước đây
 # không có chỗ nhập email cho OWN/MGR → thư bảo mật (receiving_account_changed…) rơi vào dead NO_RECIPIENT. FE-A viết
-# theo content guide + brand OTTIMO (ngắn, điềm tĩnh, không emoji; địa chỉ hiện bằng JetBrains Mono). **Chờ UXD/CPY duyệt**.
-g("v1.0.3 BUG-R3-032 – FE-A: email nhận thông báo bảo mật (setMyEmail, updateUser.email – OpenAPI 0.3.10). **Chờ UXD/CPY duyệt**", [
+# theo content guide + brand OTTIMO (ngắn, điềm tĩnh, không emoji; địa chỉ hiện bằng JetBrains Mono). UXD đã duyệt (lượt 2, 03/11/2026).
+g("v1.0.3 BUG-R3-032 – FE-A: email nhận thông báo bảo mật (setMyEmail, updateUser.email – OpenAPI 0.3.10). UXD đã duyệt (lượt 2, 03/11/2026)", [
     ("shell.account_security", "Bảo mật tài khoản", "Account security", None, "Thay shell.security ở menu người dùng và tiêu đề trang /security: trang nay có cả xác thực 2 bước lẫn email nhận thông báo bảo mật. Khối 2FA giữ tiêu đề shell.security. UXD giữ tên (review v1.0.3, câu 1)"),
     ("secmail.title", "Email nhận thông báo bảo mật", "Notification email", None, "Tiêu đề khối trên Bảo mật tài khoản (SecurityPage) UXD FB-R4-UXD-FE-EM-03"),
     ("secmail.lead", "OTTIMO gửi thông báo bảo mật tới địa chỉ này, ví dụ khi xác thực 2 bước của bạn được đặt lại hoặc email này thay đổi. Dùng email riêng của bạn.", "OTTIMO sends security notices to this address, for example when your 2-step verification is reset or this email changes. Use your own address.", None, "Câu dẫn khối. Không nêu tên mẫu thư UXD FB-R4-UXD-FE-EM-01 Chỉ nêu thông báo có thật (mfa_reset*, email_changed). Khi có thư đổi mật khẩu mới thêm \"mật khẩu\" vào câu."),
@@ -3941,7 +3941,7 @@ g("v1.0.3 BUG-R3-032 – FE-A: email nhận thông báo bảo mật (setMyEmail,
     ("secmail.none", "Chưa có email.", "No email yet.", None, ""),
     ("secmail.missing", "Tài khoản chủ đầu tư và quản lý cần có email nhận thông báo bảo mật. Nhập email riêng của bạn bên dưới.", "Owner and manager accounts need a notification email. Enter your own address below.", None, "Me.securityEmailMissing = true, trên chính khối (banner đầu trang ẩn ở /security) UXD FB-R4-UXD-FE-EM-03"),
     ("secmail.field", "Email", "Email", None, "Nhãn ô nhập"),
-    ("secmail.purpose", "Chỉ dùng để gửi thông báo bảo mật cho tài khoản này.", "Used only to send security notices for this account.", None, "Câu mục đích xử lý dưới ô email (ND13 Đ.13 – FB-R4-SEC-ARC-EM-13). v1.0.3 không xác minh email: nói \"thư thông báo\", không nói \"thư xác nhận\" UXD FB-R4-UXD-FE-EM-03"),
+    ("secmail.purpose", "Chỉ dùng để gửi thông báo bảo mật cho tài khoản này.", "Used only to send security notices for this account.", None, "Câu mục đích xử lý dưới ô email (ND13 Đ.13 – FB-R4-SEC-ARC-EM-13). v1.0.3 không xác minh email: nói \"thông báo bảo mật\", không nói \"thư xác nhận\" UXD FB-R4-UXD-FE-EM-03"),
     ("secmail.field_help", "Không dùng hộp thư chung của cơ sở, như info@.", "Don't use the property's shared mailbox, such as info@.", None, "Gợi ý dưới ô – trước lỗi EMAIL_SHARED_MAILBOX"),
     ("secmail.add", "Thêm email", "Add email", None, "Nút khi chưa có email; cũng là nút của banner nhắc"),
     ("secmail.change", "Đổi email", "Change email", None, ""),
@@ -3972,8 +3972,8 @@ g("v1.0.3 BUG-R3-032 – FE-A: email nhận thông báo bảo mật (setMyEmail,
     ("users.email_saved", "Đã lưu email của {name}. Thông báo đã gửi tới địa chỉ mới, địa chỉ cũ và các chủ đầu tư.", "{name}'s notification email is saved. A notice has been sent to the new address, the old one and all owners.", None, "Toast sau 200 (updateUser.email) UXD FB-R4-UXD-FE-EM-02"),
     ("users.email_saved_first", "Đã lưu email của {name}. Thông báo đã gửi tới địa chỉ này và các chủ đầu tư.", "{name}'s notification email is saved. A notice has been sent to that address and all owners.", None, "Toast khi người đó chưa có email trước khi lưu (không có bản previous) – UXD FB-R4-UXD-FE-EM-02"),
     ("users.email_removed", "Đã xóa email của {name}. Thông báo đã gửi tới địa chỉ cũ và các chủ đầu tư.", "{name}'s notification email is removed. A notice has been sent to the old address and all owners.", None, "Toast sau 200 (email: null) UXD FB-R4-UXD-FE-EM-02"),
-    ("users.email_self", "Đổi email của bạn ở Bảo mật tài khoản.", "Change your own email under Account security.", None, "Hàng của chính mình: nút tắt + câu này dẫn sang /security (422 NOT_ALLOWED_FOR_SELF) UXD FB-R4-UXD-FE-EM-08"),
-    ("users.email_other_owner", "Mỗi chủ đầu tư tự đặt email của mình.", "Each owner sets their own email.", None, "Hàng của OWN khác: nút tắt (403 FORBIDDEN_ACTION)"),
+    ("users.email_self", "Đổi email của bạn ở Bảo mật tài khoản.", "Change your own email under Account security.", None, "Hàng của chính mình: chỉ có link này, dẫn sang /security#security-email (server trả 422 NOT_ALLOWED_FOR_SELF nếu sửa ở đây). Không có nút. UXD FB-R4-UXD-FE-EM-08"),
+    ("users.email_other_owner", "Mỗi chủ đầu tư tự đặt email của mình.", "Each owner sets their own email.", None, "Hàng của OWN khác: chỉ có câu này, chữ muted, không có nút (server trả 403 FORBIDDEN_ACTION). UXD FB-R4-UXD-FE-EM-08"),
 ])
 
 def build():

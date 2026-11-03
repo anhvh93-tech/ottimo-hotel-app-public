@@ -3900,7 +3900,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `early_departure.lease_done_note` | Ký quỹ và tiền thuê xử lý ngoài app, theo nhánh đã báo khách. | The security deposit and rent are handled outside the app, as told to the guest. | ⟨chừa chỗ⟩ | Thay lease_check ở bước ③ Kết quả (đã báo khách xong). FB-R4-UXD-FE-29 |
 | `early_departure.told_guest_lease` | Đã báo khách về ký quỹ và các khoản còn thu, còn hoàn | I've told the guest about the security deposit and what is still due or refunded | ⟨chừa chỗ⟩ | Checkbox thay early_departure.told_guest khi trả trước ngày kết thúc HĐ. FB-R4-UXD-FE-30 |
 
-#### v1.0.3 BUG-R3-032 – FE-A: email nhận thông báo bảo mật (setMyEmail, updateUser.email – OpenAPI 0.3.10). **Chờ UXD/CPY duyệt**
+#### v1.0.3 BUG-R3-032 – FE-A: email nhận thông báo bảo mật (setMyEmail, updateUser.email – OpenAPI 0.3.10). UXD đã duyệt (lượt 2, 03/11/2026)
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
 |---|---|---|---|---|
@@ -3911,7 +3911,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `secmail.none` | Chưa có email. | No email yet. | ⟨chừa chỗ⟩ |  |
 | `secmail.missing` | Tài khoản chủ đầu tư và quản lý cần có email nhận thông báo bảo mật. Nhập email riêng của bạn bên dưới. | Owner and manager accounts need a notification email. Enter your own address below. | ⟨chừa chỗ⟩ | Me.securityEmailMissing = true, trên chính khối (banner đầu trang ẩn ở /security) UXD FB-R4-UXD-FE-EM-03 |
 | `secmail.field` | Email | Email | ⟨chừa chỗ⟩ | Nhãn ô nhập |
-| `secmail.purpose` | Chỉ dùng để gửi thông báo bảo mật cho tài khoản này. | Used only to send security notices for this account. | ⟨chừa chỗ⟩ | Câu mục đích xử lý dưới ô email (ND13 Đ.13 – FB-R4-SEC-ARC-EM-13). v1.0.3 không xác minh email: nói "thư thông báo", không nói "thư xác nhận" UXD FB-R4-UXD-FE-EM-03 |
+| `secmail.purpose` | Chỉ dùng để gửi thông báo bảo mật cho tài khoản này. | Used only to send security notices for this account. | ⟨chừa chỗ⟩ | Câu mục đích xử lý dưới ô email (ND13 Đ.13 – FB-R4-SEC-ARC-EM-13). v1.0.3 không xác minh email: nói "thông báo bảo mật", không nói "thư xác nhận" UXD FB-R4-UXD-FE-EM-03 |
 | `secmail.field_help` | Không dùng hộp thư chung của cơ sở, như info@. | Don't use the property's shared mailbox, such as info@. | ⟨chừa chỗ⟩ | Gợi ý dưới ô – trước lỗi EMAIL_SHARED_MAILBOX |
 | `secmail.add` | Thêm email | Add email | ⟨chừa chỗ⟩ | Nút khi chưa có email; cũng là nút của banner nhắc |
 | `secmail.change` | Đổi email | Change email | ⟨chừa chỗ⟩ |  |
@@ -3942,8 +3942,8 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `users.email_saved` | Đã lưu email của {name}. Thông báo đã gửi tới địa chỉ mới, địa chỉ cũ và các chủ đầu tư. | {name}'s notification email is saved. A notice has been sent to the new address, the old one and all owners. | ⟨chừa chỗ⟩ | Toast sau 200 (updateUser.email) UXD FB-R4-UXD-FE-EM-02 |
 | `users.email_saved_first` | Đã lưu email của {name}. Thông báo đã gửi tới địa chỉ này và các chủ đầu tư. | {name}'s notification email is saved. A notice has been sent to that address and all owners. | ⟨chừa chỗ⟩ | Toast khi người đó chưa có email trước khi lưu (không có bản previous) – UXD FB-R4-UXD-FE-EM-02 |
 | `users.email_removed` | Đã xóa email của {name}. Thông báo đã gửi tới địa chỉ cũ và các chủ đầu tư. | {name}'s notification email is removed. A notice has been sent to the old address and all owners. | ⟨chừa chỗ⟩ | Toast sau 200 (email: null) UXD FB-R4-UXD-FE-EM-02 |
-| `users.email_self` | Đổi email của bạn ở Bảo mật tài khoản. | Change your own email under Account security. | ⟨chừa chỗ⟩ | Hàng của chính mình: nút tắt + câu này dẫn sang /security (422 NOT_ALLOWED_FOR_SELF) UXD FB-R4-UXD-FE-EM-08 |
-| `users.email_other_owner` | Mỗi chủ đầu tư tự đặt email của mình. | Each owner sets their own email. | ⟨chừa chỗ⟩ | Hàng của OWN khác: nút tắt (403 FORBIDDEN_ACTION) |
+| `users.email_self` | Đổi email của bạn ở Bảo mật tài khoản. | Change your own email under Account security. | ⟨chừa chỗ⟩ | Hàng của chính mình: chỉ có link này, dẫn sang /security#security-email (server trả 422 NOT_ALLOWED_FOR_SELF nếu sửa ở đây). Không có nút. UXD FB-R4-UXD-FE-EM-08 |
+| `users.email_other_owner` | Mỗi chủ đầu tư tự đặt email của mình. | Each owner sets their own email. | ⟨chừa chỗ⟩ | Hàng của OWN khác: chỉ có câu này, chữ muted, không có nút (server trả 403 FORBIDDEN_ACTION). UXD FB-R4-UXD-FE-EM-08 |
 
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 

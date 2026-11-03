@@ -43,17 +43,44 @@ export function emailErrorText(t: T, fe: FieldError): string {
 }
 
 /**
- * One Save = one Idempotency-Key (OpenAPI 0.3.10 `setMyEmail`). A TOTP code works once, so when the
- * connection drops the SAME request (same key, same body) is sent once more: if the first one was saved,
- * the server answers it again (`Idempotent-Replayed`) instead of `401` for a spent code. Any answer from
- * the server ends it; the next Save gets a new key.
+ * Resend rules of `sendWithOneKey` (ARC FB-R4-ARC-FE-31-03). Mutable only so tests can shorten the wait.
+ * - `networkRetries`: a dropped connection → resend at once with the same key and body.
+ * - `inProgressRetries` / `inProgressDelayMs`: `409 IDEMPOTENCY_IN_PROGRESS` (the first request is still
+ *   running server side) → wait (`Retry-After` when given, capped at 10 s) and resend with the same key.
+ */
+export const RESEND = { networkRetries: 1, inProgressRetries: 2, inProgressDelayMs: 1500 };
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * One Save = one Idempotency-Key (OpenAPI 0.3.10 `setMyEmail`). A TOTP code works once, so the SAME request
+ * (same key, same body) is resent: once at once when the connection drops, and up to `RESEND.inProgressRetries`
+ * times after a short wait while the server answers `409 IDEMPOTENCY_IN_PROGRESS` (the first one is still
+ * running). Once it is done the server answers it again (`Idempotent-Replayed`) instead of `401` for a spent
+ * code. Any other answer ends it; the next Save gets a new key. The caller reloads `Me` when it still fails.
  */
 export async function sendWithOneKey<R>(send: (idempotencyKey: string) => Promise<R>): Promise<R> {
   const key = newIdempotencyKey();
-  try {
-    return await send(key);
-  } catch (err) {
-    if (isApiError(err) && err.isNetwork) return send(key);
-    throw err;
+  let network = 0;
+  let inProgress = 0;
+  for (;;) {
+    try {
+      return await send(key);
+    } catch (err) {
+      if (!isApiError(err)) throw err;
+      if (err.isNetwork && network < RESEND.networkRetries) {
+        network += 1;
+        continue;
+      }
+      if (err.code === 'IDEMPOTENCY_IN_PROGRESS' && inProgress < RESEND.inProgressRetries) {
+        inProgress += 1;
+        const s = err.retryAfterSeconds;
+        await wait(
+          s === undefined ? RESEND.inProgressDelayMs : Math.min(10, Math.max(0, s)) * 1000,
+        );
+        continue;
+      }
+      throw err;
+    }
   }
 }
