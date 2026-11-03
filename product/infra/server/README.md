@@ -85,7 +85,7 @@ Tag do CI in ra ở job `publish images (GHCR)` (dạng `sha-<12 ký tự>`).
 |---|---|
 | Xem trạng thái | `/opt/ottimo/infra/server/bin/dc ps` |
 | Log | `/opt/ottimo/infra/server/bin/dc logs --tail 200 api worker web` |
-| Quay lui về bản trước | `/opt/ottimo/infra/server/bin/rollback.sh` (hoặc `rollback.sh <tag>`) |
+| Quay lui về bản trước | `/opt/ottimo/infra/server/bin/rollback.sh` (hoặc `rollback.sh <tag>`; `<tag>` là tên image `sha-<12 hex>`, **không** phải tag git `v…` – production từ chối vì không có `state/digests/v…`; v1.0.0 = `sha-8b3aec89486f`). Sau một lần quay lui, `previous_tag` là **bản vừa bị gỡ**: không chạy `rollback.sh` không tham số nữa (sẽ đưa bản đó lên lại không qua Release). Diễn tập: `infra/server/test/rollback.test.sh` |
 | Lịch sử triển khai | `cat /opt/ottimo/state/deploy-history.log` |
 | Cập nhật bundle (compose/Caddyfile/script đổi) | làm lại bước 2 + `bootstrap-vps.sh` (root), rồi `dc up -d --force-recreate web` nếu Caddyfile đổi |
 
@@ -98,7 +98,7 @@ systemctl list-timers 'ottimo-*'
 
 - Sao lưu 03:30 giờ VN: `pg_dump` + kho tệp mã hóa + `purge_journal`, mã hóa `age` bằng khóa công khai, giữ 7 ngày + bản Chủ nhật tới 35 ngày (SR-BAK-03), ở `/var/backups/ottimo`. Bản sao off-site do **máy phụ kéo về** (R3, SR-BAK-04).
 - Kiểm tra 30 phút/lần (`ops-check.sh`): **J16 không chạy trong 26 giờ** (hoặc có lượt `failed`) cho từng cơ sở (SEC C6, SR-RET-03), sao lưu > 26 giờ, đĩa ≥ 80 %, chứng chỉ < 14 ngày, container dừng, số 5xx, thư nhân viên chết `NO_RECIPIENT` (`email_dead`). Cảnh báo: `journalctl -t ottimo-alert -p err`, `systemctl --failed`, và webhook nếu đặt `ALERT_WEBHOOK_URL` trong `.env` (chỉ gửi khi đổi trạng thái + nhắc mỗi 6 giờ; không có dữ liệu cá nhân).
-- `email_dead` (BUG-R3-032, SEC `SEC-on-B2-readiness.md` 1.5): đếm thư nhân viên (`staff.email` – thư "Security notice") chết vì `NO_RECIPIENT` trong 24 giờ, chỉ đếm, không đọc nội dung. Tới v1.0.1 (người dùng có email) chỉ báo số, không cảnh báo. Sau khi OWN/MGR đã nhập email: thêm `EMAIL_NO_RECIPIENT_ALERT=1` vào `.env` của stack, khi đó mỗi thư như vậy là `FAIL`.
+- `email_dead` (BUG-R3-032, SEC `SEC-on-B2-readiness.md` 1.5): đếm thư nhân viên (`staff.email` – thư "Security notice") chết vì `NO_RECIPIENT` trong 24 giờ, chỉ đếm, không đọc nội dung. Hiện chỉ báo số, không cảnh báo. Chỉ bật khi đủ **cả hai** điều kiện: BUG-R3-032 đã lên production (**đợt 3**, `v1.0.3` – **không phải** v1.0.1; người dùng có email) **và** OWN/MGR đã nhập email (mục 13.8). Cách bật: thêm `EMAIL_NO_RECIPIENT_ALERT=1` vào `.env` của stack, khi đó mỗi thư như vậy là `FAIL`. Bật sớm thì `email_dead` FAIL kéo dài và nhắc lại mỗi 6 giờ (cảnh báo giả).
 - Chạy tay: `/opt/ottimo/infra/server/bin/ops-check.sh` hoặc `ops-check.sh j16`. Qua SSH `ottimo-admin` thì `cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/ops-check.sh`. Từ 30/10, `ops-check.sh` và `bin/dc` tự chạy được từ thư mục bất kỳ (trước đó chạy trong home của `ottimo-admin` thì `docker compose` lỗi `stat .: permission denied`, ra cảnh báo giả "containers FAIL"). `docker compose` lỗi thì `containers`/`http5xx` báo `docker compose failed, container state unknown: <loại lỗi>`, không báo "not running"; không gửi nguyên văn lỗi đi (lỗi đọc `.env` có thể chứa một dòng `.env`). Test: `infra/server/test/ops-check-cwd.test.sh`.
 
 ## 8. Deploy tự động từ CI (tùy chọn, sau khi bước 6 chạy tay thành công)
@@ -354,6 +354,7 @@ sudo -u ottimo sh -c 'ls -1t /opt/ottimo-prod/state/env.before-chat-level.* | ta
 - ORC ghi decision-log: mức cũ → mới, giờ, người làm, dòng SEC làm căn cứ, kèm 2 dòng log ở bước 1 và bước 5, và việc đã dọn bản sao `.env` cũ (bước 6).
 - Tệp tạm `env.level.tmp` tạo dưới `umask 077` (0600) và bị xóa ngay; không để bản sao `.env` nào khác ngoài `state/`.
 - Quay về A: làm lại các bước trên với `A`. Hạ mức thì không cần SEC, nhưng vẫn báo INV và ghi decision-log.
+- **Quay lui app khi đang ở mức B/C** (SEC FB-R4-SEC-OPS-PR26-03, N1): bản cũ không có Chat (ví dụ v1.0.0) không gửi tin `web_request_erased` khi xóa yêu cầu (WR8). Mọi quy trình quay lui về bản như vậy phải có thêm bước: sau khi lên lại bản có Chat, OWN rà các yêu cầu đã bị xóa trong thời gian chạy bản cũ, rồi tự xóa tin Chat tương ứng. Ở mức A thì không cần, vì tin không có dữ liệu khách (đợt v1.0.1).
 - Yêu cầu gửi dưới thông báo cũ hơn `2026-10-31` **luôn** nhận mức A, dù `.env` đặt C. Đây là hằng số trong mã.
 - Staging chỉ được đặt C khi nối với **phòng thử** và dùng dữ liệu giả. Không bao giờ nối staging với phòng thật.
 
@@ -387,7 +388,7 @@ OPS không có quyền xóa tin Chat. Máy chủ không giữ bản sao nào c�
   - Tệp chỉ chứa mã người chạy, tag landing và băm trang. Không có dữ liệu khách.
   - Thời gian giữ như `db-*`.
   - Bản sao ngoài máy có sẵn, vì `pull-backups.sh` kéo mọi tệp `*.age`.
-- `restore-drill.sh` giải mã tệp nếu có, rồi đối chiếu các version ghi `rc=0` với bảng `privacy_notice_version` trong DB vừa khôi phục. Biên bản in một dòng `privacy-notice.log:`. Dòng này chỉ để xem, không chặn, vì bộ sao lưu trước v1.0.1 chưa có tệp.
+- `restore-drill.sh` giải mã tệp nếu có, rồi đối chiếu các version ghi `rc=0` với bảng `privacy_notice_version` trong DB vừa khôi phục. Biên bản in một dòng `privacy-notice.log:`. Dòng này chỉ để xem, không chặn, vì bộ sao lưu trước v1.0.1 chưa có tệp. Đọc bảng lỗi thì dòng ghi `KHÔNG ĐỌC ĐƯỢC … – không đối chiếu được` và drill in WARNING, không bao giờ ghi "khớp DB" (ARC PR23-01; hàm `infra/server/privacy-log-check.sh`, test `test/restore-drill-privacy.test.sh`).
 - Dựng lại máy chủ từ sao lưu: giải mã `privacy-notice-<stamp>.log.age` mới nhất trên Mac, rồi chép vào `state/privacy-notice.log` (chủ `ottimo`, quyền 0600) **trước** lượt deploy landing đầu tiên. Thiếu tệp mà proxy form đang mở thì `deploy-landing.sh` in WARNING (12.3).
 - Test: `infra/server/test/backup-privacy-log.test.sh` (5 ca, stub `dc`/`age`, chạy trong CI).
 

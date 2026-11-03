@@ -19,9 +19,10 @@
 #               crashing api, a 502 from a dead upstream – before guests or staff report it
 #   email_dead  staff e-mails (outbox topic staff.email: security notices – SEC 06.15 / 06.33 / Q51-6) that died with
 #               NO_RECIPIENT in the last 24 h (the user has no e-mail address, so the notice reached nobody). Count only,
-#               nothing from the payload is read. BUG-R3-032: until users can have an e-mail (v1.0.1) this is
-#               expected, so it only reports; set EMAIL_NO_RECIPIENT_ALERT=1 in .env after v1.0.1 and every such
-#               e-mail becomes a FAIL (SEC `SEC-on-B2-readiness.md` 1.5 OPS (a)).
+#               nothing from the payload is read. BUG-R3-032: until users can have an e-mail this is expected, so
+#               it only reports. Set EMAIL_NO_RECIPIENT_ALERT=1 in .env only when BOTH hold: BUG-R3-032 is on
+#               production (wave 3, v1.0.3 – NOT v1.0.1) AND OWN/MGR have entered their e-mail; then every such
+#               e-mail becomes a FAIL (SEC `SEC-on-B2-readiness.md` 1.5 OPS (a); README 13.8; ARC PR23-02).
 #
 # Alerts (no personal data – only check names, property ids, ages): always to the journal
 # (journalctl -t ottimo-alert -p err); plus ALERT_WEBHOOK_URL from /opt/ottimo/.env if set, sent when a check

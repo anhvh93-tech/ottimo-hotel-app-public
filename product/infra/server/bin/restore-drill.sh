@@ -20,6 +20,7 @@ set -Eeuo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 roles_sh="$here/../../postgres/init/02-roles.sh"
 counts_sql="$here/../backup-counts.sql"
+pn_check="$here/../privacy-log-check.sh"
 PG_IMAGE="${PG_IMAGE:-postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24}"
 identity="" from="" api_image="" stamp="" keep=0
 while [ $# -gt 0 ]; do
@@ -37,6 +38,9 @@ done
 command -v age >/dev/null || { echo "age is required" >&2; exit 2; }
 [ -r "$roles_sh" ] || { echo "missing $roles_sh" >&2; exit 2; }
 [ -r "$counts_sql" ] || { echo "missing $counts_sql" >&2; exit 2; }
+[ -r "$pn_check" ] || { echo "missing $pn_check" >&2; exit 2; }
+# shellcheck source=../privacy-log-check.sh
+. "$pn_check"
 
 if [ -z "$stamp" ]; then
   stamp=$(ls "$from"/db-*.dump.age 2>/dev/null | sed -E 's/^.*db-([0-9]{8}T[0-9]{6}Z)\.dump\.age$/\1/' | sort | tail -n 1)
@@ -134,25 +138,21 @@ else
   verdict="ĐẠT – /health ok (bản sao lưu cũ: không có tệp counts để so)"
 fi
 # 7. privacy-notice.log (CWD-02): in the set? Versions written with rc=0 in the log vs rows in the restored database.
-db_pn=$(docker exec -i "$name-pg" psql -X -U ottimo_admin -d ottimo -tA \
-  -c "SELECT DISTINCT version FROM privacy_notice_version ORDER BY 1" 2>/dev/null || true)
+#    The comparison lives in infra/server/privacy-log-check.sh (tested: test/restore-drill-privacy.test.sh). A failing
+#    database query is reported as "không đối chiếu được" – never as "khớp DB" (ARC FB-R4-ARC-OPS-PR23-01).
 pn_file="$from/privacy-notice-$stamp.log.age"
+pn_log=""
 if [ -r "$pn_file" ]; then
   if [ -r "$pn_file.sha256" ]; then
     (cd "$from" && { sha256sum -c "$(basename "$pn_file").sha256" >/dev/null 2>&1 || shasum -a 256 -c "$(basename "$pn_file").sha256" >/dev/null; }) \
       || { log "checksum mismatch: $pn_file"; exit 1; }
   fi
   age --decrypt --identity "$identity" -o "$work/privacy-notice.log" "$pn_file"
-  log_pn=$(awk '$2 == "apply" && $NF == "rc=0" { for (i = 3; i <= NF; i++) if (index($i, "version=") == 1) print substr($i, 9) }' \
-    "$work/privacy-notice.log" | sort -u)
-  only_db=$(comm -13 <(printf '%s\n' "$log_pn" | sed '/^$/d') <(printf '%s\n' "$db_pn" | sed '/^$/d') | tr '\n' ' ')
-  pn_report="có trong bộ ($(wc -l < "$work/privacy-notice.log" | tr -d ' ') dòng); version đã ghi: $(tr '\n' ' ' <<<"$log_pn")"
-  if [ -n "$only_db" ]; then pn_report+="– CẢNH BÁO: DB có version không có trong log: $only_db"; else pn_report+="– khớp DB"; fi
-elif [ -n "$db_pn" ]; then
-  pn_report="KHÔNG có trong bộ – CẢNH BÁO: DB có version $(tr '\n' ' ' <<<"$db_pn")(bản sao lưu trước v1.0.1, hoặc log đã mất trên máy chủ)"
-else
-  pn_report="không có (DB chưa có version thông báo nào)"
+  pn_log="$work/privacy-notice.log"
 fi
+pn_rc=0
+pn_report=$(privacy_log_report "$name-pg" "$pn_log") || pn_rc=$?
+[ "$pn_rc" -ne 2 ] || log "WARNING: privacy_notice_version could not be read – privacy-notice.log NOT compared"
 pj_lines=$(( $(wc -l < "$work/purge-journal-$stamp.csv") - 1 ))
 t1=$(date +%s)
 echo "================ BIÊN BẢN DIỄN TẬP KHÔI PHỤC (dán vào report OPS) ================"

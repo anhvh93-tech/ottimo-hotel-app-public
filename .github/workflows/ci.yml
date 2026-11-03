@@ -233,7 +233,8 @@ jobs:
           shellcheck -x -S warning product/infra/server/bootstrap-vps.sh product/infra/server/bin/dc \
             product/infra/server/bin/*.sh product/infra/postgres/init/02-roles.sh product/infra/ci/*.sh \
             product/infra/server/test/deploy-landing-privacy.test.sh product/infra/server/test/ops-check-cwd.test.sh \
-            product/infra/server/test/backup-privacy-log.test.sh \
+            product/infra/server/test/backup-privacy-log.test.sh product/infra/server/test/rollback.test.sh \
+            product/infra/server/test/restore-drill-privacy.test.sh product/infra/server/privacy-log-check.sh \
             product/infra/caddy/*.sh product/infra/demo/*.sh product/infra/docker/*.sh \
             product/services/api/scripts/production-bootstrap.sh product/services/api/scripts/mfa-operator-reset.sh
       # UXR P-15: demo/production web builds refuse a missing, malformed or placeholder desk phone; dev only warns.
@@ -266,6 +267,12 @@ jobs:
       # ARC CWD-02: state/privacy-notice.log goes into the encrypted backup set (source of the landing byte check).
       - name: backup.sh keeps privacy-notice.log in the backup set
         run: bash product/infra/server/test/backup-privacy-log.test.sh
+      # QC v1.0.1 ĐK7: production app rollback (rollback.sh → deploy.sh --rollback) on a stubbed production stack.
+      - name: rollback.sh rehearsal (image tag vs git tag, recorded digests, database ahead, no auto switch-back)
+        run: bash product/infra/server/test/rollback.test.sh
+      # ARC FB-R4-ARC-OPS-PR23-01: restore-drill step 7 never reports "khớp DB" when the database query failed.
+      - name: restore-drill privacy-notice.log vs database (query error = not compared)
+        run: bash product/infra/server/test/restore-drill-privacy.test.sh
 
   test-surface-guard:
     # BUG-R1-SEC-08 / SR-SECR-05: the production contract must not contain /__test__ paths
