@@ -58,3 +58,33 @@ Chưa chạy trọn trả phòng B18 trên image này. v1.0.1 không đổi mã 
 ## Việc chưa xong
 - Trả phòng OTM-00377 ngày 02/11.
 - `smoke-prod` trên production sau Release (ĐK6).
+
+---
+
+# QA – v1.0.3 smoke staging giao diện (email nhận thông báo bảo mật), 03/11/2026 22:57–23:08
+
+## Đã làm
+- Desk staging `sha-da6d6f3dc22b` (1440×900) và PWA staging (390×844), Chromium Playwright, tài khoản `qa.*`, chỉ địa chỉ `qa.*@example.test`.
+- Kiểm menu và trang "Bảo mật tài khoản" VI/EN, khối email, banner nhắc; đặt/đổi/xóa qua S2; OWN ở Người dùng & vai (UI + 2 ca API âm); HK tự đặt email (BUG-R4-018); thông báo PWA (BUG-R4-021).
+- Chụp và kiểm che 6 ảnh sổ tay: C0-06, G1-01, C1-07, C0-12, C0-13, C1-22.
+
+## Kết luận
+**ĐẠT.** Mới BUG-R4-023, BUG-R4-024 (P3). Lỗi `info@` không kiểm được trên staging (không có `EMAIL_FROM`), chuyển sang smoke production. Banner gộp không dựng được vì `MFA_ENFORCED=true`.
+
+## File tạo/sửa
+- `rounds/round-04/qa/v1.0.3-staging-smoke.md`
+- `rounds/round-04/qa/bug-list.md`
+- `product/docs/manual/img/C0-06.png`, `G1-01.png`, `C1-07.png` (chụp lại), `C0-12.png`, `C0-13.png`, `C1-22.png` (mới)
+- tệp này
+
+## Giả định
+- Staging không đặt `EMAIL_FROM` (suy từ hành vi: `info@example.test` và `info@ottimo.vn` đi tới S2 và ra 401). Khớp ARC v1.0.3-tech-plan dòng 113.
+- Email giả dạng `qa.*@example.test` thay cho `name@example.com` của hướng dẫn chụp (ORC yêu cầu).
+
+## Rủi ro
+- Câu `EMAIL_SHARED_MAILBOX` chưa chạy trên máy chủ thật. Mã đã đạt trên stack thử.
+
+## Việc chưa xong
+- Smoke production: thử `info@ottimo.vn` với mật khẩu S2 sai.
+- Chụp lại C1-07, C1-22 sau khi sửa BUG-R4-023.
+- D3 phần Desk v1.0.2 sau khi lùi: chờ QC quyết.

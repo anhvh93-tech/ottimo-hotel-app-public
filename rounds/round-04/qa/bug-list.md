@@ -21,15 +21,17 @@
 
 - **v1.0.3 – PR #31 lượt 2** (03/11 19:55–20:50, `origin/v1.0.3-email` @ `b00972ff`; PG 17 tạm `qa-v103-pg` dựng lại, đã dọn): BUG-R4-018, 019, 021, 022 **đã sửa – đã xác nhận** (Closed). Vitest `--maxWorkers=3`: api 3777/0 lỗi, admin-web 756, mobile 132, notification 89, api-client 37. Hồi quy S2, outbox, bỏ trùng, quay lui, dọn 7 ngày, IndexedDB, banner gộp, 2FA cũ: đạt. `User.email` không tới vai không phải OWN. Không lỗi mới. Chi tiết: `rounds/round-04/qa/v1.0.3-test-report.md` mục 12.
 
-## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff`)
+- **v1.0.3 – smoke staging giao diện** (03/11 22:57–23:08 giờ VN, staging `sha-da6d6f3dc22b` = `main` `da6d6f3d`, `EMAIL_PROVIDER=mock`, `MFA_ENFORCED=true`; Desk 1440 + PWA 390 bằng Chromium Playwright): **ĐẠT**. Menu và trang "Bảo mật tài khoản" VI/EN, khối email, banner nhắc OWN/MGR; đặt/đổi/xóa qua S2; OWN sửa email nhân viên, không sửa được OWN khác hay chính mình; BUG-R4-018 và BUG-R4-021 đúng trên staging. Lỗi `info@` không kiểm được (staging không đặt `EMAIL_FROM`). Mới **BUG-R4-023**, **BUG-R4-024** (P3). Ảnh C0-06, G1-01, C1-07, C0-12, C0-13, C1-22. Chi tiết: `rounds/round-04/qa/v1.0.3-staging-smoke.md`.
+
+## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff` + smoke staging v1.0.3)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
 | P2 | 9 | 1 (BUG-R4-011) | 0 | 8 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022** – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
-| P3 | 13 | 5 (BUG-R4-010 – mở lại, BUG-R4-012, BUG-R4-015, BUG-R4-017, **020**) | 0 | 8 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`) |
-| **Tổng** | **22** | **6** | **0** | **16** |
+| P3 | 15 | 7 (BUG-R4-010 – mở lại, BUG-R4-012, BUG-R4-015, BUG-R4-017, **020**, **023**, **024**) | 0 | 8 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`) |
+| **Tổng** | **24** | **8** | **0** | **16** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -468,6 +470,28 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Vai:** ARC + BE-A.
 - **Trạng thái:** **Closed – đã sửa, đã xác nhận** (lượt 2, `b00972ff`, cùng bản sửa với 018). 5 vai nhận `otpauthUri`, 10 `recoveryCodes` khi xác nhận và khi tạo bộ mới. Desk `qa.ctv2` thấy mã QR, khóa nhập tay, 10 mã khôi phục, "Tạo bộ mã mới" ra 10 mã. Báo cáo mục 12.2. Lịch sử: Open @ `fb6a281c`.
 
+### BUG-R4-023 – Người dùng & vai ở khung máy quầy 1440 px: địa chỉ email trong cột Email bị ngắt giữa chữ
+
+- **Mức:** P3. Chỉ là hiển thị, không sai dữ liệu. Nhưng người đọc dễ chép sai địa chỉ, và ảnh sổ tay C1-07, C1-22 mang lỗi này.
+- **Môi trường:** staging `sha-da6d6f3dc22b`, Desk Chromium 1440×900 (khung máy quầy chuẩn của sổ tay), `qa.owner`, `/settings/users`.
+- **Các bước:** OWN mở **Người dùng & vai** khi vài người dùng đã có email (ví dụ `qa.owner@example.test`, `qa.fd2@example.test`).
+- **Thực tế:** cột Email hẹp; địa chỉ chữ đơn cách xuống dòng ở vị trí bất kỳ: "qa.owner@example / .test", "qa.fd2@example.t / est", "qa.fd.v103d7@exa / mple.test". Test report v1.0.3 mục 9 đã ghi ở 1024 px (ghi nhận); lượt này thấy ở cả 1440 px nên nâng thành lỗi.
+- **Mong đợi:** địa chỉ ở trên một dòng, hoặc chỉ ngắt ngay sau `@`. Gợi ý: cột Email rộng hơn (bớt chỗ của cột Thao tác), hoặc chèn điểm ngắt sau `@` (`<wbr>`) với `overflow-wrap: normal`, hoặc rút gọn bằng dấu "…" kèm `title`.
+- **Bằng chứng:** `product/docs/manual/img/C1-07.png`, `C1-22.png`; `rounds/round-04/qa/v1.0.3-staging-smoke.md` mục 3.
+- **Vai:** FE-A (+ UXD chốt cách hiển thị). Sau khi sửa, QA chụp lại C1-07, C1-22.
+- **Trạng thái:** Open.
+
+### BUG-R4-024 – Hộp S2 chỉ có ô mật khẩu vẫn báo "Mật khẩu hoặc mã chưa đúng. Kiểm tra lại rồi nhập mã mới."
+
+- **Mức:** P3. Chữ gây hiểu lầm; không sai quyền, không ghi gì.
+- **Môi trường:** staging `sha-da6d6f3dc22b`, Desk 1440×900, `qa.fd2` (Lễ tân, chưa bật 2 bước), Bảo mật tài khoản.
+- **Các bước:** Đổi email → Lưu email → hộp S2 (chỉ có ô **Mật khẩu đăng nhập**, câu "Thao tác này cần mật khẩu đăng nhập của bạn.") → nhập sai mật khẩu → Lưu email.
+- **Thực tế:** 401 `REAUTH_FAILED`; hộp hiện `reauth.s2_failed` "Mật khẩu hoặc mã chưa đúng. Kiểm tra lại rồi nhập mã mới." Người dùng không có mã nào để nhập. Từ v1.0.3 hộp này tới mọi vai không bật 2 bước (lễ tân, buồng phòng, CTV…) khi họ tự đặt email, nên câu này gặp thường hơn trước.
+- **Mong đợi:** khi hộp không có ô mã, câu chỉ nói về mật khẩu, ví dụ "Mật khẩu chưa đúng. Kiểm tra lại rồi thử lại." (chuỗi mới, ví dụ `reauth.s2_failed_password`, VI/EN).
+- **Bằng chứng:** `rounds/round-04/qa/v1.0.3-staging-smoke.md` mục 2.3 (2 lần thử, `PUT /v1/me/email` 401).
+- **Vai:** UXD (chữ) + FE-A (chọn chuỗi theo hộp có ô mã hay không).
+- **Trạng thái:** Open.
+
 ## 3. Ghi nhận (không phải lỗi)
 
 - Trong ~1 giây đầu khi một IP dồn lượt, 30 lượt hợp lệ đầu tiên của IP đó có thể làm khách khác nhận 503 (bộ đếm chung 10/giây). Sau lượt 30 thì không còn. Đây là rủi ro PE-RR4 SEC đã chấp nhận (báo cáo 4.1).
@@ -483,4 +507,5 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - *PR #22:* bộ Vitest api trên máy QA: 3334 đạt, 24 bỏ qua. BE báo 19 bỏ qua; 5 ca chênh là ca bootstrap cần `BOOTSTRAP_DATABASE_URL`, QA không đặt biến này.
 - *v1.0.3 PR #31:* sau khi tua đồng hồ +8 ngày rồi reset, mã TOTP hiện tại bị từ chối vì `mfa_last_used_step` còn ở ngày +8. Đây là chặn dùng lại đúng thiết kế, chỉ gặp với MutableClock. Gợi ý: `/__test__/clock` `op: reset` nên kèm cách hạ cột này cho E2E.
 - *v1.0.3 PR #31:* dòng outbox `email_changed` bị job dọn 7 ngày xóa `old_email` trước khi gửi thì chỉ gửi `self` + `owner`. Đúng thiết kế, chỉ xảy ra khi worker dừng quá 7 ngày.
-- *v1.0.3 PR #31:* trang Người dùng & vai ở 1024 px ngắt địa chỉ email giữa chữ. Gợi ý cho UXD/FE.
+- *v1.0.3 PR #31:* trang Người dùng & vai ở 1024 px ngắt địa chỉ email giữa chữ. Gợi ý cho UXD/FE. *Smoke staging v1.0.3:* thấy cả ở 1440 px → nâng thành BUG-R4-023.
+- *Smoke staging v1.0.3:* staging không đặt `EMAIL_FROM`, nên luật `EMAIL_SHARED_MAILBOX` tắt (đúng ARC). Lỗi `info@` chỉ kiểm được ở production: nhập `info@ottimo.vn` với mật khẩu S2 sai cố ý (máy chủ kiểm hộp thư chung trước S2, nên không ghi gì dù luật bật hay tắt).
