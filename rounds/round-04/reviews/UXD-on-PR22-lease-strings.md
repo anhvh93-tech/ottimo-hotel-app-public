@@ -126,3 +126,31 @@
 - Hộp không còn khẳng định một kết quả cho mọi HĐ. Câu kiểm và các nhánh đúng chỉ đạo ORC cùng ESC-048 B, và đúng nguyên tắc "không để Desk tự đoán".
 - `breaksLease` dùng ngày rời đang chọn: rời từ ngày kết thúc HĐ trở đi thì quay về đường BR-428 thường. Lễ tân không phải đọc khối không liên quan.
 - Ô tích `told_guest_lease` trung tính và sửa ở nguồn `gen_strings.py`, sinh lại có tính idempotent. Đúng quy trình chuỗi của DS.
+
+---
+
+## Lượt 2 @ 52702857
+
+- Round 4 · Bước: Review (xác nhận) · Đợt v1.0.2 · 03/11/2026
+- Đối tượng: head **`52702857`** (FE-A), so với `9d4f0fa8`. Cách đọc: `git diff 9d4f0fa8 52702857`, `git show 52702857:<path>`. Không checkout, không chạy test (FE-A báo admin-web 683 test, i18n 21 test pass, `gen_strings.py` idempotent).
+- Đã đọc: trả lời FE-A và "Bảng câu cuối cùng" trong `rounds/round-04/outputs/FE/v1.0.2-dom-cards.md`; diff `EarlyDepartureDialog.tsx` (`LeaseRule`, dòng 413, 535, 722–757), `gen_strings.py` nhóm "R4 BUG-R4-014", `strings-vi.json` / `strings-en.json`, test `r4-bug014-early-departure-lease.test.tsx` (`expectLeaseOrder`).
+- Quyết định ORC 03/11 áp vào lượt này: bỏ nhánh "HĐ ký trước 01/11/2026" (`lease_rule_old`), câu kiểm bỏ ý ngày ký. Khớp ghi chú DOM ở mục 3 của lượt 1. UXD đồng ý.
+- Brand: không thêm màu, không thêm component. Danh sách con dùng `.list-plain` + `.li-s` sẵn có trong DS. `.li-s` là chữ `--muted` trên nền `--warn-bg`: sáng 4,65:1 (#6B6760 / #F5E8D3), tối 5,27:1 (#A9A398 / #3A2E1E), đạt WCAG AA. Không emoji, không "!". Đạt.
+- Kiểm tồn dư: `git grep` ở head không còn `lease_rule_old` hay mốc "01/11/2026" / "1 Nov 2026" trong chuỗi Desk (chỉ còn trong chú thích mã và một ví dụ không liên quan `rooms.scheduled_from` ở `strings-tables.md`).
+
+**Kết luận lượt 2: ĐẠT.** Thẻ Major 26 đã sửa đúng. Các thẻ 27–30 đã sửa. Thẻ 31 đóng vì không còn áp dụng. Không chặn merge từ phía UXD. Không ESC.
+
+| Thẻ | Mức | Xác nhận | Ghi chú |
+|---|---|---|---|
+| FB-R4-UXD-FE-26 | Major | **Đã sửa – xác nhận** | (a) `lease_still_due` lồng trong `li` của nhánh chưa thu đủ (`ul.list-plain.li-s`), không còn ngang hàng. (b) Hai nhánh mở bằng điều kiện khác nhau ngay đầu câu: "Đã thu tiền thuê tới hết HĐ" / "Chưa thu đủ tiền thuê tới hết HĐ". (c) Thứ tự: câu kiểm → đã thu đủ → chưa thu đủ, đúng đề xuất trừ nhánh HĐ cũ đã bỏ theo ORC. `lease_check` bỏ ý ngày ký, đúng hướng ORC. Test `expectLeaseOrder` khóa thứ tự, danh sách con và việc không còn mốc ngày ở cả bước ② (có/không số ký quỹ) và bước ③. Phần khuyến nghị in đậm nhãn nhánh chưa làm: chấp nhận, vì điều kiện nay đã đứng đầu câu. Không cần làm ở v1.0.3 trừ khi QA/INV thấy lễ tân vẫn đọc nhầm. |
+| FB-R4-UXD-FE-27 | Minor | **Đã sửa – xác nhận** | `lease_rule_paid` và `lease_still_due` dùng câu gọn của UXD (bỏ mốc ngày, bỏ tiền tố "Khi mất ký quỹ:"). Cả hộp (tiêu đề, câu kiểm, 2 nhánh, danh sách con) còn khoảng 140 tiếng VI, so với khoảng 165 ở lượt 1. Câu dài nhất không còn ngoặc lồng. |
+| FB-R4-UXD-FE-28 | Minor | **Đã sửa – xác nhận** | (a) `lease_rule_paid` có "dọn lẻ" / "extra cleaning", đồng nhất với `lease_still_due` và BR-214. (b) EN dùng "security deposit" ở `lease_rule`, `_no_amount`, `lease_rule_paid`, `lease_done_note`, `told_guest_lease`, khớp `lsm.*`. (c) EN `lease_check` là "Desk can't tell yet…", giữ nghĩa "chưa". |
+| FB-R4-UXD-FE-29 | Minor | **Đã sửa – xác nhận** | `LeaseRule` có prop `step`. Bước ③ dùng `lease_done_note`, không còn câu "hỏi quản lý trước khi báo khách"; hai nhánh giữ làm tham chiếu. Test kiểm bước ③ có `lease_done_note`, không có `lease_check`. |
+| FB-R4-UXD-FE-30 | Suggestion | **Đã sửa – xác nhận** | `told_guest_lease` dùng câu UXD (VI 13 tiếng, so với 17 ở lượt 1). `confirm_needs_told` trích "Đã báo khách…" / "I've told the guest…", vẫn khớp đầu nhãn mới, không cần đổi. |
+| FB-R4-UXD-FE-31 | Suggestion | **Đóng – không còn áp dụng** | Không sửa, đồng ý với lý do FE-A: sau khi ORC bỏ nhánh HĐ cũ, không chuỗi nào còn mốc ngày, nên không cần tham số `{cutoff}`. Nếu sau này có lại chính sách theo mốc ngày ký, áp đề xuất cũ của thẻ này. |
+
+### Ghi chú (không phải thẻ, không chặn)
+
+- **BA (sổ tay `02-le-tan.md` 11.5/17.5):** dùng đúng "Bảng câu cuối cùng" của FE-A ở head `52702857`, cùng thứ tự: câu kiểm → đã thu đủ → chưa thu đủ (kèm các khoản còn thu, còn hoàn). Bỏ mọi nhắc tới "HĐ ký trước 01/11/2026" nếu sổ tay đã có.
+- **ARC/BE v1.0.3:** giới hạn `leaseEndDate` sau B13 (FE-A nêu ở FB-R4-DOM-FE-A-01) không phải việc UXD. Khi có trường này, câu chữ trong hộp không cần đổi.
+- Thẻ 26–31 chuyển trạng thái **Closed**.
