@@ -18,17 +18,20 @@ export function isStrongReauthError(e: unknown): boolean {
 }
 
 /**
- * Which dialog field a `422 STRONG_REAUTH_REQUIRED` points at, if it is one the dialog shows: `password` for
- * `reauth` / `reauth.password`, `code` for `reauth.totpCode` / `reauth.recoveryCode` (only when the code field is
- * on screen – a stale `Me.mfaEnabled` falls back to the one-sentence banner).
+ * Which dialog field a `422 STRONG_REAUTH_REQUIRED` points at, if it is one the dialog shows. The name depends on
+ * the operation's body (BE ead8ac83, ARC FB-R4-ARC-FE-018-01): `{…, reauth}` bodies answer `reauth` /
+ * `reauth.totpCode`; the flat `StrongReauth` bodies (`disableMy2fa`, `regenerateMyRecoveryCodes`) answer
+ * `password` / `totpCode`; `changeMyPassword` / `trustCurrentDevice` use `currentPassword`. So after `body.` and
+ * `reauth.` are dropped: `reauth` | `password` | `currentPassword` → `password`; `totpCode` | `recoveryCode` →
+ * `code` (only when the code field is on screen – a stale `Me.mfaEnabled` falls back to the one-sentence banner).
  */
 export function missingFactor(e: unknown, hasMfa: boolean): 'password' | 'code' | null {
   if (!isApiError(e) || e.code !== 'VALIDATION_FAILED') return null;
   const fe = e.fieldErrors.find((f) => f.code === 'STRONG_REAUTH_REQUIRED');
   if (!fe) return null;
-  const field = fe.field.replace(/^body\./, '');
-  if (field === 'reauth' || field === 'reauth.password') return 'password';
-  if (hasMfa && (field === 'reauth.totpCode' || field === 'reauth.recoveryCode')) return 'code';
+  const field = fe.field.replace(/^body\./, '').replace(/^reauth\./, '');
+  if (field === 'reauth' || field === 'password' || field === 'currentPassword') return 'password';
+  if (hasMfa && (field === 'totpCode' || field === 'recoveryCode')) return 'code';
   return null;
 }
 
