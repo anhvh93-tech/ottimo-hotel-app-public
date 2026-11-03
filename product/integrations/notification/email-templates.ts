@@ -26,6 +26,7 @@ export function isStaffEmailTemplate(v: string): v is StaffEmailTemplate {
  * - `staffName`: display name of the person concerned (owner copy only)
  * - `occurredAt`: local time, e.g. '23/10/2026 14:05 (GMT+7)'
  * - `effectiveDate`: receiving_account_changed only, e.g. '25/10/2026'
+ * - `via`: email_changed only, 'self' | 'owner' (who made the change; missing or unknown = 'self')
  * Any other parameter is ignored. email_changed never prints an address (new or old, full or masked) in any
  * copy: the recipient already knows their own address, and the old address must not learn the new one
  * (ARC v1.0.3-contract-email 4.3, least data).
@@ -119,56 +120,106 @@ function copyFor(t: StaffEmailTemplate, p: Readonly<Record<string, string>>): Co
         ],
       };
     }
-    case 'email_changed': {
-      const subjectEn = 'Security notice: the security e-mail was changed';
-      const subjectVi = 'Thông báo bảo mật: email nhận thư bảo mật đã thay đổi';
-      switch (p.audience) {
-        case 'self':
-          return {
-            subjectEn,
-            subjectVi,
-            en: [
-              `This address will now receive security notices for your OTTIMO Desk account${at}.`,
-              notYouEn,
-            ],
-            vi: [
-              `Từ nay, địa chỉ này nhận thư bảo mật của tài khoản OTTIMO Desk của bạn${at}.`,
-              notYouVi,
-            ],
-          };
-        case 'previous':
-          return {
-            subjectEn,
-            subjectVi,
-            en: [
-              `The security e-mail of your OTTIMO Desk account was changed or removed${at}. This address will no longer receive security notices.`,
-              'If this was not you, tell the owner or the OTTIMO team immediately and change your password.',
-            ],
-            vi: [
-              `Email nhận thư bảo mật của tài khoản OTTIMO Desk của bạn vừa được đổi hoặc gỡ${at}. Địa chỉ này sẽ không nhận thư bảo mật nữa.`,
-              'Nếu không phải bạn, hãy báo ngay chủ cơ sở hoặc đội OTTIMO và đổi mật khẩu.',
-            ],
-          };
-        case 'owner':
-          return {
-            subjectEn,
-            subjectVi,
-            en: [`The security e-mail of ${who} was changed or removed${at}.`, ownerEn],
-            vi: [`Email nhận thư bảo mật của ${whoVi} vừa được đổi hoặc gỡ${at}.`, ownerVi],
-          };
-        default:
-          // The dispatcher always sets an audience; if not, say only what is true for every recipient.
-          return {
-            subjectEn,
-            subjectVi,
-            en: [`The security e-mail of an OTTIMO Desk account was changed${at}.`, notYouEn],
-            vi: [
-              `Email nhận thư bảo mật của một tài khoản OTTIMO Desk vừa thay đổi${at}.`,
-              notYouVi,
-            ],
-          };
-      }
-    }
+    case 'email_changed':
+      return emailChangedCopy(p, notYouEn, notYouVi, ownerEn, ownerVi);
+  }
+}
+
+/**
+ * email_changed (BUG-R3-032; CPY review FB-R4-CPY-INT-01..06). Order of each copy: main sentence →
+ * "made by the owner" (via=owner) → time line (only when occurredAt is set) → action → anti-phishing line.
+ * `via` ('self' | 'owner', from user_email_change.via) – missing or unknown reads as 'self'.
+ */
+function emailChangedCopy(
+  p: Readonly<Record<string, string>>,
+  notYouEn: string,
+  notYouVi: string,
+  ownerEn: string,
+  ownerVi: string,
+): Copy {
+  const subjectEn = 'Security notice: notification email changed';
+  const subjectVi = 'Thông báo bảo mật: email nhận thông báo đã thay đổi';
+  const byOwner = p.via === 'owner';
+  const who = p.staffName?.trim() || 'a staff member';
+  const whoVi = p.staffName?.trim() || 'một nhân viên';
+  const timeEn = p.occurredAt ? [`Time: ${p.occurredAt}`] : [];
+  const timeVi = p.occurredAt ? [`Thời điểm: ${p.occurredAt}`] : [];
+  const madeByOwnerEn = byOwner ? ['The change was made by the property owner.'] : [];
+  const madeByOwnerVi = byOwner ? ['Thay đổi do chủ cơ sở thực hiện.'] : [];
+  // Option B of FB-R4-CPY-INT-05: only in the email_changed body; the shared NO_LINK_* footer is unchanged
+  // in v1.0.3 (option A deferred to v1.0.4).
+  const antiPhishEn =
+    'OTTIMO security notices never contain links and never ask for your password or sign-in codes.';
+  const antiPhishVi =
+    'Thư bảo mật của OTTIMO không bao giờ có đường liên kết và không bao giờ hỏi mật khẩu hay mã đăng nhập.';
+  const build = (en: string[], vi: string[]): Copy => ({
+    subjectEn,
+    subjectVi,
+    en: [...en, antiPhishEn],
+    vi: [...vi, antiPhishVi],
+  });
+  switch (p.audience) {
+    case 'self':
+      return build(
+        [
+          'This address will now receive security notices for your OTTIMO Desk account.',
+          ...madeByOwnerEn,
+          ...timeEn,
+          byOwner ? 'If you did not expect this, please contact the owner directly.' : notYouEn,
+        ],
+        [
+          'Từ nay, địa chỉ này sẽ nhận thông báo bảo mật cho tài khoản OTTIMO Desk của bạn.',
+          ...madeByOwnerVi,
+          ...timeVi,
+          byOwner ? 'Nếu bạn chưa được báo trước, vui lòng liên hệ trực tiếp chủ cơ sở.' : notYouVi,
+        ],
+      );
+    case 'previous':
+      return build(
+        [
+          'This address no longer receives security notices for your OTTIMO Desk account.',
+          ...madeByOwnerEn,
+          ...timeEn,
+          byOwner
+            ? 'If you did not expect this, do not reply to this email. Please contact the owner directly.'
+            : 'If this was not you, do not reply to this email. Contact the owner or the OTTIMO team right away and change your password.',
+        ],
+        [
+          'Địa chỉ này không còn nhận thông báo bảo mật cho tài khoản OTTIMO Desk của bạn.',
+          ...madeByOwnerVi,
+          ...timeVi,
+          byOwner
+            ? 'Nếu bạn chưa được báo trước, vui lòng không trả lời thư này mà liên hệ trực tiếp chủ cơ sở.'
+            : 'Nếu không phải bạn, vui lòng không trả lời thư này. Hãy báo ngay chủ cơ sở hoặc đội OTTIMO và đổi mật khẩu.',
+        ],
+      );
+    case 'owner':
+      return build(
+        [
+          byOwner
+            ? `An owner changed or removed the notification email of ${who}.`
+            : `The notification email of ${who} was changed or removed.`,
+          ...timeEn,
+          ownerEn,
+        ],
+        [
+          byOwner
+            ? `Một chủ cơ sở vừa đổi hoặc gỡ email nhận thông báo bảo mật của ${whoVi}.`
+            : `Email nhận thông báo bảo mật của ${whoVi} vừa được đổi hoặc gỡ.`,
+          ...timeVi,
+          ownerVi,
+        ],
+      );
+    default:
+      // The dispatcher always sets an audience; if not, say only what is true for every recipient.
+      return build(
+        ['The notification email of an OTTIMO Desk account was changed.', ...timeEn, notYouEn],
+        [
+          'Email nhận thông báo bảo mật của một tài khoản OTTIMO Desk vừa thay đổi.',
+          ...timeVi,
+          notYouVi,
+        ],
+      );
   }
 }
 
