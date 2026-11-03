@@ -3979,14 +3979,15 @@ g("v1.0.3 BUG-R3-032 – FE-A: email nhận thông báo bảo mật (setMyEmail,
 # v1.0.3 BUG-R4-021 (P3) – MOB: PWA nhân viên hiện mã nội bộ `refCode` (user.email_changed, mfa.reset_by_owner…) ở hộp
 # Thông báo khi refType = user. Nay PWA tự viết câu theo refCode; không bao giờ hiện mã đó. Thuật ngữ theo bộ UXD đã chốt
 # ("Email nhận thông báo bảo mật" / "Notification email", "xác thực 2 bước" / "2-step verification"). Không dấu chấm cuối
-# như các dòng staff.notif.k.*. _self khi refId = người đang đăng nhập; _other khi OWN nhận về người khác. Chờ UXD duyệt.
-g("v1.0.3 BUG-R4-021 – MOB: câu thông báo bảo mật tài khoản trên PWA (refType user). Chờ UXD duyệt", [
+# như các dòng staff.notif.k.*. _self khi refId = người đang đăng nhập; _other khi OWN nhận về người khác. UXD duyệt 03/11
+# (FB-R4-UXD-MOB-021-01/02: "một tài khoản khác" thay "một nhân viên" vì OWN cũng nhận về OWN khác; câu chung là "Thông báo bảo mật").
+g("v1.0.3 BUG-R4-021 – MOB: câu thông báo bảo mật tài khoản trên PWA (refType user). UXD duyệt 03/11", [
     ("staff.notif.sec.email_changed_self", "Email nhận thông báo bảo mật của bạn đã thay đổi", "Your notification email was changed", None, "kind account_security_change, refType user, refCode user.email_changed, refId = chính người xem. Không hiện địa chỉ, không hiện mã"),
-    ("staff.notif.sec.email_changed_other", "Email nhận thông báo bảo mật của một nhân viên đã thay đổi", "A staff member's notification email was changed", None, "Như trên, refId là người khác (OWN nhận). Không tên, không địa chỉ – chi tiết xem ở Desk"),
+    ("staff.notif.sec.email_changed_other", "Email nhận thông báo bảo mật của một tài khoản khác đã thay đổi", "Another account's notification email was changed", None, "Như trên, refId là người khác (OWN nhận – có thể là OWN khác, nên không gọi \"nhân viên\"). Không tên, không địa chỉ – chi tiết xem ở Desk. FB-R4-UXD-MOB-021-01"),
     ("staff.notif.sec.mfa_reset_self", "Xác thực 2 bước của bạn đã được đặt lại", "Your 2-step verification was reset", None, "refCode mfa.reset_by_owner hoặc mfa.reset_by_operator, refId = chính người xem"),
-    ("staff.notif.sec.mfa_reset_other", "Xác thực 2 bước của một nhân viên đã được đặt lại", "A staff member's 2-step verification was reset", None, "Như trên, refId là người khác (OWN nhận)"),
-    ("staff.notif.sec.other_self", "Tài khoản của bạn có thay đổi bảo mật", "There was a security change on your account", None, "Câu chung cho mọi refCode khác của refType user (mfa.disabled, mfa.locked, stepup.s2_failed, mã mới chưa có câu) – không hiện mã thô"),
-    ("staff.notif.sec.other_other", "Tài khoản của một nhân viên có thay đổi bảo mật", "There was a security change on a staff member's account", None, "Như trên, refId là người khác (OWN nhận)"),
+    ("staff.notif.sec.mfa_reset_other", "Xác thực 2 bước của một tài khoản khác đã được đặt lại", "Another account's 2-step verification was reset", None, "Như trên, refId là người khác (OWN nhận). FB-R4-UXD-MOB-021-01"),
+    ("staff.notif.sec.other_self", "Thông báo bảo mật về tài khoản của bạn", "Security notice for your account", None, "Câu chung cho mọi refCode khác của refType user (mfa.disabled, mfa.locked, stepup.s2_failed, mfa.recovery_code_used, mfa.recovery_codes_regenerated, security_alert không có refCode, mã mới chưa có câu) – không hiện mã thô. Danh từ trung tính: đúng cho cả thay đổi lẫn cảnh báo. FB-R4-UXD-MOB-021-02"),
+    ("staff.notif.sec.other_other", "Thông báo bảo mật về một tài khoản khác", "Security notice for another account", None, "Như trên, refId là người khác (OWN nhận). FB-R4-UXD-MOB-021-02"),
 ])
 
 def build():

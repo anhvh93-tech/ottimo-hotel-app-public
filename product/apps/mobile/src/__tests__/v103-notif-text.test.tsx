@@ -45,7 +45,7 @@ describe('BUG-R4-021 – account-security notices in the PWA inbox', () => {
     expect(screen.getByText('Căn 302')).toBeInTheDocument();
   });
 
-  it('an owner/lead told about someone else: "a staff member", 2FA reset worded, no code', async () => {
+  it('an owner/lead told about someone else: "another account", 2FA reset worded, no code', async () => {
     mockControl.notify({
       kind: 'account_security_change',
       refType: 'user',
@@ -61,10 +61,10 @@ describe('BUG-R4-021 – account-security notices in the PWA inbox', () => {
     const { user, container } = await start('fdl.hanh');
     await user.click(await screen.findByRole('link', { name: /Thông báo/ }));
     expect(
-      await screen.findByText('Email nhận thông báo bảo mật của một nhân viên đã thay đổi'),
+      await screen.findByText('Email nhận thông báo bảo mật của một tài khoản khác đã thay đổi'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Xác thực 2 bước của một nhân viên đã được đặt lại'),
+      screen.getByText('Xác thực 2 bước của một tài khoản khác đã được đặt lại'),
     ).toBeInTheDocument();
     expect(container.textContent).not.toMatch(RAW);
   });
