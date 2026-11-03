@@ -5,6 +5,9 @@
 # error text (an .env parse error quotes a line of .env; a SQL error quotes names) – stdout, alert state, webhook.
 # + v1.0.3 (ARC v1.0.3 tech plan 2.10 / PR-2): check `email_missing` – active OWN/MGR without e-mail, READ ONLY,
 # count only, report only until EMAIL_NO_RECIPIENT_ALERT=1, same error categories.
+# + v1.0.3 PR-2 bis: check `email_changes` (SEC FB-R4-SEC-OPS-PR31-01: e-mail changes per user / in total in 24 h, age
+# of the oldest waiting staff e-mail; tunable limits that cannot be switched off) and `email_ascii` (INT
+# FB-R4-INT-BE-31-04: stored addresses outside the API's ASCII rule, report only). READ ONLY, numbers only.
 #   bash product/infra/ci/test-ops-check.sh
 set -Eeuo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
@@ -25,7 +28,7 @@ case "${FAKE_FAIL:-0}" in
   pg) echo 'service "postgres" is not running' >&2; exit 1 ;;
   env) echo 'failed to read /opt/ottimo/.env: line 7: unexpected character "/" in variable name "ALERT_WEBHOOK_URL=https://chat.example/v1/spaces/X/messages?key=k&token=secret-token"' >&2; exit 15 ;;
 esac
-echo "${FAKE_COUNT:-0}"
+if [ -n "${FAKE_OUT:-}" ]; then printf '%b\n' "$FAKE_OUT"; else echo "${FAKE_COUNT:-0}"; fi
 STUB
 chmod +x "$T/bin/dc" "$T/bin/ops-check.sh"
 pass=0 fail=0
@@ -38,7 +41,8 @@ run() { # name expected_rc expected_regex env…   (CHECK=j16 to run another che
 }
 envfile() {
   printf 'APP_ENV=production\nALERT_WEBHOOK_URL=\nHEARTBEAT_URL=\n%s' "$1" > "$T/home/.env"
-  rm -f "$T/home/state/ops-check/email_dead" "$T/home/state/ops-check/email_missing"
+  rm -f "$T/home/state/ops-check/email_dead" "$T/home/state/ops-check/email_missing" \
+    "$T/home/state/ops-check/email_changes" "$T/home/state/ops-check/email_ascii"
 }
 
 envfile ''
@@ -83,7 +87,7 @@ CHECK=email_missing run "missing: query error -> category" 1 '^FAIL email_missin
 CHECK=email_missing run "missing: db down -> category"   1 '^FAIL email_missing: query failed: database unreachable$' FAKE_FAIL=db
 CHECK=email_missing run "missing: odd answer -> FAIL"    1 '^FAIL email_missing: unexpected answer$' FAKE_COUNT='a@b.test'
 for f in 1 db pg env; do
-  for c in email_dead j16 email_missing; do
+  for c in email_dead j16 email_missing email_changes email_ascii; do
     rm -f "$T/home/state/ops-check/$c"
     out=$(env -i PATH="$PATH" HOME="$T" OTTIMO_HOME="$T/home" FAKE_FAIL=$f bash "$T/bin/ops-check.sh" "$c" 2>&1 || true)
     if grep -qE 'secret-token|outbox_message|PGSQL|socket|/opt/ottimo' <<<"$out$(cat "$T/home/state/ops-check/$c" 2>/dev/null)"; then
@@ -140,10 +144,101 @@ if grep -q '@' <<<"$out$(cat "$T/home/state/ops-check/email_missing" 2>/dev/null
   fail=$((fail + 1)); echo "FAIL email_missing forwards a non-count answer: $out"
 else pass=$((pass + 1)); echo "ok   email_missing never prints an address"; fi
 
+# v1.0.3 email_changes (SEC PR31-01): FAIL when one user > 5, total > 20 changes in 24 h, or the oldest waiting
+# staff e-mail > 30 min. Stub answer = the two result lines of the READ ONLY session ("changes|total|max", "queue|n|s").
+envfile ''
+CHECK=email_changes run "changes: before 0091, empty queue -> ok"  0 '^ok   email_changes: e-mail changes: table not present yet \(before migration 0091\); staff.email queue: 0 waiting, oldest 0 min \(limit 30 min\)$' FAKE_OUT='changes|-1|-1\nqueue|0|0'
+CHECK=email_changes run "changes: before 0091, old queue -> FAIL"  1 '^FAIL email_changes: oldest waiting staff e-mail 45 min old \(limit 30 min\)' FAKE_OUT='changes|-1|-1\nqueue|3|2700'
+CHECK=email_changes run "changes: none -> ok"                      0 '^ok   email_changes: 0 e-mail change\(s\) in 24 h, max 0 for one user \(limits 5 / user, 20 total\)' FAKE_OUT='changes|0|0\nqueue|0|0'
+CHECK=email_changes run "changes: 5 for one user, 20 total -> ok"  0 '^ok   email_changes: 20 e-mail change\(s\) in 24 h, max 5 ' FAKE_OUT='changes|20|5\nqueue|1|1800'
+CHECK=email_changes run "changes: 6 for one user -> FAIL"          1 '^FAIL email_changes: 6 e-mail changes for one user in 24 h \(limit 5\) – runbook v1.0.3: lock the flooding account, tell SEC$' FAKE_OUT='changes|6|6\nqueue|0|0'
+CHECK=email_changes run "changes: 21 in total -> FAIL"             1 '^FAIL email_changes: 21 e-mail changes in 24 h \(limit 20\) – runbook' FAKE_OUT='changes|21|3\nqueue|0|0'
+CHECK=email_changes run "queue: 31 min -> FAIL"                    1 '^FAIL email_changes: oldest waiting staff e-mail 31 min old \(limit 30 min\) – security notices delayed' FAKE_OUT='changes|1|1\nqueue|2|1860'
+CHECK=email_changes run "queue: 30 min exactly -> ok"              0 '^ok   email_changes: 1 .*oldest 30 min' FAKE_OUT='changes|1|1\nqueue|2|1800'
+CHECK=email_changes run "all three -> one FAIL line with all"      1 '^FAIL email_changes: 30 e-mail changes for one user in 24 h \(limit 5\); 30 e-mail changes in 24 h \(limit 20\); oldest waiting staff e-mail 60 min old' FAKE_OUT='changes|30|30\nqueue|40|3600'
+CHECK=email_changes run "queue: negative age (clock) -> 0 min"     0 '^ok   email_changes: .*1 waiting, oldest 0 min' FAKE_OUT='changes|0|0\nqueue|1|-5'
+envfile 'EMAIL_CHANGES_USER_MAX=2
+EMAIL_CHANGES_TOTAL_MAX=8
+STAFF_EMAIL_QUEUE_MAX_MIN=10
+'
+CHECK=email_changes run "limits from .env: 3 for one user -> FAIL" 1 '^FAIL email_changes: 3 e-mail changes for one user in 24 h \(limit 2\)' FAKE_OUT='changes|3|3\nqueue|0|0'
+CHECK=email_changes run "limits from .env: 9 in total -> FAIL"     1 '^FAIL email_changes: 9 e-mail changes in 24 h \(limit 8\)' FAKE_OUT='changes|9|1\nqueue|0|0'
+CHECK=email_changes run "limits from .env: queue 11 min -> FAIL"   1 '^FAIL email_changes: oldest waiting staff e-mail 11 min old \(limit 10 min\)' FAKE_OUT='changes|0|0\nqueue|1|660'
+CHECK=email_changes run "limits from .env shown in ok line"        0 '\(limits 2 / user, 8 total\); .*\(limit 10 min\)$' FAKE_OUT='changes|2|2\nqueue|0|0'
+envfile 'EMAIL_CHANGES_USER_MAX=3
+'
+CHECK=email_changes run ".env limit beats the environment"         1 '^FAIL email_changes: 4 e-mail changes for one user in 24 h \(limit 3\)' FAKE_OUT='changes|4|4\nqueue|0|0' EMAIL_CHANGES_USER_MAX=20
+envfile ''
+CHECK=email_changes run "limit from the environment"               1 '\(limit 1\)' FAKE_OUT='changes|2|2\nqueue|0|0' EMAIL_CHANGES_USER_MAX=1
+# Tunable, never switched off: 0, a word, a negative or a huge number is refused – a FAIL, not a silent pass.
+for bad in 'EMAIL_CHANGES_USER_MAX=0' 'EMAIL_CHANGES_USER_MAX=off' 'EMAIL_CHANGES_USER_MAX=21' 'EMAIL_CHANGES_TOTAL_MAX=0' \
+  'EMAIL_CHANGES_TOTAL_MAX=99999' 'EMAIL_CHANGES_TOTAL_MAX=-1' 'STAFF_EMAIL_QUEUE_MAX_MIN=0' 'STAFF_EMAIL_QUEUE_MAX_MIN=4' \
+  'STAFF_EMAIL_QUEUE_MAX_MIN=241' 'STAFF_EMAIL_QUEUE_MAX_MIN=30m'; do
+  envfile "$bad
+"
+  CHECK=email_changes run "limit $bad refused -> FAIL"             1 "^FAIL email_changes: ${bad%%=*} must be a whole number [0-9]+-[0-9]+$" FAKE_OUT='changes|0|0\nqueue|0|0'
+done
+envfile ''
+CHECK=email_changes run "changes: query error -> category"         1 '^FAIL email_changes: query failed: query error$' FAKE_FAIL=1
+CHECK=email_changes run "changes: db down -> category"             1 '^FAIL email_changes: query failed: database unreachable$' FAKE_FAIL=db
+CHECK=email_changes run "changes: one line missing -> FAIL"        1 '^FAIL email_changes: unexpected answer$' FAKE_OUT='changes|1|1'
+CHECK=email_changes run "changes: half the table answer -> FAIL"   1 '^FAIL email_changes: unexpected answer$' FAKE_OUT='changes|-1|3\nqueue|0|0'
+CHECK=email_changes run "changes: a line twice -> FAIL"            1 '^FAIL email_changes: unexpected answer$' FAKE_OUT='changes|1|1\nqueue|0|0\nqueue|0|0'
+out=$(env -i PATH="$PATH" HOME="$T" OTTIMO_HOME="$T/home" FAKE_OUT='changes|1|1\nqueue|0|0\nowner@example.test' bash "$T/bin/ops-check.sh" email_changes 2>&1 || true)
+if grep -q '^FAIL email_changes: unexpected answer$' <<<"$out" && ! grep -q '@' <<<"$out$(cat "$T/home/state/ops-check/email_changes" 2>/dev/null)"; then
+  pass=$((pass + 1)); echo "ok   email_changes never prints a stray address"
+else fail=$((fail + 1)); echo "FAIL email_changes forwards a non-number answer: $out"; fi
+# The SQL: READ ONLY transaction, 24 h window by user_id, waiting = pending | failed | in_flight of staff.email, table
+# guard for DB 67, only numbers selected (no email / old_email / payload / id / changed_by column anywhere).
+envfile ''
+env -i PATH="$PATH" HOME="$T" OTTIMO_HOME="$T/home" FAKE_OUT='changes|0|0\nqueue|0|0' bash "$T/bin/ops-check.sh" email_changes >/dev/null
+sql=$(tr -s ' \n' ' ' < "$T/home/last.sql")
+for want in "to_regclass('public.user_email_change') IS NOT NULL AS has_uec \\gset" '\if :has_uec' \
+  "SELECT 'changes', coalesce(sum(n), 0), coalesce(max(n), 0) FROM (" "SELECT count(*) AS n FROM user_email_change" \
+  "changed_at > now() - interval '24 hours' GROUP BY user_id" "SELECT 'changes', -1, -1;" \
+  "SELECT 'queue', count(*), coalesce(extract(epoch FROM now() - min(created_at))::bigint, 0) FROM outbox_message" \
+  "topic = 'staff.email' AND status IN ('pending', 'failed', 'in_flight')"; do
+  if grep -qF -- "$want" <<<"$sql"; then pass=$((pass + 1)); else fail=$((fail + 1)); echo "FAIL email_changes sql lacks: $want"; fi
+done
+if sed "s/'staff\.email'//g" <<<"$sql" | grep -qiwE 'email|old_email|payload|changed_by|display_name|username'; then
+  fail=$((fail + 1)); echo "FAIL email_changes sql names a personal column: $sql"
+else pass=$((pass + 1)); echo "ok   email_changes sql names no address / payload column"; fi
+if grep -qiwE 'insert|update|delete|truncate|alter|drop|grant|create' <<<"$sql"; then fail=$((fail + 1)); echo "FAIL email_changes sql writes"
+else pass=$((pass + 1)); fi
+if grep -qF 'PGOPTIONS="-c default_transaction_read_only=on" psql' "$T/home/last.cmd"; then
+  pass=$((pass + 1)); echo "ok   email_changes runs in a READ ONLY transaction"
+else fail=$((fail + 1)); echo "FAIL email_changes not read only: $(cat "$T/home/last.cmd")"; fi
+# email_changes FAILs whatever EMAIL_NO_RECIPIENT_ALERT says (it is no report-only check).
+envfile 'EMAIL_NO_RECIPIENT_ALERT=0
+'
+CHECK=email_changes run "changes: FAIL also when alert switch is 0" 1 '^FAIL email_changes: 6 e-mail changes for one user' FAKE_OUT='changes|6|6\nqueue|0|0'
+
+# v1.0.3 email_ascii (INT 31-04): count of stored addresses outside the API rule, always report only.
+envfile ''
+CHECK=email_ascii run "ascii: 0 -> ok"                             0 '^ok   email_ascii: 0 stored e-mail address\(es\) outside the ASCII rule \(report only' FAKE_COUNT=0
+CHECK=email_ascii run "ascii: 2 -> still ok (report only)"         0 '^ok   email_ascii: 2 stored ' FAKE_COUNT=2
+CHECK=email_ascii run "ascii: query error -> category"             1 '^FAIL email_ascii: query failed: query error$' FAKE_FAIL=1
+CHECK=email_ascii run "ascii: odd answer -> FAIL"                  1 '^FAIL email_ascii: unexpected answer$' FAKE_COUNT='x@example.test'
+env -i PATH="$PATH" HOME="$T" OTTIMO_HOME="$T/home" FAKE_COUNT=0 bash "$T/bin/ops-check.sh" email_ascii >/dev/null
+sql=$(tr -s ' \n' ' ' < "$T/home/last.sql")
+for want in "SELECT count(*) FROM (SELECT lower(btrim(email::text)) AS e FROM app_user WHERE email IS NOT NULL) a" \
+  "a.e <> ''" "char_length(a.e) BETWEEN 3 AND 254" "a.e ~ '^[a-z0-9._%+-]{1,64}@([a-z0-9-]{1,63}\.)+[a-z]{2,63}\$'"; do
+  if grep -qF -- "$want" <<<"$sql"; then pass=$((pass + 1)); else fail=$((fail + 1)); echo "FAIL email_ascii sql lacks: $want"; fi
+done
+# One statement, and its outer SELECT list is count(*) only (the address stays inside the sub-select).
+if [ "$(grep -o ';' <<<"$sql" | wc -l | tr -d ' ')" = 1 ] && grep -q '^SELECT count(\*) FROM (SELECT ' <<<"$sql"; then
+  pass=$((pass + 1)); echo "ok   email_ascii returns only count(*)"
+else fail=$((fail + 1)); echo "FAIL email_ascii returns more than count(*): $sql"; fi
+if grep -qiwE 'insert|update|delete|truncate|alter|drop|grant|create' <<<"$sql"; then fail=$((fail + 1)); echo "FAIL email_ascii sql writes"
+else pass=$((pass + 1)); fi
+if grep -qF 'PGOPTIONS="-c default_transaction_read_only=on" psql' "$T/home/last.cmd"; then
+  pass=$((pass + 1)); echo "ok   email_ascii runs in a READ ONLY transaction"
+else fail=$((fail + 1)); echo "FAIL email_ascii not read only"; fi
+
 # Part of the full run (timer) list.
-if grep -Eq '^if \[ "\$#" -gt 0 \].*checks=\(containers j16 backup disk mem tls http5xx email_dead email_missing\)' "$src"; then
-  pass=$((pass + 1)); echo "ok   email_dead + email_missing in the full run"
-else fail=$((fail + 1)); echo "FAIL email_dead / email_missing missing from the full run"; fi
+if grep -Eq '^if \[ "\$#" -gt 0 \].*checks=\(containers j16 backup disk mem tls http5xx email_dead email_missing email_changes email_ascii\)' "$src"; then
+  pass=$((pass + 1)); echo "ok   email_dead + email_missing + email_changes + email_ascii in the full run"
+else fail=$((fail + 1)); echo "FAIL an e-mail check is missing from the full run"; fi
 
 echo "test-ops-check: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

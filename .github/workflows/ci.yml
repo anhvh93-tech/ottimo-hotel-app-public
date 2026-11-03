@@ -235,7 +235,7 @@ jobs:
             product/infra/server/test/deploy-landing-privacy.test.sh product/infra/server/test/ops-check-cwd.test.sh \
             product/infra/server/test/backup-privacy-log.test.sh product/infra/server/test/rollback.test.sh \
             product/infra/server/test/restore-drill-privacy.test.sh product/infra/server/privacy-log-check.sh \
-            product/infra/server/test/mail-test-send.test.sh \
+            product/infra/server/test/mail-test-send.test.sh product/infra/server/test/requeue-email-changed.test.sh \
             product/infra/caddy/*.sh product/infra/demo/*.sh product/infra/docker/*.sh \
             product/services/api/scripts/production-bootstrap.sh product/services/api/scripts/mfa-operator-reset.sh
       # UXR P-15: demo/production web builds refuse a missing, malformed or placeholder desk phone; dev only warns.
@@ -255,7 +255,9 @@ jobs:
       # BUG-R3-032 / SEC SEC-on-B2-readiness 1.5 OPS (a): count of staff e-mails dead NO_RECIPIENT (report only → FAIL when armed).
       # + ARC CWD-03: a failing query (j16, email_dead) is reported as a fixed category, never the raw error text.
       # v1.0.3 (ARC v1.0.3 tech plan 2.10): email_missing = active OWN/MGR without e-mail, READ ONLY, count only.
-      - name: ops-check email_dead + email_missing (count only, report-only until armed) + query error categories
+      # v1.0.3 (SEC PR31-01, INT 31-04): email_changes (changes / user / total in 24 h + age of the staff.email queue,
+      # tunable limits that cannot be switched off) and email_ascii (stored addresses outside the API rule).
+      - name: ops-check email_dead + email_missing + email_changes + email_ascii (numbers only, READ ONLY) + query error categories
         run: bash product/infra/ci/test-ops-check.sh
       # R3 v1.0: staging + production on one VPS behind one edge (SNI routing, PROXY protocol, landing preview auth).
       - name: Shared edge (render guards, routing, client address, no spoofing)
@@ -278,6 +280,10 @@ jobs:
       # plan-v1.0.3 V3-05: a test e-mail recipient is typed at a hidden prompt, never an argument (history, argv).
       - name: mail-test.sh (recipient only on stdin, never in argv or output)
         run: bash product/infra/server/test/mail-test-send.test.sh
+      # INT FB-R4-INT-BE-31-02 / ARC FB-R4-ARC-BE-31-02: the only way to requeue email_changed rows killed by a v1.0.2
+      # worker – live tag + worker template checks, 7 days, exact row count in one transaction, counts only.
+      - name: requeue-email-changed.sh (checked requeue, dry run by default, no hand-typed UPDATE)
+        run: bash product/infra/server/test/requeue-email-changed.test.sh
 
   test-surface-guard:
     # BUG-R1-SEC-08 / SR-SECR-05: the production contract must not contain /__test__ paths

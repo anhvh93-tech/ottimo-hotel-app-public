@@ -97,7 +97,7 @@ systemctl list-timers 'ottimo-*'
 ```
 
 - Sao lưu 03:30 giờ VN: `pg_dump` + kho tệp mã hóa + `purge_journal`, mã hóa `age` bằng khóa công khai, giữ 7 ngày + bản Chủ nhật tới 35 ngày (SR-BAK-03), ở `/var/backups/ottimo`. Bản sao off-site do **máy phụ kéo về** (R3, SR-BAK-04).
-- Kiểm tra 30 phút/lần (`ops-check.sh`): **J16 không chạy trong 26 giờ** (hoặc có lượt `failed`) cho từng cơ sở (SEC C6, SR-RET-03), sao lưu > 26 giờ, đĩa ≥ 80 %, chứng chỉ < 14 ngày, container dừng, số 5xx, thư nhân viên chết `NO_RECIPIENT` (`email_dead`), số OWN/MGR chưa có email (`email_missing`, từ v1.0.3). Cảnh báo: `journalctl -t ottimo-alert -p err`, `systemctl --failed`, và webhook nếu đặt `ALERT_WEBHOOK_URL` trong `.env` (chỉ gửi khi đổi trạng thái + nhắc mỗi 6 giờ; không có dữ liệu cá nhân).
+- Kiểm tra 30 phút/lần (`ops-check.sh`): **J16 không chạy trong 26 giờ** (hoặc có lượt `failed`) cho từng cơ sở (SEC C6, SR-RET-03), sao lưu > 26 giờ, đĩa ≥ 80 %, chứng chỉ < 14 ngày, container dừng, số 5xx, thư nhân viên chết `NO_RECIPIENT` (`email_dead`), số OWN/MGR chưa có email (`email_missing`, từ v1.0.3), số lần đổi email trong 24 giờ và tuổi hàng đợi thư bảo mật (`email_changes`, từ v1.0.3, luôn cảnh báo), số địa chỉ không khớp luật ASCII của API (`email_ascii`, chỉ báo số). Cảnh báo: `journalctl -t ottimo-alert -p err`, `systemctl --failed`, và webhook nếu đặt `ALERT_WEBHOOK_URL` trong `.env` (chỉ gửi khi đổi trạng thái + nhắc mỗi 6 giờ; không có dữ liệu cá nhân).
 - `email_dead` (BUG-R3-032, SEC `SEC-on-B2-readiness.md` 1.5): đếm thư nhân viên (`staff.email` – thư "Security notice") chết vì `NO_RECIPIENT` trong 24 giờ, chỉ đếm, không đọc nội dung. Hiện chỉ báo số, không cảnh báo. Chỉ bật khi đủ **4 điều kiện** ở mục 13.8 (v1.0.3 chạy production; `email_missing` = 0; INV báo đã nhận thư; `email_dead` 24 giờ = 0). Cách bật: thêm `EMAIL_NO_RECIPIENT_ALERT=1` vào `.env` của stack (lệnh ở 13.8), khi đó mỗi thư như vậy là `FAIL`, và `email_missing` > 0 cũng là `FAIL`. Bật sớm thì `email_dead` FAIL kéo dài và nhắc lại mỗi 6 giờ (cảnh báo giả).
 - Chạy tay: `/opt/ottimo/infra/server/bin/ops-check.sh` hoặc `ops-check.sh j16`. Qua SSH `ottimo-admin` thì `cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/ops-check.sh`. Từ 30/10, `ops-check.sh` và `bin/dc` tự chạy được từ thư mục bất kỳ (trước đó chạy trong home của `ottimo-admin` thì `docker compose` lỗi `stat .: permission denied`, ra cảnh báo giả "containers FAIL"). `docker compose` lỗi thì `containers`/`http5xx` báo `docker compose failed, container state unknown: <loại lỗi>`, không báo "not running"; không gửi nguyên văn lỗi đi (lỗi đọc `.env` có thể chứa một dòng `.env`). Test: `infra/server/test/ops-check-cwd.test.sh`.
 
@@ -414,14 +414,24 @@ cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc exec -T postgres sh 
 - Dán kết quả vào báo cáo OPS cho SEC (kết quả không chứa dữ liệu).
 - Chụp lại sau mỗi lần deploy có migration, cho tới khi PN-01 lên.
 
-### 13.8 `ops-check`: `email_dead`, `email_missing`, `EMAIL_NO_RECIPIENT_ALERT` và lỗi truy vấn (v1.0.1, v1.0.3)
+### 13.8 `ops-check`: `email_dead`, `email_missing`, `email_changes`, `email_ascii`, `EMAIL_NO_RECIPIENT_ALERT` và lỗi truy vấn (v1.0.1, v1.0.3)
 
 - `email_dead` (mục 7) đếm thư `staff.email` chết vì `NO_RECIPIENT` trong 24 giờ. Chỉ đếm, không đọc payload.
 - `email_missing` (v1.0.3, ARC `v1.0.3-tech-plan.md` 2.10 điều kiện 2) đếm người dùng `active` đang có vai `owner` hoặc `manager` chưa thu hồi (`user_property_role.revoked_at IS NULL`) mà **chưa có email** (`app_user.email` rỗng). Thư bảo mật gửi cho họ sẽ chết `NO_RECIPIENT`.
   - Chạy trong giao dịch **READ ONLY** (`default_transaction_read_only=on`), chỉ `SELECT count(*)`: không đọc, không in địa chỉ, tên hay id. Đầu ra chỉ là một con số, ví dụ `ok   email_missing: 1 active OWN/MGR user(s) without e-mail (report only …)`.
   - Chỉ dùng cột có từ 0000, nên chạy được cả trên DB v1.0.2 (67 migration) lẫn v1.0.3 (68, có 0091). Trên production trước khi INV nhập email, số này là `1` (INV là OWN duy nhất, chưa có email) – đúng như dự kiến, không phải lỗi.
   - Chạy tay: `cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/ops-check.sh email_missing`.
-- **`EMAIL_NO_RECIPIENT_ALERT`** (một công tắc cho cả hai kiểm; `.env` thắng biến môi trường; chỉ nhận `0` hoặc `1`):
+- `email_changes` (v1.0.3, SEC `FB-R4-SEC-OPS-PR31-01`; **điều kiện để deploy v1.0.3 lên production**). v1.0.3 chưa giới hạn số lần đổi email thành công (giới hạn cứng ở v1.0.4), và bộ gửi thư chỉ lấy 10 thư/phút/cơ sở theo thứ tự vào trước ra trước. Một đợt dội lệnh đổi email làm trễ mọi thư bảo mật khác. Kiểm này đếm:
+  - từ `user_email_change` (bảng của 0091): tổng số lần đổi trong 24 giờ, và số lần của **người bị đổi nhiều nhất**;
+  - từ `outbox_message`: số thư `staff.email` còn chờ (`pending`, `failed`, `in_flight`) và tuổi thư cũ nhất (phút).
+  - `FAIL` khi một người đổi > `EMAIL_CHANGES_USER_MAX` (mặc định **5**), hoặc tổng > `EMAIL_CHANGES_TOTAL_MAX` (mặc định **20**) trong 24 giờ, hoặc thư cũ nhất còn chờ > `STAFF_EMAIL_QUEUE_MAX_MIN` (mặc định **30** phút). Kiểm này **luôn** cảnh báo, không theo công tắc `EMAIL_NO_RECIPIENT_ALERT`.
+  - Ba ngưỡng chỉnh được trong `.env` của stack (`.env` thắng biến môi trường), nhưng **không tắt được**: mỗi ngưỡng phải là số nguyên trong khoảng 1–20, 1–200 và 5–240. Giá trị khác (0, chữ, số quá lớn) làm kiểm `FAIL` với câu `… must be a whole number …`, không lặng lẽ cho qua.
+  - Giao dịch **READ ONLY**, chỉ in số. Không chọn địa chỉ, id hay payload. Trước 0091 (production v1.0.2, chưa có bảng), phần đếm đổi email ghi `table not present yet (before migration 0091)`, và chỉ xét hàng đợi.
+  - Staging: QA đổi email thử nhiều lần thì `FAIL` là đúng (QA dùng chính ca này: đổi 6 lần trong 24 giờ → `FAIL`).
+  - Khi `FAIL`: runbook v1.0.3 mục "email_changes FAIL". Tóm tắt: OWN khóa tài khoản đang dội, báo SEC. Không xóa dòng outbox, không sửa bảng bằng SQL tay.
+  - Chạy tay: `cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/ops-check.sh email_changes`.
+- `email_ascii` (v1.0.3, INT `FB-R4-INT-BE-31-04`): số `app_user.email` (không rỗng) mà luật địa chỉ của API (`normalizeSecurityEmail`: cắt khoảng trắng, chữ thường, phần tên `[a-z0-9._%+-]{1,64}`, ≥ 2 nhãn `[a-z0-9-]{1,63}`, đuôi là chữ, 3–254 ký tự) sẽ từ chối. READ ONLY, chỉ `count(*)` ra khỏi DB, **luôn chỉ báo số**. INT chỉ siết adapter SMTP ở v1.0.4 khi số này bằng 0 (hoặc đã báo chủ tài khoản đổi địa chỉ). Đã đối chiếu với hàm TypeScript trên 29 ca (Postgres 17 tạm).
+- **`EMAIL_NO_RECIPIENT_ALERT`** (một công tắc cho cả hai kiểm `email_dead` và `email_missing`; `.env` thắng biến môi trường; chỉ nhận `0` hoặc `1`):
   - `0` hoặc không đặt (mặc định): cả hai chỉ báo số, luôn `ok`, có chữ `report only until EMAIL_NO_RECIPIENT_ALERT=1`.
   - `1`: `email_dead` > 0 → `FAIL` ("a security notice reached nobody"); `email_missing` > 0 → `FAIL` ("their security notices reach nobody"). Cảnh báo đi journal + webhook như các kiểm khác, nhắc lại mỗi 6 giờ.
 - **Chỉ bật khi đủ cả 4 điều kiện** (ARC 2.10; runbook `rounds/round-04/outputs/OPS/v1.0.3-release-runbook.md` mục E):
@@ -446,19 +456,19 @@ cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc exec -T postgres sh 
 - **Thư thử SMTP** (`mail-test.mjs`): chỉ chạy qua `product/infra/server/bin/mail-test.sh` trên Mac.
   - Mặc định `--verify-only`: chỉ kết nối + STARTTLS, không gửi, không hỏi địa chỉ.
   - `--send`: hỏi địa chỉ ở **dấu nhắc ẩn** (`read -rs`), địa chỉ đi qua stdin, không nằm trong tham số lệnh nào trên Mac hay VPS, không vào lịch sử shell. Chỉ chủ hộp thư tự gõ (INV với hộp thư riêng), bằng khóa SSH quản trị trên chính Mac của mình (`--key`, mặc định `~/.ssh/ottimo_ops`); không chép khóa sang máy khác.
-  - Trước `--send`, sudo **không** được ghi I/O (nếu có `log_input`/`log_stdin`…, sudo ghi lại stdin, tức dòng địa chỉ, vào `/var/log/sudo-io`). Kiểm chỉ đếm, đúng là `SUDO_IO_LOG=0` (SEC PR30-04):
+  - Trước `--send`, sudo **không** được ghi I/O (nếu có `log_input`/`log_stdin`…, sudo ghi lại stdin, tức dòng địa chỉ, vào `/var/log/sudo-io`). Kiểm chỉ đếm, đúng là `SUDO_IO_LOG=0` (SEC PR30-04). Lệnh **báo lỗi chứ không in 0** (SEC PR30-09): `sudo -n` đòi mật khẩu, hoặc `grep` không đọc được một tệp (mã thoát > 1), thì in `SUDO_IO_LOG=ERR`. `ERR` tính như khác 0: **cấm** `--send`, báo OPS.
     ```sh
-    ssh … 'cd / && echo "SUDO_IO_LOG=$(sudo -n grep -rhcE "^[^#]*(log_input|log_output|log_stdin|log_stdout|log_stderr|log_ttyin|log_ttyout|log_servers)" /etc/sudoers /etc/sudoers.d | awk "{s+=\$1} END {print s+0}")"'
+    ssh … 'cd / && echo "SUDO_IO_LOG=$({ sudo -n grep -rhcE "^[^#]*(log_input|log_output|log_stdin|log_stdout|log_stderr|log_ttyin|log_ttyout|log_servers)" /etc/sudoers /etc/sudoers.d; [ $? -le 1 ] || echo X; } | awk "{ if (\$1 == \"X\") e = 1; else s += \$1 } END { if (e || NR == 0) print \"ERR\"; else print s + 0 }")"'
     ```
-  - Sau `--send` (hoặc khi lệnh bị ngắt giữa chừng), không được còn container one-off của worker: cấu hình container giữ biến `MAIL_TEST_TO` tới khi bị xóa (SEC PR30-05). Đếm, rồi xóa nếu có (không `docker inspect`, không in env):
+  - Sau `--send` (hoặc khi lệnh bị ngắt giữa chừng), không được còn container one-off của worker: cấu hình container giữ biến `MAIL_TEST_TO` tới khi bị xóa (SEC PR30-05). Đếm, rồi xóa nếu có (không `docker inspect`, không in env). Lệnh đếm chạy `docker ps` vào biến trước và kiểm mã thoát: `sudo`/`docker` lỗi thì in `ONEOFF=ERR`, không in `0` (SEC PR30-09). `ERR` tính như khác 0: chạy lệnh xóa, rồi đếm lại; vẫn `ERR` thì báo OPS dọn tay trên máy chủ.
     ```sh
-    ssh … 'cd / && echo "ONEOFF=$(sudo -n -u ottimo docker ps -a -q --filter label=com.docker.compose.oneoff=True --filter label=com.docker.compose.service=worker | wc -l)"'
+    ssh … 'cd / && L=$(sudo -n -u ottimo docker ps -a -q --filter label=com.docker.compose.oneoff=True --filter label=com.docker.compose.service=worker) && echo "ONEOFF=$(printf %s "$L" | grep -c .)" || echo "ONEOFF=ERR"'
     ssh … 'cd / && sudo -n -u ottimo sh -c "docker ps -a -q --filter label=com.docker.compose.oneoff=True --filter label=com.docker.compose.service=worker | xargs -r docker rm -f >/dev/null" && echo REMOVED'
     ```
   - `MAIL_TEST_READ_STDIN=1` chỉ cho test (cùng `MTS_DIR` của `ssh` giả); không dùng tay: địa chỉ đưa qua pipe sẽ nằm trong lịch sử shell.
   - Không bao giờ gõ `-e MAIL_TEST_TO=<địa chỉ>`. Thư thật của v1.0.3 là thư `email_changed` khi INV lưu email trên Desk; `--send` chỉ dùng khi đội điều tra lỗi gửi.
   - Test: `infra/server/test/mail-test-send.test.sh` (20 kiểm, `ssh` giả; gồm bit chạy và chạy trực tiếp không qua `bash`).
-- Khi truy vấn của `j16`, `email_dead` hoặc `email_missing` lỗi, kiểm báo `query failed: <loại>`. Có 7 loại cố định:
+- Khi truy vấn của `j16`, `email_dead`, `email_missing`, `email_changes` hoặc `email_ascii` lỗi, kiểm báo `query failed: <loại>`. Có 7 loại cố định:
   - `permission denied`
   - `Docker daemon unreachable`
   - `postgres container not running`
@@ -469,4 +479,17 @@ cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/dc exec -T postgres sh 
 
   Nguyên văn lỗi không bao giờ được gửi ra journal hay webhook, vì lỗi đọc `.env` có thể trích nguyên một dòng `.env` (ARC CWD-03). Muốn xem lỗi thật: chạy tay `cd / && sudo -u ottimo …/bin/ops-check.sh j16`, rồi `…/bin/dc exec -T postgres psql …` trên terminal.
 - stderr của lệnh đang kiểm ghi vào một tệp riêng cho mỗi lượt (`mktemp`, quyền 0600) và bị xóa khi thoát. Tệp chung `state/ops-check/compose.stderr` của bản 30/10 tự được xóa (ARC CWD-04 mục 1). Bị dừng bằng `SIGTERM` (systemd dừng unit, máy tắt) thì `trap` vẫn chạy; tệp `cmd-stderr.*` sót lại sau `SIGKILL` bị lượt sau xóa khi cũ hơn 60 phút (SEC PR23-06).
-- Test: `infra/ci/test-ops-check.sh` (55 kiểm, gồm 24 kiểm `email_missing`: báo số / bật / công tắc sai / loại lỗi / câu SQL chỉ `count(*)` / READ ONLY / không in địa chỉ) và `infra/server/test/ops-check-cwd.test.sh` (7 ca).
+- Test: `infra/ci/test-ops-check.sh` (118 kiểm: 24 kiểm `email_missing`; 48 kiểm `email_changes` gồm biên 5/6, 20/21, 30/31 phút, ngưỡng từ `.env`, 10 giá trị ngưỡng bị từ chối, trước 0091, câu trả lời lạ, câu SQL READ ONLY không có cột địa chỉ, loại lỗi; 15 kiểm `email_ascii`) và `infra/server/test/ops-check-cwd.test.sh` (7 ca, ca 4c có cả 5 kiểm DB).
+
+### 13.9 Xếp lại hàng đợi thư `email_changed` sau quay lui (v1.0.3, INT `FB-R4-INT-BE-31-02`, ARC `FB-R4-ARC-BE-31-02`)
+
+- Khi quay lui v1.0.3 → v1.0.2, worker v1.0.2 không biết mẫu `email_changed`. Dòng outbox mẫu này còn chờ sẽ thành `dead`, `last_error = 'BAD_TEMPLATE'`, và khi lên lại v1.0.3 cũng **không** được gửi lại. Mất thư tới địa chỉ cũ, là cảnh báo duy nhất cho chủ hộp thư cũ (SEC 04).
+- Cách duy nhất để xếp lại: `bin/requeue-email-changed.sh`. **Không** gõ `UPDATE` tay trên staging/production. Đây là thao tác **ghi**: chạy `--apply` chỉ khi INV đã đồng ý trong chat.
+  ```sh
+  cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/requeue-email-changed.sh --tag "$(sudo -u ottimo cat /opt/ottimo-prod/state/current_tag)"            # chạy thử: chỉ kiểm + đếm
+  cd / && sudo -u ottimo /opt/ottimo-prod/infra/server/bin/requeue-email-changed.sh --tag <tag> --apply --expect <số chạy thử in ra>                     # INV đồng ý
+  ```
+- Script từ chối (không ghi gì) khi: đang có deploy/quay lui (`state/deploy.lock`); `--tag` khác `state/current_tag`; worker đang chạy không đúng tag đó; image worker không biết mẫu `email_changed` (hỏi `isStaffEmailTemplate` ngay trong container, nên v1.0.2 bị từ chối); chưa có bảng `user_email_change`; `--expect` khác số dòng đếm được.
+- Chỉ đụng dòng: `staff.email`, `dead`, `BAD_TEMPLATE`, mẫu `email_changed`, `created_at` trong **7 ngày** (quá 7 ngày, job `email_change.purge` đã xóa địa chỉ cũ). Dòng cũ hơn chỉ được đếm. Ghi `status = 'pending'`, `attempts = 0`, `next_attempt_at = NULL`, `last_error = NULL` trong **một giao dịch**, giao dịch tự hủy nếu số dòng đổi khác `--expect`.
+- Đầu ra và journal (`ottimo-deploy`) chỉ có số. Không in địa chỉ, id, payload hay nguyên văn lỗi DB.
+- Test: `infra/server/test/requeue-email-changed.test.sh` (44 kiểm; 46 khi có `flock`, gồm ca khóa deploy). Đã chạy thật trên Postgres 17 tạm: 2 dòng trong 7 ngày được xếp lại, dòng 8 ngày, dòng mẫu khác, dòng `NO_RECIPIENT` và dòng topic khác giữ nguyên; `--expect` sai thì giao dịch hủy.
