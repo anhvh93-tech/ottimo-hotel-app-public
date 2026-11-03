@@ -13,16 +13,17 @@
 - **v1.0.1 – smoke staging (QC ĐK5)**, 01/11 23:43–23:58, staging `sha-755cad1642ca` (`main` `755cad16`): **đạt**. `smoke-prod` 9/9; worker `chat: off` mức A; Desk nhận phòng và báo giá không lỗi; 0 phản hồi 5xx. BUG-R4-009 đạt ở báo giá EN/VI/RU (API + Desk) và trang khách. Mới **BUG-R4-017** (P3, có sẵn từ v1.0.0). Chi tiết: `rounds/round-04/qa/v1.0.1-staging-smoke.md`.
 - **v1.0.2 – PR #22 lượt 2** (03/11 ~11:15–11:30, `v1.0.2-ed` @ `ff16c1dd`, gồm `main` `00881a53`; stack thử `ottimo-qapr22b` trong worktree tạm mới): **ĐẠT**. Oracle BR-428-01…09 9/9, tính thử = ghi thật, 15 lần tính thử không đổi bảng nào trong 76; giá hẹn đạt. BUG-R4-014 **đã sửa – đã xác nhận** trên Desk thật; BUG-R4-015 vẫn Open (đích v1.0.3). Hồi quy từ `main`: form 202 / 422 `ID_NUMBER_DETECTED`, worker `chat: off` và `chat: on` (webhook giả, host bị chặn) không lỗi. CI `41574262425` xanh. Không lỗi mới. Chi tiết: `rounds/round-04/qa/pr22-v1.0.2-ed.md` mục "Lượt 2 @ ff16c1dd".
 - **v1.0.2 – PR #22 lượt 3** (03/11 ~11:55–12:20, `v1.0.2-ed` @ `9d4f0fa8`, FE-A sửa thẻ DOM FB-01..03 + ESC-048 = B; stack thử `ottimo-qapr22c` trong worktree tạm mới): **ĐẠT**. Hộp "Trả sớm" của HĐ tháng trên Desk thật (VI/EN) hiện câu kiểm kỳ thu và 3 nhánh, ô tích trung tính. Ghi thật: 0 yêu cầu hoàn, 0 dòng phí. Đơn ngắn ngày BR-428 không đổi. CI `41579077681` xanh, gồm E2E smoke. Sau B13 Desk vẫn hiện BR-313: giới hạn đã biết (`leaseEndDate`, ARC/BE-A v1.0.3), không mở lỗi. Không lỗi mới. Chi tiết: `rounds/round-04/qa/pr22-v1.0.2-ed.md` mục "Lượt 3 @ 9d4f0fa8".
+- **v1.0.2 – smoke staging** (03/11 14:46–15:02, staging `sha-e5fffe05ed55` = `main` `e5fffe05`, CI `41594706912` xanh): **ĐẠT**. Migration 0089 + 0090 có, hash khớp; `smoke-prod` 9/9; B16 oracle BR-428 trên 4 đơn ngắn ngày, tính thử = ghi thật, 124 bảng không đổi khi tính thử; giá hẹn đạt; hộp HĐ tháng ESC-048 B đúng chữ VI/EN; PN-01 trigger chặn UPDATE/DELETE/TRUNCATE (BEGIN … ROLLBACK); 0 phản hồi 5xx. **BUG-R4-014 → Closed.** BUG-R4-017 vẫn tái hiện. Không lỗi mới. Chi tiết: `rounds/round-04/qa/v1.0.2-staging-smoke.md`.
 
-## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3)
+## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
-| P2 | 7 | 2 (BUG-R4-011, BUG-R4-013) | 1 (BUG-R4-014 – đã sửa `d91cffae`, QA xác nhận trên PR #22 lượt 2 `ff16c1dd`; Closed khi PR #22 gộp `main` + CI xanh) | 4 (BUG-R4-001, 002, 003, 004) |
+| P2 | 7 | 2 (BUG-R4-011, BUG-R4-013) | 0 | 5 (BUG-R4-001, 002, 003, 004, 014 – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`) |
 | P3 | 10 | 4 (BUG-R4-010 – mở lại, BUG-R4-012, BUG-R4-015, BUG-R4-017 – mới) | 1 (BUG-R4-016 – đã sửa, QA xác nhận trên PR #24 `f8080499`; Closed khi #16 + #24 gộp `main` + CI xanh) | 5 (BUG-R4-005, 006, 007, 008, 009 – 009 đã kiểm lại trên staging `sha-755cad1642ca`) |
-| **Tổng** | **17** | **6** | **2** | **9** |
+| **Tổng** | **17** | **6** | **1** | **10** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -256,7 +257,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
   - Test chống tái phát: đơn `manualLongStay` đang ở → (a) `allowedActions` không có `early_departure`, gọi B16 → 409; hoặc (b) hộp có câu BR-313 và không có dòng "Phần hoàn theo chính sách trả sớm".
 - **Bằng chứng:** báo cáo `rounds/round-04/qa/pr22-v1.0.2-ed.md` mục 4 (chữ hộp đọc từ DOM, kết quả API).
 - **Vai:** PO + DOM (chọn (a)/(b), câu chữ BR-313) · FE-A (hộp/nút) · BE-A (nếu (a): `allowedActions` + chặn server) · UXD (chữ).
-- **Trạng thái:** ~~Open~~ → **Fixed – đã xác nhận** (03/11, PR #22 lượt 2 @ `ff16c1dd`). Closed khi PR #22 gộp `main` + CI xanh.
+- **Trạng thái:** ~~Open~~ → ~~Fixed – đã xác nhận~~ (03/11, PR #22 lượt 2 @ `ff16c1dd`) → **Closed** (03/11 15:00). PR #22 đã gộp `main` (`e5fffe05`), CI `41594706912` xanh; QA kiểm lại hộp HĐ tháng trên staging `sha-e5fffe05ed55` (VI/EN, ghi thật: 0 yêu cầu hoàn, 0 dòng phí) – `rounds/round-04/qa/v1.0.2-staging-smoke.md` mục 4.
   - *Bản sửa:* `d91cffae` (FE-A), phương án (b) của ORC. B16 vẫn mở cho HĐ tháng. Với `stayType = long`, hộp thay các dòng BR-428 bằng khối BR-313 v0.5.1, dùng 5 chuỗi mới `early_departure.lease_*` và `told_guest_lease`. Thêm test `r4-bug014-early-departure-lease` (4 ca).
   - *QA test lại trên Desk thật* (FDL, OTM-00020, HĐ tháng 12.500.000, ký quỹ 12.500.000):
     - Bước 1 không còn "Báo trước N ngày".
