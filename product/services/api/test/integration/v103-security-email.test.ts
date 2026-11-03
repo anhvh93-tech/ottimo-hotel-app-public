@@ -68,6 +68,7 @@ describe.skipIf(!HAS_DB)('v1.0.3 security e-mail (BUG-R3-032)', () => {
     mfa: ['front_desk_lead'],
     race: ['front_desk'],
     idem: ['front_desk_lead'],
+    replay: ['front_desk_lead'],
     nomail: ['manager'],
   };
 
@@ -197,8 +198,8 @@ describe.skipIf(!HAS_DB)('v1.0.3 security e-mail (BUG-R3-032)', () => {
         'EMAIL_INVALID',
       ],
       ['a@b.c,d@e.f', 'EMAIL_INVALID'],
-      ['"x"@y.vn', 'EMAIL_INVALID'],
-      ['nguyễn@x.vn', 'EMAIL_INVALID'],
+      ['"x"@example.test', 'EMAIL_INVALID'],
+      ['nguyễn@example.test', 'EMAIL_INVALID'],
       ['a@localhost', 'EMAIL_INVALID'],
       ['', 'EMAIL_INVALID'],
       [' INFO@example.TEST ', 'EMAIL_SHARED_MAILBOX'],
@@ -274,6 +275,33 @@ describe.skipIf(!HAS_DB)('v1.0.3 security e-mail (BUG-R3-032)', () => {
     expect(await failures('idem')).toBe(0);
     expect(await stepups('idem')).toBe(granted); // no stepup.s2_failed / granted for the replay
     expect(await changes('idem')).toBe(1);
+  });
+
+  it('SEC PR31-05 (b): new Idempotency-Key + an already used TOTP code → 401 REAUTH_FAILED, counted once, no second change', async () => {
+    const c = await enroll('replay');
+    fa.clock.advance(30_000);
+    const totp = code('replay');
+    const first = await c.send('PUT', '/v1/me/email', {
+      email: addr('replay'),
+      reauth: { password: TEST_PASSWORD, totpCode: totp },
+    });
+    expect(first.statusCode).toBe(200);
+    expect(await failures('replay')).toBe(0);
+    // Client.send puts a fresh Idempotency-Key on every call: completedReplay must not open a path around S2.
+    const again = await c.send('PUT', '/v1/me/email', {
+      email: addr('replay-2'),
+      reauth: { password: TEST_PASSWORD, totpCode: totp },
+    });
+    expect(again.statusCode).toBe(401);
+    expect(again.json().code).toBe('REAUTH_FAILED');
+    expect(again.headers['idempotent-replayed']).toBeUndefined();
+    expect(await failures('replay')).toBe(1);
+    expect(await changes('replay')).toBe(1);
+    const stored = await q<{ email: string }>(
+      'SELECT email::text AS email FROM app_user WHERE id = $1',
+      [t.users.replay!.id],
+    );
+    expect(stored.rows[0]!.email).toBe(addr('replay'));
   });
 
   it('T8: same address, other case → 200, no audit, no change row, no e-mail, version unchanged', async () => {
@@ -638,8 +666,8 @@ describe.skipIf(!HAS_DB)(
       await db?.close();
     });
 
-    async function scenario(users: Record<string, string[]>) {
-      const t = await createTenant(db, { users });
+    async function scenario(users: Record<string, string[]>, properties = 1) {
+      const t = await createTenant(db, { users, properties });
       for (const u of Object.keys(users)) await setPassword(db, t, u);
       const addr = (name: string) => `${name}-${t.organizationId.slice(-6)}@example.test`;
       const setRaw = (user: string, value: string | null) =>
@@ -865,6 +893,99 @@ describe.skipIf(!HAS_DB)(
         [
           [s.addr('x'), 'self'],
           [s.addr('a'), 'previous'],
+        ].sort(),
+      );
+    });
+
+    it("SEC PR31-02 / INT 31-01: HK sets an owner's address as their own → that owner gets exactly 1 copy, the owner one", async () => {
+      fresh();
+      const s = await scenario({ hk: ['housekeeping'], own: ['owner'], own2: ['owner'] });
+      await s.setRaw('own', s.addr('own'));
+      await s.setRaw('own2', s.addr('own2'));
+      await s.put('hk', s.addr('own'));
+      const st = await s.d.runForProperty(s.p);
+      expect(st).toMatchObject({ done: 1, dead: 0 });
+      expect(s.sentTo().sort()).toEqual(
+        [
+          [s.addr('own'), 'owner'],
+          [s.addr('own2'), 'owner'],
+        ].sort(),
+      );
+      // the owner copy names the person concerned
+      const toOwn = s.adapter.sent.filter((m) => m.to === s.addr('own'));
+      expect(toOwn).toHaveLength(1);
+      expect(toOwn[0]!.params.staffName).toBe('hk');
+    });
+
+    it("SEC PR31-02: the OLD address was an owner's → owner copy, no previous copy; row still closed", async () => {
+      fresh();
+      const s = await scenario({ hk: ['housekeeping'], own: ['owner'] });
+      await s.setRaw('own', s.addr('own'));
+      await s.setRaw('hk', s.addr('own'));
+      await s.put('hk', s.addr('hk-x'));
+      const st = await s.d.runForProperty(s.p);
+      expect(st).toMatchObject({ done: 1, dead: 0 });
+      expect(s.sentTo().sort()).toEqual(
+        [
+          [s.addr('hk-x'), 'self'],
+          [s.addr('own'), 'owner'],
+        ].sort(),
+      );
+      const [c] = await s.changes();
+      expect(c!.old_email).toBeNull();
+    });
+
+    it('SEC PR31-05 (a) / EM-07 / G-BE-1: staff at 2 properties changes while on property 1 → the owner of ONLY property 2 also gets the owner copy', async () => {
+      fresh();
+      const s = await scenario(
+        { multi: ['front_desk'], own: ['owner'], own2: ['owner'], other: ['owner'] },
+        2,
+      );
+      const [p0, p1] = s.t.propertyIds;
+      await db.withContext(s.t.ctx(), async (tx) => {
+        await tx.query(
+          `INSERT INTO user_property_role (user_id, property_id, organization_id, role, granted_at)
+           VALUES ($1, $2, $3, 'front_desk', $4)`,
+          [s.t.users.multi!.id, p1, s.t.organizationId, T0],
+        );
+        // own2: owner of property 2 only
+        await tx.query(
+          'UPDATE user_property_role SET property_id = $2 WHERE user_id = $1 AND property_id = $3',
+          [s.t.users.own2!.id, p1, p0],
+        );
+      });
+      for (const u of ['own', 'own2', 'other']) await s.setRaw(u, s.addr(u));
+      await s.put('multi', s.addr('multi'));
+      const st = await s.d.runForProperty(s.p);
+      expect(st).toMatchObject({ done: 1, dead: 0 });
+      expect(s.sentTo().sort()).toEqual(
+        [
+          [s.addr('multi'), 'self'],
+          [s.addr('own'), 'owner'],
+          [s.addr('other'), 'owner'],
+          [s.addr('own2'), 'owner'],
+        ].sort(),
+      );
+    });
+
+    it('EM-07 control: an owner of a property where the person has NO role gets nothing', async () => {
+      fresh();
+      const s = await scenario({ fd: ['front_desk'], own: ['owner'], own2: ['owner'] }, 2);
+      const [p0, p1] = s.t.propertyIds;
+      await db.withContext(s.t.ctx(), (tx) =>
+        tx.query(
+          'UPDATE user_property_role SET property_id = $2 WHERE user_id = $1 AND property_id = $3',
+          [s.t.users.own2!.id, p1, p0],
+        ),
+      );
+      await s.setRaw('own', s.addr('own'));
+      await s.setRaw('own2', s.addr('own2'));
+      await s.put('fd', s.addr('fd'));
+      await s.d.runForProperty(s.p);
+      expect(s.sentTo().sort()).toEqual(
+        [
+          [s.addr('fd'), 'self'],
+          [s.addr('own'), 'owner'],
         ].sort(),
       );
     });

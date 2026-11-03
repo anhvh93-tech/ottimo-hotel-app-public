@@ -28,6 +28,7 @@ import type {
 } from '@ottimo/integrations/contracts';
 import { isStaffEmailTemplate } from '@ottimo/integrations/notification';
 import type { Clock } from '../clock';
+import { EMAIL_CHANGED_TEMPLATE } from '../shared/email';
 import type { Database, Tx } from '../db/database';
 import type { PropertyRef } from './job-runner';
 
@@ -60,8 +61,6 @@ interface Payload {
   skippedUserIds?: unknown;
   emailChangeId?: unknown;
 }
-
-export const EMAIL_CHANGED_TEMPLATE = 'email_changed';
 
 interface Recipient {
   /** app_user id – or, for audience `previous`, the user_email_change id (tracking key). */
@@ -269,10 +268,14 @@ export class StaffEmailDispatcher {
         via = change[0]?.via;
         if (old) previous.push({ userId: emailChangeId, email: old, audience: 'previous' });
       }
-      // One copy per address, in this order: self, previous, owner.
+      // One copy per address. The owner copy wins (SEC FB-R4-SEC-BE-PR31-02 / INT FB-R4-INT-BE-31-01): e-mail is
+      // neither unique nor verified, so a person may set (or have had) an owner's address – that owner must get
+      // the copy that names who changed, not a `self`/`previous` copy that reads as if their own account changed.
+      // Then self, then previous. No "same as an owner" check at save time (it would let anyone probe owner
+      // addresses).
       const seen = new Set<string>();
       const recipients: Recipient[] = [];
-      for (const rc of [...self, ...previous, ...ownerCopies]) {
+      for (const rc of [...ownerCopies, ...self, ...previous]) {
         const k = rc.email.trim().toLowerCase();
         if (seen.has(k)) continue;
         seen.add(k);
