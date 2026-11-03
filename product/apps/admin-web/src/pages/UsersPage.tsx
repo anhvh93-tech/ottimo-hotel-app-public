@@ -34,6 +34,10 @@ export function generateTempPassword(): string {
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
 }
 
+/** 0.3.10 `Me.securityEmailMissing` roles: owner/manager without an email are flagged in the table (UXD EM-10 b). */
+const needsEmail = (u: User) =>
+  !u.email && u.roles.some((r) => r.role === 'owner' || r.role === 'manager');
+
 /** Roles whose grant needs S2 (SEC 06.26). */
 const S2_ROLES: Role[] = ['owner', 'manager'];
 
@@ -194,7 +198,6 @@ export function UsersPage() {
                   const self = u.id === session.me?.id;
                   // 0.3.10: each owner sets their own address (another owner's → 403, one's own → 422).
                   const otherOwner = !self && u.roles.some((r) => r.role === 'owner');
-                  const emailNoteId = `user-email-note-${u.id}`;
                   return (
                     <tr key={u.id}>
                       <td>
@@ -213,42 +216,47 @@ export function UsersPage() {
                         </div>
                       </td>
                       {isOwner ? (
-                        <td>
+                        <td className="users-email">
                           <div>
                             {u.email ? (
                               <span className="mono">{u.email}</span>
+                            ) : needsEmail(u) ? (
+                              // Owner/manager: the server reminds these roles too (Me.securityEmailMissing).
+                              <Chip tone="warn">{t('users.email_none')}</Chip>
                             ) : (
                               <span className="muted">{t('users.email_none')}</span>
                             )}
                           </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={!online || self || otherOwner}
-                            aria-label={`${t('users.edit_email')}: ${u.displayName}`}
-                            aria-describedby={self || otherOwner ? emailNoteId : undefined}
-                            onClick={() => {
-                              setError(null);
-                              setEmailOf(u);
-                            }}
-                          >
-                            {t('users.edit_email')}
-                          </Button>
                           {self ? (
-                            <div className="li-s" id={emailNoteId}>
+                            // UXD EM-08 (a): no switched-off button – the link does the job.
+                            <div className="li-s">
                               <Link to={`/security#${SECURITY_EMAIL_ANCHOR}`}>
                                 {t('users.email_self')}
                               </Link>
                             </div>
                           ) : otherOwner ? (
-                            <div className="li-s" id={emailNoteId}>
-                              {t('users.email_other_owner')}
-                            </div>
-                          ) : null}
+                            <div className="li-s">{t('users.email_other_owner')}</div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="btn-inline"
+                              disabled={!online}
+                              aria-label={`${t('users.edit_email')}: ${u.displayName}`}
+                              onClick={() => {
+                                setError(null);
+                                setEmailOf(u);
+                              }}
+                            >
+                              {t('users.edit_email')}
+                            </Button>
+                          )}
                         </td>
                       ) : null}
                       <td>{statusChip(u)}</td>
-                      <td>{u.lastLoginAt ? dateTime(u.lastLoginAt) : t('users.never')}</td>
+                      <td className="nowrap">
+                        {u.lastLoginAt ? dateTime(u.lastLoginAt) : t('users.never')}
+                      </td>
                       <td>
                         <div className="row">
                           <Button
@@ -420,12 +428,16 @@ export function UsersPage() {
             setEmailOf(null);
             toast(t('secmail.unchanged'));
           }}
-          onSaved={(u, removed) => {
+          onSaved={(u, outcome) => {
             setEmailOf(null);
             replace(u);
-            toast(
-              t(removed ? 'users.email_removed' : 'users.email_saved', { name: u.displayName }),
-            );
+            const key =
+              outcome === 'removed'
+                ? 'users.email_removed'
+                : outcome === 'first'
+                  ? 'users.email_saved_first'
+                  : 'users.email_saved';
+            toast(t(key, { name: u.displayName }));
           }}
           onFail={(err) => {
             setEmailOf(null);

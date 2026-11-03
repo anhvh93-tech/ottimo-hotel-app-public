@@ -1,5 +1,6 @@
+import type { StrongReauth } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Alert, Button, Field } from '@ottimo/ui';
+import { Alert, Button, Chip, Field } from '@ottimo/ui';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useLocation } from 'react-router-dom';
 import { api } from '../app/api';
@@ -20,21 +21,47 @@ import { isStrongReauthError, StrongReauthDialog } from './StrongReauthDialog';
 type Notice = { tone: 'ok' | 'info'; text: string };
 
 /**
- * "Email nhận thư bảo mật" (BUG-R3-032, OpenAPI 0.3.10 `setMyEmail`, ARC v1.0.3-contract-email 7): shows
- * `Me.email`, adds / changes / removes it behind S2 (the shared dialog with `SecondFactorField`), one
+ * Body of the S2 dialog for a security email write (UXD FB-R4-UXD-FE-EM-07): the address about to be saved
+ * first, labelled, so a typo is caught before the password is typed; then one sentence on who is told.
+ * Removing has no address line. Used by the own block and by the owner's dialog on Người dùng & vai.
+ */
+export function EmailConfirmBody({ email, body }: { email: string | null; body: string }) {
+  const { t } = useI18n();
+  return (
+    <>
+      {email ? (
+        <div>
+          <div className="label-h">{t('secmail.new_label')}</div>
+          <div className="mono" data-testid="s2-new-email">
+            {email}
+          </div>
+        </div>
+      ) : null}
+      <p style={{ margin: email ? '12px 0 0' : 0 }}>{body}</p>
+    </>
+  );
+}
+
+/**
+ * "Email nhận thông báo bảo mật" (BUG-R3-032, OpenAPI 0.3.10 `setMyEmail`, ARC v1.0.3-contract-email 7):
+ * shows `Me.email`, adds / changes / removes it behind S2 (the shared dialog with `SecondFactorField`), one
  * Idempotency-Key per Save. Format and the shared-mailbox rule are checked on the client first and again by
  * the server BEFORE S2, so a refusal there closes the dialog and points at the field. Every role has it (own
- * address); `Me.securityEmailMissing` (owner/manager without one) adds the reminder line.
- * The address is shown in JetBrains Mono; it never goes into the URL, a log or the console.
- * [CHỜ UXD] placement and copy (hi-fi R3 "Bảo mật của tôi" has no email block yet).
+ * address); `Me.securityEmailMissing` (owner/manager without one) adds the reminder line. After a save the
+ * address shown is the one the server answered (trimmed, lower case) until `Me` is reloaded.
+ * The address is shown in JetBrains Mono (`.mono`, DS 13 px); it never goes into the URL, a log or the console.
+ * UXD review v1.0.3 (FB-R4-UXD-FE-EM-01..11) applied.
  */
 export function SecurityEmailCard() {
   const { t } = useI18n();
   const session = useSession();
   const location = useLocation();
   const { online } = useOnline();
-  const current = session.me?.email ?? null;
-  const missing = session.me?.securityEmailMissing === true;
+  const meEmail = session.me?.email ?? null;
+  /** The server's `{email}` answer – shown until `Me` carries it (refresh may fail). */
+  const [answered, setAnswered] = useState<{ email: string | null } | null>(null);
+  const current = answered ? answered.email : meEmail;
+  const missing = session.me?.securityEmailMissing === true && !current;
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | undefined>();
@@ -44,6 +71,9 @@ export function SecurityEmailCard() {
   const inputRef = useRef<HTMLInputElement>(null);
   const headRef = useRef<HTMLHeadingElement>(null);
   const showForm = editing || !current;
+
+  // A reloaded `Me` is the source again.
+  useEffect(() => setAnswered(null), [meEmail]);
 
   // Arriving from the reminder (`#security-email`): bring the block into view and focus the field.
   useEffect(() => {
@@ -83,13 +113,18 @@ export function SecurityEmailCard() {
     setConfirm({ email });
   };
 
-  const save = async (reauth: Parameters<typeof api.setMyEmail>[0]['reauth']) => {
+  const save = async (reauth: StrongReauth) => {
     const target = confirm!;
     const before = current;
+    let saved: string | null;
     try {
-      await sendWithOneKey((key) => api.setMyEmail({ email: target.email, reauth }, key));
+      const { data } = await sendWithOneKey((key) =>
+        api.setMyEmail({ email: target.email, reauth }, key),
+      );
+      saved = data?.email ?? null;
     } catch (err) {
-      // Wrong / missing factor: the dialog keeps the user inside with its own sentence.
+      // Wrong / missing factor (`reauth`, `reauth.totpCode`): the dialog keeps the user inside and marks
+      // its own field – never the email field.
       if (isStrongReauthError(err)) throw err;
       const fe = emailFieldError(err);
       if (!fe) throw err; // 429, 403, 5xx… – one sentence inside the dialog.
@@ -103,14 +138,11 @@ export function SecurityEmailCard() {
     setConfirm(null);
     setEditing(false);
     setValue('');
+    setAnswered({ email: saved });
     setNotice({
       tone: 'ok',
       text: t(
-        target.email === null
-          ? 'secmail.removed'
-          : before
-            ? 'secmail.saved'
-            : 'secmail.saved_first',
+        saved === null ? 'secmail.removed' : before ? 'secmail.saved' : 'secmail.saved_first',
       ),
     });
     // Me carries the new address and `securityEmailMissing` (reminder off once an address is on file).
@@ -124,25 +156,30 @@ export function SecurityEmailCard() {
       className="card stack"
       aria-labelledby={`${SECURITY_EMAIL_ANCHOR}-h`}
     >
-      <h3 id={`${SECURITY_EMAIL_ANCHOR}-h`} ref={headRef} tabIndex={-1} style={{ margin: 0 }}>
-        {t('secmail.title')}
-      </h3>
-      <p className="muted" style={{ margin: 0 }}>
-        {t('secmail.lead')}
-      </p>
-      {missing && !current ? (
-        <Alert tone="warn" icon="shield">
-          {t('secmail.missing')}
-        </Alert>
-      ) : null}
+      <div className="row">
+        <h3
+          id={`${SECURITY_EMAIL_ANCHOR}-h`}
+          ref={headRef}
+          tabIndex={-1}
+          className="grow"
+          style={{ margin: 0 }}
+        >
+          {t('secmail.title')}
+        </h3>
+        <Chip tone={current ? 'ok' : 'neutral'} icon={current ? 'check' : 'shield'}>
+          {t(current ? 'secmail.status_set' : 'secmail.status_unset')}
+        </Chip>
+      </div>
+      <p className="muted">{t('secmail.lead')}</p>
+      {missing ? <Alert tone="warn">{t('secmail.missing')}</Alert> : null}
       {notice ? <Alert tone={notice.tone}>{notice.text}</Alert> : null}
       {current && !editing ? (
-        <div className="stack" style={{ gap: 4 }}>
+        <div>
           <div className="label-h">{t('secmail.current')}</div>
           <div className="mono" data-testid="security-email-current">
             {current}
           </div>
-          <div className="row wrap" style={{ marginTop: 8 }}>
+          <div className="row wrap" style={{ marginTop: 12 }}>
             <Button disabled={!online} onClick={startEdit}>
               {t('secmail.change')}
             </Button>
@@ -159,11 +196,7 @@ export function SecurityEmailCard() {
           </div>
         </div>
       ) : null}
-      {!current && !editing ? (
-        <p className="muted" style={{ margin: 0 }}>
-          {t('secmail.none')}
-        </p>
-      ) : null}
+      {!current && !editing && !missing ? <p className="muted">{t('secmail.none')}</p> : null}
       {showForm ? (
         <form className="stack" noValidate onSubmit={submit}>
           <Field
@@ -217,14 +250,10 @@ export function SecurityEmailCard() {
         onClose={() => setConfirm(null)}
         onConfirm={save}
       >
-        <p style={{ margin: 0 }}>
-          {t(confirm?.email === null ? 'secmail.s2_remove_body' : 'secmail.s2_save_body')}
-        </p>
-        {confirm?.email ? (
-          <p className="mono" style={{ margin: '6px 0 0' }}>
-            {confirm.email}
-          </p>
-        ) : null}
+        <EmailConfirmBody
+          email={confirm?.email ?? null}
+          body={t(confirm?.email === null ? 'secmail.s2_remove_body' : 'secmail.s2_save_body')}
+        />
       </StrongReauthDialog>
     </section>
   );

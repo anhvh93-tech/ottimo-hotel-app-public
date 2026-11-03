@@ -17,6 +17,21 @@ export function isStrongReauthError(e: unknown): boolean {
   );
 }
 
+/**
+ * Which dialog field a `422 STRONG_REAUTH_REQUIRED` points at, if it is one the dialog shows: `password` for
+ * `reauth` / `reauth.password`, `code` for `reauth.totpCode` / `reauth.recoveryCode` (only when the code field is
+ * on screen – a stale `Me.mfaEnabled` falls back to the one-sentence banner).
+ */
+export function missingFactor(e: unknown, hasMfa: boolean): 'password' | 'code' | null {
+  if (!isApiError(e) || e.code !== 'VALIDATION_FAILED') return null;
+  const fe = e.fieldErrors.find((f) => f.code === 'STRONG_REAUTH_REQUIRED');
+  if (!fe) return null;
+  const field = fe.field.replace(/^body\./, '');
+  if (field === 'reauth' || field === 'reauth.password') return 'password';
+  if (hasMfa && (field === 'reauth.totpCode' || field === 'reauth.recoveryCode')) return 'code';
+  return null;
+}
+
 export interface StrongReauthDialogProps {
   open: boolean;
   /** Dialog title – the action being confirmed (e.g. "Tạo bộ mã mới"). Defaults to `reauth.s2_title`. */
@@ -95,7 +110,13 @@ function StrongReauthInner({
       // Never keep the factors after an attempt (each TOTP works once anyway).
       setPassword('');
       setCode('');
-      if (isStrongReauthError(err)) {
+      // 422 STRONG_REAUTH_REQUIRED names the missing factor (`reauth` / `reauth.password` → password,
+      // `reauth.totpCode` / `reauth.recoveryCode` → code): mark THAT field (BE-A v1.0.3 6), never another one.
+      const missingField = missingFactor(err, hasMfa);
+      if (missingField) {
+        setErrors({ [missingField]: t('common.required') });
+        if (missingField === 'password') pwRef.current?.focus();
+      } else if (isStrongReauthError(err)) {
         setFailed(true);
         setBanner(t('reauth.s2_failed'));
         pwRef.current?.focus();
