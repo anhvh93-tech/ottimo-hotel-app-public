@@ -349,13 +349,13 @@ def inline(text, ctx, xref=True):
                 k = re.search(r"\x00(\d+)\x00$", before)
                 if k and codes[int(k.group(1))].endswith(".md"):
                     return m.group(0)  # mục của tài liệu khác
-            target = ctx.sec_ids.get(m.group(2))
+            target = ctx.sec_ids.get(m.group(2)) or ctx.sec_ids.get(m.group(2).rstrip("abcdefghijklmnopqrstuvwxyz"))
             if not target:
                 return m.group(0)
             return '<a class="xref" href="#%s">%s%s</a>' % (target, m.group(1), m.group(2))
 
         t_holder = [t]
-        t = re.sub(r"(mục\s+)(\d+\.\d+)(?![\d])", ref, t)
+        t = re.sub(r"(mục\s+)(\d+\.\d+(?:[a-z](?![^\W\d_]))?)(?![\d])", ref, t)
 
     t = re.sub("\x00(\\d+)\x00", lambda m: "<code>%s</code>" % html.escape(codes[int(m.group(1))], quote=False), t)
     return t.replace("✔", "✔︎")  # dấu ✔ luôn ở dạng chữ, không thành emoji
@@ -605,7 +605,7 @@ def build(md_text, md_path, out_path, img_dir, link_images):
         sec["subs"] = []
         for b in sec["blocks"]:
             if b["t"] == "h" and b["level"] >= 3:
-                hm = re.match(r"^(\d+(?:\.\d+)+)\s+(.+)$", b["text"])
+                hm = re.match(r"^(\d+(?:\.\d+)+[a-z]?)\s+(.+)$", b["text"])  # 0.3a: mục chèn thêm
                 if hm:
                     b["num"], b["title"] = hm.group(1), hm.group(2)
                     b["id"] = ctx.uid("s-" + hm.group(1).replace(".", "-"))

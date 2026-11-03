@@ -380,3 +380,5 @@ Sửa thêm trong công cụ dựng (không đụng Markdown): mục có chữ c
 Thẻ 09: **Closed** (chỉ đường, đoạn khối email, ảnh). Thẻ này không phụ thuộc 4 thẻ Major của DOM (`DOM-on-manual-1.8.md`, M18-01…04 về nội dung thư, `info@`, lúc dừng kiểm sáng, nơi mở hộp thư). Các thẻ đó BA sửa Markdown sau khi ARC review xong. Khi đó UXD dựng lại HTML bằng một lệnh:
 `python3 -I product/design/tools/rebuild_manual_html.py --out-dir rounds/round-04/outputs/UXD --tag manual-1.8`
 Việc còn lại thuộc người khác: DOM + ARC đọc phần sổ tay đổi ở 1.6/1.8 (ĐK11c). ORC quyết có commit HTML không. HTML ở lượt này là bản trước khi BA sửa theo DOM, nên chưa trình INV.
+
+**Cập nhật 03/11/2026 – dựng lại từ sổ tay 1.9 / bộ hướng dẫn 1.7** (BA đã sửa theo DOM M18-01…07, 09 và ARC M18-01…05): chạy `rebuild_manual_html.py --tag manual-1.9`, kết quả ĐẠT. Không tràn 390/1440 px. 6 ảnh có đủ. 0 link mục bị cắt. Bảng "Thư nào – làm gì" vừa khung ở 390 px. Ảnh kiểm: `rounds/round-04/outputs/UXD/manual-1.9-check-1440.png`, `…-390.png`. Chỉ đường của thẻ 09 vẫn đúng, nên thẻ 09 vẫn **Closed**. HTML này thay cho bản lượt 3 ở trên. Lần dựng sau dùng `--tag` theo số bản mới.

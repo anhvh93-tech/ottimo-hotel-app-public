@@ -63,9 +63,9 @@ GUIDE_FONTS = [("Lora", "lora", 400), ("Lora", "lora", 500), ("Be Vietnam Pro", 
 NOTICE_FONTS = [("Lora", "lora", 500), ("Be Vietnam Pro", "be-vietnam-pro", 400)]
 
 CHAPTER_RE = re.compile(r"^(\d+)\.\s+(.+)$")
-SUB_RE = re.compile(r"^(\d+(?:\.\d+)+)\s+(.+)$")
+SUB_RE = re.compile(r"^(\d+(?:\.\d+)+[a-z]?)\s+(.+)$")  # 1.6a: mục chèn thêm
 GUIDE_CODE_RE = re.compile(r"^(0\d)(?:-[a-z0-9-]+\.md)?$")
-MUC_RE = re.compile(r"(?<![\w])([mM]ục\s+)(\d+(?:\.\d+){0,2})((?:(?:\s*,\s*|\s+và\s+|\s+hoặc\s+)\d+(?:\.\d+){0,2}(?![\d.]*\d))*)")
+MUC_RE = re.compile(r"(?<![\w])([mM]ục\s+)(\d+(?:\.\d+){0,2}(?:[a-z](?![^\W\d_]))?)((?:(?:\s*,\s*|\s+và\s+|\s+hoặc\s+)\d+(?:\.\d+){0,2}(?:[a-z](?![^\W\d_]))?(?![\d.]*\d))*)")
 SHOT_CODE_RE = re.compile(r"^([A-Z]\d+-\d+)(?:\s*-\s*(.*))?$")
 
 FONT_CACHE = {}
@@ -280,7 +280,7 @@ class Ctx:
             href_base = "" if target is self.g else target.out_name
 
             def link(num, text):
-                hid = target.ids.get(num)
+                hid = target.ids.get(num) or target.ids.get(num.rstrip("abcdefghijklmnopqrstuvwxyz"))
                 if not hid and num.count(".") == 2:  # 11.5.9 chưa có tiêu đề -> về 11.5
                     hid = target.ids.get(num.rsplit(".", 1)[0])
                 if not hid:
@@ -289,7 +289,7 @@ class Ctx:
 
             out = link(m.group(2), m.group(1) + m.group(2))
             rest = m.group(3) or ""
-            out += re.sub(r"\d+(?:\.\d+){0,2}", lambda k: link(k.group(0), k.group(0)), rest)
+            out += re.sub(r"\d+(?:\.\d+){0,2}(?:[a-z](?![^\W\d_]))?", lambda k: link(k.group(0), k.group(0)), rest)
             return out
 
         t = MUC_RE.sub(mref, t)
@@ -827,7 +827,7 @@ GUIDE_JS = r"""
       var li=d.createElement('li'),a=d.createElement('a'),t=d.createElement('span'),x=d.createElement('span');
       var target=u.el.querySelector('h3[id]')||u.el.closest('section[id]');
       a.href='#'+(target?target.id:'');t.className='t';
-      var mm=u.label.match(/^(\d+(?:\.\d+)*)\.?\s+(.*)$/);
+      var mm=u.label.match(/^(\d+(?:\.\d+)*[a-z]?)\.?\s+(.*)$/);
       if(mm){var n=d.createElement('span');n.className='n';n.textContent=mm[1];t.appendChild(n);t.appendChild(d.createTextNode(mm[2]));}
       else t.textContent=u.label;
       x.className='x';x.appendChild(snippet(u,q,words,loose));
