@@ -8,8 +8,7 @@ Từ 01/11/2026 bản vá đi theo **đợt**: đợt nào xong trước thì l�
 
 ## v1.0.2 – Trả phòng sớm và giá hẹn theo ngày
 
-- Trạng thái: **CHỜ PHÁT HÀNH.** Cổng QC rút gọn ngày 03/11/2026: **ĐẠT CÓ ĐIỀU KIỆN** (`rounds/round-04/qc/v1.0.2-gate.md`). Bản này đã chạy trên staging từ chiều 03/11, lượt kiểm đạt, không có lỗi mới. Tag `v1.0.2` đặt đúng commit đã kiểm trên staging (`e5fffe05`).
-- Lên production khi anh/chị duyệt Release, sau khi đội làm xong các việc trước Release: sao lưu ngay trước khi lên, lệnh quay lui đã soạn và diễn tập trên staging, sổ tay phần trả sớm đã được chuyên gia nghiệp vụ duyệt. Đội cập nhật dòng này khi bản đã lên.
+- Trạng thái: **ĐÃ PHÁT HÀNH – tag `v1.0.2` trên commit `e5fffe05`**, production chạy từ **03/11/2026** (anh/chị duyệt Release). Cổng QC rút gọn: **ĐẠT CÓ ĐIỀU KIỆN** (`rounds/round-04/qc/v1.0.2-gate.md`). Lượt kiểm sau khi lên đạt K1–K9. Đội sao lưu ngay trước khi lên; lệnh quay lui đã diễn tập trên staging.
 - Áp dụng từ khi anh/chị báo "v1.0.2 đã lên". Hướng dẫn: bộ hướng dẫn theo bộ phận bản 1.5 – lễ tân `02` mục 11.5 và 17.5, chủ đầu tư và quản lý `01` mục 7.3; sổ tay gốc bản nội dung 1.7 mục 2.14a.
 
 ### Có trong bản này
