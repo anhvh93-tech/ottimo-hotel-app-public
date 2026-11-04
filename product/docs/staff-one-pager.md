@@ -133,7 +133,7 @@ App buồng phòng: `staff.ottimo.vn`
 
 ## Tờ 4 – Your ID details (khách đọc)
 
-<!-- A5 dọc, một mặt, quy cách ở rounds/round-03/reviews/UXD-on-PO-v1.0.0-docs.md mục 1.3 (EN 11,5 pt / VI 11 pt, Lora tiêu đề, Be Vietnam Pro thân, chỉ Ink – Stone Grey – Light Oak trên giấy trắng hoặc ngà, không emoji). Đặt trong khung mica trên quầy, mặt quay ra khách, chỗ khách đứng làm thủ tục, không bị che (SEC S2). Dán trước khi nhận giấy tờ đầu tiên trên Desk thật: tối 01/11 sau buổi đào tạo, muộn nhất 06:00 ngày 02/11 (SEC D04). Chữ: UXD mục 1.2, dựa trên SEC mục B; đủ 6 ý SEC. Đoạn 1 = gw.notice_body v1 (privacy-2026-10-v1) nguyên văn; đoạn 3 câu đầu = SEC-sprint1.md 5.2. Đổi chữ thì đổi dòng chân trang và giữ bản cũ trong lịch sử repo (SEC D08). Khi v1.0.1 lên, tờ này vẫn dùng cho khách làm giấy tờ tại quầy. Bản RU: chưa thêm tới khi có bản dịch v2 đã duyệt (UXD trả lời SEC D07). -->
+<!-- Bản v2 (privacy-2026-10-v2), UXD 04/11/2026 theo SEC-on-plan-v1.0.4 mục 6.2 và 6.4 ý 4: chữ EN và VI chép nguyên văn 4 khóa gw.notice_body, gw.notice_retention, gw.notice_translation, gw.notice_rights, đúng thứ tự trên trang khách; gw.notice_body tách 2 đoạn (câu 1–2, câu 3–4) như bản v1. Chân tờ đổi thành "OTTIMO · ID notice · v2 · 11/2026". Bản v1 giữ trong lịch sử repo (SEC D08). In 3 lần: A4 đặt ở quầy, A5, A4 hai bản cắt đôi. Thay tờ ở quầy trước khi OWN đặt privacy_notice_version = v2 (6.4 ý 5). Khách nói tiếng Nga: tờ EN/RU riêng ở phần "Tờ 4ru" ngay dưới. Quy cách: Lora tiêu đề, Be Vietnam Pro thân, chỉ Ink – Stone Grey – Light Oak trên giấy trắng hoặc ngà, không emoji (rounds/round-03/reviews/UXD-on-PO-v1.0.0-docs.md mục 1.3). Đặt trong khung mica trên quầy, mặt quay ra khách, chỗ khách đứng làm thủ tục, không bị che (SEC S2). Đổi chữ thì đổi dòng chân trang và giữ bản cũ trong lịch sử repo (SEC D08). -->
 
 OTTIMO
 
@@ -146,6 +146,8 @@ We will ask separately whether we may keep your ID photos after registration. Sa
 
 ID photos and saved ID details are deleted within 3 months after check-out, unless the law requires us to keep them longer. Copies in our encrypted backups are deleted within a further 35 days.
 
+We may use a translation service, such as Google Translate, to read your messages and reply to you. The text we translate may include your name, contact, stay details and message. The service handles this text under its own privacy policy, and its servers may be outside Viet Nam.
+
 To see, correct or delete your details, please ask reception.
 
 ---
@@ -156,9 +158,46 @@ Chúng tôi sẽ hỏi riêng bạn có muốn cho lưu ảnh giấy tờ sau kh
 
 Ảnh và thông tin giấy tờ được xóa trong vòng 3 tháng sau khi trả phòng, trừ phần pháp luật yêu cầu lưu lâu hơn. Bản sao trong dữ liệu sao lưu đã mã hóa được xóa trong 35 ngày sau đó.
 
+OTTIMO có thể dùng một dịch vụ dịch, như Google Dịch, để đọc tin nhắn và trả lời bạn. Nội dung được dịch có thể gồm tên, liên hệ, thông tin lưu trú và lời nhắn của bạn. Dịch vụ này xử lý nội dung đó theo chính sách riêng của họ, và máy chủ của họ có thể đặt ngoài Việt Nam.
+
 Muốn xem, sửa hoặc xóa thông tin của bạn, vui lòng hỏi lễ tân.
 
-OTTIMO · ID notice · 11/2026
+OTTIMO · ID notice · v2 · 11/2026
+
+---
+
+## Tờ 4ru – Your ID details EN/RU (khách đọc, tiếng Nga)
+
+<!-- UXD 04/11/2026, việc T2–T8 ở rounds/round-04/reviews/UXD-on-privacy-v2-ru.md mục 3.2. Chỉ in A4 dọc, đặt cạnh tờ EN/VI ở quầy. Hai cột: EN bên trái, RU bên phải, mỗi hàng một đoạn. Chữ EN y hệt Tờ 4. Chữ RU chép nguyên văn 4 khóa gw.notice_* RU đã duyệt (SEC-on-privacy-v2-ru.md, UXD-on-privacy-v2-ru.md mục 2); gw.notice_body tách 2 đoạn ở cùng chỗ với EN. Giữ khoảng trắng không ngắt (U+00A0) trong "3 месяцев" và "35 дней"; sửa tệp này thì không gõ lại hai chỗ đó. Dòng phụ RU "Данные ваших документов" do UXD đặt (T4). Font: Lora (tiêu đề, có chữ Kirin), Be Vietnam Pro (cột EN), Onest (cột RU), nhúng trong HTML. Đổi chữ RU thì đổi cả trang khách, đổi version và dòng chân tờ. -->
+
+OTTIMO
+
+**Your ID details**
+*Данные ваших документов*
+
+OTTIMO uses your ID details to register your stay with the police, as required by Vietnamese law. ID photos are encrypted; only reception and managers can see them.
+
+We will ask separately whether we may keep your ID photos after registration. Saying no does not affect your stay.
+
+ID photos and saved ID details are deleted within 3 months after check-out, unless the law requires us to keep them longer. Copies in our encrypted backups are deleted within a further 35 days.
+
+We may use a translation service, such as Google Translate, to read your messages and reply to you. The text we translate may include your name, contact, stay details and message. The service handles this text under its own privacy policy, and its servers may be outside Viet Nam.
+
+To see, correct or delete your details, please ask reception.
+
+---
+
+OTTIMO использует данные ваших документов, чтобы зарегистрировать ваше проживание в полиции, как требует закон Вьетнама. Фото документов зашифрованы; их могут видеть только администраторы и управляющие.
+
+Мы отдельно спросим, можно ли нам хранить фото ваших документов после регистрации. Если вы не разрешите, это не повлияет на ваше проживание.
+
+Фото документов и сохранённые данные из них удаляются в течение 3 месяцев после выезда, если закон не обязывает нас хранить их дольше. После удаления они остаются в наших зашифрованных резервных копиях не более 35 дней.
+
+Мы можем пользоваться сервисом перевода, например Google Переводчиком, чтобы читать ваши сообщения и отвечать вам. Переводимый текст может включать ваше имя, контакт, сведения о проживании и текст сообщений. Этот сервис обрабатывает такой текст в соответствии со своей политикой конфиденциальности, и его серверы могут находиться за пределами Вьетнама.
+
+Чтобы посмотреть, исправить или удалить свои данные, обратитесь, пожалуйста, к администратору.
+
+OTTIMO · ID notice · v2 · 11/2026
 
 ---
 
@@ -171,5 +210,7 @@ OTTIMO · ID notice · 11/2026
 | 2b – Khách ở quá 18:00 | A5 | Kẹp sau Tờ 1 hoặc trong bìa quầy | Giữ |
 | 3 – Buồng phòng | A4 một mặt | Phòng buồng / kho đồ vải | Giữ |
 | 4 – Your ID details | A5 dọc một mặt | Khung mica trên quầy, mặt quay ra khách | Giữ |
+| 4 – Your ID details (bản v2) | A4 dọc một mặt (hoặc A5) | Thay tờ v1 ở quầy, mặt quay ra khách | Thay **trước** khi đặt tham số `privacy_notice_version` = v2 |
+| 4ru – Your ID details EN/RU | A4 dọc một mặt | Cạnh tờ EN/VI ở quầy, mặt quay ra khách | Đặt cùng lúc với tờ v2 |
 
 Không in hai mặt. In thử Tờ 4 dưới đèn quầy trước khi dán. Tờ 4 phải ở quầy trước khi nhận giấy tờ đầu tiên trên Desk thật: tối 01/11 sau buổi đào tạo, muộn nhất **06:00 ngày 02/11**.
