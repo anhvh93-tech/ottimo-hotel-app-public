@@ -568,6 +568,41 @@ describe.skipIf(!HAS_DB)('Google Chat – booking requests (outbox staff.chat)',
       expect(server.requests[0]!.text).not.toContain(NAME);
     });
 
+    it('BUG-R4-027/028: 2026-11-04.1 (5 languages) and 2026-11-05 published, 2026-11-04 not → A (string comparison would say C)', async () => {
+      // A label is changed before publication (SEC rule: new text → new label) but the code constant is not: the
+      // gate must stay closed, because it reads published_at of the constant's own rows, never the label text.
+      await publishNotice('2026-11-04.1', '2026-11-01T03:00:00Z', ['vi', 'en', 'ko', 'zh', 'ru']);
+      await publishNotice('2026-11-05', '2026-11-01T04:00:00Z', ['en']);
+      const now = at('2026-11-02T17:07:00');
+      await setNow(now);
+      const reqs = [
+        await insertRequest({ createdAt: now, arrival: '2026-11-06', consent: '2026-11-04.1' }),
+        await insertRequest({
+          createdAt: now,
+          arrival: '2026-11-06',
+          consent: '2026-11-04.1',
+          locale: 'ko',
+        }),
+        await insertRequest({
+          createdAt: now,
+          arrival: '2026-11-06',
+          consent: '2026-11-05',
+          locale: 'en',
+        }),
+      ];
+      let i = 0;
+      for (const r of reqs) await enqueue('web_request_new', r.id, new Date(now.getTime() + i++));
+      expect(await dispatcher(target('C')).runForProperty(property)).toMatchObject({
+        done: 3,
+        levelCapped: 3,
+      });
+      expect(server.requests).toHaveLength(3);
+      for (const x of server.requests) {
+        expect(x.text).not.toContain(NAME);
+        expect(x.text).not.toContain('06/11');
+      }
+    });
+
     it('after 2026-11-04 is published: an old-notice request stays A; a new-notice request gets C', async () => {
       expect(CHAT_NOTICE).toBe('2026-11-04');
       // P4: LP-v2 publishes 2026-11-04 for its languages straight over 2026-10-24.

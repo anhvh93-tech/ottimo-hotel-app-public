@@ -1696,6 +1696,19 @@ Nguồn: `rounds/round-04/qa/bug-list.md`, `rounds/round-04/qa/lp-v2-test-report
 | BUG-R4-009 (P3) | Câu báo giá EN "(1 nights), 2 Adults"; kiểm cả số nhiều tiếng Nga (ночь/ночи/ночей) và VI | **Đã có ở v1.0.1** (PR #20, QA xác nhận EN/VI/RU trên staging `sha-755cad1642ca`; PO 03/11) | CPY (câu) + BE/FE (nơi dựng câu) | Mọi khách ko/zh nhận câu tiếng Anh này; chữ hướng khách, giọng Brand |
 | BUG-R4-010 (P3) | Sổ tay chưa có hướng dẫn trả lời khách ko/zh/ru – US-175 AC6 (đã sửa theo ESC-044) | **LP-v2 – bắt buộc** | BA (viết) + CPY (3 câu mẫu EN) + SEC (duyệt ý dịch) | Lễ tân cần trước ngày đầu có khách ko/zh/ru |
 
+#### 5.6b Dời v1.0.5 từ review v1.0.4 (ORC 04/11/2026)
+
+Nguồn: `rounds/round-04/reviews/SEC-on-v104-ba-docs.md` (thẻ 09, duyệt thiết kế P4-16), `SEC-on-v104-p4-34.md`, `UXD-on-v104-p4-34.md`, `ARC-on-v104-p4-16.md`; thiết kế `rounds/round-04/outputs/ARC/v1.0.4-notice-version-allowlist.md`.
+
+| Việc | Nội dung ngắn | Đích | Vai (làm → review) | Nguồn |
+|---|---|---|---|---|
+| **FB-R4-SEC-BA-104-09 (b) + G-ARC-NV-4** | Cho ghi đè dòng `privacy_notice_version` hôm nay **chỉ** trong 30 phút sau lần lưu, **chỉ** người vừa lưu, có audit `sameDayOverride`; đưa khóa vào `SECURITY_AUDITED_KEYS`. **Bắt buộc trước khi thêm version thông báo thứ hai** (test G3 đang khóa độ dài 1) | v1.0.5 | ARC thiết kế → BE-C → SEC | SEC duyệt thiết kế P4-16; ARC NV-4 |
+| **Chữ Desk "nằm ngoài khoảng" cho giá trị chữ** | Lỗi 422 `PARAM_OUT_OF_RANGE` với tham số dạng chữ (ví dụ `privacy_notice_version`) đang hiện câu "nằm ngoài khoảng", vốn hợp với số. UXD viết câu cho giá trị chữ (danh sách `allowed`) | v1.0.5 | UXD (chữ) → FE | Duyệt thiết kế P4-16 |
+| **FB-R4-SEC-FE-P434-03** (Suggestion) | Khóa `payment_receiving_account` có hai lối vào (Tham số quy tắc và Tài khoản nhận); gom về một chỗ | v1.0.5 | FE → SEC, UXD | `SEC-on-v104-p4-34.md` |
+| **FB-R4-UXD-FE-P434-04** (Suggestion) | Gợi ý dưới ô Lý do của hộp Hủy lịch ("Lưu vào nhật ký cấu hình." – khóa `params.cancel_reason_help`) như hộp hủy lịch giá | v1.0.5 | UXD → FE | `UXD-on-v104-p4-34.md` |
+| **FB-R4-ARC-BE-C-P416-01** (Suggestion) | Test I3 chờ cố định 300 ms → `vi.waitFor` (≤ ~2 s) cho ca có notify | v1.0.5 | BE-C → ARC | `ARC-on-v104-p4-16.md` |
+| **FB-R4-ARC-BE-C-P416-02** (Suggestion) | Nhãn `describe` "I1–I6" → "I1–I7 + consent" | **v1.0.4 khi BE-C rebase P4-16** (không kịp thì v1.0.5) | BE-C → ARC | `ARC-on-v104-p4-16.md` |
+
 ## 6. Ghi chú cho các vai
 - **DOM:** AC không còn chép con số quy tắc; "khớp ví dụ BR-xxx" phụ thuộc cột ví dụ của BR – nếu DOM sửa ví dụ, báo PO/QA. PO đồng ý đề xuất rbac ghi chú 34 (CTV không thấy "OTTIMO còn lại").
 - **BA:** AC đã dùng mã chuyển của `state-machines.md` và hành động A-xx của `rbac-matrix.md`. US-045/US-107 đã sửa theo quyết định "đồng ý lưu ảnh không là điều kiện khai báo".
@@ -1747,3 +1760,4 @@ Nguồn: `rounds/round-04/qa/bug-list.md`, `rounds/round-04/qa/lp-v2-test-report
 | 04/11/2026 | 4 (Phản hồi & sửa, SEC – số hoa hồng trong repo công khai) | Mục 5.6: thêm 4 dòng từ `SEC-on-commission-numbers.md` (`928a747c`): SEC-DOM-01 (Minor, gộp PO-DOM-PR25-01, đánh dấu "trước 01/11 – hết hiệu lực"), SEC-BE-01 (Major, H2: hoa hồng không có mặc định trong mã, OWN nhập trên Desk), SEC-OPS-01 (Minor, CI `confidential-paths`, ô đánh dấu mẫu PR), SEC-ORC-01 (Major, G3 tham số thử `test_rate_*` từ H2, G4 che ảnh; G1 ORC đã làm). Bảng 04/11 thành 41 dòng. Không ghi số. Không đổi số story: 176 | PO |
 | 04/11/2026 | 4 (Phản hồi & sửa, BA review release notes BUG-R4-025) | Mục 5.6: thêm dòng **BUG-R4-025 – phần chữ Desk** (`early_departure.row_refund_help` VI/EN thiếu ngoại lệ "thêm một yêu cầu hoàn cho tiền trả thừa khác"; UXD → FE-A, đích v1.0.4 mục (5); thẻ FB-R4-BA-PO-RN025-02). Bảng 04/11 thành 47 dòng (gồm GN-R4-QA-01…03 và BUG-R4-025 phần BR-428 thêm ở `f34fb1c5`). Không đổi số story: 176 | PO |
 | 04/11/2026 | 4 (Phản hồi & sửa, DOM review tài liệu BUG-R4-025) | Mục 5.6: thêm 2 dòng – **giữ nơi nhận hoàn khi Desk tạo yêu cầu thay thế** (ARC + SEC → BE-A, v1.0.4; thẻ DOM-BA-025-02, SEC-BE-45) và **ghi chú duyệt lúc khách ở, chi sau trả phòng** (DOM + UXD, v1.0.4 không bắt buộc; thẻ DOM-BA-025-07). Bảng 04/11 thành 49 dòng. Không đổi số story: 176 | PO |
+| 04/11/2026 | 4 (v1.0.4 – Review, ORC) | Mục 5.6b mới: 6 dòng dời từ review v1.0.4 – SEC-BA-104-09(b) + G-ARC-NV-4 `SECURITY_AUDITED_KEYS` (bắt buộc trước version thông báo thứ hai), chữ Desk "nằm ngoài khoảng" cho giá trị chữ, SEC-FE-P434-03, UXD-FE-P434-04, ARC-BE-C-P416-01 (v1.0.5) và P416-02 (làm khi rebase P4-16). Không đổi số story: 176 | ORC |
