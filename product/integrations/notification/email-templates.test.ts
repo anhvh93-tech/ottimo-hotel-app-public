@@ -121,15 +121,15 @@ describe('staff e-mail templates (OTTIMO brand guideline)', () => {
         'Từ nay, địa chỉ này sẽ nhận thông báo bảo mật cho tài khoản OTTIMO Desk của bạn.',
       );
       expect(r.text).toContain('If this was not you');
-      expect(r.text).not.toContain('property owner');
+      expect(r.text).not.toContain('made by the owner');
       expect(r.text).not.toContain('Lan');
     });
 
     // CPY test 2: owner made the change for a staff member – no "change your password".
     it('self (via=owner): says the owner made it, no "change your password" / "đổi mật khẩu"', () => {
       const r = render({ audience: 'self', via: 'owner' });
-      expect(r.text).toContain('The change was made by the property owner.');
-      expect(r.text).toContain('Thay đổi do chủ cơ sở thực hiện.');
+      expect(r.text).toContain('The change was made by the owner.');
+      expect(r.text).toContain('Thay đổi do chủ đầu tư thực hiện.');
       expect(r.text).toContain('If you did not expect this, please contact the owner directly.');
       expect(r.text).not.toMatch(/change your password|đổi mật khẩu|If this was not you/);
     });
@@ -152,7 +152,13 @@ describe('staff e-mail templates (OTTIMO brand guideline)', () => {
         'Contact the owner or the OTTIMO team right away and change your password.',
       );
       const byOwner = render({ audience: 'previous', via: 'owner' });
-      expect(byOwner.text).toContain('The change was made by the property owner.');
+      expect(byOwner.text).toContain('The change was made by the owner.');
+      expect(byOwner.text).toContain(
+        'Nếu bạn chưa được báo trước, vui lòng không trả lời thư này mà liên hệ trực tiếp chủ đầu tư.',
+      );
+      expect(self.text).toContain(
+        'Nếu không phải bạn, vui lòng không trả lời thư này. Hãy báo ngay chủ đầu tư hoặc đội OTTIMO và đổi mật khẩu.',
+      );
       expect(byOwner.text).not.toMatch(/change your password|đổi mật khẩu/);
     });
 
@@ -164,7 +170,7 @@ describe('staff e-mail templates (OTTIMO brand guideline)', () => {
       const o = render({ audience: 'owner', via: 'owner' });
       expect(o.text).toContain('An owner changed or removed the notification email of Lan.');
       expect(o.text).toContain(
-        'Một chủ cơ sở vừa đổi hoặc gỡ email nhận thông báo bảo mật của Lan.',
+        'Một chủ đầu tư vừa đổi hoặc gỡ email nhận thông báo bảo mật của Lan.',
       );
       const x = renderStaffEmail('email_changed', { audience: 'owner', staffName: '<b>Lan</b>' });
       expect(x.html).not.toContain('<b>Lan');
@@ -228,10 +234,10 @@ describe('staff e-mail templates (OTTIMO brand guideline)', () => {
     // CPY round 2, note 1: footer text chosen by CPY, said once, in every template.
     it('every template: the shared footer says "never contain links" exactly once (text and HTML)', () => {
       expect(NO_LINK_EN).toBe(
-        'OTTIMO security notices never contain links and never ask for your password or sign-in codes.',
+        'OTTIMO security notices never contain links and never ask for your password or any code.',
       );
       expect(NO_LINK_VI).toBe(
-        'Thư bảo mật của OTTIMO không bao giờ có đường liên kết và không bao giờ hỏi mật khẩu hay mã đăng nhập.',
+        'Thư bảo mật của OTTIMO không bao giờ có đường liên kết và không bao giờ hỏi mật khẩu hay bất kỳ mã nào.',
       );
       for (const { t, audience, via } of combos) {
         const r = renderStaffEmail(t, paramsOf(audience, via));
@@ -288,11 +294,14 @@ describe('staff e-mail templates (OTTIMO brand guideline)', () => {
       }
     });
 
-    it('older templates keep their sentences, only the time moved', () => {
+    it('older templates: main sentence, then the time line, then the action (CPY 104-03/04 wording)', () => {
       const r = renderStaffEmail('mfa_reset', { audience: 'self', occurredAt: AT });
+      expect(r.subject).toBe(
+        'OTTIMO – Security notice: 2-step verification was reset / Thông báo bảo mật: xác thực 2 bước đã được đặt lại',
+      );
       expect(r.text).toContain(
         [
-          'Two-step sign-in of your account was reset.',
+          'Your 2-step verification was reset.',
           `Time: ${AT}`,
           'You will set it up again at your next sign-in.',
           'If this was not you, contact the owner or the OTTIMO team today and change your password.',
@@ -305,30 +314,163 @@ describe('staff e-mail templates (OTTIMO brand guideline)', () => {
       });
       expect(op.text).toContain(
         [
-          'Two-step sign-in of Lan was reset by the OTTIMO technical team.',
+          "Lan's 2-step verification was reset by the OTTIMO technical team.",
           `Time: ${AT}`,
           'If this was not expected, check with them today.',
         ].join('\n'),
       );
+      expect(op.text).toContain('Xác thực 2 bước của Lan đã được đặt lại bởi đội kỹ thuật OTTIMO.');
+      const noName = renderStaffEmail('mfa_reset', { audience: 'owner' });
+      expect(noName.text).toContain("A staff member's 2-step verification was reset.");
+      expect(noName.text).toContain('Xác thực 2 bước của một nhân viên đã được đặt lại.');
+      const selfVi = renderStaffEmail('mfa_reset_by_operator', { audience: 'self' });
+      expect(selfVi.text).toContain(
+        'Xác thực 2 bước của tài khoản bạn đã được đặt lại bởi đội kỹ thuật OTTIMO.',
+      );
       const rc = renderStaffEmail('mfa_recovery_code_used', { audience: 'self', occurredAt: AT });
       expect(rc.text).toContain(
         [
-          'Tài khoản của bạn vừa đăng nhập OTTIMO Desk bằng mã khôi phục.',
+          'Tài khoản OTTIMO Desk của bạn vừa được đăng nhập bằng mã khôi phục.',
           `Thời điểm: ${AT}`,
-          'Nếu không phải bạn, hãy báo chủ cơ sở hoặc đội OTTIMO ngay trong hôm nay và đổi mật khẩu.',
+          'Nếu không phải bạn, hãy báo chủ đầu tư hoặc đội OTTIMO ngay trong hôm nay và đổi mật khẩu.',
         ].join('\n'),
       );
-      const acc = renderStaffEmail('receiving_account_changed', {
-        effectiveDate: '25/10/2026',
-        occurredAt: AT,
+      // CPY 104-04: a person signs in, not the account.
+      expect(rc.text).toContain('Your OTTIMO Desk account was signed in with a recovery code.');
+      const rcOwner = renderStaffEmail('mfa_recovery_code_used', {
+        audience: 'owner',
+        staffName: 'Lan',
       });
-      expect(acc.text).toContain(
-        [
-          'The bank account that receives deposits was changed from 25/10/2026.',
-          `Time: ${AT}`,
-          'Open OTTIMO Desk as usual to review it. If you did not expect this change, review it today.',
-        ].join('\n'),
-      );
+      expect(rcOwner.text).toContain('Lan signed in to OTTIMO Desk with a recovery code.');
+    });
+
+    // CPY FB-R4-CPY-INT-104-01 (Major) + 02: the same template is sent when a new receiving account is scheduled
+    // and when a scheduled change is cancelled – never claim "changed" when it was cancelled.
+    describe('receiving_account_changed: one sentence per `change`, neutral fallbacks', () => {
+      const D = '08/11/2026';
+      const SUBJECT =
+        'OTTIMO – Security notice: receiving account update / Thông báo bảo mật: cập nhật tài khoản nhận chuyển khoản';
+      const ACTION_EN =
+        'Open OTTIMO Desk as usual and check the receiving account. If you did not expect this, do it today.';
+      const ACTION_VI =
+        'Hãy mở OTTIMO Desk như thường lệ và kiểm tra tài khoản nhận. Nếu bạn không được báo trước, hãy làm ngay trong hôm nay.';
+      const acc = (extra: Record<string, string>) =>
+        renderStaffEmail('receiving_account_changed', {
+          audience: 'owner',
+          occurredAt: AT,
+          ...extra,
+        });
+
+      it('change=set: new account, effective from the date', () => {
+        const r = acc({ change: 'set', effectiveDate: D });
+        expect(r.text).toContain(
+          [
+            `A new receiving bank account was set, effective from ${D}.`,
+            `Time: ${AT}`,
+            ACTION_EN,
+          ].join('\n'),
+        );
+        expect(r.text).toContain(
+          [
+            `Tài khoản ngân hàng nhận chuyển khoản mới đã được đặt, có hiệu lực từ ngày ${D}.`,
+            `Thời điểm: ${AT}`,
+            ACTION_VI,
+          ].join('\n'),
+        );
+        expect(r.text).not.toMatch(/cancel|hủy/i);
+      });
+
+      it('change=cancel: the scheduled change was cancelled – never "new account" or "effective"', () => {
+        const r = acc({ change: 'cancel', effectiveDate: D });
+        expect(r.text).toContain(
+          `The receiving bank account change scheduled for ${D} was cancelled.`,
+        );
+        expect(r.text).toContain(
+          `Lịch đổi tài khoản ngân hàng nhận chuyển khoản từ ngày ${D} đã được hủy.`,
+        );
+        expect(r.text).not.toMatch(/new receiving|effective|có hiệu lực|mới đã được đặt/);
+        expect(r.text).toContain(ACTION_EN);
+        expect(r.text).toContain(ACTION_VI);
+      });
+
+      it('change missing or unknown, with a date: neutral schedule sentence, true for set and cancel', () => {
+        const unknown: Record<string, string>[] = [
+          {},
+          { change: 'remove' },
+          { change: 'SET' },
+          { change: '' },
+        ];
+        for (const extra of unknown) {
+          const r = acc({ ...extra, effectiveDate: D });
+          expect(r.text).toContain(`The receiving bank account schedule for ${D} was updated.`);
+          expect(r.text).toContain(
+            `Lịch tài khoản ngân hàng nhận chuyển khoản ngày ${D} vừa được cập nhật.`,
+          );
+          expect(r.text).not.toMatch(/new receiving|cancelled|có hiệu lực|đã được hủy/);
+        }
+      });
+
+      it('no date (any change): neutral settings sentence, no empty date', () => {
+        for (const change of ['set', 'cancel', undefined]) {
+          for (const effectiveDate of [undefined, '  ']) {
+            const extra: Record<string, string> = {};
+            if (change) extra.change = change;
+            if (effectiveDate !== undefined) extra.effectiveDate = effectiveDate;
+            const r = acc(extra);
+            expect(r.text).toContain('The receiving bank account settings were updated.');
+            expect(r.text).toContain(
+              'Thiết lập tài khoản ngân hàng nhận chuyển khoản vừa được cập nhật.',
+            );
+            expect(r.text).not.toMatch(/ngày \.|for \.|from \./);
+          }
+        }
+      });
+
+      it('same subject and the same action sentence in every branch; no account number', () => {
+        const branches: Record<string, string>[] = [
+          { change: 'set', effectiveDate: D },
+          { change: 'cancel', effectiveDate: D },
+          { effectiveDate: D },
+          {},
+        ];
+        for (const extra of branches) {
+          const r = acc(extra);
+          expect(r.subject).toBe(SUBJECT);
+          expect(r.text.split(ACTION_EN)).toHaveLength(2);
+          expect(r.text.split(ACTION_VI)).toHaveLength(2);
+          expect(r.text).not.toMatch(/\d{6,}/);
+          expect(r.text).not.toMatch(/review it/);
+        }
+      });
+    });
+
+    // CPY FB-R4-CPY-INT-104-03 (INT-CPY-31-06): mail uses the Desk terms – the old ones never come back.
+    it('no rendered email (5 templates × audience × via × change × date) uses the old terms', () => {
+      const OLD = [
+        'chủ cơ sở',
+        'property owner',
+        'two-step sign-in',
+        'đăng nhập 2 bước',
+        'sign-in codes',
+        'mã đăng nhập',
+        'nhận cọc',
+        'receives deposits',
+      ];
+      for (const { t, audience, via } of combos) {
+        for (const change of ['set', 'cancel', undefined]) {
+          for (const effectiveDate of [undefined, '08/11/2026']) {
+            const extra: Record<string, string> = {};
+            if (change) extra.change = change;
+            if (effectiveDate) extra.effectiveDate = effectiveDate;
+            const r = renderStaffEmail(t, paramsOf(audience, via, extra));
+            const tag = `${t}/${audience}/${via}/${change}/${effectiveDate}`;
+            for (const s of [r.subject, r.text, r.html]) {
+              const low = s.toLowerCase();
+              for (const term of OLD) expect(low, `${tag}: ${term}`).not.toContain(term);
+            }
+          }
+        }
+      }
     });
 
     // G-BE-4 / FB-R4-INT-BE-31-05 (template part): the name only ever reaches the owner copy.

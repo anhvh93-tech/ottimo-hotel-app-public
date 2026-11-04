@@ -6,6 +6,8 @@
 // like), no username, no account number. Every parameter is HTML-escaped; unknown templates are refused.
 // One layout for all five (v1.0.4, CPY FB-R4-CPY-INT-03/05): main sentence(s) → own "Time:" / "Thời điểm:" line
 // (only with occurredAt) → action; the shared footer says once that these notices never carry links.
+// Terms follow Desk (content-guide section 3, CPY FB-R4-CPY-INT-104-03 / INT-CPY-31-06): owner = "the owner" /
+// "chủ đầu tư", 2FA = "2-step verification" / "xác thực 2 bước", "receiving account" / "tài khoản nhận chuyển khoản".
 import { IntegrationError } from '../contracts/common.js';
 
 /**
@@ -35,7 +37,10 @@ export function isStaffEmailTemplate(v: string): v is StaffEmailTemplate {
  * - `staffName`: display name of the person concerned – read ONLY when audience = 'owner'; dropped for every other
  *   copy before rendering (G-BE-4, FB-R4-INT-BE-31-05: least data; the dispatcher stops sending it in v1.0.4 too)
  * - `occurredAt`: local time, e.g. '23/10/2026 14:05 (GMT+7)' – printed on its own "Time:" line, never in brackets
- * - `effectiveDate`: receiving_account_changed only, e.g. '25/10/2026'
+ * - `effectiveDate`: receiving_account_changed only, e.g. '25/10/2026' (the date the schedule takes effect)
+ * - `change`: receiving_account_changed only, 'set' (a new account was scheduled) | 'cancel' (a scheduled change was
+ *   cancelled). Missing or unknown = neutral sentence that is true for both (CPY FB-R4-CPY-INT-104-01): the
+ *   template can ship before the outbox payload carries the action.
  * - `via`: email_changed only, 'self' | 'owner' (who made the change; missing or unknown = 'self')
  * Any other parameter is ignored. email_changed never prints an address (new or old, full or masked) in any
  * copy: the recipient already knows their own address, and the old address must not learn the new one
@@ -76,7 +81,7 @@ function copyFor(t: StaffEmailTemplate, p: Readonly<Record<string, string>>): Co
   const notYouEn =
     'If this was not you, contact the owner or the OTTIMO team today and change your password.';
   const notYouVi =
-    'Nếu không phải bạn, hãy báo chủ cơ sở hoặc đội OTTIMO ngay trong hôm nay và đổi mật khẩu.';
+    'Nếu không phải bạn, hãy báo chủ đầu tư hoặc đội OTTIMO ngay trong hôm nay và đổi mật khẩu.';
   const ownerEn = 'If this was not expected, check with them today.';
   const ownerVi = 'Nếu việc này không được báo trước, hãy kiểm tra với người đó trong hôm nay.';
   // Own line, same in all five templates (CPY FB-R4-CPY-INT-03): occurredAt already ends with "(GMT+7)", so it is
@@ -90,31 +95,37 @@ function copyFor(t: StaffEmailTemplate, p: Readonly<Record<string, string>>): Co
         subjectVi: 'Thông báo bảo mật: đã dùng mã khôi phục',
         en: owner
           ? [`${who} signed in to OTTIMO Desk with a recovery code.`, ...timeEn, ownerEn]
-          : [`Your account signed in to OTTIMO Desk with a recovery code.`, ...timeEn, notYouEn],
+          : ['Your OTTIMO Desk account was signed in with a recovery code.', ...timeEn, notYouEn],
         vi: owner
           ? [`${whoVi} vừa đăng nhập OTTIMO Desk bằng mã khôi phục.`, ...timeVi, ownerVi]
-          : [`Tài khoản của bạn vừa đăng nhập OTTIMO Desk bằng mã khôi phục.`, ...timeVi, notYouVi],
+          : [
+              'Tài khoản OTTIMO Desk của bạn vừa được đăng nhập bằng mã khôi phục.',
+              ...timeVi,
+              notYouVi,
+            ],
       };
     case 'mfa_reset':
     case 'mfa_reset_by_operator': {
       const byTeam = t === 'mfa_reset_by_operator';
       const howEn = byTeam ? ' by the OTTIMO technical team' : '';
       const howVi = byTeam ? ' bởi đội kỹ thuật OTTIMO' : '';
+      // Mid-sentence in Vietnamese: the fallback stays lower case.
+      const whoViMid = p.staffName?.trim() || 'một nhân viên';
       return {
-        subjectEn: 'Security notice: two-step sign-in was reset',
-        subjectVi: 'Thông báo bảo mật: đăng nhập 2 bước đã được đặt lại',
+        subjectEn: 'Security notice: 2-step verification was reset',
+        subjectVi: 'Thông báo bảo mật: xác thực 2 bước đã được đặt lại',
         en: owner
-          ? [`Two-step sign-in of ${who} was reset${howEn}.`, ...timeEn, ownerEn]
+          ? [`${who}'s 2-step verification was reset${howEn}.`, ...timeEn, ownerEn]
           : [
-              `Two-step sign-in of your account was reset${howEn}.`,
+              `Your 2-step verification was reset${howEn}.`,
               ...timeEn,
               'You will set it up again at your next sign-in.',
               notYouEn,
             ],
         vi: owner
-          ? [`Đăng nhập 2 bước của ${whoVi} đã được đặt lại${howVi}.`, ...timeVi, ownerVi]
+          ? [`Xác thực 2 bước của ${whoViMid} đã được đặt lại${howVi}.`, ...timeVi, ownerVi]
           : [
-              `Đăng nhập 2 bước của tài khoản bạn đã được đặt lại${howVi}.`,
+              `Xác thực 2 bước của tài khoản bạn đã được đặt lại${howVi}.`,
               ...timeVi,
               'Lần đăng nhập tới bạn sẽ cài lại.',
               notYouVi,
@@ -122,20 +133,42 @@ function copyFor(t: StaffEmailTemplate, p: Readonly<Record<string, string>>): Co
       };
     }
     case 'receiving_account_changed': {
-      const eff = p.effectiveDate ? ` from ${p.effectiveDate}` : '';
-      const effVi = p.effectiveDate ? ` từ ngày ${p.effectiveDate}` : '';
+      // CPY FB-R4-CPY-INT-104-01/02: the same outbox template is sent when an owner schedules a new receiving
+      // account AND when they cancel a scheduled change, so the subject is neutral and the main sentence follows
+      // `change`. Without `change` (payload before BE adds it) or without a date: a sentence true for every case.
+      const date = p.effectiveDate?.trim() ?? '';
+      const change = p.change === 'set' || p.change === 'cancel' ? p.change : null;
+      const [mainEn, mainVi] = !date
+        ? [
+            'The receiving bank account settings were updated.',
+            'Thiết lập tài khoản ngân hàng nhận chuyển khoản vừa được cập nhật.',
+          ]
+        : change === 'set'
+          ? [
+              `A new receiving bank account was set, effective from ${date}.`,
+              `Tài khoản ngân hàng nhận chuyển khoản mới đã được đặt, có hiệu lực từ ngày ${date}.`,
+            ]
+          : change === 'cancel'
+            ? [
+                `The receiving bank account change scheduled for ${date} was cancelled.`,
+                `Lịch đổi tài khoản ngân hàng nhận chuyển khoản từ ngày ${date} đã được hủy.`,
+              ]
+            : [
+                `The receiving bank account schedule for ${date} was updated.`,
+                `Lịch tài khoản ngân hàng nhận chuyển khoản ngày ${date} vừa được cập nhật.`,
+              ];
       return {
-        subjectEn: 'Notice: the deposit receiving account was changed',
-        subjectVi: 'Thông báo: tài khoản nhận cọc đã thay đổi',
+        subjectEn: 'Security notice: receiving account update',
+        subjectVi: 'Thông báo bảo mật: cập nhật tài khoản nhận chuyển khoản',
         en: [
-          `The bank account that receives deposits was changed${eff}.`,
+          mainEn,
           ...timeEn,
-          'Open OTTIMO Desk as usual to review it. If you did not expect this change, review it today.',
+          'Open OTTIMO Desk as usual and check the receiving account. If you did not expect this, do it today.',
         ],
         vi: [
-          `Tài khoản ngân hàng nhận cọc đã được thay đổi${effVi}.`,
+          mainVi,
           ...timeVi,
-          'Mở OTTIMO Desk như thường lệ để xem lại. Nếu bạn không chờ thay đổi này, hãy kiểm tra trong hôm nay.',
+          'Hãy mở OTTIMO Desk như thường lệ và kiểm tra tài khoản nhận. Nếu bạn không được báo trước, hãy làm ngay trong hôm nay.',
         ],
       };
     }
@@ -164,8 +197,8 @@ function emailChangedCopy(
   const byOwner = p.via === 'owner';
   const who = p.staffName?.trim() || 'a staff member';
   const whoVi = p.staffName?.trim() || 'một nhân viên';
-  const madeByOwnerEn = byOwner ? ['The change was made by the property owner.'] : [];
-  const madeByOwnerVi = byOwner ? ['Thay đổi do chủ cơ sở thực hiện.'] : [];
+  const madeByOwnerEn = byOwner ? ['The change was made by the owner.'] : [];
+  const madeByOwnerVi = byOwner ? ['Thay đổi do chủ đầu tư thực hiện.'] : [];
   const build = (en: string[], vi: string[]): Copy => ({ subjectEn, subjectVi, en, vi });
   switch (p.audience) {
     case 'self':
@@ -180,7 +213,9 @@ function emailChangedCopy(
           'Từ nay, địa chỉ này sẽ nhận thông báo bảo mật cho tài khoản OTTIMO Desk của bạn.',
           ...madeByOwnerVi,
           ...timeVi,
-          byOwner ? 'Nếu bạn chưa được báo trước, vui lòng liên hệ trực tiếp chủ cơ sở.' : notYouVi,
+          byOwner
+            ? 'Nếu bạn chưa được báo trước, vui lòng liên hệ trực tiếp chủ đầu tư.'
+            : notYouVi,
         ],
       );
     case 'previous':
@@ -198,8 +233,8 @@ function emailChangedCopy(
           ...madeByOwnerVi,
           ...timeVi,
           byOwner
-            ? 'Nếu bạn chưa được báo trước, vui lòng không trả lời thư này mà liên hệ trực tiếp chủ cơ sở.'
-            : 'Nếu không phải bạn, vui lòng không trả lời thư này. Hãy báo ngay chủ cơ sở hoặc đội OTTIMO và đổi mật khẩu.',
+            ? 'Nếu bạn chưa được báo trước, vui lòng không trả lời thư này mà liên hệ trực tiếp chủ đầu tư.'
+            : 'Nếu không phải bạn, vui lòng không trả lời thư này. Hãy báo ngay chủ đầu tư hoặc đội OTTIMO và đổi mật khẩu.',
         ],
       );
     case 'owner':
@@ -213,7 +248,7 @@ function emailChangedCopy(
         ],
         [
           byOwner
-            ? `Một chủ cơ sở vừa đổi hoặc gỡ email nhận thông báo bảo mật của ${whoVi}.`
+            ? `Một chủ đầu tư vừa đổi hoặc gỡ email nhận thông báo bảo mật của ${whoVi}.`
             : `Email nhận thông báo bảo mật của ${whoVi} vừa được đổi hoặc gỡ.`,
           ...timeVi,
           ownerVi,
@@ -265,10 +300,11 @@ const FOOTER_EN = 'This is an automatic message from OTTIMO Desk. Please do not 
 const FOOTER_VI = 'Đây là thư tự động từ OTTIMO Desk. Vui lòng không trả lời thư này.';
 // Shared anti-phishing footer of all five templates (v1.0.4, CPY FB-R4-CPY-INT-05 option A, chosen text of CPY
 // round 2). "security notices" for all five: each one warns about the safety of an account or of the money route.
+// "any code" (CPY FB-R4-CPY-INT-104-03): covers both the 2-step verification code and the recovery codes.
 export const NO_LINK_EN =
-  'OTTIMO security notices never contain links and never ask for your password or sign-in codes.';
+  'OTTIMO security notices never contain links and never ask for your password or any code.';
 export const NO_LINK_VI =
-  'Thư bảo mật của OTTIMO không bao giờ có đường liên kết và không bao giờ hỏi mật khẩu hay mã đăng nhập.';
+  'Thư bảo mật của OTTIMO không bao giờ có đường liên kết và không bao giờ hỏi mật khẩu hay bất kỳ mã nào.';
 
 export function renderStaffEmail(
   templateId: string,
