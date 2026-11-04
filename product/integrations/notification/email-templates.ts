@@ -4,8 +4,17 @@
 // guideline fallbacks Georgia / Arial (most mail clients do not load web fonts).
 // Security rules: no codes, no secrets, no links (a security notice that asks you to click is what phishing looks
 // like), no username, no account number. Every parameter is HTML-escaped; unknown templates are refused.
+// One layout for all five (v1.0.4, CPY FB-R4-CPY-INT-03/05): main sentence(s) → own "Time:" / "Thời điểm:" line
+// (only with occurredAt) → action; the shared footer says once that these notices never carry links.
 import { IntegrationError } from '../contracts/common.js';
 
+/**
+ * THE list of staff e-mail templates (ARC FB-R4-ARC-BE-31-05 / FB-R4-ARC-OPS-PR32-06). Used by the api (enqueue,
+ * `EMAIL_CHANGED_TEMPLATE satisfies StaffEmailTemplate`), the worker (`isStaffEmailTemplate` → BAD_TEMPLATE) and
+ * `infra/server/bin/requeue-email-changed.sh`, which asks a running worker image
+ * `import("@ottimo/integrations/notification").isStaffEmailTemplate("email_changed")`. Do not move or rename these two
+ * exports: email-templates.test.ts locks the export path.
+ */
 export const STAFF_EMAIL_TEMPLATES = [
   'mfa_recovery_code_used',
   'mfa_reset',
@@ -23,8 +32,9 @@ export function isStaffEmailTemplate(v: string): v is StaffEmailTemplate {
  * Parameters (all optional strings, already formatted by the caller):
  * - `audience`: 'self' (the person concerned) | 'owner' (copy to an owner) |
  *   'previous' (email_changed only: the address that was replaced or removed)
- * - `staffName`: display name of the person concerned (owner copy only)
- * - `occurredAt`: local time, e.g. '23/10/2026 14:05 (GMT+7)'
+ * - `staffName`: display name of the person concerned – read ONLY when audience = 'owner'; dropped for every other
+ *   copy before rendering (G-BE-4, FB-R4-INT-BE-31-05: least data; the dispatcher stops sending it in v1.0.4 too)
+ * - `occurredAt`: local time, e.g. '23/10/2026 14:05 (GMT+7)' – printed on its own "Time:" line, never in brackets
  * - `effectiveDate`: receiving_account_changed only, e.g. '25/10/2026'
  * - `via`: email_changed only, 'self' | 'owner' (who made the change; missing or unknown = 'self')
  * Any other parameter is ignored. email_changed never prints an address (new or old, full or masked) in any
@@ -63,24 +73,27 @@ function copyFor(t: StaffEmailTemplate, p: Readonly<Record<string, string>>): Co
   const owner = p.audience === 'owner';
   const who = p.staffName?.trim() || 'A staff member';
   const whoVi = p.staffName?.trim() || 'Một nhân viên';
-  const at = p.occurredAt ? ` (${p.occurredAt})` : '';
   const notYouEn =
     'If this was not you, contact the owner or the OTTIMO team today and change your password.';
   const notYouVi =
     'Nếu không phải bạn, hãy báo chủ cơ sở hoặc đội OTTIMO ngay trong hôm nay và đổi mật khẩu.';
   const ownerEn = 'If this was not expected, check with them today.';
   const ownerVi = 'Nếu việc này không được báo trước, hãy kiểm tra với người đó trong hôm nay.';
+  // Own line, same in all five templates (CPY FB-R4-CPY-INT-03): occurredAt already ends with "(GMT+7)", so it is
+  // never put in brackets; no line at all without occurredAt.
+  const timeEn = p.occurredAt ? [`Time: ${p.occurredAt}`] : [];
+  const timeVi = p.occurredAt ? [`Thời điểm: ${p.occurredAt}`] : [];
   switch (t) {
     case 'mfa_recovery_code_used':
       return {
         subjectEn: 'Security notice: a recovery code was used',
         subjectVi: 'Thông báo bảo mật: đã dùng mã khôi phục',
         en: owner
-          ? [`${who} signed in to OTTIMO Desk with a recovery code${at}.`, ownerEn]
-          : [`Your account signed in to OTTIMO Desk with a recovery code${at}.`, notYouEn],
+          ? [`${who} signed in to OTTIMO Desk with a recovery code.`, ...timeEn, ownerEn]
+          : [`Your account signed in to OTTIMO Desk with a recovery code.`, ...timeEn, notYouEn],
         vi: owner
-          ? [`${whoVi} vừa đăng nhập OTTIMO Desk bằng mã khôi phục${at}.`, ownerVi]
-          : [`Tài khoản của bạn vừa đăng nhập OTTIMO Desk bằng mã khôi phục${at}.`, notYouVi],
+          ? [`${whoVi} vừa đăng nhập OTTIMO Desk bằng mã khôi phục.`, ...timeVi, ownerVi]
+          : [`Tài khoản của bạn vừa đăng nhập OTTIMO Desk bằng mã khôi phục.`, ...timeVi, notYouVi],
       };
     case 'mfa_reset':
     case 'mfa_reset_by_operator': {
@@ -91,15 +104,19 @@ function copyFor(t: StaffEmailTemplate, p: Readonly<Record<string, string>>): Co
         subjectEn: 'Security notice: two-step sign-in was reset',
         subjectVi: 'Thông báo bảo mật: đăng nhập 2 bước đã được đặt lại',
         en: owner
-          ? [`Two-step sign-in of ${who} was reset${howEn}${at}.`, ownerEn]
+          ? [`Two-step sign-in of ${who} was reset${howEn}.`, ...timeEn, ownerEn]
           : [
-              `Two-step sign-in of your account was reset${howEn}${at}. You will set it up again at your next sign-in.`,
+              `Two-step sign-in of your account was reset${howEn}.`,
+              ...timeEn,
+              'You will set it up again at your next sign-in.',
               notYouEn,
             ],
         vi: owner
-          ? [`Đăng nhập 2 bước của ${whoVi} đã được đặt lại${howVi}${at}.`, ownerVi]
+          ? [`Đăng nhập 2 bước của ${whoVi} đã được đặt lại${howVi}.`, ...timeVi, ownerVi]
           : [
-              `Đăng nhập 2 bước của tài khoản bạn đã được đặt lại${howVi}${at}. Lần đăng nhập tới bạn sẽ cài lại.`,
+              `Đăng nhập 2 bước của tài khoản bạn đã được đặt lại${howVi}.`,
+              ...timeVi,
+              'Lần đăng nhập tới bạn sẽ cài lại.',
               notYouVi,
             ],
       };
@@ -111,27 +128,32 @@ function copyFor(t: StaffEmailTemplate, p: Readonly<Record<string, string>>): Co
         subjectEn: 'Notice: the deposit receiving account was changed',
         subjectVi: 'Thông báo: tài khoản nhận cọc đã thay đổi',
         en: [
-          `The bank account that receives deposits was changed${eff}${at}.`,
+          `The bank account that receives deposits was changed${eff}.`,
+          ...timeEn,
           'Open OTTIMO Desk as usual to review it. If you did not expect this change, review it today.',
         ],
         vi: [
-          `Tài khoản ngân hàng nhận cọc đã được thay đổi${effVi}${at}.`,
+          `Tài khoản ngân hàng nhận cọc đã được thay đổi${effVi}.`,
+          ...timeVi,
           'Mở OTTIMO Desk như thường lệ để xem lại. Nếu bạn không chờ thay đổi này, hãy kiểm tra trong hôm nay.',
         ],
       };
     }
     case 'email_changed':
-      return emailChangedCopy(p, notYouEn, notYouVi, ownerEn, ownerVi);
+      return emailChangedCopy(p, timeEn, timeVi, notYouEn, notYouVi, ownerEn, ownerVi);
   }
 }
 
 /**
  * email_changed (BUG-R3-032; CPY review FB-R4-CPY-INT-01..06). Order of each copy: main sentence →
- * "made by the owner" (via=owner) → time line (only when occurredAt is set) → action → anti-phishing line.
+ * "made by the owner" (via=owner) → time line (only when occurredAt is set) → action. The anti-phishing line is the
+ * shared footer (v1.0.4, option A of FB-R4-CPY-INT-05), no longer repeated at the end of the body.
  * `via` ('self' | 'owner', from user_email_change.via) – missing or unknown reads as 'self'.
  */
 function emailChangedCopy(
   p: Readonly<Record<string, string>>,
+  timeEn: string[],
+  timeVi: string[],
   notYouEn: string,
   notYouVi: string,
   ownerEn: string,
@@ -142,22 +164,9 @@ function emailChangedCopy(
   const byOwner = p.via === 'owner';
   const who = p.staffName?.trim() || 'a staff member';
   const whoVi = p.staffName?.trim() || 'một nhân viên';
-  const timeEn = p.occurredAt ? [`Time: ${p.occurredAt}`] : [];
-  const timeVi = p.occurredAt ? [`Thời điểm: ${p.occurredAt}`] : [];
   const madeByOwnerEn = byOwner ? ['The change was made by the property owner.'] : [];
   const madeByOwnerVi = byOwner ? ['Thay đổi do chủ cơ sở thực hiện.'] : [];
-  // Option B of FB-R4-CPY-INT-05: only in the email_changed body; the shared NO_LINK_* footer is unchanged
-  // in v1.0.3 (option A deferred to v1.0.4).
-  const antiPhishEn =
-    'OTTIMO security notices never contain links and never ask for your password or sign-in codes.';
-  const antiPhishVi =
-    'Thư bảo mật của OTTIMO không bao giờ có đường liên kết và không bao giờ hỏi mật khẩu hay mã đăng nhập.';
-  const build = (en: string[], vi: string[]): Copy => ({
-    subjectEn,
-    subjectVi,
-    en: [...en, antiPhishEn],
-    vi: [...vi, antiPhishVi],
-  });
+  const build = (en: string[], vi: string[]): Copy => ({ subjectEn, subjectVi, en, vi });
   switch (p.audience) {
     case 'self':
       return build(
@@ -232,11 +241,16 @@ export function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
-/** Parameters end up in a header (subject) and in HTML: refuse control characters (header injection). */
+/**
+ * Parameters end up in a header (subject) and in HTML: refuse control characters (header injection).
+ * `staffName` survives only for the owner copy (G-BE-4): the person concerned knows their own name, and the
+ * `previous` address may no longer belong to them.
+ */
 function cleanParams(params: Readonly<Record<string, string>>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(params)) {
     if (typeof v !== 'string') continue;
+    if (k === 'staffName' && params.audience !== 'owner') continue;
     out[k] = Array.from(v, (ch) => {
       const c = ch.charCodeAt(0);
       return c < 0x20 || c === 0x7f ? ' ' : ch;
@@ -249,8 +263,12 @@ function cleanParams(params: Readonly<Record<string, string>>): Record<string, s
 
 const FOOTER_EN = 'This is an automatic message from OTTIMO Desk. Please do not reply.';
 const FOOTER_VI = 'Đây là thư tự động từ OTTIMO Desk. Vui lòng không trả lời thư này.';
-const NO_LINK_EN = 'OTTIMO never asks for your password or codes by e-mail.';
-const NO_LINK_VI = 'OTTIMO không bao giờ hỏi mật khẩu hay mã qua email.';
+// Shared anti-phishing footer of all five templates (v1.0.4, CPY FB-R4-CPY-INT-05 option A, chosen text of CPY
+// round 2). "security notices" for all five: each one warns about the safety of an account or of the money route.
+export const NO_LINK_EN =
+  'OTTIMO security notices never contain links and never ask for your password or sign-in codes.';
+export const NO_LINK_VI =
+  'Thư bảo mật của OTTIMO không bao giờ có đường liên kết và không bao giờ hỏi mật khẩu hay mã đăng nhập.';
 
 export function renderStaffEmail(
   templateId: string,
