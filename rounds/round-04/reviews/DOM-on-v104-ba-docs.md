@@ -262,3 +262,46 @@ Hai điểm BA để ngỏ (mục B): DOM đề xuất phương án. **Cả hai 
 - Trạng thái: Open
 
 Ghi chú: không cần ESC. SEC đọc thẻ 07 cùng lúc với nhánh dự phòng ngày thay tờ.
+
+---
+
+## Lượt 3 (04/11) – DOM xác nhận `v104/ba-docs` @ `97d7ae5d`: **ĐẠT CÓ ĐIỀU KIỆN**
+
+ORC chép từ báo cáo DOM trong phiên.
+
+### Trạng thái thẻ lượt 2
+| Thẻ | Trạng thái |
+|---|---|
+| FB-R4-DOM-BA-104-07 | Closed |
+| FB-R4-DOM-BA-104-08 | Closed |
+| FB-R4-DOM-BA-104-09 | Closed |
+
+### Ý kiến về 3 chỗ BA làm khác
+Đồng ý cả 3. Riêng việc người trực nhắn "Đặt lại v1 – hh:mm" **trước** khi đặt lại tờ v1 là tốt hơn đề xuất của DOM.
+
+### Thẻ mới
+
+#### FB-R4-DOM-BA-104-10
+- Mức độ: Minor (sửa trước ngày thay tờ)
+- Vị trí: các dòng Mở quầy đang ghi "Từ v1.0.4".
+- Vấn đề: v1.0.4 lên production chưa có nghĩa là đã thay tờ.
+- Đề xuất:
+  - Sửa thành "từ hôm sau ngày sổ giao ca có dòng 'Thay tờ v2 hh:mm – tham số v2 hh:mm'". Chưa có dòng đó thì không tự thay tờ.
+  - Tờ v2 sau khi "Đặt lại v1" thì cất **khỏi** quầy, cho vào phong bì.
+- Trạng thái: BA sửa ở `45d09e5a`, DOM chưa mở lượt 4 (xem ghi chú ORC).
+
+#### FB-R4-DOM-BA-104-11
+- Mức độ: Suggestion
+- Đề xuất:
+  - OWN nói "Đã Lưu" trước khi cúp máy.
+  - Người trực nói "vừa nhắn đặt lại v1, tờ v2 còn trên quầy".
+- Trạng thái: BA sửa ở `45d09e5a`, DOM chưa mở lượt 4.
+
+Ghi chú DOM:
+- Số "n đơn" có thể đếm dư, nhưng vô hại.
+- Bước 7 cần sửa câu cho gọn.
+
+### Ghi chú ORC (04/11)
+- BA đã sửa 10 và 11 ở `45d09e5a`, sau đó thêm `d11705f4` và `4a842a14` (SEC 13/14b, tên nút P4-34).
+- SEC đã xác nhận `4a842a14` ĐẠT.
+- DOM chưa có lượt 4 riêng cho thẻ 10/11. ORC giao DOM xác nhận nhanh trước khi gộp `v104/ba-docs`. Thẻ 10 phải xong trước ngày thay tờ.
