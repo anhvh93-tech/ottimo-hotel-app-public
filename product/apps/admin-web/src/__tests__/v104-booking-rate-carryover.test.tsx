@@ -581,8 +581,14 @@ describe('BUG-R4-037 – desk workaround on v1.0.3 (clear every rate box after c
   });
 });
 
-describe('FB-R4-ARC-FE-PR82-01 – Nội bộ: every night typed, or none', () => {
-  it('2 nights, only night 1 typed → "Nhập giá mỗi đêm" and nothing sent; both typed → sent as typed', async () => {
+describe('FB-R4-ARC-FE-PR82-01/03 – OTA and Nội bộ: every night typed, or none', () => {
+  /** The error line of the "Giá mỗi đêm" field. */
+  const rateField = (dlg: HTMLElement) =>
+    within(dlg)
+      .getByText(tv('booking.field.rate'), { selector: '.lbl' })
+      .closest<HTMLElement>('.field')!;
+
+  it('Nội bộ, 2 nights, only night 1 typed → its own sentence and nothing sent; both typed → sent as typed', async () => {
     pinDaytime();
     const sent = createBodies();
     const d1 = todayLocal();
@@ -601,10 +607,12 @@ describe('FB-R4-ARC-FE-PR82-01 – Nội bộ: every night typed, or none', () =
     expect(rateBox(dlg, d2)).toHaveValue('');
     // before: accepted, `nightlyRates` left out – the server wrote 0 đ for both nights and the typed 500000 was lost
     await user.click(within(dlg).getByRole('button', { name: 'Tạo đơn' }));
-    const field = within(dlg)
-      .getByText(tv('booking.field.rate'), { selector: '.lbl' })
-      .closest<HTMLElement>('.field')!;
-    expect(await within(field).findByText(tv('booking.error.rate_empty'))).toBeInTheDocument();
+    const field = rateField(dlg);
+    // FB-R4-DOM-UXD-PR82-01: the Nội bộ sentence (empty boxes = a free stay), not the OTA one
+    expect(
+      await within(field).findByText(tv('booking.error.rate_empty_internal')),
+    ).toBeInTheDocument();
+    expect(within(field).queryByText(tv('booking.error.rate_empty'))).toBeNull();
     expect(screen.queryByText(/^Đã tạo đơn OTM-0\d+$/)).toBeNull();
     expect(sent).toHaveLength(0);
     await user.type(rateBox(dlg, d2), '400000');
@@ -614,6 +622,41 @@ describe('FB-R4-ARC-FE-PR82-01 – Nội bộ: every night typed, or none', () =
     expect(sent[0]!.nightlyRates).toEqual([
       { date: d1, amountVnd: 500_000, edited: true },
       { date: d2, amountVnd: 400_000, edited: true },
+    ]);
+  });
+
+  // FB-R4-ARC-FE-PR82-03: the OTA half of the rule had no test (dropping OTA from the condition kept every test green)
+  it('OTA, 2 nights, only night 1 typed → "Nhập giá mỗi đêm" and nothing sent; both typed → sent as typed', async () => {
+    pinDaytime();
+    const sent = createBodies();
+    const d1 = todayLocal();
+    const d2 = addDays(d1, 1);
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openBooking(user);
+    await previewFilled(dlg);
+    await user.click(within(dlg).getByRole('button', { name: 'OTA' }));
+    await pickRoom(user, dlg, '203');
+    fireEvent.change(within(dlg).getByLabelText(tv('booking.field.departure')), {
+      target: { value: addDays(d1, 2) },
+    });
+    await pickGuest(user, dlg);
+    await user.type(within(dlg).getByLabelText(/Mã đặt phòng OTA/), 'BK-082-3');
+    await user.type(rateBox(dlg, d1), '880000');
+    expect(rateBox(dlg, d2)).toHaveValue('');
+    // without the rule: no rates sent, the server priced every night from the OTA calendar and 880000 was lost
+    await user.click(within(dlg).getByRole('button', { name: 'Tạo đơn' }));
+    const field = rateField(dlg);
+    expect(await within(field).findByText(tv('booking.error.rate_empty'))).toBeInTheDocument();
+    expect(within(field).queryByText(tv('booking.error.rate_empty_internal'))).toBeNull();
+    expect(screen.queryByText(/^Đã tạo đơn OTM-0\d+$/)).toBeNull();
+    expect(sent).toHaveLength(0);
+    await user.type(rateBox(dlg, d2), '860000');
+    await user.click(within(dlg).getByRole('button', { name: 'Tạo đơn' }));
+    expect(await screen.findByText(/^Đã tạo đơn OTM-0\d+$/)).toBeInTheDocument();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.nightlyRates).toEqual([
+      { date: d1, amountVnd: 880_000, edited: true },
+      { date: d2, amountVnd: 860_000, edited: true },
     ]);
   });
 });

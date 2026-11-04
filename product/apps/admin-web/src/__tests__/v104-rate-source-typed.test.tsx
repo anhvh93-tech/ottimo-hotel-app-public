@@ -158,6 +158,41 @@ describe('UXD-on-v104-src-typed – "Nguồn giá" says what the box holds', () 
     expect(dlg.textContent).not.toContain(tv('sale.los_applied', { pct: 10 }));
   });
 
+  it('PR82-04 – 3 adults, 101 → 301, the 301 preview on its way: no extra-guest row (never "0 người"); none once back', async () => {
+    pinDaytime();
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openTwoNights(user);
+    await user.click(within(dlg).getByRole('button', { name: 'Tăng Người lớn (từ 12 tuổi)' }));
+    // 101: standard 2, 3 adults → one over standard for 2 nights (BR-110)
+    expect(
+      await within(totalTable(dlg)).findByText(tv('occ.fee_line', { n: 1, nights: 2 })),
+    ).toBeInTheDocument();
+    // the preview of 301 (standard 4) is held until release()
+    const r301 = mockControl.db.rooms.find((x) => x.roomNo === '301')!;
+    let release!: () => void;
+    const gate = new Promise<void>((ok) => (release = ok));
+    server.use(
+      http.post('*/quotes/calculate', async ({ request }) => {
+        const b = (await request.clone().json()) as { roomId?: string };
+        if (b.roomId !== r301.id) return undefined;
+        await gate;
+        return undefined;
+      }),
+    );
+    await pickRoom(user, dlg, '301');
+    expect(totalTable(dlg)).toHaveAttribute('aria-busy', 'true');
+    for (const n of [0, 1])
+      expect(totalTable(dlg).textContent).not.toContain(tv('occ.fee_line', { n, nights: 2 }));
+
+    release();
+    await waitFor(() => expect(totalTable(dlg)).not.toHaveAttribute('aria-busy'), {
+      timeout: 3000,
+    });
+    for (const n of [0, 1])
+      expect(totalTable(dlg).textContent).not.toContain(tv('occ.fee_line', { n, nights: 2 }));
+    expect(totalFigure(dlg)).not.toHaveTextContent(/^–$/);
+  });
+
   it('Friday and Saturday filled by the preview → "Giá niêm yết (BR-101)", never the "+15%" weekday line', async () => {
     pinDaytime();
     const { user } = renderApp('/rack', 'qa.fd');

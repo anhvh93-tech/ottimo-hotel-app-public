@@ -546,13 +546,18 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     });
     // FB-R4-ARC-FE-PR82-01: OTA and Nội bộ type every night or none (`body()` sends their rates only when all are
     // typed). Before, a Nội bộ stay typed in part went through: no rates sent, the server wrote 0 đ for every night
-    // and the typed figures were lost.
+    // and the typed figures were lost. Nội bộ has its own sentence – empty boxes are its free stay (BR-105 v0.5.8,
+    // FB-R4-DOM-UXD-PR82-01).
     if (
       (form.group === 'ota' || form.group === 'internal') &&
       rateList.some((r) => r.raw) &&
       rateList.some((r) => !r.raw)
     )
-      e.rates = t('booking.error.rate_empty');
+      e.rates = t(
+        form.group === 'internal'
+          ? 'booking.error.rate_empty_internal'
+          : 'booking.error.rate_empty',
+      );
     // BUG-R4-037: Trực tiếp / CTV with a typed rate sends every night – never an empty one as 0 đ (the preview of
     // this stay not back yet, or a box emptied by hand).
     if (
@@ -1502,15 +1507,12 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                     <td className="r" />
                   </tr>
                 )}
-                {extraFee > 0 ? (
+                {/* FB-R4-ARC-FE-PR82-04: the extra-guest row belongs to the preview – while the one of the stay on
+                    screen is on its way it is hidden, like the BR-107 row (never "0 người vượt định mức") */}
+                {extraFee > 0 && !priceWaiting ? (
                   <tr>
-                    <td>
-                      {t('occ.fee_line', {
-                        n: priceWaiting ? extra : (calc.extraGuestCount ?? extra),
-                        nights,
-                      })}
-                    </td>
-                    <td className="r">{priceWaiting ? '–' : vnd(extraFee)}</td>
+                    <td>{t('occ.fee_line', { n: calc.extraGuestCount ?? extra, nights })}</td>
+                    <td className="r">{vnd(extraFee)}</td>
                   </tr>
                 ) : null}
                 <tr className="total">
