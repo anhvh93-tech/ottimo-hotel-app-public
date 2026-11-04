@@ -202,3 +202,72 @@ Quy tắc giữ nhãn: nếu trước khi đăng có đổi **bất kỳ** câu 
 ### 8.5 Dòng decision-log đề xuất (ORC ghi)
 
 | 2026-11-04 | 4 | **SEC – xác nhận đóng thẻ `lp-v2-main` (G3 phần SEC: ĐÓNG) + đọc runbook LP-v2 r1.1 (T1 phần SEC: ĐẠT CÓ ĐIỀU KIỆN)** (`rounds/round-04/reviews/SEC-on-lp-v2-main.md` mục 8). LPV2M-01 (hằng Chat `2026-11-04`, cổng theo `published_at`, 3 ca a/b/c), 02 (`VERSION` + 3 test), 03 (README 12.3 + runbook P0), 04 Closed; 05 Closed một phần (`assertLocalDate` v1.0.x). Ca BUG-R4-027 đúng ý ★2 (ca đơn vị bắt so chuỗi, ca tích hợp bắt `version >= $2`). Runbook: Q1 bảng P0 đủ; D3 chấp nhận INV xác nhận P3/P4 trong chat ngày đăng, ghi decision-log trước P10, không tên/email. Không có điểm phải sửa trước staging; r2 trước P0 production sửa RB-01 (D1 trỏ sai), RB-02 (quy tắc "đổi nhãn → đổi hằng" chỉ áp cho lần đăng đầu nêu Chat), RB-03 (nối ref `CHKV` với `current_tag`) | SEC | Quyền SEC (yêu cầu bảo mật kỹ thuật, chữ/nhãn thông báo) |
+
+## 9. Đọc r2 (04/11)
+
+- Người review: SEC | Round 4, gói LP-v2, bước **Review** | 04/11/2026.
+- Phạm vi: `git diff origin/lp-v2-main origin/lp-v2-ops-runbook-r2` (4e0843e0, 1 tệp `rounds/round-04/outputs/OPS/lp-v2-release-runbook.md`).
+- Cách làm: chỉ đọc. Đối chiếu `chat-message.ts` dòng 67–70, `publish-privacy-notice.sql` dòng 116 và 136–142, `Caddyfile.landing`, `init-secrets.sh --set-booking-chat` trên nhánh.
+- Diff không có bí mật, IP, URL webhook hay digest đầy đủ. `HASH_0092` là băm tệp SQL, không phải bí mật.
+
+### 9.1 Đóng thẻ r1.1
+
+| Thẻ | Bằng chứng trong r2 | Kết luận |
+|---|---|---|
+| LPV2RB-01 (Minor) | Ô D1: "Thẻ 01–03 Closed: SEC mục 8.1. CI PR: số run + `headSha` = đầu PR (QC G1) trong decision-log" | **Closed** |
+| LPV2RB-02 (Minor) | Mục 0 "Nhãn thông báo" có hai trường hợp (a) DB chưa có dòng của hằng, (b) đã có. 0.1, P5, 5.2 bước 4(a) sửa theo. `CHKV` đọc `CONST_ROWS` (chỉ cột `version`, giao dịch chỉ đọc) rồi chọn luật | **Closed (phần runbook).** README 12.3 + chú thích `privacy.ts` dời v1.0.4 |
+| LPV2RB-03 (Minor) | `CHKV` so `RA_IMAGE` với `RUN`; S4/P10 `RUN=DOC` đọc `state/current_tag` trong cùng lệnh; P4 so với `⟨TAG_L⟩`; lỗi SSH → `KHONG`. Ở 0.2 luôn khớp (vô hại), bằng chứng thật ở P4/P10 | **Closed** |
+| LPV2RB-04 (Suggestion) | P1 bỏ `CO` điền sẵn; thêm S0b đọc kích thước và so byte, không in URL; tệp rỗng do `init-secrets.sh` ghi có kích thước 0 | **Closed** (điểm nhỏ ở RB-07) |
+
+D3: r2 chép đủ 3 điều kiện mục 8.4 Q1.
+
+### 9.2 Luật `CONST_ROWS≥1` có đúng ý RB-02 không
+
+**Có.**
+1. Cổng thật (`chat-message.ts` dòng 68) là `min(published_at) … WHERE organization_id = $1 AND version = $2`, không lọc `superseded_at`, nên khi hằng đã có dòng thì `min_at` cố định; nhãn đăng sau có `req_at > min_at` nên qua cổng. Không đổi hằng là đúng; `CONST_ROWS` đếm cả dòng đã bị thay thế, khớp cổng.
+2. Ca "bằng hằng": SQL in `already present`, không ghi gì.
+3. Phép "xếp sau" chỉ là lớp an toàn thêm; SQL vẫn từ chối nhãn cũ hơn nhãn đang hiệu lực. Đã thử `LC_ALL=C sort -C -u`: `.1` và `2026-11-05` rc 0; `2026-11-03` rc 1; bằng nhau rc 1 (có nhánh `V = C` riêng).
+4. Mọi chỗ lệch nghiêng về an toàn: đọc rỗng → `CONST_ROWS=0` (luật chặt hơn); thứ tự byte khác khóa SQL chỉ khi hằng có hậu tố → `KHONG` (RB-08).
+5. Giới hạn: luật không thay việc SEC xem chữ (RB-05); `CHKV` không phát hiện hằng bị dời sau lần đăng đầu nêu Chat (an toàn dữ liệu, lỗi vận hành) – README v1.0.4 ghi "sau lần đăng đầu nêu Google Chat, không đổi hằng trừ khi SEC yêu cầu".
+
+### 9.3 5.4 bước 2 dưới góc bảo mật
+
+**Không có rủi ro lộ dữ liệu.**
+- (i) Trước mốc 7 ngày: landing cũ hiện `2026-10-24` (không nêu Chat); v1.0.3 neo hằng `2026-10-31` (chưa đăng) nên Chat ở mức A, khớp chữ khách thấy. 7 ngày tính từ giờ `--apply` ở P10.
+- (ii) Quá mốc: `Caddyfile.landing` chỉ mở 3 route công khai khi `LANDING_PUBLIC_API=on`; CSP `connect-src 'self'`; CI `check-caddy-landing.sh` kiểm `off` → 404. Đóng proxy (bước 2) trước `rollback.sh` (bước 3) giữ bất biến.
+- Yêu cầu theo `2026-11-04` sau khi lùi về v1.0.3 ra mức A (an toàn).
+
+### 9.4 Thẻ mới (r2)
+
+#### FB-R4-SEC-OPS-LPV2RB-05
+- Mức độ: Minor
+- Vị trí: mục 0 "Nhãn thông báo" (b); 5.2 bước 4(a); mục 7 (không có dòng 5.2)
+- Vấn đề: theo luật (b) nhãn mới tự qua cổng Chat ở mức đang đặt. Bước duy nhất chặn "chữ mới bỏ Google Chat khỏi bên nhận" là SEC xem chữ (GCHAT-03), nhưng r2 chỉ nhắc trong lời văn: không phải điều kiện dừng, không có bằng chứng, `CHKV` vẫn ra `CO`.
+- Vì sao quan trọng: nếu sót, tên khách và ngày đến vào Google Chat theo thông báo không nêu Google Chat (NĐ 13/2023).
+- Đề xuất: 5.2 bước 4(a) trước `CHKV`: "**Dừng nếu** decision-log chưa có dòng SEC duyệt chữ `⟨NOTICE_V⟩` mới, ghi rõ 'Google Chat vẫn là bên nhận' hoặc 'đã hạ mức Chat về A theo README 13.4'". Thêm dòng 5.2 vào mục 7. Đưa ý này vào README 12.3 ở v1.0.4.
+- Trạng thái: Open
+
+#### FB-R4-SEC-OPS-LPV2RB-06
+- Mức độ: Minor
+- Vị trí: 5.4 bước 2 gạch cuối ("Chỉ mở lại form … hoặc sau khi đã chọn 5.2 bước 4 (a)/(b)"); 5.4 bước 4 (K5); chỗ nối 5.4(i) với 5.2 bước 4
+- Vấn đề: (1) câu mở lại form không đòi api là LP-v2 – khi api còn v1.0.3 sẽ ra cặp bất biến ARC cấm; "mở lại sau khi chọn (b)" tự mâu thuẫn. (2) Nhánh (i) tới mốc 7 ngày mà app vẫn v1.0.3: 5.2(a) phạm bất biến. (3) K5 không nói kỳ vọng theo nhánh.
+- Đề xuất: (1) "Chỉ mở lại proxy khi K1 cho thấy api là LP-v2 (`current=⟨TAG_L⟩` hoặc mới hơn) và `LANDING_LOCALES` đã về 5 ngôn ngữ (F1)". (2) Thêm vào (i): "Tới mốc 7 ngày mà app vẫn v1.0.3: chỉ làm 5.2 bước 4(b); 5.2 bước 4(a) chỉ sau khi app LP-v2 đã lên lại." (3) "K5: nhánh (i) `form_token=200`; nhánh (ii) `form_token=404` HTML."
+- Trạng thái: Open
+
+#### FB-R4-SEC-OPS-LPV2RB-07
+- Mức độ: Suggestion
+- Vị trí: S0b (lệnh `cmp`)
+- Vấn đề: `if sudo -n cmp -s A B; … else SAME=0` gộp "khác nhau" (rc 1) với "chưa so được" (rc 2 / sudo từ chối).
+- Đề xuất: `sudo -n cmp -s A B; echo "STG_SAME_AS_PROD_RC=$?"` – 0 trùng → dừng; 1 khác; khác = `ERR`, chỉ còn câu hỏi INV.
+- Trạng thái: Open
+
+#### FB-R4-SEC-OPS-LPV2RB-08
+- Mức độ: Suggestion
+- Vị trí: khối `CHKV` (mục 2)
+- Vấn đề: (a) "xếp sau theo byte" khác khóa của `publish-privacy-notice.sql` khi hằng có hậu tố (lệch an toàn). (b) Dòng in không có `E` và số dòng đọc được.
+- Đề xuất: in `ENV=$E ROWS=<n>`; production `ROWS=0` → `KHONG`; ghi "hằng không mang hậu tố" hoặc dùng cùng khóa SQL.
+- Trạng thái: Open
+
+### 9.5 Kết luận
+
+r2 **ĐẠT CÓ ĐIỀU KIỆN**. RB-01, 03, 04 Closed; RB-02 Closed phần runbook. Không chặn staging. Trước P0 production: r2.1 sửa RB-05/06, hoặc ORC chép hai quy tắc vào biên bản P0. RB-07/08 tùy OPS. Khi có r2.1, SEC chỉ đọc phần thay đổi.
