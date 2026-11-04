@@ -9,8 +9,8 @@ import {
   type GuestStay,
   type OnlineCheckin,
 } from '../app/api';
-import { NOTICE_TEXT_VERSIONS } from '../app/config';
-import { shownLocale, useT } from '../app/i18n';
+import { NOTICE_PARAGRAPHS, NOTICE_TEXT_VERSIONS } from '../app/config';
+import { legalLocale, useT } from '../app/i18n';
 import { telHref } from '../app/link';
 import { missingStep, problemText, terminalOf } from '../app/problem';
 import { ARRIVAL_NOTE_MAX, cleanNote, containsCardNumber } from '../app/validation';
@@ -349,7 +349,7 @@ export function CheckinFlow({ stay, online, onExit, onFatal, onCheckinChange }: 
                     // Exactly what the guest read: the days shown in the sentence and the language
                     // of the legal block (RU page → approved EN – decision-log 17/10, R-CON-02).
                     retentionDays,
-                    locale: shownLocale(locale, 'guest.oci.consent'),
+                    locale: legalLocale(locale),
                     channel: 'guest_app',
                   }),
                 );
@@ -381,7 +381,7 @@ export function CheckinFlow({ stay, online, onExit, onFatal, onCheckinChange }: 
  */
 function LegalBlock({ children }: { children: ReactNode }) {
   const { t, locale } = useT();
-  const lang = shownLocale(locale, 'gw.notice_body');
+  const lang = legalLocale(locale);
   if (lang === locale) return <div className="gw-legal">{children}</div>;
   return (
     <>
@@ -418,13 +418,20 @@ function Foot({
 function NoticeStep({ version, onRead }: { version: string; onRead: () => Promise<void> }) {
   const { t, locale } = useT();
   const [busy, setBusy] = useState(false);
-  const readLang = shownLocale(locale, 'gw.notice_read');
+  const readLang = legalLocale(locale);
   return (
     <>
       <div className="m-body">
         <LegalBlock>
           <p>{t('guest.oci.why')}</p>
-          <div className="quote-text">{t('gw.notice_body')}</div>
+          {/* privacy-2026-10-v2: four paragraphs in the SEC order (config.ts NOTICE_PARAGRAPHS). */}
+          <div className="quote-text gw-notice">
+            {NOTICE_PARAGRAPHS.map((key) => (
+              <p key={key} className="m-0">
+                {t(key)}
+              </p>
+            ))}
+          </div>
         </LegalBlock>
         <p className="li-s mt-8">{t('gw.notice_version', { v: version })}</p>
       </div>

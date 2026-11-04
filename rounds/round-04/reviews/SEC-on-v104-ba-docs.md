@@ -91,3 +91,93 @@
 - Vấn đề: "địa chỉ cũ sẽ nhận một thư" đứng cạnh "tài khoản đã Khóa không nhận thư bảo mật về chính mình nữa" – đọc như trái nhau.
 - Đề xuất sửa: "Sau bước 3, tài khoản này không nhận thư bảo mật về chính mình nữa, **trừ một** thư 'notification email changed' gửi tới địa chỉ cũ ở bước này." Thư không có dữ liệu khách.
 - Trạng thái: Open
+
+---
+
+## Duyệt thiết kế P4-16 (04/11) – ARC `v1.0.4-notice-version-allowlist.md`: **DUYỆT CÓ ĐIỀU KIỆN**
+
+ORC chép kết quả từ báo cáo SEC trong phiên. Thẻ 09(a) có thiết kế ở `rounds/round-04/outputs/ARC/v1.0.4-notice-version-allowlist.md`.
+- Đồng ý G-ARC-NV-1: bỏ v1 khỏi danh sách. Sau v1.0.4, máy chủ và guest-web chỉ nhận `privacy-2026-10-v2`.
+- G-ARC-NV-4 (`SECURITY_AUDITED_KEYS`): không làm ở v1.0.4, dời v1.0.5 cùng 09(b).
+- 09(b), ghi đè trong ngày: dời v1.0.5. Điều kiện bù là test G3 bắt danh sách có đúng 1 version. Lý do: khi chỉ có một giá trị hợp lệ thì không thể lưu sai sang một version khác. Còn lỗi lưu nhầm ngày hiệu lực thì P4-34 xử lý bằng nút Hủy lịch.
+
+### FB-R4-SEC-BE-P416-01
+- Mức độ: Major (điều kiện duyệt)
+- Đề xuất: test G3 khẳng định danh sách có độ dài 1 và có câu báo "thêm version thứ hai phải làm 09(b) trước".
+- Trạng thái: **Closed** – SEC review mã `2975bc97` (`SEC-on-v104-p4-16.md`).
+
+### FB-R4-SEC-BE-P416-02
+- Mức độ: Major (điều kiện duyệt)
+- Đề xuất:
+  - test I7: giá trị lạ có ngày hiệu lực tương lai cũng bị 422;
+  - test G1: so với `config.ts` của guest-web chỉ theo literal (regex neo đầu/cuối), đường dẫn tính bằng `path.resolve`.
+- Trạng thái: **Closed** – `2975bc97`.
+
+### FB-R4-SEC-BE-P416-03
+- Mức độ: Minor
+- Đề xuất:
+  - (a) I3: audit ghi đúng nhóm `config`; đồng ý v1 tại quầy → 422 `NOT_IN_LIST`;
+  - (b) Q5 kiểm trên staging;
+  - (c) BA: trước ngày thay tờ, OWN kiểm không có dòng hẹn ngày tương lai cho `privacy_notice_version`;
+  - (d) hằng `Object.freeze`.
+- Trạng thái: (a)(d) **Closed** ở `2975bc97` (SEC Suggestion 04 của review mã làm ở `acd0f7ca`). (b) **chờ QA** kiểm trên staging ở QA lượt 2 v1.0.4. (c) **Closed**: BA làm ở `45d09e5a`, tên nút theo P4-34 ở `4a842a14`.
+
+---
+
+## Xác nhận lượt 2 (04/11) – `v104/ba-docs` @ `97d7ae5d`: **ĐẠT**
+
+- Thẻ 01–08: Closed.
+- Thẻ 09: (a) chuyển thành gói P4-16 của v1.0.4. (b) còn mở, dời v1.0.5.
+- Đồng ý 3 chỗ BA làm khác DOM/SEC.
+- Ghi decision-log: lệch tờ ở quầy so với tham số là **sai lệch quy trình, không phải lộ dữ liệu**. Chờ luật sư xác nhận cùng ESC-001.
+
+### FB-R4-SEC-BA-104-10
+- Mức độ: Suggestion
+- Đề xuất: ghi "ô Giá trị mới báo **bất kỳ lỗi nào** = chưa lưu".
+  - Thiếu dấu nháy thì `ParamDialog` báo "Chọn một giá trị trong danh sách." (do `JSON.parse` lỗi).
+  - QA kiểm cả hai chuỗi này trên staging.
+- Trạng thái: **Closed** – `45d09e5a`.
+
+### FB-R4-SEC-BA-104-11
+- Mức độ: Minor
+- Vấn đề: khách đã xem v2 nhưng không muốn tin nhắn được dịch.
+- Đề xuất: sổ giao ca ghi "không dịch" cạnh mã đơn. 13.1d thành quy tắc chung. DOM kiểm.
+- Trạng thái: **Closed** – `45d09e5a`.
+
+### FB-R4-SEC-BA-104-12
+- Mức độ: Suggestion
+- Đề xuất: `01` 12.1 bỏ chữ "cùng ngày", xếp thứ tự theo 1.9.
+- Trạng thái: **Closed** – `45d09e5a`.
+
+---
+
+## Xác nhận lượt 3 (04/11) – `v104/ba-docs` @ `45d09e5a`: **ĐẠT**
+
+Thẻ 10/11/12 và P416-03(c) đóng. Hai thẻ mới:
+
+### FB-R4-SEC-BA-104-13
+- Mức độ: Minor
+- Vị trí: sổ tay 2.18.
+- Vấn đề: thiếu quy tắc "không dịch" như `02-le-tan.md`.
+- Trạng thái: **Closed** – `d11705f4`. Lượt 4 xác nhận chữ trùng `02-le-tan.md`: áp cho mọi khách; mã đơn có ghi "không dịch" hoặc "chưa xem v2" thì không dịch.
+
+### FB-R4-SEC-BA-104-14
+- Mức độ: Suggestion
+- Đề xuất:
+  - (a) nếu P4-34 trễ: ghi đè dòng hẹn tương lai bằng v2, cùng `effectiveFrom`;
+  - (b) kiểm lần 1 hôm trước, kiểm lần 2 sáng ngày thay tờ; gặp lỗi ở ô khác thì không nhắn "Đã đặt v2".
+- Trạng thái:
+  - (a) **Không làm** – chấp nhận, vì P4-34 (nút Hủy lịch) đã vào v1.0.4.
+  - (b) **Closed** – `d11705f4`.
+
+---
+
+## Xác nhận lượt 4 (04/11) – `v104/ba-docs` @ `4a842a14`: **ĐẠT, gộp được**
+
+- Diff `45d09e5a..4a842a14` gồm 3 tệp: `00-index.md`, `user-manual-v1.0.md`, `BA-on-DOM-v104.md`. Hết điều kiện.
+- 13, 14(b), P416-03(c): đóng.
+  - Đường đi đối chiếu từng chuỗi với `strings-vi.json` trên `v104/fe-param-cancel`: Hủy lịch → hộp "Hủy giá trị đã lên lịch?" → Lý do → Hủy lịch → toast "Đã hủy lịch đổi …".
+  - Câu "chỉ dòng hẹn từ ngày mai trở đi" khớp lỗi 409 `params.cancel_effective`.
+  - Câu "chỉ chủ đầu tư thấy nút" khớp `edit_roles '{owner}'` (migration 0050).
+- Quét các dòng thêm: không có email, mật khẩu, khóa, số tài khoản hay số điện thoại. Không có thẻ mới.
+- Giả định: nếu UXD đổi chữ P4-34 trước khi gộp, BA đồng bộ lại `00-index` mục 4 bước 1.

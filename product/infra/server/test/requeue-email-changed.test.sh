@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Test of bin/requeue-email-changed.sh (INT FB-R4-INT-BE-31-02 (b), ARC FB-R4-ARC-BE-31-02, runbook v1.0.3 R9) with a
 # stub `dc` (RQ_TEST_DC): no docker, no database. The stub records every psql script it is handed.
-# Cases: usage · production / a stack marker refuses the stub · lock held · no flock on production · current_tag / worker tag / worker template checks · no
+# Cases: usage · production / a stack marker refuses the stub · lock held · no flock on production · current_tag / worker tag
+# (exactly <tag><API_TAG_SUFFIX>, SEC PR32-S2) / worker template checks · no
 # 0091 table · dry run writes nothing · --expect must match · the UPDATE (conditions, 7 days, one transaction, exact
 # row count) · a refused write says "nothing written" without the raw error · output has counts only.
 #   bash infra/server/test/requeue-email-changed.test.sh        (workstation or CI)
@@ -13,7 +14,9 @@ mkdir -p "$T/home/state" "$T/bin"
 TAG=sha-0123456789ab
 cat > "$T/bin/dc" <<'STUB'
 #!/usr/bin/env bash
-# stub of bin/dc: `ps … worker` → FAKE_IMG; `exec -T worker node …` → exit FAKE_NODE_RC;
+# stub of bin/dc: `ps … worker` → FAKE_IMG; `exec -T worker node …`: the file check → exit FAKE_HAS_CLI (0 = the
+# image has dist/admin/known-email-templates-cli.js), the command → exit FAKE_NODE_RC, the v1.0.3 import question
+# (images without the command) → exit FAKE_LEGACY_RC;
 # `exec -T postgres sh -c '<psql>'` → keep the script, answer the count (FAKE_ROWS, then FAKE_ROWS_AFTER) or fail.
 log="$OTTIMO_HOME/calls"
 if [ "$1" = ps ]; then
@@ -22,7 +25,12 @@ if [ "$1" = ps ]; then
   printf '%b' "${FAKE_IMG:-}"; exit 0
 fi
 case "$1 $2 $3" in
-  "exec -T worker") echo "worker $*" >> "$log"; echo 'internal detail' >&2; exit "${FAKE_NODE_RC:-0}" ;;
+  "exec -T worker") echo "worker $*" >> "$log"; echo 'internal detail' >&2
+    case "$*" in
+      *existsSync*) exit "${FAKE_HAS_CLI:-0}" ;;
+      *known-email-templates-cli.js*) exit "${FAKE_NODE_RC:-0}" ;;
+      *) exit "${FAKE_LEGACY_RC:-0}" ;;
+    esac ;;
   "exec -T postgres")
     n=$(( $(ls "$OTTIMO_HOME"/sql.* 2>/dev/null | wc -l) + 1 ))
     printf '%s\n' "$*" > "$OTTIMO_HOME/cmd.$n"
@@ -42,7 +50,7 @@ chmod +x "$T/bin/dc"
 pass=0 fail=0
 reset() {
   rm -f "$T/home/calls" "$T/home"/sql.* "$T/home"/cmd.* "$T/home/written"
-  printf 'APP_ENV=staging\n' > "$T/home/.env"
+  printf 'APP_ENV=staging\nAPI_IMAGE=ghcr.io/example/ottimo-api\n%b' "${ENV_EXTRA:-}" > "$T/home/.env"
   echo "$TAG" > "$T/home/state/current_tag"
 }
 rq() { # env… -- args…
@@ -84,14 +92,50 @@ rm -f "$T/home/.ottimo-home"
 case_ "current_tag is another tag"     1 'REFUSED: state/current_tag is not sha-ffffffffffff – run this only on the tag that is live now' -- --tag sha-ffffffffffff
 nowrite "current_tag is another tag"
 case_ "worker on another tag"          1 'REFUSED: the running worker is not on image tag' FAKE_IMG='ghcr.io/example/ottimo-api:sha-e5fffe05ed55\n' -- --tag "$TAG"
-case_ "worker tag + suffix accepted"   0 'dry run' FAKE_IMG="ghcr.io/example/ottimo-api:$TAG-test\n" FAKE_ROWS=1 -- --tag "$TAG"
+# SEC FB-R4-SEC-OPS-PR32-S2: the worker image tag must be exactly <tag><API_TAG_SUFFIX of the .env>.
+ENV_EXTRA='API_TAG_SUFFIX=-test\n'
+case_ "worker tag + the .env suffix accepted" 0 'dry run' FAKE_IMG="ghcr.io/example/ottimo-api:$TAG-test\n" FAKE_ROWS=1 -- --tag "$TAG"
+case_ "suffix in .env, worker without it"     1 "REFUSED: the running worker is not on image tag $TAG-test\$" FAKE_ROWS=1 -- --tag "$TAG"
+case_ "suffix in .env, worker on another suffix" 1 "REFUSED: the running worker is not on image tag $TAG-test\$" FAKE_IMG="ghcr.io/example/ottimo-api:$TAG-test2\n" FAKE_ROWS=1 -- --tag "$TAG"
+ENV_EXTRA='API_TAG_SUFFIX="-test"\r\n'
+case_ "quoted suffix with CRLF in .env"       0 'dry run' FAKE_IMG="ghcr.io/example/ottimo-api:$TAG-test\n" FAKE_ROWS=1 -- --tag "$TAG"
+ENV_EXTRA=''
+case_ "no suffix in .env, worker on <tag>-test" 1 "REFUSED: the running worker is not on image tag $TAG\$" FAKE_IMG="ghcr.io/example/ottimo-api:$TAG-test\n" FAKE_ROWS=1 -- --tag "$TAG"
+case_ "no suffix, worker on <tag>-anything"   1 "REFUSED: the running worker is not on image tag $TAG\$" FAKE_IMG="ghcr.io/example/ottimo-api:$TAG-rc1\n" FAKE_ROWS=1 -- --tag "$TAG"
+case_ "worker tag only a prefix of --tag"     1 'REFUSED: the running worker is not on image tag' FAKE_IMG="ghcr.io/example/ottimo-api:${TAG%?}\n" FAKE_ROWS=1 -- --tag "$TAG"
+ENV_EXTRA='API_IMAGE=registry.example.invalid:5000/ottimo-api\n'
+case_ "registry with a port, exact tag"       0 'dry run' FAKE_IMG="registry.example.invalid:5000/ottimo-api:$TAG\n" FAKE_ROWS=1 -- --tag "$TAG"
+ENV_EXTRA=''
+# ARC FB-R4-ARC-OPS-P403-02: the full reference is compared, not only the tag part.
+case_ "same tag, another repository"          1 'REFUSED: the running worker image is not API_IMAGE of the .env \(tag sha-0123456789ab\)$' FAKE_IMG="ghcr.io/example/other-api:$TAG\n" FAKE_ROWS=1 -- --tag "$TAG"
+nowrite "same tag, another repository"
+case_ "registry with a port, .env without it" 1 'REFUSED: the running worker image is not API_IMAGE of the .env' FAKE_IMG="registry.example.invalid:5000/ottimo-api:$TAG\n" FAKE_ROWS=1 -- --tag "$TAG"
 case_ "no worker running"              1 'REFUSED: expected exactly one running worker container' FAKE_IMG='' -- --tag "$TAG"
 case_ "two workers running"            1 'REFUSED: expected exactly one running worker container' FAKE_IMG="a:$TAG\nb:$TAG\n" -- --tag "$TAG"
 case_ "docker compose fails"           1 'REFUSED: docker compose failed – worker state unknown$' FAKE_PS_FAIL=1 -- --tag "$TAG"
 case_ "worker image without email_changed (v1.0.2)" 1 'REFUSED: the worker image sha-0123456789ab does not know the template email_changed' FAKE_NODE_RC=1 FAKE_ROWS=2 -- --tag "$TAG" --apply --expect 2
+# ARC FB-R4-ARC-OPS-P403-05: with the command file present, exit 1 may also be the command failing to load – the
+# message says so and does not send the operator to v1.0.3.
+if grep -q 'or dist/admin/known-email-templates-cli.js failed – nothing written' <<<"$LAST" && ! grep -q 'v1.0.2?' <<<"$LAST"; then
+  pass=$((pass + 1)); echo "ok   v1.0.4 image, command exit 1 → 'unknown, or the command failed', no 'go up to v1.0.3'"
+else fail=$((fail + 1)); echo "FAIL v1.0.4 image, command exit 1 message: $LAST"; fi
 nowrite "worker v1.0.2"
 case_ "worker probe cannot tell"       1 'REFUSED: could not ask the worker image which templates it knows \(exit 3\)' FAKE_NODE_RC=3 -- --tag "$TAG"
 if grep -q 'internal detail' <<<"$LAST"; then fail=$((fail + 1)); echo "FAIL probe stderr forwarded"; else pass=$((pass + 1)); fi
+# ARC PR32-06 / BE-A P4-06: the template question goes through the image's own command, by exact argv.
+case_ "v1.0.4 image: command asked"    0 'knows the template email_changed \(known-email-templates-cli\)' FAKE_ROWS=1 -- --tag "$TAG"
+if grep -qx "worker exec -T worker node dist/admin/known-email-templates-cli.js email_changed" "$T/home/calls" \
+  && ! grep -q 'input-type=module' "$T/home/calls"; then pass=$((pass + 1)); echo "ok   command called as 'node dist/admin/known-email-templates-cli.js email_changed', no import question"
+else fail=$((fail + 1)); echo "FAIL command argv: $(cat "$T/home/calls")"; fi
+case_ "command usage error (exit 2)"   1 'REFUSED: could not ask the worker image which templates it knows \(exit 2\)' FAKE_NODE_RC=2 -- --tag "$TAG"
+nowrite "command usage error"
+case_ "v1.0.3 image (no command file): import question, known" 0 'knows the template email_changed \(package import, image before v1.0.4\)' FAKE_HAS_CLI=1 FAKE_ROWS=1 -- --tag "$TAG"
+if grep -q 'input-type=module' "$T/home/calls" && ! grep -q 'node dist/admin/known-email-templates-cli.js' "$T/home/calls"; then
+  pass=$((pass + 1)); echo "ok   no command file → the command is not run (a missing module would exit 1 = 'unknown')"
+else fail=$((fail + 1)); echo "FAIL no command file: $(cat "$T/home/calls")"; fi
+case_ "v1.0.2 image (no command file): import question, unknown" 1 'REFUSED: the worker image sha-0123456789ab does not know the template email_changed' FAKE_HAS_CLI=1 FAKE_LEGACY_RC=1 FAKE_ROWS=2 -- --tag "$TAG" --apply --expect 2
+nowrite "v1.0.2 image without command"
+case_ "file check itself fails"        1 'REFUSED: could not ask the worker image which templates it knows \(exit 126\)' FAKE_HAS_CLI=126 -- --tag "$TAG"
 case_ "no user_email_change table"     1 'REFUSED: table user_email_change is missing' FAKE_ROWS=-1 FAKE_OLDER=-1 -- --tag "$TAG"
 case_ "count query fails"              1 'REFUSED: count query failed – nothing written$' FAKE_COUNT_FAIL=1 -- --tag "$TAG"
 

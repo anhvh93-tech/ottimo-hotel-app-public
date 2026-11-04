@@ -95,6 +95,25 @@ describe('smtpConfigFromCredentials / buildSmtpTransportOptions', () => {
     ).toMatchObject({ secure: true, requireTLS: false });
   });
 
+  it('EMAIL_FROM / EMAIL_SMTP_USER follow the shared address rule (v1.0.4): case kept, Unicode refused', () => {
+    expect(smtpConfigFromCredentials({}, { from: 'Info@Ottimo.test' }).from).toBe(
+      'Info@Ottimo.test',
+    );
+    expect(() => smtpConfigFromCredentials({}, { from: 'thư@ottimo.test' })).toThrow(
+      /EMAIL_FROM is required in relay mode/,
+    );
+    expect(() => smtpConfigFromCredentials({}, { from: 'OTTIMO <info@ottimo.test>' })).toThrow(
+      /EMAIL_FROM/,
+    );
+    expect(() =>
+      smtpConfigFromCredentials({ ...AP, USER: 'desk@ottimo', PASSWORD: PASS }, { from: USER }),
+    ).toThrow(/EMAIL_SMTP_USER must be the full mailbox address/);
+    expect(
+      () =>
+        new SmtpNotificationAdapter({ transport: {} as MailTransport, from: 'a@ottimo.1', now }),
+    ).toThrow(/EMAIL_FROM is invalid/);
+  });
+
   it('relay refuses a leftover password, a missing From and a non-domain EHLO name', () => {
     expect(() => smtpConfigFromCredentials({ PASSWORD: PASS }, { from: USER })).toThrow(
       /relay uses no password/,
@@ -195,6 +214,16 @@ describe('SmtpNotificationAdapter over a local fake SMTP server', () => {
     a.close();
   });
 
+  it('a stored address in mixed case is still delivered (case is not part of the rule)', async () => {
+    const port = await start();
+    const a = new SmtpNotificationAdapter({ transport: localTransport(port), from: USER, now });
+    const r = await a.send(ctx, msg({ to: 'Owner-Test@Example.test' }));
+    expect(r.status).toBe('sent');
+    // The adapter passes the address as it is; nodemailer lower-cases the domain only.
+    expect(server!.mails[0]!.to).toEqual(['Owner-Test@example.test']);
+    a.close();
+  });
+
   it('wrong app password → AUTH, not retryable, no address or password in the error', async () => {
     const port = await start();
     const a = new SmtpNotificationAdapter({
@@ -285,6 +314,21 @@ describe('SmtpNotificationAdapter over a local fake SMTP server', () => {
     await expect(a.send(ctx, msg({ to: 'x@y.test\r\nBcc: z@y.test' }))).rejects.toMatchObject({
       code: 'INVALID_REQUEST',
     });
+    // v1.0.4 (FB-R4-INT-BE-31-04): the adapter checks THE address rule of the API (email-address.ts). Accepted by
+    // the v1.0.3 adapter regex, refused now: Unicode, a single-label TLD of digits, quotes, a trailing CR/LF.
+    for (const to of [
+      'nguyễn@example.test',
+      'owner@exämple.test',
+      'a@example.123',
+      '"x"@example.test',
+      'owner@example.test\r\n',
+      ' owner@example.test',
+    ]) {
+      await expect(a.send(ctx, msg({ to })), JSON.stringify(to)).rejects.toMatchObject({
+        code: 'INVALID_REQUEST',
+        message: 'Invalid recipient',
+      });
+    }
     await expect(
       a.send(
         ctx,

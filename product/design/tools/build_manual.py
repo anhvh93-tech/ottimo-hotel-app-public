@@ -11,6 +11,11 @@ Tùy chọn:
     --img-dir PATH   thư mục ảnh (mặc định <thư mục của --md>/img), tên ảnh <mã>.png|.jpg|.jpeg|.webp
     --link-images    trỏ ảnh bằng đường dẫn tương đối thay vì nhúng base64
                      (tệp nhẹ, nhưng phải gửi kèm thư mục img/)
+    --no-embed-fonts dùng Google Fonts (cần mạng) thay vì nhúng font
+
+Font Lora / Be Vietnam Pro / JetBrains Mono nhúng base64 (woff2, latin + vietnamese) theo cách
+của build_guides.py (doc_fonts.py dùng chung). Mở tệp khi mất mạng vẫn đúng font thương hiệu.
+Cần @fontsource của landing-web (`pnpm install`); thiếu thì in cảnh báo và trỏ Google Fonts.
 
 Cú pháp Markdown được hỗ trợ (đúng những gì BA dùng):
     # / ## / ### tiêu đề · đoạn văn · **đậm** · *nghiêng* · `mã` · [chữ](link)
@@ -32,6 +37,9 @@ import sys
 import unicodedata
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from doc_fonts import FONT_DIR, fonts_head  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_MD = ROOT / "product" / "docs" / "manual" / "user-manual-v1.0.md"
 DEFAULT_OUT = ROOT / "product" / "docs" / "manual" / "ottimo-manual-v1.0.html"
@@ -39,6 +47,12 @@ PAGE_TITLE = "Sổ tay OTTIMO Desk v1.0"
 MOTTO = "Desk đúng hơn sổ tay."
 IMG_EXT = (".png", ".jpg", ".jpeg", ".webp")
 MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
+# Đúng các mặt chữ CSS của sổ tay dùng: Lora 500 (tiêu đề), 400 nghiêng (câu châm ngôn ở bìa);
+# Be Vietnam Pro 400/500/600 (nội dung, nhãn, nút); JetBrains Mono 400/500 (mã, số mục).
+MANUAL_FONTS = [("Lora", "lora", 400), ("Lora", "lora", 500), ("Lora", "lora", 400, "italic"),
+                ("Be Vietnam Pro", "be-vietnam-pro", 400), ("Be Vietnam Pro", "be-vietnam-pro", 500),
+                ("Be Vietnam Pro", "be-vietnam-pro", 600),
+                ("JetBrains Mono", "jetbrains-mono", 400), ("JetBrains Mono", "jetbrains-mono", 500)]
 
 # --------------------------------------------------------------------------- Markdown -> khối
 
@@ -305,6 +319,7 @@ class Ctx:
         self.sec_ids = {}      # "2.10" -> "s-2-10"
         self.used_ids = set()
         self.found, self.missing, self.refs = set(), [], 0
+        self.fonts_embedded = False
         self.img_cache = {}
 
     def uid(self, base):
@@ -574,7 +589,7 @@ def render_heading(b, ctx):
 
 # --------------------------------------------------------------------------- khung trang
 
-def build(md_text, md_path, out_path, img_dir, link_images):
+def build(md_text, md_path, out_path, img_dir, link_images, embed_fonts=True):
     shot_info = load_shot_list(md_path.parent / "screenshot-list.md")
     ctx = Ctx(img_dir, link_images, out_path, shot_info)
     blocks = parse_blocks(strip_comments(md_text).split("\n"))
@@ -752,9 +767,11 @@ def build(md_text, md_path, out_path, img_dir, link_images):
         "ảnh đã có %d/%d mã.</p></footer>"
         % (esc(md_path.name), digest, datetime.date.today().strftime("%d/%m/%Y"), len(ctx.found), unique_refs))
 
+    font_html, ctx.fonts_embedded = fonts_head(MANUAL_FONTS, embed_fonts)
     page = TEMPLATE.format(
         title=esc(PAGE_TITLE),
         description=esc(plain(doc_title)),
+        fonts=font_html,
         css=CSS,
         js=JS,
         chips="".join(chips),
@@ -1100,9 +1117,7 @@ TEMPLATE = """<!doctype html>
 <meta name="theme-color" content="#F4F0E8">
 <meta name="description" content="{description}">
 <title>{title}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+{fonts}
 <style>{css}</style>
 </head>
 <body>
@@ -1135,6 +1150,7 @@ def main(argv=None):
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
     ap.add_argument("--img-dir", type=Path, default=None)
     ap.add_argument("--link-images", action="store_true")
+    ap.add_argument("--no-embed-fonts", action="store_true", help="dùng Google Fonts thay vì nhúng font")
     a = ap.parse_args(argv)
 
     md_path = a.md.resolve()
@@ -1145,7 +1161,7 @@ def main(argv=None):
     out_path = a.out.resolve()
     md_text = md_path.read_text(encoding="utf-8")
 
-    page, ctx, chapters = build(md_text, md_path, out_path, img_dir, a.link_images)
+    page, ctx, chapters = build(md_text, md_path, out_path, img_dir, a.link_images, not a.no_embed_fonts)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(page, encoding="utf-8")
 
@@ -1156,6 +1172,11 @@ def main(argv=None):
     print("  Chương: %d · mục: %d" % (len(chapters), sum(len(c["subs"]) for c in chapters)))
     print("  Ảnh: %d/%d mã đã có (%d chỗ chèn)%s" % (
         len(ctx.found), total, ctx.refs, " – nhúng base64" if not a.link_images else " – trỏ đường dẫn"))
+    print("  Font: %s" % ("nhúng base64 (mở khi mất mạng vẫn đúng font)" if ctx.fonts_embedded
+                          else "Google Fonts (cần mạng)"))
+    if not ctx.fonts_embedded and not a.no_embed_fonts:
+        print("  ! Không thấy font @fontsource ở %s – chạy `pnpm install` rồi dựng lại." % FONT_DIR,
+              file=sys.stderr)
     if ctx.missing:
         shown = ", ".join(ctx.missing[:12]) + (" …" if len(ctx.missing) > 12 else "")
         print("  Còn thiếu %d: %s" % (len(ctx.missing), shown))

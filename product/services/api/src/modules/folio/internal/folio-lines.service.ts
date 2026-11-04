@@ -495,6 +495,8 @@ export class FolioLinesService {
       windowUntil !== null &&
       this.clock.now().getTime() >= windowUntil.getTime()
     ) {
+      // Desk (admin-web FolioDialog `debtRule`) tells this 409 from the debt one below by `detail`: only a sentence
+      // naming BR-525 / debt_write_off is the debt case. Keep those words in the debt sentence and out of this one.
       throw problem('FOLIO_LOCKED', { detail: 'post-checkout window over (BR-427 d)' });
     }
     // US-038 AC2 / A32: after checkout only MGR+ posts corrections.

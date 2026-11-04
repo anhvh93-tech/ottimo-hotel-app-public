@@ -21,6 +21,8 @@ defineAuditEntity('app_user', [
   'passwordReset',
 ]);
 defineAuditEntity('trusted_device', ['name', 'deviceKind', 'expiresAt', 'revokedAt']);
+// v1.0.4 V3-04 / SEC V104-06: production-bootstrap records whether the first owner got an e-mail (boolean only).
+defineAuditEntity('dataset', ['ownerEmailSet']);
 
 // Moved from public/mfa-store.ts.
 defineAuditEntity('app_user', [
