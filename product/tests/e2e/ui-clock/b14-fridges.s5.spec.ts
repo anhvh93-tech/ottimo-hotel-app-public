@@ -168,7 +168,10 @@ test.describe(
         await expect(
           page.getByText(new RegExp(esc(stem('co.minibar_total')))).first(),
         ).toContainText(BIA.salePriceVnd.toLocaleString('vi-VN'));
-        await page.getByRole('button', { name: t('co.go_extras') }).click();
+        // FB-R4-UXD-FE-PR81-01: còn tủ căn đang ở sau tủ này – nút chính nêu tủ kế tiếp
+        await page
+          .getByRole('button', { name: tf('co.go_next_cabinet', { room: to!.roomNo }) })
+          .click();
         const w1 = await waitWrite(
           counts,
           'đếm tủ 202 (H16)',

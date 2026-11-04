@@ -388,7 +388,9 @@ describe('DOM (e) / M-1 – minibar theo tủ (lượt × căn)', () => {
       within(group).getByRole('button', { name: tv('co.minibar_cabinet_room', { room: '201' }) }),
     ).toBeInTheDocument();
     await waitFor(() => expect(old).toHaveAttribute('aria-pressed', 'true'));
-    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
+    await user.click(
+      await screen.findByRole('button', { name: tv('co.go_next_cabinet', { room: '201' }) }),
+    );
     await waitFor(() => expect(counts.sent.length).toBe(1));
     expect(counts.sent[0]).toMatchObject({ mode: 'checkout', roomId: 'room-old-202' });
     // BUG-R4-042: 202 is counted – never offered again on this page; the one cabinet left is named on screen (K11-03).

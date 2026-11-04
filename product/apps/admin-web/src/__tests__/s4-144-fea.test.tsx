@@ -472,7 +472,9 @@ describe('K11-03 – lần đếm luôn định danh tủ; căn hiện tại = �
     ).closest('tr')!;
     await waitFor(() => expect(within(row).getAllByRole('cell')[1]!.textContent).toBe('0'));
     await user.click(within(row).getByRole('button', { name: tv('rooms.dec') }));
-    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
+    await user.click(
+      await screen.findByRole('button', { name: tv('co.go_next_cabinet', { room: '202' }) }),
+    );
     await waitFor(() => expect(counts.sent.length).toBe(1));
     expect(counts.sent[0]).toMatchObject({ roomId: r402.id });
     // BUG-R4-042: 402 is counted – never offered again on this page; the one cabinet left is named on screen (K11-03).
