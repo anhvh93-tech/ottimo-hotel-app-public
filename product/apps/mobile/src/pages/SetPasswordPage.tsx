@@ -102,10 +102,8 @@ export function SetPasswordPage({
         return;
       }
     }
-    if (!online) {
-      setBanner({ text: t('login.offline') });
-      return;
-    }
+    // FB-R4-UXD-MOB-P450-02: the warning above already says so (and the code stays) – no second, red copy.
+    if (!online) return;
     setBusy(true);
     setBanner(null);
     try {
@@ -233,7 +231,7 @@ export function SetPasswordPage({
                   className={useRecovery ? 'input mono' : 'input code-input'}
                   name={useRecovery ? 'recoveryCode' : 'totpCode'}
                   inputMode={useRecovery ? 'text' : 'numeric'}
-                  autoComplete="one-time-code"
+                  autoComplete={useRecovery ? 'off' : 'one-time-code'}
                   autoCapitalize={useRecovery ? 'characters' : 'none'}
                   spellCheck={false}
                   maxLength={useRecovery ? 24 : 9}

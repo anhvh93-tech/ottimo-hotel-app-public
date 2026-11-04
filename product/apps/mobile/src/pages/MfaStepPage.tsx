@@ -101,10 +101,8 @@ export function MfaStepPage({
       inputRef.current?.focus();
       return;
     }
-    if (!online) {
-      setBanner({ text: t('login.offline') });
-      return;
-    }
+    // FB-R4-UXD-MOB-P450-02: the warning above already says so (and the code stays) – no second, red copy.
+    if (!online) return;
     setBusy(true);
     setFieldError(null);
     setBanner(null);
@@ -203,7 +201,8 @@ export function MfaStepPage({
             name={totp ? 'totpCode' : 'recoveryCode'}
             className={totp ? 'input code-input' : 'input mono'}
             inputMode={totp ? 'numeric' : 'text'}
-            autoComplete="one-time-code"
+            // FB-R4-SEC-MOB-P450-03: a recovery code is no SMS code – keep it out of the form history.
+            autoComplete={totp ? 'one-time-code' : 'off'}
             autoCapitalize={totp ? 'none' : 'characters'}
             autoCorrect="off"
             spellCheck={false}

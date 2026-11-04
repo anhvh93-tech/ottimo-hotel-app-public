@@ -4,12 +4,20 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ApiError } from '@ottimo/api-client';
-import { screen, waitFor } from '@testing-library/react';
+import { I18nProvider } from '@ottimo/i18n';
+import { ICONS } from '@ottimo/ui';
+import { render, screen, waitFor } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { App } from '../App';
 import type { StaffNotification } from '../app/api';
 import { deskUrl } from '../app/config';
 import { notifRef, notifText } from '../app/notifications';
+import { MemoryStore } from '../data/store';
 import { mockControl, MOCK_PASSWORD, MOCK_RECOVERY_CODE, MOCK_TOTP } from '../mocks/handlers';
+import { server } from '../mocks/node';
+import { EnrollOnDeskPage } from '../pages/EnrollOnDeskPage';
 import { MFA_STEP_MS } from '../pages/MfaStepPage';
 import { classify } from '../queue/queue';
 import { appSourceFiles } from '../../scripts/used-keys';
@@ -54,7 +62,7 @@ describe('ARC-RN103-02 – every role with 2-step signs in on the phone', () => 
     expect(screen.getByText(tv('auth.totp.help'))).toBeInTheDocument();
     // The password step is gone and the old "comes in a later release" sentence is never shown.
     expect(screen.queryByLabelText('Mật khẩu')).toBeNull();
-    expect(container.textContent).not.toContain(tv('auth.mfa_later'));
+    expect(container.textContent).not.toMatch(/Đăng nhập 2 bước sẽ có ở bản sau/);
     await typeCode(user, MOCK_TOTP.slice(0, 3) + ' ' + MOCK_TOTP.slice(3)); // pasted "123 456" works
     if (home === 'tasks') {
       expect(await screen.findByRole('heading', { name: /Việc của tôi/ })).toBeInTheDocument();
@@ -109,9 +117,15 @@ describe('ARC-RN103-02 – every role with 2-step signs in on the phone', () => 
 
   it('recovery code (lost phone) → signed in, then only "set up 2-step on Desk" + sign out', async () => {
     const { user, container } = await toStep2('hk.mfa');
+    expect(screen.getByLabelText(TOTP_LABEL())).toHaveAttribute('autocomplete', 'one-time-code');
     await user.click(screen.getByRole('button', { name: tv('auth.totp.recovery') }));
     expect(screen.getByRole('heading', { name: tv('mfa.recovery_title') })).toBeInTheDocument();
     expect(screen.getByText(tv('mfa.recovery_after'))).toBeInTheDocument();
+    // FB-R4-SEC-MOB-P450-03: a recovery code stays out of the browser's form history.
+    expect(screen.getByLabelText(tv('auth.code_label.recovery'))).toHaveAttribute(
+      'autocomplete',
+      'off',
+    );
     await user.type(
       screen.getByLabelText(tv('auth.code_label.recovery')),
       MOCK_RECOVERY_CODE.toLowerCase(),
@@ -121,6 +135,7 @@ describe('ARC-RN103-02 – every role with 2-step signs in on the phone', () => 
       await screen.findByRole('heading', { name: tv('auth.enroll.title') }),
     ).toBeInTheDocument();
     expect(screen.getByText(tv('error.MFA_ENROLLMENT_REQUIRED'))).toBeInTheDocument();
+    expect(screen.getByText(tv('staff.mfa_enroll_desk'))).toBeInTheDocument();
     expect(container.textContent).not.toMatch(WEAK);
     expect(calls('listHkTasks')).toBe(0); // no screen behind that would fail with 403
     await user.click(screen.getByRole('button', { name: tv('shell.logout') }));
@@ -155,9 +170,12 @@ describe('ARC-RN103-02 – weak network on step 2 never loses the typed code', (
     const { user } = await toStep2('hk.mfa');
     setOnline(false);
     await typeCode(user, MOCK_TOTP);
-    expect((await screen.findAllByText(tv('login.offline'))).length).toBeGreaterThan(0);
+    expect(await screen.findByText(tv('login.offline'))).toBeInTheDocument();
     expect(screen.getByLabelText(TOTP_LABEL())).toHaveValue(MOCK_TOTP);
     expect(calls('loginMfa')).toBe(0);
+    // FB-R4-UXD-MOB-P450-02: one (warning) block, no red copy of the same sentence.
+    expect(screen.getAllByText(tv('login.offline'))).toHaveLength(1);
+    expect(screen.queryByRole('alert')).toBeNull();
     setOnline(true);
     await user.click(screen.getByRole('button', { name: tv('auth.totp.submit') }));
     expect(await screen.findByRole('heading', { name: /Việc của tôi/ })).toBeInTheDocument();
@@ -257,6 +275,62 @@ describe('BUG-R3-052 – temporary password / 2-step to set up: the right screen
     ).toBeInTheDocument();
     expect(container.textContent).not.toMatch(WEAK);
     expect(calls('listHkTasks')).toBe(0);
+    // FB-R4-UXD-MOB-P450-01: on localhost (no Desk link) the next step is still said – not only "Sign out".
+    expect(screen.getByText(tv('staff.mfa_enroll_desk'))).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /OTTIMO Desk/ })).toBeNull();
+    expect(screen.getByRole('button', { name: tv('shell.logout') })).toBeInTheDocument();
+  });
+
+  it('FB-R4-UXD-MOB-P450-01: on staff.<domain> the Desk link is the main action (btn pri, icon monitor)', () => {
+    vi.stubGlobal('location', { ...window.location, hostname: 'staff.example.test' });
+    try {
+      render(
+        <I18nProvider defaultLocale="vi">
+          <EnrollOnDeskPage onLogout={() => {}} />
+        </I18nProvider>,
+      );
+      const desk = screen.getByRole('link', { name: /OTTIMO Desk · desk\.example\.test/ });
+      expect(desk).toHaveAttribute('href', 'https://desk.example.test/');
+      expect(desk).toHaveClass('btn', 'pri', 'xl', 'block');
+      const monitor = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      monitor.innerHTML = ICONS.monitor;
+      expect(desk.querySelector('svg')?.innerHTML).toBe(monitor.innerHTML);
+      expect(screen.getByText(tv('staff.mfa_enroll_desk'))).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: tv('shell.logout') })).not.toHaveClass('pri');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('FB-R4-SEC-MOB-P450-01: a restricted session drops the cached full profile – offline start opens no work screen', async () => {
+    const store = new MemoryStore();
+    const open = () =>
+      render(
+        <StrictMode>
+          <App store={store} />
+        </StrictMode>,
+      );
+    // 1. Full session first: temporary password changed → Việc, profile cached for offline start.
+    const first = await start('hk.temp', undefined, store);
+    await screen.findByRole('heading', { name: tv('pw.title') });
+    await fillPassword(first.user, 'Doi-thong-xanh-26');
+    expect(await screen.findByRole('heading', { name: /Việc của tôi/ })).toBeInTheDocument();
+    expect(await store.get('snapshot', 'me')).toBeDefined();
+    first.unmount();
+    // 2. OWN sets a temporary password again: the next start is a restricted session.
+    mockControl.state.newPasswords.delete('hk.temp');
+    const second = open();
+    expect(await screen.findByRole('heading', { name: tv('pw.title') })).toBeInTheDocument();
+    await waitFor(async () => expect(await store.get('snapshot', 'me')).toBeUndefined());
+    second.unmount();
+    const reads = calls('listHkTasks');
+    // 3. Opened again without network: no profile on the phone → sign-in screen, never "Việc".
+    setOnline(false);
+    server.use(http.get('/v1/me', () => HttpResponse.error()));
+    open();
+    expect(await screen.findByRole('button', { name: 'Đăng nhập' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Việc của tôi/ })).toBeNull();
+    expect(calls('listHkTasks')).toBe(reads); // nothing read for the work screens
   });
 
   it('a read refused mid-session with 403 PASSWORD_CHANGE_REQUIRED opens the password screen', async () => {
@@ -265,9 +339,11 @@ describe('BUG-R3-052 – temporary password / 2-step to set up: the right screen
       status: 403,
       code: 'PASSWORD_CHANGE_REQUIRED',
     };
-    const { container } = await start('hk.lan');
+    const { container, store } = await start('hk.lan');
     expect(await screen.findByRole('heading', { name: tv('pw.title') })).toBeInTheDocument();
     await waitFor(() => expect(container.textContent).not.toMatch(WEAK));
+    // FB-R4-SEC-MOB-P450-01: the profile cached at this sign-in is dropped too.
+    await waitFor(async () => expect(await store.get('snapshot', 'me')).toBeUndefined());
   });
 
   it('the queue keeps (pauses) an item refused only because the session is restricted', () => {

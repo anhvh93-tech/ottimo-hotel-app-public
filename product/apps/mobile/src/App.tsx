@@ -86,8 +86,9 @@ function Root({ store, connect }: { store: KvStore; connect?: Connect }) {
       if (!offline) setCsrfToken(me.csrfToken);
       const switched = (await cache.bindUser(me.id)) === 'switched';
       const restriction = meRestriction(me);
-      // A restricted session opens nothing offline later (no profile copy until the session is full).
-      if (!offline && !restriction) await cache.saveMe(me);
+      // A restricted session opens nothing offline later: no profile copy until the session is full, and the
+      // copy of an earlier full session is dropped (FB-R4-SEC-MOB-P450-01).
+      if (!offline) await (restriction ? cache.clearMe() : cache.saveMe(me));
       // Another person on this phone: their copy and queue are gone (SR-PWA-04) – reload the queue.
       if (switched || userId.current !== me.id) await queue.load();
       userId.current = me.id;
@@ -145,14 +146,15 @@ function Root({ store, connect }: { store: KvStore; connect?: Connect }) {
   // BUG-R3-052: a read refused because the session is restricted → the matching screen, not "mạng yếu".
   useEffect(
     () =>
-      onRestricted((r) =>
+      onRestricted((r) => {
+        void cache.clearMe();
         setAuth((a) => {
           if (a.kind !== 'ready') return a;
           const me = a.session.me;
           return r === 'password_change' ? { kind: 'set_password', me } : { kind: 'enroll', me };
-        }),
-      ),
-    [],
+        });
+      }),
+    [cache],
   );
   // The queue met a 401 while sending (session ended): sign in again, the items stay on the phone.
   useEffect(

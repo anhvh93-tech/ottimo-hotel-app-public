@@ -9,6 +9,10 @@ import { deskUrl } from '../app/config';
  * 10 recovery codes) is on OTTIMO Desk, not on the phone that has to scan the code. Every other screen of this
  * app would fail, so the app says so instead of "the connection may be weak", links to Desk and offers sign
  * out (sign in here again once 2-step is on).
+ *
+ * FB-R4-UXD-MOB-P450-01: the next step (`staff.mfa_enroll_desk` – open Desk on a computer, then sign in here
+ * again) is always shown, also where there is no Desk link (localhost, preview). The Desk link is the main
+ * action of the screen (`btn pri`, icon `monitor`); sign out stays secondary.
  */
 export function EnrollOnDeskPage({ onLogout }: { onLogout: () => void }) {
   const { t } = useI18n();
@@ -21,9 +25,10 @@ export function EnrollOnDeskPage({ onLogout }: { onLogout: () => void }) {
         </p>
         <h1 className="m-0">{t('auth.enroll.title')}</h1>
         <p className="m-0">{t('error.MFA_ENROLLMENT_REQUIRED')}</p>
+        <p className="li-s m-0">{t('staff.mfa_enroll_desk')}</p>
         {desk ? (
-          <a className="btn xl block" href={desk} target="_blank" rel="noopener noreferrer">
-            <Icon name="lock" />
+          <a className="btn pri xl block" href={desk} target="_blank" rel="noopener noreferrer">
+            <Icon name="monitor" />
             {/* Product name + address: not copy to translate. */}
             <span>OTTIMO Desk · {desk.replace(/^https:\/\//, '').replace(/\/$/, '')}</span>
           </a>

@@ -1751,7 +1751,6 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `field_error.amount_not_positive` | Nhập số tiền lớn hơn 0. | Enter an amount greater than 0. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
 | `error.PARAM_OUT_OF_RANGE_MINMAX` | Giá trị phải từ {min} đến {max}. | Value must be between {min} and {max}. | ⟨chừa chỗ⟩ | Biến thể có min/max của PARAM_OUT_OF_RANGE (H05) |
 | `auth.current_password` | Mật khẩu hiện tại | Current password | ⟨chừa chỗ⟩ | Dùng cả khi đổi MK tạm và đổi MK từ menu – không ghi '(mật khẩu tạm)' |
-| `auth.mfa_later` | Đăng nhập 2 bước sẽ có ở bản sau. Nhờ chủ đầu tư hỗ trợ đăng nhập. | Two-step sign-in comes in a later release. Ask the owner for help signing in. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
 | `shell.coming_title` | Màn này đang được làm | This screen is being built | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
 | `shell.coming_body` | Màn {screen} có ở đợt sau của bản thử. Các màn khác vẫn dùng được. | {screen} comes in a later trial build. Other screens work as usual. | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
 | `shell.theme` | Giao diện | Appearance | ⟨chừa chỗ⟩ | FE S1 pending → UXD duyệt |
