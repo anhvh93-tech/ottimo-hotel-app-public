@@ -195,9 +195,10 @@ const CALC = {
   longStayNightRate: ({ leaseMonthlyRentVnd }) => ({
     longStayNightRateVnd: roundTo(leaseMonthlyRentVnd, 30, 1000),
   }),
-  otaWeekendRate: ({ otaBaseRateVnd, nightDate }) => ({
-    otaRateVnd: ['FRI', 'SAT'].includes(weekday(nightDate))
-      ? roundTo(otaBaseRateVnd * 115, 100, 10000)
+  // v0.5.2 (P4-20): mức tăng và đêm cuối tuần lấy từ params của dòng (bảng giá 01/11: 0 %); thiếu → DS-E cũ (+15 %).
+  otaWeekendRate: ({ otaBaseRateVnd, nightDate }, p = {}) => ({
+    otaRateVnd: (p.weekend_nights ?? ['FRI', 'SAT']).includes(weekday(nightDate))
+      ? roundTo(otaBaseRateVnd * (100 + (p.weekend_uplift_pct ?? 15)), 100, 10000)
       : otaBaseRateVnd,
   }),
   rateFloorCeiling: ({ otaBaseRateVnd }) => ({
@@ -216,7 +217,15 @@ const CALC = {
   }),
   losDiscount: (i, p) => {
     const { nights, channel } = i;
-    const bp = channel === 'ota' ? 0 : nights >= 14 ? 1500 : nights >= 7 ? 1000 : 0;
+    // v0.5.2 (P4-20): bậc lấy từ params.los_discount của dòng (bảng giá 01/11: []); thiếu → DS-E cũ (7 đêm 10 %, 14 đêm 15 %).
+    const tiers = p.los_discount ?? [
+      { minNights: 7, pct: 10 },
+      { minNights: 14, pct: 15 },
+    ];
+    const bp =
+      channel === 'ota'
+        ? 0
+        : Math.max(0, ...tiers.filter((x) => nights >= x.minNights).map((x) => x.pct * 100));
     const disc = (r) => roundTo(r * (10000 - bp), 10000, 1000);
     if (i.nightlyRatesVnd) {
       // v0.3: discount applies to each night after the rate calendar (BR-107)
@@ -563,9 +572,148 @@ const CALC = {
     const d = phone.replace(/\D/g, '').replace(/^0/, '84');
     return { normalized: d, display: `+${d}` };
   },
+
+  // ---- v0.5.2 (P4-20, FB-R4-QA-DOM-PR25-01): bảng giá 01/11, tính bằng params của dòng.
+  // BR-108: ngắn ngày hay thuê tháng theo số đêm (`long_stay_required_from_nights`); một mức giá mọi đêm.
+  stayKindByNights: (i, p) => {
+    const one = (n) => {
+      if (n >= p.long_stay_required_from_nights) {
+        const out = { stayKind: 'long' };
+        if (i.monthlyListPriceVnd !== undefined) {
+          out.monthlyRentVnd = i.monthlyListPriceVnd; // HĐ 1 tháng: khoảng 1–3 tháng giảm 0 % (BR-201)
+          out.serviceFeeMonthlyVnd = p.service_fee_monthly;
+          out.depositVnd = i.monthlyListPriceVnd * (p.lease_deposit_months ?? 1); // BR-206
+        }
+        return out;
+      }
+      // Tổng ngắn ngày = giá đêm × số đêm chỉ đúng với lịch giá 01/11 (không tăng cuối tuần/lễ, không giảm theo
+      // số đêm – BR-104, BR-107). Dòng phải tự khai lịch đó trong params để BE (byCalc gộp params lên DS-E) ra cùng số
+      // (FB-R4-BE-C-DOM BR-108-03, 04/11).
+      const flat =
+        p.weekend_uplift_pct === 0 &&
+        p.special_uplift_pct === 0 &&
+        Array.isArray(p.los_discount) &&
+        p.los_discount.length === 0;
+      if (!flat)
+        throw new Error(
+          'tổng ngắn ngày cần params lịch 01/11: weekend_uplift_pct 0, special_uplift_pct 0, los_discount []',
+        );
+      return {
+        stayKind: 'short',
+        showLongStayOption: n >= (p.long_stay_compare_from_nights ?? Infinity),
+        shortStayTotalVnd: i.nightlyListPriceVnd * n,
+      };
+    };
+    if (i.nightsCases) return Object.fromEntries(i.nightsCases.map((n) => [String(n), one(n)]));
+    return one(i.nights);
+  },
+  // BR-110 (v0.3.4, tính theo đêm): thêm người giữa kỳ ở – người vượt định mức là người rẻ nhất.
+  extraPersonFeeChange: (i, p) => {
+    const ch = i.change;
+    const after = { adults: i.adults + (ch.addAdults ?? 0), childrenAges: i.childrenAges };
+    const base = p[`room.${i.roomNo}.base_occupancy`];
+    const { counted, fees } = occupancy(after, p);
+    const charged = Math.max(0, counted - base);
+    const perNight = fees.slice(fees.length - charged).reduce((a, b) => a + b, 0);
+    const n = diffDays(i.departureDate, ch.effectiveFrom);
+    return { extraPersonFeePerNightVnd: perNight, extraPersonFeeVnd: perNight * n };
+  },
+  // BR-114: giá "từ" = giá đêm thấp nhất của các căn đang bán (định mức, kênh Trực tiếp).
+  fromPrice: ({ nightlyListPriceVnd }) => {
+    const min = Math.min(...Object.values(nightlyListPriceVnd));
+    return {
+      fromPriceVnd: min,
+      fromRoomNos: Object.entries(nightlyListPriceVnd)
+        .filter(([, v]) => v === min)
+        .map(([k]) => k)
+        .sort(),
+    };
+  },
+  // BR-104/114: giá của từng đêm theo lịch giá (params của dòng).
+  nightRates: ({ nightlyListPriceVnd, nights, channel }, p) => ({
+    ratesVnd: nights.map((d) => calendarRateFor(nightlyListPriceVnd, d, channel ?? 'direct', p)),
+  }),
+  // BR-115: giá ước tính trên web theo hạng công khai (params.public_types: căn, giá đêm, định mức, tối đa).
+  // Thứ tự lý do không hiện số: từ 30 đêm → vượt sức chứa → dưới ở tối thiểu → có đêm sau open_until.
+  webEstimate: (i, p) => {
+    const t = p.public_types[i.publicRoomType];
+    const one = (arrival, departure) => {
+      const n = diffDays(departure, arrival);
+      const noPrice = (reason, extra = {}) => ({
+        priceShown: false,
+        noPriceReason: reason,
+        ...extra,
+        inquiryAllowed: true,
+      });
+      if (n >= p.long_stay_required_from_nights)
+        return { priceShown: false, noPriceReason: 'monthly_offer', monthlyFigureShown: false };
+      const { counted, fees } = occupancy(i, p);
+      if (counted > t.max) return noPrice('over_max_occupancy', { maxGuests: t.max });
+      const stay = CALC.minStay({ arrivalDate: arrival, nights: n }, p);
+      if (!stay.accepted) return noPrice('below_min_stay', { minStayNights: stay.minStayNights });
+      const dates = nightsBetween(arrival, departure);
+      if (dates.some((d) => d > p['web_estimate.open_until'])) return noPrice('after_open_until');
+      const room = dates
+        .map((d) => calendarRateFor(t.nightlyVnd, d, 'direct', p))
+        .reduce((a, b) => a + b, 0);
+      const charged = Math.max(0, counted - t.base);
+      const extra = fees.slice(fees.length - charged).reduce((a, b) => a + b, 0) * n;
+      return {
+        priceShown: true,
+        fromTotalVnd: room + extra,
+        toTotalVnd: room + extra,
+        roomTotalVnd: room,
+        extraPersonFeeVnd: extra,
+        participatingRoomNos: [...t.roomNos].sort(),
+      };
+    };
+    if (i.nightsCases)
+      return Object.fromEntries(
+        i.nightsCases.map((n) => [String(n), one(i.arrivalDate, addDays(i.arrivalDate, n))]),
+      );
+    return one(i.arrivalDate, i.departureDate);
+  },
+  // BR-116: tổng Trực tiếp và tổng sàn OTA của cùng chuyến (một mức giá → sàn thừa).
+  parityFloor: (i, p) => {
+    const dates = nightsBetween(i.arrivalDate, i.departureDate);
+    const sum = (base, ch) =>
+      dates.map((d) => calendarRateFor(base, d, ch, p)).reduce((a, b) => a + b, 0);
+    const direct = sum(i.nightlyListPriceVnd, 'direct');
+    const floor = sum(i.otaBaseRateVnd[i.roomGroup], 'ota');
+    return { directTotalVnd: direct, otaFloorTotalVnd: floor, floorChangesFigure: floor > direct };
+  },
+  // BR-428 (v0.4.8): chia số dư thừa theo thứ tự phụ thu người → chênh lệch đổi phòng → phần hoàn BR-428.
+  earlyDepartureCap: (i) => {
+    let left = i.unhandledCreditAfterVnd;
+    const take = (x) => {
+      const got = Math.max(0, Math.min(left, x));
+      left -= got;
+      return got;
+    };
+    const ep = take(i.extraPersonDroppedVnd);
+    const rc = take(i.roomChangeDifferenceDroppedVnd);
+    const br = take(i.refundableVnd);
+    const total = i.extraPersonDroppedVnd + i.roomChangeDifferenceDroppedVnd + i.refundableVnd;
+    return {
+      extraPersonRefundVnd: ep,
+      extraPersonReversedVnd: i.extraPersonDroppedVnd - ep,
+      roomChangeDifferenceVnd: rc,
+      roomChangeDifferenceReversedVnd: i.roomChangeDifferenceDroppedVnd - rc,
+      refundablePaidVnd: br,
+      refundVnd: ep + rc + br,
+      refundCapped: ep + rc + br < total,
+    };
+  },
 };
 
 const deepEq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+// v0.5.2: expected là object thường (ca nhiều nhánh, ví dụ nightsCases) → so đúng các khóa oracle ghi,
+// mỗi khóa phải có trong kết quả tính lại. Mảng và giá trị đơn vẫn so nguyên.
+const isPlain = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
+const subsetEq = (got, exp) =>
+  isPlain(exp) && isPlain(got)
+    ? Object.keys(exp).every((k) => k in got && subsetEq(got[k], exp[k]))
+    : deepEq(got, exp);
 const INV_RE = /^INV-\d{3}$/;
 // ESC files whose status line says "Đã quyết" → INV-0xx label allowed
 const ESC_DECIDED = new Set(
@@ -598,6 +746,8 @@ function validateBrExamples() {
   const where = 'br-examples.json';
   const doc = readJson(join(TESTS, 'fixtures/br-examples.json'));
   const brMd = brRowsFromMarkdown();
+  // v0.5.2 (FB-R4-QA-DOM-PR25-02, PO-05, BA-S1): id đã nghỉ không dùng lại; `reused: true` chỉ cho ca lịch sử.
+  const RETIRED = new Map((doc.retiredIds ?? []).map((r) => [r.id, r]));
   const ids = new Set();
   const covered = new Set();
   let recomputed = 0;
@@ -627,7 +777,32 @@ function validateBrExamples() {
       }
       if (md.label.startsWith('INV quyết') && !row.labels.some((x) => INV_RE.test(x)))
         err(w, `BR ghi "${md.label.slice(0, 30)}" nhưng dòng oracle thiếu nhãn INV-0xx`);
+      // v0.5.2 (FB-R4-QA-DOM-PR25-03 (4)): ô Nhãn ghi "thay ESC-0xx" → dòng chỉ mang INV-0xx đó
+      // (không kèm nhãn của quyết định thay) phải ghi rõ là chính sách cũ (supersededBy + validUntil).
+      const replaced = [...md.label.matchAll(/thay ESC-(\d{3})/g)].map((m) => `INV-${m[1]}`);
+      const invs = row.labels.filter((x) => INV_RE.test(x));
+      if (invs.length && invs.every((l) => replaced.includes(l)) && !row.supersededBy)
+        err(
+          w,
+          `nhãn ${invs.join(', ')} là chính sách đã bị thay ("thay ESC-…") – cần supersededBy + validUntil`,
+        );
     }
+    // v0.5.2: dòng chính sách cũ / số hoa hồng cũ (BR mục 0.1 "Trước 01/11 – hết hiệu lực")
+    if ((row.supersededBy === undefined) !== (row.validUntil === undefined))
+      err(w, 'supersededBy và validUntil phải đi cùng nhau');
+    if (row.validUntil !== undefined && !ISO_DATE.test(row.validUntil))
+      err(w, 'validUntil phải là YYYY-MM-DD');
+    if (row.oldCommissionFigures) {
+      const o = row.oldCommissionFigures;
+      if (!ISO_DATE.test(o.validUntil ?? '') || !o.replacedBy)
+        err(w, 'oldCommissionFigures cần validUntil (YYYY-MM-DD) và replacedBy');
+    }
+    if (RETIRED.has(row.id) && !RETIRED.get(row.id).reused)
+      err(w, 'id đã nghỉ (retiredIds) – không dùng lại, đánh số tiếp');
+    // v0.5.2 (P4-20): calcPending = hàm tính lại có ngay ở validator (params của dòng), test BE chỉ đọc khi
+    // đóng pendingFix (byCalc gộp params của dòng lên DS-E – P4-11). Dòng có calcPending luôn calc null + pendingFix.
+    if (row.calcPending && (row.calc || !row.pendingFix))
+      err(w, 'calcPending chỉ đi với calc null và pendingFix');
     for (const l of row.labels) if (!LABELS.has(l) && !INV_RE.test(l)) err(w, `nhãn lạ '${l}'`);
     if (!ORIGINS.has(row.origin)) err(w, `origin lạ '${row.origin}'`);
     // money / time conventions
@@ -650,23 +825,24 @@ function validateBrExamples() {
     walk(row.input, 'input');
     walk(row.expected, 'expected');
     // recompute
-    if (row.calc) {
-      const fn = CALC[row.calc];
+    const calcName = row.calc ?? row.calcPending;
+    if (calcName) {
+      const fn = CALC[calcName];
       if (!fn) {
-        err(w, `calc '${row.calc}' không có trong validator`);
+        err(w, `calc '${calcName}' không có trong validator`);
         continue;
       }
       let got;
       try {
         got = fn(row.input, row.params ?? {});
       } catch (e) {
-        err(w, `calc ${row.calc} lỗi: ${e.message}`);
+        err(w, `calc ${calcName} lỗi: ${e.message}`);
         continue;
       }
       const keys = Object.keys(row.expected).filter((k) => k in got);
-      if (!keys.length) err(w, `calc ${row.calc} không so được khóa nào của expected`);
+      if (!keys.length) err(w, `calc ${calcName} không so được khóa nào của expected`);
       for (const k of keys)
-        if (!deepEq(got[k], row.expected[k]))
+        if (!subsetEq(got[k], row.expected[k]))
           err(
             w,
             `${k}: oracle ${JSON.stringify(row.expected[k])} ≠ tính lại ${JSON.stringify(got[k])}`,
