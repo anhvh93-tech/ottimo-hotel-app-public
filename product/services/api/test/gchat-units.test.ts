@@ -741,8 +741,10 @@ describe('static locks (SEC ★6, ARC 8.2)', () => {
     expect(cols).toEqual(['guest_name', 'phone_e164', 'email', 'preferred_channel', 'note']);
   });
 
-  it('the notice threshold is a code constant (SEC chose 2026-10-31), never read from the environment', () => {
-    expect(CHAT_DETAILS_MIN_NOTICE_VERSION).toBe('2026-10-31');
+  it('the notice threshold is a code constant (SEC chose 2026-11-04 – LPV2M-01), never read from the environment', () => {
+    // 2026-10-31 named Google Chat but is never published on its own (P4, lp-v2-main): the gate reads published_at
+    // of THIS version, so the constant must be the label LP-v2 really publishes (SEC-on-lp-v2-main.md 2).
+    expect(CHAT_DETAILS_MIN_NOTICE_VERSION).toBe('2026-11-04');
     const src = readFileSync(
       join(__dirname, '..', 'src', 'modules', 'public-site', 'public', 'chat-message.ts'),
       'utf8',

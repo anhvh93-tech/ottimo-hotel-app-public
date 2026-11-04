@@ -27,7 +27,14 @@ import { CLOCK, type Clock } from '../../../clock';
 import { DATABASE, Database, type TenantContext, type Tx, pgCode } from '../../../db/database';
 import { requestHash } from '../../../shared/http/unit-of-work';
 import { ProblemError, problem } from '../../../shared/problem';
-import { type LocalDate, type LocalTime, addDays, atLocal, localDate } from '../../../shared/time';
+import {
+  type LocalDate,
+  type LocalTime,
+  addDays,
+  atLocal,
+  isCalendarDate,
+  localDate,
+} from '../../../shared/time';
 import { CryptoService } from '../../crypto/public/crypto.service';
 import { EventsService } from '../../events/public/events.service';
 import { normalizeEmail, normalizePhone } from '../../guests/public/normalize';
@@ -463,17 +470,12 @@ export class PublicBookingService {
     if (stayType !== 'short' && stayType !== 'long') err('stayType', 'NOT_IN_LIST');
     const arrival = b.arrival;
     if (arrival === undefined) err('arrival', 'REQUIRED');
-    else if (
-      typeof arrival !== 'string' ||
-      !DATE.test(arrival) ||
-      Number.isNaN(Date.parse(arrival))
-    )
-      err('arrival', 'VALIDATION_FAILED');
+    // A real calendar date – 2026-02-31 is refused too (SEC LPV2M-05).
+    else if (!isCalendarDate(arrival)) err('arrival', 'VALIDATION_FAILED');
     const departure = b.departure;
     if (stayType === 'short') {
       if (departure === undefined || departure === null) err('departure', 'REQUIRED');
-      else if (typeof departure !== 'string' || !DATE.test(departure))
-        err('departure', 'VALIDATION_FAILED');
+      else if (!isCalendarDate(departure)) err('departure', 'VALIDATION_FAILED');
       if (b.months !== undefined && b.months !== null) err('months', 'NOT_ALLOWED');
     } else {
       if (departure !== undefined && departure !== null) err('departure', 'NOT_ALLOWED');

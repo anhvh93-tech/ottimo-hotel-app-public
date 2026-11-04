@@ -624,6 +624,18 @@ describe('getPublicPriceEstimate query', () => {
     expect(() => parseEstimateQuery(`${ok}&${extra}`)).toThrow(ProblemError);
   });
 
+  it.each([['2026-02-31'], ['2026-11-31'], ['2027-02-29'], ['2026-13-01'], ['2026-11-00']])(
+    'an impossible calendar date (%s) → 422 VALIDATION_FAILED on the field (SEC LPV2M-05)',
+    (d) => {
+      expect(JSON.stringify(codes(ok.replace('arrival=2026-11-10', `arrival=${d}`)))).toContain(
+        '"arrival"',
+      );
+      expect(JSON.stringify(codes(ok.replace('departure=2026-11-13', `departure=${d}`)))).toContain(
+        '"departure"',
+      );
+    },
+  );
+
   it('query over 256 bytes → 422', () => {
     expect(() => parseEstimateQuery(`${ok}&roomType=${'a'.repeat(300)}`)).toThrow(ProblemError);
   });

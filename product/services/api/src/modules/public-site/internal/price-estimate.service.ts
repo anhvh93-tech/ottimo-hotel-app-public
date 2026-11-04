@@ -21,7 +21,14 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CLOCK, type Clock } from '../../../clock';
 import { DATABASE, Database, type TenantContext, type Tx } from '../../../db/database';
 import { ProblemError, problem } from '../../../shared/problem';
-import { type LocalDate, addDays, businessDate, localDate, toZonedIso } from '../../../shared/time';
+import {
+  type LocalDate,
+  addDays,
+  businessDate,
+  isCalendarDate,
+  localDate,
+  toZonedIso,
+} from '../../../shared/time';
 import { CryptoService } from '../../crypto/public/crypto.service';
 import { RateLimiter } from '../../identity/public/rate-limiter';
 import { ParameterMissingError, ParameterService } from '../../platform/public/parameter.service';
@@ -50,7 +57,6 @@ export const ESTIMATE_FRESH_RULE = { limit: 600, windowMs: 3_600_000 } as const;
  */
 export const ESTIMATE_RECOMPUTE_STATEMENT_TIMEOUT = '1s';
 const SWITCH_TTL_MS = 60_000;
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SLUG = /^[a-z0-9-]{2,60}$/;
 const QUERY_KEYS = new Set([
   'roomType',
@@ -130,7 +136,8 @@ export function parseEstimateQuery(rawQuery: string): EstimateQuery {
   const date = (k: string): LocalDate | null => {
     const v = seen.get(k);
     if (v === undefined || v === '') return null;
-    if (!DATE.test(v) || Number.isNaN(Date.parse(`${v}T00:00:00Z`))) {
+    if (!isCalendarDate(v)) {
+      // 2026-02-31 too (SEC LPV2M-05)
       err(k, 'VALIDATION_FAILED');
       return null;
     }

@@ -5,6 +5,7 @@ import {
   addDays,
   atLocal,
   businessDate,
+  isCalendarDate,
   localDate,
   offsetMinutes,
   toZonedIso,
@@ -13,6 +14,25 @@ import {
 const TZ = 'Asia/Ho_Chi_Minh';
 
 describe('time helpers (ADR-008, BR-010)', () => {
+  it('isCalendarDate: a real YYYY-MM-DD only (SEC LPV2M-05 – Date.parse rolls 02-31 over to March)', () => {
+    for (const d of ['2026-11-10', '2028-02-29', '2026-12-31', '2027-01-01'])
+      expect(isCalendarDate(d)).toBe(true);
+    for (const d of [
+      '2026-02-31',
+      '2027-02-29',
+      '2026-04-31',
+      '2026-13-01',
+      '2026-00-10',
+      '2026-11-00',
+      '2026-1-10',
+      ' 2026-11-10',
+      20261110,
+      null,
+    ]) {
+      expect(isCalendarDate(d)).toBe(false);
+    }
+  });
+
   it('local date and offset in the property zone', () => {
     expect(offsetMinutes(new Date('2026-10-15T00:00:00Z'), TZ)).toBe(420);
     expect(localDate(new Date('2026-10-15T16:59:59Z'), TZ)).toBe('2026-10-15');

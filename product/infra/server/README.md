@@ -405,7 +405,7 @@ sudo -u ottimo sh -c 'ls -1t /opt/ottimo-prod/state/env.before-chat-level.* | ta
 - Tệp tạm `env.level.tmp` tạo dưới `umask 077` (0600) và bị xóa ngay; không để bản sao `.env` nào khác ngoài `state/`.
 - Quay về A: làm lại các bước trên với `A`. Hạ mức thì không cần SEC, nhưng vẫn báo INV và ghi decision-log.
 - **Quay lui app khi đang ở mức B/C** (SEC FB-R4-SEC-OPS-PR26-03, N1): bản cũ không có Chat (ví dụ v1.0.0) không gửi tin `web_request_erased` khi xóa yêu cầu (WR8). Mọi quy trình quay lui về bản như vậy phải có thêm bước: sau khi lên lại bản có Chat, OWN rà các yêu cầu đã bị xóa trong thời gian chạy bản cũ, rồi tự xóa tin Chat tương ứng. Ở mức A thì không cần, vì tin không có dữ liệu khách (đợt v1.0.1).
-- Yêu cầu gửi dưới thông báo cũ hơn `2026-10-31` **luôn** nhận mức A, dù `.env` đặt C. Đây là hằng số trong mã.
+- Yêu cầu gửi dưới thông báo cũ hơn `2026-11-04` (thông báo đầu tiên nêu Google Chat **được đăng** – `2026-10-31` không đăng riêng, P4) **luôn** nhận mức A, dù `.env` đặt C. Đây là hằng số trong mã (`CHAT_DETAILS_MIN_NOTICE_VERSION`, SEC FB-R4-SEC-LPV2M-01). Trước khi `2026-11-04` được đăng, mọi tin đều ở mức A.
 - Staging chỉ được đặt C khi nối với **phòng thử** và dùng dữ liệu giả. Không bao giờ nối staging với phòng thật.
 
 ### 13.5 K1 và xóa tin Chat khi khách xin xóa (WR8) – SEC L2.2
