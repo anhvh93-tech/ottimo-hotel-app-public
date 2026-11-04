@@ -14,6 +14,7 @@
   - FE `CheckOutPage.tsx`, `CheckInPage.tsx`, `StayDialogs.tsx` (H15) – không đổi trong PR;
   - nhánh BUG-R4-039 `v104/fix-checkin-occupied-exception` @ `377411d1` (chưa có PR khi review), #70 @ `d3da532d`, #73 `v104/ota-rate-fallback`.
 - ARC tự chạy trong worktree tạm (đã xóa khi xong), PostgreSQL riêng, máy tải ~108: test của PR, đảo phần `src`, 3 ca dò tạm (không commit), cây gộp thử 71 + 039 + 73.
+- **Lượt 2 @ `02c34bc9` (05/11/2026): ĐẠT.** C1 đã đóng. Xem mục "Lượt 2" ở cuối tệp.
 
 ## Phán quyết (head `7557e485`): **ĐẠT CÓ ĐK**
 
@@ -391,3 +392,106 @@ index 6dde9cc5..fee7f71e 100644
          minibarUncheckedRooms:
            type: array
 ```
+
+---
+
+## Lượt 2 @ `02c34bc9` – 05/11/2026
+
+- Người review: ARC | Round 4 – v1.0.4 – Bước **Review** (lượt 2) | 05/11/2026
+- Đối tượng: `v104/fix-internal-added-night` @ `02c34bc9`, thêm 3 commit trên `7557e485`:
+  - `d47c3649`: bản vá hợp đồng của ARC + `api-client` sinh lại (thẻ 01);
+  - `1e3a91fd`: test cho thẻ ARC 02 và SEC PR71-01; `actorRole` (SEC PR71-02) ở `folio-lines.service.ts`, `stay-night-pricing.ts`;
+  - `02c34bc9`: một câu ở `CheckoutSummary.lateFeeAsNightVnd` (ORC 05/11) + client sinh lại; ca BR-421-11 thêm bước B15 17:00.
+- Đọc: `git diff 7557e485 02c34bc9` (5 tệp, +213/−26), `gh pr checks 71`, log CI run `41874464049`.
+- ARC tự chạy: worktree tạm và PostgreSQL 17 riêng trong scratchpad, **đã xóa** khi xong; máy tải 8–65. Chỉ chạy tệp `bug-r4-038-internal-added-night.test.ts` (không chạy cả bộ API, theo ORC), 4 đột biến mã, đảo `src`, `gen_traceability.py --strict` trên 3 cây.
+
+### Phán quyết lượt 2: **ĐẠT**
+
+C1 đã đóng. Cả 5 điểm ORC hỏi đều đúng (bảng dưới). Không có thẻ mới chặn gộp.
+
+Gộp khi CI xanh thật. Đây là luật chung, không phải điều kiện riêng của ARC:
+- CI của `02c34bc9` chỉ đỏ ở 2 ca "Hôm nay" trong `v104-holds-feb.test.tsx` (admin-web). Turbo dừng nên `@ottimo/api:test` chưa chạy xong. Log CI không có dòng nào của `bug-r4-038…`.
+- CI chạy theo `pull_request` (checkout ref gộp với `main`). Vì vậy sau khi #76 vào `main`, chỉ cần **chạy lại** CI của #71, không phải rebase. ORC soát log: `@ottimo/api:test` là cache miss và có `bug-r4-038-internal-added-night.test.ts` 11/11.
+- Các bước khác đã xanh trên `02c34bc9`: Format, ESLint + `tsc` (`@ottimo/api:typecheck` cache miss, chạy thật), test drift `api-client`, Redocly, spec validator + RBAC `--strict`, gitleaks.
+
+Điều kiện phát hành R1–R3 của lượt 1 giữ nguyên, ORC theo dõi. Câu mới ở điểm 2 là chỗ dựa hợp đồng cho R1: FE-A tính `dueAtCheckout` bằng `amountDueAtCheckoutVnd` (mục 8 bước 3).
+
+### Kết quả 5 điểm
+
+| # | Câu hỏi | Kết luận | Bằng chứng |
+|---|---|---|---|
+| 1 | C1: `d47c3649` áp đúng nguyên bản vá; `generated/openapi.ts` khớp kết quả sinh lại | **Đúng** | `git patch-id --stable` của `arc71-openapi.patch` và của `git diff 7557e485 d47c3649` trùng nhau (`cac50d93…`). Các dòng +/− từng tệp trùng khít (yaml 38, client 33). `pnpm --filter @ottimo/api-client gen` trên `02c34bc9` → "openapi.ts up to date". CI: test drift `api-client` xanh. Sinh lại trên cây gộp thử `main`+#71 và `main`+#71+#74: không khác |
+| 2 | `lateFeeAsNightVnd = 0` → số cần thu là `amountDueAtCheckoutVnd`, không phải `balanceDueVnd` | **Đúng**; test BR-421-11 chứng minh được | Mục 2.1 |
+| 3 | ARC 02: đơn Nội bộ gửi `lateFeeInsteadOfNight` → 422, kể cả mật khẩu sai, không ghi audit | **Đúng**; test bắt được lỗi | Mục 2.2 |
+| 4 | `actorRole` không đổi hành vi nhánh giá > 0 | **Đúng** | Mục 2.3 |
+| 5 | Lệch `traceability.md` có sẵn trên `main` | **Đúng**; #71 không thêm lệch | Mục 2.4 |
+
+### 2.1 Điểm 2 – câu `lateFeeAsNightVnd = 0`
+
+Mã (`checkout.service.ts`, không đổi từ lượt 1):
+- `summary` tính `amountDueAtCheckoutVnd` bằng `dueAtCheckout(…, lateFeeAsNight = true)`:
+  max(0, `balanceDueVnd` − `rawCreditVnd` + (phụ thu mới − FOC mới) − (dòng `late_checkout` đang sống − FOC của nó) + đêm thêm).
+- Đơn Nội bộ, đêm ngày đi đã bán: phụ thu mới = `lateChargeOf(d)` = `defaultRateVnd` = 0, không có đêm thêm. Vậy số cần thu = số dư − dòng B15 đang sống.
+- B18: `surcharge = 0 < old.grossVnd`, nên `replaceLateCharge` đảo dòng B15 (dòng 1134). Việc này xảy ra **trước** khi kiểm trần `finalPayment` (dòng 1211, trần = số dư sau khi đảo). Hệ quả:
+  - `finalPayment = amountDueAtCheckoutVnd` → đi được;
+  - `finalPayment = balanceDueVnd` → 422 `AMOUNT_EXCEEDS_BALANCE` khi có dòng B15.
+- Câu mới khớp định nghĩa sẵn có của `amountDueAtCheckoutVnd` (0.3.7 S4-47: số cần thu nếu hoàn tất B18 ngay, là trần của `finalPayment`). Câu chỉ nói rõ cho ca 0. Không đổi schema, không cần mục changelog riêng.
+
+Test BR-421-11 (`02c34bc9`):
+- B15 lúc 10:00, hẹn trả 17:00 → dòng 150.000 (số của BR-421-09: đơn Nội bộ có thu, đêm cuối 300.000).
+- 19:00, đêm đã bán: tóm tắt trả `lateFeeAsNightVnd 0`, `amountDueAtCheckoutVnd 0`, `balanceDueVnd 150.000`.
+- B18 không gửi trường gì thêm → 200. Tổng dòng trả muộn còn sống = 0, số dư 0.
+- **Đột biến M1** (bỏ phần trừ dòng cũ trong `dueAtCheckout`, tức "số cần thu = số dư"): ca BR-421-11 **đỏ** đúng ở `amountDueAtCheckoutVnd` (nhận 150.000, mong 0). Vậy test bắt được đúng lỗi mà câu hợp đồng cảnh báo.
+- Giới hạn, không thành thẻ: sau khi đảo thì phần còn nợ là 0, nên test không có ca "còn nợ thật > 0 + `finalPayment`". Chấp nhận được, vì công thức dùng chung cho mọi kênh và `checkout-due.test.ts` (S4-47) đã phủ "số hiện = số B18 để lại" cùng trần `finalPayment`. Chỉ nhánh 0 của Nội bộ là mới, và BR-421-11 phủ nhánh đó.
+- Sửa nhỏ, hợp lý: `surchargeLineWritten` nay so **tổng tiền các dòng sống** thay cho số dòng. Lý do: khi có B15, sau B18 có cả dòng gốc lẫn dòng đảo.
+
+### 2.2 Điểm 3 – `lateFeeInsteadOfNight` trên đơn Nội bộ, đêm đã bán
+
+- Ca B18 "đêm ngày đi đã bán" thêm 3 lần gửi, mỗi lần kiểm 422 và đúng mã:
+  - `postReview`, `amountVnd 0` → `lateFeeInsteadOfNight.amountVnd` `AMOUNT_NOT_POSITIVE`;
+  - `postReview`, `amountVnd 1` → `lateFeeInsteadOfNight` `NOT_ALLOWED`;
+  - MGR + mật khẩu sai, `amountVnd 1` → `lateFeeInsteadOfNight` `NOT_ALLOWED`.
+- Sau đó: đơn vẫn `in_house`, không có audit `reservation.late_fee_instead_of_night`. Rồi B18 không kèm trường → 200.
+- **M2** (bỏ `|| freeNight` ở dòng thêm `NOT_ALLOWED`): đỏ. Lần gửi `postReview` 1 ra **200**, đơn bị trả phòng.
+- **M2b** (chỉ chặn khi có `postReview`, để đường mật khẩu đi qua): đỏ ở lần gửi thứ 3, ra **401 `REAUTH_FAILED`**. Nghĩa là lần gửi này thật sự tới bước mật khẩu nếu precheck để lọt. Kết quả 422 hiện nay chứng minh precheck chạy trước mật khẩu, nên không đếm sai mật khẩu.
+- B9a gõ tay (thẻ 02 (2)(3)): ca mới gõ `0` → `complimentary`; gõ `150.000` (dưới sàn Trực tiếp) → `manual`, thu 150.000 lúc nhận phòng, số dư 0.
+- Đảo `src` về `c2506a53`, giữ test của head: **9 đỏ, 2 xanh (11)**. Ca B9a gõ tay mới cũng đỏ trên mã cũ. Hai ca xanh vẫn là đối chứng Trực tiếp và BR-421-07, như lượt 1.
+
+### 2.3 Điểm 4 – `actorRole` (SEC PR71-02)
+
+- `folio-lines.service.ts`: `actorRole` chỉ được thêm vào input của `setNightRate` trong nhánh `zeroPrice`, cùng chỗ với `zeroByManager`. Giá > 0 thì input giống hệt trước. `actorRoleOf` là hàm thuần (không truy vấn, không ném lỗi), đã được import và dùng sẵn ở dòng 696, 714.
+- `stay-night-pricing.ts`: chỉ ghi `actorRole` vào `after` của `reservation.repriced` khi `complimentary`, tức giá 0. Giá 0 chỉ tới được đây khi là dòng `room` + đơn Nội bộ + `zeroByManager`; các ca khác đã ném 422/403 trước đó. Nhánh `extra_person` không đổi. `setNightRate` chỉ có một chỗ gọi.
+- `actorRole` đã có trong danh sách cho phép audit của `reservation` (`frontdesk/audit-entities.ts`), nên không ném lỗi entity audit.
+- Test: FD gõ 1 đ → audit `rateSource: manual`, actor là FD, **không** có `actorRole`. MGR đưa về 0 → `actorRole: manager`. **M3** (bỏ `actorRole`): ca BR-421-04/05/06 đỏ.
+
+### 2.4 Điểm 5 – `traceability.md`
+
+| Cây | `gen_traceability.py --strict --out <tạm>` | So với bản sinh trên `main` |
+|---|---|---|
+| `main` `476fd9b8` | exit 0; "ops mismatched 0; fields mismatched 1" | – |
+| head `02c34bc9` | exit 0; log giống hệt | Tệp `.md` sinh ra giống hệt |
+| `main` + #71 (gộp thử, sạch) | exit 0; log giống hệt | Giống hệt |
+
+- `product/docs/qa/traceability.md` đã commit giống hệt nhau trên `main` và `02c34bc9`, vì #71 không chạm tệp này. Lần sinh lại gần nhất là Round 2 (`e3f98d17`).
+- Bản sinh từ `main` lệch bản đã commit khoảng 49 dòng (AC dời R3, BR mới, operation mới, luồng LP-v2…). Đây là lệch có sẵn trên `main`, không do #71.
+- "fields mismatched 1" là `email` D27: `x-visible-to: owner`, trong khi RBAC cho MGR "Đầy". Lệch này có sẵn, theo chiều ẩn bớt (không lộ dữ liệu), nên không làm `--strict` đỏ. Không do #71.
+- CI ghi bản sinh ra `$RUNNER_TEMP`, nên lệch so với tệp đã commit không bao giờ làm CI đỏ. Gợi ý cho QA (chủ tệp): sinh lại và commit `traceability.md` bằng một PR tài liệu riêng trước QC v1.0.4, không đưa vào hotfix.
+
+### 2.5 Gộp với `main` và #74 (head mới)
+
+- `git merge-tree`: `main`+#71, `main`+#74 (`9646029d`), `main`+#71+#74 đều sạch.
+- Sinh lại `api-client` từ `openapi.yaml` của cây `main`+#71 và `main`+#71+#74: trùng với tệp sinh ra mà git gộp. #74 không thêm mục changelog, nên chưa có (l).
+- Thứ tự gộp của lượt 1 (mục 5) và review #74 (mục 6) giữ nguyên.
+
+### Trạng thái thẻ sau lượt 2
+
+| ID | Trạng thái | Ghi chú |
+|---|---|---|
+| FB-R4-ARC-BE-PR71-01 (Major) | **Closed** | `d47c3649` = bản vá ARC (patch-id trùng) + client sinh lại. `02c34bc9` thêm một câu đúng (mục 2.1). Các job hợp đồng trên CI xanh |
+| FB-R4-ARC-BE-PR71-02 (Minor) | **Closed** | Đủ (1), (2), (3). Đột biến M2/M2b chứng minh test bắt được lỗi |
+| FB-R4-ARC-BE-PR71-03 (Minor) | Open – dời v1.0.5 | Test ghi rõ FD gõ 1 đ là chủ ý. Chờ SEC chọn X/Y |
+| FB-R4-ARC-BE-PR71-04 (Suggestion) | Open – v1.0.5 | Không đổi |
+| FB-R4-ARC-QA-PR71-05 (Suggestion) | Open – QA | Không đổi |
+| FB-R4-ARC-DOM-PR71-01 (Suggestion) | Open – DOM, v1.0.5 | Ca BR-421-11 mới cho thấy rõ ý (1): đơn có thu trả 17:00 thì phụ thu 150.000; trả 19:00 khi đêm đã bán thì 0, và dòng 150.000 bị đảo |
+
+Không có ESC mới. Không có dòng decision-log mới: 4 dòng đề nghị ở lượt 1 vẫn dùng được (ORC ghi).
