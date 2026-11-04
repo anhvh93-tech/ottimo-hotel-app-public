@@ -3,7 +3,7 @@
  * `privacy_notice_version` only takes a version that has a text on guest-web and on the desk sheet.
  * U1–U5: the rule in checkStructuredParameter. G1–G2: the server list is the same list as guest-web's.
  * G3 (SEC P416-01): one version only until SEC-BA-104-09 (b) ships.
- * HTTP cases I1–I6: test/integration/v104-notice-allowlist.test.ts.
+ * HTTP cases I1–I7 + consent: test/integration/v104-notice-allowlist.test.ts.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

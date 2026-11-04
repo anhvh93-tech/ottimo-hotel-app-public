@@ -1,5 +1,5 @@
 /**
- * v1.0.4 P4-16 (SEC-BA-104-09 a, ARC "v1.0.4 notice-version allowlist" mục 3, I1–I6) over HTTP on the real
+ * v1.0.4 P4-16 (SEC-BA-104-09 a, ARC "v1.0.4 notice-version allowlist" mục 3, I1–I7 + consent) over HTTP on the real
  * PostgreSQL: `PUT …/parameters/privacy_notice_version` only takes a version of NOTICE_TEXT_VERSIONS
  * (exact match); anything else – `privacy-2026-10-v1` included – is 422 PARAM_OUT_OF_RANGE + `allowed`, with no
  * row, no audit and no pg_notify. The same-day rule is unchanged (no override for this key – 09 (b) deferred).
@@ -32,7 +32,7 @@ const V1 = 'privacy-2026-10-v1';
 const V2 = 'privacy-2026-10-v2';
 const TODAY = '2026-10-15';
 
-describe.skipIf(!HAS_DB)('v1.0.4 P4-16 – privacy_notice_version allowlist (I1–I6)', () => {
+describe.skipIf(!HAS_DB)('P4-16 – privacy_notice_version allowlist (I1–I7 + consent)', () => {
   let db: Database;
   let fa: FeatureApp;
   let t: TestTenant;
