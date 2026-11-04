@@ -11,7 +11,12 @@ import { Alert, Button, Chip, ConfirmDialog, Field, Modal, Seg, StateView } from
 import { useId, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../../app/api';
-import { approvalStatusText, auditReasonText, autoCancelCode } from '../../app/auditReason';
+import {
+  approvalStatusText,
+  auditReasonText,
+  autoCancelCode,
+  requestReasonText,
+} from '../../app/auditReason';
 import { listApprovals } from '../../app/approvals';
 import { useBusinessDay } from '../../app/businessDay';
 import { useLiveReload } from '../../app/live';
@@ -580,8 +585,17 @@ function Refunds() {
                       {a.reservationCode} · {vnd(a.amountVnd)}
                     </b>
                     <div className="li-s">
-                      {a.reasonNote ? `"${a.reasonNote}" · ` : ''}
-                      {t('approval.sent_by', { who: a.requestedBy, time: dateTime(a.requestedAt) })}
+                      {/* BUG-R4-026: the reason in words, as on Cần duyệt. */}
+                      {[
+                        requestReasonText(t, a),
+                        a.reasonNote ? `"${a.reasonNote}"` : null,
+                        t('approval.sent_by', {
+                          who: a.requestedBy,
+                          time: dateTime(a.requestedAt),
+                        }),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </div>
                     <div className="li-s">
                       {a.refundedVnd ? (
@@ -847,7 +861,8 @@ function ExecuteRefundDialog({
     });
     if (out) {
       setProof(null);
-      toast(t('refund.paid', { amount: money(out.data.amountVnd) }));
+      // BUG-R2-097: the refund transaction carries a negative amount – the sentence says what was paid out.
+      toast(t('refund.paid', { amount: money(Math.abs(out.data.amountVnd)) }));
       onDone();
     }
   };
