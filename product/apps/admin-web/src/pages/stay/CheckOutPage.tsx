@@ -599,6 +599,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // none sent to a QR). What to charge instead waits for DOM (e.g. a late fee approved by the manager).
   const lateFeeAsNight = extraUnavailable ? s?.lateFeeAsNightVnd : undefined;
   const lateFeeMode = lateFeeAsNight !== undefined && lateFeeAsNight > 0;
+  // BUG-R4-038 (BE #71, BR-421 R4): an Internal stay's night is 0 ₫, so its one-night late fee is 0 – nothing to
+  // charge, nothing for a manager to confirm, and `lateFeeInsteadOfNight` is refused (422 NOT_ALLOWED): B18 goes on
+  // without it, at the server's due. Other channels: unchanged (a fee above 0, or an older server without one).
+  const lateFeeFree = lateFeeAsNight === 0;
   // ESC-031: recorded now, reviewed later – the server's number read-only, a reason, nothing else (no FOC, no password).
   const lfReview = lateFeeMode && lfModeNow === 'review';
   const lfFocVnd =
@@ -663,8 +667,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         lfFocVnd <= (lateFeeAsNight ?? 0));
   const dueAtCheckout = extraUnavailable
     ? // 0.3.7 bổ sung 4: the server's due then includes the one-night late fee and never the unsold night;
-      // an older server without `lateFeeAsNightVnd` → the folio balance (BUG-R2-139).
-      lateFeeMode
+      // an older server without `lateFeeAsNightVnd` → the folio balance (BUG-R2-139). A fee of 0 (BUG-R4-038):
+      // the server's due too – it already takes back a late charge B18 reverses.
+      lateFeeMode || lateFeeFree
       ? // the FOC asked in this B18 call is not known to the summary (like H13 – BR-402): taken off here.
         Math.max(0, (s?.amountDueAtCheckoutVnd ?? 0) - (lfFocBody?.amountVnd ?? 0))
       : Math.max(0, s?.balanceDueVnd ?? 0)
@@ -1378,14 +1383,15 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         ) : null}
         {extraNightNeeded ? (
           // E05-11: one more night instead of a late surcharge; the rate defaults to the direct
-          // calendar price of that night. The room taken tonight → no extra night possible.
+          // calendar price of that night. The room taken tonight → no extra night possible. BUG-R4-038: a fee of 0
+          // (Internal) – nothing to charge, no alert here (the summary line `due_without_extra_night` says it).
           extraUnavailable ? (
             lateFeeMode ? (
               // BR-416-06: no night is added; a late fee of one night, confirmed by a manager at the desk.
               <Alert tone="warn" title={t('checkout.extra_night_title')}>
                 {t('co.late_fee_as_night_body', { amount: money(lateFeeAsNight ?? 0) })}
               </Alert>
-            ) : (
+            ) : lateFeeFree ? null : (
               <Alert tone="bad" title={t('checkout.extra_night_title')}>
                 {t('checkout.extra_night_unavailable')}
               </Alert>
@@ -1813,7 +1819,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
 
   // FE-S3-04: say why "Hoàn tất" is locked (first missing thing).
   const whyLocked =
-    extraUnavailable && !lateFeeMode
+    extraUnavailable && !lateFeeMode && !lateFeeFree
       ? t('checkout.extra_night_unavailable')
       : !lfReady
         ? lfReview

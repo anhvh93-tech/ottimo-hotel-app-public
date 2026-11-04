@@ -93,3 +93,50 @@ Ghi chú:
 - Nguyên nhân và cách sửa: xem mục "Lệch so với đề xuất của ARC" ở trên (observer theo dõi cả lần tải đầu).
 - Tổng trên mã của commit này: 1.104 lần chạy (24 + 120 + 960), tức 22.080 ca, 0 đỏ.
 - Vitest admin-web: 79 tệp / 902 ca đạt. `packages/ui`: 14 ca đạt. `tsc --noEmit`, `eslint`, `prettier --check` đạt.
+
+## BUG-R4-038 phía Desk (ORC giao thêm, commit riêng trong #67)
+- Bối cảnh: BE sửa ở PR #71. Đơn **Nội bộ** trả phòng sau mốc trả muộn cuối, trong khi đêm đó căn đã bán. Khi đó máy chủ trả:
+  - `extraNightAvailable = false` và `lateFeeAsNightVnd = 0`;
+  - không ghi dòng nào, không cần quản lý xác nhận;
+  - nếu Desk gửi `lateFeeInsteadOfNight` thì nhận 422 `NOT_ALLOWED`.
+- Lỗi trên Desk: "Hoàn tất" bị khóa khi `extraUnavailable && !lateFeeMode`. Mà `lateFeeMode` chỉ bật khi phí lớn hơn 0, nên đơn Nội bộ kẹt ở ca này.
+- Cách nhận biết ca này: theo **số máy chủ trả** (`lateFeeAsNightVnd === 0`), không theo kênh. Máy chủ chỉ trả 0 cho đêm `complimentary` của đơn Nội bộ (#71 `freeNight`), nên chỉ có một nguồn quyết định.
+
+### Sửa trong `CheckOutPage.tsx`: 3 dòng logic và 1 nhánh hiển thị (hơn 1 dòng, nên ARC cần xem)
+
+| Chỗ | Trước | Sau |
+|---|---|---|
+| Khai báo mới | – | `const lateFeeFree = lateFeeAsNight === 0;` |
+| `whyLocked` | `extraUnavailable && !lateFeeMode` | `extraUnavailable && !lateFeeMode && !lateFeeFree` |
+| `dueAtCheckout` (khi đêm không bán được) | `lateFeeMode ? số máy chủ − miễn : số dư folio` | `lateFeeMode \|\| lateFeeFree ? …` |
+| Bước Phụ phí | `lateFeeMode ? cảnh báo phí : báo lỗi "không thêm đêm được"` | Thêm `lateFeeFree ? null`: không hiện báo lỗi. Ô tóm tắt bên cạnh vẫn có câu `checkout.due_without_extra_night` |
+
+- Lý do sửa `dueAtCheckout`: đơn Nội bộ có giá (ví dụ 300.000 đ/đêm) có thể đã có phụ thu trả muộn từ B15 trước đó. Khi trả sau mốc cuối, B18 đảo khoản phụ thu đó. Số máy chủ (`amountDueAtCheckoutVnd`) đã trừ khoản này; số dư folio thì chưa. Nếu vẫn lấy số dư folio, Desk sẽ thu thừa đúng khoản phụ thu, rồi lại phải hoàn cho khách.
+- `lateFeeInsteadOfNight` và `extraNight` không được gửi. Phần này không cần sửa: `lateFee` vốn đã là `undefined` khi `!lateFeeMode`, và `extraNight` chỉ gửi khi đêm còn bán được.
+- Các kênh khác không đổi. Phí lớn hơn 0 thì vẫn hiện ô "Ghi phụ thu" hoặc xác nhận quản lý, như ESC-031. Máy chủ cũ không trả `lateFeeAsNightVnd` thì vẫn khóa, như BUG-R2-139.
+- Thứ tự gộp với #71: gộp trước hay sau đều được. Khi chưa có #71, máy chủ trả phí Nội bộ theo giá Direct (lớn hơn 0), nên Desk đi đường `lateFeeMode` như hiện nay.
+- Không thêm khóa chữ, không thêm màu.
+
+### Mock (`src/mocks/stay.ts`): làm theo B18 của #71
+- Đêm thêm của đơn Nội bộ là 0 đ (`extraNightRate`), không có sàn/trần.
+- Khi đêm đã bán: `lateFeeAsNightVnd = 0`. B18 không đòi `lateFeeInsteadOfNight` (không báo `LATE_CHECKOUT_AFTER_LIMIT`); nếu Desk vẫn gửi thì trả 422 `NOT_ALLOWED`.
+- B18 nhận `extraNight.rateVnd` của đơn Nội bộ mà không kiểm khoảng giá.
+- Kênh khác giữ nguyên.
+
+### Test `bug-r4-038-fea.test.tsx` (3 ca)
+1. Đơn Nội bộ, 19:30, đêm đã bán:
+   - bước Phụ phí không có báo lỗi, câu "chưa gồm đêm thêm" hiện đúng 1 lần;
+   - không có ô "Ghi phụ thu", "Hoàn tất" không bị khóa, số cần thu bằng số máy chủ;
+   - body B18 không có `lateFeeInsteadOfNight` và `extraNight`; không có dòng `late_fee_as_night` hay `extra_night`.
+2. Đơn Nội bộ đã có phụ thu B15 lúc 15:00:
+   - Desk thu đúng số máy chủ: 2.460.000 đ, không phải số dư folio 2.672.000 đ;
+   - sau khi trả phòng, folio có `balanceDueVnd = 0` và `creditVnd = 0`, phụ thu cũ đã bị đảo.
+3. Đối chứng Direct: vẫn hiện ô phí lớn hơn 0, "Hoàn tất" khóa với câu `co.late_fee_pr_needs`.
+
+- Trên `CheckOutPage` của `5dd00420`, mock giữ bản mới:
+  - ca 1 đỏ: còn báo lỗi "không thêm đêm được", "Hoàn tất" khóa;
+  - ca 2 đỏ: Desk hiện 2.672.000 đ, thay vì 2.460.000 đ;
+  - ca 3 xanh.
+- Kiểm:
+  - vitest admin-web 80 tệp / 905 ca đạt. `tsc`, `eslint`, `prettier` đạt;
+  - chạy 6 tiến trình × 2 lượt, mỗi lượt gồm `bug-r4-038-fea` + `esc031-fea` + `checkout.test`: 0/12 đỏ.
