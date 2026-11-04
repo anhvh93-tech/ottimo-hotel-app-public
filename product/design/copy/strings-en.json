@@ -3413,6 +3413,7 @@
   "rsv.hold_paid_keep": "{paid} of {required} received. If the deadline passes before the rest is paid, the booking isn't cancelled and the room stays held – collect the rest or ask a manager to accept the short deposit.",
   "cancel.refund_preview": "No fee. A refund request for {amount} will be created – it needs a manager's approval.",
   "today.holds_waiting": "Holds awaiting deposit ({n})",
+  "today.hold_overdue_since": "Past its deadline since {at} – action needed",
   "attn.hold_overdue": "Holds past their deadline: {n} – earliest since {time} on {date}, action needed",
   "attn.hold_overdue_one": "Hold {code} past its deadline since {time} on {date} – action needed",
   "attn.hold_overdue_cap": "Holds still awaiting deposit after {time} on arrival day: {n} – manager to decide",
