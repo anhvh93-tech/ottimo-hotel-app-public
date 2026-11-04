@@ -63,7 +63,15 @@ function restricted(row: { is_security: boolean; br_ref: string | null }): boole
  */
 export const KILL_SWITCH_SAFE_VALUE: Readonly<Record<string, unknown>> = {
   public_booking_requests_enabled: false,
+  // R4 LP-v2 (ARC lp-v2-design 2.9 – SEC SR-PE-08): hiding the website prices takes effect today.
+  public_show_prices: false,
 };
+
+/**
+ * R4 LP-v2 (SEC SR-PE-08): business keys whose change is audited in the `security` category (value in clear) –
+ * `public_show_prices` is an ordinary OWN-only key of the contract, but SEC wants its changes with the security log.
+ */
+const SECURITY_AUDITED_KEYS: ReadonlySet<string> = new Set(['public_show_prices']);
 
 /**
  * BUG-R3-010 – security keys that FDL may READ (rbac S35 / EP19: the Desk queue shows "the website form is off").
@@ -236,6 +244,9 @@ export class ParametersService {
       today: pc.today,
       requestId: input.requestId,
       ...(receiving ? { auditAs: { category: 'money' as const, mask: maskReceivingAccount } } : {}),
+      ...(SECURITY_AUDITED_KEYS.has(input.key)
+        ? { auditAs: { category: 'security' as const, mask: (v: unknown) => v } }
+        : {}),
       // BUG-R3-008: a kill switch turned to its safe value today replaces today's row.
       ...(input.key in KILL_SWITCH_SAFE_VALUE &&
       input.value === KILL_SWITCH_SAFE_VALUE[input.key] &&
@@ -293,7 +304,11 @@ export class ParametersService {
     await tx.query('DELETE FROM config_parameter WHERE id = $1', [row.id]);
     const receiving = input.key === RECEIVING_ACCOUNT_KEY;
     await this.audit.record(tx, {
-      category: receiving ? 'money' : def.is_security ? 'security' : 'config',
+      category: receiving
+        ? 'money'
+        : def.is_security || SECURITY_AUDITED_KEYS.has(input.key)
+          ? 'security'
+          : 'config',
       action: 'config.changed',
       entityType: 'config_parameter',
       entityId: input.key,

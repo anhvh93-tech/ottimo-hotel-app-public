@@ -3,11 +3,12 @@
 // photo viewer need JavaScript (R3-Q52: without it the hero is the first photo, a room card its cover photo).
 import { HERO_INTERVAL_MS } from '../content/gallery';
 import { initCarousel } from './carousel';
-import { preferredLang, readChoice, saveChoice, suggestion } from './lang';
+import { preferredLang, primaryLang, readChoice, saveChoice, suggestion } from './lang';
 import { initLightboxes } from './lightbox';
 
 const root = document.documentElement;
-const pageLang = root.lang;
+// bare code: <html lang="zh-Hans"> on /zh/ (ARC D10) – hreflang, data-set-lang and storage use 'zh'
+const pageLang = primaryLang(root.lang);
 const storage = (() => {
   try {
     return window.localStorage;
@@ -86,13 +87,27 @@ copyBtn?.addEventListener('click', () => {
   }
 });
 
-// Mobile menu: close after choosing a section, or on Escape.
+// Mobile menu and language list (UXD lp-v2 2.2): opening one closes the other; Escape closes and returns focus to its
+// button; a click outside closes the language list. Without JavaScript both still open and close (<details>).
 const menu = document.querySelector<HTMLDetailsElement>('details.menu');
+const langPick = document.querySelector<HTMLDetailsElement>('details.lang-pick');
 menu?.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => (menu.open = false)));
+menu?.addEventListener('toggle', () => {
+  if (menu.open && langPick) langPick.open = false;
+});
+langPick?.addEventListener('toggle', () => {
+  if (langPick.open && menu) menu.open = false;
+});
+document.addEventListener('click', (e) => {
+  if (langPick?.open && !langPick.contains(e.target as Node)) langPick.open = false;
+});
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && menu?.open) {
-    menu.open = false;
-    menu.querySelector('summary')?.focus();
+  if (e.key !== 'Escape') return;
+  for (const d of [menu, langPick]) {
+    if (d?.open) {
+      d.open = false;
+      d.querySelector('summary')?.focus();
+    }
   }
 });
 

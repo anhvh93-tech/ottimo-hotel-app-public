@@ -8,6 +8,8 @@
  * - the setParameter hook of `public_booking_requests_enabled` (SEC ARC-17: PUBLIC_FORM_NOT_READY + toggled
  *   notification to OWN + MGR; the property cache is dropped on change).
  * The public form stays OFF until OWN switches it on (default false – US-155 AC4).
+ * R4 LP-v2: `getPublicPriceEstimate` (PriceEstimateService over the reservations PublicRatePort) – OFF until OWN sets
+ * `public_show_prices` (default false); every parameter change of a property drops its estimate caches.
  */
 import { type DynamicModule, Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
 import type { Tx } from '../../db/database';
@@ -17,6 +19,7 @@ import { EventsService } from '../events/public/events.service';
 import { ParameterService } from '../platform/public/parameter.service';
 import { ParameterHooks } from '../platform/public/parameter-hooks';
 import { PropertyContextService } from '../platform/public/property-context';
+import { PriceEstimateService } from './internal/price-estimate.service';
 import { PublicBookingService } from './internal/public-booking.service';
 import { PublicSiteController } from './internal/public-site.controller';
 import { PUBLIC_SITE_OPTIONS, publicSiteOptionsFrom } from './internal/public-site.options';
@@ -40,6 +43,7 @@ export class PublicSiteModule implements OnModuleInit {
     @Inject(ParameterHooks) private readonly hooks: ParameterHooks,
     @Inject(PublicBookingService) private readonly booking: PublicBookingService,
     @Inject(PropertyContextService) private readonly property: PropertyContextService,
+    @Inject(PriceEstimateService) private readonly estimates: PriceEstimateService,
   ) {}
 
   static register(options: PublicSiteModuleOptions = {}): DynamicModule {
@@ -50,6 +54,7 @@ export class PublicSiteModule implements OnModuleInit {
       providers: [
         { provide: PUBLIC_SITE_OPTIONS, useValue: publicSiteOptionsFrom(env) },
         WebsiteRequestsService,
+        PriceEstimateService,
         PublicBookingService,
         WebsiteRequestPort,
         { provide: WEBSITE_REQUEST_PORT, useExisting: WebsiteRequestPort },
@@ -63,6 +68,9 @@ export class PublicSiteModule implements OnModuleInit {
       if (!this.jobs.get(job.key)) this.jobs.register(job);
     }
     this.events.registerAttentionSource(websiteRequestNewSource);
+    // R4 LP-v2: price / calendar / switch changes drop the estimate caches of the property at once (TTL 60 s is the
+    // backstop for room list prices, which are not parameters).
+    this.hooks.onChange((propertyId) => this.estimates.invalidate(propertyId));
     if (!this.hooks.get('public_booking_requests_enabled')) {
       this.hooks.register('public_booking_requests_enabled', {
         before: async (tx: Tx, value: unknown, roles: readonly string[]) => {

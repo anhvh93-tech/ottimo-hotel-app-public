@@ -24,6 +24,9 @@ const KB = 1024;
 const VI_EXTRA = 70;
 const PHONE = { width: 375, height: 812, mobile: true };
 const DESKTOP = { width: 1280, height: 800, mobile: false };
+// LP-v2 (UXD lp-v2-design 1.6 proposal, ARC lp-v2 3.3): ko/zh/ru fonts on top of the EN figures. Total first load of
+// any home page stays ≤ 700 KB (ADR-014 9).
+const CJK = { ru: 40, ko: 160, zh: 240 };
 const CASES: Case[] = [
   { name: 'phone EN DPR1', path: '/', ...PHONE, dpr: 1, hero: 20, open: 250, full: 350 },
   { name: 'phone EN DPR2', path: '/', ...PHONE, dpr: 2, hero: 50, open: 320, full: 600 },
@@ -48,6 +51,26 @@ const CASES: Case[] = [
   },
   { name: 'desktop EN DPR1', path: '/', ...DESKTOP, dpr: 1, hero: 50, open: 400, full: 600 },
   { name: 'desktop EN DPR2', path: '/', ...DESKTOP, dpr: 2, hero: 120, open: 700, full: 1100 },
+  ...(['ru', 'ko', 'zh'] as const).flatMap((l) => [
+    {
+      name: `phone ${l.toUpperCase()} DPR2`,
+      path: `/${l}/`,
+      ...PHONE,
+      dpr: 2,
+      hero: 50,
+      open: 320 + CJK[l],
+      full: 600 + CJK[l],
+    },
+    {
+      name: `desktop ${l.toUpperCase()} DPR2`,
+      path: `/${l}/`,
+      ...DESKTOP,
+      dpr: 2,
+      hero: 120,
+      open: 700,
+      full: 1100 + CJK[l],
+    },
+  ]),
 ];
 
 async function measure(browser: Browser, c: Case) {
@@ -56,7 +79,8 @@ async function measure(browser: Browser, c: Case) {
     deviceScaleFactor: c.dpr,
     isMobile: c.mobile,
     hasTouch: c.mobile,
-    locale: c.path === '/vi/' ? 'vi-VN' : 'en-US',
+    locale:
+      { '/vi/': 'vi-VN', '/ko/': 'ko-KR', '/zh/': 'zh-CN', '/ru/': 'ru-RU' }[c.path] ?? 'en-US',
   });
   const page = await context.newPage();
   const cdp = await context.newCDPSession(page);
@@ -116,7 +140,18 @@ async function measure(browser: Browser, c: Case) {
   await page.waitForTimeout(300);
   const full = bytes;
   await context.close();
-  return { open, full, hero, heroFetches };
+  const fonts = done.filter((d) => /\.woff2(\?|$)/.test(d.url));
+  const langFonts = fonts.filter((d) =>
+    /\/(ottimo-(sans|serif)-(ko|zh)|onest-|lora-cyrillic)/.test(d.url),
+  );
+  return {
+    open,
+    full,
+    hero,
+    heroFetches,
+    langFontFiles: langFonts.length,
+    langFontBytes: langFonts.reduce((n, d) => n + d.body, 0),
+  };
 }
 
 for (const c of CASES) {
@@ -127,8 +162,13 @@ for (const c of CASES) {
     const kb = (n: number) => Math.round((n / KB) * 10) / 10;
     info.annotations.push({
       type: 'bytes',
-      description: `${c.name}: hero ${kb(m.hero)} KB (${m.heroFetches}×), open ${kb(m.open)} KB, full ${kb(m.full)} KB`,
+      description: `${c.name}: hero ${kb(m.hero)} KB (${m.heroFetches}×), open ${kb(m.open)} KB, full ${kb(m.full)} KB, ko/zh/ru fonts ${m.langFontFiles} files ${kb(m.langFontBytes)} KB`,
     });
+    // ARC lp-v2 3.3: the EN and VI pages load no Korean, Chinese or Cyrillic font file; ko/zh ≤ 300 KB, ru ≤ 150 KB
+    if (c.path === '/' || c.path === '/vi/') expect(m.langFontFiles).toBe(0);
+    if (c.path === '/ko/' || c.path === '/zh/')
+      expect(kb(m.langFontBytes)).toBeLessThanOrEqual(300);
+    if (c.path === '/ru/') expect(kb(m.langFontBytes)).toBeLessThanOrEqual(150);
     expect(m.heroFetches, 'hero fetched once (preload matches <source>)').toBe(1);
     expect(kb(m.hero)).toBeLessThanOrEqual(c.hero);
     expect(kb(m.open)).toBeLessThanOrEqual(c.open);

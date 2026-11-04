@@ -1,0 +1,15 @@
+---
+// /vi/, /ko/, /zh/, /ru/ – home page of every language except English (ARC lp-v2 3.2: one dynamic route instead of a
+// hand-copied folder per language; a new language = lib/i18n.ts LANGS + its copy).
+import HomePage from '../../components/HomePage.astro';
+import { COPY } from '../../content';
+import { PREFIXED_LANGS, type Lang } from '../../lib/i18n';
+
+export function getStaticPaths() {
+  return PREFIXED_LANGS.map((lang) => ({ params: { lang } }));
+}
+
+const lang = Astro.params.lang as Lang;
+---
+
+<HomePage t={COPY[lang]} />

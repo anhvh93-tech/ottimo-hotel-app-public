@@ -624,10 +624,10 @@
 | `guest.oci.uploading` | Đang gửi ảnh {n}/{total} – {pct}% | Sending photo {n}/{total} – {pct}% | Отправка фото {n}/{total} – {pct}% | Ảnh nén phía máy khách ≤ 1,5 MB trước khi gửi |
 | `guest.oci.upload_weak` | Mạng yếu – ảnh đã được thu nhỏ và sẽ tự thử lại. | Weak connection – the photo was compressed and will retry automatically. | Слабое соединение – фото сжато, отправка повторится автоматически. |  |
 | `guest.oci.upload_retry` | Gửi lại ảnh | Resend photo | Отправить фото снова |  |
-| `guest.bill.line.room_one` | Tiền phòng {nights} đêm × {rate} | Room {nights} night × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
-| `guest.bill.line.room_few` | Tiền phòng {nights} đêm × {rate} | Room {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
-| `guest.bill.line.room_many` | Tiền phòng {nights} đêm × {rate} | Room {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng many |
-| `guest.bill.line.room_other` | Tiền phòng {nights} đêm × {rate} | Room {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng other |
+| `guest.bill.line.room_one` | Tiền phòng {nights} đêm × {rate} | Room charge, {nights} night × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other |
+| `guest.bill.line.room_few` | Tiền phòng {nights} đêm × {rate} | Room charge, {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng few |
+| `guest.bill.line.room_many` | Tiền phòng {nights} đêm × {rate} | Room charge, {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng many |
+| `guest.bill.line.room_other` | Tiền phòng {nights} đêm × {rate} | Room charge, {nights} nights × {rate} | ⟨chừa chỗ⟩ | BUG-R4-009 (CPY 15.2): chọn dạng bằng Intl.PluralRules(locale).select(n) → khóa _one/_few/_many/_other – dạng other |
 | `guest.bill.line.minibar` | Minibar | Minibar | Мини-бар |  |
 | `guest.bill.usd` | ≈ {usd} USD (tỷ giá ngày {date}, chỉ tham khảo) | ≈ {usd} USD (rate of {date}, for reference only) | ⟨chừa chỗ⟩ | BR-004 |
 | `guest.req.decline.fully_booked` | Đã hết chỗ vào thời gian bạn chọn | Fully booked for the time you chose | ⟨chừa chỗ⟩ | CŨ – mã nháp EP14, không có trong enum declinedReasonCode 0.3.7; không dùng, xóa ở v0.5 (UXD s4) |
@@ -1120,6 +1120,10 @@
 | `rooms.night_auto` | Đêm ngày thường, kênh Trực tiếp, đã gồm VAT. Cuối tuần, ngày đặc biệt do lịch giá cộng thêm. | Weekday night, Direct channel, VAT included. The rate calendar adds weekend and special-date increases. | ⟨chừa chỗ⟩ | 04-rooms.html – chữ phụ dưới ô giá đêm (nay nhập được). FB-INV-005: BR-101 v0.4.7 (2) (VAT – BR-523), BR-104 + ESC-036 A. UXD duyệt R3 Review 26/10: bỏ số +15 %/+30 % viết cứng (tham số lịch giá, BR §0.2 – đổi tham số thì chữ sai mà không ai biết); "ngày lễ" → "ngày đặc biệt" đúng BR-104 (gồm Tết, cao điểm, sự kiện); bỏ "Giá đêm" lặp nhãn ô; 4 → 3 dòng ở cột 1366 px. Key giữ tên cũ để không đổi hi-fi |
 | `rooms.ooo_until` | Khóa sửa chữa đến {date} | Blocked for repair until {date} | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.price` | Giá niêm yết | List price | ⟨chừa chỗ⟩ | 04-rooms.html |
+| `rooms.public_type` | Hạng phòng công khai | Public room type | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `rooms.public_type_none` | Chưa gán | Not assigned | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `rooms.public_type_help` | Hạng khách thấy trên web và trong tin nhắn khi chưa báo căn; web tính giá ước tính theo hạng này. Căn chưa gán không thuộc hạng nào trên web. | The type guests see on the website and in messages before a room is assigned; website estimates use it. An unassigned room belongs to no type on the website. | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) · FE-A lp-v2-fe4: chữ theo 73a80804 (UXD minors) – đồng bộ với JSON đã phát hành |
+| `rooms.public_type_owner_only` | Chỉ chủ đầu tư đổi được hạng này. | Only the owner can change this. | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
 | `rooms.reason` | Lý do đổi giá | Reason for price change | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.rule_note` | Khách vượt định mức ngủ sofa, trả phụ thu người thêm (BR-110) và được chuẩn bị thêm 1 bộ đồ dùng: 1 mền, 1 khăn tắm, 1 khăn mặt, bàn chải, đồ vệ sinh cá nhân (không gối). | Guests over the standard occupancy sleep on the sofa, pay the extra-guest charge (BR-110) and get an extra amenity kit: 1 blanket, 1 bath towel, 1 face towel, toothbrush, toiletries (no pillow). | ⟨chừa chỗ⟩ | 04-rooms.html |
 | `rooms.selling` | Đang bán | On sale | ⟨chừa chỗ⟩ | 04-rooms.html |
@@ -1230,6 +1234,9 @@
 | `sale.short_total` | Ngắn ngày {n} đêm | Short stay, {n} nights | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.taken_partly` | Kín {dates} | Booked {dates} | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.text_lang` | Ngôn ngữ gửi khách | Language for the guest | ⟨chừa chỗ⟩ | 12-sales-quote.html |
+| `sale.text_lang_note.ko` | Khách viết bằng tiếng Hàn – gửi tin bằng tiếng Anh. | Guest wrote in Korean – send messages in English. | ⟨chừa chỗ⟩ | US-175 AC4 (2), BUG-R4-008 – CPY lp-v2-copy 15.1 (câu ORC chốt "gửi tin bằng"); dưới ô Ngôn ngữ gửi khách và dưới thẻ cọc ở bước giữ chỗ; không hiện với vi/en |
+| `sale.text_lang_note.zh` | Khách viết bằng tiếng Trung – gửi tin bằng tiếng Anh. | Guest wrote in Chinese – send messages in English. | ⟨chừa chỗ⟩ | US-175 AC4 (2), BUG-R4-008 – CPY lp-v2-copy 15.1 (câu ORC chốt "gửi tin bằng"); dưới ô Ngôn ngữ gửi khách và dưới thẻ cọc ở bước giữ chỗ; không hiện với vi/en |
+| `sale.text_lang_note.ru` | Khách viết bằng tiếng Nga – gửi tin bằng tiếng Nga. | Guest wrote in Russian – send messages in Russian. | ⟨chừa chỗ⟩ | US-175 AC4 (2), BUG-R4-008 – CPY lp-v2-copy 15.1 (câu ORC chốt "gửi tin bằng"); dưới ô Ngôn ngữ gửi khách và dưới thẻ cọc ở bước giữ chỗ; không hiện với vi/en |
 | `sale.to_hold` | Khách đồng ý – Giữ chỗ | Guest agrees – Hold the room | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.today_handoff` | Sale/CTV: nhắn lễ tân tạo đơn đã thu cho khách này. | Sales/agents: ask the front desk to create a paid booking for this guest. | ⟨chừa chỗ⟩ | 12-sales-quote.html |
 | `sale.try_dates` | Xem ngày gợi ý | See suggested dates | ⟨chừa chỗ⟩ | 12-sales-quote.html |
@@ -3549,6 +3556,9 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `webreq.status.declined` | Đã đóng | Closed | ⟨chừa chỗ⟩ |  |
 | `webreq.status.spam` | Spam | Spam | ⟨chừa chỗ⟩ |  |
 | `webreq.filter_label` | Lọc theo trạng thái | Filter by status | ⟨chừa chỗ⟩ |  |
+| `webreq.filter_locale` | Lọc theo ngôn ngữ | Filter by language | ⟨chừa chỗ⟩ | US-175 AC3, AC5, BUG-R4-007 – FE-A lp-v2-fe4 viết theo content guide; UXD duyệt 01/11 (UXD-on-LP-v2-fe4) |
+| `webreq.locale_all` | Mọi ngôn ngữ | All languages | ⟨chừa chỗ⟩ | US-175 AC3, AC5, BUG-R4-007 – FE-A lp-v2-fe4 viết theo content guide; UXD duyệt 01/11 (UXD-on-LP-v2-fe4) |
+| `webreq.total` | {n} yêu cầu khớp bộ lọc | Matching requests: {n} | ⟨chừa chỗ⟩ | US-175 AC3, AC5, BUG-R4-007 – FE-A lp-v2-fe4 viết theo content guide; UXD duyệt 01/11 (UXD-on-LP-v2-fe4) – {n} = page.total của server (không theo trang đã tải); EN tránh số nhiều |
 | `webreq.only_mine` | Chỉ yêu cầu tôi đang xử lý | Only requests I'm handling | ⟨chừa chỗ⟩ | Lọc ở client theo assignedUserId [GIẢ ĐỊNH BA] |
 | `webreq.search_label` | Tìm theo mã yêu cầu | Find by request code | ⟨chừa chỗ⟩ |  |
 | `webreq.search_btn` | Tìm | Find | ⟨chừa chỗ⟩ |  |
@@ -3569,6 +3579,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `webreq.col.guests` | Số khách | Guests | ⟨chừa chỗ⟩ |  |
 | `webreq.col.room_type` | Hạng phòng | Room type | ⟨chừa chỗ⟩ |  |
 | `webreq.col.channel` | Trả lời qua | Reply via | ⟨chừa chỗ⟩ |  |
+| `webreq.col.locale` | Ngôn ngữ | Language | ⟨chừa chỗ⟩ | US-175 AC3, AC5, BUG-R4-007 – FE-A lp-v2-fe4 viết theo content guide; UXD duyệt 01/11 (UXD-on-LP-v2-fe4) |
 | `webreq.col.source` | Nguồn | Source | ⟨chừa chỗ⟩ |  |
 | `webreq.col.reply_by` | Hạn trả lời | Reply by | ⟨chừa chỗ⟩ |  |
 | `webreq.col.flags` | Cần xem | Check | ⟨chừa chỗ⟩ |  |
@@ -3623,6 +3634,16 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `webreq.locale.vi` | Tiếng Việt | Vietnamese | ⟨chừa chỗ⟩ |  |
 | `webreq.locale.en` | Tiếng Anh | English | ⟨chừa chỗ⟩ |  |
 | `webreq.locale.ru` | Tiếng Nga | Russian | ⟨chừa chỗ⟩ |  |
+| `webreq.locale.ko` | Tiếng Hàn | Korean | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `webreq.locale.zh` | Tiếng Trung (giản thể) | Chinese (Simplified) | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `webreq.estimate_seen` | Giá ước tính khách đã thấy | Estimate the guest saw | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `webreq.estimate_seen_value` | {amount} – tính lúc {time} | {amount} – calculated at {time} | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `webreq.estimate_none` | Khách chưa thấy giá | The guest saw no price | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `webreq.estimate_at_submit` | Lúc khách gửi, hệ thống tính lại: {amount} | Recalculated when the guest sent it: {amount} | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `webreq.estimate_changed` | Khác giá web khách đã thấy: {from} → {to} | Differs from the website estimate: {from} → {to} | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) · FE-A lp-v2-fe4: chữ theo 73a80804 (UXD minors) – đồng bộ với JSON đã phát hành |
+| `webreq.estimate_changed_hint` | Giá theo lịch giá hôm nay khác số khách thấy trên web. Nói rõ lý do với khách khi gửi báo giá. | Today's rate differs from what the guest saw on the website. Tell the guest why when you send the quote. | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) · FE-A lp-v2-fe4: chữ theo 73a80804 (UXD minors) – đồng bộ với JSON đã phát hành |
+| `webreq.estimate_same` | Khớp giá ước tính khách đã thấy ({amount}). | Matches the estimate the guest saw ({amount}). | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
+| `webreq.estimate_other` | Khách đã thấy {amount} cho ngày, số khách hoặc hạng phòng khác – không so sánh. | The guest saw {amount} for other dates, guests or room type – not compared. | ⟨chừa chỗ⟩ | LP-v2 FE (c9372e52) – thêm tay vào JSON, BE chuyển về nguồn gen_strings.py (BUG-R4-009) |
 | `webreq.preferred` | Khách muốn được trả lời qua {channel} | Guest prefers a reply via {channel} | ⟨chừa chỗ⟩ |  |
 | `webreq.copy_phone` | Sao chép SĐT | Copy phone | ⟨chừa chỗ⟩ |  |
 | `webreq.copy_email` | Sao chép email | Copy email | ⟨chừa chỗ⟩ |  |

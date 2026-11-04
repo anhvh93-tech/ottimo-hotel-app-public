@@ -1,5 +1,6 @@
 import {
   isApiError,
+  type LandingLocale,
   type Role,
   type WebsiteBookingRequest,
   type WebsiteBookingRequestRef,
@@ -20,10 +21,12 @@ import { useNow } from '../../hooks/useNow';
 import { useOnline } from '../../hooks/useOnline';
 import { useResource } from '../../hooks/useResource';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
+import { loadWebreqNewCount } from './newCount';
 import {
   CHANNEL_ICON,
   CHANNEL_KEY,
   DEFAULT_STATUSES,
+  LOCALES,
   STATUSES,
   WR_STATUS,
   cleanRefCode,
@@ -76,6 +79,8 @@ export function WebRequestsPage() {
   const formOn = useFormSwitch(propertyId, roles);
 
   const [statuses, setStatuses] = useState<WebsiteBookingRequestStatus[]>(DEFAULT_STATUSES);
+  // US-175 AC3 (BUG-R4-007): one language at a time ('' = every language), combined with the status chips.
+  const [locale, setLocale] = useState<LandingLocale | ''>('');
   const [refText, setRefText] = useState('');
   const [refCode, setRefCode] = useState<string | null>(null);
   const [refError, setRefError] = useState<string | undefined>();
@@ -90,14 +95,26 @@ export function WebRequestsPage() {
     setMore(null);
     const out = await api.listWebsiteBookingRequests(
       { propertyId },
-      { status: refCode ? undefined : statuses, refCode: refCode ?? undefined, limit: PAGE },
+      {
+        status: refCode ? undefined : statuses,
+        locale: refCode || !locale ? undefined : [locale],
+        refCode: refCode ?? undefined,
+        limit: PAGE,
+      },
     );
     return out.data;
-  }, [propertyId, statusKey, refCode]);
+  }, [propertyId, statusKey, locale, refCode]);
+  // FB-R4-UXD-FE-20: "n new requests" under the title is the menu badge's number (`status=new`, the caller's
+  // scope) – never the filtered list, which has its own "{n} matching" line.
+  const newCount = useResource(() => loadWebreqNewCount(propertyId), [propertyId]);
   const reload = list.reload;
+  const reloadCount = newCount.reload;
   useLiveEvents(
     propertyId,
-    useCallback(() => reload(), [reload]),
+    useCallback(() => {
+      reload();
+      reloadCount();
+    }, [reload, reloadCount]),
     {
       events: LIVE_EVENTS,
       debounceMs: 1000,
@@ -109,8 +126,10 @@ export function WebRequestsPage() {
   const hasMore = !!nextCursor;
   const all = [...(firstPage?.data ?? []), ...(more?.rows ?? [])];
   const rows = onlyMine ? all.filter((r) => r.assignedUserId === me?.id) : all;
-  const newCount = all.filter((r) => r.status === 'new').length;
-  const filtered = !!refCode || onlyMine || statusKey !== DEFAULT_STATUSES.join(',');
+  const filtered = !!refCode || onlyMine || !!locale || statusKey !== DEFAULT_STATUSES.join(',');
+  // US-175 AC5: the server counts every request matching status + language (+ code) – not the loaded pages.
+  // "Only mine" is filtered here on the loaded rows, so the server total would not match it: no number then.
+  const total = !onlyMine && typeof firstPage?.total === 'number' ? firstPage.total : null;
 
   const loadMore = async () => {
     if (!nextCursor || moreBusy) return;
@@ -120,6 +139,7 @@ export function WebRequestsPage() {
         { propertyId },
         {
           status: refCode ? undefined : statuses,
+          locale: refCode || !locale ? undefined : [locale],
           refCode: refCode ?? undefined,
           cursor: nextCursor,
           limit: PAGE,
@@ -156,6 +176,7 @@ export function WebRequestsPage() {
   };
   const clearFilters = () => {
     setStatuses(DEFAULT_STATUSES);
+    setLocale('');
     setRefText('');
     setRefCode(null);
     setRefError(undefined);
@@ -168,7 +189,11 @@ export function WebRequestsPage() {
     <>
       <Topbar
         title={t('nav.website_requests')}
-        sub={firstPage ? t('webreq.count_new', { n: newCount }) : undefined}
+        sub={
+          typeof newCount.state.data === 'number'
+            ? t('webreq.count_new', { n: newCount.state.data })
+            : undefined
+        }
       />
       <Page>
         <div className="stack">
@@ -179,8 +204,9 @@ export function WebRequestsPage() {
             </Alert>
           ) : null}
           <div className="webreq-filters">
-            <div role="group" aria-labelledby={`${ids}-st`}>
-              <span className="label-h" id={`${ids}-st`}>
+            {/* FB-R4-UXD-FE-21: same sentence-case label as the Field boxes beside it (DS C3). */}
+            <div role="group" className="field" aria-labelledby={`${ids}-st`}>
+              <span className="lbl" id={`${ids}-st`}>
                 {t('webreq.filter_label')}
               </span>
               <div className="row wrap">
@@ -197,6 +223,24 @@ export function WebRequestsPage() {
                 ))}
               </div>
             </div>
+            <Field label={t('webreq.filter_locale')}>
+              {(p) => (
+                <select
+                  {...p}
+                  className="input"
+                  value={locale}
+                  disabled={!!refCode}
+                  onChange={(e) => setLocale(e.target.value as LandingLocale | '')}
+                >
+                  <option value="">{t('webreq.locale_all')}</option>
+                  {LOCALES.map((l) => (
+                    <option key={l} value={l}>
+                      {t(`webreq.locale.${l}`)}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
             <form className="row wrap" onSubmit={search} role="search">
               <Field
                 label={t('webreq.search_label')}
@@ -233,6 +277,11 @@ export function WebRequestsPage() {
             ) : null}
           </div>
 
+          {total !== null ? (
+            <p className="li-s" role="status">
+              {t('webreq.total', { n: total })}
+            </p>
+          ) : null}
           {!firstPage && list.state.status === 'error' && !refInvalid ? (
             <ErrorBlock
               titleKey="webreq.error_title"
@@ -257,7 +306,7 @@ export function WebRequestsPage() {
             )
           ) : (
             <div className="table-wrap">
-              <table className="table">
+              <table className="table webreq-table">
                 <thead>
                   <tr>
                     <th scope="col">{t('webreq.col.code')}</th>
@@ -266,6 +315,7 @@ export function WebRequestsPage() {
                     <th scope="col">{t('webreq.col.guests')}</th>
                     <th scope="col">{t('webreq.col.room_type')}</th>
                     <th scope="col">{t('webreq.col.channel')}</th>
+                    <th scope="col">{t('webreq.col.locale')}</th>
                     <th scope="col">{t('webreq.col.source')}</th>
                     <th scope="col">{t('webreq.col.reply_by')}</th>
                     <th scope="col">{t('webreq.col.flags')}</th>
@@ -317,6 +367,21 @@ export function WebRequestsPage() {
   );
 }
 
+/**
+ * FB-R4-UXD-FE-18: "Tiếng Trung (giản thể)" may wrap only before the bracket – "Tiếng Trung / (giản thể)", never
+ * inside a group. Display only: the copy keeps plain spaces.
+ */
+function KeepTogether({ text }: { text: string }) {
+  const i = text.indexOf(' (');
+  if (i < 0) return <span className="nowrap">{text}</span>;
+  return (
+    <>
+      <span className="nowrap">{text.slice(0, i)}</span>{' '}
+      <span className="nowrap">{text.slice(i + 1)}</span>
+    </>
+  );
+}
+
 function Row({
   r,
   now,
@@ -342,11 +407,11 @@ function Row({
         </button>
       </td>
       <td>{dateTime(r.createdAt)}</td>
-      <td>
+      <td className="chips-wrap">
         {stayText(t, r)}
         {r.stayKind === 'long' ? (
           <div>
-            <Chip tone="long" icon="calendar">
+            <Chip tone="long" icon="calendar" className="chip--wrap">
               {t('webreq.long_stay')}
             </Chip>
           </div>
@@ -356,6 +421,9 @@ function Row({
       <td>{r.roomTypeLabel ?? (r.roomType ? r.roomType : t('webreq.room_any'))}</td>
       <td>
         <Chip icon={CHANNEL_ICON[r.preferredChannel]}>{t(CHANNEL_KEY[r.preferredChannel])}</Chip>
+      </td>
+      <td>
+        <KeepTogether text={t(`webreq.locale.${r.locale}`)} />
       </td>
       <td>{sourceText(t, r)}</td>
       <td>
@@ -380,10 +448,10 @@ function Row({
           </div>
         ) : null}
       </td>
-      <td>
+      <td className="chips-wrap">
         <div className="row wrap">
           {flags.slice(0, 2).map((f) => (
-            <Chip key={f} tone="warn">
+            <Chip key={f} tone="warn" className="chip--wrap">
               {t(`webreq.flag.${f}`)}
             </Chip>
           ))}
