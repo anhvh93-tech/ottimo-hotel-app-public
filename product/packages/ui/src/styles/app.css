@@ -496,8 +496,9 @@ body:has(.app-mnav) .toasts {
 }
 
 /* v1.0.3 UXD FB-R4-UXD-FE-EM-08 (Người dùng & vai): an action under data in a table cell lines up with the text
-   above it (Desk `sm` height kept for the touch target); the sign-in time never breaks; an address wraps
-   anywhere instead of being cut. */
+   above it (Desk `sm` height kept for the touch target); the sign-in time never breaks. An address breaks only
+   right after "@" (v1.0.4 BUG-R4-023, `EmailText` in UsersPage: two `.nowrap` halves joined by `<wbr>`), so the
+   email cell no longer needs `overflow-wrap: anywhere` (UXD 4.1). */
 .btn.btn-inline {
   padding-inline: 0;
 }
@@ -515,6 +516,9 @@ body:has(.app-mnav) .toasts {
 .nowrap {
   white-space: nowrap;
 }
-.users-email {
-  overflow-wrap: anywhere;
+/* v1.0.4 UXD FB-R4-UXD-FE-P430-03: the row actions ("Sửa vai" · "Khác…" · "Mở khóa") stay on one line at
+   1280/1366 in VI and EN; the email column gives way (it breaks after "@"), and below that `.table-wrap` scrolls. */
+.users-actions {
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }

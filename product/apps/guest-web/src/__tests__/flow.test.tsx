@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { mockControl, mockDates, MOCK_TOKENS } from '../mocks/handlers';
+import { NOTICE_PARAGRAPHS } from '../app/config';
 import { translateGuest } from '../app/i18n';
 import { jpeg, openLink } from './helpers';
 
@@ -139,7 +140,7 @@ describe('guest-web check-in online (H18, US-107)', () => {
         decision: 'refused',
         personIndex: 1,
         channel: 'guest_app',
-        noticeVersion: 'privacy-2026-10-v1',
+        noticeVersion: 'privacy-2026-10-v2',
         retentionDays: 30,
         locale: 'vi',
       }),
@@ -397,6 +398,8 @@ describe('guest-web check-in online (H18, US-107)', () => {
   it.each([
     ['no notice version from the server', { noticeVersion: null }],
     ['a notice version the page has no text for', { noticeVersion: 'privacy-2027-01-v2' }],
+    // P4-42 (SEC 6.4 ý 1): the v1 text left the page – a server still on v1 fails closed.
+    ['the server still on v1', { noticeVersion: 'privacy-2026-10-v1' }],
     ['no retention days from the server', { retentionDays: null }],
   ])('fails closed with %s – no notice, no consent question (SEC ĐK-2 17/10)', async (_, patch) => {
     mockControl.reset(patch);
@@ -412,22 +415,53 @@ describe('guest-web check-in online (H18, US-107)', () => {
     expect(screen.queryByText(/Tôi đồng ý OTTIMO lưu ảnh/)).not.toBeInTheDocument();
   });
 
-  it('RU page: legal text is the approved EN in one lang="en" block, evidence says en (decision-log 17/10)', async () => {
+  it('notice privacy-2026-10-v2: four paragraphs in the SEC order under the title, then the version and the button', async () => {
+    const { user } = openLink();
+    await user.click(await screen.findByRole('button', { name: 'Làm thủ tục trước' }));
+    const vi = (k: string) => translateGuest('vi', k);
+    const first = await screen.findByText(vi('gw.notice_body'));
+    const paragraphs = [...first.parentElement!.querySelectorAll('p')].map((p) => p.textContent);
+    expect(paragraphs).toEqual(NOTICE_PARAGRAPHS.map(vi));
+    expect(NOTICE_PARAGRAPHS).toEqual([
+      'gw.notice_body',
+      'gw.notice_retention',
+      'gw.notice_translation',
+      'gw.notice_rights',
+    ]);
+    expect(screen.getByText('Phiên bản thông báo: privacy-2026-10-v2')).toBeInTheDocument();
+    const read = screen.getByRole('button', { name: 'Tôi đã đọc' });
+    // DOM order: title → paragraphs → button
+    const title = screen.getByRole('heading', { name: vi('gw.notice_title'), level: 1 });
+    expect(title.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(first.compareDocumentPosition(read) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await user.click(read);
+    await screen.findByRole('heading', { name: 'Giấy tờ', level: 1 });
+    expect(mockControl.state.oci.noticeAccepted).toBe(true);
+  });
+
+  it('RU page (P4-42): the reviewed RU legal text, no EN block, consent evidence says ru + v2', async () => {
     mockControl.state.locale = 'ru';
     mockControl.state.localeChosen = true; // the guest picked Russian in an earlier session
     const ru = (k: string, a?: Record<string, string | number>) => translateGuest('ru', k, a);
     const en = (k: string, a?: Record<string, string | number>) => translateGuest('en', k, a);
-    const { user } = openLink();
+    // exact text match: the default normalizer turns U+00A0 into a plain space, the legal text must keep it
+    const exact = { normalizer: (s: string) => s };
+    const sameName = (want: string) => (name: string) =>
+      name.replace(/\s+/g, ' ') === want.replace(/\s+/g, ' ');
+    const { user, container } = openLink();
     await user.click(await screen.findByRole('button', { name: ru('guest.cta.checkin_short') }));
 
-    // notice: RU sentence above an EN block; the confirm button is EN too
-    const notice = await screen.findByText(en('gw.notice_body'));
-    expect(notice.closest('[lang="en"]')).not.toBeNull();
-    expect(screen.getByText(ru('gw.legal_en_notice'))).toBeInTheDocument();
-    expect(screen.getByText(ru('gw.legal_en_notice')).closest('[lang="en"]')).toBeNull();
-    const read = screen.getByRole('button', { name: en('gw.notice_read') });
-    expect(read).toHaveAttribute('lang', 'en');
-    expect(document.body.textContent).not.toMatch(/Русская версия скоро/);
+    // notice: all four paragraphs + the "why" line in RU, no lang="en" block, no "shown in English" line
+    for (const key of ['guest.oci.why', ...NOTICE_PARAGRAPHS]) {
+      expect(ru(key)).not.toBe(en(key));
+      expect(screen.getByText(ru(key), exact).closest('[lang="en"]')).toBeNull();
+    }
+    expect(ru('gw.notice_retention')).toContain('3\u00a0месяцев'); // SEC/UXD: U+00A0 kept on the page
+    expect(screen.queryByText(ru('gw.legal_en_notice'))).toBeNull();
+    // (the language picker's own options carry lang – only the page body matters)
+    expect(container.querySelector('main [lang="en"]')).toBeNull();
+    const read = screen.getByRole('button', { name: ru('gw.notice_read') });
+    expect(read).not.toHaveAttribute('lang');
     await user.click(read);
 
     for (const p of [1, 2]) {
@@ -440,15 +474,30 @@ describe('guest-web check-in online (H18, US-107)', () => {
     await user.click(await screen.findByRole('radio', { name: '14:00 – 16:00' }));
     await user.click(screen.getByRole('button', { name: ru('common.next') }));
 
-    // consent: question + choices + optional + withdraw in the EN block; companions line stays RU
-    const yes = await screen.findByRole('radio', { name: en('guest.oci.consent', { days: 30 }) });
-    expect(yes.closest('[lang="en"]')).not.toBeNull();
-    expect(screen.getByText(en('guest.oci.withdraw_hint')).closest('[lang="en"]')).not.toBeNull();
-    expect(screen.getByText(ru('guest.oci.companions_at_desk')).closest('[lang="en"]')).toBeNull();
-    await user.click(screen.getByRole('radio', { name: en('guest.oci.consent_no') }));
+    // consent: question, choices, optional and withdraw lines in RU
+    const yes = await screen.findByRole('radio', {
+      name: sameName(ru('guest.oci.consent', { days: 30 })),
+    });
+    expect(yes.closest('[lang="en"]')).toBeNull();
+    // UXD: `{days}\u00a0дн.` – the number never wraps away from its unit at 360 px
+    expect(screen.getByText(ru('guest.oci.consent', { days: 30 }), exact)).toBeInTheDocument();
+    expect(screen.getByText(ru('guest.oci.consent_q'), exact)).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: ru('guest.oci.consent_no') })).toBeInTheDocument();
+    expect(screen.getByText(ru('guest.oci.withdraw_hint'), exact)).toBeInTheDocument();
+    expect(screen.getByText(ru('guest.oci.consent_optional'), exact)).toBeInTheDocument();
+    await user.click(yes);
     await user.click(screen.getByRole('button', { name: ru('guest.oci.submit') }));
     await waitFor(() => expect(mockControl.state.oci.completedAt).toBeTruthy());
-    expect(mockControl.state.consents[0]).toMatchObject({ locale: 'en', retentionDays: 30 });
+    expect(mockControl.state.consents).toEqual([
+      expect.objectContaining({
+        purpose: 'P02B_ID_IMAGE_RETENTION',
+        decision: 'granted',
+        noticeVersion: 'privacy-2026-10-v2',
+        retentionDays: 30,
+        locale: 'ru', // → notice_locale on the server (R-CON-02)
+        channel: 'guest_app',
+      }),
+    ]);
     expect(mockControl.state.oci.deferredPeople).toEqual([1, 2]);
   });
 });

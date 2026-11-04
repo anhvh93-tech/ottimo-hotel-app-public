@@ -342,6 +342,11 @@ describe.skipIf(!BOOT_URL || !BOOT_MIGRATION_URL)(
           );
           expect(audit.rows).toHaveLength(2);
           for (const a of audit.rows) expect(a.text).not.toContain(first.temporaryPassword);
+          // SEC V104-06: boolean only – this run had no --owner-email
+          const ds = await tx.query<{ after: Record<string, unknown> }>(
+            `SELECT after FROM audit_event WHERE action = 'production.bootstrapped'`,
+          );
+          expect(ds.rows[0]!.after.ownerEmailSet).toBe(false);
         },
         { readOnly: true },
       );
