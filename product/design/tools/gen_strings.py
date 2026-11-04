@@ -4131,6 +4131,11 @@ g("v1.0.4 P4-42 privacy-2026-10-v2", [
 ])
 
 
+# ---------- v1.0.4 booking – FE-B (PR #70 / v104/fe-hold-typed-rate-lock), UXD 04/11 ----------
+g("v1.0.4 booking – FE-B: khóa Giữ chỗ khi có giá đã gõ (DOM); xóa giá đã gõ khi đổi sang OTA/Nội bộ. UXD 04/11/2026", [
+    ("booking.hold.typed_rate_locked", "Giữ chỗ chỉ theo giá niêm yết. Đã nhận cọc thì bấm Tạo đơn để lưu giá đã gõ. Chưa nhận cọc thì xóa số đã gõ rồi giữ chỗ.", "Holds use the list price only. If the deposit is in, use Create booking to keep your typed rates. If not, clear the typed rates, then hold.", None, "v1.0.4 booking. Dòng li-s cạnh nút Giữ chỗ, aria-describedby, nút disabled. Tên nút khớp booking.create"),
+])
+
 def build():
     vi, en, ru = {}, {}, {}
     for grp, k, a, b, c, n in S:

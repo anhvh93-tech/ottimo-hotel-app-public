@@ -4046,6 +4046,12 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `guest.oci.withdraw_hint` | Muốn rút đồng ý lưu ảnh? Báo lễ tân – ảnh sẽ được xóa. | Want to withdraw consent to keep photos? Tell reception – the photos will be deleted. | Хотите отозвать согласие на хранение фото? Сообщите администратору — фото будут удалены. | Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – khối pháp lý thủ tục trước; VI/EN không đổi so với v1 |
 | `gw.notice_read` | Tôi đã đọc | I've read this | Прочитано | Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – khối pháp lý thủ tục trước; VI/EN không đổi so với v1 |
 
+#### v1.0.4 booking – FE-B: khóa Giữ chỗ khi có giá đã gõ (DOM); xóa giá đã gõ khi đổi sang OTA/Nội bộ. UXD 04/11/2026
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `booking.hold.typed_rate_locked` | Giữ chỗ chỉ theo giá niêm yết. Đã nhận cọc thì bấm Tạo đơn để lưu giá đã gõ. Chưa nhận cọc thì xóa số đã gõ rồi giữ chỗ. | Holds use the list price only. If the deposit is in, use Create booking to keep your typed rates. If not, clear the typed rates, then hold. | ⟨chừa chỗ⟩ | v1.0.4 booking. Dòng li-s cạnh nút Giữ chỗ, aria-describedby, nút disabled. Tên nút khớp booking.create |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |

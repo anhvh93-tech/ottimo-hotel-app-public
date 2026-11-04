@@ -14,7 +14,7 @@ import {
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, ConfirmDialog, Field, Modal, Seg } from '@ottimo/ui';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
 import { api } from '../../app/api';
 import { DIRECT_SOURCES } from './directSources';
 import { useCatalog } from '../../app/catalog';
@@ -244,6 +244,10 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
         : [],
     [datesOk, nights, form.arrivalDate],
   );
+  // DOM (ARC-03 / UXD-05): a hold is priced from the list (saveQuote → createHoldFromQuote carry no nightly rate), so
+  // with a rate the desk typed on a night of this stay "Giữ chỗ" is locked; the line beside it says what to do.
+  const typedRate = dates.some((d) => form.ratesEdited[d] && !!form.rates[d]);
+  const holdWhyId = useId();
   const { extra } = occupancy(form.occ.adults, form.occ.children6to11, room?.baseOccupancy ?? 2);
   const overCapacity =
     !!room && form.occ.adults + form.occ.children6to11 > (room.maxOccupancy ?? 99);
@@ -606,9 +610,11 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
 
   /** H09 "Giữ chỗ đến …": saveQuote → createHoldFromQuote (B1 + Q2) for direct/agent, not today. */
   async function hold() {
-    if (busy || !online) return;
+    if (busy || !online || typedRate) return;
     const v = validate();
     delete v.deposit;
+    // The rate boxes do not go with a hold (list price), so they never block one – e.g. a typed box emptied again.
+    for (const k of Object.keys(v)) if (k === 'rates' || k.startsWith('nightlyRates[')) delete v[k];
     setErrors(v);
     if (Object.keys(v).length || longStay) return;
     setBusy('hold');
@@ -762,13 +768,21 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
             {t('booking.close_draft')}
           </Button>
           {directLike && form.arrivalDate > today && online ? (
-            <Button
-              busy={busy === 'hold'}
-              disabled={busy !== null || longStay}
-              onClick={() => void hold()}
-            >
-              {t('booking.create_hold', { time: holdUntil })}
-            </Button>
+            <>
+              {typedRate ? (
+                <span className="li-s" id={holdWhyId}>
+                  {t('booking.hold.typed_rate_locked')}
+                </span>
+              ) : null}
+              <Button
+                busy={busy === 'hold'}
+                disabled={busy !== null || longStay || typedRate}
+                aria-describedby={typedRate ? holdWhyId : undefined}
+                onClick={() => void hold()}
+              >
+                {t('booking.create_hold', { time: holdUntil })}
+              </Button>
+            </>
           ) : null}
           {online ? (
             <Button
