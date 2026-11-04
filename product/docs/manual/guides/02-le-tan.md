@@ -3,7 +3,7 @@
 - Dành cho: **lễ tân (FD)**, **lễ tân trưởng (FDL)**, người trực đêm
 - Thiết bị: **máy quầy đã được cấp quyền**, địa chỉ `desk.ottimo.vn`. Lễ tân trưởng dùng thêm app nhân viên `staff.ottimo.vn` trên điện thoại để kiểm phòng.
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**. Mục 9.3 bước 6, 11.5 và 17.5 áp dụng từ bản `v1.0.2` (nút **Trả sớm**)
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.8 – 04/11/2026, áp dụng ngay: sửa câu "trả phòng sau đó không tạo thêm" yêu cầu hoàn – trả phòng không tạo lại khoản Trả sớm, tiền trả thừa khác thì bước Bill hỏi và có thể thêm một đề nghị hoàn; lỗi chữ Desk ở hộp Trả sớm (mục 11.1 bước 6, 11.5.2); sửa cùng ngày theo review DOM: nhập nơi nhận ngay khi khách còn ở quầy, báo khách hai lần chuyển, đơn HĐ thuê tháng không chọn hoàn, yêu cầu Trả sớm bị thay thế thì kiểm lại nơi nhận; sửa cùng ngày theo QA đọc staging: yêu cầu thay thế không ghi lý do "trả thừa", nhận ra theo số mới cùng mã đơn, không mang nơi nhận, có thể thay cả yêu cầu đã duyệt chưa chi, mã `overpayment` là lỗi chữ BUG-R4-026 (mục 11.5.2); bản 1.7 – 03/11/2026, áp dụng cùng 1.6 khi v1.0.3 lên: sửa email nhận thông báo bảo mật theo review DOM và ARC – email riêng chỉ mình đọc, Desk chỉ chặn `info@`, không mở hộp thư riêng trên máy quầy, câu báo sai mật khẩu và khóa 5 lần, mọi thư báo về việc mình không làm, lễ tân trưởng khuyến khích có email và không bật 2 bước ở v1.0.x (mục 1.3, 1.5, 1.6, 1.8); bản 1.6 – 04/11/2026: thêm trang **Bảo mật tài khoản** và email nhận thông báo bảo mật của v1.0.3 (mục 1.3, 1.6); bản 1.5 – 03/11/2026: viết lại mục 11.5 khách trả phòng sớm theo nút **Trả sớm** của v1.0.2, hai nhánh ngắn ngày và HĐ thuê tháng (ESC-048), ghi ngày kết thúc HĐ trước khi gia hạn đơn HĐ (9.3), giới hạn tới v1.0.3 (17.5); bản 1.4 ngày 01/11 sửa chữ cảnh báo chênh giá và câu ghi chú khách tiếng Nga (bản trước: 1.3 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; thêm phòng Google Chat và xóa theo yêu cầu người gửi theo SEC, ESC-041, ESC-042; bản 1.3 ngày 01/11 thêm giá ước tính trên website và khách viết bằng tiếng Hàn, Trung, Nga – mục 13.1c, 13.1d – áp dụng khi gói website LP-v2 phát hành))
+- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.9 – 04/11/2026, **áp dụng từ v1.0.4** (bản đang chạy là v1.0.3; tới khi chủ đầu tư báo v1.0.4 đã lên, làm như cũ): tờ **Your ID details** bản v2 có thêm đoạn về dịch tin nhắn, chân tờ "v2 · 11/2026", khách đọc tiếng Nga dùng tờ A4 EN/RU (mục 7.2); app nhân viên có bước nhập mã 2 bước, đổi mật khẩu tạm ngay trên app, bật 2 bước làm trên Desk (mục 1.8, 17.6); áp dụng ngay: không dùng **Dịch trang** ở màn giấy tờ (mục 13.1d); bản 1.8 – 04/11/2026, áp dụng ngay: sửa câu "trả phòng sau đó không tạo thêm" yêu cầu hoàn – trả phòng không tạo lại khoản Trả sớm, tiền trả thừa khác thì bước Bill hỏi và có thể thêm một đề nghị hoàn; lỗi chữ Desk ở hộp Trả sớm (mục 11.1 bước 6, 11.5.2); sửa cùng ngày theo review DOM: nhập nơi nhận ngay khi khách còn ở quầy, báo khách hai lần chuyển, đơn HĐ thuê tháng không chọn hoàn, yêu cầu Trả sớm bị thay thế thì kiểm lại nơi nhận; sửa cùng ngày theo QA đọc staging: yêu cầu thay thế không ghi lý do "trả thừa", nhận ra theo số mới cùng mã đơn, không mang nơi nhận, có thể thay cả yêu cầu đã duyệt chưa chi, mã `overpayment` là lỗi chữ BUG-R4-026 (mục 11.5.2); bản 1.7 – 03/11/2026, áp dụng cùng 1.6 khi v1.0.3 lên: sửa email nhận thông báo bảo mật theo review DOM và ARC – email riêng chỉ mình đọc, Desk chỉ chặn `info@`, không mở hộp thư riêng trên máy quầy, câu báo sai mật khẩu và khóa 5 lần, mọi thư báo về việc mình không làm, lễ tân trưởng khuyến khích có email và không bật 2 bước ở v1.0.x (mục 1.3, 1.5, 1.6, 1.8); bản 1.6 – 04/11/2026: thêm trang **Bảo mật tài khoản** và email nhận thông báo bảo mật của v1.0.3 (mục 1.3, 1.6); bản 1.5 – 03/11/2026: viết lại mục 11.5 khách trả phòng sớm theo nút **Trả sớm** của v1.0.2, hai nhánh ngắn ngày và HĐ thuê tháng (ESC-048), ghi ngày kết thúc HĐ trước khi gia hạn đơn HĐ (9.3), giới hạn tới v1.0.3 (17.5); bản 1.4 ngày 01/11 sửa chữ cảnh báo chênh giá và câu ghi chú khách tiếng Nga (bản trước: 1.3 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; thêm phòng Google Chat và xóa theo yêu cầu người gửi theo SEC, ESC-041, ESC-042; bản 1.3 ngày 01/11 thêm giá ước tính trên website và khách viết bằng tiếng Hàn, Trung, Nga – mục 13.1c, 13.1d – áp dụng khi gói website LP-v2 phát hành))
 - Tài liệu không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi học, anh/chị cũng không ghi những thứ này lên giấy.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -167,6 +167,13 @@ Chỉ cho tài khoản **Lễ tân trưởng không có vai quản lý**. Tài k
 **Không bật đăng nhập 2 bước ở v1.0.x** cho tài khoản lễ tân trưởng dùng app nhân viên. App chưa đăng nhập được bằng 2 bước (báo như câu ở đầu mục này, không có ô nhập mã): bật ở **tên của mình → Bảo mật tài khoản** thì mất app nhân viên. **Lỡ bật:** đăng nhập Desk bằng mật khẩu và mã → **tên của mình → Bảo mật tài khoản → Tắt xác thực 2 bước** (xác nhận bằng mật khẩu và mã) → đăng nhập lại app bằng mật khẩu như cũ. Mất cả điện thoại lẫn mã khôi phục: **báo chủ đầu tư**. Chủ đầu tư gặp tận mặt anh/chị, khóa tài khoản cũ và tạo tài khoản mới (tên đăng nhập mới) theo `01` mục 1.7; ở tài khoản mới, không bật 2 bước. Đội kỹ thuật không đặt lại 2 bước cho anh/chị.
 
 Lần đầu, và sau mỗi lần chủ đầu tư **Đặt lại mật khẩu**: đổi mật khẩu tạm trên Desk trước (mục 1.2), rồi mới đăng nhập app nhân viên. App chưa có màn đổi mật khẩu tạm: còn mật khẩu tạm mà vào app thì mọi màn báo "Chưa tải được … Có thể do mạng yếu" (mục 17.6).
+
+> **Áp dụng từ v1.0.4** (khi chủ đầu tư báo v1.0.4 đã lên; tới lúc đó làm như trên):
+> - **App nhân viên có bước nhập mã.** Tài khoản đã bật 2 bước (kể cả tài khoản có vai quản lý như người trực) đăng nhập app được: nhập mật khẩu, rồi nhập **mã 6 số** trong ứng dụng xác thực. Mất điện thoại: bấm **Mất điện thoại? Dùng mã khôi phục**. Sai 5 lần hoặc quá 5 phút, app báo "Bước nhập mã đã hết hạn. Đăng nhập lại bằng mật khẩu.": đăng nhập lại từ đầu. Mạng yếu ở bước này: mã đã gõ vẫn còn, kiểm tra mạng rồi bấm **Thử lại**.
+> - **Mật khẩu tạm đổi ngay trên app.** Lần đầu, hoặc sau khi chủ đầu tư **Đặt lại mật khẩu**, app mở màn **Đặt mật khẩu của bạn**: nhập **Mật khẩu hiện tại** (mật khẩu tạm), **Mật khẩu mới**, **Nhập lại mật khẩu mới** (đã bật 2 bước thì nhập thêm mã 6 số), bấm **Lưu và vào ứng dụng**. Không cần lên Desk trước. Không còn câu "Có thể do mạng yếu" vì mật khẩu tạm.
+> - **Bật 2 bước chỉ làm trên Desk** (`desk.ottimo.vn`, trên máy tính; quét mã bằng chính điện thoại của mình, cất 10 mã khôi phục như `01` mục 1.3). App không có màn bật 2 bước. App báo "Tài khoản của bạn cần bật xác thực 2 bước trước khi làm việc." kèm câu "Mở OTTIMO Desk trên máy tính để bật xác thực 2 bước, rồi đăng nhập lại ở đây.": làm theo câu đó, rồi đăng nhập lại app. Câu này cũng hiện sau khi vào app bằng mã khôi phục (phải đăng ký lại 2 bước trên điện thoại mới).
+> - Đoạn "Không bật đăng nhập 2 bước ở v1.0.x" ở trên **hết hiệu lực từ v1.0.4**: app không còn chặn tài khoản có 2 bước. Lễ tân trưởng có bật 2 bước hay không: theo chủ đầu tư.
+> - Người trực có vai quản lý vào được app từ v1.0.4. Cách kiểm căn ở mục 13.2a vẫn giữ tới khi chủ đầu tư báo đổi.
 
 ### 1.9 Luôn nhớ về tài khoản
 
@@ -478,6 +485,10 @@ Câu trả lời khi khách hỏi chính sách hủy: đọc đúng mục này. 
 
 **Mọi khách làm giấy tờ tại quầy phải được xem tờ "Your ID details" trước khi anh/chị nhận giấy tờ.** Đây là thông báo bắt buộc cho khách về việc dùng thông tin giấy tờ.
 
+> **Áp dụng từ v1.0.4 – tờ bản v2.** Nội dung dưới đây là **bản v2**: thêm một đoạn về dịch tin nhắn (EN đoạn 4, VI đoạn 4), chân tờ "OTTIMO · ID notice · v2 · 11/2026". Chủ đầu tư thay tờ v2 ở quầy **trước**, rồi **cùng ngày** đặt tham số **privacy_notice_version** = `privacy-2026-10-v2` trên Desk. Tới lúc thay tờ, quầy vẫn dùng **bản v1** đang dán (không có đoạn dịch, chân tờ "OTTIMO · ID notice · 11/2026"): cho khách xem như cũ. Ngày thay tờ, gỡ **cả** tờ trong khung mica lẫn tờ dự phòng trong ngăn quầy, chép lại tệp máy tính bảng; không để tờ v1 và v2 cùng ở quầy.
+>
+> **Khách đọc tiếng Nga:** dùng **tờ A4 EN/RU** (tiếng Anh bên trái, tiếng Nga bên phải), đặt cạnh tờ EN/VI ở quầy, mặt quay ra khách, từ cùng ngày thay tờ v2. Tờ EN/RU chỉ có bản in A4; **máy tính bảng không có bản tiếng Nga**. Không có tờ EN/RU: cho khách xem tờ EN/VI và đọc to câu hạn lưu như đoạn dưới.
+
 Cho khách xem theo thứ tự:
 1. **Bản in khổ A4** trong khung mica trên quầy, mặt quay ra khách, chỗ khách đứng làm thủ tục, không bị che (cách chính, theo quyết định của chủ đầu tư 30/10).
 2. **Bản in dự phòng** trong ngăn quầy. Tờ trên quầy hỏng hay mất thì thay ngay bằng bản này, ghi sổ giao ca để chủ đầu tư in lại trong ngày.
@@ -485,7 +496,7 @@ Cho khách xem theo thứ tự:
    - Máy **dành riêng** cho tờ này. **Không** dùng máy quầy hay màn hình máy quầy, điện thoại cơ sở, máy cá nhân, máy có app khóa cửa.
    - Máy **không** được cấp quyền thiết bị và **không** đăng nhập Desk, app nhân viên, Zalo, email, app khóa cửa.
    - Máy có mật mã màn hình. Trên máy chỉ có tệp **`your-id-details-tablet.html`** (hoặc bản PDF A4 của tờ), mở từ máy, không cần mạng.
-   - Trước khi quay về phía khách: bật **Không làm phiền**, mở tờ, chạm một lần cho toàn màn hình, rồi khóa vào tờ (iPad: **Truy cập được hướng dẫn**; Android: **Ghim ứng dụng**). Nhìn lại: màn hình chỉ có tờ, dòng chân "OTTIMO · ID notice · 11/2026".
+   - Trước khi quay về phía khách: bật **Không làm phiền**, mở tờ, chạm một lần cho toàn màn hình, rồi khóa vào tờ (iPad: **Truy cập được hướng dẫn**; Android: **Ghim ứng dụng**). Nhìn lại: màn hình chỉ có tờ, dòng chân "OTTIMO · ID notice · v2 · 11/2026" (từ v1.0.4; trước đó là "OTTIMO · ID notice · 11/2026" như tờ đang dán).
    - Máy không đạt đủ điều kiện: **không dùng**.
 
 Không có bản in nào và không có máy đạt điều kiện: không nhận giấy tờ, gọi chủ đầu tư.
@@ -494,9 +505,9 @@ Câu mời khách đọc (trước khi nhận giấy tờ):
 - EN: "Before I take your ID, please read this note on how we use it."
 - VI: "Trước khi nhận giấy tờ, mời anh/chị đọc tờ này về cách chúng tôi dùng thông tin."
 
-Khách không đọc được tờ EN/VI, hoặc khó đọc: đọc to câu hạn lưu (đoạn 3 của tờ, bản EN). Khách hỏi thêm về dữ liệu của mình: ghi lại yêu cầu, chuyển chủ đầu tư, không hứa ngày.
+Khách đọc tiếng Nga: cho xem tờ EN/RU (từ v1.0.4). Khách không đọc được tờ EN/VI hay EN/RU, hoặc khó đọc: đọc to câu hạn lưu (đoạn 3 của tờ, bản EN). Khách hỏi thêm về dữ liệu của mình: ghi lại yêu cầu, chuyển chủ đầu tư, không hứa ngày.
 
-Nội dung tờ (nguyên văn, không sửa chữ):
+Nội dung tờ bản v2 (nguyên văn, không sửa chữ):
 
 > OTTIMO
 >
@@ -509,6 +520,8 @@ Nội dung tờ (nguyên văn, không sửa chữ):
 >
 > ID photos and saved ID details are deleted within 3 months after check-out, unless the law requires us to keep them longer. Copies in our encrypted backups are deleted within a further 35 days.
 >
+> We may use a translation service, such as Google Translate, to read your messages and reply to you. The text we translate may include your name, contact, stay details and message. The service handles this text under its own privacy policy, and its servers may be outside Viet Nam.
+>
 > To see, correct or delete your details, please ask reception.
 >
 > ---
@@ -519,13 +532,15 @@ Nội dung tờ (nguyên văn, không sửa chữ):
 >
 > Ảnh và thông tin giấy tờ được xóa trong vòng 3 tháng sau khi trả phòng, trừ phần pháp luật yêu cầu lưu lâu hơn. Bản sao trong dữ liệu sao lưu đã mã hóa được xóa trong 35 ngày sau đó.
 >
+> OTTIMO có thể dùng một dịch vụ dịch, như Google Dịch, để đọc tin nhắn và trả lời bạn. Nội dung được dịch có thể gồm tên, liên hệ, thông tin lưu trú và lời nhắn của bạn. Dịch vụ này xử lý nội dung đó theo chính sách riêng của họ, và máy chủ của họ có thể đặt ngoài Việt Nam.
+>
 > Muốn xem, sửa hoặc xóa thông tin của bạn, vui lòng hỏi lễ tân.
 >
-> OTTIMO · ID notice · 11/2026
+> OTTIMO · ID notice · v2 · 11/2026
 
 [ẢNH: G2-03-Tờ Your ID details khổ A4 trong khung mica trên quầy]
 
-<!-- SEC S1 (SEC-on-BA-department-guides.md, 30/10): máy tính bảng chỉ là cách dự phòng thứ 3, đủ điều kiện mới dùng. Bản điện tử đúng chữ và dòng chân "OTTIMO · ID notice · 11/2026" (SEC D08). Bản in A4: product/docs/print/pdf/to-4-your-id-details-a4.pdf. -->
+<!-- SEC S1 (SEC-on-BA-department-guides.md, 30/10): máy tính bảng chỉ là cách dự phòng thứ 3, đủ điều kiện mới dùng. Bản điện tử đúng chữ và dòng chân tờ (SEC D08). Bản 1.9 (04/11): chữ v2 chép nguyên văn từ product/docs/print/to-4-your-id-details-a4.html và staff-one-pager.md Tờ 4 trên nhánh v104/uxd-id-sheet-v2 @ 82df5fea (UXD; SEC-on-plan-v1.0.4.md mục 6.2, 6.4 ý 4–5 – thay tờ trước khi đặt privacy_notice_version = v2, cùng ngày). Tờ EN/RU: staff-one-pager.md Tờ 4ru, product/docs/print/to-4-your-id-details-a4-ru.html (UXD-on-privacy-v2-ru.md mục 3.2: chỉ in A4, không có bản máy tính bảng). Bản v1 giữ trong lịch sử repo. Bản in A4: product/docs/print/pdf/to-4-your-id-details-a4.pdf, product/docs/print/pdf/to-4-your-id-details-a4-ru.pdf. -->
 
 ### 7.3 Các bước nhận phòng
 
@@ -906,7 +921,7 @@ Desk tính tiền theo chính sách trả sớm; lễ tân không tự tính.
 - Bước **Xem trước** có bảng **Đêm mở bán lại**, mục **Cách tính** (**Phí trả phòng sớm (ghi vào folio)**, **Sẽ xin hoàn cho khách**). Báo khách đúng số Desk hiện, tích **Đã báo khách số hoàn và phí trả phòng sớm**.
 - Có khoản hoàn: Desk tạo **một** yêu cầu hoàn cho phần trả sớm, cần quản lý duyệt. **Nhập nơi nhận hoàn** ngay trên máy quầy đã cấp quyền (mục 12.2). Chủ đầu tư duyệt và chi (mục 17.4).
 - Trả phòng sau đó **không tạo lại** khoản này. Folio còn tiền khách trả thừa **khác** (ví dụ đêm đã thu rồi được FOC): bước **Bill & thu tiền** hỏi cách xử lý **đúng phần đó**. Chọn hoàn thì có **thêm một** đề nghị hoàn, không trùng (mục 11.1 bước 6).
-- Yêu cầu Trả sớm có thể bị Desk tự đóng ("Yêu cầu không còn cần duyệt nên đã tự đóng."), kể cả khi đã duyệt mà chưa chi, và thay bằng **một** yêu cầu mới đúng số còn nợ khách. Ở **Nhật ký tiền → Hoàn tiền**, yêu cầu mới vẫn ghi anh/chị gửi, số khác số Trả sớm, giờ gửi là lúc Desk tự đóng, không ghi lý do. Đó là yêu cầu thay thế, không phải yêu cầu lạ. Yêu cầu thay thế **không mang nơi nhận** của yêu cầu cũ: kiểm **Cách hoàn** của dòng mới, trống (—) thì **Nhập nơi nhận hoàn** lại (mục 12.2), nhất là khoản hoàn tiền mặt. Nhật ký thao tác tiền có thể ghi lý do bằng mã `overpayment` (lỗi chữ, sửa ở v1.0.4).
+- Yêu cầu Trả sớm có thể bị Desk tự đóng ("Yêu cầu không còn cần duyệt nên đã tự đóng."), kể cả khi đã duyệt mà chưa chi, và thay bằng **một** yêu cầu mới đúng số còn nợ khách. Ở **Nhật ký tiền → Hoàn tiền**, yêu cầu mới vẫn ghi anh/chị gửi, số khác số Trả sớm, giờ gửi là lúc Desk tự đóng, không ghi lý do. Đó là yêu cầu thay thế, không phải yêu cầu lạ. Ở v1.0.3, yêu cầu thay thế **không mang nơi nhận** của yêu cầu cũ: kiểm **Cách hoàn** của dòng mới, trống (—) thì **Nhập nơi nhận hoàn** lại (mục 12.2), nhất là khoản hoàn tiền mặt. **Áp dụng từ v1.0.4:** yêu cầu thay thế **giữ nơi nhận** của yêu cầu cũ nếu các yêu cầu cũ chỉ có một nơi nhận, do một người nhập; vẫn kiểm **Cách hoàn** trước khi duyệt. Yêu cầu cũ có 2 nơi nhận khác nhau, hoặc do 2 người khác nhau nhập: dòng mới trống (—), **Nhập nơi nhận hoàn** lại. Nhật ký thao tác tiền có thể ghi lý do bằng mã `overpayment` (lỗi chữ, sửa ở v1.0.4).
 - Desk ghi "Khách chưa trả thừa nên không có khoản hoàn…": phần hoàn chỉ làm giảm số khách đang nợ, không trả ra bằng tiền.
 
 Ví dụ: đơn căn 202 từ 9/11 đến 16/11, 5.205.000 đ. Ngày 12/11 khách báo sẽ rời 14/11 (báo trước 2 ngày). Hai đêm bỏ 820.000 + 713.000 = 1.533.000 đ → hoàn **767.000 đ** (50 %, làm tròn lên), phí trả phòng sớm **766.000 đ**. Các đêm đã ở **không** tính lại mức giảm 7 đêm.
@@ -1203,6 +1218,7 @@ Chủ đầu tư **cho phép** dùng công cụ dịch bên ngoài (Google Dịc
 - **Số tiền, ngày ở, cọc, chính sách hủy:** chỉ dùng chữ Desk tạo (**Sao chép gửi Zalo**). Không qua máy dịch, không gõ lại bằng tay.
 - Bản dịch lời nhắn chưa rõ (ngày ở, số khách, yêu cầu đặc biệt): **không đoán**. Gửi câu mẫu 2.
 - Mọi luật nhắn khách vẫn giữ: chỉ nhắn từ tài khoản OTTIMO (mục 4.1), không gửi mã cửa, không nhận số thẻ (mục 16.2).
+- **Không** dùng **Dịch trang** (hay công cụ dịch nào) ở màn **Giấy tờ & khai báo** và màn xem ảnh giấy tờ. Số giấy tờ và ảnh giấy tờ không phải chữ cần dịch, và tờ **Your ID details** bản v2 chỉ báo khách rằng tin nhắn của khách có thể được dịch (mục 7.2). Lỡ bật dịch trên trình duyệt: tắt trước khi mở các màn này.
 
 **4. Ba câu mẫu tiếng Anh**
 
@@ -1523,7 +1539,7 @@ Cách tạm cũ (để căn **Đang ở** tới ngày đi, quản lý giảm ti�
 | Dòng miễn **Bị từ chối** vẫn hiện số âm ở màn Trả phòng | Đọc **Còn phải thu** |
 | **Hoàn tác nhận phòng** bấm được nhưng bị từ chối khi folio có dòng mới | Nhờ quản lý (mục 7.4) |
 | Một số chữ trên màn chưa đúng ("Khách đứng tên" ở người đi cùng, "Giờ trả phòng thực tế" ở xác nhận giờ trả, "Round 3 / R2", gợi ý mã cửa theo ngày sinh) | Làm theo tệp này |
-| App nhân viên chưa có màn đổi mật khẩu tạm: còn mật khẩu tạm mà vào app thì mọi màn báo "Chưa tải được … Có thể do mạng yếu" (BUG-R3-052) | Đổi mật khẩu tạm trên Desk trước (mục 1.2), rồi đăng nhập lại app. Áp cả sau mỗi lần chủ đầu tư **Đặt lại mật khẩu** |
+| App nhân viên chưa có màn đổi mật khẩu tạm: còn mật khẩu tạm mà vào app thì mọi màn báo "Chưa tải được … Có thể do mạng yếu" (BUG-R3-052, **sửa ở v1.0.4**: đổi ngay trên app, mục 1.8) | Đổi mật khẩu tạm trên Desk trước (mục 1.2), rồi đăng nhập lại app. Áp cả sau mỗi lần chủ đầu tư **Đặt lại mật khẩu** |
 | Tài khoản chỉ có vai Bảo trì không chọn được căn trên Desk: không tạo phiếu, không khóa phòng được (BUG-R3-053) | Bảo trì báo trên app hoặc nhắn ngày, căn, lý do; lễ tân hoặc người trực tạo phiếu, khóa phòng trên Desk (mục 13.4) |
 
 ---

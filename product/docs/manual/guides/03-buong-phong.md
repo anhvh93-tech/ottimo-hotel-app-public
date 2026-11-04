@@ -3,7 +3,7 @@
 - Dành cho: **nhân viên buồng phòng (HK)**
 - Thiết bị: **điện thoại**, địa chỉ `staff.ottimo.vn` (app nhân viên, mở bằng trình duyệt, không cần cài từ kho ứng dụng)
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.1 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; bản 1.2 ngày 03/11: không bật đăng nhập 2 bước ở v1.0.x vì app nhân viên chưa đăng nhập được bằng 2 bước – mục 1.6, FB-R4-DOM-PO-RN103-02)
+- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.3 – 04/11/2026, **áp dụng từ v1.0.4** (bản đang chạy là v1.0.3): app nhân viên có bước nhập mã 2 bước, đổi mật khẩu tạm ngay trên app, bật 2 bước làm trên Desk (mục 1.2, 1.6, 12); bản 1.1 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; bản 1.2 ngày 03/11: không bật đăng nhập 2 bước ở v1.0.x vì app nhân viên chưa đăng nhập được bằng 2 bước – mục 1.6, FB-R4-DOM-PO-RN103-02)
 - Tài liệu không chứa mật khẩu, mã cửa hay thông tin khách.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -37,6 +37,8 @@ Chủ đầu tư **đưa mật khẩu tạm tận tay**. Không gửi qua chat. 
 5. Desk mở trang **Buồng phòng**. Không cần làm gì thêm: bấm **tên của mình → Đăng xuất**.
 
 Làm lại bước A mỗi lần chủ đầu tư **Đặt lại mật khẩu** cho anh/chị. App nhân viên chưa có màn đổi mật khẩu tạm (mục 12).
+
+> **Áp dụng từ v1.0.4** (khi chủ đầu tư báo v1.0.4 đã lên; tới lúc đó làm bước A như trên): **đổi mật khẩu tạm ngay trên app**, không cần lên Desk. Đăng nhập app bằng mật khẩu tạm, app mở màn **Đặt mật khẩu của bạn**: nhập **Mật khẩu hiện tại** (mật khẩu tạm), **Mật khẩu mới**, **Nhập lại mật khẩu mới**, bấm **Lưu và vào ứng dụng**. Không còn câu "Có thể do mạng yếu" vì mật khẩu tạm (mục 12).
 
 Quy tắc mật khẩu: ít nhất 10 ký tự, không chứa tên hoặc số điện thoại của mình, không phải mật khẩu phổ biến.
 
@@ -101,6 +103,8 @@ Khi đăng nhập, app có thể báo:
 - Trả máy hoặc nghỉ việc: **Đăng xuất**.
 - Buồng phòng **không thấy giấy tờ khách**, giá, kênh – đúng thiết kế.
 - **Không bật đăng nhập 2 bước ở v1.0.x.** Trên Desk (`desk.ottimo.vn`, khi đổi mật khẩu tạm), mục **tên của mình → Bảo mật tài khoản** có khối **Xác thực 2 bước**: không bấm bật. App nhân viên chưa đăng nhập được bằng 2 bước. Bật xong, app báo "Nhập mã trong ứng dụng xác thực để hoàn tất đăng nhập. Đăng nhập 2 bước sẽ có ở bản sau. Nhờ chủ đầu tư hỗ trợ đăng nhập." (không có ô nhập mã) và anh/chị không vào app được. **Lỡ bật:** đăng nhập Desk bằng mật khẩu và mã → **tên của mình → Bảo mật tài khoản → Tắt xác thực 2 bước** (xác nhận bằng mật khẩu và mã) → đăng nhập lại app bằng mật khẩu như cũ. Mất cả điện thoại lẫn mã khôi phục: **báo chủ đầu tư**. Chủ đầu tư gặp tận mặt anh/chị, khóa tài khoản cũ và tạo tài khoản mới (tên đăng nhập mới) theo `01` mục 1.7; ở tài khoản mới, không bật 2 bước. Đội kỹ thuật không đặt lại 2 bước cho anh/chị.
+
+> **Áp dụng từ v1.0.4:** app nhân viên đăng nhập được bằng 2 bước: nhập mật khẩu, rồi **mã 6 số** trong ứng dụng xác thực (mất điện thoại: **Mất điện thoại? Dùng mã khôi phục**). Lời dặn "không bật 2 bước ở v1.0.x" ở trên **hết hiệu lực**. Có bật hay không: theo chủ đầu tư. **Bật 2 bước chỉ làm trên Desk** (`desk.ottimo.vn`, trên máy tính, cùng chủ đầu tư), app không có màn bật. App báo "Tài khoản của bạn cần bật xác thực 2 bước trước khi làm việc." thì làm theo câu dưới đó: mở OTTIMO Desk trên máy tính để bật, rồi đăng nhập lại app.
 
 ---
 
@@ -311,8 +315,8 @@ Các việc dưới đây làm theo cách tạm tới khi chủ đầu tư báo 
 | App thiếu loại sự cố "Tắc thoát nước", "Wi-Fi" | Chọn **Khác**, ghi rõ trong **Mô tả** |
 | Khách rời sớm trước ngày đi | Lễ tân hủy việc dọn các ngày sau và tạo việc **Dọn trả phòng** cho ngày khách rời. Làm theo việc mới trong app |
 | Trang khách chưa hiện Wi-Fi | Khách xem thẻ Wi-Fi trong căn |
-| Tài khoản có vai quản lý chưa vào được app | Người trực hiện nay đánh dấu dọn trên Desk, sau khi tự đi kiểm căn (tệp 02 mục 13.2a) |
-| App chưa có màn đổi mật khẩu tạm; còn mật khẩu tạm thì mọi màn báo "Chưa tải được … Có thể do mạng yếu" (BUG-R3-052) | Đổi mật khẩu tạm trên Desk (mục 1.2 bước A) rồi đăng nhập lại app. Làm lại sau mỗi lần chủ đầu tư đặt lại mật khẩu |
+| Tài khoản có vai quản lý chưa vào được app (sửa ở v1.0.4: app có bước nhập mã) | Người trực hiện nay đánh dấu dọn trên Desk, sau khi tự đi kiểm căn (tệp 02 mục 13.2a) |
+| App chưa có màn đổi mật khẩu tạm; còn mật khẩu tạm thì mọi màn báo "Chưa tải được … Có thể do mạng yếu" (BUG-R3-052, sửa ở v1.0.4: đổi ngay trên app, mục 1.2) | Đổi mật khẩu tạm trên Desk (mục 1.2 bước A) rồi đăng nhập lại app. Làm lại sau mỗi lần chủ đầu tư đặt lại mật khẩu |
 
 ---
 
