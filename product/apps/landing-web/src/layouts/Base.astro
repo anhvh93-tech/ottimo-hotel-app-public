@@ -11,6 +11,7 @@ import { HERO_SLIDES } from '../content/hero';
 import { photo, srcset } from '../content/photos';
 import type { Copy } from '../content/types';
 import {
+  HTML_LANG,
   INDEXABLE,
   LANGS,
   OG_IMAGE,
@@ -22,6 +23,12 @@ import {
 } from '../lib/i18n';
 import { homeJsonLd, jsonForScript } from '../lib/seo';
 import nojsCss from '../styles/nojs.css?url';
+// Fonts of one language only (ARC lp-v2 3.3 rule 1, UXD lp-v2 1.4): a page links the file of its own language, so the
+// Korean, Chinese and Cyrillic faces never reach another language's page (dist-checks: checkLangFonts).
+import fontsKo from '../styles/fonts-ko.css?url';
+import fontsRu from '../styles/fonts-ru.css?url';
+import fontsZh from '../styles/fonts-zh.css?url';
+import type { Lang } from '../lib/i18n';
 import '../styles/landing.css';
 
 interface Props {
@@ -33,9 +40,13 @@ interface Props {
   published?: boolean;
   /** Preload the hero photo – the home page only (default: `published && slug === ''`). */
   heroPreload?: boolean;
+  /** Privacy notice pages: machine-readable notice version (ARC lp-v2 D11) for OPS publish-privacy-notice. */
+  noticeVersion?: string;
 }
 
-const { t, slug = '', title, description, published = true } = Astro.props;
+const LANG_FONTS: Partial<Record<Lang, string>> = { ko: fontsKo, zh: fontsZh, ru: fontsRu };
+
+const { t, slug = '', title, description, published = true, noticeVersion } = Astro.props;
 const heroPreload = Astro.props.heroPreload ?? (published && slug === '');
 const lang = t.lang;
 const pageUrl = absoluteUrl(pathFor(lang, slug));
@@ -49,7 +60,7 @@ const heroPhone = hero.widths.filter((w) => w <= 960);
 ---
 
 <!doctype html>
-<html lang={lang}>
+<html lang={HTML_LANG[lang]}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -61,6 +72,8 @@ const heroPhone = hero.widths.filter((w) => w <= 960);
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preload" href={loraLatin400} as="font" type="font/woff2" crossorigin />
     <noscript><link rel="stylesheet" href={nojsCss} /></noscript>
+    {LANG_FONTS[lang] && <link rel="stylesheet" href={LANG_FONTS[lang]} />}
+    {noticeVersion && <meta name="ottimo-notice-version" content={noticeVersion} />}
     {
       heroPreload && (
         <>

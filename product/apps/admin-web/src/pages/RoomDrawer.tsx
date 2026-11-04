@@ -18,7 +18,7 @@ import { timeHHmm, todayLocal } from '../app/dates';
 import { dayMonth } from '../app/reservations';
 import { useWrite } from '../app/useWrite';
 import { useOnline } from '../hooks/useOnline';
-import { usePropertyId } from '../session/SessionProvider';
+import { usePropertyId, useSession } from '../session/SessionProvider';
 
 interface Conflict {
   reservationCode?: string;
@@ -26,6 +26,18 @@ interface Conflict {
   stayTo?: string;
   guestCount?: number;
 }
+
+/**
+ * BUG-R4-004 (BR-012, BR-115): the 4 public room types of the e-brochure, exactly as `production-defaults.ts` writes
+ * them – the website slug of the label must match the landing, so a list, never free text (a different spelling makes
+ * that type "rate on request" on the website and flags web requests `room_type_unmatched`).
+ */
+export const PUBLIC_ROOM_TYPES = [
+  'Standard Studio · City View',
+  'Standard Studio · Garden View',
+  'Premium · One Bedroom + 1',
+  'Signature · Two Bedrooms',
+] as const;
 
 const BASE_MIN = 1;
 const BASE_MAX = 10; // RoomPatch.baseOccupancy maximum
@@ -84,6 +96,11 @@ export function RoomDrawer({
   const toast = useToast();
   const { online } = useOnline();
   const ids = useId();
+  // BUG-R4-004: only the owner sets the public room type (a manager sending the field gets 403 for the whole save).
+  const { roles } = useSession();
+  const ownerEdits = roles.includes('owner');
+  const initialPublic = room.publicRoomType ?? '';
+  const [publicType, setPublicType] = useState(initialPublic);
   // R3-Q39 #8 (BR-010): the list price takes effect from the BUSINESS day – at 02:40 that is still
   // yesterday, so a price set then applies to tonight (rooms.service accepts ≥ ctx.today).
   const today = useBusinessDay();
@@ -195,6 +212,7 @@ export function RoomDrawer({
     base !== initialBase ||
     max !== initialMax ||
     sellable !== room.isSellable ||
+    (ownerEdits && publicType !== initialPublic) ||
     priceChanged;
   const dirty = canSave || reason !== '';
   // UXD §3.5: the two boxes equal the row in force on D – Save stays off and says why.
@@ -245,6 +263,8 @@ export function RoomDrawer({
     if (base !== initialBase) patch.baseOccupancy = base;
     if (max !== initialMax || base !== initialBase) patch.maxOccupancy = max;
     if (sellable !== room.isSellable) patch.isSellable = sellable;
+    // Sent only when the owner changed it ('' = "Not assigned" → null clears it).
+    if (ownerEdits && publicType !== initialPublic) patch.publicRoomType = publicType || null;
     if (priceChanged && monthly !== null && nightly !== null) {
       // Always both prices – the server's ÷ divisor fallback must never be reached from the Desk.
       patch.listPrice = {
@@ -463,6 +483,54 @@ export function RoomDrawer({
             )}
           </Field>
         </div>
+        {ownerEdits ? (
+          <Field
+            label={t('rooms.public_type')}
+            help={t('rooms.public_type_help')}
+            error={errors.publicRoomType}
+          >
+            {(p) => (
+              <select
+                {...p}
+                className="input"
+                value={publicType}
+                onChange={(e) => setPublicType(e.target.value)}
+              >
+                <option value="">{t('rooms.public_type_none')}</option>
+                {/* a label saved before the list existed stays visible until the owner picks another one */}
+                {initialPublic &&
+                !(PUBLIC_ROOM_TYPES as readonly string[]).includes(initialPublic) ? (
+                  <option value={initialPublic}>{initialPublic}</option>
+                ) : null}
+                {PUBLIC_ROOM_TYPES.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+        ) : (
+          // FB-R4-UXD-FE-15: DS C3 read-only state (label above, value on --surface-2) like the other fields; when
+          // unassigned the manager also reads the consequence, so they know to tell the owner.
+          <Field
+            label={t('rooms.public_type')}
+            help={
+              initialPublic
+                ? t('rooms.public_type_owner_only')
+                : `${t('rooms.public_type_help')} ${t('rooms.public_type_owner_only')}`
+            }
+          >
+            {(p) => (
+              <input
+                {...p}
+                className="input"
+                readOnly
+                value={initialPublic || t('rooms.public_type_none')}
+              />
+            )}
+          </Field>
+        )}
         <Field label={t('rooms.col_beds')} error={errors.bedSetup}>
           {(p) => (
             <input

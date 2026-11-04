@@ -2,7 +2,7 @@
 # Periodic checks of one server – systemd timer ottimo-ops-check.timer (every 30 min), as the deploy user.
 #   ops-check.sh            run every check, alert on failures
 #   ops-check.sh j16        one check only (j16 | backup | disk | mem | tls | containers | http5xx | email_dead |
-#                           email_missing | email_changes | email_ascii)
+#                           email_missing | email_changes | email_ascii | pricelimit | pricegap | priceswitch)
 #
 #   j16         SEC C6 / SR-RET-03: for every active property, the last retention_run of policy J16 with
 #               status done must be < 26 h old (a property younger than 26 h without any run is fine), and no J16 run
@@ -43,6 +43,21 @@
 #   email_ascii  INT FB-R4-INT-BE-31-04: stored app_user.email values (not blank) outside the ASCII rule of the API
 #               (normalizeSecurityEmail: local [a-z0-9._%+-]{1,64}, >= 2 labels [a-z0-9-]{1,63}, letter TLD, 3-254).
 #               READ ONLY, count only, always report only: the SMTP adapter is tightened in v1.0.4 only at 0.
+#               crashing api, a 502 from a dead upstream – before guests or staff report it. A 503 of the website
+#               price estimate is NOT counted here (its bulkhead answers 503 by design under load – see pricelimit)
+#   pricelimit  R4 LP-v2 (SEC SR-PE-16, C9; ARC FB-R4-ARC-OPS-LPV2-01 (7)): answers 429 + 503 of the landing route
+#               GET /v1/public/properties/<slug>/price-estimate in the last 60 min < PRICE_REFUSED_MAX (default 200)
+#               – a scraper or a flood keeps the price block hidden for real guests (the form itself keeps working).
+#               Only when a landing is deployed. Counted from the landing Caddy access log (query already masked)
+#   pricegap    R4 LP-v2 (ARC L9 – no Desk notification in LP-v2): the api logged `public_price_missing` in the last
+#               24 h = a room without a list price for a night is left out of the website estimate (BE logs it once
+#               per room and business day). The alert says only how many rooms – no id, no log line is forwarded
+#   priceswitch R4 LP-v2 (SEC SR-PE-16, Should; SEC FB-R4-SEC-OPS-LPV2-04): the Desk switch `public_show_prices` was
+#               changed since the last run (audit `config.changed`, entity config_parameter, followed by audit id in
+#               state/ops-check/priceswitch.last_id – no time window, so a late or skipped timer run misses nothing).
+#               Every run that finds new changes sends its own webhook (the 6 h de-duplication does not apply): the
+#               number of changes and the newest value (true/false/other) only. First run: the newest id becomes the
+#               mark, nothing is reported. The next run without a change sends the recovery once
 #
 # Alerts (no personal data – only check names, property ids, ages): always to the journal
 # (journalctl -t ottimo-alert -p err); plus ALERT_WEBHOOK_URL from /opt/ottimo/.env if set, sent when a check
@@ -100,14 +115,16 @@ REMIND_SECONDS="${REMIND_SECONDS:-21600}"
 HTTP5XX_MAX="${HTTP5XX_MAX:-5}"
 MEM_MIN_AVAIL_PCT="${MEM_MIN_AVAIL_PCT:-10}"
 EMAIL_DEAD_HOURS="${EMAIL_DEAD_HOURS:-24}"
-for v in J16_MAX_HOURS BACKUP_MAX_HOURS DISK_MAX_PCT TLS_MIN_DAYS REMIND_SECONDS HTTP5XX_MAX MEM_MIN_AVAIL_PCT EMAIL_DEAD_HOURS; do
+PRICE_REFUSED_MAX="${PRICE_REFUSED_MAX:-200}"
+for v in J16_MAX_HOURS BACKUP_MAX_HOURS DISK_MAX_PCT TLS_MIN_DAYS REMIND_SECONDS HTTP5XX_MAX MEM_MIN_AVAIL_PCT EMAIL_DEAD_HOURS \
+  PRICE_REFUSED_MAX; do
   [[ "${!v}" =~ ^[0-9]+$ ]] || { echo "$v must be a number" >&2; exit 2; }
 done
 host_name=$(hostname -s 2>/dev/null || echo server)
 app_env=$(envval APP_ENV)
 
-notify() { # check status message
-  local check="$1" status="$2" msg="$3" file="$state/$1" prev="" last=0 now
+notify() { # check status message [force – send the webhook even if the status did not change, e.g. a new event]
+  local check="$1" status="$2" msg="$3" force="${4:-}" file="$state/$1" prev="" last=0 now
   now=$(date -u +%s)
   if [ -r "$file" ]; then read -r prev last < "$file" || true; fi
   if [ "$status" = "FAIL" ]; then
@@ -118,6 +135,7 @@ notify() { # check status message
   fi
   local send=0
   if [ "$status" != "${prev:-OK}" ]; then send=1; fi
+  if [ "$force" = force ]; then send=1; fi
   if [ "$status" = "FAIL" ] && [ $((now - ${last:-0})) -ge "$REMIND_SECONDS" ]; then send=1; fi
   local url
   url=$(envval ALERT_WEBHOOK_URL)
@@ -255,7 +273,8 @@ check_http5xx() {
   if ! logs=$(dc logs --no-color --no-log-prefix --since 35m "${svc[@]}" 2>"$cmd_err"); then
     notify http5xx FAIL "$(compose_failed)"; return 1
   fi
-  n=$(grep -c '"status":5[0-9][0-9]' <<<"$logs" || true)
+  # The price estimate's own 503 (bulkhead / cap, by design) is pricelimit's business, not a server error.
+  n=$(grep '"status":5[0-9][0-9]' <<<"$logs" | grep -cvE "$PRICE_ROUTE_RE.*\"status\":503[,}]" || true)
   if [ "${n:-0}" -ge "$HTTP5XX_MAX" ]; then notify http5xx FAIL "$n server errors (5xx) in 35 min"; return 1; fi
   notify http5xx OK "${n:-0} server errors (5xx) in 35 min"
 }
@@ -394,7 +413,76 @@ SQL
   notify email_ascii OK "$n stored e-mail address(es) outside the ASCII rule (report only – INT v1.0.4 tightens the adapter only at 0)"
 }
 
-if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx email_dead email_missing email_changes email_ascii); full=1; fi
+# Caddy access log line of the price route (uri without query: Caddyfile.landing masks it as "?[q]").
+PRICE_ROUTE_RE='"uri":"/v1/public/properties/[a-z0-9-]+/price-estimate[?"]'
+
+check_pricelimit() {
+  local logs n
+  if [ ! -s "$OTTIMO_HOME/state/landing_tag" ]; then notify pricelimit OK "no landing deployed"; return 0; fi
+  if ! logs=$(dc logs --no-color --no-log-prefix --since 60m landing 2>"$cmd_err"); then
+    notify pricelimit FAIL "$(compose_failed)"; return 1
+  fi
+  n=$(grep -cE "$PRICE_ROUTE_RE.*\"status\":(429|503)[,}]" <<<"$logs" || true)
+  if [ "${n:-0}" -ge "$PRICE_REFUSED_MAX" ]; then
+    notify pricelimit FAIL "website price estimate refused $n times (429/503) in 60 min – guests may not see prices (scraping or flood; the form still works)"
+    return 1
+  fi
+  notify pricelimit OK "${n:-0} price estimates refused (429/503) in 60 min"
+}
+
+check_pricegap() {
+  local logs n rooms
+  if ! logs=$(dc logs --no-color --no-log-prefix --since 24h api 2>"$cmd_err"); then
+    notify pricegap FAIL "$(compose_failed)"; return 1
+  fi
+  # Only counts leave this function: the log line itself (internal ids) is never forwarded.
+  n=$(grep -c 'public_price_missing' <<<"$logs" || true)
+  rooms=$(grep 'public_price_missing' <<<"$logs" | grep -oE 'room=[0-9a-zA-Z-]+' | sort -u | grep -c . || true)
+  if [ "${n:-0}" -gt 0 ]; then
+    notify pricegap FAIL "${rooms:-0} room(s) left out of the website price estimate in 24 h: no list price for a night – OWN: check list prices on Desk"
+    return 1
+  fi
+  notify pricegap OK "every room had a list price for the website estimate (24 h)"
+}
+
+check_priceswitch() {
+  local out maxid n val mark="$state/priceswitch.last_id" last=""
+  [ -r "$mark" ] && read -r last < "$mark" || true
+  [[ "${last:-}" =~ ^[0-9]{1,18}$ ]] || last=""
+  # $last is digits only (checked above) – the one value put into the SQL text. The 7-day bound only lets Postgres
+  # skip old monthly partitions: a change older than that would have been seen by one of the ~336 runs since.
+  if ! out=$(psql_admin <<SQL 2>"$cmd_err"
+SELECT coalesce(max(id), 0),
+       count(*) FILTER (WHERE id > ${last:-0}),
+       coalesce((array_agg(CASE WHEN after->>'value' IN ('true', 'false') THEN after->>'value' ELSE 'other' END
+                           ORDER BY id DESC) FILTER (WHERE id > ${last:-0}))[1], '-')
+  FROM audit_event
+ WHERE action = 'config.changed' AND entity_type = 'config_parameter' AND entity_id = 'public_show_prices'
+   AND occurred_at > now() - interval '7 days';
+SQL
+  ); then
+    notify priceswitch FAIL "query failed: $(cmd_failed)"
+    return 1
+  fi
+  IFS='|' read -r maxid n val <<<"$(tail -n 1 <<<"$out")"
+  { [[ "${maxid:-}" =~ ^[0-9]+$ ]] && [[ "${n:-}" =~ ^[0-9]+$ ]]; } || { notify priceswitch FAIL "unexpected answer"; return 1; }
+  case "${val:-}" in true | false | other | -) ;; *) val=other ;; esac
+  if [ -z "$last" ]; then
+    echo "$maxid" > "$mark"
+    notify priceswitch OK "public_show_prices: first run, changes are reported from now on"
+    return 0
+  fi
+  [ "$maxid" -gt "$last" ] || maxid=$last
+  if [ "$n" -gt 0 ]; then
+    notify priceswitch FAIL "Desk switch public_show_prices changed $n time(s) since the last check (now: $val) – check it was intended (Desk H05, OWN)" force
+    echo "$maxid" > "$mark"
+    return 1
+  fi
+  notify priceswitch OK "public_show_prices not changed since the last check"
+}
+
+# Full run (timer): v1.0.3 checks first, then the LP-v2 price checks (merge lp-v2-main, ARC 04/11).
+if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx email_dead email_missing email_changes email_ascii pricelimit pricegap priceswitch); full=1; fi
 rc=0
 failed=""
 for c in "${checks[@]}"; do
@@ -411,6 +499,9 @@ for c in "${checks[@]}"; do
     email_missing) check_email_missing || ok=0 ;;
     email_changes) check_email_changes || ok=0 ;;
     email_ascii) check_email_ascii || ok=0 ;;
+    pricelimit) check_pricelimit || ok=0 ;;
+    pricegap) check_pricegap || ok=0 ;;
+    priceswitch) check_priceswitch || ok=0 ;;
     *) echo "unknown check: $c" >&2; rc=2; continue ;;
   esac
   if [ "$ok" -eq 0 ]; then failed+=" $c"; [ "$rc" -eq 2 ] || rc=1; fi

@@ -1,23 +1,27 @@
--- Publish the website privacy notice versions (vi + en) of one landing release into `privacy_notice_version`
--- (US-155, SEC C-3 (a), FB-R3-SEC-OPS-US155-01). THE ONLY WAY this table is written on staging/production: never
--- type SQL by hand for it. Run ONLY through infra/server/bin/publish-privacy-notice.sh, which takes the hashes from
--- the RUNNING landing container (digest checked) and from the live pages – no value here is typed by a person.
+-- Publish the website privacy notice version of one landing release – every language of the build (en, vi; since
+-- LP-v2 also ko, zh, ru) – into `privacy_notice_version` (US-155, SEC C-3 (a), FB-R3-SEC-OPS-US155-01; R4 LP-v2: ARC
+-- lp-v2-design 3.6, SEC SR-LC-04). THE ONLY WAY this table is written on staging/production: never type SQL by hand
+-- for it. Run ONLY through infra/server/bin/publish-privacy-notice.sh, which takes the languages and hashes from the
+-- RUNNING landing container (digest checked) and from the live pages – no value here is typed by a person.
 --
 -- NOT the Desk parameter `config_parameter.privacy_notice_version` (= the staying-guest notice privacy-2026-10-v1/v2,
 -- set by OWN on Desk H05). Same name, different thing – this file never touches config_parameter.
 --
 -- psql variables (all required; quoted with :'var' – never concatenated into SQL):
 --   slug            property slug = lower(property.code), e.g. dlt
---   version         notice version as printed on the page, ^YYYY-MM-DD(.N)?$ (the form's consentVersion)
---   sha_vi, sha_en  sha256 (64 hex) of the WHOLE file /vi/privacy/index.html, /privacy/index.html of the image
+--   version         notice version as on the pages, ^YYYY-MM-DD(.N)?$ (the form's consentVersion)
+--   locales         comma list of the languages of the build, e.g. en,vi,ko,zh,ru (each en|vi|ko|zh|ru, no repeat)
+--   shas            comma list, same order: sha256 (64 hex) of the WHOLE file /privacy/index.html (en) or
+--                   /<xx>/privacy/index.html of the image – pairwise different
+--   required        comma list = LANDING_LOCALES of the api (languages on sale); each must be in `locales`
 --   operator        staff identifier of the person running it (no e-mail)
 --   landing_tag     landing image tag being served; landing_digest  sha256:<64 hex> of that image ('' = test only)
 --   apply           true = COMMIT; false (default of the wrapper) = dry run: same checks, ROLLBACK, no audit row
 -- Database role: ottimo_migrator (socket inside the postgres container, NOT a superuser) → SET LOCAL ROLE
 -- ottimo_owner (owner of the table), with the organisation/property context set so FORCE RLS still applies.
--- One transaction: both locales or nothing. Append-only: rows are only INSERTed; `superseded_at` of the previous
--- version is set once (only while NULL); content (sha, url, published_at) is never UPDATEd, nothing is DELETEd.
--- Re-run: same version + same hash → "already present", nothing written; same version + other hash → refused.
+-- One transaction: every language or nothing. Append-only: rows are only INSERTed; `superseded_at` of the previous
+-- version of a language is set once (only while NULL); content (sha, url, published_at) is never UPDATEd, nothing is
+-- DELETEd. Re-run: same version + same hash → "already present", nothing written; same version + other hash → refused.
 \set ON_ERROR_STOP on
 \set VERBOSITY terse
 
@@ -27,8 +31,9 @@ SET LOCAL statement_timeout = '15s';
 SET LOCAL ROLE ottimo_owner;
 SELECT set_config('ottimo_pn.slug', :'slug', true),
        set_config('ottimo_pn.version', :'version', true),
-       set_config('ottimo_pn.sha_vi', :'sha_vi', true),
-       set_config('ottimo_pn.sha_en', :'sha_en', true),
+       set_config('ottimo_pn.locales', :'locales', true),
+       set_config('ottimo_pn.shas', :'shas', true),
+       set_config('ottimo_pn.required', :'required', true),
        set_config('ottimo_pn.operator', :'operator', true),
        set_config('ottimo_pn.landing_tag', :'landing_tag', true),
        set_config('ottimo_pn.landing_digest', :'landing_digest', true),
@@ -38,11 +43,15 @@ DO $publish$
 DECLARE
   v_slug    text := current_setting('ottimo_pn.slug');
   v_version text := current_setting('ottimo_pn.version');
+  v_locs    text[] := string_to_array(current_setting('ottimo_pn.locales'), ',');
+  v_shas    text[] := string_to_array(current_setting('ottimo_pn.shas'), ',');
+  v_req     text[] := string_to_array(current_setting('ottimo_pn.required'), ',');
   v_op      text := current_setting('ottimo_pn.operator');
   v_tag     text := current_setting('ottimo_pn.landing_tag');
   v_digest  text := current_setting('ottimo_pn.landing_digest');
   v_apply   boolean := current_setting('ottimo_pn.apply')::boolean;
   v_n       int;
+  v_i       int;
   v_org     uuid;
   v_prop    uuid;
   v_loc     text;
@@ -55,15 +64,24 @@ DECLARE
   v_cnt     int;
   v_missing text[];
   v_ver_key numeric;
+  v_check   text;
 BEGIN
   -- ── inputs (the wrapper checks them too; this is the last line of defence) ──
   IF v_slug !~ '^[a-z0-9-]{2,40}$' THEN RAISE EXCEPTION 'refused: slug invalid'; END IF;
-  IF v_version !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[0-9]{1,2})?$' THEN RAISE EXCEPTION 'refused: version invalid'; END IF;
-  IF current_setting('ottimo_pn.sha_vi') !~ '^[0-9a-f]{64}$' OR current_setting('ottimo_pn.sha_en') !~ '^[0-9a-f]{64}$' THEN
-    RAISE EXCEPTION 'refused: sha256 invalid';
+  IF v_version !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[1-9][0-9]?)?$' THEN RAISE EXCEPTION 'refused: version invalid'; END IF;
+  IF coalesce(cardinality(v_locs), 0) = 0 OR cardinality(v_locs) > 5 OR cardinality(v_locs) <> coalesce(cardinality(v_shas), 0) THEN
+    RAISE EXCEPTION 'refused: languages/hashes lists invalid (% languages, % hashes)', coalesce(cardinality(v_locs), 0), coalesce(cardinality(v_shas), 0);
   END IF;
-  IF current_setting('ottimo_pn.sha_vi') = current_setting('ottimo_pn.sha_en') THEN
-    RAISE EXCEPTION 'refused: vi and en pages have the same hash';
+  IF EXISTS (SELECT 1 FROM unnest(v_locs) l WHERE l !~ '^(en|vi|ko|zh|ru)$')
+     OR (SELECT count(DISTINCT l) FROM unnest(v_locs) l) <> cardinality(v_locs) THEN
+    RAISE EXCEPTION 'refused: languages invalid or repeated (%)', array_to_string(v_locs, ',');
+  END IF;
+  IF EXISTS (SELECT 1 FROM unnest(v_shas) h WHERE h !~ '^[0-9a-f]{64}$') THEN RAISE EXCEPTION 'refused: sha256 invalid'; END IF;
+  IF (SELECT count(DISTINCT h) FROM unnest(v_shas) h) <> cardinality(v_shas) THEN
+    RAISE EXCEPTION 'refused: two languages have the same hash – one (version, locale) = one text';
+  END IF;
+  IF coalesce(cardinality(v_req), 0) = 0 OR NOT (v_req <@ v_locs) THEN
+    RAISE EXCEPTION 'refused: languages on sale (%) not all in the build (%)', array_to_string(v_req, ','), array_to_string(v_locs, ',');
   END IF;
   IF v_op !~ '^[a-z0-9][a-z0-9._-]{1,39}$' THEN RAISE EXCEPTION 'refused: operator must be a staff id (a-z 0-9 . _ -), not an e-mail'; END IF;
   IF v_tag !~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' THEN RAISE EXCEPTION 'refused: landing tag invalid'; END IF;
@@ -72,6 +90,15 @@ BEGIN
   IF (SELECT rolsuper FROM pg_roles WHERE rolname = session_user) THEN
     RAISE EXCEPTION 'refused: connected as a superuser – use ottimo_migrator';
   END IF;
+  -- A database before the LP-v2 migration (0092_lp_v2_price_estimate_locales; 0091 is v1.0.3 user_email_change) only takes vi/en/ru:
+  -- say so instead of a constraint error.
+  SELECT pg_get_constraintdef(c.oid) INTO v_check FROM pg_constraint c
+   WHERE c.conrelid = 'privacy_notice_version'::regclass AND c.conname = 'privacy_notice_version_locale_check';
+  FOREACH v_loc IN ARRAY v_locs LOOP
+    IF v_check IS NOT NULL AND position(quote_literal(v_loc) IN v_check) = 0 THEN
+      RAISE EXCEPTION 'refused: this database does not accept language % yet – deploy the api with the LP-v2 migration first (README 12.3 LP-v2 step a)', v_loc;
+    END IF;
+  END LOOP;
 
   -- ── organisation / property: exactly one active property with this slug (same entry function as the api) ──
   SELECT count(*) INTO v_n FROM public_resolve_property(v_slug);
@@ -89,10 +116,11 @@ BEGIN
   v_ver_key := split_part(v_version, '.', 1)::date - date '2000-01-01'
                + coalesce(nullif(split_part(v_version, '.', 2), ''), '0')::numeric / 100;
 
-  -- ── checks for both locales BEFORE any write ──
-  FOREACH v_loc IN ARRAY ARRAY['vi', 'en'] LOOP
-    v_sha := current_setting('ottimo_pn.sha_' || v_loc);
-    v_path := CASE v_loc WHEN 'vi' THEN '/vi/privacy/' ELSE '/privacy/' END;
+  -- ── checks for every language BEFORE any write ──
+  FOR v_i IN 1 .. cardinality(v_locs) LOOP
+    v_loc := v_locs[v_i];
+    v_sha := v_shas[v_i];
+    v_path := CASE v_loc WHEN 'en' THEN '/privacy/' ELSE '/' || v_loc || '/privacy/' END;
     SELECT * INTO v_row FROM privacy_notice_version
      WHERE organization_id = v_org AND version = v_version AND locale = v_loc;
     IF FOUND THEN
@@ -105,7 +133,7 @@ BEGIN
       END IF;
       v_present := v_present || v_loc;
     END IF;
-    -- No going back: an active LATER version blocks publishing an older one.
+    -- No going back: an active LATER version blocks publishing an older one (LP-v2 version > 2026-10-31).
     PERFORM 1 FROM privacy_notice_version p
      WHERE p.organization_id = v_org AND p.locale = v_loc AND p.superseded_at IS NULL AND p.version <> v_version
        AND (split_part(p.version, '.', 1)::date - date '2000-01-01'
@@ -113,11 +141,12 @@ BEGIN
     IF FOUND THEN RAISE EXCEPTION 'refused: a later version is active for % – nothing to do with %', v_loc, v_version; END IF;
   END LOOP;
 
-  -- ── writes (insert-only; supersede the previous active version once) ──
-  FOREACH v_loc IN ARRAY ARRAY['vi', 'en'] LOOP
+  -- ── writes (insert-only; supersede the previous active version of the same language once) ──
+  FOR v_i IN 1 .. cardinality(v_locs) LOOP
+    v_loc := v_locs[v_i];
     CONTINUE WHEN v_loc = ANY (v_present);
-    v_sha := current_setting('ottimo_pn.sha_' || v_loc);
-    v_path := CASE v_loc WHEN 'vi' THEN '/vi/privacy/' ELSE '/privacy/' END;
+    v_sha := v_shas[v_i];
+    v_path := CASE v_loc WHEN 'en' THEN '/privacy/' ELSE '/' || v_loc || '/privacy/' END;
     RAISE NOTICE '% INSERT privacy_notice_version (organization=<property %>, version=%, locale=%, body_sha256=%, url_path=%, published_at=now())',
       CASE WHEN v_apply THEN 'apply:' ELSE 'dry-run (would):' END, upper(v_slug), v_version, v_loc, v_sha, v_path;
     INSERT INTO privacy_notice_version (organization_id, version, locale, body_sha256, url_path, published_at)
@@ -146,7 +175,9 @@ BEGIN
       VALUES (v_org, v_prop, now(), 'system', NULL, 'security', 'privacy_notice.published',
               'privacy_notice_version', v_version, NULL,
               jsonb_build_object('version', v_version, 'locales', to_jsonb(v_inserted),
-                                 'shaVi', current_setting('ottimo_pn.sha_vi'), 'shaEn', current_setting('ottimo_pn.sha_en'),
+                                 'hashes', jsonb_object(v_locs, v_shas),
+                                 -- same keys as before LP-v2 (null when the language is not in the build)
+                                 'shaVi', v_shas[array_position(v_locs, 'vi')], 'shaEn', v_shas[array_position(v_locs, 'en')],
                                  'landingTag', v_tag, 'landingDigest', nullif(v_digest, ''),
                                  'superseded', v_superseded),
               'operator: ' || v_op || ' (infra/server/bin/publish-privacy-notice.sh)');
@@ -157,16 +188,18 @@ BEGIN
     END IF;
   END IF;
 
-  -- ── after-check = the server''s readiness rule (public-booking.service.ts readiness()): an active row per vi/en ──
-  SELECT array_agg(l) INTO v_missing FROM unnest(ARRAY['vi', 'en']) l
+  -- ── after-check = the server''s readiness rule (public-booking.service.ts readiness()): an active row for every
+  --    language on sale (LANDING_LOCALES) ──
+  SELECT array_agg(l) INTO v_missing FROM unnest(v_req) l
    WHERE NOT EXISTS (SELECT 1 FROM privacy_notice_version p
                       WHERE p.organization_id = v_org AND p.locale = l AND p.superseded_at IS NULL);
   IF v_missing IS NOT NULL THEN RAISE EXCEPTION 'refused: readiness still misses privacy_notice_version.%', v_missing; END IF;
+  -- Every language of the build now has exactly this version active (a language not in the build keeps its own).
   SELECT count(*) INTO v_cnt FROM privacy_notice_version p
-   WHERE p.organization_id = v_org AND p.locale IN ('vi', 'en') AND p.superseded_at IS NULL AND p.version <> v_version;
-  -- (ARC FB-R3-ARC-OPS-US155-06 (a): vi/en only – a future `ru` row follows its own version until this tool writes ru)
+   WHERE p.organization_id = v_org AND p.locale = ANY (v_locs) AND p.superseded_at IS NULL AND p.version <> v_version;
   IF v_cnt > 0 THEN RAISE EXCEPTION 'refused: % other active version row(s) left – check the table', v_cnt; END IF;
-  RAISE NOTICE 'readiness: privacy_notice_version vi+en active = % (PUBLIC_FORM_NOT_READY no longer lists them)', v_version;
+  RAISE NOTICE 'readiness: privacy_notice_version % active = % (on sale: %; PUBLIC_FORM_NOT_READY no longer lists them)',
+    array_to_string(v_locs, '+'), v_version, array_to_string(v_req, ',');
   RAISE NOTICE 'RESULT: % (inserted: %, already present: %)',
     CASE WHEN cardinality(v_inserted) = 0 THEN 'already-present'
          WHEN v_apply THEN 'published' ELSE 'dry-run-ok' END,

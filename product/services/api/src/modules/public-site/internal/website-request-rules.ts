@@ -3,6 +3,7 @@
  * ARC-04, 07, 13, 14, 15, 21; ADR-014 mục 4) – no I/O, unit-tested in test/be-d-r3-s1-units.test.ts.
  */
 import { createHmac, randomBytes } from 'node:crypto';
+import { publicRoomTypeSlug } from '@ottimo/contracts';
 import {
   type LocalDate,
   type LocalTime,
@@ -63,9 +64,29 @@ export function containsUrl(text: string): boolean {
   );
 }
 
-/** Characters outside the scripts of the three site languages (Latin incl. Vietnamese, Cyrillic) + common marks. */
-export function hasUnexpectedScript(text: string): boolean {
-  return /[^\p{Script=Latin}\p{Script=Cyrillic}\p{M}\p{N}\p{P}\p{Zs}\n\p{S}]/u.test(text);
+/**
+ * R4 LP-v2 (OpenAPI 0.3.10 `unexpected_script`, ARC lp-v2-design 3.4): characters outside the scripts of the
+ * LANGUAGE OF THE PAGE. Latin (incl. Vietnamese and full-width Latin), marks, digits, punctuation, symbols and
+ * spaces are always fine; `ko` adds Hangul, `zh` adds Han (CJK punctuation is already \p{P}), `ru` adds Cyrillic.
+ * Korean on an `en` page is flagged (filter only – never blocks).
+ */
+const LOCALE_SCRIPT: Readonly<Record<string, string>> = {
+  ko: '\\p{Script=Hangul}',
+  zh: '\\p{Script=Han}',
+  ru: '\\p{Script=Cyrillic}',
+};
+const scriptRule = new Map<string, RegExp>();
+
+export function hasUnexpectedScript(text: string, locale: string): boolean {
+  let re = scriptRule.get(locale);
+  if (!re) {
+    re = new RegExp(
+      `[^\\p{Script=Latin}${LOCALE_SCRIPT[locale] ?? ''}\\p{M}\\p{N}\\p{P}\\p{Zs}\\n\\p{S}]`,
+      'u',
+    );
+    scriptRule.set(locale, re);
+  }
+  return re.test(text);
 }
 
 // ───────────────────────── source (DirectSubSource, BR-911) ─────────────────────────
@@ -218,15 +239,12 @@ export function nightsBetween(a: LocalDate, b: LocalDate): number {
   return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
 }
 
-/** Room type label → slug ("Standard Studio · Garden View" → standard-studio-garden-view). */
+/**
+ * Room type label → slug ("Standard Studio · Garden View" → standard-studio-garden-view). The rule lives in
+ * `@ottimo/contracts` so the Desk compares with the very same function (BUG-R4-001) – do not copy it back here.
+ */
 export function slugOf(label: string): string {
-  return label
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .replace(/[đĐ]/g, 'd')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  return publicRoomTypeSlug(label);
 }
 
 // ───────────────────────── IP keys (SR-RL-10/11, SR-SECR-07) ─────────────────────────

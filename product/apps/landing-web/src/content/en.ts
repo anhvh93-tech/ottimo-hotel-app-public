@@ -263,7 +263,7 @@ export const en: Copy = {
       consent:
         'I agree that OTTIMO may use the details in this form only to reply to this request.',
       consentMore:
-        'If you do not book, we delete these details within 180 days. We reply only from the channels listed on this page.',
+        'If you do not book, we delete these details from our server within 180 days. We reply only from the channels listed on this page.',
       privacy: 'Privacy notice',
       submit: 'Send booking request',
       noJs: 'The request form needs JavaScript. You can also chat with us on Zalo: ',

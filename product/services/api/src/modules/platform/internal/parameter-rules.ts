@@ -128,6 +128,20 @@ export async function checkStructuredParameter(
   roomGroupCodes: () => Promise<string[]> = async () => [],
 ): Promise<void> {
   switch (key) {
+    case 'web_estimate.open_until': {
+      // R4 LP-v2 (BR-115 (6)): the last night with a confirmed calendar – a real calendar date.
+      const ok =
+        typeof value === 'string' &&
+        /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+        !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) &&
+        new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+      if (!ok) {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'value', code: 'VALIDATION_FAILED' }],
+        });
+      }
+      return;
+    }
     case 'ota_base_rate': {
       // Every active room-group code exactly once, each 100.000–20.000.000 VND (BR-103).
       const codes = await roomGroupCodes();
