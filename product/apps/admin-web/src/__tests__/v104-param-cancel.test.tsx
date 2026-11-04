@@ -9,7 +9,8 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { server } from '../mocks/node';
-import { paramLabel } from '../pages/paramCatalog';
+import { RECEIVING_KEY } from '../pages/ReceivingAccount';
+import { GROUP_LABEL, paramLabel, paramMeta } from '../pages/paramCatalog';
 import { renderApp, tv } from '../test/render';
 
 const NOTICE = 'privacy_notice_version';
@@ -21,7 +22,10 @@ const LATER_VI = '10/01/2099';
 type Sent = { key: string; body: Record<string, unknown>; idem: string | null };
 let history: Record<string, Parameter[]>;
 let sent: Sent[];
-let answer: 'ok' | 409 | 404 | 422;
+type Mode = 'ok' | 409 | 404 | 422 | 'network' | 'inprogress';
+/** Answer for every request; `queue` (one per request, in order) wins while it has items. */
+let answer: Mode;
+let queue: Mode[];
 
 function row(
   key: string,
@@ -63,9 +67,10 @@ beforeEach(() => {
   };
   sent = [];
   answer = 'ok';
+  queue = [];
   server.use(
     http.get('*/v1/properties/:pid/parameters', () =>
-      HttpResponse.json({ data: [current(QUOTE), current(NOTICE)] }),
+      HttpResponse.json({ data: Object.keys(history).map(current) }),
     ),
     http.get('*/v1/properties/:pid/parameters/:key', ({ params }) => {
       const rows = history[String(params.key)];
@@ -78,9 +83,12 @@ beforeEach(() => {
         const key = String(params.key);
         const body = (await request.json()) as Record<string, unknown>;
         sent.push({ key, body, idem: request.headers.get('idempotency-key') });
-        if (answer === 409) return problem(409, 'INVALID_TRANSITION', { currentState: 'in_force' });
-        if (answer === 404) return problem(404, 'NOT_FOUND');
-        if (answer === 422)
+        const mode = queue.shift() ?? answer;
+        if (mode === 'network') return HttpResponse.error();
+        if (mode === 'inprogress') return problem(409, 'IDEMPOTENCY_IN_PROGRESS');
+        if (mode === 409) return problem(409, 'INVALID_TRANSITION', { currentState: 'in_force' });
+        if (mode === 404) return problem(404, 'NOT_FOUND');
+        if (mode === 422)
           return problem(422, 'VALIDATION_FAILED', {
             errors: [{ field: 'reason', code: 'REASON_REQUIRED' }],
           });
@@ -93,8 +101,7 @@ beforeEach(() => {
 
 async function openDialog(user: ReturnType<typeof renderApp>['user'], key: string) {
   const label = paramLabel(tv, key);
-  if (key === NOTICE)
-    await user.click(await screen.findByRole('tab', { name: tv('params.grp_other') }));
+  await user.click(await screen.findByRole('tab', { name: tv(GROUP_LABEL[paramMeta(key).group]) }));
   await user.click(await screen.findByRole('button', { name: `${tv('rooms.edit')}: ${label}` }));
   const dlg = await screen.findByRole('dialog', { name: tv('params.edit_title', { name: label }) });
   await within(dlg).findByText(tv('params.not_yet'));
@@ -102,7 +109,7 @@ async function openDialog(user: ReturnType<typeof renderApp>['user'], key: strin
 }
 
 const cancelButton = (dlg: HTMLElement) =>
-  within(dlg).queryByRole('button', { name: `${tv('rcv.cancel_scheduled')}: ${LATER_VI}` });
+  within(dlg).queryByRole('button', { name: `${tv('params.cancel_scheduled')}: ${LATER_VI}` });
 
 async function askCancel(user: ReturnType<typeof renderApp>['user'], dlg: HTMLElement) {
   await user.click(cancelButton(dlg)!);
@@ -110,7 +117,7 @@ async function askCancel(user: ReturnType<typeof renderApp>['user'], dlg: HTMLEl
 }
 
 const confirmIn = (ask: HTMLElement) =>
-  within(ask).getByRole('button', { name: tv('rcv.cancel_scheduled') });
+  within(ask).getByRole('button', { name: tv('params.cancel_scheduled') });
 
 describe('v1.0.4 P4-34 – hủy tham số đã lên lịch trong hộp Sửa tham số', () => {
   it('owner: only the "Chưa hiệu lực" row has the button; cancel → POST, toast, history reloaded', async () => {
@@ -118,7 +125,9 @@ describe('v1.0.4 P4-34 – hủy tham số đã lên lịch trong hộp Sửa th
     const { dlg, label } = await openDialog(user, NOTICE);
     // One button, on the scheduled row only (the row in force has none).
     expect(
-      within(dlg).getAllByRole('button', { name: new RegExp(`^${tv('rcv.cancel_scheduled')}:`) }),
+      within(dlg).getAllByRole('button', {
+        name: new RegExp(`^${tv('params.cancel_scheduled')}:`),
+      }),
     ).toHaveLength(1);
     const ask = await askCancel(user, dlg);
     expect(ask).toHaveTextContent(
@@ -165,7 +174,7 @@ describe('v1.0.4 P4-34 – hủy tham số đã lên lịch trong hộp Sửa th
     expect(await screen.findByText(tv('params.view_only_banner'))).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: new RegExp(`^${tv('rooms.edit')}: `) })).toBeNull();
     expect(
-      screen.queryByRole('button', { name: new RegExp(`^${tv('rcv.cancel_scheduled')}`) }),
+      screen.queryByRole('button', { name: new RegExp(`^${tv('params.cancel_scheduled')}`) }),
     ).toBeNull();
   });
 
@@ -180,7 +189,12 @@ describe('v1.0.4 P4-34 – hủy tham số đã lên lịch trong hộp Sửa th
       await within(ask).findByText(tv('params.cancel_effective', { date: LATER_VI })),
     ).toBeInTheDocument();
     expect(confirmIn(ask)).toBeDisabled();
-    await user.click(within(ask).getByRole('button', { name: tv('confirm.keep') }));
+    expect(within(ask).getByRole('alert')).toHaveTextContent(
+      tv('params.cancel_effective', { date: LATER_VI }),
+    );
+    // UXD FB-R4-UXD-FE-P434-02: nothing left to keep – the safe button is "Đóng".
+    expect(within(ask).queryByRole('button', { name: tv('confirm.keep') })).toBeNull();
+    await user.click(within(ask).getByRole('button', { name: tv('common.close') }));
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(screen.queryByText(tv('params.cancelled', { name: paramLabel(tv, NOTICE) }))).toBeNull();
   });
@@ -199,8 +213,74 @@ describe('v1.0.4 P4-34 – hủy tham số đã lên lịch trong hộp Sửa th
     expect(
       await within(ask).findByText(tv('params.cancel_gone', { date: LATER_VI })),
     ).toBeInTheDocument();
+    // UXD FB-R4-UXD-FE-P434-03: not the user's mistake → info tone, role=status.
+    expect(within(ask).getByRole('status')).toHaveTextContent(
+      tv('params.cancel_gone', { date: LATER_VI }),
+    );
+    expect(within(ask).getByRole('button', { name: tv('common.close') })).toBeInTheDocument();
     expect(confirmIn(ask)).toBeDisabled();
     expect(sent).toHaveLength(2);
     expect(sent[0]!.idem).not.toBe(sent[1]!.idem);
+  });
+  it('receiving account in the shared table: no cancel button (S2 lives in its own section), nothing sent', async () => {
+    const acct = (masked: string) => ({
+      bankBin: '970436',
+      bankName: 'Vietcombank',
+      accountNoMasked: masked,
+      accountName: 'OTTIMO',
+    });
+    history[RECEIVING_KEY] = [
+      row(RECEIVING_KEY, acct('•••• 5678'), LATER, ['owner'], 'Tài khoản mới'),
+      row(RECEIVING_KEY, acct('•••• 1234'), PAST, ['owner'], 'Tài khoản đầu'),
+    ];
+    const { user } = renderApp('/settings/parameters', 'qa.owner');
+    const { dlg } = await openDialog(user, RECEIVING_KEY);
+    expect(
+      within(dlg).queryByRole('button', {
+        name: new RegExp(`^${tv('params.cancel_scheduled')}`),
+      }),
+    ).toBeNull();
+    expect(within(dlg).queryByRole('columnheader', { name: tv('rooms.col_action') })).toBeNull();
+    expect(sent).toHaveLength(0);
+  });
+
+  it('network error then 204: the retry resends the same key and body; the reason is read-only meanwhile', async () => {
+    queue = ['network', 'ok'];
+    const { user } = renderApp('/settings/parameters', 'qa.owner');
+    const { dlg, label } = await openDialog(user, NOTICE);
+    const ask = await askCancel(user, dlg);
+    const reason = within(ask).getByLabelText(new RegExp(`^${tv('params.reason')}`));
+    await user.type(reason, 'Đổi ngày thay tờ');
+    await user.click(confirmIn(ask));
+    expect(await within(ask).findByText(tv('common.error_network_body'))).toBeInTheDocument();
+    expect(reason).toHaveAttribute('readonly');
+    await user.type(reason, ' sửa');
+    expect(reason).toHaveValue('Đổi ngày thay tờ');
+    await user.click(confirmIn(ask));
+    expect(await screen.findByText(tv('params.cancelled', { name: label }))).toBeInTheDocument();
+    expect(sent).toHaveLength(2);
+    expect(sent[1]!.idem).toBe(sent[0]!.idem);
+    expect(sent[1]!.body).toEqual(sent[0]!.body);
+  });
+
+  it('409 IDEMPOTENCY_IN_PROGRESS: says so, keeps the key; a later definite answer renews it', async () => {
+    queue = ['inprogress', 'inprogress', 409];
+    const { user } = renderApp('/settings/parameters', 'qa.owner');
+    const { dlg } = await openDialog(user, NOTICE);
+    const ask = await askCancel(user, dlg);
+    const reason = within(ask).getByLabelText(new RegExp(`^${tv('params.reason')}`));
+    await user.type(reason, 'Đổi ngày thay tờ');
+    await user.click(confirmIn(ask));
+    expect(await within(ask).findByText(tv('error.IDEMPOTENCY_IN_PROGRESS'))).toBeInTheDocument();
+    expect(reason).toHaveAttribute('readonly');
+    await user.click(confirmIn(ask));
+    await waitFor(() => expect(sent).toHaveLength(2));
+    await user.click(confirmIn(ask));
+    expect(
+      await within(ask).findByText(tv('params.cancel_effective', { date: LATER_VI })),
+    ).toBeInTheDocument();
+    expect(new Set(sent.map((x) => x.idem)).size).toBe(1);
+    expect(sent.every((x) => JSON.stringify(x.body) === JSON.stringify(sent[0]!.body))).toBe(true);
+    expect(reason).not.toHaveAttribute('readonly');
   });
 });

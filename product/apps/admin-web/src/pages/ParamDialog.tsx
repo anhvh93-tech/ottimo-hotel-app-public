@@ -349,10 +349,10 @@ export function ParamDialog({
                             size="sm"
                             variant="ghost"
                             disabled={!online}
-                            aria-label={`${t('rcv.cancel_scheduled')}: ${date(h.effectiveFrom)}`}
+                            aria-label={`${t('params.cancel_scheduled')}: ${date(h.effectiveFrom)}`}
                             onClick={() => setCancelling(h)}
                           >
-                            {t('rcv.cancel_scheduled')}
+                            {t('params.cancel_scheduled')}
                           </Button>
                         ) : null}
                       </td>
@@ -406,11 +406,14 @@ function CancelScheduledParamDialog({
   const { online } = useOnline();
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState<string | undefined>();
-  const [banner, setBanner] = useState<string | null>(null);
+  const [banner, setBanner] = useState<{ text: string; tone: 'bad' | 'info' } | null>(null);
   const [busy, setBusy] = useState(false);
   const [locked, setLocked] = useState(false);
-  // A retry after a network error / 5xx resends the same request (same key); any other answer ends it.
+  // FB-R4-SEC-FE-P434-01: after a network error / 5xx / `409 IDEMPOTENCY_IN_PROGRESS` the request may have
+  // reached the server – the retry resends the SAME request (same key, same reason, so the reason is read-only
+  // until then). Any other answer ends it; the next confirm gets a new key.
   const idem = useRef(newIdempotencyKey());
+  const [unsettled, setUnsettled] = useState(false);
 
   const confirm = async () => {
     if (locked) return;
@@ -430,25 +433,33 @@ function CancelScheduledParamDialog({
       );
       onDone();
     } catch (err) {
-      if (!isApiError(err) || err.isNetwork || err.status >= 500) {
-        setBanner(problemView(t, err).text);
+      if (
+        !isApiError(err) ||
+        err.isNetwork ||
+        err.status >= 500 ||
+        err.code === 'IDEMPOTENCY_IN_PROGRESS'
+      ) {
+        setUnsettled(true);
+        setBanner({ text: problemView(t, err).text, tone: 'bad' });
         return;
       }
+      setUnsettled(false);
       idem.current = newIdempotencyKey();
       if (err.code === 'VALIDATION_FAILED') {
         const field = fieldErrors(t, err);
         if (field.reason) setReasonError(field.reason);
-        else setBanner(problemView(t, err).text);
+        else setBanner({ text: problemView(t, err).text, tone: 'bad' });
       } else if (err.code === 'INVALID_TRANSITION' || err.code === 'NOT_FOUND') {
         setLocked(true);
+        // UXD 04/11: "gone" is not the user's mistake → info; "already in force" → bad.
         setBanner(
           err.code === 'NOT_FOUND'
-            ? t('params.cancel_gone', { date: day })
-            : t('params.cancel_effective', { date: day }),
+            ? { text: t('params.cancel_gone', { date: day }), tone: 'info' }
+            : { text: t('params.cancel_effective', { date: day }), tone: 'bad' },
         );
         onStale();
       } else {
-        setBanner(problemView(t, err).text);
+        setBanner({ text: problemView(t, err).text, tone: 'bad' });
       }
     } finally {
       setBusy(false);
@@ -463,20 +474,25 @@ function CancelScheduledParamDialog({
         date: date(row.effectiveFrom),
         name,
       })}
-      keepLabel={t('confirm.keep')}
-      confirmLabel={t('rcv.cancel_scheduled')}
+      keepLabel={locked ? t('common.close') : t('confirm.keep')}
+      confirmLabel={t('params.cancel_scheduled')}
       busy={busy}
       confirmDisabled={!online || locked}
       onKeep={onClose}
       onConfirm={confirm}
     >
-      {banner ? <Alert tone="bad">{banner}</Alert> : null}
+      {banner ? (
+        <Alert tone={banner.tone} role={banner.tone === 'info' ? 'status' : 'alert'}>
+          {banner.text}
+        </Alert>
+      ) : null}
       <Field label={t('params.reason')} required error={reasonError}>
         {(p) => (
           <input
             {...p}
             className="input"
             maxLength={500}
+            readOnly={unsettled}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
           />
