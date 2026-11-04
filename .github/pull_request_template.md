@@ -16,6 +16,6 @@
 - [ ] Không có dữ liệu khách, email/số điện thoại thật, IP, khóa, mật khẩu hay token. Dữ liệu thử dùng `…@example.test`.
 - [ ] Ảnh chụp (nếu có) đã qua kiểm che: dữ liệu khách, dòng hoa hồng/thưởng (G4).
 - [ ] Chỉ sửa tệp thuộc gói của mình (bản đồ chủ tệp trong kế hoạch round). Tệp sinh ra không sửa tay (`gen_strings.py`, OpenAPI).
-- [ ] PR sửa `product/services/api/src/shared/serialization/field-policy.ts` thì đã có review của **SEC** (`.github/CODEOWNERS`). Không sửa thì bỏ qua ô này.
+- [ ] PR sửa tệp có dòng SEC trong `.github/CODEOWNERS` thì đã có `rounds/<round>/reviews/SEC-on-*.md` nêu commit head đã review, kết luận ĐẠT / ĐẠT CÓ ĐK, Blocker/Major đã đóng. Ghi tên tệp review ở đây. Không sửa tệp nào như vậy thì bỏ qua ô này. (Ô này do người viết PR tự khai; ORC vẫn tự so `git diff --name-only` với CODEOWNERS trước khi gộp.)
 - [ ] Chữ hướng khách/nhân viên theo brand OTTIMO: giọng ngắn, lịch sự, điềm tĩnh, không emoji; với khách EN dẫn, VI hỗ trợ.
 - [ ] Migration mới (nếu có) đúng số đã giữ trong kế hoạch, chỉ nới hoặc thêm; journal và snapshot sinh lại, không sửa tay.

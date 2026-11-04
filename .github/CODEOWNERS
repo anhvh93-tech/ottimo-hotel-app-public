@@ -1,11 +1,26 @@
 # Code owners (v1.0.4 P4-03). GitHub can only name accounts; the team roles behind each line are in the comment.
-# The repo has one GitHub account (the owner). A PR that touches a line below needs the named ROLE's review in
-# rounds/<round>/reviews/ before ORC merges it – the pull request template has the matching checkbox.
+# The repo has one GitHub account (the owner), so "Require review from Code Owners" stays OFF (GitHub does not let
+# the owner approve their own PR). These lines are a GUIDE, not a gate (SEC FB-R4-SEC-OPS-V104-05). The gate is:
+#   (a) pinned tests (e.g. PINNED_SELF_DATA_FIELDS in serializer.test.ts) – which is why the test files are SEC too;
+#   (b) ORC before merging: `git diff --name-only <base>...<head>` against the SEC lines below. Any match needs a
+#       rounds/<round>/reviews/SEC-on-*.md that names the reviewed head commit (or a head that differs only in
+#       non-SEC files), concludes ĐẠT / ĐẠT CÓ ĐK, with every Blocker/Major closed. The merge commit names that file.
+# Revisit "Require review from Code Owners" once the repo has a second account (CI machine, operator).
 # Last matching pattern wins: keep the specific lines below the general ones.
 
 # SEC – the field policy decides which personal-data fields every API response may carry (SEC FB-R4-SEC-BE-018-01 (c)).
 # Adding or removing a key of SELF_DATA_FIELDS (or any rule here) needs SEC review.
 /product/services/api/src/shared/serialization/field-policy.ts @anhvh93-tech
+# SEC – the pinned list of SELF_DATA_FIELDS (018-01): the pin only blocks when the test itself is SEC-owned.
+/product/services/api/test/serializer.test.ts @anhvh93-tech
 
-# OPS + SEC – who owns what (this file).
+# SEC – shared-mailbox rule for staff security e-mail (SENT-02, ARC M18-01).
+/product/services/api/src/modules/identity/public/shared-mailboxes.ts @anhvh93-tech
+
+# SEC (+ INT owns the code) – the e-mail address rule; its other half is `ops-check email_ascii` (change together).
+/product/integrations/notification/email-address.ts @anhvh93-tech
+/product/services/api/src/shared/email.ts @anhvh93-tech
+
+# OPS + SEC – the pull request template (the SEC checkbox) and who owns what (this file).
+/.github/pull_request_template.md @anhvh93-tech
 /.github/CODEOWNERS @anhvh93-tech
