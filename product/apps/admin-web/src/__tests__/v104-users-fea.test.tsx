@@ -218,7 +218,88 @@ describe('BUG-R4-020 – Người dùng & vai: "Khác…" menu', () => {
     await user.click(within(dlg).getByRole('button', { name: tv('users.reset_2fa') }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(sent).toHaveLength(1);
+    // F1: the 2FA sentence (info, no red alert) – details in the next case.
+    expect(
+      await screen.findByText(tv('users.reset_2fa_stale', { name: 'Hạnh' })),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('F1: 409 INVALID_TRANSITION on reset 2FA → dialog closed, list reloaded FIRST, then the info sentence (no booking text, no reload button)', async () => {
+    markMfa('qa.fd');
+    // Someone else turned Hạnh's 2FA off just before: the server answers 409 and the list now says so.
+    mockReset2fa(() => {
+      (userOf('qa.fd') as unknown as { mfaEnabled: boolean }).mfaEnabled = false;
+      return HttpResponse.json(
+        {
+          type: 't',
+          title: 't',
+          status: 409,
+          code: 'INVALID_TRANSITION',
+          currentState: 'disabled',
+          requestId: 'r-409',
+        },
+        { status: 409, headers: { 'content-type': 'application/problem+json' } },
+      );
+    });
+    const { user } = renderApp('/settings/users', 'qa.owner');
+    const menu = await openMore(user, 'Hạnh');
+    await user.click(within(menu).getByRole('menuitem', { name: tv('users.reset_2fa') }));
+    const dlg = await screen.findByRole('dialog', {
+      name: tv('users.reset_2fa_title', { name: 'Hạnh' }),
+    });
+    await user.type(within(dlg).getByLabelText(label('users.reset_2fa_reason')), 'Mất điện thoại');
+    await user.type(within(dlg).getByLabelText(label('reauth.s2_password_label')), MOCK_PASSWORD);
+
+    // Hold the reload: the sentence must wait for the fresh list.
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let lists = 0;
+    server.use(
+      http.get('*/v1/users', async () => {
+        lists += 1;
+        await gate;
+        return undefined; // fall through to the shared mock (fresh data)
+      }),
+    );
+    await user.click(within(dlg).getByRole('button', { name: tv('users.reset_2fa') }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(lists).toBe(1));
+    const stale = tv('users.reset_2fa_stale', { name: 'Hạnh' });
+    expect(screen.queryByText(stale)).toBeNull();
+    await act(async () => release());
+
+    const note = await screen.findByText(stale);
+    expect(note.closest('.alert')).toHaveClass('info');
+    expect(note.closest('.alert')).toHaveAttribute('role', 'status');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('button', { name: tv('common.reload') })).toBeNull();
+    // The list the sentence speaks of is the fresh one: no reset 2FA left for Hạnh.
+    const after = await openMore(user, 'Hạnh');
+    expect(within(after).queryByRole('menuitem', { name: tv('users.reset_2fa') })).toBeNull();
+    // Opening another action clears the sentence.
+    await user.click(within(after).getByRole('menuitem', { name: tv('users.lock') }));
+    expect(screen.queryByText(stale)).toBeNull();
+  });
+
+  it('F1 scope: 409 INVALID_TRANSITION on another action (lock) keeps the usual error path', async () => {
+    server.use(
+      http.patch('*/v1/users/:userId', () =>
+        HttpResponse.json(
+          { type: 't', title: 't', status: 409, code: 'INVALID_TRANSITION', requestId: 'r-409b' },
+          { status: 409, headers: { 'content-type': 'application/problem+json' } },
+        ),
+      ),
+    );
+    const { user } = renderApp('/settings/users', 'qa.owner');
+    const menu = await openMore(user, 'Hạnh');
+    await user.click(within(menu).getByRole('menuitem', { name: tv('users.lock') }));
+    const dlg = await screen.findByRole('dialog', { name: new RegExp(esc(tv('users.lock'))) });
+    await user.type(within(dlg).getByLabelText(label('reauth.s2_password_label')), MOCK_PASSWORD);
+    await user.click(within(dlg).getByRole('button', { name: tv('users.lock') }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByText(tv('users.reset_2fa_stale', { name: 'Hạnh' }))).toBeNull();
   });
 
   it('offline (read-only Desk): "Khác…" is disabled', async () => {
