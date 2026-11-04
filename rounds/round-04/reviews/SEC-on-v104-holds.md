@@ -144,7 +144,7 @@ Không có.
 
 ## 6. Dòng decision-log đề xuất (ORC ghi khi commit)
 
-`| 2026-11-04 | 4 | **SEC – P4-10 be-holds: SEC-BE-22 + G4** (rounds/round-04/reviews/SEC-on-v104-holds.md): SEC-BE-22 giữ đủ trên confirmDeposit (SAL pending, quá hạn chỉ FD+, trần số tiền). G4 (existingPaymentId trên hold quá hạn nhận bất kể giờ tiền về) CHẤP NHẬN CÓ ĐK: vai FD+ (thiếu cọc MGR/OWN), không trần thời gian (phòng vẫn bị J1 giữ, trần chỉ chặn ghi tiền thật), audit deposit_confirmed thêm afterDeadline/holdExpiredAt/paidBeforeVnd/unverifiedPaidVnd/via (HOLDS-02), và bắt buộc HOLDS-01: recordPayment của người không có vai FD+ trên hold quá hạn → 409 HOLD_EXPIRED (lỗ hổng có từ v1.0.3, G4 dựa vào nó). ARC ghi mô tả confirmDeposit/recordPayment ở 0.3.12 theo mục 3 | SEC | Quyền SEC (kiểm soát kỹ thuật đường tiền); BR-303, DOM A.6 |`
+`| 2026-11-04 | 4 | **SEC – P4-10 be-holds: SEC-BE-22 + G4** (rounds/round-04/reviews/SEC-on-v104-holds.md): SEC-BE-22 giữ đủ trên confirmDeposit (SAL pending, quá hạn chỉ FD+, trần số tiền). G4 (existingPaymentId trên hold quá hạn nhận bất kể giờ tiền về) CHẤP NHẬN CÓ ĐK: vai FD+ (thiếu cọc MGR/OWN), không trần thời gian (phòng vẫn bị J1 giữ, trần chỉ chặn ghi tiền thật), audit deposit_confirmed thêm afterDeadline/holdExpiredAt/paidBeforeVnd/unverifiedPaidVnd/via (HOLDS-02), và bắt buộc HOLDS-01: recordPayment của người không có vai FD+ trên hold quá hạn → 409 HOLD_EXPIRED (lỗ hổng có từ v1.0.3, G4 dựa vào nó). ARC ghi mô tả confirmDeposit/recordPayment ở 0.3.12 theo mục 3. Bổ sung: G6 chấp nhận – cùng chốt cho confirmPaymentReceived (non-FD+ trên hold quá hạn → 409 HOLD_EXPIRED), câu hợp đồng ở mục 8 | SEC | Quyền SEC (kiểm soát kỹ thuật đường tiền); BR-303, DOM A.6 |`
 
 ---
 
@@ -153,3 +153,18 @@ Không có.
 1. `FolioService.depositPaid` cộng các khoản cọc `succeeded`, chưa đảo, kể cả khoản `pending` (G1 của BE-B). Nếu tính thêm khoản đã đảo thì `paidBefore > 0` có thể đúng sai chỗ. Khi đó QA thêm ca "khoản duy nhất đã bị đảo → `HOLD_EXPIRED`".
 2. VietQR/ngân hàng đẩy tiền vào folio bằng đường riêng, không qua `PaymentsService.record` với vai người dùng. Tiền đó là tiền thật nên không bị thẻ HOLDS-01 chặn. Nếu thực tế đi chung đường thì BE-B phân biệt bằng `actor` (máy) hay phương thức.
 3. Không tự chạy test. Kết luận dựa trên đọc mã, tên ca test và báo cáo BE-B (bộ API 3800 ca xanh trên máy làn BE-B).
+
+---
+
+## 8. Bổ sung 04/11: G6 (`confirmPaymentReceived`), trên `origin/v104/be-holds` @ `e253a6c2`
+
+**SEC CHẤP NHẬN G6.**
+- `confirmReceived` là đường thứ hai để người dưới FD+ đặt tiền lên một giữ chỗ quá hạn: SAL bấm "tiền QR đã về", khoản `vietqr` `pending` thành `succeeded`, rồi J1 giữ đơn (`kept_paid`). Đường này cùng rủi ro với HOLDS-01, nên phải cùng chốt. SEC bỏ sót khi viết HOLDS-01.
+- Đã xem mã: `assertHoldOpenForSales` được gọi ngay sau `scopedReservation(…, { lock: true })`, **trước** mọi lần khóa folio hay ghi gì. FD+ không đổi.
+- Không hại việc thật: tiền QR về thật mà SAL chưa kịp bấm trước hạn thì FD+ vẫn xác nhận được. Tiền ngân hàng tự đối soát không đi qua hàm này.
+- **Câu hợp đồng cho ARC** (`confirmPaymentReceived`, 0.3.12):
+  > Folio của giữ chỗ đã quá `holdExpiresAt`: người gọi không có vai FD+ (SAL) nhận `409 HOLD_EXPIRED` (+ `expiredAt`), không ghi gì. FD+ như cũ.
+
+  Thêm `HOLD_EXPIRED` vào danh sách 409 của op và một ví dụ, như `recordPayment`.
+- BE-B thêm một ca test tích hợp nếu chưa có: SAL `confirmPaymentReceived` trên giữ chỗ quá hạn trả 409, khoản QR vẫn `pending`; FD cùng thao tác trả 200.
+- Phần còn lại của HOLDS-01/02 trên `e253a6c2`: SEC kiểm trong review PR-F.
