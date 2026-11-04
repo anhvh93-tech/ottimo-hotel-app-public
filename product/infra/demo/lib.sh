@@ -128,6 +128,14 @@ demo_fixture() {
   ' "$1"
 }
 
+# A seeding phase failed half-way (FB-R4-SEC-OPS-PR78-02): stop the demo services instead of leaving a half-seeded
+# stack running – phase 1 runs the api WITH test endpoints and the fake clock, and the qa.* test accounts are only
+# switched off at the start of phase 2. Data stays in the volumes; demo-reset.sh seeds everything again.
+stop_and_die() {
+  dc stop api worker web >/dev/null 2>&1 || true
+  die "$1 – đã dừng api/worker/web của demo (dữ liệu dở dang, tài khoản kiểm thử qa.* có thể còn bật); sửa lỗi rồi chạy lại demo-reset.sh"
+}
+
 # Fresh database + blobs, seeding in two phases, final demo stack. $1 = 1 to run the smoke test (then reseed).
 seed_all() {
   say "xóa dữ liệu demo cũ (nếu có) và dựng lại từ đầu"
@@ -150,13 +158,13 @@ seed_all() {
   # seed-demo.mjs scheduleReceivingAccount)
   QA_SEED_PASSWORD="$(env_value QA_SEED_PASSWORD)" TEST_SUPPORT_TOKEN="$(env_value TEST_SUPPORT_TOKEN)" \
     DEMO_STATE="$STATE_FILE" DEMO_OUT="$OUT" DEMO_ENV_FILE="$PRODUCT_DIR/.env" \
-    node "$DEMO_DIR/seed-demo.mjs" past || die "tạo dữ liệu pha 1 lỗi"
+    node "$DEMO_DIR/seed-demo.mjs" past || stop_and_die "tạo dữ liệu pha 1 lỗi"
 
   # Phase 2 – the real demo stack: ottimo-api:demo (no /__test__ endpoints), real clock.
   say "pha 2/2: chuyển sang stack demo thật (đồng hồ thật, không có endpoint kiểm thử)"
   dc up --detach --wait --wait-timeout 240 api worker web >/dev/null \
     || { dc logs --no-color --tail 60 api worker web; die "stack demo không lên"; }
-  DEMO_STATE="$STATE_FILE" DEMO_OUT="$OUT" node "$DEMO_DIR/seed-demo.mjs" now || die "tạo dữ liệu pha 2 lỗi"
+  DEMO_STATE="$STATE_FILE" DEMO_OUT="$OUT" node "$DEMO_DIR/seed-demo.mjs" now || stop_and_die "tạo dữ liệu pha 2 lỗi"
   sample_images
 }
 

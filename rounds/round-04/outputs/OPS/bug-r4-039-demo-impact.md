@@ -118,3 +118,15 @@ P-3 đụng tham số S2 `payment_receiving_account` (R3-Q51, SEC Q51-5: chỉ n
 - Lượt chạy chỉ chứng minh nhánh sau mốc trả muộn (nhánh hỏng ở P-4) vì chạy lúc 00:35–00:39. Nhánh ban ngày và nhánh khung bậc phụ thu giữ logic cũ; phần minibar (P-5) dùng chung cho mọi nhánh. INV/QA chạy `demo-up.sh --smoke` ban ngày sau khi gộp là kiểm được.
 - Smoke giả định seed và smoke cùng một ngày nghiệp vụ. Nếu `demo-up.sh --smoke` chạy vắt qua 06:00, bước 3–4 sẽ lệch ngày. Trường hợp này hiếm vì cả lượt mất khoảng 1 phút.
 - Dòng "web khách đọc lượt ở (căn ?)": `GuestStay.roomNo` đã bỏ có chủ đích (BR-012, 0.3.7 D1). Chỉ là chữ trong log, smoke vẫn đạt.
+
+### 7.5 SEC review (05/11/2026)
+
+SEC kết luận **ĐẠT**, rủi ro Low, và **chấp nhận P-3** (`rounds/round-04/reviews/SEC-on-v104-pr78-demo-seed.md`).
+
+Đã sửa 2 thẻ Minor và 1 Suggestion, chi tiết ở `rounds/round-04/responses/OPS-on-PR78.md`:
+- Script chỉ chạy khi `DEMO_API_URL` là địa chỉ trên máy này.
+- Bước tắt `qa.*` chạy ngay đầu pha 2.
+- Khi một pha lỗi, `lib.sh` dừng `api/worker/web`.
+- Tệp tài khoản ghi rõ quy tắc hiệu lực ngày hôm sau.
+
+Thẻ 04 (đọc hết các trang `listUsers`) dời sang v1.0.5. Không dựng lại stack cho đợt sửa này, chỉ kiểm tĩnh: prettier, eslint, `node --check`, `bash -n`, shellcheck.

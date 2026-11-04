@@ -17,6 +17,22 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import { join } from 'node:path';
 
 const API = process.env.DEMO_API_URL ?? 'http://127.0.0.1:3100';
+// FB-R4-SEC-OPS-PR78-01: this script carries S2 proofs, demo passwords and (phase 1) the investor's receiving account
+// – it talks to the demo stack on THIS machine only (any port: proof runs use their own). Checked before any request.
+{
+  let host = '';
+  try {
+    host = new URL(API).hostname;
+  } catch {
+    host = '';
+  }
+  if (!['127.0.0.1', 'localhost', '[::1]', '::1'].includes(host)) {
+    console.error(
+      `[demo-seed] LỖI: DEMO_API_URL phải trỏ vào máy này (localhost, 127.0.0.1 hoặc [::1]), đang trỏ tới "${host || 'địa chỉ không hợp lệ'}" – dừng, chưa gửi gì đi`,
+    );
+    process.exit(2);
+  }
+}
 // Every staff role (housekeeping, maintenance, sales and CTV included) logs in on the desk web app; the staff PWA
 // (:8182) is only a shell in Demo 1, so the accounts file never points there.
 const DESK = process.env.DEMO_DESK_URL ?? 'http://localhost:8181';
@@ -751,6 +767,33 @@ async function phaseNow() {
   if (D !== st.today) log(`chú ý: ngày nghiệp vụ đã sang ${D} (pha 1 dựng cho ${st.today})`);
   const S = {};
   for (const a of STAFF_ACCOUNTS) S[a.key] = await login(a.username, st.accounts[a.key].password);
+
+  // test accounts of the QA seed (qa.*) are switched off FIRST (FB-R4-SEC-OPS-PR78-02): the real demo stack is
+  // already up, so a later failure of this phase must not leave qa.owner & co. active – phase 2 never uses them. The
+  // demo shows only the demo staff. Status is an S2 change (updateUser): the demo owner's own password in each
+  // request. Any refusal stops the seeding (P-2: a 422 used to be counted as "0 switched off" and the qa.* accounts
+  // stayed active), and the list is read again to prove it.
+  const qaActive = async () =>
+    listOf(
+      must(await http('GET', '/v1/users', { s: S.OWN, query: { limit: 100 } }), 200, 'listUsers'),
+    ).filter((x) => String(x.username).startsWith('qa.') && x.status !== 'disabled');
+  const toDisable = await qaActive();
+  for (const u of toDisable) {
+    const r = await http('PATCH', `/v1/users/${u.id}`, {
+      s: S.OWN,
+      idem: true,
+      ifMatch: u.version,
+      body: { status: 'disabled', reauth: { password: st.accounts.OWN.password } },
+    });
+    must(r, 200, `tắt tài khoản kiểm thử ${u.username}`);
+  }
+  const left = await qaActive();
+  if (left.length > 0)
+    throw new Error(`còn ${left.length} tài khoản qa.* đang bật: ${left.map((u) => u.username)}`);
+  log(
+    `đã tắt ${toDisable.length} tài khoản kiểm thử qa.* (kiểm lại: không còn tài khoản qa.* nào bật)`,
+  );
+
   const c = await loadContext(S.FD);
   const g = st.guests;
   const device = st.deviceToken;
@@ -1023,30 +1066,6 @@ async function phaseNow() {
   const lk = must(link, 201, 'cấp link khách');
   st.guestLink = { url: lk.url, expiresAt: lk.expiresAt, reservationId: st.ids.arrivalTomorrow };
 
-  // test accounts of the QA seed (qa.*) are switched off – the demo shows only the demo staff. Status is an S2 change
-  // (updateUser): the demo owner's own password in each request. Any refusal stops the seeding (P-2: a 422 used to
-  // be counted as "0 switched off" and the qa.* accounts stayed active), and the list is read again to prove it.
-  const qaActive = async () =>
-    listOf(
-      must(await http('GET', '/v1/users', { s: S.OWN, query: { limit: 100 } }), 200, 'listUsers'),
-    ).filter((x) => String(x.username).startsWith('qa.') && x.status !== 'disabled');
-  const toDisable = await qaActive();
-  for (const u of toDisable) {
-    const r = await http('PATCH', `/v1/users/${u.id}`, {
-      s: S.OWN,
-      idem: true,
-      ifMatch: u.version,
-      body: { status: 'disabled', reauth: { password: st.accounts.OWN.password } },
-    });
-    must(r, 200, `tắt tài khoản kiểm thử ${u.username}`);
-  }
-  const left = await qaActive();
-  if (left.length > 0)
-    throw new Error(`còn ${left.length} tài khoản qa.* đang bật: ${left.map((u) => u.username)}`);
-  log(
-    `đã tắt ${toDisable.length} tài khoản kiểm thử qa.* (kiểm lại: không còn tài khoản qa.* nào bật)`,
-  );
-
   // occupancy of the next 14 nights (rack)
   const rack = await http('GET', P(fd, '/rack'), { s: fd, query: { from: D, days: 14 } });
   st.rackStatus = rack.status;
@@ -1083,7 +1102,7 @@ ${st.guestLink?.url ?? '(chưa có)'}
 Hết hạn: ${st.guestLink?.expiresAt ?? '-'}. Mở trên điện thoại cùng mạng không được (chỉ localhost) – mở trên máy này, hoặc cửa sổ ẩn danh.
 
 ## Tài khoản nhận VietQR
-${st.receivingAccount === 'set' ? `Đã cấu hình từ product/.env, hiệu lực từ ${st.today} (Tham số → payment_receiving_account).` : 'CHƯA cấu hình – đăng nhập chủ nhà → Tham số → "Tài khoản nhận tiền" → nhập số tài khoản (hỏi lại mật khẩu). Theo quy tắc bảo mật, tài khoản nhập hôm nay chỉ có hiệu lực từ ngày hôm sau, nên VietQR trong buổi demo hôm nay vẫn chưa dùng được – thêm 3 dòng PAYMENT_VIETQR_* vào product/.env rồi chạy demo-reset.sh.'}
+${st.receivingAccount === 'set' ? `Đã cấu hình từ product/.env, hiệu lực từ ${st.today} (Tham số → payment_receiving_account). Trong demo, tài khoản được lên lịch sẵn lúc dựng dữ liệu nên dùng được ngay; ở bản thật, tài khoản nhập hoặc đổi hôm nay chỉ có hiệu lực từ ngày kinh doanh sau (quy tắc bảo mật). Ngày tạo trong lịch sử tham số là ngày của đồng hồ giả lúc dựng dữ liệu.` : 'CHƯA cấu hình – đăng nhập chủ nhà → Tham số → "Tài khoản nhận tiền" → nhập số tài khoản (hỏi lại mật khẩu). Theo quy tắc bảo mật, tài khoản nhập hôm nay chỉ có hiệu lực từ ngày hôm sau, nên VietQR trong buổi demo hôm nay vẫn chưa dùng được – thêm 3 dòng PAYMENT_VIETQR_* vào product/.env rồi chạy demo-reset.sh.'}
 `;
   writeFileSync(file, text, { mode: 0o600 });
   chmodSync(file, 0o600);

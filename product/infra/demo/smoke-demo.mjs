@@ -11,6 +11,22 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 const API = process.env.DEMO_API_URL ?? 'http://127.0.0.1:3100';
+// FB-R4-SEC-OPS-PR78-01: the smoke logs in with the 8 demo passwords – only against the demo stack on THIS machine
+// (any port). Checked before any request.
+{
+  let host = '';
+  try {
+    host = new URL(API).hostname;
+  } catch {
+    host = '';
+  }
+  if (!['127.0.0.1', 'localhost', '[::1]', '::1'].includes(host)) {
+    console.error(
+      `FAIL DEMO_API_URL phải trỏ vào máy này (localhost, 127.0.0.1 hoặc [::1]), đang trỏ tới "${host || 'địa chỉ không hợp lệ'}" – dừng, chưa gửi gì đi`,
+    );
+    process.exit(2);
+  }
+}
 const DESK = process.env.DEMO_DESK_URL ?? 'http://localhost:8181';
 const GUEST = process.env.DEMO_GUEST_URL ?? 'http://localhost:8183';
 const st = JSON.parse(readFileSync(process.env.DEMO_STATE ?? '.work/state.json', 'utf8'));
