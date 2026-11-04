@@ -116,8 +116,6 @@ interface Form {
   capacityReason: string;
 }
 
-const weekend = (date: string) => [5, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
-
 /**
  * DOM (ARC-03 / UXD-05, BR-112, BR-429 (g), BR-421 (b)): a change that drops the rates the desk TYPED.
  * - Channel to or from OTA / Nội bộ: a Direct agreed rate is not an OTA rate, nor an intended "internal with charge".
@@ -508,6 +506,10 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   // BR-107 step of this stay (server). Untouched rates → the server's stepped total; typed rates → the step
   // is applied by the server on save (no client arithmetic) – the sum shown is then the calendar sum.
   const losPct = calc?.losDiscountPct ?? 0;
+  // FB-R4-UXD-FE-PR82-01: the BR-107 sentences speak of the stay on screen only – while its preview is on its way
+  // they say nothing (the old preview's step glued to the new number of nights read e.g. "3 đêm được giảm 10%").
+  // `ratesLocked` keeps the preview's step: it is the guard against stepping twice, not a sentence.
+  const losShown = priceWaiting ? 0 : losPct;
   // A server without the calendar rate per night would leave stepped figures in the inputs (stepped twice on
   // save) – the rates stay read-only then (DOM S4-38).
   const ratesLocked =
@@ -538,12 +540,30 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       e.internalNote = t('field_error.reason_required');
     if (overCapacity && form.group !== 'ota')
       e.occ = t('error.CAPACITY_EXCEEDED', { room: room!.roomNo, max: room!.maxOccupancy ?? '' });
+    // FB-R4-UXD-FE-PR82-04: a Nội bộ night typed 0 (or not a figure) says how to make it free – leave the box empty
+    // (BR-105 v0.5.8 (7): 0 is not taken yet) – never "(lớn hơn 0)" alone, which pushes a rate into a free night.
     rateList.forEach((r, i) => {
       if (r.raw && !((parseVnd(r.raw) ?? 0) > 0))
-        e[`nightlyRates[${i}].amountVnd`] = t('booking.error.rate_empty');
+        e[`nightlyRates[${i}].amountVnd`] = t(
+          form.group === 'internal'
+            ? 'booking.error.rate_zero_internal'
+            : 'booking.error.rate_empty',
+        );
     });
-    if (form.group === 'ota' && rateList.some((r) => r.raw) && rateList.some((r) => !r.raw))
-      e.rates = t('booking.error.rate_empty');
+    // FB-R4-ARC-FE-PR82-01: OTA and Nội bộ type every night or none (`body()` sends their rates only when all are
+    // typed). Before, a Nội bộ stay typed in part went through: no rates sent, the server wrote 0 đ for every night
+    // and the typed figures were lost. Nội bộ has its own sentence – empty boxes are its free stay (BR-105 v0.5.8,
+    // FB-R4-DOM-UXD-PR82-01).
+    if (
+      (form.group === 'ota' || form.group === 'internal') &&
+      rateList.some((r) => r.raw) &&
+      rateList.some((r) => !r.raw)
+    )
+      e.rates = t(
+        form.group === 'internal'
+          ? 'booking.error.rate_empty_internal'
+          : 'booking.error.rate_empty',
+      );
     // BUG-R4-037: Trực tiếp / CTV with a typed rate sends every night – never an empty one as 0 đ (the preview of
     // this stay not back yet, or a box emptied by hand).
     if (
@@ -1349,7 +1369,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
         {dates.length && !longStay ? (
           <div className={`field${errors.rates ? ' invalid' : ''}`}>
             <span className="lbl">{t('booking.field.rate')}</span>
-            <div className="table-wrap rate-table">
+            <div className="table-wrap rate-table" aria-busy={priceWaiting || undefined}>
               <table className="table">
                 <thead>
                   <tr>
@@ -1382,13 +1402,25 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                           {err ? <div className="err">{err}</div> : null}
                         </td>
                         <td className="li-s">
-                          {calc ? t(weekend(r.date) ? 'bk.src_weekend' : 'bk.src_list') : '–'}
+                          {/* UXD-on-v104-src-typed: the label says what the box holds. A typed number (any channel,
+                              also while the preview is on its way) is saved as typed (B1 `edited:true` → `manual`);
+                              an empty box (emptied, preview on its way – PR70-02, OTA / Nội bộ not typed) has no
+                              source; a box filled by the preview of the stay on screen is the list rate – every
+                              night, no "+15%" by weekday any more (BR-104 v0.5.1, DOM lượt 8 §4.2). */}
+                          {form.ratesEdited[r.date] && form.rates[r.date]
+                            ? t('bk.src_typed')
+                            : r.raw && calc
+                              ? t('bk.src_list')
+                              : '–'}
                           {(() => {
                             // DOM S4-38: the stepped price of the night, as the server priced it (untouched).
                             const n = calc?.nightlyRates?.find((x) => x.date === r.date);
-                            return losPct > 0 && n && parseVnd(r.raw) === calendarOf(r.date) ? (
+                            return losShown > 0 && n && parseVnd(r.raw) === calendarOf(r.date) ? (
                               <div>
-                                {t('rate.after_tier', { pct: losPct, amount: money(n.amountVnd) })}
+                                {t('rate.after_tier', {
+                                  pct: losShown,
+                                  amount: money(n.amountVnd),
+                                })}
                               </div>
                             ) : null;
                           })()}
@@ -1399,13 +1431,13 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 </tbody>
               </table>
             </div>
-            {losPct > 0 ? (
+            {losShown > 0 ? (
               <span className="help">
                 {ratesLocked
-                  ? t('rate.tier_locked', { n: nights, pct: losPct })
+                  ? t('rate.tier_locked', { n: nights, pct: losShown })
                   : ratesTouched
-                    ? t('rate.tier_on_save', { n: nights, pct: losPct })
-                    : t('rate.tier_note', { n: nights, pct: losPct })}
+                    ? t('rate.tier_on_save', { n: nights, pct: losShown })
+                    : t('rate.tier_note', { n: nights, pct: losShown })}
               </span>
             ) : null}
             {errors.rates ? <div className="err">{errors.rates}</div> : null}
@@ -1457,24 +1489,33 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
 
         {directLike && calc && !longStay ? (
           <>
-            <table className="sum" aria-label={t('booking.summary.total')}>
+            {/* FB-R4-UXD-FE-PR70-02: while the preview of the stay on screen is on its way, no figure of the previous one */}
+            <table
+              className="sum"
+              aria-label={t('booking.summary.total')}
+              aria-busy={priceWaiting || undefined}
+            >
               <tbody>
                 <tr>
                   <td>
                     {t('booking.field.nights', { n: nights })}
-                    {losPct > 0 && ratesTouched ? ` · ${t('rate.pre_tier_short')}` : ''}
+                    {losShown > 0 && ratesTouched ? ` · ${t('rate.pre_tier_short')}` : ''}
                   </td>
-                  <td className="r">{vnd(roomTotal)}</td>
+                  <td className="r">{priceWaiting ? '–' : vnd(roomTotal)}</td>
                 </tr>
-                <tr className="sub">
-                  <td>
-                    {calc.losDiscountPct
-                      ? t('sale.los_applied', { pct: calc.losDiscountPct })
-                      : t('bk.los_none')}
-                  </td>
-                  <td className="r" />
-                </tr>
-                {extraFee > 0 ? (
+                {priceWaiting ? null : (
+                  <tr className="sub">
+                    <td>
+                      {calc.losDiscountPct
+                        ? t('sale.los_applied', { pct: calc.losDiscountPct })
+                        : t('bk.los_none')}
+                    </td>
+                    <td className="r" />
+                  </tr>
+                )}
+                {/* FB-R4-ARC-FE-PR82-04: the extra-guest row belongs to the preview – while the one of the stay on
+                    screen is on its way it is hidden, like the BR-107 row (never "0 người vượt định mức") */}
+                {extraFee > 0 && !priceWaiting ? (
                   <tr>
                     <td>{t('occ.fee_line', { n: calc.extraGuestCount ?? extra, nights })}</td>
                     <td className="r">{vnd(extraFee)}</td>
@@ -1483,12 +1524,12 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 <tr className="total">
                   <td>{t('bk.total')}</td>
                   <td className="r">
-                    {vnd(roomTotal + extraFee)} {t('common.vnd_unit')}
+                    {priceWaiting ? '–' : `${vnd(roomTotal + extraFee)} ${t('common.vnd_unit')}`}
                   </td>
                 </tr>
                 <tr className="sub">
                   <td>{t('bk.deposit_line', { pct: rules.depositPct })}</td>
-                  <td className="r">{vnd(calc.depositVnd ?? 0)}</td>
+                  <td className="r">{priceWaiting ? '–' : vnd(calc.depositVnd ?? 0)}</td>
                 </tr>
               </tbody>
             </table>
