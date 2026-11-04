@@ -1,13 +1,13 @@
-# landing-web – trang giới thiệu OTTIMO ở tên miền gốc (LP-v1)
+# landing-web – trang giới thiệu OTTIMO ở tên miền gốc (LP-v1, LP-v2)
 
 App tĩnh theo **ADR-014**: Astro 7 xuất HTML sẵn cho từng ngôn ngữ, Caddy phục vụ tệp tĩnh (OPS viết site thứ 4 trong `infra/caddy/Caddyfile.prod`). Không island, không script/style nội tuyến, không tải gì từ tên miền khác. Thiết kế: UXD `product/design/landing/` **concept + mock v1.2.1** (FB-INV-002): 8 mục Hero → Why → Rooms → Amenities → Location → Book (`#book`) → FAQ → Contact; boutique stay, không nhắc số phòng; Zalo là kênh chat chính, WhatsApp/Telegram/Viber trong "Other channels".
 
 | Đường dẫn | Nội dung |
 |---|---|
 | `/` | Trang chủ tiếng Anh (bản mặc định, `x-default`) |
-| `/vi/` | Trang chủ tiếng Việt |
-| `/404.html`, `/vi/404/index.html` | Trang 404 theo ngôn ngữ (Caddy chọn theo tiền tố `/vi/`) |
-| `/robots.txt`, `/sitemap-index.xml`, `/sitemap-0.xml` | SEO (sitemap có `xhtml:link` en/vi/x-default) |
+| `/vi/`, `/ko/`, `/zh/`, `/ru/` | Trang chủ tiếng Việt, Hàn, Trung giản thể (`<html lang="zh-Hans">`), Nga – route động `src/pages/[lang]/` (LP-v2) |
+| `/404.html`, `/<lang>/404/index.html` | Trang 404 theo ngôn ngữ (Caddy chọn theo tiền tố `/(vi\|ko\|zh\|ru)/`) |
+| `/robots.txt`, `/sitemap-index.xml`, `/sitemap-0.xml` | SEO (sitemap có `xhtml:link` en/vi/ko/zh/ru/x-default) |
 | `/og/ottimo-1200x630.jpg` | Ảnh chia sẻ link (tên cố định) |
 | `/_astro/*` | CSS, JS, font, ảnh có mã băm – cache 1 năm |
 
@@ -23,9 +23,16 @@ pnpm --filter @ottimo/landing-web build:booking-live-test  # dist-booking-live/ 
 pnpm --filter @ottimo/landing-web preview      # dist/ với header CSP thật (src/lib/security-headers.json)
 pnpm --filter @ottimo/landing-web test         # dựng bản duyệt form rồi Vitest: nguồn + kiểm cả hai dist (turbo dựng dist trước)
 pnpm --filter @ottimo/landing-web check:dist   # báo cáo kiểm dist dạng chữ
+pnpm --filter @ottimo/landing-web sync:fonts   # fonts.css, mono.css, fonts-ru.css từ @fontsource
+pnpm --filter @ottimo/landing-web sync:fonts:cjk  # fonts-ko.css, fonts-zh.css + tệp woff2 cắt theo chữ trang (đọc dist-booking-preview/ và dist/ – build trước, build lại sau)
 pnpm --filter @ottimo/landing-web typecheck    # astro check
-pnpm --filter @ottimo/tests test:e2e:landing   # Playwright 320/375/768/1280 × EN/VI + form (cần cả hai bản dựng)
+pnpm --filter @ottimo/tests test:e2e:landing   # Playwright 320/375/768/1280 × 5 ngôn ngữ + form (cần cả ba bản dựng)
 ```
+
+**Chạy Playwright landing tại máy (FB-R4-FE-B-LPV2M-02):** luôn đặt `CI=1` và cổng riêng cho lượt của mình, ví dụ
+`CI=1 LANDING_PORT=6186 LANDING_FORM_PORT=6187 LANDING_LIVE_PORT=6188 pnpm --filter @ottimo/tests test:e2e:landing`.
+Không đặt `CI=1` thì config dùng lại server đang nghe ở cổng mặc định 5186–5188. Khi nhiều worktree chạy song song, lượt
+đó có thể test **bản dựng của worktree khác** mà vẫn báo xanh. Chọn cổng chưa ai dùng (`lsof -iTCP -sTCP:LISTEN -P`).
 
 Astro 7: khi không chạy trong terminal (script, agent), `astro dev` tự chạy nền và in pid; dừng bằng `pnpm --filter @ottimo/landing-web exec astro dev stop`.
 
@@ -49,6 +56,15 @@ Astro 7: khi không chạy trong terminal (script, agent), `astro dev` tự ch�
 - `src/styles/tokens.css` – **sinh** từ nhóm màu thương hiệu của Design System (`pnpm sync:tokens`). Chỉ 7 màu Brand Guidelines + trắng; CSS của landing chỉ dùng `var(--brand-*)`.
 - `src/styles/fonts.css` – **sinh** từ `@fontsource` (`pnpm sync:fonts`): Lora 400 + 400 nghiêng, Be Vietnam Pro 400/500/600; chỉ latin, latin-ext, vietnamese; woff2.
 - `public/og/ottimo-1200x630.jpg` – sinh từ ảnh hero (`pnpm og`), chạy tay khi đổi ảnh hero.
+
+## LP-v2 (R4): ko/zh/ru + giá ước tính trong form
+
+- Ngôn ngữ: `src/lib/langs.ts` (mã, `HTML_LANG`, `INTL_LOCALE`, tên ngôn ngữ – dùng được trong script trình duyệt), `src/content/{ko,zh,ru}.ts` (CPY), `src/content/index.ts` (`COPY`). Thêm một ngôn ngữ = thêm mã + chữ; `pages/[lang]/*` tự dựng. Nút chọn ngôn ngữ = `<details class="lang-pick">` (quả địa cầu + mã), chạy không cần JS. Tên ngôn ngữ khác dùng font hệ thống (trang en/vi không tải font Hàn/Trung/Kirin).
+- Font theo ngôn ngữ: mỗi trang chỉ link `styles/fonts-<lang>.css` của mình (`layouts/Base.astro`, import `?url`). `/ru/`: Lora cyrillic + Onest (`sync:fonts`). `/ko/`, `/zh/`: Noto Sans/Serif KR/SC cắt sẵn theo đúng ký tự trang (`scripts/subset-cjk.mjs`, nguồn `@expo-google-fonts/noto-*` ghim phiên bản + sha512, tải về `.font-src/` – gitignored), tách phần A (trang chủ) / B (privacy, 404, chữ lúc chạy), `unicode-range` đúng ký tự. Đổi chữ ko/zh mà quên cắt lại → `brand.test.ts` và `checkGlyphCoverage` đỏ.
+- Chữ form lúc chạy: `src/scripts/booking-strings/<lang>.ts`, nạp bằng `import()` theo ngôn ngữ trang.
+- Giá ước tính (`src/scripts/price-estimate.ts`, logic `booking-logic.ts`, `booking-transport.ts` `estimateTransport`): GET `…/price-estimate` cùng origin, chờ 400 ms, hủy request cũ, quá 3 giây bỏ, không lưu gì (API `no-store`). Ô giá ẩn tới khi API trả 200 lần đầu; 404 = giá tắt → ẩn suốt lượt xem. Theo tháng hoặc từ mốc BR-108 (30 đêm, API quyết): không hiện số, chỉ lời mời ưu đãi (`priceMonthlyOffer`, ESC-043). Khách mở tab "By the month" khi trang chưa biết giá bật/tắt: gọi **một lần** `stayType=long` (không `departure`, không `months`; "Any room" dùng hạng đầu danh sách) – 200 → lời mời, 404 → tắt ô (FB-R4-UXD-FE-01). Gửi `priceEstimateToken` chỉ khi số đang hiện đúng lựa chọn. Không bao giờ chặn nút gửi.
+- Gợi ý dưới ô ngày ("N nights. We will quote our long-stay rate."): khi API đã trả lời cho đúng ngày đó thì theo API (`monthly_offer`); nếu chưa/giá tắt thì theo `site.json` `booking.shortMaxNights` = mốc BR-108 − 1 (**29** cho 30 đêm). **Đổi mốc `long_stay_required_from_nights` trên Desk thì đổi `shortMaxNights` cùng ngày** (FB-R4-ARC-FE-LPV2-01).
+- Thông báo xử lý dữ liệu: một version chung 5 ngôn ngữ (`content/privacy.ts`, nhãn tạm – SEC chốt); trang có `<meta name="ottimo-notice-version">` + `data-notice-version` để OPS đọc.
 
 ## Kiểm tự động
 

@@ -1,0 +1,56 @@
+{
+  "_comment": "FB-R4-ARC-BE-LPV2-10: one table for both pluralForm copies (packages/i18n translate.ts, services/api quotes.service.ts) – checked by translate.test.ts and api bug-r4-009-plurals.test.ts",
+  "cases": {
+    "vi": {
+      "0": "other",
+      "1": "other",
+      "2": "other",
+      "3": "other",
+      "4": "other",
+      "5": "other",
+      "11": "other",
+      "12": "other",
+      "14": "other",
+      "21": "other",
+      "22": "other",
+      "25": "other",
+      "101": "other",
+      "111": "other",
+      "112": "other"
+    },
+    "en": {
+      "0": "other",
+      "1": "one",
+      "2": "other",
+      "3": "other",
+      "4": "other",
+      "5": "other",
+      "11": "other",
+      "12": "other",
+      "14": "other",
+      "21": "other",
+      "22": "other",
+      "25": "other",
+      "101": "other",
+      "111": "other",
+      "112": "other"
+    },
+    "ru": {
+      "0": "many",
+      "1": "one",
+      "2": "few",
+      "3": "few",
+      "4": "few",
+      "5": "many",
+      "11": "many",
+      "12": "many",
+      "14": "many",
+      "21": "one",
+      "22": "few",
+      "25": "many",
+      "101": "one",
+      "111": "many",
+      "112": "many"
+    }
+  }
+}

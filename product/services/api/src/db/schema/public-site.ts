@@ -102,7 +102,11 @@ export const privacyNoticeVersion = pgTable(
       columns: [t.organizationId],
       foreignColumns: [organization.id],
     }),
-    check('privacy_notice_version_locale_check', sql`${t.locale} IN ('vi', 'en', 'ru')`),
+    // 0092 (R4 LP-v2, OpenAPI 0.3.11 LandingLocale): + ko, zh (widen only).
+    check(
+      'privacy_notice_version_locale_check',
+      sql`${t.locale} IN ('vi', 'en', 'ru', 'ko', 'zh')`,
+    ),
     check(
       'privacy_notice_version_version_check',
       sql`${t.version} ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}(\\.[0-9]{1,2})?$'`,
@@ -168,6 +172,7 @@ export const websiteBookingRequest = pgTable(
     convertedAt: instant('converted_at'),
     convertedBy: uuid('converted_by'),
     offerSnapshot: jsonb('offer_snapshot'),
+    priceEstimate: jsonb('price_estimate'),
     lastActivityAt: instant('last_activity_at').notNull(),
     piiPurgedAt: instant('pii_purged_at'),
     createdAt: instant('created_at').notNull(),
@@ -219,7 +224,15 @@ export const websiteBookingRequest = pgTable(
       'website_booking_request_party_check',
       sql`${t.adults} BETWEEN 1 AND 12 AND ${t.children} BETWEEN 0 AND 8 AND ${t.infants} BETWEEN 0 AND 8`,
     ),
-    check('website_booking_request_locale_check', sql`${t.locale} IN ('vi', 'en', 'ru')`),
+    check(
+      'website_booking_request_locale_check',
+      sql`${t.locale} IN ('vi', 'en', 'ru', 'ko', 'zh')`,
+    ),
+    // 0092 (R4 LP-v2): the estimate the guest saw + the server recomputation (not C2 – kept after the purge).
+    check(
+      'website_booking_request_price_estimate_check',
+      sql`${t.priceEstimate} IS NULL OR jsonb_typeof(${t.priceEstimate}) = 'object'`,
+    ),
     check(
       'website_booking_request_channel_check',
       sql`${t.preferredChannel} IN ('zalo', 'whatsapp', 'telegram', 'viber', 'phone', 'email')`,

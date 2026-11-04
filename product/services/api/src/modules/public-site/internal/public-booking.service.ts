@@ -15,6 +15,10 @@
  *     + possible duplicates + notification `website_request_new` (FDL, FD, SAL – no name/phone) + SSE + outbox
  *     `staff.chat` `web_request_new` (Google Chat room – ids only; the worker builds the text).
  * Nothing about existing guests, leads, bookings or availability is read before answering (ADR-014 4.3).
+ * R4 LP-v2 (OpenAPI 0.3.10): `locale` ∈ LandingLocale (en, vi, ko, zh, ru); a locale without any published privacy
+ * notice → 422 PUBLIC_FORM_NOT_READY (SEC SR-LC-02 – never an FK error); `unexpected_script` by the page language;
+ * `priceEstimateToken` verified and the estimate recomputed by the server in the same transaction (SEC SR-PE-06) –
+ * stored in `price_estimate`, or flag `offer_unverified`; never a refusal.
  * C2 never goes to logs: errors carry `field` + `code` only.
  */
 import { Inject, Injectable } from '@nestjs/common';
@@ -23,14 +27,26 @@ import { CLOCK, type Clock } from '../../../clock';
 import { DATABASE, Database, type TenantContext, type Tx, pgCode } from '../../../db/database';
 import { requestHash } from '../../../shared/http/unit-of-work';
 import { ProblemError, problem } from '../../../shared/problem';
-import { type LocalDate, type LocalTime, addDays, atLocal, localDate } from '../../../shared/time';
+import {
+  type LocalDate,
+  type LocalTime,
+  addDays,
+  atLocal,
+  isCalendarDate,
+  localDate,
+} from '../../../shared/time';
 import { CryptoService } from '../../crypto/public/crypto.service';
 import { EventsService } from '../../events/public/events.service';
 import { normalizeEmail, normalizePhone } from '../../guests/public/normalize';
 import { ParameterService } from '../../platform/public/parameter.service';
 import { PropertyContextService } from '../../platform/public/property-context';
 import { issueFormToken, verifyFormToken, FORM_TOKEN_MIN_DELAY_SECONDS } from './form-token';
-import { PUBLIC_SITE_OPTIONS, type PublicSiteOptions } from './public-site.options';
+import { PriceEstimateService, type StoredPriceEstimate } from './price-estimate.service';
+import {
+  LANDING_LOCALE_VALUES,
+  PUBLIC_SITE_OPTIONS,
+  type PublicSiteOptions,
+} from './public-site.options';
 import {
   addMonths,
   containsUrl,
@@ -56,8 +72,8 @@ export const PUBLIC_LIMITS = {
   contactPerDay: 3,
 } as const;
 
-/** Long stay from 28 nights (BR-108); window and max nights of a short stay come from BR-112 parameters. */
-const LONG_STAY_NIGHTS = 28;
+// Long stay from `long_stay_required_from_nights` nights (BR-108 – parameter as of the business date, read through
+// PriceEstimateService.longStayFrom; ARC FB-R4-ARC-BE-LPV2-03); the window comes from BR-112 parameters.
 const FAR_FUTURE_DAYS = 180;
 
 export interface ResolvedProperty {
@@ -99,9 +115,11 @@ const ALLOWED_KEYS = new Set([
   'landingPath',
   'pow',
   'offerSnapshot',
+  'priceEstimateToken',
 ]);
 const CHANNELS = ['zalo', 'whatsapp', 'telegram', 'viber', 'phone', 'email'];
-const LOCALES = ['vi', 'en', 'ru'];
+/** OpenAPI 0.3.10 LandingLocale (R4 LP-v2 – FB-INV-008). */
+const LOCALES: readonly string[] = LANDING_LOCALE_VALUES;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const isInt = (v: unknown) => typeof v === 'number' && Number.isInteger(v);
 
@@ -127,6 +145,8 @@ interface ParsedInput {
   refHost: string | null;
   landingPath: string | null;
   pow: unknown;
+  /** Raw – checked by PriceEstimateService (a bad token never refuses the request). */
+  priceEstimateToken: unknown;
 }
 
 @Injectable()
@@ -140,6 +160,7 @@ export class PublicBookingService {
     @Inject(CryptoService) private readonly crypto: CryptoService,
     @Inject(EventsService) private readonly events: EventsService,
     @Inject(WebsiteRequestsService) private readonly requests: WebsiteRequestsService,
+    @Inject(PriceEstimateService) private readonly estimates: PriceEstimateService,
   ) {}
 
   private readonly resolveCache = new Map<string, { at: number; value: ResolvedProperty | null }>();
@@ -449,17 +470,12 @@ export class PublicBookingService {
     if (stayType !== 'short' && stayType !== 'long') err('stayType', 'NOT_IN_LIST');
     const arrival = b.arrival;
     if (arrival === undefined) err('arrival', 'REQUIRED');
-    else if (
-      typeof arrival !== 'string' ||
-      !DATE.test(arrival) ||
-      Number.isNaN(Date.parse(arrival))
-    )
-      err('arrival', 'VALIDATION_FAILED');
+    // A real calendar date – 2026-02-31 is refused too (SEC LPV2M-05).
+    else if (!isCalendarDate(arrival)) err('arrival', 'VALIDATION_FAILED');
     const departure = b.departure;
     if (stayType === 'short') {
       if (departure === undefined || departure === null) err('departure', 'REQUIRED');
-      else if (typeof departure !== 'string' || !DATE.test(departure))
-        err('departure', 'VALIDATION_FAILED');
+      else if (!isCalendarDate(departure)) err('departure', 'VALIDATION_FAILED');
       if (b.months !== undefined && b.months !== null) err('months', 'NOT_ALLOWED');
     } else {
       if (departure !== undefined && departure !== null) err('departure', 'NOT_ALLOWED');
@@ -594,6 +610,7 @@ export class PublicBookingService {
       refHost,
       landingPath,
       pow: b.pow,
+      priceEstimateToken: b.priceEstimateToken,
     };
   }
 
@@ -609,12 +626,21 @@ export class PublicBookingService {
       else if (nightsBetween(b.arrival, b.departure) > 366)
         errors.push({ field: 'departure', code: 'OUTSIDE_BOOKING_WINDOW' });
     }
-    const { rows } = await tx.query<{ ok: boolean }>(
-      `SELECT (superseded_at IS NULL OR superseded_at > $4::timestamptz - interval '7 days') AS ok
-         FROM privacy_notice_version WHERE organization_id = $1 AND version = $2 AND locale = $3`,
-      [tx.ctx.organizationId, b.consentVersion, b.locale, this.clock.now()],
+    // SEC SR-LC-02 (R4): a landing language with NO notice in force (none published, or only superseded beyond the
+    // 7-day grace) → 422 PUBLIC_FORM_NOT_READY – the page shows the Zalo/phone block. Else the version check.
+    const { rows } = await tx.query<{ version: string; ok: boolean }>(
+      `SELECT version, (superseded_at IS NULL OR superseded_at > $3::timestamptz - interval '7 days') AS ok
+         FROM privacy_notice_version WHERE organization_id = $1 AND locale = $2`,
+      [tx.ctx.organizationId, b.locale, this.clock.now()],
     );
-    if (!rows[0]?.ok) errors.push({ field: 'consentVersion', code: 'NOTICE_VERSION_INVALID' });
+    if (!rows.some((r) => r.ok)) {
+      throw problem('PUBLIC_FORM_NOT_READY', {
+        errors: [{ field: 'locale', code: 'PUBLIC_FORM_NOT_READY' }],
+      });
+    }
+    if (!rows.some((r) => r.ok && r.version === b.consentVersion)) {
+      errors.push({ field: 'consentVersion', code: 'NOTICE_VERSION_INVALID' });
+    }
     if (errors.length > 0) throw problem('VALIDATION_FAILED', { errors });
   }
 
@@ -626,19 +652,18 @@ export class PublicBookingService {
     b: ParsedInput,
     contactHmac: string,
     ipHmac: string,
-    pc: { now: Date; today: LocalDate; timezone: string },
+    pc: { now: Date; today: LocalDate; timezone: string; iso(d: Date): string },
   ): Promise<{ id: string; refCode: string }> {
     const departure =
       b.stayKind === 'long' ? (b.months ? addMonths(b.arrival, b.months) : null) : b.departure;
-    const stayKind =
-      b.stayKind === 'long' ||
-      (departure !== null && nightsBetween(b.arrival, departure) >= LONG_STAY_NIGHTS)
-        ? 'long'
-        : 'short';
+    const stayKind = PriceEstimateService.stayKindOf(
+      { stayType: b.stayKind, arrival: b.arrival, departure },
+      await this.estimates.longStayFrom(tx, pc.today),
+    );
     const flags: string[] = [];
     const text = `${b.guestName}\n${b.note ?? ''}`;
     if (containsUrl(text)) flags.push('contains_url');
-    if (hasUnexpectedScript(text)) flags.push('unexpected_script');
+    if (hasUnexpectedScript(text, b.locale)) flags.push('unexpected_script');
     if (b.arrival > addDays(pc.today, FAR_FUTURE_DAYS)) flags.push('far_future');
     if (b.roomType) {
       const types = await this.requests.roomTypes(tx);
@@ -670,6 +695,26 @@ export class PublicBookingService {
       [contactHmac, pc.now, windowHours, b.arrival, departure],
     );
     if (dup.length > 0) flags.push('possible_duplicate');
+    // R4 LP-v2 (0.3.10 (b)): the estimate the guest saw – verified token + server recomputation, else the flag.
+    const estimate: { stored: StoredPriceEstimate | null; unverified: boolean } =
+      await this.estimates.forRequest(
+        tx,
+        p,
+        pc,
+        b.priceEstimateToken,
+        {
+          roomType: b.roomType,
+          stayType: b.stayKind,
+          arrival: b.arrival,
+          departure: b.departure,
+          months: b.months,
+          adults: b.adults,
+          children: b.children,
+          infants: b.infants,
+        },
+        stayKind,
+      );
+    if (estimate.unverified) flags.push('offer_unverified');
     const id = uuidv7();
     let refCode = '';
     for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -681,10 +726,10 @@ export class PublicBookingService {
              departure_date, stay_kind, stay_months, adults, children, infants, room_type_slug, locale,
              preferred_channel, guest_name, phone_e164, email, note, contact_hmac, related_request_ids,
              consent_version, consent_at, utm_source, utm_medium, utm_campaign, ref_host, landing_path, sub_source,
-             suspicious_flags, ip_hmac, reply_by, last_activity_at, created_at, updated_at)
+             suspicious_flags, ip_hmac, reply_by, last_activity_at, created_at, updated_at, price_estimate)
            VALUES ($1, $2, $3, $4, 'new', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
              $20::uuid[], $21, $22, $23, $24, $25, $26, $27, $28, $29::text[], decode($30, 'hex'), $31, $22, $22,
-             $22)`,
+             $22, $32::jsonb)`,
           [
             id,
             p.organizationId,
@@ -717,6 +762,7 @@ export class PublicBookingService {
             flags,
             ipHmac,
             plan.replyBy,
+            estimate.stored ? JSON.stringify(estimate.stored) : null,
           ],
         );
         await tx.query('RELEASE SAVEPOINT ref_code');
@@ -841,7 +887,11 @@ export class PublicBookingService {
       [tx.ctx.organizationId],
     );
     const have = new Set(rows.map((r) => r.locale));
-    for (const l of ['vi', 'en']) if (!have.has(l)) missing.push(`privacy_notice_version.${l}`);
+    // R4 (0.3.10): the languages on sale = LANDING_LOCALES (default en,vi) – order kept for the message.
+    const order = ['vi', 'en', 'ko', 'zh', 'ru'].filter((l) =>
+      (this.options.landingLocales as readonly string[]).includes(l),
+    );
+    for (const l of order) if (!have.has(l)) missing.push(`privacy_notice_version.${l}`);
     return missing;
   }
 

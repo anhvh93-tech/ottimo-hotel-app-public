@@ -9,6 +9,7 @@ import {
   pluralForm,
   translate,
 } from './translate';
+import pluralCases from './plural-forms.cases.json';
 
 describe('lazy EN chunk', () => {
   it('shows VI text until EN is loaded, then English', async () => {
@@ -59,6 +60,12 @@ describe('pluralForm (BUG-R4-009)', () => {
     expect([1, 2].map((n) => pluralForm('vi', n))).toEqual(['other', 'other']);
   });
 
+  it('matches the table the api copy is checked against too (FB-R4-ARC-BE-LPV2-10)', () => {
+    for (const [l, byN] of Object.entries(pluralCases.cases))
+      for (const [n, form] of Object.entries(byN))
+        expect([l, n, pluralForm(l, Number(n))]).toEqual([l, n, form]);
+  });
+
   it('guest-facing counted strings read right for 1 and 2 (no "1 nights", no "guest(s)")', () => {
     const p = (l: 'vi' | 'en', key: string, n: number, args: Record<string, string | number>) =>
       translate(l, `${key}_${pluralForm(l, n)}`, args);
@@ -73,7 +80,9 @@ describe('pluralForm (BUG-R4-009)', () => {
     );
     expect(p('en', 'common.nights', 1, { n: 1 })).toBe('1 night');
     expect(p('en', 'common.nights', 3, { n: 3 })).toBe('3 nights');
-    expect(p('en', 'guest.bill.line.room', 1, { nights: 1, rate: 'X' })).toBe('Room 1 night × X');
+    expect(p('en', 'guest.bill.line.room', 1, { nights: 1, rate: 'X' })).toBe(
+      'Room charge, 1 night × X',
+    );
     expect(p('en', 'gw.oci_done_card_deferred', 1, { k: 1 })).toBe(
       '1 guest will show ID at reception.',
     );

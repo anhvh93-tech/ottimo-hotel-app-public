@@ -1070,7 +1070,7 @@ describe('BUG-R2-080 – báo giá gửi khách bằng tiếng Nga (US-083 AC2, 
     const send = await screen.findByRole('dialog', { name: /BG-000\d+/ });
     await within(send).findByText(/Báo giá BG-000/);
     await user.click(within(send).getByRole('button', { name: 'Русский' }));
-    expect(await within(send).findByText(/Предложение BG-000/)).toBeInTheDocument();
+    expect(await within(send).findByText(/предложение BG-000/i)).toBeInTheDocument();
     server.events.removeListener('request:start', on);
     expect(asked).toEqual(['vi', 'ru']);
   });

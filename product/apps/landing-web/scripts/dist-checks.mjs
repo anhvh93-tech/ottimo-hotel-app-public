@@ -29,7 +29,15 @@ export const BUDGET = {
   cssGzPerPage: 15_000,
   htmlGz: 25_000,
   fontFile: 30_000,
+  // LP-v2 (ARC lp-v2 3.3): one cut CJK file; all font files of one language's own stylesheet (first load ≤ this)
+  fontFileCjk: 80_000,
+  langFonts: { ko: 300_000, zh: 300_000, ru: 150_000 },
 };
+
+/** `<html lang>` per language code (ARC lp-v2 D10 – Simplified Chinese is zh-Hans; URLs and hreflang keep `zh`). */
+export const HTML_LANG = { en: 'en', vi: 'vi', ko: 'ko', zh: 'zh-Hans', ru: 'ru' };
+/** Languages with their own font stylesheet (styles/fonts-<lang>.css), linked by that language's pages only. */
+export const LANG_FONT_CSS = ['ko', 'zh', 'ru'];
 
 const OTA = /\b(booking\.com|agoda\.|airbnb\.|traveloka\.|expedia\.|trip\.com|hotels\.com)/i;
 // Tags that load something when the page opens.
@@ -301,6 +309,23 @@ export const BANNED = [
   /One Bedroom \+ 1/,
   // FB-INV-004 / BR-401 (e): the room is guaranteed by roomReadyBy, never promised "ready from" the check-in time.
   /ready from \d|sẵn sàng từ \d/iu,
+  // LP-v2 (CPY lp-v2-copy 6): the same rules in Korean, Simplified Chinese and Russian – no apartment / serviced
+  // wording, no hotel / guesthouse words, no star class, no instant confirmation, no room count.
+  /아파트|레지던스|서비스드/u,
+  /호텔|모텔|민박|홈스테이|게스트하우스/u,
+  /\d\s*성급/u,
+  /즉시 확정/u,
+  /(10|열)\s*(개\s*)?(객실|룸)/u,
+  /公寓|服务式/u,
+  /酒店|宾馆|旅馆|民宿|客栈/u,
+  /\d\s*星级?(?!期)/u,
+  /立即确认/u,
+  /(10|十)\s*(间|套)/u,
+  /апартамент|квартир|посуточн/iu,
+  /отел|гостиниц|хостел|гостев\S* дом/iu,
+  /\d\s*звезд/iu,
+  /мгновенн\S* подтвержд/iu,
+  /(10|десять)\s*(номер|комнат)/iu,
 ];
 
 export function checkWording({ html }) {
@@ -323,7 +348,7 @@ export function checkWording({ html }) {
       if (m) problems.push(`${page.path}: banned wording "${m[0]}" (${re})`);
     }
     const body = page.source.split(/<body[^>]*>/)[1] ?? '';
-    const hotel = (visibleText(body).match(/hotel|khách sạn/giu) ?? []).length;
+    const hotel = (visibleText(body).match(/hotel|khách sạn|호텔|酒店|отел/giu) ?? []).length;
     if (hotel > 0)
       problems.push(`${page.path}: "hotel/khách sạn" ${hotel}× (INV 24/10: none on the page)`);
     for (const m of body.matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)) {
@@ -477,8 +502,10 @@ export function checkSeo({ html, dist }, { siteUrl, langs, indexable }) {
   for (const page of html) {
     const h = heads.get(page.path);
     const lang = langOf(page.path);
-    if (h.lang !== lang)
-      problems.push(`${page.path}: <html lang="${h.lang}"> but path language is ${lang}`);
+    if (h.lang !== (HTML_LANG[lang] ?? lang))
+      problems.push(
+        `${page.path}: <html lang="${h.lang}"> but path language is ${lang} (${HTML_LANG[lang] ?? lang})`,
+      );
     if (!h.title || h.title.length > 60) problems.push(`${page.path}: title missing or > 60 chars`);
     if (!h.description || h.description.length > 160)
       problems.push(`${page.path}: description missing or > 160 chars`);
@@ -526,7 +553,8 @@ export function checkSeo({ html, dist }, { siteUrl, langs, indexable }) {
         problems.push(`${page.path}: suggestion strip ${s.attrs['data-suggest']} not hidden`);
       if (s.attrs['data-nosnippet'] === undefined)
         problems.push(`${page.path}: suggestion strip without data-nosnippet`);
-      if (s.attrs.lang !== s.attrs['data-suggest'])
+      const code = s.attrs['data-suggest'];
+      if (s.attrs.lang !== (HTML_LANG[code] ?? code))
         problems.push(`${page.path}: suggestion strip lang ≠ its language`);
     }
     for (const k of ['og:title', 'og:description', 'og:url', 'og:image', 'og:locale', 'og:type'])
@@ -685,14 +713,20 @@ export function checkBudgets({ dist, files, html }, { bookingRequest: bookingFor
   for (const f of files.filter((f) => /\.(woff2?|ttf|otf)$/.test(f))) {
     const name = path.basename(f);
     if (!name.endsWith('.woff2')) problems.push(`${name}: only woff2 is shipped`);
+    const cjk = /^ottimo-(sans|serif)-(ko|zh)-(400|600)-(a|b)\./.test(name);
     const allowed =
       /^(lora|be-vietnam-pro)-(latin|latin-ext|vietnamese)-\d{3}-(normal|italic)\./.test(name) ||
-      (bookingForm && /^jetbrains-mono-latin-400-normal\./.test(name));
+      (bookingForm && /^jetbrains-mono-latin-400-normal\./.test(name)) ||
+      // LP-v2 (UXD lp-v2-design 1.2): /ru/ = Lora cyrillic + Onest; /ko/, /zh/ = Noto KR/SC cut to the page characters
+      /^lora-cyrillic-400-normal\./.test(name) ||
+      /^onest-(latin|cyrillic)-(400|500|600)-normal\./.test(name) ||
+      cjk;
     if (!allowed)
       problems.push(
-        `${name}: font outside Lora + Be Vietnam Pro (latin/latin-ext/vietnamese) or, with the form, JetBrains Mono latin 400`,
+        `${name}: font outside Lora + Be Vietnam Pro (latin/latin-ext/vietnamese), JetBrains Mono latin 400 (form), Lora cyrillic + Onest (ru) or the cut Noto KR/SC files (ko/zh)`,
       );
-    if (size(f) > BUDGET.fontFile) problems.push(`${name} ${size(f)} B > ${BUDGET.fontFile}`);
+    const max = cjk ? BUDGET.fontFileCjk : BUDGET.fontFile;
+    if (size(f) > max) problems.push(`${name} ${size(f)} B > ${max}`);
   }
   for (const page of html) {
     const t = tags(page.source);
@@ -754,34 +788,124 @@ export function checkImages({ html }) {
   return problems;
 }
 
+/** CSS files a page links (`<link rel="stylesheet">`), as paths in dist. */
+function linkedCss(dist, page) {
+  return tags(page.source)
+    .filter((x) => x.name === 'link' && x.attrs.rel === 'stylesheet' && x.attrs.href)
+    .map((x) => path.join(dist, x.attrs.href.replace(/^\//, '').split('?')[0]));
+}
+
+/** Language of a page path: /vi/…, /ko/…, /zh/…, /ru/… by prefix, else English. */
+function pathLang(p) {
+  const first = p.split('/')[1];
+  return HTML_LANG[first] && first !== 'en' ? first : 'en';
+}
+
 /**
- * Every visible character is covered by the self-hosted subsets (latin, latin-ext, vietnamese – concept 3.3):
- * no glyph falls back to Arial/Georgia. Ranges are read from the built CSS @font-face rules.
+ * Every visible character is covered by the self-hosted fonts THE PAGE LINKS (concept 3.3; LP-v2: each language page
+ * links its own font stylesheet): no glyph falls back to a system font. Ranges are read from the @font-face rules of
+ * the stylesheets of that page. Text inside an element whose `lang` is another language (the language list, the
+ * suggestion strips) is left out – those names use system fonts on purpose (ARC lp-v2 3.3 rule 3).
  */
-export function checkGlyphCoverage({ files, html }) {
-  const css = files
-    .filter((f) => f.endsWith('.css'))
-    .map((f) => readFileSync(f, 'utf8'))
-    .join('\n');
-  // U+0100-02BA, U+0131, or the wildcard form minifiers emit (U+?? = U+0000-00FF).
-  const ranges = [...css.matchAll(/unicode-range:\s*([^;}]+)/g)].flatMap((m) =>
-    m[1].split(',').map((r) => {
-      const [a, b] = r.trim().replace(/^U\+/i, '').split('-');
-      if (!b && a.includes('?'))
-        return [parseInt(a.replace(/\?/g, '0'), 16), parseInt(a.replace(/\?/g, 'F'), 16)];
-      return [parseInt(a, 16), parseInt(b ?? a, 16)];
-    }),
-  );
-  if (!ranges.length) return ['no unicode-range in the built CSS'];
-  const covered = (cp) => cp <= 0x20 || ranges.some(([a, b]) => cp >= a && cp <= b);
+export function checkGlyphCoverage({ dist, files, html }) {
   const problems = [];
-  for (const page of html) {
-    const missing = new Set(
-      [...visibleText(page.source)].filter((ch) => !covered(ch.codePointAt(0))),
+  const parse = (css) =>
+    [...css.matchAll(/unicode-range:\s*([^;}]+)/g)].flatMap((m) =>
+      m[1].split(',').map((r) => {
+        const [a, b] = r.trim().replace(/^U\+/i, '').split('-');
+        if (!b && a.includes('?'))
+          return [parseInt(a.replace(/\?/g, '0'), 16), parseInt(a.replace(/\?/g, 'F'), 16)];
+        return [parseInt(a, 16), parseInt(b ?? a, 16)];
+      }),
     );
+  const all = files.filter((f) => f.endsWith('.css'));
+  if (!all.length || !parse(all.map((f) => readFileSync(f, 'utf8')).join('\n')).length)
+    return ['no unicode-range in the built CSS'];
+  for (const page of html) {
+    const linked = dist ? linkedCss(dist, page).filter((f) => all.includes(f)) : all;
+    const ranges = parse(linked.map((f) => readFileSync(f, 'utf8')).join('\n'));
+    const covered = (cp) => cp <= 0x20 || ranges.some(([a, b]) => cp >= a && cp <= b);
+    const own = HTML_LANG[pathLang(page.path)];
+    const source = page.source.replace(
+      /<(a|section|span|p|li)\b([^>]*)\blang="([^"]+)"([^>]*)>[\s\S]*?<\/\1>/g,
+      (m, _t, _a, l) => (l === own ? m : ' '),
+    );
+    const missing = new Set([...visibleText(source)].filter((ch) => !covered(ch.codePointAt(0))));
     if (missing.size)
       problems.push(
         `${page.path}: characters outside the font subsets: ${[...missing].map((c) => `${c} U+${c.codePointAt(0).toString(16).toUpperCase()}`).join(', ')}`,
+      );
+  }
+  return problems;
+}
+
+/**
+ * LP-v2 fonts per language (ARC lp-v2 3.3 rules 1–3 and budgets): the font stylesheet of ko/zh/ru is linked by the
+ * pages of that language only (and by every one of them); an en/vi page links none of them; the Korean/Chinese cut
+ * files are referenced from their own stylesheet only; all font files of one language's stylesheet together stay
+ * within its first-load budget (ko/zh ≤ 300 kB, ru ≤ 150 kB).
+ */
+export function checkLangFonts({ dist, files, html }) {
+  const problems = [];
+  const cssOf = (lang) =>
+    files.filter((f) => new RegExp(`/fonts-${lang}\\.[\\w-]+\\.css$`).test(f));
+  for (const lang of LANG_FONT_CSS) {
+    const own = cssOf(lang);
+    if (!html.some((p) => pathLang(p.path) === lang)) continue;
+    if (own.length !== 1) {
+      problems.push(`fonts-${lang}.css: ${own.length} built files (expected 1)`);
+      continue;
+    }
+    for (const page of html) {
+      const links = linkedCss(dist, page).includes(own[0]);
+      if (pathLang(page.path) === lang && !links)
+        problems.push(`${page.path}: does not link fonts-${lang}.css`);
+      if (pathLang(page.path) !== lang && links)
+        problems.push(`${page.path}: links fonts-${lang}.css of another language`);
+    }
+    const css = readFileSync(own[0], 'utf8');
+    const fonts = [...css.matchAll(/url\(\s*['"]?([^'")]+\.woff2)/g)].map((m) =>
+      path.join(dist, m[1].replace(/^\//, '')),
+    );
+    const bytes = fonts.reduce((n, f) => n + statSync(f).size, 0);
+    if (bytes > BUDGET.langFonts[lang])
+      problems.push(`fonts-${lang}.css: ${bytes} B of font files > ${BUDGET.langFonts[lang]}`);
+  }
+  for (const f of files.filter((x) => /\/ottimo-(sans|serif)-(ko|zh)-/.test(x))) {
+    const lang = path.basename(f).split('-')[2];
+    const users = files
+      .filter((c) => c.endsWith('.css') && readFileSync(c, 'utf8').includes(path.basename(f)))
+      .map((c) => path.basename(c));
+    if (users.some((u) => !u.startsWith(`fonts-${lang}.`)))
+      problems.push(
+        `${path.basename(f)} referenced by ${users.join(', ')} (only fonts-${lang}.css)`,
+      );
+  }
+  return problems;
+}
+
+/**
+ * Machine-readable notice version on every privacy page (ARC lp-v2 D11, SEC SR-LC-04): exactly one meta tag and one
+ * data-notice-version, equal to each other and to the version the home page of the same language sends.
+ */
+export function checkNoticeVersion({ html }) {
+  const problems = [];
+  for (const page of html.filter((p) => /\/privacy\/$/.test(p.path))) {
+    const t = tags(page.source);
+    const metas = t.filter((x) => x.name === 'meta' && x.attrs.name === 'ottimo-notice-version');
+    const data = t.filter((x) => x.attrs['data-notice-version'] !== undefined);
+    if (metas.length !== 1)
+      problems.push(`${page.path}: ${metas.length} ottimo-notice-version meta tags`);
+    if (data.length !== 1)
+      problems.push(`${page.path}: ${data.length} data-notice-version attributes`);
+    const v = metas[0]?.attrs.content;
+    if (data[0] && data[0].attrs['data-notice-version'] !== v)
+      problems.push(`${page.path}: data-notice-version ≠ meta`);
+    const home = html.find((p) => p.path === page.path.replace(/privacy\/$/, ''));
+    const form = home && tags(home.source).find((x) => x.name === 'form');
+    if (form && form.attrs['data-consent-version'] !== v)
+      problems.push(
+        `${page.path}: notice ${v} ≠ form consentVersion ${form.attrs['data-consent-version']}`,
       );
   }
   return problems;
@@ -802,5 +926,7 @@ export function runAll(dist, opts) {
     budgets: checkBudgets(d, opts),
     images: checkImages(d),
     glyphs: checkGlyphCoverage(d),
+    langFonts: checkLangFonts(d),
+    noticeVersion: checkNoticeVersion(d),
   };
 }

@@ -1,5 +1,6 @@
 // Facts the landing publishes, validated at build time (ADR-014 4.2, 5). One source for the page, JSON-LD and
 // every contact link. A wrong value fails `astro build` instead of reaching the public site.
+import { INTERNATIONAL_PHONE, type Lang } from '../lib/langs';
 import { z } from 'astro/zod';
 import { SITE_URL } from '../lib/i18n';
 import raw from './site.json';
@@ -105,3 +106,11 @@ export const links = {
       ? `mailto:${site.contact.email}${subject ? `?subject=${encodeURIComponent(subject)}` : ''}`
       : '',
 };
+
+/**
+ * Hotline as written on a page (CPY lp-v2 1.3): the local form 08.4444.0909 on EN/VI, the international form
+ * +84 84 444 0909 on the ko/zh/ru pages (guests calling from abroad). The tel: link is always E.164.
+ */
+export function phoneShown(lang: Lang): string {
+  return INTERNATIONAL_PHONE.includes(lang) ? site.phone.international : site.phone.local;
+}
