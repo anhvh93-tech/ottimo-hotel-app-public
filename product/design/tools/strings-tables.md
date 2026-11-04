@@ -4054,6 +4054,12 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `booking.rates_cleared_room_group` | Đã xóa giá đã gõ vì căn {room} thuộc nhóm căn khác. Kiểm lại giá mỗi đêm trước khi tạo đơn. | Typed rates were cleared because room {room} is in a different room group. Check the rate per night before creating the booking. | ⟨chừa chỗ⟩ | v1.0.4 booking (FB-R4-UXD-FE-PR70-07). role=status dưới bảng giá như booking.rates_cleared_channel, chỉ khi có ô đã gõ bị xóa; đổi kênh và căn cùng lúc thì câu kênh |
 | `booking.hold.typed_rate_locked` | Giữ chỗ chỉ theo giá niêm yết. Đã nhận cọc thì bấm Tạo đơn để lưu giá đã gõ. Chưa nhận cọc thì xóa giá đã gõ rồi giữ chỗ, xác nhận cọc xong thì Điều chỉnh giá ở Folio. | Holds use the list price only. If the deposit is received, use Create booking to keep the typed rates. If not, clear them and hold, then adjust the rates in the Folio after confirming the deposit. | ⟨chừa chỗ⟩ | v1.0.4 booking (FB-R4-UXD-FE-PR75-01). Dòng li-s trong footer H09, là aria-describedby của nút Giữ chỗ. Tên nút khớp booking.create và folio.adjust; Folio là drawer.folio.title. Cách làm tạm: DOM điểm 3, sổ tay 2.5 bước 10. Bỏ khi Q1 nhận giá thỏa thuận (v1.0.5) |
 
+#### v1.0.4 BUG-R4-042 – FE-A: H16 bước 1 luôn nêu tên tủ đang đếm khi lượt ở có nhiều tủ (K11-03). CHỜ UXD DUYỆT
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `co.minibar_cabinet_counting` | Tủ minibar đang đếm | Minibar being counted | ⟨chừa chỗ⟩ | H16 bước 1, nhãn <dt> của dòng tên tủ (giá trị = co.minibar_cabinet_room / co.minibar_cabinet_old). Chỉ hiện khi lượt ở có từ 2 tủ (sau B14) và nhóm chọn tủ đã ẩn vì chỉ còn 1 tủ (tủ kia đã đếm trên trang này). Tiêu đề trang vẫn ghi căn đang ở |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |

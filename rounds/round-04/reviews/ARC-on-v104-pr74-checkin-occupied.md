@@ -1,7 +1,8 @@
 # ARC review – PR #74 BUG-R4-039: nhận phòng vào căn còn khách đang ở (ngoại lệ BR-402 (1)) (P1)
 
 - Người review: ARC | Round 4 – v1.0.4 – Bước **Review** | 05/11/2026
-- Đối tượng: `v104/fix-checkin-occupied-exception` @ `9646029d`. Hai commit trên `ea979fe7`:
+- Lượt 2: head `0950313e` (C1 + C2 + chữ C3), mục "Lượt 2" ngay dưới đây.
+- Đối tượng lượt 1: `v104/fix-checkin-occupied-exception` @ `9646029d`. Hai commit trên `ea979fe7`:
   - `377411d1`: sửa mã, hợp đồng, oracle, test mới;
   - `9646029d`: dữ liệu test `reversal-debt-g4`.
   - Đọc bằng `gh pr diff 74` và thân PR.
@@ -27,7 +28,129 @@
   - cây gộp thử `main` + #71 + #74.
   - Worktree và container đã xóa khi xong.
 
-## Phán quyết (head `9646029d`): **ĐẠT CÓ ĐK**
+## Lượt 2 (head `0950313e`, 05/11): **ĐẠT CÓ ĐK**
+
+BE đi đường C2, không dùng dự phòng mục 4.3. Đọc bằng `git diff 9646029d 0950313e`. ARC tự chạy test của PR trong worktree tạm, PostgreSQL riêng; worktree và container đã xóa khi xong.
+
+**Còn một điều kiện gộp:**
+- **K1**: rebase lên `main` sau khi #71 vào, gỡ xung đột (k)/(l) (mục L2.3), sinh lại `api-client` trên cây đã rebase.
+- Job `format · lint · audit · test · build` của lần đẩy đó phải xanh.
+- Lần đẩy đó tự có #76 (`main` `7f0ef3fb`), nên 2 ca ban đêm của `v104-holds-feb` không còn lý do đỏ.
+
+C1, C2 và phần chữ của C3 đã xong. Không có thẻ Blocker/Major mới.
+
+**Điều kiện phát hành:**
+- R1 (#77 + #79) đã ĐẠT CÓ ĐK, chờ CI.
+- R2 (DOM) xong ở BR v0.5.6.
+- R3 (QA) còn mở.
+
+### L2.1 C1 so với A.5 – **khớp**
+
+| Điểm | Phụ lục | `0950313e` | Kết luận |
+|---|---|---|---|
+| Ai giữ căn | `inRoomOnSql(D)` nguyên, gồm lượt quá ngày đi | `roomHolder`: `inRoomOnSql('$3::date')`, không còn `AND s.to_date >= $3::date`; trả `{ code, overdue }` | Khớp |
+| `overridableBy` | chỉ khi `room && !holder && VD/CL` | `roomOverridable = !!room && !holder && (VD \|\| CL)` | Khớp |
+| `met` của `VI`/`VC` | giữ (b) của BE ở v1.0.4 | `heldToday = !!holder && !holder.overdue`; `roomReady = !!room && !heldToday && VI/VC` | Khớp. v1.0.5 đổi thành `!!holder` (thẻ 05) |
+| Lệnh ghi dùng cùng cờ | xem trước và B9 cùng `overridableBy` | Không đổi so với `9646029d`. Chú thích B9 ghi rõ "kể cả lượt quá ngày đi" | Khớp |
+| Chú thích và hợp đồng | A.1 | Bỏ câu "lượt quá ngày đi không tính ở bước này". Mô tả `checkIn` và `CheckInPreview.conditions[]` ghi: căn chỉ còn lượt quá ngày đi thì `VD`/`CL` không có `overridableBy` | Khớp |
+| Test qua API buồng phòng | 2 ca: đi hôm nay + `CL`; quá ngày đi + `CL` | Ca 302 và 301, `POST /rooms/{id}/status-transitions` (`needs_cleaning`, `start_cleaning`), không dùng SQL. Mọi vai 409, không ghi gì | Khớp |
+
+ARC chạy đảo bản vá (`roomOverridable` dùng `!heldToday` thay `!holder`, tức quay về (b) của BE):
+- ca 301 đỏ: `expected [ 'front_desk_lead', 'manager', …(1) ] to be undefined`;
+- 6 ca còn lại xanh, đúng dự đoán, vì ca 302 là lượt đi hôm nay, không quá hạn.
+- Vậy ca 301 canh đúng lỗ C1, không phải test chỉ chạy qua.
+
+### L2.2 C2 so với A.2 và A.4 – **khớp, thêm một điểm tốt**
+
+| Điểm | Phụ lục | `0950313e` | Kết luận |
+|---|---|---|---|
+| `cause` | `room_status` \| `held_by_other_stay` \| `no_room`, tập mở | `type RoomReadyCause` cùng 3 giá trị; `openapi.yaml` có `enum` và chữ "tập mở"; client sinh union cùng 3 giá trị | Khớp |
+| Ưu tiên | `no_room`, rồi `held_by_other_stay` (dù buồng `OC`/`OD`), rồi `room_status` | `!room ? 'no_room' : holder ? 'held_by_other_stay' : 'room_status'` | Khớp |
+| `heldByReservationCode` | mã đơn **gốc**, chỉ khi có lượt giữ | `JOIN reservation root ON root.id = COALESCE(r.parent_reservation_id, r.id)`; chỉ thêm khi `holder` | Khớp |
+| Nhiều lượt giữ | lượt chưa quá hạn đứng trước | `ORDER BY (s.to_date < $3::date), s.from_date, root.code` | Khớp. Thêm `root.code` làm thứ tự cuối, nên kết quả tất định (A.4 thiếu) |
+| `detail` | vắng khi đơn chưa có căn | `...(room ? { detail: roomStatus } : {})` | Khớp. Ca mới "OTA chưa có căn": `cause: no_room`, không `detail`, không ngoại lệ |
+| Serializer đóng | thêm vào `openapi-schemas.ts`, nếu không thì bị bỏ | Có `cause`, `heldByReservationCode` là trường đơn | Khớp. Test đọc qua HTTP thấy hai trường, nên serializer không bỏ |
+| Khẳng định trong test | 4 ca cũ và 2 ca C1 | Ca 202/203/201 khẳng định `held_by_other_stay` và mã; ca `VD`/`CL` khẳng định `room_status` và không có mã; ca 301/302 khẳng định `held_by_other_stay` và mã gốc | Khớp |
+
+### L2.3 C3 so với A.1 và A.3 – **phần chữ khớp; còn rebase**
+- Không còn chữ "chờ ARC duyệt" ở mô tả `checkIn`/`previewCheckIn`.
+- Mục (l) có trong danh sách 0.3.12, đúng chữ A.3, dùng `checkIn`/`previewCheckIn`.
+  - Bản đầu A.3 của ARC ghi nhầm `getCheckInPreview`; BE dùng tên đúng.
+  - ARC đã sửa A.3 và mục 3 (e) trong tệp này.
+- `info.version` giữ `0.3.12-draft`.
+- `api-client` sinh lại trên cây hiện tại, có `cause`/`heldByReservationCode`.
+- **Còn lại (K1):**
+  - `git merge-tree origin/main 0950313e` (`main` `7f0ef3fb`): sạch.
+  - `git merge-tree` #71 `5045c2de` với `0950313e`: **xung đột 1 tệp**, `docs/api/openapi.yaml` dòng 334–345, đúng chỗ (k) của #71 và (l) của #74.
+  - Cách gỡ: giữ cả hai, (k) trước, (l) sau.
+  - `openapi.ts` sinh ra tự gộp được về mặt chữ, nhưng vẫn phải chạy lại `gen.mjs` trên cây đã rebase, không tin bản tự gộp.
+  - #71 vẫn mở (head `5045c2de`). Thứ tự gộp mục 6 không đổi.
+
+### L2.4 #79 đọc `cause` và `heldByReservationCode` có khớp máy chủ không – **khớp**
+- Cùng tên trường, cùng 3 giá trị.
+- `heldByReservationCode` là mã gốc: Desk hiện mã đó, lễ tân tìm được đơn để trả phòng.
+- Đơn chưa có căn: máy chủ bỏ `detail` và trả `cause: no_room`. #79 không hiện câu chặn, đúng ý FB-R4-ARC-FE-PR77-03 (không chặn khi chưa có căn).
+- Mock `stay.ts` của #79 dựng `holder` theo cùng định nghĩa (gồm lượt quá hạn, lượt chưa quá hạn đứng trước). `met` và `overridableBy` theo đúng công thức C1.
+- Chi tiết và ba đời API: `ARC-on-v104-pr79-checkin-cause.md` (ĐẠT CÓ ĐK).
+- Một gợi ý còn mở ở đó: `cause` lạ thì hiện câu chung (FB-R4-ARC-FE-PR79-01, Suggestion). Hợp đồng đã ghi "tập mở", nên thêm giá trị sau này không phá Desk, chỉ có thể hiện câu kém chính xác.
+
+### L2.5 Sửa một điểm của lượt 1: không có nút "Cần dọn" ở v1.0.4
+- Lượt 1 viết "buồng phòng bấm Cần dọn (R8a) rồi Bắt đầu dọn", như hai nút trên giao diện. Thực tế:
+  - app buồng phòng v1.0.4 chỉ gửi `start_cleaning` và `finish_cleaning`;
+  - `needs_cleaning` có trong kiểu `RoomEvent` của `apps/mobile` nhưng không màn nào gửi;
+  - Desk không có nút này;
+  - máy chủ cho `needs_cleaning` với OWN/MGR/FDL/FD/HK (x-roles), nên đường API vẫn mở. Ca dò ARC và ca 301 của BE đi đường này.
+- Đường trên giao diện: căn đã ở `OD` (ví dụ việc dọn ở lại của một đêm trước chưa làm, J8 đã đặt `OD`). Ngày khách mới đến, buồng phòng thấy căn trong bộ lọc "Cần dọn", bấm "Bắt đầu dọn", căn thành `CL`.
+  - J8 không đặt `OD` cho lượt **đã** quá ngày đi (`stayoverNightSql` cần `to_date > D`), nên đường này cần căn đã `OD` từ trước.
+- Kết luận không đổi:
+  - lỗ C1 đến được bằng thao tác bình thường, qua API hoặc qua căn `OD` sẵn;
+  - BR-402 cấm theo kết quả (giao mã cửa căn còn người), không theo đường đi;
+  - C1 vẫn cần, mức Major ở lượt 1 vẫn đúng.
+- Đã sửa câu ở mục 3 (b) và thẻ BE-01. Chữ BR v0.5.6 và BR-402-05 cũng viết "bấm Cần dọn", ARC ghi thẻ Suggestion FB-R4-ARC-DOM-PR74-02.
+
+### L2.6 Oracle và thẻ QA
+- BR-402-04: ghi chú đã sửa theo C1. Lượt quá ngày đi thì `VD`/`CL` không có ngoại lệ; `VI`/`VC` chỉ chặn từ v1.0.5.
+- BR-402-05 mới: căn 301, A 22–23/11, B đến 24/11, `CL` qua `needs_cleaning` + `start_cleaning` lúc 15:00 → `held_by_other_stay`, 409. Dòng này theo ví dụ BR v0.5.6, nhãn NGÀNH.
+- Cả hai dòng vẫn do BE thêm, gắn "[GIẢ ĐỊNH QA]". Thẻ QA-PR74-01 (1) giữ: QA rà ở bước Kiểm thử.
+- Ca kiểm Desk "quá ngày đi + `CL`": QA dựng căn `CL` qua API `status-transitions` hoặc từ căn `OD` sẵn (L2.5), không tìm nút "Cần dọn".
+- QA-PR74-01 (2), truy vấn trước deploy, chưa có. Vẫn là điều kiện phát hành R3.
+
+### L2.7 Kiểm lại bằng chạy thật
+
+| Lần chạy | Kết quả |
+|---|---|
+| `checkin-occupied-exception.test.ts` @ `0950313e` | **7 passed (7)** |
+| Như trên, đảo C1 (`roomOverridable` dùng `!heldToday`) | 1 failed / 6 passed – đỏ đúng ca 301 |
+| `git merge-tree origin/main 0950313e` | sạch |
+| `git merge-tree 5045c2de 0950313e` (#71) | xung đột `docs/api/openapi.yaml`, chỗ (k)/(l) |
+| `gh pr checks 74` @ `0950313e` | 7 job xanh, gồm API contract (`--strict`) và Redocly. `format · lint · audit · test · build` đang chạy |
+
+- Run 41881642069 tạo lúc 17:54Z, trước khi #76 vào `main` (17:58Z). Nếu job đỏ chỉ ở 2 ca ban đêm của `v104-holds-feb` thì đó là lỗi đã biết, không do #74.
+- Lần đẩy K1 sẽ có #76.
+- ARC không chạy lại 16 tệp / 265 test vì máy đang tải nặng. Lượt 1 đã chạy bản tương đương (A.5), và CI chạy toàn bộ `test/integration`.
+
+### L2.8 Trạng thái thẻ sau lượt 2
+
+| Thẻ | Mức | Trạng thái |
+|---|---|---|
+| BE-PR74-01 | Major | Fixed @ `0950313e`, chờ CI |
+| BE-PR74-02 | Major | Fixed @ `0950313e`, chờ CI |
+| BE-PR74-03 | Minor | Phần chữ xong; còn K1 (rebase sau #71, sinh lại client) |
+| BE-PR74-04, BE-PR74-05 | Suggestion, Minor (v1.0.5) | Open, dời v1.0.5 |
+| FE-PR74-01 | Major | Fixed ở #77 + #79, chờ CI #77 |
+| DOM-PR74-01 | Minor | Fixed – BR v0.5.6 (`main` `ddda6bbf`) |
+| DOM-PR74-02 (mới) | Suggestion | Open |
+| QA-PR74-01 | Minor | Open (R3) |
+
+Dòng đề nghị ghi vào `01-decisions/decision-log.md` (ORC ghi):
+
+| Ngày | Round | Quyết định | Người quyết | Lý do |
+|---|---|---|---|---|
+| 2026-11-05 | 4 | #74 lượt 2 @ `0950313e` ĐẠT CÓ ĐK. C1, C2 khớp phụ lục; điều kiện còn lại là rebase sau #71 (giữ (k) rồi (l)), sinh lại client, CI xanh trên lần đẩy đó | ARC | Test 7/7; đảo C1 thì ca 301 đỏ; tên trường và giá trị trùng #79; xung đột với #71 chỉ ở danh sách thay đổi |
+
+---
+
+## Lượt 1 – Phán quyết (head `9646029d`): **ĐẠT CÓ ĐK**
 
 Phần lõi đúng BR-402 (1) v0.5.3:
 - `VD`/`CL` là trạng thái duy nhất có ngoại lệ;
@@ -37,7 +160,7 @@ Phần lõi đúng BR-402 (1) v0.5.3:
 Test qua HTTP với đồng hồ giả, đọc oracle theo id. CI xanh.
 
 Còn một lỗ trên đường an toàn. Lỗ này đến được bằng thao tác bình thường, không cần sửa tay. Đó là giả định (b): lượt **đã quá ngày đi** mà chưa B18 không được tính là còn ở căn. ARC đã dò thật:
-- căn có lượt quá ngày đi, buồng phòng bấm "Cần dọn" rồi "Bắt đầu dọn", căn thành `CL`;
+- căn có lượt quá ngày đi, buồng phòng bấm "Cần dọn" rồi "Bắt đầu dọn", căn thành `CL` (ca dò đi qua API; đường trên giao diện v1.0.4 xem lượt 2, mục L2.5);
 - lễ tân trưởng thấy ngoại lệ và nhận phòng đơn mới → **200**;
 - kết quả: **hai lượt `in_house` trong một căn** (mục 1, mục 3).
 
@@ -101,7 +224,7 @@ Còn một lỗ trên đường an toàn. Lỗ này đến được bằng thao 
 **(b) Lượt đã quá ngày đi (`to_date < D`) không tính → KHÔNG DUYỆT như hiện tại.** v1.0.4: lượt đó bỏ ngoại lệ (C1, FB-R4-ARC-BE-PR74-01, Major). v1.0.5: chặn hoàn toàn (FB-R4-ARC-BE-PR74-05).
 - Lý do BE: lượt quá ngày đi thì buồng vẫn `OC`/`OD`, nên trạng thái đã chặn; lượt đó cũng hiện ở "Cần chú ý". Lý do này **sai ở `CL`**:
   - lễ tân quên B18 → lượt quá ngày đi vẫn `in_house`, buồng giữ `OC`;
-  - J8 không đụng tới lượt này (`stayoverNightSql` cần `to_date > D`). Nhưng bảng buồng phòng (`inRoomOnSql`) vẫn hiện căn có khách, lại có khách đến hôm nay. Buồng phòng bấm "Cần dọn" (R8a, `OC → OD`) để chuẩn bị căn, rồi "Bắt đầu dọn" (R1, `OD → CL`). Cả hai là thao tác hợp lệ của FD/HK;
+  - J8 không đụng tới lượt này (`stayoverNightSql` cần `to_date > D`). Nhưng bảng buồng phòng (`inRoomOnSql`) vẫn hiện căn có khách, lại có khách đến hôm nay. Buồng đi `OC → OD` ("Cần dọn", R8a) rồi `OD → CL` ("Bắt đầu dọn", R1). Cả hai là chuyển trạng thái hợp lệ của FD/HK. **Sửa ở lượt 2:** v1.0.4 chưa có nút "Cần dọn" trên Desk hay app buồng phòng; `needs_cleaning` chỉ đi qua API. Trên giao diện, chỉ cần căn đã `OD` (ví dụ việc dọn ở lại chưa làm), rồi buồng phòng bấm "Bắt đầu dọn";
   - ở `CL` ngoại lệ mở lại;
   - lễ tân trưởng giao mã cửa căn đó cho khách mới.
 - Nếu khách cũ thật ra ở quá hạn mà chưa gia hạn, khách mới bước vào căn có đồ, có người. Đây đúng là sự cố BR-402 muốn chặn. Ca dò 301 tái hiện được chỉ bằng thao tác hợp lệ.
@@ -133,7 +256,7 @@ Còn một lỗ trên đường an toàn. Lỗ này đến được bằng thao 
 
 **`info.version` → KHÔNG nâng, giữ `0.3.12-draft`.**
 - `0.3.12-draft` là nhãn hợp đồng của gói v1.0.4, chưa phát hành.
-- Chỉ `admin-web` gọi `getCheckInPreview`/`checkIn`; `mobile`, `guest-web`, `booking-web` không gọi.
+- Chỉ `admin-web` gọi `previewCheckIn`/`checkIn`; `mobile`, `guest-web`, `booking-web` không gọi.
 - API và Desk lên cùng bản.
 - Ghi mục (l) trong danh sách 0.3.12, sau (k) của #71.
 
@@ -227,7 +350,7 @@ An toàn vì máy chủ chặn, nhưng Desk dắt người dùng vào ngõ cụt
   - `checkin.service.ts` `evaluate()` (`roomOverridable`), `roomHeldByAnotherStay` (`AND s.to_date >= $3::date`) và chú thích phía trên;
   - `openapi.yaml` mô tả `checkIn` ("lượt quá ngày đi không tính ở bước này");
   - `checkin-occupied-exception.test.ts`.
-- Vấn đề: lượt `in_house` đã quá ngày đi không được tính là còn ở căn. Buồng của lượt đó đi `OC → OD → CL` bằng hai thao tác tay hợp lệ ("Cần dọn", "Bắt đầu dọn"), và ở `CL` ngoại lệ mở lại. Ca dò ARC: lễ tân trưởng nhận phòng → 200, căn có 2 lượt `in_house`.
+- Vấn đề: lượt `in_house` đã quá ngày đi không được tính là còn ở căn. Buồng của lượt đó đi `OC → OD → CL` bằng hai chuyển trạng thái hợp lệ ("Cần dọn", "Bắt đầu dọn"), và ở `CL` ngoại lệ mở lại. Lượt 2: v1.0.4 không có nút "Cần dọn", nên trên giao diện đường này cần căn đã `OD` sẵn (mục L2.5). Ca dò ARC: lễ tân trưởng nhận phòng → 200, căn có 2 lượt `in_house`.
 - Vì sao quan trọng:
   - đây là đường an toàn của BR-402 (giao mã cửa căn có người);
   - xảy ra ở trường hợp hay gặp: quên B18;
@@ -241,7 +364,7 @@ An toàn vì máy chủ chặn, nhưng Desk dắt người dùng vào ngõ cụt
     - lượt đi hôm nay, buồng `CL` → không ngoại lệ, 409;
     - lượt quá ngày đi, buồng `CL` → không ngoại lệ, 409.
   - Có thể dựng theo ca dò ARC: căn 301/302, A 22–23/11 và 23–24/11, B đến 24/11, 14:30 `needs_cleaning` rồi `start_cleaning`.
-- Trạng thái: Open
+- Trạng thái: Fixed @ `0950313e` (ARC lượt 2: ca 301 canh được, đảo bản vá thì đỏ). Chờ CI
 
 ### FB-R4-ARC-BE-PR74-02
 - Mức độ: Major
@@ -262,7 +385,7 @@ An toàn vì máy chủ chặn, nhưng Desk dắt người dùng vào ngõ cụt
   - Thêm khẳng định trong 4 ca hiện có và 2 ca của thẻ 01.
   - Đẩy cùng thẻ 01.
   - Không kịp trước 06/11 18:00 thì dùng dự phòng mục 4.3: ghi quy tắc đọc vào mô tả B9, `cause` dời v1.0.5.
-- Trạng thái: Open
+- Trạng thái: Fixed @ `0950313e` (đường C2, không dùng dự phòng). Chờ CI
 
 ### FB-R4-ARC-BE-PR74-03
 - Mức độ: Minor
@@ -273,7 +396,7 @@ An toàn vì máy chủ chặn, nhưng Desk dắt người dùng vào ngõ cụt
   - #71 đã chiếm (k).
 - Vì sao quan trọng: hợp đồng là nguồn sự thật. Chữ "chờ duyệt" trên bản phát hành làm FE/QA không biết đó là hành vi chốt hay chưa.
 - Đề xuất sửa: thay bằng chữ ở phụ lục A (A.1, A.2, A.3). Rebase lên `main` sau #71, sinh lại client trên cây đã rebase. Không nâng `info.version`.
-- Trạng thái: Open
+- Trạng thái: Open, phần chữ đã sửa @ `0950313e`. Còn rebase sau #71 và sinh lại client (mục L2.3)
 
 ### FB-R4-ARC-BE-PR74-04
 - Mức độ: Suggestion
@@ -308,7 +431,7 @@ An toàn vì máy chủ chặn, nhưng Desk dắt người dùng vào ngõ cụt
   - theo C1/C2 của #74 (`cause`, `heldByReservationCode`, lượt quá ngày đi);
   - bỏ nhánh `ROOM_OCCUPIED`;
   - không chặn khi đơn chưa có căn.
-- Trạng thái: Open (đang sửa ở #77)
+- Trạng thái: Fixed ở #77 @ `99d2c01b` cùng #79 @ `b5fd9bd3` (review `ARC-on-v104-pr79-checkin-cause.md`, ĐẠT CÓ ĐK). Chờ CI #77
 
 ### FB-R4-ARC-DOM-PR74-01
 - Mức độ: Minor
@@ -316,7 +439,7 @@ An toàn vì máy chủ chặn, nhưng Desk dắt người dùng vào ngõ cụt
 - Vấn đề: câu v0.5.4 chép định nghĩa (b) của BE. ARC không duyệt (b) như hiện tại (thẻ BE-01).
 - Vì sao quan trọng: QA dựng ca kiểm từ BR. Nếu giữ câu cũ, ca "quá ngày đi + `CL`" sẽ bị ghi là sai mong đợi.
 - Đề xuất sửa: thêm câu "căn còn lượt Đang ở đã quá ngày đi mà chưa bấm Trả phòng: **không có ngoại lệ** `VD`/`CL` (v1.0.4); từ v1.0.5 chặn như mọi lượt Đang ở khác", ghi ARC chọn 05/11. Không cần đổi phần "việc đầu là lễ tân trả phòng đơn cũ", vì C1 chính là ép việc đó.
-- Trạng thái: Open
+- Trạng thái: Fixed – BR v0.5.6 trên `main` (`ddda6bbf`). Còn một điểm chữ ở thẻ DOM-PR74-02
 
 ### FB-R4-ARC-QA-PR74-01
 - Mức độ: Minor
@@ -332,6 +455,20 @@ An toàn vì máy chủ chặn, nhưng Desk dắt người dùng vào ngõ cụt
     - căn có ≥ 2 đơn gốc `in_house` theo `inRoomOnSql(hôm nay)`;
     - `approval_request` `checkin_room_not_ready` `pending` mà buồng đích `OC`/`OD`.
   - Báo số, không sửa dữ liệu.
+- Trạng thái: Open. Lượt 2: ghi chú BR-402-04 đã sửa theo C1, BR-402-05 đã thêm, nhưng cả hai vẫn do BE viết ("[GIẢ ĐỊNH QA]"). Truy vấn trước deploy chưa có (mục L2.6)
+
+### FB-R4-ARC-DOM-PR74-02 (lượt 2)
+- Mức độ: Suggestion
+- Vị trí:
+  - `business-rules.md` BR-402 (1) v0.5.6: phần "buồng phòng bấm Cần dọn, Bắt đầu dọn thành `CL`" và ví dụ căn 301;
+  - `br-examples.json` BR-402-05 (`case`);
+  - sổ tay, nếu chép ví dụ này.
+- Vấn đề:
+  - v1.0.4 không có nút "Cần dọn" trên Desk hay app buồng phòng. Bước `needs_cleaning` (`OC → OD`) chỉ đi qua API.
+  - Trên giao diện, "Cần dọn" lại là **tên trạng thái** `VD` ("Cần dọn (khách đã đi)", `hk.status.VD`) và tên bộ lọc `VD`/`OD`/`CL`.
+  - Câu "bấm Cần dọn" vì vậy đọc như có một nút không tồn tại, hoặc như đặt căn về `VD`.
+- Vì sao quan trọng: ví dụ này sẽ được chép vào sổ tay và ca kiểm Desk. Người đọc tìm một nút không có, hoặc hiểu sai trạng thái.
+- Đề xuất sửa: tả đường giao diện thật của v1.0.4: "căn đang hiện cần dọn (`OD`), buồng phòng bấm Bắt đầu dọn, căn thành `CL`". Quy tắc và kết luận giữ nguyên. Oracle BR-402-05 đi qua API nên vẫn đúng, chỉ sửa chữ ở `case` cho khớp.
 - Trạng thái: Open
 
 ## Điểm làm tốt (nên giữ)
@@ -379,10 +516,10 @@ Mô tả của `code`, phần `room_ready`, sửa thành:
 
 Lúc không có căn thì bỏ `detail`, không còn trả `'VC'` mặc định.
 
-**A.3 – danh sách "Thay đổi phiên bản 0.3.12-draft", thêm sau (k):**
+**A.3 – danh sách "Thay đổi phiên bản 0.3.12-draft", thêm sau (k):** (lượt 2: bản đầu ghi nhầm `getCheckInPreview`; `operationId` đúng là `previewCheckIn`, BE đã dùng đúng)
 
 ```yaml
-    - **(l) BUG-R4-039 (P1, BR-402 (1) v0.5.3; ARC 05/11 `rounds/round-04/reviews/ARC-on-v104-pr74-checkin-occupied.md`)**: `checkIn`/`getCheckInPreview` – ngoại lệ
+    - **(l) BUG-R4-039 (P1, BR-402 (1) v0.5.3; ARC 05/11 `rounds/round-04/reviews/ARC-on-v104-pr74-checkin-occupied.md`)**: `checkIn`/`previewCheckIn` – ngoại lệ
       "buồng chưa sẵn sàng" chỉ cho `VD`/`CL` khi căn không còn lượt `in_house` khác (kể cả lượt quá ngày đi chưa B18); `OC`/`OD`/`OOO` hoặc căn còn lượt khác →
       `room_ready` không có `overridableBy`, `roomNotReadyOverride` → `409 CHECKIN_CONDITIONS_NOT_MET` cho mọi vai, không còn nhánh 202 – **thu hẹp hành vi** trong mã
       lỗi đã có; Desk sửa cùng v1.0.4 (theo `overridableBy`). `CheckInPreview.conditions[]` thêm `cause`, `heldByReservationCode` (chỉ đọc, tùy chọn).

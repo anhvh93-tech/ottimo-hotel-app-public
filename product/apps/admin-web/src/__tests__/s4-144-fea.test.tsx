@@ -475,10 +475,13 @@ describe('K11-03 – lần đếm luôn định danh tủ; căn hiện tại = �
     await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(1));
     expect(counts.sent[0]).toMatchObject({ roomId: r402.id });
-    const here = within(group).getByRole('button', {
-      name: tv('co.minibar_cabinet_room', { room: '202' }),
-    });
-    await waitFor(() => expect(here).toHaveAttribute('aria-pressed', 'true'));
+    // BUG-R4-042: 402 is counted – never offered again on this page; the one cabinet left is named on screen (K11-03).
+    await waitFor(() =>
+      expect(
+        screen.getByText(tv('co.minibar_cabinet_counting')).nextElementSibling,
+      ).toHaveTextContent(tv('co.minibar_cabinet_room', { room: '202' })),
+    );
+    expect(screen.queryByRole('group', { name: tv('co.minibar_cabinet') })).toBeNull();
     await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(2));
     counts.stop();
