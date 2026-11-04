@@ -388,11 +388,11 @@ describe('DOM (e) / M-1 – minibar theo tủ (lượt × căn)', () => {
       name: tv('co.minibar_cabinet_room', { room: '201' }),
     });
     await waitFor(() => expect(old).toHaveAttribute('aria-pressed', 'true'));
-    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(1));
     expect(counts.sent[0]).toMatchObject({ mode: 'checkout', roomId: 'room-old-202' });
     await waitFor(() => expect(here).toHaveAttribute('aria-pressed', 'true'));
-    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(2));
     counts.stop();
     // K11-03: the cabinet of today is named too (never "absent = the room assigned now").
@@ -435,7 +435,7 @@ describe('DOM (e) / M-1 – minibar theo tủ (lượt × căn)', () => {
         tv('co.minibar_folio_vs_count', { item: coke.itemName, folio: 1, count: 2 }),
       ),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(1));
     counts.stop();
     const lines = counts.sent[0]!.lines as Array<{ itemId: string; remainingQty: number }>;

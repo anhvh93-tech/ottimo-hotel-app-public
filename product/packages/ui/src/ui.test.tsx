@@ -118,4 +118,24 @@ describe('Stepper', () => {
     expect(screen.getByRole('button', { name: 'Giảm' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Tăng' })).toBeEnabled();
   });
+
+  it('`disabled` locks both buttons inside the bounds too', () => {
+    render(
+      <>
+        <span id="l2">Coca</span>
+        <Stepper
+          value={1}
+          min={0}
+          max={2}
+          onChange={() => {}}
+          labelledBy="l2"
+          decLabel="Giảm"
+          incLabel="Tăng"
+          disabled
+        />
+      </>,
+    );
+    expect(screen.getByRole('button', { name: 'Giảm' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Tăng' })).toBeDisabled();
+  });
 });
