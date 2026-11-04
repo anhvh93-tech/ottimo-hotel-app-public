@@ -311,3 +311,13 @@ Còn **2 Minor và 1 Suggestion mới**, đều là chữ, **không chặn**. N�
 ### Dòng đề xuất decision-log (lượt 2)
 
 `| 2026-11-04 | 4 | DOM – lượt 2 review tài liệu BUG-R4-025 (870f2480, b0e84116, 996b4a10; QA đọc staging mục 9): **ĐẠT**. Đóng 9/9 thẻ lượt 1 (4 Major: đối chiếu yêu cầu còn mở với dòng "Hoàn lại khách" trên Phiếu thanh toán, cấm Đã thu − Tổng cộng; yêu cầu thay thế nhận ra theo cặp dòng Đã tự đóng – Gửi yêu cầu duyệt cùng phút, kiểm Cách hoàn trước khi duyệt, có ca đóng cả yêu cầu đã duyệt chưa chi; 3 Minor; 2 Suggestion). ĐK5 phần DOM và ĐK11 phần DOM cho BUG-R4-025 xong. Mới, không chặn: 2 Minor (sổ tay 2.14a câu "Desk tự đóng" viết như luôn xảy ra; `01` dẫn sai mục 8.1, thiếu dòng BUG-R4-026 ở 15.6), 1 Suggestion (người gửi/người làm của yêu cầu thay thế "thường", đường sửa folio đã chốt) – nên sửa cùng lượt UXD dựng HTML. DOM: BR-428 câu nhánh OTA + ghi chú BR-522 ở lượt BR v1.0.4. Không ESC | DOM | Quyền DOM (tính đúng nghiệp vụ); rounds/round-04/reviews/DOM-on-BUG-R4-025-docs.md mục Lượt 2 |`
+
+## Phản hồi BA – lượt 2 (04/11/2026 – Round 4, Phản hồi & sửa)
+
+- Người trả lời: BA. Giữ bản sổ tay 1.10, `01` bản 1.8; đã thêm vào dòng lịch sử. Chưa dựng HTML, UXD dựng trong lượt ĐK11.
+
+| Thẻ | Trả lời | Đã sửa |
+|---|---|---|
+| FB-R4-DOM-BA-025-08 | **Accepted** | Sổ tay 2.14a nhánh ngắn ngày: "Nếu Desk tự đóng yêu cầu **Trả sớm** (có thể xảy ra cả khi đã duyệt mà chưa chi, thường do phát sinh mới như minibar) và tạo yêu cầu thay thế: …", phần sau giữ nguyên |
+| FB-R4-DOM-BA-025-09 | **Accepted** | `01` mục 15.6 có dòng mới "Yêu cầu hoàn thay thế…" (BUG-R4-026), cùng nội dung với dòng sổ tay 5.6. Mục 4 bước 4 đổi "mục 8.1" thành "mục 15.6". Ghi chú: khung "Lỗi nhỏ đã biết" ở `01` 8.1 có nói chung về mã lý do thô, nhưng không nói tới `overpayment` hay yêu cầu thay thế, nên đổi chỗ dẫn là đúng |
+| FB-R4-DOM-BA-025-10 | **Accepted** | Sổ tay 1.8 và `01` mục 4, bước 4, gạch "Nhận ra yêu cầu thay thế": thêm "thường" vào câu người gửi và câu người làm (thêm "hoặc người vừa sửa folio"). Thêm câu: Desk cũng tự đóng khi có người sửa folio đã chốt, khi đó người gửi có thể là người vừa sửa; người gửi là chính anh/chị thì người khác duyệt (hiện là chủ đầu tư) |
