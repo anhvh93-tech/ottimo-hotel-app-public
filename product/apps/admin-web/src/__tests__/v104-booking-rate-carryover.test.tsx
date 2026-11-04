@@ -658,6 +658,26 @@ describe('FB-R4-ARC-FE-PR82-01/03 – OTA and Nội bộ: every night typed, or 
     expect(sent).toHaveLength(0);
   });
 
+  // FB-R4-ARC-FE-PR82-05: the zero test and its sentence for the other channels – "Miễn phí: để trống ô…" is wrong
+  // there (an empty box is not a free stay), and a mutation showing it for every channel kept every test green.
+  it('Trực tiếp, 1 night typed 0 → "Nhập giá mỗi đêm" under the box, never the Nội bộ sentence, nothing sent', async () => {
+    pinDaytime();
+    const sent = createBodies();
+    const d1 = todayLocal();
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openBooking(user);
+    await previewFilled(dlg);
+    await pickGuest(user, dlg);
+    await typeRate(user, dlg, d1, '0');
+    await previewSettled(dlg);
+    await user.click(within(dlg).getByRole('button', { name: 'Tạo đơn' }));
+    const cell = rateBox(dlg, d1).closest('td') as HTMLElement;
+    expect(await within(cell).findByText(tv('booking.error.rate_empty'))).toBeInTheDocument();
+    expect(within(dlg).queryByText(tv('booking.error.rate_zero_internal'))).toBeNull();
+    expect(screen.queryByText(/^Đã tạo đơn OTM-0\d+$/)).toBeNull();
+    expect(sent).toHaveLength(0);
+  });
+
   // FB-R4-ARC-FE-PR82-03: the OTA half of the rule had no test (dropping OTA from the condition kept every test green)
   it('OTA, 2 nights, only night 1 typed → "Nhập giá mỗi đêm" and nothing sent; both typed → sent as typed', async () => {
     pinDaytime();

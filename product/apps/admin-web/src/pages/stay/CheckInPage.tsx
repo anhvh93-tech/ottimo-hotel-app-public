@@ -271,8 +271,11 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   // (`overridableBy`: VD/CL with no other stay in the room) – never on OC/OD/OOO, for any role, the lead's approval
   // included. The reason box, "confirm" and "ask the lead" follow it, not the room status.
   const roomOverridable = !!roomCond && !roomCond.met && !!roomCond.overridableBy?.length;
+  // A booking with its room: `not_unassigned` met and a room number (with none, the preview still fills
+  // `roomStatus: 'VC'`).
+  const hasRoom = !!cond('not_unassigned')?.met && !!room;
   // DOM (lượt 5 mục 2) / ARC `cause`: (a) the room status is OC/OD; (b) another booking's stay still holds the room.
-  const roomBlocked = roomBlockedMessage(roomCond, !!cond('not_unassigned')?.met && !!room);
+  const roomBlocked = roomBlockedMessage(roomCond, hasRoom);
   const roomBlockedText = !roomBlocked
     ? null
     : roomBlocked.code
@@ -456,7 +459,8 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   const condDetail = (c: CheckInCondition) => {
     switch (c.code) {
       case 'room_ready':
-        return t('ci.cond_room', { room, status: statusText });
+        // BUG-R4-049: no "Căn · VC" for a booking with no room – "Đơn đã được gán căn" above says it.
+        return hasRoom ? t('ci.cond_room', { room, status: statusText }) : null;
       case 'balance_paid':
         return c.met ? null : t('ci.cond_balance', { amount: money(due) });
       case 'main_guest_document':
