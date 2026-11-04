@@ -134,3 +134,13 @@ DOM lượt 3 và SEC: gộp **ĐẠT**; DOM 07–09 và SEC 01–08 **Closed**;
 
 - Chờ DOM, SEC xác nhận thẻ 10, 11, 12, P416-03(c), ghi chú DOM.
 - G-BA-104-5 (nút hủy dòng đã lên lịch): chờ FE/ARC xác nhận có trong v1.0.4 và tên nút.
+
+### 8.4 Bổ sung sau SEC xác nhận lượt 3 (SEC 13, 14b)
+
+SEC xác nhận @ `45d09e5a`: ĐẠT; 10, 11, 12 Closed; P416-03(c) chờ nhãn nút ở P4-34 (thay giả định G-BA-104-5: nút hủy dòng đã lên lịch đến từ P4-34; khi có nhãn, BA ghi đúng tên).
+
+| ID | Trạng thái | Đã sửa |
+|---|---|---|
+| FB-R4-SEC-BA-104-13 (Minor) | Done | Sổ tay 2.18 ý 3: thêm đúng quy tắc "không dịch" như `02` 13.1d – khách không muốn dịch thì ghi "không dịch" cạnh mã đơn trong sổ giao ca, không đưa tin qua dịch vụ dịch; trước khi dịch kiểm sổ giao ca, có "không dịch" hoặc "chưa xem v2" thì không dịch. Dòng lịch sử 1.11 ghi thêm |
+| FB-R4-SEC-BA-104-14 (b) (Suggestion) | Done | `00-index` mục 4 bước 1 **Kiểm lịch đã đặt**: "lần 1 vào **hôm trước** ngày thay; lần 2 sáng ngày thay, trước bước 3". Bước 3.4 thêm: "Lỗi ở ô khác (ví dụ **Hiệu lực từ**), hoặc Lịch sử không có dòng v2 hôm nay, thì **không** nhắn "Đã đặt v2", báo đội." |
+| FB-R4-SEC-BA-104-14 (a) | Chưa làm (theo ORC) | Chỉ dùng nếu P4-34 trượt |
