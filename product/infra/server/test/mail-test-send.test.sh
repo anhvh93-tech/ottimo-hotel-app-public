@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Test of bin/mail-test.sh (v1.0.3, plan-v1.0.3 V3-05): the recipient address of a test e-mail never appears in an
-# argument (Mac shell history, ssh argv, the VPS process list) nor in the script's output – it travels as the first
-# line of the ssh stdin, followed by mail-test.mjs. A fake `ssh` first in PATH records argv + stdin and answers like
-# the one-off worker. No network, no server.
+# argument (Mac shell history, ssh argv, the VPS process list) nor in the script's output. v1.0.4 (ARC
+# FB-R4-ARC-OPS-PR30-10): it is the ONLY line of the ssh stdin and mail-test.mjs reads it from its own stdin – no
+# `read` into a variable on the VPS, no `-e MAIL_TEST_TO` (container environment); mail-test.mjs travels base64 in the
+# ssh command. A fake `ssh` first in PATH records argv + stdin and answers like the one-off worker. No network, no
+# server. Part 2 runs mail-test.mjs itself with node against stub modules (stdin first line, MAIL_TEST_TO refused).
 #   bash product/infra/server/test/mail-test-send.test.sh      (workstation or CI)
 set -Eeuo pipefail
 
@@ -43,14 +45,16 @@ run "$addr" --stack production --send
 if [ "$rc" = 0 ] && grep -qx 'mail-test: sent' <<<"$out"; then ok "1 --send → one line 'mail-test: sent'"; else ko "1 send rc=$rc: $out"; fi
 if [ -s "$T/argv" ] && ! grep -qF "$addr" "$T/argv" && ! grep -q '@example.test' "$T/argv"; then ok "1b address not in any ssh argument"
 else ko "1b address in ssh argv"; fi
-if [ "$(head -n 1 "$T/stdin")" = "$addr" ]; then ok "1c address is the first stdin line"; else ko "1c first stdin line"; fi
-if tail -n +2 "$T/stdin" | cmp -s - "$mjs"; then
-  ok "1d rest of stdin = mail-test.mjs byte for byte"; else ko "1d stdin body"; fi
-if ! grep -qF "$addr" <<<"$out"; then ok "1e address not in the output"; else ko "1e address printed: $out"; fi
+if [ "$(cat "$T/stdin")" = "$addr" ] && [ "$(wc -l < "$T/stdin" | tr -d ' ')" = 1 ]; then
+  ok "1c stdin = exactly one line, the address"; else ko "1c stdin: $(wc -l < "$T/stdin") lines"; fi
 remote=$(tail -n 1 "$T/argv")
-if grep -qF "IFS= read -r MAIL_TEST_TO; export MAIL_TEST_TO; exec /opt/ottimo-prod/infra/server/bin/dc run --rm --no-deps -T -e MAIL_TEST_TO --entrypoint node worker --input-type=module -" <<<"$remote" \
-  && grep -qF "sudo -n -u ottimo" <<<"$remote" && ! grep -q 'MAIL_TEST_TO=' <<<"$remote"; then
-  ok "1f remote: read line 1, -e MAIL_TEST_TO without a value, production stack"; else ko "1f remote: $remote"; fi
+prog=$(sed -nE 's/.*-e "\$\(printf %s ([A-Za-z0-9+\/=]+) \| base64 -d\)".*/\1/p' <<<"$remote")
+if [ -n "$prog" ] && printf %s "$prog" | base64 -d 2>/dev/null | cmp -s - "$mjs"; then
+  ok "1d program in the ssh command = mail-test.mjs byte for byte (base64)"; else ko "1d program: ${prog:0:40}…"; fi
+if ! grep -qF "$addr" <<<"$out"; then ok "1e address not in the output"; else ko "1e address printed: $out"; fi
+if grep -qF "sudo -n -u ottimo sh -c 'exec /opt/ottimo-prod/infra/server/bin/dc run --rm --no-deps -T --entrypoint node worker --input-type=module -e " <<<"$remote" \
+  && ! grep -q 'MAIL_TEST_TO' <<<"$remote" && ! grep -q 'read ' <<<"$remote"; then
+  ok "1f remote: no read, no MAIL_TEST_TO, stdin straight to the one-off worker of the production stack"; else ko "1f remote: ${remote:0:200}"; fi
 grep -qx -- '-o' "$T/argv" && grep -qx 'BatchMode=yes' "$T/argv" && ok "1g ssh BatchMode=yes" || ko "1g BatchMode"
 
 run "" --stack staging --verify-only
@@ -70,6 +74,17 @@ if [ "$rc" = 2 ] && grep -q 'interactive terminal' <<<"$out"; then ok "4 --send 
 rc=0; out=$(printf '%s\n' "$addr" | env -u MTS_DIR PATH="$T/bin:$PATH" MAIL_TEST_READ_STDIN=1 bash "$script" --ssh ottimo-admin@desk.example.test --key "$T/key" --stack production --send 2>&1) || rc=$?
 if [ "$rc" = 2 ] && grep -q 'interactive terminal' <<<"$out" && [ ! -e "$T/argv" ]; then
   ok "4b MAIL_TEST_READ_STDIN=1 without MTS_DIR → still refused"; else ko "4b test door rc=$rc: $out"; fi
+# SEC FB-R4-SEC-OPS-PR30-10: both variables set, but the ssh first in PATH is not $MTS_DIR/bin/ssh (here another
+# program standing for the real ssh, which also records its call) → still refused, nothing reaches any ssh.
+mkdir -p "$T/realssh"; cp "$T/bin/ssh" "$T/realssh/ssh"
+rm -f "$T/argv" "$T/stdin"
+rc=0; out=$(printf '%s\n' "$addr" | env PATH="$T/realssh:$T/bin:$PATH" MTS_DIR="$T" MAIL_TEST_READ_STDIN=1 bash "$script" --ssh ottimo-admin@desk.example.test --key "$T/key" --stack production --send 2>&1) || rc=$?
+if [ "$rc" = 2 ] && grep -q 'interactive terminal' <<<"$out" && [ ! -e "$T/argv" ] && [ ! -e "$T/stdin" ]; then
+  ok "4c both test variables but ssh in PATH is not the fake one → refused, no ssh call"; else ko "4c rc=$rc: $out"; fi
+rm -f "$T/argv" "$T/stdin"
+rc=0; out=$(printf '%s\n' "$addr" | env PATH="/usr/bin:/bin" MTS_DIR="$T" MAIL_TEST_READ_STDIN=1 /bin/bash "$script" --ssh ottimo-admin@desk.example.test --key "$T/key" --stack production --send 2>&1) || rc=$?
+if [ "$rc" = 2 ] && grep -q 'interactive terminal' <<<"$out" && [ ! -e "$T/argv" ]; then
+  ok "4d both test variables, system PATH only (real or no ssh) → refused"; else ko "4d rc=$rc: $out"; fi
 
 run "$addr" --stack production --send --ssh 'x;rm -rf /'
 if [ "$rc" = 2 ]; then ok "5 --ssh not user@host → exit 2"; else ko "5 bad --ssh rc=$rc"; fi
@@ -92,6 +107,93 @@ if [ -x "$script" ]; then ok "8 bin/mail-test.sh is executable"; else ko "8 bin/
 rm -f "$T/argv" "$T/stdin"
 rc=0; out=$(env PATH="$T/bin:$PATH" MTS_DIR="$T" "$script" --ssh ottimo-admin@desk.example.test --key "$T/key" --stack production --verify-only 2>&1 </dev/null) || rc=$?
 if [ "$rc" = 0 ] && grep -qx 'mail-test: verified' <<<"$out"; then ok "8b run directly (not via bash) → verified"; else ko "8b direct rc=$rc: $out"; fi
+
+# ---------- part 2: mail-test.mjs itself (node, stub @ottimo/integrations + dist/config.js; no SMTP) ----------
+echo "== mail-test.mjs"
+if ! command -v node >/dev/null; then
+  echo "SKIP mail-test.mjs part: node is not installed"
+  if [ "${CI:-}" = true ]; then ko "CI=true: node missing, mail-test.mjs not tested"; fi
+else
+  app="$T/app"; mkdir -p "$app/dist" "$app/node_modules/@ottimo/integrations"
+  printf 'exports.resolveFileSecrets = (e) => ({ ...e });\n' > "$app/dist/config.js"
+  printf '{"name":"@ottimo/integrations","type":"module","exports":{"./common":"./common.js","./notification":"./notification.js"}}\n' \
+    > "$app/node_modules/@ottimo/integrations/package.json"
+  printf 'export class EnvCredentialProvider { constructor(e) { this.e = e; } async get() { return {}; } }\n' \
+    > "$app/node_modules/@ottimo/integrations/common.js"
+  cat > "$app/node_modules/@ottimo/integrations/notification.js" <<'NOTIF'
+import { appendFileSync } from 'node:fs';
+const rec = (s) => appendFileSync(process.env.MTS_SENT, s + '\n');
+// same shape as INT's v1.0.4 rule: ASCII only, and surrounding whitespace (CR/LF) is refused, not trimmed
+export const isEmailAddress = (v) => typeof v === 'string' && v.trim() === v && v.length <= 254
+  && /^[a-z0-9._%+-]{1,64}@([a-z0-9-]{1,63}\.)+[a-z]{2,}$/i.test(v);
+export const mapSmtpError = () => ({ code: 'SMTP_STUB' });
+export const smtpConfigFromCredentials = (c, o) => ({ from: o.from ?? 'no-reply@example.test', fromName: 'OTTIMO' });
+export const createSmtpTransport = () => ({
+  verify: async () => rec('verify'),
+  sendMail: async (m) => rec('to=' + m.to),
+  close: () => {},
+});
+NOTIF
+  sent="$T/sent"
+  mjs_run() { # stdin-text env… → out, rc (as in the one-off worker: cwd = app, program = mail-test.mjs via -e)
+    local input="$1"; shift
+    rm -f "$sent"; : > "$sent"; rc=0
+    out=$(cd "$app" && printf '%b' "$input" | env -i PATH="$PATH" MTS_SENT="$sent" EMAIL_PROVIDER=smtp "$@" \
+      node --input-type=module -e "$(cat "$mjs")" 2>&1) || rc=$?
+  }
+  mjs_run "$addr\n"
+  if [ "$rc" = 0 ] && [ "$out" = 'mail-test: sent' ] && grep -qxF "to=$addr" "$sent"; then
+    ok "M1 address read from the first stdin line → sent to it"; else ko "M1 rc=$rc: $out / $(cat "$sent")"; fi
+  mjs_run "$addr\r\nsecond.line@example.test\n"
+  if [ "$rc" = 0 ] && grep -qxF "to=$addr" "$sent" && ! grep -q 'second.line' "$sent"; then
+    ok "M2 only line 1 is used (CRLF trimmed, line 2 ignored)"; else ko "M2 rc=$rc: $out / $(cat "$sent")"; fi
+  mjs_run "$addr\n" MAIL_TEST_TO="$addr"
+  if [ "$rc" = 2 ] && [ "$out" = 'mail-test: failed (MAIL_TEST_TO must not be set - the address is read from stdin)' ] \
+    && [ ! -s "$sent" ]; then ok "M3 MAIL_TEST_TO in the environment → refused, nothing sent"; else ko "M3 rc=$rc: $out"; fi
+  if grep -Eq '^mail-test: (verified|sent|failed \([A-Za-z0-9_ .-]*\))$' <<<"$out"; then
+    ok "M3b that line passes the output filter of mail-test.sh"; else ko "M3b filtered out: $out"; fi
+  mjs_run "  $addr \r\n"
+  if [ "$rc" = 0 ] && grep -qxF "to=$addr" "$sent"; then
+    ok "M2b blanks + CRLF around the address trimmed before the strict check"; else ko "M2b rc=$rc: $out / $(cat "$sent")"; fi
+  mjs_run "$addr"
+  if [ "$rc" = 0 ] && grep -qxF "to=$addr" "$sent"; then
+    ok "M2c no line ending at all (EOF) → still read"; else ko "M2c rc=$rc: $out"; fi
+  mjs_run "probe.owner@exämple.test\n"
+  if [ "$rc" = 2 ] && [ ! -s "$sent" ]; then ok "M2d non-ASCII address → failed, nothing sent"; else ko "M2d rc=$rc: $out"; fi
+  mjs_run "\n"
+  if [ "$rc" = 2 ] && [ "$out" = 'mail-test: failed (address on stdin is missing or invalid)' ] && [ ! -s "$sent" ]; then
+    ok "M4 empty first line → failed, nothing sent"; else ko "M4 rc=$rc: $out"; fi
+  mjs_run "not-an-address\n"
+  if [ "$rc" = 2 ] && ! grep -q 'not-an-address' <<<"$out" && [ ! -s "$sent" ]; then
+    ok "M5 invalid address → failed, input not echoed"; else ko "M5 rc=$rc: $out"; fi
+  long=$(head -c 300 /dev/zero | tr '\0' a)
+  mjs_run "$long@example.test\n"
+  if [ "$rc" = 2 ] && [ ! -s "$sent" ]; then ok "M6 first line longer than 256 → failed"; else ko "M6 rc=$rc: $out"; fi
+  mjs_run "" MAIL_TEST_VERIFY_ONLY=1
+  if [ "$rc" = 0 ] && [ "$out" = 'mail-test: verified' ] && [ "$(cat "$sent")" = verify ]; then
+    ok "M7 --verify-only: verify only, no address needed"; else ko "M7 rc=$rc: $out"; fi
+  mjs_run "$addr\n" EMAIL_PROVIDER=mock
+  if [ "$rc" = 2 ] && [ "$out" = 'mail-test: failed (EMAIL_PROVIDER is not smtp)' ]; then
+    ok "M8 EMAIL_PROVIDER not smtp → failed"; else ko "M8 rc=$rc: $out"; fi
+  # M10 (ARC FB-R4-ARC-OPS-P403-03, runbook 5.0 S14): on a mock stack the stdin line is checked BEFORE the provider,
+  # so two --send runs with different stdin give two different answers – proof that stdin reaches node, nothing sent.
+  mjs_run "\n" EMAIL_PROVIDER=mock
+  m10a="$rc $out"
+  mjs_run "$addr\n" EMAIL_PROVIDER=mock
+  m10b="$rc $out"
+  if [ "$m10a" = '2 mail-test: failed (address on stdin is missing or invalid)' ] \
+    && [ "$m10b" = '2 mail-test: failed (EMAIL_PROVIDER is not smtp)' ] && [ ! -s "$sent" ]; then
+    ok "M10 mock provider: empty stdin line → 'address … invalid', valid line → 'EMAIL_PROVIDER is not smtp' (stdin proven)"
+  else ko "M10 empty=[$m10a] valid=[$m10b]"; fi
+  mjs_run "" EMAIL_PROVIDER=mock MAIL_TEST_VERIFY_ONLY=1
+  if [ "$rc" = 2 ] && [ "$out" = 'mail-test: failed (EMAIL_PROVIDER is not smtp)' ] && [ ! -s "$sent" ]; then
+    ok "M10b --verify-only on a mock stack → 'EMAIL_PROVIDER is not smtp', nothing verified"; else ko "M10b rc=$rc: $out"; fi
+  # the only code naming MAIL_TEST_TO is the refusal (comments left out; prettier may put its out(…) on the next line)
+  if [ -z "$(grep -v '^ *//' "$mjs" | grep 'MAIL_TEST_TO' | grep -vxE ' *if \(process\.env\.MAIL_TEST_TO !== undefined\)( out\(.*)?' \
+    | grep -vxF "  out('failed (MAIL_TEST_TO must not be set - the address is read from stdin)', 2);")" ]; then
+    ok "M9 mail-test.mjs never reads the address from the environment"
+  else ko "M9 mail-test.mjs still reads MAIL_TEST_TO"; fi
+fi
 
 echo "== $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

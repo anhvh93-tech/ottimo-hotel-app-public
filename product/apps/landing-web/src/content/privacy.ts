@@ -54,8 +54,15 @@ export interface PrivacyCopy {
 /**
  * Version 2026-11-04 (SEC rounds/round-04/reviews/SEC-on-lp-v2-main.md section 2): one version for en, vi, ko, zh, ru.
  * en/vi = `2026-10-31` text (PR #21, lawyer-reviewed) – never published on its own (P4); ko/zh/ru Δ5 = notice-final 7.
- * Never reuse a label for different text: any sentence change here or in consent/consentMore → a new label,
- * and a new label → set CHAT_DETAILS_MIN_NOTICE_VERSION (api chat-message.ts) to the same value (QA BUG-R4-028).
+ * Never reuse a label for different text: any sentence change here or in consent/consentMore → a new label.
+ * CHAT_DETAILS_MIN_NOTICE_VERSION (api chat-message.ts) – rule by the TARGET database (runbook CHKV, SEC LPV2RB-02):
+ * - CONST_ROWS=0 (no privacy_notice_version row carries the constant yet = first publication naming Google Chat
+ *   there): the constant must equal the label being published (QA BUG-R4-028).
+ * - CONST_ROWS≥1 (the constant is already published on that database): do NOT change the constant. A later label
+ *   passes the gate by published_at; changing the constant would drop every request sent under it back to level A.
+ * - Do not change the constant after the first publication naming Google Chat.
+ * - Before publishing a new label: a decision-log line recording SEC's approval of the new text must exist
+ *   (GCHAT-03: text that drops Google Chat from the recipients lowers the level before it is published).
  */
 const VERSION = '2026-11-04';
 const { legal, contact, phone } = site;

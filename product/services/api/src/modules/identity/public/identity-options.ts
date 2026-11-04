@@ -9,6 +9,9 @@
  * - appEnv: APP_ENV – staging/production refuse to start without the full common-password list (SR-AUTH-02).
  * - emailFrom: EMAIL_FROM (0.3.10, BUG-R3-032) – the server's sending mailbox; a staff security e-mail equal to its
  *   address → 422 EMAIL_SHARED_MAILBOX. Unset (dev/CI, staging mock) = not checked.
+ * - sharedMailboxes: EMAIL_SHARED_MAILBOXES (v1.0.4 P4-06, SEC SENT-02 / ARC M18-01) – the property's shared
+ *   mailboxes (comma separated full addresses, e.g. `info@…,booking@…`). Independent of EMAIL_FROM; see
+ *   shared-mailboxes.ts for the whole rule (`+…` removed, `info@`/`booking@` defaults at the mail domains).
  */
 export const IDENTITY_OPTIONS = Symbol('IDENTITY_OPTIONS');
 
@@ -21,4 +24,5 @@ export interface IdentityOptions {
   appEnv?: string;
   mfaEnforced?: boolean;
   emailFrom?: string;
+  sharedMailboxes?: string;
 }

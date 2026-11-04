@@ -5,8 +5,8 @@ import { useEffect, useState } from 'react';
 import { api } from '../../app/api';
 import { listApprovals } from '../../app/approvals';
 import { approvalFacts, useApprovalTargets } from '../../app/approvalTarget';
-import { appliedCappedText, autoCancelText } from '../../app/auditReason';
-import { APPROVAL_TYPE, FOC_REASON, methodText } from '../../app/folio';
+import { appliedCappedText, autoCancelText, requestReasonText } from '../../app/auditReason';
+import { APPROVAL_TYPE, methodText } from '../../app/folio';
 import { useLiveReload } from '../../app/live';
 import { timeHHmm } from '../../app/dates';
 import { useStaffRoomLabel } from '../../app/rooms';
@@ -95,10 +95,22 @@ export function ApprovalsPage() {
                     </b>
                     {facts ? <div className="li-t">{facts}</div> : null}
                     <div className="li-s">
-                      {FOC_REASON[a.reasonCode] ? t(FOC_REASON[a.reasonCode]!) : null}
-                      {a.reasonNote ? ` · "${a.reasonNote}"` : ''} ·{' '}
-                      {t('approval.sent_by', { who: a.requestedBy, time: dateTime(a.requestedAt) })}
+                      {/* BUG-R4-026: refund reasons (overpayment, early_departure) in words too. */}
+                      {[
+                        requestReasonText(t, a),
+                        a.reasonNote ? `"${a.reasonNote}"` : null,
+                        t('approval.sent_by', {
+                          who: a.requestedBy,
+                          time: dateTime(a.requestedAt),
+                        }),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </div>
+                    {a.type === 'refund' ? (
+                      // GN-R4-QA-01 (ARC plan-v1.0.4 6.4): charges posted after the request come off at approval.
+                      <div className="li-s">{t('approvals.refund_may_decrease')}</div>
+                    ) : null}
                     {a.refundDestination ? (
                       <div className="li-s">
                         {t('refund.method_label', {

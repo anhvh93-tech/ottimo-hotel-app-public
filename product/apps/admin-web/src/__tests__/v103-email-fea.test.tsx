@@ -327,7 +327,8 @@ describe('Bảo mật tài khoản – security email block (setMyEmail)', () =>
       undefined,
       'wrong-pass',
     );
-    expect(await within(dlg).findByText(tv('reauth.s2_failed'))).toBeInTheDocument();
+    // v1.0.4 BUG-R4-024: this owner has no 2FA → the password-only sentence.
+    expect(await within(dlg).findByText(tv('reauth.s2_failed_password'))).toBeInTheDocument();
     expect(within(dlg).getByLabelText(label('reauth.s2_password_label'))).toHaveValue('');
 
     mockControl.failNext(/\/v1\/me\/email:PUT/, 422, {
@@ -340,7 +341,7 @@ describe('Bảo mật tài khoản – security email block (setMyEmail)', () =>
     await waitFor(() => expect(pw).toHaveAttribute('aria-invalid', 'true'));
     expect(pw).toHaveValue('');
     expect(pw).toHaveAccessibleDescription(tv('common.required'));
-    expect(within(dlg).queryByText(tv('reauth.s2_failed'))).not.toBeInTheDocument();
+    expect(within(dlg).queryByText(tv('reauth.s2_failed_password'))).not.toBeInTheDocument();
     // Never on the email field behind the dialog.
     expect(screen.queryByText(tv('secmail.invalid'))).not.toBeInTheDocument();
     expect(userOf('qa.owner').email).toBeUndefined();
@@ -537,9 +538,10 @@ describe('Người dùng & vai – email column (owner, updateUser.email)', () =
     expect(within(mgrRow).getByText(tv('users.email_none')).closest('.chip')).not.toBeNull();
     const hkRow = screen.getByText('qa.hk').closest('tr')!;
     expect(within(hkRow).getByText(tv('users.email_none')).closest('.chip')).toBeNull();
+    // v1.0.4 BUG-R4-023: the address is split into two halves at "@" inside one `.mono` span.
     expect(
-      within(screen.getByText('qa.fd').closest('tr')!).getByText('fd@example.test'),
-    ).toHaveClass('mono');
+      screen.getByText('qa.fd').closest('tr')!.querySelector('.users-email .mono'),
+    ).toHaveTextContent('fd@example.test');
     await waitFor(() => expect(sent).toHaveLength(1));
     expect(sent[0]!.method).toBe('PATCH');
     expect(sent[0]!.headers.get('if-match')).toBe('"1"');
@@ -597,7 +599,7 @@ describe('Người dùng & vai – email column (owner, updateUser.email)', () =
     expect(
       within(selfRow).queryByRole('button', { name: `${tv('users.edit_email')}: Chủ đầu tư` }),
     ).not.toBeInTheDocument();
-    expect(within(selfRow).getByText('owner@example.test')).toHaveClass('mono');
+    expect(selfRow.querySelector('.users-email .mono')).toHaveTextContent('owner@example.test');
 
     const otherRow = screen.getByText('qa.owner2').closest('tr')!;
     expect(

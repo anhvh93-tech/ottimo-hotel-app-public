@@ -63,6 +63,12 @@ export class ProblemError extends Error {
       /** Documented extension members (conflicts, suggestions, min, max, allowed…). */
       extras?: Record<string, unknown>;
       headers?: Record<string, string>;
+      /**
+       * Server-side only (never in the body, the headers or a log line): why a refusal happened, for the caller's
+       * audit (`access.denied.reason`). Travels on the error itself, so it survives the unit of work
+       * (ARC FB-R4-ARC-BE-31-04 – replaces a WeakSet keyed by the error object).
+       */
+      auditReason?: string;
     } = {},
   ) {
     super(options.detail ?? code);

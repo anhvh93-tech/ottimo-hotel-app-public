@@ -7,12 +7,16 @@
 //  3. checks the trusted desk device token (seed output tests/fixtures/seed/.out/ds-e.map.json). Unreadable
 //     (CI: written 0600 by the seed container's uid – BUG-R2-053) → registers a fallback desk device through
 //     qa.owner and warns; CI fails here if neither works (instead of ~30 DEVICE_NOT_TRUSTED reds + silent skips).
+//  4. makes the stack show the data notice guest-web carries (privacy_notice_version = privacy-2026-10-v2, v1.0.4
+//     P4-42) the way OWN does on release – setParameter as qa.owner, only on a disposable stack (CI,
+//     E2E_COMPOSE_CONTROL=1) or with E2E_NOTICE_SETUP=1; elsewhere it only warns (support/notice.ts).
 // No API / no login endpoint / no password → the specs skip with their own reason. In CI (CI=true) a stack
 // whose DS-E accounts cannot log in (401: seed not loaded / wrong QA_SEED_PASSWORD) fails HERE with one
 // clear message instead of hundreds of red cases.
 import { request as pwRequest } from '@playwright/test';
 import { isAvailable, LoginRateLimited, resetRateLimits, session } from './support/api.js';
 import { ensureDeskDevice } from './support/device.js';
+import { ensurePrivacyNotice } from './support/notice.js';
 import { API_URL, SEED_PASSWORD, SUBJECTS, TEST_TOKEN } from './support/env.js';
 
 export default async function globalSetup(): Promise<void> {
@@ -64,6 +68,14 @@ export default async function globalSetup(): Promise<void> {
     if (ok > 0) {
       try {
         console.log(`[e2e setup] ${await ensureDeskDevice(ctx)}`);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.log(msg);
+        if (process.env.CI) throw e;
+      }
+      // v1.0.4 P4-42: guest-web carries only privacy-2026-10-v2 – the stack must show it (support/notice.ts)
+      try {
+        console.log(await ensurePrivacyNotice(ctx));
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.log(msg);

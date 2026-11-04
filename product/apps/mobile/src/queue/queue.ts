@@ -7,7 +7,8 @@
 // Sending: FIFO, one at a time; a retryable failure (network, 5xx, 429, busy) stops the run and keeps
 // the order; a refusal (409/422/403/404) moves the item to "Cần xem lại" with the reason – never dropped
 // silently; 409 INVALID_TRANSITION whose `currentState` is what the action wanted = already applied by
-// someone else (dropped without error); 401 pauses everything until the same user signs in again.
+// someone else (dropped without error); 401 pauses everything until the same user signs in again – so does a
+// 403 of a restricted session (temporary password / 2-step to set up, BUG-R3-052): not the item's fault.
 import { isApiError, newIdempotencyKey } from '@ottimo/api-client';
 import type { StaffRequest } from '../app/api';
 import type { KvStore } from '../data/store';
@@ -112,10 +113,17 @@ type Outcome =
   | { kind: 'retry'; code: string; afterMs?: number }
   | { kind: 'auth' };
 
+/** 403 of a session that may only change its password / set up 2-step – resend after that, never "Cần xem lại". */
+const RESTRICTED_SESSION: ReadonlySet<string> = new Set([
+  'PASSWORD_CHANGE_REQUIRED',
+  'MFA_ENROLLMENT_REQUIRED',
+]);
+
 export function classify(e: unknown, item: Pick<QueueItem, 'targets'>): Outcome {
   if (!isApiError(e)) return { kind: 'retry', code: 'NETWORK_ERROR' };
   if (e.isNetwork) return { kind: 'retry', code: 'NETWORK_ERROR' };
   if (e.status === 401) return { kind: 'auth' };
+  if (e.status === 403 && RESTRICTED_SESSION.has(e.code)) return { kind: 'auth' };
   if (e.code === 'IDEMPOTENCY_KEY_REUSED') return { kind: 'drop' }; // phone bug – hifi 21.3
   if (RETRY_CODES.has(e.code) || e.status >= 500 || e.status === 429) {
     const after = e.retryAfterSeconds !== undefined ? e.retryAfterSeconds * 1000 : undefined;

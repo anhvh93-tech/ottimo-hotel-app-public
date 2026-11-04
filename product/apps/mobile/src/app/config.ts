@@ -25,3 +25,15 @@ export function telHref(phone: string | undefined): string | undefined {
 export const UNDO_MS = 10_000;
 /** Tasks / room status refresh while the screen is open and online (SSE comes with BE-D). */
 export const REFRESH_MS = 60_000;
+
+/**
+ * OTTIMO Desk next to this app: `staff.<domain>` → `https://desk.<domain>/` (staff.ottimo.vn → desk.ottimo.vn,
+ * staff.staging.ottimo.vn → desk.staging.ottimo.vn). Anything else (localhost, preview) → no link.
+ * Used where a step can only be done on Desk (2-step set-up, BUG-R3-052).
+ */
+export function deskUrl(
+  host: string | undefined = globalThis.location?.hostname,
+): string | undefined {
+  if (!host || !/^staff\.[a-z0-9.-]+$/i.test(host)) return undefined;
+  return `https://desk.${host.slice('staff.'.length)}/`;
+}

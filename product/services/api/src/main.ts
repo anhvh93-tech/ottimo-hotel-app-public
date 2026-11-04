@@ -15,6 +15,20 @@ async function bootstrap(): Promise<void> {
   const rt = await createRuntime(log);
   const { config } = rt;
   const db = new PgPinger(config.databaseUrl);
+  // v1.0.4 P4-06 (SEC SENT-02): without EMAIL_SHARED_MAILBOXES only info@/booking@ at the EMAIL_FROM domain (and
+  // EMAIL_FROM itself) are refused as staff security e-mail. Say so once; never print an address.
+  if (
+    (config.appEnv === 'staging' || config.appEnv === 'production') &&
+    rt.env.EMAIL_FROM &&
+    !rt.env.EMAIL_SHARED_MAILBOXES?.trim()
+  ) {
+    console.log(
+      JSON.stringify({
+        level: 'warn',
+        msg: 'EMAIL_SHARED_MAILBOXES unset – shared-mailbox rule uses the defaults at the EMAIL_FROM domain only',
+      }),
+    );
+  }
 
   // Test-only endpoints: dynamic import, never in production (config refuses the flag there), and the
   // folder is absent from production images (Dockerfile.api) – openapi.test.yaml, SR-SECR-05.
@@ -33,6 +47,10 @@ async function bootstrap(): Promise<void> {
         mfaEnforced: config.mfaEnforced,
         // 0.3.10 (BUG-R3-032): EMAIL_SHARED_MAILBOX check (same variable as the worker's sender).
         ...(rt.env.EMAIL_FROM ? { emailFrom: rt.env.EMAIL_FROM } : {}),
+        // v1.0.4 P4-06 (SEC SENT-02): the shared-mailbox list, independent of EMAIL_FROM.
+        ...(rt.env.EMAIL_SHARED_MAILBOXES
+          ? { sharedMailboxes: rt.env.EMAIL_SHARED_MAILBOXES }
+          : {}),
       },
       rt.env,
     ),
