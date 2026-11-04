@@ -19,6 +19,10 @@ pnpm --filter @ottimo/mobile build
 
 Tài khoản giả (chỉ có trong mock, `src/mocks/handlers.ts` → `MOCK_USERS`, mật khẩu `MOCK_PASSWORD`):
 `hk.lan` (buồng phòng), `mt.tung` (bảo trì), `fdl.hanh` (lễ tân trưởng), `sale.minh` (không có quyền).
+v1.0.4 (P4-50): `own.mfa`, `mgr.mfa`, `fdl.mfa`, `fd.mfa`, `hk.mfa`, `mt.mfa`, `sale.mfa`, `ctv.mfa` – có xác thực 2 bước
+(bước 2 nhập `MOCK_TOTP` hoặc `MOCK_RECOVERY_CODE`); `hk.temp` (mật khẩu tạm), `mt.temp.mfa` (mật khẩu tạm + 2 bước),
+`mgr.enroll` (quản lý chưa bật 2 bước, `MFA_ENFORCED`). Kịch bản mạng yếu bước 2: `dropNext = 'loginMfa'` (không tới máy chủ),
+`dropAnswerOf = 'loginMfa'` (máy chủ đã nhận, mất câu trả lời).
 Kịch bản: `window.__ottimoStaffMock.control` (`failNext`, `dropNext`, `latencyMs`, `setRoom`).
 Biến build `VITE_DESK_PHONE` – số lễ tân cho nút "Gọi lễ tân" (cùng biến với guest-web). **Bắt buộc** khi build
 profile `demo` và `production` (OPS, `Dockerfile.web` `WEB_BUILD_PROFILE`, `infra/docker/check-web-build-config.sh`):
@@ -46,5 +50,12 @@ sửa xong có ảnh, ảnh lúc báo, **phiếu mới + khóa phòng** cho bả
 SSE `notification.created`), SSE `room.status_changed` / `hk_task.changed` / `work_order.changed` / `guest_request.changed`
 (server lọc theo vai; không có luồng – bản mock – thì hỏi lại mỗi 60 giây). Nhãn checklist theo nút VI/EN của app
 (`acceptLanguage`, 0.3.7 bổ sung 1 #13).
+
+**v1.0.4 (P4-50)** – đăng nhập 2 bước (ARC-RN103-02): `401 MFA_REQUIRED` → `MfaStepPage` (mã 6 số hoặc mã khôi phục → `loginMfa`;
+một câu `MFA_INVALID`; về bước 1 sau 5 phút hoặc 5 lần sai; mạng yếu không xóa mã đã gõ, "Thử lại" hỏi `getMe` trước nếu lần trước mất câu trả lời).
+Phiên hạn chế (BUG-R3-052): `Me.mustChangePassword` / `403 PASSWORD_CHANGE_REQUIRED` → `SetPasswordPage` (đổi mật khẩu tạm ngay trên điện thoại,
+kèm mã 2 bước khi đã bật); `Me.mfaEnrollmentRequired` / `403 MFA_ENROLLMENT_REQUIRED` (quản lý chưa bật, hoặc vừa vào bằng mã khôi phục) →
+`EnrollOnDeskPage` (bật trên OTTIMO Desk – nút mở `desk.<miền>` khi app chạy ở `staff.<miền>`, rồi đăng xuất / đăng nhập lại). Hàng đợi gặp 403 này thì
+tạm dừng như 401 (không vào "Cần xem lại").
 
 Chưa có: minibar khi dọn phòng có khách (H20.4 – chờ BE-D giao US-066), icon PWA (chờ logo SVG – B6), Web Push (R3).

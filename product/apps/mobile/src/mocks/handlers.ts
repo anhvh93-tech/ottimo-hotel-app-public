@@ -10,7 +10,19 @@ import { businessDate } from '../app/time';
 type S = components['schemas'];
 type RoomCode = S['RoomStatusCode'];
 
-/** Dev sign-in: any of these usernames with MOCK_PASSWORD (test fixture of the mock, not a real account). */
+/**
+ * Dev sign-in: any of these usernames with MOCK_PASSWORD (test fixture of the mock, not a real account).
+ * v1.0.4 P4-50: `mfa` = 2-step on (step 2 with MOCK_TOTP / MOCK_RECOVERY_CODE), `temp` = temporary password
+ * (`mustChangePassword`), `enroll` = owner/manager without 2-step under `MFA_ENFORCED` (enrolment-only session).
+ */
+interface MockUser {
+  id: string;
+  name: string;
+  roles: readonly S['Role'][];
+  mfa?: boolean;
+  temp?: boolean;
+  enroll?: boolean;
+}
 export const MOCK_USERS = {
   'hk.lan': { id: '0192a1b0-0000-7000-8000-00000000a001', name: 'Lan', roles: ['housekeeping'] },
   'mt.tung': { id: '0192a1b0-0000-7000-8000-00000000a002', name: 'Tùng', roles: ['maintenance'] },
@@ -20,9 +32,81 @@ export const MOCK_USERS = {
     roles: ['front_desk_lead'],
   },
   'sale.minh': { id: '0192a1b0-0000-7000-8000-00000000a004', name: 'Minh', roles: ['sales_staff'] },
-} as const satisfies Record<string, { id: string; name: string; roles: S['Role'][] }>;
+  // ARC-RN103-02: one account with 2-step per role (QA: "cả 7 vai" + CTV).
+  'own.mfa': {
+    id: '0192a1b0-0000-7000-8000-00000000b001',
+    name: 'Owner',
+    roles: ['owner'],
+    mfa: true,
+  },
+  'mgr.mfa': {
+    id: '0192a1b0-0000-7000-8000-00000000b002',
+    name: 'Quân',
+    roles: ['manager'],
+    mfa: true,
+  },
+  'fdl.mfa': {
+    id: '0192a1b0-0000-7000-8000-00000000b003',
+    name: 'Hà',
+    roles: ['front_desk_lead'],
+    mfa: true,
+  },
+  'fd.mfa': {
+    id: '0192a1b0-0000-7000-8000-00000000b004',
+    name: 'Vy',
+    roles: ['front_desk'],
+    mfa: true,
+  },
+  'hk.mfa': {
+    id: '0192a1b0-0000-7000-8000-00000000b005',
+    name: 'Mai',
+    roles: ['housekeeping'],
+    mfa: true,
+  },
+  'mt.mfa': {
+    id: '0192a1b0-0000-7000-8000-00000000b006',
+    name: 'Sơn',
+    roles: ['maintenance'],
+    mfa: true,
+  },
+  'sale.mfa': {
+    id: '0192a1b0-0000-7000-8000-00000000b007',
+    name: 'Nhi',
+    roles: ['sales_staff'],
+    mfa: true,
+  },
+  'ctv.mfa': {
+    id: '0192a1b0-0000-7000-8000-00000000b008',
+    name: 'Tâm',
+    roles: ['collaborator'],
+    mfa: true,
+  },
+  // BUG-R3-052: temporary password; with and without 2-step (S2 on the change); manager without 2-step.
+  'hk.temp': {
+    id: '0192a1b0-0000-7000-8000-00000000b009',
+    name: 'Thu',
+    roles: ['housekeeping'],
+    temp: true,
+  },
+  'mt.temp.mfa': {
+    id: '0192a1b0-0000-7000-8000-00000000b010',
+    name: 'Bình',
+    roles: ['maintenance'],
+    temp: true,
+    mfa: true,
+  },
+  'mgr.enroll': {
+    id: '0192a1b0-0000-7000-8000-00000000b011',
+    name: 'Long',
+    roles: ['manager'],
+    enroll: true,
+  },
+} as const satisfies Record<string, MockUser>;
 // Matches the reviewed gitleaks allowlist pattern for dev-only placeholders (.github/gitleaks.toml).
 export const MOCK_PASSWORD = 'change_me_mock_dev_only';
+/** Mock 2-step codes (fixtures of the mock only – the format of the contract, no real secret behind them). */
+export const MOCK_TOTP = '123456';
+export const MOCK_RECOVERY_CODE = 'MOCK-0000-DEV0-0001';
 export const PROPERTY_ID = '0192a1b0-0000-7000-8000-0000000000a1';
 
 const NAMES: Record<string, string> = {
@@ -72,8 +156,21 @@ interface Room {
   version: number;
 }
 
+interface MfaChallenge {
+  user: keyof typeof MOCK_USERS;
+  expiresAt: number;
+  fails: number;
+  used: boolean;
+}
+
 interface State {
   session?: keyof typeof MOCK_USERS;
+  /** Session restricted to 2-step set-up (manager without 2-step, or signed in with a recovery code). */
+  enrollmentOnly: boolean;
+  /** Password set by `changeMyPassword` in this mock run (temporary password replaced). */
+  newPasswords: Map<string, string>;
+  /** `mfaToken` → step-2 challenge (5 minutes, 5 wrong codes – SEC 06.17/06.19). */
+  challenges: Map<string, MfaChallenge>;
   rooms: Room[];
   tasks: S['HkTask'][];
   workOrders: S['WorkOrder'][];
@@ -96,6 +193,8 @@ const scenario = {
     undefined | { op: string; status: number; code: string; extra?: Record<string, unknown> },
   /** Simulate a network drop for the next call of this op. */
   dropNext: undefined as undefined | string,
+  /** The next call of this op is done by the server but its answer is lost (weak network). */
+  dropAnswerOf: undefined as undefined | string,
 };
 
 function seed(): State {
@@ -278,6 +377,9 @@ function seed(): State {
       },
     ],
     languages: [],
+    enrollmentOnly: false,
+    newPasswords: new Map(),
+    challenges: new Map(),
   };
 }
 
@@ -290,7 +392,13 @@ export const mockControl = {
   scenario,
   reset(patch: Partial<typeof scenario> = {}) {
     state = seed();
-    Object.assign(scenario, { latencyMs: 0, failNext: undefined, dropNext: undefined, ...patch });
+    Object.assign(scenario, {
+      latencyMs: 0,
+      failNext: undefined,
+      dropNext: undefined,
+      dropAnswerOf: undefined,
+      ...patch,
+    });
   },
   signIn(user: keyof typeof MOCK_USERS) {
     state.session = user;
@@ -333,6 +441,11 @@ async function guard(op: string, request: Request): Promise<Response | undefined
   if (request.method !== 'GET' && request.headers.get('x-csrf-token') !== 'csrf-mock') {
     return problem(403, 'CSRF_INVALID');
   }
+  // Restricted sessions (OpenAPI `login`): only the own-password / 2-step set-up operations answer.
+  if (op !== 'getMe' && op !== 'changeMyPassword' && mustChangePassword()) {
+    return problem(403, 'PASSWORD_CHANGE_REQUIRED');
+  }
+  if (op !== 'getMe' && state.enrollmentOnly) return problem(403, 'MFA_ENROLLMENT_REQUIRED');
   const f = scenario.failNext;
   if (f && f.op === op) {
     scenario.failNext = undefined;
@@ -343,8 +456,16 @@ async function guard(op: string, request: Request): Promise<Response | undefined
   return undefined;
 }
 
-function user() {
+function user(): MockUser | undefined {
   return state.session ? MOCK_USERS[state.session] : undefined;
+}
+
+function passwordOf(name: string) {
+  return state.newPasswords.get(name) ?? MOCK_PASSWORD;
+}
+
+function mustChangePassword() {
+  return !!state.session && !!user()?.temp && !state.newPasswords.has(state.session);
 }
 
 function me() {
@@ -364,7 +485,9 @@ function me() {
         deviceTrusted: false, // PWA is never a trusted device (SR-DEV-09)
       },
     ],
-    mustChangePassword: false,
+    mustChangePassword: mustChangePassword(),
+    mfaEnabled: u.mfa === true,
+    ...(state.enrollmentOnly ? { mfaEnrollmentRequired: true } : {}),
   } satisfies S['Me'];
 }
 
@@ -436,15 +559,122 @@ export const handlers = [
     state.calls.push('login');
     if (scenario.latencyMs) await delay(scenario.latencyMs);
     const { username, password } = (await request.json()) as { username: string; password: string };
-    if (!(username in MOCK_USERS) || password !== MOCK_PASSWORD) {
+    const name = username as keyof typeof MOCK_USERS;
+    if (!(username in MOCK_USERS) || password !== passwordOf(name)) {
       return problem(401, 'UNAUTHENTICATED');
     }
-    state.session = username as keyof typeof MOCK_USERS;
+    const u: MockUser = MOCK_USERS[name];
+    if (u.mfa) {
+      // SR-AUTH-06: no session yet – a one-time 5-minute token.
+      const mfaToken = `mfa-mock-${crypto.randomUUID()}`;
+      state.challenges.set(mfaToken, {
+        user: name,
+        expiresAt: Date.now() + 5 * 60_000,
+        fails: 0,
+        used: false,
+      });
+      return problem(401, 'MFA_REQUIRED', { mfaToken });
+    }
+    state.session = name;
+    state.enrollmentOnly = u.enroll === true && !mustChangePassword();
     return HttpResponse.json(me());
+  }),
+  http.post('/v1/auth/login/mfa', async ({ request }) => {
+    state.calls.push('loginMfa');
+    if (scenario.latencyMs) await delay(scenario.latencyMs);
+    const body = (await request.json()) as {
+      mfaToken?: string;
+      totpCode?: string;
+      recoveryCode?: string;
+    };
+    // Never keep the token itself (SEC 06.17) – only which factor was sent.
+    state.bodies.push({
+      op: 'loginMfa',
+      body: { totpCode: body.totpCode, recoveryCode: body.recoveryCode },
+    });
+    if (scenario.dropNext === 'loginMfa') {
+      scenario.dropNext = undefined;
+      return HttpResponse.error();
+    }
+    const f = scenario.failNext;
+    if (f && f.op === 'loginMfa') {
+      scenario.failNext = undefined;
+      return problem(f.status, f.code, f.extra);
+    }
+    if (!body.mfaToken || !!body.totpCode === !!body.recoveryCode) {
+      return problem(422, 'VALIDATION_FAILED', {
+        errors: [{ field: 'totpCode', code: 'REQUIRED' }],
+      });
+    }
+    const c = state.challenges.get(body.mfaToken);
+    if (!c || c.used || c.fails >= 5 || c.expiresAt <= Date.now()) {
+      return problem(401, 'MFA_INVALID');
+    }
+    const recovery = body.recoveryCode?.replace(/[\s-]/g, '').toUpperCase();
+    const ok = body.totpCode
+      ? body.totpCode === MOCK_TOTP
+      : recovery === MOCK_RECOVERY_CODE.replace(/-/g, '');
+    if (!ok) {
+      c.fails += 1;
+      return problem(401, 'MFA_INVALID');
+    }
+    c.used = true;
+    state.session = c.user;
+    // US-143 AC3 (a): a recovery code → session restricted to setting 2-step up again.
+    state.enrollmentOnly = !!body.recoveryCode && !mustChangePassword();
+    if (scenario.dropAnswerOf === 'loginMfa') {
+      // Weak network: the server signed in, the answer is lost on the way back.
+      scenario.dropAnswerOf = undefined;
+      return HttpResponse.error();
+    }
+    return HttpResponse.json(me());
+  }),
+  http.post('/v1/me/password', async ({ request }) => {
+    const g = await guard('changeMyPassword', request);
+    if (g) return g;
+    const body = (await request.json()) as {
+      currentPassword?: string;
+      newPassword?: string;
+      totpCode?: string;
+      recoveryCode?: string;
+    };
+    state.bodies.push({ op: 'changeMyPassword', body: { totpCode: body.totpCode } });
+    const name = state.session!;
+    const u = user()!;
+    if (u.mfa && !body.totpCode && !body.recoveryCode) {
+      return problem(422, 'STRONG_REAUTH_REQUIRED', {
+        errors: [{ field: 'totpCode', code: 'STRONG_REAUTH_REQUIRED' }],
+      });
+    }
+    const factorOk = !u.mfa || body.totpCode === MOCK_TOTP || !!body.recoveryCode;
+    if (body.currentPassword !== passwordOf(name) || !factorOk) {
+      return problem(401, 'REAUTH_FAILED', {
+        errors: [{ field: 'currentPassword', code: 'REAUTH_FAILED' }],
+      });
+    }
+    const next = body.newPassword ?? '';
+    const code =
+      next.length < 10
+        ? 'PASSWORD_TOO_SHORT'
+        : next.toLowerCase().includes(name)
+          ? 'PASSWORD_SAME_AS_USERNAME'
+          : next === body.currentPassword
+            ? 'PASSWORD_REUSED'
+            : next.toLowerCase().includes('ottimo')
+              ? 'PASSWORD_TOO_COMMON'
+              : undefined;
+    if (code) {
+      return problem(422, 'VALIDATION_FAILED', { errors: [{ field: 'newPassword', code }] });
+    }
+    state.newPasswords.set(name, next);
+    // Every session ends, this client gets a new one (same mock cookie); 2-step still to set up for `enroll`.
+    state.enrollmentOnly = u.enroll === true;
+    return new HttpResponse(null, { status: 204 });
   }),
   http.post('/v1/auth/logout', () => {
     state.calls.push('logout');
     state.session = undefined;
+    state.enrollmentOnly = false;
     return new HttpResponse(null, { status: 204 });
   }),
   http.get('/v1/me', async ({ request }) => {
