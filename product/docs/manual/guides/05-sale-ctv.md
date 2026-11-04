@@ -3,7 +3,7 @@
 - Dành cho: **sale nội bộ (SAL)** – nhân viên bán hàng của OTTIMO; **CTV / môi giới** – cộng tác viên ngoài
 - Thiết bị: **điện thoại hoặc máy tính**, địa chỉ `desk.ottimo.vn`
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.3 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; form website đã bật, sale không ở trong phòng Google Chat; bản 1.3 ngày 01/11 thêm mục 6.3a giá ước tính và khách viết tiếng Hàn, Trung, Nga – áp dụng khi gói website LP-v2 phát hành; bản 1.4 ngày 03/11, áp dụng khi v1.0.3 lên: menu **Bảo mật tài khoản** và email nhận thông báo bảo mật – email riêng chỉ mình đọc, Desk chỉ chặn `info@` – mục 1.5)
+- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.6 – 04/11/2026 (gộp sau bản 1.5), **áp dụng từ v1.0.4**: Desk chặn cả `booking@` (mục 1.5; theo review DOM PR #68); bản 1.3 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; form website đã bật, sale không ở trong phòng Google Chat; bản 1.3 ngày 01/11 thêm mục 6.3a giá ước tính và khách viết tiếng Hàn, Trung, Nga – áp dụng khi gói website LP-v2 phát hành; bản 1.4 ngày 03/11, áp dụng khi v1.0.3 lên: menu **Bảo mật tài khoản** và email nhận thông báo bảo mật – email riêng chỉ mình đọc, Desk chỉ chặn `info@` – mục 1.5)
 - Tài liệu không chứa mật khẩu, số tài khoản hay thông tin khách.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -79,7 +79,7 @@ Sale/CTV chỉ thấy đơn và khách **của mình**. Không thấy giấy t�
 1. Bấm **tên của mình** ở góc trên bên phải.
 2. Bấm **Đăng xuất**.
 
-Rời máy thì đăng xuất, nhất là máy dùng chung hoặc máy quầy. Menu dưới tên của mình có thêm **Đổi mật khẩu**, **Bảo mật tài khoản** (trước v1.0.3 có tên **Xác thực 2 bước**), **Ngôn ngữ giao diện**, **Giao diện**. Từ v1.0.3, ở **Bảo mật tài khoản** anh/chị có thể thêm **Email nhận thông báo bảo mật** (không bắt buộc với sale, CTV). Dùng **email riêng chỉ mình đọc**. Không dùng hộp thư chung (`info@ottimo.vn`, `booking@ottimo.vn`, Gmail dùng cho OTA): ai đọc hộp thư chung cũng xóa được thư báo của anh/chị. **Desk chỉ chặn được `info@`**, các hộp thư chung khác phải tự tránh. Cách nhập và câu Desk báo: như `02` mục 1.6.
+Rời máy thì đăng xuất, nhất là máy dùng chung hoặc máy quầy. Menu dưới tên của mình có thêm **Đổi mật khẩu**, **Bảo mật tài khoản** (trước v1.0.3 có tên **Xác thực 2 bước**), **Ngôn ngữ giao diện**, **Giao diện**. Từ v1.0.3, ở **Bảo mật tài khoản** anh/chị có thể thêm **Email nhận thông báo bảo mật** (không bắt buộc với sale, CTV). Dùng **email riêng chỉ mình đọc**. Không dùng hộp thư chung (`info@ottimo.vn`, `booking@ottimo.vn`, Gmail dùng cho OTA): ai đọc hộp thư chung cũng xóa được thư báo của anh/chị. **Tới v1.0.3, Desk chỉ chặn được `info@`.** Từ v1.0.4 chặn cả `booking@` (kể cả `info+…@`, `booking+…@`). Các hộp thư chung khác phải tự tránh. Cách nhập và câu Desk báo: như `02` mục 1.6.
 
 [ẢNH: C0-06-Menu Tài khoản]
 
