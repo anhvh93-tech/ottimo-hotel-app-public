@@ -321,3 +321,42 @@ Sau mỗi lần thử đã trả cây về nguyên trạng.
 - Khi PR-H vào `main`: gộp `main` lần nữa. `test-ops-check.sh` phải đổi `skip` thành `ok` ở hai chỗ:
   - `PN_0095_APPLIED_AT=72 = journal idx 71 + 1`;
   - `PN_FN_MD5_0095 matches …`.
+
+## Gộp `main` sau PR-H (ORC 04/11)
+
+- PR-H #59 (P4-13, migration 0095, journal idx 71) đã vào `main` @ `2e892843`.
+- `git merge origin/main` vào `v104/ops-check`, commit gộp `46b2e652`. Đầu `74075447` là cha thứ nhất. Không rebase, không force, không xung đột.
+- `main` mang về 5 tệp, đều của P4-13. Không có tệp nào trong `product/infra`:
+  - `0095_privacy_notice_append_only_whole_row.sql`;
+  - `meta/0095_snapshot.json`;
+  - `meta/_journal.json` (+1 mục, nay 72 mục);
+  - `privacy-notice-append-only.test.ts`;
+  - `rounds/round-04/outputs/BE/v1.0.4-p4-13-pn01.md`.
+- `git diff 74075447 46b2e652 -- .github product/infra/server/bin/deploy.sh product/infra/server/bin/rollback.sh product/infra/server/bin/requeue-email-changed.sh product/infra/postgres/init/02-roles.sh product/infra/docker-compose.prod.yml product/infra/ci/check-confidential-paths.sh`: **rỗng**. Phía `main` (`74075447...origin/main`) trên cùng đường dẫn cũng rỗng.
+- `test-ops-check.sh`: hai kiểm của P4-04 chuyển từ `skip` sang `ok`. Nguyên dòng kết quả:
+  - `ok   PN_FN_MD5_0095 matches md5 of the function body in 0095_privacy_notice_append_only_whole_row.sql`
+  - `ok   PN_0095_APPLIED_AT=72 = journal idx 71 (0095_privacy_notice_append_only_whole_row) + 1`
+- Hai kiểm liên quan vẫn `ok`:
+  - `ok   PN_FN_MD5_0090 matches …`;
+  - `ok   no migration besides 0090/0095 redefines privacy_notice_version_append_only()`.
+- Kiểm lại sau gộp:
+
+  | Kiểm | Kết quả |
+  |---|---|
+  | `test-ops-check` (Mac và ubuntu) | 206 passed |
+  | shellcheck | rc 0 |
+  | `rollback` (Mac và ubuntu) | 38 |
+  | `test-deploy-from-ci` (ubuntu) | rc 0, 44 ok |
+  | `requeue-email-changed` | 69 |
+  | `ops-check-cwd` | 14 |
+  | `ops-check-price` | 17 |
+  | `mail-test-send` | 37 |
+  | `test-confidential-paths` | 6 |
+  | `deploy-landing-privacy` | 28 |
+  | `restore-drill-privacy` | 8 |
+  | `backup-privacy-log` (ubuntu) | 5 |
+  | `check-compose`, `check-confidential-paths` | OK |
+
+  Tất cả 0 failed.
+- Dòng "PR-H (P4-13, 0095) trong `SHA_V104`" ở bảng 0.1 của runbook: điều kiện nay đã đúng trên `main`. Lúc cắt, vẫn chạy lại lệnh đó trên `SHA_V104`.
+- PR #58 chuyển từ draft sang sẵn sàng review (`gh pr ready 58`). Còn chờ CI của đầu mới xanh, gồm job `confidential-paths`.
