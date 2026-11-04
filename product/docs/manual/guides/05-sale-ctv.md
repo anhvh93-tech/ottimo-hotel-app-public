@@ -132,7 +132,7 @@ Luôn nhớ:
 
 1. **Báo giá & giữ chỗ**, tab **Căn trống**.
 2. Nhập **Ngày đến**, **Số đêm**, **Người lớn (từ 12 tuổi)**, trẻ em.
-3. Chọn căn trong danh sách căn trống. Desk mở **Báo giá**: số đêm thường, số đêm thứ Sáu/thứ Bảy, phụ thu người, **Tổng tiền đơn**, **Cọc để giữ phòng** (30 % tiền phòng), và **Bạn nhận (…% tiền phòng)**: Desk tự điền theo tỷ lệ chủ đầu tư cài. Sổ tay không ghi tỷ lệ.
+3. Chọn căn trong danh sách căn trống. Desk mở **Báo giá**: số đêm thường, số đêm thứ Sáu/thứ Bảy, phụ thu người, **Tổng tiền đơn**, **Cọc để giữ phòng** (30 % tiền phòng), và **Bạn nhận (…% tiền phòng – BR-903)** (CTV) hoặc **Sale nhận (…% tiền phòng – BR-903)** (sale): Desk tự điền theo tỷ lệ chủ đầu tư cài. Sổ tay không ghi tỷ lệ.
 4. Chọn **Khách đứng tên** ngay trong hộp này (tìm, hoặc **Tạo nhanh khách**: họ tên, **Số điện thoại / Zalo**; đơn Trực tiếp và CTV **bắt buộc có số điện thoại**).
 5. Bấm **Lưu báo giá**.
 6. Chọn **Ngôn ngữ gửi khách** (Tiếng Việt, English, Русский). Bấm **Sao chép gửi Zalo**. Dán vào tin nhắn riêng với khách.
