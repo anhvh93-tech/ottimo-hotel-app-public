@@ -117,3 +117,36 @@ Ghi nhận, không chặn:
 Dòng decision-log đề xuất (ORC ghi khi commit):
 
 `| 2026-11-04 | 4 | **SEC – P4-04 r1.2 (v104/ops-check @ 52069ce1, rebase lên main, phần chênh nội dung 16ee56e4..52069ce1): ĐẠT, được gộp** (SEC-on-v104-p4-04-r1.1.md mục r1.2): đường dẫn SEC chỉ đổi deploy.sh bước roles (>/dev/null 2>&1, bỏ mktemp – đóng S3); db_triggers kiểm hàm PN-01 (prosecdef=f, đúng hàm, md5 prosrc theo trạng thái migration; SEC tự tính md5 0090/0095 khớp hằng; lệch/không đọc được = FAIL, chỉ in 8 ký tự). Ngưỡng 72 lệch thì FAIL, không ok sai | SEC | Quyền SEC |`
+
+---
+
+## Xác nhận tại 014b116a (đầu gộp PR #58, P4-04 PR-M)
+
+- Chuỗi commit từ bản SEC đã duyệt:
+  - `52069ce1`: SEC ĐẠT;
+  - `970c0722` (r1.3): chỉ sửa `test-ops-check.sh`, README, runbook, `OPS-P4-04.md`;
+  - `74075447` / `0b1f0ff1`: gộp `main` @ `fcc92aa1`;
+  - `46b2e652`: gộp `main` @ `2e892843` (PR-H #59 có 0095, SEC đã ĐẠT);
+  - `014b116a`: chỉ sửa `OPS-P4-04.md`.
+
+  Không rebase, không force: `origin/main` là tổ tiên của `014b116a`.
+- Kiểm theo yêu cầu ORC. Đường dẫn SEC được kiểm: `.github` (gồm `workflows/ci.yml`), `deploy.sh`, `rollback.sh`, `requeue-email-changed.sh`, `02-roles.sh`, `docker-compose.prod.yml`, `check-confidential-paths.sh`.
+
+| Kiểm | Kết quả |
+|---|---|
+| `git diff 52069ce1 014b116a -- <đường dẫn SEC>` | **Rỗng.** Nội dung đường dẫn SEC tại `014b116a` giống hệt bản SEC đã duyệt |
+| `git diff 52069ce1 origin/main -- <đường dẫn SEC>` | 8 tệp, +16/−193. Đây đúng là chiều ngược của phần riêng P4-04, vì `main` chưa có P4-04 |
+| `git diff <merge-base 52069ce1/main = 79df287e> origin/main -- <đường dẫn SEC>` | **Rỗng.** `main` không đổi đường dẫn SEC nào từ lúc rebase tới `2e892843`. Hai lần gộp không mang gì mới, không bỏ sót gì |
+| `git show --cc 0b1f0ff1 / 46b2e652 -- <đường dẫn SEC>` | Không có hunk tự giải xung đột |
+| `git diff --name-only origin/main 014b116a` | 23 tệp, đều thuộc gói P4-04 (mã, test, env mẫu, runbook, response). Không có tệp ngoài gói |
+| `ops-check.sh` 52069ce1..014b116a | Không đổi |
+| Journal `014b116a` | 72 mục: 0092 = idx 68, 0093 = 69, 0094 = 70, **0095 = 71** |
+| md5 thân hàm 0095 trên cây (SEC tự tính đoạn `$$ … $$`) | `7a601d0e…` = `PN_FN_MD5_0095`. Chỉ 0090 và 0095 định nghĩa `privacy_notice_version_append_only()` |
+| `test-ops-check.sh` (worktree tạm `wt-sec-p404m`, đã xóa) | 206 passed, 0 failed. Hai dòng ORC hỏi nay là `ok` (không còn `skip`): `PN_FN_MD5_0095 matches md5 of the function body in 0095_privacy_notice_append_only_whole_row.sql` và `PN_0095_APPLIED_AT=72 = journal idx 71 (0095_privacy_notice_append_only_whole_row) + 1`. Tự test ngưỡng (73, 71, 0095 dời idx, thiếu mục journal, idx 71 của migration khác) đều đỏ đúng chỗ |
+| Test khác tại `014b116a` | rollback 38, requeue 69, ops-check-cwd 14, confidential-paths 6: đều passed. `check-confidential-paths.sh`: `ok` |
+
+**Kết luận: SEC xác nhận ĐẠT tại `014b116a`, gộp được PR #58.** Đường dẫn SEC không khác bản đã duyệt `52069ce1`, và `main` không mang thay đổi nào vào các đường dẫn đó. Ghi nhận ở mục r1.2 về ngưỡng 72 nay đã có test journal ràng buộc, nên đóng. Suggestion `proconfig` vẫn để v1.0.5.
+
+Dòng decision-log đề xuất (ORC ghi khi commit):
+
+`| 2026-11-04 | 4 | **SEC – xác nhận PR #58 (P4-04 PR-M) tại 014b116a: ĐẠT, được gộp** (SEC-on-v104-p4-04-r1.1.md mục "xác nhận tại 014b116a"): diff 7 đường dẫn SEC 52069ce1..014b116a rỗng; main không đổi đường dẫn SEC từ merge-base 79df287e; 2 lần gộp main không có hunk tự giải ở đường dẫn SEC; ops-check PN_FN_MD5_0095 khớp thân 0095 và PN_0095_APPLIED_AT=72 = journal idx 71 + 1, nay ok (test-ops-check 206 passed) | SEC | Quyền SEC |`
