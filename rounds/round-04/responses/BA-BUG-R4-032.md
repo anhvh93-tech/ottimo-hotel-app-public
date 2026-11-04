@@ -102,3 +102,12 @@ Review: `rounds/round-04/reviews/SEC-on-v104-bug-r4-032.md`, `rounds/round-04/re
 | PO 05 | Deferred (đồng ý hướng) | Nhánh gỡ "không bật 2 bước ở v1.0.x" và chuyển lịch sử dòng "Lập:" xuống bảng phiên bản: cắt từ `main` sau khi #63 và PR tài liệu r4b gộp, xong trước 06/11 18:00 để QA đọc trước QC 08/11 |
 | PO 06 | Ngoài PR này | PR riêng `v104/ba-docs-r4b` (cắt từ `origin/main`) |
 | PO 07 | Ghi nhận | Không đổi chữ dòng **Lễ tân** tới khi DOM + SEC chốt (v1.0.5) |
+
+## 8. Lượt 3 (04/11) – theo SEC review lại @ `8192e26b` (ĐẠT)
+
+| Thẻ | Trạng thái | Sửa ở đâu |
+|---|---|---|
+| SEC 03 (Minor) | Fixed | Sổ tay 1.5 và `01` 1.9, gạch câu `users.reset_2fa_stale`: tách hai ca. Anh/chị vừa đặt lại ở tab hay máy khác thì người đó làm tiếp. Không phải anh/chị thì coi như người cầm điện thoại bị mất đã vào tài khoản và tự tắt 2 bước: **Đặt lại mật khẩu ngay** (mật khẩu tạm đưa tận tay), rồi người đó làm tiếp |
+| SEC 04 | Fixed | `05` 1.2 bước 3: dùng câu cất mã của `02` 1.3 bước 5 (lấy giấy ngay khỏi máy in, chép vào trình quản lý mật khẩu, xóa tệp và dọn thùng rác), thêm "Làm trên điện thoại thì không tải mã về chính điện thoại đó" |
+| SEC 05 | Fixed | Sổ tay 0.4 và `01` 1.7: tài khoản chủ đầu tư thứ hai chỉ cho **một người khác** anh/chị tin cậy (ví dụ đồng sở hữu), có toàn quyền; không tạo cho chính mình (ESC-027 = B) |
+| SEC 06 | Chuyển sang nhánh gỡ | PR `v104/ba-2fa-ungate` (cắt từ `origin/main`, gộp sau khi v1.0.4 lên production) |
