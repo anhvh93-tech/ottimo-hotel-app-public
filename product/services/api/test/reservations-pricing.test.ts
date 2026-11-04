@@ -563,15 +563,16 @@ describe('br-examples.json – booking rules (BE-A Sprint 2)', () => {
 });
 
 /**
- * v1.0.4 P4-11 – FB-R4-QA-DOM-PR25-01 (Major, QA review PR #25): the rows of the 01/11 price table (BR v0.5.1) run
- * through the Desk pricing engine with THEIR parameters (`pp(e)` = DS-E + `row.params`), not only through QA's
- * validator. While a row is still `calc: null` it is replayed here by id; once DOM gives it a `calc` (P4-20) the
- * generic `byCalc` block above replays it – and the guard below fails if that `calc` has no block in this file
- * (no silent "xanh giả", BUG-R4-013). Web estimate rows (BR-114-01, BR-115, BR-116) need the public price module of
- * LP-v2: replayed after `main@L` (P4-11 phase B).
+ * v1.0.4 P4-11 – FB-R4-QA-DOM-PR25-01 (Major, QA review PR #25): the rows of the 01/11 price table (BR v0.5.1/v0.5.2)
+ * run through the Desk pricing engine with THEIR parameters (`pp(e)` = DS-E + `row.params`). DOM (P4-20) gave them a
+ * `calc`; the rows the generic blocks above replay (calendarRate, losDiscount, otaWeekendRate, extraPersonFee) and the
+ * three calcs below (stayKindByNights, extraPersonFeeChange, nightRates) leave no row of the QA list unreplayed –
+ * except the web estimate (fromPrice, webEstimate, parityFloor), which needs the public price module of LP-v2 and is
+ * replayed after `main@L` (P4-11 phase B). The guard fails when a row of the list gets a `calc` with no block here
+ * (no silent "xanh giả", BUG-R4-013).
  */
 describe('br-examples.json – 01/11 price table through the pricing engine (FB-R4-QA-DOM-PR25-01)', () => {
-  const DESK_ROWS = [
+  const QA_LIST = [
     'BR-101-12',
     'BR-103-04',
     'BR-104-10',
@@ -582,10 +583,10 @@ describe('br-examples.json – 01/11 price table through the pricing engine (FB-
     'BR-110-18',
     'BR-110-19',
     'BR-110-20',
-    'BR-114-02',
-  ] as const;
-  const WEB_ROWS = [
+    'BR-110-21',
+    'BR-110-22',
     'BR-114-01',
+    'BR-114-02',
     'BR-115-01',
     'BR-115-02',
     'BR-115-03',
@@ -596,38 +597,22 @@ describe('br-examples.json – 01/11 price table through the pricing engine (FB-
     'BR-115-08',
     'BR-116-01',
   ] as const;
-  /** Every `calc` the blocks of this file replay (byCalc above). */
-  const REPLAYED = new Set([
-    'nights',
-    'rangesOverlap',
-    'roundNearest',
-    'nightlyListPrice',
-    'otaWeekendRate',
-    'calendarRate',
-    'rateFloorCeiling',
-    'losDiscount',
-    'extraPersonFee',
-    'shortDeposit',
-    'holdDeadline',
-    'holdExtension',
-    'noticeDays',
-    'directCancelRefund',
-    'bookingWindow',
-    'extraGuestKitDue',
-  ]);
+  /** Public web estimate (LP-v2 `public-rate*`, not on this base yet) – P4-11 phase B after main@L. */
+  const WEB_CALCS = new Set(['fromPrice', 'webEstimate', 'parityFloor']);
   const SRC = readFileSync(__filename, 'utf8');
+  const REPLAYED = new Set([...SRC.matchAll(/byCalc\('([A-Za-z]+)'\)/g)].map((m) => m[1]));
 
-  it('REPLAYED is exactly the set of byCalc blocks in this file', () => {
-    const used = new Set([...SRC.matchAll(/byCalc\('([A-Za-z]+)'\)/g)].map((m) => m[1]));
-    expect([...used].sort()).toEqual([...REPLAYED].sort());
-  });
-
-  it('every listed row exists, carries the 01/11 parameters, and has a replay (here by id, or its calc)', () => {
-    for (const id of [...DESK_ROWS, ...WEB_ROWS]) {
+  it('every row of the QA list has a calc, its 01/11 parameters, and a replay in this file (web: phase B)', () => {
+    for (const id of QA_LIST) {
       const e = ex(id);
       expect(e, id).toBeDefined();
       expect(e.params, `${id} params`).toBeDefined();
-      if (e.calc !== null) expect(REPLAYED.has(e.calc), `${id}: calc ${e.calc}`).toBe(true);
+      expect(e.calc, `${id} calc`).not.toBeNull();
+      expect(e.pendingFix, `${id} pendingFix`).toBeUndefined();
+      expect(
+        REPLAYED.has(e.calc as string) || WEB_CALCS.has(e.calc as string),
+        `${id}: calc ${e.calc}`,
+      ).toBe(true);
     }
   });
 
@@ -657,186 +642,78 @@ describe('br-examples.json – 01/11 price table through the pricing engine (FB-
     new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
   /** A Tuesday after the switch date S – the engine is date-blind once the uplifts are 0. */
   const ANY_ARRIVAL = '2026-11-10';
-  /** Replayed here only while the row has no `calc` (afterwards the byCalc block does it). */
-  const pending = (id: string) => (ex(id).calc === null ? it : it.skip);
+  /** City Studio (DS-E room 102) for rows given by public room type. */
+  const ROOM_OF_TYPE: Record<string, string> = { city_studio: '102', garden_studio: '202' };
 
-  pending('BR-101-12')('BR-101-12 one rate, no Friday/Saturday uplift: 3 × 800.000', () => {
-    const e = ex('BR-101-12');
-    const r = stay(e, {
-      roomNo: e.input.roomNo as string,
-      listVnd: e.input.nightlyListPriceVnd as number,
-      arrival: e.input.arrivalDate as string,
-      departure: e.input.departureDate as string,
-      party: persons(e.input),
-    });
-    expect(r.nights.map((n) => n.amountVnd)).toEqual(e.expected.nightlyRatesVnd);
-    expect(r.totalRoomVnd).toBe(e.expected.roomTotalVnd);
-  });
-
-  pending('BR-103-04')(
-    'BR-103-04 OTA = direct on a Saturday (ota_base_rate = nightly price)',
-    () => {
-      const e = ex('BR-103-04');
-      const base = (e.input.otaBaseRateVnd as Record<string, number>)[e.input.roomGroup as string];
-      const d = e.input.nightDate as string;
-      expect(base).toBeDefined();
-      expect(calendarRate(base!, d, 'ota', pp(e).calendar, pp(e).otaRateUnit).rateVnd).toBe(
-        e.expected.otaRateVnd,
-      );
-      expect(calendarRate(base!, d, 'direct', pp(e).calendar, pp(e).nightRateUnit).rateVnd).toBe(
-        e.expected.directRateVnd,
-      );
-    },
-  );
-
-  for (const id of ['BR-104-10', 'BR-104-11'] as const) {
-    pending(id)(`${id} no weekend / holiday uplift`, () => {
-      const e = ex(id);
-      const d = e.input.nightDate as string;
-      const r = calendarRate(
-        e.input.baseRateVnd as number,
-        d,
-        'direct',
-        pp(e).calendar,
-        pp(e).nightRateUnit,
-      );
-      expect(r.rateVnd).toBe(e.expected.rateVnd);
-      if (e.expected.isSpecialDate !== undefined) {
-        expect(pp(e).calendar.specialDates.some((s) => d >= s.from && d < s.to)).toBe(
-          e.expected.isSpecialDate,
-        );
-      }
-    });
-  }
-
-  pending('BR-107-07')('BR-107-07 no length-of-stay discount: 7 × 800.000', () => {
-    const e = ex('BR-107-07');
-    const arrival = e.input.arrivalDate as string;
-    const r = stay(e, {
-      roomNo: e.input.roomNo as string,
-      listVnd: e.input.nightlyListPriceVnd as number,
-      arrival,
-      departure: addN(arrival, e.input.nights as number),
-    });
-    expect(r.losDiscountPct * 100).toBe(e.expected.discountBp);
-    expect(r.totalRoomVnd).toBe(e.expected.roomTotalVnd);
-  });
-
-  pending('BR-108-02')('BR-108-02 20 nights: no monthly compare, 20 × 800.000', () => {
-    const e = ex('BR-108-02');
-    const nights = e.input.nights as number;
-    expect(nights >= Pe<number>(e, 'long_stay_compare_from_nights')).toBe(
-      e.expected.showLongStayOption,
-    );
-    const r = stay(e, {
-      roomNo: '102',
-      listVnd: e.input.nightlyListPriceVnd as number,
-      arrival: ANY_ARRIVAL,
-      departure: addN(ANY_ARRIVAL, nights),
-    });
-    expect(r.totalRoomVnd).toBe(e.expected.shortStayTotalVnd);
-  });
-
-  pending('BR-108-03')('BR-108-03 29 nights short, 30 nights a lease (30-night mark)', () => {
-    const e = ex('BR-108-03');
-    for (const n of e.input.nightsCases as number[]) {
-      const want = e.expected[String(n)] as Record<string, unknown>;
-      const kind = n >= pp(e).longStayRequiredFromNights ? 'long' : 'short';
-      expect(kind, `${n} nights`).toBe(want.stayKind);
-      if (kind === 'short') expect(n).toBeLessThanOrEqual(pp(e).shortStayMaxNights);
-    }
-  });
-
-  // FB-R4-BE-DOM-P411-01: the row's `params` lack `los_discount: []` / `weekend_uplift_pct: 0`, so DS-E's 15 % tier
-  // applies (29 × 800.000 × 0,85 = 20.536.000 ≠ 23.200.000). Runs as soon as DOM completes the row (P4-20).
-  const has0111Table = (id: string) =>
-    Array.isArray(ex(id).params?.los_discount) &&
-    (ex(id).params?.los_discount as unknown[]).length === 0;
-  (ex('BR-108-03').calc === null && has0111Table('BR-108-03') ? it : it.skip)(
-    'BR-108-03 29 nights short total 23.200.000 (row params with the 01/11 table)',
-    () => {
-      const e = ex('BR-108-03');
-      for (const n of e.input.nightsCases as number[]) {
-        const want = e.expected[String(n)] as Record<string, unknown>;
-        if (n >= pp(e).longStayRequiredFromNights) continue;
+  it.each(byCalc('stayKindByNights').map((e) => [e.id, e] as const))(
+    '%s short stay or lease by the number of nights (BR-108), short total through the engine',
+    (_id, e) => {
+      const cases = (e.input.nightsCases as number[] | undefined) ?? [e.input.nights as number];
+      for (const n of cases) {
+        const want = (e.input.nightsCases ? e.expected[String(n)] : e.expected) as Record<
+          string,
+          unknown
+        >;
+        const kind = n >= pp(e).longStayRequiredFromNights ? 'long' : 'short';
+        if (want.stayKind !== undefined) expect(kind, `${n} nights`).toBe(want.stayKind);
+        if (kind === 'long') continue; // lease numbers: leaseRent / leaseDeposit blocks of the lease engine
+        expect(n).toBeLessThanOrEqual(pp(e).shortStayMaxNights);
+        if (want.showLongStayOption !== undefined) {
+          expect(n >= Pe<number>(e, 'long_stay_compare_from_nights')).toBe(want.showLongStayOption);
+        }
         const r = stay(e, {
-          roomNo: '102',
+          roomNo: ROOM_OF_TYPE[e.input.publicRoomType as string] ?? '102',
           listVnd: e.input.nightlyListPriceVnd as number,
           arrival: ANY_ARRIVAL,
           departure: addN(ANY_ARRIVAL, n),
-          party: persons(e.input),
+          party: e.input.adults === undefined ? undefined : persons(e.input),
         });
-        expect(r.totalRoomVnd).toBe(want.shortStayTotalVnd);
+        expect(r.totalRoomVnd, `${n} nights`).toBe(want.shortStayTotalVnd);
       }
     },
   );
 
-  for (const id of ['BR-110-18', 'BR-110-19'] as const) {
-    pending(id)(`${id} extra person from 6 years at 150.000`, () => {
-      const e = ex(id);
-      const room = roomOf(e);
-      const party = persons(e.input);
-      expect(countedPersons(party) <= room.maxOccupancy).toBe(e.expected.accepted);
-      const x = extraPersons(party, room.baseOccupancy, {
-        adultVnd: pp(e).extraAdultFeeVnd,
-        child611Vnd: pp(e).child611FeeVnd,
-      });
-      const nights = e.input.nights as number;
-      expect(x.extraCount).toBe(e.expected.extraGuestKits);
-      expect(x.perNightVnd * nights).toBe(e.expected.extraPersonFeeVnd);
-      if (e.expected.roomTotalVnd !== undefined) {
-        const r = stay(e, {
-          roomNo: e.input.roomNo as string,
-          listVnd: e.input.nightlyListPriceVnd as number,
-          arrival: ANY_ARRIVAL,
-          departure: addN(ANY_ARRIVAL, nights),
-          party,
-        });
-        expect(r.totalRoomVnd).toBe(e.expected.roomTotalVnd);
-        expect(r.extraPersonFeeVnd).toBe(e.expected.extraPersonFeeVnd);
-        expect(r.totalRoomVnd + r.extraPersonFeeVnd).toBe(e.expected.totalVnd);
-      }
-    });
-  }
-
-  pending('BR-110-20')(
-    'BR-110-20 one adult more from 22/10: the fee on the nights from then',
-    () => {
-      const e = ex('BR-110-20');
+  it.each(byCalc('extraPersonFeeChange').map((e) => [e.id, e] as const))(
+    '%s a person added mid-stay: the BR-110 fee on the nights from then (BR-110, per night)',
+    (_id, e) => {
       const room = roomOf(e);
       const before = persons(e.input);
-      const change = e.input.change as { addAdults: number; effectiveFrom: string };
-      const after = { ...before, adults: before.adults + change.addAdults };
+      const change = e.input.change as { addAdults?: number; effectiveFrom: string };
+      const after = { ...before, adults: before.adults + (change.addAdults ?? 0) };
       const fees = { adultVnd: pp(e).extraAdultFeeVnd, child611Vnd: pp(e).child611FeeVnd };
       const perNight = nightDates(
         e.input.arrivalDate as string,
         e.input.departureDate as string,
-      ).map((d) =>
-        extraPersons(d < change.effectiveFrom ? before : after, room.baseOccupancy, fees),
+      ).map(
+        (d) =>
+          extraPersons(d < change.effectiveFrom ? before : after, room.baseOccupancy, fees)
+            .perNightVnd,
       );
-      expect(perNight.at(-1)!.perNightVnd).toBe(e.expected.extraPersonFeePerNightVnd);
-      expect(perNight.reduce((a, x) => a + x.perNightVnd, 0)).toBe(e.expected.extraPersonFeeVnd);
+      expect(perNight.at(-1)).toBe(e.expected.extraPersonFeePerNightVnd);
+      // only the nights from the change carry the new fee (the booking had no extra person before)
+      expect(perNight.reduce((a, x) => a + x, 0)).toBe(e.expected.extraPersonFeeVnd);
     },
   );
 
-  pending('BR-114-02')('BR-114-02 Saturday and 31/12 at the weekday price', () => {
-    const e = ex('BR-114-02');
-    const rates = (e.input.nights as string[]).map(
-      (d) =>
-        calendarRate(
-          e.input.nightlyListPriceVnd as number,
-          d,
-          'direct',
-          pp(e).calendar,
-          pp(e).nightRateUnit,
-        ).rateVnd,
-    );
-    expect(rates).toEqual(e.expected.ratesVnd);
-    expect(Math.min(...rates)).toBe(e.expected.weekendFromPriceVnd);
-    expect(pp(e).calendar.specialUpliftPct > 0).toBe(e.expected.showHigherOnHolidaysClause);
-  });
+  it.each(byCalc('nightRates').map((e) => [e.id, e] as const))(
+    '%s rate of each night by the calendar (BR-104/BR-114)',
+    (_id, e) => {
+      const group = e.input.channel === 'ota' ? 'ota' : 'direct';
+      const unit = group === 'ota' ? pp(e).otaRateUnit : pp(e).nightRateUnit;
+      const rates = (e.input.nights as string[]).map(
+        (d) =>
+          calendarRate(e.input.nightlyListPriceVnd as number, d, group, pp(e).calendar, unit)
+            .rateVnd,
+      );
+      expect(rates).toEqual(e.expected.ratesVnd);
+      if (e.expected.weekendFromPriceVnd !== undefined)
+        expect(Math.min(...rates)).toBe(e.expected.weekendFromPriceVnd);
+      if (e.expected.showHigherOnHolidaysClause !== undefined)
+        expect(pp(e).calendar.specialUpliftPct > 0).toBe(e.expected.showHigherOnHolidaysClause);
+    },
+  );
 
   it.todo(
-    'BR-114-01, BR-115-01…08, BR-116-01 web estimate rows – after main@L (public price module of LP-v2)',
+    'fromPrice / webEstimate / parityFloor rows (BR-114-01, BR-115-01…08, BR-116-01) – after main@L (LP-v2 public price module)',
   );
 });

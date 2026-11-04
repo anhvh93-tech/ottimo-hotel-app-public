@@ -1291,7 +1291,8 @@
       },
       "br": "BR-903",
       "status": "INV-005",
-      "effectiveFrom": "2026-10-01"
+      "effectiveFrom": "2026-10-01",
+      "note": "Ví dụ theo tỷ lệ cũ ESC-005 (trước 01/11 – hết hiệu lực). Tỷ lệ từ 01/11 theo bảng nội bộ INV, không ghi ở kho mã (FB-R4-SEC-BE-01; OWN nhập trên Desk ở H2)"
     },
     {
       "param": "contingency_sheet_time",
@@ -1402,6 +1403,7 @@
       "commissionCollaboratorPct": "6"
     }
   ],
+  "leaseTermsNote": "commissionStaffPct / commissionCollaboratorPct: Ví dụ theo tỷ lệ cũ ESC-005 (trước 01/11 – hết hiệu lực). Tỷ lệ từ 01/11 theo bảng nội bộ INV, không ghi ở kho mã (FB-R4-SEC-BE-01; OWN nhập trên Desk ở H2). discountPct/deposit factors là bảng trước 01/11 (DS-E); bảng 01/11 ở params.lease_terms của oracle",
   "utilityEstimate": {
     "vn": {
       "kwhPerPerson": 120,

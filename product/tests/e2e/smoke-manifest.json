@@ -351,7 +351,7 @@
       "layers": "U+A",
       "priority": "Cao (S)",
       "status": "implemented",
-      "title": "Giá đêm sau lịch giá 792.000 × 5, 911.000 × 2 → giảm 10%: 713.000 / 820.000; tổng 5.205.000; cọc 1.600.000; hoa hồng CTV 8% = 416.400 (oracle BR-107-01, BR-305-01, BR-903-01)",
+      "title": "Giá đêm sau lịch giá 792.000 × 5, 911.000 × 2 → giảm 10%: 713.000 / 820.000; tổng 5.205.000; cọc 1.600.000; hoa hồng CTV 8% = 416.400 – ví dụ theo tỷ lệ cũ trước 01/11, hết hiệu lực (oracle BR-107-01, BR-305-01, BR-903-01)",
       "endpoints": "calculateQuote",
       "spec": "api/quotes-holds.api.spec.ts",
       "project": "api",

@@ -465,6 +465,8 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
   { key: 'maintenance_due_warning_days', br: 'BR-810', status: 'NGANH', value: 7 },
   { key: 'guest_request_response_minutes', br: 'BR-811', status: 'GD', value: 10 },
   { key: 'front_desk_hours', br: 'BR-811', status: 'GD', value: ['07:00', '22:00'] },
+  // Old ESC-005 rates (before 01/11, superseded) – kept only so a fresh bootstrap is not empty. The rates from 01/11
+  // are the INV internal table and are NOT written in the repo (FB-R4-SEC-BE-01); OWN enters them on Desk at H2.
   {
     key: 'short_stay_commission_pct',
     br: 'BR-903',
@@ -482,6 +484,8 @@ export const PRODUCTION_PARAMETERS: readonly ProductionParameter[] = [
     value: { collaborator: 3, sales_staff: 5 },
   },
   { key: 'staff_payment_backdate_max_hours', br: 'BR-527', status: 'NGANH', value: 24 },
+  // commissionStaffPct / commissionCollaboratorPct below: old ESC-005 rates (before 01/11, superseded); the 01/11
+  // table is entered by OWN on Desk at H2 and is not written in the repo (FB-R4-SEC-BE-01).
   {
     key: 'lease_terms',
     br: 'BR-201',

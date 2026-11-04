@@ -66,6 +66,8 @@ const nightsBetween = (a, b) => Array.from({ length: diffDays(b, a) }, (_, i) =>
 const minT = (...xs) => Math.min(...xs);
 
 // ---------------------------------------------------------------- reference calculators (one per `calc` name)
+// staff / collaborator (bp): ví dụ theo tỷ lệ cũ ESC-005 (trước 01/11 – hết hiệu lực), chỉ để kiểm các dòng oracle cũ.
+// Tỷ lệ hoa hồng từ 01/11 theo bảng nội bộ INV, không ghi ở kho mã (FB-R4-SEC-BE-01).
 const LEASE_TIERS = [
   {
     months: 1,
