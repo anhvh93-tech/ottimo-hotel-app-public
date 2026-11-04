@@ -15,9 +15,16 @@ import type { Tx } from '../../db/database';
 import { problem } from '../problem';
 import type { GuardedRequest } from './auth.guard';
 
-/** `"7"`, `W/"7"` or bare `7` → 7. Anything else (lists, `*`, non-integers) → null. */
+/**
+ * `"7"`, `W/"7"`, bare `7` → 7; the same with a content-coding suffix (`"7-gzip"`, `W/"7-zstd"`, `"7-br"`) → 7.
+ * Anything else (lists, `*`, non-integers, other suffixes) → null.
+ *
+ * The suffix: a compressing proxy (Caddy `encode`) rewrites `ETag: "6"` to `"6-gzip"` and a browser sends it back
+ * in `If-Match` (V3-09). ARC plan v1.0.4 decision 6.2: the server accepts `-gzip`/`-zstd`/`-br`, Caddy is not
+ * changed, and the contract tells clients to prefer `version` from the body.
+ */
 export function parseEntityTag(raw: string): number | null {
-  const m = /^\s*(?:W\/)?("?)(\d{1,9})\1\s*$/.exec(raw);
+  const m = /^\s*(?:W\/)?("?)(\d{1,9})(?:-(?:gzip|zstd|br))?\1\s*$/.exec(raw);
   if (!m) return null;
   const n = Number(m[2]);
   return Number.isSafeInteger(n) ? n : null;

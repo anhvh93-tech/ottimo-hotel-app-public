@@ -9,9 +9,11 @@
  *                           Times on the BUSINESS-DAY axis: 00:00–05:59 is after midnight (DOM G-16).
  * - departureReminderState  US-031 / BR-425 marks.
  * - earlyDepartureRefund    BR-428 / BR-011.
+ * - earlyDepartureRuleOf    BR-313 vs BR-428 by the lease end of a manual long stay (v1.0.4 P4-11).
  */
 import type { LocalDate, LocalTime } from '../../../shared/time';
 import { divideRoundVnd } from '../../platform/public/money';
+import { type LeaseEndSource, leaseEndDateOf } from '../../reservations/public/lease-end';
 import { applyPct, nightsOf, noticeDays } from '../../reservations/public/pricing';
 
 export interface EarlyTier {
@@ -208,6 +210,23 @@ export function earlyDepartureRefund(i: {
   const refundVnd =
     days >= i.policy.minNoticeDays ? applyPct(i.droppedNightsVnd, i.policy.refundPct, i.unit) : 0;
   return { noticeDays: days, refundVnd };
+}
+
+/**
+ * v1.0.4 P4-11 (ARC plan v1.0.4 decision 6.1, DOM FB-R4-DOM-BE-A-04): the rule a B16 new departure falls under.
+ * A manual long stay leaving BEFORE its lease end (`leaseEndDateOf` – frozen at check-in, so a B13 extension does
+ * not move it) breaks the lease → BR-313 (deposit per the lease; no notice days). Leaving on or after the lease end
+ * (only the B13 extension nights are dropped) or any other booking → BR-428.
+ */
+export function earlyDepartureRuleOf(
+  row: LeaseEndSource,
+  newDeparture: LocalDate,
+): { rule: 'BR-313' | 'BR-428'; leaseEndDate: LocalDate | null } {
+  const leaseEndDate = leaseEndDateOf(row);
+  return {
+    rule: leaseEndDate !== null && newDeparture < leaseEndDate ? 'BR-313' : 'BR-428',
+    leaseEndDate,
+  };
 }
 
 export { nightsOf };

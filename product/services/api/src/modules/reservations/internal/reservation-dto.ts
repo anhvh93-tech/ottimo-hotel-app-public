@@ -5,6 +5,7 @@
  */
 import { maskPhone } from '../../guests/public/normalize';
 import type { LocalDate } from '../../../shared/time';
+import { leaseEndDateOf } from '../public/lease-end';
 import { nightsOf } from '../public/pricing';
 import type { AllowedAction } from './allowed-actions';
 import type { ReservationRow, SegmentRow } from './reservation-store';
@@ -118,6 +119,9 @@ export function toReservationDto(d: DtoInput): Record<string, unknown> {
             ...(manual.deposit_held_vnd !== undefined
               ? { depositHeldVnd: manual.deposit_held_vnd }
               : {}),
+            // v1.0.4 P4-11 (ARC plan v1.0.4 decision 6.1): lease end – frozen at check-in, then B13 moves only
+            // `departureDate`. Contract field from OpenAPI 0.3.12 (P4-00); the role serializer drops it before.
+            ...leaseEnd(row),
           },
         }
       : {}),
@@ -215,6 +219,11 @@ export function toReservationDto(d: DtoInput): Record<string, unknown> {
     allowedActions: d.actions,
     version: row.version,
   };
+}
+
+function leaseEnd(row: ReservationRow): { leaseEndDate?: LocalDate } {
+  const d = leaseEndDateOf(row);
+  return d ? { leaseEndDate: d } : {};
 }
 
 function progress(row: ReservationRow, iso: (i: Date) => string) {

@@ -37,6 +37,8 @@ export interface ReservationRow {
   folio_id: string | null;
   arrival_date: LocalDate;
   departure_date: LocalDate;
+  /** Departure at confirmation (erd `booked_*`) – v1.0.4 P4-11 lease end fallback (`reservations/public/lease-end`). */
+  booked_departure_date?: LocalDate | null;
   adults: number;
   children_6_11: number;
   children_under_6: number;
@@ -101,7 +103,7 @@ export const RESERVATION_COLUMNS = `r.id, r.organization_id, r.property_id, r.co
   r.checkout_mode,
   r.checkin_room_status_before, r.early_departure_notice_at, r.party_version, r.created_at, r.created_by,
   r.updated_at, r.version, r.deposit_shortfall_vnd, r.deposit_shortfall_accepted_at, r.deposit_shortfall_reason,
-  r.room_disclosed_to_guest, r.origin_room_id,
+  r.room_disclosed_to_guest, r.origin_room_id, r.booked_departure_date::text AS booked_departure_date,
   (SELECT su.display_name FROM app_user su WHERE su.id = r.deposit_shortfall_accepted_by)
     AS deposit_shortfall_accepted_by_name`;
 

@@ -21,6 +21,7 @@ import {
 import type { ApprovalRow } from '../../approvals/public/approval.service';
 import { AuditService } from '../../audit/public/audit.service';
 import { PaymentService, type PaymentCreateInput } from '../../payments/public/payment.service';
+import { LEASE_END_DATE_KEY } from '../../reservations/public/lease-end';
 import {
   type BookingContext,
   FDL_PLUS,
@@ -790,6 +791,12 @@ export class CheckinService {
               checkin_document_override_reason = $6, checkin_document_override_by = $7,
               checkin_room_override_reason = $8, checkin_room_override_by = $9,
               checkin_room_status_before = $10, room_disclosed_to_guest = true,
+              -- v1.0.4 P4-11 (ARC plan v1.0.4 decision 6.1): freeze the lease end of a manual long stay (B13 moves
+              -- only departure_date from now on) – reservations/public/lease-end.ts reads it.
+              manual_long_stay = CASE
+                WHEN stay_type = 'long' AND external_contract AND manual_long_stay IS NOT NULL
+                  THEN manual_long_stay || jsonb_build_object($11::text, departure_date::text)
+                ELSE manual_long_stay END,
               updated_at = $2::timestamptz, version = version + 1
         WHERE id = $1`,
       [
@@ -803,6 +810,7 @@ export class CheckinService {
         roomOverrideBy ? (roomOverrideReason ?? 'approved') : null,
         roomOverrideBy ? ctx.actor.userId : null,
         e.roomStatus,
+        LEASE_END_DATE_KEY,
       ],
     );
     await recordTransition(tx, {
@@ -1071,10 +1079,13 @@ export class CheckinService {
               house_rules_sent_at = NULL, house_rules_sent_by = NULL, door_access_handed_over_at = NULL,
               door_access_handed_over_by = NULL, checkin_document_override_reason = NULL,
               checkin_document_override_by = NULL, checkin_room_override_reason = NULL,
-              checkin_room_override_by = NULL, checkin_room_status_before = NULL, updated_at = $2,
-              version = version + 1
+              checkin_room_override_by = NULL, checkin_room_status_before = NULL,
+              -- v1.0.4 P4-11: back to "not checked in" – the lease end follows departure_date again (PATCH).
+              manual_long_stay = CASE WHEN manual_long_stay IS NULL THEN NULL
+                ELSE manual_long_stay - $3::text END,
+              updated_at = $2, version = version + 1
         WHERE id = $1`,
-      [row.id, ctx.now],
+      [row.id, ctx.now, LEASE_END_DATE_KEY],
     );
     await recordTransition(tx, {
       reservationId: row.id,
