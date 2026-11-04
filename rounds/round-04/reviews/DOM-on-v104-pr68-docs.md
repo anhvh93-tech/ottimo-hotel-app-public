@@ -524,3 +524,69 @@ Thẻ FB-R4-ARC-DOM-PR73-01 (`ARC-on-v104-pr73-ota-fallback.md`). Đọc mã tr�
 
 ### Kết luận lượt 5
 Không có thẻ mới. Thẻ FB-R4-ARC-DOM-PR73-01 (a), (b) đã làm; (c) đã rà, phần nhật ký fixture là việc của QA sau #74. Các tệp chưa commit.
+
+## DOM lượt 6 (05/11) – QA quan sát Q-05: đêm "Nội bộ có thu" mang `is_complimentary = true`
+
+Nguồn: `rounds/round-04/qa/bug-list-v1.0.4.md`, mục BUG-R4-038, dòng "Quan sát, không cấp lỗi". Đọc mã trên `main` @ `476fd9b8`. DOM không chạy test.
+
+### 1. Đúng hay sai: **sai nghiệp vụ. Đêm Nội bộ có thu phải là `is_complimentary = false`.**
+- Quy tắc: **cờ miễn phí đi theo tiền, không theo kênh.**
+  - Một đêm là miễn phí khi **tiền phòng sau giảm của đêm bằng 0**. Quy tắc này áp cho mọi kênh.
+  - Một đơn là miễn phí khi tổng tiền phòng bằng 0.
+  - Đây là cách làm chuẩn của ngành: đêm miễn phí là đêm có khách mà không tính tiền. Đêm bán giá nội bộ (nhân viên, người nhà, người quen trả giá vốn) vẫn là **đêm bán có thu tiền**. Muốn xem riêng nhóm này thì xem theo kênh Nội bộ.
+- BR-904 (v0.3.2) ghi "đêm của đơn kênh Nội bộ là đêm có khách miễn phí". Câu này viết khi Nội bộ chỉ có giá 0. Từ khi có "Nội bộ có thu" (EP02; BR-421 v0.5.3 (b)), câu đó thiếu. BR-421 (b) nói "như lúc tạo đơn" là nói về **giá** (gõ > 0, nguồn `manual`), không nói về cờ.
+- Mã hiện nay:
+  - Lúc tạo đơn, cờ ghi theo kênh: đơn có `group === 'internal' || tổng 0` (`reservations.service.ts` 803); đêm có `w.isComplimentary || n.amountVnd === 0` (`reservation-store.ts` `insertNights`, dòng 239, gọi với `group === 'internal'`, dòng 881).
+  - Đêm thêm B13/B9a/B18 chép cờ của đơn (dòng 2769, 3823).
+  - Khi ghi lại giá, cờ không nhất quán, nên càng cần quy tắc trên:
+    - A31 (`stay-night-pricing.ts` 185) đổi giá và tiền nhưng **không** đổi cờ. Đêm Nội bộ 0 đ được sửa lên 300.000 vẫn `true`.
+    - `setDiscount`/`addDiscount` (`stay-night-allocation.ts`) lại **tính lại** cờ khi gross > 0. Đêm Nội bộ 300.000 có giảm một phần sẽ thành `false`.
+    - Vậy cùng một đêm có thể mang cờ nào là tùy lịch sử thao tác.
+
+### 2. Cờ này làm sai chỉ số nào
+
+| Chỉ số / nơi | Sai? | Vì sao |
+|---|---|---|
+| Công suất K-03, "Công suất đêm nay" | Không | Đếm đêm `sold` đã gán căn, kể cả đêm miễn phí. `tonight-kpi.ts` không đọc cờ |
+| Doanh thu phòng K-06 | Không | Σ `room_revenue_vnd`; khoản 300.000 vẫn được cộng |
+| RevPAR K-05 | Không | Doanh thu ÷ đêm khả dụng, không dùng cờ |
+| **ADR K-04** | **Có**, khi có báo cáo | Tử số có 300.000 nhưng mẫu số "đêm bán có thu" (Q-05) bỏ đêm này, nên ADR cao hơn thật. Ví dụ: tháng có 200 đêm bán, doanh thu 170.000.000, thêm 2 đêm Nội bộ 300.000. Đúng: 170.600.000 ÷ 202 = **844.554**. Sai: ÷ 200 = **853.000** (+8.446, khoảng 1 %) |
+| Đếm đêm miễn phí và đêm bán có thu (K-02) | **Có** | Mỗi đêm Nội bộ có thu bị đếm sai loại |
+| FOC K-18, cảnh báo BR-435, hạn mức BR-433 | Không | Tính trên dòng FOC và tiền dòng phòng, không đọc cờ |
+| Chốt ca, đối soát két, folio, công nợ | Không | Tính theo giao dịch và folio |
+| Dấu hiệu dữ liệu 037/038 (Q1–Q5) | Không | Dùng `source` trong bản chụp giá, không dùng cờ. Lưu ý cho DATA/BE: **đừng** dùng `is_complimentary = true AND gross > 0` làm dấu hiệu đơn Nội bộ bị 037 (bảng 1.3 của `bug-r4-037-data-impact.md`). Điều kiện đó bắt cả đơn Nội bộ có thu đúng |
+
+Hôm nay, ở v1.0.x:
+- Desk chưa vẽ ADR, RevPAR (`OverviewPage.tsx`: "ADR/RevPAR are R3 – not drawn"). API không trả cờ này ra ngoài.
+- Không màn nào hiện số sai. Chỉ dữ liệu lưu bị sai, và sẽ ảnh hưởng báo cáo tháng (R3) cùng các câu SQL DATA tự chạy.
+
+### 3. Mức và thời điểm: **không phải P1. DOM đề xuất P3, sửa ở v1.0.5**, kèm điều kiện. QA chốt mức.
+- Lý do:
+  - (a) Không sai tiền, và không màn nào đọc cờ.
+  - (b) Cờ tính lại được chính xác từ cột tiền bất cứ lúc nào, nên chờ tới v1.0.5 không mất thông tin.
+  - (c) Đơn Nội bộ có thu ở OTTIMO rất ít. Nội bộ chủ yếu là chủ đầu tư hoặc nhân viên ở giá 0; có thu chỉ khi người quen hay nhân viên trả giá vốn. DOM ước 0–2 đơn mỗi tháng, chưa có số thật; QA/DATA đếm được bằng một câu đọc trên `stay_night`, lọc kênh Nội bộ, gross > 0.
+  - (d) Sửa ở v1.0.4 sẽ chạm `insertNights`, đường ghi đêm của **mọi** đơn, ngay trước khi phát hành. Rủi ro lớn hơn lợi.
+- Điều kiện:
+  - Sửa mã và tính lại dữ liệu **trước báo cáo ADR đầu tiên** (R3, hoặc số tháng DATA gửi chủ đầu tư).
+  - Tới lúc đó, DATA tính đêm miễn phí bằng `room_revenue_vnd = 0`, không dùng cờ.
+- Việc ở v1.0.5:
+  - **BE (ARC chọn cách):** cờ đêm = `room_revenue_vnd = 0` ở mọi đường ghi:
+    - `insertNights`: bỏ `w.isComplimentary ||`;
+    - A31 `setNightRate`;
+    - `setDiscount`/`addDiscount`: gross 0 thì `true`;
+    - ghi lại giá B9a/B13/B18.
+    - Cờ đơn = tổng tiền phòng bằng 0, tính lại mỗi khi giá đổi. ARC kiểm thêm đêm dài hạn (`lease-nights.ts`).
+  - **OPS/BE:** tính lại cờ một lần trên dữ liệu đã có, theo điều kiện SEC, ORC duyệt như các lượt sửa dữ liệu trước.
+  - **DATA:** sửa `metrics-definitions.md` Q-05, phần "Nguồn đêm miễn phí", theo quy tắc ở mục 1.
+  - **BA:** sửa EP02, mục kênh Nội bộ.
+  - **ARC:** sửa `erd.md` dòng `is_complimentary`.
+  - **DOM:** sửa câu Kênh Nội bộ của BR-904 thành "đêm Nội bộ tiền phòng 0 là đêm miễn phí; Nội bộ có thu là đêm bán có thu tiền, vào ADR", lên BR v0.5.5, **khi ORC đồng ý**.
+
+### 4. Dòng đề xuất decision-log (ORC ghi)
+
+| Ngày | Round | Quyết định | Người quyết | Lý do |
+|---|---|---|---|---|
+| 2026-11-05 | 4 | Đêm miễn phí (`stay_night.is_complimentary`) đi theo tiền, không theo kênh: `true` khi tiền phòng sau giảm của đêm bằng 0, ở mọi kênh. Đêm "Nội bộ có thu" (> 0) là đêm bán có thu tiền và vào ADR. Cờ của đơn = tổng tiền phòng bằng 0. Sửa mã và tính lại dữ liệu ở v1.0.5, trước báo cáo ADR đầu tiên; tới lúc đó DATA tính đêm miễn phí bằng `room_revenue_vnd = 0`. DOM đề xuất P3, QA chốt | DOM | Chuẩn ngành: đêm miễn phí là đêm có khách không tính tiền. BR-421 v0.5.3 (b) cho phép Nội bộ có thu. QA quan sát Q-05 (BUG-R4-038). Không sai tiền, ở v1.0.x không màn nào đọc cờ, và cờ tính lại được từ cột tiền |
+
+### Kết luận lượt 6
+Không có ESC. Đây là quy tắc ngành, DOM tự chốt. Không có thẻ mới cho #68. Tệp chưa commit.
