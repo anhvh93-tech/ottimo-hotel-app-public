@@ -103,3 +103,34 @@ ARC chốt: v1.0.4 (gói P4-16) máy chủ chỉ nhận `privacy-2026-10-v2`; gi
 - `02` 7.2 bước 1: chỉ làm sau khi chủ đầu tư báo v1.0.4 (có P4-16) đã lên. Bước 3: cùng câu "chưa lưu gì", tờ v2 vẫn để trên quầy.
 - Không có đường "OPS/đội kỹ thuật sửa dữ liệu" ở bất kỳ chỗ nào; giữ câu "Không nhờ đội kỹ thuật đặt hộ hay sửa thẳng dữ liệu".
 - SEC 09: (a) đã có trong P4-16, tài liệu dùng đúng chuỗi lỗi; G-BA-104-4 bỏ nhánh "09(a) không kịp" (ngày thay tờ gắn với P4-16). 09(b) chưa vào tài liệu.
+
+---
+
+## 8. Lượt 3 (04/11) – DOM lượt 3 (thẻ 10, 11, ghi chú) và SEC xác nhận (thẻ 10, 11, 12, P416-03c)
+
+DOM lượt 3 và SEC: gộp **ĐẠT**; DOM 07–09 và SEC 01–08 **Closed**; đồng ý 3 chỗ BA làm khác (mục 7.3). Sửa trên `v104/ba-docs` (đầu cũ `97d7ae5d`). Khối chữ tờ v2 trong `02` 7.2 không đổi.
+
+| ID | Trạng thái | Đã sửa |
+|---|---|---|
+| FB-R4-DOM-BA-104-10 (Minor) | Done | Hai dòng **Mở quầy** (`02` mục 2, mục 18) và `02` 7.2 bước 11, `00-index` mục 4 bước 9: "**Từ hôm sau ngày sổ giao ca có dòng "Thay tờ v2 hh:mm – tham số v2 hh:mm"**: chân tờ có chữ v2, cả tờ trong ngăn quầy. Chưa có dòng đó: tờ v1 là đúng, **không** tự thay tờ v2." Nhánh đặt lại v1 (`02` bước 6, `00-index` bước 3.8): tờ v2 cất **khỏi quầy**, trong phong bì ghi "Tờ v2 – chờ chủ đầu tư hẹn ngày thay", chưa hủy; sổ giao ca ghi "Đặt lại v1 hh:mm – tờ v2 cất ở …" |
+| FB-R4-DOM-BA-104-11 (Suggestion) | Done | `00-index` 3.3: "Lưu xong, nói "**Đã Lưu**" với người trực **trước khi gác máy**." `02` bước 3: chủ đầu tư nói "Đã Lưu" trước khi gác máy; nghe "Đã Lưu" thì giữ tờ v2, kể cả khi đã nhắn "Đặt lại v1". `02` bước 6: "Đã nhắn "Đặt lại v1" mà chưa đặt tờ v1, chủ đầu tư gọi tới: nói rõ "vừa nhắn đặt lại v1, tờ v2 còn trên quầy" và làm theo lời chủ đầu tư. Nghe "**Đã Lưu**" thì giữ tờ v2, bỏ việc đặt lại v1." `00-index` 3.8 trỏ sang |
+| DOM ghi chú | Done | Sổ tay 1.5, `01` 1.9: "Người nghỉ êm: bước 1 → 8 theo số (riêng **Đăng xuất** app nhân viên ở bước 7 làm trước bước 3)" |
+| FB-R4-SEC-BA-104-10 (Suggestion) | Done | `00-index` 3.4: Desk báo **bất kỳ lỗi nào** ở ô **Giá trị mới** (ví dụ "Chọn một giá trị trong danh sách." khi thiếu ngoặc kép, hoặc "Giá trị này nằm ngoài khoảng cho phép. Chọn một trong: privacy-2026-10-v2.") nghĩa là chưa lưu gì; "Chỉ tin bảng **Lịch sử thay đổi**". `02` bước 3 cùng ý (người trực không thấy Desk nên ghi "chủ đầu tư nói Desk báo lỗi…") |
+| FB-R4-SEC-BA-104-11 (Minor) | Done | Nhánh tin đi chéo (`00-index` bước 4, `02` bước 7): "khách xem v2 rồi nói không muốn dịch: ghi "không dịch" cạnh mã đơn, không đưa tin của khách đó qua dịch vụ dịch". `02` 13.1d phần 3 thêm câu chung cho mọi khách: ghi "không dịch" cạnh mã đơn trong sổ giao ca; trước khi dịch, người đọc tin kiểm sổ giao ca, mã đơn có "không dịch" hoặc "chưa xem v2" thì không dịch |
+| FB-R4-SEC-BA-104-12 (Suggestion) | Done | `01` 12.1: "gỡ khỏi phòng theo thứ tự ở mục 1.9, khối **Ngày cuối của người nghỉ** (người bị cho thôi việc: ngay lúc báo, cùng lần **Khóa tài khoản**)" |
+| SEC P416-03(c) | Done, có giả định | `00-index` mục 4 bước 1 thêm ý **Kiểm lịch đã đặt** (trước ngày thay và sáng ngày thay, trước bước 3): mở **Quản trị → Tham số quy tắc** → **Khác** → `privacy_notice_version` → **Sửa**, bảng **Lịch sử thay đổi** không được có dòng ngày hiệu lực sau hôm nay (nhãn **Chưa hiệu lực**, chuỗi `params.not_yet`); có thì hủy bằng nút hủy trên dòng đó rồi mới làm tiếp; không hủy được trên Desk thì không thay tờ hôm đó, báo đội, không nhờ sửa thẳng dữ liệu. Không SQL |
+
+### 8.1 Chỗ BA làm khác hoặc cần đội xác nhận
+
+1. **Nút hủy dòng đã lên lịch (P416-03c) – G-BA-104-5.** Trên `origin/main`, hộp sửa tham số (`ParamDialog.tsx`) **chưa có** nút hủy dòng đã lên lịch; máy chủ đã có `cancelScheduledParameter` (`POST …/parameters/{key}/actions/cancel-scheduled`), nhưng Desk chỉ gắn nút ở trang tài khoản nhận tiền (`ReceivingAccount.tsx`, nhãn `rcv.cancel_scheduled`). BA viết "nút hủy trên chính dòng ấy", không ghi tên nút. **Giả định:** gói P4-16 (hoặc FE v1.0.4) thêm nút này vào bảng **Lịch sử thay đổi** của `ParamDialog`. Khi FE chốt nhãn, BA ghi đúng tên. Nếu v1.0.4 không có nút: tài liệu đã có nhánh "không hủy được trên Desk thì không thay tờ hôm đó, báo đội", nhưng khi đó chủ đầu tư không tự gỡ được dòng lên lịch – ORC cân nhắc giao FE.
+2. **Tệp v2 trên máy tính bảng khi đặt lại v1** (DOM 10 ghi "tờ v2 (và tệp v2) cất khỏi quầy"): BA giữ bước "máy tính bảng xóa tệp v2" (SEC 04, để máy tính bảng chỉ có tệp v1), thêm "anh/chị vẫn giữ tệp v2 gốc" ở `00-index`. Tờ in v2 vào phong bì như DOM.
+
+### 8.2 Đã kiểm
+
+- `build_guides.py` dựng lại trên bản chép (tờ A4 v2 từ `origin/v104/uxd-id-sheet-v2`): khớp nguyên văn bản A4 (10 đoạn + nhãn, tiêu đề, chân tờ); không có cảnh báo trỏ mục.
+- Không có mật khẩu, mã, email thật trong phần sửa.
+
+### 8.3 Còn mở
+
+- Chờ DOM, SEC xác nhận thẻ 10, 11, 12, P416-03(c), ghi chú DOM.
+- G-BA-104-5 (nút hủy dòng đã lên lịch): chờ FE/ARC xác nhận có trong v1.0.4 và tên nút.

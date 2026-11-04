@@ -389,7 +389,7 @@ Một người có thể có nhiều vai (ví dụ lễ tân kiêm sale). Không
 **Ngày cuối của người nghỉ** (nhân viên nghỉ việc, CTV hết hợp tác) – **áp dụng ngay**, chủ đầu tư làm. Chỉ **Khóa tài khoản** thì chưa đủ: người nghỉ vẫn còn ở phòng Google Chat (tin có thông tin khách), còn biết mã cửa, còn giữ việc dở.
 
 **Thứ tự:**
-- **Người nghỉ êm:** bước 1 → 8 theo số. Bước 3, 5, 6, 7 làm **cuối ca cuối cùng** của người đó, không để sang hôm sau.
+- **Người nghỉ êm:** bước 1 → 8 theo số (riêng **Đăng xuất** app nhân viên ở bước 7 làm trước bước 3). Bước 3, 5, 6, 7 làm **cuối ca cuối cùng** của người đó, không để sang hôm sau.
 - **Người bị cho thôi việc:** **ngay lúc báo, trong cùng một lần ngồi máy**, làm liền: bước 3 → phần app khóa của bước 6 (gỡ ủy quyền, vô hiệu mã/thẻ nhân viên) → bước 5 → bước 7 → phần còn lại của bước 6. Sau đó mới làm bước 1, 2, 4, 8 (anh/chị cùng người đó đếm két tại quầy).
 
 1. **Tiền mặt quầy và sổ giao ca:** người đó đếm két, đối chiếu tiền mặt (mục 1.14), bàn giao sổ giao ca; anh/chị đếm lại và ký nhận. Người nghỉ êm làm **trước** khi khóa, vì khóa xong người đó không đăng nhập để chốt ca được.
