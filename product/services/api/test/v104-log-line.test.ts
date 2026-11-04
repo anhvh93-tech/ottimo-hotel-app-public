@@ -94,6 +94,32 @@ describe('PR24PM-04 – the worker startup failure line', () => {
     expect(line).not.toContain('example.test');
   });
 
+  it('BED-05: the `job failed` line keeps the job, the error name and the SQLSTATE, never the message', () => {
+    // A Postgres error message may quote the value that failed (fake value here).
+    const err = Object.assign(
+      new Error('invalid input syntax for type uuid: "TEST-VALUE-0905111222"'),
+      {
+        code: '22P02',
+      },
+    );
+    const line = logLine('error', 'job failed', { job: 'folio.close', ...errorTag(err) });
+    expect(JSON.parse(line)).toEqual({
+      level: 'error',
+      msg: 'job failed',
+      job: 'folio.close',
+      err: 'Error',
+      code: '22P02',
+    });
+    expect(line).not.toContain('TEST-VALUE');
+    // worker.ts builds the line exactly so (no `err.message` anywhere in the worker).
+    const worker = readFileSync(join(SRC, 'worker.ts'), 'utf8').replace(
+      /\/\/.*|\/\*[\s\S]*?\*\//g,
+      '',
+    );
+    expect(worker).toMatch(/log\('error', 'job failed', \{ job: key, \.\.\.errorTag\(err\) \}\)/);
+    expect(worker).not.toMatch(/\.message\b/);
+  });
+
   it('writeLogLine prints one logLine on stdout', () => {
     const outSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     writeLogLine('info', 'worker started', { email: 'smtp' });

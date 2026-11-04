@@ -405,6 +405,15 @@ describe('ARC FB-R4-ARC-BE-PR24PM-02 – a number read out in pairs is not a dat
     expect(name(s)).toBe(CHAT_ID_REPLACEMENT);
   });
 
+  // Lọt có chủ ý – rủi ro thấp đã chấp nhận (SEC-on-v104-be-d 2.1, FB-R4-SEC-BE-BED-04); đổi luật thì báo SEC.
+  it.each([
+    ['a 3-digit group between pairs (the pairs read as a date)', '079.20.30.12.345'],
+    ['only the last 3 groups in pairs', '079.203.01.23.45'],
+    ['one single pair inside a card (`11-11` read as a date)', '4111 1111 11-11 1111'],
+  ])('accepted miss, not blocked: %s', (_n, s) => {
+    expect(sensitiveNumberKind(s), s).toBeNull();
+  });
+
   it.each([
     '12/11/2026',
     '12.11.26',

@@ -78,11 +78,9 @@ async function main(): Promise<void> {
           const done = results.filter((r) => r.status === 'done').length;
           if (done > 0) log('info', 'job done', { job: key, properties: done });
         } catch (err) {
-          // Message only (no payloads); the failed slot was rolled back and is retried next tick.
-          log('error', 'job failed', {
-            job: key,
-            err: err instanceof Error ? err.message : 'error',
-          });
+          // Name + code only (SQLSTATE kept), never `err.message` – a DB / library message may carry values (SEC S-1,
+          // FB-R4-SEC-BE-BED-05). The failed slot was rolled back and is retried next tick.
+          log('error', 'job failed', { job: key, ...errorTag(err) });
         }
       }
       if (emailDispatcher) {
