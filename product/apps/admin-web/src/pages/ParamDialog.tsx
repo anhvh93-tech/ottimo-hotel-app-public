@@ -411,7 +411,7 @@ function CancelScheduledParamDialog({
   const [locked, setLocked] = useState(false);
   // FB-R4-SEC-FE-P434-01: after a network error / 5xx / `409 IDEMPOTENCY_IN_PROGRESS` the request may have
   // reached the server – the retry resends the SAME request (same key, same reason, so the reason is read-only
-  // until then). Any other answer ends it; the next confirm gets a new key.
+  // until then; also while a request is running – FB-R4-SEC-FE-P434-04). Any other answer ends it; the next confirm gets a new key.
   const idem = useRef(newIdempotencyKey());
   const [unsettled, setUnsettled] = useState(false);
 
@@ -492,7 +492,7 @@ function CancelScheduledParamDialog({
             {...p}
             className="input"
             maxLength={500}
-            readOnly={unsettled}
+            readOnly={unsettled || busy}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
           />

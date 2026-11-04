@@ -26,6 +26,8 @@ type Mode = 'ok' | 409 | 404 | 422 | 'network' | 'inprogress';
 /** Answer for every request; `queue` (one per request, in order) wins while it has items. */
 let answer: Mode;
 let queue: Mode[];
+/** When set, the next cancel request waits for it before answering (request still running = busy). */
+let gate: Promise<void> | null;
 
 function row(
   key: string,
@@ -68,6 +70,7 @@ beforeEach(() => {
   sent = [];
   answer = 'ok';
   queue = [];
+  gate = null;
   server.use(
     http.get('*/v1/properties/:pid/parameters', () =>
       HttpResponse.json({ data: Object.keys(history).map(current) }),
@@ -83,6 +86,11 @@ beforeEach(() => {
         const key = String(params.key);
         const body = (await request.json()) as Record<string, unknown>;
         sent.push({ key, body, idem: request.headers.get('idempotency-key') });
+        if (gate) {
+          const g = gate;
+          gate = null;
+          await g;
+        }
         const mode = queue.shift() ?? answer;
         if (mode === 'network') return HttpResponse.error();
         if (mode === 'inprogress') return problem(409, 'IDEMPOTENCY_IN_PROGRESS');
@@ -282,5 +290,31 @@ describe('v1.0.4 P4-34 – hủy tham số đã lên lịch trong hộp Sửa th
     expect(new Set(sent.map((x) => x.idem)).size).toBe(1);
     expect(sent.every((x) => JSON.stringify(x.body) === JSON.stringify(sent[0]!.body))).toBe(true);
     expect(reason).not.toHaveAttribute('readonly');
+  });
+  it('SEC P434-04: the reason cannot change while the request runs, so the resend body is identical', async () => {
+    let release!: () => void;
+    gate = new Promise<void>((r) => (release = r));
+    queue = ['network', 'ok'];
+    const { user } = renderApp('/settings/parameters', 'qa.owner');
+    const { dlg, label } = await openDialog(user, NOTICE);
+    const ask = await askCancel(user, dlg);
+    const reason = within(ask).getByLabelText(new RegExp(`^${tv('params.reason')}`));
+    await user.type(reason, 'Đổi ngày thay tờ');
+    await user.click(confirmIn(ask));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    // Still running: read-only, typing changes nothing.
+    expect(reason).toHaveAttribute('readonly');
+    await user.type(reason, ' thêm');
+    expect(reason).toHaveValue('Đổi ngày thay tờ');
+    release();
+    expect(await within(ask).findByText(tv('common.error_network_body'))).toBeInTheDocument();
+    await user.type(reason, ' thêm');
+    expect(reason).toHaveValue('Đổi ngày thay tờ');
+    await user.click(confirmIn(ask));
+    expect(await screen.findByText(tv('params.cancelled', { name: label }))).toBeInTheDocument();
+    expect(sent).toHaveLength(2);
+    expect(sent[1]!.idem).toBe(sent[0]!.idem);
+    expect(sent[1]!.body).toEqual(sent[0]!.body);
+    expect(sent[0]!.body).toEqual({ effectiveFrom: LATER, reason: 'Đổi ngày thay tờ' });
   });
 });
