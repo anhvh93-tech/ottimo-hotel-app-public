@@ -168,3 +168,51 @@ Không có.
   Thêm `HOLD_EXPIRED` vào danh sách 409 của op và một ví dụ, như `recordPayment`.
 - BE-B thêm một ca test tích hợp nếu chưa có: SAL `confirmPaymentReceived` trên giữ chỗ quá hạn trả 409, khoản QR vẫn `pending`; FD cùng thao tác trả 200.
 - Phần còn lại của HOLDS-01/02 trên `e253a6c2`: SEC kiểm trong review PR-F.
+
+---
+
+## 9. Review PR-F (04/11)
+
+- Đối tượng:
+  - BE: `origin/v104/be-holds` @ `a91acb84` (PR #50, đã rebase lên `main` @ `7b5b6117`). `e253a6c2` cũ nay là `8acc3344`; `6c228a99` thêm ca G6.
+  - FE: `origin/v104/fe-holds` @ `d03ede8f` (FE-B P4-40).
+- Đã đọc diff (so với merge-base):
+  - `payments.service.ts` (`assertHoldOpenForSales`, `record`, `confirmReceived`, `scopedReservation`);
+  - `deposits.service.ts` (`overdueHoldAccepts`, audit), `folio/audit-entities.ts`;
+  - `allowed-actions.ts`, `sales-port.adapter.ts` (`lockForDeposit`);
+  - mọi chỗ ghi `INSERT INTO payment` / `recordManual`, để chắc không còn đường thứ ba;
+  - ca tích hợp HOLDS-01+G6 và HOLDS-02;
+  - FE: `ReservationDialogs.tsx` (`DepositDialog`), báo cáo FE-B và `responses/FE-P4-40.md`.
+- Đã chạy:
+  - `test/v104-holds-units.test.ts` trên `a91acb84`: **20/20 xanh**;
+  - ca tích hợp (PostgreSQL) **không** chạy trên máy SEC. Dựa vào báo cáo BE-B và CI của PR #50: lúc review, các job contract, RBAC, gitleaks, Redocly đã xanh; job `test` còn chạy.
+
+### 9.1 Kết luận gộp PR-F (BE + FE)
+
+**ĐẠT.** HOLDS-01, HOLDS-02 và G6 đã làm đúng như mục 5 và mục 8. Điều kiện để chấp nhận G4 (mục 2.4) đã đủ. Không còn Blocker, Major hay Minor của SEC. Điều kiện merge duy nhất là job `test` của PR #50 xanh, vì ca tích hợp HOLDS-01/02 nằm trong đó.
+
+| Thẻ / đường | Kết quả | Bằng chứng |
+|---|---|---|
+| **HOLDS-01** `recordPayment` | **Done** | `assertHoldOpenForSales` chạy ngay sau `scopedReservation(…, { lock: true })` (đơn đã khóa), **trước** kiểm `type`, khóa folio hay ghi gì. Điều kiện: không có vai FD+ (`DESK_ROLES` = OWN/MGR/FDL/FD), `status = 'hold'`, `holdExpiresAt ≤ clock.now()` (đồng hồ tiêm) → 409 `HOLD_EXPIRED` + `expiredAt` giờ khách sạn. `lockForDeposit` trả `hold_expires_at`, và CHECK `reservation_hold_check` bắt hold phải có hạn, nên nhánh `!r.holdExpiresAt` không thể làm kiểm này mở. CTV đã bị 403 ở kiểm vai từ trước. Ca tích hợp: SAL 409, không có dòng tiền; FD 201; SAL trước hạn 201 `pending`; J1 hủy 2 hold bị từ chối, giữ 3 hold có tiền |
+| **G6** `confirmPaymentReceived` (mục 8) | **Done** | Cùng hàm, gọi sau `scopedReservation(…, { lock: true })` và trước `lockStay`/folio. Ca tích hợp: SAL 409, QR vẫn `pending`; FD cùng lệnh 200 |
+| Đường thứ ba? | Không có | `recordManual` chỉ còn được gọi từ: `confirmDeposit` (đã có `overdueHoldAccepts`, SAL → 409), `record` (đã chốt), `recordInitialPayment` lúc **tạo** đơn (chưa có hạn). `createVietQr` chỉ tạo QR `pending`, không thêm tiền. "Báo đã chuyển cọc" (`depositNotices`) chỉ là lời báo, không tính vào `depositPaid`. Tiền ngân hàng tự đối soát là tiền thật, nằm ngoài phạm vi chốt |
+| **HOLDS-02** audit | **Done** | `after` của `reservation.deposit_confirmed` khi `holdExpiresAt ≤ now` có đủ 5 trường: `afterDeadline`, `holdExpiredAt` (ISO UTC), `paidBeforeVnd` (đọc **trước** khi ghi khoản mới, cùng số dùng cho luật), `unverifiedPaidVnd` (`succeeded`, chưa đảo, `pending`, chặn trên bằng `depositPaidVnd`), `via`. Chỉ số tiền và cờ, không số tài khoản, tên hay ghi chú. 5 khóa đã vào allowlist `folio` (không có thì `pickAuditFields` bỏ đi). Trước hạn vẫn đúng 3 khóa cũ. Ca tích hợp kiểm đủ 8 khóa, kiểm cả 3 đường (`new_payment`, `existing_payment`, khoản SAL chờ đối soát → `unverifiedPaidVnd` 100.000) |
+| `allowedActions` sau hạn | Đạt | `confirm_deposit` chỉ cho FD+ và chỉ khi `depositPaidVnd > 0`, khớp `overdueHoldAccepts`. FE ẩn thêm phía Desk (phòng khi máy chủ cũ) |
+| FE `DepositDialog` | Đạt | Ô "Giờ nhận tiền" chỉ hiện cho FD+ (SAL không lùi giờ qua Desk; máy chủ vẫn là lớp chặn). Giờ tương lai bị chặn trước khi gửi. "Chấp nhận cọc thiếu" chỉ hiện cho OWN/MGR và chỉ khi đã nhận > 0. `existingPaymentId` lấy từ khoản cọc `succeeded`, chưa đảo trên chính folio. Máy chủ kiểm lại folio và trạng thái. Không thêm log, URL hay lưu trữ |
+
+### 9.2 HOLDS-03 (Info, FE-B)
+- FE-B **chưa** làm trong `d03ede8f`. Đúng như mục 5 cho phép: không chặn v1.0.4.
+- **Sửa nhận định của SEC ở mục 5:** việc này **không cần** trường hợp đồng mới. `DepositDialog` đã tải `folio.payments`, và kiểu `Payment` đã có `reconciliation`. Desk tự cộng các khoản cọc `succeeded`, chưa đảo, `reconciliation = 'pending'` (cùng công thức `unverifiedPaidVnd` của BE). Rồi hiện một dòng cho MGR/OWN khi chấp nhận cọc thiếu sau hạn, ví dụ "Trong số đã nhận, {amount} chưa đối soát".
+- FE-B chọn: làm ngay trong P4-40 lượt sau (khóa chữ mới qua UXD, P4-01 lượt 2), hoặc để v1.0.5. Không có trường `depositUnverifiedVnd` thì cũng không sao.
+- Trạng thái: **Open (Info, không chặn)**.
+
+### 9.3 Thẻ còn mở sau PR-F
+| ID | Mức | Trạng thái | Ghi chú |
+|---|---|---|---|
+| FB-R4-SEC-BE-HOLDS-01 | Minor | **Done** (`8acc3344`) | SEC xác nhận đóng |
+| FB-R4-SEC-BE-HOLDS-02 | Minor | **Done** (`8acc3344`) | SEC xác nhận đóng |
+| G6 (mục 8) | – | **Done** (`8acc3344`, ca `6c228a99`) | SEC xác nhận |
+| FB-R4-SEC-FE-HOLDS-03 | Info | Open | Không chặn. Làm được không cần hợp đồng (9.2) |
+
+Dòng decision-log đề xuất (ORC ghi):
+`| 2026-11-04 | 4 | **SEC – review PR-F holds** (SEC-on-v104-holds.md mục 9): BE a91acb84 + FE d03ede8f ĐẠT; HOLDS-01 (recordPayment) và G6 (confirmPaymentReceived) chặn người dưới FD+ trên hold quá hạn trước khi ghi gì; HOLDS-02 đủ 5 trường audit, allowlist folio; không còn đường thứ ba đặt tiền lên hold quá hạn. Điều kiện merge: job test của PR #50 xanh. HOLDS-03 (Info) mở, không chặn, Desk tính được từ folio.payments.reconciliation | SEC | Quyền SEC |`

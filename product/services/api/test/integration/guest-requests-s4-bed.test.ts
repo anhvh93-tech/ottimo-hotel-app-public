@@ -342,6 +342,21 @@ describe.skipIf(!HAS_DB)('EP14 guest requests + stay info (BE-D Sprint 4)', () =
     const card = await create(sid, { type: 'other', note: 'Thẻ 4111 1111 1111 1111 trả giúp' });
     expect(card.statusCode).toBe(422);
     expect(card.json().code).toBe('CARD_NUMBER_DETECTED');
+    // v1.0.4 PR24PM-01: the shared V-09 rule also reads the card half of the shared detector – cards the original
+    // rule let through (full-width digits, no-break spaces, underscores). Same 422, field + code only, nothing echoed.
+    for (const note of [
+      'Thẻ ４１１１ １１１１ １１１１ １１１１ trả giúp',
+      'Thẻ 4111 1111 1111 1111',
+      'Thẻ 4111_1111_1111_1111',
+    ]) {
+      const r = await create(sid, { type: 'other', note });
+      expect(r.statusCode, note).toBe(422);
+      expect(r.json(), note).toMatchObject({
+        code: 'CARD_NUMBER_DETECTED',
+        errors: [{ field: 'note', code: 'CARD_NUMBER_DETECTED' }],
+      });
+      expect(r.body, note).not.toMatch(/1111/);
+    }
     const early = await create(stays.b!.sid, { type: 'amenities' });
     expect(early.statusCode).toBe(422);
     expect(early.json()).toMatchObject({

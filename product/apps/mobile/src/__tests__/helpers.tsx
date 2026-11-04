@@ -18,8 +18,7 @@ export function setOnline(v: boolean) {
   window.dispatchEvent(new Event(v ? 'online' : 'offline'));
 }
 
-export async function start(username = 'hk.lan', connect?: Connect) {
-  const store = new MemoryStore();
+export async function start(username = 'hk.lan', connect?: Connect, store = new MemoryStore()) {
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
   const utils = render(
     <StrictMode>

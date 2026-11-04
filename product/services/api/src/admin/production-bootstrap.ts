@@ -25,7 +25,12 @@ import {
   checkSecurityBounds,
   checkValueSchema,
 } from '../modules/platform/public/parameter.service';
+import { normalizeSecurityEmail } from '../shared/email';
 import { localDate } from '../shared/time';
+import {
+  type SharedMailboxConfig,
+  SharedMailboxRule,
+} from '../modules/identity/public/shared-mailboxes';
 import {
   INV_ENTERS_KEYS,
   PRODUCTION_CHANNELS,
@@ -49,6 +54,14 @@ export interface BootstrapInput {
   /** Who runs the command (OPS person) – recorded in the audit row, nothing else. */
   operator: string;
   clock: Clock;
+  /**
+   * V3-04 (v1.0.4 P4-06): the first owner's security e-mail, typed at a hidden prompt by the CLI (never a command
+   * line argument). Absent / null = none (the owner enters it on Desk later). Same rules as setMyEmail
+   * (EMAIL_INVALID, shared mailbox) – checked here, before any write.
+   */
+  ownerEmail?: string | null;
+  /** Shared-mailbox rule input (EMAIL_SHARED_MAILBOXES / EMAIL_FROM of the api environment). */
+  sharedMailboxes?: SharedMailboxConfig;
 }
 
 export interface BootstrapResult {
@@ -86,6 +99,21 @@ export async function bootstrapProduction(
   const displayName = input.ownerDisplayName.trim();
   if (displayName.length < 1 || displayName.length > 100) {
     throw new BootstrapRefusedError('owner display name is required (≤ 100 characters)');
+  }
+  let ownerEmail: string | null = null;
+  if (
+    input.ownerEmail !== undefined &&
+    input.ownerEmail !== null &&
+    input.ownerEmail.trim() !== ''
+  ) {
+    ownerEmail = normalizeSecurityEmail(input.ownerEmail);
+    // Messages never echo the value (it may be pasted into a ticket).
+    if (!ownerEmail) throw new BootstrapRefusedError('owner e-mail: not a valid address');
+    if (new SharedMailboxRule(input.sharedMailboxes ?? {}).isShared(ownerEmail)) {
+      throw new BootstrapRefusedError(
+        'owner e-mail: a shared mailbox cannot receive security notices',
+      );
+    }
   }
   const operator = input.operator.trim();
   if (operator.length < 1 || operator.length > 100) {
@@ -240,9 +268,9 @@ export async function bootstrapProduction(
       // First owner: temporary password, must change it; 2FA enrolment is forced by MFA_ENFORCED (SEC 06.4).
       await tx.query(
         `INSERT INTO app_user (id, organization_id, username, display_name, password_hash, status,
-           must_change_password, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, 'active', true, $6, $6)`,
-        [ownerUserId, organizationId, username, displayName, passwordHash, now],
+           must_change_password, email, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 'active', true, $7, $6, $6)`,
+        [ownerUserId, organizationId, username, displayName, passwordHash, now, ownerEmail],
       );
       await tx.query(
         `INSERT INTO user_property_role (user_id, property_id, organization_id, role, granted_at)
@@ -261,6 +289,8 @@ export async function bootstrapProduction(
           rooms: PRODUCTION_ROOMS.length,
           channels,
           devices: 0,
+          // SEC FB-R4-SEC-BE-V104-06: whether the first owner's e-mail came from the bootstrap (no address, no mask).
+          ownerEmailSet: ownerEmail !== null,
         },
         reason: `operator: ${operator}`,
       });

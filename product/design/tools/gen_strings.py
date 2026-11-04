@@ -112,7 +112,7 @@ g("Luồng 2 – Room rack, đặt phòng mới, chi tiết đơn", [
     ("fo.tabs.arrivals", "Khách đến ({n})", "Arrivals ({n})"),
     ("fo.tabs.departures", "Khách đi ({n})", "Departures ({n})"),
     ("fo.tabs.in_house", "Đang ở ({n})", "In house ({n})"),
-    ("fo.tabs.holds", "Giữ chỗ chưa cọc ({n})", "Holds awaiting deposit ({n})", None, "BR-404"),
+    ("fo.tabs.holds", "Giữ chỗ chưa cọc ({n})", "Holds awaiting deposit ({n})", None, "BR-404. CŨ từ v1.0.4: khối Hôm nay đổi sang today.holds_waiting (P4-40, v104/fe-holds) – sau khi gộp không còn chỗ dùng trong apps/. Chưa xóa, đợi FE-B rebase và gộp P4-40 (UXD P4-01 lượt 2)"),
     ("booking.new.title", "Đặt phòng mới", "New booking"),
     ("booking.field.room", "Căn", "Room"),
     ("booking.field.channel", "Kênh", "Channel"),
@@ -187,7 +187,7 @@ g("Luồng 2 – Room rack, đặt phòng mới, chi tiết đơn", [
     ("cancel.reason.dates", "Đổi ngày", "Change of dates"),
     ("cancel.reason.unreachable", "Không liên lạc được", "Guest unreachable"),
     ("cancel.reason.other", "Khác (ghi rõ)", "Other (please specify)"),
-    ("cancel.fee_none", "Không thu phí (giữ chỗ chưa cọc)", "No fee (hold without deposit)", None, "BR-308"),
+    ("cancel.fee_none", "Không thu phí (giữ chỗ chưa cọc)", "No fee (hold without deposit)", None, "BR-308. Từ v1.0.4 (P4-40) chỉ hiện cho giữ chỗ chưa nhận cọc, hoặc tính thử trả số hoàn 0 (khoản cọc đã đảo, thực nhận 0) – vế ngoặc vẫn đúng. Đã nhận > 0 dùng cancel.refund_preview. UXD P4-01 lượt 2: giữ chữ, bỏ đề xuất mục 3 bảng chữ"),
     ("cancel.confirm", "Hủy giữ chỗ", "Cancel hold"),
     ("cancel.keep", "Giữ lại đơn", "Keep booking"),
 ])
@@ -362,15 +362,10 @@ g("Luồng 7 – App khách (link/QR)", [
     ("guest.oci.step3", "Xác nhận", "Confirm"),
     ("guest.oci.people", "Giấy tờ của {n} khách trong đơn", "IDs for the {n} guests on this booking"),
     ("guest.oci.add_doc", "Chụp trang thông tin hộ chiếu / CCCD", "Photograph your passport info page / ID card"),
-    ("guest.oci.why", "Vì sao cần? Luật Việt Nam yêu cầu khách sạn khai báo lưu trú cho mọi khách.", "Why? Vietnamese law requires hotels to register every guest's stay."),
-    ("guest.oci.consent", "Tôi đồng ý OTTIMO lưu ảnh giấy tờ của tôi đến {days} ngày sau khi trả phòng, sau đó tự xóa.", "I agree OTTIMO may keep photos of my ID until {days} days after check-out, then delete them automatically.", None, "Văn bản pháp lý – cần người dịch duyệt (HR-01)"),
-    ("guest.oci.consent_optional", "Không bắt buộc. Nếu không đồng ý, chúng tôi chỉ dùng thông tin để khai báo và không lưu ảnh.", "Optional. If you don't agree, we only use the details for registration and don't keep the photos."),
-    ("guest.oci.consent_q", "Lưu ảnh giấy tờ sau khi khai báo?", "Keep your ID photos after registration?", None, "Phải chọn Có/Không – không chọn sẵn (`/v1/guest/consents`)"),
-    ("guest.oci.consent_no", "Không, chỉ dùng để khai báo rồi xóa ảnh", "No – use them for registration only, then delete"),
     ("guest.verify.title", "Xác minh để xem mã cửa và hóa đơn", "Verify to see your door code and bill", None, "Mức 2 – SR-GST-07 (OTP email hoặc mã lễ tân); không dùng 4 số cuối SĐT/mã đặt phòng"),
-    ("guest.verify.sent_to", "Chúng tôi đã gửi mã 6 số tới {email}. Mã dùng trong 10 phút.", "We've sent a 6-digit code to {email}. It's valid for 10 minutes.", None, "Email che dạng d***@g***.com"),
+    ("guest.verify.sent_to", "Chúng tôi đã gửi mã 6 số tới {email}. Mã dùng trong 10 phút.", "We've sent a 6‑digit code to {email}. It's valid for 10 minutes.", None, "Email che dạng d***@g***.com"),
     ("guest.verify.send", "Gửi mã qua email", "Email me a code"),
-    ("guest.verify.label", "Mã xác minh 6 số", "6-digit verification code"),
+    ("guest.verify.label", "Mã xác minh 6 số", "6‑digit verification code"),
     ("guest.verify.submit", "Xác minh", "Verify"),
     ("guest.verify.resend", "Gửi lại mã", "Resend code"),
     ("guest.verify.resend_wait", "Gửi lại sau {seconds} giây", "Resend in {seconds} s"),
@@ -460,7 +455,7 @@ g("Mã lỗi API → câu hiển thị (RFC 9457 `Problem.code`, openapi info)",
     ("error.LATE_CHECKOUT_CONFLICT", "Căn {room} có khách {guest} đến lúc {eta} và không còn căn thay thế. Chỉ quản lý duyệt được; có thể gợi ý khách gửi hành lý.", "Room {room} has {guest} arriving at {eta} and there's no other room. Only a manager can approve; you can offer luggage storage.", None, "409 – BR-416; ẩn tên khách nếu vai không được xem"),
     ("error.BALANCE_DUE", "Còn {amount} chưa ghi nhận thanh toán. Ghi nhận đủ trước khi hoàn tất (hoặc quản lý ghi công nợ).", "{amount} not yet recorded as paid. Record full payment before completing (or a manager records it as receivable).", None, "409 – BR-426, BR-525"),
     ("error.PENDING_APPROVALS", "Còn {n} yêu cầu miễn phí/giảm giá đang chờ duyệt. Chờ duyệt xong hoặc rút yêu cầu rồi hoàn tất.", "{n} waiver/discount requests are still awaiting approval. Wait for approval or withdraw them, then complete.", None, "409 – SM-10"),
-    ("error.FOLIO_LOCKED", "Phiếu thanh toán đã khóa sau khi trả phòng. Chỉ quản lý ghi được bút toán điều chỉnh.", "The folio is locked after check-out. Only a manager can post an adjustment.", None, "409 – US-038"),
+    ("error.FOLIO_LOCKED", "Phiếu thanh toán đã khóa. Không ai thêm hay điều chỉnh dòng được nữa, kể cả quản lý. Khoản còn nợ: dùng Thu công nợ, hoặc quản lý Xóa công nợ.", "This folio is locked. No one can add or adjust lines any more, managers included. If an amount is still owed, use Collect debt, or ask a manager to Write off debt.", None, "409 – US-038. v1.0.4 P4-41 BUG-R3-045 (UXD lượt 1, 05/11): bỏ vế sai \"Chỉ quản lý ghi được bút toán điều chỉnh\". Câu chung cho mọi 409 FOLIO_LOCKED (folio closed, quá 24 giờ sau trả phòng, đã phát hành HĐĐT). Tên nút = debt.collect, debt.write_off. Lượt 2: EN hai vế song song – FB-R4-CPY-UXD-P401-08"),
     ("error.SELF_APPROVAL_FORBIDDEN", "Bạn không tự duyệt yêu cầu của chính mình được. Yêu cầu vẫn chờ người duyệt khác.", "You can't approve your own request. It's still waiting for another approver.", None, "403 – BR-432"),
     ("error.APPROVAL_LIMIT_EXCEEDED", "Số tiền vượt hạn mức duyệt của bạn. Yêu cầu đã chuyển lên {approver}.", "The amount is above your approval limit. The request has gone to {approver}.", None, "403 – BR-433"),
     ("error.REAUTH_FAILED", "Mật khẩu chưa đúng. Nhập lại mật khẩu đăng nhập của bạn.", "That password isn't right. Re-enter your sign-in password.", None, "401 – R2 chỉ mật khẩu (BA E05-07). Bỏ {left}: API không trả số lần còn lại, và không nêu số lần (SR-AUTH-04). R3 thêm biến thể PIN"),
@@ -557,7 +552,7 @@ g("Buồng phòng – bổ sung đợt 4", [
 
 g("Bảo mật nhân viên – 2FA, thiết bị được cấp, mã xác minh khách (SEC Phần 2)", [
     ("auth.totp.title", "Nhập mã xác thực", "Enter authentication code", None, "SR-AUTH-06 – owner, manager (bắt buộc)"),
-    ("auth.totp.help", "Mở ứng dụng xác thực trên điện thoại và nhập mã 6 số đang hiện.", "Open your authenticator app and enter the 6-digit code shown."),
+    ("auth.totp.help", "Mở ứng dụng xác thực trên điện thoại và nhập mã 6 số đang hiện.", "Open your authenticator app and enter the 6‑digit code shown."),
     ("auth.totp.submit", "Xác nhận", "Confirm"),
     ("auth.totp.error", "Mã chưa đúng hoặc đã đổi. Nhập mã đang hiện trong ứng dụng.", "The code is wrong or has changed. Enter the code currently shown in the app."),
     ("auth.totp.recovery", "Mất điện thoại? Dùng mã khôi phục", "Lost your phone? Use a recovery code"),
@@ -669,7 +664,7 @@ g("Bước 4 R1 – đến muộn / tự nhận phòng, kênh gửi mã, đăng 
     ("auth.enroll.step1_help", "Cài một ứng dụng xác thực miễn phí trên điện thoại của bạn, ví dụ Google Authenticator hoặc Microsoft Authenticator.", "Install a free authenticator app on your phone, e.g. Google Authenticator or Microsoft Authenticator."),
     ("auth.enroll.step2_help", "Trong ứng dụng, chọn Thêm tài khoản → Quét mã QR, rồi quét mã bên dưới.", "In the app, choose Add account → Scan QR code, then scan the code below."),
     ("auth.enroll.manual_key", "Không quét được? Nhập khóa này: {key}", "Can't scan? Enter this key: {key}"),
-    ("auth.enroll.confirm", "Nhập mã 6 số ứng dụng đang hiện để xác nhận", "Enter the 6-digit code the app shows to confirm"),
+    ("auth.enroll.confirm", "Nhập mã 6 số ứng dụng đang hiện để xác nhận", "Enter the 6‑digit code the app shows to confirm"),
     ("auth.enroll.step3_help", "Mỗi mã dùng một lần khi bạn mất điện thoại. Lưu ở nơi an toàn (in ra giấy hoặc trình quản lý mật khẩu), không gửi qua chat.", "Each code works once if you lose your phone. Keep them somewhere safe (printed or in a password manager); don't send them by chat."),
     ("auth.enroll.download", "Tải về (.txt)", "Download (.txt)"),
     ("auth.enroll.print", "In", "Print"),
@@ -1335,7 +1330,7 @@ g("R2 hi-fi Sprint 3 – nhận/trả phòng, khai báo, lưu trú, duyệt, nh�
     ("ci.door_done", "Đã tạo mã trên app khóa và giao cho khách", "Code created in the lock app and given to the guest", None, "13-check-in.html"),
     ("ci.door_lock", "Khóa", "Lock", None, "13-check-in.html"),
     ("ci.door_not_stored", "OTTIMO không lưu mã cửa ở R2. Khi trả phòng hoặc đổi phòng, hệ thống tạo việc \"Xóa mã trên app khóa\".", "OTTIMO doesn't store door codes in R2. On check-out or room change, the system creates a \"Delete code in lock app\" task.", None, "13-check-in.html"),
-    ("ci.door_step1", "Mở app TTLock, tạo mã 6 số ngẫu nhiên cho căn {room} với đúng hiệu lực trên.", "Open the TTLock app and create a random 6-digit code for room {room} with exactly the validity above.", None, "13-check-in.html"),
+    ("ci.door_step1", "Mở app TTLock, tạo mã 6 số ngẫu nhiên cho căn {room} với đúng hiệu lực trên.", "Open the TTLock app and create a random 6‑digit code for room {room} with exactly the validity above.", None, "13-check-in.html"),
     ("ci.door_step2", "Đọc mã cho khách hoặc đưa thẻ (tối đa 2 thẻ). Không gửi mã qua tin nhắn kèm số căn, địa chỉ.", "Read the code to the guest or hand over key cards (max 2). Don't message the code together with the room number or address.", None, "13-check-in.html"),
     ("ci.door_step3", "Khách muốn mã theo ngày sinh: ddmm + 3 số ngẫu nhiên (7 số), không dùng đúng ngày sinh.", "Guest wants a birthday code: ddmm + 3 random digits (7 digits), never the plain birthday.", None, "13-check-in.html"),
     ("ci.door_title", "Mã cửa – nhập tay trên app khóa (R2)", "Door code – entered manually in the lock app (R2)", None, "13-check-in.html"),
@@ -1471,7 +1466,6 @@ g("R2 hi-fi Sprint 3 – nhận/trả phòng, khai báo, lưu trú, duyệt, nh�
     ("foc.title", "Miễn phí · {line} · {amount}", "Waiver · {line} · {amount}", None, "17-approvals-moneylog.html"),
     ("guest.oci.closed_desk", "Lễ tân đã nhận giấy tờ của bạn", "Reception already has your IDs", None, "18-guest-checkin.html"),
     ("guest.oci.companions_at_desk", "Người đi cùng tự trả lời câu này tại quầy.", "Other guests answer this question themselves at reception.", None, "18-guest-checkin.html"),
-    ("guest.oci.withdraw_hint", "Muốn rút đồng ý lưu ảnh? Báo lễ tân – ảnh sẽ được xóa.", "Want to withdraw consent to keep photos? Tell reception – the photos will be deleted.", None, "18-guest-checkin.html"),
     ("gw.back_home", "Về trang lưu trú", "Back to my stay", None, "18-guest-checkin.html"),
     ("gw.cap_consent", "3 · Đồng ý Có/Không – nút Gửi mở khi đã chọn", "3 · Consent Yes/No – Send unlocks once chosen", None, "18-guest-checkin.html"),
     ("gw.cap_docs", "1 · Giấy tờ từng người (đổi trạng thái để xem gửi / lỗi / mất mạng)", "1 · IDs per guest (switch state to see uploading / error / offline)", None, "18-guest-checkin.html"),
@@ -1493,8 +1487,6 @@ g("R2 hi-fi Sprint 3 – nhận/trả phòng, khai báo, lưu trú, duyệt, nh�
     ("gw.late_r2", "Đến sau 22:00: người trực đêm sẽ làm thủ tục và giao mã cửa khi bạn tới – gọi số trên trang này khi đến nơi.", "Arriving after 22:00: the night staff will check you in and give you the door code when you arrive – call the number on this page when you get here.", None, "18-guest-checkin.html"),
     ("gw.link_reissue_title", "Cấp link mới cho đơn {code}? Link cũ ngừng hoạt động ngay.", "Issue a new link for booking {code}? The old link stops working immediately.", None, "BA spec / hifi.js"),
     ("gw.link_revoke_title", "Thu hồi link của đơn {code}? Khách mở link sẽ thấy \"Liên kết đã hết hạn\".", "Revoke the link for booking {code}? Guests opening it will see \"Link expired\".", None, "BA spec / hifi.js"),
-    ("gw.notice_body", "OTTIMO dùng thông tin giấy tờ của bạn để khai báo lưu trú với cơ quan công an theo luật Việt Nam. Ảnh giấy tờ được mã hóa; chỉ lễ tân và quản lý xem được. Bạn sẽ được hỏi riêng có muốn cho lưu ảnh sau khi khai báo hay không.", "OTTIMO uses your ID details to register your stay with the police, as required by Vietnamese law. ID photos are encrypted; only reception and managers can see them. You'll be asked separately whether we may keep the photos after registration.", None, "18-guest-checkin.html"),
-    ("gw.notice_read", "Tôi đã đọc", "I've read this", None, "18-guest-checkin.html"),
     ("gw.notice_title", "Trước khi bắt đầu", "Before you start", None, "18-guest-checkin.html"),
     ("gw.notice_version", "Phiên bản thông báo: {v}", "Notice version: {v}", None, "18-guest-checkin.html"),
     ("gw.offline_upload", "Mất kết nối – ảnh chưa gửi sẽ không được giữ lại trên máy. Khi có mạng, chụp lại để gửi.", "You're offline – unsent photos aren't kept on this device. When you're back online, take them again to send.", None, "18-guest-checkin.html"),
@@ -1664,7 +1656,6 @@ g("R2 Sprint 1 – admin-web EP00 (chuyển từ packages/i18n pending, FE S1)",
     ("field_error.amount_not_positive", "Nhập số tiền lớn hơn 0.", "Enter an amount greater than 0.", None, "FE S1 pending → UXD duyệt"),
     ("error.PARAM_OUT_OF_RANGE_MINMAX", "Giá trị phải từ {min} đến {max}.", "Value must be between {min} and {max}.", None, "Biến thể có min/max của PARAM_OUT_OF_RANGE (H05)"),
     ("auth.current_password", "Mật khẩu hiện tại", "Current password", None, "Dùng cả khi đổi MK tạm và đổi MK từ menu – không ghi '(mật khẩu tạm)'"),
-    ("auth.mfa_later", "Đăng nhập 2 bước sẽ có ở bản sau. Nhờ chủ đầu tư hỗ trợ đăng nhập.", "Two-step sign-in comes in a later release. Ask the owner for help signing in.", None, "FE S1 pending → UXD duyệt"),
     ("shell.coming_title", "Màn này đang được làm", "This screen is being built", None, "FE S1 pending → UXD duyệt"),
     ("shell.coming_body", "Màn {screen} có ở đợt sau của bản thử. Các màn khác vẫn dùng được.", "{screen} comes in a later trial build. Other screens work as usual.", None, "FE S1 pending → UXD duyệt"),
     ("shell.theme", "Giao diện", "Appearance", None, "FE S1 pending → UXD duyệt"),
@@ -3288,7 +3279,7 @@ g("R3 Sprint 1 – FE-A: US-143 đăng nhập 2 bước, đăng ký 2FA bắt bu
     ("mfa.reenroll_title", "Đăng ký lại trên điện thoại mới", "Set up on your new phone", None, "ARC 0.3.8 bổ sung 1 (12.3) – sau loginMfa bằng mã khôi phục: phiên hạn chế, dùng lại màn đăng ký (US-143 AC3 a). Chữ ORC giao 23/10, chờ UXD"),
     ("mfa.reenroll_lead", "Bạn vừa đăng nhập bằng mã khôi phục, mã đó đã hết hiệu lực. Thêm OTTIMO vào ứng dụng xác thực trên điện thoại mới để tiếp tục. Bộ mã khôi phục cũ sẽ được thay bằng bộ mới.", "You signed in with a recovery code, and that code no longer works. Add OTTIMO to the authenticator app on your new phone to continue. Your old recovery codes will be replaced with a new set.", None, "Câu dẫn của màn đăng ký lại (thay mfa.recovery_used_* – bỏ G-FE-A-1)"),
     ("reauth.s2_title", "Xác nhận bằng mật khẩu và mã xác thực", "Confirm with your password and code", None, "Hộp S2 dùng chung (StrongReauth – SEC A.5)"),
-    ("reauth.s2_help", "Thao tác này cần mật khẩu đăng nhập và mã 6 số đang hiện trong ứng dụng xác thực.", "This action needs your sign-in password and the 6-digit code your authenticator app shows."),
+    ("reauth.s2_help", "Thao tác này cần mật khẩu đăng nhập và mã 6 số đang hiện trong ứng dụng xác thực.", "This action needs your sign-in password and the 6‑digit code your authenticator app shows."),
     ("reauth.s2_help_password", "Thao tác này cần mật khẩu đăng nhập của bạn.", "This action needs your sign-in password.", None, "Người chưa bật 2FA (chỉ khi MFA_ENFORCED = false): S2 = mật khẩu"),
     ("reauth.s2_failed", "Mật khẩu hoặc mã chưa đúng. Kiểm tra lại rồi nhập mã mới.", "The password or code isn't right. Check them and enter a new code.", None, "401 REAUTH_FAILED – không nói yếu tố nào sai"),
     ("reauth.s2_wait_code", "Mỗi mã chỉ dùng một lần. Nếu vừa dùng mã này, chờ ứng dụng hiện mã mới.", "Each code works only once. If you just used this one, wait for the app to show a new code.", None, "ARC s1-contracts 1.2 – hai thao tác S2 trong cùng 30 giây cần mã kế tiếp"),
@@ -3333,6 +3324,20 @@ g("R3 Sprint 1 – FE-A R3-Q51: tài khoản nhận chuyển khoản VietQR (ch�
     ("rcv.none_in_use", "Chưa có tài khoản đang dùng – tài khoản dưới đây có hiệu lực từ {date}.", "No account in use yet – the account below takes effect on {date}.", None, "ARC 0.3.8 bổ sung 2 (FB-R3-ARC-Q51-01): getParameterHistory 200 không có current, chỉ có dòng đã lên lịch"),
     ("rcv.reason_help", "Không ghi số tài khoản vào lý do.", "Don't put the account number in the reason.", None, "SEC FB-R3-SEC-Q51-01 – gợi ý dưới ô lý do (đặt và hủy)"),
     ("rcv.reason_no_account", "Lý do không được chứa số tài khoản hoặc dãy từ 6 chữ số trở lên.", "The reason can't contain an account number or a run of 6 or more digits.", None, "422 reason ACCOUNT_NUMBER_NOT_ALLOWED (BE-B cf0ce2f); Desk kiểm trước khi gửi"),
+])
+
+# v1.0.4 P4-34 – FE: hủy dòng tham số đã lên lịch ngay trong hộp Sửa tham số (H05 5.2, cancelScheduledParameter).
+# Dùng lại: confirm.keep, params.reason, field_error.reason_required, params.not_yet, rooms.col_action.
+# UXD 04/11: nút dùng khóa trung tính params.cancel_scheduled (cùng chữ với rcv.cancel_scheduled để hai mục trên trang
+# Tham số gọi giống nhau) – FE đổi 3 chỗ trong ParamDialog (FB-R4-UXD-FE-P434-01). Sổ tay ngày thay tờ quyền riêng tư
+# (privacy_notice_version) gọi nhãn nút "Hủy lịch" / "Cancel schedule".
+g("v1.0.4 P4-34 – FE: hủy tham số đã lên lịch trong hộp Sửa tham số. UXD duyệt 04/11/2026 (sửa cancel_body, cancel_gone; thêm params.cancel_scheduled)", [
+    ("params.cancel_scheduled", "Hủy lịch", "Cancel schedule", None, "Nút sm ghost trên dòng Chưa hiệu lực (aria-label \"{nhãn}: {ngày}\") và nút xác nhận C16. Giữ cùng chữ với rcv.cancel_scheduled"),
+    ("params.cancel_title", "Hủy giá trị đã lên lịch?", "Cancel the scheduled value?", None, "Tiêu đề hộp xác nhận C16; nút xác nhận params.cancel_scheduled, nút an toàn confirm.keep"),
+    ("params.cancel_body", "Giá trị {value}, hiệu lực từ {date}, sẽ không áp dụng. Giá trị trước đó tiếp tục áp dụng.", "The value {value}, effective {date}, will not apply. The earlier value stays in effect.", None, "{value} = giá trị đã định dạng như cột Mới; {date} = ngày hiệu lực. Không đặt {name} làm chủ ngữ: nhãn tham số là cụm như \"Nhận phòng từ\". Tên đã có ở tiêu đề hộp Sửa bên dưới và ở toast. \"Giá trị trước đó\" đúng cả khi còn dòng lên lịch khác"),
+    ("params.cancelled", "Đã hủy lịch đổi {name}.", "The scheduled change to {name} was cancelled.", None, "Toast sau 204; {name} = tên tham số như tiêu đề hộp Sửa"),
+    ("params.cancel_effective", "Giá trị từ {date} đã bắt đầu áp dụng nên không hủy lịch được nữa. Muốn đổi, lưu giá trị mới.", "The value from {date} has already taken effect, so it can't be cancelled. To change it, save a new value.", None, "409 INVALID_TRANSITION (ngày kinh doanh đã sang); thay error.INVALID_TRANSITION vốn nói về \"Đơn\". Mẫu rooms.cancel_sched_effective. Alert tone bad"),
+    ("params.cancel_gone", "Lịch đổi từ {date} không còn – có thể người khác vừa hủy. Lịch sử đã tải lại.", "The change scheduled from {date} is no longer there – someone may have just cancelled it. The history has been reloaded.", None, "404 NOT_FOUND. Mẫu rooms.cancel_sched_gone. Alert tone info (không phải lỗi của người dùng)"),
 ])
 
 g("R3 – FE-A BUG-R3-001 (R3-Q25): xóa công nợ xin mật khẩu người xin. **Chờ UXD duyệt**", [
@@ -3441,10 +3446,6 @@ RU_EXTRA = {
     "guest.oci.arrival_late": "После 22:00",
     "guest.oci.closed_desk": "Администратор уже получил ваши документы",
     "guest.oci.companions_at_desk": "Остальные гости ответят на этот вопрос сами на стойке.",
-    "guest.oci.consent": "Я согласен(на), чтобы OTTIMO хранил фото моего документа до {days} дн. после выезда, а затем автоматически удалил их.",
-    "guest.oci.consent_no": "Нет – использовать только для регистрации, затем удалить",
-    "guest.oci.consent_optional": "Необязательно. Если вы не согласны, мы используем данные только для регистрации и не храним фото.",
-    "guest.oci.consent_q": "Хранить фото вашего документа после регистрации?",
     "guest.oci.done_body": "Заезд с {time}, если апартаменты уже готовы; к 14:00 они готовы всегда. Код от двери администратор выдаст при заезде.",
     "guest.oci.done_title": "Всё готово. До встречи {date}.",
     "guest.oci.note": "Заметка для администратора",
@@ -3455,8 +3456,6 @@ RU_EXTRA = {
     "guest.oci.upload_retry": "Отправить фото снова",
     "guest.oci.upload_weak": "Слабое соединение – фото сжато, отправка повторится автоматически.",
     "guest.oci.uploading": "Отправка фото {n}/{total} – {pct}%",
-    "guest.oci.why": "Зачем? По закону Вьетнама гостиница обязана регистрировать проживание каждого гостя.",
-    "guest.oci.withdraw_hint": "Хотите отозвать согласие на хранение фото? Сообщите администратору – фото будут удалены.",
     "guest.stay.checkin_time": "Заезд с {time} (апартаменты всегда готовы к 14:00)",
     "guest.stay.checkout_time": "Выезд до {time}",
     "guest.tab.home": "Моё проживание",
@@ -3475,8 +3474,6 @@ RU_EXTRA = {
     "gw.ended_body": "Ваше проживание завершено. Нужен итоговый расчёт или помощь? Напишите OTTIMO в Zalo/WhatsApp.",
     "gw.house_rules": "Правила проживания и штрафы",
     "gw.late_r2": "Приезд после 22:00: дежурный оформит заезд и выдаст код от двери на месте – позвоните по номеру на этой странице, когда приедете.",
-    "gw.notice_body": "OTTIMO использует данные ваших документов, чтобы зарегистрировать проживание в полиции, как требует закон Вьетнама. Фото документов зашифрованы; их видят только администраторы и управляющие. Отдельно мы спросим, можно ли хранить фото после регистрации.",
-    "gw.notice_read": "Я прочитал(а)",
     "gw.notice_title": "Перед началом",
     "gw.notice_version": "Версия уведомления: {v}",
     "gw.offline_upload": "Нет подключения – неотправленные фото не сохраняются на устройстве. Когда связь появится, сфотографируйте их снова.",
@@ -3852,7 +3849,7 @@ g("R3 v1.0.1 – UXD: Trả sớm B16 (H15 15.7, OpenAPI 0.3.9, US-137/US-135, B
     ("early_departure.row_ota_retained", "Số OTA giữ lại (đã nhập)", "Amount kept by the OTA (entered)", None, "otaRetainedVnd của thân gửi"),
     ("early_departure.ota_room_note", "Tiền phòng OTA của các đêm bỏ: OTA hoàn hay giữ theo chính sách của kênh, không qua OTTIMO.", "OTA room charge for the dropped nights: refunded or kept by the OTA under its own policy, not through OTTIMO.", None, "Có đêm OTA bị bỏ. DOM 27/10 (FB-R3-DOM-UXD-ED-03, câu thay thế nguyên văn) – FE-A áp, chờ UXD duyệt"),
     ("early_departure.row_refund", "Sẽ xin hoàn cho khách", "Refund to request for the guest", None, "refundVnd – dòng tổng đậm"),
-    ("early_departure.row_refund_help", "Một yêu cầu hoàn, cần quản lý duyệt. Trả phòng sau đó không tạo thêm yêu cầu.", "One refund request, needs manager approval. Check-out won't create another.", None, ""),
+    ("early_departure.row_refund_help", "Một yêu cầu hoàn cho phần trả sớm, cần quản lý duyệt. Trả phòng không tạo lại khoản này. Nếu folio còn tiền trả thừa khác, bước Bill hỏi cách xử lý riêng phần đó.", "One refund request for the early departure; a manager must approve it. Check-out won't create it again. If the folio has any other overpayment, the Bill step asks how to handle that part.", None, "v1.0.4 P4-31 BUG-R4-025 (UXD lượt 1, 05/11): bỏ câu sai \"Trả phòng sau đó không tạo thêm yêu cầu\". Khớp release notes đính chính 04/11 và BR-522. Dòng phụ dưới \"Sẽ xin hoàn cho khách\" ở bước ②. Lượt 2: EN bỏ \"which\" (dễ đọc thành trả sớm cần duyệt) – FB-R4-CPY-UXD-P401-08"),
     ("early_departure.row_fee", "Phí trả phòng sớm (ghi vào folio)", "Early departure fee (posted to the folio)", None, "earlyDepartureFeeVnd – dòng tổng đậm"),
     ("early_departure.refund_capped", "Khách chưa trả đủ tiền của lượt ở, nên chỉ hoàn {amount} (số khách đã trả thừa). Phần còn lại chỉ làm giảm số khách đang nợ, không trả ra bằng tiền.", "The guest hasn't paid for the whole stay, so only {amount} (the overpayment) is refunded. The rest only reduces what the guest owes; it isn't paid out.", None, "refundCapped = true và refundVnd > 0. DOM 27/10 (FB-R3-DOM-UXD-ED-04, câu thay thế nguyên văn) – FE-A áp, chờ UXD duyệt"),
     ("early_departure.refund_capped_zero", "Khách chưa trả thừa nên không có khoản hoàn. Phần hoàn chỉ làm giảm số khách đang nợ.", "The guest hasn't overpaid, so there is no refund. The amount only reduces what the guest owes.", None, "refundCapped = true và refundVnd = 0. DOM 27/10 (FB-R3-DOM-UXD-ED-04, câu thay thế nguyên văn) – FE-A áp, chờ UXD duyệt"),
@@ -3942,13 +3939,70 @@ g("R3 v1.0.1 – UXD: giá đã lên lịch trên ngăn kéo căn (H04 4.2, Open
 # 01/11/2026" – BR-107 v0.5.1: OTTIMO chưa vận hành, không có HĐ giấy cũ – nên không còn mốc ngày ký (FB-R4-UXD-FE-31 bỏ qua).
 g("R4 BUG-R4-014 – FE-A: Trả sớm B16 với HĐ thuê tháng (BR-313 v0.5.1, ESC-045 câu 4, ESC-048 B)", [
     ("early_departure.lease_title", "Trả trước hạn hợp đồng thuê tháng", "Leaving before the monthly lease ends", None, "Tiêu đề Alert warn thay khối Cách tính BR-428 khi stayType = long và ngày rời mới < ngày kết thúc HĐ (FB-R4-DOM-FE-A-01)"),
+    ("early_departure.lease_end_line", "HĐ thuê tháng hết hạn {date}.", "The monthly lease ends on {date}.", None, "v1.0.4 P4-01 lượt 2 (FB-R4-UXD-FE-P431-01, Suggestion). Dòng li-s ngay dưới early_departure.lease_title, chỉ khi leaseEndDate có và khác stayEnd. {date} = leaseEndDate dd/mm/yyyy. Thêm sẵn để FE-A dùng không phải xin khóa muộn; FE-A không dùng ở v1.0.4 thì để đó"),
     ("early_departure.lease_check", "Desk chưa biết tiền thuê đã thu tới đâu. Kiểm kỳ thu cuối và hỏi quản lý rồi mới báo khách.", "Desk can't tell yet how far the rent is paid. Check the last rent period and ask the manager before telling the guest.", None, "Câu đầu Alert, bước ② Xem trước. ESC-048 B: Desk v1.0 chưa có lịch kỳ thu (thu ghi ngoài app) nên không tự đoán. FB-R4-UXD-FE-26/28"),
-    ("early_departure.lease_rule_paid", "Đã thu tiền thuê tới hết HĐ: không vi phạm. Quyết toán ký quỹ như trả phòng đúng hạn HĐ: trừ điện nước, dọn lẻ, hư hỏng còn nợ, hoàn phần còn lại trong 7 ngày làm việc. Không hoàn các ngày không ở.", "Rent paid up to the lease end: not a breach. Settle the security deposit as at the lease end: deduct unpaid utilities, extra cleaning and damage, and refund the rest within 7 working days. Days not stayed are not refunded.", None, "Nhánh 1. INV quyết ESC-048 = B (03/11). BR-214. FB-R4-UXD-FE-27/28"),
+    ("early_departure.lease_rule_paid", "Đã thu tiền thuê tới hết HĐ: không vi phạm. Quyết toán ký quỹ như trả phòng đúng hạn HĐ: trừ điện nước kỳ cuối, phát sinh chưa thu (minibar, dọn lẻ) và hư hỏng, hoàn phần còn lại trong 7 ngày làm việc. Không hoàn các ngày không ở.", "Rent paid up to the lease end: not a breach. Settle the security deposit as at the lease end: deduct the final utilities, unpaid extras (minibar, extra cleaning) and damage, then refund the rest within 7 working days. Days not stayed are not refunded.", None, "Nhánh 1. INV quyết ESC-048 = B (03/11). BR-214. FB-R4-UXD-FE-27/28. v1.0.4 P4-31 (UXD lượt 1, 05/11): thêm \"phát sinh chưa thu\" theo BR-214 (FB-R4-DOM-FE-A-01 phần còn lại), bỏ \"còn nợ\". Lượt 2: \"điện nước kỳ cuối\" đúng chữ BR-214, cùng cách gọi với lease_still_due – FB-R4-CPY-UXD-P401-04"),
     ("early_departure.lease_rule", "Chưa thu đủ tiền thuê tới hết HĐ: vi phạm HĐ. Khách mất toàn bộ ký quỹ {amount} (giữ ngoài app), không truy thu giảm giá kỳ hạn.", "Rent not paid up to the lease end: this breaks the lease. The guest forfeits the full security deposit of {amount} (held outside the app); no clawback of the lease-term discount.", None, "Nhánh 2. {amount} = manualLongStay.depositHeldVnd đã định dạng. BR-313, BR-206; ESC-045 câu 4 + ESC-048 B. FB-R4-UXD-FE-28"),
     ("early_departure.lease_rule_no_amount", "Chưa thu đủ tiền thuê tới hết HĐ: vi phạm HĐ. Khách mất toàn bộ ký quỹ (giữ ngoài app), không truy thu giảm giá kỳ hạn.", "Rent not paid up to the lease end: this breaks the lease. The guest forfeits the full security deposit (held outside the app); no clawback of the lease-term discount.", None, "Nhánh 2 khi đơn không ghi depositHeldVnd (ca phổ biến – sổ tay: không ghi ký quỹ vào Desk)"),
-    ("early_departure.lease_still_due", "Vẫn thu điện nước, dọn lẻ, hư hỏng còn nợ, không trừ vào ký quỹ. Tiền thuê và phí dịch vụ đã thu cho tháng lịch chưa bắt đầu thì hoàn, tháng đang ở thì không (làm ngoài app).", "Unpaid utilities, extra cleaning and damage are still collected, not taken from the deposit. Rent and service fee paid for calendar months not yet started are refunded; the current month is not (outside the app).", None, "Danh sách con của nhánh 2 (chưa thu đủ). BR-313 + BR-214 + BR-204/207. FB-R4-DOM-FE-A-03, FB-R4-UXD-FE-26/27"),
+    ("early_departure.lease_still_due", "Vẫn thu điện nước kỳ cuối, phát sinh chưa thu (minibar, dọn lẻ) và hư hỏng, không trừ vào ký quỹ. Tiền thuê và phí dịch vụ đã thu cho tháng lịch chưa bắt đầu thì hoàn, tháng đang ở thì không (làm ngoài app).", "The final utilities, unpaid extras (minibar, extra cleaning) and damage are still collected, not taken from the deposit. Rent and service fee paid for calendar months not yet started are refunded; the current month is not (outside the app).", None, "Danh sách con của nhánh 2 (chưa thu đủ). BR-313 + BR-214 + BR-204/207. FB-R4-DOM-FE-A-03, FB-R4-UXD-FE-26/27. v1.0.4 P4-01 lượt 2: cùng cách gọi khoản thu với lease_rule_paid (BR-214 nguyên văn) – FB-R4-CPY-UXD-P401-04"),
     ("early_departure.lease_done_note", "Ký quỹ và tiền thuê xử lý ngoài app, theo nhánh đã báo khách.", "The security deposit and rent are handled outside the app, as told to the guest.", None, "Thay lease_check ở bước ③ Kết quả (đã báo khách xong). FB-R4-UXD-FE-29"),
     ("early_departure.told_guest_lease", "Đã báo khách về ký quỹ và các khoản còn thu, còn hoàn", "I've told the guest about the security deposit and what is still due or refunded", None, "Checkbox thay early_departure.told_guest khi trả trước ngày kết thúc HĐ. FB-R4-UXD-FE-30"),
+])
+
+# v1.0.4 P4-01 – UXD lượt 1 (05/11/2026). Nguồn: rounds/round-04/outputs/UXD/v104-strings-table.md (mục 1–2) + tên khóa chốt
+# ARC 0.3.12 mục 2.5 (attention.* → attn.*, notif.* → staff.notif.k.*; chữ giữ nguyên). Chữ nhân viên: ngắn, nói việc cần làm,
+# không "Vui lòng", không "!", không emoji. Khóa sửa chữ (error.FOLIO_LOCKED, early_departure.lease_rule_paid,
+# early_departure.row_refund_help) sửa tại chỗ. Lượt 2 (05/11): theo PO-on-v104-p4-01-strings, CPY-on-v104-p4-01,
+# UXD-on-v104-p4-40/p4-31 – giữ auth.mfa_later (MOB xóa ở P4-50), {cutoff} thay 12:00 viết cứng, thêm rsv.hold_paid_keep,
+# early_departure.lease_end_line, users.reset_2fa_title; "6-digit" dùng gạch không ngắt U+2011 (FB-R4-UXD-MOB-P450-05). Bảng trả lời: rounds/round-04/responses/UXD-P4-01.md.
+g("v1.0.4 P4-01 – UXD lượt 1 (05/11/2026)", [
+    # P4-30 v104/fe-users-2fa (FE-A)
+    ("users.reset_2fa", "Đặt lại xác thực 2 bước", "Reset 2-step verification", None, "P4-30. Mục menu Khác…, chỉ OWN, chỉ khi người đó đã bật 2 bước (User.mfaEnabled; chưa bật → 409). Không hiện trên hàng của chính mình (422 NOT_ALLOWED)"),
+    ("users.reset_2fa_title", "Đặt lại xác thực 2 bước cho {name}?", "Reset 2-step verification for {name}?", None, "P4-30 lượt 2 (FB-R4-UXD-FE-P430-01). Tiêu đề hộp Đặt lại 2 bước, dạng câu hỏi như users.reset_pw_title, users.lock_title. {name} = tên hiển thị. Thay chuỗi ghép trong mã \"users.reset_2fa – {name}\". Nút xác nhận giữ users.reset_2fa"),
+    ("users.reset_2fa_confirm", "Người này sẽ bị đăng xuất trên mọi máy và mã khôi phục cũ hết hiệu lực. Ở lần đăng nhập tới, người này thêm lại OTTIMO vào ứng dụng xác thực trên điện thoại.", "They will be signed out on every device and their old recovery codes will stop working. At their next sign-in, they will add OTTIMO to the authenticator app on their phone again.", None, "P4-30. Thân hộp xác nhận (chỉ câu hệ quả, như users.reset_pw_body, users.lock_body), trước ô lý do và bước S2. Tiêu đề: users.reset_2fa_title. Theo resetUser2fa (0.3.8). Lượt 2: bỏ câu hỏi đầu và {name} (FB-R4-UXD-FE-P430-01 – FE vẫn truyền name, thừa tham số không sao); bỏ \"điện thoại mới\" (đặt lại cả khi xóa nhầm hay đổi ứng dụng), EN thì tương lai – FB-R4-CPY-UXD-P401-01, FB-R4-PO-UXD-P401-05"),
+    ("users.reset_2fa_reason", "Lý do đặt lại (ví dụ: mất điện thoại)", "Reason for the reset (for example: lost phone)", None, "P4-30. Nhãn ô reason (bắt buộc 3–300 ký tự) của resetUser2fa. Lỗi dùng field_error.reason_required. ARC 0.3.12 mục 2.5 đồng ý tên"),
+    ("users.reset_2fa_done", "Đã đặt lại xác thực 2 bước cho {name}.", "2-step verification reset for {name}.", None, "P4-30. Toast sau 204. Không nói về thư (Desk không biết thư có tới)"),
+    ("reauth.s2_failed_password", "Mật khẩu chưa đúng. Kiểm tra lại rồi thử lại.", "That password isn't right. Check it and try again.", None, "P4-30 BUG-R4-024. 401 REAUTH_FAILED khi hộp S2 chỉ có ô mật khẩu. Hộp có ô mã giữ reauth.s2_failed (luật chọn: content-guide 5.2b). EN \"That\" như error.REAUTH_FAILED – FB-R4-CPY-UXD-P401-07"),
+    # P4-41 v104/fe-money-labels (FE-A)
+    ("audit.reason.overpayment", "Hoàn tiền khách trả thừa", "Overpayment refund", None, "P4-41 BUG-R4-026. reasonCode = overpayment ở cột Lý do, Cần duyệt, Hoàn tiền (5 chỗ máy chủ dùng, kể cả yêu cầu thay thế). reasonNote hiện sau nhãn"),
+    ("audit.reason.early_departure", "Hoàn khi trả sớm", "Early departure refund", None, "P4-41. reasonCode = early_departure trên yêu cầu hoàn B16. Khác mlog.reason.early_departure (lý do dòng folio)"),
+    ("approvals.refund_may_decrease", "Số có thể giảm khi duyệt: phát sinh ghi sau yêu cầu này được trừ trước khi hoàn.", "The amount may go down at approval: charges posted after this request are taken off first.", None, "P4-41 GN-R4-QA-01 (ARC 6.4). Dòng phụ chữ Stone trên hàng chờ duyệt của yêu cầu hoàn (mọi lý do)"),
+    ("mlog.a_refund_destination_carried", "Chép nơi nhận hoàn sang yêu cầu thay thế", "Refund destination carried over to the replacement request", None, "P4-41/P4-12. AuditEvent.action refund.destination_carried (0.3.12 mục 1 (g)). Dòng audit chỉ có mã yêu cầu – câu không nhắc số tài khoản hay tên người nhận. Thiếu câu này Desk hiện mlog.a_other"),
+    # P4-11 / BUG-R4-015 (FE-A, ngăn kéo căn)
+    ("rooms.cancel_sched_first", "Đây là giá mở bán của căn nên không hủy được – hủy đi thì căn không có giá tới dòng giá kế tiếp. Sửa bằng ô giá ở trên, cùng ngày {date}.", "This is the room's opening price, so it can't be cancelled – without it the room has no price until the next scheduled one. Change it in the price fields above, same date {date}.", None, "BUG-R4-015, ARC 0.3.12 (c): 409 INVALID_TRANSITION currentState=first_price của cancelScheduledRoomListPrice. {date} = effectiveFrom của dòng (dd/mm/yyyy như rooms.cancel_sched_only). Cách sửa giống only_price: updateRoom.listPrice cùng ngày"),
+    # P4-40 v104/fe-holds (FE-B; nhãn thông báo trên PWA: MOB). Tham số theo rounds/round-04/outputs/FE/v1.0.4-fe-holds.md mục 3
+    ("deposit.received_at", "Giờ nhận tiền", "Time received", None, "P4-40 BUG-R3-042. Ô trong hộp Xác nhận cọc, FD+. Mặc định bây giờ, không cho giờ tương lai (lỗi: field.DATE_INVALID)"),
+    ("deposit.received_at_help", "Giờ tiền về tài khoản hoặc khách đưa tiền. Ghi lùi được, không ghi giờ sau bây giờ. Giữ chỗ chưa cọc chỉ xác nhận được khi tiền về trước hạn giữ chỗ.", "When the money arrived or the guest paid. You can enter an earlier time, not a later one. A hold with no deposit can only be confirmed if the money arrived before its deadline.", None, "P4-40. Dòng phụ dưới ô. Câu cuối: US-085 AC4 / SEC-BE-22"),
+    ("deposit.accept_shortfall", "Chấp nhận cọc thiếu (phần còn lại thu khi nhận phòng)", "Accept the short deposit (collect the rest at check-in)", None, "P4-40 BUG-R3-043. Chỉ OWN/MGR, khi đã nhận > 0 và < cọc yêu cầu. Khớp ci.shortfall_accepted"),
+    ("deposit.accept_shortfall_reason", "Lý do chấp nhận cọc thiếu", "Reason for accepting the short deposit", None, "P4-40. Bắt buộc khi đã chọn ô trên, ≥ 3 ký tự. Lỗi: field_error.reason_required"),
+    ("hold.paid_overdue_banner", "Quá hạn giữ chỗ lúc {time}. Đã nhận {paid}/{required} nên đơn chưa hủy, căn vẫn giữ. Thu nốt cọc, nhờ quản lý chấp nhận cọc thiếu, hoặc hủy và hoàn. Mốc xử lý: {cutoff} {date}.", "Hold deadline passed at {time}. {paid} of {required} received, so the booking isn't cancelled and the room stays held. Collect the rest, ask a manager to accept the short deposit, or cancel and refund. Deadline to decide: {cutoff} on {date}.", None, "P4-40 BUG-R3-044 (1). Alert bad (tone=\"bad\", icon hourglass, role=status – UXD đồng ý FE-B, FB-R4-UXD-FE-P440-05) trong khung đơn, thay drawer.hold.expired khi hold quá hạn có cọc. {time} giờ hạn giữ chỗ, {paid}/{required} tiền có đơn vị, {date} ngày đến dd/mm. Lượt 2: {cutoff} MỚI = tham số hold_latest_time_on_arrival (HH:mm, rules.holdLatestTime), không viết cứng 12:00 (FB-R4-PO-UXD-P401-03, FB-R4-CPY-UXD-P401-02); rút từ 210 xuống khoảng 170 ký tự (FB-R4-CPY-UXD-P401-10). BR-303, DOM A.3"),
+    ("error.HOLD_EXPIRED_PAID", "Giữ chỗ đã quá hạn lúc {time}, nhưng đã nhận {paid} nên đơn chưa hủy và căn vẫn giữ. Xử lý ngay trên đơn này: thu nốt cọc, chấp nhận cọc thiếu, hoặc hủy và hoàn.", "The hold passed its deadline at {time}, but {paid} has been received, so it isn't cancelled and the room stays held. Handle it on this booking: collect the rest, accept the short deposit, or cancel and refund.", None, "P4-40 BUG-R3-044 (2). 409 HOLD_EXPIRED cho hold có cọc. {time} từ Problem.expiredAt – thiếu thì FE-B lấy holdExpiresAt của đơn (không để trống); {paid} tiền có đơn vị"),
+    ("rsv.hold_paid_keep", "Đã nhận {paid}/{required}. Tới hạn mà chưa đủ cọc thì đơn không tự hủy, căn vẫn giữ – thu nốt cọc hoặc nhờ quản lý chấp nhận cọc thiếu.", "{paid} of {required} received. If the deadline passes before the rest is paid, the booking isn't cancelled and the room stays held – collect the rest or ask a manager to accept the short deposit.", None, "P4-40 (FB-R4-UXD-FE-P440-03), P4-01 lượt 2. Dòng li-s trong khung đếm giờ giữ chỗ khi đã nhận > 0 và chưa quá hạn, thay rsv.hold_auto (câu đó chỉ đúng cho hold chưa cọc). {paid}/{required} tiền có đơn vị, như hold.paid_overdue_banner. BR-303"),
+    ("cancel.refund_preview", "Không thu phí. Sẽ tạo yêu cầu hoàn {amount} – cần quản lý duyệt.", "No fee. A refund request for {amount} will be created – it needs a manager's approval.", None, "P4-40 BUG-R3-044 (3), BA M13-03. Hộp Hủy giữ chỗ đã nhận > 0, thay cancel.fee_none. {amount} từ bản tính thử"),
+    ("today.holds_waiting", "Giữ chỗ chờ cọc ({n})", "Holds awaiting deposit ({n})", None, "P4-40 ĐX-R3-QA-01, BA M13-02. Tên khối ở Hôm nay"),
+    ("today.hold_overdue_since", "Quá hạn từ {at} – cần xử lý", "Past its deadline since {at} – action needed", None, "P4-40 (UXD-on-v104-p4-40-r2, FB-R4-UXD-FE-P440-07). Dòng đếm giờ của HoldRow ở khối Hôm nay › today.holds_waiting khi đã quá hạn (remaining().ms === 0), thay today.hold_left (câu \"còn 0 giờ 00 phút\" sai với hold có cọc ở lại sau hạn, BUG-R3-044). Tông countdown bad. {at} = dateTime(holdExpiresAt), như today.hold_left. Chữ khớp attn.hold_overdue_one. Đúng cả với hold chưa cọc trong vài phút trước khi máy chủ tự hủy"),
+    ("attn.hold_overdue", "Giữ chỗ quá hạn: {n} đơn – sớm nhất từ {time} {date}, cần xử lý", "Holds past their deadline: {n} – earliest since {time} on {date}, action needed", None, "P4-40 ĐX-R3-QA-01. AttentionItem kind=hold_overdue (FD+, computed, critical). Đúng với mọi count: {n} = count, {time}/{date} = dueAt (hạn sớm nhất). refCode chỉ có khi count = 1 → dùng attn.hold_overdue_one. Tên chốt ARC 0.3.12 mục 2.5 (thay attention.hold_overdue). Lượt 2: \"sớm nhất\" như attn.registration_due, EN hết lệch số – FB-R4-CPY-UXD-P401-06"),
+    ("attn.hold_overdue_one", "Giữ chỗ {code} quá hạn từ {time} {date} – cần xử lý", "Hold {code} past its deadline since {time} on {date} – action needed", None, "count = 1 (có refCode). Chữ bảng UXD 3.1, thêm {date} vì hạn có thể là ngày trước. Lượt 2: EN \"action needed\" như attn.hold_overdue"),
+    ("attn.hold_overdue_cap", "Giữ chỗ còn chờ cọc sau {time} ngày đến: {n} đơn – quản lý quyết", "Holds still awaiting deposit after {time} on arrival day: {n} – manager to decide", None, "P4-40 DOM A.5. kind=hold_overdue_cap, chỉ OWN/MGR. {time} = dueAt (mốc hold_latest_time_on_arrival sớm nhất, mặc định 12:00), {n} = count. Tên chốt ARC 0.3.12 mục 2.5"),
+    ("attn.hold_overdue_cap_one", "Giữ chỗ {code} còn chờ cọc sau {time} ngày đến – quản lý quyết", "Hold {code} still awaiting deposit after {time} on arrival day – manager to decide", None, "count = 1 (có refCode)"),
+    ("staff.notif.k.hold_overdue_with_deposit", "Giữ chỗ có cọc đã quá hạn – căn vẫn giữ", "A hold with a deposit is past its deadline – the room stays held", None, "P4-40 BUG-R3-041. StaffNotification.kind hold_overdue_with_deposit (người tạo + người chốt + FD, FDL, MGR). Mã đơn ở dòng phụ. Không số tiền, không tên khách. Tên chốt ARC 0.3.12 mục 2.5 (thay notif.*)"),
+    ("staff.notif.k.hold_overdue_cap", "Giữ chỗ còn chờ cọc sau mốc giờ ngày đến – quản lý quyết", "A hold is still awaiting deposit past the arrival-day cutoff – manager to decide", None, "P4-40 DOM A.5. kind hold_overdue_cap (MGR, OWN). Không tham số: payload PWA chỉ có refCode, nên bỏ giờ khỏi câu thay vì viết cứng 12:00 (mốc = tham số hold_latest_time_on_arrival). FB-R4-PO-UXD-P401-03, FB-R4-CPY-UXD-P401-02"),
+    ("staff.notif.k.hold_expired", "Giữ chỗ chưa cọc đã hết hạn và tự hủy", "A hold with no deposit expired and was cancelled", None, "P4-40 DOM A.5. kind hold_expired (người tạo + người chốt; không ai → FD, FDL)"),
+    # P4-32 v104/fe-checkout (FE-B)
+    ("checkout.pending_refund_line", "Đang chờ hoàn cho khách {amount} (yêu cầu từ Trả sớm).", "Refund pending for the guest: {amount} (requested in Early departure).", None, "P4-32 GN-R4-QA-03. Bước ③ Bill và màn Kết quả, dưới \"Còn phải thu\". {amount} = tổng yêu cầu hoàn còn mở lý do early_departure. Lượt 2: EN gọi đúng tên chức năng như checkout.use_early_departure – FB-R4-CPY-UXD-P401-09"),
+    ("checkout.use_early_departure", "Hôm nay chưa tới ngày đi ({date}). Khách rời sớm thì dùng Trả sớm trên khung đơn.", "Today is before the departure date ({date}). If the guest is leaving early, use Early departure on the booking.", None, "P4-32 BUG-R3-024. Trang Trả phòng mở trước ngày đi: thay bước ①, kèm nút mở khung đơn"),
+])
+
+# v1.0.4 P4-50 v104/mob-2fa – app nhân viên (MOB). ORC chốt 04/11: mật khẩu tạm đổi trong app, bật 2 bước dẫn sang Desk.
+g("v1.0.4 P4-50", [
+    ("staff.mfa_enroll_desk", "Mở OTTIMO Desk trên máy tính để bật xác thực 2 bước, rồi đăng nhập lại ở đây.", "Open OTTIMO Desk on a computer to turn on 2-step verification, then sign in here again.", None, "BUG-R3-052. 403 MFA_ENROLLMENT_REQUIRED: dòng li-s ngay dưới câu error.MFA_ENROLLMENT_REQUIRED, luôn hiện (kể cả khi không có nút Desk). Chữ MOB, UXD duyệt nguyên văn (UXD-on-v104-p4-50, FB-R4-UXD-MOB-P450-01). Không ghi địa chỉ Desk trong câu (địa chỉ ở nhãn nút)"),
+    ("staff.mfa_network", "Chưa kết nối được tới máy chủ. Mã bạn đã nhập vẫn còn – kiểm tra mạng rồi bấm Thử lại.", "Couldn't reach the server. Your code is still here – check the connection, then tap Try again.", None, "Lỗi mạng ở bước nhập mã 2 bước (loginMfa). Lượt 2: MOB KHÔNG dùng – giữ common.error_network_body (FB-R4-UXD-MOB-P450-04). Chưa xóa vì v104/mob-2fa chưa gộp; xóa ở lượt dọn khóa nếu không ai dùng"),
+])
+
+# v1.0.4 PR24PM-01 – guest-web (SEC-on-plan-v1.0.4 mục 4.2 ý 5). 422 ID_NUMBER_DETECTED ở ô ghi chú yêu cầu và ghi chú lúc đến.
+# EN/VI: chữ SEC, UXD sửa ngữ pháp ("remove the number"). RU: CPY 05/11. Chỉ bật cùng tag với phần guest-portal của BE-D.
+g("v1.0.4 PR24PM-01 – guest-web", [
+    ("error.ID_NUMBER_DETECTED", "Không cần ghi số giấy tờ ở đây. Vui lòng xóa số đó rồi gửi lại.", "There's no need to include an ID number here. Please remove it and send again.", "Номер документа здесь указывать не нужно. Пожалуйста, удалите его и отправьте снова.", "422 ID_NUMBER_DETECTED (FieldError field + code) – createGuestRequest.note, updateOnlineCheckin.arrivalNote (ARC 0.3.12 (i)). Không nhắc lại chữ của khách. Lượt 2 (FB-R4-CPY-UXD-P401-05): một nghĩa \"gửi lại\" ở cả 3 ngôn ngữ (send again / gửi lại / отправьте снова), số ít trung tính, VI \"ghi\" như gw.req.note_help, RU thêm \"Пожалуйста\" cho cùng mức lịch sự. Ý SEC giữ nguyên – SEC xem lại câu. RU: người bản ngữ đọc lại (rủi ro thấp)"),
 ])
 
 # v1.0.3 BUG-R3-032 (P1, PR-1 – ARC v1.0.3-contract-email mục 7, OpenAPI 0.3.10): email nhận thông báo bảo mật. Desk trước đây
@@ -4010,6 +4064,70 @@ g("v1.0.3 BUG-R4-021 – MOB: câu thông báo bảo mật tài khoản trên PW
     ("staff.notif.sec.other_self", "Thông báo bảo mật về tài khoản của bạn", "Security notice for your account", None, "Câu chung cho mọi refCode khác của refType user (mfa.disabled, mfa.locked, stepup.s2_failed, mfa.recovery_code_used, mfa.recovery_codes_regenerated, security_alert không có refCode, mã mới chưa có câu) – không hiện mã thô. Danh từ trung tính: đúng cho cả thay đổi lẫn cảnh báo. FB-R4-UXD-MOB-021-02"),
     ("staff.notif.sec.other_other", "Thông báo bảo mật về một tài khoản khác", "Security notice for another account", None, "Như trên, refId là người khác (OWN nhận). FB-R4-UXD-MOB-021-02"),
 ])
+
+# ---------- v1.0.4 P4-42 – thông báo xử lý dữ liệu privacy-2026-10-v2 (trang khách, MOB) ----------
+# Một chỗ duy nhất cho 11 khóa pháp lý của thủ tục trước: 4 đoạn thông báo (thứ tự trên trang) + 7 khóa
+# đồng ý/nút. EN/VI: SEC-on-plan-v1.0.4 mục 6.2. RU: UXD-on-privacy-v2-ru mục 2 (= SEC-on-privacy-v2-ru
+# mục 2–3 + U+00A0 trong `{days} дн.`; mọi U+00A0 giữ nguyên).
+# UXD chỉnh giọng/dấu câu ở đây; đổi nghĩa = báo SEC + đổi version (NOTICE_TEXT_VERSIONS của guest-web).
+g("v1.0.4 P4-42 privacy-2026-10-v2", [
+    ("gw.notice_body",
+     "OTTIMO dùng thông tin giấy tờ của bạn để khai báo lưu trú với cơ quan công an theo luật Việt Nam. Ảnh giấy tờ được mã hóa; chỉ lễ tân và quản lý xem được. Chúng tôi sẽ hỏi riêng bạn có muốn cho lưu ảnh giấy tờ sau khi khai báo hay không. Bạn không đồng ý cũng không ảnh hưởng gì tới việc lưu trú.",
+     "OTTIMO uses your ID details to register your stay with the police, as required by Vietnamese law. ID photos are encrypted; only reception and managers can see them. We will ask separately whether we may keep your ID photos after registration. Saying no does not affect your stay.",
+     "OTTIMO использует данные ваших документов, чтобы зарегистрировать ваше проживание в полиции, как требует закон Вьетнама. Фото документов зашифрованы; их могут видеть только администраторы и управляющие. Мы отдельно спросим, можно ли нам хранить фото ваших документов после регистрации. Если вы не разрешите, это не повлияет на ваше проживание.",
+     "Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – trang khách: đoạn 1 dưới gw.notice_title (sửa ở v2: câu 3–4 từ tờ ở quầy)"),
+    ("gw.notice_retention",
+     "Ảnh và thông tin giấy tờ được xóa trong vòng 3 tháng sau khi trả phòng, trừ phần pháp luật yêu cầu lưu lâu hơn. Bản sao trong dữ liệu sao lưu đã mã hóa được xóa trong 35 ngày sau đó.",
+     "ID photos and saved ID details are deleted within 3 months after check-out, unless the law requires us to keep them longer. Copies in our encrypted backups are deleted within a further 35 days.",
+     "Фото документов и сохранённые данные из них удаляются в течение 3 месяцев после выезда, если закон не обязывает нас хранить их дольше. После удаления они остаются в наших зашифрованных резервных копиях не более 35 дней.",
+     "Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – đoạn 2 (mới ở v2)"),
+    ("gw.notice_translation",
+     "OTTIMO có thể dùng một dịch vụ dịch, như Google Dịch, để đọc tin nhắn và trả lời bạn. Nội dung được dịch có thể gồm tên, liên hệ, thông tin lưu trú và lời nhắn của bạn. Dịch vụ này xử lý nội dung đó theo chính sách riêng của họ, và máy chủ của họ có thể đặt ngoài Việt Nam.",
+     "We may use a translation service, such as Google Translate, to read your messages and reply to you. The text we translate may include your name, contact, stay details and message. The service handles this text under its own privacy policy, and its servers may be outside Viet Nam.",
+     "Мы можем пользоваться сервисом перевода, например Google Переводчиком, чтобы читать ваши сообщения и отвечать вам. Переводимый текст может включать ваше имя, контакт, сведения о проживании и текст сообщений. Этот сервис обрабатывает такой текст в соответствии со своей политикой конфиденциальности, и его серверы могут находиться за пределами Вьетнама.",
+     "Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – đoạn 3 (mới ở v2) – ESC-044"),
+    ("gw.notice_rights",
+     "Muốn xem, sửa hoặc xóa thông tin của bạn, vui lòng hỏi lễ tân.",
+     "To see, correct or delete your details, please ask reception.",
+     "Чтобы посмотреть, исправить или удалить свои данные, обратитесь, пожалуйста, к администратору.",
+     "Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – đoạn 4 (mới ở v2)"),
+    ("guest.oci.why",
+     "Vì sao cần? Luật Việt Nam yêu cầu khách sạn khai báo lưu trú cho mọi khách.",
+     "Why? Vietnamese law requires hotels to register every guest's stay.",
+     "Зачем? По закону Вьетнама мы обязаны регистрировать проживание каждого гостя.",
+     "Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – khối pháp lý thủ tục trước; VI/EN không đổi so với v1"),
+    ("guest.oci.consent_q",
+     "Lưu ảnh giấy tờ sau khi khai báo?",
+     "Keep your ID photos after registration?",
+     "Хранить фото вашего документа после регистрации?",
+     "Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – khối pháp lý thủ tục trước; VI/EN không đổi so với v1"),
+    ("guest.oci.consent",
+     "Tôi đồng ý OTTIMO lưu ảnh giấy tờ của tôi đến {days} ngày sau khi trả phòng, sau đó tự xóa.",
+     "I agree OTTIMO may keep photos of my ID until {days} days after check-out, then delete them automatically.",
+     "Даю согласие на то, чтобы OTTIMO хранил фото моего документа до {days} дн. после выезда, а затем автоматически удалил их.",
+     "Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – câu đồng ý, ghi notice_locale theo ngôn ngữ hiện (shownLocale); VI/EN không đổi so với v1"),
+    ("guest.oci.consent_no",
+     "Không, chỉ dùng để khai báo rồi xóa ảnh",
+     "No – use them for registration only, then delete",
+     "Нет — использовать только для регистрации, затем удалить",
+     "Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – khối pháp lý thủ tục trước; VI/EN không đổi so với v1"),
+    ("guest.oci.consent_optional",
+     "Không bắt buộc. Nếu không đồng ý, chúng tôi chỉ dùng thông tin để khai báo và không lưu ảnh.",
+     "Optional. If you don't agree, we only use the details for registration and don't keep the photos.",
+     "Необязательно. Если вы не согласны, мы используем данные только для регистрации и не храним фото.",
+     "Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – khối pháp lý thủ tục trước; VI/EN không đổi so với v1"),
+    ("guest.oci.withdraw_hint",
+     "Muốn rút đồng ý lưu ảnh? Báo lễ tân – ảnh sẽ được xóa.",
+     "Want to withdraw consent to keep photos? Tell reception – the photos will be deleted.",
+     "Хотите отозвать согласие на хранение фото? Сообщите администратору — фото будут удалены.",
+     "Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – khối pháp lý thủ tục trước; VI/EN không đổi so với v1"),
+    ("gw.notice_read",
+     "Tôi đã đọc",
+     "I've read this",
+     "Прочитано",
+     "Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – khối pháp lý thủ tục trước; VI/EN không đổi so với v1"),
+])
+
 
 def build():
     vi, en, ru = {}, {}, {}

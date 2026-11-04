@@ -115,7 +115,9 @@ describe.skipIf(!HAS_DB)('staff e-mail dispatcher (outbox staff.email)', () => {
     expect(st).toEqual({ sent: 2, done: 1, retry: 0, dead: 0, deferred: 0 });
     const byTo = Object.fromEntries(adapter.sent.map((m) => [m.to, m]));
     expect(Object.keys(byTo).sort()).toEqual([email('fd'), email('own1')].sort());
-    expect(byTo[email('fd')]!.params).toMatchObject({ audience: 'self', staffName: 'fd' });
+    expect(byTo[email('fd')]!.params).toMatchObject({ audience: 'self' });
+    // v1.0.4 G-BE-4 / INT 31-05: the name goes to the owner copy only
+    expect('staffName' in byTo[email('fd')]!.params).toBe(false);
     expect(byTo[email('own1')]!.params).toMatchObject({ audience: 'owner', staffName: 'fd' });
     expect(byTo[email('fd')]!.params.occurredAt).toMatch(
       /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2} \(GMT\+7\)$/,

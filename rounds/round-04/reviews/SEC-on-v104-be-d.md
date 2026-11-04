@@ -169,3 +169,59 @@ Không có.
 1. Hook `onDecided('refund', cancelled)` vẫn purge nơi nhận và hủy DEK của yêu cầu cũ như SEC-BE-45, và chạy trong vòng `autoCancel` (BE-D dựa vào điều này cho thứ tự `peek` trước).
 2. `refundAccountAad(id)` gắn id yêu cầu, nên bản mã chép thẳng sang id khác sẽ không giải được. Đây là lý do của ĐK 2, và ca (a) kiểm "giải mã ra đúng" trên id mới.
 3. Không tự chạy test. Kết luận dựa trên đọc mã, tên ca test và hai báo cáo BE-D.
+
+---
+
+## 7. P4-14 giai đoạn B lõi (PR24PM-01) – `v104/be-sensitive` @ `cb366588` (04/11)
+
+- Đối tượng: commit `cb366588` trên `ecb836b6` (nhánh đã rebase lên `main` @ `4e94fbcc`, Draft PR). Đã đọc: `shared/sensitive-number.ts` (đổi chỗ từ `public-site/internal/`), `shared/validation.ts`, `website-request-rules.ts`, `test/v104-card-rule-shared.test.ts`, `test/integration/guest-requests-s4-bed.test.ts`, `responses/BE-D-P4-14.md`, báo cáo BE mục 7. Đã đối chiếu mọi nơi gọi `containsCardNumber` / `assertNoCardNumber` / `requireReason` / `optionalText` trong `services/api/src` (16 module).
+- Không tự chạy test (BE-D báo 3943 ca đạt trên PostgreSQL riêng; CI chạy ở PR).
+
+### 7.1 Kết luận
+
+**ĐẠT. Được gộp PR-J khi CI trọn xanh.** Không có thẻ Blocker, Major hay Minor. Có 2 thẻ Suggestion và 3 Info.
+- **PR24PM-01 nửa thẻ (SEC-on-plan-v1.0.4 4.2 ý 1): Verified.**
+- **Nửa giấy tờ cho `guest-portal` (4.2 ý 2–5): SEC quyết dời sang v1.0.5** (4.2 ý 6). Lý do: cần đủ mã máy chủ, khóa chữ guest-web vi/en/ru và chữ RU của CPY trong **cùng** một tag, mà chưa có phần nào trước giờ cắt 06/11 18:00. Hợp đồng 0.3.12 đã ghi "bật cùng tag guest-web", nên dời không làm lệch hợp đồng. Khi làm ở v1.0.5, phần máy chủ cần một lượt SEC review riêng.
+
+### 7.2 Ba điểm ORC hỏi
+
+| # | Câu hỏi | Kết quả |
+|---|---|---|
+| 1 | Không có ca lọt mới | **Đúng, bảo đảm bằng cấu trúc.** `containsCardNumber` = luật cũ (giữ nguyên từng ký tự, chỉ đổi tên nội bộ) **OR** `looksLikeCard`. Kết quả luôn chứa mọi thứ luật cũ đã bắt. Có ca `4111 1111 11-11 1111` (bộ dò bỏ lọt, luật cũ bắt) và ca chứng minh phép OR cần cả hai vế. Bộ dò chỉ đổi chỗ: vòng Luhn riêng thay bằng `luhnValid` của `redact.ts`. Hai hàm cho cùng kết quả, vì nhóm chữ số đã là ASCII (`asciiDigits` + `\d` của JS chỉ khớp ASCII). Bản mới còn trả `false` với ký tự không phải số, nên chặt hơn. Website form (US-155) và Chat chỉ đổi dòng import. `PAIR_CHAIN` là của giai đoạn A, đã review ở mục 2.1 |
+| 2 | 422 chỉ có field + code | **Đúng.** `assertNoCardNumber` không đổi: `problem('CARD_NUMBER_DETECTED', { errors: [{ field, code }] })`. Các nơi tự dựng lỗi (`receiving-account.ts`, `refunds.service.ts`, `registration/rules.ts`) không đổi. Có test unit và test HTTP trên PostgreSQL thật (3 ghi chú khách: chữ số toàn chiều rộng, NBSP, `_`): thân trả về không có chữ số thẻ |
+| 3 | Phạm vi chặn rộng hơn (`_` `/` `,`, NBSP, chữ số toàn chiều rộng…) có đúng 4.2 ý 1 không | **Đúng ý SEC.** 4.2 ý 1 yêu cầu chính điều này: bộ dò mới OR luật cũ, áp ở **mọi nơi đang gọi**, không thêm nơi gọi, giữ mã `CARD_NUMBER_DETECTED`. Không thêm nơi gọi nào (danh sách nơi gọi trước/sau như nhau). Nửa giấy tờ **không** lọt vào `containsCardNumber`: có ca CCCD 12 số thử không bị coi là thẻ. Nếu sai thì hỏng về phía an toàn (422, không ghi gì) |
+
+### 7.3 Ba vòng Luhn ngoài API – quyết định của SEC
+
+| Chỗ | Quyết định | Lý do |
+|---|---|---|
+| `apps/guest-web/src/app/validation.ts` | Thẻ Suggestion **P414B-02** (MOB, v1.0.5) | Đây là kiểm trước ở máy khách. Máy chủ mới là lớp bảo vệ. Lệch với máy chủ chỉ có nghĩa là khách nhận 422 thay vì câu báo ngay tại ô, không lọt dữ liệu. Không cần chép bộ dò sang client |
+| `apps/admin-web/src/mocks/*` | Info, **không thẻ** | Chỉ là mock để dựng giao diện, không xử lý dữ liệu thật |
+| `integrations/common/scrub-card-data.ts` (`scrubCardData`) | Info, **không thẻ, giữ riêng có chủ ý** | Hàm này lọc payload máy của cổng thanh toán, có 2 tầng (Tier A cửa sổ Luhn, Tier B theo IIN + độ dài hãng thẻ, giữ mốc thời gian). Đây là quyết định SEC 16/10 (FB-R2-SEC-INT-01/02/03). Bộ dò chữ khách gõ (dấu `_`/`/`/`,`, đọc từng cặp, giải `%XX`) sẽ xóa nhầm trường số của cổng. **Không** được thay bằng `looksLikeCard`. INT thêm một dòng chú thích nói điều này khi có dịp sửa tệp |
+
+### 7.4 Thẻ
+
+#### FB-R4-SEC-BE-P414B-01
+- Mức độ: Suggestion
+- Người làm: BE-D (v1.0.5 cũng được)
+- Vị trí: `test/v104-card-rule-shared.test.ts`, test kiến trúc "ngoài `shared/` không tự viết Luhn"
+- Vấn đề: test chỉ quét `services/api/src`. Một bản Luhn thứ tư ở `apps/` hay `integrations/` sẽ không bị phát hiện.
+- Đề xuất sửa: quét cả `product/apps/*/src` và `product/integrations` với danh sách cho phép đúng 3 tệp ở 7.3, mỗi tệp ghi lý do. Tệp thứ tư thì test đỏ.
+- Trạng thái: Open
+
+#### FB-R4-SEC-MOB-P414B-02
+- Mức độ: Suggestion
+- Người làm: MOB (v1.0.5)
+- Vị trí: `apps/guest-web/src/app/validation.ts` `containsCardNumber`
+- Vấn đề: chú thích ghi "Same rule as the server's V-09". Từ PR-J điều này không còn đúng: máy chủ bắt rộng hơn.
+- Đề xuất sửa: đổi chú thích thành "kiểm trước ở máy khách, máy chủ là lớp bảo vệ (`shared/validation.ts`)". Giữ đường xử lý 422 `CARD_NUMBER_DETECTED` hiện có cho các ca máy khách bỏ lọt. Không chép bộ dò.
+- Trạng thái: Open
+
+#### Info
+- **P414B-I1 (QA):** ô có cấu trúc mà nay có thể bị 422 nhiều hơn: `bankReference` của lệnh hoàn (`refunds.service.ts`), khi tham chiếu ngân hàng có nhóm ≥ 4 chữ số nối bằng `/` hoặc `_` và tình cờ qua Luhn. Đây là hỏng về phía an toàn. QA thêm 1–2 ca "không được chặn" với dạng tham chiếu thật của ngân hàng (giá trị thử) khi chạy TC-V104-SN-04/05. Nếu chặn nhầm thật thì báo SEC: ô này có thể chỉ giữ luật cũ.
+- **P414B-I2:** `optionalText` xóa ký tự điều khiển trước khi kiểm, và chuỗi được lưu chính là chuỗi đã kiểm. Đúng.
+- **P414B-I3:** `errorTag` và `writeLogLine` chuyển sang `shared/log-line.ts`, ESLint `no-console` cho `worker*.ts` và `jobs/**`. Đây là phần giai đoạn A (BED-05, PR24PM-04), đã đạt ở mục 2. Không đổi nghĩa.
+
+### 7.5 Dòng decision-log đề xuất (ORC ghi khi commit, SEC không sửa decision-log)
+
+`| 2026-11-04 | 4 | **SEC – review P4-14 giai đoạn B lõi (be-sensitive @ cb366588): ĐẠT, gộp PR-J khi CI xanh** (rounds/round-04/reviews/SEC-on-v104-be-d.md mục 7): PR24PM-01 nửa thẻ Verified (containsCardNumber = luật cũ OR looksLikeCard nên không có ca lọt mới; 422 chỉ field + code; phạm vi rộng hơn đúng 4.2 ý 1, không thêm nơi gọi, không lẫn nửa giấy tờ). Nửa giấy tờ guest-portal (ID_NUMBER_DETECTED) **dời v1.0.5** theo 4.2 ý 6 (cần cùng tag guest-web + RU), khi làm cần SEC review riêng. Luhn ngoài API: guest-web = kiểm trước ở client (Suggestion P414B-02), admin-web mocks = không thẻ, scrubCardData = giữ riêng có chủ ý (tầng IIN, quyết định SEC 16/10), không thay bằng bộ dò chữ. Suggestion P414B-01 (test kiến trúc quét cả apps/integrations) | SEC | Quyền SEC |`
