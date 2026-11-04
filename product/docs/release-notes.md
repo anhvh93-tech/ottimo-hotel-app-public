@@ -87,7 +87,7 @@ Có trong v1.0.4 nếu gộp kịp. Không kịp thì sang v1.0.5, PO sửa mụ
 
 ### Giới hạn đã biết
 
-- **Dòng "Đang chờ hoàn" ở trang Trả phòng** (nếu #64 vào bản này): lễ tân và lễ tân trưởng chỉ thấy yêu cầu hoàn do chính mình tạo, nên số có thể thiếu hoặc không hiện. Khách có Trả sớm chưa được duyệt: xem **Nhật ký tiền → Hoàn tiền**, hoặc hỏi quản lý, trước khi báo khách số tiền hoàn. Đội đang chọn cách sửa.
+- **Lễ tân và lễ tân trưởng không thấy yêu cầu hoàn đang chờ do người khác tạo**, cả ở dòng "Đang chờ hoàn" của trang Trả phòng (nếu #64 vào bản này) lẫn ở **Nhật ký tiền → Hoàn tiền**. Số có thể thiếu hoặc không hiện. Khách có Trả sớm chưa được duyệt: **hỏi quản lý hoặc chủ đầu tư** trước khi báo khách số tiền hoàn. Sửa ở v1.0.5, chưa có ngày.
 - **Lễ tân trưởng bắt buộc 2 bước** nhưng Desk chưa tự ép (dự kiến v1.0.5). Anh/chị kiểm lúc tạo tài khoản (Việc làm sau khi lên, bước 4).
 - **Desk chưa có màn xem nhật ký bảo mật** (ai đặt lại 2 bước, cho ai, lý do). Cần tra thì nhắn Điều phối viên tên đăng nhập, không kèm lý do.
 - **Check-in online** vẫn dừng với khách thật tới khi đội báo "mở lại" (bước 2 ở trên).
@@ -99,6 +99,7 @@ Có trong v1.0.4 nếu gộp kịp. Không kịp thì sang v1.0.5, PO sửa mụ
 | Tính năng | Dự kiến |
 |---|---|
 | Desk tự ép lễ tân trưởng bật 2 bước | **v1.0.5** |
+| Lễ tân thấy mọi yêu cầu hoàn đang chờ của đơn lúc trả phòng, kể cả do người khác tạo | **v1.0.5** |
 | Màn xem nhật ký bảo mật trên Desk | Chưa xếp |
 | Hoa hồng nhập theo bảng nội bộ trên Desk, không có số mặc định trong mã | Hotfix H2, hạn 01/12 |
 | Các việc khác trong bảng "Chưa có" của v1.0.3, v1.0.2 và v1.0.0 | Theo đích ghi ở bảng đó |
