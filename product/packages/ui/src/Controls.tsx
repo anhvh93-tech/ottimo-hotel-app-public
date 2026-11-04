@@ -84,6 +84,8 @@ export interface StepperProps {
   decLabel: string;
   incLabel: string;
   invalid?: boolean;
+  /** Both buttons locked (e.g. the figures are being read again – the value on screen is not the one to edit). */
+  disabled?: boolean;
 }
 
 /** C4 stepper – no free number input; buttons lock at the bounds. */
@@ -97,6 +99,7 @@ export function Stepper({
   decLabel,
   incLabel,
   invalid,
+  disabled,
 }: StepperProps) {
   return (
     <div
@@ -110,7 +113,7 @@ export function Stepper({
       <button
         type="button"
         aria-label={decLabel}
-        disabled={value <= min}
+        disabled={disabled || value <= min}
         onClick={() => onChange(value - 1)}
       >
         −
@@ -119,7 +122,7 @@ export function Stepper({
       <button
         type="button"
         aria-label={incLabel}
-        disabled={value >= max}
+        disabled={disabled || value >= max}
         onClick={() => onChange(value + 1)}
       >
         +

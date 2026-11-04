@@ -98,13 +98,6 @@ function lateFeeNotAllowed(e: unknown): boolean {
 }
 
 /**
- * H16 Trả phòng 3 bước (S07, US-035…039, B18): minibar (counts 0…standard) → extras (actual
- * departure time, late surcharge only when the desk confirms the amount – BR-414, re-priced by the
- * real time – G-10) → bill + payment (VietQR drawn locally, cash/transfer/POS, company invoice) →
- * "Hoàn tất" with the consequence box (US-135). Server blockers (balance, approvals, minibar, credit)
- * are shown in place; a credit balance needs a handling choice (`overpaymentHandling`, G-15).
- */
-/**
  * The figures a cabinet count starts from (what is LEFT per item), from the standard read for that cabinet:
  * - DOM (e), BR-702 v0.3.8: the number the desk corrected on the folio (with a reason) wins over the last count –
  *   sending `standard − folioUsed` keeps that line (R6); another number = a new count;
@@ -129,6 +122,13 @@ export function minibarPrefill(std: MinibarStandard | undefined): Record<string,
   );
 }
 
+/**
+ * H16 Trả phòng 3 bước (S07, US-035…039, B18): minibar (counts 0…standard) → extras (actual
+ * departure time, late surcharge only when the desk confirms the amount – BR-414, re-priced by the
+ * real time – G-10) → bill + payment (VietQR drawn locally, cash/transfer/POS, company invoice) →
+ * "Hoàn tất" with the consequence box (US-135). Server blockers (balance, approvals, minibar, credit)
+ * are shown in place; a credit balance needs a handling choice (`overpaymentHandling`, G-15).
+ */
 export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const { t, vnd, money, date } = useI18n();
   const propertyId = usePropertyId();
@@ -191,8 +191,17 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     const of = std.state.data;
     setEdits((e) => ({ of, left: { ...(e.of === of ? e.left : {}), ...next } }));
   };
-  /** The standard for the cabinet on screen is in: until then "Tiếp tục" waits (nothing to count or send yet). */
-  const stdLoading = std.state.status === 'loading';
+  /**
+   * The standard on screen is read and is the one of the cabinet on screen (ARC FB-R4-ARC-FE-PR67-01): a switch
+   * after `await` (next cabinet) or a B14 seen on a reload paints one frame with cabinet B and A's read, as
+   * `useResource` starts loading in an effect. Until then nothing is edited, counted or sent.
+   */
+  const stdForCabinet =
+    !!countingRoomId &&
+    std.state.status === 'ready' &&
+    (std.state.data.roomId ?? countingRoomId) === countingRoomId;
+  /** Read (again) in progress, or not started for this cabinet yet: "Tiếp tục" waits (DS busy). */
+  const stdWaiting = !stdForCabinet && std.state.status !== 'error';
   const [lateTold, setLateTold] = useState(false);
   // S4-25 (US-007 AC1): the late surcharge written on the way to the bill can carry a FOC request.
   const [lateFoc, setLateFoc] = useState<SurchargeFoc>(noSurchargeFoc);
@@ -600,6 +609,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const nextCabinet = (doneRoom: string | undefined) =>
     toCount.find((c) => c.roomId !== (doneRoom ?? currentRoomId));
   const saveMinibar = async () => {
+    // ARC PR67-01: only on the standard read for the cabinet on screen – before the "nothing chargeable" branch,
+    // which used to skip the count while the read was missing, failed or still of the previous cabinet.
+    if (!stdForCabinet) return;
     if (!chargeable) {
       const next = nextCabinet(cabinet);
       if (next) setCabinet(next.roomId === currentRoomId ? undefined : next.roomId);
@@ -1103,7 +1115,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
             </ul>
           </Alert>
         ) : null}
-        {!std.state.data ? (
+        {!std.state.data || std.state.status === 'error' ? (
           std.state.status === 'error' ? (
             <ErrorBlock titleKey="co.error_title" error={std.state.error} onRetry={std.reload} />
           ) : (
@@ -1125,7 +1137,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 })}
               </Alert>
             ) : null}
-            <div className="table-wrap">
+            {/* UXD FB-R4-UXD-FE-PR67-01: read again (another cabinet after B14, a new period, a retry) – the list on
+                screen is the previous read: locked and marked busy until the new one is in (figures typed now
+                would be dropped without a word). The first read shows LoadingBlock above. */}
+            <div className="table-wrap" aria-busy={!stdForCabinet || undefined}>
               <table className="table">
                 <caption className="sr-only">{t('checkout.step.minibar')}</caption>
                 <thead>
@@ -1166,6 +1181,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                               labelledBy={`${ids}-i${idx}`}
                               decLabel={t('rooms.dec')}
                               incLabel={t('rooms.inc')}
+                              disabled={!stdForCabinet}
                             />
                             <span className="li-s num">/ {i.standardQty}</span>
                           </span>
@@ -1736,6 +1752,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
               <>
                 {chargeable ? (
                   <Button
+                    disabled={!stdForCabinet}
                     onClick={() =>
                       editLeft(Object.fromEntries(items.map((i) => [i.itemId, i.standardQty])))
                     }
@@ -1747,7 +1764,9 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                     used to skip the count (no items yet = "nothing chargeable"). */}
                 <Button
                   variant="pri"
-                  busy={minibarAct.busy || stdLoading}
+                  busy={minibarAct.busy || stdWaiting}
+                  // ARC PR67-01 (a): the standard could not be read – ErrorBlock + "Thử lại" above, no way on
+                  disabled={std.state.status === 'error' && !stdForCabinet}
                   busyLabel={minibarAct.busy ? minibarAct.busyLabel : t('common.loading')}
                   onClick={() => void saveMinibar()}
                 >

@@ -258,6 +258,172 @@ describe('BUG-R4-035 – after B14, figures changed on cabinet A are never sent 
   });
 });
 
+describe('UXD FB-R4-UXD-FE-PR67-01 – the previous list is locked while another cabinet is read', () => {
+  it('after B14, switching cabinet: steppers and "Tất cả còn đủ" locked, list `aria-busy`; unlocked on B\'s prefill', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(`${todayLocal()}T11:00:00+07:00`));
+    const kim = res('Kim Seo-yeon');
+    res('Nguyễn Văn An').status = 'cancelled'; // frees 202
+    mockControl.stay.roomStatus['202'] = 'VC';
+    const R = { propertyId: PROPERTY_ID, reservationId: kim.id };
+    const r202 = mockControl.db.rooms.find((x) => x.roomNo === '202')!;
+    mockControl.signInAs('qa.fd');
+    setCsrfToken(mockControl.db.csrf);
+    await api.changeRoom(
+      R,
+      {
+        newRoomId: r202.id,
+        cause: 'property_fault',
+        reason: 'Máy lạnh hỏng',
+        effectiveDate: todayLocal(),
+      },
+      res('Kim Seo-yeon').version,
+      newIdempotencyKey(),
+    );
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    server.use(
+      http.get('*/reservations/:reservationId/minibar-standard', async ({ request }) => {
+        if (new URL(request.url).searchParams.get('roomId') !== r202.id) return undefined;
+        await gate;
+        return undefined;
+      }),
+    );
+    const { user } = renderApp(`/reservations/${kim.id}/check-out`, 'qa.fd');
+    const group = await screen.findByRole('group', { name: tv('co.minibar_cabinet') });
+    const row = (
+      await screen.findByRole('rowheader', { name: new RegExp(`^${coke.itemName}`) })
+    ).closest('tr')!;
+    const used = () => within(row).getAllByRole('cell')[1]!.textContent;
+    const dec = () => within(row).getByRole('button', { name: tv('rooms.dec') });
+    const list = () => row.closest('.table-wrap')!;
+    const allFull = () => screen.getByRole('button', { name: tv('checkout.minibar.all_full') });
+    await waitFor(() => expect(dec()).toBeEnabled());
+    expect(list()).not.toHaveAttribute('aria-busy');
+    await user.click(dec());
+    expect(used()).toBe('1');
+
+    await user.click(
+      within(group).getByRole('button', { name: tv('co.minibar_cabinet_room', { room: '202' }) }),
+    );
+    // 202 is being read: the list on screen is still 402's – nothing on it can be changed.
+    await waitFor(() => expect(list()).toHaveAttribute('aria-busy', 'true'));
+    expect(dec()).toBeDisabled();
+    expect(within(row).getByRole('button', { name: tv('rooms.inc') })).toBeDisabled();
+    expect(allFull()).toBeDisabled();
+    expect(screen.getByRole('button', { name: tv('common.loading') })).toBeDisabled();
+
+    release();
+    // 202's own figures (a full cabinet, never counted) – unlocked.
+    await waitFor(() => expect(list()).not.toHaveAttribute('aria-busy'));
+    const row202 = screen
+      .getByRole('rowheader', { name: new RegExp(`^${coke.itemName}`) })
+      .closest('tr')!;
+    expect(within(row202).getAllByRole('cell')[1]!.textContent).toBe('0');
+    expect(within(row202).getByRole('button', { name: tv('rooms.dec') })).toBeEnabled();
+    expect(allFull()).toBeEnabled();
+    expect(screen.getByRole('button', { name: tv('co.go_extras') })).toBeEnabled();
+  });
+});
+
+describe('ARC FB-R4-ARC-FE-PR67-01 – "Tiếp tục" only on the standard read for the cabinet on screen', () => {
+  it('(a) the standard cannot be read: ErrorBlock + retry, "Tiếp tục" locked – no skipped count, no POST', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(`${todayLocal()}T11:00:00+07:00`));
+    const r = res('Phạm Huy');
+    server.use(
+      http.get(
+        '*/reservations/:reservationId/minibar-standard',
+        () =>
+          HttpResponse.json(
+            { type: 't', title: 't', status: 500, code: 'INTERNAL_ERROR', requestId: 'r-500' },
+            { status: 500, headers: { 'content-type': 'application/problem+json' } },
+          ),
+        { once: true },
+      ),
+    );
+    const counts = capture();
+    const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
+    const retry = await screen.findByRole('button', { name: tv('common.retry') });
+    const go = screen.getByRole('button', { name: tv('co.go_extras') });
+    expect(go).toBeDisabled();
+    expect(go).not.toHaveAttribute('aria-busy');
+    fireEvent.click(go);
+    // Still on step 1 (the old code went on without a count), nothing sent.
+    expect(screen.queryByLabelText(new RegExp(tv('checkout.departure_time')))).toBeNull();
+    expect(counts.sent).toHaveLength(0);
+    // "Thử lại" reads it again: the list and the way on come back.
+    await user.click(retry);
+    expect(
+      await screen.findByRole('rowheader', { name: new RegExp(`^${coke.itemName}`) }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: tv('co.go_extras') })).toBeEnabled();
+    counts.stop();
+  });
+
+  it("(b) next cabinet set after `await`: the frame with cabinet B and A's read sends nothing", async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(`${todayLocal()}T11:00:00+07:00`));
+    const kim = res('Kim Seo-yeon');
+    res('Nguyễn Văn An').status = 'cancelled'; // frees 202
+    mockControl.stay.roomStatus['202'] = 'VC';
+    const R = { propertyId: PROPERTY_ID, reservationId: kim.id };
+    const r402 = mockControl.db.rooms.find((x) => x.roomNo === '402')!;
+    const r202 = mockControl.db.rooms.find((x) => x.roomNo === '202')!;
+    mockControl.signInAs('qa.fd');
+    setCsrfToken(mockControl.db.csrf);
+    await api.changeRoom(
+      R,
+      {
+        newRoomId: r202.id,
+        cause: 'property_fault',
+        reason: 'Máy lạnh hỏng',
+        effectiveDate: todayLocal(),
+      },
+      res('Kim Seo-yeon').version,
+      newIdempotencyKey(),
+    );
+    const counts = capture();
+    renderApp(`/reservations/${kim.id}/check-out`, 'qa.fd');
+    const group = await screen.findByRole('group', { name: tv('co.minibar_cabinet') });
+    const a = within(group).getByRole('button', {
+      name: tv('co.minibar_cabinet_old', { room: '402' }),
+    });
+    await waitFor(() => expect(a).toHaveAttribute('aria-pressed', 'true'));
+    const go = await screen.findByRole('button', { name: tv('co.go_extras') });
+    const b = within(group).getByRole('button', {
+      name: tv('co.minibar_cabinet_room', { room: '202' }),
+    });
+    // Press again in the microtask right after the commit that names cabinet B (scheduler yielding after each
+    // task) – before `useResource` has even started reading B.
+    let pressed = false;
+    const mo = new MutationObserver(() => {
+      if (pressed || b.getAttribute('aria-pressed') !== 'true') return;
+      pressed = true;
+      fireEvent.click(go);
+    });
+    mo.observe(document.body, { childList: true, subtree: true, attributes: true });
+    try {
+      let now = performance.now();
+      const clock = vi.spyOn(performance, 'now').mockImplementation(() => (now += 10));
+      try {
+        fireEvent.click(go); // count 402
+        await waitFor(() => expect(pressed).toBe(true));
+      } finally {
+        clock.mockRestore();
+      }
+      // B's own read is in: the button is back.
+      await screen.findByRole('button', { name: tv('co.go_extras') });
+    } finally {
+      mo.disconnect();
+      counts.stop();
+    }
+    // Only the count of 402 – the press in that frame did not count 402 again (nor as "202").
+    const sent = counts.sent as unknown as Array<{ roomId: string }>;
+    expect(sent.map((x) => x.roomId)).toEqual([r402.id]);
+  });
+});
+
 describe('minibarPrefill', () => {
   const item = (over: Partial<MinibarStandard['items'][number]>) =>
     ({
