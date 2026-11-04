@@ -214,6 +214,16 @@
     - Chi tiết ở mục "Xác minh phía Desk – PR #77" của BUG-R4-039.
   - **Thêm BUG-R4-049 (P3).** Ở H13 của đơn chưa gán căn, dòng buồng vẫn in "Căn · VC · Đã dọn, chờ kiểm". Lỗi có từ trước #77, đang ở production, không chặn #77.
   - Test case bản 0.12 thêm RG-30, phần Desk của RG-14, RG-24, RG-25.
+- Cập nhật 05/11 03:35 (QA2, bước Kiểm thử, PR #84 `v104/fe-polish-049`). Môi trường: worktree tạm, stack local dùng một lần `ottimo-qa2p84`, đã dọn.
+  - **BUG-R4-049: đã sửa – chờ gộp #84.** QA2 ĐẠT ở head `7c7eaadb`.
+    - Head này gồm `3fa3428f` (ẩn `ci.cond_room`) và bản sửa thẻ UXD PR84-01 (ẩn `ci.cond_capacity_ok`).
+    - Đơn chưa gán căn: không còn dòng phụ "Căn · VC · …" và "… khách · căn  tối đa –". Đơn có căn: hai dòng phụ vẫn y như trước.
+  - **`ci.cond_capacity_ok` không ghi lỗi mới.** FE ghi chú dòng này cũng in số căn trống và "–" khi đơn chưa có căn. QA2 thấy cùng loại với BUG-R4-049, mức P3. Đã sửa trong #84 theo thẻ UXD PR84-01, nên gộp vào BUG-R4-049 và không cấp số mới.
+  - Hồi quy xanh:
+    - unit admin-web 970/970, `typecheck` và ESLint sạch;
+    - E2E nhận phòng API, clock và UI;
+    - test tạm Desk của #77 (D1–D6).
+  - Chi tiết ở mục "Xác minh bản sửa – PR #84" của BUG-R4-049.
 
 ## Tóm tắt
 
@@ -239,7 +249,7 @@
 | BUG-R4-046 | **P0** | Đặt phòng mới (H09), kênh Nội bộ: gõ giá cho một phần số đêm thì `validate()` cho qua, `body()` không gửi `nightlyRates`. Máy chủ ghi 0 đ cho mọi đêm, không báo. Có từ trước v1.0.1, đang ở production | FE (+ DOM luật, UXD, ARC) | **Đã gộp `main` @ `f9ff4e1f` (#82, 05/11, ORC) – chờ staging**. Trước đó: Đã sửa – chờ gộp #82 (head `0e48686c`, QA3 05/11 02:00). Unit 2 ca FE và 10 ca QA; E2E 6 ca × 2 lượt; đối chứng mã cũ: đơn 0 đ. ORC nhận P0; đi cùng v1.0.4, không làm v1.0.3.1. Gộp: sinh lại chữ sau khi gộp `main`, CI xanh; rồi RG-27 trên STG |
 | BUG-R4-047 | P2 | Trả phòng (H16): Quay lại bước ① rồi bấm Tiếp tục cho tủ vừa đếm lần đầu (tủ chưa từng nạp) thì nhận 409 `MINIBAR_PERIOD_CHANGED` với câu "Tủ vừa được bổ sung…". Bấm lại thì lưu. Không sai tiền. Có từ trước v1.0.1; mock MSW không tái hiện | FE-A (+ ARC, UXD) | **Đã sửa – chờ gộp #83** (head `e411cb22`, QA3 ĐẠT 05/11 02:50). RG-28 (E2E R2, R3, R4) đạt 3 lượt ở cả head cũ và head mới. Đối chứng `main`: 409. Không dời v1.0.5 |
 | BUG-R4-048 | **P0** | Trả phòng (#83): Hoàn tất nhận 409 `MINIBAR_NOT_CHECKED`. Lễ tân Quay lại bước ① và gõ số trước khi bản tóm tắt về. Effect `minibarResync` đọc lại bản chuẩn, số đã gõ về số chuẩn, không báo. **Tiếp tục** ghi tủ đủ, folio thiếu tiền minibar. Chỉ có trên nhánh #83, chưa vào `main` | FE-A (+ ARC) | **Đã sửa – chờ gộp #83** (head `e411cb22`, QA3 ĐẠT 05/11 02:50). R6 đỏ 3/3 lượt ở `19cfa3f7`, xanh 3/3 ở `e411cb22`. R7 xanh 3/3. Unit S2a: xanh ở head mới, đỏ ở trang cũ. Không còn chặn #83. Đóng khi #83 gộp; lỗi chưa từng vào `main`, nên không cần STG riêng |
-| BUG-R4-049 | P3 | Nhận phòng (H13), đơn chưa gán căn (OTA ở làn chưa gán): dòng "Buồng sẵn sàng" vẫn in "Căn · VC · Đã dọn, chờ kiểm" (số căn trống, trạng thái không có thật), vì bản xem trước trả `roomStatus: 'VC'` lấp chỗ khi không có căn. Desk vẫn chặn nhận phòng; dòng "Đơn đã được gán căn" ngay trên nói đúng. Có từ Sprint 3, đang ở production | FE-A (+ UXD nếu đổi câu; ARC nếu bỏ `roomStatus` ở hợp đồng) | Mới (QA2 05/11 03:00, thấy khi kiểm #77). Không chặn #77. ORC chọn: thêm vào #77 (khoảng 1 dòng + 1 unit) hay dời v1.0.5 |
+| BUG-R4-049 | P3 | Nhận phòng (H13), đơn chưa gán căn (OTA ở làn chưa gán): dòng "Buồng sẵn sàng" vẫn in "Căn · VC · Đã dọn, chờ kiểm" (số căn trống, trạng thái không có thật), vì bản xem trước trả `roomStatus: 'VC'` lấp chỗ khi không có căn. Desk vẫn chặn nhận phòng; dòng "Đơn đã được gán căn" ngay trên nói đúng. Có từ Sprint 3, đang ở production | FE-A (+ UXD nếu đổi câu; ARC nếu bỏ `roomStatus` ở hợp đồng) | **Đã sửa – chờ gộp #84** (head `7c7eaadb`, QA2 ĐẠT 05/11 03:35). Đơn chưa gán căn không còn dòng phụ `ci.cond_room` và `ci.cond_capacity_ok` (thẻ UXD PR84-01, cùng loại, không cấp số mới). Đơn có căn: hai dòng như cũ. Unit 049 đỏ trên trang cũ, xanh trên head mới; E2E Desk đạt. Còn: STG theo RG-30 (e). Trước đó: Mới (QA2 05/11 03:00, thấy khi kiểm #77) |
 | BUG-R2-216 | P3 | Thấy lại: hộp "Giữ chỗ" sau khi tạo in 2 lần số cọc và nội dung chuyển khoản | FE-B + UXD | **Đã sửa – đạt local** (PR #60, `main` @ `58183764`, HD-01 3/3 lượt). Chờ xác nhận STG 06/11 C3 |
 | BUG-R2-219 | P3 | Thấy lại: hộp "Giữ chỗ" khi khách đến hôm nay vẫn hiện bộ chọn 12/24/48 h và mốc hạn đã qua | FE-B + UXD (chữ) | **Đã sửa – đạt local** (PR #60, `main` @ `58183764`, HD-02 3/3 lượt). Chờ xác nhận STG 06/11 C3 |
 
@@ -1603,7 +1613,43 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
   - Cách triệt để (ARC chọn, v1.0.5): bản xem trước để trống `roomStatus` khi không có căn. Cách này đổi hợp đồng.
 - **Test chống tái phát:** unit H13 cho đơn chưa gán căn: dòng buồng không có "Căn ·" và không có trạng thái buồng. E2E như ý (e) của TC-V104-RG-30.
 - **Vai chịu trách nhiệm:** FE-A sửa; UXD nếu đổi câu; ARC nếu bỏ `roomStatus` ở hợp đồng. QA chạy lại.
-- **Trạng thái:** Mới. Không chặn #77. ORC chọn: thêm vào #77 hay dời v1.0.5 có kế hoạch.
+- **Cùng loại – dòng phụ `ci.cond_capacity_ok` (ghi chú của FE ở #84, thẻ UXD FB-R4-UXD-FE-PR84-01).**
+  - Đơn chưa có căn thì máy chủ trả `capacity_within_max` đạt. Desk in thêm dòng phụ "{n} khách · căn {room} tối đa {max}" với số căn trống và `max` là "–", ví dụ "2 khách · căn  tối đa –".
+  - QA2 coi đây là lỗi, cùng gốc và cùng mức P3 với lỗi trên. Đã sửa trong cùng #84, nên ghi vào mục này, không cấp số mới.
+- **Xác minh bản sửa – PR #84 `v104/fe-polish-049` (QA2, 05/11 03:35).**
+  - Bản thử:
+    - Head `3fa3428f`, base `main` `e99eba55` (đã có #77, #79, #82). Head này chỉ ẩn `ci.cond_room`.
+    - Rồi head `7c7eaadb`. FE-A ẩn thêm `ci.cond_capacity_ok` khi không có căn (`c.met && hasRoom`), và thêm ý vào unit 049.
+    - `main` sau đó lên `a35a5625`, nhưng chỉ đổi tài liệu, không đổi `product/`. #84 gộp vào `main` mới không xung đột.
+    - Stack local dùng một lần `ottimo-qa2p84` (postgres, api, web), seed DS-E, `CLOCK_MODE=mutable`. Image web dựng lại ở `7c7eaadb`. Máy chủ không đổi so với `main`.
+    - Desk Chromium 1366×768, `vi-VN`. Test tạm `zz-qa2-pr84.spec.ts`, xóa cùng worktree. Đã dọn stack, image và worktree.
+
+    | Ca | Dựng | Kết quả ở `7c7eaadb` |
+    |---|---|---|
+    | N1 – đơn chưa gán căn | Đơn OTA ở làn chưa gán căn. API: `roomStatus:"VC"`, `not_unassigned` chưa đạt, `capacity_within_max` đạt | Dòng buồng chỉ còn "Buồng sẵn sàng (VI hoặc VC) · Còn thiếu". Không có "Căn ·", không có trạng thái buồng nào. Dòng sức chứa chỉ còn "Số khách không vượt sức chứa căn · Đã đủ", không có "… khách · căn  tối đa –". Dòng "Đơn đã được gán căn" vẫn báo "Đơn chưa được gán căn (xung đột OTA). …". Trên bước đang hiện, không còn chữ hay nút nào ghi số căn trống |
+    | N2 – đối chứng, căn `VC` | Đơn Trực tiếp căn 202, sạch | Dòng buồng đúng nguyên câu "Căn 202 · VC · Đã dọn, chờ kiểm", chip "Đã đủ". Dòng sức chứa "2 khách · căn 202 tối đa 3". Y như trước |
+    | N2 – đối chứng, căn `VD` | Đơn Trực tiếp căn 203, trạng thái `VD` | "Căn 203 · VD · Trống, cần dọn", kèm câu ngoại lệ `checkin.room_not_ready` và ô Lý do như cũ. Dòng sức chứa "2 khách · căn 203 tối đa 3" |
+
+  - Đối chứng bằng unit:
+    - `bug-r4-049-fea` của head `7c7eaadb`, chạy với `CheckInPage.tsx` của `e99eba55` (trước #84): ca chưa gán căn đỏ.
+    - Cùng tệp test, chạy với trang của `3fa3428f` (chưa ẩn dòng sức chứa): cũng đỏ.
+    - Trên head mới: 2/2 xanh. Trên `main` có #77, ca D5 của lượt kiểm #77 đã cho thấy "Căn · VC · …".
+  - Ca chỉ thêm test cho ARC-PR82-05 (Trực tiếp gõ 0 → `rate_empty`, không có POST): xanh.
+    - Đột biến Z1 (câu Nội bộ cho mọi kênh): đỏ.
+    - Đột biến Z3 (bỏ phép thử ≤ 0): đỏ.
+    - QA2 tự làm lại cả hai đột biến, rồi trả mã về như cũ.
+  - Hồi quy:
+    - `typecheck` và ESLint sạch ở 3 tệp đổi;
+    - unit admin-web toàn bộ 970/970 (87 tệp) ở cả `3fa3428f` và `7c7eaadb`; 10 tệp unit nhận phòng và đặt phòng 129/129;
+    - E2E `checkin.s3.api`: 19 đạt, 2 bỏ qua có chủ đích (mã cửa);
+    - E2E `checkin.s3.clock` 32/32;
+    - UI `stay-money.s4` + `gate-s4` (TC-L3-079, 081, 082, 085…) 7/7, `stay.h13-h17` 6/6;
+    - test tạm Desk của #77 (D1–D6, cả API cũ) đạt. Câu chặn của BUG-R4-039 không đổi.
+  - Lúc QA kiểm (03:34), CI của #84 còn chạy job `format · lint · audit · test · build`. Các job khác đã xanh.
+  - **Kết luận: ĐẠT** ở `7c7eaadb`.
+  - Bằng chứng (scratchpad, không commit, dữ liệu giả): `qa2-pr84-out/e2e-n2/data.txt`, `e2e-api`, `e2e-clock`, `e2e-uiclock`, `e2e-ui`, `e2e-p77`, `vitest-all2.log`, `vitest-049-on-*.log`, `mut-z1.log`, `mut-z3.log`, `zz-qa2-pr84.spec.ts.bak`.
+- **Trạng thái:** **Đã sửa – chờ gộp #84** (QA2 ĐẠT ở `7c7eaadb`). Gộp khi CI xanh. Sau đó chạy RG-30 (e) trên STG nếu có đơn OTA chưa gán căn.
+  - Trước đó: Mới. Không chặn #77.
 
 ---
 
