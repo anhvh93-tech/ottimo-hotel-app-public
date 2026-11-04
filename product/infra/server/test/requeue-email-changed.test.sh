@@ -144,7 +144,7 @@ case_ "dry run prints counts"          0 'dead BAD_TEMPLATE email_changed: 2 wit
 if grep -q -- "--tag $TAG --apply --expect 2\$" <<<"$LAST" && grep -q 'INV consent' <<<"$LAST"; then pass=$((pass + 1)); echo "ok   dry run names the --apply line"
 else fail=$((fail + 1)); echo "FAIL dry run line: $LAST"; fi
 nowrite "dry run"
-if grep -qF 'PGOPTIONS="-c default_transaction_read_only=on" psql' "$T/home/cmd.1"; then pass=$((pass + 1)); echo "ok   count runs READ ONLY"
+if grep -qF 'PGOPTIONS="-c default_transaction_read_only=on -c role=ottimo_readonly" psql' "$T/home/cmd.1"; then pass=$((pass + 1)); echo "ok   count runs READ ONLY as ottimo_readonly"
 else fail=$((fail + 1)); echo "FAIL count not read only"; fi
 sql=$(tr -s ' \n' ' ' < "$T/home/sql.1")
 for want in "to_regclass('public.user_email_change') IS NOT NULL AS has_uec \\gset" \
@@ -175,6 +175,9 @@ if [ "$(grep -o 'UPDATE' <<<"$usql" | wc -l | tr -d ' ')" = 1 ] && ! grep -qiE '
 else fail=$((fail + 1)); echo "FAIL update sql: $usql"; fi
 if grep -qF 'default_transaction_read_only' "$(sed 's/sql\./cmd./' <<<"$upd")"; then fail=$((fail + 1)); echo "FAIL the write ran read only"
 else pass=$((pass + 1)); fi
+# v1.0.4 (SEC PR32-S1): the UPDATE runs as ottimo_requeue (SELECT + UPDATE of 4 columns only), not as the superuser.
+if grep -qF 'PGOPTIONS="-c role=ottimo_requeue" psql' "$(sed 's/sql\./cmd./' <<<"$upd")"; then pass=$((pass + 1)); echo "ok   the write runs as ottimo_requeue"
+else fail=$((fail + 1)); echo "FAIL the write does not run as ottimo_requeue"; fi
 case_ "write refused by the database"  1 'REFUSED: the database refused the UPDATE \(row count changed or query error\) – nothing written' FAKE_ROWS=2 FAKE_WRITE_FAIL=1 -- --tag "$TAG" --apply --expect 2
 if grep -qE '@|ERROR|expected 2' <<<"$LAST"; then fail=$((fail + 1)); echo "FAIL raw database error forwarded: $LAST"
 else pass=$((pass + 1)); echo "ok   raw database error not forwarded"; fi

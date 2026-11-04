@@ -103,6 +103,10 @@ x-api-env: &api-env
   EMAIL_SMTP_HOST: ${EMAIL_SMTP_HOST:-}
   EMAIL_SMTP_PORT: ${EMAIL_SMTP_PORT:-}
   EMAIL_SMTP_USER: ${EMAIL_SMTP_USER:-}
+  # v1.0.4 (BE-A P4-06, SEC FB-R4-SEC-BE-SENT-02): shared mailboxes that are never a staff security address. The
+  # default rule (info@ + booking@ of every mail domain + EMAIL_FROM) applies even when empty; empty = one startup
+  # warning of the api (runbook v1.0.4 P2d writes the two defaults into the server .env, K5b checks no warning).
+  EMAIL_SHARED_MAILBOXES: ${EMAIL_SHARED_MAILBOXES:-}
   ZALO_PROVIDER: ${ZALO_PROVIDER:-manual_copy}
 
 x-api-secrets: &api-secrets

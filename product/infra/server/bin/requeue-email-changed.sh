@@ -68,11 +68,15 @@ mode=$([ "$apply" -eq 1 ] && echo apply || echo dry-run)
 
 err=$(mktemp "${TMPDIR:-/tmp}/requeue-email.XXXXXX")
 trap 'rm -f "$err"' EXIT
+# v1.0.4 (SEC FB-R4-SEC-OPS-PR32-S1, infra/postgres/init/02-roles.sh): least privilege. The count runs as
+# ottimo_readonly in a READ ONLY transaction; the one UPDATE runs as ottimo_requeue, which may only SELECT
+# outbox_message and UPDATE its columns status, attempts, next_attempt_at, last_error – a wrong SQL text cannot write
+# anything else. Both roles are NOLOGIN, taken at connect by the admin session (PGOPTIONS "-c role=…").
 psql_ro() {
-  dc exec -T postgres sh -c 'PGOPTIONS="-c default_transaction_read_only=on" psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -F "|"'
+  dc exec -T postgres sh -c 'PGOPTIONS="-c default_transaction_read_only=on -c role=ottimo_readonly" psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -F "|"'
 }
 psql_rw() {
-  dc exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -F "|"'
+  dc exec -T postgres sh -c 'PGOPTIONS="-c role=ottimo_requeue" psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -F "|"'
 }
 # The rows of this script, as one WHERE clause (same text for the count and the UPDATE).
 rows="topic = 'staff.email' AND status = 'dead' AND last_error = 'BAD_TEMPLATE' AND payload->>'template' = 'email_changed'"
