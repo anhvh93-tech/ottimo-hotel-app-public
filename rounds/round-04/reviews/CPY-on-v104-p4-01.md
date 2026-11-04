@@ -199,3 +199,62 @@ Chuỗi Desk / app nhân viên trong lượt này chỉ có VI + EN (RU ⟨chừ
 1. Sửa đúng ba câu nói sai sự thật trước đây: `FOLIO_LOCKED` ("quản lý ghi được bút toán điều chỉnh"), `row_refund_help` ("không tạo thêm yêu cầu"), `lease_rule_paid` (thiếu phát sinh chưa thu). Cột Ghi chú ghi rõ câu nào bị bỏ và vì sao, khớp BR và release notes đính chính.
 2. Chữ thông báo và audit tự giữ an toàn dữ liệu ngay từ câu chữ: không số tiền, không tên khách trên PWA; câu `refund.destination_carried` không nhắc số tài khoản; toast `reset_2fa_done` không hứa có thư.
 3. Chữ nhân viên luôn chỉ ra bước tiếp theo bằng đúng tên nút đang có (Thu công nợ, Xóa công nợ, Trả sớm, Thử lại). Câu `staff.mfa_network` báo trước "Mã bạn đã nhập vẫn còn", nên nhân viên không phải nhập lại.
+
+---
+
+## Xác nhận lượt 2 (04/11)
+
+- Đối tượng: `origin/v104/uxd-strings` @ `fd1d85d8`, diff `36f38edd..fd1d85d8`. Trả lời của UXD: `rounds/round-04/responses/UXD-P4-01.md` (trên nhánh).
+- Cách kiểm: đọc từng chuỗi trong `product/design/copy/strings-{vi,en,ru}.json` sinh ở `fd1d85d8`, so với lượt 1, đối chiếu `content-guide.md` v0.4.5 mục 2.
+  - Quét máy 22 chuỗi EN, 11 chuỗi VI, 1 chuỗi RU đã đổi hoặc mới: 0 emoji, 0 "!", 0 từ cấm.
+- Kết luận: **ĐẠT.** Cả 10 thẻ CPY đã đóng. Không còn thẻ Blocker, Major hay Minor nào mở. Mở 1 Suggestion mới (thẻ 11).
+
+### Đối chiếu thẻ CPY 01–10
+
+| ID | UXD trả lời | CPY xác nhận | Ghi chú |
+|---|---|---|---|
+| FB-R4-CPY-UXD-P401-01 | Done | Closed | Đã bỏ "điện thoại mới". EN đã sang thì tương lai và có "their next sign-in". Tách tiêu đề thành `users.reset_2fa_title` làm câu dẫn gọn hơn đề xuất. Đạt |
+| FB-R4-CPY-UXD-P401-02 | Done | Closed | Banner dùng `{cutoff}`, tách khỏi `{time}`. Thông báo PWA bỏ giờ ("sau mốc giờ ngày đến" / "past the arrival-day cutoff"). Luật đã ghi vào content-guide mục 2. FE-B nhớ truyền `cutoff`, nếu không câu sẽ hiện "{cutoff}" thô |
+| FB-R4-CPY-UXD-P401-03 | Done (giữ khóa) | Closed | Giữ `auth.mfa_later` thì thứ tự gộp không còn rủi ro. Việc đổi assert test MOB do ORC chuyển cho MOB, không còn là việc chữ |
+| FB-R4-CPY-UXD-P401-04 | Done | Closed | `lease_rule_paid` và `lease_still_due` gọi cùng một cách: "điện nước kỳ cuối, phát sinh chưa thu (minibar, dọn lẻ) và hư hỏng" / "the final utilities, unpaid extras (minibar, extra cleaning) and damage". Khớp BR-214. DOM xem nghĩa ở lượt review kế |
+| FB-R4-CPY-UXD-P401-05 | Done | Closed | EN "There's no need to include an ID number here. Please remove it and send again." VI "Không cần ghi số giấy tờ ở đây. Vui lòng xóa số đó rồi gửi lại." RU "Номер документа здесь указывать не нужно. Пожалуйста, удалите его и отправьте снова." Đã thêm "Пожалуйста". Cả 3 ngôn ngữ cùng nghĩa "gửi lại" (send again / gửi lại / отправьте снова), cùng mức lịch sự (Please / Vui lòng / Пожалуйста). Còn chờ SEC xem lại câu và người bản ngữ đọc RU (rủi ro thấp) |
+| FB-R4-CPY-UXD-P401-06 | Done | Closed | "sớm nhất từ" / "earliest since …, action needed". `_one` cùng nhịp |
+| FB-R4-CPY-UXD-P401-07 | Done | Closed | "That password isn't right. Check it and try again." |
+| FB-R4-CPY-UXD-P401-08 | Done | Closed | Hai câu EN đúng đề xuất. VI giữ nguyên |
+| FB-R4-CPY-UXD-P401-09 | Done | Closed | "(requested in Early departure)" |
+| FB-R4-CPY-UXD-P401-10 | Done (chữ khác đề xuất) | Closed | Đồng ý lý do của UXD: banner vẫn hiện sau mốc, nên "trước {cutoff}" sẽ sai. Giữ "Mốc xử lý: {cutoff} {date}." Giữ "nên đơn chưa hủy" là đúng, vì đây là điểm khác với `drawer.hold.expired`. VI ngắn còn 176 ký tự. EN 241 ký tự vẫn dài nhưng chấp nhận được trong Alert bad |
+
+### Khóa mới và khóa đổi ORC nhờ kiểm
+
+| Khóa | Chữ (VI / EN) | CPY |
+|---|---|---|
+| `staff.mfa_enroll_desk` | "Mở OTTIMO Desk trên máy tính để bật xác thực 2 bước, rồi đăng nhập lại ở đây." / "Open OTTIMO Desk on a computer to turn on 2-step verification, then sign in here again." | Đạt. Một câu, nói việc cần làm, không có địa chỉ Desk, không "Vui lòng" |
+| `users.reset_2fa_title` | "Đặt lại xác thực 2 bước cho {name}?" / "Reset 2-step verification for {name}?" | Đạt. Câu hỏi xác nhận ngắn. Thuật ngữ khớp `users.reset_2fa` |
+| `rsv.hold_paid_keep` | "Đã nhận {paid}/{required}. Tới hạn mà chưa đủ cọc thì đơn không tự hủy, căn vẫn giữ – thu nốt cọc hoặc nhờ quản lý chấp nhận cọc thiếu." / "{paid} of {required} received. If the deadline passes before the rest is paid, the booking isn't cancelled and the room stays held – collect the rest or ask a manager to accept the short deposit." | Đạt. Khớp BR-303 lối ra (1) và (2). Dùng đúng thuật ngữ "cọc thiếu / short deposit". Không thêm "đ" sau biến tiền (biến đã có đơn vị). Lối (3) hủy và hoàn không có ở đây. Chấp nhận, vì câu này nhắc trước hạn, còn banner sau hạn mới nêu đủ 3 lối |
+| `early_departure.lease_end_line` | "HĐ thuê tháng hết hạn {date}." / "The monthly lease ends on {date}." | Đạt. VI "HĐ" là chữ viết tắt nội bộ đã dùng cả nhóm `early_departure.lease_*` |
+| "6‑digit" ở 6 chuỗi EN | `auth.totp.help`, `auth.enroll.confirm`, `reauth.s2_help`, `guest.verify.sent_to`, `guest.verify.label`, `ci.door_step1` | Đạt. Kiểm từng mã ký tự: cả 6 chuỗi dùng U+2011. Không còn "6-digit" gạch thường. Hai chuỗi cho khách (`guest.verify.*`) giữ giọng cũ, chỉ đổi ký tự gạch |
+
+### Thẻ mới
+
+### FB-R4-CPY-UXD-P401-11
+- Mức độ: Suggestion
+- Vị trí: `product/design/content-guide.md` v0.4.5 mục 2 (luật gạch không ngắt). Các chuỗi EN có "2-step" dùng gạch thường, gồm `staff.mfa_enroll_desk`, `users.reset_2fa`, `users.reset_2fa_title`, `users.reset_2fa_done`, `error.MFA_ENROLLMENT_REQUIRED`, `mfa.*`, `auth.enroll.*`. Tổng 24 chuỗi EN có mẫu "số-chữ" với gạch thường.
+- Vấn đề:
+  - Luật mới viết chung "Cụm số–chữ có gạch nối trong EN … dùng gạch không ngắt U+2011". Nhưng mới chỉ áp cho "6‑digit".
+  - "2-step" cũng có thể ngắt thành "2-" / "step" ở khung hẹp (thẻ 362 px của app nhân viên).
+  - Luật và chữ đang chạy chưa khớp nhau.
+- Vì sao quan trọng: không sai nghĩa và không ảnh hưởng khách. Nhưng nếu để luật rộng hơn chữ thật, lượt sau sẽ có người hỏi lại hoặc sửa lẻ từng chỗ.
+- Đề xuất sửa:
+  - Không chặn v1.0.4.
+  - Ở lượt dọn chữ v1.0.5, chọn một trong hai cách:
+    - (a) áp U+2011 cho mọi "2-step", "7-day"… trong EN, bằng một lần thay trong `gen_strings.py`;
+    - (b) thu hẹp luật trong content-guide về "chỉ các cụm từng gãy dòng trên màn thật (hiện là 6‑digit)".
+  - CPY nghiêng về (a): một lần sửa, khỏi phải nhớ ngoại lệ.
+- Trạng thái: Open
+
+### Còn chờ (không phải việc của CPY)
+- SEC xem lại câu `error.ID_NUMBER_DETECTED` sau khi CPY/UXD đổi giọng.
+- Người bản ngữ RU đọc lại câu này (rủi ro thấp).
+- FE-B truyền `{cutoff}` cho `hold.paid_overdue_banner`.
+- MOB đổi assert khi xóa `auth.mfa_later` ở P4-50.
+- Ngoài phạm vi: 7 chuỗi RU cho khách có "апартаменты" (mục 0). Vẫn đề nghị ORC xếp một lượt chữ RU riêng.
