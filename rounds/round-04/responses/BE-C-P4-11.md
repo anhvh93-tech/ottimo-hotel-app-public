@@ -19,3 +19,12 @@
 - Toàn bộ vitest `@ottimo/api`: **159 tệp đạt, 2 bỏ qua; 3981 đạt, 19 bỏ qua, 1 todo, 0 lỗi**.
 - `drizzle-kit generate`: "No schema changes".
 - `tsc --noEmit` sạch, `eslint services/api` 0 lỗi, `prettier --check` sạch.
+
+## Đưa lên main (04/11, sau PR #50, #41, #54, #55)
+- `git merge origin/main` @ `e5fb9578` vào nhánh (không rebase, không force; `v104/be-pn01` của BE-D dựng trên `99f9b4a2` vẫn giữ lịch sử). Merge tự động, **không xung đột, không dòng mã nào sửa tay**. Hiệu của nhánh so với `main` chỉ còn các tệp P4-11.
+- Journal: 0093 idx 69 `when` `1792782175681` (main), 0094 idx 70 `when` `1792782177681`. Snapshot 0094 `prevId` `96671c28…` = id snapshot 0093 trên main; phần thân trùng 0093 từng byte. `drizzle-kit generate`: "No schema changes".
+- Kiểm (PostgreSQL 17 riêng): DB migrate bằng thư mục migration của `main` (70 dòng), rồi lên head: 71 dòng, trigger `O`. DB mới migrate từ đầu: 71 dòng.
+  - vitest `@ottimo/api`: **166 tệp đạt, 2 bỏ qua; 4109 đạt, 19 bỏ qua, 1 todo, 0 lỗi**;
+  - `tsc --noEmit` sạch (sau khi build lại `@ottimo/integrations`, `@ottimo/contracts` cục bộ);
+  - `eslint .` 0 lỗi (3 cảnh báo có sẵn ở `mockServiceWorker.js`), `prettier --check .` sạch;
+  - `gen-openapi-meta --check` up to date; `gen_strings.py` không tạo thay đổi.
