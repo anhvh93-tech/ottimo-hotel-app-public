@@ -4066,11 +4066,18 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `checkin.room_held_code` | Căn {room} còn đơn {code} đang ở, chưa trả phòng. Trả phòng đơn đó trước, hoặc mời khách chờ, hoặc đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ. | Room {room} still has booking {code} in house. Check out that booking first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case. | ⟨chừa chỗ⟩ | v1.0.4 BUG-R4-039 (#74 C2, heldByReservationCode). Như checkin.room_held, khi cause = held_by_other_stay và máy chủ trả mã đơn gốc đang giữ căn, kể cả khi buồng OC/OD. Chỉ đọc mã khi cause = held_by_other_stay. {code} = heldByReservationCode, hiện mono (monoArgs ['code']); {room} = số căn. Chọn câu (UXD lượt 4): OOO → ci.ooo_never; no_room → không câu (not_unassigned); held_by_other_stay → khóa này, thiếu mã → checkin.room_held; room_status trên OC/OD → checkin.room_status_stuck; không có cause → OC/OD: checkin.room_occupied, còn lại: checkin.room_held. UXD duyệt 05/11 (UXD-on-v104-pr77 lượt 3, 5) |
 | `checkin.room_status_stuck` | Căn {room} vẫn hiện có khách, nhưng không còn đơn nào đang ở. Đổi đơn này sang căn trống và báo quản lý để sửa trạng thái căn. Trường hợp này không có ngoại lệ. | Room {room} still shows as occupied, but no stay is in house. Move this booking to a vacant room and tell the manager so the room status can be fixed. No exception applies in this case. | ⟨chừa chỗ⟩ | v1.0.4 BUG-R4-039 (#74 C2). Alert bad trong dòng room_ready khi cause = room_status và buồng OC/OD: không còn lượt Đang ở nào, trạng thái buồng kẹt. Không ô lý do, không nút duyệt; link Đổi căn / đổi ngày như các câu chặn khác. 'đang ở' = status.booking.in_house. v1.0.5 có nút Cần dọn thì UXD đổi câu. UXD duyệt 05/11 (UXD-on-v104-pr77 lượt 4). {room} = số căn |
 
-#### v1.0.4 BUG-R4-042 – FE-A: H16 bước 1 luôn nêu tên tủ đang đếm khi lượt ở có nhiều tủ (K11-03). CHỜ UXD DUYỆT
+#### v1.0.4 BUG-R4-042 – FE-A: H16 bước 1 luôn nêu tên tủ đang đếm khi lượt ở có nhiều tủ (K11-03). UXD duyệt 05/11 (UXD-on-v104-pr81-minibar-race)
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
 |---|---|---|---|---|
 | `co.minibar_cabinet_counting` | Tủ minibar đang đếm | Minibar being counted | ⟨chừa chỗ⟩ | H16 bước 1, nhãn <dt> của dòng tên tủ (giá trị = co.minibar_cabinet_room / co.minibar_cabinet_old). Chỉ hiện khi lượt ở có từ 2 tủ (sau B14) và nhóm chọn tủ đã ẩn vì chỉ còn 1 tủ (tủ kia đã đếm trên trang này). Tiêu đề trang vẫn ghi căn đang ở |
+
+#### v1.0.4 FB-R4-UXD-FE-PR81-01 – FE-A: H16 bước 1, lượt ở có nhiều tủ – nút chính nêu tủ kế tiếp, toast khi đã lưu một tủ. Chữ của UXD (UXD-on-v104-pr81-minibar-race, 05/11)
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `co.go_next_cabinet` | Tiếp tục: Tủ căn {room} | Continue: Room {room} minibar | ⟨chừa chỗ⟩ | H16 bước 1, nút chính thay co.go_extras khi sau tủ đang hiện vẫn còn tủ khác (bản tóm tắt mới nhất, bỏ tủ đã đếm trên trang và tủ đang hiện). {room} = căn của tủ kế tiếp. Hết tủ thì co.go_extras. Nhãn busy như #67 |
+| `co.minibar_cabinet_saved` | Đã lưu số đếm tủ căn {room}. | Room {room} minibar count saved. | ⟨chừa chỗ⟩ | H16 bước 1, toast của DS sau 201 khi trang chuyển sang tủ khác. {room} = tủ vừa đếm (không phải tủ đang hiện). Sang thẳng bước 2 thì không có toast |
 
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 

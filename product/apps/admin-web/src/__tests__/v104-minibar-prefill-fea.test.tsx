@@ -246,7 +246,7 @@ describe('BUG-R4-035 – after B14, figures changed on cabinet A are never sent 
     let pressed = false;
     const mo = new MutationObserver(() => {
       if (pressed || !screen.queryByText(new RegExp(who))) return;
-      const btn = screen.queryByRole('button', { name: tv('co.go_extras') });
+      const btn = screen.queryByRole('button', { name: tv('co.go_next_cabinet', { room: '402' }) });
       if (!btn) return;
       pressed = true;
       fireEvent.click(btn);
@@ -326,7 +326,9 @@ describe('UXD FB-R4-UXD-FE-PR67-01 – the previous list is locked while another
     expect(within(row202).getAllByRole('cell')[1]!.textContent).toBe('0');
     expect(within(row202).getByRole('button', { name: tv('rooms.dec') })).toBeEnabled();
     expect(allFull()).toBeEnabled();
-    expect(screen.getByRole('button', { name: tv('co.go_extras') })).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: tv('co.go_next_cabinet', { room: '402' }) }),
+    ).toBeEnabled();
   });
 });
 
@@ -374,7 +376,9 @@ describe('ARC FB-R4-ARC-FE-PR67-01 – "Tiếp tục" only on the standard read 
       name: tv('co.minibar_cabinet_old', { room: '402' }),
     });
     await waitFor(() => expect(a).toHaveAttribute('aria-pressed', 'true'));
-    const go = await screen.findByRole('button', { name: tv('co.go_extras') });
+    const go = await screen.findByRole('button', {
+      name: tv('co.go_next_cabinet', { room: '202' }),
+    });
     // Press again in the microtask right after the commit that names cabinet B (scheduler yielding after each
     // task) – before `useResource` has even started reading B. BUG-R4-042: 402 counted is not offered again, so B
     // is named by its own line (K11-03), in that same commit.
@@ -479,7 +483,9 @@ describe('ARC FB-R4-ARC-FE-PR67-03 – a later summary read never takes the page
       expect(b).toHaveAttribute('aria-pressed', 'true');
       expect(a).not.toHaveAttribute('aria-pressed', 'true');
       expect(used()).toBe('1');
-      expect(screen.getByRole('button', { name: tv('co.go_extras') })).toBeEnabled();
+      expect(
+        screen.getByRole('button', { name: tv('co.go_next_cabinet', { room: '402' }) }),
+      ).toBeEnabled();
     } finally {
       server.events.removeListener('response:mocked', onMocked);
     }

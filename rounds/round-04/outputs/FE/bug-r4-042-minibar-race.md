@@ -148,7 +148,10 @@ Lệnh dùng chung: `cd product/apps/admin-web && npx vitest run <tệp>`. Log �
 ## 7. Giả định, rủi ro, việc còn lại
 
 - **G-FE-042-1, quay lại bước ① bằng nút Quay lại.** Trang hiện tủ đếm cuối, có tên, với số đã gửi. Bấm Tiếp tục thì gửi lại cùng số, máy chủ giữ dòng (R6). Đây là đường lễ tân **chủ động** quay lại sửa, nên vẫn cho đếm lại tủ đang hiện. FE không chặn. Nếu DOM/UXD muốn ghi "đã đếm" ở đó thì làm ở v1.0.5.
-- **G-FE-042-2, tủ được bổ sung (`new_fill`) sau khi đã đếm, trong cùng lần mở trang.** Rất hiếm. Desk không đưa lại tủ đó. B18 chặn `MINIBAR_NOT_CHECKED`, và lễ tân mở lại trang Trả phòng (danh sách tủ đã đếm được đặt lại). Không sai tiền.
+  - Bổ sung 05/11 (QA3, BUG-R4-047): câu "máy chủ giữ dòng (R6)" chỉ đúng khi tủ đã có kỳ. Tủ chưa từng nạp được máy chủ thật mở kỳ ở lần đếm đầu, nên lần gửi lại với `periodId: null` nhận 409 `MINIBAR_PERIOD_CHANGED`. Sửa ở PR tiếp theo (nhánh `v104/fe-minibar-followup`): Quay lại bước ① thì đọc lại bản chuẩn và bản tóm tắt.
+- **G-FE-042-2, tủ được bổ sung (`new_fill`) sau khi đã đếm, trong cùng lần mở trang.** Rất hiếm. Desk không đưa lại tủ đó. B18 chặn `MINIBAR_NOT_CHECKED`. Không sai tiền.
+  - Sửa câu theo ARC (FB-R4-ARC-FE-PR81-01): trên `main`, trang tự gỡ được ngay (chuyển sang tủ đó ở lần đếm kế tiếp). Với #81, lễ tân phải **tải lại trang** Trả phòng. QA ghi BUG-R4-045 (P2).
+  - Sửa ở PR tiếp theo (nhánh `v104/fe-minibar-followup`): tủ máy chủ đòi đếm lại được đưa lại, và B18 trả `MINIBAR_NOT_CHECKED` thì trang về bước ① với tủ đó.
 - **E2E:**
   - Không thêm spec Playwright mới, vì không chạy được stack dùng một lần trên máy đang tải.
   - Spec có sẵn `e2e/ui-clock/b14-fridges.s5.spec.ts` (TC-L4-138) đã nhận nhóm chọn tủ ẩn sau tủ đầu (`'hidden'`), nên tương thích. CI sẽ chạy spec này.

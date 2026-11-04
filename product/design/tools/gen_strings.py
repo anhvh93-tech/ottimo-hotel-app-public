@@ -4173,8 +4173,13 @@ g("v1.0.4 BUG-R4-039 – FE-A: nhận phòng căn OC/OD", [
 ])
 
 
-g("v1.0.4 BUG-R4-042 – FE-A: H16 bước 1 luôn nêu tên tủ đang đếm khi lượt ở có nhiều tủ (K11-03). CHỜ UXD DUYỆT", [
+g("v1.0.4 BUG-R4-042 – FE-A: H16 bước 1 luôn nêu tên tủ đang đếm khi lượt ở có nhiều tủ (K11-03). UXD duyệt 05/11 (UXD-on-v104-pr81-minibar-race)", [
     ("co.minibar_cabinet_counting", "Tủ minibar đang đếm", "Minibar being counted", None, "H16 bước 1, nhãn <dt> của dòng tên tủ (giá trị = co.minibar_cabinet_room / co.minibar_cabinet_old). Chỉ hiện khi lượt ở có từ 2 tủ (sau B14) và nhóm chọn tủ đã ẩn vì chỉ còn 1 tủ (tủ kia đã đếm trên trang này). Tiêu đề trang vẫn ghi căn đang ở"),
+])
+
+g("v1.0.4 FB-R4-UXD-FE-PR81-01 – FE-A: H16 bước 1, lượt ở có nhiều tủ – nút chính nêu tủ kế tiếp, toast khi đã lưu một tủ. Chữ của UXD (UXD-on-v104-pr81-minibar-race, 05/11)", [
+    ("co.go_next_cabinet", "Tiếp tục: Tủ căn {room}", "Continue: Room {room} minibar", None, "H16 bước 1, nút chính thay co.go_extras khi sau tủ đang hiện vẫn còn tủ khác (bản tóm tắt mới nhất, bỏ tủ đã đếm trên trang và tủ đang hiện). {room} = căn của tủ kế tiếp. Hết tủ thì co.go_extras. Nhãn busy như #67"),
+    ("co.minibar_cabinet_saved", "Đã lưu số đếm tủ căn {room}.", "Room {room} minibar count saved.", None, "H16 bước 1, toast của DS sau 201 khi trang chuyển sang tủ khác. {room} = tủ vừa đếm (không phải tủ đang hiện). Sang thẳng bước 2 thì không có toast"),
 ])
 
 def build():
