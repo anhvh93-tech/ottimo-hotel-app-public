@@ -14,6 +14,7 @@ import {
   getRegistration,
   guestLink,
   namedGuest,
+  PRIVACY_NOTICE,
   registrationOf,
 } from '../support/s3.js';
 import { scan } from './axe.js';
@@ -36,6 +37,28 @@ const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const WELCOME = new RegExp(
   `^(${esc(stem(EN['gw.welcome_title']!))}|${esc(stem(EN['gw.welcome_title_plain'] ?? EN['gw.welcome_title']!))})`,
 );
+
+/**
+ * Bước 0, bản `privacy-2026-10-v2` (v1.0.4 P4-42, SEC-on-plan-v1.0.4 6.2): bốn đoạn đúng thứ tự SEC (guest-web
+ * config.ts NOTICE_PARAGRAPHS) + dòng phiên bản = bản máy chủ báo (global setup đặt tham số – support/notice.ts).
+ * Stack còn v1 → trang đóng an toàn, không có đoạn nào ở đây.
+ */
+const NOTICE_V2 = [
+  'gw.notice_body',
+  'gw.notice_retention',
+  'gw.notice_translation',
+  'gw.notice_rights',
+];
+const ws = (s: string) => s.replace(/\s+/g, ' ').trim();
+async function expectNoticeV2(page: Page, S: Record<string, string>) {
+  for (const k of NOTICE_V2) await expect(page.getByText(S[k]!)).toBeVisible();
+  expect((await page.locator('.gw-notice > p').allInnerTexts()).map(ws)).toEqual(
+    NOTICE_V2.map((k) => ws(S[k]!)),
+  );
+  await expect(
+    page.getByText(S['gw.notice_version']!.replace('{v}', PRIVACY_NOTICE)),
+  ).toBeVisible();
+}
 
 async function guestPage(browser: Browser, locale: string): Promise<Page> {
   const ctx = await browser.newContext({
@@ -127,7 +150,7 @@ test.describe(
         .getByRole('button', { name: /Làm thủ tục trước/ })
         .first()
         .click();
-      await expect(page.getByText(VI['gw.notice_body']!)).toBeVisible();
+      await expectNoticeV2(page, VI);
       await scan(page, info, 'H18-2-notice');
       await page.getByRole('button', { name: VI['gw.notice_read']! }).click();
       // bước 1 giấy tờ: chọn loại → Chụp (bị khóa tới khi chọn loại)
@@ -234,7 +257,7 @@ test.describe(
         .getByRole('button', { name: /check-in|Check in/i })
         .first()
         .click();
-      await expect(page.getByText(EN['gw.notice_body']!)).toBeVisible();
+      await expectNoticeV2(page, EN);
       await page.getByRole('button', { name: EN['gw.notice_read']! }).click();
       await expect(page.getByRole('heading', { name: EN['guest.oci.step1']! })).toBeVisible();
       // không còn chữ tiếng Việt trên màn (dấu tiếng Việt đặc trưng)
