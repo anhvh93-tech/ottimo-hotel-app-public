@@ -59,3 +59,19 @@
 - Phần B (sau `main@L` + P4-00): rebase; meta 429 + `x-self-data` (SEC-ARC-018-03).
 - `feature-app.ts` là helper test dùng chung: thay đổi chỉ thêm một tùy chọn, rebase dễ.
 - V3-04 chưa thử trên TTY thật.
+
+## 8. Phản hồi SEC-on-v104-email-identity (04/11, ĐẠT CÓ ĐK)
+
+| Thẻ | Trạng thái | Cách làm | Test |
+|---|---|---|---|
+| **FB-R4-SEC-BE-V104-02** (trước gộp) | **Xong** | Không đổi mã (khóa dòng `app_user` + kiểm lại trong `recordChange` đã có) | Tích hợp: người có 4 lần đổi, 2 `setMyEmail` song song → đúng một 200, một 429 `RATE_LIMITED`, đúng 5 dòng; chạy 2 người × 3 lượt xanh. Thử đột biến bỏ kiểm lại trong giao dịch → test đỏ. Không dùng `setMyEmail ‖ updateUser`: `updateUser` cần `If-Match`, bên thua nhận 412 trước bước giới hạn (vẫn an toàn nhưng không thử đúng luật) |
+| **V104-01** | **Xong** | `email = null` không bị 429 ở cả `setMyEmail` và `updateUser` (trước S2 và trong giao dịch); lần xóa vẫn ghi `user_email_change` và vẫn được đếm | Ở mức 5: OWN `PATCH email: null` → 200, dòng thứ 6 được ghi; đặt lại → 429 |
+| **V104-03** | **Xong** | Mọi đối số `--owner-email=…` → `BootstrapRefusedError` (exit 2), kiểm đầu tiên trong `main()`; thông báo không nhắc giá trị, nhắc xóa dòng lệnh khỏi lịch sử shell. `--owner-email <giá trị>` cũng exit 2 | Unit 2 ca; thêm unit: email sai/hộp chung bị từ chối **trước mọi truy cập DB**, thông báo không có `@` |
+| **V104-06** | **Xong** | Audit `production.bootstrapped` thêm `ownerEmailSet` (boolean); đăng ký trường trong `identity/audit-entities.ts` | `production-bootstrap.test.ts` (phần cần `BOOTSTRAP_DATABASE_URL`, CI chạy) kiểm `ownerEmailSet = false` |
+| **V104-08** (phần dispatcher) | **Xong** | `receiving_account_changed`: `payload.action` đúng `'set'`/`'cancel'` → tham số `change`; giá trị khác hoặc thiếu → không có `change` (câu trung tính của INT). Không thêm `change` cho mẫu khác | Tích hợp: 5 dòng (`set`, `cancel`, `'delete'`, thiếu, `7`) → `set`, `cancel`, không, không, không; ngày giữ nguyên |
+| V104-08 (phần `platform.controller.ts` + test đầu–cuối) | **Chờ `main@L`** (tệp LP-v2 4.2) | Controller ghi `action` từ chính tham số set/cancel của nó | – |
+| V104-07 | Để khi làm PR24PM-04 | – | – |
+
+- Đã gộp `v104/int-email` @ `5df13359` (CPY 104-01…04, mẫu nhận `change`).
+- Kiểm thử sau gộp: `@ottimo/integrations` 295 đạt; unit API 894 đạt / 28 bỏ qua; tích hợp `v104-be-identity`, `v103-security-email`, `email-dispatch`, `production-bootstrap`, `identity`, `mfa-us143`: 114 đạt / 5 bỏ qua (5 = phần cần DB khởi tạo riêng). Typecheck, ESLint, Prettier sạch.
+
