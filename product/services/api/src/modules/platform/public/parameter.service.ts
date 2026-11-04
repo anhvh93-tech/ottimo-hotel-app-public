@@ -237,7 +237,7 @@ export class ParameterService {
        * Audit override for keys whose value must not be logged in clear (payment_receiving_account – SEC F3:
        * category money, account number masked). Default: category security/config with the raw values.
        */
-      auditAs?: { category: 'money'; mask: (value: unknown) => unknown };
+      auditAs?: { category: 'money' | 'security'; mask: (value: unknown) => unknown };
       /**
        * BUG-R3-008 (kill switch): the row of `today` may be overwritten (the value in force changes now). Only
        * the caller's whitelist decides when (ParametersService: a public-form switch turned OFF); the audit

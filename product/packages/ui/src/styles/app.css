@@ -429,6 +429,36 @@ body:has(.app-mnav) .toasts {
   align-items: flex-end;
   gap: 12px;
 }
+/* US-175 AC3 (BUG-R4-007): S35 got a "Ngôn ngữ" column; at 1366 px the table must not scroll more than before.
+   The two long chips ("Ở dài ngày – báo giá dài hạn", "Cần xem" flags) wrap on 2–3 lines in their cell instead of
+   widening it; other chips stay on one line – FE-A, UXD to confirm. */
+/* FB-R4-UXD-FE-19: only the chips with long text (`chip--wrap`) wrap; "+N" and short flags keep the pill shape.
+   A wrapped chip reads left-aligned, balanced lines, the icon on the first line. */
+.webreq-table td.chips-wrap .chip.chip--wrap {
+  white-space: normal;
+  min-width: 9rem;
+  border-radius: var(--r-sm);
+  align-items: flex-start;
+  text-align: start;
+  text-wrap: balance;
+}
+.webreq-table td.chips-wrap .chip.chip--wrap .ico {
+  flex: none;
+  margin-top: 0.2em;
+}
+/* FB-R4-UXD-FE-18: "Tiếng Trung / (giản thể)" – a group never breaks inside. */
+.webreq-table .nowrap {
+  white-space: nowrap;
+}
+/* FB-R4-UXD-FE-21: status buttons, language box, code box and "Tìm" share one bottom line – no room kept for a
+   help/error line under the boxes unless there is one. */
+.webreq-filters > .field,
+.webreq-filters > form > .field {
+  margin-bottom: 0;
+}
+.webreq-filters > form.row {
+  align-items: flex-end;
+}
 .webreq-filters .btn[aria-pressed='true'] {
   background: var(--ink);
   color: var(--ink-inverse);

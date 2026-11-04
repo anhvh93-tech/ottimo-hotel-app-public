@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@ottimo/api-client": "workspace:*",
+    "@ottimo/contracts": "workspace:*",
     "@ottimo/i18n": "workspace:*",
     "@ottimo/ui": "workspace:*",
     "react": "^18.3.1",

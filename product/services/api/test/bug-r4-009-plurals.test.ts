@@ -1,6 +1,8 @@
 // BUG-R4-009 (B6, CPY lp-v2-copy 15.2): counted phrases of the guest quote text in the right plural form.
 import { describe, expect, it } from 'vitest';
 import { QUOTE_COPY, QUOTE_COPY_MISSING } from '../src/generated/quote-copy';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { pluralForm, quoteCount } from '../src/modules/sales/internal/quotes.service';
 
 const FORMS = ['one', 'few', 'many', 'other'] as const;
@@ -97,5 +99,17 @@ describe('BUG-R4-009 quote plurals', () => {
       'few',
       'many',
     ]);
+  });
+
+  // FB-R4-ARC-BE-LPV2-10: `pluralForm` has a client copy in @ottimo/i18n (TS source only – the CommonJS api cannot
+  // load it at run time). Both copies are checked against one table, so they cannot drift.
+  it('pluralForm matches the shared table packages/i18n/src/plural-forms.cases.json', () => {
+    const file = join(__dirname, '../../../packages/i18n/src/plural-forms.cases.json');
+    const { cases } = JSON.parse(readFileSync(file, 'utf8')) as {
+      cases: Record<'vi' | 'en' | 'ru', Record<string, string>>;
+    };
+    for (const l of ['vi', 'en', 'ru'] as const)
+      for (const [n, form] of Object.entries(cases[l]))
+        expect([l, n, pluralForm(l, Number(n))]).toEqual([l, n, form]);
   });
 });

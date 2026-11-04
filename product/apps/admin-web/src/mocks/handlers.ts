@@ -581,6 +581,23 @@ function guestFieldErrors(body: Record<string, unknown>) {
   return errors;
 }
 
+/** Like guests.service (BUG-R4-011): a messaging channel needs `messagingHandles.<channel>`, not just the phone. */
+function contactChannelErrors(merged: Record<string, unknown>) {
+  const c = merged.preferredContact as string | null | undefined;
+  if (!c) return [];
+  const handles = (merged.messagingHandles ?? {}) as Record<string, string | undefined>;
+  const has =
+    c === 'phone' ? !!merged.phone : c === 'email' ? !!merged.email : !!handles[c]?.trim();
+  return has ? [] : [{ field: 'preferredContact', code: 'CONTACT_CHANNEL_EMPTY' }];
+}
+
+/** Like guests.service (BUG-R4-012): left out on create = VN; `null` = unknown (0.3.10 bổ sung 5). */
+function withNationality(guest: Record<string, unknown>, created: boolean) {
+  if (created && guest.nationalityCode === undefined) guest.nationalityCode = 'VN';
+  if (guest.nationalityCode === null) delete guest.nationalityCode;
+  guest.isForeigner = !!guest.nationalityCode && guest.nationalityCode !== 'VN';
+}
+
 function duplicateOf(body: Record<string, unknown>, selfId?: string) {
   const pk = phoneKey(body.phone as string | undefined);
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : null;
@@ -878,9 +895,17 @@ export const handlers = [
     const body = (await request.json()) as Record<string, unknown> & {
       listPrice?: Record<string, unknown>;
     };
+    // BUG-R4-004 (lp-v2-be2 7d9e306f): only the owner may send publicRoomType – a manager → 403, nothing saved.
+    if ('publicRoomType' in body && !g.roles.includes('owner'))
+      return problem(403, 'FORBIDDEN_ACTION');
     const base = (body.baseOccupancy as number | undefined) ?? room.baseOccupancy ?? 1;
     const max = (body.maxOccupancy as number | undefined) ?? room.maxOccupancy ?? base + 1;
     const errors: Array<{ field: string; code: string }> = [];
+    if ('publicRoomType' in body && body.publicRoomType !== null) {
+      const v = String(body.publicRoomType).trim().replace(/\s+/g, ' ');
+      if (typeof body.publicRoomType !== 'string' || v.length < 1 || v.length > 60)
+        errors.push({ field: 'publicRoomType', code: 'VALIDATION_FAILED' });
+    }
     if (max !== base && max !== base + 1)
       errors.push({ field: 'maxOccupancy', code: 'MAX_OCCUPANCY_RANGE' });
     if (body.listPrice) {
@@ -907,6 +932,12 @@ export const handlers = [
       baseOccupancy: base,
       maxOccupancy: max,
       isSellable: (body.isSellable as boolean | undefined) ?? room.isSellable,
+      publicRoomType:
+        'publicRoomType' in body
+          ? body.publicRoomType === null
+            ? null
+            : String(body.publicRoomType).trim().replace(/\s+/g, ' ')
+          : (room.publicRoomType ?? null),
       version: room.version + 1,
     });
     if (body.listPrice && String(body.listPrice.effectiveFrom) > businessDayLocal()) {
@@ -1210,10 +1241,11 @@ export const handlers = [
     if (isResponse(g)) return g;
     if (!request.headers.get('idempotency-key')) return problem(428, 'PRECONDITION_REQUIRED');
     const body = (await request.json()) as Record<string, unknown>;
-    const errors = guestFieldErrors(body);
+    const errors = [...guestFieldErrors(body), ...contactChannelErrors(body)];
     if (errors.length) return validation(errors);
     const dup = duplicateOf(body);
     if (dup) return duplicateGuest(dup, g.user, g.roles, body);
+    withNationality(body, true);
     const n = db.nextGuest++;
     const guest: MockGuest = {
       ...(body as Partial<MockGuest>),
@@ -1242,11 +1274,15 @@ export const handlers = [
     if (isResponse(g)) return g;
     if (!inScope(guest, g.user, g.roles)) return problem(404, 'NOT_FOUND');
     const body = (await request.json()) as Record<string, unknown>;
-    const errors = guestFieldErrors(body);
+    const errors = [
+      ...guestFieldErrors(body),
+      ...contactChannelErrors({ ...(guest as unknown as Record<string, unknown>), ...body }),
+    ];
     if (errors.length) return validation(errors);
     const dup = duplicateOf(body, guest.id);
     if (dup) return duplicateGuest(dup, g.user, g.roles, body);
     Object.assign(guest, body, { version: guest.version + 1 });
+    withNationality(guest as unknown as Record<string, unknown>, false);
     return HttpResponse.json(guestView(guest, g.roles));
   }),
 

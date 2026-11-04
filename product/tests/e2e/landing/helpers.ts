@@ -2,7 +2,19 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import type { Page, TestInfo } from '@playwright/test';
 
-export const PAGES = { en: '/', vi: '/vi/' } as const;
+export const PAGES = { en: '/', vi: '/vi/', ko: '/ko/', zh: '/zh/', ru: '/ru/' } as const;
+/** `<html lang>` per language (ARC lp-v2 D10: Simplified Chinese = zh-Hans). */
+export const HTML_LANG = { en: 'en', vi: 'vi', ko: 'ko', zh: 'zh-Hans', ru: 'ru' } as const;
+/** Browser locale that matches each page (no suggestion strip). */
+export const LOCALE = { en: 'en-US', vi: 'vi-VN', ko: 'ko-KR', zh: 'zh-CN', ru: 'ru-RU' } as const;
+/** Fonts a page of each language may draw with (CDP platform font = the family name inside the file). */
+export const PAGE_FONTS = {
+  en: /^(Lora|Be Vietnam Pro)/,
+  vi: /^(Lora|Be Vietnam Pro)/,
+  ko: /^(Lora|Be Vietnam Pro|Noto Sans KR|Noto Serif KR)/,
+  zh: /^(Lora|Be Vietnam Pro|Noto Sans SC|Noto Serif SC)/,
+  ru: /^(Lora|Be Vietnam Pro|Onest)/,
+} as const;
 /** Booking-form review build (apps/landing-web/dist-booking-preview) served by the second web server. */
 export const FORM_URL = `http://127.0.0.1:${Number(process.env.LANDING_FORM_PORT ?? 5187)}`;
 /** Live-form test build (apps/landing-web/dist-booking-live, LANDING_BOOKING_FORM=true, slug dl01) – third server. */

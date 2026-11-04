@@ -5,8 +5,9 @@
  * - only properties DECLARED in the schema are copied (undeclared keys are dropped unless the schema is
  *   open: `additionalProperties: true` or a free object);
  * - a property with `x-visible-to` is copied only when the caller has one of those roles;
- * - a property with `x-rbac-field` is copied only when rbac-matrix 6 does not say K for all caller roles –
- *   except the caller's own data listed in SELF_DATA_FIELDS (field-policy.ts, BUG-R4-018/022);
+ * - a property with `x-rbac-field` is copied only when rbac-matrix 6 does not say K for all caller roles;
+ * - a property with `x-self-data` (the caller's own data, OpenAPI 0.3.12) is copied only when its
+ *   `<owner>.<property>` key is in SELF_DATA_FIELDS (field-policy.ts) – fail closed (FB-R4-BEA-ARC-01);
  * - `writeOnly` properties never leave the server;
  * - `x-classification: C3` properties only in responses of `x-c3-log` operations;
  * - a removed property is ABSENT from the JSON, never `null`.
@@ -62,25 +63,45 @@ function copyFree(v: unknown): Out {
   return DROP;
 }
 
-/** `selfKey` = `<owner>.<property>` when the property sits directly on a self-only answer (SELF_DATA_FIELDS). */
-export function propertyAllowed(p: PropShape, ctx: SerializeContext, selfKey?: string): boolean {
+/**
+ * Owner of the DIRECT properties being walked: `schema:<ComponentSchema>` or `op:<operationId>` (inline response).
+ * Two prefixes, so a schema and an operation can never share a SELF_DATA_FIELDS key (SEC FB-R4-SEC-BE-018-02).
+ */
+export type SelfOwner = `schema:${string}` | `op:${string}`;
+
+/**
+ * `owner` + `key`: where the property sits (SELF_DATA_FIELDS lookup). The `<owner>.<key>` string is built only for
+ * an `x-self-data` property (ARC FB-R4-ARC-BE-018-03 – nothing extra on the hot path).
+ *
+ * `sd` (x-self-data) is FAIL CLOSED (FB-R4-BEA-ARC-01, SEC-ARC-018-03 conditions 1 and 4): after the w / c3 / g / v
+ * checks, an `sd` property is returned only when `<owner>.<key>` is in SELF_DATA_FIELDS. Tagged in the contract but
+ * not listed, reached from another owner, or below the first level (owner null) → dropped for every role, OWN
+ * included. The D-code check has no self-data exception any more (0.3.12 replaced D27 by x-self-data there).
+ */
+export function propertyAllowed(
+  p: PropShape,
+  ctx: SerializeContext,
+  owner?: SelfOwner | null,
+  key?: string,
+): boolean {
   if (p.w) return false;
   if (p.c3 && !ctx.c3) return false;
   if (p.g !== undefined && ctx.guestLevel !== undefined && p.g > ctx.guestLevel) return false;
   if (p.v && !visibleToAllows(p.v, ctx.roles)) return false;
-  if (p.f && !rbacFieldAllows(p.f, ctx.roles)) {
-    if (!(selfKey && SELF_DATA_FIELDS.has(selfKey))) return false;
+  if (p.f && !rbacFieldAllows(p.f, ctx.roles)) return false;
+  if (p.sd && !(owner && key !== undefined && SELF_DATA_FIELDS.has(`${owner}.${key}`))) {
+    return false;
   }
   return true;
 }
 
-/** `owner`: component schema name or operationId whose DIRECT properties are being walked (null below). */
+/** `owner`: see SelfOwner (null below the first level of a schema / response). */
 function walk(
   value: unknown,
   shape: Shape,
   ctx: SerializeContext,
   depth: number,
-  owner: string | null = null,
+  owner: SelfOwner | null = null,
 ): Out {
   if (value === undefined) return DROP;
   if (value === null) return null;
@@ -92,7 +113,7 @@ function walk(
       return isScalar(value) ? value : DROP;
     case 'ref': {
       const target = OPENAPI_SCHEMAS.schemas[shape.name];
-      return target ? walk(value, target, ctx, depth + 1, shape.name) : DROP;
+      return target ? walk(value, target, ctx, depth + 1, `schema:${shape.name}`) : DROP;
     }
     case 'array':
       if (!Array.isArray(value)) return DROP;
@@ -109,7 +130,7 @@ function walk(
         const p = shape.props[key];
         let c: Out = DROP;
         if (p) {
-          if (propertyAllowed(p, ctx, owner ? `${owner}.${key}` : undefined)) {
+          if (propertyAllowed(p, ctx, owner, key)) {
             c = walk(x, p.s, ctx, depth + 1);
           }
         } else if (shape.extra) {
@@ -137,7 +158,7 @@ export function serializeShape(
   value: unknown,
   shape: Shape,
   ctx: SerializeContext,
-  owner: string | null = null,
+  owner: SelfOwner | null = null,
 ): unknown {
   const out = walk(value, shape, ctx, 0, owner);
   return out === DROP ? undefined : out;
@@ -191,7 +212,7 @@ export function serializeResponse(
   if (Buffer.isBuffer(body) || isStream(body)) return body;
   const shape = responseShapeFor(operationId, status);
   if (!shape) throw new UndeclaredResponseError(operationId);
-  return serializeShape(body, shape, ctx, operationId) ?? {};
+  return serializeShape(body, shape, ctx, `op:${operationId}`) ?? {};
 }
 
 function isStream(v: unknown): boolean {

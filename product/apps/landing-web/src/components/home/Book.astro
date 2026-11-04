@@ -5,7 +5,7 @@
 //    every "Plan your stay" link lands here, nothing is collected;
 //  - form rendered (review build, or the feature once the endpoint exists): the request form (BookingForm).
 import { BOOK_PHOTO } from '../../content/gallery';
-import { links, site } from '../../content/site';
+import { links, phoneShown } from '../../content/site';
 import type { Copy } from '../../content/types';
 import { BOOKING_FORM_RENDERED } from '../../lib/booking-request';
 // @booking-form = BookingForm.astro when the form is rendered, else an empty stand-in (astro.config.ts).
@@ -72,7 +72,7 @@ const { t } = Astro.props;
                 </a>
                 <a class="btn btn-ghost" href={links.tel}>
                   <Icon name="phone" />
-                  {t.book.chat.call} {site.phone.local}
+                  {t.book.chat.call} {phoneShown(t.lang)}
                 </a>
               </div>
             </div>

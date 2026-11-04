@@ -147,6 +147,7 @@ import type {
   WebsiteBookingRequestAction,
   WebsiteBookingRequestRef,
   WebsiteBookingRequestStatus,
+  LandingLocale,
   WebsiteBookingRequestTransition,
 } from './types';
 
@@ -197,6 +198,8 @@ type Paged<T> = { data: T[]; page: PageInfo };
 /** S35 queue filters – only the status list and the request code go in the URL (C2 never does – SEC ARC-12). */
 export interface ListWebsiteRequestsQuery {
   status?: WebsiteBookingRequestStatus[];
+  /** 0.3.10 bổ sung 4 (US-175 AC3): only these landing languages; absent = all. */
+  locale?: LandingLocale[];
   refCode?: string;
   cursor?: string;
   limit?: number;
@@ -260,6 +263,8 @@ export function createEndpoints(api: ApiClient) {
     /**
      * 0.3.9 (BUG-R3-018 phần 1): remove one price row scheduled after the business day (OWN/MGR, S25).
      * `If-Match` = `Room.version`; the answer is the room after the change (+ ETag).
+     * 409 INVALID_TRANSITION `currentState` (CancelScheduledListPriceState): `effective`, `only_price`, and 0.3.12
+     * `first_price` – the earliest row of a room that still has other rows (BUG-R4-015).
      */
     cancelScheduledRoomListPrice: (
       { propertyId, roomId }: P & { roomId: string },
@@ -1233,9 +1238,13 @@ export function createEndpoints(api: ApiClient) {
     // ---------- S35 "Yêu cầu từ website" (US-155 Desk – R3-Q06) ----------
     /** Queue: default `new,in_progress`; server sorts (new by `replyBy`, then `updatedAt` desc) and scopes SAL. */
     listWebsiteBookingRequests: ({ propertyId }: P, query: ListWebsiteRequestsQuery = {}) =>
-      r<Paged<WebsiteBookingRequest>>('GET', WBR, {
+      r<Paged<WebsiteBookingRequest> & { total?: number }>('GET', WBR, {
         path: { propertyId },
-        query: { ...query, status: query.status?.length ? query.status.join(',') : undefined },
+        query: {
+          ...query,
+          status: query.status?.length ? query.status.join(',') : undefined,
+          locale: query.locale?.length ? query.locale.join(',') : undefined,
+        },
       }),
     getWebsiteBookingRequest: ({ propertyId, requestId }: P & { requestId: string }) =>
       r<WebsiteBookingRequest>('GET', `${WBR}/{requestId}`, { path: { propertyId, requestId } }),
