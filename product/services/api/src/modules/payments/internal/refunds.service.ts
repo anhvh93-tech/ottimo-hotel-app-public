@@ -251,7 +251,9 @@ export class RefundsService {
       requestId?: string;
     },
   ): Promise<void> {
-    // Never two live requests with one account: every source must really be closed now.
+    // Every source must really be closed before its destination is copied. (An APPROVED request that
+    // refundsDownToCredit keeps may share the account with the replacement: accepted – same guest, same booking,
+    // Σ ≤ credit, each request has its own maker-checker – SEC-on-v104-be-d 1.3, BED-06.)
     const { rows: open } = await tx.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM approval_request WHERE id = ANY($1::uuid[]) AND status <> 'cancelled'`,
       [input.sourceIds],

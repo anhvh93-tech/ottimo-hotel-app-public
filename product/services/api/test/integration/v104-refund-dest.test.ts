@@ -9,7 +9,8 @@
  * (c) one with, one without → carried; the same account with the holder typed differently (case, spaces) → carried;
  * (d) whoever entered the destination does not approve the replacement (403 + CHECK 0031/0042);
  * (e) a destination that cannot be decrypted → the whole request fails, both requests as before;
- * (f) audit, c3_access_log, outbox and the error answer never hold the test account / holder;
+ * (f) audit, c3_access_log, outbox, staff_notification and the error answer never hold the test account / holder
+ *     (replaces `privacy-log-check.sh` – SEC-on-v104-be-d 1.4);
  * + another booking → nothing carried.
  * Fake clock, FAKE data only (bank BIN 970436, account 8899001122 / 7766554433 – not real accounts).
  */
@@ -289,13 +290,20 @@ describe.skipIf(!HAS_DB)('P4-12 – a replacement refund request keeps the desti
     expect(JSON.stringify(same)).not.toContain(ACCOUNT_X);
   }, 240_000);
 
-  it('(f) audit, c3_access_log and outbox never hold the test accounts or the holder', async () => {
+  // Replaces `privacy-log-check.sh` of SEC-on-plan-v1.0.4 1.2 point 5 (SEC-on-v104-be-d 1.4, FB-R4-SEC-BE-BED-02): every
+  // place the money paths write – audit, C3 access log, outbox, staff inbox (with its params) – plus case (e) for
+  // the printed lines and the error answer.
+  it('(f) audit, c3_access_log, outbox and staff_notification never hold the test accounts or the holder', async () => {
     const dump = await x.q(
       `SELECT (SELECT coalesce(string_agg(coalesce(before::text, '') || coalesce(after::text, '') ||
                 coalesce(reason, ''), ' '), '') FROM audit_event) AS audit,
               (SELECT coalesce(string_agg(row_to_json(c)::text, ' '), '') FROM c3_access_log c) AS c3,
-              (SELECT coalesce(string_agg(payload::text, ' '), '') FROM outbox_message) AS outbox`,
+              (SELECT coalesce(string_agg(payload::text, ' '), '') FROM outbox_message) AS outbox,
+              (SELECT coalesce(string_agg(row_to_json(n)::text, ' '), '') FROM staff_notification n) AS inbox,
+              (SELECT count(*)::int FROM staff_notification) AS inbox_rows`,
     );
+    // The scan is not empty: the closed requests told their requester / approvers (approval_cancelled …).
+    expect(dump[0].inbox_rows).toBeGreaterThan(0);
     const text = JSON.stringify(dump);
     for (const secret of [ACCOUNT_X, ACCOUNT_Y, HOLDER, HOLDER.toUpperCase()]) {
       expect(text).not.toContain(secret);
