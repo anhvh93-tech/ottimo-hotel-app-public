@@ -14,7 +14,9 @@ mkdir -p "$T/home/state" "$T/bin"
 TAG=sha-0123456789ab
 cat > "$T/bin/dc" <<'STUB'
 #!/usr/bin/env bash
-# stub of bin/dc: `ps … worker` → FAKE_IMG; `exec -T worker node …` → exit FAKE_NODE_RC;
+# stub of bin/dc: `ps … worker` → FAKE_IMG; `exec -T worker node …`: the file check → exit FAKE_HAS_CLI (0 = the
+# image has dist/admin/known-email-templates-cli.js), the command → exit FAKE_NODE_RC, the v1.0.3 import question
+# (images without the command) → exit FAKE_LEGACY_RC;
 # `exec -T postgres sh -c '<psql>'` → keep the script, answer the count (FAKE_ROWS, then FAKE_ROWS_AFTER) or fail.
 log="$OTTIMO_HOME/calls"
 if [ "$1" = ps ]; then
@@ -23,7 +25,12 @@ if [ "$1" = ps ]; then
   printf '%b' "${FAKE_IMG:-}"; exit 0
 fi
 case "$1 $2 $3" in
-  "exec -T worker") echo "worker $*" >> "$log"; echo 'internal detail' >&2; exit "${FAKE_NODE_RC:-0}" ;;
+  "exec -T worker") echo "worker $*" >> "$log"; echo 'internal detail' >&2
+    case "$*" in
+      *existsSync*) exit "${FAKE_HAS_CLI:-0}" ;;
+      *known-email-templates-cli.js*) exit "${FAKE_NODE_RC:-0}" ;;
+      *) exit "${FAKE_LEGACY_RC:-0}" ;;
+    esac ;;
   "exec -T postgres")
     n=$(( $(ls "$OTTIMO_HOME"/sql.* 2>/dev/null | wc -l) + 1 ))
     printf '%s\n' "$*" > "$OTTIMO_HOME/cmd.$n"
@@ -104,6 +111,20 @@ case_ "worker image without email_changed (v1.0.2)" 1 'REFUSED: the worker image
 nowrite "worker v1.0.2"
 case_ "worker probe cannot tell"       1 'REFUSED: could not ask the worker image which templates it knows \(exit 3\)' FAKE_NODE_RC=3 -- --tag "$TAG"
 if grep -q 'internal detail' <<<"$LAST"; then fail=$((fail + 1)); echo "FAIL probe stderr forwarded"; else pass=$((pass + 1)); fi
+# ARC PR32-06 / BE-A P4-06: the template question goes through the image's own command, by exact argv.
+case_ "v1.0.4 image: command asked"    0 'knows the template email_changed \(known-email-templates-cli\)' FAKE_ROWS=1 -- --tag "$TAG"
+if grep -qx "worker exec -T worker node dist/admin/known-email-templates-cli.js email_changed" "$T/home/calls" \
+  && ! grep -q 'input-type=module' "$T/home/calls"; then pass=$((pass + 1)); echo "ok   command called as 'node dist/admin/known-email-templates-cli.js email_changed', no import question"
+else fail=$((fail + 1)); echo "FAIL command argv: $(cat "$T/home/calls")"; fi
+case_ "command usage error (exit 2)"   1 'REFUSED: could not ask the worker image which templates it knows \(exit 2\)' FAKE_NODE_RC=2 -- --tag "$TAG"
+nowrite "command usage error"
+case_ "v1.0.3 image (no command file): import question, known" 0 'knows the template email_changed \(package import, image before v1.0.4\)' FAKE_HAS_CLI=1 FAKE_ROWS=1 -- --tag "$TAG"
+if grep -q 'input-type=module' "$T/home/calls" && ! grep -q 'node dist/admin/known-email-templates-cli.js' "$T/home/calls"; then
+  pass=$((pass + 1)); echo "ok   no command file → the command is not run (a missing module would exit 1 = 'unknown')"
+else fail=$((fail + 1)); echo "FAIL no command file: $(cat "$T/home/calls")"; fi
+case_ "v1.0.2 image (no command file): import question, unknown" 1 'REFUSED: the worker image sha-0123456789ab does not know the template email_changed' FAKE_HAS_CLI=1 FAKE_LEGACY_RC=1 FAKE_ROWS=2 -- --tag "$TAG" --apply --expect 2
+nowrite "v1.0.2 image without command"
+case_ "file check itself fails"        1 'REFUSED: could not ask the worker image which templates it knows \(exit 126\)' FAKE_HAS_CLI=126 -- --tag "$TAG"
 case_ "no user_email_change table"     1 'REFUSED: table user_email_change is missing' FAKE_ROWS=-1 FAKE_OLDER=-1 -- --tag "$TAG"
 case_ "count query fails"              1 'REFUSED: count query failed – nothing written$' FAKE_COUNT_FAIL=1 -- --tag "$TAG"
 

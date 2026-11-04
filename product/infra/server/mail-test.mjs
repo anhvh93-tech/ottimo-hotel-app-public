@@ -47,7 +47,10 @@ const firstStdinLine = async () => {
   }
   return buf.slice(0, 256);
 };
-const to = verifyOnly ? '' : (await firstStdinLine()).trim();
+// INT v1.0.4 (FB-R4-INT-BE-31-04): isEmailAddress is the shared ASCII-only rule and REFUSES surrounding whitespace
+// (a CR/LF must never reach an envelope) – so the line ending of the stdin line (`\n`, `\r\n`) and any blank around
+// it are trimmed here, before the check. Inner whitespace stays and is refused by the rule.
+const to = verifyOnly ? '' : (await firstStdinLine()).replace(/[\r\n]+$/, '').trim();
 if (!verifyOnly && !isEmailAddress(to)) out('failed (address on stdin is missing or invalid)', 2);
 
 // Same credential lookup as services/api/src/jobs/email-adapter.ts (relay with defaults needs no EMAIL_SMTP_* var).

@@ -123,7 +123,9 @@ else
   cat > "$app/node_modules/@ottimo/integrations/notification.js" <<'NOTIF'
 import { appendFileSync } from 'node:fs';
 const rec = (s) => appendFileSync(process.env.MTS_SENT, s + '\n');
-export const isEmailAddress = (v) => typeof v === 'string' && v.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+// same shape as INT's v1.0.4 rule: ASCII only, and surrounding whitespace (CR/LF) is refused, not trimmed
+export const isEmailAddress = (v) => typeof v === 'string' && v.trim() === v && v.length <= 254
+  && /^[a-z0-9._%+-]{1,64}@([a-z0-9-]{1,63}\.)+[a-z]{2,}$/i.test(v);
 export const mapSmtpError = () => ({ code: 'SMTP_STUB' });
 export const smtpConfigFromCredentials = (c, o) => ({ from: o.from ?? 'no-reply@example.test', fromName: 'OTTIMO' });
 export const createSmtpTransport = () => ({
@@ -150,6 +152,14 @@ NOTIF
     && [ ! -s "$sent" ]; then ok "M3 MAIL_TEST_TO in the environment → refused, nothing sent"; else ko "M3 rc=$rc: $out"; fi
   if grep -Eq '^mail-test: (verified|sent|failed \([A-Za-z0-9_ .-]*\))$' <<<"$out"; then
     ok "M3b that line passes the output filter of mail-test.sh"; else ko "M3b filtered out: $out"; fi
+  mjs_run "  $addr \r\n"
+  if [ "$rc" = 0 ] && grep -qxF "to=$addr" "$sent"; then
+    ok "M2b blanks + CRLF around the address trimmed before the strict check"; else ko "M2b rc=$rc: $out / $(cat "$sent")"; fi
+  mjs_run "$addr"
+  if [ "$rc" = 0 ] && grep -qxF "to=$addr" "$sent"; then
+    ok "M2c no line ending at all (EOF) → still read"; else ko "M2c rc=$rc: $out"; fi
+  mjs_run "probe.owner@exämple.test\n"
+  if [ "$rc" = 2 ] && [ ! -s "$sent" ]; then ok "M2d non-ASCII address → failed, nothing sent"; else ko "M2d rc=$rc: $out"; fi
   mjs_run "\n"
   if [ "$rc" = 2 ] && [ "$out" = 'mail-test: failed (address on stdin is missing or invalid)' ] && [ ! -s "$sent" ]; then
     ok "M4 empty first line → failed, nothing sent"; else ko "M4 rc=$rc: $out"; fi

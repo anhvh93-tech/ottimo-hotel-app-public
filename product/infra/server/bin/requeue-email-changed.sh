@@ -11,8 +11,10 @@
 #   1. no deploy / rollback is running (state/deploy.lock, the lock of deploy.sh; no flock → REFUSED);
 #   2. --tag = state/current_tag, and the one running worker container uses exactly that image tag + API_TAG_SUFFIX of
 #      the stack .env (SEC FB-R4-SEC-OPS-PR32-S2: no other suffix accepted);
-#   3. that worker's image knows the template `email_changed` (isStaffEmailTemplate of @ottimo/integrations, asked
-#      inside the container) – a v1.0.2 worker would kill the rows again;
+#   3. that worker's image knows the template `email_changed`, asked inside the container – a v1.0.2 worker would kill
+#      the rows again. Images from v1.0.4: `node dist/admin/known-email-templates-cli.js email_changed` (ARC
+#      FB-R4-ARC-OPS-PR32-06, BE-A P4-06: 0 known, 1 unknown, 2 usage). Older images (v1.0.3, the usual live tag
+#      after a rollback) lack that file: only then the v1.0.3 question (isStaffEmailTemplate imported) is used;
 #   4. table user_email_change exists (migration 0091).
 # Rows touched: topic staff.email, status dead, last_error BAD_TEMPLATE, payload template = email_changed, created_at
 # within the last 7 days (ARC condition: after 7 days the daily job email_change.purge has cleared the old address, a
@@ -113,11 +115,22 @@ images=$(dc ps --status running --format '{{.Image}}' worker 2>"$err") || die "d
 want_tag="$tag$(envval API_TAG_SUFFIX)"
 [ "${images##*:}" = "$want_tag" ] || die "the running worker is not on image tag $want_tag"
 # 3. the worker image knows email_changed (v1.0.3 or later). Exit 0 = yes, 1 = no, anything else = cannot tell.
-probe='try { const m = await import("@ottimo/integrations/notification"); process.exit(m.isStaffEmailTemplate("email_changed") ? 0 : 1); } catch { process.exit(3); }'
+# The command file is looked up first (cwd = WORKDIR /app): a missing module also exits 1 in node, which would read
+# as "unknown" – so the absence of the file is decided on its own, never from the command's exit code.
+cli=dist/admin/known-email-templates-cli.js
+has_cli=0
+dc exec -T worker node -e "process.exit(require('fs').existsSync('$cli') ? 0 : 1)" >/dev/null 2>"$err" || has_cli=$?
 rc=0
-dc exec -T worker node --input-type=module -e "$probe" >/dev/null 2>"$err" || rc=$?
+case "$has_cli" in
+  0) how="known-email-templates-cli"
+     dc exec -T worker node "$cli" email_changed >/dev/null 2>"$err" || rc=$? ;;
+  1) how="package import, image before v1.0.4"
+     legacy='try { const m = await import("@ottimo/integrations/notification"); process.exit(m.isStaffEmailTemplate("email_changed") ? 0 : 1); } catch { process.exit(3); }'
+     dc exec -T worker node --input-type=module -e "$legacy" >/dev/null 2>"$err" || rc=$? ;;
+  *) die "could not ask the worker image which templates it knows (exit $has_cli)" ;;
+esac
 case "$rc" in
-  0) log "worker $tag knows the template email_changed" ;;
+  0) log "worker $tag knows the template email_changed ($how)" ;;
   1) die "the worker image $tag does not know the template email_changed (v1.0.2?) – go up to v1.0.3 first (runbook R8)" ;;
   *) die "could not ask the worker image which templates it knows (exit $rc)" ;;
 esac
