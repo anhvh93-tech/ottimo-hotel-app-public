@@ -97,7 +97,7 @@ Có trong v1.0.4 nếu gộp kịp. #63, #64, #65, #68 không kịp thì sang v1
 ### Giới hạn đã biết
 
 - **Lễ tân và lễ tân trưởng không thấy yêu cầu hoàn còn chờ duyệt do người khác tạo** (Trả sớm, hủy giữ chỗ có cọc, tiền khách trả thừa), cả ở dòng "Đang chờ hoàn" của trang Trả phòng (nếu #64 vào bản này) lẫn ở **Nhật ký tiền → Hoàn tiền**. Yêu cầu đã được quản lý duyệt thì vẫn thấy như thường. Đơn có Trả sớm hoặc hủy có cọc mà anh/chị không phải người bấm, hoặc khách hỏi tiền hoàn mà Desk không hiện: **hỏi quản lý hoặc chủ đầu tư** trước khi báo khách số tiền. Không báo khách "không có khoản hoàn". v1.0.5 (chưa có ngày): trang Trả phòng và folio hiện **tổng số đang chờ hoàn** của đơn, kể cả yêu cầu do người khác tạo. Tab **Hoàn tiền** giữ phạm vi như hiện nay; đây là phân quyền có chủ ý. Hướng dẫn: sổ tay 2.14, 2.14a; `02` 11.1, 11.5; `01` 7.3 (#68).
-- **Trả sớm trước 06:00:** ô **Ngày rời mới** đặt sẵn ngày hôm trước (Desk chưa sang ngày mới). Khách rời trong khoảng 00:00–05:59: đổi **Ngày rời mới** thành **ngày lịch hôm nay** rồi mới bấm **Xem trước**. Khách rời đúng ngày đi ghi trên đơn: dùng **Trả phòng**, không dùng Trả sớm. Lỗi có từ v1.0.2, **bản đang chạy cũng có**: làm như vậy ngay từ hôm nay. Sửa ở v1.0.5. Hướng dẫn: sổ tay 2.14a bước 2, `02` 11.5 (#68).
+- **Trả sớm trước 06:00:** ô **Ngày rời mới** đặt sẵn ngày hôm trước (Desk chưa sang ngày mới). Khách rời trong khoảng 00:00–05:59: đổi **Ngày rời mới** thành **ngày lịch hôm nay** rồi mới bấm **Xem trước**. Khách rời đúng ngày đi ghi trên đơn: không dùng Trả sớm. Cả hai trường hợp, nút **Trả phòng** chỉ hiện **từ 06:00**: lúc đó mở khung đơn → **Trả phòng**, ghi **Giờ trả phòng thực tế** đúng giờ khách đi. Lỗi có từ v1.0.2, **bản đang chạy cũng có**: làm như vậy ngay từ hôm nay. Sửa ở v1.0.5. Hướng dẫn: sổ tay 2.14a bước 2, `02` 11.5 (#68).
 - **Lễ tân trưởng bắt buộc 2 bước** nhưng Desk chưa tự ép (dự kiến v1.0.5). Anh/chị kiểm lúc tạo tài khoản (Việc làm sau khi lên, bước 4).
 - **Desk chưa có màn xem nhật ký bảo mật** (ai đặt lại 2 bước, cho ai, lý do). Cần tra thì nhắn Điều phối viên tên đăng nhập, không kèm lý do.
 - **Check-in online** vẫn dừng với khách thật tới khi đội báo "mở lại" (bước 2 ở trên).
@@ -111,6 +111,7 @@ Có trong v1.0.4 nếu gộp kịp. #63, #64, #65, #68 không kịp thì sang v1
 | Desk tự ép lễ tân trưởng bật 2 bước | **v1.0.5** |
 | Trang Trả phòng và folio hiện tổng số đang chờ hoàn của đơn, kể cả yêu cầu do người khác tạo | **v1.0.5** |
 | Trả sớm trong 00:00–05:59: Desk đặt sẵn **Ngày rời mới** theo ngày lịch, máy chủ chặn ngày hôm trước | **v1.0.5** |
+| Nút **Trả phòng** từ 00:00 cho khách đi đúng ngày | **v1.0.5** |
 | Màn xem nhật ký bảo mật trên Desk | Chưa xếp |
 | Hoa hồng nhập theo bảng nội bộ trên Desk, không có số mặc định trong mã | Hotfix H2, hạn 01/12 |
 | Các việc khác trong bảng "Chưa có" của v1.0.3, v1.0.2 và v1.0.0 | Theo đích ghi ở bảng đó |
