@@ -8,21 +8,11 @@ import { createRuntime } from './bootstrap';
 import { JobRunner } from './jobs/job-runner';
 import { createEmailAdapter } from './jobs/email-adapter';
 import { StaffEmailDispatcher } from './jobs/email-dispatch';
-import { logLine } from './shared/log-line';
+import { errorTag, writeErrorLine, writeLogLine } from './shared/log-line';
 import { buildWorkerChat } from './worker-chat';
 import { buildWorkerJobs } from './worker-jobs';
 
-const log = (level: string, msg: string, extra: Record<string, unknown> = {}): void =>
-  console.log(logLine(level, msg, extra));
-
-/** Error fields safe to log: constructor name and a short code, never the message (SEC S-1). */
-function errorTag(err: unknown): { err: string; code?: string } {
-  const name = err instanceof Error ? err.name : 'error';
-  const code = (err as { code?: unknown } | null)?.code;
-  return typeof code === 'string' && /^[A-Za-z0-9_.:-]{1,40}$/.test(code)
-    ? { err: name, code }
-    : { err: name };
-}
+const log = writeLogLine;
 
 async function main(): Promise<void> {
   const rt = await createRuntime((m) => log('info', m));
@@ -88,11 +78,9 @@ async function main(): Promise<void> {
           const done = results.filter((r) => r.status === 'done').length;
           if (done > 0) log('info', 'job done', { job: key, properties: done });
         } catch (err) {
-          // Message only (no payloads); the failed slot was rolled back and is retried next tick.
-          log('error', 'job failed', {
-            job: key,
-            err: err instanceof Error ? err.message : 'error',
-          });
+          // Name + code only (SQLSTATE kept), never `err.message` – a DB / library message may carry values (SEC S-1,
+          // FB-R4-SEC-BE-BED-05). The failed slot was rolled back and is retried next tick.
+          log('error', 'job failed', { job: key, ...errorTag(err) });
         }
       }
       if (emailDispatcher) {
@@ -137,6 +125,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error(err instanceof Error ? `${err.name}: ${err.message}` : err);
+  // One JSON line like every other (ARC FB-R4-ARC-BE-PR24PM-04), name + code only – never `err.message` (SEC S-1).
+  writeErrorLine('worker failed', errorTag(err));
   process.exit(1);
 });
