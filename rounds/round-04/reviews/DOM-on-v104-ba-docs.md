@@ -359,3 +359,30 @@ BA giữ bước xóa tệp v2 trên máy tính bảng khi đặt lại v1 (mụ
 - Trạng thái: Open
 
 Ghi chú: không cần ESC. Hai thẻ đều thuộc tài liệu và không đổi mã.
+
+---
+
+## Lượt 5 (04/11) – DOM xác nhận `v104/ba-docs` @ `0699b1de`: **ĐẠT**
+
+- Đọc: `git diff 8ddde2ae 0699b1de`, `rounds/round-04/responses/BA-on-DOM-v104.md` mục 9, `rounds/round-04/reviews/BA-on-FE-internal-note.md`. Câu báo "Đã lưu {name}, hiệu lực từ {date}." (`params.saved`) có trong `strings-vi.json` trên `origin/v104/fe-param-cancel`.
+- Không còn điều kiện nào trước ngày thay tờ v2 từ phía DOM.
+
+### Trạng thái thẻ lượt 4
+
+| Thẻ | Trạng thái | Ghi chú DOM |
+|---|---|---|
+| FB-R4-DOM-BA-104-12 | **Closed** (BA làm khác đề xuất, DOM chấp nhận) | BA đã kiểm: Desk v1.0.4 không có ô ghi chú mà ca sau mở đơn là thấy. Ô **Ghi chú nội bộ** chỉ có khi tạo đơn kênh Nội bộ; ô của yêu cầu website bị xóa khi lập đơn. Vì vậy dùng **trang Không dịch** ở đầu sổ giao ca là đúng. Trang này giải được cả hai ý: một trang dùng chung mọi ca, mọi ngày (khách dài ngày, HĐ thuê tháng không bị sót), và ghi theo `REQ-…` khi chưa có đơn. Đọc trang lúc mở quầy và kiểm trước mỗi lần dịch: đủ nhanh cho một người trực. Chỉ ghi mã: đúng |
+| FB-R4-DOM-BA-104-13 | **Closed** | Đúng đề xuất. Bước 3.4 và bước 5 hết vênh. Bước 3.5 thêm "không có dòng **Chưa hiệu lực**". Thứ tự Hủy lịch → Lưu lại / chỉ hủy → nhánh đặt lại v1 là đúng. `02` bước 3 có câu cho người trực. Chủ đầu tư nhận ra Lưu nhầm ngày ngay từ câu báo "hiệu lực từ {date}" |
+
+### G-BA-104-6 (dòng trên trang Không dịch giữ nguyên, không gạch): **DOM xác nhận**
+
+- "Không dịch" là ý của khách, không có hạn. "Chưa xem v2" chỉ ghi khi khách đã không xem, hoặc đã về mà chưa xem, tức là chuyện đã xong. Cả hai không có lúc nào cần gạch.
+- Trang chỉ có mã, không có tên, số điện thoại hay số căn, nên giữ lâu không rủi ro. Mã `REQ-…` vẫn ở trên trang sau khi Desk xóa yêu cầu (WR8, T19): chấp nhận được, vì mã không cho biết khách là ai.
+- Thêm một ý, BA ghi ở lượt sửa sau cũng được, không phải điều kiện: khi sổ giao ca hết trang và thay sổ mới, chép nguyên trang Không dịch sang đầu sổ mới. Khách quay lại với đơn mới (mã `OTM-…` mới) thì trang không tự nhận ra. Khách nhắc lại thì ghi dòng mới.
+
+### G-BA-104-7 (ô Ghi chú nội bộ ở `02` 5.2 và mục 6 ý 5)
+
+- DOM ghi nhận: lỗi này có từ trước và không thuộc v1.0.4.
+- Chờ FE/PO trả lời FB-R4-BA-FE-IN-01. Nếu BA chuyển các câu đó sang sổ giao ca, DOM đọc lại lúc đó.
+
+Ghi chú: không cần ESC. Không có thẻ mới.
