@@ -62,7 +62,7 @@ Thư mục `product/infra/demo/` không nằm trong CODEOWNERS (không thuộc p
 
 ## 7. Sửa P-1…P-4 (PR `v104/ops-demo-seed-fixes`)
 
-- Người làm: OPS · Round 4 · Bước Phản hồi & sửa · 05/11/2026. PR PRNUM, cắt từ `origin/main` `476fd9b8`. Chưa gộp.
+- Người làm: OPS · Round 4 · Bước Phản hồi & sửa · 05/11/2026. PR #78, cắt từ `origin/main` `476fd9b8`. Chưa gộp.
 - Chỉ sửa `product/infra/demo/` (`seed-demo.mjs`, `smoke-demo.mjs`, `lib.sh`). Không sửa mã sản phẩm, không nới cổng S2. Script gửi bằng chứng S2 giống Desk và harness E2E (`tests/e2e/support/api.ts` `seedReauthFor`, `s3-stay.ts` `ensureReceivingAccount`).
 
 ### 7.1 Đã sửa
