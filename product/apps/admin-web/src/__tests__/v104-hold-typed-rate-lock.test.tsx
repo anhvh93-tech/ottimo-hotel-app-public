@@ -38,7 +38,10 @@ const rateBox = (dlg: HTMLElement, date: string) =>
   within(dlg).getByLabelText(`${tv('rate.pre_tier')} ${dayMonth(date)}`) as HTMLInputElement;
 const holdButton = (dlg: HTMLElement) => within(dlg).getByRole('button', { name: /^Giữ chỗ đến / });
 
-/** Đặt phòng mới, arriving tomorrow (a hold is offered from tomorrow on), room 203, the preview has filled the box. */
+/**
+ * Đặt phòng mới, arriving tomorrow (a hold is offered from tomorrow on) for 2 nights (BR-113: a Fri/Sat arrival needs
+ * 2 – the case must not depend on the weekday), room 203, the preview has filled both boxes.
+ */
 async function openForTomorrow(user: User, channel?: string) {
   await screen.findByRole('grid');
   await user.click(screen.getByRole('button', { name: 'Đặt phòng mới' }));
@@ -47,12 +50,21 @@ async function openForTomorrow(user: User, channel?: string) {
   fireEvent.change(within(dlg).getByLabelText(tv('booking.field.arrival')), {
     target: { value: tomorrow() },
   });
+  fireEvent.change(within(dlg).getByLabelText(tv('booking.field.departure')), {
+    target: { value: addDays(tomorrow(), 2) },
+  });
   const room = within(dlg).getByLabelText(/^Căn/);
   await waitFor(() => expect(within(room).getAllByRole('option').length).toBeGreaterThan(5));
   await user.selectOptions(room, within(room).getByRole('option', { name: /^203 / }));
   await user.type(within(dlg).getByRole('combobox', { name: 'Khách đứng tên' }), 'Trần Minh');
   await user.click(await screen.findByRole('option', { name: /Trần Minh Khoa/ }));
-  await waitFor(() => expect(rateBox(dlg, tomorrow()).value).not.toBe(''), { timeout: 3000 });
+  await waitFor(
+    () => {
+      expect(rateBox(dlg, tomorrow()).value).not.toBe('');
+      expect(rateBox(dlg, addDays(tomorrow(), 1)).value).not.toBe('');
+    },
+    { timeout: 3000 },
+  );
   return dlg;
 }
 
@@ -115,15 +127,17 @@ describe('DOM ARC-03 – "Giữ chỗ" is locked while a rate the desk typed is 
     const { user } = renderApp('/rack', 'qa.fd');
     const dlg = await openForTomorrow(user);
     await typeRate(user, dlg, tomorrow(), '880000');
-    // the deposit of the typed price (BR-305: 30 % – the server checks it on save)
+    await typeRate(user, dlg, addDays(tomorrow(), 1), '880000');
+    // the deposit of the typed price (BR-305: 30 % of 1.760.000, to 100.000 – the server checks it on save)
     const deposit = within(dlg).getByLabelText(/Số tiền đã nhận/);
     await user.clear(deposit);
-    await user.type(deposit, '300000');
+    await user.type(deposit, '500000');
     await user.click(within(dlg).getByRole('button', { name: tv('booking.create') }));
     expect(await screen.findByText(/^Đã tạo đơn OTM-0\d+$/)).toBeInTheDocument();
     const created = sent.find((s) => /\/reservations$/.test(s.path))!;
     expect(created.body.nightlyRates).toEqual([
       { date: tomorrow(), amountVnd: 880000, edited: true },
+      { date: addDays(tomorrow(), 1), amountVnd: 880000, edited: true },
     ]);
     expect(sent.some((s) => s.path.endsWith('/actions/create-hold'))).toBe(false);
   });
@@ -133,10 +147,6 @@ describe('DOM ARC-03 – "Giữ chỗ" is locked while a rate the desk typed is 
     const { user } = renderApp('/rack', 'qa.fd');
     const dlg = await openForTomorrow(user);
     const departure = within(dlg).getByLabelText(tv('booking.field.departure'));
-    fireEvent.change(departure, { target: { value: addDays(tomorrow(), 2) } });
-    await waitFor(() => expect(rateBox(dlg, addDays(tomorrow(), 1)).value).not.toBe(''), {
-      timeout: 3000,
-    });
     await typeRate(user, dlg, addDays(tomorrow(), 1), '880000');
     expect(holdButton(dlg)).toBeDisabled();
     fireEvent.change(departure, { target: { value: addDays(tomorrow(), 1) } });
