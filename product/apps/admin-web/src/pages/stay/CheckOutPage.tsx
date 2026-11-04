@@ -35,7 +35,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
 import { listApprovals } from '../../app/approvals';
 import { useBusinessDay } from '../../app/businessDay';
-import { timeHHmm } from '../../app/dates';
+import { DEFAULT_ROLLOVER, checkoutInstant, timeHHmm } from '../../app/dates';
 import { hasLineKey, lineLabel, signed } from '../../app/folio';
 import { addDays, currentSegment } from '../../app/reservations';
 import { Code, monoArgs } from '../../app/mono';
@@ -165,7 +165,9 @@ export function minibarPrefill(std: MinibarStandard | undefined): Record<string,
 export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const { t, vnd, money, date } = useI18n();
   const propertyId = usePropertyId();
-  const { roles } = useSession();
+  const { roles, property } = useSession();
+  // BUG-R4-050: the instant of the typed time after midnight of the departure day (`checkoutInstant`).
+  const rollover = property?.businessDayRollover ?? DEFAULT_ROLLOVER;
   // R3-Q39 #10, #11 (BR-010): the BUSINESS day – at 02:40 the stay is still in last night's room, and the
   // debt due date counts from the business day of the write (BR-525 (i) v0.4.0).
   const today = useBusinessDay();
@@ -506,9 +508,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         {
           amountVnd: DUE_PROBE_VND,
           purpose: 'check_out',
-          checkoutAt: /^\d{2}:\d{2}$/.test(hhmm)
-            ? `${r.departureDate}T${hhmm}:00+07:00`
-            : undefined,
+          checkoutAt: checkoutInstant(r.departureDate, hhmm, new Date(), rollover),
           extraNightRateVnd: Number(rate),
         },
         newIdempotencyKey(),
@@ -532,7 +532,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       stale = true;
     };
     // `s` – a payment recorded or a line written changes what is due at that rate.
-  }, [debTypedKey, typedKey, r, propertyId, s]);
+  }, [debTypedKey, typedKey, r, propertyId, s, rollover]);
 
   if (!r && res.state.status === 'error')
     return (
@@ -1785,9 +1785,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 reservation={r}
                 balanceVnd={balance}
                 checkout={{
-                  checkoutAt: /^\d{2}:\d{2}$/.test(time)
-                    ? `${r.departureDate}T${time}:00+07:00`
-                    : undefined,
+                  checkoutAt: checkoutInstant(r.departureDate, time, new Date(), rollover),
                   // ARC 16.18: the same rule as B18 – only a rate the desk changed.
                   extraNightRateVnd:
                     extraNightNeeded && !extraUnavailable && extraEdited

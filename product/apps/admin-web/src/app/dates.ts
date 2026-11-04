@@ -72,6 +72,31 @@ export function shiftDay(day: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * BUG-R4-050 (DOM-on-v104-pr72 mục 4 ý 3, QA2): the instant of a check-out time `hhmm` typed on H16, for the reads that take
+ * an instant (`createVietQr.checkoutAt`: the typed extra-night rate probe and the check-out VietQR). B18 keeps
+ * sending `checkoutTime` (BR-416) – never this instant.
+ * - From `rollover` (06:00) on: that time on the departure day.
+ * - Before `rollover`: the latest instant at that time not later than `now`, from 00:00 of the departure day to
+ *   `rollover` the day after. 00:20 typed at 00:20 the day after the departure → that day (the guest stayed past
+ *   midnight); 04:30 typed at 06:10 on the departure day → the departure day (the guest left at 04:30, PR #68);
+ *   01:00 typed at 01:00 on the departure day → the departure day. Nothing at that time yet → the departure day.
+ * `offset` is the property's UTC offset (Asia/Ho_Chi_Minh, no DST), as the Desk sent it before.
+ */
+export function checkoutInstant(
+  departureDate: string,
+  hhmm: string,
+  now: Date = new Date(),
+  rollover = DEFAULT_ROLLOVER,
+  offset = '+07:00',
+): string | undefined {
+  if (!/^\d{2}:\d{2}$/.test(hhmm)) return undefined;
+  const at = (day: string) => `${day}T${hhmm}:00${offset}`;
+  if (hhmm >= rollover.slice(0, 5)) return at(departureDate);
+  const dayAfter = at(shiftDay(departureDate, 1));
+  return Date.parse(dayAfter) <= now.getTime() ? dayAfter : at(departureDate);
+}
+
 /** Whole days from `a` to `b` (YYYY-MM-DD). */
 export function daysBetween(a: string, b: string): number {
   return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
