@@ -105,8 +105,98 @@ Lúc 09:55: **7/8 job xanh** – infra scripts (shellcheck), format · lint · a
 - D2/P5: đọc `chat-message.ts` của **tag** app trước Release (runbook 0.2 + P4).
 - D5/S6: 12 ca SEC 9.5 + ca IP qua `TRUST_PROXY` trên staging qua Caddy thật; P10 smoke (BUG-R4-011/012 trên stack thật, form 5 ngôn ngữ, 13 ca giá).
 - BUG-R4-011, 012: đã sửa trên nhánh (test `bug-r4-012-guest-nationality-null` và admin-web `r4-lp-v2-fea4` xanh lượt này); đóng sau P10 như cũ.
-- Xác nhận BUG-R4-027/028 khi BE/OPS báo sửa.
+- Xác nhận BUG-R4-027/028 khi BE/OPS báo sửa. **Đã làm 04/11 – mục 8 (G2 ĐẠT).**
 
 ## 7. Dọn dẹp
 - Container `ottimo-qa-lpv2m-pg` + volume: đã xóa. Worktree tạm `v1.0.3` đã xóa. 2 tệp test tạm chỉ còn ở scratchpad QA. Bản đột biến đã trả về (`git status` sạch trong `product/`).
 - Worktree QA `.claude/worktrees/qa-lp-v2-main-merge` giữ lại cho ORC commit 2 tệp: tệp này và `bug-list.md`.
+
+## 8. Xác nhận G2 (04/11)
+
+- Người làm: QA | Round 4 – gói LP-v2 – Bước **Kiểm thử (xác nhận sửa lỗi)** | 04/11/2026, 10:05–10:15 giờ VN
+- Căn cứ: `rounds/round-04/qc/lp-v2-merge-gate.md` mục 3, dòng **G2** (a)–(d).
+- Đối tượng: `origin/lp-v2-main` @ **`4fe85e19`** (`git fetch` lúc bắt đầu và lúc ghi: đầu nhánh vẫn `4fe85e198b1c…`, trùng đầu PR #34 ORC nêu). Worktree tách riêng (detached) `.claude/worktrees/qa-g2-lpv2m`, **không commit, không push** vào `lp-v2-main`; đã xóa sau lượt.
+- Môi trường: MacBook, Node 22, `npx pnpm@9.15.4 install --frozen-lockfile`. Postgres 17 tạm `ottimo-qa-g2-pg` (`127.0.0.1:55498`, image `postgres:17-alpine@sha256:b0f9560a…` = digest CI, vai dựng bằng `infra/postgres/init/` của nhánh, mật khẩu là giá trị CI dùng một lần trong `ci.yml`), 69 migration. Không chạm staging/production, không SSH. Chỉ dữ liệu giả của test.
+
+### 8.0 Kết luận G2: **ĐẠT**
+
+| Ý | Kết quả |
+|---|---|
+| (a) 2 đột biến đỏ, bản gốc xanh | **Đạt**: M1 → 5 đỏ, M2 → 1 đỏ, bản gốc 122/122 |
+| (b) `CHKV` runbook r1.1 + README 12.3/13.5 khớp hằng `2026-11-04` | **Đạt** |
+| (c) 5 sha256 trang privacy trùng FE-B | **Đạt**: 5/5 trùng từng ký tự |
+| (d) diff `917a39cf..4fe85e19` chỉ tệp đã biết | **Đạt**: 6 tệp, đúng danh sách |
+
+BUG-R4-027 và BUG-R4-028 → **Closed** (`bug-list.md`). BUG-R4-011, 012 ghi "đã vào `main`, chờ P10" theo G4 (b). Không lỗi mới.
+
+### 8.1 (a) Đột biến cổng Chat (BUG-R4-027)
+
+Tệp đột biến: `product/services/api/src/modules/public-site/public/chat-message.ts`. Lệnh mỗi lượt (trong `services/api`, `DATABASE_URL` + `MIGRATION_DATABASE_URL` trỏ PG tạm): `npx vitest run test/gchat-units.test.ts test/integration/gchat-notify.test.ts`. Trước khi chạy: `turbo run build --filter='@ottimo/api^...'` (gói `integrations` cần bản dựng).
+
+| Lượt | Thay đổi | Kết quả | Ca đỏ |
+|---|---|---|---|
+| Gốc | không | **122/122 xanh** | – |
+| M1 (so chữ ở `effectiveLevel`, đúng bước 1 của BUG-R4-027) | điều kiện `!g?.min_at \|\| !g.req_at \|\| g.req_at < g.min_at` thay bằng `r.consent_version < CHAT_DETAILS_MIN_NOTICE_VERSION` | **5 đỏ / 117 xanh** (trước bản sửa: 0 đỏ / 117) | 4 ca unit "gate by published_at, not by label" (`2026-12-01` đăng trước → A; `2026-11-04.1` và `2026-11-05`, hằng chưa đăng → A; `2026-11-03` đăng sau → C) + ca tích hợp "BUG-R4-027/028: 2026-11-04.1 (5 languages) and 2026-11-05 published, 2026-11-04 not → A" |
+| M2 (so chữ trong SQL) | subquery `min_at`: `version = $2` → `version >= $2` | **1 đỏ / 121 xanh** | ca tích hợp trên. Ca unit dùng SQL giả nên không bắt M2, đúng dự kiến – M2 chỉ bắt được trên Postgres thật |
+| Trả về | chép lại bản gốc | sha256 `chat-message.ts` = `ec69b417…cdda4`, trùng `git show 4fe85e19:…`; chạy lại kèm `gchat-worker-only` **124/124 xanh** | – |
+
+Kết quả khớp lời BE trong commit `4fe85e19` ("5 red" / "integration case red"). Mã đột biến sinh bằng script ở scratchpad QA, không nằm trong nhánh.
+
+### 8.2 (b) Khối `CHKV` và README (BUG-R4-028)
+
+Đọc `rounds/round-04/outputs/OPS/lp-v2-release-runbook.md` @ `4fe85e19` (r1.1) và `product/infra/server/README.md` 12.3, 13.5:
+- 0.1: `⟨NOTICE_V⟩ = 2026-11-04`, ghi rõ đổi nhãn thì hằng api và `VERSION` landing phải cùng giá trị trước 0.2. Dòng "Nhãn thông báo", D2, P5: hằng = **đúng** nhãn đăng ở P10.
+- `CHKV` (mục 2): trích hằng bằng `sed` khớp nguyên dòng `export const CHAT_DETAILS_MIN_NOTICE_VERSION = '…';` của ref api, trích `const VERSION = '…';` của ref landing, in `D2_CHAT_CONST=CO` chỉ khi hằng khác rỗng **và** hằng = `⟨NOTICE_V⟩` **và** `VERSION` = `⟨NOTICE_V⟩`. Được gọi ở 0.2 bước 3, S4, P4 (trước `git push` tag app), P10 bước 0. Không còn lệnh `grep -c "CHAT_DETAILS_MIN_NOTICE_VERSION = '2026-11-04'"`. S4 và P10 đăng `--version ⟨NOTICE_V⟩`.
+- README 12.3: "Đổi nhãn thì phải đổi cả hằng … Release api có hằng mới trước bước (c)"; hằng "phải bằng đúng nhãn sẽ đăng ở bước (c) – hiện là `2026-11-04`", kiểm bằng so giá trị, không grep chuỗi cố định. 13.5 K1: "trước lần đăng thông báo đầu tiên nêu Google Chat (`2026-11-04`)", K1 đã đạt 03/11; điều kiện không đạt cũng đổi theo.
+- `privacy.ts` @ `4fe85e19` dòng 60: `const VERSION = '2026-11-04';`; chú thích thêm câu "a new label → set CHAT_DETAILS_MIN_NOTICE_VERSION (api chat-message.ts) to the same value".
+
+Chạy (Mac, chỉ đọc git): 2 lệnh trích của `CHKV` trên `4fe85e19` → hằng api `2026-11-04`, `VERSION` landing `2026-11-04`; cùng lệnh trên tag `v1.0.3` → hằng `2026-10-31`; trên `5474b6e1` (PR #21) → `VERSION` `2026-10-31`. Phép so của khối (chép lại bằng Python vì công cụ của QA không chạy được khối shell nhiều lệnh) với các giá trị trích thật:
+
+| `⟨NOTICE_V⟩` | hằng api | `VERSION` landing | Kết quả |
+|---|---|---|---|
+| `2026-11-04` | `2026-11-04` (`4fe85e19`) | `2026-11-04` (`4fe85e19`) | **CO** – khớp "Đúng là" của runbook |
+| `2026-11-04.1` | `2026-11-04` | `2026-11-04` | KHONG (đúng ca BUG-R4-028) |
+| `2026-11-04` | `2026-10-31` (`v1.0.3`) | `2026-11-04` | KHONG |
+| `2026-11-04` | `2026-11-04` | `2026-10-31` (`5474b6e1`) | KHONG |
+| `2026-11-04` | không trích được (`?`) | `2026-11-04` | KHONG (fail-closed) |
+
+Ghi chú (không phải lỗi): `CHKV` dựa vào đúng dạng một dòng của khai báo hằng. Nếu sau này BE thêm kiểu (`: string`) hay xuống dòng, khối in `KHONG` (an toàn, chặn đi tiếp) – OPS/BE chỉ cần biết để sửa `sed` cùng lúc.
+
+### 8.3 (c) Băm 5 trang privacy
+
+Lệnh trong `apps/landing-web`: `pnpm run build:booking-live-test` (`LANDING_BOOKING_FORM=true LANDING_PROPERTY_SLUG=dl01 LANDING_OUT_DIR=dist-booking-live`), rồi `shasum -a 256 dist-booking-live/<lang>/privacy/index.html`. Thẻ meta `ottimo-notice-version` = `2026-11-04` ở cả 5 trang.
+
+| Trang | sha256 QA dựng @ `4fe85e19` | FE-B (`reviews/FE-B-on-lp-v2-main.md` mục 4, trên nhánh) |
+|---|---|---|
+| `/privacy/` | `7d610c5e754874c3e1d2d53d28e06a2302cae09c5bdb14ae42edfebdf5a5f2fa` | trùng |
+| `/vi/privacy/` | `c2ab41213442e07d536005984de037ea00ae2cbdfaa6b64a836fbf569857160b` | trùng |
+| `/ko/privacy/` | `dcc008dbe32c0643fae1c9ba66b13c99c9bbb951afb12e5d8e8657c32b1de73f` | trùng |
+| `/zh/privacy/` | `4c813cc4b328e2d81ad8a51239aeda3d2e19e2629f4cdb2685321671298cf9d1` | trùng |
+| `/ru/privacy/` | `79246edae1658f6a90463059ec35855282e4de17df3388ad005ec2dab0de0577` | trùng |
+
+Chú thích mới ở `privacy.ts` không đổi trang dựng. Thêm: dựng `dist` + `dist-booking-preview`, landing vitest **12 tệp / 283 ca** xanh (gồm `privacy.test`, `dist.test`). OPS vẫn so băm trên image thật ở S4 (biến dựng của CI có thể khác).
+
+### 8.4 (d) Diff `917a39cf..4fe85e19`
+
+`git diff --stat 917a39cf..4fe85e19`: **6 tệp, +186 / −26**, 3 commit (`55be09d5`, `aad14baa`, `4fe85e19`):
+
+| Tệp | Commit | Thuộc |
+|---|---|---|
+| `product/apps/landing-web/src/content/privacy.ts` (+2/−1, chỉ chú thích JSDoc) | `aad14baa` | 028 |
+| `product/infra/server/README.md` (12.3, 13.5) | `aad14baa` | 028 |
+| `rounds/round-04/outputs/OPS/lp-v2-release-runbook.md` (r1.1) | `aad14baa` | 028 |
+| `product/services/api/test/gchat-units.test.ts` (+36) | `4fe85e19` | 027 |
+| `product/services/api/test/integration/gchat-notify.test.ts` (+35) | `4fe85e19` | 027 |
+| `rounds/round-04/reviews/BE-on-lp-v2-main.md` (mới ở `55be09d5`, +1 dòng ở `4fe85e19`) | `55be09d5`, `4fe85e19` | review BE |
+
+Không tệp `src/` nào của api đổi; không đổi migration, `ci.yml`, Caddy, script hạ tầng. Đúng danh sách G2 (d).
+
+Thêm (cho G5, chỉ ghi nhận): `git diff --stat c6cd32a8 origin/main -- product .github` rỗng lúc 10:12 (`origin/main` @ `c18f9f0a`).
+
+### 8.5 Không làm ở lượt này
+- Không chạy bộ api đầy đủ, Playwright landing, admin-web: 3 commit mới chỉ đổi 2 tệp test api, 1 dòng chú thích và tài liệu; CI PR (G1) chạy đủ.
+- Không đánh giá ca test có đúng ý ★2 về mặt bảo mật – việc của SEC (G3 (a)).
+
+### 8.6 Dọn dẹp
+- Container `ottimo-qa-g2-pg`: đã xóa. Worktree `.claude/worktrees/qa-g2-lpv2m`: đã xóa (`git worktree remove`). `lp-v2-main` không có commit nào của QA; đầu PR vẫn `4fe85e19`.
+- 2 tệp tài liệu (tệp này, `bug-list.md`) ghi trên nền `origin/main` @ `c18f9f0a`, chưa commit – ORC commit.

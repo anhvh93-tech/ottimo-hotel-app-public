@@ -31,15 +31,17 @@
 
 - **LP-v2 – `lp-v2-main` trước khi gộp `main`** (04/11 09:39–10:00, `origin/lp-v2-main` @ `917a39cf`; PG 17 tạm `ottimo-qa-lpv2m-pg`, đã xóa): **ĐẠT CÓ ĐK** cho việc gộp. 6 thẻ sửa (SEC LPV2M-01/02/03/05, FE-B-LPV2M-01/02) đóng đúng; ca "LP-v2 trơ" 10/10; 0092 trên DB 68 dòng hình production 0,38 giây, v1.0.3 trên DB 69 217/219 (2 đỏ dự kiến của `schema-parity`); hồi quy email bảo mật / BR-428 / 2 bước Desk không mất; api 555, landing 283, admin-web 799, Playwright landing 149/149. 0 P0/P1/P2. Mới **BUG-R4-027** (P3, BE – test cổng Chat không bắt bản "so chữ") và **BUG-R4-028** (P3, OPS – nhãn `2026-11-04.1` không kéo theo hằng Chat). Chi tiết: `rounds/round-04/qa/lp-v2-main-qa.md`.
 
-## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff` + smoke staging v1.0.3 + dọn trạng thái ĐK14 + ĐK10 B18 staging 04/11 + kiểm đọc yêu cầu thay thế 04/11 + `lp-v2-main` @ `917a39cf`)
+- **Xác nhận G2 – QC gate gộp LP-v2** (04/11 10:05–10:15, `origin/lp-v2-main` @ `4fe85e19` = đầu PR #34; worktree tách riêng, PG 17 tạm `ottimo-qa-g2-pg`, đã xóa): **ĐẠT**. Đột biến "so chữ" ở `effectiveLevel` → 5 ca đỏ; đột biến SQL `version >= $2` → 1 ca đỏ; bản gốc 122/122 xanh (124/124 kèm `gchat-worker-only`). Khối `CHKV` runbook r1.1 + README 12.3/13.5 khớp hằng `2026-11-04`. 5 sha256 trang privacy dựng lại trùng 5 băm FE-B. `git diff --stat 917a39cf..4fe85e19` = 6 tệp đã biết. **BUG-R4-027, 028 → Closed.** BUG-R4-011, 012 ghi lại trạng thái theo QC G4 (b). Không lỗi mới. Chi tiết: `rounds/round-04/qa/lp-v2-main-qa.md` mục 8.
+
+## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff` + smoke staging v1.0.3 + dọn trạng thái ĐK14 + ĐK10 B18 staging 04/11 + kiểm đọc yêu cầu thay thế 04/11 + `lp-v2-main` @ `917a39cf` + xác nhận G2 @ `4fe85e19`)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
-| P2 | 9 | 1 (BUG-R4-011 – **đã sửa trên `lp-v2`**, chờ gộp `main` + staging smoke P10; `main`/production còn lỗi gốc với hồ sơ tạo tay) | 0 | 8 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022** – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
-| P3 | 19 | 10 (BUG-R4-010 – mở lại, BUG-R4-012 – **đã sửa trên `lp-v2`**, chờ gộp + P10, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4, **026** – v1.0.4, **027** – BE, trước lần đăng `2026-11-04`, **028** – OPS, trước lần đăng `2026-11-04`) | 1 (**BUG-R4-025** – PO sửa release notes 04/11, chờ QA xác nhận) | 8 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`) |
-| **Tổng** | **28** | **11** | **1** | **16** |
+| P2 | 9 | 1 (BUG-R4-011 – **đã vào `main` cùng lần gộp PR #34, chờ P10**; production còn lỗi gốc với hồ sơ tạo tay tới khi phát hành) | 0 | 8 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022** – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
+| P3 | 19 | 8 (BUG-R4-010 – mở lại, BUG-R4-012 – **đã vào `main` cùng lần gộp PR #34, chờ P10**, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4, **026** – v1.0.4) | 1 (**BUG-R4-025** – PO sửa release notes 04/11, chờ QA xác nhận) | 10 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021**, **027**, **028** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`; 027, 028 đóng 04/11 @ `4fe85e19` (G2)) |
+| **Tổng** | **28** | **9** | **1** | **18** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -220,6 +222,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Bằng chứng:** ảnh `lp-v2/47`, `48`; báo cáo 12.4.
 - **Vai:** FE-B (hộp hồ sơ, điền sẵn, câu lỗi) + BE (luật `CONTACT_CHANNEL_EMPTY`) · ARC chọn (a) hay (b).
 - **Trạng thái:** Open trên `main`/production. **Đã sửa trên `lp-v2`** (QC LP-v2 xác nhận bằng test: admin-web vitest `r4-lp-v2-fe5` + đối chứng bản cũ + api integration trên Postgres thật – `rounds/round-04/qc/lp-v2-gate.md` mục 3). **Chờ gộp `lp-v2` vào `main` + staging smoke P10** (3 đường Báo giá / Tạo đơn / Ở dài ngày từ yêu cầu Zalo ko/zh/ru/vi; hồ sơ lưu `zalo`). **Production (v1.0.2, chưa có `lp-v2`) còn lỗi gốc với hồ sơ tạo tay** chọn Zalo chỉ có SĐT (có từ v1.0.0); cách vòng: "Liên hệ ưu tiên" = Gọi điện. QA chỉ đóng sau P10 đạt. (Cập nhật 03/11, QC v1.0.3 ĐK14.)
+  - **Cập nhật 04/11 (QC gate gộp LP-v2, G4 (b)): Open – đã vào `main`, chờ P10.** Bản sửa nằm trong `lp-v2-main` @ `4fe85e19` (đầu PR #34; có `admin-web` `r4-lp-v2-fe5.test.tsx`, `main` hiện chưa có) và vào `main` bằng merge commit của PR #34 (G6). Câu "đã vào `main`" đúng kể từ commit gộp đó; nếu PR #34 không gộp thì trạng thái giữ như dòng trên. Đóng chỉ sau P10 đạt trên production (3 đường từ yêu cầu Zalo ko/zh/ru/vi, hồ sơ lưu `zalo`). Không đổi mức.
 
 ### BUG-R4-012 – Hồ sơ tạo nhanh từ yêu cầu hiện Quốc tịch "–" nhưng server lưu `VN`
 
@@ -234,6 +237,7 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Bằng chứng:** báo cáo 12.4 (cột "Hồ sơ trong DB"); ảnh `lp-v2/47` (hộp hiện "–").
 - **Vai:** BE (giá trị mặc định khi tạo) + ARC/DOM (quy tắc quốc tịch trống) · FE-B nếu đổi cách hiện.
 - **Trạng thái:** Open trên `main`/production. **Đã sửa trên `lp-v2`** (QC LP-v2 xác nhận bằng test: api integration trên Postgres 17 thật, quốc tịch lưu NULL – `rounds/round-04/qc/lp-v2-gate.md` mục 3). **Chờ gộp `lp-v2` vào `main` + staging smoke P10** (hồ sơ tạo nhanh từ yêu cầu lưu quốc tịch NULL, Desk hiện "–" khi mở lại). **Production (v1.0.2, chưa có `lp-v2`) còn lỗi gốc với hồ sơ tạo tay**: server ghi `VN` khi không gửi quốc tịch. Đích cũ "v1.0.1 cùng BUG-R3-050" không còn hiệu lực. QA chỉ đóng sau P10 đạt. (Cập nhật 03/11, QC v1.0.3 ĐK14.)
+  - **Cập nhật 04/11 (QC gate gộp LP-v2, G4 (b)): Open – đã vào `main`, chờ P10.** Bản sửa nằm trong `lp-v2-main` @ `4fe85e19` (đầu PR #34; có `api` `test/integration/bug-r4-012-guest-nationality-null.test.ts`, `main` hiện chưa có) và vào `main` bằng merge commit của PR #34 (G6). Câu "đã vào `main`" đúng kể từ commit gộp đó; nếu PR #34 không gộp thì trạng thái giữ như dòng trên. Đóng chỉ sau P10 đạt (hồ sơ tạo nhanh từ yêu cầu lưu quốc tịch NULL, Desk hiện "–" khi mở lại). Không đổi mức.
 
 ### BUG-R4-013 – `validate-fixtures` đỏ: oracle `br-examples.json` lệch BR v0.5.x; `main` vẫn xanh vì cache turbo không theo dõi BR/ESC
 
@@ -559,7 +563,10 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
   - tích hợp (gần thực tế nhất, cũng là ca của BUG-R4-028): hằng `2026-11-04` **không** được đăng, đăng `2026-11-04.1` 5 ngôn ngữ, yêu cầu theo `2026-11-04.1`, `.env` = C → **A** (`levelCapped`). So chữ thì ra C.
 - **Bằng chứng:** `rounds/round-04/qa/lp-v2-main-qa.md` mục 1 (dòng LPV2M-01) và mục 4 dòng 9. Mã đột biến đã trả về (`git checkout`).
 - **Vai:** BE (thêm ca). SEC xem ca có đúng ý ★2 không.
-- **Trạng thái:** **Open**. Không chặn gộp. Đề xuất làm trước lần đăng `2026-11-04` (cùng lượt BUG-R4-028), muộn nhất ở v1.0.4.
+- **Trạng thái:** ~~Open~~ → **Closed** (04/11 ~10:10, QA tự test lại, QC gate gộp LP-v2 G2).
+  - Bản sửa: BE `4fe85e19` – chỉ thêm test, không đổi mã `src/`. `gchat-units`: 4 ca "gate by published_at, not by label" (`2026-12-01` đăng trước hằng → A; `2026-11-04.1` và `2026-11-05` đăng, hằng chưa đăng → A; `2026-11-03` đăng sau hằng → C). `gchat-notify`: 1 ca tích hợp `2026-11-04.1` 5 ngôn ngữ + `2026-11-05` đã đăng, `2026-11-04` chưa, `.env` = C → cả 3 tin mức A, `levelCapped` 3. Đúng hai ca QA đề xuất ở "Mong đợi".
+  - QA xác nhận trên đầu PR #34 `4fe85e19`, Postgres 17 tạm cùng digest CI: bản gốc **122/122** xanh. Đột biến M1 (đúng bước 1 của lỗi này: `effectiveLevel` so `r.consent_version < CHAT_DETAILS_MIN_NOTICE_VERSION`) → **5 đỏ** (4 unit + 1 tích hợp), trước đây 0 đỏ. Đột biến M2 (SQL `min_at` đổi `version = $2` thành `version >= $2`) → **1 đỏ** (ca tích hợp; ca unit dùng SQL giả nên không thấy, đúng dự kiến). Trả mã về: sha256 `chat-message.ts` trùng bản commit; chạy lại 124/124 xanh (kèm `gchat-worker-only`).
+  - Còn chờ ngoài QA: SEC xem ca có đúng ý ★2 (QC G3 (a)). Bằng chứng: `rounds/round-04/qa/lp-v2-main-qa.md` mục 8.
 
 ### BUG-R4-028 – Runbook / README: "đổi chữ trước khi đăng → nhãn mới `2026-11-04.1`" không kéo theo đổi `CHAT_DETAILS_MIN_NOTICE_VERSION`; kiểm D2/P5 vẫn ra "CO"
 
@@ -577,7 +584,10 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
   - Phụ (cùng tệp): README 13.5 (K1) dòng 423 và 434 còn "trước khi đăng thông báo `2026-10-31`" / "không đăng `2026-10-31`". K1 đã đạt 03/11, chỉ cần đổi thành "trước lần đăng thông báo đầu tiên nêu Google Chat (`2026-11-04`)".
 - **Bằng chứng:** các dòng trên. `rounds/round-04/qa/lp-v2-main-qa.md` mục 1 (dòng LPV2M-03).
 - **Vai:** OPS (runbook, README). FE-B (1 câu chú thích). SEC xác nhận câu chữ.
-- **Trạng thái:** **Open**. Không chặn gộp. Phải xong trước lần đăng `2026-11-04` trên production (P0 runbook).
+- **Trạng thái:** ~~Open~~ → **Closed** (04/11 ~10:10, QA tự đọc lại + chạy khối kiểm, QC gate gộp LP-v2 G2).
+  - Bản sửa: OPS `aad14baa` – runbook r1.1, README `infra/server` 12.3 + 13.5, 1 dòng chú thích `privacy.ts`. Đủ 4 ý "Mong đợi": (1) runbook 0.1 có biến `⟨NOTICE_V⟩`, dòng nhãn + D2/P5 + README 12.3 ghi hằng phải **bằng đúng** nhãn đăng, đổi nhãn thì BE đổi hằng + SEC xem + Release api trước P10 / trước bước (c); (2) grep chữ cố định ở 0.2 và P4 thay bằng khối `CHKV` so **giá trị** hằng api, `VERSION` landing và `⟨NOTICE_V⟩`, dùng ở 0.2 bước 3, S4, P4, P10 bước 0; S4/P10 đăng `--version ⟨NOTICE_V⟩`; (3) chú thích `VERSION` có câu "a new label → set CHAT_DETAILS_MIN_NOTICE_VERSION … to the same value"; (4) README 13.5 K1 sửa `2026-10-31` thành "lần đăng đầu tiên nêu Google Chat (`2026-11-04`)", ghi K1 đã đạt 03/11.
+  - QA chạy 2 lệnh trích của `CHKV` trên `4fe85e19`: hằng api = `2026-11-04`, `VERSION` landing = `2026-11-04` → với `⟨NOTICE_V⟩ = 2026-11-04` khối in `D2_CHAT_CONST=CO`. Ca âm (đọc logic khối với giá trị trích thật): `⟨NOTICE_V⟩ = 2026-11-04.1` → `KHONG`; tag `v1.0.3` (hằng `2026-10-31`) → `KHONG`; landing `5474b6e1` (`VERSION` `2026-10-31`) → `KHONG`; không trích được (`?`) → `KHONG` (fail-closed). Chú thích mới không đổi trang: 5 sha256 trang privacy dựng lại trùng 5 băm FE-B.
+  - Bằng chứng: `rounds/round-04/qa/lp-v2-main-qa.md` mục 8.
 
 ## 3. Ghi nhận (không phải lỗi)
 
