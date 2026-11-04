@@ -56,7 +56,7 @@ export {
   looksLikeIdNumber,
   looksLikeSensitiveNumber,
   sensitiveNumberKind,
-} from './sensitive-number';
+} from '../../../shared/sensitive-number';
 
 export function containsUrl(text: string): boolean {
   return /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|ru|vn|io|xyz|info|top|link|me)\b)/i.test(
