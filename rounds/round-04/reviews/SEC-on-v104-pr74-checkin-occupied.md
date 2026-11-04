@@ -147,3 +147,14 @@ CI run `41889899172` @ `71d0a1b1`: `gitleaks`, API contract (`--strict`), Redocl
 ```
 | 2026-11-05 | 4 | **SEC – #74 `v104/fix-checkin-occupied-exception` @ 71d0a1b1: ĐẠT CÓ ĐK, rủi ro còn lại Low – gộp được.** Ngoại lệ `room_ready` chỉ khi `room && !holder && VD/CL`; xem trước và B9 cùng cờ `overridableBy`; FDL/MGR/OWN và FD (202) đều 409, yêu cầu đã duyệt từ trước cũng bị bỏ qua; không ghi gì khi từ chối. `heldByReservationCode` chấp nhận: chỉ OWN/MGR/FDL/FD, chỉ mã đơn gốc, ít hơn rack và `ROOM_UNAVAILABLE` đang trả. Không migration (regex 0), RBAC/audit không đổi, gitleaks xanh. Điều kiện phát hành v1.0.4: SEC-QA-PR74-01 (Major) – truy vấn chỉ đọc trên production tìm các lần đã nhận phòng vào căn còn người từ v1.0.1 (override `OC`/`OD` + khoảng ở chồng nhau), repo chỉ ghi số; ≥ 1 → SEC tạo ESC. SEC-BE-PR74-02 (Minor): ngày về căn cũ chưa ghi vẫn mở ngoại lệ ở căn tạm – sổ tay ngay, mã v1.0.5 cùng ARC-PR74-04/05 | SEC | Review |
 ```
+
+## Phản hồi BA (05/11/2026) – FB-R4-SEC-BE-PR74-02, phần sổ tay
+
+- **Fixed (sổ tay), PR #72, vẫn nháp.** Sổ tay 2.10 và `02` 7.4, chỗ ngoại lệ `VD`/`CL`, thêm một câu:
+  - trước khi gửi hoặc xác nhận ngoại lệ, kiểm căn (hoặc hỏi buồng phòng) thật sự không còn người và đồ của khách, nhất là căn có khách đổi phòng trong hôm nay mà chưa chuyển xong;
+  - còn người hoặc đồ: không xác nhận; chờ khách chuyển xong, hoặc đổi đơn mới sang căn trống khác.
+- **Lệch so với chữ đề xuất:** BA không viết "ghi 'khách đã chuyển về' trước", vì trên `main` Desk và app nhân viên không có chỗ để ghi.
+  - Không giao diện nào gửi `stayScope: until_parent_departure` (lối "chuyển tới hết đơn gốc").
+  - Cũng không giao diện nào gửi `roomReturnRecorded`. Hai trường này chỉ có ở API.
+  - Vì vậy sổ tay dùng bước kiểm căn thật. Khi FE thêm nút, BA thêm bước ghi. Đã có chú thích ẩn trong md.
+- Mã vẫn sửa ở v1.0.5 (BE, cùng ARC-PR74-04/05). Thẻ để SEC đóng phần sổ tay.
