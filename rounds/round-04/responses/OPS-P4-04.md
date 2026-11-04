@@ -78,7 +78,34 @@
 | SEC-OPS-01 G2 CI `confidential-paths` | Done | `ci.yml`, `check-confidential-paths.sh`, test |
 | Compose + env mẫu `EMAIL_SHARED_MAILBOXES` | Done | `docker-compose.prod.yml` (`x-api-env`), `server/env.production.example`, `server/env.example`, `product/.env.example` – chỉ `…@example.test` |
 
-## Phát hiện mới, báo ORC (không sửa ở gói này)
+## Phát hiện mới, báo ORC (r1; ORC đã quyết sửa ở r1.1, xem mục dưới)
 
 1. **`deploy.sh` bước `roles` chạy bản cũ của `02-roles.sh`.** Compose gắn **một tệp** vào container postgres; `rsync` của P2b thay tệp bằng inode mới; container postgres không được tạo lại khi deploy, nên vẫn thấy tệp cũ. Hệ quả: GRANT mới của P4-04 không tự tới DB đang chạy. Runbook bù bằng P2b bước 5 (áp lại qua stdin từ tệp trên máy chủ, đã thử trên Postgres tạm), cả staging (S0). Sửa gốc: `deploy.sh` dòng `dc exec -T postgres bash /docker-entrypoint-initdb.d/02-roles.sh` → đọc tệp của máy chủ qua stdin. Tệp thuộc P4-02 (PR #45): ORC quyết giao P4-02 hay v1.0.5.
 2. **stderr của `02-roles.sh` trong log deploy.** Khi một câu `ALTER ROLE … PASSWORD :'…'` lỗi, psql có thể in lại câu đã thay giá trị (dòng `LINE n:`), và log deploy của CI là công khai nếu repo công khai. Khả năng thấp (vai được tạo ngay trước đó), nhưng nên che stderr ở bước `roles`. P2b bước 5 của runbook đã bỏ stderr. Báo SEC + P4-02.
+
+## r1.1 (ORC 04/11: sửa gốc phát hiện (a)(b) trên nhánh này, không sửa PR #45)
+
+- Đầu nhánh trước r1.1: `ce08b63a` (bản SEC/ARC đang review). **Không** rebase lại phần đã có; phần chênh chỉ gồm 3 commit:
+  - `de2355dd` gộp `origin/v104/ops-deploy-order` @ `051e1750` (PR #45, cùng cách gộp PR #46). Gộp sạch, không xung đột. Commit gộp này rơi ra khi rebase sau lúc PR #45 vào `main`;
+  - `56439561` sửa gốc (mã, test, runbook);
+  - commit kế tiếp: tệp này (mục r1.1). Đầu nhánh mới ghi ở báo cáo trả ORC.
+- So phần chênh: `git diff 051e1750 56439561 -- product/infra/server/bin/deploy.sh` (chỉ bước `roles`) và `git diff ce08b63a 56439561 -- product/infra/postgres product/infra/server/test/rollback.test.sh rounds/round-04/outputs/OPS/v1.0.4-release-runbook.md`.
+
+| Phát hiện | Đã sửa | Tệp |
+|---|---|---|
+| (a) Bước `roles` chạy bản `02-roles.sh` cũ gắn trong container | `deploy.sh` đọc `infra/postgres/init/02-roles.sh` **của gói trên máy chủ** (`$here/../../postgres/init/02-roles.sh`) và chạy `dc exec -T postgres bash -s < tệp`. Gói thiếu tệp → `FAIL … missing in this infra bundle` trước mọi `exec`. Dòng log `02-roles.sh applied from the infra bundle (…)` (vẫn 6 dòng `[deploy` cho lượt thành công; tờ lệnh cũ so tiền tố `02-roles.sh applied`, vẫn khớp) | `product/infra/server/bin/deploy.sh` |
+| (b) stderr của `02-roles.sh` vào log deploy, có thể chép câu `ALTER ROLE … PASSWORD '<giá trị>'` | stderr giữ trong biến shell (không ghi tệp tạm), không bao giờ in thẳng. Khi lỗi chỉ in: dòng `02-roles.sh: …` của chính script và dòng `ERROR`/`FATAL` đầu tiên của psql, mọi phần trong nháy đơn/kép thay bằng `…`, bỏ dòng có `passw`/`secret`, tối đa 3 dòng; kèm mã thoát và số dòng stderr đã giữ lại. Chữ của dòng `FAIL` không chứa "password" | `deploy.sh` |
+| Test | `rollback.test.sh` (p): bước `roles` nhận đúng tệp của gói trên stdin (stub ghi stdin, so dòng đánh dấu), không gọi đường `/docker-entrypoint-initdb.d`, lượt thành công vẫn 6 dòng `[deploy`. (q): psql lỗi và in `LINE 1: ALTER ROLE … PASSWORD '<giá trị giả>'` ra stderr → `FAIL` ở bước `roles`, không đổi container, đầu ra **không** chứa giá trị giả hay chữ `password` (không phân biệt hoa thường), dòng `ERROR` hiện với phần trong nháy đã thay; gói thiếu tệp → `FAIL` trước mọi `exec` | `product/infra/server/test/rollback.test.sh` |
+| Runbook | P2b bước 5 **giữ làm lớp dự phòng** (lúc P2b, `deploy.sh` mới chưa chạy; số migration 68 cần quyền `drizzle` trước Release), ghi chú bản sửa gốc; G6, rủi ro mục 8, "Việc còn lại" #20 = Xong | `rounds/round-04/outputs/OPS/v1.0.4-release-runbook.md` |
+| Chú thích | Đầu tệp `02-roles.sh`: deploy đưa tệp của gói qua stdin, bản gắn chỉ dùng cho volume mới; script không được in bí mật | `product/infra/postgres/init/02-roles.sh` |
+
+Kiểm lại (Mac):
+
+| Kiểm | Kết quả |
+|---|---|
+| shellcheck 0.10.0 `-x -S warning`, đủ danh sách CI | sạch (rc 0) |
+| `rollback.test.sh` | 30 passed, 0 failed (trước r1.1: 16 của PR #45 gốc → 27 sau khi gộp P4-02, + 3 ca mới) |
+| `test-deploy-from-ci.sh` | trong `ubuntu:24.04` (có `flock`, `jq`): rc 0, 43 `ok`. Trên Mac đỏ ngay ở bước `lock` vì không có `flock`, cả trước khi sửa: không do r1.1 |
+| `requeue-email-changed.test.sh` / `test-ops-check.sh` / `ops-check-cwd` / `ops-check-price` / `mail-test-send` / `test-confidential-paths` | 68 / 172 / 13 / 17 / 37 / 6 passed, 0 failed |
+
+Đường dẫn SEC trong phần chênh: `product/infra/server/bin/deploy.sh` (SEC P403-02 b), `product/infra/postgres/init/02-roles.sh` (chỉ chú thích). Cần SEC xem phần chênh trước khi gộp PR-M.
