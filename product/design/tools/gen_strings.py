@@ -4144,17 +4144,29 @@ g("v1.0.4 booking – FE-B: khóa Giữ chỗ khi có giá đã gõ (DOM); xóa 
 # DOM lượt 5 mục 2 (DOM-on-v104-pr68-docs.md): chặn có 2 trường hợp – (a) buồng OC/OD; (b) căn còn lượt Đang ở của
 # đơn khác dù trạng thái buồng hiện gì. Việc đầu tiên là lễ tân trả phòng đơn trước; chỉ nhắc buồng phòng khi
 # trạng thái bị lệch (a), không bao giờ ở (b).
+# UXD-on-v104-pr77 lượt 4 (DOM lượt 7 mục 3): v1.0.4 không có nút đưa căn khỏi OC, nên trạng thái kẹt thì đổi căn và
+# báo quản lý (đuôi room_occupied; room_status_stuck khi máy chủ trả cause = room_status trên OC/OD).
 g("v1.0.4 BUG-R4-039 – FE-A: nhận phòng căn OC/OD", [
     ("checkin.room_occupied",
-     "Căn {room} còn khách của đơn trước, chưa trả phòng. Trả phòng đơn đó trước, hoặc mời khách chờ, hoặc đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ. Nếu đơn trước đã trả phòng: kiểm căn đã trống rồi sửa trạng thái buồng.",
-     "Room {room} still has the previous guest, not checked out yet. Check out that stay first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case. If that stay is already checked out, check the room is empty, then correct the room status.",
+     "Căn {room} còn khách của đơn trước, chưa trả phòng. Trả phòng đơn đó trước, hoặc mời khách chờ, hoặc đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ. Nếu đơn trước đã trả phòng: đổi căn cho đơn này và báo quản lý để sửa trạng thái căn.",
+     "Room {room} still has the previous guest, not checked out yet. Check out that stay first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case. If that stay is already checked out, move this booking and tell the manager so the room status can be fixed.",
      None,
-     "v1.0.4 BUG-R4-039 (BR-402 (1)). Alert bad trong dòng room_ready khi buồng OC/OD, và câu của 409 ROOM_OCCUPIED. Không ô lý do, không nút duyệt. Thứ tự lối ra theo DOM lượt 5 mục 2: trả phòng đơn trước, mời khách chờ, đổi căn. Câu cuối chỉ cho trạng thái lệch (lễ tân hoặc buồng phòng). UXD duyệt 05/11 (FB-R4-UXD-FE-PR77-01). {room} = số căn"),
+     "v1.0.4 BUG-R4-039 (BR-402 (1)). Alert bad trong dòng room_ready khi buồng OC/OD và máy chủ không trả cause (API trước #74 C2) hoặc trả cause lạ, chỉ khi đơn đã có căn. Không ô lý do, không nút duyệt. Thứ tự lối ra theo DOM lượt 5 mục 2: trả phòng đơn trước, mời khách chờ, đổi căn. Câu cuối cho trạng thái kẹt (v1.0.4 không có nút đưa căn khỏi OC: đổi căn và báo quản lý, DOM lượt 7 mục 3). Có cause: held_by_other_stay → checkin.room_held_code / checkin.room_held; room_status trên OC/OD → checkin.room_status_stuck. UXD duyệt 05/11 (FB-R4-UXD-FE-PR77-01; UXD-on-v104-pr77 lượt 4, 5). {room} = số căn"),
     ("checkin.room_held",
      "Căn {room} còn đơn khác đang ở, chưa trả phòng. Trả phòng đơn đó trước, hoặc mời khách chờ, hoặc đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ.",
      "Room {room} still has another stay in house. Check out that stay first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case.",
      None,
-     "v1.0.4 BUG-R4-039 (BR-402 (1), DOM lượt 5 mục 2 (b)). Alert bad trong dòng room_ready khi buồng không phải OC/OD/OOO nhưng căn còn lượt Đang ở của đơn khác (room_ready không có overridableBy). Không nhắc buồng phòng. 'đang ở' = status.booking.in_house. UXD duyệt 05/11 (FB-R4-UXD-FE-PR77-01). {room} = số căn"),
+     "v1.0.4 BUG-R4-039 (BR-402 (1), DOM lượt 5 mục 2 (b)). Alert bad trong dòng room_ready khi căn còn lượt Đang ở của đơn khác mà Desk không có mã đơn: cause = held_by_other_stay thiếu heldByReservationCode (mọi trạng thái buồng), hoặc không có cause và buồng không phải OC/OD/OOO (room_ready không có overridableBy, đơn đã có căn). Không nhắc buồng phòng. 'đang ở' = status.booking.in_house. UXD duyệt 05/11 (FB-R4-UXD-FE-PR77-01; UXD-on-v104-pr77 lượt 5). {room} = số căn"),
+    ("checkin.room_held_code",
+     "Căn {room} còn đơn {code} đang ở, chưa trả phòng. Trả phòng đơn đó trước, hoặc mời khách chờ, hoặc đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ.",
+     "Room {room} still has booking {code} in house. Check out that booking first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case.",
+     None,
+     "v1.0.4 BUG-R4-039 (#74 C2, heldByReservationCode). Như checkin.room_held, khi cause = held_by_other_stay và máy chủ trả mã đơn gốc đang giữ căn, kể cả khi buồng OC/OD. Chỉ đọc mã khi cause = held_by_other_stay. {code} = heldByReservationCode, hiện mono (monoArgs ['code']); {room} = số căn. Chọn câu (UXD lượt 4): OOO → ci.ooo_never; no_room → không câu (not_unassigned); held_by_other_stay → khóa này, thiếu mã → checkin.room_held; room_status trên OC/OD → checkin.room_status_stuck; không có cause → OC/OD: checkin.room_occupied, còn lại: checkin.room_held. UXD duyệt 05/11 (UXD-on-v104-pr77 lượt 3, 5)"),
+    ("checkin.room_status_stuck",
+     "Căn {room} vẫn hiện có khách, nhưng không còn đơn nào đang ở. Đổi đơn này sang căn trống và báo quản lý để sửa trạng thái căn. Trường hợp này không có ngoại lệ.",
+     "Room {room} still shows as occupied, but no stay is in house. Move this booking to a vacant room and tell the manager so the room status can be fixed. No exception applies in this case.",
+     None,
+     "v1.0.4 BUG-R4-039 (#74 C2). Alert bad trong dòng room_ready khi cause = room_status và buồng OC/OD: không còn lượt Đang ở nào, trạng thái buồng kẹt. Không ô lý do, không nút duyệt; link Đổi căn / đổi ngày như các câu chặn khác. 'đang ở' = status.booking.in_house. v1.0.5 có nút Cần dọn thì UXD đổi câu. UXD duyệt 05/11 (UXD-on-v104-pr77 lượt 4). {room} = số căn"),
 ])
 
 

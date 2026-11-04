@@ -1000,36 +1000,54 @@ export function createStayMock(ctx: Ctx) {
     };
   }
   /**
-   * BUG-R4-039 (BE #74 `roomHeldByAnotherStay`): another in-house stay (not this booking's root or children) is still
-   * in the room – leaving today before B18, or covering tonight; one past its departure does not count here.
+   * BUG-R4-039 (BE #74, ARC review #74 C1 / A.4 `roomHolder`): another in-house stay (not this booking's root or
+   * children) still in the room – leaving today before B18, covering tonight, or past its departure with no B18 (the
+   * desk forgot Trả phòng). Order of BE #74 C2 (`roomHolder` SQL): one that has not ended first, then the earliest
+   * arrival, then the root code.
    */
-  function roomHeldByAnotherStay(r: MockReservation) {
+  function roomHolder(r: MockReservation) {
+    if (!r.roomId) return undefined;
     const root = r.parentReservationId ?? r.id;
-    return rsv().state.reservations.some(
+    const all = rsv().state.reservations;
+    const held = all.filter(
       (x) =>
         x.status === 'in_house' &&
         (x.parentReservationId ?? x.id) !== root &&
-        !!r.roomId &&
-        x.roomId === r.roomId &&
-        x.departureDate >= today(),
+        x.roomId === r.roomId,
     );
+    const rootCode = (x: MockReservation) =>
+      all.find((y) => y.id === (x.parentReservationId ?? x.id))?.code ?? x.code;
+    const rank = (x: MockReservation) =>
+      `${x.departureDate < today() ? 1 : 0}|${x.arrivalDate}|${rootCode(x)}`;
+    const x = [...held].sort((a, b) => rank(a).localeCompare(rank(b)))[0];
+    if (!x) return undefined;
+    return { code: rootCode(x), overdue: x.departureDate < today() };
   }
   function conditions(r: MockReservation) {
     const room = roomOf(r);
     const status = room ? (st.roomStatus[room.roomNo] ?? 'VC') : 'VC';
     const reg = regOf(r);
     const tt = totals(r);
-    // BUG-R4-039 (BE #74, BR-402 (1) v0.5.3): ready = VI/VC and no other stay in the room; the "not ready"
-    // exception (`overridableBy`, FDL+) only for VD/CL with no other stay – none on OC/OD/OOO.
-    const held = roomHeldByAnotherStay(r);
-    const overridable = !held && (status === 'VD' || status === 'CL');
+    // BUG-R4-039 (BE #74, BR-402 (1) v0.5.3, ARC C1/C2): ready = VI/VC and no stay holding the room today (an overdue
+    // one does not, v1.0.4); the "not ready" exception (`overridableBy`, FDL+) only for VD/CL with no stay at all in
+    // the room, overdue included – none on OC/OD/OOO. Blocked: `cause` (+ the holder's root code).
+    const holder = roomHolder(r);
+    const ready = !!room && !(holder && !holder.overdue) && (status === 'VI' || status === 'VC');
+    const overridable = !!room && !holder && (status === 'VD' || status === 'CL');
     return [
       { code: 'not_unassigned', met: r.conflictState !== 'open' },
       { code: 'capacity_within_max', met: !r.capacityConflict },
       {
         code: 'room_ready',
-        met: !held && (status === 'VI' || status === 'VC'),
-        detail: status,
+        met: ready,
+        // As BE #74 C2: `detail` (room status) and `cause` only when not met; no `detail` without a room.
+        ...(ready
+          ? {}
+          : {
+              ...(room ? { detail: status } : {}),
+              cause: !room ? 'no_room' : holder ? 'held_by_other_stay' : 'room_status',
+              ...(holder ? { heldByReservationCode: holder.code } : {}),
+            }),
         ...(overridable ? { overridableBy: LEAD_PLUS } : {}),
       },
       {
