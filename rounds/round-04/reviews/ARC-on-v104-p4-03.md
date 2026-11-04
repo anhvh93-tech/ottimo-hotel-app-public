@@ -91,3 +91,124 @@ Thẻ Minor 01 nên sửa luôn trong PR này: chỉ thêm vài dòng CODEOWNERS
 - Đường đi của địa chỉ thử nay chỉ còn stdin và bộ nhớ của node, gọn hơn đề xuất của ARC. Lệnh từ xa không thể vỡ vì dấu nháy.
 - Không dùng mã thoát của node để đoán "có lệnh không". Bẫy "thiếu module cũng thoát 1" được tách riêng và có test.
 - CODEOWNERS ghi rõ đây chỉ là chỉ dẫn, không phải cổng, và nêu cổng thật nằm ở đâu. Repo một tài khoản thì không đặt kỳ vọng sai về GitHub.
+
+## Xác nhận (04/11)
+
+- **Đầu nhánh đã xét: `84933d92`.** Nhánh có 2 commit nối tiếp `659e1774`, không rebase:
+  - `67980030`: bản sửa theo review. Diff `659e1774..67980030`: 8 tệp, +93 / −7;
+  - `84933d92`: prettier ngắt câu từ chối `MAIL_TEST_TO` thành 2 dòng, M9 sửa để đọc câu nhiều dòng. Diff `67980030..84933d92`: 3 tệp, +10 / −3.
+- ARC phát hiện thẻ P403-06 tại `67980030`. OPS sửa nó tại `84933d92`, trong khi ARC đang viết mục này.
+- `origin/main` lúc kiểm: `f758d44d`. `git merge-tree` của nhánh với `origin/main` và với `v104/ops-deploy-order` @ `051e1750`: sạch.
+
+### Phán quyết gộp: **ĐẠT CÓ ĐIỀU KIỆN**
+
+Không còn Blocker hay Major mở. Major P403-06 (CI đỏ vì prettier tại `67980030`) đã sửa ở `84933d92`, và ARC đã kiểm (Verified). Điều kiện gộp:
+- (1) CI `pull_request` xanh trên **`84933d92`** (PR #46). Lúc ARC kiểm, các job `format · lint · audit · test · build`, `infra scripts` và `landing` còn đang chạy; `gitleaks`, OpenAPI và contract đã xanh. Riêng `prettier --check` trên `mail-test.mjs`, ARC chạy trên máy: sạch;
+- (2) có `SEC-on-*.md` nêu đúng `84933d92`. Nhánh sửa `CODEOWNERS`, mẫu PR và `mail-test.mjs`, đều là đường dẫn SEC;
+- (3) INT xác nhận `mail-test.mjs`. ARC đã đọc thay ở phần cuối: mã đúng, nhưng câu chữ runbook S14 cần sửa (P403-09).
+
+Minor P403-07 và P403-08 chỉ đổi vài dòng chú thích và CODEOWNERS, nên làm luôn trên nhánh này. SEC quyết có buộc trước gộp hay không.
+
+### Trạng thái thẻ
+
+| ID | Tác giả trả lời | ARC xác nhận | Ghi chú |
+|---|---|---|---|
+| FB-R4-ARC-OPS-P403-01 (Minor) | Done | **Verified** | Đủ 6 đường dẫn, tất cả đều có trên nhánh (`.github/workflows/ci.yml`, `release.yml`, `.github/gitleaks.toml`, `/.gitignore`, `02-roles.sh`, `mail-test.sh`, `mail-test.mjs`). Còn một kẽ hở với `.gitignore` lồng: P403-07 |
+| FB-R4-ARC-OPS-P403-02 (Suggestion) | Done | **Verified** | So tag trước (giữ câu báo cũ), rồi so cả tham chiếu `API_IMAGE:<tag><suffix>`. Có ca "repository khác" và "registry có cổng mà `.env` không có", đều `REFUSED` và không ghi |
+| FB-R4-ARC-OPS-P403-03 (Suggestion) | Done (mã) / P4-04 (runbook) | **Verified (mã)** | Thứ tự kiểm mới đúng. Nhưng lượt "gõ dòng rỗng" ARC đề xuất **không chạy tới node**: P403-09 (lỗi trong đề xuất của chính ARC) |
+| FB-R4-ARC-OPS-P403-04 (Suggestion) | Deferred → P4-04 | **Đồng ý** | `setup-node` ghim SHA ở P4-04 (chủ `ci.yml`) |
+| FB-R4-ARC-OPS-P403-05 (Suggestion) | Done | **Verified** | Nhánh có tệp lệnh mà mã 1 thì báo "không biết mẫu, hoặc lệnh lỗi", không còn gợi ý lên v1.0.3. Nhánh image cũ giữ câu cũ. Nhãn ca test dòng 116 vẫn ghi "(v1.0.2)" dù đang thử nhánh v1.0.4; không sao |
+| FB-R4-ARC-OPS-P403-06 (Major, mới) | Done (`84933d92`) | **Verified** | Tác giả chọn cách thứ hai trong thẻ: prettier `--write` rồi sửa M9. Kiểm ở bảng dưới |
+| FB-R4-ARC-OPS-P403-07 (Minor, mới) | – | Open | `.gitignore` lồng mở lại được `pricing/` |
+| FB-R4-ARC-OPS-P403-08 (Minor, mới) | – | Open | Luật (c) cho migration chưa phủ RLS, policy, `SECURITY DEFINER` |
+| FB-R4-ARC-OPS-P403-09 (Minor, mới) | – | Open | Câu chữ S14: dòng rỗng bị chặn trên Mac |
+| FB-R4-ARC-OPS-P403-10 (Suggestion, mới) | – | Open | Các đường dẫn SEC khác để SEC chọn |
+
+### Kiểm ARC đã chạy (worktree tách riêng, đầu `67980030`, rồi `84933d92`)
+
+| Kiểm | Kết quả |
+|---|---|
+| `CI=true bash product/infra/server/test/mail-test-send.test.sh` (Mac, có node) | **37 passed, 0 failed** (có M10, M10b) |
+| `CI=true bash product/infra/server/test/requeue-email-changed.test.sh` (Mac) | **67 passed, 0 failed** (ca khóa deploy SKIP vì Mac không có `flock`) |
+| Cùng test trên `ubuntu:24.04` (`--network none`, repo chỉ đọc, có `flock` thật) | **69 passed, 0 failed**. `mail-test-send` phần 1: 22 passed |
+| `CI=true bash product/infra/server/test/rollback.test.sh` | 16 passed, 0 failed (nhánh chưa có P4-02) |
+| shellcheck `v0.10.0` (`-x -S warning`) trên `mail-test.sh`, `requeue-email-changed.sh` và 2 test | sạch |
+| `prettier --check infra/server/mail-test.mjs` (prettier 3.9.10, `printWidth` 100) | **đỏ**, ở cả `659e1774` lẫn `67980030`. Khớp log CI run `41789721343` |
+| Quét diff tìm email, IPv4, khóa | 0 kết quả. `ghcr.io/example/…` và `registry.example.invalid` là tên dành riêng |
+| Thử `git` thật: `.gitignore` gốc có `00-brief/context/pricing/`, thêm `00-brief/context/.gitignore` chứa `!pricing/` | tệp trong `pricing/` **hiện ra** để commit (thẻ 07) |
+| **@ `84933d92`:** `prettier --check infra/server/mail-test.mjs` | sạch |
+| **@ `84933d92`:** `CI=true bash …/mail-test-send.test.sh` | **37 passed, 0 failed** (M3 từ chối `MAIL_TEST_TO`, M9 qua) |
+| **@ `84933d92`:** `requeue-email-changed.test.sh` (Mac); shellcheck `mail-test-send.test.sh` | 67 passed, 0 failed; sạch |
+| **@ `84933d92`:** thử ngược M9. Thêm `const leak = process.env.MAIL_TEST_TO;` vào `mail-test.mjs` | M9 **FAIL** đúng như mong đợi. Đã trả tệp về như cũ |
+
+### FB-R4-ARC-OPS-P403-06
+- Mức độ: **Major**
+- Vị trí: `product/infra/server/mail-test.mjs` dòng 39 (`if (process.env.MAIL_TEST_TO !== undefined) out('failed (MAIL_TEST_TO must not be set - the address is read from stdin)', 2);`, dài 124 ký tự); `test/mail-test-send.test.sh` M9.
+- Vấn đề: dòng này dài hơn `printWidth` 100, nên `prettier --check .` của job `format · lint · audit · test · build` báo lỗi. PR #46 đang đỏ. Nếu chạy `prettier --write`, dòng bị tách làm hai, và M9 (`grep -v` đúng chuỗi `process.env.MAIL_TEST_TO !== undefined) out(`) **FAIL**: "mail-test.mjs still reads MAIL_TEST_TO". ARC đã thử: 36 passed, 1 failed.
+- Vì sao quan trọng: CI xanh là điều kiện gộp (1) từ lượt review đầu. Sửa theo cách hiển nhiên thì lại đỏ ở job `infra scripts`.
+- Đề xuất sửa: thêm một dòng `// prettier-ignore` ngay trên dòng `if`. M9 bỏ qua dòng chú thích, câu báo lỗi giữ nguyên. ARC đã thử: prettier sạch, `mail-test-send` 37/37. Cách khác là sửa M9 để nhận câu lệnh hai dòng, nhưng cách này dài hơn. Trước khi đẩy, chạy `pnpm format:check` trong `product/`.
+- Trạng thái: **Verified** (`84933d92`).
+  - OPS chọn cách sửa M9. M9 mới loại đúng hai dòng của câu từ chối, khớp **cả dòng** (`grep -vxE`, `grep -vxF`).
+  - Như vậy chặt hơn M9 cũ. M9 cũ loại mọi dòng **chứa** chuỗi `…!== undefined) out(`, nên một lệnh đọc `MAIL_TEST_TO` viết cùng dòng vẫn lọt.
+  - Một lệnh đọc nằm ở dòng sau `if` thì vẫn bị bắt, vì dòng đó khác câu `out(...)` đã ghim.
+
+### FB-R4-ARC-OPS-P403-07
+- Mức độ: Minor
+- Vị trí: `.github/CODEOWNERS`, dòng `/.gitignore`.
+- Vấn đề: dòng này chỉ khớp `.gitignore` ở gốc repo. Theo luật của git, một `.gitignore` ở thư mục con được mở lại thư mục mà tệp gốc đã chặn. ARC đã thử: thêm `00-brief/context/.gitignore` chứa `!pricing/` là bảng nội bộ hiện ra để commit. Một PR thêm tệp đó sẽ gỡ G1 mà không chạm dòng SEC nào. Repo đã có 3 `.gitignore` lồng (`product/apps/landing-web/`, `product/infra/demo/`, `product/tests/`), nên thêm tệp loại này là chuyện bình thường, không gây chú ý.
+- Vì sao quan trọng: G1 (SEC-on-commission-numbers) chặn số hoa hồng ra repo công khai. Job `confidential-paths` (G2, P4-04) chưa có trên `main`, nên hiện G1 là lớp chặn duy nhất.
+- Đề xuất sửa: đổi `/.gitignore` thành `.gitignore` (không gạch đầu, khớp mọi thư mục). Chú thích thêm "mọi `.gitignore`, kể cả tệp mới ở thư mục con".
+- Trạng thái: Open
+
+### FB-R4-ARC-OPS-P403-08
+- Mức độ: Minor
+- Vị trí: `.github/CODEOWNERS` chú thích (c); `.github/pull_request_template.md` ô migration.
+- Vấn đề: luật (c) chỉ bắt `DISABLE TRIGGER|GRANT|REVOKE`. Tách tenant và dữ liệu khách ở repo này dựa trên RLS. Đếm trong `migrations/*.sql` trên `main` thấy: `ENABLE`/`FORCE`/`NO FORCE`/`DISABLE ROW LEVEL SECURITY` 256 lần, `CREATE POLICY` 37 lần, `SECURITY DEFINER` 23 lần. Một migration mới có `DISABLE ROW LEVEL SECURITY`, `NO FORCE ROW LEVEL SECURITY`, `DROP POLICY`, `CREATE OR REPLACE … SECURITY DEFINER` hay `ALTER ROLE` vẫn lọt qua luật (c). Hiện mọi migration đều viết từ khóa bằng chữ hoa, nhưng `grep -E` phân biệt hoa thường, nên chỉ cần viết thường là lọt.
+- Vì sao quan trọng: nới RLS hay thêm hàm `SECURITY DEFINER` là cách mở dữ liệu khác tenant hoặc dữ liệu khách nhanh nhất, và không cần chạm `field-policy.ts`.
+- Đề xuất sửa: `grep -iE '^\+.*(DISABLE TRIGGER|GRANT|REVOKE|ROW LEVEL SECURITY|POLICY|SECURITY DEFINER|ROLE )'`, sửa ở cả chú thích lẫn mẫu PR. SEC quyết phạm vi: thêm `POLICY` thì đa số migration RLS của BE sẽ cần SEC, và theo ARC như vậy là đúng ý. Pathspec `'**/migrations/*.sql'` đã chạy đúng, ARC thử trên lịch sử thật.
+- Trạng thái: Open
+
+### FB-R4-ARC-OPS-P403-09
+- Mức độ: Minor
+- Vị trí: báo cáo OPS `v1.0.4-ops-scripts.md` (phần "Hệ quả cho runbook 5.0 S14"), và runbook S14 mà P4-04 sẽ ghi.
+- Vấn đề: lượt "gõ dòng rỗng → `failed (address on stdin is missing or invalid)`" không bao giờ ra câu đó. `mail-test.sh` kiểm hình dạng địa chỉ **trên Mac** trước khi ssh, nên dòng rỗng bị chặn tại chỗ: `mail-test: failed (address is missing or invalid) – nothing sent`, mã 2, không ssh. Lỗi này nằm trong chính đề xuất P403-03 của ARC. M10 không phát hiện, vì M10 gọi thẳng `mail-test.mjs`, bỏ qua lớp shell.
+- Vì sao quan trọng: người chạy S14 sẽ thấy câu khác runbook và tưởng G3 hỏng, hoặc tệ hơn, tưởng đã chứng minh xong.
+- Đề xuất sửa (ghi vào S14 ở P4-04):
+  - Lượt 1 (bằng chứng): gõ `thu.nghiem@example.test`, phải ra `mail-test: failed (EMAIL_PROVIDER is not smtp)`. Riêng lượt này đã chứng minh G3: từ v1.0.4, node chỉ tới bước kiểm provider khi đã đọc được một dòng địa chỉ hợp lệ từ stdin.
+  - Lượt 2 (đối chứng): gõ địa chỉ qua được hình dạng trên Mac nhưng bị luật của node từ chối, ví dụ `thu,nghiem@example.test` (dấu phẩy bị cả `EMAIL_RE` hiện tại lẫn luật ASCII mới của INT từ chối). Phải ra `mail-test: failed (address on stdin is missing or invalid)`.
+
+  Có thể thêm một ca vào phần 1 của test, chạy ssh giả: địa chỉ có dấu phẩy phải **tới được** ssh.
+- Trạng thái: Open
+
+### FB-R4-ARC-OPS-P403-10
+- Mức độ: Suggestion (SEC quyết)
+- Vị trí: `.github/CODEOWNERS`.
+- Vấn đề: còn các tệp giữ ranh giới bảo mật mà chưa có dòng SEC. Tất cả đều có trên `main`:
+  - `product/infra/server/bin/deploy-from-ci.sh`: lệnh bắt buộc của khóa SSH CI, từ chối lệnh khác;
+  - `product/infra/server/bin/init-secrets.sh`: tạo tệp bí mật, lời nhắc ẩn;
+  - `product/infra/server/bootstrap-vps.sh`: sshd, sudoers, tắt ghi I/O của sudo (K8, PR30-04);
+  - `product/infra/docker-compose.prod.yml`: bí mật của từng service (mật khẩu SMTP và webhook Chat chỉ ở worker), volume blob không gắn vào `web` (SEC C2), `x-hardening`;
+  - `product/infra/server/privacy-log-check.sh`;
+  - phần guard production và digest của `deploy.sh`/`rollback.sh` (SEC-on-PR26).
+- Đề xuất: SEC chọn dòng nào thêm. ARC nghiêng về thêm 4 tệp đầu, vì sửa bất kỳ tệp nào trong đó cũng có thể gỡ một lớp chặn mà ORC không thấy. Nếu thêm `deploy.sh`, thì PR-A (P4-02) sau này cũng cần `SEC-on-*.md`. Làm ở P4-04 hoặc PR sau, không chặn PR này.
+- Trạng thái: Open
+
+## Góc SEC/INT (ARC đọc thay)
+
+Phần này để SEC (và INT) duyệt chéo sau. Đây không phải phán quyết của SEC hay INT.
+
+**Góc SEC (V104-05): CODEOWNERS đủ chưa, có bí mật/IP/email thật không**
+- Đủ các đường dẫn mà SEC (P403-01) và ARC (P403-01) đã nêu. Mỗi dòng khớp một tệp có thật trên nhánh, riêng `email-address.ts` và `shared-mailboxes.ts` sẽ có khi gộp `be-identity`/`int-email`. Thứ tự dòng không gây đè sai, vì mọi dòng cùng một tài khoản.
+- Còn hở: `.gitignore` lồng (P403-07), luật migration chưa phủ RLS (P403-08), và các tệp ở P403-10 để SEC chọn.
+- Ô mẫu PR mới đúng nội dung chú thích (c). Ô này chỉ để người viết PR tự khai; ORC vẫn tự kiểm.
+- Bí mật, IP, email: quét diff được 0 kết quả. Dữ liệu test chỉ có `ghcr.io/example/…`, `registry.example.invalid:5000`, `…@example.test`. `@anhvh93-tech` là tên tài khoản GitHub của chủ repo, đã có từ `659e1774`, không phải email.
+- `requeue-email-changed.sh`: chỉ thêm điều kiện từ chối, không đổi câu `UPDATE`, khóa deploy, `--expect` hay dry run.
+- Diff `67980030..84933d92` (đầu đã xét): chỉ ngắt dòng `mail-test.mjs`, sửa M9 và thêm vài dòng vào `responses/OPS-P4-03.md`. Không chạm CODEOWNERS hay mẫu PR. Quét được 0 email, 0 IP, 0 khóa. M9 mới chặt hơn cũ: thử ngược thì vẫn bắt được lệnh đọc `process.env.MAIL_TEST_TO` thêm vào. SEC chỉ cần nêu `84933d92` trong `SEC-on-*.md`.
+
+**Góc INT: `mail-test.mjs` đổi thứ tự kiểm có làm hỏng luồng gửi thử không**
+- **Không hỏng.** Với `EMAIL_PROVIDER=smtp`, thứ tự cũ là provider → `MAIL_TEST_TO` → stdin. Thứ tự mới là `MAIL_TEST_TO` → stdin → provider. Cả hai đều đi tới cùng chỗ (`creds`, `transport.verify()`, `sendMail`) với cùng `to`. Luật ASCII (bỏ `\r\n` cuối và khoảng trắng hai đầu trước khi kiểm) không đổi.
+- `--verify-only`: không đọc stdin, như cũ. Chỉ khác là khi có `MAIL_TEST_TO` thì nay bị từ chối trước kiểm provider. Như vậy chặt hơn, không đổi mã thoát (2).
+- Trên stack `mock`, node nay đọc dòng địa chỉ trước khi dừng. Địa chỉ chỉ nằm trong bộ nhớ tiến trình, không in ra ở câu nào. Đúng như SEC PR30-10 đã duyệt.
+- Mã thoát và 4 câu kết quả (`verified`, `sent`, `failed (<code>)`) không đổi, nên bộ lọc `grep -E` của `mail-test.sh` vẫn khớp.
+- Diff `67980030..84933d92`: prettier chỉ xuống dòng câu từ chối. Điều kiện, câu báo và mã thoát 2 giữ nguyên, M3 vẫn qua. **Hành vi không đổi**, nên các ý INT ở trên vẫn đúng.
+- Còn cần sửa: câu chữ runbook S14 (P403-09). P403-06 (prettier) đã Verified.
