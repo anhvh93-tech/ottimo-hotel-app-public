@@ -78,6 +78,31 @@ describe('BUG-R4-026 – reason codes in words', () => {
     // The raw code never shows (before P4-01 the label is its key `audit.reason.…`, which is not the code).
     for (const card of [ngaCard, kimCard]) expect(card.textContent).not.toMatch(RAW_CODE);
   });
+
+  it('FB-R4-UXD-FE-P441-01: Hoàn tiền – a refund waiting for a decision says its amount may go down; an approved one does not', async () => {
+    const kim = res('Kim Seo-yeon');
+    mockControl.stay.approvals.push({
+      id: '0192a1b0-0000-7000-8000-000000085998',
+      type: 'refund',
+      status: 'pending',
+      reservationCode: kim.code,
+      folioId: kim.folioId,
+      amountVnd: 1_017_000,
+      reasonCode: 'overpayment',
+      requestedBy: 'Hạnh',
+      requestedByUserId: mockControl.db.users.find((u) => u.username === 'qa.fd')!.id,
+      requestedAt: new Date().toISOString(),
+    });
+    const { user } = renderApp('/audit', 'qa.mgr');
+    await user.click(await screen.findByRole('button', { name: tv('refund.title') }));
+    const pending = (await screen.findByText(new RegExp(`^${kim.code} · 1\\.017\\.000`))).closest(
+      'li',
+    )!;
+    expect(within(pending).getByText(tv('approvals.refund_may_decrease'))).toBeVisible();
+    const nga = res('Trần Thu Nga');
+    const approved = screen.getByText(new RegExp(`^${nga.code} · 500\\.000`)).closest('li')!;
+    expect(within(approved).queryByText(tv('approvals.refund_may_decrease'))).toBeNull();
+  });
 });
 
 describe('Cần duyệt – refund rows (BUG-R4-026, GN-R4-QA-01)', () => {

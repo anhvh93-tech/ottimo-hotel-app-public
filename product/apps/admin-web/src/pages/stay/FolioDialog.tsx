@@ -377,11 +377,18 @@ function AdjustLineDialog({
   // BUG-R3-045: the other 409 FOLIO_LOCKED on a settled folio – its post-checkout window is over (BR-427 (d)), for
   // every role. Only a reduction can meet the debt rule, so a raise or same-amount change is always the window;
   // a reduction is told apart by the server's `detail` (folio-lines.service `adjust`).
+  // FB-R4-UXD-FE-P441-02: the debt-rule sentence itself says "charges still in their window", so a bare /window/
+  // took the debt 409 for the window and hid "Xóa công nợ". Only a `detail` naming the debt rule (BR-525 /
+  // debt_write_off) is the debt case; any other sentence is the window – a changed or unknown sentence then shows
+  // the general locked sentence, never a "Xóa công nợ" that would lead to a second 409. A field instead of the
+  // sentence (`Folio.postCheckoutWindowUntil` or a sub-code) is proposed to ARC for v1.0.5.
   const reduces = changed && newAmount < Math.abs(l.amountVnd);
+  const debtRule =
+    isApiError(act.error) && /BR-525|debt_write_off/i.test(act.error.problem.detail ?? '');
   const windowOver =
     act.code === 'FOLIO_LOCKED' &&
     isApiError(act.error) &&
-    (f.status !== 'settled' || !reduces || /window/i.test(act.error.problem.detail ?? ''));
+    (f.status !== 'settled' || !reduces || !debtRule);
   const lockedNow = act.code === 'FOLIO_LOCKED' && f.status === 'settled' && !windowOver;
 
   const save = async () => {

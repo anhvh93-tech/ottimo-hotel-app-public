@@ -599,6 +599,11 @@ function Refunds() {
                         .filter(Boolean)
                         .join(' · ')}
                     </div>
+                    {/* FB-R4-UXD-FE-P441-01 (GN-R4-QA-01): a refund still waiting for a decision may go down at
+                        approval – same note as on Cần duyệt. An approved refund has its amount fixed. */}
+                    {a.status === 'pending' || a.status === 'escalated' ? (
+                      <div className="li-s">{t('approvals.refund_may_decrease')}</div>
+                    ) : null}
                     <div className="li-s">
                       {a.refundedVnd ? (
                         <div>{t('refund.paid', { amount: money(a.refundedVnd) })}</div>
