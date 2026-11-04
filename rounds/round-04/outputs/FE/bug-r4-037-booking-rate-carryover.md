@@ -116,3 +116,34 @@ Mỗi tệp chạy riêng, `vitest run <tệp>`, 24 tiến trình song song.
 ## 8. Dòng đề xuất cho `01-decisions/decision-log.md` (ORC ghi khi gộp)
 
 `| 2026-11-04 | 4 | FE-B – BUG-R4-037 (P0): giá do bản xem điền chỉ có hiệu lực cho đúng kênh/căn/ngày của bản xem (ratesFor = previewKey); ô chưa gõ ngoài bản xem thì trống và máy chủ tự tính (OTA lịch OTA, Nội bộ 0 đ); ô đã gõ giữ qua mọi thay đổi; OTA/Nội bộ chỉ gửi nightlyRates khi lễ tân gõ đủ; Trực tiếp/CTV nút Tạo đơn chờ bản xem của lượt ở đang hiện (BE 1.8). Không đổi máy chủ/hợp đồng | FE-B | Quyền FE; rounds/round-04/outputs/FE/bug-r4-037-booking-rate-carryover.md |`
+
+## 9. Lượt sửa theo review UXD (`UXD-on-v104-pr70-rate-carryover.md`), ORC chọn cách (a)
+
+Nền: `822094b7`, là head ARC đang review. Push thường, không force.
+
+| Thẻ | Xử lý |
+|---|---|
+| **FB-R4-UXD-FE-PR70-01** (Major) | **Đã sửa** trong `handleError`, nhánh `VALIDATION_FAILED`. Mọi lỗi trên trường `nightlyRates` của máy chủ nay ghi vào một khóa mà hộp có hiển thị. Trường có thể có tiền tố `body.`. Khóa lỗi là `nightlyRates[i].amountVnd` khi lỗi chỉ đúng một đêm trong danh sách (hiện dưới ô của đêm đó); các trường hợp khác dùng `rates` (hiện dưới bảng giá). `REQUIRED` và `AMOUNT_NOT_POSITIVE` hiện câu `booking.error.rate_empty` (khóa có sẵn). Không thêm khóa chữ |
+| FB-R4-UXD-FE-PR70-02, 03, 04 (Minor) | **Dời v1.0.5**, theo ORC. 02: cột Nguồn giá và bảng tổng khi `priceWaiting`. 03: câu riêng cho OTA, Trực tiếp còn đêm trống, Nội bộ gõ 0 (UXD cấp khóa trước). 04: hộp gợi ý căn, đơn OTA chưa gõ giá hiện 0 đ (đầu danh sách v1.0.5) |
+| FB-R4-UXD-FE-PR70-05 (Suggestion) | **Chờ DOM** chốt: có xóa ô đã gõ khi đổi sang OTA hoặc Nội bộ không |
+
+Rà các lỗi 422 khác của `nightlyRates` ở B1 (`pricing.service.ts`, `reservations.service.ts`):
+
+| Lỗi máy chủ | Trước (`822094b7`) | Sau |
+|---|---|---|
+| `nightlyRates REQUIRED`: OTA không có `ota_base_rate`, hoặc thiếu đêm | Ghi vào `out.nightlyRates`, không hiện câu nào | Câu `rate_empty` dưới bảng giá |
+| `nightlyRates AMOUNT_NOT_POSITIVE` | Không hiện câu nào | Câu `rate_empty` dưới bảng giá |
+| `nightlyRates RATE_OUT_OF_RANGE` (vượt sàn/trần cứng) | Không hiện câu nào, dù đã dựng câu `rate_range` | Câu `rate_range` dưới bảng giá |
+| `nightlyRates VALIDATION_FAILED` (ngày trùng hoặc ngoài lượt ở) | Không hiện câu nào | Câu chung `fieldErrorText` dưới bảng giá |
+| `body.nightlyRates[i]…` (lớp schema) | Không hiện câu nào | Dưới ô của đêm i |
+| `nightlyRates RATE_OUT_OF_RANGE_WARNING` | Đã đúng (hiện cảnh báo, ô lý do) | Không đổi |
+
+Test, thêm 2 ca vào `v104-booking-rate-carryover.test.tsx`, nay tổng 12 ca:
+- OTA để trống, máy chủ trả 422 `nightlyRates REQUIRED`: câu hiện dưới bảng giá, khung có lớp `invalid`, không tạo đơn.
+- `body.nightlyRates[0].amountVnd AMOUNT_NOT_POSITIVE` hiện dưới ô đêm 1. `RATE_OUT_OF_RANGE` hiện câu `rate_range` kèm giá sàn và giá trần.
+
+Kết quả:
+- Trên `822094b7`: cả 2 ca mới đều đỏ. Trên head mới: 12/12 xanh.
+- tsc, eslint, prettier ok.
+- Toàn bộ admin-web: 891/892. Ca đỏ là `s4-38-fea` "7 đêm…", **hết giờ 15 s** vì máy đang ở tải 100–135 (các agent khác chạy cùng). Chạy riêng ca này trên `main` và trên bản sửa trong cùng mức tải thì thời gian như nhau: 11,6 s / 7,1 s trên `main`, 10,8 s / 6,6 s trên bản sửa. Không phải do bản sửa. Ở lượt trước, lúc tải bình thường, toàn bộ 890/890 xanh.
+- Cherry-pick lên `v1.0.3` vẫn chỉ đụng 2 tệp mã và test, cùng vùng `handleError` không đổi kể từ `v1.0.3`.

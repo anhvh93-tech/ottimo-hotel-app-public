@@ -5,7 +5,7 @@
 // Every case waits for the preview to fill the boxes BEFORE touching the channel – a person is always slower than the
 // 300 ms debounce (QA). The two flaky cases A-20 (`s2-fix`) and US-139 (`booking`) hit the same window under load.
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { http } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it, onTestFinished } from 'vitest';
 import { todayLocal } from '../app/dates';
 import { addDays, dayMonth } from '../app/reservations';
@@ -230,6 +230,87 @@ describe("BUG-R4-037 (BE 1.8) – Trực tiếp: never the previous stay's figur
       { date: d1, amountVnd: 990_000, edited: true },
       { date: d2, amountVnd: Number(new2.replace(/\D/g, '')), edited: false },
     ]);
+  });
+});
+
+/** The next `POST …/reservations` answers 422 VALIDATION_FAILED with these field errors (then the mock again). */
+function refuseNextCreate(
+  errors: { field: string; code: string }[],
+  extra: Record<string, unknown> = {},
+) {
+  server.use(
+    http.post(
+      '*/v1/properties/:propertyId/reservations',
+      () =>
+        HttpResponse.json(
+          {
+            type: 'about:blank',
+            title: 'Validation failed',
+            status: 422,
+            code: 'VALIDATION_FAILED',
+            errors,
+            ...extra,
+          },
+          { status: 422, headers: { 'content-type': 'application/problem+json' } },
+        ),
+      { once: true },
+    ),
+  );
+}
+
+describe('FB-R4-UXD-FE-PR70-01 – a 422 on nightlyRates is said under the rate table, never swallowed', () => {
+  async function otaReady(user: User, dlg: HTMLElement, ref: string) {
+    await previewFilled(dlg);
+    await user.click(within(dlg).getByRole('button', { name: 'OTA' }));
+    await pickRoom(user, dlg, '203');
+    await pickGuest(user, dlg);
+    await user.type(within(dlg).getByLabelText(/Mã đặt phòng OTA/), ref);
+  }
+  /** The error line of the "Giá mỗi đêm" field. */
+  const rateFieldError = (dlg: HTMLElement) =>
+    within(dlg)
+      .getByText(tv('booking.field.rate'), { selector: '.lbl' })
+      .closest<HTMLElement>('.field')!;
+
+  it('OTA left empty, room group without an OTA base rate (422 nightlyRates REQUIRED) → "Nhập giá mỗi đêm"', async () => {
+    pinDaytime();
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openBooking(user);
+    await otaReady(user, dlg, 'BK-070-1');
+    refuseNextCreate([{ field: 'nightlyRates', code: 'REQUIRED' }], {
+      detail: 'ota_base_rate is not configured for this room group',
+    });
+    await user.click(within(dlg).getByRole('button', { name: 'Tạo đơn' }));
+    const field = rateFieldError(dlg);
+    expect(await within(field).findByText(tv('booking.error.rate_empty'))).toBeInTheDocument();
+    expect(field).toHaveClass('invalid');
+    expect(screen.queryByText(/^Đã tạo đơn OTM-0\d+$/)).toBeNull();
+  });
+
+  it('every other nightlyRates 422 also shows: AMOUNT_NOT_POSITIVE, RATE_OUT_OF_RANGE, a night of the list', async () => {
+    pinDaytime();
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openBooking(user);
+    await otaReady(user, dlg, 'BK-070-2');
+    const box = rateBox(dlg, todayLocal());
+    await user.type(box, '910000');
+    // body.-prefixed field (schema layer) of the first night → under that night's box
+    refuseNextCreate([{ field: 'body.nightlyRates[0].amountVnd', code: 'AMOUNT_NOT_POSITIVE' }]);
+    await user.click(within(dlg).getByRole('button', { name: 'Tạo đơn' }));
+    expect(
+      await within(box.closest('td') as HTMLElement).findByText(tv('booking.error.rate_empty')),
+    ).toBeInTheDocument();
+    // the hard rate bounds (422 RATE_OUT_OF_RANGE on `nightlyRates`) → under the table, with the bounds
+    refuseNextCreate([{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE' }], {
+      min: 500000,
+      max: 900000,
+    });
+    await user.click(within(dlg).getByRole('button', { name: 'Tạo đơn' }));
+    expect(
+      await within(rateFieldError(dlg)).findByText(
+        tv('booking.error.rate_range', { min: '500000', max: '900000', group: '' }),
+      ),
+    ).toBeInTheDocument();
   });
 });
 

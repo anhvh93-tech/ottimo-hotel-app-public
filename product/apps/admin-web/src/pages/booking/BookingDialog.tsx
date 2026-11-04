@@ -606,7 +606,19 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     }
     if (e.code === 'VALIDATION_FAILED') {
       const out: Record<string, string> = {};
+      // FB-R4-UXD-FE-PR70-01: an error on `nightlyRates` must land on a key the form shows – `rates` (under the rate
+      // table) or one night's box. Before, `out.nightlyRates` was set and shown nowhere, so "Tạo đơn" came back with
+      // no sentence (e.g. OTA left empty while the room group has no OTA base rate: 422 `nightlyRates REQUIRED`).
+      const rateKey = (field: string): string | null => {
+        const f = field.replace(/^body\./, '');
+        if (!/^nightlyRates(\[|\.|$)/.test(f)) return null;
+        const i = /^nightlyRates\[(\d+)\]/.exec(f)?.[1];
+        return i !== undefined && Number(i) < rateList.length
+          ? `nightlyRates[${i}].amountVnd`
+          : 'rates';
+      };
       for (const fe of e.fieldErrors) {
+        const rk = rateKey(fe.field);
         if (fe.code === 'LONG_STAY_REQUIRES_CONTRACT') setLongStay(true);
         else if (fe.code === 'RATE_OUT_OF_RANGE_WARNING') setRateWarn(true);
         else if (fe.code === 'CAPACITY_EXCEEDED_WARNING')
@@ -622,13 +634,15 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           setMinStaySuggest(suggestionsOf(e).filter((x) => x.orphanNight !== false));
           out.departureDate = t('field.MIN_STAY_NOT_MET', { n });
         } else if (fe.code === 'RATE_OUT_OF_RANGE') {
-          out[fe.field] = t('booking.error.rate_range', {
+          out[rk ?? fe.field] = t('booking.error.rate_range', {
             min: String(e.problem.min ?? ''),
             max: String(e.problem.max ?? ''),
             group: '',
           });
-        } else if (!(fe.field in out))
-          out[fe.field] = fieldErrorText(t, fe, { n: rules.longStayFromNights });
+        } else if (rk && (fe.code === 'REQUIRED' || fe.code === 'AMOUNT_NOT_POSITIVE')) {
+          if (!(rk in out)) out[rk] = t('booking.error.rate_empty');
+        } else if (!((rk ?? fe.field) in out))
+          out[rk ?? fe.field] = fieldErrorText(t, fe, { n: rules.longStayFromNights });
       }
       setErrors(out);
       if (!Object.keys(out).length && !rateWarn) setRequestError(null);
