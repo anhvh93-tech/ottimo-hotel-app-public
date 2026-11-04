@@ -63,6 +63,11 @@ export interface FormCopy {
   note: string;
   optional: string;
   noteHint: string;
+  /**
+   * LP-v2 (CPY lp-v2 3.10, FB-INV-008): ko/zh/ru only – "write in your language; a line in English helps us reply
+   * sooner". Never a promise to reply in that language. EN/VI leave it out.
+   */
+  noteLang?: string;
   honeypot: string;
   consent: string;
   consentMore: string;
@@ -100,7 +105,18 @@ export interface Copy {
    * The two actions of the page (concept 3.3): Plan your stay (primary, INV 24/10 – key name kept from "Request to
    * book") and Chat on Zalo (secondary).
    */
-  actions: { requestToBook: string; chatOnZalo: string; chatOnPrefix: string; newTab: string };
+  actions: {
+    requestToBook: string;
+    chatOnZalo: string;
+    /** Phone bar: text before "Zalo", hidden under 360 px ("Chat on " + Zalo). */
+    chatOnPrefix: string;
+    /**
+     * LP-v2 (CPY lp-v2 5.1): text after "Zalo" for languages that put the particle after the app name (ko "Zalo로
+     * 문의", zh "通过 Zalo 联系"); hidden under 360 px with the prefix. EN/VI/RU leave it out.
+     */
+    chatOnSuffix?: string;
+    newTab: string;
+  };
   /** Alt text per photo id (falls back to the photo manifest). */
   photoAlt: Readonly<Record<string, string>>;
   hero: { label: string; lead: string };

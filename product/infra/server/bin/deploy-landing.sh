@@ -12,16 +12,22 @@
 # (staging: 401 without the preview password, X-Robots-Tag present; production: 200, no X-Robots-Tag), /en/ → 301,
 # /health and /v1/x → 404, www → 301 to the main host. A failed smoke puts the previous landing tag back.
 # Privacy notice (ARC FB-R3-ARC-OPS-US155-01, erd 4.14: one (version, locale) = one byte string), before switching:
-# sha256 of /srv/landing/privacy/index.html (en) and /srv/landing/vi/privacy/index.html (vi) in the NEW image, and the
-# version printed on each page, are compared with every successful `apply` line of state/privacy-notice.log
-# (publish-privacy-notice.sh). Same version + other bytes → refused (also for --rollback): body_sha256 stored for that
-# version would no longer be the page guests consent on – bump the notice version (pages + form) instead. While the
-# form proxy is closed (LANDING_PUBLIC_API not `on` – no consent can be given, README 12.3 rollback (c)) the same
-# finding is a WARNING only. A version not recorded yet passes with a reminder to run publish-privacy-notice.sh.
-# Fail closed while the form proxy is on (ARC FB-R3-ARC-OPS-CWD-01): an image without the two pages, or a page that
-# does not print exactly one version, is refused (proxy closed: a note / WARNING, so rollback (c) is never blocked).
-# No state/privacy-notice.log while the proxy is on → a WARNING of its own (ARC CWD-02: lost log after a rebuild –
-# restore it from the backup, privacy-notice-<stamp>.log.age, before INV approves).
+# every privacy page of the NEW image – /srv/landing/privacy/index.html (en) and /srv/landing/<xx>/privacy/index.html
+# (vi; since LP-v2 also ko, zh, ru – ARC lp-v2-design 3.6 (4), SEC SR-LC-05) – is hashed and its version read from its
+# one <meta name="ottimo-notice-version"> (a build from before LP-v2 has none: the printed "Version …" / "Phiên bản …"
+# of en/vi, also for --rollback), then compared with every successful `apply` line of state/privacy-notice.log
+# (publish-privacy-notice.sh, sha_<xx>= per language). Same version + other bytes → refused (also for --rollback):
+# body_sha256 stored for that version would no longer be the page guests consent on – bump the notice version (pages +
+# form) instead. Also refused (not for --rollback): a version OLDER than one already published for that language
+# (SEC FB-R4-SEC-FE-02), and a language of LANDING_LOCALES (on sale at the api) without its page. While the form proxy
+# is closed (LANDING_PUBLIC_API not `on` – no consent can be given, README 12.3 rollback (c)) these are WARNINGs only,
+# and with --rollback the two last ones too (an older version is still accepted for 7 days – README 12.3 LP-v2). A
+# version not recorded yet passes with a reminder to run publish-privacy-notice.sh.
+# Fail closed while the form proxy is on (ARC FB-R3-ARC-OPS-CWD-01, v1.0.3 – kept by the LP-v2 merge, also for
+# --rollback): an image without the en + vi pages, or a pre-LP-v2 en/vi page that does not print exactly one version,
+# is refused (proxy closed: a note / WARNING, so rollback (c) is never blocked). No state/privacy-notice.log while the
+# proxy is on → a WARNING of its own (ARC CWD-02: lost log after a rebuild – restore it from the backup,
+# privacy-notice-<stamp>.log.age, before INV approves).
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -35,11 +41,11 @@ log() { echo "[landing $(date -u +%Y-%m-%dT%H:%M:%SZ)] $*"; logger -t ottimo-dep
 dc() { "$here/dc" "$@"; }
 envval() { sed -n "s/^$1=//p" "$OTTIMO_HOME/.env" | tail -n 1 | tr -d '\r' | sed -e 's/^"//' -e 's/"$//'; }
 
-tag="" digest="" pull=1 check_only=0
+tag="" digest="" pull=1 check_only=0 rollback=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --rollback) [ -r "$state/landing_previous_tag" ] || { echo "no previous landing tag" >&2; exit 2; }
-                tag=$(cat "$state/landing_previous_tag"); shift ;;
+                tag=$(cat "$state/landing_previous_tag"); rollback=1; shift ;;
     --digest) digest="${2:-}"; shift 2 || true ;;
     --no-pull) pull=0; shift ;;
     --check-only) check_only=1; shift ;;
@@ -99,61 +105,130 @@ step privacy
 ptmp=$(mktemp -d); trap 'rm -rf "$ptmp"' EXIT
 sha() { if command -v sha256sum >/dev/null; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
 one() { sort -u | awk 'NR == 1 { v = $0 } END { if (NR == 1) print v }'; }  # exactly one distinct value, else empty
+verkey() { # YYYY-MM-DD[.N] → sortable "YYYY-MM-DD.NN"
+  local d=${1%%.*} n=0
+  [ "$1" = "$d" ] || n=${1#*.}
+  printf '%s.%02d' "$d" "$((10#$n))"
+}
 privacy_check() { # 0 = pass, 1 = refuse. Reads the new image offline: no network, no pull.
-  local rc=0 loc file v h rec want bad="" seen="" new=0
-  local ver_re='[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[0-9]{1,2})?'
+  local rc=0 loc file v h rec want bad="" seen="" new=0 older="" missing="" noversion="" metas n_meta pub newest l ll lln
+  # Version suffix .1–.99 without a leading zero: ".1" and ".01" would be two strings with one order (SEC LPV2-S1).
+  local ver_re='[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[1-9][0-9]?)?' known="en vi ko zh ru" locs="" proxy_on=0
+  [ "$(envval LANDING_PUBLIC_API)" = "on" ] && proxy_on=1
+  # Every privacy page of the image: /privacy/ (en) + /<xx>/privacy/ (one per language of the build).
   # Defence in depth (ARC CWD-04 2 / PR23-04): the image already passed the digest check; the reader still runs with no
   # capability, no privilege gain, a read-only root and the nobody uid (tar writes to stdout only).
-  # shellcheck disable=SC2016  # $f expands inside the container
+  # shellcheck disable=SC2016  # $f and $@ expand inside the container
   docker run --rm --pull never --network none --cap-drop ALL --security-opt no-new-privileges --read-only --user 65534 \
     --entrypoint sh "$ref" -c \
-    'cd /srv/landing && for f in privacy/index.html vi/privacy/index.html; do [ -f "$f" ] || exit 4; done
-     tar -cf - privacy/index.html vi/privacy/index.html' > "$ptmp/pages.tar" 2>/dev/null || rc=$?
-  local proxy_on=0
-  [ "$(envval LANDING_PUBLIC_API)" = "on" ] && proxy_on=1
+    'cd /srv/landing && set -- && for f in privacy/index.html */privacy/index.html; do [ -f "$f" ] && set -- "$@" "$f"; done
+     [ "$#" -gt 0 ] || exit 4; tar -cf - "$@"' > "$ptmp/pages.tar" 2>/dev/null || rc=$?
   if [ "$rc" -eq 4 ]; then
     if [ "$proxy_on" -eq 1 ]; then
       log "FAIL: privacy: $tag has no /privacy/ + /vi/privacy/ pages while the form proxy is on (LANDING_PUBLIC_API=on) – nothing switched"
       return 1
     fi
-    log "privacy: $tag has no /privacy/ + /vi/privacy/ pages – nothing to compare (form proxy is not on)"; return 0
+    log "privacy: $tag has no /privacy/ pages – nothing to compare (form proxy is not on)"; return 0
   fi
   if [ "$rc" -ne 0 ] || ! tar -C "$ptmp" -xf "$ptmp/pages.tar"; then log "FAIL: cannot read the privacy pages of $ref"; return 1; fi
   if [ "$proxy_on" -eq 1 ] && [ ! -s "$state/privacy-notice.log" ]; then
     log "WARNING: no $state/privacy-notice.log while the form proxy is on – if this stack ever published a notice version, restore the log from the backup (privacy-notice-<stamp>.log.age) or run publish-privacy-notice.sh (dry run) to compare with the database before INV approves"
   fi
-  for loc in en vi; do
-    # Same version patterns as publish-privacy-notice.sh ("Version …" / "Phiên bản …").
-    if [ "$loc" = en ]; then file="$ptmp/privacy/index.html"; v=$(grep -oE "Version $ver_re" "$file" | sed 's/^Version //' | one)
-    else file="$ptmp/vi/privacy/index.html"; v=$(grep -oE "Phiên bản $ver_re" "$file" | sed 's/^Phiên bản //' | one); fi
+  [ -f "$ptmp/privacy/index.html" ] && locs="en"
+  for l in $known; do [ "$l" != en ] && [ -f "$ptmp/$l/privacy/index.html" ] && locs+=" $l"; done
+  for file in "$ptmp"/*/privacy/index.html; do
+    [ -f "$file" ] || continue
+    l=${file#"$ptmp"/}; l=${l%%/*}
+    case " $known " in *" $l "*) ;; *) log "WARNING: privacy page for '$l' – not a landing language (publish-privacy-notice.sh will refuse it)" ;; esac
+  done
+  # Languages on sale at the api (LANDING_LOCALES, default en,vi – the api's and publish-privacy-notice.sh's default,
+  # SEC FB-R4-SEC-OPS-LPV2-02) need their page in this image.
+  ll=$(envval LANDING_LOCALES); lln="LANDING_LOCALES"
+  [ -n "$ll" ] || { ll=en,vi; lln="LANDING_LOCALES (unset = en,vi)"; }
+  for l in $(tr ',' ' ' <<<"$ll"); do
+    case " $locs " in *" $l "*) ;; *) missing+=" $l" ;; esac
+  done
+  for loc in $locs; do
+    if [ "$loc" = en ]; then file="$ptmp/privacy/index.html"; else file="$ptmp/$loc/privacy/index.html"; fi
+    # Version: the one <meta name="ottimo-notice-version"> (LP-v2, same rule as publish-privacy-notice.sh); a build
+    # without it (before LP-v2 – e.g. --rollback) → the printed "Version …" / "Phiên bản …" of en/vi.
+    metas=$(grep -oE '<meta [^>]*name="ottimo-notice-version"[^>]*>' "$file" || true)
+    n_meta=$(grep -c . <<<"$metas" || true)
+    if [ "$n_meta" -eq 1 ]; then v=$(sed -nE 's/.*[[:space:]]content="([^"]*)".*/\1/p' <<<"$metas")
+    elif [ "$n_meta" -gt 1 ]; then v=""
+    elif [ "$loc" = en ]; then v=$(grep -oE "Version $ver_re" "$file" | sed 's/^Version //' | one)
+    elif [ "$loc" = vi ]; then v=$(grep -oE "Phiên bản $ver_re" "$file" | sed 's/^Phiên bản //' | one)
+    else v=""; fi
     h=$(sha "$file")
-    if [ -z "$v" ]; then
-      if [ "$proxy_on" -eq 1 ]; then
-        log "FAIL: privacy $loc: not exactly one version printed on the page while the form proxy is on – nothing switched"
-        return 1
+    # No single version = the page cannot be compared with the published bytes (SEC FB-R4-SEC-OPS-LPV2-02): FAIL below
+    # while the form proxy is open, WARNING on --rollback or with the proxy off.
+    if ! [[ "$v" =~ ^$ver_re$ ]]; then
+      # A pre-LP-v2 en/vi page (no meta tag, printed version): the v1.0.3 rule (ARC CWD-01) – refused while the form
+      # proxy is on, --rollback included; a WARNING with the proxy off.
+      if [ "$n_meta" -eq 0 ] && { [ "$loc" = en ] || [ "$loc" = vi ]; }; then
+        if [ "$proxy_on" -eq 1 ]; then
+          log "FAIL: privacy $loc: not exactly one version printed on the page while the form proxy is on – nothing switched"
+          return 1
+        fi
+        log "WARNING: privacy $loc: not exactly one version printed on the page (publish-privacy-notice.sh will refuse it)"; continue
       fi
-      log "WARNING: privacy $loc: not exactly one version printed on the page (publish-privacy-notice.sh will refuse it)"; continue
+      noversion+=" $loc"; continue
     fi
-    # Successful writes only (a dry run writes nothing): "<time> apply … version=<v> sha_en=<h> sha_vi=<h> rc=0".
-    rec=$(awk -v v="$v" -v k="sha_$loc" '$2 == "apply" && $NF == "rc=0" {
+    # Successful writes only (a dry run writes nothing): "<time> apply … version=<v> sha_en=<h> sha_vi=<h> … rc=0".
+    pub=$(awk -v k="sha_$loc" '$2 == "apply" && $NF == "rc=0" {
             ver = ""; s = ""
             for (i = 3; i <= NF; i++) { p = index($i, "="); if (substr($i, 1, p - 1) == "version") ver = substr($i, p + 1)
                                          if (substr($i, 1, p - 1) == k) s = substr($i, p + 1) }
-            if (ver == v && s != "") print s }' "$state/privacy-notice.log" 2>/dev/null | sort -u)
+            if (ver != "" && s != "") print ver " " s }' "$state/privacy-notice.log" 2>/dev/null | sort -u)
+    rec=$(awk -v v="$v" '$1 == v { print $2 }' <<<"$pub")
+    # Newest version published for this language: the image may not go back behind it (SEC FB-R4-SEC-FE-02).
+    newest=""
+    while read -r want _; do
+      [ -n "$want" ] || continue
+      if [ -z "$newest" ] || [[ "$(verkey "$want")" > "$(verkey "$newest")" ]]; then newest=$want; fi
+    done <<<"$pub"
+    if [ -n "$newest" ] && [[ "$(verkey "$v")" < "$(verkey "$newest")" ]]; then older+=" $loc $v < published $newest;"; fi
     if [ -z "$rec" ]; then seen+=" $loc $v (not published yet)"; new=1; continue; fi
     while IFS= read -r want; do
       [ "$want" = "$h" ] || bad+=" $loc $v: published sha256 ${want:0:12}…, image ${h:0:12}…;"
     done <<<"$rec"
     seen+=" $loc $v (same bytes as published)"
   done
+  if [ -n "$noversion" ]; then
+    if [ "$proxy_on" -eq 1 ] && [ "$rollback" -eq 0 ]; then
+      log "FAIL: privacy page without exactly one notice version (<meta name=\"ottimo-notice-version\">) for${noversion} – its bytes cannot be checked against the published notice; fix the build, nothing switched"
+      return 1
+    fi
+    log "WARNING: privacy page without exactly one notice version for${noversion} – not compared with the published bytes (publish-privacy-notice.sh will refuse it)"
+  fi
   if [ -n "$bad" ]; then
     bad="${bad# }"; bad="${bad%;}"
-    if [ "$(envval LANDING_PUBLIC_API)" = "on" ]; then
+    if [ "$proxy_on" -eq 1 ]; then
       log "FAIL: privacy page bytes changed for a published notice version ($bad) – bump the notice version (pages + form), nothing switched"
       return 1
     fi
     log "WARNING: privacy page bytes changed for a published notice version ($bad) – allowed only because LANDING_PUBLIC_API is not on; bump the version before the form proxy is opened again"
     return 0
+  fi
+  if [ -n "$older" ]; then
+    older="${older# }"; older="${older%;}"
+    if [ "$proxy_on" -eq 1 ] && [ "$rollback" -eq 0 ]; then
+      log "FAIL: older privacy notice version than the published one ($older) – a new release needs a later version (> the published one); to go back use --rollback (README 12.3 LP-v2), nothing switched"
+      return 1
+    fi
+    log "WARNING: older privacy notice version than the published one ($older) – the form accepts it only for 7 days after it was superseded (README 12.3 LP-v2 rollback)"
+  fi
+  if [ -n "$missing" ]; then
+    if [ "$proxy_on" -eq 1 ] && [ "$rollback" -eq 0 ]; then
+      log "FAIL: $lln has${missing} but $tag has no privacy page for it – the api keeps it on sale; take it out of LANDING_LOCALES first (README 12.3 LP-v2), nothing switched"
+      return 1
+    fi
+    log "WARNING: $lln has${missing} but $tag has no privacy page for it – set LANDING_LOCALES to the languages of this build and restart the api (README 12.3 LP-v2 rollback)"
+  fi
+  # v1.0.3 fail-closed rule (ARC CWD-01), --rollback included: the form proxy on needs the en + vi pages.
+  if [ "$proxy_on" -eq 1 ] && { [ ! -f "$ptmp/privacy/index.html" ] || [ ! -f "$ptmp/vi/privacy/index.html" ]; }; then
+    log "FAIL: privacy: $tag has no /privacy/ + /vi/privacy/ pages while the form proxy is on (LANDING_PUBLIC_API=on) – nothing switched"
+    return 1
   fi
   log "privacy:${seen:- no version found}"
   [ "$new" -eq 0 ] || log "privacy: after this deploy run publish-privacy-notice.sh for the new version (README 12.3 step 6) before the form is used"

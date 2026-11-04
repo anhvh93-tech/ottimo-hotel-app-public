@@ -988,7 +988,7 @@ test.describe(
         async () => {
           // Tiền điều kiện: HĐ kết thúc 01/05/2027, khách ở thêm 5 ngày
           // Bước: Tính tiền ngày lẻ
-          // Kỳ vọng: 371.000 × 5 = 1.855.000 + phí dịch vụ 350.000 × 5/30 = 58.000 (ví dụ BR-210)
+          // Kỳ vọng: 283.000 × 5 = 1.415.000 + phí dịch vụ 200.000 × 5/30 = 33.000 (oracle BR-210-01, BR v0.5.1)
           // Quy tắc: BR-214, BR-210
           expect(oracleNum('BR-210-01', 'rentVnd')).toBeGreaterThan(0);
           test.skip(

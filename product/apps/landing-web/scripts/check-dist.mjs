@@ -5,7 +5,7 @@
 // LANDING_BOOKING_FORM and PUBLIC_FORM_API_BASE of the build being checked)
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { runAll } from './dist-checks.mjs';
+import { HTML_LANG, runAll } from './dist-checks.mjs';
 
 const i = process.argv.indexOf('--dir');
 const name = i >= 0 ? process.argv[i + 1] : 'dist';
@@ -30,7 +30,7 @@ try {
 }
 const opts = {
   siteUrl: (process.env.LANDING_SITE_URL ?? 'https://ottimo.vn').replace(/\/+$/, ''),
-  langs: ['en', 'vi'],
+  langs: Object.keys(HTML_LANG),
   indexable: !preview && name !== 'dist-booking-live' && process.env.LANDING_INDEXABLE === 'true',
   bookingRequest: preview || live,
   apiOrigin,

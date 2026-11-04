@@ -10,6 +10,7 @@ import { defineAuditEntity } from '../audit/public/audit-fields';
 defineAuditEntity('room', [
   'roomNo',
   'name',
+  'publicRoomType',
   'roomGroupId',
   'baseOccupancy',
   'maxOccupancy',

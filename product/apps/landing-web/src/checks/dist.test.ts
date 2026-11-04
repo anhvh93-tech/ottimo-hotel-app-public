@@ -9,9 +9,17 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import * as checks from '../../scripts/dist-checks.mjs';
+import { en as copyEn } from '../content/en';
+import { ko as copyKo } from '../content/ko';
 import { PRIVACY_NOTICE } from '../content/privacy';
+import { ru as copyRu } from '../content/ru';
+import { vi as copyVi } from '../content/vi';
+import { zh as copyZh } from '../content/zh';
 import { BOOKING_REQUEST_ENABLED, PUBLIC_FORM_API_BASE } from '../lib/booking-request';
-import { INDEXABLE, LANGS, SITE_URL } from '../lib/i18n';
+import { HTML_LANG, INDEXABLE, LANGS, PREFIXED_LANGS, SITE_URL } from '../lib/i18n';
+
+// Every published language (FB-R4-FE-B-LPV2M-01: ko/zh/ru too – the notice is a legal text in all 5).
+const COPY = { en: copyEn, vi: copyVi, ko: copyKo, zh: copyZh, ru: copyRu } as const;
 
 const builds = [
   { name: 'dist', form: BOOKING_REQUEST_ENABLED, live: BOOKING_REQUEST_ENABLED },
@@ -34,11 +42,32 @@ describe.each(builds)('$name', ({ name, form, live }) => {
     apiOrigin: name === 'dist' ? PUBLIC_FORM_API_BASE : '',
   };
 
-  it('builds the EN and VI home pages and a 404 per language (+ the privacy notice with the form)', () => {
-    const privacy = form ? ['/privacy/', '/vi/privacy/'] : [];
-    expect(d.html.map((p) => p.path).sort()).toEqual(
-      ['/', '/404/', '/vi/', '/vi/404/', ...privacy].sort(),
-    );
+  it('builds the home page and a 404 of every language (+ the privacy notice with the form) – LP-v2: en vi ko zh ru', () => {
+    const pages = ['/', '/404/', ...PREFIXED_LANGS.flatMap((l) => [`/${l}/`, `/${l}/404/`])];
+    const privacy = form ? ['/privacy/', ...PREFIXED_LANGS.map((l) => `/${l}/privacy/`)] : [];
+    expect(d.html.map((p) => p.path).sort()).toEqual([...pages, ...privacy].sort());
+    expect(PREFIXED_LANGS).toEqual(['vi', 'ko', 'zh', 'ru']);
+  });
+  it('html lang by language (zh-Hans on /zh/), one language list with 5 plain links, current page marked', () => {
+    for (const p of d.html) {
+      const lang = (p.path.split('/')[1] ?? '') as keyof typeof HTML_LANG;
+      const want = HTML_LANG[lang] && lang !== 'en' ? HTML_LANG[lang] : 'en';
+      expect(p.source, p.path).toContain(`<html lang="${want}"`);
+      const pick = p.source.match(/<details class="lang-pick">[\s\S]*?<\/details>/)?.[0] ?? '';
+      const links = [...pick.matchAll(/<a href="([^"]+)" hreflang="([^"]+)" lang="([^"]+)"/g)];
+      expect(
+        links.map((m) => m[2]),
+        p.path,
+      ).toEqual([...LANGS]);
+      expect(
+        links.map((m) => m[3]),
+        p.path,
+      ).toEqual(LANGS.map((l) => HTML_LANG[l]));
+      expect((pick.match(/aria-current="page"/g) ?? []).length, p.path).toBe(1);
+    }
+  });
+  it('LP-v2 fonts: each ko/zh/ru stylesheet only on its own pages, within its budget (ARC lp-v2 3.3)', () => {
+    expect(checks.checkLangFonts(d)).toEqual([]);
   });
   it('form endpoint: preview never sends; live = api, slug, notice version, same-origin API (US-155 v1.0)', () => {
     expect(checks.checkFormEndpoint(d, opts)).toEqual([]);
@@ -46,24 +75,61 @@ describe.each(builds)('$name', ({ name, form, live }) => {
       .map((p) => checks.tags(p.source).find((x) => x.name === 'form'))
       .filter((x) => !!x)
       .map((x) => x.attrs as Record<string, string>);
-    expect(forms).toHaveLength(form ? 2 : 0);
+    expect(forms).toHaveLength(form ? LANGS.length : 0);
     for (const f of forms) {
       expect(f['data-transport']).toBe(live ? 'api' : 'preview');
       if (live) expect(f['data-consent-version']).toBe(PRIVACY_NOTICE.version);
     }
   });
   if (form)
-    it('privacy notice: EN/VI pages with the anchors the form links to, footer link on every page', () => {
-      const en = d.html.find((p) => p.path === '/privacy/')!;
-      const vi = d.html.find((p) => p.path === '/vi/privacy/')!;
-      expect(en.source).toContain(`id="${PRIVACY_NOTICE.en.anchor}"`);
-      expect(vi.source).toContain(`id="${PRIVACY_NOTICE.vi.anchor}"`);
-      expect(en.source).toContain(`Version ${PRIVACY_NOTICE.version}`);
-      expect(vi.source).toContain(`Phiên bản ${PRIVACY_NOTICE.version}`);
-      const home = d.html.find((p) => p.path === '/')!;
-      expect(home.source).toContain(`href="/privacy/#${PRIVACY_NOTICE.en.anchor}"`);
+    it('privacy notice: a page per language with the anchor the form links to, one machine-readable version = the form consentVersion, footer link on every page', () => {
+      expect(checks.checkNoticeVersion(d)).toEqual([]);
+      for (const l of LANGS) {
+        const path = l === 'en' ? '/privacy/' : `/${l}/privacy/`;
+        const page = d.html.find((p) => p.path === path)!;
+        expect(page.source, path).toContain(`id="${PRIVACY_NOTICE[l].anchor}"`);
+        expect(page.source, path).toContain(PRIVACY_NOTICE[l].version);
+        expect(page.source, path).toContain(`data-notice-version="${PRIVACY_NOTICE.version}"`);
+        expect(page.source, path).toContain(
+          `<meta name="ottimo-notice-version" content="${PRIVACY_NOTICE.version}"`,
+        );
+        // ko/zh/ru: "This is a translation – EN/VI apply" (SEC LP-v2 2.5)
+        expect(page.source.includes('class="privacy-tr"'), path).toBe(!['en', 'vi'].includes(l));
+        const home = d.html.find((p) => p.path === (l === 'en' ? '/' : `/${l}/`))!;
+        expect(home.source, path).toContain(`href="${path}#${PRIVACY_NOTICE[l].anchor}"`);
+      }
+      expect(PRIVACY_NOTICE.ko.anchor).toBe('booking-requests');
       for (const p of d.html.filter((x) => !/404/.test(x.path)))
-        expect(p.source, p.path).toMatch(/<a href="(\/vi)?\/privacy\/">/);
+        expect(p.source, p.path).toMatch(/<a href="(\/(vi|ko|zh|ru))?\/privacy\/">/);
+    });
+  if (form)
+    it('privacy notice: every sentence of PRIVACY_NOTICE and consentMore is on the built page verbatim, 5 languages (SEC notice 2026-10-31 1.4, FB-R4-FE-B-LPV2M-01)', () => {
+      const text = (src: string) =>
+        src
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/&#(\d+);/g, (_, n: string) => String.fromCodePoint(Number(n)))
+          .replace(/&#x([0-9a-f]+);/gi, (_, n: string) => String.fromCodePoint(parseInt(n, 16)))
+          .replace(/&quot;/g, '"')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&amp;/g, '&')
+          .replace(/\s+/g, ' ');
+      expect(Object.keys(COPY).sort()).toEqual([...LANGS].sort());
+      for (const lang of LANGS) {
+        const home = lang === 'en' ? '/' : `/${lang}/`;
+        const path = `${home}privacy/`;
+        const page = text(d.html.find((p) => p.path === path)!.source);
+        const copy = PRIVACY_NOTICE[lang];
+        for (const s of [
+          copy.h1,
+          copy.intro,
+          ...copy.sections.flatMap((x) => [x.h, ...x.p]),
+          copy.version,
+        ])
+          expect(page, `${path}: ${s.slice(0, 60)}`).toContain(s);
+        const homeText = text(d.html.find((p) => p.path === home)!.source);
+        expect(homeText, `${home} consentMore`).toContain(COPY[lang].book.form.consentMore);
+      }
     });
   it('has no inline script/style, no style= or on*= attribute (CSP, ADR-014 2.4)', () => {
     expect(checks.checkInlineCode(d)).toEqual([]);

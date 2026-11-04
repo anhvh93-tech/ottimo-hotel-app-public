@@ -4,7 +4,8 @@
 // without JavaScript the form never shows and can never be sent. Field names follow `WebsiteBookingRequestInput`
 // (OpenAPI 0.3.7 add-on 2): stayType, arrival, departure | months, adults, children (6–11), infants (< 6),
 // roomType, guestName, preferredChannel, phone | email, note, consent, website (honeypot).
-import { links, site } from '../content/site';
+import { PRIVACY_NOTICE } from '../content/privacy';
+import { links, phoneShown, site } from '../content/site';
 import type { Copy } from '../content/types';
 import {
   BOOKING_FORM_PREVIEW,
@@ -24,7 +25,8 @@ interface Props {
 const { t } = Astro.props;
 const f = t.book.form;
 const b = site.booking;
-const privacyHref = `${pathFor(t.lang, 'privacy')}#${t.lang === 'vi' ? 'yeu-cau-dat-phong' : 'booking-requests'}`;
+const privacyHref = `${pathFor(t.lang, 'privacy')}#${PRIVACY_NOTICE[t.lang].anchor}`;
+const hotline = phoneShown(t.lang);
 const counts = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
 ---
 
@@ -47,7 +49,7 @@ const counts = (from: number, to: number) => Array.from({ length: to - from + 1 
   data-next-morning={b.promiseNextMorningBy}
   data-window-days={b.windowDays}
   data-short-max={b.shortMaxNights}
-  data-hotline={site.phone.local}
+  data-hotline={hotline}
   data-hotline-tel={links.tel}
   data-consent-version={PRIVACY_NOTICE_VERSION}
   data-property={PUBLIC_PROPERTY_SLUG}
@@ -165,6 +167,13 @@ const counts = (from: number, to: number) => Array.from({ length: to - from + 1 
       <p class="hint" id="f-room-hint"></p>
       <p class="err" id="f-guests-err"></p>
     </div>
+    {/*
+      Estimated price (LP-v2, FB-INV-009; UXD lp-v2-design 3): filled by scripts/price-estimate.ts, hidden until the
+      API answers with prices (404 = prices off → stays hidden). Not a live region itself; the short result sentence
+      goes to the role=status line below, which exists from the start (UXD 3.6).
+    */}
+    <div class="est" id="bk-est" aria-labelledby="bk-est-h" hidden></div>
+    <p class="sr" id="bk-est-live" role="status" aria-atomic="true"></p>
   </div>
 
   <div class="form-sec">
@@ -245,11 +254,12 @@ const counts = (from: number, to: number) => Array.from({ length: to - from + 1 
         name="note"
         maxlength="500"
         rows="2"
-        aria-describedby="f-note-hint f-note-count f-note-err"></textarea>
+        aria-describedby={`f-note-hint${f.noteLang ? ' f-note-lang' : ''} f-note-count f-note-err`}></textarea>
       <div class="hint-row">
         <p class="hint" id="f-note-hint">{f.noteHint}</p>
         <p class="counter" id="f-note-count">0 / 500</p>
       </div>
+      {f.noteLang && <p class="hint" id="f-note-lang">{f.noteLang}</p>}
       <p class="err" id="f-note-err"></p>
     </div>
     <div class="hp" aria-hidden="true">
@@ -286,6 +296,7 @@ const counts = (from: number, to: number) => Array.from({ length: to - from + 1 
   <div class="f-foot">
     <p class="f-status" id="bk-status" role="alert"></p>
     <button type="submit" class="btn btn-primary" id="bk-submit">{f.submit}</button>
+    <p class="hint est-sent" id="bk-est-sent" hidden></p>
   </div>
 </form>
 
@@ -297,8 +308,9 @@ const counts = (from: number, to: number) => Array.from({ length: to - from + 1 
   <p id="bk-done-next"></p>
   <p id="bk-done-when" class="muted"></p>
   <p id="bk-done-fallback" class="muted"></p>
+  <p id="bk-done-estimate" class="muted" hidden></p>
   <p id="bk-done-tonight" hidden>
-    {f.done.tonight}<a class="link-in" href={links.tel}>{site.phone.local}</a>
+    {f.done.tonight}<a class="link-in" href={links.tel}>{hotline}</a>
   </p>
   <div class="actions">
     <a class="btn btn-primary" id="bk-open-zalo" href={links.zalo}>{f.done.openZalo}</a>

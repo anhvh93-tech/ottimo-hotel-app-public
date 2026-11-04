@@ -1,4 +1,4 @@
-import type { Parameter, Role } from '@ottimo/api-client';
+import type { Parameter } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip } from '@ottimo/ui';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
@@ -16,17 +16,14 @@ import { ReceivingAccountSection } from './ReceivingAccount';
 import {
   GROUP_LABEL,
   GROUP_ORDER,
-  SECURITY_BOUNDS,
+  editorsOf,
   paramLabel,
   paramMeta,
   type ParamGroup,
 } from './paramCatalog';
 
-/** Who may edit a key: the API's `editableBy`; fallback mirrors rbac 5.3 (security keys → owner only). */
-export function editorsOf(p: Parameter): Role[] {
-  if (p.editableBy?.length) return p.editableBy;
-  return p.key in SECURITY_BOUNDS ? ['owner'] : ['owner', 'manager'];
-}
+/** Kept here for callers of the page module; lives in the catalogue so ParamDialog can use it too. */
+export { editorsOf };
 
 /**
  * H05 – rule parameters by group; each save adds a new effective-dated value (US-005). A value scheduled for a
@@ -238,6 +235,7 @@ export function ParamsPage() {
           param={editing}
           options={params.find((p) => p.key === 'hold_hours_options')?.value}
           onClose={() => setEditing(null)}
+          onChanged={reload}
           onSaved={() => {
             setEditing(null);
             reload();

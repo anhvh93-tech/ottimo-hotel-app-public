@@ -1,0 +1,36 @@
+---
+// Icons of the language switch only (LP-v2, UXD lp-v2-design 2.2 – globe of mock lp-v2 section 1, check for the current
+// language). Kept out of Icon.astro so the markup of every other icon stays byte-identical (ARC lp-v2 3.2: /vi/ only
+// changes in the header and <head>). Decorative: the meaning is always in the text next to them.
+interface Props {
+  name: 'globe' | 'check';
+  class?: string;
+}
+
+const { name, class: cls } = Astro.props;
+---
+
+{
+  name === 'globe' ? (
+    <svg class={cls} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+      <path
+        d="M3.5 12h17M12 3.5c2.4 2.4 3.6 5.2 3.6 8.5s-1.2 6.1-3.6 8.5M12 3.5C9.6 5.9 8.4 8.7 8.4 12s1.2 6.1 3.6 8.5"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+      />
+    </svg>
+  ) : (
+    <svg class={cls} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M3 8.5l3.2 3.2L13 4.8"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  )
+}

@@ -386,6 +386,49 @@ describe('SEC FB-R4-SEC-BE-PR24-01 – Russian `№` and the new Korean passport
   });
 });
 
+/** A number written two digits at a time (`41-11-11-…`). */
+const pairs = (digits: string, sep: string) => (digits.match(/\d{1,2}/g) ?? []).join(sep);
+
+describe('ARC FB-R4-ARC-BE-PR24PM-02 – a number read out in pairs is not a date', () => {
+  it.each([
+    ['card in pairs, dashes (ARC table 1)', pairs('4111111111111111', '-'), 'card'],
+    ['CCCD in pairs, dots (ARC table 1)', pairs(CCCD, '.'), 'id'],
+    ['CCCD in pairs, dashes (SEC lượt 3)', pairs(CCCD, '-'), 'id'],
+    ['CCCD in pairs, slashes', pairs(CCCD, '/'), 'id'],
+    ['card in pairs, dots', pairs('4111111111111111', '.'), 'card'],
+    ['card in pairs after a word', `the card is ${pairs('4111111111111111', '-')} thanks`, 'card'],
+    ['CCCD in pairs next to a date', `CCCD ${pairs(CCCD, '.')} đến 12.11`, 'id'],
+    ['CMND in pairs (4 pairs + 1)', pairs('123456789', '-'), 'id'],
+  ])('%s → caught (form) and replaced (Chat)', (_n, s, kind) => {
+    expect(sensitiveNumberKind(s), s).toBe(kind);
+    expect(note(s)).toBe(CHAT_ID_REPLACEMENT);
+    expect(name(s)).toBe(CHAT_ID_REPLACEMENT);
+  });
+
+  // Lọt có chủ ý – rủi ro thấp đã chấp nhận (SEC-on-v104-be-d 2.1, FB-R4-SEC-BE-BED-04); đổi luật thì báo SEC.
+  it.each([
+    ['a 3-digit group between pairs (the pairs read as a date)', '079.20.30.12.345'],
+    ['only the last 3 groups in pairs', '079.203.01.23.45'],
+    ['one single pair inside a card (`11-11` read as a date)', '4111 1111 11-11 1111'],
+  ])('accepted miss, not blocked: %s', (_n, s) => {
+    expect(sensitiveNumberKind(s), s).toBeNull();
+  });
+
+  it.each([
+    '12/11/2026',
+    '12.11.26',
+    '12-11-2026 đến 15-11-2026',
+    '12/11, 13/11, 14/11, 15/11',
+    '12/11 13/11 14/11',
+    '8 912 345-67-89',
+    '+7 912 345-67-89',
+    '12-15/11/2026',
+  ])('dates and phones near the rule still stay: %s', (s) => {
+    expect(sensitiveNumberKind(s), s).toBeNull();
+    expect(note(s)).not.toBe(CHAT_ID_REPLACEMENT);
+  });
+});
+
 describe('over-masking accepted by SEC (lượt 3: fails safe, Desk keeps the original)', () => {
   it.each([
     ['two phones joined by one space', '0905111222 0912333444'],
@@ -428,6 +471,8 @@ describe('cost', () => {
       '1_'.repeat(250),
       `${'١'.repeat(250)}${'\u0303'.repeat(250)}`,
       '%20'.repeat(166),
+      '12.'.repeat(166),
+      '12-'.repeat(83) + '12/'.repeat(83),
     ];
     const t0 = performance.now();
     for (const s of inputs) sensitiveNumberKind(s);

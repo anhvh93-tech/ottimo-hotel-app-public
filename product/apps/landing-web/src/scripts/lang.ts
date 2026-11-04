@@ -9,6 +9,21 @@ export function primaryLang(tag: string | undefined | null): string {
 }
 
 /**
+ * Published language a browser tag asks for (ARC lp-v2 3.1): the primary subtag, except Chinese – the /zh/ pages are
+ * Simplified, so zh, zh-CN, zh-SG and zh-Hans-* → 'zh', but zh-TW, zh-HK, zh-MO and zh-Hant-* → '' (no suggestion,
+ * the guest stays on English = x-default).
+ */
+export function langOfTag(tag: string | undefined | null): string {
+  const parts = (tag ?? '').trim().toLowerCase().split(/[-_]/);
+  const primary = parts[0] ?? '';
+  if (primary !== 'zh') return primary;
+  const rest = parts.slice(1);
+  if (rest.includes('hans')) return 'zh';
+  if (rest.includes('hant') || rest.some((r) => ['tw', 'hk', 'mo'].includes(r))) return '';
+  return 'zh';
+}
+
+/**
  * Preferred language: the guest's stored choice if it is published, else the first browser language if
  * published, else English (= x-default).
  */
@@ -18,7 +33,7 @@ export function preferredLang(
   published: readonly string[],
 ): string {
   if (stored && published.includes(stored)) return stored;
-  const first = primaryLang(browserLangs[0]);
+  const first = langOfTag(browserLangs[0]);
   return published.includes(first) ? first : 'en';
 }
 

@@ -7,7 +7,9 @@
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/docs/api/openapi.yaml",
         "$TURBO_ROOT$/docs/api/openapi.test.yaml",
-        "$TURBO_ROOT$/tests/fixtures/seed/*.json"
+        "$TURBO_ROOT$/tests/fixtures/seed/*.json",
+        "$TURBO_ROOT$/packages/i18n/src/plural-forms.cases.json",
+        "$TURBO_ROOT$/design/copy/strings-*.json"
       ]
     }
   }
