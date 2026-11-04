@@ -15,9 +15,11 @@ import {
 } from '../src/shared/serialization/field-policy';
 import {
   UndeclaredResponseError,
+  propertyAllowed,
   responseShapeFor,
   serializeResponse,
   serializeSchema,
+  serializeShape,
 } from '../src/shared/serialization/serializer';
 
 const guest = {
@@ -237,38 +239,189 @@ describe("role serializer – the caller's own data (SELF_DATA_FIELDS, BUG-R4-01
     expect('actorName' in ser('AuditEvent', e, ['housekeeping'])).toBe(false);
   });
 
-  it('every SELF_DATA_FIELDS key is an x-self-data direct property of a self-only answer (OpenAPI 0.3.12)', () => {
-    const SELF_ONLY_SCHEMAS = { Me: ['getMe', 'login', 'loginMfa'] };
+  /**
+   * SEC FB-R4-SEC-BE-018-01 (a): the exact content of SELF_DATA_FIELDS. ADDING A KEY NEEDS SEC REVIEW – the list is
+   * the only way an `x-self-data` property leaves the server. Change this array only in a PR that SEC approves.
+   */
+  const PINNED_SELF_DATA_FIELDS = [
+    'schema:Me.email',
+    'op:setMyEmail.email',
+    'op:startMy2faSetup.otpauthUri',
+    'op:confirmMy2fa.recoveryCodes',
+    'op:regenerateMyRecoveryCodes.recoveryCodes',
+  ];
+  /** Operations whose answers are only ever about the caller (SEC condition 3 allow-list): these + `/v1/me*`. */
+  const SELF_ONLY_OPS = new Set(['getMe', 'login', 'loginMfa']);
+  const ME_PATH = /^\/v1\/me(\/|$)/;
+  const isSelfOnlyOp = (opId: string) =>
+    SELF_ONLY_OPS.has(opId) || ME_PATH.test(OPENAPI_META.operations[opId]?.path ?? '');
+  const ALL_ROLES = [
+    'owner',
+    'manager',
+    'front_desk_lead',
+    'front_desk',
+    'housekeeping',
+    'maintenance',
+    'sales_staff',
+    'collaborator',
+  ];
+
+  /** Component schemas referenced (directly) by a shape. */
+  const refsOf = (shape: Shape, out = new Set<string>()): Set<string> => {
+    switch (shape.k) {
+      case 'ref':
+        out.add(shape.name);
+        break;
+      case 'array':
+        refsOf(shape.items, out);
+        break;
+      case 'union':
+        for (const b of shape.of) refsOf(b, out);
+        break;
+      case 'object':
+        for (const p of Object.values(shape.props)) refsOf(p.s, out);
+        if (shape.extra) refsOf(shape.extra, out);
+        break;
+    }
+    return out;
+  };
+  /** Component schemas reachable (directly or through other schemas) from a shape. */
+  const reachable = (shape: Shape): Set<string> => {
+    const seen = new Set<string>();
+    const todo = [...refsOf(shape)];
+    while (todo.length) {
+      const name = todo.pop() as string;
+      if (seen.has(name)) continue;
+      seen.add(name);
+      const s = OPENAPI_SCHEMAS.schemas[name];
+      if (s) todo.push(...refsOf(s));
+    }
+    return seen;
+  };
+  const hasSelfData = (s: Shape | undefined) =>
+    !!s && s.k === 'object' && Object.values(s.props).some((p) => p.sd);
+
+  it('SEC 018-01 (a): SELF_DATA_FIELDS is exactly the pinned list (adding a key needs SEC review)', () => {
+    expect([...SELF_DATA_FIELDS].sort()).toEqual([...PINNED_SELF_DATA_FIELDS].sort());
+  });
+
+  it('SEC condition 2: SELF_DATA_FIELDS equals the generated OPENAPI_SCHEMAS.selfData (x-self-data in the contract)', () => {
+    expect([...SELF_DATA_FIELDS].sort()).toEqual([...OPENAPI_SCHEMAS.selfData].sort());
+  });
+
+  it('SEC 018-02: keys carry the owner kind (schema: / op:) – a schema and an operation cannot share a key', () => {
     for (const key of SELF_DATA_FIELDS) {
-      const [owner, prop] = key.split('.') as [string, string];
+      expect(key, key).toMatch(/^(schema|op):[A-Za-z0-9]+\.[A-Za-z0-9]+$/);
+    }
+    expect(SELF_DATA_FIELDS.has('Me.email')).toBe(false);
+    expect(SELF_DATA_FIELDS.has('setMyEmail.email')).toBe(false);
+  });
+
+  it('every SELF_DATA_FIELDS key is a first-level x-self-data property (no D-code) of a self-only answer', () => {
+    for (const key of SELF_DATA_FIELDS) {
+      const m = /^(schema|op):([^.]+)\.(.+)$/.exec(key);
+      expect(m, key).not.toBeNull();
+      const [, kind, owner, prop] = m as unknown as [string, string, string, string];
       let shape: Shape | undefined;
-      if (owner in SELF_ONLY_SCHEMAS) {
+      if (kind === 'schema') {
         shape = OPENAPI_SCHEMAS.schemas[owner];
       } else {
-        const op = OPENAPI_META.operations[owner];
-        expect(op?.path, key).toMatch(/^\/v1\/me(\/|$)/);
+        expect(isSelfOnlyOp(owner), key).toBe(true);
         shape = OPENAPI_SCHEMAS.responses[owner]?.['200'];
       }
       expect(shape?.k, key).toBe('object');
       const p = shape && shape.k === 'object' ? shape.props[prop] : undefined;
-      // 0.3.12 (SEC-ARC-018-03): `x-self-data: true` replaces `x-rbac-field: D27` on these properties (ARC P4-00).
       expect(p?.sd, key).toBe(true);
+      expect(p?.f, key).toBeUndefined();
+      expect(p?.v, key).toBeUndefined();
     }
-    // The generated list and the hand-pinned list name the same properties (BE-A P4-06 moves to `schema:`/`op:` keys).
-    const asGenerated = [...SELF_DATA_FIELDS]
-      .map((k) => (k.split('.')[0]! in SELF_ONLY_SCHEMAS ? `schema:${k}` : `op:${k}`))
-      .sort();
-    expect(asGenerated).toEqual(OPENAPI_SCHEMAS.selfData);
-    // `Me` is returned by exactly these operations (a new one must be reviewed here)
-    const usingMe = Object.entries(OPENAPI_SCHEMAS.responses)
-      .filter(([, byStatus]) => JSON.stringify(byStatus).includes('"name":"Me"'))
-      .map(([op]) => op)
-      .sort();
-    expect(usingMe).toEqual([...SELF_ONLY_SCHEMAS.Me].sort());
-    const refsToMe = Object.entries(OPENAPI_SCHEMAS.schemas)
-      .filter(([, s]) => JSON.stringify(s).includes('"name":"Me"'))
+  });
+
+  it('SEC condition 3: a schema with x-self-data is referenced (directly or not) only from self-only answers', () => {
+    const sdSchemas = Object.entries(OPENAPI_SCHEMAS.schemas)
+      .filter(([, s]) => hasSelfData(s))
       .map(([n]) => n);
-    expect(refsToMe).toEqual([]);
+    expect(sdSchemas).toEqual(['Me']);
+    const offenders: string[] = [];
+    const users = new Map<string, Set<string>>(sdSchemas.map((n) => [n, new Set<string>()]));
+    for (const [opId, byStatus] of Object.entries(OPENAPI_SCHEMAS.responses)) {
+      for (const shape of Object.values(byStatus)) {
+        for (const name of reachable(shape)) {
+          if (!users.has(name)) continue;
+          users.get(name)!.add(opId);
+          if (!isSelfOnlyOp(opId)) offenders.push(`${opId} → ${name}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+    // `Me` is returned by exactly these operations today (a new one must be reviewed here)
+    expect([...users.get('Me')!].sort()).toEqual([...SELF_ONLY_OPS].sort());
+    // and no other component schema embeds an x-self-data schema (serializeSchema of SSE/outbox payloads)
+    const embedding = Object.entries(OPENAPI_SCHEMAS.schemas)
+      .filter(([n, s]) => sdSchemas.some((sd) => sd !== n && reachable(s).has(sd)))
+      .map(([n]) => n);
+    expect(embedding).toEqual([]);
+  });
+
+  it('SEC condition 3 (guard works): an x-self-data schema reached through another schema is detected', () => {
+    const outer: Shape = {
+      k: 'object',
+      open: false,
+      props: { items: { s: { k: 'array', items: { k: 'ref', name: 'Me' } } } },
+    };
+    expect(reachable(outer).has('Me')).toBe(true);
+  });
+
+  it('SEC condition 4 / FB-R4-BEA-ARC-01: an sd property whose key is not listed is dropped for every role, OWN included', () => {
+    const shape: Shape = {
+      k: 'object',
+      open: false,
+      props: {
+        id: { s: { k: 'scalar' } },
+        email: { s: { k: 'scalar' }, sd: true },
+      },
+    };
+    const value = { id: 'u1', email: 'someone@example.test' };
+    for (const r of ALL_ROLES) {
+      // unlisted owner (an op that is not on the list)
+      expect(serializeShape(value, shape, { roles: [r] }, 'op:listUsers'), r).toEqual({ id: 'u1' });
+      // a schema owner with the same property name but not listed
+      expect(serializeShape(value, shape, { roles: [r] }, 'schema:User'), r).toEqual({ id: 'u1' });
+      // no owner (below the first level / no context) → dropped
+      expect(serializeShape(value, shape, { roles: [r] }), r).toEqual({ id: 'u1' });
+      // the unprefixed v1.0.3 key form is not accepted either
+      expect(propertyAllowed(shape.props.email!, { roles: [r] }, null, 'email'), r).toBe(false);
+      // listed key → returned (the same shape, the reviewed owner)
+      expect(serializeShape(value, shape, { roles: [r] }, 'op:setMyEmail'), r).toEqual(value);
+    }
+  });
+
+  it('sd does not bypass w / c3 / g / v (they still run first)', () => {
+    const roles = ['owner'];
+    const listed = ['op:startMy2faSetup', 'otpauthUri'] as const;
+    const base = { s: { k: 'scalar' }, sd: true } as const;
+    expect(propertyAllowed({ ...base }, { roles, c3: true }, ...listed)).toBe(true);
+    expect(propertyAllowed({ ...base, w: true }, { roles, c3: true }, ...listed)).toBe(false);
+    expect(propertyAllowed({ ...base, c3: true }, { roles }, ...listed)).toBe(false);
+    expect(propertyAllowed({ ...base, g: 2 }, { roles, guestLevel: 1 }, ...listed)).toBe(false);
+    expect(propertyAllowed({ ...base, v: ['manager'] }, { roles }, ...listed)).toBe(false);
+  });
+
+  it('a nested Me.email (below the first level of another object) is not covered', () => {
+    const nested: Shape = {
+      k: 'object',
+      open: false,
+      props: { inner: { s: OPENAPI_SCHEMAS.schemas.Me! } },
+    };
+    const out = serializeShape(
+      { inner: { email: 'hk@example.test', id: 'x' } },
+      nested,
+      {
+        roles: ['owner'],
+      },
+      'op:getMe',
+    ) as { inner: Record<string, unknown> };
+    expect('email' in out.inner).toBe(false);
   });
 });
 
