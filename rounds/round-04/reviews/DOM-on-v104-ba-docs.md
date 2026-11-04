@@ -202,3 +202,63 @@ Hai điểm BA để ngỏ (mục B): DOM đề xuất phương án. **Cả hai 
 - Sửa thẻ **01** và **02** trước khi ORC báo INV "v1.0.4 đã lên" (thẻ 01 phải có trước ngày thay tờ).
 - Thẻ 03–05 sửa cùng lượt nếu kịp; nếu không kịp, dời sang lượt sửa v1.0.4.1 được.
 - Thẻ 06 sửa sau khi ORC chốt mục B.
+
+---
+
+## Lượt 2 (04/11) – DOM xác nhận bản sửa BA
+
+- Đọc: `origin/v104/ba-docs` @ `39b61dec`, `rounds/round-04/responses/BA-on-DOM-v104.md`, `git diff 488d9392 39b61dec -- product/docs/manual`.
+- Đối chiếu mã @ `39b61dec`: `platform/public/parameter.service.ts` `set()` (hiệu lực ≥ hôm nay; trong ngày không ghi đè dòng đã có hiệu lực, trừ `sameDayOverride` chỉ cho công tắc form website); `config_parameter_def` – `privacy_notice_version` kiểu `text`, `bounds` NULL; `registration.controller.ts` ~458–466 từ chối `noticeVersion` khác tham số đang áp; `RegistrationPage.tsx` dòng 323 gửi bản đã tải lúc mở trang; `work-orders.service.ts` `transition` không bắt đúng người nhận việc khi hoàn tất.
+
+**Kết luận lượt 2: ĐẠT CÓ ĐIỀU KIỆN.** 6/6 thẻ đóng; mở 07–09. Thẻ 07 và 08 phải sửa **trước ngày thay tờ v2** (không chặn v1.0.4 lên). 09 sửa lượt sau cũng được.
+
+### Trạng thái thẻ lượt 1
+
+| ID | Mức | Trạng thái | Ghi chú DOM |
+|---|---|---|---|
+| 01 | Major | **Closed** | Đủ 7 ý (khung 09:00–11:00, không thay sau 12:00, ≤ 15 phút, cặp tin nhắn, dừng nhận giấy tờ khi chờ, sổ giao ca, tờ EN/RU khi đã in, mở quầy kiểm "v2"). Đường đặt tham số đúng Desk (**Quản trị → Tham số quy tắc → Khác**, **Hiệu lực từ** mặc định hôm nay), không SQL. Nhánh dự phòng: xem thẻ 07 |
+| 02 | Major | **Closed** | 8 bước đúng thứ tự; khóa ngay khi cho thôi việc; gỡ Google Chat, tạm ngưng tài khoản `@ottimo.vn`; câu "người trực duy nhất" tốt; mã cho phép người khác hoàn tất phiếu sửa |
+| 03 | Minor | **Closed** | Ngoại lệ chủ đầu tư với chuyển khoản ở sổ tay 1.8, `01` mục 4 |
+| 04 | Minor | **Closed** | Đủ 4 ý; chữ nhật ký đúng khóa `mlog.a_refund_destination_carried` |
+| 05 | Minor | **Closed** | Nút **Nhập nơi nhận hoàn** vẫn hiện; máy chủ ghi đè và đưa về **Chờ duyệt** |
+| 06 | Suggestion | **Closed** | B.1, B.2 ghi mọi chỗ, kèm "chủ đầu tư đổi được" |
+
+### Ý kiến về các chỗ BA làm khác
+
+1. G-BA-104-4 (quá 15 phút đặt lại tờ v1): **chấp nhận có sửa** – hướng đúng, nhưng Desk không cho quay về v1 trong ngày (thẻ 07).
+2. CTV bước 3, 4, 8 (bước 5 nếu lỡ có trong phòng): **đồng ý** – CTV tạo giữ chỗ (BR-302). Tạm ngưng `@ottimo.vn`, không hứa nút giao lại: đồng ý. Bước 6 chỉ đổi mã khi cho thôi việc: chấp nhận (mã theo lượt ở), trừ căn HĐ thuê tháng (thẻ 09).
+3. B.2 ý 4 (căn `VC`): **BA đúng**, DOM trích sai mục 7.4.
+4. `02` 14.2 "Áp dụng từ v1.0.4": **đồng ý** (khớp A81, `canInspect`).
+
+### Thẻ mới
+
+#### FB-R4-DOM-BA-104-07
+- Mức độ: **Major**
+- Vị trí: `guides/00-index.md` mục 4 bước 3; `02-le-tan.md` 7.2 khối **Ngày thay tờ** bước 3, 5, 8; `01` 9.2 dòng `privacy_notice_version`.
+- Vấn đề: đã **Lưu thay đổi** với hiệu lực hôm nay thì Desk không cho sửa/quay về v1 trong ngày. (a) Tin nhắn đi chéo: người trực đặt lại tờ v1 đúng lúc chủ đầu tư bấm Lưu → Desk ghi v2 cả ngày, khách đọc v1, không sửa được; sổ tay chưa có câu cho ca đã lỡ đặt, người trực cũng không báo đã đặt lại v1. (b) Gõ sai giá trị (text tự do) → cả ngày ghi bản không có thật; câu "không nhờ đội kỹ thuật" chặn luôn đường xin hỗ trợ.
+- Vì sao quan trọng: hỏng nguyên ngày dữ liệu đồng ý của khách, không sửa ngược được.
+- Đề xuất sửa (cả `00-index` mục 4 và `02` 7.2):
+  1. Chủ đầu tư **dán** giá trị chép từ sổ tay; lưu xong mở lại dòng, bảng lịch sử phải có dòng hôm nay đúng `"privacy-2026-10-v2"` rồi mới nhắn "Đã đặt v2".
+  2. Cảnh báo: "Đã bấm Lưu thì trong ngày không quay về v1 được."
+  3. Quá 15 phút từ tin "Đã thay tờ v2": **gọi người trực trước**, không lưu.
+  4. Người trực đặt lại tờ v1 thì nhắn ngay "Đã đặt lại tờ v1 – hh:mm"; tờ v2 cất cạnh, chưa hủy.
+  5. Tin "Đã đặt v2" đến sau khi đã đặt lại v1: đặt lại ngay tờ v2; ghi sổ giao ca **mã đơn** (không tên) của khách làm giấy tờ trong khoảng giữa; báo chủ đầu tư → đội bảo mật xem.
+  6. Lưu sai giá trị: dừng nhận giấy tờ, báo đội kỹ thuật ngay (**ngoại lệ** của "không nhờ đội"). Nhầm **Hiệu lực từ** ngày mai: sửa lại với hiệu lực hôm nay.
+- Gửi kèm PO/ARC: backlog v1.0.5 – giới hạn `privacy_notice_version` theo danh sách bản đã có.
+- Trạng thái: Open
+
+#### FB-R4-DOM-BA-104-08
+- Mức độ: Minor
+- Vị trí: `02` 7.2 khối **Ngày thay tờ** sau bước 3 (và bước 5).
+- Vấn đề: trang giấy tờ mở từ trước khi đổi tham số gửi bản cũ, máy chủ từ chối ở bước đồng ý; người trực không biết vì sao.
+- Đề xuất: "Nhận tin 'Đã đặt v2': tải lại (F5) mọi trang giấy tờ đang mở trên máy quầy. Desk báo lỗi ở bước đồng ý: tải lại trang, cho khách xem tờ đang ở quầy, làm lại bước đồng ý."
+- Trạng thái: Open
+
+#### FB-R4-DOM-BA-104-09
+- Mức độ: Suggestion
+- Vị trí: `01` 1.9 **Ngày cuối của người nghỉ** bước 6; sổ tay 1.5.
+- Vấn đề: mã cửa căn HĐ thuê tháng sống tới hết hợp đồng; người nghỉ êm vẫn biết mã lâu.
+- Đề xuất: "Căn HĐ thuê tháng mà người đó biết mã: hẹn khách đổi mã trong 7 ngày, kể cả khi nghỉ êm."
+- Trạng thái: Open
+
+Ghi chú: không cần ESC. SEC đọc thẻ 07 cùng lúc với nhánh dự phòng ngày thay tờ.
