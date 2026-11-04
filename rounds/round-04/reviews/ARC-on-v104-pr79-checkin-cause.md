@@ -11,7 +11,57 @@
   - #74 lượt 2 @ `0950313e`: `checkin.service.ts`, `openapi.yaml`, `api-client` sinh lại;
   - `UXD-on-v104-pr77-checkin-occupied.md` lượt 3–4.
 - ARC tự chạy: **chỉ** `bug-r4-039-fea` (theo ORC), trong worktree tạm, đã xóa khi xong.
-- Lượt 2: `d1a30cb7`, `0d209aed`, gộp vào #77 @ `5aca248e` (mục "Lượt 2" ngay dưới đây).
+- Lượt 3: #77 @ `055e92d5` (kiểu sinh thay kiểu tạm, sửa `tsc`), mục "Lượt 3" ngay dưới đây.
+- Lượt 2: `d1a30cb7`, `0d209aed`, gộp vào #77 @ `5aca248e`.
+
+## Lượt 3 (#77 @ `055e92d5`, 05/11): **ĐẠT** – không đổi hành vi, chờ CI
+
+Kiểm ngắn theo ORC, chỉ đọc git, không chạy test.
+
+Hai commit mới trên `5aca248e`:
+- `5d74eb02` (ORC): gộp `main`, gồm #74 (`2f535924`) và #82, sinh lại chữ.
+  - `CheckInPage.tsx` và `bug-r4-039-fea.test.tsx` giữ nguyên blob của `5aca248e`.
+- `055e92d5` (FE-A): 2 tệp, +5/−6.
+
+### L3.1 `CheckInPage.tsx` – chỉ đổi kiểu, không đổi hành vi
+- Bỏ `type RoomReadyCondition = CheckInCondition & { cause?: string; heldByReservationCode?: string }`.
+- `roomBlockedMessage(c: CheckInCondition | undefined, …)` nay dùng kiểu sinh từ `api-client`. Trên cây có #74, kiểu này có:
+  - `cause?: 'room_status' | 'held_by_other_stay' | 'no_room'`;
+  - `heldByReservationCode?: string`.
+- Thân hàm không đổi một ký tự: thứ tự `OOO` → `no_room` → `held_by_other_stay` (có / không mã) → `room_status` + `OC`/`OD` → `!hasRoom` → cách đọc DOM.
+- Không còn chỗ nào dùng `RoomReadyCondition` (`git grep` rỗng).
+- Thẻ **FB-R4-ARC-FE-PR79-02: Fixed @ `055e92d5`**. `tsc` nay canh tên trường và giá trị `cause` theo hợp đồng.
+
+### L3.2 Test – nhánh `cause` lạ vẫn được kiểm
+- Ca unit `roomBlockedMessage({ ...base, detail: 'VI', cause: later }, true)` → `{ key: 'checkin.room_held' }` vẫn còn. Chỉ đổi cách đưa giá trị lạ vào: `const later = 'later_cause' as unknown as CheckInCondition['cause']`.
+- Ép kiểu là cách đúng ở đây:
+  - hợp đồng ghi `cause` là tập mở (A.2), nên Desk cũ sẽ gặp giá trị mới ở lúc chạy;
+  - kiểu sinh lại đóng (union 3 giá trị), nên chỉ test mới cần đưa giá trị ngoài union vào.
+- Số ca trong `bug-r4-039-fea` không đổi (10 khối `it`, 13 ca như lượt 1).
+- Số tệp test của `admin-web` từ 85 lên 86 (thêm `v104-rate-source-typed` của #82). Không tệp nào bị bỏ.
+- Con số FE-A báo (158/158 trên 13 tệp) là một nhóm tệp FE-A chọn chạy, không phải cả bộ. CI chạy cả bộ.
+
+**Sửa một câu của lượt 1:**
+- Lượt 1 viết kiểu tạm "giao với kiểu sinh vẫn biên dịch được". Câu đó đúng với trang.
+- Nhưng giao `string` với union 3 giá trị cho ra chính union đó, nên chuỗi lạ `'later_cause'` trong test thành lỗi TS2322 khi #74 vào. Đó là lỗi CI run 41899315135 mà `055e92d5` sửa.
+- Không có hành vi nào sai. Chỉ `tsc` của test đỏ.
+
+### L3.3 CI và thẻ
+- #77 run 41900426878 @ `055e92d5`:
+  - 4 job xanh: API contract, Redocly, confidential, no test endpoints;
+  - `format · lint · audit · test · build`, shellcheck, landing, gitleaks đang chạy.
+- Cây có #74 và #76.
+- FB-R4-ARC-FE-PR79-01 (Suggestion, `cause` lạ thì hiện câu chung): vẫn Open, v1.0.5. Ca test ở L3.2 sẽ là chỗ đổi khẳng định khi làm thẻ này.
+
+**Phán quyết lượt 3: ĐẠT.** Gộp #77 khi job `format · lint · audit · test · build` của run 41900426878 xanh.
+
+Dòng đề nghị ghi vào `01-decisions/decision-log.md` (ORC ghi):
+
+| Ngày | Round | Quyết định | Người quyết | Lý do |
+|---|---|---|---|---|
+| 2026-11-05 | 4 | #77 @ `055e92d5` ĐẠT (lượt 3 của #79): dùng `CheckInCondition` sinh từ `api-client`, bỏ kiểu tạm; gộp khi CI run 41900426878 xanh | ARC | Thân `roomBlockedMessage` không đổi; ca `cause` lạ còn, giá trị lạ đưa vào bằng ép kiểu vì hợp đồng để tập mở; FE-PR79-02 đóng |
+
+---
 
 ## Lượt 2 (#79 @ `fa80de85`, đã gộp vào #77 @ `5aca248e`, 05/11): **ĐẠT** – chờ CI #77
 
