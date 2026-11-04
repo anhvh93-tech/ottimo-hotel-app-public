@@ -5,6 +5,7 @@ import {
   type CheckOutBody,
   type Folio,
   type FolioLine,
+  type MinibarStandard,
 } from '@ottimo/api-client';
 import {
   isLocaleLoaded,
@@ -26,7 +27,7 @@ import {
   Stepper,
   Switch,
 } from '@ottimo/ui';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
@@ -103,6 +104,31 @@ function lateFeeNotAllowed(e: unknown): boolean {
  * "Hoàn tất" with the consequence box (US-135). Server blockers (balance, approvals, minibar, credit)
  * are shown in place; a credit balance needs a handling choice (`overpaymentHandling`, G-15).
  */
+/**
+ * The figures a cabinet count starts from (what is LEFT per item), from the standard read for that cabinet:
+ * - DOM (e), BR-702 v0.3.8: the number the desk corrected on the folio (with a reason) wins over the last count –
+ *   sending `standard − folioUsed` keeps that line (R6); another number = a new count;
+ * - else the last count of this period;
+ * - BUG-R2-144 / BR-703-02: counted earlier in this refill period but due again (the stay came back to the room, or
+ *   was extended) – start from that count, never from a full cabinet (which would read as "nothing used" and
+ *   reverse what was charged);
+ * - else a full cabinet.
+ */
+export function minibarPrefill(std: MinibarStandard | undefined): Record<string, number> {
+  const latest = std?.latestCheck?.lines;
+  return Object.fromEntries(
+    (std?.items ?? []).map((i) => [
+      i.itemId,
+      i.adjustedAfterLastCheck && typeof i.folioUsedQty === 'number'
+        ? Math.max(0, i.standardQty - i.folioUsedQty)
+        : (latest?.find((l) => l.itemId === i.itemId)?.remainingQty ??
+          (typeof i.lastCheckUsedQty === 'number'
+            ? Math.max(0, i.standardQty - i.lastCheckUsedQty)
+            : i.standardQty)),
+    ]),
+  );
+}
+
 export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const { t, vnd, money, date } = useI18n();
   const propertyId = usePropertyId();
@@ -147,7 +173,26 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           new Promise<never>(() => undefined),
     [propertyId, reservationId, countingRoomId],
   );
-  const [left, setLeft] = useState<Record<string, number>>({});
+  // s4-144 race (v1.0.4): the prefill is derived in render, so the first frame that shows a cabinet already holds
+  // – and would send – the figures it starts from. It used to be copied into state by an effect one render later:
+  // "Tiếp tục" pressed in between sent a full cabinet ("nothing used") and reversed the minibar already charged.
+  const prefill = useMemo(() => minibarPrefill(std.state.data), [std.state.data]);
+  /**
+   * Figures the desk changed – for THIS standard read only: another cabinet, period or re-read drops them
+   * (BUG-R4-035: after B14 the figures typed on cabinet A were sent for cabinet B in the same frame).
+   */
+  const [edits, setEdits] = useState<{
+    of: MinibarStandard | undefined;
+    left: Record<string, number>;
+  }>({ of: undefined, left: {} });
+  const left: Record<string, number> =
+    edits.of && edits.of === std.state.data ? { ...prefill, ...edits.left } : prefill;
+  const editLeft = (next: Record<string, number>) => {
+    const of = std.state.data;
+    setEdits((e) => ({ of, left: { ...(e.of === of ? e.left : {}), ...next } }));
+  };
+  /** The standard for the cabinet on screen is in: until then "Tiếp tục" waits (nothing to count or send yet). */
+  const stdLoading = std.state.status === 'loading';
   const [lateTold, setLateTold] = useState(false);
   // S4-25 (US-007 AC1): the late surcharge written on the way to the bill can carry a FOC request.
   const [lateFoc, setLateFoc] = useState<SurchargeFoc>(noSurchargeFoc);
@@ -242,29 +287,6 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   /** The late surcharge was just written (B15): step 3 opens once the folio and booking are read again. */
   const [toBill, setToBill] = useState(false);
 
-  useEffect(() => {
-    const items = std.state.data?.items;
-    if (!items) return;
-    const latest = std.state.data?.latestCheck?.lines;
-    setLeft(
-      Object.fromEntries(
-        items.map((i) => [
-          i.itemId,
-          // DOM (e), BR-702 v0.3.8: the number the desk corrected on the folio (with a reason) wins over the last
-          // count – sending `standard − folioUsed` keeps that line (R6); another number = a new count.
-          i.adjustedAfterLastCheck && typeof i.folioUsedQty === 'number'
-            ? Math.max(0, i.standardQty - i.folioUsedQty)
-            : (latest?.find((l) => l.itemId === i.itemId)?.remainingQty ??
-              // BUG-R2-144 / BR-703-02: counted earlier in this refill period but due again (the stay came back
-              // to the room, or was extended) – start from that count, never from a full cabinet (which would
-              // read as "nothing used" and reverse what was charged).
-              (typeof i.lastCheckUsedQty === 'number'
-                ? Math.max(0, i.standardQty - i.lastCheckUsedQty)
-                : i.standardQty)),
-        ]),
-      ),
-    );
-  }, [std.state.data]);
   useEffect(() => {
     // E03-07: the guest leaves now – never a future time, never the standard time by default. KB7 (UXR 17/10):
     // after 12:30 the default used to be 12:00 ("Trả đúng giờ – không phụ thu") and the late surcharge was
@@ -1140,7 +1162,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                               value={rem}
                               min={0}
                               max={i.standardQty}
-                              onChange={(v) => setLeft((x) => ({ ...x, [i.itemId]: v }))}
+                              onChange={(v) => editLeft({ [i.itemId]: v })}
                               labelledBy={`${ids}-i${idx}`}
                               decLabel={t('rooms.dec')}
                               incLabel={t('rooms.inc')}
@@ -1715,16 +1737,18 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 {chargeable ? (
                   <Button
                     onClick={() =>
-                      setLeft(Object.fromEntries(items.map((i) => [i.itemId, i.standardQty])))
+                      editLeft(Object.fromEntries(items.map((i) => [i.itemId, i.standardQty])))
                     }
                   >
                     {t('checkout.minibar.all_full')}
                   </Button>
                 ) : null}
+                {/* s4-144: while the cabinet's standard is read, the button waits (DS busy) – pressed then it
+                    used to skip the count (no items yet = "nothing chargeable"). */}
                 <Button
                   variant="pri"
-                  busy={minibarAct.busy}
-                  busyLabel={minibarAct.busyLabel}
+                  busy={minibarAct.busy || stdLoading}
+                  busyLabel={minibarAct.busy ? minibarAct.busyLabel : t('common.loading')}
                   onClick={() => void saveMinibar()}
                 >
                   {minibarAct.label(t('co.go_extras'))}
