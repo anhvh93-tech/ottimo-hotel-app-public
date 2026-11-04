@@ -10,6 +10,32 @@ import { fieldErrorText, problemView } from './problem';
 
 type T = (key: string, args?: Args) => string;
 
+/**
+ * v1.0.4 P4-40 (FE-B) – string keys placed by ARC (plan-v1.0.4 3.1). UXD writes VI/EN in P4-01 (strings round 1,
+ * after `main@L`); until then `t` shows the key itself. Kept here, not inline, so the "every literal key exists"
+ * test stays green before P4-01 – inline them once P4-01 is merged (and turn on the `it.todo` in
+ * `v104-holds-feb.test.tsx`).
+ */
+export const HOLD_KEYS = {
+  /** Deposit dialog: "Giờ nhận tiền" (FD+, default now, never in the future) – BUG-R3-042. */
+  receivedAt: 'deposit.received_at',
+  receivedAtHelp: 'deposit.received_at_help',
+  /** OWN/MGR only: accept a short deposit, with a reason ≥ 3 characters – BUG-R3-043 (BR-303 (2)). */
+  acceptShortfall: 'deposit.accept_shortfall',
+  acceptShortfallReason: 'deposit.accept_shortfall_reason',
+  /** Drawer: a hold WITH money past its deadline – not cancelled, room still held – BUG-R3-044 (1). */
+  paidOverdueBanner: 'hold.paid_overdue_banner',
+  /** `HOLD_EXPIRED` on a hold with money – BUG-R3-044 (2). */
+  expiredPaid: 'error.HOLD_EXPIRED_PAID',
+  /** Cancel dialog of a hold with money: "no fee, refund request {amount} – manager approves" – BUG-R3-044 (3). */
+  cancelRefundPreview: 'cancel.refund_preview',
+  /** Hôm nay: "Giữ chỗ chờ cọc ({n})" – holds with part of the deposit too (ĐX-R3-QA-01, BA M13-02). */
+  todayHoldsWaiting: 'today.holds_waiting',
+  /** "Cần chú ý" kinds of 0.3.12 (ĐX-R3-QA-01). */
+  attnHoldOverdue: 'attention.hold_overdue',
+  attnHoldOverdueCap: 'attention.hold_overdue_cap',
+} as const;
+
 export const STATUS_KEY: Record<ReservationStatus, string> = {
   hold: 'status.booking.hold',
   confirmed: 'status.booking.confirmed',
@@ -116,6 +142,12 @@ export interface RsvErrorContext {
   paid?: number;
   /** FD+ may see the occupying guest's name (booking.error.conflict); others get the no-name form. */
   canSeeGuest?: boolean;
+  /**
+   * v1.0.4 BUG-R3-044 (2): deposit already received on the hold (`Reservation.depositPaidVnd`). > 0 → the
+   * `HOLD_EXPIRED` sentence for a hold WITH money (the booking is not cancelled, the room is still held) – never
+   * "the room is back on sale". The Desk knows the amount, so no new Problem extra is needed (ARC tech plan 4).
+   */
+  holdPaidVnd?: number;
 }
 
 /**
@@ -174,6 +206,11 @@ export function rsvErrorText(t: T, error: unknown, ctx: RsvErrorContext = {}): s
         eta: String(p.eta ?? p.etaTime ?? ''),
       });
     case 'HOLD_EXPIRED':
+      if ((ctx.holdPaidVnd ?? 0) > 0)
+        return t(HOLD_KEYS.expiredPaid, {
+          time: typeof p.expiredAt === 'string' ? formatInstant(locale, p.expiredAt) : '',
+          paid: vnd(ctx.holdPaidVnd),
+        });
       return typeof p.expiredAt === 'string'
         ? t('error.HOLD_EXPIRED', { time: formatInstant(locale, p.expiredAt) })
         : t('error.HOLD_EXPIRED_notime');
@@ -187,4 +224,35 @@ export function currentStateOf(e: unknown): ReservationStatus | undefined {
   const p = problemOf(e) as Record<string, unknown> | undefined;
   const s = p?.currentState;
   return typeof s === 'string' && s in STATUS_KEY ? (s as ReservationStatus) : undefined;
+}
+
+/**
+ * v1.0.4 BUG-R3-042: `<input type="datetime-local">` value (`YYYY-MM-DDTHH:mm`) of an instant in the property
+ * time zone (the desk types the time the money arrived on the hotel's wall clock, never the browser's).
+ */
+export function toLocalInput(d: Date, timeZone = 'Asia/Ho_Chi_Minh'): string {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(d)
+      .map((x) => [x.type, x.value]),
+  );
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}
+
+/**
+ * The zoned ISO instant (`…+07:00`, as in the `confirmDeposit` example) of a `datetime-local` value read in the
+ * property zone – OTTIMO is Asia/Ho_Chi_Minh (+07:00, no DST), the offset ExtendHoldDialog uses too. Bad → null.
+ */
+export function fromLocalInput(v: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v)) return null;
+  const iso = `${v}:00+07:00`;
+  return Number.isNaN(Date.parse(iso)) ? null : iso;
 }

@@ -23,13 +23,16 @@ import { monoArgs } from '../../app/mono';
 import { parseVnd } from '../../app/money';
 import { fieldErrors } from '../../app/problem';
 import {
+  HOLD_KEYS,
   addDays,
   currentSegment,
   currentStateOf,
   dayMonth,
+  fromLocalInput,
   problemOf,
   rsvErrorText,
   suggestionsOf,
+  toLocalInput,
   type RsvErrorContext,
 } from '../../app/reservations';
 import type { RuleParams } from '../../app/rules';
@@ -120,6 +123,8 @@ function useAction(base: DialogBase) {
     locale,
     roomNo: base.reservation.segments?.[0]?.roomNo ?? undefined,
     canSeeGuest: true,
+    // BUG-R3-044 (2): `HOLD_EXPIRED` on a hold with money says the booking is kept (never "back on sale").
+    holdPaidVnd: base.reservation.status === 'hold' ? base.reservation.depositPaidVnd : undefined,
     ...extra,
   });
 
@@ -203,8 +208,13 @@ export function CancelDialog(
   const retainLines = retainLinesOf(keep);
   const hold = r.status === 'hold';
   const penaltyVnd = ota && penalty.trim() ? parseVnd(penalty) : undefined;
+  // BUG-R3-046: "Khác (ghi rõ)" needs its note (≥ 3) in the dry run too (the server checks it there) – the note is
+  // part of what the dry run answers; until it is long enough nothing is asked and the dialog says why.
+  const noteNow = reason === 'other' ? note.trim() : '';
+  const noteMissing = reason === 'other' && noteNow.length < 3;
   const inputNow = JSON.stringify({
     rc: reason,
+    note: noteNow,
     pen: penaltyVnd ?? null,
     keep: retainLines,
     tick: previewTick,
@@ -217,15 +227,18 @@ export function CancelDialog(
     let stale = false;
     const q = JSON.parse(previewInput) as {
       rc: string;
+      note: string;
       pen: number | null;
       keep: Array<{ lineId: string; reason: string }>;
     };
     setQuoteError(null);
+    if (q.rc === 'other' && q.note.length < 3) return; // 422 REASON_REQUIRED – the field asks first
     api
       .cancelReservationPreview(
         { propertyId, reservationId: r.id },
         {
           reasonCode: (q.rc || (ota ? 'ota_cancelled' : 'guest_changed_mind')) as CancelReasonCode,
+          note: q.rc === 'other' ? q.note : undefined,
           otaPenaltyVnd: ota && q.pen ? q.pen : undefined,
           retainLines: q.keep.length ? q.keep : undefined,
         },
@@ -244,6 +257,11 @@ export function CancelDialog(
   }, [previewInput, propertyId, r.id, ota]);
   const quoteCurrent = !!quote && quoteFor === inputNow;
 
+  // BUG-R3-044 (3): what a cancelled hold gives back – the dry run's refund request when it says one, else
+  // everything received (BR-303 (3): 100 %, no fee).
+  const holdRefund = hold
+    ? quote?.refundRequestVnd || quote?.refundableVnd || (r.depositPaidVnd ?? 0)
+    : 0;
   const room = r.segments?.[0]?.roomNo ?? '–';
   const from = dayMonth(r.arrivalDate);
   const to = dayMonth(r.departureDate);
@@ -346,8 +364,14 @@ export function CancelDialog(
       onKeep={props.onClose}
       onConfirm={() => void confirm()}
     >
-      {hold ? <p className="li-s">{t('cancel.fee_none')}</p> : null}
-      {quote?.refundRequestVnd && quote.refundRequestVnd !== quote.refundableVnd ? (
+      {hold && holdRefund > 0 ? (
+        // BUG-R3-044 (3), BA M13-01: cancelling a hold WITH money – no fee, the money received goes back through
+        // a refund request the manager approves (the server creates it) – said before the press, before deadline too.
+        <p className="li-s">{t(HOLD_KEYS.cancelRefundPreview, { amount: money(holdRefund) })}</p>
+      ) : hold ? (
+        <p className="li-s">{t('cancel.fee_none')}</p>
+      ) : null}
+      {!hold && quote?.refundRequestVnd && quote.refundRequestVnd !== quote.refundableVnd ? (
         <p className="li-s">
           {t('cancel.refund_request', { amount: money(quote.refundRequestVnd) })}
         </p>
@@ -435,12 +459,16 @@ export function CancelDialog(
           }}
         />
       ) : null}
-      {!quote && !quoteError ? (
+      {noteMissing && !quoteCurrent ? (
+        <p className="li-s" id={helpId} role="status">
+          {t('field_error.reason_required')}
+        </p>
+      ) : !quote && !quoteError ? (
         <p className="li-s" id={helpId} role="status">
           {t('cancel.preview_loading')}
         </p>
       ) : null}
-      {quoteError ? (
+      {quoteError && !noteMissing ? (
         <Alert
           tone="warn"
           id={helpId}
@@ -463,6 +491,19 @@ export function CancelDialog(
   );
 }
 
+/** FD+ (rbac: the desk may date a receipt back – SEC-BE-22; a sale / CTV may not). */
+const DESK_ROLES = ['owner', 'manager', 'front_desk_lead', 'front_desk'];
+
+/** Deposits received on the folio (succeeded, not a reversal, not reversed), oldest first. */
+function receivedDeposits(payments: Payment[] | undefined): Payment[] {
+  const list = payments ?? [];
+  const reversed = new Set(list.map((p) => p.reversalOfId).filter(Boolean));
+  return list.filter(
+    (p) =>
+      p.type === 'deposit' && p.status === 'succeeded' && !p.reversalOfId && !reversed.has(p.id),
+  );
+}
+
 const METHODS: Array<{ value: PaymentMethod; key: string }> = [
   { value: 'vietqr', key: 'pay.vietqr' },
   { value: 'bank_transfer', key: 'pay.bank_transfer' },
@@ -478,8 +519,22 @@ const METHODS: Array<{ value: PaymentMethod; key: string }> = [
 export function DepositDialog(props: DialogBase) {
   const { t, vnd, money } = useI18n();
   const propertyId = usePropertyId();
+  const { roles, property } = useSession();
+  const tz = property?.timezone;
   const toast = useToast();
   const act = useAction(props);
+  // v1.0.4 BUG-R3-042: FD+ may date a receipt back (money arrived before the hold deadline, pressed after it –
+  // US-085 AC4). Untouched → not sent: the server takes "now". Never in the future (the server also refuses a time
+  // before the hold was created – 422 `payment.receivedAt`).
+  const deskRole = roles.some((x) => DESK_ROLES.includes(x));
+  const [receivedAt, setReceivedAt] = useState(() => toLocalInput(new Date(), tz));
+  const [receivedTouched, setReceivedTouched] = useState(false);
+  // v1.0.4 BUG-R3-043 (BR-303 (2), B-29): OWN/MGR accept a short deposit with a reason (FD/FDL/SAL → 403).
+  const mgr = roles.some((x) => x === 'owner' || x === 'manager');
+  const [acceptShortfall, setAcceptShortfall] = useState(false);
+  const [shortfallReason, setShortfallReason] = useState('');
+  /** Deposits already received on the folio – the one sent when the manager accepts with no new money. */
+  const [received, setReceived] = useState<Payment[]>([]);
   const [r, setR] = useState(props.reservation);
   const need = r.depositRequiredVnd ?? 0;
   const paidBefore = r.depositPaidVnd ?? 0;
@@ -489,7 +544,11 @@ export function DepositDialog(props: DialogBase) {
   const [posCode, setPosCode] = useState('');
   const [touched, setTouched] = useState(false);
   const value = parseVnd(amount) ?? 0;
-  const amountError = touched && !(value > 0) ? t('field_error.amount_not_positive') : undefined;
+  // BUG-R3-043: a manager accepting the shortfall on the money already received types no new amount.
+  const amountError =
+    touched && !(value > 0) && !(acceptShortfall && mgr && paidBefore > 0 && received.length > 0)
+      ? t('field_error.amount_not_positive')
+      : undefined;
   const ref = r.code.replace(/-/g, '');
   // S4-28: the deposit VietQR waiting on the folio (created at H12 and sent to the guest) or created here.
   const [pending, setPending] = useState<Payment | null>(null);
@@ -505,7 +564,11 @@ export function DepositDialog(props: DialogBase) {
   useEffect(() => {
     let stale = false;
     api.getFolio({ propertyId, folioId: r.folioId }).then(
-      (f) => !stale && setPending(pendingDepositQr(f.data.payments)),
+      (f) => {
+        if (stale) return;
+        setPending(pendingDepositQr(f.data.payments));
+        setReceived(receivedDeposits(f.data.payments));
+      },
       () => undefined, // no folio read → the dialog still records the deposit by hand
     );
     return () => {
@@ -522,6 +585,19 @@ export function DepositDialog(props: DialogBase) {
         (qrOverMax?.paymentId === qrPayment.id ? qrOverMax.max : null))
       : null;
   const qrNoteMissing = qrOver !== null && qrNote.trim().length < 3;
+  // BUG-R3-043: shown to OWN/MGR when some money is (or will be, with this receipt) on the hold and it is still
+  // short of the deposit asked – before or after the deadline (after it, BUG-R3-042 lets a paid hold through).
+  const paidAfter = paidBefore + value;
+  const shortfallOffered = mgr && need > 0 && paidAfter > 0 && paidAfter < need;
+  const accepting = shortfallOffered && acceptShortfall;
+  const shortfallReasonMissing = accepting && shortfallReason.trim().length < 3;
+  const shortfallReasonValue = accepting ? shortfallReason.trim() : undefined;
+  /** OWN/MGR accept with no new receipt: confirm on a deposit already received (the API needs a payment). */
+  const acceptOnExisting = accepting && !(value > 0) ? (received.at(-1) ?? null) : null;
+  const receivedIso = deskRole && receivedTouched && !viaQr ? fromLocalInput(receivedAt) : null;
+  const receivedBad =
+    deskRole && receivedTouched && !viaQr && (!receivedIso || Date.parse(receivedIso) > Date.now());
+  const receivedError = receivedBad ? t('field.DATE_INVALID') : act.fields['payment.receivedAt'];
 
   /**
    * US-120 / SM-12: money in on the QR the guest paid → `confirmPaymentReceived` (pending → succeeded,
@@ -570,7 +646,7 @@ export function DepositDialog(props: DialogBase) {
     return act.run((v, idem) =>
       api.confirmDeposit(
         { propertyId, reservationId: r.id },
-        { existingPaymentId: paymentId },
+        { existingPaymentId: paymentId, acceptShortfallReason: shortfallReasonValue },
         version ?? v,
         idem,
       ),
@@ -579,24 +655,36 @@ export function DepositDialog(props: DialogBase) {
 
   const submit = async () => {
     setTouched(true);
-    if (!(value > 0) || qrNoteMissing) return;
-    const out = viaQr
-      ? await submitViaQr(qrPayment!.id)
-      : await act.run((version, idem) =>
+    if ((!(value > 0) && !acceptOnExisting) || qrNoteMissing || shortfallReasonMissing) return;
+    if (receivedBad) return;
+    const out = acceptOnExisting
+      ? await act.run((version, idem) =>
           api.confirmDeposit(
             { propertyId, reservationId: r.id },
-            {
-              payment: {
-                type: 'deposit',
-                method,
-                amountVnd: value,
-                posAuthCode: method === 'card_pos' ? posCode.trim() || undefined : undefined,
-              },
-            },
+            { existingPaymentId: acceptOnExisting.id, acceptShortfallReason: shortfallReasonValue },
             version,
             idem,
           ),
-        );
+        )
+      : viaQr
+        ? await submitViaQr(qrPayment!.id)
+        : await act.run((version, idem) =>
+            api.confirmDeposit(
+              { propertyId, reservationId: r.id },
+              {
+                payment: {
+                  type: 'deposit',
+                  method,
+                  amountVnd: value,
+                  posAuthCode: method === 'card_pos' ? posCode.trim() || undefined : undefined,
+                  receivedAt: receivedIso ?? undefined,
+                },
+                acceptShortfallReason: shortfallReasonValue,
+              },
+              version,
+              idem,
+            ),
+          );
     if (!out) return;
     if (out.data.status === 'hold') {
       // Partial (A-13): stay open with the new balance; refresh the drawer behind.
@@ -605,6 +693,8 @@ export function DepositDialog(props: DialogBase) {
       const left = Math.max(0, (out.data.depositRequiredVnd ?? 0) - (out.data.depositPaidVnd ?? 0));
       setAmount(left ? vnd(left) : '');
       setTouched(false);
+      setReceivedTouched(false);
+      setReceivedAt(toLocalInput(new Date(), tz));
       void props.reload();
       return;
     }
@@ -629,7 +719,7 @@ export function DepositDialog(props: DialogBase) {
             disabled={act.locked}
             onClick={() => void submit()}
           >
-            {value > 0 && value < missing
+            {value > 0 && value < missing && !accepting
               ? t('rsv.record_partial', { amount: vnd(value) })
               : t('rsv.deposit_submit')}
           </Button>
@@ -707,6 +797,27 @@ export function DepositDialog(props: DialogBase) {
           )}
         </Field>
       </div>
+      {deskRole && !viaQr ? (
+        <Field
+          label={t(HOLD_KEYS.receivedAt)}
+          help={t(HOLD_KEYS.receivedAtHelp)}
+          error={receivedError}
+        >
+          {(p) => (
+            <input
+              {...p}
+              type="datetime-local"
+              className="input num"
+              max={toLocalInput(new Date(), tz)}
+              value={receivedAt}
+              onChange={(e) => {
+                setReceivedTouched(true);
+                setReceivedAt(e.target.value);
+              }}
+            />
+          )}
+        </Field>
+      ) : null}
       {qrOver !== null && qrPayment ? (
         <>
           <Alert tone="warn" role="status">
@@ -742,7 +853,37 @@ export function DepositDialog(props: DialogBase) {
           )}
         </Field>
       ) : null}
-      {value > 0 && value < missing ? <p className="li-s">{t('rsv.deposit_partial')}</p> : null}
+      {shortfallOffered ? (
+        <>
+          <Checkbox checked={acceptShortfall} onChange={setAcceptShortfall}>
+            {t(HOLD_KEYS.acceptShortfall)}
+          </Checkbox>
+          {acceptShortfall ? (
+            <Field
+              label={t(HOLD_KEYS.acceptShortfallReason)}
+              required
+              error={
+                touched && shortfallReasonMissing
+                  ? t('field_error.reason_required')
+                  : act.fields.acceptShortfallReason
+              }
+            >
+              {(p) => (
+                <input
+                  {...p}
+                  className="input"
+                  maxLength={500}
+                  value={shortfallReason}
+                  onChange={(e) => setShortfallReason(e.target.value)}
+                />
+              )}
+            </Field>
+          ) : null}
+        </>
+      ) : null}
+      {value > 0 && value < missing && !accepting ? (
+        <p className="li-s">{t('rsv.deposit_partial')}</p>
+      ) : null}
       {method === 'vietqr' && qrPayment && value > 0 && !viaQr ? (
         <p className="li-s">{t('dep.qr_amount_differs', { amount: money(qrPayment.amountVnd) })}</p>
       ) : null}

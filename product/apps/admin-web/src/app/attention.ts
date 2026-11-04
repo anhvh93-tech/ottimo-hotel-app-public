@@ -1,7 +1,7 @@
 import type { AttentionItem, Role } from '@ottimo/api-client';
 import type { IconName } from '@ottimo/ui';
 import { timeHHmm, todayLocal } from './dates';
-import { dayMonth } from './reservations';
+import { HOLD_KEYS, dayMonth } from './reservations';
 
 type Translate = (key: string, args?: Record<string, string | number>) => string;
 
@@ -43,8 +43,16 @@ export interface AttentionContext {
   num?: (n: number) => string;
 }
 
+/**
+ * v1.0.4 P4-40 (ĐX-R3-QA-01): kinds of OpenAPI 0.3.12 (P4-00 (a)) not in the generated union yet. Remove the
+ * widening when the api-client is regenerated from 0.3.12 (`main@L`).
+ * - `hold_overdue` – every hold past its deadline, any arrival date, until it leaves `hold`; computed, red.
+ * - `hold_overdue_cap` – MGR/OWN, a paid hold still open after 12:00 on its arrival day.
+ */
+type Kind = AttentionItem['kind'] | 'hold_overdue' | 'hold_overdue_cap';
+
 const TONE = { critical: 'urgent', warning: 'soon', info: 'info' } as const;
-const ICON: Partial<Record<AttentionItem['kind'], IconName>> = {
+const ICON: Partial<Record<Kind, IconName>> = {
   vip_arrival: 'star',
   room_ooo: 'lock',
   rent_due_soon: 'calendar',
@@ -56,6 +64,8 @@ const ICON: Partial<Record<AttentionItem['kind'], IconName>> = {
   work_order_overdue: 'wrench',
   ooo_ending_work_open: 'wrench',
   hold_expiring: 'hourglass',
+  hold_overdue: 'hourglass',
+  hold_overdue_cap: 'alert',
   meter_not_read: 'sliders',
   channel_sync_error: 'alert',
   foc_threshold: 'tag',
@@ -84,6 +94,9 @@ const AUTO_CLOSE = new Set([
   'closed_reservation_credit',
   // ARC 16.26: ends when the debt is collected (or waived) – "Thu công nợ" instead of "Đã xử lý".
   'checkout_debt',
+  // ĐX-R3-QA-01: stay until the booking leaves `hold` (confirmed / cancelled) – never closed by "Đã xử lý".
+  'hold_overdue',
+  'hold_overdue_cap',
 ]);
 /** Only the owner closes these (EP01 3.2). */
 const OWNER_CLOSE = new Set(['data_quality', 'security_alert']);
@@ -113,7 +126,7 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
   let collectDebtId: string | undefined;
   let openLabel: string | undefined;
 
-  switch (item.kind) {
+  switch (item.kind as Kind) {
     case 'room_ooo':
       // 0.3.7 add. 1: only `count` + `roomNos` – the reopening date is on the rack / Bảo trì › Khóa phòng.
       key = 'attn.room_ooo_rooms';
@@ -139,6 +152,21 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
     case 'hold_expiring':
     case 'no_show_call':
       args = { code, time };
+      break;
+    case 'hold_overdue': {
+      // ĐX-R3-QA-01 AC1/AC2: one booking → its code and the deadline passed (`dueAt`, any arrival date); several →
+      // the count, the bookings list. "Mở" goes to the booking, where the drawer says what to do (BUG-R3-044).
+      const due = item.dueAt ? new Date(item.dueAt) : undefined;
+      key = HOLD_KEYS.attnHoldOverdue;
+      args = { n, code, time, date: due ? dayMonth(todayLocal(ctx.timeZone, due)) : '' };
+      to = rsv ?? '/reservations';
+      break;
+    }
+    case 'hold_overdue_cap':
+      // MGR/OWN after 12:00 on the arrival day (DOM A.5/A.6): the paid hold still waits – the manager decides.
+      key = HOLD_KEYS.attnHoldOverdueCap;
+      args = { n, code, time };
+      to = rsv ?? '/reservations';
       break;
     case 'deposit_after_cancel':
       key = 'today.money_after_cancel';
