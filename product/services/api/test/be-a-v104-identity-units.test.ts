@@ -8,6 +8,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ownerEmailFlag } from '../src/admin/production-bootstrap-cli';
+import { BootstrapRefusedError, bootstrapProduction } from '../src/admin/production-bootstrap';
+import type { Database } from '../src/db/database';
 import { KNOWN_TEMPLATES_EXIT, knownEmailTemplates } from '../src/admin/known-email-templates-cli';
 import { paramsFor } from '../src/jobs/email-dispatch';
 import { EMAIL_CHANGE_LIMIT } from '../src/modules/identity/internal/security-email.service';
@@ -169,8 +171,52 @@ describe('production-bootstrap --owner-email (V3-04)', () => {
     expect(ownerEmailFlag(['node', 'cli', '--owner-email'])).toBe(true);
     expect(ownerEmailFlag(['node', 'cli', '--owner-email', '--operator', 'ops'])).toBe(true);
     expect(() => ownerEmailFlag(['node', 'cli', '--owner-email', 'own@example.test'])).toThrow(
-      /no value/,
+      BootstrapRefusedError,
     );
+  });
+
+  it('SEC V104-03: `--owner-email=<address>` is refused (exit 2 = BootstrapRefusedError), the value never echoed', () => {
+    for (const a of ['--owner-email=own@example.test', '--owner-email=']) {
+      let err: unknown;
+      try {
+        ownerEmailFlag(['node', 'cli', '--owner-username', 'own', a]);
+      } catch (e) {
+        err = e;
+      }
+      expect(err, a).toBeInstanceOf(BootstrapRefusedError);
+      expect((err as Error).message).toMatch(/no value/);
+      expect((err as Error).message).not.toContain('own@example.test');
+      expect((err as Error).message).toContain('history');
+    }
+  });
+
+  it('the owner e-mail follows the setMyEmail rules – refused before any database access, value not echoed', async () => {
+    const noDb = new Proxy({} as Database, {
+      get() {
+        throw new Error('database touched');
+      },
+    });
+    const clock = { now: () => new Date('2026-11-04T02:00:00Z') };
+    const base = { ownerUsername: 'owner', ownerDisplayName: 'Chủ', operator: 'ops', clock };
+    const cases: Array<[string, RegExp]> = [
+      ['not-an-address', /not a valid address/],
+      ['nguyễn@example.test', /not a valid address/],
+      ['info+x@example.test', /shared mailbox/],
+      ['booking@example.test', /shared mailbox/],
+    ];
+    for (const [ownerEmail, why] of cases) {
+      const err = await bootstrapProduction(noDb, {
+        ...base,
+        ownerEmail,
+        sharedMailboxes: { emailFrom: 'OTTIMO <info@example.test>' },
+      }).then(
+        () => null,
+        (e: unknown) => e,
+      );
+      expect(err, ownerEmail).toBeInstanceOf(BootstrapRefusedError);
+      expect((err as Error).message).toMatch(why);
+      expect((err as Error).message).not.toContain('@');
+    }
   });
 });
 

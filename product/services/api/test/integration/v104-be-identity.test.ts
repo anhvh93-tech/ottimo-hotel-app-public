@@ -57,6 +57,9 @@ describe.skipIf(!HAS_DB)('v1.0.4 P4-06 – EM-09, shared mailboxes, denial reaso
     hk: ['housekeeping'],
     mail: ['front_desk'],
     mfa: ['manager'],
+    rm: ['front_desk'],
+    race: ['front_desk'],
+    race2: ['front_desk'],
   };
   const addr = (name: string) => `${name}-${t.organizationId.slice(-6)}@example.test`;
   const q = <R extends Record<string, unknown>>(sql: string, params: unknown[] = []) =>
@@ -202,6 +205,47 @@ describe.skipIf(!HAS_DB)('v1.0.4 P4-06 – EM-09, shared mailboxes, denial reaso
     // a display-name-only PATCH is not an e-mail change – never limited
     const nameOnly = await patchUser('own', 'fd4', { displayName: 'Lễ tân Bốn' });
     expect(nameOnly.statusCode).toBe(200);
+  });
+
+  it('SEC V104-01: at the limit, REMOVING the address (null) is never refused – recorded and counted; the next set → 429', async () => {
+    await q('UPDATE app_user SET email = $2 WHERE id = $1', [t.users.rm!.id, addr('rm-attacker')]);
+    await pastChanges('rm', [3600, 3000, 2400, 1800, 1200]); // 5 in the window
+    expect((await putEmail('rm', addr('rm-again'))).statusCode).toBe(429);
+    // the owner deletes the address (M18-08 step 2) – allowed
+    const del = await patchUser('own', 'rm', { email: null, reauth: { password: TEST_PASSWORD } });
+    expect(del.statusCode).toBe(200);
+    expect(await changes('rm')).toBe(6);
+    const { rows } = await q<{ email: string | null }>(
+      'SELECT email::text AS email FROM app_user WHERE id = $1',
+      [t.users.rm!.id],
+    );
+    expect(rows[0]!.email).toBeNull();
+    // removal by the person too (already null → no-op 200)
+    expect((await putEmail('rm', null)).statusCode).toBe(200);
+    // setting an address again is still limited
+    const again = await patchUser('own', 'rm', {
+      email: addr('rm-new'),
+      reauth: { password: TEST_PASSWORD },
+    });
+    expect(again.statusCode).toBe(429);
+    expect(await changes('rm')).toBe(6);
+  });
+
+  it('SEC V104-02: two concurrent changes at count 4 → exactly one 200 and one 429, exactly 5 rows', async () => {
+    // Both requests pass the pre-S2 check (4 < 5) and S2; the app_user row lock + the re-check in recordChange let
+    // exactly one through. (setMyEmail ‖ updateUser is not used: updateUser needs If-Match, so the loser there gets
+    // 412 VERSION_CONFLICT before the limit – also safe, but not this rule.) Two users = two runs of the race.
+    for (const user of ['race', 'race2']) {
+      await pastChanges(user, [3600, 3000, 2400, 1800]); // 4 in the window
+      const res = await Promise.all([
+        putEmail(user, addr(`${user}-a`)),
+        putEmail(user, addr(`${user}-b`)),
+      ]);
+      const codes = res.map((r) => r.statusCode).sort();
+      expect({ user, codes }).toEqual({ user, codes: [200, 429] });
+      expect(res.find((r) => r.statusCode === 429)!.json().code).toBe('RATE_LIMITED');
+      expect(await changes(user)).toBe(5);
+    }
   });
 
   it('EM-09 order: RBAC 403 and address 422 still come first at the limit', async () => {
@@ -366,6 +410,42 @@ describe.skipIf(!HAS_DB)(
       const a = s.byAudience();
       expect(a.self).toBeUndefined();
       expect(a.owner?.to).toBe(s.addr('own'));
+    });
+
+    it('SEC V104-08: receiving_account_changed – payload action set/cancel → param `change`; other or missing → none', async () => {
+      const s = await scenario();
+      const enqueue = (action: unknown) =>
+        s.raw(
+          `INSERT INTO outbox_message (id, organization_id, property_id, topic, payload, dedupe_key)
+           VALUES ($1, $2, $3, 'staff.email', $4, $5)`,
+          [
+            uuidv7(),
+            s.t.organizationId,
+            s.t.propertyIds[0],
+            JSON.stringify({
+              template: 'receiving_account_changed',
+              userIds: [],
+              owners: true,
+              effectiveDate: '2026-11-10',
+              ...(action === undefined ? {} : { action }),
+            }),
+            `test:${uuidv7()}`,
+          ],
+        );
+      for (const action of ['set', 'cancel', 'delete', undefined, 7]) await enqueue(action);
+      await s.d.runForProperty(s.p);
+      const changes = s.adapter.sent
+        .filter((m) => m.templateId === 'receiving_account_changed')
+        .map((m) => m.params.change ?? null);
+      expect(changes).toEqual(['set', 'cancel', null, null, null]);
+      // the date of the row is passed unchanged (cancel: the date of the cancelled schedule)
+      for (const m of s.adapter.sent.filter((x) => x.templateId === 'receiving_account_changed')) {
+        expect(m.params.effectiveDate).toBe('10/11/2026');
+      }
+      // never on other templates
+      for (const m of s.adapter.sent.filter((x) => x.templateId !== 'receiving_account_changed')) {
+        expect('change' in m.params).toBe(false);
+      }
     });
 
     it('M18-08 (b): person `locked` (automatic hard lock, locked_until NULL) → still gets the self copy', async () => {

@@ -289,6 +289,8 @@ export async function bootstrapProduction(
           rooms: PRODUCTION_ROOMS.length,
           channels,
           devices: 0,
+          // SEC FB-R4-SEC-BE-V104-06: whether the first owner's e-mail came from the bootstrap (no address, no mask).
+          ownerEmailSet: ownerEmail !== null,
         },
         reason: `operator: ${operator}`,
       });

@@ -24,11 +24,20 @@ import '../audit-entities';
 
 /** `--owner-email` given as a flag (and nothing that looks like a value after it)? */
 export function ownerEmailFlag(argv: readonly string[]): boolean {
+  // SEC FB-R4-SEC-BE-V104-03: `--owner-email=<address>` must fail loudly (exit 2), never be ignored – the address is
+  // already in the shell history and `ps`. The message never repeats the value.
+  if (argv.some((a) => a.startsWith('--owner-email='))) {
+    throw new BootstrapRefusedError(
+      '--owner-email takes no value (the address is asked at a hidden prompt); remove that line from the shell history',
+    );
+  }
   const i = argv.indexOf('--owner-email');
   if (i < 0) return false;
   const next = argv[i + 1];
   if (next !== undefined && !next.startsWith('--')) {
-    throw new Error('--owner-email takes no value: the address is asked at a hidden prompt');
+    throw new BootstrapRefusedError(
+      '--owner-email takes no value (the address is asked at a hidden prompt); remove that line from the shell history',
+    );
   }
   return true;
 }
@@ -75,6 +84,8 @@ function arg(name: string): string {
 }
 
 async function main(): Promise<void> {
+  // First, before anything else: a refused `--owner-email=<value>` must stop the command (exit 2).
+  const wantsOwnerEmail = ownerEmailFlag(process.argv);
   const env = resolveFileSecrets(process.env);
   if (!process.stdout.isTTY) {
     throw new Error(
@@ -86,7 +97,7 @@ async function main(): Promise<void> {
   }
   const url = env.DATABASE_URL ?? '';
   if (!url) throw new Error('DATABASE_URL is required');
-  const ownerEmail = ownerEmailFlag(process.argv)
+  const ownerEmail = wantsOwnerEmail
     ? await readHidden('Owner security e-mail (hidden; Enter = none, set it on Desk later): ')
     : null;
   const pool = createPool(url, { max: 2 });

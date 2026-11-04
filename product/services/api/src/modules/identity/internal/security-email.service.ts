@@ -14,6 +14,8 @@
  *   RATE_LIMITED + Retry-After (seconds until the change that must leave the window does). Checked after RBAC and
  *   the address rules, BEFORE S2 (`assertChangeAllowed`, no factor burnt), and again in `recordChange` under the
  *   app_user row lock (two concurrent requests cannot both pass at 4). Same address (no-op) is never limited.
+ *   Removal (`null`) is never refused (SEC FB-R4-SEC-BE-V104-01: an owner must be able to delete an address an
+ *   attacker set 5 times) – it is still recorded and counted; it sends no notice to a new address.
  * A full address is never logged, audited, put in a Problem, a notification or the outbox.
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
@@ -75,6 +77,7 @@ export class SecurityEmailService {
       [userId],
     );
     if (rows[0] && SecurityEmailService.same(rows[0].email, email)) return;
+    if (email === null) return; // SEC V104-01: removal is never limited (still counted)
     await this.assertWithinLimit(tx, userId);
   }
 
@@ -146,7 +149,7 @@ export class SecurityEmailService {
     },
   ): Promise<string> {
     // EM-09 again, inside the write transaction (callers hold the app_user row lock – setOwn / UsersService.load).
-    await this.assertWithinLimit(tx, input.userId);
+    if (input.newEmail !== null) await this.assertWithinLimit(tx, input.userId); // removal: SEC V104-01
     const now = this.clock.now();
     const changeId = uuidv7();
     await tx.query(

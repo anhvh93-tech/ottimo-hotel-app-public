@@ -60,6 +60,8 @@ interface Payload {
   sentUserIds?: unknown;
   skippedUserIds?: unknown;
   emailChangeId?: unknown;
+  /** receiving_account_changed: 'set' | 'cancel' written by the platform controller (SEC V104-08). */
+  action?: unknown;
 }
 
 export interface Recipient {
@@ -304,6 +306,14 @@ export class StaffEmailDispatcher {
       const eff = formatLocalDate(payload.effectiveDate);
       if (eff) params.effectiveDate = eff;
       if (via === 'self' || via === 'owner') params.via = via;
+      // SEC FB-R4-SEC-BE-V104-08: the branch of the receiving-account notice comes ONLY from the payload `action` of
+      // the writer; anything other than set/cancel (or an older row without it) → no `change` → neutral sentence.
+      if (
+        template === 'receiving_account_changed' &&
+        (payload.action === 'set' || payload.action === 'cancel')
+      ) {
+        params.change = payload.action;
+      }
       out.push({ ...base, recipients, params });
     }
     return out;
