@@ -3,6 +3,9 @@
 // ADR-014 1.4 – real CSP), so CSP violations, third-party requests and byte budgets show up before deploy.
 //   pnpm --filter @ottimo/landing-web build && pnpm --filter @ottimo/landing-web build:booking-preview \
 //     && pnpm --filter @ottimo/landing-web build:booking-live-test && pnpm --filter @ottimo/tests test:e2e:landing
+// Local runs: set CI=1 and ports of your own (LANDING_PORT / LANDING_FORM_PORT / LANDING_LIVE_PORT). Without CI=1 the
+// config reuses any server already listening on 5186–5188 – with parallel worktrees that can be ANOTHER checkout's
+// build, and the run still reports green (FB-R4-FE-B-LPV2M-02, apps/landing-web/README.md).
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = Number(process.env.LANDING_PORT ?? 5186);

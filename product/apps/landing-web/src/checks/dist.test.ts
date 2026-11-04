@@ -10,12 +10,16 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import * as checks from '../../scripts/dist-checks.mjs';
 import { en as copyEn } from '../content/en';
+import { ko as copyKo } from '../content/ko';
 import { PRIVACY_NOTICE } from '../content/privacy';
+import { ru as copyRu } from '../content/ru';
 import { vi as copyVi } from '../content/vi';
+import { zh as copyZh } from '../content/zh';
 import { BOOKING_REQUEST_ENABLED, PUBLIC_FORM_API_BASE } from '../lib/booking-request';
 import { HTML_LANG, INDEXABLE, LANGS, PREFIXED_LANGS, SITE_URL } from '../lib/i18n';
 
-const COPY = { en: copyEn, vi: copyVi } as const;
+// Every published language (FB-R4-FE-B-LPV2M-01: ko/zh/ru too – the notice is a legal text in all 5).
+const COPY = { en: copyEn, vi: copyVi, ko: copyKo, zh: copyZh, ru: copyRu } as const;
 
 const builds = [
   { name: 'dist', form: BOOKING_REQUEST_ENABLED, live: BOOKING_REQUEST_ENABLED },
@@ -99,7 +103,7 @@ describe.each(builds)('$name', ({ name, form, live }) => {
         expect(p.source, p.path).toMatch(/<a href="(\/(vi|ko|zh|ru))?\/privacy\/">/);
     });
   if (form)
-    it('privacy notice: every sentence of PRIVACY_NOTICE and consentMore is on the built page verbatim (SEC notice 2026-10-31 1.4)', () => {
+    it('privacy notice: every sentence of PRIVACY_NOTICE and consentMore is on the built page verbatim, 5 languages (SEC notice 2026-10-31 1.4, FB-R4-FE-B-LPV2M-01)', () => {
       const text = (src: string) =>
         src
           .replace(/<[^>]+>/g, ' ')
@@ -110,10 +114,10 @@ describe.each(builds)('$name', ({ name, form, live }) => {
           .replace(/&gt;/g, '>')
           .replace(/&amp;/g, '&')
           .replace(/\s+/g, ' ');
-      for (const [lang, path, home] of [
-        ['en', '/privacy/', '/'],
-        ['vi', '/vi/privacy/', '/vi/'],
-      ] as const) {
+      expect(Object.keys(COPY).sort()).toEqual([...LANGS].sort());
+      for (const lang of LANGS) {
+        const home = lang === 'en' ? '/' : `/${lang}/`;
+        const path = `${home}privacy/`;
         const page = text(d.html.find((p) => p.path === path)!.source);
         const copy = PRIVACY_NOTICE[lang];
         for (const s of [

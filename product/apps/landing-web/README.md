@@ -26,8 +26,13 @@ pnpm --filter @ottimo/landing-web check:dist   # báo cáo kiểm dist dạng ch
 pnpm --filter @ottimo/landing-web sync:fonts   # fonts.css, mono.css, fonts-ru.css từ @fontsource
 pnpm --filter @ottimo/landing-web sync:fonts:cjk  # fonts-ko.css, fonts-zh.css + tệp woff2 cắt theo chữ trang (đọc dist-booking-preview/ và dist/ – build trước, build lại sau)
 pnpm --filter @ottimo/landing-web typecheck    # astro check
-pnpm --filter @ottimo/tests test:e2e:landing   # Playwright 320/375/768/1280 × EN/VI + form (cần cả hai bản dựng)
+pnpm --filter @ottimo/tests test:e2e:landing   # Playwright 320/375/768/1280 × 5 ngôn ngữ + form (cần cả ba bản dựng)
 ```
+
+**Chạy Playwright landing tại máy (FB-R4-FE-B-LPV2M-02):** luôn đặt `CI=1` và cổng riêng cho lượt của mình, ví dụ
+`CI=1 LANDING_PORT=6186 LANDING_FORM_PORT=6187 LANDING_LIVE_PORT=6188 pnpm --filter @ottimo/tests test:e2e:landing`.
+Không đặt `CI=1` thì config dùng lại server đang nghe ở cổng mặc định 5186–5188. Khi nhiều worktree chạy song song, lượt
+đó có thể test **bản dựng của worktree khác** mà vẫn báo xanh. Chọn cổng chưa ai dùng (`lsof -iTCP -sTCP:LISTEN -P`).
 
 Astro 7: khi không chạy trong terminal (script, agent), `astro dev` tự chạy nền và in pid; dừng bằng `pnpm --filter @ottimo/landing-web exec astro dev stop`.
 

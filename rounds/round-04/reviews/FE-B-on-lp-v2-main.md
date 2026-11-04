@@ -34,8 +34,8 @@
 - Vị trí: `product/apps/landing-web/src/checks/dist.test.ts`, ca "every sentence of PRIVACY_NOTICE and consentMore is on the built page verbatim" (từ PR #21)
 - Vấn đề: ca này chỉ chạy cho `en` và `vi`. Với ko/zh/ru, câu Δ5 mới của SEC chỉ được khóa ở mức nguồn (`privacy.test.ts`), chưa kiểm trên trang dựng. Nếu Astro hay bước thoát ký tự làm hỏng một câu ko/zh/ru (chẳng hạn dấu `，` hay `«»`), test không bắt được.
 - Vì sao quan trọng: thông báo là văn bản pháp lý. SEC yêu cầu chữ trên trang trùng từng ký tự với chữ đã duyệt cho cả 5 ngôn ngữ.
-- Đề xuất sửa: mở danh sách `[lang, path, home]` ra 5 ngôn ngữ (`/ko/privacy/`, `/zh/privacy/`, `/ru/privacy/`) và thêm `COPY` ko/zh/ru. Lượt này chưa làm vì ngoài thẻ SEC; FE-B làm ở lần chạm tiếp theo vào `dist.test.ts` (v1.0.4), hoặc ngay nếu QC yêu cầu.
-- Trạng thái: Open
+- Đề xuất sửa: mở danh sách `[lang, path, home]` ra 5 ngôn ngữ (`/ko/privacy/`, `/zh/privacy/`, `/ru/privacy/`) và thêm `COPY` ko/zh/ru.
+- Trạng thái: **Done** (ORC giao làm ngay, 04/11). Ca chạy cho mọi `LANGS` và kiểm `COPY` đủ 5 ngôn ngữ. Đã thử đột biến: thêm 1 ký tự vào câu Δ5 zh trong nguồn mà không dựng lại → 2 ca đỏ (`/zh/privacy/` của 2 bản dựng có form), trả lại thì xanh. vitest landing 283/283.
 
 ### FB-R4-FE-B-LPV2M-02
 - Mức độ: Suggestion
@@ -43,7 +43,7 @@
 - Vấn đề: chạy tại máy không đặt `CI=1` thì Playwright dùng lại server đang nghe ở 5186–5188. Khi nhiều worktree chạy song song (như đội đang làm), một lượt có thể âm thầm test bản dựng của worktree khác mà vẫn báo xanh.
 - Vì sao quan trọng: kết quả "149/149" có thể không phải của nhánh đang review.
 - Đề xuất sửa: ghi vào README test hoặc đầu config: "chạy song song thì đặt `CI=1` và `LANDING_PORT/LANDING_FORM_PORT/LANDING_LIVE_PORT` riêng". Lượt này FE-B làm đúng như vậy.
-- Trạng thái: Open
+- Trạng thái: **Done**. Đã ghi ở đầu `tests/e2e/landing/playwright.config.ts` và mục lệnh của `apps/landing-web/README.md` (kèm ví dụ lệnh). Không đổi hành vi config.
 
 Đã có thẻ khác ghi, không lặp lại ở đây: ARC LPV2M-01 (chú thích "0.3.10" → "0.3.11" trong admin-web/api-client, Minor, FE-A làm ở v1.0.4).
 
