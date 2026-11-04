@@ -1,0 +1,13 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/infra/server/bin/ops-check.sh",
+        "$TURBO_ROOT$/infra/server/bin/requeue-email-changed.sh"
+      ]
+    }
+  }
+}
