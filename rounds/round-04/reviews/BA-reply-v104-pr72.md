@@ -15,7 +15,7 @@
 | FB-R4-DOM-BA-PR72-03 | Done | Trường hợp (b): thêm ô **Loại** = **Giảm giá đặc biệt (tiền phòng)**. `02` 9.5 bước 2 và sổ tay 2.12 theo chữ DOM. Sửa chú thích ẩn ở sổ tay (trước ghi "dòng tiền phòng mở ra Giảm giá đặc biệt") |
 | FB-R4-DOM-BA-PR72-04 | Done | Bước 1: xóa mã cửa ngay. Bước 2: kiểm **Ngày đi đổi thành …**, kèm ví dụ 04:30 ngày 25/11. (b) bước con 2: khách mới đang chờ. (b) bước con 4: khai báo theo chữ DOM, thêm "không dán ô ngày đi Desk hiện" (SEC-01). Hạn và cách ghi trễ: "hỏi quản lý", không đặt quy tắc mới |
 | FB-R4-DOM-BA-PR72-05 | Done | `01` 14.1 dòng 2 theo chữ DOM, gộp với SEC-03. Thêm: yêu cầu ra loại FOC thì từ chối, nhờ lễ tân gửi lại đúng loại (theo DOM-03) |
-| FB-R4-DOM-BA-PR72-06 | Done (PR riêng) | Không sửa trong #72. Làm ở PR sách riêng (số PR ở mô tả #72 và trong kết quả BA gửi ORC) |
+| FB-R4-DOM-BA-PR72-06 | Done (PR #85) | Không sửa trong #72. PR sách riêng #85 (`v104/ba-esc045-prices` @ `f11e928c`): sổ tay 1.3, 2.12, 5.2; `01` 9.1; `02` 9.2, 20.2; `05` mục 3. Gộp sạch với #72 và #69 (`git merge-tree`) |
 | FB-R4-UXD-BA-PR72-01 | Done | Sổ tay 2.10 và `02` 7.4 tách theo khối UXD đề xuất. Nút trong khung đỏ chỉ mở khung đơn. Mở đơn cũ bằng ô tìm ở **Đơn đặt phòng**, câu không có mã thì bấm căn trên **Sơ đồ phòng**. Số mục theo từng tệp (sổ tay 2.8 / 2.14; `02` 6.1 / 11.1). Giữ hai chú thích ẩn, ghi thêm nguồn |
 | FB-R4-UXD-BA-PR72-02 | Done | Trùng DOM-03 |
 | FB-R4-UXD-BA-PR72-03 | Done | Trùng DOM-02. Dùng chữ DOM, vì DOM đã xác nhận. Gạch kiểm trùng có ở cả khối v1.0.4 lẫn khối v1.0.3 |
