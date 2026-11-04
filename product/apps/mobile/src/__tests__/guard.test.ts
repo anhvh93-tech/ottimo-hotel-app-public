@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { appSourceFiles, collectUsedKeys } from '../../scripts/used-keys';
+import { PENDING_KEYS } from './pending-keys';
 
 const SRC = join(__dirname, '..');
 const COPY = join(__dirname, '..', '..', '..', '..', 'design', 'copy');
@@ -52,8 +53,12 @@ describe('OTTIMO Staff guard rails', () => {
     >;
     const used = collectUsedKeys(SRC);
     expect(used.exact.size).toBeGreaterThan(150);
-    expect([...used.exact].filter((k) => typeof vi[k] !== 'string')).toEqual([]);
-    expect([...used.exact].filter((k) => typeof en[k] !== 'string')).toEqual([]);
+    // Plan v1.0.4 2.4: a key UXD writes in the P4-01 batch may be named before it lands (pending-keys.ts).
+    const due = [...used.exact].filter((k) => !(k in PENDING_KEYS));
+    expect(due.filter((k) => typeof vi[k] !== 'string')).toEqual([]);
+    expect(due.filter((k) => typeof en[k] !== 'string')).toEqual([]);
+    // A pending key is one the source really names – no stale or spare entries.
+    expect(Object.keys(PENDING_KEYS).filter((k) => !used.exact.has(k))).toEqual([]);
     // Template keys stay narrow families, and every member of an enum has its string.
     expect(used.prefixes.sort()).toEqual([
       'hk.status.',

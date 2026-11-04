@@ -1539,7 +1539,6 @@
   "field_error.amount_not_positive": "Enter an amount greater than 0.",
   "error.PARAM_OUT_OF_RANGE_MINMAX": "Value must be between {min} and {max}.",
   "auth.current_password": "Current password",
-  "auth.mfa_later": "Two-step sign-in comes in a later release. Ask the owner for help signing in.",
   "shell.coming_title": "This screen is being built",
   "shell.coming_body": "{screen} comes in a later trial build. Other screens work as usual.",
   "shell.theme": "Appearance",
