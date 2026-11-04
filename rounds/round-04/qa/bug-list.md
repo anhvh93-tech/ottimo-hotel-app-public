@@ -29,15 +29,17 @@
 
 - **Kiểm đọc yêu cầu hoàn thay thế – FB-R4-DOM-BA-025-02** (04/11 06:50–06:53 giờ VN, staging `sha-da6d6f3dc22b`; chỉ GET + xem Desk `qa.mgr`, không bấm nút): yêu cầu thay thế không có nơi nhận (xác nhận); đóng mọi yêu cầu chờ rồi gộp một (xác nhận bằng mã, staging không có ca nhiều yêu cầu); chữ tự đóng khớp sổ tay 1.8. Mới **BUG-R4-026** (P3). Chi tiết: `rounds/round-04/qa/v1.0.2-dk10-b18.md` mục 9.
 
-## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff` + smoke staging v1.0.3 + dọn trạng thái ĐK14 + ĐK10 B18 staging 04/11 + kiểm đọc yêu cầu thay thế 04/11)
+- **LP-v2 – `lp-v2-main` trước khi gộp `main`** (04/11 09:39–10:00, `origin/lp-v2-main` @ `917a39cf`; PG 17 tạm `ottimo-qa-lpv2m-pg`, đã xóa): **ĐẠT CÓ ĐK** cho việc gộp. 6 thẻ sửa (SEC LPV2M-01/02/03/05, FE-B-LPV2M-01/02) đóng đúng; ca "LP-v2 trơ" 10/10; 0092 trên DB 68 dòng hình production 0,38 giây, v1.0.3 trên DB 69 217/219 (2 đỏ dự kiến của `schema-parity`); hồi quy email bảo mật / BR-428 / 2 bước Desk không mất; api 555, landing 283, admin-web 799, Playwright landing 149/149. 0 P0/P1/P2. Mới **BUG-R4-027** (P3, BE – test cổng Chat không bắt bản "so chữ") và **BUG-R4-028** (P3, OPS – nhãn `2026-11-04.1` không kéo theo hằng Chat). Chi tiết: `rounds/round-04/qa/lp-v2-main-qa.md`.
+
+## 1. Tổng hợp (sau lượt 3 + PR #21 + PR #22 + PR #24 lượt 2 + smoke staging v1.0.1 + PR #22 lượt 2 + PR #22 lượt 3 + smoke staging v1.0.2 + đóng lỗi trên `main` `e5fffe05` + v1.0.3 PR #31 @ `fb6a281c` + lượt 2 @ `b00972ff` + smoke staging v1.0.3 + dọn trạng thái ĐK14 + ĐK10 B18 staging 04/11 + kiểm đọc yêu cầu thay thế 04/11 + `lp-v2-main` @ `917a39cf`)
 
 | Mức | Số lỗi | Open | Fixed (chờ QA) | Closed (đã xác nhận) |
 |---|---|---|---|---|
 | P0 | 0 | 0 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 0 |
 | P2 | 9 | 1 (BUG-R4-011 – **đã sửa trên `lp-v2`**, chờ gộp `main` + staging smoke P10; `main`/production còn lỗi gốc với hồ sơ tạo tay) | 0 | 8 (BUG-R4-001, 002, 003, 004, 013, 014, **018**, **022** – 014 đóng sau smoke staging v1.0.2 `sha-e5fffe05ed55`; 013 đóng 03/11 trên `main` `e5fffe05`; 018, 022 đóng 03/11 @ `b00972ff`) |
-| P3 | 17 | 8 (BUG-R4-010 – mở lại, BUG-R4-012 – **đã sửa trên `lp-v2`**, chờ gộp + P10, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4, **026** – v1.0.4) | 1 (**BUG-R4-025** – PO sửa release notes 04/11, chờ QA xác nhận) | 8 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`) |
-| **Tổng** | **26** | **9** | **1** | **16** |
+| P3 | 19 | 10 (BUG-R4-010 – mở lại, BUG-R4-012 – **đã sửa trên `lp-v2`**, chờ gộp + P10, BUG-R4-015 – v1.0.4 V4-08, BUG-R4-017 – **v1.0.4**, **020** – v1.0.4, **023** – v1.0.4, **024** – v1.0.4, **026** – v1.0.4, **027** – BE, trước lần đăng `2026-11-04`, **028** – OPS, trước lần đăng `2026-11-04`) | 1 (**BUG-R4-025** – PO sửa release notes 04/11, chờ QA xác nhận) | 8 (BUG-R4-005, 006, 007, 008, 009, 016, **019**, **021** – 009 đã kiểm lại trên staging `sha-755cad1642ca`; 016 đóng 03/11 trên `main` `e5fffe05`; 019, 021 đóng 03/11 @ `b00972ff`) |
+| **Tổng** | **28** | **11** | **1** | **16** |
 
 Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1.0.1) – lượt 3 xác nhận đã sửa phần ngôn ngữ gửi tin, SĐT/WhatsApp vào hồ sơ, mở lại báo giá không về tiếng Việt (ca EN hồi quy đạt); phần còn lại tách thành BUG-R4-011 (kênh Zalo) và BUG-R4-012 (quốc tịch). ORC cập nhật trạng thái ở tệp R3.
 
@@ -544,8 +546,42 @@ Lỗi R3 liên quan: **BUG-R3-050** (`rounds/round-03/qa/bug-list.md`, đích v1
 - **Vai:** FE (map mã) + UXD (chữ VI/EN). BA chỉnh sổ tay theo.
 - **Trạng thái:** **Open**. Đích **v1.0.4**. Không chặn v1.0.3.
 
+### BUG-R4-027 – Test cổng Chat (★2) không bắt được bản "so chữ version": đổi `effectiveLevel` sang so `consent_version` với hằng, 117/117 ca vẫn xanh
+
+- **Mức:** P3 (thiếu test chống tái phát). Mã hiện tại **đúng**: cổng đọc `published_at`, không so chữ. Nhưng SEC đã cảnh báo đúng "bẫy ngược" này ở FB-R4-SEC-LPV2M-01: ai đó "sửa" cổng bằng phép so chuỗi thì cổng sẽ mở cho cả version không nêu Google Chat. Hiện không test nào đỏ khi điều đó xảy ra.
+- **Môi trường:** `origin/lp-v2-main` @ `917a39cf`, máy QA, Postgres 17 tạm (cùng digest CI), 04/11/2026 ~09:45.
+- **Các bước:**
+  1. Trong `product/services/api/src/modules/public-site/public/chat-message.ts`, `effectiveLevel`, thay điều kiện `if (!g?.min_at || !g.req_at || g.req_at.getTime() < g.min_at.getTime())` bằng `if (r.consent_version < CHAT_DETAILS_MIN_NOTICE_VERSION)`.
+  2. `npx vitest run test/gchat-units.test.ts test/integration/gchat-notify.test.ts`.
+- **Thực tế:** `Test Files 2 passed`, `Tests 117 passed`. Bản đột biến sống. Lý do: mọi ca hiện có cho cùng một kết quả với cả hai cách. Các ca unit đều có `consent_version '2026-10-24'`. Các ca tích hợp: `2026-10-24` / `2026-10-31` nhỏ hơn hằng về chữ lẫn về thời điểm; `2026-11-04` thì bằng.
+- **Mong đợi:** ít nhất một ca mà so chữ và so thời điểm cho kết quả khác nhau, ví dụ:
+  - unit: `consent_version '2026-12-01'` (lớn hơn hằng về chữ), `gate = { min: 2026-11-04T…, req: 2026-11-01T… }` (đăng trước) → A, `levelCapped`;
+  - tích hợp (gần thực tế nhất, cũng là ca của BUG-R4-028): hằng `2026-11-04` **không** được đăng, đăng `2026-11-04.1` 5 ngôn ngữ, yêu cầu theo `2026-11-04.1`, `.env` = C → **A** (`levelCapped`). So chữ thì ra C.
+- **Bằng chứng:** `rounds/round-04/qa/lp-v2-main-qa.md` mục 1 (dòng LPV2M-01) và mục 4 dòng 9. Mã đột biến đã trả về (`git checkout`).
+- **Vai:** BE (thêm ca). SEC xem ca có đúng ý ★2 không.
+- **Trạng thái:** **Open**. Không chặn gộp. Đề xuất làm trước lần đăng `2026-11-04` (cùng lượt BUG-R4-028), muộn nhất ở v1.0.4.
+
+### BUG-R4-028 – Runbook / README: "đổi chữ trước khi đăng → nhãn mới `2026-11-04.1`" không kéo theo đổi `CHAT_DETAILS_MIN_NOTICE_VERSION`; kiểm D2/P5 vẫn ra "CO"
+
+- **Mức:** P3 (tài liệu vận hành). Không sai tiền, không lộ dữ liệu (cổng fail-closed: Chat giữ mức A). Nhưng nó lặp lại đúng lỗi FB-R4-SEC-LPV2M-01 vừa sửa: quyết định ESC-041 C của INV mất hiệu lực âm thầm, chỉ có cờ `capped`.
+- **Môi trường:** `origin/lp-v2-main` @ `917a39cf` – `rounds/round-04/outputs/OPS/lp-v2-release-runbook.md` dòng 20, 58, 173, 188, 290; `product/infra/server/README.md` dòng 288–289; `product/apps/landing-web/src/content/privacy.ts` (khối chú thích `VERSION`).
+- **Các bước (đọc tài liệu + mã):**
+  1. Runbook dòng 20 và README dòng 288: chữ đổi trước khi đăng → nhãn mới (`2026-11-04.1` hoặc ngày mới), báo SEC.
+  2. README dòng 289 và runbook D2/P5: hằng phải là `2026-11-04`. Lệnh kiểm ở 0.2 / P4: `grep -c "CHAT_DETAILS_MIN_NOTICE_VERSION = '2026-11-04'"`.
+  3. Giả sử FE-B đổi một câu → đăng `2026-11-04.1`. Hằng vẫn `2026-11-04`, grep ra `1` (D2 = CO), nhưng dòng `2026-11-04` không bao giờ có trên production → `min_at` NULL → mọi tin Chat ở mức A mãi.
+- **Thực tế:** không chỗ nào nói "hằng Chat = nhãn **sẽ đăng**", và cũng không nói đổi nhãn thì phải đổi hằng rồi phát hành api trước khi đăng.
+- **Mong đợi:**
+  - runbook 0/D2/P5 và README 12.3 ghi: hằng `CHAT_DETAILS_MIN_NOTICE_VERSION` phải **bằng đúng nhãn đăng ở P10**. Đổi nhãn thì BE đổi hằng + SEC xem + Release api trước P10;
+  - lệnh grep ở 0.2 và P4 dùng biến nhãn (`⟨NOTICE_V⟩`) thay vì chữ cố định, và P10 dùng cùng biến;
+  - chú thích `VERSION` trong `privacy.ts` thêm một câu: "a new label here → change CHAT_DETAILS_MIN_NOTICE_VERSION too".
+  - Phụ (cùng tệp): README 13.5 (K1) dòng 423 và 434 còn "trước khi đăng thông báo `2026-10-31`" / "không đăng `2026-10-31`". K1 đã đạt 03/11, chỉ cần đổi thành "trước lần đăng thông báo đầu tiên nêu Google Chat (`2026-11-04`)".
+- **Bằng chứng:** các dòng trên. `rounds/round-04/qa/lp-v2-main-qa.md` mục 1 (dòng LPV2M-03).
+- **Vai:** OPS (runbook, README). FE-B (1 câu chú thích). SEC xác nhận câu chữ.
+- **Trạng thái:** **Open**. Không chặn gộp. Phải xong trước lần đăng `2026-11-04` trên production (P0 runbook).
+
 ## 3. Ghi nhận (không phải lỗi)
 
+- *`lp-v2-main` 04/11:* `deploy.sh` chấp nhận DB đi trước image chỉ khi có `--rollback` (`rollback.sh` luôn truyền). `deploy.sh sha-da6d6f3dc22b` không `--rollback` sẽ FAIL 69 ≠ 68. Đúng thiết kế, runbook 5.4 dùng `rollback.sh`. Desk v1.0.3 trên DB 69 đọc được yêu cầu `ko`/`zh` có `price_estimate` (200, không lộ số).
 - Trong ~1 giây đầu khi một IP dồn lượt, 30 lượt hợp lệ đầu tiên của IP đó có thể làm khách khác nhận 503 (bộ đếm chung 10/giây). Sau lượt 30 thì không còn. Đây là rủi ro PE-RR4 SEC đã chấp nhận (báo cáo 4.1).
 - Desk S35 cột "Hạng phòng" hiện slug (`standard-studio-garden-view`) vì nhãn = `publicRoomType`. Đây là hành vi US-155 có từ trước, không thuộc LP-v2; UXD xem có cần nhãn đẹp hơn. *Lượt 2:* khi căn mang nhãn (gán bằng ô Desk mới) cột hiện "Standard Studio · Garden View" – hết vấn đề.
 - *Lượt 2:* API `updateRoom` nhận `publicRoomType` tự do (QA đặt được `qa-test-type`, web tính giá cho hạng đó ngay). Đúng hợp đồng, chỉ OWN gọi được, Desk khóa bằng danh sách – ARC cân nhắc kiểm danh sách phía server (Suggestion).
