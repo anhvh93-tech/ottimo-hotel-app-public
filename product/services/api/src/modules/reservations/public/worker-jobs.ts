@@ -12,7 +12,10 @@ import {
 } from '../../../jobs/reservation-jobs';
 import { ApprovalService } from '../../approvals/public/approval.service';
 import type { AuditService } from '../../audit/public/audit.service';
+import { EventsService } from '../../events/public/events.service';
+import { provideFocDecisionHooksForWorker } from '../../folio/public/foc-worker-hooks';
 import { FolioService } from '../../folio/public/folio.service';
+import { provideFolioRefundRouting } from '../../folio/public/refund-routing';
 import { PaymentService } from '../../payments/public/payment.service';
 import { ChannelsService } from '../../platform/public/channels';
 import { DocNumberService } from '../../platform/public/doc-number.service';
@@ -38,16 +41,58 @@ export function reservationWorkerJobs(deps: {
    * instance when omitted (tests of the job alone).
    */
   hooks?: ReservationHooks;
+  /** v1.0.4 P4-10 (BUG-R3-041): J1 notices → staff inbox + SSE. A fresh instance when omitted. */
+  events?: EventsService;
 }): JobDefinition[] {
+  return [...reservationWorkerComposition(deps).jobs];
+}
+
+/**
+ * The composition behind the worker's J1 / O2 / lease.nights (exposed for test/v104-holds-units.test.ts). ONE set of shared
+ * instances, like the api container:
+ * - v1.0.4 P4-10 (FB-R3-ARC-BEB-WA-04): FolioService gets the ApprovalService (and DocNumberService, EventsService),
+ *   and the ApprovalService gets the FolioModule hooks J1 needs (FOC / special_discount decision hooks + preLock,
+ *   refund routing) – an overdue hold with a FOC request still waiting is cancelled with its request instead of
+ *   failing on every tick;
+ * - BUG-R3-041: ReservationsService gets EventsService (J1 notices in the inbox, hold-notices.ts).
+ */
+export function reservationWorkerComposition(deps: {
+  clock: Clock;
+  audit: AuditService;
+  parameters: ParameterService;
+  hooks?: ReservationHooks;
+  events?: EventsService;
+}): {
+  jobs: JobDefinition[];
+  reservations: ReservationsService;
+  approvals: ApprovalService;
+  folios: FolioService;
+} {
+  const events = deps.events ?? new EventsService();
+  const hooks = deps.hooks ?? new ReservationHooks();
   const occupancy = new OccupancyService();
   const docNumbers = new DocNumberService(deps.clock, deps.parameters);
+  const approvals = new ApprovalService(deps.clock, deps.parameters, deps.audit, events);
   const folios = new FolioService(
     deps.clock,
     deps.audit,
     deps.parameters,
     new ChannelsService(),
     new StayNightAllocationService(deps.clock),
+    docNumbers,
+    approvals,
+    events,
   );
+  provideFolioRefundRouting(approvals, folios);
+  provideFocDecisionHooksForWorker({
+    clock: deps.clock,
+    audit: deps.audit,
+    parameters: deps.parameters,
+    approvals,
+    folios,
+    hooks,
+    events,
+  });
   const reservations = new ReservationsService(
     new PropertyContextService(deps.clock, deps.parameters),
     new PricingService(deps.parameters),
@@ -55,16 +100,23 @@ export function reservationWorkerJobs(deps: {
     occupancy,
     docNumbers,
     deps.audit,
-    new ApprovalService(deps.clock, deps.parameters, deps.audit),
-    deps.hooks ?? new ReservationHooks(),
+    approvals,
+    hooks,
     new MoneyBridge(folios, new PaymentService(deps.clock, deps.audit, docNumbers), folios),
     new LeadsService(deps.clock, deps.audit),
+    undefined, // WEBSITE_REQUEST_PORT – not used by these jobs
+    events,
   );
-  return [
-    holdExpiryJob(reservations, deps.parameters),
-    roomBlockActivationJob(new RoomBlocksService(occupancy, deps.audit), deps.parameters),
-    leaseNightsJob(reservations, deps.parameters),
-  ];
+  return {
+    jobs: [
+      holdExpiryJob(reservations, deps.parameters),
+      roomBlockActivationJob(new RoomBlocksService(occupancy, deps.audit), deps.parameters),
+      leaseNightsJob(reservations, deps.parameters),
+    ],
+    reservations,
+    approvals,
+    folios,
+  };
 }
 
 /**

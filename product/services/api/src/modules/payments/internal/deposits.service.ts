@@ -1,8 +1,9 @@
 /**
  * Deposit flows of a hold (US-086 AC1, AC2, AC4, AC5; SM-01 B4; SM-12; BR-305, BR-527).
  * confirmDeposit (FD+, SAL own – CTV never, rbac note 20):
- *   lock reservation (port) → If-Match → status hold → hold not expired (or the money arrived before the
- *   deadline – US-085 AC4) → record the receipt (or reuse a succeeded deposit of this folio) →
+ *   lock reservation (port) → If-Match → status hold → hold not expired, or FD+ on an overdue hold that already
+ *   received money (BUG-R3-042, BR-303 (1)) or whose money arrived before the deadline (US-085 AC4) – see
+ *   overdueHoldAccepts → record the receipt (or reuse a succeeded deposit of this folio) →
  *   Σ deposits ≥ depositRequired ? B4 (port) + folio postings (room/extra lines, commission projected,
  *   allocations) + lead won + notices handled : COMMIT the receipt and answer 422 DEPOSIT_INSUFFICIENT
  *   (AC2 "giao dịch vẫn được ghi, đơn giữ hold").
@@ -55,6 +56,27 @@ export interface DepositPaymentInput {
 
 function own(c: Caller): boolean {
   return !c.roles.some((r) => FULL_SCOPE.includes(r));
+}
+
+/**
+ * B4 on a hold whose deadline has passed (v1.0.4 P4-10):
+ * - SEC-BE-22 (2): only FD+ (OWN/MGR/FDL/FD) – a sale/CTV never confirms an overdue hold;
+ * - BUG-R3-042 / BR-303 (1) (DOM A.3a V1, A.6 – PO 03/11): a hold that had ALREADY received money (> 0 đ, the measure
+ *   J1 uses to keep it – `kept_paid`) takes more money and is confirmed whenever it is recorded, until check-in
+ *   (no 12:00 cap here: the cap only tells MGR/OWN – J1 `hold_overdue_cap`);
+ * - US-085 AC4: a hold with nothing received is confirmed only by money that arrived BEFORE the deadline
+ *   (`receivedAt` dated back by FD+, or a deposit already on the folio).
+ * Pure – unit-tested in test/v104-holds-units.test.ts.
+ */
+export function overdueHoldAccepts(p: {
+  desk: boolean;
+  paidBeforeVnd: number;
+  receivedAt: Date;
+  expiresAt: Date;
+}): boolean {
+  if (!p.desk) return false;
+  if (p.paidBeforeVnd > 0) return true;
+  return p.receivedAt.getTime() < p.expiresAt.getTime();
 }
 
 @Injectable()
@@ -171,12 +193,23 @@ export class DepositsService {
       }
       receivedAt = rows[0].received_at ?? now;
     }
-    // US-085 AC4: a hold past its deadline is only confirmed when the money arrived before the deadline.
-    // SEC-BE-22 (2): only FD+ may rescue an overdue hold on that ground.
+    // A hold past its deadline (rule in overdueHoldAccepts – BUG-R3-042, BR-303 (1), US-085 AC4, SEC-BE-22 (2)).
+    // FB-R4-SEC-BE-HOLDS-02: what the audit row of an after-deadline confirmation carries (null = before).
+    let overdue: { expiredAt: Date; paidBeforeVnd: number } | null = null;
     if (t.holdExpiresAt && t.holdExpiresAt.getTime() <= now.getTime()) {
-      if (!desk || receivedAt.getTime() >= t.holdExpiresAt.getTime()) {
+      // Read BEFORE this receipt is recorded: what the hold had already received (the J1 `kept_paid` measure).
+      const paidBefore = await this.folios.depositPaid(tx, folio.id);
+      if (
+        !overdueHoldAccepts({
+          desk,
+          paidBeforeVnd: paidBefore,
+          receivedAt,
+          expiresAt: t.holdExpiresAt,
+        })
+      ) {
         throw problem('HOLD_EXPIRED', { extras: { expiredAt: toZonedIso(t.holdExpiresAt, tz) } });
       }
+      overdue = { expiredAt: t.holdExpiresAt, paidBeforeVnd: paidBefore };
     }
 
     let recordedNew = false;
@@ -306,10 +339,32 @@ export class DepositsService {
         depositPaidVnd: paid,
         depositRequiredVnd: t.depositRequiredVnd,
         status: 'confirmed',
+        // FB-R4-SEC-BE-HOLDS-02: an after-deadline confirmation (G4) is reviewable from this row alone –
+        // amounts and ids only, never an account number, a name or free text. Before the deadline: unchanged.
+        ...(overdue
+          ? {
+              afterDeadline: true,
+              holdExpiredAt: overdue.expiredAt.toISOString(),
+              paidBeforeVnd: overdue.paidBeforeVnd,
+              unverifiedPaidVnd: Math.min(paid, await this.unverifiedDepositVnd(tx, folio.id)),
+              via: input.payment ? 'new_payment' : 'existing_payment',
+            }
+          : {}),
       },
       ...(requestId ? { requestId } : {}),
     });
     return { body: await port.reservationView(tx, t.id) };
+  }
+
+  /** HOLDS-02: deposits counted by `depositPaid` that still wait for the desk/bank check (`pending`). */
+  private async unverifiedDepositVnd(tx: Tx, folioId: string): Promise<number> {
+    const { rows } = await tx.query<{ v: string | number }>(
+      `SELECT COALESCE(SUM(amount_vnd), 0) AS v FROM payment
+        WHERE folio_id = $1 AND type = 'deposit' AND status = 'succeeded' AND reversal_of_id IS NULL
+          AND reconciliation = 'pending'`,
+      [folioId],
+    );
+    return Number(rows[0]?.v ?? 0);
   }
 
   /** Room total + extra-person fee of the stay (quote snapshot, else the booking's room total). */
