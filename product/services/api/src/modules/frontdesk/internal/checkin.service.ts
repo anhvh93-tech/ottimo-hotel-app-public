@@ -87,8 +87,9 @@ interface Evaluation {
     defaultRateVnd: number;
     /** direct calendar price of the night (BR-421) – the base the B9a night is re-tiered from */
     calendarVnd: number;
-    floorVnd: number;
-    ceilingVnd: number;
+    /** The desk's range – absent on an Internal stay (BUG-R4-038: 0 ₫ night, no Direct floor–ceiling). */
+    floorVnd?: number;
+    ceilingVnd?: number;
     createsChildReservation: boolean;
     /** ARC 16.18: the room bought now – anchor of a B9a price the desk types (null = the origin room). */
     anchorRoomId: string | null;
@@ -109,6 +110,14 @@ interface Evaluation {
 
 /** Room money (BR-402 (2) "tiền phòng" – always collected in full, pending discounts included). */
 const ROOM_MONEY: ReadonlySet<string> = new Set(['room', 'room_change_difference']);
+
+/** A B9a rate outside the desk's range (BUG-R4-038: an Internal night has none – never out of range). */
+function outOfRange(rate: number, p: { floorVnd?: number; ceilingVnd?: number }): boolean {
+  return (
+    (p.floorVnd !== undefined && rate < p.floorVnd) ||
+    (p.ceilingVnd !== undefined && rate > p.ceilingVnd)
+  );
+}
 
 const FDL_UP = ['front_desk_lead', 'manager', 'owner'];
 
@@ -194,7 +203,7 @@ export class CheckinService {
       return e.amountDueAtCheckinVnd;
     }
     const rate = q.priorNightRateVnd ?? e.priorNight.defaultRateVnd;
-    if (rate < e.priorNight.floorVnd || rate > e.priorNight.ceilingVnd) {
+    if (outOfRange(rate, e.priorNight)) {
       throw problem('RATE_OUT_OF_RANGE', {
         errors: [{ field: 'priorNightRateVnd', code: 'RATE_OUT_OF_RANGE' }],
         extras: { min: e.priorNight.floorVnd, max: e.priorNight.ceilingVnd },
@@ -234,8 +243,7 @@ export class CheckinService {
       p.available &&
       rate !== undefined &&
       rate !== p.defaultRateVnd &&
-      rate >= p.floorVnd &&
-      rate <= p.ceilingVnd
+      !outOfRange(rate, p)
     ) {
       return (await this.evaluate(tx, ctx, row, q.checkinTime, 'write', rate))
         .amountDueAtCheckinVnd;
@@ -308,16 +316,15 @@ export class CheckinService {
       // OTTIMO move min(what the guest bought, this room's calendar); always within BR-105.
       const nc = await this.s.addedNightContext(tx, ctx, row, 'first', room.id);
       const r = await this.s.addedNightRate(tx, ctx, nc, date);
-      const direct = { rateVnd: r.calendarVnd, floorVnd: r.floorVnd, ceilingVnd: r.ceilingVnd };
       const own = row.stay_type === 'long' ? early.baseNightVnd : r.rateVnd;
       priorNight = {
         date,
         available:
           priorNightWindow && (await this.s.occupancy.isFree(tx, room.id, date, row.arrival_date)),
         defaultRateVnd: own,
-        calendarVnd: direct.rateVnd,
-        floorVnd: direct.floorVnd,
-        ceilingVnd: direct.ceilingVnd,
+        calendarVnd: r.calendarVnd,
+        // BUG-R4-038: an Internal night (0 ₫) has no Direct floor–ceiling.
+        ...(r.complimentary ? {} : { floorVnd: r.floorVnd, ceilingVnd: r.ceilingVnd }),
         createsChildReservation: row.channel_group === 'ota' || row.external_contract,
         anchorRoomId: nc.anchorRoomId,
         agreedRateVnd: row.stay_type === 'long' ? null : r.agreedVnd,
@@ -594,7 +601,8 @@ export class CheckinService {
     if (body.houseRulesSent !== true) f.add('houseRulesSent', 'REQUIRED');
     const doorHandedOver = f.bool('doorAccessHandedOver') ?? false;
     const addPriorNight = f.bool('addPriorNight') ?? false;
-    const priorRate = f.money('priorNightRateVnd', { required: false, positive: true });
+    // BUG-R4-038: 0 is accepted here and refused below unless the stay is Internal (its complimentary night).
+    const typedPriorRate = f.money('priorNightRateVnd', { required: false, positive: false });
     const roomOverride = this.object(f, body, 'roomNotReadyOverride');
     const roomOverrideReason =
       roomOverride && typeof roomOverride.reason === 'string' ? roomOverride.reason.trim() : null;
@@ -611,6 +619,14 @@ export class CheckinService {
     if (payment && payment.type !== 'charge') f.add('payment.type', 'NOT_IN_LIST');
 
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
+    // BUG-R4-038 (EP02 Nội bộ, DOM 04/11): a typed 0 is the complimentary B9a night of an Internal stay only – on
+    // any other channel the field error stays what it was (422 AMOUNT_NOT_POSITIVE with the other field errors).
+    const internal = row.channel_group === 'internal';
+    let priorRate = typedPriorRate;
+    if (priorRate === 0 && !internal) {
+      f.add('priorNightRateVnd', 'AMOUNT_NOT_POSITIVE');
+      priorRate = undefined;
+    }
     this.s.stay.assertVersion(row, expectedVersion);
     if (row.status !== 'confirmed') throw this.s.stay.invalid(row);
     const e = await this.evaluate(tx, ctx, row, checkinTime, 'write');
@@ -711,7 +727,14 @@ export class CheckinService {
     }
     if (e.early.addsPreviousNight) {
       if (!addPriorNight) f.add('addPriorNight', 'REQUIRED');
-      if (addPriorNight && expected === undefined && !f.has('expectedSurchargeVnd')) {
+      // BUG-R4-038: the amount shown is confirmed for a night that costs something – an Internal night at 0 ₫ has
+      // nothing to tell the guest (H13 sends no `expectedSurchargeVnd` for 0, like a 0 early surcharge).
+      if (
+        addPriorNight &&
+        expected === undefined &&
+        !f.has('expectedSurchargeVnd') &&
+        (priorUsed ?? 0) > 0
+      ) {
         f.add('expectedSurchargeVnd', 'REQUIRED');
       }
     } else if (addPriorNight) {
@@ -740,7 +763,7 @@ export class CheckinService {
           view,
         );
       }
-      if (priorUsed < e.priorNight.floorVnd || priorUsed > e.priorNight.ceilingVnd) {
+      if (outOfRange(priorUsed, e.priorNight)) {
         throw problem('RATE_OUT_OF_RANGE', {
           errors: [{ field: 'priorNightRateVnd', code: 'RATE_OUT_OF_RANGE' }],
           extras: { min: e.priorNight.floorVnd, max: e.priorNight.ceilingVnd },
@@ -777,7 +800,12 @@ export class CheckinService {
         room,
         e.priorNight,
         priorUsed,
-        priorRate === undefined ? 'default' : 'manual',
+        // BUG-R4-038: an Internal night at 0 ₫ (default or typed) is `complimentary`; > 0 typed = `manual`.
+        internal && priorUsed === 0
+          ? 'complimentary'
+          : priorRate === undefined
+            ? 'default'
+            : 'manual',
       );
     }
     // BR-411/413/415 surcharge confirmed by the desk (BR-414) + optional FOC request.
@@ -1004,7 +1032,7 @@ export class CheckinService {
     room: RoomInfo,
     prior: NonNullable<Evaluation['priorNight']>,
     rateVnd: number,
-    source: 'default' | 'manual',
+    source: 'default' | 'manual' | 'complimentary',
   ): Promise<LocalDate> {
     const date = prior.date;
     const sourced = {

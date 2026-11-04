@@ -171,3 +171,76 @@ Thêm một ghi chú và một thẻ Minor cho v1.0.5. Cả hai không chặn g�
 - Trạng thái: Open
 
 Thẻ còn mở của UXD trên PR #70: 02, 03, 04, 06 (Minor, v1.0.5) và 05 (Suggestion, chờ DOM). Không có ESC.
+
+---
+
+## Review lại @ d3da532d (04/11/2026): câu `booking.rates_cleared_channel` và quy tắc DOM về giá đã gõ
+
+- Đối tượng:
+  - `git diff 94a28258..d3da532d -- product/apps/admin-web/src/pages/booking/BookingDialog.tsx product/design`;
+  - mục 10 báo cáo FE trên nhánh.
+- Phạm vi UXD: câu báo, vị trí, DS, chữ. Quy tắc giữ hoặc xóa giá đã gõ là của DOM; UXD chỉ xem cách quy tắc đó hiện ra với lễ tân.
+
+### Kết luận: câu đổi kênh ĐẠT. Đóng thẻ FB-R4-UXD-FE-PR70-05. Thêm 1 thẻ Major (FB-07)
+
+| Điểm | Kết quả |
+|---|---|
+| Vị trí | **Đúng.** Ngay dưới bảng giá, sau câu lỗi `errors.rates`, trước câu lỗi bản xem. Lễ tân đang nhìn bảng giá khi đổi kênh, nên thấy câu ở đúng chỗ số vừa mất |
+| DS | **Đúng.** `span.help` (chữ phụ Stone Grey, không màu lỗi) và `role="status"` cho câu thông tin, đúng C19/A5. Không thêm lớp, màu hay `style=`. Test kiểm không có lớp `err` |
+| Khi nào hiện, khi nào ẩn | **Đúng thiết kế.** Chỉ hiện khi lần đổi kênh xóa ít nhất một ô đã gõ có số của lượt ở (`dates.some(ratesEdited && rates)`). Đổi kênh mà chưa gõ gì thì không hiện. Ẩn khi gõ lại một ô (`patch.ratesEdited`) hoặc khi đổi kênh lần nữa mà không xóa gì |
+| Chữ VI/EN | **Khớp nguyên văn bản UXD soạn.** VI "Đã xóa giá đã gõ vì đổi kênh." EN "Typed rates were cleared because the channel changed." Ghi chú trong `gen_strings.py` đúng bản UXD. Đã sinh lại `strings-vi/en.json`, `strings-tables.md`, `strings.js`. Cột RU "⟨chừa chỗ⟩" chấp nhận, vì Desk chỉ có VI/EN |
+| Nút Tạo đơn sau khi xóa | Đúng: `requote` và `calcFor = null` làm bản xem luôn được gọi lại, nút chờ "Đang tải…" như ở BE 1.8. Ca đi rồi về trong 300 ms không còn để ô trống mãi |
+| Brand | Đạt |
+
+Ghi chú, không cần sửa: `role="status"` được gắn cùng lúc với chữ, nên vài trình đọc màn hình có thể không đọc. Cách này giống mọi `Alert` thông tin khác của Desk, nên giữ cho nhất quán. Nếu sau này DS đổi sang vùng live luôn có sẵn, đổi cả loạt.
+
+Ghi chú cho PR khóa nút Giữ chỗ (`v104/fe-hold-typed-rate-lock`): tên nhóm `g("v1.0.4 booking – FE-B: …")` đã có ở #70. PR đó nên rebase lên #70 rồi **thêm** bộ `booking.hold.typed_rate_locked` vào cùng nhóm, không tạo nhóm trùng tên.
+
+### FB-R4-UXD-FE-PR70-07
+- Mức độ: **Major** (sửa trong #70, vì quy tắc gây ra nó nằm ở chính commit này)
+- Vị trí: `BookingDialog.tsx`, `set()` và `dropsTypedRates` (nhánh đổi căn khác nhóm ở Trực tiếp/CTV). Báo cáo FE mục 10.2 ý 2.
+- Vấn đề:
+  - Khi lễ tân đổi sang căn khác nhóm ở Trực tiếp hoặc CTV, giá đã gõ bị xóa mà **không có câu nào**.
+  - Lần này ô không để trống: bản xem điền ngay giá niêm yết của căn mới. Ví dụ: gõ giá thỏa thuận 990.000 cho căn 203, đổi sang 301, thì ô hiện giá niêm yết của 301 với `edited:false`, nhìn như mọi ô bình thường.
+  - Theo DOM (BR-429 g), xóa là đúng. Nhưng lễ tân không biết giá thỏa thuận đã mất. Họ dễ tạo đơn theo giá niêm yết, và cọc 30 % cũng tính theo giá đó.
+  - Trường hợp này khó thấy hơn đổi kênh: đổi kênh sang OTA/Nội bộ để ô trống, còn ở đây ô vẫn có số.
+- Vì sao quan trọng: giá của đơn khác giá đã báo khách, theo cả hai chiều (cao hơn hoặc thấp hơn). Lễ tân phát hiện khi khách hỏi lại, hoặc khi đối soát.
+- Đề xuất sửa (FE-B, trong #70):
+  - Khóa mới `booking.rates_cleared_room_group`, thêm vào cùng nhóm `g("v1.0.4 booking – …")`:
+    - VI: "Đã xóa giá đã gõ vì căn {room} thuộc nhóm căn khác. Kiểm lại giá mỗi đêm trước khi tạo đơn."
+    - EN: "Typed rates were cleared because room {room} is in a different room group. Check the rate per night before creating the booking."
+    - Ghi chú: "v1.0.4 booking. role=status dưới bảng giá, cùng chỗ booking.rates_cleared_channel. Chỉ khi đổi căn ở Trực tiếp/CTV sang căn khác nhóm làm xóa ít nhất 1 ô đã gõ có số (BR-429 g). {room} = số căn mới (roomNo)"
+  - Cách hiện: cùng `span.help role="status"`, cùng vị trí. Mỗi lúc chỉ hiện một trong hai câu. Có thể đổi `ratesCleared` thành `'channel' | 'room' | null`.
+  - Câu ẩn khi: gõ lại một ô; đổi kênh; hoặc đổi căn lần nữa mà không xóa gì.
+  - Câu có "Kiểm lại giá mỗi đêm" vì ô đã có số mới. "Giá mỗi đêm" là nhãn của bảng (`booking.field.rate`).
+  - Test: thêm vào ca "203 → 301" có sẵn. Kiểm câu hiện với số 301, không có lớp `err`, và ẩn khi gõ lại.
+- Trạng thái: Open
+
+Thẻ còn mở của UXD trên PR #70:
+- FB-07 (Major, sửa trong #70);
+- 02, 03, 04, 06 (Minor, v1.0.5).
+
+Không có ESC.
+
+---
+
+## Review lại @ f8fa5030 (04/11/2026): câu `booking.rates_cleared_room_group`
+
+- Đối tượng:
+  - `git diff d3da532d..f8fa5030 -- product/apps/admin-web/src/pages/booking/BookingDialog.tsx product/design`;
+  - 3 ca test mới;
+  - mục 10.4 báo cáo FE.
+
+### Kết luận: ĐẠT. Đóng thẻ FB-R4-UXD-FE-PR70-07
+
+| Điểm | Kết quả |
+|---|---|
+| Chữ VI/EN | **Khớp nguyên văn bản UXD soạn.** `{room}` lấy `roomNo` của căn mới. Ghi chú trong `gen_strings.py` đúng ý thẻ. Khóa nằm cùng nhóm `g("v1.0.4 booking – …")`. Đã sinh lại `strings-vi/en.json`, `strings-tables.md`, `strings.js` |
+| Vị trí, DS | **Đúng.** Cùng `span.help role="status"`, cùng chỗ dưới bảng giá với câu đổi kênh. Không màu lỗi; test kiểm không có lớp `err`. Không thêm lớp, màu hay `style=` |
+| Một câu mỗi lúc | **Đúng.** `ratesCleared` là `{ why, room }`, nên chỉ một câu được hiện. Đổi kênh và căn cùng lúc thì `rateDrop` trả `'channel'`, câu kênh thắng |
+| Khi nào hiện | Chỉ khi đổi căn ở Trực tiếp/CTV sang căn khác nhóm **và** có ít nhất một ô đã gõ có số bị xóa. Đổi sang căn khác nhóm khi chưa gõ gì thì không hiện (có test). Đường "Dùng căn …" của hộp gợi ý căn cũng đi qua `set({ roomId })`, nên cũng hiện câu. Như vậy lễ tân luôn được báo khi giá thỏa thuận mất |
+| Khi nào ẩn | Gõ lại một ô; đổi kênh; đổi căn lần nữa. Đổi căn sau một lần xóa vì đổi kênh thì **giữ** câu kênh. UXD đồng ý: câu đó vẫn đúng (giá đã gõ đã mất), và không có giá nào mới bị xóa |
+| Test | 3 ca mới: câu căn hiện, rồi ẩn khi gõ lại hoặc đổi căn; khác nhóm mà chưa gõ thì không nói gì; câu kênh giữ qua lần đổi căn, không bao giờ hiện cả hai câu. FE báo tệp test 28/28 xanh; tsc, eslint, prettier ok |
+| Brand | Đạt |
+
+Thẻ còn mở của UXD trên PR #70: 02, 03, 04, 06 (Minor, v1.0.5). Không còn thẻ Blocker hay Major. Không có ESC.

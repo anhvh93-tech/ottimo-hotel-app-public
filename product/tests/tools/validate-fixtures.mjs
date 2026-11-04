@@ -417,19 +417,36 @@ const CALC = {
     surchargeBaseVnd: directCurrentRateVnd,
     surchargeVnd: pctOfRate(directCurrentRateVnd, earlyPct(checkinTime)),
   }),
-  lateCheckout: ({ lastNightRateVnd, checkoutTime, sameDayArrival }, p) => {
+  lateCheckout: (
+    { lastNightRateVnd, checkoutTime, sameDayArrival, channel, departureNightSellable },
+    p,
+  ) => {
+    // BR-421 v0.5.3 (c), (d) – BUG-R4-038: an Internal stay's surcharge is % × its own last night (0 → 0, no line);
+    // after 18:00 its added night – or the late charge of one night when that night is sold – is 0 ₫ by (a).
+    const internal = channel === 'internal';
     const graceApplies = !(p.late_grace_requires_no_same_day_arrival && sameDayArrival);
     const freeUntil = graceApplies && p.late_grace_until > '12:00' ? p.late_grace_until : '12:00';
-    if (checkoutTime <= freeUntil) return { surchargeVnd: 0, convertToExtension: false };
-    if (checkoutTime > '18:00')
+    if (checkoutTime <= freeUntil)
+      return { surchargeVnd: 0, convertToExtension: false, surchargeLineWritten: false };
+    if (checkoutTime > '18:00') {
+      if (internal && departureNightSellable === false)
+        return {
+          surchargeVnd: 0,
+          convertToExtension: false,
+          lateFeeAsNightVnd: 0,
+          surchargeLineWritten: false,
+        };
       return {
         surchargeVnd: 0,
         convertToExtension: true,
         extensionNights: 1,
-        extensionVnd: lastNightRateVnd,
+        extensionVnd: internal ? 0 : lastNightRateVnd,
+        ...(internal ? { extraNightSource: 'complimentary' } : {}),
       };
+    }
     const pct = checkoutTime > '15:00' ? 50 : 30;
-    return { surchargeVnd: pctOfRate(lastNightRateVnd, pct), convertToExtension: false };
+    const surchargeVnd = pctOfRate(lastNightRateVnd, pct);
+    return { surchargeVnd, convertToExtension: false, surchargeLineWritten: surchargeVnd > 0 };
   },
   longStayLateCheckout: ({ leaseMonthlyRentVnd, checkoutTime }) => {
     const base = roundTo(leaseMonthlyRentVnd, 30, 1000);
@@ -438,6 +455,20 @@ const CALC = {
   },
   extension: (i, p) => {
     const { channel, nightRateVnd, directCurrentRateVnd, extraNights } = i;
+    if (channel === 'internal') {
+      // BR-421 v0.5.3 (a), (b) – BUG-R4-038: an Internal added night is 0 ₫ `complimentary` (also typed 0), a typed
+      // price > 0 is `manual`; no BR-105 floor–ceiling, no BR-107 tier.
+      const nightsVnd = Array.from({ length: extraNights }, (_, k) => i.typedRatesVnd?.[k] ?? 0);
+      const extensionVnd = nightsVnd.reduce((a, b) => a + b, 0);
+      return {
+        accepted: nightsVnd.every((v) => v >= 0),
+        nightsVnd,
+        nightSources: nightsVnd.map((v) => (v > 0 ? 'manual' : 'complimentary')),
+        floorCeilingApplies: false,
+        extensionVnd,
+        amountDueAfterVnd: (i.folioDueBeforeVnd ?? 0) + extensionVnd,
+      };
+    }
     if (i.extraNightDates && i.directListPriceVnd && !['direct', 'collaborator'].includes(channel))
       // BR-421 v0.3: OTA extension = current direct rate per night, rate calendar included (BR-104)
       return {

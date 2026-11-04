@@ -4131,6 +4131,17 @@ g("v1.0.4 P4-42 privacy-2026-10-v2", [
 ])
 
 
+# ---------- v1.0.4 booking – FE-B (PR #70 / v104/fe-hold-typed-rate-lock), UXD 04/11 ----------
+g("v1.0.4 booking – FE-B: khóa Giữ chỗ khi có giá đã gõ (DOM); xóa giá đã gõ khi đổi sang OTA/Nội bộ. UXD 04/11/2026", [
+    ("booking.rates_cleared_channel", "Đã xóa giá đã gõ vì đổi kênh.", "Typed rates were cleared because the channel changed.", None, "v1.0.4 booking. role=status dưới bảng giá, chỉ khi có ô đã gõ bị xóa"),
+    ("booking.rates_cleared_room_group", "Đã xóa giá đã gõ vì căn {room} thuộc nhóm căn khác. Kiểm lại giá mỗi đêm trước khi tạo đơn.", "Typed rates were cleared because room {room} is in a different room group. Check the rate per night before creating the booking.", None, "v1.0.4 booking (FB-R4-UXD-FE-PR70-07). role=status dưới bảng giá như booking.rates_cleared_channel, chỉ khi có ô đã gõ bị xóa; đổi kênh và căn cùng lúc thì câu kênh"),
+])
+
+
+g("v1.0.4 BUG-R4-042 – FE-A: H16 bước 1 luôn nêu tên tủ đang đếm khi lượt ở có nhiều tủ (K11-03). CHỜ UXD DUYỆT", [
+    ("co.minibar_cabinet_counting", "Tủ minibar đang đếm", "Minibar being counted", None, "H16 bước 1, nhãn <dt> của dòng tên tủ (giá trị = co.minibar_cabinet_room / co.minibar_cabinet_old). Chỉ hiện khi lượt ở có từ 2 tủ (sau B14) và nhóm chọn tủ đã ẩn vì chỉ còn 1 tủ (tủ kia đã đếm trên trang này). Tiêu đề trang vẫn ghi căn đang ở"),
+])
+
 def build():
     vi, en, ru = {}, {}, {}
     for grp, k, a, b, c, n in S:

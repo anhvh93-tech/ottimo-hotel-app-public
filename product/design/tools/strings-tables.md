@@ -4046,6 +4046,19 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `guest.oci.withdraw_hint` | Muốn rút đồng ý lưu ảnh? Báo lễ tân – ảnh sẽ được xóa. | Want to withdraw consent to keep photos? Tell reception – the photos will be deleted. | Хотите отозвать согласие на хранение фото? Сообщите администратору — фото будут удалены. | Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – khối pháp lý thủ tục trước; VI/EN không đổi so với v1 |
 | `gw.notice_read` | Tôi đã đọc | I've read this | Прочитано | Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – khối pháp lý thủ tục trước; VI/EN không đổi so với v1 |
 
+#### v1.0.4 booking – FE-B: khóa Giữ chỗ khi có giá đã gõ (DOM); xóa giá đã gõ khi đổi sang OTA/Nội bộ. UXD 04/11/2026
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `booking.rates_cleared_channel` | Đã xóa giá đã gõ vì đổi kênh. | Typed rates were cleared because the channel changed. | ⟨chừa chỗ⟩ | v1.0.4 booking. role=status dưới bảng giá, chỉ khi có ô đã gõ bị xóa |
+| `booking.rates_cleared_room_group` | Đã xóa giá đã gõ vì căn {room} thuộc nhóm căn khác. Kiểm lại giá mỗi đêm trước khi tạo đơn. | Typed rates were cleared because room {room} is in a different room group. Check the rate per night before creating the booking. | ⟨chừa chỗ⟩ | v1.0.4 booking (FB-R4-UXD-FE-PR70-07). role=status dưới bảng giá như booking.rates_cleared_channel, chỉ khi có ô đã gõ bị xóa; đổi kênh và căn cùng lúc thì câu kênh |
+
+#### v1.0.4 BUG-R4-042 – FE-A: H16 bước 1 luôn nêu tên tủ đang đếm khi lượt ở có nhiều tủ (K11-03). CHỜ UXD DUYỆT
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `co.minibar_cabinet_counting` | Tủ minibar đang đếm | Minibar being counted | ⟨chừa chỗ⟩ | H16 bước 1, nhãn <dt> của dòng tên tủ (giá trị = co.minibar_cabinet_room / co.minibar_cabinet_old). Chỉ hiện khi lượt ở có từ 2 tủ (sau B14) và nhóm chọn tủ đã ẩn vì chỉ còn 1 tủ (tủ kia đã đếm trên trang này). Tiêu đề trang vẫn ghi căn đang ở |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |
