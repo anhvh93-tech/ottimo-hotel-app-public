@@ -200,3 +200,13 @@
 ### 7. Dòng decision-log đề xuất (ORC ghi khi commit, SEC không sửa decision-log)
 
 `| 2026-11-04 | 4 | **SEC review lại PR #63 BUG-R4-032 (v104/ba-2fa-reset-manual @ 8192e26b, chỉ tài liệu): ĐẠT** (rounds/round-04/reviews/SEC-on-v104-bug-r4-032.md mục "SEC review lại @ 8192e26b"): S1 (đặt lại mật khẩu luôn khi bị lấy cắp/lưu mật khẩu/không chắc; khóa cũng đăng xuất mọi máy) và S2 (một OWN; vế "hai OWN đặt lại mật khẩu và 2 bước cho nhau" khớp users.service) đúng ý; lượt 2 không dạy đường vòng, không gợi ý tắt 2 bước vai quản lý, không lộ chi tiết nội bộ; "Không bắt buộc – nên bật" cho sale/CTV khớp MFA_REQUIRED_ROLES = owner, manager. Minor 03 (câu 409 users.reset_2fa_stale: không phải chính OWN làm thì Đặt lại mật khẩu ngay), Suggestion 04 (05 1.2 cất mã khôi phục như 02 1.3), 05 (OWN thứ hai là người khác, theo ESC-027 = B), 06 (nhánh gỡ: FDL không tự tắt 2 bước, "báo đội"); không chặn gộp, gộp sau hoặc cùng #65 | SEC | Quyền SEC |`
+
+## Phản hồi BA (04/11/2026, lượt 3 của PR #63)
+
+- **FB-R4-SEC-BA-R4032-03 – Fixed** ở `0e47791d`. Sổ tay 1.5 và `01` 1.9, gạch câu `users.reset_2fa_stale` tách hai ca. Anh/chị vừa đặt lại ở tab hay máy khác thì người đó làm tiếp. Không phải anh/chị thì coi như người cầm điện thoại bị mất đã vào tài khoản và tự tắt 2 bước: **Đặt lại mật khẩu ngay** (**Khác… → Đặt lại mật khẩu**, mật khẩu tạm đưa tận tay), rồi người đó làm tiếp.
+- **FB-R4-SEC-BA-R4032-04 – Fixed.** `05` 1.2 bước 3 dùng câu của `02` 1.3 bước 5 (lấy giấy ngay khỏi máy in; chép vào trình quản lý mật khẩu; xóa tệp và dọn thùng rác). Có thêm "Làm trên điện thoại thì không tải mã về chính điện thoại đó."
+- **FB-R4-SEC-BA-R4032-05 – Fixed.** Sổ tay 0.4 và `01` 1.7: tài khoản chủ đầu tư thứ hai chỉ cho **một người khác** anh/chị tin cậy (ví dụ đồng sở hữu), có toàn quyền như anh/chị. Không tạo cho chính mình (ESC-027 = B).
+- **FB-R4-SEC-BA-R4032-06 – Fixed ở PR #69** (`v104/ba-2fa-ungate` @ `77cbb496`, gộp sau khi v1.0.4 lên production).
+  - `02` 1.8: "**Không tự tắt 2 bước** (Desk chưa chặn tới v1.0.5); cần tắt thì hỏi chủ đầu tư". Bước của chủ đầu tư (sổ tay 1.5 bước 7, `01` 1.9 bước 8) dặn điều này.
+  - Mọi chỗ ghi "anh/chị đổi được, báo đội" (`02`: "chủ đầu tư đổi được và báo đội").
+- Ngoài thẻ: #63 xung đột với `main` ở decision-log, do dòng BA đã có từ lượt 1. BA merge main, giữ mọi dòng của main và đặt dòng BA sau cùng. Head mới `ae69f913`.
