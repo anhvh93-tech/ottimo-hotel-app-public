@@ -124,19 +124,21 @@ const weekend = (date: string) => [5, 6].includes(new Date(`${date}T00:00:00Z`).
  * - Room at Trực tiếp / CTV into another room group: an agreed rate belongs to its room type.
  * Kept: guests, dates (nights still in the stay), Trực tiếp ↔ CTV, a room of the same group, any room at OTA / Nội bộ
  * (their price goes with the booking, not the room).
+ * The reason names the sentence (UXD): the channel one first when channel and room change together.
  */
-function dropsTypedRates(
+type RateDrop = 'channel' | 'room_group';
+function rateDrop(
   was: { group: ChannelGroup; roomId: string },
   now: { group: ChannelGroup; roomId: string },
   groupOf: (roomId: string) => string | undefined,
-): boolean {
+): RateDrop | null {
   const ownPrice = (g: ChannelGroup) => g === 'ota' || g === 'internal';
-  if (was.group !== now.group && (ownPrice(was.group) || ownPrice(now.group))) return true;
+  if (was.group !== now.group && (ownPrice(was.group) || ownPrice(now.group))) return 'channel';
   if (was.roomId && now.roomId !== was.roomId && !ownPrice(now.group)) {
     const a = groupOf(was.roomId);
-    return !a || a !== groupOf(now.roomId);
+    return !a || a !== groupOf(now.roomId) ? 'room_group' : null;
   }
-  return false;
+  return null;
 }
 
 /** BUG-R4-037: the stay a price preview prices – channel, room and dates (the guests do not change a night's rate). */
@@ -235,8 +237,11 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   const [busy, setBusy] = useState<'create' | 'hold' | null>(null);
   const [calc, setCalc] = useState<QuoteCalculation | null>(null);
   const [calcError, setCalcError] = useState<unknown>(null);
-  /** UXD `booking.rates_cleared_channel`: the last channel change dropped at least one rate the desk typed. */
-  const [ratesCleared, setRatesCleared] = useState(false);
+  /**
+   * UXD `booking.rates_cleared_channel` / `booking.rates_cleared_room_group` (FB-R4-UXD-FE-PR70-07): the last channel
+   * or room change dropped at least one rate the desk typed – which change, and the room it went to.
+   */
+  const [ratesCleared, setRatesCleared] = useState<{ why: RateDrop; room: string } | null>(null);
   /** BUG-R4-037 (BE 1.8): the stay (`previewKey`) the last preview answered for – priced or failed. */
   const [calcFor, setCalcFor] = useState<string | null>(null);
   /**
@@ -260,12 +265,20 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   );
   const groupOf = (id: string) => catalog.rooms.find((x) => x.id === id)?.roomGroupId;
   const set = (patch: Partial<Form>) => {
-    const drops = dropsTypedRates(form, { ...form, ...patch }, groupOf);
-    // The sentence says a channel change dropped typed rates (a night of this stay with a typed figure); it goes on
-    // the next channel change, or when the desk types a rate again.
-    if (patch.group !== undefined && patch.group !== form.group)
-      setRatesCleared(drops && dates.some((d) => form.ratesEdited[d] && !!form.rates[d]));
-    else if (patch.ratesEdited) setRatesCleared(false);
+    const now = { ...form, ...patch };
+    const drop = rateDrop(form, now, groupOf);
+    const drops = drop !== null;
+    // One sentence says the change dropped typed rates (a night of this stay with a typed figure). It goes when the
+    // desk types a rate again, or on the next change of its kind: any channel change; a room change for the room
+    // sentence (a room change keeps the channel sentence – the typed rates are gone already).
+    const said =
+      drop && dates.some((d) => form.ratesEdited[d] && !!form.rates[d])
+        ? { why: drop, room: catalog.rooms.find((x) => x.id === now.roomId)?.roomNo ?? '' }
+        : null;
+    if (patch.group !== undefined && patch.group !== form.group) setRatesCleared(said);
+    else if (patch.roomId !== undefined && patch.roomId !== form.roomId)
+      setRatesCleared((c) => said ?? (c?.why === 'channel' ? c : null));
+    else if (patch.ratesEdited) setRatesCleared(null);
     if (drops) {
       // "Tạo đơn" waits (BE 1.8) until the new preview has filled the boxes again
       setCalcFor(null);
@@ -273,7 +286,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     }
     setForm((f) => {
       let next = { ...f, ...patch };
-      if (dropsTypedRates(f, next, groupOf)) next = { ...next, rates: {}, ratesEdited: {} };
+      if (rateDrop(f, next, groupOf)) next = { ...next, rates: {}, ratesEdited: {} };
       writeDraft(DRAFT_KEY, JSON.stringify(next));
       return next;
     });
@@ -1380,7 +1393,9 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
             {errors.rates ? <div className="err">{errors.rates}</div> : null}
             {ratesCleared ? (
               <span className="help" role="status">
-                {t('booking.rates_cleared_channel')}
+                {ratesCleared.why === 'channel'
+                  ? t('booking.rates_cleared_channel')
+                  : t('booking.rates_cleared_room_group', { room: ratesCleared.room })}
               </span>
             ) : null}
             {calcError ? (

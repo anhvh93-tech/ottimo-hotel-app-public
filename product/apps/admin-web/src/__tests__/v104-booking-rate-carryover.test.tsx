@@ -172,6 +172,9 @@ async function typeRate(user: User, dlg: HTMLElement, date: string, value: strin
 }
 const clearedNote = (dlg: HTMLElement) =>
   within(dlg).queryByText(tv('booking.rates_cleared_channel'));
+/** FB-R4-UXD-FE-PR70-07: the sentence of a room change into another room group. */
+const roomNote = (dlg: HTMLElement, room: string) =>
+  within(dlg).queryByText(tv('booking.rates_cleared_room_group', { room }));
 /** "Tạo đơn" is back from waiting: the preview of the stay on screen answered (Trực tiếp / CTV). */
 const previewSettled = (dlg: HTMLElement) =>
   waitFor(() => expect(within(dlg).getByRole('button', { name: 'Tạo đơn' })).toBeEnabled(), {
@@ -307,23 +310,66 @@ describe('DOM ARC-03 / UXD-05 – which changes drop the rates the desk typed', 
     await pickRoom(user, dlg, '203');
     await previewSettled(dlg);
     expect(rateBox(dlg, today())).toHaveValue('880000');
+    expect(roomNote(dlg, '203')).toBeNull();
   });
 
-  it('Trực tiếp, a room of another group (203 → 301) drops it: the new room is priced from its list (BR-429 (g))', async () => {
+  it.each<Group>(['direct', 'agent'])(
+    '%s, a room of another group (203 → 301) drops it, the new room is priced from its list (BR-429 (g)) and the sentence says so',
+    async (g) => {
+      pinDaytime();
+      const { user } = renderApp('/rack', 'qa.fd');
+      const dlg = await openBooking(user);
+      await previewFilled(dlg);
+      if (g !== 'direct') await pickChannel(user, dlg, g);
+      await pickRoom(user, dlg, '203');
+      await previewSettled(dlg);
+      await typeRate(user, dlg, today(), '880000');
+      await pickRoom(user, dlg, '301');
+      expect(rateBox(dlg, today())).not.toHaveValue('880000');
+      // FB-R4-UXD-FE-PR70-07: the desk is told the agreed rate is gone – status, not an error
+      const note = roomNote(dlg, '301')!;
+      expect(note).toBeInTheDocument();
+      expect(note).toHaveAttribute('role', 'status');
+      expect(note).not.toHaveClass('err');
+      expect(clearedNote(dlg)).toBeNull();
+      await previewSettled(dlg);
+      await waitFor(() => expect(rateBox(dlg, today()).value).not.toBe(''));
+      expect(rateBox(dlg, today())).not.toHaveValue('880000');
+      // typing again takes the sentence away
+      await typeRate(user, dlg, today(), '700000');
+      expect(roomNote(dlg, '301')).toBeNull();
+    },
+  );
+
+  it('the room sentence goes on the next room change; another group with nothing typed says nothing', async () => {
     pinDaytime();
     const { user } = renderApp('/rack', 'qa.fd');
     const dlg = await openBooking(user);
     await previewFilled(dlg);
-    await pickRoom(user, dlg, '203');
+    await pickRoom(user, dlg, '301');
+    expect(roomNote(dlg, '301')).toBeNull();
     await previewSettled(dlg);
     await typeRate(user, dlg, today(), '880000');
+    await pickRoom(user, dlg, '203');
+    expect(roomNote(dlg, '203')).toBeInTheDocument();
+    await pickRoom(user, dlg, '302');
+    expect(roomNote(dlg, '203')).toBeNull();
+    expect(roomNote(dlg, '302')).toBeNull();
+  });
+
+  it('one sentence: after a channel drop, a room change keeps the channel sentence (never both)', async () => {
+    pinDaytime();
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openBooking(user);
+    await previewFilled(dlg);
+    await pickChannel(user, dlg, 'ota');
+    await pickRoom(user, dlg, '203');
+    await typeRate(user, dlg, today(), '880000');
+    await pickChannel(user, dlg, 'direct');
+    expect(clearedNote(dlg)).toBeInTheDocument();
     await pickRoom(user, dlg, '301');
-    expect(rateBox(dlg, today())).not.toHaveValue('880000');
-    await previewSettled(dlg);
-    await waitFor(() => expect(rateBox(dlg, today()).value).not.toBe(''));
-    expect(rateBox(dlg, today())).not.toHaveValue('880000');
-    // a room change, not a channel change – no sentence (as before #70)
-    expect(clearedNote(dlg)).toBeNull();
+    expect(clearedNote(dlg)).toBeInTheDocument();
+    expect(roomNote(dlg, '301')).toBeNull();
   });
 
   it('OTA, another room (any group) keeps the typed rate – the OTA price goes with the booking', async () => {

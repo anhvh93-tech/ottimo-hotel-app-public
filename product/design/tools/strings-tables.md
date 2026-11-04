@@ -4050,6 +4050,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
 |---|---|---|---|---|
 | `booking.rates_cleared_channel` | Đã xóa giá đã gõ vì đổi kênh. | Typed rates were cleared because the channel changed. | ⟨chừa chỗ⟩ | v1.0.4 booking. role=status dưới bảng giá, chỉ khi có ô đã gõ bị xóa |
+| `booking.rates_cleared_room_group` | Đã xóa giá đã gõ vì căn {room} thuộc nhóm căn khác. Kiểm lại giá mỗi đêm trước khi tạo đơn. | Typed rates were cleared because room {room} is in a different room group. Check the rate per night before creating the booking. | ⟨chừa chỗ⟩ | v1.0.4 booking (FB-R4-UXD-FE-PR70-07). role=status dưới bảng giá như booking.rates_cleared_channel, chỉ khi có ô đã gõ bị xóa; đổi kênh và căn cùng lúc thì câu kênh |
 
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 

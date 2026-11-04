@@ -159,7 +159,7 @@ Nền: `94a28258`. Push thường, không force. Quy tắc này thay câu "ô đ
 | Ngày đến, ngày đi | Giữ những đêm còn trong lượt ở. Đêm mới lấy giá bản xem | |
 | Trực tiếp ↔ CTV | Giữ | BR-421 (b) |
 | Đổi kênh sang OTA hoặc Nội bộ, hay từ OTA hoặc Nội bộ sang kênh khác (kể cả OTA ↔ Nội bộ) | **Xóa** mọi ô đã gõ, hiện câu `booking.rates_cleared_channel` | BR-112: giá thỏa thuận Trực tiếp không phải giá OTA, cũng không phải "Nội bộ có thu" |
-| Đổi căn ở Trực tiếp hoặc CTV sang căn **khác nhóm** | **Xóa** (căn mới tính theo giá niêm yết của nhóm đó). Không hiện câu, vì câu nói "đổi kênh" | BR-429 (g) |
+| Đổi căn ở Trực tiếp hoặc CTV sang căn **khác nhóm** | **Xóa** (căn mới tính theo giá niêm yết của nhóm đó), hiện câu `booking.rates_cleared_room_group` (mục 10.4) | BR-429 (g) |
 | Đổi căn cùng nhóm ở Trực tiếp hoặc CTV (ví dụ 101 → 203) | Giữ | DOM cho phép tách theo nhóm khi làm được. App có `roomGroupId` nên tách |
 | Đổi căn ở OTA (bất kỳ nhóm nào) | Giữ, gửi `edited:true` | Giá OTA đi theo đơn, không theo căn |
 
@@ -208,9 +208,39 @@ Nhận định:
 
 ### 10.2. Giả định
 - Nội bộ: đổi căn thì giữ giá đã gõ, giống OTA. DOM chỉ nêu OTA; Nội bộ cũng có giá đi theo đơn.
-- Đổi căn khác nhóm ở Trực tiếp hoặc CTV: xóa nhưng không hiện câu. Câu UXD cấp nói "vì đổi kênh". Nếu UXD muốn có câu cho trường hợp đổi căn, cần một khóa mới.
+- Đổi căn khác nhóm ở Trực tiếp hoặc CTV: ~~xóa nhưng không hiện câu~~. UXD đã cấp khóa riêng, xem mục 10.4.
 - Căn không có nhóm trong danh mục: coi là khác nhóm, nên xóa.
 
 ### 10.3. Dòng đề xuất cho `01-decisions/decision-log.md` (thay dòng ở mục 8)
 
-`| 2026-11-04 | 4 | FE-B – BUG-R4-037 + DOM ARC-03/UXD-05: giá do bản xem điền chỉ có hiệu lực cho đúng kênh/căn/ngày của bản xem; giá lễ tân gõ GIỮ khi đổi số khách, ngày (đêm còn trong lượt), Trực tiếp↔CTV, căn cùng nhóm, căn ở OTA/Nội bộ; XÓA khi đổi kênh sang/từ OTA/Nội bộ (câu booking.rates_cleared_channel, role=status) và khi đổi căn khác nhóm ở Trực tiếp/CTV (BR-429 g); sau khi xóa luôn gọi lại bản xem, nút Tạo đơn chờ. Không đổi máy chủ/hợp đồng | FE-B | DOM; rounds/round-04/outputs/FE/bug-r4-037-booking-rate-carryover.md |`
+`| 2026-11-04 | 4 | FE-B – BUG-R4-037 + DOM ARC-03/UXD-05: giá do bản xem điền chỉ có hiệu lực cho đúng kênh/căn/ngày của bản xem; giá lễ tân gõ GIỮ khi đổi số khách, ngày (đêm còn trong lượt), Trực tiếp↔CTV, căn cùng nhóm, căn ở OTA/Nội bộ; XÓA khi đổi kênh sang/từ OTA/Nội bộ (câu booking.rates_cleared_channel, role=status) và khi đổi căn khác nhóm ở Trực tiếp/CTV (BR-429 g; câu booking.rates_cleared_room_group, cùng lúc thì câu kênh); sau khi xóa luôn gọi lại bản xem, nút Tạo đơn chờ. Không đổi máy chủ/hợp đồng | FE-B | DOM; rounds/round-04/outputs/FE/bug-r4-037-booking-rate-carryover.md |`
+
+### 10.4. Thẻ FB-R4-UXD-FE-PR70-07 (Major): đổi căn khác nhóm thì báo cho lễ tân
+
+Nền: `d3da532d`. Push thường, không force.
+
+Lỗi: ở Trực tiếp hoặc CTV, đổi sang căn khác nhóm thì giá đã gõ bị xóa mà không có câu nào báo. Sau đó ô tự điền giá niêm yết của căn mới, nên lễ tân không biết giá thỏa thuận đã mất.
+
+Sửa:
+- `dropsTypedRates` đổi thành `rateDrop`, trả về lý do: `'channel'`, `'room_group'` hoặc không có. Luật kênh được xét trước, nên khi đổi kênh và đổi căn cùng lúc thì ra lý do kênh (UXD: chỉ một câu, ưu tiên câu kênh).
+- Khóa mới `booking.rates_cleared_room_group`, tham số `{room}` là số căn mới. Thêm qua `gen_strings.py`, cùng nhóm với khóa kênh. Đã sinh lại (3471 chuỗi), chạy lại lần hai không đổi.
+- Cách hiện giống câu kênh: `span.help`, `role="status"`, dưới bảng giá, không màu lỗi. Chỉ hiện khi lần đổi đó xóa ít nhất một ô đã gõ có số.
+- Khi nào câu ẩn:
+  - lễ tân gõ lại một ô;
+  - đổi kênh (tính lại theo luật kênh);
+  - với câu căn: đổi căn lần nữa.
+- Đổi căn ngay sau một lần đổi kênh đã xóa giá thì vẫn giữ câu kênh, vì ô gõ đã mất từ lần đổi kênh. Hai câu không bao giờ hiện cùng lúc.
+
+Test (tổng 28 ca):
+- Ca "203 → 301" chuyển thành `it.each` cho Trực tiếp và CTV. Mỗi ca kiểm: câu có số căn 301, `role="status"`, không lớp `err`, không có câu kênh; bản xem của 301 điền lại ô; gõ lại thì câu ẩn.
+- Ca mới:
+  - đổi căn khác nhóm khi chưa gõ gì thì không có câu;
+  - câu căn ẩn khi đổi căn tiếp (203 → 302);
+  - câu kênh được giữ khi đổi căn ngay sau đó, không hiện câu căn.
+- Ca cùng nhóm (101 → 203) kiểm thêm: không có câu.
+- Trên `d3da532d`: 3 ca đỏ (2 ca `it.each` và ca "đổi căn tiếp"). Ca "giữ câu kênh" xanh ở cả hai bản; nó là ca chặn tái phát.
+- Trên bản sửa: tệp này 28/28 xanh. tsc, eslint, prettier ok.
+- Toàn bộ admin-web: 904/908. Tải máy tăng từ 16 lên 81 giữa lượt chạy (các agent khác).
+  - 3 ca hết giờ 15 s: A-20 (`s2-fix`), báo giá → giữ chỗ (`quotes`), trường "Nguồn" H09 (`r3-v100-fea`).
+  - 1 ca minibar H16 (`s4-144-fea`), không đụng hộp đặt phòng.
+  - Chạy lại riêng 4 tệp đó ở tải 77: 34/34 xanh.
