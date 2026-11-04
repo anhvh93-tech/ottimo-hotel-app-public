@@ -13,7 +13,7 @@ const roomLine = async () =>
   (await screen.findByText(tv('checkin.cond.room_ready'))).closest('li')! as HTMLElement;
 
 describe('BUG-R4-049 – H13: no room status for a booking with no room', () => {
-  it('unassigned booking: the room line has no "Căn ·" and no room status', async () => {
+  it('unassigned booking: the room line has no "Căn ·" and no room status; the capacity line no "căn  tối đa –"', async () => {
     pinDaytime();
     const r = hung();
     r.roomId = null;
@@ -27,9 +27,14 @@ describe('BUG-R4-049 – H13: no room status for a booking with no room', () => 
       tv('ci.cond_room', { room: '', status: tv('status.room.VC') }),
     );
     expect(line).not.toHaveTextContent(tv('status.room.VC'));
+    // FB-R4-UXD-FE-PR84-01: the capacity line is met (no room to exceed) – its label only, no "căn  tối đa –".
+    const capacity = screen.getByText(tv('checkin.cond.capacity')).closest('li')!;
+    expect(capacity).toHaveTextContent(tv('ci.met'));
+    expect(capacity).not.toHaveTextContent('tối đa');
+    expect(capacity).not.toHaveTextContent('–');
   });
 
-  it('control – a booking with its room still shows "Căn 302 · <status>"', async () => {
+  it('control – a booking with its room still shows "Căn 302 · <status>" and "căn 302 tối đa <max>"', async () => {
     pinDaytime();
     const r = hung();
     mockControl.stay.roomStatus['302'] = 'VD';
@@ -37,6 +42,9 @@ describe('BUG-R4-049 – H13: no room status for a booking with no room', () => 
     const line = await roomLine();
     expect(line).toHaveTextContent(
       tv('ci.cond_room', { room: '302', status: tv('status.room.VD') }),
+    );
+    expect(screen.getByText(tv('checkin.cond.capacity')).closest('li')!).toHaveTextContent(
+      /căn 302 tối đa \d+/,
     );
   });
 });

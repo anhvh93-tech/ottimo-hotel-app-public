@@ -466,7 +466,8 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
       case 'main_guest_document':
         return c.met ? null : t('ci.cond_doc');
       case 'capacity_within_max':
-        return c.met
+        // FB-R4-UXD-FE-PR84-01: as room_ready – no "căn  tối đa –" for a booking with no room.
+        return c.met && hasRoom
           ? t('ci.cond_capacity_ok', {
               n: r.adults + (r.children6to11 ?? 0),
               room,
