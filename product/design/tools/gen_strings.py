@@ -3991,6 +3991,7 @@ g("v1.0.4 P4-01 – UXD lượt 1 (05/11/2026)", [
     # P4-32 v104/fe-checkout (FE-B)
     ("checkout.pending_refund_line", "Đang chờ hoàn cho khách {amount} (yêu cầu từ Trả sớm).", "Refund pending for the guest: {amount} (requested in Early departure).", None, "P4-32 GN-R4-QA-03. Bước ③ Bill và màn Kết quả, dưới \"Còn phải thu\". {amount} = tổng yêu cầu hoàn còn mở lý do early_departure. Lượt 2: EN gọi đúng tên chức năng như checkout.use_early_departure – FB-R4-CPY-UXD-P401-09"),
     ("checkout.use_early_departure", "Hôm nay chưa tới ngày đi ({date}). Khách rời sớm thì dùng Trả sớm trên khung đơn.", "Today is before the departure date ({date}). If the guest is leaving early, use Early departure on the booking.", None, "P4-32 BUG-R3-024. Trang Trả phòng mở trước ngày đi: thay bước ①, kèm nút mở khung đơn"),
+    ("checkout.pending_refund_unavailable", "Chưa tải được khoản chờ hoàn từ Trả sớm. Xem ở Nhật ký tiền › Hoàn tiền trước khi báo khách.", "Couldn't load the refund pending from Early departure. Check Money log › Refunds before telling the guest.", None, "P4-32 U5 (UXD-on-v104-p4-32, FB-R4-UXD-FE-P432-03). H16 bước ③ Bill và màn Kết quả: đọc listApprovalRequests lỗi – thay chỗ checkout.pending_refund_line, cùng hàng tr.sub, chữ Stone, không đỏ, không chặn Hoàn tất. \"Nhật ký tiền\" = nav.moneylog, \"Hoàn tiền\" = refund.title"),
 ])
 
 # v1.0.4 P4-50 v104/mob-2fa – app nhân viên (MOB). ORC chốt 04/11: mật khẩu tạm đổi trong app, bật 2 bước dẫn sang Desk.
