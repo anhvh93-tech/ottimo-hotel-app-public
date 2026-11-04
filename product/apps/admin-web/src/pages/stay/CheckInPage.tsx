@@ -66,26 +66,26 @@ type RoomReadyCondition = CheckInCondition & { cause?: string; heldByReservation
 /**
  * BUG-R4-039: the sentence for a `room_ready` the server blocks with no exception (no `overridableBy`) – its key, and
  * the code of the booking holding the room – or `null` when the room line says nothing more (OOO: `ci.ooo_never`; no
- * room: `not_unassigned` says it). UXD (UXD-on-v104-pr77 lượt 3) with ARC's `cause`: a holding booking's code →
- * `room_held_code`, even on OC/OD; `cause` `room_status` → `room_occupied`; `held_by_other_stay` → `room_held`.
- * Without `cause` (an API before #74 C2, or a cause this Desk does not know): DOM lượt 5 on `detail` – OC/OD →
- * `room_occupied`, else `room_held` – only for a booking that has its room (`hasRoom`: `not_unassigned` met), since an
- * unassigned booking reads `detail: "VC"` there.
+ * room: `not_unassigned` says it). Order of UXD-on-v104-pr77 lượt 4 with ARC's `cause` (#74 A.2):
+ * `held_by_other_stay` → `room_held_code` with `heldByReservationCode`, `room_held` without it; `room_status` on OC/OD
+ * (no stay in house: the status is stuck) → `room_status_stuck`. Without `cause` (an API before #74 C2, or a cause
+ * this Desk does not know): DOM lượt 5 on `detail` – OC/OD → `room_occupied`, else `room_held` – only for a booking
+ * that has its room (`hasRoom`: `not_unassigned` met), since an unassigned booking reads `detail: "VC"` there.
  */
 export function roomBlockedMessage(
   c: RoomReadyCondition | undefined,
   hasRoom: boolean,
 ): { key: string; code?: string } | null {
   if (!c || c.met || c.overridableBy?.length || c.detail === 'OOO') return null;
+  const occupiedStatus = c.detail === 'OC' || c.detail === 'OD';
   if (c.cause === 'no_room') return null;
-  if (c.heldByReservationCode)
-    return { key: 'checkin.room_held_code', code: c.heldByReservationCode };
-  if (c.cause === 'held_by_other_stay') return { key: 'checkin.room_held' };
-  if (c.cause === 'room_status') return { key: 'checkin.room_occupied' };
+  if (c.cause === 'held_by_other_stay')
+    return c.heldByReservationCode
+      ? { key: 'checkin.room_held_code', code: c.heldByReservationCode }
+      : { key: 'checkin.room_held' };
+  if (c.cause === 'room_status' && occupiedStatus) return { key: 'checkin.room_status_stuck' };
   if (!hasRoom) return null;
-  return c.detail === 'OC' || c.detail === 'OD'
-    ? { key: 'checkin.room_occupied' }
-    : { key: 'checkin.room_held' };
+  return occupiedStatus ? { key: 'checkin.room_occupied' } : { key: 'checkin.room_held' };
 }
 
 const STEPS = [

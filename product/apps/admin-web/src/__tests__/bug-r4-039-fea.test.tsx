@@ -8,8 +8,11 @@
 // ARC (review #74 C1/C2, review #77 PR77-02/03): the sentence follows `cause` (`room_status` | `held_by_other_stay` |
 // `no_room`) and names the holding booking (`heldByReservationCode`, UXD lượt 3 `checkin.room_held_code`); an overdue
 // stay with no B18 also takes the exception away; without `cause`, DOM's reading – never on a booking with no room.
+// UXD lượt 4 (DOM lượt 7 mục 3): `cause = room_status` on OC/OD with no stay in house → `checkin.room_status_stuck`;
+// `room_occupied` (new ending: move this booking, tell the manager) stays for a server with no `cause`.
 import { screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { api } from '../app/api';
 import { todayLocal } from '../app/dates';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
@@ -20,6 +23,8 @@ import { renderApp, tv } from '../test/render';
 const rsvOf = (guest: string) => mockControl.rsv.reservations.find((r) => r.guestName === guest)!;
 const reasonBox = () => screen.queryByLabelText(new RegExp(`^${tv('ci.reason')}`));
 const occupied = (room: string) => tv('checkin.room_occupied', { room });
+const stuck = (room: string) => tv('checkin.room_status_stuck', { room });
+const held = (room: string) => tv('checkin.room_held', { room });
 const heldCode = (room: string, code: string) => tv('checkin.room_held_code', { room, code });
 const yesterday = () =>
   new Date(Date.parse(`${todayLocal()}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
@@ -65,7 +70,7 @@ const alertWith = (sentence: string) =>
   screen.queryAllByRole('alert').find((a) => a.textContent?.includes(sentence));
 
 /** The room line's blocking alert: the sentence and the way out ("Đổi căn / đổi ngày" → the booking). */
-async function expectBlocked(reservationId: string, sentence = occupied('302')) {
+async function expectBlocked(reservationId: string, sentence: string) {
   const alert = await waitFor(() => {
     const a = alertWith(sentence);
     expect(a).toBeDefined();
@@ -91,16 +96,19 @@ async function expectBlocked(reservationId: string, sentence = occupied('302')) 
 async function expectHeldBy(reservationId: string, code: string) {
   const alert = await expectBlocked(reservationId, heldCode('302', code));
   expect(within(alert).getByText(code)).toHaveClass('mono');
-  // (b) is never cleared by housekeeping – the OC/OD sentence (which mentions it) is not shown.
+  // (b) is never cleared by fixing the room status – the OC/OD sentences (which say so) are not shown.
   expect(alertWith(occupied('302'))).toBeUndefined();
+  expect(alertWith(stuck('302'))).toBeUndefined();
 }
 
 describe('BUG-R4-039 – H13: no "room not ready" exception on a room the previous guest still holds', () => {
-  it('OC, lead: blocked – no reason box, no confirm sentence; "Nhận phòng" locked', async () => {
+  it('OC, lead, no stay in 302 (status stuck): blocked – no reason box, no confirm sentence; "Nhận phòng" locked', async () => {
     const r = hung('OC');
     const { user } = renderApp(`/reservations/${r.id}/check-in`, 'qa.fdl');
     await toConditions(user);
-    await expectBlocked(r.id);
+    // UXD lượt 4 (3): `cause = room_status` on OC – no stay to check out, so not the room_occupied sentence.
+    await expectBlocked(r.id, stuck('302'));
+    expect(alertWith(occupied('302'))).toBeUndefined();
     await user.click(screen.getByRole('checkbox', { name: /Đã gửi\/giao nội quy/ }));
     const submit = screen.getByRole('button', { name: tv('ci.submit', { room: '302' }) });
     expect(submit).toHaveAttribute('aria-disabled', 'true');
@@ -128,7 +136,7 @@ describe('BUG-R4-039 – H13: no "room not ready" exception on a room the previo
     server.events.on('request:start', on);
     const { user } = renderApp(`/reservations/${r.id}/check-in`, 'qa.fd');
     await toConditions(user);
-    await expectBlocked(r.id);
+    await expectBlocked(r.id, stuck('302'));
     expect(screen.queryByText(tv('ci.room_approved', { name: 'Lan' }))).not.toBeInTheDocument();
     server.events.removeListener('request:start', on);
     expect(sent).toHaveLength(0);
@@ -165,6 +173,7 @@ describe('BUG-R4-039 – H13: no "room not ready" exception on a room the previo
     ).toBeInTheDocument();
     expect(reasonBox()).toBeInTheDocument();
     expect(screen.queryByText(occupied('302'))).not.toBeInTheDocument();
+    expect(screen.queryByText(stuck('302'))).not.toBeInTheDocument();
     lead.unmount();
 
     const desk = renderApp(`/reservations/${r.id}/check-in`, 'qa.fd');
@@ -198,6 +207,37 @@ describe('BUG-R4-039 – H13: no "room not ready" exception on a room the previo
     await expectHeldBy(r.id, other.code);
     expect(rsvOf('Gia đình anh Hưng').status).toBe('confirmed');
   });
+
+  it.each([
+    ['OC', 'nobody', 'checkin.room_occupied'],
+    ['VD', 'Phạm Huy', 'checkin.room_held'],
+  ] as const)(
+    'server before #74 C2 (no `cause`): %s, in 302: %s → %s (DOM lượt 5), no code',
+    async (status, in302, key) => {
+      const r = hung(status);
+      if (in302 !== 'nobody') huyIn302();
+      const preview = api.previewCheckIn.bind(api);
+      const spy = vi.spyOn(api, 'previewCheckIn').mockImplementation(async (...args) => {
+        const res = await preview(...args);
+        for (const c of res.data.conditions) {
+          delete (c as { cause?: string }).cause;
+          delete (c as { heldByReservationCode?: string }).heldByReservationCode;
+        }
+        return res;
+      });
+      try {
+        const { user } = renderApp(`/reservations/${r.id}/check-in`, 'qa.fdl');
+        await toConditions(user);
+        await expectBlocked(r.id, tv(key, { room: '302' }));
+        expect(alertWith(stuck('302'))).toBeUndefined();
+        expect(
+          alertWith(key === 'checkin.room_held' ? occupied('302') : held('302')),
+        ).toBeUndefined();
+      } finally {
+        spy.mockRestore();
+      }
+    },
+  );
 });
 
 describe('roomBlockedMessage – which sentence for a room_ready with no exception', () => {
@@ -210,7 +250,7 @@ describe('roomBlockedMessage – which sentence for a room_ready with no excepti
     expect(roomBlockedMessage({ code: 'room_ready', met: true, detail: 'VC' }, true)).toBeNull();
     expect(roomBlockedMessage(undefined, true)).toBeNull();
   });
-  it('`cause` (ARC A.2): the code first – even on OC/OD; held_by_other_stay; room_status; no_room', () => {
+  it('`cause` (ARC A.2, UXD lượt 4): held_by_other_stay with / without the code – even on OC/OD; room_status; no_room', () => {
     expect(
       roomBlockedMessage(
         { ...base, detail: 'OC', cause: 'held_by_other_stay', heldByReservationCode: 'OT-1001' },
@@ -220,14 +260,23 @@ describe('roomBlockedMessage – which sentence for a room_ready with no excepti
     expect(
       roomBlockedMessage({ ...base, detail: 'CL', cause: 'held_by_other_stay' }, true),
     ).toEqual({ key: 'checkin.room_held' });
+    expect(
+      roomBlockedMessage({ ...base, detail: 'OC', cause: 'held_by_other_stay' }, true),
+    ).toEqual({ key: 'checkin.room_held' });
     expect(roomBlockedMessage({ ...base, detail: 'OD', cause: 'room_status' }, true)).toEqual({
-      key: 'checkin.room_occupied',
+      key: 'checkin.room_status_stuck',
+    });
+    expect(roomBlockedMessage({ ...base, detail: 'OC', cause: 'room_status' }, true)).toEqual({
+      key: 'checkin.room_status_stuck',
     });
     expect(roomBlockedMessage({ ...base, cause: 'no_room' }, false)).toBeNull();
     expect(roomBlockedMessage({ ...base, cause: 'no_room' }, true)).toBeNull();
   });
   it('no `cause` (API before #74 C2): DOM lượt 5 on `detail`, only for a booking with its room', () => {
     expect(roomBlockedMessage({ ...base, detail: 'OC' }, true)).toEqual({
+      key: 'checkin.room_occupied',
+    });
+    expect(roomBlockedMessage({ ...base, detail: 'OD' }, true)).toEqual({
       key: 'checkin.room_occupied',
     });
     expect(roomBlockedMessage({ ...base, detail: 'VD' }, true)).toEqual({
