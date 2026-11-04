@@ -460,3 +460,5 @@ Ghi chú nhỏ, không thành thẻ: tiêu đề nhóm trong `gen_strings.py` v�
   - từ v1.0.4, để trống mọi ô thì Desk lấy giá lịch OTA theo giá niêm yết của căn, hoặc gõ đủ mọi đêm theo xác nhận OTA;
   - gõ thiếu một số đêm thì Desk chặn.
 - **ARC-05 (khóa Giữ chỗ): vẫn chờ.** Câu "Từ v1.0.4, Desk khóa nút này khi có giá đã gõ" chờ PR `v104/fe-hold-typed-rate-lock`. Nếu khóa không kịp v1.0.4, BA chỉ sửa câu này. Các bước DOM điểm 3 giữ nguyên tới v1.0.5.
+- **ARC-05, cập nhật 05/11 (PR #72 @ `bf72b2c9`, vẫn nháp):** sổ tay 2.5 bước 10 và `02` 5.1 bước 11 đã có câu khóa cuối của UXD, ghi nguyên văn. Từ v1.0.4, xóa hết giá đã gõ thì nút mở lại. Câu này chờ FE #75 gộp.
+- **ARC-05, cập nhật ARC 05/11 (review #75 @ `e71ab25f`, ĐẠT CÓ ĐK – chờ CI):** phần v1.0.4 **Done**, đóng khi #75 gộp: "Giữ chỗ" bị khóa (`aria-disabled`, có câu UXD) khi còn giá đã gõ trên một đêm của lượt ở, và `hold()` không còn bị `rate_empty` của #70 chặn. Máy chủ không nhận giá đêm ở Q1/Q2 (`QuoteInput` không có trường này; zod bỏ lặng), nên giữ chỗ luôn theo giá niêm yết. Phần v1.0.5 (Q1 nhận giá thỏa thuận, đổi hợp đồng) ARC giữ. Chi tiết: `ARC-on-v104-pr75-hold-lock.md`.
