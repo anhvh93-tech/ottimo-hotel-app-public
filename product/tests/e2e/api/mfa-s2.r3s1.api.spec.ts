@@ -14,6 +14,7 @@ import {
   needSeedPassword,
   propertyIdOf,
   requireEndpoints,
+  resetRateLimits,
   sessionOrSkip,
   sessionTokenFrom,
   uniq,
@@ -95,10 +96,23 @@ async function loginMfa(
   body: Record<string, string>,
 ): Promise<{ status: number; s?: StaffSession; body: Me | Problem }> {
   // like login: no session yet, so the harness adds no Origin – send it (SR-SES-04 Origin check on auth routes)
-  const r = await call<Me | Problem>(request, 'POST', '/v1/auth/login/mfa', {
-    body,
-    headers: { origin: ORIGIN },
-  });
+  const send = () =>
+    call<Me | Problem>(request, 'POST', '/v1/auth/login/mfa', {
+      body,
+      headers: { origin: ORIGIN },
+    });
+  let r = await send();
+  // BUG-R4-033: step 2 also counts on the SR-RL-01 window (20 logins/IP/15 min) and every worker of a parallel run
+  // logs in from the same IP, so the harness itself can fill it → 429 RATE_LIMITED. That 429 is thrown before the
+  // token or the code is read (auth.service loginMfa: limiter first), so nothing was used: reset the in-memory
+  // windows (test support, like login()) and resend the SAME body ONCE. The lockout of a qa.e2e.* account survives
+  // the reset (RESET_PREFIXES), so a real SR-AUTH-04 lock still answers 429 and the case stays red.
+  if (
+    r.status === 429 &&
+    (r.body as Problem)?.code === 'RATE_LIMITED' &&
+    (await resetRateLimits(request, `429 loginMfa ${username}`))
+  )
+    r = await send();
   const token = sessionTokenFrom(r.setCookies);
   if (r.status !== 200 || !token) return { status: r.status, body: r.body };
   const me = await getMe(request, token);
