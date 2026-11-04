@@ -426,6 +426,12 @@ if [ "$rc" -ne 0 ] && grep -q '^\[deploy [^]]*\] FAIL: 02-roles.sh failed (rc=1)
   && ! grep -q 'initdb' "$calls" && ! grep -q 'run --rm --no-deps migrate' "$calls"; then
   ok "(q) fake 02-roles.sh prints SENTINEL/PASSWORD and fails → FAIL at step roles (fixed sentence + rc), file went on stdin, no line of it in the output"
 else ko "(q) rc=$rc step=$(cat "$work/step" 2>/dev/null): $out"; fi
+# r1.2 (ARC P404-15, SEC P404R11-S3): the roles step writes no file – both streams go to /dev/null, no mktemp.
+roles_block=$(awk '/^step roles$/ { on=1 } /^step migrate$/ { on=0 } on' "$home/infra/server/bin/deploy.sh")
+if grep -qF 'dc exec -T postgres bash -s <"$roles_file" >/dev/null 2>&1 || roles_rc=$?' <<<"$roles_block" \
+  && ! grep -qE 'mktemp|2>"\$|tee ' <<<"$roles_block"; then
+  ok "(q) step roles sends stdout and stderr of 02-roles.sh to /dev/null (no temp file, no tee)"
+else ko "(q) step roles keeps output somewhere: $(grep -n 'bash -s' <<<"$roles_block")"; fi
 rm -f "$home/infra/postgres/init/02-roles.sh"
 reset_deploy_state
 deploy_new

@@ -161,3 +161,80 @@ Giữ nguyên:
 | `check-compose.sh` | OK |
 | Postgres 17-alpine tạm (đã dừng, `--rm`) | `log_min_error_statement = panic`: 0 dòng có mật khẩu thử trong log container (không có `SET`: 1 dòng). Câu dấu hiệu v1.0.4 và câu `db_triggers` chạy đúng ở từng trạng thái |
 | Quét phần chênh | Không khóa, mật khẩu, IP, email thật hay digest đầy đủ. Giá trị thử chỉ là `SENTINEL-R11-*` và `…@example.test` |
+
+## r1.2 (ORC 04/11: 4 việc nhỏ sau khi SEC và ARC đều ĐẠT ở `16ee56e4`)
+
+- SEC (`SEC-on-v104-p4-04-r1.1.md`) và ARC (`ARC-on-v104-p4-04-r1.1.md`) đều ĐẠT ở `16ee56e4`. r1.2 chỉ gồm 4 việc dưới. SEC chỉ cần xem phần chênh của đường dẫn SEC (mục "Rebase").
+- Mục r1.1 ở trên giữ nguyên làm lịch sử. Chỗ nào r1.1 nói stderr vào `mktemp` thì đã thay bằng việc 1.
+
+| Việc | Thẻ | Đã làm | Tệp / test |
+|---|---|---|---|
+| 1. Bỏ tệp tạm stderr ở bước `roles` | SEC `FB-R4-SEC-OPS-P404R11-S3`, ARC `FB-R4-ARC-OPS-P404-15` | `dc exec -T postgres bash -s <"$roles_file" >/dev/null 2>&1 \|\| roles_rc=$?`. Bỏ `mktemp`/`rm`. Câu cố định + rc giữ nguyên; dấu hiệu v1.0.4 giữ nguyên | `deploy.sh`; `rollback.test.sh` (q) có thêm kiểm tĩnh: khối `step roles` chuyển cả hai luồng vào `/dev/null`, không `mktemp`, không `2>"$…"`, không `tee`. Thử đột biến (`2>"$(mktemp)"`) thì đỏ. Runbook P2b bước 5 sửa câu mô tả |
+| 2. README 13.7: PN-01 là 0095 | ARC `FB-R4-ARC-OPS-P413-01` | "(ví dụ PN-01 Minor, 0095: thân hàm mới, đặt SECURITY INVOKER + `search_path` cố định; `ops-check db_triggers` kiểm `prosecdef` và md5 thân hàm)". Đã đối chiếu: 0095 trên `v104/be-pn01` @ `3c2b17bb` có `SECURITY INVOKER` và `SET search_path = pg_catalog, pg_temp` | `product/infra/server/README.md` 13.7 |
+| 3. `db_triggers`: hàm PN-01 | SEC `FB-R4-SEC-OPS-P413-S2`, ARC `FB-R4-ARC-OPS-P413-S1` | Xem dưới bảng | `ops-check.sh`; `test-ops-check.sh`; runbook P2b bước 6, K3, K5; README 13.8 |
+| 4. Rebase lên `origin/main` | ORC | Xem mục "Rebase" | – |
+
+Chi tiết việc 3 (`db_triggers`, hàm PN-01):
+- Dòng `pn` nay đọc thêm, cho mỗi trigger, hàm mà nó trỏ tới (`JOIN pg_proc`):
+  - `prosecdef`: phải `f`, nếu không thì `FAIL … function is SECURITY DEFINER`;
+  - hàm phải là `public.privacy_notice_version_append_only()`, nếu không thì `FAIL … does not call …`;
+  - `md5(prosrc)`.
+- md5 được so theo trạng thái migration. Số dòng `drizzle.__drizzle_migrations` dưới 72 thì đòi thân của 0090. Từ 72 trở lên (0095 = idx 71) thì đòi thân của 0095. Lệch → `FAIL … PN-01 function body differs from migration 0095|0090 (md5 <8 ký tự>…, N migrations applied)`.
+- Không bao giờ in thân hàm. Khi lệch chỉ in 8 ký tự đầu của md5.
+- Số migration đọc bằng quyền `drizzle` của `02-roles.sh` v1.0.4. Các hàm `to_regnamespace`, `has_schema_privilege` và `has_table_privilege` được dùng qua `\gset`, nên câu SQL không lỗi khi chưa có quyền. Không đọc được số → `FAIL … PN-01 function body not checked … (runbook v1.0.4 P2b step 5)`. Thiếu dòng `pnmig` → `unexpected answer`.
+- Hằng trong `ops-check.sh`:
+  - `PN_FN_MD5_0090=3274031e441f1f86103783726a3e7d9b`: thân 0090. Production hiện tại chạy thân này. Tệp 0090 không đổi từ v1.0.2; đã so với commit `sha-da6d6f3dc22b` của v1.0.3;
+  - `PN_FN_MD5_0095=7a601d0ee740b1861663efa9b89473f5`: trùng số SEC đo;
+  - `PN_0095_APPLIED_AT=72`.
+- Hai giá trị md5 đo trên Postgres 17-alpine tạm, bằng cách chạy câu `CREATE FUNCTION` của từng migration. Kết quả trùng với md5 của đoạn chữ giữa `$$ … $$` trong tệp migration.
+- Đã chạy câu SQL thật bằng vai chỉ đọc (`-c default_transaction_read_only=on -c role=ottimo_readonly`) trên Postgres tạm, ở 4 trạng thái:
+
+  | Trạng thái | Kết quả |
+  |---|---|
+  | 0090, 68 dòng, chưa có quyền `drizzle` | `pnmig\|unknown` |
+  | 0090, 68 dòng, có quyền | `\|f\|3274031e…\|t` và `pnmig\|68` |
+  | 0095, 72 dòng | `\|f\|7a601d0e…\|t` và `pnmig\|72` |
+  | không có schema `drizzle` | `unknown` |
+
+- Test `test-ops-check.sh` (183 → 197; 198 khi cây có tệp 0095):
+  - 9 ca mới:
+    - thân 0095 sau 0095 → `ok`;
+    - thân 0090 sau 0095 → `FAIL`;
+    - thân 0095 trước 0095 → `FAIL`;
+    - thân lạ → `FAIL`;
+    - SECURITY DEFINER → `FAIL`;
+    - trigger trỏ hàm khác → `FAIL`;
+    - số migration không đọc được → `FAIL`;
+    - thiếu `pnmig` → `unexpected answer`;
+    - dòng `pn` kiểu cũ 3 trường → `unexpected answer`;
+  - kiểm hằng ↔ tệp migration: md5 của đoạn `$$ … $$` của 0090, và của 0095 khi tệp có. Trên `main` hiện chưa có 0095 nên in `skip`. Đã thử đặt tệp 0095 của `v104/be-pn01` vào cây: khớp;
+  - kiểm không migration nào khác ngoài 0090/0095 định nghĩa lại hàm. Có thì đỏ, nhắc đổi hằng: đây là điểm review có chủ đích;
+  - các ca cũ được cập nhật theo dòng `pn` 5 trường và dòng `pnmig`.
+- Runbook:
+  - P2b bước 6: dòng `ok` mới ghi `function of migration 0090`. Ghi chú: timer chạy giữa bước 3 và bước 5 có thể ra `FAIL … not checked`; bước 6 phải `ok`;
+  - K3 và K5: `function of migration 0095`. `differs from migration 0095` thì **dừng**, báo SEC + BE;
+  - S4 (sau lùi): DB vẫn 72 migration, nên vẫn đòi thân 0095.
+- Khi BE-D gộp PR-H (0095), test hằng của 0095 tự chạy; không cần sửa thêm.
+
+### Rebase (việc 4)
+
+- `git rebase origin/main`. PR #45 (`051e1750`) và PR #46 (`c893c3ea`) đều đã ở `main`.
+- Hai commit gộp `e16b3821` và `de2355dd` rơi ra. Không có xung đột.
+- Nhánh còn 11 commit riêng của P4-04, cộng commit r1.2.
+- `git diff 16ee56e4 <đầu r1.2> -- .github product/infra/server/bin/deploy.sh product/infra/server/bin/rollback.sh product/infra/server/bin/requeue-email-changed.sh product/infra/postgres/init/02-roles.sh product/infra/docker-compose.prod.yml product/infra/ci/check-confidential-paths.sh`:
+  - Ngay sau rebase (chưa có r1.2): **rỗng**.
+  - Sau r1.2: chỉ `product/infra/server/bin/deploy.sh`, 3 dòng thêm / 5 dòng bớt, tất cả trong bước `roles` (việc 1): 2 dòng chú thích đổi, bỏ `roles_err=$(umask 077 && mktemp …)` và `rm -f "$roles_err"`, `2>"$roles_err"` → `2>&1`.
+  - `.github`, `rollback.sh`, `requeue-email-changed.sh`, `02-roles.sh`, `docker-compose.prod.yml` và `check-confidential-paths.sh` không khác.
+
+### Kiểm lại r1.2
+
+| Kiểm | Kết quả |
+|---|---|
+| shellcheck 0.10.0 `-x -S warning`, đủ danh sách CI | sạch (rc 0) |
+| `test-ops-check.sh` (Mac và `ubuntu:24.04`) | 197 passed, 0 failed (198 khi có tệp 0095) |
+| `rollback.test.sh` (Mac và `ubuntu:24.04`) | 38 passed, 0 failed (+1: kiểm tĩnh `/dev/null`) |
+| `test-deploy-from-ci.sh` (`ubuntu:24.04`) | rc 0, 44 `ok` |
+| `requeue-email-changed` / `ops-check-cwd` / `ops-check-price` / `mail-test-send` / `test-confidential-paths` / `deploy-landing-privacy` / `restore-drill-privacy` / `backup-privacy-log` (ubuntu) | 69 / 14 / 17 / 37 / 6 / 28 / 8 / 5 passed, 0 failed |
+| `check-compose.sh`, `check-confidential-paths.sh` | OK / ok |
+| Postgres 17-alpine tạm (đã dừng, `--rm`) | md5 thân 0090/0095 và câu `db_triggers` mới chạy đúng bằng vai chỉ đọc ở 4 trạng thái |
+| Quét phần chênh | Không khóa, mật khẩu, IP, email thật. md5 là băm của mã nguồn hàm công khai trong repo, không phải bí mật |

@@ -170,12 +170,10 @@ roles_file="$OTTIMO_HOME/infra/postgres/init/02-roles.sh"
 if [ ! -f "$roles_file" ] || [ ! -r "$roles_file" ] || [ ! -s "$roles_file" ]; then
   log "FAIL: infra/postgres/init/02-roles.sh missing, empty or unreadable in $OTTIMO_HOME"; exit 1
 fi
-# ARC P404-11: stdout is discarded, stderr goes to a 0600 temp file that is removed right after the step and is never
-# printed, copied or logged (only the exit code is). Not in $OTTIMO_HOME/state: nothing of it is meant to be kept.
-roles_err=$(umask 077 && mktemp "${TMPDIR:-/tmp}/ottimo-roles.XXXXXX")
+# ARC P404-11/15, SEC P404R11-S3: stdout and stderr are both discarded – no file, nothing kept, nothing logged
+# (a psql error line can quote "ALTER ROLE … PASSWORD '<value>'"). Only the exit code reaches the log.
 roles_rc=0
-dc exec -T postgres bash -s <"$roles_file" >/dev/null 2>"$roles_err" || roles_rc=$?
-rm -f "$roles_err"
+dc exec -T postgres bash -s <"$roles_file" >/dev/null 2>&1 || roles_rc=$?
 if [ "$roles_rc" -ne 0 ]; then
   log "FAIL: 02-roles.sh failed (rc=$roles_rc) – output withheld; re-run it by hand on the server (runbook v1.0.4 P2b step 5) to see the error"
   exit 1

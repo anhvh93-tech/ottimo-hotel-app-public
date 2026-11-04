@@ -544,18 +544,39 @@ check_email_config() {
   notify email_config OK "$said; $shared"
 }
 
+# PN-01 guard function privacy_notice_version_append_only(): md5(pg_proc.prosrc) of the body each migration installs
+# (SEC FB-R4-SEC-OPS-P413-S2, ARC FB-R4-ARC-OPS-P413-S1). Measured on Postgres 17 from the migration files:
+#   0090 (v1.0.1–v1.0.3; production before v1.0.4) and 0095 (v1.0.4, P4-13, journal idx 71 → 72 rows applied).
+# A migration that changes the body MUST change these constants too: that is the intended review point.
+PN_FN_MD5_0090=3274031e441f1f86103783726a3e7d9b
+PN_FN_MD5_0095=7a601d0ee740b1861663efa9b89473f5
+PN_0095_APPLIED_AT=72  # __drizzle_migrations rows once 0095 (idx 71) is applied
+
 check_db_triggers() {
-  local out line pn=0 pn_bad="" rlp="absent" rlp_fn="" app="" bad=""
+  local out line pn=0 pn_bad="" pn_md5="" pn_mig="" want="" rlp="absent" rlp_fn="" app="" bad=""
   # Names, the enabled flag, SECURITY DEFINER and privilege flags only. to_regclass keeps the SQL valid on any DB.
   # ARC FB-R4-ARC-OPS-P404-08: "trigger absent" is ok only BEFORE migration 0094. The function of 0094 tells the two
   # apart without any new privilege: function present + trigger absent = the trigger was removed after 0094 → FAIL.
   # The trigger must also stay BEFORE DELETE FOR EACH ROW (tgtype bits ROW 1 + BEFORE 2 + DELETE 8).
+  # PN-01 (P413-S1/S2): both triggers point at public.privacy_notice_version_append_only(), not SECURITY DEFINER, and
+  # its body hash is the one of the migration state (0090 before 0095 is applied, 0095 after). Only the hash is
+  # printed, never the body. The migration count is read only when ottimo_readonly may read it (02-roles.sh v1.0.4).
   if ! out=$(psql_ro <<'SQL' 2>"$cmd_err"
-SELECT to_regclass('public.privacy_notice_version') IS NOT NULL AS has_pnv, to_regclass('public.room_list_price') IS NOT NULL AS has_rlp \gset
+SELECT to_regclass('public.privacy_notice_version') IS NOT NULL AS has_pnv, to_regclass('public.room_list_price') IS NOT NULL AS has_rlp,
+       CASE WHEN to_regnamespace('drizzle') IS NULL THEN false
+            WHEN NOT has_schema_privilege('drizzle', 'USAGE') THEN false
+            WHEN to_regclass('drizzle.__drizzle_migrations') IS NULL THEN false
+            ELSE has_table_privilege('drizzle.__drizzle_migrations', 'SELECT') END AS can_mig \gset
 \if :has_pnv
-SELECT 'pn', t.tgname, t.tgenabled FROM pg_trigger t
+SELECT 'pn', t.tgname, t.tgenabled, p.prosecdef, md5(p.prosrc), p.oid = to_regprocedure('public.privacy_notice_version_append_only()')
+  FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
  WHERE t.tgrelid = 'public.privacy_notice_version'::regclass AND NOT t.tgisinternal
    AND t.tgname IN ('privacy_notice_version_append_only', 'privacy_notice_version_no_truncate') ORDER BY 2;
+\if :can_mig
+SELECT 'pnmig', count(*) FROM drizzle.__drizzle_migrations;
+\else
+SELECT 'pnmig', 'unknown';
+\endif
 SELECT 'app', concat_ws(',', has_table_privilege('ottimo_app', 'public.privacy_notice_version', 'SELECT'),
        has_table_privilege('ottimo_app', 'public.privacy_notice_version', 'INSERT'),
        has_table_privilege('ottimo_app', 'public.privacy_notice_version', 'UPDATE'),
@@ -575,8 +596,13 @@ SQL
   while IFS= read -r line; do
     line=$(tr -d '[:space:]' <<<"$line")
     [ -n "$line" ] || continue
-    if [[ "$line" =~ ^pn\|(privacy_notice_version_append_only|privacy_notice_version_no_truncate)\|([OoRAD])$ ]]; then
+    if [[ "$line" =~ ^pn\|(privacy_notice_version_append_only|privacy_notice_version_no_truncate)\|([OoRAD])\|([tf])\|([0-9a-f]{32})\|([tf])$ ]]; then
       pn=$((pn + 1)); [ "${BASH_REMATCH[2]}" = O ] || pn_bad+=" ${BASH_REMATCH[1]} not enabled (${BASH_REMATCH[2]});"
+      [ "${BASH_REMATCH[3]}" = f ] || pn_bad+=" ${BASH_REMATCH[1]} function is SECURITY DEFINER;"
+      [ "${BASH_REMATCH[5]}" = t ] || pn_bad+=" ${BASH_REMATCH[1]} does not call public.privacy_notice_version_append_only();"
+      pn_md5+=" ${BASH_REMATCH[4]}"
+    elif [[ "$line" =~ ^pnmig\|([0-9]+|unknown)$ ]] && [ -z "$pn_mig" ]; then
+      pn_mig=${BASH_REMATCH[1]}
     elif [[ "$line" =~ ^app\|([tf],[tf],[tf],[tf],[tf])$ ]] && [ -z "$app" ]; then
       app=${BASH_REMATCH[1]}
     elif [[ "$line" =~ ^rlpfn\|([tf])$ ]] && [ -z "$rlp_fn" ]; then
@@ -589,6 +615,17 @@ SQL
   done <<<"$out"
   [ "$pn" -eq 2 ] || bad+=" $pn of 2 PN-01 triggers on privacy_notice_version;"
   bad+="$pn_bad"
+  if [ "$pn" -gt 0 ]; then
+    case "$pn_mig" in
+      "") notify db_triggers FAIL "unexpected answer"; return 1 ;;
+      unknown) bad+=" PN-01 function body not checked: ottimo_readonly cannot read drizzle.__drizzle_migrations (02-roles.sh v1.0.4 not applied – runbook v1.0.4 P2b step 5);" ;;
+      *)
+        if [ "$pn_mig" -ge "$PN_0095_APPLIED_AT" ]; then want=$PN_FN_MD5_0095; else want=$PN_FN_MD5_0090; fi
+        for line in $pn_md5; do
+          [ "$line" = "$want" ] || { bad+=" PN-01 function body differs from migration $([ "$want" = "$PN_FN_MD5_0095" ] && echo 0095 || echo 0090) (md5 ${line:0:8}…, $pn_mig migrations applied);"; break; }
+        done ;;
+    esac
+  fi
   [ "$app" = "t,f,f,f,f" ] || bad+=" ottimo_app privileges on privacy_notice_version are not SELECT only;"
   [ -n "$rlp_fn" ] || { notify db_triggers FAIL "unexpected answer"; return 1; }
   case "$rlp" in
@@ -601,10 +638,11 @@ SQL
     notify db_triggers FAIL "${bad%;} – tell SEC + BE, never enable/disable by hand (README 13.7)"
     return 1
   fi
+  local pnbody=0090; [ "$want" = "$PN_FN_MD5_0095" ] && pnbody=0095
   if [ "$rlp" = absent ]; then
-    notify db_triggers OK "PN-01 triggers enabled, ottimo_app SELECT only; room_list_price_append_only not present yet (before migration 0094)"
+    notify db_triggers OK "PN-01 triggers enabled (function of migration $pnbody, not SECURITY DEFINER), ottimo_app SELECT only; room_list_price_append_only not present yet (before migration 0094)"
   else
-    notify db_triggers OK "PN-01 triggers enabled, ottimo_app SELECT only; room_list_price_append_only enabled"
+    notify db_triggers OK "PN-01 triggers enabled (function of migration $pnbody, not SECURITY DEFINER), ottimo_app SELECT only; room_list_price_append_only enabled"
   fi
 }
 

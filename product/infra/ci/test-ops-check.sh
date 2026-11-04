@@ -323,38 +323,77 @@ EMAIL_SHARED_MAILBOXES=$a
   if [ "$sql_ok" = "$sh_ok" ]; then pass=$((pass + 1)); else fail=$((fail + 1)); echo "FAIL rule drift for one test address (sql $sql_ok, shell $sh_ok)"; fi
 done
 
+M90=3274031e441f1f86103783726a3e7d9b M95=7a601d0ee740b1861663efa9b89473f5  # md5(prosrc) of 0090 / 0095 (checked below)
+PN2() { printf 'pn|privacy_notice_version_append_only|O|%s|%s|%s\\npn|privacy_notice_version_no_truncate|O|%s|%s|%s' "$1" "$2" "$3" "$1" "$2" "$3"; }
 # v1.0.4 db_triggers (P4-13 PN-01, P4-11 0094): names + flags only, READ ONLY.
 envfile ''
-CHECK=db_triggers run "triggers: PN-01 both O, 0094 absent -> ok" 0 '^ok   db_triggers: PN-01 triggers enabled, ottimo_app SELECT only; room_list_price_append_only not present yet \(before migration 0094\)$' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nrlpfn|f'
+CHECK=db_triggers run "triggers: PN-01 both O, 0094 absent -> ok" 0 '^ok   db_triggers: PN-01 triggers enabled \(function of migration 0090, not SECURITY DEFINER\), ottimo_app SELECT only; room_list_price_append_only not present yet \(before migration 0094\)$' \
+  FAKE_OUT="pn|privacy_notice_version_append_only|O|f|$M90|t\npn|privacy_notice_version_no_truncate|O|f|$M90|t\npnmig|68\napp|t,f,f,f,f\nrlpfn|f"
 CHECK=db_triggers run "triggers: + 0094 O|f -> ok"                 0 'room_list_price_append_only enabled$' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nrlpfn|t\nrlp|O|f|t'
+  FAKE_OUT="pn|privacy_notice_version_append_only|O|f|$M90|t\npn|privacy_notice_version_no_truncate|O|f|$M90|t\npnmig|68\napp|t,f,f,f,f\nrlpfn|t\nrlp|O|f|t"
 CHECK=db_triggers run "triggers: one PN-01 disabled -> FAIL"       1 '^FAIL db_triggers: privacy_notice_version_no_truncate not enabled \(D\) – tell SEC' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|D\napp|t,f,f,f,f\nrlpfn|f'
+  FAKE_OUT="pn|privacy_notice_version_append_only|O|f|$M90|t\npn|privacy_notice_version_no_truncate|D|f|$M90|t\npnmig|68\napp|t,f,f,f,f\nrlpfn|f"
 CHECK=db_triggers run "triggers: one PN-01 missing -> FAIL"        1 '^FAIL db_triggers: 1 of 2 PN-01 triggers' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\napp|t,f,f,f,f\nrlpfn|f'
+  FAKE_OUT="pn|privacy_notice_version_append_only|O|f|$M90|t\npnmig|68\napp|t,f,f,f,f\nrlpfn|f"
 CHECK=db_triggers run "triggers: ottimo_app may INSERT -> FAIL"    1 'ottimo_app privileges on privacy_notice_version are not SELECT only' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,t,f,f,f\nrlpfn|f'
+  FAKE_OUT="pn|privacy_notice_version_append_only|O|f|$M90|t\npn|privacy_notice_version_no_truncate|O|f|$M90|t\npnmig|68\napp|t,t,f,f,f\nrlpfn|f"
 CHECK=db_triggers run "triggers: 0094 replica-only -> FAIL"        1 'room_list_price_append_only tgenabled\|prosecdef\|before-delete-row = R\|f\|t \(must be O\|f\|t\)' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nrlpfn|t\nrlp|R|f|t'
+  FAKE_OUT="pn|privacy_notice_version_append_only|O|f|$M90|t\npn|privacy_notice_version_no_truncate|O|f|$M90|t\npnmig|68\napp|t,f,f,f,f\nrlpfn|t\nrlp|R|f|t"
 CHECK=db_triggers run "triggers: 0094 SECURITY DEFINER -> FAIL"    1 'room_list_price_append_only tgenabled\|prosecdef\|before-delete-row = O\|t\|t' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nrlpfn|t\nrlp|O|t|t'
+  FAKE_OUT="pn|privacy_notice_version_append_only|O|f|$M90|t\npn|privacy_notice_version_no_truncate|O|f|$M90|t\npnmig|68\napp|t,f,f,f,f\nrlpfn|t\nrlp|O|t|t"
 # ARC FB-R4-ARC-OPS-P404-08: 0094 ran (its function exists) but the trigger is gone → FAIL, not "not present yet".
 CHECK=db_triggers run "triggers: 0094 function, no trigger -> FAIL" 1 '^FAIL db_triggers: room_list_price_append_only missing \(function present – migration 0094 ran\)' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nrlpfn|t'
+  FAKE_OUT="pn|privacy_notice_version_append_only|O|f|$M90|t\npn|privacy_notice_version_no_truncate|O|f|$M90|t\npnmig|68\napp|t,f,f,f,f\nrlpfn|t"
 CHECK=db_triggers run "triggers: 0094 not BEFORE DELETE ROW -> FAIL" 1 'before-delete-row = O\|f\|f \(must be O\|f\|t\)' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nrlpfn|t\nrlp|O|f|f'
+  FAKE_OUT="pn|privacy_notice_version_append_only|O|f|$M90|t\npn|privacy_notice_version_no_truncate|O|f|$M90|t\npnmig|68\napp|t,f,f,f,f\nrlpfn|t\nrlp|O|f|f"
 CHECK=db_triggers run "triggers: no function line -> FAIL"  1 '^FAIL db_triggers: unexpected answer$' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f'
+  FAKE_OUT="pn|privacy_notice_version_append_only|O|f|$M90|t\npn|privacy_notice_version_no_truncate|O|f|$M90|t\npnmig|68\napp|t,f,f,f,f"
 CHECK=db_triggers run "triggers: stray line -> FAIL"               1 '^FAIL db_triggers: unexpected answer$' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nowner@example.test'
+  FAKE_OUT="pn|privacy_notice_version_append_only|O|f|$M90|t\npn|privacy_notice_version_no_truncate|O|f|$M90|t\npnmig|68\napp|t,f,f,f,f\nowner@example.test"
 CHECK=db_triggers run "triggers: query error -> category"          1 '^FAIL db_triggers: query failed: query error$' FAKE_FAIL=1
+# PN-01 function (SEC FB-R4-SEC-OPS-P413-S2, ARC FB-R4-ARC-OPS-P413-S1): prosecdef f, md5 of the body of the migration state.
+CHECK=db_triggers run "triggers: PN-01 body 0095 after 0095 (72 rows) -> ok" 0 '^ok   db_triggers: PN-01 triggers enabled \(function of migration 0095, not SECURITY DEFINER\), ottimo_app SELECT only; room_list_price_append_only enabled$' \
+  FAKE_OUT="$(PN2 f $M95 t)\npnmig|72\napp|t,f,f,f,f\nrlpfn|t\nrlp|O|f|t"
+CHECK=db_triggers run "triggers: PN-01 body still 0090 after 0095 -> FAIL" 1 '^FAIL db_triggers: PN-01 function body differs from migration 0095 \(md5 32740[0-9a-f]{3}…, 72 migrations applied\) – tell SEC' \
+  FAKE_OUT="$(PN2 f $M90 t)\npnmig|72\napp|t,f,f,f,f\nrlpfn|t\nrlp|O|f|t"
+CHECK=db_triggers run "triggers: PN-01 body 0095 before 0095 (68 rows) -> FAIL" 1 'PN-01 function body differs from migration 0090 \(md5 7a601d0e…, 68 migrations applied\)' \
+  FAKE_OUT="$(PN2 f $M95 t)\npnmig|68\napp|t,f,f,f,f\nrlpfn|f"
+CHECK=db_triggers run "triggers: PN-01 body replaced by hand -> FAIL" 1 'PN-01 function body differs from migration 0095 \(md5 00000000…' \
+  FAKE_OUT="$(PN2 f 00000000000000000000000000000000 t)\npnmig|72\napp|t,f,f,f,f\nrlpfn|t\nrlp|O|f|t"
+CHECK=db_triggers run "triggers: PN-01 function SECURITY DEFINER -> FAIL" 1 'privacy_notice_version_append_only function is SECURITY DEFINER;.*privacy_notice_version_no_truncate function is SECURITY DEFINER' \
+  FAKE_OUT="$(PN2 t $M95 t)\npnmig|72\napp|t,f,f,f,f\nrlpfn|t\nrlp|O|f|t"
+CHECK=db_triggers run "triggers: PN-01 trigger on another function -> FAIL" 1 'does not call public.privacy_notice_version_append_only\(\)' \
+  FAKE_OUT="$(PN2 f $M95 f)\npnmig|72\napp|t,f,f,f,f\nrlpfn|t\nrlp|O|f|t"
+CHECK=db_triggers run "triggers: migration count not readable -> FAIL" 1 'PN-01 function body not checked: ottimo_readonly cannot read drizzle.__drizzle_migrations' \
+  FAKE_OUT="$(PN2 f $M90 t)\npnmig|unknown\napp|t,f,f,f,f\nrlpfn|f"
+CHECK=db_triggers run "triggers: no pnmig line -> FAIL" 1 '^FAIL db_triggers: unexpected answer$' \
+  FAKE_OUT="$(PN2 f $M90 t)\napp|t,f,f,f,f\nrlpfn|f"
+CHECK=db_triggers run "triggers: old 3-field pn line -> FAIL" 1 '^FAIL db_triggers: unexpected answer$' \
+  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\npnmig|68\napp|t,f,f,f,f\nrlpfn|f'
+# The constants follow the migration files: md5 of the text between the first $$ … $$ of the function = pg_proc.prosrc
+# (measured equal on Postgres 17). A later migration that redefines the function must update ops-check (review point).
+md5_of() { if command -v md5sum >/dev/null 2>&1; then md5sum | cut -d' ' -f1; else md5 -q; fi; }
+mig="$here/../../services/api/src/db/migrations"
+for pair in "0090_privacy_notice_append_only.sql:PN_FN_MD5_0090" "0095_privacy_notice_append_only_whole_row.sql:PN_FN_MD5_0095"; do
+  f="$mig/${pair%%:*}"; const=${pair##*:}
+  want=$(sed -n "s/^${const}=\([0-9a-f]\{32\}\)$/\1/p" "$src")
+  if [ ! -f "$f" ]; then echo "skip ${pair%%:*} not on this tree (constant $const=${want:0:8}… kept)"; continue; fi
+  t=$(<"$f"); body=${t#*\$\$}; body=${body%%\$\$*}
+  got=$(printf '%s' "$body" | md5_of)
+  if [ -n "$want" ] && [ "$got" = "$want" ]; then pass=$((pass + 1)); echo "ok   $const matches md5 of the function body in ${pair%%:*}"
+  else fail=$((fail + 1)); echo "FAIL $const=$want but ${pair%%:*} gives $got"; fi
+done
+later=$(grep -l 'FUNCTION[[:space:]]\+privacy_notice_version_append_only' "$mig"/*.sql 2>/dev/null | grep -vE '/(0090|0095)_' || true)
+if [ -z "$later" ]; then pass=$((pass + 1)); echo "ok   no migration besides 0090/0095 redefines privacy_notice_version_append_only()"
+else fail=$((fail + 1)); echo "FAIL $later redefines privacy_notice_version_append_only(): add its md5 to ops-check db_triggers"; fi
 env -i PATH="$PATH" HOME="$T" OTTIMO_HOME="$T/home" FAKE_OUT='app|t,f,f,f,f' bash "$T/bin/ops-check.sh" db_triggers >/dev/null 2>&1 || true
 sql=$(tr -s ' \n' ' ' < "$T/home/last.sql")
 for want in "to_regclass('public.privacy_notice_version') IS NOT NULL AS has_pnv" \
   "t.tgname IN ('privacy_notice_version_append_only', 'privacy_notice_version_no_truncate')" \
   "t.tgname = 'room_list_price_append_only'" "to_regprocedure('public.room_list_price_append_only()') IS NOT NULL" \
-  "(t.tgtype::int & 11) = 11" "has_table_privilege('ottimo_app', 'public.privacy_notice_version', 'TRUNCATE')"; do
+  "(t.tgtype::int & 11) = 11" "has_table_privilege('ottimo_app', 'public.privacy_notice_version', 'TRUNCATE')" \
+  "t.tgenabled, p.prosecdef, md5(p.prosrc), p.oid = to_regprocedure('public.privacy_notice_version_append_only()')" \
+  "SELECT 'pnmig', count(*) FROM drizzle.__drizzle_migrations" "has_schema_privilege('drizzle', 'USAGE')"; do
   if grep -qF -- "$want" <<<"$sql"; then pass=$((pass + 1)); else fail=$((fail + 1)); echo "FAIL db_triggers sql lacks: $want"; fi
 done
 if grep -qiwE 'insert into|update [a-z_]+ set|delete from|truncate table|alter|drop|grant|create|disable|enable' <<<"$sql"; then
