@@ -1,5 +1,7 @@
 import {
   deriveIdempotencyKey,
+  type Role,
+  type Room,
   type RoomBlock,
   type Severity,
   type WorkOrder,
@@ -10,12 +12,11 @@ import { Alert, Button, Field, Modal, Seg, Switch } from '@ottimo/ui';
 import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
-import { useCatalog } from '../../app/catalog';
 import { useBusinessDay, useBusinessDayChange } from '../../app/businessDay';
 import { addDays, conflictsOf, dayMonth } from '../../app/reservations';
 import { useToast } from '../../app/toast';
 import { useResource } from '../../hooks/useResource';
-import { usePropertyId } from '../../session/SessionProvider';
+import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { FilePicker, useSubmit, useUnsavedLabels } from '../stay/common';
 import { SEVERITIES, WO_CATEGORIES, WO_CATEGORY_KEY, suggestedSeverity } from './opsLabels';
 
@@ -170,6 +171,42 @@ function BlockFields({
   );
 }
 
+/** OpenAPI `listRooms` x-roles. Housekeeping / maintenance read rooms through `room-statuses` instead (BUG-R1-005). */
+const LIST_ROOMS_ROLES: readonly Role[] = [
+  'owner',
+  'manager',
+  'front_desk_lead',
+  'front_desk',
+  'sales_staff',
+  'collaborator',
+];
+
+/** What the ops forms need of a room: its id and the staff label ("101 · Garden"). */
+export type OpsRoom = Pick<Room, 'id' | 'roomNo' | 'name'>;
+
+/**
+ * v1.0.4 BUG-R3-053 (ARC plan-v1.0.4 6.5): the rooms for "Phiếu sửa mới" / "Khóa phòng có kế hoạch" / the block
+ * list. An account whose roles may call `listRooms` reads it; one that may not (only Bảo trì and/or Buồng phòng)
+ * reads `room-statuses` like the staff app – the contract and `rbac-cases.json` stay as they are, and no 403
+ * `listRooms` is sent. Sorted by room number either way.
+ */
+export function useOpsRooms(propertyId: string): OpsRoom[] {
+  const { roles } = useSession();
+  const viaStatuses = !roles.some((r) => LIST_ROOMS_ROLES.includes(r));
+  const { state } = useResource<OpsRoom[]>(
+    async () =>
+      viaStatuses
+        ? (await api.listRoomStatuses({ propertyId })).data.data.map((s) => ({
+            id: s.roomId,
+            roomNo: s.roomNo,
+            name: s.roomName ?? undefined,
+          }))
+        : (await api.listRooms({ propertyId })).data.data,
+    [propertyId, viaStatuses],
+  );
+  return [...(state.data ?? [])].sort((a, b) => a.roomNo.localeCompare(b.roomNo));
+}
+
 /**
  * US-061 – new work order (W1) from the desk, optionally with a room block (O1): title, description (AC4:
  * required), issue type → suggested severity (BR-809, editable), optional photo, "Khóa căn" with the
@@ -187,7 +224,7 @@ export function CreateWorkOrderDialog({
   const propertyId = usePropertyId();
   const unsaved = useUnsavedLabels();
   const toast = useToast();
-  const { rooms } = useCatalog(propertyId);
+  const rooms = useOpsRooms(propertyId);
   const statuses = useResource(
     async () => (await api.listRoomStatuses({ propertyId })).data.data,
     [propertyId],
@@ -424,7 +461,7 @@ export function BlockDialog({
   const { t } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
-  const { rooms } = useCatalog(propertyId);
+  const rooms = useOpsRooms(propertyId);
   // BUG-R2-211 (BR-010): the business day, not the calendar day.
   const today = useBusinessDay();
   const [roomId, setRoomId] = useState(workOrder?.roomId ?? '');
