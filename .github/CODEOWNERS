@@ -9,9 +9,13 @@
 #       or a policy, or adds a SECURITY DEFINER function needs that SEC file too, although migrations have no line here
 #       (the rule of 0094 and PN-01; SEC FB-R4-SEC-OPS-P403-01, ARC P403-08 – case-insensitive). Only real role
 #       statements count and added comment lines are skipped (SEC FB-R4-SEC-OPS-P403-02: a bare `ROLE ` matched
-#       column names and the "-- Runs as ottimo_owner (SET ROLE …)" comment of 19 files). Check:
-#         git diff <base>...<head> -- '**/migrations/*.sql' | grep -E '^\+' | grep -vE '^\+[[:space:]]*--' \
-#           | grep -iE 'DISABLE TRIGGER|GRANT|REVOKE|ROW LEVEL SECURITY|POLICY|SECURITY DEFINER|(CREATE|ALTER|DROP|SET)[[:space:]]+ROLE'
+#       column names and the "-- Runs as ottimo_owner (SET ROLE …)" comment of 19 files). Also SET LOCAL / RESET
+#       ROLE, SESSION AUTHORIZATION, session_replication_role (switches non-ALWAYS triggers off, PN-01 and 0094
+#       included) and OWNER TO (an owner skips RLS unless FORCE) – SEC FB-R4-SEC-OPS-P404R1-01. Check:
+#         git diff <base>...<head> -- '**/migrations/*.sql' | grep -E '^\+' | grep -vE '^\+\+\+ |^\+[[:space:]]*--' \
+#           | grep -iE 'DISABLE TRIGGER|GRANT|REVOKE|ROW LEVEL SECURITY|POLICY|SECURITY DEFINER|OWNER[[:space:]]+TO|SESSION[[:space:]]+AUTHORIZATION|session_replication_role|(CREATE|ALTER|DROP|SET|RESET)[[:space:]]+((LOCAL|SESSION)[[:space:]]+)?ROLE'
+#       A statement split over lines or built in EXECUTE still slips through: this reminds the reviewer, it does not
+#       replace reading the migration.
 # Revisit "Require review from Code Owners" once the repo has a second account (CI machine, operator).
 # Last matching pattern wins: keep the specific lines below the general ones.
 

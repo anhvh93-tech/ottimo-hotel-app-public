@@ -9,7 +9,8 @@
 # ARC CWD-03) · no stderr file left on disk
 # (ARC CWD-04 1) · a really missing container is still "not running" · v1.0.4 (ARC P402-01 / P404-04): a container
 # that restarts in a loop is seen "running" – the RestartCount of the same container id rising since the last run, or
-# above 0 on a container first seen, is a FAIL; a new container id (deploy) re-bases; unreadable inspect = FAIL.
+# above 0 on a container first seen, is a FAIL; a new container id (deploy) re-bases; unreadable inspect = FAIL;
+#   6g: listed by `ps` but Running=false at `inspect` (died in between) = FAIL (ARC P404-12 a).
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -134,6 +135,11 @@ out=$(oc)
 if grep -q '^FAIL containers: restart count of postgres unreadable (docker inspect failed)$' <<<"$out" && ! grep -q 'socket' <<<"$out"; then
   ok "6f docker inspect fails → FAIL unreadable, raw text not forwarded"; else ko "6f"; echo "$out"; fi
 rm -f "$home/inspect.fail" "$home/gen.worker"
+echo 4 > "$home/gen.worker"; echo "false 0" > "$home/restarts.cid-worker4"
+out=$(oc)
+if grep -q '^FAIL containers: worker not running at inspect' <<<"$out"; then
+  ok "6g worker listed by ps but not running at inspect → FAIL (ARC P404-12 a)"; else ko "6g"; echo "$out"; fi
+rm -f "$home/gen.worker"
 
 echo "== $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

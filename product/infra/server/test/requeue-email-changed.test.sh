@@ -207,5 +207,13 @@ if ! grep -q '@' <<<"$out" && ! grep -vq '^\[requeue-email ' <<<"$out"; then pas
 else fail=$((fail + 1)); echo "FAIL output: $out"; fi
 
 [ -x "$script" ] && { pass=$((pass + 1)); echo "ok   script is executable"; } || { fail=$((fail + 1)); echo "FAIL script not executable"; }
+
+# SEC FB-R4-SEC-OPS-P404R1-S1: "-c role=" only guards against mistakes; SQL that resets the role or turns READ ONLY
+# off would escape it. Static check: no such statement outside comment lines of the script.
+role_escape_re='SET[[:space:]]+((LOCAL|SESSION)[[:space:]]+)?ROLE|RESET[[:space:]]+ROLE|SESSION[[:space:]]+AUTHORIZATION|set_config[[:space:]]*\([[:space:]]*.role|transaction_read_only[[:space:]]*(=|TO)[[:space:]]*.?off|READ[[:space:]]+WRITE'
+if hits=$(grep -vE '^[[:space:]]*#' "$script" | grep -inE "$role_escape_re"); then
+  fail=$((fail + 1)); echo "FAIL requeue-email-changed.sh contains a role reset / READ WRITE statement: $hits"
+else pass=$((pass + 1)); echo "ok   requeue-email-changed.sh has no SET/RESET ROLE, SESSION AUTHORIZATION, set_config('role'), READ WRITE (P404R1-S1)"; fi
+
 echo "requeue-email-changed: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

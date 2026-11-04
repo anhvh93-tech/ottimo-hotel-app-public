@@ -16,6 +16,9 @@
 #                    BYPASSRLS (the requeue spans the organisation, no tenant is set), SELECT + UPDATE of exactly
 #                    (status, attempts, next_attempt_at, last_error) ON outbox_message – nothing else. Taken the same way
 #                    (PGOPTIONS "-c role=ottimo_requeue").
+#                    "-c role=" on the admin session guards against MISTAKEN SQL (wrong column, missing WHERE, read
+#                    only); it is not a security boundary – SET ROLE NONE / RESET ROLE would return to the superuser
+#                    (SEC P404R1-S1). The SQL of both tools is constant text, statically checked by their tests.
 #                    Both GRANTs on existing objects are applied here, not in a migration: this script runs again
 #                    before `migrate` on EVERY deploy (staging/production deploy.sh step `roles`, dev `db-roles`), so a
 #                    running database gets them on the next deploy (ARC plan-v1.0.4 2.2: migration 0097 only if a
@@ -33,7 +36,8 @@
 # (`dc exec -T postgres bash -s < …/02-roles.sh`): the single-file bind mount of the running container keeps the old
 # inode after an rsync, so the mounted copy is for a new volume only. So a role change (e.g. the ottimo_app limits
 # below) reaches a database that already exists. Never print a password here: deploy.sh filters stderr, but stdout
-# and messages of this script must stay free of secrets too.
+# and messages of this script must stay free of secrets too. The server log is kept clean by the SET log_* lines of
+# the block with the passwords (SEC P404R1-02).
 # Passwords may come from files (Docker secrets, staging/production): OTTIMO_MIGRATOR_DB_PASSWORD_FILE,
 # OTTIMO_APP_DB_PASSWORD_FILE – same convention as the postgres image's POSTGRES_PASSWORD_FILE.
 set -Eeuo pipefail
@@ -66,6 +70,14 @@ psql_admin() {
 # Passwords are passed as psql variables, never echoed.
 psql_admin --dbname "$first_db" \
   -v migrator_pw="$OTTIMO_MIGRATOR_DB_PASSWORD" -v app_pw="$OTTIMO_APP_DB_PASSWORD" <<'SQL'
+-- SEC FB-R4-SEC-OPS-P404R1-02 (a): psql replaces :'migrator_pw' / :'app_pw' on the CLIENT side, so the server
+-- receives the passwords as plain text. With the default log_min_error_statement = error, a failing statement below
+-- is written to the postgres container log as "STATEMENT: ALTER ROLE … PASSWORD '<value>'". These session-only
+-- settings (superuser, this connection only) keep every statement of this block out of the server log. They MUST
+-- stay before the first PASSWORD line (pinned by infra/server/test/rollback.test.sh (r)).
+SET log_min_error_statement = panic;
+SET log_statement = 'none';
+SET log_min_duration_statement = -1;
 SELECT format('CREATE ROLE %I NOLOGIN', r)
   FROM unnest(ARRAY['ottimo_owner', 'ottimo_migrator', 'ottimo_app', 'ottimo_readonly', 'ottimo_requeue']) AS r
  WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r)

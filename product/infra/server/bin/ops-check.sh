@@ -10,7 +10,10 @@
 # PGOPTIONS "-c role=ottimo_readonly") inside a READ ONLY transaction. Each session first answers a guard row: current
 # role = ottimo_readonly, BYPASSRLS, not superuser, transaction read only. Anything else (role missing, a role without
 # BYPASSRLS whose counts would silently read 0) is never parsed: the check FAILs "unexpected answer". No check uses
-# the superuser session any more.
+# the superuser role any more. "-c role=" guards against mistakes, it is NOT a security boundary: the session is the
+# superuser's, and SQL that resets the role (SET ROLE NONE, RESET ROLE, SESSION AUTHORIZATION) or turns READ ONLY off
+# would escape it (SEC FB-R4-SEC-OPS-P404R1-S1). So every SQL here is constant text; test-ops-check.sh refuses such
+# statements in this file.
 #
 #   j16         SEC C6 / SR-RET-03: for every active property, the last retention_run of policy J16 with
 #               status done must be < 26 h old (a property younger than 26 h without any run is fine), and no J16 run
@@ -189,6 +192,7 @@ psql_ro() {
 # case, local [a-z0-9._%+-]{1,64}, >= 2 labels [a-z0-9-]{1,63}, the last letters only, 3-254 characters. Used as is in
 # the SQL of email_ascii (POSIX regex, same meaning) and by email_config in bash – one text, so the two never drift.
 EMAIL_RULE_RE='^[a-z0-9._%+-]{1,64}@([a-z0-9-]{1,63}\.)+[a-z]{2,63}$'
+trim() { local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; printf '%s' "${v%"${v##*[![:space:]]}"}"; }  # like String.trim()
 email_rule() { # address as stored / normalised (already trimmed + lower case) → 0 when it follows the rule
   [[ "$1" != *$'\n'* ]] && [ "${#1}" -ge 3 ] && [ "${#1}" -le 254 ] && LC_ALL=C grep -qE -- "$EMAIL_RULE_RE" <<<"$1"
 }
@@ -314,6 +318,8 @@ check_containers() {
     if [[ ! "$cid" =~ ^[0-9a-zA-Z_.-]+$ ]] || [[ ! "$st" =~ ^(true|false)\ [0-9]+$ ]]; then
       notify containers FAIL "restart count of $s unreadable (docker inspect failed)"; return 1
     fi
+    # ARC P404-12 (a): died between `ps` and `inspect` – not running now (the count is still recorded below).
+    [ "${st%% *}" = true ] || restarted+=" $s not running at inspect;"
     pcid="" pn=""
     [ -r "$rfile" ] && read -r pcid pn < <(sed -n "s/^$s //p" "$rfile" | tail -n 1) || true
     if [ "$pcid" = "$cid" ] && [[ "$pn" =~ ^[0-9]+$ ]]; then
@@ -493,18 +499,28 @@ SQL
 }
 
 check_email_config() {
-  local provider user from lines raw entries=0 bad=0 e problems="" shared
+  local provider mode user from lines raw entries=0 bad=0 e problems="" shared said
   provider=$(envval EMAIL_PROVIDER)
   if [ "$provider" != smtp ]; then notify email_config OK "EMAIL_PROVIDER=${provider:-unset}: not smtp, nothing to check"; return 0; fi
-  # isEmailAddress of the adapter: the value as given (letter case free), no surrounding space – never trimmed here
-  # (envval strips quotes and CR only).
-  user=$(envval EMAIL_SMTP_USER); from=$(envval EMAIL_FROM); [ -n "$from" ] || from=$user
-  if [ -n "$user" ]; then
-    email_rule "$(LC_ALL=C tr 'A-Z' 'a-z' <<<"$user")" || problems+=" EMAIL_SMTP_USER outside the rule;"
-  elif [ "$(envval EMAIL_SMTP_MODE)" != relay ]; then
-    problems+=" EMAIL_SMTP_USER empty (only allowed with EMAIL_SMTP_MODE=relay);"
-  fi
-  email_rule "$(LC_ALL=C tr 'A-Z' 'a-z' <<<"$from")" || problems+=" EMAIL_FROM outside the rule;"
+  # Same reading as smtp.ts smtpConfigFromCredentials (INT, v104/int-email) – CHANGE TOGETHER (ARC P404-09):
+  #   EMAIL_SMTP_MODE trimmed, empty = relay (compose default too), else relay|app_password;
+  #   EMAIL_SMTP_USER and EMAIL_FROM trimmed (.trim()), from = EMAIL_FROM or else the user;
+  #   app_password: the user must follow the rule; relay: the user is not used (not checked);
+  #   from must follow the rule (isEmailAddress: no display form "Name <…>").
+  mode=$(trim "$(envval EMAIL_SMTP_MODE)"); mode=${mode:-relay}
+  user=$(trim "$(envval EMAIL_SMTP_USER)"); from=$(trim "$(envval EMAIL_FROM)"); [ -n "$from" ] || from=$user
+  case "$mode" in
+    app_password)
+      if [ -z "$user" ]; then problems+=" EMAIL_SMTP_USER empty (required with EMAIL_SMTP_MODE=app_password);"
+      elif ! email_rule "$(LC_ALL=C tr 'A-Z' 'a-z' <<<"$user")"; then problems+=" EMAIL_SMTP_USER outside the rule;"; fi
+      said="EMAIL_SMTP_MODE=app_password: EMAIL_FROM and EMAIL_SMTP_USER follow the address rule" ;;
+    relay)
+      said="EMAIL_SMTP_MODE=relay: EMAIL_FROM follows the address rule"
+      [ -z "$user" ] || said+=" (EMAIL_SMTP_USER ignored in relay)" ;;
+    *) problems+=" EMAIL_SMTP_MODE invalid (relay|app_password);" ;;
+  esac
+  if [ -z "$from" ]; then problems+=" EMAIL_FROM empty;"
+  elif ! email_rule "$(LC_ALL=C tr 'A-Z' 'a-z' <<<"$from")"; then problems+=" EMAIL_FROM outside the rule;"; fi
   # EMAIL_SHARED_MAILBOXES (BE-A shared-mailboxes.ts): split on space , ; – each entry trimmed + lower case.
   lines=$(grep -c '^EMAIL_SHARED_MAILBOXES=' "$OTTIMO_HOME/.env" 2>/dev/null || true)
   if [ "${lines:-0}" -gt 1 ]; then problems+=" EMAIL_SHARED_MAILBOXES on $lines lines;"; fi
@@ -525,12 +541,15 @@ check_email_config() {
     notify email_config FAIL "${problems%;} – worker/api v1.0.4 stop at start; fix .env on the server (runbook E2 pattern), tell INT"
     return 1
   fi
-  notify email_config OK "EMAIL_FROM and EMAIL_SMTP_USER follow the address rule; $shared"
+  notify email_config OK "$said; $shared"
 }
 
 check_db_triggers() {
-  local out line pn=0 pn_bad="" rlp="absent" app="" bad=""
+  local out line pn=0 pn_bad="" rlp="absent" rlp_fn="" app="" bad=""
   # Names, the enabled flag, SECURITY DEFINER and privilege flags only. to_regclass keeps the SQL valid on any DB.
+  # ARC FB-R4-ARC-OPS-P404-08: "trigger absent" is ok only BEFORE migration 0094. The function of 0094 tells the two
+  # apart without any new privilege: function present + trigger absent = the trigger was removed after 0094 → FAIL.
+  # The trigger must also stay BEFORE DELETE FOR EACH ROW (tgtype bits ROW 1 + BEFORE 2 + DELETE 8).
   if ! out=$(psql_ro <<'SQL' 2>"$cmd_err"
 SELECT to_regclass('public.privacy_notice_version') IS NOT NULL AS has_pnv, to_regclass('public.room_list_price') IS NOT NULL AS has_rlp \gset
 \if :has_pnv
@@ -543,8 +562,9 @@ SELECT 'app', concat_ws(',', has_table_privilege('ottimo_app', 'public.privacy_n
        has_table_privilege('ottimo_app', 'public.privacy_notice_version', 'DELETE'),
        has_table_privilege('ottimo_app', 'public.privacy_notice_version', 'TRUNCATE'));
 \endif
+SELECT 'rlpfn', to_regprocedure('public.room_list_price_append_only()') IS NOT NULL;
 \if :has_rlp
-SELECT 'rlp', t.tgenabled, p.prosecdef FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
+SELECT 'rlp', t.tgenabled, p.prosecdef, (t.tgtype::int & 11) = 11 FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
  WHERE t.tgrelid = 'public.room_list_price'::regclass AND t.tgname = 'room_list_price_append_only';
 \endif
 SQL
@@ -559,8 +579,10 @@ SQL
       pn=$((pn + 1)); [ "${BASH_REMATCH[2]}" = O ] || pn_bad+=" ${BASH_REMATCH[1]} not enabled (${BASH_REMATCH[2]});"
     elif [[ "$line" =~ ^app\|([tf],[tf],[tf],[tf],[tf])$ ]] && [ -z "$app" ]; then
       app=${BASH_REMATCH[1]}
-    elif [[ "$line" =~ ^rlp\|([OoRAD])\|([tf])$ ]] && [ "$rlp" = absent ]; then
-      rlp="${BASH_REMATCH[1]}|${BASH_REMATCH[2]}"
+    elif [[ "$line" =~ ^rlpfn\|([tf])$ ]] && [ -z "$rlp_fn" ]; then
+      rlp_fn=${BASH_REMATCH[1]}
+    elif [[ "$line" =~ ^rlp\|([OoRAD])\|([tf])\|([tf])$ ]] && [ "$rlp" = absent ]; then
+      rlp="${BASH_REMATCH[1]}|${BASH_REMATCH[2]}|${BASH_REMATCH[3]}"
     else
       notify db_triggers FAIL "unexpected answer"; return 1
     fi
@@ -568,9 +590,11 @@ SQL
   [ "$pn" -eq 2 ] || bad+=" $pn of 2 PN-01 triggers on privacy_notice_version;"
   bad+="$pn_bad"
   [ "$app" = "t,f,f,f,f" ] || bad+=" ottimo_app privileges on privacy_notice_version are not SELECT only;"
+  [ -n "$rlp_fn" ] || { notify db_triggers FAIL "unexpected answer"; return 1; }
   case "$rlp" in
-    absent | "O|f") ;;
-    *) bad+=" room_list_price_append_only tgenabled|prosecdef = $rlp (must be O|f);" ;;
+    "O|f|t") ;;
+    absent) [ "$rlp_fn" = f ] || bad+=" room_list_price_append_only missing (function present – migration 0094 ran);" ;;
+    *) bad+=" room_list_price_append_only tgenabled|prosecdef|before-delete-row = $rlp (must be O|f|t);" ;;
   esac
   if [ -n "$bad" ]; then
     bad="${bad# }"

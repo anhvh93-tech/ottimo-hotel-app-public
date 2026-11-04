@@ -288,16 +288,23 @@ cfg() { # name rc regex env-lines…
   CHECK=email_config run "config: $name" "$rc" "$re"
 }
 cfg "mock provider -> not checked"         0 '^ok   email_config: EMAIL_PROVIDER=mock: not smtp' 'EMAIL_PROVIDER=mock' 'EMAIL_FROM=bad'
-cfg "good, shared unset -> ok"             0 '^ok   email_config: EMAIL_FROM and EMAIL_SMTP_USER follow the address rule; EMAIL_SHARED_MAILBOXES unset' \
-  'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_USER=Ops@Example.test' 'EMAIL_FROM='
+cfg "app_password, shared unset -> ok"     0 '^ok   email_config: EMAIL_SMTP_MODE=app_password: EMAIL_FROM and EMAIL_SMTP_USER follow the address rule; EMAIL_SHARED_MAILBOXES unset' \
+  'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_MODE=app_password' 'EMAIL_SMTP_USER=Ops@Example.test' 'EMAIL_FROM='
 cfg "good, 3 shared entries -> ok"         0 'EMAIL_SHARED_MAILBOXES 3 entr\(y/ies\), 0 outside the rule$' \
-  'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_USER=ops@example.test' 'EMAIL_FROM="info@example.test"' 'EMAIL_SHARED_MAILBOXES=info@example.test, Booking@example.test;team+x@example.test'
-cfg "relay mode without user -> ok"        0 '^ok   email_config: ' 'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_MODE=relay' 'EMAIL_FROM=info@example.test'
-cfg "no user, not relay -> FAIL"           1 '^FAIL email_config: EMAIL_SMTP_USER empty' 'EMAIL_PROVIDER=smtp' 'EMAIL_FROM=info@example.test'
-cfg "EMAIL_FROM display form -> FAIL"      1 '^FAIL email_config: EMAIL_FROM outside the rule – worker/api v1.0.4 stop at start' \
-  'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_USER=ops@example.test' 'EMAIL_FROM=OTTIMO <info@example.test>'
-cfg "EMAIL_FROM trailing space -> FAIL"    1 '^FAIL email_config: EMAIL_FROM outside the rule' 'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_USER=ops@example.test' 'EMAIL_FROM=info@example.test '
-cfg "non-ASCII user -> FAIL"               1 '^FAIL email_config: EMAIL_SMTP_USER outside the rule' 'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_USER=nguyễn@example.test'
+  'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_MODE=app_password' 'EMAIL_SMTP_USER=ops@example.test' 'EMAIL_FROM="info@example.test"' 'EMAIL_SHARED_MAILBOXES=info@example.test, Booking@example.test;team+x@example.test'
+cfg "relay mode without user -> ok"        0 '^ok   email_config: EMAIL_SMTP_MODE=relay: EMAIL_FROM follows the address rule; ' 'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_MODE=relay' 'EMAIL_FROM=info@example.test'
+# ARC FB-R4-ARC-OPS-P404-09: the four cases ARC ran against smtp.ts.
+cfg "ARC09 mode unset + user empty -> ok"  0 '^ok   email_config: EMAIL_SMTP_MODE=relay: EMAIL_FROM follows the address rule; ' 'EMAIL_PROVIDER=smtp' 'EMAIL_FROM=info@example.test'
+cfg "ARC09 relay + user not an address -> ok" 0 '^ok   email_config: EMAIL_SMTP_MODE=relay: EMAIL_FROM follows the address rule \(EMAIL_SMTP_USER ignored in relay\); ' \
+  'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_MODE=relay' 'EMAIL_SMTP_USER=relay-account' 'EMAIL_FROM=info@example.test'
+cfg "ARC09 EMAIL_FROM trailing space -> ok" 0 '^ok   email_config: EMAIL_SMTP_MODE=relay: ' 'EMAIL_PROVIDER=smtp' 'EMAIL_FROM=info@example.test '
+cfg "ARC09 EMAIL_FROM display form -> FAIL" 1 '^FAIL email_config: EMAIL_FROM outside the rule – worker/api v1.0.4 stop at start' \
+  'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_MODE=app_password' 'EMAIL_SMTP_USER=ops@example.test' 'EMAIL_FROM=OTTIMO <info@example.test>'
+cfg "mode value with spaces trimmed -> ok" 0 '^ok   email_config: EMAIL_SMTP_MODE=app_password: ' 'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_MODE= app_password ' 'EMAIL_SMTP_USER=ops@example.test '
+cfg "app_password without user -> FAIL"    1 '^FAIL email_config: EMAIL_SMTP_USER empty \(required with EMAIL_SMTP_MODE=app_password\)' 'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_MODE=app_password' 'EMAIL_FROM=info@example.test'
+cfg "unknown mode -> FAIL"                 1 '^FAIL email_config: EMAIL_SMTP_MODE invalid' 'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_MODE=oauth' 'EMAIL_FROM=info@example.test'
+cfg "relay, no FROM, no user -> FAIL"      1 '^FAIL email_config: EMAIL_FROM empty' 'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_MODE=relay'
+cfg "non-ASCII user (app_password) -> FAIL" 1 '^FAIL email_config: EMAIL_SMTP_USER outside the rule' 'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_MODE=app_password' 'EMAIL_SMTP_USER=nguyễn@example.test'
 cfg "one bad shared entry -> FAIL count"   1 '^FAIL email_config: 1 EMAIL_SHARED_MAILBOXES entr\(y/ies\) outside the rule' \
   'EMAIL_PROVIDER=smtp' 'EMAIL_SMTP_USER=ops@example.test' 'EMAIL_SHARED_MAILBOXES=info@example.test,x@localhost'
 cfg "shared on two lines -> FAIL"          1 '^FAIL email_config: EMAIL_SHARED_MAILBOXES on 2 lines' \
@@ -319,19 +326,26 @@ done
 # v1.0.4 db_triggers (P4-13 PN-01, P4-11 0094): names + flags only, READ ONLY.
 envfile ''
 CHECK=db_triggers run "triggers: PN-01 both O, 0094 absent -> ok" 0 '^ok   db_triggers: PN-01 triggers enabled, ottimo_app SELECT only; room_list_price_append_only not present yet \(before migration 0094\)$' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f'
+  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nrlpfn|f'
 CHECK=db_triggers run "triggers: + 0094 O|f -> ok"                 0 'room_list_price_append_only enabled$' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nrlp|O|f'
+  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nrlpfn|t\nrlp|O|f|t'
 CHECK=db_triggers run "triggers: one PN-01 disabled -> FAIL"       1 '^FAIL db_triggers: privacy_notice_version_no_truncate not enabled \(D\) – tell SEC' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|D\napp|t,f,f,f,f'
+  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|D\napp|t,f,f,f,f\nrlpfn|f'
 CHECK=db_triggers run "triggers: one PN-01 missing -> FAIL"        1 '^FAIL db_triggers: 1 of 2 PN-01 triggers' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\napp|t,f,f,f,f'
+  FAKE_OUT='pn|privacy_notice_version_append_only|O\napp|t,f,f,f,f\nrlpfn|f'
 CHECK=db_triggers run "triggers: ottimo_app may INSERT -> FAIL"    1 'ottimo_app privileges on privacy_notice_version are not SELECT only' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,t,f,f,f'
-CHECK=db_triggers run "triggers: 0094 replica-only -> FAIL"        1 'room_list_price_append_only tgenabled\|prosecdef = R\|f \(must be O\|f\)' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nrlp|R|f'
-CHECK=db_triggers run "triggers: 0094 SECURITY DEFINER -> FAIL"    1 'room_list_price_append_only tgenabled\|prosecdef = O\|t' \
-  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nrlp|O|t'
+  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,t,f,f,f\nrlpfn|f'
+CHECK=db_triggers run "triggers: 0094 replica-only -> FAIL"        1 'room_list_price_append_only tgenabled\|prosecdef\|before-delete-row = R\|f\|t \(must be O\|f\|t\)' \
+  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nrlpfn|t\nrlp|R|f|t'
+CHECK=db_triggers run "triggers: 0094 SECURITY DEFINER -> FAIL"    1 'room_list_price_append_only tgenabled\|prosecdef\|before-delete-row = O\|t\|t' \
+  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nrlpfn|t\nrlp|O|t|t'
+# ARC FB-R4-ARC-OPS-P404-08: 0094 ran (its function exists) but the trigger is gone → FAIL, not "not present yet".
+CHECK=db_triggers run "triggers: 0094 function, no trigger -> FAIL" 1 '^FAIL db_triggers: room_list_price_append_only missing \(function present – migration 0094 ran\)' \
+  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nrlpfn|t'
+CHECK=db_triggers run "triggers: 0094 not BEFORE DELETE ROW -> FAIL" 1 'before-delete-row = O\|f\|f \(must be O\|f\|t\)' \
+  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nrlpfn|t\nrlp|O|f|f'
+CHECK=db_triggers run "triggers: no function line -> FAIL"  1 '^FAIL db_triggers: unexpected answer$' \
+  FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f'
 CHECK=db_triggers run "triggers: stray line -> FAIL"               1 '^FAIL db_triggers: unexpected answer$' \
   FAKE_OUT='pn|privacy_notice_version_append_only|O\npn|privacy_notice_version_no_truncate|O\napp|t,f,f,f,f\nowner@example.test'
 CHECK=db_triggers run "triggers: query error -> category"          1 '^FAIL db_triggers: query failed: query error$' FAKE_FAIL=1
@@ -339,7 +353,8 @@ env -i PATH="$PATH" HOME="$T" OTTIMO_HOME="$T/home" FAKE_OUT='app|t,f,f,f,f' bas
 sql=$(tr -s ' \n' ' ' < "$T/home/last.sql")
 for want in "to_regclass('public.privacy_notice_version') IS NOT NULL AS has_pnv" \
   "t.tgname IN ('privacy_notice_version_append_only', 'privacy_notice_version_no_truncate')" \
-  "t.tgname = 'room_list_price_append_only'" "has_table_privilege('ottimo_app', 'public.privacy_notice_version', 'TRUNCATE')"; do
+  "t.tgname = 'room_list_price_append_only'" "to_regprocedure('public.room_list_price_append_only()') IS NOT NULL" \
+  "(t.tgtype::int & 11) = 11" "has_table_privilege('ottimo_app', 'public.privacy_notice_version', 'TRUNCATE')"; do
   if grep -qF -- "$want" <<<"$sql"; then pass=$((pass + 1)); else fail=$((fail + 1)); echo "FAIL db_triggers sql lacks: $want"; fi
 done
 if grep -qiwE 'insert into|update [a-z_]+ set|delete from|truncate table|alter|drop|grant|create|disable|enable' <<<"$sql"; then
@@ -357,6 +372,14 @@ else fail=$((fail + 1)); echo "FAIL an LP-v2 price check is missing from the ful
 if grep -Eq '^if \[ "\$#" -gt 0 \].*checks=\(.* email_config db_triggers\)' "$src"; then
   pass=$((pass + 1)); echo "ok   email_config + db_triggers in the full run (v1.0.4)"
 else fail=$((fail + 1)); echo "FAIL a v1.0.4 check is missing from the full run"; fi
+
+
+# SEC FB-R4-SEC-OPS-P404R1-S1: "-c role=" only guards against mistakes; SQL that resets the role or turns READ ONLY
+# off would escape it. Static check: no such statement outside comment lines of the script.
+role_escape_re='SET[[:space:]]+((LOCAL|SESSION)[[:space:]]+)?ROLE|RESET[[:space:]]+ROLE|SESSION[[:space:]]+AUTHORIZATION|set_config[[:space:]]*\([[:space:]]*.role|transaction_read_only[[:space:]]*(=|TO)[[:space:]]*.?off|READ[[:space:]]+WRITE'
+if hits=$(grep -vE '^[[:space:]]*#' "$here/../server/bin/ops-check.sh" | grep -inE "$role_escape_re"); then
+  fail=$((fail + 1)); echo "FAIL ops-check.sh contains a role reset / READ WRITE statement: $hits"
+else pass=$((pass + 1)); echo "ok   ops-check.sh has no SET/RESET ROLE, SESSION AUTHORIZATION, set_config('role'), READ WRITE (P404R1-S1)"; fi
 
 echo "test-ops-check: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

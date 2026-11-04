@@ -70,8 +70,11 @@ err=$(mktemp "${TMPDIR:-/tmp}/requeue-email.XXXXXX")
 trap 'rm -f "$err"' EXIT
 # v1.0.4 (SEC FB-R4-SEC-OPS-PR32-S1, infra/postgres/init/02-roles.sh): least privilege. The count runs as
 # ottimo_readonly in a READ ONLY transaction; the one UPDATE runs as ottimo_requeue, which may only SELECT
-# outbox_message and UPDATE its columns status, attempts, next_attempt_at, last_error – a wrong SQL text cannot write
-# anything else. Both roles are NOLOGIN, taken at connect by the admin session (PGOPTIONS "-c role=…").
+# outbox_message and UPDATE its columns status, attempts, next_attempt_at, last_error – a MISTAKEN SQL text (wrong
+# column, missing WHERE) cannot write anything else. Both roles are NOLOGIN, taken at connect by the admin session
+# (PGOPTIONS "-c role=…"). This guards against mistakes, it is NOT a security boundary: the session is still the
+# superuser's, and SQL that resets the role (SET ROLE NONE, RESET ROLE, SESSION AUTHORIZATION) would get it back
+# (SEC FB-R4-SEC-OPS-P404R1-S1). So this file holds constant SQL only; its tests refuse such statements here.
 psql_ro() {
   dc exec -T postgres sh -c 'PGOPTIONS="-c default_transaction_read_only=on -c role=ottimo_readonly" psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -F "|"'
 }
