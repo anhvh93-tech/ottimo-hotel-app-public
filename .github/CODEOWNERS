@@ -5,9 +5,10 @@
 #   (b) ORC before merging: `git diff --name-only <base>...<head>` against the SEC lines below. Any match needs a
 #       rounds/<round>/reviews/SEC-on-*.md that names the reviewed head commit (or a head that differs only in
 #       non-SEC files), concludes ĐẠT / ĐẠT CÓ ĐK, with every Blocker/Major closed. The merge commit names that file.
-#   (c) ORC, same step: a NEW migration that disables a trigger or changes grants needs that SEC file too, although
-#       migrations have no line here (the rule of 0094 and PN-01; SEC FB-R4-SEC-OPS-P403-01). Check:
-#         git diff <base>...<head> -- '**/migrations/*.sql' | grep -E '^\+.*(DISABLE TRIGGER|GRANT|REVOKE)'
+#   (c) ORC, same step: a NEW migration that disables a trigger, changes grants or roles, touches row level security
+#       or a policy, or adds a SECURITY DEFINER function needs that SEC file too, although migrations have no line here
+#       (the rule of 0094 and PN-01; SEC FB-R4-SEC-OPS-P403-01, ARC P403-08 – case-insensitive). Check:
+#         git diff <base>...<head> -- '**/migrations/*.sql' | grep -iE '^\+.*(DISABLE TRIGGER|GRANT|REVOKE|ROW LEVEL SECURITY|POLICY|SECURITY DEFINER|ROLE )'
 # Revisit "Require review from Code Owners" once the repo has a second account (CI machine, operator).
 # Last matching pattern wins: keep the specific lines below the general ones.
 
@@ -33,9 +34,19 @@
 /.github/workflows/ @anhvh93-tech
 /.github/gitleaks.toml @anhvh93-tech
 # SEC (+ OPS) – the ignore list keeps INV's internal pricing/commission tables out of git (SEC-on-commission-numbers G1).
-/.gitignore @anhvh93-tech
+# No leading slash: EVERY .gitignore, a new one in a subfolder too – a nested `!pricing/` reopens G1 (ARC P403-07).
+.gitignore @anhvh93-tech
 # SEC (+ OPS) – database role limits of ottimo_app (SEC H3) and the read-only / requeue roles (P4-04).
 /product/infra/postgres/init/02-roles.sh @anhvh93-tech
 # SEC (+ OPS, INT for the .mjs) – the path of the test recipient address (stdin only; SEC PR30-04/05/10).
 /product/infra/server/bin/mail-test.sh @anhvh93-tech
 /product/infra/server/mail-test.mjs @anhvh93-tech
+
+# SEC (+ OPS) – server boundaries (ARC FB-R4-ARC-OPS-P403-10): the forced command of the CI SSH key (other commands
+# refused), the secret files and their hidden prompt, sshd / sudoers / sudo I/O logging off (K8, PR30-04), per-service
+# secrets + blob volume not in web (SEC C2) + x-hardening, and the privacy check of the logs.
+/product/infra/server/bin/deploy-from-ci.sh @anhvh93-tech
+/product/infra/server/bin/init-secrets.sh @anhvh93-tech
+/product/infra/server/bootstrap-vps.sh @anhvh93-tech
+/product/infra/docker-compose.prod.yml @anhvh93-tech
+/product/infra/server/privacy-log-check.sh @anhvh93-tech

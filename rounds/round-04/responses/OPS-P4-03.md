@@ -30,3 +30,22 @@
 - CI bước Format check đỏ ở `product/infra/server/mail-test.mjs`. Đã chạy prettier 3.9.10 (bản trong `pnpm-lock.yaml`) `--write`. Prettier chỉ xuống dòng câu từ chối `MAIL_TEST_TO`, hành vi không đổi.
 - M9 của `mail-test-send.test.sh` so chuỗi theo dòng, nên đã chỉnh để nhận câu từ chối nằm trên hai dòng. Thử ngược: thêm một dòng `process.env.MAIL_TEST_TO` thì M9 vẫn FAIL.
 - Kết quả: `mail-test-send.test.sh` 37/37 (`CI=true`), `prettier --check` sạch trên mọi tệp nhánh sửa, shellcheck sạch.
+
+## Lượt 3: thẻ mới của ARC @ `84933d92` (04/11)
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R4-ARC-OPS-P403-06 | Done | ARC đã Verified ở `84933d92` (prettier + M9) |
+| FB-R4-ARC-OPS-P403-07 | Done | CODEOWNERS: `/.gitignore` → `.gitignore`, khớp **mọi** `.gitignore`, kể cả tệp mới ở thư mục con. Chú thích nêu lý do: một `!pricing/` lồng mở lại G1. Hiện khớp 4 tệp (gốc + 3 tệp lồng) |
+| FB-R4-ARC-OPS-P403-08 | Done | Luật (c) trong CODEOWNERS và ô mẫu PR dùng cùng lệnh: `grep -iE '^\+.*(DISABLE TRIGGER\|GRANT\|REVOKE\|ROW LEVEL SECURITY\|POLICY\|SECURITY DEFINER\|ROLE )'`. Không phân biệt hoa thường, phủ RLS (`ENABLE`/`DISABLE`/`FORCE`/`NO FORCE ROW LEVEL SECURITY`), `CREATE`/`DROP POLICY`, `SECURITY DEFINER`, `ALTER ROLE`/`SET ROLE`. Lấy đủ regex ARC đề xuất, theo hướng an toàn: đa số migration RLS của BE sẽ cần SEC. Thử: viết thường `disable row level security`, `create policy` đều khớp; trên lịch sử `main` lệnh khớp 575 dòng thêm |
+| FB-R4-ARC-OPS-P403-09 | Open → P4-04 | ORC chưa giao ở lượt này. Câu chữ S14 sẽ ghi theo đề xuất ARC ở P4-04: lượt 1 `thu.nghiem@example.test` → `EMAIL_PROVIDER is not smtp`; lượt 2 `thu,nghiem@example.test` → `address on stdin is missing or invalid` |
+| FB-R4-ARC-OPS-P403-10 | Done | Thêm 5 dòng SEC (+ OPS), có chú thích vai: `deploy-from-ci.sh`, `init-secrets.sh`, `bootstrap-vps.sh`, `docker-compose.prod.yml`, `privacy-log-check.sh`. Chưa thêm `deploy.sh`/`rollback.sh`; SEC quyết nếu muốn thêm (khi đó PR-A cũng cần `SEC-on-*.md`) |
+
+Kiểm lượt 3:
+- Test, chạy với `CI=true` trên Mac:
+  - `mail-test-send.test.sh`: 37/37;
+  - `requeue-email-changed.test.sh`: 67/67;
+  - `rollback.test.sh`: 16/16.
+- shellcheck `v0.10.0`, đúng danh sách tệp CI: sạch.
+- `prettier --check` trên mọi tệp nhánh sửa trong `product/`: sạch.
+- Mọi đường dẫn trong CODEOWNERS đều có tệp thật, trừ `shared-mailboxes.ts` và `email-address.ts`. Hai tệp này sẽ có khi gộp `be-identity` và `int-email`.
