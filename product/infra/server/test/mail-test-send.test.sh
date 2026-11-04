@@ -188,8 +188,9 @@ NOTIF
   mjs_run "" EMAIL_PROVIDER=mock MAIL_TEST_VERIFY_ONLY=1
   if [ "$rc" = 2 ] && [ "$out" = 'mail-test: failed (EMAIL_PROVIDER is not smtp)' ] && [ ! -s "$sent" ]; then
     ok "M10b --verify-only on a mock stack → 'EMAIL_PROVIDER is not smtp', nothing verified"; else ko "M10b rc=$rc: $out"; fi
-  # the only code line naming MAIL_TEST_TO is the refusal (comments left out)
-  if [ -z "$(grep -v '^ *//' "$mjs" | grep 'MAIL_TEST_TO' | grep -v 'process.env.MAIL_TEST_TO !== undefined) out(')" ]; then
+  # the only code naming MAIL_TEST_TO is the refusal (comments left out; prettier may put its out(…) on the next line)
+  if [ -z "$(grep -v '^ *//' "$mjs" | grep 'MAIL_TEST_TO' | grep -vxE ' *if \(process\.env\.MAIL_TEST_TO !== undefined\)( out\(.*)?' \
+    | grep -vxF "  out('failed (MAIL_TEST_TO must not be set - the address is read from stdin)', 2);")" ]; then
     ok "M9 mail-test.mjs never reads the address from the environment"
   else ko "M9 mail-test.mjs still reads MAIL_TEST_TO"; fi
 fi

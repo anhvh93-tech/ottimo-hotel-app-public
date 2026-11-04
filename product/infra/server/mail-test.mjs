@@ -36,7 +36,8 @@ const out = (s, code) => {
 
 const env = resolveFileSecrets(process.env);
 const verifyOnly = (env.MAIL_TEST_VERIFY_ONLY ?? '') === '1';
-if (process.env.MAIL_TEST_TO !== undefined) out('failed (MAIL_TEST_TO must not be set - the address is read from stdin)', 2);
+if (process.env.MAIL_TEST_TO !== undefined)
+  out('failed (MAIL_TEST_TO must not be set - the address is read from stdin)', 2);
 
 // First line of stdin (at most 256 characters are kept; the rest of the stream is not read).
 const firstStdinLine = async () => {

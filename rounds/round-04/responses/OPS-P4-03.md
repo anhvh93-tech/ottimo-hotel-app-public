@@ -25,3 +25,8 @@
 | `CI=true bash product/infra/server/test/rollback.test.sh` | 16 passed, 0 failed (nhánh này chưa có P4-02) |
 | shellcheck `v0.10.0`, đúng danh sách tệp job CI `infra scripts`, `-x -S warning` | Sạch |
 | Compose thật, `ps --format '{{.Image}}'` với `API_IMAGE=alpine` và `docker.io/library/alpine` | In đúng chuỗi cấu hình, khớp `API_IMAGE:<tag>` |
+
+## Sửa thêm sau CI PR #46 (04/11)
+- CI bước Format check đỏ ở `product/infra/server/mail-test.mjs`. Đã chạy prettier 3.9.10 (bản trong `pnpm-lock.yaml`) `--write`. Prettier chỉ xuống dòng câu từ chối `MAIL_TEST_TO`, hành vi không đổi.
+- M9 của `mail-test-send.test.sh` so chuỗi theo dòng, nên đã chỉnh để nhận câu từ chối nằm trên hai dòng. Thử ngược: thêm một dòng `process.env.MAIL_TEST_TO` thì M9 vẫn FAIL.
+- Kết quả: `mail-test-send.test.sh` 37/37 (`CI=true`), `prettier --check` sạch trên mọi tệp nhánh sửa, shellcheck sạch.
