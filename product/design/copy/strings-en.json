@@ -3478,6 +3478,7 @@
   "gw.notice_read": "I've read this",
   "booking.rates_cleared_channel": "Typed rates were cleared because the channel changed.",
   "booking.rates_cleared_room_group": "Typed rates were cleared because room {room} is in a different room group. Check the rate per night before creating the booking.",
+  "co.minibar_cabinet_counting": "Minibar being counted",
   "msg.booking_confirmed": "Hi {name}, OTTIMO confirms booking {code}: room {room}, {from} → {to} ({nights_text}). Check-in from {checkin_time} (your room is always ready by 14:00), check-out by {checkout_time}. Deposit paid {deposit}, {balance} due at check-in. Cancellation: {cancel_policy_short}. Check in online for a faster arrival: {link}",
   "msg.deposit_received": "Hi {name}, OTTIMO has received your deposit of {deposit} for booking {code} (room {room}, {from} → {to}). {balance} is due at check-in. Cancellation: {cancel_policy_short}",
   "msg.checkin_link": "Hi {name}, to speed up your check-in, please send your IDs and arrival time here: {link} (about 2 minutes).",
