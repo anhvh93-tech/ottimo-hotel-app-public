@@ -1,4 +1,4 @@
-# OTTIMO LP-v2 – Runbook phát hành production (r2.1)
+# OTTIMO LP-v2 – Runbook phát hành production (r2.2)
 
 Soạn: OPS · 04/11/2026 · Round 4, gói LP-v2, bước **Phản hồi & sửa**, nhánh `lp-v2-main`. Trả lời SEC `FB-R4-SEC-LPV2M-03` (`rounds/round-04/reviews/SEC-on-lp-v2-main.md`): README 12.3 viết lại theo trạng thái thật, và runbook này chứa các điều kiện đăng **D1–D7** (mục 4 của tệp SEC), gồm D5 = C8 kiểm trên staging qua Caddy thật.
 Khuôn: `rounds/round-04/outputs/OPS/v1.0.3-release-runbook.md` r3.2 (cách gọi SSH, `SQLRO`, ô điền, "Đúng là", "Dừng nếu", quy ước digest rút gọn).
@@ -20,7 +20,29 @@ Sửa r2.1: OPS · 04/11/2026 · bước **Phản hồi & sửa**, theo SEC `SEC
 - **RB-08:** `CHKV` in `ENV`, `ROWS`; production `ROWS=0` → `KHONG`; hằng phải không mang hậu tố, nhãn phải đúng dạng `YYYY-MM-DD[.N]`.
 - **ARC (5.4 cách (ii)):** thêm lệnh và dòng "Đúng là" cho `deploy-landing.sh ⟨TAG_L⟩ --no-pull` khi proxy tắt (có thể có WARNING, không có FAIL).
 
-Trạng thái: **r2.1. SEC đã đọc r1.1 (T1 ĐẠT CÓ ĐK) và r2 (mục 9, ĐẠT CÓ ĐK) ngày 04/11; ARC đã đọc r1.1 và 5.4 bước 2 của r2 (ĐẠT). SEC chỉ đọc phần thay đổi r2.1 (RB-05..08).** Các ký hiệu `⟨…⟩` lấy đúng một giá trị ở bảng 0.1, chốt theo 0.2 sau khi `lp-v2-main` gộp vào `main`. Không chạy bước nào trên production khi 0.1 còn ô trống. Trong các dòng "Đúng là", `2026-11-04` đọc là `⟨NOTICE_V⟩`.
+Sửa r2.2: OPS · 04/11/2026 · bước **Phản hồi & sửa**, theo SEC FB-R4-SEC-OPS-LPV2RB-09 (Suggestion, sửa ngay vì runbook dùng sáng 05/11). SEC đã đọc r2.1 @ `82af53e6`: ĐẠT, RB-05..08 đóng. Cùng nhánh `lp-v2-ops-runbook-r2`, chỉ sửa tệp này. Tóm tắt:
+- **Lỗi ở r2.1:** chốt "production `ROWS=0` → `KHONG`" so `E` đúng từng ký tự với `/opt/ottimo-prod`. Gõ `E=/opt/ottimo-prod/` (thừa `/` cuối) thì phép so lệch, lệnh coi như staging, và `ROWS=0` vẫn ra `CO`. OPS chạy lại khối r2.1 với giá trị giả và thấy đúng lỗi này (ca 3 bảng dưới: r2.1 ra `CO`).
+- **RB-09 (sửa cả hai):** (1) `E=${E%/}` ngay sau khi đặt `E`, nên dòng in, hai lệnh SSH và phép so đều dùng giá trị đã chuẩn hóa. (2) Thay vế "khác production thì nhận `ROWS=0`" bằng danh sách cho phép: `/opt/ottimo-prod` đòi `ROWS≥1`; `/opt/ottimo` (staging) nhận `ROWS=0`; **mọi giá trị khác ra `KHONG` dù `ROWS` bao nhiêu** (OPS chặn thêm cả ca `ROWS≥1`, vì chỉ có hai môi trường; đường dẫn lạ mà vẫn đọc được bảng là dấu hiệu gõ nhầm). Chỉ bỏ **một** `/` cuối: `//` cuối vẫn ra `KHONG`.
+- **Chạy thử** (bash và zsh, đoạn lệnh lấy thẳng từ khối `CHKV` trong tệp này; thay hai lệnh SSH bằng hàm giả: `current_tag` = `sha-` + 12 ký tự commit của `RA`, bảng nhãn giả rỗng hoặc một dòng `2026-10-24`; `RA=RL=origin/main` (hằng và `VERSION` đều `2026-11-04`), `V=2026-11-04`, `RUN=DOC`). Hai shell ra giống nhau ở mọi ca:
+
+| # | `E` gõ vào | `ROWS` giả | Dòng in | r2.2 | r2.1 (để so) |
+|---|---|---|---|---|---|
+| 1 | `/opt/ottimo-prod` | 0 | `ENV=/opt/ottimo-prod ROWS=0` | `KHONG` | `KHONG` |
+| 2 | `/opt/ottimo-prod` | 1 | `ENV=/opt/ottimo-prod ROWS=1` | `CO` | `CO` |
+| 3 | `/opt/ottimo-prod/` | 0 | `ENV=/opt/ottimo-prod ROWS=0` | `KHONG` | **`CO` (lỗi RB-09)** |
+| 4 | `/opt/ottimo-prod/` | 1 | `ENV=/opt/ottimo-prod ROWS=1` | `CO` | `CO` |
+| 5 | `/opt/ottimo` | 0 | `ENV=/opt/ottimo ROWS=0` | `CO` | `CO` |
+| 6 | `/opt/ottimo` | 1 | `ENV=/opt/ottimo ROWS=1` | `CO` | `CO` |
+| 7 | `/opt/ottimo/` | 0 | `ENV=/opt/ottimo ROWS=0` | `CO` | `CO` |
+| 8 | `/opt/ottimo/` | 1 | `ENV=/opt/ottimo ROWS=1` | `CO` | `CO` |
+| 9 | `/srv/other` (lạ) | 0 | `ENV=/srv/other ROWS=0` | `KHONG` | `CO` |
+| 10 | `/srv/other` (lạ) | 1 | `ENV=/srv/other ROWS=1` | `KHONG` | `CO` |
+| 11 | `/opt/ottimo-prod//` | 0 / 1 | `ENV=/opt/ottimo-prod/ …` | `KHONG` / `KHONG` | – |
+| 12 | `/opt/ottimo-prod-x` | 0 / 1 | `ENV=/opt/ottimo-prod-x …` | `KHONG` / `KHONG` | – |
+
+  Hồi quy nhanh trên khối r2.2 (bash, zsh): `RUN` khác ảnh của `RA` → `KHONG`; production lần đầu, nhãn `2026-11-04.1` mà hằng `2026-11-04` → `KHONG`; `E=/opt/ottimo-prod/`, hằng đã đăng (5 dòng `2026-11-04`), lên lại cùng nhãn → `CO`; nhãn `2026-11-04.01` → `KHONG`. Hai lệnh SSH thật vẫn chưa chạy (G8): lần đầu ở 0.2 bước 3.
+
+Trạng thái: **r2.2. SEC đã đọc r1.1 (T1 ĐẠT CÓ ĐK), r2 (mục 9, ĐẠT CÓ ĐK) và r2.1 @ `82af53e6` (ĐẠT, RB-05..08 đóng) ngày 04/11; ARC đã đọc r1.1 và 5.4 bước 2 của r2 (ĐẠT). SEC chỉ đọc phần thay đổi r2.2 (RB-09: dòng `E=${E%/}` và `case "$E"` trong `CHKV`, bảng chạy thử ở mục "Sửa r2.2").** Các ký hiệu `⟨…⟩` lấy đúng một giá trị ở bảng 0.1, chốt theo 0.2 sau khi `lp-v2-main` gộp vào `main`. Không chạy bước nào trên production khi 0.1 còn ô trống. Trong các dòng "Đúng là", `2026-11-04` đọc là `⟨NOTICE_V⟩`.
 Người chạy: **ORC**, qua SSH `ottimo-admin` (`sudo -n`), theo phê duyệt thường trực của INV 04/11 (gộp, staging, Release LP-v2; decision-log 04/11 "INV – đồng ý trước toàn bộ"). Phê duyệt đó **không** bỏ cổng: vẫn đủ review, QA, QC trước Release; ORC báo INV sau mỗi lần deploy. **OWN (INV) tự làm** trên Desk: bật `public_show_prices` (F2) và xóa yêu cầu thử theo WR8 (K6).
 
 **Luật riêng của đợt này:** không ghi IP VPS, bí mật, URL webhook, email hay số điện thoại vào tệp này, chat, lệnh hay `.env` mẫu. Digest image chỉ ghi dạng rút gọn `8…4`, lệnh đọc digest đầy đủ từ `state/digests/…` hoặc artifact vào biến (quy ước PR30-01: gitleaks báo nhầm digest đầy đủ). Không SQL ghi tay production; bảng `privacy_notice_version` chỉ ghi qua `publish-privacy-notice.sh`. Mọi lệnh kiểm chỉ in số, mã hoặc `ERR`.
@@ -162,9 +184,10 @@ Khối so nhãn **`CHKV`** (Mac; đọc git, và đọc chỉ-đọc trên máy 
 - **Hai chốt chặn thêm (r2.1, SEC RB-08):**
   - **Hằng không mang hậu tố.** Hằng phải đúng dạng `YYYY-MM-DD`, nhãn phải đúng dạng `YYYY-MM-DD` hoặc `YYYY-MM-DD.N` (N = 1–99, không số 0 đứng đầu, như `deploy-landing.sh`). Khi hằng không có hậu tố, thứ tự byte của nhãn so với hằng trùng thứ tự khóa của `publish-privacy-notice.sql` (ngày + hậu tố/100). Hằng có hậu tố thì `KHONG`, báo SEC + BE.
   - **Dòng in có `ENV` và `ROWS`** (tổng số dòng nhãn đọc được trên DB đó). Trên production (`E=/opt/ottimo-prod`), `ROWS=0` là đọc hỏng, vì production luôn có ít nhất hai dòng `2026-10-24`, nên ra `KHONG`. Trên staging `ROWS=0` có thể đúng (S0 đã ghi lại).
+- **`E` chỉ nhận hai giá trị (r2.2, SEC RB-09):** lệnh bỏ một dấu `/` cuối ngay khi đặt (`E=${E%/}`), nên `/opt/ottimo-prod/` thành `/opt/ottimo-prod` và vẫn bị chốt `ROWS=0`. Sau đó chỉ hai giá trị qua: `/opt/ottimo-prod` (đòi `ROWS≥1`) và `/opt/ottimo` (staging, nhận cả `ROWS=0`). Mọi giá trị khác (đường dẫn lạ, `//` cuối, gõ nhầm) ra `KHONG` dù `ROWS` bao nhiêu. Không còn kiểu "khác production thì coi như staging".
 
 ```bash
-cd /Users/anhvh/Desktop/hotel-app && git fetch -q origin --tags && C= L= T= PUB= VS= N= && V=⟨NOTICE_V⟩ && RA=⟨ref api⟩ && RL=⟨ref landing⟩ && E=⟨/opt/ottimo-prod | /opt/ottimo⟩ && RUN=⟨⟨TAG_L⟩ | DOC⟩ \
+cd /Users/anhvh/Desktop/hotel-app && git fetch -q origin --tags && C= L= T= PUB= VS= N= && V=⟨NOTICE_V⟩ && RA=⟨ref api⟩ && RL=⟨ref landing⟩ && E=⟨/opt/ottimo-prod | /opt/ottimo⟩ && E=${E%/} && RUN=⟨⟨TAG_L⟩ | DOC⟩ \
  && { [ "$RUN" != DOC ] || RUN=$(ssh -i ~/.ssh/ottimo_ops -o BatchMode=yes ottimo-admin@desk.ottimo.vn "cd / && sudo -n -u ottimo cat $E/state/current_tag"); } \
  && VS=$(ssh -i ~/.ssh/ottimo_ops -o BatchMode=yes ottimo-admin@desk.ottimo.vn 'cd / && sudo -n -u ottimo '"$E"'/infra/server/bin/dc exec -T -e PGOPTIONS="-c default_transaction_read_only=on" postgres sh -c '\''psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -c "SELECT version FROM privacy_notice_version"'\''') \
  && C=$(git show "$RA:product/services/api/src/modules/public-site/public/chat-message.ts" | sed -nE "s/^export const CHAT_DETAILS_MIN_NOTICE_VERSION = '([^']*)';$/\1/p") \
@@ -175,10 +198,10 @@ cd /Users/anhvh/Desktop/hotel-app && git fetch -q origin --tags && C= L= T= PUB=
  ; echo "ENV=$E ROWS=${N:-?} NOTICE_V=$V CHAT_CONST=${C:-?} LANDING_VERSION=${L:-?} RA_IMAGE=sha-${T:-?} RUN_TAG=${RUN:-?} CONST_ROWS=${PUB:-?}" \
  ; K=KHONG; if [ -n "$C" ] && [ -n "$T" ] && [ "sha-$T" = "$RUN" ] && [ "$L" = "$V" ] \
    && printf '%s\n' "$C" | grep -Eqx '[0-9]{4}-[0-9]{2}-[0-9]{2}' && printf '%s\n' "$V" | grep -Eqx '[0-9]{4}-[0-9]{2}-[0-9]{2}(\.[1-9][0-9]?)?' \
-   && { [ "$E" != /opt/ottimo-prod ] || [ "${N:-0}" -ge 1 ]; }; then case "$PUB" in 0) [ "$C" = "$V" ] && K=CO ;; [1-9]|[1-9][0-9]) { [ "$V" = "$C" ] || printf '%s\n%s\n' "$C" "$V" | LC_ALL=C sort -C -u; } && K=CO ;; esac; fi; echo "D2_CHAT_CONST=$K"
+   && case "$E" in /opt/ottimo-prod) [ "${N:-0}" -ge 1 ] ;; /opt/ottimo) true ;; *) false ;; esac; then case "$PUB" in 0) [ "$C" = "$V" ] && K=CO ;; [1-9]|[1-9][0-9]) { [ "$V" = "$C" ] || printf '%s\n%s\n' "$C" "$V" | LC_ALL=C sort -C -u; } && K=CO ;; esac; fi; echo "D2_CHAT_CONST=$K"
 ```
-**Đúng là** (lượt này): `ENV=<E> ROWS=<n> NOTICE_V=2026-11-04 CHAT_CONST=2026-11-04 LANDING_VERSION=2026-11-04 RA_IMAGE=sha-<12 hex> RUN_TAG=<cùng giá trị> CONST_ROWS=0` rồi `D2_CHAT_CONST=CO`. Production trước P10: `ROWS=2` (hai dòng `2026-10-24`, P2 dòng 3), `CONST_ROWS=0`. Staging S4: `ROWS` = số dòng S0 ghi, `CONST_ROWS` thường `0`. Mọi trường hợp khác in `KHONG`: giá trị khác, `?` vì đọc không được, SSH/SQL lỗi (chuỗi `&&` dừng, các biến đã đặt rỗng ở đầu lệnh), `RA_IMAGE` ≠ `RUN_TAG`, hằng có hậu tố hoặc nhãn sai dạng, production `ROWS=0`. Lệnh không in dòng nào của bảng, không in `.env` hay bí mật.
-OPS đã thử phần logic (bash và zsh, thay hai lệnh SSH bằng giá trị giả) trên `origin/lp-v2-main`, ra đúng cả 10 ca: (1) lần đầu, ba giá trị bằng nhau → `CO`; (2) lần đầu, nhãn `2026-11-04.1` mà hằng vẫn `2026-11-04` → `KHONG`; (3) `RUN` khác ảnh của `RA` → `KHONG`; (4) hằng đã đăng, lên lại cùng nhãn → `CO`; (5) hằng đã đăng, nhãn `2026-11-04.1`, landing cùng nhãn → `CO`; (6) như 5 với `2026-11-05` → `CO`; (7) hằng đã đăng, nhãn cũ hơn `2026-11-03` → `KHONG`; (8) hằng đã đăng, `VERSION` landing ≠ nhãn → `KHONG`; (9) `RA=v1.0.3` (hằng `2026-10-31`) → `KHONG`; (10) ref không có → `KHONG`. r2.1 thêm: (11) production đọc rỗng (`ROWS=0`) → `KHONG`; (12) staging rỗng (`ROWS=0`), ba giá trị bằng nhau → `CO`; (13) nhãn `2026-11-04.01` → `KHONG`. Riêng ca hằng có hậu tố thì OPS thử phép kiểm dạng riêng, vì mã thật không có hằng như vậy. Chưa chạy hai lệnh SSH thật (OPS không SSH khi soạn): lần dùng đầu ở 0.2 bước 3, nếu SSH/SQL lỗi thì `KHONG` và dừng, báo OPS.
+**Đúng là** (lượt này): `ENV=<E> ROWS=<n> NOTICE_V=2026-11-04 CHAT_CONST=2026-11-04 LANDING_VERSION=2026-11-04 RA_IMAGE=sha-<12 hex> RUN_TAG=<cùng giá trị> CONST_ROWS=0` rồi `D2_CHAT_CONST=CO`. Production trước P10: `ROWS=2` (hai dòng `2026-10-24`, P2 dòng 3), `CONST_ROWS=0`. Staging S4: `ROWS` = số dòng S0 ghi, `CONST_ROWS` thường `0`. Mọi trường hợp khác in `KHONG`: giá trị khác, `?` vì đọc không được, SSH/SQL lỗi (chuỗi `&&` dừng, các biến đã đặt rỗng ở đầu lệnh), `RA_IMAGE` ≠ `RUN_TAG`, hằng có hậu tố hoặc nhãn sai dạng, production `ROWS=0` (kể cả gõ `/opt/ottimo-prod/`), `E` không phải `/opt/ottimo-prod` hay `/opt/ottimo`. Lệnh không in dòng nào của bảng, không in `.env` hay bí mật.
+OPS đã thử phần logic (bash và zsh, thay hai lệnh SSH bằng giá trị giả) trên `origin/lp-v2-main`, ra đúng cả 10 ca: (1) lần đầu, ba giá trị bằng nhau → `CO`; (2) lần đầu, nhãn `2026-11-04.1` mà hằng vẫn `2026-11-04` → `KHONG`; (3) `RUN` khác ảnh của `RA` → `KHONG`; (4) hằng đã đăng, lên lại cùng nhãn → `CO`; (5) hằng đã đăng, nhãn `2026-11-04.1`, landing cùng nhãn → `CO`; (6) như 5 với `2026-11-05` → `CO`; (7) hằng đã đăng, nhãn cũ hơn `2026-11-03` → `KHONG`; (8) hằng đã đăng, `VERSION` landing ≠ nhãn → `KHONG`; (9) `RA=v1.0.3` (hằng `2026-10-31`) → `KHONG`; (10) ref không có → `KHONG`. r2.1 thêm: (11) production đọc rỗng (`ROWS=0`) → `KHONG`; (12) staging rỗng (`ROWS=0`), ba giá trị bằng nhau → `CO`; (13) nhãn `2026-11-04.01` → `KHONG`. Riêng ca hằng có hậu tố thì OPS thử phép kiểm dạng riêng, vì mã thật không có hằng như vậy. r2.2 thử thêm 10 ca `E` × `ROWS` (bảng ở đầu tệp, mục "Sửa r2.2"). Chưa chạy hai lệnh SSH thật (OPS không SSH khi soạn): lần dùng đầu ở 0.2 bước 3, nếu SSH/SQL lỗi thì `KHONG` và dừng, báo OPS.
 
 ---
 
@@ -583,6 +606,10 @@ r2.1 (ORC ghi khi gộp cùng nhánh):
 
 `| 2026-11-04 | 4 | OPS – runbook LP-v2 r2.1 (cùng nhánh lp-v2-ops-runbook-r2, chỉ tệp runbook) theo SEC mục 9.4 + ARC: RB-05 nhãn mới ở 5.2 bước 4(a)/mục 0 (b) dừng nếu decision-log chưa có dòng SEC duyệt chữ ("Google Chat vẫn là bên nhận" hoặc "đã hạ mức Chat về A theo README 13.4"), mục 7 thêm dòng 5.2/5.4; RB-06 5.4 chỉ mở lại proxy khi K1 thấy api LP-v2 và LANDING_LOCALES về 5 ngôn ngữ, nhánh (i) tới mốc 7 ngày mà app vẫn v1.0.3 thì chỉ 5.2(b), K5 theo nhánh; RB-07 S0b in mã thoát cmp, tách ERR; RB-08 CHKV in ENV/ROWS, production ROWS=0 → KHONG, hằng không hậu tố, nhãn đúng dạng; ARC 5.4 (ii) có lệnh + "Đúng là" deploy-landing --no-pull (có thể WARNING, không FAIL) | OPS | Quyền OPS (vận hành, runbook); SEC RB-05..08 |`
 
+r2.2 (ORC ghi khi gộp cùng nhánh):
+
+`| 2026-11-04 | 4 | OPS – runbook LP-v2 r2.2 (cùng nhánh lp-v2-ops-runbook-r2, chỉ tệp runbook) theo SEC RB-09: CHKV chuẩn hóa E=${E%/} ngay đầu lệnh; chỉ nhận E=/opt/ottimo-prod (đòi ROWS≥1) và E=/opt/ottimo (staging, nhận ROWS=0), mọi giá trị khác ra KHONG dù ROWS bao nhiêu; chạy thử 12 ca E × ROWS bằng giá trị giả (bash, zsh), r2.1 ra CO ở ca /opt/ottimo-prod/ + ROWS=0, r2.2 ra KHONG | OPS | Quyền OPS (vận hành, runbook); SEC RB-09 |`
+
 ---
 
 ## 9. Giả định, rủi ro, câu hỏi cho reviewer
@@ -619,6 +646,12 @@ r2.1 (ORC ghi khi gộp cùng nhánh):
 | FB-R4-SEC-OPS-LPV2RB-07 | Done | S0b in `STG_SAME_AS_PROD_RC=$?` của `cmp`: 0 trùng → dừng (khi kích thước > 0); 1 khác → hỏi INV; khác 0/1 hoặc `STG_WEBHOOK_SIZE=ERR` → `ERR`, chỉ còn câu hỏi INV. Kích thước 0 → đạt, bỏ qua `RC` |
 | FB-R4-SEC-OPS-LPV2RB-08 | Done | `CHKV` in `ENV=` và `ROWS=` (tổng số dòng nhãn đọc được). Production `ROWS=0` → `KHONG`. Hằng phải đúng dạng `YYYY-MM-DD` (không hậu tố), nhãn đúng dạng `YYYY-MM-DD[.N]`, N = 1–99, như `deploy-landing.sh`. Thử lại 13 ca (bash, zsh) |
 | ARC – 5.4 (ii) "Đúng là" | Done | Lệnh `deploy-landing.sh ⟨TAG_L⟩ --no-pull` có lọc dòng; "Đúng là": `privacy: … (same bytes as published)` 5 ngôn ngữ, có thể có `WARNING` (proxy tắt nên kiểm trang chỉ ra WARNING), không `FAIL`, `OK: landing ⟨TAG_L⟩ is live`, `MA THOAT: 0` |
+
+**Trả lời thẻ r2.1 (SEC; r2.2)**
+
+| ID | Trạng thái mới | Ghi chú |
+|---|---|---|
+| FB-R4-SEC-OPS-LPV2RB-09 | Done | `CHKV`: `E=${E%/}` ngay sau khi đặt `E`; `case "$E"` chỉ nhận `/opt/ottimo-prod` (đòi `ROWS≥1`) và `/opt/ottimo` (nhận `ROWS=0`), giá trị khác ra `KHONG` cả khi `ROWS≥1` (chặt hơn thẻ một chút). Bảng 12 ca ở mục "Sửa r2.2"; ca `/opt/ottimo-prod/` + `ROWS=0` từ `CO` (r2.1) thành `KHONG` |
 
 **Rủi ro**
 - **R1 (trung bình):** v1.0.4 gộp vào `main` trong lúc lượt CI của `⟨SHA_L⟩` còn chờ → lượt bị hủy, Release từ chối tag (0.2). Giảm: ORC giữ `main` yên tới bước 0.2.5.
