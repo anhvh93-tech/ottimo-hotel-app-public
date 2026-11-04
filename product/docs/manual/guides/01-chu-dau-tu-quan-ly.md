@@ -3,7 +3,7 @@
 - Dành cho: **chủ đầu tư (OWN)**, **quản lý (MGR)**, và người làm **kế toán/đối soát** cùng chủ đầu tư
 - Thiết bị: **máy tính hoặc laptop riêng** của anh/chị, địa chỉ `desk.ottimo.vn`. Máy quầy chỉ dùng khi duyệt tại quầy, xong đăng xuất ngay.
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.4`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.11 – 04/11/2026 (áp dụng khi chủ đầu tư báo v1.0.4 đã lên production): gỡ lời dặn "không bật 2 bước ở v1.0.x" và cách v1.0.3 khi mất cả điện thoại lẫn mã khôi phục (`00` mục 7, bản 1.12). Các bản trước: mục **Lịch sử tệp** cuối tệp.
+- Lập: BA · 30/10/2026 · Tệp này bản 1.11 (thuộc bộ hướng dẫn bản 1.12) – 04/11/2026 (áp dụng khi chủ đầu tư báo v1.0.4 đã lên production): gỡ lời dặn "không bật 2 bước ở v1.0.x" và cách v1.0.3 khi mất cả điện thoại lẫn mã khôi phục (`00` mục 7, bản 1.12); sửa theo SEC: bảng thiết bị mục 1.1 (app nhân viên đăng nhập bằng mã 6 số), mục 14.2 ("Trên máy quầy: …"). Các bản trước: mục **Lịch sử tệp** cuối tệp.
 - Tài liệu không chứa mật khẩu, mã 2 bước, mã khôi phục, số tài khoản, mã cửa hay số giấy tờ. Khi đào tạo, anh/chị cũng không ghi những thứ này lên bảng hay vào tài liệu phát tay.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -28,7 +28,7 @@
 | Mọi việc quản lý, duyệt, đối soát, cài đặt | `desk.ottimo.vn` | **Máy riêng** (laptop/máy tính của anh/chị) |
 | Duyệt tại quầy khi lễ tân cần ngay | `desk.ottimo.vn` | Máy quầy: đăng nhập, duyệt, **đăng xuất ngay** (mục 1.5) |
 | Cấp quyền máy quầy (chỉ chủ đầu tư) | `desk.ottimo.vn` | Ngồi tại **chính máy cần cấp** (mục 1.10) |
-| App nhân viên `staff.ottimo.vn` | – | **Chưa đăng nhập được** ở v1.0 (mục 1.8) |
+| App nhân viên (kiểm phòng) | `staff.ottimo.vn` | **Điện thoại riêng**: mật khẩu rồi mã 6 số (mục 1.8) |
 
 - Chỉ vào bằng cách **gõ địa chỉ** hoặc **dấu trang**. Không bấm link đăng nhập gửi qua Zalo, email, tin nhắn – kể cả thư báo bảo mật.
 - Trình duyệt hỏi **Lưu mật khẩu?**: luôn chọn **Không bao giờ**, nhất là trên máy quầy.
@@ -870,7 +870,7 @@ Trên Desk: **Yêu cầu từ website** → tìm mã hoặc **Tìm theo liên h�
 
 ### 14.2 Không được làm
 
-- Không bật 2 bước, không in hay tải mã khôi phục trên máy quầy.
+- Trên máy quầy: không bật 2 bước, không in hay tải mã khôi phục.
 - Không đọc mật khẩu qua điện thoại, không đưa mật khẩu cho lễ tân gõ hộ, không gõ mật khẩu của mình vào phiên của người khác.
 - Không gửi mật khẩu tạm qua chat.
 - Không cấp quyền máy cho điện thoại cá nhân.
