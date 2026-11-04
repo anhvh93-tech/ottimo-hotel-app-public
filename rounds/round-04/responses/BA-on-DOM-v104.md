@@ -144,3 +144,14 @@ SEC xác nhận @ `45d09e5a`: ĐẠT; 10, 11, 12 Closed; P416-03(c) chờ nhãn 
 | FB-R4-SEC-BA-104-13 (Minor) | Done | Sổ tay 2.18 ý 3: thêm đúng quy tắc "không dịch" như `02` 13.1d – khách không muốn dịch thì ghi "không dịch" cạnh mã đơn trong sổ giao ca, không đưa tin qua dịch vụ dịch; trước khi dịch kiểm sổ giao ca, có "không dịch" hoặc "chưa xem v2" thì không dịch. Dòng lịch sử 1.11 ghi thêm |
 | FB-R4-SEC-BA-104-14 (b) (Suggestion) | Done | `00-index` mục 4 bước 1 **Kiểm lịch đã đặt**: "lần 1 vào **hôm trước** ngày thay; lần 2 sáng ngày thay, trước bước 3". Bước 3.4 thêm: "Lỗi ở ô khác (ví dụ **Hiệu lực từ**), hoặc Lịch sử không có dòng v2 hôm nay, thì **không** nhắn "Đã đặt v2", báo đội." |
 | FB-R4-SEC-BA-104-14 (a) | Chưa làm (theo ORC) | Chỉ dùng nếu P4-34 trượt |
+
+### 8.5 Nhãn nút P4-34 (đóng G-BA-104-5)
+
+ORC báo nhãn đã chốt (UXD duyệt, gói P4-34). `00-index` mục 4 bước 1 **Kiểm lịch đã đặt** thay "nút hủy trên chính dòng ấy" bằng đường đi đầy đủ: **Quản trị → Tham số quy tắc** → nhóm **Khác** → dòng `privacy_notice_version` → **Sửa** (hộp "Sửa: privacy_notice_version") → bảng **Lịch sử thay đổi** → dòng có chip **Chưa hiệu lực** → **Hủy lịch** → hộp **Hủy giá trị đã lên lịch?** → **Lý do** → **Hủy lịch** → Desk báo "Đã hủy lịch đổi …". Thêm: chỉ chủ đầu tư thấy nút với khóa này; câu SEC "**Hủy lịch** chỉ dùng cho dòng hẹn từ ngày mai trở đi; dòng đã có hiệu lực hôm nay không hủy được – không dùng nút này để sửa một lần Lưu sai."
+
+Đã kiểm trên `origin/v104/fe-param-cancel`:
+- Nhóm **Khác**: `paramCatalog.ts` không có khóa `privacy_notice_version` trong `KNOWN` → `paramMeta()` trả `group: 'other'`; `GROUP_LABEL.other` = `params.grp_other` = "Khác". Đúng nhóm **Khác**.
+- Chuỗi: `params.not_yet` "Chưa hiệu lực", nút `rcv.cancel_scheduled` "Hủy lịch" (ParamDialog dùng lại khóa này), `params.cancel_title` "Hủy giá trị đã lên lịch?", `params.reason` "Lý do", `params.cancelled` "Đã hủy lịch đổi {name}.", `params.edit_title` "Sửa: {name}".
+- Cột nút chỉ hiện khi có dòng ngày hiệu lực sau hôm nay và người xem được quyền sửa khóa (`mayCancel`; khóa chỉ OWN).
+
+G-BA-104-5 đóng.
