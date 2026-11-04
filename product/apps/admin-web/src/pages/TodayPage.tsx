@@ -13,7 +13,7 @@ import { Link } from 'react-router-dom';
 import { useCatalog } from '../app/catalog';
 import { timeHHmm, weekdayDate } from '../app/dates';
 import { Code } from '../app/mono';
-import { HOLD_KEYS, channelName, remaining } from '../app/reservations';
+import { channelName, remaining } from '../app/reservations';
 import { findRoom } from '../app/rooms';
 import { Page, Topbar } from '../components/AppShell';
 import { useNow } from '../hooks/useNow';
@@ -313,9 +313,7 @@ function Board({
         <section className="card" aria-labelledby="today-holds">
           <div className="card-h">
             {/* ĐX-R3-QA-01 (BA M13-02): the block holds part-paid holds too – "Giữ chỗ chờ cọc (n)". */}
-            <h2 id="today-holds">
-              {t(HOLD_KEYS.todayHoldsWaiting, { n: b.holdsArrivingToday.length })}
-            </h2>
+            <h2 id="today-holds">{t('today.holds_waiting', { n: b.holdsArrivingToday.length })}</h2>
           </div>
           <ul className="list">
             {b.holdsArrivingToday.map((r) => (

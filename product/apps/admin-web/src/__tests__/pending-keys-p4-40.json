@@ -1,0 +1,15 @@
+[
+  "deposit.received_at",
+  "deposit.received_at_help",
+  "deposit.accept_shortfall",
+  "deposit.accept_shortfall_reason",
+  "hold.paid_overdue_banner",
+  "error.HOLD_EXPIRED_PAID",
+  "cancel.refund_preview",
+  "today.holds_waiting",
+  "attn.hold_overdue",
+  "attn.hold_overdue_one",
+  "attn.hold_overdue_cap",
+  "attn.hold_overdue_cap_one",
+  "rsv.hold_paid_keep"
+]

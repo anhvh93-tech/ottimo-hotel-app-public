@@ -11,30 +11,10 @@ import { fieldErrorText, problemView } from './problem';
 type T = (key: string, args?: Args) => string;
 
 /**
- * v1.0.4 P4-40 (FE-B) – string keys placed by ARC (plan-v1.0.4 3.1). UXD writes VI/EN in P4-01 (strings round 1,
- * after `main@L`); until then `t` shows the key itself. Kept here, not inline, so the "every literal key exists"
- * test stays green before P4-01 – inline them once P4-01 is merged (and turn on the `it.todo` in
- * `v104-holds-feb.test.tsx`).
+ * v1.0.4 P4-40 (FE-B): every string key of this package is written inline in `t('…')`, so `i18n-keys.test.ts`
+ * checks each name against VI/EN. Keys UXD has not merged yet (P4-01) are listed in
+ * `src/__tests__/pending-keys-p4-40.json` – remove them there on the rebase onto P4-01.
  */
-export const HOLD_KEYS = {
-  /** Deposit dialog: "Giờ nhận tiền" (FD+, default now, never in the future) – BUG-R3-042. */
-  receivedAt: 'deposit.received_at',
-  receivedAtHelp: 'deposit.received_at_help',
-  /** OWN/MGR only: accept a short deposit, with a reason ≥ 3 characters – BUG-R3-043 (BR-303 (2)). */
-  acceptShortfall: 'deposit.accept_shortfall',
-  acceptShortfallReason: 'deposit.accept_shortfall_reason',
-  /** Drawer: a hold WITH money past its deadline – not cancelled, room still held – BUG-R3-044 (1). */
-  paidOverdueBanner: 'hold.paid_overdue_banner',
-  /** `HOLD_EXPIRED` on a hold with money – BUG-R3-044 (2). */
-  expiredPaid: 'error.HOLD_EXPIRED_PAID',
-  /** Cancel dialog of a hold with money: "no fee, refund request {amount} – manager approves" – BUG-R3-044 (3). */
-  cancelRefundPreview: 'cancel.refund_preview',
-  /** Hôm nay: "Giữ chỗ chờ cọc ({n})" – holds with part of the deposit too (ĐX-R3-QA-01, BA M13-02). */
-  todayHoldsWaiting: 'today.holds_waiting',
-  /** "Cần chú ý" kinds of 0.3.12 (ĐX-R3-QA-01). */
-  attnHoldOverdue: 'attention.hold_overdue',
-  attnHoldOverdueCap: 'attention.hold_overdue_cap',
-} as const;
 
 export const STATUS_KEY: Record<ReservationStatus, string> = {
   hold: 'status.booking.hold',
@@ -148,6 +128,8 @@ export interface RsvErrorContext {
    * "the room is back on sale". The Desk knows the amount, so no new Problem extra is needed (ARC tech plan 4).
    */
   holdPaidVnd?: number;
+  /** The hold's deadline (`Reservation.hold.expiresAt`) – the `{time}` of `HOLD_EXPIRED_PAID` when the Problem has no `expiredAt`. */
+  holdExpiresAt?: string;
 }
 
 /**
@@ -206,11 +188,15 @@ export function rsvErrorText(t: T, error: unknown, ctx: RsvErrorContext = {}): s
         eta: String(p.eta ?? p.etaTime ?? ''),
       });
     case 'HOLD_EXPIRED':
-      if ((ctx.holdPaidVnd ?? 0) > 0)
-        return t(HOLD_KEYS.expiredPaid, {
-          time: typeof p.expiredAt === 'string' ? formatInstant(locale, p.expiredAt) : '',
-          paid: vnd(ctx.holdPaidVnd),
+      if ((ctx.holdPaidVnd ?? 0) > 0) {
+        // FB-R4-UXD-FE-P440-02: no `_notime` variant – without `expiredAt` the booking's own deadline is the time.
+        const at = typeof p.expiredAt === 'string' ? p.expiredAt : ctx.holdExpiresAt;
+        return t('error.HOLD_EXPIRED_PAID', {
+          time: at ? formatInstant(locale, at) : '',
+          // UXD key note: `{paid}` is money with its unit ("200.000 đ").
+          paid: t('common.currency_vnd', { amount: vnd(ctx.holdPaidVnd) }),
         });
+      }
       return typeof p.expiredAt === 'string'
         ? t('error.HOLD_EXPIRED', { time: formatInstant(locale, p.expiredAt) })
         : t('error.HOLD_EXPIRED_notime');

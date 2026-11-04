@@ -23,7 +23,6 @@ import { monoArgs } from '../../app/mono';
 import { parseVnd } from '../../app/money';
 import { fieldErrors } from '../../app/problem';
 import {
-  HOLD_KEYS,
   addDays,
   currentSegment,
   currentStateOf,
@@ -125,6 +124,8 @@ function useAction(base: DialogBase) {
     canSeeGuest: true,
     // BUG-R3-044 (2): `HOLD_EXPIRED` on a hold with money says the booking is kept (never "back on sale").
     holdPaidVnd: base.reservation.status === 'hold' ? base.reservation.depositPaidVnd : undefined,
+    // FB-R4-UXD-FE-P440-02: `{time}` of that sentence when the Problem has no `expiredAt`.
+    holdExpiresAt: base.reservation.hold?.expiresAt ?? undefined,
     ...extra,
   });
 
@@ -257,11 +258,11 @@ export function CancelDialog(
   }, [previewInput, propertyId, r.id, ota]);
   const quoteCurrent = !!quote && quoteFor === inputNow;
 
-  // BUG-R3-044 (3): what a cancelled hold gives back – the dry run's refund request when it says one, else
-  // everything received (BR-303 (3): 100 %, no fee).
-  const holdRefund = hold
-    ? quote?.refundRequestVnd || quote?.refundableVnd || (r.depositPaidVnd ?? 0)
-    : 0;
+  // BUG-R3-044 (3), FB-R4-UXD-FE-P440-04: what a cancelled hold WITH money gives back – only the current dry run
+  // says it (`??`: a real 0 stays 0). Before it, the loading line; when it failed, the warn Alert – never a number.
+  const holdPaid = hold ? (r.depositPaidVnd ?? 0) : 0;
+  const holdRefund =
+    quoteCurrent && quote ? (quote.refundRequestVnd ?? quote.refundableVnd) : undefined;
   const room = r.segments?.[0]?.roomNo ?? '–';
   const from = dayMonth(r.arrivalDate);
   const to = dayMonth(r.departureDate);
@@ -364,11 +365,12 @@ export function CancelDialog(
       onKeep={props.onClose}
       onConfirm={() => void confirm()}
     >
-      {hold && holdRefund > 0 ? (
+      {hold && holdPaid > 0 && holdRefund !== undefined && holdRefund > 0 ? (
         // BUG-R3-044 (3), BA M13-01: cancelling a hold WITH money – no fee, the money received goes back through
         // a refund request the manager approves (the server creates it) – said before the press, before deadline too.
-        <p className="li-s">{t(HOLD_KEYS.cancelRefundPreview, { amount: money(holdRefund) })}</p>
-      ) : hold ? (
+        <p className="li-s">{t('cancel.refund_preview', { amount: money(holdRefund) })}</p>
+      ) : hold && (holdPaid === 0 || holdRefund !== undefined) ? (
+        // A hold without money, or one whose dry run gives nothing back (e.g. the deposit was reversed).
         <p className="li-s">{t('cancel.fee_none')}</p>
       ) : null}
       {!hold && quote?.refundRequestVnd && quote.refundRequestVnd !== quote.refundableVnd ? (
@@ -799,8 +801,8 @@ export function DepositDialog(props: DialogBase) {
       </div>
       {deskRole && !viaQr ? (
         <Field
-          label={t(HOLD_KEYS.receivedAt)}
-          help={t(HOLD_KEYS.receivedAtHelp)}
+          label={t('deposit.received_at')}
+          help={t('deposit.received_at_help')}
           error={receivedError}
         >
           {(p) => (
@@ -856,11 +858,11 @@ export function DepositDialog(props: DialogBase) {
       {shortfallOffered ? (
         <>
           <Checkbox checked={acceptShortfall} onChange={setAcceptShortfall}>
-            {t(HOLD_KEYS.acceptShortfall)}
+            {t('deposit.accept_shortfall')}
           </Checkbox>
           {acceptShortfall ? (
             <Field
-              label={t(HOLD_KEYS.acceptShortfallReason)}
+              label={t('deposit.accept_shortfall_reason')}
               required
               error={
                 touched && shortfallReasonMissing

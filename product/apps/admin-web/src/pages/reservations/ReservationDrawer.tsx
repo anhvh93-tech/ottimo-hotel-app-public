@@ -8,7 +8,6 @@ import { useCatalog } from '../../app/catalog';
 import { useBusinessDay } from '../../app/businessDay';
 import { timeHHmm } from '../../app/dates';
 import {
-  HOLD_KEYS,
   STATUS_KEY,
   STATUS_TONE,
   channelName,
@@ -486,14 +485,20 @@ export function ReservationDrawer({
                   at: `${timeHHmm(new Date(r.hold!.expiresAt!))} ${dayMonth(r.hold!.expiresAt!.slice(0, 10))}`,
                 })}
               >
-                {/* BUG-R3-044: only a hold with nothing received is cancelled at its deadline. */}
-                {holdPaid > 0 ? null : t('rsv.hold_auto')}
+                {/* BUG-R3-044: only a hold with nothing received is cancelled at its deadline; one with money is
+                    kept past it (FB-R4-UXD-FE-P440-03) – said before the deadline, while the guest can still pay. */}
+                {holdPaid > 0
+                  ? t('rsv.hold_paid_keep', {
+                      paid: money(holdPaid),
+                      required: money(r.depositRequiredVnd ?? 0),
+                    })
+                  : t('rsv.hold_auto')}
               </Alert>
             ) : holdPaid > 0 ? (
               // BUG-R3-044 (1), BA M13-03: past its deadline WITH money – not cancelled, the room is still held;
               // the desk records the rest, a manager accepts the shortfall, or cancels and refunds (BR-303).
               <Alert tone="bad" icon="hourglass" role="status">
-                {t(HOLD_KEYS.paidOverdueBanner, {
+                {t('hold.paid_overdue_banner', {
                   time: dateTime(r.hold?.expiresAt),
                   paid: money(holdPaid),
                   required: money(r.depositRequiredVnd ?? 0),

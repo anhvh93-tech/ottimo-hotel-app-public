@@ -1,7 +1,7 @@
 import type { AttentionItem, Role } from '@ottimo/api-client';
 import type { IconName } from '@ottimo/ui';
 import { timeHHmm, todayLocal } from './dates';
-import { HOLD_KEYS, dayMonth } from './reservations';
+import { dayMonth } from './reservations';
 
 type Translate = (key: string, args?: Record<string, string | number>) => string;
 
@@ -125,6 +125,8 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
   let to: string | undefined = rsv;
   let collectDebtId: string | undefined;
   let openLabel: string | undefined;
+  /** Set by a case that calls `t('…')` with a literal key itself (checked by `i18n-keys.test.ts`). */
+  let text: string | undefined;
 
   switch (item.kind as Kind) {
     case 'room_ooo':
@@ -154,18 +156,21 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
       args = { code, time };
       break;
     case 'hold_overdue': {
-      // ĐX-R3-QA-01 AC1/AC2: one booking → its code and the deadline passed (`dueAt`, any arrival date); several →
-      // the count, the bookings list. "Mở" goes to the booking, where the drawer says what to do (BUG-R3-044).
+      // ĐX-R3-QA-01 AC1/AC2, ARC 0.3.12 2.5 (`attn.${kind}`): one booking → its code and the deadline passed
+      // (`dueAt`, any arrival date); several → the count, oldest deadline. "Mở" goes to the booking, where the
+      // drawer says what to do (BUG-R3-044). Keys literal in `t('…')` so the key test checks them.
       const due = item.dueAt ? new Date(item.dueAt) : undefined;
-      key = HOLD_KEYS.attnHoldOverdue;
       args = { n, code, time, date: due ? dayMonth(todayLocal(ctx.timeZone, due)) : '' };
+      text = n === 1 && code ? t('attn.hold_overdue_one', args) : t('attn.hold_overdue', args);
       to = rsv ?? '/reservations';
       break;
     }
     case 'hold_overdue_cap':
       // MGR/OWN after 12:00 on the arrival day (DOM A.5/A.6): the paid hold still waits – the manager decides.
-      key = HOLD_KEYS.attnHoldOverdueCap;
+      // `{time}` = the cap (`dueAt`, 12:00 property time).
       args = { n, code, time };
+      text =
+        n === 1 && code ? t('attn.hold_overdue_cap_one', args) : t('attn.hold_overdue_cap', args);
       to = rsv ?? '/reservations';
       break;
     case 'deposit_after_cancel':
@@ -293,7 +298,7 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
       (item.roomNos ?? []).join(','),
       JSON.stringify(item.params ?? {}),
     ].join('|'),
-    text: t(key, args),
+    text: text ?? t(key, args),
     sub,
     icon: ICON[item.kind] ?? 'alert',
     tone: TONE[item.severity],

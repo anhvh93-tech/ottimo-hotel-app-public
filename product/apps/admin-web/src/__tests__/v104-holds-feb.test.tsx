@@ -6,12 +6,12 @@
 // `server.use` (the shared mock files are frozen in v1.0.4). Copy comes from the string files through `tv` – before
 // P4-01 (strings round 1) the new keys read as the key itself on both sides, so these tests stay valid after it.
 import type { AttentionItem } from '@ottimo/api-client';
-import { formatNumber, hasKey, translate } from '@ottimo/i18n';
+import { formatInstant, formatNumber, hasKey, translate } from '@ottimo/i18n';
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import { attentionLine } from '../app/attention';
-import { HOLD_KEYS, fromLocalInput, toLocalInput } from '../app/reservations';
+import { fromLocalInput, toLocalInput } from '../app/reservations';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { renderApp, tv } from '../test/render';
@@ -41,6 +41,37 @@ function watch() {
 afterEach(() => {
   server.events.removeListener('request:start', onStart);
 });
+/**
+ * Dry run of a hold cancel as OpenAPI 0.3.12 answers it (BR-303 (3): no fee, the money received comes back through
+ * one refund request – `refundRequestVnd`). The frozen shared mock still answers `refundableVnd: 0` for a hold.
+ * `refund` undefined → the dry run never answers (still loading). Real cancels fall through to the shared mock.
+ */
+function holdDryRun(refund: number | undefined) {
+  server.use(
+    http.post(
+      '*/v1/properties/:propertyId/reservations/:reservationId/actions/cancel',
+      async ({ request }) => {
+        const body = (await request.clone().json()) as { dryRun?: boolean };
+        if (!body.dryRun) return undefined;
+        if (refund === undefined) return new Promise<never>(() => {});
+        const r = rsvOf('Lê Minh');
+        return HttpResponse.json({
+          reservation: r,
+          cancellation: {
+            depositPaidVnd: r.depositPaidVnd,
+            refundableVnd: refund,
+            retainedVnd: 0,
+            refundRequestVnd: refund,
+            policyRef: 'BR-303',
+            serviceLines: [],
+            serviceReversedVnd: 0,
+            serviceRetainedVnd: 0,
+          },
+        });
+      },
+    ),
+  );
+}
 const deposits = () => sent.filter((s) => s.url.endsWith('/confirm-deposit')).map((s) => s.body);
 const cancels = () => sent.filter((s) => s.url.endsWith('/cancel')).map((s) => s.body);
 
@@ -74,7 +105,7 @@ describe('BUG-R3-042 – receipt time on the deposit dialog (FD+), no deposit of
   it('FD sees "Giờ nhận tiền" set to now; untouched → no receivedAt sent (the server takes now)', async () => {
     watch();
     const { user, dlg } = await openDeposit('qa.fd');
-    const field = within(dlg).getByLabelText(named(HOLD_KEYS.receivedAt));
+    const field = within(dlg).getByLabelText(named('deposit.received_at'));
     expect(field).toHaveAttribute('type', 'datetime-local');
     // Default = the hotel's wall clock now (to the minute; a minute may tick while rendering).
     const now = Date.now();
@@ -92,7 +123,7 @@ describe('BUG-R3-042 – receipt time on the deposit dialog (FD+), no deposit of
     watch();
     const { user, dlg } = await openDeposit('qa.fd');
     await user.selectOptions(within(dlg).getByLabelText(tv('pay.method')), 'cash');
-    const field = within(dlg).getByLabelText(named(HOLD_KEYS.receivedAt)) as HTMLInputElement;
+    const field = within(dlg).getByLabelText(named('deposit.received_at')) as HTMLInputElement;
     const future = toLocalInput(new Date(Date.now() + 3 * 3_600_000));
     await user.clear(field);
     await user.type(field, future);
@@ -111,7 +142,7 @@ describe('BUG-R3-042 – receipt time on the deposit dialog (FD+), no deposit of
     const r = rsvOf('Lê Minh');
     r.createdBy = mockControl.db.users.find((u) => u.username === 'qa.sal')!.id;
     const { dlg } = await openDeposit('qa.sal');
-    expect(within(dlg).queryByLabelText(named(HOLD_KEYS.receivedAt))).toBeNull();
+    expect(within(dlg).queryByLabelText(named('deposit.received_at'))).toBeNull();
   });
 
   it('unpaid hold past its deadline: no "Xác nhận đã nhận cọc", the "cancelled" sentence stays', async () => {
@@ -143,7 +174,7 @@ describe('BUG-R3-043 – "Chấp nhận cọc thiếu – lý do" (OWN/MGR only)
     const amount = within(dlg).getByLabelText(/Số tiền đã nhận/);
     await user.clear(amount);
     await user.type(amount, '200000');
-    const box = within(dlg).getByRole('checkbox', { name: tv(HOLD_KEYS.acceptShortfall) });
+    const box = within(dlg).getByRole('checkbox', { name: tv('deposit.accept_shortfall') });
     await user.click(box);
     // The main button no longer says "record part" – it confirms.
     const submit = within(dlg).getByRole('button', { name: tv('rsv.deposit_submit') });
@@ -151,7 +182,7 @@ describe('BUG-R3-043 – "Chấp nhận cọc thiếu – lý do" (OWN/MGR only)
     expect(within(dlg).getByText(tv('field_error.reason_required'))).toBeInTheDocument();
     expect(deposits()).toHaveLength(0);
     await user.type(
-      within(dlg).getByRole('textbox', { name: named(HOLD_KEYS.acceptShortfallReason) }),
+      within(dlg).getByRole('textbox', { name: named('deposit.accept_shortfall_reason') }),
       'Khách quen, trả nốt khi đến',
     );
     await user.click(submit);
@@ -183,9 +214,9 @@ describe('BUG-R3-043 – "Chấp nhận cọc thiếu – lý do" (OWN/MGR only)
     } as never);
     const { user, dlg } = await openDeposit('qa.mgr');
     await user.clear(within(dlg).getByLabelText(/Số tiền đã nhận/));
-    await user.click(within(dlg).getByRole('checkbox', { name: tv(HOLD_KEYS.acceptShortfall) }));
+    await user.click(within(dlg).getByRole('checkbox', { name: tv('deposit.accept_shortfall') }));
     await user.type(
-      within(dlg).getByRole('textbox', { name: named(HOLD_KEYS.acceptShortfallReason) }),
+      within(dlg).getByRole('textbox', { name: named('deposit.accept_shortfall_reason') }),
       'Chấp nhận 300.000',
     );
     await user.click(within(dlg).getByRole('button', { name: tv('rsv.deposit_submit') }));
@@ -199,17 +230,21 @@ describe('BUG-R3-043 – "Chấp nhận cọc thiếu – lý do" (OWN/MGR only)
   it('front desk never sees the box (the server answers 403 to them)', async () => {
     rsvOf('Lê Minh').depositPaidVnd = 100_000;
     const { dlg } = await openDeposit('qa.fd');
-    expect(within(dlg).queryByRole('checkbox', { name: tv(HOLD_KEYS.acceptShortfall) })).toBeNull();
+    expect(
+      within(dlg).queryByRole('checkbox', { name: tv('deposit.accept_shortfall') }),
+    ).toBeNull();
   });
 
   it('nothing received and the receipt still short → no box (B-29 needs money on the hold)', async () => {
     const { user, dlg } = await openDeposit('qa.mgr');
     const amount = within(dlg).getByLabelText(/Số tiền đã nhận/);
     await user.clear(amount);
-    expect(within(dlg).queryByRole('checkbox', { name: tv(HOLD_KEYS.acceptShortfall) })).toBeNull();
+    expect(
+      within(dlg).queryByRole('checkbox', { name: tv('deposit.accept_shortfall') }),
+    ).toBeNull();
     await user.type(amount, '100000');
     expect(
-      within(dlg).getByRole('checkbox', { name: tv(HOLD_KEYS.acceptShortfall) }),
+      within(dlg).getByRole('checkbox', { name: tv('deposit.accept_shortfall') }),
     ).toBeInTheDocument();
   });
 });
@@ -219,7 +254,7 @@ describe('BUG-R3-044 – a hold WITH money is not presented as cancelled', () =>
     const r = overdue(200_000);
     const { drawer } = await openDrawer('qa.fd');
     // Prefix of the sentence before its first argument (before P4-01: the key itself).
-    const prefix = tv(HOLD_KEYS.paidOverdueBanner, {
+    const prefix = tv('hold.paid_overdue_banner', {
       time: '§',
       paid: '§',
       required: '§',
@@ -229,7 +264,7 @@ describe('BUG-R3-044 – a hold WITH money is not presented as cancelled', () =>
       .getAllByRole('status')
       .find((el) => el.classList.contains('bad') && el.textContent!.includes(prefix))!;
     expect(banner).toBeTruthy();
-    if (hasKey(HOLD_KEYS.paidOverdueBanner)) expect(banner.textContent).toContain(money(200_000));
+    if (hasKey('hold.paid_overdue_banner')) expect(banner.textContent).toContain(money(200_000));
     expect(drawer.textContent).not.toContain(expiredUnpaidTail);
     expect(r.depositRequiredVnd).toBeGreaterThan(200_000);
   });
@@ -257,21 +292,93 @@ describe('BUG-R3-044 – a hold WITH money is not presented as cancelled', () =>
     await user.selectOptions(within(dlg).getByLabelText(tv('pay.method')), 'cash');
     await user.click(within(dlg).getByRole('button', { name: tv('rsv.deposit_submit') }));
     const alert = await within(dlg).findByText(
-      new RegExp(esc(tv(HOLD_KEYS.expiredPaid, { time: '§' }).split('§')[0]!)),
+      new RegExp(esc(tv('error.HOLD_EXPIRED_PAID', { time: '§' }).split('§')[0]!)),
     );
     expect(alert).toBeInTheDocument();
     expect(within(dlg).queryByText(new RegExp(esc('mở bán lại')))).toBeNull();
   });
 
+  it("HOLD_EXPIRED without `expiredAt` on a paid hold → {time} is the booking's own deadline, never blank", async () => {
+    const r = overdue(200_000);
+    r.hold!.expiresAt = '2026-11-04T03:00:00Z';
+    server.use(
+      http.post(
+        '*/v1/properties/:propertyId/reservations/:reservationId/actions/confirm-deposit',
+        () =>
+          HttpResponse.json(
+            {
+              type: '/problems/hold-expired',
+              title: 'HOLD_EXPIRED',
+              status: 409,
+              code: 'HOLD_EXPIRED',
+            },
+            { status: 409, headers: { 'content-type': 'application/problem+json' } },
+          ),
+        { once: true },
+      ),
+    );
+    const { user, dlg } = await openDeposit('qa.fd');
+    await user.selectOptions(within(dlg).getByLabelText(tv('pay.method')), 'cash');
+    await user.click(within(dlg).getByRole('button', { name: tv('rsv.deposit_submit') }));
+    const want = tv('error.HOLD_EXPIRED_PAID', {
+      time: formatInstant('vi', '2026-11-04T03:00:00Z'),
+      paid: money(200_000),
+    });
+    expect(await within(dlg).findByText(want)).toBeInTheDocument();
+    if (hasKey('error.HOLD_EXPIRED_PAID'))
+      expect(want).toContain(formatInstant('vi', '2026-11-04T03:00:00Z'));
+  });
+
+  it('drawer before the deadline, hold WITH money: says it is kept past the deadline (no "tự hủy")', async () => {
+    const r = rsvOf('Lê Minh');
+    r.depositPaidVnd = 200_000;
+    const { drawer } = await openDrawer('qa.fd');
+    expect(
+      within(drawer).getByText(
+        tv('rsv.hold_paid_keep', {
+          paid: money(200_000),
+          required: money(r.depositRequiredVnd ?? 0),
+        }),
+      ),
+    ).toBeInTheDocument();
+    expect(within(drawer).queryByText(tv('rsv.hold_auto'))).toBeNull();
+  });
+
   it('cancel dialog of a hold with money: no "(giữ chỗ chưa cọc)", says the refund request of what was received', async () => {
     rsvOf('Lê Minh').depositPaidVnd = 200_000;
+    holdDryRun(200_000);
     const { user, drawer } = await openDrawer('qa.fd');
     await user.click(within(drawer).getByRole('button', { name: tv('drawer.action.cancel_hold') }));
     const dlg = await screen.findByRole('alertdialog');
     expect(
-      await within(dlg).findByText(tv(HOLD_KEYS.cancelRefundPreview, { amount: money(200_000) })),
+      await within(dlg).findByText(tv('cancel.refund_preview', { amount: money(200_000) })),
     ).toBeInTheDocument();
     expect(within(dlg).queryByText(tv('cancel.fee_none'))).toBeNull();
+  });
+
+  it('cancel dialog of a hold with money, dry run not back yet: the loading line, no amount', async () => {
+    rsvOf('Lê Minh').depositPaidVnd = 200_000;
+    holdDryRun(undefined);
+    const { user, drawer } = await openDrawer('qa.fd');
+    await user.click(within(drawer).getByRole('button', { name: tv('drawer.action.cancel_hold') }));
+    const dlg = await screen.findByRole('alertdialog');
+    expect(within(dlg).getByText(tv('cancel.preview_loading'))).toBeInTheDocument();
+    expect(
+      within(dlg).queryByText(tv('cancel.refund_preview', { amount: money(200_000) })),
+    ).toBeNull();
+    expect(within(dlg).queryByText(tv('cancel.fee_none'))).toBeNull();
+  });
+
+  it('cancel dialog of a hold with money whose dry run gives back 0 → "no fee", not the amount received', async () => {
+    rsvOf('Lê Minh').depositPaidVnd = 200_000;
+    holdDryRun(0);
+    const { user, drawer } = await openDrawer('qa.fd');
+    await user.click(within(drawer).getByRole('button', { name: tv('drawer.action.cancel_hold') }));
+    const dlg = await screen.findByRole('alertdialog');
+    expect(await within(dlg).findByText(tv('cancel.fee_none'))).toBeInTheDocument();
+    expect(
+      within(dlg).queryByText(tv('cancel.refund_preview', { amount: money(200_000) })),
+    ).toBeNull();
   });
 
   it('cancel dialog of a hold with nothing received keeps "no fee"', async () => {
@@ -343,39 +450,77 @@ describe('ĐX-R3-QA-01 – "Cần chú ý" hold_overdue / hold_overdue_cap, "Gi�
       ...over,
     }) as unknown as AttentionItem;
 
-  it('hold_overdue: red, opens the booking, never closed by "Đã xử lý" (even when sent as an event)', () => {
+  const spy = () => {
     const used: string[] = [];
-    const line = attentionLine(item({ kind: 'hold_overdue', source: 'event', eventId: 'e1' }), {
-      ...ctx,
-      t: (k, a) => {
+    return {
+      used,
+      t: (k: string, a?: Record<string, string | number>) => {
         used.push(k);
         return translate('vi', k, a);
       },
+    };
+  };
+
+  it('hold_overdue, one booking: `attn.hold_overdue_one` with its code; red, opens it, no "Đã xử lý" (even as an event)', () => {
+    const s = spy();
+    const line = attentionLine(item({ kind: 'hold_overdue', source: 'event', eventId: 'e1' }), {
+      ...ctx,
+      t: s.t,
     });
-    expect(used).toContain(HOLD_KEYS.attnHoldOverdue);
+    expect(s.used).toContain('attn.hold_overdue_one');
+    expect(line.text).toBe(
+      tv('attn.hold_overdue_one', { n: 1, code: 'OTM-0146', time: '10:00', date: '04/11' }),
+    );
     expect(line.tone).toBe('urgent');
     expect(line.icon).toBe('hourglass');
     expect(line.to).toBe('/reservations/r-146');
     expect(line.resolveLabel).toBeUndefined();
   });
 
-  it('hold_overdue with several bookings → the bookings list; hold_overdue_cap → its own sentence', () => {
+  it('hold_overdue, several bookings: `attn.hold_overdue` with the count → the bookings list', () => {
+    const s = spy();
     const many = attentionLine(
       item({ kind: 'hold_overdue', count: 3, refCode: undefined, reservationIds: ['a', 'b', 'c'] }),
-      ctx,
+      { ...ctx, t: s.t },
+    );
+    expect(s.used).toContain('attn.hold_overdue');
+    expect(s.used).not.toContain('attn.hold_overdue_one');
+    expect(many.text).toBe(
+      tv('attn.hold_overdue', { n: 3, code: '', time: '10:00', date: '04/11' }),
     );
     expect(many.to).toBe('/reservations');
-    const used: string[] = [];
-    const cap = attentionLine(item({ kind: 'hold_overdue_cap' }), {
-      ...ctx,
-      t: (k, a) => {
-        used.push(k);
-        return translate('vi', k, a);
-      },
-    });
-    expect(used).toContain(HOLD_KEYS.attnHoldOverdueCap);
+  });
+
+  it('hold_overdue_cap, one booking: `attn.hold_overdue_cap_one` with its code and the 12:00 cap', () => {
+    const s = spy();
+    const cap = attentionLine(
+      item({ kind: 'hold_overdue_cap', dueAt: '2026-11-04T12:00:00+07:00' }),
+      { ...ctx, t: s.t },
+    );
+    expect(s.used).toContain('attn.hold_overdue_cap_one');
+    expect(cap.text).toBe(
+      tv('attn.hold_overdue_cap_one', { n: 1, code: 'OTM-0146', time: '12:00' }),
+    );
     expect(cap.resolveLabel).toBeUndefined();
     expect(cap.to).toBe('/reservations/r-146');
+  });
+
+  it('hold_overdue_cap, several bookings: `attn.hold_overdue_cap` with the count', () => {
+    const s = spy();
+    const cap = attentionLine(
+      item({
+        kind: 'hold_overdue_cap',
+        count: 2,
+        refCode: undefined,
+        reservationIds: ['a', 'b'],
+        dueAt: '2026-11-04T12:00:00+07:00',
+      }),
+      { ...ctx, t: s.t },
+    );
+    expect(s.used).toContain('attn.hold_overdue_cap');
+    expect(s.used).not.toContain('attn.hold_overdue_cap_one');
+    expect(cap.text).toBe(tv('attn.hold_overdue_cap', { n: 2, code: '', time: '12:00' }));
+    expect(cap.to).toBe('/reservations');
   });
 
   it('H03 shows the server items (AC1: arrival +20 days) with "Mở" to the booking', async () => {
@@ -399,7 +544,7 @@ describe('ĐX-R3-QA-01 – "Cần chú ý" hold_overdue / hold_overdue_cap, "Gi�
     );
     renderApp('/today', 'qa.fd');
     const attn = await screen.findByRole('region', { name: new RegExp(tv('today.attention')) });
-    const text = translate('vi', HOLD_KEYS.attnHoldOverdue).split('{')[0]!.trim();
+    const text = translate('vi', 'attn.hold_overdue_one').split('{')[0]!.trim();
     await waitFor(() => expect(attn.textContent).toContain(text.slice(0, 10)));
     expect(within(attn).queryByRole('button', { name: tv('attn.resolve') })).toBeNull();
   });
@@ -409,7 +554,7 @@ describe('ĐX-R3-QA-01 – "Cần chú ý" hold_overdue / hold_overdue_cap, "Gi�
     r.arrivalDate = new Date().toISOString().slice(0, 10);
     renderApp('/today', 'qa.fd');
     expect(
-      await screen.findByRole('heading', { name: tv(HOLD_KEYS.todayHoldsWaiting, { n: 1 }) }),
+      await screen.findByRole('heading', { name: tv('today.holds_waiting', { n: 1 }) }),
     ).toBeInTheDocument();
   });
 });
@@ -421,8 +566,4 @@ describe('helpers', () => {
     expect(fromLocalInput('')).toBeNull();
     expect(fromLocalInput('2026-11-04')).toBeNull();
   });
-
-  // P4-01 (strings round 1, UXD) adds these keys after `main@L`; then inline them as literals in the code so the
-  // "every literal key exists" test covers them, and turn this on.
-  it.todo('P4-01: every HOLD_KEYS key exists in VI and EN');
 });
