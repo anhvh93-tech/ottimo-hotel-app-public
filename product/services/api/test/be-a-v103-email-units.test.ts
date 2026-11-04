@@ -3,13 +3,19 @@
  * SEC FB-R4-SEC-ARC-EM-05: ONE rule for the API; every address it accepts must also be accepted by the SMTP adapter
  * (`isEmailAddress`) and fully masked by the log redactor (`redactText`). Fake addresses only (.test / example).
  */
-import { STAFF_EMAIL_TEMPLATES, isEmailAddress } from '@ottimo/integrations/notification';
+import {
+  EMAIL_ADDRESS_MAX,
+  STAFF_EMAIL_TEMPLATES,
+  isEmailAddress,
+  normalizeEmailAddress,
+} from '@ottimo/integrations/notification';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { STRONG_REAUTH_OPERATIONS } from '../src/modules/identity/public/strong-reauth';
 import {
   EMAIL_CHANGED_TEMPLATE,
+  SECURITY_EMAIL_MAX,
   mailboxAddress,
   maskEmail,
   normalizeSecurityEmail,
@@ -74,6 +80,27 @@ describe('normalizeSecurityEmail (V-03 for staff security e-mail, SEC EM-05)', (
       expect(isEmailAddress(email), email).toBe(true);
       expect(redactText(`to=${email} next`), email).toBe('to=[email] next');
     }
+  });
+});
+
+describe('one address rule for API and adapter (v1.0.4, INT FB-R4-INT-BE-31-04)', () => {
+  it('normalizeSecurityEmail and INT normalizeEmailAddress give the same result on VALID ∪ INVALID', () => {
+    for (const raw of [...VALID.map(([r]) => r), ...INVALID]) {
+      expect({ raw, api: normalizeSecurityEmail(raw) }).toEqual({
+        raw,
+        api: normalizeEmailAddress(raw),
+      });
+    }
+  });
+
+  it('SECURITY_EMAIL_MAX is INT EMAIL_ADDRESS_MAX', () => {
+    expect(SECURITY_EMAIL_MAX).toBe(EMAIL_ADDRESS_MAX);
+  });
+
+  it('src keeps no second copy of the rule (no own local-part / label regex in shared/email.ts)', () => {
+    const src = readFileSync(join(__dirname, '..', 'src', 'shared', 'email.ts'), 'utf8');
+    expect(src).toContain('normalizeEmailAddress(raw)');
+    expect(src).not.toMatch(/const (LOCAL|LABEL|TLD) =/);
   });
 });
 
