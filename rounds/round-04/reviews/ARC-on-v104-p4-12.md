@@ -80,3 +80,16 @@ Còn 2 thẻ Minor và 1 Suggestion, nên làm trong PR, không chặn.
 - Hai bước `peek` → `apply` tách rõ "đọc trước khi purge" và "ghi sau khi tạo". Bản rõ không bao giờ rời `payments`.
 - Tự thêm hai chốt an toàn khi lỗi (khác người nhập; nguồn phải `cancelled` thật). Cả hai nhánh đều quay về cách v1.0.3, không bao giờ mang sai.
 - Phối hợp hợp đồng tốt: dòng `money-actions.ts` giống hệt P4-00, nên gộp được theo mọi thứ tự.
+
+## Xác nhận (04/11)
+
+- Đối tượng: `origin/v104/be-refund-dest` @ `65003850`, rebase lên `main` @ `4e94fbcc`. Commit sửa `65003850`. Hai commit trước giữ nguyên nội dung (`range-diff` chỉ khác nền). Bảng trả lời: `rounds/round-04/responses/BE-D-P4-12.md`.
+- ARC chạy lại trên `65003850`, PostgreSQL 17 riêng: `tsc` (api) đạt; `eslint` các tệp sửa 0 lỗi; `v104-refund-dest` (8 ca, gồm (e2)) + `approvals-refund-payout` + `module-boundaries` **22/22**.
+
+| Thẻ | Kiểm | Kết luận |
+|---|---|---|
+| FB-R4-ARC-BE-D-P412-01 | `parseRefundAccount(plain)`: lỗi `JSON.parse` hoặc sai kiểu hai trường thì ném `Error('refund account unreadable')` cố định, không kèm nội dung. Dùng ở **cả** `peekCarryableDestination` và `getDestination`. Ca (e2): bản rõ niêm phong hợp lệ nhưng không phải JSON → 500 cả thao tác, mọi dòng in ra không chứa chuỗi thử và không có `is not valid JSON` | **Closed** |
+| FB-R4-ARC-BE-D-P412-02 | `closeStayCredit`: `plan.createVnd > 0 && cancelReason === 'superseded'`, viết giống `refundsDownToCredit` | **Closed** |
+| FB-R4-ARC-BE-D-P412-03 | Lượt 1 so `target`, `refund_method`, `refund_bank_bin`, `refund_destination_set_by` và việc có bản mã trên **mọi** dòng, lệch là `return null`, không giải mã. Lượt 2 chỉ giải mã khi phương thức là `bank_transfer`, rồi so số TK + chủ TK chuẩn hóa. Kết quả 7 ca cũ không đổi | **Closed** |
+
+**Phán quyết P4-12 trên `65003850`: ĐẠT.** Không còn thẻ ARC mở. Thẻ BED-03 (Info) của SEC được đóng theo cùng bản sửa: SEC tự xác nhận.
