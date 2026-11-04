@@ -37,6 +37,62 @@ import {
 
 test.describe.configure({ mode: 'parallel' });
 
+type Session = Awaited<ReturnType<typeof sessionOrSkip>>;
+type Window = Awaited<ReturnType<typeof freeWindow>>;
+
+/** 409 `conflicts[]` (room-block.port.ts) for the log – kind, booking code (FD+ only), nights; no guest names. */
+type Conflict = { kind?: string; nights?: string[]; reservationCode?: string };
+const showConflicts = (cs: Conflict[]) =>
+  cs
+    .map(
+      (x) =>
+        `${x.kind ?? '?'}${x.reservationCode ? ` ${x.reservationCode}` : ''} [${(x.nights ?? []).join(', ')}]`,
+    )
+    .join('; ');
+
+/**
+ * BUG-R4-034: freeWindow() only READS availability. Between that read and createRoomBlock a parallel case on the
+ * same room (this file uses 401 three times; money-s4, round5b, s3-kickoff too) may block (409 ROOM_BLOCKED) or
+ * book (409 ROOM_UNAVAILABLE) one of the nights – a collision of the shared stack, not of the block under test.
+ * Pick another window then, at most 4 tries (like WindowTakenError for bookings); any other answer is returned
+ * as is, so the case's own `toBe(201)` stays red.
+ * FB-R4-ARC-QA-PR62-01: retry only a REAL collision – the 409 lists `conflicts[]` AND the availability read path
+ * (searchAvailability, the one freeWindow used) now sees the room taken too. If availability still says free while
+ * createRoomBlock (assertFree → occupancy.conflicts) says taken, the two paths disagree: a product bug, so the case
+ * fails here and does not hide it behind another window. (A parallel case releasing its row between our 409 and the
+ * re-read would give a false red, not a false green – accepted, the gap is a few ms.)
+ */
+async function blockOnFreeWindow(
+  request: Parameters<typeof freeWindow>[0],
+  look: Session,
+  actor: Session,
+  rm: ReturnType<typeof room>,
+  nights: number,
+  opts: Parameters<typeof freeWindow>[4],
+  body: (w: Window) => { startDate: string; endDatePlanned: string; reason: string },
+  tc: string,
+): Promise<{ w: Window; blk: Awaited<ReturnType<typeof createRoomBlock>> }> {
+  for (let attempt = 1; ; attempt++) {
+    const w = await freeWindow(request, look, rm, nights, opts);
+    const b = body(w);
+    const blk = await createRoomBlock(request, actor, { roomId: rm.id, ...b });
+    const code = blk.body?.code;
+    if (blk.status !== 409 || (code !== 'ROOM_BLOCKED' && code !== 'ROOM_UNAVAILABLE'))
+      return { w, blk };
+    const conflicts = Array.isArray(blk.body.conflicts) ? (blk.body.conflicts as Conflict[]) : [];
+    const free = await isRoomFree(request, look, rm, b.startDate, b.endDatePlanned);
+    expect(
+      conflicts.length > 0 && free === false,
+      `${tc}: availability và createRoomBlock lệch nhau – ${b.startDate} → ${b.endDatePlanned}: createRoomBlock 409 ${code} ` +
+        `(conflicts: ${conflicts.length ? showConflicts(conflicts) : 'rỗng'}), searchAvailability đọc lại: ${free === false ? 'kín' : `trống (${String(free)})`}`,
+    ).toBe(true);
+    if (attempt >= 4) return { w, blk };
+    console.log(
+      `[e2e] ${tc}: ${b.startDate} → ${b.endDatePlanned} vừa bị ca song song chiếm (${code}: ${showConflicts(conflicts)}), chọn khoảng khác (lần ${attempt})`,
+    );
+  }
+}
+
 test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] }, () => {
   test.beforeEach(() => needSeedPassword());
   test.afterEach(async ({ request }) => cleanupTracked(request));
@@ -46,6 +102,7 @@ test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] },
   }) => {
     await requireEndpoints(request, 'TC-L2-030', [
       EP.createRoomBlock,
+      EP.searchAvailability, // blockOnFreeWindow re-reads it before a retry (FB-R4-ARC-QA-PR62-01)
       EP.createReservation,
       EP.calculateQuote,
       EP.saveQuote,
@@ -57,13 +114,20 @@ test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] },
     const c = await s2Context(request);
     const today = await stackToday(request);
     const rm = room(c, '401');
-    const w = await freeWindow(request, fd, rm, 3, { today, minOffset: 40, dow: 1 }); // T2: đêm giữa là T3
-    const blk = await createRoomBlock(request, mt, {
-      roomId: rm.id,
-      startDate: w.arrival,
-      endDatePlanned: w.departure,
-      reason: 'E2E TC-L2-030 hỏng bình nóng lạnh',
-    });
+    const { w, blk } = await blockOnFreeWindow(
+      request,
+      fd,
+      mt,
+      rm,
+      3,
+      { today, minOffset: 40, dow: 1 }, // T2: đêm giữa là T3
+      (x) => ({
+        startDate: x.arrival,
+        endDatePlanned: x.departure,
+        reason: 'E2E TC-L2-030 hỏng bình nóng lạnh',
+      }),
+      'TC-L2-030',
+    );
     expect(blk.status, JSON.stringify(blk.body)).toBe(201);
     expect(blk.body.status).toBe('planned');
     const mid = addDays(w.arrival, 1);
@@ -110,15 +174,22 @@ test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] },
     const o = oracle('BR-804-02'); // khối [15/10, 17/10) chặn 2 đêm, không trùng đơn từ 17/10
     expect(o.expected.blockedNights).toBe(2);
     const rm = room(c, '401');
-    const w = await freeWindow(request, fd, rm, 4, { today, minOffset: 40, dow: 1 }); // [T2, T6) – 1 đêm T2/T4 không vướng BR-113
+    const { w, blk } = await blockOnFreeWindow(
+      request,
+      fd,
+      fd,
+      rm,
+      4,
+      { today, minOffset: 40, dow: 1 }, // [T2, T6) – 1 đêm T2/T4 không vướng BR-113
+      (x) => ({
+        startDate: addDays(x.arrival, 1),
+        endDatePlanned: addDays(x.arrival, 3),
+        reason: 'E2E TC-L2-032',
+      }),
+      'TC-L2-032',
+    );
     const start = addDays(w.arrival, 1);
     const reopen = addDays(start, 2);
-    const blk = await createRoomBlock(request, fd, {
-      roomId: rm.id,
-      startDate: start,
-      endDatePlanned: reopen,
-      reason: 'E2E TC-L2-032',
-    });
     expect(blk.status, JSON.stringify(blk.body)).toBe(201);
     const guestId = await newGuest(request, fd);
     // (a) đến start+1, 1 đêm → bị khóa
@@ -174,7 +245,11 @@ test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] },
   test('TC-L2-033 qa.mt tạo khối theo ngày xong + 1 (BR-804-01): chặn đúng các đêm, mở bán từ ngày mở lại', async ({
     request,
   }) => {
-    await requireEndpoints(request, 'TC-L2-033', [EP.createRoomBlock, EP.searchAvailability]);
+    await requireEndpoints(request, 'TC-L2-033', [
+      EP.createRoomBlock,
+      EP.searchAvailability,
+      EP.listRoomBlocks,
+    ]);
     const mt = await sessionOrSkip(request, 'qa.mt');
     const fd = await sessionOrSkip(request, 'qa.fd');
     const c = await s2Context(request);
@@ -184,17 +259,24 @@ test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] },
       (Date.parse(String(o.input.expectedDoneDate)) - Date.parse(String(o.input.startDate))) /
       864e5;
     const rm = room(c, '401');
-    const w = await freeWindow(request, fd, rm, span + 2, { today, minOffset: 40 });
+    const { w, blk } = await blockOnFreeWindow(
+      request,
+      fd,
+      mt,
+      rm,
+      span + 2,
+      { today, minOffset: 40 },
+      (x) => ({
+        startDate: x.arrival,
+        endDatePlanned: addDays(x.arrival, span + 1), // ngày xong + 1
+        reason: 'E2E TC-L2-033',
+      }),
+      'TC-L2-033',
+    );
+    expect(blk.status, JSON.stringify(blk.body)).toBe(201);
     const start = w.arrival;
     const done = addDays(start, span);
     const reopen = addDays(done, 1);
-    const blk = await createRoomBlock(request, mt, {
-      roomId: rm.id,
-      startDate: start,
-      endDatePlanned: reopen,
-      reason: 'E2E TC-L2-033',
-    });
-    expect(blk.status, JSON.stringify(blk.body)).toBe(201);
     expect(nightsOf(start, reopen)).toHaveLength((o.expected.blockedNights as string[]).length);
     // lý do căn không trống (searchAvailability.requestedRoom.reason): đêm khóa = `blocked`; ngày mở bán lại không
     // còn bị khối chặn (có thể `booked` nếu ca song song vừa đặt 401 – không phải lỗi của khối)
@@ -209,7 +291,47 @@ test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] },
       return r.body.requestedRoom?.available ? 'free' : (r.body.requestedRoom?.reason ?? '?');
     };
     for (const n of nightsOf(start, reopen)) expect(await reason(n), n).toBe('blocked');
-    expect(await reason(reopen)).not.toBe('blocked');
+    // BUG-R4-034 (2): a parallel case may block 401 on the reopen night after our block was saved. Then `blocked`
+    // on that night is another block, not ours: accept it only when listRoomBlocks shows that our block ends at
+    // `reopen` (half-open) and another live block covers the night.
+    // FB-R4-ARC-QA-PR62-02: list from `start`, not `reopen` – list() keeps blocks whose end > from, so with
+    // from=reopen our own block (end = reopen) was never in the answer and the `ours` check could not fail.
+    // [start, reopen] returns both ours (end > start) and any block covering the reopen night (start <= reopen).
+    if ((await reason(reopen)) === 'blocked') {
+      const list = await call<{
+        data: {
+          id: string;
+          roomId: string;
+          status: string;
+          startDate: string;
+          endDatePlanned: string;
+          endDateActual: string | null;
+        }[];
+      }>(request, 'GET', `/v1/properties/${propertyIdOf(fd)}/room-blocks`, {
+        session: fd,
+        query: { from: start, to: reopen },
+      });
+      expect(list.status).toBe(200);
+      const endOf = (b: (typeof list.body.data)[number]) => b.endDateActual ?? b.endDatePlanned;
+      const ours = list.body.data.find((b) => b.id === blk.body.id);
+      expect(ours, `khối ${blk.body.id} của ca phải có trong listRoomBlocks`).toBeDefined();
+      expect(
+        { roomId: ours?.roomId, startDate: ours?.startDate, end: ours && endOf(ours) },
+        'khối của ca này mở bán lại đúng ngày (nửa mở)',
+      ).toEqual({ roomId: rm.id, startDate: start, end: reopen });
+      const others = list.body.data.filter(
+        (b) =>
+          b.id !== blk.body.id &&
+          b.roomId === rm.id &&
+          !['cancelled', 'released'].includes(b.status) &&
+          b.startDate <= reopen &&
+          reopen < endOf(b),
+      );
+      console.log(
+        `[e2e] TC-L2-033: đêm ${reopen} bị khối khác của ca song song chặn (${others.length})`,
+      );
+      expect(others.length, `đêm ${reopen} "blocked" phải do khối khác`).toBeGreaterThan(0);
+    }
   });
 
   test('TC-L6-041 + TC-L2-023 (7)(8) khối trùng đơn → 409 kèm danh sách đơn; MGR xác nhận → lưu; kéo dài vào đêm có đơn → 409', async ({
