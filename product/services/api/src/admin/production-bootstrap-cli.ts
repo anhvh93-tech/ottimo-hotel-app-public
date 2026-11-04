@@ -7,6 +7,9 @@
  *   log or a file (refused when stdout is not a TTY – `docker compose exec` without -T allocates one).
  * - Refuses a database that already holds a property (second run) – nothing is written.
  * - APP_ENV=production also requires MFA_ENFORCED=true (the owner must enrol 2FA at the first sign-in).
+ * - V3-04 (v1.0.4): `--owner-email` (a flag, NO value) asks for the first owner's security e-mail at a hidden
+ *   prompt (no echo – the address never lands in the shell history, the terminal scroll-back or `ps`). Enter alone =
+ *   none (the owner enters it on Desk). A value after the flag is refused. Same rules as setMyEmail.
  * Uses DATABASE_URL (ottimo_app).
  */
 import { SystemClock } from '../clock';
@@ -18,6 +21,51 @@ import { BootstrapRefusedError, bootstrapProduction } from './production-bootstr
 // Every audit allowlist, as in the api (`dataset` rooms/channels are the platform module's – without them the
 // `production.bootstrapped` audit kept users/parameters/devices only).
 import '../audit-entities';
+
+/** `--owner-email` given as a flag (and nothing that looks like a value after it)? */
+export function ownerEmailFlag(argv: readonly string[]): boolean {
+  const i = argv.indexOf('--owner-email');
+  if (i < 0) return false;
+  const next = argv[i + 1];
+  if (next !== undefined && !next.startsWith('--')) {
+    throw new Error('--owner-email takes no value: the address is asked at a hidden prompt');
+  }
+  return true;
+}
+
+/** One line from a TTY without echo (raw mode). Ctrl-C aborts; Backspace edits; Enter ends. */
+export function readHidden(
+  prompt: string,
+  input: NodeJS.ReadStream = process.stdin,
+  output: NodeJS.WriteStream = process.stdout,
+): Promise<string> {
+  if (!input.isTTY) {
+    return Promise.reject(new Error('--owner-email needs an interactive terminal'));
+  }
+  output.write(prompt);
+  return new Promise((resolve, reject) => {
+    let value = '';
+    const done = (err: Error | null) => {
+      input.setRawMode(false);
+      input.pause();
+      input.removeListener('data', onData);
+      output.write('\n');
+      if (err) reject(err);
+      else resolve(value);
+    };
+    const onData = (chunk: Buffer) => {
+      for (const ch of chunk.toString('utf8')) {
+        if (ch === '\r' || ch === '\n') return done(null);
+        if (ch === '\u0003') return done(new Error('aborted'));
+        if (ch === '\u007f' || ch === '\b') value = value.slice(0, -1);
+        else if (ch >= ' ') value += ch;
+      }
+    };
+    input.setRawMode(true);
+    input.resume();
+    input.on('data', onData);
+  });
+}
 
 function arg(name: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -38,6 +86,9 @@ async function main(): Promise<void> {
   }
   const url = env.DATABASE_URL ?? '';
   if (!url) throw new Error('DATABASE_URL is required');
+  const ownerEmail = ownerEmailFlag(process.argv)
+    ? await readHidden('Owner security e-mail (hidden; Enter = none, set it on Desk later): ')
+    : null;
   const pool = createPool(url, { max: 2 });
   try {
     await assertSafeDbRole(pool);
@@ -46,10 +97,16 @@ async function main(): Promise<void> {
       ownerDisplayName: arg('owner-name'),
       operator: arg('operator'),
       clock: new SystemClock(),
+      ownerEmail,
+      sharedMailboxes: {
+        sharedMailboxes: env.EMAIL_SHARED_MAILBOXES,
+        emailFrom: env.EMAIL_FROM,
+      },
     });
     process.stdout.write(
       [
         'OTTIMO production bootstrap: done',
+        `  owner security e-mail: ${ownerEmail?.trim() ? 'set' : 'not set (enter it on Desk)'}`,
         `  rooms ${out.rooms} · room groups ${out.roomGroups} · channels ${out.channels} · parameters ${out.parameters}`,
         '',
         '  Temporary password of the first owner (shown ONCE – hand it over in person, then clear the screen):',
@@ -65,14 +122,17 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err: unknown) => {
-  const refused = err instanceof BootstrapRefusedError;
-  console.error(
-    refused
-      ? `refused: ${err.message}`
-      : err instanceof Error
-        ? `${err.name}: ${err.message}`
-        : 'failed',
-  );
-  process.exit(refused ? 2 : 1);
-});
+// Imported by a test (ownerEmailFlag / readHidden) → do not run.
+if (require.main === module) {
+  main().catch((err: unknown) => {
+    const refused = err instanceof BootstrapRefusedError;
+    console.error(
+      refused
+        ? `refused: ${err.message}`
+        : err instanceof Error
+          ? `${err.name}: ${err.message}`
+          : 'failed',
+    );
+    process.exit(refused ? 2 : 1);
+  });
+}

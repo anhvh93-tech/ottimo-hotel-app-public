@@ -59,17 +59,18 @@ export const RBAC_FIELD_DENY: Readonly<Record<string, readonly string[]>> = {
  * only ever about the caller. The D-code check (`x-rbac-field`) is skipped for exactly these properties – every
  * role sees its own value. Nothing else is relaxed: `x-visible-to`, `writeOnly`, C3 (`x-c3-log`) and the guest
  * level still apply, and `User.email` (listUsers / updateUser) stays OWN only through its `x-visible-to`.
- * Key = `<owner>.<property>`; owner = a component schema returned only about the caller (`Me`: login,
- * loginMfa, getMe) or the operationId of an inline `/v1/me*` response. Direct properties only (a nested object
- * of the same name is not covered). test/serializer.test.ts pins that every key is a D-tagged property of a
- * self-only answer, so the list cannot grow by accident.
+ * Key = `<owner>.<property>`; owner = `schema:<Name>` for a component schema returned only about the caller (`Me`:
+ * login, loginMfa, getMe) or `op:<operationId>` for an inline `/v1/me*` response (two prefixes – SEC 018-02).
+ * Direct properties only (a nested object of the same name is not covered). test/serializer.test.ts pins the exact
+ * content (SEC 018-01: adding a key needs SEC review) and that every direct D-tagged property of a self-only answer
+ * is either here or deliberately hidden.
  */
 export const SELF_DATA_FIELDS: ReadonlySet<string> = new Set([
-  'Me.email', // getMe / login / loginMfa – the caller's own security e-mail (BUG-R4-018)
-  'setMyEmail.email', // 200 of PUT /v1/me/email (BUG-R4-018)
-  'startMy2faSetup.otpauthUri', // own enrolment key (BUG-R4-022)
-  'confirmMy2fa.recoveryCodes', // own recovery codes, shown once (BUG-R4-022)
-  'regenerateMyRecoveryCodes.recoveryCodes', // own new recovery codes (BUG-R4-022)
+  'schema:Me.email', // getMe / login / loginMfa – the caller's own security e-mail (BUG-R4-018)
+  'op:setMyEmail.email', // 200 of PUT /v1/me/email (BUG-R4-018)
+  'op:startMy2faSetup.otpauthUri', // own enrolment key (BUG-R4-022)
+  'op:confirmMy2fa.recoveryCodes', // own recovery codes, shown once (BUG-R4-022)
+  'op:regenerateMyRecoveryCodes.recoveryCodes', // own new recovery codes (BUG-R4-022)
 ]);
 
 /** True when at least one of `roles` may receive a property tagged with `code`. Unknown code → hidden. */

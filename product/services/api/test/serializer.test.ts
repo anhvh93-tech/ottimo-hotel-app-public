@@ -237,16 +237,51 @@ describe("role serializer – the caller's own data (SELF_DATA_FIELDS, BUG-R4-01
     expect('actorName' in ser('AuditEvent', e, ['housekeeping'])).toBe(false);
   });
 
-  it('every SELF_DATA_FIELDS key is a D-tagged direct property of a self-only answer', () => {
-    const SELF_ONLY_SCHEMAS = { Me: ['getMe', 'login', 'loginMfa'] };
+  /**
+   * SEC FB-R4-SEC-BE-018-01 (a): the exact content of SELF_DATA_FIELDS. ADDING A KEY NEEDS SEC REVIEW – the list is
+   * the only exception to D27 (an op that returns other people's data must never be added). Change this array only
+   * in a PR that SEC approves.
+   */
+  const PINNED_SELF_DATA_FIELDS = [
+    'schema:Me.email',
+    'op:setMyEmail.email',
+    'op:startMy2faSetup.otpauthUri',
+    'op:confirmMy2fa.recoveryCodes',
+    'op:regenerateMyRecoveryCodes.recoveryCodes',
+  ];
+  /**
+   * SEC 018-01 (b): direct D-tagged properties of a self-only answer that stay hidden on purpose (the D-code applies
+   * to the caller too). Empty today – a new `/v1/me*` op or a new `Me` property with a D-code makes the test below
+   * fail until its author puts the key here or (with SEC) in SELF_DATA_FIELDS.
+   */
+  const DELIBERATELY_HIDDEN: string[] = [];
+  const SELF_ONLY_SCHEMAS = { Me: ['getMe', 'login', 'loginMfa'] };
+  const ME_PATH = /^\/v1\/me(\/|$)/;
+
+  it('SEC 018-01 (a): SELF_DATA_FIELDS is exactly the pinned list (adding a key needs SEC review)', () => {
+    expect([...SELF_DATA_FIELDS].sort()).toEqual([...PINNED_SELF_DATA_FIELDS].sort());
+  });
+
+  it('SEC 018-02: keys carry the owner kind (schema: / op:) – a schema and an operation cannot share a key', () => {
     for (const key of SELF_DATA_FIELDS) {
-      const [owner, prop] = key.split('.') as [string, string];
+      expect(key, key).toMatch(/^(schema|op):[A-Za-z0-9]+\.[A-Za-z0-9]+$/);
+    }
+    expect(SELF_DATA_FIELDS.has('Me.email')).toBe(false);
+    expect(SELF_DATA_FIELDS.has('setMyEmail.email')).toBe(false);
+  });
+
+  it('every SELF_DATA_FIELDS key is a D-tagged direct property of a self-only answer', () => {
+    for (const key of SELF_DATA_FIELDS) {
+      const m = /^(schema|op):([^.]+)\.(.+)$/.exec(key);
+      expect(m, key).not.toBeNull();
+      const [, kind, owner, prop] = m as unknown as [string, string, string, string];
       let shape: Shape | undefined;
-      if (owner in SELF_ONLY_SCHEMAS) {
+      if (kind === 'schema') {
+        expect(owner in SELF_ONLY_SCHEMAS, key).toBe(true);
         shape = OPENAPI_SCHEMAS.schemas[owner];
       } else {
         const op = OPENAPI_META.operations[owner];
-        expect(op?.path, key).toMatch(/^\/v1\/me(\/|$)/);
+        expect(op?.path, key).toMatch(ME_PATH);
         shape = OPENAPI_SCHEMAS.responses[owner]?.['200'];
       }
       expect(shape?.k, key).toBe('object');
@@ -263,6 +298,30 @@ describe("role serializer – the caller's own data (SELF_DATA_FIELDS, BUG-R4-01
       .filter(([, s]) => JSON.stringify(s).includes('"name":"Me"'))
       .map(([n]) => n);
     expect(refsToMe).toEqual([]);
+  });
+
+  it('SEC 018-01 (b): every direct D-tagged property of Me and of an inline /v1/me* answer is self data or deliberately hidden', () => {
+    const found = new Set<string>();
+    const directD = (owner: string, shape: Shape | undefined) => {
+      if (!shape || shape.k !== 'object') return;
+      for (const [prop, p] of Object.entries(shape.props)) if (p.f) found.add(`${owner}.${prop}`);
+    };
+    for (const name of Object.keys(SELF_ONLY_SCHEMAS)) {
+      directD(`schema:${name}`, OPENAPI_SCHEMAS.schemas[name]);
+    }
+    for (const [opId, op] of Object.entries(OPENAPI_META.operations)) {
+      if (!ME_PATH.test(op.path)) continue;
+      for (const shape of Object.values(OPENAPI_SCHEMAS.responses[opId] ?? {})) {
+        directD(`op:${opId}`, shape);
+      }
+    }
+    const undecided = [...found].filter(
+      (k) => !SELF_DATA_FIELDS.has(k) && !DELIBERATELY_HIDDEN.includes(k),
+    );
+    expect(undecided).toEqual([]);
+    // nothing stale in the two lists
+    for (const k of [...SELF_DATA_FIELDS, ...DELIBERATELY_HIDDEN])
+      expect([...found], k).toContain(k);
   });
 });
 
