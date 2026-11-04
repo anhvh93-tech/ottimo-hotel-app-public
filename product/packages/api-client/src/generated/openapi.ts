@@ -1344,6 +1344,12 @@ export interface paths {
     /**
      * Nhận phòng (B9) – buồng → OC, phụ thu (nếu lễ tân xác nhận), hạn khai báo bắt đầu tính
      * @description Buồng chưa VC/VI → cần `roomNotReadyOverride` (FDL+ trực tiếp; FD sẽ tạo yêu cầu duyệt `checkin_room_not_ready` – A12).
+     *     **v1.0.4 (BUG-R4-039, BR-402 (1) v0.5.3 – chờ ARC duyệt, chỉ đổi mô tả)**: ngoại lệ này chỉ khi buồng `VD`/`CL` **và** căn không còn lượt
+     *     `in_house` khác đang ở căn hôm nay (định nghĩa "khách đang ở căn" của buồng phòng, giới hạn ở đoạn chưa kết thúc trước hôm nay: lượt đi hôm nay chưa B18,
+     *     hoặc lượt phủ đêm nay; lượt quá ngày đi không tính ở bước này). Buồng `OC`/`OD`/`OOO`, hoặc căn còn lượt như trên (kể cả khi trạng thái buồng bị sửa
+     *     tay thành `VD`/`CL`/`VI`/`VC`): `room_ready` chưa đạt, **không có** `overridableBy`; mọi vai gửi
+     *     `roomNotReadyOverride` (lý do, hay `approvalRequestId` của yêu cầu đã duyệt) → `409 CHECKIN_CONDITIONS_NOT_MET` (`unmet` gồm `room_ready`), không tạo
+     *     yêu cầu duyệt (không có nhánh 202), không ghi gì. Client hiện ô lý do/nút xác nhận theo `overridableBy`, không theo `detail`.
      *     Đơn `conflictState=open` → `409 RESERVATION_UNASSIGNED`.
      *
      *     **0.3.3 (EP03-05 mục 1, E03-01…05)**
@@ -6548,7 +6554,7 @@ export interface components {
       roomStatus: components['schemas']['RoomStatusCode'];
       conditions: {
         /**
-         * @description `document_check_block` (0.3.3, E03-01): đạt khi `Registration.blocksDoorCode=false` (BR-613 c); `overridableBy` = FDL+ qua `checkIn.documentBlockOverride`. `capacity_within_max` (0.3.5, DOM D-1): đạt khi `capacityConflict=false`; không ai bỏ qua được (đổi căn hoặc sửa số khách)
+         * @description `room_ready` (BR-402 (1)): đạt khi buồng `VI`/`VC` và căn không còn lượt `in_house` khác đang ở căn hôm nay; `detail` = trạng thái buồng; `overridableBy` = FDL+ **chỉ** khi buồng `VD`/`CL` và căn không còn lượt đó (v1.0.4, BUG-R4-039 – `OC`/`OD`/`OOO` không có ngoại lệ). `document_check_block` (0.3.3, E03-01): đạt khi `Registration.blocksDoorCode=false` (BR-613 c); `overridableBy` = FDL+ qua `checkIn.documentBlockOverride`. `capacity_within_max` (0.3.5, DOM D-1): đạt khi `capacityConflict=false`; không ai bỏ qua được (đổi căn hoặc sửa số khách)
          * @enum {string}
          */
         code:

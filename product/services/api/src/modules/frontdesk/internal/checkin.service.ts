@@ -20,6 +20,7 @@ import {
 } from '../../../shared/time';
 import type { ApprovalRow } from '../../approvals/public/approval.service';
 import { AuditService } from '../../audit/public/audit.service';
+import { inRoomOnSql } from '../../housekeeping/public/stay-occupancy';
 import { PaymentService, type PaymentCreateInput } from '../../payments/public/payment.service';
 import { LEASE_END_DATE_KEY } from '../../reservations/public/lease-end';
 import {
@@ -351,7 +352,14 @@ export class CheckinService {
     const docs = await this.s.ports.registration.checkinDocumentStatus(tx, row.id);
     const capacityOk =
       row.capacity_conflict_at === null && (!room || this.s.counted(row) <= room.max_occupancy);
-    const roomReady = !!room && (roomStatus === 'VI' || roomStatus === 'VC');
+    // BR-402 (1) v0.5.3 (BUG-R4-039): the "room not ready" exception is for a VACANT room not cleaned yet (VD/CL)
+    // only. OC/OD (a stay is still in the room), OOO, and a room another in-house stay leaving today still holds
+    // whatever its status says (status edited by hand – `roomHeldByAnotherStay`) have no exception for any role,
+    // the lead's approval path included: `overridableBy` absent, B9 refuses `roomNotReadyOverride` below.
+    const heldByAnotherStay = !!room && (await this.roomHeldByAnotherStay(tx, room.id, row, ctx));
+    const roomReady = !!room && !heldByAnotherStay && (roomStatus === 'VI' || roomStatus === 'VC');
+    const roomOverridable =
+      !!room && !heldByAnotherStay && (roomStatus === 'VD' || roomStatus === 'CL');
     const conditions: Condition[] = [
       { code: 'not_unassigned', met: row.conflict_state !== 'open' },
       { code: 'capacity_within_max', met: capacityOk },
@@ -359,7 +367,7 @@ export class CheckinService {
         code: 'room_ready',
         met: roomReady,
         ...(roomReady ? {} : { detail: roomStatus }),
-        ...(!roomReady && roomStatus !== 'OOO' ? { overridableBy: FDL_UP } : {}),
+        ...(roomOverridable ? { overridableBy: FDL_UP } : {}),
       },
       {
         code: 'balance_paid',
@@ -501,6 +509,30 @@ export class CheckinService {
     return rows.length === 0;
   }
 
+  /**
+   * BUG-R4-039 (BR-402 (1) v0.5.3): another in-house stay is still in this room on the business day – the
+   * housekeeping definition (`inRoomOnSql`: the departure day until B18, the room of the latest segment on a move
+   * day), limited to a segment that has not ended before today (`to_date >= D`: the stay leaving today, the DOM
+   * case, or covering today). A stay left `in_house` past its dates is an overdue departure ("Cần chú ý") – its
+   * room status (OC/OD until B18) already blocks; it does not hold the room through this check. The stay of this
+   * booking itself (its root and children) does not count.
+   */
+  private async roomHeldByAnotherStay(
+    tx: Tx,
+    roomId: string,
+    row: ReservationRow,
+    ctx: BookingContext,
+  ): Promise<boolean> {
+    const { rows } = await tx.query(
+      `SELECT 1 FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
+        WHERE s.room_id = $1 AND COALESCE(r.parent_reservation_id, r.id) <> $2::uuid
+          AND ${inRoomOnSql('$3::date')} AND s.to_date >= $3::date
+        LIMIT 1`,
+      [roomId, row.parent_reservation_id ?? row.id, ctx.today],
+    );
+    return rows.length > 0;
+  }
+
   private async kitOpen(tx: Tx, reservationId: string): Promise<number> {
     const { rows } = await tx.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM hk_task WHERE reservation_id = $1
@@ -585,7 +617,9 @@ export class CheckinService {
         if (docOverrideReason.length < 3) f.add('documentBlockOverride.reason', 'REASON_REQUIRED');
         continue;
       }
-      if (c.code === 'room_ready' && e.roomStatus !== 'OOO' && roomOverride) {
+      // BUG-R4-039 (BR-402 (1) v0.5.3): the same `overridableBy` the preview shows – VD/CL with no other stay in
+      // the room. Otherwise the override (reason, approval request or approved request) is ignored → 409 below.
+      if (c.code === 'room_ready' && c.overridableBy && roomOverride) {
         if (fdlPlus) {
           if (!roomOverrideReason || roomOverrideReason.length < 3) {
             f.add('roomNotReadyOverride.reason', 'REASON_REQUIRED');
