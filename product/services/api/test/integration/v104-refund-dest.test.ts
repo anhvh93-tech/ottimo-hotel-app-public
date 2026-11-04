@@ -9,6 +9,8 @@
  * (c) one with, one without → carried; the same account with the holder typed differently (case, spaces) → carried;
  * (d) whoever entered the destination does not approve the replacement (403 + CHECK 0031/0042);
  * (e) a destination that cannot be decrypted → the whole request fails, both requests as before;
+ * (e2) a destination that decrypts but is not JSON → the same, and V8's SyntaxError (which quotes its input) never
+ *     reaches the printed lines or the answer (FB-R4-ARC-BE-D-P412-01);
  * (f) audit, c3_access_log, outbox, staff_notification and the error answer never hold the test account / holder
  *     (replaces `privacy-log-check.sh` – SEC-on-v104-be-d 1.4);
  * + another booking → nothing carried.
@@ -17,7 +19,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { RefundsService } from '../../src/modules/payments/internal/refunds.service';
+import {
+  RefundsService,
+  parseRefundAccount,
+} from '../../src/modules/payments/internal/refunds.service';
 import {
   REFUND_ACCOUNT_CIPHER,
   type RefundAccountCipher,
@@ -87,6 +92,27 @@ describe.skipIf(!HAS_DB)('P4-12 – a replacement refund request keeps the desti
       unitPriceVnd: amountVnd,
       serviceDate: s.departure,
     });
+
+  /** Everything the process prints while `run` goes (Nest logger, console) – checked for the account in (e), (e2). */
+  const printedWhile = async <T>(run: () => Promise<T>): Promise<{ res: T; printed: string[] }> => {
+    const printed: string[] = [];
+    const out = process.stdout.write.bind(process.stdout);
+    const err = process.stderr.write.bind(process.stderr);
+    process.stdout.write = ((chunk: any, ...rest: any[]) => {
+      printed.push(String(chunk));
+      return out(chunk, ...rest);
+    }) as any;
+    process.stderr.write = ((chunk: any, ...rest: any[]) => {
+      printed.push(String(chunk));
+      return err(chunk, ...rest);
+    }) as any;
+    try {
+      return { res: await run(), printed };
+    } finally {
+      process.stdout.write = out as any;
+      process.stderr.write = err as any;
+    }
+  };
 
   /** A settled stay with one refund request per extra cash receipt (each by the FD who records it). */
   const stayWithRequests = async (...amounts: number[]) => {
@@ -248,29 +274,46 @@ describe.skipIf(!HAS_DB)('P4-12 – a replacement refund request keeps the desti
     );
     const before = await refunds(s);
     const linesBefore = ((await x.folio(s.folioId)).lines as any[]).length;
-    // Everything the process prints while it fails (Nest logger, console) – checked for the account below (f).
-    const printed: string[] = [];
-    const out = process.stdout.write.bind(process.stdout);
-    const err = process.stderr.write.bind(process.stderr);
-    process.stdout.write = ((chunk: any, ...rest: any[]) => {
-      printed.push(String(chunk));
-      return out(chunk, ...rest);
-    }) as any;
-    process.stderr.write = ((chunk: any, ...rest: any[]) => {
-      printed.push(String(chunk));
-      return err(chunk, ...rest);
-    }) as any;
-    let res;
-    try {
-      res = await lateChargeRaw(s, 200_000);
-    } finally {
-      process.stdout.write = out as any;
-      process.stderr.write = err as any;
-    }
+    const { res, printed } = await printedWhile(() => lateChargeRaw(s, 200_000));
     expect(res.statusCode).toBe(500);
     for (const secret of [ACCOUNT_X, HOLDER]) expect(printed.join('')).not.toContain(secret);
     expect(res.body).not.toContain(ACCOUNT_X);
     expect(res.body).not.toContain(HOLDER);
+    expect(await refunds(s)).toEqual(before);
+    expect(((await x.folio(s.folioId)).lines as any[]).length).toBe(linesBefore);
+  }, 240_000);
+
+  it('(e2) a destination that decrypts but is not JSON → 500 as a whole; the parse error quotes nothing', async () => {
+    // Fake plaintext V8 would quote whole in its SyntaxError (checked first, so the case keeps its point).
+    const notJson = `x${ACCOUNT_X}`;
+    expect(() => JSON.parse(notJson)).toThrow(ACCOUNT_X);
+    expect(() => parseRefundAccount(notJson)).toThrow('refund account unreadable');
+    expect(() => parseRefundAccount(notJson)).not.toThrow(ACCOUNT_X);
+    expect(() => parseRefundAccount('{"accountNo":1,"accountHolder":"x"}')).toThrow(
+      'refund account unreadable',
+    );
+    const { s, rows } = await stayWithRequests(500_000, 300_000);
+    expect((await setDest(rows[0].id, bank(ACCOUNT_X))).statusCode).toBe(200);
+    // Simulated write fault: a valid envelope (own DEK, AAD of the request) whose plaintext is not the JSON written.
+    const [old] = await refunds(s);
+    await x.db.withContext(x.t.ctx(), async (tx) => {
+      const sealed = await cipher().encrypt(
+        tx,
+        { purpose: 'refund_account', subjectId: old.id, aad: refundAccountAad(old.id) },
+        notJson,
+      );
+      await tx.query(
+        `UPDATE approval_request SET refund_account_enc = $2, refund_account_key_id = $3 WHERE id = $1`,
+        [old.id, sealed.ciphertext, sealed.dekId],
+      );
+    });
+    const before = await refunds(s);
+    const linesBefore = ((await x.folio(s.folioId)).lines as any[]).length;
+    const { res, printed } = await printedWhile(() => lateChargeRaw(s, 200_000));
+    expect(res.statusCode).toBe(500);
+    expect(printed.join('')).not.toContain(ACCOUNT_X);
+    expect(printed.join('')).not.toContain('is not valid JSON');
+    expect(res.body).not.toContain(ACCOUNT_X);
     expect(await refunds(s)).toEqual(before);
     expect(((await x.folio(s.folioId)).lines as any[]).length).toBe(linesBefore);
   }, 240_000);

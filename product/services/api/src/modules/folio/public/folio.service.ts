@@ -3392,9 +3392,10 @@ export class FolioService implements FolioStaySync {
           : ('reservation_cancelled' as const);
     // BR-433 (e) / ADD3-01: a replacement keeps the source, note and "never approves" list of what it replaces.
     const carried = await this.carriedOrigin(tx, plan.createVnd > 0 ? plan.cancelIds : []);
-    // P4-12: the destination of what is replaced – read before the cancellations purge it.
+    // P4-12: the destination of what is replaced – read before the cancellations purge it. Only for `superseded`,
+    // written as in refundsDownToCredit (FB-R4-ARC-BE-D-P412-02).
     const destination =
-      plan.createVnd > 0
+      plan.createVnd > 0 && cancelReason === 'superseded'
         ? await this.peekDestination(tx, plan.cancelIds, input.reservationId)
         : null;
     for (const id of plan.cancelIds) {

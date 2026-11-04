@@ -90,6 +90,31 @@ const OPEN_STATES = ['pending', 'escalated', 'approved'];
 function holderKey(holder: string): string {
   return holder.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
 }
+/**
+ * FB-R4-ARC-BE-D-P412-01 (SEC BED-03 point 2): the decrypted destination as JSON. A SyntaxError from V8 quotes the
+ * input, and `redactText` (ProblemFilter's `unhandled error` line) masks no bank account or holder – so the error is
+ * replaced by one that carries nothing read, and both fields must be strings. Throws → the caller's transaction is
+ * rolled back (500).
+ */
+export function parseRefundAccount(plain: string): { accountNo: string; accountHolder: string } {
+  let value: unknown;
+  try {
+    value = JSON.parse(plain);
+  } catch {
+    throw new Error('refund account unreadable');
+  }
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    typeof (value as { accountNo?: unknown }).accountNo !== 'string' ||
+    typeof (value as { accountHolder?: unknown }).accountHolder !== 'string'
+  ) {
+    throw new Error('refund account unreadable');
+  }
+  const { accountNo, accountHolder } = value as { accountNo: string; accountHolder: string };
+  return { accountNo, accountHolder };
+}
+
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/g;
 
@@ -185,39 +210,43 @@ export class RefundsService {
       [[...fromIds]],
     );
     if (rows.length === 0) return null;
-    const setBy = rows[0]!.refund_destination_set_by;
-    const sources: Array<{
-      method: 'cash' | 'bank_transfer' | 'original_method';
-      bankBin: string | null;
-      account: { accountNo: string; accountHolder: string } | null;
-    }> = [];
+    const first = rows[0]!;
+    const setBy = first.refund_destination_set_by;
+    const method = first.refund_method!;
+    const bankBin = first.refund_bank_bin;
+    // Pass 1 (FB-R4-ARC-BE-D-P412-03, SEC BED-03 point 1): every field that is not encrypted, on every row – nothing
+    // is decrypted when the destination cannot be carried anyway.
     for (const r of rows) {
       if (r.target_type !== 'reservation' || r.target_id !== targetReservationId) return null;
-      if (!r.refund_method || r.refund_destination_set_by !== setBy) return null;
-      let account: { accountNo: string; accountHolder: string } | null = null;
-      if (r.refund_method === 'bank_transfer') {
-        if (!r.refund_account_enc || !r.refund_account_key_id) return null;
+      if (r.refund_method !== method || r.refund_destination_set_by !== setBy) return null;
+      if ((r.refund_bank_bin ?? '') !== (bankBin ?? '')) return null;
+      if (method === 'bank_transfer' && (!r.refund_account_enc || !r.refund_account_key_id)) {
+        return null;
+      }
+    }
+    // Pass 2: the account number and holder, only for a bank transfer that passed pass 1.
+    let account: { accountNo: string; accountHolder: string } | null = null;
+    if (method === 'bank_transfer') {
+      let key: string | null = null;
+      for (const r of rows) {
         // A failure here throws: the caller's whole transaction is rolled back (SEC 1.2 point 1).
-        account = JSON.parse(
+        const a = parseRefundAccount(
           await this.cipher.decrypt(tx, {
-            dekId: r.refund_account_key_id,
-            ciphertext: r.refund_account_enc,
+            dekId: r.refund_account_key_id!,
+            ciphertext: r.refund_account_enc!,
             aad: refundAccountAad(r.id),
           }),
-        ) as { accountNo: string; accountHolder: string };
+        );
+        const k = JSON.stringify([a.accountNo, holderKey(a.accountHolder)]);
+        if (key === null) {
+          key = k;
+          account = a;
+        } else if (k !== key) {
+          return null;
+        }
       }
-      sources.push({ method: r.refund_method, bankBin: r.refund_bank_bin, account });
     }
-    const keyOf = (d: (typeof sources)[number]) =>
-      JSON.stringify([
-        d.method,
-        d.bankBin ?? '',
-        d.account?.accountNo ?? '',
-        holderKey(d.account?.accountHolder ?? ''),
-      ]);
-    const key = keyOf(sources[0]!);
-    if (!sources.every((d) => keyOf(d) === key)) return null;
-    const dest = sources[0]!;
+    const dest = { method, bankBin, account };
     const setAt = rows[0]!.refund_destination_set_at;
     const sourceIds = rows.map((r) => r.id);
     return {
@@ -573,13 +602,13 @@ export class RefundsService {
         ...(row.refund_bank_bin ? { bankBin: row.refund_bank_bin } : {}),
       };
     }
-    const plain = JSON.parse(
+    const plain = parseRefundAccount(
       await this.cipher.decrypt(tx, {
         dekId: row.refund_account_key_id,
         ciphertext: row.refund_account_enc,
         aad: refundAccountAad(row.id),
       }),
-    ) as { accountNo: string; accountHolder: string };
+    );
     return {
       method: row.refund_method,
       ...(row.refund_bank_bin ? { bankBin: row.refund_bank_bin } : {}),
