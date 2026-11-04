@@ -58,7 +58,7 @@ Không có con số nào sai. Cách viết "từ ngày chủ đầu tư chuyển
 - Đề xuất sửa (giống C1 của hướng dẫn chuyển giá):
   - `01` 9.1 và sổ tay 1.3: "Kiểm nhanh: báo giá thử một Studio (101–203), **ngày đến thứ Sáu, 2 đêm**, 2 người lớn. Phải ra **1.600.000** (2 × 800.000). Ra 1.840.000 là `weekend_uplift_pct` chưa về 0. Ra số khác là giá căn chưa đổi (mục 9.1)."
   - `02` 20.2, sổ tay 5.2, `05` mục 3: "Báo giá thử một Studio, ngày đến thứ Sáu, 2 đêm: phải ra 1.600.000. Ra số khác: dừng, báo quản lý, không tự sửa giá."
-- Trạng thái: Open
+- Trạng thái: Closed (BA Fixed @ `f9302d82`; DOM đọc lại 05/11 – xem lượt 2, mục 7)
 
 ### FB-R4-DOM-BA-PR85-02
 - Mức độ: Major
@@ -72,7 +72,7 @@ Không có con số nào sai. Cách viết "từ ngày chủ đầu tư chuyển
   - (c) nhận sớm miễn phí từ 11:00, [10:00, 11:00) 30 %: BR-411 v0.5.0, B7.
 - Vì sao quan trọng: xem mục 3. Tóm lại có hai lý do. Thứ nhất, cả ba đổi cùng lúc với câu 1, nên sách sửa một nửa sẽ tự mâu thuẫn. Thứ hai, (a) và (b) làm sale chào sai tiền.
 - Đề xuất sửa: chữ đề xuất từng chỗ ở mục 3.3.
-- Trạng thái: Open
+- Trạng thái: Closed (BA Fixed @ `f9302d82`; DOM đọc lại 05/11 – xem lượt 2, mục 7)
 
 ### FB-R4-DOM-BA-PR85-03
 - Mức độ: Minor
@@ -80,7 +80,7 @@ Không có con số nào sai. Cách viết "từ ngày chủ đầu tư chuyển
 - Vấn đề: ví dụ ghi "đơn căn 202 từ 9/11 đến 16/11, 5.205.000 đ … 820.000 + 713.000 = 1.533.000 → hoàn 767.000, phí 766.000". Số này dùng giá cũ của căn 202 (792.000), +15 % đêm thứ Bảy và giảm 10 % cho 7 đêm. Sau khi chuyển giá: 7 × 800.000 = **5.600.000**. Hai đêm bỏ là 14/11 và 15/11: 2 × 800.000 = 1.600.000. Khách báo trước 2 ngày nên hoàn 50 % = **800.000**, phí trả phòng sớm **800.000** (BR-428). Câu "Các đêm đã ở không tính lại mức giảm 7 đêm" không còn nghĩa.
 - Vì sao quan trọng: ví dụ dùng để lễ tân và chủ đầu tư đối chiếu với số Desk ra. Số cũ làm người đọc tưởng Desk tính sai. Không sai tiền, vì Desk tự tính.
 - Đề xuất sửa: đổi số như trên. Bỏ câu "không tính lại mức giảm", hoặc thay bằng "(từ ngày chuyển giá không còn giảm theo số đêm)". Câu chính sách ở `01` 516 ("Các đêm đã ở không tính lại mức giảm theo số đêm") sửa theo.
-- Trạng thái: Open
+- Trạng thái: Closed (BA Fixed @ `f9302d82`; DOM đọc lại 05/11 – xem lượt 2, mục 7)
 
 ---
 
@@ -158,3 +158,66 @@ Mọi câu mới đều mở bằng "(từ ngày chủ đầu tư chuyển giá)
 2. Giữ danh sách ngày đặc biệt, kèm hai hệ quả còn hiệu lực (tối thiểu 2 đêm, không hoàn cọc). Người đọc không hiểu nhầm "bỏ tăng giá" thành "bỏ ngày đặc biệt".
 3. Mọi chỗ đều ghi "từ ngày chủ đầu tư chuyển giá", nên sách vẫn đúng khi production chưa chuyển.
 4. PR tách riêng, diff nhỏ, dễ đọc lại.
+
+---
+
+## 7. DOM lượt 2 – PR #85 @ `f9302d82` (05/11/2026)
+
+- Bản đọc: chỉ phần #85 sau khi gộp `main` (#72): `git diff 20358556..origin/v104/ba-esc045-prices -- product/docs/manual/` (`20358556` là gốc chung với `main`; 7 tệp, 72 dòng thêm, 60 dòng bớt). Đọc kèm bảng thẻ trong thân PR #85. Số dòng dưới đây là số dòng trên nhánh @ `f9302d82`.
+- Mã và tài liệu đối chiếu:
+  - chuỗi `sale.los_applied` ("Đã giảm {pct}% vì ở từ 7 đêm (BR-107)") – sách trích đúng;
+  - `rounds/round-04/reviews/ARC-on-v104-bug050-rule.md` mục 1–2 (CO-05: B18 chỉ gửi `checkoutTime`; gõ 04:30 lúc 06:10 thì máy chủ đọc là 04:30 hôm sau, trả 422);
+  - phụ thu trả muộn ở bảng 20.2 / 5.2 (đến 12:30 khi không có khách đến: 0 · đến 15:00: 30 %).
+
+### Phán quyết lượt 2: **ĐẠT** – gộp được
+
+3/3 thẻ DOM của #85 và thẻ DOM #72-07 đóng đúng. Chữ CO-05 đúng. Có 2 thẻ Minor mới (04, 05), không chặn gộp: BA làm cùng commit nếu kịp trước 06/11 18:00, không thì để v1.0.5. Riêng chữ của thẻ 04 nên đi cùng release notes #66.
+
+| Thẻ | Mức | Đã sửa ở | DOM kiểm | Kết quả |
+|---|---|---|---|---|
+| PR85-01 | Major | `01` 9.1 (614), sổ tay 1.3 (299): câu dài; `02` 20.2 (1755), sổ tay 5.2 (1853), `05` 3 (146): câu ngắn | Đủ 5 chỗ. Ngày đến thứ Sáu, 2 đêm, 2 người lớn = 1.600.000; 1.840.000 = còn +15 %; ra số khác thì báo quản lý, không tự sửa giá. Báo giá này qua được tối thiểu 2 đêm | Closed |
+| PR85-02 (a) | Major | `01` 9.1, sổ tay 1.3 (câu kiểm 10.150.000); `02` 5.1 bước 4 và 8, sổ tay 2.5 bước 4 và 8; Gia hạn `02` 9.3 bước 2, sổ tay 2.12; danh sách dòng **Báo giá** (`02` 4.2, sổ tay 2.4, `05` 3); bảng 20.2, 5.2; `01` 7.3 câu chính sách | Đã bỏ ví dụ 5.205.000. Câu "Ô giá còn ghi 'trước giảm theo số đêm' là chữ cũ" có ở cả ô giá lúc tạo đơn lẫn gạch **Tiền về**. Câu kiểm 401 × 7 đêm, 5 người lớn: 7 × 1.300.000 + 7 × 150.000 = 10.150.000, đúng C2 | Closed |
+| PR85-02 (b) | Major | `02` 5.1 (370), 5.4 bước 2 (414); sổ tay 2.5 (887), 2.7 (933), 4.2 (1724, 1734); bảng 20.2, 5.2; `05` 2 (127), 3 (148), 7.1 (306) | 30 đêm ở mọi chỗ. Có câu "Từ 28 đêm … là chữ cũ, đơn 28–29 đêm vẫn là đơn ngắn ngày". Câu chào thuê tháng ở `05` 3 đúng ESC-045 câu 6 | Closed |
+| PR85-02 (c) | Major | Bảng `02` 7.1, sổ tay 2.10; bảng 20.2, 5.2; câu dưới bảng 5.2; `screenshot-list` C2-18 | Bậc mới đúng BR-411 v0.5.0. Ví dụ 0 / 240.000 / 400.000 đúng. Câu nói với khách vẫn là 12:00, có thêm "không hứa trước với khách". Câu "đang chờ chủ đầu tư xác nhận" ở 5.2 đã được thay, vì ESC-035 đã chốt. Ảnh C2-18 đổi sang 10:30, vẫn có phụ thu để chụp | Closed |
+| PR85-03 | Minor | `02` 11.5.2 (1026); `01` 7.3 (521, câu chính sách 517); sổ tay 2.14a (1318) | 5.600.000 → hoàn 800.000, phí 800.000 ở cả 3 chỗ. BA tìm thêm được chỗ thứ ba ở sổ tay mà DOM chưa liệt kê | Closed |
+| DOM-PR72-07 | Minor | `01` 14.1 (867) | Câu **Bỏ cả dòng** phụ thu nhận sớm, có **Ghi điều chỉnh**, đúng chữ đề xuất | Closed |
+
+### CO-05: chữ "trước 12:00" – DOM duyệt
+
+1. **Đúng.** Desk điền sẵn giờ hiện tại vào ô **Giờ trả phòng thực tế**, và phụ thu trả muộn tính theo giờ trong ô. Làm **Trả phòng** sau 12:00 với giờ điền sẵn thì Desk tính phụ thu cho khách đã đi từ trước 06:00 và đã trả đủ tiền. Khi có khách đến, phụ thu tính ngay sau 12:00; khi không có khách đến thì từ sau 12:30. Mốc "trước 12:00" là mốc an toàn chung cho cả hai ca, dễ nhớ. Giữ nguyên.
+2. Các ý còn lại đều khớp ARC mục 2: từ 06:00 để nguyên giờ Desk điền; không gõ giờ trước 06:00; số tiền đúng vì Desk không phụ thu, không thêm đêm; giờ rời thật ghi ở sổ giao ca.
+3. Còn thiếu ca "quá 12:00 mới làm được" (ca sáng quên, hoặc ca sáng tới muộn) – thẻ 04. Release notes #66 (PO) dùng chữ này là được, **kèm** câu của thẻ 04.
+
+### Cách viết "câu kiểm đặt sau 'từ ngày chủ đầu tư chuyển giá', kèm câu 'Desk còn tính … báo quản lý'": chấp nhận
+
+- Sách đúng trong cả hai tình huống: production đã chuyển hay chưa chuyển. Lễ tân không phải biết ngày chuyển. Thấy Desk ra số cũ (+15 %, giảm 10 %, phụ thu 11:00–11:59, trẻ 100.000) thì lễ tân dừng và báo quản lý, không tự sửa giá. Như vậy không ai thu sai mà không biết.
+- Khi chủ đầu tư báo 4 báo giá thử đều đúng, đội có thể bỏ cụm "từ ngày chủ đầu tư chuyển giá" ở lần đánh số bản sau (v1.0.5) cho sách gọn hơn. Không bắt buộc.
+
+### Thẻ mới
+
+### FB-R4-DOM-BA-PR85-04
+- Mức độ: Minor
+- Vị trí: `02` 11.5.1, gạch **Khách đi trước 06:00** (997); sổ tay 2.14a cùng gạch (1313). Release notes #66 (PO), dòng **Trả sớm trước 06:00**, cũng cần câu này.
+- Vấn đề: chữ mới chỉ nói "Từ 06:00 (hoặc đầu ca sáng, **trước 12:00**)", nhưng không nói phải làm gì nếu tới 12:00 mà chưa ai bấm **Trả phòng**. Lúc đó để nguyên giờ Desk điền thì Desk tính phụ thu trả muộn (ví dụ Studio 800.000, làm lúc 13:00 → 30 % = 240.000), trong khi khách đã đi từ trước 06:00. Còn gõ 04:30 thì kẹt lỗi của ARC mục 2.
+- Vì sao quan trọng: ở OTTIMO chỉ có một người trực, nên ca này có thể xảy ra. Tiền không bị thu sai mà không ai biết: Desk báo **Còn phải thu** nên chưa hoàn tất được. Nhưng lễ tân bị kẹt, rồi có thể tự xin giảm cho khoản phụ thu đó.
+- Đề xuất sửa: thêm một câu ngay sau "để nguyên giờ Desk điền sẵn …": "Quá 12:00 mới làm được: gõ **12:00** ở **Giờ trả phòng thực tế** (không gõ giờ trước 06:00). Desk đòi **Ghi chú giờ trả (vì sao ghi bù)** thì ghi 'Khách rời hh:mm, trả phòng trên Desk lúc hh:mm' rồi hoàn tất lại. Không phụ thu." Cách này giống khối **Đơn quá ngày đi** (b) bước 3: 12:00 sớm hơn lúc bấm nên Desk đòi ghi chú, máy chủ nhận (TC-V104-RG-26).
+- Trạng thái: Open
+
+### FB-R4-DOM-BA-PR85-05
+- Mức độ: Minor
+- Vị trí: `01` 14.1, dòng "Lễ tân hỏi cách ghi trễ ngày đi trên cổng khai báo lưu trú …" (870).
+- Vấn đề: câu "Hạn ghi trễ chưa có quy định" dễ bị hiểu là luật không đặt hạn. Thật ra đội chưa có câu trả lời: BR mục 15 (v0.5.11) vừa ghi đây là câu hỏi cho luật sư.
+- Vì sao quan trọng: chủ đầu tư có thể đọc là "trễ bao lâu cũng được" và hoãn việc ghi, trong khi việc khai báo cho khách nước ngoài có hạn theo giờ (BR-603…606).
+- Đề xuất sửa: "Hạn ghi trễ: đội đang hỏi luật sư (BR mục 15). Tới khi có câu trả lời, ghi ngay trong ngày phát hiện và báo chủ đầu tư."
+- Trạng thái: Open
+
+### Ngoài sách
+
+BR v0.5.11 (ORC giao, DOM làm lượt này): mục 15, dòng **Khai báo tạm trú người nước ngoài + cập nhật ngày đi**, cột Ghi chú thêm "Hạn và cách ghi trễ ngày đi thật trên cổng (khách ở quá ngày đi, lễ tân quên bấm Trả phòng) – hỏi luật sư (SEC-PR72-06, DOM-PR72-04)". Không đổi con số nào. Validator: OK – 0 lỗi, 1 cảnh báo.
+
+### Dòng decision-log đề xuất (lượt 2, ORC ghi)
+
+| Ngày | Round | Quyết định | Người quyết | Lý do |
+|---|---|---|---|---|
+| 2026-11-05 | 4 | **DOM – #85 lượt 2 @ `f9302d82`: ĐẠT, gộp được.** Đóng PR85-01 (câu kiểm 2 đêm từ thứ Sáu = 1.600.000, đủ 5 chỗ), PR85-02 (không giảm theo số đêm, dài hạn từ 30 đêm, nhận sớm không phụ thu từ 11:00; câu nói với khách giữ 12:00), PR85-03 (5.600.000 / 800.000 / 800.000, cả sổ tay 2.14a), DOM-PR72-07. CO-05 "trước 12:00" đúng, vì sau mốc đó giờ Desk điền sẵn gây phụ thu trả muộn; release notes #66 dùng cùng chữ. Chấp nhận cách viết "từ ngày chủ đầu tư chuyển giá" kèm "Desk còn tính … báo quản lý". 2 Minor không chặn: PR85-04 (quá 12:00 mới làm thì gõ 12:00 kèm ghi chú – thêm vào cả #66), PR85-05 ("chưa có quy định" → "đang hỏi luật sư") | DOM | Review lượt 2 |
+| 2026-11-05 | 4 | **BR v0.5.11** (ORC giao): mục 15 thêm câu hỏi luật sư về hạn và cách ghi trễ ngày đi thật trên cổng (đơn quá ngày đi, lễ tân quên bấm Trả phòng); không đổi con số nào | DOM | SEC-PR72-06, DOM-PR72-04 |
