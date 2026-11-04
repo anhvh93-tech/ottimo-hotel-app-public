@@ -306,3 +306,102 @@ Sổ tay mới (`02` 11.1 bước 2, sổ tay 2.14): trước khi trả phòng, 
 ### L2.6 Dòng decision-log đề xuất (ORC ghi khi commit, SEC không sửa decision-log)
 
 `| 2026-11-05 | 4 | **SEC – PR #72 lượt 2 (v104/ba-docs-r4c @ e200fea1): ĐẠT về bảo mật, gộp được; PR #85 (v104/ba-esc045-prices @ f11e928c): ĐẠT, không thẻ** (rounds/round-04/reviews/SEC-on-v104-pr72-manual.md mục Lượt 2): PR72-01 Closed (đơn quá ngày đi (b): xóa mã cửa ngay, không kéo dài mã, không khai ngày gia hạn và không dán ô ngày đi Desk lên cổng, ghi ngày rời thật; hạn ghi trễ "hỏi quản lý" chấp nhận); PR72-02 Closed (Lý do ghi đã kiểm, kiểm mã cũ, câu cho người duyệt ở 02 14.3, 01 mục 4, sổ tay 1.8); PR72-03 Closed phần sách, bộ lọc tuần và cổng 2 đêm Deferred v1.0.5; PR72-04 Closed (giả định OWN/MGR cho đơn Nội bộ, chờ DOM). Mới: PR72-05 Minor (khoanh "Bỏ cả dòng" chỉ cho minibar trùng, ghi sổ giao ca, quản lý rà); PR72-06 Suggestion (01: câu trả lời cho ghi trễ cổng, đưa vào câu hỏi luật sư); FB-R4-SEC-BE-A31-01 (Major cho v1.0.5, rủi ro hiện tại Medium, không chặn v1.0.4): FD/FDL bỏ được mọi dòng phát sinh trên folio đang mở chỉ với lý do, lách thang BR-433/436, không vào BR-435/526. #85: chỉ giá công khai, không hoa hồng, doanh thu hay sàn–trần, 05 không có tên tham số. Không ESC | SEC | Quyền SEC |`
+
+---
+
+## Lượt 3 (05/11/2026) – #85 @ `f9302d82`: thẻ PR72-05, PR72-06 và quét dữ liệu
+
+- Đối tượng: `git diff f11e928c..origin/v104/ba-esc045-prices -- product/docs/manual/` (head `f9302d82f577e1573e31b412c91e55955bacc1d3`).
+  - Hai commit sổ tay mới của #85:
+    - `4747318b`: phạm vi chuyển giá. Không giảm theo số đêm, dài hạn từ 30 đêm, nhận sớm từ 11:00, câu kiểm "ngày đến thứ Sáu, 2 đêm", ví dụ trả sớm, CO-05.
+    - `f9302d82`: việc còn lại của #72 (UXD-10, SEC-05/06, DOM-07, QA2 03).
+  - `9aea7d03` là merge main (#72). Phần #72 trong đó SEC đã xem ở lượt 2.
+  - Diff của PR so với merge-base `20358556`: 7 tệp sổ tay, +72/−60, không có mã.
+- SEC chỉ sửa tệp này. Không commit, không push. **Tệp này không ghi tỷ lệ hoa hồng nào**, chỉ ghi vị trí.
+
+### L3.0 Kết luận
+
+- **#85: ĐẠT về bảo mật, gộp được.**
+- **PR72-05 Closed, PR72-06 Closed** (mục L3.1). Bộ lọc tuần **Nhật ký thao tác tiền** vẫn Deferred cùng SEC PR71 mục 9.5. Phần mã là thẻ A31-01, làm ở v1.0.5.
+- 1 thẻ mới, **Minor**, không chặn gộp: FB-R4-SEC-BA-PR85-01. Tệp `05` và sổ tay ghi tỷ lệ hoa hồng **cũ** như số đang dùng. Cần sửa trước ngày chủ đầu tư chuyển giá.
+- Đính chính 2 chỗ SEC ghi sai trước đây (mục L3.4).
+- Không ESC mới.
+
+### L3.1 Kiểm thẻ PR72-05, PR72-06
+
+| Thẻ | Đã kiểm ở (head `f9302d82`) | Kết quả |
+|---|---|---|
+| **PR72-05** (Minor) | `02` 11.1 bước 2, gạch **Kiểm trùng, trước khi bấm Trả phòng** (dòng 871); sổ tay 2.14, cùng gạch (dòng 1241); `01` 14.1 (dòng 869) | **Closed.**<br>- Cả `02` và sổ tay dùng đúng chữ SEC đề xuất: "**Chỉ** bỏ dòng **Thêm phát sinh** ghi minibar căn cũ lúc đổi phòng … **Không** dùng **Bỏ cả dòng** để miễn hay giảm cho khách". Có ghi sổ giao ca (mã đơn, dòng đã bỏ, số tiền, số tủ căn cũ đã nhập).<br>- Thêm câu "Quản lý xem lại các lần bỏ dòng này".<br>- Sổ tay trỏ mục 2.12 **Miễn phí, giảm giá** thay cho 9.5. Đúng, vì đó là số mục của sổ tay.<br>- `01` 14.1 có dòng hỏi đáp theo chữ SEC: lý do khác "Trùng minibar tủ căn cũ" hoặc sổ giao ca không ghi thì hỏi người làm; một người bỏ dòng nhiều lần trong tháng thì báo chủ đầu tư.<br>- Bộ lọc tuần: **Deferred**, SEC chấp nhận (cùng PR71 9.5, A31-01). |
+| **PR72-06** (Suggestion) | `01` 14.1 (dòng 870) | **Closed.**<br>- Dòng hỏi đáp dùng đúng chữ đề xuất: "Ghi ngay trong ngày phát hiện, đúng ngày khách rời thật (ngày đi trên đơn cũ), không dán ô ngày đi Desk đang hiện. Ghi sổ giao ca. Hạn ghi trễ chưa có quy định: báo chủ đầu tư". Dòng này trỏ về `02` 11.1 **Đơn quá ngày đi**.<br>- ORC đã đưa câu hỏi "hạn ghi trễ ngày đi trên cổng" vào danh sách hỏi luật sư. Không cần ESC mới. |
+
+**Bước mới cùng loại, do quản lý làm.** `01` 14.1 (dòng 867): sửa đêm đầu của đơn Nội bộ về 0 sau khi người ở đã nhận phòng sớm. Lúc đó quản lý **Bỏ cả dòng** phụ thu nhận sớm, lý do "Đêm đầu miễn phí – đơn Nội bộ", không dùng FOC.
+- Bước này đặt trong tệp của quản lý và có lý do cố định.
+- Đơn Nội bộ phải có người cho (chủ đầu tư hoặc quản lý) ghi ở **Ghi chú nội bộ** (BR-105 (8)).
+- Nó không xung đột với PR72-05, vì dòng hỏi đáp 869 chỉ rà các lần bỏ dòng do **lễ tân** làm. Khi làm A31-01 phương án (a), quyền bỏ dòng của quản lý vẫn giữ.
+- Không thẻ.
+
+### L3.2 Quét dữ liệu hai commit mới
+
+Cách quét: lấy các dòng thêm của `git diff 20358556..origin/v104/ba-esc045-prices` (72 dòng, gồm `4747318b` và `f9302d82`). Lọc tìm:
+- email, IP, số điện thoại, URL;
+- dãy từ 6 chữ số liền, chuỗi hex từ 20 ký tự;
+- từ khóa khóa, token, mật khẩu;
+- tên người;
+- từ khóa hoa hồng, thưởng, doanh thu, "Bạn nhận";
+- mọi số "n %".
+
+Sau đó SEC đọc tay từng dòng bắt được.
+
+| Nhóm | Kết quả |
+|---|---|
+| Email, IP, điện thoại, URL, khóa, token, mật khẩu, số tài khoản, tên đăng nhập, tên khách | Không có |
+| Số tiền | Chỉ có giá niêm yết và chính sách công khai: Studio một đêm, phụ thu người vượt định mức, tổng kiểm báo giá (2 đêm thứ Sáu; căn 401, 7 đêm, 5 người lớn), ví dụ trả sớm (hoàn 50 % các đêm bỏ, theo chính sách hủy công khai), ví dụ phụ thu nhận sớm. Tất cả tính từ giá niêm yết. Không phải doanh thu, sàn–trần hay giá OTA |
+| Tỷ lệ % | Cọc 30 %, phụ thu nhận sớm 50 % / 30 %, hoàn 50 %: chính sách công khai cho khách. 15 % / 30 % chỉ còn trong câu "không còn…" và nhãn cũ cột **Nguồn giá** |
+| Tên tham số | `weekend_uplift_pct`, `special_uplift_pct`, tham số giảm theo số đêm: chỉ ở `01` và sổ tay phần chủ đầu tư, quản lý. Không có ở `05`. Repo đã có các tên này từ trước |
+| Hoa hồng | **1 dòng**: `05` mục 3 bước 3 ghi tỷ lệ hoa hồng cũ trong ngoặc. `4747318b` có sửa dòng này. Xem thẻ PR85-01 |
+| Câu chống lách | "Desk hiện 100.000 cho trẻ 6–11 tuổi: báo quản lý, không tự sửa"; "Ra số khác: dừng, báo quản lý". Đúng hướng |
+
+### L3.3 Thẻ mới
+
+#### FB-R4-SEC-BA-PR85-01
+- Mức độ: **Minor**. Về bảo mật: **Low**. Về đúng sai: **Medium**.
+  - Không chặn gộp #85.
+  - Nếu #85 còn lượt sửa thì sửa luôn, vì chỉ có 2 dòng. Nếu không, sửa ở nhánh tài liệu kế tiếp. Hạn: **trước ngày chủ đầu tư chuyển giá và nhập tỷ lệ hoa hồng mới**.
+- Vị trí (head `f9302d82`):
+  - `product/docs/manual/guides/05-sale-ctv.md` dòng 135 (mục 3 **Báo giá**, bước 3);
+  - `product/docs/manual/user-manual-v1.0.md` dòng 1729 (mục 4.2 **Sale nội bộ (SAL) và CTV / môi giới**).
+  - Hai bản HTML **chưa commit** có cùng câu: `product/docs/manual/guides/html/05-sale-ctv.html`, `product/docs/manual/ottimo-manual-v1.0.html`.
+- Vấn đề:
+  - Sau nhãn **Bạn nhận (…% tiền phòng)**, ngoặc ghi tỷ lệ hoa hồng ngắn ngày của CTV và sale theo **bản cũ** (ESC-005, hết hiệu lực từ 01/11). Ngoặc này không có nhãn "hết hiệu lực".
+  - BR-903 v0.5.0 quy định: từ 01/11 tỷ lệ theo bảng nội bộ của chủ đầu tư, không ghi số ở kho công khai.
+  - Dòng này có từ 27/10 (`13be5e2c`). `4747318b` sửa chính dòng này (bỏ "giảm theo số đêm") nhưng giữ ngoặc tỷ lệ.
+  - **Không phải số của bảng nội bộ 01/11.**
+- Vì sao quan trọng:
+  - Tệp `05` dành cho sale và CTV, có thể là người ngoài OTTIMO. Sau khi chủ đầu tư nhập tỷ lệ mới, Desk sẽ hiện số khác sổ tay. CTV có thể lấy sổ tay làm căn cứ khi đòi hoa hồng.
+  - Lý do chính SEC ghi thẻ: một ngoặc có số trong sổ tay là chỗ người viết sau dễ "cập nhật" bằng số mới. Làm vậy là lộ bảng nội bộ lên repo công khai, tức rủi ro R1 và quy tắc G3 ở `SEC-on-commission-numbers.md`.
+- Đề xuất sửa: bỏ cả ngoặc tỷ lệ, không thay bằng số nào.
+  - `05` dòng 135, chữ đề xuất: "… và **Bạn nhận (…% tiền phòng)**: Desk tự điền theo tỷ lệ chủ đầu tư cài. Sổ tay không ghi tỷ lệ."
+  - Sổ tay dòng 1729: "Báo giá hiện **Bạn nhận (…% tiền phòng)** theo tỷ lệ chủ đầu tư cài."
+  - Tạo lại hai bản HTML từ md đã sửa trước khi commit HTML.
+  - Không ghi số mới ở bất kỳ đâu: ghi chú sửa của sổ tay, mô tả PR, thông điệp commit, bảng trả lời thẻ.
+- Trạng thái: Open
+
+### L3.4 Đính chính lượt trước của SEC
+
+- **Lượt 2, mục L2.4** ghi "Tệp `05` … chỉ nhận giá công khai và phụ thu người". Câu này **thiếu**: dòng 135 đã có ngoặc tỷ lệ cũ nhưng nằm ngoài phần diff của lượt 2, nên SEC không thấy.
+- **`SEC-on-commission-numbers.md` mục 2** (dòng 114) ghi sổ tay `product/docs/manual/` sạch số hoa hồng. Câu này **sai**.
+  - Bộ từ khóa K1 (`hoa hồng`, `HH`, `commission`, `thưởng`, `bonus`, `hiệu suất`, `Sale nhận`) không bắt dạng "Bạn nhận … (CTV n %, sale n %)".
+  - Hai vị trí của thẻ PR85-01 thuộc loại **TL-cũ**, cần thêm vào mục 2.1 (tài liệu sống).
+  - Vẫn **không có số nào của bảng nội bộ 01/11**.
+  - Lượt này SEC không sửa tệp đó (ORC chỉ giao tệp này). SEC sẽ ghi đính chính vào tệp đó ở lần sửa tới, hoặc ORC giao riêng.
+- Lần quét số hoa hồng sau sẽ thêm từ khóa `Bạn nhận` và mẫu "`CTV`/`sale`/`nhân viên` đứng gần n %".
+
+### L3.5 Ghi chú cho ORC
+
+- PR85-01: giao BA trong lượt sửa #85 nếu còn. Nếu #85 gộp ngay, chuyển thẻ sang nhánh tài liệu kế tiếp, hạn trước ngày chuyển giá.
+- Bản HTML sổ tay chưa commit (`product/docs/manual/ottimo-manual-v1.0.html`, `product/docs/manual/guides/html/`) đang chép lại câu có tỷ lệ cũ. Tạo lại HTML từ md đã sửa trước khi commit.
+- Không ESC mới. Câu hỏi "hạn ghi trễ ngày đi trên cổng" đã nằm trong danh sách hỏi luật sư.
+
+### L3.6 Dòng decision-log đề xuất (ORC ghi khi commit, SEC không sửa decision-log)
+
+`| 2026-11-05 | 4 | **SEC – PR #85 lượt 2 (v104/ba-esc045-prices @ f9302d82): ĐẠT về bảo mật, gộp được** (rounds/round-04/reviews/SEC-on-v104-pr72-manual.md mục Lượt 3): FB-R4-SEC-BA-PR72-05 Closed (Bỏ cả dòng chỉ cho dòng minibar căn cũ ghi trùng, không dùng để miễn/giảm, ghi sổ giao ca, quản lý xem lại; 01 14.1 có dòng hỏi đáp theo chữ SEC; bộ lọc tuần Deferred cùng SEC PR71 9.5, phần mã A31-01 ở v1.0.5); FB-R4-SEC-BA-PR72-06 Closed (01 14.1 có câu trả lời ghi trễ ngày đi, hạn ghi trễ chờ luật sư). Quét dữ liệu 4747318b + f9302d82: chỉ giá và chính sách công khai, không email/IP/khóa/tên khách. Mới: FB-R4-SEC-BA-PR85-01 Minor – 05 mục 3 và sổ tay 4.2 ghi tỷ lệ hoa hồng cũ (ESC-005) như số đang dùng; bỏ ngoặc số, không thay số mới, sửa trước ngày chuyển giá, tạo lại HTML. Đính chính: sổ tay không sạch số hoa hồng cũ như SEC-on-commission-numbers mục 2 đã ghi; không có số bảng nội bộ 01/11. Không ESC mới. | SEC | Thẻ của #72 đã đóng đúng chữ đề xuất; dòng tỷ lệ cũ không lộ số mới nhưng sai sau ngày chuyển giá và dễ bị cập nhật bằng số nội bộ. |`
