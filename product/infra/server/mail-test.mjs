@@ -1,15 +1,20 @@
 // One test e-mail through the worker's real SMTP path (OPS 8b, v1-production.md 19.6) – Google Workspace relay by the
 // VPS IP, same nodemailer options (TLS ≥ 1.2, STARTTLS required), same EMAIL_FROM, same `egress` network as the worker.
-// Not in the image and not on the server: piped from the OPS machine into a one-off worker container (stdin).
+// Not in the image and not on the server: sent from the OPS machine as the `node -e` program of a one-off worker
+// container (bin/mail-test.sh passes it base64-encoded in the ssh command – it holds no address and no secret).
 // Run it ONLY through bin/mail-test.sh (v1.0.3, plan-v1.0.3 V3-05) – on the Mac:
 //   product/infra/server/bin/mail-test.sh --ssh ottimo-admin@desk.ottimo.vn --stack production --verify-only
 //   product/infra/server/bin/mail-test.sh --ssh ottimo-admin@desk.ottimo.vn --stack production --send
-// --send asks for the recipient at a hidden prompt and passes it as the first stdin line → `read` on the VPS →
-// `dc run -e MAIL_TEST_TO` (no value, from the environment). Never type `-e MAIL_TEST_TO=<address>`: the address would
-// stay in the shell history of the Mac and in the process list of the VPS (ARC v1.0.3 tech plan 2.9). The one-off
-// container's config holds MAIL_TEST_TO while it exists (`--rm` removes it; a killed client can leave it – runbook
-// v1.0.3 K8 removes leftovers), and sudo I/O logging must stay off (SEC PR30-04/05).
-// MAIL_TEST_VERIFY_ONLY=1: connect + EHLO + STARTTLS only (transport.verify), nothing is sent.
+// --send asks for the recipient at a hidden prompt and sends it as the ONLY line of the ssh stdin, which reaches this
+// program's stdin unchanged (v1.0.4, ARC FB-R4-ARC-OPS-PR30-10): the address is read here from that first line, kept
+// in memory only – never an environment variable (so not in `docker inspect` Config.Env nor /proc/<pid>/environ of
+// the one-off container), never an argument (ARC v1.0.3 tech plan 2.9). MAIL_TEST_TO in the environment is REFUSED,
+// so nobody types `-e MAIL_TEST_TO=<address>` by habit. sudo I/O logging must still stay off (it would record the
+// stdin – SEC PR30-04), and a one-off container left by a killed client is still removed (runbook K8, PR30-05).
+// MAIL_TEST_VERIFY_ONLY=1: connect + EHLO + STARTTLS only (transport.verify), nothing is sent, stdin is not read.
+// Order of the checks (ARC FB-R4-ARC-OPS-P403-03): MAIL_TEST_TO refused → the stdin address (send only) → EMAIL_PROVIDER.
+// So `--send` on staging (EMAIL_PROVIDER=mock) proves stdin reaches node without sending anything: an empty line gives
+// "address on stdin is missing or invalid", a valid …@example.test line gives "EMAIL_PROVIDER is not smtp".
 // Prints ONE line: "mail-test: verified" | "mail-test: sent" | "mail-test: failed (<code>)" – never an address,
 // never provider text (mapSmtpError). Exit 0 on success, 1 on failure, 2 on bad input.
 import { createRequire } from 'node:module';
@@ -30,10 +35,27 @@ const out = (s, code) => {
 };
 
 const env = resolveFileSecrets(process.env);
-if ((env.EMAIL_PROVIDER ?? '').trim() !== 'smtp') out('failed (EMAIL_PROVIDER is not smtp)', 2);
 const verifyOnly = (env.MAIL_TEST_VERIFY_ONLY ?? '') === '1';
-const to = (env.MAIL_TEST_TO ?? '').trim();
-if (!verifyOnly && !isEmailAddress(to)) out('failed (MAIL_TEST_TO is missing or invalid)', 2);
+if (process.env.MAIL_TEST_TO !== undefined)
+  out('failed (MAIL_TEST_TO must not be set - the address is read from stdin)', 2);
+
+// First line of stdin (at most 256 characters are kept; the rest of the stream is not read).
+const firstStdinLine = async () => {
+  let buf = '';
+  for await (const chunk of process.stdin) {
+    buf += chunk.toString('utf8');
+    const nl = buf.indexOf('\n');
+    if (nl >= 0) return buf.slice(0, Math.min(nl, 256)).replace(/\r$/, '');
+    if (buf.length > 256) return buf.slice(0, 256);
+  }
+  return buf.slice(0, 256);
+};
+// INT v1.0.4 (FB-R4-INT-BE-31-04): isEmailAddress is the shared ASCII-only rule and REFUSES surrounding whitespace
+// (a CR/LF must never reach an envelope) – so the line ending of the stdin line (`\n`, `\r\n`) and any blank around
+// it are trimmed here, before the check. Inner whitespace stays and is refused by the rule.
+const to = verifyOnly ? '' : (await firstStdinLine()).replace(/[\r\n]+$/, '').trim();
+if (!verifyOnly && !isEmailAddress(to)) out('failed (address on stdin is missing or invalid)', 2);
+if ((env.EMAIL_PROVIDER ?? '').trim() !== 'smtp') out('failed (EMAIL_PROVIDER is not smtp)', 2);
 
 // Same credential lookup as services/api/src/jobs/email-adapter.ts (relay with defaults needs no EMAIL_SMTP_* var).
 const hasSmtpVars = Object.entries(env).some(
