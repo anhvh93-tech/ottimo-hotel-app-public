@@ -54,7 +54,8 @@ export interface PrivacyCopy {
 /**
  * Version 2026-11-04 (SEC rounds/round-04/reviews/SEC-on-lp-v2-main.md section 2): one version for en, vi, ko, zh, ru.
  * en/vi = `2026-10-31` text (PR #21, lawyer-reviewed) – never published on its own (P4); ko/zh/ru Δ5 = notice-final 7.
- * Never reuse a label for different text: any sentence change here or in consent/consentMore → a new label.
+ * Never reuse a label for different text: any sentence change here or in consent/consentMore → a new label,
+ * and a new label → set CHAT_DETAILS_MIN_NOTICE_VERSION (api chat-message.ts) to the same value (QA BUG-R4-028).
  */
 const VERSION = '2026-11-04';
 const { legal, contact, phone } = site;

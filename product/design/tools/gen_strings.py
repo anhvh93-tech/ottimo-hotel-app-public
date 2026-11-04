@@ -3327,6 +3327,20 @@ g("R3 Sprint 1 – FE-A R3-Q51: tài khoản nhận chuyển khoản VietQR (ch�
     ("rcv.reason_no_account", "Lý do không được chứa số tài khoản hoặc dãy từ 6 chữ số trở lên.", "The reason can't contain an account number or a run of 6 or more digits.", None, "422 reason ACCOUNT_NUMBER_NOT_ALLOWED (BE-B cf0ce2f); Desk kiểm trước khi gửi"),
 ])
 
+# v1.0.4 P4-34 – FE: hủy dòng tham số đã lên lịch ngay trong hộp Sửa tham số (H05 5.2, cancelScheduledParameter).
+# Dùng lại: confirm.keep, params.reason, field_error.reason_required, params.not_yet, rooms.col_action.
+# UXD 04/11: nút dùng khóa trung tính params.cancel_scheduled (cùng chữ với rcv.cancel_scheduled để hai mục trên trang
+# Tham số gọi giống nhau) – FE đổi 3 chỗ trong ParamDialog (FB-R4-UXD-FE-P434-01). Sổ tay ngày thay tờ quyền riêng tư
+# (privacy_notice_version) gọi nhãn nút "Hủy lịch" / "Cancel schedule".
+g("v1.0.4 P4-34 – FE: hủy tham số đã lên lịch trong hộp Sửa tham số. UXD duyệt 04/11/2026 (sửa cancel_body, cancel_gone; thêm params.cancel_scheduled)", [
+    ("params.cancel_scheduled", "Hủy lịch", "Cancel schedule", None, "Nút sm ghost trên dòng Chưa hiệu lực (aria-label \"{nhãn}: {ngày}\") và nút xác nhận C16. Giữ cùng chữ với rcv.cancel_scheduled"),
+    ("params.cancel_title", "Hủy giá trị đã lên lịch?", "Cancel the scheduled value?", None, "Tiêu đề hộp xác nhận C16; nút xác nhận params.cancel_scheduled, nút an toàn confirm.keep"),
+    ("params.cancel_body", "Giá trị {value}, hiệu lực từ {date}, sẽ không áp dụng. Giá trị trước đó tiếp tục áp dụng.", "The value {value}, effective {date}, will not apply. The earlier value stays in effect.", None, "{value} = giá trị đã định dạng như cột Mới; {date} = ngày hiệu lực. Không đặt {name} làm chủ ngữ: nhãn tham số là cụm như \"Nhận phòng từ\". Tên đã có ở tiêu đề hộp Sửa bên dưới và ở toast. \"Giá trị trước đó\" đúng cả khi còn dòng lên lịch khác"),
+    ("params.cancelled", "Đã hủy lịch đổi {name}.", "The scheduled change to {name} was cancelled.", None, "Toast sau 204; {name} = tên tham số như tiêu đề hộp Sửa"),
+    ("params.cancel_effective", "Giá trị từ {date} đã bắt đầu áp dụng nên không hủy lịch được nữa. Muốn đổi, lưu giá trị mới.", "The value from {date} has already taken effect, so it can't be cancelled. To change it, save a new value.", None, "409 INVALID_TRANSITION (ngày kinh doanh đã sang); thay error.INVALID_TRANSITION vốn nói về \"Đơn\". Mẫu rooms.cancel_sched_effective. Alert tone bad"),
+    ("params.cancel_gone", "Lịch đổi từ {date} không còn – có thể người khác vừa hủy. Lịch sử đã tải lại.", "The change scheduled from {date} is no longer there – someone may have just cancelled it. The history has been reloaded.", None, "404 NOT_FOUND. Mẫu rooms.cancel_sched_gone. Alert tone info (không phải lỗi của người dùng)"),
+])
+
 g("R3 – FE-A BUG-R3-001 (R3-Q25): xóa công nợ xin mật khẩu người xin. **Chờ UXD duyệt**", [
     ("debt.write_off_reauth_help", "Xóa công nợ cần nhập lại mật khẩu đăng nhập của bạn.", "Writing off a debt needs your sign-in password again.", None, "R3-Q25 (FB-R2-SEC-BE-82 (b)) – người xin xác thực lại như người duyệt (S1); nhãn ô dùng ci.stepup_label"),
 ])
