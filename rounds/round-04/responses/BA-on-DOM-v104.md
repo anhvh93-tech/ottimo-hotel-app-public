@@ -155,3 +155,58 @@ ORC báo nhãn đã chốt (UXD duyệt, gói P4-34). `00-index` mục 4 bước
 - Cột nút chỉ hiện khi có dòng ngày hiệu lực sau hôm nay và người xem được quyền sửa khóa (`mayCancel`; khóa chỉ OWN).
 
 G-BA-104-5 đóng.
+
+## 9. Lượt 4 (04/11) – DOM lượt 4 (thẻ 12, 13)
+
+DOM lượt 4 @ `4a842a14`: **ĐẠT CÓ ĐIỀU KIỆN**, DOM 10, 11 và ghi chú DOM **Closed**. Sửa thẻ 12, 13 trên `v104/ba-docs` (đầu cũ `8ddde2ae`), trước ngày thay tờ v2. Khối chữ tờ v2 trong `02` 7.2 không đổi. Nhãn đối chiếu `strings-vi.json` trên `origin/v104/fe-param-cancel` @ `2502f179`.
+
+| ID | Trạng thái | Đã sửa |
+|---|---|---|
+| FB-R4-DOM-BA-104-12 (Minor) | Done, làm khác đề xuất (mục 9.1) | `02` 13.1d viết lại: "không dịch" (và "chưa xem v2") ghi vào **trang Không dịch** – trang riêng ở **đầu** sổ giao ca, dùng chung mọi ca và mọi ngày, không sang trang theo ca. Mỗi dòng: mã đơn `OTM-…` (khách website chưa có đơn: mã yêu cầu `REQ-…`) · chữ · ngày ghi; chỉ mã. Lập đơn từ yêu cầu có trong trang: ghi thêm mã đơn vào cùng dòng. Sổ giao ca của ca đó vẫn ghi dòng nhắc "Trang Không dịch: thêm OTM-…". Câu kiểm: "**Trước khi dịch tin của một khách**, mở trang Không dịch: mã đơn hoặc mã yêu cầu của khách có trong trang thì **không** dịch." `02` mục 2 dòng **Mở quầy**: đọc thêm trang Không dịch. `02` 7.2 bước 7, `00-index` mục 4 bước 4: ghi mã đơn và chữ vào trang Không dịch. Sổ tay 2.18 ý 3 cùng ý, trỏ `02` 13.1d; dòng lịch sử 1.11 ghi thêm |
+| FB-R4-DOM-BA-104-13 (Minor) | Done | `00-index` mục 4: **bước 1** câu SEC thành "Nút **Hủy lịch** chỉ có ở dòng hẹn từ ngày mai trở đi (chip **Chưa hiệu lực**), kể cả dòng Lưu nhầm **Hiệu lực từ** sang ngày mai: dòng đó hủy được, và phải hủy ngay trong ngày (bước 5). Dòng đã có hiệu lực hôm nay không có nút và không hủy được: **Hủy lịch** không sửa được một lần Lưu sai giá trị hôm nay." **Bước 3.4**: Desk báo "Đã lưu …, hiệu lực từ" ngày mai hoặc Lịch sử có dòng v2 **Chưa hiệu lực** → làm ngay bước 5; chỉ "báo đội" khi Desk báo lỗi ở ô khác (**Hiệu lực từ**, **Lý do**) hoặc Lịch sử không có dòng v2 hôm nay **lẫn** dòng **Chưa hiệu lực**. **Bước 3.5**: thêm "không có dòng **Chưa hiệu lực**". **Bước 5** viết lại thành 4 ý: (1) **Hủy lịch** ở dòng **Chưa hiệu lực** ngay trong ngày, **Lý do** "Lưu nhầm ngày hiệu lực", chờ "Đã hủy lịch đổi …"; (2) còn trong cuộc gọi và người trực nói tờ v2 còn trên quầy: Lưu lại với hôm nay, kiểm như 3.5; (3) không còn như vậy: chỉ hủy lịch, không Lưu, người trực đặt lại v1 (3.8); (4) không hủy được trên Desk: không nhắn "Đã đặt v2", báo đội ngay trong ngày. Có câu lý do: Lưu lại không xóa dòng ngày mai, buổi thay bị hủy mà dòng còn thì 00:00 Desk đổi sang v2 khi quầy để tờ v1. `02` 7.2 bước 3 (phía người trực): chủ đầu tư nói Lưu nhầm ngày thì tờ v2 vẫn để trên quầy trong lúc còn gọi; chủ đầu tư nói chỉ hủy lịch, không Lưu thì làm bước 6. `01` 9.2: không có câu về `privacy_notice_version` (chỉ có **Hủy lịch** của tài khoản nhận tiền), không sửa |
+
+### 9.1 Vì sao thẻ 12 không dùng ô Ghi chú nội bộ
+
+ORC giao ghi vào ô **Ghi chú nội bộ** của đơn và kiểm ô này có lên bill hoặc tới khách không. BA đã kiểm code trên `origin/v104/fe-param-cancel`:
+
+- **Ô Ghi chú nội bộ của đơn (`reservations.internal_note`, nhãn `crm.f_note` "Ghi chú nội bộ"):**
+  - Không in lên bill: `folio/internal/bill.service.ts` và các trang in của `admin-web` không đọc trường này.
+  - Không gửi khách: không mẫu tin, thông báo hay `guest-web` nào đọc trường này. API trả trường theo quyền `D12c`; mock bỏ trường với vai CTV.
+  - **Nhưng Desk v1.0.4 không cho nhập hay xem trường này với đơn của khách.** Ô chỉ có trong `BookingDialog.tsx` khi tạo đơn kênh **Nội bộ** (`form.group === 'internal'`). Đơn trực tiếp, OTA, đại lý không có ô này. Không màn nào hiện hay sửa trường này với đơn đã có. API `PATCH` nhận `internalNote`, nhưng Desk không có nút. Đã grep mọi nhánh `origin/*`: chỉ `BookingDialog.tsx` dùng trường này.
+- **Ô Ghi chú nội bộ của yêu cầu website (`website_booking_request.decline_note`, nhãn `webreq.note`):**
+  - Ô chỉ có trong hộp **Từ chối** (`WebRequestDrawer.tsx`).
+  - Máy chủ xóa ô này khi yêu cầu được lập đơn (WR6), khi xóa theo yêu cầu người gửi (WR8) và khi hết hạn lưu (T19).
+  - Không lên thông báo (`website-requests.service.ts` đầu tệp: C2 không vào tin).
+  - Không dùng được để ghi "không dịch".
+- **Ghi chú nội bộ của hồ sơ khách (`guests.free_note`):** không in bill, không gửi khách. Nhưng ô chỉ hiện trong hộp **Sửa** hồ sơ và chỉ với lễ tân trưởng trở lên, khách website chưa có hồ sơ. Người dịch tin không mở hộp này, nên ca sau không thấy.
+
+Vì vậy BA giữ ý của DOM nhưng đổi chỗ ghi sang **trang Không dịch**:
+- Ghi theo mã đơn hoặc mã yêu cầu.
+- Giữ qua mọi ca và mọi ngày, nên khách dài ngày và HĐ thuê tháng không bị sót.
+- Kiểm một trang, không phải lật sổ nhiều ngày.
+- Theo đúng mẫu "trang riêng" đã dùng cho **sổ xóa Chat**.
+- Hai chữ và mã đơn không phải dữ liệu nhạy cảm (DOM 12), và trang không lên bill, không tới khách.
+
+Thẻ gửi FE/PO để Desk có ô ghi chú trên màn đơn và màn yêu cầu: `rounds/round-04/reviews/BA-on-FE-internal-note.md` (FB-R4-BA-FE-IN-01). Khi Desk có ô đó, BA chuyển chỗ ghi sang ô **Ghi chú nội bộ** như DOM đề xuất.
+
+### 9.2 Đã kiểm
+
+- Nhãn trên `origin/v104/fe-param-cancel` (`strings-vi.json`):
+  - **Hủy lịch**: `params.cancel_scheduled`. Đính chính mục 8.5: `ParamDialog.tsx` dùng khóa riêng `params.cancel_scheduled`, không dùng lại `rcv.cancel_scheduled`; hai khóa cùng chữ.
+  - Các nhãn khác: **Chưa hiệu lực** (`params.not_yet`), **Hủy giá trị đã lên lịch?** (`params.cancel_title`), **Lý do** (`params.reason`), "Đã hủy lịch đổi {name}." (`params.cancelled`), **Lịch sử thay đổi** (`params.history`), **Lưu thay đổi** (`params.save`).
+  - Câu báo sau khi Lưu: "Đã lưu {name}, hiệu lực từ {date}." (`params.saved`, `ParamDialog.tsx` dòng 158). Đây là chỗ chủ đầu tư thấy ngay mình Lưu nhầm ngày.
+- Máy chủ (`parameters.service.ts`):
+  - Lưu theo ngày hiệu lực: Lưu hôm nay không đụng dòng ngày mai.
+  - `cancelScheduled` trả 409 với dòng đã có hiệu lực (`effective_from <= today`).
+  - Desk chỉ hiện nút ở dòng `effectiveFrom > today`. Hộp mở từ trước 00:00 thì Desk báo "Giá trị từ {date} đã bắt đầu áp dụng nên không hủy lịch được nữa…" (`params.cancel_effective`).
+  - Khớp câu "dòng hôm nay không hủy được".
+- `build_guides.py` dựng lại trên bản chép (tờ A4 v2 từ `origin/v104/uxd-id-sheet-v2`): khớp nguyên văn bản A4 (10 đoạn + nhãn, tiêu đề, chân tờ); không có cảnh báo trỏ mục. Ảnh thiếu là ảnh có từ trước, không do lượt này.
+- Không có tên, số giấy tờ, mật khẩu hay mã thật trong phần sửa.
+
+### 9.3 Giả định, còn mở
+
+- **G-BA-104-6:** dòng trên trang Không dịch giữ nguyên, không gạch (chỉ mã, không nhạy cảm). Đây là quy tắc nghiệp vụ. DOM xác nhận, hoặc cho quy tắc gạch dòng.
+- **G-BA-104-7:** `02` 5.2 (đơn nhóm "Nhóm: OTM-…") và `02` mục 6 ý 5 (OTA sửa đơn), cùng sổ tay mục tương ứng, đang bảo ghi vào ô **Ghi chú nội bộ** khi tạo đơn. Ô này không có ở đơn trực tiếp và OTA (mục 9.1). Lỗi tài liệu có từ trước, không thuộc thẻ 12, 13. BA chưa sửa và chờ FE/PO trả lời thẻ FB-R4-BA-FE-IN-01:
+  - FE thêm ô thì tài liệu đúng.
+  - FE không thêm thì BA chuyển các câu đó sang sổ giao ca, cần DOM đọc lại.
+- Chờ DOM, SEC xác nhận thẻ 12, 13.

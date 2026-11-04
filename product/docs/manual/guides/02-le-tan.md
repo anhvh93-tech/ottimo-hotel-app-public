@@ -195,7 +195,7 @@ Lần đầu, và sau mỗi lần chủ đầu tư **Đặt lại mật khẩu**
 | **Mở quầy (muộn nhất 09:00)** | Đăng nhập, kiểm chip **Máy quầy đã cấp quyền**. Tờ **Your ID details** đúng chỗ, mặt quay ra khách. **Từ hôm sau ngày sổ giao ca có dòng "Thay tờ v2 hh:mm – tham số v2 hh:mm"**: chân tờ có chữ v2 ("OTTIMO · ID notice · v2 · 11/2026"), cả tờ trong ngăn quầy. Chưa có dòng đó: tờ v1 là đúng, **không** tự thay tờ v2 | Mục 1.4, 7.2 |
 | Mở quầy | Đọc **Cần chú ý** trước, xử lý từ dòng đỏ trở xuống. Xem **Khách đến (n)**, **Khách đi (n)**, **Giữ chỗ chưa cọc (n)**, **Yêu cầu của khách** | **Hôm nay** (mục 3.1) |
 | Mở quầy | **Rà giữ chỗ – mốc 1** (tới v1.0.3) | Mục 17.1 |
-| Mở quầy | Đọc sổ giao ca tối qua và dòng chủ đầu tư ghi trong lượt kiểm sáng. Đếm tiền mặt trong két. Khi có nhiều người: bàn giao với ca trước | Sổ giao ca |
+| Mở quầy | Đọc sổ giao ca tối qua, **trang Không dịch** (đầu sổ, mục 13.1d) và dòng chủ đầu tư ghi trong lượt kiểm sáng. Đếm tiền mặt trong két. Khi có nhiều người: bàn giao với ca trước | Sổ giao ca |
 | Mở quầy, 12:00, 18:00, đóng quầy | Kiểm extranet mọi kênh OTA; đơn mới thì nhập Desk ngay | Mục 5.3 |
 | **Trước 11:00** | Căn trống từ đêm qua có khách đến hôm nay đã rà xong. Người trực hiện nay: tự kiểm rồi bấm **Làm xong** (mục 13.2a); **từ v1.0.4** kiểm trên app và bấm **Kiểm đạt – sẵn sàng** (mục 14.2), cùng mốc 11:00. Khi có lễ tân trưởng riêng: kiểm trên app xong trước 12:00 (mục 14.2) | **Buồng phòng** |
 | **11:00** | **Rà giữ chỗ – mốc 2** (trước trần 12:00 ngày đến) | Mục 17.1 |
@@ -491,7 +491,7 @@ Câu trả lời khi khách hỏi chính sách hủy: đọc đúng mục này. 
 > **Ngày thay tờ** (chủ đầu tư hẹn trước; phần của chủ đầu tư ở `00-index.md` mục 4). Thay tờ và chủ đầu tư đặt tham số phải liền nhau, vì Desk ghi bản nào thì khách phải đọc đúng bản đó. Chủ đầu tư đã Lưu thì trong ngày không quay về v1 được:
 > 1. Chỉ làm sau khi chủ đầu tư báo v1.0.4 (có gói P4-16) đã lên. Thay buổi sáng, trong khung **09:00–11:00**, lúc không có khách ở quầy và không có khách hẹn nhận phòng sớm. **Không thay sau 12:00.**
 > 2. Gỡ tờ v1 ở khung mica **và** trong ngăn quầy. Đặt tờ v2 (và tờ EN/RU nếu chủ đầu tư đã in). Máy tính bảng: chép tệp v2; tệp v1 đổi tên hoặc chuyển ra thư mục riêng, chỉ xóa khi có tin "Đã đặt v2".
-> 3. Nhắn chủ đầu tư: "Đã thay tờ v2 – hh:mm". Giờ này là **mốc**. Chủ đầu tư gọi anh/chị hỏi "Tờ v2 còn trên quầy chứ?" và Lưu trong lúc còn gọi, kiểm lại trên Desk, rồi nhắn "Đã đặt v2 – hh:mm". Trả lời đúng điều anh/chị thấy trên quầy. Lưu xong, chủ đầu tư nói "**Đã Lưu**" trước khi gác máy. Chủ đầu tư nói Desk báo lỗi khi Lưu (bất kỳ lỗi nào ở ô **Giá trị mới**) nghĩa là **chưa lưu gì**: tờ v2 vẫn để trên quầy, chờ chủ đầu tư dán lại rồi Lưu. Nghe "**Đã Lưu**" thì giữ tờ v2, kể cả khi đã nhắn "Đặt lại v1" (bước 6).
+> 3. Nhắn chủ đầu tư: "Đã thay tờ v2 – hh:mm". Giờ này là **mốc**. Chủ đầu tư gọi anh/chị hỏi "Tờ v2 còn trên quầy chứ?" và Lưu trong lúc còn gọi, kiểm lại trên Desk, rồi nhắn "Đã đặt v2 – hh:mm". Trả lời đúng điều anh/chị thấy trên quầy. Lưu xong, chủ đầu tư nói "**Đã Lưu**" trước khi gác máy. Chủ đầu tư nói Desk báo lỗi khi Lưu (bất kỳ lỗi nào ở ô **Giá trị mới**) nghĩa là **chưa lưu gì**: tờ v2 vẫn để trên quầy, chờ chủ đầu tư dán lại rồi Lưu. Nghe "**Đã Lưu**" thì giữ tờ v2, kể cả khi đã nhắn "Đặt lại v1" (bước 6). Chủ đầu tư nói Lưu nhầm ngày (Desk hẹn v2 từ ngày mai): tờ v2 vẫn để trên quầy trong lúc còn gọi; chủ đầu tư **Hủy lịch** rồi Lưu lại và nói "**Đã Lưu**". Chủ đầu tư nói chỉ hủy lịch, không Lưu: làm theo bước 6 (đặt lại v1).
 > 4. Tới khi nhận tin "Đã đặt v2": **không nhận giấy tờ của khách mới**. Khách tới thì mời ngồi đợi vài phút.
 > 5. Nhận tin "Đã đặt v2": tải lại (F5) mọi trang giấy tờ đang mở trên máy quầy. Khách đang làm dở mà Desk báo "Chọn một giá trị trong danh sách." ở Khối 1 khi lưu câu trả lời đồng ý lưu ảnh: cho khách xem tờ v2, tải lại (F5), hỏi lại câu đồng ý lưu ảnh (mục 8.2). **Không chọn sẵn thay khách.**
 > 6. Chờ tối đa **15 phút** từ mốc. Đang nói chuyện với chủ đầu tư mà được bảo "chờ" thì chờ tiếp. Quá 15 phút, không có tin "Đã đặt v2" và không gọi được chủ đầu tư: nhắn "Đặt lại v1 – hh:mm" **trước**, rồi mới đặt lại tờ v1 vào khung mica và ngăn quầy; máy tính bảng mở lại tệp v1, xóa tệp v2 (không còn tệp v1 thì hôm đó không dùng máy tính bảng). Tờ v2 cất **khỏi quầy**, trong phong bì ghi "Tờ v2 – chờ chủ đầu tư hẹn ngày thay", chưa hủy. Nhận khách như cũ. Sổ giao ca ghi "Đặt lại v1 hh:mm – tờ v2 cất ở …". Chủ đầu tư hẹn hôm khác, làm lại từ bước 1.
@@ -500,8 +500,8 @@ Câu trả lời khi khách hỏi chính sách hủy: đọc đúng mục này. 
 >    - sổ giao ca **chỉ** ghi mã đơn, giờ nhận giấy tờ, giờ cho xem tờ v2. Không ghi tên, số giấy tờ, quốc tịch, số điện thoại;
 >    - cho khách xem tờ v2 lần gặp tiếp theo, trước khi trả phòng;
 >    - **không** hỏi lại hay ghi lại câu đồng ý, **không** xóa hay nhập lại giấy tờ;
->    - khách không đồng ý xem, hoặc đã về mà chưa xem: ghi "chưa xem v2" cạnh mã đơn, và **không** đưa tin nhắn của khách đó qua dịch vụ dịch (Google Dịch, mục 13.1d);
->    - khách xem v2 rồi nói không muốn dịch: ghi "không dịch" cạnh mã đơn, không đưa tin của khách đó qua dịch vụ dịch;
+>    - khách không đồng ý xem, hoặc đã về mà chưa xem: ghi mã đơn và chữ "chưa xem v2" vào **trang Không dịch** (mục 13.1d), và **không** đưa tin nhắn của khách đó qua dịch vụ dịch (Google Dịch);
+>    - khách xem v2 rồi nói không muốn dịch: ghi mã đơn và chữ "không dịch" vào **trang Không dịch**, không đưa tin của khách đó qua dịch vụ dịch;
 >    - báo chủ đầu tư số đơn; chủ đầu tư nhắn đội chỉ số lượng.
 > 8. Ghi sổ giao ca: "Thay tờ v2 hh:mm – tham số v2 hh:mm".
 > 9. Khách đã làm giấy tờ trước giờ thay **không** phải xem lại. Người đi cùng đến sau thì xem tờ v2.
@@ -1241,7 +1241,13 @@ Chủ đầu tư **cho phép** dùng công cụ dịch bên ngoài (Google Dịc
 - Bản dịch lời nhắn chưa rõ (ngày ở, số khách, yêu cầu đặc biệt): **không đoán**. Gửi câu mẫu 2.
 - Mọi luật nhắn khách vẫn giữ: chỉ nhắn từ tài khoản OTTIMO (mục 4.1), không gửi mã cửa, không nhận số thẻ (mục 16.2).
 - **Không** dùng **Dịch trang** (hay công cụ dịch nào) ở màn **Giấy tờ & khai báo** và màn xem ảnh giấy tờ. Số giấy tờ và ảnh giấy tờ không phải chữ cần dịch, và tờ **Your ID details** bản v2 chỉ báo khách rằng tin nhắn của khách có thể được dịch (mục 7.2). Lỡ bật dịch trên trình duyệt: tắt trước khi mở các màn này.
-- **Khách nói không muốn tin nhắn của mình được dịch** (mọi khách, không riêng ngày thay tờ): ghi "không dịch" cạnh mã đơn trong sổ giao ca, không đưa tin của khách đó qua dịch vụ dịch. Trước khi dịch tin của một khách, người đọc tin kiểm sổ giao ca: mã đơn có ghi "không dịch" hoặc "chưa xem v2" (mục 7.2) thì không dịch.
+- **Khách nói không muốn tin nhắn của mình được dịch** (mọi khách, không riêng ngày thay tờ): không đưa tin của khách đó qua dịch vụ dịch, và ghi lại để mọi ca cùng biết:
+  - Ghi vào **trang Không dịch**: trang riêng ở **đầu** sổ giao ca, dùng chung cho mọi ca và mọi ngày, không sang trang mới theo ca (khách ở dài ngày, HĐ thuê tháng vẫn còn dòng của mình). Mỗi dòng: mã đơn `OTM-…` · chữ "không dịch" (hoặc "chưa xem v2", mục 7.2) · ngày ghi. Khách hỏi qua website chưa có đơn: ghi mã yêu cầu `REQ-…` thay cho mã đơn. **Chỉ mã**, không tên, không số điện thoại, không số căn.
+  - Lập đơn từ một yêu cầu có trong trang: ghi thêm mã đơn mới vào **cùng dòng**, cạnh mã yêu cầu.
+  - Sổ giao ca của ca đó vẫn ghi một dòng nhắc: "Trang Không dịch: thêm OTM-…" (hoặc `REQ-…`).
+  - Dòng giữ nguyên, không gạch.
+  - **Trước khi dịch tin của một khách**, mở trang Không dịch: mã đơn hoặc mã yêu cầu của khách có trong trang thì **không** dịch.
+  - Ghi ở trang này, không ghi trên Desk: Desk v1.0.4 chưa có ô ghi chú trên màn đơn và màn yêu cầu mà ca sau mở ra là thấy.
 
 **4. Ba câu mẫu tiếng Anh**
 
