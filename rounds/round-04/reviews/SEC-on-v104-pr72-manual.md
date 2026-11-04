@@ -195,3 +195,114 @@ SEC quét mọi từ thêm mới (`git diff --word-diff`) và mọi dòng thêm 
 ## 7. Dòng decision-log đề xuất (ORC ghi khi commit, SEC không sửa decision-log)
 
 `| 2026-11-05 | 4 | **SEC – PR #72 sổ tay v1.0.4 r4c (v104/ba-docs-r4c @ 11794c25, chỉ tài liệu): ĐẠT CÓ ĐK – gộp sau khi sửa thẻ 01** (rounds/round-04/reviews/SEC-on-v104-pr72-manual.md): dữ liệu sạch (không dữ liệu khách, email mới, tên đăng nhập, IP, khóa, số tài khoản, số hoa hồng/doanh thu); không bước nào dạy lách kiểm soát (đêm Nội bộ về 0 chỉ OWN/MGR; giá thỏa thuận trong sàn–trần, dưới sàn qua duyệt; OC/OD và căn còn lượt ở không có ngoại lệ; cấm OOO). SEC-BE-PR74-02 phần sổ tay: chấp nhận câu kiểm căn tận nơi (UI không gửi stayScope/roomReturnRecorded; câu phủ cả ca đổi phòng trong ngày, vì oldRoomVacated mặc định true), đóng khi #72 gộp; phần mã v1.0.5, thêm oldRoomVacated ở hộp Đổi phòng. PR72-01 Major: đơn quá ngày đi (b) – không kéo dài mã cửa, không khai ngày gia hạn lên cổng (ô ngày đi Desk = effectiveDepartureDate), DOM duyệt câu về cổng. PR72-02 Minor: câu kiểm căn ở chỗ người duyệt, Lý do ghi đã kiểm, kiểm mã cũ trên app khóa. PR72-03 Minor: "từ 2 đêm chủ đầu tư" Desk không chặn (hạn mức tính theo dòng). PR72-04 Suggestion: đơn Nội bộ ghi người cho. Không ESC | SEC | Quyền SEC |`
+
+---
+
+## Lượt 2 (05/11/2026) – #72 @ `e200fea1` và soát nhanh #85 @ `f11e928c`
+
+- Đối tượng:
+  - #72: `git diff 11794c25..origin/v104/ba-docs-r4c -- product/docs/manual/` (head `e200fea1d0ac6158e3be8e075a3941b7512a9d79`). Bảng thẻ của BA: `rounds/round-04/reviews/BA-reply-v104-pr72.md` trên nhánh.
+  - #85: `git diff origin/main...origin/v104/ba-esc045-prices` (head `f11e928c27864e5688fefeb46760764164b791b1`, merge-base `c6b2f78e`). 5 tệp sổ tay, +18/−14.
+- Căn cứ mã thêm ở lượt này (`origin/main` @ `a08374bb`):
+  - `folio/internal/folio-lines.service.ts` (`adjust`: nhánh `voidLine`);
+  - `folio/public/folio.service.ts` (`reverseLine`, audit `folio.line_reversed`);
+  - `frontdesk/internal/checkout.service.ts` (`dueAtCheckout`: B18 tính lại phụ thu trả muộn);
+  - `docs/api/openapi.yaml` (`adjustFolioLine`: `x-roles [owner, manager, front_desk_lead, front_desk]`);
+  - `docs/rbac-matrix.md` (A31 chú thích 23), `docs/business-rules.md` (BR-433, BR-435, BR-436, BR-526);
+  - `test/integration/ota-prepaid-flow.test.ts` (FD `voidLine` trả 201).
+- SEC chỉ sửa tệp này. Không commit, không push.
+
+### L2.0 Kết luận
+
+- **#72: ĐẠT về bảo mật, gộp được.**
+  - SEC-01…04 đã đóng đúng (mục L2.1).
+  - Lượt này có thêm một bước mới: **Bỏ cả dòng** minibar trùng. Bước này không mở thêm quyền, nhưng là lần đầu sổ tay chỉ cho lễ tân nút bỏ dòng trên folio đang mở. Mã cho lễ tân bỏ **mọi** dòng phát sinh mà không cần duyệt. Vì vậy có 1 Minor cho sổ tay (thẻ 05) và 1 thẻ mã cho v1.0.5, rủi ro **Medium**, không chặn v1.0.4 (thẻ A31-01).
+  - Thêm 1 Suggestion: cho quản lý câu trả lời khi lễ tân hỏi về ghi trễ ngày đi trên cổng (thẻ 06).
+- **#85: ĐẠT, không thẻ.** Chỉ có giá công khai (mục L2.4).
+- Không ESC mới.
+
+### L2.1 Kiểm SEC-01…04
+
+| Thẻ | Đã kiểm ở | Kết quả |
+|---|---|---|
+| **PR72-01** (Major) | `02` 11.1 và sổ tay 2.14 khối **Đơn quá ngày đi**; `02` 9.3 bước 4, sổ tay 2.12 **Gia hạn** bước 4; `02` 8.3, sổ tay 2.11 | **Closed.** (b) bước 1: **xóa mã cửa** ngay, không chờ duyệt, ghi sổ giao ca. Bước 2: **không** kéo dài mã; thị thực ghi lý do "Gia hạn để trả phòng, khách đi ngày …". (b) bước con 3: lúc hoàn tất, mở app khóa, còn mã thì xóa. (b) bước con 4: **không** cập nhật ngày đi mới lên cổng; ngày rời là ngày đi trên đơn cũ, cổng chưa ghi thì gõ tay ngày đó; **không** dán ô ngày đi Desk hiện (đúng chỗ gốc: `departureDate = actual_departure_date ?? effectiveDepartureDate`). Vế ngoại lệ có ở cả 9.3 bước 4 và 8.3, ở cả `02` và sổ tay. (a) giữ như cũ. Chữ "hạn và cách ghi trễ: hỏi quản lý": SEC chấp nhận. Điều cần giữ là không khai ngày sai lên cổng, và câu đã giữ được điều đó. Hạn ghi trễ là câu hỏi pháp lý, DOM đã ghi cần chủ đầu tư hoặc luật sư xác nhận (DOM #72 dòng 195). Quản lý hiện chưa có câu trả lời: xem thẻ 06 |
+| **PR72-02** (Minor) | `02` 7.4, sổ tay 2.10; `02` 14.3; `01` mục 4; sổ tay 1.8 | **Closed.** 7.4 tách theo ca. Ba câu kiểm (kiểm tận nơi, **Lý do** "Đã kiểm căn trống lúc hh:mm, người kiểm: …", kiểm mã cũ trên app khóa) nằm đúng dưới ca `VD`/`CL`, không lẫn sang ca "căn còn khách". Câu cho người duyệt có ở cả ba chỗ duyệt. Lý do chỉ ghi tên nhân viên, không ghi khách: đúng |
+| **PR72-03** (Minor) | `02` 11.1 (b), sổ tay 2.14 (b); `01` 14.1 | **Closed (phần sách).** `02` ghi "Quản lý hoặc chủ đầu tư duyệt". `01` ghi Desk cho quản lý duyệt từng đêm, từ 2 đêm quản lý không bấm **Duyệt**. Duyệt cần ít nhất hai dấu hiệu, gồm app khóa không có lần mở sau ngày đi và mã không bị kéo dài. Cùng một người gửi lý do này nhiều lần trong tháng thì báo chủ đầu tư. Hai phần còn lại SEC chấp nhận **Deferred**: bộ lọc tuần **Nhật ký tiền** gộp với SEC PR71 mục 9.5 (BA/PO); Desk tự giữ cổng 2 đêm ở v1.0.5 (PO xếp) |
+| **PR72-04** (Suggestion) | `02` 5.1 bước 4, sổ tay 2.5; `01` 14.1 | **Closed.** "Chỉ tạo khi chủ đầu tư hoặc quản lý đã đồng ý. **Ghi chú nội bộ** ghi người cho, lý do, số đêm miễn phí." Quản lý kiểm người cho trước khi sửa về 0. Giả định "người cho là OWN/MGR" đang chờ DOM: SEC đồng ý giả định này, vì đây là hướng chặt hơn |
+
+**SEC-BE-PR74-02, phần sổ tay:** giữ như lượt 1. Đóng khi #72 gộp. Phần mã ở v1.0.5.
+
+### L2.2 Bước **Bỏ cả dòng** minibar trùng: có mở đường lạm dụng không
+
+Sổ tay mới (`02` 11.1 bước 2, sổ tay 2.14): trước khi trả phòng, nếu có dòng **Thêm phát sinh** ghi minibar căn cũ (cách làm cũ lúc đổi phòng), thì lễ tân **Bỏ cả dòng**, Lý do "Trùng minibar tủ căn cũ", rồi vẫn nhập số tủ căn cũ ở bước **Minibar**. "Lễ tân trở lên bỏ được khi chưa hoàn tất trả phòng."
+
+**Bản thân ca này đúng và cần làm.**
+- Nếu không bỏ thì khách bị tính hai lần cho cùng một tủ.
+- Dòng bị bỏ được đảo bằng bút toán, không xóa. `reverseLine` ghi audit `folio.line_reversed` kèm lý do và người làm.
+- Số tủ căn cũ được đối chiếu với sổ giao ca do người đổi phòng ghi và số buồng phòng đếm. Đây là số của người khác, không phải số lễ tân trả phòng tự đặt.
+
+**Quyền thật trong mã rộng hơn ca này.** Không do #72 mở, có từ R2.
+- `adjustFolioLine` cho FD. Ở folio đang mở, nhánh `voidLine` không có giới hạn nào ngoài lý do bắt buộc. Chỉ dòng đêm (`room`, `extra_person`) và dòng giảm (`foc`, `discount`, `adjustment`) bị chặn.
+- Vậy lễ tân bỏ được mọi dòng phát sinh khác (minibar, đồ ăn uống, giặt ủi, hư hỏng…) mà không qua duyệt. Test `ota-prepaid-flow.test.ts` khẳng định FD `voidLine` trả 201, nên đây là thiết kế có chủ đích ("sửa ghi nhầm", BR-008).
+- Hệ quả: bỏ dòng là một đường đi vòng qua thang hạn mức miễn phí. Theo BR-436, lễ tân chỉ tự miễn minibar ≤ 100.000 đ/lần, ≤ 500.000 đ/tháng; theo BR-433, lễ tân trưởng ≤ 300.000 đ/lần. Bỏ dòng thì không có hạn mức nào.
+- Lần bỏ dòng không vào cảnh báo thất thoát BR-435 (chỉ tính FOC và giảm giá đặc biệt), cũng không vào danh sách đóng ca BR-526. Dấu vết duy nhất là **Nhật ký thao tác tiền**, và hiện chưa ai rà mục này.
+- Phụ thu trả muộn **không** lách được theo đường này: B18 tính lại phụ thu trả muộn từ giờ trả phòng (`dueAtCheckout`).
+- RBAC A31 chú thích 23 ghi lễ tân sửa giá trong sàn–trần, còn giảm dưới giá chính sách là giảm giá đặc biệt (A35). Mã đang cho bỏ cả dòng, tức giảm về 0, mà không qua A35.
+
+**Đánh giá:**
+- Sổ tay không mở quyền mới, nhưng lần đầu chỉ cho lễ tân nút bỏ dòng trên folio đang mở. Thẻ 05 (Minor) khoanh bước này lại, kèm dấu đối chiếu.
+- Phần mã: rủi ro **Medium**. Có từ trước, có audit, số tiền của dòng phát sinh nhỏ, và chủ đầu tư hiện là người duyệt. SEC không chặn v1.0.4 (quyền SEC). Thẻ A31-01 đưa vào v1.0.5.
+
+### L2.3 Thẻ mới
+
+#### FB-R4-SEC-BA-PR72-05
+- Mức độ: **Minor**. Nên sửa cùng lượt nếu #72 còn mở; nếu không thì ở nhánh tài liệu kế tiếp. Không chặn gộp.
+- Vị trí: `02` 11.1 bước 2, gạch **Kiểm trùng, trước khi bấm Trả phòng**; sổ tay 2.14, cùng gạch; `01` 14.1 (hỏi đáp của quản lý).
+- Vấn đề: câu hiện tại chỉ ghi cách bấm và câu "Lễ tân trở lên bỏ được khi chưa hoàn tất trả phòng". Câu này không giới hạn dòng nào được bỏ, không bắt ghi lại việc đã bỏ, và quản lý không được dặn xem lại. Trong khi đó, mã cho lễ tân bỏ mọi dòng phát sinh mà không qua duyệt (mục L2.2).
+- Vì sao quan trọng: người đọc dễ hiểu **Bỏ cả dòng** là cách miễn cho khách nhanh hơn mục 9.5. Làm vậy là lách hạn mức BR-433/BR-436, và không vào cảnh báo BR-435.
+- Đề xuất sửa (chữ đề xuất):
+  - `02`, sổ tay: "Chỉ bỏ dòng **Thêm phát sinh** ghi minibar căn cũ lúc đổi phòng: ghi chú của dòng hoặc sổ giao ca cho thấy đúng tủ căn cũ, cùng số tiền. **Không** dùng **Bỏ cả dòng** để miễn hay giảm cho khách: miễn, giảm luôn làm theo mục 9.5. Ghi sổ giao ca: mã đơn, dòng đã bỏ, số tiền, số tủ căn cũ đã nhập."
+  - `01` 14.1, thêm một dòng hỏi đáp: "Nhật ký thao tác tiền có dòng **Bỏ cả dòng** do lễ tân làm trên đơn chưa trả phòng: lý do khác 'Trùng minibar tủ căn cũ', hoặc không có ghi sổ giao ca, thì hỏi người làm. Cùng một người bỏ dòng nhiều lần trong tháng: báo chủ đầu tư."
+  - Thêm `folio.line_reversed` do FD/FDL làm trên folio đang mở vào bộ lọc tuần đã dời (SEC PR71 mục 9.5, PR72-03).
+- Trạng thái: Open
+
+#### FB-R4-SEC-BA-PR72-06
+- Mức độ: Suggestion
+- Vị trí: `01` (chưa có chỗ). Liên quan `02` 11.1 (b) bước con 4, sổ tay 2.14: "Hạn và cách ghi trễ trên cổng: hỏi quản lý trước khi gửi."
+- Vấn đề: lễ tân được dặn hỏi quản lý, nhưng `01` không có câu nào cho quản lý trả lời. DOM ghi hạn ghi trễ cần chủ đầu tư hoặc luật sư xác nhận.
+- Đề xuất: `01`, thêm một dòng hỏi đáp: "Lễ tân hỏi ghi trễ ngày đi trên cổng (đơn quá ngày đi, khách đã đi): ghi ngay trong ngày phát hiện, đúng ngày khách rời thật, không dán ô ngày đi Desk hiện. Ghi sổ giao ca. Hạn ghi trễ chưa có quy định: báo chủ đầu tư." ORC đưa câu hỏi "hạn ghi trễ ngày đi trên cổng" vào danh sách câu hỏi cho luật sư (BR mục 15, ESC-001). Không cần ESC mới.
+- Trạng thái: Open
+
+#### FB-R4-SEC-BE-A31-01 (thẻ cho BE, ARC, PO; v1.0.5)
+- Mức độ: **Major cho v1.0.5**. Rủi ro hiện tại **Medium**, không chặn v1.0.4.
+- Vị trí: `folio/internal/folio-lines.service.ts` `adjust`: nhánh `voidLine`, và `newQuantity` về 0, trên folio chưa `settled`. Liên quan BR-433, BR-435, BR-436, BR-526, RBAC A31 chú thích 23.
+- Vấn đề: ở folio đang mở, FD/FDL bỏ được hoặc giảm số lượng về 0 mọi dòng phát sinh không phải dòng đêm, chỉ cần lý do. Thang hạn mức miễn phí bị bỏ qua, và việc này không vào cảnh báo thất thoát hay danh sách đóng ca.
+- Vì sao quan trọng: lễ tân thu tiền mặt của khoản phát sinh rồi bỏ dòng, hoặc miễn cho người quen, đều không cần ai duyệt. Dấu vết chỉ còn ở audit mà chưa ai rà.
+- Đề xuất (PO/DOM chọn, ARC thiết kế):
+  - (a) FD/FDL chỉ được bỏ hoặc giảm dòng do **chính mình** ghi, trong cùng ngày nghiệp vụ (đúng nghĩa "ghi nhầm"). Ngoài phạm vi đó thì đi đường FOC có duyệt (A35).
+  - (b) Tối thiểu: đưa các lần bỏ hoặc giảm dòng của FD/FDL vào BR-435 (đếm theo người làm) và vào danh sách đóng ca BR-526.
+  - Test: FD bỏ dòng do người khác ghi → 403 hoặc chuyển thành yêu cầu duyệt; FD bỏ dòng mình vừa ghi → 201, có audit.
+- Trạng thái: Open
+
+### L2.4 #85 `v104/ba-esc045-prices` @ `f11e928c` – soát nhanh
+
+- Nội dung: bỏ +15 % thứ Sáu, thứ Bảy và +30 % ngày đặc biệt (một giá mọi đêm); phụ thu người vượt định mức từ 6 tuổi trở lên 150.000 đ/đêm, dưới 6 tuổi miễn. Sửa ở `01` 9.1, `02` 9.2 và 20.2, `05` 3, sổ tay 1.3, 2.12, 5.2; thêm ghi chú sửa ở `00` và sổ tay.
+- **Không lộ số nội bộ.**
+  - Không có hoa hồng, doanh thu, sàn–trần, giá OTA hay bảng giá nội bộ.
+  - "15 %" và "30 %" chỉ còn trong ghi chú "không còn…", và đó là quy tắc giá công khai cũ.
+  - Studio 800.000 là giá niêm yết, đã có trên `main` (ví dụ giữ chỗ) và trên web đặt phòng.
+  - Ngày đặc biệt là lịch công khai.
+- Tệp `05` (sale, CTV, có thể là người ngoài OTTIMO) chỉ nhận giá công khai và phụ thu người. Tên tham số `weekend_uplift_pct`, `special_uplift_pct` chỉ nằm trong `01` và sổ tay 1.3 (chủ đầu tư, quản lý), không có ở `05`. Tên tham số cũng không phải bí mật: repo đã có.
+- Không có email, IP, tên đăng nhập, khóa, số tài khoản, số điện thoại, tên khách.
+- Không dạy lách: "Desk hiện 100.000 cho trẻ 6–11 tuổi: báo quản lý, không tự sửa"; "Báo giá thử … ra khác 800.000: dừng, báo quản lý, không tự sửa giá". Đúng hướng.
+- **Kết luận #85: ĐẠT, không thẻ.**
+
+### L2.5 Ghi chú cho ORC
+
+- Thẻ A31-01 là thẻ mã. ORC chuyển vào backlog v1.0.5 cho PO xếp, cùng chỗ với "Desk tự giữ cổng 2 đêm" (PR72-03) và bộ lọc tuần (SEC PR71 mục 9.5). Ba việc này cùng một chủ đề: kiểm soát giảm tiền của lễ tân.
+- Quét dữ liệu ở lượt 2 (từ mới và dòng thêm của #72 lượt 2, toàn bộ #85): sạch. Chuỗi hex chỉ là mã commit; ký tự "@" duy nhất nằm trong chú thích "QA2 #77 @ 055e92d5".
+- Không ESC mới.
+
+### L2.6 Dòng decision-log đề xuất (ORC ghi khi commit, SEC không sửa decision-log)
+
+`| 2026-11-05 | 4 | **SEC – PR #72 lượt 2 (v104/ba-docs-r4c @ e200fea1): ĐẠT về bảo mật, gộp được; PR #85 (v104/ba-esc045-prices @ f11e928c): ĐẠT, không thẻ** (rounds/round-04/reviews/SEC-on-v104-pr72-manual.md mục Lượt 2): PR72-01 Closed (đơn quá ngày đi (b): xóa mã cửa ngay, không kéo dài mã, không khai ngày gia hạn và không dán ô ngày đi Desk lên cổng, ghi ngày rời thật; hạn ghi trễ "hỏi quản lý" chấp nhận); PR72-02 Closed (Lý do ghi đã kiểm, kiểm mã cũ, câu cho người duyệt ở 02 14.3, 01 mục 4, sổ tay 1.8); PR72-03 Closed phần sách, bộ lọc tuần và cổng 2 đêm Deferred v1.0.5; PR72-04 Closed (giả định OWN/MGR cho đơn Nội bộ, chờ DOM). Mới: PR72-05 Minor (khoanh "Bỏ cả dòng" chỉ cho minibar trùng, ghi sổ giao ca, quản lý rà); PR72-06 Suggestion (01: câu trả lời cho ghi trễ cổng, đưa vào câu hỏi luật sư); FB-R4-SEC-BE-A31-01 (Major cho v1.0.5, rủi ro hiện tại Medium, không chặn v1.0.4): FD/FDL bỏ được mọi dòng phát sinh trên folio đang mở chỉ với lý do, lách thang BR-433/436, không vào BR-435/526. #85: chỉ giá công khai, không hoa hồng, doanh thu hay sàn–trần, 05 không có tên tham số. Không ESC | SEC | Quyền SEC |`

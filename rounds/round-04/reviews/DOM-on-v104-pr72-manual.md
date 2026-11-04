@@ -95,7 +95,7 @@ Chi tiết điểm 3 (giờ trả phòng ở trường hợp (b)):
   - `01` 14.1 dòng 1: thay "Làm trước khi trả phòng: sau khi trả phòng Desk không nhận giá 0 nữa." bằng:
     > Làm ngay khi nhận tin, **trước khi người ở nhận phòng**: lúc nhận phòng Desk thu đủ tiền phòng. Sửa sau khi đã thu thì phần đó thành tiền trả thừa, hoàn lúc trả phòng. Sau khi trả phòng Desk không nhận giá 0 nữa.
   - Dòng lịch sử bản: thay "trả phòng mà đêm miễn phí chưa về 0 thì gọi quản lý trước khi thu" bằng "nhận phòng mà đêm miễn phí chưa về 0 thì chưa thu, gọi quản lý sửa (DOM #72 thẻ 01, BR-105 v0.5.9)".
-- Trạng thái: Open
+- Trạng thái: Closed (BA Fixed @ `e200fea1`; DOM đọc lại 05/11 – xem lượt 2, mục 7)
 
 ### FB-R4-DOM-BA-PR72-02
 - Mức độ: **Major** (sai tiền; sửa trước khi gộp #72)
@@ -144,7 +144,7 @@ Chi tiết điểm 3 (giờ trả phòng ở trường hợp (b)):
   - Đổi phòng, không ghi **Thêm phát sinh**.
   - Trả phòng: nhập tủ 202 còn 0/2, tủ 203 đủ.
   - Kỳ vọng: minibar 70.000, một dòng. Việc bổ sung tủ 202 sinh sau khi trả phòng.
-- Trạng thái: Open
+- Trạng thái: Closed (BA Fixed @ `e200fea1`; DOM đọc lại 05/11 – xem lượt 2, mục 7)
 
 ### FB-R4-DOM-BA-PR72-03
 - Mức độ: Minor (sửa cùng lần với 01, 02)
@@ -162,7 +162,7 @@ Chi tiết điểm 3 (giờ trả phòng ở trường hợp (b)):
   - Khối (b): ngay sau "**Mở form miễn phí / giảm giá**", thêm "→ **Loại**: **Giảm giá đặc biệt (tiền phòng)**".
   - 9.5 bước 2 (cả sổ tay), thay bằng:
     > Dòng phát sinh: Desk để miễn phí (FOC). Dòng tiền phòng: có ô **Loại**, mặc định **Miễn khoản phát sinh (FOC)** – chọn **Giảm giá đặc biệt (tiền phòng)**, trừ đêm bù sự cố của OTTIMO (để FOC, lý do **Bù sự cố**).
-- Trạng thái: Open
+- Trạng thái: Closed (BA Fixed @ `e200fea1`; DOM đọc lại 05/11 – xem lượt 2, mục 7)
 
 ### FB-R4-DOM-BA-PR72-04
 - Mức độ: Minor (sửa cùng lần)
@@ -195,7 +195,7 @@ Chi tiết điểm 3 (giờ trả phòng ở trường hợp (b)):
     Hạn và cách ghi trễ trên cổng khai báo cần chủ đầu tư hoặc luật sư xác nhận, như BR mục 15. Sổ tay chỉ dặn "ghi đúng ngày rời thật".
   - Trường hợp (b), thêm:
     > Khách của căn này đang chờ: gọi quản lý duyệt ngay, không chỉ chờ thông báo. Chờ lâu thì **Đổi căn / đổi ngày** cho khách mới sang căn trống sẵn sàng (mục 6.1).
-- Trạng thái: Open
+- Trạng thái: Closed (BA Fixed @ `e200fea1`; DOM đọc lại 05/11 – xem lượt 2, mục 7)
 
 ### FB-R4-DOM-BA-PR72-05
 - Mức độ: Minor (sửa cùng lần)
@@ -207,7 +207,7 @@ Chi tiết điểm 3 (giờ trả phòng ở trường hợp (b)):
 - Vì sao quan trọng: thất thoát doanh thu. Cảnh báo BR-435 chỉ báo khi tổng vượt 3 % doanh thu tháng, tức là đã muộn.
 - Đề xuất: thay hai câu trên bằng:
   > Duyệt khi có **ít nhất hai** dấu hiệu khách đã đi đúng ngày: buồng phòng xác nhận căn trống hoặc đã dọn từ ngày đó; thẻ hoặc chìa đã trả; app khóa (nếu có nhật ký mở cửa) không có lần mở bằng mã của khách sau ngày đi; sổ giao ca ngày đó. Còn nghi: từ chối, lễ tân thu đêm thêm như (a), hoặc báo chủ đầu tư. Cùng một người gửi lý do này nhiều lần trong tháng: báo chủ đầu tư. Kiểm mã cửa của khách đã xóa.
-- Trạng thái: Open
+- Trạng thái: Closed (BA Fixed @ `e200fea1`; DOM đọc lại 05/11 – xem lượt 2, mục 7)
 
 ### FB-R4-DOM-BA-PR72-06
 - Mức độ: Minor (ngoài phạm vi #72; PR sách riêng, trước cắt bản 06/11 18:00)
@@ -234,7 +234,7 @@ Chi tiết điểm 3 (giờ trả phòng ở trường hợp (b)):
     >
     > Phụ thu người vượt định mức: từ 6 tuổi trở lên 150.000 đ/đêm; dưới 6 tuổi miễn.
   - Nếu chủ đầu tư bật lại mức tăng Noel – Tết (BR-104: báo trước 15/12), BA sửa lại sách cùng lúc với Desk và OTA.
-- Trạng thái: Open
+- Trạng thái: Closed (chuyển sang PR #85 `v104/ba-esc045-prices` @ `f11e928c`; DOM review riêng ở `DOM-on-v104-pr85-prices.md` – xem lượt 2)
 
 ---
 
@@ -300,3 +300,50 @@ Chi tiết điểm 3 (giờ trả phòng ở trường hợp (b)):
    - có ví dụ 800.000 / 0;
    - có chú thích nguồn ẩn trỏ tới TC-V104-RG-26.
 3. Khối Nội bộ trích đúng nguyên văn câu Desk, tách rõ "tới v1.0.3" với "từ v1.0.4", và có chú thích nguồn ẩn. Lễ tân đọc là làm được ngay.
+
+---
+
+## 7. DOM lượt 2 – PR #72 @ `e200fea1` (05/11/2026)
+
+- Bản đọc: `git diff 11794c25..origin/v104/ba-docs-r4c -- product/docs/manual/` (5 tệp: sổ tay, `00`, `01`, `02`, `03`; 106 dòng thêm, 59 dòng bớt) và bảng trả lời `rounds/round-04/reviews/BA-reply-v104-pr72.md` trên nhánh. Số dòng dưới đây là số dòng trên nhánh @ `e200fea1`.
+- Mã đối chiếu ở `main` `ff2560f1`:
+  - `admin-web/src/pages/stay/FolioDialog.tsx` dòng 60–68 (`canAdjust = !locked && (settled ? mgr : fd)`), 27 và 77–82 (dòng FOC, giảm giá, dòng đã đảo không có nút **Điều chỉnh**);
+  - `folio/internal/folio-lines.service.ts` dòng 522 (folio đã trả phòng: chỉ OWN/MGR, `FORBIDDEN_ACTION`), 553 (dòng `foc`/`discount`/`adjustment` hoặc đã đảo: `INVALID_TRANSITION`);
+  - `frontdesk/internal/checkout.service.ts` dòng 981 và 1252 (yêu cầu duyệt còn chờ thì chặn hoàn tất, `PENDING_APPROVALS`).
+
+### Phán quyết lượt 2: **ĐẠT** – gộp được
+
+6/6 thẻ DOM đóng đúng (06 chuyển sang #85). Có 1 thẻ Minor mới (07), không chặn gộp. Giả định SEC-04 của BA: DOM xác nhận và đã ghi vào BR-105 (8), v0.5.10.
+
+| Thẻ | Mức | Đã sửa ở | DOM kiểm | Kết quả |
+|---|---|---|---|---|
+| PR72-01 | Major | `02` 5.1 bước 4 (339–341); sổ tay 2.5 bước 4 (855–857); `01` 14.1 (866) | Hạn sửa là "muộn nhất **trước khi nhận phòng**". Tới lúc nhận phòng mà đêm chưa về 0: **chưa thu**, gọi quản lý. Không gọi được ai: thu đủ, ghi sổ giao ca, hoàn phần dư ở bước Bill. Có câu cho ca đêm đầu miễn phí mà khách nhận sớm. Khớp BR-105 (4) v0.5.9 và điều kiện `balance_paid` | Closed |
+| PR72-02 | Major | `02` 9.4 bước 5 (782), 11.1 bước 2 (868–881); sổ tay 2.12 **Đổi phòng** bước 4 (1179), 2.14 bước 2 (1239–1252); `03` mục 7 (226) | (i) Không ghi **Thêm phát sinh**. Số còn lại ghi vào sổ giao ca, mẫu câu không có tên khách. (ii) Lúc trả phòng nhập số đã ghi, không đếm lại tủ căn cũ. (iii) **Kiểm trùng trước khi bấm Trả phòng**, lễ tân **Bỏ cả dòng** khi folio còn mở: đúng mã. `canAdjust` cho lễ tân trở lên khi folio `open`; máy chủ chỉ đòi OWN/MGR khi folio đã `settled`. Folio còn mở tới lúc hoàn tất **Trả phòng**, nên lễ tân làm được. Dòng **Đồ ăn uống** không thuộc nhóm bị khóa. Câu "Desk không cho bỏ thì báo quản lý" phủ ca dòng đã đảo. (iv) Xem bill có khoản minibar của cả hai tủ và không còn dòng trùng. (v) `03`: buồng phòng đếm trước khi dọn và bổ sung ngay; việc **Bổ sung minibar** sau trả phòng chỉ còn là kiểm lại | Closed |
+| PR72-03 | Minor | sổ tay 2.12 **Miễn phí, giảm giá** bước 2; `02` 9.5 bước 2; khối (b) bước con 1; `01` 14.1 | Chọn **Giảm giá đặc biệt (tiền phòng)**. Câu nói rõ Desk chọn sẵn FOC, phải đổi. Người duyệt từ chối yêu cầu loại FOC. Khớp `foc.tsx` (`useState('foc')`) | Closed |
+| PR72-04 | Minor | khối **Đơn quá ngày đi** (`02` 903–914, sổ tay 1273–1285); `02` 8.3 và 9.3 bước 4; sổ tay 2.11 và 2.12 **Gia hạn** bước 4 | Đủ 5 ý: xóa mã ngay; kiểm "Ngày đi đổi thành …" (ví dụ 04:30 ngày 25/11 → 24/11, đúng ngày làm việc BR-010); không kéo dài mã; khai báo ngày rời thật, không dán ô ngày đi Desk hiện; khách mới đang chờ. Bước "Chờ duyệt … Desk chưa cho hoàn tất" đúng mã (`PENDING_APPROVALS`). Câu "hạn ghi trễ: hỏi quản lý": DOM đồng ý, không đặt quy tắc mới | Closed |
+| PR72-05 | Minor | `01` 14.1 (867) | Cần ít nhất hai dấu hiệu, 4 dấu hiệu đúng thực tế. Từ 2 đêm thì chủ đầu tư duyệt, khớp hạn mức 1 đêm của BR-421 (b). Có câu cho ca một người gửi nhiều lần trong tháng. Có câu kiểm mã đã xóa | Closed |
+| PR72-06 | Minor | chuyển sang PR #85 | Xem `DOM-on-v104-pr85-prices.md` | Closed ở #72 |
+
+### Giả định của BA ở SEC-04: DOM xác nhận, đã ghi BR-105 (8) v0.5.10
+
+1. Giả định "chỉ chủ đầu tư hoặc quản lý được cho dùng phòng Nội bộ" **đúng chuẩn ngành**: phòng dùng nội bộ hay phòng tặng (house use / complimentary) cần tổng quản lý hoặc chủ duyệt. Ở OTTIMO quy định này càng cần, vì kênh Nội bộ bỏ qua sàn–trần và bậc giá (BR-105 v0.5.8). Nếu lễ tân trưởng tự cho được thì đó là đường giảm giá không qua duyệt.
+2. Quy định áp cho **mọi** đơn Nội bộ, kể cả đơn có thu. Câu sách hiện tại ("Chỉ tạo khi chủ đầu tư hoặc quản lý đã đồng ý. **Ghi chú nội bộ** ghi người cho, lý do, số đêm miễn phí.") đứng đầu gạch Nội bộ nên đã phủ đủ, **không cần sửa chữ**. Lần sửa sách tới, BA thêm "BR-105 (8) v0.5.10" vào chú thích nguồn ẩn (không chặn).
+3. Desk v1.0.x **không** chặn theo vai: lễ tân vẫn chọn được kênh Nội bộ. Kiểm soát dựa vào quy định, Ghi chú nội bộ, và người tạo ghi trên đơn. Đề xuất PO đưa vào backlog v1.0.5 trở đi (không gấp): Desk chỉ cho lễ tân trưởng trở lên chọn kênh Nội bộ, hoặc gửi yêu cầu duyệt cho OWN/MGR như FOC.
+4. Không cần ESC. Chủ đầu tư muốn chặt hơn (chỉ chủ đầu tư được cho) thì báo qua `/feedback`, không phải sửa mã.
+
+### Thẻ mới
+
+### FB-R4-DOM-BA-PR72-07
+- Mức độ: Minor
+- Vị trí: `01` 14.1, dòng "Đơn Nội bộ có đêm miễn phí…" (866); `02` 5.1 bước 4 gạch thứ hai (340); sổ tay 2.5 bước 4 gạch thứ hai (856). Đây là nhánh "Không liên lạc được ai".
+- Vấn đề: ca đêm đầu miễn phí chỉ được sửa về 0 **sau** khi người ở đã nhận phòng sớm. Lúc nhận phòng, Desk đã ghi dòng **phụ thu nhận sớm** theo giá đêm đầu lúc đó. Sửa giá đêm về 0 (A31) không tính lại dòng phụ thu này (`folio-lines.service.ts` không đụng dòng `early_checkin`). Sách mới nói phần dư tiền phòng thành tiền trả thừa, còn dòng phụ thu nhận sớm vẫn bị thu thừa.
+- Vì sao quan trọng: thu thừa người được cho phòng. Ví dụ gõ 800.000, nhận 10:30 → 240.000 (theo bậc 30 % sau khi chuyển giá). Số nhỏ và ca hiếm (đơn Nội bộ trộn, đêm đầu miễn phí, nhận sớm, không gọi được ai), nên không chặn gộp.
+- Đề xuất sửa: thêm một câu vào dòng `01` 14.1: "Sửa đêm đầu về 0 sau khi người ở đã nhận phòng sớm: Folio còn dòng phụ thu nhận sớm tính theo giá cũ → dòng đó → **Điều chỉnh** → **Bỏ cả dòng**, **Lý do điều chỉnh** 'Đêm đầu miễn phí – đơn Nội bộ'." BA làm cùng commit bổ sung của #85 nếu kịp trước 06/11 18:00, không thì để v1.0.5.
+- Trạng thái: Open
+
+### Dòng decision-log đề xuất (lượt 2, ORC ghi)
+
+| Ngày | Round | Quyết định | Người quyết | Lý do |
+|---|---|---|---|---|
+| 2026-11-05 | 4 | **DOM – #72 lượt 2 @ `e200fea1`: ĐẠT, gộp được.** Đóng DOM-01..05: đọc diff `11794c25..e200fea1` và mã. FolioDialog `canAdjust`: lễ tân **Bỏ cả dòng** được khi folio còn mở, máy chủ chỉ đòi OWN/MGR sau trả phòng. Yêu cầu giảm còn chờ duyệt thì chặn hoàn tất trả phòng. DOM-06 chuyển sang #85. Thẻ mới PR72-07 Minor: đêm đầu Nội bộ về 0 sau khi đã nhận phòng sớm thì dòng phụ thu nhận sớm vẫn theo giá cũ; không chặn gộp | DOM | Review lượt 2 |
+| 2026-11-05 | 4 | **BR-105 (8) v0.5.10** (DOM xác nhận giả định BA ở SEC-04): mọi đơn Nội bộ, miễn phí hay có thu, chỉ tạo khi chủ đầu tư hoặc quản lý đã đồng ý. Ghi chú nội bộ ghi người cho, lý do, số đêm miễn phí. Desk v1.0.x không chặn theo vai; PO xếp việc chặn hoặc gửi duyệt ở bản sau. BR-421: ngưỡng dài hạn khi gia hạn theo BR-108 (30 đêm từ ngày chuyển giá) | DOM | Kênh Nội bộ bỏ qua sàn–trần và bậc giá; chuẩn ngành house use / complimentary; SEC đồng ý hướng chặt hơn |
