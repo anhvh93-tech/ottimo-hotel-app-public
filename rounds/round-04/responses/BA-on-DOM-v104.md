@@ -47,3 +47,51 @@
 
 ## 6. Dòng decision-log đề xuất (ORC ghi khi gộp)
 `| 2026-11-04 | 4 | **BA – sửa tài liệu v1.0.4 theo DOM** (v104/ba-docs; rounds/round-04/responses/BA-on-DOM-v104.md): 6/6 thẻ Done. Ngày thay tờ v2: khung 09:00–11:00, OWN đặt privacy_notice_version trên Tham số quy tắc ≤ 15 phút sau khi thay, không nhận giấy tờ khách mới lúc chờ, quá 15 phút thì đặt lại tờ v1 [GIẢ ĐỊNH BA – G-BA-104-4]; khối Ngày cuối của người nghỉ 8 bước (áp dụng ngay); yêu cầu hoàn thay thế đủ 4 ý + đổi nơi nhận bằng nút Nhập nơi nhận hoàn (đã kiểm mã Desk). Mặc định đội chọn ghi vào tài liệu: FDL bắt buộc 2 bước, HK/MT tùy chọn; người trực kiểm căn trên app, 13.2a dự phòng | BA | Quyền BA (cách trình bày đặc tả); DOM-on-v104-ba-docs.md |`
+
+---
+
+## 7. Lượt 2 (04/11) – trả lời DOM lượt 2 (thẻ 07, 08, 09) và SEC (thẻ 01–09)
+
+- Đọc: `rounds/round-04/reviews/DOM-on-v104-ba-docs.md` mục "Lượt 2 (04/11)"; `rounds/round-04/reviews/SEC-on-v104-ba-docs.md` (bản trên origin/main @ `e1f6899b`); hướng phân xử của ORC 04/11 cho DOM 07 + SEC 03 (bỏ mốc 10 phút, gọi trước mọi lần Lưu, không có ngoại lệ "báo đội kỹ thuật sửa dữ liệu", kéo SEC 09(a) vào v1.0.4).
+- Sửa trên `v104/ba-docs` (đầu cũ `39b61dec`): `guides/00-index.md` mục 4; `guides/02-le-tan.md` 7.2 khối **Ngày thay tờ**; `guides/01-chu-dau-tu-quan-ly.md` 1.9 và 9.2; `user-manual-v1.0.md` 1.5. Không đụng tệp của UXD; khối chữ tờ v2 trong `02` 7.2 giữ nguyên từng byte.
+
+### 7.1 Bảng thẻ
+
+| ID | Trạng thái | Đã sửa |
+|---|---|---|
+| FB-R4-DOM-BA-104-07 (Major) | Done | `00-index` mục 4 bước 3–5 và `02` 7.2 bước 2–7 viết lại, cùng một nội dung. **Mốc** = giờ trong tin "Đã thay tờ v2 – hh:mm". Cảnh báo in đậm "Đã bấm Lưu thì trong ngày không quay về v1 được". Chủ đầu tư **gọi người trực trước mọi lần Lưu** ("Tờ v2 còn trên quầy chứ?"), Lưu trong lúc còn gọi; không gọi được hoặc đã có tin "Đặt lại v1" thì không Lưu. **Dán** `"privacy-2026-10-v2"` (gồm ngoặc kép, không gõ tay); Lưu xong mở lại dòng, **Lịch sử thay đổi** phải có dòng hôm nay đúng từng ký tự rồi mới nhắn "Đã đặt v2 – hh:mm". Người trực chờ tối đa 15 phút; đang gọi mà được bảo "chờ" thì chờ tiếp; quá hạn thì nhắn "Đặt lại v1 – hh:mm" **trước** rồi mới đặt lại tờ v1, tờ v2 cất cạnh chưa hủy. Tin đi chéo: xem ý 4 SEC 03. Lưu sai giá trị: theo ORC, **không** có ngoại lệ "báo đội kỹ thuật" – ghi "Desk v1.0.4 chỉ nhận các giá trị đã có tờ, nên không lưu được giá trị sai; Desk báo lỗi khi Lưu thì kiểm lại chữ đã dán"; giữ câu "không nhờ đội kỹ thuật đặt hộ hay sửa thẳng dữ liệu". Nhầm **Hiệu lực từ** sang ngày mai: sửa lại với hôm nay (gọi người trực trước), kiểm lịch sử. `00-index` mục 4 bước 2: ngày thay tờ chỉ làm **sau khi** bản v1.0.4 có danh sách giá trị cho phép đã lên. `01` 9.2 viết lại cùng ý |
+| FB-R4-DOM-BA-104-08 (Minor) | Done | `02` 7.2 bước 5 và `00-index` bước 3.7: nhận tin "Đã đặt v2" thì F5 mọi trang giấy tờ đang mở trên máy quầy. Câu lỗi theo SEC 08 (dưới) |
+| FB-R4-DOM-BA-104-09 (Suggestion) | Done | Bước 6 khối **Ngày cuối của người nghỉ** (sổ tay 1.5, `01` 1.9): "Căn HĐ thuê tháng mà người đó biết mã: hẹn khách đổi mã trong 7 ngày, kể cả khi nghỉ êm." |
+| FB-R4-SEC-BA-104-01 (Major) | Done | Thêm khối **Thứ tự** đầu danh sách: người nghỉ êm làm bước 1 → 8, bước 3, 5, 6, 7 cuối ca cuối cùng; người **bị cho thôi việc** ngay lúc báo, cùng một lần ngồi máy: bước 3 → phần app khóa của bước 6 (gỡ ủy quyền, vô hiệu mã/thẻ nhân viên) → bước 5 → bước 7 → phần còn lại của bước 6, sau đó mới 1, 2, 4, 8. Bỏ chữ "trong ngày" ở bước 5. Bước 1 đổi "Làm trước khi khóa" thành "Người nghỉ êm làm trước khi khóa" cho khỏi trái với thứ tự mới |
+| FB-R4-SEC-BA-104-02 (Major) | Done | Bước 6 thành danh sách "Chìa, mã, mật khẩu dùng chung (những thứ người đó biết hoặc được giao)": chìa cơ, thẻ tổng, thẻ nhân viên; app khóa (ủy quyền, mã/thẻ nhân viên); extranet OTA (gỡ tài khoản riêng hoặc đổi mật khẩu từng kênh); hộp thư chung `booking@`, hộp thư quầy, Gmail OTA (đổi mật khẩu, đăng xuất mọi phiên); mã mở máy điện thoại cơ sở, máy tính bảng, máy quầy, Zalo cơ sở đăng xuất/đăng nhập lại; mã két, Wi-Fi quản trị, mật khẩu phát Wi-Fi (4G); mã cửa (cho thôi việc + HĐ thuê tháng). Thêm "Không ghi mật khẩu, mã mới vào sổ giao ca, nhóm chat hay giấy dán quầy" |
+| FB-R4-SEC-BA-104-03 (Major, bản sửa) | Done | Ý 1–3 như DOM 07 ở trên. Ý 4 (tin đi chéo) ghi đủ ở `00-index` bước 4 và `02` bước 7: ngừng nhận giấy tờ, đặt ngay tờ v2 (khung mica, ngăn quầy, máy tính bảng); với mỗi khách nhận giấy tờ trong khoảng giữa, sổ giao ca **chỉ** ghi mã đơn, giờ nhận giấy tờ, giờ cho xem v2 (không tên, số giấy tờ, quốc tịch, SĐT); cho xem v2 lần gặp tiếp, trước khi trả phòng; **không** hỏi lại/ghi lại đồng ý, không xóa/nhập lại giấy tờ; khách không đồng ý xem hoặc đã về: ghi "chưa xem v2", **không** đưa tin của khách đó qua dịch vụ dịch (`02` trỏ mục 13.1d); chủ đầu tư nhắn đội chỉ số lượng "Lệch tờ ngày dd/mm: n đơn". Ý 5 theo ORC: không SQL, chờ 09(a) |
+| FB-R4-SEC-BA-104-04 (Minor) | Done | Máy tính bảng: "chép tệp v2; tệp v1 đổi tên hoặc chuyển ra thư mục riêng, chỉ xóa khi có tin 'Đã đặt v2'". Nhánh đặt lại v1: "mở lại tệp v1, xóa tệp v2 (không còn tệp v1 thì hôm đó không dùng máy tính bảng)". Tin đi chéo: máy tính bảng mở lại tệp v2 |
+| FB-R4-SEC-BA-104-05 (Minor) | Done | Bước 7: dữ liệu đọc ngoại tuyến của app nhân viên còn tới khi **Đăng xuất**; người nghỉ êm bấm **Tôi → Đăng xuất** trước mặt chủ đầu tư, **trước** bước 3; người bị cho thôi việc: nhờ xóa dữ liệu trang hoặc gỡ app, không làm thì ghi sổ giao ca, không ép. Khối CTV thêm "bước 7 nếu máy của CTV đã được cấp quyền" |
+| FB-R4-SEC-BA-104-06 (Minor) | Done | Bước 3 và dòng **Người nghỉ hẳn**: "Tài khoản người nghỉ hẳn **không Mở khóa lại**"; bước 3 thêm lý do (mật khẩu, 2 bước, mã khôi phục cũ còn hiệu lực) và "Tuyển lại thì tạo tài khoản mới (tên đăng nhập mới, mật khẩu tạm mới, bật 2 bước lại nếu vai cần)" |
+| FB-R4-SEC-BA-104-07 (Suggestion) | Done | Bước 4 viết lại: "Sau bước 3, tài khoản này không nhận thư bảo mật về chính mình nữa, **trừ một** thư **Security notice: notification email changed** gửi tới địa chỉ cũ ở bước này (thư không có dữ liệu khách)." |
+| FB-R4-SEC-BA-104-08 (Minor) | Done | `02` 7.2 bước 5: "Khách đang làm dở mà Desk báo "Chọn một giá trị trong danh sách." ở Khối 1 khi lưu câu trả lời đồng ý lưu ảnh: cho khách xem tờ v2, tải lại (F5), hỏi lại câu đồng ý lưu ảnh (mục 8.2). **Không chọn sẵn thay khách.**" Chuỗi lỗi lấy từ mã: `RegistrationPage.tsx` lưu đồng ý qua `useSubmit()` không có bảng lỗi riêng, nên lỗi `VALIDATION_FAILED` / `NOT_IN_LIST` của `noticeVersion` hiện bằng `field_error.not_in_list` = "Chọn một giá trị trong danh sách." (giống nhau trên origin/main và origin/v104/uxd-strings) |
+| FB-R4-SEC-BA-104-09 (gửi ARC) | Không phải việc BA | Tài liệu đã viết theo giả định 09(a) có trong v1.0.4: "Desk v1.0.4 chỉ nhận các giá trị đã có tờ" và ngày thay tờ chỉ làm sau khi bản đó lên. ARC/FE chốt chuỗi lỗi khi Lưu giá trị lạ thì BA thêm đúng chữ (hiện tài liệu chỉ ghi "Desk báo lỗi khi Lưu"). 09(b) (ghi đè trong 30 phút) chưa ghi vào tài liệu; có thì BA sửa lại câu "trong ngày không quay về v1 được" |
+
+### 7.2 G-BA-104-4 viết lại
+
+Thay bản lượt 1. **Giả định BA (đã có hướng ORC):** ngày thay tờ không có giới hạn giờ cho chủ đầu tư Lưu; điều kiện Lưu là đang gọi điện với người trực và người trực xác nhận tờ v2 còn trên quầy. Người trực chờ tối đa 15 phút từ mốc, trừ khi đang nói chuyện với chủ đầu tư và được bảo chờ. Quá hạn thì người trực **nhắn "Đặt lại v1 – hh:mm" trước**, rồi mới đặt lại tờ v1 (tờ v2 và tệp v2 cất cạnh). Tin đi chéo vẫn có thể xảy ra (chủ đầu tư Lưu mà không gọi), nên có nhánh xử lý riêng (SEC 03 ý 4); SEC ghi đây là sai lệch quy trình, không phải lộ dữ liệu. Giá trị sai không còn là rủi ro vì máy chủ v1.0.4 chặn (SEC 09(a)); nếu 09(a) **không** kịp v1.0.4 thì ngày thay tờ lùi tới bản có 09(a), tài liệu không cần sửa (bước 2 đã ghi điều kiện).
+
+### 7.3 Chỗ BA làm khác đề xuất reviewer
+
+1. **Tên tin nhắn đặt lại v1.** DOM 07 ý 4 và SEC 03 ý 3 đề xuất "Đã đặt lại tờ v1 – hh:mm" (nhắn sau khi đặt). BA để người trực nhắn **"Đặt lại v1 – hh:mm" trước khi đặt** tờ v1: chủ đầu tư thấy tin là biết không được Lưu nữa, khoảng đi chéo ngắn hơn. Chữ "Đã" bỏ vì tin gửi trước việc làm.
+2. **"Không hỏi lại hay ghi lại câu đồng ý"** (SEC 03 ý 4 viết "không ghi lại đồng ý"): BA thêm "hỏi lại" vì với người trực, ghi lại đồng ý bắt đầu bằng hỏi lại. Khác với SEC 08 (khách **đang làm dở**, Desk chưa lưu được): ở đó phải hỏi lại, và tài liệu ghi rõ hai tình huống tách nhau.
+3. **Người trực báo chủ đầu tư số đơn lệch** (không gửi mã đơn qua tin nhắn); mã đơn chỉ nằm trong sổ giao ca.
+
+### 7.4 Đã kiểm
+
+- `build_guides.py` dựng lại trên bản chép (tờ A4 v2 lấy từ `origin/v104/uxd-id-sheet-v2`): "Chữ tờ Your ID details trong 02-le-tan.md khớp nguyên văn bản A4 (10 đoạn + nhãn, tiêu đề, chân tờ)"; không có cảnh báo trỏ mục. Ảnh thiếu như lượt 1 (chờ chụp).
+- `git diff` khối chữ tờ v2 trong `02` 7.2: không đổi. Không có mật khẩu, mã, email thật trong phần sửa.
+
+### 7.5 Còn mở
+
+- Chờ DOM, SEC xác nhận thẻ 07–09 và SEC 01–08.
+- SEC 09 (ARC): khi chốt, BA thêm chuỗi lỗi khi Lưu giá trị lạ, và sửa câu "trong ngày không quay về v1 được" nếu 09(b) vào v1.0.4.
+
+### 7.6 Dòng decision-log đề xuất (thêm vào dòng mục 6)
+
+`| 2026-11-04 | 4 | **BA – sửa tài liệu v1.0.4 lượt 2 (DOM 07–09, SEC 01–08)**: ngày thay tờ v2 – mốc là tin "Đã thay tờ v2", OWN gọi người trực trước mọi lần Lưu, dán giá trị và kiểm Lịch sử thay đổi rồi mới nhắn "Đã đặt v2"; người trực chờ tối đa 15 phút, nhắn "Đặt lại v1" trước khi đặt lại tờ v1; tin đi chéo: sổ giao ca chỉ mã đơn + giờ, không hỏi lại đồng ý, "chưa xem v2" thì không dịch tin của khách đó, OWN nhắn đội chỉ số lượng; không có ngoại lệ sửa dữ liệu, ngày thay tờ chỉ sau khi bản có danh sách giá trị cho phép (SEC 09a) lên [G-BA-104-4 bản 2]. Ngày cuối của người nghỉ: thứ tự riêng khi cho thôi việc, không Mở khóa lại, chìa/mã/mật khẩu dùng chung, đăng xuất app nhân viên, HĐ thuê tháng đổi mã trong 7 ngày | BA | Quyền BA; DOM-on-v104-ba-docs.md Lượt 2, SEC-on-v104-ba-docs.md, ORC 04/11 |`
