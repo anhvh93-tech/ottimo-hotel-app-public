@@ -2,17 +2,14 @@
 // Language suggestion (ADR-014 3.2 point 3): one hidden strip per other published language, written in that
 // language, linking to the same page there. src/scripts/lang.ts shows at most one, never redirects.
 // data-nosnippet keeps it out of search snippets; position: fixed, so showing it causes no layout shift.
-import { en } from '../content/en';
-import type { Copy } from '../content/types';
-import { vi } from '../content/vi';
-import { LANGS, pathFor, type Lang } from '../lib/i18n';
+import { COPY } from '../content';
+import { HTML_LANG, LANGS, pathFor, type Lang } from '../lib/i18n';
 
 interface Props {
   lang: Lang;
   slug: string;
 }
 
-const COPY: Record<Lang, Copy> = { en, vi };
 const { lang, slug } = Astro.props;
 const others = LANGS.filter((l) => l !== lang);
 ---
@@ -21,7 +18,7 @@ const others = LANGS.filter((l) => l !== lang);
   others.map((l) => (
     <section
       class="lang-suggest"
-      lang={l}
+      lang={HTML_LANG[l]}
       data-suggest={l}
       data-nosnippet
       hidden

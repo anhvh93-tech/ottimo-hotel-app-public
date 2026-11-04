@@ -1,7 +1,8 @@
 ---
 // Phone action bar (< 768 px, concept 3.1/3.3 N2): same hierarchy as the hero – "Plan your stay" filled (3/5),
-// "Chat on Zalo" outline (2/5; "Zalo" + icon under 360 px). Rendered hidden; scripts/main.ts shows it only while the
-// hero buttons, #book, #contact and the footer are all off screen. No JavaScript: nojs.css shows it.
+// "Chat on Zalo" outline (2/5; "Zalo" + icon under 360 px). Korean/Chinese put words after the app name
+// ("Zalo로 문의", "通过 Zalo 联系" – CPY lp-v2 5.1): prefix and suffix both hide under 360 px.
+// Rendered hidden; scripts/main.ts shows it only while the hero buttons, #book, #contact and the footer are all off screen. No JavaScript: nojs.css shows it.
 import { links } from '../content/site';
 import type { Copy } from '../content/types';
 import Icon from './Icon.astro';
@@ -17,6 +18,10 @@ const { t, home } = Astro.props;
 <nav class="stickybar" id="stickybar" aria-label={t.sticky.label} data-hidden="true">
   <a class="sb sb-book" href={`${home}#book`}>{t.actions.requestToBook}</a>
   <a class="sb sb-zalo" href={links.zalo}
-    ><Icon name="chat" /><span><span class="sb-long">{t.actions.chatOnPrefix}</span>Zalo</span></a
+    ><Icon name="chat" /><span
+      >{t.actions.chatOnPrefix && <span class="sb-long">{t.actions.chatOnPrefix}</span>}Zalo{
+        t.actions.chatOnSuffix && <span class="sb-long">{t.actions.chatOnSuffix}</span>
+      }</span
+    ></a
   >
 </nav>

@@ -2,7 +2,7 @@ import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Icon, Modal, OfflineBar } from '@ottimo/ui';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { api } from '../app/api';
+import { loadWebreqNewCount, WEBREQ_COUNT_PAGE } from '../pages/webreq/newCount';
 import { timeHHmm } from '../app/dates';
 import { SECURITY_EMAIL_ANCHOR } from '../app/email';
 import { useLiveEvents } from '../app/live';
@@ -45,7 +45,7 @@ function useMenuItems(): NavItem[] {
 }
 
 type NavCounts = Partial<Record<NonNullable<NavItem['count']>, number>>;
-const COUNT_PAGE = 50;
+const COUNT_PAGE = WEBREQ_COUNT_PAGE;
 const COUNT_EVENTS = ['website_request.changed'] as const;
 
 /**
@@ -59,11 +59,9 @@ function useNavCounts(items: NavItem[]): NavCounts {
   const [counts, setCounts] = useState<NavCounts>({});
   const load = useCallback(() => {
     if (!wantWebreq || !propertyId) return;
-    api.listWebsiteBookingRequests({ propertyId }, { status: ['new'], limit: COUNT_PAGE }).then(
-      (out) =>
-        setCounts({
-          webreq_new: out.data.page.nextCursor ? COUNT_PAGE : out.data.data.length,
-        }),
+    // Same source as the S35 title line (FB-R4-UXD-FE-20).
+    loadWebreqNewCount(propertyId).then(
+      (n) => setCounts({ webreq_new: n }),
       () => setCounts({}),
     );
   }, [propertyId, wantWebreq]);

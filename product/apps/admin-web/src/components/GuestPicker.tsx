@@ -4,7 +4,7 @@ import { Icon } from '@ottimo/ui';
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { findGuests } from '../app/guestSearch';
 import { useDebounced } from '../hooks/useDebounced';
-import { GuestFormDialog } from '../pages/GuestFormDialog';
+import { GuestFormDialog, type GuestCreatePrefill } from '../pages/GuestFormDialog';
 import { usePropertyId } from '../session/SessionProvider';
 
 export interface GuestPickerProps {
@@ -16,6 +16,8 @@ export interface GuestPickerProps {
   /** Field error (EP00 0.2.1) – linked with aria-describedby. */
   error?: string;
   help?: ReactNode;
+  /** Quick create from a website request: contact, channel, send language (US-175 AC4 (3), BUG-R3-050). */
+  createPrefill?: GuestCreatePrefill;
 }
 
 /**
@@ -30,6 +32,7 @@ export function GuestPicker({
   required,
   error,
   help,
+  createPrefill,
 }: GuestPickerProps) {
   const { t } = useI18n();
   const propertyId = usePropertyId();
@@ -230,6 +233,7 @@ export function GuestPicker({
       {creating !== null ? (
         <GuestFormDialog
           prefillName={creating}
+          prefill={createPrefill}
           onClose={() => setCreating(null)}
           onSaved={(g: Guest) => {
             setCreating(null);

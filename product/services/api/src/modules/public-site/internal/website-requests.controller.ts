@@ -66,6 +66,7 @@ export class WebsiteRequestsController {
   list(
     @Req() req: GuardedRequest,
     @Query('status') status?: string,
+    @Query('locale') locale?: string,
     @Query('refCode') refCode?: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
@@ -79,6 +80,7 @@ export class WebsiteRequestsController {
           { userId: p.userId, roles: p.roles },
           {
             ...(status !== undefined ? { status } : {}),
+            ...(locale !== undefined ? { locale } : {}),
             ...(refCode !== undefined ? { refCode } : {}),
             ...(cursor !== undefined ? { cursor } : {}),
             ...(limit !== undefined ? { limit } : {}),

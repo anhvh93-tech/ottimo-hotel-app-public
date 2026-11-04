@@ -236,9 +236,13 @@ if grep -qF 'PGOPTIONS="-c default_transaction_read_only=on" psql' "$T/home/last
 else fail=$((fail + 1)); echo "FAIL email_ascii not read only"; fi
 
 # Part of the full run (timer) list.
-if grep -Eq '^if \[ "\$#" -gt 0 \].*checks=\(containers j16 backup disk mem tls http5xx email_dead email_missing email_changes email_ascii\)' "$src"; then
+# LP-v2 merge (lp-v2-main): the price checks (pricelimit pricegap priceswitch) follow the e-mail checks.
+if grep -Eq '^if \[ "\$#" -gt 0 \].*checks=\(containers j16 backup disk mem tls http5xx email_dead email_missing email_changes email_ascii( [a-z0-9_]+)*\)' "$src"; then
   pass=$((pass + 1)); echo "ok   email_dead + email_missing + email_changes + email_ascii in the full run"
 else fail=$((fail + 1)); echo "FAIL an e-mail check is missing from the full run"; fi
+if grep -Eq '^if \[ "\$#" -gt 0 \].*checks=\(.* pricelimit pricegap priceswitch\)' "$src"; then
+  pass=$((pass + 1)); echo "ok   pricelimit + pricegap + priceswitch in the full run (LP-v2)"
+else fail=$((fail + 1)); echo "FAIL an LP-v2 price check is missing from the full run"; fi
 
 echo "test-ops-check: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

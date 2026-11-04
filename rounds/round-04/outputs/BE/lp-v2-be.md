@@ -1,0 +1,139 @@
+# BE – LP-v2: API giá ước tính công khai + ngôn ngữ landing ko/zh/ru
+
+- Vai: BE | Round 4 – gói LP-v2 – Bước Sản xuất (code) | Ngày 01/11/2026
+- Nhánh: `lp-v2-be` (từ `origin/lp-v2`, có OpenAPI 0.3.9-draft của ARC). Chưa merge, chưa deploy.
+- Căn cứ: ARC `outputs/ARC/lp-v2-design.md` (BE-1…BE-6), DOM `outputs/DOM/web-price-estimate-rules.md` + BR-115/116 v0.4.9, SEC `outputs/SEC/lp-v2-privacy-and-api.md` (SR-PE-01…14, SR-LC-01/02, mục 10). Chỗ SEC khác ARC/DOM: theo SEC (lệnh ORC).
+
+## 1. Đã làm
+
+| # | Việc | Kết quả |
+|---|---|---|
+| BE-1 | Sinh lại hợp đồng 0.3.9 | `openapi-meta.ts`, `openapi-schemas.ts`, `packages/api-client` (openapi.ts), `tests/fixtures/rbac-cases.json`. `contract.test.ts` xanh; `gen_rbac_cases.py --check` OK; `gen_traceability.py --strict` không lỗi |
+| BE-2 | Cổng `PublicRatePort` | `reservations/public/public-rate.ts` (hàm thuần) + `public-rate.port.ts`. Dùng chung `PricingService.load` + `calendarRate`/`losDiscountPct`/`applyNightDiscount`/`extraPersons` của Desk, kênh `direct`. Không đọc đơn đặt, giữ chỗ, công suất, trạng thái buồng (SR-PE-04 – có test tĩnh). Căn bị OOO chồng đêm → bỏ khỏi hạng. Sàn ngang giá BR-116 theo `web_estimate.parity_mode` (mặc định `ota_floor`). Thuê tháng theo BR-201/202 (mốc thấp hơn gần nhất), làm tròn `rounding.monthly_rent` |
+| BE-3 | Endpoint `getPublicPriceEstimate` | Route trong `public-site.controller.ts`; `price-estimate.service.ts` (kiểm query, cache, trần tính mới, allowlist); `estimate-token.ts` (`pe1`, HMAC qua `keyedHash('public_estimate')` – không thêm bí mật) |
+| BE-4 | Lưu số ước tính vào yêu cầu web | `priceEstimateToken` → kiểm chữ ký/hạn/cơ sở/khớp mọi đầu vào → server **tính lại** trong giao dịch nhận yêu cầu → cột `price_estimate` = `{v, seen, atSubmit}`. Sai/hết hạn/không khớp → 202, không lưu, cờ `offer_unverified`. Desk thấy `priceEstimate` (= phần `seen`, đúng schema `PublicPriceEstimateRecord`). Còn sau khi xóa C2 |
+| BE-5 | Ngôn ngữ mới | `LANDING_LOCALE_VALUES` (= enum `LandingLocale`, có test so với openapi.yaml); `LANDING_LOCALES` (mặc định `en,vi`, sai → api không khởi động); `readiness()` theo `LANDING_LOCALES`; ngôn ngữ chưa có thông báo đang hiệu lực → **422 `PUBLIC_FORM_NOT_READY`** (SEC SR-LC-02); `unexpected_script` theo ngôn ngữ trang; nhận diện số thẻ/giấy tờ trên bản NFKC + số CMND Hàn, CCCD Trung, hộ chiếu Nga (SEC mục 10) |
+| BE-6 | Tham số | Migration **0090**: `public_show_prices` (bool, chỉ OWN, mặc định `false`), `web_estimate.parity_mode` (`ota_floor`), `.open_until` (`2027-01-01`, kiểm ngày thật), `.honor_hours` (48), `.show_foreigner_monthly` (true). `public_show_prices` = công tắc khẩn (tắt có hiệu lực ngay trong ngày) và audit nhóm `security` (SR-PE-08) |
+
+Giới hạn tần suất (SR-PE-07, RAM, không ghi `rate_limit_counter`): HMAC IP nhãn `ip:pe:` 30/10 phút + 200/ngày, /48 IPv6 400/ngày, toàn api 10/giây → 503; bulkhead riêng 2 (≤ 4 của SEC); trần 600 lần tính mới/giờ/cơ sở → 503. Giao dịch READ ONLY, `statement_timeout` 1 giây. Cache kết quả LRU ≤ 1.000, **60 giây**, xóa khi có thay đổi tham số của cơ sở (setParameter/cancel). Cache trúng không chạm DB (có test). Header `Cache-Control: no-store`, `X-Robots-Tag: noindex`. Căn thiếu giá → bỏ căn, ghi log cảnh báo **1 lần/căn/ngày nghiệp vụ** (SR-PE-12).
+
+## 2. File tạo/sửa
+- Mới: `product/services/api/src/modules/reservations/public/public-rate.ts`, `public-rate.port.ts`; `product/services/api/src/modules/public-site/internal/price-estimate.service.ts`, `estimate-token.ts`; `product/services/api/src/db/migrations/0090_lp_v2_price_estimate_locales.sql` + `meta/0090_snapshot.json`; test `product/services/api/test/lp-v2-be-units.test.ts`, `test/integration/lp-v2-price-estimate.test.ts`.
+- Sửa: `public-site.controller.ts`, `public-booking.service.ts`, `public-site.options.ts`, `website-request-rules.ts`, `website-requests.service.ts`, `public-site.module.ts`; `reservations.module.ts`; `crypto.service.ts` (`public_estimate`); `platform/public/parameter-hooks.ts` (listener thay đổi tham số), `parameter.service.ts`, `platform/internal/parameters.service.ts` (kill switch + audit security), `parameter-rules.ts` (`open_until`), `platform.controller.ts`; `db/schema/public-site.ts`; `migrations/meta/_journal.json`; `generated/*`; `packages/api-client/src/generated/openapi.ts`; `tests/fixtures/rbac-cases.json`; `.env.example`, `infra/server/env.production.example` (dòng mẫu `LANDING_LOCALES=en,vi`); `apps/admin-web/src/pages/webreq/WebRequestDrawer.tsx` (một dòng: api-client mới có `ko`/`zh` → mẫu báo giá dùng `en`, để typecheck admin-web xanh – FE xem lại).
+
+## 2b. Kết quả kiểm
+- Toàn bộ test api trên PostgreSQL 17 tạm (cổng 55439, đã dừng): **140 file đạt, 2 bỏ qua; 3321 test đạt, 24 bỏ qua, 0 lỗi**. Trong đó mới: `lp-v2-be-units.test.ts` 38 test (12 ca DOM mục 11 cả `direct` lẫn `ota_floor`, allowlist, query, token, locale, NFKC), `lp-v2-price-estimate.test.ts` 17 test e2e.
+- `pnpm lint` (eslint + typecheck mọi workspace) xanh; prettier xanh; admin-web 644 test, api-client 32 test đạt.
+
+## 3. Điểm lệch so với thiết kế (cần ARC sửa mô tả OpenAPI ở bước Phản hồi & sửa)
+| # | Chỗ | ARC/hợp đồng | Đã làm | Lý do |
+|---|---|---|---|---|
+| L1 | Hạn mức IP | 40/10 phút, 300/ngày | 30/10 phút, 200/ngày, /48 400/ngày, 10/giây toàn api | SEC SR-PE-07 (Must) |
+| L2 | Cache | 300 giây, HTTP `private, max-age=60` | 60 giây, HTTP `no-store` | SEC SR-PE-09; đổi giá căn (`room_list_price`) không phát `config_changed` nên TTL 60 s là lưới |
+| L3 | `statement_timeout` | 2 giây | 1 giây | SR-PE-08 |
+| L4 | Query tối đa | 512 byte | 256 byte | SR-PE-03 |
+| L5 | Tham số lạ | 422 | 422 `VALIDATION_FAILED` (SEC nói 400) | giữ hợp đồng; vẫn mã chung, không lộ quy tắc |
+| L6 | Server tính lại khi nhận yêu cầu | chỉ giải mã token | token + tính lại; `atSubmit` lưu `fromTotalVnd`, `toTotalVnd`, dòng chi tiết, chế độ ngang giá | SR-PE-05/06. `toTotal` không bao giờ ra phản hồi công khai |
+| L7 | Audit `public_show_prices` | `config` | `security` + công tắc khẩn trong ngày | SR-PE-08; ARC 2.9 để SEC quyết |
+| L8 | Ngôn ngữ chưa có thông báo | `NOTICE_VERSION_INVALID` | 422 `PUBLIC_FORM_NOT_READY` (sai version của ngôn ngữ đã có thông báo vẫn `NOTICE_VERSION_INVALID`) | SR-LC-02 + lệnh ORC |
+| L9 | Thiếu giá | cảnh báo OWN | log `public_price_missing` 1 lần/căn/ngày | gửi thông báo cho OWN cần kind mới trong enum `StaffNotification.kind` = đổi hợp đồng → chờ ARC |
+| L10 | Trường DOM chưa có trong hợp đồng | – | chưa trả: `fromTotal`/dòng chi tiết theo nhóm, phí dịch vụ tháng, giá tháng hộ chiếu nước ngoài, trạng thái `not_open` riêng | hợp đồng 0.3.9 chưa có; `not_open` đang trả `on_request`; `nightlyAvgVnd` vẫn trả (bắt buộc trong schema) dù DOM không muốn hiện |
+| L11 | `cache xóa khi NOTIFY config_changed` | LISTEN | listener trong tiến trình (ParameterHooks.changed sau khi commit) | một tiến trình api (ADR-010); không mở thêm kết nối LISTEN |
+| L12 | Ở tối thiểu | 200 + `notes.min_stay` | 200, `priceAvailable: false`, `on_request` + `notes.min_stay` | DOM mục 8: không hiện số |
+
+## 4. Giả định
+- G1: số migration **0090** – 0089 đã dùng ở nhánh `be-a-v1.0.1` (chưa vào main). Ai merge sau sửa `prevId` của `0090_snapshot.json` trỏ về 0089. Merge v1.0.1 trước LP-v2 để `when` tăng dần.
+- G2: hạng không có căn khớp / slug lạ / không còn căn tham gia / quá `open_until` cùng trả `on_request` (không lộ cấu hình).
+- G3: ≥ 28 đêm ngắn ngày → trả theo tháng, `months = null` (không giảm kỳ hạn) + `long_stay_required`.
+- G4: chế độ `ota_floor` mà nhóm căn thiếu `ota_base_rate` → bỏ căn đó (coi như thiếu giá) để không bao giờ hiện dưới giá OTA.
+- G5: thuê tháng không xét `open_until`, không sàn, không phụ thu người (DOM mục 4).
+
+## 5. Rủi ro / vướng mắc
+- Hợp đồng chưa có kind thông báo "thiếu giá" và các trường DOM (L9, L10) → ARC quyết thêm (chỉ thêm).
+- Bộ đếm RAM mất khi khởi động lại api (SEC PE-RR3 – chấp nhận).
+- `unexpected_script` giờ gắn cờ chữ Kirin trên trang `en`/`vi` (trước đây không) – chỉ là cờ lọc, không chặn.
+
+## 6. Việc cho vai khác
+- **FE-B (landing)**: xử lý 422 `PUBLIC_FORM_NOT_READY` như `NOTICE_VERSION_INVALID` (khối Zalo). Phản hồi giá: 200 `priceAvailable:false` + `notes.min_stay` = câu ở tối thiểu; `party_exceeds_room` = câu sức chứa; `on_request` = "giá theo yêu cầu" (gồm ngày chưa mở giá). Không hiện `nightlyAvgVnd` (DOM). Header `no-store` – không tự cache. Token chỉ gửi khi số hiện đúng lựa chọn đang chọn.
+- **FE (admin-web S35)**: đọc `priceEstimate` (có `computedAt`, `priceVersion`); `locale` có thêm `ko`, `zh`.
+- **OPS**: thêm `LANDING_LOCALES: ${LANDING_LOCALES:-en,vi}` vào biến môi trường api trong `infra/docker-compose.prod.yml` (danh sách env tường minh – thiếu thì api luôn `en,vi`); route Caddy `price-estimate`; `publish-privacy-notice` đọc manifest/`LANDING_LOCALES` (SR-LC-04/05 – không có phần nào trong file BE); cảnh báo log `public_price_missing` và 429/503 của route (SR-PE-16).
+- **QA**: chạy lại 12 ca DOM mục 11 trên staging với giá Desk thật; SEC 9.5.
+- **ORC**: ghi decision-log các lệch L1–L12 nếu đồng ý.
+
+## 7. Việc chưa xong
+- Mục 10 SEC về `chatSafeText` (dấu chấm `。`, tên miền Kirin) thuộc nhánh Google Chat (`be/gchat-*`) – không có trên nhánh này.
+
+## 8. Phản hồi & sửa – ESC-043 (INV 01/11)
+- Câu 1 = C (nâng giá trực tiếp bằng OTA): không đổi mã; `web_estimate.parity_mode` giữ `ota_floor` mặc định.
+- Câu 2 – thuê tháng không hiện giá: `stayType = long` và ngắn ngày ≥ 28 đêm trả **200, `priceAvailable: false`, `unavailableReason: monthly_offer`**, không có số tiền, không token (≥ 28 đêm kèm `notes: [{code: long_stay_required}]`). Vượt sức chứa vẫn `party_exceeds_room`; hạng không có căn bán vẫn `on_request`. Bộ tính không đọc giá tháng nữa (`monthly_list_price_vnd`, `lease_terms`, `rounding.monthly_rent` không còn được đọc ở route công khai).
+- OpenAPI 0.3.9-draft (bản nháp chưa phát hành, sửa theo lệnh ORC – ARC xem lại): thêm enum `monthly_offer`; bỏ `PublicPriceEstimate.longStay`, `longStayAlternative`, mã ghi chú `monthly_excludes_utilities`, `PublicPriceEstimateRecord.monthlyFromVnd`; ví dụ `monthlyOffer`. Sinh lại meta/schemas/api-client.
+- Migration 0090: bỏ khóa `web_estimate.show_foreigner_monthly` (chưa phát hành nên sửa thẳng file).
+- Mục 3 L10 (giá tháng hộ chiếu nước ngoài, phí dịch vụ tháng) và giả định G3/G5 (giá tháng) không còn áp dụng.
+- Kiểm: toàn bộ test api 3321 đạt / 24 bỏ qua / 0 lỗi; `pnpm lint` xanh; admin-web 644, api-client 32 đạt.
+
+## 9. Phản hồi & sửa – review ARC/SEC mã LP-v2 + bảng giá INV 01/11 (01/11/2026)
+
+Trả lời từng thẻ: `rounds/round-04/responses/BE-LP-v2.md`. Mục 1–8 ở trên là bản trước; chỗ nào khác thì mục này thắng.
+
+### 9.1 Đã sửa
+- **Thứ tự hạn mức (SEC BE-01)**: theo IP trước → bộ chung 10/giây → bulkhead. Lượt bị 429 theo IP không chiếm chỗ của khách khác.
+- **Một mức giá (ARC BE-04, BR-116 v0.5.0)**: bỏ hẳn `web_estimate.parity_mode`, sàn OTA, luật G4. Giá web = báo giá Desk kênh Trực tiếp. Giả định G4 (mục 4) và lệch L6 "chế độ ngang giá" hết hiệu lực.
+- **Mốc tháng từ tham số (ARC BE-03)**: không còn hằng 28; mọi chỗ đọc `long_stay_required_from_nights` theo ngày nghiệp vụ. Giả định G3 (mục 4) đổi thành "≥ tham số".
+- **`upliftNights`**: chỉ đếm đêm có mức tăng khác 0 % (bảng 01/11 đặt 0 thì trang không ghi "có đêm cuối tuần").
+- **Tính lại khi nhận yêu cầu (SEC BE-04)**: trần 1 s mỗi câu lệnh trong savepoint; quá trần → chỉ lưu `seen`.
+- **Migration 0091** (ARC BE-01, BE-07): đổi số, bỏ khóa `web_estimate.parity_mode` và `web_estimate.honor_hours`; snapshot sinh lại.
+- **OpenAPI 0.3.10-draft** (ARC BE-02): đổi số + "0.3.10 bổ sung 2" (chỉ mô tả); sinh lại meta/schemas/api-client.
+
+### 9.3 Gộp migration khi 0089 (BE-A v1.0.1) và/hoặc 0090 (PN-01) đã lên `main` trước – việc của ORC/BE lúc gộp `main` vào `lp-v2`
+1. `meta/_journal.json` xung đột (cả hai bên thêm sau 0088): giữ nguyên các dòng của `main` (0089 idx 65, 0090 idx 66 nếu có), thêm dòng `0091_lp_v2_price_estimate_locales` **cuối mảng**, `idx` = vị trí (66 hoặc 67), `when` = 1792782171681. Nếu `when` lớn nhất trên `main` ≥ số này thì dùng max + 2000 và sửa chú thích đầu file SQL.
+2. Sinh lại snapshot (bản trên nhánh trỏ về 0088, thiếu `simulation_guard`):
+   - xóa `meta/0091_snapshot.json`; tạm bỏ dòng 0091 khỏi journal và chuyển `0091_lp_v2_price_estimate_locales.sql` ra ngoài thư mục;
+   - `pnpm --filter @ottimo/api db:generate --name lp_v2_price_estimate_locales`. **Chú ý**: drizzle-kit đặt tên theo `idx` (`00NN_…sql`, `meta/00NN_snapshot.json` với NN = 66/67) và **ghi đè** `meta/0066_snapshot.json`/`0067_snapshot.json` cũ đang có trong kho;
+   - `mv meta/00NN_snapshot.json meta/0091_snapshot.json`, rồi `git checkout -- meta/00NN_snapshot.json` để trả lại tệp cũ; so `00NN_…sql` sinh ra với phần DDL của 0091 (phải giống 6 câu `ALTER TABLE`), xóa nó, đặt lại tệp 0091 viết tay; đặt lại dòng journal như bước 1; `prettier --write` snapshot;
+   - kiểm: `prevId` của `0091_snapshot.json` = `id` của snapshot mới nhất trên `main` (0089 hoặc 0090); `pnpm --filter @ottimo/api exec drizzle-kit generate` báo "No schema changes"; `test/migrations-journal.test.ts`, `test/integration/schema-parity.test.ts` xanh; chạy migrate trên một DB **đã có** 0089 (và 0090) rồi mới thêm 0091.
+3. PN-01 chưa lên mà LP-v2 lên trước: giữ 0091 (không đổi số), PN-01 khi lên sau phải lấy số > 0091 và `when` > 1792782171681 (không chèn trước mục đã có – decision-log 30/10).
+4. OpenAPI: changelog `0.3.9-draft` (v1.0.1) và `0.3.10-draft` (LP-v2) là hai mục riêng; `info.version` = 0.3.10-draft; sinh lại meta/schemas/api-client sau khi gộp (không gộp tay tệp sinh).
+
+### 9.2 Kết quả kiểm (lượt này)
+- Toàn bộ test api trên PostgreSQL 17 tạm riêng (docker, cổng 55441, roles theo `02-roles.sh`, đã dừng sau khi chạy): **140 file đạt, 2 bỏ qua; 3339 test đạt, 19 bỏ qua, 0 lỗi**. Mới/sửa: `lp-v2-be-units.test.ts` (ca DOM mục 11 cột trực tiếp + 9 ca bảng giá 01/11 + "không còn sàn OTA"), `lp-v2-price-estimate.test.ts` 20 test e2e (thêm: mốc 30 đêm từ tham số + `stay_kind`; một IP dồn dập, IP khác vẫn 200; trần 1 s khi tính lại).
+- `pnpm lint` (eslint + typecheck mọi workspace) xanh; `pnpm format:check` xanh; `drizzle-kit generate` "No schema changes"; api-client 32 test đạt; `gen_rbac_cases.py --check` OK.
+
+## 10. Kiểm thử – sửa lỗi QA: BUG-R4-004 (P2), BUG-R4-005 (P3) – nhánh `lp-v2-be2` (01/11/2026)
+
+### 10.1 BUG-R4-004 – `publicRoomType` không lưu, không trả
+- **Nguyên nhân**: zod `roomPatch`/`roomInput` trong `platform.controller.ts` không có khóa `publicRoomType` nên zod bỏ trường lạ; `RoomsService` không đọc/ghi cột `room.public_room_type` (có từ migration 0055).
+- **Đã sửa**:
+  - `createRoom` lưu `RoomInput.publicRoomType`; `updateRoom` lưu `RoomPatch.publicRoomType` (vắng = giữ, `null` = xóa); chuỗi được bỏ khoảng trắng đầu/cuối và gộp khoảng trắng giữa, sau đó 1–60 ký tự (rỗng/toàn khoảng trắng/61 ký tự/không phải chuỗi → 422 `VALIDATION_FAILED`).
+  - `Room.publicRoomType` **luôn** có trong `listRooms`/`createRoom`/`updateRoom` (`null` = chưa nhập).
+  - **Quyền: chỉ owner** (lệnh ORC). Manager vẫn gọi được `createRoom`/`updateRoom` cho các trường khác (rbac S25/A101 giữ nguyên), nhưng gửi `publicRoomType` (kể cả `null`) → 403 `FORBIDDEN_ACTION`, không ghi gì. Lý do ghi trong mã: hạng công khai quyết định căn bán ở hạng nào và giá web nào (BR-115), cùng loại với công tắc `public_show_prices` (chỉ OWN).
+  - Audit: `room.updated`/`room.created` (category `config`) ghi `publicRoomType` trước/sau; thêm `publicRoomType` vào allowlist audit `room` (`modules/platform/audit-entities.ts`).
+  - **Cache giá web**: sau khi `updateRoom` commit (200), gọi `ParameterHooks.changed(propertyId, 'room')` → `PriceEstimateService.invalidate` xóa cache kết quả của cơ sở. Trước đây đổi hạng/ngừng bán/giá niêm yết chỉ lên web sau TTL 60 s (lệch L2). Lượt bị từ chối (403/422/409) không xóa cache.
+- **Test**: `test/integration/bug-r4-004-public-room-type.test.ts` (8 test): list trả `null` cho OWN/MGR/FD; OWN PATCH lưu + trả + list + audit; PATCH kèm `listPrice` (đúng bước QA) lưu cả hai; PATCH không có khóa giữ giá trị, `null` xóa; 4 ca 422; MGR 403 (cả khi kèm trường khác), MGR không gửi trường → 200, FD → 403; `createRoom` OWN lưu, MGR gửi trường → 403 không tạo căn; cache bị xóa sau PATCH thành công, không xóa sau 403.
+
+### 10.2 Production có `public_room_type` cho 10 căn không? (đọc mã/migration/runbook, không SSH)
+- **Có, theo mã đã chạy.** `production-bootstrap.ts` chèn `room.public_room_type = r.publicRoomType` cho 10 căn từ `PRODUCTION_ROOMS` (`production-defaults.ts`): 101, 201 = `Standard Studio · City View`; 102, 103, 202, 203 = `Standard Studio · Garden View`; 302, 402 = `Premium · One Bedroom + 1`; 301, 401 = `Signature · Two Bedrooms` (BR-012 (6), INV 26/10; slug khớp landing `standard-studio-city-view`, `standard-studio-garden-view`, `premium-one-bedroom-1`, `signature-two-bedrooms`).
+- Bootstrap production chạy **một lần** ở buổi B2 28/10 bằng image `sha-70fe734e9077` (`rounds/round-03/outputs/OPS/b2-runbook.md` mục 0 và phần 1: audit `production.bootstrapped` = 1). Commit `d2716948` (26/10, gán đủ 10 hạng) là tổ tiên của `70fe734e9077`, và `production-defaults.ts` ở commit đó có đủ 10 dòng `publicRoomType` khác `null`.
+- Không migration nào sau 0055 đụng cột này; trước bản sửa này **không** có API nào ghi được cột → không ai đổi được sau bootstrap. Vậy production hiện có đủ 10 giá trị, trừ khi có người sửa DB tay (không có ghi nhận nào).
+- **Chưa xác minh trực tiếp trên DB production.** OPS nên chạy chỉ đọc trước khi bật `public_show_prices`: `SELECT room_no, public_room_type FROM room ORDER BY room_no;` (kỳ vọng 10 dòng như trên).
+- **Staging/demo/stack QA** dựng từ DS-E (`src/db/seed/ds-e.ts`, `tests/fixtures/seed/ds-e.json`): **không** có hạng nào → web luôn "giá theo yêu cầu". BE không sửa seed DS-E ở lượt này (đổi seed làm lệch nhiều test khách đang chờ `publicRoomType = null`). Sau khi bản này lên staging, OWN staging gán 10 hạng qua API (hoặc Desk khi FE-A có ô), hoặc OPS chạy SQL một lần như QA đã làm.
+
+### 10.3 BUG-R4-005 – mô tả OpenAPI 0.3.10-draft lệch hành vi
+Sửa mô tả `getPublicPriceEstimate` cho khớp mã (L1–L4, L11 ở mục 3), chỉ mô tả + header khai báo, không đổi schema thân:
+- 30/10 phút + 200/ngày theo HMAC IP (IPv6 /64), 400/ngày theo IPv6 /48, tính cả 4xx → 429; sau đó 10 lượt/giây cho cả api → 503 `Retry-After: 1`; bulkhead 2 → 503 `Retry-After: 5`; 600 lần tính mới/giờ/cơ sở → 503 (cả mô tả và `x-rate-limit`).
+- Query > 256 byte → 422 ở api; qua origin landing thì Caddy trả 404 trước (SR-PE-10).
+- READ ONLY, `statement_timeout = '1s'`.
+- Cache kết quả 60 giây; xóa khi đổi tham số hoặc `updateRoom`; cơ sở + công tắc giữ RAM ≤ 60 giây.
+- `Cache-Control: no-store` + `X-Robots-Tag: noindex` mọi phản hồi; header khai báo của 200 đổi `private, max-age=60` → `no-store`.
+- `Room.publicRoomType`, `RoomInput.publicRoomType`, `RoomPatch.publicRoomType`: ghi quyền chỉ owner, luôn trả, chuẩn hóa khoảng trắng.
+- Changelog: thêm mục **0.3.10 bổ sung 3**. Sinh lại: `openapi-meta.ts`/`openapi-schemas.ts` không đổi (chỉ mô tả); `packages/api-client/src/generated/openapi.ts` đổi mô tả + kiểu header `Cache-Control`.
+- **ARC cần xác nhận** mục 0.3.10 bổ sung 3, nhất là phần quyền "chỉ owner" của `publicRoomType` (thêm một trường hợp 403 theo trường cho manager – trước đây hợp đồng không nói).
+
+### 10.4 Việc cho FE-A (không sửa admin-web ở lượt này)
+- `apps/admin-web/src/pages/RoomDrawer.tsx` (Danh mục căn, S25/H04) **chưa có** ô hạng công khai; `admin-web/src` không có chỗ nào đọc `publicRoomType`.
+- Cần: ô "Hạng phòng công khai" trong ngăn sửa căn (và thêm căn), **chỉ hiện/sửa được với owner**; manager thấy chỉ đọc. Nên là **danh sách chọn 4 hạng** đúng chữ e-brochure (như `production-defaults.ts`) + "Chưa gán", không ô chữ tự do: nhãn khác chữ làm slug lệch landing → hạng đó "giá theo yêu cầu" trên web và yêu cầu web bị cờ `room_type_unmatched`.
+- Gửi `publicRoomType` chỉ khi đổi (manager gửi trường này sẽ bị 403 cả lượt lưu). `null` = bỏ gán. Cột danh sách căn có thể hiện hạng.
+- Cùng chỗ: QA ghi nhận Desk S35 hiện slug ở cột "Hạng phòng" – UXD/FE-A xem dùng nhãn `roomTypeLabel`.
+
+### 10.5 Kết quả kiểm (lượt này)
+- Toàn bộ test api trên PostgreSQL 17 tạm riêng (docker, cổng 55437, roles theo `02-roles.sh`, đã xóa sau khi chạy): **141 file đạt, 2 bỏ qua; 3347 test đạt, 19 bỏ qua, 0 lỗi** (gồm 8 test mới của BUG-R4-004).
+- `pnpm lint` (eslint + typecheck mọi workspace) xanh; `prettier --check` xanh; `drizzle-kit generate` "No schema changes" (không migration mới – cột có từ 0055); api-client 32 test đạt.

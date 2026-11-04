@@ -22,6 +22,7 @@ import { normalizeEmail, normalizePhone } from '../../guests/public/normalize';
 import { displayNamesOf } from '../../identity/public/staff-directory';
 import { ParameterService } from '../../platform/public/parameter.service';
 import { PropertyContextService } from '../../platform/public/property-context';
+import { isLandingLocale } from './public-site.options';
 import {
   normalizeFreeText,
   normalizeRefCode,
@@ -86,9 +87,37 @@ export interface WebsiteRequestRow {
   converted_at: Date | null;
   last_activity_at: Date;
   pii_purged_at: Date | null;
+  /** R4 LP-v2: { v, seen, atSubmit } – PriceEstimateService.forRequest (not C2, kept after the purge). */
+  price_estimate: { seen?: Record<string, unknown> } | null;
   created_at: Date;
   updated_at: Date;
   version: number;
+}
+
+/** OpenAPI PublicPriceEstimateRecord from the stored `seen` part (explicit fields – the serializer is the 2nd net). */
+export function priceEstimateRecord(
+  stored: { seen?: Record<string, unknown> } | null,
+): Record<string, unknown> | null {
+  const s = stored?.seen;
+  if (!s || typeof s !== 'object') return null;
+  const pick = (k: string) => (s[k] === undefined ? null : s[k]);
+  return {
+    roomType: s.roomType,
+    stayKind: s.stayKind,
+    arrival: s.arrival,
+    departure: pick('departure'),
+    months: pick('months'),
+    adults: s.adults,
+    children: s.children,
+    infants: s.infants,
+    nights: pick('nights'),
+    totalVnd: pick('totalVnd'),
+    losDiscountPct: pick('losDiscountPct'),
+    extraPersonFeeVnd: pick('extraPersonFeeVnd'),
+    currency: 'VND',
+    computedAt: s.computedAt,
+    priceVersion: s.priceVersion,
+  };
 }
 
 export interface Actor {
@@ -159,10 +188,11 @@ export class WebsiteRequestsService {
   async list(
     tx: Tx,
     actor: Actor,
-    q: { status?: string; refCode?: string; cursor?: string; limit?: string },
+    q: { status?: string; locale?: string; refCode?: string; cursor?: string; limit?: string },
   ): Promise<{
     data: Array<Record<string, unknown>>;
     page: { nextCursor: string | null; limit: number };
+    total: number;
   }> {
     const c = await this.ctx(tx);
     let statuses: string[] = ['new', 'in_progress'];
@@ -171,6 +201,12 @@ export class WebsiteRequestsService {
       if (statuses.some((s) => !(WR_STATUSES as readonly string[]).includes(s))) {
         throw fieldError('status', 'NOT_IN_LIST');
       }
+    }
+    // 0.3.10 bổ sung 4 (US-175 AC3, AC5 – BUG-R4-007): filter by the landing language; null = every language.
+    let locales: string[] | null = null;
+    if (q.locale !== undefined && q.locale !== '') {
+      locales = q.locale.split(',').map((s) => s.trim());
+      if (locales.some((l) => !isLandingLocale(l))) throw fieldError('locale', 'NOT_IN_LIST');
     }
     let ref: string | null = null;
     if (q.refCode !== undefined && q.refCode !== '') {
@@ -184,19 +220,30 @@ export class WebsiteRequestsService {
                        WHEN w.status = 'new' THEN 1 ELSE 2 END`;
     const key = `CASE WHEN w.status = 'new' THEN extract(epoch FROM w.reply_by)
                       ELSE -extract(epoch FROM w.updated_at) END`;
-    const params: unknown[] = [statuses, actor.userId, c.today, ref, limit + 1];
+    // Same WHERE for the page and for `total` (status/refCode/locale + the caller's scope; never the cursor), built
+    // for the parameter numbers of each statement – the count has no `today` (FB-R4-ARC-BE-LPV2-08).
+    const whereAt = (p: { status: number; user: number; ref: number; locale: number }) =>
+      `(w.status = ANY($${p.status}::text[]) OR $${p.ref}::text IS NOT NULL)
+          AND ($${p.ref}::text IS NULL OR w.ref_code = $${p.ref} OR $${p.ref} = ANY(w.alias_ref_codes))
+          AND ($${p.locale}::text[] IS NULL OR w.locale = ANY($${p.locale}::text[]))
+          AND ${this.scopeSql(actor, p.user)}`;
+    const params: unknown[] = [statuses, actor.userId, c.today, ref, locales, limit + 1];
     let after = '';
     if (cursor) {
       params.push(cursor[0], cursor[1], cursor[2]);
-      after = `AND (${rank}, ${key}, w.id) > ($6::int, $7::numeric, $8::uuid)`;
+      after = `AND (${rank}, ${key}, w.id) > ($7::int, $8::numeric, $9::uuid)`;
     }
     const { rows } = await tx.query<WebsiteRequestRow & { r: number; k: string }>(
       `SELECT w.*, ${DATES}, ${rank} AS r, ${key}::numeric AS k FROM website_booking_request w
-        WHERE (w.status = ANY($1::text[]) OR $4::text IS NOT NULL)
-          AND ($4::text IS NULL OR w.ref_code = $4 OR $4 = ANY(w.alias_ref_codes))
-          AND ${this.scopeSql(actor, 2)} ${after}
-        ORDER BY r, k, w.id LIMIT $5`,
+        WHERE ${whereAt({ status: 1, user: 2, ref: 4, locale: 5 })} ${after}
+        ORDER BY r, k, w.id LIMIT $6`,
       params,
+    );
+    // US-175 AC5: the number of requests matching the filters, whatever page the Desk has loaded.
+    const { rows: counted } = await tx.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM website_booking_request w
+        WHERE ${whereAt({ status: 1, user: 2, ref: 3, locale: 4 })}`,
+      [statuses, actor.userId, ref, locales],
     );
     const more = rows.length > limit;
     const pageRows = more ? rows.slice(0, limit) : rows;
@@ -208,6 +255,7 @@ export class WebsiteRequestsService {
         nextCursor: more && last ? encodeCursor([Number(last.r), String(last.k), last.id]) : null,
         limit,
       },
+      total: Number(counted[0]?.n ?? 0),
     };
   }
 
@@ -356,6 +404,8 @@ export class WebsiteRequestsService {
       reservationCode: r.reservation_id ? (look.resCodes.get(r.reservation_id) ?? null) : null,
       convertedAt: r.converted_at ? c.iso(r.converted_at) : null,
       offerSnapshot: null,
+      // 0.3.10 (R4): what the guest saw on the form (PublicPriceEstimateRecord) – every role that sees the request.
+      priceEstimate: priceEstimateRecord(r.price_estimate),
       createdAt: c.iso(r.created_at),
       updatedAt: c.iso(r.updated_at),
       piiPurgedAt: r.pii_purged_at ? c.iso(r.pii_purged_at) : null,

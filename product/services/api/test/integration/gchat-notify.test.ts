@@ -22,7 +22,10 @@ import {
 import { JobRunner, type PropertyRef } from '../../src/jobs/job-runner';
 import { type StaffChatKind, enqueueStaffChat } from '../../src/modules/events/public/staff-chat';
 import { replyPlan } from '../../src/modules/public-site/internal/website-request-rules';
-import type { ChatDetailLevel } from '../../src/modules/public-site/public/chat-message';
+import {
+  CHAT_DETAILS_MIN_NOTICE_VERSION,
+  type ChatDetailLevel,
+} from '../../src/modules/public-site/public/chat-message';
 import { workerChatRenderers } from '../../src/worker-chat';
 import { buildWorkerJobs } from '../../src/worker-jobs';
 import { FakeChatServer } from '../helpers/fake-chat-webhook';
@@ -35,7 +38,10 @@ const TZ = 'Asia/Ho_Chi_Minh';
 const LANDING = 'https://ottimo.example.invalid';
 const SIGNING_KEY = 'test-public-form-signing-key-0123456789abcdef';
 const OLD_NOTICE = '2026-10-24';
-const CHAT_NOTICE = '2026-10-31';
+// SEC FB-R4-SEC-LPV2M-01: the first notice naming Google Chat that is PUBLISHED is 2026-11-04 (P4 – 2026-10-31 was
+// never published on its own). Production today: only 2026-10-24 en/vi.
+const CHAT_NOTICE = CHAT_DETAILS_MIN_NOTICE_VERSION;
+const NEVER_ALONE_NOTICE = '2026-10-31';
 const WEBHOOK =
   'https://chat.googleapis.com/v1/spaces/AAAAfake01/messages?key=fakeKeyCanary&token=fakeTokenCanary';
 // Canaries (ARC 8.5: no log, at any level, ever carries them).
@@ -129,6 +135,7 @@ describe.skipIf(!HAS_DB)('Google Chat – booking requests (outbox staff.chat)',
     stayKind?: 'short' | 'long';
     months?: number | null;
     email?: boolean;
+    locale?: string;
   }): Promise<{ id: string; refCode: string; replyBy: Date }> {
     const channel = o.channel ?? 'zalo';
     const plan = replyPlan(
@@ -158,7 +165,7 @@ describe.skipIf(!HAS_DB)('Google Chat – booking requests (outbox staff.chat)',
          departure_date, stay_kind, stay_months, adults, children, infants, locale, preferred_channel, guest_name,
          phone_e164, email, note, contact_hmac, consent_version, consent_at, suspicious_flags, reply_by,
          last_activity_at, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, 'new', $5, $6, $7, $8, 2, 1, 0, 'vi', $9, $10, $11, $12, $13, $14, $15, $16,
+       VALUES ($1, $2, $3, $4, 'new', $5, $6, $7, $8, 2, 1, 0, $19, $9, $10, $11, $12, $13, $14, $15, $16,
          $17::text[], $18, $16, $16, $16)`,
       [
         id,
@@ -179,6 +186,7 @@ describe.skipIf(!HAS_DB)('Google Chat – booking requests (outbox staff.chat)',
         o.createdAt,
         o.flags ?? [],
         plan.replyBy,
+        o.locale ?? 'vi',
       ],
     );
     return { id, refCode, replyBy: plan.replyBy };
@@ -192,14 +200,18 @@ describe.skipIf(!HAS_DB)('Google Chat – booking requests (outbox staff.chat)',
     return runner.runOnce('web_request.sla', property);
   };
 
-  async function publishNotice(version: string, publishedAt: string) {
+  async function publishNotice(
+    version: string,
+    publishedAt: string,
+    locales: readonly string[] = ['vi', 'en'],
+  ) {
     const pg = new PgClient({ connectionString: process.env.MIGRATION_DATABASE_URL });
     await pg.connect();
     try {
       await pg.query('BEGIN');
       await pg.query('SET LOCAL ROLE ottimo_owner');
       await pg.query(`SELECT set_config('app.organization_id', $1, true)`, [t.organizationId]);
-      for (const locale of ['vi', 'en']) {
+      for (const locale of locales) {
         await pg.query(
           `INSERT INTO privacy_notice_version (organization_id, version, locale, body_sha256, url_path, published_at)
            VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -208,7 +220,7 @@ describe.skipIf(!HAS_DB)('Google Chat – booking requests (outbox staff.chat)',
             version,
             locale,
             'b'.repeat(64),
-            locale === 'vi' ? '/vi/privacy/' : '/privacy/',
+            locale === 'en' ? '/privacy/' : `/${locale}/privacy/`,
             publishedAt,
           ],
         );
@@ -526,7 +538,7 @@ describe.skipIf(!HAS_DB)('Google Chat – booking requests (outbox staff.chat)',
       await clearQueue();
     });
 
-    it('C configured, 2026-10-31 not published yet → template A for everyone, levelCapped counted', async () => {
+    it('C configured, 2026-11-04 not published yet → template A for everyone, levelCapped counted', async () => {
       const now = at('2026-11-02T17:00:00');
       await setNow(now);
       const r = await insertRequest({ createdAt: now, arrival: '2026-11-06', consent: OLD_NOTICE });
@@ -539,8 +551,62 @@ describe.skipIf(!HAS_DB)('Google Chat – booking requests (outbox staff.chat)',
       }
     });
 
-    it('after 2026-10-31 is published: an old-notice request stays A; a new-notice request gets C', async () => {
-      await publishNotice(CHAT_NOTICE, '2026-10-31T03:00:00Z');
+    it('C configured, 2026-10-31 published on a stack but 2026-11-04 not yet → its request still A (label ≠ constant)', async () => {
+      await publishNotice(NEVER_ALONE_NOTICE, '2026-10-31T03:00:00Z');
+      const now = at('2026-11-02T17:05:00');
+      await setNow(now);
+      const r = await insertRequest({
+        createdAt: now,
+        arrival: '2026-11-06',
+        consent: NEVER_ALONE_NOTICE,
+      });
+      await enqueue('web_request_new', r.id, now);
+      expect(await dispatcher(target('C')).runForProperty(property)).toMatchObject({
+        done: 1,
+        levelCapped: 1,
+      });
+      expect(server.requests[0]!.text).not.toContain(NAME);
+    });
+
+    it('BUG-R4-027/028: 2026-11-04.1 (5 languages) and 2026-11-05 published, 2026-11-04 not → A (string comparison would say C)', async () => {
+      // A label is changed before publication (SEC rule: new text → new label) but the code constant is not: the
+      // gate must stay closed, because it reads published_at of the constant's own rows, never the label text.
+      await publishNotice('2026-11-04.1', '2026-11-01T03:00:00Z', ['vi', 'en', 'ko', 'zh', 'ru']);
+      await publishNotice('2026-11-05', '2026-11-01T04:00:00Z', ['en']);
+      const now = at('2026-11-02T17:07:00');
+      await setNow(now);
+      const reqs = [
+        await insertRequest({ createdAt: now, arrival: '2026-11-06', consent: '2026-11-04.1' }),
+        await insertRequest({
+          createdAt: now,
+          arrival: '2026-11-06',
+          consent: '2026-11-04.1',
+          locale: 'ko',
+        }),
+        await insertRequest({
+          createdAt: now,
+          arrival: '2026-11-06',
+          consent: '2026-11-05',
+          locale: 'en',
+        }),
+      ];
+      let i = 0;
+      for (const r of reqs) await enqueue('web_request_new', r.id, new Date(now.getTime() + i++));
+      expect(await dispatcher(target('C')).runForProperty(property)).toMatchObject({
+        done: 3,
+        levelCapped: 3,
+      });
+      expect(server.requests).toHaveLength(3);
+      for (const x of server.requests) {
+        expect(x.text).not.toContain(NAME);
+        expect(x.text).not.toContain('06/11');
+      }
+    });
+
+    it('after 2026-11-04 is published: an old-notice request stays A; a new-notice request gets C', async () => {
+      expect(CHAT_NOTICE).toBe('2026-11-04');
+      // P4: LP-v2 publishes 2026-11-04 for its languages straight over 2026-10-24.
+      await publishNotice(CHAT_NOTICE, '2026-11-02T01:00:00Z', ['vi', 'en', 'ko', 'zh', 'ru']);
       const now = at('2026-11-02T17:10:00');
       await setNow(now);
       const old = await insertRequest({
@@ -575,6 +641,45 @@ describe.skipIf(!HAS_DB)('Google Chat – booking requests (outbox staff.chat)',
         '```',
         `Mở Desk: https://desk.ottimo.vn/website-requests/${neu.id}`,
       ]);
+    });
+
+    it('2026-11-04 in en and ko → C; 2026-10-24 → A; 2026-10-31 (published before 2026-11-04) → A', async () => {
+      const now = at('2026-11-02T17:15:00');
+      await setNow(now);
+      const en = await insertRequest({
+        createdAt: now,
+        arrival: '2026-11-06',
+        consent: CHAT_NOTICE,
+        locale: 'en',
+      });
+      const ko = await insertRequest({
+        createdAt: now,
+        arrival: '2026-11-06',
+        consent: CHAT_NOTICE,
+        locale: 'ko',
+      });
+      const old = await insertRequest({
+        createdAt: now,
+        arrival: '2026-11-06',
+        consent: OLD_NOTICE,
+        locale: 'en',
+      });
+      const mid = await insertRequest({
+        createdAt: now,
+        arrival: '2026-11-06',
+        consent: NEVER_ALONE_NOTICE,
+      });
+      let i = 0;
+      for (const r of [en, ko, old, mid]) {
+        await enqueue('web_request_new', r.id, new Date(now.getTime() + i++));
+      }
+      const st = await dispatcher(target('C')).runForProperty(property);
+      expect(st).toMatchObject({ done: 4, levelCapped: 2 });
+      const byRef = (ref: string) => server.requests.find((x) => x.text.includes(ref))!.text;
+      expect(byRef(en.refCode)).toContain(`Khách: ${NAME}`);
+      expect(byRef(ko.refCode)).toContain(`Khách: ${NAME}`);
+      expect(byRef(old.refCode)).not.toContain(NAME);
+      expect(byRef(mid.refCode)).not.toContain(NAME);
     });
 
     it('level read at send time: C lowered to A → a row still waiting goes out as A', async () => {
