@@ -36,18 +36,32 @@
 - Đề xuất sửa: bước 6 thành danh sách "(nếu người đó biết hoặc được giao)": thu chìa cơ, thẻ tổng/thẻ nhân viên; gỡ ủy quyền app khóa, vô hiệu mã/thẻ nhân viên; đổi mật khẩu extranet từng kênh hoặc gỡ tài khoản riêng của người đó; đổi mật khẩu hộp thư chung và Gmail OTA, đăng xuất mọi phiên; đổi mã điện thoại cơ sở, máy tính bảng, máy quầy, đăng xuất/đăng nhập lại Zalo cơ sở; đổi mã két, Wi-Fi quản trị, mật khẩu điểm phát 4G. Không ghi mật khẩu mới vào sổ giao ca, chat hay giấy dán quầy (mục 0.8 điểm 10).
 - Trạng thái: Open
 
-### FB-R4-SEC-BA-104-03
+### FB-R4-SEC-BA-104-03 (bản sửa 04/11, thay bản đầu)
 - Mức độ: **Major**
-- Vị trí: `00-index.md` mục 4 bước 3.3–3.5 (dòng 112–114); `02-le-tan.md` 7.2 **Ngày thay tờ** bước 3, 5 (dòng 494, 496); `BA-on-DOM-v104.md` mục 2 ý 1 (G-BA-104-4).
-- Vấn đề: (1) không ghi mốc 15 phút tính từ đâu; "thấy tin muộn" không rõ bao lâu. (2) Chủ đầu tư Lưu ở phút 14–15 trong khi người trực đã đặt lại tờ v1 ở phút 15 → Desk ghi v2 cho khách đọc v1. (3) Không quay lại được trên Desk: `config_parameter` chỉ ghi đè dòng hiệu lực hôm nay cho công tắc khẩn cấp (`ON CONFLICT … WHERE effective_from > today OR sameDayOverride`, `parameter.service.ts` 270–300; `sameDayOverride` chỉ cho `KILL_SWITCH_SAFE_VALUE`); tài liệu chưa nói, chủ đầu tư có thể thử đặt lại hoặc nhờ sửa thẳng dữ liệu. (4) Chưa nói gì khi người trực đã đặt lại v1 rồi mới nhận "Đã đặt v2".
-- Vì sao quan trọng: bằng chứng đồng ý phải khớp chữ khách đã đọc (decision-log 17/10 ĐK-2; SEC 6.4 ý 5); tờ v2 có thêm đoạn dịch tin nhắn.
-- Đề xuất sửa (cả `00-index` 4 và `02` 7.2, cùng chữ):
-  - (a) Mốc chung là giờ trong tin "Đã thay tờ v2 – hh:mm".
-  - (b) Chủ đầu tư chỉ Lưu khi **chưa quá 10 phút** từ mốc; trước khi Lưu **gọi điện** hỏi "tờ v2 còn trên quầy chứ?", Lưu ngay trong lúc còn gọi. Quá 10 phút thì không Lưu, hẹn hôm khác.
-  - (c) Người trực chờ tới **15 phút**; trước khi đặt lại tờ v1 nhắn "Đặt lại v1 – hh:mm". Đệm 5 phút.
-  - (d) "Đã lưu v2 thì không đổi lại v1 trong ngày được. Có tin 'Đã đặt v2' mà quầy đang để tờ v1: ngừng nhận giấy tờ, đặt ngay tờ v2. Khách đã nhận giấy tờ trong khoảng đó: ghi mã đơn vào sổ giao ca (không ghi số giấy tờ), cho khách xem tờ v2 lúc gặp lại, trước khi trả phòng. Báo chủ đầu tư để báo đội bảo mật."
-  - (e) Câu "không nhờ đội kỹ thuật đặt hộ hay sửa thẳng dữ liệu" đứng ngay sau (d).
-  - (f) BA ghi lại G-BA-104-4 theo các ý trên; SEC chấp nhận khi đã sửa.
+- Vị trí: `00-index.md` mục 4 bước 3.3–3.5 (dòng 112–114); `02-le-tan.md` 7.2 **Ngày thay tờ** bước 3–5 (dòng 494–496); G-BA-104-4. Trùng ý FB-R4-DOM-BA-104-07.
+- Vấn đề: (a) tin nhắn đi chéo – Desk ghi v2 cả ngày, khách đọc v1; (b) gõ sai giá trị – Desk ghi cả ngày một version không có tờ nào (máy chủ không có danh sách giá trị hợp lệ). Cả hai không sửa được trên Desk trong ngày (`sameDayOverride` chỉ cho công tắc khẩn cấp, `platform/public/parameter.service.ts` 270–300).
+- Vì sao quan trọng: SEC 6.4 ý 5, decision-log 17/10 ĐK-2.
+- Đề xuất sửa: **làm theo DOM 07**, cộng:
+  1. **Gọi điện trước mọi lần Lưu**: hỏi "tờ v2 còn trên quầy chứ?", Lưu trong lúc còn gọi (bỏ mốc 10 phút của bản đầu). Mốc chung là giờ trong tin "Đã thay tờ v2 – hh:mm"; người trực chờ tối đa 15 phút; đang gọi mà chủ đầu tư bảo "chờ" thì chờ tiếp.
+  2. Dán `"privacy-2026-10-v2"` (không gõ tay); Lưu xong đối chiếu bảng lịch sử từng ký tự **rồi mới** nhắn "Đã đặt v2". Ghi "Đã Lưu thì không quay về v1 trong ngày".
+  3. Người trực đặt lại tờ v1 (không gọi được, quá 15 phút): nhắn "Đã đặt lại tờ v1 – hh:mm".
+  4. Tin "Đã đặt v2" đến sau khi đã đặt lại v1: ngừng nhận giấy tờ, đặt ngay tờ v2 (khung mica, ngăn quầy, máy tính bảng). Mỗi khách nhận giấy tờ trong khoảng giữa: sổ giao ca chỉ ghi **mã đơn, giờ nhận giấy tờ, giờ cho xem v2** (không tên, số giấy tờ, quốc tịch, SĐT); cho khách xem tờ v2 lần gặp tiếp, trước khi trả phòng; **không** ghi lại đồng ý, không xóa/nhập lại giấy tờ; khách không đồng ý hoặc đã về mà chưa xem: ghi "chưa xem v2", **không đưa tin nhắn của khách đó qua dịch vụ dịch** (ESC-044); chủ đầu tư nhắn đội "Lệch tờ ngày dd/mm: n đơn" (chỉ số lượng). SEC ghi là sai lệch quy trình, không phải lộ dữ liệu (luật sư xác nhận cùng ESC-001), ghi decision-log.
+  5. Lưu sai giá trị (ca b): ~~OPS sửa một dòng `config_parameter`~~ – **ORC không chấp nhận** (luật cứng: không ghi SQL tay trên production; ngoại lệ chỉ INV quyết). Thay bằng: kéo thẻ 09(a) vào v1.0.4 để máy chủ chặn giá trị sai; ngày thay tờ chỉ làm sau khi 09(a) đã lên. Xem dòng decision-log ORC 04/11.
+- Giả định G-SEC-BA104-4: tờ v2 có đủ ý tờ v1, chỉ thêm đoạn dịch tin nhắn; UXD/CPY đổi nghĩa đoạn khác thì SEC xem lại.
+- Trạng thái: Open
+
+### FB-R4-SEC-BA-104-08 (ý kiến về DOM 08)
+- Mức độ: Minor
+- Vị trí: `00-index.md` mục 4 sau bước 3.3; `02` 7.2 sau bước 4.
+- Vấn đề: DOM 08 đúng; từ chối `noticeVersion` (`registration.controller.ts` 462, `NOT_IN_LIST`) là cơ chế đóng an toàn, giữ, không nới.
+- Đề xuất sửa: đồng ý "nhận tin 'Đã đặt v2' thì F5 mọi trang giấy tờ đang mở". Thêm: "Desk báo lỗi khi lưu đồng ý của khách đang làm dở lúc thay tờ: cho khách xem tờ v2, F5 và hỏi lại câu đồng ý. Không chọn sẵn thay khách." Chữ báo lỗi lấy đúng chuỗi FE.
+- Trạng thái: Open
+
+### FB-R4-SEC-BA-104-09 (gửi ARC)
+- Mức độ: Minor
+- Vị trí: `config_parameter_def` khóa `privacy_notice_version` (migration 0050 dòng 121, `bounds` NULL); `parameters.service.ts set()`.
+- Vấn đề: máy chủ nhận mọi chuỗi cho tham số pháp lý này, không có đường quay lại trong ngày.
+- Đề xuất sửa: (a) danh sách giá trị cho phép ở máy chủ (cùng nguồn `NOTICE_TEXT_VERSIONS`), giá trị lạ → 422; (b) cho ghi đè dòng hôm nay **chỉ** trong 30 phút sau lần lưu, **chỉ** bởi đúng người vừa lưu, có audit `sameDayOverride`. SEC duyệt thiết kế. **ORC 04/11: kéo (a) vào v1.0.4; (b) ARC đánh giá có kịp v1.0.4 không.**
 - Trạng thái: Open
 
 ### FB-R4-SEC-BA-104-04
