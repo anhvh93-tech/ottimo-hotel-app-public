@@ -101,6 +101,7 @@ Mỗi tệp chạy riêng, `vitest run <tệp>`, 24 tiến trình song song.
 - `product/apps/admin-web/src/pages/booking/BookingDialog.tsx`
 - `product/apps/admin-web/src/__tests__/v104-booking-rate-carryover.test.tsx` (mới)
 - `rounds/round-04/outputs/FE/bug-r4-037-booking-rate-carryover.md` (báo cáo này)
+- Lượt DOM (mục 10): `product/design/tools/gen_strings.py` (khóa `booking.rates_cleared_channel`) và các tệp sinh ra: `product/design/copy/strings-{vi,en}.json`, `product/design/tools/strings-tables.md`, `product/design/wireframes/assets/strings.js`
 
 ## 7. Việc còn lại / cho vai khác
 - QA:
@@ -147,3 +148,69 @@ Kết quả:
 - tsc, eslint, prettier ok.
 - Toàn bộ admin-web: 891/892. Ca đỏ là `s4-38-fea` "7 đêm…", **hết giờ 15 s** vì máy đang ở tải 100–135 (các agent khác chạy cùng). Chạy riêng ca này trên `main` và trên bản sửa trong cùng mức tải thì thời gian như nhau: 11,6 s / 7,1 s trên `main`, 10,8 s / 6,6 s trên bản sửa. Không phải do bản sửa. Ở lượt trước, lúc tải bình thường, toàn bộ 890/890 xanh.
 - Cherry-pick lên `v1.0.3` vẫn chỉ đụng 2 tệp mã và test, cùng vùng `handleError` không đổi kể từ `v1.0.3`.
+
+## 10. Lượt sửa theo DOM (ARC-03 / UXD-05, thẻ PR70-05): khi nào xóa giá lễ tân đã gõ
+
+Nền: `94a28258`. Push thường, không force. Quy tắc này thay câu "ô đã gõ giữ qua mọi thay đổi" ở mục 3 và mục 8.
+
+| Thay đổi trên hộp Đặt phòng mới | Giá đã gõ | Căn cứ DOM |
+|---|---|---|
+| Số khách | Giữ | Giá đêm không theo số khách |
+| Ngày đến, ngày đi | Giữ những đêm còn trong lượt ở. Đêm mới lấy giá bản xem | |
+| Trực tiếp ↔ CTV | Giữ | BR-421 (b) |
+| Đổi kênh sang OTA hoặc Nội bộ, hay từ OTA hoặc Nội bộ sang kênh khác (kể cả OTA ↔ Nội bộ) | **Xóa** mọi ô đã gõ, hiện câu `booking.rates_cleared_channel` | BR-112: giá thỏa thuận Trực tiếp không phải giá OTA, cũng không phải "Nội bộ có thu" |
+| Đổi căn ở Trực tiếp hoặc CTV sang căn **khác nhóm** | **Xóa** (căn mới tính theo giá niêm yết của nhóm đó). Không hiện câu, vì câu nói "đổi kênh" | BR-429 (g) |
+| Đổi căn cùng nhóm ở Trực tiếp hoặc CTV (ví dụ 101 → 203) | Giữ | DOM cho phép tách theo nhóm khi làm được. App có `roomGroupId` nên tách |
+| Đổi căn ở OTA (bất kỳ nhóm nào) | Giữ, gửi `edited:true` | Giá OTA đi theo đơn, không theo căn |
+
+Cách làm trong `BookingDialog.tsx`:
+- Hàm `dropsTypedRates(trước, sau, groupOf)` gói đúng bảng trên. Căn không rõ nhóm thì coi là khác nhóm (xóa).
+- `set()`: khi hàm trả `true`, xóa `rates` và `ratesEdited`. Ô chưa gõ vốn đã bị khóa theo `ratesFor`, nên xóa cả hai không mất gì.
+- Câu `booking.rates_cleared_channel`:
+  - nằm dưới bảng giá, dạng `span.help role="status"`, không màu lỗi;
+  - chỉ hiện khi lần đổi kênh đó xóa ít nhất một ô đã gõ có số;
+  - ẩn khi lễ tân gõ lại một ô, hoặc đổi kênh lần nữa.
+- **Lỗi tự bắt khi viết test:** lễ tân bấm Trực tiếp → OTA → Trực tiếp trong vòng 300 ms (thời gian chờ của bản xem). Khi đó đầu vào bản xem sau khi chờ không đổi, nên không có lần gọi `calculateQuote` mới. Kết quả: ô trống mãi, nút Tạo đơn vẫn bấm được. Không sai tiền (máy chủ tự tính giá niêm yết), nhưng màn hình không còn giá.
+  - Sửa: mỗi lần xóa thì tăng biến đếm `requote` (nằm trong đầu vào bản xem) và đặt `calcFor = null`.
+  - Nhờ vậy bản xem luôn được gọi lại. Nút Tạo đơn chờ (busy, BE 1.8) cho tới khi bản xem điền lại ô.
+- Chữ:
+  - Thêm khóa `booking.rates_cleared_channel` vào `gen_strings.py`, nhóm "v1.0.4 booking – FE-B: khóa Giữ chỗ khi có giá đã gõ (DOM); xóa giá đã gõ khi đổi sang OTA/Nội bộ. UXD 04/11/2026". Chỉ khóa của PR này; khóa `booking.hold.typed_rate_locked` ở PR riêng.
+  - Đã sinh lại bằng `python3 -I product/design/tools/gen_strings.py` (3470 chuỗi), chạy lại lần hai không đổi gì.
+
+Test trong `v104-booking-rate-carryover.test.tsx`:
+- Bỏ ca cũ "giá đã gõ giữ qua đổi kênh", vì trái quy tắc mới.
+- Thêm 14 ca, nay tổng 25 ca:
+  - **Xóa khi đổi kênh**, 6 ca `it.each`: direct→ota, direct→internal, agent→ota, ota→direct, internal→agent, ota→internal.
+    - Mỗi ca kiểm: ô không còn số đã gõ (OTA/Nội bộ: trống; Trực tiếp/CTV: bản xem điền lại);
+    - câu `role="status"` hiện, không có lớp `err`;
+    - gõ lại thì câu ẩn.
+  - **Đi rồi về trong 300 ms**: Trực tiếp → OTA → Trực tiếp. Ô được bản xem điền lại đúng giá niêm yết, không trống, không còn số đã gõ. Câu ẩn sau lần đổi kênh thứ hai.
+  - Đổi kênh khi chưa gõ gì: không hiện câu.
+  - **Giữ**: Trực tiếp ↔ CTV; số khách (bản xem mới không ghi đè); ngày đi kéo dài (đêm 1 giữ, đêm 2 lấy giá bản xem); căn cùng nhóm 101 → 203; đổi căn ở OTA 203 → 301.
+  - **Xóa khi đổi căn khác nhóm** ở Trực tiếp, 203 → 301: không còn số đã gõ, bản xem của 301 điền lại, không hiện câu.
+- Kết quả: xem phần chạy ở mục 10.1.
+
+### 10.1. Kết quả chạy
+
+| Lần chạy | Kết quả |
+|---|---|
+| 14 ca mới trên `94a28258` (bản chưa sửa) | 8 đỏ: 6 ca xóa khi đổi kênh, ca đi rồi về trong 300 ms, ca đổi căn khác nhóm. 6 ca "giữ" xanh, đúng như mong đợi (trước đây vốn giữ) |
+| Bản xóa ô nhưng chưa có `requote` | 2 đỏ, lặp lại được lúc máy rảnh: "OTA rồi về Trực tiếp" (ca cũ) và "đi rồi về trong 300 ms" |
+| Bản sửa | Tệp này 25/25 xanh. Toàn bộ admin-web **905/905** (78 tệp). tsc, eslint, prettier ok |
+| Tải: 24 tiến trình × 40 lượt, tệp này, lượt 1 | 6/40 đỏ. Cả 6 đều ở ca đầu tệp (OTA 1 đêm), hết giờ 15 s, trong đợt đầu 24 tiến trình cùng khởi động. Đợt đó chạy 95 s mỗi tệp, trong khi các agent khác đẩy tải máy lên 30–90 |
+| Đối chứng ngay sau đó, `94a28258`, cùng 24 × 40 | 0/40 |
+| Chạy lại bản sửa ngay sau đối chứng, cùng 24 × 40 | **0/40** (mỗi tệp 36–76 s) |
+
+Nhận định:
+- Ca đầu tệp không đi qua đoạn mã mới nào nặng hơn. Lần bấm OTA trước đây cũng đổi đầu vào bản xem, nên số lần chạy hiệu ứng không đổi.
+- 6 lần đỏ ở lượt 1 là do tải máy lúc đó. Bằng chứng: lần chạy lại trong cùng điều kiện được 0/40.
+- QA vẫn nên chạy lại 24 × 40 khi máy rảnh, như mục 7.
+
+### 10.2. Giả định
+- Nội bộ: đổi căn thì giữ giá đã gõ, giống OTA. DOM chỉ nêu OTA; Nội bộ cũng có giá đi theo đơn.
+- Đổi căn khác nhóm ở Trực tiếp hoặc CTV: xóa nhưng không hiện câu. Câu UXD cấp nói "vì đổi kênh". Nếu UXD muốn có câu cho trường hợp đổi căn, cần một khóa mới.
+- Căn không có nhóm trong danh mục: coi là khác nhóm, nên xóa.
+
+### 10.3. Dòng đề xuất cho `01-decisions/decision-log.md` (thay dòng ở mục 8)
+
+`| 2026-11-04 | 4 | FE-B – BUG-R4-037 + DOM ARC-03/UXD-05: giá do bản xem điền chỉ có hiệu lực cho đúng kênh/căn/ngày của bản xem; giá lễ tân gõ GIỮ khi đổi số khách, ngày (đêm còn trong lượt), Trực tiếp↔CTV, căn cùng nhóm, căn ở OTA/Nội bộ; XÓA khi đổi kênh sang/từ OTA/Nội bộ (câu booking.rates_cleared_channel, role=status) và khi đổi căn khác nhóm ở Trực tiếp/CTV (BR-429 g); sau khi xóa luôn gọi lại bản xem, nút Tạo đơn chờ. Không đổi máy chủ/hợp đồng | FE-B | DOM; rounds/round-04/outputs/FE/bug-r4-037-booking-rate-carryover.md |`

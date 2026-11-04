@@ -132,27 +132,6 @@ describe('BUG-R4-037 – rates filled by the Direct preview never travel to OTA 
 });
 
 describe('BUG-R4-037 – a typed rate is kept, an untyped one follows the preview of the stay on screen', () => {
-  it('a rate the desk typed stays through a channel change and is sent as typed (edited:true)', async () => {
-    pinDaytime();
-    const sent = createBodies();
-    const { user } = renderApp('/rack', 'qa.fd');
-    const dlg = await openBooking(user);
-    await previewFilled(dlg);
-    const box = rateBox(dlg, todayLocal());
-    await user.clear(box);
-    await user.type(box, '880000');
-    await user.click(within(dlg).getByRole('button', { name: 'OTA' }));
-    await pickRoom(user, dlg, '203');
-    expect(rateBox(dlg, todayLocal())).toHaveValue('880000');
-    await pickGuest(user, dlg);
-    await user.type(within(dlg).getByLabelText(/Mã đặt phòng OTA/), 'BK-037-K');
-    await user.click(within(dlg).getByRole('button', { name: 'Tạo đơn' }));
-    expect(await screen.findByText(/^Đã tạo đơn OTM-0\d+$/)).toBeInTheDocument();
-    expect(sent.at(-1)!.nightlyRates).toEqual([
-      { date: todayLocal(), amountVnd: 880_000, edited: true },
-    ]);
-  });
-
   it('Trực tiếp: another room → the figure of the old room leaves at once, the new preview fills the box', async () => {
     pinDaytime();
     const { user } = renderApp('/rack', 'qa.fd');
@@ -174,6 +153,189 @@ describe('BUG-R4-037 – a typed rate is kept, an untyped one follows the previe
     expect(rateBox(dlg, todayLocal())).toHaveValue('');
     await user.click(within(dlg).getByRole('button', { name: tv('bk.ch_direct') }));
     await waitFor(() => expect(rateBox(dlg, todayLocal())).toHaveValue(first), { timeout: 3000 });
+  });
+});
+
+type Group = 'direct' | 'agent' | 'ota' | 'internal';
+const channelButton: Record<Group, string> = {
+  direct: 'bk.ch_direct',
+  agent: 'bk.ch_agent',
+  ota: 'bk.ch_ota',
+  internal: 'bk.ch_internal',
+};
+const pickChannel = (user: User, dlg: HTMLElement, g: Group) =>
+  user.click(within(dlg).getByRole('button', { name: tv(channelButton[g]) }));
+async function typeRate(user: User, dlg: HTMLElement, date: string, value: string) {
+  const box = rateBox(dlg, date);
+  await user.clear(box);
+  await user.type(box, value);
+}
+const clearedNote = (dlg: HTMLElement) =>
+  within(dlg).queryByText(tv('booking.rates_cleared_channel'));
+/** "Tạo đơn" is back from waiting: the preview of the stay on screen answered (Trực tiếp / CTV). */
+const previewSettled = (dlg: HTMLElement) =>
+  waitFor(() => expect(within(dlg).getByRole('button', { name: 'Tạo đơn' })).toBeEnabled(), {
+    timeout: 3000,
+  });
+/** Answers of `calculateQuote` in this case. */
+function quoteReads() {
+  const n = { count: 0 };
+  const on = ({ request }: { request: Request }) => {
+    if (request.method === 'POST' && /\/quotes\/calculate$/.test(new URL(request.url).pathname))
+      n.count += 1;
+  };
+  server.events.on('response:mocked', on);
+  onTestFinished(() => {
+    server.events.removeListener('response:mocked', on);
+  });
+  return n;
+}
+
+describe('DOM ARC-03 / UXD-05 – which changes drop the rates the desk typed', () => {
+  const today = () => todayLocal();
+
+  it.each<[Group, Group]>([
+    ['direct', 'ota'],
+    ['direct', 'internal'],
+    ['agent', 'ota'],
+    ['ota', 'direct'],
+    ['internal', 'agent'],
+    ['ota', 'internal'],
+  ])(
+    'channel %s → %s: the typed rate is dropped, the status sentence says so',
+    async (from, to) => {
+      pinDaytime();
+      const { user } = renderApp('/rack', 'qa.fd');
+      const dlg = await openBooking(user);
+      await previewFilled(dlg);
+      if (from !== 'direct') await pickChannel(user, dlg, from);
+      await pickRoom(user, dlg, '203');
+      if (from === 'direct' || from === 'agent') await previewSettled(dlg);
+      await typeRate(user, dlg, today(), '880000');
+      expect(clearedNote(dlg)).toBeNull();
+      await pickChannel(user, dlg, to);
+      const note = clearedNote(dlg)!;
+      expect(note).toBeInTheDocument();
+      expect(note).toHaveAttribute('role', 'status');
+      expect(note).not.toHaveClass('err');
+      if (to === 'ota' || to === 'internal') expect(rateBox(dlg, today())).toHaveValue('');
+      else {
+        // Trực tiếp / CTV: the preview of the new stay fills the box again – never the typed figure
+        await previewSettled(dlg);
+        await waitFor(() => expect(rateBox(dlg, today()).value).not.toBe(''));
+        expect(rateBox(dlg, today())).not.toHaveValue('880000');
+      }
+      // typing again (or another channel change) takes the sentence away
+      await typeRate(user, dlg, today(), '700000');
+      expect(clearedNote(dlg)).toBeNull();
+    },
+  );
+
+  it('Trực tiếp → OTA → Trực tiếp at once: a new preview fills the boxes again, never empty, never the typed figure', async () => {
+    pinDaytime();
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openBooking(user);
+    const first = await previewFilled(dlg);
+    await typeRate(user, dlg, today(), '880000');
+    await pickChannel(user, dlg, 'ota');
+    expect(clearedNote(dlg)).toBeInTheDocument();
+    await pickChannel(user, dlg, 'direct');
+    await waitFor(() => expect(rateBox(dlg, today())).toHaveValue(first), { timeout: 3000 });
+    await previewSettled(dlg);
+    // the sentence went with the second channel change (UXD): nothing typed was dropped by that one
+    expect(clearedNote(dlg)).toBeNull();
+  });
+
+  it('a channel change with nothing typed says nothing', async () => {
+    pinDaytime();
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openBooking(user);
+    await previewFilled(dlg);
+    await pickChannel(user, dlg, 'ota');
+    expect(clearedNote(dlg)).toBeNull();
+  });
+
+  it('Trực tiếp ↔ CTV keeps the typed rate', async () => {
+    pinDaytime();
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openBooking(user);
+    await previewFilled(dlg);
+    await typeRate(user, dlg, today(), '880000');
+    await pickChannel(user, dlg, 'agent');
+    await previewSettled(dlg);
+    expect(rateBox(dlg, today())).toHaveValue('880000');
+    await pickChannel(user, dlg, 'direct');
+    await previewSettled(dlg);
+    expect(rateBox(dlg, today())).toHaveValue('880000');
+    expect(clearedNote(dlg)).toBeNull();
+  });
+
+  it('the number of guests keeps the typed rate (a new preview does not overwrite it)', async () => {
+    pinDaytime();
+    const reads = quoteReads();
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openBooking(user);
+    await previewFilled(dlg);
+    await typeRate(user, dlg, today(), '880000');
+    const before = reads.count;
+    await user.click(within(dlg).getByRole('button', { name: 'Tăng Người lớn (từ 12 tuổi)' }));
+    await waitFor(() => expect(reads.count).toBeGreaterThan(before), { timeout: 3000 });
+    await previewSettled(dlg);
+    expect(rateBox(dlg, today())).toHaveValue('880000');
+  });
+
+  it('dates: a typed night still in the stay is kept, a new night takes the preview rate', async () => {
+    pinDaytime();
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openBooking(user);
+    await previewFilled(dlg);
+    await typeRate(user, dlg, today(), '880000');
+    fireEvent.change(within(dlg).getByLabelText(tv('booking.field.departure')), {
+      target: { value: addDays(today(), 2) },
+    });
+    await previewSettled(dlg);
+    await waitFor(() => expect(rateBox(dlg, addDays(today(), 1)).value).not.toBe(''));
+    expect(rateBox(dlg, today())).toHaveValue('880000');
+  });
+
+  it('Trực tiếp, a room of the same group (101 → 203) keeps the typed rate', async () => {
+    pinDaytime();
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openBooking(user);
+    await previewFilled(dlg);
+    await typeRate(user, dlg, today(), '880000');
+    await pickRoom(user, dlg, '203');
+    await previewSettled(dlg);
+    expect(rateBox(dlg, today())).toHaveValue('880000');
+  });
+
+  it('Trực tiếp, a room of another group (203 → 301) drops it: the new room is priced from its list (BR-429 (g))', async () => {
+    pinDaytime();
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openBooking(user);
+    await previewFilled(dlg);
+    await pickRoom(user, dlg, '203');
+    await previewSettled(dlg);
+    await typeRate(user, dlg, today(), '880000');
+    await pickRoom(user, dlg, '301');
+    expect(rateBox(dlg, today())).not.toHaveValue('880000');
+    await previewSettled(dlg);
+    await waitFor(() => expect(rateBox(dlg, today()).value).not.toBe(''));
+    expect(rateBox(dlg, today())).not.toHaveValue('880000');
+    // a room change, not a channel change – no sentence (as before #70)
+    expect(clearedNote(dlg)).toBeNull();
+  });
+
+  it('OTA, another room (any group) keeps the typed rate – the OTA price goes with the booking', async () => {
+    pinDaytime();
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openBooking(user);
+    await previewFilled(dlg);
+    await pickChannel(user, dlg, 'ota');
+    await pickRoom(user, dlg, '203');
+    await typeRate(user, dlg, today(), '880000');
+    await pickRoom(user, dlg, '301');
+    expect(rateBox(dlg, today())).toHaveValue('880000');
   });
 });
 

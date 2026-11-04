@@ -118,6 +118,27 @@ interface Form {
 
 const weekend = (date: string) => [5, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
 
+/**
+ * DOM (ARC-03 / UXD-05, BR-112, BR-429 (g), BR-421 (b)): a change that drops the rates the desk TYPED.
+ * - Channel to or from OTA / Nội bộ: a Direct agreed rate is not an OTA rate, nor an intended "internal with charge".
+ * - Room at Trực tiếp / CTV into another room group: an agreed rate belongs to its room type.
+ * Kept: guests, dates (nights still in the stay), Trực tiếp ↔ CTV, a room of the same group, any room at OTA / Nội bộ
+ * (their price goes with the booking, not the room).
+ */
+function dropsTypedRates(
+  was: { group: ChannelGroup; roomId: string },
+  now: { group: ChannelGroup; roomId: string },
+  groupOf: (roomId: string) => string | undefined,
+): boolean {
+  const ownPrice = (g: ChannelGroup) => g === 'ota' || g === 'internal';
+  if (was.group !== now.group && (ownPrice(was.group) || ownPrice(now.group))) return true;
+  if (was.roomId && now.roomId !== was.roomId && !ownPrice(now.group)) {
+    const a = groupOf(was.roomId);
+    return !a || a !== groupOf(now.roomId);
+  }
+  return false;
+}
+
 /** BUG-R4-037: the stay a price preview prices – channel, room and dates (the guests do not change a night's rate). */
 const previewKey = (x: {
   roomId: string;
@@ -214,8 +235,15 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   const [busy, setBusy] = useState<'create' | 'hold' | null>(null);
   const [calc, setCalc] = useState<QuoteCalculation | null>(null);
   const [calcError, setCalcError] = useState<unknown>(null);
+  /** UXD `booking.rates_cleared_channel`: the last channel change dropped at least one rate the desk typed. */
+  const [ratesCleared, setRatesCleared] = useState(false);
   /** BUG-R4-037 (BE 1.8): the stay (`previewKey`) the last preview answered for – priced or failed. */
   const [calcFor, setCalcFor] = useState<string | null>(null);
+  /**
+   * DOM ARC-03: a change that dropped the rates asks the preview again – also for the very stay it priced last (the
+   * desk went to OTA and back inside the 300 ms debounce): otherwise the boxes would stay empty with no call coming.
+   */
+  const [requote, setRequote] = useState(0);
   const [avail, setAvail] = useState<{ available: boolean; reason?: string; alt: string[] } | null>(
     null,
   );
@@ -230,9 +258,22 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
         : f,
     ),
   );
+  const groupOf = (id: string) => catalog.rooms.find((x) => x.id === id)?.roomGroupId;
   const set = (patch: Partial<Form>) => {
+    const drops = dropsTypedRates(form, { ...form, ...patch }, groupOf);
+    // The sentence says a channel change dropped typed rates (a night of this stay with a typed figure); it goes on
+    // the next channel change, or when the desk types a rate again.
+    if (patch.group !== undefined && patch.group !== form.group)
+      setRatesCleared(drops && dates.some((d) => form.ratesEdited[d] && !!form.rates[d]));
+    else if (patch.ratesEdited) setRatesCleared(false);
+    if (drops) {
+      // "Tạo đơn" waits (BE 1.8) until the new preview has filled the boxes again
+      setCalcFor(null);
+      setRequote((n) => n + 1);
+    }
     setForm((f) => {
-      const next = { ...f, ...patch };
+      let next = { ...f, ...patch };
+      if (dropsTypedRates(f, next, groupOf)) next = { ...next, rates: {}, ratesEdited: {} };
       writeDraft(DRAFT_KEY, JSON.stringify(next));
       return next;
     });
@@ -302,6 +343,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       occ: form.occ,
       channelId: channel?.id,
       on: directLike && datesOk && !longStay && !overCapacity,
+      requote,
     }),
     300,
   );
@@ -1336,6 +1378,11 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
               </span>
             ) : null}
             {errors.rates ? <div className="err">{errors.rates}</div> : null}
+            {ratesCleared ? (
+              <span className="help" role="status">
+                {t('booking.rates_cleared_channel')}
+              </span>
+            ) : null}
             {calcError ? (
               <span className="help">{rsvErrorText(t, calcError, { roomNo: room?.roomNo })}</span>
             ) : null}

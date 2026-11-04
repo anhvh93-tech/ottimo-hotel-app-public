@@ -4130,6 +4130,12 @@ g("v1.0.4 P4-42 privacy-2026-10-v2", [
 ])
 
 
+# ---------- v1.0.4 booking – FE-B (PR #70 / v104/fe-hold-typed-rate-lock), UXD 04/11 ----------
+g("v1.0.4 booking – FE-B: khóa Giữ chỗ khi có giá đã gõ (DOM); xóa giá đã gõ khi đổi sang OTA/Nội bộ. UXD 04/11/2026", [
+    ("booking.rates_cleared_channel", "Đã xóa giá đã gõ vì đổi kênh.", "Typed rates were cleared because the channel changed.", None, "v1.0.4 booking. role=status dưới bảng giá, chỉ khi có ô đã gõ bị xóa"),
+])
+
+
 def build():
     vi, en, ru = {}, {}, {}
     for grp, k, a, b, c, n in S:
