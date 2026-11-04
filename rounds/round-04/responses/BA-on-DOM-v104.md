@@ -95,3 +95,11 @@ Thay bản lượt 1. **Giả định BA (đã có hướng ORC):** ngày thay t
 ### 7.6 Dòng decision-log đề xuất (thêm vào dòng mục 6)
 
 `| 2026-11-04 | 4 | **BA – sửa tài liệu v1.0.4 lượt 2 (DOM 07–09, SEC 01–08)**: ngày thay tờ v2 – mốc là tin "Đã thay tờ v2", OWN gọi người trực trước mọi lần Lưu, dán giá trị và kiểm Lịch sử thay đổi rồi mới nhắn "Đã đặt v2"; người trực chờ tối đa 15 phút, nhắn "Đặt lại v1" trước khi đặt lại tờ v1; tin đi chéo: sổ giao ca chỉ mã đơn + giờ, không hỏi lại đồng ý, "chưa xem v2" thì không dịch tin của khách đó, OWN nhắn đội chỉ số lượng; không có ngoại lệ sửa dữ liệu, ngày thay tờ chỉ sau khi bản có danh sách giá trị cho phép (SEC 09a) lên [G-BA-104-4 bản 2]. Ngày cuối của người nghỉ: thứ tự riêng khi cho thôi việc, không Mở khóa lại, chìa/mã/mật khẩu dùng chung, đăng xuất app nhân viên, HĐ thuê tháng đổi mã trong 7 ngày | BA | Quyền BA; DOM-on-v104-ba-docs.md Lượt 2, SEC-on-v104-ba-docs.md, ORC 04/11 |`
+
+### 7.7 Bổ sung sau hướng ORC (P4-16)
+
+ARC chốt: v1.0.4 (gói P4-16) máy chủ chỉ nhận `privacy-2026-10-v2`; giá trị khác Desk báo câu có sẵn (khóa `error.PARAM_OUT_OF_RANGE`, `product/design/copy/strings-vi.json`, `{allowed}` = `privacy-2026-10-v2`) "Giá trị này nằm ngoài khoảng cho phép. Chọn một trong: privacy-2026-10-v2."
+- `00-index` mục 4 bước 2: ngày thay tờ chỉ làm sau khi v1.0.4 **có gói P4-16** đã lên. Bước 3.4: Desk báo câu trên nghĩa là **chưa lưu gì** – dán lại `"privacy-2026-10-v2"` có ngoặc kép rồi Lưu (vẫn trong cuộc gọi).
+- `02` 7.2 bước 1: chỉ làm sau khi chủ đầu tư báo v1.0.4 (có P4-16) đã lên. Bước 3: cùng câu "chưa lưu gì", tờ v2 vẫn để trên quầy.
+- Không có đường "OPS/đội kỹ thuật sửa dữ liệu" ở bất kỳ chỗ nào; giữ câu "Không nhờ đội kỹ thuật đặt hộ hay sửa thẳng dữ liệu".
+- SEC 09: (a) đã có trong P4-16, tài liệu dùng đúng chuỗi lỗi; G-BA-104-4 bỏ nhánh "09(a) không kịp" (ngày thay tờ gắn với P4-16). 09(b) chưa vào tài liệu.
