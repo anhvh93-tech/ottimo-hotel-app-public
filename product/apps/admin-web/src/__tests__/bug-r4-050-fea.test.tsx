@@ -137,6 +137,29 @@ describe('BUG-R4-050 – H16 at 00:20 the day after the departure: the VietQR re
     expect(sent.some((x) => /check-out$/.test(x.path))).toBe(false);
   });
 
+  // FB-R4-ARC-FE-PR86-02: half (b) of BUG-R4-050 – the typed extra-night rate is priced by the probe (VietQR
+  // check_out at DUE_PROBE_VND, 422 max); at 00:20 of the departure day it was NOT_ALLOWED (no extra night there).
+  it('typed extra-night rate at 00:20 → the probe sends checkoutAt 00:20 of today with extraNightRateVnd', async () => {
+    const { today, r, sent } = afterMidnight();
+    mockControl.stay.minibarChecks.set(r.id, []);
+    const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
+    const rate = await screen.findByLabelText(
+      new RegExp(`^${tv('checkout.extra_night_rate_label')}`),
+    );
+    fireEvent.change(rate, { target: { value: '600.000' } });
+    await waitFor(() =>
+      expect(sent.filter((x) => /\/vietqr$/.test(x.path) && x.body.extraNightRateVnd)).toHaveLength(
+        1,
+      ),
+    );
+    const probe = sent.find((x) => /\/vietqr$/.test(x.path))!.body;
+    expect(probe).toMatchObject({ purpose: 'check_out', extraNightRateVnd: 600_000 });
+    expect(Number(probe.amountVnd)).toBeGreaterThan(1_000_000_000);
+    expect(probe.checkoutAt).toBe(iso(today, '00:20'));
+    expect(sent.some((x) => /check-out$/.test(x.path))).toBe(false);
+  });
+
   it('U3 on the page – 00:25 typed at 00:20 → checkoutAt 00:25 of today', async () => {
     const { today, r, sent } = afterMidnight();
     const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
