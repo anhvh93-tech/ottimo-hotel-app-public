@@ -145,15 +145,18 @@ seed_all() {
   demo_fixture "$SRC/product/tests/fixtures/seed/ds-e.json"
   DEMO_API_IMAGE=ottimo-api:demo-seed CLOCK_MODE=mutable INCLUDE_TEST_SUPPORT=1 \
     dc --profile seed run --rm seed >"$WORK/seed-dse.log" 2>&1 || { tail -20 "$WORK/seed-dse.log"; die "nạp DS-E lỗi"; }
+  # DEMO_ENV_FILE: the VietQR receiving account (3 lines PAYMENT_VIETQR_*) is scheduled in phase 1, while the fake
+  # clock is still 35 days back, to be in force from today (setParameter only takes it from the next business day –
+  # seed-demo.mjs scheduleReceivingAccount)
   QA_SEED_PASSWORD="$(env_value QA_SEED_PASSWORD)" TEST_SUPPORT_TOKEN="$(env_value TEST_SUPPORT_TOKEN)" \
-    DEMO_STATE="$STATE_FILE" DEMO_OUT="$OUT" node "$DEMO_DIR/seed-demo.mjs" past || die "tạo dữ liệu pha 1 lỗi"
+    DEMO_STATE="$STATE_FILE" DEMO_OUT="$OUT" DEMO_ENV_FILE="$PRODUCT_DIR/.env" \
+    node "$DEMO_DIR/seed-demo.mjs" past || die "tạo dữ liệu pha 1 lỗi"
 
   # Phase 2 – the real demo stack: ottimo-api:demo (no /__test__ endpoints), real clock.
   say "pha 2/2: chuyển sang stack demo thật (đồng hồ thật, không có endpoint kiểm thử)"
   dc up --detach --wait --wait-timeout 240 api worker web >/dev/null \
     || { dc logs --no-color --tail 60 api worker web; die "stack demo không lên"; }
-  DEMO_STATE="$STATE_FILE" DEMO_OUT="$OUT" DEMO_ENV_FILE="$PRODUCT_DIR/.env" \
-    node "$DEMO_DIR/seed-demo.mjs" now || die "tạo dữ liệu pha 2 lỗi"
+  DEMO_STATE="$STATE_FILE" DEMO_OUT="$OUT" node "$DEMO_DIR/seed-demo.mjs" now || die "tạo dữ liệu pha 2 lỗi"
   sample_images
 }
 

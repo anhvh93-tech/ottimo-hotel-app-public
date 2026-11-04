@@ -3,7 +3,8 @@
 //   1. every demo role logs in (8 accounts) and reads its home data
 //   2. rack of the next 14 days (front desk) + occupancy of the scenario (target 50–60 %)
 //   3. check-in of today's arrival (document already entered, trusted desk device)
-//   4. check-out of the guest leaving today: VietQR for the open balance → payment received → check-out
+//   4. check-out of the guest leaving today, at any hour: late check-out / extra night as the desk would → VietQR for
+//      the amount due → payment received → check-out
 //   5. guest-web link of tomorrow's arrival: open the guest session from the guest origin, read the stay
 // Secrets are read from DEMO_STATE and never printed.
 import { randomUUID } from 'node:crypto';
@@ -236,16 +237,25 @@ const nowLocal = () =>
   else bad(`nhận phòng: HTTP ${r.status} ${short(r.body)}`);
 }
 
-// 4. check-out with VietQR
+// 4. check-out with VietQR – at ANY hour (P-4). One departure time for the whole step, so the late quote, the summary,
+// the QR and B18 read the same minute (the server only checks it against its clock within the typed-time tolerance).
+//   - before 12:00 / in the grace time: plain check-out;
+//   - a BR-412 tier (12:30–18:00): the desk records the late check-out first (B15, H15) so the bill carries the
+//     surcharge before it is collected – otherwise check-out stops on BALANCE_DUE;
+//   - after the last tier (evening, after midnight until the 06:00 roll-over): B15 answers 422
+//     LATE_CHECKOUT_AFTER_LIMIT and B18 422 `extraNight` LATE_CHECKOUT_AFTER_LIMIT – the desk checks out "charging one
+//     more night" (BR-416, E05-11): the QR of the check-out step collects what getCheckoutSummary shows with that
+//     night (purpose check_out, S4-10), B18 then adds it at its default rate (`extraNight: {}` – ARC 16.18), as the
+//     Desk's 3-step screen does. The scenario leaves 103 free that night (next arrival D+1), so the night is sellable;
+//     an unsellable night needs OWN/MGR to confirm the late fee and is reported as a scenario change.
 {
   const id = st.ids.departingToday;
-  // After the grace time (BR-425) the desk records the late check-out first (B15, H15) so the bill carries the
-  // surcharge before it is collected – otherwise check-out stops on BALANCE_DUE.
+  const t = nowLocal();
   const before = (await http('GET', P(fd, `/reservations/${id}`), { s: fd })).body;
   const late = await http('POST', P(fd, `/reservations/${id}/actions/late-checkout`), {
     s: fd,
     ifMatch: before.version,
-    body: { checkoutTime: nowLocal(), dryRun: true },
+    body: { checkoutTime: t, dryRun: true },
   });
   const lateVnd =
     late.status === 200 && !late.body?.treatAsExtension ? (late.body?.surchargeVnd ?? 0) : 0;
@@ -253,70 +263,88 @@ const nowLocal = () =>
     const set = await http('POST', P(fd, `/reservations/${id}/actions/late-checkout`), {
       s: fd,
       ifMatch: before.version,
-      body: { checkoutTime: nowLocal(), applySurcharge: true, expectedSurchargeVnd: lateVnd },
+      body: { checkoutTime: t, applySurcharge: true, expectedSurchargeVnd: lateVnd },
     });
     if (set.status === 200)
       ok(`trả muộn: phụ thu ${lateVnd.toLocaleString('vi-VN')} đ ghi vào bill`);
     else bad(`trả muộn: HTTP ${set.status} ${short(set.body)}`);
   }
+  const sum = await http('GET', P(fd, `/reservations/${id}/checkout-summary`), {
+    s: fd,
+    query: { checkoutTime: t },
+  });
+  if (sum.status !== 200) bad(`xem bill trả phòng: HTTP ${sum.status} ${short(sum.body)}`);
+  const extraNight = sum.body?.extraNightRequired === true;
   const res = (await http('GET', P(fd, `/reservations/${id}`), { s: fd })).body;
-  const folio = (await http('GET', P(fd, `/folios/${res.folioId}`), { s: fd })).body;
-  const due = folio?.totals?.balanceDueVnd ?? 0;
-  if (due > 0) {
-    const q = await http('POST', P(fd, `/folios/${res.folioId}/vietqr`), {
-      s: fd,
-      body: { amountVnd: due, purpose: 'balance' },
-    });
-    if (q.status === 201 || q.status === 200) {
-      ok(`VietQR ${due.toLocaleString('vi-VN')} đ cho bill ${res.code}`);
-      const pay = q.body.payment ?? q.body;
-      const pid = pay.id ?? q.body.paymentId;
-      const c = await http('POST', P(fd, `/payments/${pid}/actions/confirm-received`), {
+  if (extraNight && sum.body.extraNightAvailable !== true) {
+    bad(
+      `trả phòng ${res.code} lúc ${t}: đêm ngày đi không bán được – cần OWN/MGR xác nhận phí trả muộn (kịch bản demo đã đổi?)`,
+    );
+  } else {
+    if (extraNight)
+      ok(
+        `trả phòng lúc ${t} (sau mốc trả muộn cuối): tính thêm 1 đêm ${Number(sum.body.extraNightDefaultRateVnd ?? 0).toLocaleString('vi-VN')} đ`,
+      );
+    const folio = (await http('GET', P(fd, `/folios/${res.folioId}`), { s: fd })).body;
+    const due = extraNight
+      ? (sum.body.amountDueAtCheckoutVnd ?? 0)
+      : (folio?.totals?.balanceDueVnd ?? 0);
+    if (due > 0) {
+      const q = await http('POST', P(fd, `/folios/${res.folioId}/vietqr`), {
         s: fd,
-        ifMatch: pay.version,
-        body: {},
+        body: { amountVnd: due, purpose: extraNight ? 'check_out' : 'balance' },
       });
-      if ([200, 201].includes(c.status)) ok('lễ tân xác nhận đã thấy tiền VietQR');
-      else bad(`xác nhận VietQR: HTTP ${c.status} ${short(c.body)}`);
-    } else bad(`tạo VietQR: HTTP ${q.status} ${short(q.body)}`);
-  } else ok(`bill ${res.code} không còn nợ`);
-  const std = await http('GET', P(fd, `/reservations/${id}/minibar-standard`), { s: fd });
-  if (std.status === 200 && listOf(std.body.items ?? std.body).length) {
-    await http('POST', P(fd, `/reservations/${id}/minibar-checks`), {
-      s: fd,
-      body: {
-        mode: 'checkout',
-        lines: (std.body.items ?? []).map((i) => ({
-          itemId: i.itemId,
-          remainingQty: i.standardQty,
-        })),
-      },
-    });
+      if (q.status === 201 || q.status === 200) {
+        ok(`VietQR ${due.toLocaleString('vi-VN')} đ cho bill ${res.code}`);
+        const pay = q.body.payment ?? q.body;
+        const pid = pay.id ?? q.body.paymentId;
+        const c = await http('POST', P(fd, `/payments/${pid}/actions/confirm-received`), {
+          s: fd,
+          ifMatch: pay.version,
+          body: {},
+        });
+        if ([200, 201].includes(c.status)) ok('lễ tân xác nhận đã thấy tiền VietQR');
+        else bad(`xác nhận VietQR: HTTP ${c.status} ${short(c.body)}`);
+      } else bad(`tạo VietQR: HTTP ${q.status} ${short(q.body)}`);
+    } else ok(`bill ${res.code} không còn nợ`);
+    const std = await http('GET', P(fd, `/reservations/${id}/minibar-standard`), { s: fd });
+    if (std.status === 200 && listOf(std.body.items ?? std.body).length) {
+      await http('POST', P(fd, `/reservations/${id}/minibar-checks`), {
+        s: fd,
+        body: {
+          mode: 'checkout',
+          lines: (std.body.items ?? []).map((i) => ({
+            itemId: i.itemId,
+            remainingQty: i.standardQty,
+          })),
+        },
+      });
+    }
+    const cur = (await http('GET', P(fd, `/reservations/${id}`), { s: fd })).body;
+    const checkOut = (extra) =>
+      http('POST', P(fd, `/reservations/${id}/actions/check-out`), {
+        s: fd,
+        ifMatch: cur.version,
+        body: { checkoutTime: t, ...(extraNight ? { extraNight: {} } : {}), ...extra },
+      });
+    let r = await checkOut({});
+    // In a tier the desk must decide on the late check-out surcharge, like the UI does: apply it with the amount the
+    // server quotes (409 SURCHARGE_CHANGED carries it), then retry.
+    const lateDecision = (res) =>
+      res.status === 422 && (res.body?.errors ?? []).some((e) => e.field === 'applyLateSurcharge');
+    if (lateDecision(r)) {
+      const quote = await checkOut({ applyLateSurcharge: true, expectedSurchargeVnd: 0 });
+      const amount = quote.status === 409 ? quote.body?.surchargeVnd : undefined;
+      r =
+        amount === undefined
+          ? quote
+          : await checkOut({ applyLateSurcharge: true, expectedSurchargeVnd: amount });
+      if (amount !== undefined)
+        ok(`phụ thu trả muộn ${amount.toLocaleString('vi-VN')} đ (sau giờ ân hạn)`);
+    }
+    if (r.status === 200) ok(`trả phòng ${cur.code}`);
+    else bad(`trả phòng: HTTP ${r.status} ${short(r.body)}`);
   }
-  const cur = (await http('GET', P(fd, `/reservations/${id}`), { s: fd })).body;
-  const checkOut = (extra) =>
-    http('POST', P(fd, `/reservations/${id}/actions/check-out`), {
-      s: fd,
-      ifMatch: cur.version,
-      body: { checkoutTime: nowLocal(), ...extra },
-    });
-  let r = await checkOut({});
-  // After the grace time (BR-425) the desk must decide on the late check-out surcharge, like the UI does:
-  // apply it with the amount the server quotes (409 SURCHARGE_CHANGED carries it), then retry.
-  const lateDecision = (res) =>
-    res.status === 422 && (res.body?.errors ?? []).some((e) => e.field === 'applyLateSurcharge');
-  if (lateDecision(r)) {
-    const quote = await checkOut({ applyLateSurcharge: true, expectedSurchargeVnd: 0 });
-    const amount = quote.status === 409 ? quote.body?.surchargeVnd : undefined;
-    r =
-      amount === undefined
-        ? quote
-        : await checkOut({ applyLateSurcharge: true, expectedSurchargeVnd: amount });
-    if (amount !== undefined)
-      ok(`phụ thu trả muộn ${amount.toLocaleString('vi-VN')} đ (sau giờ ân hạn)`);
-  }
-  if (r.status === 200) ok(`trả phòng ${cur.code}`);
-  else bad(`trả phòng: HTTP ${r.status} ${short(r.body)}`);
 }
 
 // 5. guest-web link
