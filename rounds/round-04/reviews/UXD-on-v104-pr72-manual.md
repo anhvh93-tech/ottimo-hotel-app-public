@@ -216,3 +216,136 @@ Ba thẻ Suggestion (07–09): BA tự cân nhắc. Không có ESC.
 | 2026-11-05 | 4 | **UXD review PR #72** @ `11794c25` (sổ tay, `00`, `01`, `02`): ĐẠT CÓ ĐIỀU KIỆN. Mọi nhãn và câu trích khớp `strings-vi.json` trên `main` từng chữ (soát máy mọi cụm đậm/ngoặc kép + đọc mã Desk); HTML dựng ĐẠT 390/1440, font nhúng đủ. Trước khi gộp, BA sửa: FB-R4-UXD-BA-PR72-01 (tách 7.4 / sổ tay 2.10 thành từng ca, nói nút **Đổi căn / đổi ngày** mở khung đơn), -02 (ca quên bấm Trả phòng chọn **Loại** **Giảm giá đặc biệt (tiền phòng)** – Desk chọn sẵn FOC; sửa 9.5 bước 2), -03 (đổi phòng không ghi minibar căn cũ bằng **Thêm phát sinh** – tránh tính hai lần với tủ căn cũ lúc trả phòng; DOM xác nhận), -04, -05 (chữ). Suggestion 07–09 BA tự cân nhắc. | UXD | Lễ tân làm theo đúng nhãn trong sách; ba chỗ Major ảnh hưởng thao tác ở quầy, loại dòng trong báo cáo và tiền minibar. |
 | 2026-11-05 | 4 | **UXD – chữ phụ ô A31 cho đêm Nội bộ (v1.0.5)**: thêm `folio.adjust_night_help_internal` (VI "Đêm của đơn Nội bộ: không áp sàn–trần. Miễn phí đêm này thì nhập 0 (quản lý, chủ đầu tư)." / EN "Internal stay night: no floor or ceiling. To make this night free, enter 0 (manager or owner).") và `folio.adjust_night_empty_internal` (VI "Nhập giá đêm. Miễn phí thì nhập 0." / EN "Enter the night's rate. Enter 0 if it is free."); FE hiện thay `folio.adjust_night_help` / `field_error.amount_not_positive` khi đêm thuộc đơn kênh Nội bộ. Tới v1.0.5 sách ghi "Bỏ qua dòng chữ nhỏ dưới ô giá…" (FB-R4-UXD-BA-PR72-06). | UXD | `folio.adjust_night_help` nói "ngoài sàn–trần không lưu được, thấp hơn sàn thì xin giảm giá đặc biệt" – sai với đêm Nội bộ và chỉ sang đúng việc sách cấm. |
 ```
+
+---
+
+# Lượt 2 – 05/11/2026
+
+- Đối tượng:
+  - `git diff 11794c25..origin/v104/ba-docs-r4c -- product/docs/manual/` @ `e200fea1` (gồm `03-buong-phong.md`);
+  - bảng trả lời `rounds/round-04/reviews/BA-reply-v104-pr72.md` (trên nhánh).
+- Đối chiếu: `strings-vi.json` trên `main` @ `7265a1fd`, không đổi so với lượt 1; mã Desk trên nhánh.
+- Cách soát:
+  - Máy soát lại mọi cụm **đậm** và mọi câu trong ngoặc kép ở các dòng mới. Cụm lệch chỉ là chữ nhấn mạnh, tiêu đề ý hoặc câu nhân viên tự ghi ("Trùng minibar tủ căn cũ", "Đã kiểm căn trống lúc …").
+  - Đọc mã ở các chỗ sách tả hành vi mới: ô **Loại** trong `foc.tsx`; **Bỏ cả dòng** = `folio.adjust_void` và `canAdjust` (lễ tân trở lên khi folio còn mở) trong `FolioDialog.tsx`; ô tìm `rsv.search_placeholder` "Mã đơn, mã OTA, mã khách hoặc tên"; câu hộp hoàn tất `checkout.complete_confirm_body` có "xóa mã trên app khóa".
+  - Dựng lại HTML trong worktree tách ở scratchpad: `rebuild_manual_html.py` ĐẠT; mọi tệp 390 và 1440 px không tràn ngang; font nhúng đủ 5 mặt; HTML không còn `<!--`. Đã chụp 7.4, 11.1 (b) và khối 2 tủ ở 390 và 1440 px. Không commit HTML.
+
+## Kết luận lượt 2: ĐẠT
+
+Thẻ UXD-01…08 đã đóng đúng. Thẻ 09 bị từ chối, UXD đồng ý với lý do. Còn một thẻ Minor mới (PR72-10). Thẻ này không chặn gộp; BA sửa luôn trong #72 hoặc cùng lần gộp #69. Không có ESC.
+
+| Thẻ | Kết quả kiểm |
+|---|---|
+| 01 | Đóng. 7.4 và sổ tay 2.10 tách đúng khối đề xuất:<br>– ba gạch cấp 1: chưa sẵn sàng, còn khách, `OOO`;<br>– ca 1, ca 2 đánh số theo câu trong khung đỏ.<br>Đã nói nút **Đổi căn / đổi ngày** chỉ mở khung đơn. Đã có cách mở đơn cũ: mã thì gõ ở ô tìm của **Đơn đặt phòng**; không mã thì bấm căn trên **Sơ đồ phòng**. Ở 390 px mỗi ca nằm gọn trong khoảng một màn. Hai câu SEC thêm (**Lý do** ghi giờ và người kiểm; kiểm mã cũ trên app khóa) đặt đúng chỗ. |
+| 02 | Đóng. (b) bước con 1 có **Loại**: **Giảm giá đặc biệt (tiền phòng)** và câu "Desk chọn sẵn **Miễn khoản phát sinh (FOC)**, phải đổi", khớp `foc.kind_*`. 9.5 bước 2 / sổ tay 2.12 theo chữ DOM (đêm bù sự cố để FOC, lý do **Bù sự cố**). `01` 14.1 có lối từ chối yêu cầu sai loại. |
+| 03 | Đóng, theo chữ DOM. 9.4 bỏ **Thêm phát sinh** cho minibar căn cũ, ghi số vào sổ giao ca. 11.1 nhập số đó ở tủ căn cũ, không đếm lại. Gạch **Kiểm trùng** có ở cả khối v1.0.4 lẫn v1.0.3. `03` mục 7 khớp. Nhãn **Bỏ cả dòng** là phần đầu của `folio.adjust_void` "Bỏ cả dòng (ghi bút toán đảo, không xóa)"; cách trích này giống mọi nhãn ô tích khác trong sách, chấp nhận. |
+| 04 | Đóng. Hai chỗ thành **Tiếp tục: Phụ phí**, không còn "phiếu đếm". |
+| 05 | Đóng. "**Khoản**: **Đồ ăn uống**", "**Lý do miễn phí**: **Khác (ghi rõ)**, ghi …". Hết dấu chấm thừa. |
+| 06 | Đóng phần sách. Câu "Bỏ qua dòng chữ nhỏ dưới ô giá … Chữ cũ, sửa ở v1.0.5." có ở cả ba chỗ. Phần Desk vẫn ở v1.0.5 (dòng decision-log lượt 1). |
+| 07 | Đóng. (b) thành 5 bước con có số. Bước 8 có "Đơn **Nội bộ**: xem bước 4." |
+| 08 | Đóng. Đủ ba thông báo, tách cách làm cho tủ căn cũ và tủ đang ở. |
+| 09 | Rejected, UXD đồng ý: #69 đã giữ số 1.14 / 1.12. Ngày 05/11 đã ghi ở dòng "Lập:" và bảng bản, đủ để phân biệt bản in. |
+
+### FB-R4-UXD-BA-PR72-10
+- Mức độ: Minor (không chặn gộp)
+- Vị trí: `02` 11.1 bước 1 và gạch **Kiểm trùng, trước khi bấm Trả phòng** ở bước 2; sổ tay 2.14, cùng chỗ.
+- Vấn đề:
+  - Việc phải làm **trước khi bấm Trả phòng** lại nằm trong bước 2. Bước 2 là bước Minibar của trang **Trả phòng**, tức là lễ tân đã bấm rồi.
+  - Lúc đọc tới gạch này, lễ tân phải rời trang (**Về chi tiết đơn**), sửa folio, rồi mở lại **Trả phòng**.
+  - Chuỗi thao tác dừng ở **Lý do điều chỉnh**, thiếu nút cuối **Ghi điều chỉnh** (`folio.adjust_submit`). Tệp `01` 14.1 thì có nút này.
+- Vì sao quan trọng: khách đứng chờ ở quầy. Biết trước thì kiểm trùng một lần; biết muộn thì phải đi vòng qua hai trang.
+- Đề xuất sửa:
+  - Bước 1 thêm một câu: "Khách đã đổi căn giữa kỳ: trước khi bấm, mở **Folio** kiểm trùng minibar căn cũ (gạch **Kiểm trùng** ở bước 2)."
+  - Trong gạch **Kiểm trùng**, sau **Lý do điều chỉnh** "Trùng minibar tủ căn cũ" thêm "→ **Ghi điều chỉnh**".
+- Trạng thái: Open
+
+---
+
+## #85 `v104/ba-esc045-prices` @ `f11e928c` – liếc nhanh trình bày và nhãn
+
+- Phạm vi: `git diff origin/main...f11e928c -- product/docs/manual/` (sổ tay 1.3, 2.12, 5.2; `01` 9.1; `02` 9.2, 20.2; `05` mục 3; `00`).
+- HTML dựng ĐẠT: 390 và 1440 px không tràn, kể cả hai bảng 20.2 và 5.2 có ô dài hơn trước.
+- Nhãn:
+  - **Tham số quy tắc** và tab **Khác** (`params.grp_other`) khớp Desk.
+  - `weekend_uplift_pct`, `special_uplift_pct` viết dạng mã. Cách này đúng với Desk, vì hai tham số này chưa có nhãn: `paramLabel` hiện tên khóa thô ở tab **Khác**.
+  - Studio 800.000 khớp bảng giá BR (`studio_city`, `studio_garden`).
+- Giọng văn ngắn, nhất quán.
+
+**Kết luận #85: ĐẠT CÓ ĐIỀU KIỆN.** Một thẻ Major, hai Minor, một Suggestion. Không có ESC.
+
+### FB-R4-UXD-BA-PR85-01
+- Mức độ: Major (cách kiểm không làm được như sách viết)
+- Vị trí: `01` 9.1, `02` 20.2, `05` mục 3, sổ tay 1.3 và 5.2: "Báo giá thử Studio 1 đêm thứ Sáu ra khác 800.000 …".
+- Vấn đề:
+  - Cùng bảng 20.2 ghi **Tối thiểu số đêm: 2 đêm khi ngày đến là thứ Sáu, thứ Bảy, ngày đặc biệt**.
+  - Báo giá 1 đêm đến thứ Sáu bị máy chủ từ chối với `MIN_STAY_NOT_MET` (`quote-pricing.ts`), trừ khi gặp đúng ca đêm lẻ. Desk vì vậy báo lỗi chứ không ra số tiền.
+  - Người kiểm không có số để so với 800.000. Họ dễ đọc lỗi đó thành "tham số chưa về 0" và báo quản lý không cần thiết.
+- Vì sao quan trọng: đây là cách duy nhất sách đưa cho lễ tân, sale và chủ đầu tư để biết ESC-045 đã chạy trên Desk.
+- Đề xuất sửa (cùng chữ ở mọi chỗ): "Kiểm nhanh: báo giá thử Studio **2 đêm, đến thứ Sáu** (một ngày không phải ngày đặc biệt). Mỗi đêm phải là 800.000, tổng 1.600.000. Ra số khác: dừng, báo quản lý, không tự sửa giá."
+  - Bảng tiền phòng của hộp báo giá vẫn tách dòng "{n} đêm thứ Sáu, thứ Bảy × …". Cùng giá thì vẫn đúng. Xem ý kiến về chuỗi bên dưới.
+- Trạng thái: Open
+
+### FB-R4-UXD-BA-PR85-02
+- Mức độ: Minor
+- Vị trí: `02` 20.2 dòng **Cuối tuần, ngày đặc biệt**; sổ tay 5.2, cùng dòng.
+- Vấn đề:
+  - Ở v1.0.3, cột **Nguồn giá** của hộp đặt phòng ghi "Lịch giá: thứ Sáu/thứ Bảy +15% (BR-104)" ở **mọi** đêm thứ Sáu, thứ Bảy. Desk chọn nhãn theo thứ trong tuần, không theo tham số (`BookingDialog.tsx` @ `v1.0.3`: `weekend(r.date) ? 'bk.src_weekend' : …`).
+  - Chủ đầu tư chuyển giá trước khi v1.0.4 lên thì ô giá ghi 800.000 mà nhãn bên cạnh vẫn ghi +15%.
+- Đề xuất sửa: thêm vào dòng đó (không sửa 5.1 bước 8, để khỏi xung đột với #72): "Tới v1.0.3, đêm thứ Sáu, thứ Bảy cột **Nguồn giá** vẫn ghi "Lịch giá: thứ Sáu/thứ Bảy +15% (BR-104)": nhãn cũ. Đọc số trong ô giá. Từ v1.0.4 không còn nhãn này."
+- Trạng thái: Open
+
+### FB-R4-UXD-BA-PR85-03
+- Mức độ: Minor
+- Vị trí: `01` 9.1 / 9.2; sổ tay 1.3.
+- Vấn đề:
+  - Sách của lễ tân (`02` 9.2) và sale (`05` mục 3) dặn: "Desk hiện 100.000 cho trẻ 6–11 tuổi: báo quản lý".
+  - Sách của chủ đầu tư và quản lý (`01`) lại không nói phải sửa tham số nào. Phần tăng giá cuối tuần thì `01` có nêu tên hai tham số.
+- Đề xuất sửa: thêm vào `01` 9.1 một gạch: "Phụ thu trẻ 6–11 tuổi (ESC-045): **Tham số quy tắc** → tab **Số người & phụ thu** → **Phụ thu trẻ 6–11 tuổi vượt định mức (mỗi đêm)** = 150.000, cùng ngày chuyển giá. Kiểm nhanh: thêm 1 trẻ 6–11 tuổi vượt định mức, Desk hiện 150.000."
+  - Nhãn lấy theo `params.grp_occupancy` và `params.extra_child`.
+- Trạng thái: Open
+
+### FB-R4-UXD-BA-PR85-04
+- Mức độ: Suggestion (v1.0.5)
+- Vị trí: `01` 9.1, sổ tay 1.3 (tên khóa thô `weekend_uplift_pct`, `special_uplift_pct`).
+- Đề xuất: khi v1.0.5 có nhãn cho hai tham số này (xem bên dưới), BA đổi tên khóa thô thành nhãn Desk.
+- Trạng thái: Open
+
+---
+
+## Ý kiến UXD về `bk.src_weekend` và các chuỗi ghi số cố định
+
+**1. `bk.src_weekend`: không cần sửa trong v1.0.4. Desk v1.0.4 đã không hiện chuỗi này.**
+- Trên `main`, `BookingDialog.tsx` chỉ dùng `bk.src_typed`, `bk.src_list` và "–" (UXD-on-v104-src-typed mục 3).
+- Test `v104-rate-source-typed` kiểm rằng chuỗi này không hiện. Không còn mã nào khác gọi tới khóa.
+- Chuỗi chỉ còn ở ba nơi: `strings-*.json`, `gen_strings.py` / `strings-tables.md` (đã ghi "Không dùng ở Desk từ v1.0.4"), và ảnh mẫu `hifi/09-booking.html`.
+- Vì vậy BA thấy "+15%" là đúng với v1.0.3 đang chạy, nhưng v1.0.4 đã sửa.
+- Việc v1.0.3: chỉ cần câu trong sách (thẻ PR85-02).
+- v1.0.5 (UXD, dọn chữ):
+  - xóa `bk.src_weekend` khỏi `gen_strings.py` và sinh lại VI/EN/RU;
+  - ảnh mẫu `09-booking.html` đổi ô đó sang `bk.src_list`.
+- Nếu sau này chủ đầu tư bật lại mức tăng:
+  - nhãn lấy theo nguồn từng đêm máy chủ trả và **số % lấy theo tham số**, không viết số cố định, không đoán theo thứ trong tuần;
+  - chỉ hiện khi mức tăng của đêm đó > 0.
+  - Chữ dành sẵn (chưa thêm khóa, chưa cần):
+    - `bk.src_weekend`: VI "Lịch giá: thứ Sáu, thứ Bảy +{pct}% (BR-104)" / EN "Rate calendar: Friday, Saturday +{pct}% (BR-104)";
+    - `bk.src_special`: VI "Lịch giá: ngày đặc biệt +{pct}% (BR-104)" / EN "Rate calendar: special date +{pct}% (BR-104)".
+
+**2. Rà `strings-vi.json` (và EN, RU) tìm số cố định hoặc ý "cuối tuần tăng giá".** Desk v1.0.4 chỉ còn một chuỗi sai nghĩa.
+
+| Khóa | Chữ hiện tại | Ý kiến | Khi nào |
+|---|---|---|---|
+| `rooms.night_auto` (chữ phụ ô giá đêm ở **Danh mục căn**, `RoomDrawer.tsx`) | VI "Đêm ngày thường, kênh Trực tiếp, đã gồm VAT. Cuối tuần, ngày đặc biệt do lịch giá cộng thêm." / EN "Weekday night, Direct channel, VAT included. The rate calendar adds weekend and special-date increases." | Sai sau ESC-045: chủ đầu tư hoặc quản lý đọc câu này khi sửa giá niêm yết, và sẽ nghĩ cuối tuần vẫn tự tăng. Sửa theo tham số, không ghi số:<br>VI "Giá mỗi đêm, kênh Trực tiếp, đã gồm VAT. Cuối tuần, ngày đặc biệt chỉ cộng thêm khi Tham số quy tắc có mức tăng."<br>EN "Nightly rate, Direct channel, VAT included. Weekends and special dates add more only if Rule parameters set an uplift." | **Nên vào v1.0.4 nếu kịp cắt 06/11 18:00.** Chỉ sửa chữ: 1 khóa VI/EN trong `gen_strings.py`, sinh lại tệp chữ, không đổi mã. Không kịp thì v1.0.5; không chặn phát hành, vì `01` 9.1 (#85) đã nói đúng. |
+| `sale.nights_weekend` / `sale.nights_weekday` (hộp báo giá, `QuoteDialog.tsx`) | "{n} đêm thứ Sáu, thứ Bảy × {rate}" / "{n} đêm thường × {rate}" | Không có số cố định, nên vẫn đúng. Nhưng một giá mọi đêm thì Desk hiện hai dòng cùng giá, thừa một dòng. Mã còn lấy giá đêm đầu tiên của nhóm làm `{rate}`, sai nếu các đêm trong nhóm khác giá; lỗi này có từ trước. Đề xuất v1.0.5 (FE): các đêm cùng giá gộp thành một dòng, khóa mới `sale.nights_all` VI "{n} đêm × {rate}" / EN "{n} nights × {rate}"; khác giá thì tách theo giá, không theo thứ. | v1.0.5 |
+| `extend.keep_rate_help` | "… ngày đặc biệt theo giá ngày đó." | Không mã nào gọi tới khóa này. Không hại. | v1.0.5, dọn chữ |
+| `params.extra_child`, `occ.children*`, `sale.quote_kids_*`, `webreq.children`, landing `ages6to11` | "Trẻ 6–11 tuổi …" | Đây là **nhóm tuổi** dùng để đếm số người (BR-110), không phải giá. ESC-045 đổi **số tiền** (tham số `child_fee_6_11` = 150.000), không bỏ nhóm tuổi. Giữ nguyên. | – |
+| Không có nhãn: `weekend_uplift_pct`, `special_uplift_pct` | (Desk hiện tên khóa thô ở tab **Khác**) | v1.0.5 (UXD + FE): thêm vào `KNOWN` của `paramCatalog.ts`, đơn vị `pct`.<br>`params.k.weekend_uplift_pct`: VI "Tăng giá đêm thứ Sáu, thứ Bảy" / EN "Friday and Saturday rate uplift".<br>`params.k.special_uplift_pct`: VI "Tăng giá ngày đặc biệt" / EN "Special-date rate uplift". | v1.0.5 |
+
+Các chuỗi có `{pct}` (phụ thu nhận sớm, trả muộn, giảm theo số đêm) đều lấy số từ máy chủ, không đổi. Chữ khách (landing, trang khách) không có câu nào nói tăng giá cuối tuần.
+
+## Dòng decision-log đề xuất (lượt 2)
+
+```
+| 2026-11-05 | 4 | **UXD lượt 2 PR #72** @ `e200fea1`: ĐẠT. FB-R4-UXD-BA-PR72-01…08 đóng đúng (soát máy nhãn mới với `strings-vi.json` `main` @ `7265a1fd`, đọc mã `foc.tsx` / `FolioDialog.tsx`; HTML dựng ĐẠT 390/1440, font nhúng đủ). Đồng ý BA từ chối -09 (#69 giữ số 1.14 / 1.12). Thẻ mới -10 (Minor, không chặn): kiểm trùng minibar căn cũ đưa lên bước 1 trước khi bấm Trả phòng, thêm **Ghi điều chỉnh**. | UXD | Sách khớp Desk; việc còn lại là thứ tự đọc ở quầy. |
+| 2026-11-05 | 4 | **UXD liếc #85** @ `f11e928c` (ESC-045 giá trong sách): ĐẠT CÓ ĐIỀU KIỆN. FB-R4-UXD-BA-PR85-01 Major: "báo giá thử Studio 1 đêm thứ Sáu" bị chặn tối thiểu 2 đêm (`MIN_STAY_NOT_MET`) – đổi thành 2 đêm đến thứ Sáu, tổng 1.600.000. -02 Minor: nhãn v1.0.3 "+15%" ở cột Nguồn giá. -03 Minor: `01` nêu tham số **Phụ thu trẻ 6–11 tuổi vượt định mức (mỗi đêm)** = 150.000. -04 Suggestion v1.0.5. | UXD | Cách kiểm duy nhất sách đưa ra phải chạy được trên Desk. |
+| 2026-11-05 | 4 | **UXD – chuỗi giá cố định sau ESC-045**: `bk.src_weekend` không sửa ở v1.0.4 (Desk v1.0.4 không hiện; v1.0.5 xóa khóa, sửa ảnh mẫu `09-booking.html`; nếu bật lại mức tăng thì nhãn theo nguồn từng đêm, số % theo tham số). `rooms.night_auto` đổi thành VI "Giá mỗi đêm, kênh Trực tiếp, đã gồm VAT. Cuối tuần, ngày đặc biệt chỉ cộng thêm khi Tham số quy tắc có mức tăng." / EN "Nightly rate, Direct channel, VAT included. Weekends and special dates add more only if Rule parameters set an uplift." – vào v1.0.4 nếu kịp cắt 06/11 18:00 (chỉ chữ), không thì v1.0.5. v1.0.5: `sale.nights_all`, `params.k.weekend_uplift_pct`, `params.k.special_uplift_pct`. Giữ nhãn nhóm tuổi "6–11". | UXD | Chữ Desk không được ghi một mức tăng mà tham số không còn áp. |
+```
