@@ -1002,7 +1002,8 @@ export function createStayMock(ctx: Ctx) {
   /**
    * BUG-R4-039 (BE #74, ARC review #74 C1 / A.4 `roomHolder`): another in-house stay (not this booking's root or
    * children) still in the room – leaving today before B18, covering tonight, or past its departure with no B18 (the
-   * desk forgot Trả phòng). One that has not ended wins over an overdue one.
+   * desk forgot Trả phòng). Order of BE #74 C2 (`roomHolder` SQL): one that has not ended first, then the earliest
+   * arrival, then the root code.
    */
   function roomHolder(r: MockReservation) {
     if (!r.roomId) return undefined;
@@ -1014,10 +1015,13 @@ export function createStayMock(ctx: Ctx) {
         (x.parentReservationId ?? x.id) !== root &&
         x.roomId === r.roomId,
     );
-    const x = held.find((y) => y.departureDate >= today()) ?? held[0];
+    const rootCode = (x: MockReservation) =>
+      all.find((y) => y.id === (x.parentReservationId ?? x.id))?.code ?? x.code;
+    const rank = (x: MockReservation) =>
+      `${x.departureDate < today() ? 1 : 0}|${x.arrivalDate}|${rootCode(x)}`;
+    const x = [...held].sort((a, b) => rank(a).localeCompare(rank(b)))[0];
     if (!x) return undefined;
-    const code = all.find((y) => y.id === (x.parentReservationId ?? x.id))?.code ?? x.code;
-    return { code, overdue: x.departureDate < today() };
+    return { code: rootCode(x), overdue: x.departureDate < today() };
   }
   function conditions(r: MockReservation) {
     const room = roomOf(r);
@@ -1036,10 +1040,11 @@ export function createStayMock(ctx: Ctx) {
       {
         code: 'room_ready',
         met: ready,
-        ...(room ? { detail: status } : {}),
+        // As BE #74 C2: `detail` (room status) and `cause` only when not met; no `detail` without a room.
         ...(ready
           ? {}
           : {
+              ...(room ? { detail: status } : {}),
               cause: !room ? 'no_room' : holder ? 'held_by_other_stay' : 'room_status',
               ...(holder ? { heldByReservationCode: holder.code } : {}),
             }),
