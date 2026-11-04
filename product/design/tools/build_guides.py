@@ -39,6 +39,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import build_manual as bm  # noqa: E402
 from build_manual import IMG_EXT, MIME, esc, image_size, inline, parse_blocks, plain, slugify, split_row, strip_comments  # noqa: E402
+from doc_fonts import fonts_head  # noqa: E402  (font nhúng dùng chung với build_manual.py)
 
 ROOT = HERE.parents[2]
 SRC_DIR = ROOT / "product" / "docs" / "manual" / "guides"
@@ -47,16 +48,7 @@ IMG_DIR = ROOT / "product" / "docs" / "manual" / "img"
 SHOT_LISTS = [ROOT / "product" / "docs" / "manual" / "screenshot-list.md", SRC_DIR / "screenshot-additions.md"]
 A4_NOTICE = ROOT / "product" / "docs" / "print" / "to-4-your-id-details-a4.html"
 TABLET_NAME = "your-id-details-tablet.html"
-FONT_DIR = ROOT / "product" / "apps" / "landing-web" / "node_modules" / "@fontsource"
-GOOGLE_FONTS = ("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700"
-                "&family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap")
 SET_NAME = "Bộ hướng dẫn OTTIMO Desk v1.0"
-
-# fontsource: tập con latin + vietnamese (đủ tiếng Anh, tiếng Việt). Mũi tên → dùng font dự phòng.
-UR_LATIN = ("U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,"
-            "U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD")
-UR_VI = ("U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,"
-         "U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB")
 GUIDE_FONTS = [("Lora", "lora", 400), ("Lora", "lora", 500), ("Be Vietnam Pro", "be-vietnam-pro", 400),
                ("Be Vietnam Pro", "be-vietnam-pro", 500), ("Be Vietnam Pro", "be-vietnam-pro", 600),
                ("JetBrains Mono", "jetbrains-mono", 400), ("JetBrains Mono", "jetbrains-mono", 500)]
@@ -68,36 +60,10 @@ GUIDE_CODE_RE = re.compile(r"^(0\d)(?:-[a-z0-9-]+\.md)?$")
 MUC_RE = re.compile(r"(?<![\w])([mM]ục\s+)(\d+(?:\.\d+){0,2}(?:[a-z](?![^\W\d_]))?)((?:(?:\s*,\s*|\s+và\s+|\s+hoặc\s+)\d+(?:\.\d+){0,2}(?:[a-z](?![^\W\d_]))?(?![\d.]*\d))*)")
 SHOT_CODE_RE = re.compile(r"^([A-Z]\d+-\d+)(?:\s*-\s*(.*))?$")
 
-FONT_CACHE = {}
 IMG_CACHE = {}
 
 
 # --------------------------------------------------------------------------- tiện ích
-
-def font_face_css(fonts):
-    """@font-face nhúng base64 (woff2) từ @fontsource; thiếu tệp thì trả None (dùng Google Fonts)."""
-    rules = []
-    for family, slug, weight in fonts:
-        for subset, urange in (("latin", UR_LATIN), ("vietnamese", UR_VI)):
-            p = FONT_DIR / slug / "files" / ("%s-%s-%d-normal.woff2" % (slug, subset, weight))
-            if not p.is_file():
-                return None
-            if p not in FONT_CACHE:
-                FONT_CACHE[p] = base64.b64encode(p.read_bytes()).decode("ascii")
-            rules.append("@font-face{font-family:'%s';font-style:normal;font-weight:%d;font-display:swap;"
-                         "src:url(data:font/woff2;base64,%s) format('woff2');unicode-range:%s}"
-                         % (family, weight, FONT_CACHE[p], urange))
-    return "\n".join(rules)
-
-
-def fonts_head(fonts, embed):
-    css = font_face_css(fonts) if embed else None
-    if css:
-        return "<style>%s</style>" % css, True
-    return ('<link rel="preconnect" href="https://fonts.googleapis.com">'
-            '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
-            '<link rel="stylesheet" href="%s">' % esc(GOOGLE_FONTS)), False
-
 
 def load_shots(paths):
     """mã ảnh -> (mô tả màn hình, có phải ảnh điện thoại) – đọc theo cột "Màn hình" của từng bảng."""

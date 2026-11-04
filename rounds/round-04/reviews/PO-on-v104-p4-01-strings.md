@@ -107,3 +107,28 @@
 - Mỗi khóa ghi rõ gói, mã lỗi, vai được thấy và lý do sửa chữ. Ví dụ `error.FOLIO_LOCKED` ghi đủ 3 nguồn 409 và tên nút đích. Nhờ vậy CPY và QA tra ngược được.
 - Đã bỏ câu sai trong `early_departure.row_refund_help` (BUG-R4-025). Câu mới khớp BR-522 và bản đính chính release notes 04/11.
 - Đổi tên khóa theo ARC 0.3.12 mà không đổi chữ. Đúng luật "UXD được đổi chữ, không đổi tên khóa" theo chiều ngược lại.
+
+---
+
+## Xác nhận lượt 2 (04/11)
+
+- Đối tượng: `origin/v104/uxd-strings` @ `fd1d85d8`, diff `36f38edd..fd1d85d8`. Bảng trả lời: `rounds/round-04/responses/UXD-P4-01.md` (trên nhánh).
+- Cách kiểm:
+  - đọc diff `gen_strings.py` và `content-guide.md`;
+  - gộp thử nhánh lên `main` trong worktree tạm. Gộp sạch, chạy `gen_strings.py` ra 3459 chuỗi + 8 mẫu và **không lệch** tệp sinh ra;
+  - `auth.mfa_later` có lại trong `strings-vi.json`.
+
+| Thẻ | Kiểm | PO |
+|---|---|---|
+| FB-R4-PO-UXD-P401-01 (Major) | Dòng `auth.mfa_later` có lại đúng chỗ cũ, chữ không đổi. Ghi chú nói "MOB xóa ở P4-50 cùng PR bỏ chỗ dùng". Thứ tự gộp P4-01 và P4-50 không còn làm hiện tên khóa thô | **Đóng** |
+| FB-R4-PO-UXD-P401-02 | `content-guide.md` v0.4.5 có đủ 3 ý PO nêu: dòng phiên bản, "Cọc thiếu / Short deposit" ở mục 3.1 kèm các cách viết không dùng, luật chọn `reauth.s2_failed` / `_password` ở mục 5.2b. Có thêm luật biến cho mốc giờ theo tham số | **Đóng** |
+| FB-R4-PO-UXD-P401-03 | `hold.paid_overdue_banner` dùng `{cutoff}` (= `hold_latest_time_on_arrival`), tách khỏi `{time}`. `staff.notif.k.hold_overdue_cap` bỏ hẳn giờ ("sau mốc giờ ngày đến – quản lý quyết") vì payload PWA chỉ có `refCode`. Hai cách sửa đều hợp lý | **Đóng**, kèm điều kiện cho P4-40 bên dưới |
+| FB-R4-PO-UXD-P401-04 | Nguồn đúng đã có ở `content-guide.md` mục 8. Bảng chữ trên nhánh khác để sau (Deferred). PO chấp nhận | **Đóng** |
+| FB-R4-PO-UXD-P401-05 | `users.reset_2fa_confirm` bỏ chữ "điện thoại mới", câu trung tính hơn. Tiêu đề tách sang khóa mới `users.reset_2fa_title` | **Đóng** |
+
+**Điều kiện cho P4-40 (FE-B), không chặn P4-01:**
+- `v104/fe-holds` @ `d03ede8f` chưa truyền `cutoff` vào `hold.paid_overdue_banner` (trong `ReservationDrawer.tsx` chỉ có `time`, `paid`, `required`, `date`). Nếu P4-40 gộp như hiện tại, banner sẽ hiện "{cutoff}" thô.
+- FE-B thêm `cutoff` (lấy từ `rules.holdLatestTime`) khi rebase lên P4-01.
+- QA kiểm trên ca BUG-R3-044 (1) trước khi gộp P4-40.
+
+**Phán quyết gộp: ĐẠT. Gộp được `v104/uxd-strings` @ `fd1d85d8`.** Không còn thẻ PO Open.

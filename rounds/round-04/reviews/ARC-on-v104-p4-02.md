@@ -77,3 +77,63 @@ Có 1 Major (FB-R4-ARC-OPS-P402-01). Sửa nhỏ, khoảng 15 dòng cùng test, 
 - Chốt (n): không chạy worker cũ khi api mới có thể vẫn đang trả lời. Đây là ca ARC không nêu, OPS tự thấy và khóa bằng test.
 - Test chứng minh được rằng bộ test bắt được mã cũ: các ca (b), (j), (k) FAIL khi chạy với `deploy.sh` của `main`. Ca (o) chặn ai đó gộp lại `api worker` vào một lệnh.
 - Không thêm dòng log, nên mọi tờ lệnh INV và runbook cũ vẫn đúng.
+
+## Xác nhận (04/11)
+
+- Đầu nhánh mới **`051e1750`** (1 commit nối tiếp `eef44c02`, không rebase). Diff `eef44c02..051e1750`: 4 tệp, +129 / −16 (`deploy.sh`, `rollback.test.sh`, báo cáo OPS, `responses/OPS-P4-02.md`).
+- `origin/main` lúc kiểm: `f758d44d`. `git merge-tree` của nhánh với `origin/main` và với `v104/ops-scripts` @ `67980030`: sạch.
+
+### Phán quyết gộp: **ĐẠT**
+
+Major P402-01 đã đóng. Điều kiện còn lại chỉ là CI `pull_request` xanh trên đúng `051e1750` (PR #45). Lúc ARC kiểm, mọi job đã xanh trừ `format · lint · audit · test · build` còn đang chạy. Nhánh chỉ đổi tệp `.sh` trong `product/`, nên job này không có lý do đỏ vì diff. Diễn tập 5.0 S3/S9 vẫn là điều kiện trước Release, không phải điều kiện gộp.
+
+### Trạng thái thẻ
+
+| ID | Tác giả trả lời | ARC xác nhận | Ghi chú |
+|---|---|---|---|
+| FB-R4-ARC-OPS-P402-01 (Major) | Done | **Verified** | Xem kiểm bên dưới |
+| FB-R4-ARC-OPS-P402-02 (Suggestion) | Accepted (5.0) | **Đồng ý** | Giờ thật `up` → `worker started` ghi vào biên bản 5.0. Lớn hơn 2 giây thì tăng lên 5 trong commit riêng |
+| FB-R4-ARC-OPS-P402-03 (Suggestion, mới) | – | Open | Container one-off trong `ps --all` (thẻ bên dưới). Không chặn gộp |
+
+### Đọc mã `worker_ok`
+
+- Mốc đúng. `pre_cid` và `pre_n` được đọc **trước** `up`.
+  - Compose tạo container mới (id khác) thì mốc là 0.
+  - Compose giữ nguyên container (cùng id) thì mốc là số đọc trước `up`.
+  - Container đã chết lặp từ trước mà compose giữ nguyên thì số vẫn tăng sau 3 giây, nên vẫn `FAIL`. Không có ca lọt.
+- `smoke` gọi lại cùng hàm và so với `w_cid` của bước switch. Container bị thay sau switch thì báo lỗi riêng, nên lỗ hở ở dòng 232–233 cũ đã bịt.
+- Có kiểm mọi giá trị đọc được: id rỗng, trạng thái rỗng, số không phải số đều ra `FAIL` với lý do rõ (đều hỏng về phía an toàn).
+  - `[[ =~ ^[0-9]+$ ]]` chặn được ca `[ -eq ]` gặp chuỗi lạ khi chạy dưới `set -e`.
+  - `w_base` chỉ nhận số đã qua regex.
+- Docker để container trong lúc chờ chạy lại (backoff) ở `Running=true`, `Restarting=true`. Lúc đó `RestartCount` đã tăng, nên `worker_ok` vẫn bắt được.
+- Vẫn đúng 6 dòng `[deploy`. Không đổi guard production, digest, `appconfig`, `roles`, `migrate`, `record`. Thứ tự `restore_previous` giữ nguyên.
+
+### Kiểm ARC đã chạy (worktree tách riêng, đầu `051e1750`)
+
+| Kiểm | Kết quả |
+|---|---|
+| `CI=true bash product/infra/server/test/rollback.test.sh` (Mac) | **27 passed, 0 failed**. Có (k) 2 ca mới, (l2), (l3), (l4) |
+| `bash product/infra/ci/test-deploy-from-ci.sh` (Mac, thêm `flock` giả) | tất cả `ok` |
+| shellcheck `v0.10.0` (`--network none`, `-x -S warning`) trên `deploy.sh` và `rollback.test.sh` | sạch |
+| Quét diff tìm email, IPv4, khóa | 0 kết quả |
+| Compose thật (Docker 29.8.2, Compose v5.5.0, `alpine:3.20`, `network_mode: none`): `ps --all --quiet worker` khi đang có container `dc run worker` | **in cả container one-off** (thẻ 03) |
+
+### FB-R4-ARC-OPS-P402-03
+- Mức độ: Suggestion
+- Vị trí: `deploy.sh` `worker_cid()` (`dc ps --all --quiet worker | head -n 1`).
+- Vấn đề: `docker compose ps --all` liệt kê **cả** container one-off của `dc run … worker`, ví dụ `mail-test.sh` và lệnh admin trong runbook. ARC đã thử trên máy: ra 2 id, `<project>-worker-1` và `<project>-worker-run-<hash>`. Hiện tại đúng **nhờ thứ tự**: compose in theo tên, và `-worker-1` đứng trước `-worker-run-…`, nên `head -n 1` lấy đúng container của service. Thứ tự này là chi tiết cài đặt của compose, không phải cam kết. Nếu bản compose trên VPS in theo thứ tự khác, và lúc deploy đang có một container one-off chạy, thì `pre_cid` và `w_cid` có thể cùng trỏ vào container one-off. Khi đó `worker_ok` kiểm nhầm container và bỏ lọt worker thật đang chết lặp. Ca này hiếm, vì cần chạy `mail-test` trùng lúc deploy.
+- Vì sao quan trọng: đây đúng là lỗi mà thẻ 01 vừa đóng, chỉ là qua một đường khác.
+- Đề xuất: chọn container theo nhãn thay vì theo thứ tự, ví dụ `docker ps -aq --filter label=com.docker.compose.project=<project> --filter label=com.docker.compose.service=worker --filter label=com.docker.compose.oneoff=False`. Hoặc `dc ps --all --format '{{.ID}} {{.Name}}' worker`, bỏ tên có `-run-`, rồi báo lỗi nếu còn khác đúng 1 dòng. Thêm vào stub một ca "có container one-off". Làm ở PR sau cũng được, không chặn PR-A. `ops-check.sh` K-containers (ghi chú của OPS) nên dùng cùng hàm chọn container này.
+- Trạng thái: Open
+
+### Ghi chú của OPS về `ops-check.sh`
+ARC đồng ý. K-containers cũng chỉ lấy mẫu `ps --status running` một lần. Việc này để cho `v104/ops-check`: so `RestartCount` giữa hai lượt K, chọn container theo nhãn như thẻ 03. Không thuộc PR-A.
+
+## Góc SEC/INT (ARC đọc thay)
+
+Phần này để SEC duyệt chéo sau. Đây không phải phán quyết của SEC.
+
+- **Đường dẫn SEC (V104-05):** diff `eef44c02..051e1750` không chạm dòng nào có trong `.github/CODEOWNERS` (bản trên `v104/ops-scripts` @ `67980030`). `deploy.sh` và `rollback.test.sh` không phải đường dẫn SEC, nên theo luật V104-05 thì không bắt buộc có `SEC-on-*.md` mới. SEC đã kết luận ĐẠT tại `eef44c02` (`SEC-on-v104-ops-deploy-order.md`). Bản sửa làm đúng ghi chú Info `FB-R4-SEC-OPS-P402-I1`.
+- **Bề mặt mới:** chỉ thêm hai lệnh đọc, là `docker inspect --format '{{.State.Running}} {{.RestartCount}}'` và `dc ps --all --quiet worker`. Không in env, digest hay cấu hình. Câu báo lỗi chỉ có id ngắn hoặc số đếm, không có dữ liệu khách.
+- **Bí mật, IP, email:** quét diff được 0 kết quả. Dữ liệu test chỉ là `cid-worker-<n>` và tag giả.
+- **INT:** không chạm đường gửi thư. Thẻ 03 có liên quan gián tiếp: `mail-test.sh` tạo container one-off `worker`.

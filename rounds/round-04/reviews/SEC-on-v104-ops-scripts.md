@@ -59,3 +59,53 @@ Kiểm thêm theo yêu cầu ORC:
 ## 4. Dòng decision-log đề xuất (ORC ghi khi commit, SEC không sửa decision-log)
 
 `| 2026-11-04 | 4 | **SEC – review P4-03 ops-scripts @ 659e1774: ĐẠT** (rounds/round-04/reviews/SEC-on-v104-ops-scripts.md): Verified PR32-S2 (tag = <tag><API_TAG_SUFFIX> chính xác), PR30-10 (cửa test 3 điều kiện), V104-05 phần OPS (đủ 5 đường dẫn SEC + ô mẫu PR); ARC PR30-10 đạt về bảo mật (địa chỉ chỉ qua stdin, MAIL_TEST_TO trong env bị từ chối; xác nhận dc run -T ở 5.0 S14); requeue hỏi known-email-templates-cli đạt. Minor P403-01: thêm ci.yml, gitleaks.toml, .gitignore, 02-roles.sh vào CODEOWNERS + câu kiểm migration DISABLE TRIGGER/GRANT | SEC | Quyền SEC |`
+
+---
+
+## 5. Xác nhận PR #46 tại đầu `c893c3ea` (04/11)
+
+- Đối tượng: `origin/v104/ops-scripts` @ **`c893c3ea`**. SEC đọc toàn bộ phần sau head đã review `659e1774`: `67980030` (sửa theo review ARC), `84933d92` (prettier), `c893c3ea` (ARC P403-07/08/10), cùng `responses/OPS-P4-03.md` Lượt 3. Không tự chạy test (OPS báo 37/37, 67/67, 16/16, shellcheck và prettier sạch).
+
+### 5.1 Kết luận
+
+**ĐẠT. Được gộp PR #46 ở `c893c3ea`.** Không có Blocker hay Major. **FB-R4-SEC-OPS-P403-01: Verified.** Có một thẻ Minor mới (P403-02), làm ở gói P4-04, **không** chặn PR #46.
+
+| Phần | Đánh giá |
+|---|---|
+| `requeue-email-changed.sh` (`67980030`, ARC P403-02/05) | Chặt hơn: tham chiếu image phải **đúng bằng** `API_IMAGE:<tag><API_TAG_SUFFIX>` (không nhận repository khác). Với image v1.0.4+, mã 1 dừng với câu báo riêng, không ghi gì. Câu `UPDATE` và điều kiện dòng không đổi |
+| `mail-test.mjs` (`67980030`, ARC P403-03) | Đổi thứ tự: từ chối `MAIL_TEST_TO` → đọc địa chỉ stdin (chỉ `--send`) → kiểm `EMAIL_PROVIDER`. Không có đường in địa chỉ: các câu báo là chữ cố định. Đọc stdin trước khi kiểm provider không ghi gì ra đĩa hay log. `84933d92` chỉ xuống dòng, M9 vẫn bắt việc đọc `MAIL_TEST_TO` từ env |
+| CODEOWNERS `.gitignore` (ARC P403-07) | Đúng: không có `/` ở đầu nên khớp **mọi** `.gitignore`, kể cả tệp mới ở thư mục con. Một `!pricing/` lồng không qua được bước kiểm của ORC |
+| 5 đường dẫn mới (ARC P403-10) | Đồng ý cả 5, đường dẫn đều có tệp thật: `deploy-from-ci.sh` (lệnh bắt buộc của khóa SSH CI), `init-secrets.sh`, `bootstrap-vps.sh` (sshd/sudoers, tắt ghi I/O của sudo), `docker-compose.prod.yml` (secret theo service, volume blob không vào `web`), `privacy-log-check.sh` |
+| Đủ đường dẫn V104-05 + P403-01 | Có: `field-policy.ts`, `serializer.test.ts`, `shared-mailboxes.ts`, `email-address.ts`, `shared/email.ts`, mẫu PR, `CODEOWNERS`, `workflows/`, `gitleaks.toml`, `.gitignore`, `02-roles.sh`, `mail-test.sh`, `mail-test.mjs` |
+| Bí mật, IP, email | Không có. Chỉ có `…@example.test` |
+
+### 5.2 Quyết định của SEC
+
+**(a) Mẫu `ROLE ` trong luật migration: không giữ nguyên.** SEC đã thử trên 69 migration hiện có:
+- regex của ARC khớp 55 tệp. Có 9 tệp khớp **chỉ** vì `ROLE `, và cả 9 là nhiễu: tên cột `role`, `recorded_by_role IN (…)`, `user_property_role`, và dòng chú thích `-- Runs as ottimo_owner (SET ROLE by src/db/migrate.ts)` có ở 19 tệp;
+- **không** migration nào có lệnh `CREATE/ALTER/DROP/SET ROLE` thật. Vai DB nằm ở `02-roles.sh`, tệp này đã là đường dẫn SEC.
+- Một luật kêu ở hầu hết migration sẽ thành thói quen bỏ qua. Đổi sang dạng chính xác dưới đây và bỏ dòng chú thích. Kết quả còn 46/69 tệp, toàn là tệp thật sự đụng RLS, policy, grant hay `SECURITY DEFINER`. Các tệp này đúng là cần SEC.
+```
+git diff <base>...<head> -- '**/migrations/*.sql' | grep -E '^\+' | grep -vE '^\+[[:space:]]*--' \
+  | grep -iE 'DISABLE TRIGGER|GRANT|REVOKE|ROW LEVEL SECURITY|POLICY|SECURITY DEFINER|(CREATE|ALTER|DROP|SET)[[:space:]]+ROLE'
+```
+
+**(b) `deploy.sh`, `rollback.sh`: CÓ thêm vào CODEOWNERS.** Thêm luôn `requeue-email-changed.sh`.
+- `deploy.sh` giữ guard production, kiểm digest sau pull, bước `roles` (áp lại giới hạn vai, SEC H3) và smoke `SEC C2` (volume blob không vào `web`).
+- `rollback.sh` kiểm lại digest đã ghi của tag. Bỏ một dòng ở đây là có thể chạy image chưa kiểm trên production.
+- `requeue-email-changed.sh` là lệnh duy nhất trong repo **ghi** vào DB production (`UPDATE outbox_message`).
+- Hệ quả cho PR #45 (P4-02): cần tệp SEC nêu đúng đầu `051e1750`. SEC đã xác nhận ở `SEC-on-v104-ops-deploy-order.md` mục 5 (cùng commit với mục này).
+
+#### FB-R4-SEC-OPS-P403-02
+- Mức độ: Minor
+- Người làm: OPS, trong gói P4-04 (gói đó sửa `ci.yml` và `.github/`, nên có SEC review sẵn). Không làm thêm commit trên PR #46, để không phải xác nhận lại một đầu nhánh mới.
+- Vị trí: `.github/CODEOWNERS` luật (c), `.github/pull_request_template.md` ô migration.
+- Đề xuất sửa:
+  1. Thay lệnh ở cả hai chỗ bằng lệnh ở (a). Câu trong mẫu PR đổi "đổi vai (`ROLE`)" thành "`CREATE/ALTER/DROP/SET ROLE`".
+  2. Thêm 3 dòng SEC (+ OPS): `/product/infra/server/bin/deploy.sh`, `/product/infra/server/bin/rollback.sh`, `/product/infra/server/bin/requeue-email-changed.sh`. Ghi vai ở chú thích (guard + digest + roles; kiểm digest khi quay lui; lệnh ghi DB production).
+- Trạng thái: Open
+- Cho tới khi gộp P4-04: ORC dùng lệnh ở (a) cho bước kiểm (c), và coi 3 tệp ở (b) là đường dẫn SEC.
+
+### 5.3 Dòng decision-log đề xuất (ORC ghi khi gộp, SEC không sửa decision-log)
+
+`| 2026-11-04 | 4 | **SEC – xác nhận PR #46 ops-scripts @ c893c3ea: ĐẠT, được gộp** (SEC-on-v104-ops-scripts.md mục 5): requeue chặt hơn (đúng API_IMAGE), mail-test đổi thứ tự kiểm không lộ địa chỉ, CODEOWNERS khớp mọi .gitignore + 5 đường dẫn biên máy chủ; P403-01 Verified. SEC quyết: (a) luật migration bỏ mẫu 'ROLE ' (9/69 tệp chỉ khớp vì tên cột/chú thích, không có lệnh ROLE thật), thay bằng (CREATE|ALTER|DROP|SET) ROLE và bỏ dòng chú thích → 46/69; (b) thêm deploy.sh, rollback.sh, requeue-email-changed.sh vào CODEOWNERS (guard/digest/roles; lệnh ghi DB production). Minor P403-02 làm ở P4-04. Tới lúc đó ORC áp (a)(b) bằng tay | SEC | Quyền SEC |`

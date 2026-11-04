@@ -34,3 +34,9 @@ Trước khi sửa, nhánh đã gộp `origin/main` @ `d9fa26d0` (merge commit, 
 - `vitest run` (mobile): **13 tệp, 162 test xanh**, thêm 2 test mới so với 160.
 - `eslint apps/mobile`: 0 lỗi, 1 cảnh báo cũ ở `public/mockServiceWorker.js`. `prettier --check`: sạch.
 - `pnpm --filter @ottimo/i18n test`: 22 xanh. `gen_strings.py`: 3 425 chuỗi, tệp sinh ra khớp.
+
+## Cập nhật sau khi PR #47 (UXD P4-01) gộp vào `main` @ `79df287e`
+- Gộp `origin/main` vào nhánh. Xung đột chỉ có ở `gen_strings.py`: UXD sửa ghi chú dòng `auth.mfa_later`, còn MOB xóa dòng đó. MOB giữ bản đã xóa, theo plan 3.1. Ba tệp sinh ra (`strings.js`, `strings-tables.md`, `strings-*.json`) không sửa tay: lấy bản bất kỳ rồi chạy lại `gen_strings.py`. Kết quả 3 464 chuỗi; chạy lại lần nữa không đổi gì.
+- `staff.mfa_enroll_desk` đã có trong `strings-{vi,en}.json` với đúng chữ UXD duyệt. Khóa đã được bỏ khỏi `pending-keys.ts`, và danh sách nay rỗng. Guard test vẫn kiểm mọi khóa đều có VI + EN.
+- Điều kiện gộp nêu ở báo cáo mục 9 (gộp sau P4-01) nay đã thỏa.
+- Kiểm thử: typecheck sạch; vitest mobile **13 tệp / 162 test xanh**; eslint 0 lỗi (1 cảnh báo cũ ở `mockServiceWorker.js`); prettier sạch; `@ottimo/i18n` 22 test xanh; `vite build` xong.

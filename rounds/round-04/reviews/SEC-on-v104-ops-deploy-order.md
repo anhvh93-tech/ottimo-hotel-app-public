@@ -48,3 +48,20 @@
 ## 4. Dòng decision-log đề xuất (ORC ghi khi commit, SEC không sửa decision-log)
 
 `| 2026-11-04 | 4 | **SEC – review P4-02 ops-deploy-order @ eef44c02: ĐẠT** (rounds/round-04/reviews/SEC-on-v104-ops-deploy-order.md): thứ tự worker → api+web / quay lui api+web → worker, restore_previous không chạy worker cũ khi api cũ không lên (hỏng an toàn); guard, digest, roles, migrate không đổi; không bí mật/IP/email/SQL. Info P402-I1. Đóng ARC-31-01 vẫn chờ diễn tập 5.0 | SEC | Quyền SEC |`
+
+---
+
+## 5. Xác nhận PR #45 tại đầu `051e1750` (04/11)
+
+- Lý do: SEC quyết đưa `deploy.sh` và `rollback.sh` vào đường dẫn SEC của CODEOWNERS (SEC-on-v104-ops-scripts mục 5.2 (b)). Vì vậy PR #45 cần tệp SEC nêu đúng đầu nhánh.
+- Đối tượng: `origin/v104/ops-deploy-order` @ **`051e1750`** (một commit trên `eef44c02`, ARC FB-R4-ARC-OPS-P402-01). Tệp: `deploy.sh`, `test/rollback.test.sh` (ca l2/l3/l4), báo cáo OPS, `responses/OPS-P4-02.md`.
+
+**Kết luận: ĐẠT. Được gộp PR #45 ở `051e1750`.** Không có thẻ mới. **FB-R4-SEC-OPS-P402-I1: Verified** (đóng).
+
+| Kiểm | Kết quả |
+|---|---|
+| Kiểm worker | `worker_stays_up` (chỉ xem `running`) thay bằng `worker_ok`. Hàm này đọc `State.Running` + `RestartCount` của **đúng** container sau bước switch, và từ chối nếu container bị thay hoặc số lần khởi động lại tăng. Bước `smoke` gọi lại cùng hàm sau 5 giây. Đây đúng là điều thẻ Info P402-I1 gợi ý (bắt worker chết–khởi động lại vòng lặp) |
+| Đọc gì | `docker inspect` chỉ in `{{.State.Running}} {{.RestartCount}}`. Câu lỗi chỉ có chữ cố định, số lần khởi động lại, hoặc trạng thái đọc được. Không in env, cấu hình, digest hay log container |
+| Hỏng an toàn | Không có container, không đọc được số, hoặc container bị thay → `fail` → `restore_previous` theo thứ tự quay lui đã duyệt |
+| Phần không đổi | Guard production, digest, `roles`, `migrate`, thứ tự switch, 6 dòng `[deploy`, `rollback.sh` |
+| Bí mật, IP, email, SQL | Không có |

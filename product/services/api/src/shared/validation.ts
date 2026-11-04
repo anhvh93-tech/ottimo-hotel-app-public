@@ -3,12 +3,14 @@
  * US-135 "Server không dựa vào hộp để bảo vệ dữ liệu").
  *
  * - V-08 reason: trim, length per operation (default 3–500) → 422 VALIDATION_FAILED errors[{code REASON_REQUIRED}]
- * - V-09 free text: 13–19 digits (spaces/dashes allowed between) passing Luhn → 422 CARD_NUMBER_DETECTED (R-PAY-07)
+ * - V-09 free text: a payment card number → 422 CARD_NUMBER_DETECTED (R-PAY-07). One rule for every module: the card
+ *   half of `shared/sensitive-number.ts` OR the original rule (13–19 digits, one space/dash allowed between, Luhn)
  * - dryRun flag (OpenAPI "dryRun"): computes consequences without writing – used by irreversible actions
  *   to show the confirmation dialog content (US-135 AC1).
  */
 import { type FieldError, problem } from './problem';
 import { luhnValid } from './redact';
+import { looksLikeCard } from './sensitive-number';
 
 export interface ReasonOptions {
   min?: number;
@@ -29,10 +31,20 @@ export function stripControlChars(text: string): string {
   return text.replace(CONTROL_CHARS, '');
 }
 
-/** True when `text` contains something that looks like a payment card number (V-09). */
+/**
+ * True when `text` contains something that looks like a payment card number (V-09) – the ONE card rule of the API
+ * (ARC FB-R4-ARC-BE-PR24PM-01). The card half of the shared detector (`looksLikeCard`: hidden characters, full-width
+ * digits, `_` `/` `,` joins, digit-by-digit cards – BUG-R3-058) OR the original rule below, so no text caught before
+ * is let through (e.g. `4111 1111 11-11 1111`, a known miss of the detector – SEC-on-v104-be-d 2.1). The ID half is
+ * NOT applied here (registration has legitimate document-number fields; guest-portal only after SEC – PR24PM-01 (3)).
+ * The single copy: platform/public/validation.ts re-exports this module (FB-R2-ARC-BE-18).
+ */
 export function containsCardNumber(text: string): boolean {
-  // Any 13–19 digit window (spaces/dashes allowed between digits) that passes Luhn. The single copy:
-  // platform/public/validation.ts re-exports this module (FB-R2-ARC-BE-18).
+  return containsCardNumberOriginalRule(text) || looksLikeCard(text);
+}
+
+/** The V-09 rule as it was before PR24PM-01: any 13–19 digit window (one space/dash allowed between) passing Luhn. */
+function containsCardNumberOriginalRule(text: string): boolean {
   const candidates = text.match(/\d(?:[ -]?\d){12,18}/g) ?? [];
   for (const c of candidates) {
     const digits = c.replace(/[ -]/g, '');

@@ -1,3 +1,4 @@
+import type { Parameter, Role } from '@ottimo/api-client';
 import { hasKey } from '@ottimo/i18n';
 
 /**
@@ -107,4 +108,10 @@ export function paramLabel(
   }
   const k = `params.k.${key.replace(/\./g, '_')}`;
   return hasKey(k) ? t(k) : key;
+}
+
+/** Who may edit a key: the API's `editableBy`; fallback mirrors rbac 5.3 (security keys → owner only). */
+export function editorsOf(p: Parameter): Role[] {
+  if (p.editableBy?.length) return p.editableBy;
+  return p.key in SECURITY_BOUNDS ? ['owner'] : ['owner', 'manager'];
 }

@@ -71,3 +71,24 @@
 ## 5. Dòng decision-log đề xuất (ORC ghi khi commit, SEC không sửa decision-log)
 
 `| 2026-11-04 | 4 | **SEC – review P4-11 be-lease-prices @ 7420885c: ĐẠT, ED-02 Verified** (rounds/round-04/reviews/SEC-on-v104-be-lease-prices.md): 0094 đủ 8 điều kiện SEC 3.2 (BEFORE DELETE theo ngày lịch tz property, đóng an toàn khi thiếu property/tz sai, SECURITY INVOKER + search_path cố định, chữ lỗi cố định → 500 chung, không chặn dòng đầu/cuối ở DB, không cờ bỏ qua, test a–e + tgenabled O); BUG-R4-015, ETag hậu tố nén, leaseEndDate, audit B16 đạt; không số hoa hồng mới, không PII, không SQL ghi tay. Đổi số journal/snapshot khi 0093 vào không cần SEC review lại; đổi thân SQL thì cần. Minor P411-01: dịch vụ so ngày kinh doanh, trigger so ngày lịch → khung 00:00 → rollover trả 500; thêm kiểm ngày lịch → 409 effective + test + sửa câu runbook | SEC | Quyền SEC |`
+
+---
+
+## 6. Xác nhận lại sau rebase – `v104/be-lease-prices` @ `99f9b4a2` (04/11)
+
+- Đối tượng: `99f9b4a2`. Nhánh đã rebase lên `v104/be-holds` (`a91acb84`, 0093 ở idx 69) và gộp `v104/dom-br-fixtures` @ `6bddbc29` (`231a2ee1`). So với head đã review `7420885c`.
+
+**Kết luận: ĐẠT, ED-02 vẫn Verified. FB-R4-SEC-BE-P411-01: Verified.** Không có thẻ mới.
+
+| Kiểm | Kết quả |
+|---|---|
+| Thân 0094 | Từ `CREATE FUNCTION` tới hết tệp **giống hệt từng byte** bản `7420885c` (băm như nhau). Chỉ đổi chú thích đầu tệp. Điều kiện mục 0 (đổi thân SQL thì phải review lại) không áp |
+| Journal | 0093 ở idx 69, 0094 ở idx 70, `when` tăng dần (0092 + 2000, 0092 + 4000). Snapshot 0094 lấy từ 0093 (ARC P411-01) |
+| Chú thích 0094 cho runbook | Nay đúng cơ chế: v1.0.3 xóa theo ngày **kinh doanh**, nên trong khung 00:00 → giờ đổi ngày, hủy giá của ngày lịch hôm nay bị trigger chặn (500 chung, không mất dữ liệu); v1.0.4 trả 409. Thêm câu về `CLOCK_MODE=mutable` trên staging (ARC P411-02), đúng: trigger đọc `now()` thật của DB |
+| P411-01 | `cancelScheduledListPrice` so với ngày muộn hơn giữa `pc.today` (kinh doanh) và `localDate(pc.now, pc.timezone)` (lịch) → 409 `INVALID_TRANSITION` `currentState: effective`. Kiểm này đứng trước `only_price`/`first_price` và trước `DELETE`. Ca test lúc 01:00 (trước rollover): 409, không xóa. BE-C báo bỏ phần sửa thì ca này ra 500, nên test bắt được lỗi cũ |
+| ETag (ARC P411-03) | Hậu tố nén chỉ nhận **trong** dấu nháy; `6-gzip` không nháy → `null` (428/412 như cũ). Regex vẫn neo hai đầu, số giới hạn 9 chữ số. Chặt hơn bản trước, đạt |
+| Phần gộp DOM `6bddbc29` | Đã review ở `SEC-on-v104-dom-br-fixtures.md` (không số hoa hồng mới, không PII) |
+
+Việc còn lại cho OPS: runbook r1 sửa câu 0094 theo FB-R4-SEC-OPS-P404-01. Chú thích migration nay có thể chép nguyên ý sang.
+
+Dòng decision-log đề xuất: `| 2026-11-04 | 4 | **SEC – xác nhận P4-11 be-lease-prices @ 99f9b4a2: ĐẠT** (SEC-on-v104-be-lease-prices.md mục 6): thân trigger 0094 giống hệt bản đã duyệt (chỉ đổi chú thích), 0094 ở idx 70 sau 0093; P411-01 Verified (so ngày muộn hơn giữa ngày kinh doanh và ngày lịch → 409 effective, ca 01:00); ETag hậu tố chỉ trong nháy (ARC P411-03) đạt | SEC | Quyền SEC |`
