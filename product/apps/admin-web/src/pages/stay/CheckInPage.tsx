@@ -49,7 +49,7 @@ import {
   type InlinePay,
   type InlinePayBlock,
 } from './CheckInPayment';
-import { Code } from '../../app/mono';
+import { Code, monoArgs } from '../../app/mono';
 
 const LEAD_PLUS = ['owner', 'manager', 'front_desk_lead'];
 const COND_LABEL: Record<CheckInCondition['code'], string> = {
@@ -60,6 +60,31 @@ const COND_LABEL: Record<CheckInCondition['code'], string> = {
   main_guest_document: 'checkin.cond.main_guest_document',
   document_check_block: 'checkin.cond.document_ok',
 };
+/**
+ * BUG-R4-039: the sentence for a `room_ready` the server blocks with no exception (no `overridableBy`) – its key, and
+ * the code of the booking holding the room – or `null` when the room line says nothing more (OOO: `ci.ooo_never`; no
+ * room: `not_unassigned` says it). Order of UXD-on-v104-pr77 lượt 4 with ARC's `cause` (#74 A.2):
+ * `held_by_other_stay` → `room_held_code` with `heldByReservationCode`, `room_held` without it; `room_status` on OC/OD
+ * (no stay in house: the status is stuck) → `room_status_stuck`. Without `cause` (an API before #74 C2, or a cause
+ * this Desk does not know): DOM lượt 5 on `detail` – OC/OD → `room_occupied`, else `room_held` – only for a booking
+ * that has its room (`hasRoom`: `not_unassigned` met), since an unassigned booking reads `detail: "VC"` there.
+ */
+export function roomBlockedMessage(
+  c: CheckInCondition | undefined,
+  hasRoom: boolean,
+): { key: string; code?: string } | null {
+  if (!c || c.met || c.overridableBy?.length || c.detail === 'OOO') return null;
+  const occupiedStatus = c.detail === 'OC' || c.detail === 'OD';
+  if (c.cause === 'no_room') return null;
+  if (c.cause === 'held_by_other_stay')
+    return c.heldByReservationCode
+      ? { key: 'checkin.room_held_code', code: c.heldByReservationCode }
+      : { key: 'checkin.room_held' };
+  if (c.cause === 'room_status' && occupiedStatus) return { key: 'checkin.room_status_stuck' };
+  if (!hasRoom) return null;
+  return occupiedStatus ? { key: 'checkin.room_occupied' } : { key: 'checkin.room_held' };
+}
+
 const STEPS = [
   'checkin.step.docs',
   'checkin.step.verify',
@@ -242,12 +267,22 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   const roomCond = cond('room_ready');
   const docCond = cond('document_check_block');
   const ooo = roomCond && !roomCond.met && roomCond.detail === 'OOO';
+  // BUG-R4-039 (BE #74, BR-402 (1) v0.5.3): the "room not ready" exception exists only where the server offers it
+  // (`overridableBy`: VD/CL with no other stay in the room) – never on OC/OD/OOO, for any role, the lead's approval
+  // included. The reason box, "confirm" and "ask the lead" follow it, not the room status.
+  const roomOverridable = !!roomCond && !roomCond.met && !!roomCond.overridableBy?.length;
+  // DOM (lượt 5 mục 2) / ARC `cause`: (a) the room status is OC/OD; (b) another booking's stay still holds the room.
+  const roomBlocked = roomBlockedMessage(roomCond, !!cond('not_unassigned')?.met && !!room);
+  const roomBlockedText = !roomBlocked
+    ? null
+    : roomBlocked.code
+      ? monoArgs(t, roomBlocked.key, { room, code: roomBlocked.code }, ['code'])
+      : t(roomBlocked.key, { room });
   const stdIn = p?.standardCheckinTime?.slice(0, 5) ?? rules.checkinTime;
   // FE-S3-05: FD + room not ready + reason → the button sends a request (202), it does not check in.
-  const requestOnly =
-    !lead && !approved && !!roomCond && !roomCond.met && !ooo && roomReason.trim().length >= 3;
+  const requestOnly = !lead && !approved && roomOverridable && roomReason.trim().length >= 3;
   /** FD, room still not ready, the lead approved the request today (FE-S4-02). */
-  const roomApproved = !lead && !!approved && !!roomCond && !roomCond.met && !ooo;
+  const roomApproved = !lead && !!approved && roomOverridable;
   const docsMain = !!registration?.documents.some((d) => d.isMain);
   const statusText = p?.roomStatus ? t(`status.room.${p.roomStatus}`) : '';
   const foreign =
@@ -287,7 +322,11 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   const blocking = conds.filter((c) => {
     if (c.code === 'balance_paid') return !c.met && !balanceCovered;
     if (c.met) return false;
-    if (c.code === 'room_ready' && !ooo && (roomApproved || roomReason.trim().length >= 3))
+    if (
+      c.code === 'room_ready' &&
+      roomOverridable &&
+      (roomApproved || roomReason.trim().length >= 3)
+    )
       return false;
     if (c.code === 'document_check_block' && lead && docReason.trim().length >= 3) return false;
     return true;
@@ -349,7 +388,7 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
           : undefined,
       roomNotReadyOverride: roomApproved
         ? { reason: approved?.reasonNote || undefined, approvalRequestId: approved!.id }
-        : roomCond && !roomCond.met && roomReason.trim()
+        : roomOverridable && roomReason.trim()
           ? { reason: roomReason.trim() }
           : undefined,
       documentBlockOverride:
@@ -518,6 +557,19 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
                   {!c.met && c.code === 'room_ready' ? (
                     ooo ? (
                       <div className="li-s">{t('ci.ooo_never')}</div>
+                    ) : !roomOverridable ? (
+                      // BUG-R4-039: OC/OD, or the room held by another stay – blocking like an over-capacity
+                      // room; no reason, no request. No room yet: nothing here (`not_unassigned` says it).
+                      roomBlockedText && (
+                        <Alert tone="bad">
+                          {roomBlockedText}
+                          <div className="row wrap mt-4">
+                            <Link className="btn sm" to={`/reservations/${reservationId}`}>
+                              {t('drawer.action.move')}
+                            </Link>
+                          </div>
+                        </Alert>
+                      )
                     ) : roomApproved ? (
                       <Chip tone="ok" icon="check">
                         {t('ci.room_approved', { name: approved?.approverName ?? '' })}

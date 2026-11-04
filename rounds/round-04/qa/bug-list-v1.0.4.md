@@ -10,11 +10,11 @@
   - BUG-R4-038, thêm 04/11 khuya. Lỗi có từ trước production. DOM đề xuất P2, QA chốt P0 theo luật lỗi tiền. ORC giữ **P0**, sửa trong v1.0.4. Từ 04/11 23:15: **đã sửa – chờ gộp #71**. 05/11 01:00: phần đổi ở head `02c34bc9` đạt.
   - BUG-R4-041, thêm 04/11 khuya. Lỗi có từ trước v1.0.1, đang ở production. QA chốt P0 khi chưa có khóa tạm. Từ 05/11 01:00: **đã sửa – chờ gộp #75**, khóa tạm đạt, **hạ P2**.
   - BUG-R4-046, QA3 thêm 05/11 01:30 theo thẻ ARC FB-R4-ARC-FE-PR82-01. Lỗi có từ trước v1.0.1, đang ở production. ARC đề xuất P2, QA chốt **P0** theo luật lỗi tiền. Từ 05/11 02:00: **đã sửa – chờ gộp #82** (QA3 đạt ở `0e48686c`).
-  - BUG-R4-048, QA3 thêm 05/11 02:30 theo thẻ ARC FB-R4-ARC-FE-PR83-01. Lỗi do #83 sinh ra, chỉ có trên nhánh `v104/fe-minibar-followup` @ `19cfa3f7`. Chưa vào `main`, không có ở production. ARC ghi Major; QA chốt **P0** theo luật lỗi tiền. **Chặn gộp #83.**
+  - BUG-R4-048, QA3 thêm 05/11 02:30 theo thẻ ARC FB-R4-ARC-FE-PR83-01. Lỗi do #83 sinh ra, chỉ có trên nhánh `v104/fe-minibar-followup` @ `19cfa3f7`. Chưa vào `main`, không có ở production. ARC ghi Major; QA chốt **P0** theo luật lỗi tiền. Từ 05/11 02:50: **đã sửa – chờ gộp #83** (QA3 đạt ở head `e411cb22`), không còn chặn #83.
 - Có **ba lỗi P1**:
   - BUG-R4-035, thêm 04/11 tối;
   - BUG-R4-039, thêm 04/11 khuya. Lỗi có từ trước v1.0.1, nên đang ở production;
-  - BUG-R4-042, QA2 thêm 05/11. Lỗi có từ v1.0.1, đang ở production. Từ 05/11 02:00: **đã gộp `main` @ `3e6a762b`, chờ staging** (QA3 đạt ở `054d40c0`).
+  - BUG-R4-042, QA2 thêm 05/11. Lỗi có từ v1.0.1, đang ở production. Từ 05/11 02:00: **đã gộp `main` @ `3e6a762b`, chờ staging** (QA3 đạt ở `054d40c0`). 05/11 02:50: hồi quy trên #83 @ `e411cb22` đạt.
   - Lượt local 1 lúc 19:00 chưa có lỗi P0/P1 nào.
 - Cập nhật 04/11 19:30 (QA, bước Phản hồi & sửa): BUG-R4-033/034 đã sửa ở PR #62, chờ merge. BUG-R2-216: mục "Mong đợi" sửa theo UXD. BUG-R2-216/219: PR #60 (UXD đạt) chưa vào `main`, nên chưa chạy lại HD-01/02.
 - Cập nhật 04/11 19:45 (QA, bước Kiểm thử, chạy lại):
@@ -183,6 +183,38 @@
     - E2E: 23 ca đạt, gồm `b14-fridges.s5` (TC-L4-138, nay bấm nút `co.go_next_cabinet`), `checkout.h16`, `minibar-recount.s4`, `foc.s4`, `debt-collect.s5`, `flow-a1.s4`, `stay-money.s4`.
   - Test case bản 0.10 thêm TC-V104-RG-29, gồm đường 045 và lỗi 048.
 
+- Cập nhật 05/11 02:50 (QA3, bước Kiểm thử, **head mới** của #83 `e411cb22`). Head mới gồm lần gộp `main` `51217a2c` và bản sửa các thẻ review. Stack `ottimo-qa83` dựng lại từ head này (image API và web mới, DB giữ nguyên vì không có migration mới). Dọn sau khi chạy.
+  - **#83 @ `e411cb22`: QA ĐẠT CÓ ĐIỀU KIỆN.**
+    - Điều kiện gộp: `main` đã có #82 (`e84cb5fa`). Gộp thử `e411cb22` với `main` thì xung đột ở một tệp sinh ra, `product/design/wireframes/assets/strings.js`.
+    - FE gộp `main`, sinh lại chữ bằng `gen_strings.py`, rồi chờ CI xanh.
+    - Nếu lần gộp đó không đổi `CheckOutPage.tsx`, QA không cần chạy lại.
+  - **BUG-R4-048: ĐẠT.**
+    - E2E R6 trên máy chủ thật: xanh 3/3 lượt (đỏ 3/3 ở `19cfa3f7`). Sau 409, lễ tân chọn 202 và gõ bia dùng 1. Khi bản tóm tắt về: ô bia vẫn 35.000, không đọc lại bản chuẩn, tủ không đổi. Lệnh đếm 202 có bia `remainingQty` 1, folio minibar 35.000.
+    - E2E R7 (ca mới, nhánh thứ hai của PR83-01): xanh 3/3 lượt. Sau 409, lễ tân ở lại tủ căn 101 và gõ bia dùng 1 trước khi bản tóm tắt về.
+      - Khi bản tóm tắt về, ô bia vẫn 35.000, tủ đang chọn vẫn là 101. Nhóm chọn tủ có 202 rồi 101, nút ghi "Tiếp tục: Tủ căn 202".
+      - Đếm lại 101 nhận 201, có `periodId`, không có 409. Trang sang 202; đếm 202 nhận 201.
+      - Thu 35.000, B18 nhận 200, folio minibar 35.000.
+    - Unit: ca S2a và N7 của FE đạt. Đối chứng bằng `CheckOutPage.tsx` của `19cfa3f7`: S2a đỏ.
+  - **BUG-R4-045: ĐẠT.** Ca D (unit) và R5 (E2E) đạt 3/3 lượt, kết quả như ở head cũ.
+  - **BUG-R4-047 (RG-28): ĐẠT.** R2, R3, R4 đạt 3/3 lượt: đếm lại nhận 201 có `periodId`, không có câu "Số đếm chưa được lưu". R4: folio 70.000 một dòng.
+  - **Hồi quy BUG-R4-042: đạt.** R1, R2 đạt 3/3 lượt; ca A, B, C, E của QA đạt.
+  - **UXD:** nhãn "Tiếp tục: Tủ căn 101" rồi "Tiếp tục: Phụ phí" vẫn đúng; toast có hiện. Thứ tự tủ cố định, căn cũ trước (UXD PR83-01).
+  - **Hồi quy chung:**
+    - unit admin-web 959/959 (gồm 5 ca tạm của QA); tệp FE `bug-r4-042-fea` 14/14;
+    - `typecheck` sạch, ESLint sạch ở 2 tệp đổi; `gen_strings.py` không ra diff;
+    - E2E bộ H16 23/23: `b14-fridges.s5` (TC-L4-138), `checkout.h16`, `minibar-recount.s4`, `foc.s4`, `debt-collect.s5`, `flow-a1.s4`, `stay-money.s4`.
+  - Không có lỗi mới. Test case bản 0.11 thêm (d) vào RG-29, theo ca R7.
+- Cập nhật 05/11 03:00 (QA2, bước Kiểm thử, phía Desk của BUG-R4-039, PR #77). Môi trường: worktree tạm, stack local dùng một lần `ottimo-qa2p77`, đã dọn.
+  - **#77 ĐẠT ở head `055e92d5`.** QA2 chạy ở `5d74eb02` (= `main` `f9ff4e1f` + #77), rồi dựng lại web và chạy lại ở `055e92d5`. Head này chỉ đổi kiểu `room_ready` sang kiểu sinh ra, không đổi logic.
+    - Căn còn lượt Đang ở hiện đúng câu `checkin.room_held_code`, có mã đơn đang giữ căn. Ca gồm lượt đi hôm nay sau B13 và lượt quá ngày đi + `CL`.
+    - Bốn vai FD, FDL, MGR, OWN đều không có ô lý do, không có nút xin duyệt, không gửi POST.
+    - `room_status` `VD`/`CL` giữ lối ngoại lệ cũ: FDL nhận phòng được, 200. Căn `OC` không có lượt Đang ở hiện `checkin.room_status_stuck`. Đơn chưa gán căn không có câu chặn.
+    - API không có `cause` đọc đúng theo DOM lượt 5 và không gửi ghi đè.
+    - Hồi quy: unit admin-web 967/967, `bug-r4-039-fea` 13/13, `typecheck` sạch. E2E nhận phòng API, clock và UI đều xanh.
+    - Chi tiết ở mục "Xác minh phía Desk – PR #77" của BUG-R4-039.
+  - **Thêm BUG-R4-049 (P3).** Ở H13 của đơn chưa gán căn, dòng buồng vẫn in "Căn · VC · Đã dọn, chờ kiểm". Lỗi có từ trước #77, đang ở production, không chặn #77.
+  - Test case bản 0.12 thêm RG-30, phần Desk của RG-14, RG-24, RG-25.
+
 ## Tóm tắt
 
 | Mã | Mức | Chỗ | Vai sửa | Trạng thái |
@@ -197,16 +229,17 @@
 | BUG-R4-036 | P2 | 00:00–05:59: khung đơn và trang Hôm nay không có nút **Trả phòng** cho khách rời trong cửa sổ sau nửa đêm (`allowed-actions.ts:115` so ngày nghiệp vụ; Hôm nay chỉ lấy khách đi của ngày nghiệp vụ). Máy chủ B18 vẫn nhận cửa sổ này | BE (+ FE nếu cần) | Mới – dời v1.0.5 có kế hoạch; cách làm tạm trong sổ tay/release notes; kiểm cách làm tạm ở CO-05 |
 | BUG-R4-037 | **P0** | Đặt phòng mới (H09): giá mỗi đêm do bản xem giá kênh **Trực tiếp** điền sẵn vẫn nằm trong ô sau khi chuyển sang **OTA** / **Nội bộ**. Nếu mọi đêm có số, Desk gửi số đó làm giá của đơn (`edited:false`). Nếu chỉ một phần đêm có số, Desk chặn với câu "Nhập giá mỗi đêm" gây hiểu nhầm. Đây là gốc của 2 test flaky A-20 và US-139. Có từ trước v1.0.1, đang ở production | FE (BookingDialog) | **Đã sửa – đã gộp vào `main` @ `d0ea6dc2`, đạt local** (#70 head cuối `98d8a3ad`, cùng #73). QA chạy lại trên `main` 05/11 00:35: 3 ca tái hiện xanh, tệp test của FE 28/28. Tải 24 × 40: 2 lượt trên `main` với giới hạn mặc định 15 s. Lượt 1: 1/120 đỏ, chỉ là quá giờ của bộ chạy lúc tải 67–81, không có lỗi assert. Lượt 2: 0/120 đỏ ở tải 36–144. Desk thật trên stack: hai câu `rates_cleared_channel`, `rates_cleared_room_group` hiện đúng lúc; RG-13 theo #73 đạt. Chờ STG RG-07…RG-11, RG-13, RG-17. Còn hotfix production: ORC quyết |
 | BUG-R4-038 | **P0** | Gia hạn (B13), đêm B9a, đêm thêm ở B18 của đơn **Nội bộ** lấy giá lịch Trực tiếp thay vì 0 đ, vì `addedNightRate` thiếu nhánh `internal`. Folio của đơn miễn phí hiện **Còn phải thu** sai, doanh thu và ADR bị cộng thêm. Desk không đưa về 0 được | BE (+ ARC) | **Đã gộp `main` @ `2c8cd8cf` (#71, 05/11, ORC) – chờ staging**. Trước đó: Đã sửa – chờ gộp #71 (đạt ở head `7557e485`. Phần đổi ở head `02c34bc9`: tệp test BE 11/11; CI đỏ chỉ ở 2 ca "Hôm nay" của `v104-holds-feb`, PR #76 sửa). Stack local: 9/9 ca API đạt. B13, B9a, B18 Nội bộ đều 0 đ `complimentary`, folio không còn phải thu. Đối chứng Trực tiếp không đổi. A31: MGR đưa về 0 được khi có lý do; FD và FDL nhận 403. Q5a sau bản sửa: `TOTAL` 0. Hồi quy clock: 76 đạt, 0 đỏ |
-| BUG-R4-039 | **P1** | Nhận phòng (B9): máy chủ cho lễ tân trưởng trở lên xác nhận ngoại lệ `room_ready` với **mọi** trạng thái buồng trừ `OOO` (`checkin.service.ts` 359–361, 588). Vì vậy nhận được đơn thứ hai vào căn còn đơn **Đang ở** (`OC`/`OD`): căn có 2 lượt Đang ở, và khi khách cũ trả phòng thì căn về `VD` dù khách mới đang ở. Trái BR-402 (1), chỉ cho ngoại lệ với `VD`/`CL`. Có từ `bad6f599` (16/10), đang ở production | BE-A (+ ARC; FE/UXD cho câu chặn) | **Đã sửa – chờ gộp #74** (head `0950313e`, ARC C1–C3). QA2 05/11 01:05, API trên stack local, 3/3 lượt: lượt quá ngày đi + `CL` không còn ngoại lệ; `cause`/`heldByReservationCode` đúng. Đối chứng `9646029d`: lễ tân trưởng nhận được, căn 2 lượt Đang ở. Lượt trước ở `9646029d`: C1–C5 đạt. Căn `OC`/`OD`: 409 với 5 lối, không tạo yêu cầu duyệt. `VD`/`CL` vẫn cho ngoại lệ. Căn còn khách mà trạng thái bị sửa tay sang `VD` vẫn bị chặn. Đối chứng `main` chưa có #74: C1, C2, C5 đỏ. Phần Desk chưa kiểm (RG-14) |
+| BUG-R4-039 | **P1** | Nhận phòng (B9): máy chủ cho lễ tân trưởng trở lên xác nhận ngoại lệ `room_ready` với **mọi** trạng thái buồng trừ `OOO` (`checkin.service.ts` 359–361, 588). Vì vậy nhận được đơn thứ hai vào căn còn đơn **Đang ở** (`OC`/`OD`): căn có 2 lượt Đang ở, và khi khách cũ trả phòng thì căn về `VD` dù khách mới đang ở. Trái BR-402 (1), chỉ cho ngoại lệ với `VD`/`CL`. Có từ `bad6f599` (16/10), đang ở production | BE-A (+ ARC; FE/UXD cho câu chặn) | **Máy chủ đã gộp `main` @ `2f535924` (#74). Desk: QA2 ĐẠT ở #77 @ `055e92d5` (05/11 03:00), chờ gộp #77, rồi staging.** Desk: câu chặn theo `cause` đúng cho 4 vai, không có lối ngoại lệ hay POST; `VD`/`CL` giữ ngoại lệ; API cũ đọc theo DOM lượt 5 (RG-30). Trước đó: Đã sửa – chờ gộp #74 (head `0950313e`, ARC C1–C3). QA2 05/11 01:05, API trên stack local, 3/3 lượt: lượt quá ngày đi + `CL` không còn ngoại lệ; `cause`/`heldByReservationCode` đúng. Đối chứng `9646029d`: lễ tân trưởng nhận được, căn 2 lượt Đang ở. Lượt trước ở `9646029d`: C1–C5 đạt. Căn `OC`/`OD`: 409 với 5 lối, không tạo yêu cầu duyệt. `VD`/`CL` vẫn cho ngoại lệ. Căn còn khách mà trạng thái bị sửa tay sang `VD` vẫn bị chặn. Đối chứng `main` chưa có #74: C1, C2, C5 đỏ. Phần Desk chưa kiểm (RG-14) |
 | BUG-R4-040 | P3 | Đặt phòng mới (H09): giá Trực tiếp / CTV ngoài sàn–trần cứng (BR-105). Máy chủ trả Problem `RATE_OUT_OF_RANGE` chỉ có `dates`, không có `min`/`max`/`group`. Desk hiện câu chung `error.RATE_OUT_OF_RANGE` với nguyên chữ: "Giá phải từ {min} đến {max} (giá sàn – trần nhóm {group})." Câu nằm ở đầu hộp, ngoài khung nhìn khi bấm **Tạo đơn**. Có từ trước v1.0.1 | BE (thêm `min`/`max`/`group` hoặc trả theo đêm) + FE (nhánh `RATE_OUT_OF_RANGE`, đặt dưới bảng giá) + UXD | Mới – dời v1.0.5 có kế hoạch (ORC, thẻ UXD PR70-06). Không chặn #70 |
 | BUG-R4-041 | **P2** (hạ từ P0 lúc 05/11 01:00, khóa tạm #75 đạt) | Đặt phòng mới (H09), nút **Giữ chỗ đến …**: `hold()` gọi `saveQuote` không kèm giá đêm (hợp đồng `QuoteInput` không có `nightlyRates`). Giá lễ tân đã gõ bị bỏ mà không báo: giữ chỗ, cọc 30 % và VietQR tính theo giá niêm yết. Khi đơn được xác nhận, giá đơn cao hơn giá đã thỏa thuận. Có từ trước v1.0.1, đang ở production | FE (khóa tạm v1.0.4) + ARC/BE (Q1 nhận giá thỏa thuận, v1.0.5) + UXD (câu) + BA (sổ tay 2.5 bước 10) | **Đã sửa – chờ gộp #75** (head `e71ab25f`). Có giá đã gõ thì nút **Giữ chỗ** khóa (`aria-disabled`) và có câu. Bấm chuột, Enter, Space đều không tạo giữ chỗ. Xóa giá đã gõ thì giữ chỗ theo giá niêm yết 1.500.000. Phần giữ chỗ theo giá thỏa thuận dời v1.0.5. Hotfix production và cách làm tạm gửi INV: ORC quyết |
-| BUG-R4-042 | **P1** | Trả phòng (H16), lượt có B14 giữa kỳ và còn 2 tủ phải đếm. `nextCabinet` tìm tủ kế tiếp trong `toCount` của lần render lúc bấm. Nếu bản tóm tắt tải lại sau lần đếm tủ đầu chưa về khi lễ tân đếm xong tủ thứ hai, Desk quay lại tủ đầu (đã đếm) và đứng ở bước ①. Khi bản tóm tắt về, bảng của tủ đó không còn ghi tên tủ, còn tiêu đề vẫn ghi căn đang ở. Bấm "Không dùng gì – tủ đủ" rồi **Tiếp tục** thì dòng minibar đã tính bị đảo (sai tiền). Có từ v1.0.1 (S4-38), đang ở production | FE-A (+ ARC xem; UXD nhãn tủ) | **Đã gộp `main` @ `3e6a762b`, chờ staging** (#81 head `054d40c0`, QA3 đạt 05/11 01:30). Unit FE 5/5 và 5 ca QA; E2E giữ bản tóm tắt R1 5/5, R2 4/4 lượt; đối chứng mã cũ đỏ (folio minibar về 0). Còn: RG-21 E2E trên `main`, STG |
+| BUG-R4-042 | **P1** | Trả phòng (H16), lượt có B14 giữa kỳ và còn 2 tủ phải đếm. `nextCabinet` tìm tủ kế tiếp trong `toCount` của lần render lúc bấm. Nếu bản tóm tắt tải lại sau lần đếm tủ đầu chưa về khi lễ tân đếm xong tủ thứ hai, Desk quay lại tủ đầu (đã đếm) và đứng ở bước ①. Khi bản tóm tắt về, bảng của tủ đó không còn ghi tên tủ, còn tiêu đề vẫn ghi căn đang ở. Bấm "Không dùng gì – tủ đủ" rồi **Tiếp tục** thì dòng minibar đã tính bị đảo (sai tiền). Có từ v1.0.1 (S4-38), đang ở production | FE-A (+ ARC xem; UXD nhãn tủ) | **Đã gộp `main` @ `3e6a762b`, chờ staging** (#81 head `054d40c0`, QA3 đạt 05/11 01:30). Unit FE 5/5 và 5 ca QA; E2E giữ bản tóm tắt R1 5/5, R2 4/4 lượt; đối chứng mã cũ đỏ (folio minibar về 0). Còn: RG-21 E2E trên `main`, STG. Hồi quy trên #83 @ `e411cb22` đạt (QA3 05/11 02:50) |
 | BUG-R4-043 | P2 | Dữ liệu chỉ số: cờ `is_complimentary` của đêm và đơn đi theo kênh, không theo tiền. Đêm "Nội bộ có thu" (> 0 đ) mang `true`. A31 đổi giá mà không tính lại cờ; giảm giá thì có tính lại. Khi có báo cáo, ADR K-04 và số đêm miễn phí K-02 sẽ sai. Không sai tiền; ở v1.0.x chưa màn nào đọc cờ | BE (+ OPS tính lại dữ liệu; DATA Q-05, BA EP02, ARC `erd.md`, DOM BR-904) | Mới – dời v1.0.5 có kế hoạch. Sửa mã và tính lại dữ liệu trước báo cáo ADR đầu tiên. Tới lúc đó DATA tính đêm miễn phí bằng `room_revenue_vnd = 0` |
 | BUG-R4-044 | P2 | Gia hạn giữ chỗ (B3, `ExtendHoldDialog`): giờ của hạn theo giờ VN, nhưng ngày lấy theo UTC. Vì vậy hạn rơi vào 00:00–06:59 hiện **sớm một ngày** ở nút "Gia hạn đến …" và ở thông báo sau khi gia hạn. Lễ tân báo khách sai hạn. Không sai tiền | FE | **Đã gộp `main` @ `3e6a762b`, chờ staging** (#80 `796a0cee`). 12 ca giờ giả (02:00, 06:30, 14:00, 23:30) ở múi giờ VN và UTC đều đạt; trên mã cũ thì 8 ca đỏ. Còn: RG-23 trên STG 07/11 |
-| BUG-R4-045 | P2 | Trả phòng (#81): một tủ đã đếm trên trang bị máy chủ đòi đếm lại (B14, B13 hay nạp tủ ở phiên khác; đổi ngày làm việc). Desk không đưa lại tủ đó, kể cả khi Quay lại. Câu B18 "Làm bước 1 trước khi hoàn tất" chỉ tới bước không có tủ đó. Không sai tiền (B18 chặn `MINIBAR_NOT_CHECKED`) | FE-A (+ ARC) | **Đã sửa ở #83, head cũ `19cfa3f7` đạt** (QA3 05/11 02:30). Unit ca D đạt. E2E R5 đạt 3 lượt. Đối chứng `main` `53500bcd`: không đếm được 202. Chờ head mới, vì ARC đánh KHÔNG ĐẠT (PR83-01, BUG-R4-048) |
-| BUG-R4-046 | **P0** | Đặt phòng mới (H09), kênh Nội bộ: gõ giá cho một phần số đêm thì `validate()` cho qua, `body()` không gửi `nightlyRates`. Máy chủ ghi 0 đ cho mọi đêm, không báo. Có từ trước v1.0.1, đang ở production | FE (+ DOM luật, UXD, ARC) | **Đã sửa – chờ gộp #82** (head `0e48686c`, QA3 05/11 02:00). Unit 2 ca FE và 10 ca QA; E2E 6 ca × 2 lượt; đối chứng mã cũ: đơn 0 đ. ORC nhận P0; đi cùng v1.0.4, không làm v1.0.3.1. Gộp: sinh lại chữ sau khi gộp `main`, CI xanh; rồi RG-27 trên STG |
-| BUG-R4-047 | P2 | Trả phòng (H16): Quay lại bước ① rồi bấm Tiếp tục cho tủ vừa đếm lần đầu (tủ chưa từng nạp) thì nhận 409 `MINIBAR_PERIOD_CHANGED` với câu "Tủ vừa được bổ sung…". Bấm lại thì lưu. Không sai tiền. Có từ trước v1.0.1; mock MSW không tái hiện | FE-A (+ ARC, UXD) | **Đã sửa ở #83, head cũ `19cfa3f7` đạt** (QA3 05/11 02:30). RG-28 (E2E R2, R3, R4) đạt 3 lượt. Đối chứng `main`: 409. Chờ head mới |
-| BUG-R4-048 | **P0** | Trả phòng (#83): Hoàn tất nhận 409 `MINIBAR_NOT_CHECKED`. Lễ tân Quay lại bước ① và gõ số trước khi bản tóm tắt về. Effect `minibarResync` đọc lại bản chuẩn, số đã gõ về số chuẩn, không báo. **Tiếp tục** ghi tủ đủ, folio thiếu tiền minibar. Chỉ có trên nhánh #83, chưa vào `main` | FE-A (+ ARC) | Mới – thẻ ARC FB-R4-ARC-FE-PR83-01. R6 đỏ 3/3 lượt ở `19cfa3f7`. FE đang sửa. **Chặn gộp #83** |
+| BUG-R4-045 | P2 | Trả phòng (#81): một tủ đã đếm trên trang bị máy chủ đòi đếm lại (B14, B13 hay nạp tủ ở phiên khác; đổi ngày làm việc). Desk không đưa lại tủ đó, kể cả khi Quay lại. Câu B18 "Làm bước 1 trước khi hoàn tất" chỉ tới bước không có tủ đó. Không sai tiền (B18 chặn `MINIBAR_NOT_CHECKED`) | FE-A (+ ARC) | **Đã sửa – chờ gộp #83** (head `e411cb22`, QA3 ĐẠT 05/11 02:50). Unit ca D đạt. E2E R5 đạt 3 lượt ở cả head cũ và head mới. Đối chứng `main` `53500bcd`: không đếm được 202. Gộp: FE gộp `main` (có #82), sinh lại `strings.js`, CI xanh. Rồi chạy RG-29 |
+| BUG-R4-046 | **P0** | Đặt phòng mới (H09), kênh Nội bộ: gõ giá cho một phần số đêm thì `validate()` cho qua, `body()` không gửi `nightlyRates`. Máy chủ ghi 0 đ cho mọi đêm, không báo. Có từ trước v1.0.1, đang ở production | FE (+ DOM luật, UXD, ARC) | **Đã gộp `main` @ `f9ff4e1f` (#82, 05/11, ORC) – chờ staging**. Trước đó: Đã sửa – chờ gộp #82 (head `0e48686c`, QA3 05/11 02:00). Unit 2 ca FE và 10 ca QA; E2E 6 ca × 2 lượt; đối chứng mã cũ: đơn 0 đ. ORC nhận P0; đi cùng v1.0.4, không làm v1.0.3.1. Gộp: sinh lại chữ sau khi gộp `main`, CI xanh; rồi RG-27 trên STG |
+| BUG-R4-047 | P2 | Trả phòng (H16): Quay lại bước ① rồi bấm Tiếp tục cho tủ vừa đếm lần đầu (tủ chưa từng nạp) thì nhận 409 `MINIBAR_PERIOD_CHANGED` với câu "Tủ vừa được bổ sung…". Bấm lại thì lưu. Không sai tiền. Có từ trước v1.0.1; mock MSW không tái hiện | FE-A (+ ARC, UXD) | **Đã sửa – chờ gộp #83** (head `e411cb22`, QA3 ĐẠT 05/11 02:50). RG-28 (E2E R2, R3, R4) đạt 3 lượt ở cả head cũ và head mới. Đối chứng `main`: 409. Không dời v1.0.5 |
+| BUG-R4-048 | **P0** | Trả phòng (#83): Hoàn tất nhận 409 `MINIBAR_NOT_CHECKED`. Lễ tân Quay lại bước ① và gõ số trước khi bản tóm tắt về. Effect `minibarResync` đọc lại bản chuẩn, số đã gõ về số chuẩn, không báo. **Tiếp tục** ghi tủ đủ, folio thiếu tiền minibar. Chỉ có trên nhánh #83, chưa vào `main` | FE-A (+ ARC) | **Đã sửa – chờ gộp #83** (head `e411cb22`, QA3 ĐẠT 05/11 02:50). R6 đỏ 3/3 lượt ở `19cfa3f7`, xanh 3/3 ở `e411cb22`. R7 xanh 3/3. Unit S2a: xanh ở head mới, đỏ ở trang cũ. Không còn chặn #83. Đóng khi #83 gộp; lỗi chưa từng vào `main`, nên không cần STG riêng |
+| BUG-R4-049 | P3 | Nhận phòng (H13), đơn chưa gán căn (OTA ở làn chưa gán): dòng "Buồng sẵn sàng" vẫn in "Căn · VC · Đã dọn, chờ kiểm" (số căn trống, trạng thái không có thật), vì bản xem trước trả `roomStatus: 'VC'` lấp chỗ khi không có căn. Desk vẫn chặn nhận phòng; dòng "Đơn đã được gán căn" ngay trên nói đúng. Có từ Sprint 3, đang ở production | FE-A (+ UXD nếu đổi câu; ARC nếu bỏ `roomStatus` ở hợp đồng) | Mới (QA2 05/11 03:00, thấy khi kiểm #77). Không chặn #77. ORC chọn: thêm vào #77 (khoảng 1 dòng + 1 unit) hay dời v1.0.5 |
 | BUG-R2-216 | P3 | Thấy lại: hộp "Giữ chỗ" sau khi tạo in 2 lần số cọc và nội dung chuyển khoản | FE-B + UXD | **Đã sửa – đạt local** (PR #60, `main` @ `58183764`, HD-01 3/3 lượt). Chờ xác nhận STG 06/11 C3 |
 | BUG-R2-219 | P3 | Thấy lại: hộp "Giữ chỗ" khi khách đến hôm nay vẫn hiện bộ chọn 12/24/48 h và mốc hạn đã qua | FE-B + UXD (chữ) | **Đã sửa – đạt local** (PR #60, `main` @ `58183764`, HD-02 3/3 lượt). Chờ xác nhận STG 06/11 C3 |
 
@@ -891,8 +924,49 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
     - DOM sửa câu BR-402 và ví dụ căn 301.
     - BA ghi cách làm trong sổ tay: B13 tới hôm nay, B18 có giờ gõ và ghi chú, rồi quản lý đưa đêm thêm về 0 khi khách đã đi đúng ngày.
     - ORC xem có cần ghi lỗi P2 dời v1.0.5 ("B18 bù cho lượt quá ngày đi") hay không.
-- **Trạng thái:** **Đã sửa – chờ gộp #74** (QA2 05/11, đạt local; xác minh lại ở `0950313e` đạt).
-  - Trước đó: Mới – ORC quyết chặn ở máy chủ trong v1.0.4, BE sửa trên nhánh `v104/fix-checkin-occupied-exception`.
+- **Xác minh phía Desk – PR #77 `v104/fe-checkin-occupied` (QA2, 05/11 03:00).** #79 đã gộp vào #77.
+  - Bản thử:
+    - Head `5d74eb02`. Đây là #77 @ `5aca248e` gộp `main` `f9ff4e1f` (có #74 và #82), chữ sinh lại. `5aca248e` gộp thẳng với `main` mới thì xung đột ở 3 tệp chữ sinh ra, nên QA dựng từ head FE đã gộp. Ở `5d74eb02` chạy: unit toàn bộ, E2E hồi quy, image API (máy chủ = `main`).
+    - Head `055e92d5`. FE-A thay kiểu tạm `RoomReadyCondition` bằng `CheckInCondition` sinh ra, và ép kiểu `cause` lạ trong test. Không đổi logic, không đổi máy chủ. QA dựng lại image web, chạy lại test tạm Desk, `bug-r4-039-fea`, unit nhận phòng, `typecheck` và E2E UI nhận phòng.
+    - Stack local dùng một lần `ottimo-qa2p77` (postgres, api, web), seed DS-E, `CLOCK_MODE=mutable`. Desk Chromium 1366×768, `vi-VN`.
+    - Test tạm `zz-qa2-pr77.spec.ts` (project `desk-clock`), xóa cùng worktree. Đã dọn stack, image và worktree.
+    - Dữ liệu chỉ có khách giả, ngày ảo năm 2030.
+  - Mọi ca đều ghi các POST `…/actions/check-in` của trình duyệt. "Bấm ép" là bấm nút **Nhận phòng** đang `aria-disabled` bằng `force`.
+
+    | Ca | Dựng | Kết quả |
+    |---|---|---|
+    | D1 (C1, lượt đi hôm nay) | Căn 202: A ở D → D+1, gia hạn B13 thêm 1 đêm, nên đi D+2. Ngày D+2 lúc 09:30, căn `OD`. B đến D+2 | API: `held_by_other_stay`, `heldByReservationCode` = mã A (mã đơn gốc), không có `overridableBy`. `qa.fd` và `qa.fdl` thấy hộp đỏ đúng nguyên câu `checkin.room_held_code`: "Căn 202 còn đơn OTM-… đang ở, chưa trả phòng. …" Mã in chữ mono. Link "Đổi căn / đổi ngày" về đơn B. Không có ô Lý do, nút "Gửi lễ tân trưởng xác nhận" hay câu ngoại lệ. Nút **Nhận phòng căn 202** `aria-disabled`; bấm ép không gửi POST |
+    | D2 (C1, lượt quá ngày đi + `CL`) | Căn 301: A ở D → D+1, đến D+2 15:00 vẫn Đang ở. Buồng `OC → OD → CL`. B đến D+2 | API: `detail:CL`, `held_by_other_stay`, mã A, không có `overridableBy`. `qa.fd`, `qa.fdl`, `qa.mgr`, `qa.owner` đều thấy như D1. Không vai nào có lối ngoại lệ hay gửi POST |
+    | D3 (C2, `room_status` `VD`/`CL`) | A202 trả phòng lúc 10:00, căn `VD`. Lúc 14:30 | API: `cause:room_status`, có `overridableBy` (FDL, MGR, OWN). `qa.fd` thấy câu cũ `checkin.room_not_ready`: "Căn 202 đang "VD · Trống, cần dọn" – chưa sẵn sàng. …", có ô Lý do. Gõ lý do thì nút thành "Gửi lễ tân trưởng xác nhận", bấm được (QA không gửi). Buồng `start_cleaning` sang `CL`: `qa.mgr`, `qa.owner` thấy `checkin.room_not_ready_lead` và ô Lý do. `qa.fdl` nhận phòng bằng ngoại lệ: POST 200 kèm `roomNotReadyOverride.reason`, B `in_house` |
+    | D4 (C2, `room_status` `OC` không có lượt) | Căn 203 có trạng thái lưu `OC` (sửa DB như căn kẹt trạng thái), không có lượt Đang ở. B đến D+2 | API: `cause:room_status`, `detail:OC`, không có `overridableBy`. `qa.fd` và `qa.fdl` thấy `checkin.room_status_stuck`: "Căn 203 vẫn hiện có khách, nhưng không còn đơn nào đang ở. …" Không có ô lý do, không có POST |
+    | D5 (C2, `no_room`) | Đơn OTA để ở làn chưa gán căn (`conflictState:open`) | API: `cause:no_room`, không có `detail`. Desk: dòng "Đơn đã được gán căn" báo "Đơn chưa được gán căn (xung đột OTA). …". Dòng buồng không có hộp đỏ, không có câu nào trong 4 câu chặn, không có ô lý do. Còn dòng phụ "Căn · VC · Đã dọn, chờ kiểm" (BUG-R4-049, có từ trước) |
+    | D6 (C3, API cũ) | `page.route` bỏ `cause`, `heldByReservationCode` khỏi `room_ready`. Đơn chưa gán căn thêm `detail:"VC"` như máy chủ trước #74 | D1 (`OD`) → `checkin.room_occupied`. D2 (`CL`, có lượt) → `checkin.room_held`, không có mã. D4 (`OC`) → `checkin.room_occupied`. D5 → không có câu. D3 (`VD`) → vẫn là lối ngoại lệ (Desk theo `overridableBy`). Ở mọi ca chặn, `qa.fd` và `qa.fdl` không gửi ghi đè |
+
+  - Chữ: so nguyên câu với `strings-vi.json` @ `055e92d5` (`room_held_code`, `room_held`, `room_occupied`, `room_status_stuck`; câu ngoại lệ cũ `room_not_ready`, `room_not_ready_lead`).
+    - Chạy lại `gen_strings.py` không ra diff.
+    - Sau lần gộp `main`, 4 khóa chữ của #82 vẫn còn đủ ở VI và EN.
+    - Câu EN chỉ đọc diff, vì Desk chạy `vi-VN`.
+  - axe (WCAG, chặn ở mức serious/critical): đạt ở H13 căn bị giữ (D2, `qa.fd`) và H13 căn `VD` (D3, `qa.fd`).
+  - Hồi quy:
+    - Ở `5d74eb02`:
+      - unit admin-web toàn bộ 967/967 (86 tệp);
+      - E2E `checkin.s3.api`: 19 đạt, 2 bỏ qua có chủ đích (mã cửa, TC-L3-060/061);
+      - E2E `checkin.s3.clock` 32/32;
+      - UI `stay-money.s4` + `gate-s4` (TC-L3-079, 081, 082, 085 và 3 ca cùng tệp) 7/7;
+      - UI `stay.h13-h17` 6/6.
+    - Ở `055e92d5`:
+      - `typecheck` sạch;
+      - `bug-r4-039-fea` 13/13; 8 tệp unit nhận phòng 95/95;
+      - test tạm Desk (D1–D6) đạt;
+      - UI `stay-money.s4` + `gate-s4` 7/7, `stay.h13-h17` 6/6.
+  - Chưa kiểm:
+    - `OOO` (`ci.ooo_never`), chỉ dựa vào unit;
+    - trên STG: RG-14 và RG-30, nếu có cặp đơn phù hợp.
+  - **Kết luận: ĐẠT** phía Desk ở `055e92d5`. Không có lỗi chặn #77. BUG-R4-049 (P3) có từ trước, không do #77.
+  - Bằng chứng (scratchpad, không commit, dữ liệu giả): `qa2-pr77-out/e2e-t2/data.txt`, `e2e-api`, `e2e-clock`, `e2e-uiclock`, `e2e-ui`, `e2e-uiclock2`, `e2e-ui2`, `vitest-all.log`, `vitest-checkin2.log`, `tsc.log`, bản sao test tạm `zz-qa2-pr77.spec.ts.bak`.
+- **Trạng thái:** **Máy chủ đã gộp `main` @ `2f535924` (#74). Desk: QA2 ĐẠT ở #77 @ `055e92d5`, chờ gộp #77, rồi staging (RG-14, RG-24, RG-25, RG-30).**
+  - Trước đó: Đã sửa – chờ gộp #74 (QA2 05/11, đạt local; xác minh lại ở `0950313e` đạt).
+  - Trước đó nữa: Mới – ORC quyết chặn ở máy chủ trong v1.0.4, BE sửa trên nhánh `v104/fix-checkin-occupied-exception`.
   - P1 còn mở thì QC không qua (`test-strategy.md` mục 8). Nếu không kịp bản cắt 06/11 18:00, ORC phân xử, và theo protocol mục 8 cần ESC.
 
 ---
@@ -1289,6 +1363,7 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
       - đếm 202 nhận 201, câu lỗi mất ở bước ②; B18 nhận 200; folio minibar 35.000.
     - Đối chứng `main` @ `53500bcd`: trang đứng ở bước ③. Quay lại 2 lần thì bước ① chỉ có "Căn 101 (đang ở)", không có đường đếm 202. Lỗi tái hiện trên máy chủ thật.
     - Phần sửa này sinh ra **BUG-R4-048** (P0), chặn gộp #83.
+  - **Cập nhật 05/11 02:50 (QA3): ĐẠT ở head mới `e411cb22`. Trạng thái: Đã sửa – chờ gộp #83.** Ca D (unit) và R5 (E2E) đạt 3/3 lượt, kết quả như head cũ. Thứ tự tủ nay cố định, căn cũ trước. Đóng khi #83 gộp và RG-29 đạt.
 
 ### BUG-R4-046 – Đặt phòng mới (H09), kênh Nội bộ: gõ giá cho một phần số đêm thì đơn lưu 0 đ cho mọi đêm, không báo
 - **Mức:** **P0** (QA3 chốt 05/11). ARC đề xuất P2 (thẻ FB-R4-ARC-FE-PR82-01, mức Major).
@@ -1445,6 +1520,7 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
       - R2, R3, R4 nhận 409 `MINIBAR_PERIOD_CHANGED` và hiện câu "Số đếm chưa được lưu";
       - ở R4, số bia dùng 2 lễ tân đã sửa bị đọc lại về 35.000, nên phải gõ lại.
     - RG-28 không còn N/A nếu #83 gộp trong v1.0.4.
+  - **Cập nhật 05/11 02:50 (QA3): ĐẠT ở head mới `e411cb22`. Trạng thái: Đã sửa – chờ gộp #83.** R2, R3, R4 đạt 3/3 lượt: đếm lại nhận 201 có `periodId`, không có câu "Số đếm chưa được lưu"; R4: folio 70.000. Đóng khi #83 gộp và RG-28 đạt.
 
 ### BUG-R4-048 – Trả phòng (#83): sau 409 `MINIBAR_NOT_CHECKED`, số lễ tân gõ ở bước ① trước khi bản tóm tắt về bị đặt lại về số chuẩn; folio thiếu tiền minibar
 - **Mức:** **P0** (QA3 chốt 05/11 02:30). Thẻ ARC FB-R4-ARC-FE-PR83-01 ghi Major.
@@ -1489,7 +1565,45 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
   - R1–R5 và 12 ca của FE vẫn phải xanh.
 - **Bằng chứng:** `qa83out/e2e-r6b/data.txt`, `e2e-r6c/data.txt`, `e2e-r6d/data.txt`, và đối chứng `e2e-r6main/data.txt`. Các tệp nằm ở scratchpad, không commit, dữ liệu giả. Trace tắt.
 - **Vai chịu trách nhiệm:** FE-A sửa, cùng lần gộp `main`. ARC xem.
-- **Trạng thái:** Mới. FE đang sửa (ORC 05/11 02:25). **Chặn gộp #83.** Đóng khi R6 và S2a xanh ở head mới, rồi #83 gộp.
+- **Trạng thái:** **Đã sửa – chờ gộp #83** (QA3 ĐẠT 05/11 02:50 ở head `e411cb22`). Không còn chặn #83.
+  - Trước đó: Mới, chặn gộp #83 (05/11 02:30, head `19cfa3f7`).
+  - Bản sửa của FE: effect `minibarResync` dừng khi trang đã ở bước ① (`if (step === 0) return;`). Tủ đang hiện không bị đổi, cũng không đọc lại. Tủ còn phải đếm được đưa vào nhóm chọn tủ và có tên trên nút chính.
+  - **Xác minh ở `e411cb22`:**
+    - E2E R6 xanh 3/3 lượt. Ô bia giữ 35.000, không đọc lại bản chuẩn, lệnh đếm 202 có bia `remainingQty` 1, folio minibar 35.000.
+    - E2E R7 (nhánh thứ hai: lễ tân ở lại tủ 101 và gõ ở đó) xanh 3/3 lượt.
+      - Số gõ giữ nguyên, tủ không đổi, nút ghi "Tiếp tục: Tủ căn 202".
+      - Đếm lại 101 nhận 201, rồi đếm 202 nhận 201.
+      - B18 nhận 200, folio minibar 35.000.
+    - Unit S2a và N7 của FE đạt. Thay `CheckOutPage.tsx` bằng bản `19cfa3f7` thì S2a đỏ.
+    - R1–R5, ca A–E của QA, 14 ca của FE và bộ H16 23/23 đều xanh.
+  - Lỗi chưa từng vào `main`, nên không có ở production và không cần STG riêng. Đóng khi #83 gộp.
+  - Bằng chứng thêm: `qa83out/e2e-new1`, `e2e-new2`, `e2e-new3` (`data.txt`), `qa83out/logs/unit-fea-oldpage.txt` (scratchpad, không commit, dữ liệu giả).
+
+---
+
+### BUG-R4-049 – Nhận phòng (H13), đơn chưa gán căn: dòng "Buồng sẵn sàng" vẫn in "Căn · VC · Đã dọn, chờ kiểm"
+- **Mức:** P3 (QA2 chốt 05/11 03:00). Đây là một dòng phụ có chữ gây hiểu nhầm; luồng không sai:
+  - Desk vẫn chặn nhận phòng, cả `not_unassigned` lẫn `room_ready` đều "Còn thiếu".
+  - Dòng "Đơn đã được gán căn" ngay trên nói rõ phải gán căn trước.
+  - Không sai tiền, không đổi dữ liệu, không lộ dữ liệu.
+  - **Nâng P2 nếu** thấy lễ tân hiểu "VC" là căn đã sẵn sàng rồi làm sai, ví dụ khi UXR hay INV dùng thử.
+- **Môi trường:** #77 @ `055e92d5` trên `main` `f9ff4e1f`, stack local dùng một lần `ottimo-qa2p77`, seed DS-E, ngày ảo năm 2030. Thấy ở ca D5 và D6 khi xác minh #77 (mục BUG-R4-039).
+- **Các bước tái hiện:**
+  1. Tạo đơn OTA (Airbnb) cho một căn đã có đơn khác cùng đêm, kèm `allowUnassigned`. Đơn nằm ở làn chưa gán căn (`conflictState: open`).
+  2. Đến ngày đến, `qa.fd` mở H13 Nhận phòng của đơn này.
+- **Thực tế:**
+  - Dòng "Buồng sẵn sàng (VI hoặc VC)" có dòng phụ "Căn · VC · Đã dọn, chờ kiểm": số căn để trống, trạng thái `VC`, kèm chip "Còn thiếu".
+  - Gốc: `checkin.service.ts` (dòng 264–266 ở `055e92d5`) trả `roomStatus: 'VC'` ở mức trên của bản xem trước khi đơn không có căn. Đây là giá trị lấp chỗ, vì hợp đồng để `roomStatus` bắt buộc.
+  - `CheckInPage.tsx`, hàm `condDetail`, luôn in `ci.cond_room` với trạng thái lấy từ `roomStatus`.
+  - #74 đã bỏ `detail` của `room_ready` cho ca này, nhưng không chạm `roomStatus`. #77 đúng khi không in câu chặn, và không đổi dòng phụ.
+  - `ci.cond_room` và nhánh `'VC'` có ở `main` trước #77 (từ Sprint 3), nên lỗi **đang ở production**. Không do #77.
+- **Mong đợi:** đơn chưa có căn thì dòng buồng không in số căn và trạng thái, hoặc in một câu như "Chưa gán căn" (UXD chọn câu). Không hiện trạng thái của một căn không có.
+- **Đề xuất sửa:**
+  - FE: `condDetail` không in `ci.cond_room` khi đơn chưa có căn. Dùng cùng điều kiện `hasRoom` mà #77 đã dùng cho `roomBlockedMessage` (`not_unassigned` đạt và có số căn). Khoảng 1 dòng mã và 1 unit.
+  - Cách triệt để (ARC chọn, v1.0.5): bản xem trước để trống `roomStatus` khi không có căn. Cách này đổi hợp đồng.
+- **Test chống tái phát:** unit H13 cho đơn chưa gán căn: dòng buồng không có "Căn ·" và không có trạng thái buồng. E2E như ý (e) của TC-V104-RG-30.
+- **Vai chịu trách nhiệm:** FE-A sửa; UXD nếu đổi câu; ARC nếu bỏ `roomStatus` ở hợp đồng. QA chạy lại.
+- **Trạng thái:** Mới. Không chặn #77. ORC chọn: thêm vào #77 hay dời v1.0.5 có kế hoạch.
 
 ---
 

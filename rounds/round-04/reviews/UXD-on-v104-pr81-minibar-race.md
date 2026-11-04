@@ -165,3 +165,22 @@ Có một thẻ Minor, dời sang v1.0.5, không chặn gộp. Không có ESC.
 | Ngày | Round | Quyết định | Người quyết | Lý do |
 |---|---|---|---|---|
 | 2026-11-05 | 4 | **UXD lượt 2 PR #83** (H16 bước ①, `v104/fe-minibar-followup` @ `19cfa3f7`): ĐẠT. Xác nhận nguyên văn `co.go_next_cabinet` "Tiếp tục: Tủ căn {room}" / "Continue: Room {room} minibar" và `co.minibar_cabinet_saved` "Đã lưu số đếm tủ căn {room}." / "Room {room} minibar count saved.". Đóng FB-R4-UXD-FE-PR81-01. Tủ máy chủ đòi đếm lại quay lại bước ①, và B18 `MINIBAR_NOT_CHECKED` đưa về bước ①: không thêm câu mới, dùng `co.minibar_recount_*` và `error.MINIBAR_NOT_CHECKED` có sẵn. Mở FB-R4-UXD-FE-PR83-01 (Minor: nhóm chọn tủ giữ thứ tự cố định, căn cũ trước) và PR83-02 (Suggestion: xóa câu lỗi khi không còn tủ phải đếm) | UXD | Cùng mẫu "về đúng bước cần sửa" của H16 (KB7, phí trễ). Nút nêu tủ kế tiếp, cảnh báo nêu lý do đếm lại. Thứ tự nút cố định để tránh bấm nhầm tủ |
+
+---
+
+## Lượt 3 – PR #83 @ `e411cb22` (05/11/2026)
+
+- Bước **Review**. Đối tượng: `git show e411cb22`. Phần UXD xem:
+  - khối `cabinets` trong `CheckOutPage.tsx`;
+  - tên nhóm trong `gen_strings.py` và `strings-tables.md`;
+  - nhánh `step === 0` của `minibarResync` (ARC PR83-01).
+- **Kết luận: ĐẠT. Đóng FB-R4-UXD-FE-PR83-01. PR83-02 chuyển sang Deferred (v1.0.5).**
+  - **PR83-01.** Nhóm chọn tủ giờ sắp theo một thứ tự cố định: các căn của lượt ở theo thứ tự trong `r.segments`, căn đang ở luôn cuối. Thứ tự này không phụ thuộc tủ nào đang hiện hay tủ nào vừa được đưa lại, và giống thứ tự lúc mở trang (BR-703-01). Test G-FE-042-2 đã đổi thành `offered: [OLD, HERE]`, cùng thứ tự với ca D và ca 042. Không có chữ mới.
+  - **Tên nhóm.** Đổi thành "v1.0.4 FB-R4-UXD-FE-PR81-01", và tệp `strings-tables.md` sinh lại khớp. Đúng.
+  - **ARC PR83-01.** Lễ tân tự quay về bước ① sau B18 409 thì trang không đổi tủ và không đọc lại tủ đang hiện. Tủ cần đếm hiện trong nhóm chọn tủ, có tên trên nút chính. UXD đồng ý vì cách này đúng luật "không đổi gì dưới tay lễ tân". Câu `error.MINIBAR_NOT_CHECKED` vẫn hiện ở bước ① tới khi đếm xong.
+  - **PR83-02** (xóa câu lỗi khi không còn tủ phải đếm): chưa làm. UXD đồng ý dời sang v1.0.5, vì đây chỉ là Suggestion, ca rất hiếm và không sai tiền.
+- Không có thẻ mới. Không có ESC.
+
+| Ngày | Round | Quyết định | Người quyết | Lý do |
+|---|---|---|---|---|
+| 2026-11-05 | 4 | **UXD lượt 3 PR #83** @ `e411cb22`: ĐẠT. Nhóm chọn tủ ở H16 bước ① giữ một thứ tự cố định: căn cũ theo `r.segments`, căn đang ở cuối. Đóng FB-R4-UXD-FE-PR83-01. Nhóm chuỗi đổi tên thành v1.0.4. FB-R4-UXD-FE-PR83-02 (Suggestion, `act.reset()` khi không còn tủ phải đếm) dời sang v1.0.5 | UXD | Nút không đổi chỗ thì lễ tân không bấm nhầm tủ (K11-03, BR-703-01) |
