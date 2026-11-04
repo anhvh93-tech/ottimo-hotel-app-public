@@ -3413,6 +3413,7 @@
   "rsv.hold_paid_keep": "Đã nhận {paid}/{required}. Tới hạn mà chưa đủ cọc thì đơn không tự hủy, căn vẫn giữ – thu nốt cọc hoặc nhờ quản lý chấp nhận cọc thiếu.",
   "cancel.refund_preview": "Không thu phí. Sẽ tạo yêu cầu hoàn {amount} – cần quản lý duyệt.",
   "today.holds_waiting": "Giữ chỗ chờ cọc ({n})",
+  "today.hold_overdue_since": "Quá hạn từ {at} – cần xử lý",
   "attn.hold_overdue": "Giữ chỗ quá hạn: {n} đơn – sớm nhất từ {time} {date}, cần xử lý",
   "attn.hold_overdue_one": "Giữ chỗ {code} quá hạn từ {time} {date} – cần xử lý",
   "attn.hold_overdue_cap": "Giữ chỗ còn chờ cọc sau {time} ngày đến: {n} đơn – quản lý quyết",
