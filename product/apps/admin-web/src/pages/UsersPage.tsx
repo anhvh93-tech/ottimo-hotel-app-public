@@ -1,7 +1,7 @@
 import { isApiError, type Role, type StrongReauth, type User } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, Chip, ConfirmDialog, Field, Modal } from '@ottimo/ui';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../app/api';
 import { SECURITY_EMAIL_ANCHOR, sendWithOneKey } from '../app/email';
@@ -104,6 +104,7 @@ export function UsersPage() {
   /** v1.0.4 BUG-R4-020: reason for "Đặt lại xác thực 2 bước" (audit `mfa.reset_by_owner`). */
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState<string | undefined>();
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
   // US-008 AC3: only the owner sees "Thêm người dùng" (the API answers 403 A100 to anyone else).
   const isOwner = session.roles.includes('owner');
 
@@ -311,7 +312,7 @@ export function UsersPage() {
                         {u.lastLoginAt ? dateTime(u.lastLoginAt) : t('users.never')}
                       </td>
                       <td>
-                        <div className="row">
+                        <div className="row users-actions">
                           <Button
                             size="sm"
                             disabled={!online}
@@ -327,6 +328,14 @@ export function UsersPage() {
                           </Button>
                           {!self ? (
                             <>
+                              {/* BUG-R4-020: Đặt lại mật khẩu, Khóa tài khoản, Đặt lại xác thực 2 bước.
+                                  UXD FB-R4-UXD-FE-P430-04: "Khác…" stays in one column on every row, so
+                                  "Mở khóa" of a locked account comes after it. */}
+                              <UserMoreMenu
+                                user={u}
+                                disabled={!online}
+                                onPick={(kind) => open({ kind, user: u })}
+                              />
                               {u.status !== 'active' ? (
                                 <Button
                                   size="sm"
@@ -337,12 +346,6 @@ export function UsersPage() {
                                   {t('users.unlock')}
                                 </Button>
                               ) : null}
-                              {/* BUG-R4-020: Đặt lại mật khẩu, Khóa tài khoản, Đặt lại xác thực 2 bước. */}
-                              <UserMoreMenu
-                                user={u}
-                                disabled={!online}
-                                onPick={(kind) => open({ kind, user: u })}
-                              />
                             </>
                           ) : null}
                         </div>
@@ -422,7 +425,7 @@ export function UsersPage() {
                   ? t('users.lock_title', { name: pending.user.displayName })
                   : t('users.unlock')
                 : pending.kind === 'reset2fa'
-                  ? `${t('users.reset_2fa')} – ${pending.user.displayName}`
+                  ? t('users.reset_2fa_title', { name: pending.user.displayName })
                   : t('users.reset_pw_title', { name: pending.user.displayName })
           }
           confirmLabel={
@@ -441,6 +444,7 @@ export function UsersPage() {
             pending.kind === 'reset2fa'
           }
           validate={pending.kind === 'reset2fa' ? reasonOk : undefined}
+          initialFocusRef={pending.kind === 'reset2fa' ? reasonRef : undefined}
           onClose={() => setPending(null)}
           onConfirm={(reauth) => runS2(pending, reauth)}
         >
@@ -457,6 +461,7 @@ export function UsersPage() {
                 {(p) => (
                   <textarea
                     {...p}
+                    ref={reasonRef}
                     className="input"
                     name="reason"
                     rows={2}

@@ -117,6 +117,14 @@ describe('BUG-R4-020 – Người dùng & vai: "Khác…" menu', () => {
     expect(
       await screen.findByRole('button', { name: `${tv('users.unlock')}: ${name}` }),
     ).toBeEnabled();
+    // UXD P430-03/04: one line of actions ("Sửa vai" · "Khác…" · "Mở khóa"), "Khác…" in the same column as on
+    // the other rows.
+    const cell = screen.getByText('qa.sal').closest('tr')!.querySelector('.users-actions')!;
+    expect(
+      [...cell.querySelectorAll(':scope > button, :scope > .menu-anchor > button')].map(
+        (b) => b.textContent,
+      ),
+    ).toEqual([tv('users.edit_roles'), tv('users.more'), tv('users.unlock')]);
     const menu = await openMore(user, name);
     expect(within(menu).queryByRole('menuitem', { name: tv('users.lock') })).toBeNull();
     expect(within(menu).getByRole('menuitem', { name: tv('users.reset_pw') })).toBeInTheDocument();
@@ -128,9 +136,13 @@ describe('BUG-R4-020 – Người dùng & vai: "Khác…" menu', () => {
     const { user } = renderApp('/settings/users', 'qa.owner');
     const menu = await openMore(user, 'Hạnh');
     await user.click(within(menu).getByRole('menuitem', { name: tv('users.reset_2fa') }));
-    const dlg = await screen.findByRole('dialog', { name: `${tv('users.reset_2fa')} – Hạnh` });
+    const dlg = await screen.findByRole('dialog', {
+      name: tv('users.reset_2fa_title', { name: 'Hạnh' }),
+    });
     expect(within(dlg).getByText(tv('users.reset_2fa_confirm', { name: 'Hạnh' }))).toBeVisible();
     const reason = within(dlg).getByLabelText(label('users.reset_2fa_reason'));
+    // UXD P430-02: the dialog opens on the reason (above the factors), not on the password.
+    expect(reason).toHaveFocus();
     await user.type(within(dlg).getByLabelText(label('reauth.s2_password_label')), MOCK_PASSWORD);
     await user.type(reason, ' a ');
     const confirm = within(dlg).getByRole('button', { name: tv('users.reset_2fa') });
@@ -139,6 +151,8 @@ describe('BUG-R4-020 – Người dùng & vai: "Khác…" menu', () => {
     // Too short: nothing sent, the reason says why.
     expect(within(dlg).getByText(tv('field_error.reason_required'))).toBeInTheDocument();
     expect(reason).toHaveAttribute('aria-invalid', 'true');
+    // UXD P430-02: focus leaves the button for the field to fix, so a screen reader reads its error.
+    expect(reason).toHaveFocus();
     expect(sent).toHaveLength(0);
 
     // Nothing was sent, so the password typed is kept (factors are cleared only after an attempt).
@@ -189,7 +203,9 @@ describe('BUG-R4-020 – Người dùng & vai: "Khác…" menu', () => {
     const { user } = renderApp('/settings/users', 'qa.owner');
     const menu = await openMore(user, 'Hạnh');
     await user.click(within(menu).getByRole('menuitem', { name: tv('users.reset_2fa') }));
-    const dlg = await screen.findByRole('dialog', { name: `${tv('users.reset_2fa')} – Hạnh` });
+    const dlg = await screen.findByRole('dialog', {
+      name: tv('users.reset_2fa_title', { name: 'Hạnh' }),
+    });
     await user.type(within(dlg).getByLabelText(label('users.reset_2fa_reason')), 'Mất điện thoại');
     await user.type(within(dlg).getByLabelText(label('reauth.s2_password_label')), 'sai-mat-khau');
     await user.click(within(dlg).getByRole('button', { name: tv('users.reset_2fa') }));
@@ -238,6 +254,19 @@ describe('BUG-R4-024 – S2 dialog sentence when there is no code field', () => 
     expect(within(dlg).queryByText(tv('reauth.s2_failed'))).toBeNull();
     expect(within(dlg).getByLabelText(label('reauth.s2_password_label'))).toHaveFocus();
     expect(userOf('qa.sal').status).toBe('active');
+  });
+
+  it('UXD P430-02: other S2 dialogs still open on the password; an empty password is focused on confirm', async () => {
+    const { user } = renderApp('/settings/users', 'qa.owner');
+    const menu = await openMore(user, 'Hạnh');
+    await user.click(within(menu).getByRole('menuitem', { name: tv('users.lock') }));
+    const dlg = await screen.findByRole('dialog', { name: new RegExp(esc(tv('users.lock'))) });
+    const pw = within(dlg).getByLabelText(label('reauth.s2_password_label'));
+    expect(pw).toHaveFocus();
+    await user.click(within(dlg).getByRole('button', { name: tv('users.lock') }));
+    expect(pw).toHaveAttribute('aria-invalid', 'true');
+    expect(pw).toHaveFocus();
+    expect(userOf('qa.fd').status).toBe('active');
   });
 
   it('UXD EM-07: the factor line keeps the 12 px `.stack` gap (no inline margin)', async () => {

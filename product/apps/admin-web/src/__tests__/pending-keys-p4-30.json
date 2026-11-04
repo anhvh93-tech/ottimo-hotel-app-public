@@ -3,5 +3,6 @@
   "users.reset_2fa_confirm",
   "users.reset_2fa_done",
   "users.reset_2fa_reason",
+  "users.reset_2fa_title",
   "reauth.s2_failed_password"
 ]
