@@ -167,3 +167,71 @@ SEC suy ra từ đọc mã (chưa thử) chuyện gì xảy ra nếu biến này
 - P-2 đóng khi lỗi: lỗi của từng lệnh tắt làm script dừng, rồi đọc lại danh sách để kiểm. Đây là cách đúng cho một bước "tắt quyền".
 - P-3 không nới cổng máy chủ và đi đúng đường S2. Khi bị từ chối, script chỉ log mã lỗi, không log giá trị. Chú thích trong mã nói rõ vì sao làm vậy và dẫn tới harness E2E.
 - Lượt chạy chứng minh tách biệt hẳn: project, cổng và tag riêng; tài khoản nhận THỬ; dọn sạch sau khi chạy; stack của chủ đầu tư không bị đụng. Có cả số đếm audit `stepup.s2_granted` / `s2_failed` để đối chiếu.
+
+## 6. Lượt 2 – kiểm lại commit sửa `4c3e8507` (05/11/2026)
+
+- Đối tượng: head mới **`4c3e8507`**. SEC chỉ đọc `git diff e6818470 4c3e8507`, gồm 3 tệp trong `product/infra/demo/`, tệp OPS mục 7.5 và `rounds/round-04/responses/OPS-on-PR78.md`.
+- Commit gộp `e6818470` (cha 1 `b62995a9`, cha 2 main `7f0ef3fb`) sạch:
+  - so với main, chỉ khác đúng 4 tệp của PR;
+  - 4 tệp này giống hệt ở `b62995a9` (diff 0 dòng), tức không có sửa xung đột nào lẫn vào.
+- Không chạy stack, không chạy test của dự án. Phép kiểm tên máy được chạy bằng một bản sao 10 dòng của đoạn kiểm, trên Node 22.23.3, offline, trong scratchpad.
+
+### 6.1 Kết luận lượt 2
+
+**ĐẠT, rủi ro Low.** Thẻ 01, 02, 03 chuyển **Closed**. Thẻ 04 **Deferred** sang v1.0.5: SEC đồng ý. Commit sửa không mở lỗ mới.
+
+- Regex SEC trên diff: 0 dòng.
+- Quét chuỗi dài và dãy số: chỉ thấy đường dẫn tệp.
+- CI run `41883887817` (`headSha` = `4c3e8507`): `gitleaks` xanh. Job test đang chạy lúc SEC xem.
+
+### 6.2 Thẻ 01: chặn đích ngoài máy này – Closed
+
+Đoạn kiểm nằm ở cấp module, ngay sau `const API`, trước mọi `fetch` và trước khi đọc state. Hai import chỉ là `node:*`, không có tác dụng phụ. Khi chặn, script chỉ in `hostname`, không in cả URL, nên mật khẩu lỡ gõ trong userinfo cũng không bị in ra.
+
+Kết quả thử các dạng ORC hỏi. Script và `fetch` dùng cùng bộ phân tích URL WHATWG của Node, nên không có chuyện hai bên hiểu tên máy khác nhau.
+
+| Dạng | Ví dụ | `hostname` | Kết quả |
+|---|---|---|---|
+| userinfo che máy lạ | `http://localhost:3100@evil.example`, `http://127.0.0.1@evil.example` | `evil.example` | Dừng |
+| userinfo trước máy này | `http://evil.example@127.0.0.1:3100`, `http://u:p@localhost:3100` | `127.0.0.1` / `localhost` | Qua kiểm. Sau đó `fetch` ném lỗi "URL includes credentials" nên không gửi gì. Nếu có gửi thì cũng chỉ tới máy này |
+| dấu chấm cuối | `http://localhost.:3100` | `localhost.` | Dừng |
+| dấu chấm cuối | `http://127.0.0.1.:3100` | `127.0.0.1` | Qua. Bộ phân tích chuẩn hóa về loopback |
+| IPv4 ánh xạ IPv6 | `http://[::ffff:127.0.0.1]:3100` | `[::ffff:7f00:1]` | Dừng |
+| `0.0.0.0` | `http://0.0.0.0:3100`, `http://0:3100` | `0.0.0.0` | Dừng |
+| `[::]`, `127.0.0.2` | | như ví dụ | Dừng |
+| IPv4 viết kiểu khác | `127.1`, `2130706433`, `0x7f.0.0.1`, `127%2e0%2e0%2e1` | `127.0.0.1` | Qua. Đều là loopback |
+| IPv6 viết đủ | `http://[0:0:0:0:0:0:0:1]:3100` | `[::1]` | Qua. Là loopback |
+| tên giả dạng | `127.0.0.1.nip.io`, `localhost.evil.example`, `127.0.0.1%2eevil.example`, `localhost%2eevil.example` | tên lạ | Dừng |
+| dấu `\` hay `#` | `http://127.0.0.1\@evil.example` | `127.0.0.1` | Qua. `\` được hiểu là đường dẫn, request đi tới `127.0.0.1` |
+| dấu `\` hay `#` | `http://evil.example#@127.0.0.1` | `evil.example` | Dừng |
+| scheme khác, chuỗi hỏng | `ftp://127.0.0.1`, khoảng trắng cuối chuỗi | `127.0.0.1` | Qua kiểm, rồi `fetch` ném lỗi. Không gửi gì |
+| scheme khác, chuỗi hỏng | `file:///…`, `http://evil.example@`, chuỗi rỗng, không phải URL | rỗng | Dừng |
+
+- Mọi trường hợp qua kiểm đều nhắm vào loopback hoặc ném lỗi trước khi gửi. Không có lối vòng.
+- `'::1'` (không ngoặc) trong danh sách cho phép không bao giờ khớp, vì `URL.hostname` của IPv6 luôn có ngoặc. Mục thừa này vô hại, không mở thẻ.
+- `localhost` được phân giải theo `/etc/hosts` của máy. Tệp này chỉ root sửa được, nên chấp nhận.
+- Node 22 chỉ dùng proxy từ biến môi trường khi bật `--use-env-proxy` / `NODE_USE_ENV_PROXY`, mặc định tắt. Ghi để biết, không mở thẻ.
+
+**OPS không thêm kiểm ở `lib.sh`: SEC chấp nhận.** Phần này vốn là tùy chọn. Trong `product/infra/demo/` chỉ hai script node gửi request tới `DEMO_API_URL`: grep không thấy `curl`/`wget` hay chỗ dùng nào khác. Kiểm ở đúng nơi gửi là đủ.
+
+### 6.3 Thẻ 02: tắt `qa.*` trước – Closed
+
+- Khối tắt, đọc lại và dừng nếu còn tài khoản bật đã nằm ngay sau vòng đăng nhập 8 vai trong `phaseNow`, trước `loadContext` và trước mọi lệnh ghi khác. Khối cũ ở cuối đã xóa. Logic giữ nguyên như lượt 1 đã duyệt.
+- `stop_and_die` mới chạy `dc stop api worker web` (bỏ qua lỗi), rồi `die` kèm câu hướng dẫn chạy `demo-reset.sh`. Hàm này được dùng cho lỗi script ở **cả hai pha**. Pha 1 cũng dừng, vì api pha 1 có endpoint kiểm thử và đồng hồ giả. Phần này làm tốt hơn đề xuất.
+- `postgres` vẫn chạy, nhưng không mở cổng ra ngoài (`ports: !reset []`).
+- Còn một nhánh nhỏ, có từ trước và không do commit này mở: khi `dc up … api worker web` của pha 2 lỗi, ví dụ `web` không healthy, `lib.sh` vẫn gọi `die` thay vì `stop_and_die`. Lúc đó `api` (image demo, không có endpoint kiểm thử) có thể vẫn chạy ở `127.0.0.1` với `qa.*` còn bật. Rủi ro Low, giống thẻ 02 lúc đầu. SEC không mở thẻ mới. Đề nghị OPS đổi `die "stack demo không lên"` thành `stop_and_die` khi làm thẻ 04 ở v1.0.5.
+
+### 6.4 Thẻ 03: ghi rõ luật hiệu lực – Closed
+
+Nhánh "Đã cấu hình" của `demo-accounts.md` đã có đủ 3 ý SEC đề nghị:
+- trong demo, tài khoản đã lên lịch sẵn nên dùng được ngay;
+- ở bản thật, tài khoản nhập hoặc đổi hôm nay chỉ có hiệu lực từ ngày kinh doanh sau;
+- ngày tạo trong lịch sử là ngày của đồng hồ giả.
+
+Câu thêm không chứa số tài khoản hay giá trị nào.
+
+### 6.5 Dòng decision-log đề xuất (ORC ghi; SEC không sửa `decision-log.md` ở lượt này)
+
+```
+| 2026-11-05 | 4 | **SEC – #78 lượt 2 @ 4c3e8507: ĐẠT, rủi ro Low** (chỉ đọc `git diff e6818470 4c3e8507`; commit gộp main `e6818470` sạch, 4 tệp PR không đổi). PR78-01 Closed: kiểm `hostname` loopback ở đầu `seed-demo.mjs`/`smoke-demo.mjs` trước mọi request; thử offline userinfo, dấu chấm cuối, IPv4 ánh xạ IPv6, `0.0.0.0`, `[::]`, tên giả dạng, `\`/`#` – không có lối vòng (ca qua kiểm đều là loopback hoặc `fetch` ném lỗi); chấp nhận không kiểm ở `lib.sh` (chỉ 2 script node gửi request). PR78-02 Closed: tắt `qa.*` ngay sau đăng nhập ở đầu pha 2 + `stop_and_die` cho lỗi pha 1/pha 2. PR78-03 Closed. PR78-04 Deferred v1.0.5, kèm việc đổi `die "stack demo không lên"` sang `stop_and_die` (nhánh còn lại, Low, có từ trước). Regex 0, gitleaks CI xanh ở `4c3e8507`; chờ job test của run 41883887817 | SEC/ORC | Review |
+```

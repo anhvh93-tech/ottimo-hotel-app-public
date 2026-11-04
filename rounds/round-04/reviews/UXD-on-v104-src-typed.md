@@ -84,3 +84,92 @@ Nhãn nói đúng điều ô đang chứa. Thứ tự xét:
 - Trạng thái: Open
 
 Không có ESC.
+
+---
+
+## Lượt 2 – PR #82 (05/11/2026)
+
+- Bước **Review**. Đối tượng: `git diff 9b45cef3...origin/v104/fe-rate-source-typed` @ `e8b1c4e9`, chồng trên #75. Gồm:
+  - `BookingDialog.tsx`;
+  - `gen_strings.py` và các tệp sinh ra từ nó;
+  - `v104-rate-source-typed.test.tsx`.
+- Cách xem:
+  - Dựng worktree tạm ở `e8b1c4e9`. Test của PR: 4/4 xanh.
+  - Viết thêm một test tạm: giữ bản xem sau khi đổi từ 7 đêm sang 3 đêm, để xem chữ BR-107 trong lúc chờ. Test không commit, đã xóa cùng worktree.
+  - Sinh lại `gen_strings.py`: không ra diff.
+
+### Kết luận: ĐẠT. Đóng FB-R4-UXD-FE-SRC-01 và FB-R4-UXD-FE-PR70-02
+
+| Mục trong bảng | Mã ở `e8b1c4e9` | Kết quả |
+|---|---|---|
+| 1. Khóa `bk.src_typed` | "Giá đã gõ" / "Typed rate", nằm trong nhóm v1.0.4 booking FE-B, ngay sau `booking.hold.typed_rate_locked`. Ghi chú đúng nguyên văn | Đúng |
+| 2. Ô có số đã gõ → `bk.src_typed` | Điều kiện `form.ratesEdited[d] && form.rates[d]`, cùng phép thử với câu khóa Giữ chỗ. Điều kiện này xét trước, nên nhãn hiện cả khi đang chờ bản xem | Đúng. Test ca 1, 2, 4 |
+| 2. Ô trống → `–` | Mọi ô không có `raw` đều ra `–`: ô đã xóa, ô đang chờ bản xem, ô OTA/Nội bộ chưa gõ. Vẫn là ký tự gạch như trước | Đúng. Test ca 1, 2, 4 |
+| 2. Ô điền từ bản xem của lượt ở đang hiện → `bk.src_list` | Điều kiện `r.raw && calc`. Ô chưa gõ chỉ có `raw` khi `prefillLive` | Đúng |
+| 3. Bỏ `weekend()` | Đã gỡ cả hàm lẫn điều kiện. Đêm thứ Sáu, thứ Bảy hiện "Giá niêm yết (BR-101)" | Đúng. Test ca 3. DOM lượt 8 §4.2 đồng ý bỏ ngay, không chờ xác nhận chuyển giá. Lý do: nếu production chưa chuyển giá thì cái sai là giá, không phải nhãn |
+| Ghi chú `bk.src_weekend` | Đúng nguyên văn mục 3. Khóa vẫn giữ, không xóa | Đúng |
+| `aria-busy` khi chờ bản xem | `.rate-table` và `table.sum` cùng có `aria-busy="true"` khi `priceWaiting`. Xong thì gỡ hẳn thuộc tính (`|| undefined`) | Đúng DS mục 7 dòng 558. Không thêm spinner, vì nút Tạo đơn đã ở trạng thái "Đang tải…" (test tạm in ra `btn pri busy` … "Đang tải…") |
+| Tổng `–` khi chờ | Tiền phòng, phụ thu người, Tổng tiền đơn và Cọc cần thu đều hiện `–`. Dòng tổng không còn chữ "đ" đứng lẻ sau `–` | Đúng |
+| Brand | Không thêm lớp, màu hay `style=` | Đạt |
+
+PR70-02 đóng: FE làm đúng đề xuất của thẻ, gồm cột `–`, các ô tiền `–` và `aria-busy`. Chữ BR-107 dưới đây là phát hiện mới, ghi thành thẻ PR82-01.
+
+Có hai thẻ Minor mới, cả hai không chặn gộp. Không có ESC.
+
+### Phát hiện mới: chữ BR-107 vẫn lấy từ bản xem cũ trong lúc chờ
+
+Ca của test tạm: kênh Trực tiếp, 7 đêm, được giảm 10%. Giữ bản xem lại, rồi đổi ngày đi để còn 3 đêm. Trong lúc chờ, màn hiện:
+
+| Chỗ | Chữ trên màn | Phải là |
+|---|---|---|
+| Dưới bảng giá (`rate.tier_note`) | "Lượt ở 3 đêm được giảm 10% theo số đêm (BR-107) …" | Không có câu này, vì 3 đêm không được giảm |
+| Bảng tổng, dòng phụ | "Đã giảm 10% vì ở từ 7 đêm (BR-107)", ngay cạnh "3 đêm –" | Chưa có gì, tới khi bản xem về |
+
+Khi bản xem về, màn đúng lại: "Giảm theo số đêm (BR-107): không áp dụng". Chiều ngược lại (3 sang 7 đêm) cũng sai: trong lúc chờ, lượt 7 đêm bị ghi "không áp dụng".
+
+### FB-R4-UXD-FE-PR82-01
+- Mức độ: Minor. Không chặn gộp #82. FE làm luôn trong #82 nếu còn giờ, nếu không thì sang v1.0.5.
+- Vị trí: `BookingDialog.tsx`, các chỗ đọc `losPct` (khoảng dòng 508) hoặc `calc.losDiscountPct`:
+  - câu dưới bảng giá: `rate.tier_note`, `rate.tier_on_save`, `rate.tier_locked`;
+  - dòng "Sau giảm {pct}%" của từng đêm;
+  - đuôi `· {rate.pre_tier_short}` ở dòng số đêm của bảng tổng;
+  - dòng phụ của bảng tổng: `sale.los_applied` / `bk.los_none`.
+- Vấn đề: khi `priceWaiting`, các số đã thành `–`, nhưng những chữ trên vẫn lấy từ bản xem của lượt ở trước và ghép với số đêm mới. Kết quả là màn có một câu sai: "Lượt ở 3 đêm được giảm 10%".
+- Vì sao quan trọng: lễ tân đọc câu này khi báo giá cho khách qua điện thoại. Mạng Đà Lạt yếu thì khoảng chờ có thể kéo dài vài giây. Không sai tiền: nút Tạo đơn đang khóa, và giá do máy chủ tính.
+- Đề xuất sửa (không cần khóa mới):
+  - Chữ BR-107 chỉ lấy theo bản xem **của lượt ở đang hiện**. Khi `priceWaiting`, phần chữ coi `losPct` = 0: ẩn câu `rate.tier_*`, ẩn "Sau giảm", ẩn đuôi "· giá lịch…". Ẩn luôn dòng phụ BR-107 của bảng tổng.
+  - Giữ `ratesLocked` theo bản xem như hiện nay. Khóa ô là chốt an toàn để không giảm hai lần, không phải chữ.
+  - Cùng chỗ đó: nhãn dòng phụ thu người đang lấy `calc.extraGuestCount` của bản xem cũ. Khi chờ, dùng `extra` của form (số tiền đã là `–`).
+  - Test gợi ý: 7 đêm rồi đổi sang 3 đêm, giữ bản xem. Không có "được giảm 10%", không có "Đã giảm 10%". Nhả bản xem ra thì hiện "không áp dụng".
+- Trạng thái: Open
+
+### FB-R4-UXD-FE-PR82-02
+- Mức độ: Minor. Ngoài phạm vi #82 nhưng cùng gốc BR-104 v0.5.1. Làm ở v1.0.5, PO xếp vào backlog.
+- Vị trí: `QuoteDialog.tsx` (H12 Báo giá), dòng 63 (`weekend()`) và khoảng dòng 344 (nhóm đêm); khóa `sale.nights_weekday` / `sale.nights_weekend`.
+- Vấn đề:
+  - Bảng báo giá vẫn tách hai dòng "{n} đêm thường × {rate}" và "{n} đêm thứ Sáu, thứ Bảy × {rate}". Từ BR-104 v0.5.1, hai dòng có cùng một giá. Dù vậy, cách tách vẫn gợi ý cuối tuần giá khác, trái lời hứa một giá (DOM lượt 8 §4.3).
+  - Giá của mỗi nhóm là giá đêm đầu nhóm (`list[0]`). Nếu nhóm có đêm giá khác, ví dụ ngày đặc biệt hay mức Noel–Tết khi bật lại, thì "{n} × {rate}" không khớp cột tiền.
+- Vì sao quan trọng: lễ tân đọc bảng này khi báo giá. Chữ "thứ Sáu, thứ Bảy" dễ biến thành câu "cuối tuần đắt hơn" với khách.
+- Đề xuất sửa:
+  - Nhóm các đêm theo `amountVnd`: đêm cùng giá chung một dòng, các dòng xếp theo ngày.
+  - Dùng một khóa mới thay cho hai khóa cũ. UXD thêm khóa khi FE nhận thẻ:
+
+    | Khóa | VI | EN |
+    |---|---|---|
+    | `sale.nights_at_rate_one` | {n} đêm × {rate} | {n} night × {rate} |
+    | `sale.nights_at_rate_other` | {n} đêm × {rate} | {n} nights × {rate} |
+
+  - `_few` và `_many` giống `_other`, theo cách bốn dạng số của `translate.ts`.
+  - Hai khóa cũ vẫn giữ, thêm ghi chú "không dùng từ v1.0.5".
+- Trạng thái: Open
+
+### Điểm nên giữ
+- Nhãn nói đúng thứ đang có trong ô, không đoán theo lịch. Cột và câu khóa Giữ chỗ dùng chung một phép thử, nên luôn nói cùng một ý.
+- Bốn test khớp bốn ca của bảng UXD, kể cả ca chờ bản xem có giữ rồi nhả.
+- `aria-busy` được gỡ hẳn khi xong, không để lại `aria-busy="false"`.
+
+### Dòng decision-log đề xuất (ORC ghi)
+
+| Ngày | Round | Quyết định | Người quyết | Lý do |
+|---|---|---|---|---|
+| 2026-11-05 | 4 | **UXD lượt 2 PR #82** @ `e8b1c4e9`: ĐẠT. Cột Nguồn giá H09 đúng bảng nhãn (`bk.src_typed` / `–` / `bk.src_list`); đã bỏ `weekend()`; ghi chú `bk.src_weekend` đúng; có `aria-busy` và tổng `–` khi chờ bản xem. Đóng FB-R4-UXD-FE-SRC-01 và FB-R4-UXD-FE-PR70-02. Mở FB-R4-UXD-FE-PR82-01 (Minor: chữ BR-107 lấy từ bản xem cũ khi chờ) và PR82-02 (Minor, v1.0.5: H12 nhóm đêm theo giá, không theo thứ) | UXD | Nhãn theo nội dung ô và dữ liệu máy chủ, không theo thứ trong tuần (BR-104 v0.5.1, DOM lượt 8 §4.2) |
