@@ -104,7 +104,9 @@ export function buildMeta(spec) {
 // Shape kinds: any (free value) · scalar · ref (component schema) · array · object (declared props; `open`
 // = additionalProperties allowed, `extra` = shape of additional values) · union (oneOf/anyOf of mixed kinds).
 // Property flags: v = x-visible-to roles, f = x-rbac-field code, w = writeOnly, c3 = x-classification C3,
-// g = x-guest-level (guest callers below that level never receive the property – SEC ĐK-2).
+// g = x-guest-level (guest callers below that level never receive the property – SEC ĐK-2),
+// sd = x-self-data (0.3.12, SEC-ARC-018-03: the caller's own data – first level of a schema/response only,
+// never together with x-rbac-field / x-visible-to; listed in `selfData` for the serializer cross-check).
 
 function resolveComponent(spec, schema) {
   const name = typeof schema?.$ref === 'string' ? schema.$ref.split('/').pop() : undefined;
@@ -118,7 +120,39 @@ function propFlags(node) {
   if (node?.writeOnly === true) flags.w = true;
   if (node?.['x-classification'] === 'C3') flags.c3 = true;
   if (typeof node?.['x-guest-level'] === 'number') flags.g = node['x-guest-level'];
+  if (node?.['x-self-data'] !== undefined) {
+    if (node['x-self-data'] !== true) throw new Error('x-self-data must be true');
+    if (flags.f || flags.v)
+      throw new Error('x-self-data cannot be combined with x-rbac-field / x-visible-to');
+    flags.sd = true;
+  }
   return flags;
+}
+
+/** Number of x-self-data properties anywhere in a shape (refs are not followed – each schema counts once). */
+function countSelfData(shape) {
+  if (!shape || typeof shape !== 'object') return 0;
+  switch (shape.k) {
+    case 'object': {
+      let n = 0;
+      for (const p of Object.values(shape.props)) n += (p.sd ? 1 : 0) + countSelfData(p.s);
+      return n + countSelfData(shape.extra);
+    }
+    case 'array':
+      return countSelfData(shape.items);
+    case 'union':
+      return shape.of.reduce((n, s) => n + countSelfData(s), 0);
+    default:
+      return 0;
+  }
+}
+
+/** First-level x-self-data keys of a shape: `<owner>.<prop>` (owner = `schema:<Name>` or `op:<operationId>`). */
+function selfDataKeys(owner, shape) {
+  if (shape?.k !== 'object') return [];
+  return Object.entries(shape.props)
+    .filter(([, p]) => p.sd)
+    .map(([k]) => `${owner}.${k}`);
 }
 
 function intersectVisible(a, b) {
@@ -230,7 +264,26 @@ export function buildSchemas(spec) {
       if (Object.keys(out).length > 0) responses[op.operationId] = out;
     }
   }
-  return { schemas, responses };
+  // 0.3.12 (SEC-ARC-018-03): the x-self-data list the serializer cross-checks against SELF_DATA_FIELDS.
+  const selfData = new Set();
+  let total = 0;
+  for (const [name, shape] of Object.entries(schemas)) {
+    for (const key of selfDataKeys(`schema:${name}`, shape)) selfData.add(key);
+    total += countSelfData(shape);
+  }
+  for (const [opId, byStatus] of Object.entries(responses)) {
+    for (const shape of Object.values(byStatus)) {
+      for (const key of selfDataKeys(`op:${opId}`, shape)) selfData.add(key);
+      total += countSelfData(shape);
+    }
+  }
+  const keys = [...selfData].sort();
+  if (total !== keys.length) {
+    throw new Error(
+      'x-self-data is allowed only on first-level properties of a schema or a 2xx response',
+    );
+  }
+  return { schemas, responses, selfData: keys };
 }
 
 export async function renderSchemas(spec) {

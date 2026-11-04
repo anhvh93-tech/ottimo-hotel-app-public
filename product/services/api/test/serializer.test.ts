@@ -237,7 +237,7 @@ describe("role serializer – the caller's own data (SELF_DATA_FIELDS, BUG-R4-01
     expect('actorName' in ser('AuditEvent', e, ['housekeeping'])).toBe(false);
   });
 
-  it('every SELF_DATA_FIELDS key is a D-tagged direct property of a self-only answer', () => {
+  it('every SELF_DATA_FIELDS key is an x-self-data direct property of a self-only answer (OpenAPI 0.3.12)', () => {
     const SELF_ONLY_SCHEMAS = { Me: ['getMe', 'login', 'loginMfa'] };
     for (const key of SELF_DATA_FIELDS) {
       const [owner, prop] = key.split('.') as [string, string];
@@ -251,8 +251,14 @@ describe("role serializer – the caller's own data (SELF_DATA_FIELDS, BUG-R4-01
       }
       expect(shape?.k, key).toBe('object');
       const p = shape && shape.k === 'object' ? shape.props[prop] : undefined;
-      expect(p?.f, key).toBeDefined();
+      // 0.3.12 (SEC-ARC-018-03): `x-self-data: true` replaces `x-rbac-field: D27` on these properties (ARC P4-00).
+      expect(p?.sd, key).toBe(true);
     }
+    // The generated list and the hand-pinned list name the same properties (BE-A P4-06 moves to `schema:`/`op:` keys).
+    const asGenerated = [...SELF_DATA_FIELDS]
+      .map((k) => (k.split('.')[0]! in SELF_ONLY_SCHEMAS ? `schema:${k}` : `op:${k}`))
+      .sort();
+    expect(asGenerated).toEqual(OPENAPI_SCHEMAS.selfData);
     // `Me` is returned by exactly these operations (a new one must be reviewed here)
     const usingMe = Object.entries(OPENAPI_SCHEMAS.responses)
       .filter(([, byStatus]) => JSON.stringify(byStatus).includes('"name":"Me"'))
