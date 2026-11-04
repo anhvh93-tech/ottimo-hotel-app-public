@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Test of bin/requeue-email-changed.sh (INT FB-R4-INT-BE-31-02 (b), ARC FB-R4-ARC-BE-31-02, runbook v1.0.3 R9) with a
 # stub `dc` (RQ_TEST_DC): no docker, no database. The stub records every psql script it is handed.
-# Cases: usage · production / a stack marker refuses the stub · lock held · no flock on production · current_tag / worker tag / worker template checks · no
+# Cases: usage · production / a stack marker refuses the stub · lock held · no flock on production · current_tag / worker tag
+# (exactly <tag><API_TAG_SUFFIX>, SEC PR32-S2) / worker template checks · no
 # 0091 table · dry run writes nothing · --expect must match · the UPDATE (conditions, 7 days, one transaction, exact
 # row count) · a refused write says "nothing written" without the raw error · output has counts only.
 #   bash infra/server/test/requeue-email-changed.test.sh        (workstation or CI)
@@ -42,7 +43,7 @@ chmod +x "$T/bin/dc"
 pass=0 fail=0
 reset() {
   rm -f "$T/home/calls" "$T/home"/sql.* "$T/home"/cmd.* "$T/home/written"
-  printf 'APP_ENV=staging\n' > "$T/home/.env"
+  printf 'APP_ENV=staging\n%b' "${ENV_EXTRA:-}" > "$T/home/.env"
   echo "$TAG" > "$T/home/state/current_tag"
 }
 rq() { # env… -- args…
@@ -84,7 +85,18 @@ rm -f "$T/home/.ottimo-home"
 case_ "current_tag is another tag"     1 'REFUSED: state/current_tag is not sha-ffffffffffff – run this only on the tag that is live now' -- --tag sha-ffffffffffff
 nowrite "current_tag is another tag"
 case_ "worker on another tag"          1 'REFUSED: the running worker is not on image tag' FAKE_IMG='ghcr.io/example/ottimo-api:sha-e5fffe05ed55\n' -- --tag "$TAG"
-case_ "worker tag + suffix accepted"   0 'dry run' FAKE_IMG="ghcr.io/example/ottimo-api:$TAG-test\n" FAKE_ROWS=1 -- --tag "$TAG"
+# SEC FB-R4-SEC-OPS-PR32-S2: the worker image tag must be exactly <tag><API_TAG_SUFFIX of the .env>.
+ENV_EXTRA='API_TAG_SUFFIX=-test\n'
+case_ "worker tag + the .env suffix accepted" 0 'dry run' FAKE_IMG="ghcr.io/example/ottimo-api:$TAG-test\n" FAKE_ROWS=1 -- --tag "$TAG"
+case_ "suffix in .env, worker without it"     1 "REFUSED: the running worker is not on image tag $TAG-test\$" FAKE_ROWS=1 -- --tag "$TAG"
+case_ "suffix in .env, worker on another suffix" 1 "REFUSED: the running worker is not on image tag $TAG-test\$" FAKE_IMG="ghcr.io/example/ottimo-api:$TAG-test2\n" FAKE_ROWS=1 -- --tag "$TAG"
+ENV_EXTRA='API_TAG_SUFFIX="-test"\r\n'
+case_ "quoted suffix with CRLF in .env"       0 'dry run' FAKE_IMG="ghcr.io/example/ottimo-api:$TAG-test\n" FAKE_ROWS=1 -- --tag "$TAG"
+ENV_EXTRA=''
+case_ "no suffix in .env, worker on <tag>-test" 1 "REFUSED: the running worker is not on image tag $TAG\$" FAKE_IMG="ghcr.io/example/ottimo-api:$TAG-test\n" FAKE_ROWS=1 -- --tag "$TAG"
+case_ "no suffix, worker on <tag>-anything"   1 "REFUSED: the running worker is not on image tag $TAG\$" FAKE_IMG="ghcr.io/example/ottimo-api:$TAG-rc1\n" FAKE_ROWS=1 -- --tag "$TAG"
+case_ "worker tag only a prefix of --tag"     1 'REFUSED: the running worker is not on image tag' FAKE_IMG="ghcr.io/example/ottimo-api:${TAG%?}\n" FAKE_ROWS=1 -- --tag "$TAG"
+case_ "registry with a port, exact tag"       0 'dry run' FAKE_IMG="registry.example.invalid:5000/ottimo-api:$TAG\n" FAKE_ROWS=1 -- --tag "$TAG"
 case_ "no worker running"              1 'REFUSED: expected exactly one running worker container' FAKE_IMG='' -- --tag "$TAG"
 case_ "two workers running"            1 'REFUSED: expected exactly one running worker container' FAKE_IMG="a:$TAG\nb:$TAG\n" -- --tag "$TAG"
 case_ "docker compose fails"           1 'REFUSED: docker compose failed – worker state unknown$' FAKE_PS_FAIL=1 -- --tag "$TAG"

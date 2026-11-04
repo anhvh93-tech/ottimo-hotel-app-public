@@ -1,0 +1,11 @@
+# Code owners (v1.0.4 P4-03). GitHub can only name accounts; the team roles behind each line are in the comment.
+# The repo has one GitHub account (the owner). A PR that touches a line below needs the named ROLE's review in
+# rounds/<round>/reviews/ before ORC merges it – the pull request template has the matching checkbox.
+# Last matching pattern wins: keep the specific lines below the general ones.
+
+# SEC – the field policy decides which personal-data fields every API response may carry (SEC FB-R4-SEC-BE-018-01 (c)).
+# Adding or removing a key of SELF_DATA_FIELDS (or any rule here) needs SEC review.
+/product/services/api/src/shared/serialization/field-policy.ts @anhvh93-tech
+
+# OPS + SEC – who owns what (this file).
+/.github/CODEOWNERS @anhvh93-tech

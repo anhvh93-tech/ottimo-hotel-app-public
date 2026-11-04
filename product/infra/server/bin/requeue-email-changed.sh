@@ -9,7 +9,8 @@
 #   requeue-email-changed.sh --tag <image tag now live> --apply --expect <n>    the same, then one UPDATE transaction
 # Checks, in a dry run too (any one failing → REFUSED, nothing written):
 #   1. no deploy / rollback is running (state/deploy.lock, the lock of deploy.sh; no flock → REFUSED);
-#   2. --tag = state/current_tag, and the one running worker container uses that image tag;
+#   2. --tag = state/current_tag, and the one running worker container uses exactly that image tag + API_TAG_SUFFIX of
+#      the stack .env (SEC FB-R4-SEC-OPS-PR32-S2: no other suffix accepted);
 #   3. that worker's image knows the template `email_changed` (isStaffEmailTemplate of @ottimo/integrations, asked
 #      inside the container) – a v1.0.2 worker would kill the rows again;
 #   4. table user_email_change exists (migration 0091).
@@ -107,10 +108,10 @@ current=$(cat "$state/current_tag" 2>/dev/null || true)
 [ "$current" = "$tag" ] || die "state/current_tag is not $tag – run this only on the tag that is live now"
 images=$(dc ps --status running --format '{{.Image}}' worker 2>"$err") || die "docker compose failed – worker state unknown"
 [ "$(grep -c . <<<"$images" || true)" = "1" ] || die "expected exactly one running worker container"
-case "$images" in
-  *":$tag" | *":$tag"-*) ;;
-  *) die "the running worker is not on image tag $tag" ;;
-esac
+# SEC FB-R4-SEC-OPS-PR32-S2: the tag part of the image reference must be EXACTLY <tag><API_TAG_SUFFIX> – the same
+# reference deploy.sh pulls and checks ("$(envval API_IMAGE):$tag$(envval API_TAG_SUFFIX)"), not "<tag>-<anything>".
+want_tag="$tag$(envval API_TAG_SUFFIX)"
+[ "${images##*:}" = "$want_tag" ] || die "the running worker is not on image tag $want_tag"
 # 3. the worker image knows email_changed (v1.0.3 or later). Exit 0 = yes, 1 = no, anything else = cannot tell.
 probe='try { const m = await import("@ottimo/integrations/notification"); process.exit(m.isStaffEmailTemplate("email_changed") ? 0 : 1); } catch { process.exit(3); }'
 rc=0
