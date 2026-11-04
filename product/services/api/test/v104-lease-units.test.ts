@@ -211,6 +211,9 @@ describe('parseEntityTag – If-Match with a content-coding suffix (V3-09, plan 
     '"-gzip"',
     '"6-gzip',
     '6-gzip"',
+    // FB-R4-ARC-BE-C-P411-03: the coding suffix is read only inside quotes.
+    '6-gzip',
+    'W/6-br',
     '"abc"',
     '"1234567890"',
   ])('%s → null', (raw) => {

@@ -129,9 +129,7 @@
 - Lỗi: thông báo cố định `room_list_price: applied price row is append-only`, `check_violation`. App không ánh xạ mã này nên trả 500 chung.
 - Không chặn dòng đầu/dòng cuối ở DB: lớp dịch vụ đã làm (409 `only_price`/`first_price`).
 - Journal:
-  - hiện tại: idx 69, `when` = 0092 + 4000. Chỗ 0092 + 2000 để dành cho 0093 (P4-10, PR-F gộp trước);
-  - khi 0093 vào: đổi idx 0094 → 70 và `prevId` của snapshot → id snapshot 0093. `when` giữ nguyên;
-  - gộp lệch thứ tự thì làm theo luật 2.2.
+  - (Phản hồi & sửa, FB-R4-ARC-BE-C-P411-01) idx **70** sau 0093 (idx 69, PR-F), `when` `1792782177681`; snapshot 0094 = **bản chép snapshot 0093** (giữ id `6691350d…`, `prevId` `96671c28…`). `drizzle-kit generate`: "No schema changes". Chi tiết: `rounds/round-04/responses/BE-C-P4-11.md`.
 - Test:
   - (a) xóa dòng quá khứ → lỗi;
   - (b) xóa dòng ngày mai → được;
@@ -139,7 +137,7 @@
   - tz sai → từ chối;
   - (d) `tgenabled = 'O'`, `prosecdef = false`, `proconfig` cố định;
   - (e) test dịch vụ BUG-R4-015 dùng ngày tương lai theo cả hai đồng hồ.
-- Câu cho runbook: app cũ `sha-da6d6f3dc22b` chỉ xóa dòng có ngày sau hôm nay, nên quay lui app mà không lùi DB vẫn chạy. `TRUNCATE` không bắn trigger dòng. Muốn xóa dòng đã áp dụng thì làm bằng migration `ALTER TABLE room_list_price DISABLE TRIGGER room_list_price_append_only` (chủ bảng), có SEC review.
+- Câu cho runbook (sửa theo FB-R4-SEC-BE-P411-01): app cũ `sha-da6d6f3dc22b` chỉ xóa dòng có ngày sau **ngày kinh doanh**, nên quay lui app mà không lùi DB vẫn chạy, trừ khung 00:00 → giờ đổi ngày kinh doanh: hủy giá của ngày lịch hôm nay bị trigger chặn (500 chung, không mất dữ liệu). v1.0.4 kiểm ngày lịch ở dịch vụ trước → 409 `effective`. `TRUNCATE` không bắn trigger dòng. Muốn xóa dòng đã áp dụng thì làm bằng migration `ALTER TABLE room_list_price DISABLE TRIGGER room_list_price_append_only` (chủ bảng), có SEC review.
 - OPS (tùy chọn, P4-04): câu READ ONLY kiểm `tgenabled = 'O'` cho `room_list_price_append_only`.
 
 ## 8. Trả lời OPS Q3 (0096 và quay lui v1.0.3)

@@ -20,7 +20,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import { type Tx, pgCode } from '../../../db/database';
 import { type FieldError, problem } from '../../../shared/problem';
-import type { LocalDate } from '../../../shared/time';
+import { type LocalDate, localDate } from '../../../shared/time';
 import { AuditService } from '../../audit/public/audit.service';
 import { divideRoundVnd } from '../public/money';
 import { ParameterService } from '../public/parameter.service';
@@ -322,7 +322,12 @@ export class RoomsService {
     );
     const row = rows[0];
     if (!row) throw problem('NOT_FOUND');
-    if (input.effectiveFrom <= pc.today) {
+    // FB-R4-SEC-BE-P411-01: migration 0094 refuses the DELETE by the property's CALENDAR date, which turns at 00:00,
+    // while the business date (BR-010) turns at the rollover. Between 00:00 and the rollover today's calendar row is
+    // still "future" by the business date → check the later of the two so the answer is 409, not the trigger's 500.
+    const calendarToday = localDate(pc.now, pc.timezone);
+    const lastApplied = calendarToday > pc.today ? calendarToday : pc.today;
+    if (input.effectiveFrom <= lastApplied) {
       throw problem('INVALID_TRANSITION', { extras: { currentState: 'effective' } });
     }
     if (row.total <= 1) {

@@ -1,6 +1,6 @@
 {
   "id": "6691350d-e953-46bf-bed3-9e94a364cfca",
-  "prevId": "6d4cb691-7c3c-4f7f-8936-4a31bf745e83",
+  "prevId": "96671c28-784b-486a-a34e-ed25cc3be90a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -10897,7 +10897,7 @@
       "checkConstraints": {
         "staff_notification_kind_check": {
           "name": "staff_notification_kind_check",
-          "value": "\"staff_notification\".\"kind\" IN ('hold_expired', 'hold_expiring', 'deposit_notice', 'deposit_after_cancel', 'guest_request_new', 'guest_request_overdue', 'work_order_overdue', 'approval_requested', 'approval_decided', 'registration_due', 'checkout_call_needed', 'security_alert', 'account_security_change', 'online_checkin_completed', 'payment_disputed', 'deposit_shortfall_accepted', 'receiving_account_changed', 'refund_ready', 'work_order_new', 'work_order_high_new', 'work_order_block_requested', 'hk_task_urgent', 'room_awaiting_inspection', 'hk_task_cancelled', 'approval_cancelled', 'no_show_marked', 'no_show_restored', 'debt_recorded', 'foc_stay_total_exceeded', 'website_request_new', 'website_request_cap_reached', 'website_request_overdue', 'website_request_linked_hold', 'public_booking_toggled', 'late_fee_post_review')"
+          "value": "\"staff_notification\".\"kind\" IN ('hold_expired', 'hold_expiring', 'deposit_notice', 'deposit_after_cancel', 'guest_request_new', 'guest_request_overdue', 'work_order_overdue', 'approval_requested', 'approval_decided', 'registration_due', 'checkout_call_needed', 'security_alert', 'account_security_change', 'online_checkin_completed', 'payment_disputed', 'deposit_shortfall_accepted', 'receiving_account_changed', 'refund_ready', 'work_order_new', 'work_order_high_new', 'work_order_block_requested', 'hk_task_urgent', 'room_awaiting_inspection', 'hk_task_cancelled', 'approval_cancelled', 'no_show_marked', 'no_show_restored', 'debt_recorded', 'foc_stay_total_exceeded', 'website_request_new', 'website_request_cap_reached', 'website_request_overdue', 'website_request_linked_hold', 'public_booking_toggled', 'late_fee_post_review', 'hold_overdue_with_deposit', 'hold_overdue_cap')"
         },
         "staff_notification_ref_type_check": {
           "name": "staff_notification_ref_type_check",

@@ -1,7 +1,6 @@
 -- 0094 (BE-C, R4 v1.0.4 P4-11 – FB-R4-ARC-BE-A-ED-02, SEC ED-02 "cần": rounds/round-04/reviews/SEC-on-plan-v1.0.4.md 3.2).
--- No schema change: the snapshot is 0092's (pattern 0064/0084/0090). Journal: number held for P4-11 (plan v1.0.4 2.2);
--- `when` = 0092 + 4000 so 0093 (P4-10, merged first, PR-F) takes 0092 + 2000 – if the merge order differs, renumber
--- by rule 2.2 (idx, `when`, snapshot prevId).
+-- No schema change: the snapshot is 0093's (pattern 0064/0084/0090; FB-R4-ARC-BE-C-P411-01). Journal idx 70, after
+-- 0093 (P4-10, PR-F) at idx 69.
 -- Runs as ottimo_owner (SET ROLE by src/db/migrate.ts) inside the migrator's single transaction. Additive only.
 --
 -- `room_list_price` is the history of list prices (basis for reconciling quotes – Tampering/Repudiation). ottimo_app
@@ -13,8 +12,13 @@
 -- id, price or date. The "first/only row of a room" rule stays in the service (it reads other rows → races at DB
 -- level; SEC 3.2 (3)).
 -- No property row (or a time zone the server cannot read) → refused (fail closed).
--- Notes for the runbook (SEC 3.2 (4)): the previous app `sha-da6d6f3dc22b` only deletes rows dated after today, so a
--- rollback of the app without rolling the DB back keeps working. TRUNCATE (test clean-up) fires no row trigger.
+-- Notes for the runbook (SEC 3.2 (4)): the previous app `sha-da6d6f3dc22b` (v1.0.3) only deletes rows dated after the
+-- BUSINESS date, so a rollback of the app without rolling the DB back keeps working, except between 00:00 and the
+-- business-day rollover: there, cancelling the price of today's calendar date is refused by this trigger (generic 500,
+-- no data lost). v1.0.4 checks the calendar date in the service first → 409 `effective` (FB-R4-SEC-BE-P411-01).
+-- The trigger reads the database's real now(), not the app clock: on staging with CLOCK_MODE=mutable set to the past,
+-- a row between the fake today and the real today passes the service and is refused here (FB-R4-ARC-BE-C-P411-02).
+-- TRUNCATE (test clean-up) fires no row trigger.
 -- A real data fix that must delete an applied row is a migration that runs `ALTER TABLE room_list_price DISABLE
 -- TRIGGER room_list_price_append_only` as the table owner and enables it again, reviewed by SEC – no bypass flag for
 -- ottimo_app.

@@ -8,8 +8,8 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Database } from '../../src/db/database';
 import { PriceEstimateService } from '../../src/modules/public-site/internal/price-estimate.service';
-import { Client, type FeatureApp, P, startFeatureApp } from '../helpers/feature-app';
-import { type BookingIds, seedBooking } from '../helpers/reservations-fixture';
+import { Client, type FeatureApp, P, T0, startFeatureApp } from '../helpers/feature-app';
+import { type BookingIds, seedBooking, touchSessions } from '../helpers/reservations-fixture';
 import { HAS_DB, type TestTenant, appDatabase, createTenant, setParam } from '../helpers/tenant';
 
 const ROLES = {
@@ -248,6 +248,41 @@ describe.skipIf(!HAS_DB)(
         expect(spy).toHaveBeenCalledWith(t.propertyIds[0]);
       } finally {
         spy.mockRestore();
+      }
+    });
+
+    it("FB-R4-SEC-BE-P411-01: 00:00 → rollover, the row of today's calendar date → 409 effective (not the 0094 trigger's 500), row kept", async () => {
+      // 01:00 Asia/Ho_Chi_Minh on 16/10/2026: business date still 15/10 (rollover 06:00, BR-010), calendar date 16/10.
+      // 16/10/2026 is in the past for the DB's real clock too, so a DELETE would hit the trigger (→ 500 before the fix).
+      await schedule('103', '2026-10-16', 9_200_000, 770_000);
+      const night = new Date('2026-10-15T18:00:00.000Z');
+      fa.clock.set(night);
+      await touchSessions(db, t, night);
+      try {
+        const r = await room('own', '103');
+        expect(r.scheduledListPrices?.map((p) => p.effectiveFrom)).toContain('2026-10-16');
+        for (const who of ['own', 'mgr']) {
+          const res = await cancel(who, r, {
+            effectiveFrom: '2026-10-16',
+            reason: 'Nhập nhầm giá đêm',
+          });
+          expect(res.statusCode, res.body).toBe(409);
+          expect(res.json()).toMatchObject({
+            code: 'INVALID_TRANSITION',
+            currentState: 'effective',
+          });
+        }
+        const rows = await db.withContext(t.ctx(), (tx) =>
+          tx.query<{ f: string }>(
+            `SELECT effective_from::text AS f FROM room_list_price WHERE room_id = $1 AND effective_from = '2026-10-16'`,
+            [r.id],
+          ),
+        );
+        expect(rows.rows).toHaveLength(1);
+        expect((await room('own', '103')).version).toBe(r.version);
+      } finally {
+        fa.clock.set(T0);
+        await touchSessions(db, t, T0);
       }
     });
 
