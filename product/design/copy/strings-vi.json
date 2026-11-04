@@ -3478,6 +3478,7 @@
   "gw.notice_read": "Tôi đã đọc",
   "booking.rates_cleared_channel": "Đã xóa giá đã gõ vì đổi kênh.",
   "booking.rates_cleared_room_group": "Đã xóa giá đã gõ vì căn {room} thuộc nhóm căn khác. Kiểm lại giá mỗi đêm trước khi tạo đơn.",
+  "booking.hold.typed_rate_locked": "Giữ chỗ chỉ theo giá niêm yết. Đã nhận cọc thì bấm Tạo đơn để lưu giá đã gõ. Chưa nhận cọc thì xóa giá đã gõ rồi giữ chỗ, xác nhận cọc xong thì Điều chỉnh giá ở Folio.",
   "co.minibar_cabinet_counting": "Tủ minibar đang đếm",
   "co.go_next_cabinet": "Tiếp tục: Tủ căn {room}",
   "co.minibar_cabinet_saved": "Đã lưu số đếm tủ căn {room}.",

@@ -1344,6 +1344,13 @@ export interface paths {
     /**
      * Nhận phòng (B9) – buồng → OC, phụ thu (nếu lễ tân xác nhận), hạn khai báo bắt đầu tính
      * @description Buồng chưa VC/VI → cần `roomNotReadyOverride` (FDL+ trực tiếp; FD sẽ tạo yêu cầu duyệt `checkin_room_not_ready` – A12).
+     *     **v1.0.4 (BUG-R4-039, BR-402 (1) v0.5.3; ARC 05/11 `rounds/round-04/reviews/ARC-on-v104-pr74-checkin-occupied.md`)**: ngoại lệ này chỉ khi buồng `VD`/`CL`
+     *     **và** căn không còn lượt `in_house` khác "đang ở căn" theo định nghĩa của buồng phòng (đoạn phủ đêm nay; lượt đi hôm nay chưa B18; lượt đã **quá ngày đi**
+     *     mà chưa B18 cũng tính – trả phòng lượt đó trước). Buồng `OC`/`OD`/`OOO`, hoặc căn còn lượt đi hôm nay/phủ đêm nay (kể cả khi buồng `CL` vì đang dọn, hay bị
+     *     sửa thành `VD`/`VI`/`VC`): `room_ready` chưa đạt, **không có** `overridableBy`. Căn chỉ còn lượt quá ngày đi: buồng `VD`/`CL` không có `overridableBy`
+     *     (buồng `VI`/`VC` vẫn đạt ở v1.0.4). Mọi vai gửi `roomNotReadyOverride` khi không có `overridableBy` (lý do, hay `approvalRequestId` của yêu cầu đã duyệt)
+     *     → `409 CHECKIN_CONDITIONS_NOT_MET` (`unmet` gồm `room_ready`), không tạo yêu cầu duyệt (không có nhánh 202), không ghi gì. Client hiện ô lý do/nút xác nhận
+     *     theo `overridableBy`; chọn câu chặn theo `cause` (xem `CheckInPreview.conditions[]`), không suy từ `detail`.
      *     Đơn `conflictState=open` → `409 RESERVATION_UNASSIGNED`.
      *
      *     **0.3.3 (EP03-05 mục 1, E03-01…05)**
@@ -6548,7 +6555,7 @@ export interface components {
       roomStatus: components['schemas']['RoomStatusCode'];
       conditions: {
         /**
-         * @description `document_check_block` (0.3.3, E03-01): đạt khi `Registration.blocksDoorCode=false` (BR-613 c); `overridableBy` = FDL+ qua `checkIn.documentBlockOverride`. `capacity_within_max` (0.3.5, DOM D-1): đạt khi `capacityConflict=false`; không ai bỏ qua được (đổi căn hoặc sửa số khách)
+         * @description `room_ready` (BR-402 (1)): đạt khi buồng `VI`/`VC` và căn không còn lượt `in_house` khác đi hôm nay/phủ đêm nay; `detail` = trạng thái buồng (đơn chưa có căn: vắng); lý do chặn ở `cause`; `overridableBy` = FDL+ **chỉ** khi buồng `VD`/`CL` và căn không còn lượt `in_house` khác nào, kể cả lượt quá ngày đi (v1.0.4, BUG-R4-039 – `OC`/`OD`/`OOO` không có ngoại lệ). `document_check_block` (0.3.3, E03-01): đạt khi `Registration.blocksDoorCode=false` (BR-613 c); `overridableBy` = FDL+ qua `checkIn.documentBlockOverride`. `capacity_within_max` (0.3.5, DOM D-1): đạt khi `capacityConflict=false`; không ai bỏ qua được (đổi căn hoặc sửa số khách)
          * @enum {string}
          */
         code:
@@ -6561,6 +6568,13 @@ export interface components {
         met: boolean;
         detail?: string;
         overridableBy?: components['schemas']['Role'][];
+        /**
+         * @description 0.3.12 (l), chỉ `room_ready` khi `met=false`. `held_by_other_stay`: căn còn lượt `in_house` khác (ưu tiên, dù buồng `OC`/`OD`) – không có ngoại lệ; `room_status`: chỉ trạng thái buồng chưa đạt (`VD`/`CL` có `overridableBy`; `OC`/`OD` không có lượt nào = trạng thái lệch; `OOO`); `no_room`: đơn chưa có căn. Tập mở: mã lạ → hiện câu chung
+         * @enum {string}
+         */
+        cause?: 'room_status' | 'held_by_other_stay' | 'no_room';
+        /** @description 0.3.12 (l), khi `cause = held_by_other_stay`: mã đơn **gốc** đang giữ căn (Desk dẫn tới đơn đó để trả phòng) */
+        heldByReservationCode?: string;
       }[];
       /** @description Cảnh báo **không chặn** (hiện vàng) – 0.3.3, E03-01. Tập mở: client gặp mã lạ thì bỏ qua */
       warnings?: {

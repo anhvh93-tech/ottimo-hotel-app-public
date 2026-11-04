@@ -1184,10 +1184,19 @@ describe.skipIf(!HAS_DB)('G-4 / BR-525 – reversal after check-out records the 
    * A direct 2-night stay checked in at 04:30 with the prior night (B9a → a CHILD booking, id after the primary),
    * in house; the child night line, a room line of the primary, and the If-Match the manager read.
    */
+  /** Departure of the in-house stay `childStay` left in each room (it never checks out). */
+  const childLeft = new Map<string, string>();
   const childStay = async () => {
-    const k = seq++;
-    const roomNo = ROOMS[k % ROOMS.length]!;
-    const arrival = addDays('2026-11-02', 3 * Math.floor(k / ROOMS.length));
+    // BUG-R4-039 (BR-402 (1) v0.5.3): another in-house stay leaving on the business day holds the room – and B9a at
+    // 04:30 is business day arrival − 1, the departure of the stay this helper left 3 days before in the same room.
+    // Such a slot is skipped (never booked): the next slot of the room is 3 days later, past that departure.
+    let k: number, roomNo: string, arrival: string;
+    do {
+      k = seq++;
+      roomNo = ROOMS[k % ROOMS.length]!;
+      arrival = addDays('2026-11-02', 3 * Math.floor(k / ROOMS.length));
+    } while ((childLeft.get(roomNo) ?? '') >= addDays(arrival, -1));
+    childLeft.set(roomNo, addDays(arrival, 2));
     await at('2026-10-20T10:00:00+07:00');
     // An OTA prepaid stay: its prior night (B9a) is a direct CHILD booking (id after the primary – uuidv7).
     const res = await c.fd!.send('POST', url('/reservations'), {
