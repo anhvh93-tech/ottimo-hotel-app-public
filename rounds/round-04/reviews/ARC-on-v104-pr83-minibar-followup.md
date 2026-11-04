@@ -216,3 +216,147 @@ Không chạy stack E2E. Job `E2E smoke` của CI sẽ chạy `b14-fridges.s5` s
 | Ngày | Round | Quyết định | Người quyết | Lý do |
 |---|---|---|---|---|
 | 2026-11-05 | 4 | **ARC – #83 @ `19cfa3f7` (BUG-R4-045, BUG-R4-047, ARC-PR81-01/02, UXD-PR81-01): KHÔNG ĐẠT, sửa thẻ 01 thì ĐẠT.** FB-R4-ARC-FE-PR83-01 (Major, chặn gộp): effect `minibarResync` sau 409 `MINIBAR_NOT_CHECKED` đọc lại bản chuẩn hoặc đổi tủ cả khi lễ tân đã tự về bước ①, nên số vừa gõ về 0 mà không báo (loại PR67-03; `main` an toàn nhờ 409 `MINIBAR_PERIOD_CHANGED`). Sửa: `if (step === 0) return;` sau `setMinibarResync(false)`, cộng ca test S2a. Điều kiện gộp: rebase lên `main` và sinh lại `strings.js` bằng `gen_strings.py`, CI xanh gồm `E2E smoke`, ARC xem lại phần chênh. Chấp nhận cách sửa BUG-R4-045 (nhả tập done theo bản tóm tắt gửi sau lần đếm) và BUG-R4-047 (Quay lại đọc lại bản chuẩn, `periodId` mới, không đua với bản tóm tắt). FB-PR83-02 (Minor: nhả done theo `doneCabinets` của render, không theo ref), 03 (Suggestion: test N7, dòng thừa) | ARC | S2a đỏ tất định ở head, xanh với bản sửa 1 dòng (41/41); 24 tệp H16 251/251; tải 12 × 2: 0/24 lượt đỏ; 11 đột biến cũ và 8 đột biến mới, chỉ N7, N8 (thừa), M5, M8 (theo thiết kế) không đỏ |
+
+---
+
+# Lượt 2 – head `e411cb22` (05/11/2026)
+
+- Đối tượng: 2 commit trên `19cfa3f7`:
+  - `51217a2c`: gộp `origin/main` @ `28f24919`, sinh lại tệp chữ;
+  - `e411cb22`: sửa theo thẻ PR83-01/02/03 và UXD-PR83-01, đổi tên nhóm khóa thành "v1.0.4".
+- Đọc kèm:
+  - `responses/FE-on-PR81-reviews.md`, phần Lượt 2;
+  - bug-list v1.0.4 trên `main`: BUG-R4-048 (P0, QA3) chính là thẻ PR83-01, chỉ có trên nhánh.
+- Cách kiểm: worktree riêng `wt-arc83b` trong scratchpad (đã xóa), không commit, không push.
+- CI (`gh pr checks 83` @ `e411cb22`):
+  - đã xanh: mọi job, trừ `docker images build · E2E smoke`, job này còn **chờ**;
+  - trạng thái gộp lại là **`CONFLICTING`**, vì `main` vừa gộp #82 (`f9ff4e1f`, `e84cb5fa`). `git merge-tree` chỉ báo xung đột ở `strings.js` (tệp sinh).
+
+## Phán quyết lượt 2: **ĐẠT CÓ ĐK**
+
+Thẻ 01 (Major, tức BUG-R4-048 P0) đã đóng. Thẻ 02 và 03 đã làm. ARC không còn thẻ Blocker hay Major nào mở. Giả định (d) của FE đúng (mục L2.3).
+
+Điều kiện gộp:
+1. Gộp lại `main` (đã có #82). Xung đột chỉ ở `strings.js`; giải như lần trước: lấy bản của `main` cho tệp sinh, rồi chạy `gen_strings.py`. Nếu `CheckOutPage.tsx` không đổi thì không cần ARC xem lại.
+2. CI xanh ở head mới, gồm `E2E smoke`.
+3. QA chạy lại R6 (BUG-R4-048) và R5 (BUG-R4-045) trên máy chủ thật ở head mới. 048 là P0, nên QA là người đóng lỗi.
+
+## L2.1 Phần sửa ở `e411cb22`
+
+| Thẻ | Phần sửa | ARC kiểm |
+|---|---|---|
+| PR83-01 | `if (step === 0) return;` ở dòng 473 | Đúng chỗ: sau phần nhả tập done, trước mọi lệnh ghi `cabinet`, `std` và `step`. Chú thích đã sửa theo. Ca S2a của FE kiểm thêm "không đọc bản chuẩn sau khi thả". Mốc đo là sau lần đọc của Quay lại, nên điều kiện này đúng. Gỡ dòng này (P1) thì S2a, S2b, S2c cùng đỏ |
+| PR83-02 | `release` lấy từ `doneCabinets` của lần render (dòng 465). `kept` vẫn lọc từ `doneRef` | Đúng đề xuất. Tủ vừa đếm trong khe giữa commit và effect không bị nhả và không bị mất khỏi `doneRef`. P2 (quay về đọc ref) không làm ca nào đỏ: như đã thống nhất, không có test tất định. ARC chấp nhận |
+| PR83-03 | Thêm ca N7; bỏ dòng `cabinetSettled` thừa, có ghi chú tại chỗ | Đột biến N7 nay đỏ 1 ca (trước đó 0). N2 nay đỏ 2 ca (D2, N7). Câu "Cần đếm lại" tạm thời không sửa (nit): ARC chấp nhận |
+| UXD-PR83-01 | `cabinets` được sắp theo vị trí của căn trong `r.segments`, căn đang ở cuối (dòng 585–589). Khối `if` viết lại thành `else if` | Ngữ nghĩa giữ như cũ. `list` là mảng mới từ `filter`, nên sắp tại chỗ an toàn. Thiếu `segments` thì mọi tủ hạng 0, và `sort` ổn định nên giữ nguyên thứ tự. Thứ tự chỉ đổi vị trí nút, không đổi tủ được chọn, vì nút bấm gắn theo `roomId`. P3 (bỏ sắp xếp) đỏ ca G2; P4 (căn đang ở lên đầu) đỏ 3 ca |
+
+Test cũ bị sửa ở commit này:
+- ca G2 đổi `offered` thành `[OLD, HERE]`, theo UXD;
+- `payAndComplete` dùng `findByRole` cho nút tiền mặt, tức chờ chắc hơn.
+
+Không ca nào bị nới điều kiện kiểm.
+
+## L2.2 Commit gộp `51217a2c`: chỉ có nội dung `main` và chữ sinh lại, không mất khóa
+
+- Hai cha của commit: `19cfa3f7` (nhánh) và `28f24919` (`main` lúc gộp). Merge-base là `53500bcd`.
+- So với `main`, commit gộp chỉ khác đúng 13 tệp của PR:
+  - 8 tệp không phải tệp chữ giống từng byte với `19cfa3f7`;
+  - 15 tệp `main` đã đổi từ merge-base và PR không đụng tới đều giống từng byte với `main`.
+- 5 tệp chữ do cả hai bên cùng sửa:
+  - `gen_strings.py` giống từng byte với kết quả `git merge-file` 3 chiều (base, `main`, nhánh), 0 xung đột;
+  - `strings-vi.json` và `strings-en.json`: tập khóa đúng bằng hợp 3 chiều. Không mất khóa, không thừa khóa, không khóa nào đổi giá trị, không có xung đột thật;
+  - số lá, tính cả `_meta`: base 3486, `main` 3487, nhánh 3488, gộp 3489. FE ghi 3483/3484/3485 vì đếm khóa cấp cao nhất; phần chênh giống hệt (`main` +1, nhánh +2: `co.go_next_cabinet`, `co.minibar_cabinet_saved`).
+- Chạy `gen_strings.py` ở `51217a2c` và ở `e411cb22`: không tệp nào đổi.
+- `e411cb22` chỉ đổi tên nhóm trong `gen_strings.py` và `strings-tables.md`. Hai tệp JSON và `strings.js` không đổi.
+
+## L2.3 Giả định (d) của FE: "chọn tủ khác rồi gõ số" bị chặn bởi cùng dòng `return`
+
+**Theo mã.**
+- Tủ đang hiện chỉ phụ thuộc vào `cabinet`: `countingRoomId = cabinet ?? hereRoomId` (dòng 219). Bản chuẩn được đọc theo `countingRoomId`, và số đã gõ gắn với đối tượng `std.state.data` (dòng 236–246).
+- Trước dòng `return`, effect chỉ làm hai việc: ghi `doneRef`/`doneCabinets`, và tắt `minibarResync`. Hai việc này chỉ đổi danh sách tủ trong nhóm chọn, thứ tự của chúng và nhãn nút chính.
+- Không việc nào chạm `cabinet` hay `std`. Vì vậy lễ tân ở tủ nào thì vẫn ở tủ đó, với đúng số đã gõ.
+
+**Theo test** (2 ca scratch của ARC, chạy trên `e411cb22`). Chuẩn bị chung:
+- đếm 402 rồi 202;
+- ở bước ②, cho 402 bị đòi đếm lại (`minibarRecount`) và nạp lại tủ 202 (`new_fill`). Đổi giờ đi sang 10:55 để trang đọc bản tóm tắt thấy cả hai;
+- Hoàn tất nhận 409 trong lúc bản tóm tắt bị giữ;
+- Quay lại hai lần. Nhóm chọn tủ hiện `[402, 202]`, tủ đang hiện là 202.
+
+| Ca | Lễ tân làm | Ở head | Gỡ dòng `return` (P1) |
+|---|---|---|---|
+| S2b | Chọn 402 (tủ đầu danh sách) và gõ số, rồi thả bản tóm tắt | Xanh: số giữ nguyên, không đọc bản chuẩn, vẫn ở 402 | Đỏ: effect đọc lại 402, số về lại số cũ |
+| S2c | Ở lại 202 và gõ số trong lúc 402 đứng đầu danh sách | Xanh: không bị kéo sang 402, số giữ nguyên | Đỏ: trang tự chuyển sang 402 |
+
+FE không bắt buộc thêm hai ca này, vì S2a đã khóa dòng `return`. Nếu muốn khóa cả biến thể, S2c là ca rẻ nhất. ARC gửi được mã ca qua ORC.
+
+## L2.4 Chạy test (ARC tự chạy, `e411cb22`)
+
+| Bộ | Kết quả |
+|---|---|
+| `bug-r4-042-fea` | 14/14 |
+| 4 tệp chính: `bug-r4-042-fea`, `v104-minibar-prefill-fea`, `s4-144-fea`, `s4-416-fea` | 42/42 |
+| 24 tệp H16 (trả phòng, minibar) | **253/253** |
+| Ca scratch S2b, S2c | 2/2 |
+| Tải lượt 1: 12 × 2, 4 tệp chính, load 27–49 | 22/24 lượt xanh. 2 lượt đỏ, cùng một lý do: timeout 15 s của ca s4-416 "FD: … FOC 50 % … → B18" (ca này chạy riêng mất 977 ms) |
+| Tải lượt 2: 12 × 2, load 31–48 | **24/24** |
+
+Ca timeout nằm ở đường phụ thu trả muộn và mật khẩu quản lý, không thuộc phần đổi của PR. Nó không lặp lại ở lượt 2. ARC không ghi thẻ cho FE; QA có thể đưa ca này vào danh sách theo dõi ca chậm khi máy tải nặng.
+
+**Đột biến** (4 tệp chính và tệp scratch S2b/S2c, 44 ca):
+
+| # | Đổi | Ca đỏ |
+|---|---|---|
+| M1 | Tủ kế tiếp lấy từ closure | 1 |
+| M2 | Nhóm chọn tủ đưa lại tủ đã đếm | 3 |
+| M3 | Chỉ bỏ tủ vừa đếm | 2 |
+| M4 | Không đặt `cabinetSettled` khi bấm | 1 |
+| M5 | Bỏ bộ lọc `doneRef` của effect BR-703-01 | 0 (bộ lọc thừa, như PR81-03) |
+| M6 | Bỏ dòng tên tủ | 13 |
+| M7 | Tủ không có món tính tiền không vào done | 1 |
+| M8 | Bỏ dòng chặn `!stdForCabinet` | 0, đúng thiết kế |
+| M9 | `stdForCabinet` bỏ điều kiện `roomId` | 1 |
+| M10 | Bỏ `roomId` cho căn đang ở | 26 |
+| N1 | Không nhả tập done | 3 (ca D, G2, S2b) |
+| N2 | Không đặt `minibarResync` khi 409 | 2 (D2, N7) |
+| N3 | Quay lại không `std.reload()` | 1 (047) |
+| N4 | Quay lại không `sum.reload()` | 1 (G2) |
+| N5 | Nhóm chọn tủ không giữ tủ đang hiện | 1 (G2) |
+| N6 | Nhả mọi tủ done | 3 (G2, S2a, N7) |
+| N7 | Effect resync không `std.reload()` | **1** (N7), trước đây 0 |
+| P1 | Bỏ `if (step === 0) return;` | **3** (S2a, S2b, S2c) |
+| P2 | Nhả theo `doneRef` thay vì `doneCabinets` | 0 (không test tất định, đã chấp nhận) |
+| P3 | Bỏ sắp xếp nhóm chọn tủ | 1 (G2) |
+| P4 | Căn đang ở lên đầu | 3 |
+
+## L2.5 Thẻ
+
+- FB-R4-ARC-FE-PR83-01: **Closed**. QA đóng BUG-R4-048 sau R6 trên máy chủ thật.
+- FB-R4-ARC-FE-PR83-02: **Closed**. Không có test, ARC chấp nhận.
+- FB-R4-ARC-FE-PR83-03: **Closed**. Nit "Cần đếm lại" tạm thời: chấp nhận không sửa.
+
+### FB-R4-ARC-FE-PR83-04
+- Mức độ: Suggestion. Không chặn gộp. Đề xuất v1.0.5.
+- Vị trí:
+  - `cabinets` (dòng 585–589) sắp theo `r.segments`, căn đang ở cuối;
+  - `nextCabinet` (dòng 810), `goNextCabinet` (dòng 831) và effect BR-703-01 lấy theo thứ tự máy chủ trả;
+  - máy chủ: `stayRooms` (`inventory/internal/fridge.ts:112`) sắp `ORDER BY first, rm.room_no`. Căn đang ở không bị đẩy xuống cuối. Contract `minibarUncheckedRooms` không nêu thứ tự.
+- Vấn đề: hai thứ tự chỉ khác nhau khi lượt ở **quay lại một căn đã ở trước** và có từ 3 tủ. Ví dụ lượt 202 → 402 → 303 → 202:
+  - máy chủ trả `[202, 402, 303]`, nhóm chọn tủ hiện `[402, 303, 202]`;
+  - đếm xong 402, nút chính ghi "Tiếp tục: Tủ căn 202", trong khi nút kế tiếp trong nhóm chọn là 303.
+
+  Không sai tiền: tủ trên màn luôn có tên, và B18 chặn tủ còn thiếu. Chỉ là lệch giữa thứ tự hiển thị và thứ tự đi tiếp.
+- Đề xuất:
+  - FE: tạo một hàm `rank` dùng chung, và sắp `toCount` một lần theo hàm đó, để nhóm chọn tủ, nút chính và effect BR-703-01 đi cùng một thứ tự;
+  - ARC: trong lần nâng contract tới, ghi rõ thứ tự của `minibarUncheckedRooms`: theo lần đầu vào căn, căn đang ở cuối. Sau đó BE sửa `ORDER BY` theo. Đây là việc của ARC, ARC tự theo dõi.
+- Trạng thái: Open (FE-A, ARC), v1.0.5
+
+## L2.6 Điểm làm tốt
+- FE sửa đúng một dòng như bản thử và kiểm thêm "không đọc bản chuẩn". Mốc đo đặt sau lần đọc của Quay lại, nên điều kiện này không bị nới.
+- Thẻ 02 được làm theo cách giữ `kept` từ `doneRef`. Đây là chi tiết dễ làm sai: nếu lấy `kept` từ `doneCabinets` thì mất tủ vừa đếm trong khe.
+- Commit gộp sạch, kiểm lại được: chỉ một tệp sinh xung đột, và FE ghi số khóa trước và sau.
+
+## L2.7 Dòng `decision-log.md` đề xuất (ORC ghi)
+
+| Ngày | Round | Quyết định | Người quyết | Lý do |
+|---|---|---|---|---|
+| 2026-11-05 | 4 | **ARC – #83 lượt 2 @ `e411cb22`: ĐẠT CÓ ĐK.** FB-PR83-01 (tức BUG-R4-048 P0) đã sửa: effect `minibarResync` không đổi tủ, không đọc lại bản chuẩn khi lễ tân đã ở bước ①. Giả định (d) của FE, "chọn tủ khác rồi gõ số", bị chặn bởi cùng dòng đó. 02 và 03 đã làm. Commit gộp `51217a2c` chỉ mang nội dung `main` và chữ sinh lại, không mất khóa. Điều kiện: gộp lại `main` (sau #82, chỉ `strings.js` xung đột; sinh lại bằng `gen_strings.py`), CI xanh gồm `E2E smoke`, QA chạy lại R6/R5 trên máy chủ thật để đóng BUG-R4-048. FB-PR83-04 (Suggestion, v1.0.5): nhóm chọn tủ và nút Tiếp tục dùng một thứ tự; ARC ghi thứ tự vào contract | ARC | S2a, S2b, S2c xanh ở head; gỡ dòng sửa thì cả 3 đỏ. N7 nay đỏ. 21 đột biến, chỉ M5, M8 (theo thiết kế) và P2 (không test tất định, đã chấp nhận) không đỏ. 24 tệp H16: 253/253. Tải 12 × 2, hai lượt: 46/48 lượt xanh; 2 lượt đỏ là timeout 15 s của một ca s4-416 ngoài phần đổi ở load 49, không lặp lại |
