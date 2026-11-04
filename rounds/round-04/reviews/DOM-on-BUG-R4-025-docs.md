@@ -241,3 +241,73 @@ Sửa trên `product/docs/manual/user-manual-v1.0.md` (1.8, 2.14 bước 6, 2.14
 - `00-index.md` dòng Lập không đổi (vẫn đúng); lịch sử dòng 1.8 bỏ cụm cũ, thêm phần sửa cùng ngày. `01`, `02` dòng Lập cập nhật cùng ý.
 
 Không ESC mới. Không ghi số hoa hồng, không có PII (mã đơn OTM-00379/00380 chỉ ở phần phản hồi này, lấy từ báo cáo QA).
+
+---
+
+## Lượt 2 – 04/11 (DOM đọc lại)
+
+- Người đọc: DOM | Round 4 – Review lượt 2 (QC v1.0.3 11.4, ĐK5 + ĐK11) | 04/11/2026.
+- Đọc: commit `870f2480`, `b0e84116`, `996b4a10`.
+  - Sổ tay: 1.8 khối "Đơn có hơn một yêu cầu hoàn" (dòng 468–485), 2.14 bước 6 (dòng 1122–1128), 2.14a nhánh ngắn ngày (dòng 1165), 5.6 (dòng 1837).
+  - `01`: mục 4 (dòng 345–362), 7.3.
+  - `02`: 11.1 bước 6 (dòng 794–797), 11.5.2 (dòng 909).
+  - `release-notes.md` dòng 64.
+  - Phản hồi PO và BA ở trên. QA `v1.0.2-dk10-b18.md` mục 9 (đọc staging, chỉ đọc).
+- Đối chiếu lại với mã: `refundsDownToCredit` (đóng cả yêu cầu đã duyệt chưa chi khi riêng phần đó vượt), `replacementActor`, `carriedOrigin`. Ví dụ QA 9.4 (đã duyệt 800.000, chờ 400.000, còn nợ 700.000 → đóng cả hai, tạo 700.000) khớp mã.
+
+### Kết luận lượt 2: **ĐẠT**
+
+Cả 4 thẻ Major đã sửa đúng ý, ở cả sổ tay, `01` và release notes:
+- **Cách đối chiếu (01):** người duyệt cộng các yêu cầu còn mở ở **Hoàn tiền**, so với dòng **Hoàn lại khách … đ**. Tài liệu cấm tự tính **Đã thu** trừ **Tổng cộng**. Ví dụ OTM-00380 ra "bằng".
+- **Yêu cầu thay thế (02):**
+  - Người duyệt nhận ra yêu cầu thay thế theo chữ Desk thật: cặp dòng **Đã tự đóng** rồi **Gửi yêu cầu duyệt**, cùng phút. Cách này không còn dựa vào chữ "trả thừa", vốn không có trên Desk.
+  - Người duyệt kiểm **Cách hoàn** **trước khi duyệt**. Thứ tự này tốt hơn đề xuất "trước khi chi" của DOM: nhập nơi nhận sau khi duyệt thì yêu cầu quay về Chờ duyệt (SEC F8).
+  - Tài liệu có ca yêu cầu đã duyệt chưa chi bị đóng, và câu nhắn khách 1–1, không ghi số tài khoản vào sổ giao ca.
+
+Không còn đường làm khách mất tiền hay chi trùng qua tài liệu. Đường hoàn nhầm tiền thuê HĐ tháng đã chặn ở cả người duyệt lẫn lễ tân. Câu cho lễ tân, quản lý và release notes nhất quán. Không mâu thuẫn E15-05, BR-522, ESC-048 B. BR-428 câu nhánh OTA vẫn là việc của DOM (backlog 5.6).
+
+Còn **2 Minor và 1 Suggestion mới**, đều là chữ, **không chặn**. Nên sửa luôn trong lượt UXD dựng lại HTML (ĐK11): mỗi thẻ chỉ sửa một hai câu, và nếu không sửa bây giờ thì phải dựng HTML thêm một lần.
+
+| Thẻ | Mức | Trạng thái | Ghi chú DOM |
+|---|---|---|---|
+| FB-R4-DOM-BA-025-01 | Major | **Closed** | Bước 1 cộng yêu cầu còn mở (Chờ duyệt + Đã duyệt chưa chi, phần đã chi một phần chỉ cộng phần còn lại). Bước 2 dùng **Hoàn lại khách**, cấm phép trừ tay. "Không có dòng thì số là 0" đúng `BillDialog` (`credit > 0`). Bước 6 có lối thoát khi Desk không hiện "còn dư" |
+| FB-R4-DOM-PO-RN025-01 | Major | **Closed** | Release notes dùng cùng cách đối chiếu, có "Không tự lấy Đã thu trừ Tổng cộng" |
+| FB-R4-DOM-BA-025-02 | Major | **Closed** | Đủ 3 ý: gộp và đóng cả yêu cầu đã duyệt (đúng mã, rộng hơn thẻ gốc), không mang nơi nhận (QA xác nhận ở 9.1), cách nhận ra theo chữ Desk. Có thêm gạch "yêu cầu đã duyệt biến khỏi Hoàn tiền thì không chi theo số cũ". Đây là chỗ dễ chi nhầm nhất, BA viết đúng |
+| FB-R4-DOM-PO-RN025-02 | Major | **Closed** | "Trước khi duyệt, xem Cách hoàn… rồi mới duyệt" khớp sổ tay 1.8 bước 4. "Desk có thể gộp mọi yêu cầu còn mở, kể cả đã duyệt chưa chi" rộng hơn mã một chút (yêu cầu đã duyệt chỉ bị đóng khi riêng phần đó vượt). Chữ "có thể" giữ câu đúng, chi tiết ở sổ tay. Chấp nhận |
+| FB-R4-DOM-BA-025-03 | Minor | **Closed** | "Bằng = không có hoàn trùng", vẫn đọc lý do, hỏi người tạo khi lý do không khớp folio. Release notes cũng đổi |
+| FB-R4-DOM-BA-025-04 | Minor | **Closed** | HĐ tháng bị loại ở cuối khối duyệt (sổ tay, `01`) và ở bước 6 trả phòng (sổ tay, `02`): không chọn **Hoàn lại khách**, chưa hoàn tất, hỏi chủ đầu tư. Đúng ESC-048 B |
+| FB-R4-DOM-BA-025-05 | Minor | **Closed** | Nhập nơi nhận sau bước 8, khi khách còn ở quầy. Câu EN dẫn, VI hỗ trợ, không emoji, đúng giọng brand. Điều kiện "còn khoản Trả sớm chưa chi" đúng: đã chi rồi thì không nói "hai lần" |
+| FB-R4-DOM-BA-025-06 | Suggestion | **Closed** | Danh sách nguồn hợp lệ ở bước 5, có yêu cầu thay thế nhận ra theo cặp dòng |
+| FB-R4-DOM-BA-025-07 | Suggestion | **Closed** | Câu "duyệt lúc ở, chi sau trả phòng" ở bước 2 và `01` 7.3. DOM nhận việc ghi vào ghi chú BR-522 (backlog 5.6, PO 04/11) |
+
+### FB-R4-DOM-BA-025-08
+- Mức độ: Minor
+- Vị trí: `user-manual-v1.0.md` 2.14a nhánh ngắn ngày (dòng 1165), câu "Desk tự đóng yêu cầu **Trả sớm** (kể cả khi đã duyệt mà chưa chi) và tạo yêu cầu thay thế: …".
+- Vấn đề: câu viết như việc luôn xảy ra. Thực tế Desk chỉ tự đóng khi có phát sinh làm giảm số còn nợ khách. `02` 11.5.2 viết đúng ("có thể bị Desk tự đóng").
+- Vì sao quan trọng: lễ tân đọc 2.14a sẽ tưởng yêu cầu Trả sớm nào cũng bị thay. Lễ tân sẽ đi tìm yêu cầu thay thế không có, hoặc nhập lại nơi nhận không cần thiết.
+- Đề xuất sửa: "Nếu Desk tự đóng yêu cầu **Trả sớm** (có thể xảy ra cả khi đã duyệt mà chưa chi, thường do phát sinh mới như minibar) và tạo yêu cầu thay thế: …", phần sau giữ.
+- Trạng thái: Open
+
+### FB-R4-DOM-BA-025-09
+- Mức độ: Minor
+- Vị trí: `guides/01-chu-dau-tu-quan-ly.md` mục 4 bước 4, gạch "Nhận ra yêu cầu thay thế" (dòng 353): "(lỗi chữ đã biết, sửa ở v1.0.4, mục 8.1)"; mục 15.6 "Lỗi đang sửa liên quan tới anh/chị".
+- Vấn đề: mục 8.1 của `01` là "Ba tab của Nhật ký tiền", không có dòng lỗi `overpayment`. `01` 15.6 chưa có dòng BUG-R4-026, trong khi sổ tay đã thêm vào 5.6 (dòng 1837).
+- Vì sao quan trọng: chủ đầu tư dùng `01` để duyệt. Thấy mã `overpayment` mà theo dẫn tới 8.1 thì không tìm được giải thích.
+- Đề xuất sửa: thêm vào `01` 15.6 một dòng giống sổ tay 5.6 dòng 1837, rồi đổi "mục 8.1" thành "mục 15.6".
+- Trạng thái: Open
+
+### FB-R4-DOM-BA-025-10
+- Mức độ: Suggestion
+- Vị trí: sổ tay 1.8 bước 4 và `01` mục 4 bước 4, gạch "Nhận ra yêu cầu thay thế": "người gửi vẫn là người tạo yêu cầu cũ" và "Cột người làm ghi người bấm **Duyệt**".
+- Vấn đề: hai câu này đúng với đường QA đã đọc (tự đóng **lúc duyệt**, `actor: null`). Desk còn tự đóng ở các đường khác (QA 9.4). Ví dụ quản lý **Điều chỉnh** folio đã chốt (`afterSettledMoneyChange`): theo `replacementActor`, khi người sửa không phải chủ đầu tư thì **người gửi yêu cầu thay thế là người sửa**, và người sửa không tự duyệt được. Sau khi chi một phần, người làm là hệ thống.
+- Vì sao quan trọng: người duyệt so "người gửi" thấy khác người tạo cũ thì có thể nghi ngờ. Quản lý vừa sửa folio sẽ không duyệt được và không hiểu vì sao. Cặp dòng **Đã tự đóng** – **Gửi yêu cầu duyệt** cùng phút vẫn là dấu hiệu chắc chắn, nên không sai tiền.
+- Đề xuất sửa: thêm chữ "thường" vào hai câu ("người gửi thường là người tạo yêu cầu cũ"; "cột người làm thường ghi người bấm **Duyệt**, hoặc người vừa sửa folio"). Thêm một ý: "Người gửi là chính anh/chị (vừa sửa folio) thì người khác duyệt (hiện là chủ đầu tư)."
+- Trạng thái: Open
+
+### Việc của DOM (không phải thẻ)
+- BR-428 câu nhánh OTA và ghi chú BR-522 "duyệt lúc khách ở, chi sau trả phòng": lượt BR kế tiếp (v1.0.4), theo backlog 5.6.
+- Ủng hộ dòng backlog PO thêm ở `870f2480` (giữ nơi nhận khi Desk tạo yêu cầu thay thế, ARC + SEC → BE-A, v1.0.4) và BUG-R4-026 (nhãn lý do ở Cần duyệt / Nhật ký thao tác tiền). Khi hai việc này lên, BA bỏ phần "nhận ra theo cặp dòng" và "nhập lại nơi nhận" khỏi sổ tay.
+
+### Dòng đề xuất decision-log (lượt 2)
+
+`| 2026-11-04 | 4 | DOM – lượt 2 review tài liệu BUG-R4-025 (870f2480, b0e84116, 996b4a10; QA đọc staging mục 9): **ĐẠT**. Đóng 9/9 thẻ lượt 1 (4 Major: đối chiếu yêu cầu còn mở với dòng "Hoàn lại khách" trên Phiếu thanh toán, cấm Đã thu − Tổng cộng; yêu cầu thay thế nhận ra theo cặp dòng Đã tự đóng – Gửi yêu cầu duyệt cùng phút, kiểm Cách hoàn trước khi duyệt, có ca đóng cả yêu cầu đã duyệt chưa chi; 3 Minor; 2 Suggestion). ĐK5 phần DOM và ĐK11 phần DOM cho BUG-R4-025 xong. Mới, không chặn: 2 Minor (sổ tay 2.14a câu "Desk tự đóng" viết như luôn xảy ra; `01` dẫn sai mục 8.1, thiếu dòng BUG-R4-026 ở 15.6), 1 Suggestion (người gửi/người làm của yêu cầu thay thế "thường", đường sửa folio đã chốt) – nên sửa cùng lượt UXD dựng HTML. DOM: BR-428 câu nhánh OTA + ghi chú BR-522 ở lượt BR v1.0.4. Không ESC | DOM | Quyền DOM (tính đúng nghiệp vụ); rounds/round-04/reviews/DOM-on-BUG-R4-025-docs.md mục Lượt 2 |`
