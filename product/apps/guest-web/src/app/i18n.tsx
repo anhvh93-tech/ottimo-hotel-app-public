@@ -6,6 +6,7 @@ import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'r
 import en from '../../../../design/copy/strings-en.json';
 import ru from '../../../../design/copy/strings-ru.json';
 import vi from '../../../../design/copy/strings-vi.json';
+import { NOTICE_PARAGRAPHS } from './config';
 
 export type GuestLocale = 'vi' | 'en' | 'ru';
 export const GUEST_LOCALES: readonly GuestLocale[] = ['vi', 'en', 'ru'];
@@ -29,7 +30,41 @@ function lookup(locale: GuestLocale, key: string): string | undefined {
  */
 const RU_UNREVIEWED_LEGAL: ReadonlySet<string> = new Set<string>([]);
 
+/**
+ * The legal text of the check-in – group `v1.0.4 P4-42 privacy-2026-10-v2` of `gen_strings.py` (notice, why,
+ * consent, "read"). FB-R4-SEC-MOB-P442-02: it is shown, marked (`lang`) and recorded as consent evidence in ONE
+ * language. A later version that lacks one paragraph in a language must not mix that language with EN while the
+ * evidence still says the page language.
+ */
+export const LEGAL_KEYS: readonly string[] = [
+  ...NOTICE_PARAGRAPHS,
+  'guest.oci.why',
+  'guest.oci.consent_q',
+  'guest.oci.consent',
+  'guest.oci.consent_no',
+  'guest.oci.consent_optional',
+  'guest.oci.withdraw_hint',
+  'gw.notice_read',
+];
+const LEGAL = new Set(LEGAL_KEYS);
+
+function legalReady(locale: GuestLocale): boolean {
+  return LEGAL_KEYS.every(
+    (k) => lookup(locale, k) !== undefined && !(locale === 'ru' && RU_UNREVIEWED_LEGAL.has(k)),
+  );
+}
+
+/**
+ * Language of the whole legal block: the page language only when every legal key has a reviewed text in it,
+ * otherwise the approved EN for all of them (decision-log 17/10, R-CON-02). Used for `lang`, the
+ * `gw.legal_en_notice` line and `recordConsent.locale`.
+ */
+export function legalLocale(locale: GuestLocale): GuestLocale {
+  return legalReady(locale) ? locale : 'en';
+}
+
 function effective(locale: GuestLocale, key: string): GuestLocale {
+  if (LEGAL.has(key)) return legalLocale(locale);
   return locale === 'ru' && RU_UNREVIEWED_LEGAL.has(key) ? 'en' : locale;
 }
 

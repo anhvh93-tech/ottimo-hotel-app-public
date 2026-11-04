@@ -249,5 +249,5 @@ body {
   white-space: normal;
 }
 .gw-notice > p + p {
-  margin-top: 10px;
+  margin-top: 12px; /* DS space 12 (FB-R4-UXD-MOB-P442-01) */
 }

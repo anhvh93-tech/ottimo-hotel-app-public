@@ -2,7 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { ApiError } from '@ottimo/api-client';
 import { problemText } from '../app/problem';
 import { pickCheckin, pickStayLevel1, type GuestStayRaw, type OnlineCheckin } from '../app/api';
-import { browserLocale, shownLocale, shortDate, supportLocale, translateGuest } from '../app/i18n';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import ru from '../../../../design/copy/strings-ru.json';
+import {
+  browserLocale,
+  LEGAL_KEYS,
+  legalLocale,
+  shownLocale,
+  shortDate,
+  supportLocale,
+  translateGuest,
+} from '../app/i18n';
 import { readLink, safeMapUrl, telHref } from '../app/link';
 import { cleanNote, containsCardNumber } from '../app/validation';
 import { etaSlots, slotOf } from '../checkin/eta';
@@ -95,6 +106,40 @@ describe('i18n VI/EN/RU', () => {
     expect(translateGuest('ru', key, { days: 30 })).not.toBe(
       translateGuest('en', key, { days: 30 }),
     );
+  });
+  it('FB-R4-SEC-MOB-P442-02: LEGAL_KEYS is exactly the gen_strings group privacy-2026-10-v2', () => {
+    const py = readFileSync(
+      join(__dirname, '..', '..', '..', '..', 'design', 'tools', 'gen_strings.py'),
+      'utf8',
+    );
+    const start = py.indexOf('g("v1.0.4 P4-42 privacy-2026-10-v2", [');
+    expect(start).toBeGreaterThan(0);
+    const block = py.slice(start, py.indexOf('\n])', start));
+    const keys = [...block.matchAll(/^ {4}\("([a-z_.]+)",/gm)].map((m) => m[1]);
+    expect([...LEGAL_KEYS].sort()).toEqual(keys.sort());
+    expect([...LEGAL_KEYS].sort()).toEqual([...LEGAL_V2].sort());
+  });
+  it('FB-R4-SEC-MOB-P442-02: the legal block is one language – shown, marked and recorded', () => {
+    for (const loc of ['vi', 'en', 'ru'] as const) expect(legalLocale(loc)).toBe(loc);
+    // A later version missing ONE RU paragraph: the whole block (and the evidence) is EN, never half RU.
+    const dict = ru as Record<string, unknown>;
+    const saved = dict['gw.notice_rights'];
+    delete dict['gw.notice_rights'];
+    try {
+      expect(legalLocale('ru')).toBe('en');
+      for (const key of LEGAL_KEYS) {
+        expect(shownLocale('ru', key), key).toBe('en');
+        expect(translateGuest('ru', key, { days: 30 }), key).toBe(
+          translateGuest('en', key, { days: 30 }),
+        );
+      }
+      // Copy outside the legal group keeps the page language.
+      expect(translateGuest('ru', 'common.back')).toBe('Назад');
+      expect(legalLocale('vi')).toBe('vi');
+    } finally {
+      dict['gw.notice_rights'] = saved;
+    }
+    expect(legalLocale('ru')).toBe('ru');
   });
   it('the RU legal text is exactly the reviewed wording (U+00A0 kept, UXD-on-privacy-v2-ru §2 = SEC §2–3)', () => {
     expect(translateGuest('ru', 'guest.oci.consent', { days: 30 })).toContain(
