@@ -285,14 +285,14 @@ Lệnh từng bước, ô điền, "Đúng là", quay lui: `rounds/round-04/outp
 **Trạng thái thật trước LP-v2 (04/11, SEC FB-R4-SEC-LPV2M-03):**
 - Production chạy landing `sha-72f9ac8e2b33` (`landing-v1.1.1`), thông báo đang hiệu lực **`2026-10-24`** (en + vi). App chạy v1.0.3 `sha-da6d6f3dc22b`, DB 68 migration (chưa có 0092).
 - Nhãn `2026-10-31` (chữ PR #21, luật sư đã duyệt) **không bao giờ được đăng riêng** trên production: chữ en/vi đó đi cùng LP-v2 dưới nhãn mới (đổi nghĩa P4, SEC chấp nhận).
-- **Nhãn của LP-v2 = `2026-11-04`** cho cả 5 ngôn ngữ (SEC chốt, `SEC-on-lp-v2-main.md` mục 2). **Không** đăng `2026-10-31` hay `2026-11-01` ở bất kỳ môi trường dùng chung nào: cả hai đã đăng trên stack thử của QA với chữ khác byte. Đổi bất kỳ câu nào của 5 trang thông báo hoặc `consent`/`consentMore` trước khi đăng → nhãn mới (`2026-11-04.1` hoặc ngày mới), không dùng lại nhãn cho chữ khác.
-- `CHAT_DETAILS_MIN_NOTICE_VERSION` của api phải là `2026-11-04` (SEC FB-R4-SEC-LPV2M-01). Cổng ★2 lấy `published_at` của **chính** dòng nhãn đó, không so chữ: hằng trỏ vào nhãn chưa đăng thì Chat giữ mức A mãi.
+- **Nhãn của LP-v2 = `2026-11-04`** cho cả 5 ngôn ngữ (SEC chốt, `SEC-on-lp-v2-main.md` mục 2). **Không** đăng `2026-10-31` hay `2026-11-01` ở bất kỳ môi trường dùng chung nào: cả hai đã đăng trên stack thử của QA với chữ khác byte. Đổi bất kỳ câu nào của 5 trang thông báo hoặc `consent`/`consentMore` trước khi đăng → nhãn mới (`2026-11-04.1` hoặc ngày mới), không dùng lại nhãn cho chữ khác. **Đổi nhãn thì phải đổi cả hằng `CHAT_DETAILS_MIN_NOTICE_VERSION` của api về đúng nhãn mới** (BE đổi hằng + test, SEC xem, Release api có hằng mới **trước** bước (c)) – nếu không, Chat giữ mức A mãi (QA BUG-R4-028).
+- `CHAT_DETAILS_MIN_NOTICE_VERSION` của api phải **bằng đúng nhãn sẽ đăng ở bước (c)** – hiện là `2026-11-04` (SEC FB-R4-SEC-LPV2M-01). Kiểm bằng phép so giá trị hằng với nhãn đăng (`VERSION` của `privacy.ts` ở cùng commit), không grep một chuỗi cố định. Cổng ★2 lấy `published_at` của **chính** dòng nhãn đó, không so chữ: hằng trỏ vào nhãn chưa đăng thì Chat giữ mức A mãi.
 
 Điều kiện trước: SEC duyệt phát hành LP-v2 (C1–C8 của `rounds/round-04/reviews/SEC-on-LP-v2-code.md`) và đủ **D1–D7** của `rounds/round-04/reviews/SEC-on-lp-v2-main.md` mục 4 (bảng ở runbook mục P0), gồm D5 = C8 chạy trên **staging qua Caddy thật**. Bundle `infra/` của stack có bản `Caddyfile.landing`, `publish-privacy-notice.sh/.sql`, `deploy-landing.sh`, `ops-check.sh` của gói này (làm mới bundle như bước 1; Caddyfile là tệp mount, container landing chỉ đọc bản mới khi được dựng lại ở bước (b)). Làm ngoài giờ đông khách, các bước (a)–(d) liên tục trong **một phiên làm việc** (D4). Chạy trên staging trước, QA ký, rồi mới làm production.
 
 **Thứ tự (không đảo, SEC D4):**
 0. **Kiểm hiện trạng.** Bảng `privacy_notice_version` của production chỉ có `2026-10-24` en + vi đang hiệu lực; `state/privacy-notice.log` có dòng `apply … version=2026-10-24 … rc=0`, không có dòng `2026-10-31`, `2026-11-01`, `2026-11-04`. Công cụ đăng từ chối version nhỏ hơn version đang hiệu lực; `deploy-landing.sh` từ chối image có version cũ hơn version đã đăng (trừ `--rollback`). `2026-11-04` > `2026-10-24` nên cả hai cho qua.
-1. **(a) api có migration LP-v2 `0092_lp_v2_price_estimate_locales`** (deploy app bình thường bằng Release; DB 68 → 69). `LANDING_LOCALES` **vẫn** `en,vi`. Compose truyền biến này vào api (mặc định `en,vi`). Bản api phải có `CHAT_DETAILS_MIN_NOTICE_VERSION = '2026-11-04'` (D2, QA đọc mã của tag).
+1. **(a) api có migration LP-v2 `0092_lp_v2_price_estimate_locales`** (deploy app bình thường bằng Release; DB 68 → 69). `LANDING_LOCALES` **vẫn** `en,vi`. Compose truyền biến này vào api (mặc định `en,vi`). Bản api phải có `CHAT_DETAILS_MIN_NOTICE_VERSION` = đúng nhãn sẽ đăng ở (c) (D2, QA đọc mã của tag và so với nhãn; runbook LP-v2 0.2 bước 3 và P4).
 2. **(b) Kiểm rồi deploy landing LP-v2**: `deploy-landing.sh <sha-…> --digest sha256:… --check-only`, rồi Release `landing-v…`. Bước `privacy` phải in 5 ngôn ngữ `2026-11-04 (not published yet)` (en, vi, ko, zh, ru), không FAIL "older". Caddy mới đã mở `/ko/`, `/zh/`, `/ru/`, trả trang 404 theo ngôn ngữ, và mở route `GET …/price-estimate` (chỉ khi `LANDING_PUBLIC_API=on`; query chỉ nhận ký tự ASCII in được, tối đa 256 byte – SEC FB-R4-SEC-OPS-LPV2-03).
 3. **(c) Ngay sau đó** ghi version thông báo cho cả 5 ngôn ngữ (bước 6, `--version 2026-11-04`): chạy thử, rồi `--apply`. Chạy thử phải in `dry-run (would): supersede version 2026-10-24 (en)` và `(vi)`. `--apply` phải in `apply: supersede version 2026-10-24 (en)`, `apply: supersede version 2026-10-24 (vi)`, rồi `OK: version 2026-11-04 published (en vi ko zh ru)`. ko/zh/ru chưa từng có version nên không có dòng supersede.
    - Giữa (b) và (c) (vài phút), trang mới gửi `2026-11-04` mà DB chưa có. Server trả `NOTICE_VERSION_INVALID`, trang hiện khối Zalo/gọi. Không có dữ liệu sai.
@@ -420,7 +420,7 @@ sudo -u ottimo sh -c 'ls -1t /opt/ottimo-prod/state/env.before-chat-level.* | ta
 
 ### 13.5 K1 và xóa tin Chat khi khách xin xóa (WR8) – SEC L2.2
 
-**K1** – kiểm một lần trên phòng thật, ngay sau khi v1.0.1 chạy mức A, và **trước** khi đăng thông báo `2026-10-31`:
+**K1** – kiểm một lần trên phòng thật, ngay sau khi v1.0.1 chạy mức A, và **trước** lần đăng thông báo đầu tiên nêu Google Chat (`2026-11-04`, LP-v2; `2026-10-31` không đăng riêng). **Đã đạt 03/11** (decision-log "K1 – ĐẠT", REQ thử đã xóa); các bước dưới giữ để làm lại nếu đổi phòng Chat hoặc webhook:
 1. INV gửi một yêu cầu thử trên ottimo.vn: tên đúng chuỗi `TEST OTTIMO`, email `info@ottimo.vn`, không SĐT, tắt tự điền.
 2. Tin mức A tới phòng.
 3. INV, với quyền quản lý phòng, **xóa tin do webhook "Desk OTTIMO" đăng**.
@@ -431,7 +431,7 @@ sudo -u ottimo sh -c 'ls -1t /opt/ottimo-prod/state/env.before-chat-level.* | ta
    - trước khi xóa, tìm kiếm có ra mã `REQ-…`.
 6. Xóa yêu cầu thử theo WR8 trên Desk, rồi chạy đếm khói 12.3 bước 8. Kết quả phải là `RESULT: OK – 14/14`.
 
-K1 **không đạt** (không xóa được tin webhook) thì: không đăng `2026-10-31`, không đặt C, INT báo SEC.
+K1 **không đạt** (không xóa được tin webhook) thì: không đăng thông báo nêu Google Chat (`2026-11-04` hoặc nhãn sau), không đặt C, INT báo SEC.
 
 **WR8 bằng tay** (sổ tay BA ghi đầy đủ):
 1. Người làm WR8 chép mã `REQ-…` **trước** khi xóa trên Desk.

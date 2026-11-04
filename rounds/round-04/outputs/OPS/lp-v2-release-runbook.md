@@ -1,10 +1,12 @@
-# OTTIMO LP-v2 – Runbook phát hành production (r1)
+# OTTIMO LP-v2 – Runbook phát hành production (r1.1)
 
 Soạn: OPS · 04/11/2026 · Round 4, gói LP-v2, bước **Phản hồi & sửa**, nhánh `lp-v2-main`. Trả lời SEC `FB-R4-SEC-LPV2M-03` (`rounds/round-04/reviews/SEC-on-lp-v2-main.md`): README 12.3 viết lại theo trạng thái thật, và runbook này chứa các điều kiện đăng **D1–D7** (mục 4 của tệp SEC), gồm D5 = C8 kiểm trên staging qua Caddy thật.
 Khuôn: `rounds/round-04/outputs/OPS/v1.0.3-release-runbook.md` r3.2 (cách gọi SSH, `SQLRO`, ô điền, "Đúng là", "Dừng nếu", quy ước digest rút gọn).
 Căn cứ: `product/infra/server/README.md` 12.3 (mục "LP-v2"); `rounds/round-04/outputs/ARC/lp-v2-main-merge.md` (0092, băm, kiểm); `rounds/round-04/outputs/OPS/lp-v2-ops.md`; `rounds/round-04/qc/lp-v2-gate.md` mục 6 (P1–P16); `rounds/round-04/outputs/SEC/notice-2026-10-31-final.md` mục 5 (P1–P6); `rounds/round-04/reviews/SEC-on-LP-v2-code.md` mục 4 (C1–C9); `.github/workflows/release.yml`; `product/infra/server/bin/{deploy,rollback,deploy-landing,publish-privacy-notice,ops-check,us155-smoke-counts}.sh`.
 
-Trạng thái: **r1, chờ ARC + SEC đọc.** Các ký hiệu `⟨…⟩` lấy đúng một giá trị ở bảng 0.1, chốt theo 0.2 sau khi `lp-v2-main` gộp vào `main`. Không chạy bước nào trên production khi 0.1 còn ô trống.
+Sửa r1.1: OPS · 04/11/2026 · bước **Phản hồi & sửa**, QA **BUG-R4-028** (P3): nhãn đăng là biến `⟨NOTICE_V⟩` (0.1); hằng `CHAT_DETAILS_MIN_NOTICE_VERSION` phải **bằng đúng** `⟨NOTICE_V⟩` – đổi nhãn (ví dụ `2026-11-04.1`) thì BE đổi hằng, SEC xem, Release api **trước** P10. Kiểm D2/P5 không grep chuỗi cố định nữa mà so ba giá trị (khối `CHKV`, mục 2): hằng api, `VERSION` landing, `⟨NOTICE_V⟩`; chỉ in `D2_CHAT_CONST=CO` khi cả ba bằng nhau. S4, P10 dùng `--version ⟨NOTICE_V⟩`. README 12.3 + 13.5 (K1) cùng nội dung.
+
+Trạng thái: **r1.1, chờ ARC + SEC đọc.** Các ký hiệu `⟨…⟩` lấy đúng một giá trị ở bảng 0.1, chốt theo 0.2 sau khi `lp-v2-main` gộp vào `main`. Không chạy bước nào trên production khi 0.1 còn ô trống. Trong các dòng "Đúng là", `2026-11-04` đọc là `⟨NOTICE_V⟩`.
 Người chạy: **ORC**, qua SSH `ottimo-admin` (`sudo -n`), theo phê duyệt thường trực của INV 04/11 (gộp, staging, Release LP-v2; decision-log 04/11 "INV – đồng ý trước toàn bộ"). Phê duyệt đó **không** bỏ cổng: vẫn đủ review, QA, QC trước Release; ORC báo INV sau mỗi lần deploy. **OWN (INV) tự làm** trên Desk: bật `public_show_prices` (F2) và xóa yêu cầu thử theo WR8 (K6).
 
 **Luật riêng của đợt này:** không ghi IP VPS, bí mật, URL webhook, email hay số điện thoại vào tệp này, chat, lệnh hay `.env` mẫu. Digest image chỉ ghi dạng rút gọn `8…4`, lệnh đọc digest đầy đủ từ `state/digests/…` hoặc artifact vào biến (quy ước PR30-01: gitleaks báo nhầm digest đầy đủ). Không SQL ghi tay production; bảng `privacy_notice_version` chỉ ghi qua `publish-privacy-notice.sh`. Mọi lệnh kiểm chỉ in số, mã hoặc `ERR`.
@@ -17,7 +19,7 @@ Người chạy: **ORC**, qua SSH `ottimo-admin` (`sudo -n`), theo phê duyệt 
 |---|---|
 | Đợt này gồm gì | Nhánh `lp-v2-main` gộp vào `main` (commit gộp = `⟨SHA_L⟩`): mã LP-v2 phía api + Desk (migration **0092**, OpenAPI 0.3.11, route giá công khai, `LANDING_LOCALES`), landing 5 ngôn ngữ (en, vi, ko, zh, ru) + khối giá ước tính, thông báo dữ liệu nhãn **`2026-11-04`** (en/vi = chữ PR #21 luật sư đã duyệt; ko/zh/ru = Δ5 SEC), hạ tầng (Caddy landing, `deploy-landing.sh`, `publish-privacy-notice`, `ops-check` giá) |
 | Production lúc soạn | App v1.0.3 `sha-da6d6f3dc22b` (DB **68**, chưa có 0092). Landing `landing-v1.1.1` = `sha-72f9ac8e2b33`. Thông báo đang hiệu lực: **`2026-10-24`** en + vi. `2026-10-31` **chưa và sẽ không** được đăng riêng (đổi nghĩa P4, SEC chấp nhận) |
-| Nhãn thông báo | **`2026-11-04`**, cả 5 ngôn ngữ (SEC mục 2). Không đăng `2026-10-31`, không đăng `2026-11-01` ở staging hay production. Chữ đổi trước khi đăng → nhãn mới (`2026-11-04.1`), báo SEC |
+| Nhãn thông báo | **`2026-11-04`**, cả 5 ngôn ngữ (SEC mục 2). Không đăng `2026-10-31`, không đăng `2026-11-01` ở staging hay production. Chữ đổi trước khi đăng → nhãn mới (`2026-11-04.1`), báo SEC, **và** BE đổi `CHAT_DETAILS_MIN_NOTICE_VERSION` về đúng nhãn mới + Release api trước P10 (nếu không, Chat giữ mức A mãi – BUG-R4-028). Nhãn đăng = `⟨NOTICE_V⟩` (0.1) |
 | Hai lượt Release | (1) App: tag `⟨APP_TAG⟩` trên `⟨SHA_L⟩` → api/web/worker `⟨TAG_L⟩`, migration 0092. (2) Landing: tag `⟨LANDING_REL⟩` trên **cùng** `⟨SHA_L⟩` → landing `⟨TAG_L⟩`. Hai lượt cách nhau bởi K1–K3. Nếu v1.0.4 lên production trước LP-v2 thì 0092 đã đi cùng v1.0.4: bỏ lượt (1), xem 1.2 |
 | Thứ tự (SEC D4, README 12.3) | api có 0092 (`LANDING_LOCALES=en,vi`) → landing LP-v2 → `publish-privacy-notice` chạy thử rồi `--apply` (5 ngôn ngữ) → `LANDING_LOCALES=en,vi,ko,zh,ru` + deploy lại app cùng tag → `form-token` 200 → yêu cầu thử → OWN bật `public_show_prices` **cuối cùng**. Bước landing → đăng → `LANDING_LOCALES` làm liền, một phiên, ngoài giờ đông khách |
 | Migration 0092 | Chỉ nới: CHECK `locale` của `privacy_notice_version` và `website_booking_request` thêm `ko`, `zh`; cột `website_booking_request.price_estimate jsonb NULL`; 2 khóa danh mục `public_show_prices` (mặc định `false`, chỉ OWN) và `web_estimate.open_until`. Không đổi dữ liệu. ARC đo ~0,2 giây trên DB 68 migration. v1.0.3 chạy được trên DB 69 |
@@ -32,6 +34,7 @@ Người chạy: **ORC**, qua SSH `ottimo-admin` (`sudo -n`), theo phê duyệt 
 | `⟨SHA_L⟩` | | commit gộp `lp-v2-main` vào `main` (PR `lp-v2-main` → `main`, `mergeCommit`) | 0.2, P1, P2b, P4, P8 |
 | `⟨TAG_L⟩` | | `sha-` + 12 ký tự đầu của `⟨SHA_L⟩` | P5–P10, K, R |
 | `⟨CI_RUN_L⟩` | | lượt CI `push` của `⟨SHA_L⟩` | 0.2, P5, P8 |
+| `⟨NOTICE_V⟩` | `2026-11-04` (SEC chốt, mục 2) | Đổi chỉ khi SEC đặt nhãn mới; khi đó hằng `CHAT_DETAILS_MIN_NOTICE_VERSION` (api) và `VERSION` (`privacy.ts`) phải cùng giá trị trước 0.2 | 0.2, S4, P0 (D2/P5), P4, P10, K4 |
 | `⟨APP_TAG⟩` | đề xuất `v1.0.4-lp.1` (G1) | ORC chốt | P4, P5 |
 | `⟨LANDING_REL⟩` | đề xuất `landing-v2.0.0` (G2) | ORC chốt | P8 |
 | `API_DIGEST`, `WEB_DIGEST`, `LANDING_DIGEST` | dạng `8 ký tự…4 ký tự` | artifact `image-digests` của `⟨CI_RUN_L⟩` | P5, P8, K1, K3 |
@@ -55,11 +58,10 @@ Lý do như v1.0.3 0.2: `release.yml` (`resolve`) đòi lượt CI `push` của 
     && d=$(mktemp -d) && gh run download $CI_RUN -R $R -n image-digests -D "$d" \
     && sed -nE 's/^([a-z]+)=sha256:([0-9a-f]{8})[0-9a-f]{52}([0-9a-f]{4})$/\1=\2…\3/p' "$d/image-digests.txt"; rm -rf "${d:-/nonexistent}" \
     ; git show "$S:product/services/api/src/db/migrations/0092_lp_v2_price_estimate_locales.sql" | shasum -a 256 \
-    ; git show "$S:product/services/api/src/modules/public-site/public/chat-message.ts" | grep -c "CHAT_DETAILS_MIN_NOTICE_VERSION = '2026-11-04'" \
-    ; git show "$S:product/apps/landing-web/src/content/privacy.ts" | grep -c "VERSION = '2026-11-04'"
    ```
-   **Đúng là:** `SHA_L=<40 hex> TAG_L=sha-<12 hex>`; `CI_RUN_L=<số>`; `run: waiting`; `gitleaks: completed success`, `publish images (GHCR): completed success`, `deploy staging: waiting`; đúng 3 dòng `api=…`, `web=…`, `landing=…` dạng rút gọn; băm = `HASH_0092`; `1` (SEC LPV2M-01, D2); `1` (SEC LPV2M-02).
-   **Dừng nếu** thiếu dòng nào, băm lệch (báo ARC + BE), hoặc một trong hai số cuối là `0` (thẻ SEC 01/02 chưa vào `main`).
+   Rồi `CHKV` (mục 2) với `RA=$S` và `RL=$S`.
+   **Đúng là:** `SHA_L=<40 hex> TAG_L=sha-<12 hex>`; `CI_RUN_L=<số>`; `run: waiting`; `gitleaks: completed success`, `publish images (GHCR): completed success`, `deploy staging: waiting`; đúng 3 dòng `api=…`, `web=…`, `landing=…` dạng rút gọn; băm = `HASH_0092`; `CHKV` in `NOTICE_V=⟨NOTICE_V⟩ CHAT_CONST=⟨NOTICE_V⟩ LANDING_VERSION=⟨NOTICE_V⟩` và `D2_CHAT_CONST=CO` (SEC LPV2M-01/02, D2).
+   **Dừng nếu** thiếu dòng nào, băm lệch (báo ARC + BE), hoặc `D2_CHAT_CONST=KHONG` (hằng Chat hoặc `VERSION` landing khác nhãn sẽ đăng: BE/FE-B sửa + SEC xem trước, không đi tiếp).
 4. ORC điền bảng 0.1, commit tài liệu **local, không push** tới khi bước 5 xong.
 5. Duyệt `deploy staging` của **chính** `⟨CI_RUN_L⟩` (staging nhận app có 0092, mục S2), đợi `gh run watch ⟨CI_RUN_L⟩ --exit-status` = 0. Từ đây mới gộp tiếp các gói v1.0.4. Lượt bị hủy: `gh run rerun ⟨CI_RUN_L⟩`, làm lại bước 3 (digest có thể đổi).
 
@@ -137,6 +139,16 @@ ssh -i ~/.ssh/ottimo_ops -o BatchMode=yes ottimo-admin@desk.ottimo.vn 'cd / && T
 ```
 **Đúng là:** `tag=⟨tag đang chạy⟩`; `deploy … (previous: …, pull=1, rollback=0)`; `image digests match the release`; `api/worker configuration accepted …` (api từ chối mã ngôn ngữ lạ ở đây); `migrations: 69 applied / 69 in the image journal`; `OK: … is live`; `MA THOAT: 0`. Lệch: mục 4.
 
+Khối so nhãn **`CHKV`** (Mac, chỉ đọc git; QA BUG-R4-028). So **giá trị** của hằng Chat ở mã api (`RA`), `VERSION` của landing (`RL`) và nhãn sẽ đăng `⟨NOTICE_V⟩`; không grep một chuỗi cố định (grep `'2026-11-04'` vẫn ra `1` khi nhãn đăng đã đổi thành `2026-11-04.1`):
+```bash
+cd /Users/anhvh/Desktop/hotel-app && git fetch -q origin --tags && V=⟨NOTICE_V⟩ && RA=⟨ref api⟩ && RL=⟨ref landing⟩ \
+ && C=$(git show "$RA:product/services/api/src/modules/public-site/public/chat-message.ts" | sed -nE "s/^export const CHAT_DETAILS_MIN_NOTICE_VERSION = '([^']*)';$/\1/p") \
+ && L=$(git show "$RL:product/apps/landing-web/src/content/privacy.ts" | sed -nE "s/^const VERSION = '([^']*)';$/\1/p") \
+ ; echo "NOTICE_V=$V CHAT_CONST=${C:-?} LANDING_VERSION=${L:-?}" \
+ ; if [ -n "$C" ] && [ "$C" = "$V" ] && [ "$L" = "$V" ]; then echo "D2_CHAT_CONST=CO"; else echo "D2_CHAT_CONST=KHONG"; fi
+```
+**Đúng là:** `NOTICE_V=2026-11-04 CHAT_CONST=2026-11-04 LANDING_VERSION=2026-11-04` rồi `D2_CHAT_CONST=CO`. Mọi trường hợp khác (giá trị khác, `?` vì đọc không được) in `KHONG`. OPS đã thử trên `origin/lp-v2-main`: `V=2026-11-04` → `CO`; `V=2026-11-04.1` → `KHONG`; hằng ở tag `v1.0.3` đọc ra `2026-10-31`.
+
 ---
 
 ## 3. Staging trước (SEC D5, QC P9–P12) – Ai chạy: ORC + QA
@@ -149,7 +161,7 @@ Mục tiêu: chạy đúng trình tự production trên staging với **image `�
 | S1 | Làm mới gói `infra/` staging từ `⟨SHA_L⟩` (khuôn P2b dưới đây, đường dẫn `/opt/ottimo` và `/root/ottimo-staging-bundles`) | `STAGING: CAU HINH MOI DA VAO`, `CAU HINH: OK` |
 | S2 | Duyệt `deploy staging` của `⟨CI_RUN_L⟩` (0.2 bước 5) | Job xanh; staging `current_tag` = `⟨TAG_L⟩`; K2 (đường dẫn staging) ra 69 migration và các dòng 0092 |
 | S3 | Landing `⟨TAG_L⟩` lên staging: job `deploy landing preview (staging)` của `⟨CI_RUN_L⟩` (nếu `LANDING_PREVIEW_DEPLOY=true`), hoặc ORC chạy `deploy-landing.sh ⟨TAG_L⟩` trên `/opt/ottimo`. Staging phải có `LANDING_PUBLIC_API=on` cho C8 (nếu đang `off`: `ENVSET` dạng `LANDING_PUBLIC_API=on` trên `/opt/ottimo`, chỉ staging) | `[landing …] privacy: en 2026-11-04 (not published yet) vi 2026-11-04 (not published yet) ko … zh … ru …`, rồi `OK: landing ⟨TAG_L⟩ is live` |
-| S4 | `publish-privacy-notice.sh` trên staging: chạy thử rồi `--apply`, `--version 2026-11-04` (lệnh P10 với `/opt/ottimo`) | `DRY RUN OK`, rồi `OK: version 2026-11-04 published (en vi ko zh ru)`. Ghi 5 băm `sha_<xx>` (12 ký tự) – **phải trùng** 5 băm FE-B báo khi đổi nhãn (SEC LPV2M-02) |
+| S4 | `publish-privacy-notice.sh` trên staging: chạy thử rồi `--apply`, `--version ⟨NOTICE_V⟩` (lệnh P10 với `/opt/ottimo`; trước đó `CHKV` như P10 bước 0) | `DRY RUN OK`, rồi `OK: version 2026-11-04 published (en vi ko zh ru)`. Ghi 5 băm `sha_<xx>` (12 ký tự) – **phải trùng** 5 băm FE-B báo khi đổi nhãn (SEC LPV2M-02) |
 | S5 | `ENVSET LANDING_LOCALES en,vi,ko,zh,ru` + `REDEPLOY` (đường dẫn staging) | `LINES=1`, `VALUE_OK=1`; `OK: ⟨TAG_L⟩ is live`; `form-token` của staging 200 |
 | S6 | **QA – C8 (D5):** 12 ca SEC 9.5 (`rounds/round-04/outputs/SEC/lp-v2-privacy-and-api.md` 9.5) + ca BE-01 **qua Caddy thật của staging**, gồm **ca 6**: IP khách tới api qua `TRUST_PROXY` (hai máy/hai mạng khác nhau phải có bộ đếm riêng; `X-Forwarded-For` giả bị thay). Kèm P9 (Lighthouse 5 ngôn ngữ), P10 (smoke: BUG-R4-011/012 trên stack thật, form 5 ngôn ngữ, 13 ca giá theo bảng Desk), P11 nếu chữ đổi. QA bật `public_show_prices` trên staging bằng tài khoản OWN thử cho ca giá | QA ghi kết quả từng ca vào `rounds/round-04/qa/` (không dữ liệu thật); 0 ca đỏ. Ca 6 đỏ → **dừng** cả đợt, báo OPS + SEC (mọi khách sẽ chung một bộ đếm 30/10 phút) |
 | S7 | **Diễn tập quay lui landing (mục 5.2) trên staging:** `ENVSET LANDING_LOCALES en,vi` + `REDEPLOY` → `deploy-landing.sh --rollback` → kiểm → lên lại `deploy-landing.sh ⟨TAG_L⟩` → `ENVSET LANDING_LOCALES en,vi,ko,zh,ru` + `REDEPLOY` | Lúc lùi: `WARNING: older privacy notice version than the published one …`, `OK: landing <bản trước> is live`, form en/vi của bản cũ gửi được (trong 7 ngày). Lúc lên lại: `privacy: en 2026-11-04 (same bytes as published) …` (5 ngôn ngữ), `OK: landing ⟨TAG_L⟩ is live`. Ghi giờ, dòng `[landing` vào biên bản |
@@ -170,7 +182,7 @@ Thời lượng: P0–P7 khoảng 40 phút (gồm Release app). P8–K6 khoảng
 | # | Điều kiện (SEC mục 4) | Ai | Bước kiểm trong runbook | ORC điền |
 |---|---|---|---|---|
 | D1 | Thẻ SEC LPV2M-01 + 02 + 03 Done; CI PR `lp-v2-main` → `main` xanh trên đúng đầu nhánh, gồm `pnpm audit` và gitleaks lịch sử | BE, FE-B, OPS, ORC | 0.2 bước 3 (hai số `1`), lượt CI PR | |
-| D2 | Bản api chạy trên production có `CHAT_DETAILS_MIN_NOTICE_VERSION = '2026-11-04'` (QA đọc mã của tag) | QA | 0.2 bước 3 + P4 (QA đọc `git show ⟨APP_TAG⟩:…/chat-message.ts`) | |
+| D2 | Bản api chạy trên production có `CHAT_DETAILS_MIN_NOTICE_VERSION` = **đúng nhãn đăng ở P10** (`⟨NOTICE_V⟩`, hiện `2026-11-04`) (QA đọc mã của tag) | QA | `CHKV` ở 0.2 bước 3, P4 và P10 bước 0 – chỉ `D2_CHAT_CONST=CO` mới điền `CO` | |
 | D3 | P2 (`retention.web_request_ip_hmac_days` ≤ 30), P3 (thành viên phòng Chat chỉ OWN/MGR/FDL/FD), P4 (sổ tay WR8 + lịch xóa phòng Chat hằng năm) của notice-final mục 5 vẫn đúng **tại ngày đăng** | OPS, INV, BA | P2 dòng 9 (OPS đọc số); INV nhắn xác nhận P3; BA chỉ chỗ trong sổ tay + INV xác nhận lịch | |
 | D4 | Thứ tự trong cùng một phiên: api có 0092 → `deploy-landing.sh` image LP-v2 → `publish-privacy-notice.sh` chạy thử rồi `--apply` (5 ngôn ngữ, băm khớp trang sống) → rồi mới `LANDING_LOCALES=en,vi,ko,zh,ru` → `form-token` 200 | OPS | P6 → P8/P9 → P10 → F1 → K5, làm liền | |
 | D5 | QA chạy lại 12 ca SEC 9.5 (C8) trên **staging qua Caddy thật**, gồm ca IP khách đến api qua `TRUST_PROXY` | QA | S6 | |
@@ -185,7 +197,7 @@ Thời lượng: P0–P7 khoảng 40 phút (gồm Release app). P8–K6 khoảng
 | P2 | `retention.web_request_ip_hmac_days` production ≤ 30 | P2 dòng 9 | |
 | P3 | Phòng Chat thật chỉ OWN, MGR, FDL, FD (@ottimo.vn), không SAL/CTV | INV xác nhận trong chat ngày đăng | |
 | P4 | Sổ tay có WR8 (xóa tay tin Chat trong 24 giờ) + xóa cả phòng Chat mỗi năm có ngày cố định trong lịch OWN | BA chỉ mục sổ tay, INV xác nhận lịch | |
-| P5 | Hằng `CHAT_DETAILS_MIN_NOTICE_VERSION` = **`'2026-11-04'`** trên bản api đang chạy (đổi từ `2026-10-31`) | = D2 | |
+| P5 | Hằng `CHAT_DETAILS_MIN_NOTICE_VERSION` = **`⟨NOTICE_V⟩`** (nhãn đăng ở P10, hiện `2026-11-04`; v1.0.3 là `2026-10-31`) trên bản api đang chạy | = D2 | |
 | P6 | Deploy landing rồi `publish-privacy-notice` chạy thử → `--apply` cùng phiên; `form-token` 200; băm **5** trang khớp | P9, P10, K5 | |
 
 Cổng khác:
@@ -285,13 +297,13 @@ ssh -i ~/.ssh/ottimo_ops -o BatchMode=yes ottimo-admin@desk.ottimo.vn 'cd / && s
 
 ```bash
 cd /Users/anhvh/Desktop/hotel-app \
- && git tag -a ⟨APP_TAG⟩ ⟨SHA_L⟩ -m "⟨APP_TAG⟩ – LP-v2 server + Desk (migration 0092 price estimate + locales, OpenAPI 0.3.11, public price route, LANDING_LOCALES; CHAT_DETAILS_MIN_NOTICE_VERSION 2026-11-04). Same images as staging ⟨TAG_L⟩ (CI ⟨CI_RUN_L⟩). Runbook: rounds/round-04/outputs/OPS/lp-v2-release-runbook.md." \
+ && git tag -a ⟨APP_TAG⟩ ⟨SHA_L⟩ -m "⟨APP_TAG⟩ – LP-v2 server + Desk (migration 0092 price estimate + locales, OpenAPI 0.3.11, public price route, LANDING_LOCALES; CHAT_DETAILS_MIN_NOTICE_VERSION ⟨NOTICE_V⟩). Same images as staging ⟨TAG_L⟩ (CI ⟨CI_RUN_L⟩). Runbook: rounds/round-04/outputs/OPS/lp-v2-release-runbook.md." \
  && git rev-parse '⟨APP_TAG⟩^{commit}' && echo "sha-$(git rev-parse --short=12 '⟨APP_TAG⟩^{commit}')" \
- && git show '⟨APP_TAG⟩:product/services/api/src/modules/public-site/public/chat-message.ts' | grep -c "CHAT_DETAILS_MIN_NOTICE_VERSION = '2026-11-04'" \
- && git push origin ⟨APP_TAG⟩
+ && echo "TAG LOCAL OK – run CHKV before push"
 ```
-**Đúng là:** `⟨SHA_L⟩`; `⟨TAG_L⟩`; `1` (D2 – QA xác nhận cùng dòng này); `* [new tag] ⟨APP_TAG⟩ -> ⟨APP_TAG⟩`.
-**Dừng nếu** commit khác `⟨SHA_L⟩` hoặc số là `0`: `git tag -d ⟨APP_TAG⟩` trước khi push.
+Rồi `CHKV` với `RA=⟨APP_TAG⟩`, `RL=⟨SHA_L⟩` (commit của landing sẽ tag ở P8). Chỉ khi ra `D2_CHAT_CONST=CO`: `git push origin ⟨APP_TAG⟩`.
+**Đúng là:** `⟨SHA_L⟩`; `⟨TAG_L⟩`; `TAG LOCAL OK …`; `D2_CHAT_CONST=CO` (D2 – QA xác nhận cùng dòng này); `* [new tag] ⟨APP_TAG⟩ -> ⟨APP_TAG⟩`.
+**Dừng nếu** commit khác `⟨SHA_L⟩` hoặc `D2_CHAT_CONST=KHONG`: `git tag -d ⟨APP_TAG⟩`, **không** push.
 
 ### P5. Release app: kiểm `resolve`, rồi duyệt – Ai chạy: ORC
 
@@ -323,11 +335,13 @@ Như P6 v1.0.3. **Đúng là:** `deploy ⟨TAG_L⟩: ok`, `WATCH EXIT: 0`. Khác
 Như P5/P6 với `⟨LANDING_REL⟩`: `resolve` in `release ⟨LANDING_REL⟩ → landing ⟨TAG_L⟩ @…` (digest rút gọn trùng 0.1). Duyệt, `gh run watch`. Job `deploy production` in `landing ⟨TAG_L⟩: ok`. ORC ghi **giờ P9**.
 **Ngay sau đó** (không chờ): P10.
 
-### P10. Đăng thông báo `2026-11-04` cho 5 ngôn ngữ – Ai chạy: ORC
+### P10. Đăng thông báo `⟨NOTICE_V⟩` cho 5 ngôn ngữ – Ai chạy: ORC
+
+Bước 0 (Mac, BUG-R4-028): `CHKV` với `RA` = tag app **đang chạy** trên production (`⟨APP_TAG⟩`; đường phụ 1.2: tag v1.0.4) và `RL` = commit của tag landing vừa phát hành (`⟨LANDING_REL⟩`). **Đúng là:** `D2_CHAT_CONST=CO`. `KHONG` → **không** đăng: hằng api không trỏ vào nhãn sắp đăng, Chat sẽ giữ mức A mãi; báo BE + SEC (sửa hằng, Release api) – landing mới vẫn chạy, form hiện khối Zalo/gọi tới khi đăng.
 
 Chạy thử:
 ```bash
-ssh -i ~/.ssh/ottimo_ops -o BatchMode=yes ottimo-admin@desk.ottimo.vn 'cd /tmp && sudo -n -u ottimo /opt/ottimo-prod/infra/server/bin/publish-privacy-notice.sh --landing-tag "$(sudo -n -u ottimo cat /opt/ottimo-prod/state/landing_tag)" --version 2026-11-04 --property DLT --operator ⟨OPERATOR⟩ 2>&1 | grep -vE "^\s*$"'
+ssh -i ~/.ssh/ottimo_ops -o BatchMode=yes ottimo-admin@desk.ottimo.vn 'cd /tmp && sudo -n -u ottimo /opt/ottimo-prod/infra/server/bin/publish-privacy-notice.sh --landing-tag "$(sudo -n -u ottimo cat /opt/ottimo-prod/state/landing_tag)" --version ⟨NOTICE_V⟩ --property DLT --operator ⟨OPERATOR⟩ 2>&1 | grep -vE "^\s*$"'
 ```
 **Đúng là** (thứ tự có thể khác, không có `ERROR`):
 - 5 dòng `dry-run (would): INSERT privacy_notice_version (… version=2026-11-04, locale=<xx>, body_sha256=…)` cho en, vi, ko, zh, ru;
@@ -495,17 +509,17 @@ Không bao giờ `rollback.sh` hay `deploy-landing.sh --rollback` khi chưa đ�
 
 | Bước | Dừng khi |
 |---|---|
-| 0.2 | Không có lượt CI; job lệch; băm 0092 lệch; hằng `2026-11-04` (api hoặc landing) chưa có; có push lên `main` trước khi `⟨CI_RUN_L⟩` `completed success` |
+| 0.2 | Không có lượt CI; job lệch; băm 0092 lệch; `D2_CHAT_CONST=KHONG` (hằng api hoặc `VERSION` landing ≠ `⟨NOTICE_V⟩`); có push lên `main` trước khi `⟨CI_RUN_L⟩` `completed success` |
 | S0–S8 | Staging đã có `2026-11-04` khác byte; S4 băm khác FE-B; **S6 ca 6 đỏ** (D5); S7 không ra WARNING/`same bytes` như bảng |
 | P0 | Một ô D1–D6 hoặc P2–P6 `CHUA`; QC rút gọn chưa đạt; biên bản staging thiếu |
 | P1 | `⟨SHA_L⟩` không thuộc `main`; có migration ngoài 0092; infra có tệp ngoài danh sách |
 | P2 | Không chạy v1.0.3; thiếu digest v1.0.3; migration ≠ 68; thông báo đang hiệu lực khác `2026-10-24` en/vi; log có `2026-10-31`/`2026-11-01`/`2026-11-04`; dòng 9 > 30 |
 | P2b | Băm gói lệch; gói thiếu kiểm giá / route giá / `LANDING_LOCALES`; `init-secrets` tạo tệp; `config` lỗi |
 | P3 | Sao lưu không `OK:` |
-| P4–P6 | Tag sai commit; hằng D2 = 0; `resolve` đỏ; digest lệch; deploy không `ok` |
+| P4–P6 | Tag sai commit; `CHKV` ra `D2_CHAT_CONST=KHONG`; `resolve` đỏ; digest lệch; deploy không `ok` |
 | K1–K2 | Image/state lệch; migration ≠ 69; trigger ≠ `O`; `public_show_prices` đã có dòng |
 | P8–P9 | `--check-only` có `FAIL`; thiếu ngôn ngữ; nhãn khác `2026-11-04` |
-| P10 | Bất kỳ `refused`; dòng supersede khác `2026-10-24` en/vi; trang sống khác image |
+| P10 | Bước 0 `D2_CHAT_CONST=KHONG`; bất kỳ `refused`; dòng supersede khác `2026-10-24` en/vi; trang sống khác image |
 | F1 | `ENVSET` lệch; `appconfig` từ chối |
 | K3–K8 | Trang 5 ngôn ngữ không 200; K4 lệch 7 dòng; `form-token` ≠ 200; smoke counts ≠ 14/14; `FAIL` còn sau lượt chạy lại; worker mức C |
 | F2 | Thiếu QC P6/P7/P8, chưa có mốc `priceswitch`; số web ≠ Desk; `pricegap` FAIL |
