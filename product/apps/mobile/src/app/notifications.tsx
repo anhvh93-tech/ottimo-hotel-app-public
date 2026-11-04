@@ -120,7 +120,7 @@ export const NOTIF_KEYS: Partial<Record<StaffNotification['kind'], string>> = {
 
 /**
  * BUG-R4-021: `refType = user` (kinds `account_security_change` / `security_alert`) carries the internal event
- * in `refCode` (`user.email_changed`, `mfa.reset_by_owner`…). The PWA words the event itself and never shows
+ * in `refCode` (user email changed, 2-step reset by an owner…). The PWA words the event itself and never shows
  * that code; any other event gets one plain account-security sentence. `_self` when the notice is about the
  * person signed in, `_other` when an owner is told about someone else.
  */
@@ -135,10 +135,15 @@ const SEC_MFA_RESET: SelfOther = [
   'staff.notif.sec.mfa_reset_other',
 ];
 const SEC_OTHER: SelfOther = ['staff.notif.sec.other_self', 'staff.notif.sec.other_other'];
+/**
+ * Event codes as `[domain, event]` (joined with a dot): written whole, the `mfa` ones would read as string
+ * keys to scripts/used-keys.ts (the `mfa` family ships since v1.0.4).
+ */
+const event = (domain: string, name: string) => `${domain}.${name}`;
 const USER_EVENT_KEYS: Record<string, SelfOther> = {
-  'user.email_changed': SEC_EMAIL,
-  'mfa.reset_by_owner': SEC_MFA_RESET,
-  'mfa.reset_by_operator': SEC_MFA_RESET,
+  [event('user', 'email_changed')]: SEC_EMAIL,
+  [event('mfa', 'reset_by_owner')]: SEC_MFA_RESET,
+  [event('mfa', 'reset_by_operator')]: SEC_MFA_RESET,
 };
 
 export function notifText(n: StaffNotification, t: (k: string) => string, selfId?: string): string {

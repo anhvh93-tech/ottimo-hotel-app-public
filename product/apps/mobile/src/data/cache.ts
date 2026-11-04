@@ -178,6 +178,13 @@ export class OfflineCache {
     await this.store.put('snapshot', 'me', cacheableMe(me));
   }
   /**
+   * FB-R4-SEC-MOB-P450-01: a restricted session (temporary password, 2-step to set up) drops the full profile
+   * an earlier sign-in of the same person left – an offline start must not open the work screens.
+   */
+  async clearMe() {
+    await this.store.delete('snapshot', 'me');
+  }
+  /**
    * Re-applies the allow-list on read: a profile cached by an older build (with `email` etc.) comes back
    * clean and is rewritten on disk, so the extra fields do not stay on the phone until the next sign-in.
    */

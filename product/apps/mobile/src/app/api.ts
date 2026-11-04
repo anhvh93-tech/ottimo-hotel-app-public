@@ -6,8 +6,10 @@ import {
   createApiClient,
   isApiError,
   newIdempotencyKey,
+  type ChangePasswordBody,
   type components,
   type HttpMethod,
+  type LoginMfaBody,
 } from '@ottimo/api-client';
 
 type Schemas = components['schemas'];
@@ -59,6 +61,34 @@ export function onUnauthorized(fn: () => void): () => void {
   return () => unauthorized.delete(fn);
 }
 
+/**
+ * Restricted session (OpenAPI `login`): a temporary password (`403 PASSWORD_CHANGE_REQUIRED`) or 2-step
+ * verification still to set up (`403 MFA_ENROLLMENT_REQUIRED` – owner/manager under `MFA_ENFORCED`, or after a
+ * sign-in with a recovery code). Every other call is refused until then – BUG-R3-052: the app must say so,
+ * not "the connection may be weak".
+ */
+export type Restriction = 'password_change' | 'mfa_enrollment';
+const restricted = new Set<(r: Restriction) => void>();
+
+export function restrictionOf(e: unknown): Restriction | undefined {
+  if (!isApiError(e) || e.status !== 403) return undefined;
+  if (e.code === 'PASSWORD_CHANGE_REQUIRED') return 'password_change';
+  if (e.code === 'MFA_ENROLLMENT_REQUIRED') return 'mfa_enrollment';
+  return undefined;
+}
+
+/** Which restricted screen a profile opens on (`Me` after sign-in), if any. */
+export function meRestriction(me: Me): Restriction | undefined {
+  if (me.mustChangePassword === true) return 'password_change';
+  if (me.mfaEnrollmentRequired === true) return 'mfa_enrollment';
+  return undefined;
+}
+
+export function onRestricted(fn: (r: Restriction) => void): () => void {
+  restricted.add(fn);
+  return () => restricted.delete(fn);
+}
+
 export function setCsrfToken(token: string | undefined) {
   csrfToken = token; // memory only (SR-PWA-07)
 }
@@ -67,6 +97,8 @@ const client = createApiClient({
   getCsrfToken: () => csrfToken,
   onError: (e) => {
     if (e.status === 401 && e.code === 'UNAUTHENTICATED') unauthorized.forEach((fn) => fn());
+    const r = restrictionOf(e);
+    if (r) restricted.forEach((fn) => fn(r));
   },
 });
 
@@ -124,6 +156,19 @@ export const staffApi = {
         local: true,
       })
     ).data,
+  /**
+   * Sign-in step 2 (`loginMfa`, SEC 06.17): `mfaToken` from the `401 MFA_REQUIRED` of `login` – kept in
+   * React state only, never stored, logged or put in a URL. Every wrong answer is the same `401 MFA_INVALID`.
+   */
+  loginMfa: async (body: LoginMfaBody) =>
+    (await client.request<Me>('POST', '/v1/auth/login/mfa', { body, local: true })).data,
+  /**
+   * Own password (`changeMyPassword`, US-001 AC4): + `totpCode`/`recoveryCode` once 2-step is on (S2). Every
+   * session ends and this phone gets a new one with a new CSRF token → read `getMe` right after.
+   */
+  changeMyPassword: async (body: ChangePasswordBody) => {
+    await client.request<void>('POST', '/v1/me/password', { body, local: true });
+  },
   getMe: async () => (await client.request<Me>('GET', '/v1/me', { local: true })).data,
   logout: async () => {
     await client.request<void>('POST', '/v1/auth/logout', { local: true });

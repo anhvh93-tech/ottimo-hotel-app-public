@@ -3,8 +3,12 @@ import { useI18n } from '@ottimo/i18n';
 import { useState, type FormEvent } from 'react';
 import { isApiError, staffApi, type Me } from '../app/api';
 import { useOnline } from '../app/useOnline';
+import { MfaStepPage } from './MfaStepPage';
 
-/** Sign-in of OTTIMO Staff (US-001; same API as Desk). The role decides the screens after sign-in. */
+/**
+ * Sign-in of OTTIMO Staff (US-001; same API as Desk). The role decides the screens after sign-in. An account
+ * with 2-step verification gets `401 MFA_REQUIRED` + a one-time `mfaToken` → step 2 (ARC-RN103-02, `MfaStepPage`).
+ */
 export function LoginPage({
   expired,
   pending,
@@ -23,6 +27,10 @@ export function LoginPage({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
+  /** Step-2 token (SEC 06.17): React state only – never storage, URL or log. */
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  /** Why step 2 sent the person back (expired / too many wrong codes). */
+  const [mfaNote, setMfaNote] = useState<string | null>(null);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -34,19 +42,26 @@ export function LoginPage({
     }
     setBusy(true);
     setError(null);
+    setMfaNote(null);
     try {
       const me = await staffApi.login(username.trim(), password);
       setPassword('');
       onSignedIn(me);
     } catch (err) {
-      if (isApiError(err) && err.code === 'RATE_LIMITED') {
+      const token = isApiError(err) ? err.problem.mfaToken : undefined;
+      if (isApiError(err) && err.code === 'MFA_REQUIRED' && typeof token === 'string' && token) {
+        // The password was right; it is not needed any more (going back = type it again).
+        setPassword('');
+        setTried(false);
+        setMfaToken(token);
+      } else if (isApiError(err) && err.code === 'RATE_LIMITED') {
         setError(
           t('error.RATE_LIMITED', {
             minutes: Math.max(1, Math.ceil((err.retryAfterSeconds ?? 900) / 60)),
           }),
         );
       } else if (isApiError(err) && err.code === 'MFA_REQUIRED') {
-        setError(`${t('error.MFA_REQUIRED')} ${t('auth.mfa_later')}`);
+        setError(t('error.MFA_REQUIRED'));
       } else if (isApiError(err) && err.status === 401) {
         setError(t('auth.login.error_generic'));
       } else {
@@ -57,6 +72,19 @@ export function LoginPage({
       setBusy(false);
     }
   };
+
+  if (mfaToken) {
+    return (
+      <MfaStepPage
+        mfaToken={mfaToken}
+        onSignedIn={onSignedIn}
+        onBack={(note) => {
+          setMfaToken(null);
+          setMfaNote(note ?? null);
+        }}
+      />
+    );
+  }
 
   return (
     <main id="main" className="center-page hk">
@@ -72,6 +100,11 @@ export function LoginPage({
           </Alert>
         ) : null}
         {!online ? <Alert tone="warn">{t('login.offline')}</Alert> : null}
+        {mfaNote && !error ? (
+          <Alert tone="info" role="status">
+            {mfaNote}
+          </Alert>
+        ) : null}
         <div className="field">
           <label htmlFor="login-user">{t('auth.login.username')}</label>
           <input

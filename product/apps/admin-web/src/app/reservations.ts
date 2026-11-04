@@ -10,6 +10,8 @@ import { fieldErrorText, problemView } from './problem';
 
 type T = (key: string, args?: Args) => string;
 
+/** v1.0.4 P4-40 (FE-B): string keys (UXD P4-01) are inline in `t('…')`, so `i18n-keys.test.ts` checks each one. */
+
 export const STATUS_KEY: Record<ReservationStatus, string> = {
   hold: 'status.booking.hold',
   confirmed: 'status.booking.confirmed',
@@ -116,6 +118,14 @@ export interface RsvErrorContext {
   paid?: number;
   /** FD+ may see the occupying guest's name (booking.error.conflict); others get the no-name form. */
   canSeeGuest?: boolean;
+  /**
+   * v1.0.4 BUG-R3-044 (2): deposit already received on the hold (`Reservation.depositPaidVnd`). > 0 → the
+   * `HOLD_EXPIRED` sentence for a hold WITH money (the booking is not cancelled, the room is still held) – never
+   * "the room is back on sale". The Desk knows the amount, so no new Problem extra is needed (ARC tech plan 4).
+   */
+  holdPaidVnd?: number;
+  /** The hold's deadline (`Reservation.hold.expiresAt`) – the `{time}` of `HOLD_EXPIRED_PAID` when the Problem has no `expiredAt`. */
+  holdExpiresAt?: string;
 }
 
 /**
@@ -174,6 +184,15 @@ export function rsvErrorText(t: T, error: unknown, ctx: RsvErrorContext = {}): s
         eta: String(p.eta ?? p.etaTime ?? ''),
       });
     case 'HOLD_EXPIRED':
+      if ((ctx.holdPaidVnd ?? 0) > 0) {
+        // FB-R4-UXD-FE-P440-02: no `_notime` variant – without `expiredAt` the booking's own deadline is the time.
+        const at = typeof p.expiredAt === 'string' ? p.expiredAt : ctx.holdExpiresAt;
+        return t('error.HOLD_EXPIRED_PAID', {
+          time: at ? formatInstant(locale, at) : '',
+          // UXD key note: `{paid}` is money with its unit ("200.000 đ").
+          paid: t('common.currency_vnd', { amount: vnd(ctx.holdPaidVnd) }),
+        });
+      }
       return typeof p.expiredAt === 'string'
         ? t('error.HOLD_EXPIRED', { time: formatInstant(locale, p.expiredAt) })
         : t('error.HOLD_EXPIRED_notime');
@@ -187,4 +206,35 @@ export function currentStateOf(e: unknown): ReservationStatus | undefined {
   const p = problemOf(e) as Record<string, unknown> | undefined;
   const s = p?.currentState;
   return typeof s === 'string' && s in STATUS_KEY ? (s as ReservationStatus) : undefined;
+}
+
+/**
+ * v1.0.4 BUG-R3-042: `<input type="datetime-local">` value (`YYYY-MM-DDTHH:mm`) of an instant in the property
+ * time zone (the desk types the time the money arrived on the hotel's wall clock, never the browser's).
+ */
+export function toLocalInput(d: Date, timeZone = 'Asia/Ho_Chi_Minh'): string {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(d)
+      .map((x) => [x.type, x.value]),
+  );
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}
+
+/**
+ * The zoned ISO instant (`…+07:00`, as in the `confirmDeposit` example) of a `datetime-local` value read in the
+ * property zone – OTTIMO is Asia/Ho_Chi_Minh (+07:00, no DST), the offset ExtendHoldDialog uses too. Bad → null.
+ */
+export function fromLocalInput(v: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v)) return null;
+  const iso = `${v}:00+07:00`;
+  return Number.isNaN(Date.parse(iso)) ? null : iso;
 }

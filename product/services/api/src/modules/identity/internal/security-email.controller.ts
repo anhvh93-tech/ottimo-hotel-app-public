@@ -5,11 +5,13 @@
  * Idempotency-Key 428, restricted session 403):
  *   completed key → stored response (no S2 tried, nothing counted – BUG-R2-150 pattern)
  *   → body shape → EMAIL_INVALID / EMAIL_SHARED_MAILBOX (no S2, nothing written or counted)
+ *   → v1.0.4 EM-09: 6th real change of the person in 24 h → 429 RATE_LIMITED + Retry-After (no S2)
  *   → S2 (missing → 422 STRONG_REAUTH_REQUIRED, wrong → 401 REAUTH_FAILED counted SR-RL-02)
  *   → unit of work: same address → 200, nothing written; otherwise write + side effects.
  */
 import { Body, Controller, Inject, Put, Req, Res } from '@nestjs/common';
 import { z } from 'zod';
+import { DATABASE, Database } from '../../../db/database';
 import { tenantOf } from '../../../shared/http/auth.guard';
 import { Operation } from '../../../shared/http/operation';
 import { UnitOfWork, applyResult } from '../../../shared/http/unit-of-work';
@@ -30,6 +32,7 @@ const setMyEmailSchema = z
 @Controller('v1')
 export class SecurityEmailController {
   constructor(
+    @Inject(DATABASE) private readonly db: Database,
     @Inject(UnitOfWork) private readonly uow: UnitOfWork,
     @Inject(StrongReauthService) private readonly strong: StrongReauthService,
     @Inject(SecurityEmailService) private readonly securityEmail: SecurityEmailService,
@@ -48,6 +51,11 @@ export class SecurityEmailController {
     const input = parseBody(setMyEmailSchema, body);
     const email = this.securityEmail.check('email', input.email);
     const p = principalOf(req);
+    await this.db.withContext(
+      tenantOf(p),
+      (tx) => this.securityEmail.assertChangeAllowed(tx, p.userId, email),
+      { readOnly: true },
+    );
     await this.strong.verify(tenantOf(p), input.reauth, {
       operationId: 'setMyEmail',
       requestId: req.id,

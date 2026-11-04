@@ -1,5 +1,6 @@
 import type { AuditEvent } from '@ottimo/api-client';
 import { hasKey, type Args } from '@ottimo/i18n';
+import { FOC_REASON } from './folio';
 
 type T = (key: string, args?: Args) => string;
 
@@ -40,7 +41,33 @@ const CODE_KEYS: Record<string, string> = {
   debt_write_off: 'foc.r_debt_write_off',
   // SEC BE-80: `approval.applied_capped` – part of the debt was collected while the write-off waited.
   debt_collected_before_approval: 'foc.r_debt_write_off',
+  // v1.0.4 BUG-R4-026: refund of what the guest overpaid (B18, manual request, A32, closing a credit, and the
+  // request that replaces one closed by itself) – one label for every case.
+  overpayment: 'audit.reason.overpayment',
 };
+
+/**
+ * v1.0.4 BUG-R4-026: reason codes of a REFUND request (`ApprovalRequest.reasonCode` with `type = refund`). Kept
+ * apart from `CODE_KEYS` because `early_departure` on a folio line means "Trả phòng sớm" (`mlog.reason.*`), while on
+ * a refund request it is "Hoàn khi trả sớm".
+ */
+const REFUND_REASON: Record<string, string> = {
+  overpayment: 'audit.reason.overpayment',
+  early_departure: 'audit.reason.early_departure',
+};
+
+/**
+ * The reason of an approval request in words (Cần duyệt, Hoàn tiền): FOC / discount codes, refund codes. Null when
+ * there is no code or none we know – the row then shows only the note the sender typed, never a code.
+ */
+export function requestReasonText(
+  t: T,
+  a: { type?: string; reasonCode?: string | null },
+): string | null {
+  const code = a.reasonCode ?? '';
+  const key = (a.type === 'refund' ? REFUND_REASON[code] : undefined) ?? FOC_REASON[code];
+  return key ? t(key) : null;
+}
 
 /**
  * 0.3.7 D1 / SEC BE-80: why the server closed a request by itself (`ApprovalRequest.autoCancelReason`, e.g.
@@ -102,7 +129,13 @@ export function auditReasonText(t: T, e: AuditEvent): string {
     return hasKey(`approval.auto_cancel.${auto}`) || !hasKey(`mlog.reason.${auto}`)
       ? autoCancelText(t, auto)
       : t(`mlog.reason.${auto}`);
+  // BUG-R4-026: "Gửi yêu cầu duyệt" of a refund – its own label for `early_departure`.
+  const refundKey =
+    !e.reason && after.type === 'refund' && typeof after.reasonCode === 'string'
+      ? REFUND_REASON[raw]
+      : undefined;
   const key =
+    refundKey ??
     SYSTEM_SENTENCES[raw] ??
     CODE_KEYS[raw] ??
     (hasKey(`mlog.reason.${raw}`) ? `mlog.reason.${raw}` : undefined) ??

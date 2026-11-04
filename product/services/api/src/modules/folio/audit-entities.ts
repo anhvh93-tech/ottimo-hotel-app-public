@@ -25,6 +25,12 @@ defineAuditEntity('folio', [
   // 0.3.7 D1 S4-08: services reversed / kept by a cancellation or no-show.
   'serviceReversedVnd',
   'serviceRetainedVnd',
+  // v1.0.4 FB-R4-SEC-BE-HOLDS-02: `reservation.deposit_confirmed` after the hold deadline (amounts/ids only).
+  'afterDeadline',
+  'holdExpiredAt',
+  'paidBeforeVnd',
+  'unverifiedPaidVnd',
+  'via',
 ]);
 defineAuditEntity('channel_fee', [
   'channelCode',

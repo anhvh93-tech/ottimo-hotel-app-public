@@ -936,6 +936,7 @@
       "note": "Ngày kết thúc 04/12 giữ theo BL (snapshot, BR-006) dù BR-209 cho 05/09 + 3 tháng = 05/12. Hoa hồng tính theo BR-212 (4% + 1% NN) = 1.411.500; prototype ghi 1.975.000 (tỷ lệ cũ) – không dùng"
     }
   ],
+  "leasesNote": "commission.rateBp / totalVnd / paidVnd: Ví dụ theo tỷ lệ cũ ESC-005 (trước 01/11 – hết hiệu lực). Tỷ lệ từ 01/11 theo bảng nội bộ INV, không ghi ở kho mã (FB-R4-SEC-BE-01; OWN nhập trên Desk ở H2)",
   "meters": [
     {
       "room": "102",

@@ -60,7 +60,12 @@ export function FolioDialog({
   const mgr = roles.some((x) => OWN_MGR.includes(x));
   const fd = roles.some((x) => FD_PLUS.includes(x));
   const settled = f?.status !== 'open';
-  const canAdjust = settled ? mgr : fd;
+  // BUG-R3-045: a `closed` folio – or a `settled` one past its post-checkout window, which only the server knows
+  // (`Folio` has no window field; the first 409 FOLIO_LOCKED tells) – takes no adjustment from anyone, managers
+  // included: no "Điều chỉnh" button, the sentence says what is still possible.
+  const [windowOver, setWindowOver] = useState(false);
+  const locked = f?.status === 'closed' || windowOver;
+  const canAdjust = !locked && (settled ? mgr : fd);
   const [adjusting, setAdjusting] = useState<FolioLine | null>(null);
   const [reversing, setReversing] = useState<Payment | null>(null);
   const [asking, setAsking] = useState<FolioLine | null>(null);
@@ -111,7 +116,11 @@ export function FolioDialog({
         )
       ) : (
         <>
-          {settled ? (
+          {locked ? (
+            <Alert tone="info" role="note">
+              {t('error.FOLIO_LOCKED')}
+            </Alert>
+          ) : settled ? (
             <Alert tone="info" role="note">
               {mgr ? t('folio.settled_mgr') : t('folio.settled_fd')}
             </Alert>
@@ -239,6 +248,7 @@ export function FolioDialog({
             done(next);
           }}
           onStale={() => folio.reload()}
+          onLocked={() => setWindowOver(true)}
           canWriteOff={mgr}
           onWriteOff={() => {
             setAdjusting(null);
@@ -290,6 +300,7 @@ function AdjustLineDialog({
   onClose,
   onDone,
   onStale,
+  onLocked,
   canWriteOff,
   onWriteOff,
 }: {
@@ -300,6 +311,8 @@ function AdjustLineDialog({
   onClose: () => void;
   onDone: (next: Folio) => void;
   onStale: () => void;
+  /** BUG-R3-045: the server said the folio is final (post-checkout window over) – the folio hides its buttons. */
+  onLocked: () => void;
   /** OWN/MGR – may open "Xóa công nợ" (BR-525). */
   canWriteOff: boolean;
   /** Close this box and open "Xóa công nợ". */
@@ -361,7 +374,22 @@ function AdjustLineDialog({
   // (BR-427 (d)) a settled folio may still be owed without one, and a manager may then cut a line to fix a
   // mistake. So nothing is blocked here; a 409 FOLIO_LOCKED on a settled folio says why and points to
   // "Xóa công nợ". (A field telling the desk beforehand – `openDebt` – is proposed to ARC for R3.)
-  const lockedNow = act.code === 'FOLIO_LOCKED' && f.status === 'settled';
+  // BUG-R3-045: the other 409 FOLIO_LOCKED on a settled folio – its post-checkout window is over (BR-427 (d)), for
+  // every role. Only a reduction can meet the debt rule, so a raise or same-amount change is always the window;
+  // a reduction is told apart by the server's `detail` (folio-lines.service `adjust`).
+  // FB-R4-UXD-FE-P441-02: the debt-rule sentence itself says "charges still in their window", so a bare /window/
+  // took the debt 409 for the window and hid "Xóa công nợ". Only a `detail` naming the debt rule (BR-525 /
+  // debt_write_off) is the debt case; any other sentence is the window – a changed or unknown sentence then shows
+  // the general locked sentence, never a "Xóa công nợ" that would lead to a second 409. A field instead of the
+  // sentence (`Folio.postCheckoutWindowUntil` or a sub-code) is proposed to ARC for v1.0.5.
+  const reduces = changed && newAmount < Math.abs(l.amountVnd);
+  const debtRule =
+    isApiError(act.error) && /BR-525|debt_write_off/i.test(act.error.problem.detail ?? '');
+  const windowOver =
+    act.code === 'FOLIO_LOCKED' &&
+    isApiError(act.error) &&
+    (f.status !== 'settled' || !reduces || !debtRule);
+  const lockedNow = act.code === 'FOLIO_LOCKED' && f.status === 'settled' && !windowOver;
 
   const save = async () => {
     setTouched(true);
@@ -395,6 +423,7 @@ function AdjustLineDialog({
   // N-6 (ARC 16.29): `Folio.version` moves with every money change – a 412 reloads the folio at once and keeps the
   // box open with what was typed; saving again goes with the new version.
   useEffect(() => {
+    if (windowOver) onLocked();
     if (stale) onStale();
     // once per failed save
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -440,7 +469,9 @@ function AdjustLineDialog({
       ) : (
         act.view()
       )}
-      {f.status !== 'open' && !lockedNow ? <p className="li-s">{t('folio.settled_mgr')}</p> : null}
+      {f.status !== 'open' && !lockedNow && !windowOver ? (
+        <p className="li-s">{t('folio.settled_mgr')}</p>
+      ) : null}
       {!night ? (
         <Field
           label={t('folio.adjust_qty')}

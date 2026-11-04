@@ -477,7 +477,9 @@ describe('FEA-01: S2 on users, devices, password', () => {
     mockControl.enableMfa('qa.owner');
     const { user } = renderApp('/settings/users', 'qa.owner');
     const row = (await screen.findByText('qa.sal')).closest('tr')!;
-    await user.click(within(row).getByRole('button', { name: 'Khóa tài khoản' }));
+    // v1.0.4 BUG-R4-020: the action sits in "Khác…".
+    await user.click(within(row).getByRole('button', { name: new RegExp(`^${tv('users.more')}`) }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Khóa tài khoản' }));
     const s2 = await screen.findByRole('dialog', { name: /Khóa tài khoản/ });
     await user.type(within(s2).getByLabelText(s2Label()), MOCK_PASSWORD);
     await user.type(within(s2).getByLabelText(label('auth.code_label.totp')), '000001');

@@ -32,6 +32,12 @@ export interface ActionContext {
   today: LocalDate;
   holdExpired: boolean;
   holdExtendedCount: number;
+  /**
+   * v1.0.4 P4-10 (BUG-R3-042): money received on the hold's folio (`Reservation.depositPaidVnd`). Past the deadline,
+   * B4 is offered only to FD+ and only when > 0 (BR-303 (1)); an unpaid overdue hold is not offered B4 (US-085 AC4 –
+   * J1 cancels it). Absent = 0.
+   */
+  depositPaidVnd?: number;
   /** Booking created/closed by the caller (SAL/CTV scope `own`). */
   own: boolean;
   /** now ≥ no_show_mark_time on the arrival day (BR-311). */
@@ -63,7 +69,8 @@ export function allowedActions(roles: readonly string[], c: ActionContext): Allo
   const out: AllowedAction[] = [];
   switch (c.status) {
     case 'hold':
-      if (fd || sal)
+      // Same rule as the server (deposits.service overdueHoldAccepts): past the deadline FD+ only, money received.
+      if (c.holdExpired ? fd && (c.depositPaidVnd ?? 0) > 0 : fd || sal)
         out.push({ event: 'confirm_deposit', transition: 'B4', action: 'confirm-deposit' });
       if ((fd || sal || ctv) && c.holdExtendedCount === 0 && !c.holdExpired) {
         out.push({ event: 'extend_hold', transition: 'B3', action: 'extend-hold' });
