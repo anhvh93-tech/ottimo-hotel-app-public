@@ -1,7 +1,8 @@
 # ARC review – PR #74 BUG-R4-039: nhận phòng vào căn còn khách đang ở (ngoại lệ BR-402 (1)) (P1)
 
 - Người review: ARC | Round 4 – v1.0.4 – Bước **Review** | 05/11/2026
-- Lượt 2: head `0950313e` (C1 + C2 + chữ C3), mục "Lượt 2" ngay dưới đây.
+- Lượt 3: head `71d0a1b1` (K1 bằng commit gộp `main`), mục "Lượt 3" ngay dưới đây.
+- Lượt 2: head `0950313e` (C1 + C2 + chữ C3).
 - Đối tượng lượt 1: `v104/fix-checkin-occupied-exception` @ `9646029d`. Hai commit trên `ea979fe7`:
   - `377411d1`: sửa mã, hợp đồng, oracle, test mới;
   - `9646029d`: dữ liệu test `reversal-debt-g4`.
@@ -27,6 +28,87 @@
   - biến thể "chặt" của (b) trên toàn bộ `test/integration`, và biến thể v1.0.4 (C1) trên các tệp bị ảnh hưởng;
   - cây gộp thử `main` + #71 + #74.
   - Worktree và container đã xóa khi xong.
+
+## Lượt 3 (head `71d0a1b1`, 05/11): **ĐẠT** – K1 xong, chỉ còn chờ CI
+
+Kiểm ngắn theo ORC, chỉ đọc git, không chạy test.
+
+Hai commit mới trên `0950313e`:
+- `dbe82ee8`: QA2 rà oracle BR-402-05.
+- `71d0a1b1`: gộp `main` @ `e7545203` vào nhánh. Hai cha là `dbe82ee8` và `e7545203`; cây gộp có #71 (`2c8cd8cf`), #80, #81, #76 (`7f0ef3fb`).
+
+BE **gộp** chứ không rebase, vì force-push bị chặn. ARC chấp nhận cách này. Điều K1 cần là cây cuối đúng, client sinh trên cây đó, và CI chạy trên cây đó; ba điều này không phụ thuộc rebase hay gộp. Lịch sử có thêm một commit gộp, không ảnh hưởng gì.
+
+### L3.1 Gỡ xung đột `openapi.yaml` – **đúng**
+- `git show 71d0a1b1 -- product/docs/api/openapi.yaml` (diff gộp) chỉ có một khúc, ở danh sách 0.3.12:
+  - (j) giữ nguyên;
+  - (k) BUG-R4-038 của #71, nguyên chữ;
+  - (l) BUG-R4-039 của #74, nguyên chữ;
+  - rồi đến mục 0.3.11.
+- Không còn dấu xung đột.
+- ARC kiểm thêm rằng bản gộp đúng là **hợp của hai bên**, không mất hay thêm dòng nào:
+  - (bản gộp − `main`) trùng từng dòng với (gốc chung `ea979fe7` → `dbe82ee8`), 20 dòng;
+  - (bản gộp − #74) trùng từng dòng với (gốc chung → `main`), 39 dòng.
+
+### L3.2 Diff ngoài hợp đồng và mã sinh – **chỉ có nội dung `main` và bản vá oracle**
+`git diff 0950313e 71d0a1b1` (bỏ `**/generated/**`, `openapi.yaml`, `packages/api-client/**`) đổi 61 tệp.
+
+**59 tệp trùng hẳn bản `main` `e7545203`.** Đó là nội dung `main` từ gốc chung `ea979fe7`, nhiều hơn #71/#80/#81, vì #74 tách từ `ea979fe7`:
+- #67 (Desk BUG-R4-038, `packages/ui`);
+- #70 (`BookingDialog`);
+- #73 (giá niêm yết OTA);
+- #71 (đêm thêm Nội bộ, phía máy chủ);
+- #76 (`v104-holds-feb`);
+- #80 (hạn giữ chỗ theo ngày địa phương);
+- #81 (minibar, BUG-R4-042, chữ sinh lại);
+- BR v0.5.6–v0.5.8 và 27 tệp review/log trong `rounds/`, `01-decisions/`.
+
+Không có mã nào ngoài những gì đã ở `main`.
+
+**2 tệp khác `main`, vì hai bên cùng sửa.** Cả hai là hợp đúng của hai bên (kiểm như L3.1):
+- `checkin.service.ts`: 77 dòng của #74 và 56 dòng của #71.
+- `br-examples.json`: phía #74 có BR-402-03/04/05 và bản vá `dbe82ee8`; phía `main` có các dòng của #71, #73.
+
+Hai tệp test của #74 (`checkin-occupied-exception`, `reversal-debt-g4`) trùng hẳn bản `dbe82ee8`.
+
+Bản vá oracle `dbe82ee8` chỉ sửa 2 dòng `br-examples.json`:
+- `owner`: thêm "QA2 05/11: rà BR-402-04 và BR-402-05 trên `0950313e` – đúng; bỏ nhãn".
+- BR-402-05 `qaAssumption`: bỏ "[GIẢ ĐỊNH QA]"; ghi "ngày giờ do BE chọn theo ca dò ARC", "buồng phòng (hoặc lễ tân) bấm Cần dọn và Bắt đầu dọn qua API buồng phòng", "Không đổi kết quả", "QA2 rà 05/11 … khớp mọi khóa expected".
+- `expected` không đổi.
+
+### L3.3 Mã sinh
+- `api-client/src/generated/openapi.ts` và `services/api/src/generated/openapi-schemas.ts` đều là hợp đúng của hai bên.
+- So với `main`, chỉ thêm phần của #74: `cause`, `heldByReservationCode` và chữ mô tả.
+- BE báo đã chạy lại `gen` và `gen:openapi` trên cây gộp, không đổi gì.
+- `api-client` có test lệch mã sinh (`src/generated.test.ts`, trong 37/37 BE báo), CI chạy lại test này.
+
+### L3.4 K1 – **đạt bằng commit gộp**
+
+| Yêu cầu K1 | `71d0a1b1` |
+|---|---|
+| Lên trên `main` có #71 | Có `2c8cd8cf` và `e7545203` |
+| Gỡ (k)/(l): giữ cả hai, (k) trước | Đúng (L3.1) |
+| Sinh lại client trên cây cuối | Hợp đúng; BE chạy lại không đổi; test lệch mã sinh canh |
+| Có #76 để hết 2 ca ban đêm | Có `7f0ef3fb` |
+| CI xanh trên lần đẩy đó | Run 41889899172 đang chạy. 6 job xanh, gồm API contract (`--strict`) và Redocly. `format · lint · audit · test · build` và landing đang chạy |
+
+- Thẻ BE-PR74-03: Fixed @ `71d0a1b1`, chờ CI.
+- Thẻ BE-PR74-01 và BE-PR74-02: giữ Fixed, chờ cùng lần chạy CI.
+- Thẻ QA-PR74-01 (1): QA2 đã rà và bỏ nhãn. (2), truy vấn trước deploy, vẫn mở (R3).
+- Thẻ DOM-PR74-02: chưa sửa. Chữ mới của BR-402-05 đã ghi "qua API buồng phòng", nên phần oracle đủ rõ. Phần câu BR v0.5.6 vẫn mở, ở mức Suggestion.
+
+**Phán quyết lượt 3: ĐẠT.**
+- Gộp được khi job `format · lint · audit · test · build` của run 41889899172 xanh.
+- Nếu job đó đỏ, ORC gửi lại ARC tên ca đỏ. Cây đã có #76, nên ca ban đêm `v104-holds-feb` không còn là lý do được chấp nhận.
+- Điều kiện phát hành R1 và R3 vẫn như lượt 2. R1: #77 + #79 lên cùng v1.0.4, CI #77 xanh trên lần đẩy mới. R3: truy vấn trước deploy.
+
+Dòng đề nghị ghi vào `01-decisions/decision-log.md` (ORC ghi):
+
+| Ngày | Round | Quyết định | Người quyết | Lý do |
+|---|---|---|---|---|
+| 2026-11-05 | 4 | #74 lượt 3 @ `71d0a1b1` ĐẠT: K1 làm bằng commit gộp `main` (không rebase, force-push bị chặn) được chấp nhận; gộp khi CI run 41889899172 xanh | ARC | Gỡ (k)/(l) đúng; các tệp hai bên cùng sửa (hợp đồng, `checkin.service.ts`, `br-examples.json`, 2 tệp sinh) là hợp đúng; 59 tệp còn lại trùng `main`; mã sinh hợp đúng và có test lệch mã sinh |
+
+---
 
 ## Lượt 2 (head `0950313e`, 05/11): **ĐẠT CÓ ĐK**
 
