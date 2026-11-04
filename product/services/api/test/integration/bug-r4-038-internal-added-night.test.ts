@@ -671,17 +671,31 @@ describe.skipIf(!HAS_DB)(
       const b = await internal('102', '2026-11-16', '2026-11-17', o11.input.lastNightRateVnd);
       await direct('102', '2026-11-17', '2026-11-19');
       await stay(b, '102', '2026-11-16');
+      // B15 in the morning: the guest agreed 17:00 – 50 % of its own night (BR-421-09) is posted now.
+      const o9 = oracle('BR-421-09');
+      await at('2026-11-17T10:00:00+07:00');
+      const late = await act(b.id, 'late-checkout', {
+        checkoutTime: o9.input.checkoutTime,
+        applySurcharge: true,
+        expectedSurchargeVnd: o9.expected.surchargeVnd,
+      });
+      expect(late.statusCode, late.body).toBe(200);
+      const liveLate = async () => (await lateLines(b)).reduce((a, l) => a + l.amountVnd, 0);
+      expect(await liveLate()).toBe(o9.expected.surchargeVnd);
       await at(`2026-11-17T${o11.input.checkoutTime}:00+07:00`);
       const s = await summary(b, o11.input.checkoutTime);
+      // Contract (checkout summary `lateFeeAsNightVnd`, ORC 05/11): with 0 the amount to collect is
+      // `amountDueAtCheckoutVnd` – the B15 charge B18 will reverse is already out of it – not the folio balance.
       expect(s).toMatchObject({
         extraNightRequired: true,
         extraNightAvailable: o11.input.departureNightSellable,
         lateFeeAsNightVnd: o11.expected.lateFeeAsNightVnd,
         amountDueAtCheckoutVnd: 0,
+        balanceDueVnd: o9.expected.surchargeVnd,
       });
       const out = await act(b.id, 'check-out', { checkoutTime: o11.input.checkoutTime });
       expect(out.statusCode, out.body).toBe(200);
-      expect((await lateLines(b)).length > 0).toBe(o11.expected.surchargeLineWritten);
+      expect((await liveLate()) > 0).toBe(o11.expected.surchargeLineWritten);
       expect((await booking(b.id)).total_room_vnd).toBe(o11.input.lastNightRateVnd);
       expect((await folio(b.folioId)).totals.balanceDueVnd).toBe(0);
     });

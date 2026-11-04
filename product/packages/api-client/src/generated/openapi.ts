@@ -6839,6 +6839,7 @@ export interface components {
        *     Ví dụ 203, 16–18/04/2030, đã thu đủ, căn có khách đến 18/04, rời 19:00 → **792.000**
        *     **v1.0.4 (BUG-R4-038, BR-421 v0.5.3 (a)–(d))**: đơn **Nội bộ** → **0** (giá mặc định đêm thêm của đơn Nội bộ) – B18 **không** gửi `lateFeeInsteadOfNight` (gửi → 422, xem `checkOut`), không ghi dòng,
        *     không cần quản lý xác nhận. Client: `lateFeeAsNightVnd === 0` (có mặt, bằng 0) = trả phòng được, không mở hộp xác nhận; vắng = server cũ (giữ khóa như trước).
+       *     Khi `lateFeeAsNightVnd = 0`, số cần thu là `amountDueAtCheckoutVnd` của chính tóm tắt này – đã trừ phụ thu trả muộn B15 mà B18 sẽ đảo về 0 – **không** phải số dư folio (`balanceDueVnd`).
        */
       lateFeeAsNightVnd?: components['schemas']['MoneyVnd'];
       /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): căn còn trống đêm ngày đi (false → lễ tân xử lý đổi phòng/khách đến trước khi trả). **0.3.7 bổ sung 4 (BUG-R2-139, BR-416-06)**: `false` → không bao giờ cộng đêm thêm; đường trả phòng là `lateFeeInsteadOfNight` (`lateFeeAsNightVnd`), hoặc dời khách đến sang căn khác rồi tóm tắt lại */
