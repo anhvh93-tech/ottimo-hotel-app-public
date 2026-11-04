@@ -3,7 +3,7 @@
 - Dành cho: **sale nội bộ (SAL)** – nhân viên bán hàng của OTTIMO; **CTV / môi giới** – cộng tác viên ngoài
 - Thiết bị: **điện thoại hoặc máy tính**, địa chỉ `desk.ottimo.vn`
 - Áp dụng cho: **OTTIMO Desk v1.0** (bản `v1.0.0`), chạy thật từ **thứ Hai 02/11/2026**
-- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.3 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; form website đã bật, sale không ở trong phòng Google Chat; bản 1.3 ngày 01/11 thêm mục 6.3a giá ước tính và khách viết tiếng Hàn, Trung, Nga – áp dụng khi gói website LP-v2 phát hành; bản 1.4 ngày 03/11, áp dụng khi v1.0.3 lên: menu **Bảo mật tài khoản** và email nhận thông báo bảo mật – email riêng chỉ mình đọc, Desk chỉ chặn `info@` – mục 1.5)
+- Lập: BA · 30/10/2026 · Bộ hướng dẫn theo bộ phận, bản 1.5 – 04/11/2026, **áp dụng từ v1.0.4**: đã bật 2 bước mà mất cả điện thoại lẫn mã khôi phục thì chủ đầu tư gặp tận mặt rồi **Đặt lại xác thực 2 bước** (mục 1.6; BUG-R4-032); bản 1.3 (tách từ Sổ tay sử dụng OTTIMO Desk v1.0, bản nội dung 1.5; sửa theo review DOM, SEC, UXD, QA ngày 30/10; form website đã bật, sale không ở trong phòng Google Chat; bản 1.3 ngày 01/11 thêm mục 6.3a giá ước tính và khách viết tiếng Hàn, Trung, Nga – áp dụng khi gói website LP-v2 phát hành; bản 1.4 ngày 03/11, áp dụng khi v1.0.3 lên: menu **Bảo mật tài khoản** và email nhận thông báo bảo mật – email riêng chỉ mình đọc, Desk chỉ chặn `info@` – mục 1.5)
 - Tài liệu không chứa mật khẩu, số tài khoản hay thông tin khách.
 - **Tài liệu nội bộ OTTIMO – không chuyển tiếp cho người ngoài OTTIMO, không gửi vào nhóm chat, không chụp, không đăng lên mạng. Nghỉ việc hoặc hết hợp tác: xóa tệp trên máy và báo chủ đầu tư.** Bộ hướng dẫn chỉ do chủ đầu tư gửi, và không bao giờ có ô đăng nhập hay hỏi mật khẩu; tệp "hướng dẫn" nhận từ người khác thì không mở, báo chủ đầu tư.
 
@@ -90,6 +90,7 @@ Rời máy thì đăng xuất, nhất là máy dùng chung hoặc máy quầy. M
 | Quên mật khẩu | **Báo chủ đầu tư.** Desk không có nút "quên mật khẩu". Chủ đầu tư **Đặt lại mật khẩu**, đưa mật khẩu tạm tận tay |
 | Tài khoản bị khóa do sai nhiều lần | Chờ đúng số phút Desk báo, hoặc nhờ chủ đầu tư **Mở khóa**. Bị khóa mà mình **không** gõ sai: báo chủ đầu tư ngay (có thể có người dò mật khẩu) |
 | **Mất điện thoại** đang đăng nhập Desk | **Báo chủ đầu tư ngay** để đặt lại mật khẩu (Desk đăng xuất trên mọi máy) hoặc khóa tài khoản |
+| Đã tự bật 2 bước rồi mất cả điện thoại lẫn mã khôi phục | **Báo chủ đầu tư.** Từ v1.0.4: chủ đầu tư **gặp tận mặt** anh/chị rồi **Đặt lại xác thực 2 bước**. Anh/chị giữ tài khoản cũ, đăng nhập lại bằng mật khẩu như cũ, Desk không hỏi mã. Ở v1.0.3: chủ đầu tư khóa tài khoản cũ và tạo tài khoản mới |
 | Nghi người khác biết mật khẩu | Đổi mật khẩu ngay (**tên của mình → Đổi mật khẩu**) và báo chủ đầu tư |
 | Nghỉ việc, hết hợp tác | Đăng xuất, báo chủ đầu tư khóa tài khoản |
 

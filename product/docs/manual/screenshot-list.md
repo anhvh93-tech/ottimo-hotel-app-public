@@ -2,7 +2,7 @@
 
 - Đi kèm: `product/docs/manual/user-manual-v1.0.md` (mã ảnh `[ẢNH: Cx-yy-…]`)
 - Lập: BA · 27/10/2026 · Người chụp: QA, trên **staging** bản `v1.0.0-rc.3` (`70fe734`) · Người dựng HTML: UXD
-- Tổng: 89 ảnh (C0: 11 · C1: 21 · C2: 40 · C3: 9 · C4: 8). C2-19 dùng hai lần (mục 2.10 và 2.13). C0-11 thêm ngày 27/10 (bản 1.2). **Bản 1.8 sổ tay (04/11, Desk v1.0.3):** thêm C0-12, C0-13, C1-22 (dùng chung cho sổ tay và bộ hướng dẫn); **chụp lại** C0-06, C1-07 (và G1-01 ở `guides/screenshot-additions.md`).
+- Tổng: 89 ảnh (C0: 11 · C1: 21 · C2: 40 · C3: 9 · C4: 8). C2-19 dùng hai lần (mục 2.10 và 2.13). C0-11 thêm ngày 27/10 (bản 1.2). **Bản 1.8 sổ tay (04/11, Desk v1.0.3):** thêm C0-12, C0-13, C1-22 (dùng chung cho sổ tay và bộ hướng dẫn); **chụp lại** C0-06, C1-07 (và G1-01 ở `guides/screenshot-additions.md`). **Bản 1.12 sổ tay (04/11, Desk v1.0.4, BUG-R4-032):** thêm C1-23; C1-07 chụp lại trên v1.0.4 cho thấy cột **Thao tác** có **Sửa vai**, **Khác…** (và **Mở khóa** ở dòng tài khoản đã khóa), cùng lượt chụp lại của BUG-R4-023.
 - **Ảnh v1.0.3:** chụp trên staging đã lên v1.0.3. Tài khoản `qa.*` chủ đầu tư và quản lý dùng cho ảnh khác phải **có sẵn email giả** (`qa.*@example.test`), nếu không Desk hiện dòng nhắc email trên đầu mọi trang. Không dùng địa chỉ thật, không dùng `info@`.
 
 ## Quy tắc chung khi chụp
@@ -61,6 +61,7 @@
 | C1-20 | **Nhật ký tiền** – tab **Hoàn tiền** | Chủ đầu tư | 1 khoản hoàn đã duyệt chưa chi | **Che** số tài khoản, tên chủ tài khoản |
 | C1-21 | **Minibar** – danh mục | Quản lý | Danh mục 17 món | Không cần che |
 | C1-22 | **Người dùng & vai** → **Sửa email** ở dòng một nhân viên giả: hộp **Email nhận thông báo bảo mật – {tên}**, ô **Email**, câu "OTTIMO sẽ gửi thông báo tới…", nút **Xóa email**, **Lưu email** (ảnh mới, v1.0.3) | Chủ đầu tư | Người dùng giả vai Lễ tân có email giả `qa.*@example.test` | Tên đăng nhập giả. Bấm **Hủy**, không lưu |
+| C1-23 | **Người dùng & vai** → **Khác…** → **Đặt lại xác thực 2 bước** ở dòng một nhân viên giả: hộp **Đặt lại xác thực 2 bước cho {tên}?**, câu "Người này sẽ bị đăng xuất trên mọi máy…", ô **Lý do đặt lại (ví dụ: mất điện thoại)**, ô **Mật khẩu đăng nhập**, **Mã trong ứng dụng xác thực (6 số)**, nút **Hủy**, **Đặt lại xác thực 2 bước** (ảnh mới, v1.0.4) | Chủ đầu tư | Người dùng giả vai Lễ tân trưởng **đã bật 2 bước**, email giả `qa.*@example.test` | Tên đăng nhập giả. Ô mật khẩu và mã trống. Bấm **Hủy**, không đặt lại |
 
 ## Chương 2 – Lễ tân
 
