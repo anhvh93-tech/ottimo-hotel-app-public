@@ -192,7 +192,7 @@ Lần đầu, và sau mỗi lần chủ đầu tư **Đặt lại mật khẩu**
 | **07:00** | Bắt đầu trả lời tin, yêu cầu của khách. Desk chuyển căn có khách sang "cần dọn". Khi chủ đầu tư đã bật form website: Desk mở trên máy quầy và điện thoại người trực 07:00–22:00, xem **Yêu cầu từ website** (mục 13.1) | Điện thoại cơ sở, **Hôm nay** |
 | Trước giờ mở quầy | Khách nhận phòng sớm đã hẹn (từ 06:00, có phụ thu): ra quầy đúng giờ hẹn, làm trên máy quầy | Mục 7.1 |
 | Từ 08:00 | Nhắn khách đi hôm nay xác nhận giờ trả; ghi **Xác nhận giờ trả** | Mục 9.6 |
-| **Mở quầy (muộn nhất 09:00)** | Đăng nhập, kiểm chip **Máy quầy đã cấp quyền**. Tờ **Your ID details** đúng chỗ, mặt quay ra khách. **Từ hôm sau ngày sổ giao ca có dòng "Thay tờ v2 hh:mm – tham số v2 hh:mm"**: chân tờ có chữ v2 ("OTTIMO · ID notice · v2 · 11/2026"), cả tờ trong ngăn quầy. Chưa có dòng đó: tờ v1 là đúng, **không** tự thay tờ v2 | Mục 1.4, 7.2 |
+| **Mở quầy (muộn nhất 09:00)** | Đăng nhập, kiểm chip **Máy quầy đã cấp quyền**. Tờ **Your ID details** đúng chỗ, mặt quay ra khách. **Từ hôm sau ngày sổ giao ca có dòng "Thay tờ v2 hh:mm – tham số v2 hh:mm"** (hoặc từ ngày ghi ở dòng "Tờ v2 từ 06:00 dd/mm"): chân tờ có chữ v2 ("OTTIMO · ID notice · v2 · 11/2026"), cả tờ trong ngăn quầy. Chưa có dòng đó: tờ v1 là đúng, **không** tự thay tờ v2 | Mục 1.4, 7.2 |
 | Mở quầy | Đọc **Cần chú ý** trước, xử lý từ dòng đỏ trở xuống. Xem **Khách đến (n)**, **Khách đi (n)**, **Giữ chỗ chưa cọc (n)**, **Yêu cầu của khách** | **Hôm nay** (mục 3.1) |
 | Mở quầy | **Rà giữ chỗ – mốc 1** (tới v1.0.3) | Mục 17.1 |
 | Mở quầy | Đọc sổ giao ca tối qua, **trang Không dịch** (đầu sổ, mục 13.1d) và dòng chủ đầu tư ghi trong lượt kiểm sáng. Đếm tiền mặt trong két. Khi có nhiều người: bàn giao với ca trước | Sổ giao ca |
@@ -496,6 +496,7 @@ Câu trả lời khi khách hỏi chính sách hủy: đọc đúng mục này. 
 > 5. Nhận tin "Đã đặt v2": tải lại (F5) mọi trang giấy tờ đang mở trên máy quầy. Khách đang làm dở mà Desk báo "Chọn một giá trị trong danh sách." ở Khối 1 khi lưu câu trả lời đồng ý lưu ảnh: cho khách xem tờ v2, tải lại (F5), hỏi lại câu đồng ý lưu ảnh (mục 8.2). **Không chọn sẵn thay khách.**
 > 6. Chờ tối đa **15 phút** từ mốc. Đang nói chuyện với chủ đầu tư mà được bảo "chờ" thì chờ tiếp. Quá 15 phút, không có tin "Đã đặt v2" và không gọi được chủ đầu tư: nhắn "Đặt lại v1 – hh:mm" **trước**, rồi mới đặt lại tờ v1 vào khung mica và ngăn quầy; máy tính bảng mở lại tệp v1, xóa tệp v2 (không còn tệp v1 thì hôm đó không dùng máy tính bảng). Tờ v2 cất **khỏi quầy**, trong phong bì ghi "Tờ v2 – chờ chủ đầu tư hẹn ngày thay", chưa hủy. Nhận khách như cũ. Sổ giao ca ghi "Đặt lại v1 hh:mm – tờ v2 cất ở …". Chủ đầu tư hẹn hôm khác, làm lại từ bước 1.
 >    Đã nhắn "Đặt lại v1" mà chưa đặt tờ v1, chủ đầu tư gọi tới: nói rõ "vừa nhắn đặt lại v1, tờ v2 còn trên quầy" và làm theo lời chủ đầu tư. Nghe "**Đã Lưu**" thì giữ tờ v2, bỏ việc đặt lại v1.
+>    Sau khi đặt lại v1, chủ đầu tư nhắn "**Tờ v2 từ 06:00 dd/mm**" (Desk đã hẹn v2 cho ngày đó mà không hủy được): giữ tờ v1 tới 05:59. Từ 06:00, trước khi nhận giấy tờ của khách đầu tiên, lấy tờ v2 trong phong bì đặt vào khung mica và ngăn quầy, cất tờ v1 như bước 10; máy tính bảng chỉ dùng khi chủ đầu tư đã chép lại tệp v2. Ghi sổ giao ca "Tờ v2 từ 06:00 dd/mm". Từ 06:00 đã nhận giấy tờ của khách khi quầy còn tờ v1: làm như bước 7.
 > 7. **Tin đi chéo:** quầy đã để lại tờ v1 mà nhận tin "Đã đặt v2": Desk không quay về v1 trong ngày được. Ngừng nhận giấy tờ, đặt ngay tờ v2 (khung mica, ngăn quầy; máy tính bảng mở lại tệp v2). Với mỗi khách đã nhận giấy tờ trong khoảng quầy để tờ v1:
 >    - sổ giao ca **chỉ** ghi mã đơn, giờ nhận giấy tờ, giờ cho xem tờ v2. Không ghi tên, số giấy tờ, quốc tịch, số điện thoại;
 >    - cho khách xem tờ v2 lần gặp tiếp theo, trước khi trả phòng;
@@ -506,7 +507,7 @@ Câu trả lời khi khách hỏi chính sách hủy: đọc đúng mục này. 
 > 8. Ghi sổ giao ca: "Thay tờ v2 hh:mm – tham số v2 hh:mm".
 > 9. Khách đã làm giấy tờ trước giờ thay **không** phải xem lại. Người đi cùng đến sau thì xem tờ v2.
 > 10. Tờ v1 gỡ ra: cất khỏi quầy, chỗ khách không thấy; có tin "Đã đặt v2" thì hủy. Không để tờ v1 và v2 cùng ở quầy.
-> 11. **Từ hôm sau ngày sổ giao ca có dòng ở bước 8**, mở quầy kiểm chân tờ có chữ v2, cả tờ trong ngăn quầy (mục 2). Chưa có dòng đó: tờ v1 là đúng, **không** tự thay tờ v2.
+> 11. **Từ hôm sau ngày sổ giao ca có dòng ở bước 8** (hoặc từ ngày ghi ở dòng "Tờ v2 từ 06:00 dd/mm"), mở quầy kiểm chân tờ có chữ v2, cả tờ trong ngăn quầy (mục 2). Chưa có dòng đó: tờ v1 là đúng, **không** tự thay tờ v2.
 >
 > **Khách đọc tiếng Nga:** dùng **tờ A4 EN/RU** (tiếng Anh bên trái, tiếng Nga bên phải), đặt cạnh tờ EN/VI ở quầy, mặt quay ra khách, từ ngày thay tờ v2 **nếu chủ đầu tư đã in** (tờ này chỉ in khi bản tiếng Nga đã duyệt). Tờ EN/RU chỉ có bản in A4; **máy tính bảng không có bản tiếng Nga**. Chưa có tờ EN/RU: cho khách xem tờ EN/VI và đọc to câu hạn lưu như đoạn dưới.
 
@@ -1589,7 +1590,7 @@ Cách tạm cũ (để căn **Đang ở** tới ngày đi, quản lý giảm ti�
 | 07:00 | Bắt đầu trả lời yêu cầu của khách; Desk chuyển căn có khách sang "cần dọn". Từ 07:00 hỏi chủ đầu tư/quản lý để kiểm tiền về. Form website đã bật: Desk mở trên máy quầy và điện thoại người trực tới 22:00 (mục 13.1) |
 | 07:30 (từ v1.0.1) | Google Chat nhắc các yêu cầu website ban đêm còn chưa ai nhận (mục 13.1a) |
 | Sáng (từ 08:00) | Nhắn khách đi hôm nay xác nhận giờ trả. Hạn khai báo khách Việt Nam đến từ 23:00 hôm trước |
-| Mở quầy, muộn nhất **09:00** | Tờ **Your ID details** đúng chỗ. **Từ hôm sau ngày sổ giao ca có dòng "Thay tờ v2 hh:mm – tham số v2 hh:mm"**: chân tờ có chữ v2, cả tờ trong ngăn quầy; chưa có dòng đó thì tờ v1 là đúng, **không** tự thay tờ v2 (mục 2). Rà giữ chỗ mốc 1 |
+| Mở quầy, muộn nhất **09:00** | Tờ **Your ID details** đúng chỗ. **Từ hôm sau ngày sổ giao ca có dòng "Thay tờ v2 hh:mm – tham số v2 hh:mm"** (hoặc từ ngày ghi ở dòng "Tờ v2 từ 06:00 dd/mm"): chân tờ có chữ v2, cả tờ trong ngăn quầy; chưa có dòng đó thì tờ v1 là đúng, **không** tự thay tờ v2 (mục 2). Rà giữ chỗ mốc 1 |
 | 09:00 | Quản lý đối soát xong khoản chuyển khoản ghi ban đêm |
 | **Trước 11:00** | Căn trống từ đêm qua có khách đến đã rà xong (mục 13.2a; từ v1.0.4 kiểm trên app, mục 14.2) |
 | **11:00** | Rà giữ chỗ mốc 2 |

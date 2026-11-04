@@ -198,7 +198,7 @@ Thẻ gửi FE/PO để Desk có ô ghi chú trên màn đơn và màn yêu cầ
 - Máy chủ (`parameters.service.ts`):
   - Lưu theo ngày hiệu lực: Lưu hôm nay không đụng dòng ngày mai.
   - `cancelScheduled` trả 409 với dòng đã có hiệu lực (`effective_from <= today`).
-  - Desk chỉ hiện nút ở dòng `effectiveFrom > today`. Hộp mở từ trước 00:00 thì Desk báo "Giá trị từ {date} đã bắt đầu áp dụng nên không hủy lịch được nữa…" (`params.cancel_effective`).
+  - Desk chỉ hiện nút ở dòng `effectiveFrom > today`. Hộp mở từ trước 06:00 (giờ đổi ngày trên Desk, mục 10) thì Desk báo "Giá trị từ {date} đã bắt đầu áp dụng nên không hủy lịch được nữa…" (`params.cancel_effective`).
   - Khớp câu "dòng hôm nay không hủy được".
 - `build_guides.py` dựng lại trên bản chép (tờ A4 v2 từ `origin/v104/uxd-id-sheet-v2`): khớp nguyên văn bản A4 (10 đoạn + nhãn, tiêu đề, chân tờ); không có cảnh báo trỏ mục. Ảnh thiếu là ảnh có từ trước, không do lượt này.
 - Không có tên, số giấy tờ, mật khẩu hay mã thật trong phần sửa.
@@ -210,3 +210,32 @@ Thẻ gửi FE/PO để Desk có ô ghi chú trên màn đơn và màn yêu cầ
   - FE thêm ô thì tài liệu đúng.
   - FE không thêm thì BA chuyển các câu đó sang sổ giao ca, cần DOM đọc lại.
 - Chờ DOM, SEC xác nhận thẻ 12, 13.
+
+## 10. SEC xác nhận @ `0699b1de` (ĐẠT) – thẻ FB-R4-SEC-BA-104-15
+
+| ID | Trạng thái | Đã sửa |
+|---|---|---|
+| FB-R4-SEC-BA-104-15 (a) (Minor) | Done | `00-index` mục 4 bước 5 ý 4 (Hủy lịch không được): sau "báo đội" thêm việc tiếp theo. Trước khi đóng quầy (21:00), chủ đầu tư mở lại **Lịch sử thay đổi**. Còn dòng **Chưa hiệu lực** thì nhắn người trực "Tờ v2 từ 06:00 dd/mm" và chép lại tệp v2 cho máy tính bảng. Người trực giữ tờ v1 tới 05:59; từ 06:00, trước khi nhận giấy tờ của khách đầu tiên, đặt tờ v2 và ghi sổ giao ca "Tờ v2 từ 06:00 dd/mm". Từ 06:00 đã nhận giấy tờ khách dưới tờ v1 thì làm như bước 4 (tin đi chéo). Đội đã gỡ được dòng thì không nhắn, quầy giữ v1. `02` 7.2 bước 6: thêm phần việc của người trực (lấy tờ v2 trong phong bì; máy tính bảng chỉ dùng khi đã có lại tệp v2; khách nhận dưới tờ v1 làm như bước 7). Bốn chỗ mở quầy (`02` mục 2, 7.2 bước 11, mục 18; `00-index` mục 4 bước 9) thêm "(hoặc từ ngày ghi ở dòng "Tờ v2 từ 06:00 dd/mm")" |
+| FB-R4-SEC-BA-104-15 (b) (Minor) | Done | Dòng hẹn có hiệu lực lúc **06:00**, không phải 00:00 (kiểm code mục 10.1). Đã sửa `00-index` mục 4 bước 5 ("00:00 Desk đổi sang v2" thành "06:00 sáng hôm sau … Desk đổi sang v2") và mục 9.2 tệp này. Đã grep `00:00` trong `guides/0*.md` và sổ tay: các chỗ còn lại là ca đêm, hạn khai báo, lọc báo cáo, đều không nói về tham số và đã đúng với mốc 06:00 |
+
+### 10.1 Kiểm code: dòng hẹn có hiệu lực lúc nào
+
+Nhánh `origin/v104/fe-param-cancel` @ `2502f179`.
+
+- "Hôm nay" của tham số là **ngày kinh doanh**, không phải ngày lịch:
+  - `product/services/api/src/modules/platform/public/property-context.ts` dòng 40–55: `now()` trả `today: businessDate(now, timezone, rollover)`, với `rollover` = tham số `business_day_rollover`.
+  - `product/services/api/src/shared/time.ts` dòng 92–98: `businessDate()` trả ngày hôm trước khi giờ địa phương < `rollover`.
+- Giá trị `business_day_rollover` = `'06:00'`: `product/services/api/src/admin/production-defaults.ts` dòng 191 (BR-010).
+- Các chỗ dùng ngày kinh doanh này:
+  - Đọc tham số: `parameters.service.ts` dòng 104/134/163/204/283 lấy `pc = await this.property.now(tx)`. Dòng 142 lấy giá trị đang áp dụng bằng `effective_from <= pc.today`. Dòng 185 tính dòng đang áp dụng cũng theo `pc.today`.
+  - Hủy lịch: dòng 301 `row.effective_from <= pc.today` → 409.
+  - Desk khi nhận giấy tờ: `registration.service.ts` dòng 1535–1539 (`businessToday()` = `businessDate(c.now, c.tz, rollover)`) và dòng 1559–1561 (`currentNoticeVersion` đọc `privacy_notice_version` theo ngày đó). Web check-in online: `guest-portal.service.ts` dòng 387–388 đọc theo `today` truyền vào.
+  - FE: `product/apps/admin-web/src/app/businessDay.ts` dòng 16, 48–53 neo ngày theo `businessDate` và `businessDayRollover` của máy chủ. Chip **Chưa hiệu lực** và nút **Hủy lịch** (`ParamDialog.tsx` dòng 180, 332, 347) cũng đổi lúc 06:00.
+- Kết luận:
+  - Dòng hẹn ngày D có hiệu lực lúc **06:00 ngày D** (giờ Đà Lạt).
+  - Từ 00:00 đến 05:59 ngày D, Desk vẫn ghi v1. Dòng vẫn là **Chưa hiệu lực** và vẫn **Hủy lịch** được.
+  - Khớp `02` mục 2 ("Ngày trên Desk đổi lúc 06:00"). Câu "00:00" ở `00-index` là sai, đã sửa.
+- Giả định:
+  - **G-BA-104-8:** chủ đầu tư không đổi `business_day_rollover`. Nếu đổi, câu "06:00" trong mục 4 phải đổi theo.
+  - Giờ đóng quầy 21:00 được dùng làm mốc chủ đầu tư kiểm lại Lịch sử (`02` mục 2).
+
