@@ -22,6 +22,7 @@ import type {
   NotificationMessage,
   NotificationResult,
 } from '../contracts/notification.js';
+import { isEmailAddress } from './email-address.js';
 import { renderStaffEmail, type RenderedEmail } from './email-templates.js';
 
 export const SMTP_MODES = ['relay', 'app_password'] as const;
@@ -31,7 +32,6 @@ export const SMTP_DEFAULTS: Readonly<Record<SmtpMode, { host: string; port: 465 
   app_password: { host: 'smtp.gmail.com', port: 465 },
 };
 const ALLOWED_PORTS = [465, 587] as const;
-const EMAIL_RE = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/;
 const HOST_RE = /^[a-z0-9.-]+$/i;
 
 export interface SmtpConfig {
@@ -60,10 +60,6 @@ export interface MailTransport {
   }): Promise<{ messageId?: string; accepted?: unknown[]; rejected?: unknown[] }>;
   verify(): Promise<unknown>;
   close?(): void;
-}
-
-export function isEmailAddress(v: string): boolean {
-  return v.length <= 254 && EMAIL_RE.test(v);
 }
 
 /** EMAIL_SMTP_MODE, default `relay` (SEC EMAIL-01 A). */

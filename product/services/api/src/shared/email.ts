@@ -1,6 +1,7 @@
 /**
  * Staff security e-mail helpers (R4 v1.0.3, BUG-R3-032, OpenAPI 0.3.10 `setMyEmail` / `updateUser.email`).
- * - `normalizeSecurityEmail` – THE rule for a staff security address (SEC FB-R4-SEC-ARC-EM-05): after trim + lower
+ * - `normalizeSecurityEmail` – THE rule for a staff security address (SEC FB-R4-SEC-ARC-EM-05; since v1.0.4 a call to
+ *   INT's shared `normalizeEmailAddress`, INT FB-R4-INT-BE-31-04): after trim + lower
  *   case, printable ASCII only, exactly one `@`, local part `[a-z0-9._%+-]{1,64}`, domain = ≥ 2 labels
  *   `[a-z0-9-]{1,63}`, TLD `[a-z]{2,}`, total 3–254. null = invalid (→ EMAIL_INVALID). Chosen so that
  *   every accepted address is also accepted by the SMTP adapter (`isEmailAddress`) and fully masked by the log
@@ -12,30 +13,24 @@
  *   and `jobs/email-dispatch` (which may not import `identity/internal`). Typed against INT's real template list
  *   (`StaffEmailTemplate` of `@ottimo/integrations/notification`), so a rename there fails `tsc` (ARC FB-R4-ARC-BE-31-05).
  */
-import type { StaffEmailTemplate } from '@ottimo/integrations/notification';
+import {
+  EMAIL_ADDRESS_MAX,
+  type StaffEmailTemplate,
+  normalizeEmailAddress,
+} from '@ottimo/integrations/notification';
 
 export const EMAIL_CHANGED_TEMPLATE = 'email_changed' satisfies StaffEmailTemplate;
 
-export const SECURITY_EMAIL_MAX = 254;
+/** v1.0.4 (INT FB-R4-INT-BE-31-04): the limit of INT's shared rule – one number for API, adapter and scripts. */
+export const SECURITY_EMAIL_MAX = EMAIL_ADDRESS_MAX;
 
-const LOCAL = /^[a-z0-9._%+-]{1,64}$/;
-const LABEL = /^[a-z0-9-]{1,63}$/;
-const TLD = /^[a-z]{2,}$/;
-
+/**
+ * v1.0.4 (INT FB-R4-INT-BE-31-04): the API no longer keeps its own copy of the rule – it calls INT's
+ * `normalizeEmailAddress` (`@ottimo/integrations/notification`), the same function the SMTP adapter checks with.
+ * Staff-specific rules (shared mailboxes – identity/public/shared-mailboxes.ts) run AFTER this, on its result.
+ */
 export function normalizeSecurityEmail(raw: string): string | null {
-  const email = raw.trim().toLowerCase();
-  // Printable ASCII only (no control, no space, no Unicode – the redactor and the adapter agree on ASCII).
-  if (!/^[\x21-\x7e]+$/.test(email)) return null;
-  if (email.length < 3 || email.length > SECURITY_EMAIL_MAX) return null;
-  const at = email.split('@');
-  if (at.length !== 2) return null;
-  const [local, domain] = at as [string, string];
-  if (!LOCAL.test(local)) return null;
-  const labels = domain.split('.');
-  if (labels.length < 2) return null;
-  if (!labels.every((l) => LABEL.test(l))) return null;
-  if (!TLD.test(labels[labels.length - 1] as string)) return null;
-  return email;
+  return normalizeEmailAddress(raw);
 }
 
 /** EMAIL_FROM → its address in lower case (`OTTIMO <info@example.test>` → `info@example.test`); '' / unset → null. */

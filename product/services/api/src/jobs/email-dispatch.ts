@@ -60,9 +60,11 @@ interface Payload {
   sentUserIds?: unknown;
   skippedUserIds?: unknown;
   emailChangeId?: unknown;
+  /** receiving_account_changed: 'set' | 'cancel' written by the platform controller (SEC V104-08). */
+  action?: unknown;
 }
 
-interface Recipient {
+export interface Recipient {
   /** app_user id – or, for audience `previous`, the user_email_change id (tracking key). */
   userId: string;
   email: string;
@@ -235,6 +237,9 @@ export class StaffEmailDispatcher {
           ]),
         ];
       }
+      // Subjects: `active` or `locked`. `locked` = automatic lock after wrong passwords, NOT the Desk "Lock account"
+      // button (that one sets `disabled`, which gets no `self` copy) – the person under attack must still be told
+      // (SEC M18-08, SEC-on-plan-v1.0.4 2.2; pinned by test/integration/v104-be-identity.test.ts).
       const { rows: users } = await tx.query<{ id: string; email: string; display_name: string }>(
         `SELECT u.id, u.email::text AS email, u.display_name FROM app_user u
           WHERE u.email IS NOT NULL AND u.email::text <> ''
@@ -301,6 +306,14 @@ export class StaffEmailDispatcher {
       const eff = formatLocalDate(payload.effectiveDate);
       if (eff) params.effectiveDate = eff;
       if (via === 'self' || via === 'owner') params.via = via;
+      // SEC FB-R4-SEC-BE-V104-08: the branch of the receiving-account notice comes ONLY from the payload `action` of
+      // the writer; anything other than set/cancel (or an older row without it) → no `change` → neutral sentence.
+      if (
+        template === 'receiving_account_changed' &&
+        (payload.action === 'set' || payload.action === 'cancel')
+      ) {
+        params.change = payload.action;
+      }
       out.push({ ...base, recipients, params });
     }
     return out;
@@ -326,7 +339,7 @@ export class StaffEmailDispatcher {
           to: rcpt.email,
           templateId: row.template,
           locale: 'en',
-          params: { ...row.params, audience: rcpt.audience },
+          params: paramsFor(row.params, rcpt.audience),
           idempotencyKey: `${row.id}:${rcpt.userId}`,
         });
         newlySent.push(rcpt.userId);
@@ -422,6 +435,20 @@ export class StaffEmailDispatcher {
     else if (status === 'deferred')
       this.log('info', 'email deferred', { outboxId: row.id, template: row.template });
   }
+}
+
+/**
+ * G-BE-4 / INT FB-R4-INT-BE-31-05 (v1.0.4): the name of the person concerned goes to the `owner` copy only. The
+ * `self` copy does not need it and the `previous` address may no longer belong to that person (data minimisation:
+ * an adapter or a mock that ever records params must not pair a name with an old address).
+ */
+export function paramsFor(
+  params: Readonly<Record<string, string>>,
+  audience: Recipient['audience'],
+): Record<string, string> {
+  const out: Record<string, string> = { ...params, audience };
+  if (audience !== 'owner') delete out.staffName;
+  return out;
 }
 
 function asIntegrationError(err: unknown): IntegrationError {
