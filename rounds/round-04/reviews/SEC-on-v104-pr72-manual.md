@@ -405,3 +405,94 @@ Sau đó SEC đọc tay từng dòng bắt được.
 ### L3.6 Dòng decision-log đề xuất (ORC ghi khi commit, SEC không sửa decision-log)
 
 `| 2026-11-05 | 4 | **SEC – PR #85 lượt 2 (v104/ba-esc045-prices @ f9302d82): ĐẠT về bảo mật, gộp được** (rounds/round-04/reviews/SEC-on-v104-pr72-manual.md mục Lượt 3): FB-R4-SEC-BA-PR72-05 Closed (Bỏ cả dòng chỉ cho dòng minibar căn cũ ghi trùng, không dùng để miễn/giảm, ghi sổ giao ca, quản lý xem lại; 01 14.1 có dòng hỏi đáp theo chữ SEC; bộ lọc tuần Deferred cùng SEC PR71 9.5, phần mã A31-01 ở v1.0.5); FB-R4-SEC-BA-PR72-06 Closed (01 14.1 có câu trả lời ghi trễ ngày đi, hạn ghi trễ chờ luật sư). Quét dữ liệu 4747318b + f9302d82: chỉ giá và chính sách công khai, không email/IP/khóa/tên khách. Mới: FB-R4-SEC-BA-PR85-01 Minor – 05 mục 3 và sổ tay 4.2 ghi tỷ lệ hoa hồng cũ (ESC-005) như số đang dùng; bỏ ngoặc số, không thay số mới, sửa trước ngày chuyển giá, tạo lại HTML. Đính chính: sổ tay không sạch số hoa hồng cũ như SEC-on-commission-numbers mục 2 đã ghi; không có số bảng nội bộ 01/11. Không ESC mới. | SEC | Thẻ của #72 đã đóng đúng chữ đề xuất; dòng tỷ lệ cũ không lộ số mới nhưng sai sau ngày chuyển giá và dễ bị cập nhật bằng số nội bộ. |`
+
+---
+
+## Lượt 4 (05/11/2026) – #89 `v104/ba-manual-minors` @ `89743a8f`: đóng PR85-01
+
+- Đối tượng:
+  - Diff: `git diff origin/main...origin/v104/ba-manual-minors` (head `89743a8f99b3e30414328698b2edcc0f5e96e205`, `origin/main` @ `4f2bf447`). 5 tệp sổ tay, +34/−19, không có mã. CI xanh.
+  - Commit `7c8871dc` (SEC-PR85-01), `d409b06e` (DOM-PR85-04/05, UXD-PR85-05..07), `2f840ba8` (QA BR-428-02), cùng 2 merge main.
+  - Thông điệp của mọi commit trong khoảng, mô tả PR #89. PR chưa có bình luận.
+- SEC chỉ sửa tệp này. Không commit, không push. **Tệp này không ghi tỷ lệ hoa hồng nào.**
+
+### L4.0 Kết luận
+
+- **#89: ĐẠT về bảo mật, gộp được.** **PR85-01 Closed.**
+- `rounds/round-02/demo-1-guide.md` dòng 66: **giữ nguyên**, không sửa ở v1.0.4. Đây là hồ sơ lịch sử (mục L4.2).
+- `inv-price-switch-guide.md` B10: **đạt** (mục L4.2).
+- Bản HTML chưa commit: **cần chặn**. 1 thẻ Minor, không chặn #89: FB-R4-SEC-UXD-HTML-01 (mục L4.3, L4.4).
+- Không ESC mới.
+
+### L4.1 Kiểm 1: tỷ lệ đã bỏ, không thêm số mới
+
+| Chỗ | Kết quả |
+|---|---|
+| `05` mục 3 bước 3 (dòng 135) | Ngoặc tỷ lệ đã bỏ. Thay bằng "**Bạn nhận (…% tiền phòng)**: Desk tự điền theo tỷ lệ chủ đầu tư cài. Sổ tay không ghi tỷ lệ." Đúng chữ SEC đề xuất |
+| Sổ tay 4.2 (dòng 1729) | "Báo giá hiện **Bạn nhận (…% tiền phòng)** theo tỷ lệ chủ đầu tư cài." Đúng chữ đề xuất |
+| Toàn bộ `product/docs/manual/` ở head | Quét mẫu "`CTV`/`sale`/`SAL`/`nhân viên`/`môi giới`/`Bạn nhận`/`Sale nhận`/`hoa hồng`/`commission`/`thưởng`/`bonus`/`hiệu suất` đứng gần n %" và khóa `commission*Pct/Bp/Vnd`. Còn 2 dòng bắt được, cả hai là chính sách hoàn tiền công khai ("đơn Trực tiếp/CTV báo trước từ 1 ngày hoàn …"), không phải hoa hồng. **Sạch** |
+| Thông điệp commit | `7c8871dc` chỉ ghi "the bracket … is removed. Desk fills the rate the owner sets". Các commit khác không nhắc hoa hồng. Không có tỷ lệ |
+| Mô tả PR #89 | Ghi "bỏ cả ngoặc tỷ lệ", "Không ghi số mới ở bất kỳ đâu". Ví dụ "0,25 → 25" chép từ B10 (xem L4.2). Không có tỷ lệ cũ hay mới |
+| Dòng thêm còn lại của #89 | Chỉ giá niêm yết và chính sách công khai như ở #85. Không email, IP, điện thoại, khóa, token, tên đăng nhập, tên khách. Email duy nhất là dòng ký `noreply@` của commit |
+
+**Thêm: bước gõ giờ trả 12:00 (DOM-PR85-04).** Khách đi trước 06:00, quá 12:00 lễ tân mới làm được **Trả phòng**: lễ tân gõ **12:00**, Desk đòi **Ghi chú giờ trả (vì sao ghi bù)**, không phụ thu.
+- Bước này không phải quyền mới. Desk đã cho ghi giờ sớm hơn lúc bấm, kèm ghi chú bắt buộc, và sổ tay đã dùng cách này cho đơn quá ngày đi (`02` dòng 915).
+- Có hai dấu đối chiếu được ghi **trước** lúc ghi bù: sổ giao ca ghi "khách rời hh:mm" lúc khách đi, và nhật ký mở cửa trên app khóa.
+- Không dạy lách. Không thẻ.
+
+### L4.2 Kiểm 2: `demo-1-guide.md` dòng 66 và B10
+
+**`rounds/round-02/demo-1-guide.md` dòng 66: giữ nguyên.**
+- Tệp là kịch bản demo lần 1 (UXR, v1.3, 17/10, sửa lần cuối `feb75035` 18/10). Dòng 66 chép chữ màn hình mong đợi ở lúc đó, có tỷ lệ cũ ESC-005.
+- Chỉ hồ sơ lịch sử trỏ tới tệp này: decision-log, `FB-INV-001`, `usability-report-r2.md`. Không tài liệu sống nào dẫn người dùng tới đây.
+- Cùng loại với các tệp `rounds/round-02/` ở `SEC-on-commission-numbers.md` mục 2.4 (hồ sơ lịch sử: **giữ nguyên**).
+  - Lý do: tệp là bằng chứng của buổi demo. Sửa lại làm hỏng truy vết mà không giảm rủi ro. Số cũ có từ commit đầu (15/10), công khai từ 19/10, còn trong lịch sử git, và CTV đã biết qua việc chi trả.
+  - Bảo mật: Low.
+- Việc của SEC: thêm `rounds/round-02/demo-1-guide.md` 66 vào danh sách mục 2.4, ở lần sửa tệp đó tới (cùng đính chính L3.4).
+
+**`rounds/round-04/outputs/DOM/inv-price-switch-guide.md` B10: đạt.**
+- Ô giá trị chỉ ghi chỗ giữ `X` ("X = tỷ lệ … trong bảng nội bộ của anh/chị"). Ô ghi chú dặn "Không gửi con số này cho đội".
+- "Ví dụ 0,25 → 25" là ví dụ cách đổi số thập phân sang phần trăm.
+  - SEC đã đối chiếu riêng với bảng nội bộ (ngoài git): giá trị ví dụ này **không có** trong bảng, nên không lộ tỷ lệ thật.
+  - Tệp này không ghi số nào của bảng.
+- Câu "Bảng nội bộ có một mức Sale chung" chỉ nói cấu trúc, đã có ở BR-903 v0.5.0 công khai.
+- Ngoài B10, mục "Thuê tháng" có tỷ lệ giảm theo kỳ hạn. Đó là giá, không phải hoa hồng, và nằm ngoài câu hỏi của lượt này.
+
+### L4.3 Kiểm 3: HTML chưa commit ở main checkout
+
+Hiện trạng:
+- `product/docs/manual/ottimo-manual-v1.0.html` và `product/docs/manual/guides/html/` là bản dựng từ md bằng `product/design/tools/rebuild_manual_html.py` (`build_manual.py`, `build_guides.py`).
+- Hai bản này chưa từng có trong lịch sử git và không bị `.gitignore` chặn. `git status` đang hiện chúng là tệp chưa theo dõi.
+- Bản đang có dựng từ md trước #89, nên còn câu có tỷ lệ cũ ở `05-sale-ctv.html` và sổ tay 4.2.
+- Bộ hướng dẫn **nhúng ảnh chụp màn hình dạng base64** (`build_guides.py`: "ảnh, font nhúng base64").
+- Job CI `confidential-paths` (G2) chỉ kiểm đường dẫn, không kiểm nội dung, nên không bắt được câu này.
+
+**SEC muốn có chặn.** Hai lý do:
+1. Nhiều agent cùng commit trong checkout này. Một lần `git add -A` hay `git add product/docs/` là đưa bản cũ lên repo công khai, kèm ảnh base64 chưa qua kiểm che (quy tắc: ảnh chỉ commit sau khi QA kiểm che dữ liệu).
+2. Rủi ro lớn hơn nằm ngoài git: HTML là bản nhân viên và CTV đọc thật. Gửi bản cũ sau khi #89 gộp thì CTV vẫn thấy tỷ lệ cũ, tức đúng lỗi PR85-01 vừa sửa.
+
+### L4.4 Thẻ mới
+
+#### FB-R4-SEC-UXD-HTML-01 (thẻ cho UXD, ORC, OPS)
+- Mức độ: **Minor**. Bảo mật: **Low** với số cũ. Chặn được đường lộ số mới về sau. Không chặn #89.
+- Vị trí: `product/docs/manual/ottimo-manual-v1.0.html`, `product/docs/manual/guides/html/` (chưa theo dõi); `.gitignore`; `product/design/tools/rebuild_manual_html.py`.
+- Vấn đề: bản HTML dựng từ md không có chặn nào. Không bị ignore, không kiểm nội dung, có thể lệch md (đang lệch: còn tỷ lệ cũ), và mang ảnh base64.
+- Vì sao quan trọng: xem L4.3. Đây là đường dễ nhất để tỷ lệ cũ, hoặc sau này tỷ lệ mới, và ảnh chưa che lọt lên repo hoặc tới tay CTV.
+- Đề xuất sửa:
+  - (a) **Bắt buộc, UXD:** sau khi #89 gộp, dựng lại HTML từ md trước khi gửi cho bất kỳ ai. Việc này đã có trong điều kiện QC (dựng lại HTML trước khi báo chủ đầu tư bản đã lên). Kiểm `05-sale-ctv.html` và sổ tay 4.2 không còn ngoặc tỷ lệ.
+  - (b) **Nên làm ngay, ORC:** thêm 2 dòng vào `.gitignore` gốc: `product/docs/manual/ottimo-manual-v1.0.html` và `product/docs/manual/guides/html/`. Chỉ 2 dòng, đi cùng commit của ORC hoặc #89. Sau này muốn commit HTML thì bỏ dòng ignore trong chính PR dựng lại từ md, kèm kiểm che ảnh (G4).
+  - (c) **v1.0.5, UXD (OPS nếu đưa vào CI):** `rebuild_manual_html.py` báo lỗi khi bản dựng có mẫu tỷ lệ hoa hồng.
+    - Mẫu chung: `Bạn nhận`/`Sale nhận`/`hoa hồng`/`commission`/`thưởng` đứng gần n %. **Không dùng danh sách số**, vì chính danh sách đó sẽ làm lộ số (như G2).
+    - Bỏ qua câu chính sách hoàn tiền "CTV báo trước … hoàn n %", vì câu này hay bị bắt nhầm.
+    - Có thể chạy cùng mẫu đó trên `product/docs/manual/**/*.md` trong CI.
+- Trạng thái: Open
+
+### L4.5 Ghi chú cho ORC
+
+- #89 gộp được. Mô tả PR #89 ghi "SEC-PR85-01 … cần gộp trước ngày chủ đầu tư chuyển giá". SEC đồng ý.
+- L4.4 (a) và (b) nên xong trước khi gửi bộ HTML v1.0.4 cho chủ đầu tư hoặc nhân viên.
+- Không ESC mới.
+
+### L4.6 Dòng decision-log đề xuất (ORC ghi khi commit, SEC không sửa decision-log)
+
+`| 2026-11-05 | 4 | **SEC – PR #89 (v104/ba-manual-minors @ 89743a8f): ĐẠT về bảo mật, gộp được; FB-R4-SEC-BA-PR85-01 Closed** (rounds/round-04/reviews/SEC-on-v104-pr72-manual.md mục Lượt 4): 05 mục 3 và sổ tay 4.2 bỏ ngoặc tỷ lệ hoa hồng cũ, không thêm số mới; commit message và mô tả PR không nhắc tỷ lệ; quét product/docs/manual ở head sạch (chỉ còn chính sách hoàn tiền công khai). rounds/round-02/demo-1-guide.md 66 giữ nguyên như hồ sơ lịch sử (SEC-on-commission-numbers mục 2.4). inv-price-switch-guide.md B10 đạt (chỗ giữ X; ví dụ 0,25 → 25 chỉ là cách đổi đơn vị, SEC đã đối chiếu không trùng bảng nội bộ). Mới: FB-R4-SEC-UXD-HTML-01 Minor – HTML sổ tay dựng từ md chưa bị ignore, còn tỷ lệ cũ, nhúng ảnh base64: UXD dựng lại sau #89 trước khi gửi; ORC thêm 2 dòng .gitignore; v1.0.5 kiểm mẫu tỷ lệ khi dựng (không dùng danh sách số). Không ESC mới. | SEC | Lỗi gốc đã sửa ở md; còn đường lộ qua bản HTML dựng ra, chặn rẻ bằng ignore và dựng lại trước khi gửi. |`
