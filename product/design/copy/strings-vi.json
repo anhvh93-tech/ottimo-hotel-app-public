@@ -3415,6 +3415,7 @@
   "staff.notif.k.hold_expired": "Giữ chỗ chưa cọc đã hết hạn và tự hủy",
   "checkout.pending_refund_line": "Đang chờ hoàn cho khách {amount} (yêu cầu từ Trả sớm).",
   "checkout.use_early_departure": "Hôm nay chưa tới ngày đi ({date}). Khách rời sớm thì dùng Trả sớm trên khung đơn.",
+  "checkout.pending_refund_unavailable": "Chưa tải được khoản chờ hoàn từ Trả sớm. Hỏi quản lý trước khi báo khách.",
   "staff.mfa_enroll_desk": "Mở OTTIMO Desk trên máy tính để bật xác thực 2 bước, rồi đăng nhập lại ở đây.",
   "staff.mfa_network": "Chưa kết nối được tới máy chủ. Mã bạn đã nhập vẫn còn – kiểm tra mạng rồi bấm Thử lại.",
   "error.ID_NUMBER_DETECTED": "Không cần ghi số giấy tờ ở đây. Vui lòng xóa số đó rồi gửi lại.",
