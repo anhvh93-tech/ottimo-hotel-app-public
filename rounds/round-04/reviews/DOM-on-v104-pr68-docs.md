@@ -676,3 +676,90 @@ Máy chủ có sự kiện `needs_cleaning` (`OC` → `OD`), nhưng chưa giao d
   - Bước "Cần dọn → Bắt đầu dọn → Dọn xong" đã bỏ cho v1.0.4. Chú thích ẩn ghi: khi có nút **Cần dọn** (backlog v1.0.5), BA thêm lại.
 - **Lượt 5 mục 2 (BUG-R4-039):** từ v1.0.4, căn `OC`/`OD` hoặc căn còn đơn khác đang ở không có ngoại lệ cho vai nào. Các chỗ đã sửa: sổ tay 1.8, 2.10; `01` 4; `02` 7.4, 16. Câu "Từ v1.0.4 Desk chặn" chờ #77. Nếu #77 trượt bản cắt, câu đổi thành "v1.0.4 chặn ở máy chủ (#74)".
 - **Mục 7.4 (BUG-R4-042): Fixed.** Sổ tay 2.14 bước 2 và `02` 11.1 bước 2 có cách làm tạm, ghi "tới v1.0.3; bỏ khi v1.0.4 lên". Lối thêm khoản ghi theo mục 2.12 / `02` 9.1: **Thêm phát sinh** → **Khoản** **Đồ ăn uống** → **Thêm vào folio**. Sau khi v1.0.4 lên, BA bỏ khối này.
+
+## DOM lượt 8 (05/11) – đơn quá ngày đi không Trả phòng thẳng được; nhãn "+15%" ở cột Nguồn giá
+
+Nguồn: BE báo 05/11. Đọc mã trên `main` @ `ddda6bbf`:
+- `checkout.service.ts`: `departureDate !== today && !postMidnight` thì `INVALID_TRANSITION`, ở cả bản tóm tắt và lệnh trả phòng;
+- `reporting/internal/stay-actions.ts`: Desk chỉ cho `check_out` đúng ngày đi, nên ẩn nút Trả phòng với đơn quá ngày đi;
+- `stay.service.ts` `extend`: B13 không chặn đơn quá ngày đi, gia hạn tối đa 7 đêm, giá theo BR-421;
+- `BookingDialog.tsx` dòng 119 và 1367; `production-defaults.ts` dòng 199 và 215.
+
+QA2 đang xác nhận trên stack. Nếu Desk ẩn luôn cả nút **Gia hạn** với đơn quá ngày đi, báo DOM, vì khi đó cách làm phải đổi.
+
+### 1. "Gia hạn B13 tới hôm nay rồi Trả phòng" – **đúng là cách làm ở v1.0.4.** Tiền của đêm thêm tùy khách có ở thật hay không
+
+Trước khi bấm, lễ tân kiểm căn và hỏi buồng phòng: khách còn ở hay đã đi, đi ngày nào.
+
+| Trường hợp | Đêm thêm | Làm |
+|---|---|---|
+| (a) **Khách ở thật** quá ngày đi | **Đêm bán, có thu**, giá như gia hạn thường (BR-421): Trực tiếp/CTV theo giá đêm của đơn; OTA thành đơn con Trực tiếp; Nội bộ 0 đ hoặc gõ | B13 tới hôm nay, rồi B18. Giờ trả phòng là giờ khách rời thật; phụ thu trả muộn hôm nay theo BR-411/416. Khách đã rời mà chưa trả đủ: dùng nhánh ghi nợ khi trả phòng, quản lý quyết |
+| (b) **Khách đã đi đúng ngày, lễ tân quên bấm** (hay gặp hơn) | **Không thu.** Khách không dùng đêm đó, và đây là lỗi nội bộ | B13 tới hôm nay. Xin **giảm giá đặc biệt 100 %** từng đêm thêm (BR-431–433), lý do "Khác: Quên bấm Trả phòng, khách đi ngày …". Quản lý duyệt trong hạn mức 1 đêm mỗi lần; nhiều đêm hơn thì chủ đầu tư duyệt. Trả phòng giờ chuẩn, không phụ thu. Ghi sổ giao ca. Đơn Nội bộ đã 0 đ, không cần xin |
+
+- Ví dụ: đơn Trực tiếp, giá đêm 800.000, đi 23/11; 10:00 ngày 24/11 vẫn Đang ở. Trường hợp (a) thu thêm **800.000**. Trường hợp (b) thu thêm **0**.
+- Hệ quả của (b), chấp nhận tới v1.0.5:
+  - đêm đó thành đêm miễn phí và vào công suất, dù căn trống;
+  - DATA nhận diện qua lý do giảm giá.
+  - Thường chỉ 1 đêm: danh sách khách đi đưa đơn quá ngày lên đầu, và BR-425 báo đỏ lúc 12:00.
+- **v1.0.5, đề xuất cho PO/ARC:** cho Trả phòng nhận đơn quá ngày đi với **ngày khách thật sự đi**. Lễ tân trưởng hoặc quản lý xác nhận, có lý do. Lúc đó (b) không còn phải gia hạn rồi giảm. Desk đã có trạng thái `overdue` ở danh sách khách đi, nhưng chưa có nút nào đi kèm.
+- Đã ghi vào `business-rules.md` **v0.5.7**: BR-421 thêm nhánh "đơn quá ngày đi chưa trả phòng", có ví dụ 800.000 / 0. Validator: 0 lỗi, 1 cảnh báo có từ trước.
+
+### 2. Ví dụ căn 301 ở BR-402: **có, đã sửa (v0.5.7)**
+- Câu luật "trả phòng đơn đó trước (B18, căn `VD`)" thêm: đơn đã quá ngày đi thì Desk không cho Trả phòng thẳng; Gia hạn (B13) tới hôm nay rồi Trả phòng.
+- Ví dụ 301 đổi "trả phòng A trước (B18)" thành "Gia hạn A 1 đêm tới 24/11 (B13), rồi Trả phòng (B18)".
+- Ví dụ 301 cũng bỏ "buồng phòng bấm Cần dọn", vì v1.0.4 không có nút này (lượt 7 mục 3). Thay bằng: "căn thành `CL` (buồng phòng bấm Bắt đầu dọn khi căn đang `OD`)".
+- Sửa theo trong lượt 7:
+  - mục 2: dòng BR-402-05 đề xuất cho QA đổi bước "B18 cho A" thành "B13 A tới 24/11 rồi B18";
+  - mục 3 bước 1: thêm "đơn đã quá ngày đi: Gia hạn tới hôm nay rồi Trả phòng".
+
+### 3. Các câu chặn đã duyệt (`room_held_code`, `room_held`, `room_occupied`): **giữ nguyên cho v1.0.4; sổ tay ghi rõ bước B13**
+- "Trả phòng đơn đó trước" vẫn đúng đích. Đa số đơn giữ căn là đơn đi hôm nay chưa bấm, và với đơn đó Desk có nút Trả phòng.
+- Không đổi chữ sát mốc cắt chỉ cho ca hiếm.
+- Nhưng câu đó **chưa đủ** cho đơn quá ngày đi: lễ tân mở đơn, không thấy nút Trả phòng, rồi kẹt. Nên **sổ tay phải ghi bước B13** (BA): mục 2.10 (nhận phòng – căn còn khách), 2.14 (trả phòng), 2.21 (tình huống). Ý: "Đơn đã quá ngày đi: Desk không có nút Trả phòng. Kiểm căn, bấm **Gia hạn** tới hôm nay, rồi **Trả phòng**. Khách đã đi từ trước thì nhờ quản lý duyệt giảm 100 % đêm đó."
+- v1.0.5: nếu có lối Trả phòng theo ngày khách thật sự đi (mục 1), câu chặn dùng tiếp được mà không phải đổi.
+- Chỉ khi PO không nhận lối đó thì UXD thêm vế cho đơn quá ngày đi. Khi ấy máy chủ phải trả cờ quá hạn cùng `heldByReservationCode`; FE không đoán.
+
+### 4. Nhãn `bk.src_weekend` ("Lịch giá: thứ Sáu/thứ Bảy +15% (BR-104)")
+
+**4.1 Production còn tăng cuối tuần không: repo không cho biết. Chủ đầu tư phải kiểm.**
+- Lần cài production đầu ghi `weekend_uplift_pct` = 15 và `special_uplift_pct` = 30 (`production-defaults.ts` dòng 199, 215). Chỉ khi OWN làm bước B1–B2 của `inv-price-switch-guide.md` thì hai số này mới về 0.
+- Decision-log 01/11 ghi "OWN chuyển ngay", nhưng repo không có xác nhận đã làm xong.
+- Câu ORC gửi INV:
+
+  > Anh/chị kiểm giúp 1 phút: **Quản trị → Tham số quy tắc → tab Khác**, tìm `weekend_uplift_pct` và `special_uplift_pct`. Cả hai phải là **0**, cột Hiệu lực từ là ngày đã chuyển, không có chữ "Chưa hiệu lực". Còn 15 / 30 thì làm bước B1–B2 của hướng dẫn chuyển giá và nhắn đội. Kiểm thêm bằng báo giá thử: Studio 1 đêm thứ Sáu phải ra 800.000.
+
+**4.2 Nhãn theo dữ liệu máy chủ, không theo thứ trong tuần. Ở v1.0.4: bỏ điều kiện `weekend()`.** DOM đồng ý đề xuất UXD mục 3.
+- Mọi ô điền từ bản xem hiện `bk.src_list` ("Giá niêm yết (BR-101)"). Đêm đã gõ hiện nhãn "Giá đã gõ" của UXD.
+- Theo BR-103/104 v0.5.1 (một mức giá, không tăng cuối tuần và lễ), nhãn này đúng sau khi chuyển giá.
+- Nếu production chưa chuyển, cái sai là **giá**, không phải nhãn: cuối tuần +15 % trái quyết định ESC-045 của INV. Việc cần làm là chuyển giá (mục 4.1), không phải giữ nhãn "+15%".
+- Tiền luôn do máy chủ tính, nên bỏ nhãn không làm sai số.
+- Không theo nguồn máy chủ được ở v1.0.4: `NightRate` trong phản hồi báo giá chỉ có `date`, `amountVnd`, `calendarRateVnd`, không có loại tăng giá từng đêm. Chỉ có `upliftNights` (tổng) ở dạng web.
+- **v1.0.5, trước 15/12:** nếu chủ đầu tư bật lại mức tăng Noel–Tết (BR-104: báo trước 15/12), ARC thêm loại tăng từng đêm (`none`/`weekend`/`special`, hàm `calendarRate` đã tính sẵn) vào `NightRate` của phản hồi. UXD cấp nhãn theo đó.
+
+**4.3 Thời điểm: nên vào v1.0.4, không chặn phát hành.**
+- DOM đề xuất mức P3.
+- Lý do vào v1.0.4:
+  - sửa 1 dòng mã;
+  - nhãn "+15%" làm lễ tân báo khách "cuối tuần đắt hơn", trái lời hứa một giá của OTTIMO; web và OTA đều không tăng.
+- Không kịp mốc cắt thì sổ tay ghi: "Cột Nguồn giá còn ghi '+15%' ở thứ Sáu, thứ Bảy: bỏ qua, giá đúng là số trong ô."
+
+### Kết luận lượt 8
+- Không có ESC. Việc chủ đầu tư phải làm là kiểm tham số (mục 4.1), không phải quyết định mới.
+- Tệp `business-rules.md` v0.5.7 (BR-421, BR-402) và tệp này chưa commit.
+- Việc của người khác:
+  - BA: sổ tay 2.10, 2.14, 2.21 (mục 3);
+  - FE: bỏ `weekend()` (mục 4.2);
+  - PO: backlog v1.0.5 "Trả phòng theo ngày khách thật sự đi" và "loại tăng giá từng đêm trong báo giá".
+
+## Phản hồi BA (05/11/2026, DOM lượt 8 mục 1 và 3 – PR #72 @ `ebb14cb0`, vẫn nháp)
+
+- **Mục 3 (sổ tay ghi bước B13): Fixed.** Khối mới **Đơn quá ngày đi, vẫn Đang ở** ở sổ tay 2.14 và `02` 11.1:
+  - kiểm căn, hỏi buồng phòng;
+  - **Gia hạn** tới hôm nay (đêm kín hoặc quá 7 đêm thì báo quản lý), rồi **Trả phòng**.
+  - Sổ tay 2.10 bước (1) và `02` 7.4 trỏ tới khối này. Bảng 2.21 và `02` 16.1 có thêm một dòng.
+- **Mục 1 (hai trường hợp): Fixed**, theo bảng của DOM:
+  - (a) khách ở thật: thu đêm thêm như gia hạn thường; giờ trả là giờ rời thật, có phụ thu trả muộn.
+  - (b) lễ tân quên bấm: xin giảm giá đặc biệt 100 % từng dòng đêm thêm, lý do **Khác (ghi rõ)** "Quên bấm Trả phòng, khách đi ngày …". Quản lý duyệt tới 1 đêm, từ 2 đêm thì chủ đầu tư. Trả phòng giờ chuẩn 12:00, không phụ thu, ghi sổ giao ca.
+  - Đơn Nội bộ: từ v1.0.4 đã 0 đ. Tới v1.0.3, báo quản lý trước khi gia hạn (BUG-R4-038).
+  - Ví dụ 800.000 / 0.
+- Giả định cho QA2: ở (b), ô **Giờ trả phòng thực tế** nhận được 12:00 dù giờ đó đã qua. Nếu QA2 thấy Desk không còn nút **Gia hạn** với đơn quá ngày đi, BA sửa lại theo cách mới của DOM.

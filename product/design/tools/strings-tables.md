@@ -4060,6 +4060,12 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `checkin.room_occupied` | Căn {room} còn khách của đơn trước, chưa trả phòng. Trả phòng đơn đó trước, hoặc mời khách chờ, hoặc đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ. Nếu đơn trước đã trả phòng: kiểm căn đã trống rồi sửa trạng thái buồng. | Room {room} still has the previous guest, not checked out yet. Check out that stay first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case. If that stay is already checked out, check the room is empty, then correct the room status. | ⟨chừa chỗ⟩ | v1.0.4 BUG-R4-039 (BR-402 (1)). Alert bad trong dòng room_ready khi buồng OC/OD, và câu của 409 ROOM_OCCUPIED. Không ô lý do, không nút duyệt. Thứ tự lối ra theo DOM lượt 5 mục 2: trả phòng đơn trước, mời khách chờ, đổi căn. Câu cuối chỉ cho trạng thái lệch (lễ tân hoặc buồng phòng). UXD duyệt 05/11 (FB-R4-UXD-FE-PR77-01). {room} = số căn |
 | `checkin.room_held` | Căn {room} còn đơn khác đang ở, chưa trả phòng. Trả phòng đơn đó trước, hoặc mời khách chờ, hoặc đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ. | Room {room} still has another stay in house. Check out that stay first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case. | ⟨chừa chỗ⟩ | v1.0.4 BUG-R4-039 (BR-402 (1), DOM lượt 5 mục 2 (b)). Alert bad trong dòng room_ready khi buồng không phải OC/OD/OOO nhưng căn còn lượt Đang ở của đơn khác (room_ready không có overridableBy). Không nhắc buồng phòng. 'đang ở' = status.booking.in_house. UXD duyệt 05/11 (FB-R4-UXD-FE-PR77-01). {room} = số căn |
 
+#### v1.0.4 BUG-R4-042 – FE-A: H16 bước 1 luôn nêu tên tủ đang đếm khi lượt ở có nhiều tủ (K11-03). CHỜ UXD DUYỆT
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `co.minibar_cabinet_counting` | Tủ minibar đang đếm | Minibar being counted | ⟨chừa chỗ⟩ | H16 bước 1, nhãn <dt> của dòng tên tủ (giá trị = co.minibar_cabinet_room / co.minibar_cabinet_old). Chỉ hiện khi lượt ở có từ 2 tủ (sau B14) và nhóm chọn tủ đã ẩn vì chỉ còn 1 tủ (tủ kia đã đếm trên trang này). Tiêu đề trang vẫn ghi căn đang ở |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |
