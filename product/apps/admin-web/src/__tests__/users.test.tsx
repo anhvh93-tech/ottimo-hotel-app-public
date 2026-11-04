@@ -41,7 +41,9 @@ describe('H07 Người dùng & vai (US-002)', () => {
   it('reset password shows a one-time temporary password', async () => {
     const { user } = renderApp('/settings/users', 'qa.owner');
     const row = (await screen.findByText('qa.fd')).closest('tr')!;
-    await user.click(within(row).getByRole('button', { name: 'Đặt lại mật khẩu' }));
+    // v1.0.4 BUG-R4-020: the action sits in "Khác…".
+    await user.click(within(row).getByRole('button', { name: `${tv('users.more')}: Hạnh` }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Đặt lại mật khẩu' }));
     const s2 = await confirmS2(user, /Đặt lại mật khẩu/);
     await user.click(within(s2).getByRole('button', { name: 'Đặt lại mật khẩu' }));
     const dlg = await screen.findByRole('dialog', { name: 'Mật khẩu tạm của Hạnh' });
@@ -52,7 +54,8 @@ describe('H07 Người dùng & vai (US-002)', () => {
   it('lock account asks first (S2), then shows "Đã khóa"', async () => {
     const { user } = renderApp('/settings/users', 'qa.owner');
     const row = (await screen.findByText('qa.sal')).closest('tr')!;
-    await user.click(within(row).getByRole('button', { name: 'Khóa tài khoản' }));
+    await user.click(within(row).getByRole('button', { name: new RegExp(`^${tv('users.more')}`) }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Khóa tài khoản' }));
     const s2 = await confirmS2(user, /Khóa tài khoản/);
     await user.click(within(s2).getByRole('button', { name: 'Khóa tài khoản' }));
     expect(await within(row).findByText('Đã khóa')).toBeInTheDocument();

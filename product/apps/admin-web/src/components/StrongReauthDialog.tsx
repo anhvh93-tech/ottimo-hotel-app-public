@@ -1,7 +1,7 @@
 import { isApiError, type StrongReauth } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Field, Modal } from '@ottimo/ui';
-import { useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react';
 import { problemView } from '../app/problem';
 import { SecondFactorField } from './SecondFactorField';
 import { normalizeRecoveryCode, normalizeTotp } from '../pages/MfaStep';
@@ -43,6 +43,16 @@ export interface StrongReauthDialogProps {
   children?: ReactNode;
   confirmLabel: string;
   danger?: boolean;
+  /**
+   * v1.0.4: the caller's own fields inside `children` (e.g. the reason of `resetUser2fa`). Called on every confirm
+   * together with the factor check; `false` keeps the dialog open and sends nothing. The caller shows its errors.
+   */
+  validate?: () => boolean;
+  /**
+   * v1.0.4 (UXD FB-R4-UXD-FE-P430-02): the caller's first own field, focused on open instead of the password
+   * (e.g. the reason above the factors). Without it the dialog opens on the password, as before.
+   */
+  initialFocusRef?: RefObject<HTMLElement | null>;
   onClose: () => void;
   /**
    * Runs the S2 operation with the factors (OpenAPI 0.3.8 `StrongReauth`, sent inside THAT request – no
@@ -70,6 +80,8 @@ function StrongReauthInner({
   children,
   confirmLabel,
   danger,
+  validate,
+  initialFocusRef,
   onClose,
   onConfirm,
 }: StrongReauthDialogProps) {
@@ -84,6 +96,16 @@ function StrongReauthInner({
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const pwRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  /** Bumped when a confirm is refused on this side: focus then goes to the first field marked invalid. */
+  const [refused, setRefused] = useState(0);
+
+  // UXD FB-R4-UXD-FE-P430-02: the error leads to the field to fix (the caller's reason, the password or the
+  // code – whichever comes first), after the render that set `aria-invalid`.
+  useEffect(() => {
+    if (!refused) return;
+    formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+  }, [refused]);
 
   const close = () => {
     setPassword('');
@@ -98,7 +120,11 @@ function StrongReauthInner({
     if (!password) next.password = t('common.required');
     if (hasMfa && !value) next.code = t('common.required');
     setErrors(next);
-    if (next.password || next.code) return;
+    const ownOk = validate ? validate() : true;
+    if (next.password || next.code || !ownOk) {
+      setRefused((n) => n + 1);
+      return;
+    }
     const reauth: StrongReauth = { password };
     if (hasMfa) {
       if (useRecovery) reauth.recoveryCode = value;
@@ -123,7 +149,8 @@ function StrongReauthInner({
         pwRef.current?.focus();
       } else if (isStrongReauthError(err)) {
         setFailed(true);
-        setBanner(t('reauth.s2_failed'));
+        // BUG-R4-024: without a code field the sentence speaks of the password only.
+        setBanner(t(hasMfa ? 'reauth.s2_failed' : 'reauth.s2_failed_password'));
         pwRef.current?.focus();
       } else {
         setBanner(problemView(t, err).text);
@@ -140,7 +167,7 @@ function StrongReauthInner({
       onClose={close}
       closeLabel={t('common.close')}
       size="sm"
-      initialFocusRef={pwRef}
+      initialFocusRef={initialFocusRef ?? pwRef}
       footer={
         <>
           <Button onClick={close}>{t('common.cancel')}</Button>
@@ -156,7 +183,7 @@ function StrongReauthInner({
         </>
       }
     >
-      <form id="s2-form" onSubmit={submit} noValidate className="stack">
+      <form id="s2-form" ref={formRef} onSubmit={submit} noValidate className="stack">
         {children ? <div>{children}</div> : null}
         <p className="muted">{t(hasMfa ? 'reauth.s2_help' : 'reauth.s2_help_password')}</p>
         {banner ? (

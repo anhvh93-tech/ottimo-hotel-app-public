@@ -114,7 +114,8 @@ describe('US-008 Thêm người dùng (S26)', () => {
     await user.click(within(dlg).getByRole('checkbox', { name: /^Sale nội bộ/ }));
     await user.click(within(dlg).getByRole('button', { name: tv('users.create') }));
     const s2dlg = await s2(user, 'Tú', 'sai-mat-khau');
-    expect(await within(s2dlg).findByText(tv('reauth.s2_failed'))).toBeInTheDocument();
+    // v1.0.4 BUG-R4-024: the owner has no 2FA here → the password-only sentence.
+    expect(await within(s2dlg).findByText(tv('reauth.s2_failed_password'))).toBeInTheDocument();
     expect(mockControl.db.users.some((u) => u.username === 'tu.sale')).toBe(false);
   });
 
