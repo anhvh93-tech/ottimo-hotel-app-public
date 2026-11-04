@@ -1,10 +1,10 @@
 import { isApiError, type Role, type StrongReauth, type User } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Alert, Button, Checkbox, Chip, ConfirmDialog, Modal } from '@ottimo/ui';
+import { Alert, Button, Checkbox, Chip, ConfirmDialog, Field, Modal } from '@ottimo/ui';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../app/api';
-import { SECURITY_EMAIL_ANCHOR } from '../app/email';
+import { SECURITY_EMAIL_ANCHOR, sendWithOneKey } from '../app/email';
 import { fieldErrors, problemView } from '../app/problem';
 import { useToast } from '../app/toast';
 import { Page, Topbar } from '../components/AppShell';
@@ -15,6 +15,7 @@ import { useResource } from '../hooks/useResource';
 import { usePropertyId, useSession } from '../session/SessionProvider';
 import { AddUserDialog } from './AddUserDialog';
 import { UserEmailDialog } from './UserEmailDialog';
+import { UserMoreMenu } from './UserMoreMenu';
 
 /** Roles the owner can assign here – "owner" itself is granted by the tech team only (H07 7.1b `[GIẢ ĐỊNH UXD]`). */
 const ASSIGNABLE: Role[] = [
@@ -61,7 +62,28 @@ export function rolesNeedS2(
 type Pending =
   | { kind: 'roles'; user: User; roles: Role[] }
   | { kind: 'lock'; user: User }
-  | { kind: 'reset'; user: User };
+  | { kind: 'reset'; user: User }
+  | { kind: 'reset2fa'; user: User };
+
+/** `resetUser2fa` body: `reason` 3–300 characters after trim (mfa.controller `resetSchema`). */
+const REASON_MIN = 3;
+const REASON_MAX = 300;
+
+/**
+ * BUG-R4-023: an address breaks only right after "@" (never "qa.owner@example / .test"). Each half keeps to one
+ * line (`.nowrap`); `<wbr>` is the one place the browser may wrap.
+ */
+export function EmailText({ value }: { value: string }) {
+  const at = value.lastIndexOf('@');
+  if (at <= 0) return <span className="mono nowrap">{value}</span>;
+  return (
+    <span className="mono">
+      <span className="nowrap">{value.slice(0, at + 1)}</span>
+      <wbr />
+      <span className="nowrap">{value.slice(at + 1)}</span>
+    </span>
+  );
+}
 
 /** H07 7.1 – users & roles (owner only, US-002). Changes revoke the person's sessions at once. */
 export function UsersPage() {
@@ -79,6 +101,9 @@ export function UsersPage() {
   const [adding, setAdding] = useState(false);
   /** v1.0.3 BUG-R3-032: security email of someone else (owner only, S2 + If-Match). */
   const [emailOf, setEmailOf] = useState<User | null>(null);
+  /** v1.0.4 BUG-R4-020: reason for "Đặt lại xác thực 2 bước" (audit `mfa.reset_by_owner`). */
+  const [reason, setReason] = useState('');
+  const [reasonError, setReasonError] = useState<string | undefined>();
   // US-008 AC3: only the owner sees "Thêm người dùng" (the API answers 403 A100 to anyone else).
   const isOwner = session.roles.includes('owner');
 
@@ -102,6 +127,16 @@ export function UsersPage() {
     } else if (p.kind === 'lock') {
       const status = p.user.status === 'active' ? 'disabled' : 'active';
       replace((await api.updateUser(p.user.id, { status, reauth }, p.user.version)).data);
+    } else if (p.kind === 'reset2fa') {
+      // 204, no body: one Idempotency-Key per confirm, resent as is on a dropped connection (app/email).
+      await sendWithOneKey((key) =>
+        api.resetUser2fa(p.user.id, { reauth: reauth!, reason: reason.trim() }, key),
+      );
+      replace({ ...p.user, mfaEnabled: false, mfaRecoveryCodesRemaining: undefined });
+      reload();
+      toast(t('users.reset_2fa_done', { name: p.user.displayName }));
+      setPending(null);
+      return;
     } else {
       const value = generateTempPassword();
       replace(
@@ -117,7 +152,9 @@ export function UsersPage() {
     const fe = fieldErrors(t, err);
     setError(Object.values(fe)[0] ?? problemView(t, err).text);
     setPending(null);
-    if (isApiError(err) && err.code === 'VERSION_CONFLICT') reload();
+    // VERSION_CONFLICT: someone changed the person; INVALID_TRANSITION: 2FA was already off (reset elsewhere).
+    if (isApiError(err) && (err.code === 'VERSION_CONFLICT' || err.code === 'INVALID_TRANSITION'))
+      reload();
   };
 
   /** Confirm-only path (role changes that add no owner/manager). */
@@ -142,6 +179,22 @@ export function UsersPage() {
       if (isStrongReauthError(err)) throw err;
       fail(err);
     }
+  };
+
+  const open = (p: Pending) => {
+    setError(null);
+    if (p.kind === 'reset2fa') {
+      setReason('');
+      setReasonError(undefined);
+    }
+    setPending(p);
+  };
+
+  /** Checked before the factors are sent (StrongReauthDialog `validate`). */
+  const reasonOk = () => {
+    const ok = reason.trim().length >= REASON_MIN;
+    setReasonError(ok ? undefined : t('field_error.reason_required'));
+    return ok;
   };
 
   const statusChip = (u: User) =>
@@ -219,7 +272,7 @@ export function UsersPage() {
                         <td className="users-email">
                           <div>
                             {u.email ? (
-                              <span className="mono">{u.email}</span>
+                              <EmailText value={u.email} />
                             ) : needsEmail(u) ? (
                               // Owner/manager: the server reminds these roles too (Me.securityEmailMissing).
                               <Chip tone="warn">{t('users.email_none')}</Chip>
@@ -274,22 +327,22 @@ export function UsersPage() {
                           </Button>
                           {!self ? (
                             <>
-                              <Button
-                                size="sm"
-                                variant="ghost"
+                              {u.status !== 'active' ? (
+                                <Button
+                                  size="sm"
+                                  disabled={!online}
+                                  aria-label={`${t('users.unlock')}: ${u.displayName}`}
+                                  onClick={() => open({ kind: 'lock', user: u })}
+                                >
+                                  {t('users.unlock')}
+                                </Button>
+                              ) : null}
+                              {/* BUG-R4-020: Đặt lại mật khẩu, Khóa tài khoản, Đặt lại xác thực 2 bước. */}
+                              <UserMoreMenu
+                                user={u}
                                 disabled={!online}
-                                onClick={() => setPending({ kind: 'reset', user: u })}
-                              >
-                                {t('users.reset_pw')}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                disabled={!online}
-                                onClick={() => setPending({ kind: 'lock', user: u })}
-                              >
-                                {u.status === 'active' ? t('users.lock') : t('users.unlock')}
-                              </Button>
+                                onPick={(kind) => open({ kind, user: u })}
+                              />
                             </>
                           ) : null}
                         </div>
@@ -304,6 +357,7 @@ export function UsersPage() {
         <p className="li-s" style={{ marginTop: 10 }}>
           {t('users.roles_effect')}
         </p>
+        {isOwner ? <p className="li-s">{t('users.more_help')}</p> : null}
       </Page>
 
       {editing ? (
@@ -367,7 +421,9 @@ export function UsersPage() {
                 ? pending.user.status === 'active'
                   ? t('users.lock_title', { name: pending.user.displayName })
                   : t('users.unlock')
-                : t('users.reset_pw_title', { name: pending.user.displayName })
+                : pending.kind === 'reset2fa'
+                  ? `${t('users.reset_2fa')} – ${pending.user.displayName}`
+                  : t('users.reset_pw_title', { name: pending.user.displayName })
           }
           confirmLabel={
             pending.kind === 'roles'
@@ -376,19 +432,48 @@ export function UsersPage() {
                 ? pending.user.status === 'active'
                   ? t('users.lock')
                   : t('users.unlock')
-                : t('users.reset_pw')
+                : pending.kind === 'reset2fa'
+                  ? t('users.reset_2fa')
+                  : t('users.reset_pw')
           }
-          danger={pending.kind === 'lock' && pending.user.status === 'active'}
+          danger={
+            (pending.kind === 'lock' && pending.user.status === 'active') ||
+            pending.kind === 'reset2fa'
+          }
+          validate={pending.kind === 'reset2fa' ? reasonOk : undefined}
           onClose={() => setPending(null)}
           onConfirm={(reauth) => runS2(pending, reauth)}
         >
-          {pending.kind === 'roles'
-            ? t('users.roles_confirm_body')
-            : pending.kind === 'lock'
-              ? pending.user.status === 'active'
-                ? t('users.lock_body')
-                : null
-              : t('users.reset_pw_body')}
+          {pending.kind === 'roles' ? (
+            t('users.roles_confirm_body')
+          ) : pending.kind === 'lock' ? (
+            pending.user.status === 'active' ? (
+              t('users.lock_body')
+            ) : null
+          ) : pending.kind === 'reset2fa' ? (
+            <div className="stack">
+              <p>{t('users.reset_2fa_confirm', { name: pending.user.displayName })}</p>
+              <Field label={t('users.reset_2fa_reason')} required error={reasonError}>
+                {(p) => (
+                  <textarea
+                    {...p}
+                    className="input"
+                    name="reason"
+                    rows={2}
+                    maxLength={REASON_MAX}
+                    value={reason}
+                    onChange={(e) => {
+                      setReason(e.target.value);
+                      if (reasonError && e.target.value.trim().length >= REASON_MIN)
+                        setReasonError(undefined);
+                    }}
+                  />
+                )}
+              </Field>
+            </div>
+          ) : (
+            t('users.reset_pw_body')
+          )}
         </StrongReauthDialog>
       ) : pending ? (
         <ConfirmDialog

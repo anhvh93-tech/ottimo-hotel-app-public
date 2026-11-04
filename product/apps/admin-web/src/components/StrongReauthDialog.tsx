@@ -43,6 +43,11 @@ export interface StrongReauthDialogProps {
   children?: ReactNode;
   confirmLabel: string;
   danger?: boolean;
+  /**
+   * v1.0.4: the caller's own fields inside `children` (e.g. the reason of `resetUser2fa`). Called on every confirm
+   * together with the factor check; `false` keeps the dialog open and sends nothing. The caller shows its errors.
+   */
+  validate?: () => boolean;
   onClose: () => void;
   /**
    * Runs the S2 operation with the factors (OpenAPI 0.3.8 `StrongReauth`, sent inside THAT request – no
@@ -70,6 +75,7 @@ function StrongReauthInner({
   children,
   confirmLabel,
   danger,
+  validate,
   onClose,
   onConfirm,
 }: StrongReauthDialogProps) {
@@ -98,7 +104,8 @@ function StrongReauthInner({
     if (!password) next.password = t('common.required');
     if (hasMfa && !value) next.code = t('common.required');
     setErrors(next);
-    if (next.password || next.code) return;
+    const ownOk = validate ? validate() : true;
+    if (next.password || next.code || !ownOk) return;
     const reauth: StrongReauth = { password };
     if (hasMfa) {
       if (useRecovery) reauth.recoveryCode = value;
@@ -123,7 +130,8 @@ function StrongReauthInner({
         pwRef.current?.focus();
       } else if (isStrongReauthError(err)) {
         setFailed(true);
-        setBanner(t('reauth.s2_failed'));
+        // BUG-R4-024: without a code field the sentence speaks of the password only.
+        setBanner(t(hasMfa ? 'reauth.s2_failed' : 'reauth.s2_failed_password'));
         pwRef.current?.focus();
       } else {
         setBanner(problemView(t, err).text);
