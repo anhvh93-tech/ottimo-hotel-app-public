@@ -235,6 +235,12 @@ export function ReservationDrawer({
   const chName = r ? channelName(catalog.channels, r.channelCode, r.channelId) : '';
   const ota = catalog.channels.find((c) => c.id === r?.channelId)?.channelGroup === 'ota';
   const left = r?.status === 'hold' ? remaining(r.hold?.expiresAt, now) : null;
+  // v1.0.4 BUG-R3-042/044 (BR-303 (1), DOM A.6): a hold with money received is NOT cancelled at its deadline – the
+  // desk records the rest (or a manager accepts the shortfall) until check-in. A hold with nothing received is
+  // cancelled by J1, so after its deadline the desk is not offered a deposit the server refuses (`HOLD_EXPIRED`).
+  const holdPaid = r?.status === 'hold' ? (r.depositPaidVnd ?? 0) : 0;
+  const holdOverdue = !!left && left.ms <= 0;
+  const canConfirmDeposit = allowed.has('confirm_deposit') && !(holdOverdue && holdPaid <= 0);
 
   const [changed, setChanged] = useState<ReservationStatus | null>(null);
   const base = r
@@ -317,7 +323,7 @@ export function ReservationDrawer({
           {t('drawer.action.deposit_notice')}
         </Button>
       ) : null}
-      {allowed.has('confirm_deposit') ? (
+      {canConfirmDeposit ? (
         <Button variant="pri" onClick={() => setOpen('deposit')}>
           {t('drawer.action.confirm_deposit')}
         </Button>
@@ -479,7 +485,27 @@ export function ReservationDrawer({
                   at: `${timeHHmm(new Date(r.hold!.expiresAt!))} ${dayMonth(r.hold!.expiresAt!.slice(0, 10))}`,
                 })}
               >
-                {t('rsv.hold_auto')}
+                {/* BUG-R3-044: only a hold with nothing received is cancelled at its deadline; one with money is
+                    kept past it (FB-R4-UXD-FE-P440-03) – said before the deadline, while the guest can still pay. */}
+                {holdPaid > 0
+                  ? t('rsv.hold_paid_keep', {
+                      paid: money(holdPaid),
+                      required: money(r.depositRequiredVnd ?? 0),
+                    })
+                  : t('rsv.hold_auto')}
+              </Alert>
+            ) : holdPaid > 0 ? (
+              // BUG-R3-044 (1), BA M13-03: past its deadline WITH money – not cancelled, the room is still held;
+              // the desk records the rest, a manager accepts the shortfall, or cancels and refunds (BR-303).
+              <Alert tone="bad" icon="hourglass" role="status">
+                {t('hold.paid_overdue_banner', {
+                  time: dateTime(r.hold?.expiresAt),
+                  paid: money(holdPaid),
+                  required: money(r.depositRequiredVnd ?? 0),
+                  // P4-01 r2: the decision cut-off is the property rule, never a written-in 12:00.
+                  cutoff: rules.holdLatestTime,
+                  date: dayMonth(r.arrivalDate),
+                })}
               </Alert>
             ) : (
               <Alert tone="bad">
@@ -545,10 +571,9 @@ export function ReservationDrawer({
             </dd>
           </dl>
 
-          {/* A22a: online check-in link before arrival (FD+). */}
-          {fd && online && (r.status === 'hold' || r.status === 'confirmed') ? (
-            <GuestLinkPanel reservation={r} />
-          ) : null}
+          {/* A22a: online check-in link before arrival (FD+). BUG-R3-047: the server issues it for `confirmed` /
+              `in_house` only (EP06 8.2) – never offered on a hold. */}
+          {fd && online && r.status === 'confirmed' ? <GuestLinkPanel reservation={r} /> : null}
           {r.status === 'in_house' && fd ? (
             <dl className="dl mt-12">
               <dt>{t('stay.checkout_time')}</dt>
