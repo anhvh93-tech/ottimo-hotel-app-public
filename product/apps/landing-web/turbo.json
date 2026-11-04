@@ -12,6 +12,9 @@
         "PUBLIC_FORM_API_BASE"
       ]
     },
+    "typecheck": {
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/api-client/src/generated/openapi.ts"]
+    },
     "test": {
       "dependsOn": ["^build", "build"],
       "env": [
