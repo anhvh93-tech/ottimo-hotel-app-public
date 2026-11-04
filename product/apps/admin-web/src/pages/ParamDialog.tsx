@@ -1,7 +1,7 @@
-import { isApiError, type Parameter } from '@ottimo/api-client';
+import { isApiError, newIdempotencyKey, type Parameter } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
-import { Alert, Button, Chip, Field, Modal, Seg } from '@ottimo/ui';
-import { useId, useState, type FormEvent } from 'react';
+import { Alert, Button, Chip, ConfirmDialog, Field, Modal, Seg } from '@ottimo/ui';
+import { useId, useRef, useState, type FormEvent } from 'react';
 import { api } from '../app/api';
 import { useBusinessDay, useBusinessDayChange } from '../app/businessDay';
 import { parseVnd } from '../app/money';
@@ -9,8 +9,9 @@ import { fieldErrors, problemView } from '../app/problem';
 import { useToast } from '../app/toast';
 import { useOnline } from '../hooks/useOnline';
 import { useResource } from '../hooks/useResource';
-import { usePropertyId } from '../session/SessionProvider';
-import { SECURITY_BOUNDS, UNIT_KEY, paramLabel, paramMeta } from './paramCatalog';
+import { usePropertyId, useSession } from '../session/SessionProvider';
+import { SECURITY_BOUNDS, UNIT_KEY, editorsOf, paramLabel, paramMeta } from './paramCatalog';
+import { RECEIVING_KEY } from './ReceivingAccount';
 
 type T = (key: string, args?: Record<string, string | number>) => string;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -40,20 +41,28 @@ export function formatParamValue(t: T, p: Pick<Parameter, 'key' | 'value'>): str
 
 type Kind = 'options' | 'number' | 'time' | 'json';
 
-/** H05 5.2 – add a new effective-dated value (never edits the past – US-005 AC1) + history. */
+/**
+ * H05 5.2 – add a new effective-dated value (never edits the past – US-005 AC1) + history.
+ * v1.0.4 P4-34: a row not yet in force can be cancelled here (`cancelScheduledParameter`, same rights as
+ * `setParameter` per key). The receiving account is excluded – it needs S2 and has its own section.
+ */
 export function ParamDialog({
   param,
   options,
   onClose,
   onSaved,
+  onChanged,
 }: {
   param: Parameter;
   options?: unknown;
   onClose: () => void;
   onSaved: () => void;
+  /** A scheduled row was cancelled – the dialog stays open; the page refreshes its list. */
+  onChanged?: () => void;
 }) {
   const { t, date, dateTime } = useI18n();
   const propertyId = usePropertyId();
+  const session = useSession();
   const toast = useToast();
   const { online } = useOnline();
   const ids = useId();
@@ -94,6 +103,10 @@ export function ParamDialog({
     async () => (await api.getParameterHistory({ propertyId, key: param.key })).data.history,
     [propertyId, param.key],
   );
+
+  const [cancelling, setCancelling] = useState<Parameter | null>(null);
+  const mayCancel =
+    param.key !== RECEIVING_KEY && editorsOf(param).some((r) => session.roles.includes(r));
 
   const dirty = text !== initialText || reason !== '' || effectiveFrom !== initialFrom;
 
@@ -164,6 +177,7 @@ export function ParamDialog({
       ? t('params.allowed', { values: choices.join(', ') })
       : undefined;
   const rows = history.state.data ?? [];
+  const cancelColumn = mayCancel && rows.some((h) => h.effectiveFrom > today);
 
   return (
     <Modal
@@ -302,6 +316,11 @@ export function ParamDialog({
                     {t('params.h_new')}
                   </th>
                   <th scope="col">{t('params.reason')}</th>
+                  {cancelColumn ? (
+                    <th scope="col">
+                      <span className="sr-only">{t('rooms.col_action')}</span>
+                    </th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
@@ -323,6 +342,21 @@ export function ParamDialog({
                     <td className="r">{rows[i + 1] ? formatParamValue(t, rows[i + 1]!) : '–'}</td>
                     <td className="r">{formatParamValue(t, h)}</td>
                     <td>{h.reason ?? ''}</td>
+                    {cancelColumn ? (
+                      <td>
+                        {h.effectiveFrom > today ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={!online}
+                            aria-label={`${t('rcv.cancel_scheduled')}: ${date(h.effectiveFrom)}`}
+                            onClick={() => setCancelling(h)}
+                          >
+                            {t('rcv.cancel_scheduled')}
+                          </Button>
+                        ) : null}
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -330,6 +364,124 @@ export function ParamDialog({
           </div>
         )}
       </form>
+      {cancelling ? (
+        <CancelScheduledParamDialog
+          row={cancelling}
+          name={name}
+          onClose={() => setCancelling(null)}
+          onStale={history.reload}
+          onDone={() => {
+            setCancelling(null);
+            history.reload();
+            toast(t('params.cancelled', { name }));
+            onChanged?.();
+          }}
+        />
+      ) : null}
     </Modal>
+  );
+}
+
+/**
+ * C16 confirm for `cancelScheduledParameter` (no S2 for these keys – the server asks it only for
+ * `payment_receiving_account`). 404/409 = the row is gone or already in force: say so in the box, lock the
+ * confirm button and refresh the table (pattern of RoomDrawer's scheduled price cancel).
+ */
+function CancelScheduledParamDialog({
+  row,
+  name,
+  onClose,
+  onDone,
+  onStale,
+}: {
+  row: Parameter;
+  name: string;
+  onClose: () => void;
+  onDone: () => void;
+  /** The row is gone or already in force (404/409): refresh the history, keep the message on screen. */
+  onStale: () => void;
+}) {
+  const { t, date } = useI18n();
+  const propertyId = usePropertyId();
+  const { online } = useOnline();
+  const [reason, setReason] = useState('');
+  const [reasonError, setReasonError] = useState<string | undefined>();
+  const [banner, setBanner] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [locked, setLocked] = useState(false);
+  // A retry after a network error / 5xx resends the same request (same key); any other answer ends it.
+  const idem = useRef(newIdempotencyKey());
+
+  const confirm = async () => {
+    if (locked) return;
+    if (reason.trim().length < 3) {
+      setReasonError(t('field_error.reason_required'));
+      return;
+    }
+    setReasonError(undefined);
+    setBanner(null);
+    setBusy(true);
+    const day = date(row.effectiveFrom);
+    try {
+      await api.cancelScheduledParameter(
+        { propertyId, key: row.key },
+        { effectiveFrom: row.effectiveFrom, reason: reason.trim() },
+        idem.current,
+      );
+      onDone();
+    } catch (err) {
+      if (!isApiError(err) || err.isNetwork || err.status >= 500) {
+        setBanner(problemView(t, err).text);
+        return;
+      }
+      idem.current = newIdempotencyKey();
+      if (err.code === 'VALIDATION_FAILED') {
+        const field = fieldErrors(t, err);
+        if (field.reason) setReasonError(field.reason);
+        else setBanner(problemView(t, err).text);
+      } else if (err.code === 'INVALID_TRANSITION' || err.code === 'NOT_FOUND') {
+        setLocked(true);
+        setBanner(
+          err.code === 'NOT_FOUND'
+            ? t('params.cancel_gone', { date: day })
+            : t('params.cancel_effective', { date: day }),
+        );
+        onStale();
+      } else {
+        setBanner(problemView(t, err).text);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ConfirmDialog
+      title={t('params.cancel_title')}
+      body={t('params.cancel_body', {
+        value: formatParamValue(t, row),
+        date: date(row.effectiveFrom),
+        name,
+      })}
+      keepLabel={t('confirm.keep')}
+      confirmLabel={t('rcv.cancel_scheduled')}
+      busy={busy}
+      confirmDisabled={!online || locked}
+      onKeep={onClose}
+      onConfirm={confirm}
+    >
+      {banner ? <Alert tone="bad">{banner}</Alert> : null}
+      <Field label={t('params.reason')} required error={reasonError}>
+        {(p) => (
+          <input
+            {...p}
+            className="input"
+            maxLength={500}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        )}
+      </Field>
+    </ConfirmDialog>
   );
 }

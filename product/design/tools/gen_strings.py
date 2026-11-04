@@ -3335,6 +3335,17 @@ g("R3 Sprint 1 – FE-A R3-Q51: tài khoản nhận chuyển khoản VietQR (ch�
     ("rcv.reason_no_account", "Lý do không được chứa số tài khoản hoặc dãy từ 6 chữ số trở lên.", "The reason can't contain an account number or a run of 6 or more digits.", None, "422 reason ACCOUNT_NUMBER_NOT_ALLOWED (BE-B cf0ce2f); Desk kiểm trước khi gửi"),
 ])
 
+# v1.0.4 P4-34 – FE: hủy dòng tham số đã lên lịch ngay trong hộp Sửa tham số (H05 5.2, cancelScheduledParameter).
+# Dùng lại: rcv.cancel_scheduled (nút "Hủy lịch" trên dòng Chưa hiệu lực và nút xác nhận), confirm.keep, params.reason,
+# field_error.reason_required, params.not_yet. Sổ tay ngày thay tờ quyền riêng tư (privacy_notice_version) gọi đúng nhãn nút này.
+g("v1.0.4 P4-34 – FE: hủy tham số đã lên lịch trong hộp Sửa tham số. FE viết theo content guide + brand OTTIMO (ngắn, điềm tĩnh, không emoji). **Chờ UXD duyệt**", [
+    ("params.cancel_title", "Hủy giá trị đã lên lịch?", "Cancel the scheduled value?", None, "Tiêu đề hộp xác nhận C16; nút xác nhận dùng rcv.cancel_scheduled, nút an toàn confirm.keep"),
+    ("params.cancel_body", "{value} từ {date} sẽ không áp dụng. Giá trị đang dùng giữ nguyên.", "{value} from {date} will not apply. The value in use stays the same.", None, "{value} = giá trị đã định dạng như cột Mới; {date} = ngày hiệu lực. Có sẵn {name} nếu UXD muốn nêu tên tham số"),
+    ("params.cancelled", "Đã hủy lịch đổi {name}.", "The scheduled change to {name} was cancelled.", None, "Toast sau 204; {name} = tên tham số như tiêu đề hộp Sửa"),
+    ("params.cancel_effective", "Giá trị từ {date} đã bắt đầu áp dụng nên không hủy lịch được nữa. Muốn đổi, lưu giá trị mới.", "The value from {date} has already taken effect, so it can't be cancelled. To change it, save a new value.", None, "409 INVALID_TRANSITION (ngày kinh doanh đã sang); thay error.INVALID_TRANSITION vốn nói về \"Đơn\". Mẫu rooms.cancel_sched_effective"),
+    ("params.cancel_gone", "Lịch từ {date} không còn – có thể người khác vừa hủy. Lịch sử đã tải lại.", "The change scheduled from {date} is no longer there – someone may have just cancelled it. The history has been reloaded.", None, "404 NOT_FOUND. Mẫu rooms.cancel_sched_gone"),
+])
+
 g("R3 – FE-A BUG-R3-001 (R3-Q25): xóa công nợ xin mật khẩu người xin. **Chờ UXD duyệt**", [
     ("debt.write_off_reauth_help", "Xóa công nợ cần nhập lại mật khẩu đăng nhập của bạn.", "Writing off a debt needs your sign-in password again.", None, "R3-Q25 (FB-R2-SEC-BE-82 (b)) – người xin xác thực lại như người duyệt (S1); nhãn ô dùng ci.stepup_label"),
 ])

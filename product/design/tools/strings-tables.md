@@ -3441,6 +3441,16 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `rcv.reason_help` | Không ghi số tài khoản vào lý do. | Don't put the account number in the reason. | ⟨chừa chỗ⟩ | SEC FB-R3-SEC-Q51-01 – gợi ý dưới ô lý do (đặt và hủy) |
 | `rcv.reason_no_account` | Lý do không được chứa số tài khoản hoặc dãy từ 6 chữ số trở lên. | The reason can't contain an account number or a run of 6 or more digits. | ⟨chừa chỗ⟩ | 422 reason ACCOUNT_NUMBER_NOT_ALLOWED (BE-B cf0ce2f); Desk kiểm trước khi gửi |
 
+#### v1.0.4 P4-34 – FE: hủy tham số đã lên lịch trong hộp Sửa tham số. FE viết theo content guide + brand OTTIMO (ngắn, điềm tĩnh, không emoji). **Chờ UXD duyệt**
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `params.cancel_title` | Hủy giá trị đã lên lịch? | Cancel the scheduled value? | ⟨chừa chỗ⟩ | Tiêu đề hộp xác nhận C16; nút xác nhận dùng rcv.cancel_scheduled, nút an toàn confirm.keep |
+| `params.cancel_body` | {value} từ {date} sẽ không áp dụng. Giá trị đang dùng giữ nguyên. | {value} from {date} will not apply. The value in use stays the same. | ⟨chừa chỗ⟩ | {value} = giá trị đã định dạng như cột Mới; {date} = ngày hiệu lực. Có sẵn {name} nếu UXD muốn nêu tên tham số |
+| `params.cancelled` | Đã hủy lịch đổi {name}. | The scheduled change to {name} was cancelled. | ⟨chừa chỗ⟩ | Toast sau 204; {name} = tên tham số như tiêu đề hộp Sửa |
+| `params.cancel_effective` | Giá trị từ {date} đã bắt đầu áp dụng nên không hủy lịch được nữa. Muốn đổi, lưu giá trị mới. | The value from {date} has already taken effect, so it can't be cancelled. To change it, save a new value. | ⟨chừa chỗ⟩ | 409 INVALID_TRANSITION (ngày kinh doanh đã sang); thay error.INVALID_TRANSITION vốn nói về "Đơn". Mẫu rooms.cancel_sched_effective |
+| `params.cancel_gone` | Lịch từ {date} không còn – có thể người khác vừa hủy. Lịch sử đã tải lại. | The change scheduled from {date} is no longer there – someone may have just cancelled it. The history has been reloaded. | ⟨chừa chỗ⟩ | 404 NOT_FOUND. Mẫu rooms.cancel_sched_gone |
+
 #### R3 – FE-A BUG-R3-001 (R3-Q25): xóa công nợ xin mật khẩu người xin. **Chờ UXD duyệt**
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
