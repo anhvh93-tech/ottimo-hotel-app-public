@@ -18,7 +18,7 @@
 | Đầu nhánh | commit chứa biên bản này (SHA báo trong kết quả trả ORC) |
 | Migration LP-v2 | **0092** `0092_lp_v2_price_estimate_locales` (journal idx **68**, `when` **1792782173681** = 0091 + 2000) |
 | OpenAPI | **0.3.11-draft** (LP-v2; trên nhánh `lp-v2` là 0.3.10-draft) |
-| Nhãn thông báo dữ liệu | **`2026-11-01` – nhãn TẠM của LP-v2, giữ nguyên.** SEC chốt nhãn thật (P3) |
+| Nhãn thông báo dữ liệu | Lúc gộp: `2026-11-01` (nhãn TẠM của LP-v2). **SEC đã chốt `2026-11-04`** (`reviews/SEC-on-lp-v2-main.md` mục 2); FE-B đổi `VERSION` + 3 chỗ test (FB-R4-SEC-LPV2M-02) |
 
 Băm (sha256):
 
@@ -67,8 +67,8 @@ Gộp tự động nhưng ARC sửa thêm cho đúng số mới (chỉ chú thí
   - ko `이 서비스는 해당 내용을 자체 개인정보 처리방침에 따라 처리하며, 서버는 베트남 밖에 있을 수 있습니다.`
   - zh `该服务按其自身的隐私政策处理这些内容，其服务器可能位于越南境外。`
   - ru `Этот сервис обрабатывает такой текст в соответствии со своей политикой конфиденциальности, и его серверы могут находиться за пределами Вьетнама.`
-- Đầu tệp: giữ phần LP-v2 (một version cho 5 ngôn ngữ, thẻ meta, `data-notice-version`), thêm câu ★2 (`CHAT_DETAILS_MIN_NOTICE_VERSION` = `2026-10-31`, api giữ nguyên) và ghi nguồn chữ.
-- **Nhãn: giữ `VERSION = '2026-11-01'` (nhãn tạm của LP-v2).** Lý do: lớn hơn `2026-10-31` (SEC D2/FB-R4-SEC-FE-02, `deploy-landing.sh` từ chối version cũ hơn bản đã đăng), ≥ `CHAT_DETAILS_MIN_NOTICE_VERSION`. `form-live.landing.spec.ts` theo nhãn này. **SEC chốt nhãn thật** rồi FE-B đổi một chỗ (`VERSION`) + `NOTICE_VERSION` của spec + `consentVersion` trong 2 test landing, chạy lại `check:dist`.
+- Đầu tệp: giữ phần LP-v2 (một version cho 5 ngôn ngữ, thẻ meta, `data-notice-version`), thêm câu ★2 và ghi nguồn chữ. *(Sửa 04/11 theo SEC LPV2M-01: câu ★2 lúc gộp ghi "`CHAT_DETAILS_MIN_NOTICE_VERSION` = `2026-10-31`, api giữ nguyên" là **sai** – hằng phải thành `2026-11-04`, xem mục 7 P4.)*
+- **Nhãn lúc gộp: giữ `VERSION = '2026-11-01'` (nhãn tạm của LP-v2)**, lớn hơn `2026-10-31` (SEC D2/FB-R4-SEC-FE-02, `deploy-landing.sh` từ chối version cũ hơn bản đã đăng). `form-live.landing.spec.ts` theo nhãn này. **SEC đã chốt `2026-11-04`** (04/11): FE-B đổi `VERSION` + `NOTICE_VERSION` của spec + `consentVersion` trong 2 test landing, chạy lại `check:dist` (FB-R4-SEC-LPV2M-02). *(Câu cũ "≥ `CHAT_DETAILS_MIN_NOTICE_VERSION`" đã bỏ: cổng Chat không so chữ version – mục 7 P4.)*
 - `en.ts`/`vi.ts`: `consentMore` "from our server" / "khỏi máy chủ của OTTIMO" (Δ6 của PR #21); `vi.ts` giữ "Nhắn Zalo" / "Nhắn " của LP-v2 (CPY 13.1).
 - `privacy.test.ts`: kỳ vọng Δ5 5 ngôn ngữ theo chữ SEC cuối (trước là L3).
 - Font zh: câu zh mới có chữ Hán chưa có trong tệp cắt (`身`…) → `brand.test` + `dist-checks` đỏ. Chạy đúng quy trình `build:booking-preview` → `sync:fonts:cjk` → `build:booking-preview` (nguồn font lấy từ bộ đệm `.font-src` đã kiểm integrity ở worktree khác, cùng phiên bản ghim). 4 tệp `fonts/zh/ottimo-sans-zh-*.woff2` + `fonts-zh.css` sinh lại; ko không đổi.
@@ -80,7 +80,8 @@ Gộp tự động nhưng ARC sửa thêm cho đúng số mới (chỉ chú thí
 Postgres 17 tạm riêng (container `ottimo-arc-lpv2-pg`, cổng `127.0.0.1:55492`, mật khẩu tạm chỉ cho lượt này, vai dựng bằng `infra/postgres/init/02-roles.sh`). Không đụng staging/production.
 
 1. DB `ottimo_prodsim`: chạy migrator (ottimo_migrator → SET ROLE ottimo_owner) với **thư mục migration của `origin/main`** (`git archive`) → 68 dòng `drizzle.__drizzle_migrations`.
-2. Thêm dữ liệu giả hình dạng production (bằng superuser, bỏ FK): 5 dòng `privacy_notice_version` (`2026-10-24` en/vi đã thay, `2026-10-31` en/vi/ru đang hiệu lực), 30 dòng `website_booking_request` locale vi/en/ru, đã xóa C2.
+2. Thêm dữ liệu giả (bằng superuser, bỏ FK): 5 dòng `privacy_notice_version` (`2026-10-24` en/vi đã thay, `2026-10-31` en/vi/ru đang hiệu lực), 30 dòng `website_booking_request` locale vi/en/ru, đã xóa C2.
+   - *Ghi chú 04/11 (SEC LPV2M-04):* dữ liệu thông báo này **không** giống production. Production thật chỉ có `2026-10-24` en/vi đang hiệu lực (`2026-10-31` chưa bao giờ đăng – P4). Kết luận về 0092 không đổi vì 0092 không đụng các dòng `privacy_notice_version` (chỉ nới CHECK locale, thêm cột NULL, thêm khóa tham số). Lượt diễn tập trên staging phải dùng đúng trạng thái `2026-10-24` en/vi rồi đăng `2026-11-04` (en vi ko zh ru), thấy supersede `2026-10-24` (en), (vi).
 3. Chạy migrator với thư mục của `lp-v2-main` → chỉ 0092 chạy, **~0,2 giây** cả khởi động node. Sau đó: 69 migration, `max(created_at)` = 1792782173681; CHECK locale 2 bảng = `vi, en, ru, ko, zh`; `website_booking_request_price_estimate_check` có; 30/30 dòng giữ, `price_estimate` NULL; 5/5 dòng thông báo giữ (2 `superseded_at`); trigger `privacy_notice_version_append_only` + `_no_truncate` còn; khóa `public_show_prices` = `false` (`{owner}`), `web_estimate.open_until` = `"2027-01-01"` (`{owner,manager}`).
 4. Kết luận: 0092 **chỉ nới + thêm cột NULL + thêm khóa `ON CONFLICT DO NOTHING`**; khóa ngắn (ALTER TABLE trên 2 bảng nhỏ), không đổi dữ liệu, không đụng `app_user`/`user_email_change` của 0091. Quay lui app về v1.0.3 không cần lùi DB (v1.0.3 không đọc cột/khóa mới; locale ko/zh chỉ có khi `LANDING_LOCALES` mở). `public_show_prices` mặc định `false` → route giá 404 tới khi OWN bật.
 
@@ -129,7 +130,7 @@ CI: workflow `CI` chỉ tự chạy khi push `main` hoặc có PR. ARC kích ho�
 - Vị trí: `apps/landing-web/src/content/privacy.ts` `VERSION`
 - Vấn đề: nhãn tạm `2026-11-01`. Luật sư xong (04/11), INV bỏ bước người bản xứ (04/11) → không còn lý do chờ.
 - Đề xuất sửa: SEC chốt nhãn (> `2026-10-31`, đề xuất ngày SEC ký chữ cuối), FE-B đổi `VERSION` + 3 chỗ test, `check:dist` + `pages.spec` chạy lại (P3, P11).
-- Trạng thái: Open
+- Trạng thái: Open → SEC đã chốt `2026-11-04` (04/11). Phần sửa mã theo dõi ở FB-R4-SEC-LPV2M-02 (FE-B); thẻ này Done cùng thẻ đó.
 
 ## 7. Điều kiện QC LP-v2 (M1–M8) – còn đúng không
 
@@ -144,7 +145,7 @@ CI: workflow `CI` chỉ tự chạy khi push `main` hoặc có PR. ARC kích ho�
 | M7 PR `lp-v2` → `main`, CI xanh trên commit gộp cuối | **Còn**: CI đã chạy tay trên `lp-v2-main`; ORC mở PR `lp-v2-main` → `main` khi INV đồng ý, CI PR phải xanh trên đúng đầu nhánh |
 | M8 thủ tục bug-list + decision-log | **Còn** (QA, ORC) |
 
-Điều kiện phát hành bị ảnh hưởng: **P1** INV bỏ (04/11); **P2** xong (luật sư, 04/11); **P3** nhãn thật – SEC (thẻ LPV2M-02); **P4** đổi nghĩa: `2026-10-31` sẽ **không** đăng riêng trên production; LP-v2 đăng một lượt nhãn mới cho 5 ngôn ngữ, en/vi cùng chữ `2026-10-31`. `CHAT_DETAILS_MIN_NOTICE_VERSION` = `2026-10-31` vẫn đúng (nhãn mới lớn hơn). QC/SEC xác nhận chấp nhận cách này (đề xuất ARC: chấp nhận – điều kiện P1–P6 của SEC notice-final mục 5 chuyển sang lượt đăng LP-v2). Các P khác không đổi.
+Điều kiện phát hành bị ảnh hưởng: **P1** INV bỏ (04/11); **P2** xong (luật sư, 04/11); **P3** nhãn thật – SEC (thẻ LPV2M-02); **P4** đổi nghĩa: `2026-10-31` sẽ **không** đăng riêng trên production; LP-v2 đăng một lượt nhãn `2026-11-04` cho 5 ngôn ngữ, en/vi cùng chữ `2026-10-31`, thay thẳng `2026-10-24`. **Vì vậy `CHAT_DETAILS_MIN_NOTICE_VERSION` phải đổi thành `2026-11-04`.** Cổng ★2 không so chữ version: nó lấy `published_at` của chính dòng mang nhãn hằng (`min(published_at) … WHERE version = <hằng>`). Dòng `2026-10-31` không bao giờ có trên production, nên nếu giữ hằng `2026-10-31` thì `min_at` là NULL và mọi tin Chat bị giữ ở mức A mãi, kể cả khi OPS đặt mức C (ESC-041 mất hiệu lực, chỉ có cờ `capped`). *(Sửa 04/11 theo FB-R4-SEC-LPV2M-01: câu cũ "hằng `2026-10-31` vẫn đúng vì nhãn mới lớn hơn" là sai. BE sửa hằng + test + `env.production.example`/README; không "sửa" bằng cách so chuỗi version.)* SEC đã chấp nhận đổi nghĩa P4 kèm điều kiện này; điều kiện P1–P6 của SEC notice-final mục 5 chuyển sang lượt đăng LP-v2, P5 thành "hằng = `2026-11-04` trên bản api đang chạy". Các P khác không đổi.
 
 ## 8. Việc review đề xuất cho từng vai
 
@@ -152,7 +153,7 @@ CI: workflow `CI` chỉ tự chạy khi push `main` hoặc có PR. ARC kích ho�
 |---|---|
 | **BE** | 0092 (SQL + snapshot + journal), `website-request-rules.ts` lấy bộ dò chung của `main` – chạy lại `lp-v2-be-units`, `lp-v2-price-estimate` (đã xanh trong bộ đủ); OpenAPI 0.3.11 changelog |
 | **FE (FE-A, FE-B)** | FE-B: `privacy.ts` (khối en/vi = PR #21, Δ5 ko/zh/ru, nhãn tạm), font zh sinh lại, `privacy.test.ts`; FE-A: chuỗi `guest.bill.line.room_*` "Room charge" trên Desk/bill, chú thích 0.3.10 → 0.3.11 (LPV2M-01) |
-| **SEC** | (1) chốt nhãn thông báo (LPV2M-02, P3); (2) xác nhận 3 câu Δ5 ko/zh/ru đúng mục 7; (3) `deploy-landing.sh` hợp hai quy tắc (mục 2 #15) + `ops-check` price dùng `cmd_failed`; (4) chấp nhận đổi nghĩa P4 |
+| **SEC** | (1) chốt nhãn thông báo (LPV2M-02, P3); (2) xác nhận 3 câu Δ5 ko/zh/ru đúng mục 7; (3) `deploy-landing.sh` hợp hai quy tắc (mục 2 #15) + `ops-check` price dùng `cmd_failed`; (4) chấp nhận đổi nghĩa P4 – **đã review 04/11: ĐẠT CÓ ĐK, nhãn `2026-11-04`, thẻ LPV2M-01..05** |
 | **OPS** | `ops-check.sh` lượt chạy đủ thêm 3 kiểm giá (vô hại khi chưa có route giá: pricelimit 0, pricegap 0, priceswitch lượt đầu đặt mốc), `deploy-landing.sh` + test 28 ca, README 12.3/13; runbook phát hành LP-v2 dùng tên tệp `0092_…` |
 | **QA** | CI PR xanh; ca "LP-v2 trơ" trên v1.0.4 (plan-v1.0.4 7.2); khi có staging: smoke P10 với chữ cuối; 1 ca rollback landing khi proxy mở |
 | **QC** | M1–M8 theo mục 7, ghi nhận M2/P4 đổi thứ tự, QC rút gọn khi đủ P |
@@ -161,5 +162,5 @@ CI: workflow `CI` chỉ tự chạy khi push `main` hoặc có PR. ARC kích ho�
 ## 9. Dọn dẹp, giả định, rủi ro
 
 - Dọn: container `ottimo-arc-lpv2-pg` + volume đã xóa; tệp tạm chỉ ở scratchpad; tệp `arc-tmp-migrate-folder.ts` đã xóa trước khi commit; `.font-src` gitignored.
-- Giả định: (1) giữ nhãn tạm `2026-11-01` là đúng ý ORC "để SEC chốt"; (2) `main` mới (`c6cd32a8`) gộp vào nhánh vì chỉ là tài liệu và lệnh ghi "origin/main đầu hiện tại"; (3) bản "Room charge" (UXD duyệt) thắng bản `main` cho bill khách.
+- Giả định: (1) giữ nhãn tạm `2026-11-01` là đúng ý ORC "để SEC chốt" (SEC đã chốt `2026-11-04` ngày 04/11); (2) `main` mới (`c6cd32a8`) gộp vào nhánh vì chỉ là tài liệu và lệnh ghi "origin/main đầu hiện tại"; (3) bản "Room charge" (UXD duyệt) thắng bản `main` cho bill khách.
 - Rủi ro: (a) gộp `lp-v2-main` vào `main` đưa mã máy chủ + Desk LP-v2 vào production v1.0.4 (plan-v1.0.4 2.1 ý 4) – trơ khi `LANDING_LOCALES=en,vi` và `public_show_prices=false`; (b) `deploy-landing.sh` chặt hơn LP-v2 thiết kế ở `--rollback` khi proxy mở (image thiếu en/vi bị từ chối) – theo đúng runbook quay lui (c): đóng proxy trước rồi mới quay lui; (c) chưa chạy job `docker-build`/E2E stack tại máy – chờ CI.
