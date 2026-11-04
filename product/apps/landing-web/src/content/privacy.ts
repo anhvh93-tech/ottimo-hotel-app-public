@@ -18,8 +18,8 @@
 // sentence (ESC-044 + INV 01/11 question 9: any Desk screen – SEC review of LP-v2 code section 3 (L3): read and reply, name, contact, stay details, message); ko/zh/ru = SEC sections 4–6 + translation precedence note
 // (Δ7). The page carries the version for machines too: <meta name="ottimo-notice-version"> (ARC D11) and
 // data-notice-version on the notice body (SEC SR-LC-04) – both from VERSION below, read by OPS publish-privacy-notice.
-// It is also CHAT_DETAILS_MIN_NOTICE_VERSION (SEC ★2): only requests sent under `2026-10-31` or later may carry
-// guest details to Google Chat – every LP-v2 label is later than that.
+// It is also CHAT_DETAILS_MIN_NOTICE_VERSION (SEC ★2, SEC-on-lp-v2-main FB-R4-SEC-LPV2M-01): only requests sent
+// under the first PUBLISHED notice naming Google Chat (`2026-11-04`) may carry guest details to Google Chat.
 // Merge lp-v2-main (ARC 04/11, rounds/round-04/outputs/ARC/lp-v2-main-merge.md): en/vi blocks = PR #21 (`2026-10-31`,
 // lawyer-reviewed per INV 04/11) character for character; ko/zh/ru Δ5 third sentence = SEC notice-2026-10-31-final 7.
 // Voice: Brand Guidelines (short, polite, calm; English leads, Vietnamese supports; no emoji).
@@ -52,10 +52,11 @@ export interface PrivacyCopy {
 }
 
 /**
- * TEMPORARY LABEL (nhãn tạm – SEC LP-v2 2.3 D2 "V3"): one version for en, vi, ko, zh, ru. SEC sets the final label (the
- * day the LP-v2 text is final, after the native-speaker review – later than `2026-10-31`) before OPS publishes it.
+ * Version 2026-11-04 (SEC rounds/round-04/reviews/SEC-on-lp-v2-main.md section 2): one version for en, vi, ko, zh, ru.
+ * en/vi = `2026-10-31` text (PR #21, lawyer-reviewed) – never published on its own (P4); ko/zh/ru Δ5 = notice-final 7.
+ * Never reuse a label for different text: any sentence change here or in consent/consentMore → a new label.
  */
-const VERSION = '2026-11-01';
+const VERSION = '2026-11-04';
 const { legal, contact, phone } = site;
 const email = contact.email;
 

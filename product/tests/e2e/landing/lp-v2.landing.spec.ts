@@ -505,7 +505,7 @@ for (const lang of ['ko', 'zh', 'ru'] as const) {
     await fillContact(page);
     await page.locator('#bk-submit').click();
     await expect(page.locator('#bk-done')).toBeVisible();
-    expect(m.posts[0]).toMatchObject({ locale: lang, consentVersion: '2026-11-01' });
+    expect(m.posts[0]).toMatchObject({ locale: lang, consentVersion: '2026-11-04' });
     expect(m.posts[0]!.priceEstimateToken).toMatch(/^pe1\./);
     await expect(page.locator('#bk-done-fallback a')).toHaveText('+84 84 444 0909');
     expect(await cspViolations(page)).toEqual([]);
