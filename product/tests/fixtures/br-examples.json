@@ -1882,7 +1882,11 @@
         "long_stay_required_from_nights": 30,
         "short_stay_max_nights": 29,
         "service_fee_monthly": 200000,
-        "lease_deposit_months": 1
+        "lease_deposit_months": 1,
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0,
+        "los_discount": []
       },
       "calc": "stayKindByNights",
       "input": {
@@ -1905,7 +1909,7 @@
           "depositVnd": 8500000
         }
       },
-      "note": "Mốc 30 đêm (INV 01/11). Điện nước theo công tơ/người, không trong oracle v0.5.2: validator tính lại bằng hàm `stayKindByNights` với params của dòng (FB-R4-QA-DOM-PR25-01)."
+      "note": "Mốc 30 đêm (INV 01/11). Điện nước theo công tơ/người, không trong oracle v0.5.2: validator tính lại bằng hàm `stayKindByNights` với params của dòng (FB-R4-QA-DOM-PR25-01). 04/11 (BE-C P4-11, DOM xác nhận): 23.200.000 = 29 × 800.000 theo lịch giá 01/11 – không tăng cuối tuần/lễ (BR-104, ESC-045 câu 1), không giảm theo số đêm (BR-107); params lịch khai trên dòng như BR-108-02, số kỳ vọng không đổi."
     },
     {
       "id": "BR-109-01",

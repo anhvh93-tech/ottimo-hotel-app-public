@@ -586,6 +586,18 @@ const CALC = {
         }
         return out;
       }
+      // Tổng ngắn ngày = giá đêm × số đêm chỉ đúng với lịch giá 01/11 (không tăng cuối tuần/lễ, không giảm theo
+      // số đêm – BR-104, BR-107). Dòng phải tự khai lịch đó trong params để BE (byCalc gộp params lên DS-E) ra cùng số
+      // (FB-R4-BE-C-DOM BR-108-03, 04/11).
+      const flat =
+        p.weekend_uplift_pct === 0 &&
+        p.special_uplift_pct === 0 &&
+        Array.isArray(p.los_discount) &&
+        p.los_discount.length === 0;
+      if (!flat)
+        throw new Error(
+          'tổng ngắn ngày cần params lịch 01/11: weekend_uplift_pct 0, special_uplift_pct 0, los_discount []',
+        );
       return {
         stayKind: 'short',
         showLongStayOption: n >= (p.long_stay_compare_from_nights ?? Infinity),
