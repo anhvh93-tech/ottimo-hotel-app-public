@@ -111,12 +111,13 @@ describe('PR24PM-04 – the worker startup failure line', () => {
       code: '22P02',
     });
     expect(line).not.toContain('TEST-VALUE');
-    // worker.ts builds the line exactly so (no `err.message` anywhere in the worker).
+    // worker.ts builds the line from errorTag (any formatting, any variable name – ARC P414-02), and no
+    // `err.message` anywhere in the worker.
     const worker = readFileSync(join(SRC, 'worker.ts'), 'utf8').replace(
       /\/\/.*|\/\*[\s\S]*?\*\//g,
       '',
     );
-    expect(worker).toMatch(/log\('error', 'job failed', \{ job: key, \.\.\.errorTag\(err\) \}\)/);
+    expect(worker).toMatch(/'job failed',\s*\{[^}]*\.\.\.errorTag\(\w+\)/);
     expect(worker).not.toMatch(/\.message\b/);
   });
 

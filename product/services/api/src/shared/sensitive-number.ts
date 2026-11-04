@@ -1,9 +1,12 @@
 /**
  * V-09 / SR-LOG-04 – the ONE detector of card and identity-document numbers in guest-typed text. Every caller uses it:
  * the website form (US-155 AC5: 422 `CARD_NUMBER_DETECTED` / `ID_NUMBER_DETECTED` on the name and the message), the
- * decline note, and the Google Chat text (`chatSafeText`, SEC ★5). History: BUG-R3-009 (grouped digits), BUG-R3-057
- * (numbers joined by a cleaning step), BUG-R3-058 (form: hidden characters, `_` `/` `,`, full-width digits),
- * SEC FB-R3-SEC-BE-GCHAT-07, QA FB-R3-QA-BE-GCHAT-06, SEC lp-v2-privacy-and-api 10 (Korean / Chinese / Russian IDs).
+ * decline note, the Google Chat text (`chatSafeText`, SEC ★5), and – card half only – the shared V-09 check
+ * `containsCardNumber` of every other module (`shared/validation.ts`, ARC FB-R4-ARC-BE-PR24PM-01: one module, pure
+ * functions, in `shared/`; the Luhn step is `luhnValid` of `shared/redact.ts`, no other copy).
+ * History: BUG-R3-009 (grouped digits), BUG-R3-057 (numbers joined by a cleaning step), BUG-R3-058 (form: hidden
+ * characters, `_` `/` `,`, full-width digits), SEC FB-R3-SEC-BE-GCHAT-07, QA FB-R3-QA-BE-GCHAT-06,
+ * SEC lp-v2-privacy-and-api 10 (Korean / Chinese / Russian IDs).
  *
  * The rules read a CHECK COPY of the text – never printed, stored or logged:
  *   1. `%XX` runs decoded (a number pasted from a link: `4111%201111…`, `079%E2%80%8B203…`). Every rule also runs on
@@ -43,6 +46,8 @@
  * 9-digit number without separators or currency, two phone numbers joined by one tight mark (`0905111222
  * 0912333444`), phones with a country code but no `+` other than 84 (`86 138 0013 8000`, `8 912 345 67 89`).
  */
+
+import { luhnValid } from './redact';
 
 export type SensitiveNumberKind = 'card' | 'id';
 
@@ -213,21 +218,6 @@ function runsOf(t: string): Run[] {
 
 // ───────────────────────── card (Luhn) ─────────────────────────
 
-function luhn(digits: string): boolean {
-  let sum = 0;
-  let dbl = false;
-  for (let i = digits.length - 1; i >= 0; i -= 1) {
-    let n = digits.charCodeAt(i) - 48;
-    if (dbl) {
-      n *= 2;
-      if (n > 9) n -= 9;
-    }
-    sum += n;
-    dbl = !dbl;
-  }
-  return sum % 10 === 0;
-}
-
 function cardIn(r: Run): boolean {
   // BUG-R3-009 rule: any Luhn-valid 13–19 window of a part joined by single ` ` `.` `-`.
   for (let i = 0; i < r.g.length;) {
@@ -235,7 +225,7 @@ function cardIn(r: Run): boolean {
     while (k < r.g.length - 1 && r.tight[k]) k += 1;
     const d = r.g.slice(i, k + 1).join('');
     for (let len = 13; len <= Math.min(19, d.length); len += 1) {
-      for (let s = 0; s + len <= d.length; s += 1) if (luhn(d.slice(s, s + len))) return true;
+      for (let s = 0; s + len <= d.length; s += 1) if (luhnValid(d.slice(s, s + len))) return true;
     }
     i = k + 1;
   }
@@ -248,7 +238,7 @@ function cardIn(r: Run): boolean {
       if (sum < 13 || k === i) continue;
       const lens = r.g.slice(i, k + 1).map((s) => s.length);
       if (!lens.every((l) => l >= 4) && !lens.every((l) => l <= 2)) continue;
-      if (luhn(r.g.slice(i, k + 1).join(''))) return true;
+      if (luhnValid(r.g.slice(i, k + 1).join(''))) return true;
     }
   }
   return false;
