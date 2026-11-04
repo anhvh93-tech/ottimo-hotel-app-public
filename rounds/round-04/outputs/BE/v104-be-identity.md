@@ -32,7 +32,9 @@
 ## 3. Kiểm thử
 - Typecheck `@ottimo/api` sạch; ESLint các tệp đã sửa sạch; Prettier đã chạy.
 - Unit mới 14/14; `serializer.test.ts` + `be-c-s3-units` 27/27; tích hợp mới 11/11 (PostgreSQL 17 riêng, RLS bật, `ottimo_app`).
-- Bộ đầy đủ `services/api`: xem mục 7.
+- Toàn bộ unit `services/api` (không DB): 44 tệp, 889 đạt, 28 bỏ qua, 0 lỗi.
+- Tích hợp liên quan, chạy tuần tự (`v103-security-email`, `identity`, `mfa-us143`, `production-bootstrap`, `email-dispatch`, `v104-be-identity`, `http-foundation`, `rbac-sprint1`): 8 tệp, 372 đạt, 5 bỏ qua, 0 lỗi (sau khi sửa 1 ca cũ `email-dispatch` 06.15 đang ghim `staffName` ở bản `self` – đổi đúng theo G-BE-4).
+- Bộ tích hợp **đầy đủ** chưa chạy được trên máy: tải máy ~45 (nhiều làn chạy DB cùng lúc), các tệp không liên quan (`approvals-audit`, `reversal-debt-g4`, `payments-s3`…) hết giờ chờ hook sau 100–1000 s. Không phải lỗi do gói này; để CI chạy trọn.
 - Không log/Problem/audit nào chứa địa chỉ đầy đủ: các ca 429 và 422 kiểm `res.body` không có `@`; dòng `warn` khởi động không có địa chỉ.
 
 ## 4. Đề xuất hợp đồng cho ARC (P4-00, 0.3.12)
