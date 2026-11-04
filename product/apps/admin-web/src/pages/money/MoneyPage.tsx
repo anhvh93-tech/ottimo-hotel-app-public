@@ -11,7 +11,12 @@ import { Alert, Button, Chip, ConfirmDialog, Field, Modal, Seg, StateView } from
 import { useId, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../../app/api';
-import { approvalStatusText, auditReasonText, autoCancelCode } from '../../app/auditReason';
+import {
+  approvalStatusText,
+  auditReasonText,
+  autoCancelCode,
+  requestReasonText,
+} from '../../app/auditReason';
 import { listApprovals } from '../../app/approvals';
 import { useBusinessDay } from '../../app/businessDay';
 import { useLiveReload } from '../../app/live';
@@ -112,6 +117,8 @@ const ACTION_KEY: Record<string, string> = {
   'folio.damage_posted': 'mlog.a_damage_posted',
   'folio.damage_rejected': 'mlog.a_damage_rejected',
   'refund.destination_set': 'mlog.a_refund_destination',
+  // v1.0.4: new BE-D audit action (OpenAPI 0.3.12) – a sentence, never the raw code.
+  'refund.destination_carried': 'mlog.a_refund_destination_carried',
   'refund.paid': 'mlog.a_refund_paid',
   'refund.cash_paid': 'mlog.a_refund_cash_paid',
   'reservation.deposit_confirmed': 'mlog.a_deposit_confirmed',
@@ -580,9 +587,23 @@ function Refunds() {
                       {a.reservationCode} · {vnd(a.amountVnd)}
                     </b>
                     <div className="li-s">
-                      {a.reasonNote ? `"${a.reasonNote}" · ` : ''}
-                      {t('approval.sent_by', { who: a.requestedBy, time: dateTime(a.requestedAt) })}
+                      {/* BUG-R4-026: the reason in words, as on Cần duyệt. */}
+                      {[
+                        requestReasonText(t, a),
+                        a.reasonNote ? `"${a.reasonNote}"` : null,
+                        t('approval.sent_by', {
+                          who: a.requestedBy,
+                          time: dateTime(a.requestedAt),
+                        }),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </div>
+                    {/* FB-R4-UXD-FE-P441-01 (GN-R4-QA-01): a refund still waiting for a decision may go down at
+                        approval – same note as on Cần duyệt. An approved refund has its amount fixed. */}
+                    {a.status === 'pending' || a.status === 'escalated' ? (
+                      <div className="li-s">{t('approvals.refund_may_decrease')}</div>
+                    ) : null}
                     <div className="li-s">
                       {a.refundedVnd ? (
                         <div>{t('refund.paid', { amount: money(a.refundedVnd) })}</div>
@@ -847,7 +868,8 @@ function ExecuteRefundDialog({
     });
     if (out) {
       setProof(null);
-      toast(t('refund.paid', { amount: money(out.data.amountVnd) }));
+      // BUG-R2-097: the refund transaction carries a negative amount – the sentence says what was paid out.
+      toast(t('refund.paid', { amount: money(Math.abs(out.data.amountVnd)) }));
       onDone();
     }
   };
