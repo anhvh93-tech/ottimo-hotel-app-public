@@ -384,14 +384,20 @@ describe('DOM (e) / M-1 – minibar theo tủ (lượt × căn)', () => {
     const old = within(group).getByRole('button', {
       name: tv('co.minibar_cabinet_old', { room: '202' }),
     });
-    const here = within(group).getByRole('button', {
-      name: tv('co.minibar_cabinet_room', { room: '201' }),
-    });
+    expect(
+      within(group).getByRole('button', { name: tv('co.minibar_cabinet_room', { room: '201' }) }),
+    ).toBeInTheDocument();
     await waitFor(() => expect(old).toHaveAttribute('aria-pressed', 'true'));
     await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(1));
     expect(counts.sent[0]).toMatchObject({ mode: 'checkout', roomId: 'room-old-202' });
-    await waitFor(() => expect(here).toHaveAttribute('aria-pressed', 'true'));
+    // BUG-R4-042: 202 is counted – never offered again on this page; the one cabinet left is named on screen (K11-03).
+    await waitFor(() =>
+      expect(
+        screen.getByText(tv('co.minibar_cabinet_counting')).nextElementSibling,
+      ).toHaveTextContent(tv('co.minibar_cabinet_room', { room: '201' })),
+    );
+    expect(screen.queryByRole('group', { name: tv('co.minibar_cabinet') })).toBeNull();
     await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(2));
     counts.stop();
