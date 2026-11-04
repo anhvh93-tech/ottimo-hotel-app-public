@@ -166,7 +166,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const { t, vnd, money, date } = useI18n();
   const propertyId = usePropertyId();
   const { roles, property } = useSession();
-  // BUG-R4-050: the instant of the typed time after midnight of the departure day (`checkoutInstant`).
+  // BUG-R4-050: the instant of the typed time on the business-day axis B18 reads it on (`checkoutInstant`).
   const rollover = property?.businessDayRollover ?? DEFAULT_ROLLOVER;
   // R3-Q39 #10, #11 (BR-010): the BUSINESS day – at 02:40 the stay is still in last night's room, and the
   // debt due date counts from the business day of the write (BR-525 (i) v0.4.0).
@@ -508,7 +508,12 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
         {
           amountVnd: DUE_PROBE_VND,
           purpose: 'check_out',
-          checkoutAt: checkoutInstant(r.departureDate, hhmm, new Date(), rollover),
+          checkoutAt: checkoutInstant(
+            hhmm,
+            today,
+            r.stayDepartureDate ?? r.departureDate,
+            rollover,
+          ),
           extraNightRateVnd: Number(rate),
         },
         newIdempotencyKey(),
@@ -532,7 +537,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       stale = true;
     };
     // `s` – a payment recorded or a line written changes what is due at that rate.
-  }, [debTypedKey, typedKey, r, propertyId, s, rollover]);
+  }, [debTypedKey, typedKey, r, propertyId, s, today, rollover]);
 
   if (!r && res.state.status === 'error')
     return (
@@ -1785,7 +1790,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 reservation={r}
                 balanceVnd={balance}
                 checkout={{
-                  checkoutAt: checkoutInstant(r.departureDate, time, new Date(), rollover),
+                  checkoutAt: checkoutInstant(time, today, stayDeparture, rollover),
                   // ARC 16.18: the same rule as B18 – only a rate the desk changed.
                   extraNightRateVnd:
                     extraNightNeeded && !extraUnavailable && extraEdited
