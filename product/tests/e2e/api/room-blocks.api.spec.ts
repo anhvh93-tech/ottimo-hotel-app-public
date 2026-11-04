@@ -40,12 +40,27 @@ test.describe.configure({ mode: 'parallel' });
 type Session = Awaited<ReturnType<typeof sessionOrSkip>>;
 type Window = Awaited<ReturnType<typeof freeWindow>>;
 
+/** 409 `conflicts[]` (room-block.port.ts) for the log – kind, booking code (FD+ only), nights; no guest names. */
+type Conflict = { kind?: string; nights?: string[]; reservationCode?: string };
+const showConflicts = (cs: Conflict[]) =>
+  cs
+    .map(
+      (x) =>
+        `${x.kind ?? '?'}${x.reservationCode ? ` ${x.reservationCode}` : ''} [${(x.nights ?? []).join(', ')}]`,
+    )
+    .join('; ');
+
 /**
  * BUG-R4-034: freeWindow() only READS availability. Between that read and createRoomBlock a parallel case on the
  * same room (this file uses 401 three times; money-s4, round5b, s3-kickoff too) may block (409 ROOM_BLOCKED) or
  * book (409 ROOM_UNAVAILABLE) one of the nights – a collision of the shared stack, not of the block under test.
  * Pick another window then, at most 4 tries (like WindowTakenError for bookings); any other answer is returned
  * as is, so the case's own `toBe(201)` stays red.
+ * FB-R4-ARC-QA-PR62-01: retry only a REAL collision – the 409 lists `conflicts[]` AND the availability read path
+ * (searchAvailability, the one freeWindow used) now sees the room taken too. If availability still says free while
+ * createRoomBlock (assertFree → occupancy.conflicts) says taken, the two paths disagree: a product bug, so the case
+ * fails here and does not hide it behind another window. (A parallel case releasing its row between our 409 and the
+ * re-read would give a false red, not a false green – accepted, the gap is a few ms.)
  */
 async function blockOnFreeWindow(
   request: Parameters<typeof freeWindow>[0],
@@ -62,14 +77,18 @@ async function blockOnFreeWindow(
     const b = body(w);
     const blk = await createRoomBlock(request, actor, { roomId: rm.id, ...b });
     const code = blk.body?.code;
-    if (
-      attempt >= 4 ||
-      blk.status !== 409 ||
-      (code !== 'ROOM_BLOCKED' && code !== 'ROOM_UNAVAILABLE')
-    )
+    if (blk.status !== 409 || (code !== 'ROOM_BLOCKED' && code !== 'ROOM_UNAVAILABLE'))
       return { w, blk };
+    const conflicts = Array.isArray(blk.body.conflicts) ? (blk.body.conflicts as Conflict[]) : [];
+    const free = await isRoomFree(request, look, rm, b.startDate, b.endDatePlanned);
+    expect(
+      conflicts.length > 0 && free === false,
+      `${tc}: availability và createRoomBlock lệch nhau – ${b.startDate} → ${b.endDatePlanned}: createRoomBlock 409 ${code} ` +
+        `(conflicts: ${conflicts.length ? showConflicts(conflicts) : 'rỗng'}), searchAvailability đọc lại: ${free === false ? 'kín' : `trống (${String(free)})`}`,
+    ).toBe(true);
+    if (attempt >= 4) return { w, blk };
     console.log(
-      `[e2e] ${tc}: ${b.startDate} → ${b.endDatePlanned} vừa bị ca song song chiếm (${code}), chọn khoảng khác (lần ${attempt})`,
+      `[e2e] ${tc}: ${b.startDate} → ${b.endDatePlanned} vừa bị ca song song chiếm (${code}: ${showConflicts(conflicts)}), chọn khoảng khác (lần ${attempt})`,
     );
   }
 }
@@ -83,6 +102,7 @@ test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] },
   }) => {
     await requireEndpoints(request, 'TC-L2-030', [
       EP.createRoomBlock,
+      EP.searchAvailability, // blockOnFreeWindow re-reads it before a retry (FB-R4-ARC-QA-PR62-01)
       EP.createReservation,
       EP.calculateQuote,
       EP.saveQuote,
@@ -225,7 +245,11 @@ test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] },
   test('TC-L2-033 qa.mt tạo khối theo ngày xong + 1 (BR-804-01): chặn đúng các đêm, mở bán từ ngày mở lại', async ({
     request,
   }) => {
-    await requireEndpoints(request, 'TC-L2-033', [EP.createRoomBlock, EP.searchAvailability]);
+    await requireEndpoints(request, 'TC-L2-033', [
+      EP.createRoomBlock,
+      EP.searchAvailability,
+      EP.listRoomBlocks,
+    ]);
     const mt = await sessionOrSkip(request, 'qa.mt');
     const fd = await sessionOrSkip(request, 'qa.fd');
     const c = await s2Context(request);
@@ -270,6 +294,9 @@ test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] },
     // BUG-R4-034 (2): a parallel case may block 401 on the reopen night after our block was saved. Then `blocked`
     // on that night is another block, not ours: accept it only when listRoomBlocks shows that our block ends at
     // `reopen` (half-open) and another live block covers the night.
+    // FB-R4-ARC-QA-PR62-02: list from `start`, not `reopen` – list() keeps blocks whose end > from, so with
+    // from=reopen our own block (end = reopen) was never in the answer and the `ours` check could not fail.
+    // [start, reopen] returns both ours (end > start) and any block covering the reopen night (start <= reopen).
     if ((await reason(reopen)) === 'blocked') {
       const list = await call<{
         data: {
@@ -278,25 +305,31 @@ test.describe('OOO chặn bán (US-019, US-061)', { tag: ['@api', '@sprint2'] },
           status: string;
           startDate: string;
           endDatePlanned: string;
+          endDateActual: string | null;
         }[];
       }>(request, 'GET', `/v1/properties/${propertyIdOf(fd)}/room-blocks`, {
         session: fd,
-        query: { from: reopen, to: addDays(reopen, 1) },
+        query: { from: start, to: reopen },
       });
       expect(list.status).toBe(200);
+      const endOf = (b: (typeof list.body.data)[number]) => b.endDateActual ?? b.endDatePlanned;
       const ours = list.body.data.find((b) => b.id === blk.body.id);
+      expect(ours, `khối ${blk.body.id} của ca phải có trong listRoomBlocks`).toBeDefined();
+      expect(
+        { roomId: ours?.roomId, startDate: ours?.startDate, end: ours && endOf(ours) },
+        'khối của ca này mở bán lại đúng ngày (nửa mở)',
+      ).toEqual({ roomId: rm.id, startDate: start, end: reopen });
       const others = list.body.data.filter(
         (b) =>
           b.id !== blk.body.id &&
           b.roomId === rm.id &&
           !['cancelled', 'released'].includes(b.status) &&
           b.startDate <= reopen &&
-          reopen < b.endDatePlanned,
+          reopen < endOf(b),
       );
       console.log(
         `[e2e] TC-L2-033: đêm ${reopen} bị khối khác của ca song song chặn (${others.length})`,
       );
-      expect(ours?.endDatePlanned ?? reopen, 'khối của ca này mở bán lại đúng ngày').toBe(reopen);
       expect(others.length, `đêm ${reopen} "blocked" phải do khối khác`).toBeGreaterThan(0);
     }
   });
