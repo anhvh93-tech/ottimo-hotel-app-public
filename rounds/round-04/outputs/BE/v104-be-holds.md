@@ -83,7 +83,7 @@ Khi `main@L` có 0092 (LP-v2):
   - WA-04 trong **tiến trình chỉ nạp worker**: hold có FOC chờ duyệt → `expired: 1, failed: 0`, yêu cầu `cancelled`/`reservation_cancelled`, không còn dòng `pending_approval`, người tạo nhận `hold_expired`.
 - SEC-fix (thêm vào hai tệp trên):
   - đơn vị (+2 ca): chốt `assertHoldOpenForSales` – SAL/CTV sau hạn (kể cả đúng phút hạn) → `HOLD_EXPIRED`; FD/FDL/MGR/OWN sau hạn, SAL trước hạn, đơn không phải `hold`, hold không có hạn → cho qua;
-  - tích hợp HOLDS-01: trước hạn SAL ghi cọc → 201 `pending`; 1 phút sau hạn, J1 chưa chạy: SAL `recordPayment` → 409 `HOLD_EXPIRED` (`expiredAt` 12:00), SAL `confirm-received` QR cọc của mình → 409, QR vẫn `pending`; CTV `recordPayment`/`confirm-deposit` → 403; không có dòng tiền nào; FD `recordPayment` → 201; J1 sau đó: 2 hold bị từ chối → `cancelled`, 2 hold có tiền → giữ;
+  - tích hợp HOLDS-01: trước hạn SAL ghi cọc → 201 `pending`; 1 phút sau hạn, J1 chưa chạy: SAL `recordPayment` → 409 `HOLD_EXPIRED` (`expiredAt` 12:00), SAL `confirm-received` QR cọc của mình → 409, QR vẫn `pending`, rồi FD gọi đúng lệnh đó → 200, QR `succeeded` (G6); CTV `recordPayment`/`confirm-deposit` → 403; không có dòng tiền nào; FD `recordPayment` → 201; J1 sau đó: 2 hold bị từ chối → `cancelled`, 3 hold có tiền → giữ;
   - tích hợp HOLDS-02: ca bug-list (FD ghi nốt, `via: new_payment`, `paidBeforeVnd` 200.000, `unverifiedPaidVnd` 0), ca MGR chấp nhận cọc thiếu (`existing_payment`), hold chỉ có khoản SAL chờ đối soát rồi FD ghi nốt sau hạn (`unverifiedPaidVnd` 100.000); khóa của `after` đúng 8 khóa; xác nhận trước hạn chỉ 3 khóa cũ.
 - Kết quả bộ đầy đủ API, lint, typecheck: xem mục 8.
 
@@ -140,7 +140,7 @@ SELECT payload->>'kind' AS kind, count(*) AS n
 | G2 | "Tới khi nhận phòng" (DOM A.6): không chặn theo giờ hay ngày sau hạn. Hold quá ngày đến vẫn xác nhận được; sau đó luồng no-show xử lý như đơn `confirmed` |
 | G3 | Hold chưa cọc quá hạn: ẩn B4 theo plan, kể cả khi tiền thật đã về trước hạn (J1 hủy trong ≤ 1 phút). API vẫn nhận US-085 AC4 với `receivedAt` trước hạn |
 | G4 | `existingPaymentId` trên hold quá hạn: khoản đã nằm trên folio nghĩa là hold "đã nhận > 0 đ", nên nhận bất kể giờ về (trước v1.0.4 bị từ chối nếu về sau hạn). **SEC đã chấp nhận có điều kiện (04/11)**; điều kiện HOLDS-01, HOLDS-02 đã làm (mục 1b) |
-| G6 | Chốt HOLDS-01 áp cả cho `confirmPaymentReceived` (SAL xác nhận QR cọc đã về) – SEC chỉ nêu `recordPayment`, nhưng đây là đường thứ hai để SAL đặt tiền lên hold quá hạn. SEC/ARC xác nhận khi review; nếu không muốn, bỏ một dòng gọi `assertHoldOpenForSales` trong `confirmReceived` |
+| G6 | **SEC đã chấp nhận (04/11).** Chốt HOLDS-01 áp cả cho `confirmPaymentReceived` (SAL xác nhận QR cọc đã về) – SEC chỉ nêu `recordPayment`, nhưng đây là đường thứ hai để SAL đặt tiền lên hold quá hạn. SEC/ARC xác nhận khi review; nếu không muốn, bỏ một dòng gọi `assertHoldOpenForSales` trong `confirmReceived` |
 | G5 | Mục "Cần chú ý" không có `link` riêng; Desk mở đơn theo `reservationIds` như các mục tính khác |
 
 ## 8. Kết quả chạy (04/11, máy local, PostgreSQL 17 riêng của làn BE-B)

@@ -308,18 +308,20 @@ describe.skipIf(!HAS_DB)(
       return rows[0]!.after as Record<string, unknown>;
     };
 
-    it('FB-R4-SEC-BE-HOLDS-01: past the deadline, before J1 – SAL recordPayment / confirm-received → 409 HOLD_EXPIRED, CTV refused, nothing written; FD records; J1 then cancels', async () => {
+    it('FB-R4-SEC-BE-HOLDS-01 + G6: past the deadline, before J1 – SAL recordPayment / confirmPaymentReceived → 409 HOLD_EXPIRED (QR stays pending), CTV refused, nothing written; FD records and confirms the same QR (200); J1 then cancels', async () => {
       await x.at('2026-11-11T12:00:00+07:00');
       hSal = await hold('203', 'sal', '2026-12-20', '2026-12-22');
       hCtv = await hold('103', 'ctv', '2026-12-20', '2026-12-22');
       hFd = await hold('201', 'fd', '2026-12-20', '2026-12-22');
       hPre = await hold('202', 'sal', '2026-12-20', '2026-12-22');
+      const hQr = await hold('301', 'sal', '2026-12-20', '2026-12-22');
       // Before the deadline a sale records as before: 201, waiting for the desk/bank check (SEC-BE-22 (1)).
       const pre = await record((await x.get(hPre.id)).folioId as string, 100_000, 'sal');
       expect(pre.statusCode, pre.body).toBe(201);
       expect(pre.json()).toMatchObject({ status: 'succeeded', reconciliation: 'pending' });
       // A deposit QR the sale showed before the deadline (FAKE row – its money "arrives" later).
       const salFolio = (await x.get(hSal.id)).folioId as string;
+      const qrFolio = (await x.get(hQr.id)).folioId as string;
       const qrId = uuidv7();
       await x.q(
         `INSERT INTO payment (id, organization_id, property_id, code, folio_id, reservation_id, type, method,
@@ -332,8 +334,8 @@ describe.skipIf(!HAS_DB)(
           x.t.organizationId,
           x.t.propertyIds[0],
           `QR-H01-${qrId.slice(-6)}`,
-          salFolio,
-          hSal.id,
+          qrFolio,
+          hQr.id,
           new Date('2026-11-20T12:00:00+07:00'),
           x.t.users.sal!.id,
           new Date('2026-11-11T12:00:00+07:00'),
@@ -353,29 +355,41 @@ describe.skipIf(!HAS_DB)(
       expect(ctv.statusCode, ctv.body).toBe(403);
       const ctvB4 = await deposit(hCtv.id, cash(100_000, '2026-11-12T11:55:00+07:00'), 'ctv');
       expect(ctvB4.statusCode, ctvB4.body).toBe(403);
-      const qr = await x.c.sal!.send('POST', x.url(`/payments/${qrId}/actions/confirm-received`), {
-        receivedAt: '2026-11-12T11:50:00+07:00',
-      });
+      // G6 (SEC accepted 04/11): the sale confirming its own deposit QR of the overdue hold → 409, QR untouched.
+      const confirmQr = (who: string) =>
+        x.c[who]!.send('POST', x.url(`/payments/${qrId}/actions/confirm-received`), {
+          receivedAt: '2026-11-12T11:50:00+07:00',
+        });
+      const qr = await confirmQr('sal');
       expect(qr.statusCode, qr.body).toBe(409);
       expect(qr.json()).toMatchObject({ code: 'HOLD_EXPIRED' });
+      expect(qr.json().expiredAt).toMatch(/^2026-11-12T12:00:00/);
       // Nothing written by the refusals.
       expect(await moneyRows(salFolio)).toBe(0);
       expect(await moneyRows(ctvFolio)).toBe(0);
+      expect(await moneyRows(qrFolio)).toBe(0);
       const [q] = await x.q(`SELECT status FROM payment WHERE id = $1`, [qrId]);
       expect(q).toEqual({ status: 'pending' });
+      // FD confirms the same QR: 200, the money is on the hold (J1 keeps it).
+      const qrFd = await confirmQr('fd');
+      expect(qrFd.statusCode, qrFd.body).toBe(200);
+      const [q2] = await x.q(`SELECT status FROM payment WHERE id = $1`, [qrId]);
+      expect(q2).toEqual({ status: 'succeeded' });
+      expect(await moneyRows(qrFolio)).toBe(1);
       // FD+ unchanged.
       const fd = await record((await x.get(hFd.id)).folioId as string, 100_000, 'fd');
       expect(fd.statusCode, fd.body).toBe(201);
       // J1: the refused holds are cancelled; the ones with money are kept.
-      expect((await j1()).stats).toMatchObject({ expired: 2, keptPaid: 2, failed: 0 });
+      expect((await j1()).stats).toMatchObject({ expired: 2, keptPaid: 3, failed: 0 });
       const st = await x.q(`SELECT id, status FROM reservation WHERE id = ANY($1) ORDER BY id`, [
-        [hSal.id, hCtv.id, hFd.id, hPre.id],
+        [hSal.id, hCtv.id, hFd.id, hPre.id, hQr.id],
       ]);
       expect(Object.fromEntries(st.map((r) => [r.id, r.status]))).toEqual({
         [hSal.id]: 'cancelled',
         [hCtv.id]: 'cancelled',
         [hFd.id]: 'hold',
         [hPre.id]: 'hold',
+        [hQr.id]: 'hold',
       });
     }, 120_000);
 
