@@ -307,18 +307,35 @@ const nowLocal = () =>
         else bad(`xác nhận VietQR: HTTP ${c.status} ${short(c.body)}`);
       } else bad(`tạo VietQR: HTTP ${q.status} ${short(q.body)}`);
     } else ok(`bill ${res.code} không còn nợ`);
-    const std = await http('GET', P(fd, `/reservations/${id}/minibar-standard`), { s: fd });
-    if (std.status === 200 && listOf(std.body.items ?? std.body).length) {
-      await http('POST', P(fd, `/reservations/${id}/minibar-checks`), {
+    // Minibar count of every fridge the summary lists (BR-702, ARC 16.19 K11-03): the count goes back with the fridge
+    // and the period of its standard (`roomId` / `periodId`, required since BUG-R2-196 – without them the old smoke
+    // got a 422 it never read, and B18 answered 409 MINIBAR_NOT_CHECKED). Nothing taken: remaining = standard.
+    const fridges =
+      sum.status === 200
+        ? (sum.body.minibarUncheckedRooms ?? []).map((m) => m.roomId)
+        : [undefined];
+    for (const roomId of fridges) {
+      const std = await http('GET', P(fd, `/reservations/${id}/minibar-standard`), {
+        s: fd,
+        ...(roomId ? { query: { roomId } } : {}),
+      });
+      const items = std.body?.items ?? [];
+      if (std.status !== 200) {
+        bad(`minibar chuẩn: HTTP ${std.status} ${short(std.body)}`);
+        continue;
+      }
+      if (!std.body.roomId || items.length === 0) continue;
+      const m = await http('POST', P(fd, `/reservations/${id}/minibar-checks`), {
         s: fd,
         body: {
           mode: 'checkout',
-          lines: (std.body.items ?? []).map((i) => ({
-            itemId: i.itemId,
-            remainingQty: i.standardQty,
-          })),
+          roomId: std.body.roomId,
+          periodId: std.body.periodId ?? null,
+          lines: items.map((i) => ({ itemId: i.itemId, remainingQty: i.standardQty })),
         },
       });
+      if (m.status === 201) ok(`kiểm minibar khi trả phòng (${items.length} món, không dùng)`);
+      else bad(`kiểm minibar: HTTP ${m.status} ${short(m.body)}`);
     }
     const cur = (await http('GET', P(fd, `/reservations/${id}`), { s: fd })).body;
     const checkOut = (extra) =>
