@@ -553,7 +553,7 @@ test.describe(
       }
     });
 
-    test('TC-X-078 (E) [PO U1] US-010/AC1–AC2, US-011/AC1–AC3, US-012/AC1, AC3–AC5, US-030/AC2, US-031/AC1: H03 Hôm nay (FD, MGR) trên dữ liệu dựng sẵn – KPI, khách đến (Nhận phòng), khách đi (Trả phòng, "Có khách đến cùng căn hôm nay", "Đã trả lời" → 12:31 "Quá giờ trả phòng"), "Giữ chỗ chưa cọc", "Cần chú ý" (phiếu sửa Gấp; khai báo → nút Mở → H14), nhận phòng ở máy khác → H03 tự cập nhật; 01:30 hôm sau vẫn ngày nghiệp vụ cũ + axe', async ({
+    test('TC-X-078 (E) [PO U1] US-010/AC1–AC2, US-011/AC1–AC3, US-012/AC1, AC3–AC5, US-030/AC2, US-031/AC1: H03 Hôm nay (FD, MGR) trên dữ liệu dựng sẵn – KPI, khách đến (Nhận phòng), khách đi (Trả phòng, "Có khách đến cùng căn hôm nay", "Đã trả lời" → 12:31 "Quá giờ trả phòng"), "Giữ chỗ chờ cọc", "Cần chú ý" (phiếu sửa Gấp; khai báo → nút Mở → H14), nhận phòng ở máy khác → H03 tự cập nhật; 01:30 hôm sau vẫn ngày nghiệp vụ cũ + axe', async ({
       browser,
       request,
     }) => {
@@ -634,7 +634,8 @@ test.describe(
         await expect(rowA).toContainText(t('today.same_room_arrival'));
         await expect(rowA).toContainText(t('today.dep_replied'));
         const holds = page.locator('section[aria-labelledby="today-holds"]');
-        await expect(holds).toContainText(stem('fo.tabs.holds'));
+        // v1.0.4 P4-40 (ĐX-R3-QA-01, BA M13-02): the block lists part-paid holds too – "Giữ chỗ chờ cọc (n)".
+        await expect(holds).toContainText(stem('today.holds_waiting'));
         await expect(holds).toContainText(hold.code);
         const attn = page.locator('section[aria-labelledby="today-attn"]');
         await expect(attn, 'Cần chú ý có phiếu sửa Gấp').toContainText(/Phiếu sửa Gấp|Gấp/, {
