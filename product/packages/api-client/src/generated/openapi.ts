@@ -130,7 +130,12 @@ export interface paths {
      * Đặt / đổi / xóa email nhận thư bảo mật của chính mình (BUG-R3-032, SEC 06.15, SEC-on-B2-readiness 1.5) – S2
      * @description **0.3.10 (R4 v1.0.3)**. Mọi vai nhân viên (rbac A112 – "của mình"); Desk có ô ở **Bảo mật tài khoản**, PWA không làm UI. Phiên hạn chế (mật khẩu tạm,
      *     chưa đăng ký 2FA) bị guard chặn như mọi operation khác (`403 PASSWORD_CHANGE_REQUIRED` / `MFA_ENROLLMENT_REQUIRED`) – OWN chỉ nhập email **sau khi** đã bật 2FA.
-     *     **Thứ tự kiểm**: (1) dạng `email` – server cắt khoảng trắng và đổi chữ thường; sai → `422` `EMAIL_INVALID`; trùng `EMAIL_FROM` → `422` `EMAIL_SHARED_MAILBOX` (không ghi, không đếm);
+     *     **Thứ tự kiểm**: (1) dạng `email` – server cắt khoảng trắng và đổi chữ thường; sai → `422` `EMAIL_INVALID`; là hộp thư chung (0.3.12: danh sách `EMAIL_SHARED_MAILBOXES` + `info@`/`booking@`
+     *     tại miền thư + `EMAIL_FROM`, so sau khi bỏ `+…` – bảng mã trường) → `422` `EMAIL_SHARED_MAILBOX` (không ghi, không đếm);
+     *     (1b) **0.3.12 (EM-09)**: địa chỉ mới **khác** địa chỉ đang lưu mà người được đổi (ở đây: người gọi) đã có **5** lần đổi thành công trong **24 giờ trượt** (`user_email_change.changed_at`,
+     *     mọi `via` – `self` và `owner` cùng đếm) → `429 RATE_LIMITED` + `Retry-After` = số giây tới khi lần đổi cũ nhất trong 5 lần đó rời cửa sổ; không tiêu S2, không đếm sai, không ghi gì.
+     *     Server kiểm lại trong giao dịch ghi sau khi khóa dòng `app_user` (hai yêu cầu song song không cùng lọt ở lần thứ 5). Trùng địa chỉ đang lưu không bị chặn (đi tiếp tới (3)).
+     *     **Xóa email (`email: null`) không bao giờ bị giới hạn này chặn, nhưng vẫn được ghi (`user_email_change`) và vẫn được đếm** (FB-R4-SEC-BE-V104-01);
      *     (2) `reauth` S2 (`StrongReauthService.verify`, `operationId = setMyEmail`): thiếu → `422` `STRONG_REAUTH_REQUIRED` (`field` = `reauth` hoặc `reauth.totpCode`), sai → `401 REAUTH_FAILED`
      *     (đếm SR-RL-02); (3) so với địa chỉ đang lưu (không phân biệt hoa thường): **trùng → 200, không ghi gì** (không audit, không thư, không tăng `version`).
      *     **Ghi** (một giao dịch): `app_user.email` = giá trị mới (`null` = xóa), `app_user.version + 1`; một dòng `user_email_change` (`old_email` = địa chỉ cũ hoặc `null`, `via = self`);
@@ -391,6 +396,9 @@ export interface paths {
      *     (1) `userId` = người gọi → `422` `NOT_ALLOWED_FOR_SELF` (`field` = `email`; email của mình dùng `setMyEmail`); (2) người đích đang có vai `owner` chưa thu hồi ở **bất kỳ** cơ sở nào
      *     → **`403 FORBIDDEN_ACTION`** + audit `access.denied` (mỗi OWN chỉ tự đặt email của mình – một OWN bị chiếm phiên không tắt được kênh báo của OWN khác); (3) phạm vi tài khoản:
      *     người gọi phải sở hữu mọi cơ sở người đích còn vai (như `status`) → nếu không `403 FORBIDDEN_ACTION`; (4) dạng `email` → `EMAIL_INVALID` / `EMAIL_SHARED_MAILBOX` (như `setMyEmail`);
+     *     (4b) **0.3.12 (EM-09)**: địa chỉ mới khác địa chỉ đang lưu mà người **được đổi** đã có 5 lần đổi thành công trong 24 giờ trượt (mọi `via`, như `setMyEmail` (1b)) → `429 RATE_LIMITED`
+     *     + `Retry-After`; không tiêu S2, không ghi gì (kể cả `displayName` đi cùng).
+     *     **Xóa email (`email: null`) không bao giờ bị giới hạn này chặn, nhưng vẫn được ghi (`user_email_change`) và vẫn được đếm** (FB-R4-SEC-BE-V104-01). PATCH không có `email` không bị giới hạn. Đổi email cho người khác **không** tính vào bộ đếm của OWN;
      *     (5) `reauth` S2 bắt buộc khi có trường `email` (kể cả `null`); (6) trùng địa chỉ đang lưu (không phân biệt hoa thường) → phần email không ghi gì.
      *     Ghi: như `setMyEmail` với `via = owner` (bảng `user_email_change`, audit `security` `user.email_changed` chỉ có `emailMasked`, thông báo `account_security_change` cho người được đổi
      *     + mọi `owner` của cơ sở đang mở trong phiên, outbox `email_changed` tới địa chỉ mới, địa chỉ cũ và mọi `owner` của mọi cơ sở người được đổi còn vai); `User.version + 1`. Không thu hồi phiên. MGR gọi → `403` ở guard vai (`x-roles: [owner]`), không ghi gì.
@@ -593,6 +601,9 @@ export interface paths {
      *     - Không có dòng đúng ngày đó → `404 NOT_FOUND`. Căn khác cơ sở/không tồn tại → `404 NOT_FOUND`.
      *     - Không được xóa dòng **duy nhất** của căn (căn chưa có giá đang dùng, chỉ có một dòng lên lịch – căn tạo với `activeFrom` tương lai) → `409 INVALID_TRANSITION`
      *       (`currentState` = `only_price`) – sửa bằng `updateRoom.listPrice` cùng ngày.
+     *     - **0.3.12 (BUG-R4-015)**: không được xóa dòng có `effectiveFrom` **nhỏ nhất** của căn khi căn còn dòng khác (căn tạo với `activeFrom` tương lai: dòng đầu là giá mở bán,
+     *       xóa đi thì từ `activeFrom` tới dòng kế không có giá) → `409 INVALID_TRANSITION` (`currentState` = `first_price`) – sửa giá dòng đó bằng `updateRoom.listPrice`.
+     *       `only_price` giữ cho căn chỉ có một dòng. Kiểm dưới khóa `room … FOR UPDATE`. Dòng `effectiveFrom` ≤ ngày nghiệp vụ còn bị trigger DB 0094 chặn xóa (ED-02, BE-C) – lớp thứ hai, không đổi mã lỗi.
      *     - `If-Match` = `Room.version`; thành công tăng `room.version` (ETag mới) trong **cùng** giao dịch; khóa `room … FOR UPDATE` trước khi xóa (chống hai người cùng sửa giá).
      *     - Audit `config` `room.list_price_cancelled` (`entityType = room`): `before.listPrice` = dòng bị xóa (ngày, hai giá, lý do cũ), `after.cancelledEffectiveFrom`, `reason` = lý do hủy.
      *     - Đơn/báo giá đã lưu giữ giá chụp (BR-006) – không đổi. Báo giá mới, landing "giá từ", lịch giá đọc `room_list_price` lúc tính nên tự theo. Không có đồng bộ kênh (giá OTA đặt trên extranet).
@@ -1069,7 +1080,18 @@ export interface paths {
      *     **Chưa đủ (US-086 AC2, 0.3.5 A-13)**: giao dịch vẫn được ghi, đơn giữ `hold` → **`200`** trả `Reservation` (`status=hold`, `depositPaidVnd` mới) – client báo
      *     "Đã ghi nhận, còn thiếu {depositRequiredVnd − depositPaidVnd}". Không trả 4xx khi đã ghi tiền (4xx = không có gì được ghi; client gửi lại an toàn).
      *     `422 DEPOSIT_INSUFFICIENT` chỉ khi **không** gửi `payment` mới (dùng `existingPaymentId` hoặc gọi lại) mà tổng cọc vẫn thiếu – không ghi gì.
-     *     Giữ chỗ đã quá hạn chỉ xác nhận khi tiền về trước hạn (`receivedAt` < `hold.expiresAt`, US-085 AC4), ngược lại `409 HOLD_EXPIRED` (+ `expiredAt`).
+     *     ~~Giữ chỗ đã quá hạn chỉ xác nhận khi tiền về trước hạn (`receivedAt` < `hold.expiresAt`, US-085 AC4), ngược lại `409 HOLD_EXPIRED` (+ `expiredAt`).~~
+     *     **0.3.12 (BUG-R3-042, BR-303 (1), DOM A.6; chữ SEC `rounds/round-04/reviews/SEC-on-v104-holds.md` mục 3, SEC-BE-22 + G4 đồng ý có điều kiện 04/11) – giữ chỗ đã quá `holdExpiresAt`** (đơn vẫn `hold`):
+     *     - Sau `holdExpiresAt`: **SAL** luôn nhận `409 HOLD_EXPIRED` (+ `expiredAt`), không ghi gì. CTV không có quyền gọi (`403 FORBIDDEN_ACTION` ở kiểm vai, trước mọi kiểm khác).
+     *     - **FD+** (OWN/MGR/FDL/FD) xác nhận được khi folio **đã nhận > 0 đ trước lần ghi này** – tính cả khoản `pending` chờ đối soát. Khi dùng `existingPaymentId` thì điều kiện này luôn đúng
+     *       (khoản đó đã nằm trên folio), nên giờ nhận tiền **không** được xét. Được **tới khi nhận phòng**, không có trần giờ (mốc 12:00 ngày đến chỉ sinh thông báo/mục `hold_overdue_cap`).
+     *       Khoản mới vẫn theo luật `receivedAt` hiện có (≤ giờ server, ≥ lúc tạo giữ chỗ; sai → 422 `DATE_INVALID`, `field` = `payment.receivedAt`). Đủ cọc → B4; thiếu → 200 vẫn `hold` (A-13).
+     *     - Folio **chưa nhận gì**: chỉ xác nhận được bằng **khoản mới** có `receivedAt` < `holdExpiresAt` (US-085 AC4); ngược lại `409 HOLD_EXPIRED`. (Thực tế J1 tự hủy giữ chỗ chưa cọc trong vòng một phút sau hạn.)
+     *     - `acceptShortfallReason` sau hạn: chỉ MGR/OWN, như trước hạn.
+     *     - Lần xác nhận sau hạn ghi audit `reservation.deposit_confirmed` có `afterDeadline: true`, `holdExpiredAt`, `paidBeforeVnd` (đã nhận trước lần ghi này), `unverifiedPaidVnd`
+     *       (phần còn `pending`/chờ đối soát) và `via` (`new_payment` | `existing_payment`) – SEC HOLDS-02; không số tài khoản, tên hay ghi chú. Xác nhận trước hạn: dòng audit như cũ.
+     *     `HOLD_EXPIRED` của `confirmDeposit` chỉ còn các trường hợp trên. Không có trường mới trong thân yêu cầu hay câu đáp. Desk chọn câu theo `depositPaidVnd` của đơn
+     *     (`error.HOLD_EXPIRED_PAID` khi > 0 – chỉ gặp với SAL hoặc máy chủ cũ).
      *     CTV **không** được gọi (rbac ghi chú 20) – CTV dùng `.../deposit-notices`.
      */
     post: operations['confirmDeposit'];
@@ -2521,7 +2543,7 @@ export interface paths {
      *     `REASON_REQUIRED`); số ≤ min(giá trị còn lại của dòng sau FOC khác, còn phải thu) – vượt → 422 `AMOUNT_EXCEEDS_BALANCE` (`max`); hạn mức BR-433: MGR tự áp tới giá 1 đêm
      *     (`nightRateBasis`), vượt → yêu cầu chờ **OWN** duyệt (luồng duyệt thường). Dòng FOC ghi là bút toán sau chốt (folio và hóa đơn đã xuất giữ nguyên). Áp xong còn phải thu về 0 → công nợ
      *     đóng (`debt_settled_at`, lý do `written_off`), "Cần chú ý" `checkout_debt` tự hết. Báo cáo FOC tách riêng mã `debt_write_off`. Hoa hồng (BR-903): FOC `debt_write_off` trên dòng
-     *     **tiền phòng** trừ vào cơ sở hoa hồng, "đạt" lúc xóa nợ (CTV 8 %, xóa 100.000 → 408.400 thay 416.400); trên minibar/hư hỏng/phụ thu không đổi cơ sở. Thứ tự khóa như FOC (16.19).
+     *     **tiền phòng** trừ vào cơ sở hoa hồng, "đạt" lúc xóa nợ (ví dụ với tham số thử `test_rate_ctv` = 10 % – 0.3.12, SEC G3: cơ sở 5.000.000, xóa 100.000 → 490.000 thay 500.000); trên minibar/hư hỏng/phụ thu không đổi cơ sở. Thứ tự khóa như FOC (16.19).
      *     **Vòng sửa 8 (FB-R2-SEC-BE-80 Blocker, DOM 18/10 BR-525; ARC 16.30) – trần thay câu "còn phải thu" ở trên**: lúc gửi, số ≤ min(giá trị còn lại của dòng, **công nợ đang mở**
      *     − Σ `amountVnd` của các yêu cầu `debt_write_off` đang `pending`/`escalated` trên folio) – vượt → 422 `AMOUNT_EXCEEDS_BALANCE` kèm `max` (có thể **0** khi các yêu cầu đang chờ đã phủ hết
      *     nợ). Công nợ đang mở = phần nợ đã ghi (B18, đảo khoản thu G-4, J15) chưa thu/xóa; khoản phát sinh còn trong cửa sổ 24 giờ **không** phải công nợ nên không xóa được; hết cửa sổ
@@ -2561,6 +2583,8 @@ export interface paths {
      *     **ARC 16.31 (BR-525 lần 8)**: "công nợ mở" = `openDebtVnd` > 0 (theo số; folio `closed` = còn phải thu; công nợ ghi lúc B18, G-4 hoặc J15). Khoản thu trả **công nợ trước** (G-6) rồi
      *     mới tới khoản trong cửa sổ; Desk hiện một số còn phải thu. Trong cửa sổ, khoản thu cho khoản phát sinh sau trả phòng nhận như BR-427 (c) dù không có công nợ. Folio `settled` đã quá cửa sổ
      *     mà J15 (mỗi giờ) chưa chạy và chưa có công nợ → 409 `FOLIO_LOCKED` tới lần chạy J15 kế tiếp (N-15 – chấp nhận ở R2, khoảng hở ≤ 1 giờ).
+     *     **0.3.12 (FB-R4-SEC-BE-HOLDS-01, SEC-on-v104-holds mục 3)**: folio của giữ chỗ đã quá `holdExpiresAt`: người gọi không có vai FD+ (SAL) nhận `409 HOLD_EXPIRED` (+ `expiredAt`), không ghi gì.
+     *     FD+ ghi được như cũ. Không có trường mới.
      */
     post: operations['recordPayment'];
     delete?: never;
@@ -2776,6 +2800,7 @@ export interface paths {
      *     QR tính lại bây giờ với ngữ cảnh đã lưu lúc tạo: `check_in` như `amountDueAtCheckinVnd` (đêm B9a chỉ khi còn trống), `check_out` như `amountDueAtCheckoutVnd`, `deposit` = cọc còn thiếu,
      *     `balance` = còn phải thu folio) → **bắt buộc `note`** (3–300); thiếu → 422 `REASON_REQUIRED` (`field` = `note`, Problem `max` = số còn phải thu lúc xác nhận). Phần vượt nằm ở
      *     `Folio.totals.creditVnd`/`unhandledCreditVnd`, xử lý theo BR-522 (B18 `overpaymentHandling` hoặc `createRefundRequest`) – không tự tạo yêu cầu hoàn. Audit `money` ghi số vượt.
+     *     **0.3.12 (HOLDS-01/G6, SEC `SEC-on-v104-holds.md` mục 8)**: Folio của giữ chỗ đã quá `holdExpiresAt`: người gọi không có vai FD+ (SAL) nhận `409 HOLD_EXPIRED` (+ `expiredAt`), không ghi gì. FD+ như cũ.
      */
     post: operations['confirmPaymentReceived'];
     delete?: never;
@@ -3326,6 +3351,12 @@ export interface paths {
      *     → yêu cầu về `pending`, phải duyệt lại (F8). Tiền thu qua cổng (`vnpay`, `momo`) chỉ được `original_method`.
      *     **0.3.7 bổ sung D1 (S4-43, P-S4-6)**: FD/FDL nhập được nơi nhận cho yêu cầu **người khác tạo** (mọi đơn trong cơ sở – thấy ở hàng chờ `listApprovalRequests`); người đặt nơi nhận
      *     chuyển khoản không được là người duyệt hay người chi (BR-522, SEC-37 – server kiểm khi duyệt/chi, không đổi).
+     *     **0.3.12 (P4-12, FB-R4-DOM-BA-025-02; ARC plan v1.0.4 quyết định 6.3; SEC đồng ý có điều kiện 04/11) – yêu cầu hoàn thay thế mang nơi nhận**: khi `refundPlan` đóng các yêu cầu hoàn
+     *     đang chờ của **cùng đơn** và tạo **một** yêu cầu thay thế (`superseded`): nếu mọi yêu cầu bị đóng có nơi nhận đều cùng **một** nơi nhận và cùng khách nhận → server chép nơi nhận sang
+     *     yêu cầu mới trong **cùng giao dịch** (giải mã trước khi tự hủy yêu cầu cũ, mã hóa lại bằng DEK mới với AAD = id yêu cầu mới, chép `refund_destination_set_by/at` gốc để luật người đặt ≠
+     *     người duyệt/chi vẫn đúng); rồi mới xóa ở yêu cầu cũ theo SEC-BE-45. Lỗi ở bất kỳ bước nào → hủy cả giao dịch. Khác nơi nhận, khác khách hoặc không có → yêu cầu mới **không** có nơi nhận,
+     *     Desk nhắc nhập bằng operation này như cũ. Yêu cầu mới vẫn **chờ duyệt**. Audit `money` `refund.destination_carried` chỉ có mã yêu cầu (cũ, mới) – không số tài khoản trong audit, log, Problem.
+     *     Không đổi schema, không đổi `x-roles`.
      */
     put: operations['setRefundDestination'];
     post?: never;
@@ -4530,6 +4561,7 @@ export interface paths {
      *     - `noticeVersion`: khách bấm "Tôi đã đọc" ở bước 0 → server ghi phiên bản thông báo xử lý dữ liệu đã hiển thị (+ `locale` phiên) vào `online_checkin`;
      *       phiên bản phải là bản hiện hành (khác → 422 `NOT_IN_LIST`). Chưa đọc bản hiện hành → mọi bước khác trả `409 INVALID_TRANSITION` (`currentStep=notice`).
      *     - `arrivalNote` (≤ 300, V-09 chặn số thẻ – `CARD_NUMBER_DETECTED`) **chỉ ghi**: không trả lại app khách, chỉ Desk thấy (`Registration.onlineCheckin`).
+     *       **0.3.12 (i)** (PR24PM-01, SEC 04/11): chuỗi giống số giấy tờ → 422 `ID_NUMBER_DETECTED` (`field` = `arrivalNote`, chỉ `field` + `code`, không lưu gì của lần gửi) – bật cùng tag với câu báo guest-web.
      *     - `lateArrival=true` ("Sau 22:00") → `etaTime` lưu `22:00` (giả định BA).
      *     - Đã đóng (`onlineCheckinAvailable=false`) → `409 ONLINE_CHECKIN_CLOSED`.
      */
@@ -5577,7 +5609,7 @@ export interface components {
       soleOwner?: boolean;
       /** @description 0.3.8 (SEC 06.15) – còn ≤ 3 mã khôi phục → nhắc tạo bộ mới mỗi lần đăng nhập */
       recoveryCodesLow?: boolean;
-      /** @description 0.3.10 (BUG-R3-032) – email nhận thư bảo mật của **chính** người gọi (đầy đủ, không che – dữ liệu của chính họ); `null` = chưa có. Đổi bằng `setMyEmail` */
+      /** @description 0.3.10 (BUG-R3-032) – email nhận thư bảo mật của **chính** người gọi (đầy đủ, không che – dữ liệu của chính họ); `null` = chưa có. Đổi bằng `setMyEmail`. 0.3.12 (SEC-ARC-018-03): `x-self-data` thay `x-rbac-field: D27` */
       email?: string | null;
       /** @description 0.3.10 (BUG-R3-032, SEC-on-B2-readiness 1.5) – `true` khi người gọi có vai `owner` hoặc `manager` chưa thu hồi (ở bất kỳ cơ sở nào) mà `email` rỗng → Desk nhắc nhập email ở Bảo mật tài khoản. Vai khác luôn `false` */
       securityEmailMissing?: boolean;
@@ -5824,7 +5856,12 @@ export interface components {
       'reminded_waiting' | 'replied' | 'call_needed' | 'overdue' | 'checked_out';
     AttentionItem: {
       /**
-       * @description **0.3.8**: `late_fee_post_review` (US-164/ESC-024 B; v1.0 cả `postReview` – bổ sung 8 – nguồn `event`, OWN/MGR, mức `warning`, **một mục mỗi đơn**, `dueAt` = ghi + `post_checkout_charge_hours` (bổ sung 8), `refCode` = mã đơn; đóng bằng
+       * @description **0.3.12 (ĐX-R3-QA-01, BUG-R3-041/042, DOM A.5 ý 7)** – hai mục **tính lúc đọc** (`source: computed`, không có `eventId`, không có dòng `attention_event`), mức `critical`,
+       *     **không** tắt được bằng `resolveAttentionEvent`/"Đã xử lý" (client không hiện nút kể cả khi gặp `source: event`); tự hết khi đơn rời `hold` (xác nhận, hủy, nhận phòng):
+       *     `hold_overdue` – **FD+** (OWN/MGR/FDL/FD): mọi đơn `hold` đã quá `holdExpiresAt`, mọi ngày đến; `count` = số đơn, `reservationIds` = các đơn, `dueAt` = `holdExpiresAt` **cũ nhất**,
+       *     `refCode` = mã đơn **chỉ khi** `count` = 1; `params` chỉ `count`. `hold_overdue_cap` – **chỉ OWN/MGR**: các đơn của `hold_overdue` mà giờ server ≥ ngày đến +
+       *     `hold_latest_time_on_arrival` (12:00) – tập con của `hold_overdue`, **không** lọc theo cọc (thường là đơn đã có cọc vì J1 hủy đơn chưa cọc ngay sau hạn; worker dừng thì đơn chưa cọc vẫn hiện – FB-R4-BEB-ARC-0312-01); cùng các trường, `dueAt` = mốc 12:00 **sớm nhất**. Không `link` (Desk mở đơn khi 1 đơn, danh sách giữ chỗ khi nhiều). Không tên khách, không số tiền.
+       *     **0.3.8**: `late_fee_post_review` (US-164/ESC-024 B; v1.0 cả `postReview` – bổ sung 8 – nguồn `event`, OWN/MGR, mức `warning`, **một mục mỗi đơn**, `dueAt` = ghi + `post_checkout_charge_hours` (bổ sung 8), `refCode` = mã đơn; đóng bằng
        *     `resolveAttentionEvent` sau khi xem lại); `foc_stay_total_exceeded` (ESC-026 A – nguồn `event`, **chỉ OWN**, `warning`, **một mục mỗi lượt ở** (mở ở lần vượt đầu), `dueAt` = +24 giờ, `params` chỉ `count` khoản);
        *     `manager_confirmation_pending` (nguồn `computed`, OWN/MGR, `count` yêu cầu đang chờ, `dueAt` = `expiresAt` sớm nhất).
        *     0.3.7 bổ sung 2 (US-155): `website_request_new` – nguồn `computed`, FD+ (OWN/MGR/FDL/FD); `count` = số yêu cầu website `new` chưa ai nhận; mức `warning` khi yêu cầu `new`
@@ -5865,7 +5902,9 @@ export interface components {
         | 'checkout_debt'
         | 'late_fee_post_review'
         | 'foc_stay_total_exceeded'
-        | 'manager_confirmation_pending';
+        | 'manager_confirmation_pending'
+        | 'hold_overdue'
+        | 'hold_overdue_cap';
       /**
        * @description computed = tính lúc đọc; event = bản ghi `attention_event` (đóng bằng resolveAttentionEvent)
        * @enum {string}
@@ -5900,6 +5939,8 @@ export interface components {
        *     | `no_show_call`, `no_show_mark` | `count`, `time` (`HH:mm` – `no_show_call_time` / `no_show_mark_time`) | FD+ |
        *     | `registration_due` | `count`, `deadline` (hạn sớm nhất – thời điểm ISO hoặc `HH:mm`) | FD+ |
        *     | `capacity_conflict`, `overbooking`, `unassigned_with_free_room`, `hold_expiring`, `room_ooo`, `extra_guest_kit_overdue`, `registration_overdue`, `guest_request_overdue` | `count` | FD+ |
+       *     | `hold_overdue` (0.3.12; `computed`, `critical`) | `count` | FD+ |
+       *     | `hold_overdue_cap` (0.3.12; `computed`, `critical`) | `count` | OWN/MGR |
        *     | `data_quality` | `check` | FD+ khi `check` bắt đầu `registration_`; còn lại (kiểm DATA) chỉ OWN |
        *     | `deposit_after_cancel`, `security_alert` | `code` (mã chứng từ dạng `OTM-00171`) | FD+ (`deposit_after_cancel`) / chỉ OWN (`security_alert`) |
        *     | `ota_no_show_report` | `action` (`report`\|`revoke`), `channel` (mã kênh) | FD+ |
@@ -6131,6 +6172,14 @@ export interface components {
         monthlyRentVnd?: components['schemas']['MoneyVnd'];
         externalContractRef?: string;
         depositHeldVnd?: components['schemas']['MoneyVnd'];
+        /**
+         * @description **0.3.12 (FB-R4-DOM-FE-A-01, DOM-BE-A-04; ARC plan v1.0.4 quyết định 6.1)** – ngày hết hạn HĐ giấy, **chỉ đọc**, server tính. Chưa nhận phòng = `departureDate`;
+         *     lúc nhận phòng (B9/B9a) server **chốt** ngày này (khóa `lease_end_date` trong jsonb `manual_long_stay`, cùng giao dịch); hoàn tác nhận phòng (B17) bỏ chốt.
+         *     Sau đó B13 (gia hạn – đổi `departureDate`) và B16 (trả sớm) **không** đổi `leaseEndDate`. Đơn nhận phòng trước v1.0.4 (chưa có khóa) → `booked_departure_date`.
+         *     Server chọn BR-313/BR-428 ở B16 theo ngày này; Desk hộp **Trả sớm**: `lease = stayType === 'long' && newDate < leaseEndDate`. Không gửi được qua API.
+         * @example 2027-04-30
+         */
+        readonly leaseEndDate?: components['schemas']['LocalDate'];
       };
       folioId: components['schemas']['Uuid'];
       segments?: {
@@ -6299,6 +6348,10 @@ export interface components {
        *     [GIẢ ĐỊNH ARC – DOM xác nhận các mốc đặt `true`]
        */
       roomDisclosedToGuest?: boolean;
+      /**
+       * @description Hành động máy trạng thái người gọi làm được lúc này (vai × trạng thái × giờ server). **0.3.12 (BUG-R3-042)**: giữ chỗ đã quá `holdExpiresAt` – `confirm-deposit` (B4)
+       *     chỉ có với FD+ (OWN/MGR/FDL/FD) **và** `depositPaidVnd > 0`; SAL và giữ chỗ chưa nhận đồng nào không có. Client ẩn/hiện nút theo danh sách này, không tự so giờ.
+       */
       allowedActions: components['schemas']['AllowedAction'][];
       /**
        * @description 0.3.7 (nháp B-2, FE): thao tác **ngoài máy trạng thái** người gọi làm được với đơn lúc này (server tính theo vai × trạng thái × thiết bị) – khác `allowedActions`
@@ -7644,8 +7697,11 @@ export interface components {
        *     `reservation.room_change_repriced`, `reservation.closer_changed`, `commission.projected`, `commission.earned`, `commission.voided`,
        *     `channel_fee.recorded`, `channel_fee.updated`, `overbooking.relocation_cost`, `approval.requested`, `approval.self_applied`, `approval.approved`,
        *     `approval.rejected`, `approval.escalated`, `approval.reopened`, `approval.cancelled` (yêu cầu loại tiền), `approval.applied_capped`, `config.changed` (chỉ khóa `payment_receiving_account`).
+       *     **0.3.12 (P4-12, ARC plan v1.0.4 quyết định 6.3, SEC-on-plan-v1.0.4 mục 1)**: `refund.destination_carried` – nơi nhận được chép sang yêu cầu hoàn thay thế; `entityType = approval_request`, chỉ mã yêu cầu cũ và mới, không số tài khoản.
        *     **0.3.7 bổ sung 4 (FB-R2-SEC-BE-80, BR-525 – BE-B; ARC duyệt ở lượt kiểm 8)**: `approval.applied_capped` – FOC `debt_write_off` được duyệt nhưng chỉ áp tới công nợ đang mở lúc duyệt (`before.amountVnd` = số xin, `after.appliedVnd` = số áp, `after.openDebtVnd`, `after.reasonCode` = `debt_write_off`; `reason` = mã `debt_collected_before_approval`). Yêu cầu tự hủy vì hết nợ: `approval.cancelled` với `reason` = `auto: debt_cleared`. **ARC 16.31**: nghĩa của mã lý do theo **điều kiện** – công nợ đang mở lúc duyệt < số đã duyệt – không khẳng định nguyên nhân; ở R2 (sau BUG-R2-207, điều kiện OPS của BUG-R2-210) nguyên nhân duy nhất còn lại là khoản thu trong lúc chờ (khoản thu trả công nợ trước – BR-525 G-6). Đường mới làm giảm công nợ đang mở phải thêm mã lý do riêng; Desk gặp mã lạ hiện câu chung.
        *     `payment.recorded`: phân biệt sale/CTV bằng `after.recordedByRole`; phương thức ở `after.method`, chờ đối soát ở `after.reconciliation`.
+       *     **0.3.12 (P4-11 BE-C; P4-10 BE-B HOLDS-02)**: `reservation.early_departure` – `after` thêm `earlyDepartureRule` (`BR-313` | `BR-428`) và `leaseEndDate` (chỉ với HĐ tháng nhập tay,
+       *     `externalContract = true`); `reservation.deposit_confirmed` xác nhận sau hạn – `after` thêm `afterDeadline`, `holdExpiredAt`, `paidBeforeVnd`, `unverifiedPaidVnd`, `via` (xem `confirmDeposit`).
        *     **0.3.7 bổ sung D1 (BR-433, BR-434 v0.3.5, BR-315 (g) – S4-02/S4-18/S4-22)**: `folio.foc_cancelled` – FOC đã duyệt hủy theo quy tắc, trả hạn mức (`after`: `approvalRequestId`,
        *     `serviceDate`, `amountVnd` = số đã duyệt trả lại, `reason` = `focCancelReason`); `folio.foc_dormant` – dòng của khóa về 0, dòng FOC đảo, yêu cầu vẫn `approved`;
        *     `folio.foc_suspended` – đơn no-show, FOC tạm dừng (không tính hạn mức); `folio.foc_restored` – FOC áp lại (`after.from` ∈ `dormant`, `suspended`). Yêu cầu chờ duyệt tự hủy dùng
@@ -8573,9 +8629,12 @@ export interface components {
      *     `password` đủ; phản hồi lỗi/thành công không đổi, `Me.mfaRequiredButMissing` nhắc bật. Sai bất kỳ yếu tố nào → **cùng** `401 REAUTH_FAILED` (`field` = `reauth` hoặc ô mật khẩu của
      *     operation) – đếm SR-RL-02 (5 sai/15 phút). Một hàm server `StrongReauthService.verify(user, input, operationId)` (module identity) – không cài lại ở từng module.
      *     Audit `security` `stepup.s2_granted` / `stepup.s2_failed` (kèm `operationId`, không ghi giá trị).
+     *     **0.3.12 (SEC-ARC-018-03 (a))**: `password` không còn `required`/`minLength` trong schema – **vắng hoặc rỗng → `422 STRONG_REAUTH_REQUIRED`** (`field` = `reauth`), không đếm SR-RL-02,
+     *     đúng như server đã cài từ v1.0.3. Độ dài tối thiểu là luật **đặt** mật khẩu (V-10), không dùng để kiểm ô xác nhận lại.
      */
     StrongReauth: {
-      password: string;
+      /** @description Bắt buộc về nghiệp vụ – vắng/rỗng → 422 `STRONG_REAUTH_REQUIRED` (0.3.12) */
+      password?: string;
       totpCode?: string;
       recoveryCode?: string;
     };
@@ -8594,7 +8653,14 @@ export interface components {
     StaffNotification: {
       id: components['schemas']['Uuid'];
       /**
-       * @description **0.3.8 (US-164)**: `manager_confirmation_requested` (mọi OWN/MGR **đang hoạt động** của cơ sở; Web Push nếu đã đăng ký – payload chỉ `kind` + `refId`; refType `manager_confirmation`,
+       * @description **0.3.12 (BUG-R3-041, WA-04, DOM A.5 xác nhận 04/11)** – J1 đi qua `events.notify` (hộp thư + SSE `notification.created`); refType `reservation`, refCode = mã đơn; chỉ loại + mã + id,
+       *     không tên/SĐT/số tiền (SEC A5). Người nhận là tài khoản **đang hoạt động** có vai chưa thu hồi tại cơ sở; mỗi người **một** dòng mỗi sự kiện. Không bao giờ HK, MT, kế toán.
+       *     `hold_overdue_with_deposit` – lượt J1 đầu tiên thấy giữ chỗ **đã nhận > 0 đ** quá `holdExpiresAt` (không tự hủy): người tạo + người chốt của đơn và mọi FD, FDL, **MGR** (0.3.12 thêm MGR);
+       *     chống trùng theo (đơn, `holdExpiresAt`) – gia hạn giữ chỗ rồi lại quá hạn thì báo lần nữa. `hold_overdue_cap` – đơn vẫn `hold` (có cọc) lúc ≥ ngày đến + `hold_latest_time_on_arrival`:
+       *     **MGR, OWN** (0.3.12 thêm OWN); một lần mỗi đơn. `hold_expired` (đã có) – J1 tự hủy giữ chỗ **chưa cọc**: người tạo + người chốt; **0.3.12**: không ra ai (không có, đã khóa, đã thu vai)
+       *     → gửi FD, FDL; một lần mỗi đơn. Chống trùng ở server (khóa `dedupe_key` của dòng outbox `staff.push` trong cùng giao dịch – BE-B P4-10), client không lọc thêm.
+       *     Client cũ gặp kind lạ → câu chung (PWA v1.0.3: `staff.notif.k.other`), không lỗi.
+       *     **0.3.8 (US-164)**: `manager_confirmation_requested` (mọi OWN/MGR **đang hoạt động** của cơ sở; Web Push nếu đã đăng ký – payload chỉ `kind` + `refId`; refType `manager_confirmation`,
        *     refCode = mã đơn) · `manager_confirmation_decided` (người gửi – đã duyệt/từ chối) · `manager_confirmation_expired` (người gửi – hết hạn, Desk mở nhánh tự ghi) ·
        *     `late_fee_post_review` (OWN + MGR trừ người ghi – lễ tân tự ghi sau hết hạn, hoặc `postReview` ở v1.0 (bổ sung 8), hậu kiểm trong `post_checkout_charge_hours`; quá hạn chưa xem →
        *     mọi OWN thêm **một** lần (job `late_fee.post_review_overdue`); refType `reservation`). **ESC-026 A**: `foc_stay_total_exceeded` (mọi OWN – Σ số đang áp của FOC/giảm giá đặc biệt/xóa nợ
@@ -8658,7 +8724,9 @@ export interface components {
         | 'manager_confirmation_decided'
         | 'manager_confirmation_expired'
         | 'late_fee_post_review'
-        | 'foc_stay_total_exceeded';
+        | 'foc_stay_total_exceeded'
+        | 'hold_overdue_with_deposit'
+        | 'hold_overdue_cap';
       /** @enum {string} */
       refType?:
         | 'reservation'
@@ -9380,6 +9448,7 @@ export interface components {
     /** @description RATE_LIMITED */
     RateLimited: {
       headers: {
+        /** @description Số giây tới khi gọi lại được */
         'Retry-After'?: number;
         [name: string]: unknown;
       };
@@ -9414,7 +9483,10 @@ export interface components {
      *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
      */
     IdempotencyKey: string;
-    /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+    /**
+     * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+     *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+     */
     IfMatch: string;
     /** @description Định danh cơ sở trong URL webhook (ADR-011) – chọn bí mật theo cơ sở */
     PropertySlug: string;
@@ -9427,7 +9499,7 @@ export interface components {
   };
   requestBodies: never;
   headers: {
-    /** @description Phiên bản bản ghi, dùng cho `If-Match` */
+    /** @description Phiên bản bản ghi, dùng cho `If-Match`. 0.3.12 (V3-09) – qua proxy nén có thể thành `"7-gzip"`; client nên dùng `version` trong thân */
     ETag: string;
   };
   pathItems: never;
@@ -9672,6 +9744,7 @@ export interface operations {
            *     }
            */
           'application/json': {
+            /** @description 0.3.12 (SEC-ARC-018-03) – email của chính người gọi (thay `x-rbac-field: D27`) */
             email: string | null;
           };
         };
@@ -10156,7 +10229,10 @@ export interface operations {
     parameters: {
       query?: never;
       header?: {
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -10196,13 +10272,17 @@ export interface operations {
       403: components['responses']['Forbidden'];
       412: components['responses']['VersionConflict'];
       422: components['responses']['ValidationFailed'];
+      429: components['responses']['RateLimited'];
     };
   };
   setUserRoles: {
     parameters: {
       query?: never;
       header?: {
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -10491,7 +10571,10 @@ export interface operations {
     parameters: {
       query?: never;
       header?: {
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -10574,7 +10657,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -11346,7 +11432,10 @@ export interface operations {
     parameters: {
       query?: never;
       header?: {
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -11411,7 +11500,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -11443,7 +11535,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -11454,19 +11549,14 @@ export interface operations {
     };
     requestBody: {
       content: {
-        /**
-         * @example {
-         *       "payment": {
-         *         "type": "deposit",
-         *         "method": "bank_transfer",
-         *         "amountVnd": 1500000,
-         *         "receivedAt": "2026-10-15T10:12:00+07:00",
-         *         "note": "CK Vietcombank"
-         *       }
-         *     }
-         */
         'application/json': {
           payment?: components['schemas']['PaymentCreate'];
+          /**
+           * @description Khoản cọc **đã có** trên folio của đơn (`type = deposit`, `succeeded`, chưa đảo) – khoản VietQR đã về, hoặc khoản đã ghi trước – dùng khi xác nhận **không** kèm khoản mới.
+           *     Gửi đúng một trong `payment`, `existingPaymentId` (cả hai hoặc không có → 422 `REQUIRED`, `field` = `payment`). Không phải khoản cọc của folio này → 422 `NOT_IN_LIST`.
+           *     **0.3.12 (FE-B G2)**: OWN/MGR chấp nhận cọc thiếu mà không ghi thêm tiền → gửi `existingPaymentId` = khoản cọc `succeeded` **mới nhất** + `acceptShortfallReason` – đúng hợp đồng.
+           *     Server chỉ dùng khoản này để kiểm tồn tại và lấy `receivedAt`; số đã nhận luôn là tổng cọc của folio. Giữ chỗ đã quá hạn: FD+ dùng được, giờ nhận không xét (SEC G4, mô tả operation).
+           */
           existingPaymentId?: components['schemas']['Uuid'];
           /**
            * @description 0.3.6 (B-29, DOM D-9). **Chỉ MGR+** (FD/FDL/SAL gửi → `403 FORBIDDEN_ACTION`). Đơn `hold` có tổng cọc `succeeded` > 0 (= 0 → `409 INVALID_TRANSITION`).
@@ -11481,7 +11571,15 @@ export interface operations {
     responses: {
       200: components['responses']['ReservationOk'];
       403: components['responses']['Forbidden'];
-      409: components['responses']['Conflict'];
+      /** @description Xung đột nghiệp vụ – `HOLD_EXPIRED` (0.3.12 – SAL, hoặc folio chưa nhận đồng nào mà khoản mới có `receivedAt` ≥ hạn), `INVALID_TRANSITION`, `FOLIO_LOCKED` */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
       412: components['responses']['VersionConflict'];
       422: components['responses']['ValidationFailed'];
     };
@@ -11535,7 +11633,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -11677,7 +11778,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -11735,7 +11839,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -11773,7 +11880,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -11895,7 +12005,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -11987,7 +12100,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -12042,7 +12158,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -12095,7 +12214,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -12168,7 +12290,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -12267,7 +12392,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -12304,7 +12432,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -12498,7 +12629,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -12572,7 +12706,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -12833,7 +12970,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -13015,7 +13155,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -13176,7 +13319,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -13215,7 +13361,10 @@ export interface operations {
     parameters: {
       query?: never;
       header?: {
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -13254,7 +13403,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -13324,7 +13476,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -13380,7 +13535,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -13538,7 +13696,10 @@ export interface operations {
     parameters: {
       query?: never;
       header?: {
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -13618,7 +13779,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -13861,7 +14025,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -14014,7 +14181,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -14149,7 +14319,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -14275,7 +14448,7 @@ export interface operations {
       401: components['responses']['Unauthenticated'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
-      /** @description FOLIO_LOCKED – bill đã khóa (US-038 AC2); SHIFT_NOT_OPEN (R3) – 0.3.7 khai (nháp B-10) */
+      /** @description FOLIO_LOCKED – bill đã khóa (US-038 AC2); SHIFT_NOT_OPEN (R3) – 0.3.7 khai (nháp B-10); HOLD_EXPIRED – 0.3.12, SAL ghi vào folio của giữ chỗ đã quá hạn */
       409: {
         headers: {
           [name: string]: unknown;
@@ -14440,7 +14613,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -14478,7 +14654,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -14516,7 +14695,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -14723,7 +14905,15 @@ export interface operations {
       401: components['responses']['Unauthenticated'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
-      409: components['responses']['Conflict'];
+      /** @description INVALID_TRANSITION – không phải VietQR `pending` còn hạn (kèm `currentState`); HOLD_EXPIRED – 0.3.12 (G6), SAL xác nhận QR trên folio của giữ chỗ đã quá hạn */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
       422: components['responses']['ValidationFailed'];
       428: components['responses']['PreconditionRequired'];
     };
@@ -14737,7 +14927,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -14804,7 +14997,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -15854,7 +16050,10 @@ export interface operations {
     parameters: {
       query?: never;
       header?: {
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -15976,7 +16175,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -16072,7 +16274,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -16117,7 +16322,10 @@ export interface operations {
     parameters: {
       query?: never;
       header?: {
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -16203,7 +16411,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -16853,7 +17064,10 @@ export interface operations {
     parameters: {
       query?: never;
       header?: {
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -16896,7 +17110,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -17006,7 +17223,10 @@ export interface operations {
     parameters: {
       query?: never;
       header?: {
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -17152,7 +17372,10 @@ export interface operations {
     parameters: {
       query?: never;
       header?: {
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -17358,7 +17581,10 @@ export interface operations {
     parameters: {
       query?: never;
       header?: {
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {
@@ -18054,7 +18280,7 @@ export interface operations {
         'application/json': {
           /** @description Không dùng được (`listGuestRequestOptions.available=false`) → 422 `REQUEST_TYPE_NOT_AVAILABLE` (B-14) */
           type: components['schemas']['GuestRequestType'];
-          /** @description Bắt buộc theo `noteRequired` của loại (EP14 3.2) → `REQUIRED` */
+          /** @description Bắt buộc theo `noteRequired` của loại (EP14 3.2) → `REQUIRED`. Số thẻ → `CARD_NUMBER_DETECTED`; **0.3.12 (i)** (PR24PM-01, SEC 04/11): chuỗi giống số giấy tờ → 422 `ID_NUMBER_DETECTED` (chỉ `field` + `code`, không lưu, không log) – bật cùng tag với câu báo guest-web */
           note?: string;
           /**
            * @description 0.3.6 (B-16). Bắt buộc `true` khi loại có `feeVnd > 0` → thiếu: `FEE_NOT_ACCEPTED`. Client **không** gửi số tiền – server lưu `feeVndSnapshot`
@@ -18075,6 +18301,15 @@ export interface operations {
         };
       };
       403: components['responses']['GuestForbidden'];
+      /** @description VALIDATION_FAILED – `REQUIRED`, `REQUEST_TYPE_NOT_AVAILABLE`, `FEE_NOT_ACCEPTED`, `CARD_NUMBER_DETECTED`, `ID_NUMBER_DETECTED` (0.3.12) */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
       429: components['responses']['RateLimited'];
     };
   };
@@ -18541,7 +18776,10 @@ export interface operations {
          *     (trừ lần gọi `dryRun: true`): thiếu → middleware trả `428 PRECONDITION_REQUIRED` (khai `required: false` để validator spec không trả 422 – BE-ARC-11).
          */
         'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
-        /** @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`. */
+        /**
+         * @description Giá trị `ETag` lần đọc gần nhất. Bắt buộc về nghiệp vụ (thiếu → `428 PRECONDITION_REQUIRED` do middleware), trừ lần tạo đầu của `setDoorCredential` và `dryRun`.
+         *     **0.3.12 (V3-09)**: client nên gửi `"<version>"` lấy từ `version` trong thân phản hồi; server cũng nhận dạng có hậu tố nén `"7-gzip"`, `"7-zstd"`, `"7-br"` (proxy nén gắn vào `ETag`).
+         */
         'If-Match'?: components['parameters']['IfMatch'];
       };
       path: {

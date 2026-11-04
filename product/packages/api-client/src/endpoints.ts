@@ -263,6 +263,8 @@ export function createEndpoints(api: ApiClient) {
     /**
      * 0.3.9 (BUG-R3-018 phần 1): remove one price row scheduled after the business day (OWN/MGR, S25).
      * `If-Match` = `Room.version`; the answer is the room after the change (+ ETag).
+     * 409 INVALID_TRANSITION `currentState` (CancelScheduledListPriceState): `effective`, `only_price`, and 0.3.12
+     * `first_price` – the earliest row of a room that still has other rows (BUG-R4-015).
      */
     cancelScheduledRoomListPrice: (
       { propertyId, roomId }: P & { roomId: string },

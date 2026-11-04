@@ -239,6 +239,8 @@ def parse_openapi():
             f = re.search(r'x-rbac-field:\s*(\w+)', body)
             if f:
                 cur_occ['field'] = f.group(1)
+            if re.search(r'x-self-data:\s*true', body):  # OpenAPI 0.3.12 (SEC-ARC-018-03): caller's own data, no Dxx
+                cur_occ['field'] = SELF_DATA
             c = re.search(r'x-classification:\s*(C\d)', body)
             if c:
                 cur_occ['cls'] = c.group(1)
@@ -255,6 +257,8 @@ def parse_openapi():
         m = re.match(r'^\s+x-classification:\s*(C\d)', line)
         if m and prop and occ and ind == occ[-1]['ind'] + 2:
             occ[-1]['cls'] = m.group(1)
+        if re.match(r'^\s+x-self-data:\s*true', line) and prop and occ and ind == occ[-1]['ind'] + 2:
+            occ[-1]['field'] = SELF_DATA
     by_story = defaultdict(list)
     for op, sts in ops.items():
         for s in sts:
@@ -526,6 +530,11 @@ def rbac_check(meta, visible, acts, fields, op_actions=None):
     return op_rows, field_rows, unknown
 
 
+# OpenAPI 0.3.12 (SEC-ARC-018-03): `x-self-data: true` marks the caller's own data (own e-mail, own 2FA key/codes)
+# in place of x-rbac-field D27 – counts as tagged, never compared with an rbac-matrix row.
+SELF_DATA = 'x-self-data'
+
+
 def field_tag_check(fields):
     """W2 R2: x-rbac-field coverage. -> (tagged count, untagged [(name, reason)], unknown field codes [(name, code)]).
     Must be tagged: every property with x-classification (C2/C3) and every property in QA FIELD_MAP that carries x-visible-to."""
@@ -533,7 +542,8 @@ def field_tag_check(fields):
     tagged = sum(1 for o in occ if o['field'])
     untagged = sorted({(o['name'], f"x-classification {o['cls']}" if o['cls'] else 'x-visible-to + FIELD_MAP')
                        for o in occ if not o['field'] and (o['cls'] or (o['vs'] is not None and o['name'] in FIELD_MAP))})
-    unknown = sorted({(o['name'], o['field']) for o in occ if o['field'] and o['field'] not in fields})
+    unknown = sorted({(o['name'], o['field']) for o in occ
+                      if o['field'] and o['field'] != SELF_DATA and o['field'] not in fields})
     return tagged, untagged, unknown
 
 

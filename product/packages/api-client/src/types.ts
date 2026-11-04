@@ -12,6 +12,11 @@ export type RoomPatch = Schemas['RoomPatch'];
 /** 0.3.9 (BUG-R3-018 phần 1): a `room_list_price` row dated after the business day (OWN/MGR only). */
 export type RoomScheduledListPrice = Schemas['RoomScheduledListPrice'];
 export type CancelScheduledRoomListPriceBody = BodyOf<'cancelScheduledRoomListPrice'>;
+/**
+ * OpenAPI 0.3.12 (BUG-R4-015): `currentState` of the 409 INVALID_TRANSITION of `cancelScheduledRoomListPrice`
+ * (`Problem.currentState` is a free string in the contract – this is the closed list for that operation).
+ */
+export type CancelScheduledListPriceState = 'effective' | 'only_price' | 'first_price';
 export type RoomGroup = Schemas['RoomGroup'];
 export type Parameter = Schemas['Parameter'];
 export type Guest = Schemas['Guest'];
@@ -35,6 +40,8 @@ export type ReservationStatus = Schemas['ReservationStatus'];
 export type ReservationCreate = Schemas['ReservationCreate'];
 export type ReservationPatch = Schemas['ReservationPatch'];
 export type ManualLongStayInput = Schemas['ManualLongStayInput'];
+/** Read side of a manual long stay; 0.3.12 adds the read-only `leaseEndDate` (lease end frozen at check-in). */
+export type ManualLongStay = NonNullable<Reservation['manualLongStay']>;
 export type DirectSource = NonNullable<ReservationCreate['directSource']>;
 export type PaymentModel = ReservationCreate['paymentModel'];
 export type NightRate = Schemas['NightRate'];
@@ -88,7 +95,12 @@ export type SetMyEmailBody = BodyOf<'setMyEmail'>;
 export type SetMyEmailResult = ResponseOf<'setMyEmail'>;
 export type LookupGuestBody = BodyOf<'lookupGuestByContact'>;
 // R3 Sprint 1 – US-143 2FA (OpenAPI 0.3.8, SEC A)
-export type StrongReauth = Schemas['StrongReauth'];
+/**
+ * S2 re-auth body. OpenAPI 0.3.12 (SEC-ARC-018-03) drops `required: [password]` from the schema only to describe the
+ * server (absent/empty → 422 STRONG_REAUTH_REQUIRED, not counted); a client always sends the password, so the
+ * client type keeps it required.
+ */
+export type StrongReauth = Schemas['StrongReauth'] & { password: string };
 export type LoginMfaBody = BodyOf<'loginMfa'>;
 export type My2fa = ResponseOf<'getMy2fa'>;
 export type My2faSetup = ResponseOf<'startMy2faSetup'>;
@@ -169,6 +181,9 @@ export type AuditEvent = Schemas['AuditEvent'];
 export type AttentionItem = Schemas['AttentionItem'];
 /** Sprint 4 FE-B (EP01, 0.3.7): H03 Hôm nay / H24 Tổng quan. */
 export type AttentionKind = AttentionItem['kind'];
+/** Staff inbox row (`listMyNotifications`); 0.3.12 adds `hold_overdue_with_deposit`, `hold_overdue_cap`. */
+export type StaffNotification = Schemas['StaffNotification'];
+export type StaffNotificationKind = StaffNotification['kind'];
 export type TonightKpi = Schemas['TonightKpi'];
 export type ArrivalsDepartures = Schemas['ArrivalsDepartures'];
 export type ArrivalItem = ArrivalsDepartures['arrivals'][number];

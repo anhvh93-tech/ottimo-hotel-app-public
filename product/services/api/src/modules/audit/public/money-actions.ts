@@ -29,6 +29,8 @@ export const MONEY_AUDIT_ACTIONS = [
   'folio.damage_posted',
   'folio.damage_rejected',
   'refund.destination_set',
+  // v1.0.4 P4-12 (ARC plan 6.3, SEC-on-plan-v1.0.4 1.2 point 5): a replacement keeps the destination – request ids only.
+  'refund.destination_carried',
   'refund.paid',
   'refund.cash_paid',
   'deposit.shortfall_accepted',

@@ -199,6 +199,7 @@ sequenceDiagram
 4. Phòng trống cho kênh và rack tính trực tiếp từ bảng này (không bảng đếm riêng).
 5. Xung đột mức giờ (trả muộn vs khách đến cùng ngày) kiểm ở ứng dụng với `SELECT … FOR UPDATE` trên dòng căn.
 6. `Idempotency-Key` cho POST quan trọng; `If-Match`/`version` cho sửa đơn.
+   - **Khóa lạc quan qua proxy nén (v1.0.4, OpenAPI 0.3.12, V3-09 – ARC plan v1.0.4 quyết định 6.2):** Caddy `encode` gắn hậu tố vào `ETag` (`"6"` → `"6-gzip"`). Client (Desk, PWA) dựng `If-Match: "<version>"` từ trường `version` trong thân phản hồi, không chép header `ETag`. Máy chủ (`shared/http/precondition.ts` `parseEntityTag`) vẫn nhận `"n-gzip"`, `"n-zstd"`, `"n-br"` (cả dạng `W/`) như `"n"`; hậu tố khác, danh sách, `*` → 422. Không đổi cấu hình Caddy.
 7. Test bắt buộc (QA + BE): 2 request song song cùng căn/đêm → đúng 1 thành công; OOO chặn bán (BL 8.2 #5); hold hết hạn mở lại phòng.
 
 ## 9. Bất đồng bộ: outbox/inbox và job theo lịch
