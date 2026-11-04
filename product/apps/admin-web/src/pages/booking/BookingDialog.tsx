@@ -544,7 +544,14 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       if (r.raw && !((parseVnd(r.raw) ?? 0) > 0))
         e[`nightlyRates[${i}].amountVnd`] = t('booking.error.rate_empty');
     });
-    if (form.group === 'ota' && rateList.some((r) => r.raw) && rateList.some((r) => !r.raw))
+    // FB-R4-ARC-FE-PR82-01: OTA and Nội bộ type every night or none (`body()` sends their rates only when all are
+    // typed). Before, a Nội bộ stay typed in part went through: no rates sent, the server wrote 0 đ for every night
+    // and the typed figures were lost.
+    if (
+      (form.group === 'ota' || form.group === 'internal') &&
+      rateList.some((r) => r.raw) &&
+      rateList.some((r) => !r.raw)
+    )
       e.rates = t('booking.error.rate_empty');
     // BUG-R4-037: Trực tiếp / CTV with a typed rate sends every night – never an empty one as 0 đ (the preview of
     // this stay not back yet, or a box emptied by hand).
