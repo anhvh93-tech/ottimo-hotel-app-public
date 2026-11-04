@@ -429,3 +429,82 @@ Nhận xét về test mới:
 | Ngày | Round | Quyết định | Người | Ghi chú |
 |---|---|---|---|---|
 | 2026-11-05 | 4 | **ARC – review PR #82 lượt 2 @ `4344802c`: ĐẠT CÓ ĐK.** `d8346931` ẩn chữ BR-107 trong lúc chờ bản xem (câu dưới bảng giá, "Sau giảm", dòng phụ của bảng tổng), đóng UXD-PR82-01. `4344802c` chặn đơn Nội bộ gõ một phần số đêm như OTA (luật A, DOM chốt ở BR-105 v0.5.8), đóng ARC-PR82-01. Hai ca mới đỏ trước bản sửa. 4 tệp 49/49, admin-web 945/945. Đột biến bỏ Nội bộ khỏi điều kiện bị bắt. ĐK: các job CI còn `pending` (docker/E2E, landing) phải xanh; sau #75 đổi base sang `main` rồi chạy lại | ARC | `rounds/round-04/reviews/ARC-on-v104-pr82-rate-source.md` mục 9. Thẻ mới Minor, không chặn: PR82-03 (luật OTA gõ một phần chưa có test; đột biến bỏ OTA vẫn 945/945), PR82-04 (trong lúc chờ, bảng tổng ghi "Phụ thu 0 người…"). ARC nhận sửa của DOM: đêm miễn phí trong đơn Nội bộ có thu sửa về 0 ở Folio (A31, cần #71), không dùng FOC hay giảm 100 % |
+
+## 10. ARC lượt 3 – delta `4344802c..0e48686c` (05/11)
+
+- Đối tượng: `git diff 4344802c 0e48686c`, gồm 1 commit `0e48686c` và 8 tệp:
+  - `BookingDialog.tsx`;
+  - 2 tệp test;
+  - `gen_strings.py` và các tệp sinh ra từ nó: JSON VI/EN, `strings-tables.md`, `strings.js`.
+- Ba việc:
+  - FB-R4-ARC-FE-PR82-03: ca test OTA sinh đôi với ca Nội bộ;
+  - FB-R4-ARC-FE-PR82-04: ẩn dòng phụ thu khi chờ bản xem;
+  - FB-R4-DOM-UXD-PR82-01: khóa mới `booking.error.rate_empty_internal`, viết lại `bk.internal_help`.
+- Cách kiểm: worktree tạm ở `0e48686c`, đã xóa. Không commit, không đẩy.
+- Đã đọc lại tệp này ngay trước khi ghi. Mục 10 ghi nối sau mục 9, không sửa mục nào ở trên.
+
+### 10.1 Kết luận: **ĐẠT CÓ ĐK** cho `0e48686c`
+- Đóng thẻ:
+  - FB-R4-ARC-FE-PR82-03: Fixed;
+  - FB-R4-ARC-FE-PR82-04: Fixed.
+- FB-R4-DOM-UXD-PR82-01:
+  - phần mã của ARC đạt;
+  - chữ của câu do UXD duyệt. DOM đề xuất "xóa hết", FE viết "để trống hết". Cách viết của FE cùng cách nói với `bk.internal_help`.
+- Điều kiện còn lại:
+  1. CI trên `0e48686c` xanh hết. Lúc kiểm:
+     - còn `pending`: `format · lint · audit · test · build` và `landing LP-v1 · Playwright`;
+     - lượt chạy của `4344802c` đã bị hủy khi có lần đẩy mới. Vì vậy job `docker images build · E2E smoke` chưa từng xong trên head nào của #82, và phải xanh trên `0e48686c`.
+  2. Khi #75 vào `main`: đổi base của #82 sang `main` và sinh lại chuỗi. ORC đã nhận việc này. Sau đó chạy lại 4 tệp test và CI.
+- Thẻ còn Open:
+  - FB-R4-ARC-FE-PR82-02 (đổi số người thì bảng tổng của số người cũ), để v1.0.5;
+  - FB-R4-ARC-FE-PR70-02 (thẻ của #70).
+
+### 10.2 Xem delta
+- `validate()`:
+  - điều kiện chung của OTA và Nội bộ giữ nguyên;
+  - chỉ chọn câu theo kênh: Nội bộ dùng `booking.error.rate_empty_internal`, OTA giữ `booking.error.rate_empty`;
+  - ô gõ 0 hoặc số không hợp lệ vẫn báo `booking.error.rate_empty` tại ô, đúng ghi chú của khóa.
+- Dòng phụ thu:
+  - `extraFee > 0 && !priceWaiting`, nên khi chờ thì ẩn, giống dòng phụ BR-107;
+  - nhãn trở lại `calc.extraGuestCount ?? extra`;
+  - ô tiền không còn nhánh `–`, vì dòng đã ẩn;
+  - không còn câu "Phụ thu 0 người".
+- Tiền không đổi. `body()`, `submit()` và `hold()` giữ nguyên.
+- Chuỗi:
+  - `strings.js` so giữa `4344802c` và `0e48686c`: VI và EN mỗi bên thêm `booking.error.rate_empty_internal` và đổi `bk.internal_help`. Không bớt khóa nào. RU không đổi;
+  - chạy lại `gen_strings.py` (3475 chuỗi + 8 mẫu) không ra diff.
+- Ghi nhận, không mở thẻ:
+  - chữ cũ "không tính doanh thu" còn ở bản chụp `content-guide.md` dòng 954, ở chữ dự phòng của hi-fi `09-booking.html` dòng 67, ở sổ tay `user-manual-v1.0.md` dòng 852 và ở `guides/02-le-tan.md` dòng 337;
+  - phần sổ tay DOM đã giao BA ở 8.4;
+  - hi-fi lấy chữ từ `strings.js` lúc chạy.
+
+### 10.3 Test (load 3–13)
+
+| Việc | Kết quả |
+|---|---|
+| 4 tệp ở `0e48686c`: `v104-rate-source-typed`, `v104-hold-typed-rate-lock`, `v104-booking-rate-carryover`, `booking` | **51/51 xanh**, 25 s. FE báo 53/53, có lẽ vì chạy thêm `i18n-keys` (2 ca). Toàn bộ admin-web đều xanh, nên không lệch gì |
+| Toàn bộ admin-web ở `0e48686c` | **947/947 xanh**, 83 tệp |
+| **V2** chạy lại: bỏ OTA khỏi điều kiện | Ca OTA mới **đỏ**. Lượt 2 đột biến này lọt qua cả 945 test, nay bị bắt |
+| **V1**: bỏ Nội bộ khỏi điều kiện | Ca Nội bộ đỏ |
+| **K1**: Nội bộ dùng lại `booking.error.rate_empty` | Ca Nội bộ đỏ |
+| **F1**: bỏ `!priceWaiting` ở dòng phụ thu | Ca PR82-04 đỏ |
+| 3 ca của lượt này chạy với `BookingDialog.tsx` của `4344802c` | 2 ca đỏ, đúng chỗ: PR82-04 nhận "Phụ thu 0 người vượt định mức × 2 đêm (BR-110)"; ca Nội bộ nhận câu cũ. Ca OTA xanh, vì luật OTA đã có từ trước: ca này để khóa luật lại, và V2 chứng minh nó khóa được |
+| `tsc --noEmit`, `eslint` và `prettier --check` trên 3 tệp mã và 2 tệp JSON | Sạch |
+
+Nhận xét về test mới:
+- Ca OTA:
+  - kiểm cả nhánh chặn (đúng câu của OTA, không có câu Nội bộ, không có POST);
+  - kiểm cả nhánh gõ đủ (payload 2 đêm, `edited:true`).
+- Ca PR82-04:
+  - dựng đúng tình huống probe của ARC (3 người lớn, căn 101 sang căn 301, giữ bản xem);
+  - kiểm không có dòng với cả `n = 0` và `n = 1`, trong lúc chờ và sau khi bản xem về.
+
+### 10.4 Thẻ: cập nhật
+- **FB-R4-ARC-FE-PR82-03**: Fixed @ `0e48686c`. Đột biến V2 nay bị bắt.
+- **FB-R4-ARC-FE-PR82-04**: Fixed @ `0e48686c`. Đột biến F1 bị bắt; ca test đỏ trên `4344802c`.
+
+### 10.5 Dòng decision-log đề xuất (ORC ghi)
+
+| Ngày | Round | Quyết định | Người | Ghi chú |
+|---|---|---|---|---|
+| 2026-11-05 | 4 | **ARC – review PR #82 lượt 3 @ `0e48686c`: ĐẠT CÓ ĐK.** Thêm ca OTA gõ một phần số đêm: đột biến bỏ OTA khỏi điều kiện nay bị bắt, đóng ARC-PR82-03. Dòng phụ thu ẩn khi chờ bản xem, không còn câu "Phụ thu 0 người", đóng ARC-PR82-04. Nội bộ có câu chặn riêng `booking.error.rate_empty_internal` và `bk.internal_help` viết lại theo BR-105 v0.5.8 (phần mã của DOM-UXD-PR82-01; chữ do UXD duyệt). 4 tệp 51/51, admin-web 947/947. **ĐK:** CI trên `0e48686c` xanh hết, gồm `docker images build · E2E smoke` chưa từng xong trên head nào của #82. Sau #75 đổi base sang `main` và sinh lại chuỗi (ORC), rồi chạy lại | ARC | `rounds/round-04/reviews/ARC-on-v104-pr82-rate-source.md` mục 10. Còn Open: ARC-PR82-02 (v1.0.5). Sổ tay còn chữ "không tính doanh thu", đã giao BA ở mục 8.4 |

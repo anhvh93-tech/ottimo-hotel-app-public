@@ -173,3 +173,84 @@ Khi bản xem về, màn đúng lại: "Giảm theo số đêm (BR-107): không 
 | Ngày | Round | Quyết định | Người quyết | Lý do |
 |---|---|---|---|---|
 | 2026-11-05 | 4 | **UXD lượt 2 PR #82** @ `e8b1c4e9`: ĐẠT. Cột Nguồn giá H09 đúng bảng nhãn (`bk.src_typed` / `–` / `bk.src_list`); đã bỏ `weekend()`; ghi chú `bk.src_weekend` đúng; có `aria-busy` và tổng `–` khi chờ bản xem. Đóng FB-R4-UXD-FE-SRC-01 và FB-R4-UXD-FE-PR70-02. Mở FB-R4-UXD-FE-PR82-01 (Minor: chữ BR-107 lấy từ bản xem cũ khi chờ) và PR82-02 (Minor, v1.0.5: H12 nhóm đêm theo giá, không theo thứ) | UXD | Nhãn theo nội dung ô và dữ liệu máy chủ, không theo thứ trong tuần (BR-104 v0.5.1, DOM lượt 8 §4.2) |
+
+---
+
+## Lượt 3 – PR #82 delta (05/11/2026)
+
+- Bước **Review**. Đối tượng: `git diff 4344802c 0e48686c` (head `0e48686c`). Delta gồm:
+  - chữ theo thẻ DOM FB-R4-DOM-UXD-PR82-01: khóa mới `booking.error.rate_empty_internal`, viết lại `bk.internal_help`;
+  - ẩn dòng phụ thu người trong lúc chờ bản xem (FB-R4-ARC-FE-PR82-04);
+  - test OTA kèm theo (FB-R4-ARC-FE-PR82-03).
+- Đọc thêm `d8346931` (FB-R4-UXD-FE-PR82-01) trong `e8b1c4e9..4344802c`.
+- Đối chiếu:
+  - BR-105 v0.5.8, ý (1)–(4) và (7);
+  - BR-904 v0.5.5: "Nội bộ có thu" vào doanh thu và ADR;
+  - sổ tay #72 (`02-le-tan.md` dòng 337): "mặc định không thu tiền";
+  - `bk.ch_internal` "Nội bộ" / "Internal".
+- Cách xem:
+  - Dựng worktree tạm ở `0e48686c`. Chạy `v104-rate-source-typed` và `v104-booking-rate-carryover`: 36/36 xanh.
+  - Sinh lại `gen_strings.py`: không ra diff.
+  - Worktree đã gỡ.
+
+### Kết luận: ĐẠT. Đóng FB-R4-UXD-FE-PR82-01
+
+| Điểm | Kết quả |
+|---|---|
+| `bk.internal_help` (VI) | **Duyệt, giữ nguyên.** Đã bỏ "không tính doanh thu", nên hết lệch với BR-904. Cụm "Mặc định không thu tiền" trùng đúng chữ của sổ tay #72. Câu nói hai đường theo BR-105 (1) và (2), cùng một dạng "X: Y." Ngắn, điềm tĩnh, không "Vui lòng" |
+| `bk.internal_help` (EN) | **Duyệt, giữ nguyên.** "Free by default: leave the rates empty. Charged: enter a rate for every night." đi song song với bản VI |
+| `booking.error.rate_empty_internal` (VI) | **Duyệt, giữ nguyên.** Đồng ý với FE dùng "để trống hết" thay "xóa hết" của DOM: cùng động từ với `bk.internal_help`, và đúng cả khi ô chưa từng được gõ. Câu nói cách đi tiếp, không đổ lỗi. Câu không nhắc đơn vừa có đêm thu vừa có đêm miễn phí (BR-105 (4)). Ca này hiếm, DOM để sổ tay hướng dẫn (BA, 3 gạch), nên không thêm vào câu lỗi |
+| `booking.error.rate_empty_internal` (EN) | **Đổi một chữ** (thẻ PR82-03). Trong "leave them all empty", chữ "them" không rõ chỉ đêm hay giá |
+| Câu lỗi chỉ cho Nội bộ, OTA giữ `booking.error.rate_empty` | Đúng. Câu nằm ở `.err` của khung giá, như câu OTA |
+| Dòng phụ thu người ẩn khi chờ (ARC PR82-04) | **Đồng ý, khớp luật trạng thái chờ.** Ở PR82-01, UXD đề xuất "khi chờ thì dùng `extra` của form". Đề xuất đó sai: dòng vẫn hiện theo bản xem cũ, nên ra câu "Phụ thu 0 người vượt định mức". UXD rút ý đó. Nhãn trở lại `calc.extraGuestCount ?? extra` là đúng |
+| BR-107 khi chờ (`d8346931`) | **Đúng thẻ PR82-01.** `losShown` = 0 khi chờ: ẩn câu `rate.tier_*`, ẩn "Sau giảm", ẩn đuôi "· giá lịch…" và dòng phụ BR-107. `ratesLocked` vẫn theo bản xem. Có ca test 7 → 3 đêm |
+| Brand | Đạt. Không màu, lớp hay `style=` mới. Chữ đúng giọng nội bộ |
+
+**Luật trạng thái chờ của bảng tổng H09** (ghi lại để dùng cho các lần sau):
+- Dòng **luôn có** thì giữ dòng, ô tiền hiện `–`. Gồm: số đêm, Tổng tiền đơn, Cọc cần thu.
+- Dòng **chỉ có vì bản xem** thì ẩn tới khi bản xem của lượt ở đang hiện về. Gồm: dòng phụ BR-107 và dòng phụ thu người.
+- Chữ lấy từ bản xem không bao giờ ghép với dữ liệu của lượt ở mới.
+- Bảng có thể ngắn đi tối đa 2 dòng trong lúc chờ. Chấp nhận được, vì `aria-busy` đã báo, nút Tạo đơn đang "Đang tải…", và khoảng chờ ngắn.
+
+### FB-R4-UXD-FE-PR82-03
+- Mức độ: Minor (chỉ chữ). Không chặn gộp. Nếu FE còn đẩy commit vào #82 thì sửa luôn. Nếu không, UXD sửa ở đợt chuỗi kế tiếp sau khi gộp.
+- Vị trí: `gen_strings.py`, dòng `booking.error.rate_empty_internal`, bản EN.
+- Vấn đề: "or leave them all empty": "them" có thể chỉ "nights" hoặc "a rate".
+- Vì sao quan trọng: đây là câu chặn. Lễ tân đọc tiếng Anh phải hiểu ngay ô nào cần để trống.
+- Đề xuất sửa (VI giữ nguyên):
+
+  | Khóa | VI | EN |
+  |---|---|---|
+  | `booking.error.rate_empty_internal` | Đơn Nội bộ: nhập giá cho mọi đêm, hoặc để trống hết nếu miễn phí cả đơn. | Internal stay: enter a rate for every night, or leave all rates empty if the whole stay is free. |
+
+- Trạng thái: Open
+
+### FB-R4-UXD-FE-PR82-04
+- Mức độ: Minor. Không chặn gộp. FE làm trong #82 nếu còn giờ (cùng khối `validate()`), nếu không thì sang v1.0.5.
+- Vị trí: `BookingDialog.tsx`, kiểm từng ô trong `validate()`: `r.raw && !(parseVnd(r.raw) > 0)` → `booking.error.rate_empty`. Ghi chú của FE trong `gen_strings.py`: "Ô gõ 0 … vẫn báo booking.error.rate_empty tại ô".
+- Vấn đề:
+  - Với đơn Nội bộ, gõ **0** là cách tự nhiên để nói "miễn phí". Nhưng v1.0.x chưa nhận 0 (BR-105 (7)); đường miễn phí là để trống.
+  - Khi đó dưới ô hiện "Nhập giá mỗi đêm (lớn hơn 0)." Đúng câu mà thẻ DOM PR82-01 nói là đẩy lễ tân gõ giá vào đêm định miễn phí.
+  - Gõ 0 cho mọi đêm thì không phải "gõ một phần", nên câu Nội bộ mới không hiện. Chỉ còn câu cũ dưới từng ô.
+- Vì sao quan trọng: đây là cùng rủi ro DOM nêu. Lễ tân gõ giá để qua câu chặn, khách bị đòi tiền một đêm đã hứa miễn phí. Folio có hiện số nên không mất tiền, nhưng dễ thành khiếu nại ở quầy.
+- Đề xuất sửa: với `form.group === 'internal'`, lỗi tại ô dùng khóa mới. Kênh khác giữ `booking.error.rate_empty`.
+
+  | Khóa | VI | EN |
+  |---|---|---|
+  | `booking.error.rate_zero_internal` | Miễn phí: để trống ô. Có thu: nhập giá lớn hơn 0. | Free: leave the box empty. Charged: enter a rate above 0. |
+
+  - Câu đi cùng dạng "X: Y." với `bk.internal_help`. Câu đúng cả khi gõ 0 lẫn khi gõ số không hợp lệ.
+  - Khi (B′) của DOM (cho gõ 0 lúc tạo đơn) vào bản sau thì bỏ khóa này.
+  - Ghi chú cho `gen_strings.py`: "v1.0.4 booking (UXD lượt 3 PR #82, BR-105 v0.5.8 (7)). Lỗi tại ô giá H09, chỉ đơn Nội bộ, khi ô có chữ nhưng không phải số > 0. Kênh khác: booking.error.rate_empty. Bỏ khi cho gõ 0 lúc tạo đơn (DOM B′)".
+  - Test gợi ý: Nội bộ 2 đêm, gõ 0 cả hai. Dưới mỗi ô có câu mới, không có "(lớn hơn 0)", và không có POST.
+- Trạng thái: Open
+
+### Điểm nên giữ
+- FE chọn "để trống hết" để câu lỗi và câu hướng dẫn dùng cùng một động từ. Đúng cách giữ chữ nhất quán.
+- Câu lỗi tách theo kênh mà không đổi luật chặn chung của OTA và Nội bộ.
+
+### Dòng decision-log đề xuất (ORC ghi)
+
+| Ngày | Round | Quyết định | Người quyết | Lý do |
+|---|---|---|---|---|
+| 2026-11-05 | 4 | **UXD lượt 3 PR #82** @ `0e48686c`: ĐẠT. Duyệt `bk.internal_help` (VI/EN) và `booking.error.rate_empty_internal` (VI), dùng "để trống" ở cả hai. EN của câu lỗi đổi thành "…or leave all rates empty if the whole stay is free." (FB-R4-UXD-FE-PR82-03, Minor, chỉ chữ). Đồng ý ẩn dòng phụ thu người khi chờ bản xem (ARC PR82-04). Chốt luật trạng thái chờ của bảng tổng H09: dòng luôn có thì giữ, ô tiền `–`; dòng chỉ có vì bản xem thì ẩn. Đóng FB-R4-UXD-FE-PR82-01. Mở FB-R4-UXD-FE-PR82-04 (Minor): ô gõ 0 ở đơn Nội bộ báo `booking.error.rate_zero_internal`, thay "(lớn hơn 0)" | UXD | BR-105 v0.5.8, BR-904 v0.5.5, sổ tay #72 "mặc định không thu tiền". Câu chặn không được đẩy lễ tân gõ giá vào đêm định miễn phí |

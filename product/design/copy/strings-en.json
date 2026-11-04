@@ -3478,6 +3478,7 @@
   "gw.notice_read": "I've read this",
   "booking.rates_cleared_channel": "Typed rates were cleared because the channel changed.",
   "booking.rates_cleared_room_group": "Typed rates were cleared because room {room} is in a different room group. Check the rate per night before creating the booking.",
+  "booking.hold.typed_rate_locked": "Holds use the list price only. If the deposit is received, use Create booking to keep the typed rates. If not, clear them and hold, then adjust the rates in the Folio after confirming the deposit.",
   "checkin.room_occupied": "Room {room} still has the previous guest, not checked out yet. Check out that stay first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case. If that stay is already checked out, check the room is empty, then correct the room status.",
   "checkin.room_held": "Room {room} still has another stay in house. Check out that stay first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case.",
   "co.minibar_cabinet_counting": "Minibar being counted",
