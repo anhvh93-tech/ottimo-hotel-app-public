@@ -53,3 +53,26 @@ Giai đoạn B (PR24PM-01) **chưa có trên nhánh**. Đây không phải lỗi
 - Sửa PR24PM-02 đúng chỗ, hẹp (một regex, một hàm). Ghi rõ vì sao không theo đề xuất ban đầu của ARC, và giữ được ca "không được che" (SĐT Nga).
 - `logLine` lỗi thì bỏ hết trường phụ, không in dở dang. Đây là cách an toàn nhất cho dòng log.
 - Đổi lời nói "không `console` trong worker" thành luật ESLint có test.
+
+## Xác nhận P414-01 (04/11)
+
+- Đối tượng: `origin/v104/be-sensitive` @ `cb366588`, rebase lên `main` @ `4e94fbcc`. Commit giai đoạn B: `cb366588`. Bảng trả lời: `rounds/round-04/responses/BE-D-P4-14.md`.
+- **Phạm vi đúng phương án A** (ORC chọn):
+
+| Ý của phương án A | Mã trên `cb366588` | Kết quả |
+|---|---|---|
+| Chuyển `sensitive-number.ts` sang `src/shared/` | `git mv` (95 % giống), tệp thuần hàm, chỉ nhập `./redact`. Bản `luhn` riêng bỏ, dùng `luhnValid` của `shared/redact.ts` | Đúng |
+| Sửa đúng 1 dòng import ở `website-request-rules.ts` (ngoại lệ plan 2.4) | 1 dòng `from '../../../shared/sensitive-number'` | Đúng |
+| `containsCardNumber` = nửa thẻ của bộ dò mới **OR** luật cũ | `containsCardNumberOriginalRule(text) \|\| looksLikeCard(text)`. Mã lỗi `CARD_NUMBER_DETECTED` không đổi. **Không** áp nửa giấy tờ. Có ca chứng minh cần cả hai vế (`4111 1111 11-11 1111` / ZWSP) | Đúng |
+| Test kiến trúc "ngoài `shared/` không tự viết Luhn" | `v104-card-rule-shared.test.ts`: quét `src/`, dấu hiệu dò bắt được bản thật trong `shared/`, ngoài `shared/` 0 tệp | Đúng |
+| `guest-portal` `ID_NUMBER_DETECTED` chỉ khi SEC duyệt và guest-web cùng tag | **Không làm**, máy chủ chưa trả mã này. Hợp đồng 0.3.12 (i) đã ghi điều kiện bật, không phải sửa | Đúng |
+| Không đổi tệp cấm (`translate.test.ts`, `bug-r4-009-plurals.test.ts`) | Không đụng | Đúng |
+
+- ARC chạy lại trên `cb366588`:
+  - `tsc` (api) đạt, `eslint services/api` 0 lỗi;
+  - toàn bộ `@ottimo/api` trên PostgreSQL 17 riêng: **156 tệp đạt, 2 bỏ qua; 3943 ca đạt, 24 bỏ qua, 0 lỗi**;
+  - thử thêm 10 câu ghi chú thật của quầy (số tiền có dấu phẩy/chấm/cách, danh sách phòng, danh sách đêm, số hợp đồng, số tài khoản 13 số): `containsCardNumber` = `false` cả 10. Luật mới không chặn nhầm câu tiền thường gặp.
+- P414-02: ca BED-05 nay khớp `/'job failed',\s*\{[^}]*\.\.\.errorTag\(\w+\)/`, vẫn giữ `not.toMatch(/\.message\b/)`. **Closed.**
+- Rủi ro BE-D nêu ở mục 4 ý 1 (ô chữ tự do ở các module khác có thể 422 nhiều hơn một chút) là đúng hướng an toàn. ARC đồng ý để QA chạy lại TC-V104-SN-04/05. Mục 4 ý 2: vòng Luhn ở `apps/guest-web`, `integrations/common` nằm ngoài phạm vi thẻ (thẻ chỉ nói API). Ghi làm việc v1.0.5 nếu muốn gom một chỗ; không chặn.
+
+**Phán quyết P4-14 trên `cb366588`: ĐẠT** (giai đoạn A + B lõi). FB-R4-ARC-BE-D-P414-01 và P414-02 **Closed**. Phần `guest-portal` để theo điều kiện SEC/guest-web hoặc v1.0.5.

@@ -87,3 +87,18 @@
 - `leaseEndDateOf` là một hàm thuần, dùng cho cả DTO lẫn B16. Không phải sửa `reservations.service.ts` của BE-B, đúng mục đích của quyết định 6.1.
 - 0094 đóng an toàn ở mọi nhánh (không property, múi giờ sai), theo múi giờ của từng property. Test có ca hai múi giờ cực đông và cực tây cùng một giờ thật.
 - Tự thấy ca test sẽ đỏ từ 20/11 vì đồng hồ thật của DB và sửa trước (dời sang 2037).
+
+## Xác nhận (04/11)
+
+- Đối tượng: `origin/v104/be-lease-prices` @ `99f9b4a2`. Nền: `v104/be-holds` @ `a91acb84` + merge `v104/dom-br-fixtures` @ `6bddbc29` (PR #41) – commit `231a2ee1`. Commit sửa: `99f9b4a2`. Bảng trả lời: `rounds/round-04/responses/BE-C-P4-11.md` (trên nhánh).
+- **Thứ tự gộp bắt buộc:** PR-G chỉ gộp **sau** PR-F (`be-holds`) và PR #41, vì nhánh mang sẵn hai nền này.
+
+| Thẻ | Kiểm | Kết luận |
+|---|---|---|
+| FB-R4-ARC-BE-C-P411-01 (Major) | Journal: 0092 idx 68, 0093 idx 69 `1792782175681`, **0094 idx 70 `1792782177681`**. `meta/0093_snapshot.json` trùng từng khóa với `a91acb84`. `meta/0094_snapshot.json`: id `6691350d-e953-46bf-bed3-9e94a364cfca`, prevId `96671c28-784b-486a-a34e-ed25cc3be90a`, nội dung (trừ id/prevId) **trùng** 0093. Chú thích SQL đã sửa ("the snapshot is 0093's") | **Closed** |
+| FB-R4-ARC-BE-C-P411-02 (Minor) | Ghi chú cho QA (lựa chọn của ARC). Thêm: dịch vụ nay so `effectiveFrom` với **ngày muộn hơn** giữa ngày lịch và ngày kinh doanh của property (SEC P411-01), nên khoảng 00:00 → giờ chốt ngày trả 409 `effective`, không còn 500 của trigger. Có ca 01:00 giờ property. Đồng hồ staging lùi vẫn có thể ra 500, đã ghi chú | **Closed** |
+| FB-R4-ARC-BE-C-P411-03 (Suggestion) | `parseEntityTag`: hậu tố `-gzip`/`-zstd`/`-br` chỉ nhận **trong ngoặc kép**; số trần `6` vẫn nhận; `6-gzip` không ngoặc → null. Có 2 ca đơn vị | **Closed** |
+
+- ARC chạy lại trên `99f9b4a2`: `tsc` (api) đạt, `eslint services/api` 0 lỗi, `drizzle-kit generate` báo "No schema changes"; toàn bộ `@ottimo/api` trên PostgreSQL 17 riêng: **159 tệp đạt, 2 bỏ qua; 3976 ca đạt, 24 bỏ qua, 1 todo, 0 lỗi**.
+
+**Phán quyết P4-11 trên `99f9b4a2`: ĐẠT.** Không còn thẻ ARC mở. Điều kiện: gộp sau PR-F và PR #41.
