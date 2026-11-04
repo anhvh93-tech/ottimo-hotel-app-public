@@ -4056,6 +4056,12 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `bk.src_typed` | Giá đã gõ | Typed rate | ⟨chừa chỗ⟩ | v1.0.4 booking (UXD-on-v104-src-typed). Cột Nguồn giá H09: đêm có ô lễ tân đã gõ và còn số (ratesEdited && rates – cùng phép thử với booking.hold.typed_rate_locked), mọi kênh, không phụ thuộc bản xem. Máy chủ ghi manual (NightRate.edited). Cùng cụm 'giá đã gõ' với booking.rates_cleared_* và booking.hold.typed_rate_locked |
 | `booking.error.rate_empty_internal` | Đơn Nội bộ: nhập giá cho mọi đêm, hoặc để trống hết nếu miễn phí cả đơn. | Internal stay: enter a rate for every night, or leave them all empty if the whole stay is free. | ⟨chừa chỗ⟩ | v1.0.4 booking (FB-R4-DOM-UXD-PR82-01, BR-105 v0.5.8 (3)). Dưới bảng giá H09 khi đơn Nội bộ gõ giá một phần số đêm – thay booking.error.rate_empty (câu đó đẩy lễ tân gõ cả đêm định miễn phí). OTA vẫn dùng booking.error.rate_empty. Ô gõ 0 hoặc số không hợp lệ vẫn báo booking.error.rate_empty tại ô |
 
+#### v1.0.4 BUG-R4-042 – FE-A: H16 bước 1 luôn nêu tên tủ đang đếm khi lượt ở có nhiều tủ (K11-03). CHỜ UXD DUYỆT
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `co.minibar_cabinet_counting` | Tủ minibar đang đếm | Minibar being counted | ⟨chừa chỗ⟩ | H16 bước 1, nhãn <dt> của dòng tên tủ (giá trị = co.minibar_cabinet_room / co.minibar_cabinet_old). Chỉ hiện khi lượt ở có từ 2 tủ (sau B14) và nhóm chọn tủ đã ẩn vì chỉ còn 1 tủ (tủ kia đã đếm trên trang này). Tiêu đề trang vẫn ghi căn đang ở |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |

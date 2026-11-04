@@ -1,18 +1,38 @@
 // OTTIMO Desk – investor DEMO data, created THROUGH THE API (same business rules as the real app), around the
 // business date of the day the script runs (Asia/Ho_Chi_Minh, roll-over 06:00). Run by lib.sh seed_all():
 //   node seed-demo.mjs past   phase 1 – stack with the fake clock (ottimo-api:demo-seed): demo accounts, trusted
-//                             desk device, guests, and the stays that started BEFORE today (long stay since a month,
-//                             guests in house since yesterday / the day before), each checked in on its own day
+//                             desk device, VietQR receiving account (scheduled 35 days back, in force from today),
+//                             guests, and the stays that started BEFORE today (long stay since a month, guests in
+//                             house since yesterday / the day before), each checked in on its own day, the hold
 //   node seed-demo.mjs now    phase 2 – real demo stack (real clock, no test endpoints): today's and future bookings,
-//                             hold, CTV quote, OOO, unassigned OTA booking, VietQR receiving account, guest link,
+//                             CTV quote, OOO, unassigned OTA booking, guest link, qa.* accounts switched off,
 //                             accounts file .out/demo-accounts.md (0600)
 // Data is FAKE (names, phones, ID numbers); only the VietQR receiving account comes from product/.env (investor's).
 // Secrets (passwords, link token, device cookie) go to DEMO_STATE (.work/state.json) and .out only – never to stdout.
+// S2 operations (SEC 06.26, `x-strong-reauth`: createUser, updateUser status, setParameter of the receiving account)
+// carry the caller's own password in the request, as the Desk and the E2E harness do (tests/e2e/support/api.ts
+// seedReauthFor); the demo stack runs MFA_ENFORCED=false and the demo owner has no 2FA, so the password is the proof.
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const API = process.env.DEMO_API_URL ?? 'http://127.0.0.1:3100';
+// FB-R4-SEC-OPS-PR78-01: this script carries S2 proofs, demo passwords and (phase 1) the investor's receiving account
+// – it talks to the demo stack on THIS machine only (any port: proof runs use their own). Checked before any request.
+{
+  let host = '';
+  try {
+    host = new URL(API).hostname;
+  } catch {
+    host = '';
+  }
+  if (!['127.0.0.1', 'localhost', '[::1]', '::1'].includes(host)) {
+    console.error(
+      `[demo-seed] LỖI: DEMO_API_URL phải trỏ vào máy này (localhost, 127.0.0.1 hoặc [::1]), đang trỏ tới "${host || 'địa chỉ không hợp lệ'}" – dừng, chưa gửi gì đi`,
+    );
+    process.exit(2);
+  }
+}
 // Every staff role (housekeeping, maintenance, sales and CTV included) logs in on the desk web app; the staff PWA
 // (:8182) is only a shell in Demo 1, so the accounts file never points there.
 const DESK = process.env.DEMO_DESK_URL ?? 'http://localhost:8181';
@@ -481,6 +501,8 @@ async function phasePast() {
         displayName: a.displayName,
         initialPassword: temp,
         roles: [{ propertyId: owner.pid, role: a.role }],
+        // S2 (createUser, cổng 6f87ad43): qa.owner's own password, like createThrowawayUser of the E2E harness
+        reauth: { password: process.env.QA_SEED_PASSWORD },
       },
     });
     const u = must(r, 201, `tạo tài khoản ${a.username}`);
@@ -504,6 +526,10 @@ async function phasePast() {
   must(tr, 201, 'cấp thiết bị quầy tin cậy');
   st.deviceToken = cookieOf(tr.setCookies, 'ottimo_did');
   if (!st.deviceToken) throw new Error('cấp thiết bị: không có cookie thiết bị');
+  writeState(st);
+
+  // still at D−35 on the fake clock: the receiving account can be scheduled for TODAY (see the function)
+  await scheduleReceivingAccount(st, S.OWN, D);
   writeState(st);
 
   const c = await loadContext(S.FD);
@@ -693,6 +719,47 @@ function receivingAccountFromEnv() {
   return acc.bankBin && acc.accountNo && acc.accountName ? acc : null;
 }
 
+/**
+ * VietQR receiving account (BR-521): the investor's own account from product/.env (DEMO_ENV_FILE), set THROUGH THE
+ * API by OWN with S2 (own password). The key takes `effectiveFrom` > the business day only, the first time too
+ * (R3-Q51, SEC Q51-5: 422 EFFECTIVE_FROM_TOMORROW – no "in force now" path), so phase 2 on the real clock could only
+ * schedule it for tomorrow and the demo had no VietQR on its own day (P-3). Like the E2E harness
+ * (tests/e2e/support/s3-stay.ts ensureReceivingAccount: clock to D−1, row from D), it is scheduled in phase 1 while
+ * the fake clock still stands at D−35 – the normal "from the next business day" path, effective from TODAY. The
+ * demo api (phase 2, no test endpoints) never writes it. Nothing about the value is printed; a refusal is logged with
+ * its status and error codes, and the accounts file says what to do.
+ */
+async function scheduleReceivingAccount(st, own, D) {
+  const acc = receivingAccountFromEnv();
+  st.receivingAccount = 'missing';
+  if (!acc) {
+    log(
+      'không thấy 3 dòng PAYMENT_VIETQR_* trong product/.env – OWN nhập tài khoản nhận ở Tham số (hiệu lực từ ngày hôm sau)',
+    );
+    return;
+  }
+  const r = await http('PUT', P(own, '/parameters/payment_receiving_account'), {
+    s: own,
+    idem: true,
+    body: {
+      value: acc,
+      effectiveFrom: D,
+      reason: 'Tài khoản nhận VietQR cho buổi demo',
+      reauth: { authMethod: 'password', secret: st.accounts.OWN.password },
+    },
+  });
+  if (r.status === 200) {
+    st.receivingAccount = 'set';
+    log(`đã lên lịch tài khoản nhận VietQR, hiệu lực từ ${D} (giá trị không in ra)`);
+  } else {
+    const codes = (r.body?.errors ?? []).map((e) => `${e.field} ${e.code}`).join(', ');
+    st.receivingAccount = `failed ${r.status}`;
+    log(
+      `không cấu hình được tài khoản nhận VietQR (HTTP ${r.status} ${r.body?.code ?? ''}${codes ? ` – ${codes}` : ''}) – OWN nhập ở Tham số`,
+    );
+  }
+}
+
 async function phaseNow() {
   const st = readState();
   if (!st.accounts) throw new Error('thiếu state pha 1');
@@ -700,36 +767,43 @@ async function phaseNow() {
   if (D !== st.today) log(`chú ý: ngày nghiệp vụ đã sang ${D} (pha 1 dựng cho ${st.today})`);
   const S = {};
   for (const a of STAFF_ACCOUNTS) S[a.key] = await login(a.username, st.accounts[a.key].password);
+
+  // test accounts of the QA seed (qa.*) are switched off FIRST (FB-R4-SEC-OPS-PR78-02): the real demo stack is
+  // already up, so a later failure of this phase must not leave qa.owner & co. active – phase 2 never uses them. The
+  // demo shows only the demo staff. Status is an S2 change (updateUser): the demo owner's own password in each
+  // request. Any refusal stops the seeding (P-2: a 422 used to be counted as "0 switched off" and the qa.* accounts
+  // stayed active), and the list is read again to prove it.
+  const qaActive = async () =>
+    listOf(
+      must(await http('GET', '/v1/users', { s: S.OWN, query: { limit: 100 } }), 200, 'listUsers'),
+    ).filter((x) => String(x.username).startsWith('qa.') && x.status !== 'disabled');
+  const toDisable = await qaActive();
+  for (const u of toDisable) {
+    const r = await http('PATCH', `/v1/users/${u.id}`, {
+      s: S.OWN,
+      idem: true,
+      ifMatch: u.version,
+      body: { status: 'disabled', reauth: { password: st.accounts.OWN.password } },
+    });
+    must(r, 200, `tắt tài khoản kiểm thử ${u.username}`);
+  }
+  const left = await qaActive();
+  if (left.length > 0)
+    throw new Error(`còn ${left.length} tài khoản qa.* đang bật: ${left.map((u) => u.username)}`);
+  log(
+    `đã tắt ${toDisable.length} tài khoản kiểm thử qa.* (kiểm lại: không còn tài khoản qa.* nào bật)`,
+  );
+
   const c = await loadContext(S.FD);
   const g = st.guests;
   const device = st.deviceToken;
 
-  // VietQR receiving account (BR-521): the investor's own account from product/.env – via the API as OWN (re-auth)
-  const acc = receivingAccountFromEnv();
-  st.receivingAccount = 'missing';
-  if (acc) {
-    const r = await http('PUT', P(S.OWN, '/parameters/payment_receiving_account'), {
-      s: S.OWN,
-      idem: true,
-      body: {
-        value: acc,
-        effectiveFrom: D,
-        reason: 'Tài khoản nhận VietQR cho buổi demo',
-        reauth: { authMethod: 'password', secret: st.accounts.OWN.password },
-      },
-    });
-    if (r.status === 200) {
-      st.receivingAccount = 'set';
-      log('đã cấu hình tài khoản nhận VietQR (giá trị không in ra)');
-    } else {
-      st.receivingAccount = `failed ${r.status}`;
-      log(`không cấu hình được tài khoản nhận VietQR (HTTP ${r.status}) – OWN nhập ở Tham số`);
-    }
-  } else {
-    log(
-      'không thấy 3 dòng PAYMENT_VIETQR_* trong product/.env – OWN nhập tài khoản nhận ở Tham số',
-    );
-  }
+  // the VietQR receiving account was scheduled in phase 1 (scheduleReceivingAccount – P-3)
+  log(
+    st.receivingAccount === 'set'
+      ? `tài khoản nhận VietQR: hiệu lực từ ${st.today} (đặt ở pha 1)`
+      : `tài khoản nhận VietQR: chưa cấu hình (${st.receivingAccount ?? 'missing'})`,
+  );
 
   log('đơn hôm nay và 2 tuần tới');
   const fd = S.FD;
@@ -992,24 +1066,6 @@ async function phaseNow() {
   const lk = must(link, 201, 'cấp link khách');
   st.guestLink = { url: lk.url, expiresAt: lk.expiresAt, reservationId: st.ids.arrivalTomorrow };
 
-  // test accounts of the QA seed (qa.*) are switched off – the demo shows only the demo staff
-  const users = listOf(
-    must(await http('GET', '/v1/users', { s: S.OWN, query: { limit: 100 } }), 200, 'listUsers'),
-  );
-  let off = 0;
-  for (const u of users.filter(
-    (x) => String(x.username).startsWith('qa.') && x.status !== 'disabled',
-  )) {
-    const r = await http('PATCH', `/v1/users/${u.id}`, {
-      s: S.OWN,
-      idem: true,
-      ifMatch: u.version,
-      body: { status: 'disabled' },
-    });
-    if (r.status === 200) off++;
-  }
-  log(`đã tắt ${off} tài khoản kiểm thử qa.*`);
-
   // occupancy of the next 14 nights (rack)
   const rack = await http('GET', P(fd, '/rack'), { s: fd, query: { from: D, days: 14 } });
   st.rackStatus = rack.status;
@@ -1046,7 +1102,7 @@ ${st.guestLink?.url ?? '(chưa có)'}
 Hết hạn: ${st.guestLink?.expiresAt ?? '-'}. Mở trên điện thoại cùng mạng không được (chỉ localhost) – mở trên máy này, hoặc cửa sổ ẩn danh.
 
 ## Tài khoản nhận VietQR
-${st.receivingAccount === 'set' ? 'Đã cấu hình từ product/.env (Tham số → payment_receiving_account).' : 'CHƯA cấu hình – đăng nhập chủ nhà → Tham số → "Tài khoản nhận tiền" → nhập số tài khoản (hỏi lại mật khẩu).'}
+${st.receivingAccount === 'set' ? `Đã cấu hình từ product/.env, hiệu lực từ ${st.today} (Tham số → payment_receiving_account). Trong demo, tài khoản được lên lịch sẵn lúc dựng dữ liệu nên dùng được ngay; ở bản thật, tài khoản nhập hoặc đổi hôm nay chỉ có hiệu lực từ ngày kinh doanh sau (quy tắc bảo mật). Ngày tạo trong lịch sử tham số là ngày của đồng hồ giả lúc dựng dữ liệu.` : 'CHƯA cấu hình – đăng nhập chủ nhà → Tham số → "Tài khoản nhận tiền" → nhập số tài khoản (hỏi lại mật khẩu). Theo quy tắc bảo mật, tài khoản nhập hôm nay chỉ có hiệu lực từ ngày hôm sau, nên VietQR trong buổi demo hôm nay vẫn chưa dùng được – thêm 3 dòng PAYMENT_VIETQR_* vào product/.env rồi chạy demo-reset.sh.'}
 `;
   writeFileSync(file, text, { mode: 0o600 });
   chmodSync(file, 0o600);

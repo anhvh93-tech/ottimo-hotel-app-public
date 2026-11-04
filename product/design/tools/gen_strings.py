@@ -4141,6 +4141,10 @@ g("v1.0.4 booking – FE-B: khóa Giữ chỗ khi có giá đã gõ (DOM); xóa 
 ])
 
 
+g("v1.0.4 BUG-R4-042 – FE-A: H16 bước 1 luôn nêu tên tủ đang đếm khi lượt ở có nhiều tủ (K11-03). CHỜ UXD DUYỆT", [
+    ("co.minibar_cabinet_counting", "Tủ minibar đang đếm", "Minibar being counted", None, "H16 bước 1, nhãn <dt> của dòng tên tủ (giá trị = co.minibar_cabinet_room / co.minibar_cabinet_old). Chỉ hiện khi lượt ở có từ 2 tủ (sau B14) và nhóm chọn tủ đã ẩn vì chỉ còn 1 tủ (tủ kia đã đếm trên trang này). Tiêu đề trang vẫn ghi căn đang ở"),
+])
+
 def build():
     vi, en, ru = {}, {}, {}
     for grp, k, a, b, c, n in S:
