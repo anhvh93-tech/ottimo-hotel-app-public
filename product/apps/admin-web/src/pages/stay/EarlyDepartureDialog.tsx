@@ -4,6 +4,7 @@ import {
   newIdempotencyKey,
   type EarlyDepartureBody,
   type EarlyDepartureResult,
+  type Reservation,
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, Chip, Field, Modal } from '@ottimo/ui';
@@ -41,6 +42,16 @@ const fieldOf = (f: string) => {
 };
 
 /**
+ * The lease end of a manual long stay: OpenAPI 0.3.12 `Reservation.manualLongStay.leaseEndDate` (LocalDate, read
+ * only – P4-00 (b)); absent (server before v1.0.4) → `departureDate`.
+ * TODO(P4-31 phase B): read the generated type once api-client carries 0.3.12 and drop the cast.
+ */
+export function leaseEndOf(r: Reservation): string {
+  const mls = r.manualLongStay as { leaseEndDate?: string | null } | undefined;
+  return mls?.leaseEndDate ?? r.departureDate;
+}
+
+/**
  * H15 15.7 Trả sớm (B16, US-137, US-135 – OpenAPI 0.3.9; UXD `v1.0.1-early-departure-and-prices.md` §2). One Modal lg,
  * three steps: ① date + notice time (the preview `dryRun=true` runs by itself, debounced; the OTA amount / proof
  * boxes appear when the server asks), ② preview (server figures only, "told the guest" tick before the danger
@@ -74,10 +85,10 @@ export function EarlyDepartureDialog({
   // notice) is not its rule – BR-313 v0.5.1 is (ESC-045 câu 4): the guest forfeits the whole deposit, no clawback.
   // FB-R4-DOM-FE-A-01: only a date BEFORE the lease end breaks the lease; on or after it the nights left are
   // extension nights and the normal BR-428 path applies – no BR-313 line. The lease end is the primary's
-  // `departureDate` ("Ngày ra (theo HĐ)"). Known gap (FE-A → ARC, v1.0.3): the server's B13 on a manual lease moves
-  // that same `departureDate` (no child booking), and the DTO has no separate lease end – after a B13 the box still
-  // shows the BR-313 lines, which stay safe because they never state one outcome (ESC-048 B: the "paid" branch).
-  const leaseEnd = r.departureDate;
+  // v1.0.4 P4-31 (ARC tech plan v1.0.3 4, plan-v1.0.4 6.1): the lease end is `manualLongStay.leaseEndDate`, which a
+  // B13 extension does not move (the server's B13 on a manual lease moves `departureDate`). Older server: the
+  // primary's `departureDate` ("Ngày ra (theo HĐ)") as before.
+  const leaseEnd = leaseEndOf(r);
   const breaksLease = (leaving: string) => r.stayType === 'long' && leaving < leaseEnd;
   const maxDate = addDays(stayEnd, -1);
   const [opened] = useState(nowLocal);
