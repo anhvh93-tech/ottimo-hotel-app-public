@@ -21,6 +21,7 @@ import { readCookie } from '../../../shared/http/cookies';
 import { Operation } from '../../../shared/http/operation';
 import { UnitOfWork } from '../../../shared/http/unit-of-work';
 import { problem } from '../../../shared/problem';
+import { noStore } from '../../crypto/public/c3-access-gate';
 import { parseBody } from '../../platform/public/validation';
 import { MfaStore } from '../public/mfa-store';
 import { PasswordReauth } from '../public/password-reauth';
@@ -121,7 +122,7 @@ export class MfaController {
       requestId: req.id,
       sessionId: p.sessionId,
     });
-    reply.header('cache-control', 'no-store');
+    noStore(reply); // SEC FB-R4-SEC-BE-018-04: SR-C3-03 helper (Cache-Control + Pragma) for every C3 answer
     return { otpauthUri: out.otpauthUri, expiresAt: out.expiresAt.toISOString() };
   }
 
@@ -142,7 +143,7 @@ export class MfaController {
       requestId: req.id,
     });
     reply.header('set-cookie', this.sessions.sessionCookie(out.session));
-    reply.header('cache-control', 'no-store');
+    noStore(reply);
     return { recoveryCodes: out.recoveryCodes };
   }
 
@@ -187,7 +188,7 @@ export class MfaController {
       sessionId: p.sessionId,
     });
     const recoveryCodes = await this.mfa.regenerate(tenantOf(p), p.userId, req.id);
-    reply.header('cache-control', 'no-store');
+    noStore(reply);
     return { recoveryCodes };
   }
 

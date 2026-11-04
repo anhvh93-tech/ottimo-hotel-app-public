@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ensureCsrf,
   isApiError,
+  meRestriction,
+  onRestricted,
   onUnauthorized,
   sendRequest,
   setCsrfToken,
@@ -19,6 +21,7 @@ import { useRoute, type Route } from './app/router';
 import { sessionFromMe, type StaffSession } from './app/session';
 import { OfflineCache } from './data/cache';
 import type { KvStore } from './data/store';
+import { EnrollOnDeskPage } from './pages/EnrollOnDeskPage';
 import { InspectionPage } from './pages/InspectionPage';
 import { LoginPage } from './pages/LoginPage';
 import { MePage } from './pages/MePage';
@@ -27,6 +30,7 @@ import { QueuePage } from './pages/QueuePage';
 import { ReportPage } from './pages/ReportPage';
 import { RoomPage } from './pages/RoomPage';
 import { RoomsPage } from './pages/RoomsPage';
+import { SetPasswordPage } from './pages/SetPasswordPage';
 import { TasksPage } from './pages/TasksPage';
 import { WorkOrderPage } from './pages/WorkOrderPage';
 import { WorkOrdersPage } from './pages/WorkOrdersPage';
@@ -38,6 +42,10 @@ type Auth =
   | { kind: 'booting' }
   | { kind: 'login'; expired: boolean }
   | { kind: 'no_role'; me: Me }
+  /** BUG-R3-052: temporary password – only "Đặt mật khẩu của bạn" works (403 PASSWORD_CHANGE_REQUIRED). */
+  | { kind: 'set_password'; me: Me }
+  /** 2-step to set up on Desk first (403 MFA_ENROLLMENT_REQUIRED, also after a recovery-code sign-in). */
+  | { kind: 'enroll'; me: Me }
   | { kind: 'ready'; session: StaffSession };
 
 const HK_HOME: Route = { name: 'tasks' };
@@ -77,10 +85,20 @@ function Root({ store, connect }: { store: KvStore; connect?: Connect }) {
     async (me: Me, offline = false) => {
       if (!offline) setCsrfToken(me.csrfToken);
       const switched = (await cache.bindUser(me.id)) === 'switched';
-      if (!offline) await cache.saveMe(me);
+      const restriction = meRestriction(me);
+      // A restricted session opens nothing offline later: no profile copy until the session is full, and the
+      // copy of an earlier full session is dropped (FB-R4-SEC-MOB-P450-01).
+      if (!offline) await (restriction ? cache.clearMe() : cache.saveMe(me));
       // Another person on this phone: their copy and queue are gone (SR-PWA-04) – reload the queue.
       if (switched || userId.current !== me.id) await queue.load();
       userId.current = me.id;
+      if (restriction) {
+        // Queue stays paused on the phone: it is sent once the password / 2-step is done.
+        setAuth(
+          restriction === 'password_change' ? { kind: 'set_password', me } : { kind: 'enroll', me },
+        );
+        return;
+      }
       queue.resume();
       if (!offline) void queue.flush();
       const session = sessionFromMe(me);
@@ -125,6 +143,19 @@ function Root({ store, connect }: { store: KvStore; connect?: Connect }) {
       }),
     [],
   );
+  // BUG-R3-052: a read refused because the session is restricted → the matching screen, not "mạng yếu".
+  useEffect(
+    () =>
+      onRestricted((r) => {
+        void cache.clearMe();
+        setAuth((a) => {
+          if (a.kind !== 'ready') return a;
+          const me = a.session.me;
+          return r === 'password_change' ? { kind: 'set_password', me } : { kind: 'enroll', me };
+        });
+      }),
+    [cache],
+  );
   // The queue met a 401 while sending (session ended): sign in again, the items stay on the phone.
   useEffect(
     () =>
@@ -166,6 +197,18 @@ function Root({ store, connect }: { store: KvStore; connect?: Connect }) {
         </main>
       ) : auth.kind === 'login' ? (
         <LoginGate expired={auth.expired} onSignedIn={(me) => void enter(me)} />
+      ) : auth.kind === 'set_password' ? (
+        <SetPasswordPage
+          me={auth.me}
+          onDone={(me) => void enter(me)}
+          onLogout={() => void logout()}
+          onExpired={() => {
+            setCsrfToken(undefined);
+            setAuth({ kind: 'login', expired: true });
+          }}
+        />
+      ) : auth.kind === 'enroll' ? (
+        <EnrollOnDeskPage onLogout={() => void logout()} />
       ) : auth.kind === 'no_role' ? (
         <main id="main" className="center-page hk">
           <div className="card">

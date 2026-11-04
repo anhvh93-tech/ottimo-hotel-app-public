@@ -5,7 +5,9 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-const FAMILIES = '(?:hk|wo|nav|common|error|field|auth|login|role|retry|shell|staff)';
+// v1.0.4 P4-50 (sign-in step 2, own password): + mfa, pw, reauth, field_error.
+const FAMILIES =
+  '(?:hk|wo|nav|common|error|field_error|field|auth|login|role|retry|shell|staff|mfa|pw|reauth)';
 /** A whole key in a string literal: 'hk.status.VC', "error.RATE_LIMITED". */
 const LITERAL = new RegExp(`['"\`](${FAMILIES}\\.[A-Za-z0-9_.]+)['"\`]`, 'g');
 /** A template key: `hk.status.${code}` → every key starting with `hk.status.`. */

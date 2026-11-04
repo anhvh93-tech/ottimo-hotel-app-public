@@ -3,12 +3,10 @@ import { roomLabel, useI18n } from '@ottimo/i18n';
 import { Button, Chip, ConfirmDialog, Field, Modal, Seg, StateView } from '@ottimo/ui';
 import { useId, useState } from 'react';
 import { api } from '../../app/api';
-import { useCatalog } from '../../app/catalog';
 import { useBusinessDay } from '../../app/businessDay';
 import { useLiveReload } from '../../app/live';
 import { Code } from '../../app/mono';
 import { addDays, dayMonth } from '../../app/reservations';
-import { findRoom } from '../../app/rooms';
 import { useToast } from '../../app/toast';
 import { Page, Topbar } from '../../components/AppShell';
 import { ErrorBlock, LoadingBlock } from '../../components/states';
@@ -19,7 +17,7 @@ import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { useSubmit } from '../stay/common';
 import { BLOCK_STATUS, SEV_TONE, WO_STATUS } from './opsLabels';
 import { WorkOrderDrawer, dueText } from './WorkOrderDrawer';
-import { BlockConflict, BlockDialog, CreateWorkOrderDialog } from './WorkOrderForms';
+import { BlockConflict, BlockDialog, CreateWorkOrderDialog, useOpsRooms } from './WorkOrderForms';
 
 const WRITERS = ['owner', 'manager', 'front_desk_lead', 'front_desk', 'maintenance'];
 const OWN_MGR = ['owner', 'manager'];
@@ -286,14 +284,20 @@ function BlockList({
 }) {
   const { t } = useI18n();
   const propertyId = usePropertyId();
-  const { rooms } = useCatalog(propertyId);
+  // BUG-R3-053: a maintenance-only account reads the rooms from `room-statuses` (no 403 `listRooms`).
+  const { rooms } = useOpsRooms(propertyId);
   const { online } = useOnline();
   const [editing, setEditing] = useState<{
     b: RoomBlock;
     mode: 'end' | 'release' | 'cancel';
   } | null>(null);
   const room = (b: RoomBlock) =>
-    roomLabel(findRoom(rooms, b.roomNo, b.roomId) ?? { roomNo: b.roomNo }, 'staff');
+    roomLabel(
+      rooms.find((r) => (b.roomId ? r.id === b.roomId : r.roomNo === b.roomNo)) ?? {
+        roomNo: b.roomNo,
+      },
+      'staff',
+    );
   const rows = [...blocks].sort(
     (a, b) =>
       Number(['released', 'cancelled'].includes(a.status)) -

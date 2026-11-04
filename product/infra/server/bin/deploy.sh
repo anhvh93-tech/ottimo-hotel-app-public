@@ -11,9 +11,15 @@
 # switches (SEC E.10.2 (2)); every secret file the compose project needs exists; edge mode: the link network exists.
 # Steps: pull → appconfig (the new image's loadConfig() on this stack's .env + secrets, api and worker) → postgres up → 02-roles.sh (SEC H3: role limits re-applied on an existing database) → migrate
 # (separate one-shot, ottimo_migrator → SET ROLE ottimo_owner; erd 16 point 5) → migration count check (ARC s3 4.2-7)
-# → api/worker/web on the new tag → smoke (health, role limits, worker, Caddy headers, blob probe).
-# A failure after the containers changed puts the previous tag back (images only: migrations are forward-only and
-# written "expand first, contract later", so the previous image runs on the newer schema – hosting-plan 6.3).
+# → switch in a fixed order (FB-R4-OPS-ARC-31-01, ARC FB-R4-ARC-BE-31-02):
+#     deploy:      worker first (step switch-worker), then api + web (step switch-api);
+#     --rollback:  api + web first (step switch-api), then worker (step switch-worker)
+#   → smoke (health, role limits, worker, Caddy headers, blob probe).
+# Why: a newer api may write outbox jobs (e.g. a new staff.email template) that an older worker kills as BAD_TEMPLATE.
+# Up, the new worker runs before the new api takes requests; down, the newer api stops before the older worker starts.
+# A failure after the containers changed puts the previous tag back in the rollback order (api + web, then worker;
+# images only: migrations are forward-only and written "expand first, contract later", so the previous image runs on
+# the newer schema – hosting-plan 6.3).
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -172,11 +178,37 @@ elif [ "$applied" -ne "$journal" ]; then
 fi
 log "migrations: $applied applied / $journal in the image journal"
 
-# ---- 4. switch containers + smoke ----
+# ---- 4. switch containers (ordered, FB-R4-OPS-ARC-31-01) + smoke ----
+# One `dc up` per group: compose would otherwise replace api and worker in parallel (web already waits for a healthy
+# api through depends_on). The worker has no healthcheck, so `--wait` returns as soon as it runs: worker_ok checks a
+# moment later, so a worker that dies at start stops the deploy before api changes.
+# FB-R4-ARC-OPS-P402-01: every service has `restart: unless-stopped`, so a worker in a crash loop is restarted by
+# Docker and is often "running" at the moment one looks. worker_ok therefore reads the container's RestartCount: a
+# container compose (re)created starts at 0; one it left as is keeps its count, read just before the `up`. Running and
+# the count unchanged since the switch = ok; the smoke step checks the SAME container again 5 s later.
+# No extra log line here: the INV command sheets count the "[deploy …]" lines of a successful run (6).
+worker_cid() { dc ps --all --quiet worker 2>/dev/null | head -n 1 || true; }
+worker_state() { [ -z "$1" ] || docker inspect --format '{{.State.Running}} {{.RestartCount}}' "$1" 2>/dev/null || true; }
+w_cid="" w_base=0 w_problem=""
+worker_ok() { # 0 = the worker container of the switch runs and has not restarted since; else w_problem says why
+  local cid st n
+  cid=$(worker_cid); st=$(worker_state "$cid"); n=${st#* }
+  if [ -z "$cid" ] || [ -z "$st" ]; then w_problem="worker is not running (no container)"; return 1; fi
+  if [ "$cid" != "$w_cid" ]; then w_problem="worker container was replaced after the switch"; return 1; fi
+  case "$st" in "true "*) ;; *) w_problem="worker is not running"; return 1 ;; esac
+  [[ "$n" =~ ^[0-9]+$ ]] || { w_problem="worker restart count unreadable ($st)"; return 1; }
+  [ "$n" -eq "$w_base" ] || { w_problem="worker restarted $((n - w_base)) time(s) (crash loop?) – see dc logs worker"; return 1; }
+}
 restore_previous() {
   if [ -n "$prev" ] && [ "$prev" != "$tag" ] && [ "$rollback" -eq 0 ]; then
-    log "putting previous tag $prev back"
-    IMAGE_TAG="$prev" dc up --detach --wait --wait-timeout 180 api worker web || log "WARNING: previous tag did not come back healthy – see dc ps / dc logs"
+    log "putting previous tag $prev back (api + web, then worker)"
+    if IMAGE_TAG="$prev" dc up --detach --wait --wait-timeout 180 api web; then
+      IMAGE_TAG="$prev" dc up --detach --wait --wait-timeout 180 worker \
+        || log "WARNING: previous worker did not come back – see dc ps / dc logs"
+    else
+      # The older worker is NOT started while the newer api may still answer (it could kill the newer api's jobs).
+      log "WARNING: previous api/web did not come back healthy – worker left as is; see dc ps / dc logs"
+    fi
   fi
 }
 fail() {
@@ -186,9 +218,28 @@ fail() {
   restore_previous
   exit 1
 }
+switch_worker() {
+  step switch-worker
+  local pre_cid pre_n
+  pre_cid=$(worker_cid); pre_n=$(worker_state "$pre_cid"); pre_n=${pre_n#* }
+  dc up --detach --wait --wait-timeout 240 "$@" worker || fail "worker did not start"
+  w_cid=$(worker_cid) w_base=0
+  if [ -n "$w_cid" ] && [ "$w_cid" = "$pre_cid" ] && [[ "$pre_n" =~ ^[0-9]+$ ]]; then w_base=$pre_n; fi  # left as is
+  sleep 3
+  worker_ok || fail "$w_problem after the switch"
+}
+switch_api() {
+  step switch-api
+  dc up --detach --wait --wait-timeout 240 "$@" api web || fail "api/web did not become healthy"
+}
 
-step switch
-dc up --detach --wait --wait-timeout 240 --remove-orphans api worker web || fail "containers did not become healthy"
+if [ "$rollback" -eq 1 ]; then
+  switch_api --remove-orphans
+  switch_worker
+else
+  switch_worker --remove-orphans
+  switch_api
+fi
 
 step smoke
 health=$(dc exec -T api wget -qO- http://127.0.0.1:3000/health) || fail "api /health"
@@ -199,7 +250,7 @@ case ",$cfg," in *,idle_in_transaction_session_timeout=30s,*) ;; *) fail "ottimo
 case ",$cfg," in *,statement_timeout=15s,*) ;; *) fail "ottimo_app statement_timeout missing ($cfg)" ;; esac
 
 sleep 5
-[ -n "$(dc ps --status running --quiet worker)" ] || fail "worker is not running"
+worker_ok || fail "$w_problem"
 
 # SEC C2: the blob volume is mounted in api + worker and NOT in web (checked on the running containers).
 # shellcheck disable=SC2016

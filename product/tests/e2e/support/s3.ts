@@ -39,6 +39,7 @@ import {
   healthTime,
   totpNow,
 } from './api.js';
+import { PRIVACY_NOTICE } from './notice.js';
 import { hasTotpSecret, nextTotpCode } from './totp-store.js';
 import {
   API_URL,
@@ -643,8 +644,11 @@ export function portalDate(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
-/** privacy_notice_version default (catalogue 0052 – DS-E does not override it). */
-export const PRIVACY_NOTICE = 'privacy-2026-10-v1';
+/**
+ * privacy_notice_version the E2E stack shows: `privacy-2026-10-v2` since v1.0.4 P4-42 (guest-web carries only that
+ * text). Not in DS-E – global setup sets it as OWN does on release (support/notice.ts).
+ */
+export { PRIVACY_NOTICE };
 
 /**
  * DS-E `id_image_retention_days_after_checkout` (BR-610) = 30. OpenAPI 0.3.6 addendum (SEC ĐK-2, 17/10):
