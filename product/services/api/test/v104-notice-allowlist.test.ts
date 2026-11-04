@@ -88,10 +88,16 @@ describe('privacy_notice_version allowlist – same list as guest-web (P4-16, G1
 
   it('G1: server NOTICE_TEXT_VERSIONS = guest-web NOTICE_TEXT_VERSIONS (apps/guest-web/src/app/config.ts)', () => {
     const src = readFileSync(GUEST_CONFIG, 'utf8');
-    const m = /export const NOTICE_TEXT_VERSIONS[^=]*=\s*\[([^\]]*)\]/.exec(src);
-    // No array found = red, never skipped: the guard must not silently stop guarding.
-    expect(m, 'NOTICE_TEXT_VERSIONS array not found in guest-web config.ts').not.toBeNull();
-    const inner = m?.[1] ?? '';
+    // Anchored at the start of a line (SEC P416-04): a comment or string mentioning the declaration does not count.
+    const matches = [...src.matchAll(/^export const NOTICE_TEXT_VERSIONS[^=]*=\s*\[([^\]]*)\]/gm)];
+    // No array (or more than one) = red, never skipped: the guard must not silently stop guarding.
+    expect(
+      matches.length,
+      'NOTICE_TEXT_VERSIONS array not found exactly once in guest-web config.ts – declare it at the start of ' +
+        "a line as `export const NOTICE_TEXT_VERSIONS: readonly string[] = ['…'];` (= [ '…' ], not wrapped " +
+        'in Object.freeze)',
+    ).toBe(1);
+    const inner = matches[0]?.[1] ?? '';
     const literal = /'([^'\\]*)'|"([^"\\]*)"/g;
     const guestList = [...inner.matchAll(literal)].map((x) => x[1] ?? x[2] ?? '');
     // Anything left once the literals, commas and whitespace are removed (a constant, a spread, a template…)
