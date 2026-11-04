@@ -39,6 +39,11 @@
 | `staff.mfa_enroll_desk` (P4-50) | – | Done | Khóa đã có từ lượt 1, chữ đúng nguyên văn UXD duyệt. Lượt 2 chỉ cập nhật ghi chú vị trí (dòng `li-s` dưới `error.MFA_ENROLLMENT_REQUIRED`, luôn hiện) |
 | FB-R4-UXD-MOB-P450-04 (UXD) | Suggestion | Done (ghi chú) | `staff.mfa_network`: ghi chú "MOB không dùng – giữ `common.error_network_body`". Chưa xóa vì `v104/mob-2fa` chưa gộp. Xóa ở lượt dọn khóa nếu không ai dùng |
 | FB-R4-UXD-MOB-P450-05 (UXD) | Suggestion | Done | "6-digit" → "6‑digit" (gạch không ngắt U+2011) ở cả 6 chuỗi EN: `auth.totp.help`, `auth.enroll.confirm`, `reauth.s2_help`, `guest.verify.sent_to`, `guest.verify.label`, `ci.door_step1`. Luật ghi vào content-guide mục 2 |
+| FB-R4-PO-UXD-IDS2-01 | Minor | Done (nhánh `v104/uxd-id-sheet-v2` @ `f9bfcde7`) | `staff-one-pager.md`, bảng "Cách in và dán": tờ 4 v1 ghi "Thôi dùng, gỡ đúng lúc dán v2"; tờ v2 ghi "dán sau khi deploy v1.0.4, **cùng ngày** OWN đặt `privacy_notice_version` = `privacy-2026-10-v2` (SEC 6.4 ý 5 bước 2–3)"; bỏ mốc 01–02/11, thay bằng "tờ ở quầy cùng phiên bản với tham số Desk". Phần này không in. Dựng lại 4 tờ "Your ID details" ra HTML giống hệt từng byte |
+| FB-R4-PO-UXD-IDS2-02 | Suggestion | Deferred (v1.0.5) | Bước so tờ in với `strings-*.json` trong `build_print_sheets.py` để v1.0.5. Trong v1.0.4: QA thêm bước tay "so tờ in với trang khách sau khi gộp `guest-privacy-v2`" vào checklist P4-42 (ORC chuyển QA) |
+| FB-R4-SEC-UXD-IDS2-01 | Suggestion | Deferred (v1.0.5) | Cùng việc với PO IDS2-02 |
+
+Ghi chú nhánh tờ in: khi dựng lại, `to-1`, `to-2a-2b`, `to-3` HTML lệch CSS với script từ `82df5fea` (biến `--ru`, lề `.notice`; chỉ kiểu, chữ không đổi). Không commit trong lượt này để giữ phạm vi. Lần in tới chạy lại `build_print_sheets.py --pdf` là khớp.
 
 ## 2. Việc cho dev khi rebase lên lượt 2
 
