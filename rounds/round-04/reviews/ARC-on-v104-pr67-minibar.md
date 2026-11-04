@@ -104,3 +104,166 @@ ARC sẽ kiểm:
 - Sửa tận gốc: tính số trong lúc render, không vá thời điểm của effect.
 - Gắn số sửa với đối tượng bản chuẩn: ít trạng thái, không cần `useEffect` dọn dẹp.
 - Test bấm đúng khung hình bằng cổng `holdStandard()`, nên tái hiện race một cách tất định, không dựa vào may rủi.
+
+---
+
+## Lượt 2 – commit merge 951d1880
+
+- Người review: ARC | Round 4 – v1.0.4 – Bước **Review** (xem lại) | 04/11/2026
+- Đối tượng: `v104/fix-s4-144-flake` @ `951d1880`. Đây là commit merge, có 2 cha:
+  - `d34c6104`: nhánh, gồm `5f3649f1` và phần sửa thẻ UXD PR67-01, ARC PR67-01/02;
+  - `9fded27f`: `main` sau #64, đã có #61, #62.
+- `main` hiện đã ở `c2506a53` (#63). #63 chỉ sửa tài liệu, không đụng `product/apps`, `product/packages`, `product/services`.
+- Cách kiểm: ARC tự chạy, không dựa vào báo cáo FE-A. Dùng 2 worktree tạm trong scratchpad (đã xóa), cài `pnpm install --frozen-lockfile --offline`.
+- Prompt giao việc có nhắc `aca63a0`. Mã này không có trong repo. Phần sửa sản phẩm của PR nằm ở `5f3649f1` và `d34c6104`, nên ARC đảo cả hai.
+
+### Phán quyết lượt 2: **ĐẠT CÓ ĐK**
+
+Bản thân commit merge làm đúng: không thêm gì vào `CheckOutPage.tsx` ngoài phần git tự gộp, thứ tự hook đúng, và `onDay` không làm yếu điều kiện kiểm. Nhưng khi chạy dưới tải, 2 ca mới của PR **đỏ ngẫu nhiên**: 5/24 lần trên mã merge, 6/24 lần trên `d34c6104`. Nguyên nhân là một lỗi cũ có từ 18/10 (thẻ 03). PR này sinh ra để dẹp một ca đỏ ngẫu nhiên (s4-144). Gộp vào lúc này thì dẹp được một ca nhưng đưa thêm hai ca mới vào `main`.
+
+Điều kiện gộp:
+1. Làm thẻ **FB-R4-ARC-FE-PR67-03** (Major) ngay trên nhánh này, trước khi gộp.
+2. Chạy lại dưới tải ít nhất 12 tiến trình × 2 lượt cho `v104-minibar-prefill-fea` + `s4-144-fea`, được 0 lần đỏ. Ghi **đúng lệnh đã chạy** vào `FE-PR67.md`.
+3. CI xanh ở head mới, gồm cả `docker images build · E2E smoke`.
+4. Không cần ARC xem lại lần 3 nếu commit sửa chỉ đụng vùng nêu trong thẻ 03. Đụng ra ngoài vùng đó thì báo ARC.
+
+### 1. Phần FE-A tự sửa trong commit merge (`git show --remerge-diff 951d1880`)
+
+So với kết quả git tự gộp, commit merge chỉ sửa 2 tệp:
+
+| Tệp | Phần sửa tay |
+|---|---|
+| `__tests__/v104-minibar-prefill-fea.test.tsx` | Thêm helper `onDay(day, hhmm)`, gọi ở 4 chỗ: trong `countedThenExtended()` (2 ca s4-144 dùng chung), trong ca BUG-R4-035, ca UXD PR67-01 và ca ARC (b). Mỗi lần gọi đặt đồng hồ sang ngày đi, 11:00, **sau** bước dựng dữ liệu (B13/B14) và **trước** khi mở H16 |
+| `rounds/round-04/responses/FE-PR67.md` | Thêm mục "Merge `main` sau #64" |
+
+- `CheckOutPage.tsx`, `s4-144-fea.test.tsx` và `checkout.test.tsx` là kết quả git tự gộp, không có xung đột chữ. Đúng như FE-A báo.
+- Kiểm chéo, so từng tệp:
+  - các dòng thay đổi của `58183764..d34c6104` (PR) trùng với `9fded27f..951d1880`;
+  - các dòng thay đổi của `58183764..9fded27f` (#64, #61, #62) trùng với `d34c6104..951d1880`;
+  - chỉ có `v104-minibar-prefill-fea.test.tsx` khác, và khác đúng ở phần `onDay`.
+
+  Kết luận: không mất dòng nào của hai bên.
+
+### 2. Năm điểm ARC đã hẹn kiểm (mục 4 lượt 1)
+
+| # | Điểm kiểm | Kết quả trên `951d1880` |
+|---|---|---|
+| 1 | Mọi hook nằm trước mọi `return` sớm | Đạt. Mọi lời gọi hook nằm ở dòng 166–461: `prefill` 212, `edits` 217, `edRefund` 299, effect BR-703-01 ở 405, `debTypedKey` 421, effect VietQR 425. Các `return`: lần lượt `if (!r && error)` 463, `if (!r)` 477, nhánh "trước ngày đi" của #64 ở 506, `if (done)` 1138, `return` chính 1832. Tìm `use[A-Z]…(` từ dòng 463 đến 1998: không có kết quả |
+| 2 | Effect cũ không quay lại | Đạt. Không còn `setLeft`, không có effect nào chép `std.state.data` vào state |
+| 3 | Nhánh "trước ngày đi" của #64 nằm sau mọi hook | Đạt (dòng 506). Khi ngày đổi hoặc khi `postMidnightWindow` xuất hiện, trang chuyển từ nhánh này sang 3 bước mà số hook vẫn giữ nguyên |
+| 4 | Nút "Tiếp tục" giữ `busy` | Đạt: `busy={minibarAct.busy \|\| stdWaiting}`, `disabled={std.state.status === 'error' && !stdForCabinet}`. Dòng đầu của `saveMinibar` là `if (!stdForCabinet) return;` (dòng 700), đứng trước nhánh `!chargeable` |
+| 5 | Hai bộ test xanh cùng lúc | Đạt khi chạy một lần: `v104-minibar-prefill-fea` 7/7, `v104-checkout-feb` 14/14, `s4-144-fea` 12/12. Cả admin-web: 79 tệp / **901/901**. `tsc --noEmit` (admin-web, ui), `eslint` và `prettier --check` trên 3 tệp sản phẩm/test đều đạt. **Chạy dưới tải thì không đạt**: xem thẻ 03 |
+
+Hai thẻ lượt 1 đã được làm, ARC đã kiểm trên mã:
+
+| ID | ARC xác nhận |
+|---|---|
+| FB-R4-ARC-FE-PR67-01 | Done. Có `stdForCabinet` với điều kiện `roomId` của dữ liệu trùng tủ trên màn; có guard ở dòng đầu `saveMinibar`; có ca (a) và (b) |
+| FB-R4-ARC-FE-PR67-02 | Done. `minibarPrefill` nằm trên JSDoc của `CheckOutPage`, ngay sau `lateFeeNotAllowed` |
+
+### 3. `onDay` có làm yếu điều kiện kiểm không
+
+Thí nghiệm trên worktree tạm. Mọi lần đều giữ nguyên tệp test của commit merge, chỉ đổi mã sản phẩm, rồi chạy `v104-minibar-prefill-fea`:
+
+| Mã sản phẩm | Kết quả | Ca đỏ ở dòng nào, vì sao |
+|---|---|---|
+| `951d1880` (đã sửa) | 7/7 xanh | – |
+| `CheckOutPage.tsx` + `Controls.tsx` lấy từ `9fded27f`, tức đảo cả `5f3649f1` lẫn `d34c6104` | **7/7 đỏ** | Dòng 127: gửi `remainingQty = 2`, tức tủ đầy, đúng lỗi s4-144. Dòng 145: không có nút busy. Dòng 264: gửi số 1 đã gõ trên tủ A cho tủ B, đúng BUG-R4-035. Dòng 321: không có `aria-busy`. Dòng 360: nút không bị khóa khi đọc lỗi. Dòng 436: 2 POST thay vì 1. Dòng 457: không có `minibarPrefill` |
+| Chỉ đảo `d34c6104` (`git apply -R` phần sản phẩm), giữ `5f3649f1` | 4 xanh / **3 đỏ** | Đỏ đúng 3 ca của thẻ UXD PR67-01 và ARC (a), (b), ở dòng 321, 360, 436. 4 ca của bản sửa gốc vẫn xanh |
+| Ngược lại: mã đã sửa + tệp test **trước merge** (`d34c6104`, chưa có `onDay`) | 2 xanh / 5 đỏ | Cả 5 ca đỏ ở lời gọi `findBy…` đầu tiên (không thấy "Tủ căn 201 cần đếm lại", không thấy nhóm "Tủ minibar cần đếm"). Lý do: trang hiện nhánh "trước ngày đi" của #64. Đây đúng là xung đột về nghĩa FE-A nêu |
+
+Kết luận:
+- Không có `onDay` thì các ca đỏ **sai lý do**: chúng không chạm tới H16.
+- Có `onDay` thì mỗi ca đỏ ở **đúng điều kiện kiểm của nó** khi gỡ phần sửa tương ứng.
+- `onDay` chỉ đổi ngày mở trang. Không ca nào bị bỏ hay nới điều kiện kiểm. Không làm yếu.
+
+### 4. CI ở head `951d1880` (`gh pr checks 67`)
+
+Đã xanh:
+- `format · lint · audit · test · build` (gồm Vitest với PostgreSQL thật, và Build);
+- `API contract`, `OpenAPI lint`, `gitleaks`, `confidential paths`, `infra scripts`, `landing LP-v1`, `no test endpoints`.
+
+Còn **chờ**: `docker images build · E2E smoke`, vì job này chỉ chạy sau job chính.
+
+Hai lần chạy trước, ở `5f3649f1` và `d34c6104`, đều bị huỷ do có commit mới đẩy lên. Vì vậy head này là lần đầu job chính chạy hết.
+
+### 5. Chạy dưới tải: không tái lập được "0 đỏ"
+
+- Lệnh: chạy cùng lúc 12 tiến trình `npx vitest run src/__tests__/v104-minibar-prefill-fea.test.tsx src/__tests__/s4-144-fea.test.tsx`, lặp 2 lượt, tức 24 lần.
+- Máy: máy dev, cũng là máy FE-A dùng.
+
+| Mã | Lần đỏ / 24 | Ca đỏ |
+|---|---|---|
+| `951d1880` | **5** | Ca UXD PR67-01 4 lần, ở dòng 334 (`dec` của 202 bị khóa sau khi danh sách đã mở). Ca BUG-R4-035 1 lần, ở dòng 249 (`pressed` không bao giờ thành `true`) |
+| `d34c6104` (trước merge) | **6** | Cùng 2 ca đó: UXD 5 lần, BUG-R4-035 1 lần (số dòng của tệp trước merge: 310, 311, 323 và 240) |
+| `951d1880` + bản vá thử của thẻ 03 (chỉ ở worktree tạm) | **0** | – |
+
+Ghi chú:
+- Các ca s4-144 (lỗi gốc của PR) **không đỏ lần nào** trong 72 lần chạy.
+- Lỗi đã có từ trước merge, nên không do `onDay` gây ra.
+- FE-A báo "24 tiến trình 0/48 đỏ" nhưng ARC không tái lập được. Có thể máy lúc đó tải nhẹ hơn, hoặc FE-A chạy bộ test khác. Vì vậy điều kiện 2 yêu cầu ghi đúng lệnh.
+
+### 6. Thẻ feedback
+
+### FB-R4-ARC-FE-PR67-03
+- Mức độ: **Major**. Chặn gộp PR này: PR sinh ra để dẹp ca đỏ ngẫu nhiên, nên không được đưa thêm ca đỏ ngẫu nhiên vào `main`.
+- Vị trí: `CheckOutPage.tsx`, effect BR-703-01, dòng 404–412:
+  ```ts
+  if (step === 0 && cabinet === undefined && old) setCabinet(old.roomId);
+  }, [s?.minibarUncheckedRooms, hereRoomId]);
+  ```
+  Ảnh hưởng tới 2 ca: "after B14, switching cabinet…" (UXD PR67-01) và "edit 402 (A), switch to 202 (B)…" (BUG-R4-035) trong `v104-minibar-prefill-fea.test.tsx`.
+- Vấn đề:
+  - Effect có ghi chú "first summary / reservation only", nhưng thực tế chạy lại **mỗi khi đọc lại summary**, vì `minibarUncheckedRooms` là mảng mới sau mỗi lần đọc.
+  - Lễ tân chọn tủ của phòng hiện tại (202) thì `cabinet` thành `undefined`. Nếu sau đó có một lần đọc summary về muộn, trong khi tủ cũ 402 vẫn chưa đếm, effect sẽ tự đặt lại `cabinet = 402`. Lần đọc muộn thường gặp nhất là lần đọc tính theo giờ trả (`qTime`, trễ 300 ms sau summary đầu, cộng thời gian mạng).
+  - Cùng lúc đó, `edits` gắn với đối tượng bản chuẩn của 202, nên số lễ tân vừa gõ trên 202 **bị bỏ mà không báo gì**.
+  - Test:
+    - Dưới tải, lần đọc muộn rơi vào giữa ca test: danh sách vừa mở lại cho 202 thì trang quay về 402. Kết quả là ca UXD đỏ ở dòng 334 (`dec` bị khóa, vì `stdForCabinet` của 402 chưa có).
+    - Ca BUG-R4-035 thì không bao giờ thấy dòng của nhân viên buồng phòng ở 202 (`who`), nên đỏ ở dòng 249.
+  - Tái hiện tất định:
+    - giữ yêu cầu `checkout-summary?checkoutTime=…` lại;
+    - chọn 202, đợi 202 đọc xong, nút "Tiếp tục" mở;
+    - thả yêu cầu ra.
+
+    Kết quả: `402 aria-pressed = true`, `202 = false`. Trên mã `main` (`9fded27f`) cũng ra đúng như vậy, tức lỗi có từ `feb75035` (18/10), không do PR này.
+- Vì sao quan trọng:
+  - Tiền: không sai. Payload vẫn nhất quán với tủ trên màn, nhờ `stdForCabinet`, và máy chủ còn chặn 409.
+  - Vận hành: ở Đà Lạt mạng có lúc yếu, lần đọc muộn có thể về sau vài giây. Lễ tân thấy trang tự nhảy về tủ cũ và mất số vừa gõ.
+  - Kỹ thuật: 2 ca test mới đỏ khoảng 20–25% số lần khi máy tải nặng. Gộp vào thì job test của `main` sẽ đỏ ngẫu nhiên, đúng loại lỗi PR này muốn dẹp.
+- Đề xuất sửa (ARC đã thử trên worktree tạm: 24/24 xanh dưới tải, cả admin-web 901/901):
+  ```ts
+  const [cabinet, setCabinet] = useState<string | undefined>(undefined);
+  // BR-703-01: the old room's cabinet is offered first – never over a cabinet the desk picked (a later summary
+  // read, e.g. priced for the typed time, used to send the page back to it and drop the figures typed).
+  const cabinetPicked = useRef(false);
+  …
+  useEffect(() => {
+    if (!hereRoomId || cabinetPicked.current) return;
+    …
+  }, [s?.minibarUncheckedRooms, hereRoomId]);
+  …
+  onChange={(v) => {
+    cabinetPicked.current = true;
+    minibarAct.reset();
+    setCabinet(v === currentRoomId ? undefined : v);
+  }}
+  ```
+  - `useRef` đặt ngay sau `cabinet` (dòng 198), tức trước mọi `return` sớm.
+  - Các lần đổi tủ tự động trong `saveMinibar` (dòng 703, 747) giữ nguyên.
+  - Thêm 1 ca test tất định, như cách tái hiện ở trên: giữ summary `checkoutTime`, chọn 202, đợi 202 đọc xong, thả summary. Kỳ vọng: 202 vẫn được chọn, số đã gõ trên 202 còn nguyên, nút "Tiếp tục" mở.
+  - Báo DOM một dòng: lễ tân vẫn **được phép** đếm tủ phòng hiện tại trước tủ cũ. BR-703-01 chỉ yêu cầu chọn sẵn tủ cũ, không bắt đếm theo thứ tự.
+- Trạng thái: Open (FE-A)
+
+### FB-R4-ARC-FE-PR67-04
+- Mức độ: Suggestion (nit), không chặn.
+- Vị trí: `v104-minibar-prefill-fea.test.tsx`, các lời gọi `onDay(...)`.
+- Vấn đề:
+  - `countedThenExtended()` lấy ngày đi qua API (`stayDepartureDate`). Còn 3 ca của Kim lấy `res('Kim Seo-yeon').departureDate` từ bản ghi mock. Trang so với `r.stayDepartureDate ?? r.departureDate`.
+  - Hiện hai giá trị trùng nhau, nên ca nào cũng tới H16. Nếu sau này dữ liệu mẫu của Kim có gia hạn con, ca sẽ đỏ ở `findBy…` với lý do khó đọc.
+  - Ngoài ra `vi.useFakeTimers` bị gọi 2 lần trong cùng một ca: một lần ở đầu ca, một lần trong `onDay`.
+- Đề xuất sửa: dùng `(await api.getReservation(R)).data.stayDepartureDate` cho cả 4 chỗ. Trong `onDay`, chỉ gọi `vi.setSystemTime`, vì đồng hồ đã được giả từ đầu ca.
+- Trạng thái: Open (FE-A)
+
+### 7. Điểm làm tốt (lượt 2)
+- Phát hiện đúng xung đột về nghĩa: git không báo xung đột, nhưng H16 đã đổi điều kiện ngày. Cách sửa (`onDay`) giống hệt cách #64 sửa cho `s4-144-fea`, và không đổi điều kiện kiểm nào.
+- Commit merge sạch: ngoài phần test đó, không sửa tay gì trong mã sản phẩm. Điều đó làm việc rà soát rất nhanh.

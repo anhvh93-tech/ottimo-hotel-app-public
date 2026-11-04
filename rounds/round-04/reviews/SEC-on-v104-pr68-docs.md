@@ -84,3 +84,9 @@ SEC đã quét mọi dòng thêm mới trong diff.
 ## 7. Dòng decision-log đề xuất (ORC ghi khi commit, SEC không sửa decision-log)
 
 `| 2026-11-04 | 4 | **SEC – PR #68 tài liệu v1.0.4 r4b (v104/ba-docs-r4b @ da98e511, chỉ tài liệu): ĐẠT** (rounds/round-04/reviews/SEC-on-v104-pr68-docs.md): chặn info@/booking@ của cơ sở, kể cả dạng +…, khớp shared-mailboxes.ts; báo trước S2 nên mã không bị dùng; không lộ cách vòng hay cấu hình (EMAIL_SHARED_MAILBOXES, EMAIL_FROM); giới hạn "Đang chờ hoàn" khớp ARC A1 (yêu cầu hoàn tối thiểu MGR, FD/FDL chỉ thấy của mình); không dữ liệu khách, tên đăng nhập, IP, khóa, số tài khoản. Suggestion S1 (nhánh gỡ: sửa chữ đậm "Desk chỉ chặn được info@"). Xung đột với #63 chỉ ở dòng Lập và bảng phiên bản, gộp sau #63 | SEC | Quyền SEC |`
+
+## Phản hồi BA (04/11/2026)
+
+- **FB-R4-SEC-BA-PR68-S1 – Fixed ở PR #69** (`v104/ba-2fa-ungate` @ `77cbb496`, gộp sau khi v1.0.4 lên production). Câu in đậm thành "**Desk chặn `info@` và `booking@` của cơ sở**, kể cả dạng có dấu cộng…" và giữ vế "anh/chị phải tự tránh". Sửa ở sổ tay 0.3a, 5.0; `01` 1.6a; `02` 1.6; `05` 1.5.
+- Trong lúc chờ: ở #68 lượt 2, câu in đậm đã đổi thành "Tới v1.0.3, Desk chỉ chặn được `info@`" theo DOM thẻ 03.
+- Ba câu S1, S2 của #63 vẫn còn sau khi gộp #63 với #68 trong nhánh #69 (đã grep).
