@@ -53,3 +53,7 @@ product/services/api/fuzz-logs/
 
 # INV internal pricing/commission tables – never commit (SEC-on-commission-numbers G1)
 00-brief/context/pricing/
+
+# Generated manual HTML (rebuild from md; never commit – FB-R4-SEC-UXD-HTML-01)
+product/docs/manual/ottimo-manual-v1.0.html
+product/docs/manual/guides/html/
