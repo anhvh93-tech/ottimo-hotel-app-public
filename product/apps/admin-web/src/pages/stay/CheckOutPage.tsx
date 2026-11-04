@@ -443,13 +443,18 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   }, [s]);
   /**
    * BUG-R4-045 (FB-R4-ARC-FE-PR81-01): a cabinet counted on this page stays "counted" only until a summary read SENT
-   * AFTER that count is in. Every new `ready` committed after a count is such a read: the count calls `sum.reload()` in
-   * the same batch, and `useResource` drops every older answer (`seq`). A cabinet that read still lists is due again
-   * (B14 / B13 back to that room, a refill, the business day – `reason`) and is offered again with its "Cần đếm lại"
-   * line. The read sent BEFORE the count (BUG-R4-042) never gets here.
+   * AFTER that count is in. A count calls `sum.reload()` in the same batch as `markDone`, and `useResource` drops every
+   * older answer (`seq`), so a `ready` committed in a render that already holds the cabinet in `doneCabinets` is such a
+   * read. A cabinet that read still lists is due again (B14 / B13 back to that room, a refill, the business day –
+   * `reason`) and is offered again with its "Cần đếm lại" line.
+   * ARC FB-R4-ARC-FE-PR83-02: only the cabinets of `doneCabinets` of THIS render are released – never `doneRef`, which
+   * may already hold a count answered between the commit of this read (sent before that count – BUG-R4-042) and this
+   * effect (React 18 does not order a passive effect before a later network answer).
    * B18 answered 409 MINIBAR_NOT_CHECKED (`minibarResync`): with the summary read after that answer, back to step 1 on
    * the first cabinet it lists (BR-703-01: an earlier room's first) – also when the page left step 1 before any
-   * summary was in (D2).
+   * summary was in (D2). Not when the desk is on step 1 already (went back by itself, as the sentence says): the
+   * cabinet on screen is never switched or read again under its hands – the figures typed stay (ARC PR83-01, PR67-03);
+   * the cabinet due is offered by the release above and named on the main button.
    */
   const [minibarResync, setMinibarResync] = useState(false);
   const seenRead = useRef<Date | undefined>(undefined);
@@ -457,26 +462,26 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     if (sum.state.status !== 'ready' || sum.state.loadedAt === seenRead.current) return;
     seenRead.current = sum.state.loadedAt;
     const due = sum.state.data.minibarUncheckedRooms ?? [];
-    const listed = (id: string) => due.some((c) => c.roomId === id);
-    if ([...doneRef.current.keys()].some(listed)) {
-      const kept = new Map([...doneRef.current].filter(([id]) => !listed(id)));
+    const release = [...doneCabinets.keys()].filter((id) => due.some((c) => c.roomId === id));
+    if (release.length) {
+      const kept = new Map([...doneRef.current].filter(([id]) => !release.includes(id)));
       doneRef.current = kept;
       setDoneCabinets(kept);
     }
     if (!minibarResync) return;
     setMinibarResync(false);
+    if (step === 0) return;
     const first = due.find((c) => c.roomId !== hereRoomId) ?? due[0];
     // none listed any more (counted meanwhile elsewhere): "Hoàn tất" again
     if (!first) return;
-    // the page picks the cabinet: a later summary read never moves it (ARC PR67-03)
-    cabinetSettled.current = true;
+    // (`cabinetSettled` is set already: every way to B18 went through "Tiếp tục" on step 1)
     minibarAct.reset();
     const next = first.roomId === hereRoomId ? undefined : first.roomId;
     // the cabinet already on screen: read again – a new period (refill), its last count
     if ((next ?? hereRoomId) === countingRoomId) std.reload();
     setCabinet(next);
     setStep(0);
-    // per summary read; `minibarAct` / `std` / `countingRoomId` of that render
+    // per summary read; `doneCabinets` / `step` / `minibarAct` / `std` / `countingRoomId` of that render
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minibarResync, sum.state]);
 
@@ -571,13 +576,17 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     // among the choices, pressed (no switch under the desk's hands), the other one is offered next to it.
     if (cabinet && !list.some((c) => c.roomId === cabinet)) {
       if (doneCabinets.has(cabinet)) list.push({ roomId: cabinet, roomNo: cabinetNo(cabinet) });
-      return list;
-    }
-    if (!list.some((c) => c.roomId === currentRoomId)) {
+    } else if (!list.some((c) => c.roomId === currentRoomId)) {
       if (!doneCabinets.has(currentRoomId) || cabinet === undefined)
         list.push({ roomId: currentRoomId, roomNo: room });
     }
-    return list;
+    // UXD FB-R4-UXD-FE-PR83-01: one order, whichever cabinet is on screen or offered again – the rooms of the stay in
+    // their order, this room's cabinet last (BR-703-01, as when the page opens). A button never changes place.
+    const rank = (roomId: string) =>
+      roomId === currentRoomId
+        ? Number.MAX_SAFE_INTEGER
+        : Math.max(0, r.segments?.findIndex((sg) => sg.roomId === roomId) ?? 0);
+    return list.sort((a, b) => rank(a.roomId) - rank(b.roomId));
   })();
   /**
    * K11-03 (BUG-R4-042): the stay has more than one cabinet on this page – the one on screen is named on screen

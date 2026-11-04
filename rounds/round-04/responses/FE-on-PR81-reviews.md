@@ -116,3 +116,83 @@
 
 - Máy chủ không liệt kê tủ không có món tính tiền (ARC, thẻ 02). Nếu có liệt kê, B18 sẽ chặn mãi vì Desk không gửi lệnh đếm cho tủ đó. Lỗi này có từ trước, không do PR này.
 - Một tủ đang hiện mà vừa được máy chủ đánh dấu lại, nếu bản chuẩn trên trang đã cũ, thì lần đếm có thể nhận 409 `MINIBAR_PERIOD_CHANGED`. Câu đó lúc này đúng (tủ vừa được nạp), và trang tự đọc lại.
+
+---
+
+# Lượt 2 – trả lời review #83 @ `19cfa3f7`
+
+- Review:
+  - `rounds/round-04/reviews/ARC-on-v104-pr83-minibar-followup.md` (KHÔNG ĐẠT, thẻ 01 Major);
+  - `rounds/round-04/reviews/UXD-on-v104-pr81-minibar-race.md`, phần Lượt 2 (ĐẠT, thẻ PR83-01 Minor và ghi chú tên nhóm).
+- Một lần đẩy lên `v104/fe-minibar-followup`:
+  - commit gộp `origin/main` (không rebase, không force-push);
+  - commit sửa.
+
+| Thẻ | Trạng thái | Phần sửa |
+|---|---|---|
+| FB-R4-ARC-FE-PR83-01 (Major) | Done | Effect `minibarResync`: lễ tân đã ở bước ① thì không đổi tủ, không đọc lại bản chuẩn. Ca S2a |
+| FB-R4-ARC-FE-PR83-02 (Minor) | Done | Nhả tập tủ đã đếm theo `doneCabinets` của chính lần render, không theo `doneRef` |
+| FB-R4-ARC-FE-PR83-03 (Suggestion) | Done | Thêm ca N7, bỏ dòng `cabinetSettled` thừa. Không sửa câu "Cần đếm lại" tạm thời (nit) |
+| FB-R4-UXD-FE-PR83-01 (Minor) | Done | Nhóm chọn tủ giữ một thứ tự: các căn của lượt theo thứ tự ở, căn đang ở cuối |
+| Ghi chú UXD: tên nhóm khóa mới | Done | "v1.0.5 FB-R4-UXD-FE-PR81-01" đổi thành "v1.0.4 …" |
+| FB-R4-UXD-FE-PR83-02 (Suggestion) | Không làm | ORC không giao trong lượt này. Đề xuất v1.0.5 |
+
+## FB-R4-ARC-FE-PR83-01 – số đã gõ không mất khi bản tóm tắt sau 409 về muộn
+
+- Sửa đúng như ARC đã thử: sau `setMinibarResync(false)` thêm `if (step === 0) return;`.
+- Phần nhả tập tủ đã đếm vẫn chạy trước dòng đó. Vì vậy tủ bị đòi đếm lại vẫn được đưa ra trong nhóm chọn tủ, và nút chính nêu tên nó.
+- Ca S2a lấy từ snippet của ARC:
+  - sau 409, bản tóm tắt bị giữ. Lễ tân bấm Quay lại hai lần và gõ 1 bia trên 202, rồi bản tóm tắt được thả;
+  - kiểm: số vẫn là 1, tủ trên màn vẫn là 202;
+  - kiểm thêm (giả định d của ARC): **không có lần đọc bản chuẩn nào** sau khi thả;
+  - trước khi sửa ca này đỏ ("expected '0' to be '1'"), sau khi sửa thì xanh.
+- Biến thể "chọn tủ khác rồi gõ số" cùng gốc. Dòng `return` chặn cả `setCabinet`, nên không viết ca riêng.
+
+## FB-R4-ARC-FE-PR83-02 – nhả theo `doneCabinets` của lần render
+
+- Effect chỉ nhả những tủ có trong `doneCabinets` của lần render có bản tóm tắt `ready` đó. `doneRef` chỉ dùng để giữ các tủ còn lại.
+- Một lần đếm trả 201 giữa lúc bản đọc (gửi trước lần đếm đó) đã commit và lúc effect của nó chạy: tủ đó có trong `doneRef` nhưng không có ở đây, nên không bị nhả.
+- Chú thích của effect đã sửa theo.
+- Không có test tất định, như ARC đã nói. Đột biến "nhả theo ref" không làm ca nào đỏ.
+
+## FB-R4-ARC-FE-PR83-03 – test N7, dòng thừa
+
+- Ca N7:
+  - đếm 402 rồi 202; ở phiên khác nạp lại tủ 202, tức tủ đếm cuối và đang hiện;
+  - Hoàn tất nhận 409. Trang về bước ① trên 202, có câu "Tủ căn 202 cần đếm lại";
+  - kiểm: **đúng 1 lần** đọc bản chuẩn 202 sau 409. Lệnh đếm 201 mang `periodId` mới, không có câu "Số đếm chưa được lưu";
+  - Hoàn tất thành công, folio 35.000.
+- Đột biến N7 (bỏ `std.reload()` trong effect) nay làm ca này đỏ.
+- Bỏ dòng `cabinetSettled.current = true` trong effect resync. Mọi đường tới B18 đều đã qua "Tiếp tục" ở bước ①, nên cờ đã được đặt. Có ghi chú tại chỗ.
+
+## FB-R4-UXD-FE-PR83-01 – thứ tự nhóm chọn tủ cố định
+
+- `cabinets` được sắp lần cuối theo thứ tự các căn trong `segments` của lượt ở, căn đang ở cuối cùng. Thứ tự này không phụ thuộc tủ nào đang hiện hay tủ nào vừa được đưa lại.
+- Test G-FE-042-2 đổi thành `offered: [OLD, HERE]`. Trước khi sửa ca này đỏ.
+
+## Gộp `origin/main`
+
+- Chỉ có một xung đột, ở `product/design/wireframes/assets/strings.js` (tệp sinh).
+- Cách giải:
+  - lấy bản của `main` cho cả 4 tệp sinh (`strings-vi.json`, `strings-en.json`, `strings.js`, `strings-tables.md`);
+  - chạy `gen_strings.py` hai lần. Lần hai không đổi gì (so `shasum`).
+- Không mất khóa nào. Số khóa vi/en: `main` 3483, nhánh 3484, sau gộp 3485. Phần thêm so với `main` đúng bằng `co.go_next_cabinet` và `co.minibar_cabinet_saved`.
+- Sau khi đổi tên nhóm, chạy lại hai lần nữa, lần hai vẫn không đổi.
+
+## Bằng chứng lượt 2
+
+- `bug-r4-042-fea.test.tsx`: **14/14** xanh (thêm S2a, N7).
+- Trước khi sửa, trên mã đã gộp: S2a đỏ, G-FE-042-2 đỏ ở thứ tự nút. N7 xanh, vì ca này khóa hành vi đã có.
+- Gỡ từng phần sửa, chạy trên head mới:
+
+  | Đột biến | Ca đỏ |
+  |---|---|
+  | Bỏ `if (step === 0) return;` | S2a |
+  | Effect resync bỏ `std.reload()` (N7) | N7 |
+  | Bỏ thứ tự cố định | G-FE-042-2 |
+  | Nhả theo `doneRef` (PR83-02) | 0, như ARC dự kiến |
+  | Đột biến lượt 1 (resync, nhả, Quay lại, nhãn, toast, M7, M9…) | vẫn đỏ đúng ca |
+
+- 20 tệp test H16 / minibar / `useResource`: **211/211** xanh.
+- Dưới tải 8 × 2 lượt song song (load tới 17): 0 lượt đỏ.
+- `tsc --noEmit`, eslint, prettier: đạt.

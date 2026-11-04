@@ -397,10 +397,9 @@ const balanceRow = () =>
   screen.getByRole('row', { name: new RegExp(`^${tv('checkout.summary.balance')}\\s*\\d`) });
 /** Step 3: whatever is due is paid in cash, then "Hoàn tất" and its confirmation (B18). */
 async function payAndComplete(user: ReturnType<typeof renderApp>['user']) {
-  await screen.findByRole('button', { name: tv('pay.cash') });
   await waitFor(() => expect(balanceRow()).toBeInTheDocument());
   if (num(balanceRow().textContent ?? '') > 0) {
-    await user.click(screen.getByRole('button', { name: tv('pay.cash') }));
+    await user.click(await screen.findByRole('button', { name: tv('pay.cash') }));
     await user.click(screen.getByRole('button', { name: /^Ghi nhận đã thu/ }));
     await waitFor(() => expect(num(balanceRow().textContent ?? '')).toBe(0));
   }
@@ -617,7 +616,7 @@ describe('BUG-R4-045 / FB-R4-ARC-FE-PR81-01 – a cabinet the server asks to cou
       mockControl.stay.minibarNewFill.add(key);
       await user.click(backButton());
       // Step 1 reads the summary again: 202 is offered next to 402 (on screen), named on the button.
-      await waitFor(() => expect(cabinetNamed()).toEqual({ offered: [HERE, OLD], on: OLD }));
+      await waitFor(() => expect(cabinetNamed()).toEqual({ offered: [OLD, HERE], on: OLD }));
       await screen.findByRole('button', { name: goNext('202') });
       await user.click(
         within(screen.getByRole('group', { name: tv('co.minibar_cabinet') })).getByRole('button', {
@@ -745,6 +744,121 @@ describe('BUG-R4-047 – Back to step 1 after the first count of a cabinet never
       expect(folioMinibar(kim.folioId)).toEqual([[r402.id, BIA.unitPriceVnd]]);
     } finally {
       server.events.removeListener('response:mocked', onCount);
+      mb.stop();
+    }
+  });
+});
+
+describe('FB-R4-ARC-FE-PR83-01 / 03 – after B18 409 MINIBAR_NOT_CHECKED', () => {
+  /** Count 402 (1 beer), then 202 (nothing), step 2; the summary read after the last count is in. */
+  async function bothCounted(
+    user: ReturnType<typeof renderApp>['user'],
+    mb: ReturnType<typeof watchMinibar>,
+    r202Id: string,
+  ) {
+    await screen.findByRole('group', { name: tv('co.minibar_cabinet') });
+    await waitFor(() => expect(cabinetNamed().on).toBe(OLD));
+    // the summary priced for the default departure time (debounced) is in: no read is left to come by itself
+    await waitFor(() => expect(mb.summariesSince(0, true)).toBeGreaterThan(0));
+    const row = await biaRow();
+    await waitFor(() => expect(usedOf(row)).toBe('0'));
+    await user.click(decOf(row));
+    await user.click(screen.getByRole('button', { name: goNext('202') }));
+    await waitFor(() => expect(mb.counts).toHaveLength(1));
+    await waitFor(() => expect(mb.readsSince(1)).toContain(r202Id));
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
+    await waitFor(() => expect(mb.counts).toHaveLength(2));
+    expect(
+      await screen.findByLabelText(new RegExp(tv('checkout.departure_time'))),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(mb.summariesSince(2)).toBeGreaterThan(0));
+  }
+  /** HK finishes a refill of a cabinet in another session: a new period to count (`new_fill`). */
+  function refill(kimId: string, roomId: string) {
+    const key = `${kimId}:${roomId}`;
+    mockControl.stay.minibarPeriods.set(key, 1);
+    mockControl.stay.minibarChecks.delete(kimId);
+    mockControl.stay.minibarNewFill.add(key);
+  }
+
+  it('S2a (PR83-01): the desk goes back to step 1 by itself before the summary read after the 409 is in – the figure typed on 202 stays, no extra read', async () => {
+    const { kim, r202 } = await kimTwoCabinets();
+    const gate = summaryGate();
+    const mb = watchMinibar();
+    try {
+      const { user } = renderApp(`/reservations/${kim.id}/check-out`, 'qa.fd');
+      await bothCounted(user, mb, r202.id);
+      refill(kim.id, r202.id);
+      await user.click(await screen.findByRole('button', { name: tv('co.go_bill') }));
+      await screen.findByRole('button', { name: tv('pay.cash') });
+      await waitFor(() => expect(balanceRow()).toBeInTheDocument());
+      if (num(balanceRow().textContent ?? '') > 0) {
+        await user.click(screen.getByRole('button', { name: tv('pay.cash') }));
+        await user.click(screen.getByRole('button', { name: /^Ghi nhận đã thu/ }));
+        await waitFor(() => expect(num(balanceRow().textContent ?? '')).toBe(0));
+      }
+      gate.hold(); // the summary read after the 409 is slow (weak network)
+      await user.click(screen.getByRole('button', { name: /hoàn tất|Hoàn tất/ }));
+      const dialog = await screen.findByRole('alertdialog');
+      await user.click(within(dialog).getAllByRole('button')[1]!);
+      await waitFor(() =>
+        expect(screen.getByText(tv('error.MINIBAR_NOT_CHECKED'))).toBeInTheDocument(),
+      );
+      await waitFor(() => expect(gate.held()).toBeGreaterThan(0));
+      // "Làm bước 1": the desk goes back by itself (step 1 reads 202 again – its new period).
+      await user.click(backButton());
+      await user.click(backButton());
+      await waitFor(() => expect(departureTime()).toBeNull());
+      const row202 = await biaRow();
+      await waitFor(() => expect(decOf(row202)).toBeEnabled());
+      const reads = mb.readsSince(0).length;
+      await user.click(decOf(row202));
+      expect(usedOf(row202)).toBe('1');
+      gate.release();
+      await waitFor(() => expect(gate.answered()).toBe(gate.held()));
+      await new Promise((r) => setTimeout(r, 400));
+      const rowAfter = await biaRow();
+      await waitFor(() => expect(decOf(rowAfter)).toBeEnabled());
+      expect(usedOf(rowAfter), 'the figure typed on 202 stays (PR67-03)').toBe('1');
+      expect(mb.readsSince(0), 'no standard read under the desk').toHaveLength(reads);
+      expect(cabinetNamed().on).toBe(HERE);
+    } finally {
+      gate.release();
+      mb.stop();
+    }
+  });
+
+  it('N7 (PR83-03): the cabinet due again is the one counted last, still on screen – read again once after the 409, counted on its new period', async () => {
+    const { kim, r402, r202 } = await kimTwoCabinets();
+    const mb = watchMinibar();
+    try {
+      const { user } = renderApp(`/reservations/${kim.id}/check-out`, 'qa.fd');
+      await bothCounted(user, mb, r202.id);
+      refill(kim.id, r202.id);
+      await user.click(await screen.findByRole('button', { name: tv('co.go_bill') }));
+      await payAndComplete(user);
+      // 409: step 1 on 202 – the cabinet on screen – read again once (new period), said why.
+      expect(
+        await screen.findByText(tv('co.minibar_recount_title', { room: '202' })),
+      ).toBeInTheDocument();
+      await waitFor(() => expect(mb.readsSince(2)).toEqual([r202.id]));
+      const row = await biaRow();
+      await waitFor(() => expect(decOf(row)).toBeEnabled());
+      expect(cabinetNamed()).toEqual({ offered: [], on: HERE });
+      expect(screen.getByText(tv('error.MINIBAR_NOT_CHECKED'))).toBeInTheDocument();
+      await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
+      await waitFor(() => expect(mb.counts).toHaveLength(3));
+      expect(mb.counts[2]).toMatchObject({ roomId: r202.id, status: 201 });
+      expect(mb.counts[2]!.periodId).toEqual(expect.any(String));
+      expect(screen.queryByText(tv('co.minibar_period_changed_title'))).toBeNull();
+      expect(
+        await screen.findByLabelText(new RegExp(tv('checkout.departure_time'))),
+      ).toBeInTheDocument();
+      await user.click(await screen.findByRole('button', { name: tv('co.go_bill') }));
+      await payAndComplete(user);
+      await waitFor(() => expect(res('Kim Seo-yeon').status).toBe('checked_out'));
+      expect(folioMinibar(kim.folioId)).toEqual([[r402.id, BIA.unitPriceVnd]]);
+    } finally {
       mb.stop();
     }
   });

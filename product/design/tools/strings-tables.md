@@ -4060,7 +4060,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 |---|---|---|---|---|
 | `co.minibar_cabinet_counting` | Tủ minibar đang đếm | Minibar being counted | ⟨chừa chỗ⟩ | H16 bước 1, nhãn <dt> của dòng tên tủ (giá trị = co.minibar_cabinet_room / co.minibar_cabinet_old). Chỉ hiện khi lượt ở có từ 2 tủ (sau B14) và nhóm chọn tủ đã ẩn vì chỉ còn 1 tủ (tủ kia đã đếm trên trang này). Tiêu đề trang vẫn ghi căn đang ở |
 
-#### v1.0.5 FB-R4-UXD-FE-PR81-01 – FE-A: H16 bước 1, lượt ở có nhiều tủ – nút chính nêu tủ kế tiếp, toast khi đã lưu một tủ. Chữ của UXD (UXD-on-v104-pr81-minibar-race, 05/11)
+#### v1.0.4 FB-R4-UXD-FE-PR81-01 – FE-A: H16 bước 1, lượt ở có nhiều tủ – nút chính nêu tủ kế tiếp, toast khi đã lưu một tủ. Chữ của UXD (UXD-on-v104-pr81-minibar-race, 05/11)
 
 | Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
 |---|---|---|---|---|
