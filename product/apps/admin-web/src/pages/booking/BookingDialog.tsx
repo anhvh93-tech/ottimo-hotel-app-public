@@ -540,9 +540,15 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       e.internalNote = t('field_error.reason_required');
     if (overCapacity && form.group !== 'ota')
       e.occ = t('error.CAPACITY_EXCEEDED', { room: room!.roomNo, max: room!.maxOccupancy ?? '' });
+    // FB-R4-UXD-FE-PR82-04: a Nội bộ night typed 0 (or not a figure) says how to make it free – leave the box empty
+    // (BR-105 v0.5.8 (7): 0 is not taken yet) – never "(lớn hơn 0)" alone, which pushes a rate into a free night.
     rateList.forEach((r, i) => {
       if (r.raw && !((parseVnd(r.raw) ?? 0) > 0))
-        e[`nightlyRates[${i}].amountVnd`] = t('booking.error.rate_empty');
+        e[`nightlyRates[${i}].amountVnd`] = t(
+          form.group === 'internal'
+            ? 'booking.error.rate_zero_internal'
+            : 'booking.error.rate_empty',
+        );
     });
     // FB-R4-ARC-FE-PR82-01: OTA and Nội bộ type every night or none (`body()` sends their rates only when all are
     // typed). Before, a Nội bộ stay typed in part went through: no rates sent, the server wrote 0 đ for every night

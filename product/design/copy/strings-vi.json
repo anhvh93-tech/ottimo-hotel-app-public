@@ -3481,6 +3481,7 @@
   "booking.hold.typed_rate_locked": "Giữ chỗ chỉ theo giá niêm yết. Đã nhận cọc thì bấm Tạo đơn để lưu giá đã gõ. Chưa nhận cọc thì xóa giá đã gõ rồi giữ chỗ, xác nhận cọc xong thì Điều chỉnh giá ở Folio.",
   "bk.src_typed": "Giá đã gõ",
   "booking.error.rate_empty_internal": "Đơn Nội bộ: nhập giá cho mọi đêm, hoặc để trống hết nếu miễn phí cả đơn.",
+  "booking.error.rate_zero_internal": "Miễn phí: để trống ô. Có thu: nhập giá lớn hơn 0.",
   "co.minibar_cabinet_counting": "Tủ minibar đang đếm",
   "msg.booking_confirmed": "Chào {name}, OTTIMO xác nhận đặt phòng {code}: căn {room}, {from} → {to} ({nights_text}). Nhận phòng từ {checkin_time} (phòng luôn sẵn sàng lúc 14:00), trả phòng trước {checkout_time}. Đã cọc {deposit}, còn {balance} khi nhận phòng. Hủy: {cancel_policy_short}. Làm thủ tục trước để nhận phòng nhanh: {link}",
   "msg.deposit_received": "Chào {name}, OTTIMO đã nhận cọc {deposit} cho đơn {code} (căn {room}, {from} → {to}). Còn {balance} thanh toán khi nhận phòng. Chính sách hủy: {cancel_policy_short}",

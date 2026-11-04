@@ -625,6 +625,39 @@ describe('FB-R4-ARC-FE-PR82-01/03 – OTA and Nội bộ: every night typed, or 
     ]);
   });
 
+  // FB-R4-UXD-FE-PR82-04: 0 is the natural way to say "free" – the box says how (leave it empty), not "(lớn hơn 0)"
+  it('Nội bộ, 2 nights, both typed 0 → under each box "Miễn phí: để trống ô…", never "(lớn hơn 0)", nothing sent', async () => {
+    pinDaytime();
+    const sent = createBodies();
+    const d1 = todayLocal();
+    const d2 = addDays(d1, 1);
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openBooking(user);
+    await previewFilled(dlg);
+    await user.click(within(dlg).getByRole('button', { name: tv('bk.ch_internal') }));
+    await pickRoom(user, dlg, '203');
+    fireEvent.change(within(dlg).getByLabelText(tv('booking.field.departure')), {
+      target: { value: addDays(d1, 2) },
+    });
+    await user.type(within(dlg).getByLabelText(new RegExp(`^${tv('crm.f_note')}`)), 'Khách mời');
+    await pickGuest(user, dlg);
+    await user.type(rateBox(dlg, d1), '0');
+    await user.type(rateBox(dlg, d2), '0');
+    await user.click(within(dlg).getByRole('button', { name: 'Tạo đơn' }));
+    for (const d of [d1, d2]) {
+      const cell = rateBox(dlg, d).closest('td') as HTMLElement;
+      expect(
+        await within(cell).findByText(tv('booking.error.rate_zero_internal')),
+      ).toBeInTheDocument();
+      expect(within(cell).queryByText(tv('booking.error.rate_empty'))).toBeNull();
+    }
+    expect(within(dlg).queryByText(tv('booking.error.rate_empty'))).toBeNull();
+    // every box has a figure – not "typed in part", so no sentence under the table
+    expect(within(rateField(dlg)).queryByText(tv('booking.error.rate_empty_internal'))).toBeNull();
+    expect(screen.queryByText(/^Đã tạo đơn OTM-0\d+$/)).toBeNull();
+    expect(sent).toHaveLength(0);
+  });
+
   // FB-R4-ARC-FE-PR82-03: the OTA half of the rule had no test (dropping OTA from the condition kept every test green)
   it('OTA, 2 nights, only night 1 typed → "Nhập giá mỗi đêm" and nothing sent; both typed → sent as typed', async () => {
     pinDaytime();
