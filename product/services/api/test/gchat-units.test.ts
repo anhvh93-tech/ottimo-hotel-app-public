@@ -228,6 +228,42 @@ describe('renderer – level A (SEC 4.1 template; default and capped)', () => {
     expect(sql.filter((q) => C2.test(q))).toEqual([]);
   });
 
+  // BUG-R4-027 (SEC LPV2M-01 "reverse trap"): the gate compares PUBLICATION times, never the version text. Each case
+  // gives a different answer under a string comparison of `consent_version` with the constant – a gate "fixed" that
+  // way turns these red.
+  it.each([
+    [
+      'label later than the constant (2026-12-01) but published BEFORE it → A',
+      '2026-12-01',
+      { min: new Date('2026-11-04T03:00:00Z'), req: new Date('2026-11-01T03:00:00Z') },
+      'A',
+    ],
+    [
+      'label 2026-11-04.1 published, the constant 2026-11-04 never (BUG-R4-028) → A',
+      '2026-11-04.1',
+      { min: null, req: new Date('2026-11-05T03:00:00Z') },
+      'A',
+    ],
+    [
+      'label 2026-11-05 published, the constant never → A',
+      '2026-11-05',
+      { min: null, req: new Date('2026-11-05T03:00:00Z') },
+      'A',
+    ],
+    [
+      'label earlier than the constant (2026-11-03) but published AFTER it → C (published_at decides)',
+      '2026-11-03',
+      { min: new Date('2026-11-04T03:00:00Z'), req: new Date('2026-11-06T03:00:00Z') },
+      'C',
+    ],
+  ] as const)('gate by published_at, not by label: %s', async (_n, version, gate, level) => {
+    const row = baseRow({ consent_version: version });
+    const { r, text } = await run('C', row, phoneContact(), 'web_request_new', { gate });
+    expect(r).toMatchObject({ send: true, level, levelCapped: level === 'A' });
+    if (level === 'A') for (const w of GUEST_WORDS) expect(text).not.toContain(w);
+    else expect(text).toContain(`Khách: ${NAME}`);
+  });
+
   it.each(['web_request_overdue', 'web_request_morning'] as const)(
     '%s at level C stays template A (★6), `<users/all>` only on overdue (PO Q5 default)',
     async (kind) => {
