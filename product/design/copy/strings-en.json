@@ -3479,6 +3479,7 @@
   "booking.rates_cleared_channel": "Typed rates were cleared because the channel changed.",
   "booking.rates_cleared_room_group": "Typed rates were cleared because room {room} is in a different room group. Check the rate per night before creating the booking.",
   "booking.hold.typed_rate_locked": "Holds use the list price only. If the deposit is received, use Create booking to keep the typed rates. If not, clear them and hold, then adjust the rates in the Folio after confirming the deposit.",
+  "bk.src_typed": "Typed rate",
   "msg.booking_confirmed": "Hi {name}, OTTIMO confirms booking {code}: room {room}, {from} → {to} ({nights_text}). Check-in from {checkin_time} (your room is always ready by 14:00), check-out by {checkout_time}. Deposit paid {deposit}, {balance} due at check-in. Cancellation: {cancel_policy_short}. Check in online for a faster arrival: {link}",
   "msg.deposit_received": "Hi {name}, OTTIMO has received your deposit of {deposit} for booking {code} (room {room}, {from} → {to}). {balance} is due at check-in. Cancellation: {cancel_policy_short}",
   "msg.checkin_link": "Hi {name}, to speed up your check-in, please send your IDs and arrival time here: {link} (about 2 minutes).",

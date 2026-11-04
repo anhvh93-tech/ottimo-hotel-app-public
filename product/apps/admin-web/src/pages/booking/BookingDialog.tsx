@@ -116,8 +116,6 @@ interface Form {
   capacityReason: string;
 }
 
-const weekend = (date: string) => [5, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
-
 /**
  * DOM (ARC-03 / UXD-05, BR-112, BR-429 (g), BR-421 (b)): a change that drops the rates the desk TYPED.
  * - Channel to or from OTA / Nội bộ: a Direct agreed rate is not an OTA rate, nor an intended "internal with charge".
@@ -1349,7 +1347,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
         {dates.length && !longStay ? (
           <div className={`field${errors.rates ? ' invalid' : ''}`}>
             <span className="lbl">{t('booking.field.rate')}</span>
-            <div className="table-wrap rate-table">
+            <div className="table-wrap rate-table" aria-busy={priceWaiting || undefined}>
               <table className="table">
                 <thead>
                   <tr>
@@ -1382,7 +1380,16 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                           {err ? <div className="err">{err}</div> : null}
                         </td>
                         <td className="li-s">
-                          {calc ? t(weekend(r.date) ? 'bk.src_weekend' : 'bk.src_list') : '–'}
+                          {/* UXD-on-v104-src-typed: the label says what the box holds. A typed number (any channel,
+                              also while the preview is on its way) is saved as typed (B1 `edited:true` → `manual`);
+                              an empty box (emptied, preview on its way – PR70-02, OTA / Nội bộ not typed) has no
+                              source; a box filled by the preview of the stay on screen is the list rate – every
+                              night, no "+15%" by weekday any more (BR-104 v0.5.1, DOM lượt 8 §4.2). */}
+                          {form.ratesEdited[r.date] && form.rates[r.date]
+                            ? t('bk.src_typed')
+                            : r.raw && calc
+                              ? t('bk.src_list')
+                              : '–'}
                           {(() => {
                             // DOM S4-38: the stepped price of the night, as the server priced it (untouched).
                             const n = calc?.nightlyRates?.find((x) => x.date === r.date);
@@ -1457,14 +1464,19 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
 
         {directLike && calc && !longStay ? (
           <>
-            <table className="sum" aria-label={t('booking.summary.total')}>
+            {/* FB-R4-UXD-FE-PR70-02: while the preview of the stay on screen is on its way, no figure of the previous one */}
+            <table
+              className="sum"
+              aria-label={t('booking.summary.total')}
+              aria-busy={priceWaiting || undefined}
+            >
               <tbody>
                 <tr>
                   <td>
                     {t('booking.field.nights', { n: nights })}
                     {losPct > 0 && ratesTouched ? ` · ${t('rate.pre_tier_short')}` : ''}
                   </td>
-                  <td className="r">{vnd(roomTotal)}</td>
+                  <td className="r">{priceWaiting ? '–' : vnd(roomTotal)}</td>
                 </tr>
                 <tr className="sub">
                   <td>
@@ -1477,18 +1489,18 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 {extraFee > 0 ? (
                   <tr>
                     <td>{t('occ.fee_line', { n: calc.extraGuestCount ?? extra, nights })}</td>
-                    <td className="r">{vnd(extraFee)}</td>
+                    <td className="r">{priceWaiting ? '–' : vnd(extraFee)}</td>
                   </tr>
                 ) : null}
                 <tr className="total">
                   <td>{t('bk.total')}</td>
                   <td className="r">
-                    {vnd(roomTotal + extraFee)} {t('common.vnd_unit')}
+                    {priceWaiting ? '–' : `${vnd(roomTotal + extraFee)} ${t('common.vnd_unit')}`}
                   </td>
                 </tr>
                 <tr className="sub">
                   <td>{t('bk.deposit_line', { pct: rules.depositPct })}</td>
-                  <td className="r">{vnd(calc.depositVnd ?? 0)}</td>
+                  <td className="r">{priceWaiting ? '–' : vnd(calc.depositVnd ?? 0)}</td>
                 </tr>
               </tbody>
             </table>

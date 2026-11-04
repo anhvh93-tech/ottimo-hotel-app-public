@@ -758,7 +758,7 @@
 | `bk.src_sales` | Sale nội bộ | Sales staff | ⟨chừa chỗ⟩ | directSource=sales_staff (0.3.1) |
 | `bk.src_walkin` | Khách vãng lai | Walk-in | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.src_web` | Website | Website | ⟨chừa chỗ⟩ | 09-booking.html |
-| `bk.src_weekend` | Lịch giá: thứ Sáu/thứ Bảy +15% (BR-104) | Rate calendar: Friday/Saturday +15% (BR-104) | ⟨chừa chỗ⟩ | 09-booking.html |
+| `bk.src_weekend` | Lịch giá: thứ Sáu/thứ Bảy +15% (BR-104) | Rate calendar: Friday/Saturday +15% (BR-104) | ⟨chừa chỗ⟩ | 09-booking.html. Không dùng ở Desk từ v1.0.4 (BR-104 v0.5.1: không tăng cuối tuần/lễ; UXD-on-v104-src-typed mục 3). Nếu bật lại mức tăng: nhãn theo nguồn từng đêm của máy chủ, không theo thứ trong tuần |
 | `bk.src_zalo` | Zalo / điện thoại | Zalo / phone | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.to_manual_long` | Tạo đơn dài hạn nhập tay | Create manual long-stay booking | ⟨chừa chỗ⟩ | 09-booking.html |
 | `bk.total` | Tổng tiền đơn | Booking total | ⟨chừa chỗ⟩ | 09-booking.html |
@@ -4053,6 +4053,7 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `booking.rates_cleared_channel` | Đã xóa giá đã gõ vì đổi kênh. | Typed rates were cleared because the channel changed. | ⟨chừa chỗ⟩ | v1.0.4 booking. role=status dưới bảng giá, chỉ khi có ô đã gõ bị xóa |
 | `booking.rates_cleared_room_group` | Đã xóa giá đã gõ vì căn {room} thuộc nhóm căn khác. Kiểm lại giá mỗi đêm trước khi tạo đơn. | Typed rates were cleared because room {room} is in a different room group. Check the rate per night before creating the booking. | ⟨chừa chỗ⟩ | v1.0.4 booking (FB-R4-UXD-FE-PR70-07). role=status dưới bảng giá như booking.rates_cleared_channel, chỉ khi có ô đã gõ bị xóa; đổi kênh và căn cùng lúc thì câu kênh |
 | `booking.hold.typed_rate_locked` | Giữ chỗ chỉ theo giá niêm yết. Đã nhận cọc thì bấm Tạo đơn để lưu giá đã gõ. Chưa nhận cọc thì xóa giá đã gõ rồi giữ chỗ, xác nhận cọc xong thì Điều chỉnh giá ở Folio. | Holds use the list price only. If the deposit is received, use Create booking to keep the typed rates. If not, clear them and hold, then adjust the rates in the Folio after confirming the deposit. | ⟨chừa chỗ⟩ | v1.0.4 booking (FB-R4-UXD-FE-PR75-01). Dòng li-s trong footer H09, là aria-describedby của nút Giữ chỗ. Tên nút khớp booking.create và folio.adjust; Folio là drawer.folio.title. Cách làm tạm: DOM điểm 3, sổ tay 2.5 bước 10. Bỏ khi Q1 nhận giá thỏa thuận (v1.0.5) |
+| `bk.src_typed` | Giá đã gõ | Typed rate | ⟨chừa chỗ⟩ | v1.0.4 booking (UXD-on-v104-src-typed). Cột Nguồn giá H09: đêm có ô lễ tân đã gõ và còn số (ratesEdited && rates – cùng phép thử với booking.hold.typed_rate_locked), mọi kênh, không phụ thuộc bản xem. Máy chủ ghi manual (NightRate.edited). Cùng cụm 'giá đã gõ' với booking.rates_cleared_* và booking.hold.typed_rate_locked |
 
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
