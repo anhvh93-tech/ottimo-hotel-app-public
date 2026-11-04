@@ -196,6 +196,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // 0.3.7 bổ sung 4 (minibar M-1, BR-703-01): one cabinet per (stay, room) – after B14 the old room's cabinet is
   // counted too (`CheckoutSummary.minibarUncheckedRooms`); `undefined` = the room assigned now.
   const [cabinet, setCabinet] = useState<string | undefined>(undefined);
+  // BR-703-01: the old room's cabinet is offered first – once. Never over a cabinet the desk picked or counted on
+  // (ARC FB-R4-ARC-FE-PR67-03: a later summary read, e.g. priced for the typed time, sent the page back to the old
+  // cabinet and dropped the figures typed on this one). The desk may still count this room's cabinet first.
+  const cabinetSettled = useRef(false);
   // K11-03: the cabinet on screen is always named – read and written with its `roomId` (ARC 16.19).
   const countingRoomId = cabinet ?? hereRoomId;
   const std = useResource(
@@ -221,6 +225,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   const left: Record<string, number> =
     edits.of && edits.of === std.state.data ? { ...prefill, ...edits.left } : prefill;
   const editLeft = (next: Record<string, number>) => {
+    cabinetSettled.current = true;
     const of = std.state.data;
     setEdits((e) => ({ of, left: { ...(e.of === of ? e.left : {}), ...next } }));
   };
@@ -404,10 +409,13 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
   // BR-703-01: an unchecked cabinet of an earlier room of this stay is counted first.
   useEffect(() => {
     // Only once the reservation is here – before that every cabinet would look like an earlier room.
-    if (!hereRoomId) return;
+    if (!hereRoomId || cabinetSettled.current) return;
     const old = (s?.minibarUncheckedRooms ?? []).find((c) => c.roomId !== hereRoomId);
-    if (step === 0 && cabinet === undefined && old) setCabinet(old.roomId);
-    // first summary / reservation only
+    if (step === 0 && cabinet === undefined && old) {
+      cabinetSettled.current = true;
+      setCabinet(old.roomId);
+    }
+    // once: the first summary with an old cabinet, unless the desk picked or typed before
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s?.minibarUncheckedRooms, hereRoomId]);
 
@@ -1197,6 +1205,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
               }))}
               value={cabinet ?? currentRoomId}
               onChange={(v) => {
+                cabinetSettled.current = true;
                 minibarAct.reset();
                 setCabinet(v === currentRoomId ? undefined : v);
               }}

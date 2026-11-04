@@ -19,11 +19,43 @@ import { renderApp, tv } from '../test/render';
 
 const res = (guest: string) => mockControl.rsv.reservations.find((r) => r.guestName === guest)!;
 afterEach(() => vi.useRealTimers());
-/** The clock on a calendar day (`YYYY-MM-DD`): H16 runs on the departure day (P4-32 / BUG-R3-024). */
-const onDay = (day: string, hhmm: string) => {
-  vi.useFakeTimers({ toFake: ['Date'] });
-  vi.setSystemTime(new Date(`${day}T${hhmm}:00+07:00`));
+/**
+ * Moves the clock (faked at the start of the case) to a calendar day (`YYYY-MM-DD`): H16 runs on the departure day
+ * of the whole stay (P4-32 / BUG-R3-024) – always read as the page does, `stayDepartureDate` from the API.
+ */
+const onDay = (day: string, hhmm: string) => vi.setSystemTime(new Date(`${day}T${hhmm}:00+07:00`));
+const onDepartureDay = async (R: { propertyId: string; reservationId: string }) => {
+  const r = (await api.getReservation(R)).data;
+  onDay(r.stayDepartureDate ?? r.departureDate, '11:00');
 };
+
+/** Kim: B14 402 → 202 today (both cabinets due), then the clock on her departure day at 11:00. */
+async function kimAfterB14() {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(`${todayLocal()}T11:00:00+07:00`));
+  const kim = res('Kim Seo-yeon');
+  res('Nguyễn Văn An').status = 'cancelled'; // frees 202
+  mockControl.stay.roomStatus['202'] = 'VC';
+  const R = { propertyId: PROPERTY_ID, reservationId: kim.id };
+  const r402 = mockControl.db.rooms.find((x) => x.roomNo === '402')!;
+  const r202 = mockControl.db.rooms.find((x) => x.roomNo === '202')!;
+  mockControl.signInAs('qa.fd');
+  setCsrfToken(mockControl.db.csrf);
+  await api.changeRoom(
+    R,
+    {
+      newRoomId: r202.id,
+      cause: 'property_fault',
+      reason: 'Máy lạnh hỏng',
+      effectiveDate: todayLocal(),
+    },
+    res('Kim Seo-yeon').version,
+    newIdempotencyKey(),
+  );
+  // P4-32 / BUG-R3-024: H16 runs on the departure day (before it the page points to Trả sớm).
+  await onDepartureDay(R);
+  return { kim, R, r402, r202 };
+}
 
 const coke = MINIBAR[0]!;
 const countUsing = (used: number) =>
@@ -81,7 +113,7 @@ async function countedThenExtended() {
   );
   await api.extendStay(R, { nights: 1 }, res('Phạm Huy').version, newIdempotencyKey());
   // P4-32 / BUG-R3-024: H16 runs on the new departure day of the stay (before it the page points to Trả sớm).
-  onDay((await api.getReservation(R)).data.stayDepartureDate!, '11:00');
+  await onDepartureDay(R);
   return r;
 }
 
@@ -103,12 +135,15 @@ describe('s4-144 – H16 minibar prefill race', () => {
       pressed = true;
       fireEvent.click(btn);
     });
-    mo.observe(document.body, { childList: true, subtree: true, characterData: true });
     try {
       renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
       expect(
         await screen.findByText(tv('co.minibar_recount_title', { room: '201' })),
       ).toBeInTheDocument();
+      // Watch from here: the standard is still held, so the cabinet cannot show before `release()`. Watching the
+      // first page load too ran two role queries over the page on every mutation, which starved that load past the
+      // wait under machine load (1 in 120 at 12 processes).
+      mo.observe(document.body, { childList: true, subtree: true, characterData: true });
       let now = performance.now();
       const clock = vi.spyOn(performance, 'now').mockImplementation(() => (now += 10));
       try {
@@ -168,28 +203,7 @@ describe('s4-144 – H16 minibar prefill race', () => {
 
 describe('BUG-R4-035 – after B14, figures changed on cabinet A are never sent for cabinet B', () => {
   it("edit 402 (A), switch to 202 (B) before B is read, press at the commit that shows B → B's own prefill", async () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date(`${todayLocal()}T11:00:00+07:00`));
-    const kim = res('Kim Seo-yeon');
-    res('Nguyễn Văn An').status = 'cancelled'; // frees 202
-    mockControl.stay.roomStatus['202'] = 'VC';
-    const R = { propertyId: PROPERTY_ID, reservationId: kim.id };
-    const r202 = mockControl.db.rooms.find((x) => x.roomNo === '202')!;
-    mockControl.signInAs('qa.fd');
-    setCsrfToken(mockControl.db.csrf);
-    await api.changeRoom(
-      R,
-      {
-        newRoomId: r202.id,
-        cause: 'property_fault',
-        reason: 'Máy lạnh hỏng',
-        effectiveDate: todayLocal(),
-      },
-      res('Kim Seo-yeon').version,
-      newIdempotencyKey(),
-    );
-    // P4-32 / BUG-R3-024: H16 runs on the departure day (before it the page points to Trả sớm).
-    onDay(res('Kim Seo-yeon').departureDate, '11:00');
+    const { kim, R, r202 } = await kimAfterB14();
     // B as the server reads it, with a housekeeping count of 2 Coca-Cola: B starts from 0 left, A was edited to 1.
     const b = (await api.getMinibarStandard(R, r202.id)).data;
     const who = 'HK Test';
@@ -269,28 +283,7 @@ describe('BUG-R4-035 – after B14, figures changed on cabinet A are never sent 
 
 describe('UXD FB-R4-UXD-FE-PR67-01 – the previous list is locked while another cabinet is read', () => {
   it('after B14, switching cabinet: steppers and "Tất cả còn đủ" locked, list `aria-busy`; unlocked on B\'s prefill', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date(`${todayLocal()}T11:00:00+07:00`));
-    const kim = res('Kim Seo-yeon');
-    res('Nguyễn Văn An').status = 'cancelled'; // frees 202
-    mockControl.stay.roomStatus['202'] = 'VC';
-    const R = { propertyId: PROPERTY_ID, reservationId: kim.id };
-    const r202 = mockControl.db.rooms.find((x) => x.roomNo === '202')!;
-    mockControl.signInAs('qa.fd');
-    setCsrfToken(mockControl.db.csrf);
-    await api.changeRoom(
-      R,
-      {
-        newRoomId: r202.id,
-        cause: 'property_fault',
-        reason: 'Máy lạnh hỏng',
-        effectiveDate: todayLocal(),
-      },
-      res('Kim Seo-yeon').version,
-      newIdempotencyKey(),
-    );
-    // P4-32 / BUG-R3-024: H16 runs on the departure day (before it the page points to Trả sớm).
-    onDay(res('Kim Seo-yeon').departureDate, '11:00');
+    const { kim, r202 } = await kimAfterB14();
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
     server.use(
@@ -373,29 +366,7 @@ describe('ARC FB-R4-ARC-FE-PR67-01 – "Tiếp tục" only on the standard read 
   });
 
   it("(b) next cabinet set after `await`: the frame with cabinet B and A's read sends nothing", async () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date(`${todayLocal()}T11:00:00+07:00`));
-    const kim = res('Kim Seo-yeon');
-    res('Nguyễn Văn An').status = 'cancelled'; // frees 202
-    mockControl.stay.roomStatus['202'] = 'VC';
-    const R = { propertyId: PROPERTY_ID, reservationId: kim.id };
-    const r402 = mockControl.db.rooms.find((x) => x.roomNo === '402')!;
-    const r202 = mockControl.db.rooms.find((x) => x.roomNo === '202')!;
-    mockControl.signInAs('qa.fd');
-    setCsrfToken(mockControl.db.csrf);
-    await api.changeRoom(
-      R,
-      {
-        newRoomId: r202.id,
-        cause: 'property_fault',
-        reason: 'Máy lạnh hỏng',
-        effectiveDate: todayLocal(),
-      },
-      res('Kim Seo-yeon').version,
-      newIdempotencyKey(),
-    );
-    // P4-32 / BUG-R3-024: H16 runs on the departure day (before it the page points to Trả sớm).
-    onDay(res('Kim Seo-yeon').departureDate, '11:00');
+    const { kim, r402 } = await kimAfterB14();
     const counts = capture();
     renderApp(`/reservations/${kim.id}/check-out`, 'qa.fd');
     const group = await screen.findByRole('group', { name: tv('co.minibar_cabinet') });
@@ -434,6 +405,83 @@ describe('ARC FB-R4-ARC-FE-PR67-01 – "Tiếp tục" only on the standard read 
     // Only the count of 402 – the press in that frame did not count 402 again (nor as "202").
     const sent = counts.sent as unknown as Array<{ roomId: string }>;
     expect(sent.map((x) => x.roomId)).toEqual([r402.id]);
+  });
+});
+
+describe('ARC FB-R4-ARC-FE-PR67-03 – a later summary read never takes the page back to the old cabinet', () => {
+  it('the summary priced for the time arrives after the desk picked 202 and typed: 202 and its figures stay', async () => {
+    const { kim, r202 } = await kimAfterB14();
+    type Due = { roomId: string; roomNo?: string; reason?: string };
+    // The first summary (no time yet) is kept to answer the late one with.
+    let first: { minibarUncheckedRooms?: Due[] } | undefined;
+    const onMocked = ({ request, response }: { request: Request; response: Response }) => {
+      const url = new URL(request.url);
+      if (/\/checkout-summary$/.test(url.pathname) && !url.searchParams.get('checkoutTime'))
+        void response
+          .clone()
+          .json()
+          .then((x: typeof first) => (first ??= x));
+    };
+    server.events.on('response:mocked', onMocked);
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let held = false;
+    server.use(
+      http.get('*/reservations/:reservationId/checkout-summary', async ({ request }) => {
+        if (!new URL(request.url).searchParams.get('checkoutTime')) return undefined;
+        held = true;
+        await gate;
+        // Still lists 402 as due. 202 now says "stay_continued": the screen shows when this read is in.
+        const rooms = (first!.minibarUncheckedRooms ?? []).filter((c) => c.roomId !== r202.id);
+        return HttpResponse.json({
+          ...first,
+          minibarUncheckedRooms: [
+            ...rooms,
+            { roomId: r202.id, roomNo: '202', reason: 'stay_continued' },
+          ],
+        });
+      }),
+    );
+    try {
+      const { user } = renderApp(`/reservations/${kim.id}/check-out`, 'qa.fd');
+      const group = await screen.findByRole('group', { name: tv('co.minibar_cabinet') });
+      const a = within(group).getByRole('button', {
+        name: tv('co.minibar_cabinet_old', { room: '402' }),
+      });
+      const b = within(group).getByRole('button', {
+        name: tv('co.minibar_cabinet_room', { room: '202' }),
+      });
+      // BR-703-01: the old room's cabinet is offered first; the summary priced for the time is on its way.
+      await waitFor(() => expect(a).toHaveAttribute('aria-pressed', 'true'));
+      await waitFor(() => expect(held).toBe(true));
+
+      // The desk counts this room's cabinet first (allowed) and types one Coca-Cola.
+      await user.click(b);
+      const row = (
+        await screen.findByRole('rowheader', { name: new RegExp(`^${coke.itemName}`) })
+      ).closest('tr')!;
+      const used = () => within(row).getAllByRole('cell')[1]!.textContent;
+      const dec = () => within(row).getByRole('button', { name: tv('rooms.dec') });
+      await waitFor(() => expect(row.closest('.table-wrap')).not.toHaveAttribute('aria-busy'));
+      await waitFor(() => expect(dec()).toBeEnabled());
+      await user.click(dec());
+      expect(used()).toBe('1');
+
+      release();
+      // The late read is in (202's sentence) – or, on the old code, the page went back to 402.
+      const stayContinued = tv('co.minibar_recount_body_stay_continued');
+      await waitFor(() =>
+        expect(
+          screen.queryByText(stayContinued) !== null || a.getAttribute('aria-pressed') === 'true',
+        ).toBe(true),
+      );
+      expect(b).toHaveAttribute('aria-pressed', 'true');
+      expect(a).not.toHaveAttribute('aria-pressed', 'true');
+      expect(used()).toBe('1');
+      expect(screen.getByRole('button', { name: tv('co.go_extras') })).toBeEnabled();
+    } finally {
+      server.events.removeListener('response:mocked', onMocked);
+    }
   });
 });
 
