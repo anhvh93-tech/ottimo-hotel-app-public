@@ -60,9 +60,6 @@ const COND_LABEL: Record<CheckInCondition['code'], string> = {
   main_guest_document: 'checkin.cond.main_guest_document',
   document_check_block: 'checkin.cond.document_ok',
 };
-/** `room_ready` of #74 (ARC review #74 §4.3, A.2) – `cause` / `heldByReservationCode` until the client is regenerated. */
-type RoomReadyCondition = CheckInCondition & { cause?: string; heldByReservationCode?: string };
-
 /**
  * BUG-R4-039: the sentence for a `room_ready` the server blocks with no exception (no `overridableBy`) – its key, and
  * the code of the booking holding the room – or `null` when the room line says nothing more (OOO: `ci.ooo_never`; no
@@ -73,7 +70,7 @@ type RoomReadyCondition = CheckInCondition & { cause?: string; heldByReservation
  * that has its room (`hasRoom`: `not_unassigned` met), since an unassigned booking reads `detail: "VC"` there.
  */
 export function roomBlockedMessage(
-  c: RoomReadyCondition | undefined,
+  c: CheckInCondition | undefined,
   hasRoom: boolean,
 ): { key: string; code?: string } | null {
   if (!c || c.met || c.overridableBy?.length || c.detail === 'OOO') return null;

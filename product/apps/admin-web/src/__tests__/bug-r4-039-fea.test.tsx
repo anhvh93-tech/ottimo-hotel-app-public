@@ -10,6 +10,7 @@
 // stay with no B18 also takes the exception away; without `cause`, DOM's reading – never on a booking with no room.
 // UXD lượt 4 (DOM lượt 7 mục 3): `cause = room_status` on OC/OD with no stay in house → `checkin.room_status_stuck`;
 // `room_occupied` (new ending: move this booking, tell the manager) stays for a server with no `cause`.
+import type { CheckInCondition } from '@ottimo/api-client';
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { api } from '../app/api';
@@ -284,8 +285,9 @@ describe('roomBlockedMessage – which sentence for a room_ready with no excepti
     });
     // An unassigned booking reads `detail: "VC"` there – not "another stay in house".
     expect(roomBlockedMessage({ ...base, detail: 'VC' }, false)).toBeNull();
-    // A cause this Desk does not know: the same reading.
-    expect(roomBlockedMessage({ ...base, detail: 'VI', cause: 'later_cause' }, true)).toEqual({
+    // A cause this Desk does not know (the set is open, #74 A.2): the same reading.
+    const later = 'later_cause' as unknown as CheckInCondition['cause'];
+    expect(roomBlockedMessage({ ...base, detail: 'VI', cause: later }, true)).toEqual({
       key: 'checkin.room_held',
     });
   });
