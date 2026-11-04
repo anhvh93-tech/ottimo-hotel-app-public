@@ -3389,6 +3389,7 @@
   "users.reset_2fa_confirm": "They will be signed out on every device and their old recovery codes will stop working. At their next sign-in, they will add OTTIMO to the authenticator app on their phone again.",
   "users.reset_2fa_reason": "Reason for the reset (for example: lost phone)",
   "users.reset_2fa_done": "2-step verification reset for {name}.",
+  "users.reset_2fa_stale": "Someone changed {name}'s 2-step verification before you – it's now off, so there's nothing to reset. The list has been reloaded.",
   "reauth.s2_failed_password": "That password isn't right. Check it and try again.",
   "audit.reason.overpayment": "Overpayment refund",
   "audit.reason.early_departure": "Early departure refund",
