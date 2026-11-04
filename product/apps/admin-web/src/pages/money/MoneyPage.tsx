@@ -117,6 +117,8 @@ const ACTION_KEY: Record<string, string> = {
   'folio.damage_posted': 'mlog.a_damage_posted',
   'folio.damage_rejected': 'mlog.a_damage_rejected',
   'refund.destination_set': 'mlog.a_refund_destination',
+  // v1.0.4: new BE-D audit action (OpenAPI 0.3.12) – a sentence, never the raw code.
+  'refund.destination_carried': 'mlog.a_refund_destination_carried',
   'refund.paid': 'mlog.a_refund_paid',
   'refund.cash_paid': 'mlog.a_refund_cash_paid',
   'reservation.deposit_confirmed': 'mlog.a_deposit_confirmed',

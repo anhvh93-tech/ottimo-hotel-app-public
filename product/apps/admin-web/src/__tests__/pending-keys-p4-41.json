@@ -1,1 +1,6 @@
-["audit.reason.overpayment", "audit.reason.early_departure", "approvals.refund_may_decrease"]
+[
+  "audit.reason.overpayment",
+  "audit.reason.early_departure",
+  "approvals.refund_may_decrease",
+  "mlog.a_refund_destination_carried"
+]

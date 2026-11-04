@@ -215,3 +215,24 @@ describe('BUG-R3-045 – a locked folio offers no adjustment', () => {
     expect(within(dlg).getByText(tv('error.FOLIO_LOCKED'))).toBeVisible();
   });
 });
+
+describe('ORC 04/11 – money log: `refund.destination_carried` (BE-D, OpenAPI 0.3.12)', () => {
+  it('is drawn with its own sentence, not "Thao tác tiền khác" + the raw code', async () => {
+    const mgr = mockControl.db.users.find((u) => u.username === 'qa.mgr')!.id;
+    mockControl.stay.audit.unshift({
+      occurredAt: new Date().toISOString(),
+      actorType: 'user',
+      actorName: 'Quân',
+      actorUserId: mgr,
+      category: 'money',
+      entityType: 'folio',
+      entityCode: 'R-TEST',
+      action: 'refund.destination_carried',
+      after: {},
+    });
+    renderApp('/audit', 'qa.mgr');
+    const cell = (await screen.findByText(tv('mlog.a_refund_destination_carried'))).closest('td')!;
+    expect(cell.textContent).not.toContain(tv('mlog.a_other'));
+    expect(within(cell).queryByText('refund.destination_carried')).toBeNull();
+  });
+});
