@@ -190,10 +190,15 @@ export type OpsRoom = Pick<Room, 'id' | 'roomNo' | 'name'>;
  * reads `room-statuses` like the staff app – the contract and `rbac-cases.json` stay as they are, and no 403
  * `listRooms` is sent. Sorted by room number either way.
  */
-export function useOpsRooms(propertyId: string): OpsRoom[] {
+export function useOpsRooms(propertyId: string): {
+  rooms: OpsRoom[];
+  /** FB-R4-UXD-FE-P433-01: the room field says when it is still loading or could not be read. */
+  status: 'loading' | 'ready' | 'error';
+  reload: () => void;
+} {
   const { roles } = useSession();
   const viaStatuses = !roles.some((r) => LIST_ROOMS_ROLES.includes(r));
-  const { state } = useResource<OpsRoom[]>(
+  const { state, reload } = useResource<OpsRoom[]>(
     async () =>
       viaStatuses
         ? (await api.listRoomStatuses({ propertyId })).data.data.map((s) => ({
@@ -204,7 +209,64 @@ export function useOpsRooms(propertyId: string): OpsRoom[] {
         : (await api.listRooms({ propertyId })).data.data,
     [propertyId, viaStatuses],
   );
-  return [...(state.data ?? [])].sort((a, b) => a.roomNo.localeCompare(b.roomNo));
+  const rooms = [...(state.data ?? [])].sort((a, b) => a.roomNo.localeCompare(b.roomNo));
+  // Rooms already read stay usable while a later read is in flight or failed.
+  const status = state.data ? 'ready' : state.status === 'error' ? 'error' : 'loading';
+  return { rooms, status, reload };
+}
+
+/**
+ * The "Căn" select of "Phiếu sửa mới" / "Khóa phòng có kế hoạch". FB-R4-UXD-FE-P433-01: while the rooms load the
+ * select is disabled with `common.loading` under it; if they could not be read it says so
+ * (`common.error_network_body`) with "Thử lại" right under – the other fields keep what was typed.
+ */
+function OpsRoomField({
+  ops,
+  value,
+  onChange,
+  error,
+}: {
+  ops: ReturnType<typeof useOpsRooms>;
+  value: string;
+  onChange: (roomId: string) => void;
+  error?: string;
+}) {
+  const { t } = useI18n();
+  const { rooms, status, reload } = ops;
+  return (
+    <div className="stack">
+      <Field
+        label={t('hk.wo.room')}
+        required
+        help={status === 'loading' ? t('common.loading') : undefined}
+        error={error ?? (status === 'error' ? t('common.error_network_body') : undefined)}
+      >
+        {(p) => (
+          <select
+            {...p}
+            className="input"
+            value={value}
+            disabled={status !== 'ready'}
+            onChange={(e) => onChange(e.target.value)}
+          >
+            <option value="" />
+            {rooms.map((r) => (
+              <option key={r.id} value={r.id}>
+                {roomLabel(r, 'staff')}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+      {status === 'error' ? (
+        <div>
+          <Button size="sm" variant="ghost" onClick={reload}>
+            {t('common.retry')}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 /**
@@ -224,7 +286,7 @@ export function CreateWorkOrderDialog({
   const propertyId = usePropertyId();
   const unsaved = useUnsavedLabels();
   const toast = useToast();
-  const rooms = useOpsRooms(propertyId);
+  const opsRooms = useOpsRooms(propertyId);
   const statuses = useResource(
     async () => (await api.listRoomStatuses({ propertyId })).data.data,
     [propertyId],
@@ -264,7 +326,7 @@ export function CreateWorkOrderDialog({
   const occupied = st === 'OC' || st === 'OD';
   const suggested = suggestedSeverity(category, occupied);
   const sev = severity ?? suggested;
-  const room = rooms.find((r) => r.id === roomId);
+  const room = opsRooms.rooms.find((r) => r.id === roomId);
   const roomText = room ? roomLabel(room, 'staff') : '';
   const save = async (withBlock: boolean) => {
     const out = await act.submit(async (idem) => {
@@ -331,23 +393,12 @@ export function CreateWorkOrderDialog({
       }
     >
       <div className="stack">
-        <Field label={t('hk.wo.room')} required error={act.fields.roomId}>
-          {(p) => (
-            <select
-              {...p}
-              className="input"
-              value={roomId}
-              onChange={(e) => setRoomId(e.target.value)}
-            >
-              <option value="" />
-              {rooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {roomLabel(r, 'staff')}
-                </option>
-              ))}
-            </select>
-          )}
-        </Field>
+        <OpsRoomField
+          ops={opsRooms}
+          value={roomId}
+          onChange={setRoomId}
+          error={act.fields.roomId}
+        />
         <Field label={t('wo.title_label')} required error={act.fields.title}>
           {(p) => (
             <input
@@ -461,7 +512,7 @@ export function BlockDialog({
   const { t } = useI18n();
   const propertyId = usePropertyId();
   const toast = useToast();
-  const rooms = useOpsRooms(propertyId);
+  const opsRooms = useOpsRooms(propertyId);
   // BUG-R2-211 (BR-010): the business day, not the calendar day.
   const today = useBusinessDay();
   const [roomId, setRoomId] = useState(workOrder?.roomId ?? '');
@@ -474,7 +525,7 @@ export function BlockDialog({
   });
   const [reason, setReason] = useState(workOrder?.title ?? '');
   const act = useSubmit({ bound: ['roomId', 'startDate', 'expectedDoneDate', 'reason'] });
-  const room = rooms.find((r) => r.id === roomId);
+  const room = opsRooms.rooms.find((r) => r.id === roomId);
   const roomText = room ? roomLabel(room, 'staff') : '';
   const save = async () => {
     const out = await act.submit((idem) =>
@@ -523,23 +574,12 @@ export function BlockDialog({
             {roomLabel({ roomNo: workOrder.roomNo, name: workOrder.roomName }, 'staff')}
           </p>
         ) : (
-          <Field label={t('hk.wo.room')} required error={act.fields.roomId}>
-            {(p) => (
-              <select
-                {...p}
-                className="input"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-              >
-                <option value="" />
-                {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {roomLabel(r, 'staff')}
-                  </option>
-                ))}
-              </select>
-            )}
-          </Field>
+          <OpsRoomField
+            ops={opsRooms}
+            value={roomId}
+            onChange={setRoomId}
+            error={act.fields.roomId}
+          />
         )}
         <BlockFields
           start={start}

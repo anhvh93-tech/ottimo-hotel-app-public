@@ -285,7 +285,7 @@ function BlockList({
   const { t } = useI18n();
   const propertyId = usePropertyId();
   // BUG-R3-053: a maintenance-only account reads the rooms from `room-statuses` (no 403 `listRooms`).
-  const rooms = useOpsRooms(propertyId);
+  const { rooms } = useOpsRooms(propertyId);
   const { online } = useOnline();
   const [editing, setEditing] = useState<{
     b: RoomBlock;

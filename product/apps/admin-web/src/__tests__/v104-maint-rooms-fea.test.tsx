@@ -2,6 +2,7 @@
 // mới" and "Khóa phòng có kế hoạch". ARC plan-v1.0.4 6.5: the rooms come from `room-statuses` (as in the staff app);
 // `listRooms` stays closed to `maintenance`, no contract change, no `rbac-cases.json` change.
 import { screen, waitFor, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import { mockControl } from '../mocks/handlers';
 import { server } from '../mocks/node';
@@ -81,5 +82,60 @@ describe('BUG-R3-053 – maintenance-only account on the Desk', () => {
       expect(within(select).getAllByRole('option').length).toBe(mockControl.db.rooms.length + 1),
     );
     expect(seen.some((p) => p.endsWith('/rooms'))).toBe(true);
+  });
+});
+
+describe('FB-R4-UXD-FE-P433-01 – the room field says when it is loading or could not be read', () => {
+  it('loading: the select is disabled with "Đang tải" under it', async () => {
+    let open: () => void = () => {};
+    const gate = new Promise<void>((r) => (open = r));
+    server.use(
+      http.get('*/room-statuses', async () => {
+        await gate;
+        return undefined; // then the regular mock answers
+      }),
+    );
+    const { user } = renderApp('/maintenance', 'qa.mt');
+    await user.click(await screen.findByRole('button', { name: tv('wo.new_title') }));
+    const dlg = await screen.findByRole('dialog', { name: tv('wo.new_title') });
+    const select = within(dlg).getByLabelText(label('hk.wo.room'));
+    expect(select).toBeDisabled();
+    expect(select).toHaveAccessibleDescription(tv('common.loading'));
+    open();
+    await waitFor(() => expect(select).toBeEnabled());
+    expect(within(select).getAllByRole('option').length).toBe(mockControl.db.rooms.length + 1);
+    expect(within(dlg).queryByText(tv('common.loading'))).toBeNull();
+  });
+
+  it('error: the network sentence and "Thử lại" under the field; retry fills it, the typed title stays', async () => {
+    let fail = true;
+    server.use(
+      http.get('*/room-statuses', () =>
+        fail
+          ? HttpResponse.json(
+              { type: 't', title: 't', status: 500, code: 'INTERNAL', requestId: 'r-500' },
+              { status: 500, headers: { 'content-type': 'application/problem+json' } },
+            )
+          : undefined,
+      ),
+    );
+    const { user } = renderApp('/maintenance', 'qa.mt');
+    await user.click(await screen.findByRole('button', { name: tv('wo.new_title') }));
+    const dlg = await screen.findByRole('dialog', { name: tv('wo.new_title') });
+    const select = within(dlg).getByLabelText(label('hk.wo.room'));
+    await waitFor(() =>
+      expect(select).toHaveAccessibleDescription(tv('common.error_network_body')),
+    );
+    expect(select).toBeDisabled();
+    await user.type(within(dlg).getByLabelText(label('wo.title_label')), 'Thay bóng đèn');
+    fail = false;
+    await user.click(within(dlg).getByRole('button', { name: tv('common.retry') }));
+    await waitFor(() =>
+      expect(within(select).getAllByRole('option').length).toBe(mockControl.db.rooms.length + 1),
+    );
+    expect(select).toBeEnabled();
+    expect(within(dlg).queryByText(tv('common.error_network_body'))).toBeNull();
+    expect(within(dlg).queryByRole('button', { name: tv('common.retry') })).toBeNull();
+    expect(within(dlg).getByLabelText(label('wo.title_label'))).toHaveValue('Thay bóng đèn');
   });
 });
