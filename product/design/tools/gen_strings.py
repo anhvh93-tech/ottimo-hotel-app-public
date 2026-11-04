@@ -4154,6 +4154,11 @@ g("v1.0.4 BUG-R4-039 – FE-A: nhận phòng căn OC/OD", [
      "Room {room} still has another stay in house. Check out that stay first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case.",
      None,
      "v1.0.4 BUG-R4-039 (BR-402 (1), DOM lượt 5 mục 2 (b)). Alert bad trong dòng room_ready khi buồng không phải OC/OD/OOO nhưng căn còn lượt Đang ở của đơn khác (room_ready không có overridableBy). Không nhắc buồng phòng. 'đang ở' = status.booking.in_house. UXD duyệt 05/11 (FB-R4-UXD-FE-PR77-01). {room} = số căn"),
+    ("checkin.room_held_code",
+     "Căn {room} còn đơn {code} đang ở, chưa trả phòng. Trả phòng đơn đó trước, hoặc mời khách chờ, hoặc đổi đơn này sang căn trống. Trường hợp này không có ngoại lệ.",
+     "Room {room} still has booking {code} in house. Check out that booking first, ask this guest to wait, or move this booking to a vacant room. No exception applies in this case.",
+     None,
+     "v1.0.4 BUG-R4-039 (#74 heldByReservationCode). Như checkin.room_held, khi máy chủ trả mã đơn đang giữ căn. {code} = heldByReservationCode, hiện mono (monoArgs ['code']); {room} = số căn. Chọn câu: OOO → ci.ooo_never; có {code} → khóa này; OC/OD → checkin.room_occupied; còn lại → checkin.room_held. UXD duyệt 05/11 (UXD-on-v104-pr77 lượt 3)"),
 ])
 
 

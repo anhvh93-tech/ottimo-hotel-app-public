@@ -49,7 +49,7 @@ import {
   type InlinePay,
   type InlinePayBlock,
 } from './CheckInPayment';
-import { Code } from '../../app/mono';
+import { Code, monoArgs } from '../../app/mono';
 
 const LEAD_PLUS = ['owner', 'manager', 'front_desk_lead'];
 const COND_LABEL: Record<CheckInCondition['code'], string> = {
@@ -60,6 +60,34 @@ const COND_LABEL: Record<CheckInCondition['code'], string> = {
   main_guest_document: 'checkin.cond.main_guest_document',
   document_check_block: 'checkin.cond.document_ok',
 };
+/** `room_ready` of #74 (ARC review #74 §4.3, A.2) – `cause` / `heldByReservationCode` until the client is regenerated. */
+type RoomReadyCondition = CheckInCondition & { cause?: string; heldByReservationCode?: string };
+
+/**
+ * BUG-R4-039: the sentence for a `room_ready` the server blocks with no exception (no `overridableBy`) – its key, and
+ * the code of the booking holding the room – or `null` when the room line says nothing more (OOO: `ci.ooo_never`; no
+ * room: `not_unassigned` says it). UXD (UXD-on-v104-pr77 lượt 3) with ARC's `cause`: a holding booking's code →
+ * `room_held_code`, even on OC/OD; `cause` `room_status` → `room_occupied`; `held_by_other_stay` → `room_held`.
+ * Without `cause` (an API before #74 C2, or a cause this Desk does not know): DOM lượt 5 on `detail` – OC/OD →
+ * `room_occupied`, else `room_held` – only for a booking that has its room (`hasRoom`: `not_unassigned` met), since an
+ * unassigned booking reads `detail: "VC"` there.
+ */
+export function roomBlockedMessage(
+  c: RoomReadyCondition | undefined,
+  hasRoom: boolean,
+): { key: string; code?: string } | null {
+  if (!c || c.met || c.overridableBy?.length || c.detail === 'OOO') return null;
+  if (c.cause === 'no_room') return null;
+  if (c.heldByReservationCode)
+    return { key: 'checkin.room_held_code', code: c.heldByReservationCode };
+  if (c.cause === 'held_by_other_stay') return { key: 'checkin.room_held' };
+  if (c.cause === 'room_status') return { key: 'checkin.room_occupied' };
+  if (!hasRoom) return null;
+  return c.detail === 'OC' || c.detail === 'OD'
+    ? { key: 'checkin.room_occupied' }
+    : { key: 'checkin.room_held' };
+}
+
 const STEPS = [
   'checkin.step.docs',
   'checkin.step.verify',
@@ -246,12 +274,13 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   // (`overridableBy`: VD/CL with no other stay in the room) – never on OC/OD/OOO, for any role, the lead's approval
   // included. The reason box, "confirm" and "ask the lead" follow it, not the room status.
   const roomOverridable = !!roomCond && !roomCond.met && !!roomCond.overridableBy?.length;
-  // DOM (lượt 5 mục 2): two blocked cases – (a) the room status is OC/OD (a guest is in the room; housekeeping only
-  // when that status is wrong); (b) any other status, but another booking's stay still holds the room today.
-  const roomBlockedText =
-    roomCond?.detail === 'OC' || roomCond?.detail === 'OD'
-      ? t('checkin.room_occupied', { room })
-      : t('checkin.room_held', { room });
+  // DOM (lượt 5 mục 2) / ARC `cause`: (a) the room status is OC/OD; (b) another booking's stay still holds the room.
+  const roomBlocked = roomBlockedMessage(roomCond, !!cond('not_unassigned')?.met && !!room);
+  const roomBlockedText = !roomBlocked
+    ? null
+    : roomBlocked.code
+      ? monoArgs(t, roomBlocked.key, { room, code: roomBlocked.code }, ['code'])
+      : t(roomBlocked.key, { room });
   const stdIn = p?.standardCheckinTime?.slice(0, 5) ?? rules.checkinTime;
   // FE-S3-05: FD + room not ready + reason → the button sends a request (202), it does not check in.
   const requestOnly = !lead && !approved && roomOverridable && roomReason.trim().length >= 3;
@@ -533,15 +562,17 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
                       <div className="li-s">{t('ci.ooo_never')}</div>
                     ) : !roomOverridable ? (
                       // BUG-R4-039: OC/OD, or the room held by another stay – blocking like an over-capacity
-                      // room; no reason, no request.
-                      <Alert tone="bad">
-                        {roomBlockedText}
-                        <div className="row wrap mt-4">
-                          <Link className="btn sm" to={`/reservations/${reservationId}`}>
-                            {t('drawer.action.move')}
-                          </Link>
-                        </div>
-                      </Alert>
+                      // room; no reason, no request. No room yet: nothing here (`not_unassigned` says it).
+                      roomBlockedText && (
+                        <Alert tone="bad">
+                          {roomBlockedText}
+                          <div className="row wrap mt-4">
+                            <Link className="btn sm" to={`/reservations/${reservationId}`}>
+                              {t('drawer.action.move')}
+                            </Link>
+                          </div>
+                        </Alert>
+                      )
                     ) : roomApproved ? (
                       <Chip tone="ok" icon="check">
                         {t('ci.room_approved', { name: approved?.approverName ?? '' })}
@@ -1015,9 +1046,6 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
               <Alert tone="bad">{errorExtra()}</Alert>
             ) : act.code === 'SURCHARGE_CHANGED' ? (
               <Alert tone="bad">{act.text()}</Alert>
-            ) : act.code === 'ROOM_OCCUPIED' ? (
-              // BUG-R4-039 (UXD): the room still has a stay – never `error.ROOM_OCCUPIED` (about blocking a room).
-              <Alert tone="bad">{t('checkin.room_occupied', { room })}</Alert>
             ) : (
               act.view(
                 undefined,
