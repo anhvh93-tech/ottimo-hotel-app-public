@@ -6,7 +6,7 @@
     "version": "0.5.3",
     "date": "2026-11-04"
   },
-  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp); v0.4.3 QA 24/10: BR-433-22…25 (FZ02-1, 2, 4, 8 – pendingFix R3-SEC-FZ-02), BR-525-44 (FZ08-1, không pendingFix – mã đúng), BR-525-45 (FZ08-2 – pendingFix R3-FZ-08); id DOM đề xuất trùng → đánh tiếp; v0.4.6 DOM 26/10 (CI): thêm BR-114-01…05 (giá \"chỉ từ\", FB-INV-004 ý 2), BR-401-01…05 (nhận phòng từ 12:00, FB-INV-004 ý 1); BR-901-01 bỏ nhãn GIẢ ĐỊNH (tỷ lệ phí kênh INV 26/10 dùng tạm); validator earlyPct mốc 0 % từ 12:00 theo BR-411 v0.4.6; v0.4.7 DOM 26/10 (FB-INV-005, ESC-036 A): BR-101-01…10 thành bảng giá khởi tạo nhập riêng (calc null, nhãn INV-004), thêm BR-101-11…13 (lịch giá trên giá đêm nhập 650.000, INV-036), BR-101-14 (giá tháng độc lập), BR-101-15 (cảnh báo mềm), BR-101-16 (đường tạm ÷ 12 tới v1.0.1); v0.4.8 DOM 27/10 (review v1.0.1 trả sớm B16, FB-R3-BE-B-BE-A-01/02): thêm BR-428-07 (trần số dư, đơn Trực tiếp), BR-428-08 (trần số dư, chênh lệch đổi phòng OTA – pendingFix FB-R3-BE-B-BE-A-01), BR-428-09 (nhãn phí trả sớm OTA không ghi số ngày – pendingFix FB-R3-BE-B-BE-A-02); v0.5.1 DOM 01/11 (bảng giá INV 01/11 + ESC-045): BR-101-01…10 thành giá khởi tạo cũ (tới S), BR-101-11…13 giá hiệu lực 01/11, bỏ BR-101-14 (lịch giá +15 % trên 650.000 – ESC-036 A hết hiệu lực); BR-103-04, BR-104-10…11, BR-107-07, BR-108-02…03, BR-110-18…20 (số v0.5.1, calc null tới khi DS-E chuyển bảng 01/11); BR-114 viết lại (800.000); thêm BR-115-01…08, BR-116-01; BR-201…208, 210 theo bảng thuê tháng 01/11 (validator nhận params.lease_terms); bỏ BR-208-02…03 (hoa hồng – bảng nội bộ, không ghi repo); BR-313-02 (mất ký quỹ khi trả trước hạn); nhãn INV-043 = bảng giá INV 01/11 gửi theo ESC-043 C; v0.5.2 DOM 04/11 (Round 4 v1.0.4 gói P4-20, DOM kiêm QA – `rounds/round-04/outputs/DOM/v1.0.4-p4-20-br-fixtures.md`): hoa hồng cũ BR-212-01/02, 326-01, 903-01…04 thêm supersededBy + validUntil, BR-309-26, 525-04/10/14, 527-05/06 thêm oldCommissionFigures (không đổi, không thêm số); BR-313-01, 403-01, 501-01 thêm supersededBy; INV-043 cho dòng lấy số từ bảng giá 01/11; GIẢ ĐỊNH BR-114-01, 207-02, 208-01/02, 210-04; BR-114-02 thêm INV-045, PHÁP LÝ; BR-103-04 thêm NGÀNH; BR-115-05/06/08 bỏ INV-045; calc cho dòng bảng giá 01/11 (calcPending cho hàm test BE còn đọc DS-E); thêm BR-110-21/22, BR-202-06…12, BR-206-04, BR-428-10…13; retiredIds",
+  "owner": "QA (+ DOM rà đúng cột ví dụ – plan R2 W7; DOM rà xong 16/10: rounds/round-02/outputs/DOM/w1-oracle-review.md; v0.3.2 DOM thêm dòng 16/10 – rounds/round-02/reviews/s2-DOM.md); v0.3.4 DOM sửa BR-527-05 và thêm dòng 17/10 – rounds/round-02/reviews/s3-DOM.md; v0.3.5 DOM 17/10 (Sprint 4 khởi động): thêm BR-012-01, BR-315-06, BR-412-15…17, BR-424-04, BR-429-03…08, BR-433-03, BR-434-07…10, BR-973/974/975/976/979/980/982/983-01, notCovered BR-971/972/977/978/981; sửa khóa expected BR-434-06 theo ESC-019 A; v0.3.6 DOM 17/10 (Sprint 4 D1 – critic S4 #13–#17): thêm BR-402-01, BR-424-05, BR-429-09, BR-429-10, BR-434-11, BR-434-12; v0.3.7 DOM 17/10 (luồng LP-v1, FB-INV-002): thêm BR-112-02, BR-911-01, BR-912-01, BR-913-01…03, BR-914-01, BR-915-01, BR-916-01; v0.3.8 DOM 17/10 (Sprint 4 – xác nhận/sửa giả định các luồng): thêm BR-012-02, BR-309-09, BR-309-10, BR-311-02, BR-402-02, BR-424-06, BR-429-11…17, BR-434-13, BR-435-02, BR-506-03, BR-522-05, BR-811-04, BR-956-01, BR-311-03, BR-429-18, BR-429-19; S4-38: BR-107-05, BR-107-06, BR-309-11, BR-309-12, BR-416-04, BR-416-05, BR-417-04…06, BR-434-14 (pendingFix = mã S438); 18/10: BR-309-13, BR-309-14, BR-424-07, BR-434-15; kiểm lại lần 3: BR-110-17, BR-309-15, BR-416-06, BR-417-07, BR-702-02, BR-702-04, BR-703-01, BR-807-01; kiểm lại lần 4: BR-417-12, BR-417-13, BR-309-16, BR-416-07, BR-807-02 (BUG-R2-145, 144 dùng dòng QA BR-417-11, BR-703-02); BR-913-03 nhãn INV-020 (gỡ chờ INV L7); sửa BR-911-01 (nguồn phụ theo hợp đồng 0.3.7 bổ sung 2) và tên khóa yêu cầu website ở BR-912-01, BR-914-01, BR-915-01, BR-916-01; QA 18/10 (kiểm lại lần 3, ORC): thêm BR-417-08, BR-417-09, BR-429-20 (3 dòng lượt 2 còn thiếu), BR-434-16 (BUG-R2-135), BR-702-03 (BUG-R2-137); bỏ pendingFix 16 dòng đã khớp oracle khi chạy thật; QA 18/10 lượt 4: thêm BR-703-02 (BUG-R2-144), BR-417-11 (BUG-R2-145) – DOM (a)/(b) đang chốt; QA 18/10: BR-417-14, BR-417-15, BR-309-17, BR-309-18 (DOM r4-1…r4-3; 309-18 pendingFix R3), BR-703-02 thêm ca r9_* (DOM R9); QA 18/10 vòng sửa 5: BR-417-16…19 (phụ lục 5A AN-01…AN-47; 17/18/19 pendingFix 160/161/162), sửa BR-417-14 wrongVnd.downTo101; v0.4.0 QA 22/10 (R3 Sprint 1 Sản xuất – oracle DOM `rounds/round-03/outputs/DOM/s1-money-oracle.md` mục 9, test plan `rounds/round-03/qa/s1-test-plan.md`): thêm BR-010-05…08 (R3-Q39), BR-309-19…20 (ESC-023 A, không pendingFix), BR-309-21…26 (R3-OTTIMO-FAULT-CANCEL), BR-416-08…09 (R3-US-164), BR-433-06…09/13/14 (R3-ESC-026), BR-433-10…12 (R3-FOC-REVOKE – E26-6…8 dời Sprint 2, ARC 5.4), BR-437-01 (BR mới 0.4.0), BR-525-36…37 (BUG-R2-210), BR-525-38 (BUG-R2-209), BR-525-39…40 (BUG-R2-208), BR-525-41…42 (R3-ARC-BE-S4-17-18), BR-525-43 (R3-Q39), BR-703-05 (R3-Q10). Đánh lại id DOM đề xuất trùng: BR-525-34/35/36… → 36…43, BR-703-03 → 05; v0.4.1 QA 23/10: thêm BR-433-15…21 (BB07-1…7, BR-433 (d); id DOM đề xuất BR-433-11…15 đã dùng; không pendingFix – bước 4 đã gộp); v0.4.3 QA 24/10: BR-433-22…25 (FZ02-1, 2, 4, 8 – pendingFix R3-SEC-FZ-02), BR-525-44 (FZ08-1, không pendingFix – mã đúng), BR-525-45 (FZ08-2 – pendingFix R3-FZ-08); id DOM đề xuất trùng → đánh tiếp; v0.4.6 DOM 26/10 (CI): thêm BR-114-01…05 (giá \"chỉ từ\", FB-INV-004 ý 2), BR-401-01…05 (nhận phòng từ 12:00, FB-INV-004 ý 1); BR-901-01 bỏ nhãn GIẢ ĐỊNH (tỷ lệ phí kênh INV 26/10 dùng tạm); validator earlyPct mốc 0 % từ 12:00 theo BR-411 v0.4.6; v0.4.7 DOM 26/10 (FB-INV-005, ESC-036 A): BR-101-01…10 thành bảng giá khởi tạo nhập riêng (calc null, nhãn INV-004), thêm BR-101-11…13 (lịch giá trên giá đêm nhập 650.000, INV-036), BR-101-14 (giá tháng độc lập), BR-101-15 (cảnh báo mềm), BR-101-16 (đường tạm ÷ 12 tới v1.0.1); v0.4.8 DOM 27/10 (review v1.0.1 trả sớm B16, FB-R3-BE-B-BE-A-01/02): thêm BR-428-07 (trần số dư, đơn Trực tiếp), BR-428-08 (trần số dư, chênh lệch đổi phòng OTA – pendingFix FB-R3-BE-B-BE-A-01), BR-428-09 (nhãn phí trả sớm OTA không ghi số ngày – pendingFix FB-R3-BE-B-BE-A-02); v0.5.1 DOM 01/11 (bảng giá INV 01/11 + ESC-045): BR-101-01…10 thành giá khởi tạo cũ (tới S), BR-101-11…13 giá hiệu lực 01/11, bỏ BR-101-14 (lịch giá +15 % trên 650.000 – ESC-036 A hết hiệu lực); BR-103-04, BR-104-10…11, BR-107-07, BR-108-02…03, BR-110-18…20 (số v0.5.1, calc null tới khi DS-E chuyển bảng 01/11); BR-114 viết lại (800.000); thêm BR-115-01…08, BR-116-01; BR-201…208, 210 theo bảng thuê tháng 01/11 (validator nhận params.lease_terms); bỏ BR-208-02…03 (hoa hồng – bảng nội bộ, không ghi repo); BR-313-02 (mất ký quỹ khi trả trước hạn); nhãn INV-043 = bảng giá INV 01/11 gửi theo ESC-043 C; v0.5.2 DOM 04/11 (Round 4 v1.0.4 gói P4-20, DOM kiêm QA – `rounds/round-04/outputs/DOM/v1.0.4-p4-20-br-fixtures.md`): hoa hồng cũ BR-212-01/02, 326-01, 903-01…04 thêm supersededBy + validUntil, BR-309-26, 525-04/10/14, 527-05/06 thêm oldCommissionFigures (không đổi, không thêm số); BR-313-01, 403-01, 501-01 thêm supersededBy; INV-043 cho dòng lấy số từ bảng giá 01/11; GIẢ ĐỊNH BR-114-01, 207-02, 208-01/02, 210-04; BR-114-02 thêm INV-045, PHÁP LÝ; BR-103-04 thêm NGÀNH; BR-115-05/06/08 bỏ INV-045; calc cho dòng bảng giá 01/11 (calcPending cho hàm test BE còn đọc DS-E); thêm BR-110-21/22, BR-202-06…12, BR-206-04, BR-428-10…13; retiredIds; v0.5.3 BE 04/11 (Round 4 v1.0.4, BUG-R4-039 – ORC giao; BR-402 v0.5.3 DOM): thêm BR-402-03 (ví dụ căn 202, ngày là giả định QA), BR-402-04 (mốc biên theo trạng thái buồng); v0.5.6 BE 05/11 (#74 C1, DOM lượt 7 mục 2 – rounds/round-04/reviews/DOM-on-v104-pr68-docs.md): ghi chú BR-402-04 thay bằng câu DOM; thêm BR-402-05 (ví dụ căn 301 – lượt quá ngày đi + CL, ngày giờ là giả định QA, QA rà); QA2 05/11: rà BR-402-04 (ghi chú mới) và BR-402-05 trên #74 @ 0950313e – đúng; bỏ nhãn GIẢ ĐỊNH QA của BR-402-05",
   "updated": "2026-11-04",
   "conventions": {
     "money": "Số nguyên VND, khóa kết thúc bằng 'Vnd' (ADR-002, BR-004)",
@@ -7383,6 +7383,151 @@
         "otaIncidentalsDueBy": "checkout"
       },
       "note": "Mã HEAD: balance_paid luôn đạt khi payment_model = ota_prepaid"
+    },
+    {
+      "id": "BR-402-03",
+      "br": "BR-402",
+      "case": "(v0.5.3, BUG-R4-039) Căn 202: đơn A đi hôm nay còn Đang ở (OC); khách đơn B (cùng căn, đến hôm nay) tới 06:30 → không nhận phòng được, kể cả lễ tân trưởng; 10:15 A trả phòng (VD) → lễ tân trưởng xác nhận ngoại lệ cho B, căn thành OD, có việc dọn ưu tiên",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "qaAssumption": "[GIẢ ĐỊNH QA] Ví dụ BR không ghi ngày: A đến 23/11/2026, đi 24/11 (1 đêm, đã nhận phòng); B đến 24/11, đi 25/11; cả hai kênh Trực tiếp, căn 202. Ngày thường, không có ngày đặc biệt",
+      "input": {
+        "roomNo": "202",
+        "stayA": {
+          "status": "in_house",
+          "arrivalDate": "2026-11-23",
+          "departureDate": "2026-11-24"
+        },
+        "stayB": {
+          "status": "confirmed",
+          "arrivalDate": "2026-11-24",
+          "departureDate": "2026-11-25"
+        },
+        "cases": [
+          {
+            "key": "before_a_checkout",
+            "at": "2026-11-24T06:30:00+07:00",
+            "roomStatus": "OC",
+            "actorRole": "front_desk_lead",
+            "roomNotReadyOverride": true
+          },
+          {
+            "key": "after_a_checkout",
+            "aCheckedOutAt": "2026-11-24T10:15:00+07:00",
+            "at": "2026-11-24T10:15:00+07:00",
+            "roomStatus": "VD",
+            "actorRole": "front_desk_lead",
+            "roomNotReadyOverride": true
+          }
+        ]
+      },
+      "expected": {
+        "before_a_checkout": {
+          "roomReadyMet": false,
+          "overridable": false,
+          "checkinAccepted": false,
+          "problemCode": "CHECKIN_CONDITIONS_NOT_MET",
+          "unmet": ["room_ready"],
+          "approvalRequestCreated": false,
+          "roomStatusAfter": "OC",
+          "stayBStatusAfter": "confirmed"
+        },
+        "after_a_checkout": {
+          "roomReadyMet": false,
+          "overridable": true,
+          "checkinAccepted": true,
+          "roomStatusAfter": "OD",
+          "priorityCleanTask": true,
+          "stayBStatusAfter": "in_house"
+        }
+      },
+      "note": "BR-402 (1) v0.5.3 (DOM 04/11): ngoại lệ chỉ cho VD/CL; OC/OD không có ngoại lệ với mọi vai, cả lối lễ tân gửi xin duyệt. Tới v1.0.3 máy chủ cho ngoại lệ với mọi trạng thái trừ OOO. Test BE: services/api/test/integration/checkin-occupied-exception.test.ts"
+    },
+    {
+      "id": "BR-402-04",
+      "br": "BR-402",
+      "case": "(v0.5.3, BUG-R4-039) Mốc biên điều kiện (1) theo trạng thái buồng: VI/VC nhận như thường; VD/CL chỉ lễ tân trưởng trở lên xác nhận ngoại lệ (lễ tân gửi xin duyệt); OC/OD/OOO không có ngoại lệ với mọi vai",
+      "origin": "rule-boundary",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "input": {
+        "roomStatuses": ["VI", "VC", "VD", "CL", "OC", "OD", "OOO"],
+        "exceptionRoles": ["front_desk_lead", "manager", "owner"],
+        "requestRole": "front_desk"
+      },
+      "expected": {
+        "roomReadyMet": {
+          "VI": true,
+          "VC": true,
+          "VD": false,
+          "CL": false,
+          "OC": false,
+          "OD": false,
+          "OOO": false
+        },
+        "exceptionAllowed": {
+          "VI": false,
+          "VC": false,
+          "VD": true,
+          "CL": true,
+          "OC": false,
+          "OD": false,
+          "OOO": false
+        },
+        "frontDeskRequestAllowed": {
+          "VD": true,
+          "CL": true,
+          "OC": false,
+          "OD": false,
+          "OOO": false
+        },
+        "roomStatusAfterException": "OD",
+        "priorityCleanTask": true
+      },
+      "note": "VI/VC: điều kiện đạt nên không cần ngoại lệ (exceptionAllowed = false nghĩa là không có gì để xác nhận). Cài đặt v1.0.4: preview không có overridableBy, B9 trả 409 CHECKIN_CONDITIONS_NOT_MET unmet [room_ready] cho OC/OD/OOO. Oracle này chỉ xét căn không còn lượt Đang ở khác. Căn còn lượt in_house khác theo định nghĩa \"đang ở căn\" của buồng phòng: đi hôm nay chưa B18 hoặc phủ đêm nay thì mọi trạng thái buồng đều chưa đạt, không có ngoại lệ; đã quá ngày đi mà chưa B18 thì VD/CL không có ngoại lệ (v1.0.4, BR-402 (1) v0.5.6, ARC C1 05/11), VI/VC chỉ bị chặn từ v1.0.5 (FB-R4-ARC-BE-PR74-05)."
+    },
+    {
+      "id": "BR-402-05",
+      "br": "BR-402",
+      "case": "(v0.5.6, BUG-R4-039 – ARC C1 05/11) Căn 301: đơn A đi 23/11, lễ tân quên bấm Trả phòng, ngày 24/11 A vẫn Đang ở; buồng phòng bấm Cần dọn rồi Bắt đầu dọn, căn thành CL; khách đơn B (đến 24/11) tới quầy → lễ tân trưởng không có ngoại lệ, không nhận phòng được, không ghi gì",
+      "origin": "example",
+      "labels": ["NGÀNH"],
+      "calc": null,
+      "qaAssumption": "Ví dụ BR không ghi đủ ngày giờ, nên ngày giờ do BE chọn theo ca dò ARC: A đến 22/11/2026, đi 23/11 (1 đêm, đã nhận phòng 22/11); B đến 24/11, đi 25/11; cả hai kênh Trực tiếp, căn 301; buồng phòng (hoặc lễ tân) bấm Cần dọn (OC → OD) và Bắt đầu dọn (OD → CL) qua API buồng phòng lúc 15:00 ngày 24/11, lễ tân trưởng nhận phòng B ngay sau đó. Ngày thường, không có ngày đặc biệt. Không đổi kết quả. Dòng do BE thêm theo đề xuất DOM lượt 7 mục 2 (rounds/round-04/reviews/DOM-on-v104-pr68-docs.md); QA2 rà 05/11 trên #74 @ 0950313e (stack dùng một lần, buồng phòng bấm cả hai bước): khớp mọi khóa expected",
+      "input": {
+        "roomNo": "301",
+        "stayA": {
+          "status": "in_house",
+          "arrivalDate": "2026-11-22",
+          "departureDate": "2026-11-23"
+        },
+        "stayB": {
+          "status": "confirmed",
+          "arrivalDate": "2026-11-24",
+          "departureDate": "2026-11-25"
+        },
+        "at": "2026-11-24T15:00:00+07:00",
+        "roomStatusSteps": ["needs_cleaning", "start_cleaning"],
+        "roomStatus": "CL",
+        "actorRole": "front_desk_lead",
+        "roomNotReadyOverride": true
+      },
+      "expected": {
+        "roomReadyMet": false,
+        "overridable": false,
+        "cause": "held_by_other_stay",
+        "heldByStayA": true,
+        "checkinAccepted": false,
+        "problemCode": "CHECKIN_CONDITIONS_NOT_MET",
+        "unmet": ["room_ready"],
+        "approvalRequestCreated": false,
+        "roomStatusAfter": "CL",
+        "stayAStatusAfter": "in_house",
+        "stayBStatusAfter": "confirmed",
+        "inHouseStaysInRoom": 1
+      },
+      "note": "BR-402 (1) v0.5.6: lượt Đang ở đã quá ngày đi mà chưa bấm Trả phòng cũng là \"căn còn khách\". Trước #74 C1 máy chủ mở lại ngoại lệ ở CL (ca dò ARC: lễ tân trưởng nhận phòng → 200, căn có 2 lượt in_house). Phần sau của ví dụ BR (trả phòng A rồi xác nhận ngoại lệ cho B) không nằm trong dòng này: ở v1.0.4 B18 chỉ làm được đúng ngày đi nghiệp vụ của lượt (INVALID_TRANSITION ngày khác), nên lượt đã quá ngày đi phải gia hạn (B13) tới hôm nay trước khi trả phòng – DOM/QA chốt cách ghi; ca ngoại lệ sau khi căn VD đã có ở BR-402-03. Test BE: services/api/test/integration/checkin-occupied-exception.test.ts"
     },
     {
       "id": "BR-403-01",
