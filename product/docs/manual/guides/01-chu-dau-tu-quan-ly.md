@@ -610,8 +610,8 @@ Người trực hủy giữ chỗ có cọc và nhập nơi nhận; **chủ đ�
 Theo quyết định của chủ đầu tư ngày 26/10:
 - **Giá đêm niêm yết** và **Giá tháng** nhập **riêng**, độc lập. Đổi giá này không đổi giá kia.
 - Giá đêm là giá **đêm ngày thường, kênh Trực tiếp, cho định mức của căn, đã gồm VAT**, bội số 1.000 đ.
-- Desk **tự cộng** đêm thứ Sáu, thứ Bảy **+15 %** và **ngày đặc biệt +30 %**. Anh/chị **không** nhập giá cuối tuần riêng.
-- Ngày đặc biệt (+30 %, tối thiểu 2 đêm, không hoàn cọc khi hủy) đang cài: đêm 24/12/2026–01/01/2027 · Tết Nguyên đán đêm 05–10/02/2027 · Giỗ Tổ Hùng Vương đêm 16/4/2027 · đêm 30/4 và 1/5/2027 · đêm 1/9 và 2/9/2027. Danh sách đầy đủ ở **Tham số quy tắc**.
+- **Một giá mọi đêm**, kể cả thứ Sáu, thứ Bảy, lễ, Tết (ESC-045, từ ngày chủ đầu tư chuyển giá): ở **Tham số quy tắc**, tab **Khác**, `weekend_uplift_pct` và `special_uplift_pct` đều là 0. Anh/chị **không** nhập giá cuối tuần riêng. Muốn tăng giá Noel – Tết: báo đội trước 15/12 để đổi Desk và OTA cùng lúc. Kiểm nhanh: báo giá thử Studio 1 đêm thứ Sáu ra khác 800.000 thì hai tham số này chưa về 0.
+- Ngày đặc biệt (không tăng giá; vẫn ở tối thiểu 2 đêm, không hoàn cọc khi hủy) đang cài: đêm 24/12/2026–01/01/2027 · Tết Nguyên đán đêm 05–10/02/2027 · Giỗ Tổ Hùng Vương đêm 16/4/2027 · đêm 30/4 và 1/5/2027 · đêm 1/9 và 2/9/2027. Danh sách đầy đủ ở **Tham số quy tắc**.
 - Đơn ≥ 7 đêm Desk tự giảm 10 %, ≥ 14 đêm giảm 15 % (kênh Trực tiếp, CTV).
 
 **Đổi giá một căn:**

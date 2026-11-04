@@ -171,6 +171,8 @@ Chủ đầu tư in **2 bản A4** (một trong khung mica, một trong ngăn qu
 
 ## 7. Lịch sử
 
+**Sửa 05/11/2026, chưa đánh số bản** (BA; ESC-045 câu 1 và 3, DOM #72 thẻ 06): một giá mọi đêm, không còn +15 % thứ Sáu, thứ Bảy và +30 % ngày đặc biệt – `01` 9.1, `02` 20.2, `05` 3; phụ thu người vượt định mức từ 6 tuổi trở lên 150.000 đ/đêm, dưới 6 tuổi miễn – `02` 9.2, 20.2, `05` 3. Áp dụng từ ngày chủ đầu tư chuyển giá. Số bản ghi cùng lần gộp PR #69.
+
 | Bản | Ngày | Người | Thay đổi |
 |---|---|---|---|
 | 1.0 | 30/10/2026 | BA | Tách sổ tay 1.5 và các tờ in thành 5 tệp theo bộ phận; thêm chương Đăng nhập riêng cho từng vai, việc mỗi ngày theo giờ, phần "Tạm thời tới v1.0.1". Chờ DOM, SEC, UXD xem |

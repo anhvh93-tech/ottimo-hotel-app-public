@@ -143,10 +143,10 @@ Luôn nhớ:
 [ẢNH: C4-06-Báo giá trên điện thoại]
 
 Quy tắc giá Desk tự tính (để trả lời khách, không tự tính tay):
-- Đêm thứ Sáu, thứ Bảy +15 %. Ngày đặc biệt +30 % (Tết, lễ, cuối năm).
+- Một giá mọi đêm, kể cả thứ Sáu, thứ Bảy, lễ, Tết (ESC-045, từ ngày chủ đầu tư chuyển giá). Báo giá thử Studio 1 đêm thứ Sáu ra khác 800.000: dừng, báo quản lý, không tự sửa giá.
 - Ngày đến thứ Sáu, thứ Bảy, ngày đặc biệt: **tối thiểu 2 đêm**. Desk báo "Ngày này cần ở tối thiểu 2 đêm" thì chọn 2 đêm.
 - Từ 7 đêm giảm 10 %, từ 14 đêm giảm 15 %. Từ 28 đêm là **thuê dài hạn**: hợp đồng vẫn làm ngoài app; nhắn lễ tân giữ phòng bằng đơn dài hạn nhập tay.
-- Người thêm vượt định mức: người lớn 150.000 đ/đêm, trẻ 6–11 tuổi 100.000 đ/đêm, dưới 6 tuổi miễn.
+- Người thêm vượt định mức: từ 6 tuổi trở lên 150.000 đ/đêm, dưới 6 tuổi miễn. Desk hiện 100.000 cho trẻ 6–11 tuổi: báo quản lý, không tự sửa.
 - Nhận phòng từ 12:00, trả phòng trước 12:00. Câu nói với khách: "Check-in is from 12:00. Your room is always ready by 14:00." / "Nhận phòng từ 12:00. Phòng luôn sẵn sàng lúc 14:00." **Không** hứa "phòng sẵn sàng từ 12:00".
 
 **Chính sách hủy** (kênh Trực tiếp, CTV) – đọc đúng như sau khi khách hỏi:

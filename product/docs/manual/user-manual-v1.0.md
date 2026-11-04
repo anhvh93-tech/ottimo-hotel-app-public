@@ -296,8 +296,8 @@ OTTIMO gửi thư báo tới địa chỉ này khi có việc quan trọng với
 Theo quyết định của chủ đầu tư ngày 26/10:
 - **Giá đêm niêm yết** và **Giá tháng** nhập **riêng**, độc lập. Đổi giá này không đổi giá kia.
 - Giá đêm là giá **đêm ngày thường, kênh Trực tiếp, cho định mức của căn, đã gồm VAT**, bội số 1.000 đ.
-- Desk **tự cộng** đêm thứ Sáu, thứ Bảy **+15 %** và **ngày đặc biệt +30 %**. Anh/chị **không** nhập giá cuối tuần riêng.
-- Ngày đặc biệt (+30 %, tối thiểu 2 đêm, không hoàn cọc khi hủy) đang cài: đêm 24/12/2026–01/01/2027 · Tết Nguyên đán đêm 05–10/02/2027 · Giỗ Tổ Hùng Vương đêm 16/4/2027 · đêm 30/4 và 1/5/2027 · đêm 1/9 và 2/9/2027. Danh sách đầy đủ ở **Tham số quy tắc**. Chủ đầu tư thêm ngày thì Desk tự áp.
+- **Một giá mọi đêm**, kể cả thứ Sáu, thứ Bảy, lễ, Tết (ESC-045, từ ngày chủ đầu tư chuyển giá): ở **Tham số quy tắc**, tab **Khác**, `weekend_uplift_pct` và `special_uplift_pct` đều là 0. Anh/chị **không** nhập giá cuối tuần riêng. Muốn tăng giá Noel – Tết: báo đội trước 15/12 để đổi Desk và OTA cùng lúc. Kiểm nhanh: báo giá thử Studio 1 đêm thứ Sáu ra khác 800.000 thì hai tham số này chưa về 0.
+- Ngày đặc biệt (không tăng giá; vẫn ở tối thiểu 2 đêm, không hoàn cọc khi hủy) đang cài: đêm 24/12/2026–01/01/2027 · Tết Nguyên đán đêm 05–10/02/2027 · Giỗ Tổ Hùng Vương đêm 16/4/2027 · đêm 30/4 và 1/5/2027 · đêm 1/9 và 2/9/2027. Danh sách đầy đủ ở **Tham số quy tắc**. Chủ đầu tư thêm ngày thì Desk tự áp.
 - Đơn ≥ 7 đêm Desk tự giảm 10 %, ≥ 14 đêm giảm 15 % (kênh Trực tiếp, CTV).
 
 **Đổi giá một căn:**
@@ -1115,7 +1115,7 @@ Hồ sơ sắp hạn và quá hạn hiện ở **Cần chú ý** và cột **H�
 
 > **Lỗi nhỏ đã biết (sửa ở v1.0.4):** câu "Phí phạt không tính vào doanh thu phòng" hiện cả khi chọn giặt ủi. Giặt ủi không phải phí phạt; cứ thêm như thường.
 
-**Thêm người đi cùng:** khung đơn → mục **Người ở** → **Thêm người đi cùng** → chọn **Người lớn đi cùng** hoặc **Trẻ em** (trẻ chỉ cần **Năm sinh**). Ô chọn người hiện nhãn "Khách đứng tên" – nhãn nhầm, đang sửa; chọn đúng người đi cùng. Vượt định mức: Desk hiện phụ thu người (người lớn 150.000 đ/đêm, trẻ 6–11 tuổi 100.000 đ/đêm, dưới 6 tuổi miễn) → báo khách → tích **Ghi phụ thu … vào folio – tôi đã báo khách** → **Thêm vào đơn**. Nhớ báo buồng phòng chuẩn bị bộ đồ dùng thêm (Desk tự tạo việc).
+**Thêm người đi cùng:** khung đơn → mục **Người ở** → **Thêm người đi cùng** → chọn **Người lớn đi cùng** hoặc **Trẻ em** (trẻ chỉ cần **Năm sinh**). Ô chọn người hiện nhãn "Khách đứng tên" – nhãn nhầm, đang sửa; chọn đúng người đi cùng. Vượt định mức: Desk hiện phụ thu người (từ 6 tuổi trở lên 150.000 đ/đêm, dưới 6 tuổi miễn; Desk hiện 100.000 cho trẻ 6–11 tuổi thì báo quản lý, không tự sửa) → báo khách → tích **Ghi phụ thu … vào folio – tôi đã báo khách** → **Thêm vào đơn**. Nhớ báo buồng phòng chuẩn bị bộ đồ dùng thêm (Desk tự tạo việc).
 
 [ẢNH: C2-24-Thêm người đi cùng]
 
@@ -1775,20 +1775,20 @@ Luôn nhớ:
 | +12 giờ từ giờ nhận | Hạn khai báo khách nước ngoài |
 | +24 giờ từ trả phòng | Hạn ghi phát sinh sau trả phòng; hạn quản lý xem lại phụ thu bằng giá 1 đêm |
 
-### 5.2 Bảng tiền và quy tắc (tham số ngày 27/10/2026)
+### 5.2 Bảng tiền và quy tắc (tham số ngày 27/10/2026; giá cuối tuần, ngày đặc biệt và phụ thu người theo ESC-045 ngày 01/11)
 
 | Mục | Giá trị |
 |---|---|
 | Phụ thu nhận sớm | 06:00–09:59: 50 % · 10:00–11:59: 30 % giá đêm đầu · từ 12:00: 0 · trước 06:00: thêm 1 đêm |
 | Phụ thu trả muộn | đến 12:30 (không có khách đến): 0 · đến 15:00: 30 % · đến 18:00: 50 % giá đêm cuối · sau 18:00: thêm 1 đêm hoặc bằng giá 1 đêm |
-| Cuối tuần, ngày đặc biệt | Thứ Sáu, thứ Bảy +15 % · ngày đặc biệt +30 % (mọi kênh): đêm 24/12/2026–01/01/2027, Tết đêm 05–10/02/2027, Giỗ Tổ đêm 16/4/2027, đêm 30/4 và 1/5/2027, đêm 1/9 và 2/9/2027 |
+| Cuối tuần, ngày đặc biệt | Một giá mọi đêm, kể cả thứ Sáu, thứ Bảy, lễ, Tết (ESC-045, từ ngày chủ đầu tư chuyển giá; mọi kênh). Báo giá thử Studio 1 đêm thứ Sáu ra khác 800.000: dừng, báo quản lý, không tự sửa giá. Ngày đặc biệt (vẫn ở tối thiểu 2 đêm, không hoàn cọc khi hủy): đêm 24/12/2026–01/01/2027, Tết đêm 05–10/02/2027, Giỗ Tổ đêm 16/4/2027, đêm 30/4 và 1/5/2027, đêm 1/9 và 2/9/2027 |
 | Tối thiểu số đêm | 2 đêm khi ngày đến là thứ Sáu, thứ Bảy, ngày đặc biệt |
 | Giảm theo số đêm | ≥ 7 đêm 10 % · ≥ 14 đêm 15 % (Trực tiếp, CTV) · ≥ 28 đêm là dài hạn |
 | Cọc ngắn ngày | 30 % tiền phòng · đơn Trực tiếp thu đủ khi nhận phòng |
 | Giữ chỗ | 12/24/48 giờ (mặc định 24), không quá 12:00 ngày đến, gia hạn 1 lần tối đa 24 giờ · báo giá giữ giá 3 ngày |
 | Hủy (Trực tiếp, CTV) | Báo trước ≥ 7 ngày hoàn 100 % cọc · 3–6 ngày 50 % · < 3 ngày không hoàn · có đêm ngày đặc biệt: không hoàn · bất khả kháng: dời ngày trong 3 tháng |
 | Trả phòng sớm | Báo trước từ 1 ngày: hoàn 50 % tiền các đêm chưa ở (phụ thu người các đêm đó hoàn 100 %) · báo trong ngày rời: không hoàn |
-| Phụ thu người vượt định mức | Người lớn (từ 12 tuổi) 150.000 đ/đêm · trẻ 6–11 tuổi 100.000 đ/đêm · dưới 6 tuổi miễn |
+| Phụ thu người vượt định mức | Từ 6 tuổi trở lên 150.000 đ/đêm (trẻ 6–11 tuổi tính như người lớn, ESC-045) · dưới 6 tuổi miễn |
 | Dịch vụ, phí | Dọn phòng lẻ 100.000 đ · giặt ủi 30.000 đ/kg (tạm) · khử mùi thuốc lá 500.000 đ · mất/hỏng thẻ 200.000 đ/thẻ (tối đa 2 thẻ/đơn) |
 | Khách dài hạn | Điện theo đơn giá trên hợp đồng (mức 5.000 đ/kWh chờ kế toán xác nhận) · nước 100.000 đ/người/tháng theo ngày ở (tính tay ở v1.0) |
 | Hạn mức miễn phí | Lễ tân tự miễn minibar ≤ 100.000 đ/lần, ≤ 500.000 đ/tháng · lễ tân trưởng ≤ 300.000 đ/lần, ≤ 1.500.000 đ/tháng · quản lý ≤ giá 1 đêm/lần · chủ đầu tư không giới hạn |
@@ -1947,6 +1947,8 @@ Khi báo lỗi: theo **mục 0.8 điểm 9** – mô tả bằng lời **căn, m
 <!-- BUG-R3-021 (phần Desk), 023 (phần lọc), 024…031, 032, 041, 042, 043, 044, 045, FB-R3-ARC-BEB-WA-04 (bug-list.md). BUG-R4-026 (P3, đề xuất QA 04/11 – rounds/round-04/qa/v1.0.2-dk10-b18.md mục 9.6, ORC cấp số khi gộp; đích v1.0.4): dòng "Yêu cầu hoàn thay thế". Theo ORC: ghi "đang sửa", không hứa ngày. Bản 1.3 bỏ dòng 019, 020, 022 (Closed ở rc.4). -->
 
 ### 5.7 Lịch sử sổ tay
+
+**Sửa 05/11/2026, chưa đánh số bản** (BA; ESC-045 câu 1 và 3, DOM #72 thẻ 06): một giá mọi đêm, không còn +15 % thứ Sáu, thứ Bảy và +30 % ngày đặc biệt – mục 1.3, 5.2; phụ thu người vượt định mức từ 6 tuổi trở lên 150.000 đ/đêm, dưới 6 tuổi miễn – mục 2.12, 5.2. Áp dụng từ ngày chủ đầu tư chuyển giá. Số bản ghi cùng lần gộp PR #69.
 
 | Bản | Ngày | Người | Thay đổi |
 |---|---|---|---|
