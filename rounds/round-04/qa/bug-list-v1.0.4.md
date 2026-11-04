@@ -5,25 +5,140 @@
 - Mức lỗi theo `product/docs/qa/test-strategy.md` mục 8 (QA quyết, không hạ vì tiến độ).
 - Mã tiếp theo sau `BUG-R4-028` của `rounds/round-04/qa/bug-list.md`. Khi gộp vào tệp chính, ORC cấp lại số nếu đã có luồng khác dùng các số này.
 - Dữ liệu: chỉ DS-E (tài khoản `qa.*`, khách giả, email `@example.test`). Không bí mật, không số tài khoản thật. Ảnh bằng chứng nằm ngoài repo (scratchpad), chưa che QR, nên **không commit** (RG-06).
-- Không có lỗi P0. Có **một lỗi P1**: BUG-R4-035, thêm 04/11 tối. Lượt local 1 lúc 19:00 chưa có lỗi P1 nào.
+- Có **ba lỗi P0** đã ghi. Từ 05/11 01:00 còn **hai** P0 mở, vì BUG-R4-041 hạ P2 khi khóa tạm #75 đạt:
+  - BUG-R4-037, thêm 04/11 khuya. Lỗi có từ trước v1.0.1, nên đang ở production. Từ 05/11 00:35: **đã sửa – đã gộp vào `main` @ `d0ea6dc2`, đạt local, chờ STG**.
+  - BUG-R4-038, thêm 04/11 khuya. Lỗi có từ trước production. DOM đề xuất P2, QA chốt P0 theo luật lỗi tiền. ORC giữ **P0**, sửa trong v1.0.4. Từ 04/11 23:15: **đã sửa – chờ gộp #71**. 05/11 01:00: phần đổi ở head `02c34bc9` đạt.
+  - BUG-R4-041, thêm 04/11 khuya. Lỗi có từ trước v1.0.1, đang ở production. QA chốt P0 khi chưa có khóa tạm. Từ 05/11 01:00: **đã sửa – chờ gộp #75**, khóa tạm đạt, **hạ P2**.
+- Có **ba lỗi P1**:
+  - BUG-R4-035, thêm 04/11 tối;
+  - BUG-R4-039, thêm 04/11 khuya. Lỗi có từ trước v1.0.1, nên đang ở production;
+  - BUG-R4-042, QA2 thêm 05/11. Lỗi có từ v1.0.1, đang ở production.
+  - Lượt local 1 lúc 19:00 chưa có lỗi P0/P1 nào.
 - Cập nhật 04/11 19:30 (QA, bước Phản hồi & sửa): BUG-R4-033/034 đã sửa ở PR #62, chờ merge. BUG-R2-216: mục "Mong đợi" sửa theo UXD. BUG-R2-216/219: PR #60 (UXD đạt) chưa vào `main`, nên chưa chạy lại HD-01/02.
 - Cập nhật 04/11 19:45 (QA, bước Kiểm thử, chạy lại):
   - **BUG-R2-216/219: đạt local.** PR #60 đã vào `main` (merge `58183764`, head `c2c2edd2`). QA chạy lại HD-01, HD-02 trên `main` @ `58183764`: stack dùng một lần `ottimo-qahd`, Desk Chromium 1366×768, project `desk-clock`.
     - Kết quả: 4/4 ca đạt, chạy **3 lượt liên tiếp**. Unit `v104-hold-dialog-feb` đạt 4/4.
     - Trạng thái mới: **Đã sửa – đạt local, chờ xác nhận STG** (HD-01/02, 06/11 C3). Chi tiết ở mục của từng lỗi.
   - **Thêm BUG-R4-035 (P1).** Lỗi ở trang Trả phòng: số điền sẵn của tủ minibar có một khoảng hở, nên Desk có thể gửi "tủ đầy" và đảo dòng minibar đã tính. FE-A tái hiện ở CI PR #65; QA xác nhận cơ chế bằng đọc mã trên `main` @ `58183764`. Vì là P1, lỗi phải đóng trước QC. FE-A sửa ở PR `v104/fix-s4-144-flake`, gộp sau #64.
+- Cập nhật 04/11 tối (QA): **thêm BUG-R4-036 (P2)**.
+  - Lỗi: trong 00:00–05:59, Desk không có lối vào Trả phòng cho khách rời trong cửa sổ sau nửa đêm, dù máy chủ nhận. DOM tìm ra (`DOM-on-v104-pr68-docs.md`); QA đọc lại mã trên `main` @ `58183764`.
+  - Mức: DOM/ORC đề xuất P3. QA chốt **P2**, vì đây là thiếu chức năng có cách làm tạm, không phải lỗi chữ hay thẩm mỹ (`test-strategy.md` mục 8). Lý do chi tiết ở mục của lỗi.
+  - Dời v1.0.5 có kế hoạch, với điều kiện sổ tay và release notes có cách làm tạm. Test case 0.2 thêm TC-V104-CO-05 để kiểm cách làm tạm trên STG.
+- Cập nhật 04/11 khuya (QA, bước Kiểm thử):
+  - **BUG-R4-029/030/031: đã sửa – chờ gộp #61.** QA đọc log CI của PR #61 (`v104/ci-turbo-inputs`) và báo cáo OPS trên nhánh. Cả 3 lỗi được sửa. Chi tiết ở mục của từng lỗi.
+  - **Chạy tải nặng 2 test admin-web mà OPS báo flaky** (A-20 của `s2-fix.test.tsx`, ca US-139 của `booking.test.tsx`). Worktree tạm từ `origin/main` @ `4bf353da`.
+
+    | Số tiến trình song song | `s2-fix` | `booking` | `s4-144-fea` |
+    |---|---|---|---|
+    | 6 (như FE-A) | 0/36 đỏ | 0/36 đỏ | – |
+    | 16 | 0/32 đỏ | 0/32 đỏ | **1/32 đỏ** |
+    | 24 (tải máy ~88) | **3/40 đỏ** | **1/40 đỏ** | – |
+
+  - Hai test này đỏ **vì sản phẩm sai, không phải vì test**. QA ghi **BUG-R4-037 (P0)**: hộp Đặt phòng mới giữ giá điền từ bản xem giá kênh Trực tiếp sau khi lễ tân chuyển sang OTA hoặc Nội bộ.
+    - Ở tốc độ người, lỗi xảy ra mọi lần, không cần máy chậm.
+    - Lỗi có từ `cf6c5575` (16/10), trước v1.0.1, nên đang ở production. ORC quyết đường hotfix.
+  - Lượt đỏ 1/32 của `s4-144-fea` là bằng chứng thêm cho BUG-R4-035: cùng dấu hiệu, mức vẫn P1.
+  - QA không sửa mã. Đã xóa test chẩn đoán tạm và worktree.
+- Cập nhật 04/11 21:10 (QA, hotfix P0 BUG-R4-037, bước Kiểm thử):
+  - QA chạy thử câu truy vấn Q0–Q5 của BE trên stack local dùng một lần: đúng. Kết quả ở mục "QA chạy thử local" của `rounds/round-04/outputs/BE/bug-r4-037-data-impact.md`.
+  - **Thêm BUG-R4-038.** Lỗi: gia hạn đơn Nội bộ (B13) ghi đêm thêm theo giá Trực tiếp, không phải 0 đ. Nguồn: mục DOM của tệp BE. QA tái hiện trên stack local.
+    - Mức: DOM đề xuất P2. QA chốt **P0**, vì folio của đơn miễn phí bị cộng tiền phòng. Đây là "sai tiền" theo `test-strategy.md` mục 8. Lý do chi tiết ở mục của lỗi.
+- Cập nhật 04/11 21:30 (QA, hotfix P0 BUG-R4-037, bước Kiểm thử):
+  - **BUG-R4-037: đã sửa – chờ gộp #70.** QA xác minh PR #70 (`v104/fix-booking-rate-carryover` @ `822094b7`) trong worktree tạm và trên stack local dùng một lần. Đạt cả 3 phần:
+    - 3 ca tái hiện của QA;
+    - tải 24 tiến trình × 40 lượt;
+    - Desk thật trên stack.
+  - Chi tiết ở mục "Xác minh bản sửa" của lỗi. Test case hồi quy: TC-V104-RG-07…RG-12 (`v1.0.4-test-cases.md` bản 0.3).
+  - Chạy lại Q2 và Q4 của BE (khối dán nguyên mới) trên cùng stack: đúng. Kết quả ở mục "QA chạy thử local" của tệp BE.
+  - BUG-R4-038: ORC giữ P0, sửa trong v1.0.4 (BE, nhánh `v104/fix-internal-added-night`).
+- Cập nhật 04/11 21:55 (QA, bước Kiểm thử): **thêm BUG-R4-039 (P1).**
+  - Lỗi: lễ tân trưởng xác nhận được ngoại lệ "buồng chưa sẵn sàng" cho căn **còn đơn Đang ở** (`OC`/`OD`). Vì vậy nhận được đơn thứ hai vào căn đang có khách. Trái BR-402 (1).
+  - Nguồn: DOM lượt 3, mục 4 của `rounds/round-04/reviews/DOM-on-v104-pr68-docs.md`. QA tái hiện qua API trên stack local dùng một lần: 5/5 lượt.
+  - Mức: DOM đề xuất P1, QA chốt **P1**. Lý do ở mục của lỗi.
+  - ORC đã quyết chặn ở máy chủ trong v1.0.4. BE đang sửa trên nhánh `v104/fix-checkin-occupied-exception`.
+- Cập nhật 04/11 22:10 (QA, hotfix P0 BUG-R4-037, chạy lại #70 ở head mới `94a28258`, thẻ UXD PR70-01 và PR70-06):
+  - **PR70-01 đạt.** Ca mới: OTA để trống ở nhóm căn chưa có `ota_base_rate`.
+    - Máy chủ thật trả 422 `VALIDATION_FAILED`, `nightlyRates` `REQUIRED`. Thân lỗi khớp đúng mock trong test của FE.
+    - Desk của #70 hiện "Nhập giá mỗi đêm (lớn hơn 0)." và giữ hộp mở.
+  - **Thêm BUG-R4-040 (P3, dời v1.0.5, không chặn #70) theo thẻ PR70-06.** Máy chủ trả `RATE_OUT_OF_RANGE` cấp Problem, không kèm `min`/`max`. Desk hiện nguyên chữ `{min}`, `{max}`, `{group}`.
+  - Kết quả 3 ca tái hiện và tải 24 × 40 ở mục "Xác minh bản sửa" của BUG-R4-037.
+- Cập nhật 04/11 22:30 (QA): **thêm BUG-R4-041.**
+  - Lỗi: nút **Giữ chỗ** của hộp Đặt phòng mới bỏ giá đêm lễ tân đã gõ. Vì vậy giữ chỗ và cọc 30 % tính theo giá niêm yết, không theo giá thỏa thuận.
+  - Nguồn: DOM, mục "DOM trả lời ARC-03/UXD-05" của `rounds/round-04/reviews/ARC-on-v104-pr70-rate-carryover.md`. QA xác nhận bằng đọc mã và hợp đồng.
+  - ORC gọi lỗi này là BUG-R4-040. Nhưng số 040 đã cấp lúc 22:10 cho lỗi câu `{min}`/`{max}`, nên QA cấp **041**.
+  - Mức: DOM đề xuất P1 khi không có khóa tạm, P2 khi có. QA chốt:
+    - **P0** trong lúc chưa có khóa tạm, vì đây là lỗi sai tiền với khách và không ai được báo, cùng luật với BUG-R4-037;
+    - **hạ P2** khi khóa tạm (PR `v104/fe-hold-typed-rate-lock`) vào v1.0.4 và QA xác minh đạt.
+  - Lý do ở mục của lỗi.
+- Cập nhật 04/11 23:15 (QA, bước Kiểm thử): **BUG-R4-038: đã sửa – chờ gộp #71.**
+  - QA xác minh PR #71 (`v104/fix-internal-added-night` @ `7557e485`, CI xanh) trên stack local dùng một lần từ chính nhánh này. 9/9 ca API đạt, gồm B13, B9a, B18, đối chứng Trực tiếp và A31.
+  - Q5a của BE chạy nguyên khối sau bản sửa: đơn Nội bộ mới gia hạn **không còn bị đếm**.
+  - Hồi quy 3 tệp clock có B9a/B13/B18 (`checkin.s3`, `stay-checkout.s3`, `late-fee-qr.s4`): 76 đạt, 1 bỏ qua, 0 đỏ.
+  - QA rà phần sửa `tests/tools/validate-fixtures.mjs` và oracle BR-421-04…11 theo lời nhờ của BE: đạt. Còn thiếu 1 dòng oracle cho B9a Nội bộ, đây là đề xuất, không phải lỗi.
+  - Chi tiết ở mục "Xác minh bản sửa" của lỗi.
+
+- Cập nhật 05/11 00:35 (QA, bước Kiểm thử): **BUG-R4-037: đã gộp vào `main` @ `d0ea6dc2`, đạt local, chờ STG.**
+  - #70 (head cuối `98d8a3ad`) và #73 (`v104/ota-rate-fallback`, OTA lấy giá niêm yết khi thiếu `ota_base_rate`) đã vào `main` @ `d0ea6dc2`. QA chạy lại toàn bộ xác minh #70 trên `main`, trong worktree tạm và trên stack local dùng một lần dựng từ `d0ea6dc2`.
+  - 3 ca tái hiện của QA: xanh 3/3. Tệp `v104-booking-rate-carryover.test.tsx` của FE: 28/28.
+  - Desk thật trên stack:
+    - đổi kênh sang OTA hoặc Nội bộ thì giá đã gõ bị xóa, câu `booking.rates_cleared_channel` hiện;
+    - ở Trực tiếp, đổi sang căn khác nhóm thì giá đã gõ bị xóa, câu `booking.rates_cleared_room_group` hiện, có số căn;
+    - đổi sang căn cùng nhóm thì giữ giá đã gõ.
+  - Tải 24 × 40: 2 lượt trên `main` với giới hạn mặc định 15 s. Lượt 1: 1/120 đỏ, chỉ là quá giờ của bộ chạy lúc tải 67–81, không có lỗi assert. Lượt 2: 0/120 đỏ ở tải 36–144.
+  - TC-V104-RG-13 đổi kỳ vọng theo #73 (ARC nhờ). OTA để trống khi thiếu `ota_base_rate` thì ra 201 theo giá niêm yết. Câu `rate_empty` chỉ còn cho căn thiếu giá niêm yết. Cả 2 nhánh đạt trên stack. Test case bản 0.5 thêm RG-16 (BUG-R4-038) và RG-17 (hai câu báo xóa giá).
+  - BUG-R4-041 vẫn tái hiện trên `main`. Điều này đúng kế hoạch, vì khóa tạm nằm ở PR riêng. Lỗi vẫn P0.
+  - Chi tiết ở mục "Chạy lại ở head cuối và trên `main`" của BUG-R4-037.
+- Cập nhật 05/11 00:45 (QA2, bước Kiểm thử, các stack local dùng một lần, đã dọn):
+  - **BUG-R4-035: đã sửa – đã gộp #67** (`main` @ `217afac0`, head `ceda9278`).
+    - Gỡ từng phần sửa thì đúng các ca chống tái phát đỏ, ổn định 3/3 lượt, đều là lỗi assert.
+    - Tải 12 × 10: lượt đỏ chỉ có ở một đỉnh tải 100–131, đều là quá giờ hoặc kéo theo từ ca quá giờ. Không có lỗi assert do mã sản phẩm.
+    - Desk thật: 2 ca đạt. Chi tiết ở mục "Xác minh bản sửa" của lỗi.
+  - **BUG-R4-039: đã sửa – chờ gộp #74** (head `9646029d`). C1–C5 đạt. Đối chứng trên `main` @ `d0ea6dc2` (chưa có #74): C1, C2, C5 đỏ như mong đợi.
+  - **PR #73 (RG-13): đạt** trên `main` @ `d0ea6dc2` và trên nhánh @ `78ef6196`. Q1 của BE không đếm đơn mới (không dương tính giả).
+  - **Thêm BUG-R4-042 (P1).** Trang Trả phòng sau B14: đếm xong tủ thứ hai, Desk quay lại tủ đã đếm khi bản tóm tắt tải lại chậm.
+    - Lễ tân bấm "tủ đủ" ở màn đó thì dòng minibar đã tính bị đảo.
+    - Lỗi có từ v1.0.1, đang ở production. Không do #67 gây ra.
+    - Tìm thấy khi tìm nguyên nhân lượt đỏ đầu của TC-L4-138 trên stack #67.
+
+- Cập nhật 05/11 01:00 (QA, bước Kiểm thử):
+  - **BUG-R4-041: đã sửa – chờ gộp #75, hạ P2.**
+    - QA xác minh PR #75 (`v104/fe-hold-typed-rate-lock`) ở head `9c277c7a`. Sau đó chạy lại phần đổi ở head mới `e71ab25f` (thẻ UXD PR75-01/02/03).
+    - Unit và Desk thật trên stack local dùng một lần đều đạt. Có giá đã gõ thì nút **Giữ chỗ** khóa và có câu. Bấm chuột, Enter, Space đều không tạo giữ chỗ. Xóa giá đã gõ thì giữ chỗ theo giá niêm yết (1.500.000).
+    - Chi tiết ở mục "Xác minh bản sửa" của lỗi.
+  - **BUG-R4-038: phần đổi của #71 ở head `02c34bc9` đạt.**
+    - `bug-r4-038-internal-added-night.test.ts`: 11/11, 2 lượt, trên một Postgres dùng một lần.
+    - Gỡ dòng ghi `actorRole` vào audit thì ca A31 đỏ.
+    - CI của #71 và #75 chỉ đỏ ở 2 ca "Hôm nay" của `v104-holds-feb`. Nguyên nhân là ngày UTC trong test; PR #76 sửa. Theo ARC, `main` đỏ từ 00:00 tới 06:59, không phải tới 06:00.
+  - **Thêm BUG-R4-043 (P2, dời v1.0.5 có kế hoạch).**
+    - Lỗi: cờ `is_complimentary` đi theo kênh, không theo tiền. Vì vậy đêm "Nội bộ có thu" bị tính là đêm miễn phí.
+    - Nguồn: quan sát của QA ở BUG-R4-038; DOM kết luận ở lượt 6 của `DOM-on-v104-pr68-docs.md`.
+    - Mức: DOM/ORC đề xuất P3. QA chốt **P2**, vì đây là dữ liệu lưu sai, không phải lỗi chữ. Vẫn dời v1.0.5 như đề xuất. Lý do ở mục của lỗi.
+  - **Thêm BUG-R4-044 (P2): đã sửa – chờ gộp #80.**
+    - Lỗi: hộp **Gia hạn giữ chỗ** hiện hạn sớm một ngày khi hạn rơi vào 00:00–06:59.
+    - Nguồn: thẻ ARC FB-R4-ARC-FE-PR76-01 (Minor).
+    - QA xác minh PR #80 (`v104/fe-extend-hold-local-date` @ `796a0cee`): 12 ca giờ giả, ở múi giờ VN và UTC, đều đạt. Trên mã cũ, 8 ca đỏ.
+  - Test case bản 0.7: thêm RG-22 (BUG-R4-043, N/A ở v1.0.4) và RG-23 (BUG-R4-044); RG-15 đổi kỳ vọng theo #75 @ `e71ab25f`.
 
 ## Tóm tắt
 
 | Mã | Mức | Chỗ | Vai sửa | Trạng thái |
 |---|---|---|---|---|
-| BUG-R4-029 | P2 | CI `build-test` xanh giả: turbo phát lại kết quả cũ của `api-client`, `integrations`; 5 ca `production-bootstrap` luôn bị bỏ qua | OPS (+ ARC duyệt) | Mới |
-| BUG-R4-030 | P3 | `api-client` `src/generated/openapi.ts` lệch `openapi.yaml` (thiếu mô tả 0.3.12 của P4-16); test drift đỏ khi chạy không cache | BE-C (+ ARC) | Mới |
-| BUG-R4-031 | P3 | `integrations` test đối chiếu luật email với `ops-check.sh` đỏ từ P4-04: bóc phải chữ `$EMAIL_RULE_RE` | OPS + INT | Mới |
+| BUG-R4-029 | P2 | CI `build-test` xanh giả: turbo phát lại kết quả cũ của `api-client`, `integrations`; 5 ca `production-bootstrap` luôn bị bỏ qua | OPS (+ ARC duyệt) | **Đã sửa – chờ gộp #61** (head `d0b8fd58`; CI job `126574160088`: mọi task test cache miss, `production-bootstrap` 11/11 không bỏ qua) |
+| BUG-R4-030 | P3 | `api-client` `src/generated/openapi.ts` lệch `openapi.yaml` (thiếu mô tả 0.3.12 của P4-16); test drift đỏ khi chạy không cache | BE-C (+ ARC) | **Đã sửa – chờ gộp #61** (sinh lại client; `api-client` 37/37 cache miss trên CI) |
+| BUG-R4-031 | P3 | `integrations` test đối chiếu luật email với `ops-check.sh` đỏ từ P4-04: bóc phải chữ `$EMAIL_RULE_RE` | OPS + INT | **Đã sửa – chờ gộp #61** (test đọc giá trị `EMAIL_RULE_RE`; `integrations` 296/296 cache miss trên CI) |
 | BUG-R4-032 | P2 | Sổ tay v1.0.4 chưa có đường **Đặt lại xác thực 2 bước**; hàng "mất điện thoại" vẫn dạy Khóa + tạo tài khoản mới (MN-02) | BA (+ SEC đọc câu) | Mới |
 | BUG-R4-033 | P3 | Bộ test: S1-SEC-16 (API) flaky khi chạy song song – 429 của giới hạn đăng nhập theo IP | QA | Đã sửa, chờ merge (PR #62) |
 | BUG-R4-034 | P3 | Bộ test: TC-L2-033 flaky – ca song song khóa OOO cùng đêm của căn 401 | QA | Đã sửa, chờ merge (PR #62) |
-| BUG-R4-035 | **P1** | Trả phòng (H16): số điền sẵn của tủ minibar chỉ được gán trong `useEffect` sau khi `minibar-standard` tải xong. Bấm **Tiếp tục** đúng khoảng hở thì Desk gửi "tủ đầy" và đảo dòng minibar đã tính (sai tiền). Bấm lúc đang tải thì sang bước sau mà không đếm tủ | FE-A | Mới – FE-A đang sửa (PR `v104/fix-s4-144-flake`, gộp sau #64) |
+| BUG-R4-035 | **P1** | Trả phòng (H16): số điền sẵn của tủ minibar chỉ được gán trong `useEffect` sau khi `minibar-standard` tải xong. Bấm **Tiếp tục** đúng khoảng hở thì Desk gửi "tủ đầy" và đảo dòng minibar đã tính (sai tiền). Bấm lúc đang tải thì sang bước sau mà không đếm tủ | FE-A | **Đã sửa – đã gộp #67** (`main` @ `217afac0`, head `ceda9278`). QA2 05/11: gỡ từng phần sửa thì đúng ca đỏ, 3/3 lượt. Tải 12 × 10 không có lỗi assert do mã sản phẩm. Desk thật 2 ca đạt. Chờ STG (RG-18) |
+| BUG-R4-036 | P2 | 00:00–05:59: khung đơn và trang Hôm nay không có nút **Trả phòng** cho khách rời trong cửa sổ sau nửa đêm (`allowed-actions.ts:115` so ngày nghiệp vụ; Hôm nay chỉ lấy khách đi của ngày nghiệp vụ). Máy chủ B18 vẫn nhận cửa sổ này | BE (+ FE nếu cần) | Mới – dời v1.0.5 có kế hoạch; cách làm tạm trong sổ tay/release notes; kiểm cách làm tạm ở CO-05 |
+| BUG-R4-037 | **P0** | Đặt phòng mới (H09): giá mỗi đêm do bản xem giá kênh **Trực tiếp** điền sẵn vẫn nằm trong ô sau khi chuyển sang **OTA** / **Nội bộ**. Nếu mọi đêm có số, Desk gửi số đó làm giá của đơn (`edited:false`). Nếu chỉ một phần đêm có số, Desk chặn với câu "Nhập giá mỗi đêm" gây hiểu nhầm. Đây là gốc của 2 test flaky A-20 và US-139. Có từ trước v1.0.1, đang ở production | FE (BookingDialog) | **Đã sửa – đã gộp vào `main` @ `d0ea6dc2`, đạt local** (#70 head cuối `98d8a3ad`, cùng #73). QA chạy lại trên `main` 05/11 00:35: 3 ca tái hiện xanh, tệp test của FE 28/28. Tải 24 × 40: 2 lượt trên `main` với giới hạn mặc định 15 s. Lượt 1: 1/120 đỏ, chỉ là quá giờ của bộ chạy lúc tải 67–81, không có lỗi assert. Lượt 2: 0/120 đỏ ở tải 36–144. Desk thật trên stack: hai câu `rates_cleared_channel`, `rates_cleared_room_group` hiện đúng lúc; RG-13 theo #73 đạt. Chờ STG RG-07…RG-11, RG-13, RG-17. Còn hotfix production: ORC quyết |
+| BUG-R4-038 | **P0** | Gia hạn (B13), đêm B9a, đêm thêm ở B18 của đơn **Nội bộ** lấy giá lịch Trực tiếp thay vì 0 đ, vì `addedNightRate` thiếu nhánh `internal`. Folio của đơn miễn phí hiện **Còn phải thu** sai, doanh thu và ADR bị cộng thêm. Desk không đưa về 0 được | BE (+ ARC) | **Đã sửa – chờ gộp #71** (đạt ở head `7557e485`. Phần đổi ở head `02c34bc9`: tệp test BE 11/11; CI đỏ chỉ ở 2 ca "Hôm nay" của `v104-holds-feb`, PR #76 sửa). Stack local: 9/9 ca API đạt. B13, B9a, B18 Nội bộ đều 0 đ `complimentary`, folio không còn phải thu. Đối chứng Trực tiếp không đổi. A31: MGR đưa về 0 được khi có lý do; FD và FDL nhận 403. Q5a sau bản sửa: `TOTAL` 0. Hồi quy clock: 76 đạt, 0 đỏ |
+| BUG-R4-039 | **P1** | Nhận phòng (B9): máy chủ cho lễ tân trưởng trở lên xác nhận ngoại lệ `room_ready` với **mọi** trạng thái buồng trừ `OOO` (`checkin.service.ts` 359–361, 588). Vì vậy nhận được đơn thứ hai vào căn còn đơn **Đang ở** (`OC`/`OD`): căn có 2 lượt Đang ở, và khi khách cũ trả phòng thì căn về `VD` dù khách mới đang ở. Trái BR-402 (1), chỉ cho ngoại lệ với `VD`/`CL`. Có từ `bad6f599` (16/10), đang ở production | BE-A (+ ARC; FE/UXD cho câu chặn) | **Đã sửa – chờ gộp #74** (head `9646029d`). QA2 05/11, API trên stack local: C1–C5 đạt. Căn `OC`/`OD`: 409 với 5 lối, không tạo yêu cầu duyệt. `VD`/`CL` vẫn cho ngoại lệ. Căn còn khách mà trạng thái bị sửa tay sang `VD` vẫn bị chặn. Đối chứng `main` chưa có #74: C1, C2, C5 đỏ. Phần Desk chưa kiểm (RG-14) |
+| BUG-R4-040 | P3 | Đặt phòng mới (H09): giá Trực tiếp / CTV ngoài sàn–trần cứng (BR-105). Máy chủ trả Problem `RATE_OUT_OF_RANGE` chỉ có `dates`, không có `min`/`max`/`group`. Desk hiện câu chung `error.RATE_OUT_OF_RANGE` với nguyên chữ: "Giá phải từ {min} đến {max} (giá sàn – trần nhóm {group})." Câu nằm ở đầu hộp, ngoài khung nhìn khi bấm **Tạo đơn**. Có từ trước v1.0.1 | BE (thêm `min`/`max`/`group` hoặc trả theo đêm) + FE (nhánh `RATE_OUT_OF_RANGE`, đặt dưới bảng giá) + UXD | Mới – dời v1.0.5 có kế hoạch (ORC, thẻ UXD PR70-06). Không chặn #70 |
+| BUG-R4-041 | **P2** (hạ từ P0 lúc 05/11 01:00, khóa tạm #75 đạt) | Đặt phòng mới (H09), nút **Giữ chỗ đến …**: `hold()` gọi `saveQuote` không kèm giá đêm (hợp đồng `QuoteInput` không có `nightlyRates`). Giá lễ tân đã gõ bị bỏ mà không báo: giữ chỗ, cọc 30 % và VietQR tính theo giá niêm yết. Khi đơn được xác nhận, giá đơn cao hơn giá đã thỏa thuận. Có từ trước v1.0.1, đang ở production | FE (khóa tạm v1.0.4) + ARC/BE (Q1 nhận giá thỏa thuận, v1.0.5) + UXD (câu) + BA (sổ tay 2.5 bước 10) | **Đã sửa – chờ gộp #75** (head `e71ab25f`). Có giá đã gõ thì nút **Giữ chỗ** khóa (`aria-disabled`) và có câu. Bấm chuột, Enter, Space đều không tạo giữ chỗ. Xóa giá đã gõ thì giữ chỗ theo giá niêm yết 1.500.000. Phần giữ chỗ theo giá thỏa thuận dời v1.0.5. Hotfix production và cách làm tạm gửi INV: ORC quyết |
+| BUG-R4-042 | **P1** | Trả phòng (H16), lượt có B14 giữa kỳ và còn 2 tủ phải đếm. `nextCabinet` tìm tủ kế tiếp trong `toCount` của lần render lúc bấm. Nếu bản tóm tắt tải lại sau lần đếm tủ đầu chưa về khi lễ tân đếm xong tủ thứ hai, Desk quay lại tủ đầu (đã đếm) và đứng ở bước ①. Khi bản tóm tắt về, bảng của tủ đó không còn ghi tên tủ, còn tiêu đề vẫn ghi căn đang ở. Bấm "Không dùng gì – tủ đủ" rồi **Tiếp tục** thì dòng minibar đã tính bị đảo (sai tiền). Có từ v1.0.1 (S4-38), đang ở production | FE-A (+ ARC xem; UXD nhãn tủ) | Mới – báo ORC 05/11 00:45, sửa bằng PR mới |
+| BUG-R4-043 | P2 | Dữ liệu chỉ số: cờ `is_complimentary` của đêm và đơn đi theo kênh, không theo tiền. Đêm "Nội bộ có thu" (> 0 đ) mang `true`. A31 đổi giá mà không tính lại cờ; giảm giá thì có tính lại. Khi có báo cáo, ADR K-04 và số đêm miễn phí K-02 sẽ sai. Không sai tiền; ở v1.0.x chưa màn nào đọc cờ | BE (+ OPS tính lại dữ liệu; DATA Q-05, BA EP02, ARC `erd.md`, DOM BR-904) | Mới – dời v1.0.5 có kế hoạch. Sửa mã và tính lại dữ liệu trước báo cáo ADR đầu tiên. Tới lúc đó DATA tính đêm miễn phí bằng `room_revenue_vnd = 0` |
+| BUG-R4-044 | P2 | Gia hạn giữ chỗ (B3, `ExtendHoldDialog`): giờ của hạn theo giờ VN, nhưng ngày lấy theo UTC. Vì vậy hạn rơi vào 00:00–06:59 hiện **sớm một ngày** ở nút "Gia hạn đến …" và ở thông báo sau khi gia hạn. Lễ tân báo khách sai hạn. Không sai tiền | FE | **Đã sửa – chờ gộp #80** (`796a0cee`). 12 ca giờ giả (02:00, 06:30, 14:00, 23:30) ở múi giờ VN và UTC đều đạt; trên mã cũ thì 8 ca đỏ |
 | BUG-R2-216 | P3 | Thấy lại: hộp "Giữ chỗ" sau khi tạo in 2 lần số cọc và nội dung chuyển khoản | FE-B + UXD | **Đã sửa – đạt local** (PR #60, `main` @ `58183764`, HD-01 3/3 lượt). Chờ xác nhận STG 06/11 C3 |
 | BUG-R2-219 | P3 | Thấy lại: hộp "Giữ chỗ" khi khách đến hôm nay vẫn hiện bộ chọn 12/24/48 h và mốc hạn đã qua | FE-B + UXD (chữ) | **Đã sửa – đạt local** (PR #60, `main` @ `58183764`, HD-02 3/3 lượt). Chờ xác nhận STG 06/11 C3 |
 
@@ -58,7 +173,16 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
   - Log CI: `gh run view 41819582803 --log` (job build-test), dòng "cache hit" của 2 gói và dòng `production-bootstrap.test.ts (11 tests | 5 skipped)`.
   - Log máy QA (scratchpad, không commit): `qa104/unit/test.clean.log` (integrations 294/295, api-client 36/37).
 - **Vai chịu trách nhiệm:** OPS (cấu hình turbo/CI). ARC duyệt danh sách đầu vào.
-- **Trạng thái:** Mới.
+- **Trạng thái:** **Đã sửa – chờ gộp #61** (QA xác nhận 04/11 khuya). PR #61 nhánh `v104/ci-turbo-inputs`, head `d0b8fd58`.
+  - Cách sửa (báo cáo OPS `rounds/round-04/outputs/OPS/v1.0.4-ci-turbo-inputs.md` trên nhánh): mỗi gói có `turbo.json` riêng, khai đầu vào test ngoài gói qua `$TURBO_ROOT$` (gồm `openapi.yaml`, `ops-check.sh`); thêm `BOOTSTRAP_*` vào `test.env`; thêm `tsconfig.base.json` vào `globalDependencies`.
+  - Bằng chứng: log job `126574160088` "format · lint · audit · test · build" (run `41828458647`, head `4f972805`, lượt 2, xanh). Lệnh: `gh run view --job 126574160088 --log`.
+    - Mọi task test là **cache miss**: `api-client` 37/37, `integrations` 296/296, `api` 4125 đạt / 19 bỏ qua / 1 todo, `admin-web` 874, `mobile` 162, `guest-web` 89.
+    - Dòng `production-bootstrap.test.ts (11 tests)`, **không còn ca bị bỏ qua**.
+    - "Cached: 4 cached, 14 total". Cả 4 task cache hit đều đã chạy thật (cache miss) ở bước trước của **chính job này**, nên không phải kết quả của SHA cũ. Đó là `contracts:build`, `integrations:build`, `landing-web:build` và `landing-web:test`.
+  - Head `d0b8fd58` chỉ khác `4f972805` ở 2 tệp tài liệu (báo cáo OPS, runbook). Run `41832423127` trên `d0b8fd58`: mọi check xanh.
+    - Run `41828458647` báo "cancelled" chỉ vì job docker-build bị lượt mới thay. Job test `126574160088` của run đó xanh.
+    - Ở `d0b8fd58`, task test có thể cache hit từ `4f972805`. Điều này hợp lệ, vì đầu vào test của hai SHA giống nhau.
+  - Còn lại sau khi gộp: với SHA cắt bản 06/11 18:00, QA đối chiếu log CI có cache miss ở các task test (TC-V104-CT-01, RG-04).
 
 ### BUG-R4-030 – `api-client`: `src/generated/openapi.ts` lệch `openapi.yaml`, test drift đỏ khi không cache
 - **Mức:** P3. Chỉ thiếu 3 dòng chú thích (doc comment), kiểu dữ liệu không đổi, không ảnh hưởng lúc chạy. Nhưng test drift của hợp đồng (CT-01) đang đỏ thật.
@@ -72,7 +196,10 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
 - **Đề xuất sửa:** `pnpm --filter @ottimo/api-client gen`, commit tệp sinh, kèm sửa BUG-R4-029 (a) để lần sau CI tự bắt.
 - **Bằng chứng:** log `qa104/unit/test.clean.log` (scratchpad) dòng `src/generated.test.ts (1 test | 1 failed)`. Bản sinh lại tạm đã xóa lúc dọn; tái hiện bằng bước 2.
 - **Vai chịu trách nhiệm:** BE-C (chủ P4-16). ARC (chủ hợp đồng) xác nhận.
-- **Trạng thái:** Mới.
+- **Trạng thái:** **Đã sửa – chờ gộp #61** (QA xác nhận 04/11 khuya).
+  - PR #61 sinh lại `src/generated/openapi.ts` (thêm đúng 3 dòng mô tả 0.3.12).
+  - Job `126574160088`: `@ottimo/api-client:test` cache miss, 37/37 đạt (gồm `src/generated.test.ts`).
+  - Đầu vào test đã có `openapi.yaml` (BUG-R4-029 (a)), nên lần lệch sau CI sẽ tự bắt.
 
 ### BUG-R4-031 – `integrations`: test đối chiếu luật email với `ops-check.sh` đỏ từ P4-04
 - **Mức:** P3. Luật thật vẫn khớp nhau: QA thay hằng vào bản chép tạm, test chạy 39/39. Nhưng bộ test của EM-14 đang đỏ, và nếu để vậy thì lần lệch thật tiếp theo sẽ không ai thấy.
@@ -87,7 +214,10 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
 - **Đề xuất sửa:** sửa test cho đọc dòng `EMAIL_RULE_RE='…'` khi gặp `$EMAIL_RULE_RE`. Kèm sửa BUG-R4-029 (b).
 - **Bằng chứng:** log `qa104/unit/test.clean.log` dòng `notification/email-address.test.ts (39 tests | 1 failed)`. Bản chép tạm đã thay hằng (đã xóa): 39/39.
 - **Vai chịu trách nhiệm:** OPS (P4-04 đổi `ops-check.sh`) sửa test cùng INT (chủ bộ test `notification`).
-- **Trạng thái:** Mới.
+- **Trạng thái:** **Đã sửa – chờ gộp #61** (QA xác nhận 04/11 khuya).
+  - PR #61 sửa test: khi câu SQL dùng `$EMAIL_RULE_RE`, test đọc giá trị thật của hằng `EMAIL_RULE_RE` trong `ops-check.sh`. Thêm 1 ca, nên tổng là 296 ca.
+  - Job `126574160088`: `@ottimo/integrations:test` cache miss, 296/296 đạt.
+  - Đầu vào test đã có `ops-check.sh` (BUG-R4-029 (b)).
 
 ### BUG-R4-032 – Sổ tay v1.0.4 chưa có đường "Đặt lại xác thực 2 bước"
 - **Mức:** P2. Tài liệu dẫn người dùng tới cách vòng tốn công, trong khi v1.0.4 đã có nút (BUG-R4-020, P4-30). Theo cách vòng, người mất điện thoại bị tạo **tài khoản mới**: lịch sử thao tác bị tách làm hai, phải gán lại vai và email. Có cách khắc phục, nên chưa tới P1.
@@ -168,6 +298,8 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
   3. Tự động: `corepack pnpm --filter @ottimo/admin-web exec vitest run src/__tests__/s4-144-fea.test.tsx -t "gia hạn sau khi đã đếm"`, chạy 6 tiến trình song song.
      - FE-A: đỏ 1/30 khi chạy song song, 0/20 khi chạy riêng.
      - Máy QA (04/11 19:41, 30 lần, 6 tiến trình): 0/30 đỏ. Tỉ lệ phụ thuộc tải máy, nên QA dựa vào đọc mã để xác nhận cơ chế.
+     - Máy QA (04/11 khuya, `main` @ `4bf353da`, 32 lần, **16 tiến trình**): **1/32 đỏ**. Lượt đỏ ở đúng ca "gia hạn sau khi đã đếm", báo `expected 2 to be +0`, tức `remainingQty` của coke là số chuẩn thay vì 0. Dấu hiệu này khớp nhánh (a).
+     - Vẫn chỉ tái hiện được bằng test tự động khi máy quá tải, nên mức giữ P1.
 - **Thực tế (QA đọc mã):**
   - (a) **Khoảng hở "tủ đầy" – sai tiền.**
     - `left` (số còn trong tủ) chỉ được gán trong `useEffect` (dòng 245–267), chạy sau khi render có `std.state.data`.
@@ -191,9 +323,754 @@ Ghi chú không phải lỗi (cuối tệp): khóa chữ `fo.tabs.holds` không 
 - **Bằng chứng:**
   - log CI PR #65 (FE-A), job `format · lint · audit · test · build`;
   - log 30 lần chạy của QA (scratchpad, không commit, không có bí mật): `qahd/flake/run-*.log`, `summary.txt`;
+  - log 32 lần chạy ở 16 tiến trình (scratchpad, không commit): `qarace/p16/s4-144-fea-*.log`, lượt đỏ là `s4-144-fea-6.log`;
   - các dòng mã nêu trên.
 - **Vai chịu trách nhiệm:** FE-A (chủ H16 minibar). ARC xem cách khóa số điền sẵn theo lần đọc. QA chạy lại ca s4-144 ở chế độ song song, cộng ca chống tái phát, sau khi PR vào `main`.
-- **Trạng thái:** Mới. FE-A đang sửa ở PR `v104/fix-s4-144-flake`, gộp sau #64. Cần vào bản cắt 06/11 18:00. Nếu không kịp thì ORC quyết lại (P1 mở thì QC không qua).
+- **Xác minh bản sửa (QA2, 05/11 00:45):**
+  - Bản thử: nhánh `v104/fix-s4-144-flake` @ `ceda9278`. Đây đúng là head đã gộp vào `main` (`217afac0`).
+    - Worktree tạm và stack local dùng một lần `ottimo-qa2p67` (api, web, worker, postgres). Seed DS-E, `CLOCK_MODE=mutable`. Đã dọn.
+    - Không chạy gì trên staging hay production.
+  - **(1) Gỡ từng phần sửa thì đúng ca đỏ.** Chạy 3 tệp `s4-144-fea`, `v104-minibar-prefill-fea`, `bug-r4-038-fea` (23 ca), mỗi biến thể 3 lượt. 3 lượt cho kết quả giống nhau:
+
+    | Biến thể | Phần bị gỡ | Kết quả |
+    |---|---|---|
+    | HEAD | không gỡ | 23/23 xanh |
+    | V0 | `CheckOutPage.tsx` và `Controls.tsx` về bản trước #67 (`ea979fe7`) | 10 đỏ: 2 ca s4-144 (bấm ở đúng commit hiện tủ; bấm lúc đang đọc chuẩn), BUG-R4-035 (sửa tủ A rồi chuyển tủ B), ARC 01 (a) và (b), ARC 03, UXD 01, `minibarPrefill` (tủ đầy), 2 ca BUG-R4-038 |
+    | V1 | chỉ `lateFeeFree` (BUG-R4-038 phía Desk) | 2 đỏ, đúng 2 ca `bug-r4-038-fea` |
+    | V2 | chỉ `cabinetSettled` (ARC 03) | 1 đỏ, đúng ca ARC 03 |
+    | V3 | chỉ `stdForCabinet` và `Stepper disabled` (ARC 01, UXD 01) | 3 đỏ, đúng ARC 01 (a), (b) và UXD 01 |
+
+    Mọi ca đỏ là lỗi assert, không có quá giờ.
+  - **(2) Tải 12 tiến trình × 10 lượt** (`load.sh` của FE: `s4-144-fea` và `v104-minibar-prefill-fea`, 20 ca mỗi lượt):
+
+    | Lượt | Giới hạn mỗi ca | Tải 1 phút (thấp – cao) | Đỏ / 120 | Loại |
+    |---|---|---|---|---|
+    | A | mặc định 15 s | 41,6 – 130,8 | 12 | 11 lượt đỏ cùng một lúc (lượt thứ 8 của cả 12 tiến trình), đúng lúc tải lên 100–131. Thêm 1 lượt mà hook khởi động quá giờ, nên 20 ca bị bỏ qua. Trong 11 lượt đó: 47 ca quá giờ, 2 hook quá giờ, 13 lần `findBy…` hết giờ chờ. Có 4 assert `'2'` khác `'1'` ở ca UXD 01: lỗi này kéo theo từ ca quá giờ ngay trước, vì 2 ca dùng chung `screen` và mock. Không có lỗi assert do mã sản phẩm |
+    | A2 | mặc định 15 s (cùng lệnh) | 66,6 – 100,6 | 0 | – |
+    | B | 60 s | 57,3 – 90,4 | 0 | – |
+
+  - **(3) Desk thật** (Chromium, project `desk-clock`, đồng hồ giả, test tạm của QA2, xóa cùng worktree):
+    - **Ca 2 tủ sau B14.**
+      - Diễn biến:
+        1. Tủ cũ 202 được chọn trước.
+        2. Lễ tân chuyển sang tủ căn đang ở trong lúc bản tóm tắt tính theo giờ bị giữ lại, rồi gõ bia dùng 1.
+        3. Nhả bản tóm tắt: trang vẫn ở tủ đã chọn, số đã gõ còn nguyên.
+        4. **Tiếp tục**: Desk đếm tủ căn đang ở, rồi sang 202. Gõ bia dùng 1, bấm ngay.
+      - Kết quả: 2 lệnh 201, đúng `roomId`. Bill, thu tiền mặt, **Hoàn tất**: folio `settled`, 2 dòng minibar 35.000, không có dòng đảo. Đạt 2/2 lượt.
+    - **Ca lõi BUG-R4-035.**
+      - Diễn biến: D+1 đếm bia dùng 1, rồi B13 thêm 1 đêm. Ngày đi, bấm **Tiếp tục** ngay khi câu "cần đếm lại" hiện.
+      - Kết quả: lệnh gửi `remainingQty` bia = số chuẩn − 1 (theo lần đếm trước), không phải tủ đầy. Dòng minibar giữ nguyên, không có dòng đảo. Đạt.
+    - **TC-L4-138** (spec có sẵn): lượt đầu đỏ (quá giờ, tải 45–64), 2 lượt sau xanh.
+      - Nguyên nhân là lỗi mới BUG-R4-042, có từ trước #67, không phải hồi quy của #67.
+  - **Kết luận: ĐẠT.**
+  - Gợi ý cho FE, không chặn: ca UXD 01 nên tự dọn khi ca trước quá giờ (render riêng, đặt lại mock). Như vậy khi tải nặng, ca này không đỏ kéo theo.
+- **Trạng thái:** **Đã sửa – đã gộp #67** (`main` @ `217afac0`), đạt local (QA2 05/11). Chờ STG ở TC-V104-RG-18.
+  - Trước đó: Mới, FE-A sửa ở PR `v104/fix-s4-144-flake`.
+
+### BUG-R4-036 – 00:00–05:59: Desk không có nút Trả phòng cho khách rời trong cửa sổ sau nửa đêm
+- **Mức:** **P2** (QA chốt 04/11). DOM và ORC đề xuất P3.
+  - Theo `product/docs/qa/test-strategy.md` mục 8, P3 dành cho thẩm mỹ, chính tả, câu chữ. Lỗi này là thiếu chức năng ở một luồng chính (Trả phòng), có cách làm tạm. Mô tả đó khớp P2: "chức năng phụ sai; UX gây nhầm có cách khắc phục".
+  - Không xếp cao hơn, vì không sai tiền nếu làm theo cách làm tạm (Trả phòng từ 06:00, ghi giờ thực tế). Cách làm tạm cũng không tốn công.
+  - P2 được dời có kế hoạch. Điều kiện: sổ tay và release notes có cách làm tạm, và CO-05 đạt trên STG.
+  - Nếu CO-05 đỏ (Desk không nhận giờ 04:30, hoặc tính phụ thu), cách làm tạm không dùng được. Khi đó nâng **P1**.
+  - Nếu ORC không đồng ý mức này, ORC phân xử.
+- **Môi trường:** đọc mã trên `main` @ `58183764`. DOM tìm khi đọc mã cho PR #68 (sổ tay). Chưa chạy trên stack. Lỗi có từ khi có luật cửa sổ sau nửa đêm (DOM S3-9), tức từ v1.0.2.
+- **Liên quan:**
+  - `rounds/round-04/reviews/DOM-on-v104-pr68-docs.md` mục 2 và ghi chú cho ORC (mục 4);
+  - `product/services/api/src/modules/reservations/internal/allowed-actions.ts` dòng 115;
+  - `reservations.service.ts` dòng 451 (`today: ctx.today`);
+  - `product/apps/admin-web/src/pages/dashboard/useDashboard.ts` dòng 79;
+  - `product/services/api/src/modules/reporting/internal/stay-lists.ts` `departureRows` (dòng 83);
+  - `product/services/api/src/modules/frontdesk/internal/checkout.service.ts` `postMidnight()` (dòng 651) và `departure()`;
+  - TC-V104-CO-05 (cách làm tạm).
+- **Các bước tái hiện** (ví dụ của DOM):
+  1. Khách đang ở, ngày đi 03/11.
+  2. Lúc 04:30 ngày 03/11, ngày nghiệp vụ vẫn là 02/11 (đổi ngày lúc 06:00). Mở khung đơn của khách.
+  3. Mở trang **Hôm nay**, mục khách đi.
+- **Thực tế (đọc mã):**
+  - Khung đơn không có nút **Trả phòng**. Lý do: `allowed-actions.ts:115` chỉ thêm `check_out` khi `c.today === c.departureDate`, mà `today` là ngày nghiệp vụ (02/11). Vai lễ tân, quản lý và chủ đầu tư đều đi qua luật này, nên cũng không thấy nút.
+  - Trang **Hôm nay** gọi `getArrivalsDepartures` không kèm ngày, nên máy chủ lấy ngày nghiệp vụ. `departureRows` chỉ lấy đơn có ngày đi bằng ngày đó, nên khách đi 03/11 chưa có trong danh sách.
+  - Trong khi đó, máy chủ B18 nhận cửa sổ này: `postMidnight()` đúng khi ngày nghiệp vụ = ngày đi − 1 và ngày lịch = ngày đi. Trong cửa sổ, không phụ thu trả muộn, không thêm đêm.
+  - Kết quả: Desk không có lối vào trang Trả phòng trong 00:00–05:59. Sổ tay cũ dạy "khung đơn → Trả phòng; không thấy nút thì hỏi quản lý", nên lễ tân đi vào ngõ cụt.
+- **Mong đợi:** trong cửa sổ sau nửa đêm, khách có ngày đi = ngày lịch hôm nay phải có nút **Trả phòng** ở khung đơn (và có mặt ở trang Hôm nay), đúng luật máy chủ đã nhận.
+- **Cách làm tạm cho v1.0.4** (sổ tay và release notes, theo thẻ 01 của DOM):
+  - Không làm Trả phòng trước 06:00. Ghi sổ giao ca.
+  - **Từ 06:00**: khung đơn → **Trả phòng**. Ở bước Phụ phí, ghi **Giờ trả phòng thực tế** đúng giờ khách đi, ví dụ 04:30.
+  - DOM giả định theo mã là Desk không phụ thu, không thêm đêm cho giờ này. Giả định này **chưa thử**; QA kiểm ở TC-V104-CO-05 trên STG ngày 07/11.
+- **Đề xuất sửa (v1.0.5):**
+  - BE: thêm cửa sổ sau nửa đêm vào `allowedActions` (`check_out` khi `postMidnight(now)` với ngày đi của lượt), cùng một hàm với `checkout.service.ts`, để hai bên không lệch.
+  - FE: xem trang Hôm nay có cần xin thêm danh sách khách đi của ngày lịch trong cửa sổ không. `stay-actions.ts` 43–45 đã tính cửa sổ, nhưng trang không bao giờ xin danh sách đó.
+  - QA thêm ca E2E đồng hồ ảo lúc 04:30: có nút, B18 200, phụ thu 0.
+- **Bằng chứng:** các dòng mã nêu trên ở `58183764`; mục 2 của review DOM. Không có ảnh.
+- **Vai chịu trách nhiệm:** BE (`allowedActions`). FE xem trang Hôm nay. BA/UXD lo câu cách làm tạm trong sổ tay (PR #68) và release notes.
+- **Trạng thái:** Mới – dời v1.0.5 có kế hoạch. Mở cho tới khi bản sửa v1.0.5 đạt; cách làm tạm được kiểm ở CO-05 ngày 07/11.
+
+### BUG-R4-037 – Đặt phòng mới: giá mỗi đêm của bản xem giá kênh Trực tiếp vẫn còn sau khi chuyển sang OTA / Nội bộ
+- **Mức:** **P0** (QA chốt 04/11 khuya).
+  - **Lỗi sai tiền và không ai được báo.** Desk gửi giá Trực tiếp của căn mặc định làm giá mỗi đêm của đơn OTA hoặc Nội bộ, kèm `edited:false`. Máy chủ lưu nguyên số đó với nguồn `calendar`, nên trên đơn nó trông như giá lịch do hệ thống tính.
+    - Đơn OTA trả tại khách sạn (`ota_pay_at_property`): khách bị thu theo số sai.
+    - Đơn OTA trả trước: doanh thu, ADR và số đối soát với OTA sai.
+    - Đơn Nội bộ: lẽ ra 0 đ (`complimentary`), nhưng bị ghi giá Trực tiếp.
+  - **Tái hiện bằng thao tác tay, mọi lần.** Hộp thoại luôn mở ở kênh Trực tiếp, ngày hôm nay, 1 đêm, căn đầu danh sách. Sau 300 ms, bản xem giá đã điền ô của đêm hôm nay. Người bấm tay luôn chậm hơn 300 ms.
+    - Điểm khác BUG-R4-035: ở 035, khoảng hở chỉ dài vài render và chỉ test song song mới gặp. Ở 037, cứ thao tác ở tốc độ người là gặp.
+  - `test-strategy.md` mục 8 quy định lỗi tiền mặc định P0, cho tới khi chứng minh không ảnh hưởng tiền. Ở đây QA đã thấy số sai trong yêu cầu Desk gửi đi.
+  - Yếu tố giảm nhẹ, chưa đủ để hạ mức:
+    - số sai hiện trong ô và sửa được;
+    - chỉ các đêm mà bản xem giá đã điền mới bị dính. Đêm hôm nay luôn bị dính. Mọi đêm bị dính nếu lễ tân nhập ngày hoặc căn trước rồi mới chọn kênh.
+  - Lỗi có từ `cf6c5575` (16/10), trước v1.0.1. Tag `v1.0.1`, `v1.0.2`, `v1.0.3` đều có, nên **đang ở production**.
+    - Protocol quy định P0 sai tiền được hotfix ngoài chu trình round, vẫn qua QA và QC rút gọn. ORC quyết đường hotfix.
+- **Môi trường:**
+  - Desk (admin-web), hộp **Đặt phòng mới** (H09), `main` @ `4bf353da`.
+  - QA tìm ra khi chạy tải nặng 2 test flaky mà OPS báo.
+  - QA xác nhận bằng test chẩn đoán tạm, đã xóa. Test này chờ bản xem giá trả về rồi mới bấm kênh, tức đúng nhịp người. Chạy trên MSW, chưa chạy trên stack thật.
+- **Liên quan:**
+  - `product/apps/admin-web/src/pages/booking/BookingDialog.tsx` (dòng theo `4bf353da`):
+    - bản xem giá `calcInput` dòng 282–292 chỉ bật khi `directLike` (Trực tiếp / CTV);
+    - effect dòng 302–305: khi bản xem tắt thì chỉ `setCalc(null)`, **không xóa `rates`**;
+    - dòng 326–337: kết quả bản xem gán `rates` cho mọi đêm và đặt `ratesEdited: {}`;
+    - đổi kênh dòng 985–988: `set({ group })`, giữ nguyên `rates`;
+    - `validate` dòng 434–435: OTA có ô có số và ô trống thì báo `booking.error.rate_empty`;
+    - `body` dòng 455–463: với OTA và Nội bộ, nếu mọi ô có số thì gửi `nightlyRates`, và `edited` = false vì `ratesEdited` rỗng.
+  - `product/services/api/src/modules/reservations/public/pricing.service.ts`:
+    - dòng 258–290: giá mỗi đêm gửi lên được dùng nguyên; `edited:false` cho nguồn `calendar`; không có `calendarVnd` với OTA và Nội bộ;
+    - dòng 321–337: OTA không gửi giá thì dùng lịch OTA của kênh (BUG-R2-017);
+    - dòng 355–356: Nội bộ không gửi giá thì ghi 0 đ.
+  - Test: `product/apps/admin-web/src/__tests__/s2-fix.test.tsx` dòng 56 (A-20); `product/apps/admin-web/src/__tests__/booking.test.tsx` dòng 125 (US-139).
+  - Lỗi cùng họ: BUG-R2-017 (giá OTA khi không nhập), BUG-R3-005 (số tiền theo báo giá mới nhất).
+- **Các bước tái hiện (tay, DS-E, lễ tân `qa.fd`):**
+  1. Mở **Đặt phòng mới**. Giữ kênh Trực tiếp, ngày và căn mặc định. Chờ 1 giây: ô giá đêm hôm nay hiện giá Trực tiếp của căn mặc định (căn 101, 667.000).
+  2. Bấm **OTA**, đổi căn sang 203, giữ ngày. Chọn khách, nhập mã OTA. Bấm **Tạo đơn**.
+  3. Làm lại bước 1. Bấm **OTA**, đổi căn sang 201, đổi ngày đi thành hôm nay + 2. Bấm **Tạo đơn**.
+  4. Làm lại bước 1. Bấm **Nội bộ**, nhập ghi chú, chọn khách. Bấm **Tạo đơn**.
+- **Thực tế** (test chẩn đoán, 4 lượt cho bước 2–3, 1 lượt cho bước 4, kết quả giống nhau mọi lượt):
+  - Bước 2: sau khi chuyển OTA, ô vẫn là `667.000`. Desk gửi `POST /reservations` cho căn 203, kênh OTA, với `nightlyRates=[{"date":"2026-11-04","amountVnd":667000,"edited":false}]`. Không có cảnh báo nào.
+    - Theo mã máy chủ: đơn lưu 667.000 với nguồn `calendar`, thay cho giá lịch OTA của kênh. Số này còn là giá của **căn khác** (101).
+  - Bước 3: ô là `["667.000", ""]`. Desk chặn với câu "Nhập giá mỗi đêm (lớn hơn 0)" và không tạo đơn. Cảnh báo sức chứa và câu xung đột không hiện.
+    - Câu này dẫn lễ tân đi điền ô trống, còn ô đầu vẫn giữ giá Trực tiếp. Kết quả là đơn trộn giá Trực tiếp với giá OTA.
+  - Bước 4: đơn Nội bộ gửi `nightlyRates=[{…"amountVnd":667000,"edited":false}]`, thay vì để máy chủ ghi 0 đ.
+- **Vì sao 2 test flaky đỏ: lỗi ở sản phẩm, test đúng ý.**
+  - Cả A-20 và US-139 bấm **OTA** ngay sau khi mở hộp, rồi đặt ngày đến hôm nay, ngày đi hôm nay + 2.
+  - Máy nhanh: test bấm OTA trước mốc 300 ms, bản xem giá bị tắt trước khi trả về, ô trống, test xanh.
+  - Máy quá tải: bản xem giá trả về trước khi bấm, nên rơi vào bước 3. Test không thấy câu nó chờ (cảnh báo sức chứa căn 201; "Căn 101 đã kín"). DOM của mọi lượt đỏ đều có câu "Nhập giá mỗi đêm (lớn hơn 0)".
+  - Số lần chạy trên máy QA (worktree tạm từ `origin/main` @ `4bf353da`, mỗi tệp chạy riêng):
+
+    | Số tiến trình song song | `s2-fix` | `booking` |
+    |---|---|---|
+    | 6 (như FE-A) | 0/36 đỏ | 0/36 đỏ |
+    | 16 | 0/32 đỏ | 0/32 đỏ |
+    | 24 (tải máy ~88) | **3/40 đỏ**: lượt 14, 17, 18, ca A-20 | **1/40 đỏ**: lượt 31, ca US-139 |
+
+  - Không sửa 2 test này bằng retry, tăng thời gian chờ, hay cố bấm OTA trước 300 ms. Sau khi sản phẩm được sửa, chúng phải xanh ở mọi mức tải.
+- **Mong đợi:**
+  - Giá do bản xem giá điền chỉ có hiệu lực với đúng kênh, căn và ngày của bản xem đó.
+  - Khi bản xem tắt (OTA, Nội bộ, dài hạn, quá sức chứa) hoặc khi đổi kênh hay căn, mọi ô lễ tân **chưa gõ** phải trống lại, hoặc được điền lại theo đúng kênh và căn mới. Ô lễ tân đã gõ thì giữ.
+  - Đơn OTA không gõ giá thì máy chủ dùng lịch OTA (BUG-R2-017). Đơn Nội bộ không gõ giá thì ghi 0 đ.
+  - Với đơn OTA hoặc Nội bộ, Desk không bao giờ gửi `nightlyRates` mà lễ tân không gõ.
+- **Ví dụ cách sửa (FE quyết, ARC xem):**
+  - xóa `rates` của các đêm chưa gõ khi `!p.on` hoặc khi đổi nhóm kênh;
+  - hoặc gắn mỗi lần điền với một khóa bản xem (`roomId` + `channelId` + ngày), và `body()` chỉ coi là giá lễ tân gõ khi `ratesEdited[date]`.
+- **Test chống tái phát (QA đề xuất):** 3 ca đều chờ ô giá được điền rồi mới bấm kênh, tức đúng nhịp người như test chẩn đoán. Cả 3 phải đỏ ổn định trên mã cũ.
+  - OTA, 1 đêm hôm nay: yêu cầu gửi đi không có `nightlyRates`.
+  - OTA, 2 đêm: không hiện câu "Nhập giá mỗi đêm"; có cảnh báo sức chứa.
+  - Nội bộ, 1 đêm: không có `nightlyRates`.
+- **Rà dữ liệu production (chỉ đọc):**
+  - Dấu hiệu QA đoán ban đầu sai cột. `stay_night.rate_source` không bao giờ là `'calendar'`, nên câu đó luôn ra 0. BE đã sửa.
+  - Dấu hiệu đúng (BE, mục 1.5 của `rounds/round-04/outputs/BE/bug-r4-037-data-impact.md`):
+    - đêm có `pricing_snapshot.nights[].source = 'calendar'`;
+    - với OTA: không có `calendarVnd`, `stay_night.calendar_rate_vnd IS NULL`, gross > 0;
+    - với Nội bộ: gross > 0.
+  - BE soạn câu Q0–Q5. QA chạy thử trên stack local ngày 04/11 21:10: đúng (mục "QA chạy thử local" của tệp BE). OPS chạy trên production theo điều kiện SEC.
+  - 04/11 21:30: BE viết lại Q2 (mục 2.4) và Q4 (mục 2.6) thành khối dán nguyên. QA chạy lại nguyên văn trên stack local: đúng (cùng mục của tệp BE).
+  - Nếu có đơn thật bị dính, việc sửa giá trên đơn hoặc báo khách là việc về tiền, nên ORC báo lên chủ đầu tư.
+- **Bằng chứng** (scratchpad, không commit, không có bí mật, chỉ khách giả DS-E):
+  - `qarace/p6/`, `qarace/p16/`, `qarace/p24/`: log từng lượt chạy, lượt đỏ là `p24/s2-fix-14.log`, `-17.log`, `-18.log` và `p24/booking-31.log`;
+  - `qarace/diag.txt`, `qarace/diag-rerun.txt`, `qarace/diag-internal.txt`: kết quả test chẩn đoán;
+  - các dòng mã nêu trên.
+- **Xác minh bản sửa (QA, 04/11 21:00–21:30):**
+  - **Bản sửa:** PR #70, nhánh `v104/fix-booking-rate-carryover` @ `822094b7`, một commit trên `4bf353da`. QA xác minh trong worktree tạm ở scratchpad (đã dọn) và không sửa mã.
+  - **Cách sửa (đọc mã):**
+    - Ô giá chỉ hiện số khi lễ tân đã gõ, hoặc khi số đó do bản xem giá của **đúng** kênh, căn, ngày đến và số đêm đang trên màn điền vào.
+    - Với Trực tiếp / CTV: khi bản xem giá của lượt ở mới chưa về, nút **Tạo đơn** khóa và báo bận.
+    - OTA và Nội bộ chỉ gửi `nightlyRates` khi mọi đêm do lễ tân gõ (`edited:true`).
+  - **1. Ba ca tái hiện của QA** (test tạm, chạy ở nhịp người: chờ bản xem giá Trực tiếp điền ô rồi mới bấm kênh), mỗi ca có assert:
+
+    | Ca | Trên `822094b7` | Trên `4bf353da` |
+    |---|---|---|
+    | QA-1: OTA, căn 203, 1 đêm. Ô trống, không gửi `nightlyRates` | Xanh | Đỏ |
+    | QA-2: OTA, căn 201, 2 đêm, 4 khách. Có cảnh báo sức chứa, không có câu "Nhập giá mỗi đêm" | Xanh | Đỏ |
+    | QA-3: Nội bộ, 1 đêm. Không gửi `nightlyRates` | Xanh | Đỏ |
+
+    - Tệp test của FE `v104-booking-rate-carryover.test.tsx` đạt 10/10. Tệp này gồm 3 ca chống tái phát QA đề xuất, các ca đổi căn / đổi kênh / bản xem giá đang về, và cách làm tạm trên v1.0.3.
+  - **2. Tải nặng:** 24 tiến trình song song × 40 lượt, mỗi tệp chạy riêng.
+    - `s2-fix` (A-20): **0/40 đỏ**, mỗi lượt 8/8 ca.
+    - `booking` (US-139): **0/40 đỏ**, mỗi lượt 9/9 ca.
+    - `v104-booking-rate-carryover`: **0/40 đỏ**, mỗi lượt 10/10 ca.
+    - Trước bản sửa, cùng cách chạy cho 3/40 và 1/40 đỏ.
+    - Tải máy lần này khoảng 65, thấp hơn lượt đỏ trước (~88). Các ca ở phần 1 chạy ở nhịp người, không phụ thuộc tải. Vì vậy QA coi kết quả là đủ.
+  - **3. Stack local dùng một lần** `ottimo-qa70`. Image dựng từ `822094b7`, seed DS-E, chỉ khách giả `@example.test`. Desk chạy thật trong Chromium, gọi API thật:
+    - **Q-A, Trực tiếp: đổi căn 101 → 401 rồi gửi form ngay** (`requestSubmit` trong trang, 5–66 ms sau khi đổi căn), 3/3 lượt:
+      - lúc gửi: nút **Tạo đơn** có `aria-busy=true` và `disabled`; ô giá trống, không còn `667.000` của căn 101;
+      - kết quả: 0 yêu cầu `POST /reservations`;
+      - sau khi bản xem giá của 401 về, bấm lại: Desk gửi căn 401, không có `nightlyRates`, để máy chủ tự tính.
+      - Thêm 3 lượt bấm ép bằng Playwright. Cú bấm rơi sau khi bản xem giá mới về (+500–900 ms). Desk cũng gửi căn 401, không có giá cũ.
+    - **Q-B, OTA gõ mọi đêm** (2 đêm, 830.000): ngay sau khi bấm OTA, cả 2 ô trống. Desk gửi đúng số gõ với `edited:true`.
+    - **Q-C, Nội bộ để trống ô:** ô trống. Desk không gửi `nightlyRates`.
+    - **Đối chiếu bằng câu của BE:** sau 11 đơn tạo qua Desk, Q1 của BE có `TOTAL` 0. Q3 xếp đơn Nội bộ vào nhóm `complimentary`, đơn OTA gõ giá vào nhóm `manual`.
+  - **CI của #70 trên `822094b7`:** 9 check xanh, check cuối là "docker images build · E2E smoke", xong lúc 21:34. 3 job bỏ qua đúng luật vì PR chưa gộp: publish GHCR, deploy staging, landing preview.
+  - **Không phải lỗi:** khi nút **Tạo đơn** khóa trong lúc giá đang tải, Desk không hiện câu nào. Nút đã khóa và báo bận (`aria-busy`), nên QA không ghi lỗi.
+- **Chạy lại ở head mới `94a28258` (QA, 04/11 22:00–22:20).** Commit này thêm thẻ UXD PR70-01: mọi lỗi 422 trên `nightlyRates` hiện câu dưới bảng giá hoặc dưới ô của đêm. Chỉ đổi FE, máy chủ không đổi.
+  - **3 ca tái hiện của QA:** xanh 3/3. Tệp `v104-booking-rate-carryover.test.tsx` đạt 12/12, gồm 2 ca mới của PR70-01.
+  - **Tải 24 × 40, mỗi tệp chạy riêng:** **0/120 lượt đỏ**. `s2-fix` 8/8 ca mỗi lượt, `booking` 9/9, `v104-booking-rate-carryover` 12/12.
+    - Lúc chạy, máy bị các vai khác dùng nặng (tải 53–69; khoảng 45 tiến trình vitest khác). Mỗi tệp chạy lâu gấp khoảng 2 lần so với lượt ở `822094b7`, nên áp lực nhịp còn nặng hơn.
+    - Lần thử đầu với giới hạn mặc định 15 giây mỗi ca có 100 lỗi, tất cả đều là "Test timed out". Lỗi này rơi cả vào ca không liên quan tới bản sửa (US-135 hủy đơn, cọc Trực tiếp, số điện thoại AC2). Không có lỗi assert nào, và DOM không có câu "Nhập giá mỗi đêm".
+    - Vì vậy QA chạy lại với `--testTimeout=60000`. Đây chỉ là giới hạn của bộ chạy. Thời gian chờ của `findBy`/`waitFor` vẫn 5 giây, nên nếu có tranh chấp nhịp làm sai DOM thì ca vẫn đỏ. Không thêm retry.
+    - Log 2 lần chạy ở `qa70b/p24-starved-timeout15s/` và `qa70b/p24/`.
+  - **Ca mới (PR70-01): OTA để trống ở nhóm căn chưa có `ota_base_rate`.** Chạy trên stack local `ottimo-qa039`: API `c2506a53`, Desk dựng từ image web của `94a28258`. Trên stack dùng một lần, QA tạm bỏ khóa `N` khỏi `ota_base_rate`, rồi trả lại như cũ.
+    - Máy chủ trả 422 `VALIDATION_FAILED`, `errors=[{field: nightlyRates, code: REQUIRED}]`, có `detail`. Thân lỗi khớp đúng mock trong test của FE.
+    - Desk hiện "Nhập giá mỗi đêm (lớn hơn 0)." Hộp vẫn mở, không tạo đơn.
+  - **Thẻ PR70-06:** gửi giá Trực tiếp ngoài sàn–trần thì máy chủ trả Problem `RATE_OUT_OF_RANGE` không có `min`/`max`. Desk hiện nguyên chữ `{min}`/`{max}`/`{group}`. QA ghi **BUG-R4-040 (P3)**, dời v1.0.5, không chặn #70.
+  - **CI #70 @ `94a28258`:** 9 check xanh, 3 job bỏ qua đúng luật vì PR chưa gộp.
+- **Chạy lại ở head cuối và trên `main` @ `d0ea6dc2` (QA, 04/11 23:15 – 05/11 00:35).**
+  - **Các head đã chạy:**
+    - `d3da532d`: thêm quy tắc giữ/xóa giá đã gõ, câu `booking.rates_cleared_channel`, và sửa lỗi Trực tiếp → OTA → Trực tiếp dưới 300 ms. Lượt tải đầu bị dừng giữa chừng vì head đổi, nên không tính;
+    - `f8fa5030`: thêm câu `booking.rates_cleared_room_group` khi đổi sang căn khác nhóm làm xóa giá đã gõ;
+    - `98d8a3ad`: `f8fa5030` cộng commit gộp `main` (chỉ sinh lại strings);
+    - `main` @ `d0ea6dc2`: gồm #70 (`98d8a3ad`) và #73. Đây là lượt tính kết quả.
+  - **Quy tắc mới (đọc mã):**
+    - Giá đã gõ bị xóa khi đổi kênh sang hoặc rời OTA / Nội bộ.
+    - Ở Trực tiếp / CTV, giá đã gõ bị xóa khi đổi sang căn thuộc nhóm căn khác. Đổi sang căn cùng nhóm thì giữ.
+    - Mỗi lần xóa, Desk hiện một câu dưới bảng giá (`span.help`, `role=status`) và gọi lại bản xem giá. Câu ẩn khi lễ tân gõ lại, hoặc khi quay về Trực tiếp.
+  - **1. Ba ca tái hiện của QA:** xanh 3/3 ở `98d8a3ad` và ở `main`. Tệp `v104-booking-rate-carryover.test.tsx` đạt 28/28 ở cả hai.
+  - **2. Tải 24 tiến trình × 40 lượt, mỗi tệp chạy riêng.** FE thấy 6/40 lượt quá giờ khi máy tải 30–90, nên QA chạy nhiều lượt và ghi tải máy:
+
+    | Lượt | SHA | Giới hạn mỗi ca | Tải máy (trung bình 1 phút) | `s2-fix` (A-20) | `booking` (US-139) | `v104-booking-rate-carryover` |
+    |---|---|---|---|---|---|---|
+    | r1 | `98d8a3ad` | 15 s (mặc định) | 47–92 | 22/40 đỏ | 25/40 đỏ | 30/40 đỏ |
+    | r2 | `98d8a3ad` | 60 s | 39–63 | **0/40 đỏ** | **0/40 đỏ** | **0/40 đỏ** |
+    | main-r1 | `d0ea6dc2` | 15 s (mặc định) | 42–81 | 1/40 đỏ (lượt 23, A-20 quá 15 s) | **0/40 đỏ** | **0/40 đỏ** |
+    | main-r2 | `d0ea6dc2` | 15 s (mặc định) | 36–144 | **0/40 đỏ** | **0/40 đỏ** | **0/40 đỏ** |
+
+    - Mọi lượt đỏ của r1 đều do máy bị các vai khác dùng nặng (khoảng 60 tiến trình vitest cùng lúc):
+      - 74 tệp log có "Test timed out" ở mốc 15 s, 2 tệp có "Hook timed out";
+      - 4 tệp có `findBy` quá 5 giây, vì bảng lịch (`grid`) hoặc hộp khách chưa kịp hiện;
+      - 0 lỗi assert. DOM của các lượt đỏ không có câu "Nhập giá mỗi đêm". Chữ này chỉ có trong tên một ca.
+    - Lượt r2 chỉ nâng giới hạn của bộ chạy. Thời gian chờ của `findBy` / `waitFor` vẫn 5 giây, không thêm retry.
+    - Hai lượt trên `main` chạy với giới hạn mặc định 15 s. Lượt main-r1 có 1/120 lượt đỏ: A-20 ở lượt 23 quá 15 s lúc tải 67–81. Ca này không có lỗi assert, không có `findBy` hụt, DOM không có câu "Nhập giá mỗi đêm". Lượt main-r2 xanh 120/120, kể cả khi tải lên 144 vào cuối lượt. Mỗi lượt ca A-20 đạt 8/8, US-139 đạt 9/9, tệp của FE đạt 28/28. QA coi RG-12 đạt.
+    - Log ở `qa70c/p24-98-r1/`, `qa70c/p24-98-r2-t60/`, `qamain/p24-main-r1/`, `qamain/p24-main-r2/` (scratchpad).
+  - **3. Desk thật trên stack local dùng một lần.** Stack `ottimo-qa70c` dựng từ `98d8a3ad` và `ottimo-qamain` dựng từ `d0ea6dc2`. Seed DS-E, `qa.fd`, Desk Chromium thật, gọi API thật. Hai stack cho cùng kết quả ở C1, C2:
+    - **C1, đổi kênh:**
+      - Trực tiếp, căn 101, 2 đêm, gõ 617.000 cho đêm đầu. Bấm **OTA**: cả 2 ô trống, câu "Đã xóa giá đã gõ vì đổi kênh." hiện.
+      - Quay về Trực tiếp: ô hiện giá niêm yết 667.000, câu ẩn.
+      - Làm lại với **Nội bộ**: cùng kết quả.
+      - Ở OTA, gõ lại một ô thì câu ẩn.
+    - **C2, đổi căn ở Trực tiếp:**
+      - Căn 101, gõ 627.000. Đổi sang 203, cùng nhóm L12: giữ 627.000, không có câu.
+      - Đổi sang 301, nhóm N: số đã gõ bị xóa, ô về giá niêm yết của 301 (958.000). Câu "Đã xóa giá đã gõ vì căn 301 thuộc nhóm căn khác. Kiểm lại giá mỗi đêm trước khi tạo đơn." hiện, không còn chữ `{room}`.
+      - Gõ lại thì câu ẩn. Bấm **Tạo đơn**: 201, Desk gửi số vừa gõ (`edited:true`), không gửi 627.000.
+    - **RG-13 theo #73 (chỉ trên `main`):**
+      - (a) Tạm bỏ khóa `N` khỏi `ota_base_rate`. OTA để trống, căn 301: 201, Desk không gửi `nightlyRates`. Máy chủ ghi 960.000, nguồn `calendar`, tức giá niêm yết 958.000 làm tròn theo luật OTA. Không có câu `rate_empty`.
+      - (b) Thêm điều kiện: căn 401 không có giá niêm yết cho đêm đó. Bảng `room_list_price` chỉ cho thêm, không cho xóa, nên QA tạm dời ngày hiệu lực giá của 401 qua sau kỳ ở. OTA để trống, căn 401: 422 `VALIDATION_FAILED`, `nightlyRates` `REQUIRED`, detail "no ota_base_rate for the room group and no list price for the night". Hộp vẫn mở, câu `rate_empty` hiện.
+      - Sau ca, QA trả lại khóa `N` và ngày hiệu lực giá của 401 như cũ.
+    - **BUG-R4-041** vẫn tái hiện trên cả hai stack. Xem mục của lỗi.
+    - Ảnh `qa70c/data.txt.*.png`, `qamain/data.txt.*.png` để ở scratchpad. Dữ liệu giả, **không commit**.
+- **Vai chịu trách nhiệm:** FE (chủ H09 `BookingDialog`). ARC xem cách sửa. BE/DATA rà dữ liệu production. QA chạy lại A-20, US-139 ở 24 tiến trình và các ca RG-07…RG-12 trên SHA được cắt.
+- **Trạng thái:** **Đã sửa – đã gộp vào `main` @ `d0ea6dc2`, đạt local** (QA 05/11 00:35).
+  - Trước đó: chờ gộp #70, đạt ở `822094b7` rồi `94a28258`. #70 gộp ở head cuối `98d8a3ad`, cùng #73.
+  - RG-12 (tải) đã chạy trên `main`. RG-13 đã đổi kỳ vọng theo #73.
+  - Còn: RG-07…RG-11, RG-13, RG-17 trên STG 07/11. Đóng khi các ca này đạt.
+  - Hotfix production (P0 sai tiền, protocol): ORC quyết. Rà dữ liệu production chạy theo tệp BE.
+  - P0 chưa đóng thì QC không qua.
+
+### BUG-R4-038 – Đơn Nội bộ: đêm thêm khi gia hạn (B13), B9a, B18 lấy giá Trực tiếp thay vì 0 đ
+- **Mức:** **P0** (QA chốt 04/11 21:10). DOM đề xuất P2. ORC giữ P0 (04/11 khuya).
+  - `test-strategy.md` mục 8 xếp "sai tiền" vào P0; ví dụ của mức này là "bill cộng sai phụ thu". Luật còn ghi lỗi tiền mặc định P0 cho tới khi chứng minh không ảnh hưởng tiền/dữ liệu.
+  - Ở lỗi này, QA đã thấy trên stack local:
+    - folio của đơn miễn phí có dòng tiền phòng > 0, tức **Còn phải thu** sai;
+    - `total_room_vnd` > 0 trên đơn `is_complimentary = true`;
+    - `stay_night` ghi doanh thu > 0, nên doanh thu phòng và ADR báo cho chủ đầu tư bị cộng thêm.
+  - Lý do DOM xếp P2 ("không đụng tiền khách thật", "ca hiếm", "bản cắt đang mang P1") không có trong định nghĩa mức. QA không hạ mức vì tiến độ.
+  - Yếu tố giảm nhẹ, chưa đủ để hạ mức:
+    - lỗi không lặng lẽ: folio hiện số phải thu, lễ tân thấy được;
+    - gia hạn đơn Nội bộ hiếm;
+    - có cách làm tạm (của DOM).
+  - Mã có từ `feb75035` (18/10), có trong `v1.0.0-rc.1` … `v1.0.3`. ORC báo production vận hành từ 02/11, nên dữ liệu thật có thể đã dính. Q5a/Q5b của BE đếm được.
+- **Môi trường:**
+  - Stack local dùng một lần từ `origin/main` @ `c2506a53`, seed DS-E, lễ tân `qa.fd`, gọi API. Đã dọn.
+  - Đường B13 đã chạy 2 lần trên 2 stack, kết quả giống nhau. Đường B9a và B18 mới chỉ đọc mã (DOM, BE), chưa chạy.
+- **Liên quan:**
+  - `product/services/api/src/modules/frontdesk/internal/stay-support.ts` `addedNightRate` (dòng 281, theo `c2506a53`): luôn lấy `directRate`, không có nhánh `internal`;
+  - `product/services/api/src/modules/frontdesk/internal/stay.service.ts`: `options` (dòng 164–194), `extend` (dòng 282). `AMOUNT_NOT_POSITIVE` ở dòng 349 chặn gõ 0;
+  - mục DOM và mục 2.8 (Q5) của `rounds/round-04/outputs/BE/bug-r4-037-data-impact.md`;
+  - EP02 mục kênh Nội bộ, BR-904/D-7, `metrics-definitions.md` Q-05: kênh Nội bộ không thu tiền;
+  - BUG-R4-037 (cùng vùng giá Nội bộ).
+- **Các bước tái hiện:**
+  1. Tạo đơn Nội bộ 1 đêm, đến hôm nay, không nhập giá. Đơn được ghi 0 đ, nguồn `complimentary`.
+  2. Nhận phòng (B9).
+  3. Gia hạn 1 đêm (B13, `extendStay` `{nights: 1}`), không nhập giá.
+  4. Mở folio của đơn.
+- **Thực tế (stack local):**
+  - B13 trả 200. Đêm thêm có giá bằng giá lịch Trực tiếp của căn; `stay_night.rate_source = 'extension'`; nguồn trong bản chụp giá là `default`.
+  - Đơn vẫn `is_complimentary = true`, nhưng `total_room_vnd` > 0. Folio có 2 dòng `room`, tổng > 0, nên còn phải thu.
+  - Đơn Nội bộ đối chứng không gia hạn vẫn 0 đ.
+  - Theo DOM: trên Desk không đưa về 0 được. B13 trả `AMOUNT_NOT_POSITIVE` khi gõ 0 và `RATE_OUT_OF_RANGE` khi gõ dưới sàn Trực tiếp. A31 cũng chặn 0.
+- **Mong đợi:**
+  - Đêm thêm của đơn Nội bộ (B13, B9a, B18) mặc định 0 đ, nguồn `complimentary`, không áp sàn–trần giá Trực tiếp, và cho gõ 0.
+  - Ca hiếm "Nội bộ có thu": lễ tân gõ giá > 0, nguồn `manual`.
+- **Cách làm tạm** (DOM; BA viết vào sổ tay, PO ghi vào giới hạn của bản):
+  - đơn Nội bộ cần ở thêm thì **không bấm Gia hạn**; tạo một đơn Nội bộ mới 0 đ cho các đêm thêm, cùng căn, ghi lý do;
+  - đã lỡ gia hạn thì không thu tiền người ở, và báo quản lý trước khi trả phòng.
+- **Đề xuất sửa (BE, ARC xem):**
+  - thêm nhánh `internal` ở `addedNightRate` và ở B13 `options`/`extend`;
+  - kèm hướng gỡ dữ liệu cho đơn đã dính, vì Desk hiện không gỡ được;
+  - QA đề xuất **gộp vào hotfix BUG-R4-037**, vì cùng vùng giá Nội bộ và DOM cũng nêu ngoại lệ này.
+- **Test chống tái phát (QA đề xuất):** API: gia hạn đơn Nội bộ 1 đêm, kiểm đêm thêm 0 đ, nguồn `complimentary`, folio không còn phải thu. Thêm 1 ca B18, 1 ca B9a, và 1 ca gõ 0 được nhận.
+- **Bằng chứng** (scratchpad, không commit, chỉ dữ liệu thử DS-E):
+  - `qa037/data.txt`: dòng E1 và dòng `[B] E1`, giá từng đêm sau B13;
+  - `qa037/out-q5a-*.txt`, `qa037/out-q5b-*.txt`, `qa037/out-q3-*.txt`.
+- **Vai chịu trách nhiệm:** BE (`addedNightRate`, B13). ARC xem. DOM chốt quy tắc. BA/PO lo cách làm tạm. DATA/OPS chạy Q5 trên production theo mục 2.8 của tệp BE.
+- **Xác minh bản sửa** (QA, 04/11 23:00–23:15):
+  - **Bản thử:**
+    - PR #71, nhánh `v104/fix-internal-added-night`, head `7557e485`. CI của PR xanh 9/9 job; 3 job deploy bị bỏ qua như thường lệ.
+    - Stack local dùng một lần `ottimo-qa038` dựng từ chính nhánh này: `CLOCK_MODE=mutable`, seed DS-E, project `clock`, gọi API.
+    - Không chạy gì trên staging hay production.
+  - **Tái hiện B13 của QA – đạt.** Đơn Nội bộ 1 đêm (căn 301), đã nhận phòng, 20:00 gia hạn `{nights: 1}`, không gõ giá.
+    - `extension-options` trả `defaultRateVnd` 0, không có `floorVnd`/`ceilingVnd`; `currentBookingRateVnd` null.
+    - B13 trả 200. Đêm thêm: gross 0, `rate_source = 'extension'`, `is_complimentary = true`, nguồn trong bản chụp giá là `complimentary`.
+    - Đơn: `is_complimentary = true`, `total_room_vnd` 0. Folio: tổng 0, **còn phải thu 0**, credit 0.
+    - Gõ 0 cho đêm thêm thứ hai: được nhận (200), nguồn `complimentary`, folio vẫn 0.
+  - **B9a Nội bộ – đạt.** Đơn Nội bộ đến ngày A, nhận lúc 04:30 với `addPriorNight`, không gửi giá và không gửi `expectedSurchargeVnd`.
+    - Bản xem nhận phòng: `addsPreviousNight` true; đêm trước có `defaultRateVnd` 0 và không có sàn–trần; `amountDueAtCheckinVnd` 0.
+    - B9 trả 200, ngày đến lùi về A−1.
+    - Đêm A−1: gross 0, `extra_night_early_late`, nguồn `complimentary`. Folio 0.
+  - **B18 Nội bộ, đêm ngày đi đã bán – đạt.** Đơn Nội bộ căn 103, đêm sau đó đã có đơn Trực tiếp.
+    - 19:00, `checkout-summary`: `extraNightRequired` true, `extraNightAvailable` false, `lateFeeAsNightVnd` 0, `amountDueAtCheckoutVnd` 0. Bậc phụ thu là 100 % nhưng số tiền 0.
+    - B18 `{checkoutTime: '19:00'}` không kèm `lateFeeInsteadOfNight` (không cần quản lý xác nhận): 200, `checked_out`.
+    - Folio không có dòng `late_checkout`, không thêm đêm, tổng 0.
+  - **Đối chứng Trực tiếp – hành vi không đổi.**
+    - B13: đêm thêm mặc định theo giá lịch Trực tiếp (708.000, sàn 530.000, trần 1.900.000), nguồn `default`, `is_complimentary = false`. Gõ 0 bị từ chối: 422 `nightlyRates` `AMOUNT_NOT_POSITIVE`.
+    - A31: quản lý đưa đêm Trực tiếp về 0 bị từ chối: 422 `newUnitPriceVnd` `AMOUNT_NOT_POSITIVE`.
+    - B18 sau 18:00: hiện giá đêm thêm kèm sàn–trần; `extraNight.rateVnd` 0 bị từ chối: 422 `AMOUNT_NOT_POSITIVE`.
+    - B18 khi đêm ngày đi đã bán: phụ thu bằng 1 đêm vẫn > 0 (792.000), đúng BR-416-06.
+    - B9a: đêm trước có giá lịch và sàn–trần. `priorNightRateVnd` 0 bị từ chối: 422 `AMOUNT_NOT_POSITIVE`. Thiếu `expectedSurchargeVnd` bị từ chối: 422 `REQUIRED`.
+  - **A31 đưa đêm Nội bộ về 0 – đạt.** Đơn Nội bộ căn 202, gia hạn 1 đêm có gõ 300.000 ("Nội bộ có thu"). Đêm này gross 300.000, nguồn `manual`, folio còn phải thu 300.000.
+    - FD sửa 300.000 → 250.000: 201. Vậy FD có quyền A31, và mã 403 dưới đây là do luật "0 đ", không phải do thiếu quyền A31.
+    - FD đưa về 0: **403 `FORBIDDEN_ACTION`**. FDL đưa về 0: 403 `FORBIDDEN_ACTION`.
+    - MGR đưa về 0 mà không có lý do: 422 `reason` `REQUIRED`. Lý do chỉ có khoảng trắng: 422 `REASON_REQUIRED`. Các lần bị từ chối không đổi dòng nào.
+    - MGR đưa về 0 có lý do: **201**. Bản chụp giá đổi sang `complimentary`; `stay_night` gross 0. Đơn `total_room_vnd` 0. Folio có tổng 0, còn phải thu 0, credit 0, và các dòng đảo/ghi lại đầy đủ.
+    - Nhật ký `reservation.repriced` có 2 dòng, đều có lý do: `manual` 250.000 rồi `complimentary` 0.
+  - **Q5a của BE sau bản sửa – đạt.** Khối trong mục 2.8 của `rounds/round-04/outputs/BE/bug-r4-037-data-impact.md` được dán nguyên; chỉ dòng `ssh` được thay bằng lệnh `psql` của stack local, với cùng `PGOPTIONS` và cùng cờ. 4 dòng chốt phiên ra `on`, `30s`, `3s`, `ottimo_readonly|t|f` ở mọi lần.
+
+    | Lúc chạy | Dòng `TOTAL` (`so_don_default`, `dem_default`, …, `so_don_go_tay`, `dem_go_tay`) |
+    |---|---|
+    | Seed mới, trước mọi ca | `TOTAL\|ALL\|0\|0\|0\|0\|0\|0` |
+    | Sau đêm B13 gõ 300.000 (`manual`) | `TOTAL\|ALL\|0\|0\|0\|0\|1\|1`, dòng `B13` 1 đơn gõ tay |
+    | Sau A31 MGR đưa về 0 | `TOTAL\|ALL\|0\|0\|0\|0\|0\|0` |
+    | Cuối lượt (đã có 3 đơn Nội bộ mới qua B13, B9a, B18) | `TOTAL\|ALL\|0\|0\|0\|0\|0\|0` |
+
+    - Đơn Nội bộ mới gia hạn không còn vào cột `default`. Cột tham khảo `manual` vẫn bắt được đêm gõ > 0, và bỏ đêm đó ra khi A31 đưa về 0.
+    - Đối chứng với mã cũ: trên `main` @ `c2506a53` cùng khối Q5a đếm `TOTAL|ALL|1|1|1|0|0|0` sau 1 lần B13 Nội bộ (`qa037/out-q5a-A.txt`, `-B2.txt`).
+  - **Hồi quy:** trên cùng stack, `checkin.s3`, `stay-checkout.s3`, `late-fee-qr.s4` (project `clock`, có B9a, B13, B18, BR-416-06): 76 đạt, 1 bỏ qua, 0 đỏ. Tải máy lúc chạy khoảng 25–43.
+  - **Rà `tests/tools/validate-fixtures.mjs` và oracle BR-421-04…11 (BE nhờ) – đạt.**
+    - `CALC.extension` có nhánh Nội bộ: giá gõ hoặc 0; nguồn `manual` khi > 0, `complimentary` khi 0; không áp sàn–trần.
+    - `CALC.lateCheckout` nhận thêm kênh và "đêm ngày đi bán được". Nội bộ sau 18:00 mà đêm đã bán thì phụ thu 0 và không ghi dòng. Nội bộ sau 18:00 mà đêm bán được thì đêm thêm 0 đ `complimentary`. Mọi kết quả có thêm `surchargeLineWritten`.
+    - Validator chạy trên nhánh: "OK – 0 lỗi, 1 cảnh báo" (558 dòng, 217 dòng tính lại).
+    - Thử đột biến: sửa số kỳ vọng của BR-421-04, -06, -08, -11 thì validator báo đúng 4 lỗi. Tệp đã trả lại nguyên.
+    - Số trong oracle khớp số DOM: 202 + 2 đêm = 0 đ; gõ 300.000 là `manual`; 15:00 = 90.000; 17:00 = 150.000; 19:00 thì đêm thêm 0 đ; đêm đã bán thì phụ thu 0, không ghi dòng.
+    - Đề xuất, không phải lỗi: thêm 1 dòng oracle cho B9a Nội bộ (BR-417), vì hiện chỉ test tích hợp của BE và ca QA-038-02 giữ ca này.
+  - **Quan sát, chuyển DOM/DATA xem.** Ngày 05/11, DOM lượt 6 kết luận đây là sai nghiệp vụ; QA ghi **BUG-R4-043**. Nội dung: đêm "Nội bộ có thu" (gõ 300.000) có `stay_night.is_complimentary = true` mà gross 300.000, và đơn vẫn `is_complimentary = true`.
+    - Đây là cách đơn Nội bộ gõ giá lúc tạo vẫn ghi: QA thử trên cùng stack, ra cùng cờ. Đúng ý "giống hệt lúc tạo đơn" của BR-421 v0.5.3 (b).
+    - DATA cần xác nhận báo cáo Q-05 tính đêm này vào doanh thu hay vào đêm miễn phí.
+  - Mã ca trong spec tạm: QA-038-Q0, -01…-06, -04b, -Q9. Spec tạm đã xóa cùng worktree.
+  - **Bằng chứng** (scratchpad, không commit, chỉ dữ liệu thử DS-E): `qa038/data-r2.txt` (đủ số từng bước), `qa038/out-q5a-*.txt`, `qa038/e2e-r2/run.log`, `qa038/e2e-reg/run.log`.
+- **Chạy lại phần đổi ở head `02c34bc9` (QA, 05/11 00:45–00:50).**
+  - Từ `7557e485` có 3 commit:
+    - mô tả hợp đồng (chỉ chữ) và sinh lại `api-client`;
+    - các thẻ review: ghi `actorRole` vào audit khi A31 đưa đêm Nội bộ về 0 đ (thẻ SEC PR71-02); thêm ca test audit, ca B9a gõ giá trên đơn Nội bộ, ca `lateFeeInsteadOfNight` của đơn Nội bộ trả 422, và BR-421-11;
+    - mô tả hợp đồng về số phải thu khi `lateFeeAsNightVnd` = 0.
+  - Mã sản phẩm chỉ đổi 2 chỗ:
+    - `folio-lines.service.ts`: truyền `actorRole`;
+    - `stay-night-pricing.ts`: ghi `actorRole` vào audit `reservation.repriced` khi nguồn là `complimentary`.
+    - Phần 422 của `lateFeeInsteadOfNight` đã có từ `7557e485`. Commit mới chỉ thêm test cho phần này.
+  - Theo lời ORC, QA chỉ chạy `bug-r4-038-internal-added-night.test.ts`. Chạy trong worktree tạm, trên một Postgres dùng một lần, với các vai `ottimo_app` / `ottimo_migrator` như CI. Đã dọn.
+    - Kết quả: **11/11 đạt, 2 lượt**.
+    - Gỡ dòng ghi `actorRole` trong `stay-night-pricing.ts` thì ca BR-421-04/05/06 (A31) đỏ vì assert. Sau đó QA trả lại dòng này. Vậy test bắt đúng phần sửa.
+  - CI của #71 @ `02c34bc9`: job "format · lint · audit · test · build" đỏ ở 2 ca "Hôm nay" của `v104-holds-feb.test.tsx` (admin-web, `Test Files 1 failed | 79 passed`).
+    - Nguyên nhân là ngày UTC trong test, không do #71. PR #76 sửa.
+    - Theo ARC, `main` đỏ từ 00:00 tới 06:59, không phải tới 06:00.
+  - Không chạy lại stack Desk/API, vì phần đổi chỉ là audit, test và chữ hợp đồng. Kết quả 9/9 ca API ở `7557e485` vẫn dùng được.
+- **Trạng thái:** **Đã sửa – chờ gộp #71** (QA xác nhận 04/11 23:15 ở `7557e485`; phần đổi ở `02c34bc9` đạt 05/11 01:00).
+  - Sau khi #71 vào `main`: QA chạy lại B13 Nội bộ trên STG bằng tài khoản `qa.*`, trong lượt C3 ngày 06/11.
+  - Dữ liệu production đã dính: theo Q5a/Q5b ở mục 2.8 của tệp BE. Đơn nào cần gỡ thì quản lý đưa về 0 bằng A31, có lý do, như ca A31 ở trên. DATA/OPS chạy theo điều kiện SEC; ORC quyết.
+
+---
+
+### BUG-R4-039 – Nhận phòng: lễ tân trưởng xác nhận được ngoại lệ cho căn còn đơn Đang ở (`OC`/`OD`)
+- **Mức:** **P1** (QA chốt 04/11 khuya). DOM đề xuất P1.
+  - **Vì sao không thấp hơn:**
+    - Đây là luồng chính (nhận phòng) sai quy tắc nghiệp vụ BR-402 (1), đúng định nghĩa P1 của `test-strategy.md` mục 8.
+    - Hậu quả ngoài đời rất nặng: khách mới được giao cửa của căn đang có người ngủ. Đó là sự cố an ninh và riêng tư.
+    - Ca này hay gặp ở OTTIMO: khách đi xe đêm tới lúc 05:00–06:30, trong khi khách cũ của căn đi hôm nay và còn ngủ.
+  - **Vì sao QA chưa xếp P0.** Luật mục 8 coi lỗi tồn phòng và C3 là P0 cho tới khi chứng minh không ảnh hưởng. QA đã kiểm từng điểm:
+    - **Tồn phòng không đổi.** Đêm của hai đơn không trùng nhau. Đơn thứ ba cho căn 202 đúng đêm của đơn mới vẫn bị từ chối (409 `ROOM_UNAVAILABLE`).
+    - **Không sai tiền.** Trên stack, folio của đơn mới (nhận phòng bằng ngoại lệ) chỉ có 1 dòng tiền phòng, bằng đúng dòng của đơn cũ. Không có dòng thu thêm hay dòng bị đảo.
+    - **Không lộ dữ liệu C3 qua hệ thống.** Desk không cấp hay hiện mã cửa của khách cũ cho khách mới. Việc giao cửa do lễ tân làm tay (`doorAccessHandedOver`).
+    - **Cần một người có quyền quyết.** Lễ tân trưởng trở lên phải tự xác nhận và ghi lý do. Câu Desk đưa ra có ghi trạng thái thật, ví dụ "Căn 202 đang 'Có khách, sạch'". Lễ tân thường chỉ gửi được yêu cầu duyệt, không tự nhận phòng.
+    - **Dữ liệu sai sửa được:** chỉ trạng thái buồng (SM-03) sai, và căn có 2 lượt Đang ở cho tới khi khách cũ trả phòng.
+  - **Nâng lên P0 nếu** thấy một trong các điều sau:
+    - một đường làm việc này mà không cần người có quyền xác nhận;
+    - tích hợp khóa cửa tự cấp mã cho căn đang có khách;
+    - lỗi này làm sai tiền, hoặc làm bán trùng đêm.
+- **Môi trường:**
+  - API, `origin/main` @ `c2506a53` (bằng mã của nhánh BE lúc tạo). Stack local dùng một lần `ottimo-qa039`, `CLOCK_MODE=mutable`, seed DS-E.
+  - Chỉ dùng tài khoản `qa.fd`, `qa.fdl` và khách giả `@example.test`. Ngày ảo năm 2029.
+- **Liên quan:**
+  - BR-402 (1). `business-rules.md` v0.5.3 đã ghi rõ `OC`/`OD` không có ngoại lệ.
+  - `product/services/api/src/modules/frontdesk/internal/checkin.service.ts` (dòng theo `c2506a53`):
+    - xem trước, dòng 354–362: `room_ready` có `overridableBy: FDL_UP` khi trạng thái **khác `OOO`**, kể cả `OC`, `OD`;
+    - lúc ghi, dòng 588–606: lễ tân trưởng xác nhận, hoặc lễ tân gửi xin duyệt, đều qua được điều kiện này. Không có chỗ nào kiểm "căn còn đơn Đang ở".
+  - `checkout.service.ts` 1399–1407: B18 đặt căn về `VD` khi trạng thái khác `CL`, không xét đơn khác đang ở.
+  - Chữ Desk `checkin.room_not_ready_lead` (`product/design/copy/strings-vi.json` dòng 172) mời lễ tân trưởng xác nhận, dù căn có khách.
+  - Có từ `bad6f599` (16/10, Sprint 3). Tag `v1.0.1`, `v1.0.2`, `v1.0.3` đều có, nên **đang ở production**.
+  - Cùng vùng: thẻ FB-R4-DOM-BA-PR68-08 (sổ tay 2.10, `02` 7.4 đang ghi `OD` vào danh sách được ngoại lệ).
+- **Các bước tái hiện (API, đồng hồ giả):**
+  1. Ngày ảo D, 14:30. Tạo đơn A, Trực tiếp, căn 202, D → D+1, trả đủ, có giấy tờ. Lễ tân nhận phòng A.
+  2. Tạo đơn B, căn 202, D+1 → D+2, trả đủ, có giấy tờ.
+  3. Chỉnh đồng hồ tới D+1, 14:30. Đơn A chưa trả phòng (khách cũ còn trong căn).
+  4. Xem trước nhận phòng B (`previewCheckIn`), với `qa.fd` và với `qa.fdl`.
+  5. `qa.fd` nhận phòng B, không xin ngoại lệ.
+  6. `qa.fd` nhận phòng B, kèm `roomNotReadyOverride.reason` (gửi lễ tân trưởng duyệt).
+  7. `qa.fdl` nhận phòng B, kèm `roomNotReadyOverride.reason`.
+  8. Sau đó, khách cũ trả phòng đơn A: kiểm tủ minibar, rồi `checkOut` lúc 11:00, có ghi chú giờ.
+- **Thực tế** (5/5 lượt giống nhau, mỗi lượt một ngày ảo riêng):
+  - Bước 3: A vẫn `in_house`, căn 202 có trạng thái `OC`.
+  - Bước 4: `room_ready` có `met:false`, `detail:"OC"` và `overridableBy:["front_desk_lead","manager","owner"]`, với cả hai vai.
+  - Bước 5: 409 `CHECKIN_CONDITIONS_NOT_MET`, `unmet=["room_ready"]`. Bước này đúng.
+  - Bước 6: **202**. Desk tạo yêu cầu duyệt `checkin_room_not_ready` ở trạng thái `pending`, thay vì từ chối.
+  - Bước 7: **200**, B thành `in_house`.
+    - Đơn B ghi `checkin_room_status_before = OC`, và ghi người xác nhận.
+    - Yêu cầu duyệt ở bước 6 chuyển thành `cancelled`.
+    - Căn 202 lúc này có **2 đơn `in_house`**, trạng thái buồng chuyển `OD`.
+  - Bước 8: trả phòng A được (200). Ngay sau đó căn 202 có trạng thái **`VD`** ("Trống, cần dọn"), dù B đang ở. Có việc dọn đang mở cho căn.
+  - Kiểm thêm: đơn thứ ba cho căn 202 đêm D+1 bị từ chối (409 `ROOM_UNAVAILABLE`). Tồn phòng không đổi.
+  - Trạng thái `OD` lúc xem trước: QA không dựng được qua API. Theo mã, nhánh `OD` đi cùng nhánh `OC` (điều kiện "khác `OOO`").
+- **Mong đợi** (BR-402 (1), `business-rules.md` v0.5.3):
+  - Căn `OC`/`OD`, tức căn còn đơn Đang ở: **không có ngoại lệ** với mọi vai, kể cả lối xin duyệt.
+    - Xem trước: không có `overridableBy`.
+    - Lúc ghi: lễ tân trưởng xác nhận thì bị từ chối. Lễ tân gửi xin duyệt cũng bị từ chối, không tạo yêu cầu duyệt.
+  - Desk hiện câu riêng (UXD viết), ví dụ: "Căn 202 đang có khách. Trả phòng đơn đang ở trước, hoặc gán căn khác." Không mời xác nhận ngoại lệ.
+  - `VD`/`CL`: vẫn giữ ngoại lệ như cũ.
+  - Có chặn thêm theo "căn còn đơn `in_house`" hay không là do ARC chọn. Nếu chặn, ca bước 7 phải bị từ chối ngay cả khi trạng thái buồng bị sửa tay sang `VD`.
+- **Test chống tái phát (QA đề xuất, BE viết ở API, QA chạy lại):**
+  - Ca chính như các bước trên: bước 4 không có `overridableBy`; bước 6 và 7 bị từ chối; A, B giữ nguyên trạng thái.
+  - Lặp lại với căn `OD`.
+  - Ca đối chứng: căn `VD` và `CL` vẫn được lễ tân trưởng xác nhận ngoại lệ; căn `OOO` vẫn không.
+  - Nếu ARC chọn chặn theo đơn `in_house`: thêm ca trạng thái buồng `VD` mà căn còn đơn Đang ở, kết quả phải bị chặn.
+  - FE: căn `OC`/`OD` hiện câu chặn, không có ô lý do, không có nút xác nhận.
+- **Cách làm tạm tới khi có bản sửa:** sổ tay theo thẻ FB-R4-DOM-BA-PR68-08: "không xác nhận ngoại lệ khi căn có khách, dù Desk cho bấm". ORC gửi INV như cách làm tạm của BUG-R4-037.
+- **Bằng chứng** (scratchpad, không commit, chỉ dữ liệu giả, không bí mật): test tạm `zz-qa039.clock.spec.ts` (xóa cùng worktree), log `qa039/data.txt`, `qa039/e2e-r1` … `qa039/e2e-r5`.
+- **Vai chịu trách nhiệm:** BE-A sửa máy chủ, ARC chốt cách chặn, UXD viết câu, FE làm nhánh Desk. BA sửa sổ tay (thẻ 08). QA chạy lại.
+- **Xác minh bản sửa (QA2, 05/11 00:20, chỉ API):**
+  - Bản thử: nhánh `v104/fix-checkin-occupied-exception` @ `9646029d`.
+    - Stack local dùng một lần `ottimo-qa2pr74` (api, postgres). Seed DS-E, `CLOCK_MODE=mutable`. Test tạm `zz-qa2-pr74.clock.spec.ts`, xóa cùng worktree.
+    - Đối chứng: `main` @ `d0ea6dc2` (chưa có #74), stack `ottimo-qa2main`. Đã dọn cả hai.
+  - "5 lối" là: `qa.fd` không xin ngoại lệ; `qa.fd` xin duyệt có lý do; `qa.fdl`, `qa.mgr`, `qa.owner` xác nhận có lý do.
+
+    | Ca | Dựng | Trên #74 | `main` chưa có #74 |
+    |---|---|---|---|
+    | C1 | Căn 202 `OC`: A đang ở, đi hôm nay. B đến hôm nay | Xem trước: `room_ready` `detail:OC`, không có `overridableBy` (với `qa.fd` và `qa.fdl`). Cả 5 lối nhận 409 `CHECKIN_CONDITIONS_NOT_MET` `["room_ready"]`. FD xin duyệt không còn ra 202, không có yêu cầu duyệt nào. A `in_house`, B `confirmed`, căn vẫn `OC` | Đỏ: có `overridableBy` |
+    | C2 | Căn 203 `OD`. Chèn sẵn một yêu cầu duyệt `approved` cho B, như yêu cầu tạo trên v1.0.3 | `detail:OD`, không có `overridableBy`. Cả 5 lối nhận 409, kể cả khi đã có yêu cầu được duyệt. A, B giữ trạng thái | Đỏ: có `overridableBy` |
+    | C3 | Căn 301 `VD`, không có khách | Có `overridableBy` (FDL trở lên). FD xin duyệt: 202, yêu cầu `pending`. FDL xác nhận: 200, B `in_house`, yêu cầu chuyển `cancelled` | Xanh, như cũ |
+    | C4 | Căn 302 `CL` | Như C3 | Xanh, như cũ |
+    | C5 | Căn 401: A đang ở, trạng thái bị sửa tay thành `VD` | `detail:VD`, không có `overridableBy`. Cả 5 lối nhận 409 | Đỏ: có `overridableBy` |
+
+  - **Kết luận: ĐẠT** phần máy chủ.
+  - Phần Desk (câu chặn riêng, không có ô lý do) chưa kiểm ở lượt này. Kiểm ở TC-V104-RG-14.
+- **Trạng thái:** **Đã sửa – chờ gộp #74** (QA2 05/11, đạt local).
+  - Trước đó: Mới – ORC quyết chặn ở máy chủ trong v1.0.4, BE sửa trên nhánh `v104/fix-checkin-occupied-exception`.
+  - P1 còn mở thì QC không qua (`test-strategy.md` mục 8). Nếu không kịp bản cắt 06/11 18:00, ORC phân xử, và theo protocol mục 8 cần ESC.
+
+---
+
+### BUG-R4-040 – Đặt phòng mới: câu "giá ngoài sàn–trần" hiện nguyên chữ `{min}`, `{max}`, `{group}`
+- **Mức:** P3 (QA chốt 04/11 khuya). Thẻ UXD PR70-06 (Minor). ORC đã quyết dời v1.0.5, không chặn #70.
+  - Đây là lỗi câu chữ: hiện mã giữ chỗ thô (`test-strategy.md` mục 8, mục 0.5 của bộ test case).
+  - **Không sai tiền.** Máy chủ vẫn chặn đơn (422), nên không có đơn nào được tạo với giá ngoài sàn–trần.
+  - Lễ tân không biết khoảng giá đúng là bao nhiêu, nên phải đoán số.
+- **Môi trường:**
+  - Desk của PR #70 @ `94a28258`: image web dựng từ head này, Chromium 1366 × 768.
+  - API `origin/main` @ `c2506a53`. Phía máy chủ, #70 không đổi gì.
+  - Stack local dùng một lần `ottimo-qa039`, seed DS-E, lễ tân `qa.fd`, khách giả.
+- **Liên quan:**
+  - BR-105 (sàn–trần theo nhóm căn).
+  - `reservations.service.ts` 739–743 (`c2506a53`): `throw problem('RATE_OUT_OF_RANGE', { errors: [{ field: 'nightlyRates', code: 'RATE_OUT_OF_RANGE' }], extras: { dates } })`. Không có `min`, `max`, `group`.
+  - `BookingDialog.tsx` (@ `94a28258`):
+    - nhánh `RATE_OUT_OF_RANGE` (dòng 636) chỉ nằm trong `VALIDATION_FAILED`, nên Problem `RATE_OUT_OF_RANGE` rơi xuống `setRequestError`;
+    - `problemView` dùng `error.RATE_OUT_OF_RANGE`, chỉ điền `min`/`max` khi Problem có hai trường đó;
+    - `interpolate` (`packages/i18n/src/translate.ts`) giữ nguyên `{name}` khi thiếu giá trị.
+  - Test mới của FE trong #70 giả lập `RATE_OUT_OF_RANGE` dưới dạng `VALIDATION_FAILED` kèm `min`/`max`. Máy chủ thật không bao giờ trả dạng này, nên test xanh nhưng không phủ ca thật.
+  - Có từ trước v1.0.1: chữ `error.RATE_OUT_OF_RANGE` có từ `592e4df0` (15/10). Thân lỗi của máy chủ như trên đã có ở tag `v1.0.3`.
+- **Các bước tái hiện:**
+  1. Mở **Đặt phòng mới**. Giữ kênh Trực tiếp, chọn căn 101, 1 đêm. Chờ ô giá được điền (667.000).
+  2. Gõ `100000` vào ô giá đêm. Chọn khách. Bấm **Tạo đơn**.
+  3. Lặp lại với `90000000`.
+- **Thực tế** (2/2 lượt, mỗi lượt 2 mức giá):
+  - `POST /reservations` trả 422, thân lỗi có `code: RATE_OUT_OF_RANGE`, `dates: [ngày]` và `errors[0]` là `nightlyRates` / `RATE_OUT_OF_RANGE`.
+  - Desk hiện ở đầu hộp (`role=alert`): "Giá phải từ {min} đến {max} (giá sàn – trần nhóm {group})."
+  - Khi bấm **Tạo đơn**, câu nằm ngoài khung nhìn. Lễ tân phải cuộn lên mới thấy.
+  - Dưới bảng giá không có câu nào.
+- **Mong đợi:**
+  - Câu có số sàn, số trần và tên nhóm căn thật, theo mẫu "Giá phải từ … đến … (giá sàn – trần nhóm L12)."
+  - Câu nằm dưới bảng giá, hoặc dưới ô của đêm sai, như các lỗi `nightlyRates` khác sau thẻ PR70-01.
+  - Nếu chưa có số, dùng câu không có chỗ trống, ví dụ "Giá ngoài khoảng sàn – trần của nhóm căn." Không bao giờ hiện `{…}`.
+- **Ví dụ cách sửa (BE + FE quyết, ARC xem):**
+  - BE: thêm `min`, `max`, `group` (hoặc `floorVnd`/`ceilingVnd` theo từng đêm) vào Problem.
+  - FE: xử lý Problem `RATE_OUT_OF_RANGE` như lỗi của ô giá.
+  - Sửa mock trong test cho khớp thân lỗi thật.
+  - Cùng mẫu thân lỗi ở B9a (`checkin.service.ts` 185) và gia hạn (`stay.service.ts` 375). UXD/FE kiểm hai chỗ này cùng lần.
+- **Bằng chứng** (scratchpad, không commit, dữ liệu giả): `qa039/data70b.txt`, ảnh `qa039/data70b.txt.u2-*.png`.
+- **Vai chịu trách nhiệm:** BE + FE, UXD duyệt câu.
+- **Trạng thái:** Mới – dời v1.0.5 có kế hoạch (ORC). Ghi vào backlog v1.0.5.
+
+---
+
+### BUG-R4-041 – Đặt phòng mới: "Giữ chỗ" bỏ giá đêm đã gõ, giữ chỗ và cọc tính theo giá niêm yết
+- **Mức:** **P2** từ 05/11 01:00, vì khóa tạm của PR #75 đạt. Trước đó là **P0** khi chưa có khóa tạm (QA chốt 04/11 khuya). Nếu #75 không vào bản cắt, lỗi trở lại P0. DOM đề xuất P1 khi không có khóa tạm, P2 khi có.
+  - **Vì sao P0 lúc này:**
+    - Đây là lỗi sai tiền với khách, và không ai được báo.
+    - Lễ tân đã gõ giá thỏa thuận và thấy số đó trong ô. Bấm **Giữ chỗ** thì Desk tính lại theo giá niêm yết, không có câu nào.
+    - Khách nhận mã VietQR cọc 30 % cao hơn số đã báo.
+    - Khi đơn được xác nhận, giá đơn là giá niêm yết. Lúc trả phòng, khách bị đòi theo giá đó, trừ khi có người nhớ sửa lại.
+    - `test-strategy.md` mục 8 quy định lỗi tiền mặc định P0, cho tới khi chứng minh không ảnh hưởng tiền. Ở đây tiền bị ảnh hưởng.
+    - QA dùng cùng luật với BUG-R4-037, nơi số sai cũng hiện trong ô nhưng Desk gửi đi mà không báo.
+  - **Yếu tố giảm nhẹ, chưa đủ để hạ mức:**
+    - sau khi giữ chỗ, hộp kết quả có in số cọc, nên lễ tân cẩn thận có thể thấy số lệch;
+    - giá đơn sửa được sau, trong sàn–trần, có lý do.
+  - **Vì sao hạ P2 khi có khóa tạm:**
+    - Khi có ô đã gõ, Desk khóa **Giữ chỗ** và nói rõ lý do. Desk không còn bỏ giá lặng lẽ, nên không còn đường sai tiền.
+    - Phần còn lại là thiếu chức năng (giữ chỗ theo giá thỏa thuận), có cách làm khác: thu cọc rồi **Tạo đơn**. Đó là mức P2, dời v1.0.5 có kế hoạch theo thẻ ARC-05.
+- **Môi trường:** đọc mã PR #70 @ `94a28258` và tag `v1.0.3`; hợp đồng `origin/main` @ `c2506a53`. Từ 04/11 23:50 đã tái hiện trên stack dựng từ `v1.0.3` và stack dựng từ #70 @ `98d8a3ad`. Ngày 05/11 00:15 tái hiện thêm trên `main` @ `d0ea6dc2` (mục "Thực tế trên stack").
+- **Liên quan:**
+  - `product/apps/admin-web/src/pages/booking/BookingDialog.tsx`:
+    - @ `94a28258`, `hold()` dòng 681–724: thân `saveQuote` gồm căn, ngày đến, số đêm, số khách, kênh, khách, yêu cầu website. **Không có `nightlyRates`.** Sau đó gọi `createHoldFromQuote` với `depositMethod: 'vietqr'`;
+    - @ `v1.0.3`, cùng mã ở dòng 607–640;
+    - nút hiện khi `directLike && arrivalDate > today && online` (dòng 840–845). Không xét ô đã gõ.
+  - `product/docs/api/openapi.yaml`, `QuoteInput`: không có trường giá đêm. Vì vậy FE không gửi được giá thỏa thuận dù muốn.
+  - BR-106, BR-305 (cọc 30 % tiền phòng), BR-429 (g). Thẻ FB-R4-ARC-FE-PR70-03 và -05.
+  - Cách làm tạm trên production (sổ tay 2.5 bước 10, BA): giá thỏa thuận thì **không bấm Giữ chỗ**. Báo khách cọc 30 % theo giá thỏa thuận; khách chuyển rồi mới **Tạo đơn** với giá đã gõ.
+- **Các bước tái hiện** (lễ tân `qa.fd`, DS-E):
+  1. Mở **Đặt phòng mới**, Trực tiếp, căn 101, ngày đến từ mai trở đi, 2 đêm. Chờ ô giá được điền.
+  2. Gõ giá thỏa thuận cho cả 2 đêm, trong sàn–trần, thấp hơn giá lịch. Ví dụ giá lịch 667.000, gõ 600.000.
+  3. Chọn khách. Bấm **Giữ chỗ đến …**.
+- **Thực tế** (theo mã, chưa chạy):
+  - Yêu cầu `saveQuote` không có giá đã gõ. Báo giá và giữ chỗ tính theo giá lịch (667.000 × 2).
+  - Cọc 30 % và mã VietQR tính trên số đó, không trên 600.000 × 2.
+  - Không có câu nào báo giá đã gõ bị bỏ.
+- **Thực tế trên stack** (QA 04/11 23:50, đã tái hiện):
+  - **v1.0.3:** stack local dùng một lần `ottimo-qa103`, dựng API và Desk từ tag `v1.0.3` (`da6d6f3d`). Seed DS-E, `qa.fd`, Desk Chromium thật.
+    - Thao tác: Trực tiếp, căn 103, 2 đêm, ngày đến cách hôm nay hơn 1 tháng. Giá lịch 750.000/đêm. Gõ 690.000 cho cả 2 đêm. Nút **Giữ chỗ đến …** vẫn bấm được.
+    - `POST /quotes` không có `nightlyRates`. `create-hold` trả 201.
+    - Đơn giữ chỗ ghi `total_room_vnd` = **1.500.000** (750.000 × 2, nguồn `calendar`), không phải 1.380.000 như đã gõ. Cọc phải thu 500.000.
+    - Desk không có câu nào báo giá đã gõ bị bỏ.
+  - **#70 @ `98d8a3ad`:** cùng ca, cùng kết quả. Đây là điều đúng theo kế hoạch, vì #70 không sửa nút này; khóa tạm nằm ở PR riêng.
+  - **`main` @ `d0ea6dc2`** (stack `ottimo-qamain`, 05/11 00:15): căn 102, giá lịch 750.000/đêm, gõ 690.000 cho cả 2 đêm. Cùng kết quả: `POST /quotes` không có `nightlyRates`, đơn giữ chỗ ghi 1.500.000 nguồn `calendar`, cọc phải thu 500.000, không có câu.
+  - Ảnh `qa103/data.txt.h1-*.png`, `qa70c/data.txt.h1-*.png`, `qamain/data.txt.h1-*.png` nằm trong scratchpad, không commit.
+  - Với ví dụ này, QA chưa tách được cọc 30 % theo giá đã gõ với cọc theo giá lịch. Lý do: chưa đọc luật làm tròn cọc. Dấu hiệu sai tiền đã rõ ở tiền phòng của đơn.
+  - Cập nhật 05/11: trên stack của #75, cùng căn và cùng giá, **Tạo đơn** với 690.000 × 2 ghi cọc phải thu 400.000. Giữ chỗ theo giá niêm yết ghi 500.000. Vậy trước bản sửa, ở ví dụ này khách bị đòi cọc cao hơn 100.000.
+- **Mong đợi:**
+  - v1.0.4 (khóa tạm, chỉ FE): khi có ô đã gõ, nút **Giữ chỗ** bị khóa và có câu (UXD viết). Ví dụ: "Giữ chỗ chưa nhận giá đã gõ. Thu cọc rồi Tạo đơn, hoặc xóa giá đã gõ để giữ theo giá niêm yết."
+  - Không có ô đã gõ thì giữ chỗ như cũ.
+  - v1.0.5: giữ chỗ nhận giá thỏa thuận. ARC đổi hợp đồng Q1; cọc 30 % tính trên giá đó.
+- **Test chống tái phát (QA đề xuất):**
+  - UNIT (FE): gõ 1 đêm thì nút khóa và có câu. Xóa hết ô đã gõ thì nút mở lại, và `saveQuote` gửi đi không có giá.
+  - E2E trên stack: như các bước trên. Có khóa thì không có yêu cầu `saveQuote` nào. Đối chứng: không gõ giá thì giữ chỗ được, cọc theo giá lịch.
+  - Kiểm cả kênh CTV (`agent`), vì nút cũng hiện với kênh này.
+- **Xác minh bản sửa (QA, 05/11 00:30–00:55): PR #75 `v104/fe-hold-typed-rate-lock`.**
+  - **Head đã chạy:**
+    - `9c277c7a`: lượt đầu;
+    - `e71ab25f`: thẻ UXD PR75-01/02/03 (câu mới, `aria-disabled`, câu lý do đứng đầu footer). Kết quả dưới đây là của head này.
+    - Worktree tạm và stack local dùng một lần dựng từ từng head. Đã dọn.
+  - **Cách sửa (đọc mã):**
+    - `typedRate` đúng khi có ít nhất một đêm **của kỳ ở** mà lễ tân đã gõ và ô còn số.
+    - Khi đó nút **Giữ chỗ đến …** mang `aria-disabled="true"` và vẫn nhận focus. `aria-describedby` trỏ tới câu `booking.hold.typed_rate_locked`, đứng đầu footer.
+    - `hold()` tự dừng khi `typedRate`, nên bấm chuột, Enter hay Space đều không làm gì. `Button` mặc định `type="button"`, nên Enter trên nút không gửi form.
+    - Ô đã gõ rồi xóa không còn chặn giữ chỗ bằng lỗi ô giá.
+    - Hộp này chỉ có một đường `saveQuote` → `createHoldFromQuote`. `QuoteDialog` không có ô giá gõ tay.
+  - **Unit (admin-web):**
+    - `v104-hold-typed-rate-lock` 6/6 (ở `9c277c7a` là 5/5);
+    - `v104-booking-rate-carryover` 28/28, `booking` 9/9;
+    - 3 ca tái hiện BUG-R4-037 của QA: 3/3.
+    - Thay `BookingDialog.tsx` bằng bản của `main` @ `d0ea6dc2` thì tệp test khóa đỏ 5/6. Ca còn xanh là ca đối chứng "Tạo đơn với giá đã gõ".
+  - **Desk thật trên stack** `ottimo-qa75` (seed DS-E, `qa.fd`, Chromium, gọi API thật; căn 102/103, giá niêm yết 750.000/đêm):
+    - **L1**, Trực tiếp, 2 đêm, gõ 690.000 cho đêm 2:
+      - nút có `aria-disabled="true"`, không có `disabled`, không `aria-busy`, nhận được focus;
+      - câu "Giữ chỗ chỉ theo giá niêm yết. Đã nhận cọc thì bấm Tạo đơn để lưu giá đã gõ. Chưa nhận cọc thì xóa giá đã gõ rồi giữ chỗ, xác nhận cọc xong thì Điều chỉnh giá ở Folio." hiện, lớp `li-s`, là phần tử đầu footer. `aria-describedby` trỏ đúng câu này;
+      - nút trông như nút khóa của DS: nền Cream, chữ Stone Grey, viền đứt, con trỏ not-allowed;
+      - bấm chuột, focus + Enter, focus + Space: 0 yêu cầu `/quotes` hay `create-hold`, 0 yêu cầu `/reservations`, hộp vẫn mở;
+      - nút **Tạo đơn** vẫn bấm được.
+    - **L2**, gõ 690.000 cho cả 2 đêm rồi xóa từng ô:
+      - xóa 1 ô thì vẫn khóa;
+      - xóa cả 2 thì nút mở, câu ẩn, không còn `aria-describedby`;
+      - bấm **Giữ chỗ**: `POST /quotes` không có `nightlyRates`, `create-hold` 201. Đơn giữ chỗ ghi **1.500.000** (750.000 × 2, nguồn `calendar`), cọc 500.000. Không có câu `rate_empty`.
+    - **L3**, đã nhận cọc: gõ 690.000 × 2, bấm **Tạo đơn**: 201, `nightlyRates` có `edited:true`. Đơn ghi **1.380.000** nguồn `manual`, cọc phải thu 400.000. 0 yêu cầu `/quotes`.
+    - **L4**, kênh **CTV / môi giới**: cùng khóa, cùng câu.
+    - Hành vi của #70 không đổi: C1 và C2 chạy lại ở cả 2 head, kết quả giống hệt trên `main` (mục BUG-R4-037).
+  - **Ghi nhận, không phải lỗi của #75:** Enter trong một ô giá sẽ gửi form, tức là **Tạo đơn** ngay (đơn `confirmed` với giá đã gõ), không qua giữ chỗ. Đây là hành vi cũ của form H09. Gửi UXD cân nhắc.
+  - **CI #75 @ `e71ab25f`:** job test đỏ ở cùng 2 ca "Hôm nay" của `v104-holds-feb` như #71 (ngày UTC, PR #76 sửa). Không có ca nào của #75 đỏ.
+  - Spec tạm `zz-qa75.spec.ts` (không commit) và ảnh `qa75/data-e7.txt.*.png` để ở scratchpad. Dữ liệu giả.
+- **Vai chịu trách nhiệm:** FE (khóa tạm), UXD (câu), ARC/BE (hợp đồng Q1, v1.0.5), BA (sổ tay). ORC quyết hotfix production và việc gửi cách làm tạm cho INV. Đây là việc về tiền với khách.
+- **Trạng thái:** **Đã sửa – chờ gộp #75** (QA xác nhận 05/11 01:00 ở head `e71ab25f`). Mức hạ **P2**.
+  - Trước đó: Mới, P0, chờ PR `v104/fe-hold-typed-rate-lock`.
+  - Phần còn lại (giữ chỗ nhận giá thỏa thuận, hợp đồng Q1) dời v1.0.5 có kế hoạch, theo thẻ ARC-05.
+  - Nếu #75 có commit mới, QA chạy lại phần đổi. Nếu #75 không vào bản cắt 06/11 18:00, lỗi trở lại P0.
+  - Sau khi gộp: RG-15 trên STG 07/11.
+  - Production (v1.0.3) vẫn có lỗi tới khi phát hành v1.0.4. Cách làm tạm: sổ tay 2.5 bước 10. ORC quyết hotfix.
+
+---
+
+### BUG-R4-042 – Trả phòng sau B14: đếm xong tủ thứ hai, Desk quay lại tủ đã đếm khi bản tóm tắt tải lại chậm
+- **Mức:** **P1** (QA2 chốt 05/11).
+  - **Ảnh hưởng tiền**, qua thao tác của lễ tân trên một màn hình gây nhầm.
+    - Desk đưa lại tủ 202 đã đếm, nhưng bảng không ghi tên tủ, còn tiêu đề vẫn là "Trả phòng · Căn 101".
+    - Lễ tân tưởng đó là tủ căn 101 vừa đếm, bấm "Không dùng gì – tủ đủ". Kết quả: dòng minibar 35.000 của tủ 202 bị đảo. QA2 đã tái hiện.
+    - Cùng họ với BUG-R4-035 (P1) và BUG-R2-144.
+  - **Lý do không xếp P0.** Lỗi chỉ xảy ra khi có đủ 3 điều kiện:
+    1. lượt có B14 giữa kỳ, và lúc trả phòng còn từ 2 tủ chưa đếm;
+    2. bản tóm tắt tải lại sau lần đếm tủ đầu về chậm hơn lúc lễ tân đếm xong tủ thứ hai;
+    3. lễ tân sửa số, hoặc bấm "tủ đủ", trên tủ đã đếm.
+
+    Nếu lễ tân chỉ bấm **Tiếp tục** lần nữa thì tiền không sai (đếm lại cùng số).
+  - **Nâng P0** nếu tái hiện được bằng thao tác tay trên staging, hoặc thấy dòng minibar bị đảo sau B14 trên dữ liệu thật.
+  - Là P1 nên phải đóng trước QC rút gọn 08/11. Không kịp thì ORC phân xử.
+- **Môi trường:**
+  - Desk, Chromium, project `desk-clock`, đồng hồ giả.
+  - Stack local dùng một lần `ottimo-qa2p67`, mã `ceda9278`, tức `main` @ `217afac0`. Seed DS-E.
+  - Đoạn mã có từ S4-38 (`feb75035`, round 2). Tag `v1.0.1`, `v1.0.2`, `v1.0.3` đều có `const next = nextCabinet(counted)`, nên lỗi **đang ở production**.
+  - #67 không gây ra lỗi này và cũng không sửa nó.
+- **Liên quan:**
+  - `product/apps/admin-web/src/pages/stay/CheckOutPage.tsx` (dòng theo `ceda9278`):
+    - `toCount` dòng 707;
+    - `nextCabinet` dòng 708–709;
+    - `saveMinibar` dòng 710–763: nhánh `!chargeable` ở đầu hàm, và sau lệnh POST là `sum.reload(); const next = nextCabinet(counted)`;
+    - `cabinets` dòng 498–504: nhóm chọn tủ ẩn khi `cabinet` không còn trong `minibarUncheckedRooms`.
+  - BR-703-01; K11-03 (màn hình luôn nêu tên tủ đang đếm); TC-L4-138 (`e2e/ui-clock/b14-fridges.s5.spec.ts:102`).
+- **Các bước tái hiện:**
+  1. Ngày ảo D: khách vào 202, ở 2 đêm. D+1 lúc 10:00: B14 do sự cố, 202 chuyển sang căn cùng nhóm (101). Không đếm tủ lúc đổi.
+  2. D+2 lúc 09:00: mở Trả phòng (H16). Tủ cũ 202 được chọn trước. Gõ bia dùng 1, bấm **Tiếp tục: Phụ phí**. Desk gửi `POST …/minibar-checks`, nhận 201 cho 202.
+  3. Desk chuyển sang tủ 101. Bấm **Tiếp tục: Phụ phí** trước khi `GET …/checkout-summary` (tải lại sau bước 2) về. Desk gửi `POST`, nhận 201 cho 101.
+  - Tự động, tái hiện ổn định: test E2E tạm giữ mọi `checkout-summary` sau bước 2 bằng `page.route`. Tái hiện 3/3 lượt.
+  - Tự nhiên: lượt đầu của TC-L4-138, khi máy tải 45–64. Trace cho thấy sau 2 lệnh 201, trang vẫn ở bước ①, và lệnh bấm **Tiếp tục: Bill & thu tiền** chờ tới hết giờ.
+- **Thực tế:**
+  - Sau bước 3: trang vẫn ở bước ① Minibar, nút "Căn 202 (đã chuyển đi)" được chọn lại. Desk không sang bước ② Phụ phí.
+  - Khi bản tóm tắt về:
+    - nhóm chọn tủ ẩn đi, vì không còn tủ chưa đếm;
+    - bảng hiện tủ 202 với số của lần đếm trước: bia còn 1, dùng 1, "Tổng minibar: 35.000";
+    - tiêu đề là "Trả phòng · Căn 101". Không chỗ nào ghi đây là tủ 202.
+  - Nếu lễ tân bấm **Tiếp tục** lần nữa: Desk gửi lệnh thứ ba, 201 cho 202 (đếm lại cùng số), rồi sang bước ②. Folio có 1 dòng minibar 35.000, không có dòng đảo. Dù vậy vẫn thừa một lần đếm và một bước gây nhầm.
+  - Nếu lễ tân bấm **Không dùng gì – tủ đủ** rồi **Tiếp tục**: Desk gửi 201 cho 202 với tủ đầy. Dòng 35.000 bị đảo, minibar trên folio còn 0. Khách sạn mất 35.000, tức **sai tiền**.
+- **Nguyên nhân (QA đọc mã):**
+  - `saveMinibar` là closure của lần render lúc bấm, nên `toCount` là `s?.minibarUncheckedRooms` của lần render đó.
+  - Sau khi `await` lệnh POST, `nextCabinet(counted)` tìm tủ kế tiếp trong danh sách cũ ấy. Nếu bản tóm tắt sau lần đếm trước chưa về lúc bấm, tủ đã đếm vẫn nằm trong `toCount` và được chọn lại.
+  - `sum.reload()` gọi ngay trước đó không đổi được biến đã chụp trong closure.
+- **Mong đợi:**
+  - Đếm xong tủ cuối thì sang bước ②, dù bản tóm tắt về chậm. Trong một lần mở trang, không bao giờ quay lại tủ đã đếm (BR-703-01: mỗi tủ đếm một lần).
+  - Màn hình luôn nêu tên tủ đang đếm (K11-03), kể cả khi tủ đó không còn trong `minibarUncheckedRooms`.
+  - Ví dụ cách sửa (FE quyết, ARC xem), áp cho cả nhánh `!chargeable`:
+    - giữ tập các tủ đã đếm được 201 trong lần mở trang (ref), và loại các tủ đó khỏi `nextCabinet`;
+    - hoặc chờ `sum.reload()` xong rồi chọn tủ kế tiếp từ bản tóm tắt mới, thay vì dùng `toCount` của closure.
+- **Test chống tái phát:**
+  - UNIT (MSW): giữ `checkout-summary` từ sau lần đếm thứ nhất tới sau lần đếm thứ hai. Kỳ vọng: sang bước ②, đúng 2 lệnh `POST`, không chọn lại tủ đầu. Ca này phải đỏ ổn định trên `ceda9278`.
+  - E2E: thêm cho TC-L4-138 một biến thể giữ bản tóm tắt, như test tạm của QA2.
+  - Hồi quy: TC-V104-RG-21.
+- **Bằng chứng** (scratchpad, không commit, chỉ dữ liệu giả, không bí mật):
+  - test tạm `zz-qa2-pr67.spec.ts`, ca "race", xóa cùng worktree;
+  - log `qa2-pr67-out/e2e-race1` … `e2e-race3` (`data.txt`);
+  - trace lượt đầu TC-L4-138: `qa2-pr67-out/trace-reg/`;
+  - ảnh `data.txt.race-held.png`: chưa qua kiểm che, không commit.
+- **Vai chịu trách nhiệm:** FE-A (H16 minibar) sửa, ARC xem cách sửa, UXD xem nhãn tủ đang đếm, QA chạy lại.
+- **Trạng thái:** Mới – báo ORC 05/11 00:45. Theo ORC, đội sửa bằng PR mới.
+
+### BUG-R4-043 – Cờ đêm miễn phí `is_complimentary` đi theo kênh, không theo tiền: đêm "Nội bộ có thu" bị tính là đêm miễn phí
+- **Mức:** **P2** (QA chốt 05/11). DOM và ORC đề xuất P3. Dời v1.0.5 có kế hoạch.
+  - **Vì sao không P0/P1:**
+    - không sai tiền. Doanh thu phòng, folio, chốt ca, công nợ, FOC và cảnh báo FOC đều không đọc cờ (bảng chỉ số ở DOM lượt 6, mục 2);
+    - ở v1.0.x, không màn nào và không API nào đọc cờ này;
+    - cờ tính lại đúng được bất cứ lúc nào từ cột tiền, nên không mất thông tin.
+  - **Vì sao không P3:**
+    - `test-strategy.md` mục 8 dành P3 cho thẩm mỹ, chính tả, căn lề, câu chữ.
+    - Đây là dữ liệu lưu sai, và sẽ làm sai 2 chỉ số báo cho chủ đầu tư (ADR K-04, số đêm miễn phí K-02).
+    - Lỗi khớp mức P2: "chức năng phụ sai", có cách làm tạm, được dời có kế hoạch.
+  - Mức P2 không làm chậm v1.0.4. Lỗi vẫn dời v1.0.5 như DOM đề xuất.
+- **Môi trường:** stack local dùng một lần từ PR #71 @ `7557e485` (04/11 23:15), seed DS-E. Đọc mã trên `main` @ `476fd9b8` (DOM lượt 6).
+- **Liên quan:**
+  - BR-904 (câu kênh Nội bộ), BR-421 v0.5.3 (b) (Nội bộ có thu), EP02 kênh Nội bộ;
+  - `metrics-definitions.md` Q-05, K-02, K-04; `erd.md` dòng `is_complimentary`;
+  - quyết định DOM lượt 6 trong `rounds/round-04/reviews/DOM-on-v104-pr68-docs.md`;
+  - BUG-R4-038, nơi QA thấy lỗi.
+  - Mã (theo DOM, `main` @ `476fd9b8`):
+    - tạo đơn: cờ đơn = `group === 'internal' || tổng 0` (`reservations.service.ts` 803). Cờ đêm = `w.isComplimentary || n.amountVnd === 0` (`reservation-store.ts`, `insertNights` dòng 239; dòng 881 gọi với `group === 'internal'`);
+    - đêm thêm B13/B9a/B18 chép cờ của đơn (dòng 2769, 3823);
+    - A31 (`stay-night-pricing.ts` dòng 185) đổi giá và tiền nhưng không đổi cờ;
+    - `setDiscount`/`addDiscount` (`stay-night-allocation.ts`) lại tính lại cờ khi gross > 0.
+- **Các bước tái hiện** (stack local, `qa.fd`, DS-E):
+  1. Tạo đơn Nội bộ, gõ giá 300.000 cho 1 đêm ("Nội bộ có thu").
+  2. Đọc `stay_night.is_complimentary` và `reservation.is_complimentary` của đơn.
+  3. Với một đơn Nội bộ đang ở, gia hạn 1 đêm (B13) và gõ 300.000. Đọc lại cờ của đêm thêm và của đơn.
+- **Thực tế** (QA thấy 04/11 23:15 khi xác minh #71, ca QA-038-05 và QA-038-06):
+  - bước 1–2: đêm gross 300.000 có `is_complimentary = true`. Đơn cũng `true`, dù `total_room_vnd` = 300.000;
+  - bước 3: đêm thêm gross 300.000 cũng `true`; đơn `true`, tổng 300.000.
+  - Theo mã: A31 sửa đêm 0 đ lên 300.000 vẫn để `true`; đêm 300.000 có giảm một phần thì thành `false`. Vì vậy cờ của cùng một đêm tùy vào lịch sử thao tác.
+- **Mong đợi** (DOM lượt 6): cờ đi theo tiền, ở mọi kênh.
+  - Đêm: `is_complimentary = true` khi và chỉ khi tiền phòng sau giảm của đêm bằng 0.
+  - Đơn: `true` khi tổng tiền phòng bằng 0, và tính lại mỗi khi giá đổi.
+  - Đêm "Nội bộ có thu" là đêm bán có thu tiền, nên vào ADR.
+- **Ảnh hưởng:**
+  - ADR K-04 cao hơn thật. Ví dụ của DOM: 853.000 thay vì 844.554, khoảng 1 %.
+  - Số đêm miễn phí và số đêm bán có thu (K-02) bị đếm sai loại.
+  - Không sai: công suất, doanh thu phòng, RevPAR, FOC, chốt ca, folio.
+  - Câu Q1–Q5 của 037/038 không dùng cờ. Lưu ý cho DATA/BE: không dùng `is_complimentary = true AND gross > 0` làm dấu hiệu đơn Nội bộ dính 037, vì điều kiện này bắt cả đơn Nội bộ có thu đúng.
+- **Cách làm tạm tới v1.0.5:** DATA tính đêm miễn phí bằng `room_revenue_vnd = 0`, không dùng cờ.
+- **Việc ở v1.0.5** (theo DOM lượt 6 và ORC):
+  - BE: cờ đêm = `room_revenue_vnd = 0` ở mọi đường ghi (`insertNights`, A31 `setNightRate`, `setDiscount`/`addDiscount`, B9a/B13/B18). Cờ đơn = tổng tiền phòng bằng 0. ARC chọn cách và xem thêm `lease-nights.ts`.
+  - OPS/BE: tính lại cờ một lần trên dữ liệu đã có, theo điều kiện SEC, ORC duyệt.
+  - DATA sửa Q-05; BA sửa EP02; ARC sửa `erd.md`; DOM sửa BR-904 khi ORC đồng ý.
+  - **Hạn:** trước báo cáo ADR đầu tiên (R3, hoặc số tháng DATA gửi chủ đầu tư).
+- **Test chống tái phát (QA đề xuất):** TC-V104-RG-22, N/A ở v1.0.4, chạy ở v1.0.5.
+  - Mỗi đường ghi giá một ca: tạo đơn Nội bộ 0 đ và có thu; A31 từ 0 lên 300.000 và từ 300.000 về 0; giảm giá về 0; B9a/B13/B18 Nội bộ gõ > 0 và gõ 0; đơn Trực tiếp giảm 100 % thì `true`.
+  - Câu đọc: không còn đêm nào có `is_complimentary` khác với `room_revenue_vnd = 0`, trước và sau lượt tính lại của OPS. Repo chỉ ghi số đếm.
+- **Bằng chứng:** `qa038/data-r2.txt`, dòng QA-038-05 và QA-038-06 (scratchpad, không commit, chỉ dữ liệu thử DS-E).
+- **Vai chịu trách nhiệm:** BE (sửa mã), OPS (tính lại dữ liệu), DATA, BA, ARC, DOM (tài liệu). QA chạy RG-22 ở v1.0.5.
+- **Trạng thái:** Mới – dời v1.0.5 có kế hoạch (ORC 05/11). Không chặn v1.0.4.
+
+### BUG-R4-044 – Gia hạn giữ chỗ: hạn rơi vào 00:00–06:59 hiện sớm một ngày
+- **Mức:** **P2** (QA chốt 05/11). ARC ghi Minor.
+  - Lễ tân đọc hạn này và báo lại cho khách. Báo sớm một ngày thì khách vội chuyển cọc, hoặc ca sau tưởng giữ chỗ đã hết hạn.
+  - Không sai tiền. Hạn lưu trên máy chủ đúng, việc tự hủy chạy theo hạn đúng.
+  - Có chỗ khác xem đúng hạn: băng "Giữ chỗ hết hạn sau …" trong khung đơn (`ReservationDrawer.tsx` dòng 485). Máy chủ trả mốc giờ có `+07:00`, nên cắt chuỗi lấy ngày ra ngày VN.
+  - Lỗi khớp P2: "UX gây nhầm có cách khắc phục". Không phải P3, vì đây là ngày sai, không phải lỗi trình bày.
+- **Môi trường:** đọc mã `origin/main` @ `373ec195`. Xác nhận bằng unit trên mã cũ (`ReservationDialogs.tsx` của `373ec195` trong worktree tạm, đã dọn).
+- **Liên quan:**
+  - `product/apps/admin-web/src/pages/reservations/ReservationDialogs.tsx` dòng 912, `ExtendHoldDialog`: `fmt` lấy giờ theo VN (`timeHHmm`) nhưng lấy ngày bằng `d.toISOString().slice(0, 10)`, tức ngày UTC;
+  - chữ `rsv.extend_submit` ("Gia hạn đến {time}") và `rsv.toast.hold_extended`;
+  - B3, US-085 AC3, BR-302; thẻ ARC FB-R4-ARC-FE-PR76-01 trong `rounds/round-04/reviews/ARC-on-v104-pr76-pin-daytime.md`.
+- **Các bước tái hiện:**
+  1. Có một giữ chỗ hết hạn lúc 01:00 ngày mai. Ví dụ: giữ chỗ 12 giờ tạo trong khoảng 12:00–18:59.
+  2. Mở khung đơn, bấm **Gia hạn giữ chỗ (1 lần)**.
+  3. Đọc chữ trên nút, rồi bấm gia hạn và đọc thông báo.
+- **Thực tế** (unit trên mã cũ, ngày chạy 05/11): nút ghi "Gia hạn đến 01:00 06/11". Hạn đúng là 01:00 07/11 (01:00 ngày mai + 24 giờ). Thông báo cũng sớm một ngày.
+- **Mong đợi:** ngày của hạn theo giờ VN, giống giờ của hạn và giống `holdUntil` ở `BookingDialog.tsx`.
+- **Xác minh bản sửa (QA, 05/11 00:45–00:55): PR #80 `v104/fe-extend-hold-local-date` @ `796a0cee`.** Đây là 1 commit trên `main` @ `373ec195`.
+  - Cách sửa: `fmt` lấy ngày bằng `todayLocal('Asia/Ho_Chi_Minh', d)`.
+  - Test của FE `v104-extend-hold-local-date`: 1/1 đạt.
+  - Test tạm của QA `zz-qa80.test.tsx` (không commit): giả đồng hồ `Date` (bộ đếm giờ vẫn thật, như `pinDaytime`) ở 4 giờ chạy (02:00, 06:30, 14:00, 23:30), với 3 mốc hạn ngày mai (01:00, 06:59, và 07:00 làm đối chứng). Mỗi ca gia hạn +24 giờ, rồi kiểm chữ trên nút và thông báo.
+    - Trên `796a0cee`: **12/12 đạt** khi máy chạy theo múi giờ VN, và **12/12** khi chạy theo UTC (như CI).
+    - Trên mã cũ (`373ec195`, TZ=UTC): **8 ca đỏ**, là các ca hạn 01:00 và 06:59. 4 ca đối chứng 07:00 xanh. Test của FE cũng đỏ trên mã cũ.
+    - Lượt chạy thật diễn ra lúc 00:50, tức cũng là giờ đêm.
+  - QA không dựng stack cho PR này. Phần sửa chỉ là cách định dạng ngày trong một hộp, unit đã render đúng hộp đó. Desk thật được kiểm ở RG-23 trên STG.
+  - CI #80: đang xếp hàng lúc 00:55. QA chưa đọc kết quả.
+- **Test chống tái phát:** test của FE ở trên; TC-V104-RG-23 trên STG.
+- **Bằng chứng:** `qa80/logs/` (scratchpad, không commit).
+- **Vai chịu trách nhiệm:** FE (B3), ARC đã xem.
+- **Trạng thái:** **Đã sửa – chờ gộp #80** (QA xác nhận 05/11 01:00). Sau khi gộp: RG-23 trên STG 07/11.
 
 ---
 

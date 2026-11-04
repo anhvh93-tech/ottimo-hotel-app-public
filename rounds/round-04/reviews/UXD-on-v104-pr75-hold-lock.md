@@ -114,3 +114,18 @@ Không có ESC.
 - Điều kiện khóa dùng đúng phép thử của #70 (`ratesEdited[d] && rates[d]`, chỉ các đêm của lượt ở). Câu khóa và câu `rates_cleared_*` vì vậy luôn nói về cùng một tập "giá đã gõ". Test 4 chứng minh đêm nằm ngoài lượt ở không khóa.
 - Có hai lớp chặn: nút khóa, và `hold()` tự dừng. `hold()` còn bỏ qua lỗi ô giá. Nhờ vậy lối "xóa rồi giữ chỗ" không bị câu "Nhập giá mỗi đêm" của #70 chặn (test 2).
 - Nút "Tạo đơn" vẫn mở và lưu đúng `edited:true` với cọc 30 % theo giá đã gõ (test 3). Đây là ca chặn tái phát xanh ở cả hai bản. Không thêm màu, CSS hay `style=`; khóa chữ vào đúng nhóm.
+
+---
+
+## Lượt 2 @ e71ab25f (05/11/2026): **ĐẠT.** Đóng cả 3 thẻ FB-R4-UXD-FE-PR75-01, 02, 03
+
+- Đối tượng: `git diff 9c277c7a e71ab25f` (commit `e71ab25f`), 7 tệp. Không có tệp CSS nào trong diff, mã không thêm `style=`.
+- Cách kiểm: chỉ đọc mã, không chạy test. So chữ từng ký tự bằng script. Đo lại footer bằng mock: CSS của nhánh, chữ cuối cùng, đúng thứ tự phần tử, ở 1366×768.
+
+| Thẻ | Kết quả |
+|---|---|
+| 01 – chữ | **Khớp nguyên văn.** Dòng `gen_strings.py` (VI, EN, ghi chú) giống hệt bản ở thẻ; khóa chỉ có 1 dòng. `strings-vi/en.json`, `strings-tables.md`, `strings.js` có đúng chữ mới. Không còn "xóa số đã gõ" |
+| 02 – `aria-disabled` | **Đúng DS C1.** Nút nhận `aria-disabled={typedRate \|\| undefined}`; `disabled` gốc chỉ còn cho `busy` và `longStay`. `aria-describedby` giữ nguyên. Test mới kiểm: Tab từ "Đóng (giữ nháp)" tới được nút, nút đọc đúng câu lý do; bấm chuột, Enter và Space đều không gửi gì (không báo giá, không giữ chỗ, không nộp form); "Tạo đơn" vẫn tạo được đúng 1 đơn. Các ca cũ đổi sang `expectLocked`/`expectOpen` |
+| 03 – thứ tự footer | **Đúng.** Dòng lý do là phần tử đầu của footer, trước "Đóng". Thêm `canHold`, nên dòng lý do và nút Giữ chỗ dùng cùng một điều kiện. Test kiểm dòng là phần tử đầu và đứng trước "Đóng". Đo lại: VI và EN đều 2 hàng, footer **108 px**, câu 2 dòng, rộng hết 684 px. Hàng dưới là "Đóng" bên trái, [Giữ chỗ] [Tạo đơn] bên phải. Không có giá đã gõ thì footer 1 hàng (61 px), như trước PR |
+
+Brand và token không đổi so với lượt 1 (đạt). Thẻ UXD còn mở trên PR #75: không có. Không có ESC.

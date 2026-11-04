@@ -419,6 +419,15 @@ Hệ quả:
 
 Nếu ORC đã gửi bản 04/11, chỉ gửi thêm: "Cập nhật về dòng `ota_base_rate`: không thấy dòng cũng ổn, anh/chị không cần chụp màn hình. Thấy dòng thì vẫn sửa như hướng dẫn, và sau này đổi giá căn thì sửa dòng này cùng lúc."
 
+**7.4 Cách làm tạm BUG-R4-042 (P1, có từ v1.0.1) – tin ORC gửi INV để chuyển lễ tân** (05/11, tới khi v1.0.4 lên). Nguồn: `rounds/round-04/qa/bug-list-v1.0.4.md` BUG-R4-042; `FolioDialog.tsx` (dòng đã đảo không có nút **Điều chỉnh**); `folio-lines.service.ts` (Thêm phát sinh chỉ gõ tay được F&B, dịch vụ, hư hỏng, không có món minibar).
+
+> 1. Trả phòng khách đã đổi căn giữa kỳ (2 tủ minibar): đếm xong tủ thứ hai, bấm **Tiếp tục**, nếu Desk vẫn đứng ở bước ① Minibar, hiện lại số của tủ vừa đếm (ví dụ "Tổng minibar: 35.000") mà không ghi tên tủ, tiêu đề vẫn là căn đang ở – đó là lỗi của Desk.
+> 2. Lúc đó **không sửa số và không bấm "Không dùng gì – tủ đủ"**: bấm như vậy là Desk xóa khoản minibar đã tính của tủ kia. Chỉ bấm **Tiếp tục** một lần nữa, giữ nguyên số (Desk đếm lại đúng số cũ, tiền không sai).
+> 3. Trước khi thu tiền, xem bill (hoặc **Folio**): phải có khoản minibar của **cả hai tủ**, khớp phiếu đếm. Thiếu khoản nào thì dừng, chưa bấm Hoàn tất.
+> 4. Lỡ bị xóa (Folio có khoản minibar và một dòng trừ đúng số đó): Desk không cho Điều chỉnh dòng đã xóa. Khách còn ở quầy: **Thêm phát sinh → Đồ ăn uống**, ghi chú "Minibar tủ căn …: món × số", đúng số tiền đã mất, rồi thu như thường. Khách đã đi: báo quản lý, quản lý quyết thu lại hay bỏ qua. Cả hai trường hợp: ghi sổ giao ca (mã đơn, số tiền) và báo buồng phòng kiểm, bổ sung tủ đó, vì Desk đã ghi tủ đủ.
+
+Ghi chú cho ORC/DATA: khoản ghi lại bằng "Đồ ăn uống" (`fnb`) là cách tạm. DATA gộp vào minibar khi làm số tháng, nhờ dòng sổ giao ca. Sau v1.0.4, BA bỏ cách làm này khỏi sổ tay.
+
 ### 8. Ghi chú cho ORC
 
 - **Dòng decision-log đề xuất (DOM tự quyết, quyền nghiệp vụ):**
@@ -590,3 +599,80 @@ Hôm nay, ở v1.0.x:
 
 ### Kết luận lượt 6
 Không có ESC. Đây là quy tắc ngành, DOM tự chốt. Không có thẻ mới cho #68. Tệp chưa commit.
+
+## DOM lượt 7 (05/11) – BR-402 sau #74 C1, oracle BR-402-03/04, và trường hợp căn kẹt `OC` sau khi đã trả phòng
+
+Nguồn: `rounds/round-04/reviews/ARC-on-v104-pr74-checkin-occupied.md` (C1, thẻ FB-R4-ARC-DOM-PR74-01, FB-R4-ARC-QA-PR74-01). Đọc mã trên `main` @ `373ec195` và nhánh #74 @ `9646029d`.
+
+### 1. BR-402 v0.5.6 – đã sửa (thẻ DOM-PR74-01)
+- BR-402 (1) thêm câu: lượt Đang ở đã quá ngày đi mà chưa bấm Trả phòng cũng là "căn còn khách". v1.0.4 **không có ngoại lệ** `VD`/`CL`; từ v1.0.5 chặn như mọi lượt Đang ở khác, kể cả `VI`/`VC`. Ghi ARC chọn 05/11.
+- Thêm ví dụ căn 301, quá ngày đi cùng `CL`, đúng ca dò của ARC.
+- Giữ nguyên câu "việc đầu là lễ tân trả phòng đơn cũ".
+- Validator: 0 lỗi, 1 cảnh báo có từ trước.
+
+### 2. Oracle BR-402-03/04 (nhánh #74, BE viết) – thẻ ARC-QA-PR74-01 (1)
+- **Nhãn:** cả hai dòng `["NGÀNH"]` là **đúng**. Đây là quy tắc ngành DOM chốt, không phải số INV. Ngày ở `qaAssumption` của BR-402-03 (A 23→24/11, B 24→25/11, 06:30 và 10:15 ngày 24/11) khớp ví dụ căn 202 của BR. DOM xác nhận. BR-402-04 `frontDeskRequestAllowed` cho `VD`/`CL` = true đúng: lễ tân gửi xin duyệt.
+- **Ghi chú BR-402-04 sai sau C1.** Dòng này chỉ có trên nhánh #74, nên DOM không sửa thẳng, để tránh đụng lần đẩy C1 của BE. BE thay nguyên câu `note` trong cùng lần đẩy C1:
+
+  > VI/VC: điều kiện đạt nên không cần ngoại lệ (exceptionAllowed = false nghĩa là không có gì để xác nhận). Cài đặt v1.0.4: preview không có overridableBy, B9 trả 409 CHECKIN_CONDITIONS_NOT_MET unmet [room_ready] cho OC/OD/OOO. Oracle này chỉ xét căn không còn lượt Đang ở khác. Căn còn lượt in_house khác theo định nghĩa "đang ở căn" của buồng phòng: đi hôm nay chưa B18 hoặc phủ đêm nay thì mọi trạng thái buồng đều chưa đạt, không có ngoại lệ; đã quá ngày đi mà chưa B18 thì VD/CL không có ngoại lệ (v1.0.4, BR-402 (1) v0.5.6, ARC C1 05/11), VI/VC chỉ bị chặn từ v1.0.5 (FB-R4-ARC-BE-PR74-05).
+
+- **Đề xuất cho QA**, rà ở bước Kiểm thử: thêm dòng BR-402-05 từ ví dụ căn 301.
+  - Bối cảnh: A đi 23/11, chưa Trả phòng; ngày 24/11 buồng phòng đưa căn về `CL`.
+  - Lễ tân trưởng nhận B: không có `overridableBy`, 409, không ghi gì.
+  - B18 cho A (căn `VD`), rồi lễ tân trưởng nhận B: 200, căn `OD`, có việc dọn ưu tiên.
+  - Ca này cũng là ca Desk "quá ngày đi + `CL`" ARC yêu cầu.
+
+### 3. Căn kẹt `OC` sau khi đơn trước đã trả phòng – v1.0.4 làm gì (BA phát hiện)
+
+**DOM sửa lại lượt 5 mục 2, ý (2), "Trường hợp hiếm":** bước "bấm Cần dọn" **không làm được** ở v1.0.4. Đã kiểm trên `main`:
+
+| Nơi | Có cách đưa căn khỏi `OC`? | Căn cứ |
+|---|---|---|
+| Desk, trang Buồng phòng | **Không.** Trang chỉ có danh sách việc (hoàn tất, hủy, tạo việc dọn), không có nút đổi trạng thái buồng | `pages/ops/HousekeepingPage.tsx` |
+| Cần chú ý, mục `attn.room_status_mismatch` | **Không.** Chỉ có câu "trạng thái buồng không khớp với đơn – kiểm tra lại" và liên kết sang trang Buồng phòng, không có nút | `app/attention.ts` (`to = '/housekeeping'`) |
+| App nhân viên | **Không.** Phòng chỉ có Bắt đầu dọn (`VD`/`OD`), Dọn xong (`CL`), Kiểm phòng (`VC`) | `apps/mobile/src/pages/RoomPage.tsx` |
+| Việc 07:00 (J8) | **Không** cho trường hợp này. J8 chỉ chuyển `OC` → `OD` với căn **còn khách ở lại**. Căn không còn lượt Đang ở thì J8 không chạm | `housekeeping/public/worker-jobs.ts` (`stayoverNightSql`) |
+
+Máy chủ có sự kiện `needs_cleaning` (`OC` → `OD`), nhưng chưa giao diện nào gọi. Trường hợp này hiếm: B18 luôn đặt căn `VD`, nên chỉ gặp khi dữ liệu lệch. Đa số căn `OC` là đơn trước **chưa** bấm Trả phòng.
+
+**Lễ tân làm ở v1.0.4:**
+1. Mở đơn trước của căn. Đơn còn **Đang ở** thì kiểm căn, rồi bấm **Trả phòng** đơn đó (B18; trước 06:00 xem sổ tay 2.20). Đây là việc đầu, như BR-402.
+2. Đơn trước đã **Đã trả phòng** mà căn vẫn `OC`:
+   - lễ tân **không** sửa được trên Desk hay app, và chờ 07:00 cũng không tự hết;
+   - không nhận khách vào căn này;
+   - xếp khách sang **căn trống sẵn sàng khác** (Đổi căn / đổi ngày, sổ tay 2.8; cùng hạng, không có thì nâng hạng theo BR-424, OTTIMO chịu chênh);
+   - **báo quản lý ngay**. Quản lý nhắn đội kỹ thuật số căn và mã đơn trước. Đội sửa trạng thái trên hệ thống (OPS, có ghi lại), xong thì căn về quy trình dọn thường.
+3. Không có căn nào khác: quản lý gọi đội trong ca, khách chờ ở sảnh, giữ hành lý. **Không** dùng Khóa phòng (OOO) để "đặt lại" trạng thái. Cách đó ghi sai đêm OOO vào báo cáo công suất (Q-04).
+
+**Câu UXD `checkin.room_occupied` phải đổi cho v1.0.4.** Phần đuôi "kiểm căn đã trống rồi sửa trạng thái buồng" hướng lễ tân tới một việc không làm được.
+- Ý thay (VI): "Nếu đơn trước đã trả phòng: xếp khách sang căn trống khác và báo quản lý để sửa trạng thái căn."
+- EN: "If the previous booking is already checked out: move the guest to another vacant room and tell the manager so the room status can be fixed."
+- Khi có `cause` của #74 (C2):
+  - căn bị giữ bởi lượt khác (`heldByReservationCode`) → giữ câu "Trả phòng đơn … trước";
+  - chỉ trạng thái buồng `OC`/`OD`, không còn lượt nào → dùng câu thay ở trên.
+
+**Backlog v1.0.5 (PO xếp):**
+- nút **Cần dọn** (`OC` → `OD`, FD+ và buồng phòng trong phạm vi) trên Desk trang Buồng phòng và trên app nhân viên;
+- mục Cần chú ý `room_status_mismatch` có nút mở thẳng căn đó;
+- sau đó UXD trả lại câu "kiểm căn đã trống rồi bấm Cần dọn".
+- Câu sổ tay của BA đi theo.
+
+### Kết luận lượt 7
+- Không có ESC.
+- Nằm trong tệp `business-rules.md` v0.5.6: BR-402.
+- Nằm trong tệp này: mục 7.4, BUG-R4-042.
+- Việc của người khác:
+  - BE thay `note` BR-402-04 cùng lần đẩy C1;
+  - UXD/FE-A đổi đuôi câu `checkin.room_occupied`;
+  - BA sửa sổ tay theo mục 3.
+- Tệp chưa commit.
+
+## Phản hồi BA (05/11/2026, DOM lượt 5 mục 2, lượt 7 mục 3 và mục 7.4 – PR #72 @ `fbaaac23`, vẫn nháp)
+
+- **Lượt 7 mục 3 (căn kẹt `OC`): Fixed.** Sổ tay 2.10 và `02` 7.4 viết theo thứ tự DOM:
+  - (1) đơn trước còn **Đang ở** mà khách đã đi: kiểm căn rồi **Trả phòng**;
+  - (2) khách cũ còn ở: mời khách chờ hoặc đổi căn;
+  - (3) đơn trước đã **Đã trả phòng** mà căn vẫn có khách: không nhận vào căn đó, đổi căn (cùng hạng hoặc nâng hạng, OTTIMO chịu chênh), báo quản lý để đội sửa trạng thái. Không dùng **Khóa phòng** (`OOO`).
+  - Bước "Cần dọn → Bắt đầu dọn → Dọn xong" đã bỏ cho v1.0.4. Chú thích ẩn ghi: khi có nút **Cần dọn** (backlog v1.0.5), BA thêm lại.
+- **Lượt 5 mục 2 (BUG-R4-039):** từ v1.0.4, căn `OC`/`OD` hoặc căn còn đơn khác đang ở không có ngoại lệ cho vai nào. Các chỗ đã sửa: sổ tay 1.8, 2.10; `01` 4; `02` 7.4, 16. Câu "Từ v1.0.4 Desk chặn" chờ #77. Nếu #77 trượt bản cắt, câu đổi thành "v1.0.4 chặn ở máy chủ (#74)".
+- **Mục 7.4 (BUG-R4-042): Fixed.** Sổ tay 2.14 bước 2 và `02` 11.1 bước 2 có cách làm tạm, ghi "tới v1.0.3; bỏ khi v1.0.4 lên". Lối thêm khoản ghi theo mục 2.12 / `02` 9.1: **Thêm phát sinh** → **Khoản** **Đồ ăn uống** → **Thêm vào folio**. Sau khi v1.0.4 lên, BA bỏ khối này.
