@@ -75,13 +75,17 @@ Cột "Loại": **Mới** = chưa có trong `gen_strings.py`; **Sửa** = khóa 
 
 ### P4-50 `v104/mob-2fa` – app nhân viên (MOB)
 
+Nhóm trong `gen_strings.py`: **`v1.0.4 P4-50`**. ORC đã chốt (04/11): mật khẩu tạm đổi ngay trong app; bật 2 bước dẫn sang Desk.
+
 | Khóa | Loại | VI | EN | Ghi chú |
 |---|---|---|---|---|
-| `staff.temp_password_desk` | Mới (dự phòng) | Bạn đang dùng mật khẩu tạm. Mở {desk} để đặt mật khẩu riêng, rồi đăng nhập lại ở đây. | You're using a temporary password. Open {desk} to set your own password, then sign in here again. | **BUG-R3-052.** Chỉ dùng nếu màn `SetPasswordPage` **không** kịp v1.0.4 (xem mục 4.2). {desk} = địa chỉ Desk theo môi trường (`desk.ottimo.vn`, staging `desk.staging.ottimo.vn`), chữ JetBrains Mono, không viết cứng |
-| `staff.mfa_enroll_desk` | Mới | Tài khoản của bạn cần bật xác thực 2 bước. Mở {desk} để bật, rồi đăng nhập lại ở đây. | Your account needs 2-step verification. Open {desk} to turn it on, then sign in here again. | 403 `MFA_ENROLLMENT_REQUIRED` (vai chủ đầu tư/quản lý chưa bật, ví dụ tài khoản 6 vai). App không có màn đăng ký 2 bước. Thay câu "mạng yếu" |
-| `auth.mfa_later` | Xóa | – | – | Bỏ dùng ở P4-50, xóa khỏi `gen_strings.py` khi rebase lên strings lượt 1 |
+| `staff.mfa_enroll_desk` | Mới | Mở OTTIMO Desk trên máy tính để bật xác thực 2 bước, rồi đăng nhập lại ở đây. | Open OTTIMO Desk on a computer to turn on 2-step verification, then sign in here again. | **BUG-R3-052.** Chữ nháp của MOB, UXD duyệt không sửa. 403 `MFA_ENROLLMENT_REQUIRED` (vai chủ đầu tư/quản lý chưa bật, ví dụ tài khoản 6 vai). App không có màn đăng ký 2 bước. Câu đứng dưới tiêu đề `error.MFA_ENROLLMENT_REQUIRED` có sẵn ("Tài khoản của bạn cần bật xác thực 2 bước trước khi làm việc."), kèm nút Đăng xuất. Thay câu "mạng yếu". Không ghi địa chỉ Desk trong câu: nhân viên đã quen "OTTIMO Desk", và địa chỉ khác nhau giữa staging và production |
+| `staff.mfa_network` | Mới | Chưa kết nối được tới máy chủ. Mã bạn đã nhập vẫn còn – kiểm tra mạng rồi bấm Thử lại. | Couldn't reach the server. Your code is still here – check the connection, then tap Try again. | Thay `common.error_network_body` ở **bước nhập mã 2 bước** (lỗi mạng khi gọi `loginMfa`). Câu đầu giống `common.error_network_body`, câu sau nói đúng việc ở bước này: ô mã không bị xóa. Nút dùng `common.retry` ("Thử lại"). Mã TOTP đổi mỗi 30 giây: thử lại mà máy chủ trả `MFA_INVALID` thì hiện câu lỗi mã có sẵn, không cần câu riêng |
+| `auth.mfa_later` | Xóa | – | – | Bỏ dùng ở P4-50, xóa khỏi `gen_strings.py` cùng lượt |
 
-Màn nhập mã 2 bước trên app dùng các khóa `mfa.*` có sẵn (`mfa.use_totp`, `mfa.recovery_*`, `mfa.back_to_password`, `mfa.step_expired`, `reauth.s2_wait_code`). Màn đặt mật khẩu dùng `pw.*` có sẵn (`pw.lead`, `pw.new`, `pw.repeat`, `pw.rule_*`, `pw.mismatch`, `pw.submit`). Không cần khóa mới.
+Màn nhập mã 2 bước trên app dùng các khóa `mfa.*` có sẵn (`mfa.use_totp`, `mfa.recovery_*`, `mfa.back_to_password`, `mfa.step_expired`, `reauth.s2_wait_code`). Màn đặt mật khẩu dùng `pw.*` có sẵn (`pw.lead`, `pw.new`, `pw.repeat`, `pw.rule_*`, `pw.mismatch`, `pw.submit`).
+
+Bỏ khóa dự phòng `staff.temp_password_desk` của bản trước: ORC chốt đổi mật khẩu tạm ngay trong app (`SetPasswordPage`), nên không cần câu dẫn sang Desk.
 
 ## 2. Khóa đề xuất thêm (ngoài plan 3.1) – chờ ARC + FE-A
 
@@ -110,11 +114,11 @@ Chọn: **địa chỉ trên một dòng, nếu buộc phải xuống dòng thì
 
 ### 4.2 BUG-R3-052 – mật khẩu tạm và 2 bước trên app nhân viên
 
-UXD chọn (plan để UXD quyết):
-- `Me.mustChangePassword = true` (hoặc 403 `PASSWORD_CHANGE_REQUIRED`) → **màn Đặt mật khẩu ngay trong app** (`SetPasswordPage`, khóa `pw.*`). Đây là đường chính. Buồng phòng và bảo trì thường chỉ có điện thoại, không có máy quầy.
+UXD đề xuất, **ORC đã chốt 04/11**:
+- `Me.mustChangePassword = true` (hoặc 403 `PASSWORD_CHANGE_REQUIRED`) → **màn Đặt mật khẩu ngay trong app** (`SetPasswordPage`, khóa `pw.*`). Buồng phòng và bảo trì thường chỉ có điện thoại, không có máy quầy.
 - 403 `MFA_ENROLLMENT_REQUIRED` → câu `staff.mfa_enroll_desk`, kèm nút Đăng xuất. App không có màn đăng ký 2 bước, và việc bật 2 bước cần lưu 10 mã khôi phục, nên làm trên Desk.
-- `staff.temp_password_desk` chỉ là dự phòng nếu `SetPasswordPage` trượt khỏi v1.0.4.
-- Cả hai trường hợp không bao giờ hiện câu "mạng yếu".
+- Lỗi mạng ở bước nhập mã → `staff.mfa_network`, giữ nguyên mã đã nhập.
+- Cả ba trường hợp không bao giờ hiện câu "mạng yếu" chung.
 
 ### 4.3 Tên khóa lệch quy ước có sẵn – báo ARC, **không** tự đổi
 
@@ -125,7 +129,7 @@ Theo plan 3.1, UXD không đổi tên khóa. Ghi để ARC và dev biết lúc c
 
 ## 5. Việc khi cắt `v104/strings` từ `main@L` (P4-01 phần B)
 
-1. Đưa 29 khóa ở mục 1 (và mục 2, 3 nếu ARC/FE-A đồng ý) vào `product/design/tools/gen_strings.py`, một nhóm `v1.0.4 P4-01 – UXD lượt 1 (04/11/2026)`. Khóa **Sửa** sửa tại chỗ, ghi lý do và mã lỗi vào ghi chú. Xóa `auth.mfa_later`.
+1. Đưa 29 khóa ở mục 1 (và mục 2, 3 nếu ARC/FE-A đồng ý) vào `product/design/tools/gen_strings.py`, một nhóm `v1.0.4 P4-01 – UXD lượt 1 (04/11/2026)`; riêng 2 khóa app nhân viên vào nhóm `v1.0.4 P4-50`. Khóa **Sửa** sửa tại chỗ, ghi lý do và mã lỗi vào ghi chú. Xóa `auth.mfa_later`.
 2. **EM-15:** thêm `secmail.status_set` vào `KEYS` của `v103-email-fea.test.tsx` (nếu FE-A chưa làm); sửa ghi chú `users.email_self`, `users.email_other_owner`, `secmail.purpose` theo mã hiện tại; đổi tiêu đề nhóm v1.0.3 thành "UXD đã duyệt (lượt 2, 03/11/2026)"; sửa chú thích test thành "thông báo bảo mật".
 3. Chạy `python3 design/tools/gen_strings.py`, commit cả tệp sinh ra. Không sửa tay tệp sinh ra.
 4. `product/design/content-guide.md`: thêm dòng đổi phiên bản, thuật ngữ "cọc thiếu / short deposit", luật chọn `reauth.s2_failed` / `reauth.s2_failed_password`.
