@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["tsconfig.base.json"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -11,7 +12,12 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "env": ["DATABASE_URL", "MIGRATION_DATABASE_URL"]
+      "env": [
+        "DATABASE_URL",
+        "MIGRATION_DATABASE_URL",
+        "BOOTSTRAP_DATABASE_URL",
+        "BOOTSTRAP_MIGRATION_DATABASE_URL"
+      ]
     },
     "dev": {
       "dependsOn": ["^build"],

@@ -1,0 +1,765 @@
+# DOM review – PR #68 `v104/ba-docs-r4b`: tài liệu v1.0.4, lượt 4b
+
+- Người review: DOM | Round 4 – v1.0.4 – Bước **Review** | 04/11/2026
+- Tác giả: BA. Bản đọc là `git diff origin/main...origin/v104/ba-docs-r4b`, head `da98e511`, gồm 4 tệp:
+  - `user-manual-v1.0.md` (lên bản 1.13);
+  - `guides/00-index.md` (lên 1.11);
+  - `guides/01-chu-dau-tu-quan-ly.md` (lên 1.10);
+  - `guides/02-le-tan.md` (lên 1.11).
+- Số dòng ghi trong file này là số dòng của tệp trên nhánh PR.
+- Đối chiếu với `origin/main` @ `58183764`:
+  - `admin-web/src/pages/stay/EarlyDepartureDialog.tsx` dòng 78–95 và 336–343;
+  - `reservations/internal/allowed-actions.ts` dòng 109–117 và `reservations.service.ts` dòng 442–451 (`today: ctx.today`);
+  - `ReservationDrawer.tsx` dòng 388;
+  - `TodayPage.tsx` dòng 434–461, `useDashboard.ts` dòng 79 (gọi không kèm ngày);
+  - `reporting/internal/dashboard.service.ts` dòng 88–93, `stay-lists.ts` dòng 83–103, `stay-actions.ts` dòng 38–47;
+  - `frontdesk/internal/checkout.service.ts` dòng 651–700 và 795–811 (`postMidnight`);
+  - `stay.service.ts` dòng 457, 1485–1487, 1853; `public/stay-rules.ts` dòng 221–230;
+  - `identity` (danh sách hộp thư chung), strings `early_departure.later_hint`;
+  - `ARC-on-v104-p4-32.md`; `DOM-on-v104-release-notes.md` thẻ RN-02, RN-05.
+
+## Phán quyết: **ĐẠT CÓ ĐIỀU KIỆN**
+
+Bốn điểm (1) đến (4) đúng nghiệp vụ. Có **1 Major** phải sửa trước khi gộp: thẻ 01, rút ra từ kiểm (5).
+
+Kết quả kiểm (5): **giả định của BA chỉ đúng một nửa.**
+- Đúng: bước **Kết quả** không có **Trả phòng ngay**.
+- Sai: trong khoảng 00:00–05:59, **khung đơn cũng không có nút Trả phòng**, và trang **Hôm nay** không liệt kê khách đó. Nút chỉ hiện từ 06:00.
+
+Vì vậy câu "không thấy nút thì hỏi quản lý" luôn dẫn tới ngõ cụt: quản lý cũng không thấy nút. Câu "rời đúng ngày đi → khung đơn → Trả phòng" cũng không làm được trước 06:00.
+
+Ngoài ra có 2 Minor và 2 Suggestion. Không có ESC mới.
+
+---
+
+## 1. Kết quả kiểm theo 5 điểm ORC giao
+
+| # | Điểm | Kết quả | Căn cứ |
+|---|---|---|---|
+| 1 | Luật Trả sớm 00:00–05:59 ở sổ tay 2.14a bước 2 (dòng 1199) và `02` 11.5.1 (dòng 923) | **Đúng câu, đúng cách làm** ở phần Trả sớm: ô đặt sẵn ngày hôm trước; đêm vừa qua là đêm đã ở; đổi sang ngày lịch hôm nay; rời đúng ngày đi thì không dùng Trả sớm; số ngày báo trước tính theo BR-011 (ví dụ 04:30 ngày 03/11 rời 03/11 = báo trước 1 ngày). Phần **sau** bước Kết quả thì sai, xem thẻ 01 | `EarlyDepartureDialog.tsx` 78–95 (`minDate = today` theo ngày nghiệp vụ); `stay.service.ts:1408`; BR-010, BR-011 |
+| 2 | Ngày kết thúc HĐ khi gia hạn (`02` 9.3 bước 6, 17.5; sổ tay 2.12, 2.14a, 5.6; `01` 7.3) | **Đúng.** Các câu đều đánh dấu "sửa ở v1.0.4" và "áp dụng từ v1.0.4". Desk giữ ngày kết thúc HĐ, không hiện ngày này trên khung đơn, nên bảng kỳ thu vẫn giữ cột. Trả sớm chỉ hiện khung HĐ khi rời trước ngày kết thúc. Nhật ký ghi "BR-313 lease early end – deposit per lease". Phần gia hạn không có dòng tiền. Có câu an toàn "khác HĐ giấy: dừng, hỏi quản lý" | `stay-rules.ts` 221–230; `stay.service.ts` 457 (B13 với `external_contract` chỉ `syncLeaseNights`), 1485–1487, 1853; admin-web chỉ đọc `leaseEndDate` trong hộp Trả sớm |
+| 3 | Giới hạn "Đang chờ hoàn" | **Đạt.** Ở ca giới hạn, mọi chỗ đều chỉ ghi "hỏi quản lý (hoặc chủ đầu tư) trước khi báo khách" và nói rõ yêu cầu **không hiện ở cả hai chỗ**. Các chỗ đã rà: sổ tay 2.14 bước 6 (dòng 1164), 2.14a; `02` 11.1 bước 6 (dòng 834), 11.5.2 (dòng 950). Chữ "chờ duyệt" và "do chính mình tạo" chính xác. Dấu hiệu nhìn thấy được ("không thấy dòng, hoặc không chắc") tốt hơn bản release notes. `01` 7.3 trỏ chủ đầu tư sang **Cần duyệt** và **Nhật ký tiền → Hoàn tiền**; chỗ này đúng vì chủ đầu tư thấy đủ. Còn hai việc nhỏ: câu "Sửa ở v1.0.5" (thẻ 02) và câu v1.0.3 ở 11.1 bước 6 (thẻ 04) | ARC A1/A2; `UXD-on-v104-p4-32.md` U5 |
+| 4 | Chặn `booking@` ở các bước nhập email | **Đạt** ở sổ tay 0.3a, 1.5 bước 4, 5.0; `01` 1.6a, 1.9; `02` 1.6. Có cả dạng có dấu cộng (`info+…@`, `booking+…@`). Câu Desk báo giống nhau. Còn một chỗ chưa sửa ở `05` 1.5 và một câu mở đầu tự mâu thuẫn (thẻ 03) | BE identity SENT-02, ARC-BA-M18-01, G-BE-A-104-1 |
+| 5 | Lúc 00:00–05:59 có nút **Trả phòng ngay** và nút **Trả phòng** không | **Kết quả:** không có **Trả phòng ngay**; **cũng không có nút Trả phòng ở khung đơn**; trang Hôm nay không có hàng của khách đó; nút có từ 06:00. Máy chủ vẫn nhận Trả phòng trong cửa sổ sau nửa đêm, nhưng Desk không có nút nào dẫn tới trang Trả phòng. Chi tiết ở mục 2 | mục 2 |
+
+---
+
+## 2. Chi tiết kiểm (5) – đọc mã trên main
+
+Ví dụ: khách có ngày đi 05/11, báo lúc 04:30 ngày 03/11 (ngày nghiệp vụ là 02/11) rằng rời ngay. Lễ tân làm Trả sớm với **Ngày rời mới** = 03/11, theo đúng cách sổ tay mới hướng dẫn.
+
+1. **Bước Kết quả:** `canCheckOut = leaving === today && allowedActions có check_out` (`EarlyDepartureDialog.tsx` 341–343). Ở đây `today` là ngày nghiệp vụ (02/11), còn `leaving` là 03/11, nên điều kiện sai. Hộp không có **Trả phòng ngay** và hiện câu `early_departure.later_hint`: "Khách trả phòng ngày 03/11 như thường lệ – nút Trả phòng hiện vào ngày đó". **BA đúng ở điểm này.**
+2. **Khung đơn:** nút **Trả phòng** chỉ hiện khi `allowedActions` có `check_out` (`ReservationDrawer.tsx` 388). Máy chủ chỉ thêm `check_out` khi `c.today === c.departureDate` (`allowed-actions.ts` 115), và `today` là `ctx.today`, tức ngày nghiệp vụ (`reservations.service.ts` 451). Lúc 04:30 ngày 03/11, ngày nghiệp vụ là 02/11, còn ngày đi là 03/11, nên **không có nút**. Từ 06:00 ngày 03/11 thì nút hiện. Quản lý và chủ đầu tư cũng đi qua đúng luật này (vai lễ tân trở lên), nên cũng không thấy nút.
+3. **Trang Hôm nay:** Desk gọi `getArrivalsDepartures` không kèm ngày (`useDashboard.ts` 79), nên máy chủ lấy ngày nghiệp vụ (02/11). `departureRows` chỉ lấy đơn có ngày đi đúng bằng ngày đó (`stay-lists.ts` 83–103). Khách đi 03/11 vì vậy chưa có trong danh sách. Hàm `checkOutAction` của trang này có tính cửa sổ sau nửa đêm (`stay-actions.ts` 43–45), nhưng chỉ có tác dụng khi trang xin danh sách của ngày mai, mà Desk không bao giờ xin.
+4. **Máy chủ:** Trả phòng (B18) nhận cửa sổ sau nửa đêm (`checkout.service.ts` 651–661, 680–681, 804–805): ngày nghiệp vụ = ngày đi − 1 và ngày lịch = ngày đi. Trong cửa sổ này không phụ thu và không tính thêm đêm. Trang Trả phòng không tự chặn theo ngày; nếu mở trang thì có câu `checkout.post_midnight`. Nhưng trên Desk không có nút nào mở được trang này trong khoảng 00:00–05:59.
+5. **Sau 06:00:** khi làm Trả phòng, ô **Giờ trả phòng thực tế** gửi `checkoutAt`. Giờ 04:30 ngày 03/11 vẫn qua được bước kiểm vì nằm trong cửa sổ sau nửa đêm (`checkout.service.ts` 680–681), và phần phụ thu bằng 0 (dòng 694). Vì vậy làm Trả phòng lúc 06:00 trở đi mà ghi đúng giờ khách đi thì tiền vẫn đúng. **QA nên kiểm điểm này trên staging bằng đồng hồ giả** (DOM chỉ đọc mã, chưa chạy).
+
+Kết luận: trước 06:00, Desk v1.0.4 (và từ v1.0.2) **không cho làm Trả phòng** cho khách rời trong khoảng 00:00–05:59, dù máy chủ đã hỗ trợ. Đây là một lỗi sản phẩm riêng (xem ghi chú cho ORC ở mục 4). Sổ tay phải dạy cách làm với Desk hiện có.
+
+---
+
+## 3. Thẻ feedback
+
+### FB-R4-DOM-BA-PR68-01
+- Mức độ: Major (sửa trước khi gộp #68)
+- Vị trí: sổ tay 2.14a bước 2, đoạn "Trả sớm lúc 00:00–05:59" (dòng 1199) và `02` 11.5.1 (dòng 923). Hai câu cần sửa: "khách đi luôn thì đóng hộp, mở khung đơn → **Trả phòng**; không thấy nút thì hỏi quản lý…" và "Khách rời đúng ngày đi ghi trên đơn: dùng **Trả phòng** (khung đơn → **Trả phòng**…)".
+- Vấn đề: như mục 2. Trước 06:00, khung đơn không có nút **Trả phòng** và trang Hôm nay không có hàng của khách. Lễ tân làm đúng hướng dẫn thì lần nào cũng phải "hỏi quản lý", mà quản lý cũng không có nút. Ca khách rời đúng ngày đi lúc 04:30 cũng bị như vậy.
+- Vì sao quan trọng: người trực ca đêm bị kẹt, khách đang đứng chờ ra sân bay. Có hai rủi ro. Một là lễ tân quay lại bấm **Trả sớm** (nút này vẫn có trong khoảng giờ đó, và với khách rời đúng ngày đi thì chỉ chọn được ngày hôm trước), nên hoàn tiền cho đúng đêm khách vừa ở, tức là sai tiền. Hai là gọi chủ đầu tư lúc 4 giờ sáng chỉ để được trả lời "chờ".
+- Đề xuất sửa: thay hai câu trên ở cả hai chỗ bằng đoạn sau.
+  > Nút **Trả phòng** (khung đơn, trang **Hôm nay**) chỉ hiện **từ 06:00**, cả khi khách rời đúng ngày đi ghi trên đơn. Khách đi trước 06:00: đóng hộp; nhận lại thẻ, rút mã cửa; đếm minibar nếu kịp; báo khách số còn phải thu hoặc số sẽ hoàn (nếu có) như mục 2.14; ghi sổ giao ca "OTM-… khách rời hh:mm, chờ Trả phòng lúc 06:00". **Không** bấm **Trả sớm** lần nữa, không gọi quản lý chỉ vì chưa có nút. **Từ 06:00** (hoặc đầu ca sáng): khung đơn → **Trả phòng**, ở bước Phụ phí ghi **Giờ trả phòng thực tế** đúng giờ khách đi (ví dụ 04:30). Desk không phụ thu, không thêm đêm cho giờ này. Khách rời đúng ngày đi ghi trên đơn: không dùng **Trả sớm**, làm Trả phòng từ 06:00 như trên.
+
+  Với khách báo trước là sẽ đi sớm (ví dụ chuyến bay 06:00), thêm một câu: "Tối hôm trước, trong giờ trực, báo khách số còn phải thu, nhận tiền trước nếu khách đồng ý, rồi làm Trả phòng từ 06:00". Câu này chỉ hợp lệ nếu Desk ghi nhận được khoản đã nhận ở bước Bill lúc 06:00. BA hoặc QA kiểm trước khi viết; không chắc thì bỏ câu này.
+- Trạng thái: Closed (BA Fixed @ `7ba1ddf5`; DOM đọc lại 04/11 tối – xem DOM lượt 2)
+
+### FB-R4-DOM-BA-PR68-02
+- Mức độ: Minor
+- Vị trí: câu "Sửa ở v1.0.5" trong giới hạn "Đang chờ hoàn": sổ tay 2.14a (đoạn "Áp dụng từ v1.0.4" sau Nhánh ngắn ngày), `02` 11.5.2 (dòng 950), `01` 7.3 (dòng 478), và các dòng lịch sử bản 1.13 / 1.11.
+- Vấn đề: câu "Sửa ở v1.0.5" đứng ngay sau "cả ở dòng này lẫn ở **Nhật ký tiền → Hoàn tiền**". Người đọc sẽ hiểu là v1.0.5 cho lễ tân thấy yêu cầu chờ duyệt của người khác ở cả hai chỗ. ARC A1/A2 chốt khác, và release notes đã sửa theo thẻ RN-02:
+  - v1.0.5 chỉ hiện **tổng số đang chờ hoàn** ở trang Trả phòng và trên folio;
+  - tab **Hoàn tiền** giữ phạm vi như hiện nay. Đây là tách nhiệm có chủ ý (BR-522).
+- Đề xuất: "v1.0.5: dòng **Đang chờ hoàn** hiện cả số của yêu cầu do người khác tạo (chỉ số tiền). Tab **Hoàn tiền** giữ phạm vi như hiện nay." Sửa cùng câu ở 3 chỗ và ở dòng lịch sử bản.
+- Trạng thái: Closed (BA Fixed @ `7ba1ddf5`; DOM đọc lại 04/11 tối – xem DOM lượt 2)
+
+### FB-R4-DOM-BA-PR68-03
+- Mức độ: Minor
+- Vị trí:
+  - `guides/05-sale-ctv.md` dòng 82 (mục 1.5): PR này không sửa tệp này; #63 cũng không sửa câu này;
+  - sổ tay 0.3a dòng 122 và `01` 1.6a dòng 125: câu mở đầu in đậm.
+- Vấn đề:
+  1. `05` vẫn ghi "**Desk chỉ chặn được `info@`**". Từ v1.0.4 câu này sai với sale và CTV.
+  2. Ở sổ tay và `01`, câu in đậm "**Desk chỉ chặn được `info@`.**" vẫn đứng đầu, rồi câu ngay sau lại ghi "Từ v1.0.4 Desk chặn cả `booking@`". Người đọc lướt chỉ thấy câu in đậm.
+- Đề xuất:
+  - Câu in đậm đổi thành "**Tới v1.0.3, Desk chỉ chặn được `info@`.** Từ v1.0.4 chặn cả `booking@` (kể cả `info+…@`, `booking+…@`)."
+  - `05` 1.5 sửa cùng câu, kèm "(áp dụng từ v1.0.4)".
+  - Ghi thêm vào dòng lịch sử bản của bộ hướng dẫn.
+- Trạng thái: Closed (BA Fixed @ `7ba1ddf5`; DOM đọc lại 04/11 tối – xem DOM lượt 2)
+
+### FB-R4-DOM-BA-PR68-04
+- Mức độ: Suggestion
+- Vị trí: sổ tay 2.14 bước 6 (dòng 1164), `02` 11.1 bước 6 (dòng 834). Câu "…ở v1.0.3 ở **Nhật ký tiền → Hoàn tiền**, dòng của mã đơn."
+- Vấn đề: câu đúng sự thật, và ca giới hạn ở câu sau đã chỉ "hỏi quản lý", nên DOM coi điểm (3) là đạt. Nhưng lễ tân không phải người bấm Trả sớm vẫn có thể mở tab này trước rồi mới đọc câu sau.
+- Đề xuất: "…ở v1.0.3 ở **Nhật ký tiền → Hoàn tiền** (chỉ yêu cầu do chính anh/chị tạo hoặc đã được duyệt)." Hoặc đưa câu "người khác bấm Trả sớm… hỏi quản lý" lên trước.
+- Trạng thái: Closed (BA Fixed @ `7ba1ddf5`; DOM đọc lại 04/11 tối – xem DOM lượt 2)
+
+### FB-R4-DOM-BA-PR68-05
+- Mức độ: Suggestion
+- Vị trí: sổ tay 2.14a đoạn "Áp dụng từ v1.0.4" của đơn HĐ; `02` 17.5. Câu "Desk hiện (hoặc không hiện) khung HĐ khác với HĐ giấy: dừng, hỏi quản lý."
+- Vấn đề: Desk giữ ngày kết thúc HĐ theo HĐ lúc nhận phòng; **Gia hạn** không dời ngày này. Có một ca hay gặp mà câu an toàn này bắt được nhưng chưa nêu tên: khách **ký lại hoặc gia hạn HĐ bằng HĐ giấy mới**, có ngày kết thúc mới. Khách rời sau ngày kết thúc cũ mà trước ngày kết thúc mới: Desk coi là ở phần gia hạn và không hiện khung HĐ, trong khi theo HĐ giấy mới thì khách đang trả trước hạn.
+- Đề xuất: thêm ví dụ vào câu an toàn: "(ví dụ HĐ đã ký lại với ngày kết thúc mới: Desk vẫn giữ ngày kết thúc cũ)".
+- Trạng thái: Closed (BA Fixed @ `7ba1ddf5`; DOM đọc lại 04/11 tối – xem DOM lượt 2)
+
+---
+
+## 4. Ghi chú cho ORC
+
+- **Lỗi sản phẩm mới, đề nghị QA ghi thành bug:** Desk không có nút Trả phòng trong cửa sổ sau nửa đêm, dù máy chủ hỗ trợ.
+  - Hai chỗ chặn: `Reservation.allowedActions` so `ctx.today` với `departure_date`, không tính cửa sổ (`allowed-actions.ts` 115); trang Hôm nay chỉ xin danh sách của ngày nghiệp vụ.
+  - Có từ khi có luật cửa sổ sau nửa đêm (DOM S3-9). Không sai tiền nếu lễ tân làm theo thẻ 01. Mức DOM đề xuất: P3.
+  - Đề xuất xếp v1.0.5, cùng việc RN-05: BE thêm cửa sổ vào `allowedActions` như `checkOutAction`, Desk hiện hàng ngày đi trong cửa sổ. ARC và BE xác nhận cách sửa.
+- **Đính chính hai thẻ của DOM ở review release notes** (`DOM-on-v104-release-notes.md`, đã sửa trong tệp, mục "DOM lượt 2"):
+  - RN-08 **rút**, PO đúng: đơn HĐ nhập tay không có dòng tiền cho phần gia hạn;
+  - RN-05 cần thêm "nút Trả phòng chỉ hiện từ 06:00" (Minor, sửa lúc cắt bản).
+  - Dòng decision-log đề xuất ở mục 3 của tệp đó đã thêm câu này.
+- **Thứ tự gộp:** #68 cắt từ main, chưa có #63, nhưng dòng "Lập: …" và bảng lịch sử bản đã ghi "gộp sau 1.12 / 1.10". Khi gộp sau #63 sẽ xung đột ở các dòng đầu tệp và bảng lịch sử. Đây là việc kỹ thuật, BA rebase; DOM không review phần này.
+
+---
+
+## 5. Điểm làm tốt nên giữ
+
+1. Câu Trả sớm 00:00–05:59 viết đúng luật DOM, có ví dụ số về số ngày báo trước, và nói rõ "áp dụng ngay, giới hạn có từ v1.0.2". Lễ tân không phải chờ v1.0.4.
+2. Giới hạn "Đang chờ hoàn" dùng dấu hiệu lễ tân nhìn thấy được ("không thấy dòng, hoặc không chắc") và nói "không hiện ở cả hai chỗ". Bản này đã tốt hơn câu đầu của release notes. `01` 7.3 cho chủ đầu tư biết vì sao lễ tân sẽ hỏi và xem số ở đâu.
+3. Phần đơn HĐ đã gia hạn mô tả đúng cái Desk làm: không có dòng tiền cho phần gia hạn, bảng kỳ thu vẫn giữ cột ngày kết thúc HĐ, và có câu an toàn "khác HĐ giấy thì dừng, hỏi quản lý".
+
+## Phản hồi BA (04/11/2026, lượt 2 của PR #68 @ `7ba1ddf5`)
+
+- **FB-R4-DOM-BA-PR68-01 – Fixed.** Đã bỏ câu "mở khung đơn → Trả phòng; không thấy nút thì hỏi quản lý". Sổ tay 2.14a bước 2 và `02` 11.5.1 có gạch mới **Khách đi trước 06:00** theo đoạn DOM đề xuất.
+  - Nội dung: nút chỉ hiện từ 06:00, kể cả khi rời đúng ngày đi. Lúc khách đi: thu thẻ, chìa khóa, xóa mã cửa, đếm minibar nếu kịp, báo số còn thu hoặc sẽ hoàn, ghi sổ giao ca. Không bấm Trả sớm lần nữa, không gọi quản lý chỉ vì chưa có nút. Từ 06:00 làm **Trả phòng** và ghi **Giờ trả phòng thực tế** đúng giờ đi.
+  - BA đã đọc `checkout.service.ts` (`postMidnight`, `departure`) và `CheckOutPage.tsx` (`checkoutAt = ${departureDate}T${hh:mm}`). Giờ 04:30 của ngày đi được nhận, không phụ thu, không thêm đêm.
+  - Thêm một dòng trỏ tới gạch này ở ca đêm (sổ tay 2.20, `02` 13.3).
+  - **Không viết** câu "nhận tiền tối hôm trước", vì Desk chỉ thu khi đặt đơn, nhận phòng và trả phòng (`02` 10.1).
+- **FB-R4-DOM-BA-PR68-02 – Fixed.** Câu "Sửa ở v1.0.5" thay bằng: "v1.0.5 (chưa có ngày): trang **Trả phòng** và folio hiện **tổng số đang chờ hoàn** của đơn, kể cả yêu cầu do người khác tạo (chỉ số tiền). Tab **Hoàn tiền** giữ phạm vi như hiện nay." Áp ở sổ tay 2.14a, `02` 11.5.2, `01` 7.3 và dòng lịch sử.
+- **FB-R4-DOM-BA-PR68-03 – Fixed.** Câu in đậm đổi thành "**Tới v1.0.3, Desk chỉ chặn được `info@`.** Từ v1.0.4 chặn cả `booking@`…". Sửa ở sổ tay 0.3a, `01` 1.6a, `05` 1.5 (thêm vào PR, `05` lên bản 1.6), và cả `02` 1.6, nơi có cùng câu in đậm.
+- **FB-R4-DOM-BA-PR68-04 – Fixed.** Câu v1.0.3 ở sổ tay 2.14 bước 6 và `02` 11.1 bước 6 thêm "(chỉ yêu cầu do chính anh/chị tạo hoặc đã được duyệt)".
+- **FB-R4-DOM-BA-PR68-05 – Fixed.** Câu an toàn ở sổ tay 2.14a và `02` 17.5 thêm "(ví dụ HĐ đã ký lại với ngày kết thúc mới: Desk vẫn giữ ngày kết thúc cũ)".
+
+---
+
+## DOM lượt 2 (04/11 tối) – PR #68 @ `7ba1ddf5`
+
+Bản đọc: `git diff da98e511..7ba1ddf5` (5 tệp). Đối chiếu mã ở cùng head: `CheckOutPage.tsx`, `checkout.service.ts`, `strings-vi.json`.
+
+### Kết quả theo thẻ
+
+| Thẻ | Kết luận | Đã kiểm |
+|---|---|---|
+| 01 (Major) | **Closed** | Sổ tay 2.14a bước 2 và `02` 11.5.1 bỏ câu ngõ cụt, có gạch **Khách đi trước 06:00** đúng đề xuất. Có thêm câu trỏ ở ca đêm (sổ tay 2.20, `02` 13.3, đúng mục). Đúng với mã: bước 2 của Trả phòng là **Phụ phí**, có ô **Giờ trả phòng thực tế**; `checkoutAt` = ngày đi + giờ gõ; 04:30 của ngày đi rơi vào cửa sổ sau nửa đêm nên không phụ thu, không thêm đêm (`checkout.service.ts` `postMidnight`, `departure`). BA bỏ câu "nhận tiền tối hôm trước": đúng, vì Desk chỉ thu khi đặt đơn, nhận phòng và trả phòng |
+| 02 (Minor) | **Closed** | Câu v1.0.5 đúng hướng ARC A1/A2 ở sổ tay 2.14a, `02` 11.5.2, `01` 7.3. Thêm "yêu cầu đã duyệt vẫn thấy" và "không báo khách không có khoản hoàn", khớp release notes #66. Dòng lịch sử bản giữ chữ cũ rồi ghi phần sửa ở câu "Sửa cùng ngày…". Đó là nhật ký thay đổi, chấp nhận |
+| 03 (Minor) | **Closed** | Câu in đậm thành "Tới v1.0.3, Desk chỉ chặn được `info@`" ở sổ tay 0.3a, `01` 1.6a, `02` 1.6 và `05` 1.5; `05` lên bản 1.6. Tìm trên toàn `product/docs/manual` không còn câu "chỉ chặn được `info@`" ở thì hiện tại |
+| 04 (Suggestion) | **Closed** | Thêm "(chỉ yêu cầu do chính anh/chị tạo hoặc đã được duyệt)" ở sổ tay 2.14 bước 6 và `02` 11.1 bước 6. Đúng phạm vi ARC A1 |
+| 05 (Suggestion) | **Closed** | Có ví dụ HĐ ký lại ở sổ tay 2.14a và `02` 17.5 |
+
+### Thẻ mới
+
+### FB-R4-DOM-BA-PR68-06
+- Mức độ: Minor (sửa trước khi cắt bản 06/11 18:00; không chặn gộp; nếu kịp thì sửa luôn trong #68)
+- Vị trí: gạch **Khách đi trước 06:00**, ở sổ tay 2.14a bước 2 (dòng 1200) và `02` 11.5.1 (dòng 924).
+- Vấn đề: câu này lấy từ đề xuất của DOM ở thẻ 01. DOM tự sửa hai chỗ thiếu.
+  1. **Chỉ "báo khách số còn phải thu", không nói thu.** Đơn Trực tiếp đã thu đủ lúc nhận phòng (`02` 10.1), nên lúc 04:30 phần còn lại thường là minibar, phát sinh, hoặc đơn OTA thu tại quầy. Khách đã đi thì lúc 06:00 không còn ai để thu. Lúc 04:30 Desk cũng không tạo được VietQR, vì VietQR chỉ có ở đặt cọc, nhận phòng và trả phòng.
+  2. **Desk sẽ đòi ghi chú giờ.** Lúc 06:00 trở đi mà gõ 04:30, giờ này sớm hơn lúc bấm quá `manual_time_tolerance_minutes`. Khi đó Desk bắt buộc ô **Ghi chú giờ trả (vì sao ghi bù)** (`checkout.service.ts` dòng 1601–1605, `stay.time_note_help`). Hướng dẫn chưa nói, nên lễ tân ca sáng có thể tưởng là lỗi.
+- Vì sao quan trọng: khách rời trước 06:00 thường đi chuyến bay sớm, và ca đêm chỉ có một người trực. Nếu không thu trước khi khách đi, OTTIMO mất khoản phát sinh, hoặc phải đòi khách qua tin nhắn.
+- Đề xuất sửa, ở cả hai chỗ:
+  - Thay "báo khách số còn phải thu hoặc số sẽ hoàn (nếu có) như mục 2.14" bằng:
+    > xem **Còn phải thu** trên folio, cộng minibar vừa đếm; **thu ngay trước khi khách đi**: tiền mặt (cất két, để riêng) hoặc thẻ qua máy POS (giữ phiếu POS). Khách chỉ chuyển khoản được thì ghi sổ giao ca số còn thu, đầu ca sáng báo quản lý. Báo khách số sẽ hoàn (nếu có) như mục 2.14. Ghi sổ giao ca "OTM-… khách rời hh:mm, đã thu … bằng …, chờ Trả phòng lúc 06:00".
+  - Sau "ghi **Giờ trả phòng thực tế** đúng giờ khách đi (ví dụ 04:30)", thêm:
+    > Desk hỏi **Ghi chú giờ trả**: ghi "Khách rời 04:30, trả phòng trên Desk lúc 06:xx". Ở bước **Bill & thu tiền**, ghi khoản đã thu lúc khách đi theo đúng cách đã thu: tiền mặt thì nhập số tiền; thẻ thì nhập mã chuẩn chi trên phiếu POS.
+- Trạng thái: Closed (BA Fixed @ `1fb521cf`; DOM đọc lại 04/11 khuya – xem DOM lượt 3)
+
+### Kết luận lượt 2
+
+**ĐẠT CÓ ĐIỀU KIỆN. Gộp được** theo thứ tự #65 → #63 → #68.
+- Thẻ 01–05: đã đóng hết. Không còn Major.
+- Điều kiện: thẻ 06 (Minor), sửa trước khi cắt bản 06/11 18:00.
+- Câu 06:00 ở dòng 100 release notes #66 (thẻ RN-05) nên dùng đúng chữ của gạch **Khách đi trước 06:00** sau khi sửa thẻ 06.
+- Kiểm trên staging (QA, không chặn gộp): ở bước **Phụ phí**, đặt đồng hồ 06:10 và gõ 04:30. Desk phải nhận, không phụ thu, và đòi **Ghi chú giờ trả**.
+
+## Phản hồi BA (04/11/2026, lượt 3 của PR #68 @ `1fb521cf`)
+
+Nhánh đã gộp `origin/main` (có #63) tại `31588f0d`, không force. Xung đột chỉ ở dòng "Lập:" và bảng phiên bản; đã giữ cả hai mục, mục #68 đứng trước.
+
+### FB-R4-DOM-BA-PR68-06 – Fixed @ `1fb521cf`
+- Sửa gạch **Khách đi trước 06:00** ở sổ tay 2.14a bước 2 và `02` 11.5.1, theo đề xuất của DOM:
+  - Xem **Còn phải thu** ở khung đơn, cộng minibar vừa đếm.
+  - **Thu ngay trước khi khách đi**: tiền mặt (cất két, để riêng) hoặc thẻ qua máy POS (giữ phiếu POS). Thêm câu "Lúc này Desk chưa ghi được khoản thu và chưa có mã VietQR".
+  - Khách chỉ chuyển khoản được thì ghi sổ giao ca số còn thu, đầu ca sáng báo quản lý.
+  - Dòng sổ giao ca mới: "OTM-… khách rời hh:mm, đã thu … bằng …, chờ Trả phòng lúc 06:00".
+- Thêm sau câu **Giờ trả phòng thực tế**:
+  - Ở bước **Bill & thu tiền**, ghi khoản đã thu theo đúng cách đã thu: tiền mặt nhập ở **Tiền khách đưa**, thẻ nhập **Mã chuẩn chi trên phiếu POS**.
+  - Khi bấm hoàn tất, Desk đưa lại bước **Phụ phí** và bắt buộc ô **Ghi chú giờ trả (vì sao ghi bù)**. Hướng dẫn ghi rõ đây không phải lỗi, kèm câu mẫu "Khách rời 04:30, trả phòng trên Desk lúc 06:xx".
+- Đọc mã để xác nhận chỗ hiện ô ghi chú:
+  - `CheckOutPage.tsx` chỉ hiện ô này sau khi máy chủ trả `TIME_NOTE_REQUIRED` lúc bấm hoàn tất, rồi đưa về bước 2 và đặt con trỏ vào ô.
+  - Ô không hiện sẵn khi vừa gõ giờ, nên hướng dẫn viết theo đúng thứ tự đó.
+  - Nhãn lấy đúng chuỗi `checkout.time_note`.
+- Một điểm lệch nhỏ so với đề xuất: DOM viết "Desk hỏi Ghi chú giờ trả" ngay sau khi gõ giờ. BA đặt câu này sau bước Bill, vì Desk chỉ hỏi khi bấm hoàn tất.
+- Ghi vào lịch sử bản: sổ tay 1.13, `00` 1.11, `02` "Lập:".
+- Câu 06:00 ở release notes #66 (RN-05): PO lấy chữ của gạch này khi sửa release notes; BA không sửa tệp đó.
+
+### Thêm theo ORC – đơn Nội bộ cần ở thêm (DOM 04/11 tối, `bug-r4-037-data-impact.md`)
+- Áp dụng ngay, viết ở sổ tay 2.5 bước 4 (dòng Nội bộ), 2.12 **Gia hạn** bước 7, bảng 5.6; `02` 5.1, 9.3 bước 7, 17.6.
+- Cách làm:
+  - Không bấm **Gia hạn**. Tạo đơn Nội bộ mới 0 đ: cùng căn, ngày đến là ngày đi của đơn đang ở, cùng người đứng tên.
+  - Ô **Ghi chú nội bộ** (bắt buộc với kênh Nội bộ) ghi "Ở tiếp OTM-… (thay Gia hạn)".
+- BA đọc mã để kiểm 2 điểm ORC hỏi:
+  - **Căn đang có khách thì có nhận phòng đơn mới ngay được không.**
+    - B9 chỉ cho nhận phòng vào đúng ngày đến của đơn mới, tức ngày đi của đơn cũ.
+    - Điều kiện `room_ready` cần `VI`/`VC`. Khi đơn cũ còn ở, căn là `OC`/`OD`, nên lễ tân trưởng có thể xác nhận ngoại lệ (`checkin.service.ts` ~354–362, 588). Không thấy chặn nào khác, nên về lý có thể có hai đơn **Đang ở** cùng một căn.
+    - Vì vậy sổ tay ghi: **trả phòng đơn cũ trước, rồi mới nhận phòng đơn mới**; không dùng xác nhận ngoại lệ khi đơn cũ còn **Đang ở**.
+    - Sau trả phòng, căn là `VD`, nên nhận phòng đơn mới vẫn cần lễ tân trưởng xác nhận "buồng chưa sẵn sàng" (sổ tay 2.10, `02` 7.4).
+    - Giấy tờ gắn theo đơn (`checkinDocumentStatus`), nên phải nhập lại giấy tờ người ở.
+    - Ở tiếp cùng căn thì không thu thẻ, không xóa mã: kéo dài mã trên app khóa.
+    - Trả phòng đơn cũ trước 18:00. Sau 18:00, B18 tính đêm qua `addedNightRate`, dính cùng lỗi. Trước 18:00, phụ thu trả muộn lấy giá đêm của chính đơn, tức 0 đ.
+  - **Căn không còn trống từ ngày đi:**
+    - Tạo đơn nối tiếp ở căn khác còn trống. Người ở chuyển căn: trả phòng thường (thu thẻ, xóa mã), nhận phòng đơn mới và giao mã căn mới.
+    - Chỉ trống một phần các đêm thì đặt các đêm còn trống. Không còn căn nào thì báo quản lý.
+  - Đã lỡ gia hạn: không thu tiền người ở, báo quản lý trước khi trả phòng (đúng câu DOM).
+- Đề nghị DOM xác nhận:
+  - thứ tự "trả phòng đơn cũ rồi nhận phòng đơn mới";
+  - việc buồng phòng dọn như căn đang có khách (Desk vẫn tạo việc dọn trả phòng).
+- Ngoài phạm vi tài liệu, báo ORC:
+  - chưa thấy máy chủ chặn việc nhận phòng đơn thứ hai vào căn có đơn còn **Đang ở**, khi lễ tân trưởng xác nhận ngoại lệ;
+  - đề nghị QA thử trên staging, ARC/BE quyết chặn ở v1.0.5.
+
+---
+
+## DOM lượt 3 (04/11 khuya) – PR #68 @ `1fb521cf`
+
+ORC gọi đây là "Lượt 2" của bước Review (đọc lại). Tệp đã có mục "DOM lượt 2" (@ `7ba1ddf5`), nên đặt tên lượt 3 cho khỏi trùng.
+
+- Bản đọc: `git diff 31588f0d..1fb521cf`, 3 tệp, chỉ tài liệu. `31588f0d` là lần gộp main có #63.
+- Số dòng tài liệu là số dòng trên nhánh PR. Mã đối chiếu ở `origin/main` @ `c2506a53`, cũng là mã của nhánh:
+  - `frontdesk/internal/checkin.service.ts`, `checkout.service.ts`, `stay-support.ts`, `stay.service.ts`;
+  - `registration/internal/registration.service.ts`;
+  - admin-web `BookingDialog.tsx`, `ReservationDrawer.tsx`, `CheckInPage.tsx`, `CheckOutPage.tsx`, `strings-vi.json`;
+  - migration `0013` (chỉ mục `hk_task_clean_uk`).
+
+### Phán quyết #68: **ĐẠT CÓ ĐIỀU KIỆN**
+
+- Thẻ 06: **Closed**.
+- Cách làm tạm cho đơn Nội bộ ở thêm: **đúng hướng**. DOM xác nhận thứ tự "trả phòng đơn cũ, rồi nhận phòng đơn mới" và việc dọn "như căn có khách".
+- Còn 2 Major phải sửa trước khi gộp (chỉ là chữ, ở 2 tệp):
+  - **07**: bước tạo đơn đi qua BUG-R4-037, và Desk không có dòng "Tổng tiền phòng" cho đơn Nội bộ;
+  - **08**: mục 2.10 / `02` 7.4 vẫn cho xác nhận ngoại lệ khi căn đang `OD`.
+- Thêm 1 Minor (**09**: ghi sai bản sửa và mã lỗi), sửa cùng lần. 1 Suggestion (**10**).
+- Nếu ORC cần gộp #68 ngay: 07 và 08 đi một PR nhỏ riêng. Nhưng câu đã sửa phải tới lễ tân **trước** khi ai dùng cách làm tạm Nội bộ, vì cách làm tạm áp dụng ngay trên production. Gửi qua INV như cách làm tạm của BUG-R4-037.
+
+### 1. Thẻ 06 – đọc lại
+
+| Ý | Kết quả | Căn cứ |
+|---|---|---|
+| Xem **Còn phải thu** ở khung đơn, cộng minibar, thu ngay bằng tiền mặt hoặc thẻ POS; Desk chưa ghi được khoản thu, chưa có VietQR | Đúng | `ReservationDrawer` mục Folio có dòng "Còn phải thu" |
+| Lúc 06:00, ở bước **Bill & thu tiền**: tiền mặt nhập ở **Tiền khách đưa**, thẻ nhập **Mã chuẩn chi trên phiếu POS** | Đúng nhãn | `co.cash_received`, `co.pos_code` |
+| Bấm hoàn tất (**Đã thu … – hoàn tất** / **Hoàn tất trả phòng**) thì Desk đưa lại bước **Phụ phí** và bắt buộc **Ghi chú giờ trả (vì sao ghi bù)** | Đúng thứ tự. BA sửa đúng chỗ DOM viết lệch | `checkout.service.ts` 1601–1605 (`TIME_NOTE_REQUIRED` khi giờ gõ sớm hơn lúc bấm quá `manual_time_tolerance_minutes`); `CheckOutPage.tsx` 707–718 về bước 2 và đặt con trỏ vào ô; `co.complete_paid`, `checkout.complete`, `checkout.time_note` |
+| Khách chỉ chuyển khoản được: ghi sổ giao ca, đầu ca sáng báo quản lý | Đạt | – |
+
+### 2. Cách làm tạm đơn Nội bộ ở thêm – DOM xác nhận (sổ tay 2.12 bước 7, dòng 1129–1136; `02` 9.3 bước 7, dòng 734–741)
+
+Đây là cách khách sạn vẫn làm khi phần mềm không gia hạn được đúng giá: **tách lượt**, tức đóng lượt cũ rồi mở lượt mới liền ngay sau. Từng ý:
+
+| # | Ý của BA | DOM | Căn cứ |
+|---|---|---|---|
+| 1 | Không bấm **Gia hạn**; tạo đơn Nội bộ mới 0 đ, cùng căn, cùng người, ghi chú "Ở tiếp OTM-…" | **Đúng.** Nhưng bước tạo đơn phải tránh BUG-R4-037 và đổi cách kiểm 0 đ (thẻ 07) | `BookingDialog.tsx` 455–461, 1302 |
+| 2 | **Trả phòng đơn cũ trước, rồi mới nhận phòng đơn mới**; không nhận phòng đơn mới khi đơn cũ còn **Đang ở** | **Đúng, xác nhận.** Một căn chỉ nên có một lượt **Đang ở**. Giấy tờ, khai báo và folio đi theo từng đơn | `checkin.service.ts` 551–555 (chỉ nhận phòng vào ngày đến) |
+| 3 | Trả phòng đơn cũ **trước 18:00** | **Đúng.** Phụ thu trả muộn = % × giá **đêm cuối của chính đơn** (`surchargeBase` đọc giá đêm cuối của đơn, `stay-support.ts` 376–393). Đơn Nội bộ có đêm cuối 0 đ nên phụ thu là 0. Ân hạn 12:30 không áp, vì đơn mới là khách đến cùng ngày ở cùng căn, nhưng 30 % của 0 vẫn là 0. **Sau 18:00**, Desk coi là thêm 1 đêm, giá lấy từ `addedNightRate` (giá Trực tiếp, `checkout.service.ts` 709–727). Đêm đó đã có đơn mới, nên Desk chuyển sang "phụ thu thay đêm" bằng giá Trực tiếp và cần quản lý xác nhận. BA ghi "cùng lỗi" là đúng. DOM thêm: nên làm **đầu ca sáng, trước 12:00** cho gọn | `stay.service.ts` 719–748 |
+| 4 | Căn đang `VD` nên lễ tân trưởng xác nhận "buồng chưa sẵn sàng" | **Đúng, đúng BR-402 (1)**: ngoại lệ dành cho `VD`/`CL`. Sau khi xác nhận, căn thành `OD` và có việc dọn gấp. Thêm: nếu buồng phòng đã dọn xong và căn đã `VC` thì nhận phòng như thường, không cần xác nhận (thẻ 10) | `checkin.service.ts` 864–880 |
+| 5 | Nhập lại giấy tờ | **Đúng.** Desk xét giấy tờ theo từng đơn (`checkinDocumentStatus(reservationId)`). Phần khai báo: trên cổng sẽ có 2 lượt liền nhau (đơn cũ đi, đơn mới đến), vẫn đúng thời gian ở thật. Khách nước ngoài: đơn cũ hiện ở tab **Cần cập nhật ngày đi**. DOM chấp nhận cách này cho khoảng 4 ngày tới khi v1.0.4 lên. Nếu INV muốn khai dạng "gia hạn" trên cổng thay cho lượt mới thì hỏi cán bộ quản lý cư trú (**cần xác nhận**, không chặn) | `registration.service.ts` 2970–2998 |
+| 6 | Buồng phòng dọn như căn có khách | **Đúng thực tế.** Dọn kiểu ở tiếp, không dọn kiểu trả phòng: không dọn đồ của người ở, thay khăn/ga theo lịch ở tiếp, bổ sung minibar. Desk tạo việc **dọn trả phòng**, xếp ưu tiên "có khách đến hôm nay" (`checkout.service.ts` 1415–1423). Nếu nhận phòng bằng ngoại lệ, Desk tạo thêm một việc **dọn gấp** (`checkin.service.ts` 872–880). Chỉ mục `hk_task_clean_uk` không gộp hai việc này, nên buồng phòng có thể thấy 2 việc cho một lần dọn (thẻ 10) | migration 0013 dòng 294 |
+| 7 | Không thu thẻ, không xóa mã; kéo dài mã trên app khóa | **Đúng.** Desk không giữ mã cửa (`checkin.service.ts` dòng 7). Có điểm dễ nhầm: hộp xác nhận **Hoàn tất trả phòng** ghi "… và xóa mã trên app khóa" (`checkout.complete_confirm_body`). Đây chỉ là câu nhắc, nhưng lễ tân có thể làm theo (thẻ 10) | `strings-vi.json` 287 |
+| 8 | Căn không còn trống thì chuyển căn; chỉ trống một phần thì đặt các đêm còn trống; không còn căn nào thì báo quản lý | **Đúng** | – |
+| 9 | Đã lỡ gia hạn: không thu, báo quản lý | **Đúng** (câu DOM) | – |
+
+Ảnh hưởng chỉ số: tách lượt làm một lượt ở thành hai, nên ALOS và số lượt ở lệch nhẹ. Occupancy không đổi. Chấp nhận được cho khoảng 4 ngày.
+
+### 3. Quy tắc chốt cho BE – BUG-R4-038, sửa ở v1.0.4 (ORC phân xử P0)
+
+DOM chấp nhận phân xử của ORC: mức P0, sửa ở v1.0.4. Đề xuất P2 / v1.0.5 trong tệp BE `bug-r4-037-data-impact.md` mục DOM không còn hiệu lực.
+
+| # | Quy tắc | Ví dụ (oracle cho QA/BE) |
+|---|---|---|
+| R1 | **Đêm thêm của đơn Nội bộ** (B13 gia hạn, B9a đêm trước, B18 đêm thêm sau 18:00): **mặc định 0 đ**, nguồn `complimentary`. **Không áp sàn–trần** BR-105, **không áp bậc** BR-107. **Cho gõ 0**; gõ 0 cũng là `complimentary`. Xem trước phải bằng lệnh ghi, cùng một hàm (`addedNightRate` thêm nhánh `internal`). `is_complimentary` của đơn giữ nguyên | Đơn Nội bộ 202, gia hạn 2 đêm, không gõ giá → 2 đêm × 0 đ; folio **Còn phải thu** 0. Gõ 0 → được nhận. Gia hạn để tổng thành 8 đêm → không có dòng giảm 10 % |
+| R2 | **"Nội bộ có thu"**: lễ tân gõ giá > 0, nguồn `manual`. Làm **giống hệt lúc tạo đơn Nội bộ có gõ giá** (`pricing.service.ts` 276–291: Nội bộ không sàn–trần, cho 0): cùng vai được gõ, không sàn–trần, không bậc. Không thêm bước duyệt; lý do nằm sẵn ở **Ghi chú nội bộ** của đơn, nhật ký tiền ghi giá. Báo cáo đọc đêm này theo giá đã ghi, như đơn Nội bộ tạo có gõ giá; bản sửa này không đổi quy ước Q-05 | Gõ 300.000 cho 1 đêm gia hạn → 300.000, `manual` |
+| R3 | **Phụ thu trả muộn B18 (BR-412)** và nhận sớm (BR-411) của đơn Nội bộ: giữ công thức **% × giá đêm cuối (đêm đầu) của chính đơn**, như `surchargeBase` đang làm. Đêm đó 0 đ → phụ thu 0, **không ghi dòng** (theo DOM S3-12, chỉ ghi khi > 0), không cần FOC. Đêm đó > 0 ("có thu") → % × giá đêm đó. **Không** lấy giá Trực tiếp làm gốc (chỉ OTA dùng giá Trực tiếp, BR-415). BE kiểm thêm: `stay-support.ts` 392 trả về giá Trực tiếp khi không tìm thấy dòng `stay_night`; với đơn Nội bộ phải trả 0 | Nội bộ đêm cuối 0 đ, trả 15:00, căn có khách đến → **0 đ**. Nội bộ có thu, đêm cuối 300.000: trả 15:00 → 30 % = **90.000**; trả 17:00 → 50 % = **150.000** |
+| R4 | **Sau 18:00 (BR-416)**: căn còn trống đêm đó → thêm đêm theo R1 (0 đ). Căn không bán được đêm đó → "phụ thu thay đêm" = giá mặc định của đêm thêm theo R1, tức **0 đ**, không ghi dòng. Bước quản lý xác nhận (vì căn có khách đến) giữ hay bỏ khi số tiền là 0 thì ARC chọn; DOM chấp nhận cả hai | Nội bộ, trả 19:00, căn trống → đêm thêm 0 đ; căn đã có đơn → 0 đ |
+| R5 | **Gỡ dữ liệu đơn đã dính** (Q5): phải có đường đưa đêm Nội bộ về 0 đ, vì hiện A31 chặn 0. Tối thiểu, đơn **đang ở** phải gỡ được để người đã lỡ gia hạn trả phòng được. DOM đề xuất: A31 cho đơn Nội bộ nhận 0, vai quản lý trở lên, bắt buộc lý do. Chọn cách nào là quyền ARC (tệp BE mục 3.2 có phương án B) | – |
+
+### 4. Rủi ro BA nêu – nhận phòng đơn thứ hai vào căn còn đơn **Đang ở**
+
+**Kết luận: đây là lỗi**, vì làm trái **BR-402 (1)**. BR-402 (1) chỉ cho lễ tân trưởng trở lên nhận phòng ngoại lệ khi buồng `VD`/`CL`. `OC`/`OD` là căn **đang có khách**.
+
+- **Mức DOM đề xuất: P1.** Theo `test-strategy.md` mục 8, đây là luồng chính sai quy tắc nghiệp vụ, không trực tiếp sai tiền. QA chốt mức.
+- **Nên chặn ở máy chủ ngay trong v1.0.4.** Sửa sổ tay là cần (thẻ 08), nhưng **không đủ**.
+
+**Mã hiện tại:**
+- `checkin.service.ts` 354–362: `room_ready` được đánh dấu "lễ tân trưởng trở lên xác nhận được" với **mọi** trạng thái khác `VI`/`VC`/`OOO`, kể cả `OC`, `OD`.
+- Dòng 588–606: xác nhận ngoại lệ hoặc duyệt đều bỏ qua điều kiện này.
+- Không có chỗ nào kiểm "căn còn đơn **Đang ở**". `vacantPreviousNight` (dòng 493–502) chỉ dùng để tính phí nhận sớm.
+- Desk còn mời người dùng xác nhận. Câu `checkin.room_not_ready_lead` ghi: Căn 202 đang "Có khách, sạch" – chưa sẵn sàng. **Bạn xác nhận ngoại lệ được** (câu này giống hệt câu cho căn `VD`).
+
+**Vì sao không chỉ là chuyện của cách làm tạm Nội bộ:**
+- Ca hay gặp nhất ở OTTIMO: khách đi xe đêm tới Đà Lạt lúc 05:00–06:30, trong khi khách cũ của căn đi hôm nay và còn đang ngủ (`OC`).
+  - Trước 06:00, B9a không mở được, vì đêm trước căn còn có khách.
+  - Từ 06:00, luồng nhận phòng thường mở, và Desk cho lễ tân trưởng xác nhận ngoại lệ.
+- Lễ tân trưởng đang vội có thể xác nhận như với một căn `VD`. Khi đó khách mới nhận mã cửa và vào **căn đang có người ngủ**. Đây là sự cố an ninh và riêng tư rất nặng với khách sạn: khiếu nại, có thể mất đồ, đánh giá xấu trên OTA.
+- Sau đó dữ liệu cũng sai:
+  - căn có 2 lượt **Đang ở**;
+  - khi khách cũ trả phòng, B18 đặt căn về `VD` (`checkout.service.ts` 1399–1407) trong khi khách mới đang ở trong căn; buồng phòng thấy "Trống, cần dọn" và vào dọn.
+- Lối duyệt từ xa (lễ tân gửi, lễ tân trưởng duyệt) còn dễ sót hơn, vì người duyệt không đứng ở quầy.
+- Sổ tay mục 2.10 (dòng 1053) và `02` 7.4 (dòng 602) hiện còn **ghi `OD` vào danh sách được xác nhận ngoại lệ**, tức đang dạy sai (thẻ 08).
+
+**Đề xuất sửa (ARC chốt, BE-A làm, QA thử):**
+- Tối thiểu cho v1.0.4: `room_ready` chỉ có `overridableBy` khi trạng thái là `VD` hoặc `CL` (đúng chữ BR-402 (1)), cả lúc xem trước lẫn lúc ghi (dòng 359–361 và 588).
+  - `OC`/`OD` xử lý như `OOO`: không có ngoại lệ.
+  - Desk hiện một câu riêng (UXD viết), ví dụ: "Căn 202 đang có khách. Trả phòng đơn đang ở trước, hoặc gán căn khác."
+  - Khoảng 2 dòng ở máy chủ, 1 chuỗi chữ, 1 nhánh FE, kèm test BE và FE.
+- Nên thêm (ARC chọn): chặn khi căn còn đơn **Đang ở** có ngày đi là hôm nay, không phụ thuộc trạng thái buồng. Dùng lại câu truy vấn của `vacantPreviousNight` với `status = 'in_house'`. Cách này đề phòng trạng thái buồng bị sửa tay.
+- Mọi ca hợp lệ vẫn có lối đi khi chặn: khách cũ đã đi thì **Trả phòng** đơn cũ trước; trạng thái buồng sai thì buồng phòng sửa trạng thái; khách đến sớm thì giữ hành lý, mời chờ hoặc gán căn khác.
+- Nếu ARC/ORC thấy không kịp bản cắt 06/11 18:00: một lỗi P1 còn mở khi qua QC thì cần ORC phân xử, và theo protocol mục 8 phải có ESC. Từ giờ tới khi chặn được, dùng câu của thẻ 08.
+- **QA:** ghi lỗi mới (QA cấp số). Thử trên stack local: đơn A **Đang ở** căn 202, đi hôm nay; đơn B đến hôm nay, cùng căn; lễ tân trưởng xác nhận ngoại lệ → hiện tại nhận phòng được (kỳ vọng: bị chặn).
+
+### 5. Thẻ mới
+
+### FB-R4-DOM-BA-PR68-07
+- Mức độ: **Major** (sửa trước khi gộp #68, hoặc PR riêng như ở Phán quyết)
+- Vị trí: sổ tay 2.12 bước 7, gạch **Tạo đơn nối tiếp** (dòng 1130); `02` 9.3 bước 7 (dòng 735). Câu cần sửa: "Kiểm **Tổng tiền phòng** là 0 đ rồi **Tạo đơn**".
+- Vấn đề:
+  1. Với kênh Nội bộ, hộp Đặt phòng mới **không có** bảng "Tổng tiền phòng". Bảng này chỉ hiện với Trực tiếp/CTV (`BookingDialog.tsx` 1302: `directLike && calc`). Lễ tân không kiểm được theo câu này.
+  2. Cách vào tự nhiên nhất là bấm ô trống của chính căn đó vào ngày đi trên **Sơ đồ phòng**. Desk mở hộp với kênh Trực tiếp và điền sẵn giá. Lễ tân chuyển sang **Nội bộ** thì các ô **Giá mỗi đêm** vẫn giữ số. Nếu mọi ô có số, Desk gửi các số đó làm giá đơn (`BookingDialog.tsx` 455–461). Đây đúng là **BUG-R4-037**, đang có trên production. Kết quả: "đơn Nội bộ 0 đ" bị ghi giá Trực tiếp, tức cách làm tạm của lỗi 038 lại rơi vào lỗi 037.
+- Vì sao quan trọng: đây là sai tiền. Desk có chặn lúc nhận phòng (điều kiện "đã thu đủ"), nhưng lễ tân sẽ bị kẹt ở quầy, và đơn sai không đưa về 0 được (A31 chặn 0).
+- Đề xuất sửa, ở cả hai chỗ, thay câu trên bằng:
+  > Chọn kênh **Nội bộ**, rồi **xóa trống mọi ô Giá mỗi đêm** ngay trước khi bấm **Tạo đơn** (không gõ 0 – Desk báo lỗi). Tạo xong, mở khung đơn: mục **Folio** phải ghi **Tiền phòng (… đêm) 0** và **Còn phải thu 0**. Khác 0: **Hủy đơn** vừa tạo (chưa nhận phòng, chưa thu tiền), tạo lại theo đúng cách trên.
+
+  Câu này khớp cách làm tạm của BUG-R4-037 đã gửi INV ngày 04/11, và mã FE đã kiểm: ô trống thì không gửi giá (`BookingDialog.tsx` 455–461), gõ 0 thì bị chặn (430–433).
+- Trạng thái: Closed (BA Fixed @ `ba841ea2`; DOM đọc lại 04/11 – xem DOM lượt 4)
+
+### FB-R4-DOM-BA-PR68-08
+- Mức độ: **Major** (an ninh khách; sửa cùng #68 hoặc PR riêng như trên)
+- Vị trí: sổ tay 2.10, gạch **Căn chưa sẵn sàng** (dòng 1053); `02` 7.4 (dòng 602). Câu hiện tại: "đang `VD`, `CL`, `OD` … Lễ tân trưởng tự xác nhận ngoại lệ được". Câu này có từ trước #68 và đang ở `main`.
+- Vấn đề:
+  - `OD` là căn **có khách**, cần dọn. BR-402 (1) chỉ cho ngoại lệ với `VD`/`CL`.
+  - Câu này mâu thuẫn với câu mới của #68 ("Không nhận phòng đơn mới khi đơn cũ còn **Đang ở**, kể cả bằng xác nhận ngoại lệ"), và dạy đúng thao tác gây ra rủi ro ở mục 4.
+  - Desk v1.0.3 không chặn thao tác này.
+- Đề xuất sửa:
+  > **Căn chưa sẵn sàng** (đang `VD`, `CL`): lễ tân **Gửi lễ tân trưởng xác nhận** kèm **Lý do**… (giữ phần còn lại). **Căn đang có khách** (`OC`, `OD` – đơn trước chưa trả phòng): **không** xác nhận ngoại lệ, kể cả lễ tân trưởng, dù Desk cho bấm. Khách cũ đã đi thì **Trả phòng** đơn cũ trước. Khách cũ còn ở thì giữ hành lý, mời khách mới chờ, hoặc **Đổi căn / đổi ngày** sang căn trống (sổ tay mục 2.8, `02` mục 6.1). Căn đang khóa sửa chữa (`OOO`)…
+
+  Khi máy chủ chặn (mục 4), bỏ phần "dù Desk cho bấm".
+- Trạng thái: Closed (BA Fixed @ `ba841ea2`; DOM đọc lại 04/11 – xem DOM lượt 4)
+
+### FB-R4-DOM-BA-PR68-09
+- Mức độ: Minor (sửa cùng lần với 07)
+- Vị trí:
+  - "sửa ở v1.0.5" ở sổ tay 2.5 bước 4 (dòng 852), 2.12 bước 7 (dòng 1129) và bảng 5.6 (dòng 1936); `02` 5.1 (dòng 337), 9.3 bước 7 (dòng 734) và 17.6 (dòng 1591);
+  - dòng lịch sử bản: "BUG-R4-037 mục 1.8; lỗi P2 sửa ở v1.0.5" (sổ tay dòng 1953, `00` 1.11, `02` "Lập:").
+- Vấn đề: ORC đã phân xử ngày 04/11: lỗi này là **BUG-R4-038, P0, sửa trong v1.0.4**. Sổ tay phát hành cùng v1.0.4 mà ghi "tới khi sửa ở v1.0.5", nên sau 08/11 lễ tân vẫn làm cách tạm nặng nề (nhập lại giấy tờ, khai báo hai lượt), dù không còn cần.
+- Đề xuất:
+  - "áp dụng ngay, **tới khi chủ đầu tư báo v1.0.4 đã lên**";
+  - thêm câu: "Từ v1.0.4: bấm **Gia hạn** như đơn khác; Desk ghi đêm thêm của đơn Nội bộ 0 đ (gõ giá > 0 nếu có thu)";
+  - lịch sử bản ghi "BUG-R4-038 (P0), sửa ở v1.0.4".
+
+  Nếu bản sửa 038 bị dời khỏi v1.0.4, PO báo trong release notes và BA trả lại chữ cũ.
+- Trạng thái: Closed (BA Fixed @ `ba841ea2`; DOM đọc lại 04/11 – xem DOM lượt 4)
+
+### FB-R4-DOM-BA-PR68-10
+- Mức độ: Suggestion
+- Vị trí: sổ tay 2.12 bước 7, các gạch "Trả phòng đơn cũ…" và "Nhận phòng đơn mới"; `02` 9.3 bước 7.
+- Đề xuất thêm 3 câu ngắn:
+  - (a) "Hộp **Hoàn tất trả phòng** có câu 'xóa mã trên app khóa': khi ở tiếp cùng căn thì **không** xóa."
+  - (b) "Buồng phòng có thể thấy 2 việc dọn cho căn này (dọn trả phòng, dọn gấp): dọn **một lần** như căn có khách, rồi bấm xong cả hai. Nếu buồng phòng dọn xong (căn **Sạch**) trước lúc nhận phòng đơn mới thì nhận phòng như thường, không cần lễ tân trưởng."
+  - (c) "Người ở vắng lúc trả phòng đơn cũ: vẫn trả phòng đơn cũ buổi sáng; nhận phòng đơn mới khi người ở về với giấy tờ, trong ngày, và ghi sổ giao ca trong khoảng giữa."
+- Trạng thái: Closed (BA Fixed @ `ba841ea2`; DOM đọc lại 04/11 – xem DOM lượt 4)
+
+### 6. Xác nhận cho ARC – BR-703-01 (#67)
+
+**Đúng.** BR-703-01 chỉ yêu cầu chọn sẵn tủ của căn cũ, không bắt đếm theo thứ tự. Lễ tân được đếm tủ căn đang ở trước. Đã tự đổi tủ và gõ số thì Desk **không** được tự quay về tủ cũ, cũng không được bỏ số đã gõ. Không mất tiền, vì B18 vẫn chặn cho tới khi mọi tủ của lượt ở đã đếm (`minibar_not_checked`).
+
+### 7. Việc thêm của ORC – `ota_base_rate` (guide B6)
+
+**7.1 Đọc mã: chưa có dòng thì chủ đầu tư có tự thêm trên Desk được không?** **Không.** Dòng này cũng **không được cài sẵn** trên production.
+
+| Điểm | Mã |
+|---|---|
+| Khóa có trong danh mục tham số nhưng **không có giá trị mặc định** | migration `0018_…` dòng 22: `ota_base_rate`, `default_value` = NULL, vai sửa owner/manager |
+| Lần cài production đầu tiên **cố ý không ghi** khóa này: "INV nhập trên app" | `admin/production-defaults.ts` dòng 15–17 và `INV_ENTERS_KEYS` dòng 176–180; `production-bootstrap.ts` 122–126 báo lỗi nếu ai thêm vào danh sách cài sẵn |
+| Màn **Tham số quy tắc** chỉ liệt kê khóa **đã có giá trị** hoặc **có mặc định** | `parameters.service.ts` 138–146 (`WHERE c.key IS NOT NULL OR d.default_value IS NOT NULL`). Lịch sử của khóa chưa có giá trị trả 404 (dòng 188) |
+| Desk chỉ có nút **Sửa** ở dòng đã hiện; không có nút thêm; không màn nào khác ghi khóa này | `ParamsPage.tsx`; tìm `ota_base_rate` trong `apps/admin-web/src` không thấy kết quả. Chỉ tài khoản nhận VietQR có màn riêng |
+| Khi chưa có dòng, chỉ một đường bị lỗi: **đơn OTA để trống giá** (cũng như báo giá kênh OTA để trống giá) → 422 `nightlyRates REQUIRED`. Sàn–trần và các chỗ khác tự lấy giá niêm yết của căn | `pricing.service.ts` 186–192 (thiếu thì `{}`), 245–253 (sàn–trần lấy giá niêm yết), 321–327 (422); `move-planner.ts` 287, `stay-night-pricing.ts` 153, `stay-support.ts` 355 đều lấy giá niêm yết khi thiếu |
+
+Hệ quả:
+- `infra/server/README.md` dòng 222 và `b2-runbook.md` dòng 144 dặn "INV nhập `ota_base_rate` trên app". Việc này **không làm được** nếu production chưa có dòng.
+- Hiện nay lỗi bị che: Desk điền giá Trực tiếp vào ô OTA (BUG-R4-037), nên đơn OTA không bao giờ gửi trống. Sau #70, ô OTA mặc định trống, nên sẽ gặp 422.
+- Cách làm tạm 037 đã gửi lễ tân có câu "OTA: gõ đủ mọi đêm **hoặc để trống hết**". Nếu production chưa có dòng, "để trống hết" cũng ra 422. Câu an toàn: "**gõ đủ giá mọi đêm theo xác nhận của OTA**".
+- Không sai tiền: Desk chặn chứ không ghi số sai. Lễ tân gõ giá theo xác nhận OTA là đúng nghiệp vụ (BR-112).
+
+**Đề xuất cho ARC/ORC**, nếu INV kiểm thấy không có dòng:
+- (A) **DOM chọn.** BE cho nhánh 321–327 lấy **giá đêm niêm yết của căn** khi thiếu `ota_base_rate`, như sàn–trần đã làm.
+  - Đúng BR-103 "một mức giá mọi kênh" (INV 01/11), và là một phần của H6 (gỡ `ota_base_rate`, kế hoạch v1.1).
+  - Vài dòng, đi cùng #70 trong v1.0.4. ARC xác nhận.
+- (B) Thêm lối "Chưa cài" trên màn Tham số. Không nên, vì khóa này sẽ bị gỡ ở v1.1.
+- (C) Không sửa mã; lễ tân luôn gõ đủ giá đơn OTA. Được, nhưng dễ vấp lúc đông khách.
+
+**7.2 Đã sửa guide B6** (`rounds/round-04/outputs/DOM/inv-price-switch-guide.md`, chưa commit):
+- Bỏ câu "Không thấy dòng này thì bỏ qua – Desk tự lấy giá đêm của căn". Thay bằng câu nói dòng này để làm gì.
+- Cách xem: tab **Khác**, Cmd/Ctrl + F gõ `ota_base_rate`. Dòng chỉ có tên in đậm `ota_base_rate`, không có tên tiếng Việt (`paramLabel` trả mã khóa khi không có nhãn). Cột giá trị hiện chuỗi `{…}`.
+- Ba nhánh: có dòng số cũ thì sửa; có dòng đúng thì thôi; **không thấy thì không bỏ qua**, chụp màn hình gửi đội, và tới khi cài xong thì đơn OTA gõ đủ giá mọi đêm.
+- Sửa dòng "Tự kiểm phần B" theo, và ghi chú sửa 04/11 ở đầu tệp.
+
+**7.3 Tin ORC gửi INV** (dán nguyên văn). **Sửa 05/11 sau #73** (BR-103 v0.5.4): không có dòng nay là ổn; bản 04/11 đã thay.
+
+> 1. Anh/chị kiểm giúp một dòng trên Desk (2 phút, máy tính, tài khoản chủ đầu tư): **Quản trị → Tham số quy tắc → tab Khác**, bấm Cmd + F (Windows: Ctrl + F) và gõ `ota_base_rate`.
+> 2. Không thấy dòng: không cần làm gì. Từ bản v1.0.4, đơn OTA để trống giá sẽ tự lấy giá đêm niêm yết của căn. Nhắn đội "không có dòng".
+> 3. Thấy dòng: dòng này được ưu tiên hơn giá căn. Cột giá trị khác `{"L12":800000,"N":1300000,"NPLUS":1100000}` thì bấm **Sửa**, dán đúng chuỗi đó, **Hiệu lực từ** để nguyên, **Lý do** `Bảng giá 01/11/2026`, bấm **Lưu thay đổi**. Nhắn đội "có dòng". Sau này mỗi lần đổi giá căn, anh/chị sửa dòng này cùng lúc, hoặc nhờ đội gỡ dòng.
+> 4. Tới khi đội báo v1.0.4 đã lên, lễ tân tạo đơn OTA vẫn gõ đủ giá mọi đêm theo xác nhận của OTA.
+
+Nếu ORC đã gửi bản 04/11, chỉ gửi thêm: "Cập nhật về dòng `ota_base_rate`: không thấy dòng cũng ổn, anh/chị không cần chụp màn hình. Thấy dòng thì vẫn sửa như hướng dẫn, và sau này đổi giá căn thì sửa dòng này cùng lúc."
+
+**7.4 Cách làm tạm BUG-R4-042 (P1, có từ v1.0.1) – tin ORC gửi INV để chuyển lễ tân** (05/11, tới khi v1.0.4 lên). Nguồn: `rounds/round-04/qa/bug-list-v1.0.4.md` BUG-R4-042; `FolioDialog.tsx` (dòng đã đảo không có nút **Điều chỉnh**); `folio-lines.service.ts` (Thêm phát sinh chỉ gõ tay được F&B, dịch vụ, hư hỏng, không có món minibar).
+
+> 1. Trả phòng khách đã đổi căn giữa kỳ (2 tủ minibar): đếm xong tủ thứ hai, bấm **Tiếp tục**, nếu Desk vẫn đứng ở bước ① Minibar, hiện lại số của tủ vừa đếm (ví dụ "Tổng minibar: 35.000") mà không ghi tên tủ, tiêu đề vẫn là căn đang ở – đó là lỗi của Desk.
+> 2. Lúc đó **không sửa số và không bấm "Không dùng gì – tủ đủ"**: bấm như vậy là Desk xóa khoản minibar đã tính của tủ kia. Chỉ bấm **Tiếp tục** một lần nữa, giữ nguyên số (Desk đếm lại đúng số cũ, tiền không sai).
+> 3. Trước khi thu tiền, xem bill (hoặc **Folio**): phải có khoản minibar của **cả hai tủ**, khớp phiếu đếm. Thiếu khoản nào thì dừng, chưa bấm Hoàn tất.
+> 4. Lỡ bị xóa (Folio có khoản minibar và một dòng trừ đúng số đó): Desk không cho Điều chỉnh dòng đã xóa. Khách còn ở quầy: **Thêm phát sinh → Đồ ăn uống**, ghi chú "Minibar tủ căn …: món × số", đúng số tiền đã mất, rồi thu như thường. Khách đã đi: báo quản lý, quản lý quyết thu lại hay bỏ qua. Cả hai trường hợp: ghi sổ giao ca (mã đơn, số tiền) và báo buồng phòng kiểm, bổ sung tủ đó, vì Desk đã ghi tủ đủ.
+
+Ghi chú cho ORC/DATA: khoản ghi lại bằng "Đồ ăn uống" (`fnb`) là cách tạm. DATA gộp vào minibar khi làm số tháng, nhờ dòng sổ giao ca. Sau v1.0.4, BA bỏ cách làm này khỏi sổ tay.
+
+### 8. Ghi chú cho ORC
+
+- **Dòng decision-log đề xuất (DOM tự quyết, quyền nghiệp vụ):**
+  - "BUG-R4-038: đêm thêm đơn Nội bộ (B13/B9a/B18) mặc định 0 đ `complimentary`, không sàn–trần, không bậc, cho gõ 0; có thu thì gõ > 0 `manual`, như lúc tạo đơn; phụ thu trả muộn/nhận sớm = % × giá đêm của chính đơn (0 → 0, không ghi dòng); sau 18:00 không bán được đêm → 0 đ. DOM 04/11."
+  - "BR-402 (1): ngoại lệ nhận phòng chỉ cho `VD`/`CL`; `OC`/`OD` không có ngoại lệ – mã hiện cho mọi trạng thái trừ `OOO` là lỗi (DOM đề xuất P1, chặn ở v1.0.4)."
+  - ORC ghi giúp, vì `decision-log.md` đang có thay đổi chưa commit của ORC.
+- **DOM sẽ cập nhật `business-rules.md`** khi ORC đồng ý: BR-421 thêm nhánh Nội bộ (R1–R4), BR-402 ghi rõ `OC`/`OD`.
+- **Cách làm tạm của BUG-R4-037 cho OTA**: đổi "gõ đủ mọi đêm hoặc để trống hết" thành "gõ đủ mọi đêm theo xác nhận OTA" cho tới khi biết production có `ota_base_rate` (mục 7).
+
+### Kết luận lượt 3
+
+**ĐẠT CÓ ĐIỀU KIỆN.**
+- Thẻ 06: Closed.
+- Gộp #68 sau khi sửa **07** và **08** (Major, chỉ chữ). **09** sửa cùng lần. **10** tùy BA.
+- Không có ESC mới từ DOM. Nếu chặn `OC`/`OD` không kịp v1.0.4, ORC phân xử P1 và có thể cần ESC (mục 4).
+
+## Phản hồi BA (04/11/2026, lượt 4 của PR #68 @ `ba841ea2`)
+
+Chỉ sửa tài liệu. Đã push thường; nhánh #69 đã gộp lại bản này (`b9e40a04`).
+
+### FB-R4-DOM-BA-PR68-07 – Fixed
+- Sổ tay 2.12 bước 7 và `02` 9.3 bước 7, gạch **Tạo đơn nối tiếp**: bỏ câu "Kiểm **Tổng tiền phòng** là 0 đ". Thay bằng câu DOM đề xuất:
+  - ngay trước khi bấm **Tạo đơn**, **xóa trống mọi ô Giá mỗi đêm** (không gõ 0 – Desk báo lỗi);
+  - giải thích ngắn: mở hộp từ **Sơ đồ phòng** thì Desk điền sẵn giá Trực tiếp, chuyển sang **Nội bộ** vẫn giữ số (BUG-R4-037);
+  - tạo xong, mở khung đơn, mục **Folio** phải ghi **Tiền phòng (… đêm) 0** và **Còn phải thu 0** (nhãn `drawer.folio.room`, `drawer.folio.balance`);
+  - khác 0 thì **Hủy đơn** vừa tạo và tạo lại.
+- Đã đối chiếu `BookingDialog.tsx`:
+  - đơn Nội bộ chỉ gửi giá khi **mọi** ô có số (455–461);
+  - ô có số ≤ 0 bị chặn (430–433).
+  - Xóa trống mọi ô là cách chắc chắn nhất.
+
+### FB-R4-DOM-BA-PR68-08 – Fixed
+- Sổ tay 2.10 và `02` 7.4, gạch **Căn chưa sẵn sàng**:
+  - chỉ còn `VD`, `CL`;
+  - thêm câu cho **căn đang có khách** (`OC`, `OD`) theo đúng chữ DOM, kèm "dù Desk hiện vẫn cho bấm (Desk chặn từ v1.0.4)", vì ORC đã quyết chặn ở máy chủ trong v1.0.4;
+  - lối khác: **Trả phòng** đơn cũ trước, giữ hành lý và mời chờ, hoặc **Đổi căn / đổi ngày** (sổ tay 2.8, `02` 6.1).
+- Sửa thêm 2 chỗ cùng ý mà DOM chưa nêu:
+  - `02` 16.2 (Không được làm): "Không bao giờ nhận khách vào căn đang có khách (`OC`, `OD`) hoặc căn `OOO`". Trước đây câu này liệt kê `OD` vào nhóm được xác nhận.
+  - Bảng **Cần duyệt** ở sổ tay 1.8 và `01` mục 4: "Nhận phòng khi buồng chưa sẵn sàng (chỉ căn `VD`, `CL`; căn có khách `OC`, `OD`: từ chối)". Lý do: lối duyệt từ xa dễ sót hơn, như DOM nêu ở mục 4.
+- Khi máy chủ đã chặn, PR gỡ "dù Desk hiện vẫn cho bấm" sẽ đi cùng lượt dọn sau v1.0.4.
+
+### FB-R4-DOM-BA-PR68-09 – Fixed
+- "sửa ở v1.0.5" đổi thành "áp dụng ngay, tới khi chủ đầu tư báo v1.0.4 đã lên" và "BUG-R4-038, sửa ở v1.0.4". Đã sửa ở sổ tay 2.5, 2.12 bước 7, bảng 5.6 và `02` 5.1, 9.3 bước 7, 17.6.
+- Thêm câu "**Từ v1.0.4:** bấm **Gia hạn** như đơn khác; Desk ghi đêm thêm của đơn Nội bộ 0 đ (gõ giá > 0 nếu có thu)".
+- Lịch sử bản ghi "BUG-R4-038, P0, sửa ở v1.0.4" (sổ tay 1.13, `00` 1.11).
+- Nếu bản sửa 038 bị dời khỏi v1.0.4, BA trả lại chữ cũ khi PO báo.
+
+### FB-R4-DOM-BA-PR68-10 – Fixed (làm cả 3 ý)
+- (a) Câu "xóa mã trên app khóa" ở hộp **Hoàn tất trả phòng**: ở tiếp cùng căn thì không xóa.
+- (b) Có 2 việc dọn: dọn một lần như căn có khách, rồi bấm xong cả hai. Căn đã `VC`/`VI` thì nhận phòng như thường, không cần lễ tân trưởng. BA dùng mã trạng thái thay cho chữ "Sạch" để khớp dòng **Buồng sẵn sàng (VI hoặc VC)**.
+- (c) Người ở vắng lúc trả phòng đơn cũ: trả phòng buổi sáng, nhận phòng đơn mới khi người ở về với giấy tờ, trong ngày, ghi sổ giao ca.
+- Thêm "nên làm đầu ca sáng, trước 12:00" theo mục 2 ý 3.
+
+### Cách làm tạm BUG-R4-037 cho đơn OTA (ORC)
+- Sổ tay và bộ hướng dẫn không có chữ "hoặc để trống hết". Câu đó chỉ có trong tin đã gửi INV.
+- Đã sửa sổ tay 2.6 bước 4 và `02` 5.3 bước 4 thành: "**Gõ đủ giá mọi đêm theo xác nhận của OTA** (extranet), kể cả khi ô đã có sẵn số; không để trống ô nào".
+- Tin đã gửi INV do ORC sửa, theo mục 7.3 của DOM.
+
+---
+
+## DOM lượt 4 (04/11 khuya) – PR #68 @ `ba841ea2`
+
+Bản đọc: `git diff 1fb521cf..ba841ea2`, gồm 4 tệp, chỉ tài liệu: sổ tay, `00`, `01`, `02`. Số dòng ghi theo nhánh PR.
+
+| Thẻ | Kết luận | Đã kiểm |
+|---|---|---|
+| 07 (Major) | **Closed** | Sổ tay 2.12 bước 7 (dòng 1130) và `02` 9.3 bước 7 đã bỏ câu "Kiểm Tổng tiền phòng". Thay bằng: xóa trống mọi ô **Giá mỗi đêm** ngay trước khi bấm **Tạo đơn**, không gõ 0; vì sao Desk giữ giá Trực tiếp (BUG-R4-037); kiểm **Folio**: **Tiền phòng (… đêm) 0**, **Còn phải thu 0**; khác 0 thì hủy rồi tạo lại. Nhãn khớp `drawer.folio.room` và `drawer.folio.balance` |
+| 08 (Major) | **Closed** | Sổ tay 2.10 (dòng 1053) và `02` 7.4 (dòng 602) chỉ còn `VD`, `CL`. Có câu cho **căn đang có khách** (`OC`, `OD`): không xác nhận ngoại lệ, kể cả lễ tân trưởng, "Desk chặn từ v1.0.4". Có các lối khác: trả phòng đơn cũ, mời chờ, **Đổi căn / đổi ngày** (sổ tay 2.8, `02` 6.1, mục trỏ đúng). BA sửa thêm hai chỗ, DOM đồng ý cả hai: `02` 16.2 (dòng 1467) và bảng **Cần duyệt** (sổ tay 1.8 dòng 526, `01` mục 4) ghi "căn có khách `OC`, `OD`: từ chối". Như vậy lối duyệt từ xa cũng được nhắc. Đã tìm trên cả bộ sổ tay: không còn câu nào xếp `OD` vào nhóm được xác nhận. Khớp BR-402 v0.5.3 |
+| 09 (Minor) | **Closed** | Sổ tay 2.5, 2.12 bước 7, 5.6 và `02` 5.1, 9.3 bước 7, 17.6 ghi "tới khi chủ đầu tư báo v1.0.4 đã lên" và "BUG-R4-038, sửa ở v1.0.4". Có câu **Từ v1.0.4: bấm Gia hạn như đơn khác; Desk ghi 0 đ (gõ > 0 nếu có thu)**, khớp BR-421 v0.5.3 (a)–(b). Lịch sử bản ghi đúng "BUG-R4-038, P0". Còn một câu "sửa ở v1.0.5" ở 2.14a (dòng 1246), nhưng câu đó nói về Trả sớm 00:00–05:59 (BUG-R4-036, v1.0.5), nên đúng |
+| 10 (Suggestion) | **Closed** | Có đủ 3 ý: không xóa mã khi ở tiếp; 2 việc dọn thì dọn một lần rồi bấm xong cả hai; căn `VC`/`VI` thì nhận phòng như thường; người ở vắng thì xử lý như đã nêu. Có thêm "đầu ca sáng, trước 12:00". Dùng mã trạng thái thay cho chữ "Sạch" là hợp lý |
+| Đơn OTA (ORC) | **Đạt** | Sổ tay 2.6 bước 4 và `02` 5.3 bước 4: "Gõ đủ giá mọi đêm theo xác nhận của OTA (extranet), kể cả khi ô đã có sẵn số; không để trống ô nào". Câu này đúng cả lúc production thiếu `ota_base_rate` (mục 7.1) lẫn lúc ô còn giá Trực tiếp do BUG-R4-037. Đúng BR-112 (đơn OTA ghi đúng tiền OTA thu) |
+
+**Không có thẻ mới.**
+
+Việc dọn sau khi v1.0.4 lên. Không chặn gộp; BA đã ghi kế hoạch:
+- bỏ gạch 2.12 bước 7 và `02` 9.3 bước 7, chỉ giữ câu "Từ v1.0.4";
+- bỏ "dù Desk hiện vẫn cho bấm" ở 2.10 và `02` 7.4, sau khi QA xác nhận máy chủ đã chặn (BUG-R4-039);
+- khi biết production đã có `ota_base_rate` (hoặc BE đã cho dùng giá niêm yết khi thiếu dòng này), xem lại câu "không để trống ô nào" ở 2.6.
+
+### Kết luận lượt 4
+
+**ĐẠT.** Thẻ 01–10 đã đóng hết; không còn Blocker hay Major mở. ORC gộp #68 được.
+
+## DOM lượt 5 (05/11) – sau #73 (OTA lấy giá niêm yết khi thiếu `ota_base_rate`) và câu hỏi UXD về BUG-R4-039
+
+Thẻ FB-R4-ARC-DOM-PR73-01 (`ARC-on-v104-pr73-ota-fallback.md`). Đọc mã trên `main` sau #73 (`pricing.service.ts` nhánh OTA để trống) và nhánh #74 `v104/fix-checkin-occupied-exception` @ `9646029d`.
+
+### 1. Thẻ DOM-PR73-01 – đã làm
+- (a) BR-103 v0.5.4: từ v1.0.4, nhóm căn chưa có `ota_base_rate` thì đơn OTA để trống giá lấy giá đêm niêm yết của căn, theo từng đêm; căn thiếu giá niêm yết của một đêm thì vẫn báo "Nhập giá mỗi đêm".
+- (b) BR-103 và bảng tham số: v1.0.x không cần nhập khóa; đã nhập thì khóa thắng giá niêm yết, nên phải đổi cùng lúc với bảng giá, hoặc nhờ OPS gỡ dòng. Guide B6 và tin 7.3 sửa theo (mục 7.3 ở trên).
+- (c) DOM rà dòng oracle BR-103-05 (BE thêm ở #73): đúng nghiệp vụ (Studio Lầu 1–2, 800.000 mỗi đêm, kể cả thứ Sáu, thứ Bảy, vì BR-104 v0.5.1 không tăng cuối tuần); nhãn `INV-043`, `INV-045`, `NGÀNH` đúng. Phần nhật ký đầu tệp để QA ghi sau khi #74 gộp, như ARC đề xuất.
+- Câu sổ tay 2.6 / `02` 5.3 "gõ đủ giá mọi đêm theo xác nhận của OTA" giữ nguyên tới khi v1.0.4 lên. Sau đó BA có thể nới: "để trống thì Desk lấy giá niêm yết; OTA bán khác giá niêm yết thì gõ theo xác nhận OTA" (BR-112). DOM khuyên lễ tân vẫn gõ theo xác nhận OTA, vì khuyến mãi kênh làm tiền OTA thu thường khác giá niêm yết.
+- Chưa làm (không thuộc việc ORC giao): thẻ FB-R4-ARC-QA-PR73-01 (b), về làm tròn `rounding.ota_rate` theo BR-005. Hôm nay giá niêm yết đều chẵn 10.000, nên chưa lệch tiền. DOM chốt khi ORC giao.
+
+### 2. UXD – hai giả định cho BUG-R4-039
+
+| Giả định của UXD | DOM | Căn cứ |
+|---|---|---|
+| (1) Desk chặn nhận phòng theo trạng thái buồng `OC`/`OD` | **Đúng một nửa.** Máy chủ (#74) chặn khi có **một trong hai**: (a) buồng `OC`/`OD` (cùng `OOO`); (b) căn còn **một lượt Đang ở khác** chưa trả phòng hôm nay (đi hôm nay chưa bấm Trả phòng, hoặc ở qua đêm nay), **dù trạng thái buồng đang hiện gì**, kể cả `VD`/`CL`/`VI`/`VC`. Cả hai trường hợp đều không có ngoại lệ cho vai nào. Câu chữ không nên chỉ nói "căn đang OC/OD". Gợi ý cách tách: `detail` là `OC`/`OD` thì báo buồng đang có khách; `detail` là trạng thái khác mà điều kiện `room_ready` không có `overridableBy` thì báo căn còn khách của đơn khác chưa trả phòng. Ví dụ: "Căn còn khách chưa trả phòng. Trả phòng đơn trước, hoặc đổi sang căn trống." ARC xác nhận cách đọc `detail` này | `checkin.service.ts` (#74) `roomHeldByAnotherStay`, `roomOverridable`; `openapi.yaml` B9 mô tả v1.0.4; BR-402 (1) v0.5.4 |
+| (2) Buồng phòng là vai sửa trạng thái căn khi khách cũ đã trả phòng mà căn vẫn hiện `OC` | **Không đúng cho trường hợp hay gặp.** Căn hiện `OC` thường là vì **lễ tân chưa bấm Trả phòng** cho đơn cũ: máy chủ vẫn coi khách cũ đang ở. Việc đầu tiên là **lễ tân** trả phòng đơn cũ (B18, sổ tay 2.14; trước 06:00 xem 2.20). Sau B18, buồng thành `VD`. Buồng phòng dọn xong thì căn thành `VC`. Nếu cần nhận ngay khi căn `VD`/`CL`, lễ tân trưởng dùng ngoại lệ BR-402. Buồng phòng **không** trả phòng đơn được, và sửa trạng thái buồng cũng không mở được chặn (b). **Trường hợp hiếm**: đơn cũ đã trả phòng mà buồng vẫn `OC`, tức trạng thái bị lệch (Cần chú ý có mục lệch trạng thái buồng). Khi đó lễ tân **hoặc** buồng phòng (căn trong phạm vi được giao) bấm "Cần dọn" (`OC` → `OD`), "Bắt đầu dọn", rồi "Dọn xong" → `VC`. Không có nút sửa thẳng sang `VC`. Trước khi bấm, kiểm thật trong căn không còn người và đồ của khách | `housekeeping/internal/rules.ts` `allowedEvents`, `roomTarget` (FD+ hoặc HK trong phạm vi T); `attention-sources.ts` `room_status_mismatch`; BR-402 (1) |
+
+Đề nghị UXD: câu chặn ưu tiên chỉ đường **Trả phòng đơn trước** (lễ tân), sau đó mới đến **Đổi căn** hoặc **Mời khách chờ**. Chỉ nhắc buồng phòng khi trạng thái bị lệch.
+
+### Kết luận lượt 5
+Không có thẻ mới. Thẻ FB-R4-ARC-DOM-PR73-01 (a), (b) đã làm; (c) đã rà, phần nhật ký fixture là việc của QA sau #74. Các tệp chưa commit.
+
+## DOM lượt 6 (05/11) – QA quan sát Q-05: đêm "Nội bộ có thu" mang `is_complimentary = true`
+
+Nguồn: `rounds/round-04/qa/bug-list-v1.0.4.md`, mục BUG-R4-038, dòng "Quan sát, không cấp lỗi". Đọc mã trên `main` @ `476fd9b8`. DOM không chạy test.
+
+### 1. Đúng hay sai: **sai nghiệp vụ. Đêm Nội bộ có thu phải là `is_complimentary = false`.**
+- Quy tắc: **cờ miễn phí đi theo tiền, không theo kênh.**
+  - Một đêm là miễn phí khi **tiền phòng sau giảm của đêm bằng 0**. Quy tắc này áp cho mọi kênh.
+  - Một đơn là miễn phí khi tổng tiền phòng bằng 0.
+  - Đây là cách làm chuẩn của ngành: đêm miễn phí là đêm có khách mà không tính tiền. Đêm bán giá nội bộ (nhân viên, người nhà, người quen trả giá vốn) vẫn là **đêm bán có thu tiền**. Muốn xem riêng nhóm này thì xem theo kênh Nội bộ.
+- BR-904 (v0.3.2) ghi "đêm của đơn kênh Nội bộ là đêm có khách miễn phí". Câu này viết khi Nội bộ chỉ có giá 0. Từ khi có "Nội bộ có thu" (EP02; BR-421 v0.5.3 (b)), câu đó thiếu. BR-421 (b) nói "như lúc tạo đơn" là nói về **giá** (gõ > 0, nguồn `manual`), không nói về cờ.
+- Mã hiện nay:
+  - Lúc tạo đơn, cờ ghi theo kênh: đơn có `group === 'internal' || tổng 0` (`reservations.service.ts` 803); đêm có `w.isComplimentary || n.amountVnd === 0` (`reservation-store.ts` `insertNights`, dòng 239, gọi với `group === 'internal'`, dòng 881).
+  - Đêm thêm B13/B9a/B18 chép cờ của đơn (dòng 2769, 3823).
+  - Khi ghi lại giá, cờ không nhất quán, nên càng cần quy tắc trên:
+    - A31 (`stay-night-pricing.ts` 185) đổi giá và tiền nhưng **không** đổi cờ. Đêm Nội bộ 0 đ được sửa lên 300.000 vẫn `true`.
+    - `setDiscount`/`addDiscount` (`stay-night-allocation.ts`) lại **tính lại** cờ khi gross > 0. Đêm Nội bộ 300.000 có giảm một phần sẽ thành `false`.
+    - Vậy cùng một đêm có thể mang cờ nào là tùy lịch sử thao tác.
+
+### 2. Cờ này làm sai chỉ số nào
+
+| Chỉ số / nơi | Sai? | Vì sao |
+|---|---|---|
+| Công suất K-03, "Công suất đêm nay" | Không | Đếm đêm `sold` đã gán căn, kể cả đêm miễn phí. `tonight-kpi.ts` không đọc cờ |
+| Doanh thu phòng K-06 | Không | Σ `room_revenue_vnd`; khoản 300.000 vẫn được cộng |
+| RevPAR K-05 | Không | Doanh thu ÷ đêm khả dụng, không dùng cờ |
+| **ADR K-04** | **Có**, khi có báo cáo | Tử số có 300.000 nhưng mẫu số "đêm bán có thu" (Q-05) bỏ đêm này, nên ADR cao hơn thật. Ví dụ: tháng có 200 đêm bán, doanh thu 170.000.000, thêm 2 đêm Nội bộ 300.000. Đúng: 170.600.000 ÷ 202 = **844.554**. Sai: ÷ 200 = **853.000** (+8.446, khoảng 1 %) |
+| Đếm đêm miễn phí và đêm bán có thu (K-02) | **Có** | Mỗi đêm Nội bộ có thu bị đếm sai loại |
+| FOC K-18, cảnh báo BR-435, hạn mức BR-433 | Không | Tính trên dòng FOC và tiền dòng phòng, không đọc cờ |
+| Chốt ca, đối soát két, folio, công nợ | Không | Tính theo giao dịch và folio |
+| Dấu hiệu dữ liệu 037/038 (Q1–Q5) | Không | Dùng `source` trong bản chụp giá, không dùng cờ. Lưu ý cho DATA/BE: **đừng** dùng `is_complimentary = true AND gross > 0` làm dấu hiệu đơn Nội bộ bị 037 (bảng 1.3 của `bug-r4-037-data-impact.md`). Điều kiện đó bắt cả đơn Nội bộ có thu đúng |
+
+Hôm nay, ở v1.0.x:
+- Desk chưa vẽ ADR, RevPAR (`OverviewPage.tsx`: "ADR/RevPAR are R3 – not drawn"). API không trả cờ này ra ngoài.
+- Không màn nào hiện số sai. Chỉ dữ liệu lưu bị sai, và sẽ ảnh hưởng báo cáo tháng (R3) cùng các câu SQL DATA tự chạy.
+
+### 3. Mức và thời điểm: **không phải P1. DOM đề xuất P3, sửa ở v1.0.5**, kèm điều kiện. QA chốt mức.
+- Lý do:
+  - (a) Không sai tiền, và không màn nào đọc cờ.
+  - (b) Cờ tính lại được chính xác từ cột tiền bất cứ lúc nào, nên chờ tới v1.0.5 không mất thông tin.
+  - (c) Đơn Nội bộ có thu ở OTTIMO rất ít. Nội bộ chủ yếu là chủ đầu tư hoặc nhân viên ở giá 0; có thu chỉ khi người quen hay nhân viên trả giá vốn. DOM ước 0–2 đơn mỗi tháng, chưa có số thật; QA/DATA đếm được bằng một câu đọc trên `stay_night`, lọc kênh Nội bộ, gross > 0.
+  - (d) Sửa ở v1.0.4 sẽ chạm `insertNights`, đường ghi đêm của **mọi** đơn, ngay trước khi phát hành. Rủi ro lớn hơn lợi.
+- Điều kiện:
+  - Sửa mã và tính lại dữ liệu **trước báo cáo ADR đầu tiên** (R3, hoặc số tháng DATA gửi chủ đầu tư).
+  - Tới lúc đó, DATA tính đêm miễn phí bằng `room_revenue_vnd = 0`, không dùng cờ.
+- Việc ở v1.0.5:
+  - **BE (ARC chọn cách):** cờ đêm = `room_revenue_vnd = 0` ở mọi đường ghi:
+    - `insertNights`: bỏ `w.isComplimentary ||`;
+    - A31 `setNightRate`;
+    - `setDiscount`/`addDiscount`: gross 0 thì `true`;
+    - ghi lại giá B9a/B13/B18.
+    - Cờ đơn = tổng tiền phòng bằng 0, tính lại mỗi khi giá đổi. ARC kiểm thêm đêm dài hạn (`lease-nights.ts`).
+  - **OPS/BE:** tính lại cờ một lần trên dữ liệu đã có, theo điều kiện SEC, ORC duyệt như các lượt sửa dữ liệu trước.
+  - **DATA:** sửa `metrics-definitions.md` Q-05, phần "Nguồn đêm miễn phí", theo quy tắc ở mục 1.
+  - **BA:** sửa EP02, mục kênh Nội bộ.
+  - **ARC:** sửa `erd.md` dòng `is_complimentary`.
+  - **DOM:** sửa câu Kênh Nội bộ của BR-904 thành "đêm Nội bộ tiền phòng 0 là đêm miễn phí; Nội bộ có thu là đêm bán có thu tiền, vào ADR", lên BR v0.5.5, **khi ORC đồng ý**.
+
+### 4. Dòng đề xuất decision-log (ORC ghi)
+
+| Ngày | Round | Quyết định | Người quyết | Lý do |
+|---|---|---|---|---|
+| 2026-11-05 | 4 | Đêm miễn phí (`stay_night.is_complimentary`) đi theo tiền, không theo kênh: `true` khi tiền phòng sau giảm của đêm bằng 0, ở mọi kênh. Đêm "Nội bộ có thu" (> 0) là đêm bán có thu tiền và vào ADR. Cờ của đơn = tổng tiền phòng bằng 0. Sửa mã và tính lại dữ liệu ở v1.0.5, trước báo cáo ADR đầu tiên; tới lúc đó DATA tính đêm miễn phí bằng `room_revenue_vnd = 0`. DOM đề xuất P3, QA chốt | DOM | Chuẩn ngành: đêm miễn phí là đêm có khách không tính tiền. BR-421 v0.5.3 (b) cho phép Nội bộ có thu. QA quan sát Q-05 (BUG-R4-038). Không sai tiền, ở v1.0.x không màn nào đọc cờ, và cờ tính lại được từ cột tiền |
+
+### Kết luận lượt 6
+Không có ESC. Đây là quy tắc ngành, DOM tự chốt. Không có thẻ mới cho #68. Tệp chưa commit.
+
+## DOM lượt 7 (05/11) – BR-402 sau #74 C1, oracle BR-402-03/04, và trường hợp căn kẹt `OC` sau khi đã trả phòng
+
+Nguồn: `rounds/round-04/reviews/ARC-on-v104-pr74-checkin-occupied.md` (C1, thẻ FB-R4-ARC-DOM-PR74-01, FB-R4-ARC-QA-PR74-01). Đọc mã trên `main` @ `373ec195` và nhánh #74 @ `9646029d`.
+
+### 1. BR-402 v0.5.6 – đã sửa (thẻ DOM-PR74-01)
+- BR-402 (1) thêm câu: lượt Đang ở đã quá ngày đi mà chưa bấm Trả phòng cũng là "căn còn khách". v1.0.4 **không có ngoại lệ** `VD`/`CL`; từ v1.0.5 chặn như mọi lượt Đang ở khác, kể cả `VI`/`VC`. Ghi ARC chọn 05/11.
+- Thêm ví dụ căn 301, quá ngày đi cùng `CL`, đúng ca dò của ARC.
+- Giữ nguyên câu "việc đầu là lễ tân trả phòng đơn cũ".
+- Validator: 0 lỗi, 1 cảnh báo có từ trước.
+
+### 2. Oracle BR-402-03/04 (nhánh #74, BE viết) – thẻ ARC-QA-PR74-01 (1)
+- **Nhãn:** cả hai dòng `["NGÀNH"]` là **đúng**. Đây là quy tắc ngành DOM chốt, không phải số INV. Ngày ở `qaAssumption` của BR-402-03 (A 23→24/11, B 24→25/11, 06:30 và 10:15 ngày 24/11) khớp ví dụ căn 202 của BR. DOM xác nhận. BR-402-04 `frontDeskRequestAllowed` cho `VD`/`CL` = true đúng: lễ tân gửi xin duyệt.
+- **Ghi chú BR-402-04 sai sau C1.** Dòng này chỉ có trên nhánh #74, nên DOM không sửa thẳng, để tránh đụng lần đẩy C1 của BE. BE thay nguyên câu `note` trong cùng lần đẩy C1:
+
+  > VI/VC: điều kiện đạt nên không cần ngoại lệ (exceptionAllowed = false nghĩa là không có gì để xác nhận). Cài đặt v1.0.4: preview không có overridableBy, B9 trả 409 CHECKIN_CONDITIONS_NOT_MET unmet [room_ready] cho OC/OD/OOO. Oracle này chỉ xét căn không còn lượt Đang ở khác. Căn còn lượt in_house khác theo định nghĩa "đang ở căn" của buồng phòng: đi hôm nay chưa B18 hoặc phủ đêm nay thì mọi trạng thái buồng đều chưa đạt, không có ngoại lệ; đã quá ngày đi mà chưa B18 thì VD/CL không có ngoại lệ (v1.0.4, BR-402 (1) v0.5.6, ARC C1 05/11), VI/VC chỉ bị chặn từ v1.0.5 (FB-R4-ARC-BE-PR74-05).
+
+- **Đề xuất cho QA**, rà ở bước Kiểm thử: thêm dòng BR-402-05 từ ví dụ căn 301.
+  - Bối cảnh: A đi 23/11, chưa Trả phòng; ngày 24/11 buồng phòng đưa căn về `CL`.
+  - Lễ tân trưởng nhận B: không có `overridableBy`, 409, không ghi gì.
+  - B18 cho A (căn `VD`), rồi lễ tân trưởng nhận B: 200, căn `OD`, có việc dọn ưu tiên.
+  - Ca này cũng là ca Desk "quá ngày đi + `CL`" ARC yêu cầu.
+
+### 3. Căn kẹt `OC` sau khi đơn trước đã trả phòng – v1.0.4 làm gì (BA phát hiện)
+
+**DOM sửa lại lượt 5 mục 2, ý (2), "Trường hợp hiếm":** bước "bấm Cần dọn" **không làm được** ở v1.0.4. Đã kiểm trên `main`:
+
+| Nơi | Có cách đưa căn khỏi `OC`? | Căn cứ |
+|---|---|---|
+| Desk, trang Buồng phòng | **Không.** Trang chỉ có danh sách việc (hoàn tất, hủy, tạo việc dọn), không có nút đổi trạng thái buồng | `pages/ops/HousekeepingPage.tsx` |
+| Cần chú ý, mục `attn.room_status_mismatch` | **Không.** Chỉ có câu "trạng thái buồng không khớp với đơn – kiểm tra lại" và liên kết sang trang Buồng phòng, không có nút | `app/attention.ts` (`to = '/housekeeping'`) |
+| App nhân viên | **Không.** Phòng chỉ có Bắt đầu dọn (`VD`/`OD`), Dọn xong (`CL`), Kiểm phòng (`VC`) | `apps/mobile/src/pages/RoomPage.tsx` |
+| Việc 07:00 (J8) | **Không** cho trường hợp này. J8 chỉ chuyển `OC` → `OD` với căn **còn khách ở lại**. Căn không còn lượt Đang ở thì J8 không chạm | `housekeeping/public/worker-jobs.ts` (`stayoverNightSql`) |
+
+Máy chủ có sự kiện `needs_cleaning` (`OC` → `OD`), nhưng chưa giao diện nào gọi. Trường hợp này hiếm: B18 luôn đặt căn `VD`, nên chỉ gặp khi dữ liệu lệch. Đa số căn `OC` là đơn trước **chưa** bấm Trả phòng.
+
+**Lễ tân làm ở v1.0.4:**
+1. Mở đơn trước của căn. Đơn còn **Đang ở** thì kiểm căn, rồi bấm **Trả phòng** đơn đó (B18; trước 06:00 xem sổ tay 2.20). Đây là việc đầu, như BR-402.
+2. Đơn trước đã **Đã trả phòng** mà căn vẫn `OC`:
+   - lễ tân **không** sửa được trên Desk hay app, và chờ 07:00 cũng không tự hết;
+   - không nhận khách vào căn này;
+   - xếp khách sang **căn trống sẵn sàng khác** (Đổi căn / đổi ngày, sổ tay 2.8; cùng hạng, không có thì nâng hạng theo BR-424, OTTIMO chịu chênh);
+   - **báo quản lý ngay**. Quản lý nhắn đội kỹ thuật số căn và mã đơn trước. Đội sửa trạng thái trên hệ thống (OPS, có ghi lại), xong thì căn về quy trình dọn thường.
+3. Không có căn nào khác: quản lý gọi đội trong ca, khách chờ ở sảnh, giữ hành lý. **Không** dùng Khóa phòng (OOO) để "đặt lại" trạng thái. Cách đó ghi sai đêm OOO vào báo cáo công suất (Q-04).
+
+**Câu UXD `checkin.room_occupied` phải đổi cho v1.0.4.** Phần đuôi "kiểm căn đã trống rồi sửa trạng thái buồng" hướng lễ tân tới một việc không làm được.
+- Ý thay (VI): "Nếu đơn trước đã trả phòng: xếp khách sang căn trống khác và báo quản lý để sửa trạng thái căn."
+- EN: "If the previous booking is already checked out: move the guest to another vacant room and tell the manager so the room status can be fixed."
+- Khi có `cause` của #74 (C2):
+  - căn bị giữ bởi lượt khác (`heldByReservationCode`) → giữ câu "Trả phòng đơn … trước";
+  - chỉ trạng thái buồng `OC`/`OD`, không còn lượt nào → dùng câu thay ở trên.
+
+**Backlog v1.0.5 (PO xếp):**
+- nút **Cần dọn** (`OC` → `OD`, FD+ và buồng phòng trong phạm vi) trên Desk trang Buồng phòng và trên app nhân viên;
+- mục Cần chú ý `room_status_mismatch` có nút mở thẳng căn đó;
+- sau đó UXD trả lại câu "kiểm căn đã trống rồi bấm Cần dọn".
+- Câu sổ tay của BA đi theo.
+
+### Kết luận lượt 7
+- Không có ESC.
+- Nằm trong tệp `business-rules.md` v0.5.6: BR-402.
+- Nằm trong tệp này: mục 7.4, BUG-R4-042.
+- Việc của người khác:
+  - BE thay `note` BR-402-04 cùng lần đẩy C1;
+  - UXD/FE-A đổi đuôi câu `checkin.room_occupied`;
+  - BA sửa sổ tay theo mục 3.
+- Tệp chưa commit.
+
+## Phản hồi BA (05/11/2026, DOM lượt 5 mục 2, lượt 7 mục 3 và mục 7.4 – PR #72 @ `fbaaac23`, vẫn nháp)
+
+- **Lượt 7 mục 3 (căn kẹt `OC`): Fixed.** Sổ tay 2.10 và `02` 7.4 viết theo thứ tự DOM:
+  - (1) đơn trước còn **Đang ở** mà khách đã đi: kiểm căn rồi **Trả phòng**;
+  - (2) khách cũ còn ở: mời khách chờ hoặc đổi căn;
+  - (3) đơn trước đã **Đã trả phòng** mà căn vẫn có khách: không nhận vào căn đó, đổi căn (cùng hạng hoặc nâng hạng, OTTIMO chịu chênh), báo quản lý để đội sửa trạng thái. Không dùng **Khóa phòng** (`OOO`).
+  - Bước "Cần dọn → Bắt đầu dọn → Dọn xong" đã bỏ cho v1.0.4. Chú thích ẩn ghi: khi có nút **Cần dọn** (backlog v1.0.5), BA thêm lại.
+- **Lượt 5 mục 2 (BUG-R4-039):** từ v1.0.4, căn `OC`/`OD` hoặc căn còn đơn khác đang ở không có ngoại lệ cho vai nào. Các chỗ đã sửa: sổ tay 1.8, 2.10; `01` 4; `02` 7.4, 16. Câu "Từ v1.0.4 Desk chặn" chờ #77. Nếu #77 trượt bản cắt, câu đổi thành "v1.0.4 chặn ở máy chủ (#74)".
+- **Mục 7.4 (BUG-R4-042): Fixed.** Sổ tay 2.14 bước 2 và `02` 11.1 bước 2 có cách làm tạm, ghi "tới v1.0.3; bỏ khi v1.0.4 lên". Lối thêm khoản ghi theo mục 2.12 / `02` 9.1: **Thêm phát sinh** → **Khoản** **Đồ ăn uống** → **Thêm vào folio**. Sau khi v1.0.4 lên, BA bỏ khối này.
+
+## DOM lượt 8 (05/11) – đơn quá ngày đi không Trả phòng thẳng được; nhãn "+15%" ở cột Nguồn giá
+
+Nguồn: BE báo 05/11. Đọc mã trên `main` @ `ddda6bbf`:
+- `checkout.service.ts`: `departureDate !== today && !postMidnight` thì `INVALID_TRANSITION`, ở cả bản tóm tắt và lệnh trả phòng;
+- `reporting/internal/stay-actions.ts`: Desk chỉ cho `check_out` đúng ngày đi, nên ẩn nút Trả phòng với đơn quá ngày đi;
+- `stay.service.ts` `extend`: B13 không chặn đơn quá ngày đi, gia hạn tối đa 7 đêm, giá theo BR-421;
+- `BookingDialog.tsx` dòng 119 và 1367; `production-defaults.ts` dòng 199 và 215.
+
+QA2 đang xác nhận trên stack. Nếu Desk ẩn luôn cả nút **Gia hạn** với đơn quá ngày đi, báo DOM, vì khi đó cách làm phải đổi.
+
+### 1. "Gia hạn B13 tới hôm nay rồi Trả phòng" – **đúng là cách làm ở v1.0.4.** Tiền của đêm thêm tùy khách có ở thật hay không
+
+Trước khi bấm, lễ tân kiểm căn và hỏi buồng phòng: khách còn ở hay đã đi, đi ngày nào.
+
+| Trường hợp | Đêm thêm | Làm |
+|---|---|---|
+| (a) **Khách ở thật** quá ngày đi | **Đêm bán, có thu**, giá như gia hạn thường (BR-421): Trực tiếp/CTV theo giá đêm của đơn; OTA thành đơn con Trực tiếp; Nội bộ 0 đ hoặc gõ | B13 tới hôm nay, rồi B18. Giờ trả phòng là giờ khách rời thật; phụ thu trả muộn hôm nay theo BR-411/416. Khách đã rời mà chưa trả đủ: dùng nhánh ghi nợ khi trả phòng, quản lý quyết |
+| (b) **Khách đã đi đúng ngày, lễ tân quên bấm** (hay gặp hơn) | **Không thu.** Khách không dùng đêm đó, và đây là lỗi nội bộ | B13 tới hôm nay. Xin **giảm giá đặc biệt 100 %** từng đêm thêm (BR-431–433), lý do "Khác: Quên bấm Trả phòng, khách đi ngày …". Quản lý duyệt trong hạn mức 1 đêm mỗi lần; nhiều đêm hơn thì chủ đầu tư duyệt. Trả phòng giờ chuẩn, không phụ thu. Ghi sổ giao ca. Đơn Nội bộ đã 0 đ, không cần xin |
+
+- Ví dụ: đơn Trực tiếp, giá đêm 800.000, đi 23/11; 10:00 ngày 24/11 vẫn Đang ở. Trường hợp (a) thu thêm **800.000**. Trường hợp (b) thu thêm **0**.
+- Hệ quả của (b), chấp nhận tới v1.0.5:
+  - đêm đó thành đêm miễn phí và vào công suất, dù căn trống;
+  - DATA nhận diện qua lý do giảm giá.
+  - Thường chỉ 1 đêm: danh sách khách đi đưa đơn quá ngày lên đầu, và BR-425 báo đỏ lúc 12:00.
+- **v1.0.5, đề xuất cho PO/ARC:** cho Trả phòng nhận đơn quá ngày đi với **ngày khách thật sự đi**. Lễ tân trưởng hoặc quản lý xác nhận, có lý do. Lúc đó (b) không còn phải gia hạn rồi giảm. Desk đã có trạng thái `overdue` ở danh sách khách đi, nhưng chưa có nút nào đi kèm.
+- Đã ghi vào `business-rules.md` **v0.5.7**: BR-421 thêm nhánh "đơn quá ngày đi chưa trả phòng", có ví dụ 800.000 / 0. Validator: 0 lỗi, 1 cảnh báo có từ trước.
+
+### 2. Ví dụ căn 301 ở BR-402: **có, đã sửa (v0.5.7)**
+- Câu luật "trả phòng đơn đó trước (B18, căn `VD`)" thêm: đơn đã quá ngày đi thì Desk không cho Trả phòng thẳng; Gia hạn (B13) tới hôm nay rồi Trả phòng.
+- Ví dụ 301 đổi "trả phòng A trước (B18)" thành "Gia hạn A 1 đêm tới 24/11 (B13), rồi Trả phòng (B18)".
+- Ví dụ 301 cũng bỏ "buồng phòng bấm Cần dọn", vì v1.0.4 không có nút này (lượt 7 mục 3). Thay bằng: "căn thành `CL` (buồng phòng bấm Bắt đầu dọn khi căn đang `OD`)".
+- Sửa theo trong lượt 7:
+  - mục 2: dòng BR-402-05 đề xuất cho QA đổi bước "B18 cho A" thành "B13 A tới 24/11 rồi B18";
+  - mục 3 bước 1: thêm "đơn đã quá ngày đi: Gia hạn tới hôm nay rồi Trả phòng".
+
+### 3. Các câu chặn đã duyệt (`room_held_code`, `room_held`, `room_occupied`): **giữ nguyên cho v1.0.4; sổ tay ghi rõ bước B13**
+- "Trả phòng đơn đó trước" vẫn đúng đích. Đa số đơn giữ căn là đơn đi hôm nay chưa bấm, và với đơn đó Desk có nút Trả phòng.
+- Không đổi chữ sát mốc cắt chỉ cho ca hiếm.
+- Nhưng câu đó **chưa đủ** cho đơn quá ngày đi: lễ tân mở đơn, không thấy nút Trả phòng, rồi kẹt. Nên **sổ tay phải ghi bước B13** (BA): mục 2.10 (nhận phòng – căn còn khách), 2.14 (trả phòng), 2.21 (tình huống). Ý: "Đơn đã quá ngày đi: Desk không có nút Trả phòng. Kiểm căn, bấm **Gia hạn** tới hôm nay, rồi **Trả phòng**. Khách đã đi từ trước thì nhờ quản lý duyệt giảm 100 % đêm đó."
+- v1.0.5: nếu có lối Trả phòng theo ngày khách thật sự đi (mục 1), câu chặn dùng tiếp được mà không phải đổi.
+- Chỉ khi PO không nhận lối đó thì UXD thêm vế cho đơn quá ngày đi. Khi ấy máy chủ phải trả cờ quá hạn cùng `heldByReservationCode`; FE không đoán.
+
+### 4. Nhãn `bk.src_weekend` ("Lịch giá: thứ Sáu/thứ Bảy +15% (BR-104)")
+
+**4.1 Production còn tăng cuối tuần không: repo không cho biết. Chủ đầu tư phải kiểm.**
+- Lần cài production đầu ghi `weekend_uplift_pct` = 15 và `special_uplift_pct` = 30 (`production-defaults.ts` dòng 199, 215). Chỉ khi OWN làm bước B1–B2 của `inv-price-switch-guide.md` thì hai số này mới về 0.
+- Decision-log 01/11 ghi "OWN chuyển ngay", nhưng repo không có xác nhận đã làm xong.
+- Câu ORC gửi INV:
+
+  > Anh/chị kiểm giúp 1 phút: **Quản trị → Tham số quy tắc → tab Khác**, tìm `weekend_uplift_pct` và `special_uplift_pct`. Cả hai phải là **0**, cột Hiệu lực từ là ngày đã chuyển, không có chữ "Chưa hiệu lực". Còn 15 / 30 thì làm bước B1–B2 của hướng dẫn chuyển giá và nhắn đội. Kiểm thêm bằng báo giá thử: Studio 1 đêm thứ Sáu phải ra 800.000.
+
+**4.2 Nhãn theo dữ liệu máy chủ, không theo thứ trong tuần. Ở v1.0.4: bỏ điều kiện `weekend()`.** DOM đồng ý đề xuất UXD mục 3.
+- Mọi ô điền từ bản xem hiện `bk.src_list` ("Giá niêm yết (BR-101)"). Đêm đã gõ hiện nhãn "Giá đã gõ" của UXD.
+- Theo BR-103/104 v0.5.1 (một mức giá, không tăng cuối tuần và lễ), nhãn này đúng sau khi chuyển giá.
+- Nếu production chưa chuyển, cái sai là **giá**, không phải nhãn: cuối tuần +15 % trái quyết định ESC-045 của INV. Việc cần làm là chuyển giá (mục 4.1), không phải giữ nhãn "+15%".
+- Tiền luôn do máy chủ tính, nên bỏ nhãn không làm sai số.
+- Không theo nguồn máy chủ được ở v1.0.4: `NightRate` trong phản hồi báo giá chỉ có `date`, `amountVnd`, `calendarRateVnd`, không có loại tăng giá từng đêm. Chỉ có `upliftNights` (tổng) ở dạng web.
+- **v1.0.5, trước 15/12:** nếu chủ đầu tư bật lại mức tăng Noel–Tết (BR-104: báo trước 15/12), ARC thêm loại tăng từng đêm (`none`/`weekend`/`special`, hàm `calendarRate` đã tính sẵn) vào `NightRate` của phản hồi. UXD cấp nhãn theo đó.
+
+**4.3 Thời điểm: nên vào v1.0.4, không chặn phát hành.**
+- DOM đề xuất mức P3.
+- Lý do vào v1.0.4:
+  - sửa 1 dòng mã;
+  - nhãn "+15%" làm lễ tân báo khách "cuối tuần đắt hơn", trái lời hứa một giá của OTTIMO; web và OTA đều không tăng.
+- Không kịp mốc cắt thì sổ tay ghi: "Cột Nguồn giá còn ghi '+15%' ở thứ Sáu, thứ Bảy: bỏ qua, giá đúng là số trong ô."
+
+### Kết luận lượt 8
+- Không có ESC. Việc chủ đầu tư phải làm là kiểm tham số (mục 4.1), không phải quyết định mới.
+- Tệp `business-rules.md` v0.5.7 (BR-421, BR-402) và tệp này chưa commit.
+- Việc của người khác:
+  - BA: sổ tay 2.10, 2.14, 2.21 (mục 3);
+  - FE: bỏ `weekend()` (mục 4.2);
+  - PO: backlog v1.0.5 "Trả phòng theo ngày khách thật sự đi" và "loại tăng giá từng đêm trong báo giá".
+
+## Phản hồi BA (05/11/2026, DOM lượt 8 mục 1 và 3 – PR #72 @ `ebb14cb0`, vẫn nháp)
+
+- **Mục 3 (sổ tay ghi bước B13): Fixed.** Khối mới **Đơn quá ngày đi, vẫn Đang ở** ở sổ tay 2.14 và `02` 11.1:
+  - kiểm căn, hỏi buồng phòng;
+  - **Gia hạn** tới hôm nay (đêm kín hoặc quá 7 đêm thì báo quản lý), rồi **Trả phòng**.
+  - Sổ tay 2.10 bước (1) và `02` 7.4 trỏ tới khối này. Bảng 2.21 và `02` 16.1 có thêm một dòng.
+- **Mục 1 (hai trường hợp): Fixed**, theo bảng của DOM:
+  - (a) khách ở thật: thu đêm thêm như gia hạn thường; giờ trả là giờ rời thật, có phụ thu trả muộn.
+  - (b) lễ tân quên bấm: xin giảm giá đặc biệt 100 % từng dòng đêm thêm, lý do **Khác (ghi rõ)** "Quên bấm Trả phòng, khách đi ngày …". Quản lý duyệt tới 1 đêm, từ 2 đêm thì chủ đầu tư. Trả phòng giờ chuẩn 12:00, không phụ thu, ghi sổ giao ca.
+  - Đơn Nội bộ: từ v1.0.4 đã 0 đ. Tới v1.0.3, báo quản lý trước khi gia hạn (BUG-R4-038).
+  - Ví dụ 800.000 / 0.
+- Giả định cho QA2: ở (b), ô **Giờ trả phòng thực tế** nhận được 12:00 dù giờ đó đã qua. Nếu QA2 thấy Desk không còn nút **Gia hạn** với đơn quá ngày đi, BA sửa lại theo cách mới của DOM.

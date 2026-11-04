@@ -20,6 +20,11 @@ const at = (hhmm: string) => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date(`${todayLocal()}T${hhmm}:00+07:00`));
 };
+/** The clock on another calendar day (`YYYY-MM-DD`) – e.g. the departure day of a stay set up earlier in the case. */
+const onDay = (day: string, hhmm: string) => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(`${day}T${hhmm}:00+07:00`));
+};
 afterEach(() => vi.useRealTimers());
 
 function capture(method: string, re: RegExp) {
@@ -81,6 +86,8 @@ describe('BUG-R2-144 – tủ đã đếm phải đếm lại (BR-703-02)', () =
       { roomId: r.segments![0]!.roomId, roomNo: '201', reason: 'stay_continued' },
     ]);
     expect(sum.blockers).toContain('minibar_not_checked');
+    // P4-32 / BUG-R3-024: H16 runs on the new departure day of the stay (before it the page points to Trả sớm).
+    onDay((await api.getReservation(R)).data.stayDepartureDate!, '11:00');
 
     const counts = capture('POST', /\/minibar-checks$/);
     const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
@@ -89,7 +96,7 @@ describe('BUG-R2-144 – tủ đã đếm phải đếm lại (BR-703-02)', () =
     ).toBeInTheDocument();
     // FE-S4-23: the sentence of `stay_continued` (extension after the count).
     expect(screen.getByText(tv('co.minibar_recount_body_stay_continued'))).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(1));
     counts.stop();
     // Prefilled from the last count (2 used) – not a full cabinet ("nothing used" would reverse the 2).
@@ -163,7 +170,7 @@ describe('BUG-R2-144 – tủ đã đếm phải đếm lại (BR-703-02)', () =
       await screen.findByRole('rowheader', { name: new RegExp(`^${coke.itemName}`) })
     ).closest('tr')!;
     await user.click(within(row).getByRole('button', { name: tv('rooms.dec') }));
-    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(1));
     counts.stop();
     expect(counts.sent[0]!.roomId).toBe(r201.id);
@@ -193,7 +200,7 @@ describe('BUG-R2-144 – tủ đã đếm phải đếm lại (BR-703-02)', () =
     expect(
       await screen.findByText(tv('co.minibar_recount_title', { room: '201' })),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(1));
     counts.stop();
     const lines = counts.sent[0]!.lines as Array<{ itemId: string; remainingQty: number }>;
@@ -329,7 +336,7 @@ describe('ARC 16.16 (ab) – lần đếm gửi kèm kỳ (`periodId`), 409 MINI
     const counts = capture('POST', /\/minibar-checks$/);
     const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
     await screen.findByRole('rowheader', { name: new RegExp(`^${coke.itemName}`) });
-    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(1));
     counts.stop();
     expect(counts.sent[0]).toHaveProperty('periodId', null);
@@ -359,7 +366,7 @@ describe('ARC 16.16 (ab) – lần đếm gửi kèm kỳ (`periodId`), 409 MINI
     // Housekeeping restocks the cabinet while the desk is counting.
     mockControl.stay.minibarPeriods.set(key, 1);
     const before = reads;
-    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
     expect(await screen.findByText(tv('co.minibar_period_changed_title'))).toBeInTheDocument();
     expect(screen.getByText(tv('co.minibar_period_changed_body'))).toBeInTheDocument();
     await waitFor(() => expect(reads).toBeGreaterThan(before));
@@ -373,7 +380,7 @@ describe('ARC 16.16 (ab) – lần đếm gửi kèm kỳ (`periodId`), 409 MINI
       await api.getMinibarStandard({ propertyId: PROPERTY_ID, reservationId: r.id })
     ).data.periodId;
     expect(periodId).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(2));
     counts.stop();
     server.events.removeListener('request:start', onRead);
@@ -442,6 +449,8 @@ describe('K11-03 – lần đếm luôn định danh tủ; căn hiện tại = �
     // Two segments now: `segments[0]` is the room LEFT; the room of today is 202.
     expect(res('Kim Seo-yeon').segments![0]!.roomNo).toBe('402');
     expect(currentSegment(res('Kim Seo-yeon').segments, todayLocal())!.roomNo).toBe('202');
+    // P4-32 / BUG-R3-024: H16 runs on the departure day (before it the page points to Trả sớm).
+    onDay(res('Kim Seo-yeon').departureDate, '11:00');
 
     const counts = capture('POST', /\/minibar-checks$/);
     const reads: Array<string | null> = [];
@@ -463,14 +472,19 @@ describe('K11-03 – lần đếm luôn định danh tủ; căn hiện tại = �
     ).closest('tr')!;
     await waitFor(() => expect(within(row).getAllByRole('cell')[1]!.textContent).toBe('0'));
     await user.click(within(row).getByRole('button', { name: tv('rooms.dec') }));
-    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    await user.click(
+      await screen.findByRole('button', { name: tv('co.go_next_cabinet', { room: '202' }) }),
+    );
     await waitFor(() => expect(counts.sent.length).toBe(1));
     expect(counts.sent[0]).toMatchObject({ roomId: r402.id });
-    const here = within(group).getByRole('button', {
-      name: tv('co.minibar_cabinet_room', { room: '202' }),
-    });
-    await waitFor(() => expect(here).toHaveAttribute('aria-pressed', 'true'));
-    await user.click(screen.getByRole('button', { name: tv('co.go_extras') }));
+    // BUG-R4-042: 402 is counted – never offered again on this page; the one cabinet left is named on screen (K11-03).
+    await waitFor(() =>
+      expect(
+        screen.getByText(tv('co.minibar_cabinet_counting')).nextElementSibling,
+      ).toHaveTextContent(tv('co.minibar_cabinet_room', { room: '202' })),
+    );
+    expect(screen.queryByRole('group', { name: tv('co.minibar_cabinet') })).toBeNull();
+    await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
     await waitFor(() => expect(counts.sent.length).toBe(2));
     counts.stop();
     server.events.removeListener('request:start', onRead);

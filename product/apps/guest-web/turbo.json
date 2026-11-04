@@ -1,0 +1,15 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/design/copy/strings-*.json",
+        "$TURBO_ROOT$/design/wireframes/assets/tokens.css",
+        "$TURBO_ROOT$/design/hifi/assets/hifi.css",
+        "$TURBO_ROOT$/design/tools/gen_strings.py"
+      ]
+    }
+  }
+}

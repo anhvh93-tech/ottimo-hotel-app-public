@@ -123,6 +123,8 @@ interface ExtraNight {
   anchorRoomId: string | null;
   /** G-5 (AN-50): the agreement the default night inherits (null = none). */
   agreedRateVnd: number | null;
+  /** BUG-R4-038: the night of an Internal stay – 0 ₫ by default, `complimentary`, no Direct floor–ceiling. */
+  complimentary: boolean;
 }
 
 interface Departure {
@@ -722,6 +724,7 @@ export class CheckoutService {
         available: await this.s.occupancy.isFree(tx, rm.id, dep, addDays(dep, 1)),
         anchorRoomId: nc.anchorRoomId,
         agreedRateVnd: r.agreedVnd,
+        complimentary: r.complimentary,
       };
     }
     return { time, rm, quote, stay, postMidnight, extraNight, rollover };
@@ -891,12 +894,25 @@ export class CheckoutService {
     const inp = this.readInput(f, body, ctx.today);
     f.done();
     const row = await loadReservation(tx, id, ctx.actor);
+    this.assertExtraNightRate(row, inp);
     this.s.stay.assertVersion(row, expectedVersion);
     if (row.status !== 'in_house') throw this.s.stay.invalid(row);
     this.primaryFor(row);
     if (!row.folio_id) throw problem('NOT_FOUND');
     await this.decide(tx, ctx, row, row.folio_id, inp, f);
     return { code: row.code };
+  }
+
+  /**
+   * BUG-R4-038 (EP02 Nội bộ, DOM 04/11): `extraNight.rateVnd = 0` is the complimentary night of an Internal stay
+   * only – on any other channel 422 AMOUNT_NOT_POSITIVE on the field, as before (read right after the booking).
+   */
+  private assertExtraNightRate(row: ReservationRow, inp: CheckoutInput): void {
+    if (inp.extraNight?.rateVnd === 0 && row.channel_group !== 'internal') {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'extraNight.rateVnd', code: 'AMOUNT_NOT_POSITIVE' }],
+      });
+    }
   }
 
   /**
@@ -1003,9 +1019,14 @@ export class CheckoutService {
       ...(d.extraNight
         ? {
             extraNightDefaultRateVnd: d.extraNight.defaultRateVnd,
-            // 0.3.7 vòng sửa 5 (ARC 16.18): the desk's range for `extraNight.rateVnd` (appendix 5A step 4).
-            extraNightFloorVnd: d.extraNight.floorVnd,
-            extraNightCeilingVnd: d.extraNight.ceilingVnd,
+            // 0.3.7 vòng sửa 5 (ARC 16.18): the desk's range for `extraNight.rateVnd` (appendix 5A step 4) – none on
+            // an Internal stay (BUG-R4-038: 0 ₫ night, no Direct floor–ceiling).
+            ...(d.extraNight.complimentary
+              ? {}
+              : {
+                  extraNightFloorVnd: d.extraNight.floorVnd,
+                  extraNightCeilingVnd: d.extraNight.ceilingVnd,
+                }),
             extraNightAvailable: d.extraNight.available,
             ...(d.extraNight.available ? {} : { lateFeeAsNightVnd: d.extraNight.defaultRateVnd }),
           }
@@ -1050,6 +1071,7 @@ export class CheckoutService {
     }
 
     const row = await loadReservation(tx, id, ctx.actor, { forUpdate: true });
+    this.assertExtraNightRate(row, inp);
     this.s.stay.assertVersion(row, expectedVersion);
     if (row.status !== 'in_house') throw this.s.stay.invalid(row);
     this.primaryFor(row);
@@ -1098,7 +1120,12 @@ export class CheckoutService {
         d,
         x,
         extraNightRate,
-        extraNight.rateVnd === undefined ? 'default' : 'manual',
+        // BUG-R4-038: an Internal night at 0 ₫ (default or typed) is `complimentary`; > 0 typed = `manual`.
+        x.complimentary && extraNightRate === 0
+          ? 'complimentary'
+          : extraNight.rateVnd === undefined
+            ? 'default'
+            : 'manual',
       );
     }
 
@@ -1443,7 +1470,7 @@ export class CheckoutService {
     d: Departure,
     x: ExtraNight,
     rateVnd: number,
-    source: 'default' | 'manual',
+    source: 'default' | 'manual' | 'complimentary',
   ): Promise<void> {
     const to = addDays(x.date, 1);
     const sourced = {
@@ -1575,7 +1602,10 @@ export class CheckoutService {
     // BR-416-06 (BUG-R2-139): the night of the departure day is not sellable → no extra night, a late charge of
     // one night instead (`lateFeeInsteadOfNight`, OWN/MGR confirms at the desk); a sellable night is sold.
     const unsellable = !!d.extraNight && !d.extraNight.available;
-    const decided = lateFee !== null && unsellable;
+    // BUG-R4-038: on an Internal stay that night is 0 ₫, so its late charge of one night is 0 – nothing to charge,
+    // nothing for a manager to confirm: B18 goes on without `lateFeeInsteadOfNight` (sending one → NOT_ALLOWED).
+    const freeNight = unsellable && !!d.extraNight?.complimentary;
+    const decided = lateFee !== null && unsellable && !freeNight;
     const surcharge = decided ? lateChargeOf(d) : d.extraNight ? 0 : late.amountVnd;
     const old = await this.s.liveSurchargeLines(tx, folioId, d.stay.ids, 'late_checkout');
     // 409 SURCHARGE_CHANGED before the field checks (contract order): the amount the desk showed.
@@ -1612,9 +1642,9 @@ export class CheckoutService {
         rollover: d.rollover,
       });
     }
-    if (lateFee && !unsellable) f.add('lateFeeInsteadOfNight', 'NOT_ALLOWED');
+    if (lateFee && (!unsellable || freeNight)) f.add('lateFeeInsteadOfNight', 'NOT_ALLOWED');
     if (lateFee && extraNight) f.add('extraNight', 'NOT_ALLOWED');
-    if (d.extraNight && !extraNight && !lateFee) {
+    if (d.extraNight && !extraNight && !lateFee && !freeNight) {
       f.add(unsellable ? 'lateFeeInsteadOfNight' : 'extraNight', 'LATE_CHECKOUT_AFTER_LIMIT');
     }
     if (!d.extraNight && extraNight) f.add('extraNight', 'NOT_ALLOWED');
@@ -1767,7 +1797,9 @@ export class CheckoutService {
       return null;
     }
     const sub = new Fields(v as Record<string, unknown>);
-    const rate = sub.money('rateVnd', { required: false, positive: true });
+    // BUG-R4-038: 0 is read here; refused right after the booking is loaded unless it is Internal
+    // (`assertExtraNightRate`).
+    const rate = sub.money('rateVnd', { required: false, positive: false });
     for (const e of sub.errors) f.add(`extraNight.${e.field}`, e.code);
     return sub.errors.length > 0 ? null : { rateVnd: rate };
   }

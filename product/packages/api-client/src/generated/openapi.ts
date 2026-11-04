@@ -698,6 +698,9 @@ export interface paths {
      *     của `GuestStay.property.mapUrl` ("Chỉ đường" US-108; landing/bill dùng cùng khóa khi có). Mặc định danh mục = ghim INV gửi 17/10 (migration `0058`). Chỉ nhận `https` không
      *     user/mật khẩu/cổng, host đúng danh sách SEC E14-08 (`maps.google.com`, `www.google.com` path `/maps…`, `maps.app.goo.gl`, `maps.apple.com`, `www.openstreetmap.org`) –
      *     khác → 422 `VALIDATION_FAILED`, `errors[{field: value, code: NOT_IN_LIST}]`. Cột `property.map_url` chỉ còn là dự phòng khi khóa vắng (bỏ ở R3).
+     *     **0.3.12 (SEC-BA-104-09 a)**: `privacy_notice_version` (tham số cơ sở, chỉ OWN, audit `config`) chỉ nhận chuỗi **đúng từng ký tự** trong danh sách version có chữ do server giữ
+     *     (= `NOTICE_TEXT_VERSIONS` của trang khách; hiện chỉ `privacy-2026-10-v2`). Khác (kể cả `privacy-2026-10-v1`) → `422 PARAM_OUT_OF_RANGE` kèm `allowed[]`; giá trị không đổi,
+     *     không ghi dòng, không audit. Khóa này **không** có ngoại lệ ghi đè dòng hôm nay. Đổi danh sách = phát hành mới (chữ trang khách + tờ in + SEC duyệt chữ), không phải cấu hình.
      */
     put: operations['setParameter'];
     post?: never;
@@ -1341,6 +1344,13 @@ export interface paths {
     /**
      * Nhận phòng (B9) – buồng → OC, phụ thu (nếu lễ tân xác nhận), hạn khai báo bắt đầu tính
      * @description Buồng chưa VC/VI → cần `roomNotReadyOverride` (FDL+ trực tiếp; FD sẽ tạo yêu cầu duyệt `checkin_room_not_ready` – A12).
+     *     **v1.0.4 (BUG-R4-039, BR-402 (1) v0.5.3; ARC 05/11 `rounds/round-04/reviews/ARC-on-v104-pr74-checkin-occupied.md`)**: ngoại lệ này chỉ khi buồng `VD`/`CL`
+     *     **và** căn không còn lượt `in_house` khác "đang ở căn" theo định nghĩa của buồng phòng (đoạn phủ đêm nay; lượt đi hôm nay chưa B18; lượt đã **quá ngày đi**
+     *     mà chưa B18 cũng tính – trả phòng lượt đó trước). Buồng `OC`/`OD`/`OOO`, hoặc căn còn lượt đi hôm nay/phủ đêm nay (kể cả khi buồng `CL` vì đang dọn, hay bị
+     *     sửa thành `VD`/`VI`/`VC`): `room_ready` chưa đạt, **không có** `overridableBy`. Căn chỉ còn lượt quá ngày đi: buồng `VD`/`CL` không có `overridableBy`
+     *     (buồng `VI`/`VC` vẫn đạt ở v1.0.4). Mọi vai gửi `roomNotReadyOverride` khi không có `overridableBy` (lý do, hay `approvalRequestId` của yêu cầu đã duyệt)
+     *     → `409 CHECKIN_CONDITIONS_NOT_MET` (`unmet` gồm `room_ready`), không tạo yêu cầu duyệt (không có nhánh 202), không ghi gì. Client hiện ô lý do/nút xác nhận
+     *     theo `overridableBy`; chọn câu chặn theo `cause` (xem `CheckInPreview.conditions[]`), không suy từ `detail`.
      *     Đơn `conflictState=open` → `409 RESERVATION_UNASSIGNED`.
      *
      *     **0.3.3 (EP03-05 mục 1, E03-01…05)**
@@ -6545,7 +6555,7 @@ export interface components {
       roomStatus: components['schemas']['RoomStatusCode'];
       conditions: {
         /**
-         * @description `document_check_block` (0.3.3, E03-01): đạt khi `Registration.blocksDoorCode=false` (BR-613 c); `overridableBy` = FDL+ qua `checkIn.documentBlockOverride`. `capacity_within_max` (0.3.5, DOM D-1): đạt khi `capacityConflict=false`; không ai bỏ qua được (đổi căn hoặc sửa số khách)
+         * @description `room_ready` (BR-402 (1)): đạt khi buồng `VI`/`VC` và căn không còn lượt `in_house` khác đi hôm nay/phủ đêm nay; `detail` = trạng thái buồng (đơn chưa có căn: vắng); lý do chặn ở `cause`; `overridableBy` = FDL+ **chỉ** khi buồng `VD`/`CL` và căn không còn lượt `in_house` khác nào, kể cả lượt quá ngày đi (v1.0.4, BUG-R4-039 – `OC`/`OD`/`OOO` không có ngoại lệ). `document_check_block` (0.3.3, E03-01): đạt khi `Registration.blocksDoorCode=false` (BR-613 c); `overridableBy` = FDL+ qua `checkIn.documentBlockOverride`. `capacity_within_max` (0.3.5, DOM D-1): đạt khi `capacityConflict=false`; không ai bỏ qua được (đổi căn hoặc sửa số khách)
          * @enum {string}
          */
         code:
@@ -6558,6 +6568,13 @@ export interface components {
         met: boolean;
         detail?: string;
         overridableBy?: components['schemas']['Role'][];
+        /**
+         * @description 0.3.12 (l), chỉ `room_ready` khi `met=false`. `held_by_other_stay`: căn còn lượt `in_house` khác (ưu tiên, dù buồng `OC`/`OD`) – không có ngoại lệ; `room_status`: chỉ trạng thái buồng chưa đạt (`VD`/`CL` có `overridableBy`; `OC`/`OD` không có lượt nào = trạng thái lệch; `OOO`); `no_room`: đơn chưa có căn. Tập mở: mã lạ → hiện câu chung
+         * @enum {string}
+         */
+        cause?: 'room_status' | 'held_by_other_stay' | 'no_room';
+        /** @description 0.3.12 (l), khi `cause = held_by_other_stay`: mã đơn **gốc** đang giữ căn (Desk dẫn tới đơn đó để trả phòng) */
+        heldByReservationCode?: string;
       }[];
       /** @description Cảnh báo **không chặn** (hiện vàng) – 0.3.3, E03-01. Tập mở: client gặp mã lạ thì bỏ qua */
       warnings?: {
@@ -6578,9 +6595,9 @@ export interface components {
         date?: components['schemas']['LocalDate'];
         /** @description Căn trống đêm trước và không có OOO (BR-906) */
         available?: boolean;
-        /** @description Vòng sửa 5: giá bước 4 của BR-417 phụ lục 5A cho đêm B9a (đêm tham chiếu = đêm nhập tay sớm nhất sau `date`, AN-32) */
+        /** @description Vòng sửa 5: giá bước 4 của BR-417 phụ lục 5A cho đêm B9a (đêm tham chiếu = đêm nhập tay sớm nhất sau `date`, AN-32). **v1.0.4 (BUG-R4-038, BR-421 v0.5.3 (a)–(d))**: đơn Nội bộ = 0 (nguồn `complimentary`) */
         defaultRateVnd?: components['schemas']['MoneyVnd'];
-        /** @description Vòng sửa 5 – khoảng Desk bước 4 phụ lục 5A (min áp → sàn thấp hơn của hai căn) */
+        /** @description Vòng sửa 5 – khoảng Desk bước 4 phụ lục 5A (min áp → sàn thấp hơn của hai căn). **v1.0.4 (BUG-R4-038, BR-421 v0.5.3 (a)–(d))**: **vắng** ở đơn Nội bộ – cùng `ceilingVnd` */
         floorVnd?: components['schemas']['MoneyVnd'];
         /** @description Vòng sửa 5 – khoảng Desk bước 4 phụ lục 5A (min áp → trần cao hơn của hai căn) */
         ceilingVnd?: components['schemas']['MoneyVnd'];
@@ -6677,9 +6694,9 @@ export interface components {
       nights: {
         date: components['schemas']['LocalDate'];
         available: boolean;
-        /** @description Vòng sửa 5: giá bước 4 của BR-417 phụ lục 5A (giá trước bậc) */
+        /** @description Vòng sửa 5: giá bước 4 của BR-417 phụ lục 5A (giá trước bậc). **v1.0.4 (BUG-R4-038, BR-421 v0.5.3 (a)–(d))**: đơn Nội bộ = 0 (nguồn `complimentary`) */
         defaultRateVnd?: components['schemas']['MoneyVnd'];
-        /** @description Vòng sửa 5 – khoảng Desk theo bước 4 phụ lục 5A: sàn–trần căn đêm thêm; khi quy tắc min áp = sàn thấp hơn của hai căn */
+        /** @description Vòng sửa 5 – khoảng Desk theo bước 4 phụ lục 5A: sàn–trần căn đêm thêm; khi quy tắc min áp = sàn thấp hơn của hai căn. **v1.0.4 (BUG-R4-038, BR-421 v0.5.3 (a)–(d))**: **vắng** ở đơn Nội bộ (không có khoảng) – cùng `ceilingVnd` */
         floorVnd?: components['schemas']['MoneyVnd'];
         /** @description Vòng sửa 5 – trần căn đêm thêm; khi quy tắc min áp = trần cao hơn của hai căn (bước 4 phụ lục 5A) */
         ceilingVnd?: components['schemas']['MoneyVnd'];
@@ -6824,9 +6841,9 @@ export interface components {
       unhandledCreditVnd?: components['schemas']['MoneyVnd'];
       /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10) (E05-11): giờ trả (`checkoutTime`/`checkoutAt`) sau mốc cuối BR-412 → `checkOut` phải gửi `extraNight` */
       extraNightRequired?: boolean;
-      /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10); có khi `extraNightRequired`. **Vòng sửa 5**: giá bước 4 của BR-417 phụ lục 5A cho đêm ngày đi (AN-43) – thay các câu BUG-R2-134 trước đây */
+      /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10); có khi `extraNightRequired`. **Vòng sửa 5**: giá bước 4 của BR-417 phụ lục 5A cho đêm ngày đi (AN-43) – thay các câu BUG-R2-134 trước đây. **v1.0.4 (BUG-R4-038, BR-421 v0.5.3 (a)–(d))**: đơn Nội bộ = 0 (nguồn `complimentary`) */
       extraNightDefaultRateVnd?: components['schemas']['MoneyVnd'];
-      /** @description 0.3.7 bổ sung 4 (vòng sửa 5): khoảng Desk cho `extraNight.rateVnd` theo bước 4 phụ lục 5A – sàn căn đêm thêm; min áp → sàn thấp hơn của hai căn. Có khi `extraNightRequired` */
+      /** @description 0.3.7 bổ sung 4 (vòng sửa 5): khoảng Desk cho `extraNight.rateVnd` theo bước 4 phụ lục 5A – sàn căn đêm thêm; min áp → sàn thấp hơn của hai căn. Có khi `extraNightRequired`. **v1.0.4 (BUG-R4-038, BR-421 v0.5.3 (a)–(d))**: **vắng** ở đơn Nội bộ – cùng `extraNightCeilingVnd` */
       extraNightFloorVnd?: components['schemas']['MoneyVnd'];
       /** @description 0.3.7 bổ sung 4 (vòng sửa 5): trần tương ứng (min áp → trần cao hơn của hai căn) */
       extraNightCeilingVnd?: components['schemas']['MoneyVnd'];
@@ -6834,6 +6851,9 @@ export interface components {
        * @description 0.3.7 bổ sung 4 (BUG-R2-139, BR-416-06 – DOM 18/10): **phụ thu trả muộn bằng giá 1 đêm** – có khi `extraNightRequired = true` **và** `extraNightAvailable = false` (đêm ngày đi không
        *     bán được). = giá bước 4 phụ lục 5A của đêm ngày đi (= `extraNightDefaultRateVnd`; AN-44; không thêm đêm nên không tính lại bậc BR-107 các đêm). Ghi bằng `checkOut.lateFeeInsteadOfNight` (quản lý xác nhận).
        *     Ví dụ 203, 16–18/04/2030, đã thu đủ, căn có khách đến 18/04, rời 19:00 → **792.000**
+       *     **v1.0.4 (BUG-R4-038, BR-421 v0.5.3 (a)–(d))**: đơn **Nội bộ** → **0** (giá mặc định đêm thêm của đơn Nội bộ) – B18 **không** gửi `lateFeeInsteadOfNight` (gửi → 422, xem `checkOut`), không ghi dòng,
+       *     không cần quản lý xác nhận. Client: `lateFeeAsNightVnd === 0` (có mặt, bằng 0) = trả phòng được, không mở hộp xác nhận; vắng = server cũ (giữ khóa như trước).
+       *     Khi `lateFeeAsNightVnd = 0`, số cần thu là `amountDueAtCheckoutVnd` của chính tóm tắt này – đã trừ phụ thu trả muộn B15 mà B18 sẽ đảo về 0 – **không** phải số dư folio (`balanceDueVnd`).
        */
       lateFeeAsNightVnd?: components['schemas']['MoneyVnd'];
       /** @description 0.3.6 bổ sung 2 (BA v0.3, ARC 17/10): căn còn trống đêm ngày đi (false → lễ tân xử lý đổi phòng/khách đến trước khi trả). **0.3.7 bổ sung 4 (BUG-R2-139, BR-416-06)**: `false` → không bao giờ cộng đêm thêm; đường trả phòng là `lateFeeInsteadOfNight` (`lateFeeAsNightVnd`), hoặc dời khách đến sang căn khác rồi tóm tắt lại */
@@ -12028,7 +12048,7 @@ export interface operations {
            * @default false
            */
           applyEarlySurcharge?: boolean;
-          /** @description Số phụ thu (hoặc tiền đêm thêm B9a) client đang hiển thị khi lễ tân xác nhận – bắt buộc khi `applyEarlySurcharge=true`; lệch → `409 SURCHARGE_CHANGED` (0.3.3, E03-02) */
+          /** @description Số phụ thu (hoặc tiền đêm thêm B9a) client đang hiển thị khi lễ tân xác nhận – bắt buộc khi `applyEarlySurcharge=true`; lệch → `409 SURCHARGE_CHANGED` (0.3.3, E03-02). **v1.0.4 (BUG-R4-038, BR-421 v0.5.3 (a)–(d))**: với `addPriorNight=true` chỉ bắt buộc khi tiền đêm B9a > 0 – đơn Nội bộ đêm 0 đ thì không gửi (gửi `0` cũng được) */
           expectedSurchargeVnd?: components['schemas']['MoneyVnd'];
           requestFocForSurcharge?: components['schemas']['FocRequestInput'];
           roomNotReadyOverride?: {
@@ -12057,7 +12077,7 @@ export interface operations {
            * @default false
            */
           addPriorNight?: boolean;
-          /** @description Mặc định từ `CheckInPreview.priorNight.defaultRateVnd`; trong sàn–trần BR-105. **Vòng sửa 5 (ARC 16.18 – nguồn đêm theo thao tác)**: không còn bắt buộc – **vắng** = giá mặc định (nguồn `default`); **có** = lễ tân nhập tay (nguồn `manual`, kể cả bằng số gợi ý). Client chỉ gửi khi lễ tân sửa ô */
+          /** @description Mặc định từ `CheckInPreview.priorNight.defaultRateVnd`; trong sàn–trần BR-105. **Vòng sửa 5 (ARC 16.18 – nguồn đêm theo thao tác)**: không còn bắt buộc – **vắng** = giá mặc định (nguồn `default`); **có** = lễ tân nhập tay (nguồn `manual`, kể cả bằng số gợi ý). Client chỉ gửi khi lễ tân sửa ô. **v1.0.4 (BUG-R4-038, BR-421 v0.5.3 (a)–(d))**: đơn **Nội bộ** – mặc định 0, nhận `0` (nguồn `complimentary`), `> 0` = nguồn `manual` không sàn–trần; kênh khác `0` → 422 `AMOUNT_NOT_POSITIVE` như cũ */
           priorNightRateVnd?: components['schemas']['MoneyVnd'];
           /** @description 0.3.7 (BUG-R2-038): khoản thu ở bước nhận phòng H13 (`type = charge`) – thứ tự trong giao dịch và trần `amountDueAtCheckinVnd` xem mô tả operation */
           payment?: components['schemas']['PaymentCreate'];
@@ -12180,7 +12200,7 @@ export interface operations {
         'application/json': {
           /** @description ≤ `ExtensionOptions.maxNights` → vượt: 422 mã trường `EXTENSION_LIMIT_EXCEEDED` (0.3.3). Đơn `externalContract=true` không bị giới hạn BR-421 */
           nights: number;
-          /** @description Bỏ trống = giá mặc định BR-421; sửa được trong sàn–trần BR-105. Đơn `externalContract=true` (dài hạn nhập tay) **không** sinh dòng `room` → gửi trường này: 422 `NIGHTLY_RATES_NOT_ALLOWED` (0.3.3, E04-01). **Vòng sửa 5 (BR-417 phụ lục 5A mục 3/9 – nguồn đêm theo thao tác, ARC 16.18)**: đêm **có** phần tử = lễ tân **nhập tay** (nguồn `manual`, kể cả gõ đúng số gợi ý/số lịch); đêm **không** có phần tử = **mặc định** (nguồn `default`). Server không so số với lịch. Client chỉ gửi đêm lễ tân đã sửa ô */
+          /** @description Bỏ trống = giá mặc định BR-421; sửa được trong sàn–trần BR-105. Đơn `externalContract=true` (dài hạn nhập tay) **không** sinh dòng `room` → gửi trường này: 422 `NIGHTLY_RATES_NOT_ALLOWED` (0.3.3, E04-01). **Vòng sửa 5 (BR-417 phụ lục 5A mục 3/9 – nguồn đêm theo thao tác, ARC 16.18)**: đêm **có** phần tử = lễ tân **nhập tay** (nguồn `manual`, kể cả gõ đúng số gợi ý/số lịch); đêm **không** có phần tử = **mặc định** (nguồn `default`). Server không so số với lịch. Client chỉ gửi đêm lễ tân đã sửa ô. **v1.0.4 (BUG-R4-038, BR-421 v0.5.3 (a)–(d))**: đơn **Nội bộ** – đêm không có phần tử = 0 (nguồn `complimentary`); `amountVnd = 0` được nhận (nguồn `complimentary`); `> 0` = Nội bộ có thu (nguồn `manual`), không sàn–trần BR-105, không bậc BR-107. Kênh khác `0` → 422 `AMOUNT_NOT_POSITIVE` (`field` = `nightlyRates`) như cũ */
           nightlyRates?: components['schemas']['NightRate'][];
           /** @description Lý do vẫn gia hạn khi hạn thị thực/tạm trú của khách NN < ngày đi mới. Thiếu → 422 mã trường cảnh báo `VISA_EXPIRES_BEFORE_DEPARTURE` (client hiện hộp cảnh báo rồi gửi lại). Ngày đi **khai báo** vẫn không vượt hạn thị thực (BR-605, US-050 AC2; 0.3.3, E04-01) */
           visaWarningAckReason?: string;
@@ -12746,12 +12766,17 @@ export interface operations {
            *     Mặc định `CheckoutSummary.extraNightDefaultRateVnd` (lịch giá Trực tiếp đêm đó, BR-421); giá ngoài sàn–trần BR-105 → `RATE_OUT_OF_RANGE`.
            *     **Vòng sửa 5 (ARC 16.18)**: `rateVnd` không còn bắt buộc – vắng = giá mặc định (nguồn `default`); có = lễ tân nhập tay (nguồn `manual`, kể cả bằng số gợi ý);
            *     khoảng nhập `CheckoutSummary.extraNightFloorVnd`–`extraNightCeilingVnd`.
+           *     **v1.0.4 (BUG-R4-038, BR-421 v0.5.3 (a)–(d))**: đơn **Nội bộ** – mặc định 0 (nguồn `complimentary`), nhận `rateVnd = 0` (nguồn `complimentary`), `> 0` = nguồn `manual`
+           *     không sàn–trần. Kênh khác `rateVnd = 0` → 422 `AMOUNT_NOT_POSITIVE` (`field` = `extraNight.rateVnd`) như cũ.
            */
           extraNight?: {
             rateVnd?: components['schemas']['MoneyVnd'];
           };
           /**
-           * @description 0.3.7 bổ sung 4 (BUG-R2-139, BR-416-06): "Trả phòng – phụ thu trả muộn bằng giá 1 đêm" khi đêm ngày đi không bán được – **quản lý trở lên xác nhận tại quầy** (ARC 18/10):
+           * @description **v1.0.4 (BUG-R4-038, BR-421 v0.5.3 (a)–(d))**: đơn **Nội bộ** – `CheckoutSummary.lateFeeAsNightVnd = 0`, không có gì để thu nên **không** có bước xác nhận: B18 gửi không kèm trường này
+           *     (và không kèm `extraNight`), không ghi dòng `late_checkout`. Gửi trường này (mọi cách xác nhận, kể cả `postReview`) → 422, kiểm trước mật khẩu, không đếm sai, không ghi gì:
+           *     `amountVnd = 0` → `AMOUNT_NOT_POSITIVE` (`field` = `lateFeeInsteadOfNight.amountVnd`, như cũ); `amountVnd > 0` → `NOT_ALLOWED` (`field` = `lateFeeInsteadOfNight`).
+           *     0.3.7 bổ sung 4 (BUG-R2-139, BR-416-06): "Trả phòng – phụ thu trả muộn bằng giá 1 đêm" khi đêm ngày đi không bán được – **quản lý trở lên xác nhận tại quầy** (ARC 18/10):
            *     lễ tân làm B18, quản lý nhập tên đăng nhập + mật khẩu của mình (`approverUsername`, `authMethod`, `secret`); người gọi là OWN/MGR thì bỏ `approverUsername`, nhập lại mật khẩu
            *     của chính mình. Không tạo yêu cầu duyệt. Người xác nhận phải là OWN/MGR **của cơ sở** và đang hoạt động; sai mật khẩu, tên không có hoặc không đủ vai đều trả **cùng** 401
            *     `REAUTH_FAILED` (`field` = `lateFeeInsteadOfNight.secret`) – không lộ tên tài khoản; chung bộ đếm 5 sai/15 phút với duyệt (SR-RL-02), đếm theo người xác nhận. R3: `pin`.
@@ -14342,6 +14367,12 @@ export interface operations {
          */
         'application/json': {
           newQuantity?: number;
+          /**
+           * @description **v1.0.4 (BUG-R4-038, BR-421 v0.5.3; DOM R5)**: `0` chỉ nhận trên dòng `room` của đơn **Nội bộ** còn đồng bộ (`hold`/`confirmed`/`in_house`, A31) và chỉ **OWN/MGR**
+           *     (FD/FDL → 403 `FORBIDDEN_ACTION`); lý do bắt buộc như mọi điều chỉnh. Đêm thành nguồn `complimentary` (audit `reservation.repriced` `rateSource: complimentary`),
+           *     `totalRoomVnd` tính lại từ đêm. Mọi trường hợp khác `0` → 422 `AMOUNT_NOT_POSITIVE` (kênh khác, dòng `extra_person`, dòng khác, folio `settled` – A32 không đồng bộ đêm).
+           *     Đơn Nội bộ không có sàn–trần BR-105 nên giá `> 0` không bị chặn khoảng (FD+ như A31).
+           */
           newUnitPriceVnd?: components['schemas']['MoneyVnd'];
           /** @default false */
           voidLine?: boolean;
