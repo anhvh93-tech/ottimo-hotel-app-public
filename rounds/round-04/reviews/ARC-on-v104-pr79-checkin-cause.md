@@ -11,8 +11,77 @@
   - #74 lượt 2 @ `0950313e`: `checkin.service.ts`, `openapi.yaml`, `api-client` sinh lại;
   - `UXD-on-v104-pr77-checkin-occupied.md` lượt 3–4.
 - ARC tự chạy: **chỉ** `bug-r4-039-fea` (theo ORC), trong worktree tạm, đã xóa khi xong.
+- Lượt 2: `d1a30cb7`, `0d209aed`, gộp vào #77 @ `5aca248e` (mục "Lượt 2" ngay dưới đây).
 
-## Phán quyết (head `b5fd9bd3`): **ĐẠT CÓ ĐK**
+## Lượt 2 (#79 @ `fa80de85`, đã gộp vào #77 @ `5aca248e`, 05/11): **ĐẠT** – chờ CI #77
+
+Kiểm ngắn theo ORC, chỉ đọc git, không chạy test. FE-A báo 160/160 trên 14 tệp test.
+
+Hai commit mới sau `b5fd9bd3`, rồi hai lần gộp:
+- `d1a30cb7`: ghi chú chữ theo UXD FB-R4-UXD-FE-PR79-01;
+- `0d209aed`: mock `room_ready` theo #74 C2 @ `0950313e`;
+- `fa80de85`: gộp #77 (`99f18ac2`, có `main`) vào #79;
+- `5aca248e`: gộp #79 vào #77.
+
+### L2.1 `d1a30cb7` – chỉ ghi chú, không đổi chữ hiển thị
+- Đổi 3 dòng **ghi chú** trong `gen_strings.py` và `strings-tables.md`: `room_occupied`, `room_held`, `room_held_code`.
+- Chữ vi/en của các khóa không đổi.
+- Ghi chú nay tả đúng cách chọn câu của `roomBlockedMessage`:
+  - `room_occupied` chỉ khi vắng `cause` (API trước C2) hoặc `cause` lạ, và đơn đã có căn;
+  - `room_held` khi `held_by_other_stay` thiếu mã;
+  - `room_held_code` khi có mã đơn gốc.
+- Ghi chú ghi rõ "`cause` lạ thì dùng cách đọc DOM". Đó là hành vi mà thẻ FB-R4-ARC-FE-PR79-01 (Suggestion) đề nghị đổi. Ghi chú đúng với mã hiện tại; thẻ vẫn Open.
+
+### L2.2 `0d209aed` – mock khớp hợp đồng (l) và máy chủ `0950313e`
+
+| Điểm | Hợp đồng (l) / máy chủ | Mock sau `0d209aed` | Kết luận |
+|---|---|---|---|
+| `detail` | chỉ khi chưa đạt, vắng khi đơn chưa có căn | chuyển `...(room ? { detail } : {})` vào nhánh `!ready` | Khớp. Lệch nhỏ ARC ghi ở lượt 1 mục 2 nay đã hết |
+| `cause`, `heldByReservationCode` | chỉ khi chưa đạt; mã là mã đơn gốc | không đổi, mã qua `rootCode` | Khớp |
+| Thứ tự khi nhiều lượt giữ | `ORDER BY overdue, from_date, root.code` | `rank` = `quá hạn?` \| `arrivalDate` \| mã gốc, sắp xếp chuỗi | Khớp ý |
+| `met`, `overridableBy` | C1 | không đổi | Khớp |
+
+Ghi chú về thứ tự khi nhiều lượt giữ:
+- Mock dùng ngày đến và ngày đi của **đơn**. Máy chủ dùng ngày của **đoạn** (`reservation_segment`).
+- Hai bên chỉ lệch với đơn đổi căn giữa chừng có nhiều đoạn, và chỉ khi có ≥ 2 lượt cùng giữ một căn. Dữ liệu mock không có trường hợp này.
+- Ngày dạng `YYYY-MM-DD` cùng độ dài, nên sắp xếp chuỗi đúng thứ tự ngày.
+- Chấp nhận cho mock.
+
+### L2.3 `CheckInPage.tsx` trên #77 @ `5aca248e` = #77 + #79, không mất gì
+- Blob `CheckInPage.tsx` ở `5aca248e` **trùng hẳn** blob ở `b5fd9bd3`, bản ARC đã review ở lượt 1.
+- Phía #77 (`99f18ac2`) vẫn là blob của `99d2c01b`. `main` không sửa tệp này kể từ đó (`git log 99d2c01b..99f18ac2 -- CheckInPage.tsx` rỗng).
+- Vì #79 xếp chồng trên `99d2c01b`, bản ở `5aca248e` là đúng "#77 + #79", không có phần nào của #77 bị mất.
+- Các tệp khác của #79 (gốc chung `99d2c01b`):
+
+| Tệp | Kết quả |
+|---|---|
+| `bug-r4-039-fea.test.tsx`, `mocks/stay.ts` | trùng hẳn `0d209aed`; `main` không sửa |
+| `strings-vi.json`, `strings-en.json`, `gen_strings.py`, `strings-tables.md` | đúng là hợp của hai bên, kiểm từng dòng |
+| `wireframes/assets/strings.js` | tệp sinh một dòng. ARC đọc lại JSON trong tệp: vi và en mỗi bên 3486 khóa, trùng từng khóa và giá trị với `strings-*.json` ở `5aca248e`; có đủ `room_held_code`, `room_status_stuck`, `room_occupied`, `room_held` |
+
+- `git diff fa80de85 5aca248e` rỗng: commit gộp vào #77 không thêm gì.
+- `git merge-tree origin/main 5aca248e`: sạch.
+- `5aca248e` có #76 (`7f0ef3fb`). Điều kiện lượt 1 ("đẩy mới có `main` ≥ `7f0ef3fb`") đã đạt.
+
+### L2.4 CI và thẻ
+- #77 run 41894172813 @ `5aca248e`: 5 job xanh (API contract, Redocly, confidential, gitleaks, no test endpoints). `format · lint · audit · test · build`, shellcheck, landing đang chạy. "Copy is generated" nằm trong job đầu.
+- FB-R4-ARC-FE-PR79-01 (Suggestion): Open. Ghi chú UXD đã tả đúng hành vi hiện tại; đổi sang câu chung có thể làm ở v1.0.5.
+- FB-R4-ARC-FE-PR79-02 (Suggestion): Open. Kiểu tạm `RoomReadyCondition` còn, như FE-A báo.
+  - Làm ở lần gộp `main` đầu tiên của #77 sau khi #74 vào `main`.
+  - Nếu #77 vào `main` trước #74 thì làm trong một PR nhỏ sau.
+  - Không chặn.
+
+**Phán quyết lượt 2: ĐẠT.** Gộp #77 khi job `format · lint · audit · test · build` của run 41894172813 xanh. Cây đã có #76, nên ca ban đêm `v104-holds-feb` không còn là lý do được chấp nhận.
+
+Dòng đề nghị ghi vào `01-decisions/decision-log.md` (ORC ghi):
+
+| Ngày | Round | Quyết định | Người quyết | Lý do |
+|---|---|---|---|---|
+| 2026-11-05 | 4 | #79 lượt 2 ĐẠT (gộp vào #77 @ `5aca248e`); #77 gộp được khi CI run 41894172813 xanh. Kiểu tạm `RoomReadyCondition` bỏ sau khi #74 vào `main` | ARC | Mock theo hợp đồng (l) và máy chủ `0950313e`; `CheckInPage.tsx` trùng bản đã review; chữ là hợp đúng, `strings.js` khớp JSON; cây có #76 |
+
+---
+
+## Lượt 1 – Phán quyết (head `b5fd9bd3`): **ĐẠT CÓ ĐK**
 
 Đúng cả bốn điểm ORC hỏi:
 - tên trường và giá trị trùng phụ lục A.2 và trùng máy chủ #74 `0950313e`;

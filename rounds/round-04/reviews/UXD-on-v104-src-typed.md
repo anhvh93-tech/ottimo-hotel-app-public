@@ -254,3 +254,19 @@ Khi bản xem về, màn đúng lại: "Giảm theo số đêm (BR-107): không 
 | Ngày | Round | Quyết định | Người quyết | Lý do |
 |---|---|---|---|---|
 | 2026-11-05 | 4 | **UXD lượt 3 PR #82** @ `0e48686c`: ĐẠT. Duyệt `bk.internal_help` (VI/EN) và `booking.error.rate_empty_internal` (VI), dùng "để trống" ở cả hai. EN của câu lỗi đổi thành "…or leave all rates empty if the whole stay is free." (FB-R4-UXD-FE-PR82-03, Minor, chỉ chữ). Đồng ý ẩn dòng phụ thu người khi chờ bản xem (ARC PR82-04). Chốt luật trạng thái chờ của bảng tổng H09: dòng luôn có thì giữ, ô tiền `–`; dòng chỉ có vì bản xem thì ẩn. Đóng FB-R4-UXD-FE-PR82-01. Mở FB-R4-UXD-FE-PR82-04 (Minor): ô gõ 0 ở đơn Nội bộ báo `booking.error.rate_zero_internal`, thay "(lớn hơn 0)" | UXD | BR-105 v0.5.8, BR-904 v0.5.5, sổ tay #72 "mặc định không thu tiền". Câu chặn không được đẩy lễ tân gõ giá vào đêm định miễn phí |
+
+---
+
+## Lượt 4 – PR #82 @ `a4cb703a` (05/11/2026)
+
+- Bước **Review**. Đối tượng: `git show a4cb703a`, gồm `BookingDialog.tsx`, `gen_strings.py` và các tệp sinh ra từ nó.
+- **Kết luận: ĐẠT. Đóng FB-R4-UXD-FE-PR82-03 và FB-R4-UXD-FE-PR82-04.**
+  - **PR82-03.** EN của `booking.error.rate_empty_internal` đúng nguyên văn: "Internal stay: enter a rate for every night, or leave all rates empty if the whole stay is free." VI không đổi.
+  - **PR82-04.** Khóa `booking.error.rate_zero_internal` đúng nguyên văn: VI "Miễn phí: để trống ô. Có thu: nhập giá lớn hơn 0.", EN "Free: leave the box empty. Charged: enter a rate above 0.". Ghi chú trong `gen_strings.py` đúng bản UXD.
+  - **Vị trí đúng.** Lỗi gắn vào `nightlyRates[i].amountVnd` của đêm đó, hiện ở `.err` ngay dưới ô giá, và ô có `aria-invalid`. Câu chỉ dùng cho đơn Nội bộ, kênh khác giữ `booking.error.rate_empty`. Luật chặn không đổi.
+  - Đơn Nội bộ có một ô gõ 0 và một ô trống thì hiện hai câu: câu của ô (dưới ô gõ 0) và câu "gõ một phần" (dưới bảng). Cả hai cùng chỉ lễ tân để trống ô, nên không mâu thuẫn. Chấp nhận.
+- Không có thẻ mới. Không có ESC.
+
+| Ngày | Round | Quyết định | Người quyết | Lý do |
+|---|---|---|---|---|
+| 2026-11-05 | 4 | **UXD lượt 4 PR #82** @ `a4cb703a`: ĐẠT. Chữ EN của `booking.error.rate_empty_internal` và khóa `booking.error.rate_zero_internal` đúng nguyên văn. Câu `rate_zero_internal` hiện dưới ô giá của đêm gõ 0, chỉ cho đơn Nội bộ. Đóng FB-R4-UXD-FE-PR82-03 và PR82-04. UXD không còn thẻ mở trên #82 | UXD | BR-105 v0.5.8 (7). Câu chặn chỉ lễ tân cách để đêm miễn phí, không đẩy lễ tân gõ giá |
