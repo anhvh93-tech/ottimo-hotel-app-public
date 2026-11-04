@@ -38,6 +38,12 @@ export interface SetNightRateInput {
    * night of an Internal stay only (other channels → 422 AMOUNT_NOT_POSITIVE; Internal below OWN/MGR → 403).
    */
   zeroByManager?: boolean;
+  /**
+   * SEC FB-R4-SEC-BE-PR71-02: the caller's role at the time (`actorRoleOf`), written on the audit of a night brought
+   * back to 0 ₫ – the gate of that branch is a role, and a role can change later. `reservation.actorRole` is already on
+   * the audit allowlist (frontdesk/audit-entities.ts).
+   */
+  actorRole?: string;
 }
 
 export interface SetNightRateResult {
@@ -277,6 +283,7 @@ export class StayNightPricingPort {
       after: {
         nightlyRates: [{ date: input.serviceDate, amountVnd: gross }],
         rateSource: complimentary ? 'complimentary' : 'manual',
+        ...(complimentary && input.actorRole ? { actorRole: input.actorRole } : {}),
       },
       ...(input.reason ? { reason: input.reason } : {}),
       ...(input.requestId ? { requestId: input.requestId } : {}),

@@ -5,7 +5,8 @@
  * desk could not bring it back to 0 (AMOUNT_NOT_POSITIVE, RATE_OUT_OF_RANGE under the Direct floor).
  * Rule (EP02 kênh Nội bộ, BR-904 / DOM D-7, metrics Q-05; DOM 04/11): the added night of an Internal stay is 0 ₫ by
  * default, source `complimentary`, no Direct floor–ceiling, 0 may be typed; the rare "Internal with a charge" is a
- * typed price > 0 (source `manual`). Other channels keep their behaviour (control case).
+ * typed price > 0 (source `manual`). Other channels keep their behaviour (control case). A31 (DOM R5): OWN/MGR bring
+ * an Internal night back to 0 ₫ (`complimentary`, audited with the role); FD typing 1 ₫ is intended (no floor).
  * Real PostgreSQL through HTTP the way the Desk calls it. Fake clock, FAKE data only.
  */
 import { randomBytes } from 'node:crypto';
@@ -277,12 +278,31 @@ describe.skipIf(!HAS_DB)(
       expect(line, `room line ${date}`).toBeTruthy();
       return line!.id;
     };
-    const adjust = async (who: 'fd' | 'mgr', b: Booking, lineId: string, newUnitPriceVnd: number) =>
+    const ZERO_REASON = 'Đơn Nội bộ – đưa đêm về 0 đ (BUG-R4-038)';
+    const adjust = async (
+      who: 'fd' | 'mgr',
+      b: Booking,
+      lineId: string,
+      newUnitPriceVnd: number,
+      reason = ZERO_REASON,
+    ) =>
       c[who]!.send(
         'POST',
         url(`/folios/${b.folioId}/lines/${lineId}/adjustments`),
-        { newUnitPriceVnd, reason: 'Đơn Nội bộ – đưa đêm về 0 đ (BUG-R4-038)' },
+        { newUnitPriceVnd, reason },
         { 'if-match': `"${(await folio(b.folioId)).version}"` },
+      );
+    /** Money audit rows of one entity (SEC FB-R4-SEC-BE-PR71-01). */
+    const audits = (action: string, entityId: string) =>
+      q<{
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        after: Record<string, any>;
+        actor: string;
+        reason: string | null;
+      }>(
+        `SELECT after, actor_user_id::text AS actor, reason FROM audit_event
+          WHERE action = $1 AND entity_id = $2 ORDER BY occurred_at, id`,
+        [action, entityId],
       );
 
     it('B13: extending an Internal stay by 1 night – the night is 0 ₫, source `complimentary`, no Direct range, nothing left to collect', async () => {
@@ -370,6 +390,42 @@ describe.skipIf(!HAS_DB)(
       await expectComplimentary(b);
     });
 
+    it('B9a typed on an Internal stay (ARC FB-R4-ARC-BE-PR71-02 (2)(3)): 0 → `complimentary`; 150.000 under the Direct floor → `manual`, collected before the keys', async () => {
+      await at('2026-10-20T10:00:00+07:00');
+      const zero = await internal('301', '2026-11-25', '2026-11-26');
+      const paid = await internal('302', '2026-11-25', '2026-11-26');
+      await at('2026-11-25T04:30:00+07:00');
+      await ready('301');
+      await ready('302');
+      const ci0 = await act(zero.id, 'check-in', {
+        cardsIssued: 1,
+        houseRulesSent: true,
+        checkinTime: '04:30',
+        addPriorNight: true,
+        priorNightRateVnd: 0,
+      });
+      expect(ci0.statusCode, ci0.body).toBe(200);
+      expect((await nights(zero.id)).find((n) => n.stay_date === '2026-11-24')?.gross).toBe(0);
+      expect(await snapSource(zero.id, '2026-11-24')).toBe('complimentary');
+      await expectComplimentary(zero);
+      // "Internal with a charge": typed 150.000 – no Direct range; the night is money, so it is told and collected.
+      const ci = await act(paid.id, 'check-in', {
+        cardsIssued: 1,
+        houseRulesSent: true,
+        checkinTime: '04:30',
+        addPriorNight: true,
+        priorNightRateVnd: 150_000,
+        expectedSurchargeVnd: 150_000,
+        payment: { type: 'charge', method: 'cash', amountVnd: 150_000 },
+      });
+      expect(ci.statusCode, ci.body).toBe(200);
+      const prior = (await nights(paid.id)).find((n) => n.stay_date === '2026-11-24');
+      expect(prior).toMatchObject({ gross: 150_000, rate_source: 'extra_night_early_late' });
+      expect(await snapSource(paid.id, '2026-11-24')).toBe('manual');
+      expect((await booking(paid.id)).total_room_vnd).toBe(150_000);
+      expect((await folio(paid.folioId)).totals.balanceDueVnd).toBe(0);
+    });
+
     it('B18: an Internal guest leaving at 19:00 – the extra night is 0 ₫ (`complimentary`); typed 0 accepted; the stay closes at 0', async () => {
       await at('2026-10-20T10:00:00+07:00');
       const b = await internal('402', '2026-11-16', '2026-11-17');
@@ -412,6 +468,36 @@ describe.skipIf(!HAS_DB)(
         lateFeeAsNightVnd: 0,
         amountDueAtCheckoutVnd: 0,
       });
+      // ARC FB-R4-ARC-BE-PR71-02 (1): nothing to confirm – a `lateFeeInsteadOfNight` sent anyway is refused (422)
+      // before any password check (never 401), on every confirmation path; nothing is written.
+      const REASON = 'Khách trả muộn, căn có khách đến';
+      const refused: Array<[Record<string, unknown>, { field: string; code: string }]> = [
+        [
+          { amountVnd: 0, reason: REASON, postReview: true },
+          { field: 'lateFeeInsteadOfNight.amountVnd', code: 'AMOUNT_NOT_POSITIVE' },
+        ],
+        [
+          { amountVnd: 1, reason: REASON, postReview: true },
+          { field: 'lateFeeInsteadOfNight', code: 'NOT_ALLOWED' },
+        ],
+        [
+          {
+            amountVnd: 1,
+            reason: REASON,
+            approverUsername: t.users.mgr!.username,
+            authMethod: 'password',
+            secret: 'not-the-password',
+          },
+          { field: 'lateFeeInsteadOfNight', code: 'NOT_ALLOWED' },
+        ],
+      ];
+      for (const [lateFeeInsteadOfNight, error] of refused) {
+        const r = await act(b.id, 'check-out', { checkoutTime: '19:00', lateFeeInsteadOfNight });
+        expect(r.statusCode, r.body).toBe(422);
+        expect(r.json().errors).toContainEqual(error);
+      }
+      expect((await get(b.id)).status).toBe('in_house');
+      expect(await audits('reservation.late_fee_instead_of_night', b.id)).toEqual([]);
       const out = await act(b.id, 'check-out', { checkoutTime: '19:00' });
       expect(out.statusCode, out.body).toBe(200);
       const f = await folio(b.folioId);
@@ -470,13 +556,55 @@ describe.skipIf(!HAS_DB)(
       expect(await snapSource(b.id, '2026-11-15')).toBe(o6.expected.nightSources[0]);
       expect((await booking(b.id)).total_room_vnd).toBe(o6.expected.extensionVnd);
       // R5 (DOM lượt 3): A31 can bring an Internal night back to 0 ₫ – OWN/MGR only, reason mandatory.
+      const repriced = () => audits('reservation.repriced', b.id);
+      const before = (await repriced()).length;
       const line = await roomLine(b, '2026-11-15');
       const byFd = await adjust('fd', b, line, 0);
       expect(byFd.statusCode, byFd.body).toBe(403);
       expect(byFd.json().code).toBe('FORBIDDEN_ACTION');
-      const byMgr = await adjust('mgr', b, line, 0);
+      // Refused in the transaction: no audit, the night and the folio are as they were.
+      expect(await repriced()).toHaveLength(before);
+      expect(await audits('folio_line.adjusted', line)).toEqual([]);
+      expect((await nights(b.id)).find((n) => n.stay_date === '2026-11-15')?.gross).toBe(
+        o6.expected.extensionVnd,
+      );
+      expect((await folio(b.folioId)).totals.balanceDueVnd).toBe(o6.expected.extensionVnd);
+      // INTENDED (SEC FB-R4-SEC-BE-PR71-01, ARC 3.2): FD may still type 1 ₫ – an Internal night has no BR-105 floor
+      // (DOM, BR-421 (b): "Internal with a charge" is any typed price > 0). It stays `manual`, audited with FD as
+      // the actor. Making 0 and > 0 consistent is FB-R4-ARC-BE-PR71-03 (v1.0.5).
+      const oneVnd = await adjust('fd', b, line, 1, 'Nội bộ có thu – sửa giá theo ghi chú');
+      expect(oneVnd.statusCode, oneVnd.body).toBe(201);
+      expect(await snapSource(b.id, '2026-11-15')).toBe('manual');
+      const [fdAudit] = (await repriced()).slice(before);
+      expect(fdAudit).toMatchObject({
+        actor: t.users.fd!.id,
+        reason: 'Nội bộ có thu – sửa giá theo ghi chú',
+        after: { nightlyRates: [{ date: '2026-11-15', amountVnd: 1 }], rateSource: 'manual' },
+      });
+      expect(fdAudit!.after.actorRole).toBeUndefined();
+      const line1 = await roomLine(b, '2026-11-15');
+      const byMgr = await adjust('mgr', b, line1, 0);
       expect(byMgr.statusCode, byMgr.body).toBe(201);
       expect(await snapSource(b.id, '2026-11-15')).toBe('complimentary');
+      // One money audit for the night (with the role at the time – SEC PR71-02) and one for the folio line.
+      const after = (await repriced()).slice(before + 1);
+      expect(after).toHaveLength(1);
+      expect(after[0]).toMatchObject({
+        actor: t.users.mgr!.id,
+        reason: ZERO_REASON,
+        after: {
+          nightlyRates: [{ date: '2026-11-15', amountVnd: 0 }],
+          rateSource: 'complimentary',
+          actorRole: 'manager',
+        },
+      });
+      const adjusted = await audits('folio_line.adjusted', line1);
+      expect(adjusted).toHaveLength(1);
+      expect(adjusted[0]).toMatchObject({
+        actor: t.users.mgr!.id,
+        reason: ZERO_REASON,
+        after: { category: 'room', amountVnd: 0 },
+      });
       await expectComplimentary(b);
     });
 

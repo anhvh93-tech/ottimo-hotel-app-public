@@ -482,7 +482,12 @@ export class FolioLinesService {
           userId: actor.userId,
           reason,
           ...(actor.requestId ? { requestId: actor.requestId } : {}),
-          ...(zeroPrice ? { zeroByManager: actor.roles.some((x) => MANAGERS.includes(x)) } : {}),
+          ...(zeroPrice
+            ? {
+                zeroByManager: actor.roles.some((x) => MANAGERS.includes(x)),
+                actorRole: actorRoleOf(actor.userId, actor.roles),
+              }
+            : {}),
         });
         night = { amountVnd: r.lineAmountVnd };
       }
