@@ -751,7 +751,8 @@ export function DepositDialog(props: DialogBase) {
           />
         </div>
       ) : null}
-      {paidBefore > 0 && missing > 0 ? (
+      {paidBefore > 0 && missing > 0 && !accepting ? (
+        // FB-R4-UXD-FE-P440-06: once the manager accepts the shortfall, "record the rest" no longer applies.
         <Alert tone="warn" role="status">
           {t('error.DEPOSIT_INSUFFICIENT', { required: vnd(need), paid: vnd(paidBefore) })}
         </Alert>

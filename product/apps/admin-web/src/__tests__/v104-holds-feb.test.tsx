@@ -194,6 +194,24 @@ describe('BUG-R3-043 – "Chấp nhận cọc thiếu – lý do" (OWN/MGR only)
     expect(need).toBeGreaterThan(300_000);
   });
 
+  it('manager ticks "Chấp nhận cọc thiếu": the "Chưa đủ cọc… ghi nhận thêm" box goes away (FB-R4-UXD-FE-P440-06)', async () => {
+    const r = rsvOf('Lê Minh');
+    r.depositPaidVnd = 100_000;
+    const { user, dlg } = await openDeposit('qa.mgr');
+    const insufficient = tv('error.DEPOSIT_INSUFFICIENT', {
+      required: formatNumber('vi', r.depositRequiredVnd!),
+      paid: formatNumber('vi', 100_000),
+    });
+    // Before the tick the box is right (record the rest).
+    expect(within(dlg).getByText(insufficient)).toBeInTheDocument();
+    await user.selectOptions(within(dlg).getByLabelText(tv('pay.method')), 'cash');
+    const amount = within(dlg).getByLabelText(/Số tiền đã nhận/);
+    await user.clear(amount);
+    await user.type(amount, '200000');
+    await user.click(within(dlg).getByRole('checkbox', { name: tv('deposit.accept_shortfall') }));
+    expect(within(dlg).queryByText(insufficient)).toBeNull();
+  });
+
   it('manager, no new money: confirms on the deposit already received (existingPaymentId) with the reason', async () => {
     watch();
     const r = rsvOf('Lê Minh');
@@ -559,6 +577,21 @@ describe('ĐX-R3-QA-01 – "Cần chú ý" hold_overdue / hold_overdue_cap, "Gi�
     expect(
       await screen.findByRole('heading', { name: tv('today.holds_waiting', { n: 1 }) }),
     ).toBeInTheDocument();
+  });
+
+  it('Hôm nay: a paid hold past its deadline says "Quá hạn từ …", never "còn 0 giờ 00 phút" (FB-R4-UXD-FE-P440-07)', async () => {
+    const r = overdue(200_000);
+    r.arrivalDate = new Date().toISOString().slice(0, 10);
+    renderApp('/today', 'qa.fd');
+    const block = (
+      await screen.findByRole('heading', { name: tv('today.holds_waiting', { n: 1 }) })
+    ).closest('section, .card')!;
+    const line = within(block as HTMLElement).getByText(
+      tv('today.hold_overdue_since', { at: formatInstant('vi', r.hold!.expiresAt!) }),
+    );
+    expect(line).toHaveClass('countdown', 'bad');
+    const leftStem = tv('today.hold_left', { h: '§', m: '§', at: '§' }).split('§')[0]!;
+    expect(block.textContent).not.toContain(leftStem.trim());
   });
 });
 

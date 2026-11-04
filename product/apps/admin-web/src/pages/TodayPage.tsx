@@ -487,9 +487,16 @@ function HoldRow({ r }: { r: ReservationSummary }) {
           <Code>{r.code}</Code>
         </div>
         {left ? (
-          <span className={`countdown ${left.ms < 2 * 3_600_000 ? 'bad' : 'warn'}`}>
-            {t('today.hold_left', { h: left.h, m: left.m, at: dateTime(r.holdExpiresAt) })}
-          </span>
+          left.ms === 0 ? (
+            // FB-R4-UXD-FE-P440-07: a hold WITH money stays past its deadline (BUG-R3-044) – never "0 h 00 min left".
+            <span className="countdown bad">
+              {t('today.hold_overdue_since', { at: dateTime(r.holdExpiresAt) })}
+            </span>
+          ) : (
+            <span className={`countdown ${left.ms < 2 * 3_600_000 ? 'bad' : 'warn'}`}>
+              {t('today.hold_left', { h: left.h, m: left.m, at: dateTime(r.holdExpiresAt) })}
+            </span>
+          )
         ) : null}
       </div>
       <Link className="btn sm" to={`/reservations/${r.id}`}>
