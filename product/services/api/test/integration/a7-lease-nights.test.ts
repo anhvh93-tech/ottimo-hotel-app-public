@@ -87,15 +87,13 @@ describe('A7-01 – Q-10 allocation of a lease (pure)', () => {
     expect(nights[30]).toEqual({ date: '2026-11-14', amountVnd: 359_040 });
     expect(nights.reduce((a, n) => a + n.amountVnd, 0)).toBe(o.input.monthlyRentVnd);
   });
-  it('BR-215-02: lease from 1/11 – 30 nights of 371.000; two months then 5 odd days at the nightly equivalent (BR-210-01: 371.000 × 5)', () => {
+  // v1.0.4 P4-11 (FB-R4-QA-DOM-PR25-02 (2)): BR-210-01 is now the 8.500.000 lease (283.000 a day); the 11.130.000
+  // lease of BR-215-02 keeps its own odd-day price, 11.130.000 ÷ 30 = 371.000 (BR-210 rule, not the BR-210-01 row).
+  it('BR-215-02: lease from 1/11 at 11.130.000 – 30 nights of 371.000; two months then 5 odd days at its BR-210 daily price (11.130.000 ÷ 30 = 371.000 × 5)', () => {
     const o = oracle('BR-215-02');
-    const odd = oracle('BR-210-01');
-    const nights = leaseNightAmounts(
-      '2026-11-01',
-      '2027-01-06',
-      o.input.monthlyRentVnd,
-      odd.input.longStayNightRateVnd,
-    );
+    const oddRate = divideRoundVnd(o.input.monthlyRentVnd, 30, 1_000);
+    expect(oddRate).toBe(371_000);
+    const nights = leaseNightAmounts('2026-11-01', '2027-01-06', o.input.monthlyRentVnd, oddRate);
     expect(
       nights
         .filter((n) => n.date < '2026-12-01')
@@ -104,11 +102,29 @@ describe('A7-01 – Q-10 allocation of a lease (pure)', () => {
     const totals = contractMonthTotals('2026-11-01', nights);
     expect(totals.slice(0, 2).map((m) => m.totalVnd)).toEqual([11_130_000, 11_130_000]);
     expect(nights.filter((n) => n.date >= '2027-01-01').map((n) => n.amountVnd)).toEqual(
+      Array(5).fill(371_000),
+    );
+  });
+  it('BR-210-01: lease City VN 8.500.000 from 1/11 – 5 days beyond the contract at 8.500.000 ÷ 30 = 283.000: 283.000 × 5 = 1.415.000', () => {
+    const odd = oracle('BR-210-01');
+    const rent = 8_500_000;
+    expect(divideRoundVnd(rent, 30, 1_000)).toBe(odd.input.longStayNightRateVnd);
+    const nights = leaseNightAmounts(
+      '2026-11-01',
+      '2027-01-06',
+      rent,
+      odd.input.longStayNightRateVnd,
+    );
+    expect(
+      contractMonthTotals('2026-11-01', nights)
+        .slice(0, 2)
+        .map((m) => m.totalVnd),
+    ).toEqual([rent, rent]);
+    const extra = nights.filter((n) => n.date >= '2027-01-01');
+    expect(extra.map((n) => n.amountVnd)).toEqual(
       Array(odd.input.days).fill(odd.input.longStayNightRateVnd),
     );
-    expect(nights.filter((n) => n.date >= '2027-01-01').reduce((a, n) => a + n.amountVnd, 0)).toBe(
-      odd.expected.rentVnd,
-    );
+    expect(extra.reduce((a, n) => a + n.amountVnd, 0)).toBe(odd.expected.rentVnd);
   });
   it('DOM D-A7-1: a departure one day before the month mark (start + 3 months − 1 day) counts 3 whole contract months – the last 29 nights = 324.482 × 28 + 324.504, total 28.230.000 (not 27.926.000); two days short → the nights after the last mark are odd days', () => {
     const rent = 9_410_000;

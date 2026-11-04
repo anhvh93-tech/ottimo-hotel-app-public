@@ -47,4 +47,8 @@ defineAuditEntity('reservation', [
   'childBookings',
   'noticeGivenAt',
   'noticeEvidence',
+  // v1.0.4 P4-11 (FB-R4-DOM-BE-A-04): B16 of a manual long stay – the rule applied (BR-313 / BR-428) and the lease
+  // end it was decided on (dates only).
+  'earlyDepartureRule',
+  'leaseEndDate',
 ]);

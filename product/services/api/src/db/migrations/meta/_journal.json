@@ -491,6 +491,13 @@
       "when": 1792782175681,
       "tag": "0093_hold_overdue_notification_kinds",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1792782177681,
+      "tag": "0094_room_list_price_append_only",
+      "breakpoints": true
     }
   ]
 }

@@ -43,6 +43,7 @@ import {
   type LateTier,
   departureReminderState,
   earlyDepartureRefund,
+  earlyDepartureRuleOf,
   lateCheckoutSurcharge,
   nightsOf,
 } from '../public/stay-rules';
@@ -1481,6 +1482,10 @@ export class StayService {
     }
     // 0.3.9: shown also when only OTA nights are dropped (display only – the OTA keeps what it says).
     const shownNoticeDays = noticeDays(nd, noticeDate);
+    // v1.0.4 P4-11 (FB-R4-DOM-BE-A-04): a manual long stay leaving before its lease end (frozen at check-in, a B13
+    // extension does not move it) falls under BR-313 – the money log says so, never "BR-428 notice Nd". Its lease
+    // nights are never folio money (`liveNightRows` skips `lease_allocation`), so the amounts do not change here.
+    const lease = earlyDepartureRuleOf(row, nd);
     let refund = { noticeDays: 0, refundVnd: 0 };
     if (directNetVnd > 0) {
       const policy = await this.s.optionalParam<EarlyDepartureRefundPolicy>(
@@ -1831,6 +1836,9 @@ export class StayService {
           : {}),
         noticeGivenAt: ctx.iso(noticeAt as Date),
         ...(evidence ? { noticeEvidence: true } : {}),
+        ...(lease.leaseEndDate !== null
+          ? { earlyDepartureRule: lease.rule, leaseEndDate: lease.leaseEndDate }
+          : {}),
         // FB-R3-SEC-ARC-05: what the desk showed and confirmed (compared above, never used as the amounts).
         ...(expectedRefundVnd !== undefined || expectedFeeVnd !== undefined
           ? {
@@ -1840,7 +1848,11 @@ export class StayService {
             }
           : {}),
       },
-      reason: `BR-428 notice ${shownNoticeDays}d${evidence ? ` – ${evidence.note}` : ''}`,
+      reason: `${
+        lease.rule === 'BR-313'
+          ? 'BR-313 lease early end – deposit per lease'
+          : `BR-428 notice ${shownNoticeDays}d`
+      }${evidence ? ` – ${evidence.note}` : ''}`,
       ...this.s.req(ctx),
     });
     await outboxAvailability(tx, released, 'reservation.early_departure');

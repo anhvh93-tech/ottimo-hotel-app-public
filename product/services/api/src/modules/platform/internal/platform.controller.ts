@@ -284,6 +284,11 @@ export class PlatformController {
       status: 200,
       body: await this.rooms.cancelScheduledListPrice(tx, roomId, version, input, req.id),
     }));
+    // FB-R4-BE-LPV2M-02: a cancelled scheduled list price changes the public price estimate too – drop the
+    // property's estimate cache once committed, as updateRoom does (an idempotent replay drops it again: harmless).
+    if (result.status === 200) {
+      this.hooks.changed(tenantOf(principal(req)).propertyId as string, 'room');
+    }
     reply.header('etag', etag(result.body.version));
     return applyResult(reply, result);
   }

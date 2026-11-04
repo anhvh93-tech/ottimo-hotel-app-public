@@ -1001,7 +1001,7 @@
         "special_uplift_pct": 0,
         "los_discount": []
       },
-      "calc": null,
+      "calc": "losDiscount",
       "input": {
         "roomNo": "102",
         "nightlyListPriceVnd": 800000,
@@ -1019,9 +1019,7 @@
         "discountBp": 0,
         "discountedNightlyRatesVnd": [800000, 800000, 800000]
       },
-      "note": "ESC-045 câu 1 = A (BR-104 v0.5.1).. v0.5.2 (P4-20): calcPending = validator đã tính lại bằng params của dòng; test BE đọc dòng này khi byCalc gộp params của dòng lên DS-E (P4-11, BE-C) – lúc đó chuyển calcPending → calc và bỏ pendingFix.",
-      "calcPending": "losDiscount",
-      "pendingFix": "FB-R4-QA-DOM-PR25-01"
+      "note": "ESC-045 câu 1 = A (BR-104 v0.5.1).. v0.5.2 (P4-20): calcPending = validator đã tính lại bằng params của dòng; test BE đọc dòng này khi byCalc gộp params của dòng lên DS-E (P4-11, BE-C) – lúc đó chuyển calcPending → calc và bỏ pendingFix."
     },
     {
       "id": "BR-101-13",
@@ -1172,7 +1170,7 @@
         "weekend_nights": ["FRI", "SAT"],
         "special_uplift_pct": 0
       },
-      "calc": null,
+      "calc": "otaWeekendRate",
       "input": {
         "otaBaseRateVnd": 800000,
         "groupNightlyRatesVnd": {
@@ -1188,9 +1186,7 @@
         "otaRateVnd": 800000,
         "directRateVnd": 800000
       },
-      "note": "Một mức giá mọi kênh (ESC-043 C); không tăng cuối tuần (ESC-045 câu 1 = A).. v0.5.2 (P4-20): calcPending = validator đã tính lại bằng params của dòng; test BE đọc dòng này khi byCalc gộp params của dòng lên DS-E (P4-11, BE-C) – lúc đó chuyển calcPending → calc và bỏ pendingFix.",
-      "calcPending": "otaWeekendRate",
-      "pendingFix": "FB-R4-QA-DOM-PR25-01"
+      "note": "Một mức giá mọi kênh (ESC-043 C); không tăng cuối tuần (ESC-045 câu 1 = A).. v0.5.2 (P4-20): calcPending = validator đã tính lại bằng params của dòng; test BE đọc dòng này khi byCalc gộp params của dòng lên DS-E (P4-11, BE-C) – lúc đó chuyển calcPending → calc và bỏ pendingFix."
     },
     {
       "id": "BR-104-01",
@@ -1454,7 +1450,7 @@
         "weekend_nights": ["FRI", "SAT"],
         "special_uplift_pct": 0
       },
-      "calc": null,
+      "calc": "calendarRate",
       "input": {
         "roomNo": "202",
         "baseRateVnd": 800000,
@@ -1464,9 +1460,7 @@
       "expected": {
         "rateVnd": 800000
       },
-      "note": "Ví dụ trong câu quy tắc BR-104 v0.5.1 (ESC-045 câu 1 = A).. v0.5.2 (P4-20): calcPending = validator đã tính lại bằng params của dòng; test BE đọc dòng này khi byCalc gộp params của dòng lên DS-E (P4-11, BE-C) – lúc đó chuyển calcPending → calc và bỏ pendingFix.",
-      "calcPending": "calendarRate",
-      "pendingFix": "FB-R4-QA-DOM-PR25-01"
+      "note": "Ví dụ trong câu quy tắc BR-104 v0.5.1 (ESC-045 câu 1 = A).. v0.5.2 (P4-20): calcPending = validator đã tính lại bằng params của dòng; test BE đọc dòng này khi byCalc gộp params của dòng lên DS-E (P4-11, BE-C) – lúc đó chuyển calcPending → calc và bỏ pendingFix."
     },
     {
       "id": "BR-104-11",
@@ -1479,7 +1473,7 @@
         "weekend_nights": ["FRI", "SAT"],
         "special_uplift_pct": 0
       },
-      "calc": null,
+      "calc": "calendarRate",
       "input": {
         "roomNo": "202",
         "baseRateVnd": 800000,
@@ -1490,9 +1484,7 @@
         "rateVnd": 800000,
         "isSpecialDate": true
       },
-      "note": "Danh sách ngày đặc biệt giữ cho BR-113, BR-309; chỉ phần giá bỏ.. v0.5.2 (P4-20): calcPending = validator đã tính lại bằng params của dòng; test BE đọc dòng này khi byCalc gộp params của dòng lên DS-E (P4-11, BE-C) – lúc đó chuyển calcPending → calc và bỏ pendingFix.",
-      "calcPending": "calendarRate",
-      "pendingFix": "FB-R4-QA-DOM-PR25-01"
+      "note": "Danh sách ngày đặc biệt giữ cho BR-113, BR-309; chỉ phần giá bỏ.. v0.5.2 (P4-20): calcPending = validator đã tính lại bằng params của dòng; test BE đọc dòng này khi byCalc gộp params của dòng lên DS-E (P4-11, BE-C) – lúc đó chuyển calcPending → calc và bỏ pendingFix."
     },
     {
       "id": "BR-105-01",
@@ -1799,7 +1791,7 @@
         "special_uplift_pct": 0,
         "los_discount": []
       },
-      "calc": null,
+      "calc": "losDiscount",
       "input": {
         "roomNo": "202",
         "nightlyListPriceVnd": 800000,
@@ -1813,9 +1805,7 @@
         "roomTotalVnd": 5600000,
         "discountedNightlyRatesVnd": [800000, 800000, 800000, 800000, 800000, 800000, 800000]
       },
-      "note": "Bảng giá INV 01/11: \"không có giảm theo số đêm\" (los_discount = []).. v0.5.2 (P4-20): calcPending = validator đã tính lại bằng params của dòng; test BE đọc dòng này khi byCalc gộp params của dòng lên DS-E (P4-11, BE-C) – lúc đó chuyển calcPending → calc và bỏ pendingFix.",
-      "calcPending": "losDiscount",
-      "pendingFix": "FB-R4-QA-DOM-PR25-01"
+      "note": "Bảng giá INV 01/11: \"không có giảm theo số đêm\" (los_discount = []).. v0.5.2 (P4-20): calcPending = validator đã tính lại bằng params của dòng; test BE đọc dòng này khi byCalc gộp params của dòng lên DS-E (P4-11, BE-C) – lúc đó chuyển calcPending → calc và bỏ pendingFix."
     },
     {
       "id": "BR-108-01",
@@ -2449,7 +2439,7 @@
         "child_free_under_age": 6,
         "child_fee_6_11": 150000
       },
-      "calc": null,
+      "calc": "extraPersonFee",
       "input": {
         "roomNo": "301",
         "adults": 4,
@@ -2461,9 +2451,7 @@
         "extraPersonFeeVnd": 450000,
         "extraGuestKits": 1
       },
-      "note": "ESC-045 câu 3: từ 6 tuổi tính như người lớn (trước 300.000 – BR-110-02).. v0.5.2 (P4-20): calcPending = validator đã tính lại bằng params của dòng; test BE đọc dòng này khi byCalc gộp params của dòng lên DS-E (P4-11, BE-C) – lúc đó chuyển calcPending → calc và bỏ pendingFix.",
-      "calcPending": "extraPersonFee",
-      "pendingFix": "FB-R4-QA-DOM-PR25-01"
+      "note": "ESC-045 câu 3: từ 6 tuổi tính như người lớn (trước 300.000 – BR-110-02).. v0.5.2 (P4-20): calcPending = validator đã tính lại bằng params của dòng; test BE đọc dòng này khi byCalc gộp params của dòng lên DS-E (P4-11, BE-C) – lúc đó chuyển calcPending → calc và bỏ pendingFix."
     },
     {
       "id": "BR-110-19",
@@ -2482,7 +2470,7 @@
         "weekend_nights": ["FRI", "SAT"],
         "special_uplift_pct": 0
       },
-      "calc": null,
+      "calc": "extraPersonFee",
       "input": {
         "roomNo": "302",
         "nightlyListPriceVnd": 1100000,
@@ -2497,9 +2485,7 @@
         "totalVnd": 2500000,
         "extraGuestKits": 1
       },
-      "note": "Ví dụ trong câu quy tắc BR-110 v0.5.1.. v0.5.2 (P4-20): calcPending = validator đã tính lại bằng params của dòng; test BE đọc dòng này khi byCalc gộp params của dòng lên DS-E (P4-11, BE-C) – lúc đó chuyển calcPending → calc và bỏ pendingFix.",
-      "calcPending": "extraPersonFee",
-      "pendingFix": "FB-R4-QA-DOM-PR25-01"
+      "note": "Ví dụ trong câu quy tắc BR-110 v0.5.1.. v0.5.2 (P4-20): calcPending = validator đã tính lại bằng params của dòng; test BE đọc dòng này khi byCalc gộp params của dòng lên DS-E (P4-11, BE-C) – lúc đó chuyển calcPending → calc và bỏ pendingFix."
     },
     {
       "id": "BR-110-20",
@@ -2548,9 +2534,7 @@
         "child_free_under_age": 6,
         "child_fee_6_11": 150000
       },
-      "calc": null,
-      "calcPending": "extraPersonFee",
-      "pendingFix": "FB-R4-QA-DOM-PR25-01",
+      "calc": "extraPersonFee",
       "input": {
         "roomNo": "202",
         "channel": "direct",
@@ -2579,9 +2563,7 @@
         "child_free_under_age": 6,
         "child_fee_6_11": 150000
       },
-      "calc": null,
-      "calcPending": "extraPersonFee",
-      "pendingFix": "FB-R4-QA-DOM-PR25-01",
+      "calc": "extraPersonFee",
       "input": {
         "roomNo": "202",
         "channel": "direct",
