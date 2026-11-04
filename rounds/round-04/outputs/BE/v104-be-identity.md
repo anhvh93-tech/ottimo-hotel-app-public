@@ -20,7 +20,7 @@
 | **ARC-BE-018-03** | **Xong** | `propertyAllowed(p, ctx, owner, key)`: chỉ ghép chuỗi `<owner>.<key>` khi mã D đã từ chối | Toàn bộ `serializer.test.ts` + `be-c-s3-units` xanh |
 | **SEC-ARC-018-03** (phần mã) | **Chờ P4-00** | Đọc `x-self-data` từ meta sinh ra, giữ `SELF_DATA_FIELDS` làm kiểm chéo (test so hai nguồn) – làm sau khi rebase lên hợp đồng 0.3.12 | – |
 | **SEC-BE-018-04** | **Xong** | `noStore(reply)` (Cache-Control + Pragma) cho `startMy2faSetup`, `confirmMy2fa`, `regenerateMyRecoveryCodes` | Unit đọc mã + tích hợp `Pragma: no-cache` |
-| **INT-BE-31-04** (phần API) | **Chờ P4-05** | INT chưa đẩy `integrations/notification/email-address.ts`. Khi có: `normalizeSecurityEmail` gọi hàm chung, bảng ca `be-a-v103-email-units` chạy trên hàm đó | – |
+| **INT-BE-31-04** (phần API) | **Xong** (sau khi gộp `origin/v104/int-email` @ `51991057`, ORC: P4-05 + P4-06 một PR) | `shared/email.ts`: `normalizeSecurityEmail` gọi `normalizeEmailAddress` của INT; `SECURITY_EMAIL_MAX = EMAIL_ADDRESS_MAX`; xóa bản sao regex. Luật hộp thư chung (BE-A) chạy sau hàm chung | `be-a-v103-email-units`: 2 hàm cho cùng kết quả trên VALID ∪ INVALID; hằng số bằng nhau; `shared/email.ts` không còn regex riêng |
 | **ARC-BE-31-04** (nếu kịp) | **Xong** | `ProblemError.options.auditReason` (chỉ phía máy chủ, không vào thân/header/log). Bỏ `WeakSet` `TARGET_OWNER_DENIALS` | Unit (không lộ ra thân) + tích hợp nhánh kiểm lại **trong giao dịch** (TOCTOU) → audit `TARGET_OWNER` |
 | **V3-04** (nếu kịp) | **Xong (mã)**. README OPS chưa | `production-bootstrap --owner-email`: cờ **không nhận giá trị** (có giá trị → từ chối), hỏi bằng dấu nhắc ẩn (raw mode, không echo); Enter = bỏ trống. Cùng luật `normalizeSecurityEmail` + hộp thư chung; lỗi không nhắc lại địa chỉ. Màn hình cuối chỉ in "set/not set" | Unit cờ. Chưa chạy thử dấu nhắc trên stack thử (cần TTY thật) – để QA/OPS |
 
@@ -34,6 +34,7 @@
 - Unit mới 14/14; `serializer.test.ts` + `be-c-s3-units` 27/27; tích hợp mới 11/11 (PostgreSQL 17 riêng, RLS bật, `ottimo_app`).
 - Toàn bộ unit `services/api` (không DB): 44 tệp, 889 đạt, 28 bỏ qua, 0 lỗi.
 - Tích hợp liên quan, chạy tuần tự (`v103-security-email`, `identity`, `mfa-us143`, `production-bootstrap`, `email-dispatch`, `v104-be-identity`, `http-foundation`, `rbac-sprint1`): 8 tệp, 372 đạt, 5 bỏ qua, 0 lỗi (sau khi sửa 1 ca cũ `email-dispatch` 06.15 đang ghim `staffName` ở bản `self` – đổi đúng theo G-BE-4).
+- Sau gộp INT: unit API 892 đạt / 28 bỏ qua; `@ottimo/integrations` 289 đạt; tích hợp `v103-security-email`, `v104-be-identity`, `email-dispatch`, `production-bootstrap` 68 đạt / 5 bỏ qua.
 - Bộ tích hợp **đầy đủ** chưa chạy được trên máy: tải máy ~45 (nhiều làn chạy DB cùng lúc), các tệp không liên quan (`approvals-audit`, `reversal-debt-g4`, `payments-s3`…) hết giờ chờ hook sau 100–1000 s. Không phải lỗi do gói này; để CI chạy trọn.
 - Không log/Problem/audit nào chứa địa chỉ đầy đủ: các ca 429 và 422 kiểm `res.body` không có `@`; dòng `warn` khởi động không có địa chỉ.
 
@@ -46,7 +47,6 @@
 ## 5. Việc cho vai khác (không phải tệp của BE-A)
 - **OPS (P4-03):** `requeue-email-changed.sh` đổi `probe` sang `node dist/admin/known-email-templates-cli.js email_changed` (mã 0/1; mã khác = từ chối như hiện nay). CODEOWNERS `field-policy.ts` → SEC.
 - **OPS (sau `main@L`):** thêm `EMAIL_SHARED_MAILBOXES` vào `docker-compose.prod.yml` (`${EMAIL_SHARED_MAILBOXES:-}` trong `*api-env`), `infra/server/env.production.example` (giá trị thật do OPS điền trên máy, không ghi vào repo nếu SEC coi là nhạy cảm), `product/.env.example` (giá trị mẫu `info@example.test,booking@example.test` theo SEC mục 5). K5b/gate 2.7 đếm "`info@` có trong danh sách hộp thư chung". README 13.8 ghi điều kiện treo của SEC (đổi From → thẻ SENT-02 lại bắt buộc). README hướng dẫn `production-bootstrap --owner-email` (V3-04).
-- **INT (P4-05):** đẩy `email-address.ts` để BE-A làm INT-BE-31-04 phần API.
 - **BA:** dòng sổ tay M18-08 theo SEC-on-plan-v1.0.4 mục 2.2.
 
 ## 6. Giả định
@@ -56,6 +56,6 @@
 - **G-BE-A-104-4:** Cửa sổ EM-09 đo bằng `changed_at` của `user_email_change` (dòng không bị xóa, job purge chỉ xóa `old_email`).
 
 ## 7. Rủi ro / chưa xong
-- Phần B (sau `main@L` + P4-00): rebase; meta 429 + `x-self-data` (SEC-ARC-018-03); INT-BE-31-04 khi INT đẩy hàm chung.
+- Phần B (sau `main@L` + P4-00): rebase; meta 429 + `x-self-data` (SEC-ARC-018-03).
 - `feature-app.ts` là helper test dùng chung: thay đổi chỉ thêm một tùy chọn, rebase dễ.
 - V3-04 chưa thử trên TTY thật.
