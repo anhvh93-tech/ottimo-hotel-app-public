@@ -6,17 +6,117 @@ Từ 01/11/2026 bản vá đi theo **đợt**: đợt nào xong trước thì l�
 
 - **v1.0.1** – tin Google Chat. Đã phát hành 03/11.
 - **v1.0.2** – trả phòng sớm, giá hẹn theo ngày. Đã phát hành 03/11.
-- **v1.0.3** – email nhận thông báo bảo mật. Chờ phát hành, hạn chậm nhất 09/11.
-- **v1.0.4** – giữ chỗ quá hạn, ngày kết thúc HĐ khi gia hạn, giá hẹn của căn mới, thông báo xử lý dữ liệu bản 2 và mở lại check-in online. Dự kiến 08/11, chậm nhất 10/11.
+- **v1.0.3** – email nhận thông báo bảo mật. Đã phát hành 04/11.
+- **v1.0.4** – giữ chỗ quá hạn, đăng nhập 2 bước trên app nhân viên, đặt lại xác thực 2 bước, ngày kết thúc HĐ khi gia hạn, giá hẹn của căn mới, thông báo xử lý dữ liệu bản 2. Dự kiến 08/11, chậm nhất 10/11.
 
 PO chốt phạm vi v1.0.3 ngày 03/11 (`rounds/round-04/plan-v1.0.3.md`): v1.0.3 chỉ sửa thư báo bảo mật để chắc kịp hạn 09/11. Các bảng "Chưa có" bên dưới đã ghi theo số mới (cập nhật 04/11).
 
 ---
 
+## v1.0.4 – Giữ chỗ quá hạn và đăng nhập 2 bước trên app nhân viên
+
+- Trạng thái: **ĐANG HOÀN TẤT – chưa cắt bản.** Ngày 04/11 đã gộp vào `main`: hợp đồng dữ liệu 0.3.12 (#35), nút **Hủy lịch** (#37) và 22 PR của v1.0.4 (#38–#59). Mỗi PR đã qua duyệt chéo và kiểm tự động. Lịch: cắt bản **06/11 18:00** → QA trên staging **07/11** → cổng QC rút gọn **08/11 sáng** → production dự kiến **08/11 chiều**, chậm nhất **10/11**. Anh/chị đã đồng ý trước việc gộp, staging và production (04/11). Đội báo lại anh/chị sau mỗi bước.
+- Ngày phát hành: (điền khi Release)
+- Áp dụng từ khi anh/chị báo "v1.0.4 đã lên". Tới lúc đó làm như v1.0.3.
+- Hướng dẫn: sổ tay bản nội dung 1.12; bộ hướng dẫn theo bộ phận bản 1.10 – `00` mục 2.1, 4; `01` mục 1.6a–1.9, 4, 9.2; `02` mục 1.7, 1.8, 7.2, 11.5, 14.2; `03` mục 1.5, 1.6; `04` mục 1.5; `05` mục 1.6. Phần giữ chỗ quá hạn (sổ tay 2.4) viết lại sau khi QA kiểm trên staging. Tới lúc đó làm theo bảng dưới.
+
+### Có trong bản này
+
+**Giữ chỗ và cọc**
+
+| Thay đổi | Anh/chị và nhân viên thấy gì | Nguồn |
+|---|---|---|
+| **Giữ chỗ có cọc mà quá hạn: không còn bị khóa** | Đơn đã nhận một phần cọc thì không tự hủy, căn vẫn giữ. Khung đơn ghi "Quá hạn giữ chỗ lúc … Đã nhận …/… nên đơn chưa hủy, căn vẫn giữ." Lễ tân trở lên thu nốt cọc và **Xác nhận đã nhận cọc** được tới khi nhận phòng. Ô mới **Giờ nhận tiền**: ghi lùi được, không ghi giờ sau bây giờ. Giữ chỗ **chưa** cọc vẫn chỉ xác nhận được khi tiền về trước hạn. Sale, CTV không ghi tiền vào giữ chỗ đã quá hạn: chuyển lễ tân | BUG-R3-042 (P1), SEC HOLDS-01 |
+| **Chấp nhận cọc thiếu** | Chủ đầu tư và quản lý tích **Chấp nhận cọc thiếu (phần còn lại thu khi nhận phòng)**, ghi lý do (ít nhất 3 ký tự). Đơn thành **Đã xác nhận**, phần còn lại thu lúc nhận phòng. Vai khác không thấy ô này | BUG-R3-043, BR-303 |
+| **Báo giữ chỗ quá hạn** | Hộp **Thông báo** có 3 loại tin mới, không ghi tên khách: "Giữ chỗ có cọc đã quá hạn – căn vẫn giữ" (người tạo, người chốt, lễ tân, lễ tân trưởng, quản lý); "Giữ chỗ chưa cọc đã hết hạn và tự hủy" (người tạo, người chốt; không có thì lễ tân); "Giữ chỗ còn chờ cọc sau mốc giờ ngày đến – quản lý quyết" (quản lý, chủ đầu tư). **Cần chú ý** liệt kê mọi giữ chỗ quá hạn tới khi đơn được xử lý. Trang **Hôm nay** có khối **Giữ chỗ chờ cọc (n)** | BUG-R3-041, DOM A.5 |
+| **Hủy giữ chỗ** | Hộp hủy giữ chỗ có cọc ghi trước "Không thu phí. Sẽ tạo yêu cầu hoàn … – cần quản lý duyệt." Hủy với lý do **Khác (ghi rõ)** làm được (trước đây nút hủy bị khóa). Giữ chỗ chưa cọc có yêu cầu giảm giá hoặc FOC đang chờ cũng tự hủy khi hết hạn, yêu cầu đó hủy theo. Đơn giữ chỗ không còn nút tạo link check-in | BUG-R3-044, 046, 047 |
+
+**Tài khoản và đăng nhập 2 bước**
+
+| Thay đổi | Anh/chị và nhân viên thấy gì | Nguồn |
+|---|---|---|
+| **Đặt lại xác thực 2 bước** cho người khác | Chủ đầu tư, **Người dùng & vai → Khác…**. Người mất cả điện thoại lẫn mã khôi phục **giữ tài khoản cũ**. Chủ đầu tư gặp tận mặt, ghi lý do, xác nhận bằng mật khẩu và mã. Desk đăng xuất người đó trên mọi máy, mã khôi phục cũ hết hiệu lực, mật khẩu giữ nguyên, thư "Security notice: 2-step verification was reset" tới người đó và mọi chủ đầu tư (thư này anh/chị biết trước, không cần làm gì). Quản lý và lễ tân trưởng bật lại 2 bước ngay buổi đó. Thay cách khóa tài khoản rồi tạo tài khoản mới (sổ tay 1.5, `01` 1.9) | BUG-R4-020, BUG-R4-032 |
+| **Menu Khác…** ở **Người dùng & vai** | Cột **Thao tác** còn **Sửa vai** và **Khác…** (tài khoản đã khóa có thêm **Mở khóa**). **Đặt lại mật khẩu**, **Khóa tài khoản** nằm trong **Khác…**. Cột Email không còn ngắt giữa địa chỉ. Hộp xác nhận chỉ có ô mật khẩu báo đúng khi sai mật khẩu | BUG-R4-020, 023, 024 |
+| **App nhân viên đăng nhập được bằng 2 bước** | Sau mật khẩu, app hỏi **mã 6 số** hoặc mã khôi phục. Mật khẩu tạm đổi ngay trên app. Bật 2 bước vẫn làm trên Desk; app chỉ đường sang Desk khi cần. Người trực (vai quản lý) vào được app. Lời dặn "không bật 2 bước ở v1.0.x" **hết hiệu lực** | ARC-RN103-02, BUG-R3-052 |
+| **Ai bật 2 bước** – mặc định đội chọn, anh/chị đổi được (báo đội) | Chủ đầu tư, quản lý: bắt buộc, Desk ép. Lễ tân trưởng: bắt buộc. Desk chưa ép (dự kiến v1.0.5), nên anh/chị nhìn tận mắt người đó đã bật rồi mới giao việc. Buồng phòng, bảo trì: tùy chọn. Sale nội bộ, CTV: không bắt buộc, nên bật. Người trực kiểm căn trên app, giữ mốc 11:00 và 14:00; tự kiểm rồi bấm **Làm xong** chỉ là cách dự phòng | DOM B.1, B.2; PO |
+| **Email nhận thông báo bảo mật** | Desk chặn thêm `booking@` (cùng `info@`), kể cả dạng `info+…@`. Gmail dùng cho OTA và hộp thư quầy vẫn phải tự tránh. Mỗi người đổi email tối đa 5 lần trong 24 giờ; xóa email lúc nào cũng làm được. Các thư bảo mật cùng một bố cục, có dòng thời điểm. Tiêu đề mới: "Security notice: 2-step verification was reset" và "Security notice: receiving account update" (cả thư hủy lịch đổi tài khoản nhận). Ai lọc thư theo tiêu đề cũ thì sửa bộ lọc | EM-09, M18-01, CPY |
+
+**Tiền, trả phòng, giá, tham số**
+
+| Thay đổi | Anh/chị và nhân viên thấy gì | Nguồn |
+|---|---|---|
+| **Yêu cầu hoàn thay thế giữ nơi nhận** | Desk gộp các yêu cầu hoàn còn mở thành một yêu cầu thay thế thì giữ nơi nhận, nếu các yêu cầu cũ chỉ có một nơi nhận do một người nhập. Vẫn kiểm **Cách hoàn** trước khi duyệt; người nhập nơi nhận không tự duyệt. Hai nơi nhận khác nhau hoặc hai người nhập: nhập lại | DOM-BA-025-02 |
+| **Chữ ở màn tiền** | **Nhật ký thao tác tiền**, **Cần duyệt**, **Hoàn tiền** ghi "Hoàn tiền khách trả thừa", "Hoàn khi trả sớm" thay cho mã `overpayment`. Hàng chờ duyệt hoàn ghi "Số có thể giảm khi duyệt…". Folio đơn đang ở chỉ còn một dòng **Còn phải thu**. Thông báo chi hoàn hết dấu trừ thừa. Folio đã khóa không hiện **Điều chỉnh**, **Thêm phát sinh**; câu báo nói rõ cả quản lý cũng không sửa được | BUG-R4-026, BUG-R2-103, 097, BUG-R3-045 |
+| **Trả sớm – đơn HĐ thuê tháng đã gia hạn** | Desk giữ ngày kết thúc HĐ khi gia hạn, nên hộp **Trả sớm** chọn đúng nhánh: khách rời trong phần gia hạn không bị coi là trả trước hạn HĐ. Nhánh "đã thu tiền thuê tới hết HĐ" ghi thêm phát sinh chưa thu (minibar, dọn lẻ). Bước **Xem trước** bỏ câu sai "Trả phòng sau đó không tạo thêm yêu cầu." Bảng kỳ thu vẫn giữ cột ngày kết thúc HĐ như cũ | FB-R4-DOM-FE-A-01, BUG-R4-025 |
+| **Giá hẹn của căn mới** | Desk không cho hủy dòng giá đầu tiên của căn mới (trước đây hủy được và căn không báo giá được tới ngày của dòng sau) | BUG-R4-015 |
+| **Hủy lịch tham số** | Hộp sửa tham số ở **Tham số quy tắc** có nút **Hủy lịch** cho dòng hẹn từ ngày mai trở đi. Dòng đã bắt đầu áp dụng hôm nay thì không hủy được: lưu giá trị mới. Tài khoản nhận chuyển khoản giữ cách hủy riêng | P4-34 |
+| **Vai chỉ Bảo trì trên Desk** | Tạo được **Phiếu sửa mới** và **Khóa phòng có kế hoạch**: ô **Căn** có danh sách căn | BUG-R3-053 |
+
+**Khách và giấy tờ**
+
+| Thay đổi | Anh/chị và nhân viên thấy gì | Nguồn |
+|---|---|---|
+| **Thông báo xử lý dữ liệu bản 2** | Trang khách có thông báo bản 2 bằng tiếng Việt, Anh, Nga. Tờ **Your ID details** bản v2 ở quầy (chân tờ "OTTIMO · ID notice · v2 · 11/2026"), tờ A4 EN/RU cho khách đọc tiếng Nga. Tham số `privacy_notice_version` chỉ nhận `privacy-2026-10-v2`; giá trị khác thì Desk báo "Giá trị này nằm ngoài khoảng cho phép…" và không lưu gì | V3-08, P4-16 |
+| **Check-in online: chưa mở lại ngay** | Sau khi lên, trang khách đưa khách tới quầy cho tới khi đổi xong sang bản 2 (mục **Việc anh/chị làm sau khi lên**, bước 2). Đội bảo mật kiểm xong, đội báo "mở lại" thì lễ tân mới gửi link | SEC 6.4, runbook N1–N5 |
+
+### Đang chờ gộp trước khi cắt bản (06/11 18:00)
+
+Có trong v1.0.4 nếu gộp kịp. Không kịp thì sang v1.0.5, PO sửa mục này lúc cắt bản.
+
+| Thay đổi | Anh/chị và nhân viên thấy gì | PR |
+|---|---|---|
+| Hộp **Giữ chỗ** sau khi tạo | Số cọc và nội dung chuyển khoản in một lần. Khách đến hôm nay: không hiện bộ chọn 12/24/48 giờ và mốc hạn đã qua | #60 (BUG-R2-216, 219) |
+| Trang **Trả phòng** | Bước **Bill** và màn **Kết quả** có dòng "Đang chờ hoàn cho khách … (yêu cầu từ Trả sớm)." Mở **Trả phòng** trước ngày đi thì Desk chỉ sang **Trả sớm** | #64 (P4-32, BUG-R3-024) |
+| Câu báo khi **Đặt lại xác thực 2 bước** đã có người làm trước | "Đã có người đổi xác thực 2 bước của {tên} trước bạn – hiện không còn bật, nên không cần đặt lại. Danh sách đã được tải lại." | #65 |
+| Sổ tay 1.12, bộ hướng dẫn 1.10 | Khối **Đặt lại xác thực 2 bước** | #63 (BUG-R4-032) |
+
+### Việc anh/chị làm sau khi lên
+
+1. Nhắn đội "v1.0.4 đã lên" sau khi đội báo xong lượt kiểm. Từ lúc đó nhân viên làm theo sổ tay 1.12 và bộ hướng dẫn 1.10.
+2. **Ngày thay tờ v2** (cùng người trực, khung 09:00–11:00, theo `00` mục 4): thay tờ **Your ID details** ở quầy, rồi trong 15 phút đặt `privacy_notice_version` = `privacy-2026-10-v2` ở **Tham số quy tắc → Khác**, kiểm **Lịch sử thay đổi**, nhắn "Đã đặt v2". Đội bảo mật kiểm, rồi đội báo "mở lại" check-in online.
+3. Người trực đăng nhập app nhân viên bằng mật khẩu và mã 6 số, kiểm căn trên app từ hôm đó.
+4. Khi có lễ tân trưởng mới: ngồi cùng người đó bật 2 bước trên Desk ngay buổi đầu, nhìn tận mắt đã bật rồi mới giao việc (`01` mục 1.9 bước 8).
+5. **Giữ** lượt rà 3 mốc giữ chỗ mỗi ngày (sổ tay 2.4) và lượt kiểm B1–B6 tới khi đội báo bỏ.
+
+### Thay đổi cấu trúc dữ liệu (đọc trước khi duyệt Release)
+
+- Bản này thêm 4 thay đổi, đều **chỉ đi tiến**: **0092** (ngôn ngữ và giá ước tính của website mới; khóa hiện giá mặc định tắt), **0093** (3 loại tin giữ chỗ quá hạn), **0094** (chặn xóa dòng giá đã hoặc đang áp dụng), **0095** (khóa chỉ-thêm của thông báo quyền riêng tư chặt hơn).
+- Desk lỗi nặng sau khi lên: đội lùi **phần mềm** về v1.0.3, dữ liệu giữ nguyên (diễn tập trên staging trước QC). Trong lúc lùi: giữ chỗ có cọc quá hạn lại bị khóa (làm theo sổ tay 2.4); app nhân viên mất bước nhập mã, người đã bật 2 bước chỉ vào được Desk; không có nút **Đặt lại xác thực 2 bước**; giới hạn đổi email tắt; trang khách vẫn đưa khách tới quầy.
+- Khôi phục dữ liệu từ bản sao lưu chỉ làm khi dữ liệu hỏng và anh/chị quyết. Đội sao lưu ngay trước khi lên.
+- Cách tính tiền phòng, cọc, folio không đổi so với v1.0.3, trừ các dòng giữ chỗ và yêu cầu hoàn ở bảng trên.
+
+### Giới hạn đã biết
+
+- **Dòng "Đang chờ hoàn" ở trang Trả phòng** (nếu #64 vào bản này): lễ tân và lễ tân trưởng chỉ thấy yêu cầu hoàn do chính mình tạo, nên số có thể thiếu hoặc không hiện. Khách có Trả sớm chưa được duyệt: xem **Nhật ký tiền → Hoàn tiền**, hoặc hỏi quản lý, trước khi báo khách số tiền hoàn. Đội đang chọn cách sửa.
+- **Lễ tân trưởng bắt buộc 2 bước** nhưng Desk chưa tự ép (dự kiến v1.0.5). Anh/chị kiểm lúc tạo tài khoản (Việc làm sau khi lên, bước 4).
+- **Desk chưa có màn xem nhật ký bảo mật** (ai đặt lại 2 bước, cho ai, lý do). Cần tra thì nhắn Điều phối viên tên đăng nhập, không kèm lý do.
+- **Check-in online** vẫn dừng với khách thật tới khi đội báo "mở lại" (bước 2 ở trên).
+- **Chữ đơn cách cho tiếng Nga** (BUG-R4-017, P3): ô mã và Wi-Fi hiện chữ Nga bằng font dự phòng. Sửa ở v1.0.5.
+- **Website mới (LP-v2):** mã máy chủ và Desk có trong bản này nhưng khách chưa thấy gì: website chưa hiện giá, chỉ tiếng Anh và tiếng Việt, trang landing giữ bản đang chạy. Khách thấy khi đội đưa landing mới lên và anh/chị bật hiện giá.
+
+### Chưa có trong bản này
+
+| Tính năng | Dự kiến |
+|---|---|
+| Desk tự ép lễ tân trưởng bật 2 bước | **v1.0.5** |
+| Màn xem nhật ký bảo mật trên Desk | Chưa xếp |
+| Hoa hồng nhập theo bảng nội bộ trên Desk, không có số mặc định trong mã | Hotfix H2, hạn 01/12 |
+| Các việc khác trong bảng "Chưa có" của v1.0.3, v1.0.2 và v1.0.0 | Theo đích ghi ở bảng đó |
+
+### Ghi chú kỹ thuật (không đổi giao diện)
+
+- Lên bản theo thứ tự mới: chạy cập nhật dữ liệu → worker → api và web; lùi bản theo thứ tự ngược. Lượt kiểm hằng ngày kiểm thêm khóa chỉ-thêm của thông báo quyền riêng tư và dùng tài khoản chỉ đọc.
+- Bộ dò số thẻ và số giấy tờ dùng chung một bản ở mọi nơi. Nhật ký máy chủ không ghi lỗi kèm chữ khách viết.
+- Kiểm tự động chặn tệp bảng giá nội bộ khỏi repo. Mẫu mô tả PR nhắc không ghi tỷ lệ hay tiền hoa hồng.
+- Sổ tay HTML nhúng sẵn font OTTIMO, mở khi mất mạng vẫn đúng chữ.
+- Hợp đồng dữ liệu OpenAPI 0.3.12.
+
+---
+
 ## v1.0.3 – Email nhận thông báo bảo mật
 
-- Trạng thái: **CHỜ PHÁT HÀNH.** Cổng QC rút gọn: **ĐẠT CÓ ĐIỀU KIỆN** (`rounds/round-04/qc/v1.0.3-gate.md`); quyết định có hiệu lực khi đội làm xong các điều kiện trước Release. Bản lên production là đúng bản đã chạy thử trên staging (commit `da6d6f3d`). Anh/chị duyệt Release như v1.0.1 và v1.0.2.
-- Ngày phát hành: (điền khi Release)
+- Trạng thái: **ĐÃ PHÁT HÀNH – tag `v1.0.3` trên commit `da6d6f3d`**, production chạy từ **04/11/2026 07:12**. Cổng QC rút gọn: **ĐẠT CÓ ĐIỀU KIỆN** (`rounds/round-04/qc/v1.0.3-gate.md`). Anh/chị duyệt "Phát hành ngay" (04/11), chấp nhận phát hành trước lượt kiểm trả sớm giờ thật sáng 05/11 trên staging; lượt đó ra lỗi tiền thì đội làm bản vá v1.0.3.x. Đội sao lưu ngay trước khi lên; lượt kiểm sau khi lên chạy đủ K1–K9.
+- Ngày phát hành: 04/11/2026
 - Bản này sửa **BUG-R3-032** (P1): thư "Security notice" chưa tới ai. Hạn sửa chậm nhất **09/11** (ESC-040).
 - Áp dụng từ khi anh/chị báo "v1.0.3 đã lên". Hướng dẫn: bộ hướng dẫn theo bộ phận bản 1.7 (áp dụng khi v1.0.3 lên) – chủ đầu tư và quản lý `01` mục 1.6a, 1.7, 1.9, 2.2, 10.1, 10.2, 15.1; lễ tân `02` mục 1.3, 1.5, 1.6, 1.8; buồng phòng `03` mục 1.6; bảo trì `04` mục 1.5; sale, CTV `05` mục 1.5. Sổ tay gốc bản nội dung 1.9 – mục 0.2, 0.3a (email của mình), 0.4, 0.5, 1.1, 1.5 (chủ đầu tư sửa email cho nhân viên), 1.7, 1.16 (thứ tự ngày lên bản), 3.1, 3.6, 4.1, 5.0.
 
