@@ -16,6 +16,8 @@
  *   3. Unicode dashes (en dash, U+2010, U+2011, U+2212…) read as `-`, middle dots as `·`, typographic apostrophes as
  *      `'`, `。` `、` as `.` `,`; `(+84)` and `+84 (0)` read as `+84`; `№` / `номер` between digits read as a space;
  *   4. dates and times (`23.10.2026`, `12/11`, `22:30`, `22h30`) blanked, so dates side by side never read as a number.
+ *      Never inside four or more two-digit groups joined by one same mark: a number read out in pairs
+ *      (`41-11-11-11-11-11-11-11`, `07.92.03.01.23.45` – ARC FB-R4-ARC-BE-PR24PM-02).
  *
  * Digit groups are then joined into RUNS. A join is one of ` ` `.` `-` (BUG-R3-009 "tight" grouping), one of
  * `_` `/` `,` `'` `·`, any run of spaces / line breaks, a dash with spaces around it (`079 - 203`), or a run of two or
@@ -66,6 +68,11 @@ const PHONE_TRUNK_ZERO = /(\+\s?\d{1,4})\s*\(\s*0\s*\)/g;
  */
 const NUMBER_SIGN = /(?<=\d)\s*(?:No\.?|N[o°º]|номер|nr\.?)\s*:?\s*(?=\d)/giu;
 const DATE = /(?<!\d)\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?(?!\d)/g;
+/**
+ * Four or more groups of exactly two digits joined by the SAME `.` `-` `/` (`41-11-11-11-11-11-11-11`,
+ * `07.92.03.01.23.45`): a number read out in pairs, never a date (ARC FB-R4-ARC-BE-PR24PM-02).
+ */
+const PAIR_CHAIN = /(?<!\d)\d{2}([./-])\d{2}(?:\1\d{2}){2,}(?!\d)/g;
 const TIME = /(?<!\d)\d{1,2}[:h]\d{2}(?!\d)/g;
 /** What a blanked date or time becomes: `|` is not a join, so it ends a run. */
 const BREAK = ' | ';
@@ -115,18 +122,30 @@ function digitsCopy(text: string, decode = true): string {
     .replace(IGNORABLE, '')
     .replace(CONTROL, '')
     .normalize('NFKC');
-  return asciiDigits(k)
-    .replace(BRAILLE_BLANK, ' ')
-    .replace(DASH, '-')
-    .replace(MIDDLE_DOT, '·')
-    .replace(APOSTROPHE, "'")
-    .replace(/。/g, '.')
-    .replace(/、/g, ',')
-    .replace(PHONE_CC_IN_PARENS, '+$1')
-    .replace(PHONE_TRUNK_ZERO, '$1')
-    .replace(NUMBER_SIGN, ' ')
-    .replace(DATE, BREAK)
-    .replace(TIME, BREAK);
+  return blankDates(
+    asciiDigits(k)
+      .replace(BRAILLE_BLANK, ' ')
+      .replace(DASH, '-')
+      .replace(MIDDLE_DOT, '·')
+      .replace(APOSTROPHE, "'")
+      .replace(/。/g, '.')
+      .replace(/、/g, ',')
+      .replace(PHONE_CC_IN_PARENS, '+$1')
+      .replace(PHONE_TRUNK_ZERO, '$1')
+      .replace(NUMBER_SIGN, ' '),
+  ).replace(TIME, BREAK);
+}
+
+/**
+ * Step 4 for dates: every date cluster is blanked, except inside a pair chain (ARC FB-R4-ARC-BE-PR24PM-02), whose
+ * digits go to the rules. ARC also proposed "only a real day and month"; not applied: `8 912 345-67-89` (Russian phone)
+ * would then read `8 912 345 67 89` as a 9-digit ID (a "must stay" case), and the pair chain alone closes both holes.
+ */
+function blankDates(t: string): string {
+  const chains = [...t.matchAll(PAIR_CHAIN)].map((m) => [m.index, m.index + m[0].length] as const);
+  return t.replace(DATE, (m: string, at: number) =>
+    chains.some(([s, e]) => at < e && at + m.length > s) ? m : BREAK,
+  );
 }
 
 // ───────────────────────── runs of digit groups ─────────────────────────
