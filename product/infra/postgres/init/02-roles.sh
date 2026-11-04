@@ -28,9 +28,12 @@
 # Idempotent: re-running it on an existing volume converts the old 3-role setup (ottimo_owner LOGIN)
 # to this model – see docs/dev-setup.md "Lỗi thường gặp".
 # Re-applied on EVERY start, not only on a new volume (SEC s3-checklist H3): dev compose runs it in the
-# one-shot `db-roles` service before `migrate`; staging/production run it in infra/staging/bin/deploy.sh
-# (`docker compose exec postgres …`) before `migrate`. So a role change (e.g. the ottimo_app limits below)
-# reaches a database that already exists.
+# one-shot `db-roles` service before `migrate`; staging/production run it in infra/server/bin/deploy.sh (step `roles`)
+# before `migrate`. From v1.0.4 (OPS P4-04 r1.1) deploy.sh feeds THIS file of the host bundle on stdin
+# (`dc exec -T postgres bash -s < …/02-roles.sh`): the single-file bind mount of the running container keeps the old
+# inode after an rsync, so the mounted copy is for a new volume only. So a role change (e.g. the ottimo_app limits
+# below) reaches a database that already exists. Never print a password here: deploy.sh filters stderr, but stdout
+# and messages of this script must stay free of secrets too.
 # Passwords may come from files (Docker secrets, staging/production): OTTIMO_MIGRATOR_DB_PASSWORD_FILE,
 # OTTIMO_APP_DB_PASSWORD_FILE – same convention as the postgres image's POSTGRES_PASSWORD_FILE.
 set -Eeuo pipefail

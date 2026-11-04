@@ -157,8 +157,29 @@ log "api/worker configuration accepted by image $tag"
 # ---- 2. database + roles (H3) ----
 step roles
 dc up --detach --wait --wait-timeout 180 postgres
-dc exec -T postgres bash /docker-entrypoint-initdb.d/02-roles.sh >/dev/null
-log "02-roles.sh applied (ottimo_app limits verified by the script)"
+# v1.0.4 (OPS P4-04 r1.1): the script is read from THIS host's bundle and fed to bash in the container on stdin.
+# The compose file bind-mounts the single file into /docker-entrypoint-initdb.d (used on a NEW volume only); rsync of
+# a new infra bundle replaces the host file with a new inode, so a postgres container that is not recreated keeps
+# seeing the OLD copy – and `bash /docker-entrypoint-initdb.d/02-roles.sh` would silently re-apply old roles.
+# stderr is never passed through: a failing psql statement can be echoed with its context ("LINE n: ALTER ROLE …
+# PASSWORD '<value>'"), and this log goes to the CI job. Only the script's own "02-roles.sh: …" lines and the first
+# psql ERROR line are shown, with every quoted part replaced and any line naming a password dropped; the rest is
+# counted. stderr is held in a shell variable only (no temporary file on disk). The full error is read on the server
+# only, by re-running step 5 of the runbook by hand.
+roles_file="$here/../../postgres/init/02-roles.sh"
+[ -r "$roles_file" ] || { log "FAIL: $roles_file missing in this infra bundle"; exit 1; }
+roles_rc=0
+roles_err=$({ dc exec -T postgres bash -s <"$roles_file" >/dev/null; } 2>&1) || roles_rc=$?
+if [ "$roles_rc" -ne 0 ]; then
+  shown=$({ grep -E '^02-roles\.sh: ' <<<"$roles_err" || true; grep -m 1 -E '(^|: )(ERROR|FATAL): ' <<<"$roles_err" || true; } \
+    | sed -E "s/'[^']*'/'…'/g; s/\"[^\"]*\"/\"…\"/g" | { grep -viE 'passw|secret' || true; } | head -n 3 | tr '\n' ' ')
+  n=$(grep -c '' <<<"$roles_err" || true)
+  roles_err=""
+  log "FAIL: 02-roles.sh failed (exit $roles_rc): ${shown:-no printable error line} ($n stderr line(s), not shown: psql may echo a role secret)"
+  exit 1
+fi
+roles_err=""
+log "02-roles.sh applied from the infra bundle (ottimo_app limits verified by the script)"
 
 psql_admin() { # read-only SQL from stdin, as the superuser over the container's local socket
   dc exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA'

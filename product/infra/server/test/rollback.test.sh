@@ -33,6 +33,12 @@
 #   (n) normal deploy fails and the previous api/web do not come back either → the previous (older) worker is NOT
 #       started while the newer api may still answer;
 #   (o) every `dc up` of the switch names one group only (no `api worker web` line left in deploy.sh).
+# Roles step (OPS P4-04 r1.1 – the postgres container keeps the OLD bind-mounted copy after an infra rsync):
+#   (p) 02-roles.sh is read from THIS bundle (infra/postgres/init/02-roles.sh) and fed to `dc exec -T postgres bash -s`
+#       on stdin – the container path /docker-entrypoint-initdb.d is not used;
+#   (q) psql fails inside 02-roles.sh and echoes "ALTER ROLE … PASSWORD '<value>'" on stderr → FAIL at step roles,
+#       nothing switched, and neither the value nor the word PASSWORD reaches the deploy output; the bundle without
+#       the file → FAIL before any exec.
 # CI=true: a SKIP (no jq, no INV sheet) is a failure (SEC PR26-04).
 set -Eeuo pipefail
 
@@ -64,8 +70,10 @@ W_NEW=sha256:4444444444444444444444444444444444444444444444444444444444444444
 home="$work/ottimo-prod"
 stubs="$work/stubs"
 calls="$work/calls.log"
-mkdir -p "$home/infra/server/bin" "$home/infra/caddy" "$stubs"
+mkdir -p "$home/infra/server/bin" "$home/infra/caddy" "$home/infra/postgres/init" "$stubs"
 cp "$bin/rollback.sh" "$bin/deploy.sh" "$home/infra/server/bin/"
+# The bundle's roles script: a marker line only (the stub dc records what arrives on stdin).
+printf '#!/usr/bin/env bash\necho "02-roles.sh: bundle copy r1.1-marker"\n' > "$home/infra/postgres/init/02-roles.sh"
 echo production > "$home/.ottimo-home"
 printf 'ottimo_check_security_headers() { :; }\n' > "$home/infra/caddy/expected-headers.sh"
 cat > "$home/.env" <<'ENV'
@@ -110,6 +118,15 @@ fi
 case "$a" in
   *" ps --all --quiet worker "*) echo "cid-worker-$(cat "$STUB_STATE/worker_n" 2>/dev/null || echo 0)" ;;
   *" config --format json "*) echo '{"secrets":{"booking_request_chat_webhook":{"file":"/dev/null"}}}' ;;
+  *" exec -T postgres bash -s "*)
+    cat > "$STUB_STATE/roles.stdin"
+    if [ "${STUB_ROLES_FAIL:-0}" = 1 ]; then
+      printf '%s\n' "psql:<stdin>:12: ERROR:  role \"ottimo_app\" is being used by 'x'" \
+        "LINE 1: ALTER ROLE ottimo_app LOGIN NOINHERIT PASSWORD 'stub-not-a-real-value'" "        ^" >&2
+      exit 3
+    fi
+    echo "02-roles.sh: roles … ready" ;;
+  *" exec -T postgres bash "*) echo "$*" > "$STUB_STATE/roles.oldpath"; echo "02-roles.sh: OLD mounted copy" ;;
   *" --entrypoint node migrate "*) printf '%s' "${STUB_JOURNAL:-39}" ;;
   *" exec -T postgres sh -c "*)
     sql=$(cat)
@@ -376,6 +393,30 @@ else ko "(n) rc=$rc: $out"; fi
 if ! grep -qE 'dc up[^#]*api worker|dc up[^#]*worker web' "$home/infra/server/bin/deploy.sh"; then
   ok "(o) deploy.sh has no 'dc up … api worker …' (one group per up)"
 else ko "(o) deploy.sh still switches api and worker in one 'dc up'"; fi
+
+# ---------- (p) roles: the bundle's 02-roles.sh on stdin, not the container's mounted copy ----------
+reset_deploy_state
+deploy_new
+if [ "$rc" -eq 0 ] && grep -qx 'echo "02-roles.sh: bundle copy r1.1-marker"' "$work/stubstate/roles.stdin" 2>/dev/null \
+  && [ ! -e "$work/stubstate/roles.oldpath" ] && ! grep -q 'docker-entrypoint-initdb' "$calls" \
+  && grep -q '02-roles.sh applied from the infra bundle' <<<"$out" && [ "$(grep -c '^\[deploy ' <<<"$out")" = 6 ]; then
+  ok "(p) step roles feeds infra/postgres/init/02-roles.sh of this bundle on stdin (no /docker-entrypoint-initdb.d)"
+else ko "(p) rc=$rc: $out"; fi
+
+# ---------- (q) roles fails: no password, no PASSWORD line in the deploy output ----------
+reset_deploy_state
+STUB_ROLES_FAIL=1 deploy_new
+if [ "$rc" -ne 0 ] && grep -q 'FAIL: 02-roles.sh failed (exit 3): .*ERROR:' <<<"$out" && grep -q '3 stderr line(s), not shown' <<<"$out" \
+  && ! grep -qi 'stub-not-a-real-value\|password' <<<"$out" && [ "$(cat "$work/step")" = roles ] && ! switched; then
+  ok "(q) psql error in 02-roles.sh → FAIL at step roles, error line shown with quotes replaced, no PASSWORD/value in the log"
+else ko "(q) rc=$rc step=$(cat "$work/step" 2>/dev/null): $out"; fi
+mv "$home/infra/postgres/init/02-roles.sh" "$work/roles.bak"
+reset_deploy_state
+deploy_new
+mv "$work/roles.bak" "$home/infra/postgres/init/02-roles.sh"
+if [ "$rc" -ne 0 ] && grep -q 'FAIL: .*02-roles.sh missing in this infra bundle' <<<"$out" && ! grep -q 'exec -T postgres' "$calls"; then
+  ok "(q) bundle without 02-roles.sh → FAIL before any exec"
+else ko "(q) missing file rc=$rc: $out"; fi
 
 # ---------- (i) the INV sheet's R4 command itself (SEC FB-R4-SEC-OPS-PR26-01) ----------
 # The remote part of R4 is read from the sheet (so the test follows the document), the server path replaced by this
