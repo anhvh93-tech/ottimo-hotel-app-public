@@ -106,7 +106,7 @@ Làn nào xong sớm thì ORC lấy thêm từ danh sách này theo đúng bản
 | **0093** | P4-10 (BE-B) | CHECK `staff_notification.kind` + `hold_overdue_with_deposit`, `hold_overdue_cap` | Chỉ nới, không đổi dữ liệu |
 | **0094** | P4-11 (BE-C) | trigger `BEFORE DELETE ON room_list_price` (ED-02) | Chỉ khi SEC nói "cần". Không cần thì bỏ, số sau dồn xuống |
 | **0095** | P4-13 (BE-D) | thân hàm `privacy_notice_version_append_only()` (PN-01 Minor) | Không đổi 0090 |
-| ~~0096~~ | ~~P4-15 (BE-C)~~ | **Đã bỏ (ORC 04/11).** Không xóa `default_value` và không xóa/kết thúc dòng `config_parameter` hoa hồng: v1.0.3 trả 500 khi quay lui. "Chưa có tỷ lệ" lưu `{}`. Số 0096 trả lại cho GRANT P4-04 nếu cần | – |
+| ~~0096~~ | ~~P4-15 (BE-C)~~ | **Đã bỏ (ORC 04/11).** Không xóa `default_value` và không xóa/kết thúc dòng `config_parameter` hoa hồng: v1.0.3 trả 500 khi quay lui. "Chưa có tỷ lệ" lưu `{}`. Số 0096 **bỏ hẳn, không dùng lại**; GRANT của P4-04 (nếu cần) dùng **0097** (ARC P404-02, ORC ghi 04/11) | – |
 | 0097 | P4-04 (OPS + BE-D) | GRANT cho vai chỉ đọc/vai requeue của lệnh vận hành | Chỉ khi OPS cần GRANT trên DB đang chạy. Vai mới cho máy mới vẫn ở `infra/postgres/init/02-roles.sh` |
 
 Luật:

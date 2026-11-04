@@ -10,10 +10,13 @@ Làm theo thứ tự:
   2. build_guides.py --check-dir <tạm>  -> product/docs/manual/guides/html/*.html (+ đo tràn 390/1440 từng tệp)
   3. check_manual.py --out-dir <tạm>    -> đo tràn sổ tay 390/1440
   4. Soát: ảnh nhúng chỉ lấy từ product/docs/manual/img/ (khớp từng byte), các mã ảnh --codes có ảnh thật,
-     cụm --phrase có trong sổ tay và tệp 01, không còn link "mục 0.3" + chữ cái lẻ ngoài link.
+     cụm --phrase có trong sổ tay và tệp 01, không còn link "mục 0.3" + chữ cái lẻ ngoài link;
+     mọi tệp nhúng font (@font-face base64), không trỏ Google Fonts (v1.0.4 P4-21).
   5. Chụp ảnh kiểm: <out-dir>/<tag>-check-1440.png (sổ tay, tại ảnh --shot-1440)
                     <out-dir>/<tag>-check-390.png  (sổ tay, tại ảnh --shot-390)
      Ảnh phụ (--extra-dir) cho từng mã trong --codes, ở tệp có mã đó.
+     Chrome chạy ở chế độ MẤT MẠNG (Network.emulateNetworkConditions offline): mỗi lần chụp kiểm thêm
+     Lora 500/400 nghiêng, Be Vietnam Pro 400/600, JetBrains Mono 400 đã nạp từ font nhúng.
 Thoát mã 1 nếu có bước nào lỗi hoặc tràn ngang. Không sửa Markdown, không sửa ảnh. Chỉ thư viện chuẩn + Chrome.
 """
 import argparse
@@ -64,6 +67,8 @@ def audit(codes, phrase):
         if unknown or ext:
             bad.append("%s: %d ảnh không có trong img/, %d ảnh ngoài" % (f.name, unknown, len(ext)))
         lite = re.sub(r"data:[^\"')]+", "", t)
+        if "fonts.googleapis.com" in lite or not re.search(r"@font-face\{[^}]*data:font/woff2;base64,", t):
+            bad.append("%s: font chưa nhúng (đang trỏ Google Fonts – cần `pnpm install` cho @fontsource)" % f.name)
         for c in codes:
             if re.search(r'<figure class="shot [a-z]+ has-img"><button[^>]*ảnh %s"' % re.escape(c), lite):
                 found[c].append(f.name)
@@ -79,6 +84,14 @@ def audit(codes, phrase):
         if phrase not in f.read_text(encoding="utf-8"):
             bad.append("%s thiếu '%s'" % (f.name, phrase))
     return bad, found
+
+
+# Mặt chữ phải nạp được khi mất mạng: [CSS font, chữ mẫu có dấu]. Kết quả 0 = rơi về font hệ thống.
+FONT_PROBES = [["500 32px Lora", "Sổ tay Desk"], ["italic 400 20px Lora", "Desk đúng hơn"],
+               ["400 16px 'Be Vietnam Pro'", "Đặt lại xác thực"], ["600 16px 'Be Vietnam Pro'", "Ưu tiên"],
+               ["400 14px 'JetBrains Mono'", "0.3a"]]
+FONT_JS = ("Promise.all(%s.map(function(x){return document.fonts.load(x[0],x[1]).then("
+           "function(l){return [x[0],l.length]},function(){return [x[0],0]})}))" % json.dumps(FONT_PROBES))
 
 
 def shoot(jobs):
@@ -101,6 +114,9 @@ def shoot(jobs):
         ws = cm.WS(json.loads(urllib.request.urlopen(req, timeout=10).read())["webSocketDebuggerUrl"])
         ws.call("Page.enable")
         ws.call("Runtime.enable")
+        ws.call("Network.enable")
+        ws.call("Network.emulateNetworkConditions", offline=True, latency=0,
+                downloadThroughput=-1, uploadThroughput=-1)
         for f, w, code, off, out in jobs:
             mob = w < 768
             cm.load(ws, f.resolve().as_uri(), w, 844 if mob else 900, mob, 2 if mob else 1)
@@ -114,6 +130,12 @@ def shoot(jobs):
             print("  %s %d px tại %s: scrollWidth %s / %s – %s" % (f.name, w, code, ov["scroll"], ov["client"], st))
             if st != "OK" or not ok:
                 bad.append("%s %d px %s: %s" % (f.name, w, code, st if ok else "không thấy ảnh"))
+            fonts = cm.js(ws, FONT_JS, await_promise=True) or []
+            miss = [n for n, k in fonts if not k]
+            print("  %s %d px mất mạng – font nhúng: %s" % (
+                f.name, w, "OK (%d mặt)" % len(fonts) if fonts and not miss else "THIẾU " + ", ".join(miss)))
+            if not fonts or miss:
+                bad.append("%s %d px mất mạng: thiếu font %s" % (f.name, w, ", ".join(miss) or "?"))
     finally:
         p.terminate()
         shutil.rmtree(prof, ignore_errors=True)

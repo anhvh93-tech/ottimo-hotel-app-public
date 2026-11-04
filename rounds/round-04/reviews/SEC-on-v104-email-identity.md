@@ -235,3 +235,45 @@ ORC hỏi thêm sau mục 0–5. INT đang áp chữ này. SEC xét **nghĩa**, 
   3. Ngày trong thư hủy là `effectiveFrom` của **chính lịch bị hủy**. Mã hiện tại đã đúng (lấy `input.effectiveFrom`, cùng giá trị dùng để hủy). Test giữ điều này.
 - Quay lui: worker v1.0.3 bỏ qua tham số lạ (`change`), nên vẫn ra câu cũ. Quay lui là trạng thái tạm, SEC chấp nhận. Không ảnh hưởng thứ tự deploy worker → api (OPS-ARC-31-01).
 - BE không kịp v1.0.4 thì INT vẫn ra mẫu mới, và thư luôn dùng câu trung tính có ngày. Như vậy **đạt** về nghĩa (đúng như CPY thẻ 01 nói), chỉ kém cụ thể.
+
+---
+
+## 7. Xác nhận sau merge main (04/11)
+
+- Đối tượng: `origin/v104/be-identity` @ **`003d1bc3`** (PR #43, PR-D). Đây là commit merge, cha 1 `f493c8b1` (nhánh), cha 2 `7b5b6117` (`main`). Phần nhánh từ `7d2b14ba` (head SEC đã review ở mục 0–6) tới `f493c8b1` gồm `3436bd3a` (BE-A: V104-01/02/03/06/08), `5df13359` (INT: chữ CPY 104-01…04) và merge `15b8a12f`. SEC review cả phần này trong lượt này.
+- Cách kiểm: `git diff`, `git show --remerge-diff`, đọc mã. Không tự chạy test. CI của PR #43 lúc kiểm: gitleaks, OpenAPI lint, API contract, "no test endpoints" **pass**; `test · build`, shellcheck, landing **đang chạy**.
+
+### 7.1 Kết luận
+
+**ĐỒNG Ý gộp PR-D ở `003d1bc3` khi CI trọn xanh.** Không có thẻ Blocker hay Major còn mở cho gói này.
+
+| # | Câu hỏi ORC | Kết quả |
+|---|---|---|
+| 1 | `git diff origin/main -- serializer.ts field-policy.ts test/serializer.test.ts` rỗng | **Rỗng.** **FB-R4-SEC-BE-C0312-01: Verified.** Cả 3 tệp là bản của `main` (P4-00): nhánh `sd` fail-closed, D-code không còn ngoại lệ self-data, test ghim `PINNED_SELF_DATA_FIELDS` + test "bằng `OPENAPI_SCHEMAS.selfData`" còn nguyên |
+| 2 | Commit merge chỉ giải xung đột | **Đúng.** `git show --remerge-diff 003d1bc3` chỉ có 3 tệp trên, đều là xung đột lấy nguyên bản `main` (76 dòng của nhánh bị bỏ, 0 dòng mới tự viết). Mọi tệp trong `git diff f493c8b1 003d1bc3` đều nằm trong `git diff c6cd32a8 7b5b6117` (phần `main` đổi). Không có thay đổi nào ngoài phần giải xung đột |
+| 3 | Điều kiện cũ đã đóng chưa | Bảng 7.2 |
+
+### 7.2 Trạng thái các điều kiện và thẻ SEC của gói
+
+| Thẻ | Trước | Nay | Ghi chú |
+|---|---|---|---|
+| **C0312-01** (Major, điều kiện gộp) | Open | **Verified** | Mục 7.1 ý 1 |
+| CI trọn xanh (điều kiện gộp) | Open | **Chờ** | Lượt CI của `003d1bc3` đang chạy. Đây là điều kiện còn lại duy nhất trước khi gộp |
+| **V104-02** (trước gộp, để Verified EM-09) | Open | **Verified**, nên **EM-09: Verified** | Test tích hợp: 2 `setMyEmail` song song ở lần đếm 4 → đúng một 200, một 429, đúng 5 dòng, chạy 2 người. BE-A báo thử đột biến (bỏ kiểm lại trong giao dịch) làm test đỏ |
+| **V104-01** (Minor) | Open | **Verified** | `email = null` không bị 429 ở cả lần kiểm trước S2 và trong `recordChange`; lần xóa vẫn ghi và vẫn được đếm. Có test ở mức 5: xóa → 200, đặt lại → 429 |
+| **V104-03** (Minor) | Open | **Verified** | Mọi `--owner-email=…` và `--owner-email <giá trị>` → `BootstrapRefusedError` (exit 2), kiểm **đầu tiên** trong `main()`, trước khi đọc env/DB. Thông báo không nhắc giá trị |
+| **V104-06** (Info) | Open | **Verified** | `ownerEmailSet` là boolean, có trong allowlist audit `dataset`. Không địa chỉ, không bản che |
+| **V104-08** (Minor) | Open | **Một phần** | Phần dispatcher đạt: chỉ `payload.action` ∈ {`set`, `cancel`} thành `change`, còn lại ra câu trung tính; có test 5 giá trị. Phần `platform.controller.ts` **chưa làm**: payload outbox chưa có `action` (chỉ nằm trong khóa chống trùng), nên mọi thư `receiving_account_changed` hiện ra **câu trung tính có ngày**. Câu này đúng nghĩa ở mọi nhánh (mục 6), nên **không chặn** gộp hay QC. Còn mở: controller ghi `action` + test đầu–cuối (mục 6 ý 1–2). `main@L` đã vào, nên BE làm được ngay ở PR sau hoặc v1.0.5 |
+| **V104-04** (trước deploy) | Open | **Chờ P4-04** | Runbook r0 đã có P2c, P2d, K4b, K5b (SEC-on-v104-ops-check). Phần compose/env mẫu và README 13.8 làm ở mã P4-04. Không chặn gộp PR-D |
+| **V104-05** (Minor) | Open | **Verified** (phần OPS) | SEC-on-v104-ops-scripts. Phần ORC đã có dòng decision-log 04/11 |
+| V104-07 (Info) | Open | Để PR24PM-04 | Không đổi |
+| **C0312-02** (Minor) | Open | **Còn mở**, không lộ | Các tệp serializer phải giống `main` (C0312-01), nên thẻ này không làm trong PR-D. Kiểm trên `003d1bc3`: không có lời gọi `serializeSchema`/`serializeShape` nào ngoài `serializer.ts`, nên chưa có đường lộ. Làm ở PR riêng hoặc v1.0.5, trước khi có chỗ gọi đầu tiên (SSE/outbox) |
+
+### 7.3 Phần mã mới từ `7d2b14ba` tới `f493c8b1`
+- Không có địa chỉ thật. Test chỉ dùng `…@example.test`. Không bí mật, không IP.
+- Chữ mẫu thư (INT `5df13359`): tiêu đề `receiving_account_changed` trung tính, chân thư "any code", đổi thuật ngữ "chủ đầu tư" / "xác thực 2 bước". Khớp bản SEC đã duyệt về nghĩa ở mục 6. Ngày vẫn được thoát HTML như mọi tham số. `change` không được in ra, chỉ dùng để chọn câu.
+- Thứ tự kiểm EM-09 giữ nguyên (RBAC → 422 → 429 → S2). Ngoại lệ xóa không mở đường vòng: xóa không gửi thư tới địa chỉ mới, và vẫn được đếm cho lần đặt sau.
+
+### 7.4 Dòng decision-log đề xuất (ORC ghi khi gộp, SEC không sửa decision-log)
+
+`| 2026-11-04 | 4 | **SEC – xác nhận PR-D (#43) sau merge main: ĐỒNG Ý gộp be-identity @ 003d1bc3 khi CI trọn xanh** (rounds/round-04/reviews/SEC-on-v104-email-identity.md mục 7): diff 3 tệp serializer với main rỗng → C0312-01 Verified; remerge-diff chỉ có giải xung đột lấy bản main; V104-02 Verified (EM-09 Verified), V104-01/03/06 Verified; V104-08 một phần (dispatcher xong, controller chưa ghi action → thư luôn câu trung tính, đúng nghĩa, không chặn); V104-04 chờ mã P4-04 trước deploy; C0312-02 còn mở, chưa có chỗ gọi nên không lộ | SEC | Quyền SEC |`
