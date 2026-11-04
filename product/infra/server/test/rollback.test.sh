@@ -19,6 +19,15 @@
 #   (i) the INV sheet's R4 command (read from the sheet): success → 6 [deploy] lines + "MA THOAT: 0"; another deploy
 #       running → that line + "MA THOAT: 3"; registry error (set -e stop, no FAIL line) → error + "MA THOAT: 1";
 #       "v1.0.0" typed → guard FAIL + "MA THOAT: 1" (SEC FB-R4-SEC-OPS-PR26-01).
+# Switch order (FB-R4-OPS-ARC-31-01, ARC FB-R4-ARC-BE-31-02 – a newer api's outbox jobs must never meet an older worker):
+#   (j) rollback: `up … api web` on the old tag, THEN `up … worker` – one group per `dc up`, never api + worker together;
+#   (k) normal deploy: `up … worker` on the new tag, THEN `up … api web`; `--remove-orphans` on the first `up` only;
+#   (l) normal deploy, the new worker dies right after start → FAIL before api/web change; the previous tag comes
+#       back in the rollback order (api + web, then worker), step file = switch-worker;
+#   (m) normal deploy, the new api/web never become healthy → previous api + web back first, then previous worker;
+#   (n) normal deploy fails and the previous api/web do not come back either → the previous (older) worker is NOT
+#       started while the newer api may still answer;
+#   (o) every `dc up` of the switch names one group only (no `api worker web` line left in deploy.sh).
 # CI=true: a SKIP (no jq, no INV sheet) is a failure (SEC PR26-04).
 set -Eeuo pipefail
 
@@ -73,7 +82,8 @@ ENV
 # ---- stubs ----
 # bin/dc: every call is logged with the IMAGE_TAG it would use. STUB_APPLIED / STUB_JOURNAL = migration counts,
 # STUB_WORKER_DOWN=1 = the worker is not running after the switch; STUB_PULL_FAIL=1 = the registry pull fails
-# (deploy.sh stops through `set -e`, without a FAIL line).
+# (deploy.sh stops through `set -e`, without a FAIL line); STUB_UP_FAIL="<tag>/api <tag>/worker …" = that `dc up`
+# group (api = "api web", worker = "worker") does not become healthy on that tag.
 cat > "$home/infra/server/bin/dc" <<'DC'
 #!/usr/bin/env bash
 echo "dc[IMAGE_TAG=${IMAGE_TAG:-}] $*" >> "$STUB_CALLS"
@@ -81,6 +91,11 @@ a=" $* "
 if [ "${STUB_PULL_FAIL:-0}" = 1 ] && [[ "$a" == *" pull "* ]]; then
   echo "Error response from daemon: Head \"https://ghcr.io/v2/example/ottimo-api/manifests/x\": dial tcp: i/o timeout" >&2
   exit 1
+fi
+if [[ "$a" == *" up --detach "* ]] && [ -n "${STUB_UP_FAIL:-}" ]; then
+  grp=""
+  case "$a" in *" api web ") grp=api ;; *" worker ") grp=worker ;; esac
+  case " $STUB_UP_FAIL " in *" ${IMAGE_TAG:-}/$grp "*) echo "container ottimo-$grp is unhealthy" >&2; exit 1 ;; esac
 fi
 case "$a" in
   *" config --format json "*) echo '{"secrets":{"booking_request_chat_webhook":{"file":"/dev/null"}}}' ;;
@@ -155,7 +170,12 @@ run() { # command…  → out, rc (as on the VPS: no OTTIMO_HOME, the marker dec
   out=$(env -u OTTIMO_HOME PATH="$stubs:$PATH" STUB_CALLS="$calls" STUB_REGISTRY="$registry" "$@" 2>&1) || rc=$?
 }
 rb="$home/infra/server/bin/rollback.sh"
-switched() { grep -q -- "up --detach --wait --wait-timeout 240 --remove-orphans api worker web" "$calls"; }
+switched() { grep -qE -- " up --detach --wait --wait-timeout 240 (--remove-orphans )?(api web|worker)\$" "$calls"; }
+# The switch `dc up` calls (timeout 240) in order, as "<tag> <services>;" – restore_previous (timeout 180) left out.
+ups() {
+  sed -nE 's/^dc\[IMAGE_TAG=([^]]*)\] up --detach --wait --wait-timeout 240 (--remove-orphans )?(api web|worker)$/\1 \3/p' "$calls" \
+    | tr '\n' ';'
+}
 pulled() { grep -q -- " pull --quiet migrate api worker web" "$calls"; }
 
 # ---------- (a) git tag name instead of the image tag ----------
@@ -172,9 +192,9 @@ run "$rb" "$OLD"
 if [ "$rc" -eq 0 ] && grep -q "OK: $OLD is live" <<<"$out" && grep -q "deploy $OLD (previous: $NEW, pull=1, rollback=1)" <<<"$out" \
   && grep -q 'image digests match the release' <<<"$out" && grep -q 'migrations: 39 applied / 39 in the image journal' <<<"$out" \
   && grep -q "dc\[IMAGE_TAG=$OLD\] --profile deploy pull --quiet migrate api worker web" "$calls" \
-  && grep -q "dc\[IMAGE_TAG=$OLD\] up --detach --wait --wait-timeout 240 --remove-orphans api worker web" "$calls" \
+  && [ "$(ups)" = "$OLD api web;$OLD worker;" ] \
   && ! grep -q 'putting previous tag' <<<"$out"; then
-  ok "(b) rollback.sh $OLD → recorded digests checked, migrate no-op, api/worker/web on $OLD, smoke ok"
+  ok "(b) rollback.sh $OLD → recorded digests checked, migrate no-op, api + web then worker on $OLD, smoke ok"
 else ko "(b) rc=$rc: $out"; fi
 if [ "$(cat "$home/state/current_tag")" = "$OLD" ] && [ "$(cat "$home/state/previous_tag")" = "$NEW" ] \
   && [ "$(tail -n 1 "$home/state/deploy-history.log" | awk '{print $2}')" = "$OLD" ]; then
@@ -234,6 +254,72 @@ run "$rb" "$OLD" --no-pull
 if [ "$rc" -eq 0 ] && grep -q "pull=0, rollback=1" <<<"$out" && ! pulled; then
   ok "(h) rollback.sh $OLD --no-pull → nothing pulled (digests still checked)"
 else ko "(h) rc=$rc: $out"; fi
+
+# ---------- (j) rollback order: api + web first, then the worker ----------
+reset_state
+run "$rb" "$OLD"
+if [ "$rc" -eq 0 ] && [ "$(ups)" = "$OLD api web;$OLD worker;" ] \
+  && grep -q "dc\[IMAGE_TAG=$OLD\] up --detach --wait --wait-timeout 240 --remove-orphans api web\$" "$calls" \
+  && grep -q "dc\[IMAGE_TAG=$OLD\] up --detach --wait --wait-timeout 240 worker\$" "$calls"; then
+  ok "(j) rollback switch order: 'api web' then 'worker' (both $OLD, --remove-orphans on the first)"
+else ko "(j) rc=$rc ups=$(ups)"; fi
+
+# Normal deploy of NEW on a production stack running OLD (digests given as the CI release job does).
+reset_deploy_state() { reset_state; echo "$OLD" > "$home/state/current_tag"; rm -f "$home/state/previous_tag"; }
+deploy_new() { run env OTTIMO_STEP_FILE="$work/step" "$home/infra/server/bin/deploy.sh" "$NEW" --api-digest "$A_NEW" --web-digest "$W_NEW"; }
+
+# ---------- (k) normal deploy order: worker first, then api + web ----------
+reset_deploy_state
+deploy_new
+if [ "$rc" -eq 0 ] && grep -q "OK: $NEW is live" <<<"$out" && [ "$(ups)" = "$NEW worker;$NEW api web;" ] \
+  && grep -q "dc\[IMAGE_TAG=$NEW\] up --detach --wait --wait-timeout 240 --remove-orphans worker\$" "$calls" \
+  && [ "$(cat "$home/state/current_tag")" = "$NEW" ] && [ "$(cat "$home/state/previous_tag")" = "$OLD" ] \
+  && [ "$(grep -c '^\[deploy ' <<<"$out")" = 6 ]; then
+  ok "(k) deploy switch order: 'worker' then 'api web' ($NEW), still 6 [deploy] lines for the INV sheets"
+else ko "(k) rc=$rc ups=$(ups): $out"; fi
+# the worker must be up (and checked) before api/web are touched: the running check sits between the two `up` calls
+wk=$(grep -n " up --detach --wait --wait-timeout 240 --remove-orphans worker\$" "$calls" | head -n 1 | cut -d: -f1)
+ck=$(grep -n " ps --status running --quiet worker\$" "$calls" | head -n 1 | cut -d: -f1)
+ap=$(grep -n " up --detach --wait --wait-timeout 240 api web\$" "$calls" | head -n 1 | cut -d: -f1)
+if [ -n "$wk" ] && [ -n "$ck" ] && [ -n "$ap" ] && [ "$wk" -lt "$ck" ] && [ "$ck" -lt "$ap" ]; then
+  ok "(k) worker running check (line $ck) between 'up worker' (line $wk) and 'up api web' (line $ap)"
+else ko "(k) call lines: up worker=$wk, ps worker=$ck, up api web=$ap"; fi
+
+# ---------- (l) new worker dies at start → FAIL before api/web change, previous back in rollback order ----------
+reset_deploy_state
+STUB_WORKER_DOWN=1 deploy_new
+if [ "$rc" -ne 0 ] && grep -q 'FAIL: worker is not running after the switch' <<<"$out" \
+  && ! grep -q "dc\[IMAGE_TAG=$NEW\] up .* api web\$" "$calls" \
+  && [ "$(ups)" = "$NEW worker;" ] \
+  && grep -q "dc\[IMAGE_TAG=$OLD\] up --detach --wait --wait-timeout 180 api web\$" "$calls" \
+  && [ "$(grep -n "IMAGE_TAG=$OLD\] up --detach --wait --wait-timeout 180 api web\$" "$calls" | cut -d: -f1)" \
+     -lt "$(grep -n "IMAGE_TAG=$OLD\] up --detach --wait --wait-timeout 180 worker\$" "$calls" | cut -d: -f1)" ] \
+  && [ "$(cat "$work/step")" = switch-worker ] && [ "$(cat "$home/state/current_tag")" = "$OLD" ]; then
+  ok "(l) new worker down → FAIL at step switch-worker, api/web never on $NEW, $OLD api + web then worker put back"
+else ko "(l) rc=$rc step=$(cat "$work/step" 2>/dev/null) ups=$(ups): $out"; fi
+
+# ---------- (m) new api/web unhealthy → previous api + web, then previous worker ----------
+reset_deploy_state
+STUB_UP_FAIL="$NEW/api" deploy_new
+restore=$(sed -nE "s/^dc\[IMAGE_TAG=$OLD\] up --detach --wait --wait-timeout 180 (api web|worker)\$/\1/p" "$calls" | tr '\n' ';')
+if [ "$rc" -ne 0 ] && grep -q 'FAIL: api/web did not become healthy' <<<"$out" && grep -q "putting previous tag $OLD back" <<<"$out" \
+  && [ "$(ups)" = "$NEW worker;$NEW api web;" ] && [ "$restore" = "api web;worker;" ] \
+  && [ "$(cat "$work/step")" = switch-api ] && [ "$(cat "$home/state/current_tag")" = "$OLD" ]; then
+  ok "(m) new api/web unhealthy → FAIL at step switch-api, $OLD put back as 'api web' then 'worker'"
+else ko "(m) rc=$rc step=$(cat "$work/step" 2>/dev/null) ups=$(ups) restore=$restore: $out"; fi
+
+# ---------- (n) previous api/web do not come back → previous worker NOT started ----------
+reset_deploy_state
+STUB_UP_FAIL="$NEW/api $OLD/api" deploy_new
+if [ "$rc" -ne 0 ] && grep -q 'WARNING: previous api/web did not come back healthy – worker left as is' <<<"$out" \
+  && ! grep -q "dc\[IMAGE_TAG=$OLD\] up .* worker\$" "$calls"; then
+  ok "(n) previous api/web unhealthy → older worker not started next to the newer api"
+else ko "(n) rc=$rc: $out"; fi
+
+# ---------- (o) no combined switch left in deploy.sh ----------
+if ! grep -qE 'dc up[^#]*api worker|dc up[^#]*worker web' "$home/infra/server/bin/deploy.sh"; then
+  ok "(o) deploy.sh has no 'dc up … api worker …' (one group per up)"
+else ko "(o) deploy.sh still switches api and worker in one 'dc up'"; fi
 
 # ---------- (i) the INV sheet's R4 command itself (SEC FB-R4-SEC-OPS-PR26-01) ----------
 # The remote part of R4 is read from the sheet (so the test follows the document), the server path replaced by this

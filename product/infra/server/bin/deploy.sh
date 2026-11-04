@@ -11,9 +11,15 @@
 # switches (SEC E.10.2 (2)); every secret file the compose project needs exists; edge mode: the link network exists.
 # Steps: pull → appconfig (the new image's loadConfig() on this stack's .env + secrets, api and worker) → postgres up → 02-roles.sh (SEC H3: role limits re-applied on an existing database) → migrate
 # (separate one-shot, ottimo_migrator → SET ROLE ottimo_owner; erd 16 point 5) → migration count check (ARC s3 4.2-7)
-# → api/worker/web on the new tag → smoke (health, role limits, worker, Caddy headers, blob probe).
-# A failure after the containers changed puts the previous tag back (images only: migrations are forward-only and
-# written "expand first, contract later", so the previous image runs on the newer schema – hosting-plan 6.3).
+# → switch in a fixed order (FB-R4-OPS-ARC-31-01, ARC FB-R4-ARC-BE-31-02):
+#     deploy:      worker first (step switch-worker), then api + web (step switch-api);
+#     --rollback:  api + web first (step switch-api), then worker (step switch-worker)
+#   → smoke (health, role limits, worker, Caddy headers, blob probe).
+# Why: a newer api may write outbox jobs (e.g. a new staff.email template) that an older worker kills as BAD_TEMPLATE.
+# Up, the new worker runs before the new api takes requests; down, the newer api stops before the older worker starts.
+# A failure after the containers changed puts the previous tag back in the rollback order (api + web, then worker;
+# images only: migrations are forward-only and written "expand first, contract later", so the previous image runs on
+# the newer schema – hosting-plan 6.3).
 set -Eeuo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -172,11 +178,22 @@ elif [ "$applied" -ne "$journal" ]; then
 fi
 log "migrations: $applied applied / $journal in the image journal"
 
-# ---- 4. switch containers + smoke ----
+# ---- 4. switch containers (ordered, FB-R4-OPS-ARC-31-01) + smoke ----
+# One `dc up` per group: compose would otherwise replace api and worker in parallel (web already waits for a healthy
+# api through depends_on). The worker has no healthcheck, so `--wait` returns as soon as it runs: worker_stays_up
+# checks it is still running a moment later, so a worker that dies at start stops the deploy before api changes.
+# No extra log line here: the INV command sheets count the "[deploy …]" lines of a successful run (6).
+worker_stays_up() { sleep 3; [ -n "$(dc ps --status running --quiet worker)" ]; }
 restore_previous() {
   if [ -n "$prev" ] && [ "$prev" != "$tag" ] && [ "$rollback" -eq 0 ]; then
-    log "putting previous tag $prev back"
-    IMAGE_TAG="$prev" dc up --detach --wait --wait-timeout 180 api worker web || log "WARNING: previous tag did not come back healthy – see dc ps / dc logs"
+    log "putting previous tag $prev back (api + web, then worker)"
+    if IMAGE_TAG="$prev" dc up --detach --wait --wait-timeout 180 api web; then
+      IMAGE_TAG="$prev" dc up --detach --wait --wait-timeout 180 worker \
+        || log "WARNING: previous worker did not come back – see dc ps / dc logs"
+    else
+      # The older worker is NOT started while the newer api may still answer (it could kill the newer api's jobs).
+      log "WARNING: previous api/web did not come back healthy – worker left as is; see dc ps / dc logs"
+    fi
   fi
 }
 fail() {
@@ -186,9 +203,23 @@ fail() {
   restore_previous
   exit 1
 }
+switch_worker() {
+  step switch-worker
+  dc up --detach --wait --wait-timeout 240 "$@" worker || fail "worker did not start"
+  worker_stays_up || fail "worker is not running after the switch"
+}
+switch_api() {
+  step switch-api
+  dc up --detach --wait --wait-timeout 240 "$@" api web || fail "api/web did not become healthy"
+}
 
-step switch
-dc up --detach --wait --wait-timeout 240 --remove-orphans api worker web || fail "containers did not become healthy"
+if [ "$rollback" -eq 1 ]; then
+  switch_api --remove-orphans
+  switch_worker
+else
+  switch_worker --remove-orphans
+  switch_api
+fi
 
 step smoke
 health=$(dc exec -T api wget -qO- http://127.0.0.1:3000/health) || fail "api /health"
