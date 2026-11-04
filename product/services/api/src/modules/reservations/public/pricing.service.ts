@@ -320,14 +320,18 @@ export class PricingService {
       }
     } else if (group === 'ota' && input.otaRoomAmountVnd === undefined) {
       // BUG-R2-017 (EP02 3.2): no price given → the OTA calendar of the channel (BR-103/104).
-      if (groupBase === undefined) {
-        throw problem('VALIDATION_FAILED', {
-          errors: [{ field: 'nightlyRates', code: 'REQUIRED' }],
-          detail: 'ota_base_rate is not configured for this room group',
-        });
-      }
+      // v1.0.4 #70 (ARC (A), DOM-on-v104-pr68-docs 7.1): no `ota_base_rate` for the group (production is not
+      // seeded with it) → the room's list price of the night, like the BR-105 bounds above (BR-103: one price for
+      // every channel) – the same night as with `ota_base_rate` = that list price. No list price → 422 as before.
       nights = dates.map((date) => {
-        const c = calendarRate(groupBase, date, 'ota', p.calendar, p.otaRateUnit);
+        const base = groupBase ?? PricingService.listPriceOn(input.room, date);
+        if (base === null) {
+          throw problem('VALIDATION_FAILED', {
+            errors: [{ field: 'nightlyRates', code: 'REQUIRED' }],
+            detail: 'no ota_base_rate for the room group and no list price for the night',
+          });
+        }
+        const c = calendarRate(base, date, 'ota', p.calendar, p.otaRateUnit);
         return {
           date,
           amountVnd: c.rateVnd,

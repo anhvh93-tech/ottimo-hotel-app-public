@@ -4131,6 +4131,12 @@ g("v1.0.4 P4-42 privacy-2026-10-v2", [
 ])
 
 
+# ---------- v1.0.4 booking – FE-B (PR #70 / v104/fe-hold-typed-rate-lock), UXD 04/11 ----------
+g("v1.0.4 booking – FE-B: khóa Giữ chỗ khi có giá đã gõ (DOM); xóa giá đã gõ khi đổi sang OTA/Nội bộ. UXD 04/11/2026", [
+    ("booking.rates_cleared_channel", "Đã xóa giá đã gõ vì đổi kênh.", "Typed rates were cleared because the channel changed.", None, "v1.0.4 booking. role=status dưới bảng giá, chỉ khi có ô đã gõ bị xóa"),
+    ("booking.rates_cleared_room_group", "Đã xóa giá đã gõ vì căn {room} thuộc nhóm căn khác. Kiểm lại giá mỗi đêm trước khi tạo đơn.", "Typed rates were cleared because room {room} is in a different room group. Check the rate per night before creating the booking.", None, "v1.0.4 booking (FB-R4-UXD-FE-PR70-07). role=status dưới bảng giá như booking.rates_cleared_channel, chỉ khi có ô đã gõ bị xóa; đổi kênh và căn cùng lúc thì câu kênh"),
+])
+
 # ---------- v1.0.4 BUG-R4-039 – nhận phòng căn còn khách (OC/OD) ----------
 # BE #74 (BR-402 (1) v0.5.3): ngoại lệ "buồng chưa sẵn sàng" chỉ cho căn VD/CL không còn lượt khác; OC/OD thì 409
 # với mọi vai. UXD chốt chữ và cách hiển thị 05/11/2026 (chặn, theo mẫu vượt sức chứa).
@@ -4149,6 +4155,7 @@ g("v1.0.4 BUG-R4-039 – FE-A: nhận phòng căn OC/OD", [
      None,
      "v1.0.4 BUG-R4-039 (BR-402 (1), DOM lượt 5 mục 2 (b)). Alert bad trong dòng room_ready khi buồng không phải OC/OD/OOO nhưng căn còn lượt Đang ở của đơn khác (room_ready không có overridableBy). Không nhắc buồng phòng. 'đang ở' = status.booking.in_house. UXD duyệt 05/11 (FB-R4-UXD-FE-PR77-01). {room} = số căn"),
 ])
+
 
 def build():
     vi, en, ru = {}, {}, {}

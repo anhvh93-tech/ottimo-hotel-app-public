@@ -49,11 +49,23 @@ export interface BookingIds {
   channels: Record<string, string>;
 }
 
-export async function seedBooking(db: Database, t: TestTenant, i = 0): Promise<BookingIds> {
-  for (const p of DS_E.parameters) await setParam(db, t, p.param, p.value, '2026-10-01', i);
+/**
+ * `otaBaseRate: false` – no `ota_base_rate` row, like a production property after its first bootstrap
+ * (`admin/production-defaults.ts` INV_ENTERS_KEYS; v1.0.4 #70 release condition).
+ */
+export async function seedBooking(
+  db: Database,
+  t: TestTenant,
+  i = 0,
+  opts: { otaBaseRate?: boolean } = {},
+): Promise<BookingIds> {
+  for (const p of DS_E.parameters) {
+    if (p.param === 'ota_base_rate' && opts.otaBaseRate === false) continue;
+    await setParam(db, t, p.param, p.value, '2026-10-01', i);
+  }
   // ARC s2-contract 8.1 (migration 0018) – until QA's DS-E carries them.
   const have = new Set(DS_E.parameters.map((p) => p.param));
-  if (!have.has('ota_base_rate')) {
+  if (!have.has('ota_base_rate') && opts.otaBaseRate !== false) {
     await setParam(
       db,
       t,

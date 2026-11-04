@@ -1189,6 +1189,33 @@
       "note": "Một mức giá mọi kênh (ESC-043 C); không tăng cuối tuần (ESC-045 câu 1 = A).. v0.5.2 (P4-20): calcPending = validator đã tính lại bằng params của dòng; test BE đọc dòng này khi byCalc gộp params của dòng lên DS-E (P4-11, BE-C) – lúc đó chuyển calcPending → calc và bỏ pendingFix."
     },
     {
+      "id": "BR-103-05",
+      "br": "BR-103",
+      "case": "Chưa có ota_base_rate: đơn Booking căn Lầu 1–2, 3 đêm T6–CN 13–16/11/2026, không gõ giá, không gõ tiền OTA → mỗi đêm lấy giá đêm niêm yết của căn = Trực tiếp = 800.000",
+      "origin": "rule-boundary",
+      "labels": ["INV-043", "INV-045", "NGÀNH"],
+      "params": {
+        "weekend_uplift_pct": 0,
+        "weekend_nights": ["FRI", "SAT"],
+        "special_uplift_pct": 0
+      },
+      "calc": "nightRates",
+      "input": {
+        "roomGroup": "L12",
+        "channel": "ota",
+        "otaBaseRateConfigured": false,
+        "otaAmountGiven": false,
+        "nightlyListPriceVnd": 800000,
+        "nights": ["2026-11-13", "2026-11-14", "2026-11-15"]
+      },
+      "expected": {
+        "ratesVnd": [800000, 800000, 800000],
+        "nightSource": "calendar",
+        "calendarRateStored": true
+      },
+      "note": "v1.0.4, điều kiện phát hành #70 (BUG-R4-037), ARC chốt (A) theo DOM-on-v104-pr68-docs mục 7.1: production không cài sẵn ota_base_rate (INV_ENTERS_KEYS) và Desk chưa thêm được dòng. Thiếu khóa thì mỗi đêm lấy giá đêm niêm yết của căn qua lịch giá kênh OTA (làm tròn OTA), trùng hệt lúc ota_base_rate = giá đêm; nguồn calendar, có calendarVnd (stay_night.calendar_rate_vnd khác NULL). Căn thiếu giá niêm yết của một đêm → 422 nightlyRates REQUIRED. Test BE chạy dòng này qua PricingService.price() với ota_base_rate trống."
+    },
+    {
       "id": "BR-104-01",
       "br": "BR-104",
       "case": "Căn 202, kênh Trực tiếp, đêm thứ Ba 10/11/2026",

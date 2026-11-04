@@ -410,12 +410,14 @@ Hệ quả:
 - Ba nhánh: có dòng số cũ thì sửa; có dòng đúng thì thôi; **không thấy thì không bỏ qua**, chụp màn hình gửi đội, và tới khi cài xong thì đơn OTA gõ đủ giá mọi đêm.
 - Sửa dòng "Tự kiểm phần B" theo, và ghi chú sửa 04/11 ở đầu tệp.
 
-**7.3 Tin ORC gửi INV** (dán nguyên văn):
+**7.3 Tin ORC gửi INV** (dán nguyên văn). **Sửa 05/11 sau #73** (BR-103 v0.5.4): không có dòng nay là ổn; bản 04/11 đã thay.
 
 > 1. Anh/chị kiểm giúp một dòng trên Desk (2 phút, máy tính, tài khoản chủ đầu tư): **Quản trị → Tham số quy tắc → tab Khác**, bấm Cmd + F (Windows: Ctrl + F) và gõ `ota_base_rate`.
-> 2. Thấy dòng và cột giá trị là `{"L12":800000,"N":1300000,"NPLUS":1100000}`: đã đúng, nhắn đội "ota_base_rate có, đúng".
-> 3. Thấy dòng mà số khác: bấm **Sửa**, dán đúng chuỗi trên, **Hiệu lực từ** để nguyên, **Lý do** `Bảng giá 01/11/2026`, bấm **Lưu thay đổi**, rồi nhắn đội.
-> 4. Không thấy dòng: Desk chưa có chỗ thêm, anh/chị không cần làm gì thêm trên Desk; chụp màn hình gửi đội. Trong lúc chờ, lễ tân tạo đơn OTA phải gõ đủ giá mọi đêm theo xác nhận của OTA, không để trống.
+> 2. Không thấy dòng: không cần làm gì. Từ bản v1.0.4, đơn OTA để trống giá sẽ tự lấy giá đêm niêm yết của căn. Nhắn đội "không có dòng".
+> 3. Thấy dòng: dòng này được ưu tiên hơn giá căn. Cột giá trị khác `{"L12":800000,"N":1300000,"NPLUS":1100000}` thì bấm **Sửa**, dán đúng chuỗi đó, **Hiệu lực từ** để nguyên, **Lý do** `Bảng giá 01/11/2026`, bấm **Lưu thay đổi**. Nhắn đội "có dòng". Sau này mỗi lần đổi giá căn, anh/chị sửa dòng này cùng lúc, hoặc nhờ đội gỡ dòng.
+> 4. Tới khi đội báo v1.0.4 đã lên, lễ tân tạo đơn OTA vẫn gõ đủ giá mọi đêm theo xác nhận của OTA.
+
+Nếu ORC đã gửi bản 04/11, chỉ gửi thêm: "Cập nhật về dòng `ota_base_rate`: không thấy dòng cũng ổn, anh/chị không cần chụp màn hình. Thấy dòng thì vẫn sửa như hướng dẫn, và sau này đổi giá căn thì sửa dòng này cùng lúc."
 
 ### 8. Ghi chú cho ORC
 
@@ -499,3 +501,26 @@ Việc dọn sau khi v1.0.4 lên. Không chặn gộp; BA đã ghi kế hoạch:
 ### Kết luận lượt 4
 
 **ĐẠT.** Thẻ 01–10 đã đóng hết; không còn Blocker hay Major mở. ORC gộp #68 được.
+
+## DOM lượt 5 (05/11) – sau #73 (OTA lấy giá niêm yết khi thiếu `ota_base_rate`) và câu hỏi UXD về BUG-R4-039
+
+Thẻ FB-R4-ARC-DOM-PR73-01 (`ARC-on-v104-pr73-ota-fallback.md`). Đọc mã trên `main` sau #73 (`pricing.service.ts` nhánh OTA để trống) và nhánh #74 `v104/fix-checkin-occupied-exception` @ `9646029d`.
+
+### 1. Thẻ DOM-PR73-01 – đã làm
+- (a) BR-103 v0.5.4: từ v1.0.4, nhóm căn chưa có `ota_base_rate` thì đơn OTA để trống giá lấy giá đêm niêm yết của căn, theo từng đêm; căn thiếu giá niêm yết của một đêm thì vẫn báo "Nhập giá mỗi đêm".
+- (b) BR-103 và bảng tham số: v1.0.x không cần nhập khóa; đã nhập thì khóa thắng giá niêm yết, nên phải đổi cùng lúc với bảng giá, hoặc nhờ OPS gỡ dòng. Guide B6 và tin 7.3 sửa theo (mục 7.3 ở trên).
+- (c) DOM rà dòng oracle BR-103-05 (BE thêm ở #73): đúng nghiệp vụ (Studio Lầu 1–2, 800.000 mỗi đêm, kể cả thứ Sáu, thứ Bảy, vì BR-104 v0.5.1 không tăng cuối tuần); nhãn `INV-043`, `INV-045`, `NGÀNH` đúng. Phần nhật ký đầu tệp để QA ghi sau khi #74 gộp, như ARC đề xuất.
+- Câu sổ tay 2.6 / `02` 5.3 "gõ đủ giá mọi đêm theo xác nhận của OTA" giữ nguyên tới khi v1.0.4 lên. Sau đó BA có thể nới: "để trống thì Desk lấy giá niêm yết; OTA bán khác giá niêm yết thì gõ theo xác nhận OTA" (BR-112). DOM khuyên lễ tân vẫn gõ theo xác nhận OTA, vì khuyến mãi kênh làm tiền OTA thu thường khác giá niêm yết.
+- Chưa làm (không thuộc việc ORC giao): thẻ FB-R4-ARC-QA-PR73-01 (b), về làm tròn `rounding.ota_rate` theo BR-005. Hôm nay giá niêm yết đều chẵn 10.000, nên chưa lệch tiền. DOM chốt khi ORC giao.
+
+### 2. UXD – hai giả định cho BUG-R4-039
+
+| Giả định của UXD | DOM | Căn cứ |
+|---|---|---|
+| (1) Desk chặn nhận phòng theo trạng thái buồng `OC`/`OD` | **Đúng một nửa.** Máy chủ (#74) chặn khi có **một trong hai**: (a) buồng `OC`/`OD` (cùng `OOO`); (b) căn còn **một lượt Đang ở khác** chưa trả phòng hôm nay (đi hôm nay chưa bấm Trả phòng, hoặc ở qua đêm nay), **dù trạng thái buồng đang hiện gì**, kể cả `VD`/`CL`/`VI`/`VC`. Cả hai trường hợp đều không có ngoại lệ cho vai nào. Câu chữ không nên chỉ nói "căn đang OC/OD". Gợi ý cách tách: `detail` là `OC`/`OD` thì báo buồng đang có khách; `detail` là trạng thái khác mà điều kiện `room_ready` không có `overridableBy` thì báo căn còn khách của đơn khác chưa trả phòng. Ví dụ: "Căn còn khách chưa trả phòng. Trả phòng đơn trước, hoặc đổi sang căn trống." ARC xác nhận cách đọc `detail` này | `checkin.service.ts` (#74) `roomHeldByAnotherStay`, `roomOverridable`; `openapi.yaml` B9 mô tả v1.0.4; BR-402 (1) v0.5.4 |
+| (2) Buồng phòng là vai sửa trạng thái căn khi khách cũ đã trả phòng mà căn vẫn hiện `OC` | **Không đúng cho trường hợp hay gặp.** Căn hiện `OC` thường là vì **lễ tân chưa bấm Trả phòng** cho đơn cũ: máy chủ vẫn coi khách cũ đang ở. Việc đầu tiên là **lễ tân** trả phòng đơn cũ (B18, sổ tay 2.14; trước 06:00 xem 2.20). Sau B18, buồng thành `VD`. Buồng phòng dọn xong thì căn thành `VC`. Nếu cần nhận ngay khi căn `VD`/`CL`, lễ tân trưởng dùng ngoại lệ BR-402. Buồng phòng **không** trả phòng đơn được, và sửa trạng thái buồng cũng không mở được chặn (b). **Trường hợp hiếm**: đơn cũ đã trả phòng mà buồng vẫn `OC`, tức trạng thái bị lệch (Cần chú ý có mục lệch trạng thái buồng). Khi đó lễ tân **hoặc** buồng phòng (căn trong phạm vi được giao) bấm "Cần dọn" (`OC` → `OD`), "Bắt đầu dọn", rồi "Dọn xong" → `VC`. Không có nút sửa thẳng sang `VC`. Trước khi bấm, kiểm thật trong căn không còn người và đồ của khách | `housekeeping/internal/rules.ts` `allowedEvents`, `roomTarget` (FD+ hoặc HK trong phạm vi T); `attention-sources.ts` `room_status_mismatch`; BR-402 (1) |
+
+Đề nghị UXD: câu chặn ưu tiên chỉ đường **Trả phòng đơn trước** (lễ tân), sau đó mới đến **Đổi căn** hoặc **Mời khách chờ**. Chỉ nhắc buồng phòng khi trạng thái bị lệch.
+
+### Kết luận lượt 5
+Không có thẻ mới. Thẻ FB-R4-ARC-DOM-PR73-01 (a), (b) đã làm; (c) đã rà, phần nhật ký fixture là việc của QA sau #74. Các tệp chưa commit.
