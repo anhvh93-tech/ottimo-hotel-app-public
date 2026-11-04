@@ -30,12 +30,16 @@ export type ChatDetailLevel = 'A' | 'B' | 'C';
 export const CHAT_DETAIL_LEVELS: readonly ChatDetailLevel[] = ['A', 'B', 'C'];
 
 /**
- * First notice version that names Google Chat (SEC esc041-gchat-full-details 1). A constant, not a variable, so a
- * configuration can never widen it. SEC fixes another date → change it here before the release tag (PR + SEC review).
+ * First notice version that names Google Chat AND is published (SEC esc041-gchat-full-details 1; SEC
+ * SEC-on-lp-v2-main.md 2 + FB-R4-SEC-LPV2M-01). `2026-10-31` named Google Chat but was never published on its own
+ * (P4, lp-v2-main 04/11): LP-v2 publishes `2026-11-04` (5 languages, en/vi = the 2026-10-31 text) in its place. The
+ * gate reads `published_at` of THIS version's rows – a version that is never published keeps every message at A.
+ * A constant, not a variable, so a configuration can never widen it. SEC fixes another date → change it here before
+ * the release tag (PR + SEC review).
  * The gate only works "from this version on": a LATER notice that drops Google Chat from the recipients needs the
  * level lowered to A or B BEFORE it is published (SEC FB-R3-SEC-BE-GCHAT-03).
  */
-export const CHAT_DETAILS_MIN_NOTICE_VERSION = '2026-10-31';
+export const CHAT_DETAILS_MIN_NOTICE_VERSION = '2026-11-04';
 
 /** PO Q5 (ORC default 30/10): kinds whose first line starts with `<users/all>` (everyone in the room is notified). */
 export const CHAT_MENTION_ALL_KINDS: readonly StaffChatKind[] = ['web_request_overdue'];

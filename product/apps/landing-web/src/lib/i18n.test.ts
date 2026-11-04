@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SITE_URL, alternatesFor, langOfPath, pathFor } from './i18n';
+import { HTML_LANG, SITE_URL, alternatesFor, langOfHtml, langOfPath, pathFor } from './i18n';
+import { HTML_LANG as DIST_HTML_LANG } from '../../scripts/dist-checks.mjs';
 import { robotsTxt } from './robots';
 import { jsonForScript } from './seo';
 
@@ -11,6 +12,22 @@ describe('URL rules (ADR-014 3.2)', () => {
     expect(pathFor('vi', '/rooms/the-pine/')).toBe('/vi/rooms/the-pine/');
   });
 
+  it('LP-v2: Korean /ko/, Simplified Chinese /zh/, Russian /ru/ (ARC lp-v2 3.1)', () => {
+    expect(pathFor('ko')).toBe('/ko/');
+    expect(pathFor('zh', 'privacy')).toBe('/zh/privacy/');
+    expect(pathFor('ru')).toBe('/ru/');
+    expect(langOfPath('/zh/privacy/')).toBe('zh');
+    expect(langOfPath('/ru/')).toBe('ru');
+  });
+
+  it('html lang: zh-Hans for Simplified Chinese, the bare code elsewhere; the dist checks use the same map', () => {
+    expect(HTML_LANG).toEqual({ en: 'en', vi: 'vi', ko: 'ko', zh: 'zh-Hans', ru: 'ru' });
+    expect(DIST_HTML_LANG).toEqual(HTML_LANG);
+    expect(langOfHtml('zh-Hans')).toBe('zh');
+    expect(langOfHtml('ko')).toBe('ko');
+    expect(langOfHtml('ja')).toBe('en');
+  });
+
   it('reads the language of a path', () => {
     expect(langOfPath('/')).toBe('en');
     expect(langOfPath('/vi/')).toBe('vi');
@@ -18,12 +35,16 @@ describe('URL rules (ADR-014 3.2)', () => {
     expect(langOfPath('/en/x/')).toBe('en');
   });
 
-  it('hreflang: every language + x-default = English of the same page', () => {
+  it('hreflang: every language (bare codes – ADR-014 3.3) + x-default = English of the same page', () => {
     expect(alternatesFor('')).toEqual([
       { hreflang: 'en', href: `${SITE_URL}/` },
       { hreflang: 'vi', href: `${SITE_URL}/vi/` },
+      { hreflang: 'ko', href: `${SITE_URL}/ko/` },
+      { hreflang: 'zh', href: `${SITE_URL}/zh/` },
+      { hreflang: 'ru', href: `${SITE_URL}/ru/` },
       { hreflang: 'x-default', href: `${SITE_URL}/` },
     ]);
+    expect(alternatesFor('privacy').map((a) => a.href)).toContain(`${SITE_URL}/zh/privacy/`);
   });
 });
 

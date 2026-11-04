@@ -2,7 +2,7 @@
 // 8 · Contact (concept 6, FB-INV-002 point 4): Zalo is the one filled button; hotline, email and Facebook as text
 // links; WhatsApp · Telegram · Viber only behind "Other channels" (the one place). Links only – nothing loads until
 // tapped (ADR-014 2.6).
-import { links, site } from '../../content/site';
+import { links, phoneShown, site } from '../../content/site';
 import type { Copy } from '../../content/types';
 import Icon from '../Icon.astro';
 
@@ -27,7 +27,7 @@ const { t } = Astro.props;
       <dl class="c-list">
         <div>
           <dt>Hotline</dt>
-          <dd><a href={links.tel}>{site.phone.local}</a></dd>
+          <dd><a href={links.tel}>{phoneShown(t.lang)}</a></dd>
         </div>
         {
           site.contact.email && (

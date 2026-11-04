@@ -308,6 +308,13 @@ export function createWebRequestMock(ctx: Ctx) {
           errors: [{ field: 'refCode', code: 'PATTERN' }],
         });
       const ref = rawRef ? normalizeRefCode(rawRef) : null;
+      // 0.3.10 bổ sung 4 (BUG-R4-007): `locale` filter (form style) + `total` matching the filters.
+      const rawLocale = url.searchParams.get('locale');
+      const locales = rawLocale ? rawLocale.split(',') : null;
+      if (locales?.some((l) => !['en', 'vi', 'ko', 'zh', 'ru'].includes(l)))
+        return problem(422, 'VALIDATION_FAILED', {
+          errors: [{ field: 'locale', code: 'NOT_IN_LIST' }],
+        });
       const limit = Number(url.searchParams.get('limit') ?? 50);
       const offset = Number(url.searchParams.get('cursor') ?? 0);
       const rows = state.requests
@@ -317,6 +324,7 @@ export function createWebRequestMock(ctx: Ctx) {
             ? r.refCode === ref || (r.aliasRefCodes ?? []).includes(ref)
             : status.includes(r.status),
         )
+        .filter((r) => !locales || locales.includes(r.locale))
         .sort(
           (a, b) =>
             Number(b.arrivesToday) - Number(a.arrivesToday) ||
@@ -330,6 +338,7 @@ export function createWebRequestMock(ctx: Ctx) {
       return HttpResponse.json({
         data: page.map((r) => view(r, g.user, g.roles)),
         page: { limit, nextCursor: hasMore ? String(offset + limit) : null },
+        total: rows.length,
       });
     }),
     http.get(

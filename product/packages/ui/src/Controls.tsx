@@ -11,6 +11,8 @@ export interface SegProps<T extends string> {
   onChange: (value: T) => void;
   labelledBy?: string;
   label?: string;
+  /** id(s) of a help line read with the group (FB-R4-UXD-FE-22). */
+  describedBy?: string;
   disabled?: boolean;
 }
 
@@ -21,10 +23,17 @@ export function Seg<T extends string>({
   onChange,
   labelledBy,
   label,
+  describedBy,
   disabled,
 }: SegProps<T>) {
   return (
-    <div className="seg" role="group" aria-labelledby={labelledBy} aria-label={label}>
+    <div
+      className="seg"
+      role="group"
+      aria-labelledby={labelledBy}
+      aria-label={label}
+      aria-describedby={describedBy}
+    >
       {options.map((o) => (
         <button
           key={o.value}

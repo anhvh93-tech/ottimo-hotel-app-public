@@ -56,14 +56,16 @@ export const RBAC_FIELD_DENY: Readonly<Record<string, readonly string[]>> = {
 
 /**
  * R4 v1.0.3 (BUG-R4-018 / BUG-R4-022, ORC decision, ARC to review): the caller's OWN data in an answer that is
- * only ever about the caller. The D-code check (`x-rbac-field`) is skipped for exactly these properties – every
- * role sees its own value. Nothing else is relaxed: `x-visible-to`, `writeOnly`, C3 (`x-c3-log`) and the guest
- * level still apply, and `User.email` (listUsers / updateUser) stays OWN only through its `x-visible-to`.
+ * only ever about the caller – every role sees its own value. OpenAPI 0.3.12 tags these properties `x-self-data`
+ * (generated `sd`, list `OPENAPI_SCHEMAS.selfData`); the serializer returns an `sd` property ONLY when its key is
+ * here (fail closed, FB-R4-BEA-ARC-01) and test/serializer.test.ts checks this set equals the generated list.
+ * Nothing else is relaxed: `x-visible-to`, `x-rbac-field`, `writeOnly`, C3 (`x-c3-log`) and the guest level still
+ * apply, and `User.email` (listUsers / updateUser) stays OWN only through its `x-visible-to`.
  * Key = `<owner>.<property>`; owner = `schema:<Name>` for a component schema returned only about the caller (`Me`:
  * login, loginMfa, getMe) or `op:<operationId>` for an inline `/v1/me*` response (two prefixes – SEC 018-02).
  * Direct properties only (a nested object of the same name is not covered). test/serializer.test.ts pins the exact
- * content (SEC 018-01: adding a key needs SEC review) and that every direct D-tagged property of a self-only answer
- * is either here or deliberately hidden.
+ * content (SEC 018-01: adding a key needs SEC review), that it equals the generated `selfData`, and that a schema
+ * with `x-self-data` is referenced only from self-only answers.
  */
 export const SELF_DATA_FIELDS: ReadonlySet<string> = new Set([
   'schema:Me.email', // getMe / login / loginMfa – the caller's own security e-mail (BUG-R4-018)

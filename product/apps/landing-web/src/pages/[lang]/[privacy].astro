@@ -1,0 +1,18 @@
+---
+// /vi/privacy/, /ko/privacy/, /zh/privacy/, /ru/privacy/ – generated only when the privacy notice is published with the
+// booking form (see ../[privacy].astro). @privacy-page = PrivacyPage.astro when published, else an empty stand-in.
+import PrivacyPage from '@privacy-page';
+import { COPY } from '../../content';
+import { PRIVACY_PAGE_PUBLISHED } from '../../lib/booking-request';
+import { PREFIXED_LANGS, type Lang } from '../../lib/i18n';
+
+export function getStaticPaths() {
+  return PRIVACY_PAGE_PUBLISHED
+    ? PREFIXED_LANGS.map((lang) => ({ params: { lang, privacy: 'privacy' } }))
+    : [];
+}
+
+const lang = Astro.params.lang as Lang;
+---
+
+<PrivacyPage t={COPY[lang]} />

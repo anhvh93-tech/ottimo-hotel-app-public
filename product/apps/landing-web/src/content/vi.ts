@@ -28,8 +28,9 @@ export const vi: Copy = {
   langSuggest: { region: 'Ngôn ngữ', text: 'Xem trang này bằng tiếng Việt', close: 'Đóng' },
   actions: {
     requestToBook: 'Chọn ngày ở',
-    chatOnZalo: 'Nhắn qua Zalo',
-    chatOnPrefix: 'Nhắn qua ',
+    // CPY lp-v2-copy 13.1 (FB-R4-UXD-FE-02): fits the phone bar at 360 px
+    chatOnZalo: 'Nhắn Zalo',
+    chatOnPrefix: 'Nhắn ',
     newTab: ' (mở tab mới)',
   },
   photoAlt: {
@@ -262,7 +263,7 @@ export const vi: Copy = {
       honeypot: 'Leave this field empty',
       consent: 'Tôi đồng ý để OTTIMO chỉ dùng thông tin trong biểu mẫu này để trả lời yêu cầu này.',
       consentMore:
-        'Nếu bạn không đặt phòng, OTTIMO xóa thông tin này trong tối đa 180 ngày. OTTIMO chỉ trả lời từ các kênh ghi trên trang này.',
+        'Nếu bạn không đặt phòng, thông tin này được xóa khỏi máy chủ của OTTIMO trong tối đa 180 ngày. OTTIMO chỉ trả lời từ các kênh ghi trên trang này.',
       privacy: 'Thông báo xử lý dữ liệu',
       submit: 'Gửi yêu cầu đặt phòng',
       noJs: 'Biểu mẫu cần JavaScript. Bạn cũng có thể nhắn chúng tôi qua Zalo: ',

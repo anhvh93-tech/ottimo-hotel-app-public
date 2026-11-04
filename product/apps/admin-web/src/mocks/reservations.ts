@@ -19,7 +19,11 @@ import type {
   Room,
   RoomGroup,
 } from '@ottimo/api-client';
+import { interpolate, pluralForm } from '@ottimo/i18n';
 import { http, HttpResponse, type DefaultBodyType, type StrictRequest } from 'msw';
+import copyEn from '../../../../design/copy/strings-en.json';
+import copyRu from '../../../../design/copy/strings-ru.json';
+import copyVi from '../../../../design/copy/strings-vi.json';
 import { businessDayLocal, todayLocal } from '../app/dates';
 import type { MockGuest, MockUser } from './seed';
 
@@ -126,6 +130,72 @@ interface MockQuote extends Quote {
 }
 interface MockCommission extends Commission {
   payeeUserId: string;
+}
+
+const QUOTE_COPY: Record<'vi' | 'en' | 'ru', Record<string, unknown>> = {
+  vi: copyVi,
+  en: copyEn,
+  ru: copyRu,
+};
+
+/**
+ * getQuoteText as the server builds it (quotes.service `text`, BUG-R4-009, FB-R4-UXD-FE-23): the same UXD keys –
+ * `sale.quote_text`, counted phrases in the CLDR form of each number (adults, children 6–11, under 6, nights) and
+ * the extra-guest line – so FE screenshots show the sentence the guest really gets. Missing key → en (as
+ * gen-quote-copy). US-083 AC2: no commission, no phone/email in the guest text.
+ */
+export function mockQuoteText(
+  q: Pick<
+    MockQuote,
+    | 'code'
+    | 'arrivalDate'
+    | 'nights'
+    | 'input'
+    | 'totalVnd'
+    | 'roomTotalVnd'
+    | 'depositVnd'
+    | 'losDiscountPct'
+    | 'extraGuestCount'
+    | 'expiresAt'
+  >,
+  locale: 'vi' | 'en' | 'ru',
+  room?: Pick<Room, 'roomNo' | 'name'>,
+): string {
+  const copy = (key: string) => {
+    const v = QUOTE_COPY[locale][key] ?? QUOTE_COPY.en[key];
+    return typeof v === 'string' ? v : key;
+  };
+  const count = (key: string, n: number, extra: Record<string, string> = {}) =>
+    interpolate(copy(`${key}_${pluralForm(locale, n)}`), { ...extra, n });
+  const money = (v: number) => {
+    const n = new Intl.NumberFormat(locale === 'vi' ? 'vi-VN' : 'en-US').format(v);
+    return locale === 'vi' ? `${n} đ` : `${n} VND`;
+  };
+  const d = (s: string) => s.split('-').reverse().join('/');
+  const nights = q.nights ?? 1;
+  const guests = [count('sale.quote_adults', q.input.adults)];
+  if (q.input.children6to11) guests.push(count('sale.quote_kids', q.input.children6to11));
+  if (q.input.childrenUnder6) guests.push(count('sale.quote_under6', q.input.childrenUnder6));
+  const roomTotal = q.roomTotalVnd ?? q.totalVnd ?? 0;
+  let text = interpolate(copy('sale.quote_text'), {
+    code: q.code,
+    room: room?.roomNo ?? '',
+    room_name: (room?.name ?? '').trim(),
+    from: d(q.arrivalDate!),
+    to: d(addDays(q.arrivalDate!, nights)),
+    nights_text: count('sale.quote_nights', nights),
+    guests: guests.join(', '),
+    room_total: money(roomTotal),
+    discount_note: q.losDiscountPct ? ` (−${q.losDiscountPct}%)` : '',
+    deposit: money(q.depositVnd ?? 0),
+    // Last valid minute (BR-304 "23:59 18/10"); mock quotes expire at 23:59 +07.
+    expires: `23:59 ${d(q.expiresAt.slice(0, 10))}`,
+  }).replace(/ {2,}/g, ' ');
+  const extraGuests = q.extraGuestCount ?? 0;
+  const extraVnd = (q.totalVnd ?? 0) - roomTotal;
+  if (extraGuests > 0 && extraVnd > 0)
+    text += `\n${count('sale.quote_text_extra_guest', extraGuests, { amount: money(extraVnd) })}`;
+  return text;
 }
 
 export function seedChannels(): Channel[] {
@@ -1771,6 +1841,7 @@ export function createReservationMock(ctx: Ctx) {
         version: 1,
         createdBy: g.user.id,
         input: body,
+        ...(webReq ? { websiteBookingRequestId: webReq } : {}),
       };
       state.quotes.push(q);
       if (webReq) ctx.webRequests?.().linkQuote(webReq, g.user, q.id);
@@ -1792,18 +1863,7 @@ export function createReservationMock(ctx: Ctx) {
         return problem(404, 'NOT_FOUND');
       const asked = new URL(request.url).searchParams.get('locale');
       const locale = asked === 'en' || asked === 'ru' ? asked : 'vi';
-      const r = roomById(q.roomId);
-      const d = (s: string) => s.split('-').reverse().join('/');
-      const to = addDays(q.arrivalDate!, q.nights ?? 1);
-      const money = (n: number) => n.toLocaleString(locale === 'en' ? 'en-US' : 'vi-VN');
-      // US-083 AC2: no commission, no "OTTIMO còn lại", no phone/email in the guest text.
-      const text =
-        locale === 'ru'
-          ? `OTTIMO Boutique Stay – Предложение ${q.code}\nАпартаменты ${r?.roomNo} ${r?.name}, ${d(q.arrivalDate!)} → ${d(to)} (ночей: ${q.nights}), взрослых: ${q.input.adults}.\nСтоимость проживания: ${money(q.totalVnd ?? 0)} VND.\nПредоплата для брони: ${money(q.depositVnd ?? 0)} VND. Остаток оплачивается при заселении.\nПредложение действительно до ${d(q.expiresAt.slice(0, 10))}.`
-          : locale === 'en'
-            ? `OTTIMO Boutique Stay – Quote ${q.code}\nRoom ${r?.roomNo} ${r?.name}, ${d(q.arrivalDate!)} → ${d(to)} (${q.nights} nights), ${q.input.adults} adults.\nRoom total: ${money(q.totalVnd ?? 0)} VND.\nDeposit to hold the room: ${money(q.depositVnd ?? 0)} VND. The rest is paid at check-in.\nThis quote is valid until ${d(q.expiresAt.slice(0, 10))}.`
-            : `OTTIMO Boutique Stay – Báo giá ${q.code}\nCăn ${r?.roomNo} ${r?.name}, ${d(q.arrivalDate!)} → ${d(to)} (${q.nights} đêm), ${q.input.adults} người lớn.\nTiền phòng: ${money(q.totalVnd ?? 0)} đ.\nCọc giữ phòng: ${money(q.depositVnd ?? 0)} đ. Phần còn lại thanh toán khi nhận phòng.\nBáo giá có hiệu lực đến 23:59 ${d(q.expiresAt.slice(0, 10))}.`;
-      return json({ locale, text });
+      return json({ locale, text: mockQuoteText(q, locale, roomById(q.roomId)) });
     }),
     http.post(`${prop}/quotes/:quoteId/actions/create-hold`, async ({ request, params }) => {
       const g = guard(request, [...FD_PLUS, ...SALES]);

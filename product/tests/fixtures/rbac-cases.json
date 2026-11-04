@@ -16,7 +16,7 @@
     "scoped": 183,
     "sprintR3": 429,
     "rbacMismatchOps": [],
-    "skipped": 12
+    "skipped": 13
   },
   "skipped": [
     {
@@ -37,6 +37,10 @@
     },
     {
       "operationId": "getPublicOffers",
+      "reason": "public"
+    },
+    {
+      "operationId": "getPublicPriceEstimate",
       "reason": "public"
     },
     {

@@ -5,8 +5,9 @@
  * - only properties DECLARED in the schema are copied (undeclared keys are dropped unless the schema is
  *   open: `additionalProperties: true` or a free object);
  * - a property with `x-visible-to` is copied only when the caller has one of those roles;
- * - a property with `x-rbac-field` is copied only when rbac-matrix 6 does not say K for all caller roles –
- *   except the caller's own data listed in SELF_DATA_FIELDS (field-policy.ts, BUG-R4-018/022);
+ * - a property with `x-rbac-field` is copied only when rbac-matrix 6 does not say K for all caller roles;
+ * - a property with `x-self-data` (the caller's own data, OpenAPI 0.3.12) is copied only when its
+ *   `<owner>.<property>` key is in SELF_DATA_FIELDS (field-policy.ts) – fail closed (FB-R4-BEA-ARC-01);
  * - `writeOnly` properties never leave the server;
  * - `x-classification: C3` properties only in responses of `x-c3-log` operations;
  * - a removed property is ABSENT from the JSON, never `null`.
@@ -69,8 +70,13 @@ function copyFree(v: unknown): Out {
 export type SelfOwner = `schema:${string}` | `op:${string}`;
 
 /**
- * `owner` + `key`: where the property sits (SELF_DATA_FIELDS lookup). The `<owner>.<key>` string is built only when
- * the D-code has already refused the property (ARC FB-R4-ARC-BE-018-03 – nothing extra on the hot path).
+ * `owner` + `key`: where the property sits (SELF_DATA_FIELDS lookup). The `<owner>.<key>` string is built only for
+ * an `x-self-data` property (ARC FB-R4-ARC-BE-018-03 – nothing extra on the hot path).
+ *
+ * `sd` (x-self-data) is FAIL CLOSED (FB-R4-BEA-ARC-01, SEC-ARC-018-03 conditions 1 and 4): after the w / c3 / g / v
+ * checks, an `sd` property is returned only when `<owner>.<key>` is in SELF_DATA_FIELDS. Tagged in the contract but
+ * not listed, reached from another owner, or below the first level (owner null) → dropped for every role, OWN
+ * included. The D-code check has no self-data exception any more (0.3.12 replaced D27 by x-self-data there).
  */
 export function propertyAllowed(
   p: PropShape,
@@ -82,8 +88,9 @@ export function propertyAllowed(
   if (p.c3 && !ctx.c3) return false;
   if (p.g !== undefined && ctx.guestLevel !== undefined && p.g > ctx.guestLevel) return false;
   if (p.v && !visibleToAllows(p.v, ctx.roles)) return false;
-  if (p.f && !rbacFieldAllows(p.f, ctx.roles)) {
-    if (!(owner && key !== undefined && SELF_DATA_FIELDS.has(`${owner}.${key}`))) return false;
+  if (p.f && !rbacFieldAllows(p.f, ctx.roles)) return false;
+  if (p.sd && !(owner && key !== undefined && SELF_DATA_FIELDS.has(`${owner}.${key}`))) {
+    return false;
   }
   return true;
 }

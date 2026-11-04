@@ -119,6 +119,17 @@ export function toZonedIso(instant: Date, tz: string): string {
   return `${shifted.toISOString().replace('Z', '')}${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`;
 }
 
+/**
+ * A real calendar date `YYYY-MM-DD`: `Date.parse('2026-02-31T00:00:00Z')` is 3 March in V8, not NaN, so the parse
+ * alone lets impossible dates through – this one rebuilds the date and compares (SEC FB-R4-SEC-LPV2M-05). Used by the
+ * public routes (price estimate, website form); `assertLocalDate` keeps its looser check until v1.0.x.
+ */
+export function isCalendarDate(v: unknown): v is LocalDate {
+  if (typeof v !== 'string' || !LOCAL_DATE.test(v)) return false;
+  const t = Date.parse(`${v}T00:00:00Z`);
+  return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === v;
+}
+
 export function assertLocalDate(v: string): asserts v is LocalDate {
   if (!LOCAL_DATE.test(v) || Number.isNaN(Date.parse(`${v}T00:00:00Z`))) {
     throw new RangeError(`not a LocalDate (YYYY-MM-DD): ${v}`);

@@ -2,9 +2,11 @@ import {
   isApiError,
   newIdempotencyKey,
   type GuestSummary,
+  type LandingLocale,
   type Quote,
   type QuoteCalculation,
   type Reservation,
+  type WebsiteBookingRequest,
 } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Chip, Field, Modal, Seg } from '@ottimo/ui';
@@ -25,7 +27,8 @@ import { useDebounced } from '../../hooks/useDebounced';
 import { useOnline } from '../../hooks/useOnline';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { DepositQr } from '../reservations/DepositQr';
-import { ContactMatches } from '../webreq/ContactMatches';
+import { ContactMatches, guestPrefillOf } from '../webreq/ContactMatches';
+import { compareWithSeen, sendLocaleOf, type SeenEstimate } from '../webreq/labels';
 
 export interface QuotePrefill {
   roomId?: string;
@@ -44,8 +47,15 @@ export interface QuotePrefill {
   webRequest?: {
     id: string;
     code: string;
+    /** Language Desk sends messages in (vi/en/ru – ko/zh → en). */
     locale: 'vi' | 'en' | 'ru';
+    /** The landing language the guest wrote in – "Guest wrote in Korean…" note (US-175 AC4 (2), BUG-R4-008). */
+    guestLocale?: LandingLocale;
+    /** Reply channel the guest asked for – prefilled in a quick-created profile (BUG-R3-050). */
+    channel?: WebsiteBookingRequest['preferredChannel'];
     contact?: { phone?: string; email?: string };
+    /** US-131 AC10 (BUG-R4-001): the website estimate the guest saw – "Changed: seen → now" next to the total. */
+    seen?: SeenEstimate;
   };
 }
 
@@ -95,6 +105,48 @@ export function QuoteDialog({
   const [busy, setBusy] = useState(false);
   // BUG-R2-080 (US-083 AC2, P-S4-3): the guest text in Vietnamese, English or Russian (API has all three).
   const [lang, setLang] = useState<'vi' | 'en' | 'ru'>(prefill.webRequest?.locale ?? 'vi');
+  const langPicked = useRef(false);
+  const [guestLocale, setGuestLocale] = useState<LandingLocale | undefined>(
+    prefill.webRequest?.guestLocale,
+  );
+  // US-175 AC4 (3), BUG-R3-050: a reopened quote (Báo giá & giữ chỗ → Báo giá) does not fall back to Vietnamese –
+  // the language of its website request first (the same default as when it was made), then the guest profile.
+  // Staff's own choice in the box always wins; nothing here writes to the profile (PO P8).
+  const reopened = prefill.webRequest ? undefined : prefill.quote;
+  useEffect(() => {
+    if (!reopened) return;
+    let stale = false;
+    const pick = (l: 'vi' | 'en' | 'ru') => {
+      if (!stale && !langPicked.current) setLang(l);
+    };
+    void (async () => {
+      if (reopened.websiteBookingRequestId) {
+        try {
+          const r = await api.getWebsiteBookingRequest({
+            propertyId,
+            requestId: reopened.websiteBookingRequestId,
+          });
+          if (stale) return;
+          setGuestLocale(r.data.locale);
+          pick(sendLocaleOf(r.data.locale));
+          return;
+        } catch {
+          /* out of the caller's scope (SAL) or gone – the profile decides */
+        }
+      }
+      if (!reopened.guestId) return;
+      try {
+        const g = await api.getGuest({ propertyId, guestId: reopened.guestId });
+        const l = g.data.preferredLocale;
+        if (l === 'vi' || l === 'en' || l === 'ru') pick(l);
+      } catch {
+        /* keep Vietnamese */
+      }
+    })();
+    return () => {
+      stale = true;
+    };
+  }, [reopened, propertyId]);
   const [text, setText] = useState('');
   const [holdHours, setHoldHours] = useState(rules.holdHoursDefault);
   const [held, setHeld] = useState<Reservation | null>(null);
@@ -139,6 +191,7 @@ export function QuoteDialog({
   };
 
   const room = catalog.rooms.find((r) => r.id === roomId);
+  const seen = prefill.webRequest?.seen;
   const direct = catalog.channels.find((c) => c.channelGroup === 'direct' && c.isActive);
   const agent = catalog.channels.find((c) => c.channelGroup === 'agent' && c.isActive);
   const channel = ctv ? (agent ?? direct) : direct;
@@ -496,6 +549,17 @@ export function QuoteDialog({
               label={t('booking.field.guest')}
               required
               error={guestError}
+              createPrefill={guestPrefillOf(
+                prefill.webRequest
+                  ? {
+                      id: prefill.webRequest.id,
+                      code: prefill.webRequest.code,
+                      contact: prefill.webRequest.contact,
+                      locale: prefill.webRequest.guestLocale ?? prefill.webRequest.locale,
+                      channel: prefill.webRequest.channel,
+                    }
+                  : undefined,
+              )}
               onSelect={(g) => {
                 setGuest(g);
                 setGuestError(undefined);
@@ -570,6 +634,19 @@ export function QuoteDialog({
                   </tr>
                 </tbody>
               </table>
+              {seen && calc.totalVnd !== undefined && calc.totalVnd !== null ? (
+                <SeenLine
+                  vs={compareWithSeen(seen, {
+                    arrival,
+                    nights,
+                    ...occ,
+                    publicRoomType: room?.publicRoomType,
+                    totalVnd: calc.totalVnd,
+                  })}
+                  from={`${vnd(seen.totalVnd)} ${t('common.vnd_unit')}`}
+                  to={`${vnd(calc.totalVnd)} ${t('common.vnd_unit')}`}
+                />
+              ) : null}
               {calc.commission?.amountVnd !== undefined ? (
                 <>
                   <hr className="hr my-8" />
@@ -661,14 +738,19 @@ export function QuoteDialog({
             </span>
             <Seg
               labelledBy="q-lang"
+              describedBy={hasLangNote(guestLocale) ? 'q-lang-note' : undefined}
               value={lang}
-              onChange={setLang}
+              onChange={(l) => {
+                langPicked.current = true;
+                setLang(l);
+              }}
               options={[
                 { value: 'vi', label: <span lang="vi">Tiếng Việt</span> },
                 { value: 'en', label: <span lang="en">English</span> },
                 { value: 'ru', label: <span lang="ru">Русский</span> },
               ]}
             />
+            <LangNote locale={guestLocale} id="q-lang-note" />
           </div>
           <pre className="quote-text" lang={lang} aria-live="polite">
             {text}
@@ -703,6 +785,7 @@ export function QuoteDialog({
                 <DepositQr reservation={held} auto />
               )}
             </div>
+            <LangNote locale={guestLocale} block />
           </>
         ) : (
           <>
@@ -730,9 +813,60 @@ export function QuoteDialog({
               </div>
               <div className="li-s">{t(ctv ? 'sale.qr_after_ctv' : 'sale.qr_after')}</div>
             </div>
+            <LangNote locale={guestLocale} block />
           </>
         )
       ) : null}
     </Modal>
+  );
+}
+
+/**
+ * US-175 AC4 (2) (BUG-R4-008, CPY lp-v2-copy 15.1): under "Language for the guest" and under the deposit card of the
+ * hold step, for a guest who wrote in Korean / Chinese / Russian – "Guest wrote in Korean – send messages in English."
+ * A reminder, still true when staff switch the box. Nothing for vi/en (same language).
+ */
+function hasLangNote(locale?: LandingLocale): locale is 'ko' | 'zh' | 'ru' {
+  return locale === 'ko' || locale === 'zh' || locale === 'ru';
+}
+
+/** One type style everywhere (`help`, CPY 15.1 – FB-R4-UXD-FE-22); `id` ties it to the language box. */
+function LangNote({ locale, block, id }: { locale?: LandingLocale; block?: boolean; id?: string }) {
+  const { t } = useI18n();
+  if (!hasLangNote(locale)) return null;
+  const note = (
+    <span className="help" id={id}>
+      {t(`sale.text_lang_note.${locale}`)}
+    </span>
+  );
+  // Under the deposit card: the same `help` line, kept apart from the card.
+  return block ? <div className="field flush mt-8">{note}</div> : note;
+}
+
+/**
+ * US-131 AC10 (BUG-R4-001): the quote total against the estimate the guest saw on the website. Same stay and a
+ * different total → "Changed: {seen} → {now}" so staff can explain it to the guest; same → a quiet line; a different
+ * stay (dates, nights, party or public room type) → the seen figure for reference only, never "changed".
+ */
+function SeenLine({
+  vs,
+  from,
+  to,
+}: {
+  vs: 'same' | 'changed' | 'other';
+  from: string;
+  to: string;
+}) {
+  const { t } = useI18n();
+  if (vs === 'changed')
+    return (
+      <Alert tone="warn" title={t('webreq.estimate_changed', { from, to })}>
+        {t('webreq.estimate_changed_hint')}
+      </Alert>
+    );
+  return (
+    <p className="li-s mt-8">
+      {t(vs === 'same' ? 'webreq.estimate_same' : 'webreq.estimate_other', { amount: from })}
+    </p>
   );
 }

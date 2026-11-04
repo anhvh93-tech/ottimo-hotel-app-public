@@ -18,6 +18,26 @@ export interface ParameterHook {
 @Injectable()
 export class ParameterHooks {
   private readonly hooks = new Map<string, ParameterHook>();
+  /**
+   * R4 LP-v2 (ARC lp-v2-design 2.5): in-process listeners told AFTER a parameter of a property changed (setParameter /
+   * cancelScheduledParameter committed) – caches of other modules (public price estimate) drop that property. The
+   * same change also sends `NOTIFY config_changed`; one api process (ADR-010) makes the in-process call enough.
+   */
+  private readonly changeListeners: Array<(propertyId: string, key: string) => void> = [];
+
+  onChange(listener: (propertyId: string, key: string) => void): void {
+    this.changeListeners.push(listener);
+  }
+
+  changed(propertyId: string, key: string): void {
+    for (const l of this.changeListeners) {
+      try {
+        l(propertyId, key);
+      } catch {
+        // A cache listener never fails the request that changed the parameter.
+      }
+    }
+  }
 
   register(key: string, hook: ParameterHook): void {
     if (this.hooks.has(key)) throw new Error(`parameter hook for ${key} registered twice`);

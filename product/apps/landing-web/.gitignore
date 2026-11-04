@@ -5,3 +5,6 @@ dist/
 dist-booking-preview/
 # Live-form test build (LANDING_BOOKING_FORM=true, slug dl01 – tests only, never deployed)
 dist-booking-live/
+
+# Source fonts of scripts/subset-cjk.mjs (npm pack, pinned + sha512) – ~400 MB, never committed
+.font-src/
