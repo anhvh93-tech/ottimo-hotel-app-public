@@ -197,7 +197,9 @@ MIGRATION_DATABASE_URL=postgres://ottimo_migrator:$MIG@localhost:5432/ottimo_tes
 # @ottimo/integrations 46 passed; admin-web/mobile/guest-web mỗi app 1 passed; Turbo 9/9
 ```
 
-Turborepo chỉ chuyển cho task `test` các biến khai báo trong `turbo.json` (`DATABASE_URL`, `MIGRATION_DATABASE_URL`); thêm biến mới cho test thì phải khai báo ở đó, nếu không test sẽ âm thầm bị bỏ qua.
+Turborepo chỉ chuyển cho task `test` các biến khai báo trong `turbo.json` (`DATABASE_URL`, `MIGRATION_DATABASE_URL`, và từ v1.0.4 `BOOTSTRAP_DATABASE_URL`, `BOOTSTRAP_MIGRATION_DATABASE_URL` cho 5 ca "cơ sở dữ liệu trống mới" của `production-bootstrap.test.ts` – BUG-R4-029); thêm biến mới cho test thì phải khai báo ở đó, nếu không test sẽ âm thầm bị bỏ qua.
+
+Test đọc **tệp ngoài gói của nó** (hợp đồng `docs/api/openapi.yaml`, `infra/server/bin/*.sh`, `design/copy/strings-*.json`, `tests/fixtures/*.json`, `.prettierrc.json` của các bài so bản sinh…) thì tệp đó phải có trong `tasks.test.inputs` của `turbo.json` **trong gói** (`$TURBO_DEFAULT$` + `$TURBO_ROOT$/<đường dẫn>`). Thiếu thì sửa tệp đó không làm mất cache: CI "cache hit, replaying logs" và xanh giả (BUG-R4-029: `api-client` và `integrations` đỏ thật mà CI vẫn xanh). Mã nguồn của gói phụ thuộc trong workspace (`@ottimo/*` trong `package.json`) đã được turbo tính qua `^build`, không cần khai. `tsconfig.base.json` là `globalDependencies` (đổi là mọi task chạy lại). Kiểm tra trước khi phát hành: `pnpm exec turbo run test --force` (bỏ qua cache).
 
 ## 6. Lockfile
 

@@ -99,20 +99,33 @@ describe('isEmailAddress – check only (SMTP adapter, EMAIL_FROM, EMAIL_SMTP_US
 
 // `ops-check email_ascii` counts stored addresses outside this rule, in SQL (infra/server/bin/ops-check.sh). The
 // adapter is strict since v1.0.4 because that count was 0 – the two must stay the same rule.
+// The script is a declared input of this package's test task (integrations/turbo.json, BUG-R4-029): editing it
+// re-runs this test instead of replaying a cached green.
+const OPS_CHECK = new URL('../../infra/server/bin/ops-check.sh', import.meta.url);
+
+// Since P4-04 the SQL writes `a.e ~ '$EMAIL_RULE_RE'` (one shell constant shared with email_rule / email_config).
+// A captured `$NAME` / `${NAME}` is resolved to the single top-level `NAME='…'` of the script (BUG-R4-031); a
+// literal pattern is used as is.
+function shellValue(src: string, captured: string): string | undefined {
+  const ref = /^\$\{?([A-Z_][A-Z0-9_]*)\}?$/.exec(captured);
+  if (!ref) return captured;
+  const defs = [...src.matchAll(new RegExp(`^${ref[1]}='([^']*)'$`, 'gm'))];
+  expect(defs.length, `exactly one ${ref[1]}='…' in ops-check.sh`).toBe(1);
+  return defs[0]![1];
+}
+
 describe('parity with ops-check email_ascii (SQL copy of the rule)', () => {
   it('the SQL pattern accepts and refuses exactly what normalizeEmailAddress does on the case table', () => {
-    let src: string;
-    try {
-      src = readFileSync(new URL('../../infra/server/bin/ops-check.sh', import.meta.url), 'utf8');
-    } catch {
-      return; // ops-check moved: nothing to compare with
-    }
+    // No silent skip: if ops-check.sh moves, this fails and the new path goes here and in integrations/turbo.json.
+    const src = readFileSync(OPS_CHECK, 'utf8');
     const fn = /check_email_ascii\(\)[\s\S]*?\n}\n/.exec(src)?.[0] ?? '';
     expect(fn, 'check_email_ascii() not found in ops-check.sh').not.toBe('');
-    const pattern = /a\.e ~ '([^']+)'/.exec(fn)?.[1];
+    const captured = /a\.e ~ '([^']+)'/.exec(fn)?.[1];
     const len = /char_length\(a\.e\) BETWEEN (\d+) AND (\d+)/.exec(fn);
-    expect(pattern, 'regex of email_ascii not found').toBeDefined();
+    expect(captured, 'regex of email_ascii not found').toBeDefined();
     expect(len, 'length bounds of email_ascii not found').not.toBeNull();
+    const pattern = shellValue(src, captured as string);
+    expect(pattern, 'value of the email_ascii regex').toMatch(/^\^.*\$$/);
     const re = new RegExp(pattern as string);
     const [min, max] = [Number(len![1]), Number(len![2])];
     // SQL: lower(btrim(email)) – btrim strips spaces only; blank values are not counted (email_missing).
@@ -125,5 +138,19 @@ describe('parity with ops-check email_ascii (SQL copy of the rule)', () => {
       if (raw.trim() === '') continue; // blank = no address: email_missing, not email_ascii
       expect(sqlAccepts(raw), JSON.stringify(raw)).toBe(normalizeEmailAddress(raw) !== null);
     }
+  });
+
+  it('email_rule (bash, email_config) uses the same constant and the same length bounds as the SQL', () => {
+    const src = readFileSync(OPS_CHECK, 'utf8');
+    const sql = /check_email_ascii\(\)[\s\S]*?\n}\n/.exec(src)?.[0] ?? '';
+    const bash = /^email_rule\(\) \{[\s\S]*?\n}\n/m.exec(src)?.[0] ?? '';
+    expect(bash, 'email_rule() not found in ops-check.sh').not.toBe('');
+    expect(bash).toContain('"$EMAIL_RULE_RE"');
+    expect(sql).toContain("a.e ~ '$EMAIL_RULE_RE'");
+    const sqlLen = /char_length\(a\.e\) BETWEEN (\d+) AND (\d+)/.exec(sql);
+    const bashLen = /"\$\{#1\}" -ge (\d+) \] && \[ "\$\{#1\}" -le (\d+)/.exec(bash);
+    expect(bashLen, 'length bounds of email_rule not found').not.toBeNull();
+    expect([bashLen![1], bashLen![2]]).toEqual([sqlLen![1], sqlLen![2]]);
+    expect(Number(bashLen![2])).toBe(EMAIL_ADDRESS_MAX);
   });
 });

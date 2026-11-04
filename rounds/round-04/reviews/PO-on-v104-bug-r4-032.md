@@ -142,3 +142,127 @@ PO đọc nhanh, chưa phải review đầy đủ. (a) `booking@` và (b) ngày 
   - không báo khách "không có khoản hoàn".
 - Đề xuất sửa: thêm hai ý này để sổ tay và release notes nói cùng một câu.
 - Trạng thái: Open
+
+## Phản hồi BA (04/11/2026, lượt 3)
+
+- **FB-R4-PO-BA-032-05 – Fixed ở PR #69** (`v104/ba-2fa-ungate` @ `77cbb496`).
+  - Nhánh cắt từ `origin/main`, có gộp sẵn #63 và #68, vì phần lớn chỗ phải gỡ chỉ có trong hai PR đó. Review riêng commit cuối: `git diff ee92b607..77cbb496`.
+  - Đã gỡ theo danh sách mục 5 của tệp phản hồi BA. Câu "Sale nội bộ, CTV… nên bật" được giữ.
+  - Dòng "Lập:" chỉ còn bản hiện hành. Lịch sử của từng tệp `01`–`05` chuyển xuống mục **Lịch sử tệp** cuối tệp.
+  - PR body ghi: **không gộp trước khi v1.0.4 lên production**; ORC gộp sau khi báo chủ đầu tư.
+- **FB-R4-PO-BA-032-08 – Accepted.** Giữ "từ v1.0.4" vì ORC gộp #64 trước #68. PR #68 body ghi: nếu #64 trượt thì đổi thành v1.0.5 ở sổ tay 2.14, 2.14a; `02` 11.1, 11.5.2; `01` 7.3. Giới hạn và câu "hỏi quản lý" vẫn giữ.
+- **FB-R4-PO-BA-032-09 – Fixed** ở #68 `7ba1ddf5`. Sổ tay 2.14a và `02` 11.5.2 thêm hai ý: "Yêu cầu đã được quản lý duyệt thì vẫn thấy như thường"; "Không báo khách 'không có khoản hoàn'". Câu giờ khớp release notes #66.
+
+---
+
+## PR #69 (`v104/ba-2fa-ungate` @ `77cbb496`, chỉ commit riêng `ee92b607..77cbb496`)
+
+**Kết luận: ĐẠT.** Không có thẻ chặn. Giữ điều kiện ở mô tả PR: chỉ gộp sau khi chủ đầu tư báo v1.0.4 đã lên production, sau #63 và #68, rồi UXD dựng lại HTML. Thẻ FB-R4-PO-BA-032-05 chuyển **Done** khi #69 gộp.
+
+- **Đúng phạm vi thẻ 05.**
+  - Đã gỡ lời dặn "không bật 2 bước ở v1.0.x" và các đường v1.0.3 cho người mất cả điện thoại lẫn mã khôi phục. Ngoài dòng lịch sử, không còn sót chỗ nào trong 7 tệp; các chỗ "Ở v1.0.3" còn lại là việc khác (tiêu đề thư, yêu cầu hoàn thay thế, đơn HĐ).
+  - Giữ câu "Sale nội bộ, CTV… nên bật".
+  - Bảng vai ghi giá trị v1.0.4; dòng Lễ tân vẫn "Chưa" (thẻ 07).
+  - "Lập:" chỉ còn bản hiện hành; lịch sử chuyển xuống bảng phiên bản (sổ tay 5.7, `00` mục 7) và mục **Lịch sử tệp** của `01`–`05`.
+  - Hai thẻ SEC đi kèm (lễ tân trưởng không tự tắt 2 bước; câu in đậm "Desk chặn `info@` và `booking@`") chỉ đúng khi v1.0.4 đã chạy, nên để trong PR này là hợp lý.
+- **Dễ đọc cho chủ đầu tư và lễ tân trưởng.**
+  - Dòng đầu tệp ngắn.
+  - Bước 7 của sổ tay 1.5 và bước 8 của `01` 1.9 viết theo từng vai, mỗi vai một ý. Phần lễ tân trưởng ghi rõ 3 việc rồi mới giao việc.
+  - `02` 1.8 nói thẳng "không tự tắt 2 bước, cần tắt thì hỏi chủ đầu tư".
+  - Bước A ở `03`/`04` thành tùy chọn, có cách đổi mật khẩu tạm trên app ngay bên dưới.
+- **Khớp release notes #66 @ `77800288`.**
+  - Khớp: lời dặn cũ hết hiệu lực, mặc định 2 bước theo vai, người trực kiểm căn trên app, Desk chặn `booking@`, các mục được trỏ (sổ tay 1.5, `01` 1.9 bước 8).
+  - PO sẽ sửa #66 lúc cắt bản 06/11 18:00, cùng lượt cập nhật bảng "Đang chờ gộp":
+    - Bước 1 của **Việc anh/chị làm sau khi lên**: sau khi anh/chị báo "v1.0.4 đã lên", đội gộp bản gỡ lời dặn cũ (sổ tay 1.14, bộ hướng dẫn 1.12) và dựng lại HTML; đào tạo theo bản đó.
+    - Dòng **Ai bật 2 bước** và giới hạn "Lễ tân trưởng bắt buộc 2 bước": thêm "dặn người đó không tự tắt (Desk chưa chặn tới v1.0.5)".
+
+### FB-R4-PO-BA-PR69-01
+- Mức độ: Suggestion
+- Vị trí: dòng "Lập:" của `01`–`05` ("Bộ hướng dẫn theo bộ phận, bản 1.11", "bản 1.12", "bản 1.5", "bản 1.7").
+- Vấn đề: mỗi tệp ghi số bản riêng nhưng gọi là "Bộ hướng dẫn… bản x". Trong khi đó `00` ghi bộ hướng dẫn bản 1.12 và release notes cũng dùng số đó. Chủ đầu tư có thể tưởng tệp `05` (bản 1.7) là bộ cũ.
+- Đề xuất sửa: ghi "Tệp này bản 1.11 (thuộc bộ hướng dẫn bản 1.12)". Làm ở lượt dọn chung, không chặn #69.
+- Trạng thái: Closed (PO lượt 2 @ `b9e40a04`; BA sửa @ `b6d4ecb8`)
+
+### FB-R4-PO-BA-PR69-02
+- Mức độ: Suggestion
+- Vị trí: các khung "Áp dụng từ v1.0.4" còn lại, ví dụ sổ tay 3.6, `02` 13.2a và 14.2. Ở các chỗ này, nội dung chính ngay trên đã nói cùng ý.
+- Vấn đề: sau #69, có chỗ người đọc gặp cùng một ý hai lần, một lần ở nội dung chính và một lần trong khung.
+- Đề xuất sửa: lượt dọn chung (chuyển các khung "Áp dụng từ v1.0.4" thành nội dung chính) làm ngay sau #69. PO xếp vào việc tài liệu của v1.0.5 và không chặn #69.
+- Trạng thái: Deferred – PO chấp nhận ở lượt 2 @ `b9e40a04` (lượt dọn tài liệu v1.0.5, danh sách gộp ở thẻ PR69-03)
+
+## Phản hồi BA (04/11/2026, thẻ PR69-01/02, PR #69 @ `b6d4ecb8`)
+
+### FB-R4-PO-BA-PR69-01 – Fixed @ `b6d4ecb8`
+- Dòng "Lập:" của `01`–`05` nay ghi "Tệp này bản X (thuộc bộ hướng dẫn bản 1.12)":
+  - `01` 1.11, `02` 1.12, `03` 1.5, `04` 1.5, `05` 1.7.
+- Ghi vào hàng 1.12 của `00` mục 7.
+
+### FB-R4-PO-BA-PR69-02 – Deferred, để lượt dọn tài liệu v1.0.5 (đúng đề xuất PO)
+- Không làm trong #69. Nếu chỉ gỡ khung ở sổ tay 3.6 và `02` 14.2, luồng kiểm phòng sẽ nửa cũ nửa mới.
+- Danh sách chỗ phải sửa cùng lúc, cho lượt dọn:
+  - `02` 13.2a: tiêu đề "(người trực hiện nay; từ v1.0.4 là dự phòng)" và khung;
+  - `02` 14.2: khung, và dòng "Tới v1.0.4: ngày lễ tân trưởng nghỉ…";
+  - `02` mục 2, bảng giờ trong ngày: hàng "Trước 11:00" và "Ngay khi khách trả";
+  - `02` 18 (Bảng giờ): hàng "Trước 11:00";
+  - `02` 20.3: bài tập 10;
+  - `00` 2.1 và 5;
+  - sổ tay 3.6: khung.
+- Các khung "Áp dụng từ v1.0.4" khác cũng nên gỡ trong cùng lượt dọn: tờ v2 ở `02` 7.2, ngày kết thúc HĐ ở sổ tay 2.14a và `02` 17.5.
+
+---
+
+## Lượt 2 – PO đọc lại PR #69 (04/11/2026, `v104/ba-2fa-ungate` @ `b9e40a04`)
+
+- Đã đọc: `gh pr diff 69` và PR body; riêng `8b2b0204..b6d4ecb8` (sửa thẻ lượt 1) và `b6d4ecb8..b9e40a04` (gộp nhánh #68 @ `ba841ea2`, DOM 07–10).
+- Đã so: phần #69 thêm trên #68 (`git diff origin/v104/ba-docs-r4b origin/v104/ba-2fa-ungate`) với hai commit riêng `ee92b607..77cbb496` và `8b2b0204..b6d4ecb8`.
+
+**Kết luận: ĐẠT.** Không có thẻ chặn. Giữ điều kiện gộp như lượt 1:
+- gộp sau #68;
+- chỉ gộp khi chủ đầu tư báo v1.0.4 đã lên production; sau đó UXD dựng lại HTML;
+- lùi về v1.0.3 thì gỡ (revert) #69 cùng lúc (SEC lượt 1).
+
+| ID | Trạng thái mới | Ghi chú PO |
+|---|---|---|
+| FB-R4-PO-BA-PR69-01 | **Closed** | Dòng **Lập:** của cả 5 tệp ghi "Tệp này bản X (thuộc bộ hướng dẫn bản 1.12)": `01` 1.11, `02` 1.12, `03` 1.5, `04` 1.5, `05` 1.7. Hàng 1.12 ở `00` mục 7 có ghi việc này. Không tệp nào còn gọi số bản riêng là "Bộ hướng dẫn… bản x" |
+| FB-R4-PO-BA-PR69-02 | **Deferred – PO chấp nhận** | Lý do của BA đúng. Luồng kiểm phòng nằm ở 7 chỗ (`02` mục 2, 13.2a, 14.2, 18, 20.3; `00` 2.1 và 5; sổ tay 3.6). Chỉ gỡ 2 khung thì luồng nửa cũ nửa mới. PO đã đọc khung còn lại ở `02` 13.2a và 14.2: nội dung đúng với v1.0.4, chỉ lặp ý. Câu "Tới v1.0.4: …" ở 14.2 tự hết hạn. Người đọc không làm sai việc gì. Dọn ở v1.0.5, theo một danh sách chung (thẻ 03) |
+
+### Số phiên bản sau khi gộp #68
+
+| Tệp | #68 @ `ba841ea2` | #69 @ `b9e40a04` | Bảng lịch sử ở #69 |
+|---|---|---|---|
+| Sổ tay | 1.13 | **1.14** | Mục 5.7: hàng 1.14 ("Gộp sau 1.13 (PR #68)") đứng trên 1.13 |
+| `00` (bộ hướng dẫn) | 1.11 | **1.12** | Mục 7: hàng 1.12 ("Gộp sau bản 1.11 (PR #68)") ngay sau 1.11 |
+| `01` | 1.10 | 1.11 | **Lịch sử tệp**: bản 1.10 ở trên cùng |
+| `02` | 1.11 | 1.12 | **Lịch sử tệp**: bản 1.11 ở trên cùng |
+| `03`, `04` | 1.4 (#68 không đổi) | 1.5 | **Lịch sử tệp**: bản 1.4 ở trên cùng |
+| `05` | 1.6 | 1.7 | **Lịch sử tệp**: bản 1.6 ở trên cùng |
+
+- **Khớp.** Mỗi tệp đúng một bản trên #68.
+- Ghi chú của #68 chuyển xuống **Lịch sử tệp** (`01` bản 1.10, `02` bản 1.11, `05` bản 1.6) trùng từng chữ với dòng **Lập:** của #68 @ `ba841ea2`. Có cả phần DOM lượt 3: căn `OC`/`OD`, đơn OTA gõ đủ giá, đơn Nội bộ ở thêm.
+- Ngoài các dòng **Lập:** và **Lịch sử tệp**, phần #69 thêm trên #68 chỉ gồm hai commit riêng. Không mất dòng nào của #68.
+- Không chỗ nào trong 7 tệp trỏ sai số bản. `00` hàng 1.8 nhắc "sổ tay 1.10", đúng với lịch sử.
+
+### FB-R4-PO-BA-PR69-03
+- Mức độ: Suggestion
+- Vị trí:
+  - Phần #68 vào #69 ở `b9e40a04`: sổ tay 2.5 (đơn Nội bộ), 2.10 (căn `OC`/`OD`, "dù Desk hiện vẫn cho bấm"), 2.12 bước 7, 5.6 (hàng BUG-R4-038); `02` 5.1, 7.4, 9.3 bước 7, 17.6.
+  - `00` mục 1 ý 4: "Phần lớn sửa ở v1.0.3 (dự kiến 07/11)…". v1.0.3 đã lên 04/11.
+- Vấn đề:
+  - Danh sách dọn của BA (PR body #69) viết ở `b6d4ecb8`, trước khi gộp DOM 07–10. Các chỗ trên cũng là cách tạm "tới khi v1.0.4 lên".
+  - DOM đã liệt kê phần #68 ở `DOM-on-v104-pr68-docs.md` lượt 4 ("Việc dọn sau khi v1.0.4 lên"). Vậy là có hai danh sách ở hai nơi.
+- Vì sao quan trọng:
+  - Lượt dọn v1.0.5 dễ sót một trong hai danh sách.
+  - Câu "Từ v1.0.4: bấm Gia hạn như đơn khác" chỉ đúng khi bản sửa BUG-R4-038 có trong v1.0.4. Câu "Desk chặn từ v1.0.4" cũng vậy với BUG-R4-039.
+- Đề xuất sửa:
+  - Lượt dọn v1.0.5 dùng một danh sách: danh sách BA (PR body #69), danh sách DOM #68 lượt 4, và `00` mục 1 ý 4. PO thêm một dòng vào backlog mục 5.6b khi cắt bản.
+  - Lúc cắt bản, nếu BUG-R4-038 hoặc 039 trượt khỏi v1.0.4: BA sửa câu tương ứng ở #68, rồi gộp lại vào #69 trước khi gộp #69 (cùng ý SEC lượt 2).
+  - Không chặn #69.
+- Trạng thái: Open
+
+### Ghi chú cho lần PO sửa release notes #66 lúc cắt bản (06/11 18:00)
+
+- Dòng **Hướng dẫn** ở đầu mục v1.0.4: `main` đã có #63 (sổ tay 1.12 / bộ hướng dẫn 1.10). Bản cắt có #68: **1.13 / 1.11**. Bản gỡ lời dặn cũ (#69): **1.14 / 1.12**, gộp sau khi lên. #69 không đưa vào bảng **Đang chờ gộp**.
+- **Việc anh/chị làm sau khi lên**, bước 1: viết như đã ghi ở lượt 1 (đội gộp #69, dựng lại HTML, đào tạo theo 1.14 / 1.12). Nếu #68 trượt sang v1.0.5 thì #69 không gộp được như hiện tại: BA cắt lại từ `main`, số bản thành 1.13 / 1.11.
+- Đoạn lùi về v1.0.3: thêm câu "Nếu đã gộp bản gỡ lời dặn cũ, đội gỡ bản đó cùng lúc; nhân viên dùng lại sổ tay 1.13 và bộ hướng dẫn 1.11."
+- **Có trong bản này**: thêm BUG-R4-037 (#70), BUG-R4-038, BUG-R4-039 nếu kịp vào bản. Hiện #66 @ `77800288` chưa có ba lỗi này, mà SEC lượt 2 yêu cầu kiểm trước khi gộp #69. Hàng "Sổ tay 1.13, bộ hướng dẫn 1.11" thêm: đơn Nội bộ ở thêm, không nhận ngoại lệ vào căn có khách, đơn OTA gõ đủ giá mọi đêm.
+- Giữ sửa ở dòng **Ai bật 2 bước** đã ghi ở lượt 1: "dặn người đó không tự tắt (Desk chưa chặn tới v1.0.5)".

@@ -1,6 +1,6 @@
 # Hướng dẫn chuyển Desk sang bảng giá 01/11/2026 – dành cho anh/chị chủ đầu tư
 
-- Người viết: DOM | Round 4 – Phản hồi & sửa | Ngày: 01/11/2026
+- Người viết: DOM | Round 4 – Phản hồi & sửa | Ngày: 01/11/2026 · **Sửa 04/11/2026** (UXD phát hiện, DOM đọc mã): dòng B6 `ota_base_rate` – câu cũ "Không thấy dòng này thì bỏ qua" sai; nay ghi cách tự xem và việc phải làm khi không có dòng. Dòng "Tự kiểm phần B" sửa theo.
 - Căn cứ: bảng giá 01/11 (mục 1–4), ESC-045 câu 1–6 anh/chị đã quyết 01/11, `product/docs/business-rules.md` v0.5.1, kế hoạch chuyển `pricing-spec-2026-11-01-reconcile.md` mục 2. Tên màn, tên ô, mã khóa đã đối chiếu với mã Desk (`ParamsPage`, `ParamDialog`, `RoomDrawer`, `QuoteDialog`, `parameter.service`, `production-defaults.ts`).
 - Thời gian: khoảng **30–40 phút**, làm trên **máy tính**, tài khoản **chủ đầu tư**.
 
@@ -63,7 +63,7 @@ Cách làm **mỗi dòng** trong bảng dưới:
 | B3 | Khác | `los_discount` | `[{"minNights":7,"pct":10},{"minNights":14,"pct":15}]` | `[]` | Không giảm theo số đêm (bảng giá) |
 | B4 | Khác | `long_stay_required_from_nights` | 28 | `30` | Từ 30 đêm là thuê tháng |
 | B5 | Khác | `short_stay_max_nights` | 27 | `29` | Ngắn ngày tới 29 đêm. **Làm ngay sau B4** |
-| B6 | Khác | `ota_base_rate` | số cũ hoặc **không có dòng này** | `{"L12":800000,"N":1300000,"NPLUS":1100000}` | Một mức giá mọi kênh. **Không thấy dòng này thì bỏ qua** – Desk tự lấy giá đêm của căn, vẫn đúng |
+| B6 | Khác | `ota_base_rate` | số cũ hoặc **không có dòng này** | `{"L12":800000,"N":1300000,"NPLUS":1100000}` | Một mức giá mọi kênh. Desk dùng dòng này làm **giá đêm mặc định của đơn OTA** khi lễ tân để trống giá, và làm gốc **sàn–trần** khi sửa giá. **Cách xem:** tab **Khác**, Cmd + F (Ctrl + F) gõ `ota_base_rate`. Dòng này **chỉ có tên in đậm `ota_base_rate`**, không có tên tiếng Việt; cột giá trị hiện chuỗi trong ngoặc `{…}`. **Có dòng** (số cũ, ví dụ 760000): **Sửa**, dán đúng chuỗi ở cột bên, lưu như các dòng khác. **Có dòng và đã đúng chuỗi bên**: không làm gì. **Không thấy dòng: không bỏ qua.** Desk chưa có chỗ thêm dòng mới (màn này chỉ hiện dòng đã có giá trị). Chụp màn hình tab **Khác** lúc ô tìm báo không thấy, gửi đội. Tới khi đội cài xong, đơn OTA phải **gõ đủ giá mọi đêm** theo xác nhận của OTA; để trống thì Desk báo thiếu giá và không tạo đơn |
 | B7 | Khác | `early_checkin_tiers` | `[{"from":"10:00","to":"12:00","pct":30},{"from":"06:00","to":"10:00","pct":50}]` | `[{"from":"10:00","to":"11:00","pct":30},{"from":"06:00","to":"10:00","pct":50}]` | Nhận phòng sớm **miễn phí từ 11:00** |
 | B8 | Số người & phụ thu | "Phụ thu trẻ 6–11 tuổi vượt định mức (mỗi đêm)" (`child_fee_6_11`) | 100.000 | `150.000` | Từ 6 tuổi tính như người lớn (ESC-045 câu 3). Dưới 6 tuổi vẫn miễn – không đổi gì |
 | B9 | Khác | `long_stay_compare_from_nights` | 15 | `30` | Chỉ từ 30 đêm Desk mới hiện "So sánh: thuê 1 tháng" (ESC-045 câu 6) |
@@ -72,7 +72,7 @@ Cách làm **mỗi dòng** trong bảng dưới:
 
 **Không đổi** (đã khớp bảng giá hoặc Desk chưa dùng): giờ nhận/trả 12:00, trả muộn 30 %/50 %/sau 18:00 tính 1 đêm, ân hạn 12:30, phụ thu người lớn 150.000, tuổi người lớn 12, trẻ miễn dưới 6, khách nước ngoài +10 % (thuê tháng), cọc 30 %, VAT 8 % (giá đã gồm VAT), điện 5.000 đ/kWh, nước 100.000 đ/người/tháng, ở tối thiểu 2 đêm khi đến thứ Sáu/thứ Bảy/ngày lễ, danh sách ngày lễ (vẫn dùng cho ở tối thiểu và không hoàn cọc), `early_termination` (Desk v1.0 chưa dùng – đội tự cập nhật ở bản sau), `adhoc_cleaning_fee` (giữ 100.000 cho khách ngắn ngày – xem H3).
 
-**Tự kiểm phần B:** ở tab **Khác**, các dòng B1–B7, B9, B11 hiện giá trị mới; cột **Hiệu lực từ** là ngày hôm nay; không có chữ "Chưa hiệu lực".
+**Tự kiểm phần B:** ở tab **Khác**, các dòng B1–B5, B7, B9, B11 hiện giá trị mới; cột **Hiệu lực từ** là ngày hôm nay; không có chữ "Chưa hiệu lực". Dòng B6 `ota_base_rate`: hiện đúng `{"L12":800000,"N":1300000,"NPLUS":1100000}`; không có dòng thì đã gửi ảnh cho đội (xem B6).
 
 ---
 

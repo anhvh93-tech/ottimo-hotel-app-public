@@ -4,6 +4,7 @@
 - Lập: BA · 30/10/2026 · Người chụp: QA, trên **staging** bản `v1.0.0` (`8b3aec8`) · Người dựng: UXD
 - Tổng: **19 ảnh mới** (G1: 6 · G2: 7 · G3: 2 · G4: 2 · G5: 2) + **2 ảnh cũ còn thiếu** (C1-15, C2-34).
 - **Desk v1.0.3 (bản 1.6 bộ hướng dẫn, 04/11):** **chụp lại** G1-01 (bảng G1), C0-06, C1-07; ảnh mới C0-12, C0-13, C1-22 định nghĩa ở `../screenshot-list.md` (dùng chung sổ tay). Tài khoản `qa.*` chủ đầu tư, quản lý cần email giả có sẵn để ảnh khác không có dòng nhắc email.
+- **Desk v1.0.4 (bản 1.10 bộ hướng dẫn, 04/11, BUG-R4-032):** ảnh mới C1-23 (hộp **Đặt lại xác thực 2 bước**, `01` mục 1.9) định nghĩa ở `../screenshot-list.md`; C1-07 chụp lại có **Khác…**.
 - Ảnh dùng lại: 86 tệp có sẵn trong `product/docs/manual/img/` (mã `Cx-yy`, giữ nguyên mã). Không dùng: C0-10 (trang khách sau check-in online – check-in online đang tạm dừng tới v1.0.3).
 
 ## Quy tắc chụp

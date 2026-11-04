@@ -20,6 +20,11 @@ const at = (hhmm: string) => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date(`${todayLocal()}T${hhmm}:00+07:00`));
 };
+/** The clock on another calendar day (`YYYY-MM-DD`) – e.g. the departure day of a stay set up earlier in the case. */
+const onDay = (day: string, hhmm: string) => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(`${day}T${hhmm}:00+07:00`));
+};
 afterEach(() => vi.useRealTimers());
 
 function capture(method: string, re: RegExp) {
@@ -81,6 +86,8 @@ describe('BUG-R2-144 – tủ đã đếm phải đếm lại (BR-703-02)', () =
       { roomId: r.segments![0]!.roomId, roomNo: '201', reason: 'stay_continued' },
     ]);
     expect(sum.blockers).toContain('minibar_not_checked');
+    // P4-32 / BUG-R3-024: H16 runs on the new departure day of the stay (before it the page points to Trả sớm).
+    onDay((await api.getReservation(R)).data.stayDepartureDate!, '11:00');
 
     const counts = capture('POST', /\/minibar-checks$/);
     const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
@@ -442,6 +449,8 @@ describe('K11-03 – lần đếm luôn định danh tủ; căn hiện tại = �
     // Two segments now: `segments[0]` is the room LEFT; the room of today is 202.
     expect(res('Kim Seo-yeon').segments![0]!.roomNo).toBe('402');
     expect(currentSegment(res('Kim Seo-yeon').segments, todayLocal())!.roomNo).toBe('202');
+    // P4-32 / BUG-R3-024: H16 runs on the departure day (before it the page points to Trả sớm).
+    onDay(res('Kim Seo-yeon').departureDate, '11:00');
 
     const counts = capture('POST', /\/minibar-checks$/);
     const reads: Array<string | null> = [];
