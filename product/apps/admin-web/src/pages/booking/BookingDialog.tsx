@@ -96,6 +96,11 @@ interface Form {
   rates: Record<string, string>;
   /** ARC 16.18 (vòng sửa 5): nights whose rate box the desk changed – `NightRate.edited` (no number test). */
   ratesEdited: Record<string, boolean>;
+  /**
+   * BUG-R4-037: the stay (`previewKey`) whose price preview filled the boxes the desk has not typed. Those figures
+   * count – shown and sent – only while that is still the stay on screen; otherwise the untyped boxes are empty.
+   */
+  ratesFor?: string;
   depositAmount: string;
   /**
    * BUG-R3-005: the desk typed "Số tiền đã nhận" itself. Until then the box follows the NEWEST quote's deposit
@@ -112,6 +117,14 @@ interface Form {
 }
 
 const weekend = (date: string) => [5, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
+
+/** BUG-R4-037: the stay a price preview prices – channel, room and dates (the guests do not change a night's rate). */
+const previewKey = (x: {
+  roomId: string;
+  channelId?: string;
+  arrivalDate: string;
+  nights: number;
+}) => `${x.channelId ?? ''}|${x.roomId}|${x.arrivalDate}|${x.nights}`;
 
 /**
  * H09 Đặt phòng mới (S05, US-017/018/019/023, B2). Nightly prices, deposit and the extra-guest fee are
@@ -201,6 +214,8 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   const [busy, setBusy] = useState<'create' | 'hold' | null>(null);
   const [calc, setCalc] = useState<QuoteCalculation | null>(null);
   const [calcError, setCalcError] = useState<unknown>(null);
+  /** BUG-R4-037 (BE 1.8): the stay (`previewKey`) the last preview answered for – priced or failed. */
+  const [calcFor, setCalcFor] = useState<string | null>(null);
   const [avail, setAvail] = useState<{ available: boolean; reason?: string; alt: string[] } | null>(
     null,
   );
@@ -323,30 +338,41 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
           if (stale) return;
           setCalc(r.data);
           setCalcError(null);
-          setForm((f) => ({
-            ...f,
-            // BR-107 v0.3.8 (DOM S4-38): the desk types the CALENDAR rate (before the length-of-stay step) –
-            // the server applies the step on what it gets, so a stepped figure here would be stepped twice.
-            rates: Object.fromEntries(
-              (r.data.nightlyRates ?? []).map((n) => [
-                n.date,
-                vnd(n.calendarRateVnd ?? n.amountVnd),
-              ]),
-            ),
-            // The server priced the stay again (room, dates, guests): the boxes hold its rates, none edited.
-            ratesEdited: {},
-            // BUG-R3-005: follow the newest quote unless the desk typed the amount (then: mismatch warning).
-            depositAmount: f.depositEdited
-              ? f.depositAmount
-              : r.data.depositVnd
-                ? vnd(r.data.depositVnd)
-                : '',
-          }));
+          setCalcFor(previewKey(p));
+          setForm((f) => {
+            // BUG-R4-037: a box the desk typed keeps its figure; every other box takes this preview's rate and
+            // counts only for this stay (`ratesFor`). A box typed and then emptied is open to the preview again.
+            const typed = (d: string) => !!f.ratesEdited[d] && !!f.rates[d];
+            const kept = Object.keys(f.rates).filter(typed);
+            return {
+              ...f,
+              // BR-107 v0.3.8 (DOM S4-38): the desk types the CALENDAR rate (before the length-of-stay step) –
+              // the server applies the step on what it gets, so a stepped figure here would be stepped twice.
+              rates: {
+                ...Object.fromEntries(
+                  (r.data.nightlyRates ?? []).map((n) => [
+                    n.date,
+                    vnd(n.calendarRateVnd ?? n.amountVnd),
+                  ]),
+                ),
+                ...Object.fromEntries(kept.map((d) => [d, f.rates[d]!])),
+              },
+              ratesEdited: Object.fromEntries(kept.map((d) => [d, true])),
+              ratesFor: previewKey(p),
+              // BUG-R3-005: follow the newest quote unless the desk typed the amount (then: mismatch warning).
+              depositAmount: f.depositEdited
+                ? f.depositAmount
+                : r.data.depositVnd
+                  ? vnd(r.data.depositVnd)
+                  : '',
+            };
+          });
         },
         (e: unknown) => {
           if (stale) return;
           setCalc(null);
           setCalcError(e);
+          setCalcFor(previewKey(p));
         },
       );
     return () => {
@@ -386,14 +412,38 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     };
   }, [availInput, propertyId, today]);
 
-  const rateList = dates.map((d) => ({ date: d, raw: form.rates[d] ?? '' }));
+  // BUG-R4-037: the preview's figures belong to ITS channel, room and dates. The stay on screen now – the same test
+  // the preview runs on (`calcInput.on`), so OTA / Nội bộ / long stay / over capacity never have one – and a box the
+  // desk has not typed shows (and sends) the preview's figure only for that very stay; otherwise it is empty: the
+  // server prices it (OTA calendar – BUG-R2-017; Nội bộ 0 đ; Trực tiếp / CTV the list rate).
+  const liveKey =
+    directLike && datesOk && !longStay && !overCapacity && form.roomId && channel
+      ? previewKey({
+          roomId: form.roomId,
+          channelId: channel.id,
+          arrivalDate: form.arrivalDate,
+          nights,
+        })
+      : null;
+  const prefillLive = !!liveKey && form.ratesFor === liveKey;
+  // BE 1.8: Trực tiếp / CTV – room, dates or channel changed and the preview of the new stay is not back yet (300 ms
+  // debounce + the call): "Tạo đơn" waits (DS busy, like H16 PR #67) – nothing of the previous stay is sent meanwhile.
+  const priceWaiting = !!liveKey && calcFor !== liveKey;
+  const rateList = dates.map((d) => ({
+    date: d,
+    raw: form.ratesEdited[d] || prefillLive ? (form.rates[d] ?? '') : '',
+  }));
   const calendarOf = (date: string) => {
     const n = calc?.nightlyRates?.find((x) => x.date === date);
     return n ? (n.calendarRateVnd ?? n.amountVnd) : undefined;
   };
   // 0.3.5 A-14: the server splits room total / extra-person fee – no subtraction on the client.
   const extraFee = calc?.extraPersonFeeVnd ?? 0;
-  const ratesTouched = !!calc && rateList.some((r) => parseVnd(r.raw) !== calendarOf(r.date));
+  // Only a box the desk typed can differ from the server's rate (an untyped one holds it, or is empty while the
+  // preview of this stay is on its way).
+  const ratesTouched =
+    !!calc &&
+    rateList.some((r) => form.ratesEdited[r.date] && parseVnd(r.raw) !== calendarOf(r.date));
   // BR-107 step of this stay (server). Untouched rates → the server's stepped total; typed rates → the step
   // is applied by the server on save (no client arithmetic) – the sum shown is then the calendar sum.
   const losPct = calc?.losDiscountPct ?? 0;
@@ -433,6 +483,14 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
     });
     if (form.group === 'ota' && rateList.some((r) => r.raw) && rateList.some((r) => !r.raw))
       e.rates = t('booking.error.rate_empty');
+    // BUG-R4-037: Trực tiếp / CTV with a typed rate sends every night – never an empty one as 0 đ (the preview of
+    // this stay not back yet, or a box emptied by hand).
+    if (
+      directLike &&
+      (ratesTouched || rateList.some((r) => form.ratesEdited[r.date])) &&
+      rateList.some((r) => !r.raw)
+    )
+      e.rates = t('booking.error.rate_empty');
     if (directLike && !((parseVnd(form.depositAmount) ?? 0) > 0))
       e.deposit = t('field_error.amount_not_positive');
     if (rateWarn && form.rateReason.trim().length < 3)
@@ -453,9 +511,11 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
       edited: !!form.ratesEdited[r.date],
     });
     const anyEdited = rateList.some((r) => form.ratesEdited[r.date]);
+    // BUG-R4-037: OTA / Nội bộ send rates only when the desk typed every night (`rateList` holds nothing else for
+    // them); otherwise the server prices the stay (OTA calendar – BUG-R2-017; Nội bộ 0 đ).
     const nightly =
       form.group === 'ota' || form.group === 'internal'
-        ? rateList.every((r) => r.raw)
+        ? rateList.every((r) => r.raw && form.ratesEdited[r.date])
           ? rateList.map(night)
           : undefined
         : ratesTouched || anyEdited
@@ -579,7 +639,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
 
   async function submit(e?: FormEvent, opts: { allowUnassigned?: boolean; roomId?: string } = {}) {
     e?.preventDefault();
-    if (busy || !online) return;
+    if (busy || !online || priceWaiting) return;
     const v = opts.roomId ? {} : validate();
     setErrors(v);
     if (Object.keys(v).length || longStay) return;
@@ -775,8 +835,10 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
               variant="pri"
               type="submit"
               form="booking-form"
-              busy={busy === 'create'}
-              busyLabel={write.busyLabel ?? t('bk.checking')}
+              busy={busy === 'create' || priceWaiting}
+              busyLabel={
+                busy === 'create' ? (write.busyLabel ?? t('bk.checking')) : t('common.loading')
+              }
               disabled={busy !== null || longStay}
             >
               {t('booking.create')}
