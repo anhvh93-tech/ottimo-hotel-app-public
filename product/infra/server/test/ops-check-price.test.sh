@@ -39,12 +39,16 @@ landing_line() { # status
   printf '{"level":"info","logger":"http.log.access","msg":"handled request","request":{"remote_ip":"203.0.113.0","method":"GET","host":"ottimo.vn","uri":"/v1/public/properties/dlt/price-estimate?[q]"},"duration":0.01,"size":120,"status":%s}\n' "$1"
 }
 # Fake bin/dc: `logs … landing` / `logs … web landing` → $home/landing.log, `logs … api` → $home/api.log,
-# `exec -T postgres …` (psql) → $home/psql.out.
+# `exec -T postgres …` (psql) → the guard row, then $home/psql.out.
 cat > "$home/fake/infra/server/bin/dc" <<DC
 #!/usr/bin/env bash
 case "\$1" in
   logs) case "\${*: -1}" in api) cat "$home/api.log" ;; *) cat "$home/landing.log" ;; esac ;;
-  exec) cat > "$home/psql.in"; cat "$home/psql.out" ;;
+  exec) cat > "$home/psql.in"
+        # v1.0.4: psql_ro sends the ottimo_readonly guard row first (SEC PR32-S1) – answer it like the real role.
+        grep -qF "current_user = 'ottimo_readonly'" "$home/psql.in" && echo ro-ok
+        printf '%s\n' "\$*" > "$home/psql.cmd"
+        cat "$home/psql.out" ;;
 esac
 DC
 chmod +x "$home/fake/infra/server/bin/dc"
@@ -130,6 +134,9 @@ printf '46|5|true\n' > "$home/psql.out"
 reset; printf '45; DROP TABLE x\n' > "$mark"; out=$(oc priceswitch)
 if grep -q 'first run' <<<"$out" && grep -q 'id > 0' "$home/psql.in" && ! grep -q 'DROP' "$home/psql.in" && [ "$(cat "$mark")" = 46 ]; then
   ok "14 a broken mark file → not put into the SQL, treated as a first run (mark 46)"; else ko "14"; echo "$out"; cat "$home/psql.in"; fi
+# v1.0.4 (SEC PR32-S1, ARC PR30-09): priceswitch reads audit_event as ottimo_readonly in a READ ONLY transaction.
+if grep -qF 'PGOPTIONS="-c default_transaction_read_only=on -c role=ottimo_readonly"' "$home/psql.cmd"; then
+  ok "15 priceswitch runs as ottimo_readonly, READ ONLY (was the superuser session)"; else ko "15"; cat "$home/psql.cmd"; fi
 
 echo "== $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

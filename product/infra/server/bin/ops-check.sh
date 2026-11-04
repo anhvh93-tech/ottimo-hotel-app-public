@@ -2,7 +2,18 @@
 # Periodic checks of one server – systemd timer ottimo-ops-check.timer (every 30 min), as the deploy user.
 #   ops-check.sh            run every check, alert on failures
 #   ops-check.sh j16        one check only (j16 | backup | disk | mem | tls | containers | http5xx | email_dead |
-#                           email_missing | email_changes | email_ascii | pricelimit | pricegap | priceswitch)
+#                           email_missing | email_changes | email_ascii | email_config | pricelimit | pricegap |
+#                           priceswitch | db_triggers)
+#
+# R4 v1.0.4 (P4-04; SEC FB-R4-SEC-OPS-PR32-S1, ARC FB-R4-ARC-OPS-PR30-09): EVERY database check (j16, email_*,
+# priceswitch, db_triggers) runs as the role ottimo_readonly (NOLOGIN, BYPASSRLS, SELECT only – taken at connect with
+# PGOPTIONS "-c role=ottimo_readonly") inside a READ ONLY transaction. Each session first answers a guard row: current
+# role = ottimo_readonly, BYPASSRLS, not superuser, transaction read only. Anything else (role missing, a role without
+# BYPASSRLS whose counts would silently read 0) is never parsed: the check FAILs "unexpected answer". No check uses
+# the superuser role any more. "-c role=" guards against mistakes, it is NOT a security boundary: the session is the
+# superuser's, and SQL that resets the role (SET ROLE NONE, RESET ROLE, SESSION AUTHORIZATION) or turns READ ONLY off
+# would escape it (SEC FB-R4-SEC-OPS-P404R1-S1). So every SQL here is constant text; test-ops-check.sh refuses such
+# statements in this file.
 #
 #   j16         SEC C6 / SR-RET-03: for every active property, the last retention_run of policy J16 with
 #               status done must be < 26 h old (a property younger than 26 h without any run is fine), and no J16 run
@@ -25,7 +36,8 @@
 #               2.10, README 13.8): v1.0.3 (BUG-R3-032) runs on production; email_missing = 0; INV confirmed the
 #               `email_changed` notice arrived; email_dead = 0 over the last 24 h. Then every such e-mail becomes a FAIL
 #               (SEC `SEC-on-B2-readiness.md` 1.5 OPS (a); ARC PR23-02).
-#   email_missing  active users holding a non-revoked OWN or MGR role who have no e-mail address (BUG-R3-032, ARC
+#   email_missing  active or locked users (the dispatcher writes to both – ARC FB-R4-ARC-OPS-PR30-08, v1.0.4) holding
+#               a non-revoked OWN or MGR role who have no e-mail address (BUG-R3-032, ARC
 #               v1.0.3 tech plan 2.10 condition 2): their security notices would die NO_RECIPIENT. READ ONLY
 #               transaction, count only – no address, name or id is selected or printed. Report only until
 #               EMAIL_NO_RECIPIENT_ALERT=1 (same switch as email_dead); armed, a count > 0 is a FAIL.
@@ -34,6 +46,8 @@
 #               a flood of changes delays every other security notice. Counts, in a READ ONLY transaction, from
 #               user_email_change (0091): changes in the last 24 h, in total and for the most-changed user; and from
 #               outbox_message: staff.email rows still waiting (pending | failed | in_flight) and the age of the oldest.
+#               v1.0.4 (SEC FB-R4-SEC-OPS-PR32-02 (b)): also `via owner: <n>` = changes of the 24 h made by an owner
+#               (user_email_change.via = 'owner'), count only – tells ORC which branch of runbook F applies.
 #               FAIL (always, no switch) when one user > EMAIL_CHANGES_USER_MAX (5), or the total >
 #               EMAIL_CHANGES_TOTAL_MAX (20) in 24 h, or the oldest waiting staff e-mail > STAFF_EMAIL_QUEUE_MAX_MIN (30)
 #               min. The three limits can be tuned in .env (wins over the environment) but not switched off: each
@@ -41,10 +55,21 @@
 #               address, user id or payload is selected. Before 0091 (no table yet) the change counts read "not
 #               present" and only the queue is judged. What to do on FAIL: runbook v1.0.3 "email_changes FAIL".
 #   email_ascii  INT FB-R4-INT-BE-31-04: stored app_user.email values (not blank) outside the ASCII rule of the API
-#               (normalizeSecurityEmail: local [a-z0-9._%+-]{1,64}, >= 2 labels [a-z0-9-]{1,63}, letter TLD, 3-254).
-#               READ ONLY, count only, always report only: the SMTP adapter is tightened in v1.0.4 only at 0.
-#               crashing api, a 502 from a dead upstream – before guests or staff report it. A 503 of the website
-#               price estimate is NOT counted here (its bulkhead answers 503 by design under load – see pricelimit)
+#               (integrations/notification/email-address.ts: local [a-z0-9._%+-]{1,64}, >= 2 labels [a-z0-9-]{1,63},
+#               letter TLD, 3-254 – EMAIL_RULE_RE below, shared with email_config). READ ONLY, count only. v1.0.4: the
+#               SMTP adapter enforces the rule, so a count > 0 is a FAIL (security e-mails to that person fail).
+#   email_config v1.0.4 (SEC V104-04 items 3-4, runbook v1.0.4 P2c/P2d): the mail settings of .env checked with the SAME
+#               rule as email_ascii – EMAIL_FROM (or EMAIL_SMTP_USER when empty) and EMAIL_SMTP_USER as given (case
+#               free, no surrounding space: isEmailAddress), every entry of EMAIL_SHARED_MAILBOXES after trim + lower
+#               case (split on space , ;). Only words and counts are printed – never an address. FAIL: a setting or
+#               an entry outside the rule (worker / api v1.0.4 would stop at start), or EMAIL_SHARED_MAILBOXES set on
+#               more than one line. Unset EMAIL_SHARED_MAILBOXES is ok (the default rule applies; api warns – K5b).
+#               Only when EMAIL_PROVIDER=smtp.
+#   db_triggers  v1.0.4 (plan P4-04, P4-13 PN-01; P4-11 ED-02): the guard triggers are there and enabled ('O'):
+#               privacy_notice_version_append_only + privacy_notice_version_no_truncate (both required), and
+#               room_list_price_append_only (migration 0094 – absent before it: reported, not a FAIL; present but not
+#               'O' or SECURITY DEFINER: FAIL). Also ottimo_app may only SELECT privacy_notice_version. READ ONLY,
+#               names and flags only. Disabling a trigger by hand is never the fix (README 13.7).
 #   pricelimit  R4 LP-v2 (SEC SR-PE-16, C9; ARC FB-R4-ARC-OPS-LPV2-01 (7)): answers 429 + 503 of the landing route
 #               GET /v1/public/properties/<slug>/price-estimate in the last 60 min < PRICE_REFUSED_MAX (default 200)
 #               – a scraper or a flood keeps the price block hidden for real guests (the form itself keeps working).
@@ -148,12 +173,28 @@ notify() { # check status message [force – send the webhook even if the status
   echo "$status ${last:-0}" > "$file"
 }
 
-psql_admin() {
-  dc exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -F "|"'
-}
-# Same, in a READ ONLY transaction (any write is refused by the server): checks that only count.
+# Every database check (SEC PR32-S1, ARC PR30-09): role ottimo_readonly, READ ONLY transaction (any write is refused
+# by the server and by the role's grants). The SQL of the check comes on stdin; the guard row is sent first and must
+# answer exactly "ro-ok" – then only the check's own rows are passed on. Otherwise "ro-guard" is passed on instead (no
+# number), so every check FAILs "unexpected answer". An ERROR (e.g. role ottimo_readonly missing) is a query failure.
+RO_GUARD_SQL="SELECT CASE WHEN current_user = 'ottimo_readonly' AND current_setting('transaction_read_only') = 'on'
+  AND (SELECT rolbypassrls AND NOT rolsuper FROM pg_roles WHERE rolname = current_user) THEN 'ro-ok' ELSE 'ro-bad' END;"
 psql_ro() {
-  dc exec -T postgres sh -c 'PGOPTIONS="-c default_transaction_read_only=on" psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -F "|"'
+  local sql out
+  sql=$(cat)
+  out=$(printf '%s\n%s\n' "$RO_GUARD_SQL" "$sql" | dc exec -T postgres sh -c \
+    'PGOPTIONS="-c default_transaction_read_only=on -c role=ottimo_readonly" psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -F "|"') \
+    || return
+  if [ "$(head -n 1 <<<"$out")" != ro-ok ]; then echo ro-guard; return 0; fi
+  tail -n +2 <<<"$out"
+}
+# THE e-mail address rule (INT integrations/notification/email-address.ts – change both together): after trim + lower
+# case, local [a-z0-9._%+-]{1,64}, >= 2 labels [a-z0-9-]{1,63}, the last letters only, 3-254 characters. Used as is in
+# the SQL of email_ascii (POSIX regex, same meaning) and by email_config in bash – one text, so the two never drift.
+EMAIL_RULE_RE='^[a-z0-9._%+-]{1,64}@([a-z0-9-]{1,63}\.)+[a-z]{2,63}$'
+trim() { local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; printf '%s' "${v%"${v##*[![:space:]]}"}"; }  # like String.trim()
+email_rule() { # address as stored / normalised (already trimmed + lower case) → 0 when it follows the rule
+  [[ "$1" != *$'\n'* ]] && [ "${#1}" -ge 3 ] && [ "${#1}" -le 254 ] && LC_ALL=C grep -qE -- "$EMAIL_RULE_RE" <<<"$1"
 }
 # EMAIL_NO_RECIPIENT_ALERT: .env wins over the environment only when set there (the timer has no environment of its own).
 email_alert_armed() {
@@ -171,7 +212,7 @@ email_limit() { # name default min max
 
 check_j16() {
   local out bad=""
-  if ! out=$(psql_admin <<SQL 2>"$cmd_err"
+  if ! out=$(psql_ro <<SQL 2>"$cmd_err"
 SELECT p.id,
        COALESCE(EXTRACT(EPOCH FROM now() - max(r.run_at) FILTER (WHERE r.status = 'done'))::bigint, -1),
        EXTRACT(EPOCH FROM now() - p.created_at)::bigint,
@@ -185,7 +226,13 @@ SQL
     notify j16 FAIL "query failed: $(cmd_failed)"
     return 1
   fi
-  local limit=$((J16_MAX_HOURS * 3600)) n=0
+  local limit=$((J16_MAX_HOURS * 3600)) n=0 line
+  # Every line is "<property id>|<age s, -1 = never>|<property age s>|<failed runs>" (ages may be negative under a
+  # mutable test clock) – anything else is never parsed.
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    [[ "$line" =~ ^[0-9A-Za-z-]{1,64}\|-?[0-9]+\|-?[0-9]+\|[0-9]+$ ]] || { notify j16 FAIL "unexpected answer"; return 1; }
+  done <<<"$out"
   while IFS='|' read -r pid age prop_age failed; do
     [ -n "$pid" ] || continue
     n=$((n + 1))
@@ -244,7 +291,8 @@ check_tls() {
 }
 
 check_containers() {
-  local s ids missing="" n_api=0
+  local s ids missing="" n_api=0 cid st n pcid pn restarted="" rfile="$state/containers.restarts" base="" i=0
+  local first=()
   local services=(postgres api worker web)
   [ -s "$OTTIMO_HOME/state/landing_tag" ] && services+=(landing)
   # A failing `docker compose` (cwd, daemon, .env) is NOT "container not running": report it as such, with its error.
@@ -253,16 +301,43 @@ check_containers() {
       notify containers FAIL "$(compose_failed)"; return 1
     fi
     [ -n "$ids" ] || missing+=" $s"
+    first+=("$(head -n 1 <<<"$ids")")
     [ "$s" != api ] || n_api=$(grep -c . <<<"$ids" || true)
   done
   if [ -n "$missing" ]; then notify containers FAIL "not running:$missing"; return 1; fi
   # US155-04 / SEC FB-R3-SEC-US155-04: the public form limits (step 0 counters, in-flight cap) live in the api
   # process – exactly ONE api replica (README infra/server 12.2 "API chạy 1 bản").
   if [ "$n_api" != "1" ]; then notify containers FAIL "$n_api api replicas running (must be exactly 1)"; return 1; fi
+  # v1.0.4 (ARC FB-R4-ARC-OPS-P402-01 / P404-04, same test as worker_ok of deploy.sh): with `restart: unless-stopped`
+  # a container that dies and is restarted in a loop is usually seen "running" when sampled. So compare, per service,
+  # the container id and its RestartCount with the previous run (state/ops-check/containers.restarts): same container
+  # and a higher count = restarted since the last check; a container first seen (new deploy) must be at 0.
+  for s in "${services[@]}"; do
+    cid=${first[$i]}; i=$((i + 1))
+    st=$(docker inspect --format '{{.State.Running}} {{.RestartCount}}' "$cid" 2>/dev/null || true); n=${st#* }
+    if [[ ! "$cid" =~ ^[0-9a-zA-Z_.-]+$ ]] || [[ ! "$st" =~ ^(true|false)\ [0-9]+$ ]]; then
+      notify containers FAIL "restart count of $s unreadable (docker inspect failed)"; return 1
+    fi
+    # ARC P404-12 (a): died between `ps` and `inspect` – not running now (the count is still recorded below).
+    [ "${st%% *}" = true ] || restarted+=" $s not running at inspect;"
+    pcid="" pn=""
+    [ -r "$rfile" ] && read -r pcid pn < <(sed -n "s/^$s //p" "$rfile" | tail -n 1) || true
+    if [ "$pcid" = "$cid" ] && [[ "$pn" =~ ^[0-9]+$ ]]; then
+      [ "$n" -le "$pn" ] || restarted+=" $s restarted $((n - pn)) time(s) since the last check;"
+    elif [ "$n" -gt 0 ]; then
+      restarted+=" $s restarted $n time(s) since it was created;"
+    fi
+    base+="$s $cid $n"$'\n'
+  done
+  printf '%s' "$base" > "$rfile"
+  if [ -n "$restarted" ]; then
+    restarted="${restarted# }"
+    notify containers FAIL "${restarted%;} – crash loop? see dc logs <service> (README 5.0)"; return 1
+  fi
   if ! dc exec -T api wget -qO- http://127.0.0.1:3000/health 2>/dev/null | grep -q '"status":"ok"'; then
     notify containers FAIL "api /health not ok"; return 1
   fi
-  notify containers OK "${services[*]} running, api healthy"
+  notify containers OK "${services[*]} running (no restart since the last check), api healthy"
 }
 
 check_http5xx() {
@@ -283,7 +358,7 @@ check_email_dead() {
   local out n armed
   armed=$(email_alert_armed)
   [[ "$armed" =~ ^[01]$ ]] || { notify email_dead FAIL "EMAIL_NO_RECIPIENT_ALERT must be 0 or 1"; return 1; }
-  if ! out=$(psql_admin <<SQL 2>"$cmd_err"
+  if ! out=$(psql_ro <<SQL 2>"$cmd_err"
 SELECT count(*) FROM outbox_message
  WHERE topic = 'staff.email' AND status = 'dead' AND last_error = 'NO_RECIPIENT'
    AND created_at > now() - interval '$EMAIL_DEAD_HOURS hours';
@@ -310,9 +385,10 @@ check_email_missing() {
   armed=$(email_alert_armed)
   [[ "$armed" =~ ^[01]$ ]] || { notify email_missing FAIL "EMAIL_NO_RECIPIENT_ALERT must be 0 or 1"; return 1; }
   # Columns of 0000 (app_user.email citext NULL, status; user_property_role.role, revoked_at): works before and after 0091.
+  # active + locked: the dispatcher sends to both (ARC FB-R4-ARC-OPS-PR30-08, v1.0.4).
   if ! out=$(psql_ro <<'SQL' 2>"$cmd_err"
 SELECT count(*) FROM app_user u
- WHERE u.status = 'active' AND (u.email IS NULL OR u.email::text = '')
+ WHERE u.status IN ('active', 'locked') AND (u.email IS NULL OR u.email::text = '')
    AND EXISTS (SELECT 1 FROM user_property_role r
                 WHERE r.user_id = u.id AND r.role IN ('owner', 'manager') AND r.revoked_at IS NULL);
 SQL
@@ -323,18 +399,18 @@ SQL
   n=$(tr -d '[:space:]' <<<"$out")
   [[ "$n" =~ ^[0-9]+$ ]] || { notify email_missing FAIL "unexpected answer"; return 1; }
   if [ "$n" -gt 0 ] && [ "$armed" = "1" ]; then
-    notify email_missing FAIL "$n active OWN/MGR user(s) without e-mail – their security notices reach nobody"
+    notify email_missing FAIL "$n active/locked OWN/MGR user(s) without e-mail – their security notices reach nobody"
     return 1
   fi
   if [ "$armed" = "1" ]; then
-    notify email_missing OK "$n active OWN/MGR user(s) without e-mail"
+    notify email_missing OK "$n active/locked OWN/MGR user(s) without e-mail"
   else
-    notify email_missing OK "$n active OWN/MGR user(s) without e-mail (report only until EMAIL_NO_RECIPIENT_ALERT=1, BUG-R3-032)"
+    notify email_missing OK "$n active/locked OWN/MGR user(s) without e-mail (report only until EMAIL_NO_RECIPIENT_ALERT=1, BUG-R3-032)"
   fi
 }
 
 check_email_changes() {
-  local out umax tmax qmax v name val range line has=0 hasq=0 total=-1 top=-1 waiting=0 age=0 bad="" chg
+  local out umax tmax qmax v name val range line has=0 hasq=0 total=-1 top=-1 owner=-1 waiting=0 age=0 bad="" chg
   umax=$(email_limit EMAIL_CHANGES_USER_MAX 5 1 20)
   tmax=$(email_limit EMAIL_CHANGES_TOTAL_MAX 20 1 200)
   qmax=$(email_limit STAFF_EMAIL_QUEUE_MAX_MIN 30 5 240)
@@ -347,11 +423,11 @@ check_email_changes() {
   if ! out=$(psql_ro <<'SQL' 2>"$cmd_err"
 SELECT to_regclass('public.user_email_change') IS NOT NULL AS has_uec \gset
 \if :has_uec
-SELECT 'changes', coalesce(sum(n), 0), coalesce(max(n), 0) FROM (
-  SELECT count(*) AS n FROM user_email_change
+SELECT 'changes', coalesce(sum(n), 0), coalesce(max(n), 0), coalesce(sum(o), 0) FROM (
+  SELECT count(*) AS n, count(*) FILTER (WHERE via = 'owner') AS o FROM user_email_change
    WHERE changed_at > now() - interval '24 hours' GROUP BY user_id) s;
 \else
-SELECT 'changes', -1, -1;
+SELECT 'changes', -1, -1, -1;
 \endif
 SELECT 'queue', count(*), coalesce(extract(epoch FROM now() - min(created_at))::bigint, 0) FROM outbox_message
  WHERE topic = 'staff.email' AND status IN ('pending', 'failed', 'in_flight');
@@ -364,16 +440,16 @@ SQL
   while IFS= read -r line; do
     line=$(tr -d '[:space:]' <<<"$line")
     [ -n "$line" ] || continue
-    if [[ "$line" =~ ^changes\|(-1|[0-9]+)\|(-1|[0-9]+)$ ]] && [ "$has" -eq 0 ]; then
-      total=${BASH_REMATCH[1]}; top=${BASH_REMATCH[2]}; has=1
+    if [[ "$line" =~ ^changes\|(-1|[0-9]+)\|(-1|[0-9]+)\|(-1|[0-9]+)$ ]] && [ "$has" -eq 0 ]; then
+      total=${BASH_REMATCH[1]}; top=${BASH_REMATCH[2]}; owner=${BASH_REMATCH[3]}; has=1
     elif [[ "$line" =~ ^queue\|([0-9]+)\|(-?[0-9]+)$ ]] && [ "$hasq" -eq 0 ]; then
       waiting=${BASH_REMATCH[1]}; age=${BASH_REMATCH[2]}; hasq=1
     else
       notify email_changes FAIL "unexpected answer"; return 1
     fi
   done <<<"$out"
-  if [ "$has" -ne 1 ] || [ "$hasq" -ne 1 ] || { [ "$total" = -1 ] && [ "$top" != -1 ]; } \
-    || { [ "$total" != -1 ] && [ "$top" = -1 ]; }; then
+  if [ "$has" -ne 1 ] || [ "$hasq" -ne 1 ] || { [ "$total" = -1 ] && { [ "$top" != -1 ] || [ "$owner" != -1 ]; }; } \
+    || { [ "$total" != -1 ] && { [ "$top" = -1 ] || [ "$owner" = -1 ]; }; }; then
     notify email_changes FAIL "unexpected answer"; return 1
   fi
   [ "$age" -ge 0 ] || age=0   # clock skew between created_at and now()
@@ -381,14 +457,19 @@ SQL
   if [ "$total" -ge 0 ]; then
     [ "$top" -gt "$umax" ] && bad+=" $top e-mail changes for one user in 24 h (limit $umax);"
     [ "$total" -gt "$tmax" ] && bad+=" $total e-mail changes in 24 h (limit $tmax);"
-    chg="$total e-mail change(s) in 24 h, max $top for one user (limits $umax / user, $tmax total)"
+    chg="$total e-mail change(s) in 24 h, max $top for one user, via owner: $owner (limits $umax / user, $tmax total)"
   else
     chg="e-mail changes: table not present yet (before migration 0091)"
   fi
   [ "$waiting" -gt 0 ] && [ "$age" -gt "$qmax" ] && bad+=" oldest waiting staff e-mail $age min old (limit $qmax min) – security notices delayed;"
   if [ -n "$bad" ]; then
     bad="${bad# }"
-    notify email_changes FAIL "${bad%;} – runbook v1.0.3: lock the flooding account, tell SEC"
+    if [ "$owner" -gt 0 ]; then
+      notify email_changes FAIL "${bad%;}; via owner: $owner – runbook F branch 1: treat the OWN account as exposed unless INV made them, tell SEC"
+    else
+      [ "$owner" -ge 0 ] || owner="-"
+      notify email_changes FAIL "${bad%;}; via owner: $owner – runbook F branch 2: lock the flooding account (self changes), tell SEC"
+    fi
     return 1
   fi
   notify email_changes OK "$chg; staff.email queue: $waiting waiting, oldest $age min (limit $qmax min)"
@@ -396,13 +477,13 @@ SQL
 
 check_email_ascii() {
   local out n
-  # Stored addresses the v1.0.3 API rule (shared/email.ts normalizeSecurityEmail: trim + lower case, then the shape)
-  # would refuse – what the adapter may still be handed (legacy rows, SQL by hand). Blank = no address (email_missing),
-  # not counted. Only count(*) leaves the database.
-  if ! out=$(psql_ro <<'SQL' 2>"$cmd_err"
+  # Stored addresses the API rule (EMAIL_RULE_RE: trim + lower case, then the shape) would refuse – what the adapter
+  # may still be handed (legacy rows, SQL by hand). Blank = no address (email_missing), not counted. Only count(*)
+  # leaves the database. EMAIL_RULE_RE is a constant of this script (no outside input reaches the SQL text).
+  if ! out=$(psql_ro <<SQL 2>"$cmd_err"
 SELECT count(*) FROM (SELECT lower(btrim(email::text)) AS e FROM app_user WHERE email IS NOT NULL) a
  WHERE a.e <> ''
-   AND NOT (char_length(a.e) BETWEEN 3 AND 254 AND a.e ~ '^[a-z0-9._%+-]{1,64}@([a-z0-9-]{1,63}\.)+[a-z]{2,63}$');
+   AND NOT (char_length(a.e) BETWEEN 3 AND 254 AND a.e ~ '$EMAIL_RULE_RE');
 SQL
   ); then
     notify email_ascii FAIL "query failed: $(cmd_failed)"
@@ -410,7 +491,159 @@ SQL
   fi
   n=$(tr -d '[:space:]' <<<"$out")
   [[ "$n" =~ ^[0-9]+$ ]] || { notify email_ascii FAIL "unexpected answer"; return 1; }
-  notify email_ascii OK "$n stored e-mail address(es) outside the ASCII rule (report only – INT v1.0.4 tightens the adapter only at 0)"
+  if [ "$n" -gt 0 ]; then
+    notify email_ascii FAIL "$n stored e-mail address(es) outside the ASCII rule – security e-mails to them fail (v1.0.4 adapter); tell INT, fix on Desk, no SQL"
+    return 1
+  fi
+  notify email_ascii OK "$n stored e-mail address(es) outside the ASCII rule"
+}
+
+check_email_config() {
+  local provider mode user from lines raw entries=0 bad=0 e problems="" shared said
+  provider=$(envval EMAIL_PROVIDER)
+  if [ "$provider" != smtp ]; then notify email_config OK "EMAIL_PROVIDER=${provider:-unset}: not smtp, nothing to check"; return 0; fi
+  # Same reading as smtp.ts smtpConfigFromCredentials (INT, v104/int-email) – CHANGE TOGETHER (ARC P404-09):
+  #   EMAIL_SMTP_MODE trimmed, empty = relay (compose default too), else relay|app_password;
+  #   EMAIL_SMTP_USER and EMAIL_FROM trimmed (.trim()), from = EMAIL_FROM or else the user;
+  #   app_password: the user must follow the rule; relay: the user is not used (not checked);
+  #   from must follow the rule (isEmailAddress: no display form "Name <…>").
+  mode=$(trim "$(envval EMAIL_SMTP_MODE)"); mode=${mode:-relay}
+  user=$(trim "$(envval EMAIL_SMTP_USER)"); from=$(trim "$(envval EMAIL_FROM)"); [ -n "$from" ] || from=$user
+  case "$mode" in
+    app_password)
+      if [ -z "$user" ]; then problems+=" EMAIL_SMTP_USER empty (required with EMAIL_SMTP_MODE=app_password);"
+      elif ! email_rule "$(LC_ALL=C tr 'A-Z' 'a-z' <<<"$user")"; then problems+=" EMAIL_SMTP_USER outside the rule;"; fi
+      said="EMAIL_SMTP_MODE=app_password: EMAIL_FROM and EMAIL_SMTP_USER follow the address rule" ;;
+    relay)
+      said="EMAIL_SMTP_MODE=relay: EMAIL_FROM follows the address rule"
+      [ -z "$user" ] || said+=" (EMAIL_SMTP_USER ignored in relay)" ;;
+    *) problems+=" EMAIL_SMTP_MODE invalid (relay|app_password);" ;;
+  esac
+  if [ -z "$from" ]; then problems+=" EMAIL_FROM empty;"
+  elif ! email_rule "$(LC_ALL=C tr 'A-Z' 'a-z' <<<"$from")"; then problems+=" EMAIL_FROM outside the rule;"; fi
+  # EMAIL_SHARED_MAILBOXES (BE-A shared-mailboxes.ts): split on space , ; – each entry trimmed + lower case.
+  lines=$(grep -c '^EMAIL_SHARED_MAILBOXES=' "$OTTIMO_HOME/.env" 2>/dev/null || true)
+  if [ "${lines:-0}" -gt 1 ]; then problems+=" EMAIL_SHARED_MAILBOXES on $lines lines;"; fi
+  if [ "${lines:-0}" -ge 1 ]; then
+    raw=$(envval EMAIL_SHARED_MAILBOXES)
+    while IFS= read -r e; do
+      [ -n "$e" ] || continue
+      entries=$((entries + 1))
+      email_rule "$(LC_ALL=C tr 'A-Z' 'a-z' <<<"$e")" || bad=$((bad + 1))
+    done < <(tr ',; \t' '\n\n\n\n' <<<"$raw")
+    [ "$bad" -eq 0 ] || problems+=" $bad EMAIL_SHARED_MAILBOXES entr(y/ies) outside the rule;"
+    shared="EMAIL_SHARED_MAILBOXES $entries entr(y/ies), $bad outside the rule"
+  else
+    shared="EMAIL_SHARED_MAILBOXES unset (default rule applies; api v1.0.4 warns – runbook P2d)"
+  fi
+  if [ -n "$problems" ]; then
+    problems="${problems# }"
+    notify email_config FAIL "${problems%;} – worker/api v1.0.4 stop at start; fix .env on the server (runbook E2 pattern), tell INT"
+    return 1
+  fi
+  notify email_config OK "$said; $shared"
+}
+
+# PN-01 guard function privacy_notice_version_append_only(): md5(pg_proc.prosrc) of the body each migration installs
+# (SEC FB-R4-SEC-OPS-P413-S2, ARC FB-R4-ARC-OPS-P413-S1). Measured on Postgres 17 from the migration files:
+#   0090 (v1.0.1–v1.0.3; production before v1.0.4) and 0095 (v1.0.4, P4-13, journal idx 71 → 72 rows applied).
+# A migration that changes the body MUST change these constants too: that is the intended review point.
+PN_FN_MD5_0090=3274031e441f1f86103783726a3e7d9b
+PN_FN_MD5_0095=7a601d0ee740b1861663efa9b89473f5
+PN_0095_APPLIED_AT=72  # __drizzle_migrations rows once 0095 (idx 71) is applied
+
+check_db_triggers() {
+  local out line pn=0 pn_bad="" pn_md5="" pn_mig="" want="" rlp="absent" rlp_fn="" app="" bad=""
+  # Names, the enabled flag, SECURITY DEFINER and privilege flags only. to_regclass keeps the SQL valid on any DB.
+  # ARC FB-R4-ARC-OPS-P404-08: "trigger absent" is ok only BEFORE migration 0094. The function of 0094 tells the two
+  # apart without any new privilege: function present + trigger absent = the trigger was removed after 0094 → FAIL.
+  # The trigger must also stay BEFORE DELETE FOR EACH ROW (tgtype bits ROW 1 + BEFORE 2 + DELETE 8).
+  # PN-01 (P413-S1/S2): both triggers point at public.privacy_notice_version_append_only(), not SECURITY DEFINER, and
+  # its body hash is the one of the migration state (0090 before 0095 is applied, 0095 after). Only the hash is
+  # printed, never the body. The migration count is read only when ottimo_readonly may read it (02-roles.sh v1.0.4).
+  if ! out=$(psql_ro <<'SQL' 2>"$cmd_err"
+SELECT to_regclass('public.privacy_notice_version') IS NOT NULL AS has_pnv, to_regclass('public.room_list_price') IS NOT NULL AS has_rlp,
+       CASE WHEN to_regnamespace('drizzle') IS NULL THEN false
+            WHEN NOT has_schema_privilege('drizzle', 'USAGE') THEN false
+            WHEN to_regclass('drizzle.__drizzle_migrations') IS NULL THEN false
+            ELSE has_table_privilege('drizzle.__drizzle_migrations', 'SELECT') END AS can_mig \gset
+\if :has_pnv
+SELECT 'pn', t.tgname, t.tgenabled, p.prosecdef, md5(p.prosrc), p.oid = to_regprocedure('public.privacy_notice_version_append_only()')
+  FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
+ WHERE t.tgrelid = 'public.privacy_notice_version'::regclass AND NOT t.tgisinternal
+   AND t.tgname IN ('privacy_notice_version_append_only', 'privacy_notice_version_no_truncate') ORDER BY 2;
+\if :can_mig
+SELECT 'pnmig', count(*) FROM drizzle.__drizzle_migrations;
+\else
+SELECT 'pnmig', 'unknown';
+\endif
+SELECT 'app', concat_ws(',', has_table_privilege('ottimo_app', 'public.privacy_notice_version', 'SELECT'),
+       has_table_privilege('ottimo_app', 'public.privacy_notice_version', 'INSERT'),
+       has_table_privilege('ottimo_app', 'public.privacy_notice_version', 'UPDATE'),
+       has_table_privilege('ottimo_app', 'public.privacy_notice_version', 'DELETE'),
+       has_table_privilege('ottimo_app', 'public.privacy_notice_version', 'TRUNCATE'));
+\endif
+SELECT 'rlpfn', to_regprocedure('public.room_list_price_append_only()') IS NOT NULL;
+\if :has_rlp
+SELECT 'rlp', t.tgenabled, p.prosecdef, (t.tgtype::int & 11) = 11 FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
+ WHERE t.tgrelid = 'public.room_list_price'::regclass AND t.tgname = 'room_list_price_append_only';
+\endif
+SQL
+  ); then
+    notify db_triggers FAIL "query failed: $(cmd_failed)"
+    return 1
+  fi
+  while IFS= read -r line; do
+    line=$(tr -d '[:space:]' <<<"$line")
+    [ -n "$line" ] || continue
+    if [[ "$line" =~ ^pn\|(privacy_notice_version_append_only|privacy_notice_version_no_truncate)\|([OoRAD])\|([tf])\|([0-9a-f]{32})\|([tf])$ ]]; then
+      pn=$((pn + 1)); [ "${BASH_REMATCH[2]}" = O ] || pn_bad+=" ${BASH_REMATCH[1]} not enabled (${BASH_REMATCH[2]});"
+      [ "${BASH_REMATCH[3]}" = f ] || pn_bad+=" ${BASH_REMATCH[1]} function is SECURITY DEFINER;"
+      [ "${BASH_REMATCH[5]}" = t ] || pn_bad+=" ${BASH_REMATCH[1]} does not call public.privacy_notice_version_append_only();"
+      pn_md5+=" ${BASH_REMATCH[4]}"
+    elif [[ "$line" =~ ^pnmig\|([0-9]+|unknown)$ ]] && [ -z "$pn_mig" ]; then
+      pn_mig=${BASH_REMATCH[1]}
+    elif [[ "$line" =~ ^app\|([tf],[tf],[tf],[tf],[tf])$ ]] && [ -z "$app" ]; then
+      app=${BASH_REMATCH[1]}
+    elif [[ "$line" =~ ^rlpfn\|([tf])$ ]] && [ -z "$rlp_fn" ]; then
+      rlp_fn=${BASH_REMATCH[1]}
+    elif [[ "$line" =~ ^rlp\|([OoRAD])\|([tf])\|([tf])$ ]] && [ "$rlp" = absent ]; then
+      rlp="${BASH_REMATCH[1]}|${BASH_REMATCH[2]}|${BASH_REMATCH[3]}"
+    else
+      notify db_triggers FAIL "unexpected answer"; return 1
+    fi
+  done <<<"$out"
+  [ "$pn" -eq 2 ] || bad+=" $pn of 2 PN-01 triggers on privacy_notice_version;"
+  bad+="$pn_bad"
+  if [ "$pn" -gt 0 ]; then
+    case "$pn_mig" in
+      "") notify db_triggers FAIL "unexpected answer"; return 1 ;;
+      unknown) bad+=" PN-01 function body not checked: ottimo_readonly cannot read drizzle.__drizzle_migrations (02-roles.sh v1.0.4 not applied – runbook v1.0.4 P2b step 5);" ;;
+      *)
+        if [ "$pn_mig" -ge "$PN_0095_APPLIED_AT" ]; then want=$PN_FN_MD5_0095; else want=$PN_FN_MD5_0090; fi
+        for line in $pn_md5; do
+          [ "$line" = "$want" ] || { bad+=" PN-01 function body differs from migration $([ "$want" = "$PN_FN_MD5_0095" ] && echo 0095 || echo 0090) (md5 ${line:0:8}…, $pn_mig migrations applied);"; break; }
+        done ;;
+    esac
+  fi
+  [ "$app" = "t,f,f,f,f" ] || bad+=" ottimo_app privileges on privacy_notice_version are not SELECT only;"
+  [ -n "$rlp_fn" ] || { notify db_triggers FAIL "unexpected answer"; return 1; }
+  case "$rlp" in
+    "O|f|t") ;;
+    absent) [ "$rlp_fn" = f ] || bad+=" room_list_price_append_only missing (function present – migration 0094 ran);" ;;
+    *) bad+=" room_list_price_append_only tgenabled|prosecdef|before-delete-row = $rlp (must be O|f|t);" ;;
+  esac
+  if [ -n "$bad" ]; then
+    bad="${bad# }"
+    notify db_triggers FAIL "${bad%;} – tell SEC + BE, never enable/disable by hand (README 13.7)"
+    return 1
+  fi
+  local pnbody=0090; [ "$want" = "$PN_FN_MD5_0095" ] && pnbody=0095
+  if [ "$rlp" = absent ]; then
+    notify db_triggers OK "PN-01 triggers enabled (function of migration $pnbody, not SECURITY DEFINER), ottimo_app SELECT only; room_list_price_append_only not present yet (before migration 0094)"
+  else
+    notify db_triggers OK "PN-01 triggers enabled (function of migration $pnbody, not SECURITY DEFINER), ottimo_app SELECT only; room_list_price_append_only enabled"
+  fi
 }
 
 # Caddy access log line of the price route (uri without query: Caddyfile.landing masks it as "?[q]").
@@ -451,7 +684,7 @@ check_priceswitch() {
   [[ "${last:-}" =~ ^[0-9]{1,18}$ ]] || last=""
   # $last is digits only (checked above) – the one value put into the SQL text. The 7-day bound only lets Postgres
   # skip old monthly partitions: a change older than that would have been seen by one of the ~336 runs since.
-  if ! out=$(psql_admin <<SQL 2>"$cmd_err"
+  if ! out=$(psql_ro <<SQL 2>"$cmd_err"
 SELECT coalesce(max(id), 0),
        count(*) FILTER (WHERE id > ${last:-0}),
        coalesce((array_agg(CASE WHEN after->>'value' IN ('true', 'false') THEN after->>'value' ELSE 'other' END
@@ -481,8 +714,8 @@ SQL
   notify priceswitch OK "public_show_prices not changed since the last check"
 }
 
-# Full run (timer): v1.0.3 checks first, then the LP-v2 price checks (merge lp-v2-main, ARC 04/11).
-if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx email_dead email_missing email_changes email_ascii pricelimit pricegap priceswitch); full=1; fi
+# Full run (timer): v1.0.3 checks first, then the LP-v2 price checks (merge lp-v2-main, ARC 04/11), then v1.0.4 (P4-04).
+if [ "$#" -gt 0 ]; then checks=("$@"); full=0; else checks=(containers j16 backup disk mem tls http5xx email_dead email_missing email_changes email_ascii pricelimit pricegap priceswitch email_config db_triggers); full=1; fi
 rc=0
 failed=""
 for c in "${checks[@]}"; do
@@ -499,6 +732,8 @@ for c in "${checks[@]}"; do
     email_missing) check_email_missing || ok=0 ;;
     email_changes) check_email_changes || ok=0 ;;
     email_ascii) check_email_ascii || ok=0 ;;
+    email_config) check_email_config || ok=0 ;;
+    db_triggers) check_db_triggers || ok=0 ;;
     pricelimit) check_pricelimit || ok=0 ;;
     pricegap) check_pricegap || ok=0 ;;
     priceswitch) check_priceswitch || ok=0 ;;

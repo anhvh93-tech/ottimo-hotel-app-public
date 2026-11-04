@@ -157,12 +157,46 @@ log "api/worker configuration accepted by image $tag"
 # ---- 2. database + roles (H3) ----
 step roles
 dc up --detach --wait --wait-timeout 180 postgres
-dc exec -T postgres bash /docker-entrypoint-initdb.d/02-roles.sh >/dev/null
-log "02-roles.sh applied (ottimo_app limits verified by the script)"
+# v1.0.4 (OPS P4-04 r1.1, SEC SEC-on-v104-p4-04-r1 2.1-2.2): the script is read from THIS host's bundle
+# ($OTTIMO_HOME/infra/postgres/init/02-roles.sh) and fed to bash in the container on stdin. The compose file bind-mounts
+# the single file into /docker-entrypoint-initdb.d (used on a NEW volume only); rsync of a new infra bundle replaces the
+# host file with a new inode, so a postgres container that is not recreated keeps seeing the OLD copy.
+# Passwords still come only from the *_FILE secrets inside the container (no -e, no argument).
+# Neither stdout nor stderr of the script reaches this log (it goes to state/deploy-logs on the server): a failing
+# psql statement can be echoed with its text ("ALTER ROLE … PASSWORD '<value>'"). The log gets a fixed sentence and
+# the exit code only; to see the error, an operator re-runs it by hand on the server (runbook v1.0.4 P2b step 5,
+# error to the own terminal only, never pasted).
+roles_file="$OTTIMO_HOME/infra/postgres/init/02-roles.sh"
+if [ ! -f "$roles_file" ] || [ ! -r "$roles_file" ] || [ ! -s "$roles_file" ]; then
+  log "FAIL: infra/postgres/init/02-roles.sh missing, empty or unreadable in $OTTIMO_HOME"; exit 1
+fi
+# ARC P404-11/15, SEC P404R11-S3: stdout and stderr are both discarded – no file, nothing kept, nothing logged
+# (a psql error line can quote "ALTER ROLE … PASSWORD '<value>'"). Only the exit code reaches the log.
+roles_rc=0
+dc exec -T postgres bash -s <"$roles_file" >/dev/null 2>&1 || roles_rc=$?
+if [ "$roles_rc" -ne 0 ]; then
+  log "FAIL: 02-roles.sh failed (rc=$roles_rc) – output withheld; re-run it by hand on the server (runbook v1.0.4 P2b step 5) to see the error"
+  exit 1
+fi
 
 psql_admin() { # read-only SQL from stdin, as the superuser over the container's local socket
   dc exec -T postgres sh -c 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA'
 }
+
+# ARC P404-11: read back markers that only the v1.0.4 script creates – role ottimo_requeue, and the SELECT grant of
+# ottimo_readonly on drizzle.__drizzle_migrations (when that table exists). If the container ran an older copy, a
+# marker is missing: stop before migrate. Constant SQL, no value of a role or secret in it.
+roles_mark=$(psql_admin <<'SQL' || true
+SELECT (SELECT count(*) FROM pg_roles WHERE rolname = 'ottimo_requeue') || ',' ||
+       CASE WHEN to_regclass('drizzle.__drizzle_migrations') IS NULL THEN 'absent'
+            ELSE has_table_privilege('ottimo_readonly', 'drizzle.__drizzle_migrations', 'SELECT')::text END;
+SQL
+)
+case "$roles_mark" in
+  1,true | 1,absent) ;;
+  *) log "FAIL: 02-roles.sh applied is not the stack's copy (v1.0.4 markers: $roles_mark, want 1,true)"; exit 1 ;;
+esac
+log "02-roles.sh applied from the infra bundle (ottimo_app limits verified by the script; v1.0.4 markers $roles_mark)"
 
 # ---- 3. migrations (one-shot, before any api/worker runs the new code) ----
 step migrate

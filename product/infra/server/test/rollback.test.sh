@@ -33,6 +33,18 @@
 #   (n) normal deploy fails and the previous api/web do not come back either → the previous (older) worker is NOT
 #       started while the newer api may still answer;
 #   (o) every `dc up` of the switch names one group only (no `api worker web` line left in deploy.sh).
+# Roles step (OPS P4-04 r1.1 – the postgres container keeps the OLD bind-mounted copy after an infra rsync):
+#   (p) 02-roles.sh is read from THIS bundle (infra/postgres/init/02-roles.sh) and fed to `dc exec -T postgres bash -s`
+#       on stdin – the container path /docker-entrypoint-initdb.d is not used;
+#   (q) SEC SEC-on-v104-p4-04-r1 2.4: a fake 02-roles.sh prints "ALTER ROLE x PASSWORD 'SENTINEL…'" on stderr (and
+#       the SENTINEL on stdout) and exits 1 → FAIL at step roles with a fixed sentence + rc, nothing switched, and no
+#       line of the script (SENTINEL, PASSWORD) reaches the deploy output; the bundle without the file → FAIL before
+#       any exec;
+#   (s) ARC P404-11: after the roles step, the database must show markers only the v1.0.4 script creates (role
+#       ottimo_requeue; SELECT of ottimo_readonly on drizzle.__drizzle_migrations, or that table absent) → else FAIL
+#       at step roles before migrate. The sha256 of what went on stdin equals the bundle file's.
+#   (r) SEC P404R1-02 (a): in the real 02-roles.sh, SET log_min_error_statement = panic (+ log_statement 'none',
+#       log_min_duration_statement -1) stands in the same heredoc BEFORE the first `PASSWORD :'` line.
 # CI=true: a SKIP (no jq, no INV sheet) is a failure (SEC PR26-04).
 set -Eeuo pipefail
 
@@ -53,6 +65,7 @@ trap 'rm -rf "$work"' EXIT
 pass=0 fail=0
 ok() { echo "PASS  $*"; pass=$((pass + 1)); }
 ko() { echo "FAIL  $*"; fail=$((fail + 1)); }
+sha256_of() { if command -v sha256sum >/dev/null 2>&1; then sha256sum <"$1"; else shasum -a 256 <"$1"; fi | cut -d' ' -f1; }
 
 OLD=sha-8b3aec89486f   # v1.0.0 (= v1.0.0-rc.6, release run 40903554902)
 NEW=sha-0f1e2d3c4b5a   # stands for the v1.0.1 image
@@ -64,8 +77,12 @@ W_NEW=sha256:4444444444444444444444444444444444444444444444444444444444444444
 home="$work/ottimo-prod"
 stubs="$work/stubs"
 calls="$work/calls.log"
-mkdir -p "$home/infra/server/bin" "$home/infra/caddy" "$stubs"
+mkdir -p "$home/infra/server/bin" "$home/infra/caddy" "$home/infra/postgres/init" "$stubs"
 cp "$bin/rollback.sh" "$bin/deploy.sh" "$home/infra/server/bin/"
+# The bundle's roles script: a marker line only. The stub dc records what arrives on stdin and runs it with bash,
+# like `docker compose exec -T postgres bash -s` does.
+roles_ok='echo "02-roles.sh: bundle copy r1.1-marker"'
+printf '#!/usr/bin/env bash\n%s\n' "$roles_ok" > "$home/infra/postgres/init/02-roles.sh"
 echo production > "$home/.ottimo-home"
 printf 'ottimo_check_security_headers() { :; }\n' > "$home/infra/caddy/expected-headers.sh"
 cat > "$home/.env" <<'ENV'
@@ -110,10 +127,15 @@ fi
 case "$a" in
   *" ps --all --quiet worker "*) echo "cid-worker-$(cat "$STUB_STATE/worker_n" 2>/dev/null || echo 0)" ;;
   *" config --format json "*) echo '{"secrets":{"booking_request_chat_webhook":{"file":"/dev/null"}}}' ;;
+  *" exec -T postgres bash -s "*)
+    cat > "$STUB_STATE/roles.stdin"
+    bash "$STUB_STATE/roles.stdin"; exit $? ;;
+  *" exec -T postgres bash "*) echo "$*" > "$STUB_STATE/roles.oldpath"; echo "02-roles.sh: OLD mounted copy" ;;
   *" --entrypoint node migrate "*) printf '%s' "${STUB_JOURNAL:-39}" ;;
   *" exec -T postgres sh -c "*)
     sql=$(cat)
     case "$sql" in
+      *ottimo_requeue*) echo "${STUB_ROLES_MARK-1,true}" ;;
       *drizzle*) echo "${STUB_APPLIED:-39}" ;;
       *rolconfig*) echo 'idle_in_transaction_session_timeout=30s,statement_timeout=15s' ;;
     esac ;;
@@ -376,6 +398,85 @@ else ko "(n) rc=$rc: $out"; fi
 if ! grep -qE 'dc up[^#]*api worker|dc up[^#]*worker web' "$home/infra/server/bin/deploy.sh"; then
   ok "(o) deploy.sh has no 'dc up … api worker …' (one group per up)"
 else ko "(o) deploy.sh still switches api and worker in one 'dc up'"; fi
+
+# ---------- (p) roles: the bundle's 02-roles.sh on stdin, not the container's mounted copy ----------
+reset_deploy_state
+deploy_new
+if [ "$rc" -eq 0 ] && grep -qxF "$roles_ok" "$work/stubstate/roles.stdin" 2>/dev/null \
+  && [ "$(sha256_of "$home/infra/postgres/init/02-roles.sh")" = "$(sha256_of "$work/stubstate/roles.stdin")" ] && ! grep -q 'r1.1-marker' <<<"$out" \
+  && [ ! -e "$work/stubstate/roles.oldpath" ] && ! grep -q 'docker-entrypoint-initdb' "$calls" \
+  && grep -q '02-roles.sh applied from the infra bundle' <<<"$out" && [ "$(grep -c '^\[deploy ' <<<"$out")" = 6 ]; then
+  ok "(p) step roles feeds infra/postgres/init/02-roles.sh of this bundle on stdin (no /docker-entrypoint-initdb.d)"
+else ko "(p) rc=$rc: $out"; fi
+
+# ---------- (q) roles fails: no line of 02-roles.sh (SENTINEL, PASSWORD) in the deploy output ----------
+cp "$home/infra/postgres/init/02-roles.sh" "$work/roles.good"
+cat > "$home/infra/postgres/init/02-roles.sh" <<'FAKE'
+#!/usr/bin/env bash
+echo "psql:<stdin>:9: ERROR:  role \"x\" does not exist" >&2
+echo "ALTER ROLE x PASSWORD 'SENTINEL-R11-roles'" >&2
+echo "stdout SENTINEL-R11-roles"
+exit 1
+FAKE
+reset_deploy_state
+deploy_new
+if [ "$rc" -ne 0 ] && grep -q '^\[deploy [^]]*\] FAIL: 02-roles.sh failed (rc=1) – output withheld; re-run it by hand on the server' <<<"$out" \
+  && ! grep -qi 'SENTINEL\|password\|does not exist' <<<"$out" && [ "$(cat "$work/step")" = roles ] && ! switched \
+  && [ "$(sha256_of "$home/infra/postgres/init/02-roles.sh")" = "$(sha256_of "$work/stubstate/roles.stdin")" ] \
+  && ! grep -q 'initdb' "$calls" && ! grep -q 'run --rm --no-deps migrate' "$calls"; then
+  ok "(q) fake 02-roles.sh prints SENTINEL/PASSWORD and fails → FAIL at step roles (fixed sentence + rc), file went on stdin, no line of it in the output"
+else ko "(q) rc=$rc step=$(cat "$work/step" 2>/dev/null): $out"; fi
+# r1.2 (ARC P404-15, SEC P404R11-S3): the roles step writes no file – both streams go to /dev/null, no mktemp.
+roles_block=$(awk '/^step roles$/ { on=1 } /^step migrate$/ { on=0 } on' "$home/infra/server/bin/deploy.sh")
+if grep -qF 'dc exec -T postgres bash -s <"$roles_file" >/dev/null 2>&1 || roles_rc=$?' <<<"$roles_block" \
+  && ! grep -qE 'mktemp|2>"\$|tee ' <<<"$roles_block"; then
+  ok "(q) step roles sends stdout and stderr of 02-roles.sh to /dev/null (no temp file, no tee)"
+else ko "(q) step roles keeps output somewhere: $(grep -n 'bash -s' <<<"$roles_block")"; fi
+rm -f "$home/infra/postgres/init/02-roles.sh"
+reset_deploy_state
+deploy_new
+cp "$work/roles.good" "$home/infra/postgres/init/02-roles.sh"
+if [ "$rc" -ne 0 ] && grep -q 'FAIL: infra/postgres/init/02-roles.sh missing, empty or unreadable' <<<"$out" && ! grep -q 'exec -T postgres' "$calls" \
+  && [ "$(cat "$work/step")" = roles ]; then
+  ok "(q) bundle without 02-roles.sh → FAIL at step roles before any exec"
+else ko "(q) missing file rc=$rc: $out"; fi
+: > "$home/infra/postgres/init/02-roles.sh"
+reset_deploy_state
+deploy_new
+cp "$work/roles.good" "$home/infra/postgres/init/02-roles.sh"
+if [ "$rc" -ne 0 ] && grep -q 'FAIL: infra/postgres/init/02-roles.sh missing, empty or unreadable' <<<"$out" && ! grep -q 'exec -T postgres' "$calls" \
+  && [ "$(cat "$work/step")" = roles ]; then
+  ok "(q) empty 02-roles.sh in the bundle → FAIL at step roles before any exec"
+else ko "(q) empty file rc=$rc: $out"; fi
+
+# ---------- (s) ARC P404-11: the database must show the v1.0.4 markers after the roles step ----------
+for mark in "0,true" "1,false" "0,absent" ""; do
+  reset_deploy_state
+  STUB_ROLES_MARK="$mark" deploy_new
+  if [ "$rc" -ne 0 ] && grep -q "FAIL: 02-roles.sh applied is not the stack's copy (v1.0.4 markers: $mark, want 1,true)" <<<"$out" \
+    && [ "$(cat "$work/step")" = roles ] && ! grep -q 'run --rm --no-deps migrate' "$calls" && ! switched; then
+    ok "(s) markers '$mark' (ottimo_requeue count, drizzle read grant) → FAIL at step roles, before migrate"
+  else ko "(s) markers '$mark' rc=$rc: $out"; fi
+done
+reset_deploy_state
+STUB_ROLES_MARK="1,absent" deploy_new
+if [ "$rc" -eq 0 ] && grep -q '02-roles.sh applied from the infra bundle (.*v1.0.4 markers 1,absent)' <<<"$out" \
+  && [ "$(grep -c '^\[deploy ' <<<"$out")" = 6 ]; then
+  ok "(s) markers 1,absent (new volume, drizzle not created yet) → deploy goes on, still 6 [deploy lines"
+else ko "(s) markers 1,absent rc=$rc: $out"; fi
+
+# ---------- (r) the real 02-roles.sh keeps the password block out of the server log ----------
+roles_src="$here/../../postgres/init/02-roles.sh"
+blk=$(awk '/<<.SQL.$/ && !done { inb=1; next } inb && /^SQL$/ { done=1; inb=0 } inb' "$roles_src")
+first_pw=$(grep -n "PASSWORD :'" <<<"$blk" | head -n 1 | cut -d: -f1 || true)
+set_panic=$(grep -nx 'SET log_min_error_statement = panic;' <<<"$blk" | head -n 1 | cut -d: -f1 || true)
+set_stmt=$(grep -nx "SET log_statement = 'none';" <<<"$blk" | head -n 1 | cut -d: -f1 || true)
+set_dur=$(grep -nx 'SET log_min_duration_statement = -1;' <<<"$blk" | head -n 1 | cut -d: -f1 || true)
+if [ -n "$first_pw" ] && [ -n "$set_panic" ] && [ -n "$set_stmt" ] && [ -n "$set_dur" ] \
+  && [ "$set_panic" -lt "$first_pw" ] && [ "$set_stmt" -lt "$first_pw" ] && [ "$set_dur" -lt "$first_pw" ] \
+  && [ "$(grep -c "PASSWORD :'" "$roles_src")" = "$(grep -c "PASSWORD :'" <<<"$blk")" ]; then
+  ok "(r) 02-roles.sh: SET log_min_error_statement = panic / log_statement none / log_min_duration_statement -1 before every PASSWORD (same heredoc)"
+else ko "(r) 02-roles.sh log settings missing or after PASSWORD (pw=$first_pw panic=$set_panic stmt=$set_stmt dur=$set_dur)"; fi
 
 # ---------- (i) the INV sheet's R4 command itself (SEC FB-R4-SEC-OPS-PR26-01) ----------
 # The remote part of R4 is read from the sheet (so the test follows the document), the server path replaced by this

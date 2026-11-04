@@ -243,6 +243,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # ARC FB-R4-ARC-OPS-P403-04: mail-test-send.test.sh part 2 runs node – the version of the api image (node 22,
+      # product/.nvmrc), not whatever the runner image ships.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: product/.nvmrc
       - name: shellcheck (warnings and errors)
         run: |
           shellcheck --version | head -2
@@ -253,6 +258,7 @@ jobs:
             product/infra/server/test/restore-drill-privacy.test.sh product/infra/server/privacy-log-check.sh \
             product/infra/server/test/mail-test-send.test.sh product/infra/server/test/requeue-email-changed.test.sh \
             product/infra/server/test/ops-check-price.test.sh product/infra/server/test/publish-privacy-notice.test.sh \
+            product/infra/ci/check-confidential-paths.sh product/infra/ci/test-confidential-paths.sh \
             product/infra/caddy/*.sh product/infra/demo/*.sh product/infra/docker/*.sh \
             product/services/api/scripts/production-bootstrap.sh product/services/api/scripts/mfa-operator-reset.sh
       # UXR P-15: demo/production web builds refuse a missing, malformed or placeholder desk phone; dev only warns.
@@ -275,7 +281,10 @@ jobs:
       # v1.0.3 (ARC v1.0.3 tech plan 2.10): email_missing = active OWN/MGR without e-mail, READ ONLY, count only.
       # v1.0.3 (SEC PR31-01, INT 31-04): email_changes (changes / user / total in 24 h + age of the staff.email queue,
       # tunable limits that cannot be switched off) and email_ascii (stored addresses outside the API rule).
-      - name: ops-check email_dead + email_missing + email_changes + email_ascii (numbers only, READ ONLY) + query error categories
+      # v1.0.4 (P4-04): every DB check as ottimo_readonly behind a guard row (SEC PR32-S1, ARC PR30-09), email_missing
+      # incl. locked (PR30-08), email_changes via owner (PR32-02 b), email_config (same address rule as email_ascii),
+      # db_triggers (PN-01 + 0094).
+      - name: ops-check DB checks as ottimo_readonly (numbers only, READ ONLY) + email_config + db_triggers + query error categories
         run: bash product/infra/ci/test-ops-check.sh
       # R3 v1.0: staging + production on one VPS behind one edge (SNI routing, PROXY protocol, landing preview auth).
       - name: Shared edge (render guards, routing, client address, no spoofing)
@@ -284,7 +293,8 @@ jobs:
       - name: deploy-landing privacy byte check (same version + other bytes refused)
         run: bash product/infra/server/test/deploy-landing-privacy.test.sh
       # 30/10: ops-check / bin/dc run by hand from a directory the deploy user cannot enter; compose error ≠ not running.
-      - name: ops-check + bin/dc from any directory
+      # v1.0.4 (ARC P402-01 / P404-04): a container restarting in a loop (RestartCount rising) is a FAIL.
+      - name: ops-check + bin/dc from any directory + restart loop
         run: bash product/infra/server/test/ops-check-cwd.test.sh
       # ARC CWD-02: state/privacy-notice.log goes into the encrypted backup set (source of the landing byte check).
       - name: backup.sh keeps privacy-notice.log in the backup set
@@ -305,6 +315,23 @@ jobs:
       # R4 LP-v2 (SEC SR-PE-16, ARC L9): price-estimate refusals, public_price_missing, public_show_prices changes.
       - name: ops-check LP-v2 price alerts (counts only, no log text forwarded)
         run: bash product/infra/server/test/ops-check-price.test.sh
+
+  confidential-paths:
+    # SEC FB-R4-SEC-OPS-01 / SEC-on-commission-numbers G2: INV's internal pricing / commission tables never enter this
+    # public repository – red when a tracked file is under 00-brief/context/pricing/ or named *OTTIMO_pricing_spec*.
+    # By path only: no list of numbers in CI (it would publish them). The self-test proves the guard goes red
+    # (forced add, renamed copy) on throw-away repositories, every run.
+    name: confidential paths (internal pricing tables)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: guard self-test (red for a tracked table, green when clean)
+        run: bash product/infra/ci/test-confidential-paths.sh
+      - name: no tracked file on a confidential path
+        run: bash product/infra/ci/check-confidential-paths.sh
 
   test-surface-guard:
     # BUG-R1-SEC-08 / SR-SECR-05: the production contract must not contain /__test__ paths
@@ -735,7 +762,7 @@ jobs:
   publish-images:
     name: publish images (GHCR)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'
-    needs: [build-test, docker-build, secrets-scan, test-surface-guard, contract-lint, api-contract, infra-scripts]
+    needs: [build-test, docker-build, secrets-scan, confidential-paths, test-surface-guard, contract-lint, api-contract, infra-scripts]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:

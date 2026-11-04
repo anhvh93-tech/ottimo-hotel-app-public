@@ -13,6 +13,10 @@
 #       digests, the production home or EDGE_NAME=production with APP_ENV≠production (SEC OPS-03) – before any pull;
 #       a missing secret file also stops at step=config.
 #   (g) the new image's own config check (loadConfig) stops at step=appconfig before postgres/migrate/switch;
+#   (h) v1.0.4 r1.1 (SEC SEC-on-v104-p4-04-r1 2.4): a fake infra/postgres/init/02-roles.sh prints
+#       "ALTER ROLE x PASSWORD 'SENTINEL…'" on stderr and exits 1 → the CI line is "failed (step=roles, …)" without the
+#       SENTINEL, the server log has the fixed sentence + rc but no line of the script, and the script reached
+#       `dc exec -T postgres bash -s` on stdin (not the container path /docker-entrypoint-initdb.d);
 # Runs on Linux (CI: job infra-scripts). Needs flock (util-linux) like deploy.sh itself.
 set -Eeuo pipefail
 
@@ -38,6 +42,10 @@ echo "dc \$*"
 if [ "\${STUB_MODE:-}" = "fail-pull" ] && [[ " \$* " == *" pull "* ]]; then
   echo "Error response from daemon: manifest unknown: ghcr.io/x/ottimo-api:\$IMAGE_TAG $secret_marker" >&2
   exit 1
+fi
+# STUB_MODE=roles-sentinel: \`exec -T postgres bash -s\` keeps what came on stdin and runs it, like the real exec.
+if [ "\${STUB_MODE:-}" = "roles-sentinel" ] && [[ " \$* " == *" exec -T postgres bash -s "* ]]; then
+  cat > "\$OTTIMO_HOME/state/roles.stdin"; bash "\$OTTIMO_HOME/state/roles.stdin"; exit \$?
 fi
 # STUB_MODE=bad-config: the new image's loadConfig() (deploy.sh step appconfig) rejects the stack's .env.
 if [ "\${STUB_MODE:-}" = "bad-config" ] && [[ " \$* " == *" run "*"--entrypoint node api "* ]]; then
@@ -179,6 +187,27 @@ if [ "$rc" -ne 0 ] && [[ "$out" == *"failed (step=appconfig,"* ]] && grep -q 'PA
   && ! grep -qE '^dc (up |--profile deploy run --rm --no-deps migrate)' "$glog"; then
   ok "(g) image refuses the .env → step=appconfig, nothing started or migrated"
 else bad "(g) rc=$rc $out"; fi
+
+# ---------- (h) 02-roles.sh fails loudly → no line of it in the CI line or the server log ----------
+mkdir -p "$home/infra/postgres/init"
+cat > "$home/infra/postgres/init/02-roles.sh" <<'FAKE'
+#!/usr/bin/env bash
+echo "psql:<stdin>:9: ERROR:  role \"x\" does not exist" >&2
+echo "ALTER ROLE x PASSWORD 'SENTINEL-R11-ci'" >&2
+echo "stdout SENTINEL-R11-ci"
+exit 1
+FAKE
+rc=0
+out=$(OTTIMO_HOME="$home" STUB_MODE=roles-sentinel SSH_ORIGINAL_COMMAND="deploy sha-0123456789ab" \
+  "$home/infra/server/bin/deploy-from-ci.sh" 2>&1) || rc=$?
+ref=${out##*ref=}; ref=${ref%)}
+hlog="$home/state/deploy-logs/ci-$ref.log"
+if [ "$rc" -ne 0 ] && [ "$(lines "$out")" = 1 ] && [[ "$out" == *"failed (step=roles,"* ]] && ! grep -q SENTINEL <<<"$out" \
+  && [ -f "$hlog" ] && grep -q 'FAIL: 02-roles.sh failed (rc=1) – output withheld' "$hlog" \
+  && ! grep -qi 'SENTINEL\|password\|does not exist' "$hlog" \
+  && cmp -s "$home/infra/postgres/init/02-roles.sh" "$home/state/roles.stdin" && ! grep -q 'initdb' "$hlog"; then
+  ok "(h) 02-roles.sh prints SENTINEL/PASSWORD and fails → step=roles, no SENTINEL in the CI line or the server log, file on stdin"
+else bad "(h) rc=$rc out=$out log=$(grep -c SENTINEL "$hlog" 2>/dev/null) stdin=$(cmp -s "$home/infra/postgres/init/02-roles.sh" "$home/state/roles.stdin" && echo same || echo differs)"; fi
 
 if [ "$fails" -gt 0 ]; then echo "FAILED: $fails check(s)"; exit 1; fi
 echo "OK: deploy-from-ci.sh – one summary line to the CI, full log on the server, other commands refused, digests/landing/production guard"

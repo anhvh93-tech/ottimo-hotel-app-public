@@ -7,8 +7,15 @@
 #       non-SEC files), concludes ĐẠT / ĐẠT CÓ ĐK, with every Blocker/Major closed. The merge commit names that file.
 #   (c) ORC, same step: a NEW migration that disables a trigger, changes grants or roles, touches row level security
 #       or a policy, or adds a SECURITY DEFINER function needs that SEC file too, although migrations have no line here
-#       (the rule of 0094 and PN-01; SEC FB-R4-SEC-OPS-P403-01, ARC P403-08 – case-insensitive). Check:
-#         git diff <base>...<head> -- '**/migrations/*.sql' | grep -iE '^\+.*(DISABLE TRIGGER|GRANT|REVOKE|ROW LEVEL SECURITY|POLICY|SECURITY DEFINER|ROLE )'
+#       (the rule of 0094 and PN-01; SEC FB-R4-SEC-OPS-P403-01, ARC P403-08 – case-insensitive). Only real role
+#       statements count and added comment lines are skipped (SEC FB-R4-SEC-OPS-P403-02: a bare `ROLE ` matched
+#       column names and the "-- Runs as ottimo_owner (SET ROLE …)" comment of 19 files). Also SET LOCAL / RESET
+#       ROLE, SESSION AUTHORIZATION, session_replication_role (switches non-ALWAYS triggers off, PN-01 and 0094
+#       included) and OWNER TO (an owner skips RLS unless FORCE) – SEC FB-R4-SEC-OPS-P404R1-01. Check:
+#         git diff <base>...<head> -- '**/migrations/*.sql' | grep -E '^\+' | grep -vE '^\+\+\+ |^\+[[:space:]]*--' \
+#           | grep -iE 'DISABLE TRIGGER|GRANT|REVOKE|ROW LEVEL SECURITY|POLICY|SECURITY DEFINER|OWNER[[:space:]]+TO|SESSION[[:space:]]+AUTHORIZATION|session_replication_role|(CREATE|ALTER|DROP|SET|RESET)[[:space:]]+((LOCAL|SESSION)[[:space:]]+)?ROLE'
+#       A statement split over lines or built in EXECUTE still slips through: this reminds the reviewer, it does not
+#       replace reading the migration.
 # Revisit "Require review from Code Owners" once the repo has a second account (CI machine, operator).
 # Last matching pattern wins: keep the specific lines below the general ones.
 
@@ -50,3 +57,15 @@
 /product/infra/server/bootstrap-vps.sh @anhvh93-tech
 /product/infra/docker-compose.prod.yml @anhvh93-tech
 /product/infra/server/privacy-log-check.sh @anhvh93-tech
+
+# SEC (+ OPS) – the deploy path and the one production DB write (SEC FB-R4-SEC-OPS-P403-02, decision 5.2 (b)):
+#   deploy.sh   production guard, image digest check after pull, the `roles` step (role limits re-applied, SEC H3),
+#               smoke SEC C2 (blob volume not in web);
+#   rollback.sh checks the recorded digest of the tag again before a rollback;
+#   requeue-email-changed.sh  the only command in the repo that WRITES to the production database (UPDATE
+#               outbox_message, as ottimo_requeue).
+/product/infra/server/bin/deploy.sh @anhvh93-tech
+/product/infra/server/bin/rollback.sh @anhvh93-tech
+/product/infra/server/bin/requeue-email-changed.sh @anhvh93-tech
+# SEC (+ OPS) – the G2 gate itself (SEC-on-commission-numbers G2): editing the path list switches the CI job off.
+/product/infra/ci/check-confidential-paths.sh @anhvh93-tech
