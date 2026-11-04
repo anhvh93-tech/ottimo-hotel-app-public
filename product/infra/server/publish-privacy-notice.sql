@@ -133,7 +133,8 @@ BEGIN
       END IF;
       v_present := v_present || v_loc;
     END IF;
-    -- No going back: an active LATER version blocks publishing an older one (LP-v2 version > 2026-10-31).
+    -- No going back: an active LATER version blocks publishing an older one (LP-v2 publishes 2026-11-04 over the active 2026-10-24;
+    -- 2026-10-31 was never published on production – SEC SEC-on-lp-v2-main.md 2).
     PERFORM 1 FROM privacy_notice_version p
      WHERE p.organization_id = v_org AND p.locale = v_loc AND p.superseded_at IS NULL AND p.version <> v_version
        AND (split_part(p.version, '.', 1)::date - date '2000-01-01'

@@ -278,28 +278,38 @@ Quay lui: (a) OWN tắt công tắc trên Desk (ngay); (b) đặt `LANDING_PUBLI
 - Nguồn so sánh là `state/privacy-notice.log` trên chính stack (mọi lần ghi bảng đều qua `publish-privacy-notice.sh`, mỗi lần một dòng). Mất tệp này thì kiểm coi như "chưa có version nào" – không xóa, không sửa tay tệp này. Từ v1.0.1 tệp nằm trong bản sao lưu hằng ngày (mục 13.6).
 - Test: `infra/server/test/deploy-landing-privacy.test.sh` (28 ca: 13 ca v1.0.1–v1.0.3 + 14 ca 5 ngôn ngữ + 1 ca gộp (`--rollback` về image thiếu vi khi proxy mở → từ chối); image giả `FROM alpine`, không cần stack; chạy trong CI job `infra-scripts`).
 
-#### LP-v2 – phát hành landing 5 ngôn ngữ + giá ước tính (R4, ARC lp-v2-design 3.6 (5)(6), ARC FB-R4-ARC-OPS-LPV2-01, SEC C3–C6)
+#### LP-v2 – phát hành landing 5 ngôn ngữ + giá ước tính (R4, ARC lp-v2-design 3.6 (5)(6), ARC FB-R4-ARC-OPS-LPV2-01, SEC C3–C6, SEC `SEC-on-lp-v2-main.md`)
 
-Điều kiện trước: SEC duyệt phát hành LP-v2 (C1–C8 của `rounds/round-04/reviews/SEC-on-LP-v2-code.md`). Bundle `infra/` của stack có bản `Caddyfile.landing`, `publish-privacy-notice.sh/.sql`, `deploy-landing.sh`, `ops-check.sh` của gói này (làm mới bundle như bước 1). Làm ngoài giờ đông khách, trong **một phiên SSH**. Chạy trên staging trước, QA ký, rồi mới làm production.
+Lệnh từng bước, ô điền, "Đúng là", quay lui: `rounds/round-04/outputs/OPS/lp-v2-release-runbook.md`. Mục này chỉ tóm tắt.
 
-**Thứ tự (không đảo):**
-0. **v1.0.1 trước.** Landing v1.0.1 (version thông báo `2026-10-31`, en + vi) đã chạy và đã đăng bằng bước 6 (`OK: version 2026-10-31 published`). Version của LP-v2 phải **lớn hơn** `2026-10-31` (SEC đặt nhãn thật sau người bản xứ đọc, không dùng nhãn tạm `2026-11-01` của FE). Công cụ từ chối version nhỏ hơn version đang hiệu lực; `deploy-landing.sh` cũng từ chối image có version cũ hơn version đã đăng.
-1. **(a) api có migration LP-v2** (deploy app bình thường, `deploy.sh`). `LANDING_LOCALES` **vẫn** `en,vi`. Compose truyền biến này vào api (mặc định `en,vi`).
-2. **(b) Kiểm rồi deploy landing LP-v2**: `deploy-landing.sh <sha-…> --digest sha256:… --check-only`, rồi bỏ `--check-only`. Bước `privacy` phải in 5 dòng `… (not published yet)` cho en, vi, ko, zh, ru. Caddy mới đã mở `/ko/`, `/zh/`, `/ru/`, trả trang 404 theo ngôn ngữ, và mở route `GET …/price-estimate` (chỉ khi `LANDING_PUBLIC_API=on`; query chỉ nhận ký tự ASCII in được, tối đa 256 byte – SEC FB-R4-SEC-OPS-LPV2-03).
-3. **(c) Ngay sau đó** ghi version thông báo cho cả 5 ngôn ngữ (bước 6): chạy thử, rồi `--apply`. Phải thấy `OK: version <V2> published (en vi ko zh ru)`, các dòng `2026-10-31` của en/vi bị `superseded`.
-   - Giữa (b) và (c) (vài phút), trang mới gửi `V2` mà DB chưa có. Server trả `NOTICE_VERSION_INVALID`, trang hiện khối Zalo/gọi. Không có dữ liệu sai.
-4. **(d)** Sửa `.env` của stack: `LANDING_LOCALES=en,vi,ko,zh,ru`. Deploy lại app **cùng tag đang chạy** để api nhận biến (Desk gián đoạn khoảng 15–30 giây). Api không khởi động nếu biến có mã lạ.
-5. **(e)** QA kiểm form 5 ngôn ngữ trên trang thật **qua Caddy thật** (gồm SEC 9.5 ca 6: IP khách tới được api qua `TRUST_PROXY`; nếu sai, mọi khách dùng chung một bộ đếm).
-6. **(f)** OWN bật `public_show_prices` trên Desk (H05) khi QA so giá web = giá Desk đạt. Trước đó route giá trả 404 và trang không hiện khối giá. `ops-check` (`priceswitch`) báo mỗi lần công tắc đổi.
-7. **Đổi mốc thuê tháng (BR-108).** Khi OWN đổi `long_stay_required_from_nights` trên Desk (bảng giá 01/11: 30), landing phải phát hành lại cùng ngày với `shortMaxNights` = mốc − 1 (ARC FB-R4-ARC-FE-LPV2-01: mốc 30 → 29). Lệch nhau thì form hiện hai thông điệp trái nhau. Đây là một lượt landing bình thường (bước b; không đổi version thông báo nếu trang privacy không đổi byte).
+**Trạng thái thật trước LP-v2 (04/11, SEC FB-R4-SEC-LPV2M-03):**
+- Production chạy landing `sha-72f9ac8e2b33` (`landing-v1.1.1`), thông báo đang hiệu lực **`2026-10-24`** (en + vi). App chạy v1.0.3 `sha-da6d6f3dc22b`, DB 68 migration (chưa có 0092).
+- Nhãn `2026-10-31` (chữ PR #21, luật sư đã duyệt) **không bao giờ được đăng riêng** trên production: chữ en/vi đó đi cùng LP-v2 dưới nhãn mới (đổi nghĩa P4, SEC chấp nhận).
+- **Nhãn của LP-v2 = `2026-11-04`** cho cả 5 ngôn ngữ (SEC chốt, `SEC-on-lp-v2-main.md` mục 2). **Không** đăng `2026-10-31` hay `2026-11-01` ở bất kỳ môi trường dùng chung nào: cả hai đã đăng trên stack thử của QA với chữ khác byte. Đổi bất kỳ câu nào của 5 trang thông báo hoặc `consent`/`consentMore` trước khi đăng → nhãn mới (`2026-11-04.1` hoặc ngày mới), không dùng lại nhãn cho chữ khác.
+- `CHAT_DETAILS_MIN_NOTICE_VERSION` của api phải là `2026-11-04` (SEC FB-R4-SEC-LPV2M-01). Cổng ★2 lấy `published_at` của **chính** dòng nhãn đó, không so chữ: hằng trỏ vào nhãn chưa đăng thì Chat giữ mức A mãi.
 
-**Quay lui sau khi đã đăng `V2`** (ARC 3.6 (6)):
+Điều kiện trước: SEC duyệt phát hành LP-v2 (C1–C8 của `rounds/round-04/reviews/SEC-on-LP-v2-code.md`) và đủ **D1–D7** của `rounds/round-04/reviews/SEC-on-lp-v2-main.md` mục 4 (bảng ở runbook mục P0), gồm D5 = C8 chạy trên **staging qua Caddy thật**. Bundle `infra/` của stack có bản `Caddyfile.landing`, `publish-privacy-notice.sh/.sql`, `deploy-landing.sh`, `ops-check.sh` của gói này (làm mới bundle như bước 1; Caddyfile là tệp mount, container landing chỉ đọc bản mới khi được dựng lại ở bước (b)). Làm ngoài giờ đông khách, các bước (a)–(d) liên tục trong **một phiên làm việc** (D4). Chạy trên staging trước, QA ký, rồi mới làm production.
+
+**Thứ tự (không đảo, SEC D4):**
+0. **Kiểm hiện trạng.** Bảng `privacy_notice_version` của production chỉ có `2026-10-24` en + vi đang hiệu lực; `state/privacy-notice.log` có dòng `apply … version=2026-10-24 … rc=0`, không có dòng `2026-10-31`, `2026-11-01`, `2026-11-04`. Công cụ đăng từ chối version nhỏ hơn version đang hiệu lực; `deploy-landing.sh` từ chối image có version cũ hơn version đã đăng (trừ `--rollback`). `2026-11-04` > `2026-10-24` nên cả hai cho qua.
+1. **(a) api có migration LP-v2 `0092_lp_v2_price_estimate_locales`** (deploy app bình thường bằng Release; DB 68 → 69). `LANDING_LOCALES` **vẫn** `en,vi`. Compose truyền biến này vào api (mặc định `en,vi`). Bản api phải có `CHAT_DETAILS_MIN_NOTICE_VERSION = '2026-11-04'` (D2, QA đọc mã của tag).
+2. **(b) Kiểm rồi deploy landing LP-v2**: `deploy-landing.sh <sha-…> --digest sha256:… --check-only`, rồi Release `landing-v…`. Bước `privacy` phải in 5 ngôn ngữ `2026-11-04 (not published yet)` (en, vi, ko, zh, ru), không FAIL "older". Caddy mới đã mở `/ko/`, `/zh/`, `/ru/`, trả trang 404 theo ngôn ngữ, và mở route `GET …/price-estimate` (chỉ khi `LANDING_PUBLIC_API=on`; query chỉ nhận ký tự ASCII in được, tối đa 256 byte – SEC FB-R4-SEC-OPS-LPV2-03).
+3. **(c) Ngay sau đó** ghi version thông báo cho cả 5 ngôn ngữ (bước 6, `--version 2026-11-04`): chạy thử, rồi `--apply`. Chạy thử phải in `dry-run (would): supersede version 2026-10-24 (en)` và `(vi)`. `--apply` phải in `apply: supersede version 2026-10-24 (en)`, `apply: supersede version 2026-10-24 (vi)`, rồi `OK: version 2026-11-04 published (en vi ko zh ru)`. ko/zh/ru chưa từng có version nên không có dòng supersede.
+   - Giữa (b) và (c) (vài phút), trang mới gửi `2026-11-04` mà DB chưa có. Server trả `NOTICE_VERSION_INVALID`, trang hiện khối Zalo/gọi. Không có dữ liệu sai.
+4. **(d)** Sửa `.env` của stack: `LANDING_LOCALES=en,vi,ko,zh,ru`. Deploy lại app **cùng tag đang chạy** để api nhận biến (Desk gián đoạn khoảng 15–30 giây). Api không khởi động nếu biến có mã lạ. Sau đó `GET https://ottimo.vn/v1/public/properties/dlt/form-token` → 200.
+5. **(e)** Trên **staging** (trước production): QA chạy 12 ca SEC 9.5 + ca BE-01 (C8) **qua Caddy thật**, gồm ca 6 (IP khách tới được api qua `TRUST_PROXY`; nếu sai, mọi khách dùng chung một bộ đếm) – SEC D5. Trên production: form-token 200 và một yêu cầu thử "TEST OTTIMO" theo bước 8 (xóa theo WR8).
+6. **(f)** OWN bật `public_show_prices` trên Desk (H05) khi QA so giá web = giá Desk đạt (QC P6, P7). Trước đó route giá trả 404 và trang không hiện khối giá. `ops-check priceswitch` phải đã lấy mốc **trước** khi bật (SEC D6), và báo mỗi lần công tắc đổi.
+7. **(g) Chỉ sau khi `2026-11-04` đã đăng** và SEC xác nhận ★1–★8 trong decision-log mới đặt `BOOKING_REQUEST_CHAT_DETAIL_LEVEL=C` (SEC D7, mục 13).
+8. **Đổi mốc thuê tháng (BR-108).** Khi OWN đổi `long_stay_required_from_nights` trên Desk (bảng giá 01/11: 30), landing phải phát hành lại cùng ngày với `shortMaxNights` = mốc − 1 (ARC FB-R4-ARC-FE-LPV2-01: mốc 30 → 29). Lệch nhau thì form hiện hai thông điệp trái nhau. Đây là một lượt landing bình thường (bước b; không đổi version thông báo nếu trang privacy không đổi byte).
+
+**Quay lui sau khi đã đăng `2026-11-04`** (ARC 3.6 (6)):
 - Chỉ tắt giá: OWN đặt `public_show_prices = false` (lâu nhất khoảng 2 phút là trang hết hiện giá).
-- Quay landing về bản 2 ngôn ngữ:
+- Quay landing về bản 2 ngôn ngữ `sha-72f9ac8e2b33`:
   1. Đặt `LANDING_LOCALES=en,vi` và deploy lại app cùng tag **trước**.
-  2. Rồi `deploy-landing.sh --rollback`. Bước `privacy` in WARNING "older privacy notice version" (bản cũ in `2026-10-31`) – được phép với `--rollback`.
-  3. Trong **7 ngày** sau khi `2026-10-31` bị thay, form của bản cũ vẫn được nhận. **Quá 7 ngày**: SQL không cho đăng lại version cũ, nên phải dựng lại bản 2 ngôn ngữ với version mới (> `V2`) rồi chạy bước 6 cho version đó.
-- Dòng `privacy_notice_version` đã ghi **giữ nguyên**, không xóa.
+  2. Rồi `deploy-landing.sh --rollback` (`state/landing_previous_tag` = `sha-72f9ac8e2b33`, digest ở `state/digests/landing-sha-72f9ac8e2b33`). Bước `privacy` in WARNING "older privacy notice version" (bản cũ in `2026-10-24`) – được phép với `--rollback`. Trang en/vi bản cũ in đúng một version và cùng byte với dòng `apply … 2026-10-24` trong log, nên không FAIL khi proxy mở.
+  3. Trong **7 ngày** sau khi `2026-10-24` bị thay (giờ của lượt `--apply` ở (c)), form của bản cũ vẫn được nhận. **Quá 7 ngày**: SQL không cho đăng lại version cũ, nên phải dựng lại bản 2 ngôn ngữ với version mới (> `2026-11-04`) rồi chạy bước 6 cho version đó, hoặc đóng proxy form theo quay lui (c) ở trên.
+- Quay app về v1.0.3 (`rollback.sh sha-da6d6f3dc22b`, DB 69 / image 68 được `--rollback` chấp nhận): đặt `LANDING_LOCALES=en,vi` và quay landing về `sha-72f9ac8e2b33` trước (v1.0.3 không nhận yêu cầu ko/zh, không có route giá).
+- Dòng `privacy_notice_version` đã ghi **giữ nguyên**, không xóa. Không đăng lại `2026-10-24`.
 
 ## 13. v1.0.1 – tin Google Chat (yêu cầu đặt phòng) và kiểm vận hành mới
 
