@@ -271,3 +271,19 @@ D3: r2 chép đủ 3 điều kiện mục 8.4 Q1.
 ### 9.5 Kết luận
 
 r2 **ĐẠT CÓ ĐIỀU KIỆN**. RB-01, 03, 04 Closed; RB-02 Closed phần runbook. Không chặn staging. Trước P0 production: r2.1 sửa RB-05/06, hoặc ORC chép hai quy tắc vào biên bản P0. RB-07/08 tùy OPS. Khi có r2.1, SEC chỉ đọc phần thay đổi.
+
+### 9.6 Đọc r2.1 và r2.2 (04/11)
+
+- Người review: SEC | Round 4, gói LP-v2, bước **Review** | 04/11/2026. Chỉ đọc phần thay đổi: `git diff 4e0843e0 82af53e6` (r2.1) và `git diff 82af53e6 d597bb99` (r2.2), nhánh `lp-v2-ops-runbook-r2`, một tệp `rounds/round-04/outputs/OPS/lp-v2-release-runbook.md`.
+- Phần thêm không có bí mật, IP VPS, URL webhook, email thật hay digest đầy đủ. SQL chỉ có `SELECT` qua `default_transaction_read_only=on`; không có SQL ghi tay production. Luật `CONST_ROWS≥1` giữ nguyên (không đổi hằng), chỉ thêm chốt chặn.
+- Đã đối chiếu `deploy-landing.sh` (dòng 23–28, 163–226): khi `LANDING_PUBLIC_API` không `on`, mọi kiểm trang thông báo chỉ ra `WARNING` – khớp "Đúng là" ARC ở 5.4 (ii).
+
+| Thẻ | Bằng chứng | Kết luận |
+|---|---|---|
+| LPV2RB-05 (Minor) | Mục 0 (b) và 5.2 bước 4(a): **dừng nếu** decision-log chưa có dòng SEC duyệt chữ nhãn mới; mục 7 dòng 5.2; `CHKV` ghi rõ `CO` không thay việc duyệt chữ | **Closed** (phần runbook). README 12.3 theo `plan-v1.0.4.md` |
+| LPV2RB-06 (Minor) | 5.4: mở lại proxy chỉ khi K1 thấy api LP-v2 **và** `LANDING_LOCALES` đủ 5 ngôn ngữ; nhánh (i) tới mốc 7 ngày chỉ 5.2(b); 5.2(a) chỉ khi api LP-v2; K5 theo nhánh; mục 7 dòng 5.4 | **Closed** |
+| LPV2RB-07 (Suggestion) | S0b in `STG_SAME_AS_PROD_RC=$?`; 0 dừng, 1 hỏi INV, khác hoặc `STG_WEBHOOK_SIZE=ERR` → `ERR` | **Closed** |
+| LPV2RB-08 (Suggestion) | `CHKV` in `ENV`/`ROWS`; production `ROWS=0` → `KHONG`; hằng `YYYY-MM-DD`, nhãn `YYYY-MM-DD[.N]` (N 1–99). SEC chạy lại bằng giá trị giả: `.01`, nhãn cũ hơn, hằng có hậu tố → `KHONG`; `.10` sau hằng → `CO` | **Closed** |
+| LPV2RB-09 (Suggestion, mở khi đọc r2.1 @ `82af53e6`) | Chốt production so `E` đúng từng ký tự: `E=/opt/ottimo-prod/` + `ROWS=0` ra `CO`. r2.2 @ `d597bb99`: `E=${E%/}` ngay khi đặt `E`; `case "$E"` chỉ nhận `/opt/ottimo-prod` (đòi `ROWS≥1`) và `/opt/ottimo` (nhận `ROWS=0`), giá trị khác → `KHONG` dù `ROWS` bao nhiêu. SEC chạy lại (bash + zsh): `/opt/ottimo-prod/` + 0 → `KHONG`; `//` cuối, đường dẫn lạ, `E` rỗng → `KHONG`; staging có hoặc không `/` cuối → `CO`. Khớp bảng 12 ca của OPS | **Closed** tại `d597bb99` |
+
+**Kết luận r2.2: ĐẠT.** Không còn thẻ mở trên runbook LP-v2. Còn treo ngoài runbook: README 12.3 (RB-02, RB-05) ở v1.0.4; hai lệnh SSH thật của `CHKV` chạy lần đầu ở 0.2 bước 3 (SSH/SQL lỗi → `KHONG`, dừng). Nhánh gộp sạch vào `origin/main` (`git merge-tree` rc 0).
