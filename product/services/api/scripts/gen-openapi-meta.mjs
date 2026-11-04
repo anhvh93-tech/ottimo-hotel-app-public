@@ -277,6 +277,15 @@ export function buildSchemas(spec) {
       total += countSelfData(shape);
     }
   }
+  // FB-R4-BEA-ARC-02: the serializer filters responses only – a request-body flag would be a no-op.
+  for (const pathItem of Object.values(spec.paths ?? {})) {
+    for (const method of METHODS) {
+      const op = pathItem?.[method];
+      if (op?.requestBody && JSON.stringify(op.requestBody).includes('"x-self-data"')) {
+        throw new Error(`x-self-data is not allowed in a request body (${op.operationId})`);
+      }
+    }
+  }
   const keys = [...selfData].sort();
   if (total !== keys.length) {
     throw new Error(

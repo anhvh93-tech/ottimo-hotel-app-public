@@ -396,9 +396,9 @@ export interface paths {
      *     (1) `userId` = người gọi → `422` `NOT_ALLOWED_FOR_SELF` (`field` = `email`; email của mình dùng `setMyEmail`); (2) người đích đang có vai `owner` chưa thu hồi ở **bất kỳ** cơ sở nào
      *     → **`403 FORBIDDEN_ACTION`** + audit `access.denied` (mỗi OWN chỉ tự đặt email của mình – một OWN bị chiếm phiên không tắt được kênh báo của OWN khác); (3) phạm vi tài khoản:
      *     người gọi phải sở hữu mọi cơ sở người đích còn vai (như `status`) → nếu không `403 FORBIDDEN_ACTION`; (4) dạng `email` → `EMAIL_INVALID` / `EMAIL_SHARED_MAILBOX` (như `setMyEmail`);
-     *     (4b) **0.3.12 (EM-09)**: địa chỉ mới khác địa chỉ đang lưu mà người **được đổi** đã có 5 lần đổi thành công trong 24 giờ trượt (mọi `via`, như `setMyEmail` (1b)) → `429 RATE_LIMITED`.
-     *     Xóa email (`email: null`) không bao giờ bị chặn, nhưng vẫn được ghi và vẫn được đếm (V104-01)
-     *     + `Retry-After`; không tiêu S2, không ghi gì (kể cả `displayName` đi cùng). PATCH không có `email` không bị giới hạn. Đổi email cho người khác **không** tính vào bộ đếm của OWN;
+     *     (4b) **0.3.12 (EM-09)**: địa chỉ mới khác địa chỉ đang lưu mà người **được đổi** đã có 5 lần đổi thành công trong 24 giờ trượt (mọi `via`, như `setMyEmail` (1b)) → `429 RATE_LIMITED`
+     *     + `Retry-After`; không tiêu S2, không ghi gì (kể cả `displayName` đi cùng).
+     *     **Xóa email (`email: null`) không bao giờ bị giới hạn này chặn, nhưng vẫn được ghi (`user_email_change`) và vẫn được đếm** (FB-R4-SEC-BE-V104-01). PATCH không có `email` không bị giới hạn. Đổi email cho người khác **không** tính vào bộ đếm của OWN;
      *     (5) `reauth` S2 bắt buộc khi có trường `email` (kể cả `null`); (6) trùng địa chỉ đang lưu (không phân biệt hoa thường) → phần email không ghi gì.
      *     Ghi: như `setMyEmail` với `via = owner` (bảng `user_email_change`, audit `security` `user.email_changed` chỉ có `emailMasked`, thông báo `account_security_change` cho người được đổi
      *     + mọi `owner` của cơ sở đang mở trong phiên, outbox `email_changed` tới địa chỉ mới, địa chỉ cũ và mọi `owner` của mọi cơ sở người được đổi còn vai); `User.version + 1`. Không thu hồi phiên. MGR gọi → `403` ở guard vai (`x-roles: [owner]`), không ghi gì.
@@ -1082,13 +1082,14 @@ export interface paths {
      *     `422 DEPOSIT_INSUFFICIENT` chỉ khi **không** gửi `payment` mới (dùng `existingPaymentId` hoặc gọi lại) mà tổng cọc vẫn thiếu – không ghi gì.
      *     ~~Giữ chỗ đã quá hạn chỉ xác nhận khi tiền về trước hạn (`receivedAt` < `hold.expiresAt`, US-085 AC4), ngược lại `409 HOLD_EXPIRED` (+ `expiredAt`).~~
      *     **0.3.12 (BUG-R3-042, BR-303 (1), DOM A.6; chữ SEC `rounds/round-04/reviews/SEC-on-v104-holds.md` mục 3, SEC-BE-22 + G4 đồng ý có điều kiện 04/11) – giữ chỗ đã quá `holdExpiresAt`** (đơn vẫn `hold`):
-     *     - Sau `holdExpiresAt`: **SAL/CTV** luôn nhận `409 HOLD_EXPIRED` (+ `expiredAt`) – CTV vốn không có quyền gọi; không ghi gì.
+     *     - Sau `holdExpiresAt`: **SAL** luôn nhận `409 HOLD_EXPIRED` (+ `expiredAt`), không ghi gì. CTV không có quyền gọi (`403 FORBIDDEN_ACTION` ở kiểm vai, trước mọi kiểm khác).
      *     - **FD+** (OWN/MGR/FDL/FD) xác nhận được khi folio **đã nhận > 0 đ trước lần ghi này** – tính cả khoản `pending` chờ đối soát. Khi dùng `existingPaymentId` thì điều kiện này luôn đúng
      *       (khoản đó đã nằm trên folio), nên giờ nhận tiền **không** được xét. Được **tới khi nhận phòng**, không có trần giờ (mốc 12:00 ngày đến chỉ sinh thông báo/mục `hold_overdue_cap`).
      *       Khoản mới vẫn theo luật `receivedAt` hiện có (≤ giờ server, ≥ lúc tạo giữ chỗ; sai → 422 `DATE_INVALID`, `field` = `payment.receivedAt`). Đủ cọc → B4; thiếu → 200 vẫn `hold` (A-13).
      *     - Folio **chưa nhận gì**: chỉ xác nhận được bằng **khoản mới** có `receivedAt` < `holdExpiresAt` (US-085 AC4); ngược lại `409 HOLD_EXPIRED`. (Thực tế J1 tự hủy giữ chỗ chưa cọc trong vòng một phút sau hạn.)
      *     - `acceptShortfallReason` sau hạn: chỉ MGR/OWN, như trước hạn.
-     *     - Lần xác nhận sau hạn ghi audit `reservation.deposit_confirmed` có `afterDeadline: true`.
+     *     - Lần xác nhận sau hạn ghi audit `reservation.deposit_confirmed` có `afterDeadline: true`, `holdExpiredAt`, `paidBeforeVnd` (đã nhận trước lần ghi này), `unverifiedPaidVnd`
+     *       (phần còn `pending`/chờ đối soát) và `via` (`new_payment` | `existing_payment`) – SEC HOLDS-02; không số tài khoản, tên hay ghi chú. Xác nhận trước hạn: dòng audit như cũ.
      *     `HOLD_EXPIRED` của `confirmDeposit` chỉ còn các trường hợp trên. Không có trường mới trong thân yêu cầu hay câu đáp. Desk chọn câu theo `depositPaidVnd` của đơn
      *     (`error.HOLD_EXPIRED_PAID` khi > 0 – chỉ gặp với SAL hoặc máy chủ cũ).
      *     CTV **không** được gọi (rbac ghi chú 20) – CTV dùng `.../deposit-notices`.
@@ -2799,6 +2800,7 @@ export interface paths {
      *     QR tính lại bây giờ với ngữ cảnh đã lưu lúc tạo: `check_in` như `amountDueAtCheckinVnd` (đêm B9a chỉ khi còn trống), `check_out` như `amountDueAtCheckoutVnd`, `deposit` = cọc còn thiếu,
      *     `balance` = còn phải thu folio) → **bắt buộc `note`** (3–300); thiếu → 422 `REASON_REQUIRED` (`field` = `note`, Problem `max` = số còn phải thu lúc xác nhận). Phần vượt nằm ở
      *     `Folio.totals.creditVnd`/`unhandledCreditVnd`, xử lý theo BR-522 (B18 `overpaymentHandling` hoặc `createRefundRequest`) – không tự tạo yêu cầu hoàn. Audit `money` ghi số vượt.
+     *     **0.3.12 (HOLDS-01/G6, SEC `SEC-on-v104-holds.md` mục 8)**: Folio của giữ chỗ đã quá `holdExpiresAt`: người gọi không có vai FD+ (SAL) nhận `409 HOLD_EXPIRED` (+ `expiredAt`), không ghi gì. FD+ như cũ.
      */
     post: operations['confirmPaymentReceived'];
     delete?: never;
@@ -5857,8 +5859,8 @@ export interface components {
        * @description **0.3.12 (ĐX-R3-QA-01, BUG-R3-041/042, DOM A.5 ý 7)** – hai mục **tính lúc đọc** (`source: computed`, không có `eventId`, không có dòng `attention_event`), mức `critical`,
        *     **không** tắt được bằng `resolveAttentionEvent`/"Đã xử lý" (client không hiện nút kể cả khi gặp `source: event`); tự hết khi đơn rời `hold` (xác nhận, hủy, nhận phòng):
        *     `hold_overdue` – **FD+** (OWN/MGR/FDL/FD): mọi đơn `hold` đã quá `holdExpiresAt`, mọi ngày đến; `count` = số đơn, `reservationIds` = các đơn, `dueAt` = `holdExpiresAt` **cũ nhất**,
-       *     `refCode` = mã đơn **chỉ khi** `count` = 1; `params` chỉ `count`. `hold_overdue_cap` – **chỉ OWN/MGR**: đơn `hold` có `depositPaidVnd > 0` mà giờ server ≥ ngày đến +
-       *     `hold_latest_time_on_arrival` (12:00); cùng các trường, `dueAt` = mốc 12:00 **sớm nhất**. Không `link` (Desk mở đơn khi 1 đơn, danh sách giữ chỗ khi nhiều). Không tên khách, không số tiền.
+       *     `refCode` = mã đơn **chỉ khi** `count` = 1; `params` chỉ `count`. `hold_overdue_cap` – **chỉ OWN/MGR**: các đơn của `hold_overdue` mà giờ server ≥ ngày đến +
+       *     `hold_latest_time_on_arrival` (12:00) – tập con của `hold_overdue`, **không** lọc theo cọc (thường là đơn đã có cọc vì J1 hủy đơn chưa cọc ngay sau hạn; worker dừng thì đơn chưa cọc vẫn hiện – FB-R4-BEB-ARC-0312-01); cùng các trường, `dueAt` = mốc 12:00 **sớm nhất**. Không `link` (Desk mở đơn khi 1 đơn, danh sách giữ chỗ khi nhiều). Không tên khách, không số tiền.
        *     **0.3.8**: `late_fee_post_review` (US-164/ESC-024 B; v1.0 cả `postReview` – bổ sung 8 – nguồn `event`, OWN/MGR, mức `warning`, **một mục mỗi đơn**, `dueAt` = ghi + `post_checkout_charge_hours` (bổ sung 8), `refCode` = mã đơn; đóng bằng
        *     `resolveAttentionEvent` sau khi xem lại); `foc_stay_total_exceeded` (ESC-026 A – nguồn `event`, **chỉ OWN**, `warning`, **một mục mỗi lượt ở** (mở ở lần vượt đầu), `dueAt` = +24 giờ, `params` chỉ `count` khoản);
        *     `manager_confirmation_pending` (nguồn `computed`, OWN/MGR, `count` yêu cầu đang chờ, `dueAt` = `expiresAt` sớm nhất).
@@ -7698,6 +7700,8 @@ export interface components {
        *     **0.3.12 (P4-12, ARC plan v1.0.4 quyết định 6.3, SEC-on-plan-v1.0.4 mục 1)**: `refund.destination_carried` – nơi nhận được chép sang yêu cầu hoàn thay thế; `entityType = approval_request`, chỉ mã yêu cầu cũ và mới, không số tài khoản.
        *     **0.3.7 bổ sung 4 (FB-R2-SEC-BE-80, BR-525 – BE-B; ARC duyệt ở lượt kiểm 8)**: `approval.applied_capped` – FOC `debt_write_off` được duyệt nhưng chỉ áp tới công nợ đang mở lúc duyệt (`before.amountVnd` = số xin, `after.appliedVnd` = số áp, `after.openDebtVnd`, `after.reasonCode` = `debt_write_off`; `reason` = mã `debt_collected_before_approval`). Yêu cầu tự hủy vì hết nợ: `approval.cancelled` với `reason` = `auto: debt_cleared`. **ARC 16.31**: nghĩa của mã lý do theo **điều kiện** – công nợ đang mở lúc duyệt < số đã duyệt – không khẳng định nguyên nhân; ở R2 (sau BUG-R2-207, điều kiện OPS của BUG-R2-210) nguyên nhân duy nhất còn lại là khoản thu trong lúc chờ (khoản thu trả công nợ trước – BR-525 G-6). Đường mới làm giảm công nợ đang mở phải thêm mã lý do riêng; Desk gặp mã lạ hiện câu chung.
        *     `payment.recorded`: phân biệt sale/CTV bằng `after.recordedByRole`; phương thức ở `after.method`, chờ đối soát ở `after.reconciliation`.
+       *     **0.3.12 (P4-11 BE-C; P4-10 BE-B HOLDS-02)**: `reservation.early_departure` – `after` thêm `earlyDepartureRule` (`BR-313` | `BR-428`) và `leaseEndDate` (chỉ với HĐ tháng nhập tay,
+       *     `externalContract = true`); `reservation.deposit_confirmed` xác nhận sau hạn – `after` thêm `afterDeadline`, `holdExpiredAt`, `paidBeforeVnd`, `unverifiedPaidVnd`, `via` (xem `confirmDeposit`).
        *     **0.3.7 bổ sung D1 (BR-433, BR-434 v0.3.5, BR-315 (g) – S4-02/S4-18/S4-22)**: `folio.foc_cancelled` – FOC đã duyệt hủy theo quy tắc, trả hạn mức (`after`: `approvalRequestId`,
        *     `serviceDate`, `amountVnd` = số đã duyệt trả lại, `reason` = `focCancelReason`); `folio.foc_dormant` – dòng của khóa về 0, dòng FOC đảo, yêu cầu vẫn `approved`;
        *     `folio.foc_suspended` – đơn no-show, FOC tạm dừng (không tính hạn mức); `folio.foc_restored` – FOC áp lại (`after.from` ∈ `dormant`, `suspended`). Yêu cầu chờ duyệt tự hủy dùng
@@ -14901,7 +14905,15 @@ export interface operations {
       401: components['responses']['Unauthenticated'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
-      409: components['responses']['Conflict'];
+      /** @description INVALID_TRANSITION – không phải VietQR `pending` còn hạn (kèm `currentState`); HOLD_EXPIRED – 0.3.12 (G6), SAL xác nhận QR trên folio của giữ chỗ đã quá hạn */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
       422: components['responses']['ValidationFailed'];
       428: components['responses']['PreconditionRequired'];
     };
