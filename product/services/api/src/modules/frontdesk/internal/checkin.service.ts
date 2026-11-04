@@ -53,11 +53,23 @@ type ConditionCode =
   | 'main_guest_document'
   | 'document_check_block';
 
+/** 0.3.12 (l) – why `room_ready` is not met (CheckInPreview.conditions[].cause). */
+type RoomReadyCause = 'room_status' | 'held_by_other_stay' | 'no_room';
+
 interface Condition {
   code: ConditionCode;
   met: boolean;
   detail?: string;
   overridableBy?: string[];
+  cause?: RoomReadyCause;
+  heldByReservationCode?: string;
+}
+
+/** Another in-house stay in the room on the business day (`roomHolder`): its root booking code. */
+interface RoomHolder {
+  code: string;
+  /** Past its departure date without B18 (`to_date < D`) – a forgotten check-out. */
+  overdue: boolean;
 }
 
 interface Evaluation {
@@ -353,20 +365,37 @@ export class CheckinService {
     const capacityOk =
       row.capacity_conflict_at === null && (!room || this.s.counted(row) <= room.max_occupancy);
     // BR-402 (1) v0.5.3 (BUG-R4-039): the "room not ready" exception is for a VACANT room not cleaned yet (VD/CL)
-    // only. OC/OD (a stay is still in the room), OOO, and a room another in-house stay leaving today still holds
-    // whatever its status says (status edited by hand – `roomHeldByAnotherStay`) have no exception for any role,
-    // the lead's approval path included: `overridableBy` absent, B9 refuses `roomNotReadyOverride` below.
-    const heldByAnotherStay = !!room && (await this.roomHeldByAnotherStay(tx, room.id, row, ctx));
-    const roomReady = !!room && !heldByAnotherStay && (roomStatus === 'VI' || roomStatus === 'VC');
-    const roomOverridable =
-      !!room && !heldByAnotherStay && (roomStatus === 'VD' || roomStatus === 'CL');
+    // only. OC/OD (a stay is still in the room), OOO, and a room another in-house stay still holds whatever its
+    // status says (`roomHolder`: leaving today or covering tonight, status edited by hand or set to CL by the
+    // housekeeping steps "needs cleaning"/"start cleaning" while the guest is in; a stay past its departure date
+    // without B18 too – ARC FB-R4-ARC-BE-PR74-01) have no exception for any role, the lead's approval path
+    // included: `overridableBy` absent, B9 refuses `roomNotReadyOverride` below.
+    // v1.0.4: a stay past its dates removes the exception only – VI/VC is still "ready" (`met`) next to it, as
+    // before; the strict "one room, one stay in" for `met` too is v1.0.5 (FB-R4-ARC-BE-PR74-05).
+    // 0.3.12 (l) (FB-R4-ARC-BE-PR74-02): `cause` tells the desk why – `held_by_other_stay` first (with the root
+    // code of the booking to check out), then `room_status`; `no_room` for a booking with no room (no `detail`).
+    const holder = room ? await this.roomHolder(tx, room.id, row, ctx) : null;
+    const heldToday = !!holder && !holder.overdue;
+    const roomReady = !!room && !heldToday && (roomStatus === 'VI' || roomStatus === 'VC');
+    const roomOverridable = !!room && !holder && (roomStatus === 'VD' || roomStatus === 'CL');
+    const roomCause: RoomReadyCause = !room
+      ? 'no_room'
+      : holder
+        ? 'held_by_other_stay'
+        : 'room_status';
     const conditions: Condition[] = [
       { code: 'not_unassigned', met: row.conflict_state !== 'open' },
       { code: 'capacity_within_max', met: capacityOk },
       {
         code: 'room_ready',
         met: roomReady,
-        ...(roomReady ? {} : { detail: roomStatus }),
+        ...(roomReady
+          ? {}
+          : {
+              ...(room ? { detail: roomStatus } : {}),
+              cause: roomCause,
+              ...(holder ? { heldByReservationCode: holder.code } : {}),
+            }),
         ...(roomOverridable ? { overridableBy: FDL_UP } : {}),
       },
       {
@@ -511,26 +540,31 @@ export class CheckinService {
 
   /**
    * BUG-R4-039 (BR-402 (1) v0.5.3): another in-house stay is still in this room on the business day – the
-   * housekeeping definition (`inRoomOnSql`: the departure day until B18, the room of the latest segment on a move
-   * day), limited to a segment that has not ended before today (`to_date >= D`: the stay leaving today, the DOM
-   * case, or covering today). A stay left `in_house` past its dates is an overdue departure ("Cần chú ý") – its
-   * room status (OC/OD until B18) already blocks; it does not hold the room through this check. The stay of this
-   * booking itself (its root and children) does not count.
+   * housekeeping definition `inRoomOnSql(D)` unchanged (the departure day until B18, the room of the latest
+   * segment on a move day, and a stay left `in_house` past its dates – an overdue departure, "Cần chú ý"). Its
+   * room status can still reach CL through the housekeeping steps (OC → OD → CL), so the stay itself is what
+   * holds the room here (ARC FB-R4-ARC-BE-PR74-01). The stay of this booking itself (its root and children) does
+   * not count. Returns the ROOT booking code (0.3.12 (l) `heldByReservationCode`), a stay leaving today or covering
+   * tonight before an overdue one.
    */
-  private async roomHeldByAnotherStay(
+  private async roomHolder(
     tx: Tx,
     roomId: string,
     row: ReservationRow,
     ctx: BookingContext,
-  ): Promise<boolean> {
-    const { rows } = await tx.query(
-      `SELECT 1 FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
+  ): Promise<RoomHolder | null> {
+    const { rows } = await tx.query<{ code: string; overdue: boolean }>(
+      `SELECT root.code, (s.to_date < $3::date) AS overdue
+         FROM reservation_segment s JOIN reservation r ON r.id = s.reservation_id
+         JOIN reservation root ON root.id = COALESCE(r.parent_reservation_id, r.id)
         WHERE s.room_id = $1 AND COALESCE(r.parent_reservation_id, r.id) <> $2::uuid
-          AND ${inRoomOnSql('$3::date')} AND s.to_date >= $3::date
+          AND ${inRoomOnSql('$3::date')}
+        ORDER BY (s.to_date < $3::date), s.from_date, root.code
         LIMIT 1`,
       [roomId, row.parent_reservation_id ?? row.id, ctx.today],
     );
-    return rows.length > 0;
+    const r = rows[0];
+    return r ? { code: r.code, overdue: r.overdue } : null;
   }
 
   private async kitOpen(tx: Tx, reservationId: string): Promise<number> {
@@ -618,7 +652,8 @@ export class CheckinService {
         continue;
       }
       // BUG-R4-039 (BR-402 (1) v0.5.3): the same `overridableBy` the preview shows – VD/CL with no other stay in
-      // the room. Otherwise the override (reason, approval request or approved request) is ignored → 409 below.
+      // the room (an overdue one included). Otherwise the override (reason, approval request or approved request)
+      // is ignored → 409 below.
       if (c.code === 'room_ready' && c.overridableBy && roomOverride) {
         if (fdlPlus) {
           if (!roomOverrideReason || roomOverrideReason.length < 3) {

@@ -4,6 +4,9 @@
  * in the room), OOO, and a room another in-house stay still holds (status edited by hand) have none – for the
  * lead, the manager and the owner, and the FD approval request (202) is not created either. Until v1.0.3 the
  * server let the lead check a second booking into a room with a guest asleep in it (two `in_house` stays).
+ * ARC review of #74 (05/11): a stay past its departure date without B18 holds the room too, its status taken to
+ * CL by the housekeeping steps (FB-R4-ARC-BE-PR74-01), and the preview says why – `cause`,
+ * `heldByReservationCode` (0.3.12 (l), FB-R4-ARC-BE-PR74-02).
  * Fake clock (Tue 24/11/2026 = the oracle's QA-assumed arrival day of B), FAKE data only.
  */
 import { randomBytes } from 'node:crypto';
@@ -93,9 +96,17 @@ const oracle = (id: string): Oracle => {
 const SLOW = 180_000;
 const EX = oracle('BR-402-03');
 const MATRIX = oracle('BR-402-04');
+const OVERDUE = oracle('BR-402-05');
 
 type Booking = { id: string; code: string; version: number; folioId: string };
-type Condition = { code: string; met: boolean; detail?: string; overridableBy?: string[] };
+type Condition = {
+  code: string;
+  met: boolean;
+  detail?: string;
+  overridableBy?: string[];
+  cause?: string;
+  heldByReservationCode?: string;
+};
 
 describe.skipIf(!HAS_DB)('check-in on an occupied room – BUG-R4-039 (BR-402 (1) v0.5.3)', () => {
   let db: Database;
@@ -104,8 +115,12 @@ describe.skipIf(!HAS_DB)('check-in on an occupied room – BUG-R4-039 (BR-402 (1
   let ids: BookingIds;
   let guest: string;
   const c: Record<string, Client> = {};
-  const a = {} as Record<'202' | '203' | '201', Booking>;
-  const b = {} as Record<'202' | '203' | '201' | '101' | '102', Booking>;
+  const a = {} as Record<'202' | '203' | '201' | '301' | '302', Booking>;
+  const b = {} as Record<'202' | '203' | '201' | '101' | '102' | '301' | '302', Booking>;
+  let unassigned: Booking;
+  // ARC probe (FB-R4-ARC-BE-PR74-01): 301 – A 22–23/11 checked in, never checked out (past its dates on 24/11,
+  // oracle BR-402-05); 302 – A 23–24/11 leaving today without B18. B arrives 24/11 in both.
+  const OVERDUE_A = OVERDUE.input.stayA as { arrivalDate: string; departureDate: string };
   const ARRIVAL_B = EX.input.stayB.arrivalDate as string;
   const DEPARTURE_B = EX.input.stayB.departureDate as string;
 
@@ -260,12 +275,39 @@ describe.skipIf(!HAS_DB)('check-in on an occupied room – BUG-R4-039 (BR-402 (1
 
     // Stays A (in house, leaving on B's arrival day) and the bookings B arriving that day.
     await at('2026-11-20T10:00:00+07:00');
-    for (const room of ['202', '203', '201'] as const)
+    for (const room of ['202', '203', '201', '302'] as const)
       a[room] = await book(room, EX.input.stayA.arrivalDate, EX.input.stayA.departureDate);
-    for (const room of ['202', '203', '201', '101', '102'] as const)
+    a['301'] = await book(OVERDUE.input.roomNo, OVERDUE_A.arrivalDate, OVERDUE_A.departureDate);
+    expect(OVERDUE.input.stayB).toMatchObject({
+      arrivalDate: ARRIVAL_B,
+      departureDate: DEPARTURE_B,
+    });
+    for (const room of ['202', '203', '201', '101', '102', '301', '302'] as const)
       b[room] = await book(room, ARRIVAL_B, DEPARTURE_B);
+    // An OTA booking kept in the unassigned lane (B7b, room 202 is taken): no room → `cause: no_room`.
+    const ota = await c.fd!.send('POST', url('/reservations'), {
+      roomId: ids.rooms['202'],
+      channelId: ids.channels.airbnb,
+      arrivalDate: ARRIVAL_B,
+      departureDate: DEPARTURE_B,
+      adults: 2,
+      bookerGuestId: guest,
+      paymentModel: 'ota_prepaid',
+      otaRef: `HM${randomBytes(4).toString('hex')}`,
+      otaRoomAmountVnd: 1_000_000,
+      allowUnassigned: true,
+    });
+    expect(ota.statusCode, ota.body).toBe(201);
+    unassigned = ota.json() as Booking;
+    expect(ota.json()).toMatchObject({ conflictState: 'open' });
+    await at(`${OVERDUE_A.arrivalDate}T14:30:00+07:00`);
+    {
+      const res = await checkIn(a['301'], 'fd');
+      expect(res.statusCode, res.body).toBe(200);
+      expect(await roomStatus('301')).toBe('OC');
+    }
     await at(`${EX.input.stayA.arrivalDate}T14:30:00+07:00`);
-    for (const room of ['202', '203', '201'] as const) {
+    for (const room of ['202', '203', '201', '302'] as const) {
       const res = await checkIn(a[room], 'fd');
       expect(res.statusCode, res.body).toBe(200);
       expect(await roomStatus(room)).toBe('OC');
@@ -285,7 +327,12 @@ describe.skipIf(!HAS_DB)('check-in on an occupied room – BUG-R4-039 (BR-402 (1
 
       await at(before!.at!);
       const cond = await roomCond(b['202'], 'fdl');
-      expect(cond).toMatchObject({ met: xb.roomReadyMet, detail: before!.roomStatus });
+      expect(cond).toMatchObject({
+        met: xb.roomReadyMet,
+        detail: before!.roomStatus,
+        cause: 'held_by_other_stay',
+        heldByReservationCode: a['202'].code,
+      });
       expect(cond.overridableBy).toBeUndefined();
       for (const role of MATRIX.input.exceptionRoles as string[])
         await expectRefused(
@@ -309,7 +356,12 @@ describe.skipIf(!HAS_DB)('check-in on an occupied room – BUG-R4-039 (BR-402 (1
       expect(out.statusCode, out.body).toBe(200);
       expect(await roomStatus('202')).toBe(after!.roomStatus);
       const ready = await roomCond(b['202'], 'fdl');
-      expect(ready).toMatchObject({ met: xa.roomReadyMet, detail: after!.roomStatus });
+      expect(ready).toMatchObject({
+        met: xa.roomReadyMet,
+        detail: after!.roomStatus,
+        cause: 'room_status',
+      });
+      expect(ready.heldByReservationCode).toBeUndefined();
       expect(ready.overridableBy).toEqual(expect.arrayContaining(MATRIX.input.exceptionRoles));
       const ok = await checkIn(b['202'], 'fdl', override('Khách cũ đã trả phòng, buồng đang dọn'));
       expect(ok.statusCode, ok.body).toBe(200);
@@ -326,7 +378,12 @@ describe.skipIf(!HAS_DB)('check-in on an occupied room – BUG-R4-039 (BR-402 (1
       await at(`${ARRIVAL_B}T14:30:00+07:00`);
       await setStatus('203', 'OD');
       const cond = await roomCond(b['203']);
-      expect(cond).toMatchObject({ met: MATRIX.expected.roomReadyMet.OD, detail: 'OD' });
+      expect(cond).toMatchObject({
+        met: MATRIX.expected.roomReadyMet.OD,
+        detail: 'OD',
+        cause: 'held_by_other_stay',
+        heldByReservationCode: a['203'].code,
+      });
       expect(cond.overridableBy).toBeUndefined();
       expect(MATRIX.expected.exceptionAllowed.OD).toBe(false);
       expect(MATRIX.expected.frontDeskRequestAllowed.OD).toBe(false);
@@ -384,7 +441,12 @@ describe.skipIf(!HAS_DB)('check-in on an occupied room – BUG-R4-039 (BR-402 (1
       ] as const) {
         await setStatus(room, status);
         const cond = await roomCond(b[room]);
-        expect(cond).toMatchObject({ met: MATRIX.expected.roomReadyMet[status], detail: status });
+        expect(cond).toMatchObject({
+          met: MATRIX.expected.roomReadyMet[status],
+          detail: status,
+          cause: 'room_status',
+        });
+        expect(cond.heldByReservationCode).toBeUndefined();
         expect(cond.overridableBy).toEqual(expect.arrayContaining(MATRIX.input.exceptionRoles));
         const ask = await checkIn(b[room], 'fd', override());
         expect(ask.statusCode, ask.body).toBe(202);
@@ -406,15 +468,124 @@ describe.skipIf(!HAS_DB)('check-in on an occupied room – BUG-R4-039 (BR-402 (1
       expect(await statusOf(a['201'])).toBe('in_house');
       await setStatus('201', 'VD');
       const vd = await roomCond(b['201'], 'fdl');
-      expect(vd).toMatchObject({ met: false, detail: 'VD' });
+      expect(vd).toMatchObject({
+        met: false,
+        detail: 'VD',
+        cause: 'held_by_other_stay',
+        heldByReservationCode: a['201'].code,
+      });
       expect(vd.overridableBy).toBeUndefined();
       await expectRefused(await checkIn(b['201'], 'fdl', override()), b['201'], '201', 'VD');
       await expectRefused(await checkIn(b['201'], 'fd', override()), b['201'], '201', 'VD');
       await setStatus('201', 'VC');
       const vc = await roomCond(b['201']);
-      expect(vc).toMatchObject({ met: false, detail: 'VC' });
+      expect(vc).toMatchObject({
+        met: false,
+        detail: 'VC',
+        cause: 'held_by_other_stay',
+        heldByReservationCode: a['201'].code,
+      });
       expect(vc.overridableBy).toBeUndefined();
       await expectRefused(await checkIn(b['201'], 'fd'), b['201'], '201', 'VC');
+    },
+    SLOW,
+  );
+
+  /**
+   * FB-R4-ARC-BE-PR74-01 – the room of a stay still in house reaches CL through two valid housekeeping steps
+   * ("Cần dọn" OC → OD, "Bắt đầu dọn" OD → CL – SM-03 allows both with the guest in), no SQL. CL must not reopen
+   * the exception, whether the stay leaves today (302) or is past its dates without B18 (301, the forgotten B18).
+   */
+  const toCleaning = async (room: '301' | '302') => {
+    for (const [event, expectedFrom, to] of [
+      ['needs_cleaning', 'OC', 'OD'],
+      ['start_cleaning', 'OD', 'CL'],
+    ] as const) {
+      const res = await c.fd!.send('POST', url(`/rooms/${ids.rooms[room]}/status-transitions`), {
+        event,
+        expectedFrom,
+        performedAt: fa.clock.now().toISOString(),
+      });
+      expect(res.statusCode, res.body).toBe(200);
+      expect(await roomStatus(room)).toBe(to);
+    }
+  };
+  const inHouseIn = async (room: string) =>
+    (
+      await q<{ n: number }>(
+        `SELECT count(DISTINCT COALESCE(r.parent_reservation_id, r.id))::int AS n
+           FROM reservation r JOIN reservation_segment s ON s.reservation_id = r.id AND s.active
+          WHERE r.status = 'in_house' AND s.room_id = $1`,
+        [ids.rooms[room]],
+      )
+    )[0]!.n;
+
+  // 301 = oracle BR-402-05; 302 (the stay leaving today, already held before C1) expects the same refusal.
+  for (const [room, label] of [
+    ['302', 'leaving today, no B18 yet'],
+    ['301', 'past its departure date (23/11), no B18'],
+  ] as const)
+    it(
+      `${room}: the stay ${label}; the room set to CL through status-transitions → no exception for any role, 409, nothing written`,
+      async () => {
+        await at(OVERDUE.input.at);
+        expect(await statusOf(a[room])).toBe('in_house');
+        expect(await roomStatus(room)).toBe('OC');
+        // OC with the guest in: no exception before the steps either.
+        const oc = await roomCond(b[room], 'fdl');
+        expect(oc).toMatchObject({
+          met: false,
+          detail: 'OC',
+          cause: 'held_by_other_stay',
+          heldByReservationCode: a[room].code,
+        });
+        expect(oc.overridableBy).toBeUndefined();
+
+        await toCleaning(room);
+        const x = OVERDUE.expected;
+        expect(await roomStatus(room)).toBe(OVERDUE.input.roomStatus);
+        for (const who of ['fdl', 'fd']) {
+          const cl = await roomCond(b[room], who);
+          expect(cl).toMatchObject({
+            met: x.roomReadyMet,
+            detail: OVERDUE.input.roomStatus,
+            cause: x.cause,
+            heldByReservationCode: a[room].code,
+          });
+          expect(cl.overridableBy).toBeUndefined();
+        }
+        for (const role of MATRIX.input.exceptionRoles as string[])
+          await expectRefused(
+            await checkIn(b[room], WHO_OF_ROLE[role]!, override()),
+            b[room],
+            room,
+            x.roomStatusAfter,
+          );
+        // FD: no request to a lead (no 202 branch).
+        await expectRefused(
+          await checkIn(b[room], 'fd', override()),
+          b[room],
+          room,
+          x.roomStatusAfter,
+        );
+        expect(await statusOf(a[room])).toBe(x.stayAStatusAfter);
+        expect(await statusOf(b[room])).toBe(x.stayBStatusAfter);
+        expect(await inHouseIn(room)).toBe(x.inHouseStaysInRoom);
+      },
+      SLOW,
+    );
+
+  it(
+    'a booking with no room (OTA, unassigned lane) → room_ready `cause: no_room`, no `detail`, no exception',
+    async () => {
+      await at(`${ARRIVAL_B}T15:20:00+07:00`);
+      const p = await preview(unassigned, 'fdl');
+      expect(p.conditions.find((x) => x.code === 'not_unassigned')).toMatchObject({ met: false });
+      const cond = p.conditions.find((x) => x.code === 'room_ready')!;
+      expect(cond).toMatchObject({ met: false, cause: 'no_room' });
+      expect(cond.detail).toBeUndefined();
+      expect(cond.heldByReservationCode).toBeUndefined();
+      expect(cond.overridableBy).toBeUndefined();
     },
     SLOW,
   );
