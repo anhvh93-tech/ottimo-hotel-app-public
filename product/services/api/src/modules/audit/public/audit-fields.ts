@@ -92,6 +92,9 @@ defineAuditEntity('approval_request', [
   'limitVnd',
   // BR-433 (a)(b) v0.4.0 (R3 – FB-R2-SEC-BE-83): the cumulative Σ the per-time limit was compared with.
   'cumulativeVnd',
+  // v1.0.4 P4-12 `refund.destination_carried`: request ids only (never bank, last 4 digits or holder – SEC 1.2 point 5).
+  'fromApprovalIds',
+  'toApprovalId',
 ]);
 // identity (BE-B) – fields its use cases write today; the identity module may take this over.
 defineAuditEntity('app_user', [

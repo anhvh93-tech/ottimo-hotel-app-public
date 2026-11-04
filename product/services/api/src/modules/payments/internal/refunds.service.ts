@@ -37,6 +37,7 @@ import { type ApprovalRow, ApprovalService } from '../../approvals/public/approv
 import { C3AccessGate } from '../../crypto/public/c3-access-gate';
 import { EventsService } from '../../events/public/events.service';
 import { FolioService, type PaymentRowLite } from '../../folio/public/folio.service';
+import type { RefundDestinationCarry } from '../../folio/public/refund-routing';
 import { DocNumberService } from '../../platform/public/doc-number.service';
 import { notifyStaff, publishEvent } from '../../platform/public/staff-notify';
 import {
@@ -84,6 +85,11 @@ export interface PayoutInput {
 }
 
 const OPEN_STATES = ['pending', 'escalated', 'approved'];
+
+/** P4-12: the holder as compared (never stored or logged): trim, spaces collapsed, NFC, any case. */
+function holderKey(holder: string): string {
+  return holder.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
+}
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/g;
 
@@ -142,6 +148,175 @@ export class RefundsService {
       },
       this.clock.now(),
     );
+  }
+
+  // ───────────── destination carried to a replacement (P4-12) ─────────────
+
+  /** Wired with the refund decision hooks (api + worker): FolioService asks this service when it replaces requests. */
+  provideDestinationCarrier(): void {
+    this.folios.provideRefundDestinationCarrier({
+      peek: (tx, fromIds, targetReservationId) =>
+        this.peekCarryableDestination(tx, fromIds, targetReservationId),
+    });
+  }
+
+  /**
+   * P4-12 (FB-R4-DOM-BA-025-02; ARC plan v1.0.4 6.3; SEC-on-plan-v1.0.4 1.2) – called by FolioService BEFORE the
+   * requests `fromIds` are closed `superseded` (their `cancelled` hook destroys the DEK – SEC-BE-45). The ONE
+   * destination they share, read through the cipher (never `getDestination`: no `view` in c3_access_log, no C3 quota),
+   * kept in this closure only. Carried only when every request of `fromIds` that has a destination:
+   * - targets the replacement's booking (`targetReservationId`);
+   * - has the same method, bank BIN, account number and holder (trim, spaces collapsed, NFC, any case);
+   * - was entered by the same person (`refund_destination_set_by` is the maker-checker of CHECK 0031/0042 – copied, so
+   *   whoever entered the account still never approves a pay-out to it).
+   * Requests without a destination are ignored. Otherwise null: the desk enters it again (as before). A destination
+   * that cannot be read (no envelope) is never carried. Nothing compared is logged.
+   */
+  async peekCarryableDestination(
+    tx: Tx,
+    fromIds: readonly string[],
+    targetReservationId: string,
+  ): Promise<RefundDestinationCarry | null> {
+    if (fromIds.length === 0) return null;
+    const { rows } = await tx.query<RefundRow>(
+      `SELECT * FROM approval_request
+        WHERE id = ANY($1::uuid[]) AND type = 'refund' AND refund_method IS NOT NULL
+        ORDER BY refund_destination_set_at, requested_at, id`,
+      [[...fromIds]],
+    );
+    if (rows.length === 0) return null;
+    const setBy = rows[0]!.refund_destination_set_by;
+    const sources: Array<{
+      method: 'cash' | 'bank_transfer' | 'original_method';
+      bankBin: string | null;
+      account: { accountNo: string; accountHolder: string } | null;
+    }> = [];
+    for (const r of rows) {
+      if (r.target_type !== 'reservation' || r.target_id !== targetReservationId) return null;
+      if (!r.refund_method || r.refund_destination_set_by !== setBy) return null;
+      let account: { accountNo: string; accountHolder: string } | null = null;
+      if (r.refund_method === 'bank_transfer') {
+        if (!r.refund_account_enc || !r.refund_account_key_id) return null;
+        // A failure here throws: the caller's whole transaction is rolled back (SEC 1.2 point 1).
+        account = JSON.parse(
+          await this.cipher.decrypt(tx, {
+            dekId: r.refund_account_key_id,
+            ciphertext: r.refund_account_enc,
+            aad: refundAccountAad(r.id),
+          }),
+        ) as { accountNo: string; accountHolder: string };
+      }
+      sources.push({ method: r.refund_method, bankBin: r.refund_bank_bin, account });
+    }
+    const keyOf = (d: (typeof sources)[number]) =>
+      JSON.stringify([
+        d.method,
+        d.bankBin ?? '',
+        d.account?.accountNo ?? '',
+        holderKey(d.account?.accountHolder ?? ''),
+      ]);
+    const key = keyOf(sources[0]!);
+    if (!sources.every((d) => keyOf(d) === key)) return null;
+    const dest = sources[0]!;
+    const setAt = rows[0]!.refund_destination_set_at;
+    const sourceIds = rows.map((r) => r.id);
+    return {
+      apply: (tx2, toApprovalId, requestId) =>
+        this.applyCarriedDestination(tx2, {
+          sourceIds,
+          toApprovalId,
+          targetReservationId,
+          dest,
+          setAt,
+          setBy,
+          ...(requestId ? { requestId } : {}),
+        }),
+    };
+  }
+
+  /** P4-12 – the second step: the replacement gets the destination, sealed under a NEW DEK bound to its own id. */
+  private async applyCarriedDestination(
+    tx: Tx,
+    input: {
+      sourceIds: string[];
+      toApprovalId: string;
+      targetReservationId: string;
+      dest: {
+        method: 'cash' | 'bank_transfer' | 'original_method';
+        bankBin: string | null;
+        account: { accountNo: string; accountHolder: string } | null;
+      };
+      setAt: Date | null;
+      setBy: string | null;
+      requestId?: string;
+    },
+  ): Promise<void> {
+    // Never two live requests with one account: every source must really be closed now.
+    const { rows: open } = await tx.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM approval_request WHERE id = ANY($1::uuid[]) AND status <> 'cancelled'`,
+      [input.sourceIds],
+    );
+    if ((open[0]?.n ?? 0) > 0) return;
+    const { rows } = await tx.query<RefundRow>(
+      `SELECT * FROM approval_request WHERE id = $1 AND type = 'refund' FOR UPDATE`,
+      [input.toApprovalId],
+    );
+    const to = rows[0];
+    if (
+      !to ||
+      to.refund_method ||
+      (to.status !== 'pending' && to.status !== 'escalated') ||
+      to.target_type !== 'reservation' ||
+      to.target_id !== input.targetReservationId
+    ) {
+      return;
+    }
+    let enc: Buffer | null = null;
+    let keyId: string | null = null;
+    const account = input.dest.account;
+    if (account) {
+      const sealed = await this.cipher.encrypt(
+        tx,
+        { purpose: 'refund_account', subjectId: to.id, aad: refundAccountAad(to.id) },
+        JSON.stringify({ accountNo: account.accountNo, accountHolder: account.accountHolder }),
+      );
+      enc = sealed.ciphertext;
+      keyId = sealed.dekId;
+    }
+    // Created in this transaction: the version stays the one the replacement was made with.
+    await tx.query(
+      `UPDATE approval_request SET refund_method = $2, refund_bank_bin = $3, refund_account_last4 = $4,
+          refund_account_enc = $5, refund_account_key_id = $6, refund_destination_set_at = $7,
+          refund_destination_set_by = $8, updated_at = $9
+        WHERE id = $1`,
+      [
+        to.id,
+        input.dest.method,
+        input.dest.bankBin,
+        account ? account.accountNo.slice(-4) : null,
+        enc,
+        keyId,
+        input.setAt,
+        input.setBy,
+        this.clock.now(),
+      ],
+    );
+    await this.audit.recordC3Access(tx, {
+      subjectType: 'refund_account',
+      subjectId: to.id,
+      action: 'create',
+      reservationId: input.targetReservationId,
+      ...(input.requestId ? { requestId: input.requestId } : {}),
+    });
+    // Request ids only – never the bank, the last 4 digits or the holder (SEC 1.2 point 5).
+    await this.audit.recordMoney(tx, {
+      action: 'refund.destination_carried',
+      entityType: 'approval_request',
+      entityId: to.id,
+      ...(to.target_code ? { entityCode: to.target_code } : {}),
+      after: { fromApprovalIds: input.sourceIds, toApprovalId: to.id },
+      ...(input.requestId ? { requestId: input.requestId } : {}),
+    });
   }
 
   // ───────────── createRefundRequest (E15-01) ─────────────

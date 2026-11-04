@@ -58,6 +58,7 @@ import {
   type NightReductionPreview,
 } from './reductions';
 import { type OpenRefund, refundPlan } from './refund-plan';
+import type { RefundDestinationCarrier, RefundDestinationCarry } from './refund-routing';
 
 export { focDateMap } from './reductions';
 
@@ -745,6 +746,26 @@ export class FolioService implements FolioStaySync {
   }
 
   private qrDueNowReader: QrDueNowReader | null = null;
+
+  private destinationCarrier: RefundDestinationCarrier | null = null;
+
+  /** P4-12 (ARC 6.3, SEC-on-plan-v1.0.4 1.2): the payments module carries a refund destination to a replacement. */
+  provideRefundDestinationCarrier(carrier: RefundDestinationCarrier): void {
+    this.destinationCarrier = carrier;
+  }
+
+  /**
+   * P4-12: the destination the requests about to be closed share, read BEFORE they are closed (their hook purges the
+   * account). Null without the payments module (unit compositions) or nothing to carry.
+   */
+  private async peekDestination(
+    tx: Tx,
+    fromIds: readonly string[],
+    targetReservationId: string,
+  ): Promise<RefundDestinationCarry | null> {
+    if (!this.destinationCarrier || fromIds.length === 0) return null;
+    return this.destinationCarrier.peek(tx, fromIds, targetReservationId);
+  }
 
   /** 0.3.7 bổ sung 4 (DOM (f)): the payments module provides "còn phải thu" of a pending VietQR. */
   provideQrDueNow(reader: QrDueNowReader): void {
@@ -3371,6 +3392,11 @@ export class FolioService implements FolioStaySync {
           : ('reservation_cancelled' as const);
     // BR-433 (e) / ADD3-01: a replacement keeps the source, note and "never approves" list of what it replaces.
     const carried = await this.carriedOrigin(tx, plan.createVnd > 0 ? plan.cancelIds : []);
+    // P4-12: the destination of what is replaced – read before the cancellations purge it.
+    const destination =
+      plan.createVnd > 0
+        ? await this.peekDestination(tx, plan.cancelIds, input.reservationId)
+        : null;
     for (const id of plan.cancelIds) {
       await approvals.autoCancel(tx, id, cancelReason, input.requestId);
     }
@@ -3388,6 +3414,7 @@ export class FolioService implements FolioStaySync {
         minRequiredRole: carried.minRequiredRole,
         ...(input.requestId ? { requestId: input.requestId } : {}),
       });
+      await destination?.apply(tx, row.id, input.requestId);
       request = { id: row.id, amountVnd: Number(row.amount_vnd), created: true };
     } else if (b.rawCreditVnd > 0) {
       const { rows } = await tx.query<{ id: string; amount_vnd: number }>(
@@ -3510,6 +3537,16 @@ export class FolioService implements FolioStaySync {
       tx,
       createVnd > 0 ? [...plan.cancelIds, ...approvedCancelIds] : [],
     );
+    // P4-12: a `superseded` replacement keeps the destination of what it replaces (read before the cancellations
+    // purge it). Not for `no_show_restored` (B12 undoes a close – SEC-on-plan-v1.0.4 1.2 point 4).
+    const destination =
+      createVnd > 0 && cancelReason === 'superseded'
+        ? await this.peekDestination(
+            tx,
+            [...plan.cancelIds, ...approvedCancelIds],
+            input.reservationId,
+          )
+        : null;
     const cancelledIds: string[] = [];
     for (const id of plan.cancelIds) {
       if (await approvals.autoCancel(tx, id, cancelReason, input.requestId)) cancelledIds.push(id);
@@ -3533,6 +3570,7 @@ export class FolioService implements FolioStaySync {
         minRequiredRole: carried.minRequiredRole,
         ...(input.requestId ? { requestId: input.requestId } : {}),
       });
+      await destination?.apply(tx, row.id, input.requestId);
       createdId = row.id;
     }
     return { cancelledIds, createdId };
