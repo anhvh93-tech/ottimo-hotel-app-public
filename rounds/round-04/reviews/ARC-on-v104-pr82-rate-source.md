@@ -508,3 +508,66 @@ Nhận xét về test mới:
 | Ngày | Round | Quyết định | Người | Ghi chú |
 |---|---|---|---|---|
 | 2026-11-05 | 4 | **ARC – review PR #82 lượt 3 @ `0e48686c`: ĐẠT CÓ ĐK.** Thêm ca OTA gõ một phần số đêm: đột biến bỏ OTA khỏi điều kiện nay bị bắt, đóng ARC-PR82-03. Dòng phụ thu ẩn khi chờ bản xem, không còn câu "Phụ thu 0 người", đóng ARC-PR82-04. Nội bộ có câu chặn riêng `booking.error.rate_empty_internal` và `bk.internal_help` viết lại theo BR-105 v0.5.8 (phần mã của DOM-UXD-PR82-01; chữ do UXD duyệt). 4 tệp 51/51, admin-web 947/947. **ĐK:** CI trên `0e48686c` xanh hết, gồm `docker images build · E2E smoke` chưa từng xong trên head nào của #82. Sau #75 đổi base sang `main` và sinh lại chuỗi (ORC), rồi chạy lại | ARC | `rounds/round-04/reviews/ARC-on-v104-pr82-rate-source.md` mục 10. Còn Open: ARC-PR82-02 (v1.0.5). Sổ tay còn chữ "không tính doanh thu", đã giao BA ở mục 8.4 |
+
+## 11. ARC lượt 4 – `0e48686c..a4cb703a`, #82 đã chuyển base sang `main` (05/11)
+
+- Đối tượng: head `a4cb703a`, base `main`. Trên `0e48686c` có thêm hai commit:
+  - `a931c50b`: gộp `origin/main` @ `ebca5a95` (#75);
+  - `a4cb703a`: UXD PR82-03 (chỉ chữ EN) và PR82-04 (câu riêng tại ô cho đêm Nội bộ gõ 0).
+- Kiểm ngắn theo yêu cầu ORC. Worktree tạm ở `a4cb703a`, đã xóa. Không commit, không đẩy.
+- Đã đọc lại tệp này ngay trước khi ghi. Mục 11 ghi nối sau mục 10, không sửa mục nào ở trên.
+
+### 11.1 Kết luận: **ĐẠT CÓ ĐK** cho `a4cb703a`
+
+| Câu ORC hỏi | Trả lời |
+|---|---|
+| `a4cb703a` chỉ đổi câu? Đơn còn bị chặn, không có POST? OTA/Trực tiếp không đổi? | **Đúng cả ba.** Phép thử `r.raw && !(parseVnd(r.raw) > 0)` giữ nguyên, khóa lỗi `nightlyRates[i].amountVnd` vẫn được đặt, nên `submit()` vẫn dừng trước POST. Chỉ chọn câu: Nội bộ dùng `booking.error.rate_zero_internal`, mọi kênh khác (Trực tiếp, CTV, OTA) giữ `booking.error.rate_empty`. Ca test mới thấy câu mới dưới cả hai ô, không thấy câu cũ, không có POST |
+| `git diff 0e48686c a931c50b` chỉ là nội dung của main cộng chuỗi sinh lại? Tệp của #82 có đổi không? | **Đúng.** 42 tệp: mọi tệp ngoài 8 tệp của #82 trùng blob với `ebca5a95`. Các dòng +/− của #82 trong `BookingDialog.tsx`, hai tệp test và `gen_strings.py` trùng hệt trước và sau khi gộp (87/80/230/6 dòng). Main không đụng ba tệp mã/test đó kể từ `9b45cef3`. `--remerge-diff`: tay chỉ gỡ xung đột ở `strings-{en,vi}.json` và `strings.js` |
+
+Điều kiện:
+1. CI trên `a4cb703a` xanh hết. Lúc kiểm, `format · lint · audit · test · build` đang chạy, các job khác `pass`. Lượt chạy của `0e48686c` và `4344802c` đều bị hủy khi có lần đẩy mới, nên `docker images build · E2E smoke` (chạy sau job build) **chưa từng xong trên head nào của #82**. Job này phải xanh trên `a4cb703a`.
+- Điều kiện "đổi base sang `main`, sinh lại chuỗi" của các lượt trước: **đã xong** (ORC, FE).
+
+Thẻ mới: **FB-R4-ARC-FE-PR82-05** (Minor, chỉ test, không chặn).
+
+### 11.2 Test (load 5–10)
+
+| Việc | Kết quả |
+|---|---|
+| 4 tệp liên quan cộng `i18n-keys` ở `a4cb703a` | **54/54 xanh**, khớp số FE báo |
+| Toàn bộ admin-web ở `a4cb703a` | **954/954 xanh**, 85 tệp. Khớp số FE báo |
+| `gen_strings.py` chạy lại ở `a931c50b` (3476 chuỗi) và ở `a4cb703a` (3477 chuỗi) | Không ra diff ở cả hai commit |
+| `strings.js` so `ebca5a95` với `a931c50b` | VI và EN mỗi bên thêm 2 khóa của #82 (`bk.src_typed`, `booking.error.rate_empty_internal`) và đổi `bk.internal_help`. Không bớt khóa nào |
+| `strings.js` so `0e48686c` với `a931c50b` | Chỉ thêm `co.minibar_cabinet_counting` của main (#81). Không mất khóa nào |
+| **Z2**: Nội bộ dùng lại `booking.error.rate_empty` tại ô | Ca mới đỏ |
+| **Z3**: bỏ hẳn phép thử ô ≤ 0 | Ca mới đỏ (có POST). Đơn Nội bộ gõ 0 bị chặn là do phép thử này, và có test khóa |
+| **Z1**: mọi kênh dùng `booking.error.rate_zero_internal` | **Lọt**: toàn bộ admin-web 954/954 xanh. Thẻ PR82-05 |
+| `tsc --noEmit`, `eslint` và `prettier --check` trên các tệp đổi | Sạch |
+
+### 11.3 Thẻ
+
+#### FB-R4-ARC-FE-PR82-05
+- Mức độ: Minor (chỉ thêm test). Không chặn #82. Làm nếu FE còn đẩy commit vào #82, không thì để v1.0.5.
+- Vị trí:
+  - `BookingDialog.tsx` @ `a4cb703a`: phép thử ô ≤ 0 trong `validate()`, nhánh chọn câu theo kênh;
+  - `v104-booking-rate-carryover.test.tsx`: thiếu ca.
+- Vấn đề:
+  - Đột biến Z1 (mọi kênh hiện câu "Miễn phí: để trống ô…") lọt qua cả 954 test. Không test nào khóa câu tại ô của Trực tiếp, CTV hay OTA.
+  - Phép thử ô ≤ 0 của các kênh đó cũng chưa có test riêng. Đột biến Z3 chỉ bị ca Nội bộ bắt.
+  - Đọc mã thì OTA và Trực tiếp **không đổi**: nhánh chỉ là `form.group === 'internal'`. Chỉ là chưa có test khóa.
+- Vì sao quan trọng:
+  - Câu "Miễn phí: để trống ô" hiện ở đơn Trực tiếp hay OTA là câu sai: ô trống ở đó không có nghĩa là miễn phí. Trực tiếp có ô gõ thì luật BUG-R4-037 chặn; OTA thì máy chủ lấy lịch OTA.
+  - Lần sửa câu sau có thể làm lệch mà CI vẫn xanh.
+- Đề xuất sửa: thêm một ca. Trực tiếp, 1 đêm, gõ `0` rồi bấm Tạo đơn. Phải thấy `booking.error.rate_empty` dưới ô, không thấy `booking.error.rate_zero_internal`, và không có POST. Có thể thêm cùng cách cho OTA.
+- Trạng thái: Open
+
+### 11.4 Ghi nhận khác
+- Chữ: UXD đã duyệt PR82-03 và PR82-04. Ghi chú của `booking.error.rate_empty_internal` trong `gen_strings.py` đã cập nhật đúng: ô gõ 0 của Nội bộ nay dùng `rate_zero_internal`.
+- Khi DOM làm đường (B′) (cho gõ 0 lúc tạo đơn), phải bỏ khóa `rate_zero_internal` và phép thử ở đây. Ghi chú của khóa đã nhắc việc này.
+- Thẻ còn Open: FB-R4-ARC-FE-PR82-02 (v1.0.5), PR82-05 (mới), FB-R4-ARC-FE-PR70-02.
+
+### 11.5 Dòng decision-log đề xuất (ORC ghi)
+
+| Ngày | Round | Quyết định | Người | Ghi chú |
+|---|---|---|---|---|
+| 2026-11-05 | 4 | **ARC – review PR #82 lượt 4 @ `a4cb703a` (base `main`): ĐẠT CÓ ĐK.** `a931c50b` gộp main @ `ebca5a95` (#75): ngoài 8 tệp của #82, mọi tệp trùng main. Phần thay đổi của #82 giữ nguyên dòng nào cũng vậy. Chỉ gỡ xung đột ở chuỗi sinh ra; sinh lại thì không ra diff. `a4cb703a` chỉ đổi câu: đêm Nội bộ gõ 0 hiện `booking.error.rate_zero_internal`, vẫn chặn, không POST. OTA, Trực tiếp và CTV giữ `rate_empty`. 54/54 (4 tệp cộng i18n), admin-web 954/954. **ĐK:** CI trên `a4cb703a` xanh hết, gồm `docker images build · E2E smoke` chưa từng xong trên head nào của #82 | ARC | `rounds/round-04/reviews/ARC-on-v104-pr82-rate-source.md` mục 11. Thẻ mới ARC-PR82-05, Minor, chỉ test, không chặn: chưa có test khóa câu và phép thử ô ≤ 0 của Trực tiếp/OTA (đột biến cho mọi kênh hiện câu Nội bộ vẫn 954/954). Còn Open: ARC-PR82-02 (v1.0.5) |
