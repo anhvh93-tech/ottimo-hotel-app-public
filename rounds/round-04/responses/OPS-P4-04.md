@@ -290,3 +290,34 @@ Sau mỗi lần thử đã trả cây về nguyên trạng.
 | shellcheck 0.10.0 `-x -S warning`, đủ danh sách CI | sạch (rc 0) |
 | `test-ops-check.sh` (Mac và `ubuntu:24.04`) | 204 passed, 0 failed (206 khi có tệp 0095 và mục journal của nó) |
 | `rollback` / `requeue-email-changed` / `ops-check-cwd` / `ops-check-price` / `mail-test-send` / `test-confidential-paths` | 38 / 69 / 14 / 17 / 37 / 6 passed, 0 failed |
+
+## Gộp `main` và mở PR-M (ORC 04/11, sau r1.3)
+
+- `git merge origin/main` @ `fcc92aa1` vào `v104/ops-check`, commit gộp `0b1f0ff1`. Không rebase, không force: đầu đã duyệt `970c0722` là cha thứ nhất. Gộp tự động, không xung đột.
+- `git diff 970c0722 0b1f0ff1 -- .github product/infra/server/bin/deploy.sh product/infra/server/bin/rollback.sh product/infra/server/bin/requeue-email-changed.sh product/infra/postgres/init/02-roles.sh product/infra/docker-compose.prod.yml product/infra/ci/check-confidential-paths.sh`: **rỗng**. `main` không đổi tệp nào trong các đường dẫn này kể từ điểm chung (`git diff 970c0722...origin/main` trên cùng đường dẫn cũng rỗng). `main` cũng không đổi gì trong `product/infra`.
+- Journal trên `main` nay có 71 mục (0092–0094 đã vào, chưa có 0095). Hai kiểm của P4-04 vẫn `skip` đúng thiết kế, cho tới khi PR-H (P4-13) gộp:
+  - `PN_0095_APPLIED_AT=72`: 71 < 72;
+  - hằng md5 của 0095.
+- Kiểm lại sau gộp:
+
+  | Kiểm | Kết quả |
+  |---|---|
+  | shellcheck | rc 0 |
+  | `test-ops-check` (Mac và ubuntu) | 204 |
+  | `rollback` (Mac và ubuntu) | 38 |
+  | `test-deploy-from-ci` (ubuntu) | rc 0, 44 ok |
+  | `requeue-email-changed` | 69 |
+  | `ops-check-cwd` | 14 |
+  | `ops-check-price` | 17 |
+  | `mail-test-send` | 37 |
+  | `test-confidential-paths` | 6 |
+  | `deploy-landing-privacy` | 28 |
+  | `restore-drill-privacy` | 8 |
+  | `backup-privacy-log` (ubuntu) | 5 |
+  | `check-compose`, `check-confidential-paths` | OK |
+
+  Tất cả 0 failed.
+- PR-M mở dạng **draft**, base `main`. Chỉ gộp **sau** PR-H (P4-13), và sau khi CI có job `confidential-paths` và bước `setup-node` xanh.
+- Khi PR-H vào `main`: gộp `main` lần nữa. `test-ops-check.sh` phải đổi `skip` thành `ok` ở hai chỗ:
+  - `PN_0095_APPLIED_AT=72 = journal idx 71 + 1`;
+  - `PN_FN_MD5_0095 matches …`.
