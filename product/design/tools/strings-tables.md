@@ -4046,6 +4046,13 @@ This quote is valid until {expires}. | OTTIMO Boutique Stay – предложе
 | `guest.oci.withdraw_hint` | Muốn rút đồng ý lưu ảnh? Báo lễ tân – ảnh sẽ được xóa. | Want to withdraw consent to keep photos? Tell reception – the photos will be deleted. | Хотите отозвать согласие на хранение фото? Сообщите администратору — фото будут удалены. | Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – khối pháp lý thủ tục trước; VI/EN không đổi so với v1 |
 | `gw.notice_read` | Tôi đã đọc | I've read this | Прочитано | Văn bản pháp lý privacy-2026-10-v2 – SEC chữ gốc (SEC-on-plan-v1.0.4 mục 6) – RU: CPY privacy-2026-10-v2-ru.md, SEC chốt nghĩa SEC-on-privacy-v2-ru.md (3a4fb411), UXD duyệt giọng UXD-on-privacy-v2-ru.md (714fe810) – đổi chữ = đổi version – khối pháp lý thủ tục trước; VI/EN không đổi so với v1 |
 
+#### v1.0.4 BUG-R4-039 – FE-A: nhận phòng căn OC/OD
+
+| Key | Tiếng Việt | English | Русский (RU) | Ghi chú |
+|---|---|---|---|---|
+| `checkin.room_occupied` | Căn {room} còn khách của đơn trước, chưa trả phòng. Không ai xác nhận ngoại lệ được. Trả phòng đơn đó trước, hoặc đổi đơn này sang căn trống. Nếu đơn trước đã trả phòng: nhờ buồng phòng sửa trạng thái căn. | Room {room} still has the previous guest, not checked out yet. No one can approve an exception. Check out that stay first, or move this booking to a vacant room. If that stay is already checked out, ask housekeeping to correct the room status. | ⟨chừa chỗ⟩ | v1.0.4 BUG-R4-039 (BR-402 (1)). Alert bad trong dòng room_ready khi căn OC/OD; không ô lý do, không nút duyệt. {room} = số căn |
+| `checkin.room_held` | Căn {room} còn khách của đơn khác chưa trả phòng. Không ai xác nhận ngoại lệ được. Trả phòng đơn đó trước, hoặc đổi đơn này sang căn trống. | Room {room} still has a guest from another booking who has not checked out. No one can approve an exception. Check out that stay first, or move this booking to a vacant room. | ⟨chừa chỗ⟩ | v1.0.4 BUG-R4-039 (BR-402 (1), DOM lượt 5 mục 2 (b)). Alert bad trong dòng room_ready khi trạng thái buồng không phải OC/OD/OOO nhưng căn còn lượt Đang ở của đơn khác (room_ready không có overridableBy); không nhắc buồng phòng. Ghép từ ví dụ của DOM và câu UXD đã duyệt – chờ UXD duyệt chữ. {room} = số căn |
+
 #### Mẫu tin nhắn (sao chép gửi – US-125, M13)
 
 | Key | Tình huống | Tiếng Việt | English | Русский (nháp – cần người bản ngữ duyệt) |

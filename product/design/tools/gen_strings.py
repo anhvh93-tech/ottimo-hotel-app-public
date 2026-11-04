@@ -4131,6 +4131,25 @@ g("v1.0.4 P4-42 privacy-2026-10-v2", [
 ])
 
 
+# ---------- v1.0.4 BUG-R4-039 – nhận phòng căn còn khách (OC/OD) ----------
+# BE #74 (BR-402 (1) v0.5.3): ngoại lệ "buồng chưa sẵn sàng" chỉ cho căn VD/CL không còn lượt khác; OC/OD thì 409
+# với mọi vai. UXD chốt chữ và cách hiển thị 05/11/2026 (chặn, theo mẫu vượt sức chứa).
+# DOM lượt 5 mục 2 (DOM-on-v104-pr68-docs.md): chặn có 2 trường hợp – (a) buồng OC/OD; (b) căn còn lượt Đang ở của
+# đơn khác dù trạng thái buồng hiện gì. Việc đầu tiên là lễ tân trả phòng đơn trước; chỉ nhắc buồng phòng khi
+# trạng thái bị lệch (a), không bao giờ ở (b).
+g("v1.0.4 BUG-R4-039 – FE-A: nhận phòng căn OC/OD", [
+    ("checkin.room_occupied",
+     "Căn {room} còn khách của đơn trước, chưa trả phòng. Không ai xác nhận ngoại lệ được. Trả phòng đơn đó trước, hoặc đổi đơn này sang căn trống. Nếu đơn trước đã trả phòng: nhờ buồng phòng sửa trạng thái căn.",
+     "Room {room} still has the previous guest, not checked out yet. No one can approve an exception. Check out that stay first, or move this booking to a vacant room. If that stay is already checked out, ask housekeeping to correct the room status.",
+     None,
+     "v1.0.4 BUG-R4-039 (BR-402 (1)). Alert bad trong dòng room_ready khi căn OC/OD; không ô lý do, không nút duyệt. {room} = số căn"),
+    ("checkin.room_held",
+     "Căn {room} còn khách của đơn khác chưa trả phòng. Không ai xác nhận ngoại lệ được. Trả phòng đơn đó trước, hoặc đổi đơn này sang căn trống.",
+     "Room {room} still has a guest from another booking who has not checked out. No one can approve an exception. Check out that stay first, or move this booking to a vacant room.",
+     None,
+     "v1.0.4 BUG-R4-039 (BR-402 (1), DOM lượt 5 mục 2 (b)). Alert bad trong dòng room_ready khi trạng thái buồng không phải OC/OD/OOO nhưng căn còn lượt Đang ở của đơn khác (room_ready không có overridableBy); không nhắc buồng phòng. Ghép từ ví dụ của DOM và câu UXD đã duyệt – chờ UXD duyệt chữ. {room} = số căn"),
+])
+
 def build():
     vi, en, ru = {}, {}, {}
     for grp, k, a, b, c, n in S:

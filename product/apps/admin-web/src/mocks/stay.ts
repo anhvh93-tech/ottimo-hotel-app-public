@@ -999,19 +999,38 @@ export function createStayMock(ctx: Ctx) {
       ruleRef: 'BR-411',
     };
   }
+  /**
+   * BUG-R4-039 (BE #74 `roomHeldByAnotherStay`): another in-house stay (not this booking's root or children) is still
+   * in the room – leaving today before B18, or covering tonight; one past its departure does not count here.
+   */
+  function roomHeldByAnotherStay(r: MockReservation) {
+    const root = r.parentReservationId ?? r.id;
+    return rsv().state.reservations.some(
+      (x) =>
+        x.status === 'in_house' &&
+        (x.parentReservationId ?? x.id) !== root &&
+        !!r.roomId &&
+        x.roomId === r.roomId &&
+        x.departureDate >= today(),
+    );
+  }
   function conditions(r: MockReservation) {
     const room = roomOf(r);
     const status = room ? (st.roomStatus[room.roomNo] ?? 'VC') : 'VC';
     const reg = regOf(r);
     const tt = totals(r);
+    // BUG-R4-039 (BE #74, BR-402 (1) v0.5.3): ready = VI/VC and no other stay in the room; the "not ready"
+    // exception (`overridableBy`, FDL+) only for VD/CL with no other stay – none on OC/OD/OOO.
+    const held = roomHeldByAnotherStay(r);
+    const overridable = !held && (status === 'VD' || status === 'CL');
     return [
       { code: 'not_unassigned', met: r.conflictState !== 'open' },
       { code: 'capacity_within_max', met: !r.capacityConflict },
       {
         code: 'room_ready',
-        met: status === 'VI' || status === 'VC',
+        met: !held && (status === 'VI' || status === 'VC'),
         detail: status,
-        overridableBy: status === 'OOO' ? [] : LEAD_PLUS,
+        ...(overridable ? { overridableBy: LEAD_PLUS } : {}),
       },
       {
         code: 'balance_paid',
@@ -1733,7 +1752,9 @@ export function createStayMock(ctx: Ctx) {
           !!body.roomNotReadyOverride &&
           !lead &&
           !(body.roomNotReadyOverride as Body).approvalRequestId &&
-          !!conditions(r).find((c) => c.code === 'room_ready' && !c.met && c.detail !== 'OOO');
+          !!conditions(r).find(
+            (c) => c.code === 'room_ready' && !c.met && !!c.overridableBy?.length,
+          );
         if (asksLead && pay) return validation([{ field: 'payment', code: 'NOT_ALLOWED' }]);
         // 0.3.7 bổ sung 1 (a): FD calls B9 again with the lead's approval of TODAY for this booking.
         const approvalId = (body.roomNotReadyOverride as Body | undefined)?.approvalRequestId;
@@ -1779,7 +1800,8 @@ export function createStayMock(ctx: Ctx) {
           if (c.code === 'balance_paid')
             return !asksLead && r.paymentModel !== 'ota_prepaid' && dueNow - paid > 0;
           if (c.met) return false;
-          if (c.code === 'room_ready' && body.roomNotReadyOverride && c.detail !== 'OOO')
+          // BUG-R4-039: the override (reason, request or approved request) only where `overridableBy` is offered.
+          if (c.code === 'room_ready' && body.roomNotReadyOverride && !!c.overridableBy?.length)
             return false;
           if (c.code === 'document_check_block' && body.documentBlockOverride && lead) return false;
           return true;

@@ -242,12 +242,21 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   const roomCond = cond('room_ready');
   const docCond = cond('document_check_block');
   const ooo = roomCond && !roomCond.met && roomCond.detail === 'OOO';
+  // BUG-R4-039 (BE #74, BR-402 (1) v0.5.3): the "room not ready" exception exists only where the server offers it
+  // (`overridableBy`: VD/CL with no other stay in the room) – never on OC/OD/OOO, for any role, the lead's approval
+  // included. The reason box, "confirm" and "ask the lead" follow it, not the room status.
+  const roomOverridable = !!roomCond && !roomCond.met && !!roomCond.overridableBy?.length;
+  // DOM (lượt 5 mục 2): two blocked cases – (a) the room status is OC/OD (a guest is in the room; housekeeping only
+  // when that status is wrong); (b) any other status, but another booking's stay still holds the room today.
+  const roomBlockedText =
+    roomCond?.detail === 'OC' || roomCond?.detail === 'OD'
+      ? t('checkin.room_occupied', { room })
+      : t('checkin.room_held', { room });
   const stdIn = p?.standardCheckinTime?.slice(0, 5) ?? rules.checkinTime;
   // FE-S3-05: FD + room not ready + reason → the button sends a request (202), it does not check in.
-  const requestOnly =
-    !lead && !approved && !!roomCond && !roomCond.met && !ooo && roomReason.trim().length >= 3;
+  const requestOnly = !lead && !approved && roomOverridable && roomReason.trim().length >= 3;
   /** FD, room still not ready, the lead approved the request today (FE-S4-02). */
-  const roomApproved = !lead && !!approved && !!roomCond && !roomCond.met && !ooo;
+  const roomApproved = !lead && !!approved && roomOverridable;
   const docsMain = !!registration?.documents.some((d) => d.isMain);
   const statusText = p?.roomStatus ? t(`status.room.${p.roomStatus}`) : '';
   const foreign =
@@ -287,7 +296,11 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
   const blocking = conds.filter((c) => {
     if (c.code === 'balance_paid') return !c.met && !balanceCovered;
     if (c.met) return false;
-    if (c.code === 'room_ready' && !ooo && (roomApproved || roomReason.trim().length >= 3))
+    if (
+      c.code === 'room_ready' &&
+      roomOverridable &&
+      (roomApproved || roomReason.trim().length >= 3)
+    )
       return false;
     if (c.code === 'document_check_block' && lead && docReason.trim().length >= 3) return false;
     return true;
@@ -349,7 +362,7 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
           : undefined,
       roomNotReadyOverride: roomApproved
         ? { reason: approved?.reasonNote || undefined, approvalRequestId: approved!.id }
-        : roomCond && !roomCond.met && roomReason.trim()
+        : roomOverridable && roomReason.trim()
           ? { reason: roomReason.trim() }
           : undefined,
       documentBlockOverride:
@@ -518,6 +531,17 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
                   {!c.met && c.code === 'room_ready' ? (
                     ooo ? (
                       <div className="li-s">{t('ci.ooo_never')}</div>
+                    ) : !roomOverridable ? (
+                      // BUG-R4-039: OC/OD, or the room held by another stay – blocking like an over-capacity
+                      // room; no reason, no request.
+                      <Alert tone="bad">
+                        {roomBlockedText}
+                        <div className="row wrap mt-4">
+                          <Link className="btn sm" to={`/reservations/${reservationId}`}>
+                            {t('drawer.action.move')}
+                          </Link>
+                        </div>
+                      </Alert>
                     ) : roomApproved ? (
                       <Chip tone="ok" icon="check">
                         {t('ci.room_approved', { name: approved?.approverName ?? '' })}
@@ -991,6 +1015,9 @@ export function CheckInPage({ reservationId }: { reservationId: string }) {
               <Alert tone="bad">{errorExtra()}</Alert>
             ) : act.code === 'SURCHARGE_CHANGED' ? (
               <Alert tone="bad">{act.text()}</Alert>
+            ) : act.code === 'ROOM_OCCUPIED' ? (
+              // BUG-R4-039 (UXD): the room still has a stay – never `error.ROOM_OCCUPIED` (about blocking a room).
+              <Alert tone="bad">{t('checkin.room_occupied', { room })}</Alert>
             ) : (
               act.view(
                 undefined,
