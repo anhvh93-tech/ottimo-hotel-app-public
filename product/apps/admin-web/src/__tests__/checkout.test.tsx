@@ -106,8 +106,10 @@ describe('H16 Trả phòng 3 bước + bill + VietQR (US-035…039, US-119, US-1
   });
 
   it('bill: bilingual for a foreign guest with the USD reference, VAT note, print (no download)', async () => {
-    at('11:30');
     const r = res('Kim Seo-yeon');
+    // P4-32 / BUG-R3-024: H16 runs on the departure day (before it the page points to Trả sớm).
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(`${r.departureDate}T11:30:00+07:00`));
     const { user } = renderApp(`/reservations/${r.id}/check-out`, 'qa.fd');
     await user.click(await screen.findByRole('button', { name: tv('co.go_extras') }));
     await user.click(await screen.findByRole('button', { name: tv('co.go_bill') }));

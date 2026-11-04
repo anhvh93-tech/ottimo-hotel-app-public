@@ -19,6 +19,11 @@ import { renderApp, tv } from '../test/render';
 
 const res = (guest: string) => mockControl.rsv.reservations.find((r) => r.guestName === guest)!;
 afterEach(() => vi.useRealTimers());
+/** The clock on a calendar day (`YYYY-MM-DD`): H16 runs on the departure day (P4-32 / BUG-R3-024). */
+const onDay = (day: string, hhmm: string) => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(`${day}T${hhmm}:00+07:00`));
+};
 
 const coke = MINIBAR[0]!;
 const countUsing = (used: number) =>
@@ -75,6 +80,8 @@ async function countedThenExtended() {
     newIdempotencyKey(),
   );
   await api.extendStay(R, { nights: 1 }, res('Phạm Huy').version, newIdempotencyKey());
+  // P4-32 / BUG-R3-024: H16 runs on the new departure day of the stay (before it the page points to Trả sớm).
+  onDay((await api.getReservation(R)).data.stayDepartureDate!, '11:00');
   return r;
 }
 
@@ -181,6 +188,8 @@ describe('BUG-R4-035 – after B14, figures changed on cabinet A are never sent 
       res('Kim Seo-yeon').version,
       newIdempotencyKey(),
     );
+    // P4-32 / BUG-R3-024: H16 runs on the departure day (before it the page points to Trả sớm).
+    onDay(res('Kim Seo-yeon').departureDate, '11:00');
     // B as the server reads it, with a housekeeping count of 2 Coca-Cola: B starts from 0 left, A was edited to 1.
     const b = (await api.getMinibarStandard(R, r202.id)).data;
     const who = 'HK Test';
@@ -280,6 +289,8 @@ describe('UXD FB-R4-UXD-FE-PR67-01 – the previous list is locked while another
       res('Kim Seo-yeon').version,
       newIdempotencyKey(),
     );
+    // P4-32 / BUG-R3-024: H16 runs on the departure day (before it the page points to Trả sớm).
+    onDay(res('Kim Seo-yeon').departureDate, '11:00');
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
     server.use(
@@ -383,6 +394,8 @@ describe('ARC FB-R4-ARC-FE-PR67-01 – "Tiếp tục" only on the standard read 
       res('Kim Seo-yeon').version,
       newIdempotencyKey(),
     );
+    // P4-32 / BUG-R3-024: H16 runs on the departure day (before it the page points to Trả sớm).
+    onDay(res('Kim Seo-yeon').departureDate, '11:00');
     const counts = capture();
     renderApp(`/reservations/${kim.id}/check-out`, 'qa.fd');
     const group = await screen.findByRole('group', { name: tv('co.minibar_cabinet') });

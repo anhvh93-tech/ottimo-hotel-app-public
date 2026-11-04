@@ -4001,14 +4001,28 @@ export function createStayMock(ctx: Ctx) {
       if (isResponse(g)) return g;
       const q = new URL(request.url).searchParams;
       const status = q.get('status');
-      const lead = has(g.roles, LEAD_PLUS);
+      // FB-R4-ARC-FE-P432-03: the server's scope (`ApprovalService.list`), not a wider one – OWN/MGR see every
+      // request; FDL their own, the ones they decided and the ones routed to `front_desk_lead`; anyone else their
+      // own. FD/FDL also see the payout queue (`refund` approved, not fully paid). A `pending` refund someone else
+      // asked is NOT in an FD/FDL list (ARC A1, BR-522) – what the desk tests must see too. Unset `requiredRole` =
+      // the mock's own routing (approve below): a refund goes to OWN/MGR, anything else may be decided by FDL.
+      const routedTo = (a: MockApproval): Role =>
+        a.requiredRole ?? (a.type === 'refund' ? 'manager' : 'front_desk_lead');
+      const me = g.user.id;
+      const ownMgr = has(g.roles, OWN_MGR);
+      const fdl = g.roles.includes('front_desk_lead');
+      const payoutDesk = g.roles.includes('front_desk') || fdl;
       const all = st.approvals
         .filter((a) => !status || a.status === status)
         .filter(
           (a) =>
-            lead ||
-            a.requestedByUserId === g.user.id ||
-            (a.type === 'refund' && has(g.roles, FD_PLUS)),
+            ownMgr ||
+            a.requestedByUserId === me ||
+            (fdl && (a.approverUserId === me || routedTo(a) === 'front_desk_lead')) ||
+            (payoutDesk &&
+              a.type === 'refund' &&
+              a.status === 'approved' &&
+              (a.refundedVnd ?? 0) < a.amountVnd),
         );
       // PageInfo like the server (BUG-R2-107): `limit` rows from the opaque `cursor`, then `nextCursor`.
       const limit = Math.min(Math.max(Number(q.get('limit') ?? 50) || 50, 1), 100);

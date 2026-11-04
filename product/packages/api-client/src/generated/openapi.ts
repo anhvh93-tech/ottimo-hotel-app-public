@@ -698,6 +698,9 @@ export interface paths {
      *     của `GuestStay.property.mapUrl` ("Chỉ đường" US-108; landing/bill dùng cùng khóa khi có). Mặc định danh mục = ghim INV gửi 17/10 (migration `0058`). Chỉ nhận `https` không
      *     user/mật khẩu/cổng, host đúng danh sách SEC E14-08 (`maps.google.com`, `www.google.com` path `/maps…`, `maps.app.goo.gl`, `maps.apple.com`, `www.openstreetmap.org`) –
      *     khác → 422 `VALIDATION_FAILED`, `errors[{field: value, code: NOT_IN_LIST}]`. Cột `property.map_url` chỉ còn là dự phòng khi khóa vắng (bỏ ở R3).
+     *     **0.3.12 (SEC-BA-104-09 a)**: `privacy_notice_version` (tham số cơ sở, chỉ OWN, audit `config`) chỉ nhận chuỗi **đúng từng ký tự** trong danh sách version có chữ do server giữ
+     *     (= `NOTICE_TEXT_VERSIONS` của trang khách; hiện chỉ `privacy-2026-10-v2`). Khác (kể cả `privacy-2026-10-v1`) → `422 PARAM_OUT_OF_RANGE` kèm `allowed[]`; giá trị không đổi,
+     *     không ghi dòng, không audit. Khóa này **không** có ngoại lệ ghi đè dòng hôm nay. Đổi danh sách = phát hành mới (chữ trang khách + tờ in + SEC duyệt chữ), không phải cấu hình.
      */
     put: operations['setParameter'];
     post?: never;

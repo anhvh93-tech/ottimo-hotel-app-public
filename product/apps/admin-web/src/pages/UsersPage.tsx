@@ -1,7 +1,7 @@
 import { isApiError, type Role, type StrongReauth, type User } from '@ottimo/api-client';
 import { useI18n } from '@ottimo/i18n';
 import { Alert, Button, Checkbox, Chip, ConfirmDialog, Field, Modal } from '@ottimo/ui';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../app/api';
 import { SECURITY_EMAIL_ANCHOR, sendWithOneKey } from '../app/email';
@@ -97,6 +97,10 @@ export function UsersPage() {
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Info sentence over the table (not an error), e.g. F1 `users.reset_2fa_stale`. */
+  const [notice, setNotice] = useState<string | null>(null);
+  /** F1: a sentence that may only show once the list reloaded after `since` (the list first, then the words). */
+  const [afterReload, setAfterReload] = useState<{ text: string; since: number } | null>(null);
   const [tempPw, setTempPw] = useState<{ name: string; value: string } | null>(null);
   const [adding, setAdding] = useState(false);
   /** v1.0.3 BUG-R3-032: security email of someone else (owner only, S2 + If-Match). */
@@ -149,11 +153,38 @@ export function UsersPage() {
     setPending(null);
   };
 
+  // F1: show the waiting sentence when the reload asked for it has answered; a failed reload shows its own problem.
+  useEffect(() => {
+    if (!afterReload) return;
+    if (state.status === 'ready' && state.loadedAt.getTime() >= afterReload.since) {
+      setNotice(afterReload.text);
+      setAfterReload(null);
+    } else if (state.status === 'error') {
+      setError(problemView(t, state.error).text);
+      setAfterReload(null);
+    }
+  }, [afterReload, state, t]);
+
+  /**
+   * F1 (BA, UXD `users.reset_2fa_stale`): `resetUser2fa` answered 409 INVALID_TRANSITION – 2-step verification was
+   * already off (someone reset it first). Not an error and not a booking: close the dialog, reload the list, then
+   * say so in one info sentence. Every other 409 keeps `fail`.
+   */
+  const stale2fa = (u: User) => {
+    setPending(null);
+    setAfterReload({
+      text: t('users.reset_2fa_stale', { name: u.displayName }),
+      since: Date.now(),
+    });
+    reload();
+  };
+
   const fail = (err: unknown) => {
     const fe = fieldErrors(t, err);
     setError(Object.values(fe)[0] ?? problemView(t, err).text);
     setPending(null);
-    // VERSION_CONFLICT: someone changed the person; INVALID_TRANSITION: 2FA was already off (reset elsewhere).
+    // VERSION_CONFLICT: someone changed the person; INVALID_TRANSITION of another action: reload too (the
+    // reset-2FA one never comes here – `stale2fa`).
     if (isApiError(err) && (err.code === 'VERSION_CONFLICT' || err.code === 'INVALID_TRANSITION'))
       reload();
   };
@@ -162,6 +193,7 @@ export function UsersPage() {
   const run = async (p: Pending) => {
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       await perform(p);
     } catch (err) {
@@ -174,16 +206,20 @@ export function UsersPage() {
   /** S2 path: a wrong/missing factor stays in the dialog (one sentence); anything else closes it. */
   const runS2 = async (p: Pending, reauth: StrongReauth) => {
     setError(null);
+    setNotice(null);
     try {
       await perform(p, reauth);
     } catch (err) {
       if (isStrongReauthError(err)) throw err;
-      fail(err);
+      if (p.kind === 'reset2fa' && isApiError(err) && err.code === 'INVALID_TRANSITION')
+        stale2fa(p.user);
+      else fail(err);
     }
   };
 
   const open = (p: Pending) => {
     setError(null);
+    setNotice(null);
     if (p.kind === 'reset2fa') {
       setReason('');
       setReasonError(undefined);
@@ -227,6 +263,7 @@ export function UsersPage() {
       />
       <Page>
         {error ? <Alert tone="bad">{error}</Alert> : null}
+        {notice ? <Alert tone="info">{notice}</Alert> : null}
         {state.status === 'error' && !state.data ? (
           <ErrorBlock titleKey="users.error_title" error={state.error} onRetry={reload} />
         ) : state.status === 'loading' && !state.data ? (

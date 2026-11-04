@@ -1,6 +1,8 @@
 import {
   isApiError,
   newIdempotencyKey,
+  type ApprovalRequest,
+  type ApprovalStatus,
   type Bill,
   type CheckOutBody,
   type Folio,
@@ -31,6 +33,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { api } from '../../app/api';
+import { listApprovals } from '../../app/approvals';
 import { useBusinessDay } from '../../app/businessDay';
 import { timeHHmm } from '../../app/dates';
 import { hasLineKey, lineLabel, signed } from '../../app/folio';
@@ -85,6 +88,36 @@ const EXTRAS: Array<{ key: string; preset: string }> = [
   { key: 'checkout.extras.smoking', preset: 'SMOKING' },
   { key: 'checkout.extras.card', preset: 'CARD_LOST' },
 ];
+
+/** GN-R4-QA-03: refund requests still in play – waiting for a decision, or approved and not fully paid out. */
+const OPEN_REFUND: readonly ApprovalStatus[] = ['pending', 'escalated', 'approved'];
+
+/**
+ * GN-R4-QA-03 (QA v1.0.2 ĐK10 5.3): what the guest is still to get back from Trả sớm (B16) – Σ (`amountVnd` −
+ * `refundedVnd`) of this booking's open `refund` requests with reason `early_departure` (B16 asks it on the primary
+ * booking, `reservationCode`). Other reasons (`overpayment` …) and other bookings are not counted. Read from the
+ * requests the API already has (`listApprovalRequests`) – no new field in v1.0.4.
+ * FB-R4-UXD-FE-P432-01 (ARC 6.4, GN-R4-QA-01): `awaitingDecision` – one of those still waits for a decision (`pending` /
+ * `escalated`), so charges posted after it (minibar, extras of this very page) come off at approval: the amount may go
+ * down. An `approved` request has its amount fixed.
+ */
+export function earlyDepartureRefundPending(
+  requests: readonly ApprovalRequest[],
+  reservationCode: string,
+): { vnd: number; awaitingDecision: boolean } {
+  const open = requests.filter(
+    (a) =>
+      a.type === 'refund' &&
+      a.reasonCode === 'early_departure' &&
+      a.reservationCode === reservationCode &&
+      OPEN_REFUND.includes(a.status) &&
+      a.amountVnd - (a.refundedVnd ?? 0) > 0,
+  );
+  return {
+    vnd: open.reduce((sum, a) => sum + (a.amountVnd - (a.refundedVnd ?? 0)), 0),
+    awaitingDecision: open.some((a) => a.status === 'pending' || a.status === 'escalated'),
+  };
+}
 
 /** ESC-031: 422 NOT_ALLOWED on `lateFeeInsteadOfNight` itself – the night of departure can be sold again. */
 function lateFeeNotAllowed(e: unknown): boolean {
@@ -259,6 +292,20 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
       (e: unknown) => setDoneFolioError(e),
     );
   };
+  // GN-R4-QA-03: the refund still due from Trả sớm, read for step 3 and again for the result (after B18). Nothing is
+  // read on steps 1–2. The line only informs – it never blocks "Hoàn tất"; a failed read says so (UXD P432-03).
+  const refundPhase = done ? 'done' : step === 2 ? 'bill' : '';
+  const rsvCode = r?.code;
+  const edRefund = useResource(
+    async () =>
+      refundPhase && rsvCode
+        ? earlyDepartureRefundPending(await listApprovals(propertyId, OPEN_REFUND), rsvCode)
+        : { vnd: 0, awaitingDecision: false },
+    [propertyId, rsvCode, refundPhase],
+  );
+  const edRefundVnd = refundPhase ? (edRefund.state.data?.vnd ?? 0) : 0;
+  const edRefundMayDecrease = edRefundVnd > 0 && !!edRefund.state.data?.awaitingDecision;
+  const edRefundUnread = !!refundPhase && edRefund.state.status === 'error';
   // SEC FB-R3-SEC-FE-A-16: money received but not on the folio yet lives only in this page (never in browser
   // storage – no `posAuthCode` kept anywhere) – leaving asks first: reload / close (`beforeunload`) and any link of
   // the app (capture phase, before React Router's Link handles the click).
@@ -448,6 +495,45 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     return list;
   })();
   const guest = r.booker?.displayName ?? '';
+  // BUG-R3-024: B18 runs only on the departure business day of the whole stay (child extensions included –
+  // `stayDepartureDate`); before it the server answers 409 "early departure first – B16". Opened earlier (URL, history),
+  // this page points to Trả sớm on the booking instead of the 3 steps – no minibar count is written, no B18 is sent.
+  // The post-midnight window (business day = departure − 1, calendar day = departure – `postMidnightWindow`) is a
+  // valid B18: the day before the departure waits for the summary to say which. FB-R4-ARC-FE-P432-04: a summary that
+  // cannot be read then is an error with Retry, never the pointer to Trả sớm – at 03:00 in that window B16 would
+  // drop and refund the night the guest just slept.
+  const stayDeparture = r.stayDepartureDate ?? r.departureDate;
+  if (!done && r.status === 'in_house' && today < stayDeparture && !s?.postMidnightWindow) {
+    const eve = addDays(today, 1) === stayDeparture && !s;
+    return (
+      <>
+        <Topbar title={t('checkout.title', { room, guest })} sub={<Code>{r.code}</Code>} />
+        <Page>
+          {eve && sum.state.status === 'error' ? (
+            <ErrorBlock
+              titleKey="co.error_title"
+              error={sum.state.error}
+              onRetry={sum.reload}
+              autoRetrySeconds={sum.state.autoRetrySeconds}
+            />
+          ) : eve ? (
+            <LoadingBlock />
+          ) : (
+            <section className="card stack">
+              <Alert tone="info">
+                {t('checkout.use_early_departure', { date: date(stayDeparture) })}
+              </Alert>
+              <div className="row wrap">
+                <Link className="btn pri" to={`/reservations/${reservationId}`}>
+                  {t('ci.back_to_booking')}
+                </Link>
+              </div>
+            </section>
+          )}
+        </Page>
+      </>
+    );
+  }
   const items = std.state.data?.items ?? [];
   const chargeable = items.some((i) => !i.isFree);
   const minibarTotal = items.reduce(
@@ -732,7 +818,10 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     if (!out) {
       sum.reload();
       const e = caught.error;
-      if (isApiError(e) && e.code === 'VERSION_CONFLICT') res.reload();
+      // BUG-R3-024: 409 INVALID_TRANSITION – e.g. the stay was extended meanwhile: the booking is read again, and a
+      // departure that is no longer today turns this page into the Trả sớm pointer (never "vừa chuyển sang Đang ở").
+      if (isApiError(e) && (e.code === 'VERSION_CONFLICT' || e.code === 'INVALID_TRANSITION'))
+        res.reload();
       // ESC-031: the fee changed (409) or no longer applies (422 NOT_ALLOWED) – the next "Hoàn tất" is a new command
       // with other figures (never a replay of this one); the night sellable again → back to step 2 (extra night).
       if (isApiError(e) && e.code === 'SURCHARGE_CHANGED' && lateFee) act.renewKey();
@@ -847,6 +936,24 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
     </ol>
   );
 
+  // GN-R4-QA-03: under "Còn phải thu" on step 3 and on the result – the desk tells the guest what Trả sớm still owes.
+  // UXD P432-01: a request still waiting for a decision may go down at approval – said in the same cell (one row).
+  // UXD P432-03: a failed read is said (muted, no retry, never blocking) – never mistaken for "nothing to hand back".
+  const pendingRefundRow = edRefundUnread ? (
+    <tr className="sub">
+      <td colSpan={2}>{t('checkout.pending_refund_unavailable')}</td>
+    </tr>
+  ) : edRefundVnd > 0 ? (
+    <tr className="sub">
+      <td colSpan={2}>
+        {t('checkout.pending_refund_line', { amount: money(edRefundVnd) })}
+        {edRefundMayDecrease ? (
+          <div className="li-s">{t('approvals.refund_may_decrease')}</div>
+        ) : null}
+      </td>
+    </tr>
+  ) : null;
+
   const summaryCard = (
     <section className="card" aria-labelledby={`${ids}-sum`}>
       <h2 className="label-h" id={`${ids}-sum`}>
@@ -882,6 +989,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                   {money(doneFolio.totals.balanceDueVnd ?? 0)}
                 </td>
               </tr>
+              {pendingRefundRow}
             </tbody>
           </table>
         ) : doneFolioError ? (
@@ -994,6 +1102,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
                 </td>
               </tr>
             ) : null}
+            {step === 2 ? pendingRefundRow : null}
           </tbody>
         </table>
       )}
@@ -1710,9 +1819,13 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
               : staged && !stagedOk
                 ? t('co.pay_at_complete_needs')
                 : null;
+  // UXD P432-02: with a refund pending from Trả sớm, "Đã thu {all received}" next to it reads as what the stay cost –
+  // the plain label then (button and confirmation alike); so too when that list could not be read (U5: a refund may
+  // be pending). A debt keeps its own label.
+  const paidLabel = balance === 0 && edRefundVnd === 0 && !edRefundUnread;
   const completeLabel = debtActive
     ? t('co.complete_debt', { amount: money(balance) })
-    : balance === 0 && paidShown > 0
+    : paidLabel && paidShown > 0
       ? t('co.complete_paid', { amount: money(paidShown) })
       : t('checkout.complete');
   const blocked = whyLocked !== null;
@@ -1823,7 +1936,7 @@ export function CheckOutPage({ reservationId }: { reservationId: string }) {
           confirmLabel={
             debtActive
               ? completeLabel
-              : balance === 0
+              : paidLabel
                 ? t('co.complete_paid', { amount: money(paidShown) })
                 : t('checkout.complete')
           }
