@@ -288,7 +288,11 @@ export class RoomsService {
    * of a room – the price from that date falls back to the previous row. Room locked FOR UPDATE, `If-Match` =
    * `room.version` (+1 here), audit `config` `room.list_price_cancelled`. Saved bookings/quotes keep their snapshot
    * (BR-006). 404: no row on that date (or no such room); 409 `effective`: the date has come; 409 `only_price`: the
-   * room's only row (a room created with a future `activeFrom` would be left without a price).
+   * room's only row (a room created with a future `activeFrom` would be left without a price); 409 `first_price`
+   * (v1.0.4 BUG-R4-015, OpenAPI 0.3.12 (c)): the room's earliest row while it is still scheduled – it covers the room's
+   * first sellable days (a room created with a future `activeFrom` and a later row added), so removing it would leave
+   * the room without a price until the next row (quote 422 NOT_IN_LIST). The room row lock above serialises the
+   * cancels and price changes of one room, so the earliest row read here cannot change before the DELETE.
    */
   async cancelScheduledListPrice(
     tx: Tx,
@@ -308,9 +312,11 @@ export class RoomsService {
       nightly: number;
       reason: string | null;
       total: number;
+      earliest: LocalDate;
     }>(
       `SELECT p.id, p.monthly_list_price_vnd AS monthly, p.nightly_list_price_vnd AS nightly, p.reason,
-              (SELECT count(*)::int FROM room_list_price q WHERE q.room_id = p.room_id) AS total
+              (SELECT count(*)::int FROM room_list_price q WHERE q.room_id = p.room_id) AS total,
+              (SELECT min(q.effective_from)::text FROM room_list_price q WHERE q.room_id = p.room_id) AS earliest
          FROM room_list_price p WHERE p.room_id = $1 AND p.effective_from = $2`,
       [roomId, input.effectiveFrom],
     );
@@ -321,6 +327,9 @@ export class RoomsService {
     }
     if (row.total <= 1) {
       throw problem('INVALID_TRANSITION', { extras: { currentState: 'only_price' } });
+    }
+    if (input.effectiveFrom === row.earliest) {
+      throw problem('INVALID_TRANSITION', { extras: { currentState: 'first_price' } });
     }
     await tx.query('DELETE FROM room_list_price WHERE id = $1', [row.id]);
     await tx.query('UPDATE room SET updated_at = $2, version = version + 1 WHERE id = $1', [
