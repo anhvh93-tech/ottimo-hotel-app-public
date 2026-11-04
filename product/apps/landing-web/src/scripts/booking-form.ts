@@ -1,7 +1,8 @@
 // Booking-request form behaviour (concept 5.1–5.4, mock v1.2.1 script) – loaded only where the form is rendered.
 // SEC UXD-08: the form is in the HTML with `hidden` and no `action`; this module shows it. Nothing is stored in the
 // browser (no cookie, no localStorage); the request number, name and dates never go into the URL or the title.
-import { BOOKING_STRINGS } from './booking-strings';
+import { langOfHtml } from '../lib/langs';
+import { loadBookingStrings } from './booking-strings';
 import {
   REF_CODE,
   addDays,
@@ -19,19 +20,23 @@ import {
 } from './booking-logic';
 import {
   apiTransport,
+  estimateTransport,
   previewTransport,
   type FieldProblem,
   type Outcome,
   type Transport,
 } from './booking-transport';
+import { initEstimate } from './price-estimate';
 
 const form = document.getElementById('bk-form') as HTMLFormElement | null;
-if (form) init(form);
+if (form) void init(form);
 
-function init(form: HTMLFormElement) {
+async function init(form: HTMLFormElement) {
   const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-  const lang: 'en' | 'vi' = document.documentElement.lang === 'vi' ? 'vi' : 'en';
-  const S = BOOKING_STRINGS[lang];
+  // <html lang> is 'zh-Hans' on /zh/ (ARC D10) – the form works with the bare code
+  const lang = langOfHtml(document.documentElement.lang);
+  // strings of this language only (one module per language – ARC lp-v2 3.2)
+  const S = await loadBookingStrings(lang);
   const cfg = form.dataset;
   const tz = cfg.tz ?? 'Asia/Ho_Chi_Minh';
   const hours = {
@@ -41,7 +46,10 @@ function init(form: HTMLFormElement) {
     withinMinutes: Number(cfg.promiseMinutes ?? 60),
     callNowMinutes: Number(cfg.callNowMinutes ?? 60),
   };
-  const shortMax = Number(cfg.shortMax ?? 27);
+  // Last night count still priced by the night when the API has not answered for these dates (prices off, or not yet):
+  // site.json booking.shortMaxNights = BR-108 threshold − 1 (29 for 30 nights – INV 01/11). With prices on, the hint
+  // follows the API answer instead (monthly_offer – FB-R4-UXD-FE-10), so the two lines never disagree.
+  const shortMax = Number(cfg.shortMax ?? 29);
   const status = $('bk-status');
   const TODAY = todayIn(tz, new Date());
   const MAX = addDays(TODAY, Number(cfg.windowDays ?? 365));
@@ -49,9 +57,10 @@ function init(form: HTMLFormElement) {
   // Same origin by default (`data-api` empty – the landing proxies /v1/public/…); the live build may name another
   // API origin, and CSP connect-src then allows exactly that origin (lib/booking-request.ts, scripts/headers.mjs).
   const apiBase = cfg.api ?? '';
+  const base = `${apiBase}/v1/public/properties/${encodeURIComponent(cfg.property ?? '')}`;
   const transport: Transport =
     cfg.transport === 'api'
-      ? apiTransport(`${apiBase}/v1/public/properties/${encodeURIComponent(cfg.property ?? '')}`, {
+      ? apiTransport(base, {
           fetch: (url, init) =>
             cfg.property ? fetch(url, init) : Promise.reject(new Error('no endpoint')),
           now: () => performance.now(),
@@ -59,6 +68,31 @@ function init(form: HTMLFormElement) {
           uuid: () => crypto.randomUUID(),
         })
       : previewTransport;
+
+  // Price estimate (LP-v2): only the live form asks the API; the review build never sends anything.
+  const estimate = initEstimate({
+    box: $('bk-est'),
+    live: $('bk-est-live'),
+    sentWith: document.getElementById('bk-est-sent'),
+    strings: S,
+    lang,
+    values: () => values(),
+    ctx: () => {
+      const cap = room.selectedOptions[0]?.dataset.cap;
+      return { today: TODAY, max: MAX, capacity: cap ? Number(cap) : null };
+    },
+    firstRoom: () => [...room.options].find((o) => o.value)?.value ?? '',
+    onAnswer: () => updateNights(),
+    fetchEstimate:
+      cfg.transport === 'api' && cfg.property
+        ? estimateTransport(base, {
+            fetch: (url, init) => fetch(url, init),
+            setTimeout: (fn, ms) => setTimeout(fn, ms),
+            clearTimeout: (id) => clearTimeout(id as ReturnType<typeof setTimeout>),
+          })
+        : null,
+    now: () => Date.now(),
+  });
 
   form.hidden = false;
   for (const id of ['f-in', 'f-arr']) {
@@ -92,7 +126,8 @@ function init(form: HTMLFormElement) {
       return;
     }
     const n = diffDays(a, b);
-    out.textContent = n > shortMax ? S.longHint(n) : S.nights(n);
+    const long = estimate.longFor(values()) ?? n > shortMax;
+    out.textContent = long ? S.longHint(n) : S.nights(n);
   }
   function syncStay() {
     const t = stayType();
@@ -369,6 +404,7 @@ function init(form: HTMLFormElement) {
   function showOutcome(outcome: Outcome) {
     status.textContent = '';
     if (outcome.kind === 'not-ready') {
+      estimate.off(); // the form is not taking requests – no price either (ARC lp-v2 2.8)
       status.append(...notReadyLine());
       return;
     }
@@ -376,16 +412,19 @@ function init(form: HTMLFormElement) {
     status.textContent =
       outcome.kind === 'not-sent'
         ? S.notSent
-        : outcome.kind === 'reload'
-          ? S.reload
-          : outcome.kind === 'busy'
-            ? S.net.busy
-            : outcome.kind === 'rate'
-              ? S.net.rate
-              : S.net.network;
+        : outcome.kind === 'busy'
+          ? S.net.busy
+          : outcome.kind === 'rate'
+            ? S.net.rate
+            : S.net.network;
   }
   form.addEventListener('input', () => {
     if (form.dataset.validated === '1') validate(false);
+  });
+  // Any change of room, dates, length or party re-evaluates the estimate (debounced, latest request wins).
+  form.addEventListener('change', () => estimate.update());
+  form.addEventListener('input', (ev) => {
+    if ((ev.target as HTMLElement).matches('input[type="date"], select')) estimate.update();
   });
 
   function values(): FormValues {
@@ -423,6 +462,8 @@ function init(form: HTMLFormElement) {
     status.textContent = '';
     if (!validate(true)) return;
     const v = values();
+    // the token of the number on screen, if it belongs to exactly this request; never wait for a price
+    v.priceEstimateToken = estimate.tokenFor(v);
     const label = btn.textContent ?? '';
     btn.setAttribute('aria-busy', 'true');
     btn.disabled = true;
@@ -458,6 +499,10 @@ function init(form: HTMLFormElement) {
     fb.append(S.fallback[0] + p.by + S.fallback[1], tel, S.fallback[2]);
     const arrival = v.stayType === 'short' ? v.checkIn : v.arrival;
     $('bk-done-tonight').hidden = !(p.callNow || arrival === TODAY);
+    // UXD lp-v2 3.8: the estimate the guest saw, only when it travelled with the request
+    const est = $('bk-done-estimate');
+    est.textContent = v.priceEstimateToken ? estimate.doneLine() : '';
+    est.hidden = !est.textContent;
     $('bk-open-zalo').hidden = v.preferredChannel !== 'zalo';
     // two spans, no separator character: a copied code is exactly what Desk searches for (SEC UXD-07)
     const ref = $('bk-ref');
@@ -485,6 +530,7 @@ function init(form: HTMLFormElement) {
     $('f-note-count').textContent = '0 / 500';
     $('bk-done').hidden = true;
     form.hidden = false;
+    estimate.update();
     $('f-in').focus();
   });
 

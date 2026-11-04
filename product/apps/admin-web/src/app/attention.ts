@@ -43,13 +43,7 @@ export interface AttentionContext {
   num?: (n: number) => string;
 }
 
-/**
- * v1.0.4 P4-40 (ĐX-R3-QA-01): kinds of OpenAPI 0.3.12 (P4-00 (a)) not in the generated union yet. Remove the
- * widening when the api-client is regenerated from 0.3.12 (`main@L`).
- * - `hold_overdue` – every hold past its deadline, any arrival date, until it leaves `hold`; computed, red.
- * - `hold_overdue_cap` – MGR/OWN, a paid hold still open after 12:00 on its arrival day.
- */
-type Kind = AttentionItem['kind'] | 'hold_overdue' | 'hold_overdue_cap';
+type Kind = AttentionItem['kind'];
 
 const TONE = { critical: 'urgent', warning: 'soon', info: 'info' } as const;
 const ICON: Partial<Record<Kind, IconName>> = {
@@ -128,7 +122,7 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
   /** Set by a case that calls `t('…')` with a literal key itself (checked by `i18n-keys.test.ts`). */
   let text: string | undefined;
 
-  switch (item.kind as Kind) {
+  switch (item.kind) {
     case 'room_ooo':
       // 0.3.7 add. 1: only `count` + `roomNos` – the reopening date is on the rack / Bảo trì › Khóa phòng.
       key = 'attn.room_ooo_rooms';

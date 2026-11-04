@@ -39,7 +39,7 @@ import { normalizePhone } from '../../app/validation';
 import { monoArgs } from '../../app/mono';
 import { GuestPicker } from '../../components/GuestPicker';
 import { OccupancyField, type Occupancy } from '../../components/OccupancyField';
-import { ContactMatches, type WebRequestLink } from '../webreq/ContactMatches';
+import { ContactMatches, guestPrefillOf, type WebRequestLink } from '../webreq/ContactMatches';
 import { useDebounced } from '../../hooks/useDebounced';
 import { useOnline } from '../../hooks/useOnline';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
@@ -1141,6 +1141,7 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
             required
             initialText={form.guest?.displayName}
             error={errors.bookerGuestId}
+            createPrefill={guestPrefillOf(webRequest)}
             help={t('bk.guest_help')}
             onSelect={(guest) => {
               // FB-R2-DOM-FE-02 (D-6): a guest who stayed before → preselect "Khách quay lại".

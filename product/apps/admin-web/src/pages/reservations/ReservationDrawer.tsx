@@ -502,6 +502,8 @@ export function ReservationDrawer({
                   time: dateTime(r.hold?.expiresAt),
                   paid: money(holdPaid),
                   required: money(r.depositRequiredVnd ?? 0),
+                  // P4-01 r2: the decision cut-off is the property rule, never a written-in 12:00.
+                  cutoff: rules.holdLatestTime,
                   date: dayMonth(r.arrivalDate),
                 })}
               </Alert>

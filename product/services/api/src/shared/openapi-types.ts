@@ -65,10 +65,20 @@ export interface PropShape {
   c3?: boolean;
   /** x-guest-level: minimum guest-session level to receive the property (SEC ĐK-2). */
   g?: number;
+  /**
+   * x-self-data (OpenAPI 0.3.12, SEC-ARC-018-03): the caller's own data (own e-mail, own 2FA key/codes) on a
+   * first-level property of a schema/response that only ever describes the caller. Replaces x-rbac-field D27 there.
+   */
+  sd?: boolean;
 }
 
 export interface OpenApiSchemas {
   schemas: Record<string, Shape>;
   /** operationId → HTTP status (2xx) → JSON response shape. */
   responses: Record<string, Record<string, Shape>>;
+  /**
+   * 0.3.12: every x-self-data property as `schema:<Schema>.<prop>` / `op:<operationId>.<prop>` (sorted) – the
+   * serializer's SELF_DATA_FIELDS cross-check compares against this list.
+   */
+  selfData: string[];
 }

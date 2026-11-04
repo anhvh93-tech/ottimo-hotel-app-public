@@ -3,10 +3,10 @@
 // BUG-R3-046 (cancel with "Khác (ghi rõ)"), BUG-R3-047 (no online check-in link on a hold), ĐX-R3-QA-01 ("Cần chú
 // ý" `hold_overdue` / `hold_overdue_cap`, "Giữ chỗ chờ cọc (n)").
 // The API side (P4-10, BE-B) is built in parallel: the contract of plan-v1.0.4 P4-00 (a) is mocked here with
-// `server.use` (the shared mock files are frozen in v1.0.4). Copy comes from the string files through `tv` – before
-// P4-01 (strings round 1) the new keys read as the key itself on both sides, so these tests stay valid after it.
+// `server.use` (the shared mock files are frozen in v1.0.4). Copy comes from the string files (UXD P4-01) through
+// `tv`.
 import type { AttentionItem } from '@ottimo/api-client';
-import { formatInstant, formatNumber, hasKey, translate } from '@ottimo/i18n';
+import { formatInstant, formatNumber, translate } from '@ottimo/i18n';
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -258,13 +258,17 @@ describe('BUG-R3-044 – a hold WITH money is not presented as cancelled', () =>
       time: '§',
       paid: '§',
       required: '§',
+      cutoff: '§',
       date: '§',
     }).split('§')[0]!;
     const banner = within(drawer)
       .getAllByRole('status')
       .find((el) => el.classList.contains('bad') && el.textContent!.includes(prefix))!;
     expect(banner).toBeTruthy();
-    if (hasKey('hold.paid_overdue_banner')) expect(banner.textContent).toContain(money(200_000));
+    expect(banner.textContent).toContain(money(200_000));
+    // `{cutoff}` = rules.holdLatestTime (mock `hold_latest_time_on_arrival` 12:00), never left as a placeholder.
+    expect(banner.textContent).toContain('12:00');
+    expect(banner.textContent).not.toContain('{cutoff}');
     expect(drawer.textContent).not.toContain(expiredUnpaidTail);
     expect(r.depositRequiredVnd).toBeGreaterThan(200_000);
   });
@@ -325,8 +329,7 @@ describe('BUG-R3-044 – a hold WITH money is not presented as cancelled', () =>
       paid: money(200_000),
     });
     expect(await within(dlg).findByText(want)).toBeInTheDocument();
-    if (hasKey('error.HOLD_EXPIRED_PAID'))
-      expect(want).toContain(formatInstant('vi', '2026-11-04T03:00:00Z'));
+    expect(want).toContain(formatInstant('vi', '2026-11-04T03:00:00Z'));
   });
 
   it('drawer before the deadline, hold WITH money: says it is kept past the deadline (no "tự hủy")', async () => {

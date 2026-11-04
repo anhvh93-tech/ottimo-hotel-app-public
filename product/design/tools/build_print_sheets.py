@@ -7,9 +7,12 @@ Chạy từ gốc repo (UXD, Round 3):
     python3 -I product/design/tools/build_print_sheets.py --pdf      # dựng + đo + in PDF bằng Chrome headless
     python3 -I product/design/tools/build_print_sheets.py --pdf --only to-4-your-id-details-a4
                                                                       # chỉ dựng/đo một lần in (không ghi đè tệp khác)
+    python3 -I product/design/tools/build_print_sheets.py --pdf --only to-4-your-id-details-a4
+        to-4-your-id-details-a4-2-ban to-4-your-id-details-a5 to-4-your-id-details-a4-ru
+                                                                      # (một dòng) chỉ các tờ "Your ID details"
 
 Nguồn:  product/docs/staff-one-pager.md – các phần "## Tờ 1 …", "## Tờ 2a …", "## Tờ 2b …",
-        "## Tờ 3 …", "## Tờ 4 …". Phần "## Cách in và dán" không in (chỉ cho chủ đầu tư).
+        "## Tờ 3 …", "## Tờ 4 …", "## Tờ 4ru …" (EN/RU, hai cột). Phần "## Cách in và dán" không in.
 Ra:     product/docs/print/*.html (mỗi lần in một tệp, một khổ giấy)
         product/docs/print/pdf/*.pdf (khi có --pdf)
 
@@ -17,6 +20,11 @@ Mỗi tờ là một khung cố định đúng khổ giấy (mm). Khi đo, Chrom
 cỡ chữ lớn nhất còn vừa, rồi in PDF và đếm số trang. Tràn hoặc PDF nhiều hơn 1 trang: thoát mã 1.
 
 Không sửa tệp nguồn. Chữ giữ nguyên văn của PO; bộ dựng chỉ chọn khổ, cỡ chữ, chỗ đặt.
+Font tờ "Your ID details": nhúng base64 (woff2 của @fontsource) để in ở quầy khi mất mạng vẫn đúng font.
+Tìm tệp font ở --font-dir, rồi product/apps/landing-web/node_modules/@fontsource, product/node_modules/@fontsource,
+product/node_modules/.pnpm/@fontsource+<tên>@*/. Tờ EN/VI thiếu font thì dùng Google Fonts (báo lại); tờ EN/RU
+thiếu font (Onest chưa cài) thì dừng: cài gói LP-v2 (pnpm install trong product/) hoặc chỉ --font-dir.
+
 Chỉ dùng thư viện chuẩn Python 3.9+ (dùng lại bộ đọc Markdown của build_manual.py).
 """
 import argparse
@@ -41,6 +49,27 @@ DEFAULT_OUT = ROOT / "product" / "docs" / "print"
 
 FONTS = ("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600"
          "&family=JetBrains+Mono:wght@400&family=Lora:wght@500&display=swap")
+FONTS_RU = ("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600"
+            "&family=Lora:wght@500&family=Onest:wght@400&display=swap")
+
+# Font nhúng (fontsource, woff2). unicode-range theo tệp CSS của fontsource 5.x.
+UR = {
+    "latin": ("U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,"
+              "U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD"),
+    "vietnamese": ("U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,"
+                   "U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB"),
+    "cyrillic": "U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+}
+# (họ font, gói fontsource, độ đậm, tập con)
+NOTICE_FONTS = [("Lora", "lora", 500, ("latin", "vietnamese")),
+                ("Be Vietnam Pro", "be-vietnam-pro", 400, ("latin", "vietnamese")),
+                ("Be Vietnam Pro", "be-vietnam-pro", 600, ("latin", "vietnamese"))]
+# EN/RU: Be Vietnam Pro không có chữ Kirin -> cột RU dùng Onest (như landing /ru/, LP-v2); Lora có Kirin.
+NOTICE_FONTS_RU = [("Lora", "lora", 500, ("latin", "cyrillic")),
+                   ("Be Vietnam Pro", "be-vietnam-pro", 400, ("latin",)),
+                   ("Be Vietnam Pro", "be-vietnam-pro", 600, ("latin",)),
+                   ("Onest", "onest", 400, ("latin", "cyrillic"))]
+FONT_CACHE = {}
 
 # Mỗi lần in: tệp, khổ giấy (mm), các tờ trên mặt giấy, cỡ chữ thân (pt).
 JOBS = [
@@ -50,14 +79,19 @@ JOBS = [
      "title": "Tờ 2a + 2b – in chung A4, cắt đôi"},
     {"file": "to-3-buong-phong", "page": "A4", "w": 210, "h": 297, "sheets": ["3"],
      "title": "Tờ 3 – Buồng phòng"},
-    {"file": "to-4-your-id-details-a5", "page": "A5", "w": 148, "h": 210, "sheets": ["4"],
+    {"file": "to-4-your-id-details-a5", "page": "A5", "w": 148, "h": 210, "sheets": ["4"], "embed": NOTICE_FONTS,
      "title": "Tờ 4 – Your ID details (A5)"},
     {"file": "to-4-your-id-details-a4-2-ban", "page": "A4 landscape", "w": 297, "h": 210, "sheets": ["4", "4"],
-     "title": "Tờ 4 – Your ID details (2 bản trên A4, cắt đôi)"},
+     "embed": NOTICE_FONTS, "title": "Tờ 4 – Your ID details (2 bản trên A4, cắt đôi)"},
     # INV 30/10 (decision-log): bỏ bộ tờ nhân viên; riêng Tờ 4 in khổ A4 đặt ở quầy. Chữ y hệt bản A5,
     # chỉ phóng cỡ để đọc được từ 60–80 cm (khung mica A4 hoặc dán phía khách).
     {"file": "to-4-your-id-details-a4", "page": "A4", "w": 210, "h": 297, "sheets": ["4"], "notice": "a4",
+     "embed": NOTICE_FONTS,
      "title": "Tờ 4 – Your ID details (A4, đặt ở quầy)", "paper": "giấy trắng hoặc ngà 120–160 gsm"},
+    # UXD-on-privacy-v2-ru.md T2–T8: khách nói tiếng Nga có tờ riêng, A4 dọc, EN trái – RU phải, đặt cạnh tờ EN/VI.
+    {"file": "to-4-your-id-details-a4-ru", "page": "A4", "w": 210, "h": 297, "sheets": ["4ru"], "notice": "a4-ru",
+     "embed": NOTICE_FONTS_RU, "embed_required": True, "google": FONTS_RU,
+     "title": "Tờ 4ru – Your ID details EN/RU (A4, đặt ở quầy)", "paper": "giấy trắng hoặc ngà 120–160 gsm"},
 ]
 
 # Quy cách từng tờ (UXD-on-PO-v1.0.0-docs.md mục 1.3 và mục 2).
@@ -66,10 +100,12 @@ SPEC = {
     "2a": {"size": "a5", "fs": 10.0, "cols": 1, "frame": True, "snug": True, "where": "Cạnh Tờ 1, phía nhân viên"},
     "2b": {"size": "a5", "fs": 12.0, "cols": 1, "where": "Kẹp sau Tờ 1 hoặc trong bìa quầy"},
     "3": {"size": "a4", "fs": 12.0, "cols": 2, "where": "Phòng buồng / kho đồ vải"},
-    "4": {"size": "a5", "fs": 11.5, "fs_vi": 11.0, "where": "Khung mica trên quầy, mặt quay ra khách"},
+    "4": {"size": "a5", "fs": 10.0, "fs_vi": 9.5, "where": "Khung mica trên quầy, mặt quay ra khách"},
 }
 # Tờ 4 khổ A4 dọc (cùng chữ, cùng nguồn "## Tờ 4"): thân EN = VI, tiêu đề Lora 36 pt.
-NOTICE_A4 = {"size": "a4", "fs": 16.0, "fs_vi": 16.0}
+NOTICE_A4 = {"size": "a4", "fs": 14.0, "fs_vi": 14.0}
+# Tờ 4ru A4 dọc, hai cột: --fs cột EN, --fs-vi dùng cho cột RU (T7: RU nhỏ hơn EN tối đa 0,5 pt, không dưới 10 pt).
+NOTICE_A4_RU = {"size": "a4", "fs": 12.5, "fs_vi": 12.5}
 
 SHEET_RE = re.compile(r"^##\s+Tờ\s+(\w+)\s+[–-]\s+(.+?)\s*$")
 NOBREAK_RE = re.compile(r"\b(\d+|N) (months?|days?|tháng|ngày|giờ|hours?)\b")
@@ -193,8 +229,10 @@ def staff_sheet(sid, sheet, meta):
 
 
 def notice_sheet(sheet, size="a5"):
-    """Tờ 4: nhãn OTTIMO · tiêu đề · dòng phụ · EN · nét Oak · VI · chân trang. size: "a5" hoặc "a4"."""
-    spec = NOTICE_A4 if size == "a4" else SPEC["4"]
+    """Tờ 4: nhãn OTTIMO · tiêu đề · dòng phụ · EN · nét Oak · VI · chân trang. size: "a5", "a4" hoặc "a4-ru".
+
+    "a4-ru" (Tờ 4ru): phần sau "---" là RU; hai cột EN trái – RU phải, mỗi hàng một cặp đoạn cùng nghĩa."""
+    spec = {"a4": NOTICE_A4, "a4-ru": NOTICE_A4_RU}.get(size, SPEC["4"])
     paras, cur = [], []
     for line in sheet["lines"] + [""]:
         s = line.strip()
@@ -221,6 +259,23 @@ def notice_sheet(sheet, size="a5"):
     cut = paras.index("---") if "---" in paras else len(paras)
     en, vi = paras[:cut], [p for p in paras[cut + 1:] if p != "---"]
     fl, _, fr = foot.rpartition(" · ")
+    if size == "a4-ru":
+        if len(en) != len(vi):
+            raise SystemExit("Tờ %s: số đoạn EN (%d) và RU (%d) phải bằng nhau" % (sheet["id"], len(en), len(vi)))
+        rows = "".join('<div class="en" lang="en"><p>%s</p></div><div class="ru" lang="ru"><p>%s</p></div>'
+                       % (il(a), il(b)) for a, b in zip(en, vi))
+        return (
+            '<section class="sheet notice a4 pairs" data-sheet="%s" style="--fs:%spt;--fs-vi:%spt">'
+            % (esc(sheet["id"]), spec["fs"], spec["fs_vi"])
+            + '<div class="inner"><div class="fit">'
+            + '<p class="eyebrow">%s</p>' % esc(label)
+            + '<h2 lang="en">%s</h2>' % il(title)
+            + ('<p class="sub" lang="ru">%s</p>' % il(sub) if sub else "")
+            + '<div class="grid">%s</div>' % rows
+            + "</div>"
+            + '<footer class="nfoot"><span>%s</span><span>%s</span></footer>' % (esc(fl or foot), esc(fr))
+            + "</div></section>"
+        )
     return (
         '<section class="sheet notice %s" data-sheet="4" style="--fs:%spt;--fs-vi:%spt">'
         % (spec["size"], spec["fs"], spec["fs_vi"])
@@ -240,7 +295,7 @@ def notice_sheet(sheet, size="a5"):
 CSS = r"""
 :root{--ivory:#F4F0E8;--cream:#EDE6D8;--stone:#6B6760;--ink:#2B2B28;--oak:#B08D57;--earth:#7A5C44;--paper:#FFFFFF;
   --sans:'Be Vietnam Pro',Arial,Helvetica,sans-serif;--serif:'Lora',Georgia,'Times New Roman',serif;
-  --mono:'JetBrains Mono','Courier New',monospace}
+  --mono:'JetBrains Mono','Courier New',monospace;--ru:'Onest',Arial,Helvetica,sans-serif}
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-print-color-adjust:exact;print-color-adjust:exact;-webkit-text-size-adjust:100%}
 body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-weight:400;
@@ -310,27 +365,38 @@ code{font-family:var(--mono);font-size:.92em;font-weight:400;letter-spacing:0}
 .sfoot span:last-child{text-align:right}
 
 /* ---- tờ 4: Your ID details (khách đọc) ---- */
-.notice .inner{padding:16mm 14mm 12mm}
+.notice .inner{padding:12mm 12mm 9mm}
 .notice .eyebrow{font-size:9pt;letter-spacing:.1em}
-.notice h2{font-family:var(--serif);font-weight:500;font-size:24pt;letter-spacing:.02em;line-height:1.15;
-  color:var(--ink);margin-top:5mm}
-.notice .sub{font-family:var(--serif);font-weight:500;font-size:13pt;line-height:1.3;color:var(--stone);
-  margin-top:1.2mm;margin-bottom:5mm}
-.notice .en p{font-size:var(--fs);line-height:1.5;margin-bottom:.62em}
-.notice .vi p{font-size:var(--fs-vi);line-height:1.5;margin-bottom:.62em}
+.notice h2{font-family:var(--serif);font-weight:500;font-size:20pt;letter-spacing:.02em;line-height:1.15;
+  color:var(--ink);margin-top:3mm}
+.notice .sub{font-family:var(--serif);font-weight:500;font-size:12pt;line-height:1.3;color:var(--stone);
+  margin-top:1mm;margin-bottom:4mm}
+.notice .en p{font-size:var(--fs);line-height:1.42;margin-bottom:.5em}
+.notice .vi p{font-size:var(--fs-vi);line-height:1.42;margin-bottom:.5em}
 .notice .en p:last-child,.notice .vi p:last-child{margin-bottom:0}
-.notice .rule{border:0;border-top:0.6pt solid var(--oak);width:22mm;margin:4.5mm 0}
+.notice .rule{border:0;border-top:0.6pt solid var(--oak);width:22mm;margin:3.5mm 0}
 .notice .fit{flex:1 1 auto}
 .nfoot{flex:0 0 auto;display:flex;justify-content:space-between;font-size:8pt;line-height:1.2;color:var(--stone);
-  padding-top:3mm}
+  padding-top:2.5mm}
 /* Tờ 4 khổ A4 dọc: đọc từ 60–80 cm. Tỉ lệ giữ như A5, phóng theo khổ (≈ ×1,4) rồi làm tròn. */
-.notice.a4 .inner{padding:18mm 18mm 12mm}
+.notice.a4 .inner{padding:15mm 17mm 11mm}
 .notice.a4 .eyebrow{font-size:12pt;letter-spacing:.12em}
-.notice.a4 h2{font-size:36pt;margin-top:6mm}
-.notice.a4 .sub{font-size:20pt;margin-top:1.5mm;margin-bottom:7mm}
-.notice.a4 .en p,.notice.a4 .vi p{line-height:1.45;margin-bottom:.6em;text-wrap:pretty}
-.notice.a4 .rule{border-top-width:1pt;width:32mm;margin:6mm 0}
+.notice.a4 h2{font-size:32pt;margin-top:4mm}
+.notice.a4 .sub{font-size:17pt;margin-top:1.2mm;margin-bottom:5.5mm}
+.notice.a4 .en p,.notice.a4 .vi p{line-height:1.4;margin-bottom:.5em;text-wrap:pretty}
+.notice.a4 .rule{border-top-width:1pt;width:32mm;margin:5mm 0}
 .notice.a4 .nfoot{font-size:11pt;padding-top:4mm}
+/* Tờ 4ru: A4 dọc, EN trái (Be Vietnam Pro) – RU phải (Onest), mỗi hàng một cặp đoạn, nét Oak dọc giữa hai cột. */
+.notice.pairs .inner{padding:15mm 15mm 11mm}
+.notice.pairs h2{font-size:30pt}
+.notice.pairs .sub{font-size:16pt;margin-bottom:5mm}
+.notice.pairs .grid{display:grid;grid-template-columns:1fr 1fr;column-gap:10mm;row-gap:0;
+  border-top:1pt solid var(--oak);padding-top:5mm;
+  background:linear-gradient(var(--oak),var(--oak)) center top/0.6pt 100% no-repeat}
+.notice.pairs .grid>div{padding-bottom:.55em}
+.notice.pairs .grid>div:nth-last-child(-n+2){padding-bottom:0}
+.notice.pairs .en p{font-size:var(--fs);line-height:1.38;margin:0;text-wrap:pretty}
+.notice.pairs .ru p{font-family:var(--ru);font-size:var(--fs-vi);line-height:1.38;margin:0;text-wrap:pretty}
 
 /* ---- màn hình: xem trước trên nền Ivory; khi in chỉ còn tờ trắng ---- */
 @media screen{
@@ -354,7 +420,7 @@ window.__measure = function(){
     var r={sheet:s.dataset.sheet,index:i,basePt:base,viPt:vi,overflow:over(fit)};
     var p=s.querySelector('.flow p, .flow li, .en p');
     r.measuredPt=p?Math.round(parseFloat(getComputedStyle(p).fontSize)*0.75*100)/100:null;
-    var pv=s.querySelector('.vi p');
+    var pv=s.querySelector('.vi p, .ru p');
     if(pv)r.measuredViPt=Math.round(parseFloat(getComputedStyle(pv).fontSize)*0.75*100)/100;
     var max=base;for(var v=base+0.25;v<=base+4;v+=0.25){setfs(v);if(over(fit))break;max=v;}
     var min=null;if(r.overflow){for(var w=base-0.25;w>=7;w-=0.25){setfs(w);if(!over(fit)){min=w;break;}}}
@@ -382,9 +448,7 @@ PAGE = """<!doctype html>
 <meta name="robots" content="noindex, nofollow">
 <meta name="color-scheme" content="light">
 <title>{title}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="{fonts}">
+{fonts}
 <style>@page{{size:{page};margin:0}}{css}</style>
 </head>
 <body style="--pw:{w}mm;--ph:{h}mm">
@@ -407,7 +471,52 @@ def howto(job):
     return s
 
 
-def build(md_path, out_dir, only=None):
+def font_file(slug, subset, weight, extra=None):
+    name = "%s-%s-%d-normal.woff2" % (slug, subset, weight)
+    dirs = ([extra] if extra else []) + [ROOT / "product" / "apps" / "landing-web" / "node_modules" / "@fontsource",
+                                         ROOT / "product" / "node_modules" / "@fontsource"]
+    for d in dirs:
+        p = Path(d) / slug / "files" / name
+        if p.is_file():
+            return p
+    pnpm = ROOT / "product" / "node_modules" / ".pnpm"
+    if pnpm.is_dir():
+        for d in sorted(pnpm.glob("@fontsource+%s@*" % slug), reverse=True):
+            p = d / "node_modules" / "@fontsource" / slug / "files" / name
+            if p.is_file():
+                return p
+    return None
+
+
+def fonts_head(job, font_dir=None):
+    """(HTML phần đầu cho font, đã nhúng hay chưa). Nhúng base64 khi job có "embed" và đủ tệp font."""
+    link = ('<link rel="preconnect" href="https://fonts.googleapis.com">\n'
+            '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+            '<link rel="stylesheet" href="%s">' % esc(job.get("google", FONTS)))
+    if not job.get("embed"):
+        return link, False
+    rules, missing = [], []
+    for family, slug, weight, subsets in job["embed"]:
+        for subset in subsets:
+            p = font_file(slug, subset, weight, font_dir)
+            if not p:
+                missing.append("%s-%s-%d" % (slug, subset, weight))
+                continue
+            if p not in FONT_CACHE:
+                FONT_CACHE[p] = base64.b64encode(p.read_bytes()).decode("ascii")
+            rules.append("@font-face{font-family:'%s';font-style:normal;font-weight:%d;font-display:block;"
+                         "src:url(data:font/woff2;base64,%s) format('woff2');unicode-range:%s}"
+                         % (family, weight, FONT_CACHE[p], UR[subset]))
+    if missing:
+        msg = "Thiếu tệp font để nhúng cho %s: %s" % (job["file"], ", ".join(missing))
+        if job.get("embed_required"):
+            raise SystemExit(msg + ". Cài gói font (pnpm install trong product/) hoặc chỉ --font-dir.")
+        print("  ! %s – dùng Google Fonts (cần mạng khi in)." % msg)
+        return link, False
+    return "<style>%s</style>" % "\n".join(rules), True
+
+
+def build(md_path, out_dir, only=None, font_dir=None):
     meta, sheets = read_source(md_path)
     jobs = [j for j in JOBS if not only or j["file"] in only]
     unknown = sorted(set(only or []) - {j["file"] for j in JOBS})
@@ -419,15 +528,16 @@ def build(md_path, out_dir, only=None):
     out_dir.mkdir(parents=True, exist_ok=True)
     written = []
     for job in jobs:
-        parts = [notice_sheet(sheets[k], job.get("notice", "a5")) if k == "4" else staff_sheet(k, sheets[k], meta)
-                 for k in job["sheets"]]
-        html_text = PAGE.format(title=esc(job["title"]), fonts=esc(FONTS), page=job["page"], css=CSS,
+        parts = [notice_sheet(sheets[k], job.get("notice", "a5")) if k.startswith("4")
+                 else staff_sheet(k, sheets[k], meta) for k in job["sheets"]]
+        font_html, embedded = fonts_head(job, font_dir)
+        html_text = PAGE.format(title=esc(job["title"]), fonts=font_html, page=job["page"], css=CSS,
                                 w=job["w"], h=job["h"], two=" two" if len(parts) == 2 else "",
                                 howto=esc(howto(job)), sheets="\n".join(parts), js=MEASURE_JS)
         p = out_dir / (job["file"] + ".html")
         p.write_text(html_text, encoding="utf-8")
         written.append(p)
-        print("  html: %s" % p.relative_to(ROOT))
+        print("  html: %s%s" % (p.relative_to(ROOT), " (font nhúng)" if embedded else ""))
     return written
 
 
@@ -509,11 +619,12 @@ def main(argv=None):
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
     ap.add_argument("--pdf", action="store_true", help="đo bằng Chrome headless và in PDF vào <out>/pdf")
     ap.add_argument("--json", type=Path, help="ghi kết quả đo ra tệp JSON (không đưa vào repo)")
+    ap.add_argument("--font-dir", type=Path, help="thư mục @fontsource để nhúng font (mặc định: tự tìm)")
     ap.add_argument("--only", nargs="+", metavar="FILE",
                     help="chỉ dựng các lần in này (tên tệp không đuôi, ví dụ to-4-your-id-details-a4)")
     a = ap.parse_args(argv)
     print("Nguồn: %s" % a.md)
-    files = build(a.md, a.out, a.only)
+    files = build(a.md, a.out, a.only, a.font_dir)
     if not a.pdf:
         return 0
     code, report = render_pdfs(files, a.out / "pdf")

@@ -13,17 +13,6 @@ function files(dir: string): string[] {
   });
 }
 
-/**
- * v1.0.4 (plan-v1.0.4 2.4): a package may use a key ARC named in 3.1 before UXD's strings round 1 (P4-01) lands.
- * Each package lists those keys in its own `pending-keys-<package>.json` next to this test (no two packages edit
- * the same list). Once a key exists in VI and EN the second test fails: delete it from the list on that rebase.
- */
-const PENDING = new Set(
-  Object.values(
-    import.meta.glob<string[]>('./pending-keys-*.json', { eager: true, import: 'default' }),
-  ).flat(),
-);
-
 describe('string keys', () => {
   it('every literal t("…") key used by admin-web exists in VI and EN', () => {
     const src = join(__dirname, '..');
@@ -40,14 +29,9 @@ describe('string keys', () => {
     for (const locale of ['vi', 'en'] as const) {
       const keys = allKeys(locale);
       expect(
-        [...used].filter((k) => !keys.has(k) && !PENDING.has(k)),
+        [...used].filter((k) => !keys.has(k)),
         locale,
       ).toEqual([]);
     }
-  });
-
-  it('pending v1.0.4 keys are still pending (remove them from pending-keys-*.json once UXD adds them)', () => {
-    const vi = allKeys('vi');
-    expect([...PENDING].filter((k) => vi.has(k))).toEqual([]);
   });
 });

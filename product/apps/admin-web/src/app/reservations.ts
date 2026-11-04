@@ -10,11 +10,7 @@ import { fieldErrorText, problemView } from './problem';
 
 type T = (key: string, args?: Args) => string;
 
-/**
- * v1.0.4 P4-40 (FE-B): every string key of this package is written inline in `t('…')`, so `i18n-keys.test.ts`
- * checks each name against VI/EN. Keys UXD has not merged yet (P4-01) are listed in
- * `src/__tests__/pending-keys-p4-40.json` – remove them there on the rebase onto P4-01.
- */
+/** v1.0.4 P4-40 (FE-B): string keys (UXD P4-01) are inline in `t('…')`, so `i18n-keys.test.ts` checks each one. */
 
 export const STATUS_KEY: Record<ReservationStatus, string> = {
   hold: 'status.booking.hold',

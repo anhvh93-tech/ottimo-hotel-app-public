@@ -13,6 +13,7 @@
 #     DATA_KEK_VERSION, ID_HASH_KEY, SESSION_SECRET, LOG_IP_HMAC_KEY, GUEST_CODE_SIGNING_KEY) from the env file, seed
 #     not the same keyring (KEK + ID_HASH_KEY); the demo overlay resolves although the keys are missing; prod api/worker
 #     lack DATA_KEK_CURRENT_FILE / ID_HASH_KEY_FILE
+#   - prod (R4 LP-v2): api without LANDING_LOCALES, or with an item outside en,vi,ko,zh,ru / without en,vi
 #   check-compose.sh                (from anywhere; uses product/.env.example and infra/server/env.example)
 # Exit 0 = ok, 1 = a rule is broken, 2 = usage / tooling.
 set -Eeuo pipefail
@@ -152,6 +153,15 @@ api_tp = ((prodedge['services'].get('api') or {}).get('environment') or {}).get(
 lan_ip = ((lan.get('networks') or {}).get('edge') or {}).get('ipv4_address')
 if not lan_ip or lan_ip not in api_tp.split(','):
     bad(f'prod-edge: api TRUST_PROXY {api_tp!r} does not name the landing address {lan_ip!r} (US-155 client address)')
+# R4 LP-v2 (ARC FB-R4-ARC-OPS-LPV2-01 (5), SEC C6): the api gets LANDING_LOCALES (without it: always en,vi, and the
+# ko/zh/ru form answers 422) – only LandingLocale items, en + vi always on sale.
+for label, cfg in (('prod', prod), ('prod-edge', prodedge)):
+    ll = ((cfg['services'].get('api') or {}).get('environment') or {}).get('LANDING_LOCALES')
+    items = (ll or '').split(',')
+    if ll is None:
+        bad(f'{label}: api does not get LANDING_LOCALES')
+    elif not set(items) <= {'en', 'vi', 'ko', 'zh', 'ru'} or not {'en', 'vi'} <= set(items) or len(items) != len(set(items)):
+        bad(f'{label}: api LANDING_LOCALES {ll!r} (items of en,vi,ko,zh,ru; en and vi always; no repeat)')
 nets = prod.get('networks', {})
 if not (nets.get('db') or {}).get('internal'):
     bad('prod: network db must be internal')

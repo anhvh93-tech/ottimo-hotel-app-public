@@ -54,6 +54,17 @@ type Req = GuardedRequest;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KEY = /^[a-z0-9_.<>]+$/;
 
+/**
+ * BUG-R4-004 (ORC R4): the public room type decides which public class – and so which web price estimate (BR-115) –
+ * a unit sells under, like the `public_show_prices` switch (ARC lp-v2-design D6) it is an OWNER decision: a
+ * manager may still call create/updateRoom for the other fields, but sending `publicRoomType` → 403.
+ */
+function assertPublicRoomTypeAllowed(req: Req, input: { publicRoomType?: unknown }): void {
+  if (input.publicRoomType !== undefined && !principal(req).roles.includes('owner')) {
+    throw problem('FORBIDDEN_ACTION');
+  }
+}
+
 function principal(req: Req) {
   const p = req.ottimoAuth?.principal;
   if (!p) throw new Error('handler reached without an authenticated principal');
@@ -70,6 +81,12 @@ const bedSetup = z
   .pipe(z.string().min(1).max(100));
 const bedCount = z.number().int().min(1).max(10);
 const areaM2 = z.number().int().min(1).max(2_147_483_647); // contract: minimum 1 (int column)
+// OpenAPI 0.3.7 D1 `Room.publicRoomType` (BR-012 (6), erd 4.1 CHECK 1–60): free English label, trimmed, inner
+// whitespace collapsed (the public slug is derived from it – BR-115, ADR-014). BUG-R4-004: it was silently dropped.
+const publicRoomType = z
+  .string()
+  .transform((s) => s.trim().replace(/\s+/g, ' '))
+  .pipe(z.string().min(1).max(60));
 
 const roomInput = z.object({
   roomNo: z.string().regex(/^[0-9A-Z]{1,6}$/),
@@ -78,6 +95,7 @@ const roomInput = z.object({
     .transform((s) => s.trim())
     .pipe(z.string().min(1).max(60))
     .optional(),
+  publicRoomType: publicRoomType.optional(),
   roomGroupId: z.string().regex(UUID),
   floor: z.number().int().min(-5).max(200).optional(),
   baseOccupancy: occupancy.optional(),
@@ -95,6 +113,7 @@ const roomPatch = z.object({
     .transform((s) => s.trim())
     .pipe(z.string().min(1).max(60))
     .optional(),
+  publicRoomType: publicRoomType.nullable().optional(),
   roomGroupId: z.string().regex(UUID).optional(),
   baseOccupancy: occupancy.optional(),
   maxOccupancy: z.number().int().min(1).max(11).nullable().optional(),
@@ -211,6 +230,7 @@ export class PlatformController {
     @Body() body: unknown,
   ): Promise<RoomDto> {
     const input = parseBody(roomInput, body);
+    assertPublicRoomTypeAllowed(req, input);
     assertNoCardNumber('bedSetup', input.bedSetup);
     const result = await this.uow.run(req, async (tx) => ({
       status: 201,
@@ -230,6 +250,7 @@ export class PlatformController {
   ): Promise<RoomDto> {
     if (!UUID.test(roomId)) throw problem('NOT_FOUND');
     const input = parseBody(roomPatch, body);
+    assertPublicRoomTypeAllowed(req, input);
     if (input.listPrice) assertNoCardNumber('listPrice.reason', input.listPrice.reason);
     assertNoCardNumber('bedSetup', input.bedSetup ?? undefined);
     const version = expectedVersion(req);
@@ -237,6 +258,11 @@ export class PlatformController {
       status: 200,
       body: await this.rooms.update(tx, roomId, version, input, req.id),
     }));
+    // A room change (public room type, sale stop, list price, occupancy) changes the public price estimate: drop
+    // the property's estimate cache once committed, as a parameter change does (ParameterHooks listener).
+    if (result.status === 200) {
+      this.hooks.changed(tenantOf(principal(req)).propertyId as string, 'room');
+    }
     reply.header('etag', etag(result.body.version));
     return applyResult(reply, result);
   }
@@ -324,6 +350,7 @@ export class PlatformController {
         if (hook?.after) await hook.after(tx, input.value);
         return { status: 200, body: dto };
       });
+      if (result.status === 200) this.hooks.changed(tenantOf(p).propertyId as string, key);
       return applyResult(reply, result);
     } catch (err) {
       // Owner-only keys (A102/A119): a manager is refused per key – log the denial (rbac 8.5, US-002 AC2).
@@ -375,6 +402,7 @@ export class PlatformController {
         if (hook?.after) await hook.after(tx, undefined);
         return { status: 204, body: undefined };
       });
+      this.hooks.changed(tenantOf(p).propertyId as string, key);
       return applyResult(reply, result);
     } catch (err) {
       if (err instanceof ProblemError && err.code === 'FORBIDDEN_ACTION') {

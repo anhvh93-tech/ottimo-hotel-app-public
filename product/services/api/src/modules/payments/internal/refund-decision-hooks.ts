@@ -10,4 +10,6 @@ export function wireRefundDecisionHooks(approvals: ApprovalService, refunds: Ref
   approvals.onDecided('refund', (tx, row) => refunds.onDecided(tx, row));
   // ARC 16.19 bổ sung 4 (BUG-R2-198): a refund decision reads the folio's surplus – L3 folio before L4.
   approvals.onBeforeDecide('refund', (tx, approvalId) => refunds.lockFolioOf(tx, approvalId));
+  // P4-12 (ARC 6.3, SEC-on-plan-v1.0.4 1.2): a `superseded` replacement keeps the destination of what it replaces.
+  refunds.provideDestinationCarrier();
 }

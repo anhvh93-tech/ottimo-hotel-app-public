@@ -26,7 +26,7 @@ import { OccupancyField, type Occupancy } from '../../components/OccupancyField'
 import { useOnline } from '../../hooks/useOnline';
 import { usePropertyId, useSession } from '../../session/SessionProvider';
 import { monoArgs } from '../../app/mono';
-import { ContactMatches, type WebRequestLink } from '../webreq/ContactMatches';
+import { ContactMatches, guestPrefillOf, type WebRequestLink } from '../webreq/ContactMatches';
 import { LONG_STAY_SOURCES } from './directSources';
 
 export interface LongStayPrefill {
@@ -353,6 +353,7 @@ export function LongStayDialog({
             required
             initialText={form.guest?.displayName}
             error={errors.bookerGuestId}
+            createPrefill={guestPrefillOf(prefill?.webRequest)}
             onSelect={(guest) => {
               // Same as H09 (FB-R2-DOM-FE-02, D-6): a guest who stayed before → preselect "Khách quay lại".
               const auto = !!guest.lastStayDate && form.directSource === 'zalo_phone';

@@ -57,6 +57,10 @@ x-api-env: &api-env
   # ADR-014 4 (website booking form, v1.1): HMAC key of the public form token + the landing origin (empty = no form).
   PUBLIC_FORM_SIGNING_KEY_FILE: /run/secrets/public_form_signing_key
   LANDING_BASE_URL: ${LANDING_BASE_URL:-}
+  # R4 LP-v2 (ARC lp-v2-design 3.4/3.6): landing languages ON SALE – each needs an active privacy_notice_version row
+  # before the form switch (PUBLIC_FORM_NOT_READY). Same .env value is read by publish-privacy-notice.sh. Without it
+  # the api stays en,vi and ko/zh/ru requests get 422. Release order: README infra/server 12.3 "LP-v2".
+  LANDING_LOCALES: ${LANDING_LOCALES:-en,vi}
   # Caddy's fixed address on `edge` (below): the only proxy whose X-Forwarded-For is trusted.
   # + the landing container's fixed address (US-155: it proxies the two public form operations – Caddyfile.landing).
   TRUST_PROXY: ${WEB_IP:-172.30.0.10},${LANDING_IP:-172.30.0.11}
@@ -281,8 +285,9 @@ services:
       LANDING_WWW_HOST: ${LANDING_WWW_HOST:-www.landing.invalid}
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in /opt/ottimo/.env}
       PROXY_PROTOCOL_ALLOW: ${PROXY_PROTOCOL_ALLOW:-127.0.0.1/32}
-      # US-155 website form: on = proxy the two public operations to api:3000 (only with the stack's api running and
-      # LANDING_BASE_URL set); default off = every /v1/* is 404 on the landing origin.
+      # US-155 website form + LP-v2 price estimate: on = proxy the three public operations (form-token, booking-requests,
+      # price-estimate – Caddyfile.landing) to api:3000 (only with the stack's api running and LANDING_BASE_URL set);
+      # default off = every /v1/* is 404 on the landing origin.
       LANDING_PUBLIC_API: ${LANDING_PUBLIC_API:-off}
       LANDING_API_UPSTREAM: api:3000
     # staging: basic auth + noindex; production: empty (init-secrets.sh writes it from APP_ENV)
