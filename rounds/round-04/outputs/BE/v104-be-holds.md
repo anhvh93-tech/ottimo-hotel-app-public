@@ -15,6 +15,15 @@
 | **ĐX-R3-QA-01** – "Cần chú ý" | Nguồn tính `holdsOverdue`: `hold_overdue` (critical, FD+) = mọi đơn `hold` có `hold_expires_at ≤ now`, mọi ngày đến, `dueAt` = hạn cũ nhất; `hold_overdue_cap` (critical, MGR/OWN) = các đơn đó đã tới `hold_latest_time_on_arrival` (12:00) ngày đến. Là mục **tính**, nên không tắt bằng "Đã xử lý" và tự mất khi đơn rời `hold`. `params` chỉ `count`; `refCode` khi đúng 1 đơn. So giờ bằng đồng hồ tiêm (`ctx.now`), không `now()` SQL | `frontdesk/internal/attention-sources.ts`; `events/public/events.service.ts` (`AttentionKind`, allowlist params, `attentionAudience`) |
 | Migration **0093** | Chỉ nới CHECK `staff_notification.kind` + `hold_overdue_with_deposit`, `hold_overdue_cap`. Không bảng, không dữ liệu. Sinh bằng drizzle-kit từ `db/schema/frontdesk.ts`, đổi số sang 0093 (mục 4). `drizzle-kit generate` sau đó: "No schema changes" | `db/schema/frontdesk.ts`, `migrations/0093_hold_overdue_notification_kinds.sql`, `meta/0093_snapshot.json`, `meta/_journal.json` |
 
+### 1b. Sửa theo SEC review (`rounds/round-04/reviews/SEC-on-v104-holds.md`, 04/11) – commit thứ hai trên nhánh
+
+SEC chấp nhận G4 **có điều kiện**. Hai thẻ dưới là điều kiện đó; vai giữ nguyên như mã trước (sau hạn `confirmDeposit` chỉ FD+, chấp nhận cọc thiếu chỉ MGR/OWN, CTV không bao giờ).
+
+| Thẻ | Cách làm | Tệp |
+|---|---|---|
+| **FB-R4-SEC-BE-HOLDS-01** – SAL/CTV ghi cọc lên hold quá hạn mà J1 chưa hủy | `PaymentsService.record` (recordPayment): sau `scopedReservation(..., { lock: true })` (đơn đã khóa), nếu `status = 'hold'`, `holdExpiresAt ≤ now` (đồng hồ tiêm) và người gọi không có vai FD+ → 409 `HOLD_EXPIRED` (`expiredAt` theo giờ khách sạn), **trước khi ghi gì**. FD+ như cũ. CTV vốn đã 403 trên `recordPayment`/`confirmDeposit` (vai trong hợp đồng không có `collaborator`) – không đổi. Áp **cùng chốt** cho `confirmReceived` (confirmPaymentReceived): SAL xác nhận "tiền QR đã về" trên hold quá hạn cũng là đặt tiền lên hold đó (G6). Tiền ngân hàng đẩy về (đối soát tự động) không đi qua hai hàm này | `payments/internal/payments.service.ts` (`scopedReservation` trả thêm `holdExpiresAt` khi khóa; hàm riêng `assertHoldOpenForSales`) |
+| **FB-R4-SEC-BE-HOLDS-02** – audit lần xác nhận sau hạn | `reservation.deposit_confirmed` khi `holdExpiresAt ≤ now` thêm vào `after`: `afterDeadline: true`, `holdExpiredAt` (ISO UTC), `paidBeforeVnd` (đã nhận trước lần ghi này – cùng số dùng cho luật), `unverifiedPaidVnd` (tổng cọc `succeeded`, chưa đảo, `reconciliation = 'pending'`, không vượt `depositPaidVnd`), `via: 'new_payment' \| 'existing_payment'`. Chỉ số tiền và cờ – không số tài khoản, tên, ghi chú. Trước hạn: dòng audit giữ nguyên 3 trường cũ. 5 khóa được thêm vào allowlist audit của thực thể `folio` (không có thì `pickAuditFields` bỏ đi) | `payments/internal/deposits.service.ts`, `folio/audit-entities.ts` |
+
 Không sửa: `openapi.yaml`, tệp sinh ra, `api-client`, strings, `reservation-dto.ts`/`checkin.service.ts`/`stay.service.ts` (BE-C), tệp refund của BE-D, `approval.service.ts` (WA-04 sửa được ở composition, không cần đổi dịch vụ duyệt), `src/worker-jobs.ts` (tham số `events` tùy chọn, composition tự tạo).
 
 ## 2. Tệp tạo/sửa
@@ -23,7 +32,9 @@ Sửa (`product/services/api/`): `src/db/schema/frontdesk.ts`, `src/db/migration
 
 Tạo: `src/db/migrations/0093_hold_overdue_notification_kinds.sql`, `src/db/migrations/meta/0093_snapshot.json`, `src/modules/reservations/internal/hold-notices.ts`, `src/modules/folio/public/foc-worker-hooks.ts`, `test/v104-holds-units.test.ts`, `test/integration/v104-holds.test.ts`, biên bản này.
 
-**Lệch bản đồ chủ tệp (cần ARC/BE-D biết):** `folio/public/foc-worker-hooks.ts` nằm trong `folio/**`. Là tệp **mới**, không chạm tệp nào của BE-D (P4-12) nên không xung đột. Lý do: hook FOC dùng `FolioFocService` ở `folio/internal`, luật ranh giới module cấm `reservations` nhập `internal` của module khác. Tệp lặp lại 1 câu SQL preLock của `folio.module.ts`; đề xuất BE-D/ARC cho `FolioModule` gọi chung hàm này ở lần chạm sau.
+Commit SEC-fix sửa thêm: `src/modules/payments/internal/payments.service.ts`, `src/modules/folio/audit-entities.ts` (thêm 5 khóa vào allowlist `folio`, chỉ thêm dòng), và hai tệp test ở trên.
+
+**Lệch bản đồ chủ tệp (cần ARC/BE-D biết):** `folio/audit-entities.ts` (thêm 5 khóa cuối danh sách `folio`, BE-D P4-12 không chạm danh sách này; nếu xung đột khi gộp thì giữ cả hai).  `folio/public/foc-worker-hooks.ts` nằm trong `folio/**`. Là tệp **mới**, không chạm tệp nào của BE-D (P4-12) nên không xung đột. Lý do: hook FOC dùng `FolioFocService` ở `folio/internal`, luật ranh giới module cấm `reservations` nhập `internal` của module khác. Tệp lặp lại 1 câu SQL preLock của `folio.module.ts`; đề xuất BE-D/ARC cho `FolioModule` gọi chung hàm này ở lần chạm sau.
 
 ## 3. Người nhận và chống trùng J1 (ARC xem ở review mã)
 
@@ -70,15 +81,21 @@ Khi `main@L` có 0092 (LP-v2):
   - "Cần chú ý": FD thấy `hold_overdue` (critical, 2 đơn, có đơn ngày đến xa), FD/FDL không thấy `hold_overdue_cap`, MGR/OWN thấy từ 12:00; đơn xác nhận → mục mất (AC3);
   - dự phòng: CTV tạo hold rồi bị thu vai → `hold_expired` tới FD + FDL;
   - WA-04 trong **tiến trình chỉ nạp worker**: hold có FOC chờ duyệt → `expired: 1, failed: 0`, yêu cầu `cancelled`/`reservation_cancelled`, không còn dòng `pending_approval`, người tạo nhận `hold_expired`.
+- SEC-fix (thêm vào hai tệp trên):
+  - đơn vị (+2 ca): chốt `assertHoldOpenForSales` – SAL/CTV sau hạn (kể cả đúng phút hạn) → `HOLD_EXPIRED`; FD/FDL/MGR/OWN sau hạn, SAL trước hạn, đơn không phải `hold`, hold không có hạn → cho qua;
+  - tích hợp HOLDS-01: trước hạn SAL ghi cọc → 201 `pending`; 1 phút sau hạn, J1 chưa chạy: SAL `recordPayment` → 409 `HOLD_EXPIRED` (`expiredAt` 12:00), SAL `confirm-received` QR cọc của mình → 409, QR vẫn `pending`; CTV `recordPayment`/`confirm-deposit` → 403; không có dòng tiền nào; FD `recordPayment` → 201; J1 sau đó: 2 hold bị từ chối → `cancelled`, 2 hold có tiền → giữ;
+  - tích hợp HOLDS-02: ca bug-list (FD ghi nốt, `via: new_payment`, `paidBeforeVnd` 200.000, `unverifiedPaidVnd` 0), ca MGR chấp nhận cọc thiếu (`existing_payment`), hold chỉ có khoản SAL chờ đối soát rồi FD ghi nốt sau hạn (`unverifiedPaidVnd` 100.000); khóa của `after` đúng 8 khóa; xác nhận trước hạn chỉ 3 khóa cũ.
 - Kết quả bộ đầy đủ API, lint, typecheck: xem mục 8.
 
 ## 6. Đề xuất hợp đồng cho ARC (P4-00, 0.3.12)
 
 1. `StaffNotification.kind` + `hold_overdue_with_deposit`, `hold_overdue_cap` (đã có trong P4-00 (a)). Mô tả người nhận theo bảng mục 3, gồm dự phòng FD/FDL của `hold_expired`.
 2. `AttentionItem.kind` + `hold_overdue`, `hold_overdue_cap`: `source: computed`, `severity: critical`, `params: {count}`, `reservationIds`, `dueAt` (hold_overdue: hạn cũ nhất; cap: mốc 12:00 sớm nhất), `refCode` khi `count = 1`. Bảng "người nhận theo vai": `hold_overdue` FD+, `hold_overdue_cap` OWN/MGR. Ghi "mục tính – không tắt bằng resolveAttentionEvent".
-3. `confirmDeposit` – mô tả: hold quá hạn: SAL/CTV luôn `HOLD_EXPIRED`; FD+ với hold đã nhận > 0 đ (tính **trước** khoản đang ghi, gồm `existingPaymentId` đã có trên folio) xác nhận được tới khi nhận phòng, không trần 12:00; hold chưa nhận gì chỉ khi `receivedAt` < hạn. `HOLD_EXPIRED` chỉ còn cho hai trường hợp đó.
+3. (Thay bằng chữ SEC đề xuất ở `SEC-on-v104-holds.md` mục 3 – BE-B đồng ý, mã khớp chữ đó.) `confirmDeposit` – mô tả: hold quá hạn: SAL/CTV luôn `HOLD_EXPIRED`; FD+ với hold đã nhận > 0 đ (tính **trước** khoản đang ghi, gồm `existingPaymentId` đã có trên folio) xác nhận được tới khi nhận phòng, không trần 12:00; hold chưa nhận gì chỉ khi `receivedAt` < hạn. `HOLD_EXPIRED` chỉ còn cho hai trường hợp đó.
 4. `Reservation.allowedActions` – mô tả `confirm-deposit` khi hold quá hạn: chỉ FD+ và `depositPaidVnd > 0`.
 5. Rà `capacity_conflict`, `overbooking`, `overbooking_urgent` (cùng kiểu push-only): **không đổi ở v1.0.4** – đã có mục "Cần chú ý" tính sẵn; muốn vào hộp thư thì cần kind mới trong hợp đồng + CHECK. Đề xuất xếp v1.0.5 nếu DOM thấy cần.
+
+6. `recordPayment` (theo SEC mục 3) và `confirmPaymentReceived` (G6): folio của hold đã quá `holdExpiresAt`, người gọi không có vai FD+ → 409 `HOLD_EXPIRED` (`expiredAt`), không ghi gì; FD+ như cũ. Thêm `HOLD_EXPIRED` vào danh sách 409 của hai thao tác nếu hợp đồng chưa liệt kê.
 
 Không cần trường mới trong thân yêu cầu/đáp: FE-B dùng `depositPaidVnd`, `holdExpiresAt`, `allowedActions` sẵn có.
 
@@ -122,7 +139,8 @@ SELECT payload->>'kind' AS kind, count(*) AS n
 | G1 | "Đã nhận > 0 đ" = `FolioService.depositPaid` (tổng khoản cọc `succeeded` của folio, gồm khoản sale ghi đang chờ đối soát) – cùng thước đo J1 dùng để giữ hold. Đọc trước khi ghi khoản mới |
 | G2 | "Tới khi nhận phòng" (DOM A.6): không chặn theo giờ hay ngày sau hạn. Hold quá ngày đến vẫn xác nhận được; sau đó luồng no-show xử lý như đơn `confirmed` |
 | G3 | Hold chưa cọc quá hạn: ẩn B4 theo plan, kể cả khi tiền thật đã về trước hạn (J1 hủy trong ≤ 1 phút). API vẫn nhận US-085 AC4 với `receivedAt` trước hạn |
-| G4 | `existingPaymentId` trên hold quá hạn: khoản đã nằm trên folio nghĩa là hold "đã nhận > 0 đ", nên nhận bất kể giờ về (trước v1.0.4 bị từ chối nếu về sau hạn). SEC xem lại cùng SEC-BE-22 |
+| G4 | `existingPaymentId` trên hold quá hạn: khoản đã nằm trên folio nghĩa là hold "đã nhận > 0 đ", nên nhận bất kể giờ về (trước v1.0.4 bị từ chối nếu về sau hạn). **SEC đã chấp nhận có điều kiện (04/11)**; điều kiện HOLDS-01, HOLDS-02 đã làm (mục 1b) |
+| G6 | Chốt HOLDS-01 áp cả cho `confirmPaymentReceived` (SAL xác nhận QR cọc đã về) – SEC chỉ nêu `recordPayment`, nhưng đây là đường thứ hai để SAL đặt tiền lên hold quá hạn. SEC/ARC xác nhận khi review; nếu không muốn, bỏ một dòng gọi `assertHoldOpenForSales` trong `confirmReceived` |
 | G5 | Mục "Cần chú ý" không có `link` riêng; Desk mở đơn theo `reservationIds` như các mục tính khác |
 
 ## 8. Kết quả chạy (04/11, máy local, PostgreSQL 17 riêng của làn BE-B)
@@ -136,6 +154,9 @@ SELECT payload->>'kind' AS kind, count(*) AS n
 | `turbo run typecheck --filter=@ottimo/api` | đạt |
 | `prettier --check services/api/src services/api/test` | đạt |
 | `drizzle-kit generate` sau khi thêm 0093 | "No schema changes" |
+| **Lần 2 – sau SEC-fix HOLDS-01/02:** `vitest run` toàn bộ `@ottimo/api` | **152 tệp đạt, 2 bỏ qua; 3804 ca đạt, 24 bỏ qua; 0 lỗi** (266 s) |
+| Lần 2: `test/v104-holds-units.test.ts` / `test/integration/v104-holds.test.ts` | 20/20 / 12/12 |
+| Lần 2: `eslint .`, `tsc --noEmit`, `prettier --check src test` (services/api) | 0 lỗi / đạt / đạt |
 
 Các test cũ liên quan vẫn xanh không sửa: `reservations-fix` (BR-303-04: dòng `staff.push` một lần, khóa `hold_overdue_cap:<id>`), `folio-payments` (US-085 AC4, SEC-BE-22 (2)), `r3-worker-only-jobs` (J1 trong tiến trình worker), `worker-jobs`, `money-limit-basis-architecture` (CHECK kind = schema, chỉ thêm), `migrations-journal`, `schema-parity`, `module-boundaries`.
 
@@ -143,5 +164,5 @@ Các test cũ liên quan vẫn xanh không sửa: `reservations-fix` (BR-303-04:
 
 - Rebase lên `main@L` và đổi journal/snapshot theo mục 4 (sau khi ORC gộp `lp-v2-main`).
 - Khi P4-00 gộp: kiểm `openapi-meta.ts`/`api-client` có kind mới; không cần đổi mã server.
-- Review bắt buộc: ARC, QA, **SEC** (SEC-BE-22 với G1, G4); khuyến nghị DOM (người nhận). Gộp sau P4-02, chung PR-F với FE-B P4-40.
+- Review bắt buộc: ARC, QA; SEC đã review (G4 chấp nhận có điều kiện), SEC xem lại HOLDS-01/02 và G6 trên commit SEC-fix; khuyến nghị DOM (người nhận). Gộp sau P4-02, chung PR-F với FE-B P4-40.
 - QA staging 06/11 tối: hold có cọc một phần, hold chưa cọc, hold có yêu cầu FOC chờ duyệt – chờ hết hạn theo giờ thật.

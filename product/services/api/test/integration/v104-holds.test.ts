@@ -7,8 +7,13 @@
  * - ĐX-R3-QA-01 AC1–AC3: "Cần chú ý" hold_overdue (FD+, any arrival date) and hold_overdue_cap (MGR/OWN from 12:00);
  * - FB-R3-ARC-BEB-WA-04: in a process that loads ONLY the worker, J1 cancels an overdue hold carrying a FOC request
  *   still waiting (request auto-cancelled, its pending line rejected, creator told) instead of failing every tick.
+ * - FB-R4-SEC-BE-HOLDS-01: past the deadline (J1 not run yet) a sale/CTV puts no money on the hold – recordPayment
+ *   and confirmPaymentReceived → 409 HOLD_EXPIRED, nothing written, J1 then cancels; FD+ still records;
+ * - FB-R4-SEC-BE-HOLDS-02: the audit row of an after-deadline `reservation.deposit_confirmed` carries
+ *   afterDeadline/holdExpiredAt/paidBeforeVnd/unverifiedPaidVnd/via; a confirmation before the deadline does not.
  * Fake clock (FixedClock moved by the test – the api; a fixed `now` per worker run) and FAKE data only.
  */
+import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { JobRunner } from '../../src/jobs/job-runner';
 import { HOLD_EXPIRY_JOB_KEY } from '../../src/jobs/reservation-jobs';
@@ -274,6 +279,162 @@ describe.skipIf(!HAS_DB)(
       // The worker writes the inbox row too (BUG-R3-041 in the worker composition).
       expect(await inbox(h.id, 'hold_expired')).toEqual(users('fd'));
     }, 240_000);
+
+    // HOLDS-01/02 timeline: holds made 11/11 12:00 (deadline 12/11 12:00), arrival 20/12.
+    let hSal: { id: string };
+    let hCtv: { id: string };
+    let hFd: { id: string };
+    let hPre: { id: string };
+    const record = (folioId: string, amountVnd: number, who: string) =>
+      x.c[who]!.send('POST', x.url(`/folios/${folioId}/payments`), {
+        type: 'deposit',
+        method: 'cash',
+        amountVnd,
+      });
+    const moneyRows = async (folioId: string) =>
+      (
+        await x.q(
+          `SELECT count(*)::int AS n FROM payment WHERE folio_id = $1 AND status = 'succeeded'`,
+          [folioId],
+        )
+      )[0]!.n as number;
+    const confirmedAudit = async (reservationId: string) => {
+      const { folioId } = await x.get(reservationId);
+      const rows = await x.q(
+        `SELECT after FROM audit_event WHERE action = 'reservation.deposit_confirmed' AND entity_id = $1`,
+        [folioId],
+      );
+      expect(rows).toHaveLength(1);
+      return rows[0]!.after as Record<string, unknown>;
+    };
+
+    it('FB-R4-SEC-BE-HOLDS-01: past the deadline, before J1 – SAL recordPayment / confirm-received → 409 HOLD_EXPIRED, CTV refused, nothing written; FD records; J1 then cancels', async () => {
+      await x.at('2026-11-11T12:00:00+07:00');
+      hSal = await hold('203', 'sal', '2026-12-20', '2026-12-22');
+      hCtv = await hold('103', 'ctv', '2026-12-20', '2026-12-22');
+      hFd = await hold('201', 'fd', '2026-12-20', '2026-12-22');
+      hPre = await hold('202', 'sal', '2026-12-20', '2026-12-22');
+      // Before the deadline a sale records as before: 201, waiting for the desk/bank check (SEC-BE-22 (1)).
+      const pre = await record((await x.get(hPre.id)).folioId as string, 100_000, 'sal');
+      expect(pre.statusCode, pre.body).toBe(201);
+      expect(pre.json()).toMatchObject({ status: 'succeeded', reconciliation: 'pending' });
+      // A deposit QR the sale showed before the deadline (FAKE row – its money "arrives" later).
+      const salFolio = (await x.get(hSal.id)).folioId as string;
+      const qrId = uuidv7();
+      await x.q(
+        `INSERT INTO payment (id, organization_id, property_id, code, folio_id, reservation_id, type, method,
+         reconciliation, amount_vnd, status, expires_at, recorded_by, recorded_by_role, created_at, created_by,
+         updated_at, qr_purpose)
+       VALUES ($1, $2, $3, $4, $5, $6, 'deposit', 'vietqr', 'pending', 100000, 'pending', $7, $8, 'sales_staff', $9,
+               $8, $9, 'deposit')`,
+        [
+          qrId,
+          x.t.organizationId,
+          x.t.propertyIds[0],
+          `QR-H01-${qrId.slice(-6)}`,
+          salFolio,
+          hSal.id,
+          new Date('2026-11-20T12:00:00+07:00'),
+          x.t.users.sal!.id,
+          new Date('2026-11-11T12:00:00+07:00'),
+        ],
+      );
+
+      // One minute past the deadline; J1 has not run.
+      await x.at('2026-11-12T12:01:00+07:00');
+      const sal = await record(salFolio, 100_000, 'sal');
+      expect(sal.statusCode, sal.body).toBe(409);
+      expect(sal.json()).toMatchObject({ code: 'HOLD_EXPIRED' });
+      expect(sal.json().expiredAt).toMatch(/^2026-11-12T12:00:00/);
+      const ctvFolio = (await x.get(hCtv.id)).folioId as string;
+      // A CTV never puts money on a hold: recordPayment and confirmDeposit have no collaborator role → 403 before
+      // anything is read (contract roles, unchanged).
+      const ctv = await record(ctvFolio, 100_000, 'ctv');
+      expect(ctv.statusCode, ctv.body).toBe(403);
+      const ctvB4 = await deposit(hCtv.id, cash(100_000, '2026-11-12T11:55:00+07:00'), 'ctv');
+      expect(ctvB4.statusCode, ctvB4.body).toBe(403);
+      const qr = await x.c.sal!.send('POST', x.url(`/payments/${qrId}/actions/confirm-received`), {
+        receivedAt: '2026-11-12T11:50:00+07:00',
+      });
+      expect(qr.statusCode, qr.body).toBe(409);
+      expect(qr.json()).toMatchObject({ code: 'HOLD_EXPIRED' });
+      // Nothing written by the refusals.
+      expect(await moneyRows(salFolio)).toBe(0);
+      expect(await moneyRows(ctvFolio)).toBe(0);
+      const [q] = await x.q(`SELECT status FROM payment WHERE id = $1`, [qrId]);
+      expect(q).toEqual({ status: 'pending' });
+      // FD+ unchanged.
+      const fd = await record((await x.get(hFd.id)).folioId as string, 100_000, 'fd');
+      expect(fd.statusCode, fd.body).toBe(201);
+      // J1: the refused holds are cancelled; the ones with money are kept.
+      expect((await j1()).stats).toMatchObject({ expired: 2, keptPaid: 2, failed: 0 });
+      const st = await x.q(`SELECT id, status FROM reservation WHERE id = ANY($1) ORDER BY id`, [
+        [hSal.id, hCtv.id, hFd.id, hPre.id],
+      ]);
+      expect(Object.fromEntries(st.map((r) => [r.id, r.status]))).toEqual({
+        [hSal.id]: 'cancelled',
+        [hCtv.id]: 'cancelled',
+        [hFd.id]: 'hold',
+        [hPre.id]: 'hold',
+      });
+    }, 120_000);
+
+    it('FB-R4-SEC-BE-HOLDS-02: after-deadline deposit_confirmed audit carries the 5 fields (new and existing payment); before the deadline none', async () => {
+      // Bug-list case (FD topped up after the deadline on 200.000 received, desk cash = verified).
+      expect(await confirmedAudit(paidFd.id)).toMatchObject({
+        status: 'confirmed',
+        afterDeadline: true,
+        holdExpiredAt: new Date('2026-11-02T10:00:00+07:00').toISOString(),
+        paidBeforeVnd: 200_000,
+        unverifiedPaidVnd: 0,
+        via: 'new_payment',
+      });
+      // MGR accepted the shortfall on the receipt already there.
+      expect(await confirmedAudit(paidSal.id)).toMatchObject({
+        afterDeadline: true,
+        paidBeforeVnd: 200_000,
+        unverifiedPaidVnd: 0,
+        via: 'existing_payment',
+      });
+      // FD tops up a hold whose only money is a sale's receipt still waiting for the check.
+      const pre = await x.get(hPre.id);
+      const res = await deposit(
+        hPre.id,
+        cash((pre.depositRequiredVnd as number) - (pre.depositPaidVnd as number)),
+      );
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json().status).toBe('confirmed');
+      const after = await confirmedAudit(hPre.id);
+      expect(after).toMatchObject({
+        afterDeadline: true,
+        holdExpiredAt: new Date('2026-11-12T12:00:00+07:00').toISOString(),
+        paidBeforeVnd: 100_000,
+        unverifiedPaidVnd: 100_000,
+        via: 'new_payment',
+      });
+      expect(Object.keys(after).sort()).toEqual(
+        [
+          'afterDeadline',
+          'depositPaidVnd',
+          'depositRequiredVnd',
+          'holdExpiredAt',
+          'paidBeforeVnd',
+          'status',
+          'unverifiedPaidVnd',
+          'via',
+        ].sort(),
+      );
+      // Before the deadline (a hold made now, confirmed at once): the audit row stays as in v1.0.3.
+      const fresh = await hold('101', 'fd', '2026-12-20', '2026-12-22');
+      const ok = await deposit(
+        fresh.id,
+        cash((await x.get(fresh.id)).depositRequiredVnd as number),
+      );
+      expect(ok.statusCode, ok.body).toBe(200);
+      expect(Object.keys(await confirmedAudit(fresh.id)).sort()).toEqual(
+        ['depositPaidVnd', 'depositRequiredVnd', 'status'].sort(),
+      );
+    }, 120_000);
 
     it('DOM P4-20 §0: hold_expired whose creator is no longer active in the property → FD and FDL instead, once', async () => {
       await x.at('2026-11-12T10:00:00+07:00');

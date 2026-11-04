@@ -3,7 +3,8 @@
  * - BUG-R3-042 / BR-303 (1): overdueHoldAccepts (deposits.service) and the B4 button (allowed-actions) – same rule;
  * - BUG-R3-041 / DOM A.5: who is told by J1 (hold-notices.ts);
  * - ĐX-R3-QA-01: the computed "Cần chú ý" items hold_overdue / hold_overdue_cap (attention-sources.ts) on a
- *   MutableClock (the staging time-travel clock QA uses to make holds expire), audiences and params.
+ *   MutableClock (the staging time-travel clock QA uses to make holds expire), audiences and params;
+ * - FB-R4-SEC-BE-HOLDS-01: the recordPayment / confirm-received gate (payments.service) per role.
  */
 import { describe, expect, it } from 'vitest';
 import { type ClockState, type ClockStateStore, FixedClock, MutableClock } from '../src/clock';
@@ -18,6 +19,7 @@ import {
 } from '../src/modules/events/public/events.service';
 import { holdsOverdue } from '../src/modules/frontdesk/internal/attention-sources';
 import { overdueHoldAccepts } from '../src/modules/payments/internal/deposits.service';
+import { PaymentsService } from '../src/modules/payments/internal/payments.service';
 import { ParameterService } from '../src/modules/platform/public/parameter.service';
 import {
   type ActionContext,
@@ -384,5 +386,53 @@ describe('WA-04 – the worker composition of J1 has the FOC decision hooks of F
     const approvals = c.approvals as unknown as Record<string, unknown>;
     for (const p of ['focView', 'refundRouting']) expect(typeof approvals[p], p).toBe('function');
     expect((c.reservations as unknown as Record<string, unknown>).events).toBeDefined();
+  });
+});
+
+describe('FB-R4-SEC-BE-HOLDS-01 – no sale/CTV money on an overdue hold (recordPayment, confirm-received)', () => {
+  const deadline = at('2026-11-12T12:00:00+07:00');
+  const gate = async (
+    roles: string[],
+    nowIso: string,
+    r: { status: string; holdExpiresAt?: Date | null },
+  ) => {
+    const svc = Object.create(PaymentsService.prototype) as Record<string, unknown>;
+    svc.clock = await frozenClock(nowIso);
+    svc.folios = { timezone: async () => TZ };
+    const fn = svc.assertHoldOpenForSales as (
+      this: unknown,
+      tx: Tx,
+      a: { roles: readonly string[] },
+      row: typeof r,
+    ) => Promise<void>;
+    return fn.call(svc, {} as Tx, { roles }, r);
+  };
+  const hold = { status: 'hold', holdExpiresAt: deadline };
+
+  it('SAL and CTV past the deadline (J1 not run yet) → 409 HOLD_EXPIRED with expiredAt', async () => {
+    for (const role of ['sales_staff', 'collaborator']) {
+      await expect(gate([role], '2026-11-12T12:01:00+07:00', hold), role).rejects.toMatchObject({
+        code: 'HOLD_EXPIRED',
+      });
+    }
+    await expect(gate(['sales_staff'], '2026-11-12T12:00:00+07:00', hold)).rejects.toMatchObject({
+      code: 'HOLD_EXPIRED',
+    });
+  });
+
+  it('FD+ unchanged past the deadline; SAL before the deadline unchanged; not a hold → no gate', async () => {
+    for (const role of ['front_desk', 'front_desk_lead', 'manager', 'owner']) {
+      await expect(gate([role], '2026-11-12T12:01:00+07:00', hold), role).resolves.toBeUndefined();
+    }
+    await expect(gate(['sales_staff'], '2026-11-12T11:59:00+07:00', hold)).resolves.toBeUndefined();
+    await expect(
+      gate(['sales_staff'], '2026-11-12T12:01:00+07:00', {
+        status: 'confirmed',
+        holdExpiresAt: deadline,
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      gate(['sales_staff'], '2026-11-12T12:01:00+07:00', { status: 'hold', holdExpiresAt: null }),
+    ).resolves.toBeUndefined();
   });
 });

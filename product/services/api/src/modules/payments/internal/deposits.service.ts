@@ -194,6 +194,8 @@ export class DepositsService {
       receivedAt = rows[0].received_at ?? now;
     }
     // A hold past its deadline (rule in overdueHoldAccepts – BUG-R3-042, BR-303 (1), US-085 AC4, SEC-BE-22 (2)).
+    // FB-R4-SEC-BE-HOLDS-02: what the audit row of an after-deadline confirmation carries (null = before).
+    let overdue: { expiredAt: Date; paidBeforeVnd: number } | null = null;
     if (t.holdExpiresAt && t.holdExpiresAt.getTime() <= now.getTime()) {
       // Read BEFORE this receipt is recorded: what the hold had already received (the J1 `kept_paid` measure).
       const paidBefore = await this.folios.depositPaid(tx, folio.id);
@@ -207,6 +209,7 @@ export class DepositsService {
       ) {
         throw problem('HOLD_EXPIRED', { extras: { expiredAt: toZonedIso(t.holdExpiresAt, tz) } });
       }
+      overdue = { expiredAt: t.holdExpiresAt, paidBeforeVnd: paidBefore };
     }
 
     let recordedNew = false;
@@ -336,10 +339,32 @@ export class DepositsService {
         depositPaidVnd: paid,
         depositRequiredVnd: t.depositRequiredVnd,
         status: 'confirmed',
+        // FB-R4-SEC-BE-HOLDS-02: an after-deadline confirmation (G4) is reviewable from this row alone –
+        // amounts and ids only, never an account number, a name or free text. Before the deadline: unchanged.
+        ...(overdue
+          ? {
+              afterDeadline: true,
+              holdExpiredAt: overdue.expiredAt.toISOString(),
+              paidBeforeVnd: overdue.paidBeforeVnd,
+              unverifiedPaidVnd: Math.min(paid, await this.unverifiedDepositVnd(tx, folio.id)),
+              via: input.payment ? 'new_payment' : 'existing_payment',
+            }
+          : {}),
       },
       ...(requestId ? { requestId } : {}),
     });
     return { body: await port.reservationView(tx, t.id) };
+  }
+
+  /** HOLDS-02: deposits counted by `depositPaid` that still wait for the desk/bank check (`pending`). */
+  private async unverifiedDepositVnd(tx: Tx, folioId: string): Promise<number> {
+    const { rows } = await tx.query<{ v: string | number }>(
+      `SELECT COALESCE(SUM(amount_vnd), 0) AS v FROM payment
+        WHERE folio_id = $1 AND type = 'deposit' AND status = 'succeeded' AND reversal_of_id IS NULL
+          AND reconciliation = 'pending'`,
+      [folioId],
+    );
+    return Number(rows[0]?.v ?? 0);
   }
 
   /** Room total + extra-person fee of the stay (quote snapshot, else the booking's room total). */
