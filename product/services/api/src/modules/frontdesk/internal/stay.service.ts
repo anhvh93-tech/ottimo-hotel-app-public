@@ -193,13 +193,14 @@ export class StayService {
       }
       const d = await this.s.addedNightRate(tx, ctx, nc as AddedNightContext, date);
       if (i === 0) keepRate = d.keepVnd;
-      // ARC 16.18: a night written at its suggested price is `default` (never a reference night – AN-22).
+      // ARC 16.18: a night written at its suggested price is `default` (never a reference night – AN-22);
+      // BUG-R4-038: an Internal stay's night is `complimentary` (0 ₫).
       defaults.push({
         date,
         calendarVnd: d.rateVnd,
         amountVnd: d.rateVnd,
         manual: false,
-        source: 'default',
+        source: d.complimentary ? 'complimentary' : 'default',
         // G-5 (AN-50): priced from an agreed reference → the night carries the agreement (a later reference).
         ...(d.agreedVnd !== null
           ? { agreedRateVnd: d.agreedVnd, anchorRoomId: (nc as AddedNightContext).anchorRoomId }
@@ -209,8 +210,8 @@ export class StayService {
         date,
         available,
         defaultRateVnd: d.rateVnd,
-        floorVnd: d.floorVnd,
-        ceilingVnd: d.ceilingVnd,
+        // BUG-R4-038: no Direct floor–ceiling on an Internal night (absent = no range).
+        ...(d.complimentary ? {} : { floorVnd: d.floorVnd, ceilingVnd: d.ceilingVnd }),
       });
     }
     const beyond = consecutive && maxNights === limit && free[limit] === true;
@@ -326,7 +327,9 @@ export class StayService {
         });
       }
     }
-    // Rates: default (BR-421) or typed by the desk within BR-105 (one row per added night).
+    // Rates: default (BR-421) or typed by the desk within BR-105 (one row per added night). BUG-R4-038 (EP02 Nội bộ,
+    // DOM 04/11): an Internal stay takes 0 (its complimentary night) and has no Direct range.
+    const internal = row.channel_group === 'internal';
     const byDate = new Map<string, number>();
     const untouched = new Set<string>();
     for (const r of rates) {
@@ -344,7 +347,7 @@ export class StayService {
           errors: [{ field: 'nightlyRates', code: 'VALIDATION_FAILED' }],
         });
       }
-      if (amount <= 0) {
+      if (amount < 0 || (amount === 0 && !internal)) {
         throw problem('VALIDATION_FAILED', {
           errors: [{ field: 'nightlyRates', code: 'AMOUNT_NOT_POSITIVE' }],
         });
@@ -380,7 +383,22 @@ export class StayService {
         // ARC 16.18 (BR-417 appendix 5A step 3 (i)): a night with an element in `nightlyRates` is typed (`manual`)
         // even at the suggested or calendar number, bound to the room bought now (`edited = false`: `default`);
         // none = `default`.
-        if (typed !== undefined && untouched.has(date)) {
+        if (typed !== undefined && internal) {
+          // BUG-R4-038: on an Internal stay a typed 0 is the complimentary night; a typed price > 0 is the rare
+          // charged Internal night (`manual`) – the suggestion is 0, so `edited` does not change the source.
+          added.push(
+            typed === 0
+              ? { date, calendarVnd: 0, amountVnd: 0, manual: false, source: 'complimentary' }
+              : {
+                  date,
+                  calendarVnd: typed,
+                  amountVnd: typed,
+                  manual: true,
+                  source: 'manual',
+                  anchorRoomId: o.anchorRoomId,
+                },
+          );
+        } else if (typed !== undefined && untouched.has(date)) {
           added.push({
             date,
             calendarVnd: typed,

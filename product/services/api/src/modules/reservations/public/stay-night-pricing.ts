@@ -33,6 +33,17 @@ export interface SetNightRateInput {
   userId: string | null;
   reason?: string;
   requestId?: string;
+  /**
+   * BUG-R4-038 (DOM 04/11 R5): `unitPriceVnd = 0` on a `room` night – the caller is OWN/MGR. 0 is the complimentary
+   * night of an Internal stay only (other channels → 422 AMOUNT_NOT_POSITIVE; Internal below OWN/MGR → 403).
+   */
+  zeroByManager?: boolean;
+  /**
+   * SEC FB-R4-SEC-BE-PR71-02: the caller's role at the time (`actorRoleOf`), written on the audit of a night brought
+   * back to 0 ₫ – the gate of that branch is a role, and a role can change later. `reservation.actorRole` is already on
+   * the audit allowlist (frontdesk/audit-entities.ts).
+   */
+  actorRole?: string;
 }
 
 export interface SetNightRateResult {
@@ -133,6 +144,22 @@ export class StayNightPricingPort {
       };
     }
 
+    // BUG-R4-038 (DOM 04/11 R5, EP02 Nội bộ): a night brought back to 0 ₫ is the complimentary night of an Internal
+    // stay – the way to correct the nights B13/B9a/B18 priced at the Direct calendar before v1.0.4. OWN/MGR only
+    // (reason mandatory – adjustFolioLine). Any other channel keeps "0 is not a price" (422).
+    const complimentary = price === 0;
+    if (complimentary) {
+      if (input.category !== 'room' || row.channel_group !== 'internal') {
+        throw problem('VALIDATION_FAILED', {
+          errors: [{ field: 'newUnitPriceVnd', code: 'AMOUNT_NOT_POSITIVE' }],
+        });
+      }
+      if (!input.zeroByManager) {
+        throw problem('FORBIDDEN_ACTION', {
+          detail: 'an Internal night goes back to 0 by OWN/MGR (BUG-R4-038)',
+        });
+      }
+    }
     // room night: BR-105 floor–ceiling of the room group (the bounds the booking form uses – PricingService).
     const p = await this.pricing.load(tx, (await this.property.now(tx)).today);
     const tiered =
@@ -190,6 +217,10 @@ export class StayNightPricingPort {
     // The snapshot remembers the typed price: later syncs keep it (BR-429 (g)). ARC 16.18 (BR-417 appendix 5A step 3
     // (iii)): with the room the guest bought when it was typed (`anchorRoomId`; the origin room needs none).
     const anchor = bought && bought !== view.originRoomId ? { anchorRoomId: bought } : {};
+    // BUG-R4-038: an Internal night typed at 0 is `complimentary` (like B13/B9a/B18 and the booking form), not `manual`.
+    const typedSource = complimentary
+      ? { source: 'complimentary' as const }
+      : { source: 'manual' as const, ...anchor };
     const nightsSnap = (snap.nights ?? []).map((n) => {
       if (n.date !== input.serviceDate) return n;
       const rest: Record<string, unknown> & { date: string } = { ...n };
@@ -199,8 +230,7 @@ export class StayNightPricingPort {
       return {
         ...rest,
         amountVnd: gross,
-        source: 'manual',
-        ...anchor,
+        ...typedSource,
         ...(tiered ? { calendarVnd: price } : {}),
       };
     });
@@ -208,8 +238,7 @@ export class StayNightPricingPort {
       nightsSnap.push({
         date: input.serviceDate,
         amountVnd: gross,
-        source: 'manual',
-        ...anchor,
+        ...typedSource,
         ...(tiered ? { calendarVnd: price } : {}),
       });
     }
@@ -253,7 +282,8 @@ export class StayNightPricingPort {
       before: { nightlyRates: [{ date: input.serviceDate, amountVnd: night.gross }] },
       after: {
         nightlyRates: [{ date: input.serviceDate, amountVnd: gross }],
-        rateSource: 'manual',
+        rateSource: complimentary ? 'complimentary' : 'manual',
+        ...(complimentary && input.actorRole ? { actorRole: input.actorRole } : {}),
       },
       ...(input.reason ? { reason: input.reason } : {}),
       ...(input.requestId ? { requestId: input.requestId } : {}),

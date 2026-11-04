@@ -80,7 +80,7 @@ Ai được giảm tiền đêm Nội bộ là quy tắc nghiệp vụ, thuộc 
   - sau lần MGR đưa về 0: có đúng một `reservation.repriced` với `after.rateSource = 'complimentary'`, `after.nightlyRates[0].amountVnd = 0`, `reason` đúng chuỗi gửi lên, `actor_user_id` là MGR; và một `folio_line.adjusted` với `after.amountVnd = 0`;
   - sau lần FD bị 403: không có audit `reservation.repriced` mới, folio và đêm không đổi;
   - ca FD gõ 1 đ: 201, nguồn `manual`, có audit với `actor_user_id` của FD. Ghi chú trong test: "đúng ý, quy tắc DOM: đêm Nội bộ không áp sàn".
-- Trạng thái: Open
+- Trạng thái: **Closed** – `1e3a91fd`, SEC xác nhận ở `02c34bc9` (mục 9.2).
 
 ### FB-R4-SEC-BE-PR71-02
 - Mức độ: Suggestion
@@ -88,13 +88,13 @@ Ai được giảm tiền đêm Nội bộ là quy tắc nghiệp vụ, thuộc 
 - Vấn đề: cổng của ca 0 đ dựa vào vai, nhưng audit chỉ ghi `actor_user_id`, không ghi vai lúc làm. Ở folio đã trả phòng, `folio-lines` đã ghi `actorRole` (BR-433 (e)), còn nhánh này thì chưa.
 - Vì sao quan trọng: người duyệt **Nhật ký tiền** về sau, khi vai người đó đã đổi, không thấy ngay lần đưa về 0 có qua đúng cổng OWN/MGR không.
 - Đề xuất sửa: với nhánh `complimentary`, thêm `actorRole` vào `after` (dùng `actorRoleOf`, truyền từ `adjust`) và vào danh sách cho phép của `reservation`. Làm ở v1.0.5 cũng được.
-- Trạng thái: Open
+- Trạng thái: **Closed** – `1e3a91fd`, SEC xác nhận ở `02c34bc9` (mục 9.2).
 
 ## 6. Ghi chú cho ORC
 
 - Không ESC. Rủi ro Low, nằm trong quyền SEC.
 - Nếu PO/DOM muốn quy tắc "giảm tiền đêm Nội bộ là việc của quản lý" (PA 3 ở mục 2), đó là quy tắc nghiệp vụ mới cho v1.0.5. Quy tắc phải áp cho mọi đường (A31, B7, B13), không chỉ A31.
-- Việc tạm cho tới v1.0.5, thuộc BA/PO: quản lý xem **Nhật ký tiền** mỗi tuần, lọc `reservation.repriced` của đơn Nội bộ (nguồn `manual` có số nhỏ, hoặc `complimentary`).
+- Việc tạm cho tới v1.0.5, thuộc BA/PO: quản lý xem **Nhật ký tiền** mỗi tuần, lọc `reservation.repriced` của đơn Nội bộ (nguồn `manual` có số nhỏ, hoặc `complimentary`). **Bộ lọc này thiếu, dùng bộ lọc ở mục 9.5.**
 - Desk: ô **Điều chỉnh** nhận 0 (tệp BE 037 mục 1.8), nên FD gõ 0 sẽ gặp 403. FE/UXD nên có câu báo rõ "Chỉ quản lý đưa đêm Nội bộ về 0 đ". Đây không phải việc bảo mật.
 
 ## 7. Điểm làm tốt
@@ -106,3 +106,127 @@ Ai được giảm tiền đêm Nội bộ là quy tắc nghiệp vụ, thuộc 
 ## 8. Dòng decision-log đề xuất (ORC ghi khi commit, SEC không sửa decision-log)
 
 `| 2026-11-04 | 4 | **SEC – PR #71 (BUG-R4-038) điểm quyền A31 (v104/fix-internal-added-night @ 7557e485): ĐẠT, rủi ro Low, giữ như hiện tại** (rounds/round-04/reviews/SEC-on-v104-pr71-internal-nights.md): đêm Nội bộ về 0 chỉ OWN/MGR, cờ tính ở máy chủ từ vai của phiên; kênh khác, dòng khác room, folio đã trả phòng → 422; lý do bắt buộc (requireReason), audit tiền reservation.repriced (rateSource complimentary) + folio_line.adjusted. FD gõ 1 đ là hành vi có từ trước (đêm Nội bộ không áp sàn – DOM), không phải lỗ mới; FD còn đường B13/B7 về 0 hợp lệ, nên không đặt ngưỡng theo sàn Trực tiếp. Minor 01 (test khóa audit ca 0 đ, ghi ca 1 đ là chủ đích), Suggestion 02 (ghi actorRole); không chặn gộp | SEC | Quyền SEC |`
+
+---
+
+## 9. Lượt 2 @ 02c34bc9 (05/11)
+
+- Đối tượng: `origin/v104/fix-internal-added-night` @ **`02c34bc9`**. SEC đọc `git diff 7557e485..02c34bc9`, gồm 3 commit:
+  - `d47c3649`: ARC sửa chữ hợp đồng, sinh lại api-client;
+  - `1e3a91fd`: BE sửa theo các thẻ review;
+  - `02c34bc9`: hợp đồng ghi số cần thu khi `lateFeeAsNightVnd = 0`.
+- Mã đổi ít:
+  - `stay-night-pricing.ts` và `folio-lines.service.ts` mỗi tệp thêm 7 dòng;
+  - test thêm 152 dòng;
+  - `openapi.yaml` chỉ đổi mô tả, không đổi schema.
+- SEC đọc thêm để đối chiếu:
+  - `frontdesk.controller.ts`: `checkOut`, `lateFeeApprover`;
+  - `checkout.service.ts`: `lateFeePrecheck`, `decide`, `lateFeeInput`;
+  - `audit-fields.ts`, `frontdesk/audit-entities.ts`, `audit/public/actor-role.ts`;
+  - `stay-support.ts` (`replaceLateCharge`), `folio.service.ts` (`reverseLine`);
+  - các dòng audit của B13, B9a, B18.
+- SEC chạy riêng `test/integration/bug-r4-038-internal-added-night.test.ts`:
+  - môi trường: worktree tạm ở scratchpad, PostgreSQL 17 riêng. Vai DB tạo bằng `02-roles.sh`, migrate như CI, test chạy bằng `ottimo_app`;
+  - kết quả **11/11 đạt**;
+  - thử đột biến 2 lần, mỗi lần test A31 báo đỏ đúng chỗ: (1) bỏ `actorRole` khỏi audit; (2) bỏ `reason` ở audit của ca 0 đ;
+  - đã khôi phục mã, xóa worktree và container. Không commit, không push.
+- CI ở `02c34bc9` đỏ, nhưng không do PR này:
+  - job `format · lint · audit · test · build` đỏ ở `admin-web` `v104-holds-feb.test.tsx`: 2 test không tìm thấy "Giữ chỗ chờ cọc (1)";
+  - PR không đụng `product/apps`;
+  - turbo dừng nên bộ test API **chưa chạy** trên CI ở đầu này. Cho tới khi CI chạy lại, kết quả 11/11 ở trên là bằng chứng duy nhất cho tệp này.
+
+### 9.1 Kết luận
+
+**ĐẠT, rủi ro Low, giữ kết luận lượt 1. Được gộp về mặt bảo mật ở `02c34bc9`.**
+- **PR71-01 và PR71-02: Closed.**
+- Không có Blocker hay Major. Có 1 Suggestion mới (thẻ 03, nhãn nguồn trong audit B13/B9a/B18). Thẻ này làm ở v1.0.5, **không** chặn gộp và **không** làm thêm commit trên #71.
+
+### 9.2 Xác nhận thẻ
+
+| Thẻ | SEC kiểm | Kết quả |
+|---|---|---|
+| PR71-01, MGR đưa về 0 | Sau lần MGR đưa về 0 có **đúng 1** dòng `reservation.repriced` mới, đếm sau dòng của FD (`slice(before + 1)`, độ dài 1). Dòng này có `actor` = MGR, `reason` = chuỗi gửi lên, `after.nightlyRates = [{date, 0}]`, `rateSource: complimentary`, `actorRole: manager`. Có **đúng 1** `folio_line.adjusted` trên dòng đang sửa, với `actor` = MGR, cùng `reason`, `after {category: room, amountVnd: 0}` | Đạt. Đột biến bỏ `actorRole` thì test đỏ ở `"actorRole": "manager"`; đột biến bỏ `reason` thì đỏ ở `reason: null` |
+| PR71-01, FD bị 403 | Số dòng `reservation.repriced` không đổi. Không có `folio_line.adjusted` trên dòng. Tiền đêm và số dư folio giữ nguyên | Đạt. Lỗi 403 ném trước mọi `UPDATE` trong `setNightRate`, trong cùng giao dịch |
+| PR71-01, FD gõ 1 đ | Trả 201, nguồn `manual`. Audit có `actor` = FD, đúng `reason`, `rateSource: manual`. `actorRole` vắng, vì vai chỉ ghi ở nhánh 0 đ. Test có ghi chú "INTENDED … no BR-105 floor (DOM, BR-421 (b))" | Đạt. Test chưa kiểm `folio_line.adjusted` của ca FD. Không cần thẻ, vì dòng `reservation.repriced` đã đủ người, lý do, số tiền |
+| PR71-02 | `adjust` truyền `actorRole: actorRoleOf(actor.userId, actor.roles)` chỉ khi `zeroPrice`, cùng chỗ với `zeroByManager`. Cổng và vai ghi lại lấy từ cùng `actor.roles` của phiên. `actorRoleOf` luôn trả chuỗi khác rỗng (vai cao nhất, hoặc `system`/`unknown`), nên ca 0 đ luôn có vai. `reservation.actorRole` đã có trong danh sách cho phép ở `frontdesk/audit-entities.ts`. Tệp này nạp ở cả api lẫn worker (`src/audit-entities.ts`), và registry gộp trường theo entity, nên trường không bị lọc mất (test đọc được `manager` trong DB) | Đạt. Đúng là không cần đổi danh sách cho phép hay schema |
+
+### 9.3 Bốn câu ORC hỏi
+
+**1. Audit có đủ không, có ai đưa một đêm về 0 mà không để lại dấu vết được không? Không có đường nào như vậy.**
+- **A31:** hai dòng audit tiền ghi trong cùng giao dịch với lệnh ghi.
+  - Lỗi 403 hay 422 ném trước khi ghi.
+  - Lỗi sau `setNightRate` (`VERSION_CONFLICT`, `FOLIO_LOCKED`, `FORBIDDEN_ACTION` của folio đã trả phòng) rollback cả lệnh ghi lẫn audit.
+  - Vì vậy không có lệnh ghi nào thiếu audit, cũng không có audit nào thiếu lệnh ghi.
+- **Các đường 0 đ khác của đêm Nội bộ đều có audit tiền với `amountVnd = 0` và người làm:**
+  - B13: `reservation.extended`;
+  - B9a: `reservation.prior_night_added`;
+  - B18: `reservation.extra_night_on_checkout`;
+  - tạo đơn 0 đ: bắt buộc `internalNote`.
+  - Ở B18, khi đêm ngày đi được tính 0 đ, phụ thu B15 bị đảo về 0 qua `reverseLine`. Thao tác này ghi `folio.line_reversed` kèm lý do, người làm, và dòng đảo có `posted_by`.
+- **Chỗ thiếu: nhãn nguồn trong audit (thẻ 03).** Số 0 đ vẫn nằm trong audit, nhưng nhãn đi kèm không nói `complimentary`:
+  - B13 ghi `rateSource` một lần cho cả lệnh: `'calendar'` khi không gõ, `'manual'` khi có gõ. Vậy đêm Nội bộ 0 đ mặc định mang nhãn `calendar`, dù snapshot ghi `complimentary`;
+  - B9a và B18 không ghi `rateSource`.
+  - Hệ quả: bộ lọc tuần SEC đề xuất ở mục 6 lượt 1 (`reservation.repriced` + `complimentary`) chỉ bắt được A31. Bộ lọc đúng ở mục 9.5.
+
+**2. Audit có lộ thêm dữ liệu cá nhân không? Không.**
+- `actorRole` là tên vai trong danh sách cố định, không phải dữ liệu cá nhân. Luật cấm (`FORBIDDEN`) của danh sách cho phép không đổi.
+- Hai dòng audit chỉ có ngày, số tiền, nguồn, vai, loại dòng. Mã đơn nằm ở `entityCode` như mọi audit tiền.
+- `reason` là chữ tự do của nhân viên, như cũ: vẫn qua `requireReason` (bỏ ký tự điều khiển, 3–500 ký tự, chặn chuỗi giống số thẻ).
+- Lỗi 422 chỉ trả `field` và `code`, không lặp lại `secret` hay tên đăng nhập. Log vẫn che `lateFeeInsteadOfNight.secret` ở mọi độ sâu (`http.ts`, `withoutSecrets`).
+- `openapi.yaml` chỉ đổi mô tả. Test dùng dữ liệu giả: `not-the-password`, người dùng của tenant test.
+
+**3. Đơn Nội bộ trả 422 trước khi kiểm mật khẩu. Thứ tự này không tạo oracle và không bỏ qua bộ đếm sai.**
+- Thứ tự trong `checkOut`:
+  1. trả lại kết quả cũ nếu Idempotency-Key đã hoàn tất;
+  2. kiểm dạng thông tin xác nhận: `authMethod`, `secret` dài 6–256, `approverUsername`;
+  3. `lateFeePrecheck`, giao dịch chỉ đọc:
+     - `lateFeeInput`: `amountVnd = 0` trả `AMOUNT_NOT_POSITIVE`;
+     - `decide`: `freeNight` trả `NOT_ALLOWED`;
+     - `f.done()` ném 422;
+  4. chỉ sau đó mới gọi `verifyApprover`.
+- Với `postReview`, không có bước xác nhận lại. B18 từ chối trong `decide` trước mọi lệnh ghi, và giao dịch rollback.
+- Test kiểm cả 3 đường: `postReview` + 0, `postReview` + 1, mật khẩu sai + 1. Cả ba trả 422, đơn vẫn `in_house`, không có `reservation.late_fee_instead_of_night`.
+- **Không có oracle.** Câu trả lời không phụ thuộc `secret` hay tên đăng nhập:
+  - tên không được tra, mật khẩu không được băm, nên cũng không lệch thời gian;
+  - điều duy nhất lộ ra là "đêm ngày đi của đơn này là đêm Nội bộ 0 đ". Người gọi vốn đã đọc được điều này qua `checkoutSummary.lateFeeAsNightVnd = 0`, với cùng quyền theo cơ sở.
+- **Không bỏ qua bộ đếm.** SR-RL-02 đếm các lần so mật khẩu sai. Đường này không so lần nào, nên không có gì để đếm. Người gọi cũng không học được gì về mật khẩu, vì đúng hay sai đều nhận cùng một câu trả lời. Vậy không dùng đường này để dò mật khẩu được.
+- Cách làm khớp nguyên tắc đã có (SEC BE-64, BUG-R2-165): kiểm mọi điều kiện nghiệp vụ trước mật khẩu. Đơn kênh khác không đổi: kiểm trước, rồi trả 401 chung cho sai tên, sai mật khẩu hay thiếu vai, có đếm.
+- Test không kiểm bộ đếm sai của MGR sau ca mật khẩu sai. Theo mã thì bộ đếm không thể đổi, nên không cần thẻ.
+
+**4. Regex migration của SEC (`SEC-on-v104-ops-scripts.md` mục 5.2 (a)): sạch.**
+- `git diff origin/main...02c34bc9 -- '**/migrations/*.sql'`: không tệp nào đổi, 0 dòng khớp.
+- `git diff 7557e485..02c34bc9`: không tệp nào đổi, 0 dòng khớp.
+- Quét cả diff `7557e485..02c34bc9` (bỏ dòng chú thích) tìm `DISABLE TRIGGER|GRANT|REVOKE|ROW LEVEL SECURITY|CREATE POLICY|SECURITY DEFINER|(CREATE|ALTER|DROP|SET) ROLE`: 0 dòng.
+- Bước CI "Schema matches migrations" đã qua, vì job chỉ dừng ở bước Test chạy sau nó.
+
+### 9.4 Thẻ mới
+
+#### FB-R4-SEC-BE-PR71-03
+- Mức độ: Suggestion
+- Vị trí:
+  - `frontdesk/internal/stay.service.ts`, audit `reservation.extended` (`rateSource: byDate.size > 0 ? 'manual' : 'calendar'`);
+  - `checkin.service.ts`, audit `reservation.prior_night_added`;
+  - `checkout.service.ts`, audit `reservation.extra_night_on_checkout`.
+- Vấn đề: ở đơn Nội bộ, đêm 0 đ mặc định của B13 ghi audit `rateSource: calendar`, còn gõ 0 thì ghi `manual`. B9a và B18 không ghi nguồn. Trong khi đó snapshot và báo cáo dùng `complimentary`. Số 0 đ vẫn có, nên vẫn truy vết được, nhưng lọc theo nguồn thì chỉ thấy A31.
+- Vì sao quan trọng: kiểm soát duy nhất với đêm Nội bộ là kiểm soát phát hiện, tức quản lý xem **Nhật ký tiền** (mục 1 lượt 1). Nhãn audit lệch nhãn snapshot thì người duyệt dễ sót.
+- Đề xuất sửa:
+  - làm ở v1.0.5: ghi nguồn theo **từng đêm** trong `nightlyRates` (hoặc thêm `rateSource` cho B9a/B18), dùng đúng nguồn của snapshot (`default`/`manual`/`complimentary`). `rateSource` đã có trong danh sách cho phép của `reservation`, nên không đổi danh sách hay schema;
+  - không làm trên PR #71.
+- Trạng thái: Open
+
+### 9.5 Ghi chú cho ORC
+
+- **Thay bộ lọc tuần ở mục 6** (việc của BA/PO, cho tới v1.0.5). Với đơn kênh Nội bộ, lọc:
+  - các action `reservation.repriced`, `reservation.extended`, `reservation.prior_night_added`, `reservation.extra_night_on_checkout` có đêm `amountVnd = 0` hoặc số nhỏ;
+  - `folio.line_reversed` của dòng `late_checkout`.
+- **Cho DOM/PO (không phải lỗi bảo mật, rủi ro Low):** test BR-421-11 cho thấy với đơn "Nội bộ có thu", khách ở muộn hơn lại trả ít hơn:
+  - kịch bản: buổi sáng B15 đã ghi phụ thu 17:00 là 150.000. Khách rời 19:00 và đêm ngày đi đã bán, nên B18 đảo phụ thu về 0. FD làm được việc này, không cần quản lý;
+  - cách lạm dụng: FD bấm trả phòng trên hệ thống lúc ≥ 19:00 trong khi khách đi lúc 17:00, rồi giữ tiền mặt. FD không gõ được giờ tương lai (`TIME_AFTER_ACTION`), nên phải chờ thật;
+  - truy vết: có `folio.line_reversed`, lý do "extra night on checkout 19:00", người làm, và giờ trả phòng;
+  - đây là số của quy tắc DOM. Việc làm cho ca 0 đ và > 0 nhất quán đã có thẻ ARC FB-R4-ARC-BE-PR71-03 (v1.0.5). SEC chỉ đề nghị đưa vào bộ lọc tuần ở trên.
+- **CI:** chạy lại job test trước khi gộp, để bộ test API (gồm tệp BUG-R4-038) chạy trên CI ở `02c34bc9`. Ca đỏ ở `admin-web` `v104-holds-feb.test.tsx` ngoài phạm vi SEC, nhờ QA/FE xem.
+- Không ESC. Rủi ro Low, nằm trong quyền SEC.
+
+### 9.6 Dòng decision-log đề xuất (ORC ghi khi commit, SEC không sửa decision-log)
+
+`| 2026-11-05 | 4 | **SEC – PR #71 (BUG-R4-038) lượt 2 @ 02c34bc9: ĐẠT, rủi ro Low, được gộp về bảo mật** (rounds/round-04/reviews/SEC-on-v104-pr71-internal-nights.md mục 9): PR71-01 Closed (test A31 khóa audit: MGR về 0 có đúng 1 reservation.repriced complimentary + actorRole manager + reason, 1 folio_line.adjusted 0; FD 403 không audit, dữ liệu không đổi; FD 1 đ là chủ đích, nguồn manual; SEC chạy riêng tệp 11/11 và 2 đột biến đều bị bắt); PR71-02 Closed (actorRole ở nhánh 0 đ, reservation.actorRole đã trong danh sách cho phép); lateFeeInsteadOfNight của đơn Nội bộ → 422 trước mật khẩu: không oracle, không so mật khẩu nên không có gì để đếm; không migration, regex SEC 0 dòng. Suggestion mới PR71-03 (nhãn rateSource theo đêm ở audit B13/B9a/B18, v1.0.5); bộ lọc tuần Nhật ký tiền đổi theo mục 9.5; CI cần chạy lại vì ca đỏ admin-web ngoài PR làm bộ test API chưa chạy | SEC | Quyền SEC |`

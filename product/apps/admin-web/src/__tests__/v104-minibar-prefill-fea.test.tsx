@@ -375,14 +375,15 @@ describe('ARC FB-R4-ARC-FE-PR67-01 – "Tiếp tục" only on the standard read 
     });
     await waitFor(() => expect(a).toHaveAttribute('aria-pressed', 'true'));
     const go = await screen.findByRole('button', { name: tv('co.go_extras') });
-    const b = within(group).getByRole('button', {
-      name: tv('co.minibar_cabinet_room', { room: '202' }),
-    });
     // Press again in the microtask right after the commit that names cabinet B (scheduler yielding after each
-    // task) – before `useResource` has even started reading B.
+    // task) – before `useResource` has even started reading B. BUG-R4-042: 402 counted is not offered again, so B
+    // is named by its own line (K11-03), in that same commit.
+    const namesB = () =>
+      screen.queryByText(tv('co.minibar_cabinet_counting'))?.nextElementSibling?.textContent ===
+      tv('co.minibar_cabinet_room', { room: '202' });
     let pressed = false;
     const mo = new MutationObserver(() => {
-      if (pressed || b.getAttribute('aria-pressed') !== 'true') return;
+      if (pressed || !namesB()) return;
       pressed = true;
       fireEvent.click(go);
     });

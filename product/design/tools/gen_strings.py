@@ -4135,6 +4135,7 @@ g("v1.0.4 P4-42 privacy-2026-10-v2", [
 g("v1.0.4 booking – FE-B: khóa Giữ chỗ khi có giá đã gõ (DOM); xóa giá đã gõ khi đổi sang OTA/Nội bộ. UXD 04/11/2026", [
     ("booking.rates_cleared_channel", "Đã xóa giá đã gõ vì đổi kênh.", "Typed rates were cleared because the channel changed.", None, "v1.0.4 booking. role=status dưới bảng giá, chỉ khi có ô đã gõ bị xóa"),
     ("booking.rates_cleared_room_group", "Đã xóa giá đã gõ vì căn {room} thuộc nhóm căn khác. Kiểm lại giá mỗi đêm trước khi tạo đơn.", "Typed rates were cleared because room {room} is in a different room group. Check the rate per night before creating the booking.", None, "v1.0.4 booking (FB-R4-UXD-FE-PR70-07). role=status dưới bảng giá như booking.rates_cleared_channel, chỉ khi có ô đã gõ bị xóa; đổi kênh và căn cùng lúc thì câu kênh"),
+    ("booking.hold.typed_rate_locked", "Giữ chỗ chỉ theo giá niêm yết. Đã nhận cọc thì bấm Tạo đơn để lưu giá đã gõ. Chưa nhận cọc thì xóa giá đã gõ rồi giữ chỗ, xác nhận cọc xong thì Điều chỉnh giá ở Folio.", "Holds use the list price only. If the deposit is received, use Create booking to keep the typed rates. If not, clear them and hold, then adjust the rates in the Folio after confirming the deposit.", None, "v1.0.4 booking (FB-R4-UXD-FE-PR75-01). Dòng li-s trong footer H09, là aria-describedby của nút Giữ chỗ. Tên nút khớp booking.create và folio.adjust; Folio là drawer.folio.title. Cách làm tạm: DOM điểm 3, sổ tay 2.5 bước 10. Bỏ khi Q1 nhận giá thỏa thuận (v1.0.5)"),
 ])
 
 # ---------- v1.0.4 BUG-R4-039 – nhận phòng căn còn khách (OC/OD) ----------
@@ -4168,6 +4169,10 @@ g("v1.0.4 BUG-R4-039 – FE-A: nhận phòng căn OC/OD", [
      "v1.0.4 BUG-R4-039 (#74 C2). Alert bad trong dòng room_ready khi cause = room_status và buồng OC/OD: không còn lượt Đang ở nào, trạng thái buồng kẹt. Không ô lý do, không nút duyệt; link Đổi căn / đổi ngày như các câu chặn khác. 'đang ở' = status.booking.in_house. v1.0.5 có nút Cần dọn thì UXD đổi câu. UXD duyệt 05/11 (UXD-on-v104-pr77 lượt 4). {room} = số căn"),
 ])
 
+
+g("v1.0.4 BUG-R4-042 – FE-A: H16 bước 1 luôn nêu tên tủ đang đếm khi lượt ở có nhiều tủ (K11-03). CHỜ UXD DUYỆT", [
+    ("co.minibar_cabinet_counting", "Tủ minibar đang đếm", "Minibar being counted", None, "H16 bước 1, nhãn <dt> của dòng tên tủ (giá trị = co.minibar_cabinet_room / co.minibar_cabinet_old). Chỉ hiện khi lượt ở có từ 2 tủ (sau B14) và nhóm chọn tủ đã ẩn vì chỉ còn 1 tủ (tủ kia đã đếm trên trang này). Tiêu đề trang vẫn ghi căn đang ở"),
+])
 
 def build():
     vi, en, ru = {}, {}, {}
