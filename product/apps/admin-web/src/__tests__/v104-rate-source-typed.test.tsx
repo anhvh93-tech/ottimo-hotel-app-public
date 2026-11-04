@@ -127,6 +127,37 @@ describe('UXD-on-v104-src-typed – "Nguồn giá" says what the box holds', () 
     expect(totalFigure(dlg)).not.toHaveTextContent(/^–$/);
   });
 
+  it('PR82-01 – 7 nights → 3, the 3-night preview on its way: no BR-107 sentence of the 7-night preview; then "không áp dụng"', async () => {
+    pinDaytime();
+    const { user } = renderApp('/rack', 'qa.fd');
+    const dlg = await openTwoNights(user);
+    const departure = within(dlg).getByLabelText(tv('booking.field.departure'));
+    fireEvent.change(departure, { target: { value: addDays(today(), 7) } });
+    // the 7-night stay is stepped (BR-107): both sentences are there
+    expect(await within(dlg).findByText(tv('sale.los_applied', { pct: 10 }))).toBeInTheDocument();
+    expect(within(dlg).getByText(tv('rate.tier_note', { n: 7, pct: 10 }))).toBeInTheDocument();
+    // the preview of the 3-night stay is held until release()
+    let release!: () => void;
+    const gate = new Promise<void>((ok) => (release = ok));
+    server.use(
+      http.post('*/quotes/calculate', async ({ request }) => {
+        const b = (await request.clone().json()) as { nights?: number };
+        if (b.nights !== 3) return undefined;
+        await gate;
+        return undefined;
+      }),
+    );
+    fireEvent.change(departure, { target: { value: addDays(today(), 3) } });
+    expect(totalTable(dlg)).toHaveAttribute('aria-busy', 'true');
+    expect(dlg.textContent).not.toContain(tv('rate.tier_note', { n: 3, pct: 10 }));
+    expect(dlg.textContent).not.toContain(tv('sale.los_applied', { pct: 10 }));
+    expect(dlg.textContent).not.toContain(tv('bk.los_none'));
+
+    release();
+    expect(await within(dlg).findByText(tv('bk.los_none'))).toBeInTheDocument();
+    expect(dlg.textContent).not.toContain(tv('sale.los_applied', { pct: 10 }));
+  });
+
   it('Friday and Saturday filled by the preview → "Giá niêm yết (BR-101)", never the "+15%" weekday line', async () => {
     pinDaytime();
     const { user } = renderApp('/rack', 'qa.fd');

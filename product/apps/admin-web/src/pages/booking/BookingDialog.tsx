@@ -506,6 +506,10 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
   // BR-107 step of this stay (server). Untouched rates → the server's stepped total; typed rates → the step
   // is applied by the server on save (no client arithmetic) – the sum shown is then the calendar sum.
   const losPct = calc?.losDiscountPct ?? 0;
+  // FB-R4-UXD-FE-PR82-01: the BR-107 sentences speak of the stay on screen only – while its preview is on its way
+  // they say nothing (the old preview's step glued to the new number of nights read e.g. "3 đêm được giảm 10%").
+  // `ratesLocked` keeps the preview's step: it is the guard against stepping twice, not a sentence.
+  const losShown = priceWaiting ? 0 : losPct;
   // A server without the calendar rate per night would leave stepped figures in the inputs (stepped twice on
   // save) – the rates stay read-only then (DOM S4-38).
   const ratesLocked =
@@ -1393,9 +1397,12 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                           {(() => {
                             // DOM S4-38: the stepped price of the night, as the server priced it (untouched).
                             const n = calc?.nightlyRates?.find((x) => x.date === r.date);
-                            return losPct > 0 && n && parseVnd(r.raw) === calendarOf(r.date) ? (
+                            return losShown > 0 && n && parseVnd(r.raw) === calendarOf(r.date) ? (
                               <div>
-                                {t('rate.after_tier', { pct: losPct, amount: money(n.amountVnd) })}
+                                {t('rate.after_tier', {
+                                  pct: losShown,
+                                  amount: money(n.amountVnd),
+                                })}
                               </div>
                             ) : null;
                           })()}
@@ -1406,13 +1413,13 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 </tbody>
               </table>
             </div>
-            {losPct > 0 ? (
+            {losShown > 0 ? (
               <span className="help">
                 {ratesLocked
-                  ? t('rate.tier_locked', { n: nights, pct: losPct })
+                  ? t('rate.tier_locked', { n: nights, pct: losShown })
                   : ratesTouched
-                    ? t('rate.tier_on_save', { n: nights, pct: losPct })
-                    : t('rate.tier_note', { n: nights, pct: losPct })}
+                    ? t('rate.tier_on_save', { n: nights, pct: losShown })
+                    : t('rate.tier_note', { n: nights, pct: losShown })}
               </span>
             ) : null}
             {errors.rates ? <div className="err">{errors.rates}</div> : null}
@@ -1474,21 +1481,28 @@ export function BookingDialog({ prefill, onClose, onCreated, onLongStay }: Props
                 <tr>
                   <td>
                     {t('booking.field.nights', { n: nights })}
-                    {losPct > 0 && ratesTouched ? ` · ${t('rate.pre_tier_short')}` : ''}
+                    {losShown > 0 && ratesTouched ? ` · ${t('rate.pre_tier_short')}` : ''}
                   </td>
                   <td className="r">{priceWaiting ? '–' : vnd(roomTotal)}</td>
                 </tr>
-                <tr className="sub">
-                  <td>
-                    {calc.losDiscountPct
-                      ? t('sale.los_applied', { pct: calc.losDiscountPct })
-                      : t('bk.los_none')}
-                  </td>
-                  <td className="r" />
-                </tr>
+                {priceWaiting ? null : (
+                  <tr className="sub">
+                    <td>
+                      {calc.losDiscountPct
+                        ? t('sale.los_applied', { pct: calc.losDiscountPct })
+                        : t('bk.los_none')}
+                    </td>
+                    <td className="r" />
+                  </tr>
+                )}
                 {extraFee > 0 ? (
                   <tr>
-                    <td>{t('occ.fee_line', { n: calc.extraGuestCount ?? extra, nights })}</td>
+                    <td>
+                      {t('occ.fee_line', {
+                        n: priceWaiting ? extra : (calc.extraGuestCount ?? extra),
+                        nights,
+                      })}
+                    </td>
                     <td className="r">{priceWaiting ? '–' : vnd(extraFee)}</td>
                   </tr>
                 ) : null}
