@@ -20,21 +20,14 @@ function lookup(locale: GuestLocale, key: string): string | undefined {
 
 /**
  * Legal text of the check-in (data notice + consent) stays in the approved EN on the RU page until a
- * reviewed RU exists (content-guide HR-01, EP06 8.5: "không dịch máy"). The RU drafts (UXD S3 đợt 2)
- * are marked "cần người dịch duyệt"; consent evidence must not rest on an unreviewed text.
- * Decision-log 17/10 (ORC, SEC + UXD): remove a key only when UXD + SEC sign the reviewed RU text and
- * `privacy_notice_version` is bumped.
+ * reviewed RU exists (content-guide HR-01, EP06 8.5: "không dịch máy"); consent evidence must not rest on an
+ * unreviewed text. Decision-log 17/10 (ORC, SEC + UXD): remove a key only when UXD + SEC sign the reviewed
+ * RU text and `privacy_notice_version` is bumped.
+ * v1.0.4 P4-42: the RU of `privacy-2026-10-v2` is reviewed (CPY, SEC SEC-on-privacy-v2-ru, UXD tone) for all
+ * 11 legal keys, so the 8 former keys left in ONE pass (SEC condition 4.3 – a notice half RU, half EN would
+ * record the wrong language). Empty now; a later unreviewed legal key goes back here, with its whole group.
  */
-const RU_UNREVIEWED_LEGAL = new Set([
-  'gw.notice_body',
-  'guest.oci.why',
-  'guest.oci.consent_q',
-  'guest.oci.consent',
-  'guest.oci.consent_no',
-  'guest.oci.consent_optional',
-  'guest.oci.withdraw_hint',
-  'gw.notice_read', // the confirm button reads in the language of the text it confirms (SEC (a) 2)
-]);
+const RU_UNREVIEWED_LEGAL: ReadonlySet<string> = new Set<string>([]);
 
 function effective(locale: GuestLocale, key: string): GuestLocale {
   return locale === 'ru' && RU_UNREVIEWED_LEGAL.has(key) ? 'en' : locale;

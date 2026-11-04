@@ -9,7 +9,7 @@ import {
   type GuestStay,
   type OnlineCheckin,
 } from '../app/api';
-import { NOTICE_TEXT_VERSIONS } from '../app/config';
+import { NOTICE_PARAGRAPHS, NOTICE_TEXT_VERSIONS } from '../app/config';
 import { shownLocale, useT } from '../app/i18n';
 import { telHref } from '../app/link';
 import { missingStep, problemText, terminalOf } from '../app/problem';
@@ -424,7 +424,14 @@ function NoticeStep({ version, onRead }: { version: string; onRead: () => Promis
       <div className="m-body">
         <LegalBlock>
           <p>{t('guest.oci.why')}</p>
-          <div className="quote-text">{t('gw.notice_body')}</div>
+          {/* privacy-2026-10-v2: four paragraphs in the SEC order (config.ts NOTICE_PARAGRAPHS). */}
+          <div className="quote-text gw-notice">
+            {NOTICE_PARAGRAPHS.map((key) => (
+              <p key={key} className="m-0">
+                {t(key)}
+              </p>
+            ))}
+          </div>
         </LegalBlock>
         <p className="li-s mt-8">{t('gw.notice_version', { v: version })}</p>
       </div>

@@ -243,3 +243,11 @@ body {
   cursor: not-allowed;
   color: var(--muted);
 }
+
+/* privacy-2026-10-v2 (P4-42): the notice is four paragraphs in one quote block. */
+.gw-notice {
+  white-space: normal;
+}
+.gw-notice > p + p {
+  margin-top: 10px;
+}

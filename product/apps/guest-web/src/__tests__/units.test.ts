@@ -68,16 +68,47 @@ describe('level-1 whitelists (SEC ĐK-2, s3-checklist G2)', () => {
 });
 
 describe('i18n VI/EN/RU', () => {
-  it('RU falls back to EN per key and records the shown locale for consent', () => {
+  it('RU falls back to EN per key (non-legal keys without RU) and records the shown locale', () => {
     expect(translateGuest('ru', 'common.back')).toBe('Назад');
     expect(translateGuest('ru', 'gw.doc_type')).toBe('Тип документа');
-    // legal text: approved EN until the RU draft is reviewed (HR-01)
-    expect(translateGuest('ru', 'gw.notice_body')).toBe(translateGuest('en', 'gw.notice_body'));
-    expect(translateGuest('ru', 'guest.oci.consent_no')).toBe(
-      translateGuest('en', 'guest.oci.consent_no'),
-    );
-    expect(shownLocale('ru', 'guest.oci.consent')).toBe('en');
     expect(shownLocale('vi', 'guest.oci.consent')).toBe('vi');
+    expect(shownLocale('en', 'guest.oci.consent')).toBe('en');
+  });
+
+  // P4-42 (SEC-on-privacy-v2-ru 4.3–4.4): the 11 legal keys of privacy-2026-10-v2 are reviewed RU – none falls
+  // back to EN, and the consent evidence (`shownLocale`) is `ru` for every one of them.
+  const LEGAL_V2 = [
+    'gw.notice_body',
+    'gw.notice_retention',
+    'gw.notice_translation',
+    'gw.notice_rights',
+    'guest.oci.why',
+    'guest.oci.consent_q',
+    'guest.oci.consent',
+    'guest.oci.consent_no',
+    'guest.oci.consent_optional',
+    'guest.oci.withdraw_hint',
+    'gw.notice_read',
+  ];
+  it.each(LEGAL_V2)('RU legal key %s: shown in RU, evidence ru', (key) => {
+    expect(shownLocale('ru', key)).toBe('ru');
+    expect(translateGuest('ru', key, { days: 30 })).not.toBe(
+      translateGuest('en', key, { days: 30 }),
+    );
+  });
+  it('the RU legal text is exactly the reviewed wording (U+00A0 kept, UXD-on-privacy-v2-ru §2 = SEC §2–3)', () => {
+    expect(translateGuest('ru', 'guest.oci.consent', { days: 30 })).toContain(
+      'до 30 дн. после выезда',
+    );
+    expect(translateGuest('ru', 'gw.notice_retention')).toContain('не более 35\u00a0дней');
+    expect(translateGuest('ru', 'gw.notice_retention')).toContain('в течение 3\u00a0месяцев');
+    expect(translateGuest('ru', 'gw.notice_body')).toContain(
+      'Если вы не разрешите, это не повлияет на ваше проживание.',
+    );
+    expect(translateGuest('ru', 'guest.oci.why')).toBe(
+      'Зачем? По закону Вьетнама мы обязаны регистрировать проживание каждого гостя.',
+    );
+    expect(translateGuest('ru', 'gw.notice_read')).toBe('Прочитано');
   });
   it('browser default (P-S4-10): vi* → VI, ru* → RU, anything else → EN', () => {
     expect(browserLocale(['vi-VN'])).toBe('vi');
