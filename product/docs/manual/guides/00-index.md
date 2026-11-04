@@ -171,7 +171,7 @@ Chủ đầu tư in **2 bản A4** (một trong khung mica, một trong ngăn qu
 
 ## 7. Lịch sử
 
-**Sửa 05/11/2026, chưa đánh số bản** (BA; ESC-045 câu 1 và 3, DOM #72 thẻ 06): một giá mọi đêm, không còn +15 % thứ Sáu, thứ Bảy và +30 % ngày đặc biệt – `01` 9.1, `02` 20.2, `05` 3; phụ thu người vượt định mức từ 6 tuổi trở lên 150.000 đ/đêm, dưới 6 tuổi miễn – `02` 9.2, 20.2, `05` 3. Áp dụng từ ngày chủ đầu tư chuyển giá. Số bản ghi cùng lần gộp PR #69.
+**Sửa 05/11/2026, chưa đánh số bản** (BA; ESC-045 câu 1 và 3, DOM #72 thẻ 06): một giá mọi đêm, không còn +15 % thứ Sáu, thứ Bảy và +30 % ngày đặc biệt – `01` 9.1, `02` 20.2, `05` 3; phụ thu người vượt định mức từ 6 tuổi trở lên 150.000 đ/đêm, dưới 6 tuổi miễn – `01` 9.1, `02` 9.2, 20.2, `05` 3. Cùng lần chuyển giá (bảng giá 01/11; DOM #85 thẻ 01–03, UXD #85 thẻ 02–03): không giảm theo số đêm – `01` 9.1, `02` 4.2, 5.1 bước 8, 9.3, 20.2, `05` 3; dài hạn từ 30 đêm – `02` 5.1, 5.4, 20.2, `05` 2, 3, 7.1; nhận sớm không phụ thu từ 11:00, câu nói với khách giữ 12:00 – `02` 7.1, 20.2; câu kiểm "ngày đến thứ Sáu, 2 đêm = 1.600.000" thay câu 1 đêm bị chặn tối thiểu 2 đêm; ví dụ trả sớm 5.600.000 → hoàn 800.000 – `01` 7.3, `02` 11.5.2. Áp dụng từ ngày chủ đầu tư chuyển giá. Áp dụng ngay (ARC BUG-R4-050 mục 2): khách đi trước 06:00 thì từ 06:00 làm **Trả phòng** với giờ Desk điền sẵn, không gõ giờ trước 06:00, giờ rời thật ghi sổ giao ca – `02` 11.5.1. Số bản ghi cùng lần gộp PR #69.
 
 | Bản | Ngày | Người | Thay đổi |
 |---|---|---|---|

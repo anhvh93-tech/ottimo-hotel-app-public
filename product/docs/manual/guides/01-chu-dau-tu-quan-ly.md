@@ -513,11 +513,11 @@ Ví dụ: căn 203 đêm thường giá 792.000 đ. Khách rời 20:30, đêm đ
 **Áp dụng từ khi bản v1.0.2 đã lên.** Lễ tân dùng nút **Trả sớm** trên khung đơn đang ở (tệp 02 mục 11.5). Anh/chị **không giảm tiền phòng trên folio bằng tay nữa**: cách tạm cũ bỏ.
 
 **Đơn ngắn ngày** – Desk tính và ghi:
-- Chính sách: đơn Trực tiếp/CTV báo trước từ 1 ngày hoàn 50 % tiền phòng các đêm chưa ở (phụ thu người các đêm đó hoàn 100 %); báo trong ngày rời không hoàn; đơn OTA theo kênh (lễ tân nhập **Số OTA giữ lại** theo extranet). Các đêm đã ở không tính lại mức giảm theo số đêm.
+- Chính sách: đơn Trực tiếp/CTV báo trước từ 1 ngày hoàn 50 % tiền phòng các đêm chưa ở (phụ thu người các đêm đó hoàn 100 %); báo trong ngày rời không hoàn; đơn OTA theo kênh (lễ tân nhập **Số OTA giữ lại** theo extranet). Từ ngày chủ đầu tư chuyển giá không còn giảm theo số đêm (bảng giá 01/11).
 - Desk ghi dòng "Phí trả phòng sớm" vào folio (doanh thu khác, không tính hoa hồng) và tạo **một** yêu cầu hoàn cho phần trả sớm. Anh/chị duyệt ở **Cần duyệt** (khác người tạo) rồi chi (mục 8.3).
 - Trả phòng sau đó **không tạo lại** khoản này. Folio còn tiền khách trả thừa **khác** (ví dụ đêm đã thu rồi được FOC): bước **Bill & thu tiền** hỏi lễ tân cách xử lý đúng phần đó; chọn hoàn thì đơn có **thêm một** đề nghị hoàn, không trùng. Trước khi từ chối yêu cầu nào, đối chiếu theo mục 4 (**Đơn có hơn một yêu cầu hoàn**). Yêu cầu **Trả sớm** duyệt được lúc khách còn ở; nên chi sau khi khách trả phòng, vì bill cuối có thể thêm minibar hoặc phụ thu (mục 4 bước 2). Phiếu ghi "Phí trả phòng sớm (báo trước N ngày)"; phần OTA giữ lại chỉ ghi "Phí trả phòng sớm".
 - **Áp dụng từ v1.0.4:** ở **Trả phòng**, dưới **Còn phải thu**, Desk hiện "Đang chờ hoàn cho khách {số tiền} (yêu cầu từ Trả sớm)." Lễ tân và lễ tân trưởng chỉ thấy yêu cầu hoàn chờ duyệt do chính mình tạo (giới hạn đã biết; v1.0.5 hiện **tổng số đang chờ hoàn** ở trang **Trả phòng** và folio, tab **Hoàn tiền** giữ phạm vi như hiện nay), nên sẽ hỏi anh/chị khi người khác (ví dụ ca trước) bấm **Trả sớm**. Anh/chị thấy đủ ở **Cần duyệt** và **Nhật ký tiền → Hoàn tiền** (dòng của mã đơn): báo lễ tân số còn hoàn trước khi lễ tân báo khách.
-- Ví dụ: đơn căn 202 từ 9/11 đến 16/11, 5.205.000 đ; ngày 12/11 khách báo rời 14/11 → hai đêm bỏ 1.533.000 đ → hoàn **767.000 đ**, phí **766.000 đ**.
+- Ví dụ (từ ngày chuyển giá): đơn căn 202 từ 9/11 đến 16/11, 7 × 800.000 = 5.600.000 đ; ngày 12/11 khách báo rời 14/11 → hai đêm bỏ 1.600.000 đ → hoàn **800.000 đ**, phí **800.000 đ**.
 
 **Đơn HĐ thuê tháng** (đơn dài hạn nhập tay, khách rời trước ngày kết thúc ghi trên HĐ giấy) – **anh/chị quyết nhánh trước khi lễ tân báo khách.** Desk không biết tiền thuê tới hết HĐ đã thu chưa nên chỉ hiện câu kiểm và hai nhánh, không tính tiền. Lễ tân gửi: mã đơn, ngày kết thúc HĐ, ngày rời, kỳ cuối đã thu chưa, nhánh đề xuất. Hiện OTTIMO một người trực: người trực hỏi **chủ đầu tư**.
 
@@ -610,9 +610,10 @@ Người trực hủy giữ chỗ có cọc và nhập nơi nhận; **chủ đ�
 Theo quyết định của chủ đầu tư ngày 26/10:
 - **Giá đêm niêm yết** và **Giá tháng** nhập **riêng**, độc lập. Đổi giá này không đổi giá kia.
 - Giá đêm là giá **đêm ngày thường, kênh Trực tiếp, cho định mức của căn, đã gồm VAT**, bội số 1.000 đ.
-- **Một giá mọi đêm**, kể cả thứ Sáu, thứ Bảy, lễ, Tết (ESC-045, từ ngày chủ đầu tư chuyển giá): ở **Tham số quy tắc**, tab **Khác**, `weekend_uplift_pct` và `special_uplift_pct` đều là 0. Anh/chị **không** nhập giá cuối tuần riêng. Muốn tăng giá Noel – Tết: báo đội trước 15/12 để đổi Desk và OTA cùng lúc. Kiểm nhanh: báo giá thử Studio 1 đêm thứ Sáu ra khác 800.000 thì hai tham số này chưa về 0.
+- **Một giá mọi đêm**, kể cả thứ Sáu, thứ Bảy, lễ, Tết (ESC-045, từ ngày chủ đầu tư chuyển giá): ở **Tham số quy tắc**, tab **Khác**, `weekend_uplift_pct` và `special_uplift_pct` đều là 0. Anh/chị **không** nhập giá cuối tuần riêng. Muốn tăng giá Noel – Tết: báo đội trước 15/12 để đổi Desk và OTA cùng lúc. Kiểm nhanh: báo giá thử một Studio (101–203), **ngày đến thứ Sáu, 2 đêm**, 2 người lớn. Phải ra **1.600.000** (2 × 800.000). Ra 1.840.000 là `weekend_uplift_pct` chưa về 0. Ra số khác là giá căn chưa đổi (**Đổi giá một căn** bên dưới).
 - Ngày đặc biệt (không tăng giá; vẫn ở tối thiểu 2 đêm, không hoàn cọc khi hủy) đang cài: đêm 24/12/2026–01/01/2027 · Tết Nguyên đán đêm 05–10/02/2027 · Giỗ Tổ Hùng Vương đêm 16/4/2027 · đêm 30/4 và 1/5/2027 · đêm 1/9 và 2/9/2027. Danh sách đầy đủ ở **Tham số quy tắc**.
-- Đơn ≥ 7 đêm Desk tự giảm 10 %, ≥ 14 đêm giảm 15 % (kênh Trực tiếp, CTV).
+- **Không giảm theo số đêm** (bảng giá 01/11, từ ngày chủ đầu tư chuyển giá): ở tab **Khác**, `los_discount` là `[]`. Kiểm: báo giá căn 401, 7 đêm từ thứ Hai, 5 người lớn: phải ra **10.150.000**, không có dòng "Đã giảm …% vì ở từ 7 đêm".
+- **Phụ thu trẻ 6–11 tuổi** (ESC-045, cùng ngày chuyển giá): **Tham số quy tắc** → tab **Số người & phụ thu** → **Phụ thu trẻ 6–11 tuổi vượt định mức (mỗi đêm)** = 150.000. Kiểm nhanh: báo giá thêm 1 trẻ 6–11 tuổi vượt định mức, phụ thu phải là 150.000 mỗi đêm.
 
 **Đổi giá một căn:**
 1. **Quản trị → Danh mục căn**. Bảng có cột **Giá tháng**, **Giá đêm niêm yết**, **Bán**.
