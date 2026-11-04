@@ -54,7 +54,13 @@ Không bao giờ HK, MT, kế toán. Nội dung: kind, mã đơn, id – không 
 
 ## 4. Số migration và cách rebase lên `main@L`
 
-Hiện tại (nền `origin/main`, journal kết thúc ở 0091): 0093 có journal idx **68**, `when` = 0091 + 2000 = `1792782173681`, snapshot `prevId` = id của 0091. Kẽ hở 0092 được test journal cho phép.
+**Đã rebase (04/11, bước Phản hồi & sửa) lên `origin/main` @ `7b5b6117` (`main@L`, có 0092 của LP-v2):**
+- Journal: idx **69**, tag `0093_hold_overdue_notification_kinds`, `when` = `1792782175681` (= 0092 `1792782173681` + 2000). Tên tệp giữ 0093.
+- Snapshot `meta/0093_snapshot.json` sinh lại từ `meta/0092_snapshot.json`: `prevId` = id của 0092 (`6d4cb691-…`), chỉ khác 0092 ở `id`/`prevId` và giá trị CHECK `staff_notification_kind_check` (+ 2 kind). `prettier --write`.
+- Kiểm: `drizzle-kit generate` → "No schema changes", không sinh tệp; migrate từ đầu (70 dòng `__drizzle_migrations`, chạy lại là no-op) và migrate từ DB ở idx 68 (bản `main`) lên idx 69 cho cùng một schema (`pg_dump --schema-only` khớp).
+- `v104/be-lease-prices` (0094) rebase sau, lấy idx 70, `when` = `1792782177681`.
+
+Ghi chú trước rebase (giữ để tra): nền cũ journal kết thúc ở 0091, 0093 có idx 68, `when` = `1792782173681`, `prevId` = 0091.
 
 Lưu ý drizzle-kit: lệnh `generate` đặt tiền tố tệp theo **idx** (ra `0068_…`) và **ghi đè** `meta/00<idx>_snapshot.json` của migration cũ cùng số. Không chạy `generate` thẳng trên nhánh mà không làm theo các bước dưới.
 

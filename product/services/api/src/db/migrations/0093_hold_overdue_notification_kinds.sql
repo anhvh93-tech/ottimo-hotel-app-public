@@ -4,9 +4,9 @@
 -- `hold_overdue_with_deposit` and `hold_overdue_cap` (the two new kinds below; OpenAPI 0.3.12 P4-00 (a)).
 -- ARC S1-09: the CHECK list = the list of 0088 + the new kinds ONLY (test/money-limit-basis-architecture.test.ts
 -- compares this SQL with STAFF_NOTIFICATION_KINDS). No table, no data change – only widens the CHECK.
--- Number (plan-v1.0.4 2.2): 0093 is reserved for P4-10; 0092 is LP-v2 (on `main@L`). Cut from `origin/main`
--- (journal ends at 0091), so here: journal idx 68, `when` = 0091 + 2000, snapshot prevId = 0091. After the rebase on
--- `main@L`: idx 69, `when` = 0092 + 2000, snapshot regenerated from 0092 (rounds/round-04/outputs/BE/v104-be-holds.md).
+-- Number (plan-v1.0.4 2.2): 0093 is reserved for P4-10; 0092 is LP-v2 (on `main@L`). Rebased on `main@L` (7b5b6117):
+-- journal idx 69, `when` = 0092 + 2000 = 1792782175681, snapshot regenerated from 0092 (prevId = 0092)
+-- (rounds/round-04/outputs/BE/v104-be-holds.md section 4).
 -- Rollback: additive only; v1.0.3 never writes the new kinds → rolling the image back to sha-da6d6f3dc22b needs no
 -- DB rollback.
 -- Runs as ottimo_owner (SET ROLE by src/db/migrate.ts) inside the migrator's single transaction.
