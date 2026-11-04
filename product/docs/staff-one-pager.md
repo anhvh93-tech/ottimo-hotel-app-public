@@ -133,7 +133,7 @@ App buồng phòng: `staff.ottimo.vn`
 
 ## Tờ 4 – Your ID details (khách đọc)
 
-<!-- Bản v2 (privacy-2026-10-v2), UXD 04/11/2026 theo SEC-on-plan-v1.0.4 mục 6.2 và 6.4 ý 4: chữ EN và VI chép nguyên văn 4 khóa gw.notice_body, gw.notice_retention, gw.notice_translation, gw.notice_rights, đúng thứ tự trên trang khách; gw.notice_body tách 2 đoạn (câu 1–2, câu 3–4) như bản v1. Chân tờ đổi thành "OTTIMO · ID notice · v2 · 11/2026". Bản v1 giữ trong lịch sử repo (SEC D08). In 3 lần: A4 đặt ở quầy, A5, A4 hai bản cắt đôi. Thay tờ ở quầy trước khi OWN đặt privacy_notice_version = v2 (6.4 ý 5). Khách nói tiếng Nga: tờ EN/RU riêng ở phần "Tờ 4ru" ngay dưới. Quy cách: Lora tiêu đề, Be Vietnam Pro thân, chỉ Ink – Stone Grey – Light Oak trên giấy trắng hoặc ngà, không emoji (rounds/round-03/reviews/UXD-on-PO-v1.0.0-docs.md mục 1.3). Đặt trong khung mica trên quầy, mặt quay ra khách, chỗ khách đứng làm thủ tục, không bị che (SEC S2). Đổi chữ thì đổi dòng chân trang và giữ bản cũ trong lịch sử repo (SEC D08). -->
+<!-- Bản v2 (privacy-2026-10-v2), UXD 04/11/2026 theo SEC-on-plan-v1.0.4 mục 6.2 và 6.4 ý 4: chữ EN và VI chép nguyên văn 4 khóa gw.notice_body, gw.notice_retention, gw.notice_translation, gw.notice_rights, đúng thứ tự trên trang khách; gw.notice_body tách 2 đoạn (câu 1–2, câu 3–4) như bản v1. Chân tờ đổi thành "OTTIMO · ID notice · v2 · 11/2026". Bản v1 giữ trong lịch sử repo (SEC D08). In 3 lần: A4 đặt ở quầy, A5, A4 hai bản cắt đôi. Dán tờ ở quầy sau khi deploy v1.0.4, cùng ngày OWN đặt privacy_notice_version = v2 (6.4 ý 5 bước 2–3); gỡ tờ v1 cùng lúc (FB-R4-PO-UXD-IDS2-01). Khách nói tiếng Nga: tờ EN/RU riêng ở phần "Tờ 4ru" ngay dưới. Quy cách: Lora tiêu đề, Be Vietnam Pro thân, chỉ Ink – Stone Grey – Light Oak trên giấy trắng hoặc ngà, không emoji (rounds/round-03/reviews/UXD-on-PO-v1.0.0-docs.md mục 1.3). Đặt trong khung mica trên quầy, mặt quay ra khách, chỗ khách đứng làm thủ tục, không bị che (SEC S2). Đổi chữ thì đổi dòng chân trang và giữ bản cũ trong lịch sử repo (SEC D08). -->
 
 OTTIMO
 
@@ -203,14 +203,14 @@ OTTIMO · ID notice · v2 · 11/2026
 
 ## Cách in và dán (cho chủ đầu tư)
 
-| Tờ | Khổ | Dán ở đâu | Khi v1.0.1 lên |
+| Tờ | Khổ | Dán ở đâu | Giữ hay thay |
 |---|---|---|---|
 | 1 – Quầy lễ tân | A4 một mặt | Phía trong quầy, chỗ nhân viên (khách không đọc được) | Giữ |
 | 2a – Tạm tới v1.0.1 | A5 (in chung A4 với 2b, cắt đôi) | Cạnh Tờ 1 | Gỡ khi chủ đầu tư báo hết tạm |
 | 2b – Khách ở quá 18:00 | A5 | Kẹp sau Tờ 1 hoặc trong bìa quầy | Giữ |
 | 3 – Buồng phòng | A4 một mặt | Phòng buồng / kho đồ vải | Giữ |
-| 4 – Your ID details | A5 dọc một mặt | Khung mica trên quầy, mặt quay ra khách | Giữ |
-| 4 – Your ID details (bản v2) | A4 dọc một mặt (hoặc A5) | Thay tờ v1 ở quầy, mặt quay ra khách | Thay **trước** khi đặt tham số `privacy_notice_version` = v2 |
-| 4ru – Your ID details EN/RU | A4 dọc một mặt | Cạnh tờ EN/VI ở quầy, mặt quay ra khách | Đặt cùng lúc với tờ v2 |
+| 4 – Your ID details (bản v1) | A5 dọc một mặt | – | **Thôi dùng.** Gỡ khỏi quầy đúng lúc dán bản v2 (dòng dưới). Không để hai bản cùng ở quầy |
+| 4 – Your ID details (bản v2) | A4 dọc một mặt (hoặc A5) | Khung mica trên quầy, chỗ tờ v1, mặt quay ra khách | Dán sau khi deploy v1.0.4, **cùng ngày** OWN đặt tham số `privacy_notice_version` = `privacy-2026-10-v2` (SEC 6.4 ý 5, bước 2–3). Không dán sớm khi Desk còn ghi v1 |
+| 4ru – Your ID details EN/RU | A4 dọc một mặt | Cạnh tờ EN/VI ở quầy, mặt quay ra khách | Dán cùng lúc với tờ v2 |
 
-Không in hai mặt. In thử Tờ 4 dưới đèn quầy trước khi dán. Tờ 4 phải ở quầy trước khi nhận giấy tờ đầu tiên trên Desk thật: tối 01/11 sau buổi đào tạo, muộn nhất **06:00 ngày 02/11**.
+Không in hai mặt. In thử Tờ 4 dưới đèn quầy trước khi dán. Tờ 4 ở quầy phải cùng phiên bản với tham số `privacy_notice_version` trên Desk: chân tờ ghi phiên bản (`v2`), nên đổi tham số ngày nào thì đổi tờ ngày đó.
