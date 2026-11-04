@@ -31,12 +31,14 @@ import {
   splitEvenly,
 } from '../src/modules/reservations/public/pricing';
 import {
+  type PriceRoom,
   type PricingParams,
   PricingService,
 } from '../src/modules/reservations/public/pricing.service';
 import { mergeRanges } from '../src/modules/reservations/internal/rack.service';
 import { allowedActions } from '../src/modules/reservations/internal/allowed-actions';
 import { addMonths } from '../src/modules/reservations/internal/reservations.service';
+import { ProblemError } from '../src/shared/problem';
 import { businessDate } from '../src/shared/time';
 
 interface Example {
@@ -716,4 +718,166 @@ describe('br-examples.json – 01/11 price table through the pricing engine (FB-
   it.todo(
     'fromPrice / webEstimate / parityFloor rows (BR-114-01, BR-115-01…08, BR-116-01) – after main@L (LP-v2 public price module)',
   );
+});
+
+/**
+ * v1.0.4 #70 release condition (BUG-R4-037, ARC (A), DOM-on-v104-pr68-docs 7.1): production has no `ota_base_rate`
+ * row (INV_ENTERS_KEYS) and the desk cannot add one, so an OTA booking sent without a price and without an OTA
+ * amount takes the room's nightly list price of each night through the OTA calendar (BR-103: one price for every
+ * channel) – exactly what it gets with `ota_base_rate` = that list price. A night without a list price stays 422.
+ */
+describe('OTA booking without a price when `ota_base_rate` is missing (#70, BR-103)', () => {
+  const engine = new PricingService({} as never);
+  const noKey: PricingParams = { ...params, otaBaseRates: {} };
+  const withKey = (base: number): PricingParams => ({ ...params, otaBaseRates: { L12: base } });
+  /** Room 203 (Lầu 1–2): 760.000 until 31/10, 800.000 from 01/11 – the list price changes mid-stay. */
+  const ROOM_203 = {
+    roomId: 'r203',
+    groupCode: 'L12',
+    baseOccupancy: 2,
+    listPrices: [
+      { effectiveFrom: '2026-10-01', nightlyVnd: 760_000 },
+      { effectiveFrom: '2026-11-01', nightlyVnd: 800_000 },
+    ],
+  };
+  const FLAT_800 = {
+    ...ROOM_203,
+    listPrices: [{ effectiveFrom: '2026-10-01', nightlyVnd: 800_000 }],
+  };
+  const plusDays = (d: string, n: number) =>
+    new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+  /** Fri 30/10 → Mon 02/11 (3 nights: Fri, Sat on 760.000, Sun on 800.000), no nightlyRates, no OTA amount. */
+  const otaNoPrice = (
+    p: PricingParams,
+    room: PriceRoom = ROOM_203,
+    arrival = '2026-10-30',
+    departure = '2026-11-02',
+  ) =>
+    engine.price(p, {
+      room,
+      channelGroup: 'ota',
+      arrival,
+      departure,
+      party: { adults: 2, children6to11: 0, childrenUnder6: 0 },
+    });
+  const problemOf = (fn: () => unknown) => {
+    try {
+      fn();
+    } catch (err) {
+      if (err instanceof ProblemError)
+        return { status: err.status, code: err.code, errors: err.options.errors };
+      throw err;
+    }
+    throw new Error('no problem thrown');
+  };
+
+  it('no key → the list price of each night through the OTA calendar (Fri/Sat 760.000 +15 % → 870.000, Sun 800.000)', () => {
+    const r = otaNoPrice(noKey);
+    expect(r.nights).toEqual([
+      {
+        date: '2026-10-30',
+        amountVnd: 870_000,
+        calendarVnd: 870_000,
+        source: 'calendar',
+        uplift: 'weekend',
+      },
+      {
+        date: '2026-10-31',
+        amountVnd: 870_000,
+        calendarVnd: 870_000,
+        source: 'calendar',
+        uplift: 'weekend',
+      },
+      {
+        date: '2026-11-01',
+        amountVnd: 800_000,
+        calendarVnd: 800_000,
+        source: 'calendar',
+        uplift: 'none',
+      },
+    ]);
+    expect(r.totalRoomVnd).toBe(2_540_000);
+    expect(r.losDiscountPct).toBe(0);
+    expect(r.depositRequiredVnd).toBe(0);
+    expect(r.outOfRange).toEqual([]);
+    // Same as the group key = the list price of the night, night by night (ARC condition 1).
+    for (const n of r.nights) {
+      const list = PricingService.listPriceOn(ROOM_203, n.date) as number;
+      const one = otaNoPrice(withKey(list), ROOM_203, n.date, plusDays(n.date, 1));
+      expect(one.nights).toEqual([n]);
+    }
+    // BUG-R2-017 shape (ARC condition 2): every night keeps `calendarVnd` in the snapshot → stay_night
+    // calendar_rate_vnd is not NULL, so the BUG-R4-037 data check (`calendarVnd IS NULL`) does not flag it.
+    for (const n of PricingService.snapshot(noKey, r).nights) {
+      expect(n.source).toBe('calendar');
+      expect(n.calendarVnd).toBe(n.amountVnd);
+    }
+  });
+
+  it('no key → the whole result is identical to `ota_base_rate` = the list price (flat 800.000, room without group too)', () => {
+    expect(otaNoPrice(noKey, FLAT_800)).toEqual(otaNoPrice(withKey(800_000), FLAT_800));
+    const noGroup: PriceRoom = {
+      roomId: 'r203',
+      baseOccupancy: 2,
+      listPrices: FLAT_800.listPrices,
+    };
+    expect(otaNoPrice(params, noGroup)).toEqual(otaNoPrice(withKey(800_000), FLAT_800));
+  });
+
+  it('key configured → as before: the group base wins over the list price (870.000, 870.000, 760.000)', () => {
+    const r = otaNoPrice(params);
+    expect(r.nights.map((n) => [n.amountVnd, n.calendarVnd, n.source])).toEqual([
+      [870_000, 870_000, 'calendar'],
+      [870_000, 870_000, 'calendar'],
+      [760_000, 760_000, 'calendar'],
+    ]);
+    // the key alone prices the stay – no list price needed (unchanged)
+    expect(otaNoPrice(params, { ...ROOM_203, listPrices: [] }).totalRoomVnd).toBe(2_500_000);
+  });
+
+  it('no key and a night without a list price → 422 nightlyRates REQUIRED (ARC condition 3)', () => {
+    const want = {
+      status: 422,
+      code: 'VALIDATION_FAILED',
+      errors: [{ field: 'nightlyRates', code: 'REQUIRED' }],
+    };
+    expect(problemOf(() => otaNoPrice(noKey, { ...ROOM_203, listPrices: [] }))).toEqual(want);
+    // list price only from 31/10: the night of 30/10 has none
+    expect(
+      problemOf(() =>
+        otaNoPrice(noKey, {
+          ...ROOM_203,
+          listPrices: [{ effectiveFrom: '2026-10-31', nightlyVnd: 800_000 }],
+        }),
+      ),
+    ).toEqual(want);
+  });
+
+  it('BR-103-05 through the engine: no key, 01/11 price table → 800.000 every night (= direct)', () => {
+    const e = ex('BR-103-05');
+    const i = e.input as { nightlyListPriceVnd: number; nights: string[]; channel: string };
+    expect(i.channel).toBe('ota');
+    const first = i.nights[0] as string;
+    const r = engine.price(
+      { ...pp(e), otaBaseRates: {} },
+      {
+        room: {
+          roomId: 'r203',
+          groupCode: e.input.roomGroup as string,
+          baseOccupancy: roomOf(e, '203').baseOccupancy,
+          listPrices: [{ effectiveFrom: '2026-11-01', nightlyVnd: i.nightlyListPriceVnd }],
+        },
+        channelGroup: 'ota',
+        arrival: first,
+        departure: plusDays(first, i.nights.length),
+        party: { adults: 2, children6to11: 0, childrenUnder6: 0 },
+      },
+    );
+    expect(r.nights.map((n) => n.date)).toEqual(i.nights);
+    expect(r.nights.map((n) => n.amountVnd)).toEqual(e.expected.ratesVnd);
+    expect(r.nights.every((n) => n.source === e.expected.nightSource)).toBe(true);
+    expect(r.nights.every((n) => n.calendarVnd === n.amountVnd)).toBe(
+      e.expected.calendarRateStored,
+    );
+  });
 });

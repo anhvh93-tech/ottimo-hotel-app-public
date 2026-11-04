@@ -17,7 +17,7 @@ import { Alert, Button, Checkbox, ConfirmDialog, Field, Modal } from '@ottimo/ui
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { api } from '../../app/api';
 import { useBusinessDay } from '../../app/businessDay';
-import { timeHHmm } from '../../app/dates';
+import { timeHHmm, todayLocal } from '../../app/dates';
 import { notifyChanged } from '../../app/live';
 import { monoArgs } from '../../app/mono';
 import { parseVnd } from '../../app/money';
@@ -909,7 +909,9 @@ export function ExtendHoldDialog(props: DialogBase & { rules: RuleParams }) {
   const next = new Date(
     Math.min(current.getTime() + rules.holdExtensionMaxHours * 3_600_000, cap.getTime()),
   );
-  const fmt = (d: Date) => `${timeHHmm(d)} ${dayMonth(d.toISOString().slice(0, 10))}`;
+  // FB-R4-ARC-FE-PR76-01: the day of the deadline in Asia/Ho_Chi_Minh, like its hour – never the UTC date (a deadline
+  // from 00:00 to 06:59 read one day early). Same as `holdUntil` in BookingDialog.
+  const fmt = (d: Date) => `${timeHHmm(d)} ${dayMonth(todayLocal('Asia/Ho_Chi_Minh', d))}`;
   const hours = Math.max(1, Math.round((next.getTime() - current.getTime()) / 3_600_000));
   const already = (r.hold?.extendedCount ?? 0) >= 1;
   const onceError =

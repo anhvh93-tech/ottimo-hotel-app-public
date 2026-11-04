@@ -267,3 +267,127 @@ Ghi chú:
 ### 7. Điểm làm tốt (lượt 2)
 - Phát hiện đúng xung đột về nghĩa: git không báo xung đột, nhưng H16 đã đổi điều kiện ngày. Cách sửa (`onDay`) giống hệt cách #64 sửa cho `s4-144-fea`, và không đổi điều kiện kiểm nào.
 - Commit merge sạch: ngoài phần test đó, không sửa tay gì trong mã sản phẩm. Điều đó làm việc rà soát rất nhanh.
+
+---
+
+## Lượt 3 – head ceda9278
+
+- Người review: ARC | Round 4 – v1.0.4 – Bước **Review** (xem lại lần 3) | 04/11/2026
+- Đối tượng: `v104/fix-s4-144-flake` @ `ceda9278`, gồm 2 commit sau `951d1880`:
+  - `5dd00420`: thẻ 03/04;
+  - `ceda9278`: Desk cho BUG-R4-038, đi kèm #71 (`v104/fix-internal-added-night` @ `7557e485`).
+- Đọc kèm:
+  - `FE-PR67.md` trên nhánh, gồm mục "Lệch so với đề xuất của ARC" và "BUG-R4-038 phía Desk";
+  - #71: `checkout.service.ts`, `stay-support.ts`, `bug-r4-038-internal-added-night.test.ts`.
+- Cách kiểm: ARC tự chạy trên 2 worktree tạm trong scratchpad (đã xóa).
+
+### Phán quyết lượt 3: **ĐẠT**
+
+Gộp được. Hai thẻ lượt 2 đã xong: FB-R4-ARC-FE-PR67-03 và -04, ARC xác nhận Done. Không có điều kiện chặn. Ba việc nên làm, không chặn gộp:
+1. Thứ tự gộp: #67 trước, rồi #71 ngay sau. Không deploy staging và không cho QA chạy trên `main` ở giữa hai lần gộp (mục 4).
+2. Thẻ 05 (Suggestion) làm sau cũng được.
+3. OpenAPI cho #71: đã có bản vá của ARC review #71, BE đang áp vào #71. Bản vá đó còn thiếu 1 điểm, xem mục 8.
+
+### 1. Thẻ 03/04 (`5dd00420`) và phần nằm ngoài vùng ARC đề xuất
+
+| Điểm kiểm | Kết quả |
+|---|---|
+| Vị trí `cabinetSettled` | Đạt. `useRef` ở dòng 202, trước `return` sớm đầu tiên (dòng 471). Từ dòng 471 tới hết `CheckOutPage` (dòng 2013) không có lời gọi hook nào |
+| Ref được đặt trong `editLeft` (ngoài đề xuất) | Đạt. `editLeft` chỉ được gọi từ thao tác của lễ tân: `Stepper` (dòng 1303) và "Tất cả còn đủ" (dòng 1885). Không có lời gọi tự động nào nên không khóa effect ngoài ý muốn |
+| Ref được đặt khi effect tự chọn lần đầu (ngoài đề xuất) | Đạt. Effect chỉ chọn sẵn tủ cũ một lần, đúng ý BR-703-01 |
+| Ca biên: lễ tân gõ trên tủ phòng hiện tại trước khi summary có tủ cũ về | Tủ cũ không được chọn sẵn nữa. Vẫn an toàn: tủ cũ vẫn có trong nút chọn tủ; `nextCabinet` dẫn tới tủ đó sau khi ghi số; máy chủ còn chặn B18 bằng `MINIBAR_NOT_CHECKED`. Không có đường nào bỏ sót tủ |
+| Đảo `CheckOutPage.tsx` về `951d1880`, giữ test mới | Ca mới (thẻ 03) **đỏ** ở dòng 478 (`202 aria-pressed`). 7 ca khác xanh |
+| Thẻ 03 | Done. Effect BR-703-01 chỉ chọn sẵn tủ cũ một lần, và không bao giờ đè lên tủ lễ tân đã chọn hoặc đã gõ số. Có ca test tất định |
+| Thẻ 04 | Done. `onDay` chỉ còn gọi `vi.setSystemTime`; `onDepartureDay(R)` đọc `stayDepartureDate` từ API; phần dựng dữ liệu cho Kim gom vào `kimAfterB14()` |
+
+### 2. Đổi chỗ bắt đầu `MutationObserver` ở ca race 1 có làm yếu test không
+
+- Không làm yếu. `holdStandard()` được gọi trước `renderApp` và giữ **mọi** lần đọc `minibar-standard` tới lúc `release()`. Vì vậy hàng của tủ không thể hiện ra trước `release()`. Observer bắt đầu theo dõi ngay trước `release()`, nên vẫn bắt được khung hình commit có race.
+- Kiểm bằng cách đảo: lấy `CheckOutPage.tsx` + `Controls.tsx` của `9fded27f`, chạy riêng ca 1 ba lần. Kết quả **3/3 đỏ**, cùng ở dòng 162: `remainingQty` = 2, tức gửi tủ đầy, đúng lỗi s4-144.
+
+### 3. BUG-R4-038 phía Desk (`ceda9278`) so với #71
+
+| Quy tắc máy chủ trong #71 | Desk ở `ceda9278` | Khớp |
+|---|---|---|
+| Đơn Nội bộ: `addedNightRate` trả `rateVnd = 0`, `complimentary`, không có sàn/trần. Summary trả `lateFeeAsNightVnd = defaultRateVnd = 0` khi đêm không bán được | `lateFeeFree = lateFeeAsNight === 0`. Ô giá đêm không có sàn/trần thì không kiểm khoảng giá, như trước | Có |
+| B18 `freeNight`: không báo `LATE_CHECKOUT_AFTER_LIMIT`; gửi `lateFeeInsteadOfNight` thì 422: `NOT_ALLOWED`, hoặc `AMOUNT_NOT_POSITIVE` khi `amountVnd = 0` | `lateFee` là `undefined` khi `!lateFeeMode`. `extraNight` chỉ gửi khi đêm còn bán được. Test ca 1 kiểm body không có 2 trường này | Có |
+| B18 `surcharge = 0`: khoản phụ thu trả muộn cũ (B15) bị đảo (dòng 1134). `dueAtCheckout` với `newVnd = 0` trừ `old.grossVnd − old.focVnd` | `dueAtCheckout` lấy `amountDueAtCheckoutVnd` của máy chủ, không lấy số dư folio. Test ca 2: 2.460.000 đ, không phải 2.672.000 đ. Sau B18: `balanceDueVnd = 0`, `creditVnd = 0` | Có |
+| Mức trần QR `amountDueForQr`: `newVnd = 0` dù cờ `lateFeeAsNight` bật hay tắt | Desk gửi `lateFeeAsNight: undefined` (vì `!lateFeeMode`). Mức trần trùng với số trên summary | Có |
+| Không có tiền thừa giả | Trả đủ số máy chủ thì folio còn đúng khoản phụ thu cũ. `credit = credit0 − lateDelta − balanceDue = 0`, nên không bị đòi lý do tiền thừa | Có |
+| Kênh khác (phí lớn hơn 0) | Giữ nguyên ESC-031: ô "Ghi phụ thu" hoặc xác nhận quản lý. Ca đối chứng Direct xanh | Có |
+
+- Kiểm bằng cách đảo: lấy `CheckOutPage.tsx` của `5dd00420`, giữ mock và test mới.
+  - Ca 1 **đỏ** ở dòng 100: vẫn hiện "không thêm đêm được".
+  - Ca 2 **đỏ** ở dòng 151: Desk hiện 2.672.000 đ thay vì 2.460.000 đ.
+  - Ca 3 (đối chứng Direct) xanh.
+- Ca biên (máy chủ trả 0 cho một đơn **không phải** Nội bộ, chỉ xảy ra khi dữ liệu giá lỗi):
+  - Desk mở nút, B18 trả 422 `LATE_CHECKOUT_AFTER_LIMIT`. Trước đây Desk khóa nút.
+  - Cả hai cách đều là ngõ cụt có báo lỗi, không ghi gì, không sai tiền. Chấp nhận được.
+- Mock `stay.ts` làm đúng 4 quy tắc trên của #71.
+  - Một chỗ lệch có từ trước, không thuộc PR này: Direct gửi `rateVnd = 0` thì mock trả `RATE_OUT_OF_RANGE`, còn máy chủ trả `AMOUNT_NOT_POSITIVE`.
+- Ghi chú cho DOM, không phải thẻ: với đơn Nội bộ có giá, phụ thu tăng theo giờ rồi về 0 sau mốc cuối (15:00 = 90.000, 19:00 = 0). Đây là số của DOM (BR-421-08…11), ARC chỉ ghi lại để DOM xác nhận đó là chủ ý.
+
+### 4. Thứ tự gộp #67 và #71
+
+- **Chữ:** hai PR không đụng chung tệp. #71 chỉ sửa `services/api` và `tests/fixtures`; #67 chỉ sửa `apps/admin-web` và `packages/ui`. ARC gộp thử `ceda9278` + `origin/main` (`ea979fe7`) + #71 (`7557e485`): không xung đột. Phần `apps/admin-web` và `packages` sau khi gộp giống hệt `ceda9278`.
+- **Nghĩa:** cả hai thứ tự đều không sai tiền và không ghi sai dữ liệu. Chỉ có khe vận hành ngắn:
+  - **#67 trước:** máy chủ cũ tính đêm thêm của đơn Nội bộ theo lịch Direct (`addedNightRate` chưa có nhánh `complimentary`), nên phí lớn hơn 0 và Desk đi đường `lateFeeMode` như cũ. Ngoại lệ: nếu đêm tham chiếu thỏa thuận bằng 0 thì máy chủ cũ có thể trả 0. Khi đó Desk mở nút và nhận 422, thay vì khóa sẵn.
+  - **#71 trước:** máy chủ trả 0 nhưng Desk trên `main` chưa có `lateFeeFree`. Đơn Nội bộ trả sau mốc cuối, đêm đã bán, sẽ bị **khóa "Hoàn tất"** cho tới khi #67 được gộp.
+- Đề xuất: gộp **#67 trước, rồi #71 ngay sau**, và không deploy staging hay cho QA chạy trên `main` ở giữa hai lần gộp.
+
+### 5. CI (`gh pr checks 67` @ `ceda9278`)
+
+- Xanh hết: `format · lint · audit · test · build`, `docker images build · E2E smoke`, `API contract`, `OpenAPI lint`, `gitleaks`, `confidential paths`, `infra scripts`, `landing LP-v1`, `no test endpoints`.
+- Ba job deploy/publish `skipping`, đúng với PR. Trạng thái gộp: `MERGEABLE` / `CLEAN`.
+- CI của #71 cũng xanh hết.
+
+### 6. Chạy test trên máy ARC
+
+- Trên `ceda9278`:
+  - `tsc --noEmit` (admin-web), `eslint` và `prettier --check` trên 4 tệp của PR: đạt;
+  - từng tệp riêng: `v104-minibar-prefill-fea` 8/8, `bug-r4-038-fea` 3/3.
+- Cả admin-web: **904/905** ở lần chạy sạch nhất. Ca đỏ duy nhất là `s2-fix` A-20 (H09 OTA quá sức chứa), không thuộc PR, chạy riêng thì 8/8.
+- Lần chạy đầu: 898/905. Lần đó ARC chạy cùng lúc với `tsc`/`eslint`, còn máy có khoảng 70 tiến trình vitest của các agent khác (load average khoảng 80 trên 10 CPU). 6 tệp đỏ khi chạy lại riêng thì 57/57 đạt. Cả 2 lần đều chỉ đỏ ở chỗ chờ trang tải (hết thời gian), không có ca nào đỏ ở điều kiện kiểm.
+
+### 7. Chạy dưới tải (mức ARC: 12 tiến trình × 2 lượt)
+
+Máy dev dùng chung với các agent khác. Lúc ARC chạy, máy có 57–112 tiến trình vitest khác, load average 70–92 trên 10 CPU, tức tải nặng hơn lượt 2. Vì vậy ARC chạy kèm đối chứng ở mức tải tương đương.
+
+| Mã | Tệp | Tải lúc chạy | Lần đỏ / 24 | Ca đỏ |
+|---|---|---|---|---|
+| `ceda9278` | `v104-minibar-prefill-fea` + `s4-144-fea` | khoảng 64 tiến trình khác, load 70–80 | **0** | – |
+| `951d1880` (đối chứng, trước thẻ 03) | như trên | 101–112 tiến trình khác, load 79–88 | 14 | Lượt 1 (load 88): 12/12 đỏ, phần lớn do hết 15 s ở `s4-144-fea` và do chờ lần tải đầu. Lượt 2 (load 79–81, tương đương `ceda9278`): 2/12 đỏ, ở dòng 110 (chờ lần tải đầu của ca race 1, đúng chỗ FE-A đã sửa observer) và dòng 249 (BUG-R4-035, đúng cơ chế của thẻ 03) |
+| `ceda9278` | `bug-r4-038-fea` | 99–107 tiến trình khác, load 85–92 | 11 | Chỉ ca 1 đỏ, và đều ở lần chờ tải trang đầu tiên: dòng 92 (`findByRole` "Tiếp tục: Phụ phí" quá 5 s) 10 lần, hết 15 s 1 lần. Không ca nào đỏ ở điều kiện kiểm |
+| `ceda9278` | `bug-r4-038-fea` + đối chứng `s4-416-fea` (tệp cũ của `main`), chạy chung tiến trình | 57 tiến trình khác, load 75–84 | `bug-r4-038-fea`: **0**; `s4-416-fea`: 12 | `s4-416-fea` đỏ vì hết 15 s (dòng 72) và vì chờ tải trang (dòng 177, 182, 183) |
+
+Kết luận:
+- Ở cùng mức tải, `ceda9278` không đỏ lần nào. Hai kiểu đỏ ngẫu nhiên của lượt 2 (dòng 249, và chờ lần tải đầu ở ca race 1) vẫn còn trên đối chứng `951d1880`, nhưng không còn trên `ceda9278`.
+- `bug-r4-038-fea` chỉ đỏ khi load khoảng 90, và chỉ ở chỗ chờ tải trang. Ở load 75–84 nó 0/24, trong khi tệp cũ `s4-416-fea` chạy cùng lúc đỏ 12/24. Vậy các lần đỏ đó do máy quá tải, không do test.
+- ARC không chạy lại mức 24×40 của FE-A; không cần, vì kết quả trên đã đủ để kết luận.
+
+### 7. Thẻ feedback (lượt 3)
+
+### FB-R4-ARC-FE-PR67-05
+- Mức độ: Suggestion (nit), không chặn.
+- Vị trí: `v104-minibar-prefill-fea.test.tsx`, ca race 1, ngay trước `mo.observe(...)` (khoảng dòng 146).
+- Vấn đề: test dựa vào việc `holdStandard()` giữ được lần đọc bản chuẩn, nhưng không kiểm điều đó. Nếu sau này đường dẫn mock đổi và cổng không còn giữ được, thì hàng của tủ đã hiện trước khi observer bắt đầu. Khi đó ca này vẫn có thể xanh mà không còn bấm đúng khung hình race nữa.
+- Đề xuất sửa: thêm `expect(screen.queryByRole('rowheader', { name: new RegExp(`^${coke.itemName}`) })).toBeNull();` ngay trước `mo.observe(...)`.
+- Trạng thái: Open (FE-A)
+
+### 8. Hợp đồng API cho #71 (đối chiếu bản vá của ARC review #71)
+
+ORC báo: phần OpenAPI và api-client cho #71 đã có bản vá `arc71-openapi.patch` do ARC review #71 viết, BE đang áp vào #71. Lượt này không làm lại. ARC đã đối chiếu bản vá đó với 3 điểm của lượt 3:
+
+| Điểm | Bản vá `arc71-openapi.patch` |
+|---|---|
+| `lateFeeAsNightVnd = 0` (đơn Nội bộ): không gửi `lateFeeInsteadOfNight`; gửi thì bị 422 | Có, và chi tiết hơn: `amountVnd = 0` trả `AMOUNT_NOT_POSITIVE`, `amountVnd > 0` trả `NOT_ALLOWED`; lỗi được kiểm trước mật khẩu. Có ghi cho client: có mặt và bằng 0 thì trả phòng được, vắng mặt nghĩa là máy chủ cũ |
+| `extraNight.rateVnd = 0` chỉ hợp lệ cho đơn Nội bộ; kênh khác trả 422 `AMOUNT_NOT_POSITIVE` | Có |
+| Đơn Nội bộ không có sàn/trần (`extraNightFloorVnd`/`CeilingVnd`, `floorVnd`/`ceilingVnd`) | Có |
+| Khi `lateFeeAsNightVnd = 0`, số cần thu là `amountDueAtCheckoutVnd` (đã trừ phụ thu trả muộn B15 mà B18 sẽ đảo), không phải số dư folio | **Thiếu**. Bản vá không nhắc `amountDueAtCheckoutVnd`. Đề xuất BE thêm 1 câu vào mô tả `lateFeeAsNightVnd` (hoặc `amountDueAtCheckoutVnd`). Desk `ceda9278` đã làm đúng như vậy, test `bug-r4-038-fea` ca 2 kiểm số này |
+
+Gợi ý cho BE (#71), không chặn: thêm 1 ca integration cho đường "đơn Nội bộ, đêm đã bán, Desk vẫn gửi `lateFeeInsteadOfNight`" thì bị 422. Mã đã có, nhưng test #71 chưa phủ.
+
+### 9. Điểm làm tốt (lượt 3)
+- Ca mới của thẻ 03 tái hiện lỗi một cách tất định: giữ summary tính theo giờ lại, rồi thả ra sau khi lễ tân đã chọn tủ và gõ số. Ca này đỏ trên mã cũ và xanh trên mã mới, không phụ thuộc tải máy.
+- BUG-R4-038 nhận biết ca miễn phí theo **số máy chủ trả**, không tự suy ra từ kênh, nên chỉ có một nguồn quyết định. Ngoài ra, Desk lấy số cần thu theo máy chủ nên không thu thừa khoản phụ thu B18 sẽ đảo.
+- FE-A tự báo phần lệch so với đề xuất của ARC và ghi lại đúng lệnh chạy tải.
