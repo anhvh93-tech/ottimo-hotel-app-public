@@ -419,7 +419,10 @@ export class FolioLinesService {
     if (given.filter(Boolean).length !== 1) {
       throw problem('VALIDATION_FAILED', { errors: [{ field: 'newQuantity', code: 'REQUIRED' }] });
     }
-    if (input.newUnitPriceVnd !== undefined && !(input.newUnitPriceVnd > 0)) {
+    // BUG-R4-038 (DOM 04/11 R5): 0 is only the complimentary price of an Internal stay's night (room line of a booking
+    // still synced – `setNightRate` checks the channel, OWN/MGR only); everything else at 0 stays 422 below.
+    const zeroPrice = input.newUnitPriceVnd === 0;
+    if (input.newUnitPriceVnd !== undefined && !(input.newUnitPriceVnd > 0) && !zeroPrice) {
       throw problem('VALIDATION_FAILED', {
         errors: [{ field: 'newUnitPriceVnd', code: 'AMOUNT_NOT_POSITIVE' }],
       });
@@ -466,6 +469,11 @@ export class FolioLinesService {
           });
         }
         if (!target.service_date) throw problem('NOT_FOUND');
+        if (zeroPrice && target.category !== 'room') {
+          throw problem('VALIDATION_FAILED', {
+            errors: [{ field: 'newUnitPriceVnd', code: 'AMOUNT_NOT_POSITIVE' }],
+          });
+        }
         const r = await this.nightPricing.setNightRate(tx, {
           reservationId: target.reservation_id,
           serviceDate: target.service_date,
@@ -474,9 +482,20 @@ export class FolioLinesService {
           userId: actor.userId,
           reason,
           ...(actor.requestId ? { requestId: actor.requestId } : {}),
+          ...(zeroPrice
+            ? {
+                zeroByManager: actor.roles.some((x) => MANAGERS.includes(x)),
+                actorRole: actorRoleOf(actor.userId, actor.roles),
+              }
+            : {}),
         });
         night = { amountVnd: r.lineAmountVnd };
       }
+    }
+    if (zeroPrice && !night) {
+      throw problem('VALIDATION_FAILED', {
+        errors: [{ field: 'newUnitPriceVnd', code: 'AMOUNT_NOT_POSITIVE' }],
+      });
     }
     // 16.19: L1 every booking of the folio (`NO KEY UPDATE`, id order) → L3 the folio – the open debt of a settled
     // folio is read under these locks (BR-525 N-7 below).
