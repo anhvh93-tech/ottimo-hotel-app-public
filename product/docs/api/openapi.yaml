@@ -329,6 +329,8 @@ info:
     - **(h) SEC-DOM-01, G3**: ví dụ hoa hồng trong hợp đồng dùng tham số thử `test_rate_*`, không còn tỷ lệ thật/cũ.
     - **(i) PR24PM-01 phần `guest-portal` (SEC-on-plan-v1.0.4 mục 4)**: `createGuestRequest.note`, `updateOnlineCheckin.arrivalNote` thêm mã trường `ID_NUMBER_DETECTED` (422, chỉ `field` + `code`,
       không lưu). Chỉ bật khi guest-web có câu báo vi/en/ru cùng tag; không kịp thì phần này sang v1.0.5 và server chưa trả mã này.
+    - **(j) SEC-BA-104-09 (a), gói P4-16**: `setParameter` khóa `privacy_notice_version` chỉ nhận `privacy-2026-10-v2` (danh sách version do server giữ, khớp từng ký tự);
+      giá trị khác (kể cả `privacy-2026-10-v1`) → `422 PARAM_OUT_OF_RANGE` kèm `allowed[]`. Chỉ mô tả, không đổi schema; chữ đầy đủ ở mô tả `setParameter`.
 
     ## Thay đổi phiên bản 0.3.11-draft (R4 – gói LP-v2: FB-INV-008 + FB-INV-009; ARC 01/11; chi tiết `rounds/round-04/outputs/ARC/lp-v2-design.md`)
     **Trước đây 0.3.10-draft trên nhánh `lp-v2`** – đổi nhãn khi gộp sau v1.0.3 (decision-log 03/11 "ORC – số hợp đồng/migration v1.0.3 vs LP-v2"; ARC `rounds/round-04/outputs/ARC/lp-v2-main-merge.md`).
@@ -1865,6 +1867,9 @@ paths:
         của `GuestStay.property.mapUrl` ("Chỉ đường" US-108; landing/bill dùng cùng khóa khi có). Mặc định danh mục = ghim INV gửi 17/10 (migration `0058`). Chỉ nhận `https` không
         user/mật khẩu/cổng, host đúng danh sách SEC E14-08 (`maps.google.com`, `www.google.com` path `/maps…`, `maps.app.goo.gl`, `maps.apple.com`, `www.openstreetmap.org`) –
         khác → 422 `VALIDATION_FAILED`, `errors[{field: value, code: NOT_IN_LIST}]`. Cột `property.map_url` chỉ còn là dự phòng khi khóa vắng (bỏ ở R3).
+        **0.3.12 (SEC-BA-104-09 a)**: `privacy_notice_version` (tham số cơ sở, chỉ OWN, audit `config`) chỉ nhận chuỗi **đúng từng ký tự** trong danh sách version có chữ do server giữ
+        (= `NOTICE_TEXT_VERSIONS` của trang khách; hiện chỉ `privacy-2026-10-v2`). Khác (kể cả `privacy-2026-10-v1`) → `422 PARAM_OUT_OF_RANGE` kèm `allowed[]`; giá trị không đổi,
+        không ghi dòng, không audit. Khóa này **không** có ngoại lệ ghi đè dòng hôm nay. Đổi danh sách = phát hành mới (chữ trang khách + tờ in + SEC duyệt chữ), không phải cấu hình.
       x-roles: [owner, manager]
       x-rbac: [A101, A102, A118, A119]
       x-stories: [US-005]

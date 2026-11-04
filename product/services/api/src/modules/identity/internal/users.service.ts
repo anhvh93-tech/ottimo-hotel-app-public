@@ -71,8 +71,8 @@ const USER_COLUMNS =
 
 const ROLE_SET = new Set<string>(STAFF_ROLES);
 
-/** 403s raised because the target holds a live `owner` role (updateUser.email) – read by the controller's audit. */
-export const TARGET_OWNER_DENIALS = new WeakSet<object>();
+/** `ProblemError.options.auditReason` of the 403 raised because the target holds a live `owner` role (updateUser.email). */
+export const TARGET_OWNER_REASON = 'TARGET_OWNER';
 
 @Injectable()
 export class UsersService {
@@ -273,9 +273,11 @@ export class UsersService {
     if ((rows[0]?.n ?? 0) > 0) {
       // SEC FB-R4-SEC-ARC-EM-14: the SAME Problem body as the other-property refusal (the answer must not tell that
       // the person is an owner elsewhere); only access.denied.reason differs (TARGET_OWNER).
-      const err = problem('FORBIDDEN_ACTION', { detail: 'other property' });
-      TARGET_OWNER_DENIALS.add(err);
-      throw err;
+      // ARC FB-R4-ARC-BE-31-04: the reason rides on the error (server side only, never serialised).
+      throw problem('FORBIDDEN_ACTION', {
+        detail: 'other property',
+        auditReason: TARGET_OWNER_REASON,
+      });
     }
   }
 

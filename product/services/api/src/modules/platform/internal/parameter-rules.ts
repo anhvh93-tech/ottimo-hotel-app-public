@@ -13,6 +13,7 @@
  * wo_sla, other text enums.
  */
 import { problem } from '../../../shared/problem';
+import { NOTICE_TEXT_VERSIONS } from '../public/notice-versions';
 
 export type OtherValue = (key: string) => Promise<unknown>;
 
@@ -271,6 +272,14 @@ export async function checkStructuredParameter(
       // (OpenAPI GuestStay.property.mapUrl: "kiểm khi OWN lưu (422 NOT_IN_LIST)").
       if (!isAllowedMapUrl(value)) {
         throw problem('VALIDATION_FAILED', { errors: [{ field: 'value', code: 'NOT_IN_LIST' }] });
+      }
+      return;
+    }
+    case 'privacy_notice_version': {
+      // v1.0.4 P4-16 (SEC-BA-104-09 a): only a version that has a text on guest-web and on the desk sheet –
+      // exact match (no trim, no case folding). Anything else, `privacy-2026-10-v1` included → 422 + allowed.
+      if (typeof value !== 'string' || !NOTICE_TEXT_VERSIONS.includes(value)) {
+        outOfRange({ allowed: [...NOTICE_TEXT_VERSIONS] });
       }
       return;
     }

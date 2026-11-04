@@ -43,8 +43,10 @@ export interface AttentionContext {
   num?: (n: number) => string;
 }
 
+type Kind = AttentionItem['kind'];
+
 const TONE = { critical: 'urgent', warning: 'soon', info: 'info' } as const;
-const ICON: Partial<Record<AttentionItem['kind'], IconName>> = {
+const ICON: Partial<Record<Kind, IconName>> = {
   vip_arrival: 'star',
   room_ooo: 'lock',
   rent_due_soon: 'calendar',
@@ -56,6 +58,8 @@ const ICON: Partial<Record<AttentionItem['kind'], IconName>> = {
   work_order_overdue: 'wrench',
   ooo_ending_work_open: 'wrench',
   hold_expiring: 'hourglass',
+  hold_overdue: 'hourglass',
+  hold_overdue_cap: 'alert',
   meter_not_read: 'sliders',
   channel_sync_error: 'alert',
   foc_threshold: 'tag',
@@ -84,6 +88,9 @@ const AUTO_CLOSE = new Set([
   'closed_reservation_credit',
   // ARC 16.26: ends when the debt is collected (or waived) – "Thu công nợ" instead of "Đã xử lý".
   'checkout_debt',
+  // ĐX-R3-QA-01: stay until the booking leaves `hold` (confirmed / cancelled) – never closed by "Đã xử lý".
+  'hold_overdue',
+  'hold_overdue_cap',
 ]);
 /** Only the owner closes these (EP01 3.2). */
 const OWNER_CLOSE = new Set(['data_quality', 'security_alert']);
@@ -112,6 +119,8 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
   let to: string | undefined = rsv;
   let collectDebtId: string | undefined;
   let openLabel: string | undefined;
+  /** Set by a case that calls `t('…')` with a literal key itself (checked by `i18n-keys.test.ts`). */
+  let text: string | undefined;
 
   switch (item.kind) {
     case 'room_ooo':
@@ -139,6 +148,24 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
     case 'hold_expiring':
     case 'no_show_call':
       args = { code, time };
+      break;
+    case 'hold_overdue': {
+      // ĐX-R3-QA-01 AC1/AC2, ARC 0.3.12 2.5 (`attn.${kind}`): one booking → its code and the deadline passed
+      // (`dueAt`, any arrival date); several → the count, oldest deadline. "Mở" goes to the booking, where the
+      // drawer says what to do (BUG-R3-044). Keys literal in `t('…')` so the key test checks them.
+      const due = item.dueAt ? new Date(item.dueAt) : undefined;
+      args = { n, code, time, date: due ? dayMonth(todayLocal(ctx.timeZone, due)) : '' };
+      text = n === 1 && code ? t('attn.hold_overdue_one', args) : t('attn.hold_overdue', args);
+      to = rsv ?? '/reservations';
+      break;
+    }
+    case 'hold_overdue_cap':
+      // MGR/OWN after 12:00 on the arrival day (DOM A.5/A.6): the paid hold still waits – the manager decides.
+      // `{time}` = the cap (`dueAt`, 12:00 property time).
+      args = { n, code, time };
+      text =
+        n === 1 && code ? t('attn.hold_overdue_cap_one', args) : t('attn.hold_overdue_cap', args);
+      to = rsv ?? '/reservations';
       break;
     case 'deposit_after_cancel':
       key = 'today.money_after_cancel';
@@ -265,7 +292,7 @@ export function attentionLine(item: AttentionItem, ctx: AttentionContext): Atten
       (item.roomNos ?? []).join(','),
       JSON.stringify(item.params ?? {}),
     ].join('|'),
-    text: t(key, args),
+    text: text ?? t(key, args),
     sub,
     icon: ICON[item.kind] ?? 'alert',
     tone: TONE[item.severity],

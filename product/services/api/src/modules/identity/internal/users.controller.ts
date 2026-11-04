@@ -25,7 +25,7 @@ import { isValidName, normalizeName } from '../../guests/public/normalize';
 import { StrongReauthService, strongReauthSchema } from '../public/strong-reauth';
 import { type HttpRequest, type Reply, principalOf } from './auth.controller';
 import { SecurityEmailService } from './security-email.service';
-import { TARGET_OWNER_DENIALS, type UserDto, UsersService } from './users.service';
+import { TARGET_OWNER_REASON, type UserDto, UsersService } from './users.service';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -116,7 +116,8 @@ export class UsersController {
       action: 'access.denied',
       entityType: 'app_user',
       entityId: userId,
-      reason: TARGET_OWNER_DENIALS.has(err) ? 'TARGET_OWNER' : 'OTHER_PROPERTY',
+      reason:
+        err.options.auditReason === TARGET_OWNER_REASON ? TARGET_OWNER_REASON : 'OTHER_PROPERTY',
       requestId: req.id,
       sessionId: p.sessionId,
       after: { operationId: 'updateUser', roles: p.roles },
@@ -175,7 +176,8 @@ export class UsersController {
     const input: Parameters<UsersService['update']>[4] = { ...rest };
     if (rawEmail !== undefined) {
       // 0.3.10 order (ARC v1.0.3-contract-email 3.2): self 422 → owner target 403 → other property 403 →
-      // EMAIL_INVALID / EMAIL_SHARED_MAILBOX → S2. None of them burns a factor or counts a failure.
+      // EMAIL_INVALID / EMAIL_SHARED_MAILBOX → (v1.0.4 EM-09) 429 RATE_LIMITED → S2. None of them burns a factor or
+      // counts a failure.
       try {
         await this.db.withContext(
           tenantOf(p),
@@ -187,6 +189,13 @@ export class UsersController {
         throw err;
       }
       input.email = this.securityEmail.check('email', rawEmail);
+      // v1.0.4 EM-09: 6th real change of the person in 24 h → 429 before S2.
+      const email = input.email;
+      await this.db.withContext(
+        tenantOf(p),
+        (tx) => this.securityEmail.assertChangeAllowed(tx, userId, email),
+        { readOnly: true },
+      );
     }
     // Display name alone needs no S2 (OpenAPI 0.3.8).
     // On oneself the service answers 422 NOT_ALLOWED_FOR_SELF – no S2 asked for a refused change.

@@ -18,7 +18,14 @@ import { CLOCK, type Clock } from '../../../clock';
 import type { Tx } from '../../../db/database';
 import { decodeCursor, page } from '../../../shared/http/pagination';
 import { ProblemError, problem } from '../../../shared/problem';
-import { type LocalDate, addDays, atLocal, businessDate, localDate } from '../../../shared/time';
+import {
+  type LocalDate,
+  addDays,
+  atLocal,
+  businessDate,
+  localDate,
+  toZonedIso,
+} from '../../../shared/time';
 import { optionalText, requireReason } from '../../../shared/validation';
 import { ApprovalService } from '../../approvals/public/approval.service';
 import { AuditService } from '../../audit/public/audit.service';
@@ -197,6 +204,8 @@ export class PaymentsService {
     status: string;
     createdBy: string | null;
     depositRequiredVnd?: number;
+    /** Only with `lock` (lockForDeposit): the hold deadline (FB-R4-SEC-BE-HOLDS-01). */
+    holdExpiresAt?: Date | null;
   }> {
     const port = this.port();
     const r = opts.lock
@@ -214,7 +223,27 @@ export class PaymentsService {
       ...('depositRequiredVnd' in r && typeof r.depositRequiredVnd === 'number'
         ? { depositRequiredVnd: r.depositRequiredVnd }
         : {}),
+      ...('holdExpiresAt' in r && (r.holdExpiresAt === null || r.holdExpiresAt instanceof Date)
+        ? { holdExpiresAt: r.holdExpiresAt }
+        : {}),
     };
+  }
+
+  /**
+   * FB-R4-SEC-BE-HOLDS-01 (SEC-BE-22 (2)): once a hold is past its deadline – J1 may not have cancelled it yet
+   * (≤ 1 tick, hours when the worker is down) – a sale/CTV can no longer put money on it: a receipt there would
+   * make J1 keep the hold (`kept_paid`) and the desk could confirm it (G4). 409 HOLD_EXPIRED before anything is
+   * written; FD+ unchanged; bank-pushed VietQR money never comes through here.
+   */
+  private async assertHoldOpenForSales(
+    tx: Tx,
+    actor: { roles: readonly string[] },
+    r: { status: string; holdExpiresAt?: Date | null },
+  ): Promise<void> {
+    if (isDesk(actor.roles) || r.status !== 'hold' || !r.holdExpiresAt) return;
+    if (r.holdExpiresAt.getTime() > this.clock.now().getTime()) return;
+    const tz = await this.folios.timezone(tx);
+    throw problem('HOLD_EXPIRED', { extras: { expiredAt: toZonedIso(r.holdExpiresAt, tz) } });
   }
 
   private async folioMeta(
@@ -256,6 +285,7 @@ export class PaymentsService {
     }
     const meta = await this.folioMeta(tx, folioId);
     const r = await this.scopedReservation(tx, actor, meta.primary_reservation_id, { lock: true });
+    await this.assertHoldOpenForSales(tx, actor, r);
     // Verification 17/10 (ARC-S3-02 follow-up): money received on a hold is its deposit – a `charge` there
     // would not count for B4/J1 (the hold would expire although paid).
     if (r.status === 'hold' && raw.type !== 'deposit') {
@@ -502,6 +532,8 @@ export class PaymentsService {
     const meta = await this.folioMeta(tx, folioId);
     const r = await this.scopedReservation(tx, actor, meta.primary_reservation_id, { lock: true });
     if (!isDesk(actor.roles) && current.type !== 'deposit') throw problem('NOT_FOUND');
+    // HOLDS-01 as recordPayment: a sale confirming a QR of an overdue hold would put money on it as well.
+    await this.assertHoldOpenForSales(tx, actor, r);
     // As recordPayment (ARC 16.26, BR-525): after check-out the stay's bookings then the folio (`lockStay`), and an open
     // debt the confirmed money pays is closed in this transaction (fuzz R3-Q30 qrLate – a QR confirmed late on a
     // settled folio with a debt left the debt cycle open).

@@ -23,7 +23,7 @@ import {
   type StaffSession,
 } from '../support/api.js';
 import { addDays } from '../support/s2.js';
-import { guestLink, openGuest } from '../support/s3.js';
+import { PRIVACY_NOTICE, guestLink, openGuest } from '../support/s3.js';
 
 export type Mode3 = 'read' | 'valid' | 'invalid' | 'guest' | 'absent' | 'sse';
 
@@ -374,7 +374,7 @@ export const SPRINT3_OPS: Record<string, OpDef3> = {
     partyMemberId: uuid(),
     purpose: 'P02B_ID_IMAGE_RETENTION',
     decision: 'refused',
-    noticeVersion: 'privacy-2026-10-v1',
+    noticeVersion: PRIVACY_NOTICE,
     retentionDays: 30,
     locale: 'vi',
     channel: 'desk',
@@ -420,7 +420,7 @@ export const SPRINT3_OPS: Record<string, OpDef3> = {
       personIndex: 1,
       purpose: 'P02B_ID_IMAGE_RETENTION',
       decision: 'refused',
-      noticeVersion: 'privacy-2026-10-v1',
+      noticeVersion: PRIVACY_NOTICE,
       retentionDays: 30,
       locale: 'vi',
       channel: 'guest_app',
