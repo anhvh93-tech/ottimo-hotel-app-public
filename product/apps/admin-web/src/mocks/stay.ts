@@ -1189,7 +1189,7 @@ export function createStayMock(ctx: Ctx) {
     const tt = totals(r);
     const live = liveLate(r).reduce((a, l) => a + l.amountVnd, 0);
     const lateNew = s.treatAsExtension ? 0 : s.surchargeVnd;
-    const calendar = rate ?? roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000;
+    const calendar = rate ?? extraNightRate(r);
     const pct = (r.nights ?? 0) + 1 >= 7 ? 10 : 0;
     // BUG-R2-139 / BR-416-06: a night that cannot be sold is never added; with `lateFee` the late fee of one
     // night (`lateFeeAsNightVnd`, no BR-107 step) is.
@@ -1203,11 +1203,21 @@ export function createStayMock(ctx: Ctx) {
       tt.balanceDueVnd - tt.creditVnd + (lateNew - live) + night + (lateFee ? (fee ?? 0) : 0),
     );
   }
+  /**
+   * BUG-R4-038 (BE #71 `checkout.service.ts`, BR-421): a night added to an Internal stay is 0 ₫ (`complimentary`),
+   * with no Direct floor–ceiling; any other channel: the list price.
+   */
+  const complimentaryNight = (r: MockReservation) => r.channelCode === 'internal';
+  function extraNightRate(r: MockReservation) {
+    return complimentaryNight(r)
+      ? 0
+      : (roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000);
+  }
   /** `CheckoutSummary.lateFeeAsNightVnd`: after the last tier while the night of departure is sold. */
   function lateFeeAsNight(r: MockReservation, time: string) {
     if (st.legacyNoLateFeeAsNight) return undefined;
     return lateSurcharge(r, time).treatAsExtension && arrivalSameDay(r)
-      ? (roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000)
+      ? extraNightRate(r)
       : undefined;
   }
   /** `Payment.amountDueNowVnd` (DOM (f)): the cap of the QR's purpose re-priced now with the context it was made with. */
@@ -2924,7 +2934,7 @@ export function createStayMock(ctx: Ctx) {
       if (tt.pendingApprovals) blockers.push('pending_approvals');
       if (tt.balanceDueVnd > 0) blockers.push('balance_due');
       if (tt.unhandledCreditVnd > 0) blockers.push('credit_balance');
-      const extraRate = roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000;
+      const extraRate = extraNightRate(r);
       // Like getCheckoutSummary: the surcharge AT THIS TIME (G-10) and, when a late charge is already on the
       // folio (B15), the recalculation old → new (B18 reverses a lower amount, a higher one needs the decision).
       const live = liveLate(r).reduce((a, l) => a + l.amountVnd, 0);
@@ -2940,9 +2950,15 @@ export function createStayMock(ctx: Ctx) {
         extraNightRequired: s.treatAsExtension === true,
         extraNightDefaultRateVnd: s.treatAsExtension ? extraRate : undefined,
         // ARC 16.18 (vòng sửa 5): the Desk range of the extra night (mock: 50 %–200 % of the list price).
+        // BUG-R4-038: none on an Internal stay.
         extraNightFloorVnd:
-          s.treatAsExtension && !arrivalSameDay(r) ? Math.round(extraRate * 0.5) : undefined,
-        extraNightCeilingVnd: s.treatAsExtension && !arrivalSameDay(r) ? extraRate * 2 : undefined,
+          s.treatAsExtension && !arrivalSameDay(r) && !complimentaryNight(r)
+            ? Math.round(extraRate * 0.5)
+            : undefined,
+        extraNightCeilingVnd:
+          s.treatAsExtension && !arrivalSameDay(r) && !complimentaryNight(r)
+            ? extraRate * 2
+            : undefined,
         extraNightAvailable: s.treatAsExtension ? !arrivalSameDay(r) : undefined,
         lateFeeAsNightVnd: lateFeeAsNight(r, time),
         minibarUncheckedRooms: unchecked.length ? unchecked : undefined,
@@ -2981,14 +2997,17 @@ export function createStayMock(ctx: Ctx) {
         // desk by an OWN/MGR (password), instead of the extra night.
         const lf = body.lateFeeInsteadOfNight as Body | undefined;
         const feeVnd = lateFeeAsNight(r, time);
-        if (s.treatAsExtension && !extraNight && !lf)
+        // BUG-R4-038: on an Internal stay that fee is 0 – nothing to charge or confirm; B18 goes on without it, and
+        // sending one is NOT_ALLOWED.
+        const freeNight = feeVnd === 0;
+        if (s.treatAsExtension && !extraNight && !lf && !freeNight)
           return validation([
             {
               field: feeVnd !== undefined ? 'lateFeeInsteadOfNight' : 'extraNight',
               code: 'LATE_CHECKOUT_AFTER_LIMIT',
             },
           ]);
-        if (lf && feeVnd === undefined)
+        if (lf && (feeVnd === undefined || freeNight))
           return validation([{ field: 'lateFeeInsteadOfNight', code: 'NOT_ALLOWED' }]);
         let lfApprover: MockUser | undefined;
         const lfFoc = lf?.requestFoc as Body | undefined;
@@ -3083,10 +3102,15 @@ export function createStayMock(ctx: Ctx) {
             return problem(403, 'APPROVAL_LIMIT_EXCEEDED', { limitVnd: LATE_FEE_FOC_LIMIT_MGR });
         }
         // ARC 16.18: `rateVnd` absent = the default night (source `default`); sent = typed (`manual`), in range.
-        const listRate = roomOf(r)?.currentListPrice?.nightlyListPriceVnd ?? 800_000;
+        const listRate = extraNightRate(r);
         const extraNightVnd =
           extraNight?.rateVnd === undefined ? listRate : Number(extraNight.rateVnd);
-        if (s.treatAsExtension && extraNight && extraNight.rateVnd !== undefined) {
+        if (
+          s.treatAsExtension &&
+          extraNight &&
+          extraNight.rateVnd !== undefined &&
+          !complimentaryNight(r)
+        ) {
           if (!(extraNightVnd > 0))
             return validation([{ field: 'extraNight.rateVnd', code: 'RATE_OUT_OF_RANGE' }]);
           const min = Math.round(listRate * 0.5);
