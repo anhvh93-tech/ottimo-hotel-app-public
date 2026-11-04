@@ -105,3 +105,19 @@
 - Chữ trên 4 tờ khớp từng câu với trang khách v2, kể cả câu SEC sửa ở bản RU. Khoảng trắng không ngắt ở "3 месяцев", "35 дней" được giữ và có ghi chú cảnh báo đừng gõ lại.
 - Tờ EN/RU hai cột, EN dẫn, dùng Onest cho chữ Kirin như landing `/ru/`. Font được nhúng, nên in khi mất mạng vẫn đúng. 4 tờ vừa 1 trang, và UXD khuyên dùng A4 ở quầy (A5 để dự phòng): rõ, dễ làm theo.
 - Đóng luôn việc hifi 11/12 mà P4-20 chuyển sang, với câu nhãn thống nhất "Ví dụ theo tỷ lệ cũ (trước 01/11/2026, hết hiệu lực)" và không thêm số mới.
+
+---
+
+## Xác nhận lượt 2 (04/11)
+
+- Đối tượng: `origin/v104/uxd-id-sheet-v2` @ `f9bfcde7`, diff `82df5fea..f9bfcde7`. Nhánh chỉ sửa `product/docs/staff-one-pager.md`, gồm chú thích Tờ 4 và bảng in. Chữ trên các tờ, HTML và PDF không đổi, nên phần đối chiếu từng câu ở lượt 1 vẫn còn đúng.
+
+| Thẻ | Kiểm | PO |
+|---|---|---|
+| FB-R4-PO-UXD-IDS2-01 (Minor) | Bảng in sau sửa: <br>• dòng v1 ghi "**Thôi dùng.** Gỡ khỏi quầy đúng lúc dán bản v2… Không để hai bản cùng ở quầy"; <br>• dòng v2 ghi "Dán sau khi deploy v1.0.4, **cùng ngày** OWN đặt tham số … (SEC 6.4 ý 5, bước 2–3). Không dán sớm khi Desk còn ghi v1"; <br>• đã bỏ mốc 01–02/11, thay bằng câu "Tờ 4 ở quầy phải cùng phiên bản với tham số `privacy_notice_version` trên Desk"; <br>• tên cột cũ "Khi v1.0.1 lên" đổi thành "Giữ hay thay". <br>Chú thích Tờ 4 cũng sửa theo | **Đóng** |
+| FB-R4-PO-UXD-IDS2-02 (Suggestion) | Lượt này không làm. Vẫn còn việc kiểm tay ở checklist phát hành P4-42 (QA) | Open, không chặn |
+| FB-R4-PO-BA-IDS2-01 (Suggestion, SEC) | Việc của SEC, không thuộc nhánh này | Open, không chặn |
+
+**Phán quyết gộp: ĐẠT. Gộp được `v104/uxd-id-sheet-v2` @ `f9bfcde7`.**
+- Thứ tự gộp giữ như cũ: gộp trước `v104/ba-docs`. BA trích bảng in đã sửa.
+- OWN chỉ **dán** tờ v2 theo đúng bước 2–3 của SEC 6.4 ý 5.
